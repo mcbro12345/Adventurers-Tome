@@ -512,7 +512,7 @@ function hub(fs, auth, G, ctx) {
     // avatar: initials on a colour picked from the name, so the same person always looks the same
     const hue = t => [...String(t || '?')].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) % 360, 7);
     const ava = (name, em) => { const ini = String(name || em || '?').split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?'; return `<span class="adm-ava" style="--h:${hue(em || name)}">${esc(ini)}</span>`; };
-    const roleOf = em => em === ADMIN_EMAIL ? ['Owner', 'own'] : ADMINS.includes(em) ? ['Admin', 'adm'] : ['Member', 'mem'];
+    const roleOf = em => em === ADMIN_EMAIL ? ['Owner', 'r-own'] : ADMINS.includes(em) ? ['Admin', 'r-adm'] : ['Member', 'r-mem'];
     const when = t => t ? `<span title="${esc(new Date(t).toLocaleString())}">${esc(day(t))}</span>` : '<span class="adm-dim">—</span>';
     const kebab = items => `<div class="adm-mwrap"><button class="adm-kebab" aria-label="More actions">⋯</button><div class="adm-mlist">${items.map(([k, t, id, cls]) => `<button data-mi="${k}" data-id="${esc(id)}"${cls ? ` class="${cls}"` : ''}>${t}</button>`).join('')}</div></div>`;
 
@@ -520,7 +520,7 @@ function hub(fs, auth, G, ctx) {
       const nav = (k, label) => `<button class="adm-ni${TAB === k ? ' on' : ''}" data-tab="${k}">${svg(k)}<span>${label}</span>${k === 'new' && NEWN ? `<b class="adm-badge">${NEWN}</b>` : ''}</button>`;
       const [title, desc] = PAGES[TAB];
       root.innerHTML = `<div class="adm"><aside class="adm-side">
-          <a class="adm-brand" href="${esc(HUB)}"><svg viewBox="0 0 100 100" width="30" height="30" aria-hidden="true"><polygon points="50,4 91,27 91,73 50,96 9,73 9,27" fill="rgba(201,150,43,.16)" stroke="#c9962b" stroke-width="6" stroke-linejoin="round"/><polygon points="50,26 72,63 28,63" fill="none" stroke="#c9962b" stroke-width="5" stroke-linejoin="round"/></svg><span><b>Adventurer’s Tome</b><small>Admin</small></span></a>
+          <div class="adm-brand">${logoHTML()}<span class="adm-tagline">Admin</span></div>
           <nav class="adm-nav"><div class="adm-sec">Manage</div>${nav('users', 'Users')}${nav('chars', 'Characters')}${nav('admins', 'Admins')}<div class="adm-sec">Activity</div>${nav('new', 'New')}</nav>
           <div class="adm-foot"><a class="adm-back" href="${esc(HUB)}">← Back to my characters</a>
             <div class="adm-me">${ava(myName(), EMAIL)}<span><b>${esc(myName())}</b><small>${esc(EMAIL)}</small></span><button class="linkbtn" id="me-out">Sign out</button></div></div></aside>
@@ -539,7 +539,7 @@ function hub(fs, auth, G, ctx) {
     function crow(c, showOwner) { CH[c.id] = c; const a = myAccess(c);
       return `<tr><td><a class="adm-char" href="${esc(URLS.char(c))}">${pic(c)}<span><b>${esc(c.name || 'Unnamed character')}</b><small>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</small></span></a></td>
         ${showOwner ? `<td><span class="adm-who">${ava(nameOf(c.owner || ''), c.owner)}<span>${esc(nameOf(c.owner || '') || '—')}</span></span></td>` : ''}
-        <td>${a === 'own' ? '<span class="adm-tag own">Yours</span>' : `<select class="adm-sel" data-me="${esc(c.id)}" aria-label="Shared with you"><option value="">Not shared</option><option value="view"${a === 'view' ? ' selected' : ''}>Can view</option><option value="edit"${a === 'edit' ? ' selected' : ''}>Can edit</option></select>`}</td>
+        <td>${a === 'own' ? '<span class="adm-tag r-own">Yours</span>' : `<select class="adm-sel" data-me="${esc(c.id)}" aria-label="Shared with you"><option value="">Not shared</option><option value="view"${a === 'view' ? ' selected' : ''}>Can view</option><option value="edit"${a === 'edit' ? ' selected' : ''}>Can edit</option></select>`}</td>
         <td>${when(c.updatedAt)}</td><td>${when(c.createdAt)}</td>
         <td class="adm-act">${kebab([['open', 'Open', c.id], ['share', 'Share…', c.id], ['give', 'Give to another player…', c.id], ['rm', 'Remove from lists', c.id], ['del', 'Delete character…', c.id, 'danger']])}</td></tr>`; }
     function wire(el, redo) {
@@ -647,7 +647,7 @@ function hub(fs, auth, G, ctx) {
         try { await cfg.set({ emails: FV.arrayUnion(em) }, { merge: true }); ADMINS = [...new Set(ADMINS.concat(em))]; toast(nameOf(em) + ' is now an admin.'); tabAdmins(); } catch (x) { toast('Couldn\'t add the admin: ' + (x.message || x)); } });
       el.querySelectorAll('[data-mi="unadmin"]').forEach(b => b.onclick = async () => { const em = b.dataset.id; try { await cfg.set({ emails: FV.arrayRemove(em) }, { merge: true }); ADMINS = ADMINS.filter(x => x !== em); toast(em + ' is no longer an admin.'); tabAdmins(); } catch (x) { toast('Couldn\'t remove the admin: ' + (x.message || x)); } });
     }
-    frame();
+    frame(); wireDie(root);
     // the count on "New" shows even while you're on another section
     if (TAB !== 'new') Promise.all([usersCol.where('createdAt', '>', CHECKED).limit(51).get(), charsCol.where('createdAt', '>', CHECKED).limit(101).get()]).then(([u, c]) => { const fresh = new Set(u.docs.map(d => d.id)); NEWN = u.size + c.docs.filter(d => !fresh.has(d.data().owner)).length; const t = root.querySelector('[data-tab="new"]'); if (t && NEWN && !t.querySelector('.adm-badge')) t.insertAdjacentHTML('beforeend', `<b class="adm-badge">${NEWN}</b>`); }, () => {});
   }

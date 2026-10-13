@@ -325,8 +325,8 @@ body.adminbody #hub { max-width: none; padding: 0; }
 .adm-char b:hover { text-decoration: underline; }
 .adm-char small { color: var(--adm-dim); font-size: .78rem; }
 .adm-tag { display: inline-block; padding: 2px 8px; border-radius: 999px; font: 700 .72rem system-ui, sans-serif; background: rgba(127,127,127,.14); }
-.adm-tag.own { background: rgba(201,150,43,.2); color: #b4832a; }
-.adm-tag.adm { background: rgba(80,140,230,.18); color: #4f86d9; }
+.adm-tag.r-own { background: rgba(201,150,43,.2); color: #b4832a; }
+.adm-tag.r-adm { background: rgba(80,140,230,.18); color: #4f86d9; }
 .adm-sel { border: 1px solid var(--adm-line); border-radius: 7px; padding: 5px 6px; background: var(--adm-panel); color: var(--adm-ink); font: 13px system-ui, sans-serif; }
 .adm-dim { color: var(--adm-dim); }
 .adm-empty { color: var(--adm-dim); padding: 18px; border: 1px dashed var(--adm-line); border-radius: 10px; text-align: center; margin: 0; }
@@ -358,3 +358,15 @@ body.adminbody #hub { max-width: none; padding: 0; }
   .adm-subrow > td { padding-left: 14px; }
 }
 @media (max-width: 860px) { .adm { grid-template-columns: minmax(0, 1fr); } .adm-mail { white-space: nowrap; word-break: normal; } .adm-t td, .adm-t th { white-space: nowrap; } .adm-nav { scrollbar-width: none; } }
+
+/* the real logo in the admin sidebar, sized to fit */
+.adm-brand { display: block; padding: 16px 16px 12px; }
+.adm-brand .hub-logo { gap: 9px; }
+.adm-brand .hl-d20 { width: 40px; height: 40px; }
+.adm-brand .hl-a { font-size: .58rem; letter-spacing: .3em; margin-bottom: 2px; }
+.adm-brand .hl-t { font-size: 1.65rem; }
+.adm-tagline { display: inline-block; margin: 8px 0 0 49px; padding: 2px 8px; border-radius: 999px; background: rgba(201,150,43,.18); color: #e6bd5a; font: 800 .62rem system-ui, sans-serif; letter-spacing: .16em; text-transform: uppercase; }
+@media (max-width: 860px) { .adm-brand { display: flex; align-items: center; gap: 10px; } .adm-tagline { margin: 0; } }
+/* the admin sidebar is always navy, so its logo keeps the bright gold in light mode too */
+body.adminbody .adm-brand .hl-t { background-image: linear-gradient(180deg, #f6e2a6 0%, #d9a93f 55%, #9c7124 100%); }
+body.adminbody .adm-brand .hl-20 { fill: #f6e7bd; }
