@@ -344,24 +344,30 @@ function searchKeys(...parts) { const out = new Set(); parts.forEach(p => { p = 
   new Set([p, ...p.split(/[\s@._'’-]+/)]).forEach(t => { t = t.slice(0, 24); for (let i = 1; i <= t.length; i++) out.add(t.slice(0, i)); }); }); return [...out].slice(0, 400); }
 // ================= The logo (sign-in page and character list) =================
 // A gold d20 crest beside "Adventurer's" in spaced small caps over a large serif "Tome". Hovering the die rolls it:
-// it tumbles, the face flickers, and it lands on a random number that stays until the page is reloaded.
+// it tumbles, the face flickers, and it lands on a random number. It also rolls once by itself when the page loads.
 const PG_DIE = { n: 20, rolled: false, rolling: false, over: true };
 function logoHTML() { return `<h1 class="hub-logo" aria-label="Adventurer’s Tome"><svg class="hl-d20${PG_DIE.rolled && PG_DIE.n === 20 ? ' crit' : PG_DIE.rolled && PG_DIE.n === 1 ? ' fumble' : ''}" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="hlg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f1d58a"/><stop offset=".55" stop-color="#c9962b"/><stop offset="1" stop-color="#8a6420"/></linearGradient></defs><polygon points="50,4 91,27 91,73 50,96 9,73 9,27" fill="rgba(201,150,43,.14)" stroke="url(#hlg)" stroke-width="4" stroke-linejoin="round"/><g fill="none" stroke="url(#hlg)" stroke-width="2.6" stroke-linejoin="round"><polygon points="50,24 73,63 27,63"/><path d="M50 4 L50 24 M91 27 L73 63 M91 73 L73 63 M50 96 L73 63 M50 96 L27 63 M9 73 L27 63 M9 27 L27 63 M9 27 L50 24 M91 27 L50 24"/></g><text x="50" y="55" text-anchor="middle" font-family="Georgia,serif" font-weight="800" font-size="15" class="hl-20">${PG_DIE.rolled ? PG_DIE.n : ''}</text></svg><span class="hl-txt"><span class="hl-a">Adventurer’s</span><span class="hl-t">Tome</span></span></h1>`; }
+function rollDie(root) {
+  const d = root.querySelector('.hl-d20'); if (!d || PG_DIE.rolling) return;
+  PG_DIE.rolling = true; d.classList.remove('hl-rolling', 'crit', 'fumble'); void d.getBoundingClientRect(); d.classList.add('hl-rolling');
+  // the face flickers fast, then slower and slower, and lands as the die settles
+  const face = () => root.querySelector('.hl-20'), t0 = Date.now(), DUR = 1150;
+  const tick = () => { const f = face(), el = Date.now() - t0; if (el < DUR - 120) { if (f) f.textContent = 1 + Math.floor(Math.random() * 20); setTimeout(tick, 45 + 230 * Math.pow(el / DUR, 2)); return; }
+    PG_DIE.n = 1 + Math.floor(Math.random() * 20); PG_DIE.rolled = true; if (f) f.textContent = PG_DIE.n;
+    const dd = root.querySelector('.hl-d20'); if (dd) { dd.classList.remove('hl-rolling'); dd.classList.toggle('crit', PG_DIE.n === 20); dd.classList.toggle('fumble', PG_DIE.n === 1); } PG_DIE.rolling = false; };
+  tick();
+}
 function wireDie(root) {
+  // It rolls once by itself when the page appears; after that, moving onto it rolls it again.
+  if (!PG_DIE.auto) { PG_DIE.auto = true; setTimeout(() => rollDie(root), 350); }
   // Only a real move onto the die rolls it — not the list redrawing underneath a resting pointer, or a page load.
   addEventListener('pointermove', () => { if (PG_DIE.over === true) PG_DIE.over = !!document.querySelector('.hl-d20:hover'); }, { once: true });
   root.addEventListener('mouseout', e => { const d = e.target.closest && e.target.closest('.hl-d20'); if (d && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.hl-d20'))) PG_DIE.over = false; });
   root.addEventListener('mouseover', e => { const d = e.target.closest && e.target.closest('.hl-d20'); if (!d || PG_DIE.rolling || PG_DIE.over || (e.relatedTarget && d.contains(e.relatedTarget))) return;
-    PG_DIE.over = true; PG_DIE.rolling = true; d.classList.remove('hl-rolling', 'crit', 'fumble'); void d.getBoundingClientRect(); d.classList.add('hl-rolling');
-    // the face flickers fast, then slower and slower, and lands as the die settles
-    const face = () => root.querySelector('.hl-20'), t0 = Date.now(), DUR = 1150;
-    const tick = () => { const f = face(), el = Date.now() - t0; if (el < DUR - 120) { if (f) f.textContent = 1 + Math.floor(Math.random() * 20); setTimeout(tick, 45 + 230 * Math.pow(el / DUR, 2)); return; }
-      PG_DIE.n = 1 + Math.floor(Math.random() * 20); PG_DIE.rolled = true; if (f) f.textContent = PG_DIE.n;
-      const dd = root.querySelector('.hl-d20'); if (dd) { dd.classList.remove('hl-rolling'); dd.classList.toggle('crit', PG_DIE.n === 20); dd.classList.toggle('fumble', PG_DIE.n === 1); } PG_DIE.rolling = false; };
-    tick(); });
+    PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013154120', ASSETS = {"data": "a/data.3f7e0dc5a0bb.js", "app": "a/app.d4deaf4a0fe4.js"};
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013154325', ASSETS = {"data": "a/data.3f7e0dc5a0bb.js", "app": "a/app.d4deaf4a0fe4.js"};
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   let C = clean(Q.get('c')), G = clean(Q.get('g'));
   const P = (Q.get('p') || '').slice(0, 60), O = (Q.get('o') || '').trim().toLowerCase().slice(0, 120);
