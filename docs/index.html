@@ -3085,6 +3085,8 @@ html.mobile .sp-top .sp-name { min-width: 0; }
 .hasteblk .sect .tag { margin-left: 6px; }
 .hasteblk.used { opacity: .6; }
 
+.cstrip.one { grid-template-columns: 1fr !important; }
+
 </style>
 <style>.pg-hublink { position: fixed; left: 10px; top: 10px; z-index: 60; background: rgba(15,22,38,.82); color: #f3e7c6; border: 1px solid rgba(201,150,43,.6); border-radius: 999px; padding: 4px 11px; font: 700 12px system-ui, sans-serif; text-decoration: none; backdrop-filter: blur(4px); }
 .pg-hublink:hover { background: #c9962b; color: #1b1406; }
@@ -13903,6 +13905,8 @@ function _applyPanelLayout() {
   });
   // Old-style hidden panels (classic layouts) stay hidden; the grid layout handles its own.
   $$('[data-pid]').forEach(el => { const id = el.dataset.pid; el.classList.toggle('phid', panelHidden(id)); el.classList.toggle('pwide', !L.grid && (L.wide || []).includes(id)); });
+  // A two-column strip with one side hidden (no spell slots, say) lets the other side take the full width.
+  $$('.cstrip').forEach(c => c.classList.toggle('one', [...c.children].filter(k => !k.classList.contains('phid') && getComputedStyle(k).display !== 'none').length < 2));
   editDecorate();
 }
 const NOEDIT_ZONES = ['vitals', 'toolbar', 'abil'];
@@ -17178,7 +17182,7 @@ window.addEventListener('resize', () => { if (!UI.layout) { const was = isMobile
 // the database only lets that player — and the DM — open or change it.
 const ADMIN_EMAIL = 'matthewcbro@gmail.com';
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261012220205';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261012220706';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   let C = clean(Q.get('c')), G = clean(Q.get('g'));
   const P = (Q.get('p') || '').slice(0, 60), O = (Q.get('o') || '').trim().toLowerCase().slice(0, 120);

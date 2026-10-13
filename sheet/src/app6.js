@@ -154,6 +154,8 @@ function _applyPanelLayout() {
   });
   // Old-style hidden panels (classic layouts) stay hidden; the grid layout handles its own.
   $$('[data-pid]').forEach(el => { const id = el.dataset.pid; el.classList.toggle('phid', panelHidden(id)); el.classList.toggle('pwide', !L.grid && (L.wide || []).includes(id)); });
+  // A two-column strip with one side hidden (no spell slots, say) lets the other side take the full width.
+  $$('.cstrip').forEach(c => c.classList.toggle('one', [...c.children].filter(k => !k.classList.contains('phid') && getComputedStyle(k).display !== 'none').length < 2));
   editDecorate();
 }
 const NOEDIT_ZONES = ['vitals', 'toolbar', 'abil'];

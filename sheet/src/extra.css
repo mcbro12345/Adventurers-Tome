@@ -2400,3 +2400,5 @@ html.mobile .sp-top .sp-name { min-width: 0; }
 .hasteblk { border-color: color-mix(in srgb, #3f8fd2 55%, var(--line)) !important; background: color-mix(in srgb, #3f8fd2 8%, var(--panel2)); }
 .hasteblk .sect .tag { margin-left: 6px; }
 .hasteblk.used { opacity: .6; }
+
+.cstrip.one { grid-template-columns: 1fr !important; }
