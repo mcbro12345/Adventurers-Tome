@@ -666,3 +666,9 @@ html.pg-touch:has(body.hubbody:not(.adminbody)), html.pg-touch body.hubbody:not(
 body.hubbody:not(.adminbody) .hub-head, body.adminbody .adm-side { -webkit-transform: translateZ(0); transform: translateZ(0); isolation: isolate; }
 /* admin on a phone: the pinned header keeps its own height; any spare room goes to the page below it */
 @media (max-width: 860px) { body.adminbody .adm { grid-template-rows: auto 1fr; align-content: start; } body.adminbody .adm-side { align-self: start; } }
+/* the divider under the top: one even line edge to edge (no fading out), with its soft shadow the full width too */
+body.hubbody:not(.adminbody) .hub-head > .hub-views::after, body.hubbody:not(.adminbody) .hub-head > .hub-views::before { display: none !important; }
+body.hubbody:not(.adminbody) .hub-head > .hub-views { padding-bottom: 14px; }
+body.hubbody:not(.adminbody) .hub-head { border-bottom: 1px solid rgba(201,150,43,.28); }
+body.hubbody:not(.adminbody) .hub-head::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 12px; pointer-events: none; background: linear-gradient(to bottom, rgba(5,8,14,.45), rgba(5,8,14,0)); }
+@media (prefers-color-scheme: light) { body.hubbody:not(.adminbody) .hub-head::after { background: linear-gradient(to bottom, rgba(60,45,20,.16), rgba(60,45,20,0)); } }
