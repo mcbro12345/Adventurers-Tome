@@ -245,7 +245,9 @@ function hub(fs, auth, G, ctx) {
   const close = () => modal.classList.remove('on');
   const pic = c => c.thumb ? `<img class="hc-pic" src="${esc(c.thumb)}" alt="">` : `<span class="hc-pic hc-nopic">${esc((c.name || '?')[0])}</span>`;
   // The wordmark: a gold d20 crest beside "Adventurer's" in spaced small caps over a large serif "Tome".
-  const LOGO = `<h1 class="hub-logo" aria-label="Adventurer’s Tome"><svg class="hl-d20" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="hlg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f1d58a"/><stop offset=".55" stop-color="#c9962b"/><stop offset="1" stop-color="#8a6420"/></linearGradient></defs><polygon points="50,4 91,27 91,73 50,96 9,73 9,27" fill="rgba(201,150,43,.14)" stroke="url(#hlg)" stroke-width="4" stroke-linejoin="round"/><g fill="none" stroke="url(#hlg)" stroke-width="2.6" stroke-linejoin="round"><polygon points="50,24 73,63 27,63"/><path d="M50 4 L50 24 M91 27 L73 63 M91 73 L73 63 M50 96 L73 63 M50 96 L27 63 M9 73 L27 63 M9 27 L27 63 M9 27 L50 24 M91 27 L50 24"/></g><text x="50" y="55" text-anchor="middle" font-family="Georgia,serif" font-weight="800" font-size="15" class="hl-20">20</text></svg><span class="hl-txt"><span class="hl-a">Adventurer’s</span><span class="hl-t">Tome</span></span></h1>`;
+  // Hovering the d20 rolls it: it tumbles, the face flickers, and it lands on a random number that stays until reload.
+  let DIE = 20, ROLLING = false, ROLLED = false;
+  const logo = () => `<h1 class="hub-logo" aria-label="Adventurer’s Tome"><svg class="hl-d20${ROLLED && DIE === 20 ? ' crit' : ROLLED && DIE === 1 ? ' fumble' : ''}" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="hlg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f1d58a"/><stop offset=".55" stop-color="#c9962b"/><stop offset="1" stop-color="#8a6420"/></linearGradient></defs><polygon points="50,4 91,27 91,73 50,96 9,73 9,27" fill="rgba(201,150,43,.14)" stroke="url(#hlg)" stroke-width="4" stroke-linejoin="round"/><g fill="none" stroke="url(#hlg)" stroke-width="2.6" stroke-linejoin="round"><polygon points="50,24 73,63 27,63"/><path d="M50 4 L50 24 M91 27 L73 63 M91 73 L73 63 M50 96 L73 63 M50 96 L27 63 M9 73 L27 63 M9 27 L27 63 M9 27 L50 24 M91 27 L50 24"/></g><text x="50" y="55" text-anchor="middle" font-family="Georgia,serif" font-weight="800" font-size="15" class="hl-20">${DIE}</text></svg><span class="hl-txt"><span class="hl-a">Adventurer’s</span><span class="hl-t">Tome</span></span></h1>`;
   const shareIcon = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>';
 
   // ----- actions on one character (used by the hub's menus and the admin section) -----
@@ -381,7 +383,7 @@ function hub(fs, auth, G, ctx) {
         <div class="hf-body">${groups[k].sort(byName).map(card).join('')}</div></details>`; }).join('')
         : `<p class="hub-empty">Nothing has been shared with you yet. When another player shares a character with ${esc(EMAIL)}, it shows up here.</p>`)
       : (mine.length ? `<div class="hl">${mine.sort(ord).map(row).join('')}</div>` : `<p class="hub-empty">You don’t have any characters yet — create one, or ask whoever has yours to give it to you.</p>`);
-    root.innerHTML = `<header class="hub-top">${LOGO}
+    root.innerHTML = `<header class="hub-top">${logo()}
       <div class="hub-me">Signed in as <b>${esc(myName())}</b> <span class="hub-em">${esc(EMAIL)}</span> · <button class="linkbtn" id="me-out">Sign out</button></div></header>
       <div class="hub-views"><button class="${SH ? '' : 'on'}" data-view="mine">My characters <span>${mine.length}</span></button><button class="${SH ? 'on' : ''}" data-view="shared">Shared characters <span>${shared.length}</span></button>${IS_ADMIN ? '<button class="btn hub-admin" id="hub-admin">⚙ Admin</button>' : ''}</div>
       ${SH ? '' : '<div class="hub-bar"><button class="btn gold big" id="hub-new">＋ Create character</button></div>'}
@@ -398,6 +400,15 @@ function hub(fs, auth, G, ctx) {
     root.querySelectorAll('.hc-list [data-a]').forEach(b => b.onclick = () => { const c = chars.find(x => x.id === b.dataset.id); b.closest('.hc-menu').classList.remove('on'); if (!c) return;
       if (b.dataset.a === 'share') shareChar(c); if (b.dataset.a === 'move') moveChar(c, draw); if (b.dataset.a === 'rm') removeChar(c, draw); if (b.dataset.a === 'del') deleteChar(c, draw); });
   }
+  // Only a real move onto the die rolls it — not the list redrawing underneath a resting pointer, or a page load.
+  let OVER = true; addEventListener('pointermove', () => { OVER = OVER === true ? !!document.querySelector('.hl-d20:hover') : OVER; }, { once: true });
+  root.addEventListener('mouseout', e => { const d = e.target.closest && e.target.closest('.hl-d20'); if (d && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.hl-d20'))) OVER = false; });
+  root.addEventListener('mouseover', e => { const d = e.target.closest && e.target.closest('.hl-d20'); if (!d || ROLLING || OVER || (e.relatedTarget && d.contains(e.relatedTarget))) return;
+    OVER = true; ROLLING = true; d.classList.remove('roll'); void d.getBoundingClientRect(); d.classList.add('roll');
+    const face = () => root.querySelector('.hl-20'), end = Date.now() + 850;
+    const tick = () => { const f = face(); if (Date.now() < end) { if (f) f.textContent = 1 + Math.floor(Math.random() * 20); setTimeout(tick, 70); return; }
+      DIE = 1 + Math.floor(Math.random() * 20); ROLLED = true; if (f) f.textContent = DIE; const dd = root.querySelector('.hl-d20'); if (dd) { dd.classList.remove('roll'); dd.classList.toggle('crit', DIE === 20); dd.classList.toggle('fumble', DIE === 1); } ROLLING = false; };
+    tick(); });
   document.addEventListener('click', () => root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')));
   draw();
   // Everyone — admins too — sees their own characters plus the ones shared with them. Admins find the rest in Admin.
