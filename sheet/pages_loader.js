@@ -40,13 +40,26 @@ const PG_DIE = { n: 20, rolled: false, rolling: false, over: true };
 function logoHTML() { return `<h1 class="hub-logo" aria-label="Adventurer’s Tome"><svg class="hl-d20${PG_DIE.rolled && PG_DIE.n === 20 ? ' crit' : PG_DIE.rolled && PG_DIE.n === 1 ? ' fumble' : ''}" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="hlg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f1d58a"/><stop offset=".55" stop-color="#c9962b"/><stop offset="1" stop-color="#8a6420"/></linearGradient></defs><polygon points="50,4 91,27 91,73 50,96 9,73 9,27" fill="rgba(201,150,43,.14)" stroke="url(#hlg)" stroke-width="4" stroke-linejoin="round"/><g fill="none" stroke="url(#hlg)" stroke-width="2.6" stroke-linejoin="round"><polygon points="50,24 73,63 27,63"/><path d="M50 4 L50 24 M91 27 L73 63 M91 73 L73 63 M50 96 L73 63 M50 96 L27 63 M9 73 L27 63 M9 27 L27 63 M9 27 L50 24 M91 27 L50 24"/></g><text x="50" y="55" text-anchor="middle" font-family="Georgia,serif" font-weight="800" font-size="15" class="hl-20">${PG_DIE.rolled ? PG_DIE.n : ''}</text></svg><span class="hl-txt"><span class="hl-a">Adventurer’s</span><span class="hl-t">Tome</span></span></h1>`; }
 function rollDie(root) {
   const d = root.querySelector('.hl-d20'); if (!d || PG_DIE.rolling) return;
-  PG_DIE.rolling = true; d.classList.remove('hl-rolling', 'crit', 'fumble'); void d.getBoundingClientRect(); d.classList.add('hl-rolling');
-  // the face flickers fast, then slower and slower, and lands as the die settles
-  const face = () => root.querySelector('.hl-20'), t0 = Date.now(), DUR = 1150;
-  const tick = () => { const f = face(), el = Date.now() - t0; if (el < DUR - 120) { if (f) f.textContent = 1 + Math.floor(Math.random() * 20); setTimeout(tick, 45 + 230 * Math.pow(el / DUR, 2)); return; }
-    PG_DIE.n = 1 + Math.floor(Math.random() * 20); PG_DIE.rolled = true; if (f) f.textContent = PG_DIE.n;
-    const dd = root.querySelector('.hl-d20'); if (dd) { dd.classList.remove('hl-rolling'); dd.classList.toggle('crit', PG_DIE.n === 20); dd.classList.toggle('fumble', PG_DIE.n === 1); } PG_DIE.rolling = false; };
-  tick();
+  PG_DIE.rolling = true; d.classList.remove('crit', 'fumble'); d.classList.add('hl-rolling');
+  // One animation drives everything: the face flickers by the spin's own clock (fast, then slower and slower),
+  // and the number lands only when the spin has actually finished — even if the page was busy when it started.
+  const face = () => root.querySelector('.hl-20'), DUR = 1150;
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const anim = d.animate(still ? [{ transform: 'none' }, { transform: 'none' }] : [
+    { offset: 0, transform: 'rotate(0deg) scale(1)', easing: 'cubic-bezier(.3,0,.6,1)' },
+    { offset: .18, transform: 'rotate(150deg) scale(1.1) translateY(-4px)', easing: 'linear' },
+    { offset: .5, transform: 'rotate(520deg) scale(1.06) translateY(-2px)', easing: 'cubic-bezier(.15,.6,.35,1)' },
+    { offset: .84, transform: 'rotate(732deg) scale(.98)', easing: 'cubic-bezier(.4,0,.4,1)' },
+    { offset: 1, transform: 'rotate(720deg) scale(1)' }], { duration: DUR, easing: 'linear' });
+  let next = 0, done = false;
+  const tick = () => { if (done) return; const el = Number(anim.currentTime) || 0;
+    if (el >= next && el < DUR - 120) { const f = face(); if (f) f.textContent = 1 + Math.floor(Math.random() * 20); next = el + 45 + 230 * Math.pow(el / DUR, 2); }
+    requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
+  const land = () => { if (done) return; done = true;
+    PG_DIE.n = 1 + Math.floor(Math.random() * 20); PG_DIE.rolled = true; const f = face(); if (f) f.textContent = PG_DIE.n;
+    const dd = root.querySelector('.hl-d20') || d; dd.classList.remove('hl-rolling'); dd.classList.toggle('crit', PG_DIE.n === 20); dd.classList.toggle('fumble', PG_DIE.n === 1); PG_DIE.rolling = false; };
+  anim.finished.then(land, land);
 }
 function wireDie(root) {
   // It rolls once by itself when the page appears; after that, moving onto it rolls it again.
