@@ -31,7 +31,15 @@ function searchKeys(...parts) { const out = new Set(); parts.forEach(p => { p = 
 const escH = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const hueOf = t => [...String(t || '?')].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) % 360, 7);
 const initials = (name, em) => String(name || em || '?').split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
-function avaHTML(name, em, pic, cls = '', title = '') { return `<span class="pg-ava ${cls}${pic ? ' has-pic' : ''}" style="--h:${hueOf(em || name)}"${title ? ` title="${escH(title)}"` : ''}>${pic ? `<img src="${escH(pic)}" alt="">` : escH(initials(name, em))}</span>`; }
+// A person's picture: their initials on a colour (theirs, or one picked from their email), a character portrait, or an
+// uploaded image — which, if it has a transparent background, is shown as-is with no circle or border.
+const PG_SWATCH = ['#b4473a', '#d0743c', '#c9962b', '#7f9a35', '#2f8f62', '#24879a', '#3a6fb4', '#5a55b8', '#8a4cb0', '#b04c86', '#6b7280', '#2b3245'];
+const okColor = c => /^#[0-9a-f]{6}$/i.test(c || '') ? c : '';
+const inkOn = hex => { const n = parseInt(hex.slice(1), 16); return (.299 * (n >> 16 & 255) + .587 * (n >> 8 & 255) + .114 * (n & 255)) > 170 ? '#1b1406' : '#fff'; };
+const avaOf = u => ({ pic: (u && u.pic) || '', color: okColor(u && u.picColor), clear: !!(u && u.pic && u.picClear) });
+const avaStyle = (o, key) => { const c = okColor(o && o.color); return c ? `background:${c};color:${inkOn(c)}` : `--h:${hueOf(key)}`; };
+function avaHTML(name, em, pic, cls = '', title = '', o = {}) { const clear = !!(pic && o.clear);
+  return `<span class="pg-ava ${cls}${pic ? ' has-pic' : ''}${clear ? ' clear' : ''}" style="${pic ? '' : avaStyle(o, em || name)}"${title ? ` title="${escH(title)}"` : ''}>${pic ? `<img src="${escH(pic)}" alt="">` : escH(initials(name, em))}</span>`; }
 const firstThumb = list => { const cs = list.filter(c => c.thumb).sort((a, b) => (a.createdAt || a.updatedAt || 9e15) - (b.createdAt || b.updatedAt || 9e15)); return (cs[0] && cs[0].thumb) || ''; };
 // ================= The logo (sign-in page and character list) =================
 // A gold d20 crest beside "Adventurer's" in spaced small caps over a large serif "Tome". Hovering the die rolls it:
@@ -304,16 +312,14 @@ function wireDie(root) {
   // Who's looking at this sheet right now — shown once it's shared: small portraits beside the back button, you too.
   // Each open copy checks in once a minute (only while its tab is showing) and drops off when closed or idle.
   if (!NEW) (() => {
-    const pcol = col.doc(C).collection('presence'), mine = pcol.doc(EMAIL); let seen = {}, box = null, PIC = null;
-    const myPic = async () => { if (PIC != null) return PIC; PIC = (ME && ME.pic) || '';
-      if (!PIC) try { PIC = firstThumb((await fs.collection('groups/' + DEFAULT_G + '/chars').where('owner', '==', EMAIL).get()).docs.map(d => d.data())); } catch (e) {} return PIC; };
-    const beat = async () => { if (document.hidden) return; try { await mine.set({ name: NAME, pic: await myPic(), at: Date.now() }); } catch (e) {} };
+    const pcol = col.doc(C).collection('presence'), mine = pcol.doc(EMAIL); let seen = {}, box = null;
+    const beat = async () => { if (document.hidden) return; const a = avaOf(ME); try { await mine.set({ name: NAME, pic: a.pic, color: a.color, clear: a.clear, at: Date.now() }); } catch (e) {} };
     const leave = () => { mine.delete().catch(() => {}); };
     const show = () => { const now = Date.now(), here = Object.entries(seen).filter(([, d]) => now - (d.at || 0) < 150000).sort(([a], [b]) => (b === EMAIL) - (a === EMAIL));
       if (!box) { box = document.createElement('div'); box.className = 'pg-pres'; document.body.appendChild(box); }
       const shared = VIEWERS.length > 0 || OWNER !== EMAIL;
       box.hidden = !shared || !here.length;
-      box.innerHTML = here.map(([em, d]) => avaHTML(d.name, em, d.pic, em === EMAIL ? 'me' : '', (em === EMAIL ? 'You' : d.name || em) + ' — viewing now')).join('');
+      box.innerHTML = here.map(([em, d]) => avaHTML(d.name, em, d.pic, em === EMAIL ? 'me' : '', (em === EMAIL ? 'You' : d.name || em) + ' — viewing now', { color: d.color, clear: d.clear })).join('');
       const a = document.querySelector('.pg-hublink'); if (a) { box.style.left = (a.offsetLeft + a.offsetWidth + 8) + 'px'; box.style.top = (a.offsetTop + a.offsetHeight / 2) + 'px'; } };
     beat(); setInterval(beat, 60000); setInterval(show, 1500);
     document.addEventListener('visibilitychange', () => { if (document.hidden) leave(); else beat(); });
@@ -479,18 +485,64 @@ function hub(fs, auth, G, ctx) {
 
   // ================= Hub: my characters and the ones shared with me =================
   function createChar() { location.href = URLS.newChar(G, '', myName()); }
-  // Your picture: a character you choose, or automatically your first character's portrait.
-  const myPic = () => { const mine = chars.filter(isMine), ch = ME && ME.picChar && mine.find(c => c.id === ME.picChar); return (ch && ch.thumb) || (ME && ME.picChar ? ME.pic || '' : '') || firstThumb(mine); };
+  // Your picture: your initials (on a colour you can pick), one of your characters, or an image you upload.
+  const myAva = () => { const a = avaOf(ME), ch = ME && ME.picChar && chars.find(c => c.id === ME.picChar && isMine(c)); if (ch && ch.thumb) a.pic = ch.thumb; return a; };
+  // An uploaded image is shrunk to a small square here before saving. A transparent background is kept (as PNG) and the
+  // whole image fits inside; otherwise it's cropped to fill the circle.
+  const prepPic = file => new Promise((res, rej) => { const url = URL.createObjectURL(file), im = new Image();
+    im.onerror = () => { URL.revokeObjectURL(url); rej(new Error('That file isn’t an image this browser can open.')); };
+    im.onload = () => { URL.revokeObjectURL(url); const w = im.naturalWidth || im.width, h = im.naturalHeight || im.height; if (!w || !h) return rej(new Error('That image looks empty.'));
+      const t = document.createElement('canvas'); t.width = t.height = 64; const tc = t.getContext('2d'); tc.drawImage(im, 0, 0, 64, 64); const px = tc.getImageData(0, 0, 64, 64).data;
+      let clear = false; for (let i = 3; i < px.length; i += 4) if (px[i] < 235) { clear = true; break; }
+      const draw = S => { const c = document.createElement('canvas'); c.width = c.height = S; const x = c.getContext('2d'), k = clear ? Math.min(S / w, S / h) : Math.max(S / w, S / h);
+        x.imageSmoothingQuality = 'high'; x.drawImage(im, (S - w * k) / 2, (S - h * k) / 2, w * k, h * k); return clear ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', .86); };
+      let img = draw(192); if (img.length > 260000) img = draw(128); res({ img, clear }); };
+    im.src = url; });
   function pickPic() {
-    const mine = chars.filter(isMine).sort((a, b) => (a.createdAt || a.updatedAt || 0) - (b.createdAt || b.updatedAt || 0)), cur = (ME && ME.picChar) || '';
-    modal.innerHTML = `<div class="hub-card wide"><h2>Your picture</h2><p class="hub-hint">Pick one of your characters. It shows next to your name, and to others when you’re viewing a shared sheet.</p>
-      <div class="pp-grid"><button class="pp-opt${cur ? '' : ' on'}" data-pp=""><span class="pp-img">${avaHTML(myName(), EMAIL, firstThumb(mine))}</span><b>Automatic</b><small>Your first character</small></button>
-      ${mine.map(c => `<button class="pp-opt${cur === c.id ? ' on' : ''}" data-pp="${esc(c.id)}"${c.thumb ? '' : ' disabled title="This character has no portrait yet"'}><span class="pp-img">${avaHTML(c.name, c.id, c.thumb)}</span><b>${esc(c.name || 'Unnamed')}</b><small>${esc(c.thumb ? (c.cls || '') : 'No portrait yet')}</small></button>`).join('')}</div>
-      <button class="btn ghost" id="pp-x">Done</button></div>`;
-    modal.classList.add('on'); modal.querySelector('#pp-x').onclick = close;
-    modal.querySelectorAll('[data-pp]').forEach(b => b.onclick = async () => { const id = b.dataset.pp, c = mine.find(x => x.id === id), upd = { picChar: id, pic: (c && c.thumb) || '' };
-      try { await usersCol.doc(EMAIL).update(upd); Object.assign(ME || {}, upd); close(); draw(); toast(id ? 'Your picture is now ' + (c.name || 'that character') + '.' : 'Your picture follows your first character.'); }
-      catch (x) { toast(x && x.code === 'permission-denied' ? 'Couldn’t save it yet — the new database rules need publishing.' : 'Couldn’t save it: ' + ((x && x.message) || x)); } });
+    const mine = chars.filter(isMine).sort((a, b) => (a.createdAt || a.updatedAt || 0) - (b.createdAt || b.updatedAt || 0));
+    const st = { mode: ME && ME.picChar ? 'char' : ME && ME.pic ? 'upload' : 'initials', color: okColor(ME && ME.picColor), char: (ME && ME.picChar) || '', img: ME && !ME.picChar ? (ME.pic || '') : '', clear: !!(ME && ME.picClear) };
+    const auto = `hsl(${hueOf(EMAIL)}, 42%, 42%)`;
+    const ico = { initials: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19l4.5-12h1L14 19M5.8 15h6.4"/><path d="M15 12.5c.8-1 2-1.5 3-1.2 1.5.4 2 1.8 2 3.2V19M20 15.5c-2 0-4.5.2-4.5 2s2.2 1.8 4.5-.3"/></svg>',
+      char: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>',
+      upload: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>' };
+    modal.innerHTML = `<div class="hub-card wide pp"><h2>Your picture</h2>
+      <div class="pp-head"><span class="pp-prev"></span><div class="pp-who"><b>${esc(myName())}</b><small>Shows beside your name, and to others when you’re viewing a shared sheet together.</small></div></div>
+      <div class="pp-tabs" role="tablist">${[['initials', 'Initials'], ['char', 'Character'], ['upload', 'Upload']].map(([m, t]) => `<button role="tab" data-m="${m}">${ico[m]}${t}</button>`).join('')}</div>
+      <div class="pp-pane" data-p="initials"><p class="pp-lbl">Background colour</p><div class="pp-sw">
+        <button class="pp-c" data-c="" style="background:${auto}" title="Automatic"><span>A</span></button>${PG_SWATCH.map(c => `<button class="pp-c" data-c="${c}" style="background:${c}" title="${c}"></button>`).join('')}
+        <label class="pp-c pp-cust" title="Pick any colour"><input type="color" value="${st.color || '#c9962b'}"><span>+</span></label></div></div>
+      <div class="pp-pane" data-p="char">${mine.length ? `<div class="pp-grid">${mine.map(c => `<button class="pp-opt" data-pp="${esc(c.id)}"${c.thumb ? '' : ' disabled title="This character has no portrait yet"'}><span class="pp-img">${avaHTML(c.name, c.id, c.thumb)}</span><b>${esc(c.name || 'Unnamed')}</b><small>${esc(c.thumb ? (c.cls || '') : 'No portrait yet')}</small></button>`).join('')}</div>` : '<p class="hub-hint pp-empty">You don’t have any characters yet — make one and its portrait can be your picture.</p>'}</div>
+      <div class="pp-pane" data-p="upload"><label class="pp-drop"><input type="file" accept="image/*" hidden><span class="pp-dz-i">${ico.upload}</span><b>Choose an image</b><small>or drag one here</small></label>
+        <p class="pp-note">Tip: a PNG with a transparent background shows just the image — no circle or border around it.</p><p class="pp-err" hidden></p></div>
+      <div class="row pp-foot"><button class="btn ghost" id="pp-x">Cancel</button><button class="btn" id="pp-ok">Save</button></div></div>`;
+    modal.classList.add('on');
+    const $ = q => modal.querySelector(q), $$ = q => modal.querySelectorAll(q);
+    const pick = () => st.mode === 'char' ? ((mine.find(c => c.id === st.char) || {}).thumb || '') : st.mode === 'upload' ? st.img : '';
+    const paint = () => { const pic = pick();
+      $('.pp-prev').innerHTML = avaHTML(myName(), EMAIL, pic, '', '', { color: st.color, clear: st.mode === 'upload' && st.clear });
+      $$('.pp-tabs [data-m]').forEach(b => { const on = b.dataset.m === st.mode; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
+      $$('.pp-pane').forEach(p => p.hidden = p.dataset.p !== st.mode);
+      $$('.pp-c[data-c]').forEach(b => b.classList.toggle('on', b.dataset.c === st.color));
+      const cu = $('.pp-cust'); cu.classList.toggle('on', !!st.color && !PG_SWATCH.includes(st.color)); if (cu.classList.contains('on')) cu.style.background = st.color; else cu.style.background = '';
+      $$('[data-pp]').forEach(b => b.classList.toggle('on', st.mode === 'char' && b.dataset.pp === st.char));
+      const dz = $('.pp-drop'); dz.classList.toggle('has', !!st.img); dz.querySelector('b').textContent = st.img ? 'Choose a different image' : 'Choose an image';
+      $('#pp-ok').disabled = (st.mode === 'char' && !pick()) || (st.mode === 'upload' && !st.img); };
+    $$('.pp-tabs [data-m]').forEach(b => b.onclick = () => { st.mode = b.dataset.m; if (st.mode === 'char' && !st.char) { const f = mine.find(c => c.thumb); if (f) st.char = f.id; } paint(); });
+    $$('.pp-c[data-c]').forEach(b => b.onclick = () => { st.color = b.dataset.c; paint(); });
+    const ci = $('.pp-cust input'); ci.oninput = () => { st.color = okColor(ci.value); paint(); };
+    $$('[data-pp]').forEach(b => b.onclick = () => { st.char = b.dataset.pp; paint(); });
+    const err = $('.pp-err'), take = async f => { err.hidden = true; if (!f) return; if (!/^image\//.test(f.type || 'image/')) { err.textContent = 'That isn’t an image file.'; err.hidden = false; return; }
+      if (f.size > 15e6) { err.textContent = 'That image is too big (over 15 MB).'; err.hidden = false; return; }
+      try { const r = await prepPic(f); st.img = r.img; st.clear = r.clear; paint(); } catch (x) { err.textContent = x.message || String(x); err.hidden = false; } };
+    const fi = $('.pp-drop input'); fi.onchange = () => { take(fi.files[0]); fi.value = ''; };
+    const dz = $('.pp-drop'); ['dragenter', 'dragover'].forEach(t => dz.addEventListener(t, e => { e.preventDefault(); dz.classList.add('over'); }));
+    ['dragleave', 'drop'].forEach(t => dz.addEventListener(t, () => dz.classList.remove('over'))); dz.addEventListener('drop', e => { e.preventDefault(); take(e.dataTransfer.files[0]); });
+    $('#pp-x').onclick = close;
+    $('#pp-ok').onclick = async () => { const ok = $('#pp-ok'); ok.disabled = true; ok.textContent = 'Saving…';
+      const upd = st.mode === 'char' ? { picChar: st.char, pic: pick(), picClear: false, picColor: st.color } : st.mode === 'upload' ? { picChar: '', pic: st.img, picClear: !!st.clear, picColor: st.color } : { picChar: '', pic: '', picClear: false, picColor: st.color };
+      try { await usersCol.doc(EMAIL).update(upd); Object.assign(ME || {}, upd); close(); draw(); toast('Your picture is saved.'); }
+      catch (x) { ok.disabled = false; ok.textContent = 'Save'; toast(x && x.code === 'permission-denied' ? 'Couldn’t save it yet — the new database rules need publishing.' : 'Couldn’t save it: ' + ((x && x.message) || x)); } };
+    paint();
   }
   function card(c) {
     const acc = (c.editors || []).includes(EMAIL) ? '<span class="hc-acc edit">Can edit</span>' : '<span class="hc-acc">View only</span>';
@@ -553,7 +605,7 @@ function hub(fs, auth, G, ctx) {
       : (mine.length ? `<div class="hl">${mine.sort(ord).map(row).join('')}</div>` : `<p class="hub-empty">You don’t have any characters yet — create one, or ask whoever has yours to give it to you.</p>`);
     const keepLogo = root.querySelector('.hub-logo');
     root.innerHTML = `<header class="hub-top">${logoHTML()}
-      <div class="hub-side"><div class="hub-prof"><button class="hp-pic" id="me-pic" title="Choose your picture" aria-label="Choose your picture">${avaHTML(myName(), EMAIL, myPic())}<span class="hp-edit" aria-hidden="true">✎</span></button>
+      <div class="hub-side"><div class="hub-prof"><button class="hp-pic" id="me-pic" title="Choose your picture" aria-label="Choose your picture">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(myAva())}<span class="hp-edit" aria-hidden="true">✎</span></button>
         <div class="hp-txt"><b>${esc(myName())}</b><small>${esc(EMAIL)}</small><div class="hp-row"><button class="linkbtn" id="me-out">Sign out</button>${IS_ADMIN ? '<button class="btn hub-admin" id="hub-admin">⚙ Admin</button>' : ''}</div></div></div></div></header>
       <div class="hub-views"><button class="${SH ? '' : 'on'}" data-view="mine">My characters <span>${mine.length}</span></button><button class="${SH ? 'on' : ''}" data-view="shared">Shared characters <span>${shared.length}</span></button><button class="hub-new" id="hub-new"><span class="hn-plus" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="hn-txt"><b>Create character</b></span></button></div>
       ${body}`;
@@ -601,11 +653,12 @@ function hub(fs, auth, G, ctx) {
     // avatar: initials on a colour picked from the name, so the same person always looks the same
     const hue = t => [...String(t || '?')].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) % 360, 7);
     const ava = (name, em) => { const ini = String(name || em || '?').split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
-      const pic0 = em && PICS[em]; return `<span class="adm-ava${pic0 ? ' has-pic' : ''}" data-em="${esc(em || '')}" style="--h:${hue(em || name)}">${pic0 ? `<img src="${esc(pic0)}" alt="">` : esc(ini)}</span>`; };
-    // Each person's picture is the portrait of the first character they made (looked up once per visit).
+      const a = (em && PICS[em]) || {}; return `<span class="adm-ava${a.pic ? ' has-pic' : ''}${a.clear ? ' clear' : ''}" data-em="${esc(em || '')}" style="${a.pic ? '' : avaStyle(a, em || name)}">${a.pic ? `<img src="${esc(a.pic)}" alt="">` : esc(ini)}</span>`; };
+    // Each person's picture as they set it (initials and colour, a character, or an upload) — looked up once per visit.
     const PICS = {}, PICQ = {};
-    const picFor = em => PICQ[em] || (PICQ[em] = userDoc(em).then(u => (u && u.pic) || charsCol.where('owner', '==', em).get().then(r => firstThumb(r.docs.map(d => d.data())), () => '')).then(src => PICS[em] = src || ''));
-    const fillPics = () => root.querySelectorAll('.adm-ava[data-em]:not(.has-pic)').forEach(el => { const em = el.dataset.em; if (!em) return; picFor(em).then(src => { if (src && el.isConnected && !el.classList.contains('has-pic')) { el.classList.add('has-pic'); el.innerHTML = `<img src="${esc(src)}" alt="">`; } }); });
+    const picFor = em => PICQ[em] || (PICQ[em] = userDoc(em).then(u => PICS[em] = avaOf(u), () => PICS[em] = {}));
+    const fillPics = () => root.querySelectorAll('.adm-ava[data-em]:not([data-f])').forEach(el => { const em = el.dataset.em; el.dataset.f = 1; if (!em) return; picFor(em).then(a => { if (!el.isConnected || !a) return;
+      if (a.pic) { el.classList.add('has-pic'); el.classList.toggle('clear', !!a.clear); el.removeAttribute('style'); el.innerHTML = `<img src="${esc(a.pic)}" alt="">`; } else if (a.color) { el.style.background = a.color; el.style.color = inkOn(a.color); } }); });
     new MutationObserver(() => fillPics()).observe(root, { childList: true, subtree: true });
     const roleOf = em => em === ADMIN_EMAIL ? ['Owner', 'r-own'] : ADMINS.includes(em) ? ['Admin', 'r-adm'] : ['Member', 'r-mem'];
     const when = t => t ? `<span title="${esc(new Date(t).toLocaleString())}">${esc(day(t))}</span>` : '<span class="adm-dim">—</span>';

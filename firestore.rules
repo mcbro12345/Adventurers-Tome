@@ -39,7 +39,7 @@ service cloud.firestore {
       allow list: if admin();
       allow create: if admin() || (signedIn() && em == me() && request.resource.data.email == me()
         && request.resource.data.keys().hasOnly(['email', 'name', 'nameLower', 'keys', 'createdAt', 'seenAt']));
-      allow update: if admin() || (signedIn() && em == me() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt', 'pic', 'picChar']));
+      allow update: if admin() || (signedIn() && em == me() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt', 'pic', 'picChar', 'picColor', 'picClear']));
       allow delete: if admin();
     }
     match /config/admins {
