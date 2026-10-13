@@ -533,23 +533,17 @@ html.pg-inphone::-webkit-scrollbar { display: none; }
 .pgph-th.drag { cursor: grabbing; }
 
 /* ================= Characters page: fixed top, only the list scrolls ================= */
-body.hubbody:not(.adminbody) { height: 100vh; height: 100dvh; overflow: hidden; }
-body.hubbody:not(.adminbody) #hub { max-width: none; height: 100%; display: flex; flex-direction: column; padding: 0; box-sizing: border-box; }
-body.hubbody:not(.adminbody) #hub > .hub-top, body.hubbody:not(.adminbody) #hub > .hub-views { flex: none; width: 100%; max-width: 888px; margin-left: auto; margin-right: auto; box-sizing: border-box; }
-body.hubbody:not(.adminbody) #hub > .hub-top { margin-top: calc(22px + env(safe-area-inset-top)); }
-body.hubbody:not(.adminbody) #hub > .hub-views { margin-bottom: 0; padding-bottom: 14px; position: relative; }
+body.hubbody:not(.adminbody) .hub-head > .hub-top, body.hubbody:not(.adminbody) .hub-head > .hub-views { flex: none; width: 100%; max-width: 888px; margin-left: auto; margin-right: auto; box-sizing: border-box; }
+body.hubbody:not(.adminbody) .hub-head > .hub-views { margin-bottom: 0; padding-bottom: 14px; position: relative; }
 /* a faint line where the list slides under the top */
-body.hubbody:not(.adminbody) #hub > .hub-views::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(201,150,43,.28) 15%, rgba(201,150,43,.28) 85%, transparent); }
-body.hubbody:not(.adminbody) .hub-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 2px 16px calc(120px + env(safe-area-inset-bottom)); scrollbar-width: thin; scrollbar-color: rgba(201,150,43,.45) transparent; }
-body.hubbody:not(.adminbody) .hub-scroll > * { max-width: 888px; margin-left: auto !important; margin-right: auto !important; }
-body.hubbody:not(.adminbody) .hub-scroll > .hub-folder:first-child, body.hubbody:not(.adminbody) .hub-scroll > .hl:first-child { margin-top: 6px; }
-@media (min-width: 921px) { body.hubbody:not(.adminbody) #hub > .hub-top, body.hubbody:not(.adminbody) #hub > .hub-views { padding-left: 0; padding-right: 0; } }
-@media (max-width: 920px) { body.hubbody:not(.adminbody) #hub > .hub-top, body.hubbody:not(.adminbody) #hub > .hub-views { width: calc(100% - 32px); } }
+body.hubbody:not(.adminbody) .hub-head > .hub-views::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(201,150,43,.28) 15%, rgba(201,150,43,.28) 85%, transparent); }
+@media (min-width: 921px) { body.hubbody:not(.adminbody) .hub-head > .hub-top, body.hubbody:not(.adminbody) .hub-head > .hub-views { padding-left: 0; padding-right: 0; } }
+@media (max-width: 920px) { body.hubbody:not(.adminbody) .hub-head > .hub-top, body.hubbody:not(.adminbody) .hub-head > .hub-views { width: calc(100% - 32px); } }
 
 /* ================= Phones: logo and profile side by side, smaller ================= */
 @media (max-width: 640px) {
   :where(body.hubbody) #hub-admin { display: inline-flex; }
-  body.hubbody:not(.adminbody) #hub > .hub-top { flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 10px; margin-top: calc(12px + env(safe-area-inset-top)); }
+  body.hubbody:not(.adminbody) .hub-head > .hub-top { flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 10px; }
   :where(body.hubbody) .hub-top .hub-logo { gap: 8px; min-width: 0; flex: 0 1 auto; }
   :where(body.hubbody) .hub-top .hl-d20 { width: 44px !important; height: 44px !important; }
   :where(body.hubbody) .hub-top .hl-t { font-size: 1.75rem !important; }
@@ -565,7 +559,7 @@ body.hubbody:not(.adminbody) .hub-scroll > .hub-folder:first-child, body.hubbody
   :where(body.hubbody) .hp-row .linkbtn { font-size: .8rem; }
   :where(body.hubbody) .hp-row .hub-admin { padding: 3px 8px; font-size: .74rem; }
   :where(body.hubbody) .hp-edit { display: none; }
-  body.hubbody:not(.adminbody) #hub > .hub-views { gap: 6px; }
+  body.hubbody:not(.adminbody) .hub-head > .hub-views { gap: 6px; }
   body.hubbody:not(.adminbody) .hub-views > button[data-view] { flex: 1 1 0; justify-content: center; padding: 9px 8px; font-size: .84rem; }
   body.hubbody:not(.adminbody) .hub-views .hub-new { flex: 1 1 100%; }
 }
@@ -612,20 +606,16 @@ body.hubbody .hub-views button.hub-new, body.hubbody .hub-views button.hub-new:h
 @media (max-width: 860px) { .adm-nav { flex: none; align-items: center; scroll-behavior: smooth; } .adm-ni { flex: none; height: 38px; } .adm-foot { padding: 10px 14px; } }
 
 /* ================= Phones: the characters page holds still like an app ================= */
-html.pg-touch:has(body.hubbody:not(.adminbody)), html.pg-touch body.hubbody:not(.adminbody) { position: fixed; inset: 0; overflow: hidden; overscroll-behavior: none; touch-action: manipulation; }
 html.pg-touch body.hubbody:not(.adminbody) { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-text-size-adjust: 100%; }
 html.pg-touch body.hubbody:not(.adminbody) :is(input, textarea, [contenteditable]) { -webkit-user-select: text; user-select: text; }
 html.pg-touch body.hubbody:not(.adminbody) img { -webkit-user-drag: none; pointer-events: none; }
-html.pg-touch body.hubbody:not(.adminbody) .hub-scroll { overscroll-behavior: contain; touch-action: pan-y; }
-html.pg-touch body.hubbody:not(.adminbody) #hub > .hub-top, html.pg-touch body.hubbody:not(.adminbody) #hub > .hub-views { touch-action: none; }
+html.pg-touch body.hubbody:not(.adminbody) .hub-head > .hub-top, html.pg-touch body.hubbody:not(.adminbody) .hub-head > .hub-views { touch-action: none; }
 html.pg-touch body.hubbody:not(.adminbody) .hub-views button { touch-action: manipulation; }
 /* the Admin button: label centred top-to-bottom */
 :where(body.hubbody) .hp-row .hub-admin { display: inline-flex; align-items: center; justify-content: center; gap: 5px; line-height: 1; height: 26px; padding-top: 0; padding-bottom: 0; box-sizing: border-box; }
 @media (max-width: 640px) { :where(body.hubbody) .hp-row .hub-admin { height: 24px; } }
 @media (max-width: 640px) { :where(body.hubbody) .hp-row .hub-admin { height: 20px; padding: 0 7px; font-size: .66rem; border-radius: 6px; gap: 3px; } }
 /* fill the whole screen: iPhones in full-screen mode under-report the screen height (100vh/100dvh), so pin to the edges instead */
-html:has(body.hubbody:not(.adminbody)) { height: 100%; }
-body.hubbody:not(.adminbody) { position: fixed; inset: 0; height: auto !important; }
 body.hubbody:not(.adminbody) { padding: 0 !important; margin: 0 !important; }
 
 /* ================= The loading screen's glow, fixed in the middle of the screen (characters page, admin) ================= */
@@ -641,9 +631,9 @@ body.adminbody .adm, body.adminbody .adm-main { background: transparent; }
   body.adminbody .adm-main { padding-bottom: calc(40px + env(safe-area-inset-bottom)); }
 }
 /* the divider above the scrolling list casts a soft shadow onto it (computer and phone) */
-body.hubbody:not(.adminbody) #hub > .hub-views { z-index: 2; }
-body.hubbody:not(.adminbody) #hub > .hub-views::before { content: ''; position: absolute; left: 0; right: 0; bottom: -12px; height: 12px; pointer-events: none; background: linear-gradient(to bottom, rgba(5,8,14,.45), rgba(5,8,14,0)); -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
-@media (prefers-color-scheme: light) { body.hubbody:not(.adminbody) #hub > .hub-views::before { background: linear-gradient(to bottom, rgba(60,45,20,.16), rgba(60,45,20,0)); } }
+body.hubbody:not(.adminbody) .hub-head > .hub-views { z-index: 2; }
+body.hubbody:not(.adminbody) .hub-head > .hub-views::before { content: ''; position: absolute; left: 0; right: 0; bottom: -12px; height: 12px; pointer-events: none; background: linear-gradient(to bottom, rgba(5,8,14,.45), rgba(5,8,14,0)); -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
+@media (prefers-color-scheme: light) { body.hubbody:not(.adminbody) .hub-head > .hub-views::before { background: linear-gradient(to bottom, rgba(60,45,20,.16), rgba(60,45,20,0)); } }
 @media (max-width: 640px) { body.hubbody .hp-row .hub-admin.btn { min-height: 0 !important; height: 22px !important; padding: 0 8px !important; font-size: .68rem !important; line-height: 1 !important; border-radius: 6px; } }
 /* admin on a phone: logo centred */
 @media (max-width: 860px) { body.adminbody .adm-brand { display: flex !important; justify-content: center; } body.adminbody .adm-brand .hub-logo { margin: 0 auto; } }
@@ -656,8 +646,23 @@ body.hubbody:not(.adminbody) #hub > .hub-views::before { content: ''; position: 
   body.adminbody .adm-ni .adm-badge { position: absolute; top: 3px; right: calc(50% - 22px); margin: 0; }
 }
 @media (max-width: 360px) { body.adminbody .adm-ni { font-size: .64rem; } body.adminbody .adm-nav { gap: 2px; padding: 6px 4px; } }
-/* Home-screen app on iPhone (running under the clock): iOS lays the page out one status-bar shorter than the screen,
-   so whatever is pinned to the bottom stops short. Stretch it down by that amount. */
-html.pg-standalone body.hubbody:not(.adminbody) { bottom: calc(-1 * env(safe-area-inset-top)) !important; }
-html.pg-standalone body.hubbody::before, html.pg-standalone body:not(.hubbody)::before { bottom: calc(-1 * env(safe-area-inset-top)); }
-html.pg-standalone.mobile .tabs { bottom: calc(-1 * env(safe-area-inset-top)) !important; }
+
+/* ================= Characters page: the top stays put while the page (the list) scrolls under it ================= */
+body.hubbody:not(.adminbody) #hub { max-width: none; padding: 0 0 calc(90px + env(safe-area-inset-bottom)); }
+body.hubbody:not(.adminbody) .hub-head { position: sticky; top: 0; z-index: 30; padding-top: calc(22px + env(safe-area-inset-top)); background: rgba(15,20,32,.9); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+@media (prefers-color-scheme: light) { body.hubbody:not(.adminbody) .hub-head { background: rgba(241,233,216,.9); } }
+body.hubbody:not(.adminbody) .hub-head > .hub-top, body.hubbody:not(.adminbody) .hub-head > .hub-views { width: calc(100% - 32px); max-width: 888px; margin-left: auto; margin-right: auto; box-sizing: border-box; }
+body.hubbody:not(.adminbody) .hub-head > .hub-views { margin-top: 14px; margin-bottom: 0; }
+body.hubbody:not(.adminbody) .hub-list { padding: 8px 16px 0; }
+body.hubbody:not(.adminbody) .hub-list > * { max-width: 888px; margin-left: auto !important; margin-right: auto !important; }
+@media (max-width: 640px) { body.hubbody:not(.adminbody) .hub-head { padding-top: calc(12px + env(safe-area-inset-top)); } }
+/* phones: no rubber-band bounce of the whole page */
+html.pg-touch:has(body.hubbody:not(.adminbody)), html.pg-touch body.hubbody:not(.adminbody) { overscroll-behavior: none; }
+/* a character with no portrait: first and last initials, centred */
+.hc-pic.hc-nopic { display: grid !important; place-items: center; text-align: center; line-height: 1; padding: 0; font: 800 1.15rem Georgia, serif !important; letter-spacing: .02em; box-sizing: border-box; }
+.adm-char .hc-pic.hc-nopic { font-size: .8rem !important; }
+:where(body.hubbody) .ad-row .hc-pic.hc-nopic { font-size: .95rem !important; }
+/* pinned headers get their own layer, so taps on them never reach what's scrolling underneath (iPhone) */
+body.hubbody:not(.adminbody) .hub-head, body.adminbody .adm-side { -webkit-transform: translateZ(0); transform: translateZ(0); isolation: isolate; }
+/* admin on a phone: the pinned header keeps its own height; any spare room goes to the page below it */
+@media (max-width: 860px) { body.adminbody .adm { grid-template-rows: auto 1fr; align-content: start; } body.adminbody .adm-side { align-self: start; } }

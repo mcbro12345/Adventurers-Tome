@@ -36,7 +36,8 @@ function searchKeys(...parts) { const out = new Set(); parts.forEach(p => { p = 
 // picked from their email so the same person always looks the same.
 const escH = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const hueOf = t => [...String(t || '?')].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) % 360, 7);
-const initials = (name, em) => String(name || em || '?').split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
+// first and last initials: "Matthew Breaux" → MB, "Shade of Twilight of the Dark Forest" → SF
+const initials = (name, em) => { const w = String(name || em || '?').split(/[\s@._-]+/).filter(x => /[\p{L}\p{N}]/u.test(x)); return w.length ? (w[0][0] + (w.length > 1 ? w[w.length - 1][0] : '')).toUpperCase() : '?'; };
 // A person's picture: their initials on a colour (theirs, or one picked from their email), a character portrait, or an
 // uploaded image — which, if it has a transparent background, is shown as-is with no circle or border.
 const PG_SWATCH = ['#b4473a', '#d0743c', '#c9962b', '#7f9a35', '#2f8f62', '#24879a', '#3a6fb4', '#5a55b8', '#8a4cb0', '#b04c86', '#6b7280', '#2b3245'];
@@ -459,7 +460,7 @@ function hub(fs, auth, G, ctx) {
   const myName = () => NAMES[EMAIL] || user.displayName || EMAIL.split('@')[0];
   const isMine = c => (c.owner || '') === EMAIL;
   const close = () => modal.classList.remove('on');
-  const pic = c => c.thumb ? `<img class="hc-pic" src="${esc(c.thumb)}" alt="">` : `<span class="hc-pic hc-nopic">${esc((c.name || '?')[0])}</span>`;
+  const pic = c => c.thumb ? `<img class="hc-pic" src="${esc(c.thumb)}" alt="">` : `<span class="hc-pic hc-nopic">${esc(initials(c.name || '?'))}</span>`;
   // The wordmark: a gold d20 crest beside "Adventurer's" in spaced small caps over a large serif "Tome".
   const shareIcon = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>';
   // Icons for the ⋯ menus (same line style as the old row buttons).
@@ -680,11 +681,11 @@ function hub(fs, auth, G, ctx) {
         : `<p class="hub-empty">Nothing has been shared with you yet. When another player shares a character with ${esc(EMAIL)}, it shows up here.</p>`)
       : (mine.length ? `<div class="hl">${mine.sort(ord).map(row).join('')}</div>` : `<p class="hub-empty">You don’t have any characters yet — create one, or ask whoever has yours to give it to you.</p>`);
     const keepLogo = root.querySelector('.hub-logo');
-    root.innerHTML = `<header class="hub-top">${logoHTML()}
+    root.innerHTML = `<div class="hub-head"><header class="hub-top">${logoHTML()}
       <div class="hub-side"><div class="hub-prof"><button class="hp-pic" id="me-pic" title="Choose your picture" aria-label="Choose your picture">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(myAva())}<span class="hp-edit" aria-hidden="true">✎</span></button>
         <div class="hp-txt"><b>${esc(myName())}</b><small>${esc(EMAIL)}</small><div class="hp-row"><button class="linkbtn" id="me-out">Sign out</button>${IS_ADMIN ? '<button class="btn hub-admin" id="hub-admin">⚙ Admin</button>' : ''}</div></div></div></div></header>
       <div class="hub-views"><button class="${SH ? '' : 'on'}" data-view="mine">My characters <span>${mine.length}</span></button><button class="${SH ? 'on' : ''}" data-view="shared">Shared characters <span>${shared.length}</span></button><button class="hub-new" id="hub-new"><span class="hn-plus" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="hn-txt"><b>Create character</b></span></button></div>
-      <div class="hub-scroll">${body}</div>`;
+      </div><div class="hub-list">${body}</div>`;
     if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
     const nb = root.querySelector('#hub-new'); if (nb) nb.onclick = createChar;
     root.querySelector('#me-out').onclick = signOut;
@@ -817,7 +818,7 @@ function hub(fs, auth, G, ctx) {
     async function tabUsers(more) {
       const el = B();
       if (!more) { HA().innerHTML = ''; el.innerHTML = toolbar('ad-uq', 'Search by name or email', UQ) + '<div id="ad-ul"><p class="adm-dim">Loading…</p></div>';
-        const q = el.querySelector('#ad-uq'); let t = null; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { UQ = q.value; ULAST = null; UROWS = []; tabUsersList(); }, 250); }; if (!UQ) q.focus(); }
+        const q = el.querySelector('#ad-uq'); let t = null; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { UQ = q.value; ULAST = null; UROWS = []; tabUsersList(); }, 250); }; if (!UQ && !TOUCH) q.focus(); }
       tabUsersList(more);
     }
     async function tabUsersList(more) {
