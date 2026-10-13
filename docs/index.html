@@ -17222,7 +17222,7 @@ window.addEventListener('resize', () => { if (!UI.layout) { const was = isMobile
 // the database only lets that player — and the DM — open or change it.
 const ADMIN_EMAIL = 'matthewcbro@gmail.com';
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013005129';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013010256';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   let C = clean(Q.get('c')), G = clean(Q.get('g'));
   const P = (Q.get('p') || '').slice(0, 60), O = (Q.get('o') || '').trim().toLowerCase().slice(0, 120);
@@ -17258,9 +17258,18 @@ const ADMIN_EMAIL = 'matthewcbro@gmail.com';
   let PLAYERS = {};
   const nameFrom = g => { try { const p = (g && g.players) || {}; PLAYERS = p; if (p[EMAIL]) NAME = p[EMAIL]; } catch (e) {} };
 
-  // A newer version of the site was pushed: offer a reload (anything open is saved first).
-  const verCheck = () => { const check = async () => { try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); const v = (await r.json()).v; if (v && v !== VER && !document.getElementById('pg-upd')) { const b = document.createElement('button'); b.id = 'pg-upd'; b.textContent = 'Updated — tap to reload'; b.onclick = () => { b.textContent = 'Saving…'; setTimeout(() => location.reload(), 1200); }; document.body.appendChild(b); } } catch (e) {} };
-    setInterval(check, 2 * 60 * 1000); document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); }); setTimeout(check, 5000); };
+  // A newer version of the site was pushed: load it. The party page reloads right away; a sheet reloads as soon as
+  // nobody is in the middle of using it (or on a tap), after its last change has saved. The new address carries
+  // the version so the browser can't hand back its old cached copy.
+  const verCheck = () => { let NEWV = null, idleT = null;
+    const go = () => { const u = new URL(location.href); u.searchParams.set('v', NEWV); setTimeout(() => location.replace(u.toString()), 1200); };
+    const busy = () => { const a = document.activeElement; return !!(a && /INPUT|TEXTAREA|SELECT/.test(a.tagName)) || !!document.querySelector('#modal.open, .hub-modal.on'); };
+    const idle = () => { clearTimeout(idleT); idleT = setTimeout(() => { if (NEWV && (document.hidden || !busy())) go(); else idle(); }, 15000); };
+    const check = async () => { if (NEWV) return; try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); const v = (await r.json()).v; if (!v || v === VER || Q.get('v') === v) return; NEWV = v;
+      if (!C && !Q.get('new') && !busy()) return go();
+      const b = document.createElement('button'); b.id = 'pg-upd'; b.textContent = 'Updated — tap to reload'; b.onclick = () => { b.textContent = 'Saving…'; go(); }; document.body.appendChild(b);
+      ['pointerdown', 'keydown', 'scroll'].forEach(ev => addEventListener(ev, idle, { passive: true })); idle(); } catch (e) {} };
+    setInterval(check, 30 * 1000); document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); else if (NEWV) go(); }); setTimeout(check, 3000); };
   if (G && !C && !Q.get('new')) { lsSet(LAST_G, G); if (load) load.remove(); hub(fs, auth, G, { EMAIL, IS_ADMIN, IS_OWNER, ADMINS, user, signOut }); verCheck(); return; }
 
   const rid = () => { const a = new Uint8Array(18); crypto.getRandomValues(a); return btoa(String.fromCharCode(...a)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
@@ -17308,7 +17317,7 @@ const ADMIN_EMAIL = 'matthewcbro@gmail.com';
     const when = changed ? { updatedAt: Date.now(), by: NAME } : {};
     try { await hubCol.doc(C).set(Object.assign({ owner: OWNER, name: s.name, player: s.player, race: s.race, cls: s.cls, level: s.level, hp: s.hp, thumb: await thumb(s.portrait) }, when), { merge: true }); } catch (e) { console.warn('hub', e); } };
   const hubSoon = () => { try { const d = digest(window.sheetState()); if (LASTD !== null && d !== LASTD) hubChanged = true; LASTD = d; } catch (e) {}
-    clearTimeout(hubT); hubT = setTimeout(() => { const c = hubChanged; hubChanged = false; hubUpdate(c); }, 4000); };
+    clearTimeout(hubT); hubT = setTimeout(() => { const c = hubChanged; hubChanged = false; hubUpdate(c); }, 1200); };
 
   // The sheet's sync code talks to "db" like it does on claude.ai; here that's this character's Firestore documents.
   const docFor = p => { const m = /^sheets\/(main|part(\d+))$/.exec(p); return m ? [col.doc(m[2] ? C + '_p' + m[2] : C), !m[2]] : null; };
