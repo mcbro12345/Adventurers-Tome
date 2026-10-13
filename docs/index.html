@@ -13,7 +13,7 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.b95d027a43b7.css">
+<link rel="stylesheet" href="a/sheet.3215cef742c0.css">
 <link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
@@ -548,6 +548,89 @@ html.pg-inphone::-webkit-scrollbar { display: none; }
 .pgph-th { position: absolute; left: 0; right: 0; min-height: 28px; border-radius: 6px; background: rgba(201,150,43,.65); cursor: grab; touch-action: none; }
 .pgph-th:hover, .pgph-th.drag { background: #c9962b; }
 .pgph-th.drag { cursor: grabbing; }
+
+/* ================= Characters page: fixed top, only the list scrolls ================= */
+html:has(body.hubbody:not(.adminbody)) { background: #1f2a40; }
+@media (prefers-color-scheme: light) { html:has(body.hubbody:not(.adminbody)) { background: #fbf6ea; } }
+body.hubbody:not(.adminbody) { height: 100vh; height: 100dvh; overflow: hidden; }
+body.hubbody:not(.adminbody) #hub { max-width: none; height: 100%; display: flex; flex-direction: column; padding: 0; box-sizing: border-box; }
+body.hubbody:not(.adminbody) #hub > .hub-top, body.hubbody:not(.adminbody) #hub > .hub-views { flex: none; width: 100%; max-width: 888px; margin-left: auto; margin-right: auto; box-sizing: border-box; }
+body.hubbody:not(.adminbody) #hub > .hub-top { margin-top: calc(22px + env(safe-area-inset-top)); }
+body.hubbody:not(.adminbody) #hub > .hub-views { margin-bottom: 0; padding-bottom: 14px; }
+body.hubbody:not(.adminbody) .hub-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 2px 16px calc(120px + env(safe-area-inset-bottom)); scrollbar-width: thin; scrollbar-color: rgba(201,150,43,.45) transparent; }
+html.pg-touch body.hubbody .hub-scroll:has(.hc-menu.on) { position: relative; z-index: 210; }
+body.hubbody:not(.adminbody) .hub-scroll > * { max-width: 888px; margin-left: auto !important; margin-right: auto !important; }
+body.hubbody:not(.adminbody) .hub-scroll > .hub-folder:first-child, body.hubbody:not(.adminbody) .hub-scroll > .hl:first-child { margin-top: 6px; }
+@media (min-width: 921px) { body.hubbody:not(.adminbody) #hub > .hub-top, body.hubbody:not(.adminbody) #hub > .hub-views { padding-left: 0; padding-right: 0; } }
+@media (max-width: 920px) { body.hubbody:not(.adminbody) #hub > .hub-top, body.hubbody:not(.adminbody) #hub > .hub-views { width: calc(100% - 32px); } }
+
+/* ================= Phones: logo and profile side by side, smaller ================= */
+@media (max-width: 640px) {
+  :where(body.hubbody) #hub-admin { display: inline-flex; }
+  body.hubbody:not(.adminbody) #hub > .hub-top { flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 10px; margin-top: calc(12px + env(safe-area-inset-top)); }
+  :where(body.hubbody) .hub-top .hub-logo { gap: 8px; min-width: 0; flex: 0 1 auto; }
+  :where(body.hubbody) .hub-top .hl-d20 { width: 44px !important; height: 44px !important; }
+  :where(body.hubbody) .hub-top .hl-t { font-size: 1.75rem !important; }
+  :where(body.hubbody) .hub-top .hl-a { font-size: .56rem !important; letter-spacing: .26em !important; margin-bottom: 1px; }
+  :where(body.hubbody) .hub-side { flex: 0 1 auto; min-width: 0; align-items: center !important; }
+  :where(body.hubbody) .hub-prof { gap: 8px; align-items: center; min-width: 0; }
+  :where(body.hubbody) .hp-pic .pg-ava { width: 38px !important; height: 38px !important; font-size: .8rem !important; }
+  :where(body.hubbody) .hp-txt { min-width: 0; }
+  :where(body.hubbody) .hp-txt b { font-size: .84rem; display: block; max-width: 36vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  :where(body.hubbody) .hp-txt small { display: block; font-size: .66rem; max-width: 36vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  :where(body.hubbody) .hp-row { gap: 8px; margin-top: 2px; flex-wrap: nowrap; align-items: center; white-space: nowrap; }
+  :where(body.hubbody) .hp-row > * { white-space: nowrap; flex: none; }
+  :where(body.hubbody) .hp-row .linkbtn { font-size: .8rem; }
+  :where(body.hubbody) .hp-row .hub-admin { padding: 3px 8px; font-size: .74rem; }
+  :where(body.hubbody) .hp-edit { display: none; }
+  body.hubbody:not(.adminbody) #hub > .hub-views { gap: 6px; }
+  body.hubbody:not(.adminbody) .hub-views > button[data-view] { flex: 1 1 0; justify-content: center; padding: 9px 8px; font-size: .84rem; }
+  body.hubbody:not(.adminbody) .hub-views .hub-new { flex: 1 1 100%; }
+}
+
+/* ================= Touchscreens: taps light things up, not hovering ================= */
+html.pg-touch, html.pg-touch * { -webkit-tap-highlight-color: transparent; }
+html.pg-touch :where(body.hubbody) .hl-d20, html.pg-touch .adm-brand .hl-d20 { cursor: pointer; touch-action: manipulation; }
+html.pg-touch :where(body.hubbody) :is(.hc, .hr) { transition: transform .12s ease, background-color .12s ease, border-color .12s ease; }
+html.pg-touch :where(body.hubbody) :is(.hc:has(> .hc-main:active), .hr:has(> .hr-main:active)) { transform: scale(.985); border-color: #c9962b; background-color: rgba(201,150,43,.1); }
+html.pg-touch :where(body.hubbody) :is(.btn, .hub-new, .hub-views button, .hc-dots, .linkbtn, .hp-pic, .pp-tabs button, .pp-opt, .pp-c, .hc-list button, .adm-kebab, .adm-mlist button, .adm-nav a, .adm-nav button, .hub-folder summary):active { transform: scale(.96); filter: brightness(1.15); transition: transform .08s; }
+html.pg-touch :where(body.hubbody) :is(.hc-list button, .adm-mlist button):active { background: rgba(201,150,43,.18); }
+html.pg-touch :where(body.hubbody) .hc-dots { width: 42px; height: 34px; font-size: 1.2rem; opacity: .7; }
+html.pg-touch :where(body.hubbody) .hr-menu .hc-dots { margin-right: 2px; }
+html.pg-touch :where(body.hubbody) .adm-t tbody tr:active td { background: var(--adm-hover); }
+
+/* ⋯ menus open as a sheet from the bottom of a phone screen */
+@media (max-width: 640px) {
+  html.pg-touch :where(body.hubbody) :is(.hc, .hr):has(.hc-menu.on) { z-index: 210; }
+  html.pg-touch body.hubbody:has(.hc-menu.on)::after, html.pg-touch body.hubbody:has(.adm-mwrap.on)::after { content: ''; position: fixed; inset: 0; z-index: 200; background: rgba(5,8,14,.55); animation: pgFade .15s ease-out; }
+  html.pg-touch :where(body.hubbody) .hc-menu.on .hc-list, html.pg-touch .adm-mwrap.on .adm-mlist { position: fixed; left: 10px; right: 10px; top: auto; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 220; min-width: 0; padding: 8px; border-radius: 18px; box-shadow: 0 -10px 40px rgba(0,0,0,.45); animation: pgSheet .2s cubic-bezier(.2,.9,.3,1); }
+  html.pg-touch :where(body.hubbody) .hc-menu.on .hc-list button, html.pg-touch .adm-mwrap.on .adm-mlist button { padding: 15px 14px; font-size: 1rem; border-radius: 12px; gap: 14px; }
+  html.pg-touch :where(body.hubbody) .hc-menu.on .hc-list .mi { width: 20px; height: 20px; }
+  html.pg-touch .adm-mwrap:has(.adm-mlist) { position: static; }
+  html.pg-touch body.adminbody .adm-tw { overflow: visible; }
+}
+@keyframes pgSheet { from { transform: translateY(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes pgFade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ================= Admin on a phone ================= */
+@media (max-width: 640px) {
+  body.adminbody .adm-t, body.adminbody .adm-t tbody, body.adminbody .adm-t tr, body.adminbody .adm-t td { display: block; width: auto; }
+  body.adminbody .adm-t thead { display: none; }
+  body.adminbody .adm-tw { border: 0; background: none; border-radius: 0; }
+  body.adminbody .adm-t tbody > tr:not(.adm-subrow) { position: relative; margin: 0 0 10px; padding: 12px 14px; border: 1px solid var(--adm-line); border-radius: 14px; background: var(--adm-panel); }
+  body.adminbody .adm-t td { padding: 3px 0; border: 0 !important; white-space: normal !important; background: none !important; font-size: .86rem; }
+  body.adminbody .adm-t td[data-l]:not(:first-child)::before { content: attr(data-l); display: inline-block; min-width: 92px; margin-right: 8px; font: 700 .66rem system-ui, sans-serif; letter-spacing: .07em; text-transform: uppercase; color: var(--adm-dim); }
+  body.adminbody .adm-t td:first-child { padding: 0 52px 6px 0; font-size: .95rem; }
+  body.adminbody .adm-t td.adm-act { position: absolute; top: 8px; right: 8px; padding: 0; }
+  body.adminbody .adm-t td.adm-act::before { display: none !important; }
+  body.adminbody .adm-mail { word-break: break-all; }
+  body.adminbody .adm-kebab { width: 40px; height: 36px; }
+  body.adminbody .adm-subrow > td { padding: 6px 0 0 !important; }
+}
+
+/* sheets on a computer: the Adventurer's Tome button stays hidden until it has settled above the toolbar */
+html.pg-sheetpage:not(.mobile):not(.pg-al) .pg-hublink, html.pg-sheetpage:not(.mobile):not(.pg-al) .pg-pres { opacity: 0; pointer-events: none; }
+html.pg-sheetpage.pg-al:not(.mobile) .pg-hublink, html.pg-sheetpage.pg-al:not(.mobile) .pg-pres { transition: opacity .2s; }
 </style>
 </head>
 <body>
@@ -658,17 +741,27 @@ function rollDie(root) {
     const dd = root.querySelector('.hl-d20') || d; dd.classList.remove('hl-rolling'); dd.classList.toggle('crit', PG_DIE.n === 20); dd.classList.toggle('fumble', PG_DIE.n === 1); PG_DIE.rolling = false; };
   anim.finished.then(land, land);
 }
+// Touchscreens (no mouse to hover with): hover effects are switched off so nothing lights up by itself; taps get their own feedback.
+const TOUCH = (() => { try { return matchMedia('(hover: none)').matches; } catch (e) { return false; } })();
+function noHover() {
+  const split = sel => { const out = []; let d = 0, cur = ''; for (const ch of sel) { if (ch === '(') d++; if (ch === ')') d--; if (ch === ',' && !d) { out.push(cur); cur = ''; } else cur += ch; } out.push(cur); return out; };
+  const walk = (list, owner) => { for (let i = list.length - 1; i >= 0; i--) { const r = list[i];
+    if (r.selectorText != null) { if (!r.selectorText.includes(':hover')) continue; const keep = split(r.selectorText).filter(x => !x.includes(':hover')); if (keep.length) r.selectorText = keep.join(','); else owner.deleteRule(i); }
+    else if (r.cssRules) walk(r.cssRules, r); } };
+  for (const sh of document.styleSheets) { let rs; try { rs = sh.cssRules; } catch (e) { continue; } try { walk(rs, sh); } catch (e) {} } }
 function wireDie(root) {
   // It rolls once by itself when the page appears; after that, moving onto it rolls it again.
   if (!PG_DIE.auto) { PG_DIE.auto = true; setTimeout(() => rollDie(root), 350); }
   // Only a real move onto the die rolls it — not the list redrawing underneath a resting pointer, or a page load.
   addEventListener('pointermove', () => { if (PG_DIE.over === true) PG_DIE.over = !!document.querySelector('.hl-d20:hover'); }, { once: true });
   root.addEventListener('mouseout', e => { const d = e.target.closest && e.target.closest('.hl-d20'); if (d && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.hl-d20'))) PG_DIE.over = false; });
-  root.addEventListener('mouseover', e => { const d = e.target.closest && e.target.closest('.hl-d20'); if (!d || PG_DIE.rolling || PG_DIE.over || (e.relatedTarget && d.contains(e.relatedTarget))) return;
+  // a tap (or click) on the die rolls it too
+  root.addEventListener('click', e => { if (e.target.closest && e.target.closest('.hl-d20')) rollDie(root); });
+  root.addEventListener('mouseover', e => { if (TOUCH) return; const d = e.target.closest && e.target.closest('.hl-d20'); if (!d || PG_DIE.rolling || PG_DIE.over || (e.relatedTarget && d.contains(e.relatedTarget))) return;
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013171425', ASSETS = {"data": "a/data.3f7e0dc5a0bb.js", "app": "a/app.1b4480f0cc3d.js"};
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013172523', ASSETS = {"data": "a/data.3f7e0dc5a0bb.js", "app": "a/app.2d69dfd91d60.js"};
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -676,7 +769,7 @@ function wireDie(root) {
   // Phone view on a computer: the sheet runs inside a phone-sized frame, so it looks exactly as it does on a phone.
   const FRAMED = window.top !== window && Q.has('pgframe'), PHONE_KEY = 'pg-phoneview';
   if (FRAMED) { window.PG_IN_PHONE = true; window.PG_FORCE_MOBILE = true; document.documentElement.classList.add('pg-inphone'); }
-  window.pgPhoneView = on => { try { on ? localStorage.setItem(PHONE_KEY, '1') : localStorage.removeItem(PHONE_KEY); } catch (e) {}
+  window.pgPhoneView = on => { try { localStorage.removeItem(PHONE_KEY); on ? sessionStorage.setItem(PHONE_KEY, '1') : sessionStorage.removeItem(PHONE_KEY); } catch (e) {}
     if (FRAMED) { try { window.top.location.reload(); } catch (e) {} } else location.reload(); };
   const P = (Q.get('p') || '').slice(0, 60), O = (Q.get('o') || '').trim().toLowerCase().slice(0, 120);
   const LAST_G = 'dnd-hub-group';
@@ -817,7 +910,8 @@ function wireDie(root) {
     setTimeout(() => [ASSETS.data, ASSETS.app].forEach(u => { const l = document.createElement('link'); l.rel = 'prefetch'; l.href = u; document.head.appendChild(l); }), 2500); return; }
 
   // Phone view chosen on a wide screen: show the sheet in a phone frame instead of stretching the phone layout.
-  let phoneOn = false; try { phoneOn = localStorage.getItem(PHONE_KEY) === '1'; } catch (e) {}
+  // (asked for just now — it's used once, so reloading or coming back later shows the layout for this device again)
+  let phoneOn = false; try { phoneOn = sessionStorage.getItem(PHONE_KEY) === '1'; sessionStorage.removeItem(PHONE_KEY); localStorage.removeItem(PHONE_KEY); } catch (e) {}
   if (C && !NEWQ && !FRAMED && phoneOn && innerWidth >= 640) {
     if (load) load.remove(); document.documentElement.classList.remove('pg-loading'); document.documentElement.classList.add('pg-phonehost');
     const u = new URL(location.href); u.searchParams.set('pgframe', '1'); u.searchParams.delete('v');
@@ -944,7 +1038,10 @@ function wireDie(root) {
       if (de.classList.contains('mobile') || !lv || !tb) { de.classList.remove('pg-al'); a.style.left = a.style.top = ''; return; }
       const lr = lv.getBoundingClientRect(), tbh = tb.offsetHeight;
       de.style.setProperty('--pg-tbm', Math.max(a.offsetHeight + 8, Math.round(lr.height - tbh)) + 'px');
-      const tr = tb.getBoundingClientRect(); a.style.left = Math.round(tr.left + scrollX) + 'px'; a.style.top = Math.round(lr.top + scrollY) + 'px'; de.classList.add('pg-al'); };
+      const tr = tb.getBoundingClientRect(), pos = Math.round(tr.left + scrollX) + ',' + Math.round(lr.top + scrollY);
+      a.style.left = Math.round(tr.left + scrollX) + 'px'; a.style.top = Math.round(lr.top + scrollY) + 'px';
+      // shown once two measurements in a row agree (the header has finished laying out)
+      if (pos === align.last) de.classList.add('pg-al'); else { align.last = pos; setTimeout(align, 60); } };
     addEventListener('resize', align); setInterval(align, 600); setTimeout(align, 50);
   }
   // Who's looking at this sheet right now — shown once it's shared: small portraits beside the back button, you too.
@@ -1008,6 +1105,9 @@ function hub(fs, auth, G, ctx) {
   document.body.innerHTML = '<div id="hub"></div><div id="hub-modal" class="hub-modal"></div><div id="hub-toast" class="hub-toast"></div>';
   document.body.className = 'hubbody' + (ADMIN ? ' adminbody' : '');
   const root = document.getElementById('hub'), modal = document.getElementById('hub-modal');
+  if (TOUCH && !document.documentElement.classList.contains('pg-touch')) { document.documentElement.classList.add('pg-touch'); noHover(); }
+  // the phone's status bar takes the colour of the top of the page
+  [['(prefers-color-scheme: dark)', '#1f2a40'], ['(prefers-color-scheme: light)', '#fbf6ea']].forEach(([m, c]) => { let t = document.querySelector(`meta[name="theme-color"][media="${m}"]`); if (!t) { t = document.createElement('meta'); t.name = 'theme-color'; t.media = m; document.head.appendChild(t); } t.content = c; });
   let chars = [], open = {}, view = ctx.view === 'shared' ? 'shared' : 'mine';
   try { open = JSON.parse(ls.get(OPEN) || '{}'); } catch (e) {}
   const toast = t => { const el = document.getElementById('hub-toast'); el.textContent = t; el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), 2600); };
@@ -1225,7 +1325,8 @@ function hub(fs, auth, G, ctx) {
     const tgt = peers.find(x => { const bb = x.getBoundingClientRect(); return e.clientY < bb.top + bb.height / 2; });
     const want = tgt ? tgt : peers[peers.length - 1];
     if (tgt ? RD.ph.nextElementSibling !== tgt : RD.ph.previousElementSibling !== want) slide(rows, () => tgt ? tgt.before(RD.ph) : want.after(RD.ph));
-    const edge = 60; if (e.clientY < edge) scrollBy(0, -10); else if (e.clientY > innerHeight - edge) scrollBy(0, 10); }, { passive: false });
+    const sc = RD.list.closest('.hub-scroll'), sr = sc ? sc.getBoundingClientRect() : { top: 0, bottom: innerHeight }, edge = 60, by = y => sc ? sc.scrollBy(0, y) : scrollBy(0, y);
+    if (e.clientY < sr.top + edge) by(-10); else if (e.clientY > sr.bottom - edge) by(10); }, { passive: false });
   const endDrag = () => { if (!RD) return; const d = RD; RD = null; const pb = d.ph.getBoundingClientRect();
     d.r.style.transition = 'top .16s ease, box-shadow .16s'; d.r.style.top = pb.top + 'px'; d.r.classList.remove('drag');
     setTimeout(() => { d.ph.replaceWith(d.r); d.r.removeAttribute('style'); document.body.classList.remove('hdragging');
@@ -1247,7 +1348,7 @@ function hub(fs, auth, G, ctx) {
       <div class="hub-side"><div class="hub-prof"><button class="hp-pic" id="me-pic" title="Choose your picture" aria-label="Choose your picture">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(myAva())}<span class="hp-edit" aria-hidden="true">✎</span></button>
         <div class="hp-txt"><b>${esc(myName())}</b><small>${esc(EMAIL)}</small><div class="hp-row"><button class="linkbtn" id="me-out">Sign out</button>${IS_ADMIN ? '<button class="btn hub-admin" id="hub-admin">⚙ Admin</button>' : ''}</div></div></div></div></header>
       <div class="hub-views"><button class="${SH ? '' : 'on'}" data-view="mine">My characters <span>${mine.length}</span></button><button class="${SH ? 'on' : ''}" data-view="shared">Shared characters <span>${shared.length}</span></button><button class="hub-new" id="hub-new"><span class="hn-plus" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="hn-txt"><b>Create character</b></span></button></div>
-      ${body}`;
+      <div class="hub-scroll">${body}</div>`;
     if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
     const nb = root.querySelector('#hub-new'); if (nb) nb.onclick = createChar;
     root.querySelector('#me-out').onclick = signOut;
@@ -1298,7 +1399,10 @@ function hub(fs, auth, G, ctx) {
     const picFor = em => PICQ[em] || (PICQ[em] = userDoc(em).then(u => PICS[em] = avaOf(u), () => PICS[em] = {}));
     const fillPics = () => root.querySelectorAll('.adm-ava[data-em]:not([data-f])').forEach(el => { const em = el.dataset.em; el.dataset.f = 1; if (!em) return; picFor(em).then(a => { if (!el.isConnected || !a) return;
       if (a.pic) { el.classList.add('has-pic'); el.classList.toggle('clear', !!a.clear); el.removeAttribute('style'); el.innerHTML = `<img src="${esc(a.pic)}" alt="">`; } else if (a.color) { el.style.background = a.color; el.style.color = inkOn(a.color); } }); });
-    new MutationObserver(() => fillPics()).observe(root, { childList: true, subtree: true });
+    // on a phone each table row becomes a small card; every value carries its column's name so it still reads clearly
+    const labelCells = () => root.querySelectorAll('table.adm-t:not([data-l])').forEach(t => { t.dataset.l = 1; const hs = [...t.querySelectorAll('thead th')].map(th => th.textContent.trim());
+      t.querySelectorAll('tbody > tr').forEach(tr => [...tr.children].forEach((td, i) => { if (hs[i] && !td.dataset.l) td.dataset.l = hs[i]; })); });
+    new MutationObserver(() => { fillPics(); labelCells(); }).observe(root, { childList: true, subtree: true });
     const roleOf = em => em === ADMIN_EMAIL ? ['Owner', 'r-own'] : ADMINS.includes(em) ? ['Admin', 'r-adm'] : ['Member', 'r-mem'];
     const when = t => t ? `<span title="${esc(new Date(t).toLocaleString())}">${esc(day(t))}</span>` : '<span class="adm-dim">—</span>';
     const kebab = items => `<div class="adm-mwrap"><button class="adm-kebab" aria-label="More actions">⋯</button><div class="adm-mlist">${items.map(([k, t, id, cls]) => `<button data-mi="${k}" data-id="${esc(id)}"${cls ? ` class="${cls}"` : ''}>${t}</button>`).join('')}</div></div>`;

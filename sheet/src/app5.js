@@ -1168,5 +1168,5 @@ loadHist(FROM_LOCAL);
 applyLayout(); applyTheme();
 if (S.created) { render(); setTimeout(afterUpdate, 50); }
 else openWizard();
-window.addEventListener('resize', () => { if (!UI.layout) { const was = isMobile(); applyLayout(); if (was !== isMobile() && S.created) render(); } });
+window.addEventListener('resize', () => { if (!LAYOUT_NOW) { const was = isMobile(); applyLayout(); if (was !== isMobile() && S.created) render(); } });
 })();

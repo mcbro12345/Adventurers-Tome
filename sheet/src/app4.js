@@ -25,7 +25,7 @@ function mainClick(e) {
     case 'rbquick': rollback(countSince(N(b.dataset.ms)), b.firstChild.textContent.trim()); break;
     case 'redoall': { const c = redo(REDO.length); closeModal(true); toast(`Redid ${c} change(s).`); break; }
     case 'layout': if (onPhone()) break; if (window.pgPhoneView && (window.PG_IN_PHONE || (!isMobile() && window.innerWidth >= 640))) { window.pgPhoneView(!window.PG_IN_PHONE); break; }
-      UI.layout = isMobile() ? 'desktop' : 'mobile'; saveUI(); applyLayout(); render(); window.scrollTo(0, 0); break;
+      LAYOUT_NOW = isMobile() ? 'desktop' : 'mobile'; applyLayout(); render(); window.scrollTo(0, 0); break;
     case 'attack': attackRoll(i, !b.closest('#page-combat') || !S.inCombat); break;
     case 'equip': equipItem(i); break;
     case 'resetturn': S.turn.haste = false; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.attacks = 0; S.turn.speed0 = ''; S.turn.sneak = false; S.turn.readied = null; update(); render('combat'); toast(`Turn reset — round ${N(S.turn.round) || 1} actions are ready again.`); break;

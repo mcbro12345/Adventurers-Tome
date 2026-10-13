@@ -74,13 +74,23 @@ function rollDie(root) {
     const dd = root.querySelector('.hl-d20') || d; dd.classList.remove('hl-rolling'); dd.classList.toggle('crit', PG_DIE.n === 20); dd.classList.toggle('fumble', PG_DIE.n === 1); PG_DIE.rolling = false; };
   anim.finished.then(land, land);
 }
+// Touchscreens (no mouse to hover with): hover effects are switched off so nothing lights up by itself; taps get their own feedback.
+const TOUCH = (() => { try { return matchMedia('(hover: none)').matches; } catch (e) { return false; } })();
+function noHover() {
+  const split = sel => { const out = []; let d = 0, cur = ''; for (const ch of sel) { if (ch === '(') d++; if (ch === ')') d--; if (ch === ',' && !d) { out.push(cur); cur = ''; } else cur += ch; } out.push(cur); return out; };
+  const walk = (list, owner) => { for (let i = list.length - 1; i >= 0; i--) { const r = list[i];
+    if (r.selectorText != null) { if (!r.selectorText.includes(':hover')) continue; const keep = split(r.selectorText).filter(x => !x.includes(':hover')); if (keep.length) r.selectorText = keep.join(','); else owner.deleteRule(i); }
+    else if (r.cssRules) walk(r.cssRules, r); } };
+  for (const sh of document.styleSheets) { let rs; try { rs = sh.cssRules; } catch (e) { continue; } try { walk(rs, sh); } catch (e) {} } }
 function wireDie(root) {
   // It rolls once by itself when the page appears; after that, moving onto it rolls it again.
   if (!PG_DIE.auto) { PG_DIE.auto = true; setTimeout(() => rollDie(root), 350); }
   // Only a real move onto the die rolls it — not the list redrawing underneath a resting pointer, or a page load.
   addEventListener('pointermove', () => { if (PG_DIE.over === true) PG_DIE.over = !!document.querySelector('.hl-d20:hover'); }, { once: true });
   root.addEventListener('mouseout', e => { const d = e.target.closest && e.target.closest('.hl-d20'); if (d && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.hl-d20'))) PG_DIE.over = false; });
-  root.addEventListener('mouseover', e => { const d = e.target.closest && e.target.closest('.hl-d20'); if (!d || PG_DIE.rolling || PG_DIE.over || (e.relatedTarget && d.contains(e.relatedTarget))) return;
+  // a tap (or click) on the die rolls it too
+  root.addEventListener('click', e => { if (e.target.closest && e.target.closest('.hl-d20')) rollDie(root); });
+  root.addEventListener('mouseover', e => { if (TOUCH) return; const d = e.target.closest && e.target.closest('.hl-d20'); if (!d || PG_DIE.rolling || PG_DIE.over || (e.relatedTarget && d.contains(e.relatedTarget))) return;
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
@@ -92,7 +102,7 @@ function wireDie(root) {
   // Phone view on a computer: the sheet runs inside a phone-sized frame, so it looks exactly as it does on a phone.
   const FRAMED = window.top !== window && Q.has('pgframe'), PHONE_KEY = 'pg-phoneview';
   if (FRAMED) { window.PG_IN_PHONE = true; window.PG_FORCE_MOBILE = true; document.documentElement.classList.add('pg-inphone'); }
-  window.pgPhoneView = on => { try { on ? localStorage.setItem(PHONE_KEY, '1') : localStorage.removeItem(PHONE_KEY); } catch (e) {}
+  window.pgPhoneView = on => { try { localStorage.removeItem(PHONE_KEY); on ? sessionStorage.setItem(PHONE_KEY, '1') : sessionStorage.removeItem(PHONE_KEY); } catch (e) {}
     if (FRAMED) { try { window.top.location.reload(); } catch (e) {} } else location.reload(); };
   const P = (Q.get('p') || '').slice(0, 60), O = (Q.get('o') || '').trim().toLowerCase().slice(0, 120);
   const LAST_G = 'dnd-hub-group';
@@ -233,7 +243,8 @@ function wireDie(root) {
     setTimeout(() => [ASSETS.data, ASSETS.app].forEach(u => { const l = document.createElement('link'); l.rel = 'prefetch'; l.href = u; document.head.appendChild(l); }), 2500); return; }
 
   // Phone view chosen on a wide screen: show the sheet in a phone frame instead of stretching the phone layout.
-  let phoneOn = false; try { phoneOn = localStorage.getItem(PHONE_KEY) === '1'; } catch (e) {}
+  // (asked for just now — it's used once, so reloading or coming back later shows the layout for this device again)
+  let phoneOn = false; try { phoneOn = sessionStorage.getItem(PHONE_KEY) === '1'; sessionStorage.removeItem(PHONE_KEY); localStorage.removeItem(PHONE_KEY); } catch (e) {}
   if (C && !NEWQ && !FRAMED && phoneOn && innerWidth >= 640) {
     if (load) load.remove(); document.documentElement.classList.remove('pg-loading'); document.documentElement.classList.add('pg-phonehost');
     const u = new URL(location.href); u.searchParams.set('pgframe', '1'); u.searchParams.delete('v');
@@ -360,7 +371,10 @@ function wireDie(root) {
       if (de.classList.contains('mobile') || !lv || !tb) { de.classList.remove('pg-al'); a.style.left = a.style.top = ''; return; }
       const lr = lv.getBoundingClientRect(), tbh = tb.offsetHeight;
       de.style.setProperty('--pg-tbm', Math.max(a.offsetHeight + 8, Math.round(lr.height - tbh)) + 'px');
-      const tr = tb.getBoundingClientRect(); a.style.left = Math.round(tr.left + scrollX) + 'px'; a.style.top = Math.round(lr.top + scrollY) + 'px'; de.classList.add('pg-al'); };
+      const tr = tb.getBoundingClientRect(), pos = Math.round(tr.left + scrollX) + ',' + Math.round(lr.top + scrollY);
+      a.style.left = Math.round(tr.left + scrollX) + 'px'; a.style.top = Math.round(lr.top + scrollY) + 'px';
+      // shown once two measurements in a row agree (the header has finished laying out)
+      if (pos === align.last) de.classList.add('pg-al'); else { align.last = pos; setTimeout(align, 60); } };
     addEventListener('resize', align); setInterval(align, 600); setTimeout(align, 50);
   }
   // Who's looking at this sheet right now — shown once it's shared: small portraits beside the back button, you too.
@@ -424,6 +438,9 @@ function hub(fs, auth, G, ctx) {
   document.body.innerHTML = '<div id="hub"></div><div id="hub-modal" class="hub-modal"></div><div id="hub-toast" class="hub-toast"></div>';
   document.body.className = 'hubbody' + (ADMIN ? ' adminbody' : '');
   const root = document.getElementById('hub'), modal = document.getElementById('hub-modal');
+  if (TOUCH && !document.documentElement.classList.contains('pg-touch')) { document.documentElement.classList.add('pg-touch'); noHover(); }
+  // the phone's status bar takes the colour of the top of the page
+  [['(prefers-color-scheme: dark)', '#1f2a40'], ['(prefers-color-scheme: light)', '#fbf6ea']].forEach(([m, c]) => { let t = document.querySelector(`meta[name="theme-color"][media="${m}"]`); if (!t) { t = document.createElement('meta'); t.name = 'theme-color'; t.media = m; document.head.appendChild(t); } t.content = c; });
   let chars = [], open = {}, view = ctx.view === 'shared' ? 'shared' : 'mine';
   try { open = JSON.parse(ls.get(OPEN) || '{}'); } catch (e) {}
   const toast = t => { const el = document.getElementById('hub-toast'); el.textContent = t; el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), 2600); };
@@ -641,7 +658,8 @@ function hub(fs, auth, G, ctx) {
     const tgt = peers.find(x => { const bb = x.getBoundingClientRect(); return e.clientY < bb.top + bb.height / 2; });
     const want = tgt ? tgt : peers[peers.length - 1];
     if (tgt ? RD.ph.nextElementSibling !== tgt : RD.ph.previousElementSibling !== want) slide(rows, () => tgt ? tgt.before(RD.ph) : want.after(RD.ph));
-    const edge = 60; if (e.clientY < edge) scrollBy(0, -10); else if (e.clientY > innerHeight - edge) scrollBy(0, 10); }, { passive: false });
+    const sc = RD.list.closest('.hub-scroll'), sr = sc ? sc.getBoundingClientRect() : { top: 0, bottom: innerHeight }, edge = 60, by = y => sc ? sc.scrollBy(0, y) : scrollBy(0, y);
+    if (e.clientY < sr.top + edge) by(-10); else if (e.clientY > sr.bottom - edge) by(10); }, { passive: false });
   const endDrag = () => { if (!RD) return; const d = RD; RD = null; const pb = d.ph.getBoundingClientRect();
     d.r.style.transition = 'top .16s ease, box-shadow .16s'; d.r.style.top = pb.top + 'px'; d.r.classList.remove('drag');
     setTimeout(() => { d.ph.replaceWith(d.r); d.r.removeAttribute('style'); document.body.classList.remove('hdragging');
@@ -663,7 +681,7 @@ function hub(fs, auth, G, ctx) {
       <div class="hub-side"><div class="hub-prof"><button class="hp-pic" id="me-pic" title="Choose your picture" aria-label="Choose your picture">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(myAva())}<span class="hp-edit" aria-hidden="true">✎</span></button>
         <div class="hp-txt"><b>${esc(myName())}</b><small>${esc(EMAIL)}</small><div class="hp-row"><button class="linkbtn" id="me-out">Sign out</button>${IS_ADMIN ? '<button class="btn hub-admin" id="hub-admin">⚙ Admin</button>' : ''}</div></div></div></div></header>
       <div class="hub-views"><button class="${SH ? '' : 'on'}" data-view="mine">My characters <span>${mine.length}</span></button><button class="${SH ? 'on' : ''}" data-view="shared">Shared characters <span>${shared.length}</span></button><button class="hub-new" id="hub-new"><span class="hn-plus" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="hn-txt"><b>Create character</b></span></button></div>
-      ${body}`;
+      <div class="hub-scroll">${body}</div>`;
     if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
     const nb = root.querySelector('#hub-new'); if (nb) nb.onclick = createChar;
     root.querySelector('#me-out').onclick = signOut;
@@ -714,7 +732,10 @@ function hub(fs, auth, G, ctx) {
     const picFor = em => PICQ[em] || (PICQ[em] = userDoc(em).then(u => PICS[em] = avaOf(u), () => PICS[em] = {}));
     const fillPics = () => root.querySelectorAll('.adm-ava[data-em]:not([data-f])').forEach(el => { const em = el.dataset.em; el.dataset.f = 1; if (!em) return; picFor(em).then(a => { if (!el.isConnected || !a) return;
       if (a.pic) { el.classList.add('has-pic'); el.classList.toggle('clear', !!a.clear); el.removeAttribute('style'); el.innerHTML = `<img src="${esc(a.pic)}" alt="">`; } else if (a.color) { el.style.background = a.color; el.style.color = inkOn(a.color); } }); });
-    new MutationObserver(() => fillPics()).observe(root, { childList: true, subtree: true });
+    // on a phone each table row becomes a small card; every value carries its column's name so it still reads clearly
+    const labelCells = () => root.querySelectorAll('table.adm-t:not([data-l])').forEach(t => { t.dataset.l = 1; const hs = [...t.querySelectorAll('thead th')].map(th => th.textContent.trim());
+      t.querySelectorAll('tbody > tr').forEach(tr => [...tr.children].forEach((td, i) => { if (hs[i] && !td.dataset.l) td.dataset.l = hs[i]; })); });
+    new MutationObserver(() => { fillPics(); labelCells(); }).observe(root, { childList: true, subtree: true });
     const roleOf = em => em === ADMIN_EMAIL ? ['Owner', 'r-own'] : ADMINS.includes(em) ? ['Admin', 'r-adm'] : ['Member', 'r-mem'];
     const when = t => t ? `<span title="${esc(new Date(t).toLocaleString())}">${esc(day(t))}</span>` : '<span class="adm-dim">—</span>';
     const kebab = items => `<div class="adm-mwrap"><button class="adm-kebab" aria-label="More actions">⋯</button><div class="adm-mlist">${items.map(([k, t, id, cls]) => `<button data-mi="${k}" data-id="${esc(id)}"${cls ? ` class="${cls}"` : ''}>${t}</button>`).join('')}</div></div>`;

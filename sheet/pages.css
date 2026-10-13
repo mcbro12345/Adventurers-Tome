@@ -531,3 +531,86 @@ html.pg-inphone::-webkit-scrollbar { display: none; }
 .pgph-th { position: absolute; left: 0; right: 0; min-height: 28px; border-radius: 6px; background: rgba(201,150,43,.65); cursor: grab; touch-action: none; }
 .pgph-th:hover, .pgph-th.drag { background: #c9962b; }
 .pgph-th.drag { cursor: grabbing; }
+
+/* ================= Characters page: fixed top, only the list scrolls ================= */
+html:has(body.hubbody:not(.adminbody)) { background: #1f2a40; }
+@media (prefers-color-scheme: light) { html:has(body.hubbody:not(.adminbody)) { background: #fbf6ea; } }
+body.hubbody:not(.adminbody) { height: 100vh; height: 100dvh; overflow: hidden; }
+body.hubbody:not(.adminbody) #hub { max-width: none; height: 100%; display: flex; flex-direction: column; padding: 0; box-sizing: border-box; }
+body.hubbody:not(.adminbody) #hub > .hub-top, body.hubbody:not(.adminbody) #hub > .hub-views { flex: none; width: 100%; max-width: 888px; margin-left: auto; margin-right: auto; box-sizing: border-box; }
+body.hubbody:not(.adminbody) #hub > .hub-top { margin-top: calc(22px + env(safe-area-inset-top)); }
+body.hubbody:not(.adminbody) #hub > .hub-views { margin-bottom: 0; padding-bottom: 14px; }
+body.hubbody:not(.adminbody) .hub-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 2px 16px calc(120px + env(safe-area-inset-bottom)); scrollbar-width: thin; scrollbar-color: rgba(201,150,43,.45) transparent; }
+html.pg-touch body.hubbody .hub-scroll:has(.hc-menu.on) { position: relative; z-index: 210; }
+body.hubbody:not(.adminbody) .hub-scroll > * { max-width: 888px; margin-left: auto !important; margin-right: auto !important; }
+body.hubbody:not(.adminbody) .hub-scroll > .hub-folder:first-child, body.hubbody:not(.adminbody) .hub-scroll > .hl:first-child { margin-top: 6px; }
+@media (min-width: 921px) { body.hubbody:not(.adminbody) #hub > .hub-top, body.hubbody:not(.adminbody) #hub > .hub-views { padding-left: 0; padding-right: 0; } }
+@media (max-width: 920px) { body.hubbody:not(.adminbody) #hub > .hub-top, body.hubbody:not(.adminbody) #hub > .hub-views { width: calc(100% - 32px); } }
+
+/* ================= Phones: logo and profile side by side, smaller ================= */
+@media (max-width: 640px) {
+  :where(body.hubbody) #hub-admin { display: inline-flex; }
+  body.hubbody:not(.adminbody) #hub > .hub-top { flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 10px; margin-top: calc(12px + env(safe-area-inset-top)); }
+  :where(body.hubbody) .hub-top .hub-logo { gap: 8px; min-width: 0; flex: 0 1 auto; }
+  :where(body.hubbody) .hub-top .hl-d20 { width: 44px !important; height: 44px !important; }
+  :where(body.hubbody) .hub-top .hl-t { font-size: 1.75rem !important; }
+  :where(body.hubbody) .hub-top .hl-a { font-size: .56rem !important; letter-spacing: .26em !important; margin-bottom: 1px; }
+  :where(body.hubbody) .hub-side { flex: 0 1 auto; min-width: 0; align-items: center !important; }
+  :where(body.hubbody) .hub-prof { gap: 8px; align-items: center; min-width: 0; }
+  :where(body.hubbody) .hp-pic .pg-ava { width: 38px !important; height: 38px !important; font-size: .8rem !important; }
+  :where(body.hubbody) .hp-txt { min-width: 0; }
+  :where(body.hubbody) .hp-txt b { font-size: .84rem; display: block; max-width: 36vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  :where(body.hubbody) .hp-txt small { display: block; font-size: .66rem; max-width: 36vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  :where(body.hubbody) .hp-row { gap: 8px; margin-top: 2px; flex-wrap: nowrap; align-items: center; white-space: nowrap; }
+  :where(body.hubbody) .hp-row > * { white-space: nowrap; flex: none; }
+  :where(body.hubbody) .hp-row .linkbtn { font-size: .8rem; }
+  :where(body.hubbody) .hp-row .hub-admin { padding: 3px 8px; font-size: .74rem; }
+  :where(body.hubbody) .hp-edit { display: none; }
+  body.hubbody:not(.adminbody) #hub > .hub-views { gap: 6px; }
+  body.hubbody:not(.adminbody) .hub-views > button[data-view] { flex: 1 1 0; justify-content: center; padding: 9px 8px; font-size: .84rem; }
+  body.hubbody:not(.adminbody) .hub-views .hub-new { flex: 1 1 100%; }
+}
+
+/* ================= Touchscreens: taps light things up, not hovering ================= */
+html.pg-touch, html.pg-touch * { -webkit-tap-highlight-color: transparent; }
+html.pg-touch :where(body.hubbody) .hl-d20, html.pg-touch .adm-brand .hl-d20 { cursor: pointer; touch-action: manipulation; }
+html.pg-touch :where(body.hubbody) :is(.hc, .hr) { transition: transform .12s ease, background-color .12s ease, border-color .12s ease; }
+html.pg-touch :where(body.hubbody) :is(.hc:has(> .hc-main:active), .hr:has(> .hr-main:active)) { transform: scale(.985); border-color: #c9962b; background-color: rgba(201,150,43,.1); }
+html.pg-touch :where(body.hubbody) :is(.btn, .hub-new, .hub-views button, .hc-dots, .linkbtn, .hp-pic, .pp-tabs button, .pp-opt, .pp-c, .hc-list button, .adm-kebab, .adm-mlist button, .adm-nav a, .adm-nav button, .hub-folder summary):active { transform: scale(.96); filter: brightness(1.15); transition: transform .08s; }
+html.pg-touch :where(body.hubbody) :is(.hc-list button, .adm-mlist button):active { background: rgba(201,150,43,.18); }
+html.pg-touch :where(body.hubbody) .hc-dots { width: 42px; height: 34px; font-size: 1.2rem; opacity: .7; }
+html.pg-touch :where(body.hubbody) .hr-menu .hc-dots { margin-right: 2px; }
+html.pg-touch :where(body.hubbody) .adm-t tbody tr:active td { background: var(--adm-hover); }
+
+/* ⋯ menus open as a sheet from the bottom of a phone screen */
+@media (max-width: 640px) {
+  html.pg-touch :where(body.hubbody) :is(.hc, .hr):has(.hc-menu.on) { z-index: 210; }
+  html.pg-touch body.hubbody:has(.hc-menu.on)::after, html.pg-touch body.hubbody:has(.adm-mwrap.on)::after { content: ''; position: fixed; inset: 0; z-index: 200; background: rgba(5,8,14,.55); animation: pgFade .15s ease-out; }
+  html.pg-touch :where(body.hubbody) .hc-menu.on .hc-list, html.pg-touch .adm-mwrap.on .adm-mlist { position: fixed; left: 10px; right: 10px; top: auto; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 220; min-width: 0; padding: 8px; border-radius: 18px; box-shadow: 0 -10px 40px rgba(0,0,0,.45); animation: pgSheet .2s cubic-bezier(.2,.9,.3,1); }
+  html.pg-touch :where(body.hubbody) .hc-menu.on .hc-list button, html.pg-touch .adm-mwrap.on .adm-mlist button { padding: 15px 14px; font-size: 1rem; border-radius: 12px; gap: 14px; }
+  html.pg-touch :where(body.hubbody) .hc-menu.on .hc-list .mi { width: 20px; height: 20px; }
+  html.pg-touch .adm-mwrap:has(.adm-mlist) { position: static; }
+  html.pg-touch body.adminbody .adm-tw { overflow: visible; }
+}
+@keyframes pgSheet { from { transform: translateY(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes pgFade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ================= Admin on a phone ================= */
+@media (max-width: 640px) {
+  body.adminbody .adm-t, body.adminbody .adm-t tbody, body.adminbody .adm-t tr, body.adminbody .adm-t td { display: block; width: auto; }
+  body.adminbody .adm-t thead { display: none; }
+  body.adminbody .adm-tw { border: 0; background: none; border-radius: 0; }
+  body.adminbody .adm-t tbody > tr:not(.adm-subrow) { position: relative; margin: 0 0 10px; padding: 12px 14px; border: 1px solid var(--adm-line); border-radius: 14px; background: var(--adm-panel); }
+  body.adminbody .adm-t td { padding: 3px 0; border: 0 !important; white-space: normal !important; background: none !important; font-size: .86rem; }
+  body.adminbody .adm-t td[data-l]:not(:first-child)::before { content: attr(data-l); display: inline-block; min-width: 92px; margin-right: 8px; font: 700 .66rem system-ui, sans-serif; letter-spacing: .07em; text-transform: uppercase; color: var(--adm-dim); }
+  body.adminbody .adm-t td:first-child { padding: 0 52px 6px 0; font-size: .95rem; }
+  body.adminbody .adm-t td.adm-act { position: absolute; top: 8px; right: 8px; padding: 0; }
+  body.adminbody .adm-t td.adm-act::before { display: none !important; }
+  body.adminbody .adm-mail { word-break: break-all; }
+  body.adminbody .adm-kebab { width: 40px; height: 36px; }
+  body.adminbody .adm-subrow > td { padding: 6px 0 0 !important; }
+}
+
+/* sheets on a computer: the Adventurer's Tome button stays hidden until it has settled above the toolbar */
+html.pg-sheetpage:not(.mobile):not(.pg-al) .pg-hublink, html.pg-sheetpage:not(.mobile):not(.pg-al) .pg-pres { opacity: 0; pointer-events: none; }
+html.pg-sheetpage.pg-al:not(.mobile) .pg-hublink, html.pg-sheetpage.pg-al:not(.mobile) .pg-pres { transition: opacity .2s; }

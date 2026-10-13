@@ -2447,4 +2447,16 @@ html.mobile #tipbox .tipfx { width: 76px; height: 76px; }
 .insp.one:active .insp-n { transform: scale(.9); }
 
 /* on an actual phone the layout switch is hidden: it always uses the phone layout */
-html.realphone [data-act="layout"] { display: none !important; }
+html.realphone [data-act="layout"], html.pg-inphone [data-act="layout"] { display: none !important; }
+/* …and the buttons beside it close the gap: the log takes its corner */
+html.mobile.realphone .devbtn.logbtn, html.mobile.pg-inphone .devbtn.logbtn { right: 12px; }
+html.mobile.realphone .devbtn.fsbtn, html.mobile.pg-inphone .devbtn.fsbtn { right: 48px; }
+
+/* Sheet background: the loading screen's soft glow, tinted by the sheet's own theme colours */
+@media screen {
+  body { background: var(--bg); }
+  body::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background: radial-gradient(ellipse 120% 75% at 50% 0%, color-mix(in srgb, var(--bg) 74%, var(--navy) 26%) 0%, color-mix(in srgb, var(--bg) 88%, var(--navy) 12%) 40%, var(--bg) 78%); }
+  /* the banner: a gentle sheen in its own colour instead of the old gold glow */
+  .banner { background: radial-gradient(ellipse 85% 170% at 28% 0%, color-mix(in srgb, var(--navy) 84%, #ffffff 9%) 0%, var(--navy) 46%, var(--navy2) 100%); }
+}
