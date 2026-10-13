@@ -72,6 +72,9 @@ function wireDie(root) {
       if (d.au && d.au.uid && d.au.apiKey === CFG.apiKey && !(await idbAuth()) && lsGet(AU_KEY) == null) lsSet(AU_KEY, JSON.stringify(d.au)); } } catch (e) { console.warn('move', e); }
   }
   let fs = null, auth = null;
+  // On the new address, Google sign-in runs through the site itself, so Google's account picker says
+  // "continue to adventurers-tome.web.app" (and Safari doesn't block it as a third-party sign-in).
+  if (location.hostname === 'adventurers-tome.web.app') CFG.authDomain = location.hostname;
   try { firebase.initializeApp(CFG); fs = firebase.firestore(); auth = firebase.auth(); } catch (e) { console.error(e); }
   if (!fs || !auth) { say('Couldn\'t start the sheet. Check your connection and reload.'); return; }
   if (window.PG_EMU) { fs.useEmulator('localhost', 8080); auth.useEmulator('http://localhost:9099', { disableWarnings: true }); if (window.PG_EMU_USER) { await auth.signOut(); await auth.signInWithCredential(firebase.auth.GoogleAuthProvider.credential(JSON.stringify(window.PG_EMU_USER))); } } // tests only
