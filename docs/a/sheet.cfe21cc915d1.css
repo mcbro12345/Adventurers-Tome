@@ -1477,9 +1477,9 @@ html.mobile .namebox { padding-right: 74px; }
 .mstrip { display: none; }
 .rumor-head textarea.f.title { flex: 1 1 auto; min-width: 0; resize: none; overflow: hidden; line-height: 1.3; font-size: 1rem; }
 
-html.mobile body { padding-bottom: calc(64px + env(safe-area-inset-bottom) + var(--tablift, 0px)); }
+html.mobile body { padding-bottom: calc(64px + var(--tablift, 0px)); }
 /* Bottom tab bar: always reachable with a thumb, icon + label, no scrolling. */
-html.mobile .tabs { position: fixed !important; left: 0; right: 0; bottom: 0; top: auto; z-index: 44; margin: 0 !important; padding: 4px 4px calc(4px + env(safe-area-inset-bottom) + var(--tablift, 0px)) !important;
+html.mobile .tabs { position: fixed !important; left: 0; right: 0; bottom: 0; top: auto; z-index: 44; margin: 0 !important; padding: 4px 4px calc(4px + var(--tablift, 0px)) !important;
   background: var(--panel); box-shadow: 0 -1px 0 var(--line), 0 -6px 18px rgba(0,0,0,.12); display: flex; flex-wrap: nowrap !important; justify-content: space-around; overflow: visible; }
 html.mobile .tabs > :first-child, html.mobile .tabs > :last-child { margin: 0; }
 html.mobile .tabwrap { flex: 1 1 0; min-width: 0; }
@@ -1490,8 +1490,8 @@ html.mobile .tab .tlabel { max-width: 100%; overflow: hidden; text-overflow: ell
 html.mobile .tab.on { color: var(--gold-ink); background: var(--gold-soft); }
 html.mobile .tab.on::after { display: none; }
 html.mobile body.editing .tabs { position: fixed !important; }
-html.mobile #editbar { bottom: calc(72px + env(safe-area-inset-bottom) + var(--tablift, 0px)); }
-html.mobile .toasts { bottom: calc(76px + env(safe-area-inset-bottom) + var(--tablift, 0px)); }
+html.mobile #editbar { bottom: calc(72px + var(--tablift, 0px)); }
+html.mobile .toasts { bottom: calc(76px + var(--tablift, 0px)); }
 
 /* Full vitals on Core and Combat; elsewhere a slim status strip (tap it to jump to Core). */
 html.mobile:not([data-tab="core"]):not([data-tab="combat"]) #sec-vitals > [data-zi] { display: none !important; }
@@ -2214,7 +2214,7 @@ html.mobile .econ table.mini .atkbtn { padding: 6px 10px; }
 html.mobile .notetip { display: inline-grid !important; }
 html.mobile .irow .notetip { display: none !important; }
 /* On phones the ⓘ text opens as a sheet above the tab bar instead of a hover bubble */
-html.mobile #tipbox { left: 8px !important; right: 8px !important; top: auto !important; bottom: calc(76px + env(safe-area-inset-bottom) + var(--tablift, 0px)) !important; max-width: none !important; max-height: 58vh !important; border-radius: 16px; box-shadow: 0 -8px 40px rgba(0,0,0,.45); padding: 14px 16px 16px; }
+html.mobile #tipbox { left: 8px !important; right: 8px !important; top: auto !important; bottom: calc(76px + var(--tablift, 0px)) !important; max-width: none !important; max-height: 58vh !important; border-radius: 16px; box-shadow: 0 -8px 40px rgba(0,0,0,.45); padding: 14px 16px 16px; }
 html.mobile #tipbox::before { content: ''; display: block; width: 40px; height: 4px; border-radius: 4px; background: var(--line); margin: -4px auto 10px; }
 html.mobile .ce-row { grid-template-columns: 1fr 1fr 1fr 32px !important; grid-template-areas: "n n n x" "k h d d" "s c . ." "t t t t"; }
 html.mobile .ce-row [data-ce="0"] { grid-area: n; } html.mobile .ce-row .icon-btn { grid-area: x; }
@@ -3114,4 +3114,20 @@ html.mobile #tipbox .tipfx { width: 76px; height: 76px; }
 .insp.one .insp-n { font-size: 1.15rem; transition: transform .15s; }
 .insp.one.on .insp-n { transform: scale(1.12); text-shadow: 0 0 8px rgba(201,150,43,.55); }
 .insp.one:active .insp-n { transform: scale(.9); }
+
+/* on an actual phone the layout switch is hidden: it always uses the phone layout */
+html.realphone [data-act="layout"], html.pg-inphone [data-act="layout"] { display: none !important; }
+/* …and the buttons beside it close the gap: the log takes its corner */
+html.mobile.realphone .devbtn.logbtn, html.mobile.pg-inphone .devbtn.logbtn { right: 12px; }
+html.mobile.realphone .devbtn.fsbtn, html.mobile.pg-inphone .devbtn.fsbtn { right: 48px; }
+
+/* Sheet background: the loading screen's soft glow, tinted by the sheet's own theme colours */
+@media screen {
+  body:not(.hubbody) { background: var(--bg); }
+  body:not(.hubbody)::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    /* like the loading screen: a lighter, theme-tinted centre fading out to the page colour */
+    background: radial-gradient(ellipse at 50% 40%, color-mix(in srgb, color-mix(in srgb, var(--bg) 50%, var(--navy) 50%), #ffffff 9%) 0%, color-mix(in srgb, color-mix(in srgb, var(--bg) 70%, var(--navy) 30%), #ffffff 4%) 38%, var(--bg) 78%); }
+  /* the banner: a gentle sheen in its own colour instead of the old gold glow */
+  .banner { background: radial-gradient(ellipse 85% 170% at 28% 0%, color-mix(in srgb, var(--navy) 84%, #ffffff 9%) 0%, var(--navy) 46%, var(--navy2) 100%); }
+}
 
