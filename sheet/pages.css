@@ -224,8 +224,11 @@ body:has(#modal.open) .pg-hublink, body:has(#modal.open) .pg-shared, body.wizope
   100% { transform: rotate(720deg) scale(1); } }
 @media (prefers-reduced-motion: reduce) { :where(body.hubbody, #pg-load) .hl-d20.hl-rolling { animation: none; } }
 
-:where(#pg-load) .pg-signin .hub-logo { margin: 0 0 14px; }
-:where(#pg-load) .pg-signin .hl-t { font-size: 2.1rem; }
+:where(#pg-load) .pg-signin .hub-logo { justify-content: center; margin: 4px 0 18px; gap: 14px; }
+:where(#pg-load) .pg-signin .hl-d20 { width: 72px; height: 72px; }
+:where(#pg-load) .pg-signin .hl-a { font-size: .86rem; }
+:where(#pg-load) .pg-signin .hl-t { font-size: 3rem; }
+@media (max-width: 480px) { :where(#pg-load) .pg-signin .hl-d20 { width: 60px; height: 60px; } :where(#pg-load) .pg-signin .hl-t { font-size: 2.5rem; } }
 /* the logo d20: no glow while it rolls; a natural 20 lands with a green glow, a natural 1 with a red one */
 :where(body.hubbody, #pg-load) .hl-d20 { transition: filter .35s ease; }
 :where(body.hubbody, #pg-load) .hl-d20.hl-rolling { filter: none !important; }
