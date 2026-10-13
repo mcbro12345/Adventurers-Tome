@@ -144,7 +144,7 @@
     'artificer:artillerist:Tool Proficiency': { none: true },
     'artificer:artillerist:Eldritch Cannon': { col: 'action', slotRestore: 1, acts: [
       { name: 'Flamethrower', col: 'bonus', roll: '{tier(artificer,3,2,9,3)}d8', rollNote: 'fire in a 15 ft cone (DEX half)', dc: 'spell', save: 'DEX' },
-      { name: 'Force Ballista', col: 'bonus', roll: '{tier(artificer,3,2,9,3)}d8', rollNote: 'force (ranged spell attack, pushes 5 ft)' },
+      { name: 'Force Ballista', col: 'bonus', atk: 'spell', roll: '{tier(artificer,3,2,9,3)}d8', rollNote: 'force damage — on a hit the target is pushed up to 5 ft away (ranged spell attack, 120 ft)' },
       { name: 'Protector', col: 'bonus', roll: '1d8+max(1,int)', rollNote: 'temporary HP to each creature within 10 ft' }] },
     'artificer:artillerist:Arcane Firearm': { roll: '1d8', rollNote: 'added to one damage roll of an artificer spell' },
     'artificer:artillerist:Explosive Cannon': { col: 'action', dc: 'spell', save: 'DEX', roll: '3d8', rollNote: 'force when you detonate the cannon (20 ft radius, DEX half)' },

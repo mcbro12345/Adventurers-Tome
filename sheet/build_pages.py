@@ -17,6 +17,7 @@ loader = ('''
 <div id="pg-load" style="position:fixed;inset:0;display:grid;place-items:center;background:#f6f1e6;color:#1f2a44;font:600 15px system-ui,sans-serif;z-index:9999">Loading…</div>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script>
 ''' + open(os.path.join(D, 'pages_loader.js')).read() + '''
 </script>

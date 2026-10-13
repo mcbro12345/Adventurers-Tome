@@ -207,10 +207,13 @@ function useAct(fi, j, col) {
   if (/disengage/i.test(nm) && S.inCombat) S.turn.disengaged = true;
   if (a.dash) { addDash(); lines.push(`+${turnSpeed()} ft of movement this turn`); }
   fxApplyUse(a.use, nm, lines);
-  const r = a.roll ? rollExpr(fxRollExpr(a.roll), { label: (a.name || f.name) + ': ' + (a.rollNote || 'roll').replace(/\s*\(.*$/, '') }) : null;
+  // Attack-roll options (e.g. the Force Ballista): roll to hit first; a 20 doubles the damage dice.
+  let hit = null; if (a.atk) { const bonus = a.atk === 'spell' ? castInfo(f.cls).atk : N(a.atk); const d = d20Expr(bonus, 'attack'); hit = rollExpr(d.expr, { label: (a.name || f.name) + ' attack' }); hit.crit = hit.d20 >= 20; hit.nat1 = hit.d20 === 1; hit.bonus = bonus; }
+  const r = a.roll ? rollExpr(hit && hit.crit ? critDice(fxRollExpr(a.roll)) : fxRollExpr(a.roll), { label: (a.name || f.name) + ': ' + (a.rollNote || 'roll').replace(/\s*\(.*$/, '') }) : null;
   const dc = fxDCLine(a.dc ? a : fx, f);
   pendingLabel = 'Use ' + nm; update(); render();
   const heal = r && a.healRoll ? { label: 'Heal me', fn: () => useAmt(r, nm + ': healing', n => healSelf(n, `${nm}: +${n} HP`)) } : null;
+  if (hit) { toast(`<b class="total">${hit.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${hit.crit ? 'CRITICAL HIT' : hit.nat1 ? 'Natural 1 — miss' : 'to hit'}</div><div class="det">Hit: ${esc(hit.detail)}${r ? ' · Dmg: ' + esc(r.detail) : ''}</div>${a.rollNote ? `<div class="det">${esc(a.rollNote)}</div>` : ''}${lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>${r ? `<div class="rc-dmg${hit.nat1 ? ' void' : ''}"><b>${r.total}</b><span>${esc((String(a.rollNote || 'damage').split(/[ (]/)[0]) || 'damage')}</span></div>` : ''}`, hit.crit ? 'crit' : hit.nat1 ? 'fumble' : '', 9000, [{ label: 'Undo', fn: () => undo(1) }]); return; }
   toast(`${r ? `<b class="total">${r.total}</b>` : ''}<div><div><b>${esc(nm)}</b>${cost ? ' · ' + esc(fxCostText(cost)) : ''}</div>${r ? `<div class="det">${esc(r.detail)}${a.rollNote ? ' ' + esc(a.rollNote) : ''}</div>` : ''}${dc ? `<div class="det">${esc(dc)}</div>` : ''}${a.text ? `<div class="det">${esc(fxText(a.text))}</div>` : ''}${lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, '', 9000, [heal, { label: 'Undo', fn: () => undo(1) }].filter(Boolean));
 }
 // Blessing of the Forge: pick the armor or weapon to bless.
