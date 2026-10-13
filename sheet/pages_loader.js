@@ -20,6 +20,8 @@ const ADMIN_EMAIL = 'matthewcbro@gmail.com';
   if (!fs || !auth) { say('Couldn\'t start the sheet. Check your connection and reload.'); return; }
   if (window.PG_EMU) { fs.useEmulator('localhost', 8080); auth.useEmulator('http://localhost:9099', { disableWarnings: true }); if (window.PG_EMU_USER) { await auth.signOut(); await auth.signInWithCredential(firebase.auth.GoogleAuthProvider.credential(JSON.stringify(window.PG_EMU_USER))); } } // tests only
 
+  // A sign-in link meant for Claude (so it can sync with the claude.ai copies): show it to copy instead of using it here.
+  if (Q.get('handoff') && auth.isSignInWithEmailLink(location.href)) { say(`<div class="pg-signin"><h2>Copy this link to Claude</h2><p>Paste it into your chat with Claude — it lets Claude update the sheets for you. It works once and expires in about an hour.</p><textarea readonly style="width:100%;height:110px;font:12px monospace" onclick="this.select()">${location.href.replace(/[<&]/g, '')}</textarea><button class="btn gold" style="margin-top:8px" onclick="navigator.clipboard.writeText(location.href).then(()=>this.textContent='Copied')">Copy</button></div>`); return; }
   // Finishing an emailed sign-in link.
   if (auth.isSignInWithEmailLink(location.href)) {
     let em = lsGet('dnd-signin-email');
