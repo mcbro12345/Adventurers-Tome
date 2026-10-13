@@ -713,3 +713,9 @@ body.hubbody:not(.adminbody) .hub-head { background: rgba(14,19,30,.97); }
 }
 @keyframes pgSheetUp { from { transform: translateY(40px); opacity: .4; } to { transform: none; opacity: 1; } }
 @media (max-width: 640px) { :where(body.hubbody) .pp-tabs.four button { flex-direction: column; gap: 3px; font-size: .74rem; padding: 7px 2px; } }
+/* Contact: small and quiet */
+:where(body.hubbody) .hub-foot { margin-top: 28px !important; text-align: center; font-size: .78rem; }
+:where(body.hubbody) .hub-foot a, :where(#pg-load) .pg-contact a { color: inherit; opacity: .5; text-decoration: none; border-bottom: 1px dotted currentColor; }
+:where(body.hubbody) .hub-foot a:hover, :where(#pg-load) .pg-contact a:hover { opacity: .85; }
+:where(#pg-load) .pg-contact { margin: 14px 0 0; font-size: .76rem; text-align: center; opacity: .75; }
+:where(#pg-load) .pg-contact a { opacity: .8; }
