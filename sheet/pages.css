@@ -575,7 +575,7 @@ html.pg-touch, html.pg-touch * { -webkit-tap-highlight-color: transparent; }
 html.pg-touch :where(body.hubbody) .hl-d20, html.pg-touch .adm-brand .hl-d20 { cursor: pointer; touch-action: manipulation; }
 html.pg-touch :where(body.hubbody) :is(.hc, .hr) { transition: transform .12s ease, background-color .12s ease, border-color .12s ease; }
 html.pg-touch :where(body.hubbody) :is(.hc:has(> .hc-main:active), .hr:has(> .hr-main:active)) { transform: scale(.985); border-color: #c9962b; background-color: rgba(201,150,43,.1); }
-html.pg-touch :where(body.hubbody) :is(.btn, .hub-new, .hub-views button, .hc-dots, .linkbtn, .hp-pic, .pp-tabs button, .pp-opt, .pp-c, .hc-list button, .adm-kebab, .adm-mlist button, .adm-nav a, .adm-nav button, .hub-folder summary):active { transform: scale(.96); filter: brightness(1.15); transition: transform .08s; }
+html.pg-touch :where(body.hubbody) :is(.btn, .hub-new, .hub-views button, .hc-dots, .linkbtn, .hp-pic, .pp-tabs button, .pp-opt, .pp-c, .hc-list button, .adm-kebab, .adm-mlist button, .hub-folder summary):active { transform: scale(.96); filter: brightness(1.15); transition: transform .08s; }
 html.pg-touch :where(body.hubbody) :is(.hc-list button, .adm-mlist button):active { background: rgba(201,150,43,.18); }
 html.pg-touch :where(body.hubbody) .hc-dots { width: 42px; height: 34px; font-size: 1.2rem; opacity: .7; }
 html.pg-touch :where(body.hubbody) .hr-menu .hc-dots { margin-right: 2px; }
@@ -607,3 +607,6 @@ html.pg-sheetpage:not(.mobile):not(.pg-al) .pg-hublink, html.pg-sheetpage:not(.m
 html.pg-sheetpage.pg-al:not(.mobile) .pg-hublink, html.pg-sheetpage.pg-al:not(.mobile) .pg-pres { transition: opacity .2s; }
 /* Create character: no glow around it (keeps its own bevel) */
 body.hubbody .hub-views button.hub-new, body.hubbody .hub-views button.hub-new:hover, body.hubbody .hub-views button.hub-new:active { box-shadow: inset 0 1px 0 rgba(255,255,255,.45), inset 0 -2px 0 rgba(0,0,0,.14) !important; }
+
+/* admin on a phone: a steady tab strip */
+@media (max-width: 860px) { .adm-nav { flex: none; align-items: center; scroll-behavior: smooth; } .adm-ni { flex: none; height: 38px; } .adm-foot { padding: 10px 14px; } }

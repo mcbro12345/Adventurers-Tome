@@ -374,8 +374,10 @@ function wireDie(root) {
       const tr = tb.getBoundingClientRect(), pos = Math.round(tr.left + scrollX) + ',' + Math.round(lr.top + scrollY);
       a.style.left = Math.round(tr.left + scrollX) + 'px'; a.style.top = Math.round(lr.top + scrollY) + 'px';
       // shown once two measurements in a row agree (the header has finished laying out)
-      if (pos === align.last) de.classList.add('pg-al'); else { align.last = pos; setTimeout(align, 60); } };
-    addEventListener('resize', align); setInterval(align, 600); setTimeout(align, 50);
+      if (pos === align.last) de.classList.add('pg-al'); else { align.last = pos; requestAnimationFrame(align); } };
+    let alignQ = 0; const alignSoon = () => { if (!alignQ) alignQ = requestAnimationFrame(() => { alignQ = 0; align(); }); };
+    new MutationObserver(alignSoon).observe(document.body, { childList: true, subtree: true });
+    addEventListener('resize', alignSoon); setInterval(align, 1500); alignSoon();
   }
   // Who's looking at this sheet right now — shown once it's shared: small portraits beside the back button, you too.
   // Each open copy checks in once a minute (only while its tab is showing) and drops off when closed or idle.
@@ -741,16 +743,23 @@ function hub(fs, auth, G, ctx) {
     function frame() {
       const nav = (k, label) => `<button class="adm-ni${TAB === k ? ' on' : ''}" data-tab="${k}">${svg(k)}<span>${label}</span>${k === 'new' && NEWN ? `<b class="adm-badge">${NEWN}</b>` : ''}</button>`;
       const [title, desc] = PAGES[TAB];
+      const navHTML = `<div class="adm-sec">Manage</div>${nav('users', 'Users')}${nav('chars', 'Characters')}${nav('admins', 'Admins')}<div class="adm-sec">Activity</div>${nav('new', 'New')}`;
+      // Switching tabs only swaps the page on the right: the sidebar (and where its tab strip is scrolled to on a phone) stays put.
+      const nv0 = root.querySelector('.adm-nav');
+      if (nv0) { const x = nv0.scrollLeft; nv0.innerHTML = navHTML; nv0.scrollLeft = x;
+        root.querySelector('.adm-head h1').textContent = title; root.querySelector('.adm-head p').textContent = desc; root.querySelector('#adm-hact').innerHTML = '';
+        root.querySelector('#ad-body').innerHTML = '<p class="adm-dim">Loading…</p>';
+        nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
+        const on = nv0.querySelector('.adm-ni.on'); if (on && on.scrollIntoView) { const r = on.getBoundingClientRect(), nr = nv0.getBoundingClientRect(); if (r.left < nr.left || r.right > nr.right) nv0.scrollBy({ left: r.left < nr.left ? r.left - nr.left - 12 : r.right - nr.right + 12, behavior: 'smooth' }); }
+        ({ new: tabNew, users: tabUsers, chars: tabChars, admins: tabAdmins })[TAB](); return; }
       const keepLogo = root.querySelector('.hub-logo');
       root.innerHTML = `<div class="adm"><aside class="adm-side">
           <div class="adm-brand">${logoHTML()}</div>
-          <nav class="adm-nav"><div class="adm-sec">Manage</div>${nav('users', 'Users')}${nav('chars', 'Characters')}${nav('admins', 'Admins')}<div class="adm-sec">Activity</div>${nav('new', 'New')}</nav>
-          <div class="adm-foot"><a class="adm-back" href="${esc(HUB)}">← Back to my characters</a>
-            <div class="adm-me">${ava(myName(), EMAIL)}<span><b>${esc(myName())}</b><small>${esc(EMAIL)}</small></span><button class="linkbtn" id="me-out">Sign out</button></div></div></aside>
+          <nav class="adm-nav">${navHTML}</nav>
+          <div class="adm-foot"><a class="adm-back" href="${esc(HUB)}">← Back to my characters</a></div></aside>
         <main class="adm-main"><header class="adm-head"><div><h1>${esc(title)}</h1><p>${esc(desc)}</p></div><div class="adm-hact" id="adm-hact"></div></header>
           <section id="ad-body" class="adm-body"><p class="adm-dim">Loading…</p></section></main></div>`;
       if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
-      root.querySelector('#me-out').onclick = signOut;
       root.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
       ({ new: tabNew, users: tabUsers, chars: tabChars, admins: tabAdmins })[TAB]();
     }
