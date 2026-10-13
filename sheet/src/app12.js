@@ -41,6 +41,7 @@ function vfxPick(name, text, o = {}) {
   if (nm(/teleport|misty step|dimension door|blink|step\b|thunder step|far step|fey step|shadow step|translocat/)) return pick('teleport', col || VFX_COL.conj);
   if (nm(/rage|frenzy|berserk/)) return pick('rage', VFX_COL.blood);
   if (nm(/breath/) ) return pick('cone', col || VFX_COL.fire);
+  if (nm(/\b(unarmed|fist|punch|martial arts|flurry of blows)\b/)) return pick('punch', col || VFX_COL.bludgeoning);
   if (o.weapon === 'ranged' || nm(/\b(bow|crossbow|sling|dart|javelin|arrow|shot|gun|pistol|rifle|musket|blowgun|barrel)\b/)) return pick('arrow', col || VFX_COL.piercing);
   if (o.weapon === 'melee' || nm(/\b(sword|axe|dagger|hammer|mace|blade|scimitar|rapier|spear|club|flail|glaive|halberd|whip|maul|pike|trident|staff|quarterstaff|unarmed|fist|claw|bite|strike|smite|flurry)\b/)) return pick('slash', col || VFX_COL.slashing);
   if (nm(/haste|dash|expeditious|speed|step of the wind|fast movement|cunning action|longstrider|mobile|swift/) || has(/\bdash action\b|walking speed increases|speed increases by/)) return pick('dash', col || VFX_COL.trans);
@@ -81,6 +82,8 @@ function vfxDraw(x, W, H, t, v) {
   const glow = (px, py, r, c, a = 1) => { const g = x.createRadialGradient(px, py, 0, px, py, r); g.addColorStop(0, c); g.addColorStop(1, 'rgba(0,0,0,0)'); x.globalAlpha = a; x.fillStyle = g; x.beginPath(); x.arc(px, py, r, 0, 2 * P); x.fill(); x.globalAlpha = 1; };
   const dot = (px, py, r, c, a = 1) => { x.globalAlpha = a; x.fillStyle = c; x.beginPath(); x.arc(px, py, r, 0, 2 * P); x.fill(); x.globalAlpha = 1; };
   const figure = (px, py, s, c = '#aab3c8', a = 1) => { s *= 1.35; x.globalAlpha = a; x.fillStyle = c; x.beginPath(); x.arc(px, py - s * 1.05, s * .32, 0, 2 * P); x.fill(); x.beginPath(); x.moveTo(px - s * .42, py + s * .55); x.quadraticCurveTo(px - s * .45, py - s * .55, px, py - s * .62); x.quadraticCurveTo(px + s * .45, py - s * .55, px + s * .42, py + s * .55); x.closePath(); x.fill(); x.globalAlpha = 1; };
+  // Several targets at slightly different depths: [x, depth 0 front..1 back]. Back ones sit higher, smaller, dimmer.
+  const crowd = (pts, push = () => 0) => pts.slice().sort((a, b) => b[1] - a[1]).forEach(([px, d], i) => { const sc = 1 - d * .25; figure(W * px + push(px, d), ground - d * H * .1, H * .19 * sc, d > .5 ? '#6f788c' : '#8d96ab'); });
   const ease = q => q < .5 ? 2 * q * q : 1 - Math.pow(-2 * q + 2, 2) / 2, ground = H * .8;
   x.fillStyle = 'rgba(255,255,255,.05)'; x.fillRect(0, ground + H * .08, W, 1);
   const m = v.motif;
@@ -144,14 +147,17 @@ function vfxDraw(x, W, H, t, v) {
       else { for (let k = 0; k < 8; k++) { const tq = Math.max(0, q - k * .03), tx = sx + (ex - sx) * ease(tq), ty = sy + (ey - sy) * ease(tq); dot(tx, ty, 5 - k * .5, c1, .5 - k * .05); } glow(px, py, 12, c1); dot(px, py, 4, c2); }
     } else { const r = (ph - .6) / .4; glow(ex, ey, 10 + r * 26, c1, 1 - r); for (let k = 0; k < 10; k++) { const a = rnd() * 2 * P, d = r * (14 + rnd() * 16); dot(ex + Math.cos(a) * d, ey + Math.sin(a) * d, 2, c2, 1 - r); } }
   } else if (m === 'cone' || m === 'line') {
-    figure(W * .16, ground, H * .2); const ox = W * .25, oy = ground - H * .2;
-    for (let k = 0; k < 46; k++) { const life = (ph + k / 46) % 1, a = (rnd() - .5) * (m === 'cone' ? .9 : .12), d = life * W * .75; dot(ox + Math.cos(a) * d, oy + Math.sin(a) * d, 2 + life * (m === 'cone' ? 5 : 3), life < .5 ? c2 : c1, (1 - life) * .9); }
+    figure(W * .14, ground, H * .2, '#aab3c8'); const ox = W * .22, oy = ground - H * .2;
+    const pts = m === 'cone' ? [[.6, .3], [.78, 1], [.84, 0], [.68, .8]] : [[.52, 0], [.7, 0], [.88, 0]];
+    crowd(pts, (px) => Math.max(0, Math.sin(ph * P * 2 - px * 2)) * 2);
+    for (let k = 0; k < 50; k++) { const life = (ph + k / 50) % 1, a = (rnd() - .5) * (m === 'cone' ? .8 : .1) - (m === 'cone' ? .05 : 0), d = life * W * .8; dot(ox + Math.cos(a) * d, oy + Math.sin(a) * d * (m === 'cone' ? .7 : 1), 2 + life * (m === 'cone' ? 5 : 3), life < .5 ? c2 : c1, (1 - life) * .85); }
     glow(ox, oy, 12, c1, .8);
   } else if (m === 'burst' || m === 'storm') {
-    figure(W * .5, ground, H * .2, '#8d96ab'); const cx = W * .5, cy = ground - H * .22;
-    if (m === 'storm') { x.fillStyle = 'rgba(160,170,200,.35)'; x.beginPath(); x.ellipse(W * .5, H * .16, W * .34, H * .09, 0, 0, 2 * P); x.fill(); if (ph < .3) { x.strokeStyle = c2; x.lineWidth = 2.5; x.shadowColor = c1; x.shadowBlur = 12; x.beginPath(); x.moveTo(W * .5, H * .2); for (let k = 1; k <= 5; k++) x.lineTo(W * .5 + (rnd() - .5) * 16, H * .2 + (cy - H * .2) * k / 5); x.stroke(); x.shadowBlur = 0; } }
-    const r = (ph < .25 ? 0 : (ph - .25) / .75); if (r > 0) { glow(cx, cy, 8 + r * W * .42, c1, 1 - r * .9); x.strokeStyle = c2; x.globalAlpha = 1 - r; x.lineWidth = 2; x.beginPath(); x.arc(cx, cy, r * W * .4, 0, 2 * P); x.stroke(); x.globalAlpha = 1; for (let k = 0; k < 14; k++) { const a = k / 14 * 2 * P + rnd() * .3, d = r * W * (.25 + rnd() * .2); dot(cx + Math.cos(a) * d, cy + Math.sin(a) * d, 2.2, c2, 1 - r); } }
-    else { const q = ph / .25; dot(W * .5, H * .1 + (cy - H * .1) * q, 4, c2); glow(W * .5, H * .1 + (cy - H * .1) * q, 10, c1); }
+    const cx = W * .5, cy = ground - H * .2, r = (ph < .25 ? 0 : (ph - .25) / .75), kick = r > 0 ? Math.sin(Math.min(1, r * 3) * P) * 4 : 0;
+    crowd([[.22, .2], [.5, .9], [.5, 0], [.78, .2], [.34, .7], [.68, .7]].filter((_, i) => i !== 1), (px) => (px - .5) * kick * 2);
+    if (m === 'storm') { x.fillStyle = 'rgba(160,170,200,.35)'; x.beginPath(); x.ellipse(W * .5, H * .14, W * .4, H * .09, 0, 0, 2 * P); x.fill(); if (ph < .3) { x.strokeStyle = c2; x.lineWidth = 2.5; x.shadowColor = c1; x.shadowBlur = 12; x.beginPath(); x.moveTo(W * .5, H * .18); for (let k = 1; k <= 5; k++) x.lineTo(W * .5 + (rnd() - .5) * 16, H * .18 + (cy - H * .18) * k / 5); x.stroke(); x.shadowBlur = 0; } }
+    if (r > 0) { glow(cx, cy, 8 + r * W * .45, c1, 1 - r * .9); x.strokeStyle = c2; x.globalAlpha = 1 - r; x.lineWidth = 2; x.beginPath(); x.ellipse(cx, cy, r * W * .45, r * W * .3, 0, 0, 2 * P); x.stroke(); x.globalAlpha = 1; for (let k = 0; k < 16; k++) { const a = k / 16 * 2 * P + rnd() * .3, d = r * W * (.25 + rnd() * .22); dot(cx + Math.cos(a) * d, cy + Math.sin(a) * d * .7, 2.2, c2, 1 - r); } }
+    else if (m === 'burst') { const q = ph / .25, sx = W * .15 + (cx - W * .15) * q, sy = H * .15 + (cy - H * .15) * q; dot(sx, sy, 3.5, c2); glow(sx, sy, 10, c1); }
   } else if (m === 'heal') {
     figure(W * .5, ground, H * .24, '#aab3c8'); glow(W * .5, ground - H * .2, W * .32, c1, .35 + .2 * Math.sin(ph * 2 * P));
     for (let k = 0; k < 9; k++) { const life = (ph + k / 9) % 1, px = W * (.28 + .44 * ((k * 37 % 9) / 9)), py = ground - life * H * .6; x.globalAlpha = Math.sin(life * P); x.fillStyle = k % 2 ? c2 : c1; x.fillRect(px - 1.5, py - 5, 3, 10); x.fillRect(px - 5, py - 1.5, 10, 3); } x.globalAlpha = 1;
@@ -172,10 +178,18 @@ function vfxDraw(x, W, H, t, v) {
     for (let k = 0; k < 14; k++) { const a = rnd() * 2 * P, d = (from ? q : 1 - q) * 22 + rnd() * 6; dot(W * (from ? .28 : .72) + Math.cos(a) * d, ground - H * .22 + Math.sin(a) * d * 1.4, 2, k % 2 ? c1 : c2, from ? q : 1 - q); }
     glow(W * (from ? .28 : .72), ground - H * .22, 18, c1, .5);
   } else if (m === 'summon') {
-    const cx = W * .5, cy = ground; x.strokeStyle = c1; x.lineWidth = 2; x.globalAlpha = .9; x.beginPath(); x.ellipse(cx, cy, W * .3, H * .07, 0, 0, 2 * P); x.stroke();
-    for (let k = 0; k < 6; k++) { const a = ph * 2 * P + k / 6 * 2 * P; dot(cx + Math.cos(a) * W * .3, cy + Math.sin(a) * H * .07, 2.5, c2); } x.globalAlpha = 1;
-    const rise = Math.min(1, ph / .6); glow(cx, cy - H * .15, W * .25, c1, .35); x.save(); x.beginPath(); x.rect(0, 0, W, cy); x.clip();
-    x.fillStyle = '#9aa3bb'; x.globalAlpha = rise; const by = cy + (1 - rise) * H * .4; x.beginPath(); x.ellipse(cx, by - H * .18, W * .14, H * .12, 0, 0, 2 * P); x.fill(); x.beginPath(); x.arc(cx + W * .1, by - H * .32, H * .07, 0, 2 * P); x.fill(); dot(cx + W * .13, by - H * .33, 1.6, c2, rise); x.restore(); x.globalAlpha = 1;
+    // a creature climbs up out of a glowing circle
+    const cx = W * .5, cy = ground; x.strokeStyle = c1; x.lineWidth = 2; x.globalAlpha = .9; x.beginPath(); x.ellipse(cx, cy + H * .03, W * .32, H * .07, 0, 0, 2 * P); x.stroke();
+    for (let k = 0; k < 6; k++) { const a = ph * 2 * P + k / 6 * 2 * P; dot(cx + Math.cos(a) * W * .32, cy + H * .03 + Math.sin(a) * H * .07, 2.2, c2); } x.globalAlpha = 1;
+    const rise = ease(Math.min(1, ph / .5)); glow(cx, cy - H * .18, W * .3, c1, .4); x.save(); x.beginPath(); x.rect(0, 0, W, cy + H * .03); x.clip(); x.translate(cx, cy + H * .03 + (1 - rise) * H * .5); const k2 = W * .0055; x.scale(k2, k2);
+    const g = x.createLinearGradient(0, -60, 0, 0); g.addColorStop(0, c2); g.addColorStop(1, c1); x.fillStyle = g; x.shadowColor = c1; x.shadowBlur = 10; x.globalAlpha = .9;
+    // a hunched beast: body, head with ears and snout, four legs, tail
+    x.beginPath(); x.ellipse(-4, -26, 24, 11, -.08, 0, 2 * P); x.fill();
+    x.beginPath(); x.moveTo(14, -34); x.quadraticCurveTo(22, -44, 30, -42); x.lineTo(42, -36); x.quadraticCurveTo(40, -31, 30, -30); x.quadraticCurveTo(22, -26, 16, -22); x.closePath(); x.fill();
+    x.beginPath(); x.moveTo(22, -42); x.lineTo(23, -52); x.lineTo(28, -43); x.fill();
+    [[-22, 0], [-14, 0], [6, 0], [14, 0]].forEach(([lx], i) => { x.fillRect(lx - 2.5, -20, 5, 20 + Math.sin(ph * 12 * P + i) * (rise === 1 ? 1.5 : 0)); });
+    x.beginPath(); x.moveTo(-26, -30); x.quadraticCurveTo(-40, -40, -42, -30); x.quadraticCurveTo(-36, -30, -27, -24); x.fill();
+    x.shadowBlur = 0; dot(31, -38, 1.8, '#1b2131'); x.restore(); x.globalAlpha = 1;
   } else if (m === 'slash') {
     swingScene([[0, -P * .62, P * .22]], c2, c1, null, r => { for (let k = 0; k < 8; k++) { const sa = k / 8 * 2 * P + rnd() * .3, d = 4 + r * 16; dot(W * .7 + Math.cos(sa) * d, ground - H * .26 + Math.sin(sa) * d, 1.8, c2, 1 - r); } });
   } else if (m === 'dash') {
@@ -224,12 +238,12 @@ function vfxDraw(x, W, H, t, v) {
     figure(W * .5, ground, H * .22, '#8d96ab');
     for (let k = 0; k < 5; k++) { const bx = W * (.2 + k * .15), q = Math.min(1, ph * 1.6 - k * .08); if (q <= 0) continue; x.strokeStyle = k % 2 ? c1 : c2; x.lineWidth = 3; x.beginPath(); x.moveTo(bx, ground + H * .08); for (let s = 1; s <= 10; s++) { const tt = s / 10 * q; x.lineTo(bx + Math.sin(tt * 9 + k) * 6 + (W * .5 - bx) * tt * .6, ground + H * .08 - tt * H * .55); } x.stroke(); dot(bx + (W * .5 - bx) * q * .6, ground + H * .08 - q * H * .55, 3, c2); }
   } else if (m === 'quake') {
-    const sh = Math.sin(ph * 40) * 2; figure(W * .5 + sh, ground, H * .22, '#8d96ab'); x.strokeStyle = c1; x.lineWidth = 2.5;
+    const sh = Math.sin(ph * 40) * 2; crowd([[.28, .3], [.5, 0], [.72, .3]], px => sh * (px > .4 && px < .6 ? 1 : -1)); x.strokeStyle = c1; x.lineWidth = 2.5;
     x.beginPath(); x.moveTo(W * .1, ground + H * .08); for (let k = 1; k <= 8; k++) x.lineTo(W * (.1 + k * .1), ground + H * .08 + ((k % 2) ? -5 : 5) * Math.min(1, ph * 2)); x.stroke();
     for (let k = 0; k < 6; k++) { const life = (ph * 1.3 + k / 6) % 1, px = W * (.2 + .6 * ((k * 3 % 6) / 6)), py = ground + H * .08 - Math.sin(life * P) * H * .3; x.fillStyle = k % 2 ? c1 : c2; x.fillRect(px - 3, py - 3, 6, 6); }
   } else if (m === 'gust') {
-    const push = ease(Math.min(1, ph / .7)); figure(W * (.62 + push * .2), ground, H * .2, '#8d96ab');
-    for (let k = 0; k < 6; k++) { const life = (ph * 1.4 + k / 6) % 1, yy = ground - H * (.08 + k * .07); x.strokeStyle = k % 2 ? c1 : c2; x.globalAlpha = .7 * Math.sin(life * P); x.lineWidth = 2; x.beginPath(); x.moveTo(W * (.05 + life * .6), yy); x.quadraticCurveTo(W * (.15 + life * .6), yy - 6, W * (.28 + life * .6), yy); x.stroke(); } x.globalAlpha = 1;
+    const push = ease(Math.min(1, ph / .7)) * W * .14; figure(W * .14, ground, H * .2, '#aab3c8'); crowd([[.58, .6], [.62, 0], [.78, .3]], () => push);
+    for (let k = 0; k < 6; k++) { const life = (ph * 1.4 + k / 6) % 1, yy = ground - H * (.08 + k * .07); x.strokeStyle = k % 2 ? c1 : c2; x.globalAlpha = .7 * Math.sin(life * P); x.lineWidth = 2; x.beginPath(); x.moveTo(W * (.2 + life * .6), yy); x.quadraticCurveTo(W * (.3 + life * .6), yy - 6, W * (.43 + life * .6), yy); x.stroke(); } x.globalAlpha = 1;
   } else if (m === 'water') {
     figure(W * .5, ground, H * .2, '#8d96ab'); const lvl = ground + H * .06 - Math.sin(ph * P) * H * .35;
     x.fillStyle = c1; x.globalAlpha = .7; x.beginPath(); x.moveTo(0, H); for (let k = 0; k <= 12; k++) x.lineTo(W * k / 12, lvl + Math.sin(k + ph * 8 * P) * 4); x.lineTo(W, H); x.fill(); x.globalAlpha = 1;
@@ -261,26 +275,25 @@ function vfxDraw(x, W, H, t, v) {
     const q = ease(Math.min(1, ph / .7)); glow(W * .5, ground - H * .2, W * .35, c1, .25 + .35 * q); x.save(); x.translate(W * .5, ground); x.rotate((1 - q) * -P / 2); figure(0, 0, H * .22, '#cfd6e6'); x.restore();
     for (let k = 0; k < 8; k++) { const life = (ph + k / 8) % 1; dot(W * (.3 + .4 * (k / 8)), ground - life * H * .6, 2, c2, Math.sin(life * P)); }
   } else if (m === 'speak') {
-    figure(W * .25, ground, H * .2); figure(W * .75, ground, H * .2, '#8d96ab');
-    [[.38, .32, 0], [.62, .5, .5]].forEach(([bx, by, off]) => { const a = Math.max(0, Math.sin(((ph + off) % 1) * P)); x.globalAlpha = a; x.fillStyle = c1; x.beginPath(); x.ellipse(W * bx, H * by, W * .14, H * .09, 0, 0, 2 * P); x.fill(); for (let k = -1; k <= 1; k++) dot(W * bx + k * 6, H * by, 1.8, '#1b2131', a); x.globalAlpha = 1; });
+    const hs = H * .2 * 1.35, headY = ground - hs * 1.05; figure(W * .25, ground, H * .2); figure(W * .75, ground, H * .2, '#8d96ab');
+    [[.25, 0, 1], [.75, .5, -1]].forEach(([fx, off, dir]) => { const a = Math.max(0, Math.sin(((ph + off) % 1) * P * 1.1)); if (a <= 0) return; const bx = W * fx + dir * W * .1, by = headY - hs * .62, bw = W * .13, bh = H * .085;
+      x.globalAlpha = Math.min(1, a * 1.6); x.fillStyle = c1; x.beginPath(); x.ellipse(bx, by, bw, bh, 0, 0, 2 * P); x.fill();
+      x.beginPath(); x.moveTo(bx - dir * bw * .35, by + bh * .6); x.lineTo(W * fx + dir * W * .03, headY - hs * .38); x.lineTo(bx - dir * bw * .02, by + bh * .8); x.closePath(); x.fill();
+      const n = Math.min(3, Math.floor(((ph + off) % 1) * 8) + 1); for (let k = 0; k < n; k++) dot(bx + (k - 1) * 5, by, 1.6, '#1b2131'); x.globalAlpha = 1; });
   } else if (m === 'glyph') {
     figure(W * .5, ground - H * .05, H * .2, '#8d96ab', ph > .6 ? 1 - (ph - .6) * 1.5 : 1); const cx = W * .5, cy = ground + H * .02, pul = .5 + .5 * Math.sin(ph * 2 * P);
     x.strokeStyle = c1; x.globalAlpha = .6 + .4 * pul; x.lineWidth = 2; x.beginPath(); x.ellipse(cx, cy, W * .34, H * .09, 0, 0, 2 * P); x.stroke(); x.beginPath(); x.ellipse(cx, cy, W * .24, H * .06, 0, 0, 2 * P); x.stroke();
     for (let k = 0; k < 6; k++) { const a = ph * P + k / 6 * 2 * P; dot(cx + Math.cos(a) * W * .29, cy + Math.sin(a) * H * .075, 2, c2); } x.globalAlpha = 1; if (ph > .6) glow(cx, cy - H * .2, W * .3 * (ph - .6) * 2.5, c1, 1 - (ph - .6) * 2.5);
   } else if (m === 'hand') {
     // A spectral open hand: one continuous outline (palm, four fingers and a thumb), drifting over to lift a small vial.
-    // drift over to the vial (0-.35), close around it and lift it (.35-.7), float back and let it go (.7-1)
-    const S = H * .46, go = ease(Math.min(1, ph / .35)), lift = ph < .4 ? 0 : ph < .7 ? ease((ph - .4) / .3) : 1 - ease((ph - .7) / .3), back = ph > .7 ? ease((ph - .7) / .3) : 0, hold = ph > .36 && ph < .9;
-    const hx = W * (.26 + .42 * go - .2 * back) + Math.sin(ph * 6 * P) * 1, hy = ground - H * .02 - lift * H * .28 + Math.sin(ph * 4 * P) * 1.5 - (1 - go) * H * .1, tilt = (1 - go) * -.25 + back * -.15;
-    const vx = ph < .36 ? W * .68 : hx + S * .01, vy = ph < .36 ? ground + H * .04 : hy - S * .22;
-    for (let k = 0; k < 6; k++) { const life = (ph * 2 + k / 6) % 1; dot(hx - 10 * life + Math.sin(k * 7) * 6, hy - S * .2 + life * 8, 1.4, c2, (1 - life) * .7); }
-    const drawVial = () => { x.fillStyle = '#7fd6ff'; x.globalAlpha = .95; x.beginPath(); x.ellipse(vx, vy - 6, 5, 6, 0, 0, 2 * P); x.fill(); x.fillRect(vx - 2, vy - 16, 4, 6); x.fillStyle = '#c69a62'; x.fillRect(vx - 2.5, vy - 18, 5, 3); x.fillStyle = '#fff'; x.globalAlpha = .6; x.fillRect(vx - 3, vy - 9, 1.5, 4); x.globalAlpha = 1; };
-    if (ph < .36) drawVial();
+    // floats and drifts in a lazy figure-eight, flexing its fingers closed and open
+    const S = H * .5, hold = true, hx = W * .5 + Math.sin(ph * 2 * P) * W * .16, hy = ground - H * .02 + Math.sin(ph * 4 * P) * H * .05, tilt = Math.sin(ph * 2 * P) * .18;
+    for (let k = 0; k < 6; k++) { const life = (ph * 2 + k / 6) % 1; dot(hx - Math.cos(ph * 2 * P) * 14 * life + Math.sin(k * 7) * 6, hy - S * .25 + life * 8, 1.4, c2, (1 - life) * .7); }
     glow(hx, hy - S * .45, S * .75, c1, .45);
     x.save(); x.translate(hx, hy); x.rotate(tilt); x.scale(S, S);
     // fingers: [base x, base y, angle from vertical, length, width]
     const F = [[-.17, -.56, -.16, .34, .1], [-.055, -.6, -.04, .4, .105], [.06, -.58, .07, .37, .1], [.16, -.52, .2, .28, .085]];
-    const curl = hold ? .5 * Math.min(1, (ph - .36) / .06, (.9 - ph) / .06) : 0;
+    const curl = .5 * Math.max(0, Math.sin(ph * 4 * P - 1)) ** 2;
     x.beginPath(); x.moveTo(.18, 0); x.quadraticCurveTo(.25, -.25, .22, -.45);
     F.slice().reverse().forEach(([bx, by, a, len, w], i) => { const A = a + curl * .4, L2 = len * (1 - curl * .35), ux = Math.sin(A), uy = -Math.cos(A), nx = -uy, ny = ux, tx = bx + ux * L2, ty = by + uy * L2;
       x.lineTo(bx + nx * w / 2, by + ny * w / 2); x.lineTo(tx + nx * w / 2, ty + ny * w / 2); x.arc(tx, ty, w / 2, Math.atan2(ny, nx), Math.atan2(-ny, -nx), true); x.lineTo(bx - nx * w / 2, by - ny * w / 2);
@@ -294,10 +307,11 @@ function vfxDraw(x, W, H, t, v) {
     // palm creases and knuckle lines
     x.globalAlpha = .35; x.strokeStyle = '#ffffff'; x.lineWidth = 1 / S; x.beginPath(); x.moveTo(-.15, -.3); x.quadraticCurveTo(0, -.38, .19, -.33); x.moveTo(-.18, -.2); x.quadraticCurveTo(-.05, -.18, .02, -.3); x.stroke();
     F.forEach(([bx, by, a, len]) => { const A = a + curl * .4, L2 = len * (1 - curl * .35), mx = bx + Math.sin(A) * L2 * .5, my = by - Math.cos(A) * L2 * .5; x.beginPath(); x.moveTo(mx - .03, my); x.lineTo(mx + .03, my); x.stroke(); });
-    x.globalAlpha = 1; x.restore(); if (ph >= .36) drawVial();
+    x.globalAlpha = 1; x.restore();
   } else if (m === 'weather') {
-    x.fillStyle = 'rgba(170,180,205,.6)'; x.beginPath(); x.ellipse(W * .45, H * .22, W * .28, H * .1, 0, 0, 2 * P); x.ellipse(W * .62, H * .2, W * .2, H * .09, 0, 0, 2 * P); x.fill();
-    for (let k = 0; k < 18; k++) { const life = (ph * 2 + k / 18) % 1, px = W * (.2 + .6 * ((k * 7 % 18) / 18)); x.strokeStyle = c1; x.globalAlpha = .8; x.lineWidth = 1.5; x.beginPath(); x.moveTo(px, H * .3 + life * H * .55); x.lineTo(px - 3, H * .3 + life * H * .55 + 7); x.stroke(); } x.globalAlpha = 1;
+    crowd([[.28, .2], [.5, 0], [.72, .3], [.6, .9]], px => Math.sin(ph * 10 * P + px * 9) * .8);
+    x.fillStyle = 'rgba(170,180,205,.6)'; x.beginPath(); x.ellipse(W * .45, H * .16, W * .3, H * .1, 0, 0, 2 * P); x.ellipse(W * .64, H * .14, W * .22, H * .09, 0, 0, 2 * P); x.fill();
+    for (let k = 0; k < 22; k++) { const life = (ph * 2 + k / 22) % 1, px = W * (.15 + .7 * ((k * 7 % 22) / 22)); x.strokeStyle = c1; x.globalAlpha = .8; x.lineWidth = 1.5; x.beginPath(); x.moveTo(px, H * .24 + life * H * .6); x.lineTo(px - 3, H * .24 + life * H * .6 + 7); x.stroke(); } x.globalAlpha = 1;
   } else if (m === 'time') {
     const cx = W * .5, cy = H * .48, r = W * .3; x.strokeStyle = c1; x.lineWidth = 3; x.beginPath(); x.arc(cx, cy, r, 0, 2 * P); x.stroke(); for (let k = 0; k < 12; k++) { const a = k / 12 * 2 * P; dot(cx + Math.cos(a) * r * .82, cy + Math.sin(a) * r * .82, 1.5, c2); }
     const a1 = ph * 2 * P * 3 - P / 2, a2 = ph * 2 * P * .5 - P / 2; x.strokeStyle = c2; x.lineWidth = 2; x.beginPath(); x.moveTo(cx, cy); x.lineTo(cx + Math.cos(a1) * r * .75, cy + Math.sin(a1) * r * .75); x.stroke(); x.lineWidth = 3; x.beginPath(); x.moveTo(cx, cy); x.lineTo(cx + Math.cos(a2) * r * .5, cy + Math.sin(a2) * r * .5); x.stroke();
@@ -314,20 +328,70 @@ function vfxDraw(x, W, H, t, v) {
   } else if (m === 'multi') {
     swingScene([[0, -P * .62, P * .22], [.36, P * .22, -P * .5]], c2, c1, null, r => { for (let k = 0; k < 6; k++) { const sa = k / 6 * 2 * P, d = 4 + r * 14; dot(W * .7 + Math.cos(sa) * d, ground - H * .26 + Math.sin(sa) * d, 1.6, c2, 1 - r); } });
   } else if (m === 'punch') {
-    figure(W * .28, ground, H * .22); figure(W * .74, ground, H * .2, '#8d96ab');
-    for (let k = 0; k < 3; k++) { const q = ((ph * 3 + k / 3) % 1), px = W * (.36 + .3 * ease(q)), py = ground - H * (.22 + k * .06); dot(px, py, 5, c1, 1 - q * .3); if (q > .85) glow(W * .68, py, 12, c2, 1); }
+    // two quick jabs then a hook; the fist has knuckles and a thumb, the target rocks back
+    const fx = W * .3, fs = H * .22 * 1.35, sx = fx + fs * .14, sy = ground - fs * .5, jab = t0 => { const q = (ph - t0) / .16; return q < 0 || q > 1 ? 0 : Math.sin(q * P); };
+    const e = Math.max(jab(.05), jab(.3), jab(.55) * 1.15), hit = [.13, .38, .63].find(h => ph > h && ph < h + .12), rock = hit ? 4 : 0;
+    figure(fx + e * 3, ground, H * .22); figure(W * .74 + rock, ground, H * .2, '#8d96ab');
+    const reach = W * (.1 + .27 * e), hx = sx + reach, hy = sy - fs * .05 + (ph > .5 ? -Math.sin(e * P) * 3 : 0);
+    x.strokeStyle = '#aab3c8'; x.lineCap = 'round'; x.lineWidth = fs * .17; x.beginPath(); x.moveTo(sx, sy); x.lineTo(hx - fs * .1, hy); x.stroke();
+    if (e > .6) for (let k = 0; k < 3; k++) { x.strokeStyle = c2; x.globalAlpha = .5 * e; x.lineWidth = 1.2; x.beginPath(); x.moveTo(hx - fs * (.35 + k * .12), hy - 4 + k * 4); x.lineTo(hx - fs * .2, hy - 4 + k * 4); x.stroke(); } x.globalAlpha = 1;
+    x.save(); x.translate(hx, hy); const r = fs * .14; x.fillStyle = '#c3cbdc'; x.beginPath(); x.roundRect ? x.roundRect(-r * 1.1, -r, r * 2, r * 2, r * .6) : x.arc(0, 0, r, 0, 2 * P); x.fill();
+    x.strokeStyle = 'rgba(40,48,66,.55)'; x.lineWidth = 1; for (let k = 1; k < 4; k++) { x.beginPath(); x.moveTo(r * .2, -r + k * r * .5); x.lineTo(r * .85, -r + k * r * .5); x.stroke(); } x.beginPath(); x.moveTo(-r * .6, r * .3); x.quadraticCurveTo(0, r * .55, r * .3, r * .2); x.stroke(); x.restore();
+    if (hit) { const q = (ph - hit) / .12, cx = W * .74 - fs * .1, cy = hy; x.fillStyle = c1; x.globalAlpha = 1 - q; x.beginPath(); for (let k = 0; k < 12; k++) { const a = k / 12 * 2 * P, rr = (k % 2 ? 3 : 9) * (0.7 + q); x.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); } x.closePath(); x.fill(); x.globalAlpha = 1; }
   } else if (m === 'smite') {
     if (ph < .3) glow(W * .4, ground - H * .45, W * .22, c1, ph / .3 * .5);
     swingScene([[0, -P * .62, P * .2]], c2, c1, c1, r => { glow(W * .72, ground - H * .25, 10 + r * 30, c1, 1 - r); for (let k = 0; k < 6; k++) { x.strokeStyle = c2; x.globalAlpha = 1 - r; x.lineWidth = 1.5; x.beginPath(); x.moveTo(W * .72 + (k - 2.5) * 2, 0); x.lineTo(W * .72 + (k - 2.5) * 4, ground - H * .25); x.stroke(); } x.globalAlpha = 1; });
+  } else if (m === 'steed') {
+    // a horse forms out of light inside a summoning circle, rears, then trots in place
+    const cx = W * .5, q = Math.min(1, ph / .45), rear = ph > .45 && ph < .65 ? Math.sin((ph - .45) / .2 * P) : 0, trot = ph > .65 ? Math.sin(ph * 16 * P) : 0;
+    x.strokeStyle = c1; x.lineWidth = 2; x.globalAlpha = .8; x.beginPath(); x.ellipse(cx, ground + H * .04, W * .36, H * .06, 0, 0, 2 * P); x.stroke(); x.globalAlpha = 1;
+    for (let k = 0; k < 7; k++) { const a = ph * 2 * P + k / 7 * 2 * P; dot(cx + Math.cos(a) * W * .36, ground + H * .04 + Math.sin(a) * H * .06, 2, c2); }
+    glow(cx, ground - H * .25, W * .35, c1, .35 * q);
+    x.save(); x.translate(cx, ground + H * .02); x.rotate(-rear * .35); x.globalAlpha = q; const s2 = W * .0055; x.scale(s2, s2);
+    const body = x.createLinearGradient(0, -60, 0, 0); body.addColorStop(0, c2); body.addColorStop(1, '#9aa6c0'); x.fillStyle = body; x.shadowColor = c1; x.shadowBlur = 10;
+    const leg = (lx, ang, back) => { x.save(); x.translate(lx, -22); x.rotate(ang); x.fillStyle = back ? '#7d88a3' : body; x.beginPath(); x.moveTo(-2.6, 0); x.lineTo(2.6, 0); x.lineTo(2, 12); x.lineTo(2.4, 22); x.lineTo(-2.2, 22); x.lineTo(-2, 12); x.closePath(); x.fill(); x.fillStyle = '#3a4155'; x.fillRect(-2.6, 20, 5.2, 3); x.restore(); };
+    leg(-22, -.15 + trot * .25, 1); leg(18, .2 - trot * .25 - rear * .9, 1);
+    // torso, neck, head, tail
+    x.fillStyle = body; x.beginPath(); x.ellipse(0, -30, 30, 12, 0, 0, 2 * P); x.fill();
+    x.beginPath(); x.moveTo(18, -38); x.quadraticCurveTo(26, -58, 34, -66); x.lineTo(42, -64); x.quadraticCurveTo(36, -48, 30, -28); x.closePath(); x.fill();
+    x.beginPath(); x.moveTo(32, -70); x.quadraticCurveTo(44, -72, 52, -60); x.quadraticCurveTo(54, -55, 48, -54); x.quadraticCurveTo(42, -58, 36, -58); x.closePath(); x.fill();
+    x.beginPath(); x.moveTo(33, -70); x.lineTo(35, -78); x.lineTo(38, -70); x.fill();
+    x.shadowBlur = 0; x.fillStyle = c1; x.beginPath(); x.moveTo(20, -40); x.quadraticCurveTo(24, -62, 34, -70); x.quadraticCurveTo(28, -56, 26, -36); x.closePath(); x.fill();
+    x.beginPath(); x.moveTo(-28, -36); x.quadraticCurveTo(-46, -34 + trot * 3, -44, -10); x.quadraticCurveTo(-36, -24, -27, -28); x.closePath(); x.fill();
+    dot(44, -64, 1.6, '#1b2131');
+    leg(-18, .1 - trot * .25, 0); leg(22, -.1 + trot * .25 - rear * 1.1, 0);
+    x.restore(); x.globalAlpha = 1;
+  } else if (m === 'cannon') {
+    // a small walking cannon on two legs fires a blast across at a target
+    const fire = ph > .3 && ph < .4, rec = ph > .3 ? Math.max(0, 1 - (ph - .3) / .2) * 4 : 0, bx = W * .26 - rec, by = ground - H * .14, step = Math.sin(ph * 8 * P) * (ph < .25 ? 1 : 0);
+    crowd([[.76, .2], [.86, .8]], () => (ph > .5 && ph < .62 ? 2 : 0));
+    x.strokeStyle = '#6b5440'; x.lineWidth = 3; x.lineCap = 'round'; x.beginPath(); x.moveTo(bx - 5, by + 4); x.lineTo(bx - 9 + step * 2, ground + H * .06); x.moveTo(bx + 5, by + 4); x.lineTo(bx + 9 - step * 2, ground + H * .06); x.stroke();
+    x.fillStyle = '#8a6a4a'; x.beginPath(); x.ellipse(bx, by + 2, 11, 6, 0, 0, 2 * P); x.fill();
+    x.save(); x.translate(bx, by - 2); x.rotate(-.12); const g = x.createLinearGradient(0, -6, 0, 6); g.addColorStop(0, '#d7dde8'); g.addColorStop(.5, '#8d97aa'); g.addColorStop(1, '#4b5367'); x.fillStyle = g;
+    x.beginPath(); x.moveTo(-8, -6); x.lineTo(16, -4.5); x.lineTo(16, 4.5); x.lineTo(-8, 6); x.quadraticCurveTo(-13, 0, -8, -6); x.fill(); x.fillStyle = '#c9a24e'; x.fillRect(12, -5.5, 4, 11); x.fillRect(-2, -6, 2.5, 12); x.restore();
+    dot(bx - 3, by + 2, 1.5, c2); glow(bx - 3, by + 2, 5, c1, .6);
+    if (fire) glow(bx + 17, by - 4, 14, c2, 1);
+    if (ph > .3 && ph < .55) { const q = (ph - .3) / .2; if (q < 1) { const px = bx + 17 + q * (W * .74 - bx - 17), py = by - 4 - Math.sin(q * P) * H * .06; for (let k = 0; k < 5; k++) dot(px - k * 4, py + k * .3, 3.5 - k * .5, c1, .7 - k * .12); dot(px, py, 3.5, c2); } }
+    if (ph > .5 && ph < .8) { const r = (ph - .5) / .3; glow(W * .76, ground - H * .22, 8 + r * 24, c1, 1 - r); for (let k = 0; k < 10; k++) { const a = k / 10 * 2 * P; dot(W * .76 + Math.cos(a) * r * 18, ground - H * .22 + Math.sin(a) * r * 14, 1.8, c2, 1 - r); } }
+    if (ph > .32 && ph < .7) for (let k = 0; k < 4; k++) { const r = (ph - .32) / .38; x.fillStyle = 'rgba(200,205,215,' + (.35 * (1 - r)) + ')'; x.beginPath(); x.arc(bx + 18 + k * 3, by - 6 - r * 12 - k * 3, 3 + r * 5, 0, 2 * P); x.fill(); }
+  } else if (m === 'slip') {
+    // an oily slick spreads, someone walks onto it, their feet go out and they land on their back
+    const cx = W * .55, spread = Math.min(1, ph / .2);
+    const sl = x.createRadialGradient(cx, ground + H * .07, 2, cx, ground + H * .07, W * .34); sl.addColorStop(0, c2); sl.addColorStop(1, c1); x.fillStyle = sl; x.globalAlpha = .75; x.beginPath(); x.ellipse(cx, ground + H * .07, W * .34 * spread, H * .055 * spread, 0, 0, 2 * P); x.fill();
+    x.globalAlpha = .7; x.fillStyle = '#fff'; x.beginPath(); x.ellipse(cx - W * .1 * spread, ground + H * .055, W * .06 * spread, H * .012, 0, 0, 2 * P); x.fill(); x.globalAlpha = 1;
+    const walk = Math.min(1, Math.max(0, (ph - .1) / .3)), fall = Math.max(0, Math.min(1, (ph - .42) / .14)), lie = ph > .56, px = W * (.18 + .34 * walk) + fall * W * .06, bob = walk < 1 ? Math.abs(Math.sin(walk * 6 * P)) * 1.5 : 0;
+    x.save(); x.translate(px, ground + H * .02); x.rotate(-fall * P / 2 * (1 + (fall < 1 ? Math.sin(fall * P) * .25 : 0))); figure(0, -H * .02 - bob - fall * H * .02, H * .2, '#aab3c8'); x.restore();
+    if (fall > 0 && fall < 1) { x.strokeStyle = c2; x.lineWidth = 1.5; for (let k = 0; k < 3; k++) { x.beginPath(); x.arc(px + W * .06, ground - H * .06 - k * 4, 4 + k * 3, P * 1.1, P * 1.6); x.stroke(); } }
+    if (lie) for (let k = 0; k < 3; k++) { const a = ph * 6 * P + k * 2.1; x.fillStyle = c2; x.font = 'bold 8px sans-serif'; x.fillText('✦', px - W * .1 + Math.cos(a) * 8, ground - H * .12 + Math.sin(a) * 3); }
   } else if (m === 'aura') {
     figure(W * .5, ground, H * .22, '#cfd6e6');
     for (let k = 0; k < 3; k++) { const life = (ph + k / 3) % 1; x.strokeStyle = c1; x.globalAlpha = 1 - life; x.lineWidth = 2; x.beginPath(); x.ellipse(W * .5, ground - H * .05, W * (.1 + life * .4), H * (.03 + life * .12), 0, 0, 2 * P); x.stroke(); } x.globalAlpha = 1; glow(W * .5, ground - H * .2, W * .3, c1, .3);
   } else if (m === 'cloud') {
-    figure(W * .5, ground, H * .2, '#8d96ab');
-    for (let k = 0; k < 9; k++) { const a = k / 9 * 2 * P + ph * P, r = W * (.18 + .05 * Math.sin(ph * 4 * P + k)); x.fillStyle = k % 2 ? c1 : c2; x.globalAlpha = .45; x.beginPath(); x.arc(W * .5 + Math.cos(a) * r, ground - H * .25 + Math.sin(a) * r * .6, W * .12, 0, 2 * P); x.fill(); } x.globalAlpha = 1;
+    crowd([[.28, .3], [.5, 0], [.72, .4], [.6, .9]], px => Math.sin(ph * 6 * P + px * 9) * 1.2);
+    for (let k = 0; k < 11; k++) { const a = k / 11 * 2 * P + ph * P, r = W * (.24 + .05 * Math.sin(ph * 4 * P + k)); x.fillStyle = k % 2 ? c1 : c2; x.globalAlpha = .38; x.beginPath(); x.arc(W * .5 + Math.cos(a) * r, ground - H * .25 + Math.sin(a) * r * .45, W * .13, 0, 2 * P); x.fill(); } x.globalAlpha = 1;
   } else if (m === 'meteor') {
-    figure(W * .5, ground, H * .2, '#8d96ab');
-    for (let k = 0; k < 3; k++) { const q = ((ph + k / 3) % 1), sx = W * (.85 - k * .2), px = sx - q * W * .4, py = q * (ground - H * .05); if (q < .85) { for (let t = 0; t < 6; t++) dot(px + t * 4, py - t * 5, 4 - t * .5, c1, .6 - t * .08); dot(px, py, 4.5, c2); } else glow(px, ground - H * .05, 22, c1, (1 - q) * 6); }
+    crowd([[.25, .3], [.5, 0], [.75, .3], [.62, .9], [.38, .9]]);
+    for (let k = 0; k < 3; k++) { const q = ((ph + k / 3) % 1), tx = W * (.3 + k * .2), px = tx + (1 - q) * W * .35, py = q * (ground - H * .05); if (q < .85) { for (let t = 0; t < 6; t++) dot(px + t * 4, py - t * 5, 4 - t * .5, c1, .6 - t * .08); dot(px, py, 4.5, c2); } else glow(tx, ground - H * .05, 24, c1, (1 - q) * 6); }
   } else if (m === 'heart') {
     figure(W * .5, ground, H * .24, '#aab3c8'); const s = 7 + 3 * Math.abs(Math.sin(ph * 2 * P * 2)), px = W * .5, py = ground - H * .52;
     x.fillStyle = c1; x.beginPath(); x.moveTo(px, py + s); x.bezierCurveTo(px - s * 1.6, py - s * .2, px - s * .6, py - s * 1.4, px, py - s * .4); x.bezierCurveTo(px + s * .6, py - s * 1.4, px + s * 1.6, py - s * .2, px, py + s); x.fill(); glow(px, py, s * 2.4, c1, .35);
