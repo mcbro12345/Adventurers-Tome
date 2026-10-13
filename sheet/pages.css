@@ -460,3 +460,9 @@ html.pg-sheetpage.mobile .banner { padding-top: calc(34px + env(safe-area-inset-
 :where(body.hubbody) .hc-list button { display: flex; align-items: center; gap: 10px; }
 :where(body.hubbody) .hc-list .mi { flex: none; opacity: .75; }
 :where(body.hubbody) .hc-list .hc-del .mi { opacity: 1; }
+/* ⋯ button: a snug rectangle around the dots, not a tall block */
+:where(body.hubbody) .hc-menu { align-self: flex-start; }
+:where(body.hubbody) .hr-menu { align-self: center; }
+:where(body.hubbody) .hc-dots { display: grid; place-items: center; width: 30px; height: 22px; padding: 0; line-height: 1; font-size: 1.05rem; border-radius: 6px; margin: 6px 6px 0 0; }
+:where(body.hubbody) .hr-menu .hc-dots { margin: 0; }
+:where(body.hubbody) .hc-list { top: 30px; }
