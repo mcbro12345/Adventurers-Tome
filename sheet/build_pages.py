@@ -14,7 +14,8 @@ app = html[i + len('<script>\n'):j]
 html = html[:i] + '<script type="text/plain" id="app-src">\n' + app + '</script>' + html[j + len('</script>'):]
 
 loader = ('''
-<div id="pg-load" style="position:fixed;inset:0;display:grid;place-items:center;background:#f6f1e6;color:#1f2a44;font:600 15px system-ui,sans-serif;z-index:9999">Loading…</div>
+<script>document.documentElement.classList.add('pg-loading')</script>
+<div id="pg-load"><div class="pg-spin" role="status" aria-label="Loading"><svg viewBox="0 0 100 100" width="64" height="64" aria-hidden="true"><g fill="none" stroke="#c9962b" stroke-width="3.2" stroke-linejoin="round"><polygon points="50,6 89,28 89,72 50,94 11,72 11,28" fill="rgba(201,150,43,.10)"/><polygon points="50,24 72,62 28,62"/><path d="M50 6 L50 24 M89 28 L72 62 M89 72 L72 62 M50 94 L72 62 M50 94 L28 62 M11 72 L28 62 M11 28 L28 62 M11 28 L50 24 M89 28 L50 24"/></g><text x="50" y="54" text-anchor="middle" font-family="Georgia,serif" font-weight="800" font-size="15" fill="#f3e7c6">20</text></svg><b>D&amp;D Character Sheets</b><small>Rolling for initiative…</small></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>

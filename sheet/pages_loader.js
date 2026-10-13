@@ -55,13 +55,13 @@ const ADMIN_EMAIL = 'matthewcbro@gmail.com';
       const b = document.createElement('button'); b.id = 'pg-upd'; b.textContent = 'Updated — tap to reload'; b.onclick = () => { b.textContent = 'Saving…'; go(); }; document.body.appendChild(b);
       ['pointerdown', 'keydown', 'scroll'].forEach(ev => addEventListener(ev, idle, { passive: true })); idle(); } catch (e) {} };
     setInterval(check, 30 * 1000); document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); else if (NEWV) go(); }); setTimeout(check, 3000); };
-  if (G && !C && !Q.get('new')) { lsSet(LAST_G, G); if (load) load.remove(); hub(fs, auth, G, { EMAIL, IS_ADMIN, IS_OWNER, ADMINS, user, signOut }); verCheck(); return; }
+  if (G && !C && !Q.get('new')) { lsSet(LAST_G, G); if (load) load.remove(); document.documentElement.classList.remove('pg-loading'); hub(fs, auth, G, { EMAIL, IS_ADMIN, IS_OWNER, ADMINS, user, signOut }); verCheck(); return; }
 
   const rid = () => { const a = new Uint8Array(18); crypto.getRandomValues(a); return btoa(String.fromCharCode(...a)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
   const NEW = !C;
   if (NEW) C = rid();
   window.SHEET_PAGES = true; window.SHEET_CHAR = C;
-  const run = () => { if (load) load.remove(); const s = document.createElement('script'); s.textContent = document.getElementById('app-src').textContent; document.body.appendChild(s); };
+  const run = () => { if (load) load.remove(); document.documentElement.classList.remove('pg-loading'); const s = document.createElement('script'); s.textContent = document.getElementById('app-src').textContent; document.body.appendChild(s); };
   const col = fs.collection('sheets'), CACHE = 'dnd-pages-cache:' + C;
   let txt = null, missing = false, denied = false, OWNER = NEW ? ((IS_ADMIN && O) || EMAIL) : '', VIEWERS = [], EDITORS = [];
   if (!NEW) try {
@@ -100,7 +100,7 @@ const ADMIN_EMAIL = 'matthewcbro@gmail.com';
   const hubUpdate = async changed => { if (!hubCol || !window.sheetSummary || role() === 'view') return; const st = window.sheetState && window.sheetState(); if (!st || !st.created) return;
     const s = window.sheetSummary();
     const when = changed ? { updatedAt: Date.now(), by: NAME } : {};
-    try { await hubCol.doc(C).set(Object.assign({ owner: OWNER, name: s.name, player: s.player, race: s.race, cls: s.cls, level: s.level, hp: s.hp, thumb: await thumb(s.portrait) }, when), { merge: true }); } catch (e) { console.warn('hub', e); } };
+    try { await hubCol.doc(C).set(Object.assign({ owner: OWNER, name: s.name, player: s.player, race: s.race, cls: s.cls, level: s.level, hp: s.hp, thumb: await thumb(s.portrait) }, EMAIL === OWNER && user.displayName ? { ownerName: user.displayName } : {}, when), { merge: true }); } catch (e) { console.warn('hub', e); } };
   const hubSoon = () => { try { const d = digest(window.sheetState()); if (LASTD !== null && d !== LASTD) hubChanged = true; LASTD = d; } catch (e) {}
     clearTimeout(hubT); hubT = setTimeout(() => { const c = hubChanged; hubChanged = false; hubUpdate(c); }, 1200); };
 
@@ -173,12 +173,13 @@ function hub(fs, auth, G, ctx) {
   document.body.innerHTML = '<div id="hub"></div><div id="hub-modal" class="hub-modal"></div><div id="hub-toast" class="hub-toast"></div>';
   document.body.className = 'hubbody';
   const root = document.getElementById('hub'), modal = document.getElementById('hub-modal');
-  let chars = [], group = { name: '', players: {} }, open = {}, view = ls.get(VIEW) === 'shared' ? 'shared' : 'mine';
+  let chars = [], group = { name: '', players: {} }, open = {}, view = 'mine';
   try { open = JSON.parse(ls.get(OPEN) || '{}'); } catch (e) {}
   const toast = t => { const el = document.getElementById('hub-toast'); el.textContent = t; el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), 2600); };
   const pmap = () => (group && group.players) || {};
   const myName = () => pmap()[EMAIL] || user.displayName || EMAIL.split('@')[0];
-  const nameOf = em => pmap()[em] || em;
+  const gName = em => { const c = chars.find(x => x.owner === em && x.ownerName); return c ? c.ownerName : ''; };
+  const nameOf = em => pmap()[em] || gName(em) || em;
   const isMine = c => (c.owner || '') === EMAIL;
   const admin = () => IS_ADMIN && view === 'all';
   const charsCol = fs.collection('groups/' + G + '/chars'), gDoc = fs.collection('groups').doc(G), sheets = fs.collection('sheets');
@@ -246,9 +247,9 @@ function hub(fs, auth, G, ctx) {
     modal.querySelectorAll('[data-ash]').forEach(b => b.onclick = () => { const c = chars.find(x => x.id === b.dataset.ash); if (c) shareChar(c, back); });
     modal.querySelectorAll('[data-arm]').forEach(b => b.onclick = () => { const c = chars.find(x => x.id === b.dataset.arm); if (c) removeChar(c, back); });
     modal.querySelectorAll('[data-pn]').forEach(inp => inp.onchange = async () => { const n = inp.value.trim(); if (!n) { inp.value = pmap()[inp.dataset.pn] || ''; return; } await gDoc.update(new FP('players', inp.dataset.pn), n); toast('Renamed to ' + n + '.'); });
-    modal.querySelectorAll('[data-prm]').forEach(b => b.onclick = async () => { await gDoc.update(new FP('players', b.dataset.prm), FV.delete()); toast('Removed ' + b.dataset.prm + ' from the players.'); });
+    modal.querySelectorAll('[data-prm]').forEach(b => b.onclick = async () => { await gDoc.update(new FP('players', b.dataset.prm), FV.delete(), new FP('hidden', b.dataset.prm), true); toast('Removed ' + b.dataset.prm + ' from the players.'); });
     const pf = modal.querySelector('#pl-f'); if (pf) pf.onsubmit = async e => { e.preventDefault(); const n = modal.querySelector('#pl-n').value.trim(), em = modal.querySelector('#pl-e').value.trim().toLowerCase(); if (!n || !em) return;
-      await gDoc.set({ players: { [em]: n } }, { merge: true }); toast('Added ' + n + '.'); };
+      await gDoc.set({ players: { [em]: n }, hidden: { [em]: FV.delete() } }, { merge: true }); toast('Added ' + n + '.'); };
     const cfg = fs.collection('config').doc('admins');
     const af = modal.querySelector('#ad-f'); if (af) af.onsubmit = async e => { e.preventDefault(); const em = modal.querySelector('#ad-e').value.trim().toLowerCase(); if (!em || em === ADMIN_EMAIL) return;
       try { await cfg.set({ emails: FV.arrayUnion(em) }, { merge: true }); ADMINS = [...new Set(ADMINS.concat(em))]; toast(nameOf(em) + ' is now an admin.'); adminPanel(); } catch (x) { toast('Couldn\'t add the admin — publish the new database rules first.'); } };
@@ -345,7 +346,7 @@ function hub(fs, auth, G, ctx) {
       ${body}`;
     const nb = root.querySelector('#hub-new'); if (nb) nb.onclick = createChar;
     root.querySelector('#me-out').onclick = signOut;
-    root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { view = b.dataset.view; ls.set(VIEW, view); draw(); });
+    root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { view = b.dataset.view; draw(); });
     const ad = root.querySelector('#hub-admin'); if (ad) ad.onclick = () => adminPanel('chars');
     root.querySelectorAll('[data-pin-id]').forEach(b => b.onclick = e => { e.preventDefault(); togglePin(b.dataset.pinId); });
     root.querySelectorAll('[data-share-id]').forEach(b => b.onclick = e => { e.preventDefault(); const c = chars.find(x => x.id === b.dataset.shareId); if (c) shareChar(c); });
@@ -356,10 +357,18 @@ function hub(fs, auth, G, ctx) {
   }
   document.addEventListener('click', () => root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')));
   draw();
-  gDoc.onSnapshot(s => { group = (s.exists && s.data()) || {}; if (!RD) draw(); adminRefresh(); }, () => {});
   // The DM sees every character; everyone else sees their own plus the ones shared with them.
-  const lists = {}, merge = () => { const m = new Map(); Object.values(lists).forEach(l => l.forEach(c => m.set(c.id, c))); chars = [...m.values()]; if (!RD) draw(); adminRefresh(); };
+  let gLoaded = false; const stamped = new Set(), added = new Set();
+  // New players: each owner's Google name is kept on their characters' party entries, and the first time an admin's
+  // party page sees an owner who isn't on the player list it adds them under that name (renameable in Admin → Players).
+  const autoPlayers = () => {
+    if (user.displayName) chars.filter(c => c.owner === EMAIL && c.ownerName !== user.displayName && !stamped.has(c.id)).forEach(c => { stamped.add(c.id); charsCol.doc(c.id).set({ ownerName: user.displayName }, { merge: true }).catch(() => {}); });
+    if (!IS_ADMIN || !gLoaded) return; const hidden = (group && group.hidden) || {};
+    const fresh = {}; chars.forEach(c => { const em = (c.owner || '').toLowerCase(); if (!em || pmap()[em] || hidden[em] || added.has(em)) return; const n = c.ownerName || (c.player && !/@/.test(c.player) ? c.player : ''); if (n) fresh[em] = n; });
+    if (Object.keys(fresh).length) { Object.keys(fresh).forEach(em => added.add(em)); gDoc.set({ players: fresh }, { merge: true }).catch(() => {}); } };
+  const lists = {}, merge = () => { const m = new Map(); Object.values(lists).forEach(l => l.forEach(c => m.set(c.id, c))); chars = [...m.values()]; autoPlayers(); if (!RD) draw(); adminRefresh(); };
   const failed = e => { root.innerHTML = `<p class="hub-empty">Couldn't load the character list (${esc(e.code || e.message || e)}).<br><br>Signed in as ${esc(EMAIL)} · <button class="linkbtn" onclick="pgSignOut()">Sign out</button></p>`; console.error(e); };
+  gDoc.onSnapshot(s => { group = (s.exists && s.data()) || {}; gLoaded = true; autoPlayers(); if (!RD) draw(); adminRefresh(); }, () => {});
   const watch = (k, q) => q.onSnapshot(qs => { lists[k] = qs.docs.map(d => Object.assign({ id: d.id }, d.data())); merge(); }, failed);
   if (IS_ADMIN) watch('all', charsCol); else { watch('mine', charsCol.where('owner', '==', EMAIL)); watch('shared', charsCol.where('viewers', 'array-contains', EMAIL)); }
   setInterval(() => { if (!RD) draw(); }, 60000);

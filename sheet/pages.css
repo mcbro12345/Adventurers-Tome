@@ -1,3 +1,16 @@
+/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
+html.pg-loading, html.pg-loading body { background: #0f1420; }
+#pg-load { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 40%, #1d2638 0%, #0f1420 70%); color: #e9e3d3; font: 600 15px system-ui, sans-serif; z-index: 9999; }
+#pg-load .pg-spin { display: flex; flex-direction: column; align-items: center; gap: 10px; animation: pg-fade .4s ease both .15s; }
+#pg-load .pg-spin svg { animation: pg-roll 2.4s cubic-bezier(.5,.1,.5,.9) infinite; filter: drop-shadow(0 0 12px rgba(201,150,43,.35)); }
+#pg-load .pg-spin b { font: 800 1.15rem Georgia, 'Times New Roman', serif; color: #c9962b; letter-spacing: .02em; margin-top: 4px; }
+#pg-load .pg-spin small { font-size: .82rem; opacity: .6; }
+#pg-load .pg-msg { max-width: 520px; padding: 0 18px; text-align: center; line-height: 1.5; }
+#pg-load .pg-msg a { color: #c9962b; }
+@keyframes pg-roll { 0% { transform: rotate(0) scale(1); } 45% { transform: rotate(360deg) scale(1.06); } 60%, 100% { transform: rotate(360deg) scale(1); } }
+@keyframes pg-fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { #pg-load .pg-spin svg { animation: none; } }
+@media (prefers-color-scheme: light) { #pg-load:has(.pg-signin) { background: #f6f1e6; color: #1f2a44; } html.pg-loading:has(.pg-signin), html.pg-loading:has(.pg-signin) body { background: #f6f1e6; } }
 .pg-hublink { position: fixed; left: 10px; top: 10px; z-index: 60; background: rgba(15,22,38,.82); color: #f3e7c6; border: 1px solid rgba(201,150,43,.6); border-radius: 999px; padding: 4px 11px; font: 700 12px system-ui, sans-serif; text-decoration: none; backdrop-filter: blur(4px); }
 .pg-hublink:hover { background: #c9962b; color: #1b1406; }
 html.mobile .pg-hublink { top: auto; bottom: calc(80px + env(safe-area-inset-bottom)); left: 10px; }
