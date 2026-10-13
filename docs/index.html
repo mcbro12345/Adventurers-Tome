@@ -27,7 +27,7 @@ html.pg-loading, html.pg-loading body { background: #0f1420; }
 @keyframes pg-roll { 0% { transform: rotate(0) scale(1); } 45% { transform: rotate(360deg) scale(1.06); } 60%, 100% { transform: rotate(360deg) scale(1); } }
 @keyframes pg-fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { #pg-load .pg-spin svg { animation: none; } }
-@media (prefers-color-scheme: light) { #pg-load:has(.pg-signin) { background: #f6f1e6; color: #1f2a44; } html.pg-loading:has(.pg-signin), html.pg-loading:has(.pg-signin) body { background: #f6f1e6; } }
+@media (prefers-color-scheme: light) { #pg-load:has(.pg-signin) { background: radial-gradient(ellipse at 50% 40%, #fbf6ea 0%, #f1e9d8 70%); color: #1f2a44; } html.pg-loading:has(.pg-signin), html.pg-loading:has(.pg-signin) body { background: #f6f1e6; } }
 .pg-hublink { position: fixed; left: 10px; top: 10px; z-index: 60; background: rgba(15,22,38,.82); color: #f3e7c6; border: 1px solid rgba(201,150,43,.6); border-radius: 999px; padding: 4px 11px; font: 700 12px system-ui, sans-serif; text-decoration: none; backdrop-filter: blur(4px); }
 .pg-hublink:hover { background: #c9962b; color: #1b1406; }
 html.mobile .pg-hublink { top: auto; bottom: calc(80px + env(safe-area-inset-bottom)); left: 10px; }
@@ -116,7 +116,7 @@ body.hubbody { margin: 0; background: #f4eee1; color: #1f2a44; font: 15px/1.4 sy
 :where(body.hubbody, #pg-load) .pg-signin .hub-hint { margin: 6px 0 0; }
 :where(body.hubbody, #pg-load) .pg-or { display: flex; align-items: center; gap: 10px; margin: 14px 0 2px; font-size: .8rem; opacity: .6; text-transform: uppercase; letter-spacing: .1em; }
 :where(body.hubbody, #pg-load) .pg-or::before, :where(body.hubbody, #pg-load) .pg-or::after { content: ''; flex: 1; height: 1px; background: currentColor; opacity: .35; }
-@media (prefers-color-scheme: dark) { #pg-load:has(.pg-signin) { background: #0f1420 !important; color: #e9e3d3 !important; } :where(body.hubbody, #pg-load) .pg-signin { background: #1a2131; border-color: #2c3548; } :where(body.hubbody, #pg-load) .pg-signin input { background: #0f1420; color: #e9e3d3; border-color: #3a4560; } :where(body.hubbody, #pg-load) .pg-signin .btn:not(.gold) { background: #242d40; color: #e9e3d3; border-color: #3a4560; } }
+@media (prefers-color-scheme: dark) { #pg-load:has(.pg-signin) { background: radial-gradient(ellipse at 50% 40%, #1d2638 0%, #0f1420 70%) !important; color: #e9e3d3 !important; } :where(body.hubbody, #pg-load) .pg-signin { background: #1a2131; border-color: #2c3548; } :where(body.hubbody, #pg-load) .pg-signin input { background: #0f1420; color: #e9e3d3; border-color: #3a4560; } :where(body.hubbody, #pg-load) .pg-signin .btn:not(.gold) { background: #242d40; color: #e9e3d3; border-color: #3a4560; } }
 /* ---- Hub: signed-in header, admin views, players ---- */
 :where(body.hubbody, #pg-load) .hub-em { opacity: .65; font-size: .8rem; }
 :where(body.hubbody, #pg-load) .hub-views { display: flex; align-items: center; gap: 6px; margin: 14px 0 0; flex-wrap: wrap; }
@@ -306,7 +306,7 @@ function wireDie(root) {
     tick(); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013144755', ASSETS = {"data": "a/data.3f7e0dc5a0bb.js", "app": "a/app.d4deaf4a0fe4.js"};
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013144924', ASSETS = {"data": "a/data.3f7e0dc5a0bb.js", "app": "a/app.d4deaf4a0fe4.js"};
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   let C = clean(Q.get('c')), G = clean(Q.get('g'));
   const P = (Q.get('p') || '').slice(0, 60), O = (Q.get('o') || '').trim().toLowerCase().slice(0, 120);
