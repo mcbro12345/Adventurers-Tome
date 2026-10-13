@@ -69,3 +69,10 @@ body.hdragging, body.hdragging * { user-select: none; cursor: grabbing !importan
 .hr-pin:hover { color: #1f2a44; background: rgba(127,127,127,.1); } .hr-pin.on { color: #c9962b; }
 .hc.pinned { border-color: #c9962b; box-shadow: inset 4px 0 0 #c9962b; }
 @media (prefers-color-scheme: dark) { body.hubbody .hr { background: #1a2131; border-color: #2c3548; } body.hubbody .hr-grip:hover, body.hubbody .hr-pin:hover { color: #e9e3d3; } }
+.hr-ph { border: 2px dashed #c9b88f; border-radius: 12px; background: rgba(201,150,43,.07); box-sizing: border-box; }
+.hr.drag { opacity: .96; box-shadow: 0 16px 36px rgba(0,0,0,.28); transform: scale(1.01); }
+/* Cancel sits at the bottom-right of a popup, as a quiet text button that reads in light and dark */
+.hub-card > .btn.ghost { display: block; margin: 8px 0 0 auto; border-color: transparent; color: inherit; opacity: .75; padding: 7px 12px; }
+.hub-card > .btn.ghost:hover, .hub-card .row .btn.ghost:hover { opacity: 1; background: rgba(127,127,127,.12); }
+.hub-card .row .btn.ghost { border-color: transparent; color: inherit; opacity: .75; }
+@media (prefers-color-scheme: dark) { body.hubbody .btn:not(.gold):not(.red):not(.ghost) { background: #242d40; color: #e9e3d3; border-color: #3a4560; } body.hubbody .btn.ghost { background: transparent; border-color: transparent; } }

@@ -164,14 +164,24 @@ function hub(fs, G) {
     c.pin = pin; c.order = order; draw(); await charsCol.doc(id).set({ pin, order }, { merge: true }); toast(pin ? 'Pinned to the top.' : 'Unpinned.'); }
   // Drag a row by its grip (mouse or touch). Pinned rows only move among pinned rows, the rest among the rest.
   let RD = null;
-  document.addEventListener('pointerdown', e => { const g = e.target.closest && e.target.closest('.hr-grip'); if (!g) return; const r = g.closest('.hr'); e.preventDefault();
-    RD = { r, pin: r.dataset.pin, list: r.parentElement, y: e.clientY }; r.classList.add('drag'); document.body.classList.add('hdragging'); g.setPointerCapture && g.setPointerCapture(e.pointerId); });
-  document.addEventListener('pointermove', e => { if (!RD) return; e.preventDefault(); const peers = [...RD.list.querySelectorAll(':scope > .hr')].filter(x => x.dataset.pin === RD.pin && x !== RD.r);
-    for (const x of peers) { const b = x.getBoundingClientRect(), mid = b.top + b.height / 2; const before = RD.r.compareDocumentPosition(x) & Node.DOCUMENT_POSITION_PRECEDING;
-      if (before && e.clientY < mid) { x.before(RD.r); break; } if (!before && e.clientY > mid) { x.after(RD.r); } }
+  // The row lifts and follows the pointer; a gap shows where it will land, and the other rows slide out of the way.
+  const slide = (rows, mutate) => { const before = new Map(rows.map(x => [x, x.getBoundingClientRect().top])); mutate();
+    rows.forEach(x => { const d = before.get(x) - x.getBoundingClientRect().top; if (!d) return; x.style.transition = 'none'; x.style.transform = `translateY(${d}px)`; requestAnimationFrame(() => { x.style.transition = 'transform .18s ease'; x.style.transform = ''; }); }); };
+  document.addEventListener('pointerdown', e => { const g = e.target.closest && e.target.closest('.hr-grip'); if (!g || e.button > 0) return; const r = g.closest('.hr'); e.preventDefault();
+    const b = r.getBoundingClientRect(), ph = document.createElement('div'); ph.className = 'hr-ph'; ph.style.height = b.height + 'px'; r.after(ph);
+    Object.assign(r.style, { position: 'fixed', left: b.left + 'px', top: b.top + 'px', width: b.width + 'px', margin: 0, zIndex: 40, transition: 'none' });
+    RD = { r, ph, pin: r.dataset.pin, list: ph.parentElement, dy: e.clientY - b.top }; r.classList.add('drag'); document.body.classList.add('hdragging'); });
+  document.addEventListener('pointermove', e => { if (!RD) return; e.preventDefault(); RD.r.style.top = (e.clientY - RD.dy) + 'px';
+    const rows = [...RD.list.querySelectorAll(':scope > .hr')].filter(x => x !== RD.r), peers = rows.filter(x => x.dataset.pin === RD.pin);
+    if (!peers.length) return;
+    const tgt = peers.find(x => { const bb = x.getBoundingClientRect(); return e.clientY < bb.top + bb.height / 2; });
+    const want = tgt ? tgt : peers[peers.length - 1];
+    if (tgt ? RD.ph.nextElementSibling !== tgt : RD.ph.previousElementSibling !== want) slide(rows, () => tgt ? tgt.before(RD.ph) : want.after(RD.ph));
     const edge = 60; if (e.clientY < edge) scrollBy(0, -10); else if (e.clientY > innerHeight - edge) scrollBy(0, 10); }, { passive: false });
-  const endDrag = () => { if (!RD) return; const d = RD; RD = null; d.r.classList.remove('drag'); document.body.classList.remove('hdragging');
-    const all = [...d.list.querySelectorAll(':scope > .hr')]; saveOrder(all.filter(x => x.dataset.pin === '1').map(x => x.dataset.id)).then(() => saveOrder(all.filter(x => x.dataset.pin !== '1').map(x => x.dataset.id))); };
+  const endDrag = () => { if (!RD) return; const d = RD; RD = null; const pb = d.ph.getBoundingClientRect();
+    d.r.style.transition = 'top .16s ease, box-shadow .16s'; d.r.style.top = pb.top + 'px'; d.r.classList.remove('drag');
+    setTimeout(() => { d.ph.replaceWith(d.r); d.r.removeAttribute('style'); document.body.classList.remove('hdragging');
+      const all = [...d.list.querySelectorAll(':scope > .hr')]; saveOrder(all.filter(x => x.dataset.pin === '1').map(x => x.dataset.id)).then(() => saveOrder(all.filter(x => x.dataset.pin !== '1').map(x => x.dataset.id))); }, 170); };
   document.addEventListener('pointerup', endDrag); document.addEventListener('pointercancel', endDrag);
   function draw() {
     const m = me(), groups = {}, admin = isAdmin();
