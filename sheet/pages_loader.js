@@ -760,7 +760,7 @@ function hub(fs, auth, G, ctx) {
       root.innerHTML = `<div class="adm"><aside class="adm-side">
           <div class="adm-brand">${logoHTML()}</div>
           <nav class="adm-nav">${navHTML}</nav>
-          <div class="adm-foot"><a class="adm-back" href="${esc(HUB)}">← Back to my characters</a></div></aside>
+          <div class="adm-foot"><a class="adm-back" href="${esc(HUB)}">← Adventurer’s Tome</a></div></aside>
         <main class="adm-main"><header class="adm-head"><div><h1>${esc(title)}</h1><p>${esc(desc)}</p></div><div class="adm-hact" id="adm-hact"></div></header>
           <section id="ad-body" class="adm-body"><p class="adm-dim">Loading…</p></section></main></div>`;
       if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }

@@ -690,6 +690,12 @@ body.hubbody:not(.adminbody) .hub-head { border-bottom: 1px solid rgba(201,150,4
 body.hubbody:not(.adminbody) .hub-head::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 12px; pointer-events: none; background: linear-gradient(to bottom, rgba(5,8,14,.45), rgba(5,8,14,0)); }
 @media (prefers-color-scheme: light) { body.hubbody:not(.adminbody) .hub-head::after { background: linear-gradient(to bottom, rgba(60,45,20,.16), rgba(60,45,20,0)); } }
 html:has(body.hubbody:not(.adminbody)) { scrollbar-gutter: auto !important; }
+/* admin on a phone: the same divider (edge to edge) and soft shadow under the pinned header */
+@media (max-width: 860px) {
+  body.adminbody .adm-side { box-shadow: none !important; border-bottom: 1px solid rgba(201,150,43,.28); border-right: 0; }
+  body.adminbody .adm-side::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 12px; pointer-events: none; background: linear-gradient(to bottom, rgba(5,8,14,.45), rgba(5,8,14,0)); }
+}
+@media (max-width: 860px) and (prefers-color-scheme: light) { body.adminbody .adm-side::after { background: linear-gradient(to bottom, rgba(60,45,20,.16), rgba(60,45,20,0)); } }
 </style>
 </head>
 <body>
@@ -822,7 +828,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013181512', ASSETS = {"data": "a/data.3f7e0dc5a0bb.js", "app": "a/app.2d69dfd91d60.js"};
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013181659', ASSETS = {"data": "a/data.3f7e0dc5a0bb.js", "app": "a/app.2d69dfd91d60.js"};
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -1486,7 +1492,7 @@ function hub(fs, auth, G, ctx) {
       root.innerHTML = `<div class="adm"><aside class="adm-side">
           <div class="adm-brand">${logoHTML()}</div>
           <nav class="adm-nav">${navHTML}</nav>
-          <div class="adm-foot"><a class="adm-back" href="${esc(HUB)}">← Back to my characters</a></div></aside>
+          <div class="adm-foot"><a class="adm-back" href="${esc(HUB)}">← Adventurer’s Tome</a></div></aside>
         <main class="adm-main"><header class="adm-head"><div><h1>${esc(title)}</h1><p>${esc(desc)}</p></div><div class="adm-hact" id="adm-hact"></div></header>
           <section id="ad-body" class="adm-body"><p class="adm-dim">Loading…</p></section></main></div>`;
       if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
