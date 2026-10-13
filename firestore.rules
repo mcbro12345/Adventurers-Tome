@@ -13,11 +13,16 @@ service cloud.firestore {
       && request.resource.data.owner == resource.data.owner
       && request.resource.data.viewers == resource.data.viewers
       && request.resource.data.editors == resource.data.editors; }
+    // Relinquish access: someone it's shared with may take themselves off the share list, and change nothing else.
+    function leaveWrite() { return me() in resource.data.viewers
+      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewers', 'editors'])
+      && request.resource.data.viewers == resource.data.viewers.removeAll([me()])
+      && request.resource.data.get('editors', []) == resource.data.get('editors', []).removeAll([me()]); }
     function createOK() { return request.resource.data.owner == me() || me() in request.resource.data.editors; }
     match /sheets/{id} {
       allow get: if admin() || (signedIn() && (resource == null || canSee(resource.data)));
       allow create: if admin() || (signedIn() && createOK());
-      allow update: if admin() || (signedIn() && (ownerWrite() || editorWrite()));
+      allow update: if admin() || (signedIn() && (ownerWrite() || editorWrite() || leaveWrite()));
       // only the owner (or an admin) can delete a character — never someone it's merely shared with
       allow delete: if admin() || (signedIn() && resource.data.owner == me());
       allow list: if false;
@@ -48,7 +53,7 @@ service cloud.firestore {
       match /chars/{c} {
         allow read: if admin() || (signedIn() && (resource == null || canSee(resource.data)));
         allow create: if admin() || (signedIn() && createOK());
-        allow update: if admin() || (signedIn() && (ownerWrite() || editorWrite()));
+        allow update: if admin() || (signedIn() && (ownerWrite() || editorWrite() || leaveWrite()));
         allow delete: if admin() || (signedIn() && resource.data.owner == me());
       }
     }

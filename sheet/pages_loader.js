@@ -433,6 +433,19 @@ function hub(fs, auth, G, ctx) {
     modal.querySelector('#rm-ok').onclick = async () => { await charsCol.doc(c.id).delete(); chars = chars.filter(x => x.id !== c.id); toast('Removed from the list.'); close(); if (after) after(); };
     modal.querySelector('#rm-x').onclick = close;
   }
+  // Relinquish access: takes you off this character's share list — nothing else about the character changes.
+  function leaveChar(c, after) {
+    modal.innerHTML = `<div class="hub-card"><h2>Relinquish access to ${esc(c.name || 'this character')}?</h2><p class="hub-hint">It's no longer shared with you, so it leaves your Shared characters. ${esc(c.player || 'Its owner')} can share it with you again.</p>
+      <div class="row"><button class="btn ghost" id="lv-x">Cancel</button><button class="btn red" id="lv-ok">Relinquish access</button></div></div>`;
+    modal.classList.add('on'); modal.querySelector('#lv-x').onclick = close;
+    modal.querySelector('#lv-ok').onclick = async e => { e.target.disabled = true;
+      const acc = { viewers: (c.viewers || []).filter(x => x !== EMAIL), editors: (c.editors || []).filter(x => x !== EMAIL) };
+      try { const s0 = await sheets.doc(c.id).get(); const n = Number(s0.exists && s0.data().n) || 1;
+        for (let k = 1; k < n; k++) await sheets.doc(c.id + '_p' + k).update(acc).catch(() => {});
+        await charsCol.doc(c.id).set(acc, { merge: true }); await sheets.doc(c.id).update(acc);
+        Object.assign(c, acc); if (!IS_ADMIN) chars = chars.filter(x => x.id !== c.id); toast('You no longer have access to ' + (c.name || 'that character') + '.'); close(); if (after) after(); }
+      catch (x) { e.target.disabled = false; toast(x && x.code === 'permission-denied' ? 'Couldn’t do that yet — the new database rules need publishing.' : 'Couldn’t do that: ' + ((x && x.message) || x)); } };
+  }
   // Deleting is for the owner (or an admin), never for people it's only shared with. It's permanent, so they type the
   // character's name to confirm.
   const canDelete = c => IS_ADMIN || (c.owner || '') === EMAIL;
@@ -479,8 +492,11 @@ function hub(fs, auth, G, ctx) {
     return `<div class="hc${c.pin && isMine(c) ? ' pinned' : ''}"><a class="hc-main" href="${esc(URLS.char(c))}">${pic(c)}
       <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</span>
       <small>${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small>${acc}</span></a>
-      ${IS_ADMIN ? `<div class="hc-menu"><button class="hc-dots" aria-label="More">⋯</button><div class="hc-list">
-        <button data-a="share" data-id="${esc(c.id)}">Share…</button><button data-a="move" data-id="${esc(c.id)}">Give to another player</button><button data-a="rm" data-id="${esc(c.id)}">Remove from list</button><button data-a="del" data-id="${esc(c.id)}" class="hc-del">Delete character…</button></div></div>` : ''}</div>`;
+      ${(() => { const inList = (c.viewers || []).includes(EMAIL) && !isMine(c), it = [];
+        if (IS_ADMIN) it.push(['share', 'Share…'], ['move', 'Give to another player']);
+        if (inList) it.push(['leave', 'Relinquish access']);
+        if (canDelete(c)) it.push(['del', 'Delete character…', 'hc-del']);
+        return it.length ? `<div class="hc-menu"><button class="hc-dots" aria-label="More">⋯</button><div class="hc-list">${it.map(([a, t, k]) => `<button data-a="${a}" data-id="${esc(c.id)}"${k ? ` class="${k}"` : ''}>${t}</button>`).join('')}</div></div>` : ''; })()}</div>`;
   }
   const shareNote = c => { const n = (c.viewers || []).length; return n ? `Shared with ${n} · ` : ''; };
   // Pinned first; then each player's own order (drag to change), then most recently updated.
@@ -490,7 +506,8 @@ function hub(fs, auth, G, ctx) {
       <a class="hr-main" href="${esc(URLS.char(c))}">${pic(c)}
       <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</span>
       <small>${shareNote(c)}${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small></span></a>
-      <button class="hr-pin hr-share" data-share-id="${esc(c.id)}" title="Share">${shareIcon}</button><button class="hr-pin hr-del" data-del-id="${esc(c.id)}" title="Delete" aria-label="Delete ${esc(c.name || 'character')}"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button><button class="hr-pin${c.pin ? ' on' : ''}" data-pin-id="${esc(c.id)}" title="${c.pin ? 'Unpin' : 'Pin to the top'}" aria-pressed="${!!c.pin}"><svg viewBox="0 0 24 24" width="18" height="18" fill="${c.pin ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 3h6l-1 6 4 4H6l4-4z"/><path d="M12 13v8"/></svg></button></div>`;
+      <div class="hc-menu hr-menu"><button class="hc-dots" aria-label="More options for ${esc(c.name || 'this character')}">⋯</button><div class="hc-list">
+        <button data-a="pin" data-id="${esc(c.id)}">${c.pin ? 'Unpin' : 'Pin'}</button><button data-a="share" data-id="${esc(c.id)}">Share</button>${canDelete(c) ? `<button data-a="del" data-id="${esc(c.id)}" class="hc-del">Delete</button>` : ''}</div></div></div>`;
   }
   async function saveOrder(ids) { await Promise.all(ids.map((id, i) => { const c = chars.find(x => x.id === id); if (c && c.order === i) return null; if (c) c.order = i; return charsCol.doc(id).set({ order: i }, { merge: true }); })); }
   async function togglePin(id) { const c = chars.find(x => x.id === id); if (!c) return; const mine = chars.filter(isMine);
@@ -541,13 +558,10 @@ function hub(fs, auth, G, ctx) {
     const ab = root.querySelector('#hub-admin'); if (ab) ab.onclick = () => { location.href = ADMIN_URL; };
     root.querySelector('#me-pic').onclick = pickPic;
     root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { view = b.dataset.view; history.replaceState(null, '', view === 'shared' ? URLS.shared(G) : URLS.hub(G)); draw(); });
-    root.querySelectorAll('[data-pin-id]').forEach(b => b.onclick = e => { e.preventDefault(); togglePin(b.dataset.pinId); });
-    root.querySelectorAll('[data-del-id]').forEach(b => b.onclick = e => { e.preventDefault(); const c = chars.find(x => x.id === b.dataset.delId); if (c) deleteChar(c, draw); });
-    root.querySelectorAll('[data-share-id]').forEach(b => b.onclick = e => { e.preventDefault(); const c = chars.find(x => x.id === b.dataset.shareId); if (c) shareChar(c); });
     root.querySelectorAll('details.hub-folder').forEach(d => d.addEventListener('toggle', () => { open[d.dataset.k] = d.open; ls.set(OPEN, JSON.stringify(open)); }));
     root.querySelectorAll('.hc-dots').forEach(b => b.onclick = e => { e.stopPropagation(); const w = b.parentElement, on = !w.classList.contains('on'); root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')); w.classList.toggle('on', on); });
     root.querySelectorAll('.hc-list [data-a]').forEach(b => b.onclick = () => { const c = chars.find(x => x.id === b.dataset.id); b.closest('.hc-menu').classList.remove('on'); if (!c) return;
-      if (b.dataset.a === 'share') shareChar(c); if (b.dataset.a === 'move') moveChar(c, draw); if (b.dataset.a === 'rm') removeChar(c, draw); if (b.dataset.a === 'del') deleteChar(c, draw); });
+      if (b.dataset.a === 'share') shareChar(c); if (b.dataset.a === 'move') moveChar(c, draw); if (b.dataset.a === 'leave') leaveChar(c, draw); if (b.dataset.a === 'pin') togglePin(c.id); if (b.dataset.a === 'del') deleteChar(c, draw); });
   }
   wireDie(root);
   document.addEventListener('click', () => root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')));

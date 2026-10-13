@@ -117,8 +117,8 @@ body.hubbody { margin: 0; background: #f4eee1; color: #1f2a44; font: 15px/1.4 sy
 :where(body.hubbody, #pg-load) .hub-top { align-items: center; }
 :where(body.hubbody, #pg-load) .hub-title { margin: 0; font: 800 1.15rem/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #c9962b; }
 :where(body.hubbody, #pg-load) .hub-views button span { opacity: .65; font-weight: 600; margin-left: 4px; }
-:where(body.hubbody, #pg-load) .hc-txt .hc-acc { align-self: flex-start; margin-top: 5px; font-size: .68rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; opacity: 1; border: 1px solid rgba(127,127,127,.4); border-radius: 999px; padding: 1px 8px; }
-:where(body.hubbody, #pg-load) .hc-txt .hc-acc.edit { background: #c9962b; border-color: #c9962b; color: #1b1406; }
+:where(body.hubbody, #pg-load) .hc-txt .hc-acc { align-self: flex-start; margin-top: 4px; font-size: .64rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; opacity: .55; border: 0; border-radius: 999px; padding: 0; }
+:where(body.hubbody, #pg-load) .hc-txt .hc-acc.edit { background: none; color: #c9962b; opacity: .8; }
 :where(body.hubbody, #pg-load) .hr-share { margin-right: -6px; }
 :where(body.hubbody, #pg-load) .pl-row select { border: 1px solid #c9b88f; border-radius: 8px; padding: 4px 6px; font: 13px system-ui, sans-serif; background: #fff; color: #1f2a44; }
 :where(body.hubbody, #pg-load) .sh-who { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 0 8px; align-items: baseline; } :where(body.hubbody, #pg-load) .pl-row .sh-who span { flex: none; }
@@ -452,3 +452,7 @@ html.pg-sheetpage.mobile .banner { padding-top: calc(34px + env(safe-area-inset-
 .pg-out-row .pg-out-yes[disabled] { opacity: .7; cursor: default; }
 @media (prefers-color-scheme: light) { body:not(.adminbody) .pg-out-card { background: #fffaf0; color: #1f2a44; border-color: #e3d6b8; } body:not(.adminbody) .pg-out-row button { border-color: #d8c9a6; } body:not(.adminbody) .pg-out-row button:hover { background: rgba(0,0,0,.04); } }
 @keyframes pgOutIn { from { opacity: 0; } to { opacity: 1; } }
+/* ⋯ menus on character rows */
+:where(body.hubbody) .hr-menu { margin-right: 6px; flex: none; }
+:where(body.hubbody) .hr:has(.hc-menu.on), :where(body.hubbody) .hc:has(.hc-menu.on) { position: relative; z-index: 20; }
+:where(body.hubbody) .hr-menu .hc-list { min-width: 160px; }
