@@ -386,3 +386,37 @@ body.adminbody .adm-brand .hl-20 { fill: #f6e7bd; }
 .adm-brand .hl-txt, .adm-brand .hl-txt * { cursor: pointer; }
 .adm-brand .hl-txt:hover .hl-t { filter: brightness(1.12); }
 @media (max-width: 860px) { .adm { grid-template-columns: minmax(0, 1fr); } .adm-brand .hl-d20 { width: 52px; height: 52px; } .adm-brand .hl-t { font-size: 2.1rem; } .adm-tagline { margin: 0; } }
+/* ===== little portraits (profile card, picker, who's viewing a sheet) ===== */
+.pg-ava { width: 30px; height: 30px; border-radius: 50%; flex: none; display: inline-grid; place-items: center; overflow: hidden; font: 800 .74rem system-ui, sans-serif; color: #fff; background: hsl(var(--h), 42%, 42%); box-sizing: border-box; }
+.pg-ava.has-pic { background: #1f2a44; }
+.pg-ava img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* profile card in the character list's top-right corner */
+:where(body.hubbody) .hub-prof { display: flex; align-items: center; gap: 12px; }
+:where(body.hubbody) .hp-pic { position: relative; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 50%; }
+:where(body.hubbody) .hp-pic .pg-ava { width: 52px; height: 52px; font-size: 1.05rem; box-shadow: 0 0 0 2px #c9962b, 0 4px 14px rgba(0,0,0,.3); transition: transform .15s; }
+:where(body.hubbody) .hp-pic:hover .pg-ava { transform: scale(1.05); }
+:where(body.hubbody) .hp-edit { position: absolute; right: -3px; bottom: -3px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: #c9962b; color: #1b1406; font-size: 11px; box-shadow: 0 0 0 2px #141b2b; opacity: 0; transition: opacity .15s; }
+:where(body.hubbody) .hp-pic:hover .hp-edit, :where(body.hubbody) .hp-pic:focus-visible .hp-edit { opacity: 1; }
+:where(body.hubbody) .hp-txt { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.25; min-width: 0; }
+:where(body.hubbody) .hp-txt b { font-size: .98rem; }
+:where(body.hubbody) .hp-txt small { font-size: .78rem; opacity: .65; word-break: break-all; }
+:where(body.hubbody) .hp-txt .linkbtn { padding: 0; margin-top: 3px; font-size: .8rem; }
+:where(body.hubbody) .hub-side { align-items: flex-end; }
+@media (prefers-color-scheme: light) { :where(body.hubbody) .hp-edit { box-shadow: 0 0 0 2px #f4eee1; } }
+@media (max-width: 640px) { :where(body.hubbody) .hp-pic .pg-ava { width: 44px; height: 44px; } :where(body.hubbody) .hub-side { align-items: flex-start; } }
+/* picture picker */
+:where(body.hubbody) .pp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin: 14px 0; max-height: 50vh; overflow: auto; padding: 2px; }
+:where(body.hubbody) .pp-opt { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 8px; border-radius: 12px; border: 1.5px solid rgba(127,127,127,.25); background: rgba(127,127,127,.06); color: inherit; font: inherit; cursor: pointer; text-align: center; }
+:where(body.hubbody) .pp-opt:hover:not([disabled]) { border-color: #c9962b; }
+:where(body.hubbody) .pp-opt.on { border-color: #c9962b; background: rgba(201,150,43,.14); box-shadow: 0 0 0 2px rgba(201,150,43,.35); }
+:where(body.hubbody) .pp-opt[disabled] { opacity: .45; cursor: not-allowed; }
+:where(body.hubbody) .pp-opt .pg-ava { width: 64px; height: 64px; font-size: 1.2rem; }
+:where(body.hubbody) .pp-opt b { font-size: .86rem; margin-top: 4px; } :where(body.hubbody) .pp-opt small { font-size: .72rem; opacity: .65; }
+/* who's viewing a shared sheet, beside the back button */
+.pg-pres { position: fixed; z-index: 35; display: flex; align-items: center; transform: translateY(-50%); padding: 2px 6px 2px 2px; border-radius: 999px; background: rgba(15,22,38,.82); border: 1px solid rgba(201,150,43,.45); }
+.pg-pres[hidden] { display: none; }
+.pg-pres .pg-ava { width: 24px; height: 24px; font-size: .6rem; box-shadow: 0 0 0 2px rgba(15,22,38,.95); }
+.pg-pres .pg-ava + .pg-ava { margin-left: -6px; }
+.pg-pres .pg-ava.me { box-shadow: 0 0 0 2px #c9962b; }
+.pg-pres::after { content: ''; width: 7px; height: 7px; border-radius: 50%; margin-left: 7px; background: #4cd27a; box-shadow: 0 0 6px #4cd27a; }
+body:has(#modal.open) .pg-pres, body.wizopen .pg-pres { display: none !important; }

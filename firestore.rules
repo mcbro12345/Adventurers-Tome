@@ -22,6 +22,11 @@ service cloud.firestore {
       allow delete: if admin() || (signedIn() && resource.data.owner == me());
       allow list: if false;
     }
+    // Who's viewing a sheet right now: anyone who can open the sheet can see the list; you can only write your own entry.
+    match /sheets/{id}/presence/{em} {
+      allow read: if admin() || (signedIn() && canSee(get(/databases/$(db)/documents/sheets/$(id)).data));
+      allow write: if signedIn() && em == me() && (admin() || canSee(get(/databases/$(db)/documents/sheets/$(id)).data));
+    }
     // One record per account, keyed by email: made by the person on first sign-in. Only that person and admins can
     // read it, and only admins can list or search them (names on shared characters come from the character itself).
     match /users/{em} {
@@ -29,7 +34,7 @@ service cloud.firestore {
       allow list: if admin();
       allow create: if admin() || (signedIn() && em == me() && request.resource.data.email == me()
         && request.resource.data.keys().hasOnly(['email', 'name', 'nameLower', 'keys', 'createdAt', 'seenAt']));
-      allow update: if admin() || (signedIn() && em == me() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt']));
+      allow update: if admin() || (signedIn() && em == me() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt', 'pic', 'picChar']));
       allow delete: if admin();
     }
     match /config/admins {

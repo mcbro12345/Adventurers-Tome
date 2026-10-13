@@ -26,6 +26,13 @@ const URLS = {
 // pages can find "ryan", "o'neal" or "roneal1994@…" with one indexed lookup however many accounts there are.
 function searchKeys(...parts) { const out = new Set(); parts.forEach(p => { p = String(p || '').toLowerCase().trim(); if (!p) return;
   new Set([p, ...p.split(/[\s@._'’-]+/)]).forEach(t => { t = t.slice(0, 24); for (let i = 1; i <= t.length; i++) out.add(t.slice(0, i)); }); }); return [...out].slice(0, 400); }
+// A person's little picture: their chosen character portrait (or their first character's), else initials on a colour
+// picked from their email so the same person always looks the same.
+const escH = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const hueOf = t => [...String(t || '?')].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) % 360, 7);
+const initials = (name, em) => String(name || em || '?').split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
+function avaHTML(name, em, pic, cls = '', title = '') { return `<span class="pg-ava ${cls}${pic ? ' has-pic' : ''}" style="--h:${hueOf(em || name)}"${title ? ` title="${escH(title)}"` : ''}>${pic ? `<img src="${escH(pic)}" alt="">` : escH(initials(name, em))}</span>`; }
+const firstThumb = list => { const cs = list.filter(c => c.thumb).sort((a, b) => (a.createdAt || a.updatedAt || 9e15) - (b.createdAt || b.updatedAt || 9e15)); return (cs[0] && cs[0].thumb) || ''; };
 // ================= The logo (sign-in page and character list) =================
 // A gold d20 crest beside "Adventurer's" in spaced small caps over a large serif "Tome". Hovering the die rolls it:
 // it tumbles, the face flickers, and it lands on a random number. It also rolls once by itself when the page loads.
@@ -268,6 +275,25 @@ function wireDie(root) {
     // On a phone it sits just above the bottom tab bar, wherever that bar ends up.
     const place = () => { const t = document.getElementById('tabs'), r = t && t.getBoundingClientRect(); a.style.bottom = document.documentElement.classList.contains('mobile') && r && r.height && r.top > innerHeight / 2 ? (innerHeight - r.top + 8) + 'px' : ''; };
     addEventListener('resize', place); setInterval(place, 1500); setTimeout(place, 300); }
+  // Who's looking at this sheet right now — shown once it's shared: small portraits beside the back button, you too.
+  // Each open copy checks in once a minute (only while its tab is showing) and drops off when closed or idle.
+  if (!NEW) (() => {
+    const pcol = col.doc(C).collection('presence'), mine = pcol.doc(EMAIL); let seen = {}, box = null, PIC = null;
+    const myPic = async () => { if (PIC != null) return PIC; PIC = (ME && ME.pic) || '';
+      if (!PIC) try { PIC = firstThumb((await fs.collection('groups/' + DEFAULT_G + '/chars').where('owner', '==', EMAIL).get()).docs.map(d => d.data())); } catch (e) {} return PIC; };
+    const beat = async () => { if (document.hidden) return; try { await mine.set({ name: NAME, pic: await myPic(), at: Date.now() }); } catch (e) {} };
+    const leave = () => { mine.delete().catch(() => {}); };
+    const show = () => { const now = Date.now(), here = Object.entries(seen).filter(([, d]) => now - (d.at || 0) < 150000).sort(([a], [b]) => (b === EMAIL) - (a === EMAIL));
+      if (!box) { box = document.createElement('div'); box.className = 'pg-pres'; document.body.appendChild(box); }
+      const shared = VIEWERS.length > 0 || OWNER !== EMAIL;
+      box.hidden = !shared || !here.length;
+      box.innerHTML = here.map(([em, d]) => avaHTML(d.name, em, d.pic, em === EMAIL ? 'me' : '', (em === EMAIL ? 'You' : d.name || em) + ' — viewing now')).join('');
+      const a = document.querySelector('.pg-hublink'); if (a) { const r = a.getBoundingClientRect(); box.style.left = (r.right + 8) + 'px'; box.style.top = (r.top + r.height / 2) + 'px'; } };
+    beat(); setInterval(beat, 60000); setInterval(show, 1500);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) leave(); else beat(); });
+    addEventListener('pagehide', leave);
+    pcol.onSnapshot(qs => { seen = {}; qs.docs.forEach(d => { seen[d.id] = d.data(); }); show(); }, () => {});
+  })();
   // Adding this page to a phone's home screen: the icon is the character's portrait (the party page uses the dice icon).
   const homeIcon = () => { try { const st = window.sheetState && window.sheetState(); if (!st || !st.created) return; document.title = (st.name || 'Character') + ' — Adventurer’s Tome';
     const set = (sel, mk) => { let e = document.head.querySelector(sel); if (!e) { e = mk(); document.head.appendChild(e); } return e; };
@@ -409,6 +435,19 @@ function hub(fs, auth, G, ctx) {
 
   // ================= Hub: my characters and the ones shared with me =================
   function createChar() { location.href = URLS.newChar(G, '', myName()); }
+  // Your picture: a character you choose, or automatically your first character's portrait.
+  const myPic = () => { const mine = chars.filter(isMine), ch = ME && ME.picChar && mine.find(c => c.id === ME.picChar); return (ch && ch.thumb) || (ME && ME.picChar ? ME.pic || '' : '') || firstThumb(mine); };
+  function pickPic() {
+    const mine = chars.filter(isMine).sort((a, b) => (a.createdAt || a.updatedAt || 0) - (b.createdAt || b.updatedAt || 0)), cur = (ME && ME.picChar) || '';
+    modal.innerHTML = `<div class="hub-card wide"><h2>Your picture</h2><p class="hub-hint">Pick one of your characters. It shows next to your name, and to others when you’re viewing a shared sheet.</p>
+      <div class="pp-grid"><button class="pp-opt${cur ? '' : ' on'}" data-pp=""><span class="pp-img">${avaHTML(myName(), EMAIL, firstThumb(mine))}</span><b>Automatic</b><small>Your first character</small></button>
+      ${mine.map(c => `<button class="pp-opt${cur === c.id ? ' on' : ''}" data-pp="${esc(c.id)}"${c.thumb ? '' : ' disabled title="This character has no portrait yet"'}><span class="pp-img">${avaHTML(c.name, c.id, c.thumb)}</span><b>${esc(c.name || 'Unnamed')}</b><small>${esc(c.thumb ? (c.cls || '') : 'No portrait yet')}</small></button>`).join('')}</div>
+      <button class="btn ghost" id="pp-x">Done</button></div>`;
+    modal.classList.add('on'); modal.querySelector('#pp-x').onclick = close;
+    modal.querySelectorAll('[data-pp]').forEach(b => b.onclick = async () => { const id = b.dataset.pp, c = mine.find(x => x.id === id), upd = { picChar: id, pic: (c && c.thumb) || '' };
+      try { await usersCol.doc(EMAIL).update(upd); Object.assign(ME || {}, upd); close(); draw(); toast(id ? 'Your picture is now ' + (c.name || 'that character') + '.' : 'Your picture follows your first character.'); }
+      catch (x) { toast(x && x.code === 'permission-denied' ? 'Couldn’t save it yet — the new database rules need publishing.' : 'Couldn’t save it: ' + ((x && x.message) || x)); } });
+  }
   function card(c) {
     const acc = (c.editors || []).includes(EMAIL) ? '<span class="hc-acc edit">Can edit</span>' : '<span class="hc-acc">View only</span>';
     return `<div class="hc${c.pin && isMine(c) ? ' pinned' : ''}"><a class="hc-main" href="${esc(URLS.char(c))}">${pic(c)}
@@ -466,13 +505,15 @@ function hub(fs, auth, G, ctx) {
       : (mine.length ? `<div class="hl">${mine.sort(ord).map(row).join('')}</div>` : `<p class="hub-empty">You don’t have any characters yet — create one, or ask whoever has yours to give it to you.</p>`);
     const keepLogo = root.querySelector('.hub-logo');
     root.innerHTML = `<header class="hub-top">${logoHTML()}
-      <div class="hub-side"><div class="hub-me">Signed in as <b>${esc(myName())}</b> <span class="hub-em">${esc(EMAIL)}</span> · <button class="linkbtn" id="me-out">Sign out</button></div>${IS_ADMIN ? '<button class="btn hub-admin" id="hub-admin">⚙ Admin</button>' : ''}</div></header>
+      <div class="hub-side"><div class="hub-prof"><button class="hp-pic" id="me-pic" title="Choose your picture" aria-label="Choose your picture">${avaHTML(myName(), EMAIL, myPic())}<span class="hp-edit" aria-hidden="true">✎</span></button>
+        <div class="hp-txt"><b>${esc(myName())}</b><small>${esc(EMAIL)}</small><button class="linkbtn" id="me-out">Sign out</button></div></div>${IS_ADMIN ? '<button class="btn hub-admin" id="hub-admin">⚙ Admin</button>' : ''}</div></header>
       <div class="hub-views"><button class="${SH ? '' : 'on'}" data-view="mine">My characters <span>${mine.length}</span></button><button class="${SH ? 'on' : ''}" data-view="shared">Shared characters <span>${shared.length}</span></button><button class="hub-new" id="hub-new"><span class="hn-plus" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="hn-txt"><b>Create character</b></span></button></div>
       ${body}`;
     if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
     const nb = root.querySelector('#hub-new'); if (nb) nb.onclick = createChar;
     root.querySelector('#me-out').onclick = signOut;
     const ab = root.querySelector('#hub-admin'); if (ab) ab.onclick = () => { location.href = ADMIN_URL; };
+    root.querySelector('#me-pic').onclick = pickPic;
     root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { view = b.dataset.view; history.replaceState(null, '', view === 'shared' ? URLS.shared(G) : URLS.hub(G)); draw(); });
     root.querySelectorAll('[data-pin-id]').forEach(b => b.onclick = e => { e.preventDefault(); togglePin(b.dataset.pinId); });
     root.querySelectorAll('[data-del-id]').forEach(b => b.onclick = e => { e.preventDefault(); const c = chars.find(x => x.id === b.dataset.delId); if (c) deleteChar(c, draw); });
@@ -487,7 +528,8 @@ function hub(fs, auth, G, ctx) {
   draw();
   // Everyone — admins too — sees their own characters plus the ones shared with them. Admins find the rest in Admin.
   const lists = {}, merge = () => { const m = new Map(); Object.values(lists).forEach(l => l.forEach(c => m.set(c.id, c))); chars = [...m.values()]; if (!RD) draw();
-    if (IS_ADMIN) needNames(chars.filter(c => !isMine(c)).map(c => c.owner)).then(() => { if (!RD) draw(); }); };
+    if (IS_ADMIN) needNames(chars.filter(c => !isMine(c)).map(c => c.owner)).then(() => { if (!RD) draw(); });
+    if (ME && ME.picChar) { const ch = chars.find(c => c.id === ME.picChar); if (ch && (ch.thumb || '') !== (ME.pic || '')) { ME.pic = ch.thumb || ''; usersCol.doc(EMAIL).update({ pic: ME.pic }).catch(() => {}); } } };
   const failed = e => { root.innerHTML = `<p class="hub-empty">Couldn't load the character list (${esc(e.code || e.message || e)}).<br><br>Signed in as ${esc(EMAIL)} · <button class="linkbtn" onclick="pgSignOut()">Sign out</button></p>`; console.error(e); };
   const watch = (k, q) => q.onSnapshot(qs => { lists[k] = qs.docs.map(d => Object.assign({ id: d.id }, d.data())); merge(); }, failed);
   watch('mine', charsCol.where('owner', '==', EMAIL)); watch('shared', charsCol.where('viewers', 'array-contains', EMAIL));
@@ -517,7 +559,7 @@ function hub(fs, auth, G, ctx) {
       const pic0 = em && PICS[em]; return `<span class="adm-ava${pic0 ? ' has-pic' : ''}" data-em="${esc(em || '')}" style="--h:${hue(em || name)}">${pic0 ? `<img src="${esc(pic0)}" alt="">` : esc(ini)}</span>`; };
     // Each person's picture is the portrait of the first character they made (looked up once per visit).
     const PICS = {}, PICQ = {};
-    const picFor = em => PICQ[em] || (PICQ[em] = charsCol.where('owner', '==', em).get().then(r => { const cs = r.docs.map(d => d.data()).filter(c => c.thumb).sort((a, b) => (a.createdAt || a.updatedAt || 9e15) - (b.createdAt || b.updatedAt || 9e15)); return PICS[em] = (cs[0] && cs[0].thumb) || ''; }, () => ''));
+    const picFor = em => PICQ[em] || (PICQ[em] = userDoc(em).then(u => (u && u.pic) || charsCol.where('owner', '==', em).get().then(r => firstThumb(r.docs.map(d => d.data())), () => '')).then(src => PICS[em] = src || ''));
     const fillPics = () => root.querySelectorAll('.adm-ava[data-em]:not(.has-pic)').forEach(el => { const em = el.dataset.em; if (!em) return; picFor(em).then(src => { if (src && el.isConnected && !el.classList.contains('has-pic')) { el.classList.add('has-pic'); el.innerHTML = `<img src="${esc(src)}" alt="">`; } }); });
     new MutationObserver(() => fillPics()).observe(root, { childList: true, subtree: true });
     const roleOf = em => em === ADMIN_EMAIL ? ['Owner', 'r-own'] : ADMINS.includes(em) ? ['Admin', 'r-adm'] : ['Member', 'r-mem'];
