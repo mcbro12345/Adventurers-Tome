@@ -147,7 +147,19 @@ function wireDie(root) {
   const EMAIL = (user.email || '').toLowerCase(), IS_OWNER = EMAIL === ADMIN_EMAIL;
   let IS_ADMIN = IS_OWNER, ADMINS = [];
   try { const a = await fs.collection('config').doc('admins').get(); ADMINS = ((a.exists && a.data().emails) || []).map(x => String(x).toLowerCase()); if (ADMINS.includes(EMAIL)) IS_ADMIN = true; } catch (e) {}
-  const signOut = () => auth.signOut().then(() => location.replace(PRETTY ? '/login' : location.href));
+  const doSignOut = () => auth.signOut().then(() => location.replace(PRETTY ? '/login' : location.href));
+  // Signing out always asks first.
+  const signOut = () => {
+    if (document.querySelector('.pg-out')) return;
+    const m = document.createElement('div'); m.className = 'pg-out';
+    m.innerHTML = '<div class="pg-out-card" role="dialog" aria-modal="true" aria-labelledby="pg-out-h"><h2 id="pg-out-h">Sign out?</h2><p>You’ll need to sign in again to open your characters on this device.</p><div class="pg-out-row"><button class="pg-out-no">Cancel</button><button class="pg-out-yes">Sign out</button></div></div>';
+    const close = () => { m.remove(); document.removeEventListener('keydown', key); };
+    const key = e => { if (e.key === 'Escape') close(); };
+    m.onclick = e => { if (e.target === m) close(); };
+    m.querySelector('.pg-out-no').onclick = close;
+    m.querySelector('.pg-out-yes').onclick = e => { e.target.disabled = true; e.target.textContent = 'Signing out…'; doSignOut(); };
+    document.addEventListener('keydown', key); document.body.appendChild(m); m.querySelector('.pg-out-no').focus();
+  };
   window.pgSignOut = signOut;
   // /<player>/<character>: find it among what this person may open (an admin: anyone's). "Doesn't exist" and
   // "isn't yours" look the same, so guessing addresses can't even confirm a character exists.

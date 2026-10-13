@@ -435,3 +435,17 @@ html.pg-sheetpage:not(.mobile) body { padding-top: 36px; }
 :where(body.hubbody) .hub-top { align-items: center; }
 :where(body.hubbody) .hub-top .hub-side { align-self: center; padding-top: 0; }
 @media (max-width: 640px) { :where(body.hubbody) .hub-top .hl-d20 { width: 58px; height: 58px; } :where(body.hubbody) .hub-top .hl-t { font-size: 2.4rem; } :where(body.hubbody) .hub-top .hl-a { font-size: .74rem; letter-spacing: .34em; } }
+
+/* Sign-out confirmation */
+.pg-out { position: fixed; inset: 0; z-index: 100000; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(8,11,19,.6); backdrop-filter: blur(2px); animation: pgOutIn .14s ease-out; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.pg-out-card { width: 100%; max-width: 360px; background: #1a2131; color: #e9e3d3; border: 1px solid #2c3548; border-radius: 16px; padding: 22px 22px 18px; box-shadow: 0 24px 60px rgba(0,0,0,.45); text-align: left; }
+.pg-out-card h2 { margin: 0 0 6px; font: 800 1.35rem Georgia, serif; color: inherit; }
+.pg-out-card p { margin: 0 0 18px; font-size: .92rem; line-height: 1.45; opacity: .8; }
+.pg-out-row { display: flex; justify-content: flex-end; gap: 10px; }
+.pg-out-row button { font: 700 .9rem system-ui, sans-serif; padding: 9px 16px; border-radius: 10px; cursor: pointer; border: 1px solid #3a4560; background: transparent; color: inherit; }
+.pg-out-row button:hover { background: rgba(255,255,255,.06); }
+.pg-out-row .pg-out-yes { background: #c9962b; border-color: #c9962b; color: #1a1408; }
+.pg-out-row .pg-out-yes:hover { background: #d9a93f; }
+.pg-out-row .pg-out-yes[disabled] { opacity: .7; cursor: default; }
+@media (prefers-color-scheme: light) { body:not(.adminbody) .pg-out-card { background: #fffaf0; color: #1f2a44; border-color: #e3d6b8; } body:not(.adminbody) .pg-out-row button { border-color: #d8c9a6; } body:not(.adminbody) .pg-out-row button:hover { background: rgba(0,0,0,.04); } }
+@keyframes pgOutIn { from { opacity: 0; } to { opacity: 1; } }
