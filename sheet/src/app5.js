@@ -960,6 +960,8 @@ function pendPick(id, j) {
     if (x.addLang) addText('languages', [x.addLang]);
     if (x.removeLang) S.langs = S.langs.filter(l => l.toLowerCase() !== x.removeLang.toLowerCase());
     if (x.addTool) addText('profTools', [x.addTool]);
+    if (x.addSkill) setSkill(x.addSkill, 1);
+    if (x.dropSkill) { const sk = S.skills.find(k => k.name.toLowerCase() === x.dropSkill.toLowerCase()); if (sk) sk.prof = 0; }
     if (x.addFeature && !S.features.some(f => f.name === x.addFeature.name)) S.features.push(Object.assign({ key: 'custom:' + x.addFeature.name, dname: x.addFeature.name, source: 'Custom', auto: false, used: 0, dmax: '', dreset: 'long', max: '', reset: 'long', pool: false, col: '', cls: '', kind: 'custom', desc: '' }, x.addFeature));
   });
   S.answered = Object.assign({}, S.answered, { [id]: [op.label] });
