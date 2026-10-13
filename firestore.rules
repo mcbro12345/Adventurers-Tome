@@ -3,7 +3,9 @@ service cloud.firestore {
   match /databases/{db}/documents {
     function signedIn() { return request.auth != null && request.auth.token.email_verified == true; }
     function me() { return request.auth.token.email.lower(); }
-    function admin() { return signedIn() && me() == 'matthewcbro@gmail.com'; }
+    function owner0() { return signedIn() && me() == 'matthewcbro@gmail.com'; }
+    function admin() { return owner0() || (signedIn() && exists(/databases/$(db)/documents/config/admins)
+      && me() in get(/databases/$(db)/documents/config/admins).data.emails); }
     // Who may open a character: its owner, anyone it's shared with, and the DM. Editors may also change it, but not who owns it or who it's shared with.
     function canSee(d) { return d.owner == me() || me() in d.viewers; }
     function ownerWrite() { return resource.data.owner == me() && request.resource.data.owner == me(); }
@@ -17,6 +19,10 @@ service cloud.firestore {
       allow create: if admin() || (signedIn() && createOK());
       allow update: if admin() || (signedIn() && (ownerWrite() || editorWrite()));
       allow list, delete: if false;
+    }
+    match /config/admins {
+      allow get: if admin();
+      allow create, update, delete: if owner0();
     }
     match /groups/{g} {
       allow get: if signedIn();

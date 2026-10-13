@@ -120,3 +120,21 @@ html.mobile .pg-shared { top: auto; bottom: calc(80px + env(safe-area-inset-bott
 :where(body.hubbody, #pg-load) .hr, :where(body.hubbody, #pg-load) .hc { transition: box-shadow .15s, background-color .15s, border-color .15s, transform .15s; }
 :where(body.hubbody, #pg-load) .hr:not(.drag):hover, :where(body.hubbody, #pg-load) .hc:hover { background: #fdf6e6; border-color: #d9b867; box-shadow: 0 6px 18px rgba(0,0,0,.1); }
 @media (prefers-color-scheme: dark) { body.hubbody .hr:not(.drag):hover, body.hubbody .hc:hover { background: #222b3e; border-color: #8a6d2c; } }
+/* ---- Admin panel ---- */
+:where(body.hubbody) .hub-admin { margin-left: auto; padding: 6px 14px; font-size: 13px; }
+:where(body.hubbody) .hub-card.admin { max-width: 780px; max-height: calc(100vh - 32px); display: flex; flex-direction: column; }
+:where(body.hubbody) .ad-tabs { margin: 6px 0 4px; }
+:where(body.hubbody) .ad-body { overflow: auto; min-height: 120px; padding-right: 2px; }
+:where(body.hubbody) .ad-list { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
+:where(body.hubbody) .ad-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) minmax(150px, 210px) auto; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid #e8dcc1; border-radius: 12px; background: #fff; }
+:where(body.hubbody) .ad-row .hc-pic { width: 44px; height: 44px; border-width: 1.5px; font-size: 1.1rem; }
+:where(body.hubbody) .ad-main { display: flex; flex-direction: column; min-width: 0; }
+:where(body.hubbody) .ad-main b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:where(body.hubbody) .ad-main small { font-size: .76rem; opacity: .7; }
+:where(body.hubbody) .ad-own, :where(body.hubbody) .ad-name { border: 1px solid #c9b88f; border-radius: 8px; padding: 6px 8px; font: 13px system-ui, sans-serif; background: #fff; color: #1f2a44; min-width: 0; width: 100%; box-sizing: border-box; }
+:where(body.hubbody) .ad-name { width: 150px; flex: none; font-weight: 700; }
+:where(body.hubbody) .ad-acts { display: flex; gap: 6px; }
+:where(body.hubbody) .btn.sm { padding: 5px 10px; font-size: 13px; border-radius: 8px; text-decoration: none; }
+:where(body.hubbody) .ad-n { font-size: .75rem; opacity: .6; white-space: nowrap; }
+@media (max-width: 640px) { :where(body.hubbody) .ad-row { grid-template-columns: 44px minmax(0, 1fr); } :where(body.hubbody) .ad-own, :where(body.hubbody) .ad-acts { grid-column: 1 / -1; } :where(body.hubbody) .pl-row { flex-wrap: wrap; } }
+@media (prefers-color-scheme: dark) { body.hubbody .ad-row { background: #1a2131; border-color: #2c3548; } body.hubbody .ad-own, body.hubbody .ad-name { background: #0f1420; color: #e9e3d3; border-color: #3a4560; } }

@@ -33,7 +33,9 @@ const ADMIN_EMAIL = 'matthewcbro@gmail.com';
   if (!C && !G && !Q.get('new') && lsGet(LAST_G)) { location.replace(location.pathname + '?g=' + lsGet(LAST_G)); return; }
   const user = await new Promise(res => { const u = auth.onAuthStateChanged(x => { u(); res(x); }); });
   if (!user) { signIn(auth, say); return; }
-  const EMAIL = (user.email || '').toLowerCase(), IS_ADMIN = EMAIL === ADMIN_EMAIL;
+  const EMAIL = (user.email || '').toLowerCase(), IS_OWNER = EMAIL === ADMIN_EMAIL;
+  let IS_ADMIN = IS_OWNER, ADMINS = [];
+  try { const a = await fs.collection('config').doc('admins').get(); ADMINS = ((a.exists && a.data().emails) || []).map(x => String(x).toLowerCase()); if (ADMINS.includes(EMAIL)) IS_ADMIN = true; } catch (e) {}
   const signOut = () => auth.signOut().then(() => location.reload());
   window.pgSignOut = signOut;
   // The player's name comes from the party's player list (the DM keeps it); otherwise their Google name.
@@ -43,7 +45,7 @@ const ADMIN_EMAIL = 'matthewcbro@gmail.com';
   // A newer version of the site was pushed: offer a reload (anything open is saved first).
   const verCheck = () => { const check = async () => { try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); const v = (await r.json()).v; if (v && v !== VER && !document.getElementById('pg-upd')) { const b = document.createElement('button'); b.id = 'pg-upd'; b.textContent = 'Updated — tap to reload'; b.onclick = () => { b.textContent = 'Saving…'; setTimeout(() => location.reload(), 1200); }; document.body.appendChild(b); } } catch (e) {} };
     setInterval(check, 2 * 60 * 1000); document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); }); setTimeout(check, 5000); };
-  if (G && !C && !Q.get('new')) { lsSet(LAST_G, G); if (load) load.remove(); hub(fs, auth, G, { EMAIL, IS_ADMIN, user, signOut }); verCheck(); return; }
+  if (G && !C && !Q.get('new')) { lsSet(LAST_G, G); if (load) load.remove(); hub(fs, auth, G, { EMAIL, IS_ADMIN, IS_OWNER, ADMINS, user, signOut }); verCheck(); return; }
 
   const rid = () => { const a = new Uint8Array(18); crypto.getRandomValues(a); return btoa(String.fromCharCode(...a)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
   const NEW = !C;
@@ -128,7 +130,7 @@ function signIn(auth, say) {
 
 // ================= The party hub =================
 function hub(fs, auth, G, ctx) {
-  const { EMAIL, IS_ADMIN, user, signOut } = ctx;
+  const { EMAIL, IS_ADMIN, IS_OWNER, user, signOut } = ctx; let ADMINS = ctx.ADMINS || [];
   const OPEN = 'dnd-hub-open:' + G, VIEW = 'dnd-hub-view';
   const ls = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -148,7 +150,7 @@ function hub(fs, auth, G, ctx) {
   const admin = () => IS_ADMIN && view === 'all';
   const charsCol = fs.collection('groups/' + G + '/chars'), gDoc = fs.collection('groups').doc(G), sheets = fs.collection('sheets');
   const FV = firebase.firestore.FieldValue, FP = firebase.firestore.FieldPath;
-  const close = () => modal.classList.remove('on');
+  const close = () => { modal.classList.remove('on'); ADMIN_ON = false; };
   const playerOptions = sel => Object.entries(pmap()).sort((a, b) => a[1].localeCompare(b[1])).map(([em, n]) => `<option value="${esc(em)}"${em === sel ? ' selected' : ''}>${esc(n)} — ${esc(em)}</option>`).join('');
 
   function createChar() {
@@ -159,33 +161,65 @@ function hub(fs, auth, G, ctx) {
     modal.querySelector('#new-f').onsubmit = e => { e.preventDefault(); const o = modal.querySelector('#new-o').value; location.href = base + '?new=1&g=' + G + '&o=' + encodeURIComponent(o) + '&p=' + encodeURIComponent(nameOf(o)); };
     modal.querySelector('#new-x').onclick = close;
   }
+  async function giveTo(c, o) {
+    try { const s = await sheets.doc(c.id).get(); const n = Number(s.exists && s.data().n) || 1; await sheets.doc(c.id).update({ owner: o }); for (let k = 1; k < n; k++) await sheets.doc(c.id + '_p' + k).update({ owner: o }).catch(() => {});
+      await charsCol.doc(c.id).set({ owner: o, player: nameOf(o), playerSet: Date.now() }, { merge: true }); c.owner = o; c.player = nameOf(o); toast('Moved to ' + nameOf(o) + '.'); } catch (x) { toast('Couldn\'t move it: ' + (x.message || x)); } }
   function moveChar(c) {
     modal.innerHTML = `<div class="hub-card"><h2>Move ${esc(c.name || 'character')}</h2><p class="hub-hint">Give it to another player. They'll be able to open it; the current player won't anymore.</p>
       <form id="mv-f" class="who-f"><select id="mv-o">${playerOptions(c.owner)}</select><button class="btn gold">Move</button></form><button class="btn ghost" id="mv-x">Cancel</button></div>`;
     modal.classList.add('on');
-    modal.querySelector('#mv-f').onsubmit = async e => { e.preventDefault(); const o = modal.querySelector('#mv-o').value; close();
-      try { const s = await sheets.doc(c.id).get(); const n = Number(s.exists && s.data().n) || 1; await sheets.doc(c.id).update({ owner: o }); for (let k = 1; k < n; k++) await sheets.doc(c.id + '_p' + k).update({ owner: o }).catch(() => {});
-        await charsCol.doc(c.id).set({ owner: o, player: nameOf(o), playerSet: Date.now() }, { merge: true }); toast('Moved to ' + nameOf(o) + '.'); } catch (x) { toast('Couldn\'t move it: ' + (x.message || x)); } };
+    modal.querySelector('#mv-f').onsubmit = async e => { e.preventDefault(); const o = modal.querySelector('#mv-o').value; close(); await giveTo(c, o); };
     modal.querySelector('#mv-x').onclick = close;
   }
-  function removeChar(c) {
+  function removeChar(c, back) {
     modal.innerHTML = `<div class="hub-card"><h2>Remove ${esc(c.name || 'this character')} from the list?</h2><p class="hub-hint">The character itself isn't deleted — opening its link puts it back here.</p>
       <div class="row"><button class="btn ghost" id="rm-x">Cancel</button><button class="btn red" id="rm-ok">Remove from list</button></div></div>`;
     modal.classList.add('on');
-    modal.querySelector('#rm-ok').onclick = async () => { close(); await charsCol.doc(c.id).delete(); toast('Removed from the list.'); };
-    modal.querySelector('#rm-x').onclick = close;
+    modal.querySelector('#rm-ok').onclick = async () => { await charsCol.doc(c.id).delete(); chars = chars.filter(x => x.id !== c.id); toast('Removed from the list.'); back ? back() : close(); };
+    modal.querySelector('#rm-x').onclick = () => back ? back() : close();
   }
-  function playersPanel() {
-    const rows = Object.entries(pmap()).sort((a, b) => a[1].localeCompare(b[1]));
-    modal.innerHTML = `<div class="hub-card wide"><h2>Players</h2><p class="hub-hint">Each player signs in with this email (Google, or an emailed link). Their characters are locked to it.</p>
-      <div class="pl-list">${rows.map(([em, n]) => `<div class="pl-row"><b>${esc(n)}</b><span>${esc(em)}</span><button class="linkbtn" data-rm="${esc(em)}">remove</button></div>`).join('') || '<p class="hub-hint">No players yet.</p>'}</div>
-      <form id="pl-f" class="who-f pl-f"><input id="pl-n" placeholder="Name" maxlength="40" required><input id="pl-e" type="email" placeholder="Email" required><button class="btn gold">Add</button></form>
-      <button class="btn ghost" id="pl-x">Done</button></div>`;
+  const adminRefresh = () => { if (ADMIN_ON && modal.classList.contains('on') && modal.querySelector('.hub-card.admin') && !modal.contains(document.activeElement && document.activeElement.matches('input, select') ? document.activeElement : null)) adminPanel(); };
+  // ===== Admin: every character, the player list, and (for you) who else is an admin =====
+  let ATAB = 'chars', ADMIN_ON = false;
+  const pic = c => c.thumb ? `<img class="hc-pic" src="${esc(c.thumb)}" alt="">` : `<span class="hc-pic hc-nopic">${esc((c.name || '?')[0])}</span>`;
+  function adminPanel(tab) {
+    if (tab) ATAB = tab; ADMIN_ON = true;
+    const tabs = [['chars', 'Characters'], ['players', 'Players'], ['admins', 'Admins']];
+    let body = '';
+    if (ATAB === 'chars') {
+      const list = chars.slice().sort((a, b) => nameOf(a.owner || '').localeCompare(nameOf(b.owner || '')) || (a.name || '').localeCompare(b.name || ''));
+      body = `<p class="hub-hint">Every character in the party. Change the owner to give it to another player.</p><div class="ad-list">${list.map(c => `<div class="ad-row">${pic(c)}
+        <div class="ad-main"><b>${esc(c.name || 'Unnamed character')}</b><small>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}${c.updatedAt ? ' · updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}${(c.viewers || []).length ? ' · shared with ' + c.viewers.length : ''}</small></div>
+        <select class="ad-own" data-own="${esc(c.id)}" aria-label="Owner of ${esc(c.name || 'this character')}">${playerOptions(c.owner)}${c.owner && pmap()[c.owner] ? '' : `<option value="${esc(c.owner || '')}" selected>${esc(c.owner || '— no owner —')}</option>`}</select>
+        <div class="ad-acts"><a class="btn sm" href="${esc(base + '?c=' + c.id)}">Open</a><button class="btn sm" data-ash="${esc(c.id)}">Share</button><button class="btn sm ghost" data-arm="${esc(c.id)}">Remove</button></div></div>`).join('') || '<p class="hub-hint">No characters yet.</p>'}</div>`;
+    } else if (ATAB === 'players') {
+      const rows = Object.entries(pmap()).sort((a, b) => a[1].localeCompare(b[1])), count = em => chars.filter(c => c.owner === em).length;
+      body = `<p class="hub-hint">Each player signs in with their email (Google, or an emailed link). Their characters are locked to it. Edit a name to rename them.</p>
+        <div class="pl-list">${rows.map(([em, n]) => `<div class="pl-row"><input class="ad-name" data-pn="${esc(em)}" value="${esc(n)}" maxlength="40" aria-label="Name for ${esc(em)}"><span>${esc(em)}</span><small class="ad-n">${count(em)} character${count(em) === 1 ? '' : 's'}</small><button class="linkbtn" data-prm="${esc(em)}">remove</button></div>`).join('') || '<p class="hub-hint">No players yet.</p>'}</div>
+        <form id="pl-f" class="who-f pl-f"><input id="pl-n" placeholder="Name" maxlength="40" required><input id="pl-e" type="email" placeholder="Email" required><button class="btn gold">Add player</button></form>`;
+    } else {
+      body = `<p class="hub-hint">Admins can open, edit, share and move every character, manage players and remove characters from the list.${IS_OWNER ? '' : ' Only ' + esc(ADMIN_EMAIL) + ' can change who is an admin.'}</p>
+        <div class="pl-list"><div class="pl-row"><b>${esc(nameOf(ADMIN_EMAIL))}</b><span>${esc(ADMIN_EMAIL)}</span><small class="ad-n">always</small></div>
+        ${ADMINS.filter(em => em !== ADMIN_EMAIL).map(em => `<div class="pl-row"><b>${esc(pmap()[em] || '')}</b><span>${esc(em)}</span>${IS_OWNER ? `<button class="linkbtn" data-arm-admin="${esc(em)}">remove</button>` : ''}</div>`).join('')}</div>
+        ${IS_OWNER ? `<form id="ad-f" class="who-f pl-f"><input id="ad-e" type="email" placeholder="Email" list="ad-dl" required><datalist id="ad-dl">${Object.entries(pmap()).filter(([em]) => em !== ADMIN_EMAIL && !ADMINS.includes(em)).map(([em, n]) => `<option value="${esc(em)}">${esc(n)}</option>`).join('')}</datalist><button class="btn gold">Make admin</button></form>` : ''}`;
+    }
+    modal.innerHTML = `<div class="hub-card admin"><h2>Admin</h2><div class="hub-views ad-tabs">${tabs.map(([k, t]) => `<button class="${ATAB === k ? 'on' : ''}" data-atab="${k}">${t}${k === 'chars' ? ` <span>${chars.length}</span>` : k === 'players' ? ` <span>${Object.keys(pmap()).length}</span>` : ''}</button>`).join('')}</div>
+      <div class="ad-body">${body}</div><button class="btn ghost" id="ad-x">Done</button></div>`;
     modal.classList.add('on');
-    modal.querySelector('#pl-f').onsubmit = async e => { e.preventDefault(); const n = modal.querySelector('#pl-n').value.trim(), em = modal.querySelector('#pl-e').value.trim().toLowerCase(); if (!n || !em) return;
-      await gDoc.set({ players: { [em]: n } }, { merge: true }); toast('Added ' + n + '.'); playersPanel(); };
-    modal.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => { await gDoc.update(new FP('players', b.dataset.rm), FV.delete()); playersPanel(); });
-    modal.querySelector('#pl-x').onclick = close;
+    const back = () => adminPanel();
+    modal.querySelectorAll('[data-atab]').forEach(b => b.onclick = () => adminPanel(b.dataset.atab));
+    modal.querySelector('#ad-x').onclick = () => { ADMIN_ON = false; close(); };
+    modal.querySelectorAll('[data-own]').forEach(sl => sl.onchange = async () => { const c = chars.find(x => x.id === sl.dataset.own); if (c && sl.value && sl.value !== c.owner) { await giveTo(c, sl.value); adminPanel(); } });
+    modal.querySelectorAll('[data-ash]').forEach(b => b.onclick = () => { const c = chars.find(x => x.id === b.dataset.ash); if (c) shareChar(c, back); });
+    modal.querySelectorAll('[data-arm]').forEach(b => b.onclick = () => { const c = chars.find(x => x.id === b.dataset.arm); if (c) removeChar(c, back); });
+    modal.querySelectorAll('[data-pn]').forEach(inp => inp.onchange = async () => { const n = inp.value.trim(); if (!n) { inp.value = pmap()[inp.dataset.pn] || ''; return; } await gDoc.update(new FP('players', inp.dataset.pn), n); toast('Renamed to ' + n + '.'); });
+    modal.querySelectorAll('[data-prm]').forEach(b => b.onclick = async () => { await gDoc.update(new FP('players', b.dataset.prm), FV.delete()); toast('Removed ' + b.dataset.prm + ' from the players.'); });
+    const pf = modal.querySelector('#pl-f'); if (pf) pf.onsubmit = async e => { e.preventDefault(); const n = modal.querySelector('#pl-n').value.trim(), em = modal.querySelector('#pl-e').value.trim().toLowerCase(); if (!n || !em) return;
+      await gDoc.set({ players: { [em]: n } }, { merge: true }); toast('Added ' + n + '.'); };
+    const cfg = fs.collection('config').doc('admins');
+    const af = modal.querySelector('#ad-f'); if (af) af.onsubmit = async e => { e.preventDefault(); const em = modal.querySelector('#ad-e').value.trim().toLowerCase(); if (!em || em === ADMIN_EMAIL) return;
+      try { await cfg.set({ emails: FV.arrayUnion(em) }, { merge: true }); ADMINS = [...new Set(ADMINS.concat(em))]; toast(nameOf(em) + ' is now an admin.'); adminPanel(); } catch (x) { toast('Couldn\'t add the admin — publish the new database rules first.'); } };
+    modal.querySelectorAll('[data-arm-admin]').forEach(b => b.onclick = async () => { const em = b.dataset.armAdmin; try { await cfg.set({ emails: FV.arrayRemove(em) }, { merge: true }); ADMINS = ADMINS.filter(x => x !== em); toast(em + ' is no longer an admin.'); adminPanel(); } catch (x) { toast('Couldn\'t remove the admin: ' + (x.message || x)); } });
   }
   // Who else can open a character: everyone in "viewers" can look; those also in "editors" can change it.
   async function setAccess(c, V, E) {
@@ -194,7 +228,7 @@ function hub(fs, auth, G, ctx) {
     await sheets.doc(c.id).update(acc); for (let k = 1; k < n; k++) await sheets.doc(c.id + '_p' + k).update(acc).catch(() => {});
     await charsCol.doc(c.id).set(acc, { merge: true }); Object.assign(c, acc);
   }
-  function shareChar(c) {
+  function shareChar(c, back) {
     let V = [...(c.viewers || [])], E = [...(c.editors || [])];
     const paint = () => {
       const opts = Object.entries(pmap()).filter(([em]) => em !== c.owner && !V.includes(em)).sort((a, b) => a[1].localeCompare(b[1]));
@@ -211,7 +245,7 @@ function hub(fs, auth, G, ctx) {
         const ed = modal.querySelector('#sh-a').value === 'edit'; save([...V.filter(x => x !== em), em], ed ? [...E.filter(x => x !== em), em] : E.filter(x => x !== em), 'Shared with ' + nameOf(em) + '.'); };
       modal.querySelectorAll('[data-acc]').forEach(sel => sel.onchange = () => { const em = sel.dataset.acc; save(V, sel.value === 'edit' ? [...E.filter(x => x !== em), em] : E.filter(x => x !== em)); });
       modal.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { const em = b.dataset.rm; save(V.filter(x => x !== em), E.filter(x => x !== em), 'Stopped sharing with ' + nameOf(em) + '.'); });
-      modal.querySelector('#sh-x').onclick = close;
+      modal.querySelector('#sh-x').onclick = () => back ? back() : close();
     };
     paint();
   }
@@ -273,14 +307,14 @@ function hub(fs, auth, G, ctx) {
       : (mine.length ? `<div class="hl">${mine.sort(ord).map(row).join('')}</div>` : `<p class="hub-empty">You don’t have any characters yet — create one${IS_ADMIN ? '' : ', or ask whoever has yours to give it to you'}.</p>`);
     root.innerHTML = `<header class="hub-top"><h1 class="hub-title">D&amp;D Character Sheets</h1>
       <div class="hub-me">Signed in as <b>${esc(myName())}</b> <span class="hub-em">${esc(EMAIL)}</span> · <button class="linkbtn" id="me-out">Sign out</button></div></header>
-      <div class="hub-views"><button class="${SH ? '' : 'on'}" data-view="mine">My characters <span>${mine.length}</span></button><button class="${SH ? 'on' : ''}" data-view="shared">Shared characters <span>${shared.length}</span></button>${IS_ADMIN ? '<button class="linkbtn" id="hub-pl">Players…</button>' : ''}</div>
+      <div class="hub-views"><button class="${SH ? '' : 'on'}" data-view="mine">My characters <span>${mine.length}</span></button><button class="${SH ? 'on' : ''}" data-view="shared">Shared characters <span>${shared.length}</span></button>${IS_ADMIN ? '<button class="btn hub-admin" id="hub-admin">⚙ Admin</button>' : ''}</div>
       ${SH ? '' : '<div class="hub-bar"><button class="btn gold big" id="hub-new">＋ Create character</button></div>'}
       ${body}
       <footer class="hub-foot">Bookmark this page. You're signed in on this device. ${IS_ADMIN ? 'You can open and edit every character.' : 'Your characters only open for you and the people you share them with.'}</footer>`;
     const nb = root.querySelector('#hub-new'); if (nb) nb.onclick = createChar;
     root.querySelector('#me-out').onclick = signOut;
     root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { view = b.dataset.view; ls.set(VIEW, view); draw(); });
-    const pl = root.querySelector('#hub-pl'); if (pl) pl.onclick = playersPanel;
+    const ad = root.querySelector('#hub-admin'); if (ad) ad.onclick = () => adminPanel('chars');
     root.querySelectorAll('[data-pin-id]').forEach(b => b.onclick = e => { e.preventDefault(); togglePin(b.dataset.pinId); });
     root.querySelectorAll('[data-share-id]').forEach(b => b.onclick = e => { e.preventDefault(); const c = chars.find(x => x.id === b.dataset.shareId); if (c) shareChar(c); });
     root.querySelectorAll('details.hub-folder').forEach(d => d.addEventListener('toggle', () => { open[d.dataset.k] = d.open; ls.set(OPEN, JSON.stringify(open)); }));
@@ -290,9 +324,9 @@ function hub(fs, auth, G, ctx) {
   }
   document.addEventListener('click', () => root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')));
   draw();
-  gDoc.onSnapshot(s => { group = (s.exists && s.data()) || {}; if (!RD) draw(); }, () => {});
+  gDoc.onSnapshot(s => { group = (s.exists && s.data()) || {}; if (!RD) draw(); adminRefresh(); }, () => {});
   // The DM sees every character; everyone else sees their own plus the ones shared with them.
-  const lists = {}, merge = () => { const m = new Map(); Object.values(lists).forEach(l => l.forEach(c => m.set(c.id, c))); chars = [...m.values()]; if (!RD) draw(); };
+  const lists = {}, merge = () => { const m = new Map(); Object.values(lists).forEach(l => l.forEach(c => m.set(c.id, c))); chars = [...m.values()]; if (!RD) draw(); adminRefresh(); };
   const failed = e => { root.innerHTML = `<p class="hub-empty">Couldn't load the character list (${esc(e.code || e.message || e)}).<br><br>Signed in as ${esc(EMAIL)} · <button class="linkbtn" onclick="pgSignOut()">Sign out</button></p>`; console.error(e); };
   const watch = (k, q) => q.onSnapshot(qs => { lists[k] = qs.docs.map(d => Object.assign({ id: d.id }, d.data())); merge(); }, failed);
   if (IS_ADMIN) watch('all', charsCol); else { watch('mine', charsCol.where('owner', '==', EMAIL)); watch('shared', charsCol.where('viewers', 'array-contains', EMAIL)); }
