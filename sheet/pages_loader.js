@@ -187,6 +187,7 @@ function wireDie(root) {
   const NEW = !C;
   if (NEW) C = rid();
   window.SHEET_PAGES = true; window.SHEET_CHAR = C;
+  document.documentElement.classList.add('pg-sheetpage');
   // The game data and the app arrive as separate long-cached files; start fetching them now, run them in order later.
   const fetched = Promise.all([ASSETS.data, ASSETS.app].map(u => fetch(u).then(r => { if (!r.ok) throw new Error(u); return r.text(); })));
   const run = async () => { let src; try { src = await fetched; } catch (e) { say('Couldn\'t load the sheet. Check your connection and reload.'); return; }
@@ -506,7 +507,7 @@ function hub(fs, auth, G, ctx) {
     const keepLogo = root.querySelector('.hub-logo');
     root.innerHTML = `<header class="hub-top">${logoHTML()}
       <div class="hub-side"><div class="hub-prof"><button class="hp-pic" id="me-pic" title="Choose your picture" aria-label="Choose your picture">${avaHTML(myName(), EMAIL, myPic())}<span class="hp-edit" aria-hidden="true">✎</span></button>
-        <div class="hp-txt"><b>${esc(myName())}</b><small>${esc(EMAIL)}</small><button class="linkbtn" id="me-out">Sign out</button></div></div>${IS_ADMIN ? '<button class="btn hub-admin" id="hub-admin">⚙ Admin</button>' : ''}</div></header>
+        <div class="hp-txt"><b>${esc(myName())}</b><small>${esc(EMAIL)}</small><div class="hp-row"><button class="linkbtn" id="me-out">Sign out</button>${IS_ADMIN ? '<button class="btn hub-admin" id="hub-admin">⚙ Admin</button>' : ''}</div></div></div></div></header>
       <div class="hub-views"><button class="${SH ? '' : 'on'}" data-view="mine">My characters <span>${mine.length}</span></button><button class="${SH ? 'on' : ''}" data-view="shared">Shared characters <span>${shared.length}</span></button><button class="hub-new" id="hub-new"><span class="hn-plus" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="hn-txt"><b>Create character</b></span></button></div>
       ${body}`;
     if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }

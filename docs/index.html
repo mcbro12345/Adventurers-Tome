@@ -437,6 +437,21 @@ body.adminbody .adm-brand .hl-20 { fill: #f6e7bd; }
 .pg-pres .pg-ava.me { box-shadow: 0 0 0 2px #c9962b; }
 .pg-pres::after { content: ''; width: 7px; height: 7px; border-radius: 50%; margin-left: 7px; background: #4cd27a; box-shadow: 0 0 6px #4cd27a; }
 body:has(#modal.open) .pg-pres, body.wizopen .pg-pres { display: none !important; }
+
+/* sheets: a strip of room at the top so the back button and who's-viewing bubbles don't sit on the portrait */
+html.pg-sheetpage:not(.mobile) body { padding-top: 36px; }
+
+/* hub header: Sign out and Admin side by side; the logo fills the header's height */
+:where(body.hubbody) .hp-row { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+:where(body.hubbody) .hp-row .linkbtn { margin-top: 0; }
+:where(body.hubbody) .hp-row .hub-admin { padding: 3px 10px; font-size: 12px; border-radius: 7px; }
+:where(body.hubbody) .hub-top .hl-d20 { width: 82px; height: 82px; }
+:where(body.hubbody) .hub-top .hl-a { font-size: .92rem; letter-spacing: .44em; margin-bottom: 4px; }
+:where(body.hubbody) .hub-top .hl-t { font-size: 3.3rem; }
+:where(body.hubbody) .hub-top .hub-logo { gap: 16px; }
+:where(body.hubbody) .hub-top { align-items: center; }
+:where(body.hubbody) .hub-top .hub-side { align-self: center; padding-top: 0; }
+@media (max-width: 640px) { :where(body.hubbody) .hub-top .hl-d20 { width: 58px; height: 58px; } :where(body.hubbody) .hub-top .hl-t { font-size: 2.4rem; } :where(body.hubbody) .hub-top .hl-a { font-size: .74rem; letter-spacing: .34em; } }
 </style>
 </head>
 <body>
@@ -531,7 +546,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013161226', ASSETS = {"data": "a/data.3f7e0dc5a0bb.js", "app": "a/app.d4deaf4a0fe4.js"};
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013161607', ASSETS = {"data": "a/data.3f7e0dc5a0bb.js", "app": "a/app.d4deaf4a0fe4.js"};
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   let C = clean(Q.get('c')), G = clean(Q.get('g'));
   const P = (Q.get('p') || '').slice(0, 60), O = (Q.get('o') || '').trim().toLowerCase().slice(0, 120);
@@ -660,6 +675,7 @@ function wireDie(root) {
   const NEW = !C;
   if (NEW) C = rid();
   window.SHEET_PAGES = true; window.SHEET_CHAR = C;
+  document.documentElement.classList.add('pg-sheetpage');
   // The game data and the app arrive as separate long-cached files; start fetching them now, run them in order later.
   const fetched = Promise.all([ASSETS.data, ASSETS.app].map(u => fetch(u).then(r => { if (!r.ok) throw new Error(u); return r.text(); })));
   const run = async () => { let src; try { src = await fetched; } catch (e) { say('Couldn\'t load the sheet. Check your connection and reload.'); return; }
@@ -979,7 +995,7 @@ function hub(fs, auth, G, ctx) {
     const keepLogo = root.querySelector('.hub-logo');
     root.innerHTML = `<header class="hub-top">${logoHTML()}
       <div class="hub-side"><div class="hub-prof"><button class="hp-pic" id="me-pic" title="Choose your picture" aria-label="Choose your picture">${avaHTML(myName(), EMAIL, myPic())}<span class="hp-edit" aria-hidden="true">✎</span></button>
-        <div class="hp-txt"><b>${esc(myName())}</b><small>${esc(EMAIL)}</small><button class="linkbtn" id="me-out">Sign out</button></div></div>${IS_ADMIN ? '<button class="btn hub-admin" id="hub-admin">⚙ Admin</button>' : ''}</div></header>
+        <div class="hp-txt"><b>${esc(myName())}</b><small>${esc(EMAIL)}</small><div class="hp-row"><button class="linkbtn" id="me-out">Sign out</button>${IS_ADMIN ? '<button class="btn hub-admin" id="hub-admin">⚙ Admin</button>' : ''}</div></div></div></div></header>
       <div class="hub-views"><button class="${SH ? '' : 'on'}" data-view="mine">My characters <span>${mine.length}</span></button><button class="${SH ? 'on' : ''}" data-view="shared">Shared characters <span>${shared.length}</span></button><button class="hub-new" id="hub-new"><span class="hn-plus" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="hn-txt"><b>Create character</b></span></button></div>
       ${body}`;
     if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }

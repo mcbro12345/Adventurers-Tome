@@ -420,3 +420,18 @@ body.adminbody .adm-brand .hl-20 { fill: #f6e7bd; }
 .pg-pres .pg-ava.me { box-shadow: 0 0 0 2px #c9962b; }
 .pg-pres::after { content: ''; width: 7px; height: 7px; border-radius: 50%; margin-left: 7px; background: #4cd27a; box-shadow: 0 0 6px #4cd27a; }
 body:has(#modal.open) .pg-pres, body.wizopen .pg-pres { display: none !important; }
+
+/* sheets: a strip of room at the top so the back button and who's-viewing bubbles don't sit on the portrait */
+html.pg-sheetpage:not(.mobile) body { padding-top: 36px; }
+
+/* hub header: Sign out and Admin side by side; the logo fills the header's height */
+:where(body.hubbody) .hp-row { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+:where(body.hubbody) .hp-row .linkbtn { margin-top: 0; }
+:where(body.hubbody) .hp-row .hub-admin { padding: 3px 10px; font-size: 12px; border-radius: 7px; }
+:where(body.hubbody) .hub-top .hl-d20 { width: 82px; height: 82px; }
+:where(body.hubbody) .hub-top .hl-a { font-size: .92rem; letter-spacing: .44em; margin-bottom: 4px; }
+:where(body.hubbody) .hub-top .hl-t { font-size: 3.3rem; }
+:where(body.hubbody) .hub-top .hub-logo { gap: 16px; }
+:where(body.hubbody) .hub-top { align-items: center; }
+:where(body.hubbody) .hub-top .hub-side { align-self: center; padding-top: 0; }
+@media (max-width: 640px) { :where(body.hubbody) .hub-top .hl-d20 { width: 58px; height: 58px; } :where(body.hubbody) .hub-top .hl-t { font-size: 2.4rem; } :where(body.hubbody) .hub-top .hl-a { font-size: .74rem; letter-spacing: .34em; } }
