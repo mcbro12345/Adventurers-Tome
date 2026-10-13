@@ -438,6 +438,11 @@ body:has(#modal.open) .pg-pres, body.wizopen .pg-pres { display: none !important
 
 /* sheets: a strip of room at the top so the back button and who's-viewing bubbles don't sit on the portrait */
 html.pg-sheetpage:not(.mobile) .banner { padding-top: 30px; }
+/* The Adventurer's Tome button sits at the very top of the sheet and scrolls away with it (desktop and phone). */
+.pg-hublink, .pg-shared, .pg-pres { position: absolute; }
+html.mobile .pg-hublink { top: calc(8px + env(safe-area-inset-top)); bottom: auto; left: 10px; }
+html.mobile .pg-shared { top: calc(8px + env(safe-area-inset-top)); bottom: auto; right: 10px; left: auto; transform: none; }
+html.pg-sheetpage.mobile .banner { padding-top: calc(34px + env(safe-area-inset-top)); }
 
 /* hub header: Sign out and Admin side by side; the logo fills the header's height */
 :where(body.hubbody) .hp-row { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
@@ -571,7 +576,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013162803', ASSETS = {"data": "a/data.3f7e0dc5a0bb.js", "app": "a/app.d4deaf4a0fe4.js"};
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013163214', ASSETS = {"data": "a/data.3f7e0dc5a0bb.js", "app": "a/app.d4deaf4a0fe4.js"};
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -800,9 +805,7 @@ function wireDie(root) {
   }, 500); }
   // Back to the hub (desktop and phone).
   if (G) { const a = document.createElement('a'); a.href = URLS.hub(G); a.className = 'pg-hublink'; a.title = 'All characters'; a.textContent = '⌂ Adventurer’s Tome'; document.body.appendChild(a);
-    // On a phone it sits just above the bottom tab bar, wherever that bar ends up.
-    const place = () => { const t = document.getElementById('tabs'), r = t && t.getBoundingClientRect(); a.style.bottom = document.documentElement.classList.contains('mobile') && r && r.height && r.top > innerHeight / 2 ? (innerHeight - r.top + 8) + 'px' : ''; };
-    addEventListener('resize', place); setInterval(place, 1500); setTimeout(place, 300); }
+  }
   // Who's looking at this sheet right now — shown once it's shared: small portraits beside the back button, you too.
   // Each open copy checks in once a minute (only while its tab is showing) and drops off when closed or idle.
   if (!NEW) (() => {
@@ -816,7 +819,7 @@ function wireDie(root) {
       const shared = VIEWERS.length > 0 || OWNER !== EMAIL;
       box.hidden = !shared || !here.length;
       box.innerHTML = here.map(([em, d]) => avaHTML(d.name, em, d.pic, em === EMAIL ? 'me' : '', (em === EMAIL ? 'You' : d.name || em) + ' — viewing now')).join('');
-      const a = document.querySelector('.pg-hublink'); if (a) { const r = a.getBoundingClientRect(); box.style.left = (r.right + 8) + 'px'; box.style.top = (r.top + r.height / 2) + 'px'; } };
+      const a = document.querySelector('.pg-hublink'); if (a) { box.style.left = (a.offsetLeft + a.offsetWidth + 8) + 'px'; box.style.top = (a.offsetTop + a.offsetHeight / 2) + 'px'; } };
     beat(); setInterval(beat, 60000); setInterval(show, 1500);
     document.addEventListener('visibilitychange', () => { if (document.hidden) leave(); else beat(); });
     addEventListener('pagehide', leave);

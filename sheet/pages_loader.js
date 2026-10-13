@@ -300,9 +300,7 @@ function wireDie(root) {
   }, 500); }
   // Back to the hub (desktop and phone).
   if (G) { const a = document.createElement('a'); a.href = URLS.hub(G); a.className = 'pg-hublink'; a.title = 'All characters'; a.textContent = '⌂ Adventurer’s Tome'; document.body.appendChild(a);
-    // On a phone it sits just above the bottom tab bar, wherever that bar ends up.
-    const place = () => { const t = document.getElementById('tabs'), r = t && t.getBoundingClientRect(); a.style.bottom = document.documentElement.classList.contains('mobile') && r && r.height && r.top > innerHeight / 2 ? (innerHeight - r.top + 8) + 'px' : ''; };
-    addEventListener('resize', place); setInterval(place, 1500); setTimeout(place, 300); }
+  }
   // Who's looking at this sheet right now — shown once it's shared: small portraits beside the back button, you too.
   // Each open copy checks in once a minute (only while its tab is showing) and drops off when closed or idle.
   if (!NEW) (() => {
@@ -316,7 +314,7 @@ function wireDie(root) {
       const shared = VIEWERS.length > 0 || OWNER !== EMAIL;
       box.hidden = !shared || !here.length;
       box.innerHTML = here.map(([em, d]) => avaHTML(d.name, em, d.pic, em === EMAIL ? 'me' : '', (em === EMAIL ? 'You' : d.name || em) + ' — viewing now')).join('');
-      const a = document.querySelector('.pg-hublink'); if (a) { const r = a.getBoundingClientRect(); box.style.left = (r.right + 8) + 'px'; box.style.top = (r.top + r.height / 2) + 'px'; } };
+      const a = document.querySelector('.pg-hublink'); if (a) { box.style.left = (a.offsetLeft + a.offsetWidth + 8) + 'px'; box.style.top = (a.offsetTop + a.offsetHeight / 2) + 'px'; } };
     beat(); setInterval(beat, 60000); setInterval(show, 1500);
     document.addEventListener('visibilitychange', () => { if (document.hidden) leave(); else beat(); });
     addEventListener('pagehide', leave);

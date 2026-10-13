@@ -421,6 +421,11 @@ body:has(#modal.open) .pg-pres, body.wizopen .pg-pres { display: none !important
 
 /* sheets: a strip of room at the top so the back button and who's-viewing bubbles don't sit on the portrait */
 html.pg-sheetpage:not(.mobile) .banner { padding-top: 30px; }
+/* The Adventurer's Tome button sits at the very top of the sheet and scrolls away with it (desktop and phone). */
+.pg-hublink, .pg-shared, .pg-pres { position: absolute; }
+html.mobile .pg-hublink { top: calc(8px + env(safe-area-inset-top)); bottom: auto; left: 10px; }
+html.mobile .pg-shared { top: calc(8px + env(safe-area-inset-top)); bottom: auto; right: 10px; left: auto; transform: none; }
+html.pg-sheetpage.mobile .banner { padding-top: calc(34px + env(safe-area-inset-top)); }
 
 /* hub header: Sign out and Admin side by side; the logo fills the header's height */
 :where(body.hubbody) .hp-row { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
