@@ -231,16 +231,16 @@ function hub(fs, auth, G, ctx) {
   function shareChar(c, back) {
     let V = [...(c.viewers || [])], E = [...(c.editors || [])];
     const paint = () => {
-      const opts = Object.entries(pmap()).filter(([em]) => em !== c.owner && !V.includes(em)).sort((a, b) => a[1].localeCompare(b[1]));
+
       modal.innerHTML = `<div class="hub-card wide"><h2>Share ${esc(c.name || 'this character')}</h2><p class="hub-hint">They'll find it under “Shared characters” after signing in with that email.</p>
         <div class="pl-list">${V.map(em => `<div class="pl-row"><span class="sh-who">${pmap()[em] ? `<b>${esc(pmap()[em])}</b> ` : ''}<span>${esc(em)}</span></span><select data-acc="${esc(em)}"><option value="view">Can view</option><option value="edit"${E.includes(em) ? ' selected' : ''}>Can edit</option></select><button class="linkbtn" data-rm="${esc(em)}">remove</button></div>`).join('') || '<p class="hub-hint">Not shared with anyone yet.</p>'}</div>
-        <form id="sh-f" class="who-f pl-f sh-f">${opts.length ? `<select id="sh-p"><option value="">Pick a player…</option>${opts.map(([em, n]) => `<option value="${esc(em)}">${esc(n)}</option>`).join('')}<option value="other">Someone else (type email)</option></select>` : ''}<input id="sh-e" type="email" placeholder="Email address"${opts.length ? ' hidden' : ''}><select id="sh-a"><option value="view">Can view</option><option value="edit">Can edit</option></select><button class="btn gold">Share</button></form>
+        <form id="sh-f" class="who-f pl-f sh-f"><input id="sh-e" type="email" placeholder="Their email address" autocomplete="off" required><select id="sh-a"><option value="view">Can view</option><option value="edit">Can edit</option></select><button class="btn gold">Share</button></form>
         <button class="btn ghost" id="sh-x">Done</button></div>`;
       modal.classList.add('on');
-      const pk = modal.querySelector('#sh-p'), ei = modal.querySelector('#sh-e');
-      if (pk) pk.onchange = () => { ei.hidden = pk.value !== 'other'; if (!ei.hidden) ei.focus(); };
+      const ei = modal.querySelector('#sh-e');
+      
       const save = async (nv, ne, msg) => { try { await setAccess(c, nv, ne); V = c.viewers; E = c.editors; if (msg) toast(msg); paint(); } catch (x) { toast('Couldn\'t change sharing: ' + (x.message || x)); } };
-      modal.querySelector('#sh-f').onsubmit = e => { e.preventDefault(); const em = ((pk && pk.value && pk.value !== 'other') ? pk.value : ei.value).trim().toLowerCase();
+      modal.querySelector('#sh-f').onsubmit = e => { e.preventDefault(); const em = ei.value.trim().toLowerCase();
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { toast('Type an email address.'); return; } if (em === c.owner) { toast('That’s the owner.'); return; }
         const ed = modal.querySelector('#sh-a').value === 'edit'; save([...V.filter(x => x !== em), em], ed ? [...E.filter(x => x !== em), em] : E.filter(x => x !== em), 'Shared with ' + nameOf(em) + '.'); };
       modal.querySelectorAll('[data-acc]').forEach(sel => sel.onchange = () => { const em = sel.dataset.acc; save(V, sel.value === 'edit' ? [...E.filter(x => x !== em), em] : E.filter(x => x !== em)); });
