@@ -574,7 +574,7 @@ function hub(fs, auth, G, ctx) {
       const [title, desc] = PAGES[TAB];
       const keepLogo = root.querySelector('.hub-logo');
       root.innerHTML = `<div class="adm"><aside class="adm-side">
-          <div class="adm-brand">${logoHTML()}<span class="adm-tagline">Admin</span></div>
+          <div class="adm-brand">${logoHTML()}</div>
           <nav class="adm-nav"><div class="adm-sec">Manage</div>${nav('users', 'Users')}${nav('chars', 'Characters')}${nav('admins', 'Admins')}<div class="adm-sec">Activity</div>${nav('new', 'New')}</nav>
           <div class="adm-foot"><a class="adm-back" href="${esc(HUB)}">← Back to my characters</a>
             <div class="adm-me">${ava(myName(), EMAIL)}<span><b>${esc(myName())}</b><small>${esc(EMAIL)}</small></span><button class="linkbtn" id="me-out">Sign out</button></div></div></aside>
