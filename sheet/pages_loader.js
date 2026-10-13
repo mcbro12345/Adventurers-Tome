@@ -264,7 +264,7 @@ function wireDie(root) {
     hubChanged = true; hubSoon();
   }, 500); }
   // Back to the hub (desktop and phone).
-  if (G) { const a = document.createElement('a'); a.href = URLS.hub(G); a.className = 'pg-hublink'; a.title = 'All characters'; a.textContent = '⌂ Characters'; document.body.appendChild(a);
+  if (G) { const a = document.createElement('a'); a.href = URLS.hub(G); a.className = 'pg-hublink'; a.title = 'All characters'; a.textContent = '⌂ Adventurer’s Tome'; document.body.appendChild(a);
     // On a phone it sits just above the bottom tab bar, wherever that bar ends up.
     const place = () => { const t = document.getElementById('tabs'), r = t && t.getBoundingClientRect(); a.style.bottom = document.documentElement.classList.contains('mobile') && r && r.height && r.top > innerHeight / 2 ? (innerHeight - r.top + 8) + 'px' : ''; };
     addEventListener('resize', place); setInterval(place, 1500); setTimeout(place, 300); }
@@ -495,41 +495,66 @@ function hub(fs, auth, G, ctx) {
   function adminSection() {
     const UREF = usersCol.doc(EMAIL); let CHECKED = Number(ME && ME.checkedAt) || 0;
     const T0 = ctx.tab === 'characters' ? 'chars' : ctx.tab; let TAB = ['users', 'chars', 'admins', 'new'].includes(T0) ? T0 : 'users';
-    const TABS = [['users', 'Users'], ['chars', 'Characters'], ['admins', 'Admins'], ['new', 'New']];
-    const CH = {}; // characters on screen, by id
-    const setTab = t => { TAB = t; history.replaceState(null, '', URLS.admin(G, t === 'chars' ? 'characters' : t)); frame(); };
+    const CH = {}, US = {}; // characters and accounts on screen
     let NEWN = null;
+    const setTab = t => { TAB = t; history.replaceState(null, '', URLS.admin(G, t === 'chars' ? 'characters' : t)); frame(); };
+    const ic = {
+      users: '<path d="M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1"/><circle cx="9" cy="7" r="3.5"/><path d="M22 19v-1a4 4 0 0 0-3-3.9M16 3.5a3.5 3.5 0 0 1 0 7"/>',
+      chars: '<path d="M4 4h11a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3z"/><path d="M4 17a3 3 0 0 1 3-3h11"/><path d="M8 8h6"/>',
+      admins: '<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+      new: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
+      search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>' };
+    const svg = (k, n = 18) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ic[k]}</svg>`;
+    const PAGES = { users: ['Users', 'Everyone who has signed in. Search by name or email, rename someone, or look at their characters.'],
+      chars: ['Characters', 'Every character on the site, newest activity first. Share any of them with yourself, or open, share, move or delete them.'],
+      admins: ['Admins', 'Admins can open and edit every character, manage users and see new accounts.'],
+      new: ['New', 'Accounts and characters that appeared since you last marked this as read.'] };
+    // avatar: initials on a colour picked from the name, so the same person always looks the same
+    const hue = t => [...String(t || '?')].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) % 360, 7);
+    const ava = (name, em) => { const ini = String(name || em || '?').split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?'; return `<span class="adm-ava" style="--h:${hue(em || name)}">${esc(ini)}</span>`; };
+    const roleOf = em => em === ADMIN_EMAIL ? ['Owner', 'own'] : ADMINS.includes(em) ? ['Admin', 'adm'] : ['Member', 'mem'];
+    const when = t => t ? `<span title="${esc(new Date(t).toLocaleString())}">${esc(day(t))}</span>` : '<span class="adm-dim">—</span>';
+    const kebab = items => `<div class="adm-mwrap"><button class="adm-kebab" aria-label="More actions">⋯</button><div class="adm-mlist">${items.map(([k, t, id, cls]) => `<button data-mi="${k}" data-id="${esc(id)}"${cls ? ` class="${cls}"` : ''}>${t}</button>`).join('')}</div></div>`;
+
     function frame() {
-      root.innerHTML = `<header class="hub-top ad-top"><div><a class="ad-back" href="${esc(HUB)}">← My characters</a><h1 class="hub-title">Admin</h1></div>
-        <div class="hub-me">Signed in as <b>${esc(myName())}</b> <span class="hub-em">${esc(EMAIL)}</span> · <button class="linkbtn" id="me-out">Sign out</button></div></header>
-        <nav class="hub-views ad-nav">${TABS.map(([k, t]) => `<button class="${TAB === k ? 'on' : ''}" data-tab="${k}">${t}${k === 'new' && NEWN ? ` <span>${NEWN}</span>` : ''}</button>`).join('')}</nav>
-        <section id="ad-body" class="ad-page"><p class="hub-hint">Loading…</p></section>`;
+      const nav = (k, label) => `<button class="adm-ni${TAB === k ? ' on' : ''}" data-tab="${k}">${svg(k)}<span>${label}</span>${k === 'new' && NEWN ? `<b class="adm-badge">${NEWN}</b>` : ''}</button>`;
+      const [title, desc] = PAGES[TAB];
+      root.innerHTML = `<div class="adm"><aside class="adm-side">
+          <a class="adm-brand" href="${esc(HUB)}"><svg viewBox="0 0 100 100" width="30" height="30" aria-hidden="true"><polygon points="50,4 91,27 91,73 50,96 9,73 9,27" fill="rgba(201,150,43,.16)" stroke="#c9962b" stroke-width="6" stroke-linejoin="round"/><polygon points="50,26 72,63 28,63" fill="none" stroke="#c9962b" stroke-width="5" stroke-linejoin="round"/></svg><span><b>Adventurer’s Tome</b><small>Admin</small></span></a>
+          <nav class="adm-nav"><div class="adm-sec">Manage</div>${nav('users', 'Users')}${nav('chars', 'Characters')}${nav('admins', 'Admins')}<div class="adm-sec">Activity</div>${nav('new', 'New')}</nav>
+          <div class="adm-foot"><a class="adm-back" href="${esc(HUB)}">← Back to my characters</a>
+            <div class="adm-me">${ava(myName(), EMAIL)}<span><b>${esc(myName())}</b><small>${esc(EMAIL)}</small></span><button class="linkbtn" id="me-out">Sign out</button></div></div></aside>
+        <main class="adm-main"><header class="adm-head"><div><h1>${esc(title)}</h1><p>${esc(desc)}</p></div><div class="adm-hact" id="adm-hact"></div></header>
+          <section id="ad-body" class="adm-body"><p class="adm-dim">Loading…</p></section></main></div>`;
       root.querySelector('#me-out').onclick = signOut;
       root.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
       ({ new: tabNew, users: tabUsers, chars: tabChars, admins: tabAdmins })[TAB]();
     }
-    const B = () => root.querySelector('#ad-body');
-    // One character as a row: what it is, whose it is, whether it's shared with you, and what you can do with it.
+    const B = () => root.querySelector('#ad-body'), HA = () => root.querySelector('#adm-hact');
+    document.addEventListener('click', e => { const k = e.target.closest && e.target.closest('.adm-kebab'); root.querySelectorAll('.adm-mwrap.on').forEach(w => { if (!k || w !== k.parentElement) w.classList.remove('on'); }); if (k) k.parentElement.classList.toggle('on'); });
+
+    // ----- characters as table rows -----
     const myAccess = c => isMine(c) ? 'own' : (c.editors || []).includes(EMAIL) ? 'edit' : (c.viewers || []).includes(EMAIL) ? 'view' : '';
-    function crow(c, showOwner = true) { CH[c.id] = c; const a = myAccess(c);
-      return `<div class="ad-row" data-cid="${esc(c.id)}">${pic(c)}
-        <div class="ad-main"><b>${esc(c.name || 'Unnamed character')}</b><small>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}${showOwner ? ' · <span class="ad-own-n">' + esc(nameOf(c.owner || '')) + '</span>' : ''}${c.createdAt ? ' · made ' + esc(ago(c.createdAt)) : ''}${c.updatedAt ? ' · updated ' + esc(ago(c.updatedAt)) : ''}${(c.viewers || []).length ? ' · shared with ' + c.viewers.length : ''}</small></div>
-        ${a === 'own' ? '<span class="ad-mine">Yours</span>' : `<label class="ad-me"><span>Shared with you</span><select data-me="${esc(c.id)}"><option value="">No</option><option value="view"${a === 'view' ? ' selected' : ''}>Can view</option><option value="edit"${a === 'edit' ? ' selected' : ''}>Can edit</option></select></label>`}
-        <div class="ad-acts"><a class="btn sm" href="${esc(URLS.char(c))}">Open</a><button class="btn sm" data-ash="${esc(c.id)}">Share…</button><button class="btn sm" data-agive="${esc(c.id)}">Give to…</button><button class="btn sm ghost" data-arm="${esc(c.id)}" title="Take it off the lists without deleting it">Remove</button><button class="btn sm ghost ad-del" data-adel="${esc(c.id)}">Delete</button></div></div>`; }
+    const ctable = (list, showOwner = true, empty = 'No characters yet.') => list.length ? `<div class="adm-tw"><table class="adm-t"><thead><tr><th>Character</th>${showOwner ? '<th>Owner</th>' : ''}<th>Shared with you</th><th>Updated</th><th>Created</th><th></th></tr></thead><tbody>${list.map(c => crow(c, showOwner)).join('')}</tbody></table></div>` : `<p class="adm-empty">${empty}</p>`;
+    function crow(c, showOwner) { CH[c.id] = c; const a = myAccess(c);
+      return `<tr><td><a class="adm-char" href="${esc(URLS.char(c))}">${pic(c)}<span><b>${esc(c.name || 'Unnamed character')}</b><small>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</small></span></a></td>
+        ${showOwner ? `<td><span class="adm-who">${ava(nameOf(c.owner || ''), c.owner)}<span>${esc(nameOf(c.owner || '') || '—')}</span></span></td>` : ''}
+        <td>${a === 'own' ? '<span class="adm-tag own">Yours</span>' : `<select class="adm-sel" data-me="${esc(c.id)}" aria-label="Shared with you"><option value="">Not shared</option><option value="view"${a === 'view' ? ' selected' : ''}>Can view</option><option value="edit"${a === 'edit' ? ' selected' : ''}>Can edit</option></select>`}</td>
+        <td>${when(c.updatedAt)}</td><td>${when(c.createdAt)}</td>
+        <td class="adm-act">${kebab([['open', 'Open', c.id], ['share', 'Share…', c.id], ['give', 'Give to another player…', c.id], ['rm', 'Remove from lists', c.id], ['del', 'Delete character…', c.id, 'danger']])}</td></tr>`; }
     function wire(el, redo) {
       el.querySelectorAll('[data-me]').forEach(sl => sl.onchange = async () => { const c = CH[sl.dataset.me]; if (!c) return; const v = sl.value;
         const V = (c.viewers || []).filter(x => x !== EMAIL), E = (c.editors || []).filter(x => x !== EMAIL);
         try { await setAccess(c, v ? [...V, EMAIL] : V, v === 'edit' ? [...E, EMAIL] : E); toast(v ? (c.name || 'It') + ' is shared with you (' + (v === 'edit' ? 'can edit' : 'view only') + ').' : 'Stopped sharing ' + (c.name || 'it') + ' with you.'); }
         catch (x) { toast('Couldn\'t change it: ' + (x.message || x)); sl.value = myAccess(c) === 'own' ? '' : myAccess(c); } });
-      el.querySelectorAll('[data-ash]').forEach(b => b.onclick = () => { const c = CH[b.dataset.ash]; if (c) shareChar(c, Object.assign(() => {}, { refresh: redo })); });
-      el.querySelectorAll('[data-agive]').forEach(b => b.onclick = () => { const c = CH[b.dataset.agive]; if (c) moveChar(c, redo); });
-      el.querySelectorAll('[data-arm]').forEach(b => b.onclick = () => { const c = CH[b.dataset.arm]; if (c) removeChar(c, redo); });
-      el.querySelectorAll('[data-adel]').forEach(b => b.onclick = () => { const c = CH[b.dataset.adel]; if (c) deleteChar(c, redo); });
+      el.querySelectorAll('[data-mi]').forEach(b => b.onclick = () => { const c = CH[b.dataset.id]; b.closest('.adm-mwrap').classList.remove('on'); if (!c) return;
+        ({ open: () => { location.href = URLS.char(c); }, share: () => shareChar(c, Object.assign(() => {}, { refresh: redo })), give: () => moveChar(c, redo), rm: () => removeChar(c, redo), del: () => deleteChar(c, redo) })[b.dataset.mi](); });
     }
     const docs = r => r.docs.map(d => Object.assign({ id: d.id }, d.data()));
-    const failMsg = x => `<p class="hub-hint">Couldn't load this (${esc((x && (x.code || x.message)) || x)}). If it says permissions, the new database rules haven't been published yet.</p>`;
+    const failMsg = x => `<p class="adm-empty">Couldn't load this (${esc((x && (x.code || x.message)) || x)}).</p>`;
+    const toolbar = (id, ph, val, count) => `<div class="adm-tool"><label class="adm-search">${svg('search', 16)}<input id="${id}" placeholder="${esc(ph)}" value="${esc(val)}" autocomplete="off"></label><span class="adm-count" id="${id}-n">${count || ''}</span></div>`;
 
-    // --- New: accounts and characters since you last checked ---
+    // --- New ---
     async function tabNew() {
       const el = B();
       try {
@@ -538,53 +563,66 @@ function hub(fs, auth, G, ctx) {
         const fresh = new Set(us.map(u => u.id)), byUser = {};
         await Promise.all(us.map(async u => { byUser[u.id] = docs(await charsCol.where('owner', '==', u.id).limit(50).get()); }));
         const others = docs(cr).filter(c => !fresh.has(c.owner)); await needNames(others.map(c => c.owner));
-        const n = us.length + others.length; if (NEWN !== n) { NEWN = n; const t = root.querySelector('[data-tab="new"]'); if (t) t.innerHTML = 'New' + (n ? ` <span>${n}</span>` : ''); }
-        el.innerHTML = `${n ? '<div class="ad-bar ad-bar-r"><button class="btn gold" id="ad-seen">Mark as read</button></div>' : ''}
-          <h3 class="ad-h">New accounts <span>${us.length}${us.length === 50 ? '+' : ''}</span></h3>
-          ${us.length ? us.map(u => `<div class="ad-user"><div class="ad-uhead"><b>${esc(u.name || u.id)}</b><span>${esc(u.id)}</span><small>joined ${esc(ago(u.createdAt))}</small></div>
-            <div class="ad-list">${byUser[u.id].length ? byUser[u.id].map(c => crow(c, false)).join('') : '<p class="hub-hint ad-none">No characters yet.</p>'}</div></div>`).join('') : '<p class="hub-hint">No new accounts.</p>'}
-          <h3 class="ad-h">New characters from existing players <span>${others.length}</span></h3>
-          <div class="ad-list">${others.length ? others.map(c => crow(c)).join('') : '<p class="hub-hint">None.</p>'}</div>`;
+        const n = us.length + others.length; if (NEWN !== n) { NEWN = n; const t = root.querySelector('[data-tab="new"]'); if (t) { const bd = t.querySelector('.adm-badge'); if (n && !bd) t.insertAdjacentHTML('beforeend', `<b class="adm-badge">${n}</b>`); else if (bd) n ? (bd.textContent = n) : bd.remove(); } }
+        HA().innerHTML = n ? '<button class="adm-btn primary" id="ad-seen">Mark as read</button>' : '';
+        const nchars = us.reduce((a, u) => a + byUser[u.id].length, 0) + others.length;
+        el.innerHTML = `<div class="adm-stats"><div class="adm-stat"><small>New accounts</small><b>${us.length}${us.length === 50 ? '+' : ''}</b></div><div class="adm-stat"><small>New characters</small><b>${nchars}</b></div></div>
+          <h2 class="adm-h2">New accounts</h2>
+          ${us.length ? `<div class="adm-tw"><table class="adm-t"><thead><tr><th>Name</th><th>Email</th><th>Joined</th><th>Characters</th></tr></thead><tbody>${us.map(u => `<tr><td><span class="adm-who">${ava(u.name, u.id)}<b>${esc(u.name || u.id)}</b></span></td><td class="adm-mail">${esc(u.id)}</td><td>${esc(ago(u.createdAt))}</td><td>${byUser[u.id].length}</td></tr>
+            ${byUser[u.id].length ? `<tr class="adm-subrow"><td colspan="4">${ctable(byUser[u.id], false)}</td></tr>` : ''}`).join('')}</tbody></table></div>` : '<p class="adm-empty">No new accounts.</p>'}
+          <h2 class="adm-h2">New characters from existing players</h2>${ctable(others, true, 'None.')}`;
         wire(el, tabNew);
-        const sb = el.querySelector('#ad-seen'); if (sb) sb.onclick = async () => { const t = Date.now(); try { await UREF.update({ checkedAt: t }); CHECKED = t; NEWN = 0; toast('Marked as read.'); frame(); } catch (x) { toast('Couldn\'t save that: ' + (x.message || x)); } };
+        const sb = HA().querySelector('#ad-seen'); if (sb) sb.onclick = async () => { const t = Date.now(); try { await UREF.update({ checkedAt: t }); CHECKED = t; NEWN = 0; toast('Marked as read.'); frame(); } catch (x) { toast('Couldn\'t save that: ' + (x.message || x)); } };
       } catch (x) { el.innerHTML = failMsg(x); }
     }
 
-    // --- Users: search by name or email; open someone to see and manage their characters ---
+    // --- Users ---
     let UQ = '', ULAST = null, UROWS = [];
     async function tabUsers(more) {
       const el = B();
-      if (!more) { el.innerHTML = `<input id="ad-uq" class="ad-search" placeholder="Search players by name or email" value="${esc(UQ)}" autocomplete="off"><div id="ad-ul" class="ad-ulist"><p class="hub-hint">Loading…</p></div>`;
+      if (!more) { HA().innerHTML = ''; el.innerHTML = toolbar('ad-uq', 'Search by name or email', UQ) + '<div id="ad-ul"><p class="adm-dim">Loading…</p></div>';
         const q = el.querySelector('#ad-uq'); let t = null; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { UQ = q.value; ULAST = null; UROWS = []; tabUsersList(); }, 250); }; if (!UQ) q.focus(); }
       tabUsersList(more);
     }
     async function tabUsersList(more) {
       const l = B().querySelector('#ad-ul'); if (!l) return;
-      try { const r = await findUsers(UQ, more ? ULAST : null); ULAST = r.docs[r.docs.length - 1] || ULAST; UROWS = (more ? UROWS : []).concat(docs(r));
+      try { const r = await findUsers(UQ, more ? ULAST : null); ULAST = r.docs[r.docs.length - 1] || ULAST; UROWS = (more ? UROWS : []).concat(docs(r)); UROWS.forEach(u => { US[u.id] = u; });
         const rows = UQ ? UROWS.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')) : UROWS;
-        l.innerHTML = (rows.map(u => `<div class="ad-user" data-u="${esc(u.id)}"><div class="ad-uhead"><input class="ad-name" data-uname="${esc(u.id)}" value="${esc(u.name || '')}" maxlength="60" aria-label="Name for ${esc(u.id)}"><span>${esc(u.id)}</span><small>joined ${esc(day(u.createdAt))}${u.seenAt ? ' · seen ' + esc(ago(u.seenAt)) : ''}${ADMINS.includes(u.id) || u.id === ADMIN_EMAIL ? ' · admin' : ''}</small><button class="btn sm" data-uc="${esc(u.id)}">Characters ▸</button></div><div class="ad-list ad-uchars"></div></div>`).join('') || `<p class="hub-hint">${UQ ? 'Nobody matches “' + esc(UQ) + '”.' : 'No accounts yet.'}</p>`)
-          + (r.docs.length === 25 ? '<button class="btn ad-more" id="ad-umore">Load more</button>' : '');
+        const cnt = B().querySelector('#ad-uq-n'); if (cnt) cnt.textContent = rows.length ? rows.length + (r.docs.length === 25 ? '+' : '') + ' user' + (rows.length === 1 ? '' : 's') : '';
+        l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Last active</th><th></th><th></th></tr></thead><tbody>${rows.map(u => { const [rl, rc] = roleOf(u.id);
+          return `<tr data-u="${esc(u.id)}"><td><span class="adm-who">${ava(u.name, u.id)}<b>${esc(u.name || '—')}</b></span></td><td class="adm-mail">${esc(u.id)}</td><td><span class="adm-tag ${rc}">${rl}</span></td><td>${when(u.createdAt)}</td><td>${u.seenAt ? esc(ago(u.seenAt)) : '<span class="adm-dim">—</span>'}</td>
+            <td><button class="adm-btn sm" data-uc="${esc(u.id)}">Characters ▸</button></td><td class="adm-act">${kebab([['rename', 'Rename…', u.id], ['newfor', 'New character for them', u.id], ['chars', 'Show characters', u.id]])}</td></tr>
+            <tr class="adm-subrow" data-sub="${esc(u.id)}" hidden><td colspan="7"></td></tr>`; }).join('')}</tbody></table></div>`
+          + (r.docs.length === 25 ? '<button class="adm-btn adm-more" id="ad-umore">Load more</button>' : '') : `<p class="adm-empty">${UQ ? 'Nobody matches “' + esc(UQ) + '”.' : 'No accounts yet.'}</p>`;
         const mb = l.querySelector('#ad-umore'); if (mb) mb.onclick = () => tabUsers(true);
-        l.querySelectorAll('[data-uname]').forEach(inp => inp.onchange = async () => { const em = inp.dataset.uname, n = inp.value.trim().slice(0, 60); if (!n) return;
-          try { await usersCol.doc(em).update({ name: n, nameLower: n.toLowerCase(), keys: searchKeys(n, em.split('@')[0], em) }); remember(em, Object.assign({}, await UC[em], { name: n }));
-            // their characters' addresses follow the new name (the old addresses keep working)
-            const ps = slugify(n) || 'player'; (await charsCol.where('owner', '==', em).get()).docs.forEach(d => { const c = d.data(), cs = (c.path || '').split('/')[1] || slugify(c.name) || 'character', np = ps + '/' + cs;
-              if (np !== c.path) charsCol.doc(d.id).set({ path: np, paths: FV.arrayUnion(np) }, { merge: true }).catch(() => {}); });
-            toast('Renamed to ' + n + '.'); } catch (x) { toast('Couldn\'t rename: ' + (x.message || x)); } });
-        l.querySelectorAll('[data-uc]').forEach(b => b.onclick = async () => { const box = b.closest('.ad-user').querySelector('.ad-uchars'), em = b.dataset.uc;
-          if (box.dataset.on) { box.innerHTML = ''; delete box.dataset.on; b.textContent = 'Characters ▸'; return; } box.dataset.on = 1; b.textContent = 'Characters ▾';
-          const fill = async () => { box.innerHTML = '<p class="hub-hint">Loading…</p>'; try { const cs = docs(await charsCol.where('owner', '==', em).limit(100).get());
-            box.innerHTML = (cs.length ? cs.sort((x, y) => (y.updatedAt || 0) - (x.updatedAt || 0)).map(c => crow(c, false)).join('') : '<p class="hub-hint ad-none">No characters yet.</p>')
-              + `<a class="btn sm ad-newfor" href="${esc(URLS.newChar(G, em, nameOf(em)))}">＋ New character for ${esc(nameOf(em))}</a>`; wire(box, fill); } catch (x) { box.innerHTML = failMsg(x); } };
-          fill(); });
+        const toggle = async em => { const sub = l.querySelector(`[data-sub="${CSS.escape(em)}"]`), btn = l.querySelector(`[data-uc="${CSS.escape(em)}"]`); if (!sub) return;
+          if (!sub.hidden) { sub.hidden = true; btn.textContent = 'Characters ▸'; return; } sub.hidden = false; btn.textContent = 'Characters ▾'; const cell = sub.firstElementChild;
+          const fill = async () => { cell.innerHTML = '<p class="adm-dim">Loading…</p>'; try { const cs = docs(await charsCol.where('owner', '==', em).limit(100).get()).sort((x, y) => (y.updatedAt || 0) - (x.updatedAt || 0));
+            cell.innerHTML = ctable(cs, false) + `<a class="adm-btn sm" href="${esc(URLS.newChar(G, em, nameOf(em)))}">＋ New character for ${esc(nameOf(em))}</a>`; wire(cell, fill); } catch (x) { cell.innerHTML = failMsg(x); } };
+          fill(); };
+        l.querySelectorAll('[data-uc]').forEach(b => b.onclick = () => toggle(b.dataset.uc));
+        l.querySelectorAll('[data-mi]').forEach(b => b.onclick = () => { const em = b.dataset.id; b.closest('.adm-mwrap').classList.remove('on');
+          if (b.dataset.mi === 'chars') toggle(em); else if (b.dataset.mi === 'newfor') location.href = URLS.newChar(G, em, nameOf(em)); else if (b.dataset.mi === 'rename') renameUser(em); });
       } catch (x) { l.innerHTML = failMsg(x); }
     }
+    function renameUser(em) {
+      const u = US[em] || {}; modal.innerHTML = `<div class="hub-card"><h2>Rename ${esc(u.name || em)}</h2><p class="hub-hint">This is the name shown for them everywhere, and in their characters’ addresses (old addresses keep working).</p>
+        <input id="rn-q" class="ad-search" maxlength="60" value="${esc(u.name || '')}"><div class="row"><button class="btn ghost" id="rn-x">Cancel</button><button class="btn gold" id="rn-ok">Save</button></div></div>`;
+      modal.classList.add('on'); const q = modal.querySelector('#rn-q'); q.focus(); q.select(); modal.querySelector('#rn-x').onclick = close;
+      const go = async () => { const n = q.value.trim().slice(0, 60); if (!n) return; close();
+        try { await usersCol.doc(em).update({ name: n, nameLower: n.toLowerCase(), keys: searchKeys(n, em.split('@')[0], em) }); remember(em, Object.assign({}, u, { name: n })); US[em] = Object.assign({}, u, { name: n });
+          // their characters' addresses follow the new name (the old addresses keep working)
+          const ps = slugify(n) || 'player'; (await charsCol.where('owner', '==', em).get()).docs.forEach(d => { const c = d.data(), cs = (c.path || '').split('/')[1] || slugify(c.name) || 'character', np = ps + '/' + cs;
+            if (np !== c.path) charsCol.doc(d.id).set({ path: np, paths: FV.arrayUnion(np) }, { merge: true }).catch(() => {}); });
+          toast('Renamed to ' + n + '.'); UROWS = UROWS.map(x => x.id === em ? Object.assign({}, x, { name: n }) : x); tabUsersList(); } catch (x) { toast('Couldn\'t rename: ' + (x.message || x)); } };
+      modal.querySelector('#rn-ok').onclick = go; q.onkeydown = e => { if (e.key === 'Enter') go(); };
+    }
 
-    // --- Characters: newest activity first, or search by character name ---
+    // --- Characters ---
     let CQ = '', CLAST = null, CROWS = [];
     async function tabChars(more) {
       const el = B();
-      if (!more) { el.innerHTML = `<input id="ad-cq" class="ad-search" placeholder="Search characters by name" value="${esc(CQ)}" autocomplete="off"><div id="ad-cl" class="ad-list"><p class="hub-hint">Loading…</p></div>`;
+      if (!more) { HA().innerHTML = ''; el.innerHTML = toolbar('ad-cq', 'Search characters by name', CQ) + '<div id="ad-cl"><p class="adm-dim">Loading…</p></div>';
         const q = el.querySelector('#ad-cq'); let t = null; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { CQ = q.value; CLAST = null; CROWS = []; tabCharsList(); }, 250); }; }
       tabCharsList(more);
     }
@@ -592,7 +630,8 @@ function hub(fs, auth, G, ctx) {
       const l = B().querySelector('#ad-cl'); if (!l) return; const q = CQ.trim().toLowerCase().slice(0, 24);
       try { let qq = q ? charsCol.where('keys', 'array-contains', q).limit(25) : charsCol.orderBy('updatedAt', 'desc').limit(25); if (more && CLAST) qq = qq.startAfter(CLAST);
         const r = await qq.get(); CLAST = r.docs[r.docs.length - 1] || CLAST; CROWS = (more ? CROWS : []).concat(docs(r)); await needNames(CROWS.map(c => c.owner));
-        l.innerHTML = (CROWS.map(c => crow(c)).join('') || `<p class="hub-hint">${q ? 'No characters match “' + esc(CQ) + '”.' : 'No characters yet.'}</p>`) + (r.docs.length === 25 ? '<button class="btn ad-more" id="ad-cmore">Load more</button>' : '');
+        const cnt = B().querySelector('#ad-cq-n'); if (cnt) cnt.textContent = CROWS.length ? CROWS.length + (r.docs.length === 25 ? '+' : '') + ' character' + (CROWS.length === 1 ? '' : 's') : '';
+        l.innerHTML = ctable(CROWS, true, q ? 'No characters match “' + esc(CQ) + '”.' : 'No characters yet.') + (r.docs.length === 25 ? '<button class="adm-btn adm-more" id="ad-cmore">Load more</button>' : '');
         wire(l, () => tabChars()); const mb = l.querySelector('#ad-cmore'); if (mb) mb.onclick = () => tabChars(true);
       } catch (x) { l.innerHTML = failMsg(x); }
     }
@@ -600,16 +639,17 @@ function hub(fs, auth, G, ctx) {
     // --- Admins ---
     async function tabAdmins() {
       const el = B(); await needNames([ADMIN_EMAIL, ...ADMINS]); const cfg = fs.collection('config').doc('admins');
-      el.innerHTML = `<p class="hub-hint">Admins can open, edit, share and move every character, and see new accounts here.${IS_OWNER ? '' : ' Only ' + esc(ADMIN_EMAIL) + ' can change who is an admin.'}</p>
-        <div class="pl-list"><div class="pl-row"><b>${esc(nameOf(ADMIN_EMAIL))}</b><span>${esc(ADMIN_EMAIL)}</span><small class="ad-n">always</small></div>
-        ${ADMINS.filter(em => em !== ADMIN_EMAIL).map(em => `<div class="pl-row"><b>${esc(NAMES[em] || '')}</b><span>${esc(em)}</span>${IS_OWNER ? `<button class="linkbtn" data-arm-admin="${esc(em)}">remove</button>` : ''}</div>`).join('')}</div>
-        ${IS_OWNER ? '<button class="btn gold" id="ad-add">＋ Make someone an admin</button>' : ''}`;
-      const ab = el.querySelector('#ad-add'); if (ab) ab.onclick = () => pickUser('Make an admin', 'They’ll be able to open and change every character.', async em => { if (!em || em === ADMIN_EMAIL) return;
+      HA().innerHTML = IS_OWNER ? '<button class="adm-btn primary" id="ad-add">Add admin</button>' : '';
+      const list = [ADMIN_EMAIL, ...ADMINS.filter(em => em !== ADMIN_EMAIL)];
+      el.innerHTML = `${IS_OWNER ? '' : `<p class="adm-note">Only ${esc(ADMIN_EMAIL)} can change who is an admin.</p>`}<div class="adm-tw"><table class="adm-t"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr></thead><tbody>
+        ${list.map(em => { const [rl, rc] = roleOf(em); return `<tr><td><span class="adm-who">${ava(NAMES[em], em)}<b>${esc(NAMES[em] || '—')}</b></span></td><td class="adm-mail">${esc(em)}</td><td><span class="adm-tag ${rc}">${rl}</span></td><td class="adm-act">${IS_OWNER && em !== ADMIN_EMAIL ? kebab([['unadmin', 'Remove admin', em, 'danger']]) : ''}</td></tr>`; }).join('')}</tbody></table></div>`;
+      const ab = HA().querySelector('#ad-add'); if (ab) ab.onclick = () => pickUser('Add an admin', 'They’ll be able to open and change every character.', async em => { if (!em || em === ADMIN_EMAIL) return;
         try { await cfg.set({ emails: FV.arrayUnion(em) }, { merge: true }); ADMINS = [...new Set(ADMINS.concat(em))]; toast(nameOf(em) + ' is now an admin.'); tabAdmins(); } catch (x) { toast('Couldn\'t add the admin: ' + (x.message || x)); } });
-      el.querySelectorAll('[data-arm-admin]').forEach(b => b.onclick = async () => { const em = b.dataset.armAdmin; try { await cfg.set({ emails: FV.arrayRemove(em) }, { merge: true }); ADMINS = ADMINS.filter(x => x !== em); toast(em + ' is no longer an admin.'); tabAdmins(); } catch (x) { toast('Couldn\'t remove the admin: ' + (x.message || x)); } });
+      el.querySelectorAll('[data-mi="unadmin"]').forEach(b => b.onclick = async () => { const em = b.dataset.id; try { await cfg.set({ emails: FV.arrayRemove(em) }, { merge: true }); ADMINS = ADMINS.filter(x => x !== em); toast(em + ' is no longer an admin.'); tabAdmins(); } catch (x) { toast('Couldn\'t remove the admin: ' + (x.message || x)); } });
     }
     frame();
     // the count on "New" shows even while you're on another section
-    if (TAB !== 'new') Promise.all([usersCol.where('createdAt', '>', CHECKED).limit(51).get(), charsCol.where('createdAt', '>', CHECKED).limit(101).get()]).then(([u, c]) => { const fresh = new Set(u.docs.map(d => d.id)); NEWN = u.size + c.docs.filter(d => !fresh.has(d.data().owner)).length; const t = root.querySelector('[data-tab="new"]'); if (t && NEWN) t.innerHTML = `New <span>${NEWN}</span>`; }, () => {});
+    if (TAB !== 'new') Promise.all([usersCol.where('createdAt', '>', CHECKED).limit(51).get(), charsCol.where('createdAt', '>', CHECKED).limit(101).get()]).then(([u, c]) => { const fresh = new Set(u.docs.map(d => d.id)); NEWN = u.size + c.docs.filter(d => !fresh.has(d.data().owner)).length; const t = root.querySelector('[data-tab="new"]'); if (t && NEWN && !t.querySelector('.adm-badge')) t.insertAdjacentHTML('beforeend', `<b class="adm-badge">${NEWN}</b>`); }, () => {});
   }
+
 }
