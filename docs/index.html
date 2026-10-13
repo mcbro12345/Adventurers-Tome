@@ -2,7 +2,7 @@
 <html lang="en">
 <head><script>document.write('<base href="' + (/github\.io$/.test(location.hostname) ? location.pathname.replace(/[^/]*$/, "") : "/") + '">')</script>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Adventurer’s Tome</title>
 <script>
   (function () {
@@ -14,7 +14,7 @@
   })();
 </script>
 <link rel="stylesheet" href="a/sheet.3215cef742c0.css">
-<link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
 #pg-load { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 40%, #1d2638 0%, #0f1420 70%); color: #e9e3d3; font: 600 15px system-ui, sans-serif; z-index: 9999; }
@@ -550,15 +550,14 @@ html.pg-inphone::-webkit-scrollbar { display: none; }
 .pgph-th.drag { cursor: grabbing; }
 
 /* ================= Characters page: fixed top, only the list scrolls ================= */
-html:has(body.hubbody:not(.adminbody)) { background: #1f2a40; }
-@media (prefers-color-scheme: light) { html:has(body.hubbody:not(.adminbody)) { background: #fbf6ea; } }
 body.hubbody:not(.adminbody) { height: 100vh; height: 100dvh; overflow: hidden; }
 body.hubbody:not(.adminbody) #hub { max-width: none; height: 100%; display: flex; flex-direction: column; padding: 0; box-sizing: border-box; }
 body.hubbody:not(.adminbody) #hub > .hub-top, body.hubbody:not(.adminbody) #hub > .hub-views { flex: none; width: 100%; max-width: 888px; margin-left: auto; margin-right: auto; box-sizing: border-box; }
 body.hubbody:not(.adminbody) #hub > .hub-top { margin-top: calc(22px + env(safe-area-inset-top)); }
-body.hubbody:not(.adminbody) #hub > .hub-views { margin-bottom: 0; padding-bottom: 14px; }
+body.hubbody:not(.adminbody) #hub > .hub-views { margin-bottom: 0; padding-bottom: 14px; position: relative; }
+/* a faint line where the list slides under the top */
+body.hubbody:not(.adminbody) #hub > .hub-views::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(201,150,43,.28) 15%, rgba(201,150,43,.28) 85%, transparent); }
 body.hubbody:not(.adminbody) .hub-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 2px 16px calc(120px + env(safe-area-inset-bottom)); scrollbar-width: thin; scrollbar-color: rgba(201,150,43,.45) transparent; }
-html.pg-touch body.hubbody .hub-scroll:has(.hc-menu.on) { position: relative; z-index: 210; }
 body.hubbody:not(.adminbody) .hub-scroll > * { max-width: 888px; margin-left: auto !important; margin-right: auto !important; }
 body.hubbody:not(.adminbody) .hub-scroll > .hub-folder:first-child, body.hubbody:not(.adminbody) .hub-scroll > .hl:first-child { margin-top: 6px; }
 @media (min-width: 921px) { body.hubbody:not(.adminbody) #hub > .hub-top, body.hubbody:not(.adminbody) #hub > .hub-views { padding-left: 0; padding-right: 0; } }
@@ -599,24 +598,16 @@ html.pg-touch :where(body.hubbody) .hc-dots { width: 42px; height: 34px; font-si
 html.pg-touch :where(body.hubbody) .hr-menu .hc-dots { margin-right: 2px; }
 html.pg-touch :where(body.hubbody) .adm-t tbody tr:active td { background: var(--adm-hover); }
 
-/* ⋯ menus open as a sheet from the bottom of a phone screen */
-@media (max-width: 640px) {
-  html.pg-touch :where(body.hubbody) :is(.hc, .hr):has(.hc-menu.on) { z-index: 210; }
-  html.pg-touch body.hubbody:has(.hc-menu.on)::after, html.pg-touch body.hubbody:has(.adm-mwrap.on)::after { content: ''; position: fixed; inset: 0; z-index: 200; background: rgba(5,8,14,.55); animation: pgFade .15s ease-out; }
-  html.pg-touch :where(body.hubbody) .hc-menu.on .hc-list, html.pg-touch .adm-mwrap.on .adm-mlist { position: fixed; left: 10px; right: 10px; top: auto; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 220; min-width: 0; padding: 8px; border-radius: 18px; box-shadow: 0 -10px 40px rgba(0,0,0,.45); animation: pgSheet .2s cubic-bezier(.2,.9,.3,1); }
-  html.pg-touch :where(body.hubbody) .hc-menu.on .hc-list button, html.pg-touch .adm-mwrap.on .adm-mlist button { padding: 15px 14px; font-size: 1rem; border-radius: 12px; gap: 14px; }
-  html.pg-touch :where(body.hubbody) .hc-menu.on .hc-list .mi { width: 20px; height: 20px; }
-  html.pg-touch .adm-mwrap:has(.adm-mlist) { position: static; }
-  html.pg-touch body.adminbody .adm-tw { overflow: visible; }
-}
-@keyframes pgSheet { from { transform: translateY(30px); opacity: 0; } to { transform: none; opacity: 1; } }
-@keyframes pgFade { from { opacity: 0; } to { opacity: 1; } }
+/* ⋯ menus: the same dropdown as on a computer, with roomier items for fingers */
+html.pg-touch :where(body.hubbody) .hc-list button, html.pg-touch .adm-mlist button { padding: 11px 12px; }
+html.pg-touch :where(body.hubbody) .hc-list { right: 0; }
 
 /* ================= Admin on a phone ================= */
 @media (max-width: 640px) {
   body.adminbody .adm-t, body.adminbody .adm-t tbody, body.adminbody .adm-t tr, body.adminbody .adm-t td { display: block; width: auto; }
   body.adminbody .adm-t thead { display: none; }
-  body.adminbody .adm-tw { border: 0; background: none; border-radius: 0; }
+  body.adminbody .adm-tw { border: 0; background: none; border-radius: 0; overflow: visible; }
+  body.adminbody .adm-t tbody > tr:has(.adm-mwrap.on) { z-index: 30; }
   body.adminbody .adm-t tbody > tr:not(.adm-subrow) { position: relative; margin: 0 0 10px; padding: 12px 14px; border: 1px solid var(--adm-line); border-radius: 14px; background: var(--adm-panel); }
   body.adminbody .adm-t td { padding: 3px 0; border: 0 !important; white-space: normal !important; background: none !important; font-size: .86rem; }
   body.adminbody .adm-t td[data-l]:not(:first-child)::before { content: attr(data-l); display: inline-block; min-width: 92px; margin-right: 8px; font: 700 .66rem system-ui, sans-serif; letter-spacing: .07em; text-transform: uppercase; color: var(--adm-dim); }
@@ -631,6 +622,8 @@ html.pg-touch :where(body.hubbody) .adm-t tbody tr:active td { background: var(-
 /* sheets on a computer: the Adventurer's Tome button stays hidden until it has settled above the toolbar */
 html.pg-sheetpage:not(.mobile):not(.pg-al) .pg-hublink, html.pg-sheetpage:not(.mobile):not(.pg-al) .pg-pres { opacity: 0; pointer-events: none; }
 html.pg-sheetpage.pg-al:not(.mobile) .pg-hublink, html.pg-sheetpage.pg-al:not(.mobile) .pg-pres { transition: opacity .2s; }
+/* Create character: no glow around it (keeps its own bevel) */
+body.hubbody .hub-views button.hub-new, body.hubbody .hub-views button.hub-new:hover, body.hubbody .hub-views button.hub-new:active { box-shadow: inset 0 1px 0 rgba(255,255,255,.45), inset 0 -2px 0 rgba(0,0,0,.14) !important; }
 </style>
 </head>
 <body>
@@ -761,7 +754,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013172523', ASSETS = {"data": "a/data.3f7e0dc5a0bb.js", "app": "a/app.2d69dfd91d60.js"};
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013173005', ASSETS = {"data": "a/data.3f7e0dc5a0bb.js", "app": "a/app.2d69dfd91d60.js"};
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -1106,8 +1099,6 @@ function hub(fs, auth, G, ctx) {
   document.body.className = 'hubbody' + (ADMIN ? ' adminbody' : '');
   const root = document.getElementById('hub'), modal = document.getElementById('hub-modal');
   if (TOUCH && !document.documentElement.classList.contains('pg-touch')) { document.documentElement.classList.add('pg-touch'); noHover(); }
-  // the phone's status bar takes the colour of the top of the page
-  [['(prefers-color-scheme: dark)', '#1f2a40'], ['(prefers-color-scheme: light)', '#fbf6ea']].forEach(([m, c]) => { let t = document.querySelector(`meta[name="theme-color"][media="${m}"]`); if (!t) { t = document.createElement('meta'); t.name = 'theme-color'; t.media = m; document.head.appendChild(t); } t.content = c; });
   let chars = [], open = {}, view = ctx.view === 'shared' ? 'shared' : 'mine';
   try { open = JSON.parse(ls.get(OPEN) || '{}'); } catch (e) {}
   const toast = t => { const el = document.getElementById('hub-toast'); el.textContent = t; el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), 2600); };

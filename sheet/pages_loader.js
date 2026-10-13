@@ -439,8 +439,6 @@ function hub(fs, auth, G, ctx) {
   document.body.className = 'hubbody' + (ADMIN ? ' adminbody' : '');
   const root = document.getElementById('hub'), modal = document.getElementById('hub-modal');
   if (TOUCH && !document.documentElement.classList.contains('pg-touch')) { document.documentElement.classList.add('pg-touch'); noHover(); }
-  // the phone's status bar takes the colour of the top of the page
-  [['(prefers-color-scheme: dark)', '#1f2a40'], ['(prefers-color-scheme: light)', '#fbf6ea']].forEach(([m, c]) => { let t = document.querySelector(`meta[name="theme-color"][media="${m}"]`); if (!t) { t = document.createElement('meta'); t.name = 'theme-color'; t.media = m; document.head.appendChild(t); } t.content = c; });
   let chars = [], open = {}, view = ctx.view === 'shared' ? 'shared' : 'mine';
   try { open = JSON.parse(ls.get(OPEN) || '{}'); } catch (e) {}
   const toast = t => { const el = document.getElementById('hub-toast'); el.textContent = t; el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), 2600); };

@@ -533,15 +533,14 @@ html.pg-inphone::-webkit-scrollbar { display: none; }
 .pgph-th.drag { cursor: grabbing; }
 
 /* ================= Characters page: fixed top, only the list scrolls ================= */
-html:has(body.hubbody:not(.adminbody)) { background: #1f2a40; }
-@media (prefers-color-scheme: light) { html:has(body.hubbody:not(.adminbody)) { background: #fbf6ea; } }
 body.hubbody:not(.adminbody) { height: 100vh; height: 100dvh; overflow: hidden; }
 body.hubbody:not(.adminbody) #hub { max-width: none; height: 100%; display: flex; flex-direction: column; padding: 0; box-sizing: border-box; }
 body.hubbody:not(.adminbody) #hub > .hub-top, body.hubbody:not(.adminbody) #hub > .hub-views { flex: none; width: 100%; max-width: 888px; margin-left: auto; margin-right: auto; box-sizing: border-box; }
 body.hubbody:not(.adminbody) #hub > .hub-top { margin-top: calc(22px + env(safe-area-inset-top)); }
-body.hubbody:not(.adminbody) #hub > .hub-views { margin-bottom: 0; padding-bottom: 14px; }
+body.hubbody:not(.adminbody) #hub > .hub-views { margin-bottom: 0; padding-bottom: 14px; position: relative; }
+/* a faint line where the list slides under the top */
+body.hubbody:not(.adminbody) #hub > .hub-views::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(201,150,43,.28) 15%, rgba(201,150,43,.28) 85%, transparent); }
 body.hubbody:not(.adminbody) .hub-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 2px 16px calc(120px + env(safe-area-inset-bottom)); scrollbar-width: thin; scrollbar-color: rgba(201,150,43,.45) transparent; }
-html.pg-touch body.hubbody .hub-scroll:has(.hc-menu.on) { position: relative; z-index: 210; }
 body.hubbody:not(.adminbody) .hub-scroll > * { max-width: 888px; margin-left: auto !important; margin-right: auto !important; }
 body.hubbody:not(.adminbody) .hub-scroll > .hub-folder:first-child, body.hubbody:not(.adminbody) .hub-scroll > .hl:first-child { margin-top: 6px; }
 @media (min-width: 921px) { body.hubbody:not(.adminbody) #hub > .hub-top, body.hubbody:not(.adminbody) #hub > .hub-views { padding-left: 0; padding-right: 0; } }
@@ -582,24 +581,16 @@ html.pg-touch :where(body.hubbody) .hc-dots { width: 42px; height: 34px; font-si
 html.pg-touch :where(body.hubbody) .hr-menu .hc-dots { margin-right: 2px; }
 html.pg-touch :where(body.hubbody) .adm-t tbody tr:active td { background: var(--adm-hover); }
 
-/* ⋯ menus open as a sheet from the bottom of a phone screen */
-@media (max-width: 640px) {
-  html.pg-touch :where(body.hubbody) :is(.hc, .hr):has(.hc-menu.on) { z-index: 210; }
-  html.pg-touch body.hubbody:has(.hc-menu.on)::after, html.pg-touch body.hubbody:has(.adm-mwrap.on)::after { content: ''; position: fixed; inset: 0; z-index: 200; background: rgba(5,8,14,.55); animation: pgFade .15s ease-out; }
-  html.pg-touch :where(body.hubbody) .hc-menu.on .hc-list, html.pg-touch .adm-mwrap.on .adm-mlist { position: fixed; left: 10px; right: 10px; top: auto; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 220; min-width: 0; padding: 8px; border-radius: 18px; box-shadow: 0 -10px 40px rgba(0,0,0,.45); animation: pgSheet .2s cubic-bezier(.2,.9,.3,1); }
-  html.pg-touch :where(body.hubbody) .hc-menu.on .hc-list button, html.pg-touch .adm-mwrap.on .adm-mlist button { padding: 15px 14px; font-size: 1rem; border-radius: 12px; gap: 14px; }
-  html.pg-touch :where(body.hubbody) .hc-menu.on .hc-list .mi { width: 20px; height: 20px; }
-  html.pg-touch .adm-mwrap:has(.adm-mlist) { position: static; }
-  html.pg-touch body.adminbody .adm-tw { overflow: visible; }
-}
-@keyframes pgSheet { from { transform: translateY(30px); opacity: 0; } to { transform: none; opacity: 1; } }
-@keyframes pgFade { from { opacity: 0; } to { opacity: 1; } }
+/* ⋯ menus: the same dropdown as on a computer, with roomier items for fingers */
+html.pg-touch :where(body.hubbody) .hc-list button, html.pg-touch .adm-mlist button { padding: 11px 12px; }
+html.pg-touch :where(body.hubbody) .hc-list { right: 0; }
 
 /* ================= Admin on a phone ================= */
 @media (max-width: 640px) {
   body.adminbody .adm-t, body.adminbody .adm-t tbody, body.adminbody .adm-t tr, body.adminbody .adm-t td { display: block; width: auto; }
   body.adminbody .adm-t thead { display: none; }
-  body.adminbody .adm-tw { border: 0; background: none; border-radius: 0; }
+  body.adminbody .adm-tw { border: 0; background: none; border-radius: 0; overflow: visible; }
+  body.adminbody .adm-t tbody > tr:has(.adm-mwrap.on) { z-index: 30; }
   body.adminbody .adm-t tbody > tr:not(.adm-subrow) { position: relative; margin: 0 0 10px; padding: 12px 14px; border: 1px solid var(--adm-line); border-radius: 14px; background: var(--adm-panel); }
   body.adminbody .adm-t td { padding: 3px 0; border: 0 !important; white-space: normal !important; background: none !important; font-size: .86rem; }
   body.adminbody .adm-t td[data-l]:not(:first-child)::before { content: attr(data-l); display: inline-block; min-width: 92px; margin-right: 8px; font: 700 .66rem system-ui, sans-serif; letter-spacing: .07em; text-transform: uppercase; color: var(--adm-dim); }
@@ -614,3 +605,5 @@ html.pg-touch :where(body.hubbody) .adm-t tbody tr:active td { background: var(-
 /* sheets on a computer: the Adventurer's Tome button stays hidden until it has settled above the toolbar */
 html.pg-sheetpage:not(.mobile):not(.pg-al) .pg-hublink, html.pg-sheetpage:not(.mobile):not(.pg-al) .pg-pres { opacity: 0; pointer-events: none; }
 html.pg-sheetpage.pg-al:not(.mobile) .pg-hublink, html.pg-sheetpage.pg-al:not(.mobile) .pg-pres { transition: opacity .2s; }
+/* Create character: no glow around it (keeps its own bevel) */
+body.hubbody .hub-views button.hub-new, body.hubbody .hub-views button.hub-new:hover, body.hubbody .hub-views button.hub-new:active { box-shadow: inset 0 1px 0 rgba(255,255,255,.45), inset 0 -2px 0 rgba(0,0,0,.14) !important; }
