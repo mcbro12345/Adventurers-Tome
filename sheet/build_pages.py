@@ -1,3 +1,4 @@
+import re
 # Builds the GitHub Pages site from the normal blank sheet (run build.py first).
 # The page holds no character: ?c=<id> loads that character from Firestore and keeps it synced.
 import json, os, time, sys
@@ -15,7 +16,7 @@ html = html[:i] + '<script type="text/plain" id="app-src">\n' + app + '</script>
 
 loader = ('''
 <script>document.documentElement.classList.add('pg-loading')</script>
-<div id="pg-load"><div class="pg-spin" role="status" aria-label="Loading"><svg viewBox="0 0 100 100" width="64" height="64" aria-hidden="true"><g fill="none" stroke="#c9962b" stroke-width="3.2" stroke-linejoin="round"><polygon points="50,6 89,28 89,72 50,94 11,72 11,28" fill="rgba(201,150,43,.10)"/><polygon points="50,24 72,62 28,62"/><path d="M50 6 L50 24 M89 28 L72 62 M89 72 L72 62 M50 94 L72 62 M50 94 L28 62 M11 72 L28 62 M11 28 L28 62 M11 28 L50 24 M89 28 L50 24"/></g><text x="50" y="54" text-anchor="middle" font-family="Georgia,serif" font-weight="800" font-size="15" fill="#f3e7c6">20</text></svg><b>D&amp;D Character Sheets</b><small>Rolling for initiative…</small></div></div>
+<div id="pg-load"><div class="pg-spin" role="status" aria-label="Loading"><svg viewBox="0 0 100 100" width="64" height="64" aria-hidden="true"><g fill="none" stroke="#c9962b" stroke-width="3.2" stroke-linejoin="round"><polygon points="50,6 89,28 89,72 50,94 11,72 11,28" fill="rgba(201,150,43,.10)"/><polygon points="50,24 72,62 28,62"/><path d="M50 6 L50 24 M89 28 L72 62 M89 72 L72 62 M50 94 L72 62 M50 94 L28 62 M11 72 L28 62 M11 28 L28 62 M11 28 L50 24 M89 28 L50 24"/></g><text x="50" y="54" text-anchor="middle" font-family="Georgia,serif" font-weight="800" font-size="15" fill="#f3e7c6">20</text></svg><b>Adventurer’s Tome</b><small>Rolling for initiative…</small></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -23,7 +24,8 @@ loader = ('''
 ''' + open(os.path.join(D, 'pages_loader.js')).read() + '''
 </script>
 ''').replace('__CFG__', json.dumps(cfg)).replace('__VER__', VER)
-h = html.index('</head>'); html = html[:h] + '<link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="D&amp;D Sheets">\n' + html[h:]
+html = re.sub(r'<title>[^<]*</title>', '<title>Adventurer’s Tome</title>', html, count=1)
+h = html.index('</head>'); html = html[:h] + '<link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome">\n' + html[h:]
 h = html.index('</head>'); html = html[:h] + '<style>' + open(os.path.join(D, 'pages.css')).read() + '</style>\n' + html[h:]
 k = html.rindex('</body>')
 html = html[:k] + loader + html[k:]

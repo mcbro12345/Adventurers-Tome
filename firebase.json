@@ -2,10 +2,38 @@
   "hosting": {
     "site": "adventurers-tome",
     "public": "docs",
-    "ignore": ["firebase.json", "**/.*"],
+    "ignore": [
+      "firebase.json",
+      "**/.*"
+    ],
     "headers": [
-      { "source": "**/*.@(html|json)", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
-      { "source": "**/*.png", "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400" }] }
+      {
+        "source": "**/*.@(html|json)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
+        "source": "**/*.png",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=86400"
+          }
+        ]
+      },
+      {
+        "source": "version.json",
+        "headers": [
+          {
+            "key": "Access-Control-Allow-Origin",
+            "value": "*"
+          }
+        ]
+      }
     ]
   }
 }

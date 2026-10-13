@@ -15,6 +15,39 @@ const ADMIN_EMAIL = 'matthewcbro@gmail.com';
   const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
   const load = document.getElementById('pg-load'), data = document.getElementById('sheet-data');
   const say = html => { if (load) load.innerHTML = `<div class="pg-msg">${html}</div>`; };
+  // ---- Moving house: the old GitHub Pages address hands each visitor over to adventurers-tome.web.app ----
+  // The old page packs this browser's sheet settings (layouts, per-sheet settings, theme, tab bar, hub state, roll logs)
+  // and its saved sign-in into the part of the link after "#" (never sent to any server), and the new page unpacks it
+  // and wipes it from the address bar. If the new address can't be reached, the old one keeps working as before.
+  const MOVE = window.PG_MOVE || { from: /(^|\.)github\.io$/, to: 'https://adventurers-tome.web.app' };
+  const AU_KEY = 'firebase:authUser:' + CFG.apiKey + ':[DEFAULT]';
+  const idbAuth = () => new Promise(res => { try { const rq = indexedDB.open('firebaseLocalStorageDb'); let made = false;
+    rq.onupgradeneeded = () => { made = true; }; rq.onerror = () => res(null);
+    rq.onsuccess = () => { const db = rq.result; if (made || !db.objectStoreNames.contains('firebaseLocalStorage')) { db.close(); if (made) indexedDB.deleteDatabase('firebaseLocalStorageDb'); return res(null); }
+      try { const g = db.transaction('firebaseLocalStorage', 'readonly').objectStore('firebaseLocalStorage').get(AU_KEY); g.onsuccess = () => { db.close(); res(g.result ? g.result.value : null); }; g.onerror = () => { db.close(); res(null); }; } catch (e) { db.close(); res(null); } }; } catch (e) { res(null); } });
+  const toB64 = u8 => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+  const fromB64 = t => { const s = atob(t.replace(/-/g, '+').replace(/_/g, '/')); const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; };
+  const pack = async o => { const u = new TextEncoder().encode(JSON.stringify(o)); if (window.CompressionStream) { try { return 'z' + toB64(new Uint8Array(await new Response(new Blob([u]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer())); } catch (e) {} } return 'j' + toB64(u); };
+  const unpack = async t => { const u = fromB64(t.slice(1)); const b = t[0] === 'z' ? new Uint8Array(await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer()) : u; return JSON.parse(new TextDecoder().decode(b)); };
+  if (MOVE.from.test(location.hostname) && !Q.get('handoff') && !Q.get('oobCode') && !Q.get('stay')) {
+    // only once the new address is running this version or newer (it can lag a minute behind after an update)
+    const up = await Promise.race([fetch(MOVE.to + '/version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json()).then(j => String(j.v || '') >= VER, () => false), new Promise(r => setTimeout(() => r(false), 5000))]);
+    if (up) {
+      say('Moving to Adventurer’s Tome…');
+      const ls = {}; let room = 250000; const keys = []; try { for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i)); } catch (e) {}
+      const logs = k => /^dnd-(rolllog|evlog):/.test(k);
+      keys.filter(k => /^dnd-/.test(k) && !/^dnd-(sheet:|sheet-path:|signin-)/.test(k)).sort((a, b) => logs(a) - logs(b)).forEach(k => { const v = lsGet(k); if (v == null || v.length > 60000 || v.length > room) return; ls[k] = v; room -= v.length; });
+      let au = await idbAuth(); if (!au) { try { au = JSON.parse(lsGet(AU_KEY) || 'null'); } catch (e) {} }
+      let pay = ''; try { pay = await pack({ ls, au, at: Date.now() }); } catch (e) {}
+      location.replace(MOVE.to + '/' + location.search + (pay ? '#move=' + pay : '')); return;
+    }
+  }
+  if (location.hash.startsWith('#move=')) {
+    const raw = location.hash.slice(6); history.replaceState(null, '', location.pathname + location.search);
+    try { const d = await unpack(raw); if (d && Date.now() - (d.at || 0) < 15 * 60 * 1000) {
+      Object.entries(d.ls || {}).forEach(([k, v]) => { if (lsGet(k) == null) lsSet(k, v); });
+      if (d.au && d.au.uid && d.au.apiKey === CFG.apiKey && !(await idbAuth()) && lsGet(AU_KEY) == null) lsSet(AU_KEY, JSON.stringify(d.au)); } } catch (e) { console.warn('move', e); }
+  }
   let fs = null, auth = null;
   try { firebase.initializeApp(CFG); fs = firebase.firestore(); auth = firebase.auth(); } catch (e) { console.error(e); }
   if (!fs || !auth) { say('Couldn\'t start the sheet. Check your connection and reload.'); return; }
@@ -133,7 +166,7 @@ const ADMIN_EMAIL = 'matthewcbro@gmail.com';
     const place = () => { const t = document.getElementById('tabs'), r = t && t.getBoundingClientRect(); a.style.bottom = document.documentElement.classList.contains('mobile') && r && r.height && r.top > innerHeight / 2 ? (innerHeight - r.top + 8) + 'px' : ''; };
     addEventListener('resize', place); setInterval(place, 1500); setTimeout(place, 300); }
   // Adding this page to a phone's home screen: the icon is the character's portrait (the party page uses the dice icon).
-  const homeIcon = () => { try { const st = window.sheetState && window.sheetState(); if (!st || !st.created) return; document.title = (st.name || 'Character') + ' — D&D';
+  const homeIcon = () => { try { const st = window.sheetState && window.sheetState(); if (!st || !st.created) return; document.title = (st.name || 'Character') + ' — Adventurer’s Tome';
     const set = (sel, mk) => { let e = document.head.querySelector(sel); if (!e) { e = mk(); document.head.appendChild(e); } return e; };
     set('meta[name="apple-mobile-web-app-title"]', () => Object.assign(document.createElement('meta'), { name: 'apple-mobile-web-app-title' })).content = st.name || 'Character';
     if (!st.portrait || st.portrait === homeIcon.p) return; homeIcon.p = st.portrait; const im = new Image(); im.onload = () => { try { const c = document.createElement('canvas'), n = 180, s = Math.min(im.width, im.height); c.width = c.height = n;
@@ -147,7 +180,7 @@ const ADMIN_EMAIL = 'matthewcbro@gmail.com';
 
 // ================= Sign in (once per device) =================
 function signIn(auth, say) {
-  say(`<div class="pg-signin"><div class="hub-kicker">D&amp;D Character Sheets</div><h2>Sign in</h2>
+  say(`<div class="pg-signin"><div class="hub-kicker">Adventurer’s Tome</div><h2>Sign in</h2>
     <p>Sign in once on this device to open your characters. Only you and the people you share them with can see or change them.</p>
     <button class="btn gold big" id="si-g"><svg viewBox="0 0 48 48" width="18" height="18" style="vertical-align:-3px;margin-right:8px"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>Sign in with Google</button>
     <div class="pg-or">or</div>
@@ -169,7 +202,7 @@ function hub(fs, auth, G, ctx) {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const ago = t => { if (!t) return ''; const s = (Date.now() - t) / 1000; return s < 60 ? 'just now' : s < 3600 ? Math.floor(s / 60) + 'm ago' : s < 86400 ? Math.floor(s / 3600) + 'h ago' : Math.floor(s / 86400) + 'd ago'; };
   const base = location.pathname;
-  document.title = 'Party — D&D Character Sheets';
+  document.title = 'Adventurer’s Tome';
   document.body.innerHTML = '<div id="hub"></div><div id="hub-modal" class="hub-modal"></div><div id="hub-toast" class="hub-toast"></div>';
   document.body.className = 'hubbody';
   const root = document.getElementById('hub'), modal = document.getElementById('hub-modal');
@@ -339,7 +372,7 @@ function hub(fs, auth, G, ctx) {
         <div class="hf-body">${groups[k].sort(byName).map(card).join('')}</div></details>`; }).join('')
         : `<p class="hub-empty">Nothing has been shared with you yet. When another player shares a character with ${esc(EMAIL)}, it shows up here.</p>`)
       : (mine.length ? `<div class="hl">${mine.sort(ord).map(row).join('')}</div>` : `<p class="hub-empty">You don’t have any characters yet — create one${IS_ADMIN ? '' : ', or ask whoever has yours to give it to you'}.</p>`);
-    root.innerHTML = `<header class="hub-top"><h1 class="hub-title">D&amp;D Character Sheets</h1>
+    root.innerHTML = `<header class="hub-top"><h1 class="hub-title">Adventurer’s Tome</h1>
       <div class="hub-me">Signed in as <b>${esc(myName())}</b> <span class="hub-em">${esc(EMAIL)}</span> · <button class="linkbtn" id="me-out">Sign out</button></div></header>
       <div class="hub-views"><button class="${SH ? '' : 'on'}" data-view="mine">My characters <span>${mine.length}</span></button><button class="${SH ? 'on' : ''}" data-view="shared">Shared characters <span>${shared.length}</span></button>${IS_ADMIN ? '<button class="btn hub-admin" id="hub-admin">⚙ Admin</button>' : ''}</div>
       ${SH ? '' : '<div class="hub-bar"><button class="btn gold big" id="hub-new">＋ Create character</button></div>'}
