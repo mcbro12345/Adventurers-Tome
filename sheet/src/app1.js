@@ -187,7 +187,9 @@ const IOS_SAFARI = /iP(hone|od|ad)/.test(navigator.userAgent) && /Version\/[\d.]
 function tabLift() { let v = null; try { v = localStorage.getItem('dnd-tablift'); } catch (e) {} return v != null && v !== '' ? N(v) : 32; }
 function applyTabLift() { document.documentElement.style.setProperty('--tablift', tabLift() + 'px'); }
 function saveUI() { try { localStorage.setItem(UI_KEY, JSON.stringify(UI)); } catch (e) {} }
-function applyLayout() { applyTabLift(); const m = window.PG_FORCE_MOBILE || (UI.layout ? UI.layout === 'mobile' : window.innerWidth < 640); document.documentElement.classList.toggle('mobile', m); }
+// An actual phone always uses the phone layout (the desktop layout can't be switched on there).
+const onPhone = () => { try { return !window.PG_IN_PHONE && matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600; } catch (e) { return false; } };
+function applyLayout() { applyTabLift(); const ph = onPhone(), m = window.PG_FORCE_MOBILE || ph || (UI.layout ? UI.layout === 'mobile' : window.innerWidth < 640); document.documentElement.classList.toggle('mobile', m); document.documentElement.classList.toggle('realphone', ph); }
 
 // ---------- Class / level math ----------
 const clsRows = () => S.classes || [];

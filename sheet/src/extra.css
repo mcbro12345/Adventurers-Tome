@@ -2445,3 +2445,6 @@ html.mobile #tipbox .tipfx { width: 76px; height: 76px; }
 .insp.one .insp-n { font-size: 1.15rem; transition: transform .15s; }
 .insp.one.on .insp-n { transform: scale(1.12); text-shadow: 0 0 8px rgba(201,150,43,.55); }
 .insp.one:active .insp-n { transform: scale(.9); }
+
+/* on an actual phone the layout switch is hidden: it always uses the phone layout */
+html.realphone [data-act="layout"] { display: none !important; }
