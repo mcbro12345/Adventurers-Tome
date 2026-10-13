@@ -879,7 +879,7 @@ function castSpell(i, col, force) {
   if (bad.length && !force) { toast(`You can't cast spells while wearing armor you aren't proficient with (${esc(bad.join(', '))}).`, 'fumble', 9000, { label: 'Cast anyway', fn: () => castSpell(i, col, true) }); return; }
   const base = N(sp.level), a = AUTO(sp.name);
   if (READY_PAID && READY_PAID.i === i) { const L = READY_PAID.L; READY_PAID = null; const ex = castExtrasHTML(sp, L); if (!ex) return executeCast(i, 'none', L, col, {});
-    CASTING = { i, col }; return openModal(`<h3>Release ${esc(sp.name)}</h3><p class="hint" style="margin:0 0 8px">Readied — the slot was already spent.</p>${ex}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="castgo" data-k="none" data-l="${L}">Release</button></div>`); }
+    CASTING = { i, col }; return openModal(`<h3>Release ${esc(spLabel(sp))}</h3><p class="hint" style="margin:0 0 8px">Readied — the slot was already spent.</p>${ex}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="castgo" data-k="none" data-l="${L}">Release</button></div>`); }
   const opts = [];
   if (sp.atWill && base > 0) { const extras0 = castExtrasHTML(sp, base); if (!extras0) return executeCast(i, 'atwill', base, col, {}); opts.push({ k: 'atwill', L: base, label: 'At will', left: 1 }); }
   if (sp.usesOnly) {
@@ -887,7 +887,7 @@ function castSpell(i, col, force) {
     if (!left) { const fi = S.features.findIndex(f => fxOf(f).target === 'spellstore'); toast(`<b>${esc(sp.name)}</b>: no stored uses left. Store a spell again after a long rest.`, 'fumble', 8000, fi >= 0 ? { label: 'Store a spell', fn: () => openSpellStore(fi) } : null); return; }
     const SL = Math.max(base, N(sp.uses && sp.uses.level) || base), ex = castExtrasHTML(sp, SL); if (!ex) return executeCast(i, 'free', SL, col, {});
     CASTING = { i, col };
-    return openModal(`<h3>Cast ${esc(sp.name)}</h3><p class="hint" style="margin:0 0 8px">From your Spell-Storing Item · ${left} of ${mx} uses left</p>${ex}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="castgo" data-k="free" data-l="${SL}">Cast</button></div>`);
+    return openModal(`<h3>Cast ${esc(spLabel(sp))}</h3><p class="hint" style="margin:0 0 8px">From your Spell-Storing Item · ${left} of ${mx} uses left</p>${ex}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="castgo" data-k="free" data-l="${SL}">Cast</button></div>`);
   }
   if (sp.uses) { const mx = evalMax(sp.uses.max) || 0, left = Math.max(0, mx - N(sp.uses.used)); if (mx) opts.push({ k: 'free', L: Math.max(base, N(sp.uses.level) || base), label: `Free use (${left}/${mx})`, left }); }
   if (base > 0) {
@@ -900,7 +900,7 @@ function castSpell(i, col, force) {
   if (base === 0 && !extras) return executeCast(i, 'cantrip', 0, col, {});
   if (base > 0 && usable.length === 1 && !extras && !opts.some(o => o.k === 'slot' && o.L > usable[0].L && o.left)) { const o = usable[0]; return executeCast(i, o.k, o.L, col, {}); }
   CASTING = { i, col };
-  openModal(`<h3>Cast ${esc(sp.name)}</h3>
+  openModal(`<h3>Cast ${esc(spLabel(sp))}</h3>
     <p class="hint" style="margin:0 0 8px">${esc(sp.summary || '')}${sp.duration ? ' · ' + esc(sp.duration) : ''}</p>
     ${extras}
     ${base > 0 ? `<div class="lbl" style="margin-top:8px">Cast using</div><div class="castopts">${opts.map(o => `<button class="castopt" data-act="castgo" data-k="${o.k}" data-l="${o.L}" ${o.left > 0 ? '' : 'disabled'}><b>${esc(o.label)}</b><span>${o.k === 'slot' ? o.left + ' left' : o.k === 'pact' ? o.left + ' left' : ''}${o.L > base && o.k !== 'free' ? ' · upcast' : ''}</span></button>`).join('')}
@@ -1084,18 +1084,18 @@ function executeCast(i, how, L, col, x) {
   const dets = out.map(o => `<div class="det">${o}</div>`).join('') + lines.map(l => `<div class="det">${l}</div>`).join('');
   const typ = esc(String((sm && sm.type) || (a.beams ? 'force' : 'damage')).toLowerCase());
   if (beamRows.length) {
-    toast(`<div class="rc-multi"><div class="rc-name">${esc(sp.name)}${how2 ? ` <span class="rc-lbl">${how2}</span>` : ''}</div>${beamRows.map((r, k) => `<div class="rc-row${r.crit ? ' crit' : r.nat1 ? ' fumble' : ''}"><span class="rc-lbl">${a.beams ? 'Beam' : 'Ray'} ${k + 1}</span><b class="rc-hit">${r.hit}</b><span class="rc-lbl">${r.crit ? 'CRIT' : r.nat1 ? 'miss' : 'to hit'}</span><b class="rc-d${r.nat1 ? ' void' : ''}">${r.dmg}</b><span class="rc-lbl">${typ}</span></div>`).join('')}${dets}</div>`, beamRows.some(r => r.crit) ? 'crit' : '', 12000, acts);
+    toast(`<div class="rc-multi"><div class="rc-name">${esc(spLabel(sp))}${how2 ? ` <span class="rc-lbl">${how2}</span>` : ''}</div>${beamRows.map((r, k) => `<div class="rc-row${r.crit ? ' crit' : r.nat1 ? ' fumble' : ''}"><span class="rc-lbl">${a.beams ? 'Beam' : 'Ray'} ${k + 1}</span><b class="rc-hit">${r.hit}</b><span class="rc-lbl">${r.crit ? 'CRIT' : r.nat1 ? 'miss' : 'to hit'}</span><b class="rc-d${r.nat1 ? ' void' : ''}">${r.dmg}</b><span class="rc-lbl">${typ}</span></div>`).join('')}${dets}</div>`, beamRows.some(r => r.crit) ? 'crit' : '', 12000, acts);
     return;
   }
   if (card) {
     toast(card.hit != null
-      ? `<b class="total">${card.hit}</b><div class="rc-body"><div class="rc-name">${esc(sp.name)}</div><div class="rc-lbl">${card.crit ? 'CRITICAL HIT' : card.nat1 ? 'Natural 1 — miss' : 'spell attack'}${how2 ? ' · ' + how2 : ''}</div>${dets}</div><div class="rc-dmg${card.nat1 ? ' void' : ''}"><b>${card.dmg}</b><span>${esc(String(card.type || 'damage').toLowerCase())}</span></div>`
-      : `<b class="total">${card.dmg}</b><div class="rc-body"><div class="rc-name">${esc(sp.name)}</div><div class="rc-lbl">${esc(String(card.type || 'damage').toLowerCase())}${card.save ? ` · DC ${ci.dc} ${esc(card.save)} save${card.half ? ', half on success' : ''}` : ''}${how2 ? ' · ' + how2 : ''}</div>${dets}</div>`, cls, 12000, acts);
+      ? `<b class="total">${card.hit}</b><div class="rc-body"><div class="rc-name">${esc(spLabel(sp))}</div><div class="rc-lbl">${card.crit ? 'CRITICAL HIT' : card.nat1 ? 'Natural 1 — miss' : 'spell attack'}${how2 ? ' · ' + how2 : ''}</div>${dets}</div><div class="rc-dmg${card.nat1 ? ' void' : ''}"><b>${card.dmg}</b><span>${esc(String(card.type || 'damage').toLowerCase())}</span></div>`
+      : `<b class="total">${card.dmg}</b><div class="rc-body"><div class="rc-name">${esc(spLabel(sp))}</div><div class="rc-lbl">${esc(String(card.type || 'damage').toLowerCase())}${card.save ? ` · DC ${ci.dc} ${esc(card.save)} save${card.half ? ', half on success' : ''}` : ''}${how2 ? ' · ' + how2 : ''}</div>${dets}</div>`, cls, 12000, acts);
     return;
   }
   if (doAtk != null) { attackRoll(doAtk, true, { label: sp.name + ' · ' + S.attacks[doAtk].name, notes: lines }); return; }
-  if (mainTotal != null) { toast(`<b class="total">${mainTotal}</b><div class="rc-body"><div class="rc-name">${esc(sp.name)}</div><div class="rc-lbl">${sm.heal ? 'healing' : 'total'}${how2 ? ' · ' + how2 : ''}</div>${dets}</div>`, cls, 12000, acts); return; }
-  toast(`${mainTotal != null ? `<b class="total">${mainTotal}</b>` : ''}<div><div>Cast <b>${esc(sp.name)}</b>${how === 'slot' ? ` · ${ORD[L - 1]}-level slot` : how === 'pact' ? ' · pact slot' : how === 'free' ? ' · free use' : how === 'ritual' ? ' · ritual' : ''}${sp.conc ? ' · concentrating' : ''}</div>${out.map(o => `<div class="det">${o}</div>`).join('')}${lines.map(l => `<div class="det">${l}</div>`).join('')}</div>`, cls, 12000, acts);
+  if (mainTotal != null) { toast(`<b class="total">${mainTotal}</b><div class="rc-body"><div class="rc-name">${esc(spLabel(sp))}</div><div class="rc-lbl">${sm.heal ? 'healing' : 'total'}${how2 ? ' · ' + how2 : ''}</div>${dets}</div>`, cls, 12000, acts); return; }
+  toast(`${mainTotal != null ? `<b class="total">${mainTotal}</b>` : ''}<div><div>Cast <b>${esc(spLabel(sp))}</b>${how === 'slot' ? ` · ${ORD[L - 1]}-level slot` : how === 'pact' ? ' · pact slot' : how === 'free' ? ' · free use' : how === 'ritual' ? ' · ritual' : ''}${sp.conc ? ' · concentrating' : ''}</div>${out.map(o => `<div class="det">${o}</div>`).join('')}${lines.map(l => `<div class="det">${l}</div>`).join('')}</div>`, cls, 12000, acts);
 }
 
 // ---------- Forms ----------

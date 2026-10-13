@@ -3087,6 +3087,8 @@ html.mobile .sp-top .sp-name { min-width: 0; }
 
 .cstrip.one { grid-template-columns: 1fr !important; }
 
+.sp-real { font-size: .72em; font-weight: 500; opacity: .6; margin-left: 4px; font-style: italic; white-space: nowrap; }
+
 </style>
 <style>.pg-hublink { position: fixed; left: 10px; top: 10px; z-index: 60; background: rgba(15,22,38,.82); color: #f3e7c6; border: 1px solid rgba(201,150,43,.6); border-radius: 999px; padding: 4px 11px; font: 700 12px system-ui, sans-serif; text-decoration: none; backdrop-filter: blur(4px); }
 .pg-hublink:hover { background: #c9962b; color: #1b1406; }
@@ -9409,6 +9411,9 @@ const PRISTINE = '<!doctype html>\n' + document.documentElement.outerHTML;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// A spell can carry the player's own name for it ("Smog Beam" for Fire Bolt): shown first, with the real spell name beside it.
+const spLabel = sp => String((sp && (sp.flavor || '').trim()) || (sp && sp.name) || '');
+const spDisp = sp => sp && (sp.flavor || '').trim() ? `${esc(sp.flavor.trim())} <span class="sp-real">${esc(sp.name)}</span>` : esc(sp && sp.name);
 const N = x => Number(x) || 0;
 const fmt = n => (n >= 0 ? '+' : '−') + Math.abs(n);
 const sgn = n => (n >= 0 ? '+' : '') + n;
@@ -11107,7 +11112,7 @@ function renderSpells() {
   const shown = order.filter(i => { const s = S.spells[i]; if (f === 'ready' && !spReady(s)) return false; if (/^\d$/.test(f) && String(N(s.level)) !== f) return false; if (f.startsWith('c:') && s.cls !== f.slice(2)) return false; return true; });
   const meta = s => [s.time, s.range, s.duration].filter(Boolean).map(esc).join(' · ');
   const detail = (s, i) => `<div class="detail-grid">
-      ${fld('Name', inp(`spells.${i}.name`))}${fld('Level', inp(`spells.${i}.level`, { num: 1 }))}${fld('Casting time', inp(`spells.${i}.time`))}${fld('Range', inp(`spells.${i}.range`))}
+      ${fld('Name', inp(`spells.${i}.name`))}${fld('Your name for it', inp(`spells.${i}.flavor`, { ph: 'e.g. Smog Beam' }))}${fld('Level', inp(`spells.${i}.level`, { num: 1 }))}${fld('Casting time', inp(`spells.${i}.time`))}${fld('Range', inp(`spells.${i}.range`))}
       ${fld('Duration', inp(`spells.${i}.duration`))}${fld('Components', inp(`spells.${i}.comps`))}${fld('School', inp(`spells.${i}.school`))}
       ${fld('Class', sel(`spells.${i}.cls`, clsRows().map(r => [r.key, clsName(r.key)]).concat([['race', 'Racial'], ['feat', 'Feat'], ['item', 'Item'], ['other', 'Other']])))}
       <label class="checkline">${chk(`spells.${i}.conc`)} Concentration</label><label class="checkline">${chk(`spells.${i}.ritual`)} Ritual</label><label class="checkline">${chk(`spells.${i}.always`)} Always prepared</label>
@@ -11124,12 +11129,12 @@ function renderSpells() {
   const castBtn = i => `<button class="btn gold${m ? '' : ' sm'}" data-act="cast" data-i="${i}" title="Cast and apply its effects">Cast</button>`;
   const rowM = i => { const s = S.spells[i], open = UI.open['spell:' + i];
     return `<div class="sp-card${spReady(s) ? '' : ' unprep'}" data-si="${i}"><div class="sp-top">${cust ? spOrdCtl(i) : ''}${prepCell(s, i)}
-        <button class="sp-name" data-act="toggle" data-key="spell:${i}" aria-expanded="${!!open}">${esc(s.name)} <span class="caret">${open ? '▴' : '▾'}</span></button><button class="notetip" data-tip="${i}" data-tipkind="sp" aria-label="What ${esc(s.name)} does">ⓘ</button><span class="grow"></span>${castBtn(i)}</div>
+        <button class="sp-name" data-act="toggle" data-key="spell:${i}" aria-expanded="${!!open}">${spDisp(s)} <span class="caret">${open ? '▴' : '▾'}</span></button><button class="notetip" data-tip="${i}" data-tipkind="sp" aria-label="What ${esc(s.name)} does">ⓘ</button><span class="grow"></span>${castBtn(i)}</div>
         <div class="sp-meta">${spellTags(s, true)} <span class="tag cls">${esc(spItem(s) ? '◆ ' + spItem(s).name : clsName(s.cls))}</span> ${meta(s)}</div><div class="sp-sum">${esc(s.summary || '')}</div>
         ${open ? `<div class="sp-detail">${detail(s, i)}</div>` : ''}</div>`; };
   const rowT = i => { const s = S.spells[i], open = UI.open['spell:' + i];
     return `<tr class="${spReady(s) ? '' : 'unprep'}" data-si="${i}"><td class="spc-p" style="text-align:center">${prepCell(s, i)}</td>
-        <td class="spname">${cust ? spOrdCtl(i) : ''}<b class="spn">${esc(s.name)}</b><button class="notetip" data-tip="${i}" data-tipkind="sp" aria-label="What ${esc(s.name)} does">ⓘ</button> ${spellTags(s, true)}${spItem(s) ? ` <span class="tag cls" title="From an item">◆ ${esc(spItem(s).name)}</span>` : cs.length > 1 || !CL[s.cls] ? ` <span class="tag cls">${esc(clsName(s.cls))}</span>` : ''}<small class="spmeta">${esc([s.time, s.range, s.duration].filter(Boolean).join(' · '))}</small></td>
+        <td class="spname">${cust ? spOrdCtl(i) : ''}<b class="spn">${spDisp(s)}</b><button class="notetip" data-tip="${i}" data-tipkind="sp" aria-label="What ${esc(s.name)} does">ⓘ</button> ${spellTags(s, true)}${spItem(s) ? ` <span class="tag cls" title="From an item">◆ ${esc(spItem(s).name)}</span>` : cs.length > 1 || !CL[s.cls] ? ` <span class="tag cls">${esc(clsName(s.cls))}</span>` : ''}<small class="spmeta">${esc([s.time, s.range, s.duration].filter(Boolean).join(' · '))}</small></td>
         <td class="nowrap spc-t">${esc(s.time || '')}</td><td class="nowrap spc-r">${esc(s.range || '')}</td><td class="nowrap spc-d">${esc(s.duration || '')}</td>
         <td class="sumcell">${esc(s.summary || '')}</td>
         <td class="nowrap spc-c">${castBtn(i)}</td><td class="spc-o"><button class="btn ghost sm" data-act="toggle" data-key="spell:${i}" aria-expanded="${!!open}" title="Details / edit">${open ? '▴' : '▾'}</button></td><td class="spc-x">${del('spells', i)}</td></tr>${open ? `<tr class="detail"><td></td><td colspan="8">${detail(s, i)}</td></tr>` : ''}`; };
@@ -11633,7 +11638,7 @@ function combatSpellsHTML(col, spells) {
     const ag = sp.name === 'Eldritch Blast' && hasFeature('Agonizing Blast') ? mod('cha') : 0, tier = cantripTier();
     const eff = a.darts ? `<span class="csp-k dmg">${mult}1d4+1 force</span>` : a.beams ? `<span class="csp-k dmg">${mult}1d10${ag ? sgn(ag) : ''} force</span>` : a.weapon ? `<span class="csp-k dmg">weapon${tier > 1 ? ' +' + (tier - 1) + 'd8 ' + (a.boom ? 'thunder' : 'fire') : ''}</span>` : a.rider && !sm.dice ? `<span class="csp-k dmg">on hit +${esc(String(a.rider).replace(/\s*\(.*$/, ''))}</span>` : sm.dice ? `<span class="csp-k dmg">${mult}${esc(sm.dice)} ${esc(String(sm.type || '').toLowerCase())}</span>` : sm.heal ? `<span class="csp-k heal">heal ${esc(sm.heal)}</span>` : sm.temp ? `<span class="csp-k heal">${esc(sm.temp)} temp HP</span>` : '';
     return `<div class="csp${ok ? '' : ' nocast'}"><span class="csp-lv${L ? '' : ' c0'}" title="${lvTag(L)}">${L || '∞'}</span>
-      <div class="csp-main"><div class="csp-name"><span class="csp-nm">${(() => { const w = String(sp.name).trim().split(/\s+/), l = w.pop(); return (w.length ? esc(w.join(' ')) + ' ' : '') + `<span class="nowrap">${esc(l)}<button class="notetip" data-tip="${i}" data-tipkind="sp" aria-label="What ${esc(sp.name)} does">ⓘ</button></span>`; })()}</span>${sp.conc ? '<span class="csp-tag">conc</span>' : ''}${sp.uses && N(sp.uses.max) ? `<span class="csp-tag free">${Math.max(0, (evalMax(sp.uses.max) || 0) - N(sp.uses.used))}${sp.usesOnly ? '/' + (evalMax(sp.uses.max) || 0) + ' stored' + (N(sp.uses.level) > N(sp.level) ? ' · ' + ORD[N(sp.uses.level) - 1] + ' lvl' : '') : ' free'}</span>` : ''}</div>
+      <div class="csp-main"><div class="csp-name"><span class="csp-nm">${sp.flavor && sp.flavor.trim() ? `${esc(sp.flavor.trim())}<button class="notetip" data-tip="${i}" data-tipkind="sp" aria-label="What ${esc(sp.name)} does">ⓘ</button> <span class="sp-real">${esc(sp.name)}</span>` : (() => { const w = String(sp.name).trim().split(/\s+/), l = w.pop(); return (w.length ? esc(w.join(' ')) + ' ' : '') + `<span class="nowrap">${esc(l)}<button class="notetip" data-tip="${i}" data-tipkind="sp" aria-label="What ${esc(sp.name)} does">ⓘ</button></span>`; })()}</span>${sp.conc ? '<span class="csp-tag">conc</span>' : ''}${sp.uses && N(sp.uses.max) ? `<span class="csp-tag free">${Math.max(0, (evalMax(sp.uses.max) || 0) - N(sp.uses.used))}${sp.usesOnly ? '/' + (evalMax(sp.uses.max) || 0) + ' stored' + (N(sp.uses.level) > N(sp.level) ? ' · ' + ORD[N(sp.uses.level) - 1] + ' lvl' : '') : ' free'}</span>` : ''}</div>
         <div class="csp-sub">${hit}${eff}${sp.range ? `<span class="csp-r">${esc(sp.range)}</span>` : ''}</div></div>
       <button class="btn gold sm" data-act="cast" data-i="${i}" data-col="${col}" ${ok ? '' : 'title="No spell slots left for this level"'}>Cast</button></div>`;
   };
@@ -11712,7 +11717,7 @@ function renderCombat() {
   };
   const optEdit = (col, o, j) => `<div class="opt edit"><div class="opt-head">${inp(`combat.${col}.${j}.name`, { cls: 'title', label: 'Name' })}${j ? mv('combat.' + col, j) : ''}${del('combat.' + col, j)}</div>
       ${ta(`combat.${col}.${j}.text`, { rows: 2, label: 'Description' })}</div>`;
-  const spellView = (col, [sp, i]) => { const sm = spellMath(sp); return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(sp.name)}</span><button class="notetip" data-tip="${i}" data-tipkind="sp" aria-label="What ${esc(sp.name)} does">ⓘ</button>
+  const spellView = (col, [sp, i]) => { const sm = spellMath(sp); return `<div class="opt"><div class="opt-head"><span class="opt-name">${spDisp(sp)}</span><button class="notetip" data-tip="${i}" data-tipkind="sp" aria-label="What ${esc(sp.name)} does">ⓘ</button>
       <span class="tag${sp.always ? ' oath' : ''}">${N(sp.level) ? ORD[N(sp.level) - 1] : 'Cantrip'}</span>${sp.conc ? '<span class="tag">Conc</span>' : ''}
       <button class="btn gold sm" data-act="cast" data-i="${i}" data-col="${col}">Cast</button></div>
       <div class="opt-text">${[sp.range, sm.attack ? 'spell attack' : '', sm.save ? sm.save + ' save' : '', sm.dice ? sm.dice + ' ' + sm.type : sm.heal ? 'heal ' + sm.heal : ''].filter(Boolean).map(esc).join(' · ')}</div></div>`; };
@@ -12982,7 +12987,7 @@ function castSpell(i, col, force) {
   if (bad.length && !force) { toast(`You can't cast spells while wearing armor you aren't proficient with (${esc(bad.join(', '))}).`, 'fumble', 9000, { label: 'Cast anyway', fn: () => castSpell(i, col, true) }); return; }
   const base = N(sp.level), a = AUTO(sp.name);
   if (READY_PAID && READY_PAID.i === i) { const L = READY_PAID.L; READY_PAID = null; const ex = castExtrasHTML(sp, L); if (!ex) return executeCast(i, 'none', L, col, {});
-    CASTING = { i, col }; return openModal(`<h3>Release ${esc(sp.name)}</h3><p class="hint" style="margin:0 0 8px">Readied — the slot was already spent.</p>${ex}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="castgo" data-k="none" data-l="${L}">Release</button></div>`); }
+    CASTING = { i, col }; return openModal(`<h3>Release ${esc(spLabel(sp))}</h3><p class="hint" style="margin:0 0 8px">Readied — the slot was already spent.</p>${ex}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="castgo" data-k="none" data-l="${L}">Release</button></div>`); }
   const opts = [];
   if (sp.atWill && base > 0) { const extras0 = castExtrasHTML(sp, base); if (!extras0) return executeCast(i, 'atwill', base, col, {}); opts.push({ k: 'atwill', L: base, label: 'At will', left: 1 }); }
   if (sp.usesOnly) {
@@ -12990,7 +12995,7 @@ function castSpell(i, col, force) {
     if (!left) { const fi = S.features.findIndex(f => fxOf(f).target === 'spellstore'); toast(`<b>${esc(sp.name)}</b>: no stored uses left. Store a spell again after a long rest.`, 'fumble', 8000, fi >= 0 ? { label: 'Store a spell', fn: () => openSpellStore(fi) } : null); return; }
     const SL = Math.max(base, N(sp.uses && sp.uses.level) || base), ex = castExtrasHTML(sp, SL); if (!ex) return executeCast(i, 'free', SL, col, {});
     CASTING = { i, col };
-    return openModal(`<h3>Cast ${esc(sp.name)}</h3><p class="hint" style="margin:0 0 8px">From your Spell-Storing Item · ${left} of ${mx} uses left</p>${ex}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="castgo" data-k="free" data-l="${SL}">Cast</button></div>`);
+    return openModal(`<h3>Cast ${esc(spLabel(sp))}</h3><p class="hint" style="margin:0 0 8px">From your Spell-Storing Item · ${left} of ${mx} uses left</p>${ex}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="castgo" data-k="free" data-l="${SL}">Cast</button></div>`);
   }
   if (sp.uses) { const mx = evalMax(sp.uses.max) || 0, left = Math.max(0, mx - N(sp.uses.used)); if (mx) opts.push({ k: 'free', L: Math.max(base, N(sp.uses.level) || base), label: `Free use (${left}/${mx})`, left }); }
   if (base > 0) {
@@ -13003,7 +13008,7 @@ function castSpell(i, col, force) {
   if (base === 0 && !extras) return executeCast(i, 'cantrip', 0, col, {});
   if (base > 0 && usable.length === 1 && !extras && !opts.some(o => o.k === 'slot' && o.L > usable[0].L && o.left)) { const o = usable[0]; return executeCast(i, o.k, o.L, col, {}); }
   CASTING = { i, col };
-  openModal(`<h3>Cast ${esc(sp.name)}</h3>
+  openModal(`<h3>Cast ${esc(spLabel(sp))}</h3>
     <p class="hint" style="margin:0 0 8px">${esc(sp.summary || '')}${sp.duration ? ' · ' + esc(sp.duration) : ''}</p>
     ${extras}
     ${base > 0 ? `<div class="lbl" style="margin-top:8px">Cast using</div><div class="castopts">${opts.map(o => `<button class="castopt" data-act="castgo" data-k="${o.k}" data-l="${o.L}" ${o.left > 0 ? '' : 'disabled'}><b>${esc(o.label)}</b><span>${o.k === 'slot' ? o.left + ' left' : o.k === 'pact' ? o.left + ' left' : ''}${o.L > base && o.k !== 'free' ? ' · upcast' : ''}</span></button>`).join('')}
@@ -13187,18 +13192,18 @@ function executeCast(i, how, L, col, x) {
   const dets = out.map(o => `<div class="det">${o}</div>`).join('') + lines.map(l => `<div class="det">${l}</div>`).join('');
   const typ = esc(String((sm && sm.type) || (a.beams ? 'force' : 'damage')).toLowerCase());
   if (beamRows.length) {
-    toast(`<div class="rc-multi"><div class="rc-name">${esc(sp.name)}${how2 ? ` <span class="rc-lbl">${how2}</span>` : ''}</div>${beamRows.map((r, k) => `<div class="rc-row${r.crit ? ' crit' : r.nat1 ? ' fumble' : ''}"><span class="rc-lbl">${a.beams ? 'Beam' : 'Ray'} ${k + 1}</span><b class="rc-hit">${r.hit}</b><span class="rc-lbl">${r.crit ? 'CRIT' : r.nat1 ? 'miss' : 'to hit'}</span><b class="rc-d${r.nat1 ? ' void' : ''}">${r.dmg}</b><span class="rc-lbl">${typ}</span></div>`).join('')}${dets}</div>`, beamRows.some(r => r.crit) ? 'crit' : '', 12000, acts);
+    toast(`<div class="rc-multi"><div class="rc-name">${esc(spLabel(sp))}${how2 ? ` <span class="rc-lbl">${how2}</span>` : ''}</div>${beamRows.map((r, k) => `<div class="rc-row${r.crit ? ' crit' : r.nat1 ? ' fumble' : ''}"><span class="rc-lbl">${a.beams ? 'Beam' : 'Ray'} ${k + 1}</span><b class="rc-hit">${r.hit}</b><span class="rc-lbl">${r.crit ? 'CRIT' : r.nat1 ? 'miss' : 'to hit'}</span><b class="rc-d${r.nat1 ? ' void' : ''}">${r.dmg}</b><span class="rc-lbl">${typ}</span></div>`).join('')}${dets}</div>`, beamRows.some(r => r.crit) ? 'crit' : '', 12000, acts);
     return;
   }
   if (card) {
     toast(card.hit != null
-      ? `<b class="total">${card.hit}</b><div class="rc-body"><div class="rc-name">${esc(sp.name)}</div><div class="rc-lbl">${card.crit ? 'CRITICAL HIT' : card.nat1 ? 'Natural 1 — miss' : 'spell attack'}${how2 ? ' · ' + how2 : ''}</div>${dets}</div><div class="rc-dmg${card.nat1 ? ' void' : ''}"><b>${card.dmg}</b><span>${esc(String(card.type || 'damage').toLowerCase())}</span></div>`
-      : `<b class="total">${card.dmg}</b><div class="rc-body"><div class="rc-name">${esc(sp.name)}</div><div class="rc-lbl">${esc(String(card.type || 'damage').toLowerCase())}${card.save ? ` · DC ${ci.dc} ${esc(card.save)} save${card.half ? ', half on success' : ''}` : ''}${how2 ? ' · ' + how2 : ''}</div>${dets}</div>`, cls, 12000, acts);
+      ? `<b class="total">${card.hit}</b><div class="rc-body"><div class="rc-name">${esc(spLabel(sp))}</div><div class="rc-lbl">${card.crit ? 'CRITICAL HIT' : card.nat1 ? 'Natural 1 — miss' : 'spell attack'}${how2 ? ' · ' + how2 : ''}</div>${dets}</div><div class="rc-dmg${card.nat1 ? ' void' : ''}"><b>${card.dmg}</b><span>${esc(String(card.type || 'damage').toLowerCase())}</span></div>`
+      : `<b class="total">${card.dmg}</b><div class="rc-body"><div class="rc-name">${esc(spLabel(sp))}</div><div class="rc-lbl">${esc(String(card.type || 'damage').toLowerCase())}${card.save ? ` · DC ${ci.dc} ${esc(card.save)} save${card.half ? ', half on success' : ''}` : ''}${how2 ? ' · ' + how2 : ''}</div>${dets}</div>`, cls, 12000, acts);
     return;
   }
   if (doAtk != null) { attackRoll(doAtk, true, { label: sp.name + ' · ' + S.attacks[doAtk].name, notes: lines }); return; }
-  if (mainTotal != null) { toast(`<b class="total">${mainTotal}</b><div class="rc-body"><div class="rc-name">${esc(sp.name)}</div><div class="rc-lbl">${sm.heal ? 'healing' : 'total'}${how2 ? ' · ' + how2 : ''}</div>${dets}</div>`, cls, 12000, acts); return; }
-  toast(`${mainTotal != null ? `<b class="total">${mainTotal}</b>` : ''}<div><div>Cast <b>${esc(sp.name)}</b>${how === 'slot' ? ` · ${ORD[L - 1]}-level slot` : how === 'pact' ? ' · pact slot' : how === 'free' ? ' · free use' : how === 'ritual' ? ' · ritual' : ''}${sp.conc ? ' · concentrating' : ''}</div>${out.map(o => `<div class="det">${o}</div>`).join('')}${lines.map(l => `<div class="det">${l}</div>`).join('')}</div>`, cls, 12000, acts);
+  if (mainTotal != null) { toast(`<b class="total">${mainTotal}</b><div class="rc-body"><div class="rc-name">${esc(spLabel(sp))}</div><div class="rc-lbl">${sm.heal ? 'healing' : 'total'}${how2 ? ' · ' + how2 : ''}</div>${dets}</div>`, cls, 12000, acts); return; }
+  toast(`${mainTotal != null ? `<b class="total">${mainTotal}</b>` : ''}<div><div>Cast <b>${esc(spLabel(sp))}</b>${how === 'slot' ? ` · ${ORD[L - 1]}-level slot` : how === 'pact' ? ' · pact slot' : how === 'free' ? ' · free use' : how === 'ritual' ? ' · ritual' : ''}${sp.conc ? ' · concentrating' : ''}</div>${out.map(o => `<div class="det">${o}</div>`).join('')}${lines.map(l => `<div class="det">${l}</div>`).join('')}</div>`, cls, 12000, acts);
 }
 
 // ---------- Forms ----------
@@ -17216,7 +17221,7 @@ window.addEventListener('resize', () => { if (!UI.layout) { const was = isMobile
 // the database only lets that player — and the DM — open or change it.
 const ADMIN_EMAIL = 'matthewcbro@gmail.com';
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261012223651';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261012233330';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   let C = clean(Q.get('c')), G = clean(Q.get('g'));
   const P = (Q.get('p') || '').slice(0, 60), O = (Q.get('o') || '').trim().toLowerCase().slice(0, 120);

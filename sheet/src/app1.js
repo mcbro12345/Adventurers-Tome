@@ -4,6 +4,9 @@ const PRISTINE = '<!doctype html>\n' + document.documentElement.outerHTML;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// A spell can carry the player's own name for it ("Smog Beam" for Fire Bolt): shown first, with the real spell name beside it.
+const spLabel = sp => String((sp && (sp.flavor || '').trim()) || (sp && sp.name) || '');
+const spDisp = sp => sp && (sp.flavor || '').trim() ? `${esc(sp.flavor.trim())} <span class="sp-real">${esc(sp.name)}</span>` : esc(sp && sp.name);
 const N = x => Number(x) || 0;
 const fmt = n => (n >= 0 ? '+' : '−') + Math.abs(n);
 const sgn = n => (n >= 0 ? '+' : '') + n;
