@@ -76,3 +76,4 @@ body.hdragging, body.hdragging * { user-select: none; cursor: grabbing !importan
 .hub-card > .btn.ghost:hover, .hub-card .row .btn.ghost:hover { opacity: 1; background: rgba(127,127,127,.12); }
 .hub-card .row .btn.ghost { border-color: transparent; color: inherit; opacity: .75; }
 @media (prefers-color-scheme: dark) { body.hubbody .btn:not(.gold):not(.red):not(.ghost) { background: #242d40; color: #e9e3d3; border-color: #3a4560; } body.hubbody .btn.ghost { background: transparent; border-color: transparent; } }
+.who.who-all { border-style: dashed; }

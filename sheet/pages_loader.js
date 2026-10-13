@@ -96,15 +96,15 @@ function hub(fs, G) {
   const players = () => [...new Set(chars.map(c => (c.player || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   const norm = v => String(v || '').trim().toLowerCase();
   const isMine = name => { const m = me(); return !!(m && name && norm(m.name) === norm(name)); };
-  // The DM sees everyone's characters; everyone else sees only their own.
-  const ADMIN = ['matthew breaux'], isAdmin = () => { const m = me(); return !!(m && ADMIN.includes(norm(m.name))); };
+  // "Everyone" is the DM's view: every character, in folders by player. Any other name sees only its own characters.
+  const ADMIN = ['everyone'], isAdmin = () => { const m = me(); return !!(m && ADMIN.includes(norm(m.name))); };
   const charsCol = fs.collection('groups/' + G + '/chars'), gDoc = fs.collection('groups').doc(G);
 
   function askWho(force) {
     const m = me(); if (m && !force) return;
     const ps = players();
     modal.innerHTML = `<div class="hub-card"><h2>Who's using this device?</h2><p class="hub-hint">Pick yourself once — this device will remember. It's used to put your characters first and to show who changed what.</p>
-      <div class="who-list">${ps.map(p => `<button class="who" data-who="${esc(p)}">${esc(p)}</button>`).join('')}</div>
+      <div class="who-list">${ps.filter(p => norm(p) !== 'everyone').map(p => `<button class="who" data-who="${esc(p)}">${esc(p)}</button>`).join('')}<button class="who who-all" data-who="Everyone">Everyone</button></div>
       <form id="who-f" class="who-f"><input id="who-in" placeholder="${ps.length ? 'Someone else? Type your name' : 'Your name'}" maxlength="40" autocomplete="name"><button class="btn gold">That's me</button></form>
       ${m ? '<button class="btn ghost" id="who-x">Cancel</button>' : ''}</div>`;
     modal.classList.add('on');
