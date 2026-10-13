@@ -82,7 +82,8 @@ function rebuildAuto() {
     S.spells.push(sp);
   });
   // A spell you get automatically (a subclass list, a feat, an item) and also added by hand shows once: keep the automatic one.
-  { const autoK = new Set(S.spells.filter(s => s.auto).map(s => keyOf(s.name, s.cls))); S.spells = S.spells.filter(s => s.auto || !autoK.has(keyOf(s.name, s.cls))); }
+  // (A spell stored in an item — Spell-Storing Item, Ring of Spell Storing — is its own entry and always stays.)
+  { const autoK = new Set(S.spells.filter(s => s.auto).map(s => keyOf(s.name, s.cls))); S.spells = S.spells.filter(s => s.auto || s.stored || s.usesOnly || !autoK.has(keyOf(s.name, s.cls))); }
   // Unarmed strike and natural weapons
   const keep = S.attacks.filter(a => !a.auto);
   const auto = [];
