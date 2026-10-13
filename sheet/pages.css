@@ -149,3 +149,5 @@ html.mobile .pg-shared { top: auto; bottom: calc(80px + env(safe-area-inset-bott
 /* The Characters / shared tags stay under windows, menus and popups */
 .pg-hublink, .pg-shared { z-index: 35; }
 body:has(#modal.open) .pg-hublink, body:has(#modal.open) .pg-shared, body.wizopen .pg-hublink { display: none !important; }
+/* The Admin panel is a desktop tool */
+@media (max-width: 640px) { :where(body.hubbody) #hub-admin { display: none; } }
