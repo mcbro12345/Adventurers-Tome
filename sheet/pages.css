@@ -51,3 +51,5 @@ body.hubbody { margin: 0; background: #f4eee1; color: #1f2a44; font: 15px/1.4 sy
 .hub-toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); background: #1f2a44; color: #f3e7c6; padding: 9px 16px; border-radius: 999px; font-weight: 700; opacity: 0; transition: .2s; pointer-events: none; z-index: 60; }
 .hub-toast.on { opacity: 1; transform: translate(-50%, 0); }
 @media (max-width: 520px) { .hub-top h1 { font-size: 1.5rem; } .hf-body { grid-template-columns: 1fr; padding: 0 8px 10px; } }
+.hub-folder.solo { background: transparent; border: 0; } .hub-folder.solo .hf-body { padding: 0; }
+.hub-folder.solo > summary { display: none !important; }

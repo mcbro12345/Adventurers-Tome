@@ -94,7 +94,10 @@ function hub(fs, G) {
   try { open = JSON.parse(ls.get(OPEN) || '{}'); } catch (e) {}
   const toast = t => { const el = document.getElementById('hub-toast'); el.textContent = t; el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), 2600); };
   const players = () => [...new Set(chars.map(c => (c.player || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-  const isMine = name => { const m = me(); return !!(m && name && m.name.trim().toLowerCase() === name.trim().toLowerCase()); };
+  const norm = v => String(v || '').trim().toLowerCase();
+  const isMine = name => { const m = me(); return !!(m && name && norm(m.name) === norm(name)); };
+  // The DM sees everyone's characters; everyone else sees only their own.
+  const ADMIN = ['matthew breaux'], isAdmin = () => { const m = me(); return !!(m && ADMIN.includes(norm(m.name))); };
   const charsCol = fs.collection('groups/' + G + '/chars'), gDoc = fs.collection('groups').doc(G);
 
   function askWho(force) {
@@ -112,6 +115,7 @@ function hub(fs, G) {
   }
   function createChar() {
     const m = me(), ps = players();
+    if (!isAdmin()) { if (!m) return askWho(true); location.href = base + '?new=1&g=' + G + '&p=' + encodeURIComponent(m.name); return; }
     modal.innerHTML = `<div class="hub-card"><h2>New character</h2><p class="hub-hint">Whose character is it? It opens the character builder; when you finish, it gets its own link and shows up here.</p>
       <form id="new-f" class="who-f"><input id="new-p" list="new-pl" value="${esc(m ? m.name : '')}" placeholder="Player name" maxlength="40"><datalist id="new-pl">${ps.map(p => `<option value="${esc(p)}">`).join('')}</datalist><button class="btn gold">Create character</button></form>
       <button class="btn ghost" id="new-x">Cancel</button></div>`;
@@ -141,18 +145,18 @@ function hub(fs, G) {
       <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</span>
       <small>${c.hp ? 'HP ' + esc(c.hp) + ' · ' : ''}${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small></span></a>
       <div class="hc-menu"><button class="hc-dots" aria-label="More">⋯</button><div class="hc-list">
-        <button data-a="copy" data-id="${esc(c.id)}">Copy link</button><button data-a="move" data-id="${esc(c.id)}">Move to another player</button><button data-a="rm" data-id="${esc(c.id)}">Remove from list</button></div></div></div>`;
+        <button data-a="copy" data-id="${esc(c.id)}">Copy link</button>${isAdmin() ? `<button data-a="move" data-id="${esc(c.id)}">Move to another player</button><button data-a="rm" data-id="${esc(c.id)}">Remove from list</button>` : ''}</div></div></div>`;
   }
   function draw() {
-    const m = me(), groups = {};
-    chars.forEach(c => { const k = (c.player || '').trim() || 'No player yet'; (groups[k] = groups[k] || []).push(c); });
+    const m = me(), groups = {}, admin = isAdmin();
+    (admin ? chars : chars.filter(c => isMine(c.player))).forEach(c => { const k = (c.player || '').trim() || 'No player yet'; (groups[k] = groups[k] || []).push(c); });
     const keys = Object.keys(groups).sort((a, b) => (isMine(b) - isMine(a)) || (a === 'No player yet') - (b === 'No player yet') || a.localeCompare(b));
-    root.innerHTML = `<header class="hub-top"><div><div class="hub-kicker">D&amp;D Character Sheets</div><h1>${esc(group.name || 'The Party')}</h1></div>
+    root.innerHTML = `<header class="hub-top"><div><div class="hub-kicker">D&amp;D Character Sheets</div><h1>${admin ? esc(group.name || 'The Party') : (m ? esc(m.name) + '’s characters' : esc(group.name || 'The Party'))}</h1></div>
       <div class="hub-me">${m ? `Signed in as <b>${esc(m.name)}</b> <button class="linkbtn" id="me-chg">change</button>` : '<button class="linkbtn" id="me-chg">Who are you?</button>'}</div></header>
-      <div class="hub-bar"><button class="btn gold big" id="hub-new">＋ Create character</button><span class="hub-hint">${chars.length} character${chars.length === 1 ? '' : 's'} · ${keys.length} player${keys.length === 1 ? '' : 's'}</span></div>
-      ${keys.length ? keys.map(k => { const mine = isMine(k), isOpen = open[k] != null ? open[k] : true; return `<details class="hub-folder${mine ? ' mine' : ''}" data-k="${esc(k)}" ${isOpen ? 'open' : ''}><summary><span class="hf-caret">▸</span><span class="hf-name">${esc(k)}</span>${mine ? '<span class="hf-you">You</span>' : ''}<span class="hf-n">${groups[k].length}</span></summary>
-        <div class="hf-body">${groups[k].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).map(card).join('')}</div></details>`; }).join('') : '<p class="hub-empty">No characters yet — create the first one.</p>'}
-      <footer class="hub-foot">Bookmark this page — it's your party's hub. Anyone with this link can see and open every character in it, so only share it with your group.</footer>`;
+      <div class="hub-bar"><button class="btn gold big" id="hub-new">＋ Create character</button><span class="hub-hint">${admin ? `${chars.length} character${chars.length === 1 ? '' : 's'} · ${keys.length} player${keys.length === 1 ? '' : 's'}` : 'Your characters'}</span></div>
+      ${keys.length ? keys.map(k => { const mine = isMine(k), isOpen = !admin || (open[k] != null ? open[k] : true); return `<details class="hub-folder${mine ? ' mine' : ''}${admin ? '' : ' solo'}" data-k="${esc(k)}" ${isOpen ? 'open' : ''}><summary${admin ? '' : ' hidden'}><span class="hf-caret">▸</span><span class="hf-name">${esc(k)}</span>${mine ? '<span class="hf-you">You</span>' : ''}<span class="hf-n">${groups[k].length}</span></summary>
+        <div class="hf-body">${groups[k].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).map(card).join('')}</div></details>`; }).join('') : `<p class="hub-empty">${m ? (admin ? 'No characters yet — create the first one.' : 'You don’t have any characters here yet — create one, or if you already have one, ask your DM to put it under <b>' + esc(m.name) + '</b>.') : 'Pick who you are to see your characters.'}</p>`}
+      <footer class="hub-foot">${admin ? 'Bookmark this page — it\'s your party\'s hub. Anyone with this link can open the characters in it, so only share it with your group.' : 'Bookmark this page to get back to your characters on this device.'}</footer>`;
     root.querySelector('#hub-new').onclick = createChar;
     root.querySelector('#me-chg').onclick = () => askWho(true);
     root.querySelectorAll('details.hub-folder').forEach(d => d.addEventListener('toggle', () => { open[d.dataset.k] = d.open; ls.set(OPEN, JSON.stringify(open)); }));
@@ -160,7 +164,7 @@ function hub(fs, G) {
     root.querySelectorAll('.hc-list [data-a]').forEach(b => b.onclick = () => { const c = chars.find(x => x.id === b.dataset.id); b.closest('.hc-menu').classList.remove('on'); if (!c) return;
       if (b.dataset.a === 'copy') { navigator.clipboard.writeText(location.origin + base + '?c=' + c.id).then(() => toast('Link copied.'), () => prompt('Copy this link:', location.origin + base + '?c=' + c.id)); }
       if (b.dataset.a === 'move') moveChar(c); if (b.dataset.a === 'rm') removeChar(c); });
-    const h1 = root.querySelector('h1'); h1.title = 'Click to rename'; h1.onclick = async () => { const n = prompt('Party name', group.name || 'The Party'); if (n != null && n.trim()) { await gDoc.set({ name: n.trim().slice(0, 60) }, { merge: true }); } };
+    const h1 = root.querySelector('h1'); if (admin) h1.title = 'Click to rename'; if (admin) h1.onclick = async () => { const n = prompt('Party name', group.name || 'The Party'); if (n != null && n.trim()) { await gDoc.set({ name: n.trim().slice(0, 60) }, { merge: true }); } };
   }
   document.addEventListener('click', () => root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')));
   draw();

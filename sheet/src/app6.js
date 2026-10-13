@@ -27,7 +27,8 @@ function openSettings(tab) {
   const row = (t, ctl, sub) => `<div class="setrow"><span><b>${t}</b>${sub ? `<small>${sub}</small>` : ''}</span>${ctl}</div>`;
   const col = (k, label, def) => `<label class="colpick"><input type="color" data-themekey="${k}" value="${esc(th[k] || def)}"><span>${label}</span>${th[k] ? `<button class="linkbtn" data-act="setpreset" data-k="${k}" data-v="">reset</button>` : ''}</label>`;
   const presets = [['#E0A526', '#26304A'], ['#C2462E', '#2A1E1E'], ['#2F8F5B', '#1C2C26'], ['#3A7BD5', '#1B2540'], ['#8A4FD1', '#241B38'], ['#D04F8E', '#2E1A28'], ['#1E9AA0', '#16292D'], ['#B08A4E', '#2B2620']];
-  const TABS = [['char', 'Character &amp; sheet'], ['rules', 'Rules'], ['dice', 'Dice'], ['theme', 'Theme'], ['data', 'Backup &amp; files']];
+  const TABS = [['char', 'Character &amp; sheet'], ['rules', 'Rules'], ['dice', 'Dice'], ['theme', 'Theme'], ['data', 'Backup &amp; files']].filter(([k]) => !(window.SHEET_PAGES && k === 'data'));  // on the website the cloud is the backup
+  if (window.SHEET_PAGES && SETTAB === 'data') SETTAB = 'char';
   const pane = (k, h) => `<section class="stpane${SETTAB === k ? ' on' : ''}" data-pane="${k}" role="tabpanel">${h}</section>`;
   openModal(`<div class="sethead"><h3>Settings</h3><button class="btn sm" data-act="close">Done</button></div>
     <div class="stabs" role="tablist">${TABS.map(([k, t]) => `<button class="stab${SETTAB === k ? ' on' : ''}" data-act="settab" data-k="${k}" role="tab" aria-selected="${SETTAB === k}">${t}</button>`).join('')}<span class="stab-ink"></span></div>
