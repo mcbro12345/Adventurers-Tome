@@ -15,5 +15,4 @@ jobs:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           projectId: dnd-character-sheets-b30c7
-          target: adventurers-tome
           channelId: live
