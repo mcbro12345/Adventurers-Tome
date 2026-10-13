@@ -344,7 +344,7 @@ function wireDie(root) {
     tick(); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013151538', ASSETS = {"data": "a/data.3f7e0dc5a0bb.js", "app": "a/app.d4deaf4a0fe4.js"};
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013151928', ASSETS = {"data": "a/data.3f7e0dc5a0bb.js", "app": "a/app.d4deaf4a0fe4.js"};
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   let C = clean(Q.get('c')), G = clean(Q.get('g'));
   const P = (Q.get('p') || '').slice(0, 60), O = (Q.get('o') || '').trim().toLowerCase().slice(0, 120);
@@ -388,8 +388,7 @@ function wireDie(root) {
   let fs = null, auth = null;
   // On the new address, Google sign-in runs through the site itself, so Google's account picker says
   // "continue to adventurers-tome.web.app" (and Safari doesn't block it as a third-party sign-in).
-  // (Switched on once Google has accepted https://adventurers-tome.web.app/__/auth/handler as a redirect address.)
-  if (location.hostname === 'adventurers-tome.web.app' && window.PG_OWN_AUTH) CFG.authDomain = location.hostname;
+  if (location.hostname === 'adventurers-tome.web.app') CFG.authDomain = location.hostname;
   try { firebase.initializeApp(CFG); fs = firebase.firestore(); auth = firebase.auth(); } catch (e) { console.error(e); }
   if (!fs || !auth) { say('Couldn\'t start the sheet. Check your connection and reload.'); return; }
   if (window.PG_EMU) { fs.useEmulator('localhost', 8080); auth.useEmulator('http://localhost:9099', { disableWarnings: true }); if (window.PG_EMU_USER) { await auth.signOut(); await auth.signInWithCredential(firebase.auth.GoogleAuthProvider.credential(JSON.stringify(window.PG_EMU_USER))); } } // tests only
