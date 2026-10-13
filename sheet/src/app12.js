@@ -84,6 +84,57 @@ function vfxDraw(x, W, H, t, v) {
   const ease = q => q < .5 ? 2 * q * q : 1 - Math.pow(-2 * q + 2, 2) / 2, ground = H * .8;
   x.fillStyle = 'rgba(255,255,255,.05)'; x.fillRect(0, ground + H * .08, W, 1);
   const m = v.motif;
+  // A held weapon drawn along angle `ang` from the grip at (px,py); L is its length.
+  const weapon = (px, py, ang, L, kind, glowC) => {
+    x.save(); x.translate(px, py); x.rotate(ang); x.lineJoin = 'round'; x.lineCap = 'round';
+    if (glowC) { x.shadowColor = glowC; x.shadowBlur = 10; }
+    const steel = (a, b) => { const g = x.createLinearGradient(0, -L * .06, 0, L * .06); g.addColorStop(0, '#f4f7fc'); g.addColorStop(.5, glowC ? glowC : '#c3ccda'); g.addColorStop(1, '#7d889c'); return g; };
+    const wood = '#7a5232', dark = '#3b2a1e', brass = '#d8b25a';
+    const haft = (a, b, w) => { x.strokeStyle = wood; x.lineWidth = w; x.beginPath(); x.moveTo(a, 0); x.lineTo(b, 0); x.stroke(); };
+    if (kind === 'axe') {
+      haft(-L * .12, L * .92, L * .07);
+      x.fillStyle = steel(); x.beginPath(); x.moveTo(L * .66, -L * .04); x.quadraticCurveTo(L * .7, -L * .2, L * .62, -L * .32); x.quadraticCurveTo(L * .84, -L * .26, L * .9, -L * .04);
+      x.lineTo(L * .9, L * .04); x.quadraticCurveTo(L * .84, L * .18, L * .66, L * .2); x.quadraticCurveTo(L * .72, L * .1, L * .66, L * .04); x.closePath(); x.fill();
+      x.shadowBlur = 0; x.strokeStyle = 'rgba(255,255,255,.7)'; x.lineWidth = 1; x.beginPath(); x.moveTo(L * .63, -L * .3); x.quadraticCurveTo(L * .83, -L * .24, L * .88, -L * .03); x.stroke();
+    } else if (kind === 'hammer') {
+      haft(-L * .12, L * .82, L * .07);
+      x.fillStyle = steel(); x.beginPath(); x.roundRect ? x.roundRect(L * .7, -L * .17, L * .22, L * .34, L * .03) : x.rect(L * .7, -L * .17, L * .22, L * .34); x.fill();
+      x.shadowBlur = 0; x.fillStyle = 'rgba(0,0,0,.25)'; x.fillRect(L * .79, -L * .17, L * .03, L * .34);
+    } else if (kind === 'spear' || kind === 'staff') {
+      haft(-L * .35, kind === 'staff' ? L * .95 : L * .8, L * .055);
+      if (kind === 'staff') { x.fillStyle = glowC || brass; x.beginPath(); x.arc(L * .97, 0, L * .07, 0, 2 * P); x.fill(); }
+      else { x.fillStyle = steel(); x.beginPath(); x.moveTo(L * .76, 0); x.quadraticCurveTo(L * .84, -L * .08, L * 1.02, 0); x.quadraticCurveTo(L * .84, L * .08, L * .76, 0); x.fill(); x.fillStyle = dark; x.fillRect(L * .74, -L * .035, L * .04, L * .07); }
+    } else {
+      const k = kind === 'dagger' ? .62 : 1, bl = L * k, bw = L * .085;
+      // grip, pommel, crossguard
+      x.strokeStyle = dark; x.lineWidth = L * .07; x.beginPath(); x.moveTo(-L * .14, 0); x.lineTo(L * .03, 0); x.stroke();
+      x.strokeStyle = 'rgba(255,255,255,.18)'; x.lineWidth = 1; for (let i = 0; i < 4; i++) { x.beginPath(); x.moveTo(-L * .12 + i * L * .04, -L * .03); x.lineTo(-L * .1 + i * L * .04, L * .03); x.stroke(); }
+      x.fillStyle = brass; x.beginPath(); x.arc(-L * .17, 0, L * .05, 0, 2 * P); x.fill();
+      x.beginPath(); x.moveTo(L * .03, -L * .16); x.quadraticCurveTo(L * .07, -L * .17, L * .07, -L * .12); x.lineTo(L * .07, L * .12); x.quadraticCurveTo(L * .07, L * .17, L * .03, L * .16); x.closePath(); x.fill();
+      // blade with a fuller and a bright edge
+      x.fillStyle = steel(); x.beginPath(); x.moveTo(L * .07, -bw / 2); x.lineTo(L * .07 + bl * .8, -bw / 2 * .85); x.lineTo(L * .07 + bl * .93, 0); x.lineTo(L * .07 + bl * .8, bw / 2 * .85); x.lineTo(L * .07, bw / 2); x.closePath(); x.fill();
+      x.shadowBlur = 0; x.strokeStyle = 'rgba(60,70,90,.45)'; x.lineWidth = Math.max(1, L * .018); x.beginPath(); x.moveTo(L * .1, 0); x.lineTo(L * .07 + bl * .66, 0); x.stroke();
+      x.strokeStyle = 'rgba(255,255,255,.8)'; x.lineWidth = 1; x.beginPath(); x.moveTo(L * .08, -bw / 2 + .5); x.lineTo(L * .07 + bl * .8, -bw / 2 * .85 + .5); x.lineTo(L * .07 + bl * .92, 0); x.stroke();
+    }
+    x.restore(); x.shadowBlur = 0;
+  };
+  // A figure on the left swinging a weapon at a figure on the right. `swings` lists [start, from, to] in phase/radians.
+  const swingScene = (swings, trailA, trailB, glowC, impact) => {
+    const fx = W * .28, fs = H * .22 * 1.35, sx = fx + fs * .12, sy = ground - fs * .55, L = W * (v.w === 'dagger' ? .26 : v.w === 'spear' || v.w === 'staff' ? .38 : .31);
+    figure(fx, ground, H * .22); const hitAt = [];
+    let ang = swings[0][1], live = null;
+    swings.forEach(([st, a0, a1]) => { const wind = .08, dur = .2; if (ph >= st) { const q = (ph - st - wind) / dur; ang = q < 0 ? a0 - .15 * Math.sin(Math.min(1, (ph - st) / wind) * P / 2) : a0 + (a1 - a0) * ease(Math.min(1, q)); if (q >= 0 && q < 1.6) live = { a0, a: ang, q }; hitAt.push(st + wind + dur * .6); } });
+    if (ph > .78) { const r = (ph - .78) / .22; ang = ang + (swings[0][1] - ang) * ease(r); live = null; }
+    const flinch = hitAt.some(h => ph > h && ph < h + .12) ? 3 : 0;
+    figure(W * .74 + flinch, ground, H * .2, '#8d96ab');
+    const hx = sx + Math.cos(ang) * fs * .35, hy = sy + Math.sin(ang) * fs * .35;
+    if (live) { const R = fs * .35 + L * .9, from = live.a0 < live.a ? live.a0 : live.a, to = live.a0 < live.a ? live.a : live.a0, fade = Math.max(0, 1 - Math.max(0, live.q - 1) / .6);
+      const lo = live.a0 > live.a ? from : Math.max(from, to - 1.4), hi = live.a0 > live.a ? Math.min(to, from + 1.4) : to; [[trailB, .22, 7, 0], [trailA, .7, 2, 1]].forEach(([c, al, lw, off]) => { x.strokeStyle = c; x.globalAlpha = al * fade; x.lineWidth = lw; x.beginPath(); x.arc(sx, sy, R - off, lo, hi); x.stroke(); }); x.globalAlpha = 1; }
+    // the far arm behind, the weapon, then the arm holding it
+    weapon(hx, hy, ang, L, v.w || 'sword', glowC);
+    x.strokeStyle = '#aab3c8'; x.lineCap = 'round'; x.lineWidth = fs * .16; x.beginPath(); x.moveTo(sx, sy); x.lineTo(hx, hy); x.stroke(); dot(hx, hy, fs * .1, '#aab3c8');
+    hitAt.forEach(h => { const r = (ph - h) / .3; if (r > 0 && r < 1) impact(r); });
+  };
   if (m === 'bolt' || m === 'arrow' || m === 'zap') {
     figure(W * .2, ground, H * .2); figure(W * .8, ground, H * .2, '#8d96ab');
     const q = Math.min(1, ph / .6), sx = W * .28, sy = ground - H * .2, ex = W * .74, ey = ground - H * .22, px = sx + (ex - sx) * ease(q), py = sy + (ey - sy) * ease(q) - Math.sin(q * P) * H * (m === 'arrow' ? .12 : .04);
@@ -126,10 +177,7 @@ function vfxDraw(x, W, H, t, v) {
     const rise = Math.min(1, ph / .6); glow(cx, cy - H * .15, W * .25, c1, .35); x.save(); x.beginPath(); x.rect(0, 0, W, cy); x.clip();
     x.fillStyle = '#9aa3bb'; x.globalAlpha = rise; const by = cy + (1 - rise) * H * .4; x.beginPath(); x.ellipse(cx, by - H * .18, W * .14, H * .12, 0, 0, 2 * P); x.fill(); x.beginPath(); x.arc(cx + W * .1, by - H * .32, H * .07, 0, 2 * P); x.fill(); dot(cx + W * .13, by - H * .33, 1.6, c2, rise); x.restore(); x.globalAlpha = 1;
   } else if (m === 'slash') {
-    figure(W * .3, ground, H * .22); figure(W * .74, ground, H * .2, '#8d96ab');
-    const q = Math.min(1, ph / .4), a0 = -P * .75, a1 = P * .1, a = a0 + (a1 - a0) * ease(q), cx = W * .42, cy = ground - H * .24, R = W * .3;
-    if (ph < .55) { x.strokeStyle = c2; x.lineWidth = 3; x.globalAlpha = .9; x.beginPath(); x.arc(cx, cy, R, a0, a, false); x.stroke(); x.strokeStyle = c1; x.lineWidth = 7; x.globalAlpha = .25; x.beginPath(); x.arc(cx, cy, R, Math.max(a0, a - .9), a); x.stroke(); x.globalAlpha = 1; dot(cx + Math.cos(a) * R, cy + Math.sin(a) * R, 3, '#fff'); }
-    if (ph > .35 && ph < .75) { const r = (ph - .35) / .4; for (let k = 0; k < 8; k++) { const sa = rnd() * 2 * P, d = r * 18; dot(W * .7 + Math.cos(sa) * d, ground - H * .25 + Math.sin(sa) * d, 1.8, c2, 1 - r); } }
+    swingScene([[0, -P * .62, P * .22]], c2, c1, null, r => { for (let k = 0; k < 8; k++) { const sa = k / 8 * 2 * P + rnd() * .3, d = 4 + r * 16; dot(W * .7 + Math.cos(sa) * d, ground - H * .26 + Math.sin(sa) * d, 1.8, c2, 1 - r); } });
   } else if (m === 'dash') {
     const q = ease(ph), px = W * (.15 + .7 * q); figure(px, ground, H * .22, '#aab3c8');
     for (let k = 0; k < 6; k++) { x.strokeStyle = c1; x.globalAlpha = .6 - k * .08; x.lineWidth = 2; const ly = ground - H * (.1 + k * .06); x.beginPath(); x.moveTo(px - W * .08, ly); x.lineTo(px - W * (.2 + k * .03), ly); x.stroke(); } x.globalAlpha = 1;
@@ -220,9 +268,33 @@ function vfxDraw(x, W, H, t, v) {
     x.strokeStyle = c1; x.globalAlpha = .6 + .4 * pul; x.lineWidth = 2; x.beginPath(); x.ellipse(cx, cy, W * .34, H * .09, 0, 0, 2 * P); x.stroke(); x.beginPath(); x.ellipse(cx, cy, W * .24, H * .06, 0, 0, 2 * P); x.stroke();
     for (let k = 0; k < 6; k++) { const a = ph * P + k / 6 * 2 * P; dot(cx + Math.cos(a) * W * .29, cy + Math.sin(a) * H * .075, 2, c2); } x.globalAlpha = 1; if (ph > .6) glow(cx, cy - H * .2, W * .3 * (ph - .6) * 2.5, c1, 1 - (ph - .6) * 2.5);
   } else if (m === 'hand') {
-    const q = ease((Math.sin(ph * 2 * P) + 1) / 2), hx = W * (.3 + .4 * q), hy = H * (.45 - .15 * Math.sin(q * P));
-    glow(hx, hy, 16, c1, .5); x.fillStyle = c2; x.globalAlpha = .85; x.beginPath(); x.ellipse(hx, hy, 9, 11, 0, 0, 2 * P); x.fill(); for (let k = 0; k < 4; k++) { x.fillRect(hx - 8 + k * 5, hy - 20, 3.5, 11); } x.globalAlpha = 1;
-    x.fillStyle = '#c9a36b'; x.fillRect(hx - 6, hy + 12, 12, 9);
+    // A spectral open hand: one continuous outline (palm, four fingers and a thumb), drifting over to lift a small vial.
+    // drift over to the vial (0-.35), close around it and lift it (.35-.7), float back and let it go (.7-1)
+    const S = H * .46, go = ease(Math.min(1, ph / .35)), lift = ph < .4 ? 0 : ph < .7 ? ease((ph - .4) / .3) : 1 - ease((ph - .7) / .3), back = ph > .7 ? ease((ph - .7) / .3) : 0, hold = ph > .36 && ph < .9;
+    const hx = W * (.26 + .42 * go - .2 * back) + Math.sin(ph * 6 * P) * 1, hy = ground - H * .02 - lift * H * .28 + Math.sin(ph * 4 * P) * 1.5 - (1 - go) * H * .1, tilt = (1 - go) * -.25 + back * -.15;
+    const vx = ph < .36 ? W * .68 : hx + S * .01, vy = ph < .36 ? ground + H * .04 : hy - S * .22;
+    for (let k = 0; k < 6; k++) { const life = (ph * 2 + k / 6) % 1; dot(hx - 10 * life + Math.sin(k * 7) * 6, hy - S * .2 + life * 8, 1.4, c2, (1 - life) * .7); }
+    const drawVial = () => { x.fillStyle = '#7fd6ff'; x.globalAlpha = .95; x.beginPath(); x.ellipse(vx, vy - 6, 5, 6, 0, 0, 2 * P); x.fill(); x.fillRect(vx - 2, vy - 16, 4, 6); x.fillStyle = '#c69a62'; x.fillRect(vx - 2.5, vy - 18, 5, 3); x.fillStyle = '#fff'; x.globalAlpha = .6; x.fillRect(vx - 3, vy - 9, 1.5, 4); x.globalAlpha = 1; };
+    if (ph < .36) drawVial();
+    glow(hx, hy - S * .45, S * .75, c1, .45);
+    x.save(); x.translate(hx, hy); x.rotate(tilt); x.scale(S, S);
+    // fingers: [base x, base y, angle from vertical, length, width]
+    const F = [[-.17, -.56, -.16, .34, .1], [-.055, -.6, -.04, .4, .105], [.06, -.58, .07, .37, .1], [.16, -.52, .2, .28, .085]];
+    const curl = hold ? .5 * Math.min(1, (ph - .36) / .06, (.9 - ph) / .06) : 0;
+    x.beginPath(); x.moveTo(.18, 0); x.quadraticCurveTo(.25, -.25, .22, -.45);
+    F.slice().reverse().forEach(([bx, by, a, len, w], i) => { const A = a + curl * .4, L2 = len * (1 - curl * .35), ux = Math.sin(A), uy = -Math.cos(A), nx = -uy, ny = ux, tx = bx + ux * L2, ty = by + uy * L2;
+      x.lineTo(bx + nx * w / 2, by + ny * w / 2); x.lineTo(tx + nx * w / 2, ty + ny * w / 2); x.arc(tx, ty, w / 2, Math.atan2(ny, nx), Math.atan2(-ny, -nx), true); x.lineTo(bx - nx * w / 2, by - ny * w / 2);
+      if (i < 3) { const nb = F[2 - i]; x.quadraticCurveTo((bx + nb[0]) / 2, by + .05, nb[0] + Math.cos(nb[2]) * nb[4] / 2, nb[1] + Math.sin(nb[2]) * nb[4] / 2); } });
+    // thumb sweeping out from the lower palm
+    const ta = -.85 + curl * .55, tw = .13, tl = .3 - curl * .06, Bx = -.17, By = -.3, ux = Math.sin(ta), uy = -Math.cos(ta), nx = Math.cos(ta), ny = Math.sin(ta), tx = Bx + ux * tl, ty = By + uy * tl;
+    x.quadraticCurveTo(-.2, -.42, Bx + nx * tw / 2, By + ny * tw / 2); x.lineTo(tx + nx * tw / 2, ty + ny * tw / 2); x.arc(tx, ty, tw / 2, Math.atan2(ny, nx), Math.atan2(-ny, -nx), true); x.lineTo(Bx - nx * tw / 2 + .02, By - ny * tw / 2 + .04);
+    x.quadraticCurveTo(-.22, -.1, -.17, 0); x.closePath();
+    const g = x.createLinearGradient(0, -1, 0, 0); g.addColorStop(0, c2); g.addColorStop(1, c1); x.fillStyle = g; x.globalAlpha = .82; x.shadowColor = c1; x.shadowBlur = 14; x.fill(); x.shadowBlur = 0;
+    x.globalAlpha = .9; x.strokeStyle = c2; x.lineWidth = 1.4 / S; x.stroke();
+    // palm creases and knuckle lines
+    x.globalAlpha = .35; x.strokeStyle = '#ffffff'; x.lineWidth = 1 / S; x.beginPath(); x.moveTo(-.15, -.3); x.quadraticCurveTo(0, -.38, .19, -.33); x.moveTo(-.18, -.2); x.quadraticCurveTo(-.05, -.18, .02, -.3); x.stroke();
+    F.forEach(([bx, by, a, len]) => { const A = a + curl * .4, L2 = len * (1 - curl * .35), mx = bx + Math.sin(A) * L2 * .5, my = by - Math.cos(A) * L2 * .5; x.beginPath(); x.moveTo(mx - .03, my); x.lineTo(mx + .03, my); x.stroke(); });
+    x.globalAlpha = 1; x.restore(); if (ph >= .36) drawVial();
   } else if (m === 'weather') {
     x.fillStyle = 'rgba(170,180,205,.6)'; x.beginPath(); x.ellipse(W * .45, H * .22, W * .28, H * .1, 0, 0, 2 * P); x.ellipse(W * .62, H * .2, W * .2, H * .09, 0, 0, 2 * P); x.fill();
     for (let k = 0; k < 18; k++) { const life = (ph * 2 + k / 18) % 1, px = W * (.2 + .6 * ((k * 7 % 18) / 18)); x.strokeStyle = c1; x.globalAlpha = .8; x.lineWidth = 1.5; x.beginPath(); x.moveTo(px, H * .3 + life * H * .55); x.lineTo(px - 3, H * .3 + life * H * .55 + 7); x.stroke(); } x.globalAlpha = 1;
@@ -240,15 +312,13 @@ function vfxDraw(x, W, H, t, v) {
     figure(W * .3, ground, H * .22, '#aab3c8');
     for (let k = 0; k < 4; k++) { const life = (ph + k / 4) % 1, px = W * (.38 + life * .45), py = ground - H * (.3 + .25 * life) + Math.sin(life * 6) * 6; x.globalAlpha = Math.sin(life * P); x.fillStyle = k % 2 ? c1 : c2; x.font = `bold ${12 + 4 * (k % 2)}px serif`; x.fillText(k % 2 ? '♪' : '♫', px, py); } x.globalAlpha = 1;
   } else if (m === 'multi') {
-    figure(W * .3, ground, H * .22); figure(W * .74, ground, H * .2, '#8d96ab'); const cx = W * .5, cy = ground - H * .26;
-    [[0, -P * .75, P * .1], [.4, P * .75, -P * .1]].forEach(([off, a0, a1]) => { const q = (ph - off) / .35; if (q < 0 || q > 1.4) return; const a = a0 + (a1 - a0) * ease(Math.min(1, q)); x.strokeStyle = c2; x.lineWidth = 3; x.globalAlpha = Math.min(1, 1.4 - q); x.beginPath(); x.arc(cx, cy, W * .26, Math.min(a0, a), Math.max(a0, a)); x.stroke(); x.globalAlpha = 1; });
+    swingScene([[0, -P * .62, P * .22], [.36, P * .22, -P * .5]], c2, c1, null, r => { for (let k = 0; k < 6; k++) { const sa = k / 6 * 2 * P, d = 4 + r * 14; dot(W * .7 + Math.cos(sa) * d, ground - H * .26 + Math.sin(sa) * d, 1.6, c2, 1 - r); } });
   } else if (m === 'punch') {
     figure(W * .28, ground, H * .22); figure(W * .74, ground, H * .2, '#8d96ab');
     for (let k = 0; k < 3; k++) { const q = ((ph * 3 + k / 3) % 1), px = W * (.36 + .3 * ease(q)), py = ground - H * (.22 + k * .06); dot(px, py, 5, c1, 1 - q * .3); if (q > .85) glow(W * .68, py, 12, c2, 1); }
   } else if (m === 'smite') {
-    figure(W * .3, ground, H * .22); figure(W * .74, ground, H * .2, '#8d96ab'); const q = Math.min(1, ph / .4), a = -P * .7 + P * .8 * ease(q), cx = W * .42, cy = ground - H * .24;
-    x.strokeStyle = c2; x.lineWidth = 3; x.beginPath(); x.moveTo(cx, cy); x.lineTo(cx + Math.cos(a) * W * .3, cy + Math.sin(a) * W * .3); x.stroke();
-    if (ph > .4) { const r = (ph - .4) / .6; glow(W * .72, ground - H * .25, 10 + r * 30, c1, 1 - r); for (let k = 0; k < 6; k++) { x.strokeStyle = c2; x.globalAlpha = 1 - r; x.beginPath(); x.moveTo(W * .72, 0); x.lineTo(W * .72 + (k - 2.5) * 3, ground - H * .25); x.stroke(); } x.globalAlpha = 1; }
+    if (ph < .3) glow(W * .4, ground - H * .45, W * .22, c1, ph / .3 * .5);
+    swingScene([[0, -P * .62, P * .2]], c2, c1, c1, r => { glow(W * .72, ground - H * .25, 10 + r * 30, c1, 1 - r); for (let k = 0; k < 6; k++) { x.strokeStyle = c2; x.globalAlpha = 1 - r; x.lineWidth = 1.5; x.beginPath(); x.moveTo(W * .72 + (k - 2.5) * 2, 0); x.lineTo(W * .72 + (k - 2.5) * 4, ground - H * .25); x.stroke(); } x.globalAlpha = 1; });
   } else if (m === 'aura') {
     figure(W * .5, ground, H * .22, '#cfd6e6');
     for (let k = 0; k < 3; k++) { const life = (ph + k / 3) % 1; x.strokeStyle = c1; x.globalAlpha = 1 - life; x.lineWidth = 2; x.beginPath(); x.ellipse(W * .5, ground - H * .05, W * (.1 + life * .4), H * (.03 + life * .12), 0, 0, 2 * P); x.stroke(); } x.globalAlpha = 1; glow(W * .5, ground - H * .2, W * .3, c1, .3);
@@ -265,8 +335,7 @@ function vfxDraw(x, W, H, t, v) {
     const cx = W * .5, cy = H * .5, sh = (ph * 1.4) % 1.4; x.fillStyle = '#8f9bb3'; x.beginPath(); x.moveTo(cx - W * .22, cy - H * .25); x.lineTo(cx + W * .22, cy - H * .25); x.lineTo(cx + W * .2, cy + H * .1); x.quadraticCurveTo(cx, cy + H * .32, cx - W * .2, cy + H * .1); x.closePath(); x.fill(); x.strokeStyle = c1; x.lineWidth = 2; x.stroke();
     x.save(); x.clip(); x.fillStyle = 'rgba(255,255,255,.5)'; x.beginPath(); x.moveTo(cx - W * .4 + sh * W * .5, cy - H * .3); x.lineTo(cx - W * .32 + sh * W * .5, cy - H * .3); x.lineTo(cx - W * .5 + sh * W * .5, cy + H * .3); x.lineTo(cx - W * .58 + sh * W * .5, cy + H * .3); x.fill(); x.restore();
   } else if (m === 'crit') {
-    figure(W * .3, ground, H * .22); figure(W * .74, ground, H * .2, '#8d96ab'); const r = Math.max(0, (ph - .3) / .7), cx = W * .72, cy = ground - H * .3;
-    if (r > 0) { x.fillStyle = c1; x.globalAlpha = 1 - r * .7; x.beginPath(); for (let k = 0; k < 16; k++) { const a = k / 16 * 2 * P, rr = (k % 2 ? 8 : 20) * (0.6 + r); x.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); } x.closePath(); x.fill(); x.globalAlpha = 1; } else { x.strokeStyle = c2; x.lineWidth = 3; x.beginPath(); x.moveTo(W * .36, ground - H * .3); x.lineTo(W * (.36 + ph * 1.1), ground - H * .3); x.stroke(); }
+    swingScene([[0, -P * .66, P * .25]], '#ffffff', c1, null, r => { const cx = W * .72, cy = ground - H * .28; x.fillStyle = c1; x.globalAlpha = 1 - r * .7; x.beginPath(); for (let k = 0; k < 16; k++) { const a = k / 16 * 2 * P, rr = (k % 2 ? 6 : 16) * (0.5 + r); x.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); } x.closePath(); x.fill(); x.globalAlpha = 1; });
   } else if (m === 'skill') {
     const cx = W * .5, cy = H * .5, a = ph * 2 * P / 3, R = W * .22; x.fillStyle = c1; x.beginPath(); for (let k = 0; k < 16; k++) { const aa = a + k / 16 * 2 * P, rr = k % 2 ? R : R * 1.25; x.lineTo(cx + Math.cos(aa) * rr, cy + Math.sin(aa) * rr); } x.closePath(); x.fill(); dot(cx, cy, R * .45, '#1b2131');
     for (let k = 0; k < 4; k++) { const life = (ph + k / 4) % 1; dot(cx + W * .3 * Math.cos(k * 1.6), cy - H * .3 * life, 2, c2, Math.sin(life * P)); }
@@ -298,6 +367,11 @@ function tipVfx(t, v) {
 }
 // What to draw for each kind of info box.
 function vfxForSpell(sp) { const h = vfxHand('sp', sp.name, sp.base, sp.orig); if (h) return h; const sm = (() => { try { return spellMath(sp); } catch (e) { return {}; } })(); return vfxPick(sp.name, (sp.summary || '') + ' ' + (fullOfSpell(sp) || ''), { type: vfxType(sm.type), school: sp.school, heal: !!sm.heal && !sm.dice, attack: !!sm.attack }); }
-function vfxForFeat(f) { const pk = /^pick:(\w+):(.+)$/.exec(String(f.key || '')); const h = (pk && vfxHand('op', pk[1] + ':' + pk[2])) || vfxHand('f', f.dname, f.name) || (pk && vfxHand('f', pk[2])) || vfxHand('sp', f.name) || vfxHand('mi', f.name); if (h) return h; const fx = (() => { try { return fxOf(f); } catch (e) { return {}; } })(); return vfxPick(f.dname || f.name, (f.desc || '') + ' ' + (fullOfFeat(f) || '') + ' ' + (fx.text || ''), {}); }
-function vfxForAttack(a, it) { return vfxPick(a.name + (it && it.weapon ? ' ' + it.weapon.base : ''), (a.notes || '') + ' ' + (a.type || ''), { weapon: a.kind === 'ranged' || (it && it.weapon && it.weapon.kind === 'ranged') ? 'ranged' : 'melee', type: vfxType(a.type) }); }
-function vfxForItem(it) { const h = vfxHand('mi', it.magic && it.magic.name, it.name); if (h) return h; if (it.weapon) return vfxPick(it.name + ' ' + it.weapon.base, it.weapon.type, { weapon: it.weapon.kind === 'ranged' ? 'ranged' : 'melee', type: vfxType(it.weapon.type) }); if (it.armor) return vfxPick('shield', '', {}); if (/elixir|potion|philter|oil of/i.test(it.name) && !/healing/i.test(it.name)) return Object.assign(vfxPick(it.name, '', {}), { motif: 'morph', c: VFX_COL.trans }); return vfxPick(it.name, (it.summary || '') + ' ' + (it.notes || '') + ' ' + (fullOfItem(it) || ''), { heal: /potion of healing|healing/i.test(it.name) }); }
+function vfxForFeat(f) { return vfxWithWeapon(vfxForFeat0(f), f.dname || f.name); }
+function vfxForFeat0(f) { const pk = /^pick:(\w+):(.+)$/.exec(String(f.key || '')); const h = (pk && vfxHand('op', pk[1] + ':' + pk[2])) || vfxHand('f', f.dname, f.name) || (pk && vfxHand('f', pk[2])) || vfxHand('sp', f.name) || vfxHand('mi', f.name); if (h) return h; const fx = (() => { try { return fxOf(f); } catch (e) { return {}; } })(); return vfxPick(f.dname || f.name, (f.desc || '') + ' ' + (fullOfFeat(f) || '') + ' ' + (fx.text || ''), {}); }
+const vfxWeaponKind = n => { n = String(n || '').toLowerCase(); return /\baxe|halberd/.test(n) ? 'axe' : /hammer|mace|maul|club|flail|morningstar|greatclub|rod of lordly/.test(n) ? 'hammer' : /spear|pike|trident|lance|glaive|javelin/.test(n) ? 'spear' : /quarterstaff|\bstaff/.test(n) ? 'staff' : /dagger|knife|sickle|shortsword|kukri/.test(n) ? 'dagger' : ''; };
+const vfxWithWeapon = (v, ...names) => { const w = names.map(vfxWeaponKind).find(Boolean); return w ? Object.assign({}, v, { w }) : v; };
+function vfxForAttack0(a, it) { return vfxPick(a.name + (it && it.weapon ? ' ' + it.weapon.base : ''), (a.notes || '') + ' ' + (a.type || ''), { weapon: a.kind === 'ranged' || (it && it.weapon && it.weapon.kind === 'ranged') ? 'ranged' : 'melee', type: vfxType(a.type) }); }
+function vfxForAttack(a, it) { return vfxWithWeapon(vfxForAttack0(a, it), it && it.weapon && it.weapon.base, a.name, it && it.name); }
+function vfxForItem(it) { return vfxWithWeapon(vfxForItem0(it), it.weapon && it.weapon.base, it.name); }
+function vfxForItem0(it) { const h = vfxHand('mi', it.magic && it.magic.name, it.name); if (h) return h; if (it.weapon) return vfxPick(it.name + ' ' + it.weapon.base, it.weapon.type, { weapon: it.weapon.kind === 'ranged' ? 'ranged' : 'melee', type: vfxType(it.weapon.type) }); if (it.armor) return vfxPick('shield', '', {}); if (/elixir|potion|philter|oil of/i.test(it.name) && !/healing/i.test(it.name)) return Object.assign(vfxPick(it.name, '', {}), { motif: 'morph', c: VFX_COL.trans }); return vfxPick(it.name, (it.summary || '') + ' ' + (it.notes || '') + ' ' + (fullOfItem(it) || ''), { heal: /potion of healing|healing/i.test(it.name) }); }
