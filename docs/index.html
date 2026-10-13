@@ -213,7 +213,7 @@ body:has(#modal.open) .pg-hublink, body:has(#modal.open) .pg-shared, body.wizope
 
 /* ===== Hub wordmark ===== */
 :where(body.hubbody, #pg-load) .hub-logo { display: flex; align-items: center; gap: 12px; margin: 0; cursor: default; user-select: none; }
-:where(body.hubbody, #pg-load) .hl-d20 { width: 54px; height: 54px; flex: none; filter: drop-shadow(0 0 10px rgba(201,150,43,.35)); transition: transform .6s cubic-bezier(.3,1.4,.5,1); }
+:where(body.hubbody, #pg-load) .hl-d20 { width: 54px; height: 54px; flex: none; transition: transform .6s cubic-bezier(.3,1.4,.5,1); }
 :where(body.hubbody, #pg-load) .hl-txt { display: flex; flex-direction: column; line-height: 1; }
 :where(body.hubbody, #pg-load) .hl-a { font: 700 .74rem/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; letter-spacing: .42em; text-transform: uppercase; color: #c9962b; margin: 0 0 3px 2px; }
 :where(body.hubbody, #pg-load) .hl-t { font: italic 800 2.35rem/.95 Georgia, 'Times New Roman', serif; letter-spacing: .01em; background: linear-gradient(180deg, #f6e2a6 0%, #d9a93f 55%, #9c7124 100%); -webkit-background-clip: text; background-clip: text; color: transparent; padding-right: 4px; }
@@ -234,8 +234,6 @@ body:has(#modal.open) .pg-hublink, body:has(#modal.open) .pg-shared, body.wizope
 :where(body.hubbody, #pg-load) .hub-logo, :where(body.hubbody, #pg-load) .hub-logo * { cursor: default; }
 :where(body.hubbody, #pg-load) .hl-d20.roll { animation: hl-roll .85s cubic-bezier(.2,.7,.3,1); }
 @keyframes hl-roll { 0% { transform: rotate(0) scale(1); } 30% { transform: rotate(260deg) scale(1.12) translateY(-3px); } 70% { transform: rotate(560deg) scale(.96); } 100% { transform: rotate(720deg) scale(1); } }
-:where(body.hubbody, #pg-load) .hl-d20.crit { filter: drop-shadow(0 0 14px rgba(255,215,110,.9)); }
-:where(body.hubbody, #pg-load) .hl-d20.fumble { filter: drop-shadow(0 0 12px rgba(214,90,69,.8)); }
 @media (prefers-reduced-motion: reduce) { :where(body.hubbody, #pg-load) .hl-d20.roll { animation: none; } }
 
 :where(#pg-load) .pg-signin .hub-logo { margin: 0 0 14px; }
@@ -306,7 +304,7 @@ function wireDie(root) {
     tick(); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013145128', ASSETS = {"data": "a/data.3f7e0dc5a0bb.js", "app": "a/app.d4deaf4a0fe4.js"};
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013145244', ASSETS = {"data": "a/data.3f7e0dc5a0bb.js", "app": "a/app.d4deaf4a0fe4.js"};
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   let C = clean(Q.get('c')), G = clean(Q.get('g'));
   const P = (Q.get('p') || '').slice(0, 60), O = (Q.get('o') || '').trim().toLowerCase().slice(0, 120);
@@ -350,7 +348,8 @@ function wireDie(root) {
   let fs = null, auth = null;
   // On the new address, Google sign-in runs through the site itself, so Google's account picker says
   // "continue to adventurers-tome.web.app" (and Safari doesn't block it as a third-party sign-in).
-  if (location.hostname === 'adventurers-tome.web.app') CFG.authDomain = location.hostname;
+  // (Switched on once Google has accepted https://adventurers-tome.web.app/__/auth/handler as a redirect address.)
+  if (location.hostname === 'adventurers-tome.web.app' && window.PG_OWN_AUTH) CFG.authDomain = location.hostname;
   try { firebase.initializeApp(CFG); fs = firebase.firestore(); auth = firebase.auth(); } catch (e) { console.error(e); }
   if (!fs || !auth) { say('Couldn\'t start the sheet. Check your connection and reload.'); return; }
   if (window.PG_EMU) { fs.useEmulator('localhost', 8080); auth.useEmulator('http://localhost:9099', { disableWarnings: true }); if (window.PG_EMU_USER) { await auth.signOut(); await auth.signInWithCredential(firebase.auth.GoogleAuthProvider.credential(JSON.stringify(window.PG_EMU_USER))); } } // tests only
