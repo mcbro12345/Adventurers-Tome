@@ -100,3 +100,19 @@ body.hdragging, body.hdragging * { user-select: none; cursor: grabbing !importan
 .pl-f { flex-wrap: wrap; } .pl-f #pl-n { flex: 1 1 120px; } .pl-f #pl-e { flex: 2 1 180px; }
 .who-f select { flex: 1; min-width: 0; border: 1px solid #c9b88f; border-radius: 10px; padding: 9px 10px; font: 15px system-ui, sans-serif; background: #fff; color: #1f2a44; }
 @media (prefers-color-scheme: dark) { body.hubbody .who-f select { background: #0f1420; color: #e9e3d3; border-color: #3a4560; } body.hubbody .hub-views button.on { background: #c9962b; border-color: #c9962b; color: #1b1406; } }
+/* ---- Title, tabs, sharing ---- */
+.hub-top { align-items: center; }
+.hub-title { margin: 0; font: 800 1.15rem/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #c9962b; }
+.hub-views button span { opacity: .65; font-weight: 600; margin-left: 4px; }
+.hc-txt .hc-acc { align-self: flex-start; margin-top: 5px; font-size: .68rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; opacity: 1; border: 1px solid rgba(127,127,127,.4); border-radius: 999px; padding: 1px 8px; }
+.hc-txt .hc-acc.edit { background: #c9962b; border-color: #c9962b; color: #1b1406; }
+.hr-share { margin-right: -6px; }
+.pl-row select { border: 1px solid #c9b88f; border-radius: 8px; padding: 4px 6px; font: 13px system-ui, sans-serif; background: #fff; color: #1f2a44; }
+.sh-who { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 0 8px; align-items: baseline; } .pl-row .sh-who span { flex: none; }
+.sh-f #sh-p { flex: 2 1 160px; } .sh-f #sh-e { flex: 2 1 180px; } .sh-f #sh-a { flex: 0 0 auto; }
+@media (prefers-color-scheme: dark) { body.hubbody .pl-row select { background: #0f1420; color: #e9e3d3; border-color: #3a4560; } }
+.hub-top .hub-title { font: 800 1.25rem/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; letter-spacing: .14em; cursor: default; }
+.sh-who { flex-direction: column; gap: 0; }
+.pg-shared { position: fixed; left: 50%; top: 10px; transform: translateX(-50%); z-index: 60; background: rgba(15,22,38,.82); color: #f3e7c6; border: 1px solid rgba(201,150,43,.6); border-radius: 999px; padding: 4px 12px; font: 700 12px system-ui, sans-serif; pointer-events: none; }
+.pg-shared.view { background: #b6402d; border-color: #b6402d; color: #fff; }
+html.mobile .pg-shared { top: auto; bottom: calc(80px + env(safe-area-inset-bottom)); left: auto; right: 10px; transform: none; }

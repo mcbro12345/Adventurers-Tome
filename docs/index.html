@@ -3188,6 +3188,22 @@ body.hdragging, body.hdragging * { user-select: none; cursor: grabbing !importan
 .pl-f { flex-wrap: wrap; } .pl-f #pl-n { flex: 1 1 120px; } .pl-f #pl-e { flex: 2 1 180px; }
 .who-f select { flex: 1; min-width: 0; border: 1px solid #c9b88f; border-radius: 10px; padding: 9px 10px; font: 15px system-ui, sans-serif; background: #fff; color: #1f2a44; }
 @media (prefers-color-scheme: dark) { body.hubbody .who-f select { background: #0f1420; color: #e9e3d3; border-color: #3a4560; } body.hubbody .hub-views button.on { background: #c9962b; border-color: #c9962b; color: #1b1406; } }
+/* ---- Title, tabs, sharing ---- */
+.hub-top { align-items: center; }
+.hub-title { margin: 0; font: 800 1.15rem/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #c9962b; }
+.hub-views button span { opacity: .65; font-weight: 600; margin-left: 4px; }
+.hc-txt .hc-acc { align-self: flex-start; margin-top: 5px; font-size: .68rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; opacity: 1; border: 1px solid rgba(127,127,127,.4); border-radius: 999px; padding: 1px 8px; }
+.hc-txt .hc-acc.edit { background: #c9962b; border-color: #c9962b; color: #1b1406; }
+.hr-share { margin-right: -6px; }
+.pl-row select { border: 1px solid #c9b88f; border-radius: 8px; padding: 4px 6px; font: 13px system-ui, sans-serif; background: #fff; color: #1f2a44; }
+.sh-who { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 0 8px; align-items: baseline; } .pl-row .sh-who span { flex: none; }
+.sh-f #sh-p { flex: 2 1 160px; } .sh-f #sh-e { flex: 2 1 180px; } .sh-f #sh-a { flex: 0 0 auto; }
+@media (prefers-color-scheme: dark) { body.hubbody .pl-row select { background: #0f1420; color: #e9e3d3; border-color: #3a4560; } }
+.hub-top .hub-title { font: 800 1.25rem/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; letter-spacing: .14em; cursor: default; }
+.sh-who { flex-direction: column; gap: 0; }
+.pg-shared { position: fixed; left: 50%; top: 10px; transform: translateX(-50%); z-index: 60; background: rgba(15,22,38,.82); color: #f3e7c6; border: 1px solid rgba(201,150,43,.6); border-radius: 999px; padding: 4px 12px; font: 700 12px system-ui, sans-serif; pointer-events: none; }
+.pg-shared.view { background: #b6402d; border-color: #b6402d; color: #fff; }
+html.mobile .pg-shared { top: auto; bottom: calc(80px + env(safe-area-inset-bottom)); left: auto; right: 10px; transform: none; }
 </style>
 </head>
 <body>
@@ -17156,7 +17172,7 @@ window.addEventListener('resize', () => { if (!UI.layout) { const was = isMobile
 // the database only lets that player — and the DM — open or change it.
 const ADMIN_EMAIL = 'matthewcbro@gmail.com';
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261012212517';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261012214024';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   let C = clean(Q.get('c')), G = clean(Q.get('g'));
   const P = (Q.get('p') || '').slice(0, 60), O = (Q.get('o') || '').trim().toLowerCase().slice(0, 120);
@@ -17167,6 +17183,7 @@ const ADMIN_EMAIL = 'matthewcbro@gmail.com';
   let fs = null, auth = null;
   try { firebase.initializeApp(CFG); fs = firebase.firestore(); auth = firebase.auth(); } catch (e) { console.error(e); }
   if (!fs || !auth) { say('Couldn\'t start the sheet. Check your connection and reload.'); return; }
+  if (window.PG_EMU) { fs.useEmulator('localhost', 8080); auth.useEmulator('http://localhost:9099', { disableWarnings: true }); if (window.PG_EMU_USER) { await auth.signOut(); await auth.signInWithCredential(firebase.auth.GoogleAuthProvider.credential(JSON.stringify(window.PG_EMU_USER))); } } // tests only
 
   // Finishing an emailed sign-in link.
   if (auth.isSignInWithEmailLink(location.href)) {
@@ -17197,13 +17214,13 @@ const ADMIN_EMAIL = 'matthewcbro@gmail.com';
   window.SHEET_PAGES = true; window.SHEET_CHAR = C;
   const run = () => { if (load) load.remove(); const s = document.createElement('script'); s.textContent = document.getElementById('app-src').textContent; document.body.appendChild(s); };
   const col = fs.collection('sheets'), CACHE = 'dnd-pages-cache:' + C;
-  let txt = null, missing = false, denied = false, OWNER = NEW ? ((IS_ADMIN && O) || EMAIL) : '';
+  let txt = null, missing = false, denied = false, OWNER = NEW ? ((IS_ADMIN && O) || EMAIL) : '', VIEWERS = [], EDITORS = [];
   if (!NEW) try {
     const sn = await col.doc(C).get();
     if (!sn.exists || !sn.data().data) missing = true;
     else {
       const d = sn.data(); let str = d.data || ''; const n = Number(d.n) || 1;
-      if (d.g && !G) G = clean(d.g); OWNER = (d.owner || '').toLowerCase();
+      if (d.g && !G) G = clean(d.g); OWNER = (d.owner || '').toLowerCase(); VIEWERS = d.viewers || []; EDITORS = d.editors || [];
       for (let k = 1; k < n; k++) { const p = await col.doc(C + '_p' + k).get(); const pd = p.exists ? p.data() : null; if (!pd || Number(pd.savedAt) !== Number(d.savedAt)) { str = null; break; } str += pd.data || ''; }
       if (str) { JSON.parse(str); txt = str; lsSet(CACHE, str); }
     }
@@ -17219,12 +17236,14 @@ const ADMIN_EMAIL = 'matthewcbro@gmail.com';
   // Older copies didn't record an owner: take it from the party list.
   if (!OWNER && hubCol) { try { const h = await hubCol.doc(C).get(); OWNER = ((h.exists && h.data().owner) || '').toLowerCase(); } catch (e) {} }
   if (!OWNER) OWNER = EMAIL;
+  // What this person may do here: their own (or the DM) edits; someone it's shared with can edit or only look.
+  const role = () => (IS_ADMIN || OWNER === EMAIL) ? 'owner' : EDITORS.includes(EMAIL) ? 'edit' : 'view';
 
   // Keep this character's card in the party hub up to date (name, class, level, portrait, who edited it last).
   let thumbKey = '', thumbVal = '', hubT = null;
   const thumb = src => new Promise(res => { if (!src) return res(''); const k = src.length + ':' + src.slice(-64); if (k === thumbKey) return res(thumbVal);
     const im = new Image(); im.onload = () => { try { const c = document.createElement('canvas'), n = 112, s = Math.min(im.width, im.height); c.width = c.height = n; c.getContext('2d').drawImage(im, (im.width - s) / 2, (im.height - s) / 2 * 0.6, s, s, 0, 0, n, n); thumbKey = k; thumbVal = c.toDataURL('image/jpeg', 0.8); res(thumbVal); } catch (e) { res(''); } }; im.onerror = () => res(''); im.src = src; });
-  const hubUpdate = async () => { if (!hubCol || !window.sheetSummary) return; const st = window.sheetState && window.sheetState(); if (!st || !st.created) return;
+  const hubUpdate = async () => { if (!hubCol || !window.sheetSummary || role() === 'view') return; const st = window.sheetState && window.sheetState(); if (!st || !st.created) return;
     const s = window.sheetSummary();
     try { await hubCol.doc(C).set({ owner: OWNER, name: s.name, player: s.player, race: s.race, cls: s.cls, level: s.level, hp: s.hp, thumb: await thumb(s.portrait), updatedAt: Date.now(), by: NAME }, { merge: true }); } catch (e) { console.warn('hub', e); } };
   const hubSoon = () => { clearTimeout(hubT); hubT = setTimeout(hubUpdate, 4000); };
@@ -17233,9 +17252,9 @@ const ADMIN_EMAIL = 'matthewcbro@gmail.com';
   const docFor = p => { const m = /^sheets\/(main|part(\d+))$/.exec(p); return m ? [col.doc(m[2] ? C + '_p' + m[2] : C), !m[2]] : null; };
   const none = { get: async () => ({ exists: false, data: () => null }), set: async () => { throw { code: 'unsupported' }; }, delete: async () => {}, onSnapshot: () => () => {} };
   const db = { doc: p => { const x = docFor(p); if (!x) return none; const [r, main] = x;
-    return { get: () => r.get(), set: v => { v = Object.assign({}, v, { owner: OWNER }, main && G ? { g: G } : {}); const w = r.set(v); if (main) w.then(hubSoon, () => {}); return w; }, delete: () => r.delete(),
-      onSnapshot: (cb, err) => r.onSnapshot(s => { const d = s.exists && s.data(); if (d && d.owner) OWNER = String(d.owner).toLowerCase(); cb(s); }, err) }; } };
-  const cuser = { id: async () => null, isOwner: async () => true, can: async () => true };
+    return { get: () => r.get(), set: v => { if (role() === 'view') return Promise.reject({ code: 'permission-denied' }); v = Object.assign({}, v, { owner: OWNER, viewers: VIEWERS, editors: EDITORS }, main && G ? { g: G } : {}); const w = r.set(v); if (main) w.then(hubSoon, () => {}); return w; }, delete: () => r.delete(),
+      onSnapshot: (cb, err) => r.onSnapshot(s => { const d = s.exists && s.data(); if (d && d.owner) OWNER = String(d.owner).toLowerCase(); if (d) { VIEWERS = d.viewers || []; EDITORS = d.editors || []; } cb(s); }, err) }; } };
+  const cuser = { id: async () => null, isOwner: async () => true, can: async () => role() !== 'view' };
   window.claude = { use: async n => n === 'db' ? db : n === 'user' ? cuser : null };
   run();
   if (NEW && P) { try { const st = window.sheetState(); if (st && !st.player) st.player = P; } catch (e) {} }
@@ -17249,7 +17268,8 @@ const ADMIN_EMAIL = 'matthewcbro@gmail.com';
     hubSoon();
   }, 500); }
   // Back to the hub (desktop and phone).
-  if (G) { const a = document.createElement('a'); a.href = location.pathname + '?g=' + G; a.className = 'pg-hublink'; a.title = 'All characters'; a.textContent = '⌂ Party'; document.body.appendChild(a); }
+  if (G) { const a = document.createElement('a'); a.href = location.pathname + '?g=' + G; a.className = 'pg-hublink'; a.title = 'All characters'; a.textContent = '⌂ Characters'; document.body.appendChild(a); }
+  if (role() !== 'owner') { const t = document.createElement('div'); t.className = 'pg-shared' + (role() === 'view' ? ' view' : ''); t.textContent = role() === 'view' ? 'View only' : 'Shared with you · can edit'; document.body.appendChild(t); }
   verCheck();
 })();
 
@@ -17281,7 +17301,7 @@ function hub(fs, auth, G, ctx) {
   document.body.innerHTML = '<div id="hub"></div><div id="hub-modal" class="hub-modal"></div><div id="hub-toast" class="hub-toast"></div>';
   document.body.className = 'hubbody';
   const root = document.getElementById('hub'), modal = document.getElementById('hub-modal');
-  let chars = [], group = { name: '', players: {} }, open = {}, view = IS_ADMIN ? (ls.get(VIEW) || 'all') : 'mine';
+  let chars = [], group = { name: '', players: {} }, open = {}, view = ls.get(VIEW) === 'shared' ? 'shared' : 'mine';
   try { open = JSON.parse(ls.get(OPEN) || '{}'); } catch (e) {}
   const toast = t => { const el = document.getElementById('hub-toast'); el.textContent = t; el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), 2600); };
   const pmap = () => (group && group.players) || {};
@@ -17330,12 +17350,43 @@ function hub(fs, auth, G, ctx) {
     modal.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => { await gDoc.update(new FP('players', b.dataset.rm), FV.delete()); playersPanel(); });
     modal.querySelector('#pl-x').onclick = close;
   }
+  // Who else can open a character: everyone in "viewers" can look; those also in "editors" can change it.
+  async function setAccess(c, V, E) {
+    const acc = { viewers: V, editors: E.filter(x => V.includes(x)) };
+    const s0 = await sheets.doc(c.id).get(); const n = Number(s0.exists && s0.data().n) || 1;
+    await sheets.doc(c.id).update(acc); for (let k = 1; k < n; k++) await sheets.doc(c.id + '_p' + k).update(acc).catch(() => {});
+    await charsCol.doc(c.id).set(acc, { merge: true }); Object.assign(c, acc);
+  }
+  function shareChar(c) {
+    let V = [...(c.viewers || [])], E = [...(c.editors || [])];
+    const paint = () => {
+      const opts = Object.entries(pmap()).filter(([em]) => em !== c.owner && !V.includes(em)).sort((a, b) => a[1].localeCompare(b[1]));
+      modal.innerHTML = `<div class="hub-card wide"><h2>Share ${esc(c.name || 'this character')}</h2><p class="hub-hint">They'll find it under “Shared characters” after signing in with that email.</p>
+        <div class="pl-list">${V.map(em => `<div class="pl-row"><span class="sh-who">${pmap()[em] ? `<b>${esc(pmap()[em])}</b> ` : ''}<span>${esc(em)}</span></span><select data-acc="${esc(em)}"><option value="view">Can view</option><option value="edit"${E.includes(em) ? ' selected' : ''}>Can edit</option></select><button class="linkbtn" data-rm="${esc(em)}">remove</button></div>`).join('') || '<p class="hub-hint">Not shared with anyone yet.</p>'}</div>
+        <form id="sh-f" class="who-f pl-f sh-f">${opts.length ? `<select id="sh-p"><option value="">Pick a player…</option>${opts.map(([em, n]) => `<option value="${esc(em)}">${esc(n)}</option>`).join('')}<option value="other">Someone else (type email)</option></select>` : ''}<input id="sh-e" type="email" placeholder="Email address"${opts.length ? ' hidden' : ''}><select id="sh-a"><option value="view">Can view</option><option value="edit">Can edit</option></select><button class="btn gold">Share</button></form>
+        <button class="btn ghost" id="sh-x">Done</button></div>`;
+      modal.classList.add('on');
+      const pk = modal.querySelector('#sh-p'), ei = modal.querySelector('#sh-e');
+      if (pk) pk.onchange = () => { ei.hidden = pk.value !== 'other'; if (!ei.hidden) ei.focus(); };
+      const save = async (nv, ne, msg) => { try { await setAccess(c, nv, ne); V = c.viewers; E = c.editors; if (msg) toast(msg); paint(); } catch (x) { toast('Couldn\'t change sharing: ' + (x.message || x)); } };
+      modal.querySelector('#sh-f').onsubmit = e => { e.preventDefault(); const em = ((pk && pk.value && pk.value !== 'other') ? pk.value : ei.value).trim().toLowerCase();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { toast('Type an email address.'); return; } if (em === c.owner) { toast('That’s the owner.'); return; }
+        const ed = modal.querySelector('#sh-a').value === 'edit'; save([...V.filter(x => x !== em), em], ed ? [...E.filter(x => x !== em), em] : E.filter(x => x !== em), 'Shared with ' + nameOf(em) + '.'); };
+      modal.querySelectorAll('[data-acc]').forEach(sel => sel.onchange = () => { const em = sel.dataset.acc; save(V, sel.value === 'edit' ? [...E.filter(x => x !== em), em] : E.filter(x => x !== em)); });
+      modal.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { const em = b.dataset.rm; save(V.filter(x => x !== em), E.filter(x => x !== em), 'Stopped sharing with ' + nameOf(em) + '.'); });
+      modal.querySelector('#sh-x').onclick = close;
+    };
+    paint();
+  }
+  const shareIcon = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>';
+  const shareNote = c => { const n = (c.viewers || []).length; return n ? `Shared with ${n} · ` : ''; };
   function card(c) {
-    return `<div class="hc${c.pin ? ' pinned' : ''}"><a class="hc-main" href="${esc(base + '?c=' + c.id)}">${c.thumb ? `<img class="hc-pic" src="${esc(c.thumb)}" alt="">` : `<span class="hc-pic hc-nopic">${esc((c.name || '?')[0])}</span>`}
+    const acc = IS_ADMIN ? '' : (c.editors || []).includes(EMAIL) ? '<span class="hc-acc edit">Can edit</span>' : '<span class="hc-acc">View only</span>';
+    return `<div class="hc${c.pin && isMine(c) ? ' pinned' : ''}"><a class="hc-main" href="${esc(base + '?c=' + c.id)}">${c.thumb ? `<img class="hc-pic" src="${esc(c.thumb)}" alt="">` : `<span class="hc-pic hc-nopic">${esc((c.name || '?')[0])}</span>`}
       <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</span>
-      <small>${c.hp ? 'HP ' + esc(c.hp) + ' · ' : ''}${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small></span></a>
-      <div class="hc-menu"><button class="hc-dots" aria-label="More">⋯</button><div class="hc-list">
-        <button data-a="move" data-id="${esc(c.id)}">Give to another player</button><button data-a="rm" data-id="${esc(c.id)}">Remove from list</button></div></div></div>`;
+      <small>${c.hp ? 'HP ' + esc(c.hp) + ' · ' : ''}${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small>${acc}</span></a>
+      ${IS_ADMIN ? `<div class="hc-menu"><button class="hc-dots" aria-label="More">⋯</button><div class="hc-list">
+        <button data-a="share" data-id="${esc(c.id)}">Share…</button><button data-a="move" data-id="${esc(c.id)}">Give to another player</button><button data-a="rm" data-id="${esc(c.id)}">Remove from list</button></div></div>` : ''}</div>`;
   }
   // Pinned first; then each player's own order (drag to change), then most recently updated.
   const ord = (a, b) => (!!b.pin - !!a.pin) || ((a.order != null ? a.order : 1e9) - (b.order != null ? b.order : 1e9)) || ((b.updatedAt || 0) - (a.updatedAt || 0));
@@ -17343,8 +17394,8 @@ function hub(fs, auth, G, ctx) {
     return `<div class="hr${c.pin ? ' pinned' : ''}" data-id="${esc(c.id)}" data-pin="${c.pin ? 1 : 0}"><span class="hr-grip" title="Drag to reorder" aria-label="Drag to reorder">⠿</span>
       <a class="hr-main" href="${esc(base + '?c=' + c.id)}">${c.thumb ? `<img class="hc-pic" src="${esc(c.thumb)}" alt="">` : `<span class="hc-pic hc-nopic">${esc((c.name || '?')[0])}</span>`}
       <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</span>
-      <small>${c.hp ? 'HP ' + esc(c.hp) + ' · ' : ''}${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small></span></a>
-      <button class="hr-pin${c.pin ? ' on' : ''}" data-pin-id="${esc(c.id)}" title="${c.pin ? 'Unpin' : 'Pin to the top'}" aria-pressed="${!!c.pin}"><svg viewBox="0 0 24 24" width="18" height="18" fill="${c.pin ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 3h6l-1 6 4 4H6l4-4z"/><path d="M12 13v8"/></svg></button></div>`;
+      <small>${shareNote(c)}${c.hp ? 'HP ' + esc(c.hp) + ' · ' : ''}${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small></span></a>
+      <button class="hr-pin hr-share" data-share-id="${esc(c.id)}" title="Share">${shareIcon}</button><button class="hr-pin${c.pin ? ' on' : ''}" data-pin-id="${esc(c.id)}" title="${c.pin ? 'Unpin' : 'Pin to the top'}" aria-pressed="${!!c.pin}"><svg viewBox="0 0 24 24" width="18" height="18" fill="${c.pin ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 3h6l-1 6 4 4H6l4-4z"/><path d="M12 13v8"/></svg></button></div>`;
   }
   async function saveOrder(ids) { await Promise.all(ids.map((id, i) => { const c = chars.find(x => x.id === id); if (c && c.order === i) return null; if (c) c.order = i; return charsCol.doc(id).set({ order: i }, { merge: true }); })); }
   async function togglePin(id) { const c = chars.find(x => x.id === id); if (!c) return; const mine = chars.filter(isMine);
@@ -17374,33 +17425,40 @@ function hub(fs, auth, G, ctx) {
   document.addEventListener('pointerup', endDrag); document.addEventListener('pointercancel', endDrag);
 
   function draw() {
-    const A = admin(), list = A ? chars : chars.filter(isMine), groups = {};
-    list.forEach(c => { const k = (c.player || '').trim() || nameOf(c.owner || '') || 'No player yet'; (groups[k] = groups[k] || []).push(c); });
-    const mineKey = k => groups[k].some(isMine);
-    const keys = Object.keys(groups).sort((a, b) => (mineKey(b) - mineKey(a)) || a.localeCompare(b));
-    root.innerHTML = `<header class="hub-top"><div><div class="hub-kicker">D&amp;D Character Sheets</div><h1>${A ? esc(group.name || 'The Party') : esc(myName()) + '’s characters'}</h1></div>
+    const SH = view === 'shared', mine = chars.filter(isMine), shared = chars.filter(c => !isMine(c)), groups = {};
+    shared.forEach(c => { const k = nameOf(c.owner || '') || (c.player || '').trim() || 'No player yet'; (groups[k] = groups[k] || []).push(c); });
+    const keys = Object.keys(groups).sort((a, b) => a.localeCompare(b));
+    const byName = (a, b) => (a.name || '').localeCompare(b.name || '');
+    const body = SH
+      ? (keys.length ? keys.map(k => { const isOpen = open[k] != null ? open[k] : true; return `<details class="hub-folder" data-k="${esc(k)}" ${isOpen ? 'open' : ''}><summary><span class="hf-caret">▸</span><span class="hf-name">${esc(k)}</span><span class="hf-n">${groups[k].length}</span></summary>
+        <div class="hf-body">${groups[k].sort(byName).map(card).join('')}</div></details>`; }).join('')
+        : `<p class="hub-empty">Nothing has been shared with you yet. When another player shares a character with ${esc(EMAIL)}, it shows up here.</p>`)
+      : (mine.length ? `<div class="hl">${mine.sort(ord).map(row).join('')}</div>` : `<p class="hub-empty">You don’t have any characters yet — create one${IS_ADMIN ? '' : ', or ask your DM to give you yours'}.</p>`);
+    root.innerHTML = `<header class="hub-top"><h1 class="hub-title">D&amp;D Character Sheets</h1>
       <div class="hub-me">Signed in as <b>${esc(myName())}</b> <span class="hub-em">${esc(EMAIL)}</span> · <button class="linkbtn" id="me-out">Sign out</button></div></header>
-      ${IS_ADMIN ? `<div class="hub-views"><button class="${view === 'mine' ? 'on' : ''}" data-view="mine">My characters</button><button class="${view === 'all' ? 'on' : ''}" data-view="all">Everyone</button>${A ? '<button class="linkbtn" id="hub-pl">Players…</button>' : ''}</div>` : ''}
-      <div class="hub-bar"><button class="btn gold big" id="hub-new">＋ Create character</button><span class="hub-hint">${A ? `${list.length} character${list.length === 1 ? '' : 's'} · ${keys.length} player${keys.length === 1 ? '' : 's'}` : 'Your characters'}</span></div>
-      ${keys.length ? keys.map(k => { const mine = mineKey(k), isOpen = !A || (open[k] != null ? open[k] : true); return `<details class="hub-folder${mine ? ' mine' : ''}${A ? '' : ' solo'}" data-k="${esc(k)}" ${isOpen ? 'open' : ''}><summary><span class="hf-caret">▸</span><span class="hf-name">${esc(k)}</span>${mine ? '<span class="hf-you">You</span>' : ''}<span class="hf-n">${groups[k].length}</span></summary>
-        <div class="${A ? 'hf-body' : 'hl'}">${groups[k].sort(ord).map(A ? card : row).join('')}</div></details>`; }).join('') : `<p class="hub-empty">${A ? 'No characters yet — create the first one.' : 'You don’t have any characters yet — create one, or ask your DM to give you yours.'}</p>`}
-      <footer class="hub-foot">Bookmark this page. You're signed in on this device; ${IS_ADMIN ? 'each character only opens for its player and you' : 'your characters only open for you and your DM'}.</footer>`;
-    root.querySelector('#hub-new').onclick = createChar;
+      <div class="hub-views"><button class="${SH ? '' : 'on'}" data-view="mine">My characters <span>${mine.length}</span></button><button class="${SH ? 'on' : ''}" data-view="shared">Shared characters <span>${shared.length}</span></button>${IS_ADMIN ? '<button class="linkbtn" id="hub-pl">Players…</button>' : ''}</div>
+      ${SH ? '' : '<div class="hub-bar"><button class="btn gold big" id="hub-new">＋ Create character</button></div>'}
+      ${body}
+      <footer class="hub-foot">Bookmark this page. You're signed in on this device. ${IS_ADMIN ? 'As the DM you can open and edit every character.' : 'Your characters only open for you, your DM, and anyone you share them with.'}</footer>`;
+    const nb = root.querySelector('#hub-new'); if (nb) nb.onclick = createChar;
     root.querySelector('#me-out').onclick = signOut;
     root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { view = b.dataset.view; ls.set(VIEW, view); draw(); });
     const pl = root.querySelector('#hub-pl'); if (pl) pl.onclick = playersPanel;
     root.querySelectorAll('[data-pin-id]').forEach(b => b.onclick = e => { e.preventDefault(); togglePin(b.dataset.pinId); });
+    root.querySelectorAll('[data-share-id]').forEach(b => b.onclick = e => { e.preventDefault(); const c = chars.find(x => x.id === b.dataset.shareId); if (c) shareChar(c); });
     root.querySelectorAll('details.hub-folder').forEach(d => d.addEventListener('toggle', () => { open[d.dataset.k] = d.open; ls.set(OPEN, JSON.stringify(open)); }));
     root.querySelectorAll('.hc-dots').forEach(b => b.onclick = e => { e.stopPropagation(); const w = b.parentElement, on = !w.classList.contains('on'); root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')); w.classList.toggle('on', on); });
     root.querySelectorAll('.hc-list [data-a]').forEach(b => b.onclick = () => { const c = chars.find(x => x.id === b.dataset.id); b.closest('.hc-menu').classList.remove('on'); if (!c) return;
-      if (b.dataset.a === 'move') moveChar(c); if (b.dataset.a === 'rm') removeChar(c); });
-    const h1 = root.querySelector('h1'); if (A) { h1.title = 'Click to rename'; h1.onclick = async () => { const n = prompt('Party name', group.name || 'The Party'); if (n != null && n.trim()) await gDoc.set({ name: n.trim().slice(0, 60) }, { merge: true }); }; }
+      if (b.dataset.a === 'share') shareChar(c); if (b.dataset.a === 'move') moveChar(c); if (b.dataset.a === 'rm') removeChar(c); });
   }
   document.addEventListener('click', () => root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')));
   draw();
   gDoc.onSnapshot(s => { group = (s.exists && s.data()) || {}; if (!RD) draw(); }, () => {});
-  (IS_ADMIN ? charsCol : charsCol.where('owner', '==', EMAIL)).onSnapshot(qs => { chars = qs.docs.map(d => Object.assign({ id: d.id }, d.data())); if (!RD) draw(); },
-    e => { root.innerHTML = `<p class="hub-empty">Couldn't load the party list (${esc(e.code || e.message || e)}).<br><br>Signed in as ${esc(EMAIL)} · <button class="linkbtn" onclick="pgSignOut()">Sign out</button></p>`; console.error(e); });
+  // The DM sees every character; everyone else sees their own plus the ones shared with them.
+  const lists = {}, merge = () => { const m = new Map(); Object.values(lists).forEach(l => l.forEach(c => m.set(c.id, c))); chars = [...m.values()]; if (!RD) draw(); };
+  const failed = e => { root.innerHTML = `<p class="hub-empty">Couldn't load the character list (${esc(e.code || e.message || e)}).<br><br>Signed in as ${esc(EMAIL)} · <button class="linkbtn" onclick="pgSignOut()">Sign out</button></p>`; console.error(e); };
+  const watch = (k, q) => q.onSnapshot(qs => { lists[k] = qs.docs.map(d => Object.assign({ id: d.id }, d.data())); merge(); }, failed);
+  if (IS_ADMIN) watch('all', charsCol); else { watch('mine', charsCol.where('owner', '==', EMAIL)); watch('shared', charsCol.where('viewers', 'array-contains', EMAIL)); }
   setInterval(() => { if (!RD) draw(); }, 60000);
 }
 
