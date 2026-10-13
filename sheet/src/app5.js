@@ -61,12 +61,14 @@ function rebuildAuto() {
     (f.kind === 'pick' ? [] : fx.spells || []).forEach(n => want.push({ n, cls, src: f.dname || f.name, note: fx.spellNote || '', once: !!fx.once }));
     Object.entries(fx.spellsAt || {}).forEach(([lv, arr]) => { if (own >= N(lv)) arr.forEach(n => want.push({ n, cls, src: f.dname || f.name, note: fx.spellNote || '', once: !!fx.once })); }); });
   // Spells an item lets you cast, while you're using it (equipped, or carried if ticked; attuned if it needs it)
-  S.inventory.forEach(it => { if (!hbItemOn(it)) return; (it.spells || []).forEach(n => want.push({ n, cls: 'other', src: it.name, note: it.spellAtWill ? 'at will' : it.spellOnce ? 'once per long rest' : '', once: !!it.spellOnce && !it.spellAtWill, atWill: !!it.spellAtWill, ab: (it.hb && it.hb.spellAb) || '', itemId: it.id })); });
+  S.inventory.forEach(it => { if (!hbItemOn(it)) return; const st = itemStores(it); (it.spells || []).forEach(n => want.push({ n, cls: 'other', src: it.name, note: st ? 'stored — gone once cast' : it.spellAtWill ? 'at will' : it.spellOnce ? 'once per long rest' : '', once: !st && !!it.spellOnce && !it.spellAtWill, atWill: !st && !!it.spellAtWill, stored: st, lvl: N((it.spellLevels || {})[n]), ab: (it.hb && it.hb.spellAb) || '', itemId: it.id })); });
   const keyOf = (n, cls) => n.toLowerCase() + '|' + cls;
   const wantKeys = new Set(want.map(w => keyOf(w.n, w.cls)));
   S.spells = S.spells.filter(s => !s.auto || wantKeys.has(keyOf(s.name, s.cls)));
   want.forEach(w => {
     const ex0 = S.spells.find(s => keyOf(s.name, s.cls) === keyOf(w.n, w.cls) && s.always && s.auto);
+    if (ex0 && w.stored) { storedUse(ex0, w); ex0.item = w.itemId; ex0.ab = w.ab || (casters()[0] || {}).ab || 'cha'; ex0.note = w.src + ': ' + w.note; return; }
+    if (ex0 && ex0.usesOnly && w.itemId) { delete ex0.usesOnly; delete ex0.stored; delete ex0.uses; }
     if (ex0 && (w.itemId || w.atWill || ex0.atWill)) { ex0.atWill = !!w.atWill && N(ex0.level) > 0; if (w.once && N(ex0.level) > 0) { if (!ex0.uses) ex0.uses = { max: '1', reset: 'long', used: 0 }; } else if (w.itemId || ex0.atWill) delete ex0.uses; if (w.itemId) { ex0.item = w.itemId; ex0.ab = w.ab || (casters()[0] || {}).ab || 'cha'; } ex0.note = w.src + (w.note ? ': ' + w.note : ''); return; }
     if (S.spells.some(s => keyOf(s.name, s.cls) === keyOf(w.n, w.cls) && s.always)) return;
     const ex = S.spells.find(s => s.name.toLowerCase() === w.n.toLowerCase() && s.cls === w.cls);
@@ -75,6 +77,7 @@ function rebuildAuto() {
     if (w.once && N(sp.level) > 0) sp.uses = { max: '1', reset: 'long', used: 0 };
     if (w.atWill && N(sp.level) > 0) sp.atWill = true;
     if (w.itemId) { sp.item = w.itemId; sp.ab = w.ab || (casters()[0] || {}).ab || 'cha'; }
+    if (w.stored) storedUse(sp, w);
     if (w.cls === 'race') { sp.ab = w.ab; if (/once per long rest|1\/long rest|once per day/i.test(w.note || '') && N(sp.level) > 0) { sp.uses = { max: '1', reset: 'long', used: 0 }; const lv = String(w.note).match(/as (\d)(?:st|nd|rd|th)[- ]level/i); if (lv) sp.uses.level = N(lv[1]); } }
     S.spells.push(sp);
   });
@@ -86,6 +89,14 @@ function rebuildAuto() {
   S.features.forEach(f => (fxOf(f).attacks || []).forEach(([n, d, t, ab, x]) => auto.push(Object.assign({ name: n, ab: ab || 'str', prof: true, magic: 0, dice: d, type: t, notes: f.dname || f.name, kind: 'melee', auto: 'feature' }, x || {}, x && x.hbDice ? { dice: fxRollExpr(d), notes: [f.dname || f.name, x.notes].filter(Boolean).join(' · ') } : {}))));
   if (ri && ri.natural) ri.natural.forEach(([n, d, t]) => auto.push({ name: n, ab: 'str', prof: true, magic: 0, dice: d, type: t, notes: 'Natural weapon', kind: 'melee', monk, auto: 'natural' }));
   S.attacks = auto.map(a => { const prev = S.attacks.find(x => x.auto && x.name === a.name); return prev ? Object.assign(prev, { monk: a.monk, ab: prev.ab === 'str' && a.ab === 'monk' ? 'monk' : prev.ab, dice: a.monk && prev.dice === '1' ? '' : a.hbDice ? a.dice : prev.dice }, a.hbDice ? { type: a.type, notes: a.notes, noModDmg: a.noModDmg, kind: a.kind, ab: a.ab } : {}) : a; }).reverse().concat(keep.slice().reverse()).reverse();
+}
+// Spells stored in an item (a Ring of Spell Storing): one use each, cast at the level it was stored at, and gone
+// until someone casts a spell into the item again (it doesn't come back on a rest).
+const itemStores = it => it.spellStored != null ? !!it.spellStored : /ring of spell storing/i.test(it.name + ' ' + ((it.magic && it.magic.name) || ''));
+function storedUse(sp, w) {
+  if (!sp.usesOnly || !sp.uses) sp.uses = { max: '1', used: 0, reset: 'never' };
+  sp.usesOnly = true; sp.stored = true; sp.uses.reset = 'never'; sp.prepared = true;
+  if (w.lvl > N(sp.level)) sp.uses.level = w.lvl; else delete sp.uses.level;
 }
 function spellEntry(n, cls) {
   const d = SPI(n) || { name: n, level: 1, school: '', time: '1 action', range: '', comps: '', duration: '', conc: false, ritual: false, summary: '', src: '' };
@@ -961,6 +972,7 @@ function pendPick(id, j) {
     if (x.removeLang) S.langs = S.langs.filter(l => l.toLowerCase() !== x.removeLang.toLowerCase());
     if (x.addTool) addText('profTools', [x.addTool]);
     if (x.addSkill) setSkill(x.addSkill, 1);
+    if (x.removeSpell) S.spells = S.spells.filter(sp => sp.auto || sp.name.toLowerCase() !== x.removeSpell.toLowerCase());
     if (x.dropSkill) { const sk = S.skills.find(k => k.name.toLowerCase() === x.dropSkill.toLowerCase()); if (sk) sk.prof = 0; }
     if (x.addFeature && !S.features.some(f => f.name === x.addFeature.name)) S.features.push(Object.assign({ key: 'custom:' + x.addFeature.name, dname: x.addFeature.name, source: 'Custom', auto: false, used: 0, dmax: '', dreset: 'long', max: '', reset: 'long', pool: false, col: '', cls: '', kind: 'custom', desc: '' }, x.addFeature));
   });
@@ -1137,7 +1149,9 @@ window.sheetState = () => S; window.sheetToast = toast;
 window.sheetSet = (k, v) => { S[k] = v; pendingLabel = null; save(); render('header'); };
 window.sheetSummary = () => ({ name: S.name || '', player: S.player || '', race: S.raceName || '', cls: S.created ? classLabel() : '', level: S.created ? lvl() : 0, portrait: S.portrait || '', hp: S.created ? N(S.hp && S.hp.cur) + '/' + maxHp() : '' });
 if (S.created) applySources(S.sources);
-if (S.created && FIXED) { const at = S.savedAt; rebuildAuto(); writeLocal(); S.savedAt = at; } // one-off fixes don't count as a newer edit (a newer synced copy still wins)
+// Spells from a Ring of Spell Storing made before stored spells existed: set them up as stored now.
+const staleStore = () => (S.spells || []).some(sp => { const it = sp.item && (S.inventory || []).find(x => x.id === sp.item); return it && itemStores(it) && !sp.usesOnly; });
+if (S.created && (FIXED || staleStore())) { const at = S.savedAt; rebuildAuto(); writeLocal(); S.savedAt = at; } // one-off fixes don't count as a newer edit (a newer synced copy still wins)
 loadHist(FROM_LOCAL);
 applyLayout(); applyTheme();
 if (S.created) { render(); setTimeout(afterUpdate, 50); }

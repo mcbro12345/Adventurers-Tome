@@ -10173,7 +10173,7 @@ function storeSpellsList() {
   return DND.spells.filter(s => (/A/.test(s.classes || '') || extra.has(s.name.toLowerCase())) && (s.level === 1 || s.level === 2) && s.time === '1 action');
 }
 const spellUpcasts = n => /At Higher Levels/.test((DND.full || {})['sp:' + n] || '');
-function storedSpellIdx() { return S.spells.findIndex(s => s.stored); }
+function storedSpellIdx() { return S.spells.findIndex(s => s.stored && s.cls === 'artificer'); }
 function openSpellStore(fi) {
   if (clsLv('artificer') < 11) { toast('Spell-Storing Item needs artificer level 11.', 'fumble'); return; }
   const cur = S.spells[storedSpellIdx()], items = S.inventory.filter(storeQualifies), list = items.length ? items : S.inventory;
@@ -11081,7 +11081,7 @@ function renderSpells() {
     slotCards.push(`<div class="slot"><div class="top"><span class="lbl">${ORD[i]} level</span><span class="ct" data-calc="slotct:${i}"></span></div><div class="pips" data-calc-html="slotpips:${i}" style="margin-top:6px"></div></div>`);
   }
   S.spells.forEach((sp, si) => { if (!sp.stored) return; const it = spItem(sp), lv = Math.max(N(sp.level), N(sp.uses && sp.uses.level));
-    slotCards.push(`<div class="slot storeslot" title="Spell-Storing Item: ${esc(sp.name)}${it ? ' in ' + esc(it.name) : ''} (${ORD[lv - 1] || ''} level). Doesn't refill on a rest — store again to refill."><div class="top"><span class="lbl">Stored</span><span class="ct" data-calc="storect:${si}"></span></div><div class="storenm">${esc(sp.name)}${lv > N(sp.level) ? ' <small>(' + ORD[lv - 1] + ')</small>' : ''}</div><div class="pips" data-calc-html="storepips:${si}" style="margin-top:6px"></div></div>`); });
+    slotCards.push(`<div class="slot storeslot" title="${sp.cls === 'artificer' ? 'Spell-Storing Item' : 'Stored spell'}: ${esc(sp.name)}${it ? ' in ' + esc(it.name) : ''} (${ORD[lv - 1] || ''} level). Doesn't refill on a rest — store again to refill."><div class="top"><span class="lbl">Stored</span><span class="ct" data-calc="storect:${si}"></span></div><div class="storenm">${esc(sp.name)}${lv > N(sp.level) ? ' <small>(' + ORD[lv - 1] + ')</small>' : ''}</div><div class="pips" data-calc-html="storepips:${si}" style="margin-top:6px"></div></div>`); });
   if (p) slotCards.push(`<div class="slot pactslot"><div class="top"><span class="lbl">Pact · ${ORD[p.level - 1]}</span><span class="ct" data-calc="pactct"></span></div><div class="pips" data-calc-html="pactpips" style="margin-top:6px"></div></div>`);
   const cust = spCustom(); if (cust) spCatsEnsure();
   const order = cust ? spCustomOrder() : S.spells.map((s, i) => i).sort((a, b) => N(S.spells[a].level) - N(S.spells[b].level) || String(S.spells[a].name).localeCompare(S.spells[b].name));
@@ -11231,8 +11231,8 @@ function hbBox(path, hb, kind, key, it, ii) {
     ${comps.length ? fld('Summons', sel(P + 'summon', [['', '—']].concat(comps.map(c => [c, c])))) : ''}${fld('Only while effect', I('onlyEffect', { ph: 'effect name' }))}${fld('Text shown', I('text', { ph: 'reminder when used' }))}${fld('Remind me', sel(P + 'triggerOn', [['', '—'], ['longRest', 'After a long rest'], ['shortRest', 'After a short rest'], ['initiative', 'When I roll initiative'], ['zero', 'When I drop to 0 HP']]))}</div></div>`;
   const atk = `<div class="hbsec"><div class="hbt">Adds an attack</div><div class="hbgrid">${fld('Attack name', I('atkName', { ph: 'Flame Seed' }))}${fld('Damage', I('atkDice', { ph: '1d6+prof' }))}${fld('Type', I('atkType', { ph: 'fire' }))}
     ${fld('To hit with', sel(P + 'atkAb', [['spell', 'Spell attack'], ['str', 'STR'], ['dex', 'DEX'], ['fin', 'STR or DEX'], ['con', 'CON'], ['int', 'INT'], ['wis', 'WIS'], ['cha', 'CHA']]))}${fld('Kind', sel(P + 'atkKind', [['melee', 'Melee'], ['ranged', 'Ranged']]))}${fld('Range (ft)', I('atkRange', { ph: '60' }))}${fld('Attack note', I('atkNote', { ph: 'only while…' }))}<label class="checkline">${chk(P + 'atkAddMod')} Add ability modifier to damage</label></div></div>`;
-  const spells = kind === 'item' ? `<div class="hbsec"><div class="hbt">Spells it lets you cast</div><div class="fc-spells">${(it.spells || []).map((n, j) => `<span class="pchip">${esc(n)}<button data-act="ispdel" data-i="${ii}" data-j="${j}" aria-label="Remove ${esc(n)}">✕</button></span>`).join('') || '<span class="hint">None yet</span>'}
-    <input class="f fspadd" list="allspells" data-isp="${ii}" placeholder="+ Add a spell…" aria-label="Add a spell this item casts"><label class="checkline">${chk(path + '.spellOnce')} Leveled spells once per long rest</label><label class="checkline">${chk(path + '.spellAtWill')} At will (no slot)</label>${fld('Cast with', sel(P + 'spellAb', [['', 'Your spellcasting'], ...AB.map(a => [a, ABN[a]])]))}</div></div>` : '';
+  const spells = kind === 'item' ? `<div class="hbsec"><div class="hbt">Spells it lets you cast</div><div class="fc-spells">${(it.spells || []).map((n, j) => `<span class="pchip">${esc(n)}${itemStores(it) && N((SPI(n) || {}).level) > 0 ? ` <select class="isplv" data-isplv="${ii}" data-n="${esc(n)}" aria-label="Level ${esc(n)} is stored at">${[1, 2, 3, 4, 5].filter(L => L >= N((SPI(n) || {}).level)).map(L => `<option value="${L}"${Math.max(N((it.spellLevels || {})[n]), N((SPI(n) || {}).level)) === L ? ' selected' : ''}>${ORD[L - 1]}</option>`).join('')}</select>` : ''}<button data-act="ispdel" data-i="${ii}" data-j="${j}" aria-label="Remove ${esc(n)}">✕</button></span>`).join('') || '<span class="hint">None yet</span>'}
+    <input class="f fspadd" list="allspells" data-isp="${ii}" placeholder="+ Add a spell…" aria-label="Add a spell this item casts"><label class="checkline"><input type="checkbox" data-istore="${ii}"${itemStores(it) ? ' checked' : ''}> Stored in it — each is gone once cast (like a Ring of Spell Storing)</label><label class="checkline">${chk(path + '.spellOnce')} Leveled spells once per long rest</label><label class="checkline">${chk(path + '.spellAtWill')} At will (no slot)</label>${fld('Cast with', sel(P + 'spellAb', [['', 'Your spellcasting'], ...AB.map(a => [a, ABN[a]])]))}</div></div>` : '';
   return `<div class="hbbox open">${head}<div class="hbbody">${always}${spells}${use}${atk}<p class="hint">Numbers accept formulas: <code>prof</code>, <code>wis</code>, <code>level</code>, <code>druid</code>, <code>1d6+prof</code>. Separate several entries with commas.</p></div></div>`;
 }
 function spellDatalist() { if (!$('#allspells')) { const dl = document.createElement('datalist'); dl.id = 'allspells'; dl.innerHTML = DND.spells.map(x => `<option value="${esc(x.name)}">`).join(''); document.body.appendChild(dl); } }
@@ -11887,7 +11887,7 @@ function calcHTML(key) {
       for (let i = 0; i < 9; i++) { const m = slotMax(i); if (!m) continue; h += `<div class="slotline"><span class="sl">${ORD[i]}</span><span class="pips">${slotPips(i)}</span><span class="ct">${slotsLeft(i)}/${m}</span></div>`; }
       const p = pact(); if (p) h += `<div class="slotline"><span class="sl">Pact ${ORD[p.level - 1]}</span><span class="pips">${pactPips()}</span><span class="ct">${pactLeft()}/${p.count}</span></div>`;
       S.spells.forEach((sp, si) => { if (!sp.stored || !sp.uses) return; const mx = evalMax(sp.uses.max) || 0, it = spItem(sp), lv = Math.max(N(sp.level), N(sp.uses.level));
-        h += `<div class="slotline storeline" title="Spell-Storing Item${it ? ' (' + esc(it.name) + ')' : ''}: ${esc(sp.name)}${lv > N(sp.level) ? ' at ' + ORD[lv - 1] + ' level' : ''}. Doesn't refill on a rest — store again to refill."><span class="sl">Stored<small>${esc(sp.name)}</small></span><span class="pips">${calcHTML('storepips:' + si)}</span><span class="ct">${Math.max(0, mx - N(sp.uses.used))}/${mx}</span></div>`; });
+        h += `<div class="slotline storeline" title="${sp.cls === 'artificer' ? 'Spell-Storing Item' : 'Stored spell'}${it ? ' (' + esc(it.name) + ')' : ''}: ${esc(sp.name)}${lv > N(sp.level) ? ' at ' + ORD[lv - 1] + ' level' : ''}. Doesn't refill on a rest — store again to refill."><span class="sl">Stored<small>${esc(sp.name)}</small></span><span class="pips">${calcHTML('storepips:' + si)}</span><span class="ct">${Math.max(0, mx - N(sp.uses.used))}/${mx}</span></div>`; });
       return h || '<span class="hint">No spell slots</span>';
     }
     case 'acsub': { const i = acInfo(); return `<span title="${esc(i.parts.join(' · '))}">${esc(S.form ? S.form.name : i.parts[0] || '')}</span>${S.acOverride !== '' && S.acOverride != null && !S.form ? ' <button class="linkbtn" data-act="acauto" title="Go back to calculating AC from your armor">Auto</button>' : ''}`; }
@@ -11994,6 +11994,8 @@ function onField(e) {
   if (t.dataset.ssrc !== undefined) return setBook(t.dataset.ssrc, t.checked);
   if (t.dataset.ls !== undefined || t.dataset.lsf !== undefined) return lsInput(t);
   if (t.dataset.fsp !== undefined) { if (e.type !== 'change' && e.inputType !== 'insertReplacementText' && e.inputType !== undefined) return; const sp = SPI(t.value); if (!sp) return; const f = S.features[N(t.dataset.fsp)]; f.spells = [...new Set((f.spells || []).concat(sp.name))]; pendingLabel = `${f.name}: add ${sp.name}`; save(); rebuildAuto(); render(); return; }
+  if (t.dataset.istore !== undefined) { if (e.type !== 'change') return; const it = S.inventory[N(t.dataset.istore)]; it.spellStored = t.checked; pendingLabel = `${it.name}: ${t.checked ? 'stored spells' : 'spells not stored'}`; rebuildAuto(); save(); render(); return; }
+  if (t.dataset.isplv !== undefined) { if (e.type !== 'change') return; const it = S.inventory[N(t.dataset.isplv)]; it.spellLevels = Object.assign({}, it.spellLevels, { [t.dataset.n]: N(t.value) }); pendingLabel = `${it.name}: ${t.dataset.n} at ${ORD[N(t.value) - 1]} level`; rebuildAuto(); save(); render(); return; }
   if (t.dataset.isp !== undefined) { if (e.type !== 'change' && e.inputType !== 'insertReplacementText' && e.inputType !== undefined) return; const sp = SPI(t.value); if (!sp) return; const it = S.inventory[N(t.dataset.isp)]; it.spells = [...new Set((it.spells || []).concat(sp.name))]; pendingLabel = `${it.name}: add ${sp.name}`; rebuildAuto(); save(); render(); return; }
   if (t.dataset.move !== undefined) { const it = S.inventory[N(t.dataset.move)]; it.bag = t.value; const b = (S.bags || []).find(x => x.id === t.value); pendingLabel = 'Move ' + it.name + ' to ' + (b ? b.name : 'Pack'); save(); render(); return; }
   if (t.dataset.infchoice !== undefined) { const it = S.inventory[N(t.dataset.infchoice)]; if (it && it.infusion) { it.infusion.choice = t.value; pendingLabel = 'Resistant Armor: ' + t.value; save(); render(); } return; }
@@ -16082,12 +16084,14 @@ function rebuildAuto() {
     (f.kind === 'pick' ? [] : fx.spells || []).forEach(n => want.push({ n, cls, src: f.dname || f.name, note: fx.spellNote || '', once: !!fx.once }));
     Object.entries(fx.spellsAt || {}).forEach(([lv, arr]) => { if (own >= N(lv)) arr.forEach(n => want.push({ n, cls, src: f.dname || f.name, note: fx.spellNote || '', once: !!fx.once })); }); });
   // Spells an item lets you cast, while you're using it (equipped, or carried if ticked; attuned if it needs it)
-  S.inventory.forEach(it => { if (!hbItemOn(it)) return; (it.spells || []).forEach(n => want.push({ n, cls: 'other', src: it.name, note: it.spellAtWill ? 'at will' : it.spellOnce ? 'once per long rest' : '', once: !!it.spellOnce && !it.spellAtWill, atWill: !!it.spellAtWill, ab: (it.hb && it.hb.spellAb) || '', itemId: it.id })); });
+  S.inventory.forEach(it => { if (!hbItemOn(it)) return; const st = itemStores(it); (it.spells || []).forEach(n => want.push({ n, cls: 'other', src: it.name, note: st ? 'stored — gone once cast' : it.spellAtWill ? 'at will' : it.spellOnce ? 'once per long rest' : '', once: !st && !!it.spellOnce && !it.spellAtWill, atWill: !st && !!it.spellAtWill, stored: st, lvl: N((it.spellLevels || {})[n]), ab: (it.hb && it.hb.spellAb) || '', itemId: it.id })); });
   const keyOf = (n, cls) => n.toLowerCase() + '|' + cls;
   const wantKeys = new Set(want.map(w => keyOf(w.n, w.cls)));
   S.spells = S.spells.filter(s => !s.auto || wantKeys.has(keyOf(s.name, s.cls)));
   want.forEach(w => {
     const ex0 = S.spells.find(s => keyOf(s.name, s.cls) === keyOf(w.n, w.cls) && s.always && s.auto);
+    if (ex0 && w.stored) { storedUse(ex0, w); ex0.item = w.itemId; ex0.ab = w.ab || (casters()[0] || {}).ab || 'cha'; ex0.note = w.src + ': ' + w.note; return; }
+    if (ex0 && ex0.usesOnly && w.itemId) { delete ex0.usesOnly; delete ex0.stored; delete ex0.uses; }
     if (ex0 && (w.itemId || w.atWill || ex0.atWill)) { ex0.atWill = !!w.atWill && N(ex0.level) > 0; if (w.once && N(ex0.level) > 0) { if (!ex0.uses) ex0.uses = { max: '1', reset: 'long', used: 0 }; } else if (w.itemId || ex0.atWill) delete ex0.uses; if (w.itemId) { ex0.item = w.itemId; ex0.ab = w.ab || (casters()[0] || {}).ab || 'cha'; } ex0.note = w.src + (w.note ? ': ' + w.note : ''); return; }
     if (S.spells.some(s => keyOf(s.name, s.cls) === keyOf(w.n, w.cls) && s.always)) return;
     const ex = S.spells.find(s => s.name.toLowerCase() === w.n.toLowerCase() && s.cls === w.cls);
@@ -16096,6 +16100,7 @@ function rebuildAuto() {
     if (w.once && N(sp.level) > 0) sp.uses = { max: '1', reset: 'long', used: 0 };
     if (w.atWill && N(sp.level) > 0) sp.atWill = true;
     if (w.itemId) { sp.item = w.itemId; sp.ab = w.ab || (casters()[0] || {}).ab || 'cha'; }
+    if (w.stored) storedUse(sp, w);
     if (w.cls === 'race') { sp.ab = w.ab; if (/once per long rest|1\/long rest|once per day/i.test(w.note || '') && N(sp.level) > 0) { sp.uses = { max: '1', reset: 'long', used: 0 }; const lv = String(w.note).match(/as (\d)(?:st|nd|rd|th)[- ]level/i); if (lv) sp.uses.level = N(lv[1]); } }
     S.spells.push(sp);
   });
@@ -16107,6 +16112,14 @@ function rebuildAuto() {
   S.features.forEach(f => (fxOf(f).attacks || []).forEach(([n, d, t, ab, x]) => auto.push(Object.assign({ name: n, ab: ab || 'str', prof: true, magic: 0, dice: d, type: t, notes: f.dname || f.name, kind: 'melee', auto: 'feature' }, x || {}, x && x.hbDice ? { dice: fxRollExpr(d), notes: [f.dname || f.name, x.notes].filter(Boolean).join(' · ') } : {}))));
   if (ri && ri.natural) ri.natural.forEach(([n, d, t]) => auto.push({ name: n, ab: 'str', prof: true, magic: 0, dice: d, type: t, notes: 'Natural weapon', kind: 'melee', monk, auto: 'natural' }));
   S.attacks = auto.map(a => { const prev = S.attacks.find(x => x.auto && x.name === a.name); return prev ? Object.assign(prev, { monk: a.monk, ab: prev.ab === 'str' && a.ab === 'monk' ? 'monk' : prev.ab, dice: a.monk && prev.dice === '1' ? '' : a.hbDice ? a.dice : prev.dice }, a.hbDice ? { type: a.type, notes: a.notes, noModDmg: a.noModDmg, kind: a.kind, ab: a.ab } : {}) : a; }).reverse().concat(keep.slice().reverse()).reverse();
+}
+// Spells stored in an item (a Ring of Spell Storing): one use each, cast at the level it was stored at, and gone
+// until someone casts a spell into the item again (it doesn't come back on a rest).
+const itemStores = it => it.spellStored != null ? !!it.spellStored : /ring of spell storing/i.test(it.name + ' ' + ((it.magic && it.magic.name) || ''));
+function storedUse(sp, w) {
+  if (!sp.usesOnly || !sp.uses) sp.uses = { max: '1', used: 0, reset: 'never' };
+  sp.usesOnly = true; sp.stored = true; sp.uses.reset = 'never'; sp.prepared = true;
+  if (w.lvl > N(sp.level)) sp.uses.level = w.lvl; else delete sp.uses.level;
 }
 function spellEntry(n, cls) {
   const d = SPI(n) || { name: n, level: 1, school: '', time: '1 action', range: '', comps: '', duration: '', conc: false, ritual: false, summary: '', src: '' };
@@ -16982,6 +16995,7 @@ function pendPick(id, j) {
     if (x.removeLang) S.langs = S.langs.filter(l => l.toLowerCase() !== x.removeLang.toLowerCase());
     if (x.addTool) addText('profTools', [x.addTool]);
     if (x.addSkill) setSkill(x.addSkill, 1);
+    if (x.removeSpell) S.spells = S.spells.filter(sp => sp.auto || sp.name.toLowerCase() !== x.removeSpell.toLowerCase());
     if (x.dropSkill) { const sk = S.skills.find(k => k.name.toLowerCase() === x.dropSkill.toLowerCase()); if (sk) sk.prof = 0; }
     if (x.addFeature && !S.features.some(f => f.name === x.addFeature.name)) S.features.push(Object.assign({ key: 'custom:' + x.addFeature.name, dname: x.addFeature.name, source: 'Custom', auto: false, used: 0, dmax: '', dreset: 'long', max: '', reset: 'long', pool: false, col: '', cls: '', kind: 'custom', desc: '' }, x.addFeature));
   });
@@ -17158,7 +17172,9 @@ window.sheetState = () => S; window.sheetToast = toast;
 window.sheetSet = (k, v) => { S[k] = v; pendingLabel = null; save(); render('header'); };
 window.sheetSummary = () => ({ name: S.name || '', player: S.player || '', race: S.raceName || '', cls: S.created ? classLabel() : '', level: S.created ? lvl() : 0, portrait: S.portrait || '', hp: S.created ? N(S.hp && S.hp.cur) + '/' + maxHp() : '' });
 if (S.created) applySources(S.sources);
-if (S.created && FIXED) { const at = S.savedAt; rebuildAuto(); writeLocal(); S.savedAt = at; } // one-off fixes don't count as a newer edit (a newer synced copy still wins)
+// Spells from a Ring of Spell Storing made before stored spells existed: set them up as stored now.
+const staleStore = () => (S.spells || []).some(sp => { const it = sp.item && (S.inventory || []).find(x => x.id === sp.item); return it && itemStores(it) && !sp.usesOnly; });
+if (S.created && (FIXED || staleStore())) { const at = S.savedAt; rebuildAuto(); writeLocal(); S.savedAt = at; } // one-off fixes don't count as a newer edit (a newer synced copy still wins)
 loadHist(FROM_LOCAL);
 applyLayout(); applyTheme();
 if (S.created) { render(); setTimeout(afterUpdate, 50); }
@@ -17182,7 +17198,7 @@ window.addEventListener('resize', () => { if (!UI.layout) { const was = isMobile
 // the database only lets that player — and the DM — open or change it.
 const ADMIN_EMAIL = 'matthewcbro@gmail.com';
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261012220706';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261012221544';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   let C = clean(Q.get('c')), G = clean(Q.get('g'));
   const P = (Q.get('p') || '').slice(0, 60), O = (Q.get('o') || '').trim().toLowerCase().slice(0, 120);

@@ -247,7 +247,7 @@ function storeSpellsList() {
   return DND.spells.filter(s => (/A/.test(s.classes || '') || extra.has(s.name.toLowerCase())) && (s.level === 1 || s.level === 2) && s.time === '1 action');
 }
 const spellUpcasts = n => /At Higher Levels/.test((DND.full || {})['sp:' + n] || '');
-function storedSpellIdx() { return S.spells.findIndex(s => s.stored); }
+function storedSpellIdx() { return S.spells.findIndex(s => s.stored && s.cls === 'artificer'); }
 function openSpellStore(fi) {
   if (clsLv('artificer') < 11) { toast('Spell-Storing Item needs artificer level 11.', 'fumble'); return; }
   const cur = S.spells[storedSpellIdx()], items = S.inventory.filter(storeQualifies), list = items.length ? items : S.inventory;
