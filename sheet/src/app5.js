@@ -1130,6 +1130,8 @@ addEventListener('online', () => { if (CLOUD) cloudWrite(); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden && CLOUD && /retrying|full/i.test(UI.saveState || '')) cloudWrite(); });
 
 // ---------- Boot ----------
+// For the GitHub Pages loader (new characters get their link once created).
+window.sheetState = () => S; window.sheetToast = toast;
 if (S.created) applySources(S.sources);
 if (S.created && FIXED) { const at = S.savedAt; rebuildAuto(); writeLocal(); S.savedAt = at; } // one-off fixes don't count as a newer edit (a newer synced copy still wins)
 loadHist(FROM_LOCAL);

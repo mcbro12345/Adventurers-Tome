@@ -20,18 +20,21 @@ loader = r'''
 <script>
 (async () => {
   const CFG = __CFG__, VER = '__VER__';
-  const C = (new URLSearchParams(location.search).get('c') || '').replace(/[^A-Za-z0-9_-]/g, '');
-  window.SHEET_PAGES = true; if (C) window.SHEET_CHAR = C;
+  let C = (new URLSearchParams(location.search).get('c') || '').replace(/[^A-Za-z0-9_-]/g, '');
+  // No ?c=: a brand-new character. It gets its own private id now; the link appears once the character is created.
+  const NEW = !C;
+  if (NEW) { const a = new Uint8Array(18); crypto.getRandomValues(a); C = btoa(String.fromCharCode(...a)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+  window.SHEET_PAGES = true; window.SHEET_CHAR = C;
   const load = document.getElementById('pg-load'), data = document.getElementById('sheet-data');
   const CACHE = 'dnd-pages-cache:' + C;
   let fs = null;
   try { firebase.initializeApp(CFG); fs = firebase.firestore(); } catch (e) { console.error(e); }
   const run = () => { if (load) load.remove(); const s = document.createElement('script'); s.textContent = document.getElementById('app-src').textContent; document.body.appendChild(s); };
-  if (!C || !fs) { run(); return; }
+  if (!fs) { if (NEW) delete window.SHEET_CHAR; run(); return; }
   // Fetch the character (split across part documents when large).
   const col = fs.collection('sheets');
   let txt = null, missing = false;
-  try {
+  if (!NEW) try {
     const sn = await col.doc(C).get();
     if (!sn.exists || !sn.data().data) missing = true;
     else {
@@ -40,12 +43,12 @@ loader = r'''
       if (str) { JSON.parse(str); txt = str; try { localStorage.setItem(CACHE, str); } catch (e) {} }
     }
   } catch (e) { console.warn('Offline or blocked — using this browser\'s copy', e); }
-  if (!txt) { try { txt = localStorage.getItem(CACHE); } catch (e) {} }
-  if (!txt) {
+  if (!txt && !NEW) { try { txt = localStorage.getItem(CACHE); } catch (e) {} }
+  if (!txt && !NEW) {
     if (load) load.innerHTML = missing ? '<div style="max-width:420px;text-align:center;padding:20px">This sheet link doesn\'t point to a character.<br><br><small style="font-weight:400">Check the link you were sent, or ask your DM for it again.</small></div>' : '<div style="max-width:420px;text-align:center;padding:20px">Couldn\'t reach the sheet\'s storage.<br><br><small style="font-weight:400">Check your connection and reload.</small></div>';
     return;
   }
-  data.textContent = txt.replace(/<\//g, '<\\/');
+  if (txt) data.textContent = txt;
   // The sheet's sync code talks to "db" like it does on claude.ai; here that's this character's Firestore documents.
   const docFor = p => { const m = /^sheets\/(main|part(\d+))$/.exec(p); return m ? col.doc(m[2] ? C + '_p' + m[2] : C) : null; };
   const none = { get: async () => ({ exists: false, data: () => null }), set: async () => { throw { code: 'unsupported' }; }, delete: async () => {}, onSnapshot: () => () => {} };
@@ -53,6 +56,12 @@ loader = r'''
   const user = { id: async () => null, isOwner: async () => true, can: async () => true };
   window.claude = { use: async n => n === 'db' ? db : n === 'user' ? user : null };
   run();
+  // New character: once it's created (and saved to the cloud), its private link goes in the address bar.
+  if (NEW) { const t = setInterval(() => { let made = false; try { const st = window.sheetState && window.sheetState(); made = !!(st && st.created); } catch (e) {} if (!made) return; clearInterval(t);
+    history.replaceState(null, '', location.pathname + '?c=' + C);
+    const link = location.href, copy = () => { try { navigator.clipboard.writeText(link); window.sheetToast('Link copied.'); } catch (e) {} };
+    setTimeout(() => window.sheetToast(`<div><b>This character has its own link now</b><div class="det">It's in the address bar — bookmark it or copy it. Open it on any device to get this character, synced live. Keep it private: anyone with the link can edit the character.</div></div>`, '', 20000, { label: 'Copy link', fn: copy }), 600);
+  }, 500); }
   // A newer version of the sheet was pushed: offer a reload (the character is saved first).
   const check = async () => { try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); const v = (await r.json()).v; if (v && v !== VER && !document.getElementById('pg-upd')) { const b = document.createElement('button'); b.id = 'pg-upd'; b.textContent = 'Sheet updated — tap to reload'; b.style.cssText = 'position:fixed;left:50%;bottom:88px;transform:translateX(-50%);z-index:9998;background:#c9962b;color:#1b1406;border:0;border-radius:999px;padding:10px 18px;font:700 14px system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.3);cursor:pointer'; b.onclick = () => { b.textContent = 'Saving…'; setTimeout(() => location.reload(), 1200); }; document.body.appendChild(b); } } catch (e) {} };
   setInterval(check, 5 * 60 * 1000); document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
