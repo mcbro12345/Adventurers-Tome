@@ -455,4 +455,8 @@ html.pg-sheetpage.mobile .banner { padding-top: calc(34px + env(safe-area-inset-
 /* ⋯ menus on character rows */
 :where(body.hubbody) .hr-menu { margin-right: 6px; flex: none; }
 :where(body.hubbody) .hr:has(.hc-menu.on), :where(body.hubbody) .hc:has(.hc-menu.on) { position: relative; z-index: 20; }
-:where(body.hubbody) .hr-menu .hc-list { min-width: 160px; }
+:where(body.hubbody) .hr-menu .hc-list { min-width: 200px; }
+:where(body.hubbody) .hc-list button { white-space: nowrap; }
+:where(body.hubbody) .hc-list button { display: flex; align-items: center; gap: 10px; }
+:where(body.hubbody) .hc-list .mi { flex: none; opacity: .75; }
+:where(body.hubbody) .hc-list .hc-del .mi { opacity: 1; }
