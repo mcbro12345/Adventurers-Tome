@@ -48,7 +48,7 @@ const BLANK_FILE = !EMBED.created;
 // On the GitHub Pages site every character shares one page, told apart by its ?c= link.
 const PATH_KEY = 'dnd-sheet-path:' + location.pathname + (window.SHEET_CHAR ? '?c=' + window.SHEET_CHAR : '');
 let S, FROM_LOCAL = false;
-const LAYOUT_KEY = 'dnd-sheet-layout';
+const LAYOUT_KEY = 'dnd-sheet-layout', PER_SHEET = !!window.SHEET_PAGES, UI_KEY = PER_SHEET ? 'dnd-sheet-ui:' + window.SHEET_CHAR : 'dnd-sheet-ui';
 function keyFor(id) { return 'dnd-sheet:' + id; }
 // A player's own preferences (Settings, theme, books, layout) always survive a newer copy of the sheet being published.
 const PREF_KEYS = ['settings', 'theme', 'sources', 'layout', 'spellFilter'];
@@ -65,7 +65,8 @@ function keepPrefs(into, from) { if (!into || !from || (into.id && from.id && in
   S = migrate(S);
   FIXED = applyFixes(S);
   // Your layout is a preference of this browser, not of one file: it follows you to every sheet and every new version.
-  try {
+  // (On the website every character has its own layout, saved with the character.)
+  if (!PER_SHEET) try {
     let g = JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null');
     // First run of this version: adopt the layout from the most recently saved sheet in this browser.
     if (!g) { let best = null; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (!k.startsWith('dnd-sheet:')) continue; try { const o = JSON.parse(localStorage.getItem(k)); if (o && o.layout && Object.keys(o.layout).length && (!best || N(o.savedAt) > N(best.savedAt))) best = o; } catch (x) {} } if (best) g = best.layout; }
@@ -73,7 +74,7 @@ function keepPrefs(into, from) { if (!into || !from || (into.id && from.id && in
   } catch (e) {}
 })();
 let UI = { tab: 'core', open: {} };
-try { UI = Object.assign(UI, JSON.parse(localStorage.getItem('dnd-sheet-ui') || '{}')); } catch (e) {}
+try { UI = Object.assign(UI, JSON.parse(localStorage.getItem(UI_KEY) || '{}')); } catch (e) {}
 UI.open = UI.open || {};
 // One-off corrections shipped with a sheet update (EMBED.fixes). Each runs once per character, whichever copy is
 // loaded (this browser's, the cloud's or the file's), so a fix isn't lost to a newer saved copy.
@@ -176,7 +177,7 @@ function writeLocal() {
   saveTimer = setTimeout(() => {
     let ok = true;
     try { localStorage.setItem(keyFor(S.id), JSON.stringify(S)); if (BLANK_FILE) localStorage.setItem(PATH_KEY, S.id); } catch (e) { ok = false; }
-    try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(S.layout || {})); } catch (e) {}
+    if (!PER_SHEET) try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(S.layout || {})); } catch (e) {}
     if (!/synced|view only|retrying|reconnect|full|not live/i.test(UI.saveState || '') || !ok) { UI.saveState = ok ? 'Saved ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'Not saved — export'; const el = $('#saveState'); if (el) { el.textContent = shortSync(UI.saveState); el.title = UI.saveState; } }
     cloudPush();
   }, 250);
@@ -184,7 +185,7 @@ function writeLocal() {
 const IOS_SAFARI = /iP(hone|od|ad)/.test(navigator.userAgent) && /Version\/[\d.]+.*Safari\//.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS/.test(navigator.userAgent);
 function tabLift() { return UI.tabLift != null ? N(UI.tabLift) : (IOS_SAFARI ? 48 : 0); }
 function applyTabLift() { document.documentElement.style.setProperty('--tablift', tabLift() + 'px'); }
-function saveUI() { try { localStorage.setItem('dnd-sheet-ui', JSON.stringify(UI)); } catch (e) {} }
+function saveUI() { try { localStorage.setItem(UI_KEY, JSON.stringify(UI)); } catch (e) {} }
 function applyLayout() { applyTabLift(); const m = UI.layout ? UI.layout === 'mobile' : window.innerWidth < 640; document.documentElement.classList.toggle('mobile', m); }
 
 // ---------- Class / level math ----------

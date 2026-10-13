@@ -1547,7 +1547,7 @@ function readableInk(a, dark) { let c = dark ? mix(a, [255, 255, 255], 0.25) : m
 // Light/dark is kept with the character too (not only in this browser's storage), so a fresh copy of the sheet opens in the right mode.
 function applyMode() {
   const set = S.settings || (S.settings = {}); let ls = null; try { ls = localStorage.getItem('dnd-sheet-theme'); } catch (e) {}
-  if (set.colorMode !== 'dark' && set.colorMode !== 'light') { if (ls === 'dark' || ls === 'light') set.colorMode = ls; else return; }
+  if (set.colorMode !== 'dark' && set.colorMode !== 'light') { if (!PER_SHEET && (ls === 'dark' || ls === 'light')) set.colorMode = ls; else { if (PER_SHEET) document.documentElement.setAttribute('data-theme', window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); return; } }
   if (document.documentElement.getAttribute('data-theme') !== set.colorMode) document.documentElement.setAttribute('data-theme', set.colorMode);
   if (ls !== set.colorMode) try { localStorage.setItem('dnd-sheet-theme', set.colorMode); } catch (e) {}
 }
