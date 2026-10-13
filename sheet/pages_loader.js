@@ -507,7 +507,7 @@ function hub(fs, auth, G, ctx) {
       <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</span>
       <small>${shareNote(c)}${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small></span></a>
       <div class="hc-menu hr-menu"><button class="hc-dots" aria-label="More options for ${esc(c.name || 'this character')}">⋯</button><div class="hc-list">
-        <button data-a="pin" data-id="${esc(c.id)}">${c.pin ? 'Unpin' : 'Pin'}</button><button data-a="share" data-id="${esc(c.id)}">Share</button>${canDelete(c) ? `<button data-a="del" data-id="${esc(c.id)}" class="hc-del">Delete</button>` : ''}</div></div></div>`;
+        <button data-a="pin" data-id="${esc(c.id)}">${c.pin ? 'Unpin' : 'Pin'}</button><button data-a="share" data-id="${esc(c.id)}">Share…</button>${canDelete(c) ? `<button data-a="del" data-id="${esc(c.id)}" class="hc-del">Delete character…</button>` : ''}</div></div></div>`;
   }
   async function saveOrder(ids) { await Promise.all(ids.map((id, i) => { const c = chars.find(x => x.id === id); if (c && c.order === i) return null; if (c) c.order = i; return charsCol.doc(id).set({ order: i }, { merge: true }); })); }
   async function togglePin(id) { const c = chars.find(x => x.id === id); if (!c) return; const mine = chars.filter(isMine);
