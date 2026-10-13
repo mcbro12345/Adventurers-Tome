@@ -16,6 +16,7 @@ const LEG = location.pathname.replace(/[^/]*$/, '');
 // Opened from a home-screen icon: the address is left exactly as saved — changing it can step outside what the phone
 // counts as "the app" and bring the browser's toolbar back.
 const STANDALONE = (() => { try { return navigator.standalone === true || matchMedia('(display-mode: standalone)').matches; } catch (e) { return false; } })();
+try { if (STANDALONE) document.documentElement.classList.add('pg-standalone'); } catch (e) {}
 const RESERVED = new Set(['shared', 'login', 'new', 'admin', 'c', 'a', 'icons', 'icon', 'index', 'index-html', 'version-json', 'users', 'help', 'settings']);
 const slugify = s => String(s || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
 const enc = encodeURIComponent;
