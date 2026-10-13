@@ -701,3 +701,15 @@ html:has(body.hubbody:not(.adminbody))::-webkit-scrollbar { display: none; }
 @media (prefers-color-scheme: light) { .hub-sb { background: rgba(0,0,0,.07); } }
 body.hubbody:not(.adminbody) .hub-head { background: rgba(14,19,30,.97); }
 @media (prefers-color-scheme: light) { body.hubbody:not(.adminbody) .hub-head { background: rgba(241,233,216,.97); } }
+
+:where(body.hubbody) .pp-tabs.four { grid-template-columns: repeat(4, 1fr); }
+:where(body.hubbody) .pp-pane[data-p="google"] { min-height: 0; }
+:where(body.hubbody) .pp-gnote { margin-top: 2px; }
+/* phones: pop-ups on the characters page rise from the bottom of the screen */
+@media (max-width: 640px) {
+  :where(body.hubbody) .hub-modal.on { align-items: flex-end; padding: 0; }
+  :where(body.hubbody) .hub-modal > .hub-card { max-width: none; width: 100%; border-radius: 20px 20px 0 0; border-bottom: 0; padding: 18px 18px calc(18px + env(safe-area-inset-bottom)); max-height: calc(100% - env(safe-area-inset-top) - 24px); overflow-y: auto; box-sizing: border-box; animation: pgSheetUp .22s cubic-bezier(.2,.9,.3,1); }
+  :where(body.hubbody) .hub-modal > .hub-card::before { content: ''; display: block; width: 40px; height: 5px; border-radius: 3px; background: rgba(127,127,127,.4); margin: -6px auto 12px; }
+}
+@keyframes pgSheetUp { from { transform: translateY(40px); opacity: .4; } to { transform: none; opacity: 1; } }
+@media (max-width: 640px) { :where(body.hubbody) .pp-tabs.four button { flex-direction: column; gap: 3px; font-size: .74rem; padding: 7px 2px; } }

@@ -38,8 +38,8 @@ service cloud.firestore {
       allow get: if admin() || (signedIn() && em == me());
       allow list: if admin();
       allow create: if admin() || (signedIn() && em == me() && request.resource.data.email == me()
-        && request.resource.data.keys().hasOnly(['email', 'name', 'nameLower', 'keys', 'createdAt', 'seenAt']));
-      allow update: if admin() || (signedIn() && em == me() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt', 'pic', 'picChar', 'picColor', 'picClear']));
+        && request.resource.data.keys().hasOnly(['email', 'name', 'nameLower', 'keys', 'createdAt', 'seenAt', 'gpic']));
+      allow update: if admin() || (signedIn() && em == me() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt', 'pic', 'picChar', 'picColor', 'picClear', 'picMode', 'gpic']));
       allow delete: if admin();
     }
     // The address book: /zeebo → which character. Anyone signed in can look an address up (it only says which character —

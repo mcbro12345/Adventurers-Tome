@@ -43,7 +43,12 @@ const initials = (name, em) => { const w = String(name || em || '?').split(/[\s@
 const PG_SWATCH = ['#b4473a', '#d0743c', '#c9962b', '#7f9a35', '#2f8f62', '#24879a', '#3a6fb4', '#5a55b8', '#8a4cb0', '#b04c86', '#6b7280', '#2b3245'];
 const okColor = c => /^#[0-9a-f]{6}$/i.test(c || '') ? c : '';
 const inkOn = hex => { const n = parseInt(hex.slice(1), 16); return (.299 * (n >> 16 & 255) + .587 * (n >> 8 & 255) + .114 * (n & 255)) > 170 ? '#1b1406' : '#fff'; };
-const avaOf = u => ({ pic: (u && u.pic) || '', color: okColor(u && u.picColor), clear: !!(u && u.pic && u.picClear) });
+// What someone's picture is: their Google account photo unless they've chosen something else (initials, a character, an upload).
+const picModeOf = u => (u && u.picMode) || (u && u.picChar ? 'char' : u && u.pic ? 'upload' : u && okColor(u.picColor) ? 'initials' : 'google');
+const avaOf = u => { const color = okColor(u && u.picColor), m = picModeOf(u);
+  if (m === 'google') return { pic: (u && u.gpic) || '', color, clear: false };
+  if (m === 'initials') return { pic: '', color, clear: false };
+  return { pic: (u && u.pic) || '', color, clear: m === 'upload' && !!(u && u.pic && u.picClear) }; };
 const avaStyle = (o, key) => { const c = okColor(o && o.color); return c ? `background:${c};color:${inkOn(c)}` : `--h:${hueOf(key)}`; };
 function avaHTML(name, em, pic, cls = '', title = '', o = {}) { const clear = !!(pic && o.clear);
   return `<span class="pg-ava ${cls}${pic ? ' has-pic' : ''}${clear ? ' clear' : ''}" style="${pic ? '' : avaStyle(o, em || name)}"${title ? ` title="${escH(title)}"` : ''}>${pic ? `<img src="${escH(pic)}" alt="">` : escH(initials(name, em))}</span>`; }
@@ -221,8 +226,10 @@ function wireDie(root) {
   const UREF = fs.collection('users').doc(EMAIL);
   let ME = null;
   try { const us = await UREF.get(); ME = us.exists ? us.data() : null;
-    if (!ME) { const nm = (user.displayName || EMAIL.split('@')[0]).slice(0, 60); ME = { email: EMAIL, name: nm, nameLower: nm.toLowerCase(), keys: searchKeys(nm, EMAIL.split('@')[0], EMAIL), createdAt: Date.now(), seenAt: Date.now() }; await UREF.set(ME); }
-    else if (!ME.seenAt || Date.now() - ME.seenAt > 864e5) UREF.update({ seenAt: Date.now() }).catch(() => {}); } catch (e) { console.warn('account record', e); }
+    if (!ME) { const nm = (user.displayName || EMAIL.split('@')[0]).slice(0, 60); ME = { email: EMAIL, name: nm, nameLower: nm.toLowerCase(), keys: searchKeys(nm, EMAIL.split('@')[0], EMAIL), createdAt: Date.now(), seenAt: Date.now() }; if (user.photoURL) ME.gpic = user.photoURL; await UREF.set(ME); }
+    else if (!ME.seenAt || Date.now() - ME.seenAt > 864e5) UREF.update({ seenAt: Date.now() }).catch(() => {});
+    // keep their Google account photo on file (it's their picture until they choose another)
+    if (ME && user.photoURL && ME.gpic !== user.photoURL) { ME.gpic = user.photoURL; UREF.update({ gpic: user.photoURL }).catch(() => {}); } } catch (e) { console.warn('account record', e); }
   let NAME = (ME && ME.name) || user.displayName || EMAIL.split('@')[0];
   const UCACHE = {}, userDoc = em => UCACHE[em] || (UCACHE[em] = fs.collection('users').doc(em).get().then(x => x.exists ? x.data() : null, () => null));
 
@@ -562,7 +569,7 @@ function hub(fs, auth, G, ctx) {
   // ================= Hub: my characters and the ones shared with me =================
   function createChar() { location.href = URLS.newChar(G, '', myName()); }
   // Your picture: your initials (on a colour you can pick), one of your characters, or an image you upload.
-  const myAva = () => { const a = avaOf(ME), ch = ME && ME.picChar && chars.find(c => c.id === ME.picChar && isMine(c)); if (ch && ch.thumb) a.pic = ch.thumb; return a; };
+  const myAva = () => { const a = avaOf(ME), ch = picModeOf(ME) === 'char' && ME.picChar && chars.find(c => c.id === ME.picChar && isMine(c)); if (ch && ch.thumb) a.pic = ch.thumb; return a; };
   // An uploaded image is shrunk to a small square here before saving. A transparent background is kept (as PNG) and the
   // whole image fits inside; otherwise it's cropped to fill the circle.
   const prepPic = file => new Promise((res, rej) => { const url = URL.createObjectURL(file), im = new Image();
@@ -576,14 +583,16 @@ function hub(fs, auth, G, ctx) {
     im.src = url; });
   function pickPic() {
     const mine = chars.filter(isMine).sort((a, b) => (a.createdAt || a.updatedAt || 0) - (b.createdAt || b.updatedAt || 0));
-    const st = { mode: ME && ME.picChar ? 'char' : ME && ME.pic ? 'upload' : 'initials', color: okColor(ME && ME.picColor), char: (ME && ME.picChar) || '', img: ME && !ME.picChar ? (ME.pic || '') : '', clear: !!(ME && ME.picClear) };
+    const GP = (ME && ME.gpic) || '', st = { mode: picModeOf(ME), color: okColor(ME && ME.picColor), char: (ME && ME.picChar) || '', img: ME && !ME.picChar ? (ME.pic || '') : '', clear: !!(ME && ME.picClear) }; if (st.mode === 'google' && !GP) st.mode = 'initials';
     const auto = `hsl(${hueOf(EMAIL)}, 42%, 42%)`;
-    const ico = { initials: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19l4.5-12h1L14 19M5.8 15h6.4"/><path d="M15 12.5c.8-1 2-1.5 3-1.2 1.5.4 2 1.8 2 3.2V19M20 15.5c-2 0-4.5.2-4.5 2s2.2 1.8 4.5-.3"/></svg>',
+    const ico = { google: '<svg viewBox="0 0 48 48" width="16" height="16"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.1 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.2 0-11.5-4.2-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>',
+      initials: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19l4.5-12h1L14 19M5.8 15h6.4"/><path d="M15 12.5c.8-1 2-1.5 3-1.2 1.5.4 2 1.8 2 3.2V19M20 15.5c-2 0-4.5.2-4.5 2s2.2 1.8 4.5-.3"/></svg>',
       char: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>',
       upload: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>' };
     modal.innerHTML = `<div class="hub-card wide pp"><h2>Your picture</h2>
       <div class="pp-head"><span class="pp-prev"></span><div class="pp-who"><b>${esc(myName())}</b><small>Shows beside your name, and to others when you’re viewing a shared sheet together.</small></div></div>
-      <div class="pp-tabs" role="tablist">${[['initials', 'Initials'], ['char', 'Character'], ['upload', 'Upload']].map(([m, t]) => `<button role="tab" data-m="${m}">${ico[m]}${t}</button>`).join('')}</div>
+      <div class="pp-tabs${GP ? ' four' : ''}" role="tablist">${(GP ? [['google', 'Google']] : []).concat([['initials', 'Initials'], ['char', 'Character'], ['upload', 'Upload']]).map(([m, t]) => `<button role="tab" data-m="${m}">${ico[m]}${t}</button>`).join('')}</div>
+      ${GP ? `<div class="pp-pane" data-p="google"><p class="pp-note pp-gnote">Your Google account picture. If you change it on Google, it updates here the next time you sign in.</p></div>` : ''}
       <div class="pp-pane" data-p="initials"><p class="pp-lbl">Background colour</p><div class="pp-sw">
         <button class="pp-c" data-c="" style="background:${auto}" title="Automatic"><span>A</span></button>${PG_SWATCH.map(c => `<button class="pp-c" data-c="${c}" style="background:${c}" title="${c}"></button>`).join('')}
         <label class="pp-c pp-cust" title="Pick any colour"><input type="color" value="${st.color || '#c9962b'}"><span>+</span></label></div></div>
@@ -593,7 +602,7 @@ function hub(fs, auth, G, ctx) {
       <div class="row pp-foot"><button class="btn ghost" id="pp-x">Cancel</button><button class="btn" id="pp-ok">Save</button></div></div>`;
     modal.classList.add('on');
     const $ = q => modal.querySelector(q), $$ = q => modal.querySelectorAll(q);
-    const pick = () => st.mode === 'char' ? ((mine.find(c => c.id === st.char) || {}).thumb || '') : st.mode === 'upload' ? st.img : '';
+    const pick = () => st.mode === 'google' ? GP : st.mode === 'char' ? ((mine.find(c => c.id === st.char) || {}).thumb || '') : st.mode === 'upload' ? st.img : '';
     const paint = () => { const pic = pick();
       $('.pp-prev').innerHTML = avaHTML(myName(), EMAIL, pic, '', '', { color: st.color, clear: st.mode === 'upload' && st.clear });
       $$('.pp-tabs [data-m]').forEach(b => { const on = b.dataset.m === st.mode; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
@@ -615,7 +624,7 @@ function hub(fs, auth, G, ctx) {
     ['dragleave', 'drop'].forEach(t => dz.addEventListener(t, () => dz.classList.remove('over'))); dz.addEventListener('drop', e => { e.preventDefault(); take(e.dataTransfer.files[0]); });
     $('#pp-x').onclick = close;
     $('#pp-ok').onclick = async () => { const ok = $('#pp-ok'); ok.disabled = true; ok.textContent = 'Saving…';
-      const upd = st.mode === 'char' ? { picChar: st.char, pic: pick(), picClear: false, picColor: st.color } : st.mode === 'upload' ? { picChar: '', pic: st.img, picClear: !!st.clear, picColor: st.color } : { picChar: '', pic: '', picClear: false, picColor: st.color };
+      const upd = st.mode === 'char' ? { picMode: 'char', picChar: st.char, pic: pick(), picClear: false, picColor: st.color } : st.mode === 'upload' ? { picMode: 'upload', picChar: '', pic: st.img, picClear: !!st.clear, picColor: st.color } : { picMode: st.mode === 'google' ? 'google' : 'initials', picChar: '', pic: '', picClear: false, picColor: st.color };
       try { await usersCol.doc(EMAIL).update(upd); Object.assign(ME || {}, upd); close(); draw(); toast('Your picture is saved.'); }
       catch (x) { ok.disabled = false; ok.textContent = 'Save'; toast(x && x.code === 'permission-denied' ? 'Couldn’t save it yet — the new database rules need publishing.' : 'Couldn’t save it: ' + ((x && x.message) || x)); } };
     paint();
@@ -760,6 +769,7 @@ function hub(fs, auth, G, ctx) {
     const when = t => t ? `<span title="${esc(new Date(t).toLocaleString())}">${esc(day(t))}</span>` : '<span class="adm-dim">—</span>';
     const kebab = items => `<div class="adm-mwrap"><button class="adm-kebab" aria-label="More actions">⋯</button><div class="adm-mlist">${items.map(([k, t, id, cls]) => `<button data-mi="${k}" data-id="${esc(id)}"${cls ? ` class="${cls}"` : ''}>${t}</button>`).join('')}</div></div>`;
 
+    const PANES = {}; let PREV_TAB = '';
     function frame() {
       const nav = (k, label) => `<button class="adm-ni${TAB === k ? ' on' : ''}" data-tab="${k}">${svg(k)}<span>${label}</span>${k === 'new' && NEWN ? `<b class="adm-badge">${NEWN}</b>` : ''}</button>`;
       const [title, desc] = PAGES[TAB];
@@ -767,8 +777,17 @@ function hub(fs, auth, G, ctx) {
       // Switching tabs only swaps the page on the right: the sidebar (and where its tab strip is scrolled to on a phone) stays put.
       const nv0 = root.querySelector('.adm-nav');
       if (nv0) { const x = nv0.scrollLeft; nv0.innerHTML = navHTML; nv0.scrollLeft = x;
-        root.querySelector('.adm-head h1').textContent = title; root.querySelector('.adm-head p').textContent = desc; root.querySelector('#adm-hact').innerHTML = '';
-        root.querySelector('#ad-body').innerHTML = '<p class="adm-dim">Loading…</p>';
+        root.querySelector('.adm-head h1').textContent = title; root.querySelector('.adm-head p').textContent = desc;
+        // Each tab's page is kept once it has loaded, so going back to it is instant (its own actions refresh it as needed).
+        const curB = root.querySelector('#ad-body'), curH = root.querySelector('#adm-hact'), again = PREV_TAB === TAB;
+        if (PREV_TAB && !again) PANES[PREV_TAB] = { b: curB, h: curH, y: scrollY };
+        const kept = !again && PANES[TAB];
+        if (kept) { curB.replaceWith(kept.b); curH.replaceWith(kept.h); PREV_TAB = TAB; nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab)); scrollTo(0, 0);
+          // …and quietly brings it up to date behind the scenes
+          ({ new: () => tabNew(), users: () => tabUsersList(), chars: () => tabCharsList(), admins: () => tabAdmins() })[TAB](); return; }
+        const nb = document.createElement('section'); nb.id = 'ad-body'; nb.className = 'adm-body'; nb.innerHTML = '<p class="adm-dim">Loading…</p>';
+        const nh = document.createElement('div'); nh.id = 'adm-hact'; nh.className = 'adm-hact';
+        if (again) { curB.replaceWith(nb); curH.replaceWith(nh); } else { curB.replaceWith(nb); curH.replaceWith(nh); } delete PANES[TAB]; PREV_TAB = TAB;
         nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
         const on = nv0.querySelector('.adm-ni.on'); if (on && on.scrollIntoView) { const r = on.getBoundingClientRect(), nr = nv0.getBoundingClientRect(); if (r.left < nr.left || r.right > nr.right) nv0.scrollBy({ left: r.left < nr.left ? r.left - nr.left - 12 : r.right - nr.right + 12, behavior: 'smooth' }); }
         ({ new: tabNew, users: tabUsers, chars: tabChars, admins: tabAdmins })[TAB](); return; }
@@ -780,6 +799,7 @@ function hub(fs, auth, G, ctx) {
         <main class="adm-main"><header class="adm-head"><div><h1>${esc(title)}</h1><p>${esc(desc)}</p></div><div class="adm-hact" id="adm-hact"></div></header>
           <section id="ad-body" class="adm-body"><p class="adm-dim">Loading…</p></section></main></div>`;
       if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
+      PREV_TAB = TAB;
       root.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
       ({ new: tabNew, users: tabUsers, chars: tabChars, admins: tabAdmins })[TAB]();
     }
