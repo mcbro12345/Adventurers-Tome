@@ -17,3 +17,7 @@ python3 build_pages.py ../docs   # builds the Pages site into docs/
 ```
 
 `sheet/src` is the app code, `sheet/data` the rules content (SRD 5.1 plus short summaries), `sheet/ext` the Roll20 companion extension that the sheet can download. `sheet/pages_config.json` is the Firebase web config (public by design; access is controlled by Firestore rules).
+
+## Party hub
+
+`?g=<group>` opens the party hub: every character in the group, in drop-down folders by player, with a **Create character** button. Each device picks "who's using it" once; that name is used to put your own characters first and to show who last changed a character. A device that has opened a hub goes straight back to it from the bare site address. Hub data lives in Firestore under `groups/<group>/chars`.

@@ -1132,6 +1132,8 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && CL
 // ---------- Boot ----------
 // For the GitHub Pages loader (new characters get their link once created).
 window.sheetState = () => S; window.sheetToast = toast;
+window.sheetSet = (k, v) => { S[k] = v; pendingLabel = null; save(); render('header'); };
+window.sheetSummary = () => ({ name: S.name || '', player: S.player || '', race: S.raceName || '', cls: S.created ? classLabel() : '', level: S.created ? lvl() : 0, portrait: S.portrait || '', hp: S.created ? N(S.hp && S.hp.cur) + '/' + maxHp() : '' });
 if (S.created) applySources(S.sources);
 if (S.created && FIXED) { const at = S.savedAt; rebuildAuto(); writeLocal(); S.savedAt = at; } // one-off fixes don't count as a newer edit (a newer synced copy still wins)
 loadHist(FROM_LOCAL);

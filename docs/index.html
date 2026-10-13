@@ -3086,6 +3086,60 @@ html.mobile .sp-top .sp-name { min-width: 0; }
 .hasteblk.used { opacity: .6; }
 
 </style>
+<style>.pg-hublink { position: fixed; left: 10px; top: 10px; z-index: 60; background: rgba(15,22,38,.82); color: #f3e7c6; border: 1px solid rgba(201,150,43,.6); border-radius: 999px; padding: 4px 11px; font: 700 12px system-ui, sans-serif; text-decoration: none; backdrop-filter: blur(4px); }
+.pg-hublink:hover { background: #c9962b; color: #1b1406; }
+html.mobile .pg-hublink { top: auto; bottom: calc(80px + env(safe-area-inset-bottom)); left: 10px; }
+#pg-upd { position: fixed; left: 50%; bottom: 88px; transform: translateX(-50%); z-index: 9998; background: #c9962b; color: #1b1406; border: 0; border-radius: 999px; padding: 10px 18px; font: 700 14px system-ui, sans-serif; box-shadow: 0 8px 24px rgba(0,0,0,.3); cursor: pointer; }
+/* ---- Hub ---- */
+body.hubbody { margin: 0; background: #f4eee1; color: #1f2a44; font: 15px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; min-height: 100vh; }
+@media (prefers-color-scheme: dark) { body.hubbody { background: #0f1420; color: #e9e3d3; } body.hubbody .hc, body.hubbody .hub-folder, body.hubbody .hub-card { background: #1a2131; border-color: #2c3548; } body.hubbody .hc-list { background: #1a2131; border-color: #2c3548; } body.hubbody .hc-list button:hover { background: #242d40; } body.hubbody .who-f input { background: #0f1420; color: #e9e3d3; border-color: #3a4560; } body.hubbody .who { background: #242d40; color: #e9e3d3; border-color: #3a4560; } }
+#hub { max-width: 920px; margin: 0 auto; padding: 22px 16px 60px; }
+.hub-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-bottom: 3px solid #c9962b; padding-bottom: 12px; }
+.hub-kicker { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: #c9962b; font-weight: 800; }
+.hub-top h1 { margin: 2px 0 0; font: 800 1.9rem/1.1 Georgia, 'Times New Roman', serif; cursor: text; }
+.hub-me { font-size: .88rem; opacity: .85; }
+.linkbtn { background: none; border: 0; color: #c9962b; font: inherit; font-weight: 700; cursor: pointer; padding: 0 2px; text-decoration: underline; }
+.hub-bar { display: flex; align-items: center; gap: 14px; margin: 18px 0 12px; flex-wrap: wrap; }
+.hub-hint { font-size: .84rem; opacity: .7; }
+.btn { border: 1px solid #c9b88f; background: #fffaf0; color: #1f2a44; border-radius: 10px; padding: 8px 14px; font: 700 14px system-ui, sans-serif; cursor: pointer; }
+.btn.gold { background: #c9962b; border-color: #c9962b; color: #1b1406; } .btn.gold:hover { filter: brightness(1.07); }
+.btn.big { padding: 11px 18px; font-size: 15px; } .btn.red { background: #b6402d; border-color: #b6402d; color: #fff; } .btn.ghost { background: transparent; }
+.hub-folder { background: #fffaf0; border: 1px solid #e3d6b8; border-left: 4px solid #8a95ad; border-radius: 12px; margin: 10px 0; overflow: visible; }
+.hub-folder.mine { border-left-color: #c9962b; }
+.hub-folder > summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 11px 14px; cursor: pointer; font-weight: 800; user-select: none; }
+.hub-folder > summary::-webkit-details-marker { display: none; }
+.hf-caret { transition: transform .15s; opacity: .6; } .hub-folder[open] .hf-caret { transform: rotate(90deg); }
+.hf-name { flex: 1; font-size: 1.02rem; }
+.hf-you { font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; background: #c9962b; color: #1b1406; border-radius: 999px; padding: 2px 8px; }
+.hf-n { font-size: .78rem; background: rgba(127,127,127,.15); border-radius: 999px; padding: 1px 9px; }
+.hf-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; padding: 0 12px 12px; }
+.hc { position: relative; display: flex; align-items: stretch; background: #fff; border: 1px solid #e8dcc1; border-radius: 12px; transition: box-shadow .15s, transform .15s; }
+.hc:hover { box-shadow: 0 6px 18px rgba(0,0,0,.12); transform: translateY(-1px); }
+.hc-main { flex: 1; display: flex; gap: 12px; align-items: center; padding: 10px; color: inherit; text-decoration: none; min-width: 0; }
+.hc-pic { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; flex: none; border: 2px solid #c9962b; }
+.hc-nopic { display: grid; place-items: center; background: #1f2a44; color: #f3e7c6; font: 800 1.4rem Georgia, serif; }
+.hc-txt { display: flex; flex-direction: column; min-width: 0; }
+.hc-txt b { font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hc-txt span { font-size: .82rem; opacity: .8; } .hc-txt small { font-size: .74rem; opacity: .6; margin-top: 2px; }
+.hc-menu { position: relative; }
+.hc-dots { background: none; border: 0; font-size: 1.2rem; padding: 6px 10px; cursor: pointer; color: inherit; opacity: .55; border-radius: 8px; } .hc-dots:hover { opacity: 1; background: rgba(127,127,127,.12); }
+.hc-list { display: none; position: absolute; right: 4px; top: 34px; z-index: 5; background: #fffaf0; border: 1px solid #e3d6b8; border-radius: 10px; box-shadow: 0 10px 28px rgba(0,0,0,.18); min-width: 200px; padding: 4px; }
+.hc-menu.on .hc-list { display: block; }
+.hc-list button { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 8px 10px; border-radius: 7px; font: 600 14px system-ui, sans-serif; color: inherit; cursor: pointer; } .hc-list button:hover { background: #f1e6cc; }
+.hub-empty { text-align: center; opacity: .7; padding: 30px 0; }
+.hub-foot { margin-top: 26px; font-size: .8rem; opacity: .6; text-align: center; }
+.hub-modal { display: none; position: fixed; inset: 0; background: rgba(10,14,24,.55); z-index: 50; align-items: center; justify-content: center; padding: 16px; }
+.hub-modal.on { display: flex; }
+.hub-card { background: #fffaf0; border: 1px solid #e3d6b8; border-radius: 16px; padding: 20px; max-width: 440px; width: 100%; box-shadow: 0 20px 50px rgba(0,0,0,.35); }
+.hub-card h2 { margin: 0 0 6px; font: 800 1.3rem Georgia, serif; }
+.who-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.who { border: 1px solid #c9b88f; background: #fff; border-radius: 999px; padding: 8px 14px; font: 700 14px system-ui, sans-serif; cursor: pointer; color: #1f2a44; } .who:hover { background: #c9962b; border-color: #c9962b; color: #1b1406; }
+.who-f { display: flex; gap: 8px; margin: 12px 0 8px; } .who-f input { flex: 1; min-width: 0; border: 1px solid #c9b88f; border-radius: 10px; padding: 9px 12px; font: 15px system-ui, sans-serif; }
+.hub-card .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.hub-toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); background: #1f2a44; color: #f3e7c6; padding: 9px 16px; border-radius: 999px; font-weight: 700; opacity: 0; transition: .2s; pointer-events: none; z-index: 60; }
+.hub-toast.on { opacity: 1; transform: translate(-50%, 0); }
+@media (max-width: 520px) { .hub-top h1 { font-size: 1.5rem; } .hf-body { grid-template-columns: 1fr; padding: 0 8px 10px; } }
+</style>
 </head>
 <body>
 <header class="banner"><div class="wrap" id="sec-header"></div></header>
@@ -17022,6 +17076,8 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && CL
 // ---------- Boot ----------
 // For the GitHub Pages loader (new characters get their link once created).
 window.sheetState = () => S; window.sheetToast = toast;
+window.sheetSet = (k, v) => { S[k] = v; pendingLabel = null; save(); render('header'); };
+window.sheetSummary = () => ({ name: S.name || '', player: S.player || '', race: S.raceName || '', cls: S.created ? classLabel() : '', level: S.created ? lvl() : 0, portrait: S.portrait || '', hp: S.created ? N(S.hp && S.hp.cur) + '/' + maxHp() : '' });
 if (S.created) applySources(S.sources);
 if (S.created && FIXED) { const at = S.savedAt; rebuildAuto(); writeLocal(); S.savedAt = at; } // one-off fixes don't count as a newer edit (a newer synced copy still wins)
 loadHist(FROM_LOCAL);
@@ -17033,58 +17089,182 @@ window.addEventListener('resize', () => { if (!UI.layout) { const was = isMobile
 
 </script>
 
-<div id="pg-load" style="position:fixed;inset:0;display:grid;place-items:center;background:#f6f1e6;color:#1f2a44;font:600 15px system-ui,sans-serif;z-index:9999">Loading your sheet…</div>
+<div id="pg-load" style="position:fixed;inset:0;display:grid;place-items:center;background:#f6f1e6;color:#1f2a44;font:600 15px system-ui,sans-serif;z-index:9999">Loading…</div>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
+// GitHub Pages loader. Modes (from the address):
+//   ?c=<id>            a character, loaded from Firestore and kept in sync
+//   ?g=<group>         the party hub: every character in the group, in folders by player
+//   ?new=1[&g=..&p=..] a brand-new character (gets its own ?c= link once created)
+//   (nothing)          this device's hub if it has one, otherwise a new character
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261012204354';
-  let C = (new URLSearchParams(location.search).get('c') || '').replace(/[^A-Za-z0-9_-]/g, '');
-  // No ?c=: a brand-new character. It gets its own private id now; the link appears once the character is created.
-  const NEW = !C;
-  if (NEW) { const a = new Uint8Array(18); crypto.getRandomValues(a); C = btoa(String.fromCharCode(...a)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
-  window.SHEET_PAGES = true; window.SHEET_CHAR = C;
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261012205059';
+  const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
+  let C = clean(Q.get('c')), G = clean(Q.get('g'));
+  const P = (Q.get('p') || '').slice(0, 60);
+  const LAST_G = 'dnd-hub-group', ME = 'dnd-hub-me';
+  const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  if (!C && !G && !Q.get('new') && lsGet(LAST_G)) { location.replace(location.pathname + '?g=' + lsGet(LAST_G)); return; }
   const load = document.getElementById('pg-load'), data = document.getElementById('sheet-data');
-  const CACHE = 'dnd-pages-cache:' + C;
   let fs = null;
   try { firebase.initializeApp(CFG); fs = firebase.firestore(); } catch (e) { console.error(e); }
+  const me = () => { try { return JSON.parse(lsGet(ME) || 'null'); } catch (e) { return null; } };
+  const rid = () => { const a = new Uint8Array(18); crypto.getRandomValues(a); return btoa(String.fromCharCode(...a)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+  if (G && !C && !Q.get('new') && fs) { lsSet(LAST_G, G); if (load) load.remove(); return hub(fs, G); }
+
+  const NEW = !C;
+  if (NEW) C = rid();
+  window.SHEET_PAGES = true; window.SHEET_CHAR = C;
   const run = () => { if (load) load.remove(); const s = document.createElement('script'); s.textContent = document.getElementById('app-src').textContent; document.body.appendChild(s); };
   if (!fs) { if (NEW) delete window.SHEET_CHAR; run(); return; }
-  // Fetch the character (split across part documents when large).
-  const col = fs.collection('sheets');
+  const col = fs.collection('sheets'), CACHE = 'dnd-pages-cache:' + C;
   let txt = null, missing = false;
   if (!NEW) try {
     const sn = await col.doc(C).get();
     if (!sn.exists || !sn.data().data) missing = true;
     else {
       const d = sn.data(); let str = d.data || ''; const n = Number(d.n) || 1;
+      if (d.g && !G) G = clean(d.g);
       for (let k = 1; k < n; k++) { const p = await col.doc(C + '_p' + k).get(); const pd = p.exists ? p.data() : null; if (!pd || Number(pd.savedAt) !== Number(d.savedAt)) { str = null; break; } str += pd.data || ''; }
-      if (str) { JSON.parse(str); txt = str; try { localStorage.setItem(CACHE, str); } catch (e) {} }
+      if (str) { JSON.parse(str); txt = str; lsSet(CACHE, str); }
     }
   } catch (e) { console.warn('Offline or blocked — using this browser\'s copy', e); }
-  if (!txt && !NEW) { try { txt = localStorage.getItem(CACHE); } catch (e) {} }
+  if (!txt && !NEW) txt = lsGet(CACHE);
   if (!txt && !NEW) {
     if (load) load.innerHTML = missing ? '<div style="max-width:420px;text-align:center;padding:20px">This sheet link doesn\'t point to a character.<br><br><small style="font-weight:400">Check the link you were sent, or ask your DM for it again.</small></div>' : '<div style="max-width:420px;text-align:center;padding:20px">Couldn\'t reach the sheet\'s storage.<br><br><small style="font-weight:400">Check your connection and reload.</small></div>';
     return;
   }
   if (txt) data.textContent = txt;
+  if (G) lsSet(LAST_G, G);
+
+  // Keep this character's card in the party hub up to date (name, class, level, portrait, who edited it last).
+  let thumbKey = '', thumbVal = '', hubT = null;
+  const thumb = src => new Promise(res => { if (!src) return res(''); const k = src.length + ':' + src.slice(-64); if (k === thumbKey) return res(thumbVal);
+    const im = new Image(); im.onload = () => { try { const c = document.createElement('canvas'), n = 112, s = Math.min(im.width, im.height); c.width = c.height = n; c.getContext('2d').drawImage(im, (im.width - s) / 2, (im.height - s) / 2 * 0.6, s, s, 0, 0, n, n); thumbKey = k; thumbVal = c.toDataURL('image/jpeg', 0.8); res(thumbVal); } catch (e) { res(''); } }; im.onerror = () => res(''); im.src = src; });
+  const hubUpdate = async () => { if (!G || !window.sheetSummary) return; const st = window.sheetState && window.sheetState(); if (!st || !st.created) return;
+    const s = window.sheetSummary(), m = me();
+    try { await fs.collection('groups/' + G + '/chars').doc(C).set({ name: s.name, player: s.player, race: s.race, cls: s.cls, level: s.level, hp: s.hp, thumb: await thumb(s.portrait), updatedAt: Date.now(), by: (m && m.name) || '' }, { merge: true }); } catch (e) { console.warn('hub', e); } };
+  const hubSoon = () => { clearTimeout(hubT); hubT = setTimeout(hubUpdate, 4000); };
+
   // The sheet's sync code talks to "db" like it does on claude.ai; here that's this character's Firestore documents.
-  const docFor = p => { const m = /^sheets\/(main|part(\d+))$/.exec(p); return m ? col.doc(m[2] ? C + '_p' + m[2] : C) : null; };
+  const docFor = p => { const m = /^sheets\/(main|part(\d+))$/.exec(p); return m ? [col.doc(m[2] ? C + '_p' + m[2] : C), !m[2]] : null; };
   const none = { get: async () => ({ exists: false, data: () => null }), set: async () => { throw { code: 'unsupported' }; }, delete: async () => {}, onSnapshot: () => () => {} };
-  const db = { doc: p => { const r = docFor(p); return r ? { get: () => r.get(), set: v => r.set(v), delete: () => r.delete(), onSnapshot: (cb, err) => r.onSnapshot(cb, err) } : none; } };
+  const db = { doc: p => { const x = docFor(p); if (!x) return none; const [r, main] = x;
+    return { get: () => r.get(), set: v => { if (main && G) v = Object.assign({}, v, { g: G }); const w = r.set(v); if (main) w.then(hubSoon, () => {}); return w; }, delete: () => r.delete(), onSnapshot: (cb, err) => r.onSnapshot(cb, err) }; } };
   const user = { id: async () => null, isOwner: async () => true, can: async () => true };
   window.claude = { use: async n => n === 'db' ? db : n === 'user' ? user : null };
   run();
+  if (NEW && P) { try { const st = window.sheetState(); if (st && !st.player) st.player = P; } catch (e) {} }
+  // Moved to another player's folder from the hub: the sheet's Player field follows.
+  if (!NEW && G) setTimeout(async () => { try { const h = await fs.collection('groups/' + G + '/chars').doc(C).get(); const hd = h.exists ? h.data() : null; const st = window.sheetState && window.sheetState();
+    if (hd && hd.playerSet && st && st.created && (hd.player || '') !== (st.player || '') && Number(hd.playerSet) > Number(st.savedAt || 0) - 1) window.sheetSet('player', hd.player || ''); } catch (e) {} hubUpdate(); }, 2500);
   // New character: once it's created (and saved to the cloud), its private link goes in the address bar.
   if (NEW) { const t = setInterval(() => { let made = false; try { const st = window.sheetState && window.sheetState(); made = !!(st && st.created); } catch (e) {} if (!made) return; clearInterval(t);
     history.replaceState(null, '', location.pathname + '?c=' + C);
     const link = location.href, copy = () => { try { navigator.clipboard.writeText(link); window.sheetToast('Link copied.'); } catch (e) {} };
-    setTimeout(() => window.sheetToast(`<div><b>This character has its own link now</b><div class="det">It's in the address bar — bookmark it or copy it. Open it on any device to get this character, synced live. Keep it private: anyone with the link can edit the character.</div></div>`, '', 20000, { label: 'Copy link', fn: copy }), 600);
+    setTimeout(() => window.sheetToast(`<div><b>This character has its own link now</b><div class="det">${G ? 'It\'s in your party hub too. ' : ''}It's in the address bar — bookmark it or copy it. Open it on any device to get this character, synced live. Keep it private: anyone with the link can edit the character.</div></div>`, '', 20000, { label: 'Copy link', fn: copy }), 600);
+    hubSoon();
   }, 500); }
+  // Back to the hub (desktop and phone).
+  if (G) { const a = document.createElement('a'); a.href = location.pathname + '?g=' + G; a.className = 'pg-hublink'; a.title = 'All characters'; a.textContent = '⌂ Party'; document.body.appendChild(a); }
   // A newer version of the sheet was pushed: offer a reload (the character is saved first).
-  const check = async () => { try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); const v = (await r.json()).v; if (v && v !== VER && !document.getElementById('pg-upd')) { const b = document.createElement('button'); b.id = 'pg-upd'; b.textContent = 'Sheet updated — tap to reload'; b.style.cssText = 'position:fixed;left:50%;bottom:88px;transform:translateX(-50%);z-index:9998;background:#c9962b;color:#1b1406;border:0;border-radius:999px;padding:10px 18px;font:700 14px system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.3);cursor:pointer'; b.onclick = () => { b.textContent = 'Saving…'; setTimeout(() => location.reload(), 1200); }; document.body.appendChild(b); } } catch (e) {} };
+  const check = async () => { try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); const v = (await r.json()).v; if (v && v !== VER && !document.getElementById('pg-upd')) { const b = document.createElement('button'); b.id = 'pg-upd'; b.textContent = 'Sheet updated — tap to reload'; b.onclick = () => { b.textContent = 'Saving…'; setTimeout(() => location.reload(), 1200); }; document.body.appendChild(b); } } catch (e) {} };
   setInterval(check, 5 * 60 * 1000); document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
 })();
+
+// ================= The party hub =================
+function hub(fs, G) {
+  const ME = 'dnd-hub-me', OPEN = 'dnd-hub-open:' + G;
+  const ls = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
+  const me = () => { try { return JSON.parse(ls.get(ME) || 'null'); } catch (e) { return null; } };
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const ago = t => { if (!t) return ''; const s = (Date.now() - t) / 1000; return s < 60 ? 'just now' : s < 3600 ? Math.floor(s / 60) + 'm ago' : s < 86400 ? Math.floor(s / 3600) + 'h ago' : Math.floor(s / 86400) + 'd ago'; };
+  const base = location.pathname;
+  document.title = 'Party — D&D Character Sheets';
+  document.body.innerHTML = '<div id="hub"></div><div id="hub-modal" class="hub-modal"></div><div id="hub-toast" class="hub-toast"></div>';
+  document.body.className = 'hubbody';
+  const root = document.getElementById('hub'), modal = document.getElementById('hub-modal');
+  let chars = [], group = { name: '' }, open = {};
+  try { open = JSON.parse(ls.get(OPEN) || '{}'); } catch (e) {}
+  const toast = t => { const el = document.getElementById('hub-toast'); el.textContent = t; el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), 2600); };
+  const players = () => [...new Set(chars.map(c => (c.player || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const isMine = name => { const m = me(); return !!(m && name && m.name.trim().toLowerCase() === name.trim().toLowerCase()); };
+  const charsCol = fs.collection('groups/' + G + '/chars'), gDoc = fs.collection('groups').doc(G);
+
+  function askWho(force) {
+    const m = me(); if (m && !force) return;
+    const ps = players();
+    modal.innerHTML = `<div class="hub-card"><h2>Who's using this device?</h2><p class="hub-hint">Pick yourself once — this device will remember. It's used to put your characters first and to show who changed what.</p>
+      <div class="who-list">${ps.map(p => `<button class="who" data-who="${esc(p)}">${esc(p)}</button>`).join('')}</div>
+      <form id="who-f" class="who-f"><input id="who-in" placeholder="${ps.length ? 'Someone else? Type your name' : 'Your name'}" maxlength="40" autocomplete="name"><button class="btn gold">That's me</button></form>
+      ${m ? '<button class="btn ghost" id="who-x">Cancel</button>' : ''}</div>`;
+    modal.classList.add('on');
+    const pick = name => { name = (name || '').trim(); if (!name) return; ls.set(ME, JSON.stringify({ name })); modal.classList.remove('on'); draw(); toast('Hi, ' + name + '!'); };
+    modal.querySelectorAll('[data-who]').forEach(b => b.onclick = () => pick(b.dataset.who));
+    modal.querySelector('#who-f').onsubmit = e => { e.preventDefault(); pick(modal.querySelector('#who-in').value); };
+    const x = modal.querySelector('#who-x'); if (x) x.onclick = () => modal.classList.remove('on');
+  }
+  function createChar() {
+    const m = me(), ps = players();
+    modal.innerHTML = `<div class="hub-card"><h2>New character</h2><p class="hub-hint">Whose character is it? It opens the character builder; when you finish, it gets its own link and shows up here.</p>
+      <form id="new-f" class="who-f"><input id="new-p" list="new-pl" value="${esc(m ? m.name : '')}" placeholder="Player name" maxlength="40"><datalist id="new-pl">${ps.map(p => `<option value="${esc(p)}">`).join('')}</datalist><button class="btn gold">Create character</button></form>
+      <button class="btn ghost" id="new-x">Cancel</button></div>`;
+    modal.classList.add('on');
+    modal.querySelector('#new-f').onsubmit = e => { e.preventDefault(); const p = modal.querySelector('#new-p').value.trim(); location.href = base + '?new=1&g=' + G + (p ? '&p=' + encodeURIComponent(p) : ''); };
+    modal.querySelector('#new-x').onclick = () => modal.classList.remove('on');
+  }
+  function moveChar(c) {
+    const ps = players();
+    modal.innerHTML = `<div class="hub-card"><h2>Move ${esc(c.name || 'character')}</h2><p class="hub-hint">Put it in another player's folder. (This also changes the Player field on the sheet the next time it's opened.)</p>
+      <form id="mv-f" class="who-f"><input id="mv-p" list="mv-pl" value="${esc(c.player || '')}" placeholder="Player name" maxlength="40"><datalist id="mv-pl">${ps.map(p => `<option value="${esc(p)}">`).join('')}</datalist><button class="btn gold">Move</button></form>
+      <button class="btn ghost" id="mv-x">Cancel</button></div>`;
+    modal.classList.add('on');
+    modal.querySelector('#mv-f').onsubmit = async e => { e.preventDefault(); const p = modal.querySelector('#mv-p').value.trim(); modal.classList.remove('on'); await charsCol.doc(c.id).set({ player: p, playerSet: Date.now() }, { merge: true }); toast('Moved.'); };
+    modal.querySelector('#mv-x').onclick = () => modal.classList.remove('on');
+  }
+  function removeChar(c) {
+    modal.innerHTML = `<div class="hub-card"><h2>Remove ${esc(c.name || 'this character')} from the list?</h2><p class="hub-hint">The character itself isn't deleted — its link keeps working, and opening it puts it back here.</p>
+      <div class="row"><button class="btn ghost" id="rm-x">Cancel</button><button class="btn red" id="rm-ok">Remove from list</button></div></div>`;
+    modal.classList.add('on');
+    modal.querySelector('#rm-ok').onclick = async () => { modal.classList.remove('on'); await charsCol.doc(c.id).delete(); toast('Removed from the list.'); };
+    modal.querySelector('#rm-x').onclick = () => modal.classList.remove('on');
+  }
+  function card(c) {
+    const link = base + '?c=' + c.id;
+    return `<div class="hc"><a class="hc-main" href="${esc(link)}">${c.thumb ? `<img class="hc-pic" src="${esc(c.thumb)}" alt="">` : `<span class="hc-pic hc-nopic">${esc((c.name || '?')[0])}</span>`}
+      <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</span>
+      <small>${c.hp ? 'HP ' + esc(c.hp) + ' · ' : ''}${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small></span></a>
+      <div class="hc-menu"><button class="hc-dots" aria-label="More">⋯</button><div class="hc-list">
+        <button data-a="copy" data-id="${esc(c.id)}">Copy link</button><button data-a="move" data-id="${esc(c.id)}">Move to another player</button><button data-a="rm" data-id="${esc(c.id)}">Remove from list</button></div></div></div>`;
+  }
+  function draw() {
+    const m = me(), groups = {};
+    chars.forEach(c => { const k = (c.player || '').trim() || 'No player yet'; (groups[k] = groups[k] || []).push(c); });
+    const keys = Object.keys(groups).sort((a, b) => (isMine(b) - isMine(a)) || (a === 'No player yet') - (b === 'No player yet') || a.localeCompare(b));
+    root.innerHTML = `<header class="hub-top"><div><div class="hub-kicker">D&amp;D Character Sheets</div><h1>${esc(group.name || 'The Party')}</h1></div>
+      <div class="hub-me">${m ? `Signed in as <b>${esc(m.name)}</b> <button class="linkbtn" id="me-chg">change</button>` : '<button class="linkbtn" id="me-chg">Who are you?</button>'}</div></header>
+      <div class="hub-bar"><button class="btn gold big" id="hub-new">＋ Create character</button><span class="hub-hint">${chars.length} character${chars.length === 1 ? '' : 's'} · ${keys.length} player${keys.length === 1 ? '' : 's'}</span></div>
+      ${keys.length ? keys.map(k => { const mine = isMine(k), isOpen = open[k] != null ? open[k] : true; return `<details class="hub-folder${mine ? ' mine' : ''}" data-k="${esc(k)}" ${isOpen ? 'open' : ''}><summary><span class="hf-caret">▸</span><span class="hf-name">${esc(k)}</span>${mine ? '<span class="hf-you">You</span>' : ''}<span class="hf-n">${groups[k].length}</span></summary>
+        <div class="hf-body">${groups[k].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).map(card).join('')}</div></details>`; }).join('') : '<p class="hub-empty">No characters yet — create the first one.</p>'}
+      <footer class="hub-foot">Bookmark this page — it's your party's hub. Anyone with this link can see and open every character in it, so only share it with your group.</footer>`;
+    root.querySelector('#hub-new').onclick = createChar;
+    root.querySelector('#me-chg').onclick = () => askWho(true);
+    root.querySelectorAll('details.hub-folder').forEach(d => d.addEventListener('toggle', () => { open[d.dataset.k] = d.open; ls.set(OPEN, JSON.stringify(open)); }));
+    root.querySelectorAll('.hc-dots').forEach(b => b.onclick = e => { e.stopPropagation(); const w = b.parentElement, on = !w.classList.contains('on'); root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')); w.classList.toggle('on', on); });
+    root.querySelectorAll('.hc-list [data-a]').forEach(b => b.onclick = () => { const c = chars.find(x => x.id === b.dataset.id); b.closest('.hc-menu').classList.remove('on'); if (!c) return;
+      if (b.dataset.a === 'copy') { navigator.clipboard.writeText(location.origin + base + '?c=' + c.id).then(() => toast('Link copied.'), () => prompt('Copy this link:', location.origin + base + '?c=' + c.id)); }
+      if (b.dataset.a === 'move') moveChar(c); if (b.dataset.a === 'rm') removeChar(c); });
+    const h1 = root.querySelector('h1'); h1.title = 'Click to rename'; h1.onclick = async () => { const n = prompt('Party name', group.name || 'The Party'); if (n != null && n.trim()) { await gDoc.set({ name: n.trim().slice(0, 60) }, { merge: true }); } };
+  }
+  document.addEventListener('click', () => root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')));
+  draw();
+  gDoc.onSnapshot(s => { group = (s.exists && s.data()) || {}; draw(); }, () => {});
+  charsCol.onSnapshot(qs => { chars = qs.docs.map(d => Object.assign({ id: d.id }, d.data())); draw(); if (!me()) askWho(); },
+    e => { root.innerHTML = '<p class="hub-empty">Couldn\'t load the party list. Check your connection, or ask your DM for the party link again.</p>'; console.error(e); });
+  setInterval(draw, 60000);
+}
+
 </script>
 </body>
 </html>
