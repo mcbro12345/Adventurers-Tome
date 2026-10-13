@@ -690,3 +690,5 @@ html:has(body.hubbody:not(.adminbody)) { scrollbar-gutter: auto !important; }
   body.adminbody .adm-subrow .adm-btn { display: inline-flex; margin-top: 2px; }
 }
 body.adminbody .adm-t tr[hidden] { display: none !important; }
+/* computers: the scrollbar is always there, so switching between a short and a long list never nudges the page sideways */
+@media (hover: hover) { html:has(body.hubbody:not(.adminbody)) { overflow-y: scroll; } }
