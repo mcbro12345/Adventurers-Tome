@@ -50,7 +50,7 @@ const avaOf = u => { const color = okColor(u && u.picColor), m = picModeOf(u);
   if (m === 'initials') return { pic: '', color, clear: false };
   return { pic: (u && u.pic) || '', color, clear: m === 'upload' && !!(u && u.pic && u.picClear) }; };
 const avaStyle = (o, key) => { const c = okColor(o && o.color); return c ? `background:${c};color:${inkOn(c)}` : `--h:${hueOf(key)}`; };
-function avaHTML(name, em, pic, cls = '', title = '', o = {}) { const clear = !!(pic && o.clear);
+function avaHTML(name, em, pic, cls = '', title = '', o = {}) { const clear = !!(pic && o.clear); title = title || name || '';
   return `<span class="pg-ava ${cls}${pic ? ' has-pic' : ''}${clear ? ' clear' : ''}" style="${pic ? '' : avaStyle(o, em || name)}"${title ? ` title="${escH(title)}"` : ''}>${pic ? `<img src="${escH(pic)}" alt="">` : escH(initials(name, em))}</span>`; }
 const firstThumb = list => { const cs = list.filter(c => c.thumb).sort((a, b) => (a.createdAt || a.updatedAt || 9e15) - (b.createdAt || b.updatedAt || 9e15)); return (cs[0] && cs[0].thumb) || ''; };
 // ================= The logo (sign-in page and character list) =================
@@ -755,7 +755,7 @@ function hub(fs, auth, G, ctx) {
     // avatar: initials on a colour picked from the name, so the same person always looks the same
     const hue = t => [...String(t || '?')].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) % 360, 7);
     const ava = (name, em) => { const ini = String(name || em || '?').split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
-      const a = (em && PICS[em]) || {}; return `<span class="adm-ava${a.pic ? ' has-pic' : ''}${a.clear ? ' clear' : ''}" data-em="${esc(em || '')}" style="${a.pic ? '' : avaStyle(a, em || name)}">${a.pic ? `<img src="${esc(a.pic)}" alt="">` : esc(ini)}</span>`; };
+      const a = (em && PICS[em]) || {}; return `<span class="adm-ava${a.pic ? ' has-pic' : ''}${a.clear ? ' clear' : ''}" title="${esc(name || em || '')}" data-em="${esc(em || '')}" style="${a.pic ? '' : avaStyle(a, em || name)}">${a.pic ? `<img src="${esc(a.pic)}" alt="">` : esc(ini)}</span>`; };
     // Each person's picture as they set it (initials and colour, a character, or an upload) — looked up once per visit.
     const PICS = {}, PICQ = {};
     const picFor = em => PICQ[em] || (PICQ[em] = userDoc(em).then(u => PICS[em] = avaOf(u), () => PICS[em] = {}));
