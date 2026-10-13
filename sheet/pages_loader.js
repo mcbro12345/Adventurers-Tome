@@ -699,6 +699,22 @@ function hub(fs, auth, G, ctx) {
   }
   wireDie(root);
   document.addEventListener('click', () => root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')));
+  // On a computer the page's own scrollbar is hidden; a slim gold one (like phone view's) sits just right of the list instead.
+  if (!TOUCH && page !== 'admin') (() => {
+    const sb = document.createElement('div'); sb.className = 'hub-sb'; sb.hidden = true; sb.innerHTML = '<div class="pgph-th"></div>'; document.body.appendChild(sb); const th = sb.firstElementChild;
+    const paint = () => { if (document.body.classList.contains('adminbody')) { sb.hidden = true; return; }
+      const de = document.documentElement, max = de.scrollHeight - innerHeight, head = document.querySelector('.hub-head'), col = document.querySelector('.hub-head > .hub-views');
+      if (max < 2 || !head || !col) { sb.hidden = true; return; } sb.hidden = false;
+      const top = head.getBoundingClientRect().bottom + 14, bot = 16, H = Math.max(40, innerHeight - top - bot);
+      sb.style.top = top + 'px'; sb.style.height = H + 'px'; sb.style.left = Math.min(innerWidth - 14, col.getBoundingClientRect().right + 14) + 'px';
+      const h = Math.max(28, H * innerHeight / de.scrollHeight); th.style.height = h + 'px'; th.style.top = ((H - h) * (scrollY / max)) + 'px'; };
+    addEventListener('scroll', paint, { passive: true }); addEventListener('resize', paint); new MutationObserver(() => requestAnimationFrame(paint)).observe(root, { childList: true, subtree: true }); setTimeout(paint, 50);
+    th.addEventListener('pointerdown', e => { e.preventDefault(); th.classList.add('drag'); th.setPointerCapture(e.pointerId);
+      const y0 = e.clientY, s0 = scrollY, k = (document.documentElement.scrollHeight - innerHeight) / Math.max(1, sb.clientHeight - th.offsetHeight);
+      const mv = ev => scrollTo(0, s0 + (ev.clientY - y0) * k), up = () => { th.classList.remove('drag'); th.removeEventListener('pointermove', mv); th.removeEventListener('pointerup', up); th.removeEventListener('pointercancel', up); };
+      th.addEventListener('pointermove', mv); th.addEventListener('pointerup', up); th.addEventListener('pointercancel', up); });
+    sb.addEventListener('pointerdown', e => { if (e.target !== sb) return; scrollBy({ top: (e.clientY < th.getBoundingClientRect().top ? -1 : 1) * innerHeight * .8, behavior: 'smooth' }); });
+  })();
   draw();
   // Everyone — admins too — sees their own characters plus the ones shared with them. Admins find the rest in Admin.
   const lists = {}, merge = () => { const m = new Map(); Object.values(lists).forEach(l => l.forEach(c => m.set(c.id, c))); chars = [...m.values()]; if (!RD) draw();
