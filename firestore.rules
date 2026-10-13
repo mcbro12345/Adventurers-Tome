@@ -18,7 +18,9 @@ service cloud.firestore {
       allow get: if admin() || (signedIn() && (resource == null || canSee(resource.data)));
       allow create: if admin() || (signedIn() && createOK());
       allow update: if admin() || (signedIn() && (ownerWrite() || editorWrite()));
-      allow list, delete: if false;
+      // only the owner (or an admin) can delete a character — never someone it's merely shared with
+      allow delete: if admin() || (signedIn() && resource.data.owner == me());
+      allow list: if false;
     }
     // One record per account, keyed by email: made by the person on first sign-in; only admins can list or search them.
     match /users/{em} {
@@ -41,7 +43,7 @@ service cloud.firestore {
         allow read: if admin() || (signedIn() && (resource == null || canSee(resource.data)));
         allow create: if admin() || (signedIn() && createOK());
         allow update: if admin() || (signedIn() && (ownerWrite() || editorWrite()));
-        allow delete: if admin();
+        allow delete: if admin() || (signedIn() && resource.data.owner == me());
       }
     }
   }

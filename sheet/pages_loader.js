@@ -244,6 +244,8 @@ function hub(fs, auth, G, ctx) {
   const isMine = c => (c.owner || '') === EMAIL;
   const close = () => modal.classList.remove('on');
   const pic = c => c.thumb ? `<img class="hc-pic" src="${esc(c.thumb)}" alt="">` : `<span class="hc-pic hc-nopic">${esc((c.name || '?')[0])}</span>`;
+  // The wordmark: a gold d20 crest beside "Adventurer's" in spaced small caps over a large serif "Tome".
+  const LOGO = `<h1 class="hub-logo" aria-label="Adventurer’s Tome"><svg class="hl-d20" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="hlg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f1d58a"/><stop offset=".55" stop-color="#c9962b"/><stop offset="1" stop-color="#8a6420"/></linearGradient></defs><polygon points="50,4 91,27 91,73 50,96 9,73 9,27" fill="rgba(201,150,43,.14)" stroke="url(#hlg)" stroke-width="4" stroke-linejoin="round"/><g fill="none" stroke="url(#hlg)" stroke-width="2.6" stroke-linejoin="round"><polygon points="50,24 73,63 27,63"/><path d="M50 4 L50 24 M91 27 L73 63 M91 73 L73 63 M50 96 L73 63 M50 96 L27 63 M9 73 L27 63 M9 27 L27 63 M9 27 L50 24 M91 27 L50 24"/></g><text x="50" y="55" text-anchor="middle" font-family="Georgia,serif" font-weight="800" font-size="15" class="hl-20">20</text></svg><span class="hl-txt"><span class="hl-a">Adventurer’s</span><span class="hl-t">Tome</span></span></h1>`;
   const shareIcon = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>';
 
   // ----- actions on one character (used by the hub's menus and the admin section) -----
@@ -296,6 +298,28 @@ function hub(fs, auth, G, ctx) {
     modal.querySelector('#rm-ok').onclick = async () => { await charsCol.doc(c.id).delete(); chars = chars.filter(x => x.id !== c.id); toast('Removed from the list.'); close(); if (after) after(); };
     modal.querySelector('#rm-x').onclick = close;
   }
+  // Deleting is for the owner (or an admin), never for people it's only shared with. It's permanent, so they type the
+  // character's name to confirm.
+  const canDelete = c => IS_ADMIN || (c.owner || '') === EMAIL;
+  function deleteChar(c, after) {
+    if (!canDelete(c)) return;
+    const want = String(c.name || '').trim() || 'DELETE';
+    modal.innerHTML = `<div class="hub-card"><h2>Delete ${esc(c.name || 'this character')}?</h2>
+      <p class="hub-hint">This permanently deletes the character${(c.viewers || []).length ? ', including for everyone it’s shared with' : ''}. It can’t be undone.</p>
+      <label class="del-l">Type <b>${esc(want)}</b> to confirm<input id="del-q" class="ad-search" autocomplete="off" spellcheck="false"></label>
+      <div class="row"><button class="btn ghost" id="del-x">Cancel</button><button class="btn red" id="del-ok" disabled>Delete forever</button></div></div>`;
+    modal.classList.add('on'); const q = modal.querySelector('#del-q'), ok = modal.querySelector('#del-ok');
+    const match = () => q.value.trim().toLowerCase() === want.toLowerCase();
+    q.oninput = () => { ok.disabled = !match(); }; q.onkeydown = e => { if (e.key === 'Enter' && match()) ok.click(); }; q.focus();
+    modal.querySelector('#del-x').onclick = close;
+    ok.onclick = async () => { if (!match()) return; ok.disabled = true; ok.textContent = 'Deleting…';
+      try { const s0 = await sheets.doc(c.id).get(); const n = Number(s0.exists && s0.data().n) || 1;
+        for (let k = 1; k < n; k++) await sheets.doc(c.id + '_p' + k).delete().catch(() => {});
+        if (s0.exists) await sheets.doc(c.id).delete(); await charsCol.doc(c.id).delete();
+        ['dnd-pages-cache:', 'dnd-sheet-ui:'].forEach(k => { try { localStorage.removeItem(k + c.id); } catch (e) {} });
+        chars = chars.filter(x => x.id !== c.id); close(); toast((c.name || 'The character') + ' was deleted.'); if (after) after(); }
+      catch (x) { ok.textContent = 'Delete forever'; ok.disabled = false; toast(x && x.code === 'permission-denied' ? 'Only the owner (or an admin) can delete it — if you are, the new database rules still need publishing.' : 'Couldn\'t delete it: ' + ((x && x.message) || x)); } };
+  }
   document.addEventListener('click', e => { if (e.target === modal) close(); });
 
   if (ADMIN) return adminSection();
@@ -308,7 +332,7 @@ function hub(fs, auth, G, ctx) {
       <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</span>
       <small>${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small>${acc}</span></a>
       ${IS_ADMIN ? `<div class="hc-menu"><button class="hc-dots" aria-label="More">⋯</button><div class="hc-list">
-        <button data-a="share" data-id="${esc(c.id)}">Share…</button><button data-a="move" data-id="${esc(c.id)}">Give to another player</button><button data-a="rm" data-id="${esc(c.id)}">Remove from list</button></div></div>` : ''}</div>`;
+        <button data-a="share" data-id="${esc(c.id)}">Share…</button><button data-a="move" data-id="${esc(c.id)}">Give to another player</button><button data-a="rm" data-id="${esc(c.id)}">Remove from list</button><button data-a="del" data-id="${esc(c.id)}" class="hc-del">Delete character…</button></div></div>` : ''}</div>`;
   }
   const shareNote = c => { const n = (c.viewers || []).length; return n ? `Shared with ${n} · ` : ''; };
   // Pinned first; then each player's own order (drag to change), then most recently updated.
@@ -318,7 +342,7 @@ function hub(fs, auth, G, ctx) {
       <a class="hr-main" href="${esc(base + '?c=' + c.id)}">${pic(c)}
       <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</span>
       <small>${shareNote(c)}${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small></span></a>
-      <button class="hr-pin hr-share" data-share-id="${esc(c.id)}" title="Share">${shareIcon}</button><button class="hr-pin${c.pin ? ' on' : ''}" data-pin-id="${esc(c.id)}" title="${c.pin ? 'Unpin' : 'Pin to the top'}" aria-pressed="${!!c.pin}"><svg viewBox="0 0 24 24" width="18" height="18" fill="${c.pin ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 3h6l-1 6 4 4H6l4-4z"/><path d="M12 13v8"/></svg></button></div>`;
+      <button class="hr-pin hr-share" data-share-id="${esc(c.id)}" title="Share">${shareIcon}</button><button class="hr-pin hr-del" data-del-id="${esc(c.id)}" title="Delete" aria-label="Delete ${esc(c.name || 'character')}"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button><button class="hr-pin${c.pin ? ' on' : ''}" data-pin-id="${esc(c.id)}" title="${c.pin ? 'Unpin' : 'Pin to the top'}" aria-pressed="${!!c.pin}"><svg viewBox="0 0 24 24" width="18" height="18" fill="${c.pin ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 3h6l-1 6 4 4H6l4-4z"/><path d="M12 13v8"/></svg></button></div>`;
   }
   async function saveOrder(ids) { await Promise.all(ids.map((id, i) => { const c = chars.find(x => x.id === id); if (c && c.order === i) return null; if (c) c.order = i; return charsCol.doc(id).set({ order: i }, { merge: true }); })); }
   async function togglePin(id) { const c = chars.find(x => x.id === id); if (!c) return; const mine = chars.filter(isMine);
@@ -357,20 +381,22 @@ function hub(fs, auth, G, ctx) {
         <div class="hf-body">${groups[k].sort(byName).map(card).join('')}</div></details>`; }).join('')
         : `<p class="hub-empty">Nothing has been shared with you yet. When another player shares a character with ${esc(EMAIL)}, it shows up here.</p>`)
       : (mine.length ? `<div class="hl">${mine.sort(ord).map(row).join('')}</div>` : `<p class="hub-empty">You don’t have any characters yet — create one, or ask whoever has yours to give it to you.</p>`);
-    root.innerHTML = `<header class="hub-top"><h1 class="hub-title">Adventurer’s Tome</h1>
+    root.innerHTML = `<header class="hub-top">${LOGO}
       <div class="hub-me">Signed in as <b>${esc(myName())}</b> <span class="hub-em">${esc(EMAIL)}</span> · <button class="linkbtn" id="me-out">Sign out</button></div></header>
-      <div class="hub-views"><button class="${SH ? '' : 'on'}" data-view="mine">My characters <span>${mine.length}</span></button><button class="${SH ? 'on' : ''}" data-view="shared">Shared characters <span>${shared.length}</span></button>${IS_ADMIN ? `<a class="btn hub-admin" id="hub-admin" href="${esc(ADMIN_URL)}">⚙ Admin</a>` : ''}</div>
+      <div class="hub-views"><button class="${SH ? '' : 'on'}" data-view="mine">My characters <span>${mine.length}</span></button><button class="${SH ? 'on' : ''}" data-view="shared">Shared characters <span>${shared.length}</span></button>${IS_ADMIN ? '<button class="btn hub-admin" id="hub-admin">⚙ Admin</button>' : ''}</div>
       ${SH ? '' : '<div class="hub-bar"><button class="btn gold big" id="hub-new">＋ Create character</button></div>'}
       ${body}`;
     const nb = root.querySelector('#hub-new'); if (nb) nb.onclick = createChar;
     root.querySelector('#me-out').onclick = signOut;
+    const ab = root.querySelector('#hub-admin'); if (ab) ab.onclick = () => { location.href = ADMIN_URL; };
     root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { view = b.dataset.view; draw(); });
     root.querySelectorAll('[data-pin-id]').forEach(b => b.onclick = e => { e.preventDefault(); togglePin(b.dataset.pinId); });
+    root.querySelectorAll('[data-del-id]').forEach(b => b.onclick = e => { e.preventDefault(); const c = chars.find(x => x.id === b.dataset.delId); if (c) deleteChar(c, draw); });
     root.querySelectorAll('[data-share-id]').forEach(b => b.onclick = e => { e.preventDefault(); const c = chars.find(x => x.id === b.dataset.shareId); if (c) shareChar(c); });
     root.querySelectorAll('details.hub-folder').forEach(d => d.addEventListener('toggle', () => { open[d.dataset.k] = d.open; ls.set(OPEN, JSON.stringify(open)); }));
     root.querySelectorAll('.hc-dots').forEach(b => b.onclick = e => { e.stopPropagation(); const w = b.parentElement, on = !w.classList.contains('on'); root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')); w.classList.toggle('on', on); });
     root.querySelectorAll('.hc-list [data-a]').forEach(b => b.onclick = () => { const c = chars.find(x => x.id === b.dataset.id); b.closest('.hc-menu').classList.remove('on'); if (!c) return;
-      if (b.dataset.a === 'share') shareChar(c); if (b.dataset.a === 'move') moveChar(c, draw); if (b.dataset.a === 'rm') removeChar(c, draw); });
+      if (b.dataset.a === 'share') shareChar(c); if (b.dataset.a === 'move') moveChar(c, draw); if (b.dataset.a === 'rm') removeChar(c, draw); if (b.dataset.a === 'del') deleteChar(c, draw); });
   }
   document.addEventListener('click', () => root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')));
   draw();
@@ -385,8 +411,8 @@ function hub(fs, auth, G, ctx) {
   // ================= Admin section (its own page: ?g=…&admin=1) =================
   function adminSection() {
     const UREF = usersCol.doc(EMAIL); let CHECKED = Number(ME && ME.checkedAt) || 0;
-    let TAB = new URLSearchParams(location.search).get('tab') || 'new';
-    const TABS = [['new', 'New'], ['users', 'Users'], ['chars', 'Characters'], ['admins', 'Admins']];
+    let TAB = new URLSearchParams(location.search).get('tab') || 'users';
+    const TABS = [['users', 'Users'], ['chars', 'Characters'], ['admins', 'Admins'], ['new', 'New']];
     const CH = {}; // characters on screen, by id
     const setTab = t => { TAB = t; const u = new URL(location.href); u.searchParams.set('tab', t); history.replaceState(null, '', u); frame(); };
     let NEWN = null;
@@ -406,7 +432,7 @@ function hub(fs, auth, G, ctx) {
       return `<div class="ad-row" data-cid="${esc(c.id)}">${pic(c)}
         <div class="ad-main"><b>${esc(c.name || 'Unnamed character')}</b><small>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}${showOwner ? ' · <span class="ad-own-n">' + esc(nameOf(c.owner || '')) + '</span>' : ''}${c.createdAt ? ' · made ' + esc(ago(c.createdAt)) : ''}${c.updatedAt ? ' · updated ' + esc(ago(c.updatedAt)) : ''}${(c.viewers || []).length ? ' · shared with ' + c.viewers.length : ''}</small></div>
         ${a === 'own' ? '<span class="ad-mine">Yours</span>' : `<label class="ad-me"><span>Shared with you</span><select data-me="${esc(c.id)}"><option value="">No</option><option value="view"${a === 'view' ? ' selected' : ''}>Can view</option><option value="edit"${a === 'edit' ? ' selected' : ''}>Can edit</option></select></label>`}
-        <div class="ad-acts"><a class="btn sm" href="${esc(base + '?c=' + c.id)}">Open</a><button class="btn sm" data-ash="${esc(c.id)}">Share…</button><button class="btn sm" data-agive="${esc(c.id)}">Give to…</button><button class="btn sm ghost" data-arm="${esc(c.id)}">Remove</button></div></div>`; }
+        <div class="ad-acts"><a class="btn sm" href="${esc(base + '?c=' + c.id)}">Open</a><button class="btn sm" data-ash="${esc(c.id)}">Share…</button><button class="btn sm" data-agive="${esc(c.id)}">Give to…</button><button class="btn sm ghost" data-arm="${esc(c.id)}" title="Take it off the lists without deleting it">Remove</button><button class="btn sm ghost ad-del" data-adel="${esc(c.id)}">Delete</button></div></div>`; }
     function wire(el, redo) {
       el.querySelectorAll('[data-me]').forEach(sl => sl.onchange = async () => { const c = CH[sl.dataset.me]; if (!c) return; const v = sl.value;
         const V = (c.viewers || []).filter(x => x !== EMAIL), E = (c.editors || []).filter(x => x !== EMAIL);
@@ -415,6 +441,7 @@ function hub(fs, auth, G, ctx) {
       el.querySelectorAll('[data-ash]').forEach(b => b.onclick = () => { const c = CH[b.dataset.ash]; if (c) shareChar(c, Object.assign(() => {}, { refresh: redo })); });
       el.querySelectorAll('[data-agive]').forEach(b => b.onclick = () => { const c = CH[b.dataset.agive]; if (c) moveChar(c, redo); });
       el.querySelectorAll('[data-arm]').forEach(b => b.onclick = () => { const c = CH[b.dataset.arm]; if (c) removeChar(c, redo); });
+      el.querySelectorAll('[data-adel]').forEach(b => b.onclick = () => { const c = CH[b.dataset.adel]; if (c) deleteChar(c, redo); });
     }
     const docs = r => r.docs.map(d => Object.assign({ id: d.id }, d.data()));
     const failMsg = x => `<p class="hub-hint">Couldn't load this (${esc((x && (x.code || x.message)) || x)}). If it says permissions, the new database rules haven't been published yet.</p>`;
@@ -429,14 +456,14 @@ function hub(fs, auth, G, ctx) {
         await Promise.all(us.map(async u => { byUser[u.id] = docs(await charsCol.where('owner', '==', u.id).limit(50).get()); }));
         const others = docs(cr).filter(c => !fresh.has(c.owner)); await needNames(others.map(c => c.owner));
         const n = us.length + others.length; if (NEWN !== n) { NEWN = n; const t = root.querySelector('[data-tab="new"]'); if (t) t.innerHTML = 'New' + (n ? ` <span>${n}</span>` : ''); }
-        el.innerHTML = `<div class="ad-bar"><p class="hub-hint">${CHECKED ? 'Since you last checked on ' + esc(day(CHECKED)) + ' at ' + esc(new Date(CHECKED).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })) + '.' : 'Everything so far — you haven’t marked anything as checked yet.'}</p>${n ? '<button class="btn gold" id="ad-seen">Mark all as checked</button>' : ''}</div>
+        el.innerHTML = `${n ? '<div class="ad-bar ad-bar-r"><button class="btn gold" id="ad-seen">Mark as read</button></div>' : ''}
           <h3 class="ad-h">New accounts <span>${us.length}${us.length === 50 ? '+' : ''}</span></h3>
           ${us.length ? us.map(u => `<div class="ad-user"><div class="ad-uhead"><b>${esc(u.name || u.id)}</b><span>${esc(u.id)}</span><small>joined ${esc(ago(u.createdAt))}</small></div>
             <div class="ad-list">${byUser[u.id].length ? byUser[u.id].map(c => crow(c, false)).join('') : '<p class="hub-hint ad-none">No characters yet.</p>'}</div></div>`).join('') : '<p class="hub-hint">No new accounts.</p>'}
           <h3 class="ad-h">New characters from existing players <span>${others.length}</span></h3>
           <div class="ad-list">${others.length ? others.map(c => crow(c)).join('') : '<p class="hub-hint">None.</p>'}</div>`;
         wire(el, tabNew);
-        const sb = el.querySelector('#ad-seen'); if (sb) sb.onclick = async () => { const t = Date.now(); try { await UREF.update({ checkedAt: t }); CHECKED = t; NEWN = 0; toast('All caught up.'); frame(); } catch (x) { toast('Couldn\'t save that: ' + (x.message || x)); } };
+        const sb = el.querySelector('#ad-seen'); if (sb) sb.onclick = async () => { const t = Date.now(); try { await UREF.update({ checkedAt: t }); CHECKED = t; NEWN = 0; toast('Marked as read.'); frame(); } catch (x) { toast('Couldn\'t save that: ' + (x.message || x)); } };
       } catch (x) { el.innerHTML = failMsg(x); }
     }
 
