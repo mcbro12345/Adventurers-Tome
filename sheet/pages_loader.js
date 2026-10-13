@@ -381,13 +381,15 @@ function wireDie(root) {
       const lr = lv.getBoundingClientRect(), tbh = tb.offsetHeight;
       de.style.setProperty('--pg-tbm', Math.max(a.offsetHeight + 8, Math.round(lr.height - tbh)) + 'px');
       const tr = tb.getBoundingClientRect(), pos = Math.round(tr.left + scrollX) + ',' + Math.round(lr.top + scrollY);
-      a.style.left = Math.round(tr.left + scrollX) + 'px'; a.style.top = Math.round(lr.top + scrollY) + 'px';
+      a.style.left = Math.round(tr.left + scrollX) + 'px'; a.style.top = Math.round(lr.top + scrollY) + 'px'; placePres();
       // shown once two measurements in a row agree (the header has finished laying out)
       if (pos === align.last) de.classList.add('pg-al'); else { align.last = pos; requestAnimationFrame(align); } };
     let alignQ = 0; const alignSoon = () => { if (!alignQ) alignQ = requestAnimationFrame(() => { alignQ = 0; align(); }); };
     new MutationObserver(alignSoon).observe(document.body, { childList: true, subtree: true });
     addEventListener('resize', alignSoon); setInterval(align, 1500); alignSoon();
   }
+  // The viewers bubble always sits just right of the Adventurer's Tome button (moved along with it).
+  const placePres = () => { const box = document.querySelector('.pg-pres'), a = document.querySelector('.pg-hublink'); if (box && a) { box.style.left = (a.offsetLeft + a.offsetWidth + 8) + 'px'; box.style.top = (a.offsetTop + a.offsetHeight / 2) + 'px'; } };
   // Who's looking at this sheet right now — shown once it's shared: small portraits beside the back button, you too.
   // Each open copy checks in once a minute (only while its tab is showing) and drops off when closed or idle.
   if (!NEW) (() => {
@@ -398,8 +400,8 @@ function wireDie(root) {
       if (!box) { box = document.createElement('div'); box.className = 'pg-pres'; document.body.appendChild(box); }
       const shared = VIEWERS.length > 0 || OWNER !== EMAIL;
       box.hidden = !shared || !here.length;
-      box.innerHTML = here.map(([em, d]) => avaHTML(d.name, em, d.pic, em === EMAIL ? 'me' : '', (em === EMAIL ? 'You' : d.name || em) + ' — viewing now', { color: d.color, clear: d.clear })).join('');
-      const a = document.querySelector('.pg-hublink'); if (a) { box.style.left = (a.offsetLeft + a.offsetWidth + 8) + 'px'; box.style.top = (a.offsetTop + a.offsetHeight / 2) + 'px'; } };
+      box.innerHTML = here.map(([em, d]) => avaHTML(d.name, em, d.pic, em === EMAIL ? 'me' : '', em === EMAIL ? (d.name || NAME) + ' (you)' : (d.name || em), { color: d.color, clear: d.clear })).join('');
+      placePres(); };
     beat(); setInterval(beat, 60000); setInterval(show, 1500);
     document.addEventListener('visibilitychange', () => { if (document.hidden) leave(); else beat(); });
     addEventListener('pagehide', leave);

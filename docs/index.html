@@ -867,7 +867,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013184404', ASSETS = {"data": "a/data.3f7e0dc5a0bb.js", "app": "a/app.2d69dfd91d60.js"};
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013184532', ASSETS = {"data": "a/data.3f7e0dc5a0bb.js", "app": "a/app.2d69dfd91d60.js"};
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -1147,13 +1147,15 @@ function wireDie(root) {
       const lr = lv.getBoundingClientRect(), tbh = tb.offsetHeight;
       de.style.setProperty('--pg-tbm', Math.max(a.offsetHeight + 8, Math.round(lr.height - tbh)) + 'px');
       const tr = tb.getBoundingClientRect(), pos = Math.round(tr.left + scrollX) + ',' + Math.round(lr.top + scrollY);
-      a.style.left = Math.round(tr.left + scrollX) + 'px'; a.style.top = Math.round(lr.top + scrollY) + 'px';
+      a.style.left = Math.round(tr.left + scrollX) + 'px'; a.style.top = Math.round(lr.top + scrollY) + 'px'; placePres();
       // shown once two measurements in a row agree (the header has finished laying out)
       if (pos === align.last) de.classList.add('pg-al'); else { align.last = pos; requestAnimationFrame(align); } };
     let alignQ = 0; const alignSoon = () => { if (!alignQ) alignQ = requestAnimationFrame(() => { alignQ = 0; align(); }); };
     new MutationObserver(alignSoon).observe(document.body, { childList: true, subtree: true });
     addEventListener('resize', alignSoon); setInterval(align, 1500); alignSoon();
   }
+  // The viewers bubble always sits just right of the Adventurer's Tome button (moved along with it).
+  const placePres = () => { const box = document.querySelector('.pg-pres'), a = document.querySelector('.pg-hublink'); if (box && a) { box.style.left = (a.offsetLeft + a.offsetWidth + 8) + 'px'; box.style.top = (a.offsetTop + a.offsetHeight / 2) + 'px'; } };
   // Who's looking at this sheet right now — shown once it's shared: small portraits beside the back button, you too.
   // Each open copy checks in once a minute (only while its tab is showing) and drops off when closed or idle.
   if (!NEW) (() => {
@@ -1164,8 +1166,8 @@ function wireDie(root) {
       if (!box) { box = document.createElement('div'); box.className = 'pg-pres'; document.body.appendChild(box); }
       const shared = VIEWERS.length > 0 || OWNER !== EMAIL;
       box.hidden = !shared || !here.length;
-      box.innerHTML = here.map(([em, d]) => avaHTML(d.name, em, d.pic, em === EMAIL ? 'me' : '', (em === EMAIL ? 'You' : d.name || em) + ' — viewing now', { color: d.color, clear: d.clear })).join('');
-      const a = document.querySelector('.pg-hublink'); if (a) { box.style.left = (a.offsetLeft + a.offsetWidth + 8) + 'px'; box.style.top = (a.offsetTop + a.offsetHeight / 2) + 'px'; } };
+      box.innerHTML = here.map(([em, d]) => avaHTML(d.name, em, d.pic, em === EMAIL ? 'me' : '', em === EMAIL ? (d.name || NAME) + ' (you)' : (d.name || em), { color: d.color, clear: d.clear })).join('');
+      placePres(); };
     beat(); setInterval(beat, 60000); setInterval(show, 1500);
     document.addEventListener('visibilitychange', () => { if (document.hidden) leave(); else beat(); });
     addEventListener('pagehide', leave);
