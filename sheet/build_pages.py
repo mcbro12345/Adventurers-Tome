@@ -33,7 +33,7 @@ loader = r'''
   let txt = null, missing = false;
   try {
     const sn = await col.doc(C).get();
-    if (!sn.exists) missing = true;
+    if (!sn.exists || !sn.data().data) missing = true;
     else {
       const d = sn.data(); let str = d.data || ''; const n = Number(d.n) || 1;
       for (let k = 1; k < n; k++) { const p = await col.doc(C + '_p' + k).get(); const pd = p.exists ? p.data() : null; if (!pd || Number(pd.savedAt) !== Number(d.savedAt)) { str = null; break; } str += pd.data || ''; }
