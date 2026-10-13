@@ -2456,7 +2456,8 @@ html.mobile.realphone .devbtn.fsbtn, html.mobile.pg-inphone .devbtn.fsbtn { righ
 @media screen {
   body:not(.hubbody) { background: var(--bg); }
   body:not(.hubbody)::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-    background: radial-gradient(ellipse 85% 70% at 50% 42%, color-mix(in srgb, var(--bg) 60%, var(--navy) 40%) 0%, color-mix(in srgb, var(--bg) 82%, var(--navy) 18%) 45%, var(--bg) 80%); }
+    /* like the loading screen: a lighter, theme-tinted centre fading out to the page colour */
+    background: radial-gradient(ellipse 80% 70% at 50% 40%, color-mix(in srgb, color-mix(in srgb, var(--bg) 50%, var(--navy) 50%), #ffffff 9%) 0%, color-mix(in srgb, color-mix(in srgb, var(--bg) 70%, var(--navy) 30%), #ffffff 4%) 38%, var(--bg) 78%); }
   /* the banner: a gentle sheen in its own colour instead of the old gold glow */
   .banner { background: radial-gradient(ellipse 85% 170% at 28% 0%, color-mix(in srgb, var(--navy) 84%, #ffffff 9%) 0%, var(--navy) 46%, var(--navy2) 100%); }
 }

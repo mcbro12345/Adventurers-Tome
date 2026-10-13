@@ -441,6 +441,8 @@ function hub(fs, auth, G, ctx) {
   document.body.className = 'hubbody' + (ADMIN ? ' adminbody' : '');
   const root = document.getElementById('hub'), modal = document.getElementById('hub-modal');
   if (TOUCH && !document.documentElement.classList.contains('pg-touch')) { document.documentElement.classList.add('pg-touch'); noHover(); }
+  // no pinch-zooming the characters page (it should feel like an app, not a web page)
+  if (TOUCH && !window.PG_NOZOOM) { window.PG_NOZOOM = true; ['gesturestart', 'gesturechange'].forEach(t => document.addEventListener(t, e => { if (!document.body.classList.contains('adminbody') && !e.target.closest('.hub-modal')) e.preventDefault(); }, { passive: false })); }
   let chars = [], open = {}, view = ctx.view === 'shared' ? 'shared' : 'mine';
   try { open = JSON.parse(ls.get(OPEN) || '{}'); } catch (e) {}
   const toast = t => { const el = document.getElementById('hub-toast'); el.textContent = t; el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), 2600); };

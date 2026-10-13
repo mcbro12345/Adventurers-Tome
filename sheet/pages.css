@@ -610,3 +610,15 @@ body.hubbody .hub-views button.hub-new, body.hubbody .hub-views button.hub-new:h
 
 /* admin on a phone: a steady tab strip */
 @media (max-width: 860px) { .adm-nav { flex: none; align-items: center; scroll-behavior: smooth; } .adm-ni { flex: none; height: 38px; } .adm-foot { padding: 10px 14px; } }
+
+/* ================= Phones: the characters page holds still like an app ================= */
+html.pg-touch:has(body.hubbody:not(.adminbody)), html.pg-touch body.hubbody:not(.adminbody) { position: fixed; inset: 0; overflow: hidden; overscroll-behavior: none; touch-action: manipulation; }
+html.pg-touch body.hubbody:not(.adminbody) { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-text-size-adjust: 100%; }
+html.pg-touch body.hubbody:not(.adminbody) :is(input, textarea, [contenteditable]) { -webkit-user-select: text; user-select: text; }
+html.pg-touch body.hubbody:not(.adminbody) img { -webkit-user-drag: none; pointer-events: none; }
+html.pg-touch body.hubbody:not(.adminbody) .hub-scroll { overscroll-behavior: contain; touch-action: pan-y; }
+html.pg-touch body.hubbody:not(.adminbody) #hub > .hub-top, html.pg-touch body.hubbody:not(.adminbody) #hub > .hub-views { touch-action: none; }
+html.pg-touch body.hubbody:not(.adminbody) .hub-views button { touch-action: manipulation; }
+/* the Admin button: label centred top-to-bottom */
+:where(body.hubbody) .hp-row .hub-admin { display: inline-flex; align-items: center; justify-content: center; gap: 5px; line-height: 1; height: 26px; padding-top: 0; padding-bottom: 0; box-sizing: border-box; }
+@media (max-width: 640px) { :where(body.hubbody) .hp-row .hub-admin { height: 24px; } }
