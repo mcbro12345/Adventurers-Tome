@@ -40,8 +40,20 @@ const hueOf = t => [...String(t || '?')].reduce((a, ch) => (a * 31 + ch.charCode
 const initials = (name, em) => { const w = String(name || em || '?').split(/[\s@._-]+/).filter(x => /[\p{L}\p{N}]/u.test(x)); return w.length ? (w[0][0] + (w.length > 1 ? w[w.length - 1][0] : '')).toUpperCase() : '?'; };
 // A person's picture: their initials on a colour (theirs, or one picked from their email), a character portrait, or an
 // uploaded image — which, if it has a transparent background, is shown as-is with no circle or border.
-// Where people can reach us
-const CONTACT = 'mailto:adventurerstome@googlegroups.com?subject=' + encodeURIComponent('Adventurer’s Tome');
+// Where people can reach us. A plain mailto link does nothing on a computer with no email app set up, so this opens a
+// small box with the address, a copy button, and links to Gmail and the device's email app.
+const CONTACT_EMAIL = 'adventurerstome@googlegroups.com', CONTACT = '#contact';
+function pgContact() {
+  if (document.querySelector('.pg-out')) return;
+  const su = encodeURIComponent('Adventurer’s Tome'), m = document.createElement('div'); m.className = 'pg-out';
+  m.innerHTML = `<div class="pg-out-card" role="dialog" aria-modal="true" aria-labelledby="pg-ct-h"><h2 id="pg-ct-h">Contact us</h2><p>Questions, ideas or something not working? Email us at</p>
+    <div class="pg-ct-mail"><span>${CONTACT_EMAIL}</span><button class="pg-ct-copy">Copy</button></div>
+    <div class="pg-out-row pg-ct-row"><a class="pg-ct-btn" target="_blank" rel="noopener" href="https://mail.google.com/mail/?view=cm&fs=1&to=${CONTACT_EMAIL}&su=${su}">Open in Gmail</a><a class="pg-ct-btn" href="mailto:${CONTACT_EMAIL}?subject=${su}">Email app</a><button class="pg-out-no">Close</button></div></div>`;
+  const close = () => { m.remove(); document.removeEventListener('keydown', key); }, key = e => { if (e.key === 'Escape') close(); };
+  m.onclick = e => { if (e.target === m) close(); }; m.querySelector('.pg-out-no').onclick = close;
+  m.querySelector('.pg-ct-copy').onclick = async e => { const b = e.target; try { await navigator.clipboard.writeText(CONTACT_EMAIL); b.textContent = 'Copied'; } catch (x) { const r = document.createRange(); r.selectNodeContents(m.querySelector('.pg-ct-mail span')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); b.textContent = 'Selected'; } setTimeout(() => { b.textContent = 'Copy'; }, 1600); };
+  document.addEventListener('keydown', key); document.body.appendChild(m); }
+document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[href="#contact"], [data-contact]'); if (a) { e.preventDefault(); pgContact(); } });
 const PG_SWATCH = ['#b4473a', '#d0743c', '#c9962b', '#7f9a35', '#2f8f62', '#24879a', '#3a6fb4', '#5a55b8', '#8a4cb0', '#b04c86', '#6b7280', '#2b3245'];
 const okColor = c => /^#[0-9a-f]{6}$/i.test(c || '') ? c : '';
 const inkOn = hex => { const n = parseInt(hex.slice(1), 16); return (.299 * (n >> 16 & 255) + .587 * (n >> 8 & 255) + .114 * (n & 255)) > 170 ? '#1b1406' : '#fff'; };
@@ -697,9 +709,9 @@ function hub(fs, auth, G, ctx) {
     const keepLogo = root.querySelector('.hub-logo');
     root.innerHTML = `<div class="hub-head"><header class="hub-top">${logoHTML()}
       <div class="hub-side"><div class="hub-prof"><button class="hp-pic" id="me-pic" title="Choose your picture" aria-label="Choose your picture">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(myAva())}<span class="hp-edit" aria-hidden="true">✎</span></button>
-        <div class="hp-txt"><b>${esc(myName())}</b><small>${esc(EMAIL)}</small><div class="hp-row"><button class="linkbtn" id="me-out">Sign out</button>${IS_ADMIN ? '<button class="btn hub-admin" id="hub-admin">⚙ Admin</button>' : ''}</div></div></div></div></header>
+        <div class="hp-txt"><b>${esc(myName())}</b><small>${esc(EMAIL)}</small><div class="hp-row"><button class="linkbtn" id="me-out">Sign out</button>${IS_ADMIN ? '<button class="btn hub-admin" id="hub-admin">⚙ Admin</button>' : '<button class="btn hub-admin" data-contact>✉ Contact us</button>'}</div></div></div></div></header>
       <div class="hub-views"><button class="${SH ? '' : 'on'}" data-view="mine">My characters <span>${mine.length}</span></button><button class="${SH ? 'on' : ''}" data-view="shared">Shared characters <span>${shared.length}</span></button><button class="hub-new" id="hub-new"><span class="hn-plus" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="hn-txt"><b>Create character</b></span></button></div>
-      </div><div class="hub-list">${body}<footer class="hub-foot"><a href="${CONTACT}">Contact us</a></footer></div>`;
+      </div><div class="hub-list">${body}</div>`;
     if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
     const nb = root.querySelector('#hub-new'); if (nb) nb.onclick = createChar;
     root.querySelector('#me-out').onclick = signOut;
