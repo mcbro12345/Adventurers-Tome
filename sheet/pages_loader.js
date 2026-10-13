@@ -23,8 +23,9 @@ function wireDie(root) {
   root.addEventListener('mouseout', e => { const d = e.target.closest && e.target.closest('.hl-d20'); if (d && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.hl-d20'))) PG_DIE.over = false; });
   root.addEventListener('mouseover', e => { const d = e.target.closest && e.target.closest('.hl-d20'); if (!d || PG_DIE.rolling || PG_DIE.over || (e.relatedTarget && d.contains(e.relatedTarget))) return;
     PG_DIE.over = true; PG_DIE.rolling = true; d.classList.remove('roll', 'crit', 'fumble'); void d.getBoundingClientRect(); d.classList.add('roll');
-    const face = () => root.querySelector('.hl-20'), end = Date.now() + 850;
-    const tick = () => { const f = face(); if (Date.now() < end) { if (f) f.textContent = 1 + Math.floor(Math.random() * 20); setTimeout(tick, 70); return; }
+    // the face flickers fast, then slower and slower, and lands as the die settles
+    const face = () => root.querySelector('.hl-20'), t0 = Date.now(), DUR = 1150;
+    const tick = () => { const f = face(), el = Date.now() - t0; if (el < DUR - 120) { if (f) f.textContent = 1 + Math.floor(Math.random() * 20); setTimeout(tick, 45 + 230 * Math.pow(el / DUR, 2)); return; }
       PG_DIE.n = 1 + Math.floor(Math.random() * 20); PG_DIE.rolled = true; if (f) f.textContent = PG_DIE.n;
       const dd = root.querySelector('.hl-d20'); if (dd) { dd.classList.remove('roll'); dd.classList.toggle('crit', PG_DIE.n === 20); dd.classList.toggle('fumble', PG_DIE.n === 1); } PG_DIE.rolling = false; };
     tick(); });

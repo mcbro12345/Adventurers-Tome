@@ -215,8 +215,13 @@ body:has(#modal.open) .pg-hublink, body:has(#modal.open) .pg-shared, body.wizope
 :where(body.hubbody) .btn.red[disabled] { opacity: .45; cursor: not-allowed; }
 :where(body.hubbody, #pg-load) .hl-20 { fill: #f6e7bd; } @media (prefers-color-scheme: light) { :where(body.hubbody, #pg-load) .hl-20 { fill: #7a5718; } }
 :where(body.hubbody, #pg-load) .hub-logo, :where(body.hubbody, #pg-load) .hub-logo * { cursor: default; }
-:where(body.hubbody, #pg-load) .hl-d20.roll { animation: hl-roll .85s cubic-bezier(.2,.7,.3,1); }
-@keyframes hl-roll { 0% { transform: rotate(0) scale(1); } 30% { transform: rotate(260deg) scale(1.12) translateY(-3px); } 70% { transform: rotate(560deg) scale(.96); } 100% { transform: rotate(720deg) scale(1); } }
+:where(body.hubbody, #pg-load) .hl-d20.roll { animation: hl-roll 1.15s linear; }
+@keyframes hl-roll {
+  0% { transform: rotate(0) scale(1); animation-timing-function: cubic-bezier(.3,0,.6,1); }
+  18% { transform: rotate(150deg) scale(1.1) translateY(-4px); animation-timing-function: linear; }
+  50% { transform: rotate(520deg) scale(1.06) translateY(-2px); animation-timing-function: cubic-bezier(.15,.6,.35,1); }
+  84% { transform: rotate(732deg) scale(.98); animation-timing-function: cubic-bezier(.4,0,.4,1); }
+  100% { transform: rotate(720deg) scale(1); } }
 @media (prefers-reduced-motion: reduce) { :where(body.hubbody, #pg-load) .hl-d20.roll { animation: none; } }
 
 :where(#pg-load) .pg-signin .hub-logo { margin: 0 0 14px; }
