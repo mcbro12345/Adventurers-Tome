@@ -1,13 +1,27 @@
-// GitHub Pages loader. Modes (from the address):
-//   ?c=<id>                 a character, loaded from Firestore and kept in sync
-//   ?g=<group>              the party hub
-//   ?new=1[&g=..&p=..&o=..] a brand-new character (gets its own ?c= link once created)
-//   (nothing)               this device's hub if it has one, otherwise a new character
+// Site loader. Addresses on adventurers-tome.web.app:
+//   /                       your characters          /shared        characters shared with you
+//   /login                  sign in                  /new           a brand-new character
+//   /<player>/<character>   a character, e.g. /chad-brooker/hiro (old names keep working after a rename)
+//   /c/<id>                 a character by its id    /admin[/users|characters|admins|new]   the admin section
+// The github.io backup copy keeps the older ?c=<id> / ?g=<group> / ?new=1 addresses, and those still work here too.
 // Everyone signs in once per device (Google, or a link emailed to them). Each character belongs to one email;
 // the database only lets that player — and the DM — open or change it.
 const ADMIN_EMAIL = 'matthewcbro@gmail.com';
 // Every character lives in one library; the hub shows each person their own and the ones shared with them.
 const DEFAULT_G = 'WLdUj_I3XrA_9VIP';
+// Clean addresses everywhere except the github.io backup (which can't serve made-up paths).
+const PRETTY = !/github\.io$/.test(location.hostname) && !window.PG_LEGACY;
+const LEG = location.pathname.replace(/[^/]*$/, '');
+const slugify = s => String(s || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+const enc = encodeURIComponent;
+const URLS = {
+  hub: G => PRETTY ? '/' : LEG + '?g=' + G,
+  shared: G => PRETTY ? '/shared' : LEG + '?g=' + G + '&view=shared',
+  admin: (G, tab) => PRETTY ? '/admin' + (tab ? '/' + tab : '') : LEG + '?g=' + G + '&admin=1' + (tab ? '&tab=' + tab : ''),
+  char: c => PRETTY ? (c.path ? '/' + c.path : '/c/' + c.id) : LEG + '?c=' + c.id,
+  byId: id => PRETTY ? '/c/' + id : LEG + '?c=' + id,
+  newChar: (G, o, p) => PRETTY ? '/new' + (o || p ? '?' + [o ? 'o=' + enc(o) : '', p ? 'p=' + enc(p) : ''].filter(Boolean).join('&') : '') : LEG + '?new=1&g=' + G + (o ? '&o=' + enc(o) : '') + (p ? '&p=' + enc(p) : ''),
+};
 // Search keys for an account or character: every prefix of each word (and of the whole name / email), so the admin
 // pages can find "ryan", "o'neal" or "roneal1994@…" with one indexed lookup however many accounts there are.
 function searchKeys(...parts) { const out = new Set(); parts.forEach(p => { p = String(p || '').toLowerCase().trim(); if (!p) return;
@@ -36,6 +50,20 @@ function wireDie(root) {
   let C = clean(Q.get('c')), G = clean(Q.get('g'));
   const P = (Q.get('p') || '').slice(0, 60), O = (Q.get('o') || '').trim().toLowerCase().slice(0, 120);
   const LAST_G = 'dnd-hub-group';
+  let NEWQ = !!Q.get('new'), ADMINQ = !!Q.get('admin'), TABQ = clean(Q.get('tab')), VIEWQ = Q.get('view') === 'shared' ? 'shared' : 'mine', LOGIN = false, SLUG = '', BAD = false;
+  if (PRETTY) {
+    const parts = location.pathname.split('/').filter(Boolean).map(x => { try { return decodeURIComponent(x); } catch (e) { return x; } });
+    if (parts.length === 1 && parts[0] === 'index.html') parts.length = 0;
+    if (!parts.length) {}
+    else if (parts.length === 1 && parts[0] === 'shared') VIEWQ = 'shared';
+    else if (parts.length === 1 && parts[0] === 'login') LOGIN = true;
+    else if (parts.length === 1 && parts[0] === 'new') NEWQ = true;
+    else if (parts[0] === 'admin' && parts.length <= 2) { ADMINQ = true; TABQ = clean(parts[1] || ''); }
+    else if (parts[0] === 'c' && parts.length === 2) C = clean(parts[1]);
+    else if (parts.length === 2) SLUG = slugify(parts[0]) + '/' + slugify(parts[1]);
+    else BAD = true;
+    if (!C && !SLUG) G = G || DEFAULT_G;
+  }
   const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
   const load = document.getElementById('pg-load'), data = document.getElementById('sheet-data');
   const say = html => { if (load) load.innerHTML = `<div class="pg-msg">${html}</div>`; };
@@ -90,15 +118,31 @@ function wireDie(root) {
     catch (e) { say(`That sign-in link didn't work (${(e && e.message) || 'expired or already used'}).<br><br><a href="${location.pathname}">Try again</a>`); }
     return;
   }
-  if (!C && !G && !Q.get('new')) { location.replace(location.pathname + '?g=' + (clean(lsGet(LAST_G)) || DEFAULT_G)); return; }
-  if (!G && Q.get('new')) G = DEFAULT_G;
+  if (!PRETTY && !C && !G && !NEWQ) { location.replace(location.pathname + '?g=' + (clean(lsGet(LAST_G)) || DEFAULT_G)); return; }
+  if (!G && NEWQ) G = DEFAULT_G;
+  // old-style addresses arriving here (bookmarks, the github.io handover) switch to the clean ones
+  if (PRETTY && ['c', 'g', 'new', 'admin', 'view', 'tab'].some(k => Q.has(k))) {
+    const keep = new URLSearchParams(); ['o', 'p'].forEach(k => { if (Q.get(k)) keep.set(k, Q.get(k)); });
+    const to = C ? '/c/' + C : NEWQ ? '/new' + (keep.toString() ? '?' + keep : '') : ADMINQ ? '/admin' + (TABQ ? '/' + TABQ : '') : VIEWQ === 'shared' ? '/shared' : '/';
+    history.replaceState(null, '', to); }
+  if (BAD) { say(`There’s nothing at this address.<br><br><a href="/">Go to your characters</a>`); return; }
   const user = await new Promise(res => { const u = auth.onAuthStateChanged(x => { u(); res(x); }); });
-  if (!user) { signIn(auth, say); return; }
+  if (!user) { if (PRETTY && !LOGIN) { const here = location.pathname + location.search; history.replaceState(null, '', '/login' + (here !== '/' ? '?next=' + enc(here) : '')); } signIn(auth, say); return; }
+  if (LOGIN) { const nx = Q.get('next') || '/'; location.replace(/^\/(?!\/)/.test(nx) ? nx : '/'); return; }
   const EMAIL = (user.email || '').toLowerCase(), IS_OWNER = EMAIL === ADMIN_EMAIL;
   let IS_ADMIN = IS_OWNER, ADMINS = [];
   try { const a = await fs.collection('config').doc('admins').get(); ADMINS = ((a.exists && a.data().emails) || []).map(x => String(x).toLowerCase()); if (ADMINS.includes(EMAIL)) IS_ADMIN = true; } catch (e) {}
-  const signOut = () => auth.signOut().then(() => location.reload());
+  const signOut = () => auth.signOut().then(() => location.replace(PRETTY ? '/login' : location.href));
   window.pgSignOut = signOut;
+  // /<player>/<character>: find it among what this person may open (an admin: anyone's). "Doesn't exist" and
+  // "isn't yours" look the same, so guessing addresses can't even confirm a character exists.
+  if (SLUG) { const lib = fs.collection('groups/' + DEFAULT_G + '/chars'); let hits = [];
+    try { if (IS_ADMIN) hits = (await lib.where('paths', 'array-contains', SLUG).get()).docs;
+      else { const [a, b] = await Promise.all([lib.where('paths', 'array-contains', SLUG).where('owner', '==', EMAIL).get(), lib.where('viewers', 'array-contains', EMAIL).get()]);
+        hits = a.docs.concat(b.docs.filter(d => (d.data().paths || []).includes(SLUG))); } } catch (e) { console.warn('find', e); }
+    hits.sort((x, y) => ((y.data().path === SLUG) - (x.data().path === SLUG)) || ((y.data().updatedAt || 0) - (x.data().updatedAt || 0)));
+    if (!hits.length) { say(`There’s no character at this address that you can open.<br><br><a href="/">Go to your characters</a><br><br><small style="font-weight:400">Signed in as ${EMAIL} · <a href="#" onclick="pgSignOut();return false">Sign out</a></small>`); return; }
+    C = hits[0].id; G = DEFAULT_G; }
   // Each account has its own record (name, email, when it joined). Made on first sign-in from the Google name; an admin
   // can rename it. "Last seen" is refreshed at most once a day to keep database writes down.
   const UREF = fs.collection('users').doc(EMAIL);
@@ -117,11 +161,12 @@ function wireDie(root) {
     const busy = () => { const a = document.activeElement; return !!(a && /INPUT|TEXTAREA|SELECT/.test(a.tagName)) || !!document.querySelector('#modal.open, .hub-modal.on'); };
     const idle = () => { clearTimeout(idleT); idleT = setTimeout(() => { if (NEWV && (document.hidden || !busy())) go(); else idle(); }, 15000); };
     const check = async () => { if (NEWV) return; try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); const v = (await r.json()).v; if (!v || v === VER || Q.get('v') === v) return; NEWV = v;
-      if (!C && !Q.get('new') && !busy()) return go();
+      if (!C && !NEWQ && !busy()) return go();
       const b = document.createElement('button'); b.id = 'pg-upd'; b.textContent = 'Updated — tap to reload'; b.onclick = () => { b.textContent = 'Saving…'; go(); }; document.body.appendChild(b);
       ['pointerdown', 'keydown', 'scroll'].forEach(ev => addEventListener(ev, idle, { passive: true })); idle(); } catch (e) {} };
     setInterval(check, 30 * 1000); document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); else if (NEWV) go(); }); setTimeout(check, 3000); };
-  if (G && !C && !Q.get('new')) { lsSet(LAST_G, G); if (load) load.remove(); document.documentElement.classList.remove('pg-loading'); hub(fs, auth, G, { EMAIL, IS_ADMIN, IS_OWNER, ADMINS, user, signOut, ME, page: Q.get('admin') && IS_ADMIN ? 'admin' : 'hub' }); verCheck();
+  if (G && !C && !NEWQ) { lsSet(LAST_G, G); if (ADMINQ && !IS_ADMIN && PRETTY) history.replaceState(null, '', '/');
+    if (load) load.remove(); document.documentElement.classList.remove('pg-loading'); hub(fs, auth, G, { EMAIL, IS_ADMIN, IS_OWNER, ADMINS, user, signOut, ME, page: ADMINQ && IS_ADMIN ? 'admin' : 'hub', view: VIEWQ, tab: TABQ }); verCheck();
     // quietly warm the cache so opening a sheet from here is quick
     setTimeout(() => [ASSETS.data, ASSETS.app].forEach(u => { const l = document.createElement('link'); l.rel = 'prefetch'; l.href = u; document.head.appendChild(l); }), 2500); return; }
 
@@ -156,7 +201,7 @@ function wireDie(root) {
   // Older copies didn't record an owner: take it from the party list.
   if (!OWNER && hubCol) { try { const h = await hubCol.doc(C).get(); OWNER = ((h.exists && h.data().owner) || '').toLowerCase(); } catch (e) {} }
   if (!OWNER) OWNER = EMAIL;
-  let OWNER_NAME = ''; userDoc(OWNER).then(u => { OWNER_NAME = (u && u.name) || ''; if (OWNER_NAME) setTimeout(() => { try { syncPlayer(); } catch (e) {} }, 0); });
+  let OWNER_NAME = ''; (OWNER === EMAIL || IS_ADMIN ? userDoc(OWNER) : Promise.resolve(null)).then(u => { OWNER_NAME = (u && u.name) || ''; if (OWNER_NAME) setTimeout(() => { try { syncPlayer(); } catch (e) {} }, 0); });
   // What this person may do here: their own (or the DM) edits; someone it's shared with can edit or only look.
   const role = () => (IS_ADMIN || OWNER === EMAIL) ? 'owner' : EDITORS.includes(EMAIL) ? 'edit' : 'view';
 
@@ -173,8 +218,18 @@ function wireDie(root) {
     const s = window.sheetSummary();
     const when = changed ? { updatedAt: Date.now(), by: NAME } : {};
     const sum = Object.assign({ owner: OWNER, name: s.name, player: s.player, race: s.race, cls: s.cls, level: s.level, thumb: await thumb(s.portrait), keys: searchKeys(s.name) }, NEW && !LASTSUM ? { createdAt: Date.now() } : {});
+    // its clean address: /<player>/<character>, made unique among this player's characters; older ones keep working
+    const pth = role() === 'owner' ? await pathFor(s) : '';
+    if (pth) sum.path = pth;
     const key = JSON.stringify(sum); if (!changed && key === LASTSUM) return; // nothing on the card changed: skip the write
-    try { await hubCol.doc(C).set(Object.assign(sum, when), { merge: true }); LASTSUM = key; } catch (e) { console.warn('hub', e); } };
+    try { await hubCol.doc(C).set(Object.assign({}, sum, when, pth ? { paths: firebase.firestore.FieldValue.arrayUnion(pth) } : {}), { merge: true }); LASTSUM = key; if (pth) showPath(pth); } catch (e) { console.warn('hub', e); } };
+  let PATHKEY = '', PATHVAL = '';
+  const pathFor = async s => { const ps = slugify(OWNER_NAME || s.player || OWNER.split('@')[0]) || 'player', cb = slugify(s.name) || 'character', k0 = ps + '|' + cb;
+    if (k0 === PATHKEY) return PATHVAL;
+    const taken = new Set(); try { (await hubCol.where('owner', '==', OWNER).get()).docs.forEach(d => { if (d.id !== C) [d.data().path, ...(d.data().paths || [])].forEach(x => x && taken.add(x)); }); } catch (e) { return ''; }
+    let cs = cb, n = 2; while (taken.has(ps + '/' + cs)) cs = cb + '-' + n++;
+    PATHKEY = k0; PATHVAL = ps + '/' + cs; return PATHVAL; };
+  const showPath = pth => { if (PRETTY && pth && location.pathname !== '/' + pth) history.replaceState(null, '', '/' + pth + location.search.replace(/([?&])v=[^&]*&?/, '$1').replace(/[?&]$/, '')); };
   const hubSoon = () => { try { const d = digest(window.sheetState()); if (LASTD !== null && d !== LASTD) hubChanged = true; LASTD = d; } catch (e) {}
     clearTimeout(hubT); hubT = setTimeout(() => { const c = hubChanged; hubChanged = false; hubUpdate(c); }, 1200); };
 
@@ -195,14 +250,15 @@ function wireDie(root) {
   if (NEW && P) { try { const st = window.sheetState(); if (st && !st.player) st.player = P; } catch (e) {} }
   try { const st0 = window.sheetState(); if (st0 && st0.created) LASTD = digest(st0); } catch (e) {}
   if (!NEW && hubCol) setTimeout(() => { syncPlayer(); hubUpdate(false); }, 2500);
+  if (!NEW && hubCol && PRETTY) hubCol.doc(C).get().then(d => { const pth = d.exists && d.data().path; if (pth) showPath(pth); }, () => {});
   // New character: once it's created (and saved to the cloud), its link goes in the address bar.
   if (NEW) { const t = setInterval(() => { let made = false; try { const st = window.sheetState && window.sheetState(); made = !!(st && st.created); } catch (e) {} if (!made) return; clearInterval(t);
-    history.replaceState(null, '', location.pathname + '?c=' + C); syncPlayer();
+    history.replaceState(null, '', URLS.byId(C)); syncPlayer();
     setTimeout(() => window.sheetToast(`<div><b>Your character is saved</b><div class="det">${G ? 'It\'s on your party page. ' : ''}Open it on any device you're signed in on — it stays in sync. ${IS_ADMIN && OWNER !== EMAIL ? 'It belongs to ' + OWNER + '.' : 'Only you and the people you share it with can open it.'}</div></div>`, '', 12000), 600);
     hubChanged = true; hubSoon();
   }, 500); }
   // Back to the hub (desktop and phone).
-  if (G) { const a = document.createElement('a'); a.href = location.pathname + '?g=' + G; a.className = 'pg-hublink'; a.title = 'All characters'; a.textContent = '⌂ Characters'; document.body.appendChild(a);
+  if (G) { const a = document.createElement('a'); a.href = URLS.hub(G); a.className = 'pg-hublink'; a.title = 'All characters'; a.textContent = '⌂ Characters'; document.body.appendChild(a);
     // On a phone it sits just above the bottom tab bar, wherever that bar ends up.
     const place = () => { const t = document.getElementById('tabs'), r = t && t.getBoundingClientRect(); a.style.bottom = document.documentElement.classList.contains('mobile') && r && r.height && r.top > innerHeight / 2 ? (innerHeight - r.top + 8) + 'px' : ''; };
     addEventListener('resize', place); setInterval(place, 1500); setTimeout(place, 300); }
@@ -244,13 +300,13 @@ function hub(fs, auth, G, ctx) {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const ago = t => { if (!t) return ''; const s = (Date.now() - t) / 1000; return s < 60 ? 'just now' : s < 3600 ? Math.floor(s / 60) + 'm ago' : s < 86400 ? Math.floor(s / 3600) + 'h ago' : Math.floor(s / 86400) + 'd ago'; };
   const day = t => t ? new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-  const base = location.pathname, HUB = base + '?g=' + G, ADMIN_URL = HUB + '&admin=1';
+  const base = location.pathname, HUB = URLS.hub(G), ADMIN_URL = URLS.admin(G);
   const ADMIN = page === 'admin';
   document.title = ADMIN ? 'Admin — Adventurer’s Tome' : 'Adventurer’s Tome';
   document.body.innerHTML = '<div id="hub"></div><div id="hub-modal" class="hub-modal"></div><div id="hub-toast" class="hub-toast"></div>';
   document.body.className = 'hubbody' + (ADMIN ? ' adminbody' : '');
   const root = document.getElementById('hub'), modal = document.getElementById('hub-modal');
-  let chars = [], open = {}, view = 'mine';
+  let chars = [], open = {}, view = ctx.view === 'shared' ? 'shared' : 'mine';
   try { open = JSON.parse(ls.get(OPEN) || '{}'); } catch (e) {}
   const toast = t => { const el = document.getElementById('hub-toast'); el.textContent = t; el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), 2600); };
   const usersCol = fs.collection('users'), charsCol = fs.collection('groups/' + G + '/chars'), sheets = fs.collection('sheets');
@@ -296,7 +352,7 @@ function hub(fs, auth, G, ctx) {
       modal.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { const em = b.dataset.rm; save(V.filter(x => x !== em), E.filter(x => x !== em), 'Stopped sharing with ' + nameOf(em) + '.'); });
       modal.querySelector('#sh-x').onclick = () => { close(); if (back) back(); };
     };
-    needNames(V).then(paint);
+    (IS_ADMIN ? needNames(V) : Promise.resolve()).then(paint);
   }
   // Admins: find an account by name or email (one indexed lookup however many accounts there are).
   async function findUsers(q, after) { q = String(q || '').trim().toLowerCase().slice(0, 24);
@@ -346,10 +402,10 @@ function hub(fs, auth, G, ctx) {
   if (ADMIN) return adminSection();
 
   // ================= Hub: my characters and the ones shared with me =================
-  function createChar() { location.href = base + '?new=1&g=' + G + '&p=' + encodeURIComponent(myName()); }
+  function createChar() { location.href = URLS.newChar(G, '', myName()); }
   function card(c) {
     const acc = (c.editors || []).includes(EMAIL) ? '<span class="hc-acc edit">Can edit</span>' : '<span class="hc-acc">View only</span>';
-    return `<div class="hc${c.pin && isMine(c) ? ' pinned' : ''}"><a class="hc-main" href="${esc(base + '?c=' + c.id)}">${pic(c)}
+    return `<div class="hc${c.pin && isMine(c) ? ' pinned' : ''}"><a class="hc-main" href="${esc(URLS.char(c))}">${pic(c)}
       <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</span>
       <small>${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small>${acc}</span></a>
       ${IS_ADMIN ? `<div class="hc-menu"><button class="hc-dots" aria-label="More">⋯</button><div class="hc-list">
@@ -360,7 +416,7 @@ function hub(fs, auth, G, ctx) {
   const ord = (a, b) => (!!b.pin - !!a.pin) || ((a.order != null ? a.order : 1e9) - (b.order != null ? b.order : 1e9)) || ((b.updatedAt || 0) - (a.updatedAt || 0));
   function row(c) {
     return `<div class="hr${c.pin ? ' pinned' : ''}" data-id="${esc(c.id)}" data-pin="${c.pin ? 1 : 0}"><span class="hr-grip" title="Drag to reorder" aria-label="Drag to reorder">⠿</span>
-      <a class="hr-main" href="${esc(base + '?c=' + c.id)}">${pic(c)}
+      <a class="hr-main" href="${esc(URLS.char(c))}">${pic(c)}
       <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</span>
       <small>${shareNote(c)}${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small></span></a>
       <button class="hr-pin hr-share" data-share-id="${esc(c.id)}" title="Share">${shareIcon}</button><button class="hr-pin hr-del" data-del-id="${esc(c.id)}" title="Delete" aria-label="Delete ${esc(c.name || 'character')}"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button><button class="hr-pin${c.pin ? ' on' : ''}" data-pin-id="${esc(c.id)}" title="${c.pin ? 'Unpin' : 'Pin to the top'}" aria-pressed="${!!c.pin}"><svg viewBox="0 0 24 24" width="18" height="18" fill="${c.pin ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 3h6l-1 6 4 4H6l4-4z"/><path d="M12 13v8"/></svg></button></div>`;
@@ -409,7 +465,7 @@ function hub(fs, auth, G, ctx) {
     const nb = root.querySelector('#hub-new'); if (nb) nb.onclick = createChar;
     root.querySelector('#me-out').onclick = signOut;
     const ab = root.querySelector('#hub-admin'); if (ab) ab.onclick = () => { location.href = ADMIN_URL; };
-    root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { view = b.dataset.view; draw(); });
+    root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { view = b.dataset.view; history.replaceState(null, '', view === 'shared' ? URLS.shared(G) : URLS.hub(G)); draw(); });
     root.querySelectorAll('[data-pin-id]').forEach(b => b.onclick = e => { e.preventDefault(); togglePin(b.dataset.pinId); });
     root.querySelectorAll('[data-del-id]').forEach(b => b.onclick = e => { e.preventDefault(); const c = chars.find(x => x.id === b.dataset.delId); if (c) deleteChar(c, draw); });
     root.querySelectorAll('[data-share-id]').forEach(b => b.onclick = e => { e.preventDefault(); const c = chars.find(x => x.id === b.dataset.shareId); if (c) shareChar(c); });
@@ -423,7 +479,7 @@ function hub(fs, auth, G, ctx) {
   draw();
   // Everyone — admins too — sees their own characters plus the ones shared with them. Admins find the rest in Admin.
   const lists = {}, merge = () => { const m = new Map(); Object.values(lists).forEach(l => l.forEach(c => m.set(c.id, c))); chars = [...m.values()]; if (!RD) draw();
-    needNames(chars.filter(c => !isMine(c)).map(c => c.owner)).then(() => { if (!RD) draw(); }); };
+    if (IS_ADMIN) needNames(chars.filter(c => !isMine(c)).map(c => c.owner)).then(() => { if (!RD) draw(); }); };
   const failed = e => { root.innerHTML = `<p class="hub-empty">Couldn't load the character list (${esc(e.code || e.message || e)}).<br><br>Signed in as ${esc(EMAIL)} · <button class="linkbtn" onclick="pgSignOut()">Sign out</button></p>`; console.error(e); };
   const watch = (k, q) => q.onSnapshot(qs => { lists[k] = qs.docs.map(d => Object.assign({ id: d.id }, d.data())); merge(); }, failed);
   watch('mine', charsCol.where('owner', '==', EMAIL)); watch('shared', charsCol.where('viewers', 'array-contains', EMAIL));
@@ -432,10 +488,10 @@ function hub(fs, auth, G, ctx) {
   // ================= Admin section (its own page: ?g=…&admin=1) =================
   function adminSection() {
     const UREF = usersCol.doc(EMAIL); let CHECKED = Number(ME && ME.checkedAt) || 0;
-    let TAB = new URLSearchParams(location.search).get('tab') || 'users';
+    const T0 = ctx.tab === 'characters' ? 'chars' : ctx.tab; let TAB = ['users', 'chars', 'admins', 'new'].includes(T0) ? T0 : 'users';
     const TABS = [['users', 'Users'], ['chars', 'Characters'], ['admins', 'Admins'], ['new', 'New']];
     const CH = {}; // characters on screen, by id
-    const setTab = t => { TAB = t; const u = new URL(location.href); u.searchParams.set('tab', t); history.replaceState(null, '', u); frame(); };
+    const setTab = t => { TAB = t; history.replaceState(null, '', URLS.admin(G, t === 'chars' ? 'characters' : t)); frame(); };
     let NEWN = null;
     function frame() {
       root.innerHTML = `<header class="hub-top ad-top"><div><a class="ad-back" href="${esc(HUB)}">← My characters</a><h1 class="hub-title">Admin</h1></div>
@@ -453,7 +509,7 @@ function hub(fs, auth, G, ctx) {
       return `<div class="ad-row" data-cid="${esc(c.id)}">${pic(c)}
         <div class="ad-main"><b>${esc(c.name || 'Unnamed character')}</b><small>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}${showOwner ? ' · <span class="ad-own-n">' + esc(nameOf(c.owner || '')) + '</span>' : ''}${c.createdAt ? ' · made ' + esc(ago(c.createdAt)) : ''}${c.updatedAt ? ' · updated ' + esc(ago(c.updatedAt)) : ''}${(c.viewers || []).length ? ' · shared with ' + c.viewers.length : ''}</small></div>
         ${a === 'own' ? '<span class="ad-mine">Yours</span>' : `<label class="ad-me"><span>Shared with you</span><select data-me="${esc(c.id)}"><option value="">No</option><option value="view"${a === 'view' ? ' selected' : ''}>Can view</option><option value="edit"${a === 'edit' ? ' selected' : ''}>Can edit</option></select></label>`}
-        <div class="ad-acts"><a class="btn sm" href="${esc(base + '?c=' + c.id)}">Open</a><button class="btn sm" data-ash="${esc(c.id)}">Share…</button><button class="btn sm" data-agive="${esc(c.id)}">Give to…</button><button class="btn sm ghost" data-arm="${esc(c.id)}" title="Take it off the lists without deleting it">Remove</button><button class="btn sm ghost ad-del" data-adel="${esc(c.id)}">Delete</button></div></div>`; }
+        <div class="ad-acts"><a class="btn sm" href="${esc(URLS.char(c))}">Open</a><button class="btn sm" data-ash="${esc(c.id)}">Share…</button><button class="btn sm" data-agive="${esc(c.id)}">Give to…</button><button class="btn sm ghost" data-arm="${esc(c.id)}" title="Take it off the lists without deleting it">Remove</button><button class="btn sm ghost ad-del" data-adel="${esc(c.id)}">Delete</button></div></div>`; }
     function wire(el, redo) {
       el.querySelectorAll('[data-me]').forEach(sl => sl.onchange = async () => { const c = CH[sl.dataset.me]; if (!c) return; const v = sl.value;
         const V = (c.viewers || []).filter(x => x !== EMAIL), E = (c.editors || []).filter(x => x !== EMAIL);
@@ -504,12 +560,16 @@ function hub(fs, auth, G, ctx) {
           + (r.docs.length === 25 ? '<button class="btn ad-more" id="ad-umore">Load more</button>' : '');
         const mb = l.querySelector('#ad-umore'); if (mb) mb.onclick = () => tabUsers(true);
         l.querySelectorAll('[data-uname]').forEach(inp => inp.onchange = async () => { const em = inp.dataset.uname, n = inp.value.trim().slice(0, 60); if (!n) return;
-          try { await usersCol.doc(em).update({ name: n, nameLower: n.toLowerCase(), keys: searchKeys(n, em.split('@')[0], em) }); remember(em, Object.assign({}, await UC[em], { name: n })); toast('Renamed to ' + n + '.'); } catch (x) { toast('Couldn\'t rename: ' + (x.message || x)); } });
+          try { await usersCol.doc(em).update({ name: n, nameLower: n.toLowerCase(), keys: searchKeys(n, em.split('@')[0], em) }); remember(em, Object.assign({}, await UC[em], { name: n }));
+            // their characters' addresses follow the new name (the old addresses keep working)
+            const ps = slugify(n) || 'player'; (await charsCol.where('owner', '==', em).get()).docs.forEach(d => { const c = d.data(), cs = (c.path || '').split('/')[1] || slugify(c.name) || 'character', np = ps + '/' + cs;
+              if (np !== c.path) charsCol.doc(d.id).set({ path: np, paths: FV.arrayUnion(np) }, { merge: true }).catch(() => {}); });
+            toast('Renamed to ' + n + '.'); } catch (x) { toast('Couldn\'t rename: ' + (x.message || x)); } });
         l.querySelectorAll('[data-uc]').forEach(b => b.onclick = async () => { const box = b.closest('.ad-user').querySelector('.ad-uchars'), em = b.dataset.uc;
           if (box.dataset.on) { box.innerHTML = ''; delete box.dataset.on; b.textContent = 'Characters ▸'; return; } box.dataset.on = 1; b.textContent = 'Characters ▾';
           const fill = async () => { box.innerHTML = '<p class="hub-hint">Loading…</p>'; try { const cs = docs(await charsCol.where('owner', '==', em).limit(100).get());
             box.innerHTML = (cs.length ? cs.sort((x, y) => (y.updatedAt || 0) - (x.updatedAt || 0)).map(c => crow(c, false)).join('') : '<p class="hub-hint ad-none">No characters yet.</p>')
-              + `<a class="btn sm ad-newfor" href="${esc(base + '?new=1&g=' + G + '&o=' + encodeURIComponent(em) + '&p=' + encodeURIComponent(nameOf(em)))}">＋ New character for ${esc(nameOf(em))}</a>`; wire(box, fill); } catch (x) { box.innerHTML = failMsg(x); } };
+              + `<a class="btn sm ad-newfor" href="${esc(URLS.newChar(G, em, nameOf(em)))}">＋ New character for ${esc(nameOf(em))}</a>`; wire(box, fill); } catch (x) { box.innerHTML = failMsg(x); } };
           fill(); });
       } catch (x) { l.innerHTML = failMsg(x); }
     }

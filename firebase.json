@@ -8,7 +8,7 @@
     ],
     "headers": [
       {
-        "regex": "^/(index\\.html)?$",
+        "regex": "^/[^.]*$",
         "headers": [
           {
             "key": "Cache-Control",
@@ -51,6 +51,12 @@
             "value": "*"
           }
         ]
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
       }
     ]
   }

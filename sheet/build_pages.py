@@ -39,6 +39,10 @@ loader = ('''
 </script>
 ''').replace('__CFG__', json.dumps(cfg)).replace('__VER__', VER).replace('__ASSETS__', json.dumps({'data': DATA, 'app': APP}))
 html = re.sub(r'<title>[^<]*</title>', '<title>Adventurer’s Tome</title>', html, count=1)
+# Files are referenced relative to the site root, so /chad-brooker/hiro still finds a/…, icons and version.json.
+# (The github.io copy lives in a sub-folder, so its root is that folder.)
+h = html.index('<head>') + len('<head>')
+html = html[:h] + '<script>document.write(\'<base href="\' + (/github\\.io$/.test(location.hostname) ? location.pathname.replace(/[^/]*$/, "") : "/") + \'">\')</script>' + html[h:]
 h = html.index('</head>'); html = html[:h] + '<link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome">\n' + html[h:]
 h = html.index('</head>'); html = html[:h] + '<style>' + open(os.path.join(D, 'pages.css')).read() + '</style>\n' + html[h:]
 k = html.rindex('</body>')

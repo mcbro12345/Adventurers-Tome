@@ -22,9 +22,10 @@ service cloud.firestore {
       allow delete: if admin() || (signedIn() && resource.data.owner == me());
       allow list: if false;
     }
-    // One record per account, keyed by email: made by the person on first sign-in; only admins can list or search them.
+    // One record per account, keyed by email: made by the person on first sign-in. Only that person and admins can
+    // read it, and only admins can list or search them (names on shared characters come from the character itself).
     match /users/{em} {
-      allow get: if signedIn();
+      allow get: if admin() || (signedIn() && em == me());
       allow list: if admin();
       allow create: if admin() || (signedIn() && em == me() && request.resource.data.email == me()
         && request.resource.data.keys().hasOnly(['email', 'name', 'nameLower', 'keys', 'createdAt', 'seenAt']));
