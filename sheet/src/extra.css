@@ -2435,3 +2435,6 @@ html.mobile .wizard .pbbtn { width: 50px; height: 50px; font-size: 1.5rem; }
 html.mobile .wizard .checkline { min-height: 44px; display: flex; align-items: center; gap: 10px; }
 html.mobile .wizard input[type=checkbox] { width: 22px; height: 22px; }
 html.mobile .wizard .wz-portrait { width: 84px; height: 84px; }
+/* Tooltip vignette: a small looping animation in the corner of an info box */
+#tipbox .tipfx { float: right; width: 84px; height: 84px; margin: 2px 0 8px 12px; border-radius: 10px; border: 1px solid var(--line); box-shadow: 0 2px 10px rgba(0,0,0,.25); }
+html.mobile #tipbox .tipfx { width: 76px; height: 76px; }

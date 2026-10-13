@@ -81,6 +81,8 @@ function rebuildAuto() {
     if (w.cls === 'race') { sp.ab = w.ab; if (/once per long rest|1\/long rest|once per day/i.test(w.note || '') && N(sp.level) > 0) { sp.uses = { max: '1', reset: 'long', used: 0 }; const lv = String(w.note).match(/as (\d)(?:st|nd|rd|th)[- ]level/i); if (lv) sp.uses.level = N(lv[1]); } }
     S.spells.push(sp);
   });
+  // A spell you get automatically (a subclass list, a feat, an item) and also added by hand shows once: keep the automatic one.
+  { const autoK = new Set(S.spells.filter(s => s.auto).map(s => keyOf(s.name, s.cls))); S.spells = S.spells.filter(s => s.auto || !autoK.has(keyOf(s.name, s.cls))); }
   // Unarmed strike and natural weapons
   const keep = S.attacks.filter(a => !a.auto);
   const auto = [];

@@ -595,11 +595,13 @@ function spFeatTip(btn) {
   return { name: f.name, html: (f.source ? `<div class="hint">${esc(f.source)}</div>` : '') + (fullOfFeat(f) ? `<div class="tipdesc">${fullHTML(fullOfFeat(f))}</div>` : '') + (info ? `<div class="tiphb">${esc(info)}</div>` : '') + (max != null ? `<div class="hint">${Math.max(0, max - N(f.used))} of ${max} uses left${f.reset ? ' · resets on a ' + esc(f.reset) + ' rest' : ''}</div>` : '') };
 }
 function showTip(btn) {
-  if (btn.dataset.tipkind === 'full') { const fk = btn.dataset.full, tx = (DND.full || {})[fk] || ((DND.magic.find(m => 'item:' + m[0] === fk) || [])[5]) || (fk.startsWith('item:') ? 'A magic item from the replicable list — see the Dungeon Master\'s Guide for its full description.' : ''); if (!tx) return hideTip(); let t = $('#tipbox'); if (!t) { t = document.createElement('div'); t.id = 'tipbox'; t.setAttribute('role', 'tooltip'); document.body.appendChild(t); } t.innerHTML = `<b>${esc(String(btn.dataset.full).replace(/^\w+:/, ''))}</b><div class="tipdesc">${fullHTML(tx)}</div>`; t.classList.add('on'); return placeTip(t, btn); }
+  if (btn.dataset.tipkind === 'full') { const fk = btn.dataset.full, tx = (DND.full || {})[fk] || ((DND.magic.find(m => 'item:' + m[0] === fk) || [])[5]) || (fk.startsWith('item:') ? 'A magic item from the replicable list — see the Dungeon Master\'s Guide for its full description.' : ''); if (!tx) return hideTip(); let t = $('#tipbox'); if (!t) { t = document.createElement('div'); t.id = 'tipbox'; t.setAttribute('role', 'tooltip'); document.body.appendChild(t); } t.innerHTML = `<b>${esc(String(btn.dataset.full).replace(/^\w+:/, ''))}</b><div class="tipdesc">${fullHTML(tx)}</div>`; try { const fn = String(btn.dataset.full).replace(/^\w+:/, '').replace(/^.*:/, ''), sp = /^sp:/.test(fk) && DND.spellIndex ? DND.spellIndex[fn.toLowerCase()] : null; tipVfx(t, sp ? vfxPick(sp.name, (sp.summary || '') + ' ' + tx, { school: sp.school }) : vfxPick(fn, tx, {})); } catch (e) {} t.classList.add('on'); return placeTip(t, btn); }
   if (btn.dataset.tipkind === 'sp' || btn.dataset.tipkind === 'feat' || btn.dataset.tipkind === 'cond') {
     const d = spFeatTip(btn); if (!d) return hideTip();
     let t = $('#tipbox'); if (!t) { t = document.createElement('div'); t.id = 'tipbox'; t.setAttribute('role', 'tooltip'); document.body.appendChild(t); }
-    t.innerHTML = `<b>${esc(d.name)}</b>${d.html}`; t.classList.add('on'); return placeTip(t, btn);
+    t.innerHTML = `<b>${esc(d.name)}</b>${d.html}`; t.classList.add('on');
+    try { const ix = N(btn.dataset.tip); if (btn.dataset.tipkind === 'sp' && S.spells[ix]) tipVfx(t, vfxForSpell(S.spells[ix])); else if (btn.dataset.tipkind === 'feat' && S.features[ix] && !/^calc:/.test(btn.dataset.tip || '')) tipVfx(t, vfxForFeat(S.features[ix])); } catch (e) {}
+    return placeTip(t, btn);
   }
   const atk = btn.dataset.tipkind === 'atk', it = (atk ? S.attacks : S.inventory)[N(btn.dataset.tip)]; if (!it) return hideTip();
   const wit = atk && it.item ? S.inventory.find(x => x.id === it.item) : atk ? null : it;
@@ -608,6 +610,7 @@ function showTip(btn) {
   if (!bits.length) return hideTip();
   let t = $('#tipbox'); if (!t) { t = document.createElement('div'); t.id = 'tipbox'; t.setAttribute('role', 'tooltip'); document.body.appendChild(t); }
   t.innerHTML = `${wit && wit.img ? `<img class="tipimg" src="${wit.img}" alt="">` : ''}<b>${esc(it.name)}</b>${wit && wit.attune ? `<span class="hint"> · ${wit.attuned ? 'attuned' : 'not attuned'}</span>` : ''}${bits.join('')}`; t.classList.add('on');
+  try { if (atk) tipVfx(t, vfxForAttack(it, wit)); else if (wit && (wit.weapon || wit.magic || (wit.spells || []).length || wit.hb || wit.consumable || /potion|elixir|scroll|oil|philter/i.test(wit.name))) tipVfx(t, vfxForItem(wit)); } catch (e) {}
   placeTip(t, btn);
 }
 function placeTip(t, btn) {

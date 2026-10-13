@@ -13,7 +13,7 @@ data = '\n'.join(open(os.path.join(D, 'data', f + '.js')).read() for f in order 
 import base64
 ext = {n: ('b64:' + base64.b64encode(open(os.path.join(D, 'ext', n), 'rb').read()).decode() if n.endswith('.png') else open(os.path.join(D, 'ext', n)).read()) for n in sorted(os.listdir(os.path.join(D, 'ext')))}
 data += '\nDND.r20ext = ' + json.dumps(ext).replace('</', '<\\/') + ';'
-app = '\n'.join(open(os.path.join(D, 'src', f'app{i}.js')).read() for i in [1, 8, 2, 3, 4, 6, 7, 9, 10, 11, 5])
+app = '\n'.join(open(os.path.join(D, 'src', f'app{i}.js')).read() for i in [1, 8, 2, 3, 4, 6, 7, 9, 10, 11, 12, 5])
 for bad in ['</script', '<!--']:
     assert bad not in data and bad not in app, bad
 embed = json.dumps({'created': False, 'dataRev': 'blank-1'})
@@ -70,4 +70,4 @@ open(out, 'w').write(html)
 print(out, len(html))
 # Debug copy for tests: exposes internals as window.__t
 i = html.rindex('})();')
-open(os.path.join(D, 'Dbg.html'), 'w').write(html[:i] + "window.__t={makeZip,browserInfo,downloadR20Ext,r20Lines,get S(){return S},get DECK(){return DECK},get LV(){return LV},get W(){return W},render,applyCardFx,rebuildAuto,spellMath,useFeature,useAct,fxOf,fxPassives,acInfo,speedInfo,saveVal,initVal,maxHp,takeDamage,closeModal,migrate,blankState,fxVisActs,finishShort,finishLong,setSyncState,makeWeaponItem,makeArmorItem,makeGearItem,makeMagicItem,addInventoryItem,equipItem,writeLocal,uid,spellEntry,skillVal,score,mod,castInfo,owedChoices,defensesDetail,measurePage,gridReset,set S(v){S=v}};\n" + html[i:])
+open(os.path.join(D, 'Dbg.html'), 'w').write(html[:i] + "window.__t={vfxPick,featMax,slotMax,casters,spellLimit,countPrep,makeZip,browserInfo,downloadR20Ext,r20Lines,get S(){return S},get DECK(){return DECK},get LV(){return LV},get W(){return W},render,applyCardFx,rebuildAuto,spellMath,useFeature,useAct,fxOf,fxPassives,acInfo,speedInfo,saveVal,initVal,maxHp,takeDamage,closeModal,migrate,blankState,fxVisActs,finishShort,finishLong,setSyncState,makeWeaponItem,makeArmorItem,makeGearItem,makeMagicItem,addInventoryItem,equipItem,writeLocal,uid,spellEntry,skillVal,score,mod,castInfo,owedChoices,defensesDetail,measurePage,gridReset,set S(v){S=v}};\n" + html[i:])
