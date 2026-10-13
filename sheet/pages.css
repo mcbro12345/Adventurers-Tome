@@ -420,7 +420,8 @@ body.adminbody .adm-brand .hl-20 { fill: #f6e7bd; }
 body:has(#modal.open) .pg-pres, body.wizopen .pg-pres { display: none !important; }
 
 /* sheets: a strip of room at the top so the back button and who's-viewing bubbles don't sit on the portrait */
-html.pg-sheetpage:not(.mobile) .banner { padding-top: 30px; }
+html.pg-sheetpage:not(.mobile):not(.pg-al) .banner { padding-top: 30px; }
+html.pg-sheetpage.pg-al:not(.mobile) .ident-top .toolbar { margin-top: var(--pg-tbm, 0px); }
 /* The Adventurer's Tome button sits at the very top of the sheet and scrolls away with it (desktop and phone). */
 .pg-hublink, .pg-shared, .pg-pres { position: absolute; }
 html.mobile .pg-hublink { top: calc(8px + env(safe-area-inset-top)); bottom: auto; left: 10px; }
@@ -505,3 +506,15 @@ html.pg-sheetpage.mobile .banner { padding-top: calc(34px + env(safe-area-inset-
 :where(body.hubbody) .pp-foot #pp-ok { background: #c9962b; border-color: #c9962b; color: #1b1406; min-width: 92px; }
 :where(body.hubbody) .pp-foot #pp-ok:hover:not([disabled]) { background: #d9a93f; }
 :where(body.hubbody) .pp-pane[data-p="initials"] { min-height: 0; }
+/* Phone view on a computer: the sheet inside a phone-sized frame */
+html.pg-phonehost, html.pg-phonehost body { margin: 0; height: 100%; background: radial-gradient(ellipse at 50% 30%, #1d2638 0%, #0b0f18 75%); color: #e9e3d3; overflow: hidden; }
+.pgph { height: 100vh; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 14px 16px 20px; box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.pgph-bar { width: 100%; max-width: 420px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pgph-t { display: inline-flex; align-items: center; gap: 7px; font: 700 .78rem system-ui, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #c9962b; }
+.pgph-back { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; border: 1px solid rgba(201,150,43,.55); background: rgba(15,22,38,.8); color: #f3e7c6; font: 700 .85rem system-ui, sans-serif; cursor: pointer; }
+.pgph-back:hover { background: #c9962b; color: #1b1406; }
+.pgph-dev { flex: none; width: 390px; height: 844px; transform-origin: top center; border-radius: 46px; padding: 12px; background: #05070c; box-shadow: 0 0 0 2px #2b3245, 0 30px 80px rgba(0,0,0,.6); box-sizing: content-box; position: relative; }
+.pgph-dev::before { content: ''; position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 96px; height: 26px; border-radius: 14px; background: #05070c; z-index: 2; pointer-events: none; }
+.pgph-f { width: 100%; height: 100%; border: 0; border-radius: 34px; background: #0f1420; display: block; }
+html.pg-inphone .banner { padding-top: 84px !important; }
+html.pg-inphone .pg-hublink, html.pg-inphone .pg-shared { top: 48px; }

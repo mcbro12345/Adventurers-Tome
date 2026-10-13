@@ -1,0 +1,8267 @@
+(function () {
+'use strict';
+const PRISTINE = '<!doctype html>\n' + document.documentElement.outerHTML;
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// A spell can carry the player's own name for it ("Smog Beam" for Fire Bolt): shown first, with the real spell name beside it.
+const spLabel = sp => String((sp && (sp.flavor || '').trim()) || (sp && sp.name) || '');
+const spDisp = sp => sp && (sp.flavor || '').trim() ? `${esc(sp.flavor.trim())} <span class="sp-real">${esc(sp.name)}</span>` : esc(sp && sp.name);
+const N = x => Number(x) || 0;
+const fmt = n => (n >= 0 ? '+' : '−') + Math.abs(n);
+const sgn = n => (n >= 0 ? '+' : '') + n;
+const AB = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
+const ABN = { str: 'Strength', dex: 'Dexterity', con: 'Constitution', int: 'Intelligence', wis: 'Wisdom', cha: 'Charisma' };
+const AB3 = { str: 'STR', dex: 'DEX', con: 'CON', int: 'INT', wis: 'WIS', cha: 'CHA' };
+const ORD = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th'];
+const FULL = { 0: [], 1: [2], 2: [3], 3: [4, 2], 4: [4, 3], 5: [4, 3, 2], 6: [4, 3, 3], 7: [4, 3, 3, 1], 8: [4, 3, 3, 2], 9: [4, 3, 3, 3, 1], 10: [4, 3, 3, 3, 2], 11: [4, 3, 3, 3, 2, 1], 12: [4, 3, 3, 3, 2, 1], 13: [4, 3, 3, 3, 2, 1, 1], 14: [4, 3, 3, 3, 2, 1, 1], 15: [4, 3, 3, 3, 2, 1, 1, 1], 16: [4, 3, 3, 3, 2, 1, 1, 1], 17: [4, 3, 3, 3, 2, 1, 1, 1, 1], 18: [4, 3, 3, 3, 3, 1, 1, 1, 1], 19: [4, 3, 3, 3, 3, 2, 1, 1, 1], 20: [4, 3, 3, 3, 3, 2, 2, 1, 1] };
+const CL = DND.classes;
+const uid = () => Math.random().toString(36).slice(2, 10);
+const normName = s => String(s || '').toLowerCase().replace(/[^a-z ]/g, ' ').split(/\s+/).filter(Boolean).sort().join(' ');
+const PLACEHOLDER = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><rect width="120" height="120" fill="#3a4560"/><circle cx="60" cy="46" r="22" fill="#8a94ab"/><path d="M20 112c6-26 22-38 40-38s34 12 40 38z" fill="#8a94ab"/></svg>');
+
+function blankState() {
+  return {
+    id: '', dataRev: '', created: false, sources: null, savedAt: 0, portrait: '', theme: { accent: '' },
+    name: '', player: '', alignment: '', xp: '', faith: '',
+    race: { key: '', sub: '', choices: {} }, raceName: '', background: '', backgroundName: '',
+    classes: [], abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    saves: { str: false, dex: false, con: false, int: false, wis: false, cha: false },
+    skills: DND.skills.map(([name, ab]) => ({ name, ab, prof: 0, misc: 0, note: '' })),
+    hp: { cur: 0, base: 0, adj: 0, temp: 0 }, hdUsed: {}, death: { s: 0, f: 0 },
+    effects: [], concentration: '', conditions: [], exhaustion: 0, acOverride: '', speedOverride: '',
+    attacks: [], profArmor: '', profWeapons: '', profTools: '', languages: '', profs: { armor: [], weapons: [], weaponNames: [] }, tools: [], langs: [],
+    spells: [], slotsUsed: Array(9).fill(0), pactUsed: 0, slotsOverride: Array(9).fill(''),
+    features: [], feats: [], currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 }, inventory: [],
+    traits: { personality: '', ideals: '', bonds: '', flaws: '' }, appearance: { age: '', height: '', weight: '', eyes: '', skin: '', hair: '' },
+    backstory: '', allies: '', lore: '', notes: [],
+    combat: { action: [], bonus: [], reaction: [], move: [] }, turn: { round: 1, used: {}, moved: 0, attacks: 0 },
+    companions: [], form: null, riders: [], macroSeen: null, spellFilter: 'all', picks: {}, featChoices: {}, sources: null, settings: {}, layout: {}, quotes: [], rumors: [], people: [], goals: [], goal: '', compOff: {}, bags: [], rollAdv: '', condTurns: {}
+  };
+}
+
+// ---------- State & storage ----------
+// Version of the sheet's code. "Update" in Settings moves a character into a newer blank sheet.
+const APP_VERSION = '2026.10.01';
+const EMBED = JSON.parse($('#sheet-data').textContent || '{}');
+const BLANK_FILE = !EMBED.created;
+// On the GitHub Pages site every character shares one page, told apart by its ?c= link.
+const PATH_KEY = 'dnd-sheet-path:' + location.pathname + (window.SHEET_CHAR ? '?c=' + window.SHEET_CHAR : '');
+let S, FROM_LOCAL = false;
+const LAYOUT_KEY = 'dnd-sheet-layout', PER_SHEET = !!window.SHEET_PAGES, UI_KEY = PER_SHEET ? 'dnd-sheet-ui:' + window.SHEET_CHAR : 'dnd-sheet-ui';
+function keyFor(id) { return 'dnd-sheet:' + id; }
+// A player's own preferences (Settings, theme, books, layout) always survive a newer copy of the sheet being published.
+const PREF_KEYS = ['settings', 'theme', 'sources', 'layout', 'spellFilter'];
+function keepPrefs(into, from) { if (!into || !from || (into.id && from.id && into.id !== from.id)) return into; PREF_KEYS.forEach(k => { if (from[k] !== undefined) into[k] = JSON.parse(JSON.stringify(from[k])); }); return into; }
+(function load() {
+  let local = null;
+  try {
+    const id = EMBED.created ? EMBED.id : localStorage.getItem(PATH_KEY);
+    if (id) local = JSON.parse(localStorage.getItem(keyFor(id)) || 'null');
+  } catch (e) {}
+  HADLOCAL = !!(local && local.created && EMBED.created && local.id === EMBED.id);
+  if (local && local.dataRev === (EMBED.dataRev || '') && (BLANK_FILE || N(local.savedAt) >= N(EMBED.savedAt))) { S = local; FROM_LOCAL = true; }
+  else S = EMBED.created ? keepPrefs(JSON.parse(JSON.stringify(EMBED)), local) : Object.assign(blankState(), { dataRev: EMBED.dataRev || '' });
+  S = migrate(S);
+  FIXED = applyFixes(S);
+  // Your layout is a preference of this browser, not of one file: it follows you to every sheet and every new version.
+  // (On the website every character has its own layout, saved with the character.)
+  if (!PER_SHEET) try {
+    let g = JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null');
+    // First run of this version: adopt the layout from the most recently saved sheet in this browser.
+    if (!g) { let best = null; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (!k.startsWith('dnd-sheet:')) continue; try { const o = JSON.parse(localStorage.getItem(k)); if (o && o.layout && Object.keys(o.layout).length && (!best || N(o.savedAt) > N(best.savedAt))) best = o; } catch (x) {} } if (best) g = best.layout; }
+    if (g && typeof g === 'object') S.layout = g;
+  } catch (e) {}
+})();
+let UI = { tab: 'core', open: {} };
+try { UI = Object.assign(UI, JSON.parse(localStorage.getItem(UI_KEY) || '{}')); } catch (e) {}
+UI.open = UI.open || {};
+// One-off corrections shipped with a sheet update (EMBED.fixes). Each runs once per character, whichever copy is
+// loaded (this browser's, the cloud's or the file's), so a fix isn't lost to a newer saved copy.
+var HADLOCAL; // set by load(): this browser already had its own copy of this character
+var FIXED; // no initializer: load() runs (and may set it) before this line is reached
+function applyFixes(s) {
+  const done = new Set(s.fixesDone || []); let changed = false;
+  (EMBED.fixes || []).forEach(f => {
+    if (done.has(f.id) || (f.who && s.id !== f.who)) return;
+    if (f.type === 'spellstore' && !(s.spells || []).some(x => x.stored)) { const it = (s.inventory || []).find(x => x.name === f.item), d = DND.spellIndex[String(f.spell).toLowerCase()];
+      if (it && d) { const n = Math.max(2, 2 * Math.floor((N((s.abilities || {}).int) - 10) / 2));
+        s.spells.push({ name: d.name, level: d.level, school: d.school, time: '1 action', range: d.range, comps: d.comps, duration: d.duration, conc: d.conc, ritual: d.ritual, summary: d.summary, src: d.src, cls: 'artificer', prepared: true, always: true, stored: true, usesOnly: true, ab: 'int', item: it.id, uses: { max: String(n), used: 0, reset: 'never' }, note: `Stored in ${it.name} (Spell-Storing Item). Anyone holding it can take an action to cast it with your spell DC and attack bonus.` }); } }
+    if (f.type === 'infuse') { s.infReplicas = f.reps || s.infReplicas || []; (f.items || []).forEach(([nm, inf, r, strip]) => { const it = (s.inventory || []).find(x => x.name === nm); if (!it || it.infusion) return; it.infusion = { name: inf, rep: r || '', at: Date.now(), prev: null }; if (strip && it.mods) strip.forEach(k => delete it.mods[k]); }); (f.bags || []).forEach(([nm, inf, r]) => { const b = (s.bags || []).find(x => x.name === nm); if (b && !b.infusion) b.infusion = { name: inf, rep: r || '', at: 1 }; }); }
+    if (f.type === 'setting') s.settings = Object.assign({}, s.settings, { [f.k]: f.v });
+    if (f.type === 'dismiss') { s.dismissed = Object.assign({}, s.dismissed); (f.ids || []).forEach(x => s.dismissed[x] = true); }
+    if (f.type === 'xsublv') { const r = (s.classes || []).find(c => c.key === f.cls); if (r && (r.extraSubs || []).includes(f.sub)) { r.extraSubLv = Object.assign({}, r.extraSubLv, { [f.sub]: f.n }); changed = true; } }
+    done.add(f.id); changed = true;
+  });
+  if (changed) s.fixesDone = [...done];
+  return changed;
+}
+function migrate(s) {
+  const b = blankState();
+  for (const k in b) if (s[k] === undefined) s[k] = b[k];
+  if (!Array.isArray(s.sources)) s.sources = defaultSources();
+  s.slotsUsed = (s.slotsUsed || []).concat(Array(9).fill(0)).slice(0, 9);
+  s.slotsOverride = (s.slotsOverride || []).concat(Array(9).fill('')).slice(0, 9);
+  if (s.hp && s.hp.base === undefined) { s.hp.base = 0; s.hp.adj = N(s.hp.max); delete s.hp.max; }
+  s.picks = s.picks || {}; s.featChoices = s.featChoices || {};
+  // Old sheets kept tools and languages as free text; turn them into real lists.
+  const split = t => String(t || '').split(/,|;|\band\b|\n/).map(x => x.trim()).filter(x => x && !/^(none|—|-)$/i.test(x));
+  if (!Array.isArray(s.tools) || (!s.tools.length && s.profTools)) s.tools = split(s.profTools).map(name => ({ name, exp: false }));
+  if (!Array.isArray(s.langs) || (!s.langs.length && s.languages)) s.langs = split(s.languages);
+  s.profs = Object.assign({ armor: [], weapons: [], weaponNames: [] }, s.profs || {});
+  s.turn = Object.assign({ round: 1, used: {}, moved: 0, attacks: 0 }, s.turn || {}); s.turn.used = s.turn.used || {};
+  if (!Array.isArray(s.conditions)) s.conditions = [];
+  ['action', 'bonus', 'reaction', 'move'].forEach(k => { if (!s.combat[k]) s.combat[k] = []; });
+  return s;
+}
+function getP(path) { return path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), S); }
+function setP(path, val) { const ks = path.split('.'); let o = S; for (let i = 0; i < ks.length - 1; i++) { if (o[ks[i]] == null || typeof o[ks[i]] !== 'object') o[ks[i]] = {}; o = o[ks[i]]; } o[ks[ks.length - 1]] = val; }
+
+// ---------- Undo history ----------
+const HMAX = 300;
+const hkey = () => keyFor(S.id || 'blank') + ':history';
+const TRACK = k => !['savedAt', 'spellFilter', 'macroSeen'].includes(k);
+let HIST = [], REDO = [], LAST = null, pendingLabel = null;
+function snapAll() { const o = {}; for (const k in S) if (TRACK(k)) o[k] = JSON.stringify(S[k]); return o; }
+function commit() {
+  const label = pendingLabel || 'Change', merge = label.startsWith('Edit: ');
+  pendingLabel = null;
+  const cur = snapAll(), changed = {};
+  new Set([...Object.keys(cur), ...Object.keys(LAST || {})]).forEach(k => { if (cur[k] !== (LAST || {})[k]) changed[k] = (LAST || {})[k] === undefined ? null : LAST[k]; });
+  LAST = cur;
+  if (!Object.keys(changed).length || !S.created) return;
+  const now = Date.now(), top = HIST[HIST.length - 1];
+  if (merge && top && top.label === label && now - top.t < 4000) { for (const k in changed) if (!(k in top.keys)) top.keys[k] = changed[k]; top.t = now; }
+  else HIST.push({ t: now, label, keys: changed });
+  while (HIST.length > HMAX) HIST.shift();
+  REDO = []; persistHist(); histButtons();
+}
+function applyEntry(e) {
+  const inv = { t: e.t, label: e.label, keys: {} };
+  for (const k in e.keys) { inv.keys[k] = k in S ? JSON.stringify(S[k]) : null; if (e.keys[k] === null) delete S[k]; else S[k] = JSON.parse(e.keys[k]); }
+  return inv;
+}
+function afterHist() { S = migrate(S); LAST = snapAll(); writeLocal(); persistHist(); render(); }
+function undo(n = 1) { let c = 0; while (c < n && HIST.length) { REDO.push(applyEntry(HIST.pop())); c++; } if (c) afterHist(); return c; }
+function redo(n = 1) { let c = 0; while (c < n && REDO.length) { HIST.push(applyEntry(REDO.pop())); c++; } if (c) afterHist(); return c; }
+let histTimer = null;
+function persistHist() {
+  clearTimeout(histTimer);
+  histTimer = setTimeout(() => {
+    let h = HIST.slice();
+    while (true) { try { localStorage.setItem(hkey(), JSON.stringify(h)); return; } catch (e) { if (h.length <= 1) { try { localStorage.removeItem(hkey()); } catch (x) {} return; } h = h.slice(Math.ceil(h.length / 2)); } }
+  }, 600);
+}
+function histButtons() {
+  const u = $('#undoBtn'), r = $('#redoBtn');
+  if (u) { u.disabled = !HIST.length; u.title = HIST.length ? `Undo: ${HIST[HIST.length - 1].label} (Ctrl+Z)` : 'Nothing to undo'; }
+  if (r) { r.disabled = !REDO.length; r.title = REDO.length ? `Redo: ${REDO[REDO.length - 1].label} (Ctrl+Y)` : 'Nothing to redo'; }
+}
+function loadHist(fromLocal) {
+  LAST = snapAll();
+  if (!fromLocal) return;
+  try { const h = JSON.parse(localStorage.getItem(hkey()) || '[]'); if (Array.isArray(h)) HIST = h; } catch (e) {}
+}
+let saveTimer = null;
+function save() {
+  S.savedAt = Date.now();
+  if (S.effects && S.effects.length) S.effects = S.effects.filter(e => !e.conc || e.name === S.concentration);
+  if (S.created) cleanupLinked();
+  if (typeof hasteWatch === 'function') hasteWatch();
+  commit(); writeLocal();
+}
+function writeLocal() {
+  if (!S.created) return;
+  S.savedAt = Date.now();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    let ok = true;
+    try { localStorage.setItem(keyFor(S.id), JSON.stringify(S)); if (BLANK_FILE) localStorage.setItem(PATH_KEY, S.id); } catch (e) { ok = false; }
+    if (!PER_SHEET) try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(S.layout || {})); } catch (e) {}
+    if (!/synced|view only|retrying|reconnect|full|not live/i.test(UI.saveState || '') || !ok) { UI.saveState = ok ? 'Saved ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'Not saved — export'; const el = $('#saveState'); if (el) { el.textContent = shortSync(UI.saveState); el.title = UI.saveState; } }
+    cloudPush();
+  }, 250);
+}
+const IOS_SAFARI = /iP(hone|od|ad)/.test(navigator.userAgent) && /Version\/[\d.]+.*Safari\//.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS/.test(navigator.userAgent);
+// Where the phone's bottom tab bar sits is a setting of this device (same for every character); 32 by default.
+function tabLift() { let v = null; try { v = localStorage.getItem('dnd-tablift'); } catch (e) {} return v != null && v !== '' ? N(v) : 32; }
+function applyTabLift() { document.documentElement.style.setProperty('--tablift', tabLift() + 'px'); }
+function saveUI() { try { localStorage.setItem(UI_KEY, JSON.stringify(UI)); } catch (e) {} }
+function applyLayout() { applyTabLift(); const m = window.PG_FORCE_MOBILE || (UI.layout ? UI.layout === 'mobile' : window.innerWidth < 640); document.documentElement.classList.toggle('mobile', m); }
+
+// ---------- Class / level math ----------
+const clsRows = () => S.classes || [];
+// Ranger (Tasha's) counts as a ranger for archetype features, companions and formulas.
+const keyIs = (rk, key) => rk === key || (key === 'ranger' && rk === 'rangertce');
+const clsLv = key => clsRows().filter(r => keyIs(r.key, key)).reduce((t, r) => t + N(r.level), 0);
+const totalLevel = () => Math.max(0, clsRows().reduce((t, r) => t + N(r.level), 0));
+const lvl = () => Math.min(20, Math.max(1, totalLevel()));
+const PB = () => Math.ceil(lvl() / 4) + 1;
+const subOf = r => (r && r.sub && CL[r.key] && CL[r.key].subclasses[r.sub]) || null;
+const hasSub = (key, sub) => clsRows().some(r => keyIs(r.key, key) && r.sub === sub);
+const classLabel = () => clsRows().map(r => { const c = CL[r.key], s = subOf(r); return `${c ? c.name : r.key} ${r.level}` + (s ? ` (${s.name})` : ''); }).join(' / ');
+const hasFeature = n => S.features.some(f => String(f.name).toLowerCase() === String(n).toLowerCase());
+const featByName = n => S.features.findIndex(f => String(f.name).trim().toLowerCase() === String(n || '').trim().toLowerCase());
+const hasFeat = n => (S.feats || []).some(f => f.toLowerCase() === n.toLowerCase());
+
+// ---------- Abilities with item overrides ----------
+function activeItems() { return S.inventory.filter(it => it.equipped && (!it.attune || it.attuned)); }
+function itemMods() { return activeItems().map(it => it.mods || {}); }
+function score(ab, noForm) {
+  let v = S.abilities[ab] === '' ? 10 : N(S.abilities[ab]);
+  if (!noForm && S.form && S.form.abil && (['str', 'dex', 'con'].includes(ab) || S.form.allStats)) v = N(S.form.abil[AB.indexOf(ab)]);
+  if (!noForm || noForm !== 'raw') fxPassives().forEach(p => { if (p.abil && p.abil[ab]) v = Math.min(p.abilMax || 24, v + p.abil[ab]); });
+  itemMods().forEach(m => { if (m.abil && m.abil[ab] && m.abil[ab] > v) v = m.abil[ab]; });
+  // Temporary changes from the Conditions window (a curse, Ray of Enfeeblement, a potion…): set to a number and/or add.
+  const t = (S.abTemp || {})[ab];
+  if (t) { if (t.set !== '' && t.set != null) v = N(t.set); v = Math.max(1, Math.min(30, v + N(t.d))); }
+  return v;
+}
+// How long a condition lasts: N rounds, or 0 = until removed, −1 = until a short rest, −2 = until a long rest.
+const durText = v => (v > 0 ? v + ' round' + (v > 1 ? 's' : '') : v === -1 ? 'until a short rest' : v === -2 ? 'until a long rest' : 'until removed');
+const durShort = v => (v > 0 ? (v <= 10 ? v + ' rd' + (v > 1 ? 's' : '') + ' / ' + roundTime(v, true) : fmtRounds(v)) : v === -1 ? 'short rest' : v === -2 ? 'long rest' : '');
+// The score as it would be without temporary changes.
+function baseScore(ab) { const t = S.abTemp; S.abTemp = null; try { return score(ab); } finally { S.abTemp = t; } }
+const mod = (ab, noForm) => Math.floor((score(ab, noForm) - 10) / 2);
+const auraBonus = () => (clsLv('paladin') >= 6 && !S.conditions.includes('Unconscious') ? Math.max(1, mod('cha')) : 0);
+const itemSum = k => itemMods().reduce((t, m) => t + N(m[k]), 0) + infSum(k);
+const saveVal = ab => mod(ab) + (S.saves[ab] || fxSaveProf(ab) ? PB() : 0) + itemSum('save') + auraBonus() + N((S.deckMods || {}).save) + fxSum('saveAll') + buffSum('save');
+const jack = () => clsLv('bard') >= 2;
+const remarkable = () => hasSub('fighter', 'champion') && clsLv('fighter') >= 7;
+function skillVal(sk) {
+  let p = N(sk.prof); const fe = fxList('skillExp'), fp = fxList('skillProf');
+  if (fe.includes(sk.name)) p = Math.max(p, 2); else if (fp.includes(sk.name)) p = Math.max(p, 1);
+  let v = mod(sk.ab) + Math.floor(p * PB()) + N(sk.misc) + itemSum('check') + tmv('skill:' + sk.name);
+  if (!p && jack()) v += Math.floor(PB() / 2);
+  else if (!p && remarkable() && ['str', 'dex', 'con'].includes(sk.ab)) v += Math.ceil(PB() / 2);
+  return v;
+}
+const perception = () => { const p = S.skills.find(s => s.name === 'Perception'); return p ? skillVal(p) : mod('wis'); };
+const passive = () => 10 + perception() + (hasFeat('Observant') ? 5 : 0) + (activeItems().some(it => (it.mods || {}).percAdv) ? 5 : 0);
+function initVal() {
+  let v = mod('dex') + itemSum('check');
+  if (hasFeat('Alert')) v += 5;
+  if (S.features.some(f => f.initProf)) v += PB();
+  if (jack()) v += Math.floor(PB() / 2);
+  if (hasSub('rogue', 'swashbuckler')) v += mod('cha');
+  if (hasSub('wizard', 'warmagic')) v += mod('int');
+  if (hasSub('ranger', 'gloomstalker')) v += mod('wis');
+  v += fxSum('init');
+  return v;
+}
+
+// ---------- Spellcasting ----------
+function casters() {
+  const out = [];
+  clsRows().forEach(r => {
+    const c = CL[r.key]; if (!c) return;
+    let cd = c.caster, s = subOf(r);
+    if (!cd && s && s.caster && N(r.level) >= c.sub.level) cd = s.caster;
+    if (!cd) return;
+    if (cd.from && N(r.level) < cd.from) return;
+    out.push({ key: r.key, name: c.name, level: N(r.level), ...cd });
+  });
+  return out;
+}
+function casterLevel() {
+  const cs = casters().filter(c => c.type !== 'pact');
+  if (!cs.length) return 0;
+  if (cs.length === 1) { const c = cs[0]; return c.type === 'full' ? c.level : c.type === 'half' ? (c.level >= 2 ? Math.ceil(c.level / 2) : 0) : c.type === 'artificer' ? Math.ceil(c.level / 2) : c.level >= 3 ? Math.ceil(c.level / 3) : 0; }
+  return cs.reduce((t, c) => t + (c.type === 'full' ? c.level : c.type === 'half' ? Math.floor(c.level / 2) : c.type === 'artificer' ? Math.ceil(c.level / 2) : Math.floor(c.level / 3)), 0);
+}
+function slotMax(i) {
+  const o = S.slotsOverride[i];
+  if (o !== '' && o != null) return Math.max(0, N(o));
+  return FULL[Math.min(20, casterLevel())][i] || 0;
+}
+const slotsLeft = i => slotMax(i) - Math.min(N(S.slotsUsed[i]), slotMax(i));
+function pact() { const w = clsLv('warlock'); if (!w) return null; const c = CL.warlock.caster; return { count: c.pactSlots[w - 1], level: c.pactLevel[w - 1] }; }
+const pactLeft = () => { const p = pact(); return p ? Math.max(0, p.count - N(S.pactUsed)) : 0; };
+function castInfo(clsKey) {
+  const cs = casters(); const c = cs.find(x => x.key === clsKey) || cs[0];
+  if (!c) { const m = mod('cha'), b = itemSum('spell'); return { ab: 'cha', mod: m, dc: 8 + PB() + m + b, atk: PB() + m + b + itemSum('spellAtk'), name: '' }; }
+  const m = mod(c.ab), bonus = itemSum('spell'), atkB = itemSum('spellAtk');
+  const exDC = exModern() && ST('exhaustionDC') ? Math.min(5, N(S.exhaustion)) : 0;
+  return { ...c, mod: m, dc: 8 + PB() + m + bonus - exDC, atk: PB() + m + bonus + atkB };
+}
+function preparedMax(c) { if (!c.prepared) return null; return Math.max(1, evalMax(c.prepared)); }
+const spellsOf = key => S.spells.filter(s => s.cls === key);
+function maxSpellLevelFor(c) {
+  if (c.type === 'pact') { const p = pact(); return p ? p.level : 0; }
+  const L = c.type === 'full' ? c.level : c.type === 'half' ? (c.level >= 2 ? Math.ceil(c.level / 2) : 0) : c.type === 'artificer' ? Math.ceil(c.level / 2) : (c.level >= 3 ? Math.ceil(c.level / 3) : 0);
+  return (FULL[L] || []).length;
+}
+
+// ---------- Formulas ----------
+function evalMax(expr, extra) {
+  const e = String(expr ?? '').trim().toLowerCase();
+  if (!e) return null;
+  if (!/^[\d+\-*/().\s a-z,<>=?:]*$/.test(e)) return null;
+  const vars = { level: lvl(), lvl: lvl(), prof: PB(), pb: PB(), pactslot: (typeof pact === 'function' && pact() ? pact().level : 0), ...(extra || {}) };
+  AB.forEach(a => vars[a] = mod(a));
+  Object.keys(CL).forEach(k => { if (!(k in vars)) vars[k] = clsLv(k); });
+  const fns = ['tier', 'max', 'min', 'floor', 'ceil'];
+  const src = e.replace(/[a-z]+/g, w => (fns.includes(w) ? w : w in vars ? '(' + vars[w] + ')' : 'NaN'));
+  const tier = (x, ...p) => { let v = 0; for (let i = 0; i < p.length; i += 2) if (x >= p[i]) v = p[i + 1]; return v; };
+  try { const v = Function('tier', 'max', 'min', 'floor', 'ceil', '"use strict";return (' + src + ')')(tier, Math.max, Math.min, Math.floor, Math.ceil); return isFinite(v) ? Math.max(0, Math.floor(v)) : null; } catch (x) { return null; }
+}
+const featMax = f => evalMax(f.max);
+const resetOf = f => (f.shortAt && clsLv(f.cls || '') >= f.shortAt) ? 'short' : f.reset;
+
+// ---------- Effects ----------
+const fxActive = () => (S.effects || []).filter(e => !e.conc || e.name === S.concentration);
+const selfBuffs = () => fxActive().filter(e => e.self !== false && !e.ally && e.buff && !e.item).map(e => e.buff);
+// Spells cast on one weapon (Magic Weapon, Shillelagh…) only change that weapon's attack.
+const itemBuffs = a => a && a.item ? fxActive().filter(e => e.item === a.item && e.buff && !e.ally).map(e => e.buff) : [];
+const wpnBind = a => a && a.item ? fxActive().find(e => e.item === a.item && e.wpn && !e.ally) : null;
+const buffSum = k => selfBuffs().reduce((t, b) => t + N(b[k]), 0);
+const blessed = () => selfBuffs().some(b => b.bless) || (S.conditions || []).includes('Blessed');
+const hasted = () => selfBuffs().some(b => b.speedMult) || (S.conditions || []).includes('Hasted');
+function parseDur(d) {
+  d = String(d || '').toLowerCase();
+  if (/instant/.test(d)) return 0;
+  const m = d.match(/(\d+)\s*(round|minute|min|hour|day)/);
+  if (!m) return /until|special|permanent/.test(d) ? null : 0;
+  const n = N(m[1]), u = m[2];
+  return u === 'round' ? n : u.startsWith('min') ? n * 10 : u === 'hour' ? n * 600 : n * 14400;
+}
+// Real time for a number of rounds (6 seconds each): 1 → 6 sec, 5 → 30 sec, 10 → 1 minute.
+function roundTime(r, short) { const s = N(r) * 6; if (s < 60) return s + ' sec'; const m = s / 60; return (Number.isInteger(m) ? m : m.toFixed(1)) + (short ? ' min' : m === 1 ? ' minute' : ' minutes'); }
+function fmtRounds(r) {
+  if (r == null) return '∞';
+  if (r <= 10) return r + (r === 1 ? ' round' : ' rounds') + ' / ' + roundTime(r);
+  if (r < 600) return Math.ceil(r / 10) + ' min';
+  const h = r / 600; return (h >= 10 ? Math.round(h) : Math.round(h * 10) / 10) + ' h';
+}
+
+// ---------- Armor class ----------
+const equippedArmor = () => S.inventory.find(it => it.equipped && it.armor && it.armor.type !== 'shield');
+const equippedShield = () => S.inventory.find(it => it.equipped && it.armor && it.armor.type === 'shield');
+function acInfo() {
+  if (S.form) return { total: N(S.form.ac), parts: [S.form.name + ' AC ' + S.form.ac] };
+  const parts = [];
+  const arm = equippedArmor(), sh = equippedShield(), dex = mod('dex');
+  let base;
+  if (S.acOverride !== '' && S.acOverride != null) { base = N(S.acOverride); parts.push('Set manually: ' + base); }
+  else if (arm) {
+    const a = arm.armor; let cap = a.dexCap; if (a.type === 'medium' && hasFeat('Medium Armor Master')) cap = 3;
+    const d = cap === 0 ? 0 : cap == null ? dex : Math.min(dex, cap);
+    base = N(a.base) + d + N((arm.mods || {}).ac) * (arm.attune && !arm.attuned ? 0 : 1);
+    parts.push(`${arm.name} ${a.base}` + (d ? ` + DEX ${d}` : '') + (N((arm.mods || {}).ac) ? ` + ${arm.mods.ac} magic` : ''));
+    if (S.features.some(f => /^Defense$/i.test(f.name) || /Fighting Style: Defense/i.test(f.name)) && !fxPassives().some(p => p.acArmor && /Defense/.test(p.src))) { base += 1; parts.push('Defense style +1'); }
+  } else {
+    const opts = [['Unarmored 10 + DEX', 10 + dex]];
+    const add = (label, f) => opts.push([label, f]);
+    clsRows().forEach(r => { const c = CL[r.key], s = subOf(r); if (c && c.unarmored && !(c.unarmoredNoShield && sh)) add(c.name + ' Unarmored Defense', evalMax(c.unarmored)); if (s && s.unarmored) add(s.name, evalMax(s.unarmored)); });
+    const race = DND.races[S.race.key]; if (race && race.naturalArmor) add('Natural armor', evalMax(race.naturalArmor));
+    if (hasFeat('Dragon Hide')) add('Dragon Hide', 13 + dex);
+    selfBuffs().forEach(b => { if (b.acBase) add('Mage Armor', N(b.acBase) + dex); });
+    itemMods().forEach(m => { if (m.unarmoredBase) add('Item (unarmored)', N(m.unarmoredBase) + dex); });
+    opts.sort((x, y) => y[1] - x[1]); base = opts[0][1]; parts.push(opts[0][0] + ' = ' + base);
+  }
+  let total = base;
+  if (sh && S.acOverride === '') { const v = 2 + N((sh.mods || {}).ac); total += v; parts.push(`Shield +${v}`); }
+  activeItems().forEach(it => { const m = it.mods || {}; if (it.armor) return; if (m.ac && !(m.unarmoredOnly && (arm || sh))) { total += N(m.ac); parts.push(`${it.name} +${m.ac}`); } });
+  const race = DND.races[S.race.key]; if (race && race.acBonus) { total += race.acBonus; parts.push(`${race.name} +${race.acBonus}`); }
+  if (arm && arm.forge && S.acOverride === '') { total += 1; parts.push('Blessing of the Forge +1'); }
+  fxPassives().forEach(p => {
+    const add = (v, why) => { const n = typeof v === 'number' ? v : N(evalMax(v)); if (n) { total += n; parts.push(`${p.src}${why ? ' (' + why + ')' : ''} ${n > 0 ? '+' : ''}${n}`); } };
+    if (p.ac != null) add(p.ac); if (p.acArmor != null && arm) add(p.acArmor, 'in armor'); if (p.acHeavy != null && arm && arm.armor.type === 'heavy') add(p.acHeavy, 'heavy armor');
+    if (p.acNoArmor != null && !arm) add(p.acNoArmor, 'no armor');
+  });
+  if ((S.conditions || []).includes('Hasted') && !selfBuffs().some(b => b.speedMult)) { total += 2; parts.push('Hasted +2'); }
+  fxActive().forEach(e => { if (e.self === false || e.ally || !e.buff) return; if (e.buff.ac) { total += N(e.buff.ac); parts.push(`${e.name} +${e.buff.ac}`); } });
+  if (tmv('ac')) { total += tmv('ac'); parts.push(`Temporary ${tmv('ac') > 0 ? '+' : ''}${tmv('ac')}`); }
+  selfBuffs().forEach(b => { if (b.acMin && total < b.acMin) { total = b.acMin; parts.push('Barkskin minimum ' + b.acMin); } });
+  return { total, parts, base };
+}
+const acTotal = () => acInfo().total;
+
+// ---------- Speed ----------
+function raceInfo() {
+  if (S.race.key === 'custom') { const c = S.race.custom || {}; return { name: c.name || 'Custom race', size: c.size || 'Medium', speed: N(c.speed) || 30, darkvision: N(c.darkvision) || 0, fly: N(c.fly) || 0, swim: N(c.swim) || 0, traits: c.traits || [], languages: [] }; }
+  const r = DND.races[S.race.key]; if (!r) return null; const s = (r.subraces || {})[S.race.sub] || {}; return { ...r, ...s, name: s.name || r.name, traits: (s.replaceTraits ? [] : r.traits || []).concat(s.traits || []) }; }
+// Senses: darkvision from your race (a subrace's value replaces the base race's), plus invocations that see in the dark.
+function darkvisionFt() { const r = raceInfo(); return r ? N(r.darkvision) : 0; }
+function sensesText() { const dv = darkvisionFt(), ds = (S.picks && (S.picks.invocation || []).includes("Devil's Sight")); return [dv ? `Darkvision ${dv} ft` : '', ds ? "Devil's Sight 120 ft" : ''].concat(fxList('sense')).filter(Boolean).join(' · '); }
+function speedInfo() {
+  if (S.form) return { walk: parseInt((S.form.speed.match(/walk (\d+)/) || [0, 0])[1]) || 0, text: S.form.speed };
+  const r = raceInfo();
+  let walk = r ? N(r.speed) || 30 : 30; const parts = [`Base ${walk}`];
+  if (hasFeat('Mobile')) { walk += 10; parts.push('Mobile +10'); }
+  if (hasFeat('Squat Nimbleness')) { walk += 5; parts.push('Squat Nimbleness +5'); }
+  if (N((S.deckMods || {}).speed)) { walk += N(S.deckMods.speed); parts.push(`Deck of Many Things +${N(S.deckMods.speed)}`); }
+  const arm = equippedArmor(), sh = equippedShield();
+  if (clsLv('barbarian') >= 5 && !(arm && arm.armor.type === 'heavy')) { walk += 10; parts.push('Fast Movement +10'); }
+  const mk = clsLv('monk'); if (mk >= 2 && !arm && !sh) { const b = mk >= 18 ? 30 : mk >= 14 ? 25 : mk >= 10 ? 20 : mk >= 6 ? 15 : 10; walk += b; parts.push(`Unarmored Movement +${b}`); }
+  if (arm && arm.armor.strReq && score('str') < arm.armor.strReq && !(r && /dwarf/i.test(r.name))) { walk -= 10; parts.push(`${arm.name} STR requirement −10`); }
+  fxPassives().forEach(p => { const heavy = arm && arm.armor.type === 'heavy'; let n = 0; if (p.speed) n += N(p.speed); if (p.speedNoHeavy && !heavy) n += N(p.speedNoHeavy); if (p.speedNoArmor && !arm && !sh) n += N(p.speedNoArmor); if (n) { walk += n; parts.push(`${p.src} +${n}`); } });
+  const bs = buffSum('speed'); if (bs) { walk += bs; parts.push(`Spells +${bs}`); }
+  if (hasted()) { walk *= 2; parts.push('Haste ×2'); }
+  const enc = encLevel(); if (enc === 3) { walk = Math.min(walk, 5); parts.push('Over carrying capacity: 5 ft'); } else if (enc) { walk -= enc === 2 ? 20 : 10; parts.push(enc === 2 ? 'Heavily encumbered −20' : 'Encumbered −10'); }
+  if (exModern() && N(S.exhaustion)) { walk = Math.max(0, walk - 5 * N(S.exhaustion)); parts.push(`Exhaustion −${5 * N(S.exhaustion)}`); }
+  else if (N(S.exhaustion) >= 2) { walk = Math.floor(walk / 2); parts.push('Exhaustion halved'); }
+  const zero = (!exModern() && N(S.exhaustion) >= 5) || S.conditions.some(c => { const d = DND.conditions.find(x => x[0] === c); return d && d[2] && d[2].speed0; });
+  if (zero) { walk = 0; parts.push('Speed 0 (condition)'); }
+  const extra = [];
+  if (r) { if (r.fly) extra.push('fly ' + r.fly); if (r.swim) extra.push('swim ' + r.swim); if (r.climb) extra.push('climb ' + r.climb); }
+  selfBuffs().forEach(b => { if (b.fly) extra.push('fly ' + (b.fly === 'walk' ? walk : b.fly)); });
+  fxPassives().forEach(p => ['fly', 'swim', 'climb'].forEach(k => { if (p[k] && !extra.some(x => x.startsWith(k + ' '))) extra.push(k + ' ' + (p[k] === 'walk' ? walk : p[k])); }));
+  if (S.speedOverride !== '' && S.speedOverride != null) return { walk: N(S.speedOverride), text: S.speedOverride + 'ft', parts: ['Set manually'] };
+  if (S.turn && S.turn.speed0) return { walk: 0, text: '0ft this turn (' + S.turn.speed0 + ')', parts: parts.concat([S.turn.speed0 + ': speed 0 until the end of your turn']) };
+  return { walk, text: walk + 'ft' + (extra.length ? ' · ' + extra.join(', ') : ''), parts };
+}
+const speedFt = () => { const w = speedInfo().walk; return w == null ? 30 : N(w); };
+// Movement available this turn (Feline Agility doubles it).
+const hasFeline = () => { const r = raceInfo(); return !!(r && (r.traits || []).some(t => /feline agility/i.test(t[0]))); };
+const turnSpeed = () => speedFt() * (S.turn && S.turn.feline ? 2 : 1);
+// Conditions that stop you taking actions, bonus actions and reactions (most severe first).
+const INCAP = ['Unconscious', 'Petrified', 'Paralyzed', 'Stunned', 'Incapacitated'];
+function incapCond() { return INCAP.find(c => (S.conditions || []).includes(c)) || (S.inCombat && N(S.lethargy) === 2 ? 'Lethargic (Haste wore off)' : ''); }
+
+// ---------- Hit points & hit dice ----------
+function hdPools() { const p = {}; clsRows().forEach(r => { const c = CL[r.key]; if (!c) return; p[c.hd] = (p[c.hd] || 0) + N(r.level); }); return p; }
+const hdLeftOf = d => Math.max(0, (hdPools()[d] || 0) - N(S.hdUsed[d]));
+const hdLeftTotal = () => Object.keys(hdPools()).reduce((t, d) => t + hdLeftOf(d), 0);
+function hpMaxCalc() { return Math.max(1, N(S.hp.base) + lvl() * mod('con', true) + hpPerLevelBonus()); }
+function baseMaxHp() { return Math.max(1, hpMaxCalc() + N(S.hp.adj)); }
+// Temporary changes from the Conditions window: max HP (life drain, Aid from someone else…) and AC (a curse, a spell, cover…).
+const tmv = k => N(((S.tmpMods || {})[k] || {}).v), tmr = k => N(((S.tmpMods || {})[k] || {}).r);
+const TMP_NAMES = { hpmax: 'Max HP', ac: 'AC' };
+const tmName = k => TMP_NAMES[k] || String(k).replace(/^skill:/, '');
+function maxHp() { let m = baseMaxHp() + tmv('hpmax') + fxActive().reduce((t, e) => t + (e.self !== false && !e.ally ? N(e.maxHp) : 0), 0); if (N(S.exhaustion) >= 4 && !exModern()) m = Math.floor(m / 2); return m; }
+// Carrying capacity: 15 × STR, doubled for Large creatures and Powerful Build (and Bear aspect), halved for Tiny.
+function carryMult() { const r = raceInfo() || {}; let m = /large/i.test(r.size || '') ? 2 : /tiny/i.test(r.size || '') ? 0.5 : 1; if ((r.traits || []).some(t => /powerful build|hippo build|little giant/i.test(t[0]))) m *= 2; fxPassives().forEach(p => { if (p.carry) m *= p.carry; }); return m; }
+const carryCap = () => Math.floor(15 * score('str') * carryMult());
+// 0 fine · 1 encumbered · 2 heavily encumbered (variant rule) · 3 over capacity
+function encLevel() {
+  const mode = ST('encumbrance'); if (mode === 'off' || !mode) return 0;
+  const w = weight(), s = score('str') * carryMult();
+  if (w > 15 * s) return 3;
+  if (mode === 'variant') return w > 10 * s ? 2 : w > 5 * s ? 1 : 0;
+  return 0;
+}
+function hpPerLevelBonus() {
+  let b = 0; const r = raceInfo(); if (r && r.hpPerLevel) b += r.hpPerLevel * lvl();
+  if (hasFeat('Tough')) b += 2 * lvl();
+  if (hasSub('sorcerer', 'draconic')) b += clsLv('sorcerer');
+  fxPassives().forEach(p => { if (p.maxHp != null) b += typeof p.maxHp === 'number' ? p.maxHp : N(evalMax(p.maxHp)); });
+  return b;
+}
+
+// ---------- Attacks ----------
+function attackAb(a) {
+  const wb = wpnBind(a); if (wb && wb.wpn.ab === 'spell') return castInfo(wb.wpn.cls).ab;
+  if (a.ab === 'spell') return castInfo(a.cls).ab;
+  let ab = a.ab === 'fin' || a.ab === 'monk' ? (mod('str') >= mod('dex') ? 'str' : 'dex') : a.ab || '';
+  // Battle Smith's Battle Ready: INT instead of STR or DEX with magic weapons (infused ones included).
+  if ((ab === 'str' || ab === 'dex') && battleReady(a) && mod('int') > mod(ab)) ab = 'int';
+  return ab;
+}
+function battleReady(a) {
+  if (!hasSub('artificer', 'battlesmith') || clsLv('artificer') < 3 || !a.item) return false;
+  const it = S.inventory.find(x => x.id === a.item);
+  return !!(it && it.weapon && (it.magic || (it.infusion && it.infusion.name) || N(a.magic) > 0));
+}
+// Weapons from inventory use your real weapon proficiencies; other attacks use their own checkbox.
+function attackProf(a) {
+  if (a.item) { const it = S.inventory.find(x => x.id === a.item); if (it && it.weapon) return !!a.profForce || profWeapon([it.weapon.base || it.name, it.weapon.cat]); }
+  return !!a.prof;
+}
+// Armor you aren't proficient with: disadvantage on STR/DEX rolls and no spellcasting.
+function armorNonProf() {
+  const P = (S.profs || {}).armor || [], arm = equippedArmor(), sh = equippedShield();
+  const bad = []; if (arm && !P.includes(arm.armor.type)) bad.push(arm.name); if (sh && !P.includes('shield')) bad.push(sh.name);
+  return bad;
+}
+const fightingStyle = n => S.features.some(f => f.name === n || f.name === 'Fighting Style: ' + n);
+function atkHit(a) {
+  if (a.fixedHit != null && a.fixedHit !== '') return N(a.fixedHit);
+  const ab = attackAb(a);
+  const fit = a.item && S.inventory.find(x => x.id === a.item);
+  let v = (ab ? mod(ab) : 0) + (attackProf(a) ? PB() : 0) + N(a.magic) + forgeBonus(fit) + infWeapon(fit, a, 'atk') + (a.effect ? 0 : buffSum('atk')) + itemBuffs(a).reduce((t, b) => t + N(b.atk), 0) + (a.ab === 'spell' ? itemSum('spellAtk') + itemSum('spell') : 0);
+  if (a.kind === 'ranged' && fightingStyle('Archery')) v += 2;
+  return v;
+}
+function atkDmgMod(a) {
+  if (a.fixedHit != null && a.fixedHit !== '') return 0;
+  const ab = attackAb(a);
+  const fit = a.item && S.inventory.find(x => x.id === a.item);
+  let v = (ab && !a.noModDmg ? mod(ab) : 0) + N(a.magic) + forgeBonus(fit) + infWeapon(fit, a, 'dmg') + (a.effect ? 0 : buffSum('dmg')) + itemBuffs(a).reduce((t, b) => t + N(b.dmg), 0) + (a.kind === 'melee' && ab === 'str' ? buffSum('meleeDmg') : 0) + (a.kind === 'melee' ? fxSum('meleeDmg') : 0);
+  if (a.kind === 'melee' && fightingStyle('Dueling') && a.oneHanded) v += 2;
+  return v;
+}
+function martialDie() { const m = clsLv('monk'); return m >= 17 ? 'd10' : m >= 11 ? 'd8' : m >= 5 ? 'd6' : m >= 1 ? 'd4' : ''; }
+function atkDice(a) {
+  let d = a.dice || '';
+  const wb = wpnBind(a); if (wb && wb.wpn.die) d = /d\d+/.test(d) ? d.replace(/d\d+/, wb.wpn.die) : '1' + wb.wpn.die;
+  if (a.monk && martialDie()) { const md = martialDie(), cur = (d.match(/d(\d+)/) || [0, 0])[1]; if (!d || N(md.slice(1)) > N(cur) || d === '1') d = '1' + md; }
+  return d;
+}
+const extraDice = a => selfBuffs().concat(itemBuffs(a)).filter(b => b.dmgDice).map(b => b.dmgDice).concat(fxList('everyHit'));
+function atkDmgText(a) { const m = atkDmgMod(a); return atkDice(a) + (m ? ' ' + (m > 0 ? '+ ' : '− ') + Math.abs(m) : ''); }
+function attacksPerAction() {
+  let n = 1;
+  clsRows().forEach(r => { const c = CL[r.key], s = subOf(r); [c && c.extraAttack, s && s.extraAttack].forEach(t => { if (t) Object.keys(t).forEach(k => { if (N(r.level) >= N(k)) n = Math.max(n, t[k]); }); }); });
+  if (hasFeature('Thirsting Blade')) n = Math.max(n, 2);
+  return n;
+}
+const canAttack = () => { const n = N(S.turn.attacks); return n < attacksPerAction() && !(S.turn.used.action && n === 0); };
+const critRange = () => { let c = 20; S.features.forEach(f => { if (f.crit && f.crit < c) c = f.crit; }); return c; };
+
+// ---------- Conditions → roll modes ----------
+let ROLL_CTX = '';
+let ATK_ITEM = null;  // the weapon being attacked with (for cursed-weapon rules)
+function rollMode(kind, ab) {
+  const adv = [], dis = [], cond = S.conditions, ex = N(S.exhaustion);
+  if (kind === 'attack') {
+    if (cond.includes('Poisoned')) dis.push('poisoned'); if (cond.includes('Frightened')) dis.push('frightened'); if (cond.includes('Prone')) dis.push('prone');
+    if (cond.includes('Restrained')) dis.push('restrained'); if (cond.includes('Blinded')) dis.push('blinded'); if (ex >= 3 && !exModern()) dis.push('exhaustion');
+    if (cond.includes('Invisible')) adv.push('invisible');
+    selfBuffs().forEach(b => { if (b.atkAdv) adv.push(typeof b.atkAdv === 'string' ? b.atkAdv : 'advantage'); if (b.atkAdvNext) adv.push(typeof b.atkAdvNext === 'string' ? b.atkAdvNext : 'advantage'); });
+    if (armorNonProf().length) dis.push('armor not proficient');
+    if (ATK_ITEM && ATK_ITEM.weapon) S.inventory.forEach(it => { if (it.hb && it.hb.othersDis && hbItemOn(it) && it.id !== ATK_ITEM.id) dis.push(it.name + ' (curse: other weapons)'); });
+  }
+  if ((kind === 'check' || kind === 'save') && ['str', 'dex'].includes(ab) && armorNonProf().length) dis.push('armor not proficient');
+  if (kind === 'check' && ROLL_CTX === 'init') { fxPassives().forEach(p => { if (p.initAdv) adv.push(p.src); }); activeItems().forEach(it => { if ((it.mods || {}).initAdv) adv.push(it.name); }); }
+  if (kind === 'check' && String(ROLL_CTX).startsWith('skill:')) fxPassives().forEach(p => { if ([].concat(p.skillAdv || []).includes(ROLL_CTX.slice(6))) adv.push(p.src); });
+  if (kind === 'check' && ROLL_CTX !== 'init') fxPassives().forEach(p => { if ([].concat(p.checkAdv || []).includes(ab)) adv.push(p.src); });
+  if (kind === 'save') fxPassives().forEach(p => { if ([].concat(p.saveAdv || []).includes(ab)) adv.push(p.src); });
+  if (kind === 'check' && ROLL_CTX === 'skill:Perception') activeItems().forEach(it => { if ((it.mods || {}).percAdv) adv.push(it.name); });
+  if (kind === 'check') { if (cond.includes('Poisoned')) dis.push('poisoned'); if (cond.includes('Frightened')) dis.push('frightened'); if (ex >= 1 && !exModern()) dis.push('exhaustion'); if (encLevel() >= 2 && ['str', 'dex', 'con'].includes(ab)) dis.push('heavily encumbered'); if (cond.includes('Raging') && ab === 'str') adv.push('rage'); }
+  if (kind === 'save') {
+    if (ex >= 3 && !exModern()) dis.push('exhaustion'); if (cond.includes('Restrained') && ab === 'dex') dis.push('restrained'); if (encLevel() >= 2 && ['str', 'dex', 'con'].includes(ab)) dis.push('heavily encumbered');
+    if ((cond.includes('Dodging') || hasted()) && ab === 'dex') adv.push(cond.includes('Dodging') ? 'dodging' : 'haste');
+    if (cond.includes('Raging') && ab === 'str') adv.push('rage');
+  }
+  // The sheet-wide Advantage / Disadvantage switch (Core → "d20 rolls" tile) applies to every attack, check and save.
+  if (kind === 'check' && ROLL_CTX === 'skill:Perception') selfBuffs().forEach(b => { if (b.percAdv) adv.push('third eye'); });
+  if (['attack', 'check', 'save'].includes(kind)) selfBuffs().forEach(b => { if (b.d20AdvNext) adv.push(typeof b.d20AdvNext === 'string' ? b.d20AdvNext : 'advantage'); });
+  if (S.rollAdv === 'adv') adv.push('advantage (switch on)'); else if (S.rollAdv === 'dis') dis.push('disadvantage (switch on)');
+  const auto = kind === 'save' && ['str', 'dex'].includes(ab) && cond.some(c => ['Paralyzed', 'Petrified', 'Stunned', 'Unconscious'].includes(c)) ? 'auto-fail' : '';
+  return { mode: adv.length && dis.length ? 'normal' : adv.length ? 'adv' : dis.length ? 'dis' : 'normal', why: (adv.length && dis.length ? ['advantage and disadvantage cancel'] : adv.length ? adv : dis), auto };
+}
+
+// ---------- Feature automation ----------
+// Every feature (class, subclass, race, feat, class option) gets an "fx" record: explicit entries from
+// DND.featFx (data/featfx.js) merged with what can be read from its description — when it's used
+// (action / bonus action / reaction), what it spends (ki, Channel Divinity, sorcery points, superiority
+// dice…), the save DC it imposes, and passive effects on AC, speed, saves, initiative and defenses.
+const ABRE = { STR: 'str', DEX: 'dex', CON: 'con', INT: 'int', WIS: 'wis', CHA: 'cha' };
+const NUMW = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6 };
+function fxKeyParts(f) { return String(f.key || '').split(':'); }
+function fxExplicit(f) {
+  const base = fxExplicit0(f), hb = hbFx(f.hb);
+  if (!hb) return base;
+  const o = Object.assign({}, base || {}, hb);
+  if (base && base.passive && hb.passive) o.passive = [].concat(base.passive, hb.passive);
+  return o;
+}
+function fxExplicit0(f) {
+  const T = DND.featFx || {}, p = fxKeyParts(f), name = f.dname || f.name;
+  if (p[0] === 'pick') { const op = DND.options[p[1]], e = op && op.list.find(x => x[0] === p.slice(2).join(':')); return (e && e[3]) || null; }
+  if (p[0] === 'feat') return T['feat:' + p.slice(1).join(':')] || T[name] || null;
+  return T[f.key] || (p.length >= 3 && T[p[0] + ':' + p[1] + ':' + name]) || (p.length >= 3 && T[p[1] + ':' + name]) || T[p[0] + ':' + name] || T[name] || null;
+}
+// Which DC a class's features use when the description just says "WIS save".
+function defaultDC(f) {
+  const p = fxKeyParts(f), cls = f.cls || p[0], sub = p.length >= 3 ? p[1] : '';
+  if (cls === 'race' || f.kind === 'race') return 'con';
+  if (cls === 'monk') return 'wis';
+  if (cls === 'barbarian') return 'con';
+  if (cls === 'fighter') return { runeknight: 'con', psiwarrior: 'int', arcanearcher: 'int', eldritchknight: 'spell' }[sub] || 'str|dex';
+  if (cls === 'rogue') return { arcanetrickster: 'spell', soulknife: 'dex' }[sub] || 'dex';
+  if (CL[cls] && (CL[cls].caster || casterFor(cls))) return 'spell';
+  return 'spell';
+}
+function fxAuto(f) {
+  const d = String(f.desc || ''), n = String(f.dname || f.name || ''), o = {};
+  if (!f.col) {
+    if (/^(bonus action|as a bonus action)\b/i.test(d) || /^spend[^.:]*bonus action/i.test(d)) o.col = 'bonus';
+    else if (/^reaction\b/i.test(d)) o.col = 'reaction';
+    else if (/^action\b/i.test(d)) o.col = 'action';
+    else if (/\b(use your reaction|as a reaction)\b/i.test(d)) o.col = 'reaction';
+    else if (/\bas a bonus action\b/i.test(d)) o.col = 'bonus';
+  }
+  if (/^Channel Divinity: /.test(n) || (n === 'Turn Undead' && (f.cls === 'cleric'))) o.cost = { from: 'Channel Divinity', n: 1 };
+  else { let m;
+    if ((m = /\bspend (\d+|one|two|three|four|five)(?:\+|–\d+)? ki\b/i.exec(d)) || (m = /\b(\d+) ki\b/i.exec(d))) o.cost = { from: 'Ki', n: N(m[1]) || NUMW[m[1].toLowerCase()] || 1 };
+    else if ((m = /\bspend (\d+|one|two|three)(?:\+|–\d+)? sorcery points?\b/i.exec(d))) o.cost = { from: 'Font of Magic', n: N(m[1]) || NUMW[m[1].toLowerCase()] || 1 };
+    else if (/\bspend (?:a use of |one use of |a |one )?wild shape\b/i.test(d)) o.cost = { from: 'Wild Shape', n: 1 };
+    else if (/\bspend (?:a |one |your )?bardic inspiration\b/i.test(d)) { o.cost = { from: 'Bardic Inspiration', n: 1 }; o.roll = '1bi'; }
+  }
+  const sv = /\b(STR|DEX|CON|INT|WIS|CHA)(?: or (STR|DEX|CON|INT|WIS|CHA))? sav(?:e|ing throw)\b/.exec(d);
+  if (sv) { o.save = sv[2] ? sv[1] + ' or ' + sv[2] : sv[1]; o.dc = defaultDC(f); }
+  return o;
+}
+function fxOf(f) {
+  if (!f) return {};
+  const ex = fxExplicit(f) || {};
+  const au = fxAuto(f); if (ex.acts && !('col' in ex)) delete au.col;
+  const fx = Object.assign({}, au, ex);
+  Object.keys(fx).forEach(k => { if (fx[k] === null) delete fx[k]; });
+  if (ex.dc === false) delete fx.dc;
+  // House rule: the Protector cannon's temp HP grows with Explosive Cannon like the other two (2d8 at 9th).
+  if (f.key === 'artificer:artillerist:Eldritch Cannon' && ST('protectorScales') && Array.isArray(fx.acts)) fx.acts = fx.acts.map(a => a.name === 'Protector' ? Object.assign({}, a, { roll: '{tier(artificer,3,1,9,2)}d8+max(1,int)' }) : a);
+  if (S.race && S.race.key === 'dragonborn') dbFx(f, fx);
+  return fx;
+}
+// Dragonborn: show only the breath weapon of this dragonborn's book, with the ancestry's damage type, shape and save filled in.
+const DB_ANC = { Black: 'acid', Blue: 'lightning', Brass: 'fire', Bronze: 'lightning', Copper: 'acid', Gold: 'fire', Green: 'poison', Red: 'fire', Silver: 'cold', White: 'cold', Amethyst: 'force', Crystal: 'radiant', Emerald: 'psychic', Sapphire: 'thunder', Topaz: 'necrotic' };
+function dbAncestry() { const c = (S.race && S.race.choices) || {}; const v = c['Draconic Ancestry'] || c['Chromatic Ancestry'] || c['Metallic Ancestry'] || c['Gem Ancestry']; return v && DB_ANC[v] ? { color: v, type: DB_ANC[v] } : null; }
+function dbFx(f, fx) {
+  const anc = dbAncestry(), sub = S.race.sub || '';
+  if (f.key === 'race:Breath Weapon' && Array.isArray(fx.acts)) {
+    const phb = !sub || sub === 'standard';
+    fx.acts = fx.acts.filter(a => /PHB/.test(a.name) === phb).map(a => {
+      const b = Object.assign({}, a, { name: 'Breath Weapon' });
+      if (!anc) return b;
+      if (phb) { const cone = ['Gold', 'Green', 'Red', 'Silver', 'White'].includes(anc.color); b.save = ['Green', 'Silver', 'White'].includes(anc.color) ? 'CON' : 'DEX'; b.rollNote = `${anc.type} damage, half on a save (${cone ? '15 ft cone' : '5×30 ft line'})`; }
+      else b.rollNote = `${anc.type} damage, half on a save (replaces one attack; ${sub === 'chromatic' ? '15 ft cone or 5×30 ft line' : '15 ft cone'})`;
+      return b;
+    });
+  }
+  if (anc && (f.key === 'race:Damage Resistance' || f.key === 'race:Draconic Resistance') && fx.passive) fx.passive = Object.assign({}, fx.passive, { resist: [anc.type] });
+}
+// Save DCs: 'spell' (that class's spell DC), 'wis', 'str|dex' (the better one), or a number.
+function dcVal(spec, cls) {
+  if (spec == null || spec === '') return null;
+  if (typeof spec === 'number') return spec;
+  if (spec === 'spell') return castInfo(cls).dc;
+  const abs = String(spec).split('|').filter(a => AB.includes(a));
+  if (!abs.length) return null;
+  return 8 + PB() + Math.max(...abs.map(a => mod(a)));
+}
+// "DC 8 + prof + STR or DEX" → "DC 15" (descriptions and class tables).
+function formulaDC(txt) {
+  return String(txt || '')
+    .replace(/(?:DC )?8 \+ (?:prof(?:iciency)?(?: bonus)?|proficiency) \+ (STR|DEX|CON|INT|WIS|CHA)(?: (?:or|\/) (STR|DEX|CON|INT|WIS|CHA))?(?: mod(?:ifier)?)?/g, (m, a, b) => 'DC ' + (8 + PB() + Math.max(mod(ABRE[a]), b ? mod(ABRE[b]) : -99)))
+    .replace(/(?:DC )?8 \+ (STR|DEX|CON|INT|WIS|CHA)(?: mod(?:ifier)?)? \+ prof(?:iciency)?(?: bonus)?/g, (m, a) => 'DC ' + (8 + PB() + mod(ABRE[a])));
+}
+// Dice tokens in feature rolls: 1sup (superiority die), 1ma (martial arts die), 1bi (bardic inspiration), 1psi (psionic energy die).
+function scalingDie(name, def) { for (const r of clsRows()) { const v = classScaling(r.key).find(([n]) => n.toLowerCase() === name.toLowerCase()); if (v) return String(v[1]).replace(/^1/, ''); } return def; }
+function fxRollExpr(expr) {
+  let e = String(expr || '');
+  e = e.replace(/\{([^}]+)\}/g, (m, x) => { const v = evalMax(x); return v == null ? '0' : String(v); });
+  const bi = () => { const b = clsLv('bard'); return b >= 15 ? 'd12' : b >= 10 ? 'd10' : b >= 5 ? 'd8' : 'd6'; };
+  e = e.replace(/(\d*)(sup|ma|bi|psi)\b/g, (m, k, t) => (k || '1') + (t === 'sup' ? scalingDie('Superiority Die', 'd6') : t === 'ma' ? (martialDie() || 'd4') : t === 'bi' ? bi() : scalingDie('Psionic Energy Die', 'd6')));
+  return evalRoll(e);
+}
+// Passive effects from every feature you have (some only while raging, concentrating or under an effect).
+let _fxpKey = '', _fxp = [];
+function fxPassives() {
+  const key = JSON.stringify(S.inventory.filter(it => it.infusion).map(it => [hbItemOn(it), it.attuned, it.infusion.name, it.infusion.choice])) + '|' + JSON.stringify(S.features.map(f => f.hb || 0)) + '|' + JSON.stringify(S.inventory.filter(it => it.hb).map(it => [hbItemOn(it), it.hb])) + '|' + S.features.length + '|' + S.conditions.join() + '|' + (S.effects || []).map(e => e.name).join() + '|' + S.concentration + '|' + totalLevel() + '|' + JSON.stringify(S.picks || {}) + '|' + S.features.map(f => f.name).join();
+  if (key === _fxpKey) return _fxp;
+  const out = [], raging = S.conditions.includes('Raging');
+  S.features.forEach(f => {
+    const fx = fxOf(f), own = f.cls ? clsLv(f.cls) : lvl();
+    const push = (p, tag) => [].concat(p || []).forEach(x => {
+      if (!x || (x.min && own < x.min)) return;
+      if (x.when === 'conc' && !S.concentration) return;
+      if (x.effect && !fxActive().some(e => e.name === x.effect)) return;
+      out.push(Object.assign({ src: f.name }, x, tag ? { raging: true } : {}));
+    });
+    push(fx.passive); if (raging) push(fx.raging, true);
+    if (f.kind === 'race' && !(f.hb && f.hb.resist)) { const m = /\bresistance to ([a-z ,]+?) damage/i.exec(f.desc || ''); if (m && !/while|when you|choose/i.test(f.desc) && !/\byour\b/i.test(m[1])) out.push({ src: f.name, resist: m[1].split(/,\s*|\s+and\s+|\s+or\s+/).map(s => s.trim()).filter(Boolean) }); }
+  });
+  // Homebrew item effects (resistances, speeds, AC…) while the item is in use
+  infPassives().forEach(p => out.push(p));
+  S.inventory.forEach(it => { if (!hbItemOn(it)) return; const fx = hbFx(it.hb); if (fx && fx.passive) [].concat(fx.passive).forEach(x => { if (x.effect && !fxActive().some(e => e.name === x.effect)) return; out.push(Object.assign({ src: it.name, item: it.id }, x)); }); });
+  _fxpKey = key; _fxp = out; return out;
+}
+const fxSum = (k, filter) => fxPassives().filter(p => p[k] != null && (!filter || filter(p))).reduce((t, p) => t + (typeof p[k] === 'number' ? p[k] : p[k] === 'attuned' ? attunedCount() : N(evalMax(p[k]))), 0);
+const fxList = k => [...new Set(fxPassives().flatMap(p => [].concat(p[k] || [])))];
+const fxSaveProf = ab => fxPassives().some(p => p.saveProf === 'all' || [].concat(p.saveProf || []).includes(ab));
+// Resistances, immunities and advantages with where each one comes from (merged when several sources give the same thing).
+function defensesDetail() {
+  const out = { resist: [], immune: [], adv: [] };
+  const cap = t => { t = String(t).trim(); if (/^diseased$/i.test(t)) t = 'disease'; return t.charAt(0).toUpperCase() + t.slice(1); };
+  const add = (arr, t, src) => { if (!t) return; const tt = cap(t), k = tt.toLowerCase(); let e = arr.find(x => x.k === k); if (!e) arr.push(e = { k, t: tt, src: [] }); if (src && !e.src.includes(src) && !k.startsWith(String(src).toLowerCase())) e.src.push(src); };
+  fxPassives().forEach(p => {
+    [].concat(p.resist || []).forEach(t => add(out.resist, t, p.src));
+    [].concat(p.immune || []).forEach(t => add(out.immune, t, p.src));
+    [].concat(p.condImmune || []).forEach(t => add(out.immune, /^(diseased|disease)$/i.test(t) ? 'disease' : String(t).toLowerCase() === t ? t : t, p.src));
+    [].concat(p.advNote || []).forEach(t => add(out.adv, t, p.src));
+  });
+  return out;
+}
+function defensesText() {
+  const r = fxList('resist'), im = fxList('immune'), ci = fxList('condImmune'), adv = fxList('advNote');
+  return { resist: r, immune: im, condImmune: ci, adv };
+}
+// ---------- Using features ----------
+function fxSource(from, cls) {
+  const lc = String(from).toLowerCase();
+  let i = S.features.findIndex(f => String(f.dname || f.name).toLowerCase() === lc && (!cls || !f.cls || f.cls === cls));
+  if (i < 0) i = S.features.findIndex(f => String(f.dname || f.name).toLowerCase() === lc);
+  return i;
+}
+function fxLeft(i) { const f = S.features[i]; if (!f) return 0; const m = featMax(f); return m == null ? 99 : Math.max(0, m - N(f.used)); }
+function fxCostText(c) { return c ? `${c.n || 1} ${c.from === 'Font of Magic' ? 'sorcery point' + ((c.n || 1) > 1 ? 's' : '') : c.from === 'Combat Superiority' ? 'superiority ' + ((c.n || 1) > 1 ? 'dice' : 'die') : c.from}` : ''; }
+// Spend a resource; returns an error message or ''.
+function fxSpend(c, cls) {
+  if (!c) return '';
+  const i = fxSource(c.from, cls); if (i < 0) return `You don't have ${c.from}.`;
+  const f = S.features[i], n = c.n || 1, left = fxLeft(i);
+  if (left < n) return `Not enough ${c.from} left (${left}).`;
+  f.used = N(f.used) + n; return '';
+}
+function fxApplyUse(u, name, lines) {
+  if (!u) return;
+  if (u.effect) { const e = JSON.parse(JSON.stringify(u.effect)); e.name = e.name || name; if (e.buff) Object.keys(e.buff).forEach(k => { if (typeof e.buff[k] === 'string' && /^[a-z0-9+*()/ ,-]+$/i.test(e.buff[k]) && !/note|dmgDice/.test(k)) { const v = evalMax(e.buff[k]); if (v != null) e.buff[k] = v; } });
+    S.effects = (S.effects || []).filter(x => x.name !== e.name).concat([e]); lines.push(`${e.name} is active${e.rounds ? ' for ' + fmtRounds(e.rounds) : ''}`); }
+  if (u.cond && !S.conditions.includes(u.cond)) { S.conditions.push(u.cond); if (u.condRounds) { S.condTurns = S.condTurns || {}; S.condTurns[u.cond] = u.condRounds; } lines.push(`${u.cond}${u.condRounds ? ' for ' + u.condRounds + ' round' + (u.condRounds > 1 ? 's' : '') : ''}`); }
+  if (u.temp) { const r = rollExpr(fxRollExpr(u.temp), { need: true, label: name + ': temporary HP' }); if (r.total > N(S.hp.temp)) { S.hp.temp = r.total; lines.push(`${r.total} temporary HP`); } else lines.push(`${r.total} temporary HP (you kept your higher ${S.hp.temp})`); }
+  if (u.heal) { const r = rollExpr(fxRollExpr(u.heal), { need: true, label: name + ': healing' }); const b = N(S.hp.cur); S.hp.cur = Math.min(maxHp(), b + r.total); lines.push(`Healed ${S.hp.cur - b} HP`); }
+  if (u.healFull) { const b = N(S.hp.cur); S.hp.cur = maxHp(); lines.push(`Healed ${S.hp.cur - b} HP`); }
+  if (u.setHp != null) { const v = Math.max(N(S.hp.cur), N(evalMax(String(u.setHp)))); S.hp.cur = Math.min(maxHp(), v); lines.push(`HP set to ${S.hp.cur}`); }
+  if (u.regain) [].concat(u.regain).forEach(rg => { const k = fxSource(rg.from); if (k < 0) return; const ff = S.features[k], n = rg.n === 'all' ? N(ff.used) : N(evalMax(String(rg.n || 1))); const was = N(ff.used); ff.used = Math.max(0, was - n); if (was !== ff.used) lines.push(`Regained ${was - ff.used} ${rg.from}`); });
+  if (u.removeCond) [].concat(u.removeCond).forEach(c => { if (S.conditions.includes(c)) { S.conditions = S.conditions.filter(x => x !== c); if (S.condTurns) delete S.condTurns[c]; lines.push(`${c} ended`); } });
+  if (u.exhaustion) { const b = N(S.exhaustion); S.exhaustion = Math.max(0, Math.min(6, b + N(u.exhaustion))); if (b !== S.exhaustion) lines.push(`Exhaustion ${b} → ${S.exhaustion}`); }
+  if (u.companion && typeof addClassCompanion === 'function' && COMP_RULES[u.companion]) { addClassCompanion(u.companion, true); lines.push(`${u.companion} appears (see Creatures)`); }
+  if (u.recoverSlots) setTimeout(() => openRecoverSlots(u.recoverSlots), 60);
+  if (u.endEffect) { S.effects = (S.effects || []).filter(e => e.name !== u.endEffect); }
+  if (u.healHalf) { const b = N(S.hp.cur); S.hp.cur = Math.min(maxHp(), b + Math.floor(maxHp() / 2)); lines.push(`Healed ${S.hp.cur - b} HP`); }
+  if (u.dismiss) { const n0 = S.companions.length; S.companions = S.companions.filter(c => c.tmpl !== u.dismiss && c.name !== u.dismiss); S.effects = (S.effects || []).filter(e => !String(e.name).startsWith(u.dismiss)); if (S.companions.length < n0) lines.push(`${u.dismiss} is gone`); }
+  // Back above 0 HP: no longer unconscious, death saves reset.
+  if (N(S.hp.cur) > 0 && S.conditions.includes('Unconscious') && (u.heal || u.healHalf || u.healFull || u.setHp != null)) { S.conditions = S.conditions.filter(c => c !== 'Unconscious'); S.death = { s: 0, f: 0 }; lines.push('You\u2019re back on your feet (death saves reset)'); }
+  if (u.halveDamage) { lines.push('Enter the attack’s damage — you take half'); setTimeout(() => askHalfDamage(name), 80); }
+  if (u.speed0) { S.turn.speed0 = typeof u.speed0 === 'string' ? u.speed0 : name; lines.push('Your speed is 0 until the end of this turn'); }
+  if (u.resetTurn) { S.turn.used.action = false; S.turn.attacks = 0; }
+}
+const fxText = t => formulaDC(t).replace(/\{([^}]+)\}/g, (m, x) => { const v = evalMax(x); return v == null ? m : String(v); });
+function fxDCLine(fx, f) { const dc = dcVal(fx.dc, f.cls); return dc ? `DC ${dc}${fx.save ? ' ' + fx.save + ' save' : ''}` : ''; }
+// Use a sub-option of a feature (e.g. Ki → Flurry of Blows) or a feature that spends another's resource.
+function useAct(fi, j, col) {
+  const f = S.features[fi]; if (!f) return;
+  const fx = fxOf(f), a = j == null ? fx : (fx.acts || [])[N(j)]; if (!a) return;
+  if (a.surge) return wildSurgeNow();
+  if (a.surgeCheck) return wildCheckNow();
+  col = col || a.col;
+  if (['action', 'bonus', 'reaction'].includes(col) && incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; }
+  if (a.onlyRaging && !S.conditions.includes('Raging')) { toast(`${esc(a.name || f.name)} only works while raging.`, 'fumble'); return; }
+  if (a.onlyWhen && !fxWhenOK(a.onlyWhen)) { toast(`${esc(a.name || f.name)} only works ${esc(fxWhenText(a.onlyWhen))}.`, 'fumble'); return; }
+  const cost = a.cost === true ? { from: f.dname || f.name, n: 1 } : a.cost;
+  const ar = atkReplaceOK(a.name || f.name, col); if (ar === false) return;
+  if (ar === null && S.inCombat && ['action', 'bonus', 'reaction'].includes(col) && (S.turn.used || {})[col]) { toast(`Your ${col === 'bonus' ? 'bonus action' : col} is already used this turn.`, 'fumble'); return; }
+  const err = fxSpend(cost, f.cls); if (err) { toast(esc(err), 'fumble'); return; }
+  const atkNote = atkReplaceSpend(a.name || f.name, col);
+  if (!atkNote && col && col !== 'free' && col !== 'move') S.turn.used[col] = true;
+  const lines = [], nm = a.name || f.name; if (atkNote) lines.push(atkNote);
+  if (/disengage/i.test(nm) && S.inCombat) S.turn.disengaged = true;
+  if (a.dash) { addDash(); lines.push(`+${turnSpeed()} ft of movement this turn`); }
+  fxApplyUse(a.use, nm, lines);
+  // Attack-roll options (e.g. the Force Ballista): roll to hit first; a 20 doubles the damage dice.
+  let hit = null; if (a.atk) { const bonus = a.atk === 'spell' ? castInfo(f.cls).atk : N(a.atk); const d = d20Expr(bonus, 'attack'); hit = rollExpr(d.expr, { label: (a.name || f.name) + ' attack' }); hit.crit = hit.d20 >= 20; hit.nat1 = hit.d20 === 1; hit.bonus = bonus; }
+  const r = a.roll ? rollExpr(hit && hit.crit ? critDice(fxRollExpr(a.roll)) : fxRollExpr(a.roll), { label: (a.name || f.name) + ': ' + (a.rollNote || 'roll').replace(/\s*\(.*$/, '') }) : null;
+  const dc = fxDCLine(a.dc ? a : fx, f);
+  pendingLabel = 'Use ' + nm; update(); render();
+  const heal = r && a.healRoll ? { label: 'Heal me', fn: () => useAmt(r, nm + ': healing', n => healSelf(n, `${nm}: +${n} HP`)) } : null;
+  if (hit) { toast(`<b class="total">${hit.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${hit.crit ? 'CRITICAL HIT' : hit.nat1 ? 'Natural 1 — miss' : 'to hit'}</div><div class="det">Hit: ${esc(hit.detail)}${r ? ' · Dmg: ' + esc(r.detail) : ''}</div>${a.rollNote ? `<div class="det">${esc(a.rollNote)}</div>` : ''}${lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>${r ? `<div class="rc-dmg${hit.nat1 ? ' void' : ''}"><b>${r.total}</b><span>${esc((String(a.rollNote || 'damage').split(/[ (]/)[0]) || 'damage')}</span></div>` : ''}`, hit.crit ? 'crit' : hit.nat1 ? 'fumble' : '', 9000, [{ label: 'Undo', fn: () => undo(1) }]); return; }
+  toast(`${r ? `<b class="total">${r.total}</b>` : ''}<div><div><b>${esc(nm)}</b>${cost ? ' · ' + esc(fxCostText(cost)) : ''}</div>${r ? `<div class="det">${esc(r.detail)}${a.rollNote ? ' ' + esc(a.rollNote) : ''}</div>` : ''}${dc ? `<div class="det">${esc(dc)}</div>` : ''}${a.text ? `<div class="det">${esc(fxText(a.text))}</div>` : ''}${lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, '', 9000, [heal, { label: 'Undo', fn: () => undo(1) }].filter(Boolean));
+}
+// Blessing of the Forge: pick the armor or weapon to bless.
+function openForge(fi) {
+  const items = S.inventory.map((it, i) => [it, i]).filter(([it]) => (it.armor && it.armor.type !== 'shield') || it.weapon);
+  openModal(`<h3>Blessing of the Forge</h3><p class="hint">Touch one nonmagical suit of armor or simple or martial weapon. Until the end of your next long rest it's magical: armor +1 AC, or a weapon +1 to attack and damage rolls.</p>
+    <div class="crlist">${items.map(([it, i]) => `<button class="crrow sel" data-act="forgego" data-fi="${fi}" data-i="${i}"><div><b>${esc(it.name)}</b> <span class="hint">${it.armor ? 'Armor' : 'Weapon'}${it.forge ? ' · blessed now' : ''}${it.equipped ? ' · equipped' : ''}</span></div></button>`).join('') || '<p class="hint">No armor or weapons in your inventory.</p>'}</div>
+    <div class="actions"><button class="btn" data-act="close">Cancel</button></div>`);
+}
+function forgeGo(fi, i) {
+  const f = S.features[fi], it = S.inventory[i]; if (!f || !it) return;
+  if (fxLeft(fi) < 1) { toast('Blessing of the Forge is already used — it returns after a long rest.', 'fumble'); return; }
+  f.used = N(f.used) + 1; S.inventory.forEach(x => delete x.forge); it.forge = true;
+  pendingLabel = 'Blessing of the Forge: ' + it.name; closeModal(true); update(); render();
+  toast(`<b>Blessing of the Forge</b> — ${esc(it.name)} is +1 ${it.armor ? 'AC' : 'to attack and damage'} until your next long rest.`, '', 7000, { label: 'Undo', fn: () => undo(1) });
+}
+const forgeBonus = it => (it && it.forge ? 1 : 0);
+// ---------- Spell-Storing Item (artificer 11) ----------
+// Store a 1st- or 2nd-level artificer spell with a casting time of 1 action in a simple/martial weapon or an
+// item you can use as a spellcasting focus. Anyone holding it can take an action to cast it (your spellcasting
+// ability, your DC/attack); uses = twice your INT modifier (minimum 2). It stays until used up or replaced —
+// long rests don't refill it; storing again (after a long rest) does.
+const STORE_FOCUS = /\b(thieves'? tools|tinker'?s? tools|smith'?s? tools|woodcarver'?s? tools|alchemist'?s? supplies|brewer'?s? supplies|calligrapher'?s? supplies|carpenter'?s? tools|cartographer'?s? tools|cobbler'?s? tools|cook'?s? utensils|glassblower'?s? tools|jeweler'?s? tools|leatherworker'?s? tools|mason'?s? tools|painter'?s? supplies|potter'?s? tools|weaver'?s? tools|focus|wand|rod|staff|orb|crystal|holy symbol|totem|amulet|emblem|reliquary)\b/i;
+const storeUses = () => Math.max(2, 2 * mod('int'));
+function storeQualifies(it) { return !!(it && (it.weapon || STORE_FOCUS.test(it.name || '') || it.infusion || /infus|arcane firearm|spellcasting focus/i.test(it.notes || '') || S.spells.some(x => x.stored && x.item === it.id))); }
+function storeSpellsList() {
+  // The artificer list, plus your artificer subclass spells (they count as artificer spells for you).
+  const extra = new Set(S.spells.filter(x => x.cls === 'artificer' && !x.stored).map(x => x.name.toLowerCase()));
+  const r = (S.classes || []).find(c => c.key === 'artificer'), sub = r && CL.artificer && CL.artificer.subclasses[r.sub];
+  if (sub && sub.spells) Object.values(sub.spells).flat().forEach(n => extra.add(String(n).toLowerCase()));
+  return DND.spells.filter(s => (/A/.test(s.classes || '') || extra.has(s.name.toLowerCase())) && (s.level === 1 || s.level === 2) && s.time === '1 action');
+}
+const spellUpcasts = n => /At Higher Levels/.test((DND.full || {})['sp:' + n] || '');
+function storedSpellIdx() { return S.spells.findIndex(s => s.stored && s.cls === 'artificer'); }
+function openSpellStore(fi) {
+  if (clsLv('artificer') < 11) { toast('Spell-Storing Item needs artificer level 11.', 'fumble'); return; }
+  const cur = S.spells[storedSpellIdx()], items = S.inventory.filter(storeQualifies), list = items.length ? items : S.inventory;
+  const spells = storeSpellsList();
+  openModal(`<h3>Spell-Storing Item</h3>
+    <p class="hint" style="margin:0 0 10px">After a long rest, touch one simple or martial weapon or an item you can use as a spellcasting focus (thieves' or artisan's tools, or an infused item, work for an artificer) and store a <b>1st- or 2nd-level artificer spell that takes 1 action</b>. You don't need it prepared. Anyone holding the item can take an action to cast it with your spellcasting modifier; if it needs concentration, they concentrate.</p>
+    ${cur ? `<p class="hint" style="margin:0 0 10px">Stored now: <b>${esc(cur.name)}</b> in ${esc((spItem(cur) || {}).name || 'an item')} — ${Math.max(0, N(cur.uses && cur.uses.max) - N(cur.uses && cur.uses.used))} of ${N(cur.uses && cur.uses.max)} uses left. Storing again replaces it.</p>` : ''}
+    ${fld('Item', `<select class="f" id="ssItem">${list.map(it => `<option value="${esc(it.id)}"${cur && cur.item === it.id ? ' selected' : ''}>${esc(it.name)}${it.equipped ? ' (equipped)' : ''}</option>`).join('')}</select>`)}
+    ${items.length ? '' : '<p class="hint">None of your items look like a weapon or focus — pick the one your DM allows.</p>'}
+    ${(() => { const curV = cur ? cur.name + '@' + Math.max(N(cur.level), N(cur.uses && cur.uses.level)) : '';
+      const opt = (s, L) => { const v = s.name + '@' + L; return `<option value="${esc(v)}"${curV === v ? ' selected' : ''}>${esc(s.name)}${L > s.level ? ' (at 2nd level)' : ''}</option>`; };
+      const two = spells.filter(s => s.level === 2).map(s => [s, 2]).concat(spells.filter(s => s.level === 1 && spellUpcasts(s.name)).map(s => [s, 2])).sort((a, b) => a[0].name.localeCompare(b[0].name));
+      return fld('Spell', `<select class="f" id="ssSpell"><optgroup label="1st level">${spells.filter(s => s.level === 1).map(s => opt(s, 1)).join('')}</optgroup><optgroup label="2nd level">${two.map(([s, L]) => opt(s, L)).join('')}</optgroup></select>`); })()}
+    <p class="hint" style="margin-top:-4px">1st-level spells that get stronger with a higher slot also appear under 2nd level, stored at 2nd.</p>
+    <p class="hint">Uses: <b>${storeUses()}</b> (twice your Intelligence modifier, minimum 2). They don't come back on a rest — store it again to refill.</p>
+    <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="spellstorego" data-fi="${fi}">Store it</button></div>`);
+}
+function spellStoreGo(fi) {
+  const itId = ($('#ssItem') || {}).value, [nm, lv] = String(($('#ssSpell') || {}).value || '').split('@'), it = S.inventory.find(x => x.id === itId); if (!it || !nm) return;
+  const old = storedSpellIdx(); if (old >= 0) S.spells.splice(old, 1);
+  const sp = Object.assign(spellEntry(nm, 'artificer'), { always: true, prepared: true, stored: true, usesOnly: true, ab: 'int', item: it.id, time: '1 action',
+    uses: Object.assign({ max: String(storeUses()), used: 0, reset: 'never' }, N(lv) > N((SPI(nm) || {}).level) ? { level: N(lv) } : {}), note: `Stored in ${it.name} (Spell-Storing Item). Anyone holding it can take an action to cast it with your spell DC and attack bonus.` });
+  S.spells.push(sp);
+  const f = S.features[fi]; if (f) f.desc = `Store a 1st or 2nd level spell in an item; others can cast it 2 × INT mod times.\n\nCurrently stored: ${nm} (in the ${it.name}) — ${storeUses()} uses.`;
+  pendingLabel = 'Spell-Storing Item: ' + nm; closeModal(true); update(); render();
+  toast(`<b>${esc(nm)}</b>${sp.uses.level ? ' (at 2nd level)' : ''} stored in ${esc(it.name)} — ${storeUses()} uses. It's in your Action column.`, '', 7000, { label: 'Undo', fn: () => undo(1) });
+}
+// Feature buttons shown on feature cards and in combat columns.
+function fxVisActs(f, col) { const fx = fxOf(f), own = f.cls ? clsLv(f.cls) : lvl(); return (fx.acts || []).map((a, j) => [a, j]).filter(([a]) => (!col || a.col === col) && !(a.min && own < a.min) && !(a.onlyRaging && !S.conditions.includes('Raging')) && fxWhenOK(a.onlyWhen)); }
+function fxActsHTML(f, i, col) {
+  return fxVisActs(f, col).map(([a, j]) => {
+    const cost = a.cost === true ? { from: f.dname || f.name, n: 1 } : a.cost;
+    return `<button class="btn sm fxact" data-act="useact" data-i="${i}" data-j="${j}" data-col="${a.col || ''}" title="${esc(fxText(a.text || ''))}">${esc(a.name)}${cost ? ` <small>${esc(fxCostText(cost))}</small>` : ''}</button>`;
+  }).join('');
+}
+// The short line under a feature in combat: DC, cost and roll.
+function fxInfoLine(f) {
+  const fx = fxOf(f), bits = [];
+  const dc = fxDCLine(fx, f); if (dc) bits.push(dc);
+  if (fx.cost) bits.push('costs ' + fxCostText(fx.cost));
+  if (fx.roll) bits.push('roll ' + fxRollExpr(fx.roll));
+  if (fx.onlyRaging) bits.push('while raging');
+  if (fx.onlyWhen) bits.push(fxWhenText(fx.onlyWhen));
+  return bits.join(' · ');
+}
+// Features whose own "Use" is really a pool for other options (Ki, Channel Divinity, superiority dice).
+const fxIsResource = f => !!fxOf(f).resource;
+const fxHidden = f => { if (String(f.key || '').startsWith('pick:infusion:') && typeof INF === 'object' && INF[f.name]) return true; // infusions act through their infused item (Infusions tab / combat rows)
+  const fx = fxOf(f); return (fx.onlyRaging && !S.conditions.includes('Raging')) || (fx.onlyWhen && !fxWhenOK(fx.onlyWhen)); };
+
+// Elemental Adept: the damage type picked for the feat, if this spell deals it.
+function adeptFor(type) { const el = ((S.featChoices || {})['Elemental Adept'] || {}).element || []; const t = String(type || '').toLowerCase(); return [].concat(el).find(e => t.includes(e)) || ''; }
+
+// ---------- When a feature can be used ----------
+// onlyWhen: { cond: 'Raging' | effect: 'Bladesong' | companion: 'Wildfire Spirit' | armor: 'none' | 'notHeavy' | shield: false | hpBelowHalf: true | zeroHp: true }
+function fxWhenOK(w) {
+  if (!w) return true;
+  const arm = equippedArmor(), sh = equippedShield();
+  if (w.cond && !S.conditions.includes(w.cond)) return false;
+  if (w.effect && !fxActive().some(e => e.name === w.effect || e.name.startsWith(w.effect))) return false;
+  if (w.companion && !S.companions.some(c => c.tmpl === w.companion || c.name === w.companion)) return false;
+  if (w.armor === 'none' && arm) return false;
+  if (w.armor === 'notHeavy' && arm && arm.armor.type === 'heavy') return false;
+  if (w.shield === false && sh) return false;
+  if (w.hpBelowHalf && N(S.hp.cur) > maxHp() / 2) return false;
+  if (w.zeroHp && N(S.hp.cur) > 0) return false;
+  if (w.notMoved && N(S.turn && S.turn.moved) > 0) return false;
+  return true;
+}
+function fxWhenText(w) { if (!w) return ''; return [w.cond ? 'while ' + w.cond.toLowerCase() : '', w.effect ? 'while ' + w.effect + ' is active' : '', w.companion ? 'while your ' + w.companion + ' is summoned' : '', w.armor === 'none' ? 'without armor' : '', w.armor === 'notHeavy' ? 'not in heavy armor' : '', w.hpBelowHalf ? 'at half HP or less' : '', w.zeroHp ? 'at 0 HP' : '', w.notMoved ? 'if you haven’t moved this turn' : ''].filter(Boolean).join(', '); }
+// ---------- Triggers ----------
+// trigger: 'zero' (you drop to 0 HP) | 'longRest' | 'shortRest' | 'initiative' — offers the feature with a button.
+// onInit: { regain: n, ifEmpty: true } — applied automatically when you roll initiative (Relentless, Perfect Self…).
+function fxTrigger(kind) {
+  const offers = [];
+  S.features.forEach((f, i) => {
+    const fx = fxOf(f);
+    if (kind === 'initiative' && fx.onInit) { const max = featMax(f); if (max != null && (!fx.onInit.ifEmpty || N(f.used) >= max)) { const was = N(f.used); f.used = Math.max(0, was - N(fx.onInit.regain || 1)); if (was !== f.used) setTimeout(() => toast(`<b>${esc(f.name)}</b>: regained ${was - f.used} use${was - f.used > 1 ? 's' : ''} as you roll initiative.`, '', 6000), 400); } }
+    if ([].concat(fx.trigger || []).includes(kind)) { if (fx.onlyWhen && !fxWhenOK(fx.onlyWhen)) return; const max = featMax(f); if (max != null && N(f.used) >= max && !f.pool) return; offers.push([f, i, fx]); }
+  });
+  if (!offers.length) return;
+  setTimeout(() => offers.forEach(([f, i, fx]) => toast(`<div><b>${esc(f.name)}</b><div class="det">${esc(fxText(fx.triggerText || f.desc || ''))}</div></div>`, kind === 'zero' ? 'alert' : '', 15000, [{ label: fx.triggerLabel || 'Use it', fn: () => useFeature(i) }])), kind === 'zero' ? 200 : 500);
+}
+// Recover spell slots (Natural Recovery, Arcane Recovery): pick slots totaling up to a number, none above maxLevel.
+let RECOVER = null;
+function openRecoverSlots(o) { RECOVER = { total: N(evalMax(String(o.total))) || 1, max: o.maxLevel || 5, pick: [] }; renderRecover(); }
+function renderRecover() {
+  const t = RECOVER; if (!t) return; const used = t.pick.reduce((a, l) => a + l, 0);
+  const rows = []; for (let L = 1; L <= Math.min(t.max, 9); L++) { const spent = Math.min(N(S.slotsUsed[L - 1]), slotMax(L - 1)) - t.pick.filter(x => x === L).length; if (slotMax(L - 1)) rows.push(`<div class="row"><b style="width:70px">${ORD[L - 1]}</b><span class="hint" style="width:110px">${spent} spent</span><button class="btn sm" data-act="recadd" data-l="${L}" ${spent > 0 && used + L <= t.total ? '' : 'disabled'}>+ Recover one</button></div>`); }
+  openModal(`<h3>Recover spell slots</h3><p class="hint">Choose expended slots totaling up to <b>${t.total}</b> levels (none above ${ORD[t.max - 1]}). Picked: ${t.pick.map(l => ORD[l - 1]).join(', ') || 'none'} (${used}/${t.total}).</p>${rows.join('') || '<p class="hint">No expended slots.</p>'}
+    <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="recok">Recover</button></div>`);
+}
+function recoverOk() { const t = RECOVER; if (!t) return; t.pick.forEach(L => { S.slotsUsed[L - 1] = Math.max(0, N(S.slotsUsed[L - 1]) - 1); }); RECOVER = null; pendingLabel = 'Recover spell slots'; closeModal(true); save(); render(); toast(`Recovered ${t.pick.length} slot${t.pick.length === 1 ? '' : 's'}.`); }
+// d20 floors: Reliable Talent (proficient checks), Silver Tongue (Persuasion/Deception), Indomitable Might (STR checks use your score).
+function fxD20Floor(kind, ab) {
+  if (kind !== 'check') return null; let fl = null;
+  const sk = String(ROLL_CTX || '').startsWith('skill:') ? ROLL_CTX.slice(6) : '', skObj = sk && S.skills.find(s => s.name === sk), prof = skObj && N(skObj.prof) >= 1;
+  fxPassives().forEach(p => { const m = p.minD20; if (!m) return;
+    if ((m.prof && prof) || (m.skills && m.skills.includes(sk)) || (m.ab && m.ab === ab)) fl = Math.max(fl || 0, N(m.value) || 10); });
+  return fl;
+}
+
+// ---------- Homebrew automation (custom features, items, spells) ----------
+// Players fill a short form (f.hb / it.hb); hbFx turns it into the same fx record the built-in features use.
+const hbCSV = v => String(v || '').split(/\s*[,;\n]\s*/).map(x => x.trim()).filter(Boolean);
+const hbNum = v => (/^\s*walk\s*$/i.test(String(v)) ? 'walk' : /^-?\d+$/.test(String(v).trim()) ? Number(v) : String(v).trim());
+// An item's effects work while it's equipped (or merely carried, if ticked) and attuned when it needs attunement.
+const hbItemOn = it => !!it && (it.equipped || !!it.carried) && (!it.attune || !!it.attuned);
+function hbFx(hb) {
+  if (!hb || typeof hb !== 'object') return null;
+  const o = {}, p = {}, has = k => hb[k] != null && String(hb[k]).trim() !== '' && hb[k] !== false;
+  if (has('resist')) p.resist = hbCSV(hb.resist);
+  if (has('immune')) p.immune = hbCSV(hb.immune);
+  if (has('condImmune')) p.condImmune = hbCSV(hb.condImmune).map(c => c[0].toUpperCase() + c.slice(1).toLowerCase());
+  if (has('adv')) p.advNote = String(hb.adv).split(/\s*[;\n]\s*/).filter(Boolean);
+  if (has('sense')) p.sense = String(hb.sense).trim();
+  ['fly', 'swim', 'climb'].forEach(k => { if (has(k)) p[k] = hbNum(hb[k]); });
+  if (has('speed')) p.speed = hbNum(hb.speed);
+  if (has('ac')) p.ac = hbNum(hb.ac);
+  if (has('saveAll')) p.saveAll = hbNum(hb.saveAll);
+  if (has('init')) p.init = hbNum(hb.init);
+  if (has('maxHp')) p.maxHp = hbNum(hb.maxHp);
+  if (hb.initAdv) p.initAdv = true;
+  if (has('skillAdv')) p.skillAdv = hbCSV(hb.skillAdv);
+  if (Object.keys(p).length) { if (has('whileEffect')) p.effect = String(hb.whileEffect).trim(); o.passive = p; }
+  if (has('roll')) o.roll = String(hb.roll).trim();
+  if (has('rollNote')) o.rollNote = String(hb.rollNote);
+  if (hb.healRoll) o.healRoll = true;
+  if (hb.selfDmg) o.selfDmg = true;
+  if (has('saveAb')) { o.save = String(hb.saveAb).toUpperCase(); o.dc = !has('dc') || hb.dc === 'spell' ? 'spell' : /^\d+$/.test(String(hb.dc)) ? Number(hb.dc) : String(hb.dc); }
+  if (has('costFrom')) o.cost = { from: String(hb.costFrom), n: Number(hb.costN) || 1 };
+  const u = {};
+  if (has('temp')) u.temp = String(hb.temp);
+  if (has('heal')) u.heal = String(hb.heal);
+  if (has('effName')) {
+    const b = {};
+    if (has('effFly')) b.fly = hbNum(hb.effFly);
+    if (has('effSpeed')) b.speed = hbNum(hb.effSpeed);
+    if (has('effAc')) b.ac = hbNum(hb.effAc);
+    if (has('effNote')) b.note = String(hb.effNote);
+    u.effect = { name: String(hb.effName).trim(), rounds: has('effRounds') && N(hb.effRounds) ? N(hb.effRounds) : null, conc: !!hb.effConc, buff: b };
+  }
+  if (has('summon')) u.companion = String(hb.summon);
+  if (has('cond')) u.cond = String(hb.cond);
+  if (Object.keys(u).length) o.use = u;
+  if (hb.dash) o.dash = true;
+  if (has('onlyEffect')) o.onlyWhen = { effect: String(hb.onlyEffect).trim() };
+  if (has('text')) o.text = String(hb.text);
+  if (has('refuel') && N(hb.refuel) > 0) o.refuel = Math.min(9, N(hb.refuel));
+  if (has('atkName') && has('atkDice')) o.attacks = [[String(hb.atkName).trim(), String(hb.atkDice).trim(), String(hb.atkType || '').trim(), hb.atkAb || 'spell', { kind: hb.atkKind || 'melee', notes: [hb.atkRange ? hb.atkRange + ' ft' : '', has('atkNote') ? String(hb.atkNote) : '', has('onlyEffect') ? 'while ' + hb.onlyEffect + ' is active' : ''].filter(Boolean).join(' · '), noModDmg: !hb.atkAddMod, hbDice: true }]];
+  if (has('triggerOn')) o.trigger = hb.triggerOn;
+  return Object.keys(o).length ? o : null;
+}
+const hbUsable = fx => !!(fx && (fx.roll || fx.use || fx.dash || fx.text || fx.dc || fx.cost || fx.refuel));
+const hbItemReady = it => hbItemOn(it) && !(it.charges && N(it.charges.max) > 0 && N(it.charges.used) >= N(it.charges.max)) && !(it.hb && it.hb.consume && N(it.qty) <= 0);
+// Use an item: spends a charge if it has them, then applies its homebrew effect.
+function useItem(i, col) {
+  const it = S.inventory[i]; if (!it) return;
+  const fx = hbFx(it.hb) || {};
+  if (it.attune && !it.attuned) { toast(`Attune to <b>${esc(it.name)}</b> first.`, 'fumble'); return; }
+  col = col || (it.hb && it.hb.col) || '';
+  if (['action', 'bonus', 'reaction'].includes(col) && incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; }
+  if (fx.onlyWhen && !fxWhenOK(fx.onlyWhen)) { toast(`${esc(it.name)} only works ${esc(fxWhenText(fx.onlyWhen))}.`, 'fumble'); return; }
+  const ch = it.charges && N(it.charges.max) > 0 ? it.charges : null;
+  if (ch && N(ch.used) >= N(ch.max)) { toast(`<b>${esc(it.name)}</b> has no charges left — it recharges ${ch.reset === 'short' ? 'on a short or long rest' : ch.reset === 'none' ? 'only when you restore it' : 'on a long rest'}.`, 'fumble'); return; }
+  if (it.hb && it.hb.consume && N(it.qty) <= 0) { toast(`You're out of <b>${esc(it.name)}</b>.`, 'fumble'); return; }
+  if (fx.cost) { const err = fxSpend(fx.cost); if (err) { toast(esc(err), 'fumble'); return; } }
+  let refuelK = -1;
+  if (fx.refuel) { const lv = Array.from({ length: fx.refuel }, (_, k) => k).filter(k => slotMax(k) > 0 && slotsLeft(k) < slotMax(k)); if (!lv.length) { toast(`You have no spent spell slots of ${ORD[fx.refuel - 1]} level or lower.`, 'fumble'); return; } refuelK = Math.max(...lv); }
+  if (ch) ch.used = N(ch.used) + 1;
+  if (col) S.turn.used[col] = true;
+  const lines = [];
+  if (refuelK >= 0) { S.slotsUsed[refuelK] = Math.max(0, N(S.slotsUsed[refuelK]) - 1); lines.push(`Recovered a ${ORD[refuelK]}-level spell slot`); }
+  if (it.hb && it.hb.consume) { it.qty = Math.max(0, N(it.qty) - 1); lines.push(`${it.qty} left`); }
+  if (fx.cost) lines.push('Spent ' + fxCostText(fx.cost));
+  if (fx.dash) { addDash(); lines.push(`+${turnSpeed()} ft of movement this turn (Dash)`); }
+  fxApplyUse(fx.use, it.name, lines);
+  const dc = dcVal(fx.dc); if (dc) lines.push(`DC ${dc}${fx.save ? ' ' + fx.save + ' save' : ''}`);
+  if (fx.text) lines.push(fxText(fx.text));
+  const r = fx.roll ? rollExpr(fxRollExpr(fx.roll), { label: it.name + ': ' + (fx.rollNote || 'roll').replace(/\s*\(.*$/, '') }) : null;
+  pendingLabel = 'Use ' + it.name; update(); render();
+  const heal = r && fx.healRoll ? { label: 'Heal me', fn: () => useAmt(r, it.name + ': healing', n => healSelf(n, `${it.name}: +${n} HP`)) } : r && fx.selfDmg ? { label: r.skipped ? 'Take the damage' : `Take ${r.total} damage`, fn: () => useAmt(r, it.name + ': damage', n => { takeDamage(n); save(); render(); }) } : null;
+  const left = ch ? `${Math.max(0, N(ch.max) - N(ch.used))}/${N(ch.max)} charges left` : '';
+  toast(`${r ? `<b class="total">${r.total}</b>` : ''}<div><div><b>${esc(it.name)}</b>${left ? ' · ' + left : ''}</div>${r ? `<div class="det">${esc(r.detail)}${fx.rollNote ? ' ' + esc(fx.rollNote) : ''}</div>` : ''}${lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, '', 8000, [heal, { label: 'Undo', fn: () => undo(1) }].filter(Boolean));
+}
+// Items with something to do in a fight show up in the Combat columns.
+const hbItemActs = col => S.inventory.map((it, i) => [it, i]).filter(([it]) => it.hb && hbUsable(hbFx(it.hb)) && (it.hb.col || '') === col && hbItemOn(it));
+// Custom spells: extra rules a player can give a homebrew spell (crit range, half damage on a miss, upcast dice, backlash).
+const spAuto = sp => Object.assign({}, AUTO(sp.name), sp && sp.hb ? Object.fromEntries(Object.entries({ up: sp.hb.up, crit: N(sp.hb.crit) || null, missHalf: !!sp.hb.missHalf, backlash: sp.hb.backlash, backlashType: sp.hb.backlashType }).filter(([, v]) => v != null && v !== '' && v !== false)) : {});
+const spItem = sp => sp && sp.item ? S.inventory.find(it => it.id === sp.item) : null;
+
+// Uncanny Dodge and the like: ask how much damage the attack did, then take half.
+function askHalfDamage(name) {
+  askRoll({ label: name, expr: '' }, 'How much damage did the attack deal? You take half (rounded down).').then(r => {
+    if (!r) return;
+    const full = Math.max(0, N(r.total)), half = Math.floor(full / 2);
+    pendingLabel = `${name}: took ${half} of ${full} damage`; takeDamage(half); save(); render();
+    toast(`<b>${esc(name)}</b> — you take <b>${half}</b> instead of ${full} damage.`, '', 7000, { label: 'Undo', fn: () => undo(1) });
+  });
+}
+
+
+// ---------- Dice ----------
+// Three ways to roll (Settings → Dice):
+//   sheet  — the sheet rolls everything itself.
+//   manual — you roll at the table / in Roll20. The sheet still tracks everything; rolls that only show a number are skipped
+//            (you get the dice to roll), and a roll the sheet needs for its automation (healing, temp HP, death saves…) asks you for your total.
+//   roll20 — every roll is sent to your Roll20 game's chat through the companion browser extension, and the result comes back into the sheet.
+// The last two work by replaying the action: when a roll is needed, the action is undone, the number is fetched, and the action runs again with it.
+const diceMode = () => ST('diceMode') || 'sheet';
+let ROLLQ = null, ROLL_LBL = '';
+const SKIPPED = [];
+function NeedRoll(req) { this.req = req; }
+function rollLocal(expr, opts, forced) {
+  const clean = String(expr).replace(/\s+/g, '').replace(/−/g, '-');
+  const re = /([+-]?)(\d*)d(\d+)(kh1|kl1)?|([+-]?)(\d+)/gi;
+  let m, total = 0, parts = [], d20 = null, k = 0, ti = 0;
+  while ((m = re.exec(clean))) {
+    if (m[3]) {
+      const sign = m[1] === '-' ? -1 : 1, n = N(m[2]) || 1, sides = N(m[3]);
+      const f = forced && forced[k++]; const adeptHere = opts && opts.min2 && sides !== 20 && (!opts.min2Terms || opts.min2Terms[ti]); ti++;
+      const rs = f && f.length === Math.min(n, 200) ? f.map(Number) : []; if (!rs.length) for (let i = 0; i < Math.min(n, 200); i++) rs.push(1 + Math.floor(Math.random() * sides));
+      let hookNotes = null;
+      if (!(f && f.length)) { const h = diceHook(rs, sides); if (Array.isArray(h)) { h.forEach((v, i) => { rs[i] = v; }); hookNotes = rs.map(v => v + ' max'); } else if (h) { h.out.forEach((v, i) => { rs[i] = v; }); hookNotes = h.notes; } }
+      const shown = hookNotes || rs.map(x => adeptHere && x === 1 ? '1→2' : String(x));
+      if (adeptHere) for (let i = 0; i < rs.length; i++) if (rs[i] === 1) rs[i] = 2;
+      let val = rs.reduce((a, b) => a + b, 0);
+      if (m[4]) { val = m[4] === 'kh1' ? Math.max(...rs) : Math.min(...rs); if (sides === 20) d20 = val; }
+      else if (sides === 20 && n === 1) d20 = rs[0];
+      total += sign * val;
+      parts.push((sign < 0 ? '− ' : '') + n + 'd' + sides + (m[4] || '') + ' [' + shown.join(', ') + ']');
+    } else if (m[6]) { const sign = m[5] === '-' ? -1 : 1; total += sign * N(m[6]); parts.push((sign < 0 ? '− ' : '+ ') + m[6]); }
+  }
+  return { total, detail: parts.join(' '), d20 };
+}
+const prettyExpr = e => String(e).replace(/\s+/g, '').replace(/2d20kh1/g, '2d20 (keep highest)').replace(/2d20kl1/g, '2d20 (keep lowest)').replace(/\+-/g, '−').replace(/-/g, '−').replace(/\+/g, ' + ').replace(/−/g, ' − ').replace(/^ \+ /, '');
+// opts.min2: treat 1s on damage dice as 2s (Elemental Adept). opts.need: the sheet uses the result (healing, temp HP, death saves…).
+function rollExpr(expr, opts) {
+  opts = opts || {};
+  // A fixed number (Armor of Agathys' 5 temp HP) isn't a roll: never ask for it or send it to Roll20.
+  if (!/\d*d\d+/i.test(String(expr))) return rollLocal(expr, opts);
+  const mode = diceMode();
+  if (mode === 'sheet' || opts.local) return rollLocal(expr, opts);
+  if (mode === 'manual' && !opts.need) { SKIPPED.push({ expr: String(expr), label: opts.label || '', min2: opts.min2, mixed: !!(opts.min2Terms && opts.min2Terms.includes(false)) }); return { total: 0, detail: '', d20: null, skipped: true }; }
+  if (ROLLQ) {
+    if (ROLLQ.length) {
+      const res = ROLLQ.shift();
+      if (res.adept) return { total: N(res.total), detail: `Roll20: ${prettyExpr(expr)} = ${N(res.total)} (1s counted as 2s)`, d20: null };
+      if (res.dice) {
+        const r = rollLocal(expr, opts, res.dice); r.detail = 'Roll20: ' + r.detail;
+        // Elemental Adept: Roll20 can't count 1s as 2s, so the sheet fixes the total and posts the corrected number under the roll.
+        if (opts.min2 && res.src === 'roll20' && r.total !== N(res.total) && !res.posted) { res.posted = true; r20Post([`**Elemental Adept (${typeof opts.min2 === 'string' ? opts.min2 + ', ' : ''}1s count as 2s):** [[${r.total}]]`]).catch(() => {}); }
+        return r;
+      }
+      if (res.src === 'sheetroll') return { total: N(res.total), detail: 'Rolled by the sheet: ' + res.detail, d20: res.d20 != null ? N(res.d20) : null };
+      if (res.src === 'sheet') return { total: N(res.total), detail: 'Sheet (Roll20 didn\'t answer): ' + res.detail, d20: res.d20 != null ? N(res.d20) : null };
+      return { total: N(res.total), detail: `${prettyExpr(expr)} = ${N(res.total)} (${res.src === 'roll20' ? 'Roll20' : 'your roll'})`, d20: res.d20 != null ? N(res.d20) : null };
+    }
+    throw new NeedRoll({ expr: String(expr), opts, label: opts.label || ROLL_LBL || pendingLabel || 'Roll' });
+  }
+  return rollLocal(expr, opts);
+}
+// Wrap anything a click can start. In the sheet mode it just runs.
+function rollGate(fn, given) {
+  if (diceMode() === 'sheet' || ROLLQ) return fn();
+  const snap = JSON.stringify(S), h = HIST.length, rd = REDO.length, last = LAST, pl = pendingLabel;
+  ROLLQ = (given || []).slice(); SKIPPED.length = 0;
+  try { const v = fn(); ROLLQ = null; return v; }
+  catch (e) {
+    ROLLQ = null; ROLL_LBL = '';
+    if (!(e instanceof NeedRoll)) throw e;
+    S = JSON.parse(snap); HIST.length = h; REDO.length = Math.min(REDO.length, rd); LAST = last; pendingLabel = pl;
+    e.req.first = !(given && given.length);
+    getRoll(e.req).then(r => { if (r) rollGate(fn, (given || []).concat([r])); else { render(); toast('Roll cancelled — nothing changed.'); } });
+  }
+}
+// Fetch one roll: from Roll20 when connected, otherwise ask the player.
+async function getRoll(req) {
+  if (diceMode() === 'roll20') {
+    // If Roll20 just failed, don't wait again for every roll of the same action: roll here straight away.
+    const recent = R20.failAt && Date.now() - R20.failAt < 20000;
+    const r = recent ? { error: R20.failWhy || 'no answer' } : await r20Roll(req.expr, req.label, req.first, req.opts && req.opts.min2, req.opts && req.opts.min2Terms).catch(err => ({ error: String(err && err.message || err) }));
+    if (r && !r.error) { R20.failAt = 0; return Object.assign({ src: 'roll20' }, r); }
+    // Fallback: the sheet rolls it, so play never stalls.
+    if (!recent) { R20.failAt = Date.now(); R20.failWhy = r && r.error || 'not connected'; toast(`<b>Roll20 didn't answer</b> — the sheet rolled instead.<div class="det">${esc(R20.failWhy)}. Check that your Roll20 game tab is open.</div>`, 'fumble', 7000); }
+    const loc = rollLocal(req.expr, req.opts || {});
+    return { src: 'sheet', total: loc.total, d20: loc.d20, detail: loc.detail };
+  }
+  return askRoll(req);
+}
+function askRoll(req, why) {
+  return new Promise(res => {
+    let box = $('#rollask'); if (!box) { box = document.createElement('div'); box.id = 'rollask'; document.body.appendChild(box); }
+    const d20 = /d20/.test(req.expr);
+    box.innerHTML = `<div class="ra-card" role="dialog" aria-label="Enter your roll"><div class="ra-t">${esc(req.label)}</div>
+      <p class="hint">${esc(why || 'The sheet needs this number. Roll it and type your total:')}</p>
+      ${req.expr ? `<div class="ra-expr">🎲 ${esc(prettyExpr(req.expr))}</div>` : ''}
+      <div class="ra-row"><input class="f" id="raTotal" type="number" inputmode="numeric" placeholder="${req.expr ? 'Total' : 'Amount'}" aria-label="${req.expr ? 'Your total' : 'Amount'}">
+      ${d20 ? '<label class="checkline"><input type="checkbox" id="raN20"> Natural 20</label><label class="checkline"><input type="checkbox" id="raN1"> Natural 1</label>' : ''}</div>
+      <div class="actions"><button class="btn" id="raCancel">Cancel</button>${req.expr ? '<button class="btn" id="raSheet" title="Let the sheet roll this one for you">🎲 Roll it for me</button>' : ''}<button class="btn gold" id="raOk">${req.expr ? 'Use this roll' : 'OK'}</button></div></div>`;
+    box.classList.add('on'); const inp = $('#raTotal'); setTimeout(() => inp.focus(), 30);
+    const done = v => { box.classList.remove('on'); box.innerHTML = ''; res(v); };
+    $('#raCancel').onclick = () => done(null);
+    if ($('#raSheet')) $('#raSheet').onclick = () => { const r = rollLocal(req.expr, req.opts || {}); done({ total: r.total, d20: r.d20, detail: r.detail, src: 'sheetroll' }); };
+    const ok = () => { if (inp.value === '') { inp.focus(); return; } const n20 = $('#raN20') && $('#raN20').checked, n1 = $('#raN1') && $('#raN1').checked; done({ total: N(inp.value), d20: n20 ? 20 : n1 ? 1 : d20 ? Math.max(2, Math.min(19, N(inp.value))) : null, src: 'manual' }); };
+    $('#raOk').onclick = ok; inp.onkeydown = e => { if (e.key === 'Enter') ok(); if (e.key === 'Escape') done(null); };
+  });
+}
+// A number the sheet needs later (a "Heal me" button after a skipped roll): ask for it.
+function askAmount(label, cb) { askRoll({ label, expr: '' }, 'Type the amount:').then(r => { if (r) cb(N(r.total)); }); }
+const useAmt = (r, label, cb) => (r && r.skipped ? askAmount(label, cb) : cb(r.total));
+// Roll20 bridge: the sheet talks to the companion extension with window messages.
+const R20 = { ok: false, ver: '', wait: {}, n: 0, list: [] };
+function r20Send(msg, ms) {
+  return new Promise((res, rej) => {
+    const id = 'r' + (++R20.n) + Date.now().toString(36);
+    const t = setTimeout(() => { delete R20.wait[id]; rej(new Error('no answer from the Roll20 extension')); }, ms || 8000);
+    R20.wait[id] = d => { clearTimeout(t); delete R20.wait[id]; d.error ? rej(new Error(d.error)) : res(d); };
+    window.postMessage(Object.assign({ __dnd20: msg.type, dir: 'toExt', id }, msg), '*');
+  });
+}
+window.addEventListener('message', e => {
+  const d = e.data; if (!d || !d.__dnd20 || d.dir !== 'toSheet') return;
+  if (d.__dnd20 === 'hi') { R20.ok = true; R20.ver = d.version || ''; if (!R20.warned && R20.ver && R20.ver !== 'mock' && R20.ver.split('.').map(Number).reduce((t, v, i) => t + v * [10000, 100, 1][i], 0) < 10303) { R20.warned = true; setTimeout(() => toast('A newer Roll20 extension is available (new icon, no warnings, and future updates replace the old version by themselves). Settings → Dice → Download.', '', 9000, { label: 'Settings', fn: () => openSettings() }), 1500); } if ($('#r20status')) renderR20Box(); return; }
+  if (d.id && R20.wait[d.id]) R20.wait[d.id](d);
+});
+function r20Hello() { window.postMessage({ __dnd20: 'hello', dir: 'toExt' }, '*'); }
+setTimeout(r20Hello, 400);
+// Chat lines for a roll, in the same style as the sheet's Roll20 macros:
+//   /em **attacks with Cutlass of Vengeance:**   ****   **Attack Roll (to hit):** [[1d20+6]]
+// The emote heads the first roll of an action; follow-up rolls (damage after an attack) just add their line.
+function r20Lines(label, expr, first) {
+  const tg = /\s\[([^\]]+)\]$/.exec(String(label || '')), pre = tg ? tg[1] + ' · ' : '';
+  const L = String(label || 'Roll').replace(/\s\[[^\]]+\]$/, '').replace(/\s+—.*$/, '').trim(), e = String(expr).replace(/\s+/g, ''), cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+  const skills = (S.skills || []).map(s => s.name.toLowerCase());
+  let em = '', line = '', m;
+  // Named rolls that end in "attack" come first, so Sneak Attack isn't read as an attack with a weapon called "Sneak".
+  if (/^sneak attack/i.test(L)) { em = 'strikes a vital spot'; line = `**Sneak Attack (${e}):** [[${e}]]`; }
+  else if (/^nat 1 roll$/i.test(L)) { em = 'rolls a natural 1'; line = `**Nat 1 Roll:** [[${e}]]`; }
+  else if (/^divine smite/i.test(L)) { em = 'smites with divine radiance'; line = `**Radiant Damage (${e}):** [[${e}]]`; }
+  else if ((m = /^(.*) spell attack$/i.exec(L))) { const own = CL[Object.keys(CL).find(k => CL[k].name === m[1])]; em = own ? 'makes a spell attack' : `casts ${m[1]}`; line = `**Spell Attack (to hit):** [[${e}]]`; }
+  else if ((m = /^(.*) spell damage(?: \((.*)\))?$/i.exec(L))) { em = `casts ${m[1]}`; line = `**Damage (${e}${m[2] ? ' ' + m[2] : ''}):** [[${e}]]`; }
+  else if ((m = /^(.*) healing$/i.exec(L)) && !/:/.test(L)) { em = `casts ${m[1]}`; line = `**Healing (${e}):** [[${e}]]`; }
+  else if ((m = /^(.*) attack$/i.exec(L))) { em = `attacks with ${m[1]}`; line = `**Attack Roll (to hit):** [[${e}]]`; }
+  else if ((m = /^(.*) damage(?: \((.*)\))?$/i.exec(L)) && !/:/.test(L)) { em = `attacks with ${m[1]}`; line = `**Damage (${e}${m[2] ? ' ' + m[2].toLowerCase() : ''}):** [[${e}]]`; }
+  else if ((m = /^(Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma) check$/i.exec(L))) { em = `makes ${an(m[1])} check`; line = `**${m[1]} Check:** [[${e}]]`; }
+  else if ((m = /^(Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma|Concentration|CON) save$/i.exec(L))) { em = `makes ${an(m[1])} saving throw`; line = `**${m[1]} Save:** [[${e}]]`; }
+  else if (/^initiative$/i.test(L)) { em = 'rolls initiative'; line = `**Initiative:** [[${e} &{tracker}]]`; }
+  else if (/^death save$/i.test(L)) { em = 'makes a death saving throw'; line = `**Death Save:** [[${e}]]`; }
+  else if (/^hit die/i.test(L)) { em = 'spends a Hit Die'; line = `**Hit Die (${e}):** [[${e}]]`; }
+  else if (skills.includes(L.toLowerCase())) { em = `makes ${an(L)} check`; line = `**${L} Check:** [[${e}]]`; }
+  else if ((m = /^(.*?): (.*)$/.exec(L))) { em = `uses ${m[1]}`; line = `**${cap(m[2])} (${e}):** [[${e}]]`; }
+  else { em = `rolls ${L}`; line = `**${L} (${e}):** [[${e}]]`; }
+  if (pre) line = line.replace(/^\*\*/, '**' + pre);
+  return (first ? [`/em **${em}:**`, '****'] : []).concat([line]);
+}
+// Sent as a 'roll' (its line holds a fixed [[number]]), so every extension version posts it and confirms it landed.
+async function r20Post(lines) { if (!R20.ok) return; return r20Send({ type: 'roll', lines, expr: '0', label: 'note', who: S.name || '', campaign: ST('r20campaign') || '' }, 25000); }
+const r20Ver = () => (R20.ver === 'mock' ? 99999 : String(R20.ver || '0').split('.').map(Number).reduce((t, v, i) => t + (v || 0) * [10000, 100, 1][i], 0));
+// Elemental Adept in Roll20: every damage die becomes {1dX,0d0+2}kh1 (keep the higher of the die and 2 — Roll20 needs every
+// item in a kh group to be a roll, hence 0d0+2), so Roll20's own total already counts 1s as 2s.
+const r20Adept = (expr, mask) => { let i = 0; return String(expr).replace(/\s+/g, '').replace(/(\d*)d(\d+)(?!\d|k)/gi, (m, n, s) => (mask && !mask[i++] ? m : N(s) === 20 ? m : Array.from({ length: Math.max(1, N(n) || 1) }, () => `{1d${s},0d0+2}kh1`).join('+'))); };
+async function r20Roll(expr, label, first, min2, mask) {
+  if (!R20.ok) { r20Hello(); await new Promise(r => setTimeout(r, 400)); if (!R20.ok) throw new Error('the Roll20 extension isn’t installed or this page isn’t connected'); }
+  const e = String(expr).replace(/\s+/g, ''), adept = !!min2 && r20Ver() >= 10300 && /d(?!20)\d+/.test(e);
+  let lines = r20Lines(label, expr, first !== false);
+  if (adept) { const e2 = r20Adept(e, mask), tag = typeof min2 === 'string' ? min2 : ''; lines = lines.map(l => l.split('[[' + e).join('[[' + e2).replace(/\):\*\*/, mask && mask.includes(false) ? `; ${typeof min2 === 'string' ? min2 : ''} 1s count as 2s):**` : '; 1s count as 2s):**')); }
+  const send = ls => r20Send({ type: 'roll', lines: ls, expr: String(expr).replace(/\s+/g, ''), label: label || 'Roll', who: S.name || '', campaign: ST('r20campaign') || '' }, 12000);
+  if (!adept) return send(lines);
+  // If Roll20 won't take the 1s-as-2s form, roll it plainly; the sheet then fixes the total and posts the corrected number.
+  try { const r = await send(lines); r.adept = true; delete r.dice; return r; }
+  catch (e) { return send(r20Lines(label, expr, false)); }
+}
+function roll(label, expr, cls) {
+  const r = rollExpr(expr, { label });
+  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det">${esc(r.detail)}</div></div>`, cls || (r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : ''));
+  return r;
+}
+function d20Expr(bonus, kind, ab) {
+  const rm = rollMode(kind, ab);
+  const base = rm.mode === 'adv' ? '2d20kh1' : rm.mode === 'dis' ? '2d20kl1' : '1d20';
+  const bless = (kind === 'attack' || kind === 'save') && blessed() ? '+1d4' : '';
+  const ex = ['attack', 'save', 'check'].includes(kind) ? exD20() : 0;
+  // "Advantage on your next attack roll" (Steady Aim and the like) is used up by this attack.
+  if (kind === 'attack') { const used = (S.effects || []).filter(e => e.buff && e.buff.atkAdvNext && !e.ally); if (used.length) S.effects = S.effects.filter(e => !used.includes(e)); }
+  // Tides of Chaos (and the like): advantage on the next attack, check or save, used up by this roll.
+  if (['attack', 'check', 'save'].includes(kind)) { const used = (S.effects || []).filter(e => e.buff && e.buff.d20AdvNext && !e.ally); if (used.length) S.effects = S.effects.filter(e => !used.includes(e)); }
+  return { expr: base + sgn(bonus - ex) + bless, rm, bless, ex };
+}
+// House rule (Settings → Rules): a natural 1 on an attack roll also rolls a d4, always the last roll.
+function nat1Roll() { return ST('nat1Roll') ? rollExpr('1d4', { label: 'Nat 1 Roll' }) : null; }
+function d20(label, bonus, kind, ab) {
+  const { expr, rm, bless, ex } = d20Expr(bonus, kind, ab);
+  const r = rollExpr(expr, { label });
+  const fl = typeof fxD20Floor === 'function' ? fxD20Floor(kind, ab) : null;
+  if (fl && r.d20 != null && r.d20 < fl) { r.total += fl - r.d20; r.detail += ` (d20 ${r.d20} counts as ${fl})`; r.d20 = fl; }
+  const note = [rm.mode !== 'normal' ? (rm.mode === 'adv' ? 'Advantage: ' : 'Disadvantage: ') + rm.why.join(', ') : '', bless ? 'Bless +1d4' : '', ex ? `Exhaustion −${ex}` : '', rm.auto ? 'Automatic failure (condition)' : ''].filter(Boolean).join(' · ');
+  const n1 = kind === 'attack' && r.d20 === 1 ? nat1Roll() : null;
+  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det">${esc(r.detail)}</div>${note ? `<div class="det">${esc(note)}</div>` : ''}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}</div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '');
+  return r;
+}
+const doubleDice = e => String(e || '').replace(/(\d*)d(\d+)/gi, (m, n, sd) => (2 * (N(n) || 1)) + 'd' + sd);
+const critDice = e => { e = String(e || ''); if (ST('critRule') !== 'max') return doubleDice(e); let mx = 0; e.replace(/(\d*)d(\d+)/gi, (m, n, sd) => { mx += (N(n) || 1) * N(sd); return m; }); return mx ? e + '+' + mx : e; };
+const diceTimes = (e, k) => String(e || '').replace(/(\d*)d(\d+)/gi, (m, n, sd) => ((N(n) || 1) * k) + 'd' + sd);
+
+// ---------- Toasts & modal ----------
+function toast(html, cls = '', ms = 4500, action) {
+  // Rolling in Roll20 yourself: a result card becomes "roll these dice" (the sheet still did everything else).
+  if (SKIPPED.length && /^\s*<(b class="total"|div class="rc-multi")/.test(html)) {
+    const tmp = document.createElement('div'); tmp.innerHTML = html;
+    const name = (tmp.querySelector('.rc-name') || tmp.querySelector('div > div') || tmp).textContent.trim();
+    const keep = [...tmp.querySelectorAll('.det, .rc-msg')].map(x => x.textContent.trim()).filter(x => x && !/\[|^Hit:|^Spell attack|^\d+d\d+/.test(x));
+    const rolls = SKIPPED.splice(0).map(r => `<div class="m20">🎲 <b>${esc(prettyExpr(r.expr))}</b>${/d20/.test(r.expr) ? ' <span class="hint">d20</span>' : ''}${r.min2 ? ` <span class="hint">— Elemental Adept: count each 1 as a 2${r.mixed ? ` (${typeof r.min2 === 'string' ? r.min2 : 'matching'} dice only)` : ''}</span>` : ''}</div>`).join('');
+    html = `<div><div class="rc-name">${esc(name)}</div><div class="hint">Roll these yourself:</div>${rolls}${keep.map(x => `<div class="det">${esc(x)}</div>`).join('')}</div>`; cls = 'manual';
+  }
+  SKIPPED.length = 0;
+  const t = document.createElement('div');
+  t.className = 'toast ' + cls; t.innerHTML = /^\s*<(b class="total"|div)/.test(html) ? html : '<div>' + html + '</div>';
+  [].concat(action || []).filter(Boolean).forEach((ac, k) => { const b = document.createElement('button'); b.textContent = ac.label; if (k) b.style.marginLeft = '4px'; b.onclick = () => { rollGate(ac.fn); t.remove(); }; t.appendChild(b); });
+  t.addEventListener('click', ev => { if (ev.target.tagName !== 'BUTTON') t.remove(); });
+  // Dice results get their own big card in the middle of the screen; everything else stays in the corner.
+  const isRoll = /^\s*<(b class="total"|div class="rc-multi")/.test(html);
+  let box = $('#toasts');
+  if (isRoll || cls === 'manual') logRoll(t.innerHTML, cls); else logEvent(t.innerHTML, cls);
+  if (isRoll) { box = $('#rolls'); if (!box) { box = document.createElement('div'); box.id = 'rolls'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); } t.classList.add('rollcard'); ms = Math.max(ms, 6500); }
+  if (isRoll) box.prepend(t); else box.appendChild(t);
+  const cap = isRoll ? (document.documentElement.classList.contains('mobile') ? 1 : 2) : document.documentElement.classList.contains('mobile') ? 2 : 5;
+  if (isRoll) {
+    // Each die is behind the 🎲 button: the card stays simple, but you can check for 1s, 20s and rerolls.
+    if (t.querySelector('.det')) { const db = document.createElement('button'); db.className = 'rc-dice'; db.title = 'Show each die'; db.textContent = '🎲'; db.onclick = ev => { ev.stopPropagation(); const on = t.classList.toggle('showdet'); clearTimeout(t._tm); if (!on) t._tm = setTimeout(() => t.remove(), 4000); }; t.appendChild(db); }
+    { const btns = [...t.children].filter(c => c.tagName === 'BUTTON'); if (btns.length > 1) { const w = document.createElement('div'); w.className = 'rc-btns'; btns.forEach(b => { b.style.marginLeft = ''; w.appendChild(b); }); t.appendChild(w); } }
+    while (box.children.length > cap) box.lastChild.remove(); t._tm = setTimeout(() => t.remove(), ms); return;
+  }
+  while (box.children.length > cap) box.firstChild.remove();
+  setTimeout(() => t.remove(), ms);
+}
+let onModalCancel = null;
+function openModal(html, onCancel, wide) {
+  onModalCancel = onCancel || null; $('#modal-body').classList.remove('xwide'); $('#modal-body').classList.toggle('wide', !!wide); $('#modal-body').innerHTML = html; $('#modal').classList.add('open');
+  const f = $('#modal-body [autofocus]'); if (f) f.focus();
+}
+function closeModal(confirmed) {
+  if (!$('#modal').classList.contains('open')) return;
+  $('#modal').classList.remove('open');
+  const cb = onModalCancel; onModalCancel = null;
+  if (!confirmed && cb) cb();
+}
+$('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); $$('.menu.open').forEach(m => m.classList.remove('open')); } });
+
+// ---------- Field helpers ----------
+const inp = (path, o = {}) => {
+  const v = getP(path);
+  return `<input class="f ${o.cls || ''}" data-k="${path}"${o.num ? ' data-num type="number" inputmode="numeric"' : ''}${o.type ? ` type="${o.type}"` : ''} value="${esc(v)}" placeholder="${esc(o.ph || '')}" aria-label="${esc(o.label || o.ph || path)}"${o.title ? ` title="${esc(o.title)}"` : ''}${o.fit ? ` data-fit="${o.fit === true ? 6 : o.fit}" size="${Math.max(o.fit === true ? 6 : N(o.fit), String(v ?? '').length + 1, String(o.ph || '').length + 1)}"` : ''}>`;
+};
+const ta = (path, o = {}) => `<textarea class="f ${o.cls || ''}" data-k="${path}" rows="${o.rows || 2}" placeholder="${esc(o.ph || '')}" aria-label="${esc(o.label || o.ph || path)}">${esc(getP(path))}</textarea>`;
+const chk = (path, label) => `<input type="checkbox" data-k="${path}"${getP(path) ? ' checked' : ''} aria-label="${esc(label || path)}">`;
+const sel = (path, opts, o = {}) => `<select class="f ${o.cls || ''}" data-k="${path}" aria-label="${esc(o.label || path)}">${opts.map(([v, t]) => `<option value="${esc(v)}"${String(getP(path)) === String(v) ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
+const fld = (label, inner, cls = '') => `<label class="fld ${cls}"><span class="lbl">${label}</span>${inner}</label>`;
+const calc = (key, cls = '') => `<span class="calc ${cls}" data-calc="${key}"></span>`;
+const rollBtn = (key, label, cls = '') => `<button class="roll ${cls}" data-calc="${key}" data-roll="${key}" title="Roll ${esc(label)}" aria-label="Roll ${esc(label)}"></button>`;
+const del = (list, i) => `<button class="icon-btn" data-act="del" data-list="${list}" data-i="${i}" title="Remove" aria-label="Remove">✕</button>`;
+const mv = (list, i) => `<button class="icon-btn mv" data-act="up" data-list="${list}" data-i="${i}" title="Move up" aria-label="Move up">↑</button>`;
+const ABOPTS = AB.map(a => [a, AB3[a]]);
+// A small picture (people, companions, items): tap to view it big, change or remove it.
+const picThumb = (path, label) => { const v = getP(path); return v ? `<button class="picth" data-act="picview" data-path="${esc(path)}" title="Picture of ${esc(label)}"><img src="${v}" alt="${esc(label)}"></button>` : `<button class="picadd" data-act="pic" data-path="${esc(path)}" title="Add a picture" aria-label="Add a picture of ${esc(label)}">${ICON.image || '🖼'}</button>`; };
+const isMobile = () => document.documentElement.classList.contains('mobile');
+const who = () => S.name || 'Your character';
+
+// ---------- Settings ----------
+const SETDEF = { combatSpellSort: 'level', protectorScales: false, advancement: 'milestone', abilityStyle: 'mod', showName: true, showRace: true, showBackground: true, showPlayer: true, showAlignment: false, showFaith: false, showRoll20: true, encumbrance: 'off', exhaustionRule: '2014', exhaustionDC: false, concPrompt: true, durationAlerts: true, autoSpend: true, critRule: 'double', density: 'comfortable', fontScale: 100, hpLevelUp: 'avg', confirmDelete: false, showCastHints: true, inspiration: false, inspMany: false, electrum: false };
+let GEN = 0, RENDERING = '';
+const PID = id => `data-pid="${id}" data-gen="${GEN}" data-home="${RENDERING}"`;
+const ST = k => (S.settings && S.settings[k] !== undefined ? S.settings[k] : SETDEF[k]);
+const XPT = [0, 300, 900, 2700, 6500, 14000, 23000, 34000, 48000, 64000, 85000, 100000, 120000, 140000, 165000, 195000, 225000, 265000, 305000, 355000];
+const xpNext = () => XPT[Math.min(19, totalLevel())];
+const xpReady = () => ST('advancement') === 'xp' && totalLevel() < 20 && N(S.xp) >= xpNext();
+// Exhaustion: 2014 table, or the 2024-style rule (−2 per level to d20 tests, −5 ft speed per level).
+const exModern = () => ST('exhaustionRule') === '2024';
+const exD20 = () => (exModern() ? 2 * Math.min(5, N(S.exhaustion)) : 0);
+
+// ---------- Renderers ----------
+const R20_LOGO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAARcAAAB4CAIAAABXZCG4AABYmUlEQVR42u1dd3hUxdp/Z07Zmt5JQiCUEFroIAjSq4gNEbGgqAhYsd6r3qteu1exolIUlQ4qilTpvYYklFACIQlJSG/bz5mZ749J1iXZ3WxCULxf5tlHw+45c+bMvL95+zuIMQbNrbk1t6to4p/xEMqAMcAIEAIGQBkAAEaAmue/uf0vNHRteRFlgDyjxfuvza25/U0avob4oZz/gLo/zzR9s7I3FwBovsk8/Xf78tOg0Gp2RBg0C5XNrVmiq40fLrABqMcKbXOO2H/OoKZyoXWANCCaXKiwzUuBeSm2IXG62T3lMa1BwM18qbk1o8gdfo4W2L5Ota84QyvNCCQQdCBiAAAE4KdhVQ7H9kxlR440upXu8e7yqNYgoOoecDOSmnpbo9SL3I4xRsjjnDPGKKUe9QGEMMbNMyw2PX7SimxfptiXnaYVZgARCTIAAKF/iG2EAQASJCDMseGcsumiPKa19vHu8ujWgBEwqDZFNLemktqvgtARQoIgNM/hNUaRK35OFFu/SrEvTadlZgQiiDJQxigDjBhUg4gBMAQMABgDBIBlRplt3Vn7povy2Na6Wd3lka2qTXnXAZYYY7V2cYSQl537emuMMYTQZ599sWvXDknS1OIqGGOHwz5x4sRJk+6ilNYCG7/3+PET7777nqqqCGNwmQqEECFKSGj4fz94z2Aw8IubUdQo/DDgkhg5VWJdeNz23UlaUolAQqIMlHGe40KAdf6oVocAYRlUZv/1tLLhonxrW92MJGlIS0AIGAMGfzKWWE3jok5d4uBCDqpp1/8ab9+x4+efVnv6tXV8/KRJd9UV+Tgw8vLyli5d7OnegKCQt958w2AwNMm0O//rBKrzv9dooV2eiBDy6Vlu9wuxkfhx8p9zZda5KfbFJ0mxCYEIooY58YOg2mCAEaM1d1HGGDCMQEBAoRonjAEGwBqqUuuqk7ZfMjS3tNE90UMeFAMI/jS+5Aoe/k1ZWVl5eYXNZiOESJKo0+kCAwP9/f2dQg7f3a9z3cBoNAqCIMk6Qojr94IgKA6rXq/3cq8kSXqDv8PhwBi7kjjGSFXsQYGBV0nlTvbI57Bub7UuaBIt0dMTvT+L44dfXwtLYuPxk1FuXZhmW3RCvVyBQESSzLjcVuNOZYQBUavZDVDkrwEAZJAZRoQ6gOJqhIm4GioADCOEZapQ6+pTtt/Oa+9or5vRTR4Qfa1lPMYYpUwQMEKooqLyyJEjO3ftSklNy87KKiworDKZVFXVaDR+RmNEZETLli27d+s2cOCNPXv28PPz47N/PfMlSikhBBNSC0UAQAjxYjzgM0MIIYTUEm4ZQ8Rdhw2lZie9UkpLS8vMZrOiKgLGkiQZDIagoCDnBc497mqe6GoOsVqsZeVldrsdAGRZExgY4GSqbp+FEKKUFhcX+/v7a7XaRvEiF+GKXKywzEuzfn+S5JYjEJBGC6yGMxLCgFarP5IGtwwU4wPEHhFSz0jNyDgAkDqFBKy+RTmYpyQXktOl5FIVNVlr5DyMBMwAgYQAaZhCLUuO29ZkaG5vp5/VXe4bdY1kPK4SCALKzc394Yclq1avTk1NI6rdue0Cwgghm81WUV566VLW0SOHfv5ptShpu3VLuvPOO6bcMzkmJsbZT7Oq7aMoxecqOzt73779e/fuO5eRUVBQWFFRbrfbBUHUaDSBAQHhEeHt2rXt17dvv379WrWKQwg1DkuuTzx79tzWbdsOHDh48eLFwsIis9kMADqdLjw8LC4u7oZ+fYcOHZKYmMifxcHDOU95efmhQ4cVRREEITGxQ1xcnJMj+YAiJxNAQHKqzF+nWH84SbIrEBZAp2EKZXYFgO9nSAg1CC2MUpcwqU+U1ClUSAgSYvyu6EoWNCNbaUa2AgBWalPPliqnS5XDl5XkApJdSfPNjCjVyMcCaDXUoVp+OG77NUN7a1v9Ez3knpGAathbU+z9nPTtdvu8efPnzPk4M/M8AGBBFiWtc81chSDOc7hqdOTwwSOHD879Yu6sWbNmzZphMBiageTjhAPAwYOH5s2fv3nz75cu5QJTvdzyCRKjW0QNGzZs2rSHBg0ayHmC7/PsvHjfvv1z5375+5YthQWXoY6n/+wZ2LMbliz+PjQsYtiwoTNnzBg0aKCTgzHGTp06hRAKDAywWm0nT54MDw/X6XQcSD6gCAEgRPJMlm+PW749oZwvQYAAEKUErCrWaoRYfyE+QOoRLneLEBODxU6hSP7DNsqsKogY1Yhv1XF0CJhNRcFaqV8LqV8LmNqZq1hqeomSVqwkX1bPlJJcE62wMmAIMKmwmb5Ls/56XndXgmFmN6lreBOu6PnzF556+pl1v/0KAKJczVc9yTlOUCGEREkLANnZWS+++Py6devmzPmoR4/uzUDy0gghgiAUFBS89dY73y5aZKqqcBJZaFhEWFiov7+/TqdnjFktlipTVUlJaWHBZWBqbm7O998vWrlq1T33TP7Xq6/ExcX5OM/8stLS0jfffHv+ggXOJwYFh0VHtwgPjwgODgKA8vLywoLC3Ly8kuKC4qKCFcuX/bZ23UMPPfjqqy+HhYVRSlVVFQQhMDAgLe14u3bt9Hq9xWrV6XQ+SHQMAAEttpo+TzYtSFNzSwAQAglHGMVYo9g5TO4VKXUMETuECFEGF9goanq5erpUSS5Qz5aRC6XaSR2Nz/UGAGYjSCMARrY150xv7Rei/YQ2gVKPSLFziBDnL7YLEtsFaW9pCwC00q6eLlVPlzqSC5RjBWpWJckzqWVVlV8fNH9/Und3gt8L/aQOwXyEVwOhffv3Pzh12tmz6RwSlNCGGsFFSYMQ2rVrx9hx4774/PM77ri9GUieJlwQhL17982cOSstLQVAAIDIyOhRo0aOHj0qsWNibExMYGAgnzpCSEVFRW5u7tmz57Zu275hw8aLmRk2q/WbhQt279799VdfDRkyuN555qBNSUl5dPpjhw8dBABAYv8bbpg0aeKAAf3btm0bEBDgvLiqqirj/Pl9+/avXLlq9+7dZnPlZ599snffvq+/+rJXr56iKBJCzGbz0KFD8vLyTKYqvU73h3GCeWkqZYyZlp3K1n2Y2/rrwtEry/6507w83ZFWyAi94sKsCtv27Kr/Hiq7f11Rv8X5IZ/lwfu58G4uvHMJ3jR9nswYc6QWFt+42LosnTFm35mdr/kwF97KhXfz4L1848eF3RaV3vVL5et7revOq+dKqU117V/JLLf8dr7i3QNFE9fkd16Yrfmg/LU9zhE2onF1+eChQzGxcQAgyXosyFfzkWQdANLrjUuXLWeMqTXq+F/beNTClHvvBwBJ1rkbM7zy6r8YY6qqup2iLVu2arQGhCVB1LjeK0oaAIht2aq0tNT5oHonfPPm38PCI7i2afQLfPKpp9PT0315kaysrNdefyM0LBIAA6CQkLANGzc5u/XyxL379rVqFc/ZXXybdgsXfmMym70/y2q1fvfd9wkJiRxdMTFxu3fvYYxVVlbu2rV7x46dW7duzc/Pd31rzyiijBHKCCXlNsepYlJpv2KIl832A3mmr1LKpm8qumnZ5Zgvc4UPLsG7l+DtS/BuLvogV/pvru6jXPxe0dDl1KIwSsvuXZcD/y5MWkRKrYyx8ie3XoJ3c3Uf5Ur/zcXOe9/Jhffzwz4v6re49L7fqv57yLY9W82quGJcClHOlqqXTXx4jNLGQSg7O6dDYie35HUVQMJGv4CN9S3w/zcU8a4OHDgYEdmCw6Bzl6Tt23c4B6mqKrcW1mqEEP4Tv/JYSkq/fv05CKOiYlJSUjzNM/8yLS0ttmUrDoYxY2++cCGzetN3eZxzDM7HOXE7fvwEDr+Y2LijR5P5ZSaTqe5ciW4M2dWmKcTVdxygwQEaWmFX0oqUE0WOowVqeol6voLmVFKrCkCq1W4RgyxV27h5PwoFSTDO7oV0om1TpuWnM1jj70i9bP4qxe8f/QxP9rD+eEbNNyFRAAFAlLi9mzGmFlvVIhM7kI1+EJAk4BZGMT5QbB8k94iQuoULrQLEdkFu7IfOYftgrlFV9dnnnj+dfrKuF8V7pELdaAZX+UGUNaaqilmPP7F1y2bfZff/eYscQqigoPCRR6YXXM4DgAE3Dlq6ZHHLlrGEEG569hRk5Jx8Tu7dkpLWrPlp8j33bt+2NT//0jOzn/tt7RquR7kuE/9ncXHxI48+lpN9EQDdNenuBfO/9vPzI4S4fZyrh5ejpWXLlsuWLXnk0ceWLV18KSfr4Uce3bRxfWhoKLeGe/UXuZAgMysk36SeK3McK1BSi9RzZeq5MmpyQLUhW0AiBg0GJHANinFvEfvDmsVsDt0tHTSjWjObavrvYWqxI52GYWz6PFk3sYPYNlD/ePeKf+wALACFP+5FADICJCH+HWVqdqWaVQbbLwBgpJHE1v5i+2Cpc6jcI0LsECK0MOIgre/aEbeTLlmybNXKFWKdoBjXacUYE0JcTN78B1GSJE/xnZQQSdadzzj78iv/+v67b/8/B8XUmvB33nn3+PEUQEJiYuKSJT+0bBmrqqoo+upo4ZuRqqoRERHfLJw/bNiIzMzM7du2Ll264uGHH+JmtFpPfO31/xw8sA8ABg8ZOn/eVxxCvsQE8tBBQojBYJj39ZfFRcW//77xWPKR115744svPnPrG7ziNdScKvVMqSOtUDlepJ4rVzPKaImVqYQBRSAgCYNGrM5I4rDhRnA3Lw2gUhSs93+pLxKxZWm6bXsWyDJTKciCmldh+uRI4GfDjY8kWVafcSRfRhrpCjbo2i0GkAXANVilzHG61H66CP16FrCAAzRifKDYNlDqHCYnhUkdQsQ2gV7YEZ/fkpKS995/n88YY9TdPGJKKVGtoqRNSOgSHd3C39/farXm5eefzzhvqioHEERJcotASqkgapYvXzZ58qRxY8f+P2dH/PUPHT68aNF3GAtGo/+Xc7+Ia9mSEOI7hP4gVlEkhLRq1er111978MGHCCFfffX15MmTXAP5+BO3bNm6YMEChHB0TOyXcz/39/f3EUKugR2EEKPR+MXcz4YNG3kp5+KChQtvuWX8qFEj63YlVgtyGJFcU+EtPyophQDAgCDAIApIQCBJCFVTMAADeqUR3P0QELUrAQ/2lHtH0SJL5YeHKWFIguqQH0kyLzmlm9JR06+F3zO9ix9YB8C8MhOXhyIArYiwyC3mxOQgR/NtR3PRCgwY4TB92OLx2uFxnjIsuJlozZpfT544LoiyWxgghIlqFyX57ikPTH3g/p49ewYGVltyrFZrWtrxVatWL1j4TUV5iShp6/bAGBMEQXHYv/zy69GjRv2/l+gQAMybt6CiohQAHpj6wE03DSKENjpOHGNMKZ048c558xfs3rUjNS11y9ZtE24Zz1eWY8lms739zrt2mwUh/Oorr3To0KGhEHIFUru2bV95+R+PPTbDYbe+++57gwffJMtyLYkOO8HAECOFZiogZpBAr2F6iUmIIqCMUcIoZRTApw9GxK6KbYL9Hu8BAFXzU21pl0Ercn2CMWAiVsoslR8eBkL1t7fXDG9FbAoVkK/98/EwRhEwATFdzWhlgZTZmWclp5q+FWXJ0qUA7v3fCGOi2lu0iF6xfNkP3y8aNmxoYGCAU4nU6XR9+/b573/f/33zht69+6qKDbnrhFKKkLhz567k5GPcRdgIKahG62VeNLG/gyyHsrKy161fjxAKj2gxa+ZjjLGrkXO5A1Sj0Uy88w5AWFXsW7duc6o0XNxav37Dzp07AWDAjQPvv//eqxEHOGgfeOD+mwYPAYDdu3f/9tu6umuKnRuGEGEQO4RUrxtljNaIbDyXoUEfyvxmdBdbBaiZ5VUL0kAQKAIKQBFwWIJGMv+WYdmQiXRiwPO9kZ+GEcpwQx4BNR9WM1RCUYRe6hjq3a6Qkpp66NBhhMS6xI0QYlQNCAj87rtFt99+GzfaOGMQnSELhJDevXuvWrWyS9duRLHXXSHGmCBJpqryjZs2wZVxyt5pjlLKTUfOJ9aElSPGmNOI9TcS5wBg8+bNl/PzGGNjx45OSEiAq44r5YC56aZBfn4BAJCamqooCg+W5UT//Q+LKVEEUZ7x2HStVns1WRtO0D4+6zFBkAhRvv32O1UltV6hhhdRhgQs9Y4kjFBcQ+6N+AiI2BSpZ6TfQ10AoOKzZEdmKWiF6mwiVCMEiojalPIPDtEqh25YK/3EBGJXqYAa/1wMRKVSpxAh3MDf3hOKtm/fYTZViJLkwTygvvjSi8OHD1NVlWuZrgvgNCipqhoX13LOnI/0BiMlpO4i8X8fPHCQUsIlDe/4cbFWYYyxqqqlpWX5+fm5eXkFBYVVVVUIIf4TJ5S/BZY4qe3ctRsYFUV5zJgx4BI3fZUoio2NjY5uAQA5OTkmk8nJiE6ePLVjxy6EoHPnLjePG3f1oOX4HDVyZNekJIRg9549aWmptdiR+IdCD6DpEYlk6WoCAgAYiDhwdm8cpLUdyqv8/gSTJUrr0BBhoJete3NMS0/5T+8W+Exv88YLpMSGRNTISiYYGKOabhFIIwBh1fnn7qYjOTnZ02Spij2xY5fHpj9aKz/CrcRMKR02dMjNN9+8csUySaxtLmeUAsDJU+mVlVWBgYHe+Y8gCFwEP378xL79+48eTc66mFVUXGwymSglsiwHBARERkYmtG/fr1/fPn16x8bGQlPEOP8JBu6Kioq01DQACA0Lv6FfX2i6BAetVhsRHnE6/aTVaiuvqAgKCuJb1a9r11aUlwDA+PHj/AP8r966wwFj9PMbN3bMseQjlRWlmzb93qNHD9edUXTlSdqeETjCoBaYkSwAbTg5C4iaHMZxbY13JDBCyz88rJZYsFFmxJ3xAAEDKP8i2XBbe7lzmN/ULiVv78eyXDu3z0cNljKmleSekd4X1WKxnDp12q2UhRACYBMmjA8KCqp36p1b0fibb161cqUbGwMAgFBWWlpUVBQYGOhWqKiJJReqKqt++nnNsuXL9+7dZ6oqr/Nu1UNdCwCAWsa1Hj1q5P333ztgwAA+jOszKYO/cmFRUXZODgC0ahUXFRXVtIxOkiQ+jaqi8q3N4XBs3boNgOkN/mPGjG5alfLmm2+e8/GnZlPFlq1bX3zxeacxA1wqaSEAEFsHiu2CKKGNk6koYShIG/R8HyQLlg0XTOsykF5ilLlXbBgDnWg7UVj+9TEACJzVU+ocSmyNlesIwyFaTfdwAG/VwcrLywsKCupW4UMIEUKwIPfr18/HqefT161bkp9/AFFVN3SMkKKqZWVl7l20lHLeuHTpssFDh0+dev+mjetNJpMoaSVZJ8k6UdKKklYQZf6HJOskWSuIcnZW5rx5Xw0bNvKeKfceO5bCeeZ1a37Iz8tXVRVj3Lp1a27abirAE0J4apAgCFqthvecmXnx2LEUAGjXrm33bt2aqrgKH3Pnzp0TExMB4MSJU+fPn3fdi7Hrdo4w0vSKpA1V9PlHQMSqGO9or78xlpqU0o8PE2t9kADGZLFsXoo9vURsYQya1YMxxjA0+OkCogqROoRI1VkYHpWi0rIyh8PuFmeUEIPB0Ca+tY9bO78mLCxUp9UCUM8CG3NvcMc4Kzv7vvsemDJlSvLRQxwnXFDk2W/O+BRncAohlDEmShpJ1imqsmzpkuEjRs6Z8wlX4a5PTam4uNhsqqCUGo2GJlGKnM1msxUUFgKAXqfjuZIAkHzsWEVFOQD0v6GfM22hSVBEKTUY9D17dgeA4uLCw4ePuENRjRSi7RbBNAIFoNjnDzcqKATH+gU/3QcwqlyZbtqZzYwSt0d7RhEwLXZcqiz99DAwCJjSWTsoVrUo1djz/ekYqYRoukcgjcioN9eTzWpTVeIhMYlJkuh0DTXAJO1ZQ8QYazQat4Lc/v0HRo0as2TJD6Ioc78Ttwf6YvgihCCEJVlXWlI6e/bTU6c+VFFRwa0O15unKCYm5t57H5g4cdLgm25qKkbEZyk3Ny8/Px8AYmJjuNeV2+sYVQHhHj16NC1oef89e/RASKBESU1Lc30dsZZdSdMlDIfpSJndd0WfIUAYqIOEPpKk7RiqFphLPjvCeEIRqn90yCBVrj4TcG9n/YCYkGf6WI7kM16GwUchBQNQivSStkcEACBWjxjglVIRQtj3aUUIFRYW2WxWD0Ik1Wg0oaGhruyRQ2jz5t8fmDr1cn5edRRfw+UxbtYTRAkjacmSH4qKi79b9E1kZOT1EyqBMQKAPn16//DDoloMvEkIes/ePaaqSgDo2qWLVBNHknHuPAD4+wd26JAATVr5hHeVlNRVo9XZrKb0U+nctMPJ4MoZp0xuEyi1CqCEUOyrfsIERGyq3CUs+JHuAFA6P8V6vBD0IqPsD6+Opw8DJmGlzFb88SHmIH6j441j4v9gR759CGUoSKPrEQmUwZ9VrZirTydOnqyqqhREsa6iBUAjIsKDggKdhncnF7rv/gf+gNBVjYESxiRZt3nThgcfethkMiF83elITavic6pVVfWnH9cwRgRRHjKkmsuZTKas7CwACAoKbNeu3bVAUVxcHN8Wz5+/YLFYa3ld+Z8IMMI6SdMrSlVpQ71GITN6SBEG+5nS0m9TQdsQmZAxMEqVG89XrstAIg59pg8K0RHfB4ARUYicECLF+gNG1fWK/wR5BSGE0KZNmxkldbd/PumJiYnOEC8OoaysrAcfmlZYkO8FQk6v1B8NY48chjFCiCTrNm5YN/vZ59n1F+vQtCZEPo2//PLrzp07uFNo2LBh/ClVVabc3DwACAsLCwoKuhbvYjQaY2KiuYJdXFx0JYoYAwDldEnVgjRgoO8VBSLyNWRBQMSi6G+MCbq7IwAUfXnUnl3JNAJjjCFgGDGErgg1gFrxEIghYAIQhRZ9ephU2g19o4OndCI2hQnIpwFgoCrVdo/Aesmy5pxtzyXnG127xu1OR44eXbt2LcKi22g6AOjbpzfHjzMd4/kXXjpz+pQXCHEhQVVsisP6x0exqYrNiwuLUipKmvnzvl606LtaJa/+lxr3rRUUFPzr36+pisIYPPrIw/7+/qqqAkBRUXUpkpiYGG4Eb/Km1+tbtGgBAFar9fLlQudC10SjCsj6e1bxkxt0g2L0vaNwkI5YFCTUpxrxQiJaIeLpPoKfxrQ3p3TZSTCIFAAExFQKhAJGSKqpZ+/K9wCYQgEo4vW7DVLVgdzS79PCHu8d9njvsnUZjtyq+t1WCIAxphH0PaOAseKZmw23tdfeGAOU5yM3UvzwtJ076wCKolhaWvrUU8+UlRbXjUlFCBFVCQgMGT16NNREkWCMv/vu+9WrVoqShlKPEFIVGxbkPn1vGDhwYEL7dlqttqSkJDn52M5du7OzLgBgUZLdghYhjBD6179fHzJkcOvWrf/3Ysn5G9lstpmznjh18jgADBw4+P7773Ua4goKCxRF4bzIWbinCTkqH0BYaCi3EJaWllyJIn6dXqQIbIcvGyYnijF+jvRiLIneNnVW7WYNvjPRf0Q8c5CCjw8pZTYhUMOsKiNUDNNjg8QsqlJkBoSwpqY3jKhVBQAxVIdErJZYmU3FRomJuHB+SsBtCZpWAaHTknL+vRMjgWFvFgqGAFQmBGr0vaPUixVKkQUMV7UJiaLopTK1c1VSUlKfe+75fXt3C6KbsG6MMVHJsGFDO3fu5KzhVFxc/MEHHzLGPJwZhRACVbHdeOOg5557dvToUbWMe7m5uYsWfffxJ58VF112G0tOKRVEOfdS1kdzPvns04+vZydS47xDgiBYLJYZM2b99OMqhMWQkOAPP/zAaDRSSrneWV5WzlEUGBAAHoqYXr1Vw9/fHwAcDntFZeUfZPOHBUkvUkZtxy4bp3TU94qsOl6ABJERr8YxQoVwfdQzfZGIy9acKf89EwXIqkXRxgeGP97L2DdaMMrErFhTCwrmHrUcL8RaEQCoRTH0igqf3kPXKRQJ2JFvKll8vOzns0grWM+UFM1PiX5tUNiDScVrzphTCwS9RL2wI4QYIdq4AG18kHnNOVW1gUa4mmkqKyvT6/XclFx7IVW1sqrq3Lmza35Zu3LlqpLiArfUjBCihEiyZtbMGTzPj6/l8hUr09NPeLoFAIhqn/X4k++8/ZafnxGuOOgBYYyio6NffvmfY8aMefChaWmpxzwlZSAsLlmyZMZjj3bs2LFW7trftHG5QBCEvLz8GTNm/PrrLxhLGo08d+7c3r17cf7AxeMqk4n/4R/gDz4HATe0BfDOqWoxW2qhCAAAZIECtp0qAQBjn+jLi9K49gIMefKGULM9/JHuhu6RpMJ++YsjlFAETJMY0uaHW3UdQv6QJruG+w2Jy5j6q/lQHjDwH9k6ft44Kby6bJCuS7j/sFZymz35Hx1EerHwu7SgOzrou4RHzuqVMWMDrRbb3FMDwogoRNclHGFkSy1QQWESBgAGrEFnITHGEBZMJtNdd02WNRpGad27FYdSVFxcUFAATAXAbumYsx3FYX300VlDaorUIISsVuv3Pyz2Ii2oiu3xx5/89NOPq6Mo6pgTuPu1R4/uq1etmDDhtvT0k3UHwBgTRamstHjJkmVvvfWf/4EK9M4J3LFz55NPPM2zZbVa7VdffznxzjtqSa0Wi4VRAgBajfbaoUhTUxXVarO6RRFmkmQ7V0orHfrukThYp9pV5ClvFGPqIJr4oMjpPQGgeMXJygOXsE6iKm3x8gBdhxBgTC2zWc+WaFoGyFFGOca/xYv9z078UYoyxn00gkPIlllOTQ5dYigScfQ/B5iOXa7YdlEtNOd/eij+63Eht3UoXJVe/nsmNkpeguuYKBh6RAKANbWQgQBi42PgVVU9cSK1Hi+IIGKs9VSwjkOoV+++b7zxumtB51279qQkH8NYciv+qYpt4KDB77zzFgLEFWi3w+Ox5O3atfv888/G3zLBZrMhVNuQwCXGNb/8+sILzwcE+P992ZGz/rDFYpkz5+P3P/hvZUU513nmzv3iTnflyoiqcj+HKImuPrqmbbIk8X3ddSn/yNJDGoFpBUex2XayUNchVIo2EpV68RoRlURN76FtHejIN+V/dRRETBWi7RASMLgVMFBKrOce/PXkyKVn7v7Jll0JjBn7RYsR+oBRbbTxQcCgcl/OqXHLTgxffHl+MjBAkhB6XxcmIKwXS387V7krC2vF6Kf6IH+ZEube6o2BUor8JL++0czksJ0tYSBcjUTHCzV6+QiiBJ4P1eIF4Nu1T1i4YF5oaIgrBW/cuFFRbEKdHGmEECGq3uD39ttvGo1G4s5oXkttI4QMHTpk2rRplChuz7NAWDx79sy+/fsAgP4NVSPuUObceNu27aNGjXnllZerqqoAWJ8+/TasX3dnfRX/BCxA01TOdbePCgIHDLpSualZUY3ItIJqUSzJBYJG0HcNJ5QytxE3IlJtqrFXVMR9XQAgf36y6Uwp00uqQqVYf4QRo6x828WyXTlMFqqOFzryqgAhLAo4RO93QzRPPs+fd8ySWaE6aO7nRxyXTcDA2LuFEGlUGThMSu7nR6hVDRzUMuSW9opNYe5jghAhVI7113UItR4vcpRamOBEEWr0FuileRESEEJEJaFh4cuWLu3atSs3hXPTnN1uP3DwoFsZA2PMqDp69OgbBwzwxIXqPogx9tj0R4KCw4iq1C1RJIqiqtj37tlXbQH6u+GHc92srOxnnnn2lgm37tmzCwBhhB+d/thvv/3as2cPjjHvfohr5+xQFYVPK3OLIpAxkzBRiCWtEAD8erWgrDra7YoPAsYYE1H0jF5igNZ8vPDy98eRTiSUgVasTCk4ec/PJ+5cnf3RAUIpoTTy8d7GHlFAmVJqVSyKtm0wIFDLrFUnCkEvMq1gL7aY04sAgRyml1oYiUqRn1S6NbN47VlAKHpWLynCQBTKcG2PE2BQHcTQM1LQCOaUy0q5nWkEpBH+KgpAGFdWVH7+xdyiomLRJZohLy8vI+M8gBs3DqUUYeG2W2/1XY7nkTWJiYk33TSIMeI20xYAjh8/0bhiA3+hCMfxU1FZ+cEHH940eMjHH39kNpkBoHPnritWLPv6qy95sV9PLyXLMqdnVVWuHS9y1KBIcpEsruBFVEBUxpazxUCYX7dIIUhDSO0YAiYgxaoEDW0VNr49MHbp66O2AhPImEPLUWop35tduuVCVVqhISkiYf7NrV+/CcsYMCpcdcpRbJHC9ACgVtiIVeFuU0qoUmwBACRgMUTHGGMYUYBLcw8rZVZj5/DIB7qqdpViRBBc8QFgAvLrHgkAlhNFhDEiItCKfyEpqIQs+nbhtIcf4e4/LjpfyMysrKpCWHDHvpSgoJB+/fpCA8JVqnOKbhzQ3wv2Ms6fN5vNfwudiDN5bmpbsWLl0KHDX3jhuayLFwHAYDTMnv3cps0b7rjj9nqzEg0GAxIEAHCNzWnyZq3uHGlrinTXQpFABUQlbMssd+SbDJ3CxHCDqlKKkKsqolIGRjn2iT5YK5btzi785QwyiKQmdpvJAtMIOFjb6t8Du/xyV9gdiQgjQKjgx/SsOQeYRnCWfaxma/wuyrjzhwm4ujCDXqw4VpD/fRoAxDzcQ9cxRHGorkoawaBSigI0fj2igDHL6WIqYYYRaP7K3RchJMu6tb+uefPNt50em/y8fIfNWjekgMfatW3bJioqsiEoqr6yY8eOgqghdfLVuYGhuLio0sWhcZ2rQAih3Xv2Tphw+92TpyQfPcxfcsyYcZs2bfjwww9aREV5T0bk3/v5+YmCAADlFRVwzQ7hq6ioAAAsSDzXww2KmIiYgJQquzn1smiU9YmhRKUMX8GIVKsScXuHoP6xxKpmfXJIqbIzETuDeqhKsV5K+HR0qxcHSEE6ALBmV5x9aevppzepFoUxUE0OABD8NcDzLwCYiIUgHQAAYUqljeLqspEg49xvU6yZZZpIY8y0HpQx5soSESKESVFGQ0KoI6/KllPBREQFhDTi1ZhnageweWzY03FrhFIsiJ9/MTclJYXnpZWVlQG4sZVV1w+IidW57Gq+t5iYGJ1Ox9wH/2OH3eEpQfB6E+HOnj336KPTx44Zt27dr8AoAPTs1Xvx4h9++eXnAf37OzlVvR0GhwTLkgQA5eXl1wJFfAwcohqNJjAg0PkUFxudLFARUxErNrXq2GVg4JcUQSj9QzVCoDqIHOPXakZvhFHRurMluy4io0wYIwgIBoqBUBr3Yv/wCQnAgNrUS9+mJN+yPGvuYaISKmHVrthyq4CBFKTTtgkihFJgyE82tA8BANXksBWYmYAIAsIYaAVzZnnONykAEHVXp4C+0Q7rHwW3GAbVQYyJYaJRNp8sspfbqSQQASHtVXldawewefzwwDb36YCCIJmqylesWMW/sTscXhY1IMDfGWDfoNH6+fmJoujegIAQodWpoNdn4yzI4XB89vkXQ4cNnz9/Hq9AEh0d88677235ffOUeybzfAfvBTBcW2REhCTLAHD58mXnoUNNqfciRAgpLCgEAJ1OGxoa4sZfhDQiFTABoIDMZ0oAQUD3KByoJbQ62wcJSLWS+PuSjB1ClTJr1ryjBBggYKz6IDxqU/26hEdN7gKMqRbl7L+25y49gSVBjDQwygCQo8RccSw/dHg8loWoKV2Kd2fZym3xD3XTxgUAg8oThZbLJpAFxos8Msb0Yt7Kk5F3dvRPimg1o3fpscvUmXqEgAng1zUcGJhPFStmh+CnQQihRulFfIL0ev3jjz8bHBSsqqp3bnY5//KGDRvPnz8riBoP5wrDrt27LWaL3qD3bii76pX+m7mD+PsKgnDkyNGXX3ll86aNPOTRaDTef/99zzzzdNu2bZww8zEUkMMsODg4MDCgvKw491Ku3W5vHIf33sxmc25eLgDo9frIyD/kcPEKiU5CBBhoBXNGKTE5AnpESREGa04F1ogAQOyqMSGk5X1dAeDS0uOlyfmiXiI1uaUIg+ogfl0jRKPMKABhkbclRk3sBBiAMMCIOsjxJzfk/3om7rFeop8mYnx7bLhNKbVGjGmHEACCy2vSHWaH5P9HtRMkY2uh+cJnB5O+ujl8ZNuwkW3yfjsjGmVGGVCK/OSAni0AgelUERUQIMAiNN5Gx6hOp3vxheeDg4N9ufzixax777t/755dbmMIGEMXLlwoKimOM7TUaDUe0MIAoLKyitbUYGgQO6qqqlRV1b0pijFBEK8FGV29FMeB8dVXX7/6r38XFxUAEoGpw0eM/Nerrw4ceKOrpNfQzv38/GJiYi5mni8pLS0oKGjVqlUT22ARKi+v4MkX4eHhrskXf1R1xJJAJUyAURlb8qssF8rkQK0xMUwhjCAuZUGrh3tqo/ws2RVZ36YwERNwNd8hCkwK1yOMkIBEf03wjS2D+sUE9YkJuiE2qG9MyMA4KdxQnnr57Pt7gQEScPiINtGTOov+GkAo76f03J9PY4NEKLsi/c4oXd54rmhbJpZwm8f7iCF6VWUUI5UwOdwY0DmcKaTyVBGVMQFGBISvwkbHGDObzYRQVVW9O45UVW3VKu4//3ldqzMQd/XoALDZbCkqLAKA4KAgQII7lgUAkJWV1TibUnb2JavVgtzv1lSr1VyjHJurhJDZbJ4xY9aMGY+VlJQAQFho6JyPP1n329qBA2/kc+u7CFfLh6bT6Vq3bg0ApaUl6emnoUkzxnk7c/YMV7oS2rfXaDTu6i5gBFqBAFARKRalMq0AGAR2jySUMREpVjWkf2zLuzoBQOaCo1WZZUgrUOZadpgxAdlLbeaL5aZzpabzpaZzJdWfsyWmjNKKE4WKyQF6KfObY6nPbqw4UaiU29RKuyW74vznB4//Y4uqUIpr1xlmGKl2cmHeEdXsCO7ZIubOjopdBVFQHdSYGCoH68xnS60FJipiCoyJmPOiRks5zrqK3hsvM9ItKSkyMopRxW0BIEKI2WIGgOjoaK1WTwh1Z0wTMs6fz8291CDRjl954sQJojrEOiUjeUmwiIgIHn0MAKLXfd17vi2uL+vRx1FzeBQUFNx99z1ffTVXlDSMqkOHDt+8ecPTTz0py3KDRDi3/XPiBkA2q5mjqMkF0dSUVMVhA4BOnTs52eaVEh1GoBMJMBCQ4lArTxZGIwjoHCH4yUSlSCu0fayXaJDLjuXnrDoJepEAu6LcAGPIKOf8fCpvw1n3mgBjqkUFjcAALv6QmrfurCE+CEuC5VKFNbcKSwKSEaOsTgkDBgapcE927i+n4+7pGv9Qj0sbztmLLRSBf8dwAKhIvWyrsAlakSgUBMSFzz+hcSzxGk6e5p2fbxkfHx8Q4G+zmgDk2nYIUSovL92zZ29CQoLvhYh5oZKdu3Z5URLatWvnPK1Z43mQAMA9m562f61G47a2Kz9+W1EUs9nEj0atd8xFxcX3TLl329YtoqRRFeXpp2e/+ebrBoPR05lCDWVHANCjR3dBlIlaHSzShBlWXOQ+cuQoANNo9N2Skq749Yo/NaKKgCCgIqrKKGWEBXQKkyONNpM9cnS7yCGtGaEZXx+1FFtAFChzE9agKtReYbdXufuYHBQ470LIKDssakny5aKDlywFFqSXmIjdh0rUCI0Z847aiyx+8UGtH+jmcBAcoAnuEQkAlaeLFbtKBEQQowKq1ov+LJXbO+XzpY2ICE9M7ADA3Bm7ARhduWo1Fwt9ARIX0JOTk/fs3uO22jhvSV278vhaAPD38/eCk5xLl5yFONyZEANE0UOaGRJMJlNubq73HHX+k8lkeujBadu2bhFFjSgIn3zy8Zw5HxoMRn5+RFNYpauri3Cl//DhI8XFxU1lpqs5Vqwk+VgKAES1aNG7dy9XlOI6vAgIAJOFygtl9mKzPspPE2kErZjwWG8sCYV7svM2ncMGmTBGEar7YRgxSWAirvMRmIhrLgPKgIkIGyRskEGuAaS7DilClAHSSWWnii4sTgWANvclGRNCKIag7lEAUHGmmMq4etgaXJ05e500hLhv4YYbbnBLx5RSLMjbtm5dt269L6WwnPQ65+NPq6rK61YbRwipqqLRGvgp87xFREa4lRj541JTU8vLyz0Ui4Xg4BCj0Vi34B4P2DNVVaakpHonVk6C/37tjd9++1WUNFhAn3322ZNPPsEdQUIT1cnAGDHGIiMjeR3jS5dy9uzZy1jTqEa8k/37D1zMzASA3r17hoeHu1qDXHkRBq1AECMIqIitpVbThTIA6PRkv/6fjwvpFkmsyunPDzqsKquvVqO7E1MYhdrF6AhjhDEKrP4qPwBIK5z/IbUqo1QTpOv9zvBebw7ThujtxZbKzDIqCQRARQAaEQnXEYqcoLl53FitzqiqbjQojLGqKi++9M/c3FxerdsLOfLQuMWLl6xYvkwQ3WSe82MvunTp4rpZtmkTjwXJbZSDIGoyMy+s/W0dZ1x1wRAQ4N+qVZxbRsr7WLlqNS8r6XbkXKRc88svn332qSBqKCHvv//Bww8/xAfTtI5R/qzRo0chJKiKfe1v6xCCJqyN+suvvyqKDRAeOXJkLdOFi9cVAdKKKiCOIrtVqThdDAAthrRuNSERALJ/PVNw4BI2ygSAYvSnfhCAVjTlV5377hgARNzQMn5iZwCoyii1ltuYhHlYHWhEhK87/wmltE+f3gMGDGBUrbuovPDI6fQTj06fUVpayoHkGj/uPO4XAERR3Lz599mzn6PVFSDcI/fOO2/X6XROs3KXzp39/QOoOyrnbOSdt985d+6cJEm8ugAvzsoD9nQ6HS+r65aRCqJmx45tc+Z8whUbPk5n0T9nwfvXXvuP4nAQ1T5t2rSnnny8cYY4X1QXABg9elRsyziE0ObNv2dmZl69pY6bEHJycn7f/DtCKDo6dnhN1aE6ehFfD63IyZEIoBJakVECAFSljDLF7Dj11SGb2W63Knar4y/4mB0qpRnLj5enFzHGiJ0AQOX5EluVnUqYYCAIQCtcV7zIaQQTRXHaQ1MBYU+HWIqSdv26tRNuvT01NY3HF3H6dp6exJXvb775dvLkyUVFBRhLbvMsiGqPjom7557JrptoXFxc1y5dAIh7JAjy6dOnxt9y688/r+E1VnmME0LVQuAN/foBIE95+wiEl1955bnnXrh48SIfp1PP4fT33Xc/pKYcBUCJHbu8+eZ/XAfW1OIzopRGR0ffPG4sY+xSzsXFi5de/YP4Eixbtjwn5yJjbNzYMa1axdUKSrrSoqURVWAIAyBEJFxyupjYVYFbvRiE9IrWtvDDovCXpa0wwLKABIwQwiICgPLMMrtKkCgzwlQAqhFqzly5jjgSV9xvuWV8/xsG7Nu3W5R0dSUxDqQ9u3eOHDl62rSHJk68Iz4+PiAggIOwqKjoyJGj8xcs/PWXXwCQl0OdGaOPTX8kNibGyYgIoZIkDRs2ZNeu7R4qmFNB1J45fer2OyZ2796tc+fO/v7+IcHBzz//LD9Pe9jQIaFhEcXFRYIg1k2tRRgTlXz44QdLli7r3atnbGwsQujOO+8YPPgmQRCqqqq+XfQdQoAQeuH5Z8PDw/6EfI0Hpt7/w+LFpqqKb75d9OCDD8S4zEbjpMRLl3K/+no+Qshg9H/ooQfB0xnjvFAB1okEI1FEqkUljPq1C0YIMcoQQpJR7vfBKMbgLwy2r/V0RpmxVRA2SHaTQzTIFAHWiki47iQ6zlUMBsOrr7586623qR7McRxIhYUF77zz1qeffd6xY2JMTIwsS5WVpoxz585lZABTsSB7KmyPsaAq1qRuPWbOnOG6xvz/t9464aM5H1dWVmLs1mxNeQTGseQjx5KPAIB/QPATT8ziFXZatW41YsTwZUsXYyzXVX44kERBezk/b+3aS/zLlnEtBw++CQD2799/4sQJxqBb9+4TJ955rQ9c4haa3r17TbrrrgUL5l3MzHj77Xfnzv280ZY6PuC333k388I5ALjrrol9+/ap+xZXSnQidjiI1eTQtwq84cMxvV4bimWhWtNgfyzJX2rxqsYPEjDCqP29SUO+vT20X4zdqjjsKhXQdSjROVd39OhRjz/+OFEdniiJUiqIkihpzWbz4UMHfv5p9YrlyzasX3vu3GmMsSh5LMqBEKJU1WoN7733bnBw8BXmI4wZY127dp1wyy1uFTNXM5QoaWWNXhDEgIAAp1QGANMffVinN1KiIg+HFPKRS7JOqzMKguAsA7ZlyzZVsQHAhAm3uJ4Efo2NOujFF5+PahGDEF64cOGKFSu9m208NVVVBUFYs+aXb75ZiBCOiIx+4YXn3S7BFRKdLsqobWFse3vHztN6+bUMAICyU4XEpob2aMEoQ4Dydl9Mn3dE8pMpoX+i1MSwgBWTI2ZU24Qp3RilSMAVGSW2Emt47+joIa3DerU4vTj15KJkXQs/LF6npQw5//nXv15JTU3bsmWTJOsJUT3ZsgVBQEh0Epzz/BVPPSMERFVee/vtUSNH1JVeOO3Onv302t/WlZeXCYJHLxO3atRYF/4A4aBBg+6+++5vv1ngadhOEyIXQXn/NpstJTUVAAyGgJsGDfpzSh/zDatt27b/evWVmTNnKYoy+9nnWsfH9+ndi6PCRxirqiqKYnLysSeffMphd/C1S2jf3q1wKP7hLAJoP6lLy5Ht/FsGAIC1yHzy68MZq04Sm9Jt9oBO03sDgKCT8g9fshVbRJ3EyJ+kHSGMqEoYZbFj2gMwJODc7Zn7X9psK7HEjmjT5fF+wZ3Cu87o0+a2jkhA1ZwTXaco8vf3/+ab+bfedkfy0cNe6gz7TnAYY2BMVexPPT37hednuy36wwkrKSnprTffmDlzBgiC7+5IZ2HX11/71549e8+dTfepSD8DACgvrzh79iwARESGd+yYyJ94LY6HqUXWXOh95JGHjxw5unDh/Ly8vLvvnrxk8Q833NCP70dejOxOi44oiocPH5l8z705OTkA9N77Hpj+6MOeaipd8XjZT+PfMoA6yIW1pzfeuypl7kGbya6o9NA7O5M/2ssIi+gdPfyHOwM7hTMRiUFawV++1h8xUANaQQ7VD/z85vb3dAWEMn87s+PpdZWXqwiCjF9Ob7p/dercg/YKmyHSqA8zwHXc+OrGxsauWL6sb98bFIcVY+z7WS9uFk8QCFFV1f7U07M/eP/dmsryyNOjH3ts+lNPPaMqdoAG6CcchLGxsd9+uzAqKlpxWHkFWa8gYgBQWFhQUVEJAO3atQ0PD+fWP3wNmjvmjARB+O9/3x8xcjQwknnhwu133PnDD4v5SQLcu1U3yNh5RjVCaPmKlbfddvv5jHMAdMSIUZ98/JEgiJ6m9wqJjhEGGM6vO7P5kTWyn0YM1BKVAQIQ8JGP99mq7H1fuimyT8yQueN3PLO+9HSxZLi2HAlhpFpV2U/u/87I+JsTACB9edr+f2+niop1kkoZCtBYquy7XvrdVm7r849BjDIsXNfFqWvkjTa//PLzrFlP/PjjKgAsyRrvBYY87b6qw2ow+r/++mvPzn4GvNbUdX7/3w/e02g177/3PgCVZJ2XouR1hz2g/w3Lli19+OFHMjLOYkHmIbnu72UAAIWFRQ6HHQAkSebhodei6q8oCq1atZJlue6uERgYuGTJDw8+OG3db79ezs9/YOpDv/22btbjMwf07+/JTkgpPXDw4BdfzF2xcjVRHAB01Kgx3323KDg42IuhT6w91wjCuka2urlDzu4s1UpEjcAYAwSgk1MWJFtKbYP+Myykc8SwryfseG7j5UO5Es/2uUYQsqmGCMNN74+Kvak1MDj29aHDH+5lDLAsqpQhjKhCiYNE9I9tMTAOIQT1IQgBODcw1+VHCLFGBRS73Q6dUpB77o8xpTQiImLp0sVz5974zrvvFhbkAwiSLHunaVTTeE4uAPQfcOM7b789aNBAfot3AuU3ipL03rvvdEtKev2N/5w5fQoAEJZ4pBzzOhV82DfdNGjz5o0vv/zqqtWrFYeVV993lQ/5bPCRWK1WVSWipNmyZWuv3n2vBW8nqhIcErpt6+8JCbU1Fj7gsNDQpUsWv/Lqq1/O/VJVHStXLv9t3fp+/foOGjSwb58+ca3i9DodANjs9uys7EOHD+/cufPAgYNVleUAIAjSo9Nnvv32m4EBAd5t5WJd+S6wTfCYBbee+enU0XmHS84Ui1oRi5gxhgzSyZ9O2q2OIW+NCIwPHv75zduf35S966JslBltYr0RC8hhUQJaBQ797+io3jFUpQc/3nfki4NYwkjAFAHDoJgdhnBDtylJXad21wXrgdXvyyOUmsxmRhxuD20wm80Neg3GwGKxUEoddoub3kxU9Xq8iizLTz/95KhRIz/55NNVq38sLSkEAABBlKTqF+GFSGpeihBC1Ook8I6duj42/dEHH5xqNBp8d4Y4yX3y5LsHD75p0Xffr1q1+tSpdLvN7MtUcLps3br10qWL77//vvnzF+zZu6+wIO8KpVwBAHA4HABgMpn4zKjKNcxdLy0t83KMDaXU39/v008+HjRw4DvvvJucfNRirty29fdtW38XRI1GozEajYDAbDLb7Xa+N/GWlNTjH/94cdKku8AludDjxHpIeEYAYCowpX6XnLY0zVpqlQzVS6uYHTE3tBz5weiA2ABrqXXXq1vO/JIu+2kYY03ljMUCcpgcYZ0jhn0wOqxTuGpTd721I21xqqCpNrsrVhWLqP2YhF6P9Q7rGF5t+/Ya+8MnIj09ffazz9tstrq8iBA1wD9g4cL5oaGh9Qoe/AJ+hEHmxUxZvsINysUJjUbz3rtvJyUleVoD19JQp06d+uWXX9et25Cenl5aWuSBOcuxMdF9+/aZcOstY0aP5jm5jfMnOu8ymUzJyceOHUtJP51+6VJuVVUVr0fZpk38Z59+4ufnV3cqXJ949uzZI0eTjx8/fuH8hZLSUpvVhgUsisLTTz11yy3jt23b/p8332ryeLkreZEaEBj42acfx8bGelo1J6MuLy//8aefly1bnpycXFZa7LbPwKCQbklJkyfffeedd3CfAfgQaYE8ybWMVdNl/rG8A18cvLAjkzEmaUVAyF5lj+oWNeaD0aHtQx1V9p1vbD+58riol+Dqz4NEgDBymBzRfWJGfDA6qHWQrcK29bVtp34+KellhBFxEOIgkV0i+jzWJ2FcAscPoAZElDDwjHYEqOHWPc8CmE+2QleTkaIq6SfTj584kZGRkZuXX15eTgjRarWhoSFxLePaJ7TrlpQUExNT98bGaRR1vYeuMUc+4vCKLxnlZ0LXOzlN7B7ybZ75wCilx44dO5p87MzpM9k5OZWVlYwxPz+/lrGx7RPa9+rZs3v3brx4UwOYfD2ZIQwQRpSw9LXpB74+fPlUoaQVBY3oqLKHtA0e/+HYqK6RxEF2v7cr+ZujokYEfvrSVehC9ip7/JD4ke+PNkYazUXm9f/YdO738xp/DSXUYVb8I4097+/e/Z4kXZDOFxb0d2nO4u6+UH8TRnM6NbHGdcitC9yudf1PcrV3uI5doS4Tc1bJ85Vu690tnJRqKjQd+SHl6LJUc7FF46dRrapflN/N74yMvzGOqvTAFwf2f3YACwgJuBH2BoQAEFLMjg63dBj++nBdsK4su3ztS5uy9+fIfhqH2SFIuOOYhBum9w7vEHY1+PH+vo2gJO/FuxtH005DguuXHGbX1PfvfJernAdXf/Gf40Jo3CS7gt+5IzSCw/vmfXMR8PKOX979xcEz2y/w+/RBuvH/Gd5hZFsAODT/8M4P9zAGgtgwICEEDJBqVbpO7Dz830Nlg1x4pvjnFzbmHS8QNaJqU2O6Rd34WO/EUe0aIcI1t+ZWL/ivkpxQw4pmMOBHQpxYf2bPgiOXjhdghLT+mtH/uKnnxM4AkLrq+O9v7lAsiiALPgKJG46Ig/R9uNdNsweIGjH7WN7PL20uyihhAIEt/Prd263X3V11AVpXMDe35nb9tAYnpjtFKXOpdd/3yQeXp1VcNmkM8pgXBg54oAcApG84u+7l322VdlEr1guk6iO4CRv4xA2DnugHAOf2Zv34j83FmWW6QG2XUe0Gz+gT3iYEACihPuLHXamdppcQ6u22STJbvPTs+3s1lQbl1sfqdPY3uXTd5K9wHaGoFpbyThVuX3A4dcM5xaaMfX7gkGm9RI14YU/Wmhc3VRaYJJ3oJbgBYURUijEa8eKgvg90B4Djm8+teGlTVYkl4ca4IQ/3ThwSz+VJ+H/DfpzE2rjKht7NANyK0CBLgDPwzPtd3GPj44Cddef+Z05BR1eTelEt4DGWtunclnmHzx++9Ng3t3cZ3hYhlH0076cXN5ZcKJMNPAC8dsMCUu1E1ktjXx3S/Y5OwKC80PTezd8LAhr+aJ++Ezvr/DSMAaOUQcPCRmpphw0NJfbRYOWhmOMfnTQUAzXVPK64y+Fw1HIpUkplWeY1rH3suRaxun2QpyE5783Pz09NTT137lxRUZHVasUY6/X6mJiYhISEpKQkPz8/8MH4XstKRgjh/lnvyyGKYq0An/8dFP3BlBACBJZK24ntmfHdo0JbBlJCsYALzhavnL0hL71Qc2W4HQPAAlJsqi5Ae9tbIzuNbMs5m8OipG7JaNklMqJ1EACoiipK4qxZs3bs2MFPYvSFXAghiYmJq1atghpH2/jx48vKynyMYhZFUVGUqVOnPv/8826zMvmXL7/88po1ayRJ4qWqajV+AOu4cePef/99H30OzmdVVlbu2bNn586dx48fz8vLM5vNiqI4Ry6Kot1u/+c//zlu3LixY8d6Kn9Vq2m1Wn9//9atW/ft23fIkCHt2rXzheKdQ/rxxx+//fbbvXv38rKgdVtMTMyIESOmTZs2YMAA8OxmcRqUz507t3Tp0p07dxYUFHiPFxFF0eFwTJ48+f3337+uDzVjTdEooW6/Kcku/3LS8udaf/BKl09e7vgx/7zS+ZMX23749sB55/ZmMcaIu3spZbwkzfDhwxv6RmFhYXxtGGPnzp1rxJzMmjWLMcbJ94qBUUopdTgc8fHx9XYSGxtrs9mcEprHqas56zIjI2P27NktW7ast+fXX3/9xIkTjVturVY7YcKE33//3VkUxe2o+OSnpaUNHjzYdZMSr2y10nWmTZvGi3LV7Za/o8Ph+Mc//mE0Ghs05vvvv985pOuzNY1gijBiDCj5Q3biprzg2IB7Pr05YUi82eSgAiIIqIAsFiWoVdA9n97ctn9LSpjr+SWUMM6XnEuj0WgwxpIk+RIhzwPv7Xa78+geXtrP94B8WZb54zztOAihM2fOZGdne+mTV/DIy8s7efKkdx3ama/y9ttv9+jR46OPPsrOzubE6rZ/Pjyn2On7ewmCwPu02Wy//PLLiBEjJk2alJ+fz7m3Wy60fv36gQMHckGAo4UXKHdtHC08GwdjvHDhwsGDB2dlZdWqrecs7Dh+/Ph33nnHZDJ5ekG373v9n6vZZOodQoCFKyQEDiT/cMOUOeO63dLBbHYQjMwWpUWXiPu/GB/XLYoRhq8sk4CdaXZXaqINaiaTiVdSB4CCggLXLd/H5onuOWXs3buXC3KebucqEyFkz5494DkvjSOhqqpqwoQJL7/8cmVlJc/b4cTqNgHG2X9D34gQwvt07ikrV67s37//kSNHeIKD6zsKgrB79+7bbrutoqJCFEUnWryIM/x8AEmSUlJSxowZw+ffWU+Lj3bSpEmbNm2SZZnXvvPygm6Xg13H56VfWyMJB5LOX3P3u6P6T+lmqrK36Rc79YvxUe1DKWVNXmnEWcPaiaLCwkJounrNfI/YuXNnvbZXvuT8Si+hqBaLZezYsWvXruW14NzWVfRkh2j0FHHylSTp4sWLo0aNOn36tJN18G7Ly8vvu+8+h8PBFTzfO1cURZKk9PT0WbNmOfvkatLChQvXr18vSZLD4bie8XA9oqhG2GOyVpr476FPLZ300GfjQ6IDGGUYX6s4X86CnJalJoSoIAhWq/XAgQNQX+YzJ5SDBw+aTCa3NgBOW1OnTt2zZ48kSa4mBF9QdPWvoyiKKIqlpaX33HMPP3XPGaH35ptvZmVl+WjRcdvtihUrNmzYwEGIMbZare+9956n+qnNKPKZshlgASfc0NIYpLum8QccRZcvX3ZKdE2IIgA4deoUL1/onZS5wpObm5uWllZXGuGKx1dffbVq1SoOoYbaxJvEC8kLdBw7dmzevHkYY17cIysr66uvvnKrL/k+UQihN954w2kG3LZt24ULF+qdtGYU1UvdAAy4sepP8EM7UcR5UZOIEJwC9uzZ46OzhV+ze/fuWtyD7/eXL1/+5z//2ThibUJa5IQ+Z84ci8XCJc/FixebzWYfbeieTOQAcODAgYMHD/JJ2Lp1698l7vv6RhEAIMAY/TmhHBxFjLGioqKm5XJc1fGdd9VVjfg+MmfOnLKyMl/OifBEpk2IoszMzN27d3MBbPXq1Vd/YAkHz+rVq/k/T5069eeU0fp/gKI/pfGl4kYFu93uaiy6eqXIZDIdOnTIR27Arzly5AhHi9PQJAhCSUnJN99847uEwzdyTyVvvFNzvWyTB2ps374dANLT00+ePMkVJO/deh8Gv33btm0c8KWlpY3YsxqXpNCMoiZrXB0ym83FxcVNgiJOFmlpabm5uT5Sf/UBckVFx44dc/bAqWrdunXFxcW+MCKhpnac0+FLKeXGAB+5Vr2Mi3MJrr8dPnxYURS3h+e50je38nmP9AGA06dPZ2VlQQNjSZ2v7Oq9bUbRX8CLSkpKFEWprKysqqpqwm65kuO7E5Bv2Lt27XL2wL/59ddffdllOb0yxkJDQ+Pi4uLj49u1axcfHx8REeHdAM2f0r59+59++mnmzJm+PCsvLw8Ajh49Cj4Y8UeMGJGUlORFxeU7iM1m4+DU6/UNklcZY5IkybKs1WpFUfTkBL9+mvj3BQxCSK/Xm83muuReXl5uNpsrKipsNltdXuT2xobiwXfs8bu4UIcxNplMBw4ccNbj9aKDMcYmTpw4bdq0Dh06GAwGqebkvMDAwF0eDnV1vT0kJOS2227jztMlS5Z4qlXN+zSbzZRSHjDl6QV5D6NGjdq4cWNubm6/fv1yc3M9cVT+/alTp2699dYWLVr4wpE4C3r44YenTJni7+/Pdyu+ibjN9G7mRU3QBEHgh3jWXZ7KykqTycTjgNxK8FFRUQ1iRBjjsrKyI0eONAhFnLyOHTtWUFDgpLb09PS8vDzvGjyH3EcffbRy5cqRI0dGRUX5+flpNBqdTucsJO/L061WK6X01ltvrfdiSZLMZvPFixe9vCD//uGHH2aMRUdHT5gwod4zIDIyMgCge/fuvqwmY6xfv37z588fPHhwUlJSly5dunTpklRTsOV6VpD+xihCCEVERNRdaU6gxcXF3EBXd/YFQQgPD2+oUpSSklJYWNggqxonsvLyci4pcVZw+vRp78THt/yZM2c+88wzJpOJxxBwCUeSJC7e+EJSCCGNRsMY48DznvMXFBRks9m8GGO4NijLcufOnfk1vXr1qhdyXEEdMmQIf6l6h80X1GQyucYuNfr0oWYU+UTckZGRdTd1PuMlJSXctFB35bRabVhYmO/bWy3BrGHzizHU2Ls5/LjU5KUUMCEkMDDwxRdf5GW0NBpNrcBN33cZHsqZmppa78jbtGnjcDgqKiq8S4lhYWERERF8q4qLi6vXXFlcXMwL7fOkCS9j4OaK3bt3X7x4kQd9OyPHr39H098bRREREXXFZWcQUN3ABf6TTqdrEIoapxTVNUvwKme5ubn1Pmvw4MEtW7aklPJbGtdUVbVarYcOHfryyy+9RN/wSejVq5fNZuPXeHnH4OBgo9HILwgNDfUilzrVLYfDIYris88+693hzn8tLS299dZb09PTJUnyHgLbjKKmEecYY2FhYVqt1u0FOTk5HEV1V8LPzy8oKAh8rq+AMS4sLExOToaGxw04TeQ5OTkcEt6N73xIN9xww9VoAhwMqampiYmJ/fv3z8vL82Iv5oLWyJEjuTjnvV4+N3LwbwwGA598L+O0Wq3c2j5+/Pg777yTxxx5mSuMcWpqav/+/b/99ltnOkYziq5tCwoK4rnKdRcyNzfXEy/iG2qDYHD06NHy8nIvcTHebb5ms5m7azlh1fu4tm3bXr0+7XA4srKyvGsjTp2+Q4cOXsQ5V2HYuQVwVa3eMfCAVELIF1980b59ex6t5+X1BUEoLy9/6KGHJk+e7KNXrRlFjedFHEX+/v5uZYmLFy8644A8ocj3Wj/1KkXeDW7gEjrk3Q3K+2loNqiXR3sRupx+pFdeecVHNuvKSSRJ8sJY+EM5ijhLCQ8PX716dUREBD903Qsj5UlQy5cvHzRo0IULF65/IP29eZHRaAwJCamFByeKPEl0ERERvlfDcA0q9QKVDh06eMKkM4yV46fe81Gg6eJNvWci8TjuZ599duzYsRwVvvA35yCdBkPvA+DvIkmS3W7v0qXL2rVrIyMjvXMk7kzjqUrjxo0rKiq6+tC+ZhR5EzDq2gn4dGdmZtYN6OaXRUZG+ujC4yqvM8HBE3GLojh16lRPnhxnSsWFCxd8JFbvUl9TsSlCyIMPPvjee+9x37Qvc1KLkdbLzF0j7jQajc1m692796ZNmxITE+utRsJz/k6fPj1t2rRmFF1DiU6j0XAPQ10UmUwmThx1W1RUlO+V0wDg8OHDVVVVbpUi/tzAwMCbb77Zk92PR6Da7fb9+/c7VQvv4p93e8DVN54lPnXq1G+++YYHzgGAL/yZRx7xd+RZ6N4XSJIk16nmQOrateuWLVt69erlC5BEUVy7du2aNWuuJuWpGUX1YKmhUQgcRT6KTPUmfvMvW7dunZiYyCtUub2Mk9SOHTsAoK4IWrelpqb+Ca56bk5wxn3zaDfvlmubzcb1HACw2+2e9iln0+l0ruBECGm1WrvdHhkZuX79+j59+vDTGeoVBz7++GO4jsMX/j+iKDIy0kcU8T3bi1LE17Vr166MsaSkJE8r7VSNACA2NrZe7rd169a6R5U1YeNP2bhxY3Z2tjM8zxfLNQ9N5BdUVFTwWEQvg9Tr9VzQde1To9EoihIWFrZs2bJ6z1zjqt2hQ4cuXrx47Sbk/zWKGGMcRT5OLr8sPDzcxwQhhFBWVhYviOX2Ft7h0KFDBUEYNmyYp8v4l+fPn7906VLHjh29DJibei9cuLB06VKMceNqfXCibNmypSe+56whsWnTJufw/Pz8uNvAy9QVFRXx2o6MsUuXLnmJzXFGxPLYn1oF3GRZtlgs8fHxU6ZM8Z477Byqd9W0GUWNb4QQHhHny+RyDVWSpODgYF8kbGcFEpvN5inlhvfz0UcfjRgx4o033vAyEs7Wdu7c2aVLF+8D5qT50ksvnThxQqPRcDOxL4W+alFw27Zt6427+emnn6Am+DUgICAwMNATL3I6vs6ePcuFOp435V0ec0oKqE7jAiTHuS+v4z3evBlFTYAi38s5GI3G4OBgXwpEuSpF3js/evToli1bnH5VL6SwadOmNm3aeBdj+G5dVFQ0dOjQ+fPn81RZZ+M163w5y0wURW7C9iLU7d69Oycnh7MLrVbLpU1PA+OAWbp0Kff2LFu2zMt2wDvhRWRVVTVf2aqqqrKysr799tvPP/8cfMuBb8Lk/yZv4t8dRcHBwQaDwZdkIU58ISEhsiz76GEkhOzdu7deXud0bnrnMJxqRVHs06fPhg0bvBidOMaKiooeffTRV199tV27dn5+flzYs9vtkyZN4vHU3pvVah02bJhWq+WaTC3gcUnJbDavX79++vTpPDanXbt227Zt84QizoIWLVpkNBqzsrKOHz/uJUKHP45bXA4ePHjvvfe6lo8khJSUlDiNE75wGIvF0oyia4UiHhRnNpt93KG5PdpHFJ05c+bMmTP1LrOPCeRcy8rIyLjzzjvXr1/vy/UY47phtQkJCf3796/3iTabrU2bNn369Nm1a5cXxP7000/Tp0/nfKZHjx7eX5b7Qz/55BPnruRpqrkVu1OnThwAOTk5nqRcH4U0g8Fw3dLh31ui49szP7PeR/Hadz0KAPbv38/Te5qq/gljbMuWLRMmTDAYDPWWleMky8NheONZEnq93nfcjhs3zjv49+zZk5WVxe3RPXv29JQSW2t/qbc2AwC0bt2a8yK+HfAcB2dz5sP7OIHR0dHNKLpWKAIATxmvbhvPXvax+aIUNQhIXDUKDg7miaK+OH85llybj5TH2cuoUaN4loEnS53FYtmwYQMAKIrSuXPnhISEem0GvMp2vSLu4MGDnUY/34uhe1rlDh06wPXqMvrbW7qhJkHSx/nlkPOlW6vVum/fPmg66yrv9vDhwxaL5aWXXuIneTWCLHzkjVzi6tixI0/YrtdSx7NiJ0yYAFdd2ZyD5I477rj6SeOqV1hYWLdu3aDpSq43o6h289HxyinPF17EYXP69Onz5883YYoLx0xeXt6RI0e6dOny2GOPNa4oh4/nqPKRS5LEhTov7uC9e/devHhRlmXG2D333KPRaK6miDEHeefOnQcPHtzQ4sluewOA0aNHh4aGOsMmmlF0rVBU7/bsO+PiV+7bt6/eQC+3p+7USxP79+9njL3++utdu3b1nrjmRevwXagbPXq0J+tCLaHObrd37tx54sSJV1Nzh/PA2bNna7Xaq9yAeFcYY34uW3ME0DVpzhht38Vrbl3wJT2Bh73V22fdVi8+d+3ahRAKCAhYsWJFVFRUQ4Hku7WDa/BJSUmdOnXyXjKFC3XcuP/aa69xx3QjxCd+3tHgwYOnTJnSiA2ibm+EkEceeaRv377ekyn+2ib+z6DIO/nyXc1gMPgSDMqTF7ycsMJ7CwwMnDNnjtFodG7zvJTh7Nmz+Rl+bg9cAYAjR46Ul5cbjcYOHTqsW7fujjvuyMzMdJqtmpAXcUuARqMZO3bs8ePH3aa7OYW6zMzM1q1b2+32Nm3afPnll5MmTeK2Nd/5CT//IjIycsGCBaIoXo1hk5/PpyhKr1693nvvPWfgeTOKGj+hdat7un4ZEhLC188LeTlTGAICAurtVqvVnj9/nhcTditIcNpKTEycOnVq3WctWrRo+/btXsodFhYWHjt2bMiQIRaLpXv37jt37nzhhReWL1/u3ICd8WZup4KzCC8VT11/4hePHTuWH9Vc6xb+FFEUrVbrhg0bZs6cyR27d911V15e3jPPPMPH453HOoekKApPaG3Tpg3PDnJuCr4X3ea7iaqqiqL07t37p59+4vVSrudKQNe7ROd6tm7d03b5NSEhIdwlV+8ptoGBgc4Mcy/dyrK8e/duvnJu++G3d+vWjVJqNpvtNY1XGO3Zs6frYYy1muvZE7Is2+32qKiopUuXrlmzZuDAgVBjR3Z7pjL/0lk51dO5y87vocaz2atXr7Zt2zoPzKuFUv7Hjz/+yIlYkiSbzfb000//+OOPbdu25adN8q6chyK7/u20xQ8fPnz79u0DBgyw2+21khHrPSXa2Xjakk6ne+KJJzZu3NiiRYurrIXUzIvAuVS1RB2+0/P9yc/PLzIykp9a52nL5D9FR0dz96KTCGrtjvwbQggP1al1hrarZoIQ6tu3L8ZYo9E415g7Fvv168f/8HIvPweJ14sjhNhstgkTJowePfrAgQPbt28/dOjQhQsXioqKbDYbT9J2vZcP0ktAHe+Tj4rv63q9fvz48Z9++qkgCNxu5gohPrd79+49d+5cu3btePVGm812++23Dxw4cOHChd9//316eronaVOn0/Xp02fmzJm33XYbZ2W1Ev68j9a1BQcHJyQkDB48+LbbbuvevTsv2+B7ev9fJi5dz4m4hJDc3NzKykpPtNKiRQt/f39CSE5OjsViqTcCyN/fPzo6GiFUUlJSWFjoSeIKCgqy2+0Wi8WLGIMxjo2NNRqNtSQNSqnFYsnKyvJ+r1arbdWqlVPWp5TyQyl5hg+ltLKysrS01OFw1DIWY4zDwsL0en12drb3St8Gg6Fly5ZOXlFRUZGfn+/kcrU4A7+rffv2wcHBzvqyDocDISTLcnl5+cmTJ0+cOHH+/Pn8/PyKigqMcXBwcMuWLdu1a9e1a9f27dvzPFZexrUWF6qqqrp06ZIvKl9AQEBkZCQPdORovP4PGL/eUcS5jafcac5enMbQepVgpyDE//DkCHL+6j1nm9uO6zIcTqC1Du52q7fUTc7hh3Xz6ATOptxqblAT+uT7I/iVdbnBFWfCu+OchBBFUTDGrgyhlq7Ij4RBCEmS5FZ74cPwMaeLh9t7EQSaUdQYIHmJvXcSsY9xMTwmzXu3To28XqOfp1MWa6lt3kfiRRv0sn1whDToEc5X9hJC6pZwneqKq7rlOglcTfJe99THkJ+/1+FffxsUNbfr0N7TOJv7/3BrRlFza25X23DzFDS35taMoubW3P7i9n/5BN/muY9qdgAAAABJRU5ErkJggg==';
+const ICON = {
+  image: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
+  clock: '<svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  log: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h8M8 9h2"/></svg>',
+  sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>',
+  phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.5h2"/></svg>',
+  fsIn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
+  fsOut: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>',
+  undo: '<svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>',
+  redo: '<svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>',
+  lvup: '<svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V5M5 11l7-7 7 7"/></svg>',
+  hpDmg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M12.5 7.5 10.5 11l3 2-2 3.5"/></svg>',
+  hpHeal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M12 9.5v6M9 12.5h6"/></svg>',
+  hpTemp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6z"/><path d="M12 9v6M9 12h6"/></svg>',
+  desk: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M9 20h6M12 16v4"/></svg>',
+  hourglass: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9"/></svg>',
+  gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>'
+};
+// Toolbar buttons are generated straight into the user's saved order, so there is no default order to flash back to.
+function toolbarHTML() {
+  const items = {
+    undo: `<button class="tbtn" data-zi="undo" data-act="undo" id="undoBtn" title="Undo (Ctrl+Z)">${ICON.undo}<span class="tl"> Undo</span></button>`,
+    redo: `<button class="tbtn" data-zi="redo" data-act="redo" id="redoBtn" title="Redo (Ctrl+Y)">${ICON.redo}<span class="tl"> Redo</span></button>`,
+    history: `<button class="tbtn" data-zi="history" data-act="history" title="See every change and roll back by time">${ICON.clock}<span class="tl">History</span></button>`,
+    edit: `<button class="tbtn${UI.editLayout ? ' on' : ''}" data-zi="edit" data-act="editlayout" title="Rearrange, hide and move panels and tabs">${UI.editLayout ? '✓<span class="tl"> Done' + (isMobile() ? '' : ' editing') + '</span>' : '✥<span class="tl"> ' + (isMobile() ? 'Layout' : 'Edit layout') + '</span>'}</button>`,
+    settings: `<button class="tbtn" data-zi="settings" data-act="settings" title="Settings">${ICON.gear}<span class="tl">Settings</span></button>`,
+    save: `<div class="savegrp" data-zi="save"><span class="save-state${/synced|view only/i.test(UI.saveState || '') ? ' live' : ''}" id="saveState" title="${esc(UI.saveState || 'Auto-saves')}">${syncHTML(UI.saveState || 'Auto-saves')}</span></div>`,
+    rolllog: `<button class="devbtn logbtn" data-zi="rolllog" data-act="rolllog" title="Log — every roll, plus everything else that popped up" aria-label="Log">${ICON.log}</button>`,
+    device: `<button class="devbtn" data-zi="device" data-act="layout" title="${isMobile() ? 'Switch to desktop layout' : 'Switch to phone layout'}" aria-label="${isMobile() ? 'Desktop layout' : 'Phone layout'}">${isMobile() ? ICON.desk : ICON.phone}</button>`,
+    fullscreen: false ? `<button class="devbtn fsbtn" data-zi="fullscreen" data-act="fullscreen" title="${fsOn() ? 'Exit full screen' : 'Full screen'}" aria-label="${fsOn() ? 'Exit full screen' : 'Full screen'}">${fsOn() ? ICON.fsOut : ICON.fsIn}</button>` : '',
+  };
+  if (isMobile()) { delete items.edit; if (UI.editLayout) { UI.editLayout = false; document.body.classList.remove('editing'); const eb = $('#editbar'); if (eb) eb.remove(); } }  // no layout editing on phones
+  return zoneOrder('toolbar', Object.keys(items)).map(k => items[k]).join('');
+}
+// Saved order for a zone, with any ids the user hasn't placed yet kept in their default spot.
+function zoneOrder(zone, ids) {
+  const saved = ((S.layout || {}).zones || {})[zone] || [], out = saved.filter(id => ids.includes(id));
+  ids.forEach((id, i) => { if (out.includes(id)) return; const prev = ids.slice(0, i).reverse().find(x => out.includes(x)); out.splice(prev ? out.indexOf(prev) + 1 : 0, 0, id); });
+  return out;
+}
+function renderHeader() {
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const pic = S.portrait || PLACEHOLDER, xp = ST('advancement') === 'xp';
+  const idf = [ST('showPlayer') ? (window.SHEET_PAGES ? `<div class="fld"><span class="lbl">Player</span><span class="identtxt" title="Comes from the player list on your party page">${esc(S.player || '—')}</span></div>` : fld('Player', inp('player', { fit: 8, ph: 'Player' }))) : '', ST('showRace') ? `<div class="fld"><span class="lbl">Race</span><span class="identtxt" title="Change your race in Settings">${esc(S.raceName || '—')}</span></div>` : '', ST('showBackground') ? `<div class="fld"><span class="lbl">Background</span><span class="identtxt" title="Change your background in Settings">${esc(S.backgroundName || '—')}</span></div>` : '',
+    ST('showAlignment') ? fld('Alignment', sel('alignment', [['', '—']].concat(DND.alignments.map(a => [a, a])))) : '', ST('showFaith') ? fld('Faith', inp('faith', { ph: '—', fit: 8 })) : ''].join('');
+  $('#sec-header').innerHTML = `
+  <div class="banner-row"><div class="portrait-wrap"><img id="portraitImg" src="${esc(pic)}" alt="Portrait">
+    <label class="portrait-edit" tabindex="0" data-act="portrait">Change portrait</label></div>${inspHTML()}</div>
+  <div class="ident">
+    <div class="ident-top">
+      <img class="mini-portrait" src="${esc(pic)}" alt="" data-act="portrait">
+      <div class="namebox">${ST('showName') ? inp('name', { cls: 'name', label: 'Character name', ph: 'Character name', fit: 10 }) : ''}
+        <div class="subtitle" data-calc="subtitle"></div></div>
+      <div class="lvlbox${xpReady() ? ' ready' : ''}" id="lvlbox">
+        <div class="lvlnum"><span class="lbl">Level</span><b data-calc="lvl"></b></div>
+        <div class="lvlright">${(() => { const n = owedChoices().length; return n ? `<button class="btn gold lvbtn owed" data-act="pending" title="Choices from leveling up that still need picking">⚠ ${n} Unfinished choice${n === 1 ? '' : 's'}</button>` : `<button class="btn gold lvbtn" data-act="levelup" ${totalLevel() >= 20 ? 'disabled' : ''}>${ICON.lvup} Level Up</button>`; })()}
+          ${xp ? `<div class="xprow"><span class="lbl">XP</span>${inp('xp', { num: 1, cls: 'xpin', label: 'Experience points' })}<span class="xpof" data-calc="xpnext"></span>
+            <input class="f xpadd" id="xpAdd" type="number" inputmode="numeric" placeholder="+ award" aria-label="Award XP"><button class="btn sm" data-act="addxp">Add</button></div><div class="xpbar" data-calc-html="xpbar"></div>` : '<span class="hint mile">Milestone leveling</span>'}</div>
+      </div>
+      <div class="toolbar" data-ordered data-zone="toolbar">${toolbarHTML()}</div>${inspHTML(true)}
+    </div>
+    <div class="ident-grid">${idf}</div>
+  </div>`;
+}
+
+function renderVitals() {
+  const f = S.form;
+  $('#sec-vitals').dataset.zone = 'vitals'; $('#sec-vitals').dataset.axis = 'x';
+  // One-time move of the d20 rolls tile to just left of Conditions in a layout that was saved before.
+  const vz = ((S.layout || {}).zones || {}).vitals; if (Array.isArray(vz) && !S.layout.advMoved) { const a = vz.indexOf('advdis'), c = vz.indexOf('conds'); if (a > -1 && c > -1 && a !== c - 1) { vz.splice(a, 1); vz.splice(vz.indexOf('conds'), 0, 'advdis'); } S.layout.advMoved = true; }
+  const strip = `<button class="mstrip" data-act="gocore" aria-label="Hit points and armor class — open Core"><span class="ms-hp">♥ <b data-calc="mhp"></b></span><span>AC <b data-calc="acv"></b></span><span>Init <b data-calc="init"></b></span><span>Speed <b data-calc="speed"></b></span><span class="ms-go">Core ›</span></button>`;
+  $('#sec-vitals').innerHTML = `${strip}
+  <div class="tile hp" data-zi="hp">
+    <span class="lbl">${f ? esc(f.source || 'Form') + ': ' + esc(f.name) : '<span class="ciw">Hit Points' + ciBtn('hp', 'max HP') + '</span>'}</span>
+    <div class="hp-wrap">
+      <div class="hp-ring"><div class="ring-svg" data-calc-html="hpring"></div>
+        <div class="hp-center">${f ? inp('form.hp', { num: 1, cls: 'cur', label: 'Form HP' }) + `<div class="hp-max">of ${N(f.maxhp)}</div>` : `<div class="curline">` + inp('hp.cur', { num: 1, cls: 'cur', label: 'Current HP' }) + `<span class="tmpbadge" data-calc="tmpb" title="Temporary hit points"></span></div><div class="hp-max">of <span class="maxv" data-calc="hpmaxv"></span></div>`}</div></div>
+      <div class="hp-side">
+        ${f ? `<div class="formnote">Your HP: <b data-calc="truehp"></b> <button class="btn sm" data-act="endform">Revert</button></div>` : ''}
+        <div class="hp-actions"><input class="f" id="hpAmt" type="number" inputmode="numeric" placeholder="Amount" aria-label="HP amount">
+          <button class="btn red hpi" data-act="dmg" title="Take damage" aria-label="Take damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="heal" title="Heal" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmpbtn" data-act="tmphp" title="Gain temporary HP (they don't stack — the higher stays). 0 clears them." aria-label="Gain temporary HP">${ICON.hpTemp}</button></div>
+        <div class="rest-actions"><button class="btn rest short" data-act="short" title="1 hour: spend Hit Dice, refresh short-rest features and Pact slots"><span class="ri">${ICON.hourglass}</span>Short Rest</button><button class="btn rest long" data-act="long" title="8 hours: full HP, all slots, features and Hit Dice"><span class="ri">${ICON.moon}</span>Long Rest</button></div>
+      </div>
+    </div>
+    ${f ? '' : '<button class="tmanage hpman" data-act="hpmanage">Manage</button>'}
+  </div>
+  <div class="tile ac" data-zi="ac"><span class="lbl"><span class="ciw top">Armor Class${ciBtn('ac', 'your AC')}</span></span><button class="tmanage" data-act="acmanage">Manage</button><span class="big acv" data-calc="acv"></span><div class="ac-fx" data-calc-html="aceffects"></div></div>
+  <div class="tile" data-zi="init"><span class="lbl"><span class="ciw top">Initiative${ciBtn('init', 'initiative')}</span></span>${rollBtn('init', 'Initiative', 'big')}</div>
+  <div class="tile" data-zi="speed" data-calc-title="speedtip"><span class="lbl"><span class="ciw top">Speed${ciBtn('speed', 'speed')}</span></span><span class="big" data-calc="speed"></span><span class="sub" data-calc="speedx"></span></div>
+  <div class="tile" data-zi="prof"><span class="lbl"><span class="ciw top">Proficiency${ciBtn('prof', 'proficiency')}</span></span><span class="big" data-calc="prof"></span></div>
+  <div class="tile" data-zi="passive"><span class="lbl"><span class="ciw top">Passive<br>Perception${ciBtn('passive', 'passive Perception')}</span></span><span class="big" data-calc="passive"></span><span class="sub senses" data-calc="senses"></span></div>
+  <div class="tile" data-zi="hd"><span class="lbl"><span class="ciw top">Hit Dice${ciBtn('hd', 'hit dice')}</span></span><span class="big" data-calc="hd"></span><span class="sub" data-calc="hdpools"></span></div>
+  <div class="tile deathtile" data-zi="death"><span class="lbl">Death Saves</span><div class="death" data-calc-html="death"></div></div>
+  <div class="tile condtile" data-zi="conds"><div class="tilehead"><span class="lbl">Conditions</span><button class="addc" data-act="conditions">+ Add</button><span class="advbtns" role="group" aria-label="All d20 rolls"><button class="advb adv${S.rollAdv === 'adv' ? ' on' : ''}" data-act="rolladv" data-v="adv" aria-pressed="${S.rollAdv === 'adv'}" title="Advantage on every attack, check and save"><span class="al">Advantage</span><span class="as">Adv</span></button><button class="advb dis${S.rollAdv === 'dis' ? ' on' : ''}" data-act="rolladv" data-v="dis" aria-pressed="${S.rollAdv === 'dis'}" title="Disadvantage on every attack, check and save"><span class="al">Disadvantage</span><span class="as">Dis</span></button></span></div><div class="condchips" data-calc-html="conds"></div></div>
+  <div class="tile fxtile" data-zi="effects"><div class="tilehead"><span class="lbl">Active spells &amp; effects</span><span class="hint" data-calc="concnote"></span></div><div class="fxchips" data-calc-html="fxchips"></div></div>
+`;
+}
+
+const TABS0 = [['core', 'Core'], ['combat', 'Combat'], ['spells', 'Spells'], ['features', 'Features'], ['inventory', 'Inventory'], ['infusions', 'Infusions'], ['companions', 'Creatures'], ['story', 'Story'], ['notes', 'Notes']];
+function tabOrder() {
+  const all = TABS0.concat(ctabs().map(t => [t.key, t.name])), L = (S.layout && S.layout.tabs) || [], keys = all.map(t => t[0]);
+  return L.filter(k => keys.includes(k)).concat(keys.filter(k => !L.includes(k))).map(k => all.find(t => t[0] === k));
+}
+// Tabs and panels a character has no use for hide themselves (no spellcasting → no Spells tab or slot panels; no Infuse Item → no Infusions tab).
+// Edit layout can still show them: that choice is kept in layout.shownTabs / layout.shown.
+const noSpells = () => !casters().length && !(S.spells || []).length && !pact();
+const tabAutoHidden = k => (k === 'infusions' && clsLv('artificer') < 2) || (k === 'spells' && noSpells());
+// No slots at all (no casting class, pact or stored spells): the Spell Slots panels step aside and Active Spells takes the room.
+const noSlots = () => !casters().length && !pact() && ![0, 1, 2, 3, 4, 5, 6, 7, 8].some(k => slotMax(k) > 0) && !(S.spells || []).some(s => s.usesOnly);
+const panelAutoHidden = id => (['slots', 'activefx'].includes(id) && noSpells()) || (id === 'slots' && noSlots());
+const tabHidden = k => ((S.layout && S.layout.hiddenTabs) || []).includes(k) || (tabAutoHidden(k) && !((S.layout && S.layout.shownTabs) || []).includes(k));
+const panelHidden = id => ((S.layout && S.layout.hidden) || []).includes(id) || (panelAutoHidden(id) && !((S.layout && S.layout.shown) || []).includes(id));
+// Icons for the phone's bottom tab bar.
+const _ti = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const TAB_ICON = {
+  core: _ti('<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>'),
+  combat: _ti('<path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6M16 16l4 4M19 21l2-2"/>'),
+  spells: _ti('<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'),
+  features: _ti('<path d="M12 2l3 6.5 7 .8-5.2 4.8 1.4 7L12 17.6 5.8 21l1.4-7L2 9.3l7-.8z"/>'),
+  inventory: _ti('<path d="M6 8h12l1 13H5z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>'),
+  infusions: _ti('<path d="M9 3h6M10 3v5L4.5 18A2 2 0 0 0 6.3 21h11.4a2 2 0 0 0 1.8-3L14 8V3"/><path d="M7.5 14h9"/>'),
+  companions: _ti('<circle cx="5.5" cy="10" r="2"/><circle cx="9.5" cy="5.5" r="2"/><circle cx="14.5" cy="5.5" r="2"/><circle cx="18.5" cy="10" r="2"/><path d="M12 12c-3 0-5 3-5 5.5 0 2 1.5 3 3 2.5l2-.6 2 .6c1.5.5 3-.5 3-2.5 0-2.5-2-5.5-5-5.5z"/>'),
+  story: _ti('<path d="M4 4h6a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4z"/><path d="M20 4h-6a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h6z"/>'),
+  notes: _ti('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>')
+};
+function renderTabs() {
+  const ed = !!UI.editLayout, tabs = tabOrder();
+  if (tabHidden(UI.tab) && !ed) UI.tab = (tabs.find(t => !tabHidden(t[0])) || tabs[0])[0];
+  document.documentElement.dataset.tab = UI.tab;
+  $('#tabs').innerHTML = tabs.map(([k, t], j) => {
+    const hid = tabHidden(k); if (hid && !ed) return '';
+    const label = (S.layout && S.layout.tabNames && S.layout.tabNames[k]) || t;
+    return `<div class="tabwrap${hid ? ' hid' : ''}" data-tabkey="${k}">${ed ? '<span class="tgrip" data-handle="tab" title="Drag to reorder">⠿</span>' : ''}<button class="tab${UI.tab === k ? ' on' : ''}" role="tab" aria-selected="${UI.tab === k}" data-act="tab" data-tab="${k}"><span class="ticon" aria-hidden="true">${TAB_ICON[k] || (isCustomTab(k) ? `<span class="cticon">${esc((ctabs().find(t => t.key === k) || {}).icon || '★')}</span>` : TAB_ICON.notes)}</span><span class="tlabel">${esc(label)}</span>${k === 'companions' && (S.companions.length || S.form) ? ` <span class="tabcount">${S.companions.length + (S.form ? 1 : 0)}</span>` : ''}</button>${ed ? `<div class="menu tabmenu"><button class="pmenu" data-act="menu" title="Tab options">⋯</button><div class="menu-list"><button data-act="tabrename" data-k="${k}">Rename tab</button><button data-act="tabhide" data-k="${k}">${hid ? 'Show tab' : 'Hide tab'}</button><button data-act="tabmove" data-k="${k}" data-d="-1" ${j ? '' : 'disabled'}>Move left</button><button data-act="tabmove" data-k="${k}" data-d="1" ${j < tabs.length - 1 ? '' : 'disabled'}>Move right</button>${isCustomTab(k) ? `<button data-act="ctabdel" data-k="${k}">Delete tab</button>` : ''}</div></div>` : ''}</div>`;
+  }).join('') + '<span class="tab-ind" aria-hidden="true"></span>';
+  tabOrder().forEach(([k]) => { const pg = $('#page-' + k); if (pg) pg.classList.toggle('on', UI.tab === k); });
+  slideTabInd();
+}
+// The highlight under the selected tab slides from the previous tab to the new one.
+let _tabIndPrev = null;
+function slideTabInd() {
+  const bar = $('#tabs'), ind = bar && bar.querySelector('.tab-ind'), on = bar && bar.querySelector('.tab.on');
+  if (!ind || !on || !bar.offsetWidth) return;
+  const br = bar.getBoundingClientRect(), r = on.getBoundingClientRect();
+  const to = { x: r.left - br.left + bar.scrollLeft, y: r.top - br.top, w: r.width, h: r.height };
+  const set = p => { ind.style.transform = `translate(${p.x}px, ${p.y}px)`; ind.style.width = p.w + 'px'; ind.style.height = p.h + 'px'; };
+  // Only slide when you actually switch tabs. Page loads, re-renders and resizes snap it straight into place.
+  const anim = _tabIndPrev && _tabIndKey && _tabIndKey !== UI.tab && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  ind.style.transition = 'none';
+  if (anim) { set(_tabIndPrev); void ind.offsetWidth; ind.style.transition = ''; set(to); }
+  else { set(to); void ind.offsetWidth; }
+  _tabIndPrev = to; _tabIndKey = UI.tab;
+}
+let _tabIndKey = null;
+addEventListener('resize', () => slideTabInd());
+// Fonts or layout settling after load can shift the tabs; re-snap without animating.
+addEventListener('load', () => slideTabInd());
+
+const atkBtn = (i, short) => `<button class="btn gold sm atkbtn" data-act="attack" data-i="${i}" title="Roll to hit and damage; a natural 20 doubles the damage dice">⚔${short ? '' : ' Attack'}</button>`;
+const AB_ATK = [['str', 'STR'], ['dex', 'DEX'], ['fin', 'Finesse (best)'], ['monk', 'Monk (best)'], ['spell', 'Spellcasting'], ['int', 'INT'], ['wis', 'WIS'], ['cha', 'CHA'], ['', '—']];
+function formAttacksHTML() {
+  if (!S.form) return '';
+  return `<div class="formatk"><div class="sect">${esc(S.form.name)} attacks</div>${(S.form.attacks || []).map((a, j) => `<div class="fa-row"><b>${esc(a[0])}</b><button class="roll" data-act="crroll" data-who="form" data-j="${j}" data-what="hit">${a[1] === '' ? 'save' : fmt(N(a[1]))}</button><button class="roll" data-act="crroll" data-who="form" data-j="${j}" data-what="dmg">${esc(a[2] || '—')}</button><span class="muted">${esc(a[3] || '')}</span></div>`).join('')}</div>`;
+}
+// Attacks from inventory weapons only show while that weapon is equipped.
+const atkShown = a => { if (!a.item) return true; const it = S.inventory.find(x => x.id === a.item); return !it || !!it.equipped; };
+const ammoItem = a => a && a.ammo ? S.inventory.find(it => it.id === a.ammo) : null;
+// Compact attack rows: name, hit, damage and the attack button; tap the name to edit everything else.
+function attacksHTML() {
+  const stowed = S.attacks.filter(a => !atkShown(a)).length;
+  return formAttacksHTML() + `<div class="atk-list">${S.attacks.map((a, i) => {
+    if (!atkShown(a)) return '';
+    const open = UI.open['atk:' + i], am = ammoItem(a), wit = a.item && S.inventory.find(x => x.id === a.item), hasTip = String(a.notes || '').trim() || (wit && (String(wit.notes || '').trim() || wit.hb));
+    return `<div class="atk-row${open ? ' open' : ''}">
+      <span class="atk-namewrap"><button class="atk-name" data-act="toggle" data-key="atk:${i}" aria-expanded="${!!open}" title="Edit">${esc(a.name)} <span class="caret">${open ? '▴' : '▾'}</span></button>${hasTip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(a.name)}">ⓘ</button>` : ''}${wit && wit.attune ? `<span class="tag${wit.attuned ? ' oath' : ''}" title="${wit.attuned ? 'Attuned' : 'Needs attunement'}">${wit.attuned ? '◆' : '◇'}</span>` : ''}</span>${String(a.notes || '').trim() && !open ? `<div class="atk-notes mnote">${esc(a.notes)}</div>` : ''}${wit && wit.hb && !open && hbSummary(wit.hb, wit).length ? `<div class="atk-notes mnote hbn">⚙ ${esc(hbSummary(wit.hb, wit).join(' · '))}</div>` : ''}
+      <span class="atk-hit">${rollBtn('atk:' + i, a.name + ' attack')}</span>
+      <span class="atk-dmg">${rollBtn('dmg:' + i, a.name + ' damage')}</span>
+      <span class="atk-type muted">${esc(a.type || '')}${am ? `<b class="ammo" title="${esc(am.name)}" data-calc="ammo:${i}"></b>` : ''}</span>
+      ${atkBtn(i, isMobile())}
+      ${open ? `<div class="atk-edit">${fld('Name', inp(`attacks.${i}.name`, { fit: 10 }))}${fld('Ability', sel(`attacks.${i}.ab`, AB_ATK))}
+        ${fld('Damage dice', inp(`attacks.${i}.dice`, { fit: 5 }))}${fld('Magic +', inp(`attacks.${i}.magic`, { num: 1, cls: 'sm' }))}
+        ${fld('Damage type', inp(`attacks.${i}.type`, { fit: 8 }))}${fld('Kind', sel(`attacks.${i}.kind`, [['melee', 'Melee'], ['ranged', 'Ranged']]))}
+        ${fld('Uses ammo', sel(`attacks.${i}.ammo`, [['', '— none —']].concat(S.inventory.map(it => [it.id, it.name]))))}
+        ${a.item ? `<label class="checkline" title="Comes from your weapon proficiencies (Core → Proficiencies). Tick to force proficiency for this weapon only.">${chk(`attacks.${i}.profForce`, 'Always proficient')} Force proficient <span class="hint">(${attackProf(a) ? 'proficient' : 'not proficient'})</span></label>` : `<label class="checkline">${chk(`attacks.${i}.prof`, 'Proficient')} Proficient</label>`}
+        <div class="span2">${fld('Notes', inp(`attacks.${i}.notes`, { ph: 'range, properties…' }))}</div>
+        <div class="span2" style="text-align:right"><button class="btn red sm" data-act="del" data-list="attacks" data-i="${i}">Remove attack</button></div></div>` : ''}
+    </div>`;
+  }).join('') || '<p class="hint">No attacks yet. Weapons you add in Inventory appear here automatically.</p>'}</div>${stowed ? `<p class="hint" style="margin:4px 0 0">${stowed} weapon${stowed > 1 ? 's' : ''} in your pack — equip ${stowed > 1 ? 'them' : 'it'} in Inventory to attack.</p>` : ''}`;
+}
+// Proficiencies as real toggles and lists: armor and weapon proficiency change your rolls, tools can be rolled.
+const toolBonus = t => mod(t.ab || toolAb(t.name)) + PB() * (t.exp ? 2 : 1);
+// Read-only summary on the sheet; "Manage" opens the full editor.
+const ARMOR_L = { light: 'Light armor', medium: 'Medium armor', heavy: 'Heavy armor', shield: 'Shields' };
+// Situational edges (advantage notes, Evasion-style riders…) as a tidy list: name on top, what it does underneath.
+function perksHTML(list) {
+  if (!list || !list.length) return '';
+  const groups = [];
+  list.forEach(x => { const m = String(x.t).match(/^([^:(]{2,40}):\s*(.+)$/); let name = '', desc = x.t, src = x.src.slice();
+    if (m) { name = m[1]; desc = m[2]; src = src.filter(s => s.toLowerCase() !== name.toLowerCase()); } else if (src.length === 1) { name = src[0]; src = []; }
+    if (!m && !/advantage/i.test(desc) && /^(saves?\b|death saves|concentration saves|(STR|DEX|CON|INT|WIS|CHA)\b|checks?\b|ability checks|initiative|attack rolls)/i.test(desc)) desc = 'Advantage on ' + (/^[A-Z][a-z]/.test(desc) ? desc.charAt(0).toLowerCase() + desc.slice(1) : desc);
+    if (/^Advantage on saves vs spells$/i.test(desc) && S.race && S.race.key === 'yuanti_volo') desc += ' and other magical effects';
+    desc = desc.charAt(0).toUpperCase() + desc.slice(1);
+    let g = name && groups.find(g => g.name === name); if (!g) groups.push(g = { name, src: [], d: [] });
+    src.forEach(z => { if (!g.src.includes(z)) g.src.push(z); }); g.d.push(desc); });
+  const items = groups.map(g => `<div class="perk">${g.name ? `<b class="perk-n">${esc(g.name)}</b>` : ''}${g.src.length ? `<span class="perk-src">${esc(g.src.join(', '))}</span>` : ''}${g.d.map(d => `<span class="perk-d">${esc(d)}</span>`).join('')}</div>`).join('');
+  return `<div class="pvrow pvperks"><span class="pvl">Perks</span><div class="pvv perklist">${items}</div></div>`;
+}
+function profsHTML() {
+  const P = S.profs, bad = armorNonProf();
+  const badge = (t, cls = '') => `<span class="pbadge${cls}">${esc(t)}</span>`;
+  const armor = ['light', 'medium', 'heavy', 'shield'].filter(c => (P.armor || []).includes(c)).map(c => badge(ARMOR_L[c])).join('');
+  const weap = [].concat((P.weapons || []).includes('simple') ? [badge('Simple weapons')] : [], (P.weapons || []).includes('martial') ? [badge('Martial weapons')] : [], (P.weaponNames || []).map(n => badge(n, ' alt'))).join('');
+  const tools = (S.tools || []).map((t, i) => `<div class="pvtool"><span class="tname">${esc(t.name)}${t.exp ? ' <span class="pstar" title="Expertise">★</span>' : ''}</span><span class="ab3">${AB3[t.ab || toolAb(t.name)]}</span><button class="roll" data-roll="tool:${i}" data-calc="toolb:${i}" title="Roll ${esc(t.name)}">${fmt(toolBonus(t))}</button></div>`).join('');
+  const langs = (S.langs || []).map(l => badge(l)).join('');
+  const none = '<span class="hint">None</span>';
+  return `<div class="pview">
+    <div class="pvrow"><span class="pvl">Armor</span><div class="pvv">${armor || none}</div></div>
+    <div class="pvrow"><span class="pvl">Weapons</span><div class="pvv">${weap || none}</div></div>
+    <div class="pvrow"><span class="pvl">Tools</span><div class="pvv pvtools">${tools || none}</div></div>
+    <div class="pvrow"><span class="pvl">Languages</span><div class="pvv">${langs || none}</div></div>
+    ${(() => { const d = defensesDetail(), rows = [['Resistant', d.resist], ['Immune', d.immune]].filter(x => x[1].length); return rows.map(([l, v]) => `<div class="pvrow"><span class="pvl">${l}</span><div class="pvv">${v.map(x => `<span class="pbadge defb${l === 'Advantage' ? ' alt' : ''}" title="${esc(x.t + (x.src.length ? ' — from ' + x.src.join(', ') : ''))}">${esc(x.t)}${x.src.length ? `<small class="dsrc">${esc(x.src.join(', '))}</small>` : ''}</span>`).join('')}</div></div>`).join(''); })()}
+    ${perksHTML(defensesDetail().adv)}
+    ${bad.length ? `<p class="warn sm">Wearing ${esc(bad.join(', '))} without proficiency: disadvantage on STR/DEX checks, saves and attacks, and no spellcasting.</p>` : ''}</div>`;
+}
+// The detailed editor shown in the Manage window.
+function profsManageInner() {
+  const P = S.profs, bad = armorNonProf();
+  const tog = (act, v, on, label, sub) => `<button class="ptog big${on ? ' on' : ''}" data-act="${act}" data-v="${v}" aria-pressed="${on}"><span class="pt-check">${on ? '✓' : ''}</span><span><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</span></button>`;
+  const addSel = (id, label, opts) => `<select class="f addsel" id="${id}" aria-label="${esc(label)}"><option value="">+ ${esc(label)}…</option>${opts.map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select>`;
+  const other = (k, ph) => `<span class="pother"><input class="f" id="pother-${k}" placeholder="${ph}" aria-label="${ph}"><button class="btn sm" data-act="profother" data-k="${k}">Add</button></span>`;
+  const weapNames = (P.weaponNames || []).map((n, i) => `<span class="pchip">${esc(n)}<button data-act="pwdel" data-i="${i}" aria-label="Remove ${esc(n)}">✕</button></span>`).join('');
+  const tools = (S.tools || []).map((t, i) => `<div class="toolrow"><span class="tname">${esc(t.name)}</span>
+      <select class="f tab" data-k="tools.${i}.ab" aria-label="Ability for ${esc(t.name)}">${AB.map(a => `<option value="${a}"${(t.ab || toolAb(t.name)) === a ? ' selected' : ''}>${AB3[a]}</option>`).join('')}</select>
+      <button class="ptog sm${t.exp ? ' on' : ''}" data-act="toolexp" data-i="${i}" title="Expertise doubles your proficiency bonus">${t.exp ? '★ Expertise' : '☆ Proficient'}</button>
+      <button class="roll" data-roll="tool:${i}" data-calc="toolb:${i}" title="Roll ${esc(t.name)}">${fmt(toolBonus(t))}</button>
+      <button class="icon-btn" data-act="tooldel" data-i="${i}" aria-label="Remove ${esc(t.name)}">✕</button></div>`).join('');
+  const langs = (S.langs || []).map((l, i) => `<span class="pchip">${esc(l)}<button data-act="langdel" data-i="${i}" aria-label="Remove ${esc(l)}">✕</button></span>`).join('');
+  return `<div class="pm-head"><h3>Proficiencies &amp; Languages</h3><button class="btn gold" data-act="close">Done</button></div>
+    <div class="pm-grid">
+    <section class="pmsec"><h4>Armor</h4><p class="hint">Armor you aren't trained with gives disadvantage on STR/DEX checks, saves and attacks, and stops you casting spells.</p>
+      <div class="ptgrid">${['light', 'medium', 'heavy'].map(c => tog('parmor', c, (P.armor || []).includes(c), ARMOR_L[c], { light: 'Padded, leather, studded', medium: 'Hide, chain shirt, scale, breastplate, half plate', heavy: 'Ring, chain mail, splint, plate' }[c])).join('')}${tog('parmor', 'shield', (P.armor || []).includes('shield'), 'Shields', '+2 AC')}</div>
+      ${bad.length ? `<p class="warn sm">Currently wearing ${esc(bad.join(', '))} without proficiency.</p>` : ''}</section>
+    <section class="pmsec"><h4>Weapons</h4><p class="hint">Attacks with these weapons add your proficiency bonus (${fmt(PB())}).</p>
+      <div class="ptgrid two">${tog('pweap', 'simple', (P.weapons || []).includes('simple'), 'Simple weapons', 'Clubs, daggers, spears, light crossbows…')}${tog('pweap', 'martial', (P.weapons || []).includes('martial'), 'Martial weapons', 'Swords, axes, longbows…')}</div>
+      <div class="ptogs" style="margin-top:8px">${weapNames}${addSel('addWeapon', 'Add a specific weapon', DND.weapons.map(w => w[0]).filter(n => !(P.weaponNames || []).includes(n)))}${other('weapon', 'Other weapon…')}</div></section>
+    <section class="pmsec"><h4>Tools</h4><p class="hint">Choose the ability each tool rolls with. Expertise doubles your proficiency bonus.</p>
+      <div class="tools">${tools || '<span class="hint">No tool proficiencies.</span>'}</div>
+      <div class="ptogs" style="margin-top:8px">${addSel('addTool', 'Add a tool', ALL_TOOLS().filter(n => !(S.tools || []).some(t => t.name === n)))}${other('tool', 'Other tool…')}</div></section>
+    <section class="pmsec"><h4>Languages</h4>
+      <div class="ptogs">${langs || '<span class="hint">None</span>'}</div>
+      <div class="ptogs" style="margin-top:8px">${addSel('addLang', 'Add a language', ALL_LANGS().filter(n => !(S.langs || []).includes(n)))}${other('lang', 'Other language…')}</div></section>
+    </div>`;
+}
+function openProfs() {
+  const html = `<div id="profmodal">${profsManageInner()}</div>`;
+  if ($('#profmodal') && $('#modal').classList.contains('open')) $('#profmodal').innerHTML = profsManageInner(); else { openModal(html, () => render('core'), true); $('#modal-body').classList.add('xwide'); }
+}
+function renderCore() {
+  const swap = ST('abilityStyle') === 'score';
+  const abil = AB.map(a => `
+    <div class="ab${swap ? ' swap' : ''}" data-zi="${a}"><span class="lbl"><span class="ciw top">${ABN[a]}${ciBtn('abil:' + a, ABN[a])}</span></span>
+      <button class="modbtn" data-calc="mod:${a}" data-roll="mod:${a}" aria-label="Roll ${ABN[a]} check"></button>
+      <span class="f score scoreview" title="${ABN[a]} score — change it with Manage">${esc(S.abilities[a] === '' ? '—' : S.abilities[a])}</span><span class="effscore" data-calc="eff:${a}"></span>
+      <div class="saverow"><span class="saveprof${S.saves[a] ? ' on' : ''}" title="${S.saves[a] ? 'Proficient in ' + ABN[a] + ' saves' : 'Not proficient'}" aria-label="${S.saves[a] ? 'Proficient' : 'Not proficient'}"></span> Save ${rollBtn('save:' + a, ABN[a] + ' save')}${ciBtn('save:' + a, ABN[a] + ' save')}</div>
+    </div>`).join('');
+  const skills = S.skills.map((s, i) => `
+    <div class="sk"><span class="profbtn locked p${N(s.prof)}" title="${['Not proficient', 'Proficient', 'Expertise'][N(s.prof)]} — change it with Manage" aria-label="${esc(s.name)}: ${['not proficient', 'proficient', 'expertise'][N(s.prof)]}"></span>
+      <span class="sk-hit" title="Roll ${esc(s.name)}">${rollBtn('skill:' + i, s.name)}<span class="skn"><span class="ciw">${esc(s.name)}${ciBtn('skill:' + i, s.name)}</span></span></span><span class="sktmp" data-calc="sktmp:${i}" title="Temporary change from Conditions"></span><span class="ab3">${s.ab}</span>
+      ${s.note ? `<span class="sknote">${esc(s.note)}</span>` : ''}</div>`).join('');
+  $('#page-core').innerHTML = `
+  <div class="core">
+    <div class="panel" ${PID('abilities')}><h2><span class="grow">Abilities &amp; Saves</span><button class="btn sm" data-act="manageabil">Manage</button></h2><div class="abilities" data-zone="abil">${abil}</div>
+      <p class="hint" style="margin:10px 0 0">Tap any bonus to roll it. Conditions like poisoned or exhaustion apply to your rolls automatically.${auraBonus() ? ' Saves include your Aura of Protection.' : ''}</p></div>
+    <div class="panel" ${PID('skills')}><h2><span class="grow">Skills</span><button class="btn sm" data-act="manageskills">Manage</button></h2><div class="skills">${skills}</div>
+      <div class="passive"><span><span class="ciw">Passive Perception${ciBtn('passive', 'passive Perception')}</span></span><span data-calc="passive"></span></div></div>
+    <div class="stack col3">
+      <div class="panel" ${PID('profs')}><h2><span class="grow">Proficiencies &amp; Languages</span><button class="btn sm" data-act="manageprofs">Manage</button></h2>${profsHTML()}</div>
+    </div>
+  </div>`;
+}
+
+// ---------- Roll log ----------
+// Every roll card is also written here with its full breakdown (kept per character in this browser, newest first).
+let ROLLLOG = [];
+const rollLogKey = () => 'dnd-rolllog:' + (S && S.id || 'blank');
+function loadRollLog() { try { ROLLLOG = JSON.parse(localStorage.getItem(rollLogKey()) || '[]'); } catch (e) { ROLLLOG = []; } }
+function saveRollLog() { try { localStorage.setItem(rollLogKey(), JSON.stringify(ROLLLOG.slice(0, 300))); } catch (e) {} }
+function logRoll(html, cls) { if (!ROLLLOG.length) loadRollLog(); ROLLLOG.unshift({ t: Date.now(), html, cls: cls || '' }); ROLLLOG = ROLLLOG.slice(0, 300); saveRollLog(); if ($('#rolllogmodal') && $('#modal').classList.contains('open')) openRollLog(); }
+// Everything else that pops up (spell cast notes, turn changes, warnings…) goes in the second tab.
+let EVLOG = [], EVLOADED = false;
+const evLogKey = () => 'dnd-evlog:' + (S && S.id || 'blank');
+function loadEvLog() { EVLOADED = true; try { EVLOG = JSON.parse(localStorage.getItem(evLogKey()) || '[]'); } catch (e) { EVLOG = []; } }
+function saveEvLog() { try { localStorage.setItem(evLogKey(), JSON.stringify(EVLOG.slice(0, 300))); } catch (e) {} }
+function logEvent(html, cls) { if (!EVLOADED) loadEvLog(); const clean = String(html).replace(/<button[^>]*>.*?<\/button>/g, ''); if (!clean.replace(/<[^>]*>/g, '').trim()) return; EVLOG.unshift({ t: Date.now(), html: clean, cls: cls || '' }); EVLOG = EVLOG.slice(0, 300); saveEvLog(); if ($('#rolllogmodal') && $('#modal').classList.contains('open')) openRollLog(); }
+function openRollLog() {
+  if (!ROLLLOG.length) loadRollLog(); if (!EVLOADED) loadEvLog();
+  const tab = UI.logTab === 'events' ? 'events' : 'rolls', LIST = tab === 'events' ? EVLOG : ROLLLOG;
+  const day = t => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' }), tm = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  let last = '';
+  const rows = LIST.map(r => { const d = day(r.t), h = d !== last ? `<div class="rl-day">${d}</div>` : ''; last = d; return h + `<div class="rl-row ${esc(r.cls)}"><span class="rl-time">${tm(r.t)}</span><div class="rl-card">${r.html.replace(/<button[^>]*>.*?<\/button>/g, '')}</div></div>`; }).join('');
+  const tb = (k, l, n) => `<button class="rl-tab${tab === k ? ' on' : ''}" data-act="logtab" data-v="${k}" aria-pressed="${tab === k}">${l} <span>${n}</span></button>`;
+  const html = `<div id="rolllogmodal"><div class="rl-head"><h3>Log</h3><div class="rl-tabs">${tb('rolls', 'Rolls', ROLLLOG.length)}${tb('events', 'Everything else', EVLOG.length)}</div>${LIST.length ? '<button class="btn sm ghost" data-act="clearlog">Clear</button>' : ''}</div>
+    <div class="rl-list">${rows || (tab === 'events' ? '<p class="hint">Nothing yet. Messages that pop up — spells cast, turns, rests, warnings — are kept here.</p>' : '<p class="hint">No rolls yet. Every roll you make shows up here with its full breakdown.</p>')}</div>
+    <div class="actions"><button class="btn" data-act="close">Close</button></div></div>`;
+  if ($('#rolllogmodal') && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html, null, true);
+}
+
+// ---------- Mobile full screen ----------
+function fsAvail() { const d = document; return !!(d.fullscreenEnabled || d.webkitFullscreenEnabled) && !!(d.documentElement.requestFullscreen || d.documentElement.webkitRequestFullscreen); }
+function fsOn() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+function fsEnter() { const el = document.documentElement; try { const r = (el.requestFullscreen ? el.requestFullscreen({ navigationUI: 'hide' }) : el.webkitRequestFullscreen()); if (r && r.catch) r.catch(() => {}); } catch (e) {} }
+function fsExit() { try { const r = document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen(); if (r && r.catch) r.catch(() => {}); } catch (e) {} }
+let FS_USER_OFF = false;
+['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => document.addEventListener(ev, () => { $$('.fsbtn').forEach(b => { b.innerHTML = fsOn() ? ICON.fsOut : ICON.fsIn; b.title = b.ariaLabel = fsOn() ? 'Exit full screen' : 'Full screen'; }); }));
+
+
+// ---------- Spell helpers ----------
+const SPI = n => DND.spellIndex[String(n || '').toLowerCase()];
+const AUTO = n => DND.spellAuto[n] || {};
+const DMGTYPES = DND.damageTypes.map(t => t.toLowerCase());
+function casterFor(key) { return casters().find(c => c.key === key); }
+const isPrepCaster = key => { const c = casterFor(key); return !!(c && c.prepared); };
+function spReady(sp) { if (sp.always || N(sp.level) === 0) return true; if (!casterFor(sp.cls)) return true; return isPrepCaster(sp.cls) ? !!sp.prepared : true; }
+const countPrep = key => S.spells.filter(s => s.cls === key && !s.always && N(s.level) > 0 && s.prepared).length;
+const countKnown = key => S.spells.filter(s => s.cls === key && !s.always && N(s.level) > 0).length;
+const countCantrips = key => S.spells.filter(s => s.cls === key && !s.always && N(s.level) === 0).length;
+function spellLimit(c) { return c.prepared ? preparedMax(c) : c.known ? N(c.known[Math.min(19, c.level - 1)]) : null; }
+function cantripLimit(c) { return c.cantrips ? N(c.cantrips[Math.min(19, c.level - 1)]) : null; }
+const clsName = k => (CL[k] ? CL[k].name : { race: 'Racial', feat: 'Feat', item: 'Item', other: 'Other' }[k] || 'Other');
+const cantripTier = () => (lvl() >= 17 ? 4 : lvl() >= 11 ? 3 : lvl() >= 5 ? 2 : 1);
+function castCol(t) { t = String(t || '').toLowerCase(); if (/bonus/.test(t)) return 'bonus'; if (/reaction/.test(t)) return 'reaction'; if (/^\s*1?\s*action/.test(t)) return 'action'; return null; }
+function termTypesFor(o) {
+  const terms = String(o.dice || '').match(/\d*d\d+/g) || [], types = String(o.type || '').split(/\s*\+\s*/).filter(Boolean);
+  const bond = /Enhanced Bond/.test(o.note || '');
+  return terms.map((t, i) => (bond && i === terms.length - 1 ? 'fire' : types[i] || types[0] || ''));
+}
+function addDice(a, b) { if (!a) return b; if (!b) return a; return a + '+' + b; }
+// Work out what a spell does at a given slot level: damage dice, save, attack, healing.
+function spellMath(sp, L) {
+  const a = spAuto(sp), sum = String(sp.summary || ''), base = N(sp.level);
+  L = L || base;
+  const o = { dice: '', type: '', save: '', attack: false, half: false, heal: '', temp: '', note: a.note || '' };
+  const special = a.buff || a.rider || a.summon || a.familiar || a.steed || a.conjure || a.form || a.heal || a.temp || a.maxHp || a.weaponSpell || a.spiritual || a.beams || a.darts || a.weapon;
+  if (a.dmg) { o.dice = a.dmg; o.type = a.type || ''; }
+  else if (!special || a.temp) {
+    const re = /(\d+d\d+(?:\s*\+\s*\d+d\d+)*(?:\s*\+\s*\d+)?)\s+([a-z]+)(?:\s+or\s+([a-z]+))?/ig; let m;
+    while ((m = re.exec(sum))) { if (DMGTYPES.includes(m[2].toLowerCase())) { o.dice = m[1].replace(/\s+/g, ''); o.type = m[2] + (m[3] ? ' or ' + m[3] : ''); break; } }
+  }
+  if (a.type && !o.type) o.type = a.type;
+  const sv = sum.match(/\b(STR|DEX|CON|INT|WIS|CHA)\b save/i); if (sv) o.save = sv[1].toUpperCase();
+  o.attack = !!a.attack || /spell attack/i.test(sum) || !!a.beams;
+  o.half = /half/i.test(sum);
+  if (o.dice && a.up && L > base) { const m = String(a.up).match(/(\d+)d(\d+)/); if (m) o.dice = addDice(o.dice, (N(m[1]) * (L - base)) + 'd' + m[2]); }
+  if (base === 0 && DND.cantripScale.includes(sp.name) && o.dice) o.dice = diceTimes(o.dice, cantripTier());
+  if (a.heal) {
+    const ci = spellCI(sp), M = ci.mod != null ? ci.mod : 0;
+    let h = String(a.heal).replace('+M', M ? sgn(M) : '');
+    if (a.healUp && L > base) { const m = String(a.healUp).match(/^(\d+)d(\d+)$/); h = m ? addDice(h, N(m[1]) * (L - base) + 'd' + m[2]) : String(N(h) + N(a.healUp) * (L - base)); }
+    if (L > 0 && hasSub('cleric', 'life') && h !== 'all') h = addDice(h, String(2 + L));
+    o.heal = h;
+  }
+  // Circle of Wildfire: while the spirit is summoned, fire damage and healing spells get +1d8.
+  if (hasFeature('Enhanced Bond') && S.companions.some(c => c.tmpl === 'Wildfire Spirit')) { if (o.dice && /fire/i.test(o.type)) { o.dice = addDice(o.dice, '1d8'); o.note = (o.note ? o.note + ' · ' : '') + 'Enhanced Bond +1d8'; } if (o.heal && o.heal !== 'all') { o.heal = addDice(o.heal, '1d8'); o.note = (o.note ? o.note + ' · ' : '') + 'Enhanced Bond +1d8'; } }
+  // Arcane Firearm (Artillerist): +1d8 to one damage roll of a spell cast through the firearm. Rays/darts get it on one roll (at cast time).
+  if (hasFeature('Arcane Firearm') && o.dice && !a.beams && !a.rays && !a.darts) { o.dice = addDice(o.dice, '1d8'); o.note = (o.note ? o.note + ' · ' : '') + 'Arcane Firearm +1d8'; }
+  // Potent Spellcasting: cleric cantrips add WIS to damage.
+  if (base === 0 && o.dice && sp.cls === 'cleric' && hasFeature('Potent Spellcasting')) { const w = mod('wis'); if (w) o.dice += sgn(w); }
+  // Damage type of each dice term, in order (Flame Strike: fire + radiant) — Elemental Adept only touches its own type.
+  o.termTypes = termTypesFor(o);
+  if (a.temp) o.temp = a.tempUp && L > base ? String(a.temp).replace(/^(\d+)$/, (x) => String(N(x) + N(a.tempUp) * (L - base))).replace(/\+(\d+)$/, (x, n) => '+' + (N(n) + N(a.tempUp) * (L - base))) : a.temp;
+  return o;
+}
+
+// ---------- Spells page ----------
+function slotPips(i) {
+  const max = slotMax(i), used = Math.min(N(S.slotsUsed[i]), max), left = max - used;
+  let h = ''; for (let j = 0; j < max; j++) h += `<button class="pip${j < left ? '' : ' spent'}" data-pip="slot" data-i="${i}" data-j="${j}" aria-label="${ORD[i]} slot ${j + 1}"></button>`;
+  return h || '<span class="hint">none</span>';
+}
+function pactPips() {
+  const p = pact(); if (!p) return '';
+  const left = pactLeft(); let h = '';
+  for (let j = 0; j < p.count; j++) h += `<button class="pip pact${j < left ? '' : ' spent'}" data-pip="pact" data-j="${j}" aria-label="Pact slot ${j + 1}"></button>`;
+  return h;
+}
+const spellTags = (s, noAlways) => (s.always && !noAlways ? '<span class="tag oath" title="Always prepared; doesn\'t count against your limit">Always</span>' : '') + (s.conc ? '<span class="tag">Conc</span>' : '') + (s.ritual ? '<span class="tag">Ritual</span>' : '') + (s.atWill ? '<span class="tag" title="Cast without a slot">At will</span>' : '') + (s.uses ? `<span class="tag" title="Free casts">${Math.max(0, evalMax(s.uses.max) - N(s.uses.used))}/${evalMax(s.uses.max)} free</span>` : '');
+function prepCell(s, i) {
+  if (s.always) return '<span class="always" title="Always prepared; doesn\'t count against your limit">Always</span>';
+  if (N(s.level) === 0) return '<span class="always known" title="Cantrips are always ready">—</span>';
+  if (!isPrepCaster(s.cls)) return '<span class="always known" title="Known spell: always ready">Known</span>';
+  return `<label class="prepbox" title="Prepared">${chk(`spells.${i}.prepared`, 'Prepared')}</label>`;
+}
+function slotsPanelInner() {
+  return `${(() => { const cl = typeof casters === 'function' ? casters() : []; return cl.length ? `<div class="cs-scstats">${cl.map(c => `<div class="cs-scrow">${cl.length > 1 ? `<span class="cs-scn">${esc(c.name)}</span>` : ''}<span class="cs-sc"><small><span class="ciw top">Save DC${ciBtn('dc:' + c.key, 'your spell save DC')}</span></small><b data-calc="dc:${c.key}"></b></span><span class="cs-sc"><small><span class="ciw top">Spell attack${ciBtn('satk:' + c.key, 'your spell attack')}</span></small>${rollBtn('spellatk:' + c.key, c.name + ' spell attack')}</span></div>`).join('')}</div>` : ''; })()}<div data-calc-html="slotsall"></div><p class="hint" style="margin:6px 0 0">Spent automatically when you cast or smite. Tap a diamond to adjust.</p>`;
+}
+// The Active Spells panel — the same one on Combat and (compact) on Spells.
+function activeFxInner(small) {
+  const H = small ? 'h3 class="sc-slottitle"' : 'h2', h = small ? 'h3' : 'h2';
+  return `<${H}><span class="grow">Active Spells</span>${wildOn() ? '<button class="btn sm surgebtn" data-act="wildsurge" title="Roll on the Wild Magic Surge table (restores Tides of Chaos)">✦ Wild Magic Surge</button>' : ''}<span class="timebtns"><span class="hint">Time passes:</span><button class="btn sm" data-act="passtime" data-r="10">+1 min</button><button class="btn sm" data-act="passtime" data-r="100">+10 min</button><button class="btn sm" data-act="passtime" data-r="600">+1 hr</button></span></${h}>
+      <div class="fxchips${small ? '' : ' big'}" data-calc-html="fxchips"></div>
+      <p class="hint" style="margin:6px 0 0">Durations count down each Next Turn. Spells that deal damage each turn get a roll button. Taking damage while concentrating prompts a CON save.</p>`;
+}
+function renderSpells() {
+  const m = isMobile(), cs = casters(), p = pact();
+  const tiles = cs.map(c => {
+    const lim = spellLimit(c), cl = cantripLimit(c);
+    const kind = c.type === 'pact' ? 'Pact Magic' : c.type === 'full' ? 'Full caster' : c.type === 'half' || c.type === 'artificer' ? 'Half caster' : 'Third caster';
+    const mine = S.spells.filter(x => x.cls === c.key && !x.stored && spReady(x)), byL = {};
+    mine.forEach(x => byL[N(x.level)] = (byL[N(x.level)] || 0) + 1);
+    const lv = Object.keys(byL).map(Number).sort((a, b) => a - b);
+    return `<div class="sc-slotpanel sc-clspanel"><h3 class="sc-slottitle">${esc(c.name)} <span class="sc-sub">${ABN[c.ab]} · ${kind}</span></h3>
+      <div class="cs-scstats"><div class="cs-scrow">
+        ${lim != null ? `<span class="cs-sc prep-tile" data-prepfor="${c.key}"><small>${c.prepared ? 'Prepared' : 'Known'}</small><b class="big" data-calc="prepct:${c.key}"></b></span>` : ''}
+        ${cl ? `<span class="cs-sc prep-tile" data-cantfor="${c.key}"><small>Cantrips</small><b class="big" data-calc="cantct:${c.key}"></b></span>` : ''}</div></div>
+      ${lv.length ? `<div class="sc-bylv"><span class="sc-bylv-h">Ready to cast</span>${lv.map(L => `<span class="sc-lvchip"><b>${byL[L]}</b> ${L ? ORD[L - 1] : 'cantrip' + (byL[L] > 1 ? 's' : '')}</span>`).join('')}</div>` : ''}
+      <div class="sc-clsbtns">${c.prepared ? `<button class="btn gold" data-act="prepare" data-cls="${c.key}">Prepare spells</button>` : ''}${!c.prepared || c.book ? `<button class="btn ghost" data-act="addspells" data-cls="${c.key}">+ ${esc(c.name)} ${c.book ? 'spellbook' : 'spells'}</button>` : ''}</div>
+    </div>`;
+  }).join('');
+  const slotCards = [];
+  for (let i = 0; i < 9; i++) {
+    if (slotMax(i) === 0 && !(S.slotsOverride[i] !== '' && S.slotsOverride[i] != null)) continue;
+    slotCards.push(`<div class="slot"><div class="top"><span class="lbl">${ORD[i]} level</span><span class="ct" data-calc="slotct:${i}"></span></div><div class="pips" data-calc-html="slotpips:${i}" style="margin-top:6px"></div></div>`);
+  }
+  S.spells.forEach((sp, si) => { if (!sp.stored) return; const it = spItem(sp), lv = Math.max(N(sp.level), N(sp.uses && sp.uses.level));
+    slotCards.push(`<div class="slot storeslot" title="${sp.cls === 'artificer' ? 'Spell-Storing Item' : 'Stored spell'}: ${esc(sp.name)}${it ? ' in ' + esc(it.name) : ''} (${ORD[lv - 1] || ''} level). Doesn't refill on a rest — store again to refill."><div class="top"><span class="lbl">Stored</span><span class="ct" data-calc="storect:${si}"></span></div><div class="storenm">${esc(sp.name)}${lv > N(sp.level) ? ' <small>(' + ORD[lv - 1] + ')</small>' : ''}</div><div class="pips" data-calc-html="storepips:${si}" style="margin-top:6px"></div></div>`); });
+  if (p) slotCards.push(`<div class="slot pactslot"><div class="top"><span class="lbl">Pact · ${ORD[p.level - 1]}</span><span class="ct" data-calc="pactct"></span></div><div class="pips" data-calc-html="pactpips" style="margin-top:6px"></div></div>`);
+  const cust = spCustom(); if (cust) spCatsEnsure();
+  const order = cust ? spCustomOrder() : S.spells.map((s, i) => i).sort((a, b) => N(S.spells[a].level) - N(S.spells[b].level) || String(S.spells[a].name).localeCompare(S.spells[b].name));
+  const f = S.spellFilter || 'all';
+  const shown = order.filter(i => { const s = S.spells[i]; if (f === 'ready' && !spReady(s)) return false; if (/^\d$/.test(f) && String(N(s.level)) !== f) return false; if (f.startsWith('c:') && s.cls !== f.slice(2)) return false; return true; });
+  const meta = s => [s.time, s.range, s.duration].filter(Boolean).map(esc).join(' · ');
+  const detail = (s, i) => `<div class="detail-grid">
+      ${fld('Name', inp(`spells.${i}.name`))}${fld('Your name for it', inp(`spells.${i}.flavor`, { ph: 'e.g. Smog Beam' }))}${fld('Level', inp(`spells.${i}.level`, { num: 1 }))}${fld('Casting time', inp(`spells.${i}.time`))}${fld('Range', inp(`spells.${i}.range`))}
+      ${fld('Duration', inp(`spells.${i}.duration`))}${fld('Components', inp(`spells.${i}.comps`))}${fld('School', inp(`spells.${i}.school`))}
+      ${fld('Class', sel(`spells.${i}.cls`, clsRows().map(r => [r.key, clsName(r.key)]).concat([['race', 'Racial'], ['feat', 'Feat'], ['item', 'Item'], ['other', 'Other']])))}
+      <label class="checkline">${chk(`spells.${i}.conc`)} Concentration</label><label class="checkline">${chk(`spells.${i}.ritual`)} Ritual</label><label class="checkline">${chk(`spells.${i}.always`)} Always prepared</label>
+      ${fld('Needs item', sel(`spells.${i}.item`, [['', '— none —']].concat(S.inventory.map(it => [it.id, it.name]))), '')}
+      ${s.auto ? '' : `${fld('Upcast dice', inp(`spells.${i}.hb.up`, { ph: 'e.g. 2d4 per level' }))}${fld('Crits on', inp(`spells.${i}.hb.crit`, { ph: '20', num: 1 }))}<label class="checkline">${chk(`spells.${i}.hb.missHalf`)} Half damage on a miss</label>${fld('Backlash after 1st cast', inp(`spells.${i}.hb.backlash`, { ph: 'e.g. 1d10+slot' }))}${fld('Backlash type', inp(`spells.${i}.hb.backlashType`, { ph: 'fire' }))}`}
+      ${s.src ? `<span class="hint">Source: ${esc(DND.sources[s.src] || s.src)}</span>` : ''}
+      ${m ? `<div style="text-align:right"><button class="btn red" data-act="del" data-list="spells" data-i="${i}">Remove spell</button></div>` : ''}</div>
+      ${fullOfSpell(s) ? `<div class="fullbox">${fullHTML(fullOfSpell(s))}${isSRDKey('sp:' + s.name) && !String(s.full || '').trim() ? '<div class="hint srdnote">Text: SRD 5.1, CC-BY-4.0</div>' : ''}</div>` : ''}
+      ${fld('Short summary (shown on the Combat tab)', ta(`spells.${i}.summary`, { rows: 2, label: 'Short summary', ph: 'What the spell does' }))}
+      ${fld('Your own wording (replaces the full description when filled in)', ta(`spells.${i}.full`, { rows: 4, label: 'Your own wording', ph: 'Optional — paste or type your preferred description' }))}
+      ${ta(`spells.${i}.note`, { rows: 1, label: 'Your notes', ph: 'Your notes' })}`;
+  // Spells sit in the same collapsible groups as the Combat tab (Level, Purpose or your own categories), and the
+  // groups can be dragged into any order.
+  const castBtn = i => `<button class="btn gold${m ? '' : ' sm'}" data-act="cast" data-i="${i}" title="Cast and apply its effects">Cast</button>`;
+  const rowM = i => { const s = S.spells[i], open = UI.open['spell:' + i];
+    return `<div class="sp-card${spReady(s) ? '' : ' unprep'}" data-si="${i}"><div class="sp-top">${cust ? spOrdCtl(i) : ''}${prepCell(s, i)}
+        <button class="sp-name" data-act="toggle" data-key="spell:${i}" aria-expanded="${!!open}">${spDisp(s)} <span class="caret">${open ? '▴' : '▾'}</span></button><button class="notetip" data-tip="${i}" data-tipkind="sp" aria-label="What ${esc(s.name)} does">ⓘ</button><span class="grow"></span>${castBtn(i)}</div>
+        <div class="sp-meta">${spellTags(s, true)} <span class="tag cls">${esc(spItem(s) ? '◆ ' + spItem(s).name : clsName(s.cls))}</span> ${meta(s)}</div><div class="sp-sum">${esc(s.summary || '')}</div>
+        ${open ? `<div class="sp-detail">${detail(s, i)}</div>` : ''}</div>`; };
+  const rowT = i => { const s = S.spells[i], open = UI.open['spell:' + i];
+    return `<tr class="${spReady(s) ? '' : 'unprep'}" data-si="${i}"><td class="spc-p" style="text-align:center">${prepCell(s, i)}</td>
+        <td class="spname">${cust ? spOrdCtl(i) : ''}<b class="spn">${spDisp(s)}</b><button class="notetip" data-tip="${i}" data-tipkind="sp" aria-label="What ${esc(s.name)} does">ⓘ</button> ${spellTags(s, true)}${spItem(s) ? ` <span class="tag cls" title="From an item">◆ ${esc(spItem(s).name)}</span>` : cs.length > 1 || !CL[s.cls] ? ` <span class="tag cls">${esc(clsName(s.cls))}</span>` : ''}<small class="spmeta">${esc([s.time, s.range, s.duration].filter(Boolean).join(' · '))}</small></td>
+        <td class="nowrap spc-t">${esc(s.time || '')}</td><td class="nowrap spc-r">${esc(s.range || '')}</td><td class="nowrap spc-d">${esc(s.duration || '')}</td>
+        <td class="sumcell">${esc(s.summary || '')}</td>
+        <td class="nowrap spc-c">${castBtn(i)}</td><td class="spc-o"><button class="btn ghost sm" data-act="toggle" data-key="spell:${i}" aria-expanded="${!!open}" title="Details / edit">${open ? '▴' : '▾'}</button></td><td class="spc-x">${del('spells', i)}</td></tr>${open ? `<tr class="detail"><td></td><td colspan="8">${detail(s, i)}</td></tr>` : ''}`; };
+  const mode = spMode(), gl = spGroupsFor(mode, shown, f === 'all'), movable = gl.filter(g => g.k !== 'c:none');
+  const list = gl.map(g => { const open = cgOpen('sptab', g.k), mi = movable.indexOf(g);
+    const body = !g.items.length ? '<p class="hint spg-empty">Empty — drag spells here or use a spell’s ⇄</p>' : m ? `<div class="spg-cards">${g.items.map(rowM).join('')}</div>` : `<table class="grid spells spg-t"><tbody>${g.items.map(rowT).join('')}</tbody></table>`;
+    return `<div class="cspg spg g-${g.cls}${open ? '' : ' shut'}" data-gk="${esc(g.k)}" style="--g:${esc(g.color)}">${spgHead('sptab', g, mode, g.items.length, open, mi === 0, mi === movable.length - 1)}${open ? `<div class="cspg-b">${body}</div>` : ''}</div>`; }).join('');
+  const lvls = [...new Set(S.spells.map(s => N(s.level)))].sort((a, b) => a - b);
+  const filt = [['all', 'All'], ['ready', 'Ready to cast']].concat(cs.length > 1 ? cs.map(c => ['c:' + c.key, c.name]) : []).concat(lvls.map(l => [String(l), l === 0 ? 'Cantrips' : ORD[l - 1]]));
+  $('#page-spells').innerHTML = `
+  ${noSlots() ? `<div class="panel cs-fx" ${PID('spellcasting')}>${activeFxInner(false)}</div>` : `<div class="panel" ${PID('spellcasting')}><h2><span class="grow">Spellcasting</span><button class="btn ghost sm" data-act="toggle" data-key="slotcfg">${UI.open.slotcfg ? 'Done' : 'Customize slots'}</button></h2>
+    <div class="sc-wrap2${noSlots() ? ' fxonly' : ''}">${noSlots() ? '' : `<div class="sc-slotpanel cs-slots"><h3 class="sc-slottitle">Spell Slots${p ? ' <span class="sc-sub">Pact slots return on a short rest</span>' : ''}</h3>${slotsPanelInner()}</div>
+      <div class="sc-cards">${tiles}</div>`}
+      <div class="sc-slotpanel sc-fxpanel cs-fx">${activeFxInner(true)}</div></div>
+    ${UI.open.slotcfg ? `<div style="margin-top:10px"><p class="hint">Slots follow the multiclass spellcaster table (caster level ${casterLevel()}). Type a number to override a level; blank = automatic.</p>
+      <div class="slots">${ORD.map((o, i) => fld(o + ' max', inp('slotsOverride.' + i, { num: 1, ph: String(FULL[Math.min(20, casterLevel())][i] || 0) }))).join('')}</div></div>` : ''}
+  </div>`}
+  ${mmPanelHTML('mmspells')}
+  <div class="panel" ${PID('spelllist')}><h2><span class="grow">Spells</span><button class="btn gold" data-act="addspells" data-cls="">+ Add spells</button><button class="btn" data-act="add" data-list="spells">+ Custom spell</button></h2>
+    <div class="spsortbar"><span class="lbl">Group spells by</span><div class="segmini">${[['level', 'Level'], ['purpose', 'Purpose'], ['custom', 'My categories']].map(([k, t]) => `<button class="${ST('combatSpellSort') === k ? 'on' : ''}" data-act="spsort" data-k="${k}">${t}</button>`).join('')}</div>${cust ? '<button class="btn sm" data-act="spcatadd">+ Category</button><span class="hint">Drag spells to reorder them or move them between categories. ' + (m ? '' : 'Drag a category by its ⠿ to rearrange. ') + 'The Combat tab uses the same groups and order.</span>' : '<span class="hint">' + (m ? '' : 'Drag a group by its ⠿ to rearrange. ') + 'The Combat tab uses the same groups and order.</span>'}</div>
+    <div class="filters">${filt.map(([k, t]) => `<button class="chip${f === k ? ' on' : ''}" data-act="filter" data-f="${k}">${esc(t)}</button>`).join('')}</div>
+    ${!S.spells.length ? '<p class="hint">No spells yet. Use <b>Add spells</b> to pick from every spell in the allowed books.</p>' : m ? `<div class="sp-list spg-list">${list || '<p class="hint">No spells match this filter.</p>'}</div>` : `<div class="scrollx"><div class="spg-wrap"><table class="grid spells spg-th">
+      <thead><tr><th class="spc-p">Prep</th><th class="spname">Name</th><th class="spc-t">Cast</th><th class="spc-r">Range</th><th class="spc-d">Duration</th><th class="sumcell">Effect</th><th class="spc-c"></th><th class="spc-o"></th><th class="spc-x"></th></tr></thead></table>
+      <div class="spg-list">${list || '<p class="hint">No spells match this filter.</p>'}</div></div></div>`}
+    <p class="hint" style="margin:8px 0 0">Cast spends the slot, starts concentration and duration timers, rolls damage or healing, applies buffs like AC or speed, and creates summons or transformations.</p>
+  </div>`;
+}
+
+// ---------- Features page ----------
+function featPips(i) {
+  const f = S.features[i]; if (!f) return '';
+  const max = featMax(f);
+  if (max == null) return '';
+  const left = Math.max(0, max - N(f.used));
+  if (f.pool || max > 12) return `<span class="pool"><input class="f" data-pool="${i}" type="number" inputmode="numeric" value="${left}" aria-label="${esc(f.name)} remaining"> / ${max}</span>`;
+  let h = ''; for (let j = 0; j < max; j++) h += `<button class="pip${j < left ? '' : ' spent'}" data-pip="feat" data-i="${i}" data-j="${j}" aria-label="${esc(f.name)} use ${j + 1}"></button>`;
+  return h;
+}
+function scaleVal(tbl, L) { let v = ''; Object.keys(tbl).map(Number).sort((a, b) => a - b).forEach(k => { if (L >= k) v = tbl[k]; }); return v; }
+const isInfPick = f => String(f.key || '').startsWith('pick:infusion:') && typeof INF === 'object' && !!INF[f.name];
+function featGroup(f) { return f.cls ? f.cls : f.source === 'Race' || f.kind === 'race' ? 'race' : f.kind === 'feat' ? 'feat' : f.kind === 'bg' ? 'bg' : f.auto ? 'other' : 'custom'; }
+// Features: read-only cards by default; tap ✎ to edit one. Grouped by where they come from.
+// Class numbers that grow with level, matched to the feature they belong to (Sneak Attack → 4d6).
+function classScaling(key) {
+  const row = clsRows().find(r => r.key === key); if (!row || !CL[key]) return [];
+  const c = CL[key], s = subOf(row), L = N(row.level);
+  return (c.scaling || []).concat((s && s.scaling) || []).map(([n, t]) => [n, formulaDC(scaleVal(t, L))]).filter(x => x[1]);
+}
+const scaleWords = n => String(n).toLowerCase().split(/[^a-z]+/).filter(w => w.length > 3);
+function scalingMatches(fname, sname) { const f = String(fname).toLowerCase(), s = String(sname).toLowerCase(); return s.startsWith(f) || f.startsWith(s) || scaleWords(s).some(w => scaleWords(f).includes(w)); }
+// Spells a feature gives: a class option's choices (e.g. Book of Shadows cantrips) or spells you attached yourself.
+function featSpellsHTML(f, i, ed) {
+  let h = '';
+  const m = /^pick:(\w+):(.+)$/.exec(String(f.key || '')), op = m && DND.options[m[1]], e = op && op.list.find(x => x[0] === m[2]), fx = (e && e[3]) || {};
+  if (fx.grant) {
+    const have = (S.grantSpells || {})[m[2]] || [], need = fx.grant.reduce((t, g) => t + g.n, 0);
+    h += `<div class="fc-spells"><span class="lbl">${esc(fx.grant.map(g => g.label).join(' · '))}</span>${have.map(n => `<span class="pbadge">${esc(n)}</span>`).join('')}
+      <button class="btn sm${have.length < need ? ' gold' : ''}" data-act="grantpick" data-o="${esc(m[2])}" data-t="${m[1]}">${have.length < need ? `Choose (${have.length}/${need})` : 'Change'}</button></div>`;
+  }
+  if (fx.spells) h += `<div class="fc-spells"><span class="lbl">Spells</span>${fx.spells.map(n => `<span class="pbadge">${esc(n)}</span>`).join('')}${fx.spellNote ? `<span class="hint">${esc(fx.spellNote)}</span>` : ''}</div>`;
+  const own = f.spells || [];
+  if (own.length || ed) {
+    h += `<div class="fc-spells"><span class="lbl">Spells from this feature</span>${own.map((n, j) => `<span class="pchip">${esc(n)}${ed ? `<button data-act="fspdel" data-i="${i}" data-j="${j}" aria-label="Remove ${esc(n)}">✕</button>` : ''}</span>`).join('') || (ed ? '<span class="hint">None yet</span>' : '')}
+      ${ed ? `<input class="f fspadd" list="allspells" data-fsp="${i}" placeholder="+ Add a spell…" aria-label="Add a spell to this feature"><label class="checkline">${chk(`features.${i}.spellOnce`)} Once per long rest</label><label class="checkline">${chk(`features.${i}.spellAtWill`)} At will (no slot)</label>` : ''}</div>`;
+  }
+  return h;
+}
+// ---------- Homebrew automation form (custom features and items) ----------
+// The HP ring (main HP panel and creature cards): gold arc for HP, blue arc after it for temp HP.
+function hpRingSVG(cur, max, tmp, cls) {
+  max = Math.max(1, N(max)); cur = Math.max(0, Math.min(N(cur), max)); tmp = Math.max(0, N(tmp));
+  const r = 52, C = 2 * Math.PI * r, tot = Math.max(max, cur + tmp);
+  const x = C * cur / tot, y = C * tmp / tot, low = cur / max <= 0.35 ? ' low' : '';
+  return `<svg viewBox="0 0 120 120" aria-hidden="true"><circle class="rt" cx="60" cy="60" r="${r}"/>
+    <circle class="rf${low}${cls || ''}" cx="60" cy="60" r="${r}" stroke-dasharray="${x} ${C}" />
+    ${tmp ? `<circle class="rtmp" cx="60" cy="60" r="${r}" stroke-dasharray="${y} ${C}" stroke-dashoffset="${-x}"/>` : ''}</svg>`;
+}
+function hbSummary(hb, it) {
+  const fx = hbFx(hb) || {}, p = fx.passive || {}, u = fx.use || {}, b = [];
+  if (p.resist) b.push('Resist ' + p.resist.join(', ')); if (p.immune) b.push('Immune ' + p.immune.join(', ')); if (p.condImmune) b.push("Can't be " + p.condImmune.join(', ').toLowerCase());
+  if (p.advNote) b.push('Advantage notes'); if (p.sense) b.push(p.sense); ['fly', 'swim', 'climb'].forEach(k => { if (p[k]) b.push(k + ' ' + (p[k] === 'walk' ? '= walk' : p[k] + ' ft')); });
+  if (p.ac) b.push('AC ' + sgn(N(p.ac))); if (p.saveAll) b.push('Saves +' + p.saveAll); if (p.init) b.push('Init +' + p.init); if (p.speed) b.push('Speed +' + p.speed);
+  if (fx.roll) b.push('Rolls ' + fx.roll); if (fx.save) b.push(fx.save + ' save'); if (fx.cost) b.push('Costs ' + fxCostText(fx.cost)); if (u.effect) b.push('Starts ' + u.effect.name); if (u.temp) b.push('Temp HP'); if (u.heal) b.push('Heals'); if (fx.dash) b.push('Dash'); if (u.companion) b.push('Summons ' + u.companion);
+  if (fx.attacks) b.push('Attack: ' + fx.attacks[0][0]);
+  if (fx.refuel) b.push('Recovers a slot (≤ ' + ORD[fx.refuel - 1] + ')');
+  if (hb && hb.othersDis) b.push('Curse: other weapons at disadvantage'); if (hb && hb.hurtSave) b.push(`DC ${hb.hurtDC || 10} ${String(hb.hurtSave).toUpperCase()} save when hurt`);
+  if (it && (it.spells || []).length) b.push('Spells: ' + it.spells.join(', ')); if (it && it.charges && N(it.charges.max)) b.push(N(it.charges.max) + ' charges');
+  return b;
+}
+function hbChips(it) {
+  const out = [];
+  if ((it.spells || []).length) out.push(`<span class="hbchip" title="${hbItemOn(it) ? 'Ready in your Spells tab' : 'Works once you ' + (it.attune && !it.attuned ? 'attune to it' : 'equip it')}">✦ ${esc(it.spells.join(', '))}${it.spellOnce ? ' · 1/long rest' : ''}${hbItemOn(it) ? '' : ' (inactive)'}</span>`);
+  const p = (hbFx(it.hb) || {}).passive; if (p && p.resist) out.push(`<span class="hbchip${hbItemOn(it) ? '' : ' off'}">Resist ${esc(p.resist.join(', '))}</span>`);
+  return out.join('');
+}
+function hbBox(path, hb, kind, key, it, ii) {
+  const open = UI.open['hb:' + key], sum = hbSummary(hb, it);
+  const head = `<button class="hbhead${open ? ' on' : ''}" data-act="hbopen" data-key="${key}" aria-expanded="${!!open}"><span>⚙ Homebrew automation</span><span class="hint">${sum.length ? esc(sum.join(' · ')) : 'None — add resistances, speeds, rolls, spells…'}</span><span class="caret">${open ? '▴' : '▾'}</span></button>`;
+  if (!open) return `<div class="hbbox">${head}</div>`;
+  const P = path + '.hb.', I = (k, o) => inp(P + k, Object.assign({}, o, o && o.ph ? { ph: 'e.g. ' + o.ph } : {})), abilOpts = [['', '—']].concat(AB.map(a => [a, ABN[a]]));
+  const res = S.features.filter(f => featMax(f) != null).map(f => [f.dname || f.name, f.dname || f.name]);
+  const comps = typeof COMP_RULES === 'object' ? Object.keys(COMP_RULES) : [];
+  const durs = [['', 'Until ended'], ['1', '1 round'], ['10', '1 minute'], ['100', '10 minutes'], ['600', '1 hour'], ['4800', '8 hours']];
+  const always = `<div class="hbsec"><div class="hbt">${kind === 'item' ? 'While you use it' : 'Always on'}</div>
+    <div class="hbgrid">${fld('Resistances', I('resist', { ph: 'cold, fire' }))}${fld('Immunities', I('immune', { ph: 'poison' }))}${fld("Can't be (conditions)", I('condImmune', { ph: 'charmed, frightened' }))}
+    ${fld('Advantage on', I('adv', { ph: 'Saves vs dragon breath; …' }))}${fld('Senses', I('sense', { ph: 'Darkvision 60 ft' }))}${fld('Speed bonus', I('speed', { ph: '10' }))}
+    ${fld('Fly', I('fly', { ph: '30 or walk' }))}${fld('Swim', I('swim', { ph: '' }))}${fld('Climb', I('climb', { ph: '' }))}
+    ${fld('AC bonus', I('ac', { ph: '1' }))}${fld('Saves bonus', I('saveAll', { ph: '1' }))}${fld('Initiative bonus', I('init', { ph: 'wis' }))}${fld('Max HP bonus', I('maxHp', { ph: 'level' }))}
+    ${kind === 'feat' ? fld('Only while effect', I('whileEffect', { ph: 'effect name' })) : `<label class="checkline">${chk(path + '.carried')} Works while carried (no need to equip)</label><label class="checkline">${chk(P + 'othersDis')} Curse: disadvantage on attacks with other weapons</label>${fld('When you take damage: save', sel(P + 'hurtSave', abilOpts))}${fld('…DC', I('hurtDC', { ph: '15' }))}${fld('…if you fail', I('hurtText', { ph: 'what happens' }))}`}<label class="checkline">${chk(P + 'initAdv')} Advantage on initiative</label></div></div>`;
+  const use = `<div class="hbsec"><div class="hbt">When used</div>
+    <div class="hbgrid">${kind === 'item' ? fld('Used as', sel(P + 'col', [['', 'Free / no action'], ['action', 'Action'], ['bonus', 'Bonus action'], ['reaction', 'Reaction']])) + fld('Charges', inp(path + '.charges.max', { num: 1, ph: '—' })) + fld('Recharge', sel(path + '.charges.reset', [['long', 'Long rest'], ['short', 'Short rest'], ['none', 'Never']])) : ''}
+    ${fld('Spends', sel(P + 'costFrom', [['', '— nothing —']].concat(res)))}${fld('How many', I('costN', { num: 1, ph: '1' }))}
+    ${fld('Roll', I('roll', { ph: '2d10+wis' }))}${fld('Roll note', I('rollNote', { ph: 'fire damage' }))}<label class="checkline">${chk(P + 'healRoll')} Roll heals ("Heal me")</label><label class="checkline">${chk(P + 'selfDmg')} Roll damages me</label>
+    ${fld('Target saves', sel(P + 'saveAb', abilOpts))}${fld('Save DC', I('dc', { ph: 'spell or 15' }))}
+    ${kind === 'item' ? fld('Recovers a spell slot up to level', I('refuel', { num: 1, ph: '3' })) : ''}${fld('Temp HP', I('temp', { ph: 'cha+level' }))}${fld('Heal yourself', I('heal', { ph: '1d8+wis' }))}<label class="checkline">${chk(P + 'dash')} Dash (adds your speed)</label>${kind === 'item' ? `<label class="checkline">${chk(P + 'consume')} Using it uses one up</label>` : ''}
+    ${fld('Starts effect', I('effName', { ph: 'effect name' }))}${fld('Lasts', sel(P + 'effRounds', durs))}${fld('Effect: fly', I('effFly', { ph: '30' }))}${fld('Effect: AC', I('effAc', { ph: '2' }))}${fld('Effect: speed', I('effSpeed', { ph: '10' }))}${fld('Effect note', I('effNote', { ph: 'shown on the effect' }))}<label class="checkline">${chk(P + 'effConc')} Concentration</label>
+    ${comps.length ? fld('Summons', sel(P + 'summon', [['', '—']].concat(comps.map(c => [c, c])))) : ''}${fld('Only while effect', I('onlyEffect', { ph: 'effect name' }))}${fld('Text shown', I('text', { ph: 'reminder when used' }))}${fld('Remind me', sel(P + 'triggerOn', [['', '—'], ['longRest', 'After a long rest'], ['shortRest', 'After a short rest'], ['initiative', 'When I roll initiative'], ['zero', 'When I drop to 0 HP']]))}</div></div>`;
+  const atk = `<div class="hbsec"><div class="hbt">Adds an attack</div><div class="hbgrid">${fld('Attack name', I('atkName', { ph: 'Flame Seed' }))}${fld('Damage', I('atkDice', { ph: '1d6+prof' }))}${fld('Type', I('atkType', { ph: 'fire' }))}
+    ${fld('To hit with', sel(P + 'atkAb', [['spell', 'Spell attack'], ['str', 'STR'], ['dex', 'DEX'], ['fin', 'STR or DEX'], ['con', 'CON'], ['int', 'INT'], ['wis', 'WIS'], ['cha', 'CHA']]))}${fld('Kind', sel(P + 'atkKind', [['melee', 'Melee'], ['ranged', 'Ranged']]))}${fld('Range (ft)', I('atkRange', { ph: '60' }))}${fld('Attack note', I('atkNote', { ph: 'only while…' }))}<label class="checkline">${chk(P + 'atkAddMod')} Add ability modifier to damage</label></div></div>`;
+  const spells = kind === 'item' ? `<div class="hbsec"><div class="hbt">Spells it lets you cast</div><div class="fc-spells">${(it.spells || []).map((n, j) => `<span class="pchip">${esc(n)}${itemStores(it) && N((SPI(n) || {}).level) > 0 ? ` <select class="isplv" data-isplv="${ii}" data-n="${esc(n)}" aria-label="Level ${esc(n)} is stored at">${[1, 2, 3, 4, 5].filter(L => L >= N((SPI(n) || {}).level)).map(L => `<option value="${L}"${Math.max(N((it.spellLevels || {})[n]), N((SPI(n) || {}).level)) === L ? ' selected' : ''}>${ORD[L - 1]}</option>`).join('')}</select>` : ''}<button data-act="ispdel" data-i="${ii}" data-j="${j}" aria-label="Remove ${esc(n)}">✕</button></span>`).join('') || '<span class="hint">None yet</span>'}
+    <input class="f fspadd" list="allspells" data-isp="${ii}" placeholder="+ Add a spell…" aria-label="Add a spell this item casts"><label class="checkline"><input type="checkbox" data-istore="${ii}"${itemStores(it) ? ' checked' : ''}> Stored in it — each is gone once cast (like a Ring of Spell Storing)</label><label class="checkline">${chk(path + '.spellOnce')} Leveled spells once per long rest</label><label class="checkline">${chk(path + '.spellAtWill')} At will (no slot)</label>${fld('Cast with', sel(P + 'spellAb', [['', 'Your spellcasting'], ...AB.map(a => [a, ABN[a]])]))}</div></div>` : '';
+  return `<div class="hbbox open">${head}<div class="hbbody">${always}${spells}${use}${atk}<p class="hint">Numbers accept formulas: <code>prof</code>, <code>wis</code>, <code>level</code>, <code>druid</code>, <code>1d6+prof</code>. Separate several entries with commas.</p></div></div>`;
+}
+function spellDatalist() { if (!$('#allspells')) { const dl = document.createElement('datalist'); dl.id = 'allspells'; dl.innerHTML = DND.spells.map(x => `<option value="${esc(x.name)}">`).join(''); document.body.appendChild(dl); } }
+function renderFeatures() {
+  spellDatalist();
+  const groups = [...new Set(S.features.map(featGroup))];
+  const ri = (k) => clsRows().findIndex(r => r.key === k);
+  const gname = g => CL[g] ? CL[g].name : { race: S.raceName || 'Race', feat: 'Feats', bg: S.backgroundName ? S.backgroundName + ' background' : 'Background', other: 'Other', custom: 'Custom' }[g] || g;
+  const ff = UI.featFilter && groups.includes(UI.featFilter) ? UI.featFilter : 'all';
+  const q = (UI.featQ || '').toLowerCase();
+  const card = (f, i) => {
+    const max = featMax(f), ed = UI.open['fedit:' + i], left = max != null ? Math.max(0, max - N(f.used)) : null;
+    const sc = f.cls ? classScaling(f.cls).filter(([n]) => scalingMatches(f.name, n)) : [];
+    const fx = fxOf(f), dcl = fxDCLine(fx, f);
+    const tags = [f.source, f.col ? (f.col === 'bonus' ? 'Bonus action' : f.col[0].toUpperCase() + f.col.slice(1)) : '', max != null ? `${max}× per ${resetOf(f) === 'short' ? 'short rest' : resetOf(f) === 'long' ? 'long rest' : 'never'}` : '', dcl, fx.cost ? 'Costs ' + fxCostText(fx.cost) : '', fx.onlyRaging ? 'While raging' : ''].filter(Boolean);
+    const canUse = !fxIsResource(f) && (fx.cost || fx.use || fx.target || fx.roll);
+    return `<div class="fcard${f.auto ? '' : ' custom'}${ed ? ' editing' : ''}">
+      <div class="fc-head"><b class="fc-name">${esc(f.name)}</b>${sc.map(([n, v]) => `<span class="fscale" title="${esc(n)}">${esc(v)}</span>`).join('')}<span class="grow"></span>
+        ${max != null && !f.pool && !fxIsResource(f) ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}" ${left || fx.slotRestore ? '' : 'disabled'}>${f.roll || fx.roll ? 'Use & roll' : 'Use'}</button>` : f.roll ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}">Roll</button>` : canUse ? `<button class="btn sm gold" data-act="usefeat" data-i="${i}">${fx.useLabel || (fx.roll ? 'Use & roll' : 'Use')}</button>` : ''}
+        <button class="icon-btn fc-edit${ed ? ' on' : ''}" data-act="toggle" data-key="fedit:${i}" title="${ed ? 'Done editing' : 'Edit this feature'}" aria-label="Edit">${ed ? '✓' : '✎'}</button></div>
+      <div class="fc-tags">${tags.map(t => `<span class="ftag">${esc(t)}</span>`).join('')}${sc.length > 1 || (sc[0] && sc[0][0].toLowerCase() !== f.name.toLowerCase()) ? sc.map(([n, v]) => `<span class="ftag">${esc(n)}: ${esc(v)}</span>`).join('') : ''}</div>
+      ${max != null ? `<div class="fc-uses"><span class="pips" data-calc-html="featpips:${i}"></span>${f.pool ? '' : `<span class="hint">${left} of ${max} left</span>`}</div>` : ''}
+      ${ed ? `<div class="fc-form">${fld('Name', inp(`features.${i}.name`, { label: 'Feature name' }))}
+          <div class="row">${fld('Uses', inp(`features.${i}.max`, { ph: 'unlimited', label: 'Max uses formula', title: 'A number or formula: 1+cha, prof, 5*level, paladin' }))}${fld('Refills on', sel(`features.${i}.reset`, [['short', 'Short rest'], ['long', 'Long rest'], ['none', 'Never']]))}
+          ${fld('Used as', sel(`features.${i}.col`, [['', '—'], ['action', 'Action'], ['bonus', 'Bonus action'], ['reaction', 'Reaction']]))}<label class="checkline">${chk(`features.${i}.pool`)} Points pool</label></div>
+          ${fld('Short summary (shown on the Combat tab)', ta(`features.${i}.desc`, { rows: 3, label: 'Description' }))}
+          ${fld('Your own wording (replaces the full description when filled in)', ta(`features.${i}.full`, { rows: 5, label: 'Your own wording', ph: fullDefaultFeat(f) ? 'Optional — leave blank to use the built-in description' : 'Optional — the full description' }))}
+          ${hbBox(`features.${i}`, f.hb, 'feat', 'f' + i)}
+          <div class="row"><span class="hint">Uses accept formulas like <code>1+cha</code>, <code>prof</code> or <code>5*level</code>.</span><span class="grow"></span>${f.kind === 'feat' ? `<button class="btn sm red" data-act="delfeatn" data-n="${esc(String(f.key).slice(5))}">Remove feat</button>` : ''}${f.auto ? `<button class="btn sm ghost" data-act="featreset" data-i="${i}">Restore original</button>` : `<button class="btn sm red" data-act="del" data-list="features" data-i="${i}">Delete</button>`}</div></div>`
+        : (fullOfFeat(f).length > 280 ? `<div class="fc-desc fc-full${UI.open['ffull:' + i] ? ' open' : ''}" data-act="toggle" data-key="ffull:${i}" title="Click to ${UI.open['ffull:' + i] ? 'collapse' : 'read all'}">${fullHTML(fullOfFeat(f))}</div>` : `<div class="fc-desc">${fullHTML(fullOfFeat(f))}</div>`)}${fx.acts && !ed ? `<div class="fxacts">${fxActsHTML(f, i)}</div>` : ''}
+      ${featSpellsHTML(f, i, ed)}
+    </div>`;
+  };
+  const head = g => {
+    let extra = '';
+    if (CL[g]) {
+      const k = ri(g), r = clsRows()[k], c = CL[g], s = subOf(r), editing = UI.open['subedit:' + k];
+      const used = S.features.filter(f => f.cls === g).map(f => f.name);
+      const loose = classScaling(g).filter(([n]) => !used.some(fn => scalingMatches(fn, n)));
+      extra = `<span class="lvlpill">Level ${N(r.level)}</span>` + (N(r.level) >= c.sub.level || r.sub
+        ? `<span class="subname">${s ? esc(s.name) : `<button class="linkbtn warn" data-act="opensettings" data-tab="class">Choose your ${esc(c.sub.label)} in Settings</button>`}</span>`
+        : `<span class="hint">${esc(c.sub.label)} at level ${c.sub.level}</span>`)
+        + (r.extraSubs || []).map(xk => c.subclasses[xk] ? `<span class="subname">+ ${esc(c.subclasses[xk].name)}${N((r.extraSubLv || {})[xk]) ? ` <small class="hint">(${N(r.extraSubLv[xk])} lv)</small>` : ''}</span>` : '').join('')
+        + loose.map(([n, v]) => `<span class="ftag">${esc(n)}: <b>${esc(v)}</b></span>`).join('');
+    }
+    if (g === 'feat') extra = `<button class="btn sm" data-act="addfeat">+ Add feat</button>`;
+    return extra;
+  };
+  // Known infusions live on the Infusions tab (they only do something once an item is infused).
+  const shown = S.features.map((f, i) => [f, i]).filter(([f]) => !isInfPick(f) && (ff === 'all' || featGroup(f) === ff) && (!q || (f.name + ' ' + f.desc).toLowerCase().includes(q)));
+  const order = clsRows().map(r => r.key).concat(groups.filter(g => !CL[g]));
+  if (!groups.includes('feat') && ff === 'all' && !q) groups.push('feat');
+  const sections = [...new Set(order.concat(groups))].filter(g => groups.includes(g) && (shown.some(([f]) => featGroup(f) === g) || (g === 'feat' && ff === 'all' && !q))).map(g => `<section class="fgroup"><h3 class="subh fghead"><span class="sh-dot"></span><span class="fgname">${esc(gname(g))}</span>${head(g)}</h3>
+    <div class="fgrid">${shown.filter(([f]) => featGroup(f) === g).map(([f, i]) => card(f, i)).join('') || (g === 'feat' ? '<p class="hint">No feats yet. Feats from level-ups are added automatically.</p>' : '')}</div></section>`).join('');
+  $('#page-features').innerHTML = `
+  <div class="panel" ${PID('featlist')}><h2><span class="grow">Features &amp; Traits</span><span class="hint lvhint" style="text-transform:none;letter-spacing:0">Total level ${totalLevel()} · proficiency ${fmt(PB())}</span><button class="btn sm" data-act="add" data-list="features">+ Custom feature</button></h2>
+    <div class="filters" style="margin-top:0"><input class="f featq" id="featQ" placeholder="Search features…" value="${esc(UI.featQ || '')}" aria-label="Search features"><button class="chip${ff === 'all' ? ' on' : ''}" data-act="featfilter" data-f="all">All</button>${groups.filter(g => g !== 'feat' || S.features.some(f => featGroup(f) === 'feat')).map(g => `<button class="chip${ff === g ? ' on' : ''}" data-act="featfilter" data-f="${g}">${esc(gname(g))}</button>`).join('')}</div>
+    ${sections || '<p class="hint">No features match.</p>'}
+    <p class="hint">Features from your class, race, background and feats are added and updated automatically as you level. Tap ✎ on a card to change it.</p></div>`;
+}
+// ---------- Inventory ----------
+const attuneMax = () => { const a = clsLv('artificer'); return a >= 18 ? 6 : a >= 14 ? 5 : a >= 10 ? 4 : 3; };
+const attunedCount = () => S.inventory.filter(it => it.attune && it.attuned).length;
+// Extra containers (bags of holding, saddlebags…). Items carry `bag` (a container id, '' = Pack); equipped items ignore it.
+const bagOf = it => (!it.equipped && it.bag && (S.bags || []).find(b => b.id === it.bag)) || null;
+// Containers can sit inside other containers (b.in = the outer container's id; '' = on its own).
+const bagById = id => (S.bags || []).find(b => b.id === id) || null;
+const bagParent = b => (b && b.in && b.in !== b.id && bagById(b.in)) || null;
+function bagAncestors(b) { const out = []; let p = bagParent(b); while (p && !out.includes(p) && out.length < 20) { out.push(p); p = bagParent(p); } return out; }
+const inPack = b => !!b && b.in === 'pack';
+const packBags = () => (S.bags || []).filter(inPack);
+const bagTop = () => (S.bags || []).filter(b => !inPack(b) && (!bagParent(b) || bagAncestors(b).includes(b)));
+const bagKids = b => (S.bags || []).filter(x => x !== b && bagParent(x) === b);
+function bagDescendants(b) { const out = []; const walk = x => bagKids(x).forEach(k => { if (!out.includes(k) && k !== b) { out.push(k); walk(k); } }); walk(b); return out; }
+const bagPath = b => bagAncestors(b).reverse().concat([b]).map(x => x.name || 'Container').join(' ▸ ');
+// Containers in tree order (outer first, then what's inside it)
+function bagTree() { const out = []; const walk = (b, d) => { out.push([b, d]); bagKids(b).forEach(k => walk(k, d + 1)); }; packBags().forEach(b => walk(b, 1)); bagTop().forEach(b => walk(b, 0)); (S.bags || []).forEach(b => { if (!out.some(([x]) => x === b)) out.push([b, 0]); }); return out; }
+// Everything inside a container, nested containers included (their own weight too unless something weightless holds them)
+const bagWeight = id => { const b = bagById(id); const own = S.inventory.filter(it => !it.equipped && it.bag === id).reduce((t, it) => t + N(it.qty) * N(it.weight), 0); return own + (b ? bagKids(b).reduce((t, k) => t + N(k.weight) + (k.weightless ? 0 : bagWeight(k.id)), 0) : 0); };
+const bagFree = b => !!b && (b.weightless || bagAncestors(b).some(a => a.weightless));
+const weight = () => S.inventory.reduce((t, it) => { const b = bagOf(it); return t + (bagFree(b) ? 0 : N(it.qty) * N(it.weight)); }, 0) + (S.bags || []).reduce((t, b) => t + (bagAncestors(b).some(a => a.weightless) ? 0 : N(b.weight)), 0);
+const BAG_PRESETS = [['Bag of Holding', 500, true, 15, 'Contents weigh nothing; holds up to 500 lb / 64 cu ft.'], ['Handy Haversack', 120, true, 5, 'Two side pouches (20 lb each) and a central pouch (80 lb); contents weigh nothing.'], ['Portable Hole', 0, true, 0, 'Extradimensional hole, 10 ft deep; contents weigh nothing.'], ['Backpack', 30, false, 5, 'Holds 30 lb / 1 cu ft.'], ['Sack', 30, false, 0.5, 'Holds 30 lb.'], ['Saddlebags', 0, false, 8, 'On your mount — untick "counts toward your weight" below if the mount carries it.'], ['Chest', 300, false, 25, 'Holds 300 lb / 12 cu ft.']];
+function renderInventory() {
+  spellDatalist();
+  const m = isMobile();
+  const COIN = [['cp', 'Copper'], ['sp', 'Silver'], ['ep', 'Electrum'], ['gp', 'Gold'], ['pp', 'Platinum']];
+  const purse = COIN.filter(([c]) => c !== 'ep' || ST('electrum')).map(([c, t]) => `
+    <div class="cn ${c}" title="${t}"><i class="cdot"></i><span class="cl">${c.toUpperCase()}</span>
+      <button data-act="coin" data-c="${c}" data-d="-1" aria-label="Subtract 1 ${t}">−</button>${inp('currency.' + c, { num: 1, cls: 'cin', label: t + ' pieces' })}<button data-act="coin" data-c="${c}" data-d="1" aria-label="Add 1 ${t}">+</button></div>`).join('');
+  const eq = S.inventory.map((it, i) => [it, i]).filter(([it]) => it.equipped);
+  const pack = S.inventory.map((it, i) => [it, i]).filter(([it]) => !it.equipped && !bagOf(it));
+  const bags = S.bags || [];
+  const row = ([it, i]) => {
+    const open = UI.open['item:' + it.id];
+    const ch = it.charges && N(it.charges.max) > 0 ? `<span class="charges" title="Charges"><button data-act="charge" data-i="${i}" data-d="-1" aria-label="Use a charge">−</button><b>${Math.max(0, N(it.charges.max) - N(it.charges.used))}/${N(it.charges.max)}</b><button data-act="charge" data-i="${i}" data-d="1" aria-label="Restore a charge">+</button></span>` : '';
+    const badges = [it.magic ? `<span class="tag rar r-${esc(String(it.magic.rarity || '').replace(/\s+/g, ''))}">${esc(it.magic.rarity || 'magic')}</span>` : '', it.attune ? `<button class="tag att${it.attuned ? ' on' : ''}" data-act="attune" data-i="${i}" title="${it.attuned ? 'Attuned (tap to end)' : 'Requires attunement — tap to attune'}">${it.attuned ? '◆ Attuned' : '◇ Attune'}</button>` : ''].join('');
+    const dests = [['', 'Pack']].concat(bagTree().map(([b, d]) => [b.id, (d ? '\u2003'.repeat(d) + '↳ ' : '') + (b.name || 'Container')])).filter(([v]) => it.equipped || v !== (bagOf(it) ? it.bag : ''));
+    // Only one place to go: the button moves the item straight there (Unequip → Pack when you have no other containers).
+    const mv = dests.length === 1 && (it.equipped || bags.length) ? (it.equipped ? `<button class="mvbtn" data-act="moveto" data-i="${i}" data-to="${esc(dests[0][0])}" title="Unequip and put it in your ${esc(dests[0][1])}">Unequip</button>` : `<button class="mvto" data-act="moveto" data-i="${i}" data-to="${esc(dests[0][0])}" title="Move to ${esc(dests[0][1])}" aria-label="Move ${esc(it.name)} to ${esc(dests[0][1])}">⇄</button>`)
+      : dests.length && (it.equipped || bags.length) ? `<div class="menu mvmenu"><button class="mvto" data-act="menu" aria-haspopup="true" title="Move to another container" aria-label="Move ${esc(it.name)}">⇄</button><div class="menu-list"><div class="mlabel">Move to</div>${dests.map(([v, t]) => `<button data-act="moveto" data-i="${i}" data-to="${esc(v)}">${esc(t)}</button>`).join('')}</div></div>` : '';
+    return `<div class="irow irow2${it.magic ? ' magic' : ''}" data-ii="${i}" data-q="${esc((it.name + ' ' + (it.notes || '') + ' ' + ((it.magic || {}).rarity || '')).toLowerCase())}">
+      <div class="iname-row" title="${esc(it.name)}"><span class="idrag" data-drag="${i}" title="Drag to reorder, or into another container" aria-hidden="true">⠿</span>${ta(`inventory.${i}.name`, { rows: 1, cls: 'iname', label: 'Item name' })}${String(it.notes || '').trim() || it.img ? `<button class="notetip" data-tip="${i}" aria-label="Notes for ${esc(it.name)}" title="">ⓘ</button>` : ''}</div>
+      <div class="ictl">${invArrows(i)}<div class="qty"><button data-act="qty" data-i="${i}" data-d="-1" aria-label="One fewer">−</button>${inp(`inventory.${i}.qty`, { num: 1, cls: 'qtyin', label: 'Quantity' })}<button data-act="qty" data-i="${i}" data-d="1" aria-label="One more">+</button></div>
+        ${it.equipped ? '' : `<button class="mvbtn eq" data-act="equip" data-i="${i}" title="Equip">Equip</button>`}${mv}
+        <span class="grow"></span>
+        <button class="icon-btn ibtn${open ? ' on' : ''}" data-act="toggle" data-key="item:${it.id}" title="${open ? 'Close editing' : 'Edit details and notes'}" aria-label="Edit ${esc(it.name)}">${open ? '▴' : '✎'}</button>
+        ${del('inventory', i)}</div>
+      <div class="imeta">${String(it.notes || '').trim() && !open ? `<div class="inote-m mnote">${esc(it.notes)}</div>` : ''}${badges}${ch}${isDeckItem(it) ? `<button class="btn sm gold" data-act="deck" data-i="${i}">Draw a card</button>` : ''}${it.heal ? `<button class="btn sm" data-act="drink" data-i="${i}">Drink (${esc(it.heal)})</button>` : ''}${it.hb && hbUsable(hbFx(it.hb)) ? `<button class="btn sm gold" data-act="useitem" data-i="${i}" ${hbItemReady(it) ? '' : 'disabled'} title="${hbItemOn(it) ? '' : it.attune && !it.attuned ? 'Attune first' : 'Equip it first'}">Use</button>` : ''}${hbChips(it)}
+</div>
+      ${open ? `<div class="idetail"><div class="idet-top">${picThumb(`inventory.${i}.img`, it.name)}${fld('Notes', ta(`inventory.${i}.notes`, { rows: 2, cls: 'inotefull', label: 'Notes', ph: 'Add a note…' }))}</div>${it.summary ? `<p>${esc(it.summary)}</p>` : ''}${it.armor ? `<p class="hint">${esc(it.armor.type)} armor · AC ${it.armor.base}${it.armor.type === 'shield' ? '' : it.armor.dexCap === 0 ? '' : it.armor.dexCap ? ' + DEX (max ' + it.armor.dexCap + ')' : ' + DEX'}${it.armor.strReq ? ' · STR ' + it.armor.strReq : ''}${it.armor.stealthDis ? ' · Stealth disadvantage' : ''}</p>` : ''}${it.weapon ? `<p class="hint">${esc(it.weapon.cat)} ${esc(it.weapon.kind)} · ${esc(it.weapon.dice)} ${esc(it.weapon.type)}${it.weapon.props && it.weapon.props.length ? ' · ' + esc(it.weapon.props.join(', ')) : ''}${it.weapon.range ? ' · ' + esc(it.weapon.range) + ' ft' : ''}</p>` : ''}
+        <div class="row">${fld('Weight (lb)', inp(`inventory.${i}.weight`, { num: 1 }))}${fld('Cost', inp(`inventory.${i}.cost`))}<label class="checkline">${chk(`inventory.${i}.attune`, 'Requires attunement')} Requires attunement</label></div>
+        ${hbBox(`inventory.${i}`, it.hb, 'item', 'i' + it.id, it, i)}</div>` : ''}
+    </div>`;
+  };
+  $('#page-inventory').innerHTML = `
+  <div class="panel inv-panel" ${PID('inventory')}>
+    <h2><span class="grow">Inventory</span><button class="btn gold" data-act="catalog">+ Add item</button><button class="btn" data-act="add" data-list="inventory">+ Custom item</button><button class="btn" data-act="addbag" title="Add a bag of holding, backpack or other container">+ Container</button></h2>
+    <div class="purse">${purse}<span class="worth pworth" data-calc="worth" title="Total value of your coins in gold"></span></div>
+    <div class="invsearch"><input class="f invq" type="search" data-scope="all" placeholder="Search your inventory…" aria-label="Search inventory" value="${esc(UI.invQ || '')}"></div>
+    <div class="invstats"><span>Attuned <b data-calc="attune"></b></span>${ST('encumbrance') === 'off' ? '' : '<span>Carrying <b data-calc="weight"></b> / <span data-calc="carry"></span> lb</span><span class="hint" data-calc="encnote"></span>'}</div>
+    <div class="inv2 placed" data-ordered data-zone="invcols" data-axis="x" style="--bagrows:${bagTop().length + 1}">${invPlaced(zoneOrder('invcols', ['pack', 'equipped'].concat(bagTop().map(b => 'bag:' + b.id))).filter(k => !k.startsWith('bag:') || bagTop().some(b => 'bag:' + b.id === k))).map(([k, st]) => invCol(k, { eq, pack, row }).replace('<section ', `<section style="${st}" `)).join('')}
+    </div>
+  </div>`;
+  invFilter();
+}
+
+// Placement: extra containers always stack in the same column as the Pack (wherever the Pack has been moved);
+// Equipped takes the other column and spans its full height.
+function invPlaced(order) {
+  const pc = order.indexOf('pack') < order.indexOf('equipped') ? 1 : 2, ec = 3 - pc; let r = 2;
+  return order.map(k => [k, k === 'pack' ? `grid-column:${pc};grid-row:1` : k === 'equipped' ? `grid-column:${ec};grid-row:1 / -1` : `grid-column:${pc};grid-row:${r++}`]);
+}
+// One inventory column (Pack, Equipped or an extra container). Every column collapses from its header.
+function invCol(k, { eq, pack, row }) {
+  const shut = !!UI.open['invshut:' + k], caret = `<span class="caret">${shut ? '▸' : '▾'}</span>`;
+  const head = (dot, title, n, extra = '') => `<h3 class="subh"><button class="colhead" data-act="toggle" data-key="invshut:${k}" aria-expanded="${!shut}" title="${shut ? 'Expand' : 'Collapse'}">${caret}<span class="sh-dot${dot}"></span><span class="colname">${title}</span><span class="count">${n}</span></button>${extra}${n > 1 ? invSortMenu(k) : ''}</h3>`;
+  if (k === 'equipped') return `<section class="inv-col eqcol${shut ? ' shut' : ''}" data-zi="equipped">${head('', 'Equipped', eq.length)}
+        ${shut ? '' : `<div class="ilist">${eq.map(row).join('') || '<p class="hint">Nothing equipped. Equipped armor and shields set your AC; equipped magic items apply their bonuses.</p>'}</div>`}</section>`;
+  if (k === 'pack') return `<section class="inv-col${shut ? ' shut' : ''}" data-zi="pack">${head(' pack', 'Pack', pack.length + packBags().length, pack.length + packBags().length > 1 ? invQBtn('pack') : '')}
+        ${shut ? '' : (pack.length + packBags().length > 1 && invQOpen('pack') ? invQBox('pack', 'Pack') : '') + `<div class="ilist">${pack.map(row).join('') || (packBags().length ? '' : '<p class="hint">Pack is empty.</p>')}</div>${packBags().length ? `<div class="subbags">${packBags().map(c => bagSection(c, row, 1)).join('')}</div>` : ''}`}</section>`;
+  const b = (S.bags || []).find(x => 'bag:' + x.id === k); if (!b || !bagTop().includes(b)) return '';
+  return bagSection(b, row, 0);
+}
+// A container's section; containers inside it open below its items as their own drop-downs.
+function bagSection(b, row, depth) {
+  const k = 'bag:' + b.id, j = S.bags.indexOf(b), shut = !!UI.open['invshut:' + k];
+  const items = S.inventory.map((it, i) => [it, i]).filter(([it]) => bagOf(it) === b), kids = bagKids(b), w = Math.round(bagWeight(b.id) * 10) / 10, ed = UI.open['bagedit:' + b.id];
+  const full = N(b.cap) && w > N(b.cap), free = bagFree(b) && !b.weightless;
+  const extra = (ST('encumbrance') === 'off' ? '' : `<span class="bagw${full ? ' over' : ''}" title="${b.weightless ? 'Contents don’t count toward what you carry' : free ? 'Inside a weightless container' : 'Contents count toward what you carry'}">${w}${N(b.cap) ? ' / ' + N(b.cap) : ''} lb${b.weightless ? ' · weightless' : ''}</span>`) + `<button class="icon-btn" data-act="toggle" data-key="bagedit:${b.id}" title="Container settings" aria-label="Container settings">${ICON.gear}</button>`;
+  const caret = `<span class="caret">${shut ? '▸' : '▾'}</span>`, n = items.length + kids.length;
+  const dests = [['pack', 'Pack']].filter(() => !inPack(b)).concat([['', 'Its own column']].filter(() => !!bagParent(b) || inPack(b))).concat(bagTree().filter(([x]) => x !== b && x !== bagParent(b) && !bagDescendants(b).includes(x)).map(([x, d]) => [x.id, (d ? '\u2003'.repeat(d) + '↳ ' : '') + (x.name || 'Container')]));
+  const mvb = dests.length ? `<div class="menu mvmenu"><button class="icon-btn mvto bagmv" data-act="menu" aria-haspopup="true" title="Move this container (and everything in it)" aria-label="Move ${esc(b.name || 'container')}">⇄</button><div class="menu-list"><div class="mlabel">Move ${esc(b.name || 'container')} into</div>${dests.map(([v, t]) => `<button data-act="bagmove" data-id="${esc(b.id)}" data-to="${esc(v)}">${esc(t)}</button>`).join('')}</div></div>` : '';
+  const head = `<h3 class="subh"><span class="bdrag" data-bdrag="${esc(b.id)}" title="Drag into another container (or out on its own)" aria-hidden="true">⠿</span><button class="colhead" data-act="toggle" data-key="invshut:${k}" aria-expanded="${!shut}" title="${shut ? 'Expand' : 'Collapse'}">${caret}<span class="sh-dot bag"></span><span class="colname">${esc(b.name || 'Container')}</span><span class="count">${n}</span></button>${items.length + kids.length > 1 ? invQBtn(k) : ''}${extra}${mvb}${items.length > 1 ? invSortMenu(k) : ''}</h3>`;
+  const inside = [['', 'Nothing — its own column'], ['pack', 'Pack']].concat(bagTree().filter(([x]) => x !== b && !bagDescendants(b).includes(x)).map(([x, d]) => [x.id, (d ? '\u2003'.repeat(d) + '↳ ' : '') + (x.name || 'Container')]));
+  const edit = ed ? `<div class="bagedit">${fld('Name', inp(`bags.${j}.name`, { fit: 10 }))}${fld('Holds (lb)', inp(`bags.${j}.cap`, { num: 1, cls: 'sm', ph: '∞' }))}${fld('Bag weighs (lb)', inp(`bags.${j}.weight`, { num: 1, cls: 'sm' }))}
+        <div class="span2">${fld('Inside', sel(`bags.${j}.in`, inside, { label: 'Which container this one is inside' }))}</div>
+        <label class="checkline span2 nowrap">${chk(`bags.${j}.weightless`, 'Contents weigh nothing')} Contents weigh nothing</label>
+        <div class="span2">${fld('Notes', inp(`bags.${j}.notes`, { ph: 'Where it is, what it does…' }))}</div>
+        <div class="span2" style="text-align:right"><button class="btn red sm" data-act="delbag" data-i="${j}">Remove container</button></div></div>` : b.notes ? `<p class="hint bagnote">${esc(b.notes)}</p>` : '';
+  const body = shut ? '' : (items.length + kids.length > 1 && invQOpen(k) ? invQBox(k, b.name || 'container') : '') + `<div class="ilist">${items.map(row).join('') || (kids.length ? '' : '<p class="hint">Empty. Use the <b>⇄</b> button on any item to move it in here.</p>')}</div>${kids.length ? `<div class="subbags">${kids.map(c => bagSection(c, row, depth + 1)).join('')}</div>` : ''}`;
+  return depth ? `<section class="subbag${shut ? ' shut' : ''}" data-zi="${k}">${head}${edit}${body}</section>`
+    : `<section class="inv-col bagcol${shut ? ' shut' : ''}" data-zi="${k}">${head}${edit}${body}</section>`;
+}
+// A container's own search box opens from the 🔍 button in its header (and stays open while it holds a search).
+const invQOpen = k => !!UI.open['invsrch:' + k] || !!String((UI.invQs || {})[k] || '').trim();
+const invQBtn = k => `<button class="icon-btn invqbtn${invQOpen(k) ? ' on' : ''}" data-act="invsrch" data-k="${esc(k)}" title="${invQOpen(k) ? 'Close search' : 'Search this container'}" aria-label="Search this container" aria-pressed="${invQOpen(k)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg></button>`;
+const invQBox = (k, name) => `<div class="invqbox"><input class="f invq sm" type="search" data-scope="${esc(k)}" placeholder="Search ${esc(name)}…" aria-label="Search ${esc(name)}" value="${esc((UI.invQs || {})[k] || '')}"></div>`;
+// Live search: the inventory-wide box and each container's own box both filter (a row must match every box that covers it).
+function invFilter() {
+  const page = $('#page-inventory'); if (!page) return;
+  const g = String(UI.invQ || '').trim().toLowerCase(), qs = UI.invQs || {};
+  const ok = (txt, q) => !q || q.split(/\s+/).every(w => txt.includes(w));
+  page.querySelectorAll('.irow[data-q]').forEach(r => { let vis = ok(r.dataset.q, g); let sec = r.closest('section[data-zi]');
+    while (vis && sec) { vis = ok(r.dataset.q, String(qs[sec.dataset.zi] || '').trim().toLowerCase()); sec = sec.parentElement && sec.parentElement.closest('section[data-zi]'); }
+    r.classList.toggle('qhide', !vis); });
+  const any = g || Object.values(qs).some(v => String(v || '').trim());
+  // Nested containers with nothing matching fold away while searching
+  [...page.querySelectorAll('section.subbag')].reverse().forEach(sec => { const has = sec.querySelector('.irow:not(.qhide)'); sec.classList.toggle('qhide', !!any && !has); });
+  page.querySelectorAll('section[data-zi] > .ilist').forEach(l => { let m = l.querySelector(':scope > .qnone'); const rows = l.querySelectorAll(':scope > .irow'), vis = [...rows].some(r => !r.classList.contains('qhide'));
+    if (any && rows.length && !vis) { if (!m) { m = document.createElement('p'); m.className = 'hint qnone'; m.textContent = 'No matches.'; l.appendChild(m); } } else if (m) m.remove(); });
+}
+document.addEventListener('input', e => { const t = e.target; if (!t.classList || !t.classList.contains('invq')) return; const k = t.dataset.scope;
+  if (k === 'all') UI.invQ = t.value; else UI.invQs = Object.assign({}, UI.invQs, { [k]: t.value }); invFilter(); });
+function openAddBag() {
+  openModal(`<h3>Add a container</h3><p class="hint">For extra bags, a bag of holding, a mount's saddlebags… Each one gets its own column in Inventory.</p>
+    <div class="bagpresets">${BAG_PRESETS.map(([n, cap, wl, w, d], x) => `<button class="bagpreset" data-act="addbagp" data-i="${x}"><b>${esc(n)}</b><small>${esc(d)}</small></button>`).join('')}
+    <button class="bagpreset" data-act="addbagp" data-i="-1"><b>Custom container</b><small>Name it and set its capacity yourself.</small></button></div>
+    <div class="actions"><button class="btn" data-act="close">Cancel</button></div>`, null, true);
+}
+function addBag(x) {
+  const p = BAG_PRESETS[x] || ['New container', 0, false, 0, ''];
+  const b = { id: uid(), name: p[0], cap: p[1] || '', weightless: p[2], weight: p[3], notes: '' };
+  S.bags = (S.bags || []).concat([b]); if (x < 0) UI.open['bagedit:' + b.id] = true;
+  closeModal(true); pendingLabel = 'Add container: ' + b.name; save(); render();
+}
+// Put a whole container (with everything in it) inside another one, or back out on its own.
+function bagMoveTo(id, to) {
+  const b = bagById(id); if (!b) return; const pk = to === 'pack', dest = to && !pk ? bagById(to) : null;
+  if (dest && (dest === b || bagDescendants(b).includes(dest))) { toast(`${esc(b.name)} can't go inside itself.`, 'fumble'); return; }
+  if ((b.in || '') === (to || '')) return;
+  b.in = pk ? 'pack' : dest ? dest.id : ''; if (dest) UI.open['invshut:bag:' + dest.id] = false; if (pk) UI.open['invshut:pack'] = false;
+  const where = pk ? 'your Pack' : dest ? (dest.name || 'container') : '';
+  pendingLabel = `Move ${b.name || 'container'} ${where ? 'into ' + where : 'to its own column'}`; save(); render();
+  toast(`<b>${esc(b.name || 'Container')}</b> ${where ? 'is now inside <b>' + esc(where) + '</b>' : 'has its own column again'}.`, '', 4000, { label: 'Undo', fn: () => undo(1) });
+}
+function delBag(j) {
+  const b = S.bags[j]; if (!b) return;
+  const n = S.inventory.filter(it => it.bag === b.id).length, outer = bagParent(b), to = outer ? outer.id : '';
+  S.inventory.forEach(it => { if (it.bag === b.id) it.bag = to; });
+  bagKids(b).forEach(k => { k.in = outer ? outer.id : inPack(b) ? 'pack' : ''; });
+  S.bags.splice(j, 1); pendingLabel = 'Remove container: ' + b.name; save(); render();
+  toast(`Removed ${esc(b.name)}${n ? ` — ${n} item${n > 1 ? 's' : ''} moved to ${outer ? esc(outer.name) : 'your Pack'}` : ''}.`, '', 5000, { label: 'Undo', fn: () => undo(1) });
+}
+
+// ---------- Companions & forms ----------
+function crAttackRow(who, a, j) {
+  return `<div class="fa-row"><b>${esc(a[0])}</b><button class="roll" data-act="crroll" data-who="${who}" data-j="${j}" data-what="hit">${a[1] === '' || a[1] == null ? 'save' : fmt(N(a[1]))}</button><button class="roll" data-act="crroll" data-who="${who}" data-j="${j}" data-what="dmg">${esc(a[2] || '—')}</button><span class="muted">${esc(a[3] || '')}</span></div>`;
+}
+function renderCompanions() {
+  const f = S.form;
+  const formPanel = f ? `<div class="panel comp form"><h2><span class="grow">${esc(f.source || 'Form')}: ${esc(f.name)}</span><button class="btn red" data-act="endform">Revert</button></h2>
+      <div class="cstats"><span><span class="lbl">HP</span>${inp('form.hp', { num: 1, cls: 'sm', label: 'Form HP' })} / ${N(f.maxhp)}</span><span><span class="lbl">AC</span><b>${N(f.ac)}</b></span><span><span class="lbl">Speed</span>${esc(f.speed)}</span>
+        <span class="abil6">${AB.map((a, k) => `<i>${AB3[a]} <b>${N((f.abil || [])[k])}</b></i>`).join('')}</span></div>
+      ${(f.attacks || []).map((a, j) => crAttackRow('form', a, j)).join('')}
+      <p class="hint">${esc(f.notes || '')}</p>
+      <p class="hint">While transformed, damage comes off this form's HP first; anything left over carries to your own HP (${N(S.hp.cur)}). Your STR, DEX and CON use the form's scores${f.allStats ? ' (all scores replaced)' : ''}.</p></div>` : '';
+  const ws = S.features.findIndex(x => x.name === 'Wild Shape');
+  const cards = S.companions.map((c, i) => compCard(c, i, false)).join('');
+  const summonRows = typeof combatCompanionRows === 'function' ? combatCompanionRows() : [];
+  $('#page-companions').innerHTML = `
+  <div class="blockp" ${PID('companions')}><div class="filters" style="margin-top:0">
+    ${ws >= 0 ? `<button class="btn gold" data-act="wildshape" title="Uses your Wild Shape feature">Wild Shape</button>` : ''}
+    <div class="menu"><button class="btn" data-act="menu" aria-haspopup="true">+ Add ▾</button><div class="menu-list">
+      <button data-act="addcreature">Creature from the list<small>Beasts, mounts, familiars, elementals, undead</small></button>
+      ${Object.keys(DND.companions).some(classCompanionOK) ? '<button data-act="addclasscomp">Class companion<small>Scales with your level</small></button>' : ''}
+      <button data-act="add" data-list="companions">Custom companion<small>Type in any stat block</small></button>
+      <button data-act="transform">I've been transformed…<small>Polymorphed, potion, curse or DM effect: take a creature's stats</small></button></div></div>
+    <span class="hint">Summoning spells, Wild Shape and polymorph add themselves here and clean up when they end.</span></div>
+  ${formPanel}
+  ${summonRows.length ? `<div class="panel comp-summon"><h2>Class companions</h2>${summonRows.join('')}</div>` : ''}
+  <div class="comps">${cards || (f ? '' : '<div class="panel"><p class="hint" style="margin:0">No companions. Cast a summoning spell, Find Familiar or Find Steed, use Wild Shape, or add a creature.</p></div>')}</div></div>`;
+}
+// Class companions: who may have them, which class level drives their stats, and how they arrive.
+const COMP_RULES = {
+  'Steel Defender': { cls: 'artificer', req: () => hasSub('artificer', 'battlesmith') && clsLv('artificer') >= 3, perm: true, always: true, ab: 'int', command: 'On its turn (right after yours) it takes the action you command: Force-Empowered Rend, Repair, or any other action (Dash, Disengage, Help, Hide, Search…). Without a command it only takes the Dodge action.' },
+  'Homunculus Servant': { cls: 'artificer', req: () => clsLv('artificer') >= 2 && (S.inventory || []).some(it => it.infusion && it.infusion.name === 'Homunculus Servant'), perm: true, always: true, ab: 'int' },
+  'Primal Companion (Land)': { cls: 'ranger', req: () => hasSub('ranger', 'beastmaster') && clsLv('ranger') >= 3, perm: true, group: 'primal', ab: 'wis' },
+  'Primal Companion (Sea)': { cls: 'ranger', req: () => hasSub('ranger', 'beastmaster') && clsLv('ranger') >= 3, group: 'primal', ab: 'wis' },
+  'Primal Companion (Sky)': { cls: 'ranger', req: () => hasSub('ranger', 'beastmaster') && clsLv('ranger') >= 3, group: 'primal', ab: 'wis' },
+  'Drake Companion': { cls: 'ranger', req: () => hasSub('ranger', 'drakewarden') && clsLv('ranger') >= 3, feature: 'Drake Companion', ab: 'wis' },
+  'Eldritch Cannon': { cls: 'artificer', req: () => hasSub('artificer', 'artillerist') && clsLv('artificer') >= 3, feature: 'Eldritch Cannon', rounds: 600, ab: 'int' },
+  'Wildfire Spirit': { cls: 'druid', req: () => hasSub('druid', 'wildfire') && clsLv('druid') >= 2, feature: 'Summon Wildfire Spirit', rounds: 600, ab: 'wis' },
+  'Dancing Item': { cls: 'bard', req: () => hasSub('bard', 'creation') && clsLv('bard') >= 6, feature: 'Animating Performance', rounds: 600, ab: 'cha' }
+};
+// Combat → Action: summon each class companion you're entitled to (spending the feature's use when it has one).
+function combatCompanionRows() {
+  const seen = new Set();
+  // Companions that are simply always with you (Steel Defender, Homunculus) have nothing to summon.
+  return Object.keys(COMP_RULES).filter(classCompanionOK).filter(n => !COMP_RULES[n].always).filter(n => { const g = COMP_RULES[n].group; if (!g) return true; if (seen.has(g)) return false; seen.add(g); return true; }).map(n => {
+    const r = COMP_RULES[n], grp = r.group ? Object.keys(COMP_RULES).filter(k => COMP_RULES[k].group === r.group && classCompanionOK(k)) : [n];
+    const out = S.companions.find(c => grp.includes(c.tmpl)), nm = ((S.compMods || {})[n] || {}).name || (r.group ? n.replace(/\s*\(.*\)$/, '') : n);
+    const fi = r.feature ? S.features.findIndex(f => f.name === r.feature) : -1, f = S.features[fi], max = f ? featMax(f) : null, left = max != null ? Math.max(0, max - N(f.used)) : null;
+    const st = out ? `Summoned · ${N(out.hp)}/${N(out.maxhp)} HP` : 'Not summoned', uses = left != null ? ` · ${left}/${max} free use${max === 1 ? '' : 's'} left${f && fxOf(f).slotRestore ? ', then a spell slot' : ''}` : '';
+    const btn = fi >= 0 ? `<button class="btn sm gold" data-act="usefeat" data-i="${fi}" data-col="action" ${left === 0 && !fxOf(f).slotRestore ? 'disabled title="No uses left"' : ''}>${out ? 'Re-summon' : 'Summon'}${left === 0 && fxOf(f).slotRestore ? ' (slot)' : ''}</button>`
+      : grp.length > 1 ? grp.map(k => `<button class="btn sm${out && out.tmpl === k ? '' : ' gold'}" data-act="compsummon" data-n="${esc(k)}">${esc(k.match(/\((.*)\)/) ? k.match(/\((.*)\)/)[1] : k)}</button>`).join('')
+      : `<button class="btn sm gold" data-act="compsummon" data-n="${esc(n)}">${out ? 'Re-summon' : 'Summon'}</button>`;
+    return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(nm)}</span><span class="grow"></span>${btn}</div><div class="compsum-st">${st}${uses}${r.feature ? ' · uses ' + esc(r.feature) : ''}</div></div>`;
+  });
+}
+function classCompanionOK(n) { const r = COMP_RULES[n]; return !!(r && r.req()); }
+// S.compMods[template]: your table's version of a class companion (e.g. a renamed Eldritch Cannon with house-ruled HP).
+// Your saved action list wins, but built-in actions keep scaling: a saved row that matches a built-in by name
+// and still has the old numbers is refreshed to the current ones.
+function mergeActs(builtIn, saved, known) {
+  const out = [];
+  saved.forEach(e => { if (Array.isArray(e)) { out.push(e); return; } if (e.a) { out.push(e.a); return; }
+    const x = builtIn.find(z => actName(z) === e.b); if (!x) return; const y = x.slice(); Object.entries(e.e || {}).forEach(([k, v]) => { y[k] = v; }); out.push(y); });
+  builtIn.forEach(x => { if (!(known || []).includes(actName(x))) out.push(x); }); // new at a later level
+  return out;
+}
+function compStatsBase(n) { return compStats(n, true); }
+function compStats(n, noMods) {
+  const r = COMP_RULES[n], ci = castInfo(r.cls), c = DND.companions[n](clsLv(r.cls), PB(), ci.mod != null ? ci.mod : mod(r.ab), ci.atk), m = (S.compMods || {})[n];
+  if (n === 'Eldritch Cannon') { const lv = clsLv(r.cls), k = ci.mod != null ? ci.mod : mod('int'), d = lv >= 9 && ST('protectorScales') ? 2 : 1;
+    c.attacks = (c.attacks || []).concat([['Protector (temp HP)', '', d + 'd8+' + Math.max(1, k), 'temp HP to the cannon and each creature you choose within 10 ft']]);
+    c.notes = String(c.notes || '').replace(/·?\s*Protector: [^·]*/, '').trim(); }
+  if (m && !noMods) { if (N(m.hp)) c.hp = N(m.hp); if (N(m.ac)) c.ac = N(m.ac); if (m.speed) c.speed = m.speed; if (m.notes) c.notes = m.notes + (c.notes ? ' · ' + c.notes : ''); if (Array.isArray(m.actions)) c.attacks = mergeActs(c.attacks, m.actions, m.known); else if (Array.isArray(m.attacks)) c.attacks = c.attacks.concat(m.attacks); }
+  return c;
+}
+function makeClassComp(n, extra) { const c = compStats(n); return Object.assign({ id: uid(), name: ((S.compMods || {})[n] || {}).name || n, tmpl: n, kind: 'class', ac: c.ac, hp: c.hp, maxhp: c.hp, speed: c.speed, attacks: c.attacks, notes: c.notes }, extra || {}); }
+// Keep class companions in step with your level, scores and subclass; add permanent ones automatically.
+function syncClassCompanions() {
+  let changed = false;
+  S.companions = S.companions.filter(c => { if (c.tmpl && COMP_RULES[c.tmpl] && !COMP_RULES[c.tmpl].req()) { changed = true; return false; } return true; });
+  S.companions.forEach(c => {
+    if (!c.tmpl || !COMP_RULES[c.tmpl]) return;
+    const n = compStats(c.tmpl), lost = Math.max(0, N(c.maxhp) - N(c.hp));
+    const upd = { ac: n.ac, maxhp: n.hp, hp: Math.max(0, n.hp - lost), speed: n.speed, attacks: n.attacks, notes: n.notes };
+    if (JSON.stringify(upd) !== JSON.stringify({ ac: c.ac, maxhp: c.maxhp, hp: c.hp, speed: c.speed, attacks: c.attacks, notes: c.notes })) { Object.assign(c, upd); changed = true; }
+  });
+  Object.entries(COMP_RULES).forEach(([n, r]) => {
+    if (!r.perm || !r.req() || (!r.always && (S.compOff || {})[n])) return;
+    if (S.companions.some(c => c.tmpl === n || (r.group && COMP_RULES[c.tmpl] && COMP_RULES[c.tmpl].group === r.group))) return;
+    S.companions.push(makeClassComp(n)); changed = true;
+  });
+  return changed;
+}
+
+// ---------- Story & notes ----------
+function renderStory() {
+  const quotes = (S.quotes || []).map((q, i) => `<div class="qrow">${ta(`quotes.${i}.text`, { rows: 1, label: 'Quote', ph: 'Something your character says…' })}${del('quotes', i)}</div>`).join('');
+  const rumors = (S.rumors || []).map((r, i) => `<div class="rumor"><div class="rumor-head">${sel(`rumors.${i}.kind`, [['True', 'True'], ['False', 'False'], ['Exaggerated', 'Exaggerated'], ['Unknown', 'Unknown']], { cls: 'kind-' + (r.kind || 'Unknown'), label: 'Truth' })}${ta(`rumors.${i}.title`, { rows: 1, cls: 'title', ph: 'Rumor', label: 'Rumor title' })}${del('rumors', i)}</div>${ta(`rumors.${i}.text`, { rows: 2, ph: 'What people say', label: 'What people say' })}${fld('The truth', ta(`rumors.${i}.truth`, { rows: 1, ph: '—' }))}</div>`).join('');
+  const people = (S.people || []).map((p, i) => `<div class="person"><div class="person-head">${picThumb(`people.${i}.img`, p.name || 'this person')}${inp(`people.${i}.name`, { cls: 'title', ph: 'Name', label: 'Name' })}${inp(`people.${i}.rel`, { ph: 'Relationship', label: 'Relationship', fit: 10 })}${sel(`people.${i}.att`, [['', '—'], ['ally', 'Ally'], ['friend', 'Friend'], ['family', 'Family'], ['neutral', 'Neutral'], ['rival', 'Rival'], ['enemy', 'Enemy']], { label: 'Attitude', cls: 'att-' + (p.att || '') })}${del('people', i)}</div>${ta(`people.${i}.notes`, { rows: 1, ph: 'Notes', label: 'Notes' })}</div>`).join('');
+  $('#page-story').innerHTML = `
+  <div class="story">
+    <div class="stack">
+      <div class="panel" ${PID('personality')}><h2>Personality</h2><div class="traits">
+        ${fld('Personality Traits', ta('traits.personality', { rows: 3 }))}${fld('Ideals', ta('traits.ideals', { rows: 2 }))}
+        ${fld('Bonds', ta('traits.bonds', { rows: 2 }))}${fld('Flaws', ta('traits.flaws', { rows: 2 }))}</div></div>
+      <div class="panel" ${PID('appearance')}><h2>Appearance</h2><div class="appear">${['age', 'height', 'weight', 'eyes', 'skin', 'hair'].map(k => fld(k[0].toUpperCase() + k.slice(1), inp('appearance.' + k))).join('')}</div></div>
+      <div class="panel" ${PID('backstory')}><h2>Backstory</h2>${ta('backstory', { rows: 10 })}</div>
+      <div class="panel" ${PID('rumors')}><h2><span class="grow">Rumors</span><button class="btn sm" data-act="add" data-list="rumors">+ Rumor</button></h2>${rumors || '<p class="hint">Stories people tell about you — and whether they\'re true.</p>'}</div>
+    </div>
+    <div class="stack">
+      <div class="panel" ${PID('people')}><h2><span class="grow">People</span><button class="btn sm" data-act="add" data-list="people">+ Person</button></h2>${people || '<p class="hint">Family, allies, rivals and NPCs you\'ve met.</p>'}
+        ${fld('Organizations &amp; other allies', ta('allies', { rows: 2 }))}</div>
+      <div class="panel" ${PID('quotes')}><h2><span class="grow">Quotes &amp; catchphrases</span>${(S.quotes || []).length ? '<button class="btn sm gold" data-act="sayquote">Say one</button>' : ''}<button class="btn sm" data-act="add" data-list="quotes">+ Quote</button></h2>${quotes || '<p class="hint">Lines your character says. “Say one” picks one at random — handy at the table.</p>'}</div>
+      <div class="panel" ${PID('lore')}><h2>Lore &amp; Secrets</h2>${ta('lore', { rows: 8 })}</div>
+    </div>
+  </div>`;
+}
+function renderNotes() {
+  const notes = S.notes.map((n, i) => `
+    <div class="snote"><div class="note-head">${inp(`notes.${i}.date`, { type: 'date', label: 'Date' })}${inp(`notes.${i}.title`, { cls: 'title', ph: 'Session title', label: 'Title' })}${del('notes', i)}</div>
+      ${ta(`notes.${i}.text`, { rows: 4, ph: 'What happened, NPCs met, loot, leads…', label: 'Notes' })}</div>`).join('');
+  const goals = (S.goals || []).map((g, i) => `<div class="goal${g.done ? ' done' : ''}"><label class="checkline">${chk(`goals.${i}.done`, 'Done')}</label>${ta(`goals.${i}.text`, { rows: 1, label: 'To-do', ph: 'Something to do…' })}${del('goals', i)}</div>`).join('');
+  const nOpen = (S.goals || []).filter(g => !g.done).length;
+  $('#page-notes').innerHTML = `
+  <div class="notesgrid">
+  <div class="panel" ${PID('goals')}><h2><span class="grow">Goals &amp; To-Do</span><span class="hint" style="text-transform:none;letter-spacing:0">${nOpen} open</span><button class="btn sm" data-act="add" data-list="goals">+ To-do</button></h2>
+    ${fld('Long-term goal', ta('goal', { rows: 2, ph: 'What drives your character?' }))}
+    <div class="goals">${goals || '<p class="hint">Quests, errands and leads to follow up.</p>'}</div>
+    ${(S.goals || []).some(g => g.done) ? '<button class="btn sm ghost" data-act="cleargoals">Clear finished</button>' : ''}</div>
+  <div class="blockp" ${PID('sessions')}><div class="filters" style="margin-top:0"><button class="btn gold" data-act="add" data-list="notes">+ New session note</button>
+    <span class="hint">Newest first. Level-ups are logged here automatically.</span></div>
+  ${notes || '<div class="panel"><p class="hint" style="margin:0">No notes yet. Add one each session to track loot, NPCs and leads.</p></div>'}</div></div>`;
+}
+
+// ---------- Combat page ----------
+const COLS = [['action', 'Action'], ['bonus', 'Bonus Action'], ['reaction', 'Reaction'], ['move', 'Movement & Free']];
+// Combat tab: spells grouped by what they do in a fight (damage first, utility last and folded away),
+// each group sorted by level. Spells you can't cast right now (no slot left) are dimmed.
+const SPG = [
+  ['dmg', 'Damage', '⚔'], ['ctl', 'Control', '⛓'], ['heal', 'Healing', '✚'], ['buff', 'Buffs & defense', '🛡'], ['util', 'Utility', '✦']];
+function spellGroup(sp) {
+  const sm = spellMath(sp), a = spAuto(sp), t = String(sp.time || '').toLowerCase(), sum = String(sp.summary || '').toLowerCase();
+  if (sm.dice || a.beams || a.darts || a.rays || a.weapon || a.weaponSpell || a.spiritual || a.repeat || /\d+d\d+/.test(a.rider || '')) return 'dmg';
+  if (sm.heal || sm.temp || a.heal || a.repeatHeal) return 'heal';
+  if (sm.save || sm.attack) return 'ctl';
+  if (a.buff || a.rider || a.summon || a.conjure || a.form || /\+\d+ ac|resistance|advantage|invisible|teleport|fly|speed/.test(sum) || /reaction/.test(t)) return 'buff';
+  return 'util';
+}
+function spellCastable(sp) {
+  if (sp.usesOnly) return N(evalMax(sp.uses && sp.uses.max)) - N(sp.uses && sp.uses.used) > 0;
+  const L = N(sp.level); if (!L || sp.atWill) return true;
+  if (sp.uses && N(sp.uses.max) && N(sp.uses.used) < (evalMax(sp.uses.max) || 0)) return true;
+  for (let l = L; l <= 9; l++) if (slotMax(l - 1) > 0 && slotsLeft(l - 1) > 0) return true;
+  const pc = pact(); return !!(pc && pc.level >= L && pactLeft() > 0);
+}
+const cgOpen = (col, k) => { const v = !!UI.open['cg:' + col + ':' + k]; return k === 'util' ? v : !v; };
+const cGroupHead = (col, k, name, icon, n, open) => `<button class="cspg-h" data-act="toggle" data-key="cg:${col}:${k}" aria-expanded="${open}" title="${open ? 'Collapse' : 'Expand'}"><span class="cspg-i">${icon}</span><b>${name}</b><span class="cspg-n">${n}</span><span class="caret">${open ? '▴' : '▾'}</span></button>`;
+const cGroup = (col, k, name, icon, n, inner) => { const open = cgOpen(col, k); return `<div class="cspg g-${k}${open ? '' : ' shut'}">${cGroupHead(col, k, name, icon, n, open)}${open ? `<div class="cspg-b">${inner}</div>` : ''}</div>`; };
+function combatSpellsHTML(col, spells) {
+  const groups = {}; spells.forEach(x => (groups[spellGroup(x[0])] = groups[spellGroup(x[0])] || []).push(x));
+  const lvTag = L => L ? ORD[L - 1] : 'Cantrip';
+  const row = ([sp, i]) => {
+    const sm = sp.usesOnly && N(sp.uses && sp.uses.level) > N(sp.level) ? spellMath(sp, N(sp.uses.level)) : spellMath(sp), ci = spellCI(sp), L = N(sp.level), ok = spellCastable(sp);
+    const hit = sm.attack ? `<span class="csp-k hit">${fmt(ci.atk)} hit</span>` : sm.save ? `<span class="csp-k save">DC ${ci.dc} ${esc(sm.save)}</span>` : '';
+    const a = spAuto(sp), mult = a.darts ? (3 + Math.max(0, L - 1)) + '× ' : a.rays ? N(a.rays) + '× ' : a.beams ? cantripTier() + '× ' : '';
+    const ag = sp.name === 'Eldritch Blast' && hasFeature('Agonizing Blast') ? mod('cha') : 0, tier = cantripTier();
+    const eff = a.darts ? `<span class="csp-k dmg">${mult}1d4+1 force</span>` : a.beams ? `<span class="csp-k dmg">${mult}1d10${ag ? sgn(ag) : ''} force</span>` : a.weapon ? `<span class="csp-k dmg">weapon${tier > 1 ? ' +' + (tier - 1) + 'd8 ' + (a.boom ? 'thunder' : 'fire') : ''}</span>` : a.rider && !sm.dice ? `<span class="csp-k dmg">on hit +${esc(String(a.rider).replace(/\s*\(.*$/, ''))}</span>` : sm.dice ? `<span class="csp-k dmg">${mult}${esc(sm.dice)} ${esc(String(sm.type || '').toLowerCase())}</span>` : sm.heal ? `<span class="csp-k heal">heal ${esc(sm.heal)}</span>` : sm.temp ? `<span class="csp-k heal">${esc(sm.temp)} temp HP</span>` : '';
+    return `<div class="csp${ok ? '' : ' nocast'}"><span class="csp-lv${L ? '' : ' c0'}" title="${lvTag(L)}">${L || '∞'}</span>
+      <div class="csp-main"><div class="csp-name"><span class="csp-nm">${sp.flavor && sp.flavor.trim() ? `${esc(sp.flavor.trim())}<button class="notetip" data-tip="${i}" data-tipkind="sp" aria-label="What ${esc(sp.name)} does">ⓘ</button> <span class="sp-real">${esc(sp.name)}</span>` : (() => { const w = String(sp.name).trim().split(/\s+/), l = w.pop(); return (w.length ? esc(w.join(' ')) + ' ' : '') + `<span class="nowrap">${esc(l)}<button class="notetip" data-tip="${i}" data-tipkind="sp" aria-label="What ${esc(sp.name)} does">ⓘ</button></span>`; })()}</span>${sp.conc ? '<span class="csp-tag">conc</span>' : ''}${sp.uses && N(sp.uses.max) ? `<span class="csp-tag free">${Math.max(0, (evalMax(sp.uses.max) || 0) - N(sp.uses.used))}${sp.usesOnly ? '/' + (evalMax(sp.uses.max) || 0) + ' stored' + (N(sp.uses.level) > N(sp.level) ? ' · ' + ORD[N(sp.uses.level) - 1] + ' lvl' : '') : ' free'}</span>` : ''}</div>
+        <div class="csp-sub">${hit}${eff}${sp.range ? `<span class="csp-r">${esc(sp.range)}</span>` : ''}</div></div>
+      <button class="btn gold sm" data-act="cast" data-i="${i}" data-col="${col}" ${ok ? '' : 'title="No spell slots left for this level"'}>Cast</button></div>`;
+  };
+  if (spCustom()) { spCatsEnsure(); return spCatsAll().map(c => { const list = spells.filter(x => spCatOf(x[0]) === c.id).sort((x, y) => spOrd(x[0], x[1]) - spOrd(y[0], y[1]));
+      if (!list.length) return ''; const k = 'c:' + (c.id || 'none'), open = cgOpen(col, k);
+      return `<div class="cspg g-cat${open ? '' : ' shut'}" style="--g:${esc(c.color || 'var(--gold)')}">${cGroupHead(col, k, esc(c.name), esc(c.icon || '◆'), list.length, open)}${open ? `<div class="cspg-b">${list.map(row).join('')}</div>` : ''}</div>`; }).join(''); }
+  if (ST('combatSpellSort') === 'level') {
+    const GC = { dmg: '#d9603b', ctl: '#9b6bd6', heal: '#3c9d6b', buff: '#3f8fd2', util: 'var(--soft)' }, ord = SPG.map(g => g[0]), byL = {};
+    spells.forEach(x => (byL[N(x[0].level)] = byL[N(x[0].level)] || []).push(x));
+    const lo = spGroupsOrdered('level').map(g => g.k);
+    return Object.keys(byL).map(Number).sort((a, b) => lo.indexOf('lv' + a) - lo.indexOf('lv' + b)).map(L => {
+      const k = 'lv' + L, list = byL[L].slice().sort((x, y) => ord.indexOf(spellGroup(x[0])) - ord.indexOf(spellGroup(y[0])) || String(x[0].name).localeCompare(y[0].name)), open = cgOpen(col, k);
+      return `<div class="cspg g-lvl${open ? '' : ' shut'}">${cGroupHead(col, k, L ? ORD[L - 1] + ' level' : 'Cantrips', L || '∞', list.length, open)}${open ? `<div class="cspg-b">${list.map(x => row(x).replace('<div class="csp', `<div style="--g:${GC[spellGroup(x[0])]}" title="${esc((SPG.find(g => g[0] === spellGroup(x[0])) || [])[1] || '')}" class="csp`)).join('')}</div>` : ''}</div>`;
+    }).join('');
+  }
+  return spGroupsOrdered('purpose').filter(g => groups[g.k]).map(({ k, name, icon }) => {
+    const list = groups[k].slice().sort((x, y) => N(x[0].level) - N(y[0].level) || String(x[0].name).localeCompare(y[0].name));
+    const open = cgOpen(col, k);
+    return `<div class="cspg g-${k}${open ? '' : ' shut'}">${cGroupHead(col, k, name, icon, list.length, open)}${open ? `<div class="cspg-b">${list.map(row).join('')}</div>` : ''}</div>`;
+  }).join('');
+}
+function spellsFor(col) {
+  return S.spells.map((sp, i) => [sp, i]).filter(([sp]) => spReady(sp) && castCol(sp.time) === col)
+    .sort((x, y) => N(x[0].level) - N(y[0].level) || String(x[0].name).localeCompare(y[0].name));
+}
+function smiteHTML() {
+  let h = '';
+  const p = pact();
+  for (let i = 0; i < 9; i++) {
+    const m = slotMax(i); if (!m) continue;
+    const left = slotsLeft(i), dice = Math.min(5, i + 2) + (UI.smiteUndead ? 1 : 0);
+    h += `<button class="smite-btn" data-act="smite" data-l="${i}" ${left ? '' : 'disabled'} title="Spend a ${ORD[i]}-level slot (${left} left)"><b>${Math.min(6, dice)}d8</b><span>${ORD[i]} slot</span></button>`;
+  }
+  if (p) { const dice = Math.min(5, p.level + 1) + (UI.smiteUndead ? 1 : 0); h += `<button class="smite-btn" data-act="smite" data-l="pact" ${pactLeft() ? '' : 'disabled'}><b>${Math.min(6, dice)}d8</b><span>Pact slot</span></button>`; }
+  return h || '<span class="hint">No slots</span>';
+}
+const sneakDice = () => { const r = clsLv('rogue'); return r ? Math.ceil(r / 2) + 'd6' : ''; };
+// Out of combat: no turn tracker or action economy — just what you reach for between fights.
+function oocHTML(comps) {
+  const spells = S.spells.map((sp, i) => [sp, i]).filter(([sp]) => spReady(sp));
+  const feats = S.features.map((f, i) => [f, i]).filter(([f]) => !fxHidden(f) && !isStunStrike(f) && (fxIsResource(f) ? featMax(f) != null || fxVisActs(f).length : (featMax(f) != null || f.col || fxOf(f).use || fxOf(f).roll || fxOf(f).target))).sort((a, b) => fxIsResource(b[0]) - fxIsResource(a[0]));
+  const featRow = ([f, i]) => { const max = featMax(f), fx = fxOf(f), left = max != null ? Math.max(0, max - N(f.used)) : null;
+    return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(f.name)}</span><button class="notetip" data-tip="${i}" data-tipkind="feat" aria-label="What ${esc(f.name)} does">ⓘ</button>${max != null ? `<span class="pips" data-calc-html="featpips:${i}"></span>` : ''}<span class="grow"></span>${fxIsResource(f) ? '' : `${f.col ? `<span class="itag">${f.col === 'bonus' ? 'Bonus' : f.col[0].toUpperCase() + f.col.slice(1)}</span>` : ''}<button class="btn sm" data-act="usefeat" data-i="${i}" ${left === 0 && !fx.slotRestore ? 'disabled' : ''}>${fx.useLabel || (f.roll || fx.roll ? 'Use & roll' : 'Use')}</button>`}</div>${fxIsResource(f) && fxInfoLine(f) ? `<div class="opt-info">${esc(fxInfoLine(f))}</div>` : ''}${fxVisActs(f).length ? `<div class="fxacts">${fxActsHTML(f, i, null)}</div>` : ''}</div>`; };
+  const skills = (S.skills || []).map((sk, i) => `<div class="ooc-sk" title="Roll ${esc(sk.name)}">${rollBtn('skill:' + i, sk.name)}<span>${esc(sk.name)}</span></div>`).join('');
+  return `<div class="oocbar panel" ${PID('turnbar')}><div class="grow"><b class="ooc-t">Out of initiative</b><div class="hint">Exploring, talking, resting. Roll initiative to bring back rounds, turns and your action economy.</div></div>
+      <button class="btn gold big" data-act="startcombat">⚔ Roll Initiative</button></div>
+    <div class="cstrip">
+      <div class="panel cs-slots" ${PID('slots')}><h2>Spell Slots</h2>${slotsPanelInner()}</div>
+      <div class="panel cs-fx" ${PID('activefx')}>${activeFxInner(false)}</div>
+    </div>
+    ${mmPanelHTML()}
+    <div class="blockp ooc-grid" ${PID('oocmain')}>
+      <div class="ooc-col">
+        ${comps}
+        <div class="panel"><h2>Attacks</h2>
+          <table class="mini ooc-atk">${S.attacks.map((at, i) => { if (!atkShown(at)) return ''; const wi = at.item && S.inventory.find(x => x.id === at.item), tip = String(at.notes || '').trim() || (wi && (String(wi.notes || '').trim() || wi.hb)); return `<tr><td>${esc(at.name)}${tip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(at.name)}">ⓘ</button>` : ''}</td><td>${rollBtn('atk:' + i, at.name + ' attack')}</td><td>${rollBtn('dmg:' + i, at.name + ' damage')}</td><td>${atkBtn(i, true)}</td></tr>`; }).join('') || '<tr><td class="hint">No attacks — add weapons in Inventory.</td></tr>'}</table>
+          ${clsLv('rogue') ? `<div class="row sarow" style="margin-top:6px"><button class="btn sm gold" data-act="sneak">Sneak Attack ${sneakDice()}</button><span class="sadotw" data-calc-html="sneakdot"></span></div>` : ''}${stunRowHTML()}</div>
+        ${spells.length ? `<div class="panel"><h2>Spells</h2>${combatSpellsHTML('ooc', spells)}</div>` : ''}
+      </div>
+      <div class="ooc-col">
+        ${(() => { const r = combatCompanionRows(); return r.length ? `<div class="panel"><h2>Companions</h2>${r.join('')}</div>` : ''; })()}
+        ${feats.length ? `<div class="panel"><h2>Features</h2>${feats.map(featRow).join('')}</div>` : ''}
+        <div class="panel"><h2>Quick checks</h2><div class="ooc-sks">${skills}</div></div>
+      </div>
+    </div>`;
+}
+function renderCombat() {
+  const m = isMobile();
+  const featView = (col, f, fi) => {
+    const max = featMax(f), key = `fopt:${fi}`, open = !m || UI.open[key], fx = fxOf(f), own = f.col === col, info = own ? fxInfoLine(f) : '';
+    const useBtn = !own || fxIsResource(f) || (max != null && f.pool && !fx.cost) ? '' : `<button class="btn sm${max != null || fx.cost || fx.roll ? '' : ' ghost'}" data-act="usefeat" data-i="${fi}" data-col="${col}">${f.roll || fx.roll ? 'Use & roll' : max != null || fx.cost || fx.use ? 'Use' : 'Take'}</button>`;
+    return `<div class="opt"><div class="opt-head">${m ? `<button class="opt-name opt-tog" data-act="toggle" data-key="${key}" aria-expanded="${!!open}">${esc(f.name)} <span class="caret">${open ? '▴' : '▾'}</span></button>` : `<span class="opt-name">${esc(f.name)}</span>`}
+      <button class="notetip" data-tip="${fi}" data-tipkind="feat" aria-label="What ${esc(f.name)} does">ⓘ</button>${max != null ? `<span class="pips" data-calc-html="featpips:${fi}"></span>` : ''}${useBtn}</div>
+      ${info ? `<div class="opt-info">${esc(info)}</div>` : ''}${fx.acts ? `<div class="fxacts">${fxActsHTML(f, fi, col)}</div>` : ''}
+      ${open && f.desc && own ? `<div class="opt-text">${esc(formulaDC(f.desc))}</div>` : ''}</div>`;
+  };
+  const optEdit = (col, o, j) => `<div class="opt edit"><div class="opt-head">${inp(`combat.${col}.${j}.name`, { cls: 'title', label: 'Name' })}${j ? mv('combat.' + col, j) : ''}${del('combat.' + col, j)}</div>
+      ${ta(`combat.${col}.${j}.text`, { rows: 2, label: 'Description' })}</div>`;
+  const spellView = (col, [sp, i]) => { const sm = spellMath(sp); return `<div class="opt"><div class="opt-head"><span class="opt-name">${spDisp(sp)}</span><button class="notetip" data-tip="${i}" data-tipkind="sp" aria-label="What ${esc(sp.name)} does">ⓘ</button>
+      <span class="tag${sp.always ? ' oath' : ''}">${N(sp.level) ? ORD[N(sp.level) - 1] : 'Cantrip'}</span>${sp.conc ? '<span class="tag">Conc</span>' : ''}
+      <button class="btn gold sm" data-act="cast" data-i="${i}" data-col="${col}">Cast</button></div>
+      <div class="opt-text">${[sp.range, sm.attack ? 'spell attack' : '', sm.save ? sm.save + ' save' : '', sm.dice ? sm.dice + ' ' + sm.type : sm.heal ? 'heal ' + sm.heal : ''].filter(Boolean).map(esc).join(' · ')}</div></div>`; };
+  const col = ([key, title]) => {
+    const editing = UI.open['econedit:' + key];
+    const list = S.combat[key] || [];
+    let body = '';
+    if (key === 'action') {
+      body += hasteBlockHTML();
+      body += `<div class="block"><div class="sect">Attack action <span class="atkpips" data-calc-html="atkpips" title="Attacks left this turn"></span><span class="grow"></span></div>
+        <table class="mini">${S.attacks.map((at, i) => { if (!atkShown(at)) return ''; const wi = at.item && S.inventory.find(x => x.id === at.item), tip = String(at.notes || '').trim() || (wi && (String(wi.notes || '').trim() || wi.hb)); const nmw = String(at.name).trim().split(/\s+/), lastW = nmw.pop(); return `<tr><td>${nmw.length ? esc(nmw.join(' ')) + ' ' : ''}<span class="nowrap">${esc(lastW)}${tip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(at.name)}">ⓘ</button>` : ''}</span></td><td>${rollBtn('atk:' + i, at.name + ' attack')}</td><td>${rollBtn('dmg:' + i, at.name + ' damage')}</td><td>${atkBtn(i, true)}</td></tr>`; }).join('') || '<tr><td class="hint">No attacks — add weapons in Inventory.</td></tr>'}</table>
+        <div class="hint" data-calc="ridersnote"></div>
+        ${clsLv('rogue') ? `<div class="row sarow" style="margin-top:6px"><button class="btn sm gold" data-act="sneak">Sneak Attack ${sneakDice()}</button><span class="sadotw" data-calc-html="sneakdot"></span></div>` : ''}
+        ${stunRowHTML()}
+        ${hasFeature('Divine Smite') ? `<div class="smite"><div class="sect" style="width:100%">Divine Smite <span class="grow"></span>
+          <button class="toggle${UI.smiteUndead ? ' on' : ''}" data-act="smiteundead" aria-pressed="${!!UI.smiteUndead}" title="Undead and fiends take +1d8">Undead / Fiend +1d8</button></div>
+          <div class="smite-row" data-calc-html="smite"></div></div>` : ''}</div>`;
+    }
+    if (key === 'move') {
+      body += `<div class="block movebox">
+        <div class="mv-top"><div class="mv-left"><b data-calc="moveleft"></b><span>ft left</span></div><div class="mv-sub" data-calc-html="movesub"></div></div>
+        <div class="mbar" data-calc-html="movebar"></div>
+        <div class="mv-btns"><span class="mv-l">Moved</span>${[5, 10, 15, 30].map(d => `<button class="btn sm mvft" data-act="move" data-d="${d}" aria-label="Moved ${d} feet">+${d}</button>`).join('')}<span class="grow"></span><button class="btn sm ghost mvback" data-act="move" data-d="-5" title="Take back 5 ft" aria-label="Take back 5 feet">↺</button></div>
+        <div class="hint mv-note" data-calc-html="movenote"></div>
+        ${hasFeline() ? `<div class="feline"><button class="btn sm${S.turn.feline ? ' gold' : ''}" data-act="feline" ${S.turn.feline || S.felineSpent ? 'disabled' : ''}>${S.turn.feline ? '✓ Speed doubled this turn' : 'Feline Agility: double speed'}</button><span class="hint">${S.turn.feline ? '' : S.felineSpent ? 'Recharges after a turn where you move 0 ft.' : 'Doubles your speed until the end of the turn.'}</span></div>` : ''}</div>`;
+    }
+    if (key === 'reaction' && S.turn.readied) { const r = S.turn.readied, gone = !!(S.turn.used || {}).reaction;
+      body += `<div class="block readied${gone ? ' gone' : ''}"><div class="sect">Readied action</div><div class="opt-head"><span class="opt-name">${esc(r.name)}</span>
+        <button class="btn sm gold" data-act="readyfire" ${gone ? 'disabled' : ''}>${gone ? 'Reaction used' : r.k.startsWith('atk:') ? 'Attack now' : r.spell ? 'Release spell' : 'Do it now'}</button>
+        <button class="btn sm ghost" data-act="readydrop">Drop</button></div>
+        <div class="opt-text">${r.trigger ? 'Trigger: ' + esc(r.trigger) : 'No trigger written down'}${r.spell ? ' · holding it takes concentration' : ''}</div>
+        <div class="hint">${gone ? 'You used your reaction on something else, so this is lost.' : 'Using your reaction on anything else loses it. Lasts until your next turn.'}</div></div>`; }
+    const spells = spellsFor(key);
+    const feats = S.features.map((f, i) => [f, i]).filter(([f]) => !fxHidden(f) && !isStunStrike(f) && (f.col === key || fxVisActs(f, key).length));
+    // Monks: Martial Arts lets you make one unarmed strike as a bonus action after taking the Attack action.
+    if (key === 'bonus' && clsLv('monk')) { const k = S.attacks.findIndex(a => /^unarmed strike$/i.test(String(a.name).trim()));
+      if (k >= 0) body += `<div class="block"><div class="sect">Martial Arts strike<span class="grow"></span></div><table class="mini"><tr><td>Unarmed Strike</td><td>${rollBtn('atk:' + k, 'Unarmed Strike attack')}</td><td>${rollBtn('dmg:' + k, 'Unarmed Strike damage')}</td><td><button class="btn gold sm atkbtn" data-act="mabonus" title="One unarmed strike as your bonus action (after taking the Attack action)">⚔</button></td></tr></table><div class="hint">After you take the Attack action. Flurry of Blows (1 ki, under Ki) makes two strikes instead.</div>${stunRowHTML()}</div>`; }
+    {
+      if (spells.length) body += combatSpellsHTML(key, spells);
+      if (feats.length) body += cGroup(key, 'feat', 'Features', '★', feats.length, feats.map(([f, i]) => featView(key, f, i)).join(''));
+      if (key === 'action') { const comps = combatCompanionRows(); if (comps.length) body += cGroup(key, 'comp', 'Companions', '🐾', comps.length, comps.join('')); }
+      if (key === 'bonus' && S.companions.length) body = `<div class="incol-comps">${S.companions.map((c, i) => compCard(c, i, false, true)).join('')}</div>` + body;
+      { const ir = infCombatRows(key); if (ir.length) body += cGroup(key, 'inf', 'Infusions', '⚗', ir.length, ir.join('')); }
+      const items = hbItemActs(key);
+      if (items.length) body += cGroup(key, 'item', 'Items', '⚙', items.length, items.map(([it, i]) => { const ch = it.charges && N(it.charges.max) > 0 ? it.charges : null, fx = hbFx(it.hb), info = [dcVal(fx.dc) ? `DC ${dcVal(fx.dc)}${fx.save ? ' ' + fx.save : ''}` : '', fx.roll ? 'roll ' + fxRollExpr(fx.roll) : '', fx.dash ? 'Dash' : ''].filter(Boolean).join(' · ');
+        return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(it.name)}</span>${String(it.notes || '').trim() || it.summary || it.hb ? `<button class="notetip" data-tip="${i}" aria-label="What ${esc(it.name)} does">ⓘ</button>` : ''}${ch ? `<span class="tag">${Math.max(0, N(ch.max) - N(ch.used))}/${N(ch.max)}</span>` : ''}<button class="btn sm" data-act="useitem" data-i="${i}" data-col="${key}" ${ch && N(ch.used) >= N(ch.max) ? 'disabled' : ''}>${fx.roll ? 'Use & roll' : 'Use'}</button></div>${info ? `<div class="opt-info">${esc(info)}</div>` : ''}${it.hb.text ? `<div class="opt-text">${esc(fxText(it.hb.text))}</div>` : ''}</div>`; }).join(''));
+      // Standard options (Dash, Dodge…) live in their own group; ✎ there edits, adds, reorders or removes them.
+      const stdChips = `<div class="chips">${list.map(o => `<button class="chip" data-act="markopt" data-col="${key}" data-name="${esc(o.name)}" data-text="${esc(o.text)}" title="${esc(o.text)}">${esc(o.name)}</button>`).join('')}</div>`;
+      const stdEdit = `<div class="std-edit">${list.map((o, j) => optEdit(key, o, j)).join('')}<div class="row std-edit-btns"><button class="btn sm" data-act="add" data-list="combat.${key}">+ Add option</button><span class="grow"></span><button class="btn sm gold" data-act="toggle" data-key="econedit:${key}">Done</button></div></div>`;
+      body += cGroup(key, 'std', key === 'move' ? 'Free & movement' : 'Standard', '◆', list.length, (editing ? stdEdit : (list.length ? stdChips : '<p class="hint" style="margin:6px 0">No standard options.</p>') + `<div class="std-editlink"><button class="btn sm ghost" data-act="toggle" data-key="econedit:${key}" title="Add, rename, reorder or remove these options">✎ Edit options</button></div>`));
+    }
+    return `<div class="econ col-${key}" data-col="${key}" data-zi="${key}">
+      <div class="econ-head"><span class="badge b-${key}"></span><h3>${title}</h3>
+        ${key !== 'move' ? `<button class="pill" data-act="econ" data-col="${key}" title="Mark used / ready">Ready</button>` : ''}</div>
+      <div class="econ-body">${body}</div>
+</div>`;
+  };
+  const cur = UI.econTab || 'action';
+  const segI = Math.max(0, COLS.findIndex(([k]) => k === cur)), segFrom = UI._segPrev == null ? segI : UI._segPrev; UI._segPrev = segI;
+  const seg = m ? `<div class="seg" role="tablist"><span class="seg-ind" style="--i:${segFrom}" data-to="${segI}"></span>${COLS.map(([k, t]) => `<button class="seg-btn${cur === k ? ' on' : ''}" data-act="econtab" data-col="${k}" role="tab" aria-selected="${cur === k}"><span class="badge b-${k}"></span><span>${t.replace(' & Free', '').replace('Bonus Action', 'Bonus')}</span><i class="dot" data-segcol="${k}"></i></button>`).join('')}</div>` : '';
+  // Creatures use the same card as the Creatures tab wherever they show up.
+  const formRow = S.form ? `<div class="panel cmini"><h2><span class="grow">${esc(S.form.name)}</span><button class="btn sm ghost" data-act="tab" data-tab="companions">Open</button></h2><div class="cm-row"><span class="hint">HP ${N(S.form.hp)}/${N(S.form.maxhp)} · AC ${N(S.form.ac)}</span>${(S.form.attacks || []).map((a, j) => `<button class="btn sm" data-act="crroll" data-who="form" data-j="${j}" data-what="both">${esc(a[0])}</button>`).join('')}</div></div>` : '';
+  const cards = S.companions.map((c, i) => compCard(c, i, false)).join('');
+  const comps = cards || formRow ? `<div class="blockp comps ccomps" ${PID('cmini')}>${formRow}${cards}</div>` : '';
+  if (!S.inCombat) { $('#page-combat').innerHTML = oocHTML(formRow + cards); return; }
+  $('#page-combat').innerHTML = `
+  <div class="turnbar panel" ${PID('turnbar')}>
+    <div class="round"><span class="lbl">Round</span><button class="btn sm" data-act="round" data-d="-1" aria-label="Previous round">−</button><b data-calc="round"></b><button class="btn sm" data-act="round" data-d="1" aria-label="Next round">+</button></div>
+    <button class="btn gold" data-act="newturn">${m ? 'Next Turn' : 'Start Next Turn'}</button>
+    <button class="btn" data-act="resetturn" title="Mark this turn's action, bonus action, reaction and movement ready again without changing the round">Reset Turn</button>
+    <button class="btn red" data-act="endcombat">End Initiative</button>
+    <span class="hint">One Action, one Bonus Action, movement and one Reaction per round. Using something here marks it spent; Next Turn resets them and counts down spell durations.</span>
+  </div>
+  <div class="cstrip">
+    <div class="panel cs-slots" ${PID('slots')}><h2>Spell Slots</h2>${slotsPanelInner()}</div>
+    <div class="panel cs-fx" ${PID('activefx')}>${activeFxInner(false)}</div>
+  </div>
+  ${mmPanelHTML()}
+  ${formRow}
+  <div class="blockp" ${PID('economy')}>${seg}
+  ${incapCond() ? `<div class="incap-banner"><b>${esc(incapCond())}</b> — you can't take actions, bonus actions or reactions${speedFt() === 0 ? ', and your speed is 0' : ''}.${N((S.condTurns || {})[incapCond()]) > 0 ? ` Ends in ${S.condTurns[incapCond()]} round${S.condTurns[incapCond()] > 1 ? 's' : ''}.` : ''}</div>` : ''}
+  <div class="economy${incapCond() ? ' incap' : ''}" data-zone="econ" data-axis="x">${(m ? COLS.filter(([k]) => k === cur) : COLS).map(col).join('')}</div></div>`;
+  econGroupsApply();
+}
+
+const SECTIONS = { header: renderHeader, vitals: renderVitals, core: renderCore, spells: renderSpells, features: renderFeatures, inventory: renderInventory, infusions: renderInfusions, companions: renderCompanions, story: renderStory, combat: renderCombat, notes: renderNotes };
+const SECTION_EL = { header: '#sec-header', vitals: '#sec-vitals', core: '#page-core', spells: '#page-spells', features: '#page-features', inventory: '#page-inventory', infusions: '#page-infusions', companions: '#page-companions', story: '#page-story', combat: '#page-combat', notes: '#page-notes' };
+function render(...names) {
+  if (!S.created) return;
+  GEN++;
+  if (syncClassCompanions() | syncAmmo()) writeLocal();
+  (names.length ? names : Object.keys(SECTIONS)).forEach(n => { RENDERING = n; SECTIONS[n](); });
+  applyPanelLayout();
+  renderTabs();
+  $$('textarea.f').forEach(grow);
+  fitItemRows(); fitToolbar(); fitAtkRows(); requestAnimationFrame(alignHpSide);
+  // Slide the selected-tab highlight from where it was to the new choice.
+  $$('.seg-ind[data-to]').forEach(e => { void e.offsetWidth; e.style.setProperty('--i', e.dataset.to); e.removeAttribute('data-to'); });
+  if ($('#profmodal') && $('#modal').classList.contains('open')) $('#profmodal').innerHTML = profsManageInner();
+  refresh();
+}
+function renderOthers() {
+  const a = document.activeElement;
+  GEN++;
+  Object.keys(SECTIONS).filter(n => !$(SECTION_EL[n]).contains(a)).forEach(n => { RENDERING = n; SECTIONS[n](); });
+  applyPanelLayout();
+  renderTabs();
+  $$('textarea.f').forEach(grow);
+  refresh(); fitAtkRows();
+}
+function grow(t) { if (!t.offsetParent) return; t.style.height = 'auto'; t.style.height = (t.scrollHeight + 2) + 'px'; }
+
+// ---------- Derived values ----------
+function calcText(key) {
+  const [k, a] = key.split(':');
+  switch (k) {
+    case 'mod': return fmt(mod(a));
+    case 'eff': { const raw = S.abilities[a] === '' ? 10 : N(S.abilities[a]), v = score(a); return v !== raw ? '→ ' + v : ''; }
+    case 'save': return fmt(saveVal(a));
+    case 'skill': return fmt(skillVal(S.skills[a]));
+    case 'prof': return fmt(PB());
+    case 'init': return fmt(initVal());
+    case 'passive': return String(passive());
+    case 'mhp': return S.form ? N(S.form.hp) + '/' + N(S.form.maxhp) : N(S.hp.cur) + '/' + maxHp() + (N(S.hp.temp) ? ' +' + N(S.hp.temp) : '');
+    case 'acv': return String(acTotal());
+    case 'hpmaxv': return String(maxHp());
+    case 'sktmp': { const sk = S.skills[a]; const v = sk ? tmv('skill:' + sk.name) : 0; return v ? fmt(v) : ''; }
+    case 'tmpb': return N(S.hp.temp) > 0 ? '+' + N(S.hp.temp) : '';
+    case 'senses': return sensesText();
+    case 'toolb': return S.tools[a] ? fmt(toolBonus(S.tools[a])) : '';
+    case 'hd': return hdLeftTotal() + '/' + totalLevel();
+    case 'hdpools': { const p = hdPools(), ks = Object.keys(p); return ks.length > 1 ? ks.map(d => `${hdLeftOf(d)}d${d}`).join(' · ') : ks.length ? 'd' + ks[0] : ''; }
+    case 'dc': return String(castInfo(a).dc);
+    case 'spellatk': return fmt(castInfo(a).atk);
+    case 'prepct': { const c = casterFor(a); if (!c) return ''; const lim = spellLimit(c); return (c.prepared ? countPrep(a) : countKnown(a)) + (lim != null ? ' / ' + lim : ''); }
+    case 'cantct': { const c = casterFor(a); if (!c) return ''; return countCantrips(a) + ' / ' + cantripLimit(c); }
+    case 'slotct': return slotsLeft(N(a)) + ' / ' + slotMax(N(a));
+    case 'storect': { const sp = S.spells[N(a)]; if (!sp || !sp.uses) return ''; const mx = evalMax(sp.uses.max) || 0; return Math.max(0, mx - N(sp.uses.used)) + ' / ' + mx; }
+    case 'pactct': { const p = pact(); return p ? pactLeft() + ' / ' + p.count : ''; }
+    case 'atk': return S.attacks[a] ? fmt(atkHit(S.attacks[a])) : '';
+    case 'dmg': return S.attacks[a] ? atkDmgText(S.attacks[a]) : '';
+    case 'round': return String(N(S.turn.round) || 1);
+    case 'worth': { const c = S.currency, gp = N(c.cp) / 100 + N(c.sp) / 10 + N(c.ep) / 2 + N(c.gp) + N(c.pp) * 10; return `≈ ${Math.round(gp * 100) / 100} gp`; }
+    case 'weight': return String(Math.round(weight() * 10) / 10);
+    case 'carry': return String(carryCap());
+    case 'encnote': { const s = score('str') * carryMult(), e = encLevel(); return ST('encumbrance') === 'variant' ? `Encumbered over ${Math.floor(5 * s)} lb (−10 ft), heavily over ${Math.floor(10 * s)} lb (−20 ft, disadvantage)${e ? ' · ' + ['', 'encumbered', 'heavily encumbered', 'over capacity'][e] : ''}` : e === 3 ? 'Over capacity: speed 5 ft' : ''; }
+    case 'attune': return attunedCount() + ' / ' + attuneMax();
+    case 'moveleft': return String(Math.max(0, moveBudget() - Math.max(0, N(S.turn.moved))));
+    case 'move': { const sp = turnSpeed(), dn = N(S.turn.dash), bud = moveBudget(), mv = Math.max(0, N(S.turn.moved)); return `${Math.max(0, bud - mv)} ft left · moved ${mv} of ${bud} ft${dn ? ` (speed ${sp} + Dash ${sp * dn})` : ''}`; }
+    case 'speed': return speedInfo().walk + 'ft';
+    case 'speedx': { const t = speedInfo().text; const i = t.indexOf('·'); return i >= 0 ? t.slice(i + 1).trim() : ''; }
+    case 'speedtip': return (speedInfo().parts || []).join(' · ');
+    case 'truehp': return `${N(S.hp.cur)}/${maxHp()}`;
+    case 'ridersnote': { const r = S.riders || []; const x = extraDice(); return (r.length ? 'Next hit adds: ' + r.map(z => z.name + ' ' + z.dice).join(', ') + '. ' : '') + (x.length ? 'Every hit adds: ' + x.join(', ') + '.' : ''); }
+    case 'concnote': return S.concentration ? 'Concentrating on ' + S.concentration : '';
+    case 'ammo': { const am = ammoItem(S.attacks[a]); return am ? N(am.qty) + ' ammo' : ''; }
+    case 'lvl': return String(totalLevel());
+    case 'xpnext': return totalLevel() >= 20 ? 'max' : '/ ' + xpNext().toLocaleString();
+    case 'subtitle': return [S.raceName, classLabel(), S.backgroundName].filter(Boolean).join(' · ');
+  }
+  return '';
+}
+function calcHTML(key) {
+  const [k, a] = key.split(':');
+  switch (k) {
+    case 'sneakdot': { if (!S.inCombat) return '<span class="hint">once per turn</span>'; const u = !!(S.turn && S.turn.sneak); return `<span class="pips"><button class="pip${u ? ' spent' : ''}" data-act="sneaktog" aria-pressed="${u}" aria-label="Sneak Attack this turn" title="${u ? 'Used this turn — tap to mark it ready again' : 'Ready — once per turn'}"></button></span><span class="hint">${u ? 'Used this turn' : 'Ready this turn'}</span>`; }
+    case 'hpring': {
+      const f = S.form;
+      const max = f ? Math.max(1, N(f.maxhp)) : Math.max(1, maxHp()), cur = Math.max(0, Math.min(f ? N(f.hp) : N(S.hp.cur), max)), tmp = Math.max(0, N(S.hp.temp));
+      return hpRingSVG(cur, max, tmp, f ? ' form' : '');
+    }
+    case 'death': {
+      const row = (t, n, cls) => { let h = ''; for (let j = 0; j < 3; j++) h += `<button class="pip dot ${cls}${j < n ? '' : ' spent'}" data-pip="death${t}" data-j="${j}" aria-label="Death save ${t === 's' ? 'success' : 'failure'} ${j + 1}"></button>`; return h; };
+      return `<span class="dsrow" title="Successes"><span class="dl ok">✓</span><span class="pips">${row('s', N(S.death.s), '')}</span></span><span class="dsrow" title="Failures"><span class="dl bad">✕</span><span class="pips">${row('f', N(S.death.f), 'fail')}</span></span><button class="btn sm" data-act="deathsave" title="Roll a death saving throw">Roll</button>`;
+    }
+    case 'slotpips': return slotPips(N(a));
+    case 'pactpips': return pactPips();
+    case 'infpips': { const it = S.inventory[N(a)]; if (!it || !it.charges) return ''; const mx = N(it.charges.max), left = Math.max(0, mx - N(it.charges.used)); let h = ''; for (let j = 0; j < mx; j++) h += `<button class="pip inf${j < left ? '' : ' spent'}" data-pip="infch" data-i="${a}" data-j="${j}" aria-label="Charge ${j + 1}"></button>`; return h; }
+    case 'storepips': { const si = N(a), sp = S.spells[si]; if (!sp || !sp.uses) return ''; const mx = evalMax(sp.uses.max) || 0, left = Math.max(0, mx - N(sp.uses.used)); let h = ''; for (let j = 0; j < mx; j++) h += `<button class="pip store${j < left ? '' : ' spent'}" data-pip="store" data-i="${si}" data-j="${j}" aria-label="Stored ${esc(sp.name)} use ${j + 1}"></button>`; return h; }
+    case 'featpips': return featPips(N(a));
+    case 'smite': return smiteHTML();
+    case 'atkpips': { const n = attacksPerAction(), left = canAttack() ? n - N(S.turn.attacks) : 0; let h = ''; for (let j = 0; j < n; j++) h += `<i class="ap${j < left ? ' on' : ''}"></i>`; return h; }
+    case 'fxchips': {
+      const fx = S.effects || [];
+      if (!fx.length) return '<span class="hint">No spells or effects running.</span>';
+      return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${fmtRounds(e.rounds)}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">🎲 ${esc(e.repeat.dice)}</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join('');
+    }
+    case 'slotsall': {
+      let h = '';
+      for (let i = 0; i < 9; i++) { const m = slotMax(i); if (!m) continue; h += `<div class="slotline"><span class="sl">${ORD[i]}</span><span class="pips">${slotPips(i)}</span><span class="ct">${slotsLeft(i)}/${m}</span></div>`; }
+      const p = pact(); if (p) h += `<div class="slotline"><span class="sl">Pact ${ORD[p.level - 1]}</span><span class="pips">${pactPips()}</span><span class="ct">${pactLeft()}/${p.count}</span></div>`;
+      S.spells.forEach((sp, si) => { if (!sp.stored || !sp.uses) return; const mx = evalMax(sp.uses.max) || 0, it = spItem(sp), lv = Math.max(N(sp.level), N(sp.uses.level));
+        h += `<div class="slotline storeline" title="${sp.cls === 'artificer' ? 'Spell-Storing Item' : 'Stored spell'}${it ? ' (' + esc(it.name) + ')' : ''}: ${esc(sp.name)}${lv > N(sp.level) ? ' at ' + ORD[lv - 1] + ' level' : ''}. Doesn't refill on a rest — store again to refill."><span class="sl">Stored<small>${esc(sp.name)}</small></span><span class="pips">${calcHTML('storepips:' + si)}</span><span class="ct">${Math.max(0, mx - N(sp.uses.used))}/${mx}</span></div>`; });
+      return h || '<span class="hint">No spell slots</span>';
+    }
+    case 'acsub': { const i = acInfo(); return `<span title="${esc(i.parts.join(' · '))}">${esc(S.form ? S.form.name : i.parts[0] || '')}</span>${S.acOverride !== '' && S.acOverride != null && !S.form ? ' <button class="linkbtn" data-act="acauto" title="Go back to calculating AC from your armor">Auto</button>' : ''}`; }
+    case 'aceffects': return S.form ? '' : fxActive().filter(e => e.buff && N(e.buff.ac) && !e.ally && e.self !== false).map(e => `<span class="fx">+${N(e.buff.ac)} ${esc(e.name)}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}" title="End ${esc(e.name)}">✕</button></span>`).join('');
+    case 'xpbar': { const L = totalLevel(), lo = XPT[Math.max(0, L - 1)], hi = XPT[Math.min(19, L)]; const pct = L >= 20 ? 100 : Math.max(0, Math.min(100, (N(S.xp) - lo) / Math.max(1, hi - lo) * 100)); return `<i style="width:${pct}%"></i>`; }
+    case 'movesub': { const sp = turnSpeed(), dn = N(S.turn.dash), mv = Math.max(0, N(S.turn.moved)); return `of <b>${moveBudget()} ft</b>${dn ? ` <span class="mv-dash">speed ${sp} + Dash ${sp * dn}</span>` : ''}<br><span>moved ${mv} ft</span>`; }
+    case 'movenote': { const t = speedInfo().text, i = t.indexOf('·'), other = i >= 0 ? t.slice(i + 1).trim() : ''; const parts = []; if (S.turn.speed0) parts.push(`<b>Speed 0</b> this turn (${esc(S.turn.speed0)})`); if (other) parts.push('Also: ' + esc(other.replace(/\b(\d+)\b(?! ?ft)/g, '$1 ft'))); if (S.turn.disengaged) parts.push('<b>Disengaged</b> — moving won’t provoke opportunity attacks'); parts.push(N(S.turn.dash) ? `Dashed — you get your speed again (${turnSpeed()} ft).` : `Dash (an action) gives you ${turnSpeed()} ft more.`); return parts.join(' · '); }
+    case 'movebar': return `<i style="width:${Math.max(0, 100 - Math.max(0, N(S.turn.moved)) / Math.max(1, moveBudget()) * 100)}%"></i>`;
+    case 'conds': {
+      const ex = N(S.exhaustion);
+      return (S.rollAdv ? `<span class="cchip ${S.rollAdv === 'adv' ? 'advc' : 'disc'}">${S.rollAdv === 'adv' ? 'Advantage' : 'Disadvantage'} <small class="cturns">all d20 rolls</small><button data-act="rolladv" data-v="${S.rollAdv}" aria-label="Turn off">✕</button></span>` : '') + S.conditions.map((c, k) => `<span class="cchip">${esc(c)}<button class="notetip" data-tip="${k}" data-tipkind="cond" aria-label="What ${esc(c)} does">ⓘ</button>${(S.condTurns || {})[c] ? ` <small class="cturns">${durShort(N(S.condTurns[c]))}</small>` : ''}<button data-act="dropcond" data-c="${esc(c)}" aria-label="Remove ${esc(c)}">✕</button></span>`).join('') +
+        Object.keys(S.tmpMods || {}).map(k => `<span class="cchip abt${tmv(k) > 0 ? ' pos' : ''}">${tmName(k)} ${fmt(tmv(k))}${tmr(k) > 0 ? ` <small class="hint">${tmr(k)} rd</small>` : ''}<button data-act="tmpmodclear" data-k="${k}" aria-label="End ${tmName(k)} change">✕</button></span>`).join('') +
+        Object.keys(S.abTemp || {}).map(a => { const r = N(S.abTempR); return `<span class="cchip abt">${a.toUpperCase()} ${baseScore(a)}→${score(a)}<button class="notetip" data-tip="ab:${a}" data-tipkind="cond" aria-label="About this ${ABN[a]} change">ⓘ</button>${r ? ` <small class="cturns">${durShort(r)}</small>` : ''}<button data-act="abtempclear" data-a="${a}" aria-label="End ${ABN[a]} change">✕</button></span>`; }).join('') +
+        (ex ? `<span class="cchip exh">Exhaustion ${ex}<button class="notetip" data-tip="exh" data-tipkind="cond" aria-label="What exhaustion does">ⓘ</button><button data-act="exh" data-d="-1" aria-label="Less exhaustion">−</button><button data-act="exh" data-d="1" aria-label="More exhaustion">+</button></span>` : '') +
+        (S.conditions.length || ex || S.rollAdv || Object.keys(S.abTemp || {}).length || Object.keys(S.tmpMods || {}).length ? '' : '<span class="hint">None</span>');
+    }
+  }
+  return '';
+}
+function fxTip(e) {
+  const b = e.buff || {}, t = [];
+  if (e.conc) t.push('Concentration'); if (e.ally) t.push('on an ally');
+  if (b.ac) t.push(`+${b.ac} AC`); if (b.acBase) t.push(`AC ${b.acBase} + DEX`); if (b.acMin) t.push(`AC at least ${b.acMin}`); if (b.speed) t.push(`+${b.speed} ft speed`); if (b.speedMult) t.push('speed doubled'); if (b.fly) t.push(`fly ${b.fly} ft`);
+  if (b.atk) t.push(`+${b.atk} to hit`); if (b.dmg) t.push(`+${b.dmg} damage`); if (b.dmgDice) t.push(`+${b.dmgDice} on weapon hits`); if (b.bless) t.push('+1d4 attacks & saves'); if (b.meleeDmg) t.push(`+${b.meleeDmg} melee damage`);
+  if (e.maxHp) t.push(`+${e.maxHp} max HP`); if (b.note) t.push(b.note);
+  return t.join(' · ');
+}
+function refresh() {
+  if (!S.created) return;
+  $$('[data-calc]').forEach(el => { const t = calcText(el.dataset.calc); if (el.textContent !== t) el.textContent = t; });
+  $$('[data-calc-title]').forEach(el => el.title = calcText(el.dataset.calcTitle));
+  $$('[data-calc-html]').forEach(el => {
+    const ae = document.activeElement;
+    if (ae && ae.tagName === 'INPUT' && el.contains(ae)) { const p = el.querySelector('[data-pool]'); if (p) p.max = featMax(S.features[p.dataset.pool]); return; }
+    const h = calcHTML(el.dataset.calcHtml); if (el._h !== h) { el.innerHTML = h; el._h = h; }
+  });
+  // With Extra Attack, the Action stays open until every attack is made (a grapple or shove counts as one).
+  $$('.econ[data-col]').forEach(el => { const col = el.dataset.col, done = N(S.turn.attacks), per = typeof attacksPerAction === 'function' ? attacksPerAction() : 1;
+    const part = col === 'action' && (S.turn.used || {}).action && done > 0 && done < per, u = !!(S.turn.used || {})[col] && !part;
+    el.classList.toggle('used', u); el.classList.toggle('partial', part); const pl = el.querySelector('.pill');
+    if (pl) { pl.textContent = part ? `${done}/${per} attacks` : u ? 'Used' : 'Ready'; pl.setAttribute('aria-pressed', u); pl.title = part ? `${per - done} attack${per - done > 1 ? 's' : ''} left in this Attack action` : 'Mark used / ready'; } });
+  document.body.classList.toggle('down', !S.form && N(S.hp.cur) <= 0);
+  { const su = !!(S.inCombat && S.turn && S.turn.sneak); $$('[data-act=sneak]').forEach(b => { b.classList.toggle('used', su); b.title = su ? 'Sneak Attack already used this turn (tap the diamond to reset it)' : ''; }); }
+  const ca = canAttack();
+  $$('.ammo[data-calc]').forEach(el => el.classList.toggle('out', /^0 /.test(el.textContent)));
+  $$('#page-combat [data-act=attack]').forEach(b => { b.disabled = !ca; b.title = ca ? 'Roll to hit and damage; a crit doubles the damage dice' : 'No attacks left this turn (Next Turn / Reset Turn on the Combat tab)'; });
+  $$('[data-prepfor]').forEach(el => { const c = casterFor(el.dataset.prepfor); if (!c) return; const lim = spellLimit(c), n = c.prepared ? countPrep(c.key) : countKnown(c.key); el.classList.toggle('over', lim != null && n > lim); });
+  $$('[data-cantfor]').forEach(el => { const c = casterFor(el.dataset.cantfor); if (!c) return; el.classList.toggle('over', countCantrips(c.key) > cantripLimit(c)); });
+  const aci = $('#acTotal'); if (aci && aci !== document.activeElement && String(aci.value) !== String(acTotal())) aci.value = acTotal();
+  const hmi = $('#hpMaxIn'); if (hmi && hmi !== document.activeElement && String(hmi.value) !== String(maxHp())) hmi.value = maxHp();
+  $$('.tile.ac').forEach(el => el.classList.toggle('boosted', !S.form && fxActive().some(e => e.buff && (N(e.buff.ac) || e.buff.acMin || e.buff.acBase) && !e.ally)));
+  $$('[data-segcol]').forEach(el => el.classList.toggle('used', !!S.turn.used[el.dataset.segcol]));
+  document.title = (S.name || 'Character') + ' — Character Sheet';
+  $$('input[data-fit]').forEach(fitInput);
+  const lb = $('#lvlbox'); if (lb) lb.classList.toggle('ready', xpReady());
+  histButtons();
+}
+function syncInputs() {
+  $$('[data-k]').forEach(el => {
+    if (el === document.activeElement || el.closest('#wizard')) return;
+    const v = getP(el.dataset.k);
+    if (el.type === 'checkbox') el.checked = !!v;
+    else if (String(el.value) !== String(v ?? '')) el.value = v ?? '';
+  });
+}
+function update() { syncInputs(); refresh(); save(); }
+
+// ---------- History ----------
+const fmtTime = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+function ago(t) { const s = Math.round((Date.now() - t) / 1000); if (s < 60) return s + 's ago'; if (s < 3600) return Math.round(s / 60) + ' min ago'; if (s < 86400) return Math.round(s / 3600) + ' h ago'; return Math.round(s / 86400) + ' d ago'; }
+const countSince = ms => { const cut = Date.now() - ms; let n = 0; for (let i = HIST.length - 1; i >= 0 && HIST[i].t >= cut; i--) n++; return n; };
+function openHistory() {
+  const list = HIST.slice().reverse().map((e, j) => `<li><span class="tm" title="${esc(new Date(e.t).toLocaleString())}">${fmtTime(e.t)}</span><span>${esc(e.label)} <span class="hint">· ${ago(e.t)}</span></span>
+      <button class="btn sm" data-act="rewind" data-n="${j + 1}" title="Undo this change and everything after it">Rewind here</button></li>`).join('');
+  const redoList = REDO.length ? `<p class="hint" style="margin:10px 0 0">${REDO.length} undone change${REDO.length === 1 ? '' : 's'} can be redone. <button class="btn sm" data-act="redoall">Redo all</button></p>` : '';
+  openModal(`<h3>Change History</h3>
+    <p class="hint" style="margin:0">Every change is recorded here, newest first (up to ${HMAX}). Typing in one box counts as one change. Undo / Redo also work with Ctrl+Z and Ctrl+Y.</p>
+    <div class="rb"><b>Roll back the last</b><input class="f" id="rbN" type="number" min="1" value="5" style="width:70px" aria-label="Amount of time">
+      <select class="f" id="rbU" style="width:110px" aria-label="Unit"><option value="60000">minutes</option><option value="3600000">hours</option><option value="86400000">days</option></select>
+      <button class="btn gold" data-act="rbtime">Roll back</button></div>
+    <div class="rb"><span class="hint">Quick:</span>${[['1 min', 60000], ['5 min', 300000], ['15 min', 900000], ['1 hour', 3600000], ['Today', Date.now() - new Date().setHours(0, 0, 0, 0)]].map(([t, ms]) => `<button class="chip" data-act="rbquick" data-ms="${ms}">${t} <span class="hint">(${countSince(ms)})</span></button>`).join('')}</div>
+    <p class="hint" id="rbCount" style="margin:0">This will undo ${countSince(300000)} change(s).</p>
+    ${HIST.length ? `<ol class="hist">${list}</ol>` : '<p class="hint">No changes recorded yet.</p>'}
+    ${redoList}
+    <div class="actions"><button class="btn" data-act="close">Close</button></div>`);
+}
+function rollback(n, what) {
+  if (!n) { toast('Nothing to roll back in that time.'); return; }
+  const c = undo(n); closeModal(true);
+  toast(`Rolled back ${c} change${c === 1 ? '' : 's'}${what ? ' from ' + esc(what) : ''}.`, '', 9000, { label: 'Redo', fn: () => redo(c) });
+}
+function fieldLabel(t) {
+  const k = t.dataset.k || '', name = t.getAttribute('aria-label') || k;
+  const m = k.match(/^([a-z]+(?:\.[a-z]+)?)\.(\d+)\./i);
+  if (m) { const L = getP(m[1]); const it = L && L[m[2]]; const nm = it && (it.name || it.title); if (nm && !/^(spell name|item name|weapon|feature name|name)$/i.test(name)) return `Edit: ${nm} · ${name}`; }
+  return 'Edit: ' + name;
+}
+
+// ---------- Field events ----------
+function onField(e) {
+  const t = e.target;
+  if (t.closest && t.closest('#wizard')) return wizField(e);
+  if (t.dataset.ch !== undefined) return chField(t);
+  if (t.dataset.ssrc !== undefined) return setBook(t.dataset.ssrc, t.checked);
+  if (t.dataset.ls !== undefined || t.dataset.lsf !== undefined) return lsInput(t);
+  if (t.dataset.fsp !== undefined) { if (e.type !== 'change' && e.inputType !== 'insertReplacementText' && e.inputType !== undefined) return; const sp = SPI(t.value); if (!sp) return; const f = S.features[N(t.dataset.fsp)]; f.spells = [...new Set((f.spells || []).concat(sp.name))]; pendingLabel = `${f.name}: add ${sp.name}`; save(); rebuildAuto(); render(); return; }
+  if (t.dataset.istore !== undefined) { if (e.type !== 'change') return; const it = S.inventory[N(t.dataset.istore)]; it.spellStored = t.checked; pendingLabel = `${it.name}: ${t.checked ? 'stored spells' : 'spells not stored'}`; rebuildAuto(); save(); render(); return; }
+  if (t.dataset.isplv !== undefined) { if (e.type !== 'change') return; const it = S.inventory[N(t.dataset.isplv)]; it.spellLevels = Object.assign({}, it.spellLevels, { [t.dataset.n]: N(t.value) }); pendingLabel = `${it.name}: ${t.dataset.n} at ${ORD[N(t.value) - 1]} level`; rebuildAuto(); save(); render(); return; }
+  if (t.dataset.isp !== undefined) { if (e.type !== 'change' && e.inputType !== 'insertReplacementText' && e.inputType !== undefined) return; const sp = SPI(t.value); if (!sp) return; const it = S.inventory[N(t.dataset.isp)]; it.spells = [...new Set((it.spells || []).concat(sp.name))]; pendingLabel = `${it.name}: add ${sp.name}`; rebuildAuto(); save(); render(); return; }
+  if (t.dataset.move !== undefined) { const it = S.inventory[N(t.dataset.move)]; it.bag = t.value; const b = (S.bags || []).find(x => x.id === t.value); pendingLabel = 'Move ' + it.name + ' to ' + (b ? b.name : 'Pack'); save(); render(); return; }
+  if (t.dataset.infchoice !== undefined) { const it = S.inventory[N(t.dataset.infchoice)]; if (it && it.infusion) { it.infusion.choice = t.value; pendingLabel = 'Resistant Armor: ' + t.value; save(); render(); } return; }
+  if (t.id === 'spcls') { PICK.cls = t.value; PICK.lvl = 'all'; renderPicker(); return; }
+  if (t.id === 'spq') { filterCatalogQ('#spq'); return; }
+  if (t.id === 'crq') { filterCatalogQ('#crq'); return; }
+  if (t.dataset.pool !== undefined) {
+    const f = S.features[t.dataset.pool], m = featMax(f) || 0;
+    f.used = Math.max(0, m - Math.max(0, Math.min(m, N(t.value))));
+    pendingLabel = 'Edit: ' + f.name + ' remaining'; save(); refresh(); return;
+  }
+  if (t.id === 'mq') { filterMacros(); return; }
+  if (t.id === 'catq' || t.dataset.catf !== undefined) { filterCatalog(); return; }
+  if (t.dataset.acin !== undefined) {
+    if (t.value === '') return;
+    S.acOverride = 0; const t0 = acTotal(); S.acOverride = N(t.value) - t0;
+    pendingLabel = 'Edit: Armor class'; save(); refresh(); return;
+  }
+  if (t.dataset.hpmax !== undefined) { if (t.value === '') return; const extra = maxHp() - baseMaxHp(); S.hp.adj = N(t.value) - extra - hpMaxCalc(); pendingLabel = 'Edit: Max HP'; save(); refresh(); return; }
+  if (['addWeapon', 'addTool', 'addLang'].includes(t.id)) { const v = t.value; t.value = ''; if (!v) return; const kind = { addWeapon: 'weapon', addTool: 'tool', addLang: 'lang' }[t.id]; if (v === '__other') { openModal(`<h3>Add ${kind === 'lang' ? 'a language' : kind === 'tool' ? 'a tool' : 'a weapon'}</h3>${fld('Name', '<input class="f" id="otherIn" autofocus>')}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="otherok" data-k="${kind}">Add</button></div>`); return; } addProf(kind, v); return; }
+  if (t.id === 'featQ') { UI.featQ = t.value; clearTimeout(window._fq); window._fq = setTimeout(() => { render('features'); const e = $('#featQ'); if (e) { e.focus(); e.setSelectionRange(e.value.length, e.value.length); } }, 250); return; }
+  if (t.dataset.set !== undefined) return setSetting(t);
+  if (t.dataset.themekey !== undefined) return setThemeColor(t.dataset.themekey, t.value, true);
+  if (t.dataset.fit !== undefined) fitInput(t);
+  if (t.dataset.compvar !== undefined) { const c = S.companions[N(t.dataset.compvar)], n = makeClassComp(t.value, { id: c.id }); Object.assign(c, n); pendingLabel = 'Companion form: ' + t.value; save(); render(); return; }
+  if (t.dataset.xsubfor !== undefined) { if (!t.value) return; const r = S.classes[N(t.dataset.xsubfor)]; r.extraSubs = [...new Set((r.extraSubs || []).concat(t.value))]; UI.open['xsub:' + t.dataset.xsubfor] = false; pendingLabel = 'Add subclass: ' + CL[r.key].subclasses[t.value].name; rebuildAuto(); save(); render(); if (settingsOpen()) reopenSettings(); return; }
+  if (t.dataset.subfor !== undefined) { const r = S.classes[N(t.dataset.subfor)]; r.sub = t.value; pendingLabel = 'Set subclass: ' + (subOf(r) ? subOf(r).name : 'none'); rebuildAuto(); save(); render(); if (settingsOpen()) reopenSettings(); return; }
+  if (t.id === 'rbN' || t.id === 'rbU') { const n = countSince(N($('#rbN').value) * N($('#rbU').value)); $('#rbCount').textContent = `This will undo ${n} change(s).`; return; }
+  if (!t.dataset.k) return;
+  let v;
+  if (t.type === 'checkbox') v = t.checked;
+  else if (t.dataset.num !== undefined) v = t.value === '' ? '' : Number(t.value);
+  else v = t.value;
+  const k0 = t.dataset.k, old = getP(k0);
+  setP(t.dataset.k, v);
+  if (/^inventory\.\d+\.name$/.test(k0)) { const it = S.inventory[k0.split('.')[1]]; S.attacks.forEach(a => { if (a.item === it.id && a.name === old) a.name = v; }); }
+  if (t.tagName === 'TEXTAREA') grow(t);
+  pendingLabel = (t.type === 'checkbox' || t.tagName === 'SELECT') ? fieldLabel(t).replace('Edit: ', 'Set: ') : fieldLabel(t);
+  const k = t.dataset.k;
+  if (/^spells\.\d+\.prepared$/.test(k) && v) { const sp = S.spells[k.split('.')[1]], c = casterFor(sp.cls); if (c) { const mx = spellLimit(c); if (mx != null && countPrep(c.key) > mx) toast(`That's ${countPrep(c.key)} ${esc(c.name)} spells prepared; you can prepare ${mx}. Always-prepared spells don't count.`, 'fumble', 6000); } }
+  if (k === 'form.hp' && N(v) <= 0 && S.form) { save(); endForm(0, 'reached 0 HP'); return; }
+  if (/^bags\.\d+\.in$/.test(k)) { const b = getP(k.replace(/\.in$/, '')); pendingLabel = 'Move container: ' + ((b && b.name) || 'container'); save(); render(); return; }
+  if (/^inventory\.\d+\.attune$/.test(k) && !v) S.inventory[k.split('.')[1]].attuned = false;
+  if (/^inventory\.\d+\.charges\.max$/.test(k)) { const it = S.inventory[k.split('.')[1]]; if (!it.charges.reset) it.charges.reset = 'long'; it.charges.used = Math.min(N(it.charges.used), N(v)); }
+  if (/\.hb\.|^inventory\.\d+\.(carried|spellOnce|spellAtWill|attune)$|^features\.\d+\.(spellOnce|spellAtWill)$|^spells\.\d+\.item$/.test(k)) { save(); clearTimeout(window._hbT); window._hbT = setTimeout(() => { rebuildAuto(); save(); const a = document.activeElement; if (a && (a.type === 'checkbox' || a.tagName === 'SELECT')) render(); else renderOthers(); refresh(); }, t.type === 'checkbox' || t.tagName === 'SELECT' ? 0 : 450); }
+  save();
+  if (/^(abilities|slotsOverride|name|raceName)/.test(k) || /^spells\.\d+\.(prepared|always|level|conc|ritual|cls|time|name)$/.test(k) || /^features\.\d+\.(max|pool|reset)$/.test(k) || /^inventory\.\d+\.(attune|name)$/.test(k) || /^attacks\.\d+\.(name|ammo|kind)$/.test(k) || /^(goals\.\d+\.done|rumors\.\d+\.kind|people\.\d+\.att|xp)$/.test(k) || /^companions/.test(k)) {
+    if (e.type === 'change' || t.type !== 'checkbox') scheduleOthers(k);
+  }
+  refresh();
+}
+let othersTimer = null;
+function scheduleOthers(k) {
+  clearTimeout(othersTimer);
+  othersTimer = setTimeout(() => {
+    const a = document.activeElement;
+    if (a && (a.type === 'checkbox' || a.tagName === 'SELECT')) { a.blur(); render(); }
+    else renderOthers();
+  }, /^abilities|^features\.\d+\.max/.test(k) ? 350 : 0);
+}
+document.addEventListener('input', e => { if (e.target.type !== 'checkbox' && e.target.tagName !== 'SELECT') onField(e); });
+document.addEventListener('change', e => { if (e.target.type === 'checkbox' || e.target.tagName === 'SELECT') onField(e); });
+document.addEventListener('focusout', e => { if (e.target.dataset && (e.target.dataset.k || e.target.dataset.acin !== undefined || e.target.dataset.hpmax !== undefined) && !(e.target.closest && e.target.closest('#wizard'))) refresh(); });
+
+// Subclass controls, shown in Settings (Features only displays the result).
+function subclassSettingsHTML() {
+  return clsRows().map((r, k) => { const c = CL[r.key]; if (!c || !c.sub) return '';
+    const can = N(r.level) >= c.sub.level || r.sub;
+    const sel = can ? `<select class="f subpick" data-subfor="${k}" aria-label="${esc(c.sub.label)}">${[['', '— choose —']].concat(Object.entries(c.subclasses).map(([kk, v]) => [kk, v.name + (v.src && v.src !== 'PHB' ? ` (${v.src})` : '')])).map(([kk, t]) => `<option value="${kk}"${r.sub === kk ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>` : `<span class="hint">at level ${c.sub.level}</span>`;
+    const extras = (r.extraSubs || []).map(xk => c.subclasses[xk] ? `<div class="xsubrow"><span>+ ${esc(c.subclasses[xk].name)}</span><span class="xsublv"><button class="btn sm" data-act="xsublv" data-i="${k}" data-k="${xk}" data-d="-1" aria-label="One level fewer">−</button><b>${N((r.extraSubLv || {})[xk]) ? `${N(r.extraSubLv[xk])} lv` : 'all'}</b><button class="btn sm" data-act="xsublv" data-i="${k}" data-k="${xk}" data-d="1" aria-label="One level more">+</button></span><button class="icon-btn" data-act="delxsub" data-i="${k}" data-k="${xk}" aria-label="Remove">✕</button></div>` : '').join('');
+    const add = r.sub && (r.extraSubs || []).length ? `<select class="f subpick" data-xsubfor="${k}" aria-label="Another subclass"><option value="">+ Second ${esc(c.sub.label.toLowerCase())} (homebrew)</option>${Object.entries(c.subclasses).filter(([kk]) => kk !== r.sub && !(r.extraSubs || []).includes(kk)).map(([kk, v]) => `<option value="${kk}">${esc(v.name)}</option>`).join('')}</select>` : '';
+    return `<div class="setrow subrow"><span><b>${esc(c.sub.label)}</b><small>${esc(c.name)} ${N(r.level)}</small></span>${sel}</div>${extras || add ? `<div class="subextra">${extras}${add}</div>` : ''}`; }).join('');
+}
+
+// Hit Points panel: the ring stays where it is and the Amount box lines up with the big HP number.
+function alignHpSide() {
+  const wrap = $('.tile.hp .hp-wrap'), ring = $('.tile.hp .hp-ring'), side = $('.tile.hp .hp-side'), cur = $('.tile.hp .hp-center .cur'), amt = $('#hpAmt');
+  if (!wrap || !ring || !side || !cur || !amt || !side.offsetParent) return;
+  // Measure where the ring sits in the normal layout, pin it there, then slide only the controls down.
+  wrap.style.alignItems = ''; ring.style.marginTop = ''; side.style.marginTop = '';
+  const r0 = ring.getBoundingClientRect().top - wrap.getBoundingClientRect().top;
+  wrap.style.alignItems = 'flex-start'; ring.style.marginTop = r0 + 'px'; side.style.marginTop = '0px';
+  const c = cur.getBoundingClientRect(), a = amt.getBoundingClientRect(), d = (c.top + c.height / 2) - (a.top + a.height / 2);
+  side.style.marginTop = Math.max(0, d) + 'px';
+}
+addEventListener('resize', () => alignHpSide());
+
+
+// ---------- Click handling ----------
+document.addEventListener('click', e => rollGate(() => mainClick(e)));
+const TABSCROLL = {};
+function mainClick(e) {
+  if (e.target.closest('#wizard')) return wizClick(e);
+  const menu = e.target.closest('.menu');
+  $$('.menu.open').forEach(m => { if (m !== menu) m.classList.remove('open'); });
+  const am = e.target.closest('[data-asimode]'); if (am) return asiModeClick(am);
+  const rollEl = e.target.closest('[data-roll]');
+  if (rollEl) return doRoll(rollEl.dataset.roll);
+  const pip = e.target.closest('[data-pip]');
+  if (pip) return doPip(pip);
+  const b = e.target.closest('[data-act]');
+  if (!b) return;
+  const act = b.dataset.act, i = N(b.dataset.i);
+  pendingLabel = actLabel(act, b, i);
+  const closeMenus = () => $$('.menu.open').forEach(m => m.classList.remove('open'));
+  switch (act) {
+    case 'undo': { const lb = HIST.length && HIST[HIST.length - 1].label; if (undo(1)) toast('Undid: ' + esc(lb)); break; }
+    case 'redo': { const lb = REDO.length && REDO[REDO.length - 1].label; if (redo(1)) toast('Redid: ' + esc(lb)); break; }
+    case 'history': openHistory(); break;
+    case 'rewind': rollback(N(b.dataset.n)); break;
+    case 'rbtime': { const ms = N($('#rbN').value) * N($('#rbU').value); rollback(countSince(ms), `the last ${N($('#rbN').value)} ${$('#rbU').selectedOptions[0].text}`); break; }
+    case 'rbquick': rollback(countSince(N(b.dataset.ms)), b.firstChild.textContent.trim()); break;
+    case 'redoall': { const c = redo(REDO.length); closeModal(true); toast(`Redid ${c} change(s).`); break; }
+    case 'layout': if (window.pgPhoneView && (window.PG_IN_PHONE || (!isMobile() && window.innerWidth >= 640))) { window.pgPhoneView(!window.PG_IN_PHONE); break; }
+      UI.layout = isMobile() ? 'desktop' : 'mobile'; saveUI(); applyLayout(); render(); window.scrollTo(0, 0); break;
+    case 'attack': attackRoll(i, !b.closest('#page-combat') || !S.inCombat); break;
+    case 'equip': equipItem(i); break;
+    case 'resetturn': S.turn.haste = false; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.attacks = 0; S.turn.speed0 = ''; S.turn.sneak = false; S.turn.readied = null; update(); render('combat'); toast(`Turn reset — round ${N(S.turn.round) || 1} actions are ready again.`); break;
+    case 'fullscreen': if (fsOn()) { FS_USER_OFF = true; fsExit(); } else { FS_USER_OFF = false; fsEnter(); } break;
+    case 'tab': { const prev = UI.tab, nt = b.dataset.tab, mob = isMobile() && !b.closest('.cmini'); TABSCROLL[prev] = scrollY; UI.tab = nt; saveUI(); renderTabs(); requestAnimationFrame(alignHpSide); if (mob) window.scrollTo(0, prev === nt ? 0 : (TABSCROLL[nt] || 0)); } $$('#page-' + UI.tab + ' textarea.f').forEach(grow); fitItemRows(); if (b.closest('.cmini')) window.scrollTo(0, 0); break;
+    case 'theme': {
+      const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+      try { localStorage.setItem('dnd-sheet-theme', t); } catch (x) {}
+      if (S.created) { (S.settings || (S.settings = {})).colorMode = t; pendingLabel = 'Setting: ' + (t === 'dark' ? 'dark mode' : 'light mode'); save(); }
+      applyTheme(); render('header'); break;
+    }
+    case 'menu': b.closest('.menu').classList.toggle('open'); break;
+    case 'portrait': $('#portraitFile').click(); break;
+    case 'pic': PICPATH = b.dataset.path; closeModal(true); $('#picFile').click(); return;
+    case 'picview': { const v = getP(b.dataset.path); openModal(`<div class="picview"><img src="${v}" alt=""></div><div class="actions"><button class="btn red" data-act="picdel" data-path="${esc(b.dataset.path)}">Remove</button><button class="btn" data-act="pic" data-path="${esc(b.dataset.path)}">Change</button><button class="btn gold" data-act="close">Close</button></div>`); return; }
+    case 'picdel': setP(b.dataset.path, ''); pendingLabel = 'Remove picture'; closeModal(true); save(); render(); return;
+    case 'dmg': case 'heal': case 'tmphp': hpAction(act); break;
+    case 'skillprof': S.skills[i].prof = (N(S.skills[i].prof) + 1) % 3; b.className = 'profbtn p' + S.skills[i].prof; pendingLabel = S.skills[i].name + ': ' + ['not proficient', 'proficient', 'expertise'][S.skills[i].prof]; update(); { const r = b.closest('.skman-row'); if (r) { r.querySelector('.skman-lv').textContent = ['—', 'Proficient', 'Expertise'][S.skills[i].prof]; r.querySelector('.skman-v').textContent = fmt(skillVal(S.skills[i])); } } break;
+    case 'manageskills': openSkillManage(); return;
+    case 'abilok': closeModal(true); render(); return;
+    case 'manageabil': openAbilManage(); return;
+    case 'skillok': closeModal(true); render(); return;
+    case 'add': addItem(b.dataset.list); break;
+    case 'del': delItem(b.dataset.list, i); break;
+    case 'up': { const L = getP(b.dataset.list); if (i > 0) { [L[i - 1], L[i]] = [L[i], L[i - 1]]; save(); render(); } break; }
+    case 'toggle': {
+      UI.open[b.dataset.key] = !UI.open[b.dataset.key]; saveUI(); pendingLabel = null;
+      // Feature cards share rows: opening one card's text opens the others in the same row too (and closing closes them).
+      if (/^ffull:/.test(b.dataset.key)) { const card = b.closest('.fcard'), v = UI.open[b.dataset.key];
+        if (card && card.parentElement) { const top = card.getBoundingClientRect().top; [...card.parentElement.querySelectorAll(':scope > .fcard')].forEach(c => { if (Math.abs(c.getBoundingClientRect().top - top) < 4) c.querySelectorAll('.fc-full[data-key]').forEach(e => { UI.open[e.dataset.key] = v; }); }); saveUI(); } }
+      const kk = b.dataset.key, pg = /^cg:sptab:/.test(kk) ? 'spells' : /^(econedit|fopt:|cg:)/.test(kk) ? 'combat' : /^atk:/.test(kk) ? 'core' : /^(item:|invshut:|bagedit:)/.test(kk) ? 'inventory' : /^(fedit:|ffull:|subedit:|xsub:|featsedit)/.test(kk) ? 'features' : 'spells';
+      render(pg); return;
+    }
+    case 'filter': S.spellFilter = b.dataset.f; save(); render('spells'); $$('#page-spells textarea.f').forEach(grow); refresh(); break;
+    case 'featfilter': UI.featFilter = b.dataset.f; saveUI(); render('features'); $$('#page-features textarea.f').forEach(grow); refresh(); pendingLabel = null; return;
+    case 'cast': castSpell(i, b.dataset.col); break;
+    case 'castgo': castGo(b); break;
+    case 'readypay': readyPay(b.dataset.k, N(b.dataset.l)); break;
+    case 'econ': S.turn.used[b.dataset.col] = !S.turn.used[b.dataset.col]; if (b.dataset.col === 'action' && !S.turn.used.action) S.turn.attacks = 0; update(); break;
+    case 'econtab': UI.econTab = b.dataset.col; saveUI(); render('combat'); refresh(); pendingLabel = null; return;
+    case 'qty': { const it = S.inventory[i]; it.qty = Math.max(0, N(it.qty) + N(b.dataset.d)); update(); break; }
+    case 'endeffect': endEffect(b.dataset.n); break;
+    case 'repeatfx': repeatEffect(N(b.dataset.j)); break;
+    case 'stunstrike': stunningStrike(); break;
+    case 'hasteact': hasteAct(b.dataset.k, b.dataset.i); break;
+    case 'usefeat': if (isStunStrike(S.features[i])) { stunningStrike(); break; } if (/^martial arts$/i.test(String((S.features[i] || {}).name || '').trim()) && clsLv('monk')) { martialArtsBonus(false); break; } useFeature(i, b.dataset.col); break;
+    case 'mabonus': martialArtsBonus(false); break;
+    case 'slotrestgo': { const R = SLOTREST; if (!R) return; const k = b.dataset.k === 'pact' ? 'pact' : N(b.dataset.k); closeModal(true); useFeature(R.i, R.col, { slot: k }); return; }
+    case 'inflearn': openInfLearn(); return;
+    case 'infpick': openInfPick(b.dataset.n, b.dataset.r); return;
+    case 'infpickall': if (INFPICK) openInfPick(INFPICK.name, INFPICK.rep, true); return;
+    case 'infgo': infGo(N(b.dataset.i)); return;
+    case 'infend': infEnd(i); return;
+    case 'infendbag': { const bg = (S.bags || [])[i]; if (bg) { delete bg.infusion; pendingLabel = 'End infusion: ' + bg.name; save(); render(); toast(`The infusion on <b>${esc(bg.name)}</b> ended — everything inside appears around it.`, '', 7000, { label: 'Undo', fn: () => undo(1) }); } return; }
+    case 'infuse-use': infUse(i, b.dataset.col); return;
+    case 'infequip': { const it = S.inventory[i]; if (it) { it.equipped = true; pendingLabel = 'Equip ' + it.name; save(); render(); } return; }
+    case 'infrepadd': infAddRep(($('#infRepOther') || {}).value); return;
+    case 'infadd': infAdd(b.dataset.n); return;
+    case 'infaddrep': infAddRep(b.dataset.r); return;
+    case 'infrem': infRemove(b.dataset.n, b.dataset.r); return;
+    case 'compedit': openCompEdit(i); return;
+    case 'cesave': ceSave(); return;
+    case 'cereset': { const c = S.companions[CEDIT && CEDIT.i]; if (c && c.tmpl) { const m = Object.assign({}, (S.compMods || {})[c.tmpl]); ['ac', 'hp', 'speed', 'actions', 'known', 'attacks'].forEach(k => delete m[k]); S.compMods = Object.assign({}, S.compMods, { [c.tmpl]: m }); pendingLabel = 'Reset ' + c.name; closeModal(true); save(); render(); } return; }
+    case 'ceadd': { const box = $('#ceRows'); if (box && CEDIT) box.insertAdjacentHTML('beforeend', CEDIT.row({ a: ['', 0, '1d6', '', 'attack'] }, $$('#ceRows .ce-row').length)); return; }
+    case 'cedel': { const el = b.closest('.ce-row'); if (el) el.remove(); return; }
+    case 'compsummon': { if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions.`, 'fumble'); return; } addClassCompanion(b.dataset.n, true); S.turn.used.action = true; save(); render(); return; }
+    case 'wildsurge': wildSurgeNow(); break;
+    case 'invsort': invSort(b.dataset.k, b.dataset.by); return;
+    case 'spsort': S.settings = Object.assign({}, S.settings, { combatSpellSort: b.dataset.k }); if (b.dataset.k === 'custom') spCatsEnsure(); pendingLabel = 'Group spells by ' + b.dataset.k; save(); render(); return;
+    case 'spcatadd': spCatAdd(); return;
+    case 'spcatren': spCatRename(b.dataset.k); return;
+    case 'spcatrenok': spCatRenameOK(b.dataset.k); return;
+    case 'spcatmove': spCatMove(b.dataset.k, N(b.dataset.d)); return;
+    case 'spgstep': spGroupStep(b.dataset.k, N(b.dataset.d)); return;
+    case 'cgstep': cgStep(b.dataset.col, b.dataset.k, N(b.dataset.d)); return;
+    case 'spcatdel': spCatDel(b.dataset.k); return;
+    case 'spstep': spStep(i, N(b.dataset.d)); return;
+    case 'spto': spMoveTo(i, b.dataset.k, null); $$('.menu.open').forEach(m => m.classList.remove('open')); return;
+    case 'insp': inspAdj(N(b.dataset.d)); return;
+    case 'invstep': invStep(i, N(b.dataset.d)); return;
+    case 'surgeok': surgeApply(); return;
+    case 'surgepick': surgePick(b.dataset.k); return;
+    case 'mmarm': mmToggle(b.dataset.k); return;
+    case 'mmseek': mmSeek(); return;
+    case 'fomcreate': fomCreate(N(b.dataset.k)); return;
+    case 'fomconv': fomConvert(N(b.dataset.k)); return;
+    case 'spadj': spAdj(N(b.dataset.d)); return;
+    case 'useact': if (flurryAct(i, b.dataset.j)) { flurryOfBlows(i, b.dataset.j, b.dataset.col, false); break; } useAct(i, b.dataset.j === undefined ? null : b.dataset.j, b.dataset.col); break;
+    case 'forgego': forgeGo(N(b.dataset.fi), i); break;
+    case 'spellstorego': spellStoreGo(N(b.dataset.fi)); break;
+    case 'wsspirit': { closeModal(true); const k = S.features.findIndex(f => f.name === 'Summon Wildfire Spirit'); if (k >= 0) useFeature(k, 'action'); return; }
+    case 'pending': openPending(); pendingLabel = null; return;
+    case 'recadd': RECOVER.pick.push(N(b.dataset.l)); renderRecover(); pendingLabel = null; return;
+    case 'recok': recoverOk(); pendingLabel = null; return;
+    case 'prepare': openPrepare(b.dataset.cls); pendingLabel = null; return;
+    case 'prepsp': prepToggle(b.dataset.n); pendingLabel = null; return;
+    case 'preplv': PREP.lvl = b.dataset.l === 'all' ? 'all' : N(b.dataset.l); renderPrepare(); pendingLabel = null; return;
+    case 'pendok': pendApply(b.dataset.id); pendingLabel = null; return;
+    case 'pendpick': pendPick(b.dataset.id, b.dataset.j); pendingLabel = null; return;
+    case 'penddone': pendDismiss(b.dataset.id); pendingLabel = null; return;
+    case 'pendall': owedChoices().forEach(o => { S.dismissed = Object.assign({}, S.dismissed, { [o.id]: true }); }); pendingLabel = 'Marked all choices as done'; save(); render(); renderPending(); return;
+    case 'updatesheet': closeModal(true); $('#updateFile').value = ''; $('#updateFile').click(); pendingLabel = null; return;
+    case 'useobjplain': closeModal(true); S.turn.used.action = true; pendingLabel = 'Use an Object'; update(); toast('<b>Use an Object</b> — action spent.', '', 4000); break;
+    case 'markopt': if (b.dataset.col === 'action' && /^ready$/i.test(b.dataset.name)) openReady(); else markOpt(b); break;
+    case 'readypick': $$('#modal-body .castopt').forEach(x => x.classList.toggle('on', x === b)); READY_PICK = b.dataset.k; break;
+    case 'readygo': readyGo(); break;
+    case 'oacast': closeModal(true); castSpell(i, 'reaction'); render('combat'); break;
+    case 'oago': { closeModal(true); S.turn.used.reaction = true; const a = S.attacks[i]; attackRoll(i, true, { label: 'Opportunity Attack · ' + a.name, offTurn: true, notes: hasFeature('Sentinel') ? ['Sentinel: on a hit, its speed drops to 0 this turn'] : [] }); render('combat'); break; }
+    case 'searchgo': { closeModal(true); S.turn.used[b.dataset.col || 'action'] = true; pendingLabel = 'Search'; update(); doRoll('skill:' + b.dataset.k); break; }
+    case 'readyfire': readyFire(); break;
+    case 'readydrop': { const r = S.turn.readied; S.turn.readied = null; pendingLabel = 'Drop readied action'; update(); render('combat'); if (r) readyLost(r, 'You let it go'); break; }
+    case 'smite': smite(b.dataset.l); break;
+    case 'sneaktog': S.turn.sneak = !S.turn.sneak; pendingLabel = S.turn.sneak ? 'Sneak Attack used' : 'Sneak Attack ready'; update(); return;
+    case 'sneak': { const d = sneakDice(); const c = Date.now() < critUntil; if (S.inCombat && S.turn.sneak) toast('Sneak Attack was already used this turn (once per turn) — rolling anyway.', '', 4000); if (S.inCombat) S.turn.sneak = true; pendingLabel = 'Sneak Attack'; save(); refresh(); roll(`Sneak Attack${c ? ' · CRIT, dice doubled' : ''}`, c ? doubleDice(d) : d); return; }
+    case 'smiteundead': UI.smiteUndead = !UI.smiteUndead; saveUI(); b.classList.toggle('on', UI.smiteUndead); b.setAttribute('aria-pressed', UI.smiteUndead); refresh(); pendingLabel = null; return;
+    case 'move': if (S.turn.speed0 && N(b.dataset.d) > 0) { toast(`Your speed is 0 this turn (${esc(S.turn.speed0)}).`, 'fumble'); break; } { let d = N(b.dataset.d); const mv = Math.max(0, N(S.turn.moved)), bud = moveBudget(); if (d > 0 && mv + d > bud) { if (mv >= bud) { toast(`No movement left this turn (${bud} ft${N(S.turn.dash) ? ' including Dash' : ''}).`, 'fumble'); break; } d = bud - mv; toast(`Only ${d} ft left — moved that much.`, '', 2500); } S.turn.moved = Math.max(0, mv + d); update(); } break;
+    case 'round': S.turn.round = Math.max(1, (N(S.turn.round) || 1) + N(b.dataset.d)); update(); break;
+    case 'newturn': nextTurn(); break;
+    case 'passtime': { const r = N(b.dataset.r); pendingLabel = 'Time passes: ' + fmtRounds(r); const res = passRounds(r); update(); render(); toast(`${fmtRounds(r)} pass.`); announce(res); break; }
+    case 'dropconc': breakConc('dropped'); break;
+    case 'macros': openMacros(); break;
+    case 'macrochanged': UI.macroChanged = !UI.macroChanged; saveUI(); b.classList.toggle('on', UI.macroChanged); b.setAttribute('aria-pressed', UI.macroChanged); filterMacros(); pendingLabel = null; return;
+    case 'macroseenall': MACROS.forEach(m => S.macroSeen[m.key] = m.norm); writeLocal(); openMacros(true); toast('All macros marked as up to date.'); pendingLabel = null; return;
+    case 'copymacro': copyMacro(b); pendingLabel = null; return;
+    case 'macroadv': UI.macroAdv = b.dataset.v; saveUI(); openMacros(true); pendingLabel = null; return;
+    case 'startcombat': { S.inCombat = true; S.turn = { round: 1, used: {}, moved: 0, attacks: 0 }; pendingLabel = 'Roll initiative'; save(); render(); window.scrollTo(0, Math.min(scrollY, ($('#tabs') || document.body).offsetTop)); doRoll('init'); return; }
+    case 'endcombat': { S.lethargy = 0; const spent = Object.entries(S.turn.ammo || {}).map(([id, n]) => [S.inventory.find(x => x.id === id), Math.floor(N(n) / 2)]).filter(([it, n]) => it && n > 0);
+      if (spent.length) setTimeout(() => toast(`You can recover half your spent ammunition: ${spent.map(([it, n]) => n + ' ' + esc(it.name)).join(', ')}.`, '', 15000, { label: 'Recover', fn: () => { spent.forEach(([it, n]) => { it.qty = N(it.qty) + n; }); pendingLabel = 'Recover ammunition'; save(); render(); toast('Ammunition recovered.'); } }), 300); }
+      S.turn = { round: 1, used: {}, moved: 0, attacks: 0 }; S.death = { s: 0, f: 0 }; S.conditions = S.conditions.filter(c => c !== 'Dodging'); S.inCombat = false; pendingLabel = 'End initiative'; save(); render(); toast('Out of initiative — back to exploring.'); break;
+    case 'coin': { const c = b.dataset.c; S.currency[c] = Math.max(0, N(S.currency[c]) + N(b.dataset.d)); update(); break; }
+    case 'short': shortRest(); break;
+    case 'long': longRest(); break;
+    case 'levelup': openLevelUp(); break;
+    case 'export': exportJSON(); closeMenus(); break;
+    case 'import': $('#importFile').click(); closeMenus(); break;
+    case 'savehtml': saveHTML(); closeMenus(); break;
+    case 'themecolor': closeMenus(); openSettings(); break;
+    case 'themeset': setAccent(b.dataset.v); break;
+    case 'themeportrait': matchPortrait(true); break;
+    case 'newchar': closeMenus(); confirmNewChar(); break;
+    case 'newcharok': newCharacter(); break;
+    case 'close': closeModal(); break;
+    case 'spendhd': spendHD(b.dataset.d); break;
+    case 'confirm-short': finishShort(); break;
+    case 'confirm-long': finishLong(); break;
+    case 'deathsave': deathSave(); break;
+    case 'acauto': S.acOverride = ''; pendingLabel = 'AC back to automatic'; update(); break;
+    case 'conditions': openConditions(); break;
+    case 'tmpmod': { const k = b.dataset.k; S.tmpMods = Object.assign({}, S.tmpMods); const cur = S.tmpMods[k] || { v: 0, r: -2 }, v = cur.v + N(b.dataset.d); if (v) S.tmpMods[k] = { v, r: cur.r }; else delete S.tmpMods[k]; clampHp(); pendingLabel = `Temporary ${tmName(k)} ${v > 0 ? '+' : ''}${v}`; save(); render(); if (mOpen('#condmodal')) openConditions(); if (mOpen('#hpmanage')) openHpManage(); if (mOpen('#acmanage')) openAcManage(); return; }
+    case 'tmpmodr': { const m = (S.tmpMods || {})[b.dataset.k]; if (!m) break; m.r = Math.max(-2, N(m.r) + N(b.dataset.d)); pendingLabel = `${tmName(b.dataset.k)} change: ${durText(m.r)}`; save(); render(); if (mOpen('#condmodal')) openConditions(); if (mOpen('#hpmanage')) openHpManage(); if (mOpen('#acmanage')) openAcManage(); return; }
+    case 'tmpmodclear': { if (S.tmpMods) delete S.tmpMods[b.dataset.k]; clampHp(); pendingLabel = `${tmName(b.dataset.k)} back to normal`; save(); render(); if (mOpen('#condmodal')) openConditions(); if (mOpen('#hpmanage')) openHpManage(); if (mOpen('#acmanage')) openAcManage(); return; }
+    case 'hpmanage': openHpManage(); pendingLabel = null; return;
+    case 'acmanage': openAcManage(); pendingLabel = null; return;
+    case 'hpadj': { S.hp.adj = N(S.hp.adj) + N(b.dataset.d); clampHp(); pendingLabel = 'Max HP adjustment ' + fmt(N(S.hp.adj)); save(); render(); openHpManage(); return; }
+    case 'acauto': S.acOverride = ''; pendingLabel = 'AC: automatic'; save(); render(); openAcManage(); return;
+    case 'togglecond': toggleCondition(b.dataset.c); if ($('#condmodal') && $('#modal').classList.contains('open')) openConditions(); break;
+    case 'exhset': S.exhaustion = N(b.dataset.v); pendingLabel = 'Exhaustion ' + S.exhaustion; update(); render('vitals'); openConditions(); if (S.exhaustion >= 6) toast('Exhaustion 6: death.', 'fumble', 8000); break;
+    case 'dropcond': toggleCondition(b.dataset.c); break;
+    case 'exh': S.exhaustion = Math.max(0, Math.min(6, N(S.exhaustion) + N(b.dataset.d))); pendingLabel = 'Exhaustion ' + S.exhaustion; update(); render('vitals'); { const x = $('#exhN'); if (x) x.textContent = S.exhaustion; } if (S.exhaustion >= 6) toast('Exhaustion 6: death.', 'fumble', 8000); break;
+    case 'crroll': creatureRoll(b.dataset.who, N(b.dataset.j), b.dataset.what); pendingLabel = null; return;
+    case 'endform': endForm(0, 'reverted'); break;
+    case 'wildshape': openWildShape(); break;
+    case 'transform': openTransform(); break;
+    case 'pickform': pickForm(b); break;
+    case 'addcreature': openCreaturePicker(); break;
+    case 'addcr': addCreature(N(b.dataset.n)); break;
+    case 'addclasscomp': openClassCompanions(); break;
+    case 'addcc': addClassCompanion(b.dataset.n); break;
+    case 'dismiss': { const c = S.companions[i]; S.companions.splice(i, 1); if (c.tmpl && COMP_RULES[c.tmpl] && COMP_RULES[c.tmpl].perm) S.compOff = Object.assign({}, S.compOff, { [c.tmpl]: true }); pendingLabel = 'Dismiss ' + c.name; if (c.effect && !S.companions.some(x => x.effect === c.effect) && AUTO(c.effect).summon) { S.effects = S.effects.filter(x => x.name !== c.effect); if (S.concentration === c.effect) S.concentration = ''; } save(); render(); toast(`${esc(c.name)} dismissed.`, '', 5000, { label: 'Undo', fn: () => undo(1) }); break; }
+    case 'comphp': compHp(i, N(b.dataset.d)); break;
+    case 'bagmove': $$('.menu.open').forEach(m => m.classList.remove('open')); bagMoveTo(b.dataset.id, b.dataset.to); pendingLabel = null; return;
+    case 'invsrch': { const k = b.dataset.k, open = invQOpen(k); UI.open['invsrch:' + k] = !open; if (open) UI.invQs = Object.assign({}, UI.invQs, { [k]: '' }); pendingLabel = null; render('inventory');
+      if (!open) { const e = document.querySelector(`#page-inventory .invq[data-scope="${CSS.escape(k)}"]`); if (e) e.focus(); } return; }
+    case 'rtjmake': rtjMake(b.dataset.n); break;
+    case 'compcmd': { const c = S.companions[i]; if (!c) return; if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — ${esc(c.name)} acts on its own and can take any action.`, '', 6000); pendingLabel = null; return; }
+      if ((S.turn.used || {}).bonus) { toast('You already used your bonus action this turn.', 'fumble'); pendingLabel = null; return; }
+      S.turn.used.bonus = true; S.turn.commanded = Object.assign({}, S.turn.commanded, { [c.id]: true }); pendingLabel = 'Command ' + c.name; update(); render('combat'); refresh();
+      toast(`<b>${esc(c.name)}</b> is commanded — on its turn it takes the action you choose (attack with its Rend, Repair, Dash, Help…).`, '', 6000, { label: 'Undo', fn: () => undo(1) }); break; }
+    case 'catalog': openCatalog(); break;
+    case 'cattab': UI.catTab = b.dataset.t; saveUI(); openCatalog(true); pendingLabel = null; return;
+    case 'catadd': catalogAdd(b.dataset.t, N(b.dataset.n)); break;
+    case 'catbaseok': catalogAddBase(N(b.dataset.n)); break;
+    case 'charge': { const it = S.inventory[i]; it.charges.used = Math.max(0, Math.min(N(it.charges.max), N(it.charges.used) - N(b.dataset.d))); pendingLabel = (N(b.dataset.d) < 0 ? 'Use charge: ' : 'Restore charge: ') + it.name; update(); render(); refresh(); break; }
+    case 'attune': attune(i); break;
+    case 'drink': drink(i); break;
+    case 'useitem': useItem(i, b.dataset.col); break;
+    case 'ispdel': { const it = S.inventory[i]; const n = it.spells.splice(N(b.dataset.j), 1)[0]; pendingLabel = `${it.name}: remove ${n}`; rebuildAuto(); save(); render(); break; }
+    case 'hbopen': UI.open['hb:' + b.dataset.key] = !UI.open['hb:' + b.dataset.key]; render(); break;
+    case 'addspells': openSpellPicker(b.dataset.cls); pendingLabel = null; return;
+    case 'spfilt': PICK.lvl = b.dataset.l; renderPicker(); pendingLabel = null; return;
+    case 'pickspell': pickSpell(b); break;
+    case 'addfeat': openFeatModal(); pendingLabel = null; return;
+    case 'featok': featModalOK(); break;
+    case 'delfeatn': { const k = S.feats.indexOf(b.dataset.n); if (k < 0) break; S.feats.splice(k, 1); pendingLabel = 'Remove feat ' + b.dataset.n; rebuildAuto(); save(); render(); toast(`Removed ${esc(b.dataset.n)}. Ability increases it gave stay — adjust scores if needed.`, '', 7000, { label: 'Undo', fn: () => undo(1) }); break; }
+    case 'delfeat': { const n = S.feats[i]; S.feats.splice(i, 1); pendingLabel = 'Remove feat ' + n; rebuildAuto(); save(); render(); toast(`Removed ${esc(n)}. Ability increases it gave stay — adjust scores if needed.`, '', 7000, { label: 'Undo', fn: () => undo(1) }); break; }
+    case 'lvl-confirm': finishLevelUp(); break;
+    case 'lvroll': lvRoll(); pendingLabel = null; return;
+    case 'addxp': { const v = N($('#xpAdd') && $('#xpAdd').value); if (!v) { toast('Type an amount of XP first.'); break; } S.xp = N(S.xp) + v; pendingLabel = `+${v} XP`; save(); render('header'); toast(`+${v} XP — ${N(S.xp)} total.${xpReady() ? ' <b>You can level up!</b>' : ''}`, xpReady() ? 'crit' : ''); break; }
+    case 'sayquote': { const q = (S.quotes || []).filter(x => x.text); if (q.length) { const t = q[Math.floor(Math.random() * q.length)].text; toast(`<div><b>${esc(who())}:</b> ${esc(t)}</div>`, '', 9000, { label: 'Copy', fn: () => copyText(t) }); } pendingLabel = null; return; }
+    case 'cleargoals': S.goals = S.goals.filter(g => !g.done); pendingLabel = 'Clear finished to-dos'; save(); render('notes'); break;
+    case 'editlayout': case 'edone': editToggle(); return;
+    case 'ecancel': editCancel(); return;
+    case 'msize': modSize(b.dataset.p, N(b.dataset.w), N(b.dataset.h)); return;
+    case 'mto': modTo(b.dataset.p, b.dataset.pg); return;
+    case 'mremove': modRemove(b.dataset.p); return;
+    case 'maddopen': modAddOpen(); return;
+    case 'madd': modAdd(b.dataset.p); return;
+    case 'ctabadd': ctabAdd(); return;
+    case 'ctabaddok': ctabAddOK(); return;
+    case 'ctabdel': ctabDelete(b.dataset.k); return;
+    case 'greset': if (isGridLayout()) gridReset(b.dataset.pg); else pageReset(b.dataset.pg); return;
+    case 'gresetall': gridResetAll(); return;
+    case 'settings': openSettings(); pendingLabel = null; return;
+    case 'setpreset': setThemeColor(b.dataset.k, b.dataset.v); return;
+    case 'tabmove': tabMove(b.dataset.k, N(b.dataset.d)); return;
+    case 'tabhide': tabHide(b.dataset.k); return;
+    case 'tabrename': tabRename(b.dataset.k); return;
+    case 'tabrenameok': tabRenameOK(b.dataset.k); return;
+    case 'pmove': panelMove(b.dataset.p, N(b.dataset.d)); return;
+    case 'pto': panelTo(b.dataset.p, b.dataset.pg); return;
+    case 'zhide': zoneHide(b.dataset.k); return;
+    case 'phide': panelToggle(b.dataset.p, 'hidden'); return;
+    case 'pwide': panelToggle(b.dataset.p, 'wide'); return;
+    case 'pcols': pageCols(b.dataset.pg, N(b.dataset.n)); return;
+    case 'preset': pageReset(b.dataset.pg); return;
+    case 'presetall': S.layout = {}; pendingLabel = 'Reset layout'; save(); render(); return;
+    case 'parmor': case 'pweap': { const key = act === 'parmor' ? 'armor' : 'weapons', v = b.dataset.v, L = S.profs[key] = S.profs[key] || []; const k = L.indexOf(v); if (k >= 0) L.splice(k, 1); else L.push(v); pendingLabel = (k >= 0 ? 'Remove ' : 'Add ') + v + ' proficiency'; save(); render(); break; }
+    case 'pwdel': { const n = S.profs.weaponNames.splice(i, 1)[0]; pendingLabel = 'Remove proficiency: ' + n; save(); render(); break; }
+    case 'toolexp': S.tools[i].exp = !S.tools[i].exp; pendingLabel = (S.tools[i].exp ? 'Expertise: ' : 'Proficient: ') + S.tools[i].name; save(); render(); break;
+    case 'tooldel': { const n = S.tools.splice(i, 1)[0]; pendingLabel = 'Remove tool: ' + n.name; save(); render(); toast(`Removed ${esc(n.name)}.`, '', 5000, { label: 'Undo', fn: () => undo(1) }); break; }
+    case 'langdel': { const n = S.langs.splice(i, 1)[0]; pendingLabel = 'Remove language: ' + n; save(); render(); toast(`Removed ${esc(n)}.`, '', 5000, { label: 'Undo', fn: () => undo(1) }); break; }
+    case 'manageprofs': openProfs(); break;
+    case 'booksedit': UI.open.booksedit = !UI.open.booksedit; saveUI(); reopenSettings(); break;
+    case 'addbag': openAddBag(); break;
+    case 'deck': openDeck(i); break;
+    case 'decktype': S.deck.variant = b.dataset.v; DECK.last = null; save(); renderDeck(); break;
+    case 'deckdeclare': { const n = Math.max(1, Math.min(22, N($('#deckn').value))); S.deck.left = n; pendingLabel = `Declare ${n} card${n > 1 ? 's' : ''}`; save(); deckDraw(); break; }
+    case 'deckdraw': deckDraw(); break;
+    case 'deckstop': S.deck.left = 0; save(); renderDeck(); break;
+    case 'deckchoice': { const [t, fx] = DECK.choice[N(b.dataset.k)]; DECK.choice = null; DECK.result = applyCardFx(DECK.last, fx); pendingLabel = DECK.last + ': ' + t; save(); render(); renderDeck(); break; }
+    case 'xsublv': { const r = S.classes[i], k = b.dataset.k, cur = N((r.extraSubLv || {})[k]) || Math.max(1, N(r.level) - ((N(CL[r.key].sub && CL[r.key].sub.level) || 1) - 1)), nv = Math.max(1, Math.min(N(r.level), cur + N(b.dataset.d))); r.extraSubLv = Object.assign({}, r.extraSubLv, { [k]: nv }); pendingLabel = `${CL[r.key].subclasses[k].name}: ${nv} level${nv === 1 ? '' : 's'}`; rebuildAuto(); save(); render(); if (settingsOpen()) reopenSettings(); break; }
+    case 'delxsub': { const r = S.classes[i]; r.extraSubs = (r.extraSubs || []).filter(x => x !== b.dataset.k); pendingLabel = 'Remove extra subclass'; rebuildAuto(); save(); render(); if (settingsOpen()) reopenSettings(); break; }
+    case 'feline': { if (incapCond() || speedFt() === 0) { toast('You can\'t move right now.', 'fumble'); break; } S.turn.feline = true; S.felineSpent = true; pendingLabel = 'Feline Agility'; update(); render('combat'); toast(`<b>Feline Agility</b> — your speed is doubled this turn (${turnSpeed()} ft).`); break; }
+    case 'abopen': UI.open.abtemp = true; closeModal(true); openConditions(); return;
+    case 'abtile': UI.open.abtemp = !UI.open.abtemp; pendingLabel = null; openConditions(); return;
+    case 'abtemp': { const a = b.dataset.a, d = N(((S.abTemp || {})[a] || {}).d) + N(b.dataset.d); S.abTemp = Object.assign({}, S.abTemp); if (d) S.abTemp[a] = { d }; else delete S.abTemp[a]; if (!abTempOn()) S.abTempR = 0; pendingLabel = `Temporary ${ABN[a]}: ${score(a)}`; save(); render(); openConditions(); return; }
+    case 'abtempr': S.abTempR = Math.max(-2, N(S.abTempR) + N(b.dataset.d)); pendingLabel = 'Ability change: ' + durText(S.abTempR); save(); render(); openConditions(); return;
+    case 'abtempclear': { if (b.dataset.a) { if (S.abTemp) delete S.abTemp[b.dataset.a]; } else S.abTemp = {}; if (!abTempOn()) S.abTempR = 0; pendingLabel = 'Ability scores back to normal'; save(); render(); if ($('#condmodal') && $('#modal').classList.contains('open')) openConditions(); return; }
+    case 'condturn': { const c = b.dataset.c, v = Math.max(-2, N((S.condTurns || {})[c]) + N(b.dataset.d)); S.condTurns = S.condTurns || {}; if (v) S.condTurns[c] = v; else delete S.condTurns[c]; pendingLabel = `${c}: ${durText(v)}`; save(); render('vitals', 'combat'); openConditions(); return; }
+    case 'condturns': { const c = b.dataset.c, v = N(b.dataset.v); S.condTurns = S.condTurns || {}; if (v) S.condTurns[c] = v; else delete S.condTurns[c]; pendingLabel = `${c}: ${v ? v + ' rounds' : 'until removed'}`; save(); render('vitals', 'combat'); openConditions(); break; }
+    case 'lsok': lsSave(); break;
+    case 'lslv': LS.lv = N(b.dataset.v); renderLevelSpells(); break;
+    case 'lsev': LS.evMode = b.dataset.v; LS.evOut = ''; LS.evIn = ''; renderLevelSpells(); break;
+    case 'fspdel': { const f = S.features[i]; const n = f.spells.splice(N(b.dataset.j), 1)[0]; pendingLabel = `${f.name}: remove ${n}`; save(); rebuildAuto(); render(); break; }
+    case 'grantpick': openGrantPicker(b.dataset.t, b.dataset.o); break;
+    case 'grantok': { const t = GRANT; if (!t) break; S.grantSpells = S.grantSpells || {}; S.grantSpells[t.o] = t.fx.grant.flatMap((g, j) => ansList(t.CH, 'g.' + j)); closeModal(true); pendingLabel = t.o + ': spells'; save(); rebuildAuto(); render(); break; }
+    case 'gocore': UI.tab = 'core'; saveUI(); renderTabs(); window.scrollTo(0, 0); break;
+    case 'tablift': try { localStorage.setItem('dnd-tablift', String(Math.max(0, Math.min(160, tabLift() + N(b.dataset.d))))); } catch (e) {} applyTabLift(); { const v = b.parentNode.querySelector('b'); if (v) v.textContent = tabLift(); } break;
+    case 'settab': switchSetTab(b.dataset.k); break;
+    case 'opensettings': openSettings(b.dataset.tab === 'class' ? 'char' : b.dataset.tab); pendingLabel = null; return;
+    case 'rolllog': openRollLog(); break;
+    case 'clearlog': if (UI.logTab === 'events') { EVLOG = []; saveEvLog(); } else { ROLLLOG = []; saveRollLog(); } openRollLog(); break;
+    case 'logtab': UI.logTab = b.dataset.v; saveUI(); openRollLog(); pendingLabel = null; return;
+    case 'rolladv': { const v = b.dataset.v; S.rollAdv = S.rollAdv === v ? '' : v; pendingLabel = S.rollAdv ? (S.rollAdv === 'adv' ? 'Advantage on all rolls' : 'Disadvantage on all rolls') : 'Normal rolls'; save(); render('vitals'); refresh(); toast(S.rollAdv ? `<b>${S.rollAdv === 'adv' ? 'Advantage' : 'Disadvantage'}</b> on every attack, check and save until you switch it off.` : 'Back to normal rolls.', '', 3000); break; }
+    case 'moveto': { const it = S.inventory[i], to = b.dataset.to; const bg = (S.bags || []).find(x => x.id === to); it.bag = to; it.equipped = false; $$('.menu.open').forEach(m => m.classList.remove('open')); pendingLabel = 'Move ' + it.name + ' to ' + (bg ? bg.name : 'Pack'); if ((it.spells || []).length || it.hb) rebuildAuto(); save(); render(); break; }
+    case 'addbagp': addBag(N(b.dataset.i)); break;
+    case 'delbag': delBag(i); break;
+    case 'profother': { const inp = $('#pother-' + b.dataset.k), v = inp && inp.value.trim(); if (v) addProf(b.dataset.k, v); else if (inp) inp.focus(); break; }
+    case 'otherok': { const v = $('#otherIn').value.trim(); const kind = b.dataset.k; closeModal(true); if (v) addProf(kind, v); return; }
+    case 'featreset': { const f = S.features[i]; if (!f) break; f.name = f.dname || f.name; f.max = f.dmax || ''; f.reset = f.dreset || 'long'; const src = findFeatureDesc(f); if (src != null) f.desc = src; pendingLabel = 'Restore ' + f.name; save(); render(); break; }
+    case 'changerace': openRaceChange(); return;
+    case 'changebg': openBgChange(); return;
+    case 'rcok': RC.kind === 'race' ? raceChangeOK() : bgChangeOK(); return;
+    case 'r20ext': downloadR20Ext(); return;
+    case 'r20zip': downloadR20Ext(); return;
+    case 'r20open': window.open('https://app.roll20.net/campaigns/search', '_blank', 'noopener'); return;
+    case 'r20check': r20Hello(); setTimeout(renderR20Box, 600); return;
+    case 'r20setup': openR20Setup(); return;
+    case 'r20check2': r20Hello(); setTimeout(() => { if (R20.ok) { toast('Extension connected — pick your game in Settings → Dice.'); openSettings('dice'); } else toast('Not connected yet. Reload this sheet after loading the extension, then check again.', 'fumble', 7000); }, 700); return;
+    case 'r20refresh': R20._asked = true; r20Refresh(); return;
+    case 'r20test': { const r = d20('Test roll', 0, 'check', 'dex'); return; }
+    case 'lvcls': LV.cls = b.dataset.k; LV.sub = ''; renderLevelUp(); pendingLabel = null; return;
+  }
+}
+const ACTL = { skillprof: 'Skill proficiency', add: 'Add entry', del: 'Remove entry', up: 'Reorder list', econ: 'Toggle action used', move: 'Movement', round: 'Change round', newturn: 'Next turn', endcombat: 'End combat', resetturn: 'Reset turn', spendhd: 'Spend Hit Die', 'confirm-short': 'Short rest', 'confirm-long': 'Long rest', equip: 'Equip / unequip', filter: 'Spell filter', acauto: 'AC automatic', deathsave: 'Death save', endform: 'Revert form' };
+function actLabel(act, b, i) {
+  if (act === 'cast' && S.spells[i]) return 'Cast ' + S.spells[i].name;
+  if (act === 'usefeat') { const f = S.features[i]; return 'Use ' + (f ? f.name : 'feature'); }
+  if (act === 'markopt') return 'Take ' + b.dataset.name;
+  if (act === 'coin') return `${N(b.dataset.d) > 0 ? '+' : '−'}1 ${b.dataset.c.toUpperCase()}`;
+  if (act === 'skillprof') return 'Proficiency: ' + S.skills[i].name;
+  if (act === 'del') { const it = getP(b.dataset.list)[i]; return 'Remove ' + ((it && (it.name || it.title)) || 'entry'); }
+  if (act === 'add') return 'Add to ' + b.dataset.list.split('.').pop();
+  if (act === 'equip' && S.inventory[i]) return (S.inventory[i].equipped ? 'Unequip ' : 'Equip ') + S.inventory[i].name;
+  return ACTL[act] || null;
+}
+document.addEventListener('keydown', e => {
+  const tag = (e.target.tagName || '').toLowerCase(), typing = (tag === 'input' && !['checkbox', 'button'].includes(e.target.type)) || tag === 'textarea' || tag === 'select';
+  if ((e.ctrlKey || e.metaKey) && !typing && S.created && !$('#wizard').classList.contains('open')) {
+    const k = e.key.toLowerCase();
+    if (k === 'z' && !e.shiftKey) { e.preventDefault(); const lb = HIST.length && HIST[HIST.length - 1].label; if (undo(1)) toast('Undid: ' + esc(lb)); return; }
+    if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); const lb = REDO.length && REDO[REDO.length - 1].label; if (redo(1)) toast('Redid: ' + esc(lb)); return; }
+  }
+  if (e.key === 'Enter' && e.target.classList && e.target.classList.contains('portrait-edit')) $('#portraitFile').click();
+  if (e.key === 'Enter' && e.target.id === 'hpAmt') hpAction(e.shiftKey ? 'heal' : 'dmg');
+});
+
+// ---------- Rolling ----------
+let critUntil = 0;
+function doRoll(key) {
+  const [k, a] = key.split(':');
+  if (k === 'tool') { const t = S.tools[a]; return d20(t.name + (t.exp ? ' (expertise)' : ''), toolBonus(t), 'check', t.ab || toolAb(t.name)); }
+  if (k === 'mod') return d20(ABN[a] + ' check', mod(a), 'check', a);
+  if (k === 'save') return d20(ABN[a] + ' save', saveVal(a), 'save', a);
+  if (k === 'skill') { const s = S.skills[a]; ROLL_CTX = 'skill:' + s.name; try { return d20(s.name + (s.note ? ' — ' + s.note : ''), skillVal(s), 'check', s.ab); } finally { ROLL_CTX = ''; } }
+  if (k === 'init') { ROLL_CTX = 'init'; try { fxTrigger('initiative'); save(); return d20('Initiative', initVal(), 'check', 'dex'); } finally { ROLL_CTX = ''; } }
+  if (k === 'spellatk') return d20(clsName(a) + ' spell attack', castInfo(a).atk, 'attack');
+  if (k === 'atk') { const at = S.attacks[a], note = spendAmmo(at); if (note === null) return; if (note) { pendingLabel = 'Fire ' + at.name; update(); } ATK_ITEM = { id: at.item || '', weapon: !at.effect || !!at.weaponLike }; try { return d20(at.name + ' attack' + (note ? ' · ' + note : ''), atkHit(at), 'attack'); } finally { ATK_ITEM = null; } }
+  if (k === 'dmg') { const at = S.attacks[a]; const m = atkDmgMod(at); return roll(at.name + ' damage' + (at.type ? ' (' + at.type + ')' : ''), (atkDice(at) || '0') + (m ? sgn(m) : '')); }
+}
+// One shot of ammunition per attack roll. Returns a note, or null when you're out (the roll is cancelled).
+function spendAmmo(a) {
+  autoAmmo(a);
+  const am = ammoItem(a), wit = a.item && S.inventory.find(x => x.id === a.item);
+  if (!am) return wit && wit.weapon && (wit.weapon.props || []).includes('ammunition') ? 'No matching ammunition in your inventory' : '';
+  if (N(am.qty) <= 0) { toast(`Out of ammunition (${esc(am.name)}). Add more in Inventory.`, 'fumble', 6000); return null; }
+  am.qty = N(am.qty) - 1;
+  if (!isFirearm(wit)) { S.turn.ammo = S.turn.ammo || {}; S.turn.ammo[am.id] = N(S.turn.ammo[am.id]) + 1; }
+  return `${esc(am.name)}: ${am.qty} left${am.qty <= 5 ? ' — running low!' : ''}`;
+}
+// From the Combat tab an attack uses up your attacks for the turn; from anywhere else it's just a roll.
+function attackRoll(i, free, opt) {
+  opt = opt || {};
+  const a = S.attacks[i]; if (!a) return;
+  if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; }
+  if (!free && !canAttack()) { toast('No attacks left this turn.'); return; }
+  pendingLabel = 'Attack with ' + a.name;
+  const ammoNote = spendAmmo(a); if (ammoNote === null) return;
+  if (!free) { S.turn.attacks = N(S.turn.attacks) + 1; S.turn.used.action = true; }
+  const hit = atkHit(a), m = atkDmgMod(a);
+  ATK_ITEM = { id: a.item || '', weapon: !a.effect || !!a.weaponLike };
+  let dd20; try { dd20 = d20Expr(hit, 'attack'); } finally { ATK_ITEM = null; }
+  const { expr, rm, bless, ex } = dd20;
+  const nm = opt.label || a.name;
+  const h = rollExpr(expr, { label: nm + ' attack' });
+  const crit = h.d20 >= critRange(), nat1 = h.d20 === 1;
+  let dice = atkDice(a) || '0';
+  const isWeapon = !a.effect || a.weaponLike;
+  const extras = isWeapon ? extraDice(a) : [];
+  if (a.kind === 'melee' && clsLv('paladin') >= 11 && isWeapon) extras.push('1d8 radiant');
+  let brutal = 0;
+  if (crit && a.kind === 'melee') { const bl = clsLv('barbarian'); brutal = bl >= 17 ? 3 : bl >= 13 ? 2 : bl >= 9 ? 1 : 0; const r = raceInfo(); if (r && r.traits.some(t => /Savage Attacks/i.test(t[0]))) brutal++; }
+  const riders = isWeapon && !nat1 && a.kind === 'melee' || isWeapon && !nat1 && a.kind === 'ranged' ? (S.riders || []).splice(0) : [];
+  const dexp = (crit ? critDice(dice) : dice) + (brutal && /\d*d\d+/.test(dice) ? '+' + diceTimes(dice.match(/\d*d\d+/)[0].replace(/^\d*/, '1'), brutal) : '') + (m ? sgn(m) : '');
+  const d = rollExpr(dexp, { label: nm + ' damage' });
+  const xr = extras.map(x => { const dd = (x.match(/\d*d\d+/) || [''])[0]; const r = rollExpr(crit ? doubleDice(dd) : dd, { label: nm + ' damage (' + String(x).replace(/^\S+\s*/, '') + ')' }); return { label: x, r }; });
+  const rr = riders.map(x => { const dd = String(x.dice).match(/\d*d\d+(?:\+\d*d\d+)*/); const r = dd ? rollExpr(crit ? doubleDice(dd[0]) : dd[0]) : { total: 0, detail: '' }; return { label: x.name + ' ' + x.dice, r }; });
+  // Sneak Attack rolls itself when the attack has advantage with a finesse or ranged weapon (once per turn).
+  const sa = sneakAuto(a, rm, nat1, isWeapon, opt.offTurn), sr = sa ? rollExpr(crit ? critDice(sa) : sa, { label: 'Sneak Attack (' + sa + ')' }) : null;
+  if (sr && !opt.offTurn && S.inCombat) { S.turn.sneak = true; setTimeout(refresh, 0); }
+  const total = d.total + xr.reduce((t, x) => t + x.r.total, 0) + rr.reduce((t, x) => t + x.r.total, 0) + (sr ? sr.total : 0);
+  const n1 = nat1 ? nat1Roll() : null;
+  if (crit) critUntil = Date.now() + 60000;
+  update();
+  const head = crit ? 'CRITICAL HIT! Damage dice doubled' : nat1 ? 'Natural 1: automatic miss' : 'to hit';
+  const note = [rm.mode !== 'normal' ? (rm.mode === 'adv' ? 'Advantage: ' : 'Disadvantage: ') + rm.why.join(', ') : '', bless ? 'Bless +1d4' : '', ex ? `Exhaustion −${ex}` : ''].filter(Boolean).join(' · ');
+  const keepR = riders.filter(x => !x.once);
+  const acts = keepR.length ? [{ label: 'Missed — keep riders', fn: () => { S.riders = (S.riders || []).concat(keepR); pendingLabel = 'Keep riders'; update(); toast('Riders saved for your next hit.'); } }] : [];
+  if (!nat1 && a.kind === 'melee' && stunStrikeFeat() && stunKiLeft() > 0) acts.push({ label: 'Stunning Strike (1 ki)', fn: () => stunningStrike() });
+  if (sr && !opt.offTurn) acts.push({ label: 'Missed — Sneak Attack not used', fn: () => { S.turn.sneak = false; pendingLabel = 'Sneak Attack not used'; update(); refresh(); toast('Sneak Attack is ready again this turn.'); } });
+  // The card shows just the two numbers: to hit and damage. The full breakdown goes to the roll log.
+  toast(`<b class="total">${h.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${crit ? 'CRITICAL HIT' : nat1 ? 'Natural 1 — miss' : 'to hit'}</div>
+    ${(opt.notes || []).map(x => `<div class="det">${x}</div>`).join('')}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}<div class="det">Hit: ${esc(h.detail)} · Dmg: ${esc(d.detail)}${sr ? ` · <b>Sneak Attack</b>: ${esc(sr.detail)}` : ''}${xr.map(x => ` · ${esc(x.label)}: ${x.r.total}`).join('')}${rr.map(x => ` · <b>${esc(x.label)}</b>: ${x.r.total}`).join('')}</div>
+    ${note ? `<div class="det">${esc(note)}</div>` : ''}<div class="det">${[ammoNote, free ? '' : `Attack ${N(S.turn.attacks)} of ${attacksPerAction()} this turn`].filter(Boolean).join(' · ')}${crit && hasFeature('Divine Smite') ? ' · a smite now also doubles' : ''}</div></div>
+    <div class="rc-dmg${nat1 ? ' void' : ''}"><b>${total}</b><span>${a.type ? esc(String(a.type).toLowerCase()) : 'damage'}${sr ? `<br><small>incl. ${sr.total} sneak</small>` : ''}</span></div>`, crit ? 'crit' : nat1 ? 'fumble' : '', crit ? 12000 : 9000, acts);
+}
+// Sneak Attack dice for this attack, or '' when it doesn't apply automatically.
+function sneakAuto(a, rm, nat1, isWeapon, offTurn) {
+  if (!clsLv('rogue') || !isWeapon || nat1 || (S.inCombat && S.turn.sneak && !offTurn) || !rm || rm.mode !== 'adv') return '';
+  const it = a.item && S.inventory.find(x => x.id === a.item), w = it && it.weapon;
+  const ok = w ? (w.props || []).includes('finesse') || w.kind === 'ranged' : a.ab === 'fin' || a.kind === 'ranged';
+  return ok ? sneakDice() : '';
+}
+function creatureRoll(who, j, what) {
+  const src = who === 'form' ? S.form : S.companions[N(who.slice(1))];
+  if (!src) return; const a = (src.attacks || [])[j]; if (!a) return;
+  const nm = src.name + ' · ' + actName(a), kind = actKind(a);
+  // Actions with limited uses per day (a[8]), e.g. the Steel Defender's Repair 3/day
+  if (N(a[8]) > 0 && who !== 'form') { const u = N((src.used || {})[a[0]]); if (u >= N(a[8])) { toast(`${esc(src.name)} has no ${esc(actName(a))} uses left — they come back after a long rest.`, 'fumble'); return; } src.used = Object.assign({}, src.used, { [a[0]]: u + 1 }); save(); render(); }
+  if (what === 'eff' || (what === 'both' && kind !== 'attack')) {
+    const r = rollExpr(String(a[2] || '0'), { label: nm }), comp = who === 'form' ? null : src;
+    if (kind === 'temp' || kind === 'heal') {
+      const acts = a[7] === 'construct' ? [] : [{ label: kind === 'temp' ? `Give me ${r.total} temp HP` : `Heal me ${r.total}`, fn: () => { if (kind === 'temp') S.hp.temp = Math.max(N(S.hp.temp), r.total); else S.hp.cur = Math.min(maxHp(), N(S.hp.cur) + r.total); pendingLabel = nm; save(); render(); } }];
+      if (comp && comp.maxhp) acts.push({ label: kind === 'temp' ? `${comp.name}: ${r.total} temp` : `Heal ${comp.name}`, fn: () => { if (kind === 'temp') comp.temp = Math.max(N(comp.temp), r.total); else comp.hp = Math.min(N(comp.maxhp), N(comp.hp) + r.total); pendingLabel = nm; save(); render(); } });
+      toast(`<b class="total">${r.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${kind === 'temp' ? 'temporary HP' : 'healing'}</div><div class="det">${esc(r.detail)}${a[3] ? ' · ' + esc(a[3]) : ''}</div></div>`, '', 12000, acts);
+      return;
+    }
+    const dc = kind === 'save' ? actDC(src, a) : '', sv = actSave(a);
+    toast(`<b class="total">${r.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${kind === 'save' ? `damage · DC ${dc}${sv ? ' ' + sv : ''} save` : 'roll'}</div><div class="det">${esc(r.detail)}${actNote(a) ? ' · ' + esc(actNote(a)) : ''}</div></div>`, '', 10000);
+    return;
+  }
+  if (what === 'hit' && a[1] !== '' && a[1] != null) return d20(nm + ' attack', N(a[1]), who === 'form' ? 'attack' : 'none');
+  if (what === 'dmg' || a[1] === '' || a[1] == null) return roll(nm + ' damage' + (a[3] ? ' (' + a[3] + ')' : ''), String(a[2] || '0'));
+  const h = rollExpr((who === 'form' ? d20Expr(N(a[1]), 'attack').expr : '1d20' + sgn(N(a[1]))), { label: nm + ' attack' });
+  const crit = h.d20 === 20, nat1 = h.d20 === 1;
+  const d = rollExpr(crit ? doubleDice(a[2]) : String(a[2] || '0'), { label: nm + ' damage' + (a[3] ? ' (' + a[3] + ')' : '') });
+  toast(`<b class="total">${h.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${crit ? 'CRITICAL HIT' : nat1 ? 'Natural 1 — miss' : 'to hit'}</div><div class="det">Hit: ${esc(h.detail)} · Dmg: ${esc(d.detail)}</div></div><div class="rc-dmg${nat1 ? ' void' : ''}"><b>${d.total}</b><span>${esc(a[3] || 'damage')}</span></div>`, crit ? 'crit' : nat1 ? 'fumble' : '', 8000);
+}
+function doPip(p) {
+  const kind = p.dataset.pip, i = N(p.dataset.i), j = N(p.dataset.j);
+  pendingLabel = kind === 'slot' ? `${ORD[i]}-level spell slot` : kind === 'pact' ? 'Pact slot' : kind === 'store' ? 'Stored spell uses' : kind === 'feat' ? `${S.features[i].name} uses` : 'Death save';
+  const nextLeft = left => (j < left ? j : j + 1);
+  if (kind === 'slot') { const max = slotMax(i); S.slotsUsed[i] = max - nextLeft(slotsLeft(i)); }
+  else if (kind === 'infch') { const it = S.inventory[i]; if (it && it.charges) { const mx = N(it.charges.max); it.charges.used = mx - nextLeft(Math.max(0, mx - N(it.charges.used))); } }
+  else if (kind === 'store') { const sp = S.spells[i]; if (sp && sp.uses) { const mx = evalMax(sp.uses.max) || 0; sp.uses.used = mx - nextLeft(Math.max(0, mx - N(sp.uses.used))); } }
+  else if (kind === 'pact') { const p2 = pact(); S.pactUsed = p2.count - nextLeft(pactLeft()); }
+  else if (kind === 'feat') { const f = S.features[i], max = featMax(f) || 0, left = Math.max(0, max - N(f.used)); f.used = max - nextLeft(left); }
+  else if (kind === 'deaths' || kind === 'deathf') {
+    const key = kind === 'deaths' ? 's' : 'f', n = N(S.death[key]);
+    S.death[key] = j < n ? j : j + 1;
+    if (S.death.s >= 3) toast(`Three successes — ${esc(who())} is stable.`, '', 4000);
+    if (S.death.f >= 3) toast(`Three failures. ${esc(who())} has died…`, 'fumble', 6000);
+  }
+  update();
+}
+function deathSave() {
+  const r = rollExpr('1d20', { need: true, label: 'Death save' }); let msg;
+  if (r.d20 === 20) { S.hp.cur = 1; S.death = { s: 0, f: 0 }; S.conditions = S.conditions.filter(c => c !== 'Unconscious'); msg = 'Natural 20! You regain 1 HP and wake up.'; }
+  else if (r.d20 === 1) { S.death.f = Math.min(3, N(S.death.f) + 2); msg = 'Natural 1 — two failures.'; }
+  else if (r.total >= 10) { S.death.s = Math.min(3, N(S.death.s) + 1); msg = 'Success.'; }
+  else { S.death.f = Math.min(3, N(S.death.f) + 1); msg = 'Failure.'; }
+  if (S.death.s >= 3) msg += ' Three successes — stable.'; if (S.death.f >= 3) msg += ' Three failures — dead.';
+  pendingLabel = 'Death save'; update();
+  toast(`<b class="total">${r.total}</b><div><div>Death save</div><div class="rc-msg">${esc(msg)}</div></div>`, r.d20 === 20 ? 'crit' : r.total < 10 ? 'fumble' : '', 7000);
+}
+
+// ---------- HP, concentration, time ----------
+function hpAction(kind) {
+  const raw = $('#hpAmt').value, amt = Math.abs(N(raw));
+  if (kind === 'tmphp' && raw !== '' && !amt) { $('#hpAmt').value = ''; if (N(S.hp.temp)) { S.hp.temp = 0; pendingLabel = 'Temp HP cleared'; update(); render('vitals'); toast('Temporary HP cleared.'); } return; }
+  if (raw === '' || !amt) { $('#hpAmt').focus(); toast('Type an amount in the box first.'); return; }
+  $('#hpAmt').value = '';
+  if (kind === 'tmphp') { const cur = N(S.hp.temp); if (amt <= cur) { toast(`You keep your <b>${cur}</b> temporary HP — they don't stack, the higher one stays.`, '', 6000); return; } S.hp.temp = amt; pendingLabel = `Temp HP ${amt}`; update(); render('vitals'); toast(`<b>${amt}</b> temporary HP${cur ? ` (replaces ${cur})` : ''}.`); return; }
+  if (kind === 'dmg') takeDamage(amt); else healSelf(amt);
+}
+function takeDamage(amt) {
+  { const raw = amt, adj = surgeDamageAdj(amt); if (adj !== raw) { setTimeout(() => toast(adj < raw ? `Resistance to all damage: ${raw} → <b>${adj}</b>.` : `Vulnerable to all damage: ${raw} → <b>${adj}</b>.`, '', 5000), 60); amt = adj; } }
+  const hp = S.hp; pendingLabel = `Took ${amt} damage`;
+  if (amt > 0) setTimeout(() => S.inventory.forEach(it => { const h = it.hb || {}; if (!h.hurtSave || !hbItemOn(it)) return; const ab = h.hurtSave, dc = N(h.hurtDC) || 10;
+    toast(`<div><b>${esc(it.name)}</b><div class="det">DC ${dc} ${ab.toUpperCase()} save${h.hurtText ? ' — on a failure: ' + esc(h.hurtText) : ''}</div></div>`, 'alert', 20000, [{ label: 'Roll save', fn: () => { const r = d20(`${it.name}: DC ${dc} ${ab.toUpperCase()} save`, saveVal(ab), 'save', ab); if (r && !r.skipped) toast(r.total >= dc ? `Saved against ${esc(it.name)}.` : `<b>Failed</b> — ${esc(h.hurtText || it.name)}`, r.total >= dc ? '' : 'fumble', 9000); } }]);
+  }), 250);
+  let d = amt; const t = N(hp.temp);
+  if (t) { const a = Math.min(t, d); hp.temp = t - a; d -= a; }
+  const conc = S.concentration, dc = Math.max(10, Math.floor(amt / 2));
+  if (S.form && d > 0) {
+    const fh = N(S.form.hp);
+    if (d < fh) { S.form.hp = fh - d; update(); if (conc && ST('concPrompt')) setTimeout(() => concCheck(dc), 50); return; }
+    d -= fh; const nm = S.form.name; endForm(0, 'dropped to 0 HP', true);
+    toast(`${esc(nm)} drops to 0 HP — you revert${d ? ` and take the remaining ${d}` : ''}.`, 'alert', 8000);
+  }
+  const before = N(hp.cur);
+  if (before <= 0 && d > 0) { S.death.f = Math.min(3, N(S.death.f) + 1); update(); toast('Damage while at 0 HP — one death save failure (two on a crit).', 'fumble', 7000); return; }
+  hp.cur = Math.max(0, before - d);
+  if (hp.cur === 0 && before > 0) {
+    if (!S.conditions.includes('Unconscious')) S.conditions.push('Unconscious');
+    toast(`${esc(who())} drops to 0 HP — roll death saves.`, 'fumble', 7000);
+    fxTrigger('zero');
+    if (conc) { update(); breakConc('dropped to 0 HP'); return; }
+  } else if (conc && d >= 0 && ST('concPrompt')) setTimeout(() => concCheck(dc), 50);
+  update();
+}
+function healSelf(amt, label) {
+  pendingLabel = label || `Healed ${amt}`;
+  if (S.form) { S.form.hp = Math.min(N(S.form.maxhp), N(S.form.hp) + amt); update(); return; }
+  const before = N(S.hp.cur);
+  S.hp.cur = Math.min(maxHp(), before + amt);
+  if (before <= 0 && S.hp.cur > 0) { S.death = { s: 0, f: 0 }; S.conditions = S.conditions.filter(c => c !== 'Unconscious'); }
+  update();
+}
+function passRounds(n) {
+  const ended = [], warn = [];
+  (S.effects || []).forEach(e => {
+    if (e.rounds == null) return;
+    e.rounds = Math.max(0, N(e.rounds) - n);
+    if (e.rounds === 0) ended.push(e); else if (e.rounds === 1 && n === 1) warn.push(e);
+  });
+  if (ended.length) {
+    S.effects = S.effects.filter(e => !ended.includes(e));
+    if (ended.some(e => e.conc && e.name === S.concentration)) S.concentration = '';
+    cleanupLinked();
+  }
+  return { ended, warn };
+}
+function announce(res) {
+  if (!ST('durationAlerts')) return;
+  res.ended.forEach(e => toast(`⏳ <b>${esc(e.name)}</b> has ended.`, 'alert', 9000));
+  res.warn.forEach(e => toast(`⏳ <b>${esc(e.name)}</b> ends after this round.`, 'alert', 7000));
+}
+function cleanupLinked() {
+  const names = new Set((S.effects || []).map(e => e.name));
+  S.companions = S.companions.filter(c => !c.effect || names.has(c.effect));
+  S.attacks = S.attacks.filter(a => !a.effect || names.has(a.effect));
+  if (S.form && S.form.effect && !names.has(S.form.effect)) S.form = null;
+  if (S.conditions.includes('Raging') && !names.has('Rage')) S.conditions = S.conditions.filter(c => c !== 'Raging');
+}
+function breakConc(reason) {
+  const nm = S.concentration; if (!nm) return;
+  S.concentration = ''; S.effects = (S.effects || []).filter(e => !e.conc);
+  pendingLabel = 'Concentration broken: ' + nm; cleanupLinked(); save(); render();
+  toast(`💥 Concentration broken — <b>${esc(nm)}</b> ends${reason ? ` (${esc(reason)})` : ''}.`, 'fumble', 9000, { label: 'Undo', fn: () => undo(1) });
+}
+function concCheck(dc) {
+  const nm = S.concentration; if (!nm) return;
+  const bonus = saveVal('con') + (hasFeat('War Caster') ? 0 : 0);
+  toast(`<div><b>Concentration check</b> for ${esc(nm)}<div class="det">DC ${dc} CON save · ${fmt(bonus)}${hasFeat('War Caster') ? ' · War Caster: advantage' : ''}</div></div>`, 'alert', 30000, [
+    { label: 'Roll', fn: () => { if (S.concentration !== nm) { toast('No longer concentrating on that spell.'); return; } const ex = (hasFeat('War Caster') ? '2d20kh1' : d20Expr(bonus, 'save', 'con').expr.replace(/[+-]\d+.*$/, '')) + sgn(bonus - exD20()) + (blessed() ? '+1d4' : ''); const r = rollExpr(ex, { need: true, label: 'Concentration save' }); const ok = r.total >= dc; toast(`<b class="total">${r.total}</b><div><div>Concentration ${ok ? 'holds' : 'fails'} (DC ${dc})</div><div class="det">${esc(r.detail)}</div></div>`, ok ? 'crit' : 'fumble', 6000); if (!ok) breakConc('failed DC ' + dc); } },
+    { label: 'Failed', fn: () => { if (S.concentration === nm) breakConc('failed DC ' + dc); } }]);
+}
+function endEffect(n) {
+  S.effects = (S.effects || []).filter(x => x.name !== n);
+  if (S.concentration === n) S.concentration = '';
+  pendingLabel = 'End ' + n; cleanupLinked(); save(); render();
+  toast(`${esc(n)} ended.`, '', 4000, { label: 'Undo', fn: () => undo(1) });
+}
+function repeatEffect(j) {
+  const e = S.effects[j]; if (!e || !e.repeat) return;
+  const r = rollExpr(e.repeat.dice);
+  toast(`<b class="total">${r.total}</b><div><div>${esc(e.name)} — ${e.repeat.heal ? 'healing' : esc(e.repeat.type || 'damage')}</div><div class="det">${esc(r.detail)}${e.repeat.save ? ' · ' + esc(e.repeat.save) : ''}</div></div>`, '', 7000);
+}
+function nextTurn() {
+  if (S.felineSpent && !S.turn.feline && N(S.turn.moved) <= 0) S.felineSpent = false;  // Feline Agility recharges after a turn without moving
+  const held = S.turn.readied; S.turn.readied = null;
+  if (held) setTimeout(() => readyLost(held, 'Your readied action ran out (it lasts until your next turn)'), 80);
+  S.turn.round = (N(S.turn.round) || 1) + 1; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.attacks = 0; S.turn.feline = false; S.turn.speed0 = ''; S.turn.sneak = false;
+  S.turn.haste = false;
+  // Haste's lethargy: the turn after it wears off you can't move or take actions.
+  if (N(S.lethargy) === 1) { S.lethargy = 2; S.turn.speed0 = 'Haste lethargy'; setTimeout(() => toast('<b>Lethargic</b> — Haste wore off, so this turn you can’t move or take actions. You’re back to normal next turn.', 'fumble', 9000), 120); } else if (N(S.lethargy) === 2) S.lethargy = 0;
+  S.conditions = S.conditions.filter(c => c !== 'Dodging');
+  const ended = [];
+  Object.keys(S.tmpMods || {}).forEach(k => { const m = S.tmpMods[k]; if (N(m.r) > 0) { m.r = N(m.r) - 1; if (m.r <= 0) { delete S.tmpMods[k]; ended.push(tmName(k) + ' change'); clampHp(); } } });
+  if (abTempOn() && N(S.abTempR) > 0) { S.abTempR = N(S.abTempR) - 1; if (S.abTempR <= 0) { S.abTemp = {}; S.abTempR = 0; ended.push('Ability score changes'); } }
+  Object.keys(S.condTurns || {}).forEach(c => { if (!S.conditions.includes(c)) { delete S.condTurns[c]; return; } if (N(S.condTurns[c]) <= 0) return; S.condTurns[c] = N(S.condTurns[c]) - 1; if (S.condTurns[c] <= 0) { delete S.condTurns[c]; if (S.condNotes) delete S.condNotes[c]; S.conditions = S.conditions.filter(x => x !== c); ended.push(c); } });
+  if (ended.length) setTimeout(() => toast(`<b>${esc(ended.join(', '))}</b> wore off.`, '', 6000), 50);
+  const res = passRounds(1);
+  pendingLabel = 'Next turn'; update(); render();
+  toast(`Round ${S.turn.round} — action, bonus action, reaction and movement ready.`);
+  announce(res);
+  const tmpEach = fxActive().find(e => e.buff && e.buff.tempEach && !e.ally);
+  if (tmpEach) { const v = Math.max(0, castInfo().mod || 0); if (v > N(S.hp.temp)) { S.hp.temp = v; save(); refresh(); toast(`${esc(tmpEach.name)}: ${v} temporary HP.`); } }
+  wildTurnStart();
+}
+// ---------- Ready action ----------
+// Ready: pick what you'll do and the trigger; it waits in the Reaction column until you fire it with your reaction.
+let READY_PICK = '';
+function readyChoices() {
+  const out = [];
+  S.attacks.forEach((a, i) => { if (atkShown(a)) out.push({ k: 'atk:' + i, name: 'Attack: ' + a.name, sub: atkHit(a) >= 0 ? '+' + atkHit(a) + ' to hit' : atkHit(a) + ' to hit' }); });
+  spellsFor('action').forEach(([sp, i]) => out.push({ k: 'sp:' + i, name: sp.name, sub: (N(sp.level) ? ORD[N(sp.level) - 1] + ' level' : 'Cantrip') + ' · held with concentration' }));
+  (S.combat.action || []).forEach(o => { if (!/^(ready|attack)$/i.test(o.name)) out.push({ k: 'std:' + o.name, name: o.name, sub: o.text || '' }); });
+  return out;
+}
+function openReady() {
+  if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; }
+  if ((S.turn.used || {}).action) { toast('Your action is already used this turn.', 'fumble'); return; }
+  READY_PICK = '';
+  const ch = readyChoices();
+  openModal(`<h3>Ready an action</h3>
+    <p class="hint" style="margin:0 0 8px">Uses your action now. When the trigger happens before your next turn, use your reaction to do it. Readying a spell means casting it now and holding it with concentration.</p>
+    ${fld('Trigger', '<input class="f" id="readyTrig" placeholder="e.g. when the goblin comes through the door" autofocus>')}
+    <div class="lbl" style="margin-top:8px">What you'll do</div>
+    <div class="castopts">${ch.map(c => `<button class="castopt" data-act="readypick" data-k="${esc(c.k)}"><b>${esc(c.name)}</b><span>${esc(c.sub)}</span></button>`).join('')}
+      <button class="castopt ghost" data-act="readypick" data-k="other"><b>Something else…</b><span>type it below</span></button></div>
+    ${fld('Something else', '<input class="f" id="readyOther" placeholder="e.g. pull the lever">')}
+    <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="readygo">Ready it</button></div>`);
+}
+function readyGo() {
+  const other = ($('#readyOther') && $('#readyOther').value.trim()) || '', trig = ($('#readyTrig') && $('#readyTrig').value.trim()) || '';
+  const k = READY_PICK || (other ? 'other' : '');
+  if (!k) { toast('Pick what you want to ready.'); return; }
+  if (k === 'other' && !other) { toast('Type what you want to ready.'); return; }
+  const c = readyChoices().find(x => x.k === k);
+  const r = { k, name: k === 'other' ? other : c.name.replace(/^Attack: /, 'Attack with '), trigger: trig };
+  if (k.startsWith('sp:')) { const sp = S.spells[N(k.slice(3))]; r.spell = sp && sp.name; r.level = sp ? N(sp.level) : 0; r.i = N(k.slice(3)); }
+  // A readied spell is cast now and held, so its slot is spent now, whether or not it ever goes off.
+  if (r.spell && r.level > 0) {
+    const sp = S.spells[r.i], base = r.level, opts = [];
+    if (sp && sp.usesOnly) { const mx = evalMax(sp.uses && sp.uses.max) || 0, left = Math.max(0, mx - N(sp.uses && sp.uses.used)); opts.push({ k: 'store', L: Math.max(base, N(sp.uses && sp.uses.level) || base), label: 'Stored use', left }); }
+    else {
+      if (sp && sp.uses) { const mx = evalMax(sp.uses.max) || 0, left = Math.max(0, mx - N(sp.uses.used)); if (mx) opts.push({ k: 'free', L: Math.max(base, N(sp.uses.level) || base), label: `Free use (${left}/${mx})`, left }); }
+      for (let L = base; L <= 9; L++) if (slotMax(L - 1) > 0) opts.push({ k: 'slot', L, label: `${ORD[L - 1]} slot`, left: slotsLeft(L - 1) });
+      const p = pact(); if (p && p.level >= base) opts.push({ k: 'pact', L: p.level, label: `Pact slot (${ORD[p.level - 1]})`, left: pactLeft() });
+    }
+    const usable = opts.filter(o => o.left > 0);
+    if (!usable.length) { toast(`No slot left to ready <b>${esc(r.spell)}</b>.`, 'fumble'); return; }
+    READY_HOLD = r;
+    if (usable.length === 1) return readyPay(usable[0].k, usable[0].L);
+    return openModal(`<h3>Ready ${esc(r.spell)}</h3><p class="hint" style="margin:0 0 8px">Readying a spell casts it now and holds it with concentration — the slot is spent now, even if the trigger never comes.</p>
+      <div class="castopts">${opts.map(o => `<button class="castopt" data-act="readypay" data-k="${o.k}" data-l="${o.L}" ${o.left > 0 ? '' : 'disabled'}><b>${esc(o.label)}</b><span>${o.k === 'slot' ? o.left + ' left' : o.k === 'store' ? o.left + ' left' : ''}</span></button>`).join('')}
+      <button class="castopt ghost" data-act="readypay" data-k="none" data-l="${base}"><b>No slot</b><span>scroll, item or DM ruling</span></button></div>
+      <div class="actions"><button class="btn" data-act="close">Cancel</button></div>`);
+  }
+  readyCommit(r);
+}
+let READY_HOLD = null, READY_PAID = null;
+function readyPay(k, L) {
+  const r = READY_HOLD; READY_HOLD = null; if (!r) return;
+  const sp = S.spells[r.i];
+  if (k === 'slot') S.slotsUsed[L - 1] = N(S.slotsUsed[L - 1]) + 1;
+  else if (k === 'pact') S.pactUsed = N(S.pactUsed) + 1;
+  else if ((k === 'free' || k === 'store') && sp && sp.uses) sp.uses.used = N(sp.uses.used) + 1;
+  r.paid = { k, L };
+  readyCommit(r);
+}
+function readyCommit(r) {
+  closeModal(true);
+  S.turn.used.action = true; S.turn.readied = r;
+  const paid = r.paid && r.paid.k !== 'none' ? (r.paid.k === 'slot' ? `${ORD[r.paid.L - 1]} slot` : r.paid.k === 'pact' ? 'pact slot' : r.paid.k === 'store' ? 'stored use' : 'free use') : '';
+  pendingLabel = 'Ready: ' + r.name + (paid ? ` (${paid})` : ''); update(); render('combat');
+  toast(`<div><b>Readied:</b> ${esc(r.name)}${trig0(r)}${paid ? `<div class="det">${esc(paid.charAt(0).toUpperCase() + paid.slice(1))} spent now — concentrate to hold it.</div>` : ''}<div class="det">It's waiting in your Reaction column.</div></div>`, '', 7000);
+}
+const trig0 = r => r.trigger ? `<div class="det">Trigger: ${esc(r.trigger)}</div>` : '';
+function readyFire() {
+  const r = S.turn.readied; if (!r) return;
+  if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take reactions.`, 'fumble'); return; }
+  if ((S.turn.used || {}).reaction) { toast('Your reaction is already used — the readied action is lost.', 'fumble'); return; }
+  S.turn.readied = null;
+  if (r.k.startsWith('atk:')) { S.turn.used.reaction = true; pendingLabel = 'Readied attack'; attackRoll(N(r.k.slice(4)), true, { offTurn: true }); render('combat'); return; }
+  if (r.k.startsWith('sp:')) { const i = N(r.k.slice(3)); if (S.spells[i] && S.spells[i].name === r.spell) { if (r.paid) READY_PAID = { i, L: r.paid.L }; render('combat'); castSpell(i, 'reaction'); return; } }
+  S.turn.used.reaction = true;
+  if (/^std:dash$/i.test(r.k)) addDash();
+  pendingLabel = 'Readied: ' + r.name; update(); render('combat');
+  toast(`<div><b>${esc(r.name)}</b> — reaction spent.${r.trigger ? `<div class="det">Trigger: ${esc(r.trigger)}</div>` : ''}</div>`, '', 6000);
+}
+// A readied spell that never goes off still used its slot.
+function readyLost(r, why) {
+  if (r.spell && r.paid) { toast(`<div><b>${esc(r.spell)}</b> was never released.<div class="det">${esc(why)}. Its slot was spent when you readied it.</div></div>`, 'fumble', 8000); return; }
+  if (r.spell && r.level > 0) {
+    const L = r.level, slot = [...Array(10 - L).keys()].map(d => L - 1 + d).find(l => slotMax(l) > 0 && slotsLeft(l) > 0), p = pact();
+    const acts = [];
+    if (slot != null) acts.push({ label: `Spend ${ORD[slot]} slot`, fn: () => { S.slotsUsed[slot] = N(S.slotsUsed[slot]) + 1; pendingLabel = 'Readied spell wasted'; update(); } });
+    if (p && p.level >= L && pactLeft() > 0) acts.push({ label: 'Spend pact slot', fn: () => { S.pactUsed = N(S.pactUsed) + 1; pendingLabel = 'Readied spell wasted'; update(); } });
+    toast(`<div><b>${esc(r.spell)}</b> was never released.<div class="det">${esc(why)}. A readied spell's slot is still spent.</div></div>`, 'fumble', 12000, acts);
+  } else toast(`<div>Readied action dropped: <b>${esc(r.name)}</b>.<div class="det">${esc(why)}.</div></div>`, '', 5000);
+}
+// Dash: adds your speed to this turn's movement (shown as speed + Dash, not as negative movement).
+function addDash() { S.turn.dash = N(S.turn.dash) + 1; if (N(S.turn.moved) < 0) S.turn.moved = 0; }
+function moveBudget() { return turnSpeed() * (1 + N(S.turn.dash)); }
+function markOpt(b) {
+  const col = b.dataset.col, nm = b.dataset.name;
+  if (col !== 'move') { if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; } }
+  if (col === 'move' && speedFt() === 0) { toast(`Your speed is 0 right now.`, 'fumble'); return; }
+  if (col !== 'move' && /^search$/i.test(nm)) { openSearch(col); return; }
+  if (col === 'reaction' && /^opportunity attack$/i.test(nm)) { openOA(); return; }
+  // Grapple / Shove replace one attack of the Attack action (2014 rules), so they use up an attack, not the whole action.
+  if (col === 'action' && /^(grapple|shove)$/i.test(nm)) { const per = attacksPerAction(), done = N(S.turn.attacks);
+    if (S.turn.used.action && (done === 0 || done >= per)) { toast(done ? `No attacks left this turn (${per}).` : 'Your action is already used this turn.', 'fumble'); return; }
+    S.turn.attacks = done + 1; S.turn.used.action = true; pendingLabel = nm; update();
+    const k = S.skills.findIndex(x => x.name === 'Athletics'); if (k >= 0) doRoll('skill:' + k);
+    toast(`<div><b>${esc(nm)}</b> — uses attack ${S.turn.attacks} of ${per}.<div class="det">${/grapple/i.test(nm) ? 'The target contests with Athletics or Acrobatics. If you win it is Grappled (speed 0) until it escapes. It must be no more than one size larger than you.' : 'The target contests with Athletics or Acrobatics. If you win, knock it Prone or push it 5 ft away. It must be no more than one size larger than you.'}</div></div>`, '', 8000); return; }
+  if (col !== 'move' && S.inCombat && S.turn.used[col]) { toast(`Your ${col === 'bonus' ? 'bonus action' : col} is already used this turn.`, 'fumble'); return; }
+  if (col === 'action' && /^use an object$/i.test(nm)) { const items = S.inventory.map((it, i) => [it, i]).filter(([it]) => it.heal || (it.hb && hbUsable(hbFx(it.hb)) && hbItemReady(it)));
+    if (items.length) { openModal(`<h3>Use an Object</h3><p class="hint" style="margin:0 0 8px">Uses your action. Pick the item — or just mark the action used for anything else (a lever, a door, a second item).</p><div class="castopts">${items.map(([it, i]) => `<button class="castopt" data-act="${it.heal ? 'drink' : 'useitem'}" data-i="${i}" data-col="action"><b>${esc(it.name)}</b><span>${it.heal ? 'Drink — heals ' + esc(it.heal) : esc((hbSummary(it.hb, it) || []).slice(0, 3).join(' · ') || 'Use it')}</span></button>`).join('')}</div><div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn" data-act="useobjplain">Something else</button></div>`); return; } }
+  if (col === 'move' && /^stand up$/i.test(nm)) { if (!S.conditions.includes('Prone')) { toast("You're not prone.", 'fumble'); return; }
+    const half = Math.ceil(speedFt() / 2), mv = Math.max(0, N(S.turn.moved)); if (S.inCombat && mv + half > moveBudget()) { toast(`Standing up costs ${half} ft and you only have ${Math.max(0, moveBudget() - mv)} ft left.`, 'fumble'); return; }
+    S.conditions = S.conditions.filter(c => c !== 'Prone'); if (S.inCombat) S.turn.moved = mv + half; pendingLabel = 'Stand up'; update(); render(); toast(`<b>Stand up</b> — no longer prone${S.inCombat ? `. Used ${half} ft of movement` : ''}.`, '', 4000, { label: 'Undo', fn: () => undo(1) }); return; }
+  if (col === 'move' && /^drop prone$/i.test(nm)) { if (S.conditions.includes('Prone')) { toast("You're already prone.", 'fumble'); return; }
+    S.conditions = S.conditions.concat(['Prone']); pendingLabel = 'Drop prone'; update(); render(); toast('<b>Prone</b> — attacks against you within 5 ft have advantage, ranged ones disadvantage; your attacks have disadvantage. Standing up costs half your speed.', '', 6000, { label: 'Undo', fn: () => undo(1) }); return; }
+  if (col === 'move' && /^jump$/i.test(nm)) { const st = score('str'), m = mod('str');
+    toast(`<div><b>Jump</b><div class="det">Long jump: <b>${st} ft</b> with a 10 ft run-up, ${Math.floor(st / 2)} ft standing. High jump: <b>${Math.max(0, 3 + m)} ft</b> with a run-up, ${Math.floor(Math.max(0, 3 + m) / 2)} ft standing. Every foot you jump costs a foot of movement.</div></div>`, '', 8000); return; }
+  if (col === 'move' && /^climb \/ swim$/i.test(nm)) { const t = speedInfo().text, has = k => new RegExp('\\b' + k + '\\s+\\d', 'i').test(t);
+    toast(`<div><b>Climb / swim</b><div class="det">Climbing: ${has('climb') ? 'you have a climbing speed — no extra cost' : 'each foot costs 2 ft of movement'}. Swimming: ${has('swim') ? 'you have a swimming speed — no extra cost' : 'each foot costs 2 ft of movement'}.</div></div>`, '', 7000); return; }
+  if (col !== 'move') S.turn.used[col] = true;
+  if (/^disengage$/i.test(nm)) S.turn.disengaged = true;
+  if (/^hide$/i.test(nm)) { const k = S.skills.findIndex(s => s.name === 'Stealth'); update(); if (k >= 0) { doRoll('skill:' + k); return; } }
+  if (/^dodge$/i.test(nm) && !S.conditions.includes('Dodging')) S.conditions.push('Dodging');
+  if (/^dash$/i.test(nm)) addDash();
+  update();
+  toast(`<div><b>${esc(nm)}</b>${col !== 'move' ? ` — ${col === 'bonus' ? 'bonus action' : col} spent.` : ''}${b.dataset.text ? `<div class="det">${esc(b.dataset.text)}</div>` : ''}</div>`, '', 6000);
+}
+// Search: a Perception (spot it) or Investigation (work it out) check.
+// Opportunity Attack: pick a melee weapon, spend your reaction, roll it. It happens on someone else's turn,
+// so Sneak Attack is still available (it's once per turn, not once per round).
+// Area spells can't be War Caster opportunity attacks (they must target only the creature that provoked).
+const WC_AREA = ['Sickening Radiance', 'Fireball', 'Hunger of Hadar', 'Shatter', 'Thunderwave', 'Stinking Cloud', 'Cloudkill', 'Spirit Guardians', 'Moonbeam', 'Web', 'Entangle', 'Spike Growth', 'Erupting Earth', 'Synaptic Static', 'Cone of Cold', 'Lightning Bolt', 'Burning Hands', 'Ice Storm', 'Flame Strike', 'Sleet Storm', 'Insect Plague', 'Wall of Fire', 'Storm Sphere', 'Sunbeam', 'Create Bonfire', 'Word of Radiance', 'Thunderclap', 'Sword Burst', 'Faerie Fire', 'Hypnotic Pattern', 'Fear', 'Slow', 'Pyrotechnics', 'Earth Tremor', 'Aganazzar\'s Scorcher', 'Dust Devil', 'Cause Fear', 'Color Spray', 'Arms of Hadar', 'Destructive Wave', 'Circle of Death', 'Chain Lightning', 'Meteor Swarm'];
+function openOA() {
+  if ((S.turn.used || {}).reaction) { toast('Your reaction is already used.', 'fumble'); return; }
+  const ws = S.attacks.map((a, i) => [a, i]).filter(([a]) => atkShown(a) && a.kind !== 'ranged');
+  // War Caster: instead of a weapon, cast a spell that takes 1 action and targets only that creature.
+  const wc = hasFeature('War Caster') ? spellsFor('action').filter(([sp]) => { const sm = spellMath(sp), t = (String(sp.range || '') + ' ' + String(sp.summary || '')).toLowerCase(); return (sm.attack || sm.save) && !WC_AREA.includes(sp.name) && !/cone|cube|line|sphere|radius|cylinder|self \(|each creature|creatures within|all creatures|\barea\b|cloud\b/.test(t); }) : [];
+  if (!ws.length && !wc.length) { toast('No melee attacks — equip a melee weapon in Inventory.', 'fumble'); return; }
+  openModal(`<h3>Opportunity Attack</h3><p class="hint" style="margin:0 0 8px">A creature you can see is leaving your reach. Uses your reaction — pick what to hit it with.${hasFeature('Sentinel') ? ' <b>Sentinel:</b> on a hit its speed becomes 0 for the rest of the turn.' : ''}</p>
+    <div class="castopts">${ws.map(([a, i]) => `<button class="castopt" data-act="oago" data-i="${i}"><b>${esc(a.name)}</b><span>${fmt(atkHit(a))} to hit · ${esc(atkDmgText(a))}${a.type ? ' ' + esc(a.type) : ''}</span></button>`).join('')}</div>
+    ${wc.length ? `<div class="lbl" style="margin-top:10px">War Caster — cast a spell at it instead</div><p class="hint" style="margin:0 0 4px">A spell with a casting time of 1 action that targets only that creature.</p><div class="castopts">${wc.map(([sp, i]) => { const sm = spellMath(sp), ci = spellCI(sp); return `<button class="castopt" data-act="oacast" data-i="${i}"><b>${esc(sp.name)}</b><span>${N(sp.level) ? ORD[N(sp.level) - 1] + ' level' : 'Cantrip'} · ${sm.attack ? fmt(ci.atk) + ' to hit' : 'DC ' + ci.dc + ' ' + esc(sm.save)}${sm.dice ? ' · ' + esc(sm.dice) + ' ' + esc(sm.type) : ''}</span></button>`; }).join('')}</div>` : ''}
+    <div class="actions"><button class="btn" data-act="close">Cancel</button></div>`);
+}
+function openSearch(col) {
+  const opt = n => { const k = S.skills.findIndex(s => s.name === n); return k < 0 ? '' : `<button class="castopt" data-act="searchgo" data-k="${k}" data-col="${col}"><b>${n} ${fmt(skillVal(S.skills[k]))}</b><span>${n === 'Perception' ? 'WIS — spot, hear or notice something' : 'INT — look for clues and work out what they mean'}</span></button>`; };
+  openModal(`<h3>Search</h3><p class="hint" style="margin:0 0 8px">Uses your ${col === 'bonus' ? 'bonus action' : 'action'}. Which check?</p><div class="castopts">${opt('Perception')}${opt('Investigation')}</div><div class="actions"><button class="btn" data-act="close">Cancel</button></div>`);
+}
+function toggleCondition(c) {
+  const on = S.conditions.includes(c);
+  S.conditions = on ? S.conditions.filter(x => x !== c) : S.conditions.concat([c]);
+  if (on && S.condTurns) delete S.condTurns[c];
+  if (on && S.condNotes) delete S.condNotes[c];
+  pendingLabel = (on ? 'Remove ' : 'Add ') + c;
+  if (!on && ['Incapacitated', 'Paralyzed', 'Petrified', 'Stunned', 'Unconscious'].includes(c) && S.concentration) { save(); breakConc(c.toLowerCase()); return; }
+  update(); render('vitals', 'combat');
+}
+const COND_ICON = { Blinded: '◌', Charmed: '♥', Deafened: '◎', Frightened: '!', Grappled: '✊', Incapacitated: '✕', Invisible: '◇', Paralyzed: '❚❚', Petrified: '▣', Poisoned: '☠', Prone: '↧', Restrained: '⛓', Stunned: '✶', Unconscious: 'z', Raging: '⚡', Hasted: '»', Blessed: '✦', 'Hexed / Cursed': '☾', Dodging: '↔', Concentrating: '◉' };
+const STANDARD_CONDS = ['Blinded', 'Charmed', 'Deafened', 'Frightened', 'Grappled', 'Incapacitated', 'Invisible', 'Paralyzed', 'Petrified', 'Poisoned', 'Prone', 'Restrained', 'Stunned', 'Unconscious'];
+// Effects other creatures put on you, plus states only some classes can enter.
+function effectConds() { return ['Blessed', 'Hasted', 'Hexed / Cursed', 'Dodging'].concat(clsLv('barbarian') ? ['Raging'] : []); }
+const condDesc = n => (DND.conditions.find(x => x[0] === n) || [, ''])[1];
+function exhText(L) {
+  if (!L) return 'No exhaustion.';
+  if (exModern()) return L >= 6 ? 'Death.' : `−${2 * L} to every d20 test (attacks, checks, saves) and −${5 * L} ft speed. Advantage and disadvantage still work normally.`;
+  return L >= 6 ? 'Death.' : DND.exhaustion.slice(1, L + 1).join(' · ');
+}
+// Base ability scores and save proficiencies are changed here, not on the sheet itself, so they can't be bumped by accident.
+// Temporary changes (curses, potions, spells) go in Conditions instead.
+// Skill proficiency and expertise are changed here; on the sheet only the misc bonus box stays editable.
+function openSkillManage() {
+  openModal(`<h3>Skills</h3><p class="hint" style="margin:0 0 10px">Tap the circle to cycle: not proficient → proficient → expertise. Misc is a permanent bonus; for something temporary use Conditions → Skill.</p>
+    <div class="skman">${S.skills.map((s, i) => `<div class="skman-row"><button class="profbtn p${N(s.prof)}" data-act="skillprof" data-i="${i}" aria-label="${esc(s.name)} proficiency"></button><span>${esc(s.name)} <small class="ab3">${esc(s.ab)}</small></span><span class="skman-lv">${['—', 'Proficient', 'Expertise'][N(s.prof)]}</span><label class="skman-misc" title="Permanent bonus (an item, a feat, a DM ruling)">Misc ${inp('skills.' + i + '.misc', { num: 1, cls: 'sm', label: s.name + ' misc bonus', ph: '0' })}</label><b class="skman-v">${fmt(skillVal(s))}</b></div>`).join('')}</div>
+    <div class="actions"><button class="btn gold" data-act="skillok">Done</button></div>`, () => render());
+}
+function openAbilManage() {
+  openModal(`<h3>Abilities &amp; saves</h3><p class="hint" style="margin:0 0 10px">Your permanent scores and saving-throw proficiencies. For something temporary — a curse, a potion, a spell — use <button class="linkbtn" data-act="abopen">Conditions → Ability scores</button> instead.</p>
+    <div class="abman">${AB.map(a => `<div class="abman-row"><b>${ABN[a]}</b>${inp('abilities.' + a, { num: 1, cls: 'score', label: ABN[a] + ' score' })}<span class="hint" data-calc="eff:${a}"></span><label class="checkline">${chk('saves.' + a, ABN[a] + ' save proficiency')} Proficient in saves</label></div>`).join('')}</div>
+    <div class="actions"><button class="btn gold" data-act="abilok">Done</button></div>`, () => render());
+  refresh();
+}
+// "Ability scores" tile in Conditions: click it to open a small editor for temporary changes.
+const abTempOn = () => Object.keys(S.abTemp || {}).length > 0;
+function abTile() {
+  const ch = AB.filter(a => N(((S.abTemp || {})[a] || {}).d)).map(a => `${a.toUpperCase()} ${fmt(N(S.abTemp[a].d))}`).join(', ');
+  return `<div class="ctwrap${abTempOn() ? ' on' : ''}"><button class="ctile${abTempOn() ? ' on' : ''}" data-act="abtile" aria-expanded="${!!UI.open.abtemp}"><span class="cicon">±</span><span class="ctext"><b>Ability scores</b><small>${ch ? esc(ch) : 'Temporarily raise or lower a score'}</small></span>${abTempOn() ? '<span class="ccheck">✓</span>' : ''}</button></div>`;
+}
+function abEditor() {
+  const r = N(S.abTempR);
+  return `<div class="abed">${AB.map(a => { const d = N(((S.abTemp || {})[a] || {}).d), v = score(a); return `<div class="abed-c${d ? ' on' : ''}"><span>${a.toUpperCase()}</span><b>${v}</b><div><button data-act="abtemp" data-a="${a}" data-d="-1" aria-label="${ABN[a]} −1">−</button><button data-act="abtemp" data-a="${a}" data-d="1" aria-label="${ABN[a]} +1">+</button></div></div>`; }).join('')}</div>
+    ${abTempOn() ? `<div class="cdur abed-dur"><span>Lasts</span><button data-act="abtempr" data-d="-1" aria-label="Shorter" ${r <= -2 ? 'disabled' : ''}>−</button><b class="cdur-v">${durText(r)}</b><button data-act="abtempr" data-d="1" aria-label="One round more">+</button><button class="linkbtn" data-act="abtempclear" style="margin-left:auto">Reset all</button></div>` : ''}`;
+}
+function openConditions() {
+  const on = n => S.conditions.includes(n), ex = N(S.exhaustion);
+  const chip = n => `<button class="cchip2${on(n) ? ' on' : ''}" data-act="togglecond" data-c="${esc(n)}" aria-pressed="${on(n)}" title="${esc(condDesc(n))}"><span class="ci">${COND_ICON[n] || '•'}</span>${esc(n)}</button>`;
+  const condDur = n => { const cur = N((S.condTurns || {})[n]); return `<span class="mstep dur sm"><button data-act="condturn" data-c="${esc(n)}" data-d="-1" aria-label="Shorter" ${cur <= -2 ? 'disabled' : ''}>−</button><b>${durText(cur)}</b><button data-act="condturn" data-c="${esc(n)}" data-d="1" aria-label="One round more">+</button></span>`; };
+  const arow = (icon, name, desc, ctl, off) => `<div class="arow"><span class="ci">${icon}</span><div class="arow-t"><b>${name}</b>${desc ? `<small>${desc}</small>` : ''}</div>${ctl || ''}${off ? `<button class="icon-btn arow-x" ${off} aria-label="Remove">✕</button>` : ''}</div>`;
+  const act = [];
+  S.conditions.forEach(n => act.push(arow(COND_ICON[n] || '•', esc(n), esc(condDesc(n)) + (n === 'Hexed / Cursed' ? `<input class="f cnote2" data-condnote="${esc(n)}" value="${esc((S.condNotes || {})[n] || '')}" placeholder="What is it? e.g. Hex: disadvantage on STR checks">` : ''), ['Concentrating', 'Raging'].includes(n) ? '' : condDur(n), `data-act="togglecond" data-c="${esc(n)}"`)));
+  if (ex) act.push(arow('⧗', 'Exhaustion ' + ex, esc(exhText(ex)), '', 'data-act="exhset" data-v="0"'));
+  Object.keys(S.tmpMods || {}).forEach(k => act.push(arow(k === 'ac' ? '⛨' : /^skill:/.test(k) ? '✦' : '♥', `${tmName(k)} ${fmt(tmv(k))}`, k === 'ac' ? `AC is ${acTotal()} now` : /^skill:/.test(k) ? (() => { const sk = S.skills.find(x => x.name === tmName(k)); return sk ? `${esc(sk.name)} is ${fmt(skillVal(sk))} now` : ''; })() : `Max HP is ${maxHp()} now`, durStep(k), `data-act="tmpmodclear" data-k="${k}"`)));
+  if (abTempOn()) act.push(arow('±', 'Ability scores', esc(AB.filter(a => N(((S.abTemp || {})[a] || {}).d)).map(a => `${a.toUpperCase()} ${baseScore(a)}→${score(a)}`).join(', ')), `<span class="mstep dur sm"><button data-act="abtempr" data-d="-1" aria-label="Shorter" ${N(S.abTempR) <= -2 ? 'disabled' : ''}>−</button><b>${durText(N(S.abTempR))}</b><button data-act="abtempr" data-d="1" aria-label="Longer">+</button></span>`, 'data-act="abtempclear"'));
+  const abc = AB.map(a => { const d = N(((S.abTemp || {})[a] || {}).d); return `<div class="abmini${d ? ' on' : ''}"><span>${a.toUpperCase()}</span><b>${score(a)}</b><div><button data-act="abtemp" data-a="${a}" data-d="-1" aria-label="${ABN[a]} −1">−</button><button data-act="abtemp" data-a="${a}" data-d="1" aria-label="${ABN[a]} +1">+</button></div></div>`; }).join('');
+  const html = `<div id="condmodal"><div class="sethead"><h3>Conditions</h3><span class="cm-count${act.length ? ' on' : ''}">${act.length ? act.length + ' active' : 'None active'}</span><span class="grow"></span><button class="btn sm gold" data-act="close">Done</button></div>
+    ${act.length ? `<div class="alist">${act.join('')}</div>` : ''}
+    <div class="cm2-lbl">Conditions</div><div class="cchips2">${STANDARD_CONDS.map(chip).join('')}</div>
+    <div class="cm2-lbl">Effects on you</div><div class="cchips2">${effectConds().map(chip).join('')}</div>
+    <div class="cm2-lbl">Adjust</div>
+    <div class="adjrow"><span class="adj-l">Exhaustion</span><div class="exhpills sm">${[0, 1, 2, 3, 4, 5, 6].map(l => `<button class="exhp${l === ex ? ' on' : ''}${l === 6 ? ' dead' : ''}" data-act="exhset" data-v="${l}" aria-label="Exhaustion ${l}">${l}</button>`).join('')}</div></div>
+    <div class="adjrow"><span class="adj-l">Max HP</span>${stepper('tmpmod', 'hpmax', tmv('hpmax') ? fmt(tmv('hpmax')) : '±0', 'Max HP')}<span class="adj-v">${maxHp()}</span></div>
+    <div class="adjrow"><span class="adj-l">AC</span>${stepper('tmpmod', 'ac', tmv('ac') ? fmt(tmv('ac')) : '±0', 'AC')}<span class="adj-v">${acTotal()}</span></div>
+    <div class="adjrow"><span class="adj-l">Skill</span><select class="f sm skpick" id="condSkill" aria-label="Skill">${S.skills.map(sk => `<option${(UI.condSkill || S.skills[0].name) === sk.name ? ' selected' : ''}>${esc(sk.name)}</option>`).join('')}</select>${(() => { const k = 'skill:' + (UI.condSkill || (S.skills[0] || {}).name); return stepper('tmpmod', esc(k), tmv(k) ? fmt(tmv(k)) : '±0', 'Skill'); })()}</div>
+    <div class="adjrow abrow"><span class="adj-l">Scores</span><div class="abminis">${abc}</div></div>
+  </div>`;
+  if ($('#condmodal') && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html);
+}
+// ---------- Features in use ----------
+function evalRoll(expr) { return String(expr).replace(/[a-z]+/gi, w => { const v = evalMax(w); return v == null ? w : String(v); }); }
+// Features you can also fuel with a spell slot once their free use is spent (Eldritch Cannon, Steel Defender…).
+function openSlotRestore(i, col) {
+  const f = S.features[i], fx = fxOf(f), min = N(fx.slotRestore === true ? 1 : fx.slotRestore) || 1, p = pact();
+  const opts = []; for (let k = min - 1; k < 9; k++) if (slotMax(k) > 0) opts.push({ k, label: ORD[k] + '-level slot', left: slotsLeft(k) });
+  if (p && p.level >= min) opts.push({ k: 'pact', label: 'Pact slot (' + ORD[p.level - 1] + ')', left: pactLeft() });
+  if (!opts.some(o => o.left > 0)) { toast(`No uses of ${esc(f.name)} left, and no spell slots to spend.`, 'fumble'); return; }
+  SLOTREST = { i, col };
+  openModal(`<h3>${esc(f.name)}</h3><p class="hint" style="margin:0 0 8px">Your free use is spent. Expend a spell slot of ${ORD[min - 1]} level or higher to use it again.</p>
+    <div class="castopts">${opts.map(o => `<button class="castopt" data-act="slotrestgo" data-k="${o.k}" ${o.left > 0 ? '' : 'disabled'}><b>${esc(o.label)}</b><span>${o.left} left</span></button>`).join('')}</div>
+    <div class="actions"><button class="btn" data-act="close">Cancel</button></div>`);
+}
+let SLOTREST = null;
+function useFeature(i, col, opt) {
+  const f = S.features[i]; if (!f) return;
+  if (['action', 'bonus', 'reaction'].includes(col || f.col)) { if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; } }
+  if (f.name === 'Wild Shape') return openWildShape(col);
+  if (atkReplaceOK(f.name, col || f.col) === false) return;
+  if (f.key === 'artificer:The Right Tool for the Job') return openRTJ();
+  const fx = fxOf(f);
+  if (fx.target === 'forge') return openForge(i);
+  if (fx.target === 'spellstore') return openSpellStore(i);
+  if (fx.target === 'infusetab') { UI.tab = 'infusions'; saveUI(); render(); window.scrollTo(0, 0); return; }
+  if (fx.onlyRaging && !S.conditions.includes('Raging')) { toast(`${esc(f.name)} only works while raging.`, 'fumble'); return; }
+  if (fx.onlyWhen && !fxWhenOK(fx.onlyWhen)) { toast(`${esc(f.name)} only works ${esc(fxWhenText(fx.onlyWhen))}.`, 'fumble'); return; }
+  const max = featMax(f);
+  if (max != null && !f.pool) {
+    if (N(f.used) >= max) { if (fx.slotRestore && (opt || {}).slot == null) return openSlotRestore(i, col); if ((opt || {}).slot == null) { toast(`No uses of ${esc(f.name)} left.`, 'fumble'); return; } }
+    if ((opt || {}).slot != null) { const k = opt.slot; if (k === 'pact') S.pactUsed = N(S.pactUsed) + 1; else S.slotsUsed[k] = N(S.slotsUsed[k]) + 1; f.used = Math.max(0, N(f.used) - 1); }
+    f.used = N(f.used) + 1;
+  }
+  if (fx.cost) { const err = fxSpend(fx.cost, f.cls); if (err) { if (max != null && !f.pool) f.used = Math.max(0, N(f.used) - 1); toast(esc(err), 'fumble'); return; } }
+  const atkNote = atkReplaceSpend(f.name, col || f.col);
+  if (!atkNote && col && col !== 'move') S.turn.used[col] = true;
+  const lines = []; if (atkNote) lines.push(atkNote);
+  if (fx.cost) lines.push('Spent ' + fxCostText(fx.cost));
+  if (fx.dash) { addDash(); lines.push(`+${turnSpeed()} ft of movement this turn`); }
+  fxApplyUse(fx.use, f.name, lines);
+  { const dl = fxDCLine(fx, f); if (dl) lines.push(dl); } if (fx.text) lines.push(fxText(fx.text));
+  if (f.name === 'Rage') {
+    const t = (CL.barbarian.scaling || []).find(x => x[0] === 'Rage Damage'), dmg = N(String(scaleVal(t ? t[1] : {}, clsLv('barbarian'))).replace('+', '')) || 2;
+    if (S.concentration) { lines.push(`${S.concentration} ended (no concentration while raging)`); S.concentration = ''; }
+    S.effects = S.effects.filter(e => e.name !== 'Rage' && !e.conc).concat([{ name: 'Rage', rounds: 10, buff: { meleeDmg: dmg, note: 'Advantage on STR checks and saves; resistance to bludgeoning, piercing and slashing' } }]);
+    if (!S.conditions.includes('Raging')) S.conditions.push('Raging');
+    lines.push(`+${dmg} melee damage with STR weapons; advantage on STR checks and saves; resistance to physical damage`);
+  }
+  const compFor = Object.keys(COMP_RULES).find(n => COMP_RULES[n].feature === f.name && classCompanionOK(n));
+  if (compFor) {
+    // (Summon Wildfire Spirit spends its Wild Shape use through the feature's cost)
+    addClassCompanion(compFor, true); lines.push(compFor + ' joins you (see Companions)');
+  }
+  if (f.name === 'Action Surge') { S.turn.used.action = false; S.turn.attacks = 0; lines.push('You have another action this turn'); }
+  if (f.name === 'Patient Defense' && !S.conditions.includes('Dodging')) S.conditions.push('Dodging');
+  let r = null, healAct = null;
+  if (f.roll || fx.roll) {
+    r = rollExpr(f.roll ? evalRoll(f.roll) : fxRollExpr(fx.roll), { label: f.name + ': ' + (fx.rollNote || 'roll').replace(/\s*\(.*$/, '') });
+    if (fx.selfDmg) healAct = { label: r.skipped ? 'Take the damage' : `Take ${r.total} damage`, fn: () => useAmt(r, f.name + ': damage', n => { takeDamage(n); save(); render(); }) };
+    else if (fx.healRoll || /regain|heal/i.test(f.desc || '')) healAct = { label: 'Heal me', fn: () => useAmt(r, f.name + ': healing', n => healSelf(n, `${f.name}: +${n} HP`)) };
+  }
+  const sc = []; clsRows().forEach(row => { const c = CL[row.key], s = subOf(row); (c.scaling || []).concat((s && s.scaling) || []).forEach(([n, t]) => { if (new RegExp('\\b' + n.split(' ')[0].replace(/[^a-z]/gi, '') + '\\b', 'i').test(f.name) && n !== 'Rage Damage') sc.push(n + ': ' + scaleVal(t, N(row.level))); }); });
+  pendingLabel = 'Use ' + f.name; update(); render();
+  const left = max != null && !f.pool ? `${Math.max(0, max - N(f.used))}/${max} left` : '';
+  toast(`${r ? `<b class="total">${r.total}</b>` : ''}<div><div><b>${esc(f.name)}</b>${left ? ' · ' + left : ''}</div>${r ? `<div class="det">${esc(r.detail)}${fx.rollNote ? ' ' + esc(fx.rollNote) : ''}</div>` : ''}${sc.length ? `<div class="det">${esc(sc.join(' · '))}</div>` : ''}${lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, '', 8000, [healAct, { label: 'Undo', fn: () => undo(1) }].filter(Boolean));
+}
+function smite(l) {
+  let L;
+  if (l === 'pact') { if (!pactLeft()) return; S.pactUsed = N(S.pactUsed) + 1; L = pact().level - 1; }
+  else { L = N(l); if (!slotsLeft(L)) return; S.slotsUsed[L] = N(S.slotsUsed[L]) + 1; }
+  let d = Math.min(6, Math.min(5, L + 2) + (UI.smiteUndead ? 1 : 0));
+  const isCrit = Date.now() < critUntil; if (isCrit) { d *= 2; critUntil = 0; }
+  pendingLabel = `Divine Smite (${ORD[L]} slot)`;
+  update(); roll(`Divine Smite (${ORD[L]} slot) radiant${isCrit ? ' · CRIT, dice doubled' : ''}`, d + 'd8');
+}
+
+// ---------- Casting ----------
+let CASTING = null;
+function castSpell(i, col, force) {
+  const sp = S.spells[i]; if (!sp) return;
+  col = mmCol(sp, col);
+  const itm = spItem(sp); if (itm && !hbItemOn(itm) && !force) { toast(`${esc(sp.name)} needs <b>${esc(itm.name)}</b>${itm.attune && !itm.attuned ? ' (attuned)' : ''} ${itm.carried ? 'on you' : 'equipped'}.`, 'fumble', 7000, { label: 'Cast anyway', fn: () => castSpell(i, col, true) }); return; }
+  if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; }
+  const bad = armorNonProf();
+  if (bad.length && !force) { toast(`You can't cast spells while wearing armor you aren't proficient with (${esc(bad.join(', '))}).`, 'fumble', 9000, { label: 'Cast anyway', fn: () => castSpell(i, col, true) }); return; }
+  const base = N(sp.level), a = AUTO(sp.name);
+  if (READY_PAID && READY_PAID.i === i) { const L = READY_PAID.L; READY_PAID = null; const ex = castExtrasHTML(sp, L); if (!ex) return executeCast(i, 'none', L, col, {});
+    CASTING = { i, col }; return openModal(`<h3>Release ${esc(spLabel(sp))}</h3><p class="hint" style="margin:0 0 8px">Readied — the slot was already spent.</p>${ex}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="castgo" data-k="none" data-l="${L}">Release</button></div>`); }
+  const opts = [];
+  if (sp.atWill && base > 0) { const extras0 = castExtrasHTML(sp, base); if (!extras0) return executeCast(i, 'atwill', base, col, {}); opts.push({ k: 'atwill', L: base, label: 'At will', left: 1 }); }
+  if (sp.usesOnly) {
+    const mx = evalMax(sp.uses && sp.uses.max) || 0, left = Math.max(0, mx - N(sp.uses && sp.uses.used));
+    if (!left) { const fi = S.features.findIndex(f => fxOf(f).target === 'spellstore'); toast(`<b>${esc(sp.name)}</b>: no stored uses left. Store a spell again after a long rest.`, 'fumble', 8000, fi >= 0 ? { label: 'Store a spell', fn: () => openSpellStore(fi) } : null); return; }
+    const SL = Math.max(base, N(sp.uses && sp.uses.level) || base), ex = castExtrasHTML(sp, SL); if (!ex) return executeCast(i, 'free', SL, col, {});
+    CASTING = { i, col };
+    return openModal(`<h3>Cast ${esc(spLabel(sp))}</h3><p class="hint" style="margin:0 0 8px">From your Spell-Storing Item · ${left} of ${mx} uses left</p>${ex}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="castgo" data-k="free" data-l="${SL}">Cast</button></div>`);
+  }
+  if (sp.uses) { const mx = evalMax(sp.uses.max) || 0, left = Math.max(0, mx - N(sp.uses.used)); if (mx) opts.push({ k: 'free', L: Math.max(base, N(sp.uses.level) || base), label: `Free use (${left}/${mx})`, left }); }
+  if (base > 0) {
+    for (let L = base; L <= 9; L++) if (slotMax(L - 1) > 0) opts.push({ k: 'slot', L, label: `${ORD[L - 1]} slot`, left: slotsLeft(L - 1) });
+    const p = pact(); if (p && p.level >= base) opts.push({ k: 'pact', L: p.level, label: `Pact slot (${ORD[p.level - 1]})`, left: pactLeft() });
+    if (sp.ritual) opts.push({ k: 'ritual', L: base, label: 'Ritual (+10 min, no slot)', left: 1 });
+  }
+  const extras = castExtrasHTML(sp, base);
+  const usable = opts.filter(o => o.left > 0);
+  if (base === 0 && !extras) return executeCast(i, 'cantrip', 0, col, {});
+  if (base > 0 && usable.length === 1 && !extras && !opts.some(o => o.k === 'slot' && o.L > usable[0].L && o.left)) { const o = usable[0]; return executeCast(i, o.k, o.L, col, {}); }
+  CASTING = { i, col };
+  openModal(`<h3>Cast ${esc(spLabel(sp))}</h3>
+    <p class="hint" style="margin:0 0 8px">${esc(sp.summary || '')}${sp.duration ? ' · ' + esc(sp.duration) : ''}</p>
+    ${extras}
+    ${base > 0 ? `<div class="lbl" style="margin-top:8px">Cast using</div><div class="castopts">${opts.map(o => `<button class="castopt" data-act="castgo" data-k="${o.k}" data-l="${o.L}" ${o.left > 0 ? '' : 'disabled'}><b>${esc(o.label)}</b><span>${o.k === 'slot' ? o.left + ' left' : o.k === 'pact' ? o.left + ' left' : ''}${o.L > base && o.k !== 'free' ? ' · upcast' : ''}</span></button>`).join('')}
+      <button class="castopt ghost" data-act="castgo" data-k="none" data-l="${base}"><b>No slot</b><span>scroll, item or DM ruling</span></button></div>`
+      : `<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="castgo" data-k="cantrip" data-l="0">Cast</button></div>`}`);
+}
+function castExtrasHTML(sp, base) {
+  const a = AUTO(sp.name); let h = '';
+  if (a.ask) h += `<label class="checkline big"><input type="checkbox" id="castSelf" checked> ${esc(a.ask)}</label>`;
+  if (a.summon) { const d = DND.summons[a.summon]; h += fld('Spirit type', `<select class="f" id="castKind">${d.kinds.map(k => `<option>${esc(k)}</option>`).join('')}</select>`); }
+  const crSel = (list, id, label, keep) => fld(label, `<select class="f" id="${id}">${(keep ? list : list.slice().sort((x, y) => y.cr - x.cr || x.name.localeCompare(y.name))).map(c => `<option value="${esc(c.name)}">${esc(c.name)} (CR ${DND.crLabel(c.cr)}, AC ${c.ac}, HP ${c.hp})</option>`).join('')}</select>`);
+  if (a.familiar) h += crSel(DND.creatures.filter(c => c.tags.includes('familiar') || (hasFeature('Pact of the Chain') && c.tags.includes('chain'))), 'castCr', 'Familiar form', true);
+  if (a.steed) h += crSel(a.steed.map(n => DND.creatures.find(c => c.name === n)).filter(Boolean), 'castCr', 'Steed', true);
+  if (a.conjure) {
+    const list = DND.creatures.filter(c => (a.conjure.names ? a.conjure.names.includes(c.name) : c.tags.includes(a.conjure.tag)) && c.cr <= a.conjure.cr);
+    h += list.length ? crSel(list, 'castCr', 'Creature') : '<p class="hint">No matching creatures in the list — a custom companion will be created; edit its stats.</p>';
+    if (!a.conjure.names) h += `<p class="hint">Number appears by CR (and doubles or triples when upcast). Your DM may choose the creatures.</p>`;
+  }
+  if (a.pickWeapon) {
+    const ws = spWeapons(a.pickWeapon);
+    if (!ws.length) h += `<p class="hint">${a.pickWeapon === 'shillelagh' ? 'You need a club or quarterstaff in your inventory.' : a.pickWeapon === 'melee' ? 'You need a melee weapon in your inventory.' : 'You need a weapon in your inventory.'}</p>`;
+    else if (ws.length > 1 || !ws[0][2]) h += fld('Weapon', `<select class="f" id="castWpn">${ws.map(([at, i, on]) => `<option value="${i}">${esc(at.name)} — ${esc(atkDmgText(at))}${on ? '' : ' (not equipped)'}</option>`).join('')}</select>`);
+  }
+  if (a.form) h += crSel(DND.creatures.filter(c => a.form === 'shapechange' ? c.cr <= lvl() : c.tags.includes('beast') && c.cr <= lvl()), 'castCr', 'New form (for you)');
+  return h;
+}
+function castGo(b) {
+  // When a roll comes from Roll20 (or you type it), the cast is replayed with the result — by then the cast window is
+  // closed, so the choices made in it are remembered on the button.
+  if (!b.__cast) {
+    if (!CASTING) return;
+    b.__cast = { i: CASTING.i, col: CASTING.col, x: { self: $('#castSelf') ? $('#castSelf').checked : true, kind: $('#castKind') && $('#castKind').value, cr: $('#castCr') && $('#castCr').value, wpn: $('#castWpn') ? $('#castWpn').value : '' } };
+  }
+  const { i, col, x } = b.__cast; CASTING = null; closeModal(true);
+  executeCast(i, b.dataset.k, N(b.dataset.l), col, x);
+}
+// Weapons a spell can be cast on: [attack, index, equipped], equipped ones first.
+function spWeapons(kind) {
+  return S.attacks.map((at, i) => { const it = at.item && S.inventory.find(x => x.id === at.item); return [at, i, it]; })
+    .filter(([at, i, it]) => { if (!it || !it.weapon) return false; const base = String(it.weapon.base || it.name); if (kind === 'shillelagh') return /\b(club|quarterstaff)\b/i.test(base) && !/greatclub/i.test(base); if (kind === 'melee') return it.weapon.kind !== 'ranged'; return true; })
+    .map(([at, i, it]) => [at, i, !!it.equipped]).sort((x, y) => (y[2] ? 1 : 0) - (x[2] ? 1 : 0));
+}
+function conjureCount(cr, L, base) { const n = cr <= 0.25 ? 8 : cr <= 0.5 ? 4 : cr <= 1 ? 2 : 1; const mult = L >= 9 ? 4 : L >= 7 ? 3 : L >= 5 && base === 3 ? 2 : L >= 6 && base === 4 ? 2 : 1; return n * mult; }
+function executeCast(i, how, L, col, x) {
+  const sp = S.spells[i], a = spAuto(sp), base = N(sp.level);
+  if (!L) L = base;
+  pendingLabel = `Cast ${sp.name}` + (how === 'slot' ? ` (${ORD[L - 1]} slot)` : how === 'pact' ? ' (pact slot)' : how === 'free' ? ' (free use)' : how === 'atwill' ? ' (at will)' : how === 'ritual' ? ' (ritual)' : '');
+  if (how === 'slot') S.slotsUsed[L - 1] = N(S.slotsUsed[L - 1]) + 1;
+  if (how === 'pact') S.pactUsed = N(S.pactUsed) + 1;
+  if (how === 'free') sp.uses.used = N(sp.uses.used) + 1;
+  const tcol = col || null; if (tcol && ST('autoSpend')) S.turn.used[tcol] = true;
+  const ci = spellCI(sp), lines = [], out = [];
+  const self = x.self !== false;
+  if (sp.conc) {
+    if (S.concentration && S.concentration !== sp.name) { lines.push(`${esc(S.concentration)} ended (one concentration spell at a time)`); S.effects = S.effects.filter(e => !e.conc); }
+    S.concentration = sp.name;
+  }
+  MAXDMG = false; EMPOWER = 0; DICE_TOUCHED = false;
+  const mmr = mmApply(sp, L, lines);
+  let rounds = a.rounds != null ? a.rounds : parseDur(sp.duration);
+  if (mmr.extend && rounds) rounds = Math.min(rounds * 2, R1D);
+  const eff = { name: sp.name, conc: !!sp.conc, rounds: rounds === 0 ? null : rounds, slot: L };
+  let needEffect = rounds !== 0 || !!sp.conc;
+  const sm = spellMath(sp, L);
+  if (sm && sm.dice && !sm.heal && fxActive().some(e => e.buff && e.buff.maxNext && !e.ally)) { MAXDMG = true; lines.push('Maximized magic: every damage die rolls its maximum'); }
+  // Spells cast on a weapon: the one picked in the cast window (or the only one you have).
+  const wsList = a.pickWeapon ? spWeapons(a.pickWeapon) : [], wi = !a.pickWeapon ? null : x.wpn !== undefined && x.wpn !== '' && x.wpn != null ? N(x.wpn) : wsList.length ? wsList[0][1] : null;
+  const wat = wi != null ? S.attacks[wi] : null;
+  if (a.pickWeapon && !wat) lines.push('No suitable weapon found — add one in Inventory');
+  if (wat && (a.buff || a.wpn)) { eff.item = wat.item; needEffect = true; }
+  if (a.wpn && wat) { eff.wpn = Object.assign({}, a.wpn, { cls: sp.cls }); lines.push(`${esc(wat.name)} now attacks with ${ABN[castInfo(sp.cls).ab] || 'your spellcasting ability'}${a.wpn.die ? ', 1' + a.wpn.die + ' damage' : ''}${a.wpn.magical ? ', magical' : ''}`); }
+  let doAtk = null;
+  // Buffs
+  if (a.buff) {
+    let bf = { ...a.buff }; if (a.upBuff) Object.keys(a.upBuff).forEach(k => { if (L >= N(k)) bf = { ...bf, ...a.upBuff[k] }; });
+    eff.buff = bf; if (a.ask && !self) eff.ally = true;
+    if (!eff.ally) { const t = fxTip({ buff: bf }); if (t) lines.push(t + (wat ? ' — ' + esc(wat.name) + ' only' : '')); } else lines.push('On an ally — your own stats are unchanged');
+    needEffect = true;
+  }
+  if (a.maxHp && self) {
+    const v = a.maxHp.roll ? rollExpr(a.maxHp.roll, { need: true, label: sp.name + ': extra hit points' }).total : N(a.maxHp.base) + N(a.maxHp.up) * Math.max(0, L - base);
+    eff.maxHp = v; S.hp.cur = N(S.hp.cur) + v; needEffect = true; lines.push(`+${v} max HP and current HP`);
+  }
+  if (sm.temp) { const r = rollExpr(sm.temp, { need: true, label: sp.name + ': temporary HP' }); if (r.total > N(S.hp.temp)) S.hp.temp = r.total; lines.push(`${r.total} temporary HP${r.total <= N(S.hp.temp) && S.hp.temp !== r.total ? ' (kept your higher temp HP)' : ''}`); }
+  // Riders, weapon cantrips
+  if (a.rider) { let d = a.rider; if (a.riderUp && L > base) { const m = a.riderUp.match(/(\d+)d(\d+)/); const m0 = d.match(/^(\d+)d(\d+)(.*)$/); if (m && m0 && m0[2] === m[2]) d = (N(m0[1]) + N(m[1]) * (L - base)) + 'd' + m0[2] + m0[3]; } S.riders = (S.riders || []).filter(r => r.name !== sp.name).concat([{ name: sp.name, dice: d }]); lines.push(`Your next weapon hit adds ${d}`); }
+  if (a.weapon) {
+    const t = cantripTier(), typ = a.boom ? 'thunder' : 'fire';
+    if (t > 1) S.riders = (S.riders || []).filter(r => r.name !== sp.name).concat([{ name: sp.name, dice: (t - 1) + 'd8 ' + typ, once: !!wat }]);
+    if (a.boom) lines.push(`If the target willingly moves before your next turn: <b>${t}d8 thunder</b>`);
+    if (a.leap) { const lm = castInfo(sp.cls).mod || 0, ld = (t > 1 ? (t - 1) + 'd8' : '') + (lm ? (t > 1 ? sgn(lm) : String(lm)) : ''); if (wat && ld) { const lr = /d/.test(ld) ? rollExpr(ld, { label: sp.name + ': fire leaps (second creature)' }) : { total: lm, detail: String(lm) }; lines.push(`On a hit, fire leaps to a second creature within 5 ft: <b>${lr.total} fire</b>${/d/.test(ld) ? ' (' + esc(ld) + ')' : ''}`); } else if (ld) lines.push(`On a hit, ${ld} fire leaps to a second creature within 5 ft`); }
+    if (wat) doAtk = wi; else lines.push('Make a melee weapon attack with it now');
+  }
+  if (a.repeat || a.repeatHeal) {
+    let d = a.repeat || a.repeatHeal; const up = a.up || a.healUp;
+    if (up && L > base) { const m = String(up).match(/(\d+)d(\d+)/), m0 = String(d).match(/^(\d+)d(\d+)$/); if (m && m0 && m[2] === m0[2]) d = (N(m0[1]) + N(m[1]) * (L - base)) + 'd' + m0[2]; }
+    eff.repeat = { dice: d, type: a.repeatHeal ? 'healing' : sm.type || a.type || 'damage', heal: !!a.repeatHeal, save: sm.save ? `DC ${ci.dc} ${sm.save}${sm.half ? ' (half)' : ''}` : '' }; needEffect = true;
+  }
+  // Summons, conjurations, transformations
+  if (a.summon) {
+    const def = DND.summons[a.summon], kind = x.kind || def.kinds[0], c = def.make(L, kind, ci.atk);
+    S.companions.push({ id: uid(), name: `${a.summon.replace('Summon ', '')} spirit (${kind})`, kind: 'summon', ac: c.ac, hp: c.hp, maxhp: c.hp, speed: c.speed, multi: c.multi, attacks: c.attacks, notes: (c.notes || '') + ` · Acts on your initiative, after you.`, effect: sp.name });
+    needEffect = true; lines.push(`${a.summon.replace('Summon ', '')} spirit appears: AC ${c.ac}, HP ${c.hp}, ${c.multi} attack${c.multi === 1 ? '' : 's'} at ${fmt(ci.atk)}`);
+  }
+  const crOf = n => DND.creatures.find(c => c.name === n);
+  const mkComp = (cr, kind, extra) => ({ id: uid(), name: cr.name, kind, ac: cr.ac, hp: cr.hp, maxhp: cr.hp, speed: cr.speed, attacks: (cr.attacks || []).map(z => z.slice()), notes: cr.notes || '', abil: cr.abil, cr: cr.cr, ...extra });
+  if (a.familiar) { const cr = crOf(x.cr) || DND.creatures.find(c => c.tags.includes('familiar')); S.companions = S.companions.filter(c => c.kind !== 'familiar'); S.companions.push(mkComp(cr, 'familiar', { notes: (cr.notes || '') + ' · Celestial, fey or fiend spirit; telepathic link within 100 ft; can deliver your touch spells.' })); lines.push(`${cr.name} familiar appears`); }
+  if (a.steed) { const cr = crOf(x.cr) || crOf(a.steed[0]); S.companions = S.companions.filter(c => c.kind !== 'steed'); S.companions.push(mkComp(cr, 'steed', { notes: (cr.notes || '') + ' · INT 6; telepathic bond; self-only spells can include it.' + (a.note ? ' ' + a.note : '') })); lines.push(`${cr.name} steed appears`); }
+  if (a.conjure) {
+    const cr = crOf(x.cr);
+    const count = a.conjure.names ? (sp.name === 'Animate Dead' ? 1 + 2 * Math.max(0, L - 3) : sp.name === 'Giant Insect' ? (x.cr === 'Giant Wasp' ? 5 : x.cr === 'Constrictor Snake' ? 3 : 10) : 1) : cr ? conjureCount(cr.cr, L, base) : 1;
+    const c = cr ? mkComp(cr, 'conjured', { effect: sp.name }) : { id: uid(), name: 'Conjured creature', kind: 'conjured', ac: 12, hp: 10, maxhp: 10, speed: 'walk 30', attacks: [], notes: '', effect: sp.name };
+    if (count > 1) { c.count = count; c.hps = Array(count).fill(c.maxhp); c.name = cr ? cr.name + 's' : c.name; }
+    S.companions.push(c); needEffect = true; lines.push(`${count} × ${cr ? cr.name : 'creature'} appear${count === 1 ? 's' : ''}`);
+  }
+  if (a.form && self && x.cr) { const cr = crOf(x.cr); if (cr) { setForm(cr, sp.name, sp.name, a.form !== 'shapechange'); needEffect = true; lines.push(`You become a ${cr.name}: AC ${cr.ac}, ${cr.hp} HP`); } }
+  else if (a.form) lines.push('Cast on someone else — track it in Active Spells');
+  if (a.spiritual) { const d = (1 + Math.floor(Math.max(0, L - 2) / 2)) + 'd8' + sgn(ci.mod || 0); S.companions.push({ id: uid(), name: 'Spiritual Weapon', kind: 'spell', ac: '', hp: 0, maxhp: 0, speed: 'fly 20 (bonus action)', attacks: [['Strike', ci.atk, d, 'force']], notes: 'Bonus action: move 20 ft and attack again.', effect: sp.name }); needEffect = true; lines.push(`Spiritual weapon attack ${fmt(ci.atk)}, ${d} force`); }
+  if (a.weaponSpell) { const [nm, dice, type, mode] = a.weaponSpell; let d = dice; if (a.upWeapon) Object.keys(a.upWeapon).forEach(k => { if (L >= N(k)) d = a.upWeapon[k]; }); S.attacks = S.attacks.filter(z => z.effect !== sp.name); S.attacks.push({ name: nm, ab: mode === 'spell' ? 'spell' : 'fin', cls: sp.cls, prof: true, magic: 0, dice: d, type, notes: 'From ' + sp.name, kind: 'melee', effect: sp.name, noModDmg: mode === 'spell', weaponLike: mode !== 'spell', oneHanded: true }); needEffect = true; lines.push(`${nm} added to your attacks (${d} ${type})`); }
+  if (needEffect) S.effects = (S.effects || []).filter(z => z.name !== sp.name).concat([eff]);
+  if (wat && (a.wpn || a.buff) && !eff.ally) lines.push(`${esc(wat.name)} is now ${fmt(atkHit(wat))} to hit, ${esc(atkDmgText(wat))}${extraDice(wat).length && a.buff && a.buff.dmgDice ? ' + ' + esc(a.buff.dmgDice) : ''} ${esc(wat.type || '')}`);
+  // Rolls
+  let mainTotal = null, cls = ''; const beamRows = []; let card = null;
+  const dmgMod = (sp.name === 'Eldritch Blast' && hasFeature('Agonizing Blast')) ? mod('cha') : 0;
+  const hexD = fxActive().filter(e => e.name === 'Hex' && e.buff && !e.ally).map(() => '1d6');
+  if (a.beams || a.darts || a.rays) {
+    const n = a.beams ? cantripTier() : a.darts ? 3 + Math.max(0, L - 1) : N(a.rays) + Math.max(0, L - 2);
+    let tot = 0; const parts = [];
+    for (let k = 0; k < n; k++) {
+      if (a.darts) { const af = k === 0 && hasFeature('Arcane Firearm'); const r = rollExpr('1d4+1' + (af ? '+1d8' : ''), { label: sp.name + ' spell damage (force)' + (af ? ' + Arcane Firearm' : '') }); tot += r.total; parts.push(r.total); continue; }
+      const tag = n > 1 ? ` [${a.beams ? 'Beam' : 'Ray'} ${k + 1}]` : ''; const { expr } = d20Expr(ci.atk, 'attack'); const h = rollExpr(expr, { label: sp.name + ' spell attack' + tag }); const crit = h.d20 === 20;
+      const bond = !a.beams && !a.darts && k === 0 && hasFeature('Enhanced Bond') && S.companions.some(c => c.tmpl === 'Wildfire Spirit'); const fa = k === 0 && hasFeature('Arcane Firearm'); /* Arcane Firearm: +1d8 on one ray/beam */ const dd = (a.beams ? '1d10' : '2d6') + (bond ? '+1d8' : '') + (fa ? '+1d8' : ''); /* Enhanced Bond: +1d8 on one ray */ const r = rollExpr((crit ? doubleDice(dd) : dd) + (dmgMod ? sgn(dmgMod) : '') + (hexD.length ? '+' + (crit ? '2d6' : '1d6') : ''), { label: sp.name + ' spell damage (' + (a.beams ? 'force' : 'fire') + ')' + tag, min2: !a.beams && adeptFor((a.type || 'fire')) });
+      parts.push(`${a.beams ? 'Beam' : 'Ray'} ${k + 1}: hit ${h.total}${crit ? ' CRIT' : h.d20 === 1 ? ' (nat 1)' : ''} → ${r.total}`);
+      beamRows.push({ hit: h.total, dmg: r.total, crit, nat1: h.d20 === 1 });
+    }
+    if (a.darts) { out.push(`${n} darts, 1d4+1 force each${hasFeature('Arcane Firearm') ? ' (first +1d8 Arcane Firearm)' : ''}: ${parts.join(', ')} = <b>${tot}</b> (they always hit)`); mainTotal = tot; }
+    else out.push(...parts.map(esc));
+  } else if (sm.dice) {
+    let crit = false, hitTxt = '';
+    let hitTot = null, nat1 = false;
+    if (sm.attack) { const { expr } = d20Expr(ci.atk, 'attack'); const h = rollExpr(expr, { label: sp.name + ' spell attack' }); crit = h.d20 >= (N(a.crit) || 20); nat1 = h.d20 === 1; hitTot = h.total; hitTxt = `Spell attack <b>${h.total}</b> (${esc(h.detail)})${crit ? ' — CRITICAL, dice doubled' : h.d20 === 1 ? ' — natural 1, miss' : ''}`; cls = crit ? 'crit' : h.d20 === 1 ? 'fumble' : ''; }
+    const mask = (sm.termTypes || []).map(t => !!adeptFor(t)), ea = mask.some(Boolean) ? adeptFor((sm.termTypes || []).find(t => adeptFor(t)) || sm.type) : '', r = rollExpr(crit ? critDice(sm.dice) : sm.dice, { min2: ea || false, min2Terms: mask, label: sp.name + ' spell damage' + (sm.type ? ' (' + sm.type + ')' : '') });
+    mainTotal = r.total; if (ea) lines.push(`Elemental Adept (${ea}): 1s count as 2s; ignores ${ea} resistance`);
+    if (hitTxt) out.push(hitTxt);
+    if (sm.save) out.push(`DC <b>${ci.dc}</b> ${sm.save} save${sm.half ? ' (half on success)' : ''}`);
+    out.push(`${esc(sm.dice)} ${esc(sm.type)}: ${esc(r.detail)}`);
+    if (a.missHalf && sm.attack) out.push(`On a miss: <b>${Math.floor(r.total / 2)}</b> (half damage)`);
+    card = hitTot != null ? { hit: hitTot, dmg: r.total, type: sm.type, crit, nat1 } : { dmg: r.total, type: sm.type, save: sm.save, half: sm.half };
+  } else if (sm.save) out.push(`DC <b>${ci.dc}</b> ${sm.save} save`);
+  let healAct = null;
+  if (sm.heal) {
+    if (sm.heal === 'all') out.push('Restores all hit points');
+    else {
+      const supreme = hasSub('cleric', 'life') && clsLv('cleric') >= 17;
+      const hx = supreme ? sm.heal.replace(/(\d*)d(\d+)/g, (m0, n, s2) => String((N(n) || 1) * N(s2))) : sm.heal;
+      const r = rollExpr(hx, { label: sp.name + ' healing' }); mainTotal = r.total;
+      out.push(`Heals <b>${r.total}</b>${a.each ? ' each' : ''} (${esc(hx)}: ${esc(r.detail)})`);
+      healAct = { label: 'Heal me', fn: () => useAmt(r, sp.name + ': healing you got', n => healSelf(n, `${sp.name}: +${n} HP`)) };
+    }
+  }
+  if (sm.note) lines.push(sm.note);
+  if (rounds && needEffect) lines.push('Lasts ' + fmtRounds(rounds));
+  // Homebrew backlash: casting it again before a short rest hurts you
+  let backAct = null;
+  if (how !== 'ritual') sp.casts = N(sp.casts) + 1;
+  if (a.backlash && N(sp.casts) > 1) {
+    const bt = String(a.backlashType || '').toLowerCase(), r = rollExpr(fxRollExpr(String(a.backlash).replace(/\bslot\b/gi, String(L))), { need: true, label: sp.name + ': backlash damage' });
+    const res = bt && fxList('resist').some(x => String(x).toLowerCase().includes(bt)), dmg = res ? Math.floor(r.total / 2) : r.total;
+    lines.push(`Backlash (cast again before a short rest): ${r.total}${bt ? ' ' + esc(bt) : ''} damage to you${res ? ` — resistant, you take ${dmg}` : ''} (${esc(r.detail)})`);
+    backAct = { label: `Take ${dmg} damage`, fn: () => { takeDamage(dmg); save(); render(); } };
+  }
+  [].concat(beamRows.filter(r => r.nat1), card && card.nat1 ? [card] : []).forEach(() => { const r = nat1Roll(); if (r) out.unshift(`<span class="rc-n1"><b>Nat 1 Roll:</b> ${r.total}</span>`); });
+  if (MAXDMG && DICE_TOUCHED) S.effects = S.effects.filter(e => !(e.buff && e.buff.maxNext));
+  MAXDMG = false; EMPOWER = 0;
+  const surgeShow = wildAfterCast(sp);
+  save(); render();
+  if (surgeShow) setTimeout(surgeShow, 350);
+  const acts = [healAct, backAct, { label: 'Undo', fn: () => undo(1) }].filter(Boolean);
+  // Rolls go on the big card like weapon attacks: to hit and damage (one row per beam/ray); the details go to the roll log.
+  const how2 = how === 'slot' ? `${ORD[L - 1]}-level slot` : how === 'pact' ? 'pact slot' : how === 'free' ? 'free use' : how === 'atwill' ? 'at will' : how === 'ritual' ? 'ritual' : '';
+  const dets = out.map(o => `<div class="det">${o}</div>`).join('') + lines.map(l => `<div class="det">${l}</div>`).join('');
+  const typ = esc(String((sm && sm.type) || (a.beams ? 'force' : 'damage')).toLowerCase());
+  if (beamRows.length) {
+    toast(`<div class="rc-multi"><div class="rc-name">${esc(spLabel(sp))}${how2 ? ` <span class="rc-lbl">${how2}</span>` : ''}</div>${beamRows.map((r, k) => `<div class="rc-row${r.crit ? ' crit' : r.nat1 ? ' fumble' : ''}"><span class="rc-lbl">${a.beams ? 'Beam' : 'Ray'} ${k + 1}</span><b class="rc-hit">${r.hit}</b><span class="rc-lbl">${r.crit ? 'CRIT' : r.nat1 ? 'miss' : 'to hit'}</span><b class="rc-d${r.nat1 ? ' void' : ''}">${r.dmg}</b><span class="rc-lbl">${typ}</span></div>`).join('')}${dets}</div>`, beamRows.some(r => r.crit) ? 'crit' : '', 12000, acts);
+    return;
+  }
+  if (card) {
+    toast(card.hit != null
+      ? `<b class="total">${card.hit}</b><div class="rc-body"><div class="rc-name">${esc(spLabel(sp))}</div><div class="rc-lbl">${card.crit ? 'CRITICAL HIT' : card.nat1 ? 'Natural 1 — miss' : 'spell attack'}${how2 ? ' · ' + how2 : ''}</div>${dets}</div><div class="rc-dmg${card.nat1 ? ' void' : ''}"><b>${card.dmg}</b><span>${esc(String(card.type || 'damage').toLowerCase())}</span></div>`
+      : `<b class="total">${card.dmg}</b><div class="rc-body"><div class="rc-name">${esc(spLabel(sp))}</div><div class="rc-lbl">${esc(String(card.type || 'damage').toLowerCase())}${card.save ? ` · DC ${ci.dc} ${esc(card.save)} save${card.half ? ', half on success' : ''}` : ''}${how2 ? ' · ' + how2 : ''}</div>${dets}</div>`, cls, 12000, acts);
+    return;
+  }
+  if (doAtk != null) { attackRoll(doAtk, true, { label: sp.name + ' · ' + S.attacks[doAtk].name, notes: lines }); return; }
+  if (mainTotal != null) { toast(`<b class="total">${mainTotal}</b><div class="rc-body"><div class="rc-name">${esc(spLabel(sp))}</div><div class="rc-lbl">${sm.heal ? 'healing' : 'total'}${how2 ? ' · ' + how2 : ''}</div>${dets}</div>`, cls, 12000, acts); return; }
+  toast(`${mainTotal != null ? `<b class="total">${mainTotal}</b>` : ''}<div><div>Cast <b>${esc(spLabel(sp))}</b>${how === 'slot' ? ` · ${ORD[L - 1]}-level slot` : how === 'pact' ? ' · pact slot' : how === 'free' ? ' · free use' : how === 'ritual' ? ' · ritual' : ''}${sp.conc ? ' · concentrating' : ''}</div>${out.map(o => `<div class="det">${o}</div>`).join('')}${lines.map(l => `<div class="det">${l}</div>`).join('')}</div>`, cls, 12000, acts);
+}
+
+// ---------- Forms ----------
+function setForm(cr, source, effect, allStats) {
+  S.form = { name: cr.name, source, ac: cr.ac, hp: cr.hp, maxhp: cr.hp, speed: cr.speed, abil: cr.abil.slice(), attacks: (cr.attacks || []).map(z => z.slice()), notes: cr.notes || '', effect, allStats: !!allStats };
+}
+function endForm(overflow, why, silent) {
+  const f = S.form; if (!f) return;
+  S.form = null;
+  if (f.effect) { S.effects = S.effects.filter(e => e.name !== f.effect); if (S.concentration === f.effect) S.concentration = ''; }
+  pendingLabel = 'Revert from ' + f.name; cleanupLinked(); save(); render();
+  if (!silent) toast(`You revert from ${esc(f.name)}${why ? ' (' + esc(why) + ')' : ''}.`, '', 6000, { label: 'Undo', fn: () => undo(1) });
+}
+function wildShapeLimits() {
+  const d = clsLv('druid'), moon = hasSub('druid', 'moon');
+  let cr = d >= 8 ? 1 : d >= 4 ? 0.5 : 0.25; if (moon) cr = Math.max(1, Math.floor(d / 3));
+  return { cr, fly: d >= 8, swim: d >= 4, elemental: moon && d >= 10 };
+}
+let FORMCTX = null;
+function openWildShape(col) {
+  const fi = S.features.findIndex(f => f.name === 'Wild Shape'); if (fi < 0) return;
+  const f = S.features[fi], max = featMax(f) || 0, left = max - N(f.used), lim = wildShapeLimits();
+  const list = DND.creatures.filter(c => (c.tags.includes('beast') && c.cr <= lim.cr && (lim.fly || !c.tags.includes('fly')) && (lim.swim || !c.tags.includes('swim'))) || (lim.elemental && c.tags.includes('elemental') && /^(Air|Earth|Fire|Water) Elemental$/.test(c.name)));
+  FORMCTX = { kind: 'wild', fi, col: col || (hasSub('druid', 'moon') ? 'bonus' : 'action') };
+  openModal(`<h3>Wild Shape</h3><p class="hint" style="margin:0 0 8px">${left}/${max} uses left · beasts up to CR ${DND.crLabel(lim.cr)}${lim.fly ? '' : ', no flying'}${lim.swim ? '' : ', no swimming'}${lim.elemental ? ' · elementals cost 2 uses' : ''}. Lasts ${Math.max(1, Math.floor(clsLv('druid') / 2))} hours.</p>
+    <input class="f" id="crq" placeholder="Search beasts…" aria-label="Search">
+    ${hasSub('druid', 'wildfire') ? `<div class="row" style="margin:0 0 8px"><button class="btn gold" data-act="wsspirit">Summon Wildfire Spirit instead</button><span class="hint">Uses one Wild Shape</span></div>` : ''}
+    <div class="crlist">${list.sort((x, y) => y.cr - x.cr || x.name.localeCompare(y.name)).map(c => crRow(c, 'pickform')).join('')}</div>
+    <div class="actions"><button class="btn" data-act="close">Cancel</button></div>`, null, true);
+}
+function openTransform() {
+  FORMCTX = { kind: 'any' };
+  openModal(`<h3>Transform</h3><p class="hint" style="margin:0 0 8px">For polymorph, shapechange, potions and other transformations not cast from your spell list. Your HP is kept separately; damage overflows when the form drops to 0.</p>
+    <input class="f" id="crq" placeholder="Search creatures…" aria-label="Search">
+    <div class="crlist">${DND.creatures.slice().sort((x, y) => x.name.localeCompare(y.name)).map(c => crRow(c, 'pickform')).join('')}</div>
+    <div class="actions"><button class="btn" data-act="close">Cancel</button></div>`, null, true);
+}
+const crRow = (c, act) => `<div class="crrow" data-q="${esc((c.name + ' ' + c.tags.join(' ')).toLowerCase())}"><div><b>${esc(c.name)}</b> <span class="hint">CR ${DND.crLabel(c.cr)} · ${esc(c.size)} · AC ${c.ac} · HP ${c.hp} · ${esc(c.speed)}</span><div class="hint">${esc((c.attacks || []).map(z => `${z[0]} ${z[1] === '' ? '' : fmt(N(z[1]))} ${z[2]} ${z[3]}`).join('; '))}${c.notes ? ' · ' + esc(c.notes) : ''}</div></div><button class="btn sm gold" data-act="${act}" data-n="${DND.creatures.indexOf(c)}">Choose</button></div>`;
+function pickForm(b) {
+  const cr = DND.creatures[N(b.dataset.n)]; if (!cr || !FORMCTX) return;
+  if (FORMCTX.kind === 'wild') {
+    const f = S.features[FORMCTX.fi], cost = cr.tags.includes('elemental') ? 2 : 1, max = featMax(f) || 0;
+    if (N(f.used) + cost > max) { toast('Not enough Wild Shape uses left.', 'fumble'); return; }
+    f.used = N(f.used) + cost; S.turn.used[FORMCTX.col] = true;
+    S.effects = S.effects.filter(e => e.name !== 'Wild Shape').concat([{ name: 'Wild Shape', rounds: Math.max(1, Math.floor(clsLv('druid') / 2)) * 600 }]);
+    setForm(cr, 'Wild Shape', 'Wild Shape', false);
+    pendingLabel = 'Wild Shape: ' + cr.name;
+  } else { setForm(cr, 'Transformed', null, true); pendingLabel = 'Transform: ' + cr.name; }
+  FORMCTX = null; closeModal(true); save(); render();
+  toast(`You become a <b>${esc(cr.name)}</b> — AC ${cr.ac}, ${cr.hp} HP. Your own HP is kept for when you revert.`, '', 8000, { label: 'Undo', fn: () => undo(1) });
+}
+// ---------- Companions ----------
+function openCreaturePicker() {
+  openModal(`<h3>Add a creature</h3><p class="hint" style="margin:0 0 8px">Beasts, familiars, mounts, elementals and undead. Edit any numbers after adding.</p>
+    <input class="f" id="crq" placeholder="Search…" aria-label="Search">
+    <div class="crlist">${DND.creatures.slice().sort((x, y) => x.name.localeCompare(y.name)).map(c => crRow(c, 'addcr')).join('')}</div>
+    <div class="actions"><button class="btn" data-act="close">Done</button></div>`, null, true);
+}
+function addCreature(n) {
+  const c = DND.creatures[n]; if (!c) return;
+  S.companions.push({ id: uid(), name: c.name, kind: c.tags.includes('beast') ? 'beast' : c.tags[0], ac: c.ac, hp: c.hp, maxhp: c.hp, speed: c.speed, attacks: c.attacks.map(z => z.slice()), notes: c.notes, abil: c.abil, cr: c.cr });
+  pendingLabel = 'Add ' + c.name; save(); render(); toast(`${esc(c.name)} added to Companions.`);
+}
+function openClassCompanions() {
+  const list = Object.keys(COMP_RULES).filter(classCompanionOK);
+  if (!list.length) { toast('None of your classes has a companion feature.'); return; }
+  openModal(`<h3>Class companion</h3><p class="hint" style="margin:0 0 8px">Only companions your class and subclass grant are listed. Their stats update automatically when you level up or your scores change.</p>
+    <div class="crlist">${list.map(n => { const c = compStats(n), r = COMP_RULES[n]; return `<div class="crrow"><div><b>${esc(n)}</b> <span class="hint">AC ${c.ac} · HP ${c.hp} · ${esc(c.speed)}${r.feature ? ' · uses ' + esc(r.feature) : ''}</span><div class="hint">${esc(c.attacks.map(z => `${z[0]} ${z[1] === '' ? '' : fmt(N(z[1]))} ${z[2]}`).join('; '))} · ${esc(c.notes)}</div></div><button class="btn sm gold" data-act="addcc" data-n="${esc(n)}">Add</button></div>`; }).join('')}</div>
+    <div class="actions"><button class="btn" data-act="close">Done</button></div>`, null, true);
+}
+function addClassCompanion(n, viaFeature) {
+  if (!classCompanionOK(n)) { toast('Your class doesn\'t grant that companion.', 'fumble'); return; }
+  const r = COMP_RULES[n];
+  S.companions = S.companions.filter(x => x.tmpl !== n && !(r.group && COMP_RULES[x.tmpl] && COMP_RULES[x.tmpl].group === r.group));
+  if (S.compOff) delete S.compOff[n];
+  const extra = {};
+  if (r.rounds) { const en = n + ' (summoned)'; S.effects = (S.effects || []).filter(e => e.name !== en).concat([{ name: en, rounds: r.rounds }]); extra.effect = en; }
+  S.companions.push(makeClassComp(n, extra));
+  pendingLabel = 'Add ' + n; if (!viaFeature) closeModal(true); save(); render(); if (!viaFeature) toast(`${esc(n)} added.`);
+}
+function compHp(i, d) {
+  const c = S.companions[i], el = $('#chp' + i), amt = Math.abs(N(el && el.value));
+  if (!amt) { if (el) el.focus(); toast('Type an amount first.'); return; }
+  if (d === 0) { c.temp = Math.max(N(c.temp), amt); pendingLabel = `${c.name} gains ${amt} temp HP`; if (el) el.value = ''; save(); render(); refresh(); return; }
+  if (d < 0 && N(c.temp)) { const t = Math.min(N(c.temp), amt); c.temp = N(c.temp) - t; c.hp = Math.max(0, N(c.hp) - (amt - t)); } else c.hp = Math.max(0, Math.min(N(c.maxhp), N(c.hp) + d * amt));
+  pendingLabel = `${c.name} ${d < 0 ? 'takes ' + amt + ' damage' : 'heals ' + amt}`; if (el) el.value = '';
+  save(); render(); refresh();
+  if (c.hp === 0) toast(`${esc(c.name)} drops to 0 HP.`, 'fumble', 7000, [{ label: 'Dismiss it', fn: () => { const k = S.companions.indexOf(c); if (k >= 0) { S.companions.splice(k, 1); pendingLabel = 'Dismiss ' + c.name; save(); render(); } } }]);
+}
+
+// ---------- Inventory actions ----------
+function profWeapon(w) {
+  const P = S.profs || {}, wn = n => String(n || '').toLowerCase().replace(/^(\w+),\s*(\w+)$/, '$2 $1').replace(/s$/, '').trim();
+  const names = [w[0], w.name, w.base].filter(Boolean).map(wn);
+  return (P.weapons || []).includes(w[1] || w.cat) || (P.weaponNames || []).some(n => names.includes(wn(n)));
+}
+function attackFromItem(it) {
+  const w = it.weapon, props = w.props || [], ranged = w.kind === 'ranged';
+  const monkOK = clsLv('monk') && ((w.cat === 'simple' && !ranged && !props.includes('heavy') && !props.includes('two-handed')) || /shortsword/i.test(it.name));
+  const ab = monkOK ? 'monk' : props.includes('finesse') ? 'fin' : ranged ? 'dex' : 'str';
+  const vers = props.find(p => /versatile/.test(p));
+  return { name: it.name, ab, prof: profWeapon([w.base || it.name, w.cat]), magic: N((it.mods || {}).atk), dice: w.dice, type: w.type, notes: props.filter(p => !/versatile/.test(p)).concat(vers ? [vers.replace('versatile ', 'two hands ')] : []).join(', ') + (w.range ? ` · ${w.range} ft` : ''), kind: ranged ? 'ranged' : 'melee', oneHanded: !props.includes('two-handed') && !ranged, monk: monkOK, item: it.id };
+}
+function makeWeaponItem(w) { const [name, cat, kind, cost, dice, type, weight, props, range] = w; return { id: uid(), name, qty: 1, weight, cost, equipped: false, notes: '', weapon: { cat, kind, dice, type, props: props || [], range: range || '', base: name } }; }
+function makeArmorItem(a) { const [name, type, cost, base, dexCap, strReq, stealthDis, weight] = a; return { id: uid(), name, qty: 1, weight, cost, equipped: false, notes: '', armor: { type, base, dexCap, strReq, stealthDis } }; }
+function makeGearItem(g) { const [name, cat, cost, weight, notes] = g; const it = { id: uid(), name, qty: 1, weight, cost, equipped: false, notes: '', summary: notes || '' }; const m = String(notes || '').match(/(\d+d\d+)\s*\+?\s*(\d+)?\s*HP/i); return it; }
+function makeMagicItem(m, baseItem) {
+  const [name, src, type, rarity, attune, summary, mods] = m; const md = mods || {};
+  let it = baseItem ? Object.assign(baseItem, { name: baseItem.name + ' ' + name.replace(/^(Weapon|Armor|Shield|Ammunition)\s*/, '').trim() }) : { id: uid(), name, qty: 1, weight: 0, cost: '', equipped: false, notes: '' };
+  if (/^(Weapon|Armor|Shield|Ammunition) \+\d$/.test(name) && baseItem) it.name = baseItem.name.replace(/ \+\d$/, '') + ' ' + name.match(/\+\d/)[0];
+  it.magic = { rarity, type, src, name }; it.summary = summary; it.attune = !!attune; it.attuneBy = typeof attune === 'string' ? attune : ''; it.attuned = false;
+  it.mods = Object.assign({}, it.mods || {}, md); delete it.mods.base; delete it.mods.charges; delete it.mods.heal;
+  if (md.charges) it.charges = { max: md.charges, used: 0 };
+  if (md.heal) it.heal = md.heal;
+  if (type === 'potion' || type === 'scroll') it.consumable = true;
+  return it;
+}
+const AMMO_RE = /arrow|bolt|bullet|needle|ammunition|rounds?\b|shot/i;
+function addInventoryItem(it, silent) {
+  S.inventory.push(it);
+  if (it.weapon) { const at = attackFromItem(it); if ((it.weapon.props || []).includes('ammunition')) { const am = S.inventory.find(x => x !== it && !x.weapon && AMMO_RE.test(x.name)); if (am) at.ammo = am.id; } S.attacks.push(at); }
+  else if (AMMO_RE.test(it.name)) S.attacks.forEach(a => { const w = S.inventory.find(x => x.id === a.item); if (w && w.weapon && (w.weapon.props || []).includes('ammunition') && !a.ammo) a.ammo = it.id; });
+  if (!silent) { pendingLabel = 'Add ' + it.name; save(); render(); toast(`${esc(it.name)} added to your pack.`, '', 5000, { label: 'Undo', fn: () => undo(1) }); }
+}
+let CATBASE = null;
+function openCatalog(keep) {
+  // Opens on All every time; picking a tab only lasts while the window is open.
+  if (!keep) UI.catTab = 'all';
+  const tab = UI.catTab || 'all', q = keep && $('#catq') ? $('#catq').value : '';
+  const cost = c => c ? `<span class="hint">${esc(c)}</span>` : '';
+  const kind = t => tab === 'all' ? ` <span class="tag catkind">${t}</span>` : '';
+  const W = () => DND.weapons.map((w, n) => [w[0], `<div class="crrow" data-q="${esc((w[0] + ' ' + w[1] + ' ' + w[2] + ' ' + w[5] + ' weapon').toLowerCase())}"><div><b>${esc(w[0])}</b>${kind('Weapon')} ${cost(w[3])}<div class="hint">${esc(w[1])} ${esc(w[2])} · ${esc(w[4])} ${esc(w[5])}${w[7] && w[7].length ? ' · ' + esc(w[7].join(', ')) : ''}${w[8] ? ' · ' + esc(w[8]) + ' ft' : ''}${profWeapon(w) ? '' : ' · <b>not proficient</b>'}</div></div><button class="btn sm gold" data-act="catadd" data-t="w" data-n="${n}">Add</button></div>`]);
+  const A = () => DND.armor.map((a, n) => [a[0], `<div class="crrow" data-q="${esc((a[0] + ' ' + a[1] + ' armor').toLowerCase())}"><div><b>${esc(a[0])}</b>${kind(a[1] === 'shield' ? 'Shield' : 'Armor')} ${cost(a[2])}<div class="hint">${esc(a[1])} · AC ${a[1] === 'shield' ? '+2' : a[3] + (a[4] === 0 ? '' : a[4] ? ' + DEX (max ' + a[4] + ')' : ' + DEX')}${a[5] ? ' · STR ' + a[5] : ''}${a[6] ? ' · stealth disadvantage' : ''}</div></div><button class="btn sm gold" data-act="catadd" data-t="a" data-n="${n}">Add</button></div>`]);
+  const G = () => DND.gear.map((g, n) => [g[0], `<div class="crrow" data-q="${esc((g[0] + ' ' + g[1] + ' gear').toLowerCase())}"><div><b>${esc(g[0])}</b>${kind('Gear')} ${cost(g[2])}<div class="hint">${esc(g[1])}${g[4] ? ' · ' + esc(g[4]) : ''}</div></div><button class="btn sm gold" data-act="catadd" data-t="g" data-n="${n}">Add</button></div>`]);
+  const M = () => DND.magic.map((m, n) => [m[0], `<div class="crrow" data-q="${esc((m[0] + ' ' + m[2] + ' ' + m[3] + ' ' + m[1] + ' magic').toLowerCase())}"><div><b>${esc(m[0])}</b>${kind('Magic')} <span class="tag rar r-${esc(String(m[3]).replace(/\s+/g, ''))}">${esc(m[3])}</span>${m[4] ? ' <span class="tag">attune</span>' : ''} <span class="hint">${esc(m[1])}</span><div class="hint">${esc(m[5])}</div></div><button class="btn sm gold" data-act="catadd" data-t="m" data-n="${n}">Add</button></div>`]);
+  const list = tab === 'weapons' ? W() : tab === 'armor' ? A() : tab === 'gear' ? G() : tab === 'magic' ? M()
+    : W().concat(A(), G(), M()).sort((x, y) => String(x[0]).localeCompare(String(y[0]), undefined, { sensitivity: 'base' }));
+  const rows = list.map(x => x[1]).join('');
+  const html = `<h3>Add an item</h3>
+    <div class="segmini" style="margin-bottom:8px">${[['all', 'All'], ['weapons', 'Weapons'], ['armor', 'Armor'], ['gear', 'Gear & tools'], ['magic', 'Magic items']].map(([k, t]) => `<button class="${tab === k ? 'on' : ''}" data-act="cattab" data-t="${k}">${t}</button>`).join('')}</div>
+    <input class="f" id="catq" placeholder="Search…" value="${esc(q)}" aria-label="Search items" autofocus>
+    <div class="crlist">${rows}</div>
+    <div class="actions"><button class="btn" data-act="close">Done</button></div>`;
+  if (keep && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html, null, true);
+  filterCatalog();
+}
+function filterCatalog() {
+  const q = ($('#catq') && $('#catq').value || $('#crq') && $('#crq').value || '').trim().toLowerCase();
+  $$('#modal-body .crrow').forEach(r => r.style.display = !q || (r.dataset.q || '').includes(q) ? '' : 'none');
+}
+function catalogAdd(t, n) {
+  if (t === 'w') return addInventoryItem(makeWeaponItem(DND.weapons[n]));
+  if (t === 'a') return addInventoryItem(makeArmorItem(DND.armor[n]));
+  if (t === 'g') return addInventoryItem(makeGearItem(DND.gear[n]));
+  if (t === 'm') {
+    const m = DND.magic[n], base = (m[6] || {}).base;
+    if (base === 'weapon' || base === 'armor' || base === 'shield') {
+      CATBASE = n;
+      const list = base === 'weapon' ? DND.weapons.map((w, k) => [k, w[0]]) : DND.armor.map((a, k) => [k, a[0], a[1]]).filter(x => base === 'shield' ? x[2] === 'shield' : x[2] !== 'shield');
+      $('#modal-body').innerHTML = `<h3>${esc(m[0])}</h3><p class="hint">${esc(m[5])}</p>${fld('Which ' + base + '?', `<select class="f" id="catbase">${list.map(x => `<option value="${x[0]}">${esc(x[1])}</option>`).join('')}</select>`)}
+        <div class="actions"><button class="btn" data-act="cattab" data-t="${esc(UI.catTab || 'all')}">Back</button><button class="btn gold" data-act="catbaseok" data-n="${n}">Add</button></div>`;
+      return;
+    }
+    return addInventoryItem(makeMagicItem(m));
+  }
+}
+function catalogAddBase(n) {
+  const m = DND.magic[n], base = m[6].base, k = N($('#catbase').value);
+  const bi = base === 'weapon' ? makeWeaponItem(DND.weapons[k]) : makeArmorItem(DND.armor[k]);
+  const it = makeMagicItem(m, bi);
+  addInventoryItem(it); openCatalog(true);
+}
+function equipItem(i) {
+  const it = S.inventory[i]; it.equipped = !it.equipped;
+  const msgs = [];
+  if (it.equipped && it.armor) S.inventory.forEach(o => { if (o !== it && o.equipped && o.armor && (o.armor.type === 'shield') === (it.armor.type === 'shield')) { o.equipped = false; msgs.push(o.name + ' stowed'); } });
+  if (it.equipped && it.armor && it.armor.type !== 'shield' && !(S.profs.armor || []).includes(it.armor.type)) msgs.push('not proficient: disadvantage on STR/DEX rolls, no spellcasting');
+  if (it.equipped && it.attune && !it.attuned) msgs.push('needs attunement to work');
+  if ((it.spells || []).length || it.hb) { rebuildAuto(); if (hbItemOn(it) && (it.spells || []).length) msgs.push('can cast ' + it.spells.join(', ')); }
+  save(); render();
+  toast(`${esc(it.name)} ${it.equipped ? 'equipped' : 'moved to pack'}.${msgs.length ? `<div class="det">${esc(msgs.join(' · '))}</div>` : ''}${it.armor && it.equipped ? `<div class="det">AC now ${acTotal()}</div>` : ''}`, '', 5000, { label: 'Undo', fn: () => undo(1) });
+}
+function attune(i) {
+  const it = S.inventory[i];
+  if (!it.attuned && attunedCount() >= attuneMax()) { toast(`You can attune to ${attuneMax()} items at once. End another attunement first.`, 'fumble', 6000); return; }
+  it.attuned = !it.attuned; pendingLabel = (it.attuned ? 'Attune to ' : 'End attunement: ') + it.name;
+  if ((it.spells || []).length || it.hb) rebuildAuto();
+  const sp = hbItemOn(it) && (it.spells || []).length ? `<div class="det">You can cast ${esc(it.spells.join(', '))} (Spells tab).</div>` : it.attuned && !hbItemOn(it) ? '<div class="det">Equip it to use it.</div>' : '';
+  save(); render(); toast(`${esc(it.name)}: ${it.attuned ? 'attuned' : 'attunement ended'}.${sp}`);
+}
+function drink(i) {
+  const it = S.inventory[i]; const r = rollExpr(it.heal, { need: true, label: it.name + ': healing' });
+  it.qty = Math.max(0, N(it.qty) - 1);
+  if (!it.qty) S.inventory.splice(i, 1);
+  healSelf(r.total, `Drink ${it.name}: +${r.total} HP`); render();
+  toast(`<b class="total">${r.total}</b><div><div>${esc(it.name)} — HP restored</div><div class="det">${esc(r.detail)}</div></div>`, 'crit', 6000, { label: 'Undo', fn: () => undo(1) });
+}
+
+// ---------- Lists ----------
+const BLANK = {
+  attacks: () => ({ name: 'New attack', ab: 'str', prof: true, magic: 0, dice: '1d6', type: '', notes: '', kind: 'melee' }),
+  spells: () => ({ name: 'New spell', level: 1, cls: (clsRows()[0] || {}).key || 'other', prepared: true, always: false, time: '1 action', range: '', comps: '', duration: 'Instantaneous', conc: false, ritual: false, school: '', summary: '', note: '' }),
+  features: () => ({ name: 'New feature', source: 'Custom', desc: '', max: '', used: 0, reset: 'long', pool: false }),
+  inventory: () => ({ id: uid(), name: 'New item', qty: 1, weight: 0, equipped: false, notes: '' }),
+  notes: () => ({ date: new Date().toISOString().slice(0, 10), title: '', text: '' }),
+  combat: () => ({ name: 'New option', text: '' }),
+  quotes: () => ({ text: '' }),
+  rumors: () => ({ kind: 'Unknown', title: '', text: '', truth: '' }),
+  people: () => ({ name: '', rel: '', att: '', notes: '' }),
+  goals: () => ({ text: '', done: false }),
+  companions: () => ({ id: uid(), name: 'Companion', kind: 'custom', ac: 12, hp: 10, maxhp: 10, speed: 'walk 30', attacks: [['Attack', 3, '1d6+1', 'piercing']], notes: '' })
+};
+function addItem(list) {
+  const L = getP(list), mk = BLANK[list] || BLANK[list.split('.')[0]];
+  const item = mk();
+  if (list === 'notes') L.unshift(item); else L.push(item);
+  if (list === 'spells') { S.spellFilter = 'all'; UI.open['spell:' + (L.length - 1)] = true; }
+  if (list === 'inventory') UI.open['item:' + item.id] = true;
+  if (list === 'features') { UI.open['fedit:' + (L.length - 1)] = true; UI.featFilter = 'all'; }
+  save(); render();
+  const idx = list === 'notes' ? 0 : L.length - 1;
+  const el = $(`[data-k^="${list}.${idx}."]:not([type=checkbox]):not(select)${list === 'notes' ? ':not([type=date])' : ''}`);
+  if (el) { el.focus(); if (el.select) el.select(); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+}
+function delItem(list, i) {
+  const L = getP(list), [item] = L.splice(i, 1);
+  if (list === 'inventory' && item.id) S.attacks = S.attacks.filter(a => a.item !== item.id);
+  save(); render();
+  toast(`Removed “${esc(item.name || item.title || 'entry')}”`, '', 7000, { label: 'Undo', fn: () => undo(1) });
+}
+
+// ---------- Roll20 macros ----------
+let MACROS = [], MACRO_MODE = 'normal';
+const an = w => (/^[aeiou]/i.test(w) ? 'an ' : 'a ') + w;
+function d20x(b) { const k = MACRO_MODE === 'adv' ? '2d20kh1' : MACRO_MODE === 'dis' ? '2d20kl1' : '1d20'; return k + sgn(b); }
+function buildMacros() {
+  const L = [];
+  const M = (group, name, emote, lines, sub) => L.push({ group, name, sub: sub || '', text: `/em **${emote}:**\n****\n` + lines.join('\n') });
+  S.attacks.filter(atkShown).forEach(a => {
+    const m = atkDmgMod(a), dice = atkDice(a), dmg = (dice || '0') + (m ? sgn(m) : '');
+    const ex = extraDice().map(x => (x.match(/\d*d\d+/) || [''])[0]).filter(Boolean);
+    M('Attacks', a.name, `attacks with ${a.name}`, [`**Attack Roll (to hit):** [[${d20x(atkHit(a))}]]`, `**Damage (${dmg}):** [[${dmg}]]`, `**Critical Damage (${doubleDice(dice)}${m ? sgn(m) : ''}):** [[${doubleDice(dice) || '0'}${m ? sgn(m) : ''}]]`], `${sgn(atkHit(a))} to hit · ${dmg}${a.type ? ' ' + String(a.type).toLowerCase() : ''}`);
+  });
+  if (clsLv('rogue')) M('Attacks', 'Sneak Attack', 'strikes a vital spot', [`**Sneak Attack (${sneakDice()}):** [[${sneakDice()}]]`], sneakDice());
+  if (hasFeature('Divine Smite')) for (let i = 0; i < 9; i++) { if (!slotMax(i)) continue; const d = Math.min(5, i + 2); M('Attacks', `Divine Smite (${ORD[i]} slot)`, 'smites with divine radiance', [`**Radiant Damage (${d}d8):** [[${d}d8]]`, `**vs Undead / Fiend (${Math.min(6, d + 1)}d8):** [[${Math.min(6, d + 1)}d8]]`], `${d}d8 radiant`); }
+  S.spells.filter(spReady).sort((x, y) => N(x.level) - N(y.level) || String(x.name).localeCompare(y.name)).forEach(sp => {
+    const sm = spellMath(sp), ci = spellCI(sp), lines = [];
+    if (sm.attack) lines.push(`**Spell Attack (to hit):** [[${d20x(ci.atk)}]]`);
+    if (sm.save) lines.push(`**Save:** DC ${ci.dc} ${sm.save}${sm.half ? ' (half on success)' : ''}`);
+    if (sm.dice) lines.push(`**Damage (${sm.dice} ${sm.type}):** [[${sm.dice}]]`);
+    if (sm.dice && adeptFor(sm.type)) lines.push(`*Elemental Adept (${adeptFor(sm.type)}): count each 1 on the damage dice as a 2; ignores ${adeptFor(sm.type)} resistance*`);
+    if (sm.heal && sm.heal !== 'all') lines.push(`**Healing (${sm.heal}):** [[${sm.heal}]]`);
+    if (!sm.dice && !sm.heal) lines.push(`**Effect:** ${sp.summary || '—'}`);
+    lines.push(`**Duration:** ${sp.duration || '—'}`);
+    M('Spells', sp.name, `casts ${sp.name}`, lines, `${N(sp.level) ? ORD[N(sp.level) - 1] + ' level' : 'Cantrip'}${sm.dice ? ' · ' + sm.dice : sm.heal ? ' · heal ' + sm.heal : ''}`);
+  });
+  casters().forEach(c => { const ci = castInfo(c.key); M('Spells', `${c.name} Spell Attack`, 'makes a spell attack', [`**Attack Roll (to hit):** [[${d20x(ci.atk)}]]`, `**Save DC:** ${ci.dc}`], sgn(ci.atk) + ' · DC ' + ci.dc); });
+  if (S.spells.some(s => s.conc)) M('Spells', 'Concentration Save', 'holds concentration', [`**Concentration (CON save):** [[${d20x(saveVal('con'))}]]`], sgn(saveVal('con')));
+  S.features.filter(f => f.roll).forEach(f => { const e = evalRoll(f.roll); M('Features', f.name, `uses ${f.name}`, [`**${f.name} (${e}):** [[${e}]]`], e); });
+  S.companions.forEach(c => (c.attacks || []).forEach(a => { const ls = []; if (a[1] !== '' && a[1] != null) ls.push(`**Attack Roll (to hit):** [[1d20${sgn(N(a[1]))}]]`); ls.push(`**Damage (${a[2]}):** [[${a[2]}]]`); M('Companions', `${c.name}: ${a[0]}`, `${c.name} uses ${a[0]}`, ls, `${a[1] === '' ? '' : sgn(N(a[1])) + ' · '}${a[2]}`); }));
+  M('Other', 'Initiative', 'rolls initiative', [`**Initiative:** [[${d20x(initVal())} &{tracker}]]`], sgn(initVal()) + ' · adds to turn tracker');
+  Object.keys(hdPools()).forEach(d => { const hd = '1d' + d + sgn(mod('con')); M('Other', `Hit Die (d${d})`, 'spends a Hit Die', [`**Hit Die (${hd}):** [[${hd}]]`], hd); });
+  M('Other', 'Death Save', 'makes a death saving throw', [`**Death Save:** [[1d20]]`], 'd20');
+  AB.forEach(a => M('Ability Checks', ABN[a], `makes ${an(ABN[a])} check`, [`**${ABN[a]} Check:** [[${d20x(mod(a))}]]`], sgn(mod(a))));
+  AB.forEach(a => M('Saving Throws', ABN[a] + ' Save', `makes ${an(ABN[a])} saving throw`, [`**${ABN[a]} Save:** [[${d20x(saveVal(a))}]]`], sgn(saveVal(a))));
+  S.skills.forEach(k => M('Skills', k.name, `makes ${an(k.name)} check`, [`**${k.name} Check:** [[${d20x(skillVal(k))}]]`], sgn(skillVal(k)) + (k.note ? ' · ' + k.note : '')));
+  return L;
+}
+function openMacros(keep) {
+  const q = keep && $('#mq') ? $('#mq').value : '';
+  MACRO_MODE = 'normal'; const base = buildMacros();
+  MACRO_MODE = UI.macroAdv || 'normal'; MACROS = buildMacros(); MACRO_MODE = 'normal';
+  if (!S.macroSeen) { S.macroSeen = {}; base.forEach(m => S.macroSeen[m.group + '|' + m.name] = m.text); writeLocal(); }
+  MACROS.forEach((m, n) => { m.key = m.group + '|' + m.name; m.norm = base[n].text; m.changed = S.macroSeen[m.key] !== m.norm; m.isNew = !(m.key in S.macroSeen); });
+  const nChanged = MACROS.filter(m => m.changed).length;
+  const groups = [...new Set(MACROS.map(m => m.group))];
+  const body = groups.map(g => `<div class="mgroup" data-g="${esc(g)}"><div class="mg-h">${esc(g)}</div>${MACROS.map((m, n) => m.group !== g ? '' : `
+    <div class="mrow${m.changed ? ' changed' : ''}" data-q="${esc((m.name + ' ' + g).toLowerCase())}" data-ch="${m.changed ? 1 : 0}"><div class="mr-main"><b>${esc(m.name)}</b>${m.changed ? `<span class="chg">${m.isNew ? 'New' : 'Changed'}</span>` : ''}<span class="hint">${esc(m.sub)}</span>
+      <details><summary>Preview</summary><pre>${esc(m.text)}</pre></details></div>
+      <button class="btn sm gold copybtn" data-act="copymacro" data-n="${n}">Copy</button></div>`).join('')}</div>`).join('');
+  const adv = UI.macroAdv || 'normal';
+  const html = `<h3>Roll20 Macros</h3>
+    <p class="hint" style="margin:0 0 8px">Paste into Roll20 chat or save as a macro. Numbers use your current stats, so copy again after leveling up.</p>
+    <div class="mtools"><button class="chgbtn${UI.macroChanged ? ' on' : ''}" data-act="macrochanged" aria-pressed="${!!UI.macroChanged}" title="Show only macros whose numbers changed since you last copied them">Changed <b>${nChanged}</b></button>
+      <input class="f" id="mq" placeholder="Search…" value="${esc(q)}" aria-label="Search macros">
+      <div class="segmini">${[['normal', 'Normal'], ['adv', 'Advantage'], ['dis', 'Disadvantage']].map(([v, t]) => `<button class="${adv === v ? 'on' : ''}" data-act="macroadv" data-v="${v}">${t}</button>`).join('')}</div></div>
+    <div class="mlist">${body}<p class="hint mempty" style="padding:14px;margin:0;display:none">${nChanged ? 'No changed macros match your search.' : 'Nothing has changed since you last copied. After a level up, macros with new numbers show here.'}</p></div>
+    <div class="actions">${nChanged ? `<button class="btn ghost" data-act="macroseenall" title="Mark every macro as up to date in Roll20">Mark all as updated</button>` : ''}<button class="btn" data-act="close">Close</button></div>`;
+  if (keep && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html, null, true);
+  filterMacros();
+}
+function filterMacros() {
+  const q = ($('#mq') && $('#mq').value || '').trim().toLowerCase();
+  $$('.mrow').forEach(r => r.style.display = (!q || r.dataset.q.includes(q)) && (!UI.macroChanged || r.dataset.ch === '1') ? '' : 'none');
+  $$('.mgroup').forEach(g => g.style.display = $$('.mrow', g).some(r => r.style.display !== 'none') ? '' : 'none');
+  const em = $('.mempty'); if (em) em.style.display = $$('.mrow').some(r => r.style.display !== 'none') ? 'none' : '';
+}
+function copyMacro(b) {
+  const mc = MACROS[N(b.dataset.n)]; S.macroSeen[mc.key] = mc.norm; writeLocal();
+  const row = b.closest('.mrow');
+  if (row && row.dataset.ch === '1') { row.dataset.ch = '0'; row.classList.remove('changed'); const c = row.querySelector('.chg'); if (c) c.remove(); const cb = $('.chgbtn b'); if (cb) cb.textContent = Math.max(0, N(cb.textContent) - 1); }
+  copyText(mc.text).then(ok => { b.textContent = ok ? 'Copied ✓' : 'Copy failed'; b.classList.toggle('done', ok); setTimeout(() => { b.textContent = 'Copy'; b.classList.remove('done'); }, 1600); });
+}
+async function copyText(t) {
+  try { await navigator.clipboard.writeText(t); return true; } catch (e) {
+    const x = document.createElement('textarea'); x.value = t; x.style.position = 'fixed'; x.style.opacity = '0'; document.body.appendChild(x); x.select();
+    let ok = false; try { ok = document.execCommand('copy'); } catch (z) {} x.remove(); return ok;
+  }
+}
+
+// ---------- Rests ----------
+function shortRest() {
+  const snap = JSON.stringify({ hp: S.hp, hdUsed: S.hdUsed });
+  const shortF = S.features.filter(f => resetOf(f) === 'short' && featMax(f) != null).map(f => f.name);
+  const pools = hdPools();
+  openModal(`<h3>Short Rest</h3>
+    <p>Spend Hit Dice to heal. Each die heals its roll ${fmt(mod('con', true))} (CON).</p>
+    <div class="hdrow">${Object.keys(pools).map(d => `<button class="btn gold" data-act="spendhd" data-d="${d}" id="hdBtn${d}" ${hdLeftOf(d) ? '' : 'disabled'}>Spend a d${d} <span class="hdleft" id="hdLeft${d}">· ${hdLeftOf(d)} left</span></button>`).join('')}</div>
+    <p>HP <b id="hdHP">${N(S.hp.cur)}/${maxHp()}</b></p><p class="hint" id="hdLog"></p>
+    <p>Finishing the rest restores: ${[pact() ? 'Pact Magic slots' : ''].concat(shortF).filter(Boolean).map(esc).join(', ') || 'no short-rest features'}.</p>
+    <p class="hint">Cancel undoes any Hit Dice spent here.</p>
+    <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="confirm-short">Finish Short Rest</button></div>`,
+    () => { pendingLabel = 'Cancel short rest'; const o = JSON.parse(snap); S.hp = o.hp; S.hdUsed = o.hdUsed; update(); toast('Short rest cancelled — changes reverted.'); });
+}
+function spendHD(d) {
+  if (!hdLeftOf(d)) return;
+  const r = rollExpr('1d' + d, { need: true, label: 'Hit die (d' + d + ')' }); let heal = Math.max(0, r.total + mod('con', true));
+  if (hasFeat('Durable')) heal = Math.max(heal, 2 * mod('con', true));
+  S.hdUsed[d] = N(S.hdUsed[d]) + 1;
+  S.hp.cur = Math.min(maxHp(), N(S.hp.cur) + heal);
+  $('#hdLeft' + d).textContent = `· ${hdLeftOf(d)} left`; $('#hdHP').textContent = N(S.hp.cur) + '/' + maxHp();
+  $('#hdLog').textContent += `d${d}: rolled ${r.total} ${fmt(mod('con', true))} = +${heal} HP. `;
+  if (!hdLeftOf(d)) $('#hdBtn' + d).disabled = true;
+  pendingLabel = 'Spend Hit Die'; update();
+}
+function finishShort() {
+  endByRest([-1]);
+  S.features.forEach(f => { if (resetOf(f) === 'short') f.used = 0; });
+  S.spells.forEach(s => { if (s.uses && s.uses.reset === 'short') s.uses.used = 0; s.casts = 0; });
+  S.inventory.forEach(it => { if (it.charges && it.charges.reset === 'short') it.charges.used = 0; });
+  S.pactUsed = 0;
+  const res = passRounds(600);
+  pendingLabel = 'Short rest'; closeModal(true); save(); render(); toast('Short rest complete.'); setTimeout(() => announce(res), 300); fxTrigger('shortRest');
+}
+function longRest() {
+  openModal(`<h3>Long Rest</h3>
+    <ul><li>HP restored to full; temporary HP cleared</li><li>All spell slots and Pact Magic slots restored</li>
+      <li>Features that reset on a short or long rest are restored; item charges restored</li><li>All Hit Dice restored</li>
+      <li>Exhaustion reduced by 1${N(S.exhaustion) ? ` (to ${N(S.exhaustion) - 1})` : ''}</li><li>Active spells, summons, transformations, concentration and death saves cleared</li></ul>
+    <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="confirm-long" autofocus>Take Long Rest</button></div>`);
+}
+// Conditions and ability changes set to last "until a short rest" / "until a long rest" end here.
+function endByRest(kinds) {
+  const gone = [];
+  Object.keys(S.condTurns || {}).forEach(c => { if (kinds.includes(N(S.condTurns[c]))) { delete S.condTurns[c]; if (S.condNotes) delete S.condNotes[c]; S.conditions = S.conditions.filter(x => x !== c); gone.push(c); } });
+  Object.keys(S.tmpMods || {}).forEach(k => { if (kinds.includes(N(S.tmpMods[k].r))) { delete S.tmpMods[k]; gone.push(tmName(k) + ' change'); } });
+  if (abTempOn() && kinds.includes(N(S.abTempR))) { S.abTemp = {}; S.abTempR = 0; gone.push('ability score changes'); }
+  if (gone.length) setTimeout(() => toast(`<b>${esc(gone.join(', '))}</b> ended with the rest.`, '', 6000), 400);
+}
+function finishLong() {
+  endByRest([-1, -2]);
+  (S.companions || []).forEach(c => { if (c.used) c.used = {}; });
+  S.effects = []; S.concentration = ''; S.form = null; S.riders = []; $$('.toast.alert').forEach(t => t.remove());
+  cleanupLinked();
+  S.exhaustion = Math.max(0, N(S.exhaustion) - 1);
+  S.hp.cur = maxHp(); S.hp.temp = 0;
+  S.slotsUsed = Array(9).fill(0); S.pactUsed = 0;
+  S.features.forEach(f => { if (resetOf(f) === 'short' || f.reset === 'long') f.used = 0; });
+  S.spells.forEach(s => { if (s.uses && !s.usesOnly) s.uses.used = 0; s.casts = 0; });
+  S.inventory.forEach(it => { if (it.charges && it.charges.reset !== 'none') it.charges.used = 0; });
+  S.hdUsed = {}; S.compOff = {};
+  S.death = { s: 0, f: 0 }; S.conditions = S.conditions.filter(c => !['Unconscious', 'Raging', 'Dodging'].includes(c));
+  S.turn = { round: 1, used: {}, moved: 0, attacks: 0 };
+  pendingLabel = 'Long rest'; closeModal(true); save(); render();
+  fxTrigger('longRest');
+  const pc = casters().find(c => c.prepared);
+  toast('Long rest complete — fully restored.', '', 7000, pc ? { label: 'Change prepared spells', fn: () => openPrepare(pc.key) } : null);
+}
+
+// ---------- Files, theme, portrait ----------
+async function download(name, text, type) {
+  // Published on claude.ai: save through the page's download prompt; as a local file: a normal download.
+  try {
+    const dl = window.claude && window.claude.use ? await window.claude.use('downloads') : null;
+    if (dl) { await dl.save({ filename: name, data: text }); return; }
+  } catch (e) {
+    if (e && e.code === 'declined') return;
+    if (e && e.code === 'rate_limited') { toast('A save prompt is already open.'); return; }
+  }
+  const blob = new Blob([text], { type });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+const fileBase = () => (S.name || 'character').replace(/[^\w-]+/g, '_') + '_' + new Date().toISOString().slice(0, 10);
+function exportJSON() { download(fileBase() + '.json', JSON.stringify(S, null, 1), 'application/json'); toast('Exported data.'); }
+function saveHTML() {
+  S.savedAt = Date.now();
+  const json = JSON.stringify(S).replace(/</g, '\\u003c');
+  const open = '<script id="sheet-data" type="application/json">';
+  const a = PRISTINE.indexOf(open), b = PRISTINE.indexOf('</' + 'script>', a);
+  const out = (PRISTINE.slice(0, a + open.length) + json + PRISTINE.slice(b)).replace(/<html([^>]*?) class="mobile"/, '<html$1');
+  download(fileBase() + '_sheet.html', out, 'text/html');
+  writeLocal();
+  toast('Downloaded a copy of this character. Open it on any device — it remembers everything.');
+}
+$('#importFile').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result);
+      if (!d || !d.abilities) throw new Error('not a sheet');
+      const wasNew = !S.created;
+      const prev = S; S = migrate(d); S.id = prev.id || S.id || uid(); S.layout = prev.layout || S.layout; S.created = true; S.dataRev = EMBED.dataRev || ''; pendingLabel = 'Import data';
+      if (wasNew) { closeWizard(); LAST = snapAll(); }
+      save(); applyTheme(); render();
+      toast('Imported ' + esc(S.name) + '.', '', 7000, wasNew ? null : { label: 'Undo', fn: () => undo(1) });
+    } catch (x) { toast('That file isn’t a character export.', 'fumble'); }
+  };
+  r.readAsText(f); e.target.value = '';
+});
+let PICPATH = '';
+$('#picFile') && $('#picFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (!f || !PICPATH) return; const path = PICPATH; loadPortrait(f, url => { setP(path, url); pendingLabel = 'Add picture'; save(); render(); }, 320); e.target.value = ''; });
+function loadPortrait(file, cb, size) {
+  const img = new Image(), url = URL.createObjectURL(file);
+  img.onload = () => {
+    const s = size || 560, c = document.createElement('canvas'); c.width = c.height = s;
+    const k = Math.max(s / img.width, s / img.height), w = img.width * k, h = img.height * k;
+    c.getContext('2d').drawImage(img, (s - w) / 2, (s - h) / 2, w, h);
+    URL.revokeObjectURL(url); cb(c.toDataURL('image/jpeg', 0.85));
+  };
+  img.src = url;
+}
+$('#portraitFile').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return; e.target.value = '';
+  loadPortrait(f, data => {
+    if (!S.created) { W.portrait = data; renderWizard(); return; }
+    S.portrait = data; pendingLabel = 'Change portrait'; matchPortrait(false); save(); render('header');
+    toast('Portrait updated and theme colors matched to it.', '', 6000, [{ label: 'Keep old colors', fn: () => undo(1) }]);
+  });
+});
+// Theme: accent and banner colors, from a picker or sampled from the portrait.
+function hexToRgb(h) { const m = String(h || '').match(/^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i); return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : null; }
+const rgbHex = c => '#' + c.map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+const mix = (a, b, t) => a.map((v, k) => v + (b[k] - v) * t);
+// Accent text must stay readable whatever colour was picked: push it lighter in dark mode, darker in light mode.
+const lumOf = c => (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) / 255;
+function readableInk(a, dark) { let c = dark ? mix(a, [255, 255, 255], 0.25) : mix(a, [0, 0, 0], 0.4); for (let k = 0; k < 12; k++) { const l = lumOf(c); if (dark ? l >= 0.62 : l <= 0.36) break; c = mix(c, dark ? [255, 255, 255] : [0, 0, 0], 0.18); } return c; }
+// Light/dark is kept with the character too (not only in this browser's storage), so a fresh copy of the sheet opens in the right mode.
+function applyMode() {
+  const set = S.settings || (S.settings = {}); let ls = null; try { ls = localStorage.getItem('dnd-sheet-theme'); } catch (e) {}
+  if (set.colorMode !== 'dark' && set.colorMode !== 'light') { if (!PER_SHEET && (ls === 'dark' || ls === 'light')) set.colorMode = ls; else { if (PER_SHEET) document.documentElement.setAttribute('data-theme', window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); return; } }
+  if (document.documentElement.getAttribute('data-theme') !== set.colorMode) document.documentElement.setAttribute('data-theme', set.colorMode);
+  if (ls !== set.colorMode) try { localStorage.setItem('dnd-sheet-theme', set.colorMode); } catch (e) {}
+}
+function applyTheme() {
+  applyMode();
+  const st = document.documentElement.style, th = S.theme || {}, dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  ['--gold', '--gold-ink', '--gold-soft', '--navy', '--navy2'].forEach(v => st.removeProperty(v));
+  const a = hexToRgb(th.accent);
+  st.removeProperty('--on-gold');
+  if (a) { const lum = (0.299 * a[0] + 0.587 * a[1] + 0.114 * a[2]) / 255; st.setProperty('--on-gold', lum < 0.55 ? '#FFFFFF' : '#1D2536'); st.setProperty('--gold', rgbHex(a)); st.setProperty('--gold-ink', rgbHex(readableInk(a, dark))); st.setProperty('--gold-soft', rgbHex(dark ? mix(a, [20, 24, 32], 0.75) : mix(a, [255, 255, 255], 0.78))); }
+  const g = hexToRgb(th.bg);
+  ['--bg', '--bg2'].forEach(v => st.removeProperty(v));
+  if (g) { st.setProperty('--bg', rgbHex(dark ? mix(g, [8, 10, 16], 0.82) : g)); st.setProperty('--bg2', rgbHex(dark ? mix(g, [14, 18, 26], 0.75) : mix(g, [0, 0, 0], 0.06))); }
+  const root = document.documentElement; root.classList.add('compact'); root.style.fontSize = N(ST('fontScale')) && N(ST('fontScale')) !== 100 ? N(ST('fontScale')) + '%' : '';
+  const n = hexToRgb(th.banner);
+  if (n) { st.setProperty('--navy', rgbHex(dark ? mix(n, [0, 0, 0], 0.45) : n)); st.setProperty('--navy2', rgbHex(mix(n, [0, 0, 0], dark ? 0.65 : 0.3))); }
+}
+function matchPortrait(announceIt) {
+  if (!S.portrait) { toast('Add a portrait first.'); return; }
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas'); c.width = c.height = 48; const g = c.getContext('2d'); g.drawImage(img, 0, 0, 48, 48);
+    const d = g.getImageData(0, 0, 48, 48).data; let best = null, bestS = -1, dark = [0, 0, 0], dn = 0;
+    const buckets = {};
+    for (let k = 0; k < d.length; k += 4) {
+      const r = d[k], gg = d[k + 1], b = d[k + 2], mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), sat = mx ? (mx - mn) / mx : 0, lum = (mx + mn) / 2;
+      if (lum < 90) { dark = [dark[0] + r, dark[1] + gg, dark[2] + b]; dn++; }
+      if (sat < 0.35 || mx < 90) continue;
+      const key = [r >> 5, gg >> 5, b >> 5].join(','); const bk = buckets[key] = buckets[key] || { n: 0, c: [0, 0, 0] }; bk.n++; bk.c = [bk.c[0] + r, bk.c[1] + gg, bk.c[2] + b];
+    }
+    Object.values(buckets).forEach(bk => { const col = bk.c.map(v => v / bk.n), mx = Math.max(...col), mn = Math.min(...col), sc = bk.n * ((mx - mn) / mx); if (sc > bestS) { bestS = sc; best = col; } });
+    S.theme = Object.assign({}, S.theme, { accent: best ? rgbHex(best) : '', banner: dn > 20 ? rgbHex(mix(dark.map(v => v / dn), [20, 26, 40], 0.35)) : '' });
+    pendingLabel = 'Theme from portrait'; applyTheme(); save(); render('header');
+    if (announceIt) { closeModal(true); toast('Theme colors matched to your portrait.'); }
+  };
+  img.src = S.portrait;
+}
+function openThemeModal() {
+  const th = S.theme || {};
+  const presets = ['#E0A526', '#C2462E', '#2F8F5B', '#3A7BD5', '#8A4FD1', '#D04F8E', '#1E9AA0', '#8B6B3D'];
+  openModal(`<h3>Theme color</h3><p class="hint" style="margin:0 0 8px">Pick an accent, or match the colors in your portrait.</p>
+    <div class="swatches">${presets.map(p => `<button class="sw" style="background:${p}" data-act="themeset" data-v="${p}" aria-label="${p}"></button>`).join('')}</div>
+    <div class="row" style="margin-top:10px"><label class="checkline">Custom <input type="color" id="themePick" value="${esc(th.accent || '#E0A526')}"></label>
+      <button class="btn" data-act="themeportrait" ${S.portrait ? '' : 'disabled'}>Match portrait</button><button class="btn ghost" data-act="themeset" data-v="">Default</button></div>
+    <div class="actions"><button class="btn" data-act="close">Done</button></div>`);
+  $('#themePick').addEventListener('input', e => setAccent(e.target.value, true));
+}
+function setAccent(v, live) { S.theme = Object.assign({}, S.theme, { accent: v }); if (!v) S.theme.banner = ''; pendingLabel = 'Edit: Theme color'; applyTheme(); save(); if (!live) { render('header'); } }
+function confirmNewChar() {
+  openModal(`<h3>Start a new character?</h3><p>This clears the sheet in this browser and opens character creation. Download or export this character first if you want to keep it.</p>
+    <div class="actions"><button class="btn" data-act="savehtml">Download first</button><button class="btn" data-act="close">Cancel</button><button class="btn red" data-act="newcharok">Start over</button></div>`);
+}
+function newCharacter() {
+  try { localStorage.removeItem(keyFor(S.id)); localStorage.removeItem(hkey()); if (BLANK_FILE) localStorage.removeItem(PATH_KEY); } catch (e) {}
+  S = Object.assign(blankState(), { dataRev: EMBED.dataRev || '', layout: S.layout || {} }); S = migrate(S); HIST = []; REDO = []; LAST = snapAll();
+  closeModal(true); applyTheme(); openWizard();
+}
+
+// ---------- Update to a newer version of the sheet ----------
+// Reads a newer blank sheet file, bakes this character into it and switches this tab over to it.
+$('#updateFile').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    const text = String(r.result || ''), open = '<script id="sheet-data" type="application/json">';
+    const a = text.indexOf(open), b = a < 0 ? -1 : text.indexOf('</' + 'script>', a);
+    if (a < 0 || b < 0 || !/data-act=|id="sec-header"/.test(text)) { toast("That file isn't a character sheet.", 'fumble', 7000); return; }
+    let theirs = {}; try { theirs = JSON.parse(text.slice(a + open.length, b) || '{}'); } catch (x) {}
+    if (theirs.created) { toast(`That file already holds a character (${esc(theirs.name || 'unnamed')}). Pick the blank sheet you were sent.`, 'fumble', 9000); return; }
+    const ver = (/const APP_VERSION = '([^']+)'/.exec(text) || [])[1] || 'unknown';
+    S.updatedFrom = APP_VERSION; S.updatedTo = ver; S.dataRev = theirs.dataRev || ''; S.savedAt = Date.now();
+    writeLocal();
+    const json = JSON.stringify(S).replace(/</g, '\\u003c');
+    const out = text.slice(0, a + open.length) + json + text.slice(b);
+    try { delete window.DND; } catch (x) { window.DND = undefined; }
+    document.open(); document.write(out); document.close();
+  };
+  r.readAsText(f);
+});
+// First run after an update: say what happened and offer the new choices.
+function afterUpdate() {
+  if (!S.updatedFrom) return;
+  const from = S.updatedFrom; delete S.updatedFrom; delete S.updatedTo; rebuildAuto(); save();
+  const n = owedChoices().length;
+  openModal(`<h3>Sheet updated</h3><p>${esc(S.name || 'Your character')} moved from version ${esc(from)} to ${esc(APP_VERSION)}. Everything you had is kept.</p>
+    ${n ? `<p><b>${n} choice${n > 1 ? 's' : ''}</b> ${n > 1 ? 'are' : 'is'} waiting — things your levels give you that weren't picked yet (sometimes because older versions didn't ask).</p>` : '<p>Nothing new to choose.</p>'}
+    <p class="hint">Download the updated sheet to keep it as a file: Save → Download this character.</p>
+    <div class="actions"><button class="btn" data-act="savehtml">Download now</button>${n ? '<button class="btn gold" data-act="pending">Review choices</button>' : '<button class="btn gold" data-act="close">Done</button>'}</div>`);
+}
+
+function clampHp() { if (S.hp && N(S.hp.cur) > maxHp()) S.hp.cur = maxHp(); }
+const stepper = (act, k, val, aria) => `<span class="mstep"><button data-act="${act}" data-k="${k}" data-d="-1" aria-label="${aria} −1">−</button><b>${val}</b><button data-act="${act}" data-k="${k}" data-d="1" aria-label="${aria} +1">+</button></span>`;
+const durStep = k => { const r = tmr(k); return `<span class="mstep dur"><button data-act="tmpmodr" data-k="${k}" data-d="-1" aria-label="Shorter" ${r <= -2 ? 'disabled' : ''}>−</button><b>${durText(r)}</b><button data-act="tmpmodr" data-k="${k}" data-d="1" aria-label="Longer">+</button></span>`; };
+function openHpManage() {
+  const calc = hpMaxCalc(), adj = N(S.hp.adj), fxv = fxActive().reduce((t, e) => t + (e.self !== false && !e.ally ? N(e.maxHp) : 0), 0), tv = tmv('hpmax'), halved = N(S.exhaustion) >= 4 && !exModern();
+  const line = (l, v, cls = '') => `<div class="mline${cls}"><span>${l}</span><b>${v}</b></div>`;
+  const html = `<div id="hpmanage"><div class="sethead"><h3>Max HP</h3><button class="btn sm gold" data-act="close">Done</button></div>
+    <div class="mbig"><b>${maxHp()}</b><span>maximum hit points</span></div>
+    <div class="mlines">${line('Hit Dice, CON and level', calc)}${adj ? line('Your adjustment', fmt(adj)) : ''}${fxv ? line('Spells and features', fmt(fxv)) : ''}${tv ? line('Temporary change', fmt(tv), ' warnline') : ''}${halved ? line('Exhaustion 4+', '½', ' warnline') : ''}</div>
+    <div class="msec"><div class="msec-h"><b>Permanent adjustment</b><small>Toughness from an old ruling, a blessing, a mistake in the math — kept on level up.</small></div>${stepper('hpadj', 'adj', fmt(adj), 'Adjustment')}</div>
+    <p class="hint" style="margin:8px 0 0">For a temporary change to max HP (life drain, a curse, Aid from someone else) use <b>Conditions</b>.</p>
+  </div>`;
+  if ($('#hpmanage') && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html);
+}
+function openAcManage() {
+  const ai = acInfo(), man = S.acOverride !== '' && S.acOverride != null, tv = tmv('ac');
+  const html = `<div id="acmanage"><div class="sethead"><h3>Armor Class</h3><button class="btn sm gold" data-act="close">Done</button></div>
+    <div class="mbig"><b>${ai.total}</b><span>armor class</span></div>
+    <div class="mlines">${ai.parts.map(p => `<div class="mline"><span>${esc(p)}</span></div>`).join('')}</div>
+    <div class="msec"><div class="msec-h"><b>Set it yourself</b><small>${man ? 'Set manually — armor and DEX are ignored.' : 'Automatic from your armor, shield and DEX.'}</small></div><span class="mset"><input class="f" type="number" inputmode="numeric" data-acin placeholder="${ai.total}" value="${man ? ai.total : ''}" aria-label="Armor class">${man ? '<button class="btn sm" data-act="acauto">Auto</button>' : ''}</span></div>
+    <div class="msec"><div class="msec-h"><b>Temporary change</b><small>Shield of Faith from an ally, a curse, cover…</small></div>${stepper('tmpmod', 'ac', tv ? fmt(tv) : '0', 'Temporary AC')}</div>
+    ${tv ? `<div class="msec"><div class="msec-h"><b>Lasts</b></div>${durStep('ac')}</div>` : ''}
+  </div>`;
+  if ($('#acmanage') && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html);
+}
+
+const mOpen = sel => !!$(sel) && $('#modal').classList.contains('open') && $('#modal-body').contains($(sel));
+
+
+// ---------- Fields that grow to fit their text ----------
+function fitInput(el) {
+  const min = N(el.dataset.fit) || 6, len = Math.max(String(el.value || '').length, String(el.placeholder || '').length * 0.8);
+  const sz = Math.max(min, Math.ceil(len) + 1);
+  if (el.size !== sz) el.size = sz;
+  if (el.classList.contains('name')) fitNameFont(el);
+}
+// The character name shrinks to fit its box (never cut off); full name on hover.
+let _fitCv;
+function fitNameFont(el) {
+  el.style.fontSize = ''; const w = (el.clientWidth - 14) * 0.93; if (w <= 0) return;
+  const cs = getComputedStyle(el), base = parseFloat(cs.fontSize), ctx = (_fitCv = _fitCv || document.createElement('canvas')).getContext('2d');
+  ctx.font = `${cs.fontWeight} ${base}px ${cs.fontFamily}`;
+  const tw = ctx.measureText(el.value || el.placeholder || '').width;
+  if (tw > w) { let fs = Math.max(10, Math.floor(base * w / tw)); el.style.fontSize = fs + 'px'; while (el.scrollWidth > el.clientWidth && fs > 10) el.style.fontSize = --fs + 'px'; }
+  el.title = el.value || '';
+}
+
+// ---------- Settings ----------
+let SETTAB = 'char';
+function openSettings(tab) {
+  SETTAB = tab || 'char';
+  const th = S.theme || {};
+  const opt = (k, opts) => `<select class="f" data-set="${k}">${opts.map(([v, t]) => `<option value="${v}"${String(ST(k)) === String(v) ? ' selected' : ''}>${t}</option>`).join('')}</select>`;
+  const tog = (k, t, sub) => `<label class="setrow"><input type="checkbox" data-set="${k}"${ST(k) ? ' checked' : ''}><span><b>${t}</b>${sub ? `<small>${sub}</small>` : ''}</span></label>`;
+  const row = (t, ctl, sub) => `<div class="setrow"><span><b>${t}</b>${sub ? `<small>${sub}</small>` : ''}</span>${ctl}</div>`;
+  const col = (k, label, def) => `<label class="colpick"><input type="color" data-themekey="${k}" value="${esc(th[k] || def)}"><span>${label}</span>${th[k] ? `<button class="linkbtn" data-act="setpreset" data-k="${k}" data-v="">reset</button>` : ''}</label>`;
+  const presets = [['#E0A526', '#26304A'], ['#C2462E', '#2A1E1E'], ['#2F8F5B', '#1C2C26'], ['#3A7BD5', '#1B2540'], ['#8A4FD1', '#241B38'], ['#D04F8E', '#2E1A28'], ['#1E9AA0', '#16292D'], ['#B08A4E', '#2B2620']];
+  const TABS = [['char', 'Character &amp; sheet'], ['rules', 'Rules'], ['dice', 'Dice'], ['theme', 'Theme'], ['data', 'Backup &amp; files']].filter(([k]) => !(window.SHEET_PAGES && k === 'data'));  // on the website the cloud is the backup
+  if (window.SHEET_PAGES && SETTAB === 'data') SETTAB = 'char';
+  const pane = (k, h) => `<section class="stpane${SETTAB === k ? ' on' : ''}" data-pane="${k}" role="tabpanel">${h}</section>`;
+  openModal(`<div class="sethead"><h3>Settings</h3><button class="btn sm" data-act="close">Done</button></div>
+    <div class="stabs" role="tablist">${TABS.map(([k, t]) => `<button class="stab${SETTAB === k ? ' on' : ''}" data-act="settab" data-k="${k}" role="tab" aria-selected="${SETTAB === k}">${t}</button>`).join('')}<span class="stab-ink"></span></div>
+    <div class="setx">
+    ${pane('char', `
+      ${row('Race', `<button class="btn sm" data-act="changerace">Change…</button>`, esc(S.raceName || '—'))}
+      ${row('Background', `<button class="btn sm" data-act="changebg">Change…</button>`, esc(S.backgroundName || '—'))}
+      ${subclassSettingsHTML()}
+      ${row('Leveling', opt('advancement', [['milestone', 'Milestone'], ['xp', 'XP']]), '')}
+      ${row('Ability blocks', opt('abilityStyle', [['mod', 'Modifier big'], ['score', 'Score big']]))}
+      ${row('Spell sorting', opt('combatSpellSort', [['level', 'Grouped by level'], ['purpose', 'Grouped by purpose'], ['custom', 'My own categories (set up on the Spells tab)']]))}
+      <div class="setrow chkrow"><span><b>Show in header</b></span><span class="chkset">${[['showName', 'Name'], ['showPlayer', 'Player'], ['showRace', 'Race'], ['showBackground', 'Background'], ['showAlignment', 'Alignment'], ['showFaith', 'Faith']].map(([k, t]) => `<label class="checkline"><input type="checkbox" data-set="${k}"${ST(k) ? ' checked' : ''}> ${t}</label>`).join('')}</span></div>
+      ${booksHTML()}
+`)}
+    ${pane('dice', `
+      <div class="dicemodes">${[['sheet', 'The sheet rolls', 'Every roll happens here, fully automated.'], ['manual', 'I use my own rolls', 'Shows the dice to roll; asks for your total only when automation needs it (healing, temp HP, death saves…). Everything else is still tracked.'], ['roll20', 'Roll20 rolls for me', 'Rolls post to your Roll20 game’s chat and the results come back here (needs the companion extension).']].map(([v, t, d]) => `<label class="dmode${diceMode() === v ? ' on' : ''}"><input type="radio" name="dicemode" data-set="diceMode" value="${v}"${diceMode() === v ? ' checked' : ''}><span><b>${t}</b>${diceMode() === v ? `<small>${d}</small>` : ''}</span></label>`).join('')}</div>
+      ${diceMode() === 'roll20' ? '<div id="r20status" class="r20box"></div>' : ''}
+      <button class="r20macros" data-act="macros" title="Copy Roll20 macros for everything rollable" aria-label="Roll20 macros"><img src="${R20_LOGO}" alt=""></button>
+      <p class="hint" style="margin:4px 0 0">Copy macros for every attack, save, skill and spell.</p>
+    `)}
+    ${pane('rules', `
+      ${row('Exhaustion', opt('exhaustionRule', [['2014', '2014 table'], ['2024', '2024 rule']]), exModern() ? '−2 to d20s and −5 ft per level' : 'Effects stack by level')}
+      ${exModern() ? tog('exhaustionDC', 'Exhaustion also lowers spell save DC', 'House rule: −1 per level') : ''}
+      ${row('Critical hits', opt('critRule', [['double', 'Roll dice twice'], ['max', 'Max dice + roll']]))}
+      ${row('Encumbrance', opt('encumbrance', [['off', 'Off'], ['standard', 'Standard (carrying capacity)'], ['variant', 'Variant (encumbered / heavily)']]), ST('encumbrance') === 'variant' ? '−10 ft over 5×STR lb, −20 ft over 10×STR' : ST('encumbrance') === 'standard' ? 'Carry up to 15 × STR lb' : 'Weights are ignored')}
+      ${hasSub('artificer', 'artillerist') ? tog('protectorScales', 'Protector cannon scales with Explosive Cannon', 'House rule — 2d8 + INT temp HP from 9th level, like the other two') : ''}
+      ${tog('electrum', 'Use electrum pieces (EP)', 'Shows electrum in the coin purse — most tables skip it')}
+      ${tog('nat1Roll', 'Nat 1 Roll: a natural 1 on an attack also rolls a d4', 'House rule — the d4 is always the last roll')}
+      ${tog('inspiration', 'Track Inspiration', 'A − / + counter under your portrait')}
+      <label class="setrow subset${ST('inspiration') ? '' : ' dis'}" title="${ST('inspiration') ? '' : 'Turn on Track Inspiration first'}"><input type="checkbox" data-set="inspMany"${ST('inspMany') ? ' checked' : ''}${ST('inspiration') ? '' : ' disabled'}><span><b>More than one Inspiration</b><small>House rule — no limit on how many you can hold${ST('inspiration') ? '' : ' (turn on Track Inspiration to use it)'}</small></span></label>
+      ${tog('concPrompt', 'Concentration save prompt when hurt')}
+      ${tog('durationAlerts', 'Warn when spells are ending')}
+      ${tog('autoSpend', 'Using things in Combat marks the action spent')}
+    
+      <p class="hint" style="margin:8px 0 0">Rules text marked SRD is from the System Reference Document 5.1 by Wizards of the Coast LLC (CC-BY-4.0). Other descriptions are written for this sheet. Any spell or feature can use your own wording instead (edit it on the Spells or Features tab).</p>
+`)}
+    ${pane('theme', `${isMobile() ? row('Bottom tab bar position', `<span class="liftctl"><button class="btn sm" data-act="tablift" data-d="-8" aria-label="Lower">−</button><b>${tabLift()}</b><button class="btn sm" data-act="tablift" data-d="8" aria-label="Raise">+</button></span>`, 'This device only. Raise it if the browser\'s own toolbar covers the tabs (Safari does this).') : ''}
+
+      <div class="swatches">${presets.map(([a, b]) => `<button class="sw" style="background:linear-gradient(135deg, ${b} 50%, ${a} 50%)" data-act="setpreset" data-k="pair" data-v="${a}|${b}" aria-label="Preset"></button>`).join('')}</div>
+      <div class="colrow">${col('accent', 'Accent', '#E0A526')}${col('banner', 'Header', '#26304A')}${col('bg', 'Page background', '#E6E4DC')}</div>
+      <div class="row" style="margin-top:6px"><button class="btn sm" data-act="themeportrait" ${S.portrait ? '' : 'disabled'}>Match colors to portrait</button><button class="btn sm ghost" data-act="setpreset" data-k="all" data-v="">Default colors</button></div>
+      ${row('Light / dark', `<button class="btn sm" data-act="theme">Switch</button>`)}
+      ${row('Text size', opt('fontScale', [[90, 'Small'], [100, 'Normal'], [110, 'Large'], [120, 'Extra large']]))}
+    `)}
+    ${pane('data', `${row('Download this character', `<button class="btn sm" data-act="savehtml">Download (.html)</button>`, 'A copy of this sheet with everything baked in — share or keep it')}
+      ${row('Export data', `<button class="btn sm" data-act="export">Export (.json)</button>`, 'Backup or move to another device')}
+      ${row('Import data', `<button class="btn sm" data-act="import">Import (.json)</button>`, 'Load a previous export')}
+      ${row('Update this sheet', `<button class="btn sm" data-act="updatesheet">Update…</button>`, `Version ${APP_VERSION} · move into a newer sheet file`)}
+      ${row('Start over', `<button class="btn sm red" data-act="newchar">New character…</button>`, 'Clears this sheet — download it first to keep it')}`)}
+    </div>`, null, true);
+  setTabInk(false); fitSettingsHeight();
+  if ($('#r20status')) { renderR20Box(); r20Hello(); }
+}
+function setSetting(t) {
+  const k = t.dataset.set; let v = t.type === 'checkbox' ? t.checked : t.value;
+  if (k === 'fontScale') v = N(v);
+  S.settings = Object.assign({}, S.settings, { [k]: v });
+  pendingLabel = 'Setting: ' + k; save(); applyTheme(); render();
+  if (k === 'inspiration') { const m = document.querySelector('#modal-body [data-set="inspMany"]'); if (m) { m.disabled = !v; const l = m.closest('.setrow'); l.classList.toggle('dis', !v); l.title = v ? '' : 'Turn on Track Inspiration first'; const sm = l.querySelector('small'); if (sm) sm.textContent = 'House rule — no limit on how many you can hold' + (v ? '' : ' (turn on Track Inspiration to use it)'); } }
+  if (k === 'diceMode') { reopenSettings(); toast(v === 'manual' ? 'You use your own rolls — the sheet tracks everything and asks for totals only when it needs them.' : v === 'roll20' ? 'Rolls go to Roll20 once the extension is connected.' : 'The sheet rolls the dice again.'); }
+}
+function setThemeColor(k, v, live) {
+  const th = Object.assign({}, S.theme);
+  if (k === 'pair') { const [a, b] = v.split('|'); th.accent = a; th.banner = b; }
+  else if (k === 'all') { th.accent = ''; th.banner = ''; th.bg = ''; }
+  else th[k] = v;
+  S.theme = th; pendingLabel = 'Edit: Theme colors'; save(); applyTheme();
+  if (!live) { render('header'); if ($('#modal').classList.contains('open') && $('.setx')) reopenSettings(); }
+}
+
+// ---------- Edit layout ----------
+// Everything outlined in edit mode can be dragged by its ⠿ handle (mouse or touch):
+// panels (also onto another tab), tabs, the stat tiles, toolbar buttons, the Equipped/Pack columns,
+// the action columns and the ability blocks. The ⋯ menu on a panel has the same moves as buttons.
+const PNAMES = { oocmain: 'Out of initiative: spells, features & checks', abilities: 'Abilities & Saves', skills: 'Skills', attacks: 'Attacks', profs: 'Proficiencies', turnbar: 'Turn tracker', slots: 'Spell slots', activefx: 'Active spells', cmini: 'Creatures (combat)', economy: 'Actions', spellcasting: 'Spellcasting', spelllist: 'Spell list', classes: 'Classes & Levels', featlist: 'Features', inventory: 'Inventory', companions: 'Creatures', personality: 'Personality', appearance: 'Appearance', backstory: 'Backstory', rumors: 'Rumors', people: 'People', quotes: 'Quotes', lore: 'Lore', goals: 'Goals & To-Do', sessions: 'Session notes' };
+const PAGE_COLS = { core: 3, combat: 2, spells: 1, features: 1, inventory: 1, companions: 1, story: 2, notes: 2 };
+const ZNAMES = { vitals: 'stat tiles', toolbar: 'toolbar buttons', invcols: 'inventory columns', econ: 'action columns', abil: 'ability blocks' };
+const LY = () => { const L = S.layout = S.layout || {}; L.pages = L.pages || {}; L.cols = L.cols || {}; L.hidden = L.hidden || []; L.wide = L.wide || []; L.zones = L.zones || {}; L.zhidden = L.zhidden || []; return L; };
+const pageOf = el => { const p = el && el.closest('.page'); return p ? p.id.replace('page-', '') : ''; };
+const tabLabel = k => (((S.layout || {}).tabNames || {})[k]) || (TABS0.concat(ctabs().map(t => [t.key, t.name])).find(t => t[0] === k) || [0, k])[1];
+function pidsIn(pg) { return $$('#page-' + pg + ' [data-pid]').map(e => e.dataset.pid); }
+function ensurePage(pg) { const L = LY(); if (!L.pages[pg]) L.pages[pg] = pidsIn(pg); return L.pages[pg]; }
+// Re-placing modules moves them in the page, which drops keyboard focus. Put the cursor back where it was,
+// so typing in a field (like a new item's name) isn't cut off after one letter.
+function applyPanelLayout() {
+  const a = document.activeElement, typing = a && a !== document.body && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable);
+  let s0 = null, s1 = null, dir; if (typing) { try { s0 = a.selectionStart; s1 = a.selectionEnd; dir = a.selectionDirection; } catch (e) {} }
+  const sx = scrollX, sy = scrollY;
+  _applyPanelLayout();
+  if (typing && a.isConnected && document.activeElement !== a) { a.focus({ preventScroll: true }); if (s0 != null) { try { a.setSelectionRange(s0, s1, dir); } catch (e) {} } if (scrollX !== sx || scrollY !== sy) scrollTo(sx, sy); }
+}
+function _applyPanelLayout() {
+  ensureCustomPages();
+  const L = S.layout || {}, pages = L.grid ? {} : (L.pages || {}), ae = document.activeElement, ed = !!UI.editLayout;
+  // Panels added in later versions go next to their neighbours in a saved layout.
+  [['spells', 'mmspells', 'spellcasting'], ['combat', 'metamagic', 'activefx']].forEach(([pg, id, after]) => { const a = pages[pg]; if (a && !a.includes(id) && $(`#page-${pg} [data-pid="${id}"]`)) { const k = a.indexOf(after); a.splice(k < 0 ? a.length : k + 1, 0, id); } });
+  const by = {};
+  $$('.page [data-pid]').forEach(el => (by[el.dataset.pid] = by[el.dataset.pid] || []).push(el));
+  Object.keys(by).forEach(id => { const els = by[id]; if (els.length < 2) return; const keep = els.find(e => e.contains(ae)) || els.reduce((a, b) => (N(b.dataset.gen) > N(a.dataset.gen) ? b : a)); els.forEach(e => { if (e !== keep) e.remove(); }); by[id] = [keep]; });
+  if (L.grid) gridApply(by);
+  const listed = new Set(Object.values(pages).flat());
+  Object.keys(pages).forEach(pg => {
+    const page = $('#page-' + pg); if (!page) return;
+    const flow = document.createElement('div'); flow.className = 'flow';
+    flow.style.setProperty('--cols', (L.cols || {})[pg] || PAGE_COLS[pg] || 2);
+    pages[pg].forEach(id => { const el = by[id] && by[id][0]; if (el) flow.appendChild(el); });
+    $$('[data-pid]', page).forEach(el => { if (!flow.contains(el) && !listed.has(el.dataset.pid)) flow.appendChild(el); });
+    [...page.children].forEach(c => { if (!c.contains(flow)) c.remove(); });
+    page.appendChild(flow);
+  });
+  $$('.page .stack, .page .cstrip').forEach(w => { if (!w.children.length) w.remove(); });
+  // Small reorderable groups
+  $$('[data-zone]').forEach(z => {
+    const order = z.dataset.ordered !== undefined ? null : (L.zones || {})[z.dataset.zone]; if (order) order.forEach(id => { const c = [...z.children].find(x => x.dataset && x.dataset.zi === id); if (c) z.appendChild(c); });
+    [...z.children].forEach(c => {
+      if (!c.dataset || !c.dataset.zi) return;
+      const key = z.dataset.zone + ':' + c.dataset.zi, hid = (L.zhidden || []).includes(key);
+      c.classList.toggle('zhid', hid);
+      $$(':scope > .zh, :scope > .zx', c).forEach(x => x.remove());
+      // The top of the sheet (header buttons, HP/AC tiles) and the ability boxes stay put; tabs and the combat/inventory columns can move.
+      if (ed && !NOEDIT_ZONES.includes(z.dataset.zone)) c.insertAdjacentHTML('afterbegin', `<span class="zh" data-handle="zone" title="Drag to move">${GRIP_SVG}</span><button class="zx" data-act="zhide" data-k="${esc(key)}" title="${hid ? 'Show' : 'Hide'}">${hid ? '+' : '–'}</button>`);
+    });
+  });
+  // Old-style hidden panels (classic layouts) stay hidden; the grid layout handles its own.
+  $$('[data-pid]').forEach(el => { const id = el.dataset.pid; el.classList.toggle('phid', panelHidden(id)); el.classList.toggle('pwide', !L.grid && (L.wide || []).includes(id)); });
+  // A two-column strip with one side hidden (no spell slots, say) lets the other side take the full width.
+  $$('.cstrip').forEach(c => c.classList.toggle('one', [...c.children].filter(k => !k.classList.contains('phid') && getComputedStyle(k).display !== 'none').length < 2));
+  editDecorate();
+}
+const NOEDIT_ZONES = ['vitals', 'toolbar', 'abil'];
+const GRIP_SVG = '<svg viewBox="0 0 10 14" width="9" height="12" aria-hidden="true"><g fill="currentColor"><circle cx="3" cy="2.5" r="1.3"/><circle cx="7" cy="2.5" r="1.3"/><circle cx="3" cy="7" r="1.3"/><circle cx="7" cy="7" r="1.3"/><circle cx="3" cy="11.5" r="1.3"/><circle cx="7" cy="11.5" r="1.3"/></g></svg>';
+function layoutChanged(label) { pendingLabel = label; save(); render(); }
+function panelMove(id, d) {
+  const el = $(`.page [data-pid="${id}"]`), pg = pageOf(el); if (!pg) return;
+  const L = ensurePage(pg), i = L.indexOf(id), j = i + d; if (i < 0 || j < 0 || j >= L.length) return;
+  [L[i], L[j]] = [L[j], L[i]]; layoutChanged('Move panel');
+}
+function panelTo(id, pg, refId, after) {
+  const el = $(`.page [data-pid="${id}"]`), from = pageOf(el); if (!from) return;
+  ensurePage(from); ensurePage(pg);
+  const P = LY().pages; P[from] = P[from].filter(x => x !== id); P[pg] = P[pg].filter(x => x !== id);
+  let k = refId ? P[pg].indexOf(refId) : -1; if (k >= 0 && after) k++;
+  if (k >= 0) P[pg].splice(k, 0, id); else P[pg].push(id);
+  layoutChanged(from === pg ? 'Move panel' : `Move ${PNAMES[id] || id} to ${tabLabel(pg)}`);
+  if (from !== pg) toast(`${esc(PNAMES[id] || id)} moved to ${esc(tabLabel(pg))}.`, '', 4000, [{ label: 'Go there', fn: () => { UI.tab = pg; saveUI(); render(); } }, { label: 'Undo', fn: () => undo(1) }]);
+}
+function panelToggle(id, key) { const L = LY();
+  if (key === 'hidden' && panelAutoHidden(id)) { L.shown = L.shown || []; const hid = panelHidden(id); if (hid) { L.hidden = L.hidden.filter(x => x !== id); if (!L.shown.includes(id)) L.shown.push(id); } else { L.shown = L.shown.filter(x => x !== id); } layoutChanged('Hide/show ' + (PNAMES[id] || id)); return; }
+  const a = L[key]; const i = a.indexOf(id); if (i >= 0) a.splice(i, 1); else a.push(id); layoutChanged((key === 'hidden' ? 'Hide/show ' : 'Width: ') + (PNAMES[id] || id)); }
+function pageCols(pg, n) { ensurePage(pg); LY().cols[pg] = n; layoutChanged(`Columns on ${tabLabel(pg)}: ${n}`); }
+function pageReset(pg) {
+  const L = LY(); const mine = $$('.page [data-pid]').filter(e => e.dataset.home === pg).map(e => e.dataset.pid);
+  delete L.pages[pg]; delete L.cols[pg];
+  Object.keys(L.pages).forEach(p => { L.pages[p] = L.pages[p].filter(x => !mine.includes(x)); });
+  L.hidden = L.hidden.filter(x => !mine.includes(x)); L.wide = L.wide.filter(x => !mine.includes(x));
+  const zonesHere = $$('#page-' + pg + ' [data-zone]').map(z => z.dataset.zone);
+  zonesHere.forEach(z => delete L.zones[z]); L.zhidden = L.zhidden.filter(k => !zonesHere.includes(k.split(':')[0]));
+  layoutChanged('Reset tab layout');
+}
+function zoneMove(zone, id, ref, after) {
+  const z = $(`[data-zone="${zone}"]`); if (!z) return;
+  const order = [...z.children].map(c => c.dataset && c.dataset.zi).filter(Boolean).filter(x => x !== id);
+  let k = order.indexOf(ref); if (k < 0) k = order.length; else if (after) k++;
+  order.splice(k, 0, id); LY().zones[zone] = order; layoutChanged('Rearrange ' + (ZNAMES[zone] || zone));
+}
+function zoneHide(key) { const L = LY(), i = L.zhidden.indexOf(key); if (i >= 0) L.zhidden.splice(i, 1); else L.zhidden.push(key); layoutChanged('Hide/show item'); }
+function tabMove(k, d) {
+  const L = LY(), order = tabOrder().map(t => t[0]), i = order.indexOf(k), j = i + d; if (j < 0 || j >= order.length) return;
+  [order[i], order[j]] = [order[j], order[i]]; L.tabs = order; layoutChanged('Reorder tabs');
+}
+function tabHide(k) { const L = LY(); L.hiddenTabs = L.hiddenTabs || []; L.shownTabs = L.shownTabs || [];
+  if (tabAutoHidden(k)) { if (tabHidden(k)) { L.hiddenTabs = L.hiddenTabs.filter(x => x !== k); if (!L.shownTabs.includes(k)) L.shownTabs.push(k); } else L.shownTabs = L.shownTabs.filter(x => x !== k); }
+  else { const i = L.hiddenTabs.indexOf(k); if (i >= 0) L.hiddenTabs.splice(i, 1); else L.hiddenTabs.push(k); }
+  layoutChanged('Hide/show tab'); }
+function tabRename(k) {
+  openModal(`<h3>Rename tab</h3>${fld('Name', `<input class="f" id="tabName" value="${esc(tabLabel(k))}" autofocus>`)}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="tabrenameok" data-k="${k}">Save</button></div>`);
+}
+function tabRenameOK(k) { const L = LY(); L.tabNames = Object.assign({}, L.tabNames, { [k]: $('#tabName').value.trim() || undefined }); closeModal(true); layoutChanged('Rename tab'); }
+// Pointer-based dragging works the same with a mouse, pen or finger.
+let PD = null;
+document.addEventListener('pointerdown', e => {
+  if (!UI.editLayout || e.button > 0) return;
+  const h = e.target.closest('[data-handle]'); if (!h) return;
+  const kind = h.dataset.handle, item = kind === 'panel' ? h.closest('[data-pid]') : kind === 'zone' ? h.closest('[data-zi]') : h.closest('.tabwrap');
+  if (!item) return;
+  e.preventDefault();
+  PD = { kind, item, x0: e.clientX, y0: e.clientY, on: false, zone: kind === 'zone' ? item.parentElement : null, label: kind === 'panel' ? PNAMES[item.dataset.pid] || item.dataset.pid : kind === 'tab' ? tabLabel(item.dataset.tabkey) : (ZNAMES[item.parentElement.dataset.zone] || 'item') };
+});
+function dropClear() { $$('.drop-before, .drop-after, .dropon').forEach(x => x.classList.remove('drop-before', 'drop-after', 'dropon')); }
+document.addEventListener('pointermove', e => {
+  if (!PD) return;
+  const x = e.clientX, y = e.clientY;
+  if (!PD.on) {
+    if (Math.hypot(x - PD.x0, y - PD.y0) < 6) return;
+    PD.on = true; PD.item.classList.add('dragging'); document.body.classList.add('dragging-any');
+    PD.ghost = document.createElement('div'); PD.ghost.className = 'dghost'; PD.ghost.textContent = '⠿ ' + PD.label; document.body.appendChild(PD.ghost);
+  }
+  PD.ghost.style.transform = `translate(${x + 14}px, ${y + 10}px)`;
+  PD.ghost.style.display = 'none'; const el = document.elementFromPoint(x, y); PD.ghost.style.display = '';
+  const overTabs = el && el.closest('#tabs, #editbar');
+  if (!overTabs) { if (y < 40) window.scrollBy(0, -14); else if (y > innerHeight - 120) window.scrollBy(0, 14); }
+  dropClear(); PD.target = null; if (!el) return;
+  const side = (r, axis) => (axis === 'y' ? y > r.top + r.height / 2 : (y > r.bottom ? true : y < r.top ? false : x > r.left + r.width / 2));
+  if (PD.kind === 'panel') {
+    const tab = el.closest('.tabwrap');
+    if (tab) { tab.classList.add('dropon'); PD.target = { t: 'tab', pg: tab.dataset.tabkey }; return; }
+    const p = el.closest('.page [data-pid]');
+    if (p && p !== PD.item && !PD.item.contains(p)) { const after = side(p.getBoundingClientRect(), 'y'); p.classList.add(after ? 'drop-after' : 'drop-before'); PD.target = { t: 'panel', id: p.dataset.pid, after, pg: pageOf(p) }; return; }
+    const pg = el.closest('.page.on'); if (pg) { pg.classList.add('dropon'); PD.target = { t: 'page', pg: pg.id.replace('page-', '') }; }
+  } else if (PD.kind === 'zone') {
+    const c = el.closest('[data-zi]');
+    if (c && c !== PD.item && c.parentElement === PD.zone) { const after = side(c.getBoundingClientRect(), PD.zone.dataset.axis || 'x'); c.classList.add(after ? 'drop-after' : 'drop-before'); PD.target = { t: 'zone', id: c.dataset.zi, after }; }
+  } else {
+    const t = el.closest('.tabwrap');
+    if (t && t !== PD.item) { const after = side(t.getBoundingClientRect(), 'x'); t.classList.add(after ? 'drop-after' : 'drop-before'); PD.target = { t: 'tab', key: t.dataset.tabkey, after }; }
+  }
+});
+document.addEventListener('pointerup', () => {
+  if (!PD) return;
+  const d = PD; PD = null; dropClear(); document.body.classList.remove('dragging-any');
+  if (d.ghost) d.ghost.remove(); d.item.classList.remove('dragging');
+  if (!d.on || !d.target) return;
+  const T = d.target;
+  if (d.kind === 'panel') { const id = d.item.dataset.pid; if (T.t === 'tab' || T.t === 'page') panelTo(id, T.pg); else panelTo(id, T.pg, T.id, T.after); }
+  else if (d.kind === 'zone') zoneMove(d.zone.dataset.zone, d.item.dataset.zi, T.id, T.after);
+  else { const k = d.item.dataset.tabkey, order = tabOrder().map(t => t[0]).filter(x => x !== k); let i = order.indexOf(T.key); if (T.after) i++; order.splice(i, 0, k); LY().tabs = order; layoutChanged('Reorder tabs'); }
+});
+document.addEventListener('pointercancel', () => { if (PD) { if (PD.ghost) PD.ghost.remove(); PD.item.classList.remove('dragging'); PD = null; dropClear(); document.body.classList.remove('dragging-any'); } });
+function addProf(kind, v) {
+  if (kind === 'weapon') { S.profs.weaponNames = [...new Set((S.profs.weaponNames || []).concat([v]))]; }
+  else if (kind === 'tool') addText('profTools', [v]);
+  else addText('languages', [v]);
+  pendingLabel = 'Add ' + (kind === 'lang' ? 'language' : kind) + ': ' + v; save(); render();
+}
+
+// Original description of an automatic feature (for "Restore original").
+function findFeatureDesc(f) {
+  const k = String(f.key || ''), parts = k.split(':');
+  if (CL[parts[0]]) { const c = CL[parts[0]]; if (parts.length === 2) { const x = c.features.find(z => z[1] === parts[1]); return x ? x[2] : null; } const s = c.subclasses[parts[1]]; const x = s && s.features.find(z => z[1] === parts[2]); return x ? x[2] : null; }
+  if (parts[0] === 'race') { const r = raceInfo(); const x = r && r.traits.find(t => t[0] === parts[1]); return x ? x[1] : null; }
+  if (parts[0] === 'feat') { const x = DND.feats.find(z => z[0] === parts[1]); return x ? x[3] : null; }
+  if (parts[0] === 'bg') { const b = DND.backgrounds[S.background]; return b ? b.feature[1] : null; }
+  if (parts[0] === 'pick') { const op = DND.options[parts[1]]; const x = op && op.list.find(z => z[0] === parts.slice(2).join(':')); return x ? x[1] : null; }
+  return null;
+}
+
+// ---------- Automatic ammunition ----------
+// Weapons with the ammunition property find matching ammo in your inventory on their own
+// (bows → arrows, crossbows → bolts, slings → bullets, blowguns → needles, firearms → bullets/rounds).
+const AMMO_FOR = [[/long ?bow|short ?bow|\bbow\b/i, /arrow/i], [/crossbow/i, /bolt|quarrel/i], [/sling/i, /bullet|stone|pellet/i], [/blowgun/i, /needle|dart/i], [/pistol|musket|rifle|gun|flintlock|revolver|blunderbuss/i, /bullet|round|cartridge|shot|powder|ammunition/i]];
+const isFirearm = it => /pistol|musket|rifle|gun|flintlock|revolver|blunderbuss/i.test((it && ((it.weapon && it.weapon.base) || it.name)) || '');
+function autoAmmo(a) {
+  if (!a || !a.item) return false;
+  const it = S.inventory.find(x => x.id === a.item); if (!it || !it.weapon || !(it.weapon.props || []).includes('ammunition')) return false;
+  const cur = a.ammo && S.inventory.find(x => x.id === a.ammo);
+  if (cur && N(cur.qty) > 0) return false;
+  const nm = (it.weapon.base || '') + ' ' + it.name, rule = AMMO_FOR.find(([w]) => w.test(nm));
+  const cands = S.inventory.filter(x => !x.weapon && x !== it && N(x.qty) > 0 && (rule ? rule[1].test(x.name) : /ammunition|arrow|bolt|bullet/i.test(x.name)));
+  const pick = cands.find(x => !/freeze|silver|\+\d|magic|special/i.test(x.name)) || cands[0] || (!cur && S.inventory.find(x => !x.weapon && x !== it && (rule ? rule[1].test(x.name) : /ammunition/i.test(x.name))));
+  if (pick && pick.id !== a.ammo) { a.ammo = pick.id; return true; }
+  return false;
+}
+function syncAmmo() { let ch = false; S.attacks.forEach(a => { if (autoAmmo(a)) ch = true; }); return ch; }
+
+// ---------- Change race / background (from Settings) ----------
+// Uses the same pickers as character creation. What the old choice granted (fixed bonuses, skills,
+// languages, proficiencies) is removed when that box is ticked; choices you made for it can't be traced, so check those.
+let RC = null;
+const titleCase = s => String(s || '').replace(/\b\w/g, c => c.toUpperCase());
+function openRaceChange() {
+  RC = { kind: 'race', removeOld: true, custom: Object.assign({ name: '', size: 'Medium', speed: 30, darkvision: 0, traits: '' }, S.race.key === 'custom' ? { ...S.race.custom, traits: (S.race.custom.traits || []).map(t => t[0] + ': ' + t[1]).join('\n') } : {}) };
+  W = { race: S.race.key, sub: S.race.sub, tasha: false, ans: {} };
+  openModal('<div id="rcmodal"></div>', () => { RC = null; W = null; }, true); renderRaceChange();
+}
+function renderRaceChange() {
+  const x = W.race === 'custom' ? null : wzRace(), c = RC.custom;
+  const body = W.race === 'custom' ? `<div class="wz-grid">${fld('Race name', `<input class="f" data-rc="name" value="${esc(c.name)}" placeholder="e.g. Sea Elf (homebrew)">`)}${fld('Size', `<select class="f" data-rc="size">${['Tiny', 'Small', 'Medium', 'Large'].map(z => `<option${c.size === z ? ' selected' : ''}>${z}</option>`).join('')}</select>`)}
+      ${fld('Speed (ft)', `<input class="f" type="number" data-rc="speed" value="${esc(c.speed)}">`)}${fld('Darkvision (ft)', `<input class="f" type="number" data-rc="darkvision" value="${esc(c.darkvision)}">`)}</div>
+      ${fld('Traits — one per line, "Name: what it does"', `<textarea class="f" rows="5" data-rc="traits" placeholder="Keen Senses: proficiency in Perception">${esc(c.traits)}</textarea>`)}
+      <p class="hint">Adjust ability scores, skills and languages on the Core tab to match your custom race.</p>`
+    : x ? `<div class="wz-info"><p><b>${esc(x.name)}</b> · speed ${x.s.speed || x.r.speed || 30} ft${(x.s.darkvision || x.r.darkvision) ? ' · darkvision ' + (x.s.darkvision || x.r.darkvision) + ' ft' : ''}</p>
+        <ul>${((x.s.replaceTraits ? [] : x.r.traits || []).concat(x.s.traits || [])).map(t => `<li><b>${esc(t[0])}</b> — ${esc(t[1])}</li>`).join('')}</ul>
+        ${wzRaceAsiUI()}${wzRaceChoices().map((ch, k) => choiceUI(W.ans, 'race.' + k, ch)).join('')}</div>` : '';
+  $('#rcmodal').innerHTML = `<h3>Change race</h3>
+    <div class="wz-grid">${fld('Race', `<select class="f" data-rc="race"><option value="">— choose —</option>${DND.raceGroups.map(([g, ks]) => `<optgroup label="${esc(g)}">${ks.filter(k => DND.races[k]).map(k => `<option value="${k}"${W.race === k ? ' selected' : ''}>${esc(DND.races[k].name)}${DND.races[k].src !== 'PHB' ? ' (' + DND.races[k].src + ')' : ''}</option>`).join('')}</optgroup>`).join('')}<option value="custom"${W.race === 'custom' ? ' selected' : ''}>✎ Custom race…</option></select>`)}
+      ${x && x.r.subraces ? fld('Subrace', `<select class="f" data-rc="sub"><option value="">— choose —</option>${Object.entries(x.r.subraces).map(([k, s]) => `<option value="${k}"${W.sub === k ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select>`) : ''}</div>
+    ${body}
+    <label class="checkline" style="margin-top:8px"><input type="checkbox" data-rc="removeOld"${RC.removeOld ? ' checked' : ''}> Remove what ${esc(S.raceName || 'my old race')} gave me (fixed ability bonuses, skills, languages, weapon and armor training)</label>
+    <p class="hint">Traits, speed, senses, racial spells and natural weapons update automatically. Ability bonuses you placed yourself (like +2/+1) can't be traced — check your scores afterwards.</p>
+    <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="rcok">Change race</button></div>`;
+}
+function openBgChange() {
+  RC = { kind: 'bg', removeOld: true, custom: Object.assign({ name: '', feature: '', desc: '' }, S.background === 'custom' ? { name: S.backgroundName, ...(S.bgCustom || {}) } : {}) };
+  W = { bg: S.background, ans: {} };
+  openModal('<div id="rcmodal"></div>', () => { RC = null; W = null; }, true); renderBgChange();
+}
+function renderBgChange() {
+  const b = DND.backgrounds[W.bg], c = RC.custom, cust = W.bg === 'custom';
+  $('#rcmodal').innerHTML = `<h3>Change background</h3>
+    <div class="wz-grid">${fld('Background', `<select class="f" data-rc="bg"><option value="">— choose —</option>${Object.entries(DND.backgrounds).filter(([k]) => k !== 'custom').map(([k, v]) => `<option value="${k}"${W.bg === k ? ' selected' : ''}>${esc(v.name)}${v.src !== 'PHB' ? ' (' + v.src + ')' : ''}</option>`).join('')}<option value="custom"${cust ? ' selected' : ''}>✎ Custom background…</option></select>`)}</div>
+    ${cust ? `<div class="wz-grid">${fld('Background name', `<input class="f" data-rc="name" value="${esc(c.name)}" placeholder="e.g. Smuggler">`)}${fld('Feature name', `<input class="f" data-rc="feature" value="${esc(c.feature)}" placeholder="e.g. Hidden Routes">`)}</div>
+      ${fld('What the feature does', `<textarea class="f" rows="3" data-rc="desc">${esc(c.desc)}</textarea>`)}` : ''}
+    ${b ? `<div class="wz-info">${b.skills && b.skills.length ? `<p><b>Skills:</b> ${esc(b.skills.join(', '))}${b.tools && b.tools.length ? ` · <b>Tools:</b> ${esc(b.tools.join(', '))}` : ''}</p>` : ''}${!cust ? `<p><b>Feature:</b> ${esc(b.feature[0])} — ${esc(b.feature[1])}</p>` : ''}
+      ${b.skillChoice ? choiceUI(W.ans, 'bg.skill', { type: 'skill', n: b.skillChoice.n, from: b.skillChoice.from }) : ''}
+      ${b.toolChoice ? choiceUI(W.ans, 'bg.tool', { type: 'tool', n: b.toolChoice.n, from: b.toolChoice.from, orLang: b.toolChoice.orLang, label: b.toolChoice.orLang ? 'Tool or language' : 'Tool' }) : ''}
+      ${b.langs ? choiceUI(W.ans, 'bg.lang', { type: 'language', n: b.langs }) : ''}</div>` : ''}
+    <label class="checkline" style="margin-top:8px"><input type="checkbox" data-rc="removeOld"${RC.removeOld ? ' checked' : ''}> Remove the skills and tools ${esc(S.backgroundName || 'my old background')} gave me</label>
+    <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="rcok">Change background</button></div>`;
+}
+document.addEventListener('input', e => { const t = e.target; if (!t.dataset || t.dataset.rc === undefined || !RC) return; rcField(t, e.type); }, true);
+document.addEventListener('change', e => { const t = e.target; if (!t.dataset || t.dataset.rc === undefined || !RC) return; rcField(t, e.type); }, true);
+function rcField(t, type) {
+  const k = t.dataset.rc, v = t.type === 'checkbox' ? t.checked : t.value;
+  if (k === 'removeOld') { RC.removeOld = v; return; }
+  if (['race', 'sub', 'bg'].includes(k)) { if (type !== 'change') return; W[k] = v; if (k === 'race') { W.sub = ''; W.ans = {}; } if (k === 'bg') W.ans = {}; RC.kind === 'race' ? renderRaceChange() : renderBgChange(); return; }
+  RC.custom[k] = v;
+}
+function raceFixed(key, sub) {
+  if (key === 'custom' || !DND.races[key]) return { asi: {}, langs: [], skills: [], weapons: [], armor: [], tools: [] };
+  const r = DND.races[key], s = (r.subraces || {})[sub] || {};
+  let asi = s.asiReplace ? s.asi : r.asi; if (!s.asiReplace && s.asi && typeof s.asi === 'object' && typeof asi === 'object') { asi = { ...asi }; Object.entries(s.asi).forEach(([a, n]) => asi[a] = (asi[a] || 0) + n); }
+  return { asi: typeof asi === 'object' ? asi || {} : {}, langs: (r.languages || []).concat(s.languages || []), skills: (r.skills || []).concat(s.skills || []), weapons: (r.weapons || []).concat(s.weapons || []), armor: (r.armorCats || []).concat(s.armorCats || []), tools: (r.tools || []).concat(s.tools || []) };
+}
+function raceChangeOK() {
+  if (!W.race) { toast('Choose a race.'); return; }
+  const x = W.race === 'custom' ? null : wzRace();
+  if (x && x.r.subraces && !W.sub) { toast('Choose a subrace.'); return; }
+  const old = raceFixed(S.race.key, S.race.sub), oldName = S.raceName;
+  if (RC.removeOld) {
+    Object.entries(old.asi).forEach(([a, n]) => { S.abilities[a] = N(S.abilities[a]) - n; });
+    S.langs = S.langs.filter(l => !old.langs.includes(l) || l === 'Common');
+    old.skills.forEach(n => { const s = S.skills.find(z => z.name === n); if (s && N(s.prof) === 1) s.prof = 0; });
+    S.profs.weaponNames = (S.profs.weaponNames || []).filter(n => !old.weapons.includes(n));
+    S.profs.armor = (S.profs.armor || []).filter(a => !old.armor.includes(a) || (CL[(clsRows()[0] || {}).key] || {}).armorCats && CL[clsRows()[0].key].armorCats.includes(a));
+    S.tools = S.tools.filter(t => !old.tools.includes(t.name));
+  }
+  if (W.race === 'custom') {
+    const c = RC.custom;
+    S.race = { key: 'custom', sub: '', choices: {}, custom: { name: c.name.trim() || 'Custom race', size: c.size, speed: N(c.speed) || 30, darkvision: N(c.darkvision), traits: String(c.traits || '').split('\n').map(l => l.trim()).filter(Boolean).map(l => { const m = l.split(/:\s*/); return [m[0], m.slice(1).join(': ')]; }) } };
+    S.raceName = S.race.custom.name;
+  } else {
+    const bonus = wzRacialBonus();
+    S.race = { key: W.race, sub: W.sub, choices: {} }; S.raceName = x.name.toLowerCase().includes(x.r.name.toLowerCase()) ? x.name : x.name + ' ' + x.r.name;
+    AB.forEach(a => { if (bonus[a]) S.abilities[a] = Math.min(30, N(S.abilities[a]) + bonus[a]); });
+    const nw = raceFixed(W.race, W.sub);
+    addText('languages', nw.langs); nw.skills.forEach(n => setSkill(n, 1)); addText('profTools', nw.tools);
+    S.profs.weaponNames = [...new Set((S.profs.weaponNames || []).concat(nw.weapons))]; S.profs.armor = [...new Set((S.profs.armor || []).concat(nw.armor))];
+    wzRaceChoices().forEach((c, k) => {
+      const v = ansList(W.ans, 'race.' + k); if (!v.length || c.type === 'asi') return;
+      if (c.type === 'feat') { v.forEach((n, j) => applyFeat(n, W.ans, `race.${k}.f${j}`)); return; }
+      if (c.type === 'option') { S.race.choices[c.label] = v[0]; return; }
+      applyChoice(c, v);
+    });
+  }
+  pendingLabel = `Change race: ${oldName} → ${S.raceName}`; RC = null; W = null;
+  rebuildAuto(); closeModal(true); save(); render();
+  toast(`You're now ${esc(S.raceName)}. Check your ability scores, skills and languages.`, '', 9000, { label: 'Undo', fn: () => undo(1) });
+}
+function bgChangeOK() {
+  if (!W.bg) { toast('Choose a background.'); return; }
+  const ob = DND.backgrounds[S.background], oldName = S.backgroundName;
+  if (RC.removeOld && ob) {
+    (ob.skills || []).forEach(n => { const s = S.skills.find(z => z.name === n); if (s && N(s.prof) === 1) s.prof = 0; });
+    S.tools = S.tools.filter(t => !(ob.tools || []).includes(t.name));
+  }
+  const b = DND.backgrounds[W.bg];
+  S.background = W.bg;
+  if (W.bg === 'custom') { const c = RC.custom; S.backgroundName = c.name.trim() || 'Custom background'; S.bgCustom = { feature: c.feature.trim() || 'Background feature', desc: c.desc }; }
+  else { S.backgroundName = b.name; S.bgCustom = null; }
+  (b.skills || []).forEach(n => setSkill(n, 1)); addText('profTools', b.tools || []);
+  applyChoice({ type: 'skill' }, ansList(W.ans, 'bg.skill')); applyChoice({ type: 'tool' }, ansList(W.ans, 'bg.tool')); applyChoice({ type: 'language' }, ansList(W.ans, 'bg.lang'));
+  if (b.feat && W.bg !== 'custom') applyFeat(b.feat, W.ans, 'bg.feat');
+  pendingLabel = `Change background: ${oldName} → ${S.backgroundName}`; RC = null; W = null;
+  rebuildAuto(); closeModal(true); save(); render();
+  toast(`Background changed to ${esc(S.backgroundName)}.`, '', 7000, { label: 'Undo', fn: () => undo(1) });
+}
+
+// ---------- Pop-up menus always sit on top ----------
+// Every open ⋯ / Save menu is lifted out of its container's stacking and clipping: it is positioned against the
+// viewport (fixed) at the highest layer, flipped above its button when there's no room below, and kept on screen.
+function placeMenus() {
+  $$('.menu.open > .menu-list').forEach(list => {
+    const btn = list.parentElement.querySelector(':scope > button') || list.parentElement, r = btn.getBoundingClientRect();
+    list.classList.add('floating');
+    const w = list.offsetWidth, h = list.offsetHeight, vw = innerWidth, vh = innerHeight, m = 8;
+    let left = r.right - w; if (left < m) left = Math.min(r.left, vw - w - m); left = Math.max(m, Math.min(left, vw - w - m));
+    let top = r.bottom + 6; if (top + h > vh - m && r.top - 6 - h >= m) top = r.top - 6 - h; top = Math.max(m, Math.min(top, vh - h - m));
+    list.style.left = left + 'px'; list.style.top = top + 'px'; list.style.maxHeight = (vh - 2 * m) + 'px';
+  });
+  $$('.menu:not(.open) > .menu-list.floating').forEach(l => { l.classList.remove('floating'); l.style.left = l.style.top = l.style.maxHeight = ''; });
+}
+document.addEventListener('click', () => requestAnimationFrame(placeMenus));
+addEventListener('scroll', () => { if ($('.menu.open')) placeMenus(); }, true);
+addEventListener('resize', () => { if ($('.menu.open')) placeMenus(); fitAtkRows(); });
+
+// Turning a book on or off from Settings.
+function setBook(code, on) {
+  const L = new Set(S.sources || defaultSources()); if (on) L.add(code); else L.delete(code);
+  S.sources = [...L]; applySources(S.sources);
+  pendingLabel = (on ? 'Book on: ' : 'Book off: ') + (DND.sources[code] || code); save(); render();
+  reopenSettings();
+}
+// Books: a compact list at the bottom of Settings → Character & sheet; "Manage" shows the toggles.
+function booksHTML() {
+  const on = new Set((S.sources || defaultSources()).concat(coreSources())), ed = !!UI.open.booksedit;
+  const keys = Object.keys(DND.sources).filter(k => k !== 'SRD').sort((a, b) => (b === 'PHB') - (a === 'PHB') || (a === 'UA') - (b === 'UA') || DND.sources[a].localeCompare(DND.sources[b]));
+  return `<div class="books"><div class="bk-head"><span class="lbl">Books</span><span class="hint">${keys.filter(k => on.has(k)).length} of ${keys.length} on</span><button class="btn sm" data-act="booksedit">${ed ? 'Done' : 'Manage'}</button></div>
+    ${ed ? `<div class="bk-list">${keys.map(k => { const core = coreSources().includes(k); return `<label class="bk-row${on.has(k) ? ' on' : ''}${core ? ' core' : ''}${k === 'UA' ? ' ua' : ''}"><input type="checkbox" data-ssrc="${k}"${on.has(k) ? ' checked' : ''}${core ? ' disabled' : ''}><span>${esc(DND.sources[k])}</span>${core ? '<small>always on</small>' : k === 'UA' ? '<small>playtest</small>' : ''}</label>`; }).join('')}</div>
+      <p class="hint bk-note">Anything this character already has from a book you turn off stays until you remove it.</p>`
+    : `<div class="bk-chips">${keys.filter(k => on.has(k)).map(k => `<span class="bk-chip${k === 'UA' ? ' ua' : ''}" title="${esc(DND.sources[k])}">${esc(k)}</span>`).join('')}</div>`}</div>`;
+}
+
+function reopenSettings() { const sx = $('.setx'), sc = sx ? sx.scrollTop : 0; openSettings(SETTAB); const nx = $('.setx'); if (nx) nx.scrollTop = sc; }
+function fitSettingsHeight() {
+  const m = $('#modal-body'), sx = $('.setx'); if (!m || !sx) return;
+  m.style.removeProperty('--seth');
+  const panes = $$('.setx .stpane'); let tallest = 0;
+  panes.forEach(p => { const was = p.style.cssText; p.style.cssText = 'display:block;position:absolute;visibility:hidden;left:0;right:0;top:0'; tallest = Math.max(tallest, p.scrollHeight); p.style.cssText = was; });
+  const chrome = m.getBoundingClientRect().height - sx.getBoundingClientRect().height;  // header, tabs and padding
+  const cap = isMobile() ? 0.88 * innerHeight : innerHeight - 32;
+  m.style.setProperty('--seth', Math.ceil(Math.min(cap, chrome + tallest + 4)) + 'px');
+}
+addEventListener('resize', () => { if (typeof settingsOpen === 'function' && settingsOpen()) fitSettingsHeight(); });
+function settingsOpen() { return $('#modal').classList.contains('open') && !!$('.setx'); }
+function setTabInk(anim) { const on = $('.stabs .stab.on'), ink = $('.stabs .stab-ink'); if (!on || !ink) return; ink.style.transition = anim ? '' : 'none'; ink.style.width = on.offsetWidth + 'px'; ink.style.transform = `translateX(${on.offsetLeft}px)`; if (on.scrollIntoView && anim) on.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' }); }
+function switchSetTab(k) {
+  if (k === SETTAB) return; const order = ['char', 'rules', 'dice', 'theme', 'data'], dir = order.indexOf(k) > order.indexOf(SETTAB) ? 'r' : 'l';
+  SETTAB = k;
+  $$('.stabs .stab').forEach(b => { const on = b.dataset.k === k; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
+  $$('.setx .stpane').forEach(p => { const on = p.dataset.pane === k; p.classList.remove('in-l', 'in-r'); p.classList.toggle('on', on); if (on) { void p.offsetWidth; p.classList.add('in-' + dir); } });
+  setTabInk(true); const sx = $('.setx'); if (sx) sx.scrollTop = 0;
+}
+
+// Item names are textareas so long names wrap instead of being cut off; Enter just finishes editing.
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches && e.target.matches('textarea.iname')) { e.preventDefault(); e.target.blur(); } });
+
+// Item names are never cut off: if a name won't fit beside its buttons, the row stacks (name on top, buttons under it).
+let _fitCtx = null;
+// Attack list: the name column is as wide as the longest name (CSS subgrid), so names never wrap and the numbers
+// line up. If that leaves no room for the damage type, the list stacks: name on its own line, numbers under it.
+const ATK_RO = typeof ResizeObserver === 'function' ? new ResizeObserver(() => fitAtkRows()) : null;
+function fitAtkRows() {
+  if (document.documentElement.classList.contains('mobile')) return;
+  $$('.atk-list').forEach(L => {
+    if (ATK_RO && !L._ro) { L._ro = true; ATK_RO.observe(L); }
+    if (!L.clientWidth || !L.querySelector('.atk-row')) return;
+    const was = L.classList.contains('stack'); L.classList.remove('stack');
+    const cols = getComputedStyle(L).gridTemplateColumns.split(' ').map(parseFloat), typeW = cols.length >= 4 ? cols[3] : 999;
+    const stack = L.scrollWidth > L.clientWidth + 1 || typeW < 64;
+    L.classList.toggle('stack', stack);
+    if (was !== stack && ATK_RO) { /* class change resizes nothing: no loop */ }
+  });
+  $$('.econ table.mini').forEach(T => { const B = T.parentElement; if (!B || !B.clientWidth) return; if (ATK_RO && !B._ro) { B._ro = true; ATK_RO.observe(B); }
+    T.classList.remove('wrapnm'); if (T.offsetWidth > B.clientWidth + 1) T.classList.add('wrapnm'); });
+}
+function fitItemRows() {
+  _fitCtx = _fitCtx || document.createElement('canvas').getContext('2d');
+  $$('#page-inventory .irow2').forEach(r => {
+    const n = r.querySelector('.iname'), ctl = r.querySelector('.ictl'); if (!n || !ctl || !r.clientWidth) return;
+    const cs = getComputedStyle(n); _fitCtx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    const need = _fitCtx.measureText(n.value || n.placeholder || '').width + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + 4;
+    const tip = r.querySelector('.notetip'), tw = tip ? tip.offsetWidth + 4 : 0;
+    const stack = isMobile() || need > r.clientWidth - ctl.offsetWidth - tw - 14;
+    if (r.classList.contains('stack') !== stack) r.classList.toggle('stack', stack);
+    // The name box hugs its text so the notes icon sits right after the name.
+    n.style.width = stack ? '' : Math.ceil(need) + 'px';
+    if (typeof grow === 'function') grow(n);
+  });
+}
+addEventListener('resize', () => requestAnimationFrame(fitItemRows));
+document.addEventListener('input', e => { if (e.target.classList && e.target.classList.contains('iname')) fitItemRows(); });
+
+// ---------- Item note tooltips ----------
+// Hover (or tap) the little notes icon beside an item name to read its notes in a big tooltip. Notes are edited in the item's details (ⓘ).
+// Spells and features in Combat: what they do, with this character's numbers.
+// ---------- Full descriptions ----------
+// Lookup order: the character's own wording (.full) → DND.full by key → the short summary.
+function fullKeyOfFeat(f) {
+  const F = DND.full || {}, k = f && f.key; if (!k) return '';
+  if (F[k]) return k;
+  if (/^race:/.test(k)) {
+    const n = k.slice(5), r = S.race || {}, rk = r.key || '', sk = r.sub || '';
+    for (const c of [`race:${rk}.${sk}:${n}`, `race:${rk}:${n}`]) if (F[c]) return c;
+    const any = Object.keys(F).find(x => x.startsWith('race:') && x.endsWith(':' + n)); if (any) return any;
+  }
+  const m = k.match(/^([a-z]+):(?:[a-z0-9]+:)?(.+)$/); if (m && F[m[1] + ':' + m[2]]) return m[1] + ':' + m[2];
+  return '';
+}
+const DARKVISION_TXT = 'Within your darkvision range you can see in dim light as if it were bright light, and in darkness as if it were dim light. In darkness you see only shades of gray, not color.';
+function fullOfFeat(f) { if (!f) return ''; if (String(f.full || '').trim()) return f.full; if (f.key === 'race:Darkvision') return (f.desc ? f.desc + '\n' : '') + DARKVISION_TXT; const k = fullKeyOfFeat(f); return k ? DND.full[k] : (f.desc || ''); }
+function fullDefaultFeat(f) { const k = fullKeyOfFeat(f); return k ? DND.full[k] : ''; }
+function fullOfSpell(sp) { if (!sp) return ''; if (String(sp.full || '').trim()) return sp.full; return (DND.full || {})['sp:' + sp.name] || sp.summary || ''; }
+function fullDefaultSpell(sp) { return (DND.full || {})['sp:' + (sp && sp.name)] || ''; }
+function fullOfItem(it) { if (!it) return ''; const F = DND.full || {}, nm = (it.magic && it.magic.name) || it.name; return F['item:' + nm] || F['item:' + String(nm).replace(/\s*\(.*\)$/, '')] || ''; }
+function isSRDKey(k) { return (DND.fullSRD || []).includes(k); }
+// Paragraphs; lines starting with "• " or "- " become list items.
+function fullHTML(t) {
+  const out = []; let ul = [];
+  const flush = () => { if (ul.length) { out.push(`<ul class="fulllist">${ul.join('')}</ul>`); ul = []; } };
+  String(t || '').split(/\n+/).forEach(p => { p = p.trim(); if (!p) return; const m = p.match(/^(?:•|-|\*)\s+(.*)$/); if (m) ul.push(`<li>${esc(formulaDC(m[1]))}</li>`); else { flush(); const h = p.match(/^(At Higher Levels\.)\s*(.*)$/); out.push(h ? `<p><b class="fullh">${h[1]}</b> ${esc(formulaDC(h[2]))}</p>` : `<p>${esc(formulaDC(p))}</p>`); } });
+  flush(); return `<div class="fulltxt">${out.join('')}</div>`;
+}
+// Phones: long item notes are clamped; tap them to read everything.
+document.addEventListener('click', e => { const n = e.target.closest && e.target.closest('html.mobile .inote-m'); if (n) n.classList.toggle('open'); });
+// Every ⓘ uses the same drawn icon so it sits exactly on the text's middle (a text glyph sits differently in every font).
+const INFO_SVG = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.6" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="5" r="1" fill="currentColor"/><path d="M8 7.3v4.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+function svgInfoIcons(root) { (root || document).querySelectorAll('.notetip:not(.svgi)').forEach(b => { if (b.textContent.trim() === 'ⓘ' || b.querySelector('svg')) { if (!b.querySelector('svg')) b.innerHTML = INFO_SVG; b.classList.add('svgi'); } }); }
+new MutationObserver(ms => { if (ms.some(m => m.addedNodes.length)) svgInfoIcons(); }).observe(document.documentElement, { childList: true, subtree: true });
+// ⓘ "how is this worked out" breakdowns, shown in the normal tooltip.
+const ciBtn = (k, what) => `<button class="notetip ci" data-tip="calc:${k}" data-tipkind="cond" aria-label="How ${esc(what || 'this')} is worked out"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.6" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="5" r="1" fill="currentColor"/><path d="M8 7.3v4.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>`;
+function calcTip(k) {
+  const sg = v => (v >= 0 ? '+' : '−') + Math.abs(v), rows = [], add = (l, v) => { if (v === 0 || v === '' || v == null) return; rows.push([l, typeof v === 'number' ? sg(v) : v]); };
+  const out = (name, total, note) => ({ name, html: `<div class="calcrows">${rows.map(([l, v]) => `<div class="calcrow"><span>${esc(l)}</span><b>${esc(String(v))}</b></div>`).join('')}<div class="calcrow tot"><span>Total</span><b>${esc(String(total))}</b></div></div>${note ? `<div class="hint">${note}</div>` : ''}` });
+  const ab3 = a => a.toUpperCase();
+  if (k === 'ac') { const i = acInfo(); i.parts.forEach(p => rows.push([p, ''])); return out('Armor Class', i.total, S.acOverride !== '' && S.acOverride != null && !S.form ? 'Set manually — use Manage to go back to automatic.' : ''); }
+  if (k === 'init') {
+    add('DEX modifier', mod('dex')); add('Items', itemSum('check')); if (hasFeat('Alert')) add('Alert', 5); if (S.features.some(f => f.initProf)) add('Proficiency', PB()); if (jack()) add('Jack of All Trades', Math.floor(PB() / 2));
+    if (hasSub('rogue', 'swashbuckler')) add('Rakish Audacity (CHA)', mod('cha')); if (hasSub('wizard', 'warmagic')) add('Tactical Wit (INT)', mod('int')); if (hasSub('ranger', 'gloomstalker')) add('Dread Ambusher (WIS)', mod('wis')); add('Features', fxSum('init'));
+    return out('Initiative', sg(initVal()));
+  }
+  if (k === 'speed') { const i = speedInfo(); (i.parts || []).forEach(p => rows.push([p, ''])); return out('Speed', i.text); }
+  if (k === 'prof') { rows.push([`Character level ${lvl()}`, '']); rows.push(['2 + (level − 1) ÷ 4, rounded down', '']); return out('Proficiency bonus', sg(PB())); }
+  if (k === 'passive') { rows.push(['Base', '10']); add('Perception bonus', perception()); if (hasFeat('Observant')) add('Observant', 5); if (activeItems().some(it => (it.mods || {}).percAdv)) add('Advantage (item)', 5); return out('Passive Perception', passive()); }
+  if (k === 'hd') { const P = hdPools(); Object.keys(P).forEach(d => rows.push([`d${d} — ${clsRows().filter(r => CL[r.key] && CL[r.key].hd == d).map(r => CL[r.key].name + ' ' + r.level).join(', ')}`, `${hdLeftOf(d)}/${P[d]}`])); return out('Hit Dice', `${hdLeftTotal()}/${lvl()}`, 'One die per level. A long rest gives back half your total (at least one).'); }
+  if (k === 'hp') {
+    rows.push(['Hit Dice (1st level max + the rest)', String(N(S.hp.base))]); add(`CON ${sg(mod('con', true))} × ${lvl()} levels`, lvl() * mod('con', true));
+    const r = raceInfo(); if (r && r.hpPerLevel) add(r.name, r.hpPerLevel * lvl()); if (hasFeat('Tough')) add('Tough', 2 * lvl()); if (hasSub('sorcerer', 'draconic')) add('Draconic Resilience', clsLv('sorcerer'));
+    fxPassives().forEach(p => { if (p.maxHp != null) add(p.src || 'Feature', typeof p.maxHp === 'number' ? p.maxHp : N(evalMax(p.maxHp))); });
+    add('Your adjustment', N(S.hp.adj)); add('Temporary change', tmv('hpmax')); fxActive().forEach(e => { if (e.self !== false && !e.ally && N(e.maxHp)) add(e.name, N(e.maxHp)); });
+    if (N(S.exhaustion) >= 4 && !exModern()) rows.push(['Exhaustion 4+', '½']);
+    return out('Max HP', maxHp());
+  }
+  if (/^save:/.test(k)) { const a = k.slice(5), pr = S.saves[a] || fxSaveProf(a);
+    add(`${ab3(a)} modifier`, mod(a)); if (pr) add('Proficiency', PB()); add('Items', itemSum('save')); add('Aura of Protection', auraBonus()); add('Deck of Many Things', N((S.deckMods || {}).save)); add('Features', fxSum('saveAll')); add('Spells', buffSum('save'));
+    if (!rows.length) rows.push([`${ab3(a)} modifier`, sg(0)]); return out(`${ABN[a]} save`, sg(saveVal(a))); }
+  if (/^abil:/.test(k)) { const a = k.slice(5), b = S.abilities[a] === '' ? 10 : N(S.abilities[a]);
+    rows.push(['Your score', String(b)]); fxPassives().forEach(p => { if (p.abil && p.abil[a]) add(p.src || 'Feature', p.abil[a]); }); itemMods().forEach(m => { if (m.abil && m.abil[a] > b) rows.push([m.src || 'Item sets it to', String(m.abil[a])]); });
+    const t = (S.abTemp || {})[a]; if (t && N(t.d)) add('Temporary change', N(t.d)); if (S.form && S.form.abil && (['str', 'dex', 'con'].includes(a) || S.form.allStats)) rows.push([S.form.name + ' form', String(S.form.abil[AB.indexOf(a)])]);
+    const sv = calcTip('save:' + a); return { name: ABN[a], html: out(ABN[a], `${score(a)} (${sg(mod(a))})`, 'Modifier = (score − 10) ÷ 2, rounded down.').html + `<div class="calcsub">Saving throw</div>` + sv.html }; }
+  if (/^skill:/.test(k)) { const sk = S.skills[N(k.slice(6))]; if (!sk) return null; let p = N(sk.prof); const fe = fxList('skillExp'), fp = fxList('skillProf'); if (fe.includes(sk.name)) p = Math.max(p, 2); else if (fp.includes(sk.name)) p = Math.max(p, 1);
+    add(`${ab3(sk.ab)} modifier`, mod(sk.ab)); add(p === 2 ? 'Expertise (2 × proficiency)' : 'Proficiency', Math.floor(p * PB())); if (!p && jack()) add('Jack of All Trades', Math.floor(PB() / 2)); else if (!p && remarkable() && ['str', 'dex', 'con'].includes(sk.ab)) add('Remarkable Athlete', Math.ceil(PB() / 2));
+    add('Misc', N(sk.misc)); add('Items', itemSum('check')); add('Temporary change', tmv('skill:' + sk.name)); if (!rows.length) rows.push([`${ab3(sk.ab)} modifier`, sg(0)]); return out(sk.name, sg(skillVal(sk))); }
+  if (/^dc:|^satk:/.test(k)) { const ck = k.split(':')[1], c = castInfo(ck), dc = k.startsWith('dc:'), exDC = exModern() && ST('exhaustionDC') ? Math.min(5, N(S.exhaustion)) : 0;
+    if (dc) rows.push(['Base', '8']); add('Proficiency', PB()); add(`${ab3(c.ab || 'cha')} modifier`, c.mod); add('Items', itemSum('spell')); if (!dc) add('Spell attack items', itemSum('spellAtk')); if (dc && exDC) add('Exhaustion', -exDC);
+    return out(dc ? 'Spell save DC' : 'Spell attack', dc ? c.dc : sg(c.atk)); }
+  return null;
+}
+function spFeatTip(btn) {
+  if (/^calc:/.test(btn.dataset.tip || '')) return calcTip(btn.dataset.tip.slice(5));
+  if (btn.dataset.tipkind === 'cond') {
+    if (/^ab:/.test(btn.dataset.tip)) { const a = btn.dataset.tip.slice(3), t = (S.abTemp || {})[a] || {}, b0 = baseScore(a), v = score(a); return { name: `Temporary ${ABN[a]}`, html: `<div class="tipdesc">${ABN[a]} ${b0} → ${v} (modifier ${fmt(Math.floor((b0 - 10) / 2))} → ${fmt(Math.floor((v - 10) / 2))}).</div><div class="hint">${[t.set !== '' && t.set != null ? 'Set to ' + t.set : '', N(t.d) ? fmt(N(t.d)) : ''].filter(Boolean).join(', then ')}${' · ' + (N(S.abTempR) > 0 ? N(S.abTempR) + ' round' + (N(S.abTempR) > 1 ? 's' : '') + ' left' : durText(N(S.abTempR)))}</div>` }; }
+    if (btn.dataset.tip === 'exh') { const ex = N(S.exhaustion); return { name: 'Exhaustion ' + ex, html: `<div class="tipdesc">${esc(exhText(ex))}</div>` }; }
+    const c = S.conditions[N(btn.dataset.tip)]; if (!c) return null; const t = N((S.condTurns || {})[c]), note = (S.condNotes || {})[c];
+    return { name: c, html: (note ? `<div class="tiphb">${esc(note)}</div>` : '') + `<div class="tipdesc">${esc(condDesc(c) || '')}</div>` + `<div class="hint">${t > 0 ? t + ' round' + (t > 1 ? 's' : '') + ' left' : durText(t).replace(/^u/, 'U')}</div>` };
+  }
+  const k = btn.dataset.tipkind, i = N(btn.dataset.tip), line = (l, v) => v ? `<div class="tipline"><span>${l}</span> ${v}</div>` : '';
+  if (k === 'sp') {
+    const sp = S.spells[i]; if (!sp) return null; const sm = spellMath(sp), ci = spellCI(sp), L = N(sp.level);
+    const head = `${L ? ORD[L - 1] + '-level' : 'Cantrip'}${sp.school ? ' ' + esc(String(sp.school).toLowerCase()) : ''}${sp.ritual ? ' (ritual)' : ''}`;
+    const math = [sm.attack ? `${fmt(ci.atk)} to hit` : '', sm.save ? `DC ${ci.dc} ${esc(sm.save)} save${sm.half ? ' (half on success)' : ''}` : '', sm.dice ? `${esc(sm.dice)} ${esc(sm.type)}` : '', sm.heal ? `heals ${esc(sm.heal)}` : '', sm.temp ? `${esc(sm.temp)} temp HP` : ''].filter(Boolean).join(' · ');
+    return { name: sp.name, html: `<div class="hint">${head}</div>` + line('Casting time', esc(sp.time || '')) + line('Range', esc(sp.range || '')) + line('Components', esc(sp.comps || '')) + line('Duration', esc((sp.conc ? 'Concentration, ' : '') + (sp.duration || ''))) + (fullOfSpell(sp) ? `<div class="tipdesc">${fullHTML(fullOfSpell(sp))}</div>` : '') + (math ? `<div class="tiphb">${math}</div>` : '') + (sm.note ? `<div class="hint">${esc(sm.note)}</div>` : '') + (sp.note ? `<div class="hint">${esc(sp.note)}</div>` : '') + `<div class="hint">${esc([CL[sp.cls] ? CL[sp.cls].name : '', sp.src || ''].filter(Boolean).join(' · '))}</div>` };
+  }
+  const f = S.features[i]; if (!f) return null; const max = featMax(f), info = typeof fxInfoLine === 'function' ? fxInfoLine(f) : '';
+  return { name: f.name, html: (f.source ? `<div class="hint">${esc(f.source)}</div>` : '') + (fullOfFeat(f) ? `<div class="tipdesc">${fullHTML(fullOfFeat(f))}</div>` : '') + (info ? `<div class="tiphb">${esc(info)}</div>` : '') + (max != null ? `<div class="hint">${Math.max(0, max - N(f.used))} of ${max} uses left${f.reset ? ' · resets on a ' + esc(f.reset) + ' rest' : ''}</div>` : '') };
+}
+function showTip(btn) {
+  if (btn.dataset.tipkind === 'full') { const fk = btn.dataset.full, tx = (DND.full || {})[fk] || ((DND.magic.find(m => 'item:' + m[0] === fk) || [])[5]) || (fk.startsWith('item:') ? 'A magic item from the replicable list — see the Dungeon Master\'s Guide for its full description.' : ''); if (!tx) return hideTip(); let t = $('#tipbox'); if (!t) { t = document.createElement('div'); t.id = 'tipbox'; t.setAttribute('role', 'tooltip'); document.body.appendChild(t); } t.innerHTML = `<b>${esc(String(btn.dataset.full).replace(/^\w+:/, ''))}</b><div class="tipdesc">${fullHTML(tx)}</div>`; try { const fn = String(btn.dataset.full).replace(/^\w+:/, '').replace(/^.*:/, ''), sp = /^sp:/.test(fk) && DND.spellIndex ? DND.spellIndex[fn.toLowerCase()] : null; tipVfx(t, vfxForKey(fk) || (sp ? vfxPick(sp.name, (sp.summary || '') + ' ' + tx, { school: sp.school }) : vfxPick(fn, tx, {}))); } catch (e) {} t.classList.add('on'); return placeTip(t, btn); }
+  if (btn.dataset.tipkind === 'sp' || btn.dataset.tipkind === 'feat' || btn.dataset.tipkind === 'cond') {
+    const d = spFeatTip(btn); if (!d) return hideTip();
+    let t = $('#tipbox'); if (!t) { t = document.createElement('div'); t.id = 'tipbox'; t.setAttribute('role', 'tooltip'); document.body.appendChild(t); }
+    t.innerHTML = `<b>${esc(d.name)}</b>${d.html}`; t.classList.add('on');
+    try { const ix = N(btn.dataset.tip); if (btn.dataset.tipkind === 'sp' && S.spells[ix]) tipVfx(t, vfxForSpell(S.spells[ix])); else if (btn.dataset.tipkind === 'feat' && S.features[ix] && !/^calc:/.test(btn.dataset.tip || '')) tipVfx(t, vfxForFeat(S.features[ix])); } catch (e) {}
+    return placeTip(t, btn);
+  }
+  const atk = btn.dataset.tipkind === 'atk', it = (atk ? S.attacks : S.inventory)[N(btn.dataset.tip)]; if (!it) return hideTip();
+  const wit = atk && it.item ? S.inventory.find(x => x.id === it.item) : atk ? null : it;
+  const hb = wit && wit.hb ? hbSummary(wit.hb, wit) : [];
+  const bits = [atk && String(it.notes || '').trim() ? `<div class="tipprops">${esc(it.notes)}</div>` : '', wit && String(wit.notes || '').trim() ? `<div>${esc(wit.notes)}</div>` : '', wit && fullOfItem(wit) && !String(wit.notes || '').includes(fullOfItem(wit).slice(0, 60)) ? `<div class="tipdesc">${fullHTML(fullOfItem(wit))}</div>` : wit && wit.summary && wit.summary !== wit.notes ? `<div class="hint">${esc(wit.summary)}</div>` : '', hb.length ? `<div class="tiphb">⚙ ${esc(hb.join(' · '))}</div>` : ''].filter(Boolean);
+  if (!bits.length) return hideTip();
+  let t = $('#tipbox'); if (!t) { t = document.createElement('div'); t.id = 'tipbox'; t.setAttribute('role', 'tooltip'); document.body.appendChild(t); }
+  t.innerHTML = `${wit && wit.img ? `<img class="tipimg" src="${wit.img}" alt="">` : ''}<b>${esc(it.name)}</b>${wit && wit.attune ? `<span class="hint"> · ${wit.attuned ? 'attuned' : 'not attuned'}</span>` : ''}${bits.join('')}`; t.classList.add('on');
+  try { if (atk) tipVfx(t, vfxForAttack(it, wit)); else if (wit && (wit.weapon || wit.magic || (wit.spells || []).length || wit.hb || wit.consumable || /potion|elixir|scroll|oil|philter/i.test(wit.name))) tipVfx(t, vfxForItem(wit)); } catch (e) {}
+  placeTip(t, btn);
+}
+function placeTip(t, btn) {
+  t.style.maxHeight = ''; if (t._for !== btn) t.scrollTop = 0;
+  const r = btn.getBoundingClientRect(), w = t.offsetWidth, m = 8, below = innerHeight - r.bottom - 8 - m, above = r.top - 8 - m;
+  let h = t.offsetHeight, left = Math.max(m, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - m)), top = r.bottom + 8;
+  if (h > below) { if (above > below) { if (h > above) { t.style.maxHeight = above + 'px'; h = above; } top = r.top - 8 - h; } else t.style.maxHeight = Math.max(120, below) + 'px'; }
+  t.style.left = left + 'px'; t.style.top = Math.max(m, top) + 'px'; if (t._for !== btn) t._at = Date.now(); t._for = btn;
+}
+function hideTip() { const t = $('#tipbox'); if (t) { if (t._for) t._for.classList.remove('tippin'); t.classList.remove('on'); t._for = null; t._pinned = false; } $$('.notetip.tippin').forEach(x => x.classList.remove('tippin')); }
+// Hovering an ⓘ shows its box; the mouse can cross the small gap into the box (and scroll it) without it closing.
+// Clicking an ⓘ pins its box open (the ⓘ changes color) until you click somewhere else.
+function inTipPath(t, x, y) {
+  const b = t._for; if (!b || !b.isConnected) return false;
+  const r = b.getBoundingClientRect(), q = t.getBoundingClientRect();
+  const L = Math.min(r.left, q.left), R = Math.max(r.right, q.right), T = Math.min(r.top, q.top), B = Math.max(r.bottom, q.bottom);
+  // the strip between the ⓘ and the box, as wide as the box
+  const gapTop = Math.min(r.bottom, q.bottom), gapBot = Math.max(r.top, q.top);
+  return (x >= q.left && x <= q.right && y >= Math.min(gapTop, gapBot) - 2 && y <= Math.max(gapTop, gapBot) + 2) || (x >= L && x <= R && y >= T && y <= B && (x >= q.left && x <= q.right || x >= r.left && x <= r.right));
+}
+document.addEventListener('mouseover', e => {
+  const b = e.target.closest && e.target.closest('.notetip'), t = $('#tipbox.on');
+  if (b) { if (!(t && t._pinned && t._for !== b)) showTip(b); return; }
+  if (!t || t._pinned || e.target.closest('#tipbox')) return;
+  if (!inTipPath(t, e.clientX, e.clientY)) hideTip();
+});
+document.addEventListener('mousemove', e => { const t = $('#tipbox.on'); if (!t || t._pinned || (e.target.closest && (e.target.closest('#tipbox') || e.target.closest('.notetip')))) return; if (!inTipPath(t, e.clientX, e.clientY)) hideTip(); }, { passive: true });
+// The mouse wheel over an ⓘ scrolls its box instead of the page.
+document.addEventListener('wheel', e => { const b = e.target.closest && e.target.closest('.notetip'), t = $('#tipbox.on'); if (!b || !t || t._for !== b) return; if (t.scrollHeight <= t.clientHeight) return; e.preventDefault(); t.scrollTop += e.deltaY; }, { passive: false });
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.notetip'); if (b) { e.preventDefault(); const t = $('#tipbox.on'); if (t && t._for === b && t._pinned) hideTip(); else { if (t && t._for) t._for.classList.remove('tippin'); showTip(b); const n = $('#tipbox.on'); if (n) { n._pinned = true; b.classList.add('tippin'); } } } else if (!e.target.closest('#tipbox')) hideTip(); }, true);
+addEventListener('scroll', e => { const t = e.target; if (t && t.nodeType === 1 && t.closest('#tipbox')) return; hideTip(); }, true);
+// Combat: long feature/item descriptions show two lines; click to read the rest.
+document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('#page-combat .cspg .opt-text'); if (t) t.classList.toggle('full'); });
+// The Hexed / Cursed note in the Conditions window.
+document.addEventListener('change', e => { const c = e.target.dataset && e.target.dataset.condnote; if (c == null) return; S.condNotes = Object.assign({}, S.condNotes, { [c]: e.target.value.trim() }); if (!S.condNotes[c]) delete S.condNotes[c]; pendingLabel = c + ': note'; save(); render('vitals'); });
+// Text inputs that act on change (not every keystroke): the "add a spell to this feature" box.
+document.addEventListener('change', e => { if (e.target.dataset && e.target.dataset.fsp !== undefined) onField(e); });
+
+// ---------- Deck of Many Things ----------
+// The deck item gets a "Draw" button. You choose the deck, declare how many cards, then draw one at a time;
+// each card's effect is applied to the sheet (with Undo) and logged on the Features tab and in your notes.
+const isDeckItem = it => /deck of many (more )?things/i.test(String(it && it.name || ''));
+let DECK = null;
+function deckPool(variant) {
+  const gone = new Set((S.deck && S.deck.gone) || []);
+  const base = variant === 'more' ? DND.moreCards : DND.deckCards;
+  return Object.keys(base).filter(n => !gone.has(n) && (variant !== 'dmg13' || base[n].in13));
+}
+function openDeck(i) {
+  S.deck = S.deck || { variant: '', gone: [], left: 0, drawn: [] };
+  DECK = { i, last: null, choice: null };
+  renderDeck();
+}
+function renderDeck() {
+  const d = S.deck, v = d.variant, names = { dmg13: 'Deck of Many Things (13 cards)', dmg22: 'Deck of Many Things (22 cards)', more: 'Deck of Many More Things' };
+  const cards = v === 'more' ? DND.moreCards : DND.deckCards;
+  let h = `<div id="deckm"><h3>${esc(names[v] || 'Deck of Many Things')}</h3>`;
+  if (!v) h += `<p class="hint">Which deck is it? Most are the 13-card version; a quarter have all 22. The Deck of Many More Things comes from The Book of Many Things.</p>
+    <div class="bagpresets">${Object.entries(names).map(([k, t]) => `<button class="bagpreset" data-act="decktype" data-v="${k}"><b>${esc(t)}</b><small>${k === 'more' ? '66 cards' : k === 'dmg22' ? 'Includes Balance, Donjon, Ruin, Euryale, Rogue, Skull, Idiot, Fool and Jester' : 'The usual deck'}</small></button>`).join('')}</div>`;
+  else if (DECK.last) {
+    const c = cards[DECK.last] || {};
+    h += `<div class="deckcard"><div class="dc-name">${esc(DECK.last)}</div><p>${esc(c.text || '')}</p>${DECK.result ? `<p class="dc-res">${DECK.result}</p>` : ''}</div>`;
+    if (DECK.choice) h += `<div class="chips" style="margin:8px 0">${DECK.choice.map(([t], k) => `<button class="btn gold" data-act="deckchoice" data-k="${k}">${esc(t)}</button>`).join('')}</div>`;
+    else h += d.left > 0 ? `<p class="hint">${d.left} more card${d.left > 1 ? 's' : ''} to draw (within an hour of the last one).</p><div class="actions"><button class="btn" data-act="deckstop"${DECK.mayStop ? '' : ' hidden'}>Stop drawing</button><button class="btn gold" data-act="deckdraw">Draw the next card</button></div>`
+      : `<p class="hint">You've drawn every card you declared.</p><div class="actions"><button class="btn gold" data-act="close">Done</button></div>`;
+  } else if (d.left > 0) h += `<p>${d.left} card${d.left > 1 ? 's' : ''} declared.</p><div class="actions"><button class="btn" data-act="close">Later</button><button class="btn gold" data-act="deckdraw">Draw a card</button></div>`;
+  else h += `<p class="hint">Before drawing, declare how many cards you will draw. Each card must be drawn within an hour of the previous one.</p>
+    <div class="row">${fld('Cards to draw', `<input class="f" id="deckn" type="number" min="1" max="22" value="1" style="width:90px">`)}<button class="btn gold" data-act="deckdeclare">Declare and draw</button><button class="linkbtn" data-act="decktype" data-v="">Change deck</button></div>
+    ${d.drawn.length ? `<p class="hint">Drawn so far: ${esc(d.drawn.map(x => x.card).join(', '))}</p>` : ''}`;
+  h += '</div>';
+  if ($('#deckm') && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = h; else openModal(h, null, true);
+}
+function deckDraw() {
+  const d = S.deck, pool = deckPool(d.variant); if (!pool.length) { toast('The deck is empty.'); return; }
+  const n = pool[Math.floor(Math.random() * pool.length)], cards = d.variant === 'more' ? DND.moreCards : DND.deckCards, c = cards[n];
+  d.left = Math.max(0, N(d.left) - 1); d.drawn.push({ t: Date.now(), card: n });
+  if (c.gone) d.gone = [...new Set((d.gone || []).concat(n))];
+  DECK.last = n; DECK.result = ''; DECK.mayStop = !!(c.fx && c.fx.mayStop);
+  if (c.fx && c.fx.choice) { DECK.choice = c.fx.choice; pendingLabel = 'Draw: ' + n; save(); renderDeck(); return; }
+  DECK.choice = null; DECK.result = applyCardFx(n, c.fx || {});
+  pendingLabel = 'Draw: ' + n; save(); render(); renderDeck();
+  toast(`<div><b>${esc(n)}</b> — ${esc(c.text)}</div>`, '', 8000, { label: 'Undo', fn: () => undo(1) });
+}
+function applyCardFx(card, fx) {
+  const out = [], roll = e => rollExpr(e, { need: true, label: card + ': ' + e }).total;
+  if (fx.xp) { S.xp = Math.max(0, N(S.xp) + fx.xp); out.push(`${fx.xp > 0 ? '+' : ''}${fx.xp.toLocaleString()} XP`); }
+  if (fx.ability) { const [a, n, mx] = fx.ability; S.abilities[a] = Math.min(mx, N(S.abilities[a]) + n); out.push(`${ABN[a]} → ${S.abilities[a]}`); }
+  if (fx.all) { AB.forEach(a => { S.abilities[a] = Math.min(fx.max || 20, N(S.abilities[a]) + fx.all); }); out.push('Every ability score +1'); }
+  if (fx.abilityDown) { const [a, e] = fx.abilityDown, r = roll(e); S.abilities[a] = Math.max(1, N(S.abilities[a]) - r); out.push(`${ABN[a]} −${r} (now ${S.abilities[a]})`); }
+  if (fx.abilityChoice) { DECK.choice = AB.map(a => [`${ABN[a]} +${fx.abilityChoice}`, { ability: [a, fx.abilityChoice, fx.max || 20] }]); }
+  if (fx.extra) { S.deck.left = Math.max(0, N(S.deck.left) + fx.extra); out.push(fx.extra > 0 ? `Draw ${fx.extra} more card${fx.extra > 1 ? 's' : ''}` : `${-fx.extra} fewer cards to draw`); }
+  if (fx.stop) { S.deck.left = 0; out.push('No more cards can be drawn'); }
+  if (fx.item) { S.inventory.push(Object.assign(BLANK.inventory(), { name: fx.item.name, qty: fx.item.qty || 1, notes: fx.item.notes || `From the ${card} card.` })); out.push('Added to your Pack: ' + fx.item.name); }
+  if (fx.itemsRoll) fx.itemsRoll.forEach(([nm, e]) => { const q = roll(e); S.inventory.push(Object.assign(BLANK.inventory(), { name: nm, qty: q, notes: `From the ${card} card.` })); out.push(`${q} × ${nm}`); });
+  if (fx.removeMagic) { const gone = S.inventory.filter(it => it.magic || it.attune); S.inventory = S.inventory.filter(it => !(it.magic || it.attune)); out.push(gone.length ? 'Disintegrated: ' + gone.map(it => it.name).join(', ') : 'You carried no magic items'); }
+  if (fx.ruin) { const was = Object.values(S.currency).reduce((t, v) => t + N(v), 0); Object.keys(S.currency).forEach(k => { S.currency[k] = 0; }); out.push(was ? 'All your coins are gone' : 'You had no coins'); }
+  if (fx.expertise) { setSkill(fx.expertise, 2); out.push(fx.expertise + ': expertise'); }
+  if (fx.cond && !S.conditions.includes(fx.cond)) { S.conditions.push(fx.cond); out.push('Condition: ' + fx.cond); }
+  if (fx.exh) { const r = roll(fx.exh); S.exhaustion = Math.min(6, N(S.exhaustion) + r); out.push(`+${r} exhaustion (now ${S.exhaustion})`); }
+  if (fx.hp0) { S.hp.cur = 0; S.hp.temp = 0; out.push('You drop to 0 HP — start death saves'); }
+  if (fx.maxhp) { S.hp.adj = N(S.hp.adj) + fx.maxhp; S.hp.cur = N(S.hp.cur) + fx.maxhp; out.push(`+${fx.maxhp} max and current HP`); }
+  if (fx.longRest) { finishLong(); out.push('Long rest benefits gained'); }
+  if (fx.saveMod) { S.deckMods = Object.assign({}, S.deckMods, { save: N((S.deckMods || {}).save) + fx.saveMod }); out.push(`${fx.saveMod} to all saving throws`); }
+  if (fx.speed) { S.deckMods = Object.assign({}, S.deckMods, { speed: N((S.deckMods || {}).speed) + fx.speed }); out.push(`+${fx.speed} ft walking speed`); }
+  if (fx.alignment) { const a = String(S.alignment || ''); const flip = a.replace(/Lawful|Chaotic|Good|Evil/g, m => ({ Lawful: 'Chaotic', Chaotic: 'Lawful', Good: 'Evil', Evil: 'Good' })[m]); if (flip !== a) { S.alignment = flip; out.push('Alignment is now ' + flip); } else out.push(a ? 'True neutral — no change' : 'Set your alignment, then flip it'); }
+  if (fx.pit) { const ft = roll('3d6') * 10, dice = Math.min(20, Math.floor(ft / 10)), r = roll(dice + 'd6'); takeDamage ? takeDamage(r) : (S.hp.cur = Math.max(0, N(S.hp.cur) - r)); if (!S.conditions.includes('Prone')) S.conditions.push('Prone'); out.push(`Fell ${ft} ft: ${r} bludgeoning damage, prone`); }
+  if (fx.roll) out.push(`Rolled ${fx.roll}: ${roll(fx.roll)}`);
+  if (fx.companion) { const c = fx.companion; S.companions.push({ id: uid(), name: c.name, kind: 'custom', ac: c.ac, hp: c.hp, maxhp: c.hp, speed: c.speed, attacks: c.attacks, notes: c.notes || '' }); out.push(c.name + ' joins you (Creatures tab)'); }
+  if (fx.person) { S.people = (S.people || []).concat([Object.assign(BLANK.people(), fx.person, { notes: `From the ${card} card.` })]); out.push('Added to People: ' + fx.person.name); }
+  if (fx.feature) { const f = fx.feature; let max = f.max || ''; if (f.maxRoll) { max = String(roll(f.maxRoll)); out.push(`${f.name}: ${max} use${max === '1' ? '' : 's'}`); } S.features.push({ name: f.name, desc: f.desc, source: 'Deck of Many Things', auto: false, used: 0, max, reset: f.reset || 'long', col: '', spells: f.spells || [], kind: 'custom' }); rebuildAuto(); }
+  S.notes.unshift({ date: new Date().toISOString().slice(0, 10), title: `Drew ${card} from the deck`, text: out.join('\n') });
+  return esc(out.join(' · '));
+}
+window.addEventListener('resize', () => $$('input.f.name').forEach(fitNameFont));
+
+// Desktop header stays one row: when the toolbar would wrap, its buttons drop their words and keep their icons.
+// Toolbar labels fold away one button at a time (least-used first) only when the row would wrap, and come back as soon as there's room.
+const TB_FOLD = ['edit', 'history', 'redo', 'undo', 'settings', 'save'];
+function fitToolbar() {
+  const tb = $('.toolbar'); if (!tb) return;
+  tb.classList.remove('tb-compact', 'tb-wrap'); $$('.toolbar .nolbl').forEach(k => k.classList.remove('nolbl'));
+  if (isMobile()) return;
+  const kids = [...tb.children].filter(k => k.offsetParent !== null); if (kids.length < 2) return;
+  const tight = () => { const b0 = kids[0].getBoundingClientRect().bottom; return kids.some(k => k.getBoundingClientRect().top >= b0 - 2) || tb.scrollWidth > tb.clientWidth + 2; };
+  for (const key of TB_FOLD) { if (!tight()) return; const el = tb.querySelector(`[data-zi="${key}"]`); if (el) el.classList.add('nolbl'); }
+  if (!tight()) return;
+  tb.classList.add('tb-compact');
+  if (tight()) tb.classList.add('tb-wrap');  // very narrow windows: icons may take two rows inside the toolbar's own box
+}
+let _tbRaf = 0; const fitToolbarSoon = () => { cancelAnimationFrame(_tbRaf); _tbRaf = requestAnimationFrame(fitToolbar); };
+if (window.ResizeObserver) { const ro = new ResizeObserver(fitToolbarSoon); const watch = () => { const w = $('.banner .wrap') || $('.banner'); if (w) ro.observe(w); else setTimeout(watch, 300); }; watch(); }
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitToolbarSoon);
+window.addEventListener('resize', fitToolbarSoon);
+
+// ---------- Roll20 connection (Settings → Dice) ----------
+function renderR20Box() {
+  const box = $('#r20status'); if (!box) return;
+  const camp = ST('r20campaign') || '';
+  if (!R20.ok) {
+    const b = browserInfo();
+    box.innerHTML = `<p><b>Not connected.</b> This needs a small browser extension.</p>
+      <div class="row">${b.ok ? `<button class="btn sm gold" data-act="r20setup">Set up for ${esc(b.name)}…</button>` : ''}<button class="btn sm" data-act="r20check">Check again</button></div>${b.ok ? '' : `<p class="hint">${b.why}</p>`}`;
+    return;
+  }
+  const old = R20.ver && R20.ver !== 'mock' && R20.ver.split('.').map(Number).reduce((t, v, i) => t + v * [10000, 100, 1][i], 0) < 10303;
+  box.innerHTML = `<p class="ok"><b>Extension connected</b>${R20.ver ? ' (v' + esc(R20.ver) + ')' : ''}.</p>${old ? `<p class="warn sm">A newer extension is out (chat looks like your macros). <button class="btn sm" data-act="r20ext">Download</button>, unzip it, and ${r20Ver() < 10302 ? 'in your extensions page <b>remove the old one</b> and <b>Load unpacked</b> the new folder, then refresh Roll20. This is the last time you need to remove it — from now on, loading a newer version replaces the old one by itself.' : 'and <b>Load unpacked</b> the new folder in your extensions page — it replaces the old one. Then refresh Roll20.'}</p>` : ''}
+    <div class="row">${fld('Your Roll20 game', `<select class="f" id="r20camp"><option value="">${R20.list.length ? '— pick your game —' : 'Open your game in Roll20, then Refresh'}</option>${R20.list.map(g => `<option value="${esc(g.campaign)}"${g.campaign === camp ? ' selected' : ''}>${esc(g.campaign)}${g.player ? ' — signed in as ' + esc(g.player) : ''}</option>`).join('')}${camp && !R20.list.some(g => g.campaign === camp) ? `<option value="${esc(camp)}" selected>${esc(camp)} (not open right now)</option>` : ''}</select>`)}
+      <button class="btn sm" data-act="r20refresh">Refresh</button><button class="btn sm" data-act="r20test">Test roll</button></div>
+    <p class="hint">Rolls are posted as ${esc(S.name || 'your character')} when that name is one of your Roll20 characters; otherwise as you. Keep the Roll20 tab open (it can be in the background).</p>`;
+  if (!R20.list.length && !R20._asked) { R20._asked = true; r20Refresh(); }
+}
+async function r20Refresh() { try { const d = await r20Send({ type: 'campaigns' }, 6000); R20.list = d.list || []; } catch (e) { R20.list = []; toast(esc(e.message), 'fumble'); } renderR20Box(); }
+document.addEventListener('change', e => { if (e.target.id === 'r20camp') { S.settings = Object.assign({}, S.settings, { r20campaign: e.target.value }); pendingLabel = 'Roll20 game: ' + (e.target.value || 'none'); save(); toast(e.target.value ? `Rolls go to <b>${esc(e.target.value)}</b>.` : 'No game picked.'); } });
+
+// A tiny .zip writer (stored, no compression) for the extension download.
+function makeZip(files) {
+  const enc = new TextEncoder(), crcT = [];
+  for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; crcT[n] = c >>> 0; }
+  const crc = b => { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = crcT[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+  const parts = [], central = []; let off = 0;
+  const u16 = v => [v & 255, (v >>> 8) & 255], u32 = v => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255];
+  Object.entries(files).forEach(([name, text]) => {
+    const nb = enc.encode(name), db = typeof text === 'string' ? enc.encode(text) : text, c = crc(db);
+    const head = [...u32(0x04034b50), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0), ...u32(c), ...u32(db.length), ...u32(db.length), ...u16(nb.length), ...u16(0)];
+    parts.push(new Uint8Array(head), nb, db);
+    central.push(new Uint8Array([...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0), ...u32(c), ...u32(db.length), ...u32(db.length), ...u16(nb.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(off)]), nb);
+    off += head.length + nb.length + db.length;
+  });
+  const csize = central.reduce((t, b) => t + b.length, 0);
+  const end = new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(Object.keys(files).length), ...u16(Object.keys(files).length), ...u32(csize), ...u32(off), ...u16(0)]);
+  const all = parts.concat(central, [end]), out = new Uint8Array(all.reduce((t, b) => t + b.length, 0)); let p = 0; all.forEach(b => { out.set(b, p); p += b.length; });
+  return out;
+}
+function downloadR20Ext() {
+  const files = {}; Object.entries(DND.r20ext || {}).forEach(([n, t]) => { files[n] = /^b64:/.test(t) ? Uint8Array.from(atob(t.slice(4)), c => c.charCodeAt(0)) : t; });  // files at the top of the zip, so the unzipped folder is the one to load
+  // One manifest can't satisfy both Chrome and Firefox without warnings, so trim it for the browser that's downloading it.
+  try {
+    const m = JSON.parse(files['manifest.json']), ff = /Firefox\//.test(navigator.userAgent);
+    if (ff) { delete m.key; if (m.background) delete m.background.service_worker; }
+    else { delete m.browser_specific_settings; if (m.background) delete m.background.scripts; }
+    files['manifest.json'] = JSON.stringify(m, null, 2);
+  } catch (e) {}
+  download('dnd-sheet-roll20-extension.zip', makeZip(files), 'application/zip');
+}
+
+// Which browser this is, and how to load the Roll20 extension in it.
+function browserInfo() {
+  const ua = navigator.userAgent || '', brands = ((navigator.userAgentData && navigator.userAgentData.brands) || []).map(b => b.brand).join(' ');
+  const dl = `<button class="btn sm gold" data-act="r20ext">Download extension</button>`, open = '<button class="btn sm" data-act="r20open">Open Roll20</button>';
+  const unzip = `Download the extension and unzip it (Windows: right-click the .zip → <b>Extract All</b>; Mac: double-click it): ${dl}`;
+  const pick = 'pick the <b>dnd-sheet-roll20-extension</b> folder — the one with <code>manifest.json</code> directly inside it';
+  const finish = [`Sign in to Roll20 and open your game: ${open}`, 'Reload this sheet, come back here and pick your game.'];
+  const chromish = (name, url, devmode) => ({ name, ok: true, steps: [unzip, `Type <code>${url}</code> in the address bar.`, devmode, `Click <b>Load unpacked</b> and ${pick}. <span class="hint">Updating later works the same way — loading a newer version replaces the old one, no need to remove it first.</span>`].concat(finish) });
+  if (/iPhone|iPad|Android/i.test(ua) || document.documentElement.classList.contains('mobile') && /Mobi/i.test(ua)) return { name: 'a phone or tablet', ok: false, why: 'Phone and tablet browsers can’t load this extension. Use “I use my own rolls” here, or open the sheet on a computer with Chrome, Edge, Brave, Opera or Firefox.' };
+  if (/Firefox\//.test(ua)) return { name: 'Firefox', ok: true, steps: [unzip, 'Type <code>about:debugging#/runtime/this-firefox</code> in the address bar.', 'Click <b>Load Temporary Add-on…</b> and choose the <code>manifest.json</code> file inside the unzipped folder (a newer version loaded this way replaces the old one).', 'Firefox removes temporary add-ons when it closes, so repeat this step after restarting Firefox.'].concat(finish) };
+  if (/Edg\//.test(ua) || /Edge/.test(brands)) return chromish('Microsoft Edge', 'edge://extensions', 'Turn on <b>Developer mode</b> (left side of the page).');
+  if (/OPR\//.test(ua) || /Opera/.test(brands)) return chromish('Opera', 'opera://extensions', 'Turn on <b>Developer mode</b> (top right).');
+  if (navigator.brave || /Brave/.test(brands)) return chromish('Brave', 'brave://extensions', 'Turn on <b>Developer mode</b> (top right).');
+  if (/Vivaldi/.test(ua)) return chromish('Vivaldi', 'vivaldi://extensions', 'Turn on <b>Developer mode</b> (top right).');
+  if (/Safari\//.test(ua) && !/Chrome\/|Chromium\//.test(ua)) return { name: 'Safari', ok: false, why: 'Safari can’t load this extension. Open the sheet in Chrome, Edge, Brave, Opera or Firefox to use Roll20 rolls, or use “I use my own rolls” here.' };
+  if (/Chrome\//.test(ua)) return chromish('Google Chrome', 'chrome://extensions', 'Turn on <b>Developer mode</b> (top right).');
+  return chromish('your browser', 'chrome://extensions', 'Turn on <b>Developer mode</b>.');
+}
+
+// Step-by-step setup for this browser, in its own window so Settings stays on one screen.
+function openR20Setup() {
+  const b = browserInfo();
+  openModal(`<h3>Connect Roll20 — ${esc(b.name)}</h3>
+    <p class="hint">Roll20 doesn't let other websites post to its chat, so rolls go through a small browser extension (the same idea as Beyond20). It only talks to Roll20 and to this sheet.</p>
+    ${b.ok ? `<ol class="r20steps">${b.steps.map(x => `<li>${x}</li>`).join('')}</ol>` : `<p>${b.why}</p>`}
+    <div class="actions"><button class="btn" data-act="settings">Back to Settings</button><button class="btn gold" data-act="r20check2">I've done it — check</button></div>`);
+}
+
+
+// Skills: tapping the name rolls it too (the whole bonus + name area is one target).
+document.addEventListener('click', e => { const hit = e.target.closest && e.target.closest('.sk-hit, .ooc-sk, .pvtool'); if (!hit || e.target.closest('.roll, .notetip')) return; const r = hit.querySelector('.roll'); if (r) r.click(); });
+document.addEventListener('change', e => { if (e.target && e.target.id === 'condSkill') { UI.condSkill = e.target.value; if (mOpen('#condmodal')) openConditions(); } });
+
+// ---------- Sources ----------
+// Which books a character draws from. Picked on the first step of creation and changeable later in Settings → Books.
+// Every list the sheet offers (races, classes, subclasses, backgrounds, feats, spells, class options, magic items)
+// is pruned to those books; anything the character already uses stays available until the player removes it.
+// Function declarations only: migrate() calls defaultSources() while the script is still starting up.
+function coreSources() { return ['PHB', 'SRD']; }
+function defaultSources() { return Object.keys(DND.sources).filter(k => k !== 'UA'); }
+function srcCodes(s) { return (String(s || '').match(/[A-Za-z]+/g) || []).filter(c => DND.sources[c]); }
+// An entry is allowed when any book it appears in is on (e.g. "SCAG/EEPC"). Untagged entries follow their parent.
+function srcOK(src, set, parentOK) { const c = srcCodes(src); return c.length ? c.some(x => set.has(x)) : parentOK !== false; }
+function nameSrc(name) { const m = /\(([^)]*)\)\s*$/.exec(String(name || '')); return m ? m[1] : ''; }
+function optSrc(e) { return (e[3] && e[3].src) || nameSrc(e[2]) || 'PHB'; }
+let SRC_ALL = null;
+function snapshotSources() {
+  if (SRC_ALL) return SRC_ALL;
+  const ent = o => Object.entries(o || {});
+  return SRC_ALL = {
+    races: ent(DND.races).map(([k, r]) => [k, r, ent(r.subraces)]),
+    classes: ent(DND.classes).map(([k, c]) => [k, c, ent(c.subclasses)]),
+    bgs: ent(DND.backgrounds), feats: DND.feats.slice(), magic: DND.magic.slice(), spells: DND.spells.slice(),
+    options: ent(DND.options).map(([k, o]) => [k, o.list.slice()]),
+    raceGroups: DND.raceGroups.map(([g, ks]) => [g, ks.slice()]), classOrder: DND.classOrder.slice()
+  };
+}
+function refill(obj, entries) { Object.keys(obj).forEach(k => delete obj[k]); entries.forEach(([k, v]) => { obj[k] = v; }); }
+function resetArr(a, items) { a.splice(0, a.length, ...items); }
+// What the character already uses: kept on offer even if its book is turned off, until the player removes it.
+function inUse() {
+  const u = { race: new Set(), sub: new Set(), cls: new Set(), subcls: new Set(), bg: new Set(), names: new Set() };
+  if (typeof W !== 'undefined' && W) return u;   // the creation wizard offers only what's ticked
+  if (typeof S === 'undefined' || !S || !S.created) return u;
+  if (S.race && S.race.key) { u.race.add(S.race.key); if (S.race.sub) u.sub.add(S.race.key + ':' + S.race.sub); }
+  (S.classes || []).forEach(c => { if (c.key) u.cls.add(c.key); if (c.sub) u.subcls.add(c.key + ':' + c.sub); });
+  if (S.background) u.bg.add(S.background);
+  const nm = x => x && u.names.add(String(x).toLowerCase());
+  (S.feats || []).forEach(f => nm(f.name || f)); (S.features || []).forEach(f => { nm(f.name); nm(f.dname); const k = String(f.key || ''); if (k.startsWith('feat:') || k.startsWith('pick:')) nm(k.split(':').pop()); });
+  (S.spells || []).forEach(s => nm(s.name)); (S.inventory || []).forEach(i => nm(i.name));
+  Object.values(S.picks || {}).forEach(l => (l || []).forEach(nm));
+  return u;
+}
+function applySources(list) {
+  const A = snapshotSources(), on = new Set((list && list.length ? list : defaultSources()).concat(coreSources())), U = inUse(), has = n => U.names.has(String(n || '').toLowerCase());
+  refill(DND.races, A.races.filter(([k, r]) => U.race.has(k) || srcOK(r.src, on)).map(([k, r, subs]) => {
+    if (r.subraces) refill(r.subraces, subs.filter(([sk, s]) => U.sub.has(k + ':' + sk) || srcOK(s.src || nameSrc(s.name), on)));
+    return [k, r];
+  }));
+  refill(DND.classes, A.classes.filter(([k, c]) => U.cls.has(k) || srcOK(c.src, on)).map(([k, c, subs]) => { refill(c.subclasses, subs.filter(([sk, s]) => U.subcls.has(k + ':' + sk) || srcOK(s.src || nameSrc(s.name), on))); return [k, c]; }));
+  refill(DND.backgrounds, A.bgs.filter(([k, b]) => k === 'custom' || U.bg.has(k) || srcOK(b.src, on)));
+  resetArr(DND.feats, A.feats.filter(f => has(f[0]) || srcOK(f[1], on)));
+  resetArr(DND.magic, A.magic.filter(m => has(m[0]) || srcOK(m[1], on)));
+  resetArr(DND.spells, A.spells.filter(s => has(s.name) || srcOK(s.src, on)));   // DND.spellIndex stays complete so granted spells still resolve
+  A.options.forEach(([k, l]) => resetArr(DND.options[k].list, l.filter(e => has(e[0]) || srcOK(optSrc(e), on))));
+  resetArr(DND.raceGroups, A.raceGroups.map(([g, ks]) => [g, ks.filter(k => DND.races[k])]).filter(([, ks]) => ks.length));
+  resetArr(DND.classOrder, A.classOrder.filter(k => DND.classes[k]));
+}
+// Content counts per book, for the picker.
+function sourceCounts() {
+  const A = snapshotSources(), n = {}, add = s => srcCodes(s).forEach(c => { n[c] = (n[c] || 0) + 1; });
+  A.races.forEach(([, r, subs]) => { add(r.src); subs.forEach(([, s]) => add(s.src || nameSrc(s.name))); });
+  A.classes.forEach(([, c, subs]) => { add(c.src); subs.forEach(([, s]) => add(s.src)); });
+  A.bgs.forEach(([, b]) => add(b.src)); A.feats.forEach(f => add(f[1])); A.magic.forEach(m => add(m[1])); A.spells.forEach(s => add(s.src));
+  A.options.forEach(([, l]) => l.forEach(e => add(nameSrc(e[2]) || (e[3] && e[3].src))));
+  return n;
+}
+function sourcesHTML(sel, o = {}) {
+  const attr = o.attr || 'wsrc';
+  const n = sourceCounts(), core = coreSources(), on = new Set(sel);
+  const keys = Object.keys(DND.sources).filter(k => n[k] || k === 'UA').sort((a, b) => (core.includes(b) - core.includes(a)) || (a === 'UA') - (b === 'UA') || DND.sources[a].localeCompare(DND.sources[b]));
+  return `<div class="srcpick">${keys.map(k => {
+    const uaLock = o.lockUA && k === 'UA', locked = core.includes(k) || uaLock, ck = core.includes(k) || on.has(k);
+    return `<label class="srcopt${ck ? ' on' : ''}${locked ? ' locked' : ''}${k === 'UA' ? ' ua' : ''}"><input type="checkbox" data-${attr}="${k}"${ck ? ' checked' : ''}${locked ? ' disabled' : ''}>
+      <span><b>${esc(DND.sources[k])}</b><small>${uaLock ? (ck ? 'On — chosen at creation, locked' : 'Off — chosen at creation, locked') : k === 'UA' ? 'Playtest material — unofficial, may be unbalanced' : core.includes(k) ? 'Core rules — always on' : (n[k] || 0) + ' options'}</small></span></label>`;
+  }).join('')}</div>`;
+}
+// Changing books on the first step clears any picks that are no longer available.
+function wizSetSource(code, on) {
+  const L = new Set(W.sources); if (on) L.add(code); else L.delete(code); W.sources = [...L];
+  applySources(W.sources);
+  let cleared = false;
+  if (W.race && !DND.races[W.race]) { W.race = ''; W.sub = ''; W.ans = {}; cleared = true; }
+  else if (W.sub && !(DND.races[W.race].subraces || {})[W.sub]) { W.sub = ''; cleared = true; }
+  W.classes.forEach(r => { if (r.key && !CL[r.key]) { r.key = ''; r.sub = ''; cleared = true; } else if (r.sub && r.key && !CL[r.key].subclasses[r.sub]) { r.sub = ''; cleared = true; } });
+  if (W.bg && !DND.backgrounds[W.bg]) { W.bg = ''; cleared = true; }
+  if (W.spells) { const ok = new Set(DND.spells.map(s => s.name)); Object.keys(W.spells).forEach(k => { const before = W.spells[k].length; W.spells[k] = W.spells[k].filter(x => ok.has(x)); if (W.spells[k].length !== before) cleared = true; }); }
+  if (cleared) toast('Some earlier picks came from a book you turned off, so they were cleared.', '', 5000);
+  renderWizard();
+}
+
+// ---------- Artificer infusions (their own tab) ----------
+// Known infusions live in S.picks.infusion (one entry per infusion). Replicate Magic Item can be learned many
+// times; the items it can make are S.infReplicas (each one counts as a known infusion). An infused inventory item
+// carries it.infusion = { name, rep?, choice?, at, created?, prev? }. Effects are computed live from that marker.
+const INF = {
+  'Enhanced Arcane Focus': { item: 'Rod, staff or wand (a focus)', attune: true, ok: it => /\b(rod|staff|wand|focus|orb|crystal|rifle|firearm)\b/i.test(it.name + ' ' + (it.notes || '')) || STORE_FOCUS.test(it.name || ''), eff: L => ({ spellAtk: L >= 10 ? 2 : 1, note: 'ignores half cover with spell attacks' }) },
+  'Enhanced Defense': { item: 'Armor or a shield', ok: it => !!it.armor, eff: L => ({ ac: L >= 10 ? 2 : 1 }) },
+  'Enhanced Weapon': { item: 'Simple or martial weapon', ok: it => !!it.weapon, eff: L => ({ atk: L >= 10 ? 2 : 1, dmg: L >= 10 ? 2 : 1 }) },
+  'Homunculus Servant': { item: 'Gem or crystal worth 100 gp+', ok: it => /gem|crystal|jewel|diamond|ruby|sapphire|emerald|pearl/i.test(it.name), companion: 'Homunculus Servant' },
+  'Mind Sharpener': { item: 'Armor or robes', ok: it => !!it.armor && it.armor.type !== 'shield' || /robe/i.test(it.name), charges: [4, '1d4'], act: { col: 'reaction', name: 'Mind Sharpener', text: 'When you fail a Constitution save to keep concentration, spend 1 charge to succeed instead.' } },
+  'Repeating Shot': { item: 'Weapon with the ammunition property', attune: true, ok: it => !!it.weapon && (it.weapon.props || []).some(p => /ammunition/i.test(p)), eff: () => ({ atk: 1, dmg: 1, ranged: true, note: 'ignores loading; makes its own ammunition' }) },
+  'Returning Weapon': { item: 'Weapon with the thrown property', ok: it => !!it.weapon && (it.weapon.props || []).some(p => /thrown/i.test(p)), eff: () => ({ atk: 1, dmg: 1, ranged: true, note: 'flies back to your hand after a ranged attack' }) },
+  'Replicate Magic Item': { item: 'Depends on the item', rep: true },
+  'Boots of the Winding Path': { lv: 6, item: 'A pair of boots', attune: true, ok: it => /boot|shoe|slipper/i.test(it.name), act: { col: 'bonus', name: 'Winding Path', text: 'Teleport up to 15 ft to an unoccupied space you can see that you occupied at some point during the current turn.' } },
+  'Radiant Weapon': { lv: 6, item: 'Simple or martial weapon', attune: true, ok: it => !!it.weapon, charges: [4, '1d4'], eff: () => ({ atk: 1, dmg: 1, note: 'bright light 30 ft (command word on/off)' }), act: { col: 'reaction', name: 'Radiant flash', text: 'When a creature hits you with an attack, spend 1 charge: the attacker makes a CON save against your spell save DC or is blinded until the end of its next turn.' } },
+  'Repulsion Shield': { lv: 6, item: 'A shield', attune: true, ok: it => !!it.armor && it.armor.type === 'shield', charges: [4, '1d4'], eff: () => ({ ac: 1 }), act: { col: 'reaction', name: 'Repulse', text: 'When a creature hits you with a melee attack, spend 1 charge to push it up to 15 ft away from you.' } },
+  'Resistant Armor': { lv: 6, item: 'A suit of armor', attune: true, ok: it => !!it.armor && it.armor.type !== 'shield', choose: ['acid', 'cold', 'fire', 'force', 'lightning', 'necrotic', 'poison', 'psychic', 'radiant', 'thunder'], eff: (L, c) => ({ resist: c || '' }) },
+  'Spell-Refueling Ring': { lv: 6, item: 'A ring', attune: true, ok: it => /ring/i.test(it.name), charges: [1, 'dawn'], act: { col: 'action', name: 'Refuel a slot', text: 'Recover one expended spell slot of 3rd level or lower. Once per dawn.', refuel: true } },
+  'Armor of Magical Strength': { lv: 10, item: 'A suit of armor', attune: true, ok: it => !!it.armor && it.armor.type !== 'shield', charges: [6, '1d6'], act: { col: 'reaction', name: 'Magical Strength', text: 'Spend 1 charge: add your INT modifier to a STR check or save you make (no action), or use your reaction to avoid being knocked prone.' } },
+  'Helm of Awareness': { lv: 10, item: 'A helmet', attune: true, ok: it => /helm|hat|cap|crown|circlet|goggles|headband/i.test(it.name), eff: () => ({ initAdv: true, note: "advantage on initiative; can't be surprised unless incapacitated" }) },
+  'Arcane Propulsion Armor': { lv: 14, item: 'A suit of armor', attune: true, ok: it => !!it.armor && it.armor.type !== 'shield', eff: () => ({ speed: 5, note: 'force gauntlets: 1d8 force melee weapon attacks (thrown 20/60, return); can\'t be removed against your will; replaces missing limbs' }) }
+};
+// TCE's Replicable Magic Items by the artificer level that unlocks them ([name, needs attunement]).
+const REPLIC = {
+  2: [['Alchemy Jug', 0], ['Bag of Holding', 0], ['Cap of Water Breathing', 0], ['Goggles of Night', 0], ['Rope of Climbing', 0], ['Sending Stones', 0], ['Wand of Magic Detection', 0], ['Wand of Secrets', 0]],
+  6: [['Boots of Elvenkind', 0], ['Cloak of Elvenkind', 1], ['Cloak of the Manta Ray', 0], ['Eyes of Charming', 1], ['Gloves of Thievery', 0], ['Lantern of Revealing', 0], ['Pipes of Haunting', 0], ['Ring of Water Walking', 0]],
+  10: [['Boots of Striding and Springing', 1], ['Boots of the Winterlands', 1], ['Bracers of Archery', 1], ['Brooch of Shielding', 1], ['Cloak of Protection', 1], ['Eyes of the Eagle', 1], ['Gauntlets of Ogre Power', 1], ['Gloves of Missile Snaring', 1], ['Gloves of Swimming and Climbing', 1], ['Hat of Disguise', 1], ['Headband of Intellect', 1], ['Helm of Telepathy', 1], ['Medallion of Thoughts', 1], ['Necklace of Adaptation', 1], ['Periapt of Wound Closure', 1], ['Pipes of the Sewers', 1], ['Quiver of Ehlonna', 0], ['Ring of Jumping', 1], ['Ring of Mind Shielding', 1], ['Slippers of Spider Climbing', 1], ['Ventilating Lungs', 1], ['Winged Boots', 1]],
+  14: [['Amulet of Health', 1], ['Arcane Propulsion Arm', 1], ['Belt of Hill Giant Strength', 1], ['Boots of Levitation', 1], ['Boots of Speed', 1], ['Bracers of Defense', 1], ['Cloak of the Bat', 1], ['Dimensional Shackles', 0], ['Gem of Seeing', 1], ['Horn of Blasting', 0], ['Ring of Free Action', 1], ['Ring of Protection', 1], ['Ring of the Ram', 1]]
+};
+const repLevel = n => +(Object.keys(REPLIC).find(L => REPLIC[L].some(r => r[0] === n)) || 2);
+const repAttune = n => { for (const L in REPLIC) { const r = REPLIC[L].find(x => x[0] === n); if (r) return !!r[1]; } const m = DND.magic.find(x => x[0] === n); return !!(m && m[4]); };
+const artLv = () => clsLv('artificer');
+const ordn = n => (n = N(n)) + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : n % 10 === 1 ? 'st' : n % 10 === 2 ? 'nd' : n % 10 === 3 ? 'rd' : 'th');
+const infKnownMax = L => L >= 18 ? 12 : L >= 14 ? 10 : L >= 10 ? 8 : L >= 6 ? 6 : L >= 2 ? 4 : 0;
+const infActiveMax = L => L >= 18 ? 6 : L >= 14 ? 5 : L >= 10 ? 4 : L >= 6 ? 3 : L >= 2 ? 2 : 0;
+const infKnown = () => (S.picks.infusion || []).filter(n => n !== 'Replicate Magic Item');
+const infReplicas = () => S.infReplicas || [];
+const infKnownCount = () => infKnown().length + ((S.picks.infusion || []).includes('Replicate Magic Item') ? Math.max(1, infReplicas().length) : 0);
+const infItems = () => S.inventory.map((it, i) => [it, i]).filter(([it]) => it.infusion && it.infusion.name);
+// Containers (S.bags) can hold an infusion too — e.g. a hat replicated into a Bag of Holding.
+const infBags = () => (S.bags || []).map((b, i) => [b, i]).filter(([b]) => b.infusion && b.infusion.name);
+const infAllActive = () => infItems().map(([o, i]) => ({ o, i, bag: false })).concat(infBags().map(([o, i]) => ({ o, i, bag: true }))).sort((a, b) => N(a.o.infusion.at) - N(b.o.infusion.at));
+function infEndAny(x) { if (x.bag) delete x.o.infusion; else infEndItem(x.o); }
+const infLabel = inf => inf.name === 'Replicate Magic Item' ? 'Replicate: ' + (inf.rep || 'magic item') : inf.name;
+const infDef = inf => INF[inf && inf.name] || {};
+function infEffect(it) {
+  const d = infDef(it.infusion); if (!d.eff) return {};
+  return d.eff(artLv(), it.infusion.choice) || {};
+}
+// Is the infused item doing its thing right now? (worn/held, and attuned when the infusion needs it)
+const infOn = it => hbItemOn(it) && (!infDef(it.infusion).attune || !!it.attuned);
+// Hooks used by the rules engine.
+function infSum(k) { return infItems().reduce((t, [it]) => t + (infOn(it) ? N(infEffect(it)[k]) : 0), 0); }
+function infWeapon(fit, a, k) { if (!fit || !fit.infusion || !infOn(fit)) return 0; const e = infEffect(fit); if (e.ranged && a && a.kind !== 'ranged') return 0; return N(e[k]); }
+function infPassives() {
+  const out = [];
+  infItems().forEach(([it]) => { if (!infOn(it)) return; const e = infEffect(it), src = it.name + ' (' + infLabel(it.infusion) + ')';
+    const p = { src, item: true };
+    if (e.ac) p.ac = e.ac; if (e.resist) p.resist = [e.resist]; if (e.speed) p.speed = e.speed; if (e.initAdv) { p.initAdv = true; p.advNote = ['Initiative (and you can\'t be surprised)']; }
+    if (Object.keys(p).length > 2) out.push(p); });
+  return out;
+}
+// Combat: infusions that take an action, bonus action or reaction.
+function infActs(col) { return infItems().filter(([it]) => { const d = infDef(it.infusion); return d.act && d.act.col === col && infOn(it); }); }
+
+// ---------- The tab ----------
+function renderInfusions() {
+  const el = $('#page-infusions'); if (!el) return;
+  const L = artLv();
+  if (L < 2) { el.innerHTML = `<div class="panel"><h2>Infusions</h2><p class="hint" style="margin:0">Infusions come with the artificer's Infuse Item feature at 2nd level.</p></div>`; return; }
+  const kMax = infKnownMax(L), aMax = infActiveMax(L), act = infItems().sort((a, b) => N(a[0].infusion.at) - N(b[0].infusion.at)), bags = infBags(), nAct = act.length + bags.length, kn = infKnownCount();
+  const pips = (n, m, cls) => Array.from({ length: m }, (_, j) => `<span class="ipip ${cls}${j < n ? ' on' : ''}"></span>`).join('');
+  const att = S.inventory.filter(it => it.attune && it.attuned).length, attMax = typeof attuneMax === 'function' ? attuneMax() : 3;
+  const head = `<div class="panel inf-head" ${PID('infhead')}><h2><span class="grow">Infusions</span><button class="btn sm" data-act="inflearn">Learn / swap infusions</button></h2>
+    <div class="inf-stats">
+      <div class="inf-stat"><small>Infusions known</small><b class="${kn > kMax ? 'over' : ''}">${kn} / ${kMax}</b><div class="ipips">${pips(kn, Math.max(kMax, kn), 'k')}</div></div>
+      <div class="inf-stat"><small>Infused items</small><b class="${nAct > aMax ? 'over' : ''}">${nAct} / ${aMax}</b><div class="ipips">${pips(nAct, Math.max(aMax, nAct), 'a')}</div></div>
+      <div class="inf-stat"><small>Attuned</small><b>${att} / ${attMax}</b><div class="hint">${L >= 18 ? 'Magic Item Master' : L >= 14 ? 'Magic Item Savant' : L >= 10 ? 'Magic Item Adept' : 'Normal limit'}</div></div>
+      <div class="inf-stat"><small>Artificer level</small><b>${L}</b><div class="hint">${L >= 10 ? '+2' : '+1'} on enhancement infusions</div></div>
+    </div>
+    <details class="inf-rules"><summary>How infusing works</summary><ul>
+      <li>When you finish a long rest you can touch nonmagical objects and infuse them with infusions you know. The object becomes a magic item.</li>
+      <li>Each infusion can be in only one object at a time (each Replicate item counts on its own). You can have up to ${aMax} infused items at once; infusing another ends the oldest.</li>
+      <li>An infusion lasts indefinitely. If you die, it fades after a number of days equal to your INT modifier (minimum 1). It also ends if you swap that infusion out when you level up.</li>
+      <li>When you gain an artificer level you can replace one infusion you know with another.</li>
+      <li>Infusions that need attunement only work once the wearer attunes (that uses an attunement slot).</li></ul></details></div>`;
+  // Active
+  const actCards = act.map(([it, i]) => {
+    const d = infDef(it.infusion), e = infEffect(it), on = infOn(it), ch = it.charges && it.infusion.charges ? it.charges : null;
+    const bits = [e.spellAtk ? `+${e.spellAtk} spell attack rolls` : '', e.atk ? `+${e.atk} attack & damage${e.ranged ? ' (ranged)' : ''}` : '', e.ac ? `+${e.ac} AC` : '', e.resist ? `Resistance to ${e.resist}` : e.resist === '' && d.choose ? 'Pick a damage type' : '', e.speed ? `+${e.speed} ft speed` : '', e.note || ''].filter(Boolean);
+    const warn = !it.equipped && !it.carried ? 'Not equipped — effect off' : d.attune && !it.attuned ? 'Needs attunement — effect off' : '';
+    return `<div class="inf-card active${on ? '' : ' off'}"><div class="inf-ch"><span class="inf-dot"></span><div class="grow"><b>${esc(it.name)}</b><div class="hint">${esc(infLabel(it.infusion))}</div></div>
+        <button class="btn sm ghost" data-act="infend" data-i="${i}" title="End this infusion">End</button></div>
+      ${bits.length ? `<div class="inf-eff">${bits.map(b => `<span class="ichip">${esc(b)}</span>`).join('')}</div>` : ''}
+      ${d.choose ? `<label class="inf-choose">Resistance <select class="f" data-infchoice="${i}">${['<option value="">— choose —</option>'].concat(d.choose.map(c => `<option${it.infusion.choice === c ? ' selected' : ''}>${c}</option>`)).join('')}</select></label>` : ''}
+      ${ch ? `<div class="inf-charges"><span class="hint">Charges</span><span class="pips" data-calc-html="infpips:${i}"></span><span class="hint">${Math.max(0, N(ch.max) - N(ch.used))}/${N(ch.max)}${d.charges[1] === 'dawn' ? ' · back at dawn' : ' · regains ' + d.charges[1] + ' at dawn'}</span></div>` : ''}
+      ${d.act ? `<div class="inf-act"><button class="btn sm gold" data-act="infuse-use" data-i="${i}" ${on && (!ch || N(ch.used) < N(ch.max)) ? '' : 'disabled'}>${esc(d.act.name)}</button><span class="hint">${d.act.col === 'bonus' ? 'Bonus action' : d.act.col === 'reaction' ? 'Reaction' : 'Action'} — ${esc(d.act.text)}</span></div>` : ''}
+      ${d.companion ? `<div class="hint">The homunculus is on the Creatures tab.</div>` : ''}
+      ${warn ? `<div class="inf-warn">${esc(warn)}${d.attune && !it.attuned && (it.equipped || it.carried) ? ` <button class="btn sm" data-act="attune" data-i="${i}">Attune</button>` : !it.equipped ? ` <button class="btn sm" data-act="infequip" data-i="${i}">Equip</button>` : ''}</div>` : ''}
+    </div>`;
+  }).join('');
+  const bagCards = bags.map(([b, i]) => `<div class="inf-card active"><div class="inf-ch"><span class="inf-dot"></span><div class="grow"><b>${esc(b.name)}</b><div class="hint">${esc(infLabel(b.infusion))} · container</div></div><button class="btn sm ghost" data-act="infendbag" data-i="${i}" title="End this infusion">End</button></div><div class="inf-eff"><span class="ichip">Holds ${N(b.cap) || 500} lb${b.weightless ? ', weighs a fixed ' + (N(b.weight) || 15) + ' lb' : ''}</span></div><div class="hint">Its contents are on the Inventory tab. If the infusion ends, everything inside appears around it.</div></div>`).join('');
+  const activePanel = `<div class="panel" ${PID('infactive')}><h2><span class="grow">Infused items</span><span class="hint">${nAct} of ${aMax}</span></h2>
+    ${nAct ? `<div class="inf-grid">${actCards}${bagCards}</div>` : '<p class="hint" style="margin:0">Nothing infused right now. Pick an infusion below and choose an item.</p>'}</div>`;
+  // Known
+  const knownList = infKnown().map(n => ({ name: n })).concat((S.picks.infusion || []).includes('Replicate Magic Item') ? (infReplicas().length ? infReplicas().map(r => ({ name: 'Replicate Magic Item', rep: r })) : [{ name: 'Replicate Magic Item', rep: '' }]) : []);
+  const knownCards = knownList.map(k => {
+    const d = INF[k.name] || {}, on = act.concat(bags).find(([it]) => it.infusion.name === k.name && (k.name !== 'Replicate Magic Item' || it.infusion.rep === k.rep));
+    const lv = k.rep ? repLevel(k.rep) : d.lv || 2, needAtt = k.rep ? repAttune(k.rep) : !!d.attune;
+    const txt = k.rep ? (DND.full['item:' + k.rep] || (DND.magic.find(m => m[0] === k.rep) || [])[5] || '') : (DND.full['pick:infusion:' + k.name] || '');
+    const key = 'inf:' + k.name + ':' + (k.rep || '');
+    return `<div class="inf-card${on ? ' is-on' : ''}"><div class="inf-ch"><div class="grow"><b>${esc(k.rep ? k.rep : k.name)}</b><div class="hint">${k.rep ? 'Replicate Magic Item · ' : ''}${esc(k.rep ? 'Magic item' : d.item || '')}</div></div>
+        ${on ? `<span class="ichip on">On ${esc(on[0].name)}</span>` : `<button class="btn sm gold" data-act="infpick" data-n="${esc(k.name)}" data-r="${esc(k.rep || '')}" ${k.name === 'Replicate Magic Item' && !k.rep ? 'disabled title="Choose which item first (Learn / swap)"' : ''}>Infuse…</button>`}</div>
+      <div class="inf-tags"><span class="itag">${ordn(lv)}-level+</span><span class="itag${needAtt ? ' att' : ''}">${needAtt ? 'Requires attunement' : 'No attunement'}</span>${d.charges ? `<span class="itag">${d.charges[1] === 'dawn' ? 'Once per dawn' : d.charges[0] + ' charges'}</span>` : ''}${d.act ? `<span class="itag">${d.act.col === 'bonus' ? 'Bonus action' : d.act.col === 'reaction' ? 'Reaction' : 'Action'}</span>` : ''}</div>
+      ${txt ? `<div class="inf-txt${UI.open[key] ? ' open' : ''}" data-act="toggle" data-key="${esc(key)}">${fullHTML(txt)}</div>` : ''}
+    </div>`;
+  }).join('');
+  const knownPanel = `<div class="panel" ${PID('infknown')}><h2><span class="grow">Known infusions</span><span class="hint">${kn} of ${kMax}</span></h2>
+    ${knownList.length ? `<div class="inf-grid">${knownCards}</div>` : '<p class="hint" style="margin:0">You don\'t know any infusions yet — use Learn / swap infusions.</p>'}</div>`;
+  el.innerHTML = head + activePanel + knownPanel;
+}
+// ---------- Learn / swap ----------
+// One list of what you know (every replicated item is its own entry), and a catalog to add from.
+let INFL = { q: '', rq: '', rep: false };
+function openInfLearn() { INFL = { q: '', rq: '', rep: false }; openModal('<div id="infl"></div>', null, true); $('#modal-body').classList.add('xwide'); renderInfLearn(); }
+function infSetKnown(names, reps) { S.picks = Object.assign({}, S.picks, { infusion: [...new Set(names)] }); S.infReplicas = [...new Set(reps)]; }
+function infAdd(n) { const k = (S.picks.infusion || []).slice(); if (!k.includes(n)) k.push(n); infSetKnown(k, infReplicas()); infLearnSaved('Learn ' + n); }
+function infAddRep(r) { r = String(r || '').trim(); if (!r) return; const k = (S.picks.infusion || []).slice(); if (!k.includes('Replicate Magic Item')) k.push('Replicate Magic Item'); infSetKnown(k, infReplicas().concat([r])); infLearnSaved('Learn Replicate: ' + r); }
+function infRemove(n, r) {
+  let k = (S.picks.infusion || []).slice(), reps = infReplicas().slice();
+  if (r) { reps = reps.filter(x => x !== r); infAllActive().forEach(x => { if (x.o.infusion.name === 'Replicate Magic Item' && x.o.infusion.rep === r) infEndAny(x); }); if (!reps.length) k = k.filter(x => x !== 'Replicate Magic Item'); }
+  else { k = k.filter(x => x !== n); if (n === 'Replicate Magic Item') reps = []; infAllActive().forEach(x => { if (x.o.infusion.name === n) infEndAny(x); }); }
+  infSetKnown(k, reps); infLearnSaved('Forget ' + (r ? 'Replicate: ' + r : n));
+}
+function infLearnSaved(lbl) { pendingLabel = lbl; save(); rebuildAuto(); render(); renderInfLearn(); }
+function renderInfLearn() {
+  const box = $('#infl'); if (!box) return;
+  const L = artLv(), kMax = infKnownMax(L), kn = infKnownCount(), known = new Set(S.picks.infusion || []), reps = infReplicas();
+  const tag = (lv, att) => `<span class="itag">${ordn(lv)}+</span>${att ? '<span class="itag att">attunement</span>' : ''}`;
+  const mine = infKnown().map(n => ({ n, lv: (INF[n] || {}).lv || 2, att: !!(INF[n] || {}).attune, label: n, sub: (INF[n] || {}).item || '' }))
+    .concat(reps.map(r => ({ n: 'Replicate Magic Item', r, lv: repLevel(r), att: repAttune(r), label: r, sub: 'Replicate Magic Item' })))
+    .concat(known.has('Replicate Magic Item') && !reps.length ? [{ n: 'Replicate Magic Item', r: '', lv: 2, att: false, label: 'Replicate Magic Item', sub: 'No item chosen yet' }] : []);
+  const q = INFL.q.toLowerCase(), rq = INFL.rq.toLowerCase();
+  const avail = Object.keys(INF).filter(n => n !== 'Replicate Magic Item' && !known.has(n) && (!q || n.toLowerCase().includes(q)));
+  const repAll = Object.keys(REPLIC).flatMap(Lv => REPLIC[Lv].map(([n, a]) => ({ n, a, Lv: +Lv }))).filter(x => !rq || x.n.toLowerCase().includes(rq));
+  box.innerHTML = `<div class="infl-h"><h3 style="margin:0">Your infusions</h3><span class="infl-ct${kn > kMax ? ' over' : ''}"><b>${kn}</b> of ${kMax} known</span></div>
+    <p class="hint" style="margin:4px 0 10px">Every item you can replicate counts as one infusion. When you gain an artificer level you can swap one infusion for another; forgetting one ends it on its item.</p>
+    <div class="infl-mine">${mine.map(m => `<div class="infl-row mine"><div class="grow"><b>${esc(m.label)}</b> <span class="hint">${esc(m.sub)}</span></div>${tag(m.lv, m.att)}<button class="icon-btn" data-act="infrem" data-n="${esc(m.n)}" data-r="${esc(m.r || '')}" title="Forget" aria-label="Forget ${esc(m.label)}">✕</button></div>`).join('') || '<p class="hint">None yet.</p>'}</div>
+    <div class="infl-cols">
+      <div><div class="infl-sub"><b>Add an infusion</b><input class="f" data-infq placeholder="Search…" value="${esc(INFL.q)}"></div>
+        ${avail.map(n => { const d = INF[n], lock = (d.lv || 2) > L; return `<div class="infl-row${lock ? ' locked' : ''}"><div class="grow"><b>${esc(n)}</b> <span class="hint">${esc(d.item)}</span><div class="hint">${esc(((DND.options.infusion.list.find(x => x[0] === n) || [])[1]) || '')}</div></div>${tag(d.lv || 2, d.attune)}<button class="notetip" type="button" data-tipkind="full" data-full="${esc('pick:infusion:' + n)}" aria-label="What ${esc(n)} does">ⓘ</button><button class="btn sm gold" data-act="infadd" data-n="${esc(n)}" ${lock ? 'disabled title="Needs a higher artificer level"' : ''}>Add</button></div>`; }).join('') || '<p class="hint">You know every infusion that matches.</p>'}</div>
+      <div><div class="infl-sub"><b>Replicate a magic item</b><input class="f" data-infrq placeholder="Search items…" value="${esc(INFL.rq)}"></div>
+        <p class="hint" style="margin:0 0 6px">Learn Replicate Magic Item again for each item you want to be able to make.</p>
+        ${Object.keys(REPLIC).map(Lv => { const list = repAll.filter(x => x.Lv === +Lv); return list.length ? `<div class="infl-lv">${ordn(Lv)} level${+Lv > L ? ' — locked' : ''}</div>` + list.map(x => { const have = reps.includes(x.n), lock = x.Lv > L; return `<div class="infl-row${lock ? ' locked' : ''}"><div class="grow"><b>${esc(x.n)}</b>${x.a ? ' <span class="hint">attunement</span>' : ''}</div><button class="notetip" type="button" data-tipkind="full" data-full="${esc('item:' + x.n)}" aria-label="What ${esc(x.n)} does">ⓘ</button>${have ? '<span class="ichip on">Known</span>' : `<button class="btn sm" data-act="infaddrep" data-r="${esc(x.n)}" ${lock ? 'disabled' : ''}>Add</button>`}</div>`; }).join('') : ''; }).join('')}
+        <div class="infl-lv">Something else (DM approved)</div><div class="row"><input class="f" id="infRepOther" placeholder="Common or uncommon magic item"><button class="btn sm" data-act="infrepadd">Add</button></div></div>
+    </div>
+    <div class="actions"><button class="btn gold" data-act="close">Done</button></div>`;
+}
+document.addEventListener('input', e => { const t = e.target; if (!t.dataset) return; if (t.dataset.infq !== undefined || t.dataset.infrq !== undefined) { const k = t.dataset.infq !== undefined ? 'q' : 'rq', pos = t.selectionStart; INFL[k] = t.value; renderInfLearn(); const n = $(k === 'q' ? '[data-infq]' : '[data-infrq]'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (er) {} } } });
+// ---------- Infuse an item ----------
+let INFPICK = null;
+function openInfPick(name, rep, all) {
+  const d = INF[name] || {}; INFPICK = { name, rep };
+  const cands = S.inventory.map((it, i) => [it, i]).filter(([it]) => !it.infusion && !(it.magic && !it.infusion) && (all || rep || !d.ok || d.ok(it)));
+  const L = artLv(), aMax = infActiveMax(L), all2 = infAllActive();
+  const full = all2.length >= aMax ? all2[0].o : null;
+  openModal(`<h3>Infuse: ${esc(rep || name)}</h3>
+    <p class="hint" style="margin:0 0 8px">${rep ? `Turn a nonmagical object into a <b>${esc(rep)}</b>${repAttune(rep) ? ' (requires attunement)' : ''}.` : `Target: ${esc(d.item || 'an object')}${d.attune ? ' · requires attunement' : ''}.`} Infusing happens when you finish a long rest.</p>
+    ${full ? `<p class="inf-warn" style="margin:0 0 8px">You already have ${aMax} infused items — this ends the oldest: <b>${esc(full.name)}</b> (${esc(infLabel(full.infusion))}).</p>` : ''}
+    ${d.choose ? fld('Resistance to', `<select class="f" id="infChoice">${d.choose.map(c => `<option>${c}</option>`).join('')}</select>`) : ''}
+    <div class="lbl">Choose an item you carry</div>
+    <div class="crlist">${cands.map(([it, i]) => `<button class="crrow sel" data-act="infgo" data-i="${i}"><div><b>${esc(it.name)}</b> <span class="hint">${it.weapon ? 'Weapon' : it.armor ? (it.armor.type === 'shield' ? 'Shield' : 'Armor') : 'Item'}${it.equipped ? ' · equipped' : ''}</span></div></button>`).join('') || '<p class="hint">No matching nonmagical items — create one below, or show every item.</p>'}</div>
+    <div class="row" style="margin-top:8px"><input class="f" id="infNewName" placeholder="${esc(rep || (d.item || 'Item').replace(/^(A|An) /i, '').replace(/^pair of /i, ''))}"><button class="btn sm" data-act="infgo" data-i="-1">Create it</button>${!all && !rep && d.ok ? `<button class="btn sm ghost" data-act="infpickall">Show every item</button>` : ''}</div>
+    <div class="actions"><button class="btn" data-act="close">Cancel</button></div>`);
+}
+function infGo(i) {
+  const P = INFPICK; if (!P) return; const d = INF[P.name] || {};
+  let it = i >= 0 ? S.inventory[i] : null;
+  if (!it) { const nm = (($('#infNewName') || {}).value || '').trim() || P.rep || P.name; const m = P.rep && DND.magic.find(x => x[0] === P.rep);
+    it = m ? makeMagicItem(m) : { id: uid(), name: nm, qty: 1, weight: 0, cost: '', equipped: false, notes: '' }; if (m && nm !== P.rep) it.name = nm; addInventoryItem(it, true); }
+  const aMax = infActiveMax(artLv());
+  // The same infusion can only be in one item.
+  infAllActive().forEach(x => { if (x.o !== it && x.o.infusion.name === P.name && (P.name !== 'Replicate Magic Item' || x.o.infusion.rep === P.rep)) infEndAny(x); });
+  const still = infAllActive(); if (still.length >= aMax) infEndAny(still[0]);
+  const prev = { attune: it.attune, attuned: it.attuned, charges: it.charges ? JSON.parse(JSON.stringify(it.charges)) : null, magic: it.magic || null, summary: it.summary || '' };
+  it.infusion = { name: P.name, rep: P.rep || '', at: Date.now(), prev, created: i < 0, choice: d.choose ? (($('#infChoice') || {}).value || '') : '' };
+  const needAtt = P.rep ? repAttune(P.rep) : !!d.attune; if (needAtt) { it.attune = true; it.attuned = !!prev.attuned && !!prev.attune; }
+  if (d.charges) { it.charges = { max: d.charges[0], used: 0, reset: 'long' }; it.infusion.charges = true; }
+  if (!it.magic) it.magic = { rarity: P.rep ? ((DND.magic.find(x => x[0] === P.rep) || [])[3] || 'uncommon') : 'uncommon', type: 'infusion', src: 'TCE', name: P.rep || '' };
+  if (!it.summary) it.summary = P.rep ? ((DND.magic.find(x => x[0] === P.rep) || [])[5] || '') : ((DND.options.infusion.list.find(x => x[0] === P.name) || [])[1] || '');
+  pendingLabel = 'Infuse ' + it.name; closeModal(true); save(); render();
+  toast(`<b>${esc(it.name)}</b> is infused with ${esc(P.rep || P.name)}.${needAtt && !it.attuned ? ' Attune to it to turn it on.' : ''}`, '', 7000, { label: 'Undo', fn: () => undo(1) });
+}
+function infEndItem(it) {
+  const inf = it.infusion; if (!inf) return;
+  if (inf.created && inf.name === 'Replicate Magic Item') { const k = S.inventory.indexOf(it); if (k >= 0) { S.inventory.splice(k, 1); S.attacks = S.attacks.filter(a => a.item !== it.id); } return; }
+  const p = inf.prev;
+  if (p) { it.attune = p.attune; it.attuned = p.attuned; if (inf.charges) { if (p.charges) it.charges = p.charges; else delete it.charges; } if (!p.magic && it.magic && it.magic.type === 'infusion') delete it.magic; if (p.summary !== undefined) it.summary = p.summary; }
+  delete it.infusion;
+}
+function infEnd(i) {
+  const it = S.inventory[i]; if (!it || !it.infusion) return;
+  const nm = it.name, gone = it.infusion.created && it.infusion.name === 'Replicate Magic Item';
+  infEndItem(it); pendingLabel = 'End infusion: ' + nm; save(); render();
+  toast(`The infusion on <b>${esc(nm)}</b> ended${gone ? ' and the item is gone (anything inside appears around where it was)' : ''}.`, '', 7000, { label: 'Undo', fn: () => undo(1) });
+}
+function infUse(i, col) {
+  const it = S.inventory[i]; if (!it || !it.infusion) return; const d = infDef(it.infusion); if (!d.act) return;
+  if (it.charges && it.infusion.charges) { if (N(it.charges.used) >= N(it.charges.max)) { toast('No charges left — they come back at dawn.', 'fumble'); return; } it.charges.used = N(it.charges.used) + 1; }
+  if (d.act.refuel) { const lv = [0, 1, 2].filter(k => slotMax(k) > 0 && slotsLeft(k) < slotMax(k)); if (!lv.length) { if (it.charges) it.charges.used = Math.max(0, N(it.charges.used) - 1); toast('You have no spent slots of 3rd level or lower.', 'fumble'); return; }
+    const k = Math.max(...lv); S.slotsUsed[k] = Math.max(0, N(S.slotsUsed[k]) - 1); toast(`<b>Spell-Refueling Ring</b>: recovered a ${ORD[k]}-level slot.`, '', 6000, { label: 'Undo', fn: () => undo(1) }); }
+  else toast(`<b>${esc(d.act.name)}</b> — ${esc(d.act.text)}`, '', 8000, { label: 'Undo', fn: () => undo(1) });
+  const c = col || d.act.col; if (c && c !== 'free' && S.turn && S.turn.used) S.turn.used[c] = true;
+  pendingLabel = d.act.name + ' (' + it.name + ')'; save(); render();
+}
+// Infusion actions for the Combat columns.
+function infCombatRows(col) {
+  return infActs(col).map(([it, i]) => { const d = infDef(it.infusion), ch = it.charges && it.infusion.charges ? it.charges : null;
+    return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(d.act.name)}</span>${ch ? `<span class="tag">${Math.max(0, N(ch.max) - N(ch.used))}/${N(ch.max)}</span>` : ''}<button class="btn sm" data-act="infuse-use" data-i="${i}" data-col="${col}" ${ch && N(ch.used) >= N(ch.max) ? 'disabled' : ''}>Use</button></div><div class="opt-info">${esc(it.name)} · ${esc(infLabel(it.infusion))}</div><div class="opt-text">${esc(d.act.text)}</div></div>`; });
+}
+
+// ---------- Creatures: one card design for the Creatures tab and (compact) the Combat tab ----------
+// An action is [name, toHit, dice, notes, kind?, saveAbility?, dc?]. kind: attack | save | temp | heal | roll.
+const ABL = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
+function actKind(a) { const t = (a[0] || '') + ' ' + (a[3] || ''); return a[4] || (/temp(orary)? ?hp/i.test(t) ? 'temp' : /\bheal/i.test(t) ? 'heal' : (a[1] === '' || a[1] == null) ? (/save/i.test(t) ? 'save' : 'roll') : 'attack'); }
+function actSave(a) { const t = (a[0] || '') + ' ' + (a[3] || ''); return a[5] || ((t.match(/\b(STR|DEX|CON|INT|WIS|CHA)\b\s*(?:save|saving)/i) || [])[1] || '').toUpperCase(); }
+function actDC(c, a) { if (N(a[6])) return N(a[6]); const m = String(a[3] || '').match(/DC\s*(\d+)/i); if (m) return N(m[1]); const r = c && c.tmpl && COMP_RULES[c.tmpl]; return r ? castInfo(r.cls).dc : ''; }
+const actName = a => String(a[0] || '').replace(/\s*\((?:[A-Z]{3} save|temp HP)\)\s*/i, '').trim();
+const actNote = a => String(a[3] || '').replace(/\s*\(?DC\s*\d+\s*[A-Z]{3}\s*save[^)]*\)?/i, '').trim();
+// "walk 40, fly 60" → "40ft · fly 60ft"
+function compSpeedText(sp) {
+  const parts = String(sp || '').split(/\s*[,;]\s*/).map(x => x.trim()).filter(Boolean); if (!parts.length) return '—';
+  return parts.map(x => { const m = /^(walk|walking)?\s*(\d+)\s*(?:ft\.?|feet)?$/i.exec(x); if (m) return m[2] + 'ft'; const n = /^([a-z]+)\s*(\d+)\s*(?:ft\.?|feet)?(.*)$/i.exec(x); return n ? `${n[1].toLowerCase()} ${n[2]}ft${n[3]}` : x; }).join(' · ');
+}
+// In initiative: a Command button on companions that only act when you spend a bonus action on them.
+function compCmdBtn(c, i) {
+  const r = c.tmpl && COMP_RULES[c.tmpl]; if (!r || !r.command || !(N(c.hp) > 0)) return '';
+  const done = S.turn && S.turn.commanded && S.turn.commanded[c.id];
+  return `<button class="btn sm ${done ? 'ghost' : 'gold'}" data-act="compcmd" data-i="${i}" ${done ? 'disabled' : ''} title="${esc(r.command)}">${done ? '✓ Commanded' : 'Command'}</button>`;
+}
+function compCard(c, i, mini, inCol) {
+  const who = 'c' + i, hpPct = c.maxhp ? Math.max(0, Math.min(100, N(c.hp) / N(c.maxhp) * 100)) : 0;
+  const acts = (c.attacks || []).map((a, j) => {
+    const k = actKind(a), dc = k === 'save' ? actDC(c, a) : '', sv = actSave(a);
+    const info = k === 'attack' ? `<button class="roll" data-act="crroll" data-who="${who}" data-j="${j}" data-what="hit" title="Roll to hit only">${fmt(N(a[1]))}</button> to hit · <button class="roll" data-act="crroll" data-who="${who}" data-j="${j}" data-what="dmg" title="Roll damage only">${esc(a[2] || '—')}</button>` : k === 'save' ? `<b>DC ${dc}${sv ? ' ' + sv : ''}</b> · ${esc(a[2] || '—')}` : esc(a[2] || '—');
+    const main = k === 'attack' ? `<button class="btn sm gold" data-act="crroll" data-who="${who}" data-j="${j}" data-what="both">Attack</button>` : `<button class="btn sm gold" data-act="crroll" data-who="${who}" data-j="${j}" data-what="eff">${k === 'temp' ? 'Temp HP' : k === 'heal' ? 'Heal' : k === 'save' ? 'Damage' : 'Roll'}</button>`;
+    const lim = N(a[8]), left = lim ? Math.max(0, lim - N((c.used || {})[a[0]])) : 0;
+    const mainB = lim && !left ? main.replace('<button ', '<button disabled ') : main;
+    const extra = lim ? `<span class="tag" title="Uses left today">${left}/${lim}</span>` : '';
+    return `<div class="cact k-${k}"><span class="cact-i" aria-hidden="true">${k === 'attack' ? '⚔' : k === 'save' ? '⛨' : k === 'temp' ? '🛡' : k === 'heal' ? '✚' : '🎲'}</span><div class="cact-m"><b>${esc(actName(a))}</b><div class="cact-s">${info}${actNote(a) && !mini ? ' · <span class="muted">' + esc(actNote(a)) + '</span>' : ''}</div></div><div class="cact-b">${extra}${mainB}</div></div>`;
+  }).join('');
+  const tags = [c.tmpl ? (COMP_RULES[c.tmpl] && COMP_RULES[c.tmpl].always ? 'Always with you' : 'Class · scales with level') : c.kind || 'Companion', c.count > 1 ? '×' + c.count : '', c.effect || ''].filter(Boolean);
+  const hp = c.count > 1 ? `<div class="grpHp">${(c.hps || []).map((h, k) => `<label class="ghp"><span>#${k + 1}</span>${inp(`companions.${i}.hps.${k}`, { num: 1, cls: 'sm', label: c.name + ' ' + (k + 1) + ' HP' })}</label>`).join('')}<span class="hint">of ${N(c.maxhp)} each</span></div>`
+    : c.maxhp ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(c.hp, c.maxhp, c.temp)}</div>
+        <div class="chp-center"><div class="curline">${inp(`companions.${i}.hp`, { num: 1, cls: 'cur', label: c.name + ' current HP' })}${N(c.temp) ? `<span class="tmpbadge">+${N(c.temp)}</span>` : ''}</div><div class="hp-max">of ${N(c.maxhp)}</div></div></div>
+        <div class="chp-side"><input class="f" id="chp${i}" type="number" inputmode="numeric" placeholder="Amount" aria-label="${esc(c.name)} HP amount">
+          <div class="chp-btns"><button class="btn hpi dmg" data-act="comphp" data-i="${i}" data-d="-1" title="Damage ${esc(c.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="comphp" data-i="${i}" data-d="1" title="Heal ${esc(c.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-act="comphp" data-i="${i}" data-d="0" title="Give ${esc(c.name)} temporary HP (they don't stack — the higher stays)" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div></div>` : '';
+  return `<div class="${mini ? 'cm-card' : inCol ? 'comp2 incol' : 'panel comp2'}"><div class="comp-h2">${picThumb(c.tmpl ? `compMods.${c.tmpl}.img` : `companions.${i}.img`, c.name)}<div class="grow"><b class="cname">${esc(c.name)}</b><div class="ctags">${(inCol ? [] : tags).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div></div>
+      ${inCol ? compCmdBtn(c, i) : ''}<button class="icon-btn" data-act="compedit" data-i="${i}" title="Edit ${esc(c.name)}" aria-label="Edit">✎</button>${c.tmpl && COMP_RULES[c.tmpl] && COMP_RULES[c.tmpl].always ? '' : `<button class="btn sm ghost" data-act="dismiss" data-i="${i}">Dismiss</button>`}</div>
+    <div class="cstat2">${hp}<div class="cchips"><span class="cchip2"><small>AC</small><b>${N(c.ac)}</b></span><span class="cchip2 wide"><small>Speed</small><b>${esc(compSpeedText(c.speed))}</b></span>${c.multi > 1 ? `<span class="cchip2"><small>Attacks</small><b>${c.multi}</b></span>` : ''}</div></div>
+    ${acts ? `<div class="cacts">${acts}</div>` : ''}
+    ${!mini && String(c.notes || '').trim() ? (inCol ? `<details class="cnotes-d"><summary>How ${esc(c.name)} works</summary><div class="cnotes">${esc(c.notes)}</div></details>` : `<div class="cnotes">${esc(c.notes)}</div>`) : ''}</div>`;
+}
+// Edit a creature: for class companions the changes are your table's version (S.compMods) and survive level-ups.
+let CEDIT = null;
+function openCompEdit(i) {
+  const c = S.companions[i]; if (!c) return; const cls = !!(c.tmpl && COMP_RULES[c.tmpl]), m = cls ? ((S.compMods || {})[c.tmpl] || {}) : null;
+  const base = cls ? compStatsBase(c.tmpl) : null;
+  CEDIT = { i, cls, base, rows: (c.attacks || []).map((a, j) => ({ a: a.slice(), j, b: cls && base.attacks.some(x => actName(x) === actName(a)) ? actName(a) : '' })) };
+  const row = (r, k) => `<div class="ce-row" data-k="${k}" data-b="${esc(r.b || '')}"><input class="f" data-ce="0" value="${esc(r.a[0] || '')}" placeholder="Name"><select class="f" data-ce="4">${['attack', 'save', 'temp', 'heal', 'roll'].map(x => `<option${actKind(r.a) === x ? ' selected' : ''}>${x}</option>`).join('')}</select><input class="f sm" data-ce="1" value="${esc(r.a[1] == null ? '' : r.a[1])}" placeholder="+hit"><input class="f sm" data-ce="2" value="${esc(r.a[2] || '')}" placeholder="dice"><select class="f sm" data-ce="5" title="Saving throw"><option value="">—</option>${ABL.map(x => `<option${actSave(r.a) === x ? ' selected' : ''}>${x}</option>`).join('')}</select><input class="f sm" data-ce="6" value="${esc(r.a[6] || '')}" placeholder="DC"><input class="f" data-ce="3" value="${esc(r.a[3] || '')}" placeholder="notes / damage type"><button class="icon-btn" data-act="cedel" data-k="${k}" title="Remove" aria-label="Remove">✕</button></div>`;
+  openModal(`<h3>Edit ${esc(c.name)}</h3>${cls ? '<p class="hint" style="margin:0 0 8px">This is a class companion: its numbers grow with your level. What you change here is saved as your table\'s version and kept when it levels up. Leave a field blank to use the normal value.</p>' : ''}
+    <div class="row">${fld('Name', `<input class="f" id="ceName" value="${esc(c.name)}">`)}${fld('AC', `<input class="f sm" id="ceAc" value="${esc(cls ? (m.ac || '') : c.ac)}" placeholder="${cls ? base.ac : ''}">`)}${fld(c.count > 1 ? 'Max HP each' : 'Max HP', `<input class="f sm" id="ceHp" value="${esc(cls ? (m.hp || '') : c.maxhp)}" placeholder="${cls ? base.hp : ''}">`)}${fld('Speed', `<input class="f" id="ceSpeed" value="${esc(cls ? (m.speed || '') : c.speed || '')}" placeholder="${cls ? esc(base.speed) : ''}">`)}</div>
+    <div class="lbl" style="margin-top:8px">Actions <span class="hint">— kind decides the button: attack rolls to hit and damage, save shows the DC and rolls damage, temp/heal roll and offer to apply it</span></div>
+    <div class="ce-row ce-head"><span>Name</span><span>Kind</span><span>To hit</span><span>Dice</span><span>Save</span><span>DC</span><span>Notes</span><span></span></div>
+    <div id="ceRows">${CEDIT.rows.map(row).join('')}</div><button class="btn sm" data-act="ceadd">+ Add action</button>
+    ${fld('Notes', `<textarea class="f" id="ceNotes" rows="3">${esc(cls ? (m.notes || '') : c.notes || '')}</textarea>`)}
+    <div class="actions"><button class="btn" data-act="close">Cancel</button>${cls ? '<button class="btn ghost" data-act="cereset">Reset to normal</button>' : ''}<button class="btn gold" data-act="cesave">Save</button></div>`, null, true);
+  $('#modal-body').classList.add('xwide');
+  CEDIT.row = row;
+}
+function ceReadRows(withB) { return $$('#ceRows .ce-row').map(el => { const g = k => (el.querySelector(`[data-ce="${k}"]`) || {}).value || ''; const kind = g(4); const a = [g(0).trim(), kind === 'attack' ? (g(1).trim() === '' ? 0 : N(g(1))) : '', g(2).trim(), g(3).trim(), kind, g(5), g(6).trim()]; return withB ? { a, b: el.dataset.b || '' } : a; }).filter(x => (withB ? x.a : x)[0]); }
+const ceNorm = a => [String(a[0] || ''), a[1] === '' || a[1] == null ? '' : N(a[1]), String(a[2] || ''), String(a[3] || ''), actKind(a), actSave(a), String(a[6] || '')];
+function ceSave() {
+  const E = CEDIT; if (!E) return; const c = S.companions[E.i]; if (!c) return;
+  const v = id => (($('#' + id) || {}).value || '').trim(), rows = ceReadRows();
+  if (E.cls) {
+    const n = c.tmpl, m = Object.assign({}, (S.compMods || {})[n]);
+    m.name = v('ceName') || undefined; m.ac = v('ceAc') || undefined; m.hp = v('ceHp') || undefined; m.speed = v('ceSpeed') || undefined; m.notes = v('ceNotes') || undefined;
+    const base = E.base.attacks;
+    m.actions = ceReadRows(true).map(({ a, b }) => { if (!b) return { a }; const x = base.find(z => actName(z) === b); if (!x) return { a }; const nx = ceNorm(x), na = ceNorm(a), e = {}; na.forEach((v, k) => { if (String(v) !== String(nx[k])) e[k] = k === 1 && v !== '' ? N(v) : v; }); return { b, e }; });
+    m.known = base.map(actName); delete m.attacks;
+    Object.keys(m).forEach(k => m[k] === undefined && delete m[k]);
+    S.compMods = Object.assign({}, S.compMods, { [n]: m }); c.name = m.name || n;
+  } else { c.name = v('ceName') || c.name; c.ac = N(v('ceAc')); const mh = N(v('ceHp')); if (mh) { c.hp = Math.min(N(c.hp), mh) || mh; c.maxhp = mh; } c.speed = v('ceSpeed'); c.notes = v('ceNotes'); c.attacks = rows; }
+  pendingLabel = 'Edit ' + c.name; closeModal(true); save(); render();
+}
+
+// ================= Wild Magic & Metamagic (sorcerer) =================
+const R1M = 10, R1H = 600, R1D = 14400;
+
+// ---------- Dice hooks used while a spell is cast ----------
+// MAXDMG: every damage die rolls its maximum (surge "maximize the next damaging spell").
+// EMPOWER: reroll up to this many damage dice that came up below average (Empowered Spell).
+let MAXDMG = false, EMPOWER = 0, DICE_TOUCHED = false;
+function diceHook(rs, sides) {
+  if (sides === 20) return null;
+  if (MAXDMG) { DICE_TOUCHED = true; return rs.map(() => sides); }
+  if (EMPOWER > 0) {
+    const avg = (sides + 1) / 2, out = rs.slice(), notes = rs.map(String);
+    rs.map((v, k) => [v, k]).filter(([v]) => v < avg).sort((a, b) => a[0] - b[0]).forEach(([v, k]) => {
+      if (EMPOWER <= 0) return; EMPOWER--; DICE_TOUCHED = true; const nv = 1 + Math.floor(Math.random() * sides); out[k] = nv; notes[k] = v + '↻' + nv;
+    });
+    return { out, notes };
+  }
+  return null;
+}
+
+// ---------- Wild Magic Surge ----------
+const wildOn = () => hasFeature('Wild Magic Surge');
+const surgeK = n => Math.min(50, Math.max(1, Math.ceil(N(n) / 2)));
+function surgeTableText(n) { const e = (S.surgeTable || []).find(x => n >= N(x.lo) && n <= N(x.hi)); return e ? e.text : ''; }
+// Automation follows the standard 50-row table; a custom table with other rows only shows its text.
+const surgeStd = () => { const t = S.surgeTable || []; return !t.length || (t.length === 50 && t.every((x, i) => N(x.lo) === 2 * i + 1 && N(x.hi) === 2 * i + 2)); };
+const selfDC = () => castInfo('sorcerer').dc;
+function mySave(ab, label) { const { expr } = d20Expr(saveVal(ab), 'save', ab); return rollExpr(expr, { need: true, label }); }
+
+// A plan: what was rolled, what will change on the sheet, and the functions that change it (run when you press OK).
+function plan() { return { rolls: [], changes: [], fns: [], input: null }; }
+function pEffect(p, name, rounds, note, buff) {
+  const e = { name, buff: Object.assign({ note }, buff || {}), surge: true }; if (rounds) e.rounds = rounds;
+  p.changes.push(`Adds <b>${esc(name)}</b> to Active Spells${rounds ? ' for ' + fmtRounds(rounds) : ' (remove it when it ends)'}`);
+  p.fns.push(() => { S.effects = (S.effects || []).filter(x => x.name !== name).concat([JSON.parse(JSON.stringify(e))]); });
+}
+function pCond(p, c, rounds) {
+  p.changes.push(`Condition: <b>${c}</b>${rounds ? ' for ' + fmtRounds(rounds) : ''}`);
+  p.fns.push(() => { if (!S.conditions.includes(c)) S.conditions.push(c); if (rounds) { S.condTurns = S.condTurns || {}; S.condTurns[c] = rounds; } });
+}
+function pHeal(p, n, why) { p.changes.push(`Heals you <b>${n}</b> HP${why ? ' (' + why + ')' : ''}`); p.fns.push(() => healSelf(n, 'Wild Magic Surge: +' + n + ' HP')); }
+function pDamage(p, n, type, why) { p.changes.push(`You take <b>${n}</b> ${type} damage${why ? ' (' + why + ')' : ''}`); p.fns.push(() => takeDamage(n)); }
+function pSaveVs(p, ab, spell) {
+  const dc = selfDC(), r = mySave(ab, `${spell}: your ${ab.toUpperCase()} save`), ok = r.total >= dc;
+  p.rolls.push(`Your ${ab.toUpperCase()} save vs your own DC ${dc}: <b>${r.total}</b> (${esc(r.detail)}) — ${ok ? 'success' : 'failed'}`);
+  return ok;
+}
+function pRoll(p, expr, label) { const r = rollExpr(expr, { need: true, label }); p.rolls.push(`${esc(label)}: <b>${r.total}</b> (${esc(r.detail)})`); return r.total; }
+
+// My own one-line summary of each row of the standard table, and what the sheet does about it.
+const SURGE = [
+  ['Roll on this table at the start of each of your turns for 1 minute (ignore this result on those rolls).', (p, ctx) => ctx.chained ? p.rolls.push('Ignored — you are already surging every turn.') : pEffect(p, 'Surge every turn', R1M, 'Next Turn rolls a Wild Magic Surge for you', { surgeEach: true })],
+  ['For 1 minute you can see invisible creatures in your line of sight.', p => pEffect(p, 'See the invisible', R1M, 'You see invisible creatures in line of sight')],
+  ['A modron controlled by the DM appears within 5 ft and vanishes after 1 minute.', p => pEffect(p, 'Modron nearby', R1M, 'A DM-controlled modron is next to you')],
+  ['You cast Fireball as a 3rd-level spell centered on yourself.', p => { const d = pRoll(p, '8d6', 'Fireball damage'); const ok = pSaveVs(p, 'dex', 'Fireball'); p.rolls.push(`Everyone else within 20 ft: DC ${selfDC()} DEX save, ${d} fire (half on a success)`); pDamage(p, ok ? Math.floor(d / 2) : d, 'fire', ok ? 'half, you saved' : 'you failed the save'); }],
+  ['You cast Magic Missile as a 5th-level spell (seven darts).', p => { const d = pRoll(p, '7d4+7', 'Magic Missile, 7 darts'); p.rolls.push(`Point the darts at creatures you can see — ${d} force in total; they always hit`); }],
+  ['Roll a d10: your height changes by that many inches — odd you shrink, even you grow.', p => { const n = pRoll(p, '1d10', 'Height change (inches)'), dn = n % 2 ? -n : n; const h = String(S.appearance.height || ''), m = /(\d+)\s*'\s*(\d+)?/.exec(h);
+    if (m) { const tot = Math.max(1, N(m[1]) * 12 + N(m[2]) + dn), nh = `${Math.floor(tot / 12)}' ${tot % 12}"`; p.changes.push(`Height: ${esc(h)} → <b>${nh}</b>`); p.fns.push(() => { S.appearance.height = nh; }); }
+    else { p.changes.push(`Notes: “Wild Magic: ${dn > 0 ? 'grew' : 'shrank'} ${n} inches”`); p.fns.push(() => S.notes.unshift({ date: new Date().toISOString().slice(0, 10), title: 'Wild Magic Surge', text: `${dn > 0 ? 'Grew' : 'Shrank'} ${n} inches.` })); } }],
+  ['You cast Confusion centered on yourself.', p => { p.rolls.push(`Creatures in a 10-ft sphere around you: DC ${selfDC()} WIS save or be confused`); if (!pSaveVs(p, 'wis', 'Confusion')) pEffect(p, 'Confused', R1M, 'Confusion: roll a d10 at the start of each turn for what you do; WIS save at the end of each turn ends it'); }],
+  ['For 1 minute you regain 5 hit points at the start of each of your turns.', p => pEffect(p, 'Regenerating', R1M, 'Next Turn heals you 5 HP', { healEach: 5 })],
+  ['You grow a long beard of feathers that stays until you sneeze, when the feathers burst out of your face.', p => pEffect(p, 'Feather beard', 0, 'Until you sneeze')],
+  ['You cast Grease centered on yourself.', p => { p.rolls.push(`10-ft square of grease under you: creatures there make a DC ${selfDC()} DEX save or fall prone`); if (!pSaveVs(p, 'dex', 'Grease')) pCond(p, 'Prone'); }],
+  ['Creatures have disadvantage on saves against the next spell you cast in the next minute that calls for a save.', p => pEffect(p, 'Chaotic spell', R1M, 'Targets of your next save spell have disadvantage on the save')],
+  ['Your skin turns a vivid blue until a Remove Curse spell ends it.', p => pEffect(p, 'Blue skin', 0, 'Until Remove Curse')],
+  ['A third eye appears on your forehead for 1 minute: advantage on Perception checks that rely on sight.', p => pEffect(p, 'Third eye', R1M, 'Advantage on sight-based Perception checks', { percAdv: true })],
+  ['For 1 minute, every spell you cast with a casting time of 1 action takes a bonus action instead.', p => pEffect(p, 'Quick casting', R1M, '1-action spells take a bonus action', { quickAll: true })],
+  ['You teleport up to 60 ft to an unoccupied space you can see.', p => p.rolls.push('Move your token — nothing on your sheet changes.')],
+  ['You are sent to the Astral Plane until the end of your next turn, then return to where you were.', p => pEffect(p, 'On the Astral Plane', 2, 'You return at the end of your next turn')],
+  ['The next damaging spell you cast within 1 minute deals maximum damage.', p => pEffect(p, 'Maximized magic', R1M, 'Your next damaging spell deals maximum damage', { maxNext: true })],
+  ['Roll a d10: your age changes by that many years — odd younger (minimum 1), even older.', p => { const n = pRoll(p, '1d10', 'Age change (years)'), dn = n % 2 ? -n : n, a = N(S.appearance.age);
+    if (a) { const na = String(Math.max(1, a + dn)); p.changes.push(`Age: ${a} → <b>${na}</b>`); p.fns.push(() => { S.appearance.age = na; }); } else { p.changes.push(`Notes: “Wild Magic: ${dn > 0 ? 'aged' : 'got younger by'} ${n} years”`); p.fns.push(() => S.notes.unshift({ date: new Date().toISOString().slice(0, 10), title: 'Wild Magic Surge', text: `${dn > 0 ? 'Aged' : 'Got younger by'} ${n} years.` })); } }],
+  ['1d6 flumphs controlled by the DM appear within 60 ft, frightened of you, and vanish after 1 minute.', p => { const n = pRoll(p, '1d6', 'Flumphs'); pEffect(p, n + ' flumph' + (n > 1 ? 's' : ''), R1M, 'DM-controlled, frightened of you'); }],
+  ['You regain 2d10 hit points.', p => pHeal(p, pRoll(p, '2d10', 'Healing'))],
+  ['You turn into a potted plant until the start of your next turn: incapacitated and vulnerable to all damage. At 0 HP the pot breaks and you change back.', p => { pCond(p, 'Incapacitated', 1); pEffect(p, 'Potted plant', 1, 'Vulnerable to all damage (damage you take is doubled)', { vulnAll: true }); }],
+  ['For 1 minute you can teleport up to 20 ft as a bonus action on each of your turns.', p => pEffect(p, 'Blink step', R1M, 'Bonus action: teleport up to 20 ft')],
+  ['You cast Levitate on yourself.', p => pEffect(p, 'Levitate', 100, 'You float up to 20 ft off the ground (concentration, up to 10 minutes)')],
+  ['A unicorn controlled by the DM appears within 5 ft and leaves after 1 minute.', p => pEffect(p, 'Unicorn nearby', R1M, 'A DM-controlled unicorn is next to you')],
+  ['For 1 minute you can’t speak; pink bubbles float out of your mouth when you try.', p => pEffect(p, 'Bubbles, no speech', R1M, 'You can’t speak — no spells with verbal components')],
+  ['A spectral shield hovers near you for 1 minute: +2 AC and immunity to Magic Missile.', p => pEffect(p, 'Spectral shield', R1M, 'Immune to Magic Missile', { ac: 2 })],
+  ['You can’t become drunk for the next 5d6 days.', p => { const n = pRoll(p, '5d6', 'Days'); pEffect(p, 'Can’t get drunk', n * R1D, `Immune to being intoxicated for ${n} days`); }],
+  ['Your hair falls out; it grows back within 24 hours.', p => pEffect(p, 'Bald', R1D, 'Hair grows back within a day')],
+  ['For 1 minute, any flammable object you touch that nobody is wearing or carrying bursts into flame.', p => pEffect(p, 'Burning touch', R1M, 'Unattended flammable objects you touch ignite')],
+  ['You regain your lowest-level expended spell slot.', p => { let k = -1; for (let i = 0; i < 9; i++) if (N(S.slotsUsed[i]) > 0 && slotMax(i) > 0) { k = i; break; }
+    if (k < 0) p.changes.push('No expended spell slots — nothing to regain'); else { p.changes.push(`Regain a <b>${ORD[k]}-level</b> spell slot`); p.fns.push(() => { S.slotsUsed[k] = Math.max(0, N(S.slotsUsed[k]) - 1); }); } }],
+  ['For 1 minute you must shout whenever you speak.', p => pEffect(p, 'Shouting', R1M, 'You shout when you speak')],
+  ['You cast Fog Cloud centered on yourself.', p => pEffect(p, 'Fog Cloud', R1H, '20-ft radius of heavy fog around where you stood (concentration, up to 1 hour)')],
+  ['Up to three creatures you choose within 30 ft take 4d10 lightning damage.', p => { const d = pRoll(p, '4d10', 'Lightning damage'); p.rolls.push(`Choose up to three creatures within 30 ft — each takes ${d} lightning`); }],
+  ['You are frightened of the nearest creature until the end of your next turn.', p => pCond(p, 'Frightened', 2)],
+  ['Every creature within 30 ft of you turns invisible for 1 minute; it ends for a creature that attacks or casts a spell.', p => pCond(p, 'Invisible', R1M)],
+  ['You have resistance to all damage for 1 minute.', p => pEffect(p, 'Resist everything', R1M, 'Damage you take is halved', { resistAll: true })],
+  ['A random creature within 60 ft is poisoned for 1d4 hours.', p => { const n = pRoll(p, '1d4', 'Hours poisoned'); p.rolls.push(`The DM picks the creature — poisoned for ${n} hour${n > 1 ? 's' : ''}`); }],
+  ['You glow with bright light in a 30-ft radius for 1 minute; a creature ending its turn within 5 ft is blinded until the end of its next turn.', p => pEffect(p, 'Blinding glow', R1M, 'Bright light 30 ft; creatures ending a turn within 5 ft are blinded')],
+  ['You cast Polymorph on yourself; if you fail the save you turn into a sheep for the spell’s duration.', p => { if (!pSaveVs(p, 'wis', 'Polymorph')) pEffect(p, 'Sheep (Polymorph)', R1H, 'You are a sheep — up to 1 hour, or until you drop to 0 HP in sheep form'); else p.rolls.push('You stay yourself.'); }],
+  ['Illusory butterflies and flower petals flutter within 10 ft of you for 1 minute.', p => pEffect(p, 'Butterflies', R1M, 'Harmless illusion')],
+  ['You can take one extra action right now.', p => { p.changes.push('Your <b>action</b> is ready again this turn'); p.fns.push(() => { S.turn.used.action = false; S.turn.attacks = 0; }); }],
+  ['Each creature within 30 ft of you takes 1d10 necrotic damage; you regain hit points equal to the total necrotic damage dealt.', (p, ctx) => { const d = pRoll(p, '1d10', 'Necrotic damage'); p.input = { label: 'Creatures hit', val: 1, per: d }; p.changes.push(`Heals you <b>${d}</b> HP for each creature hit (set the number below)`); p.fns.push(c => healSelf(d * Math.max(0, N(c.count)), 'Wild Magic Surge: drained ' + d * Math.max(0, N(c.count)) + ' HP')); }],
+  ['You cast Mirror Image.', p => pEffect(p, 'Mirror Image', R1M, 'Three illusory duplicates (each hit on you may hit one instead)')],
+  ['You cast Fly on a random creature within 60 ft.', p => p.rolls.push('The DM picks the creature — it can fly (60 ft) for up to 10 minutes.')],
+  ['You turn invisible for 1 minute and nobody can hear you; it ends if you attack or cast a spell.', p => pCond(p, 'Invisible', R1M)],
+  ['If you die within the next minute, you come back to life as if by the Reincarnate spell.', p => pEffect(p, 'Second life', R1M, 'If you die, you return as if by Reincarnate')],
+  ['Your size increases by one category for 1 minute.', p => pEffect(p, 'Bigger', R1M, 'One size larger')],
+  ['You and every creature within 30 ft of you are vulnerable to piercing damage for 1 minute.', p => pEffect(p, 'Pierce-vulnerable', R1M, 'Double piercing damage you take')],
+  ['Faint, otherworldly music surrounds you for 1 minute.', p => pEffect(p, 'Ethereal music', R1M, 'Harmless')],
+  ['You regain all expended sorcery points.', p => { const fi = fxSource('Font of Magic'); if (fi < 0 || !N(S.features[fi].used)) p.changes.push('Sorcery points are already full'); else { p.changes.push(`Sorcery points back to <b>${featMax(S.features[fi])}</b>`); p.fns.push(() => { S.features[fi].used = 0; }); } }]
+];
+function surgeOption(n, ctx) {
+  const k = surgeK(n), row = SURGE[k - 1], p = plan(), custom = surgeTableText(n);
+  if (surgeStd()) row[1](p, ctx || {}); else p.rolls.push('Your table isn’t the standard one, so the sheet doesn’t automate it.');
+  return { n, k, text: custom || row[0], p };
+}
+// Roll the d100 (twice with Controlled Chaos) and work out each result. Tides of Chaos comes back with any surge.
+function rollSurge(ctx) {
+  const rolls = [rollExpr('1d100', { need: true, label: 'Wild Magic Surge (d100)' })];
+  if (hasFeature('Controlled Chaos')) rolls.push(rollExpr('1d100', { need: true, label: 'Controlled Chaos: second roll' }));
+  const ti = fxSource('Tides of Chaos'), extra = [];
+  if (ti >= 0 && N(S.features[ti].used) > 0) { S.features[ti].used = 0; extra.push('Tides of Chaos is restored'); }
+  return { opts: rolls.map(r => surgeOption(r.total, ctx)), extra, pick: 0 };
+}
+let SURGE_PEND = null;
+function openSurge(res, why) {
+  SURGE_PEND = res; const many = res.opts.length > 1;
+  const card = (o, k) => `<div class="surgecard${many && k === res.pick ? ' on' : ''}"${many ? ` data-act="surgepick" data-k="${k}" role="button"` : ''}>
+      <div class="surgehead"><b class="surgen">${o.n}</b><div class="surgetxt">${esc(o.text)}</div></div>
+      ${o.p.rolls.length ? `<div class="surgerolls">${o.p.rolls.map(r => `<div>${r}</div>`).join('')}</div>` : ''}
+      <div class="lbl">On your sheet</div>
+      ${o.p.changes.length || res.extra.length ? `<ul class="surgechg">${o.p.changes.concat(res.extra).map(c => `<li>${c}</li>`).join('')}</ul>` : '<p class="hint" style="margin:2px 0 0">Nothing changes on your sheet — this one is up to you and the DM.</p>'}
+      ${o.p.input ? `<label class="surgein">${esc(o.p.input.label)} <input class="f" type="number" min="0" id="surgeCount" value="${o.p.input.val}"></label>` : ''}
+    </div>`;
+  openModal(`<h3 class="surgetitle">✦ Wild Magic Surge</h3>${why ? `<p class="hint" style="margin:0 0 8px">${esc(why)}</p>` : ''}${many ? '<p class="hint" style="margin:0 0 8px">Controlled Chaos: pick the result you want.</p>' : ''}
+    ${res.opts.map(card).join('')}
+    <div class="actions"><button class="btn gold" data-act="surgeok">OK</button></div>`, () => surgeApply(true));
+}
+function surgeApply(cancelled) {
+  const res = SURGE_PEND; if (!res) return; SURGE_PEND = null;
+  const o = res.opts[res.pick] || res.opts[0], c = { count: $('#surgeCount') ? $('#surgeCount').value : 1 };
+  o.p.fns.forEach(f => f(c));
+  if (!cancelled) closeModal(true);
+  pendingLabel = 'Wild Magic Surge (' + o.n + ')'; save(); render();
+}
+function surgePick(k) { if (!SURGE_PEND) return; SURGE_PEND.pick = N(k); $$('.surgecard').forEach((el, i) => el.classList.toggle('on', i === N(k))); }
+function surgeNoneToast(c) { toast(`<b class="total">${c.total}</b><div><div><b>Wild Magic</b> · surge check</div><div class="sfx">No surge — only a 1 sets one off</div></div>`, '', 3500); }
+// After a 1st+ level spell: if Tides of Chaos is spent the spell sets off a surge; otherwise roll a d20 and surge on a 1.
+function wildAfterCast(sp) {
+  if (!wildOn() || N(sp.level) < 1) return null;
+  const ti = fxSource('Tides of Chaos');
+  if (ti >= 0 && fxLeft(ti) === 0) { const res = rollSurge(); return () => openSurge(res, `Tides of Chaos was spent, so casting ${sp.name} set off a surge.`); }
+  const c = rollExpr('1d20', { need: true, label: 'Wild Magic surge check (d20)' });
+  if (c.total === 1) { const res = rollSurge(); return () => openSurge(res, `The surge check after ${sp.name} rolled a 1.`); }
+  return () => surgeNoneToast(c);
+}
+function wildSurgeNow() { const res = rollSurge(); save(); render(); openSurge(res, ''); }
+function wildCheckNow() {
+  const c = rollExpr('1d20', { need: true, label: 'Wild Magic surge check (d20)' });
+  if (c.total !== 1) { surgeNoneToast(c); return; }
+  const res = rollSurge(); save(); render(); openSurge(res, 'The surge check rolled a 1.');
+}
+// Start of your turn (Next Turn): surge-every-turn and regeneration effects.
+function wildTurnStart() {
+  const fx = fxActive().filter(e => e.buff && !e.ally);
+  const heal = fx.reduce((t, e) => t + N(e.buff.healEach), 0);
+  if (heal) { healSelf(heal, 'Regenerating: +' + heal + ' HP'); setTimeout(() => toast(`<b>Regenerating</b>: +${heal} HP.`), 120); }
+  if (fx.some(e => e.buff.surgeEach)) { const res = rollSurge({ chained: true }); save(); render(); setTimeout(() => openSurge(res, 'Start of your turn — you surge every turn for this minute.'), 200); }
+  else if (heal) { save(); render(); }
+}
+// Damage you take: resistance or vulnerability to everything from a surge.
+function surgeDamageAdj(amt) {
+  const fx = fxActive().filter(e => e.buff && !e.ally);
+  if (fx.some(e => e.buff.resistAll) && !fx.some(e => e.buff.vulnAll)) return Math.floor(amt / 2);
+  if (fx.some(e => e.buff.vulnAll) && !fx.some(e => e.buff.resistAll)) return amt * 2;
+  return amt;
+}
+
+// ---------- Metamagic ----------
+const MM = {
+  'Careful Spell': { cost: 1, d: 'Up to {cha} creatures you pick automatically succeed on the spell’s saving throw.' },
+  'Distant Spell': { cost: 1, d: 'Double the spell’s range; a touch spell reaches 30 ft.' },
+  'Empowered Spell': { cost: 1, combo: true, d: 'Reroll up to {cha} low damage dice — the sheet rerolls the worst ones for you. Stacks with another option.' },
+  'Extended Spell': { cost: 1, d: 'Double the spell’s duration (up to 24 hours).' },
+  'Heightened Spell': { cost: 3, d: 'One target has disadvantage on its first saving throw against the spell.' },
+  'Quickened Spell': { cost: 2, d: 'A spell with a casting time of 1 action takes a bonus action instead.' },
+  'Seeking Spell': { cost: 2, now: true, combo: true, d: 'Missed with a spell attack? Reroll the d20 and use the new roll.' },
+  'Subtle Spell': { cost: 1, d: 'Cast without verbal or somatic components.' },
+  'Transmuted Spell': { cost: 1, d: 'Change acid, cold, fire, lightning, poison or thunder damage to another of those types.' },
+  'Twinned Spell': { cost: 'level', d: 'A spell that targets only one creature also targets a second one. Costs the spell’s level (1 for a cantrip).' }
+};
+const mmKnown = () => (S.picks && S.picks.metamagic || []).filter(n => MM[n]);
+const spFi = () => fxSource('Font of Magic');
+const spLeft = () => { const i = spFi(); return i < 0 ? 0 : fxLeft(i); };
+const mmText = n => MM[n].d.replace('{cha}', Math.max(1, mod('cha')));
+const mmCostTxt = n => MM[n].cost === 'level' ? 'spell level' : MM[n].cost + ' SP';
+const mmArmed = () => (S.mmArmed || []).filter(n => mmKnown().includes(n));
+function mmToggle(n) {
+  if (!MM[n]) return;
+  let a = mmArmed();
+  if (a.includes(n)) a = a.filter(x => x !== n);
+  else { const c = MM[n].cost === 'level' ? 1 : MM[n].cost; if (spLeft() < c) { toast(`Not enough sorcery points for ${esc(n)} (${spLeft()} left).`, 'fumble'); return; }
+    a = MM[n].combo ? a.concat(n) : a.filter(x => MM[x].combo).concat(n); }
+  S.mmArmed = a; pendingLabel = a.includes(n) ? n + ' ready' : n + ' off'; save(); render();
+}
+const quickOn = () => mmArmed().includes('Quickened Spell') || fxActive().some(e => e.buff && e.buff.quickAll && !e.ally);
+// Called by castSpell: a 1-action spell becomes a bonus action under Quickened Spell (or the surge that does the same).
+function mmCol(sp, col) { return quickOn() && castCol(sp.time) === 'action' ? 'bonus' : col; }
+// Called by executeCast: spend the points for the armed options and note what each does.
+function mmApply(sp, L, lines) {
+  const out = { extend: false }; const armed = mmArmed().filter(n => !MM[n].now); if (!armed.length) return out;
+  const fi = spFi(); const used = [];
+  armed.forEach(n => {
+    if (n === 'Quickened Spell' && castCol(sp.time) !== 'action') { lines.push(`Quickened Spell skipped — ${esc(sp.name)} doesn’t take 1 action`); return; }
+    const c = MM[n].cost === 'level' ? Math.max(1, N(L)) : MM[n].cost;
+    if (fi < 0 || fxLeft(fi) < c) { lines.push(`${n} skipped — not enough sorcery points`); return; }
+    S.features[fi].used = N(S.features[fi].used) + c; used.push(n);
+    if (n === 'Extended Spell') out.extend = true;
+    if (n === 'Empowered Spell') EMPOWER = Math.max(1, mod('cha'));
+    const rng = String(sp.range || ''), m = /(\d+)\s*(feet|ft)/i.exec(rng);
+    const note = { 'Quickened Spell': 'cast as a bonus action', 'Subtle Spell': 'no verbal or somatic components', 'Distant Spell': /touch/i.test(rng) ? 'range 30 ft (was touch)' : m ? `range ${2 * N(m[1])} ft` : 'range doubled',
+      'Extended Spell': 'duration doubled', 'Heightened Spell': 'one target has disadvantage on its first save', 'Careful Spell': `up to ${Math.max(1, mod('cha'))} creatures automatically succeed on the save`,
+      'Twinned Spell': 'targets a second creature', 'Transmuted Spell': 'damage type changed (tell the DM which)', 'Empowered Spell': `up to ${Math.max(1, mod('cha'))} low damage dice rerolled` }[n];
+    lines.push(`<b>${n}</b> (${c} SP): ${note}`);
+  });
+  S.mmArmed = mmArmed().filter(n => MM[n].now || !used.includes(n) && !armed.includes(n));
+  return out;
+}
+// Seeking Spell: reroll a missed spell attack's d20 right away.
+function mmSeek() {
+  const fi = spFi(); if (fi < 0 || fxLeft(fi) < 2) { toast('Not enough sorcery points for Seeking Spell (2).', 'fumble'); return; }
+  S.features[fi].used = N(S.features[fi].used) + 2; pendingLabel = 'Seeking Spell';
+  d20('Seeking Spell: spell attack reroll', castInfo('sorcerer').atk, 'attack'); update(); render();
+}
+// Font of Magic: turn points into slots and slots into points, straight from the panel.
+const FOM_COST = [2, 3, 5, 6, 7], FOM_MIN = [2, 3, 5, 7, 9];
+function fomCreate(k) {
+  const fi = spFi(); if (fi < 0) return;
+  if (clsLv('sorcerer') < FOM_MIN[k]) return;
+  if (fxLeft(fi) < FOM_COST[k]) { toast(`Not enough sorcery points (${FOM_COST[k]} needed).`, 'fumble'); return; }
+  if (!(N(S.slotsUsed[k]) > 0)) { toast(`All your ${ORD[k]}-level slots are already full.`, 'fumble'); return; }
+  S.features[fi].used = N(S.features[fi].used) + FOM_COST[k]; S.slotsUsed[k] = N(S.slotsUsed[k]) - 1;
+  if (S.inCombat) S.turn.used.bonus = true;
+  pendingLabel = `${FOM_COST[k]} SP → ${ORD[k]}-level slot`; save(); render();
+  toast(`<b>Font of Magic</b>: ${FOM_COST[k]} sorcery points → a ${ORD[k]}-level slot.`, '', 4000, { label: 'Undo', fn: () => undo(1) });
+}
+function fomConvert(k) {
+  const fi = spFi(); if (fi < 0) return;
+  if (slotsLeft(k) < 1) { toast(`No ${ORD[k]}-level slots left to convert.`, 'fumble'); return; }
+  const f = S.features[fi], gain = Math.min(k + 1, N(f.used));
+  if (!gain) { toast('Your sorcery points are already full.', 'fumble'); return; }
+  S.slotsUsed[k] = N(S.slotsUsed[k]) + 1; f.used = N(f.used) - gain;
+  if (S.inCombat) S.turn.used.bonus = true;
+  pendingLabel = `${ORD[k]}-level slot → ${gain} SP`; save(); render();
+  toast(`<b>Font of Magic</b>: a ${ORD[k]}-level slot → ${gain} sorcery point${gain > 1 ? 's' : ''}.`, '', 4000, { label: 'Undo', fn: () => undo(1) });
+}
+function spAdj(d) { const fi = spFi(); if (fi < 0) return; const f = S.features[fi], mx = featMax(f); f.used = Math.max(0, Math.min(mx, N(f.used) - d)); pendingLabel = 'Sorcery points'; save(); render(); }
+
+function mmPanelHTML(pid) {
+  const fi = spFi(); if (fi < 0) return '';
+  const f = S.features[fi], mx = featMax(f) || 0, left = fxLeft(fi), lv = clsLv('sorcerer'), armed = mmArmed();
+  const pips = Array.from({ length: mx }, (_, k) => `<span class="sppip${k < left ? ' on' : ''}"></span>`).join('');
+  const opts = mmKnown().map(n => { const on = armed.includes(n), c = MM[n].cost === 'level' ? 1 : MM[n].cost, cant = !on && left < c;
+    return `<div class="mmopt${on ? ' on' : ''}"><div class="mmhead"><b>${esc(n.replace(' Spell', ''))}</b><span class="mmcost">${mmCostTxt(n)}</span></div><div class="mmdesc">${esc(mmText(n))}</div>
+      ${MM[n].now ? `<button class="btn sm" data-act="mmseek" ${left < 2 ? 'disabled' : ''}>Reroll attack</button>` : `<button class="btn sm${on ? ' gold' : ''}" data-act="mmarm" data-k="${esc(n)}" ${cant ? 'disabled' : ''} aria-pressed="${on}">${on ? '✓ On next spell' : 'Use on next spell'}</button>`}</div>`; }).join('');
+  const create = FOM_COST.map((c, k) => lv >= FOM_MIN[k] && slotMax(k) > 0 ? `<button class="btn sm" data-act="fomcreate" data-k="${k}" ${left < c || !(N(S.slotsUsed[k]) > 0) ? 'disabled' : ''} title="${N(S.slotsUsed[k]) > 0 ? '' : 'No spent ' + ORD[k] + '-level slot to fill'}">${c} SP → ${ORD[k]}</button>` : '').join('');
+  const conv = Array.from({ length: 9 }, (_, k) => slotMax(k) > 0 ? `<button class="btn sm" data-act="fomconv" data-k="${k}" ${slotsLeft(k) < 1 || !N(f.used) ? 'disabled' : ''}>${ORD[k]} → ${k + 1} SP</button>` : '').join('');
+  return `<div class="panel mmpanel" ${PID(pid || 'metamagic')}><h2><span class="grow">Metamagic</span><span class="spctr"><span class="hint">Sorcery points</span><button class="btn sm ghost" data-act="spadj" data-d="-1" aria-label="Spend a point">−</button><b>${left}</b><span class="hint">/ ${mx}</span><button class="btn sm ghost" data-act="spadj" data-d="1" aria-label="Regain a point">+</button></span></h2>
+    <div class="sppips">${pips}</div>
+    ${opts ? `<div class="mmgrid">${opts}</div>` : '<p class="hint">No Metamagic options yet — you learn two at 3rd level.</p>'}
+    ${armed.filter(n => !MM[n].now).length ? `<p class="hint mmarmed">Ready for your next spell: <b>${armed.filter(n => !MM[n].now).map(esc).join(', ')}</b> — points are spent when you cast.</p>` : ''}
+    <div class="fomrow"><span class="lbl">Font of Magic</span><span class="fomgrp"><span class="hint">Make a slot</span>${create || '<span class="hint">—</span>'}</span><span class="fomgrp"><span class="hint">Slot to points</span>${conv || '<span class="hint">—</span>'}</span></div>
+  </div>`;
+}
+
+// ================= Inventory: sort a container, drag items to reorder or move them =================
+const invKeyOf = it => it.equipped ? 'equipped' : bagOf(it) ? 'bag:' + it.bag : 'pack';
+const RAR = { artifact: 6, legendary: 5, 'very rare': 4, rare: 3, uncommon: 2, common: 1 };
+const costGp = c => { const m = /([\d,.]+)\s*(cp|sp|ep|gp|pp)?/i.exec(String(c || '')); if (!m) return 0; const v = Number(m[1].replace(/,/g, '')) || 0; return v * ({ cp: .01, sp: .1, ep: .5, gp: 1, pp: 10 }[String(m[2] || 'gp').toLowerCase()]); };
+const itType = it => it.weapon ? 0 : it.armor ? 1 : it.magic ? 2 : 3;
+const INV_SORTS = [['name', 'Name (A–Z)'], ['type', 'Type (weapons, armor, magic, gear)'], ['rarity', 'Rarity'], ['weight', 'Weight (heaviest first)'], ['value', 'Value (priciest first)'], ['qty', 'Quantity']];
+function invSortMenu(k) {
+  return `<div class="menu sortmenu"><button class="icon-btn" data-act="menu" aria-haspopup="true" title="Sort this container" aria-label="Sort">⇅</button><div class="menu-list"><div class="mlabel">Sort by</div>${INV_SORTS.map(([by, t]) => `<button data-act="invsort" data-k="${esc(k)}" data-by="${by}">${t}</button>`).join('')}</div></div>`;
+}
+function invSort(k, by) {
+  const idx = S.inventory.map((it, i) => [it, i]).filter(([it]) => invKeyOf(it) === k).map(([, i]) => i); if (idx.length < 2) return;
+  const nm = (a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' });
+  const cmp = { name: nm, type: (a, b) => itType(a) - itType(b) || nm(a, b), rarity: (a, b) => (RAR[String((b.magic || {}).rarity || '').toLowerCase()] || 0) - (RAR[String((a.magic || {}).rarity || '').toLowerCase()] || 0) || nm(a, b),
+    weight: (a, b) => N(b.weight) * Math.max(1, N(b.qty)) - N(a.weight) * Math.max(1, N(a.qty)) || nm(a, b), value: (a, b) => costGp(b.cost) - costGp(a.cost) || nm(a, b), qty: (a, b) => N(b.qty) - N(a.qty) || nm(a, b) }[by] || nm;
+  const sorted = idx.map(i => S.inventory[i]).sort(cmp);
+  idx.forEach((i, n) => { S.inventory[i] = sorted[n]; });
+  $$('.menu.open').forEach(m => m.classList.remove('open'));
+  pendingLabel = 'Sort ' + (k === 'pack' ? 'Pack' : k === 'equipped' ? 'Equipped' : ((S.bags || []).find(b => 'bag:' + b.id === k) || {}).name || 'container') + ' by ' + by; save(); render();
+}
+// Put item i in container `to`, just before item `before` (or at the end of that container).
+function invMove(i, to, before) {
+  const it = S.inventory[i]; if (!it) return; const from = invKeyOf(it), bt = before != null ? S.inventory[before] : null;
+  if (bt === it) { render(); return; }
+  S.inventory.splice(i, 1);
+  let at = bt ? S.inventory.indexOf(bt) : -1;
+  if (at < 0) { let last = -1; S.inventory.forEach((x, n) => { if (invKeyOf(x) === to) last = n; }); at = last < 0 ? S.inventory.length : last + 1; }
+  S.inventory.splice(at, 0, it);
+  if (to === from) { pendingLabel = 'Reorder: ' + it.name; save(); render(); return; }
+  if (to === 'equipped') { equipItem(S.inventory.indexOf(it)); return; }
+  it.equipped = false; it.bag = to === 'pack' ? '' : to.slice(4);
+  if ((it.spells || []).length || it.hb) rebuildAuto();
+  pendingLabel = 'Move ' + it.name + ' to ' + (to === 'pack' ? 'Pack' : ((S.bags || []).find(b => b.id === it.bag) || {}).name || 'container'); save(); render();
+}
+// ↑ / ↓: move an item one place within its container (the only way to reorder on mobile; desktop can also drag).
+function invPeers(i) { const it = S.inventory[i]; if (!it) return []; const k = invKeyOf(it); return S.inventory.map((x, n) => [x, n]).filter(([x]) => invKeyOf(x) === k).map(([, n]) => n); }
+function invArrows(i) {
+  const pe = invPeers(i), at = pe.indexOf(i); if (pe.length < 2) return '';
+  return `<span class="iord"><button data-act="invstep" data-i="${i}" data-d="-1" ${at ? '' : 'disabled'} title="Move up" aria-label="Move up">▲</button><button data-act="invstep" data-i="${i}" data-d="1" ${at < pe.length - 1 ? '' : 'disabled'} title="Move down" aria-label="Move down">▼</button></span>`;
+}
+function invStep(i, d) {
+  const pe = invPeers(i), at = pe.indexOf(i), to = at + d; if (at < 0 || to < 0 || to >= pe.length) return;
+  const a = pe[at], b = pe[to], t = S.inventory[a]; S.inventory[a] = S.inventory[b]; S.inventory[b] = t;
+  pendingLabel = 'Reorder: ' + t.name; save(); render();
+  const r = $(`#page-inventory .irow[data-ii="${b}"] [data-act=invstep][data-d="${d}"]`); if (r && !r.disabled) r.focus();
+}
+let IDRAG = null;
+document.addEventListener('pointerdown', e => {
+  const h = e.target.closest && e.target.closest('.idrag'); if (!h || e.button > 0 || isMobile()) return;
+  const row = h.closest('.irow'); if (!row) return; e.preventDefault();
+  const r = row.getBoundingClientRect(), ghost = row.cloneNode(true);
+  ghost.classList.add('idrag-ghost'); Object.assign(ghost.style, { width: r.width + 'px', left: r.left + 'px', top: r.top + 'px' }); document.body.appendChild(ghost);
+  const ph = document.createElement('div'); ph.className = 'idrag-ph'; ph.style.height = r.height + 'px'; row.after(ph); row.classList.add('idrag-src');
+  IDRAG = { i: N(h.dataset.drag), row, ghost, ph, dx: e.clientX - r.left, dy: e.clientY - r.top, to: row.closest('[data-zi]').dataset.zi, y: e.clientY };
+  document.body.classList.add('idragging');
+});
+function idragPlace(x, y) {
+  const d = IDRAG; d.ghost.style.left = (x - d.dx) + 'px'; d.ghost.style.top = (y - d.dy) + 'px'; d.y = y;
+  const el = document.elementFromPoint(x, y), sec = el && el.closest('#page-inventory [data-zi]'); if (!sec) return;
+  $$('#page-inventory [data-zi].idrop').forEach(s => s.classList.remove('idrop')); sec.classList.add('idrop');
+  d.to = sec.dataset.zi; const list = sec.querySelector('.ilist');
+  if (!list) { d.ph.style.display = 'none'; return; }
+  d.ph.style.display = '';
+  const rows = [...list.children].filter(c => c.classList.contains('irow') && c !== d.row);
+  const nx = rows.find(c => { const b = c.getBoundingClientRect(); return y < b.top + b.height / 2; });
+  if (nx) { if (d.ph.nextElementSibling !== nx) list.insertBefore(d.ph, nx); } else if (d.ph.parentNode !== list || d.ph.nextElementSibling) list.appendChild(d.ph);
+}
+document.addEventListener('pointermove', e => { if (!IDRAG) return; e.preventDefault(); idragPlace(e.clientX, e.clientY);
+  const edge = 60; if (e.clientY < edge) scrollBy(0, -12); else if (e.clientY > innerHeight - edge) scrollBy(0, 12); }, { passive: false });
+function idragEnd(cancel) {
+  const d = IDRAG; if (!d) return; IDRAG = null; document.body.classList.remove('idragging');
+  $$('#page-inventory [data-zi].idrop').forEach(s => s.classList.remove('idrop'));
+  let before = null; if (d.ph.style.display !== 'none') { let n = d.ph.nextElementSibling; while (n && !(n.classList.contains('irow') && n !== d.row)) n = n.nextElementSibling; if (n && n.dataset.ii != null) before = N(n.dataset.ii); }
+  d.ghost.remove(); d.ph.remove(); d.row.classList.remove('idrag-src');
+  if (!cancel) invMove(d.i, d.to, before);
+}
+document.addEventListener('pointerup', () => idragEnd(false));
+document.addEventListener('pointercancel', () => idragEnd(true));
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && IDRAG) idragEnd(true); });
+
+// ================= Inspiration (optional, Settings → Rules) =================
+// One at most by the rules; the "More than one" house rule removes the cap.
+const inspMax = () => ST('inspMany') ? Infinity : 1;
+function inspHTML(mini) {
+  if (!ST('inspiration')) return '';
+  const n = Math.max(0, N(S.insp)), mx = inspMax();
+  // One at a time: the badge itself is the switch — tap the star to fill it, tap again to spend it.
+  if (mx === 1) return `<button class="insp one${mini ? ' mini' : ''}${n ? ' on' : ''}" data-act="insp" data-d="${n ? -1 : 1}" aria-pressed="${!!n}" title="${n ? 'Inspired — tap to spend it' : 'Tap when you gain Inspiration'}">
+    <span class="insp-c"><b class="insp-n">${n ? '★' : '☆'}</b><span class="insp-l">Inspiration</span></span></button>`;
+  return `<div class="insp${mini ? ' mini' : ''}${n ? ' on' : ''}" title="Inspiration${mx === 1 ? ' (one at a time)' : ''}">
+    <button class="insp-b" data-act="insp" data-d="-1" ${n ? '' : 'disabled'} aria-label="Spend Inspiration">−</button>
+    <span class="insp-c"><b class="insp-n">${mx === 1 ? (n ? '★' : '☆') : n}</b><span class="insp-l">Inspiration</span></span>
+    <button class="insp-b" data-act="insp" data-d="1" ${n >= mx ? 'disabled' : ''} aria-label="Gain Inspiration">+</button></div>`;
+}
+function inspAdj(d) {
+  const was = Math.max(0, N(S.insp)), n = Math.max(0, Math.min(inspMax(), was + d)); if (n === was) return;
+  S.insp = n; pendingLabel = d > 0 ? 'Gain Inspiration' : 'Spend Inspiration'; save(); render('header');
+  if (d < 0) toast(`Inspiration spent${inspMax() === 1 ? '' : ` — ${n} left`}. Use it for advantage on one attack, check or save.`, '', 4000, { label: 'Undo', fn: () => undo(1) });
+}
+
+// ================= Spells: my own categories (Group spells by → My categories) =================
+// S.spellCats = [{ id, name, icon, color, auto? }]; each spell keeps sp.cat (category id, '' = uncategorized) and
+// sp.cord (its place inside the category). The Combat tab shows the same groups, in the same order.
+const SPCAT_COLORS = ['#d9603b', '#9b6bd6', '#3c9d6b', '#3f8fd2', '#c9962b', '#2f9a8a', '#c0507a', '#7d8597'];
+const SPCAT_ICONS = ['⚔', '⛓', '✚', '🛡', '✦', '🔥', '❄', '⚡', '☠', '👁', '✨', '🌀', '◆', '★', '🗡', '🏹'];
+const spCustom = () => ST('combatSpellSort') === 'custom';
+function spCatsEnsure() {
+  if (Array.isArray(S.spellCats)) return;
+  const col = { dmg: '#d9603b', ctl: '#9b6bd6', heal: '#3c9d6b', buff: '#3f8fd2', util: '#7d8597' };
+  S.spellCats = SPG.map(([k, name, icon]) => ({ id: k, name, icon, color: col[k], auto: k }));
+}
+function spCatOf(sp) {
+  const cats = S.spellCats || [];
+  if (sp.cat != null) return cats.some(c => c.id === sp.cat) ? sp.cat : '';
+  const g = spellGroup(sp), c = cats.find(x => x.auto === g); return c ? c.id : '';
+}
+const spOrd = (sp, i) => sp.cord != null ? N(sp.cord) : 100000 + N(sp.level) * 1000 + i;
+function spCatsAll() {
+  const cats = (S.spellCats || []).slice();
+  if (S.spells.some(sp => spCatOf(sp) === '')) cats.push({ id: '', name: 'Uncategorized', icon: '…', color: '#7d8597' });
+  return cats;
+}
+const spCatIdx = id => { const a = spCatsAll(); const k = a.findIndex(c => c.id === id); return k < 0 ? a.length : k; };
+function spCustomOrder() {
+  return S.spells.map((s, i) => i).sort((a, b) => spCatIdx(spCatOf(S.spells[a])) - spCatIdx(spCatOf(S.spells[b])) || spOrd(S.spells[a], a) - spOrd(S.spells[b], b) || a - b);
+}
+// Category ids strictly between two others (so empty categories still get a header to drop spells into).
+function spCatsBetween(prev, next) {
+  const all = spCatsAll().map(c => c.id), a = prev == null ? -1 : all.indexOf(prev), b = next === undefined ? all.length : all.indexOf(next);
+  return all.slice(a + 1, b < 0 ? all.length : b);
+}
+const spCatObj = id => spCatsAll().find(c => c.id === id) || { id, name: 'Uncategorized', icon: '…', color: '#7d8597' };
+function spCatTools(id) {
+  if (id === '') return '';
+  const cats = S.spellCats || [], k = cats.findIndex(c => c.id === id);
+  return `<span class="cath-tools"><button class="icon-btn" data-act="spcatmove" data-k="${esc(id)}" data-d="-1" ${k > 0 ? '' : 'disabled'} title="Move category up" aria-label="Move category up">▲</button><button class="icon-btn" data-act="spcatmove" data-k="${esc(id)}" data-d="1" ${k < cats.length - 1 ? '' : 'disabled'} title="Move category down" aria-label="Move category down">▼</button><button class="icon-btn" data-act="spcatren" data-k="${esc(id)}" title="Rename / icon / color" aria-label="Edit category">✎</button><button class="icon-btn" data-act="spcatdel" data-k="${esc(id)}" title="Delete category (its spells become Uncategorized)" aria-label="Delete category">✕</button></span>`;
+}
+function spCatHeadInner(id, n) {
+  const c = spCatObj(id);
+  return `<div class="cath" style="--g:${esc(c.color || 'var(--gold)')}"><span class="cath-i">${esc(c.icon || '◆')}</span><b class="cath-n">${esc(c.name)}</b><span class="cath-c">${n}</span>${n ? '' : '<span class="hint cath-e">Empty — drag spells here or use a spell’s ⇄</span>'}<span class="grow"></span>${spCatTools(id)}</div>`;
+}
+const spCatHeadT = (id, n) => `<tr class="lvlhead cathead" data-cat="${esc(id)}"><td colspan="9">${spCatHeadInner(id, n)}</td></tr>`;
+const spCatHeadM = (id, n) => `<div class="lvl-label cathead" data-cat="${esc(id)}">${spCatHeadInner(id, n)}</div>`;
+function spPeers(cat) { return S.spells.map((s, i) => [s, i]).filter(([s]) => spCatOf(s) === cat).sort((x, y) => spOrd(x[0], x[1]) - spOrd(y[0], y[1]) || x[1] - y[1]).map(([, i]) => i); }
+function spOrdCtl(i) {
+  const sp = S.spells[i], cat = spCatOf(sp), pe = spPeers(cat), at = pe.indexOf(i);
+  const dests = spCatsAll().filter(c => c.id !== cat && !(c.id === '' && !(S.spellCats || []).length));
+  return `<span class="sord"><span class="sdrag" data-sdrag="${i}" title="Drag to reorder or into another category" aria-hidden="true">⠿</span><span class="iord"><button data-act="spstep" data-i="${i}" data-d="-1" ${at > 0 ? '' : 'disabled'} title="Move up" aria-label="Move up">▲</button><button data-act="spstep" data-i="${i}" data-d="1" ${at < pe.length - 1 ? '' : 'disabled'} title="Move down" aria-label="Move down">▼</button></span>${dests.length ? `<div class="menu mvmenu spmv"><button class="mvto" data-act="menu" aria-haspopup="true" title="Move to another category" aria-label="Move ${esc(sp.name)} to another category">⇄</button><div class="menu-list"><div class="mlabel">Move to</div>${dests.map(c => `<button data-act="spto" data-i="${i}" data-k="${esc(c.id)}">${esc(c.icon || '◆')} ${esc(c.name)}</button>`).join('')}${(S.spellCats || []).length && cat !== '' ? `<button data-act="spto" data-i="${i}" data-k="">… Uncategorized</button>` : ''}</div></div>` : ''}</span>`;
+}
+function spRenumber(cat, list) { list.forEach((j, n) => { S.spells[j].cat = cat; S.spells[j].cord = n; }); }
+function spStep(i, d) {
+  const cat = spCatOf(S.spells[i]), pe = spPeers(cat), at = pe.indexOf(i), to = at + d; if (at < 0 || to < 0 || to >= pe.length) return;
+  pe.splice(at, 1); pe.splice(to, 0, i); spRenumber(cat, pe);
+  pendingLabel = 'Reorder: ' + S.spells[i].name; save(); render();
+}
+function spMoveTo(i, cat, before) {
+  const sp = S.spells[i]; if (!sp) return; const from = spCatOf(sp);
+  const pe = spPeers(cat).filter(j => j !== i); let at = before != null ? pe.indexOf(before) : -1; if (at < 0) at = pe.length;
+  pe.splice(at, 0, i); spRenumber(cat, pe); if (from !== cat) spRenumber(from, spPeers(from).filter(j => j !== i));
+  sp.cat = cat; pendingLabel = from === cat ? 'Reorder: ' + sp.name : 'Move ' + sp.name + ' to ' + spCatObj(cat).name; save(); render();
+}
+function spCatModal(id) {
+  const c = id ? (S.spellCats || []).find(x => x.id === id) : { name: '', icon: '◆', color: SPCAT_COLORS[(S.spellCats || []).length % SPCAT_COLORS.length] };
+  if (!c) return; SPCAT_PICK = { icon: c.icon || '◆', color: c.color || SPCAT_COLORS[0] };
+  openModal(`<h3>${id ? 'Edit category' : 'New spell category'}</h3>${fld('Name', `<input class="f" id="spcatName" value="${esc(c.name)}" placeholder="e.g. Big damage, Escape plans" autofocus>`)}
+    <div class="lbl" style="margin-top:8px">Icon</div><div class="spcat-icons">${SPCAT_ICONS.map(x => `<button class="spcat-ic${x === SPCAT_PICK.icon ? ' on' : ''}" data-spic="${esc(x)}">${x}</button>`).join('')}</div>
+    <div class="lbl" style="margin-top:8px">Color</div><div class="spcat-cols">${SPCAT_COLORS.map(x => `<button class="spcat-col${x === SPCAT_PICK.color ? ' on' : ''}" data-spcol="${x}" style="background:${x}" aria-label="Color ${x}"></button>`).join('')}</div>
+    <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="spcatrenok" data-k="${esc(id || '')}">${id ? 'Save' : 'Add category'}</button></div>`);
+}
+let SPCAT_PICK = null;
+document.addEventListener('click', e => {
+  const ic = e.target.closest && e.target.closest('[data-spic]'), co = e.target.closest && e.target.closest('[data-spcol]'); if (!ic && !co) return;
+  if (ic) { SPCAT_PICK.icon = ic.dataset.spic; $$('.spcat-ic').forEach(b => b.classList.toggle('on', b === ic)); }
+  if (co) { SPCAT_PICK.color = co.dataset.spcol; $$('.spcat-col').forEach(b => b.classList.toggle('on', b === co)); }
+});
+function spCatAdd() { spCatsEnsure(); spCatModal(''); }
+function spCatRename(id) { spCatModal(id); }
+function spCatRenameOK(id) {
+  const name = ($('#spcatName') && $('#spcatName').value.trim()) || 'New category';
+  if (id) { const c = S.spellCats.find(x => x.id === id); if (c) Object.assign(c, { name, icon: SPCAT_PICK.icon, color: SPCAT_PICK.color }); pendingLabel = 'Edit category: ' + name; }
+  else { S.spellCats = (S.spellCats || []).concat([{ id: uid(), name, icon: SPCAT_PICK.icon, color: SPCAT_PICK.color }]); pendingLabel = 'New category: ' + name; }
+  closeModal(true); save(); render();
+}
+function spCatMove(id, d) { const a = S.spellCats || [], k = a.findIndex(c => c.id === id), t = k + d; if (k < 0 || t < 0 || t >= a.length) return; const x = a[k]; a[k] = a[t]; a[t] = x; pendingLabel = 'Move category: ' + x.name; save(); render(); }
+function spCatDel(id) {
+  const c = (S.spellCats || []).find(x => x.id === id); if (!c) return;
+  S.spells.forEach(sp => { if (spCatOf(sp) === id) sp.cat = ''; });
+  S.spellCats = S.spellCats.filter(x => x.id !== id); pendingLabel = 'Delete category: ' + c.name; save(); render();
+  toast(`Category <b>${esc(c.name)}</b> deleted — its spells are now Uncategorized.`, '', 6000, { label: 'Undo', fn: () => undo(1) });
+}
+// Drag a spell (desktop only): drop it between other spells, or on a category header to put it at the top.
+let SDRAG = null;
+document.addEventListener('pointerdown', e => {
+  const h = e.target.closest && e.target.closest('.sdrag'); if (!h || e.button > 0 || isMobile()) return;
+  const row = h.closest('[data-si]'); if (!row) return; e.preventDefault();
+  const r = row.getBoundingClientRect(), ghost = document.createElement('div');
+  ghost.className = 'sdrag-ghost'; ghost.textContent = (S.spells[N(h.dataset.sdrag)] || {}).name || ''; Object.assign(ghost.style, { left: r.left + 'px', top: r.top + 'px' }); document.body.appendChild(ghost);
+  const isTr = row.tagName === 'TR', ph = document.createElement(isTr ? 'tr' : 'div'); ph.className = 'sdrag-ph'; if (isTr) ph.innerHTML = '<td colspan="9"></td>'; ph.style.height = Math.min(r.height, 44) + 'px';
+  row.after(ph); row.classList.add('sdrag-src');
+  SDRAG = { i: N(h.dataset.sdrag), row, ghost, ph, dx: e.clientX - r.left, dy: e.clientY - r.top, cat: spCatOf(S.spells[N(h.dataset.sdrag)]), before: null };
+  document.body.classList.add('idragging');
+});
+document.addEventListener('pointermove', e => {
+  const d = SDRAG; if (!d) return; e.preventDefault();
+  d.ghost.style.left = (e.clientX - d.dx) + 'px'; d.ghost.style.top = (e.clientY - d.dy) + 'px';
+  const el = document.elementFromPoint(e.clientX, e.clientY); if (!el) return;
+  const head = el.closest('#page-spells [data-cat]'), row = el.closest('#page-spells [data-si]');
+  if (head) { d.cat = head.dataset.cat; d.before = null; head.after(d.ph); const p = spPeers(d.cat).filter(j => j !== d.i); d.before = p.length ? p[0] : null; }
+  else if (row && row !== d.row) { const b = row.getBoundingClientRect(), above = e.clientY < b.top + b.height / 2; d.cat = spCatOf(S.spells[N(row.dataset.si)]);
+    if (above) { row.before(d.ph); d.before = N(row.dataset.si); } else { let n = row.nextElementSibling; while (n && (n.classList.contains('detail') || n === d.ph || n === d.row)) n = n.nextElementSibling; row.after(d.ph); d.before = n && n.dataset && n.dataset.si != null && spCatOf(S.spells[N(n.dataset.si)]) === d.cat ? N(n.dataset.si) : null; } }
+  const edge = 60; if (e.clientY < edge) scrollBy(0, -12); else if (e.clientY > innerHeight - edge) scrollBy(0, 12);
+}, { passive: false });
+function sdragEnd(cancel) {
+  const d = SDRAG; if (!d) return; SDRAG = null; document.body.classList.remove('idragging');
+  d.ghost.remove(); d.ph.remove(); d.row.classList.remove('sdrag-src');
+  if (!cancel) spMoveTo(d.i, d.cat, d.before);
+}
+document.addEventListener('pointerup', () => sdragEnd(false));
+document.addEventListener('pointercancel', () => sdragEnd(true));
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && SDRAG) sdragEnd(true); });
+
+// ---------- The Right Tool for the Job (artificer 3) ----------
+// With thieves' tools or artisan's tools in hand, spend an hour (can be during a rest) to magically make one set of
+// artisan's tools. They're nonmagical, and the previous set vanishes when you use the feature again.
+const RTJ_ART = () => (DND.toolGroups && DND.toolGroups.artisan) || [];
+const rtjItem = () => S.inventory.find(it => it.rtj);
+function rtjHasTools() { const arts = RTJ_ART().map(x => x.toLowerCase()); return S.inventory.some(it => !it.rtj && (/thieves'? tools/i.test(it.name) || arts.some(a => it.name.toLowerCase().includes(a.toLowerCase())) || /all-purpose tool/i.test(it.name))); }
+function openRTJ() {
+  const cur = rtjItem(), ok = rtjHasTools();
+  openModal(`<div id="rtjm"><h3>The Right Tool for the Job</h3>
+    <p class="hint">Spend 1 hour of uninterrupted work (it can be part of a short or long rest) with thieves' tools or artisan's tools in hand, and magically make one set of artisan's tools in a space within 5 ft. They're nonmagical${cur ? `, and your current set — <b>${esc(cur.name.replace(/\s*\(Right Tool.*\)$/, ''))}</b> — vanishes when you make a new one` : ''}.</p>
+    ${ok ? '' : `<p class="warn sm">You don't seem to be carrying thieves' tools or artisan's tools — you need a set in hand to use this.</p>`}
+    <div class="rtjgrid">${RTJ_ART().map(n => `<button class="rtjopt${cur && cur.rtjTool === n ? ' on' : ''}" data-act="rtjmake" data-n="${esc(n)}">${esc(n)}</button>`).join('')}</div>
+    <div class="actions"><button class="btn" data-act="close">Cancel</button></div></div>`, null, true);
+}
+function rtjMake(n) {
+  if (!RTJ_ART().includes(n)) return;
+  const old = rtjItem(), oi = old ? S.inventory.indexOf(old) : -1;
+  const g = DND.gear.find(x => x[0] === n);
+  const it = g ? makeGearItem(g) : { id: uid(), name: n, qty: 1, weight: 0, cost: '', equipped: false, notes: '' };
+  Object.assign(it, { name: n + ' (Right Tool for the Job)', rtj: true, rtjTool: n, cost: '', notes: 'Made with The Right Tool for the Job. Nonmagical; vanishes when you use the feature again.' });
+  if (old) { it.bag = old.bag || ''; S.inventory.splice(oi, 1, it); } else addInventoryItem(it, true);
+  closeModal(true); pendingLabel = 'The Right Tool for the Job: ' + n; save(); render();
+  toast(`<b>${esc(n)}</b> made with The Right Tool for the Job${old ? ` — your ${esc(old.rtjTool || 'old set')} vanished` : ''}. It's in your inventory.`, '', 6000, { label: 'Undo', fn: () => undo(1) });
+}
+
+// ---------- Dragging whole containers (desktop): drop on another container to put it inside, anywhere else to take it out ----------
+let BDRAG = null;
+document.addEventListener('pointerdown', e => {
+  const h = e.target.closest && e.target.closest('.bdrag'); if (!h || e.button > 0 || isMobile()) return;
+  const sec = h.closest('section[data-zi]'); if (!sec) return; e.preventDefault();
+  // The ghost is a copy of the container's own header row, so you can see exactly what you're carrying.
+  const hd = sec.querySelector(':scope > .subh') || sec, r = hd.getBoundingClientRect(), ghost = document.createElement('div');
+  ghost.className = 'bdrag-ghost ' + (sec.classList.contains('subbag') ? 'subbag' : 'inv-col bagcol'); ghost.appendChild(hd.cloneNode(true));
+  $$('.menu-list, .bagedit', ghost).forEach(x => x.remove());
+  Object.assign(ghost.style, { width: r.width + 'px', left: r.left + 'px', top: r.top + 'px' }); document.body.appendChild(ghost);
+  sec.classList.add('bdrag-src'); BDRAG = { id: h.dataset.bdrag, sec, ghost, to: null, dx: e.clientX - r.left, dy: e.clientY - r.top }; document.body.classList.add('idragging');
+});
+document.addEventListener('pointermove', e => { const d = BDRAG; if (!d) return; e.preventDefault(); d.ghost.style.left = (e.clientX - d.dx) + 'px'; d.ghost.style.top = (e.clientY - d.dy) + 'px';
+  $$('#page-inventory .idrop').forEach(s => s.classList.remove('idrop'));
+  const el = document.elementFromPoint(e.clientX, e.clientY), sec = el && el.closest('#page-inventory section[data-zi]'); const b = bagById(d.id);
+  let to = null; if (sec) { const k = sec.dataset.zi; if (k.startsWith('bag:')) { const t = bagById(k.slice(4)); if (t && t !== b && !bagDescendants(b).includes(t)) { to = t.id; sec.classList.add('idrop'); } else if (t === b) to = undefined; } else if (k === 'pack') { to = 'pack'; sec.classList.add('idrop'); } else to = ''; } else if (el && el.closest('#page-inventory')) to = '';
+  d.to = to; const edge = 60; if (e.clientY < edge) scrollBy(0, -12); else if (e.clientY > innerHeight - edge) scrollBy(0, 12); }, { passive: false });
+function bdragEnd(cancel) { const d = BDRAG; if (!d) return; BDRAG = null; document.body.classList.remove('idragging'); d.ghost.remove(); d.sec.classList.remove('bdrag-src'); $$('#page-inventory .idrop').forEach(s => s.classList.remove('idrop'));
+  if (!cancel && d.to != null) bagMoveTo(d.id, d.to); }
+document.addEventListener('pointerup', () => bdragEnd(false));
+document.addEventListener('pointercancel', () => bdragEnd(true));
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && BDRAG) bdragEnd(true); });
+
+// ================= Spell groups (Level / Purpose / My categories), shared by the Spells and Combat tabs =================
+// Groups can be rearranged by dragging their header grip (desktop) or with ▲ ▼. My categories keep their order in
+// S.spellCats; Level and Purpose keep theirs in S.spGroupOrder[mode].
+const SPG_COL = { dmg: '#d9603b', ctl: '#9b6bd6', heal: '#3c9d6b', buff: '#3f8fd2', util: 'var(--soft)' };
+const spMode = () => { const m = ST('combatSpellSort'); return m === 'custom' || m === 'purpose' ? m : 'level'; };
+function spGroupDefs(mode) {
+  if (mode === 'custom') { spCatsEnsure(); return spCatsAll().map(c => ({ k: 'c:' + (c.id || 'none'), cat: c.id, name: c.name, icon: c.icon || '◆', color: c.color || 'var(--gold)', cls: 'cat' })); }
+  if (mode === 'purpose') return SPG.map(([k, name, icon]) => ({ k, name, icon, color: SPG_COL[k], cls: k }));
+  return [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(L => ({ k: 'lv' + L, L, name: L ? ORD[L - 1] + ' level' : 'Cantrips', icon: L || '∞', color: 'var(--gold)', cls: 'lvl' }));
+}
+const spGroupOf = (mode, sp) => mode === 'custom' ? 'c:' + (spCatOf(sp) || 'none') : mode === 'purpose' ? spellGroup(sp) : 'lv' + N(sp.level);
+function spGroupsOrdered(mode) {
+  const defs = spGroupDefs(mode); if (mode === 'custom') return defs;
+  const o = (S.spGroupOrder || {})[mode] || [], rank = (g, d) => { const k = o.indexOf(g.k); return k < 0 ? 1000 + d : k; };
+  return defs.map((g, d) => [g, rank(g, d)]).sort((a, b) => a[1] - b[1]).map(x => x[0]);
+}
+// The groups to show for a list of spell indexes (kept in the order given inside each group).
+function spGroupsFor(mode, idxs, withEmpty) {
+  return spGroupsOrdered(mode).map(g => Object.assign({}, g, { items: idxs.filter(i => spGroupOf(mode, S.spells[i]) === g.k) }))
+    .filter(g => g.items.length || (withEmpty && mode === 'custom' && g.cat !== ''));
+}
+function spGroupMove(mode, k, before) {
+  if (mode === 'custom') {
+    const a = S.spellCats || [], id = k.slice(2), from = a.findIndex(c => c.id === id); if (from < 0) return;
+    const [c] = a.splice(from, 1); let at = before ? a.findIndex(x => 'c:' + x.id === before) : -1; if (at < 0) at = a.length; a.splice(at, 0, c);
+    pendingLabel = 'Move category: ' + c.name;
+  } else {
+    const full = spGroupsOrdered(mode).map(g => g.k).filter(x => x !== k); let at = before ? full.indexOf(before) : -1; if (at < 0) at = full.length; full.splice(at, 0, k);
+    S.spGroupOrder = Object.assign({}, S.spGroupOrder, { [mode]: full });
+    pendingLabel = 'Move group: ' + ((spGroupDefs(mode).find(g => g.k === k) || {}).name || k);
+  }
+  save(); render();
+}
+function spGroupStep(k, d) {
+  const mode = spMode(), vis = spGroupsFor(mode, S.spells.map((s, i) => i), true).map(g => g.k).filter(x => x !== 'c:none'), at = vis.indexOf(k);
+  if (at < 0 || at + d < 0 || at + d >= vis.length) return;
+  spGroupMove(mode, k, d < 0 ? vis[at - 1] : vis[at + 2]);
+}
+// A group's header on the Spells tab: grip, the collapse button, and ▲ ▼ (plus edit / delete for your own categories).
+function spgHead(col, g, mode, n, open, first, last) {
+  const mv = !(mode === 'custom' && g.cat === '');
+  const tools = `<span class="cath-tools">${mode === 'custom' && g.cat ? `<button class="icon-btn" data-act="spcatren" data-k="${esc(g.cat)}" title="Rename / icon / color" aria-label="Edit category">✎</button><button class="icon-btn" data-act="spcatdel" data-k="${esc(g.cat)}" title="Delete category (its spells become Uncategorized)" aria-label="Delete category">✕</button>` : ''}</span>`;
+  return `<div class="cspg-hrow"${mode === 'custom' ? ` data-cat="${esc(g.cat)}"` : ''}>${mv ? `<span class="gdrag" data-gdrag="${esc(g.k)}" title="Drag to rearrange" aria-hidden="true">⠿</span>` : ''}${cGroupHead(col, g.k, esc(g.name), esc(String(g.icon)), n, open)}${tools}</div>`;
+}
+// Dragging a whole group (desktop): a copy of its header follows the pointer; drop it between other groups.
+let GDRAG = null;
+document.addEventListener('pointerdown', e => {
+  const h = e.target.closest && e.target.closest('.gdrag'); if (!h || e.button > 0 || isMobile()) return;
+  const grp = h.closest('.spg'); if (!grp) return; e.preventDefault();
+  const hd = grp.querySelector(':scope > .cspg-hrow'), r = hd.getBoundingClientRect(), ghost = document.createElement('div');
+  ghost.className = 'bdrag-ghost cspg spg-ghost'; ghost.style.setProperty('--g', getComputedStyle(grp).getPropertyValue('--g')); ghost.appendChild(hd.cloneNode(true));
+  Object.assign(ghost.style, { width: r.width + 'px', left: r.left + 'px', top: r.top + 'px' }); document.body.appendChild(ghost);
+  const line = document.createElement('div'); line.className = 'spg-drop'; grp.before(line);
+  grp.classList.add('bdrag-src'); GDRAG = { k: h.dataset.gdrag, grp, ghost, line, dx: e.clientX - r.left, dy: e.clientY - r.top, before: null, moved: false };
+  document.body.classList.add('idragging');
+});
+document.addEventListener('pointermove', e => {
+  const d = GDRAG; if (!d) return; e.preventDefault(); d.moved = true;
+  d.ghost.style.left = (e.clientX - d.dx) + 'px'; d.ghost.style.top = (e.clientY - d.dy) + 'px';
+  const groups = [...d.grp.parentElement.querySelectorAll(':scope > .spg')].filter(g => g.dataset.gk !== 'c:none');
+  let tgt = null; for (const g of groups) { const b = g.getBoundingClientRect(); if (e.clientY < b.top + Math.min(b.height, 60) / 2) { tgt = g; break; } }
+  if (tgt) tgt.before(d.line); else { const lastG = groups[groups.length - 1]; if (lastG) lastG.after(d.line); }
+  d.before = tgt ? tgt.dataset.gk : null;
+  const edge = 60; if (e.clientY < edge) scrollBy(0, -12); else if (e.clientY > innerHeight - edge) scrollBy(0, 12);
+}, { passive: false });
+function gdragEnd(cancel) {
+  const d = GDRAG; if (!d) return; GDRAG = null; document.body.classList.remove('idragging'); d.ghost.remove(); d.line.remove(); d.grp.classList.remove('bdrag-src');
+  if (cancel || !d.moved || d.before === d.k) return;
+  // Dropping right after itself changes nothing.
+  const sib = [...d.grp.parentElement.querySelectorAll(':scope > .spg')], at = sib.indexOf(d.grp); if (sib[at + 1] && sib[at + 1].dataset.gk === d.before) return;
+  if (!d.before && at === sib.filter(g => g.dataset.gk !== 'c:none').length - 1) return;
+  spGroupMove(spMode(), d.k, d.before);
+}
+document.addEventListener('pointerup', () => gdragEnd(false));
+document.addEventListener('pointercancel', () => gdragEnd(true));
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && GDRAG) gdragEnd(true); });
+
+// ================= Combat: rearranging the groups inside Action / Bonus Action / Reaction / Movement =================
+// Each column keeps its own order in S.cgOrder[col] (by group key). Other blocks (like the Attack action) stay put.
+const cgKeyOf = g => { const h = g.querySelector(':scope > .cspg-h, :scope > .cspg-hrow > .cspg-h'); return h ? String(h.dataset.key || '').replace(/^cg:[^:]+:/, '') : ''; };
+function econGroupsApply() {
+  const ord = S.cgOrder || {}, mob = isMobile();
+  $$('#page-combat .econ[data-col]').forEach(colEl => {
+    const col = colEl.dataset.col, body = colEl.querySelector('.econ-body'); if (!body) return;
+    const groups = [...body.children].filter(c => c.classList.contains('cspg') && cgKeyOf(c)); if (!groups.length) return;
+    const saved = ord[col] || [], rank = (g, d) => { const k = saved.indexOf(cgKeyOf(g)); return k < 0 ? 1000 + d : k; };
+    const sorted = groups.map((g, d) => [g, rank(g, d)]).sort((a, b) => a[1] - b[1]).map(x => x[0]);
+    const slots = groups.map(g => { const ph = document.createComment('g'); g.replaceWith(ph); return ph; });
+    slots.forEach((ph, k) => ph.replaceWith(sorted[k]));
+    sorted.forEach((g, k) => { g.classList.add('cgmov'); g.dataset.cgk = cgKeyOf(g); g.dataset.cgcol = col;
+      if (!mob && groups.length > 1) g.insertAdjacentHTML('afterbegin', `<span class="gdrag cgdrag" title="Drag to rearrange" aria-hidden="true">⠿</span>`);
+      // (On phones groups aren't rearranged — keep the headers clean.)
+    });
+  });
+}
+function cgSetOrder(col, keys, moved) { S.cgOrder = Object.assign({}, S.cgOrder, { [col]: keys }); pendingLabel = 'Rearrange ' + (col === 'bonus' ? 'bonus action' : col) + (moved ? ': ' + moved : ''); save(); render('combat'); refresh(); }
+function cgStep(col, k, d) {
+  const keys = [...$$(`#page-combat .econ[data-col="${col}"] .econ-body > .cgmov`)].map(g => g.dataset.cgk), at = keys.indexOf(k), to = at + d;
+  if (at < 0 || to < 0 || to >= keys.length) return; keys.splice(at, 1); keys.splice(to, 0, k); cgSetOrder(col, keys, k);
+}
+let CGDRAG = null;
+document.addEventListener('pointerdown', e => {
+  const h = e.target.closest && e.target.closest('.cgdrag'); if (!h || e.button > 0 || isMobile()) return;
+  const grp = h.closest('.cgmov'); if (!grp) return; e.preventDefault(); e.stopPropagation();
+  const hd = grp.querySelector(':scope > .cspg-h') || grp, r = hd.getBoundingClientRect(), ghost = document.createElement('div');
+  ghost.className = 'bdrag-ghost cspg spg-ghost ' + [...grp.classList].filter(c => /^g-/.test(c)).join(' '); const st = grp.getAttribute('style'); if (st) ghost.setAttribute('style', st); ghost.appendChild(hd.cloneNode(true));
+  Object.assign(ghost.style, { position: 'fixed', width: r.width + 'px', left: r.left + 'px', top: r.top + 'px' }); document.body.appendChild(ghost);
+  const line = document.createElement('div'); line.className = 'spg-drop'; grp.before(line);
+  grp.classList.add('bdrag-src'); CGDRAG = { grp, col: grp.dataset.cgcol, ghost, line, dx: e.clientX - r.left, dy: e.clientY - r.top, before: grp, moved: false };
+  document.body.classList.add('idragging');
+}, true);
+document.addEventListener('pointermove', e => {
+  const d = CGDRAG; if (!d) return; e.preventDefault(); d.moved = true;
+  d.ghost.style.left = (e.clientX - d.dx) + 'px'; d.ghost.style.top = (e.clientY - d.dy) + 'px';
+  const groups = [...d.grp.parentElement.querySelectorAll(':scope > .cgmov')];
+  let tgt = null; for (const g of groups) { const b = g.getBoundingClientRect(); if (e.clientY < b.top + Math.min(b.height, 50) / 2) { tgt = g; break; } }
+  if (tgt) tgt.before(d.line); else groups[groups.length - 1].after(d.line); d.before = tgt;
+  const edge = 60; if (e.clientY < edge) scrollBy(0, -12); else if (e.clientY > innerHeight - edge) scrollBy(0, 12);
+}, { passive: false });
+function cgdragEnd(cancel) {
+  const d = CGDRAG; if (!d) return; CGDRAG = null; document.body.classList.remove('idragging'); d.ghost.remove(); d.line.remove(); d.grp.classList.remove('bdrag-src');
+  if (cancel || !d.moved) return;
+  const keys = [...d.grp.parentElement.querySelectorAll(':scope > .cgmov')].map(g => g.dataset.cgk).filter(k => k !== d.grp.dataset.cgk);
+  let at = d.before && d.before !== d.grp ? keys.indexOf(d.before.dataset.cgk) : -1; if (d.before === d.grp) return; if (at < 0) at = keys.length;
+  const was = [...d.grp.parentElement.querySelectorAll(':scope > .cgmov')].map(g => g.dataset.cgk);
+  keys.splice(at, 0, d.grp.dataset.cgk); if (keys.join() === was.join()) return;
+  cgSetOrder(d.col, keys, (d.grp.querySelector('.cspg-h b') || {}).textContent || '');
+}
+document.addEventListener('pointerup', () => cgdragEnd(false));
+document.addEventListener('pointercancel', () => cgdragEnd(true));
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && CGDRAG) cgdragEnd(true); });
+
+// ================= Monk bonus-action strikes =================
+// Martial Arts: one unarmed strike as a bonus action after the Attack action. Flurry of Blows: 1 ki for two.
+const unarmedIdx = () => S.attacks.findIndex(a => /^unarmed strike$/i.test(String(a.name).trim()));
+function monkStrikes(n, label) {
+  const k = unarmedIdx(); if (k < 0) { toast('There is no Unarmed Strike attack on the sheet.', 'fumble'); return; }
+  // Rolled right away (not on a timer) so Roll20 / manual dice modes can ask for each roll in turn.
+  for (let x = 0; x < n; x++) attackRoll(k, true, { label: label + (n > 1 ? ' (strike ' + (x + 1) + ')' : '') });
+}
+function martialArtsBonus(go) {
+  if (S.inCombat) {
+    if ((S.turn.used || {}).bonus) { toast('Your bonus action is already used this turn.', 'fumble'); return; }
+    if (!go && !N(S.turn.attacks)) { toast('<b>Martial Arts</b> — the bonus unarmed strike comes after you take the Attack action this turn.', 'fumble', 7000, { label: 'Strike anyway', fn: () => martialArtsBonus(true) }); return; }
+    S.turn.used.bonus = true; pendingLabel = 'Martial Arts bonus strike'; update();
+  }
+  monkStrikes(1, 'Martial Arts strike');
+}
+const flurryAct = (i, j) => { const f = S.features[i], a = f && j != null && (fxOf(f).acts || [])[N(j)]; return !!(a && /^flurry of blows$/i.test(String(a.name).trim())); };
+function flurryOfBlows(i, j, col, go) {
+  if (S.inCombat) {
+    if ((S.turn.used || {}).bonus) { toast('Your bonus action is already used this turn.', 'fumble'); return; }
+    if (!go && !N(S.turn.attacks)) { toast('<b>Flurry of Blows</b> — comes right after you take the Attack action this turn.', 'fumble', 7000, { label: 'Use it anyway', fn: () => flurryOfBlows(i, j, col, true) }); return; }
+  }
+  const before = JSON.stringify(S.features.map(f => f.used));
+  useAct(i, j, col || 'bonus');
+  if (JSON.stringify(S.features.map(f => f.used)) === before) return; // not enough ki — useAct already said so
+  monkStrikes(2, 'Flurry of Blows');
+}
+
+// ================= Things that replace one attack of the Attack action =================
+// With Extra Attack (or any multi-attack Attack action) these use up one attack, not the whole action.
+const ATK_REPLACE = /^(grapple|shove|disarm|breath weapon|metallic breath weapon|enervating breath|repulsion breath|breath of the dragon|breathe again\b.*)$/i;
+const atkReplaceable = nm => ATK_REPLACE.test(String(nm || '').trim());
+// null: not one of these (or not in initiative) · false: blocked (and says why) · true: fine to use.
+function atkReplaceOK(nm, col) {
+  if (!S.inCombat || col !== 'action' || !atkReplaceable(nm)) return null;
+  const per = attacksPerAction(), done = N(S.turn.attacks);
+  if ((S.turn.used || {}).action && (done === 0 || done >= per)) { toast(done ? `No attacks left this turn (${per}).` : 'Your action is already used this turn.', 'fumble'); return false; }
+  return true;
+}
+// Spends one attack; returns a short line for the toast (or '' when it doesn't apply).
+function atkReplaceSpend(nm, col) {
+  if (atkReplaceOK(nm, col) !== true) return '';
+  const per = attacksPerAction(); S.turn.attacks = N(S.turn.attacks) + 1; S.turn.used.action = true;
+  return per > 1 ? `Uses attack ${S.turn.attacks} of ${per} of your Attack action` : '';
+}
+
+// ================= Stunning Strike (monk 5) =================
+// Not an action: when you hit with a melee weapon attack (unarmed strikes count), you can spend 1 ki. The target makes a
+// CON save against your ki DC (8 + proficiency + WIS) or is stunned until the end of your next turn. Any number of
+// times a turn, as long as you have ki — once per hit.
+const isStunStrike = f => !!f && /^stunning strike$/i.test(String(f.name || '').trim()) && (!f.cls || f.cls === 'monk');
+const stunStrikeFeat = () => clsLv('monk') >= 5 ? S.features.find(isStunStrike) : null;
+const stunKi = () => S.features.find(f => /^ki( points)?$/i.test(String(f.name).trim()));
+const stunKiLeft = () => { const k = stunKi(); return k ? Math.max(0, (featMax(k) || 0) - N(k.used)) : 0; };
+const stunDC = () => { const f = stunStrikeFeat(); return (f && dcVal('wis', 'monk')) || (8 + profB() + mod('wis')); };
+function profB() { return Math.ceil(lvl() / 4) + 1; }
+function stunRowHTML() {
+  if (!stunStrikeFeat()) return '';
+  return `<div class="row stunrow"><button class="btn sm" data-act="stunstrike" title="Use right after a melee hit — not an action">Stunning Strike <small>1 ki</small></button><span class="hint">After a melee hit (unarmed counts): DC ${stunDC()} CON save or stunned until the end of your next turn. Once per hit.</span></div>`;
+}
+function stunningStrike() {
+  const f = stunStrikeFeat(); if (!f) return;
+  const err = fxSpend({ from: (stunKi() || {}).name || 'Ki', n: 1 }, 'monk'); if (err) { toast(esc(err), 'fumble'); return; }
+  pendingLabel = 'Stunning Strike'; update(); render();
+  toast(`<div><b>Stunning Strike</b> · 1 ki <span class="hint">(${stunKiLeft()} left)</span><div class="det">The creature you just hit makes a <b>DC ${stunDC()} Constitution save</b>. On a fail it is <b>Stunned</b> until the end of your next turn: it can't move or take actions or reactions, automatically fails STR and DEX saves, and attacks against it have advantage.</div><div class="det">Doesn't use your action — you can try again on each hit while you have ki.</div></div>`, '', 12000, { label: 'Undo', fn: () => undo(1) });
+}
+
+// ================= Haste =================
+// While hasted you get one extra action each turn — only Attack (one weapon attack), Dash, Disengage, Hide or Use an
+// Object. When Haste ends you're lethargic: you can't move or take actions until after your next turn.
+function hasteBlockHTML() {
+  if (!S.inCombat || !hasted()) return '';
+  const used = !!S.turn.haste;
+  const rows = S.attacks.map((a, i) => [a, i]).filter(([a]) => atkShown(a) && (!a.effect || a.weaponLike))
+    .map(([a, i]) => `<tr><td>${esc(a.name)}</td><td>${rollBtn('atk:' + i, a.name + ' attack')}</td><td>${rollBtn('dmg:' + i, a.name + ' damage')}</td><td><button class="btn gold sm atkbtn" data-act="hasteact" data-k="atk" data-i="${i}" ${used ? 'disabled' : ''} title="One weapon attack with your Haste action">⚔</button></td></tr>`).join('');
+  return `<div class="block hasteblk${used ? ' used' : ''}"><div class="sect">Haste action <span class="tag">${used ? 'used this turn' : '1 extra'}</span><span class="grow"></span></div>
+    <div class="hint" style="margin-bottom:4px">One extra action each turn: a single weapon attack, Dash, Disengage, Hide or Use an Object.</div>
+    ${rows ? `<table class="mini">${rows}</table>` : ''}
+    <div class="chips">${[['dash', 'Dash'], ['disengage', 'Disengage'], ['hide', 'Hide'], ['object', 'Use an Object']].map(([k, t]) => `<button class="chip" data-act="hasteact" data-k="${k}" ${used ? 'disabled' : ''}>${t}</button>`).join('')}</div></div>`;
+}
+function hasteAct(k, i) {
+  if (!hasted()) return;
+  if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions.`, 'fumble'); return; }
+  if (S.turn.haste) { toast('You already used your Haste action this turn.', 'fumble'); return; }
+  S.turn.haste = true; pendingLabel = 'Haste action';
+  if (k === 'atk') { const a = S.attacks[N(i)]; update(); render('combat'); attackRoll(N(i), true, { label: (a ? a.name : 'Attack') + ' (Haste action)' }); return; }
+  if (k === 'dash') { addDash(); update(); render('combat'); toast(`<b>Dash</b> (Haste action) — +${turnSpeed()} ft of movement this turn.`, '', 5000, { label: 'Undo', fn: () => undo(1) }); return; }
+  if (k === 'disengage') { S.turn.disengaged = true; update(); render('combat'); toast('<b>Disengage</b> (Haste action) — moving won’t provoke opportunity attacks this turn.', '', 5000, { label: 'Undo', fn: () => undo(1) }); return; }
+  if (k === 'hide') { update(); render('combat'); const s = S.skills.findIndex(x => x.name === 'Stealth'); if (s >= 0) doRoll('skill:' + s); return; }
+  update(); render('combat'); toast('<b>Use an Object</b> (Haste action) — drink a potion, pull a lever, draw a second item…', '', 5000, { label: 'Undo', fn: () => undo(1) });
+}
+function hasteWatch() {
+  const h = hasted();
+  if (S._hasted && !h && S.inCombat && !N(S.lethargy)) { S.lethargy = 1; setTimeout(() => toast('<b>Haste ended.</b> A wave of lethargy follows — on your next turn you can’t move or take actions.', 'fumble', 9000), 150); }
+  S._hasted = h;
+}
+
+// ================= Layout editor v2: modules on a 12-column grid =================
+// Until someone changes something in Edit layout, every tab renders exactly as it always has. The first change turns
+// the whole sheet into a grid layout: each panel ("module") gets a place and a size on a 12-column grid, tabs can hold
+// any module, modules can be removed (they go back to the Add-module library) and custom tabs can be added.
+// S.layout.grid = { tabKey: [{ id, x, y, w, h }] }   x/w in columns (0-11, 1-12), y/h in grid rows
+// S.layout.removed = [ids]   modules taken off the sheet (still listed under Add module)
+// S.layout.ctabs = [{ key, name, icon }]   custom tabs
+const GCOLS = 12, GGAP = 14;
+const MODNAMES = Object.assign({}, PNAMES, { metamagic: 'Metamagic', mmspells: 'Metamagic (Spells tab)', infhead: 'Infusions overview', infknown: 'Known infusions', infactive: 'Active infusions' });
+const MODMIN = { economy: 6, inventory: 6, spelllist: 6, turnbar: 6, oocmain: 6, spellcasting: 6, featlist: 4, companions: 4 };
+const modName = id => MODNAMES[id] || id;
+const modMinW = id => MODMIN[id] || 3;
+const SIZES = [[3, 'Small', '¼'], [4, 'Medium', '⅓'], [6, 'Half', '½'], [8, 'Large', '⅔'], [9, 'Wide', '¾'], [12, 'Full width', '1']];
+const isGridLayout = () => !!(S.layout && S.layout.grid);
+const ctabs = () => ((S.layout && S.layout.ctabs) || []);
+const isCustomTab = k => ctabs().some(t => t.key === k);
+
+// ---------- Geometry helpers ----------
+const gOverlap = (a, b) => a !== b && a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+// Push anything that collides with `it` downward, then pull everything up as far as it goes (no holes).
+function gResolve(items, it) {
+  const moved = new Set([it]);
+  const push = a => items.filter(b => b !== a && gOverlap(a, b)).sort((p, q) => p.y - q.y).forEach(b => { b.y = a.y + a.h; push(b); });
+  if (it) push(it);
+  return gCompact(items, it);
+}
+function gCompact(items, keep) {
+  const sorted = items.slice().sort((a, b) => a.y - b.y || a.x - b.x);
+  sorted.forEach(a => { if (a === keep) return; while (a.y > 0) { a.y--; if (items.some(b => gOverlap(a, b))) { a.y++; break; } } });
+  if (keep) { // the dragged item stays where it was dropped unless that leaves a hole above it
+    while (keep.y > 0) { keep.y--; if (items.some(b => gOverlap(keep, b))) { keep.y++; break; } }
+    items.filter(b => gOverlap(keep, b)).forEach(b => { b.y = keep.y + keep.h; });
+    if (items.some(a => items.some(b => gOverlap(a, b)))) return gCompact(items, null);
+  }
+  return items;
+}
+const gClone = a => a.map(x => Object.assign({}, x));
+
+// ---------- Measuring the current (classic) layout ----------
+function topPids(page) { return $$('[data-pid]', page).filter(el => !el.parentElement.closest('[data-pid]')); }
+function measurePage(pg) {
+  const page = $('#page-' + pg); if (!page) return [];
+  const was = page.classList.contains('on'); if (!was) page.classList.add('gmeasure');
+  const pr = page.getBoundingClientRect(), colW = (pr.width + GGAP) / GCOLS;
+  const els = topPids(page).filter(el => el.offsetParent && !el.classList.contains('phid'));
+  const boxes = els.map(el => { const r = el.getBoundingClientRect(); return { id: el.dataset.pid, l: r.left - pr.left, t: r.top - pr.top, w: r.width, b: r.bottom - pr.top }; });
+  if (!was) page.classList.remove('gmeasure');
+  const tops = []; boxes.slice().sort((a, b) => a.t - b.t).forEach(bx => { if (!tops.some(t => Math.abs(t - bx.t) < 12)) tops.push(bx.t); });
+  tops.sort((a, b) => a - b);
+  const items = boxes.map(bx => {
+    const x = Math.max(0, Math.min(GCOLS - 1, Math.round(bx.l / colW))), w = Math.max(1, Math.min(GCOLS - x, Math.round((bx.w + GGAP) / colW)));
+    const y = tops.findIndex(t => Math.abs(t - bx.t) < 12), h = Math.max(1, tops.filter(t => t >= bx.t - 12 && t < bx.b - 20).length);
+    return { id: bx.id, x, y: Math.max(0, y), w, h };
+  });
+  // Hidden-by-default modules that live here keep a spot at the bottom (in case they appear later).
+  return gCompact(items, null);
+}
+// The first real change converts every tab (built-in and custom) into the grid model.
+function ensureGrid() {
+  if (isGridLayout()) return false;
+  const L = LY(), grid = {};
+  tabOrder().forEach(([k]) => { grid[k] = measurePage(k); });
+  const placed = new Set(Object.values(grid).flat().map(i => i.id));
+  // Modules that exist but are hidden right now (combat-only panels, hidden by the old editor…) keep a home spot.
+  $$('.page [data-pid]').forEach(el => { const id = el.dataset.pid, home = el.dataset.home; if (placed.has(id)) return; placed.add(id);
+    if ((L.hidden || []).includes(id)) { L.removed = (L.removed || []).concat([id]); return; }
+    const pg = grid[home] ? home : tabOrder()[0][0]; const a = grid[pg]; a.push({ id, x: 0, y: a.reduce((m, i) => Math.max(m, i.y + i.h), 0), w: GCOLS, h: 1 }); });
+  L.grid = grid; delete L.pages; delete L.cols; delete L.wide; L.hidden = [];
+  return true;
+}
+
+// ---------- Rendering the grid ----------
+// Placement: every module in L.grid shows on that tab; modules that appear later (a new class feature…) and were never
+// placed go to the bottom of their home tab; removed ones stay off the sheet.
+function gridApply(by) {
+  const L = S.layout, grid = L.grid, removed = new Set(L.removed || []), placed = new Set(Object.values(grid).flat().map(i => i.id));
+  Object.keys(by).forEach(id => { if (placed.has(id) || removed.has(id)) return; const home = by[id][0].dataset.home, pg = grid[home] ? home : null; if (!pg) return;
+    grid[pg].push({ id, x: 0, y: grid[pg].reduce((m, i) => Math.max(m, i.y + i.h), 0), w: GCOLS, h: 1 }); placed.add(id); });
+  const mob = isMobile(), ed = !!UI.editLayout;
+  Object.keys(grid).forEach(pg => {
+    const page = $('#page-' + pg); if (!page) return;
+    const box = document.createElement('div'); box.className = 'gridl'; box.dataset.pg = pg;
+    // Only modules that are actually showing take room; the rest are squeezed out so nothing leaves a hole.
+    const shown = grid[pg].filter(i => by[i.id] && !removed.has(i.id) && (ed || !panelHidden(i.id)));
+    const live = gCompact(gClone(shown), null);
+    live.sort((a, b) => a.y - b.y || a.x - b.x).forEach(i => {
+      const el = by[i.id][0]; el.dataset.gx = i.x; el.dataset.gy = i.y; el.dataset.gw = i.w; el.dataset.gh = i.h;
+      if (!mob) { el.style.gridColumn = `${i.x + 1} / span ${i.w}`; el.style.gridRow = `${i.y + 1} / span ${i.h}`; } else { el.style.gridColumn = ''; el.style.gridRow = ''; }
+      box.appendChild(el);
+    });
+    [...page.children].forEach(c => c.remove());
+    page.appendChild(box);
+    if (ed && !mob && !live.length) box.innerHTML = `<div class="gempty"><b>This tab is empty</b><span>Use <b>+ Add module</b> below, or drag a module onto this tab's name.</span></div>`;
+  });
+  // Modules that ended up nowhere (removed, or homed on a tab that's gone) are taken out of the page.
+  Object.keys(by).forEach(id => { const el = by[id][0]; if (!el.closest('.gridl')) el.remove(); });
+}
+
+// ---------- Edit mode: module bars, resize handles, editor bar ----------
+let LSNAP = null; // the layout when Edit layout was opened (Cancel restores it)
+function editDecorate() {
+  const ed = !!UI.editLayout && !isMobile();
+  $$('.page [data-pid]').forEach(el => {
+    $$(':scope > .modbar, :scope > .mresize', el).forEach(x => x.remove()); el.classList.remove('emod');
+    if (!ed || el.parentElement.closest('[data-pid]')) return;
+    el.classList.add('emod');
+    const id = el.dataset.pid, w = N(el.dataset.gw) || 0, auto = panelAutoHidden(id) && panelHidden(id);
+    const bar = document.createElement('div'); bar.className = 'modbar';
+    bar.innerHTML = `<span class="mgrip" data-mgrip="${id}" title="Drag to move — drop on a tab name to send it there">⠿ ${esc(modName(id))}</span>${auto ? '<span class="hidtag" title="Not used by this character right now — it shows up when it applies">auto-hidden</span>' : ''}<span class="grow"></span>
+      <div class="menu msize"><button class="mbtn" data-act="menu" aria-haspopup="true" title="Size">⤢ ${w ? (SIZES.find(s => s[0] === w) || [0, 0, w + '/12'])[2] : 'Size'}</button><div class="menu-list">
+        <div class="mlabel">Width</div>${SIZES.filter(s => s[0] >= modMinW(id)).map(([n, t, g]) => `<button data-act="msize" data-p="${id}" data-w="${n}" class="${w === n ? 'on' : ''}"><span class="szg" style="--n:${n}"></span>${t} <span class="hint">${g}</span></button>`).join('')}
+        <div class="mlabel">Height</div>${[[1, 'Normal'], [2, 'Tall (2 rows)'], [3, 'Taller (3 rows)']].map(([h, t]) => `<button data-act="msize" data-p="${id}" data-h="${h}" class="${(N(el.dataset.gh) || 1) === h ? 'on' : ''}">${t}</button>`).join('')}
+      </div></div>
+      <div class="menu"><button class="mbtn" data-act="menu" aria-haspopup="true" title="Move to another tab">⇄</button><div class="menu-list"><div class="mlabel">Move to tab</div>${tabOrder().filter(([k]) => k !== pageOf(el)).map(([k]) => `<button data-act="mto" data-p="${id}" data-pg="${k}">${esc(tabLabel(k))}</button>`).join('')}</div></div>
+      <button class="mbtn mx" data-act="mremove" data-p="${id}" title="Remove from the sheet (add it back with + Add module)">✕</button>`;
+    el.prepend(bar);
+    const rz = document.createElement('div'); rz.className = 'mresize'; rz.dataset.mresize = id; rz.title = 'Drag to resize'; el.appendChild(rz);
+  });
+  let eb = $('#editbar');
+  if (ed) {
+    if (!eb) { eb = document.createElement('div'); eb.id = 'editbar'; document.body.appendChild(eb); }
+    const lib = modLibrary();
+    eb.innerHTML = `<div class="eb-text"><b>Editing layout</b><span>Drag a module by its name to move it, or drag its corner to resize. Drop it on a tab name to send it there.</span></div>
+      <div class="eb-ctl"><button class="btn sm" data-act="maddopen">+ Add module${lib.length ? ` <span class="ebn">${lib.length}</span>` : ''}</button><button class="btn sm" data-act="ctabadd">+ New tab</button>
+        <div class="menu ebmore"><button class="btn sm ghost" data-act="menu" aria-haspopup="true">Reset ▾</button><div class="menu-list"><button data-act="greset" data-pg="${UI.tab}">Reset this tab</button><button data-act="gresetall">Reset everything to default</button></div></div>
+        <button class="btn sm ghost" data-act="ecancel">Cancel</button><button class="btn sm gold" data-act="edone">Done</button></div>`;
+  } else if (eb) eb.remove();
+  document.body.classList.toggle('editing', ed);
+}
+function editToggle() {
+  if (!UI.editLayout) { LSNAP = JSON.stringify(S.layout || {}); UI.editLayout = true; }
+  else { UI.editLayout = false; LSNAP = null; }
+  saveUI(); pendingLabel = null; render();
+}
+function editCancel() {
+  if (LSNAP != null && LSNAP !== JSON.stringify(S.layout || {})) { S.layout = JSON.parse(LSNAP); pendingLabel = 'Cancel layout changes'; save(); }
+  UI.editLayout = false; LSNAP = null; saveUI(); render();
+}
+// Modules taken off the sheet (Add module lists them). The old editor's "hidden" panels count too.
+const modRemoved = () => [...new Set(((S.layout && S.layout.removed) || []).concat((S.layout && !S.layout.grid && S.layout.hidden) || []))];
+function modLibrary() { return modRemoved().filter(id => !panelAutoHidden(id)); }
+function modLibraryAll() {
+  const out = [], seen = new Set(), removed = new Set(modRemoved());
+  $$('.page [data-pid]').forEach(el => { const id = el.dataset.pid; if (seen.has(id) || el.parentElement.closest('[data-pid]')) return; seen.add(id); out.push({ id, on: removed.has(id) ? '' : pageOf(el), removed: removed.has(id), auto: panelAutoHidden(id) }); });
+  removed.forEach(id => { if (!seen.has(id)) out.push({ id, on: '', removed: true, auto: false }); });
+  return out.filter(m => !m.auto);
+}
+let MODLIB = {};
+function modAddOpen() {
+  const all = modLibraryAll(), off = all.filter(m => m.removed), here = UI.tab, others = all.filter(m => !m.removed && m.on && m.on !== here && !m.auto);
+  openModal(`<h3>Add a module to ${esc(tabLabel(here))}</h3><p class="hint" style="margin:0 0 10px">Modules are the panels of the sheet. Only the ones that make sense for this character are listed.</p>
+    <div class="lbl">Not on the sheet</div><div class="modlib">${off.length ? off.map(m => `<button class="modcard" data-act="madd" data-p="${m.id}"><b>${esc(modName(m.id))}</b><span>Add to this tab</span></button>`).join('') : '<p class="hint" style="margin:4px 0">Every module is already on a tab. Removing one (its ✕) puts it back here.</p>'}</div>
+    ${others.length ? `<div class="lbl" style="margin-top:10px">On other tabs — move here</div><div class="modlib">${others.map(m => `<button class="modcard" data-act="madd" data-p="${m.id}"><b>${esc(modName(m.id))}</b><span>On ${esc(tabLabel(m.on))}</span></button>`).join('')}</div>` : ''}
+    <div class="actions"><button class="btn" data-act="close">Close</button></div>`, null, true);
+}
+
+// ---------- Layout changes ----------
+const gItems = pg => (LY().grid[pg] = LY().grid[pg] || []);
+function gFind(id) { const G = LY().grid || {}; for (const pg of Object.keys(G)) { const it = G[pg].find(i => i.id === id); if (it) return [pg, it]; } return [null, null]; }
+function gChanged(label) { pendingLabel = label; save(); render(); }
+function modAdd(id, pg) {
+  ensureGrid(); const L = LY(); pg = pg || UI.tab;
+  const [from, it] = gFind(id); if (from) L.grid[from] = L.grid[from].filter(i => i !== it);
+  L.removed = (L.removed || []).filter(x => x !== id);
+  const a = gItems(pg), w = it ? Math.max(it.w, modMinW(id)) : GCOLS;
+  a.push({ id, x: 0, y: a.reduce((m, i) => Math.max(m, i.y + i.h), 0), w, h: it ? it.h : 1 }); gCompact(a, null);
+  closeModal(true); gChanged(`Add ${modName(id)} to ${tabLabel(pg)}`);
+  setTimeout(() => { const el = $(`.page [data-pid="${id}"]`); if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.classList.add('mflash'); setTimeout(() => el.classList.remove('mflash'), 1200); } }, 60);
+}
+function modRemove(id) {
+  ensureGrid(); const L = LY(), [pg, it] = gFind(id); if (pg) { L.grid[pg] = L.grid[pg].filter(i => i !== it); gCompact(L.grid[pg], null); }
+  L.removed = [...new Set((L.removed || []).concat([id]))];
+  gChanged('Remove ' + modName(id));
+  toast(`<b>${esc(modName(id))}</b> removed. Add it back any time with <b>+ Add module</b>.`, '', 5000, { label: 'Undo', fn: () => undo(1) });
+}
+function modSize(id, w, h) {
+  ensureGrid(); const [pg, it] = gFind(id); if (!it) return;
+  if (w) { it.w = Math.max(modMinW(id), Math.min(GCOLS, w)); if (it.x + it.w > GCOLS) it.x = GCOLS - it.w; }
+  if (h) it.h = h;
+  gResolve(LY().grid[pg], it); gChanged('Resize ' + modName(id));
+}
+function modTo(id, pg) { modAdd(id, pg); toast(`${esc(modName(id))} moved to ${esc(tabLabel(pg))}.`, '', 4000, [{ label: 'Go there', fn: () => { UI.tab = pg; saveUI(); render(); } }, { label: 'Undo', fn: () => undo(1) }]); }
+function gridReset(pg) {
+  const L = LY(); if (!L.grid) return;
+  if (isCustomTab(pg)) { (L.grid[pg] || []).forEach(i => { L.removed = (L.removed || []).filter(x => x !== i.id); }); L.grid[pg] = []; return gChanged('Clear ' + tabLabel(pg)); }
+  // Modules from this tab come home; whatever else was moved here goes back to its own tab.
+  const mine = $$('.page [data-pid]').filter(e => e.dataset.home === pg).map(e => e.dataset.pid);
+  Object.keys(L.grid).forEach(k => { if (k !== pg) L.grid[k] = L.grid[k].filter(i => !mine.includes(i.id)); });
+  const strangers = (L.grid[pg] || []).filter(i => !mine.includes(i.id)).map(i => i.id);
+  L.removed = (L.removed || []).filter(x => !mine.includes(x));
+  // Measure this tab's default arrangement with the grid switched off, then put the other tabs' grids back.
+  const keep = L.grid, keepPages = L.pages, keepCols = L.cols, keepWide = L.wide; delete L.grid; L.pages = {}; L.cols = {}; L.wide = [];
+  render(); const fresh = measurePage(pg);
+  L.grid = keep; L.pages = keepPages; L.cols = keepCols; L.wide = keepWide; L.grid[pg] = fresh;
+  strangers.forEach(id => { const el = $(`.page [data-pid="${id}"]`), home = el && el.dataset.home; const a = L.grid[home] || L.grid[pg]; if (!a.some(i => i.id === id)) a.push({ id, x: 0, y: a.reduce((m, i) => Math.max(m, i.y + i.h), 0), w: GCOLS, h: 1 }); });
+  gChanged('Reset ' + tabLabel(pg) + ' layout');
+}
+function gridResetAll() {
+  const keep = { tabNames: undefined };
+  S.layout = {}; pendingLabel = 'Reset layout to default'; save(); render();
+  toast('Layout reset to the default.', '', 5000, { label: 'Undo', fn: () => undo(1) });
+}
+// ---------- Custom tabs ----------
+const CTAB_ICONS = ['★', '⚑', '♦', '☾', '☀', '⚙', '✎', '❖', '⚔', '✦'];
+function ctabAdd() {
+  openModal(`<h3>New tab</h3>${fld('Name', '<input class="f" id="ctabName" placeholder="e.g. Session, Downtime, Quick ref" autofocus>')}
+    <div class="lbl" style="margin-top:8px">Icon</div><div class="spcat-icons">${CTAB_ICONS.map((x, k) => `<button class="spcat-ic${k ? '' : ' on'}" data-ctic="${x}">${x}</button>`).join('')}</div>
+    <p class="hint">The new tab starts empty — add modules to it from <b>+ Add module</b>, or drag one onto its name.</p>
+    <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="ctabaddok">Add tab</button></div>`);
+}
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-ctic]'); if (!b) return; $$('[data-ctic]').forEach(x => x.classList.toggle('on', x === b)); });
+function ctabAddOK() {
+  ensureGrid(); const L = LY(), name = ($('#ctabName').value || '').trim() || 'New tab', icon = ($('[data-ctic].on') || {}).dataset ? $('[data-ctic].on').dataset.ctic : '★';
+  const key = 'c' + uid().slice(0, 6); L.ctabs = ctabs().concat([{ key, name, icon }]); L.grid[key] = [];
+  L.tabs = tabOrder().map(t => t[0]).filter(k => k !== key).concat([key]);
+  closeModal(true); UI.tab = key; saveUI(); gChanged('New tab: ' + name);
+}
+function ctabDelete(k) {
+  const L = LY(), t = ctabs().find(x => x.key === k); if (!t) return;
+  (L.grid[k] || []).forEach(i => { const el = $(`.page [data-pid="${i.id}"]`), home = el && el.dataset.home; const a = (home && L.grid[home]) || L.grid[tabOrder()[0][0]]; a.push({ id: i.id, x: 0, y: a.reduce((m, j) => Math.max(m, j.y + j.h), 0), w: i.w, h: i.h }); });
+  delete L.grid[k]; L.ctabs = ctabs().filter(x => x.key !== k); L.tabs = (L.tabs || []).filter(x => x !== k);
+  if (UI.tab === k) { UI.tab = tabOrder()[0][0]; saveUI(); }
+  gChanged('Delete tab: ' + t.name);
+  toast(`Tab <b>${esc(t.name)}</b> deleted — its modules went back to their own tabs.`, '', 6000, { label: 'Undo', fn: () => undo(1) });
+}
+function ensureCustomPages() {
+  const main = $('main.wrap'); if (!main) return;
+  ctabs().forEach(t => { if (!$('#page-' + t.key)) { const s = document.createElement('section'); s.className = 'page'; s.id = 'page-' + t.key; main.appendChild(s); } });
+  $$('main.wrap > .page').forEach(p => { const k = p.id.replace('page-', ''); if (/^c[a-z0-9]{6}$/i.test(k) && !isCustomTab(k)) p.remove(); });
+}
+
+// ---------- Dragging and resizing (pointer: mouse, pen or touch) ----------
+let GD = null;
+function gridMetrics(box) { const r = box.getBoundingClientRect(); return { r, colW: (r.width + GGAP) / GCOLS }; }
+function rowTops(box, skip) {
+  const tops = {}; $$(':scope > [data-pid]', box).forEach(el => { if (el === skip) return; const y = N(el.dataset.gy), t = el.getBoundingClientRect().top; if (tops[y] == null || t < tops[y]) tops[y] = t; });
+  return Object.keys(tops).map(Number).sort((a, b) => a - b).map(y => [y, tops[y]]);
+}
+function gPreview(box, items, skipId) {
+  items.forEach(i => { const el = $(`:scope > [data-pid="${i.id}"]`, box); if (!el || i.id === skipId) return; el.style.gridColumn = `${i.x + 1} / span ${i.w}`; el.style.gridRow = `${i.y + 1} / span ${i.h}`; });
+}
+document.addEventListener('pointerdown', e => {
+  if (!UI.editLayout || isMobile() || e.button > 0) return;
+  const g = e.target.closest && (e.target.closest('[data-mgrip]') || e.target.closest('[data-mresize]')); if (!g) return;
+  e.preventDefault();
+  const id = g.dataset.mgrip || g.dataset.mresize, kind = g.dataset.mgrip ? 'move' : 'size';
+  if (ensureGrid()) { pendingLabel = null; render(); }
+  const el = $(`.page.on [data-pid="${id}"]`), box = el && el.closest('.gridl'); if (!el || !box) return;
+  const pg = box.dataset.pg, items = gClone(LY().grid[pg]), it = items.find(i => i.id === id); if (!it) return;
+  const r = el.getBoundingClientRect();
+  GD = { kind, id, el, box, pg, items, it, start: { x: e.clientX, y: e.clientY, w: it.w, h: it.h, l: r.left, t: r.top, rw: r.width, rh: r.height }, on: false };
+});
+document.addEventListener('pointermove', e => {
+  const d = GD; if (!d) return;
+  if (!d.on) { if (Math.hypot(e.clientX - d.start.x, e.clientY - d.start.y) < 5) return; d.on = true; document.body.classList.add('gdragging');
+    d.ph = document.createElement('div'); d.ph.className = 'gph'; d.box.appendChild(d.ph);
+    if (d.kind === 'move') { d.el.classList.add('gmoving'); d.ghost = document.createElement('div'); d.ghost.className = 'dghost'; d.ghost.textContent = '⠿ ' + modName(d.id); document.body.appendChild(d.ghost); } }
+  e.preventDefault();
+  const { r, colW } = gridMetrics(d.box), items = gClone(d.items), it = items.find(i => i.id === d.id);
+  if (d.kind === 'move') {
+    d.ghost.style.transform = `translate(${e.clientX + 14}px, ${e.clientY + 10}px)`;
+    d.ghost.style.display = 'none'; const over = document.elementFromPoint(e.clientX, e.clientY); d.ghost.style.display = '';
+    $$('.tabwrap.dropon').forEach(t => t.classList.remove('dropon'));
+    const tab = over && over.closest('.tabwrap'); d.tab = null;
+    if (tab && tab.dataset.tabkey !== d.pg) { tab.classList.add('dropon'); d.tab = tab.dataset.tabkey; d.ph.style.display = 'none'; return; }
+    d.ph.style.display = '';
+    const left = e.clientX - (d.start.x - d.start.l) - r.left; it.x = Math.max(0, Math.min(GCOLS - it.w, Math.round(left / colW)));
+    const tops = rowTops(d.box, d.el), py = e.clientY - (d.start.y - d.start.t) + 8; let y = 0;
+    tops.forEach(([ry, t]) => { if (py >= t - 4) y = ry; });
+    if (tops.length && py > d.box.getBoundingClientRect().bottom - 10) y = Math.max(...items.filter(i => i !== it).map(i => i.y + i.h), 0);
+    it.y = y;
+    if (!over || !over.closest('.tabs')) { if (e.clientY < 50) scrollBy(0, -14); else if (e.clientY > innerHeight - 130) scrollBy(0, 14); }
+  } else {
+    const dw = Math.round((e.clientX - d.start.x) / colW); it.w = Math.max(modMinW(d.id), Math.min(GCOLS - it.x, d.start.w + dw));
+    const dh = Math.round((e.clientY - d.start.y) / Math.max(120, d.start.rh / Math.max(1, d.start.h))); it.h = Math.max(1, Math.min(4, d.start.h + dh));
+  }
+  gResolve(items, it); d.live = items;
+  d.ph.style.gridColumn = `${it.x + 1} / span ${it.w}`; d.ph.style.gridRow = `${it.y + 1} / span ${it.h}`;
+  gPreview(d.box, items, d.kind === 'move' ? d.id : null);
+  if (d.kind === 'size') { d.el.style.gridColumn = `${it.x + 1} / span ${it.w}`; d.el.style.gridRow = `${it.y + 1} / span ${it.h}`; }
+}, { passive: false });
+function gEnd(cancel) {
+  const d = GD; if (!d) return; GD = null; document.body.classList.remove('gdragging');
+  $$('.tabwrap.dropon').forEach(t => t.classList.remove('dropon'));
+  if (d.ph) d.ph.remove(); if (d.ghost) d.ghost.remove(); d.el.classList.remove('gmoving');
+  if (!d.on || cancel) { render(); return; }
+  if (d.tab) return modTo(d.id, d.tab);
+  if (d.live) { LY().grid[d.pg] = d.live; gChanged(d.kind === 'move' ? 'Move ' + modName(d.id) : 'Resize ' + modName(d.id)); }
+}
+document.addEventListener('pointerup', () => gEnd(false));
+document.addEventListener('pointercancel', () => gEnd(true));
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && GD) gEnd(true); });
+
+// ---------- Tooltip vignettes ----------
+// Every spell, feature, attack and magic item's info box gets a small looping animation in its corner — a sketch of
+// what it might look like: a fire bolt streaking at a target, a cone of frost, a shimmering ward, a healing glow, a
+// blade slash. They're drawn live on a canvas from what the thing does (its damage type, shape, school and wording),
+// so every entry has one, homebrew included.
+const VFX_COL = {
+  fire: ['#ff5a1f', '#ffd23a'], cold: ['#7fd6ff', '#eafcff'], lightning: ['#a99bff', '#fff7c2'], thunder: ['#7f9cff', '#dfe6ff'],
+  acid: ['#7fe33a', '#e2ff9e'], poison: ['#4fb33a', '#b6ff6a'], necrotic: ['#7a3fa0', '#d59bff'], radiant: ['#ffd76a', '#ffffff'],
+  force: ['#b77bff', '#efe0ff'], psychic: ['#ff5fc8', '#ffd1f1'], bludgeoning: ['#c9ced8', '#ffffff'], piercing: ['#c9ced8', '#ffffff'],
+  slashing: ['#c9ced8', '#ffffff'], heal: ['#3fd67a', '#c9ffd9'], abj: ['#6cc3ff', '#e2f4ff'], conj: ['#f0b44a', '#fff0c9'],
+  div: ['#ffe39a', '#ffffff'], ench: ['#ff8fd0', '#ffe0f3'], evoc: ['#ff8a4a', '#ffe0b0'], illu: ['#b48cff', '#efe6ff'],
+  necro: ['#8f5bb5', '#e2c6ff'], trans: ['#4fd6a6', '#d6fff0'], shadow: ['#4a4f6a', '#9aa3c7'], gold: ['#e0b04a', '#fff1c4'], blood: ['#e0453a', '#ffb0a0']
+};
+const VFX_SCHOOL = { abjuration: 'abj', conjuration: 'conj', divination: 'div', enchantment: 'ench', evocation: 'evoc', illusion: 'illu', necromancy: 'necro', transmutation: 'trans' };
+const VFX_SCH3 = { abj: 'abj', con: 'conj', div: 'div', enc: 'ench', evo: 'evoc', ill: 'illu', nec: 'necro', tra: 'trans' };
+const vfxType = t => { const m = String(t || '').toLowerCase().match(/\b(fire|cold|lightning|thunder|acid|poison|necrotic|radiant|force|psychic|bludgeoning|piercing|slashing)\b/); return m ? m[1] : ''; };
+// Hand-picked vignettes: every built-in spell, feature, trait, feat, class option and magic item has its own entry in
+// DND.vfx ("motif colour"). The guesser below is only the fallback for homebrew and renamed things.
+function vfxHand(sec, ...names) {
+  const tb = (DND.vfx || {})[sec]; if (!tb) return null;
+  for (const raw of names) { if (!raw) continue; const n = String(raw).trim();
+    const tries = [n, n.replace(/\s*\([^)]*\)\s*$/, ''), n.replace(/^[^:]+:\s*/, ''), n.replace(/^[^:]+:\s*/, '').replace(/\s*\([^)]*\)\s*$/, ''), n.replace(/\s*[+-]\d+$/, '')];
+    for (const k of tries) { const v = tb[k]; if (v) { const [motif, c] = v.split(' '); return { motif, c: VFX_COL[c] || VFX_COL.gold, seed: [...n].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) | 0, 7) }; } } }
+  return null;
+}
+// A 'full' text key (sp:Fireball, item:Bag of Holding, pick:invocation:Agonizing Blast, cleric:life:Disciple of Life).
+function vfxForKey(fk) { fk = String(fk || ''); let m;
+  if ((m = /^sp:(.+)$/.exec(fk))) return vfxHand('sp', m[1]);
+  if ((m = /^item:(.+)$/.exec(fk))) return vfxHand('mi', m[1]);
+  if ((m = /^pick:(\w+):(.+)$/.exec(fk))) return vfxHand('op', m[1] + ':' + m[2]) || vfxHand('f', m[2]);
+  const last = fk.replace(/^.*:/, ''); return vfxHand('f', last) || vfxHand('sp', last) || vfxHand('mi', last);
+}
+// Decide what to draw from a name, the rules text and a few hints.
+function vfxPick(name, text, o = {}) {
+  const T = (name + ' ' + (text || '')).toLowerCase(), N0 = String(name || '').toLowerCase();
+  const dmg = o.type || vfxType(T), sch = o.school ? (VFX_SCHOOL[String(o.school).toLowerCase()] || VFX_SCH3[String(o.school).toLowerCase().slice(0, 3)] || '') : '';
+  const col = dmg ? VFX_COL[dmg] : null, has = re => re.test(T), nm = re => re.test(N0);
+  const pick = (motif, c) => ({ motif, c: c || col || VFX_COL[sch] || VFX_COL.gold, seed: [...String(name)].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) | 0, 7) });
+  if (o.heal || nm(/\b(cure|heal|healing|regenerat|revivif|restor|aid|lay on hands|second wind|song of rest)\b/) || (has(/\bregains? (a number of |\d+d?\d* )?hit points\b|\bregain hit points\b/) && !dmg)) return pick('heal', VFX_COL.heal);
+  if (nm(/elixir|potion|philter|alchemical/)) return pick('morph', VFX_COL.trans);
+  if (nm(/teleport|misty step|dimension door|blink|step\b|thunder step|far step|fey step|shadow step|translocat/)) return pick('teleport', col || VFX_COL.conj);
+  if (nm(/rage|frenzy|berserk/)) return pick('rage', VFX_COL.blood);
+  if (nm(/breath/) ) return pick('cone', col || VFX_COL.fire);
+  if (nm(/\b(unarmed|fist|punch|martial arts|flurry of blows)\b/)) return pick('punch', col || VFX_COL.bludgeoning);
+  if (o.weapon === 'ranged' || nm(/\b(bow|crossbow|sling|dart|javelin|arrow|shot|gun|pistol|rifle|musket|blowgun|barrel)\b/)) return pick('arrow', col || VFX_COL.piercing);
+  if (o.weapon === 'melee' || nm(/\b(sword|axe|dagger|hammer|mace|blade|scimitar|rapier|spear|club|flail|glaive|halberd|whip|maul|pike|trident|staff|quarterstaff|unarmed|fist|claw|bite|strike|smite|flurry)\b/)) return pick('slash', col || VFX_COL.slashing);
+  if (nm(/haste|dash|expeditious|speed|step of the wind|fast movement|cunning action|longstrider|mobile|swift/) || has(/\bdash action\b|walking speed increases|speed increases by/)) return pick('dash', col || VFX_COL.trans);
+  if (nm(/fly|flight|levitat|feather fall|wings|jump|spider climb/) || has(/\bflying speed\b/)) return pick('wings', col || VFX_COL.trans);
+  if (nm(/shield|armor|ward|sanctuary|protection|barkskin|stoneskin|defen|deflect|parry|uncanny dodge|evasion|resist|absorb/) || has(/\+\d+ bonus to ac\b|bonus to ac\b|resistance to/)) return pick('shield', col || VFX_COL.abj);
+  if (has(/\b\d+-foot cone\b|\bin a cone\b|\bcone\b/)) return pick('cone', col);
+  if (has(/\b\d+ feet long and \d+ feet wide\b|\bin a line\b|\b\d+-foot line\b|\bline \d+ feet long\b|\(\d+-foot line\)/)) return pick('line', col);
+  if (has(/\bray\b|\bbeam\b|ranged spell attack|\bbolt\b|\bdart\b|\bmissile\b|\borb\b/) && (dmg || o.attack)) return pick(dmg === 'lightning' ? 'zap' : 'bolt', col);
+  if (has(/\b\d+-foot[- ]radius sphere|\bsphere\b|\bexplod|\bburst\b|\bcylinder\b|\b\d+-foot[- ]cube\b|\bcube\b|each creature in (a|the) \d+-foot/) && dmg) return pick(dmg === 'lightning' || dmg === 'thunder' ? 'storm' : 'burst', col);
+  if (nm(/summon|conjure|animate|find familiar|find steed|create undead|homunculus|defender|cannon|companion|spirit|beast|servant/)) return pick('summon', col || VFX_COL[sch] || VFX_COL.conj);
+  if (nm(/invisib|stealth|hide|shadow|darkness|sneak|skulker|silence|pass without trace|nondetection/)) return pick(nm(/sneak/) ? 'slash' : 'shadow', nm(/sneak/) ? VFX_COL.shadow : VFX_COL.shadow);
+  if (nm(/detect|see|sight|vision|sense|identify|locate|scry|clairvoy|true seeing|darkvision|perception|insight|alert|comprehend|tongues|speak with|legend lore|divination|guidance|foresight|awareness/)) return pick('eye', VFX_COL.div);
+  if (nm(/telepath|psionic|psychic|mind|thought|whisper|message|sending|dream/)) return pick('wave', VFX_COL.psychic);
+  if (nm(/charm|friends|suggestion|command|dominate|hypnot|enthrall|calm|fear|frighten|cause fear|compulsion|geas|tasha's hideous laughter|bless|bane|hex|curse|inspir|bardic|heroism|befuddle|sleep/) || sch === 'ench') return pick('charm', VFX_COL[nm(/fear|frighten|bane|hex|curse/) ? 'necro' : 'ench']);
+  if (nm(/light|dancing lights|daylight|faerie fire|flare|glow|sunbeam/)) return pick('light', VFX_COL.radiant);
+  if (nm(/illusion|image|mirror|disguise|alter self|seeming|mirage|phantasm|silent image|minor illusion|mislead/) || sch === 'illu') return pick('illusion', VFX_COL.illu);
+  if (nm(/\brest\b|recover|\bsleep\b|meditat|trance|arcane recovery|natural recovery/)) return pick('moon', VFX_COL.div);
+  if (nm(/luck|lucky|fortune|reroll|portent|tides of chaos|wild magic|chaos|surge|halfling/)) return pick('dice', VFX_COL.gold);
+  if (dmg && (o.attack || has(/spell attack|melee weapon attack|ranged weapon attack/))) return pick(dmg === 'lightning' ? 'zap' : 'bolt', col);
+  if (dmg && has(/saving throw/)) return pick(dmg === 'lightning' || dmg === 'thunder' ? 'storm' : 'burst', col);
+  if (dmg) return pick('bolt', col);
+  if (sch === 'necro') return pick('shadow', VFX_COL.necro);
+  if (sch === 'trans') return pick('morph', VFX_COL.trans);
+  if (sch === 'conj') return pick('summon', VFX_COL.conj);
+  if (sch === 'abj') return pick('shield', VFX_COL.abj);
+  if (sch === 'div') return pick('eye', VFX_COL.div);
+  if (sch === 'evoc') return pick('burst', VFX_COL.evoc);
+  if (has(/\battack\b/)) return pick('slash', VFX_COL.slashing);
+  if (has(/\bproficien|\bexpertise\b|\bskill\b|\btool/)) return pick('sparkle', VFX_COL.gold);
+  return pick('sparkle', col || VFX_COL[sch] || VFX_COL.gold);
+}
+// ----- Drawing -----
+const VFXR = (s => () => (s = (s * 16807) % 2147483647) / 2147483647);
+function vfxDraw(x, W, H, t, v) {
+  const [c1, c2] = v.c, P = Math.PI, ph = (t % 2000) / 2000, rnd = VFXR(Math.abs(v.seed) % 2147483646 + 1);
+  const bg = x.createRadialGradient(W / 2, H / 2, 4, W / 2, H / 2, W * .75); bg.addColorStop(0, '#2a3450'); bg.addColorStop(1, '#10151f');
+  x.fillStyle = bg; x.fillRect(0, 0, W, H);
+  const glow = (px, py, r, c, a = 1) => { const g = x.createRadialGradient(px, py, 0, px, py, r); g.addColorStop(0, c); g.addColorStop(1, 'rgba(0,0,0,0)'); x.globalAlpha = a; x.fillStyle = g; x.beginPath(); x.arc(px, py, r, 0, 2 * P); x.fill(); x.globalAlpha = 1; };
+  const dot = (px, py, r, c, a = 1) => { x.globalAlpha = a; x.fillStyle = c; x.beginPath(); x.arc(px, py, r, 0, 2 * P); x.fill(); x.globalAlpha = 1; };
+  const figure = (px, py, s, c = '#aab3c8', a = 1) => { s *= 1.35; x.globalAlpha = a; x.fillStyle = c; x.beginPath(); x.arc(px, py - s * 1.05, s * .32, 0, 2 * P); x.fill(); x.beginPath(); x.moveTo(px - s * .42, py + s * .55); x.quadraticCurveTo(px - s * .45, py - s * .55, px, py - s * .62); x.quadraticCurveTo(px + s * .45, py - s * .55, px + s * .42, py + s * .55); x.closePath(); x.fill(); x.globalAlpha = 1; };
+  // Several targets at slightly different depths: [x, depth 0 front..1 back]. Back ones sit higher, smaller, dimmer.
+  const crowd = (pts, push = () => 0) => pts.slice().sort((a, b) => b[1] - a[1]).forEach(([px, d], i) => { const sc = 1 - d * .25; figure(W * px + push(px, d), ground - d * H * .1, H * .19 * sc, d > .5 ? '#6f788c' : '#8d96ab'); });
+  const ease = q => q < .5 ? 2 * q * q : 1 - Math.pow(-2 * q + 2, 2) / 2, ground = H * .8;
+  x.fillStyle = 'rgba(255,255,255,.05)'; x.fillRect(0, ground + H * .08, W, 1);
+  const m = v.motif;
+  // A held weapon drawn along angle `ang` from the grip at (px,py); L is its length.
+  const weapon = (px, py, ang, L, kind, glowC) => {
+    x.save(); x.translate(px, py); x.rotate(ang); x.lineJoin = 'round'; x.lineCap = 'round';
+    if (glowC) { x.shadowColor = glowC; x.shadowBlur = 10; }
+    const steel = (a, b) => { const g = x.createLinearGradient(0, -L * .06, 0, L * .06); g.addColorStop(0, '#f4f7fc'); g.addColorStop(.5, glowC ? glowC : '#c3ccda'); g.addColorStop(1, '#7d889c'); return g; };
+    const wood = '#7a5232', dark = '#3b2a1e', brass = '#d8b25a';
+    const haft = (a, b, w) => { x.strokeStyle = wood; x.lineWidth = w; x.beginPath(); x.moveTo(a, 0); x.lineTo(b, 0); x.stroke(); };
+    if (kind === 'axe') {
+      haft(-L * .12, L * .92, L * .07);
+      x.fillStyle = steel(); x.beginPath(); x.moveTo(L * .66, -L * .04); x.quadraticCurveTo(L * .7, -L * .2, L * .62, -L * .32); x.quadraticCurveTo(L * .84, -L * .26, L * .9, -L * .04);
+      x.lineTo(L * .9, L * .04); x.quadraticCurveTo(L * .84, L * .18, L * .66, L * .2); x.quadraticCurveTo(L * .72, L * .1, L * .66, L * .04); x.closePath(); x.fill();
+      x.shadowBlur = 0; x.strokeStyle = 'rgba(255,255,255,.7)'; x.lineWidth = 1; x.beginPath(); x.moveTo(L * .63, -L * .3); x.quadraticCurveTo(L * .83, -L * .24, L * .88, -L * .03); x.stroke();
+    } else if (kind === 'hammer') {
+      haft(-L * .12, L * .82, L * .07);
+      x.fillStyle = steel(); x.beginPath(); x.roundRect ? x.roundRect(L * .7, -L * .17, L * .22, L * .34, L * .03) : x.rect(L * .7, -L * .17, L * .22, L * .34); x.fill();
+      x.shadowBlur = 0; x.fillStyle = 'rgba(0,0,0,.25)'; x.fillRect(L * .79, -L * .17, L * .03, L * .34);
+    } else if (kind === 'spear' || kind === 'staff') {
+      haft(-L * .35, kind === 'staff' ? L * .95 : L * .8, L * .055);
+      if (kind === 'staff') { x.fillStyle = glowC || brass; x.beginPath(); x.arc(L * .97, 0, L * .07, 0, 2 * P); x.fill(); }
+      else { x.fillStyle = steel(); x.beginPath(); x.moveTo(L * .76, 0); x.quadraticCurveTo(L * .84, -L * .08, L * 1.02, 0); x.quadraticCurveTo(L * .84, L * .08, L * .76, 0); x.fill(); x.fillStyle = dark; x.fillRect(L * .74, -L * .035, L * .04, L * .07); }
+    } else {
+      const k = kind === 'dagger' ? .62 : 1, bl = L * k, bw = L * .085;
+      // grip, pommel, crossguard
+      x.strokeStyle = dark; x.lineWidth = L * .07; x.beginPath(); x.moveTo(-L * .14, 0); x.lineTo(L * .03, 0); x.stroke();
+      x.strokeStyle = 'rgba(255,255,255,.18)'; x.lineWidth = 1; for (let i = 0; i < 4; i++) { x.beginPath(); x.moveTo(-L * .12 + i * L * .04, -L * .03); x.lineTo(-L * .1 + i * L * .04, L * .03); x.stroke(); }
+      x.fillStyle = brass; x.beginPath(); x.arc(-L * .17, 0, L * .05, 0, 2 * P); x.fill();
+      x.beginPath(); x.moveTo(L * .03, -L * .16); x.quadraticCurveTo(L * .07, -L * .17, L * .07, -L * .12); x.lineTo(L * .07, L * .12); x.quadraticCurveTo(L * .07, L * .17, L * .03, L * .16); x.closePath(); x.fill();
+      // blade with a fuller and a bright edge
+      x.fillStyle = steel(); x.beginPath(); x.moveTo(L * .07, -bw / 2); x.lineTo(L * .07 + bl * .8, -bw / 2 * .85); x.lineTo(L * .07 + bl * .93, 0); x.lineTo(L * .07 + bl * .8, bw / 2 * .85); x.lineTo(L * .07, bw / 2); x.closePath(); x.fill();
+      x.shadowBlur = 0; x.strokeStyle = 'rgba(60,70,90,.45)'; x.lineWidth = Math.max(1, L * .018); x.beginPath(); x.moveTo(L * .1, 0); x.lineTo(L * .07 + bl * .66, 0); x.stroke();
+      x.strokeStyle = 'rgba(255,255,255,.8)'; x.lineWidth = 1; x.beginPath(); x.moveTo(L * .08, -bw / 2 + .5); x.lineTo(L * .07 + bl * .8, -bw / 2 * .85 + .5); x.lineTo(L * .07 + bl * .92, 0); x.stroke();
+    }
+    x.restore(); x.shadowBlur = 0;
+  };
+  // A figure on the left swinging a weapon at a figure on the right. `swings` lists [start, from, to] in phase/radians.
+  const swingScene = (swings, trailA, trailB, glowC, impact) => {
+    const fx = W * .28, fs = H * .22 * 1.35, sx = fx + fs * .12, sy = ground - fs * .55, L = W * (v.w === 'dagger' ? .26 : v.w === 'spear' || v.w === 'staff' ? .38 : .31);
+    figure(fx, ground, H * .22); const hitAt = [];
+    let ang = swings[0][1], live = null;
+    swings.forEach(([st, a0, a1]) => { const wind = .08, dur = .2; if (ph >= st) { const q = (ph - st - wind) / dur; ang = q < 0 ? a0 - .15 * Math.sin(Math.min(1, (ph - st) / wind) * P / 2) : a0 + (a1 - a0) * ease(Math.min(1, q)); if (q >= 0 && q < 1.6) live = { a0, a: ang, q }; hitAt.push(st + wind + dur * .6); } });
+    if (ph > .78) { const r = (ph - .78) / .22; ang = ang + (swings[0][1] - ang) * ease(r); live = null; }
+    const flinch = hitAt.some(h => ph > h && ph < h + .12) ? 3 : 0;
+    figure(W * .74 + flinch, ground, H * .2, '#8d96ab');
+    const hx = sx + Math.cos(ang) * fs * .35, hy = sy + Math.sin(ang) * fs * .35;
+    if (live) { const R = fs * .35 + L * .9, from = live.a0 < live.a ? live.a0 : live.a, to = live.a0 < live.a ? live.a : live.a0, fade = Math.max(0, 1 - Math.max(0, live.q - 1) / .6);
+      const lo = live.a0 > live.a ? from : Math.max(from, to - 1.4), hi = live.a0 > live.a ? Math.min(to, from + 1.4) : to; [[trailB, .22, 7, 0], [trailA, .7, 2, 1]].forEach(([c, al, lw, off]) => { x.strokeStyle = c; x.globalAlpha = al * fade; x.lineWidth = lw; x.beginPath(); x.arc(sx, sy, R - off, lo, hi); x.stroke(); }); x.globalAlpha = 1; }
+    // the far arm behind, the weapon, then the arm holding it
+    weapon(hx, hy, ang, L, v.w || 'sword', glowC);
+    x.strokeStyle = '#aab3c8'; x.lineCap = 'round'; x.lineWidth = fs * .16; x.beginPath(); x.moveTo(sx, sy); x.lineTo(hx, hy); x.stroke(); dot(hx, hy, fs * .1, '#aab3c8');
+    hitAt.forEach(h => { const r = (ph - h) / .3; if (r > 0 && r < 1) impact(r); });
+  };
+  if (m === 'bolt' || m === 'arrow' || m === 'zap') {
+    figure(W * .2, ground, H * .2); figure(W * .8, ground, H * .2, '#8d96ab');
+    const q = Math.min(1, ph / .6), sx = W * .28, sy = ground - H * .2, ex = W * .74, ey = ground - H * .22, px = sx + (ex - sx) * ease(q), py = sy + (ey - sy) * ease(q) - Math.sin(q * P) * H * (m === 'arrow' ? .12 : .04);
+    if (ph < .6) {
+      if (m === 'arrow') { const a = Math.atan2(ey - sy - Math.cos(q * P) * H * .12 * P, ex - sx); x.save(); x.translate(px, py); x.rotate(a * .6); x.strokeStyle = c2; x.lineWidth = 2; x.beginPath(); x.moveTo(-14, 0); x.lineTo(6, 0); x.stroke(); x.fillStyle = c1; x.beginPath(); x.moveTo(9, 0); x.lineTo(3, -3); x.lineTo(3, 3); x.fill(); x.restore(); }
+      else if (m === 'zap') { x.strokeStyle = c2; x.lineWidth = 2.5; x.shadowColor = c1; x.shadowBlur = 10; x.beginPath(); x.moveTo(sx, sy); let lx = sx; for (let k = 1; k <= 7; k++) { const fx = sx + (px - sx) * k / 7; x.lineTo(fx, sy + (py - sy) * k / 7 + (k < 7 ? (rnd() - .5) * 14 : 0)); lx = fx; } x.stroke(); x.shadowBlur = 0; }
+      else { for (let k = 0; k < 8; k++) { const tq = Math.max(0, q - k * .03), tx = sx + (ex - sx) * ease(tq), ty = sy + (ey - sy) * ease(tq); dot(tx, ty, 5 - k * .5, c1, .5 - k * .05); } glow(px, py, 12, c1); dot(px, py, 4, c2); }
+    } else { const r = (ph - .6) / .4; glow(ex, ey, 10 + r * 26, c1, 1 - r); for (let k = 0; k < 10; k++) { const a = rnd() * 2 * P, d = r * (14 + rnd() * 16); dot(ex + Math.cos(a) * d, ey + Math.sin(a) * d, 2, c2, 1 - r); } }
+  } else if (m === 'cone' || m === 'line') {
+    figure(W * .14, ground, H * .2, '#aab3c8'); const ox = W * .22, oy = ground - H * .2;
+    const pts = m === 'cone' ? [[.6, .3], [.78, 1], [.84, 0], [.68, .8]] : [[.52, 0], [.7, 0], [.88, 0]];
+    crowd(pts, (px) => Math.max(0, Math.sin(ph * P * 2 - px * 2)) * 2);
+    for (let k = 0; k < 50; k++) { const life = (ph + k / 50) % 1, a = (rnd() - .5) * (m === 'cone' ? .8 : .1) - (m === 'cone' ? .05 : 0), d = life * W * .8; dot(ox + Math.cos(a) * d, oy + Math.sin(a) * d * (m === 'cone' ? .7 : 1), 2 + life * (m === 'cone' ? 5 : 3), life < .5 ? c2 : c1, (1 - life) * .85); }
+    glow(ox, oy, 12, c1, .8);
+  } else if (m === 'burst' || m === 'storm') {
+    const cx = W * .5, cy = ground - H * .2, r = (ph < .25 ? 0 : (ph - .25) / .75), kick = r > 0 ? Math.sin(Math.min(1, r * 3) * P) * 4 : 0;
+    crowd([[.22, .2], [.5, .9], [.5, 0], [.78, .2], [.34, .7], [.68, .7]].filter((_, i) => i !== 1), (px) => (px - .5) * kick * 2);
+    if (m === 'storm') { x.fillStyle = 'rgba(160,170,200,.35)'; x.beginPath(); x.ellipse(W * .5, H * .14, W * .4, H * .09, 0, 0, 2 * P); x.fill(); if (ph < .3) { x.strokeStyle = c2; x.lineWidth = 2.5; x.shadowColor = c1; x.shadowBlur = 12; x.beginPath(); x.moveTo(W * .5, H * .18); for (let k = 1; k <= 5; k++) x.lineTo(W * .5 + (rnd() - .5) * 16, H * .18 + (cy - H * .18) * k / 5); x.stroke(); x.shadowBlur = 0; } }
+    if (r > 0) { glow(cx, cy, 8 + r * W * .45, c1, 1 - r * .9); x.strokeStyle = c2; x.globalAlpha = 1 - r; x.lineWidth = 2; x.beginPath(); x.ellipse(cx, cy, r * W * .45, r * W * .3, 0, 0, 2 * P); x.stroke(); x.globalAlpha = 1; for (let k = 0; k < 16; k++) { const a = k / 16 * 2 * P + rnd() * .3, d = r * W * (.25 + rnd() * .22); dot(cx + Math.cos(a) * d, cy + Math.sin(a) * d * .7, 2.2, c2, 1 - r); } }
+    else if (m === 'burst') { const q = ph / .25, sx = W * .15 + (cx - W * .15) * q, sy = H * .15 + (cy - H * .15) * q; dot(sx, sy, 3.5, c2); glow(sx, sy, 10, c1); }
+  } else if (m === 'heal') {
+    figure(W * .5, ground, H * .24, '#aab3c8'); glow(W * .5, ground - H * .2, W * .32, c1, .35 + .2 * Math.sin(ph * 2 * P));
+    for (let k = 0; k < 9; k++) { const life = (ph + k / 9) % 1, px = W * (.28 + .44 * ((k * 37 % 9) / 9)), py = ground - life * H * .6; x.globalAlpha = Math.sin(life * P); x.fillStyle = k % 2 ? c2 : c1; x.fillRect(px - 1.5, py - 5, 3, 10); x.fillRect(px - 5, py - 1.5, 10, 3); } x.globalAlpha = 1;
+  } else if (m === 'shield') {
+    figure(W * .5, ground, H * .22); const cx = W * .5, cy = ground - H * .24, R = W * .3, pulse = .55 + .25 * Math.sin(ph * 2 * P);
+    x.strokeStyle = c1; x.lineWidth = 2.5; x.globalAlpha = pulse; x.beginPath(); for (let k = 0; k < 6; k++) { const a = P / 6 + k * P / 3; x.lineTo(cx + Math.cos(a) * R, cy + Math.sin(a) * R); } x.closePath(); x.stroke(); x.globalAlpha = pulse * .25; x.fillStyle = c1; x.fill(); x.globalAlpha = 1;
+    const sa = ph * 2 * P; dot(cx + Math.cos(sa) * R * .95, cy + Math.sin(sa) * R * .95, 3, c2); if (ph > .45 && ph < .6) { const r = (ph - .45) / .15; glow(W * .82, cy, 10 * (1 - r) + 4, '#ffffff', 1 - r); }
+  } else if (m === 'eye') {
+    const cx = W * .5, cy = H * .48, open = Math.min(1, Math.abs(Math.sin(ph * P * 2)) * 3);
+    for (let k = 0; k < 12; k++) { const a = k / 12 * 2 * P + ph, r1 = W * .28, r2 = W * (.34 + .04 * Math.sin(ph * 4 * P + k)); x.strokeStyle = c1; x.globalAlpha = .5; x.lineWidth = 1.5; x.beginPath(); x.moveTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1); x.lineTo(cx + Math.cos(a) * r2, cy + Math.sin(a) * r2); x.stroke(); } x.globalAlpha = 1;
+    x.fillStyle = '#f2ecdc'; x.beginPath(); x.ellipse(cx, cy, W * .22, H * .12 * open + .5, 0, 0, 2 * P); x.fill(); if (open > .3) { dot(cx + Math.sin(ph * 2 * P) * 6, cy, H * .07, c1); dot(cx + Math.sin(ph * 2 * P) * 6, cy, H * .03, '#111'); }
+  } else if (m === 'charm') {
+    figure(W * .5, ground, H * .22, '#aab3c8');
+    for (let k = 0; k < 5; k++) { const a = ph * 2 * P + k / 5 * 2 * P, px = W * .5 + Math.cos(a) * W * .26, py = ground - H * .45 + Math.sin(a) * H * .08, s = 4 + 1.5 * Math.sin(ph * 4 * P + k); x.fillStyle = k % 2 ? c2 : c1; x.beginPath(); x.moveTo(px, py + s); x.bezierCurveTo(px - s * 1.6, py - s * .2, px - s * .6, py - s * 1.4, px, py - s * .4); x.bezierCurveTo(px + s * .6, py - s * 1.4, px + s * 1.6, py - s * .2, px, py + s); x.fill(); }
+  } else if (m === 'teleport') {
+    const q = ph < .5 ? ph / .5 : (ph - .5) / .5, from = ph < .5;
+    figure(W * (from ? .28 : .72), ground, H * .22, '#aab3c8', from ? 1 - q : q);
+    for (let k = 0; k < 14; k++) { const a = rnd() * 2 * P, d = (from ? q : 1 - q) * 22 + rnd() * 6; dot(W * (from ? .28 : .72) + Math.cos(a) * d, ground - H * .22 + Math.sin(a) * d * 1.4, 2, k % 2 ? c1 : c2, from ? q : 1 - q); }
+    glow(W * (from ? .28 : .72), ground - H * .22, 18, c1, .5);
+  } else if (m === 'summon') {
+    // a creature climbs up out of a glowing circle
+    const cx = W * .5, cy = ground; x.strokeStyle = c1; x.lineWidth = 2; x.globalAlpha = .9; x.beginPath(); x.ellipse(cx, cy + H * .03, W * .32, H * .07, 0, 0, 2 * P); x.stroke();
+    for (let k = 0; k < 6; k++) { const a = ph * 2 * P + k / 6 * 2 * P; dot(cx + Math.cos(a) * W * .32, cy + H * .03 + Math.sin(a) * H * .07, 2.2, c2); } x.globalAlpha = 1;
+    const rise = ease(Math.min(1, ph / .5)); glow(cx, cy - H * .18, W * .3, c1, .4); x.save(); x.beginPath(); x.rect(0, 0, W, cy + H * .03); x.clip(); x.translate(cx, cy + H * .03 + (1 - rise) * H * .5); const k2 = W * .0055; x.scale(k2, k2);
+    const g = x.createLinearGradient(0, -60, 0, 0); g.addColorStop(0, c2); g.addColorStop(1, c1); x.fillStyle = g; x.shadowColor = c1; x.shadowBlur = 10; x.globalAlpha = .9;
+    // a hunched beast: body, head with ears and snout, four legs, tail
+    x.beginPath(); x.ellipse(-4, -26, 24, 11, -.08, 0, 2 * P); x.fill();
+    x.beginPath(); x.moveTo(14, -34); x.quadraticCurveTo(22, -44, 30, -42); x.lineTo(42, -36); x.quadraticCurveTo(40, -31, 30, -30); x.quadraticCurveTo(22, -26, 16, -22); x.closePath(); x.fill();
+    x.beginPath(); x.moveTo(22, -42); x.lineTo(23, -52); x.lineTo(28, -43); x.fill();
+    [[-22, 0], [-14, 0], [6, 0], [14, 0]].forEach(([lx], i) => { x.fillRect(lx - 2.5, -20, 5, 20 + Math.sin(ph * 12 * P + i) * (rise === 1 ? 1.5 : 0)); });
+    x.beginPath(); x.moveTo(-26, -30); x.quadraticCurveTo(-40, -40, -42, -30); x.quadraticCurveTo(-36, -30, -27, -24); x.fill();
+    x.shadowBlur = 0; dot(31, -38, 1.8, '#1b2131'); x.restore(); x.globalAlpha = 1;
+  } else if (m === 'slash') {
+    swingScene([[0, -P * .62, P * .22]], c2, c1, null, r => { for (let k = 0; k < 8; k++) { const sa = k / 8 * 2 * P + rnd() * .3, d = 4 + r * 16; dot(W * .7 + Math.cos(sa) * d, ground - H * .26 + Math.sin(sa) * d, 1.8, c2, 1 - r); } });
+  } else if (m === 'dash') {
+    const q = ease(ph), px = W * (.15 + .7 * q); figure(px, ground, H * .22, '#aab3c8');
+    for (let k = 0; k < 6; k++) { x.strokeStyle = c1; x.globalAlpha = .6 - k * .08; x.lineWidth = 2; const ly = ground - H * (.1 + k * .06); x.beginPath(); x.moveTo(px - W * .08, ly); x.lineTo(px - W * (.2 + k * .03), ly); x.stroke(); } x.globalAlpha = 1;
+  } else if (m === 'rage') {
+    const pul = .5 + .5 * Math.sin(ph * 4 * P); glow(W * .5, ground - H * .25, W * (.3 + .06 * pul), c1, .7); figure(W * .5, ground, H * .25, '#c9a7a0');
+    for (let k = 0; k < 10; k++) { const life = (ph * 1.5 + k / 10) % 1, px = W * (.3 + .4 * ((k * 53 % 10) / 10)), py = ground - life * H * .55; dot(px, py, 3 * (1 - life) + 1, k % 2 ? c2 : c1, 1 - life); }
+  } else if (m === 'shadow') {
+    const a = .5 + .45 * Math.cos(ph * 2 * P); figure(W * .5, ground, H * .24, '#aab3c8', a);
+    for (let k = 0; k < 7; k++) { const life = (ph + k / 7) % 1; x.globalAlpha = (1 - life) * .5; x.fillStyle = c1; x.beginPath(); x.ellipse(W * (.3 + .4 * (k / 7)), ground - life * H * .5, 8 + life * 10, 5 + life * 6, 0, 0, 2 * P); x.fill(); } x.globalAlpha = 1;
+  } else if (m === 'wave') {
+    figure(W * .25, ground, H * .2); figure(W * .75, ground, H * .2, '#8d96ab');
+    for (let k = 0; k < 4; k++) { const life = (ph + k / 4) % 1; x.strokeStyle = k % 2 ? c2 : c1; x.globalAlpha = 1 - life; x.lineWidth = 2; x.beginPath(); x.arc(W * .25, ground - H * .3, 6 + life * W * .45, -P / 5, P / 5); x.stroke(); } x.globalAlpha = 1;
+  } else if (m === 'light') {
+    const fl = .85 + .15 * Math.sin(ph * 6 * P); glow(W * .5, H * .42, W * .45 * fl, c1, .6); dot(W * .5, H * .42, 7, c2);
+    for (let k = 0; k < 8; k++) { const a = k / 8 * 2 * P + ph * P; x.strokeStyle = c2; x.globalAlpha = .6; x.lineWidth = 1.5; x.beginPath(); x.moveTo(W * .5 + Math.cos(a) * 12, H * .42 + Math.sin(a) * 12); x.lineTo(W * .5 + Math.cos(a) * 22 * fl, H * .42 + Math.sin(a) * 22 * fl); x.stroke(); } x.globalAlpha = 1;
+  } else if (m === 'illusion') {
+    for (let k = -1; k <= 1; k++) figure(W * (.5 + k * .2 * Math.sin(ph * 2 * P)), ground, H * .22, k ? c1 : '#aab3c8', k ? .45 : 1);
+    for (let k = 0; k < 6; k++) dot(W * rnd(), H * (.2 + .5 * rnd()), 1.6, c2, .5 + .5 * Math.sin(ph * 6 * P + k));
+  } else if (m === 'moon') {
+    const cx = W * .5, cy = H * .42; dot(cx, cy, W * .2, c2); dot(cx + W * .09, cy - H * .06, W * .18, '#141a28');
+    for (let k = 0; k < 3; k++) { const life = (ph + k / 3) % 1; x.fillStyle = c1; x.globalAlpha = Math.sin(life * P); x.font = `bold ${10 + life * 6}px sans-serif`; x.fillText('z', W * (.68 + life * .15), H * (.42 - life * .3)); } x.globalAlpha = 1;
+  } else if (m === 'dice') {
+    const cx = W * .5, cy = H * .5, a = ease(Math.min(1, ph / .7)) * 4 * P, s = W * .26; x.save(); x.translate(cx, cy); x.rotate(a);
+    x.fillStyle = c1; x.beginPath(); for (let k = 0; k < 6; k++) { const aa = -P / 2 + k * P / 3; x.lineTo(Math.cos(aa) * s, Math.sin(aa) * s); } x.closePath(); x.fill(); x.strokeStyle = '#3b2a0c'; x.lineWidth = 2; x.stroke();
+    x.beginPath(); x.moveTo(0, -s * .55); x.lineTo(s * .5, s * .3); x.lineTo(-s * .5, s * .3); x.closePath(); x.stroke(); x.restore();
+    if (ph > .7) { x.fillStyle = '#2a1d07'; x.font = `bold ${Math.round(W * .13)}px serif`; x.textAlign = 'center'; x.fillText('20', cx, cy + W * .05); x.textAlign = 'start'; glow(cx, cy, W * .45, c2, (ph - .7) / .3 * .5); }
+  } else if (m === 'wings') {
+    const fl = Math.sin(ph * 4 * P), cy = ground - H * .3 - Math.sin(ph * 2 * P) * H * .06; figure(W * .5, cy + H * .22, H * .2, '#aab3c8');
+    x.fillStyle = c1; x.globalAlpha = .8; [-1, 1].forEach(sd => { x.beginPath(); x.moveTo(W * .5, cy); x.quadraticCurveTo(W * (.5 + sd * .3), cy - H * (.18 + .1 * fl), W * (.5 + sd * .38), cy + H * .04); x.quadraticCurveTo(W * (.5 + sd * .2), cy + H * .02, W * .5, cy + H * .06); x.fill(); }); x.globalAlpha = 1;
+  } else if (m === 'morph') {
+    const q = .5 + .5 * Math.sin(ph * 2 * P); figure(W * .5, ground, H * (.16 + .1 * q), q > .5 ? c1 : '#aab3c8');
+    for (let k = 0; k < 10; k++) { const a = k / 10 * 2 * P + ph * 2 * P; dot(W * .5 + Math.cos(a) * W * .3, ground - H * .25 + Math.sin(a) * H * .2, 2, c2, .7); }
+  } else if (m === 'hold') {
+    const sh = Math.sin(ph * 30) * (ph > .3 ? 1.2 : 0); figure(W * .5 + sh, ground, H * .24, '#aab3c8');
+    for (let k = 0; k < 3; k++) { const yy = ground - H * (.12 + k * .16), q = Math.min(1, ph * 3 - k * .3); if (q <= 0) continue; x.strokeStyle = k % 2 ? c2 : c1; x.lineWidth = 2.5; x.globalAlpha = .9; x.beginPath(); x.ellipse(W * .5, yy, W * .2 * q + 2, H * .045, 0, 0, 2 * P); x.stroke(); } x.globalAlpha = 1;
+  } else if (m === 'web') {
+    figure(W * .5, ground, H * .22, '#8d96ab'); const cx = W * .5, cy = H * .45, q = Math.min(1, ph / .6); x.strokeStyle = c2; x.lineWidth = 1; x.globalAlpha = .8;
+    for (let k = 0; k < 8; k++) { const a = k / 8 * 2 * P; x.beginPath(); x.moveTo(cx, cy); x.lineTo(cx + Math.cos(a) * W * .45 * q, cy + Math.sin(a) * H * .45 * q); x.stroke(); }
+    for (let r = 1; r <= 4; r++) { const rr = r / 4 * W * .4 * q; x.beginPath(); for (let k = 0; k <= 8; k++) { const a = k / 8 * 2 * P; x.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * .9); } x.stroke(); } x.globalAlpha = 1;
+  } else if (m === 'wall') {
+    figure(W * .2, ground, H * .2); const q = Math.min(1, ph / .5), top = ground + H * .08 - q * H * .62;
+    for (let k = 0; k < 7; k++) { const xx = W * (.45 + k * .07), fl = Math.sin(ph * 10 * P + k) * 4; x.fillStyle = k % 2 ? c1 : c2; x.globalAlpha = .85; x.fillRect(xx, top + fl, W * .06, ground + H * .08 - top - fl); } x.globalAlpha = 1; glow(W * .66, ground - H * .25, W * .3, c1, .3);
+  } else if (m === 'vines') {
+    figure(W * .5, ground, H * .22, '#8d96ab');
+    for (let k = 0; k < 5; k++) { const bx = W * (.2 + k * .15), q = Math.min(1, ph * 1.6 - k * .08); if (q <= 0) continue; x.strokeStyle = k % 2 ? c1 : c2; x.lineWidth = 3; x.beginPath(); x.moveTo(bx, ground + H * .08); for (let s = 1; s <= 10; s++) { const tt = s / 10 * q; x.lineTo(bx + Math.sin(tt * 9 + k) * 6 + (W * .5 - bx) * tt * .6, ground + H * .08 - tt * H * .55); } x.stroke(); dot(bx + (W * .5 - bx) * q * .6, ground + H * .08 - q * H * .55, 3, c2); }
+  } else if (m === 'quake') {
+    const sh = Math.sin(ph * 40) * 2; crowd([[.28, .3], [.5, 0], [.72, .3]], px => sh * (px > .4 && px < .6 ? 1 : -1)); x.strokeStyle = c1; x.lineWidth = 2.5;
+    x.beginPath(); x.moveTo(W * .1, ground + H * .08); for (let k = 1; k <= 8; k++) x.lineTo(W * (.1 + k * .1), ground + H * .08 + ((k % 2) ? -5 : 5) * Math.min(1, ph * 2)); x.stroke();
+    for (let k = 0; k < 6; k++) { const life = (ph * 1.3 + k / 6) % 1, px = W * (.2 + .6 * ((k * 3 % 6) / 6)), py = ground + H * .08 - Math.sin(life * P) * H * .3; x.fillStyle = k % 2 ? c1 : c2; x.fillRect(px - 3, py - 3, 6, 6); }
+  } else if (m === 'gust') {
+    const push = ease(Math.min(1, ph / .7)) * W * .14; figure(W * .14, ground, H * .2, '#aab3c8'); crowd([[.58, .6], [.62, 0], [.78, .3]], () => push);
+    for (let k = 0; k < 6; k++) { const life = (ph * 1.4 + k / 6) % 1, yy = ground - H * (.08 + k * .07); x.strokeStyle = k % 2 ? c1 : c2; x.globalAlpha = .7 * Math.sin(life * P); x.lineWidth = 2; x.beginPath(); x.moveTo(W * (.2 + life * .6), yy); x.quadraticCurveTo(W * (.3 + life * .6), yy - 6, W * (.43 + life * .6), yy); x.stroke(); } x.globalAlpha = 1;
+  } else if (m === 'water') {
+    figure(W * .5, ground, H * .2, '#8d96ab'); const lvl = ground + H * .06 - Math.sin(ph * P) * H * .35;
+    x.fillStyle = c1; x.globalAlpha = .7; x.beginPath(); x.moveTo(0, H); for (let k = 0; k <= 12; k++) x.lineTo(W * k / 12, lvl + Math.sin(k + ph * 8 * P) * 4); x.lineTo(W, H); x.fill(); x.globalAlpha = 1;
+    for (let k = 0; k < 6; k++) dot(W * (.2 + k * .12), lvl - 6 - Math.abs(Math.sin(ph * 4 * P + k)) * 10, 2, c2, .8);
+  } else if (m === 'sleep') {
+    x.fillStyle = '#aab3c8'; x.beginPath(); x.ellipse(W * .5, ground - 6, W * .22, 7, 0, 0, 2 * P); x.fill(); dot(W * .28, ground - 10, 6, '#aab3c8');
+    for (let k = 0; k < 3; k++) { const life = (ph + k / 3) % 1; x.fillStyle = c1; x.globalAlpha = Math.sin(life * P); x.font = `bold ${9 + life * 8}px sans-serif`; x.fillText('z', W * (.32 + life * .3), ground - 18 - life * H * .4); } x.globalAlpha = 1;
+  } else if (m === 'fear') {
+    const sh = Math.sin(ph * 50) * 1.5; figure(W * .7 + sh, ground, H * .2, '#8d96ab'); const s = W * (.16 + .03 * Math.sin(ph * 4 * P)), cx = W * .32, cy = H * .42;
+    glow(cx, cy, s * 2, c1, .5); dot(cx, cy, s, c2); x.fillStyle = '#111'; dot(cx - s * .38, cy - s * .1, s * .25, '#111'); dot(cx + s * .38, cy - s * .1, s * .25, '#111'); x.fillRect(cx - s * .4, cy + s * .45, s * .8, s * .18);
+  } else if (m === 'bless') {
+    figure(W * .5, ground, H * .24, '#cfd6e6'); const cy = ground - H * .52; x.strokeStyle = c2; x.lineWidth = 2.5; x.shadowColor = c1; x.shadowBlur = 8; x.beginPath(); x.ellipse(W * .5, cy, W * .12, H * .035, 0, 0, 2 * P); x.stroke(); x.shadowBlur = 0;
+    for (let k = 0; k < 7; k++) { const a = -P / 2 + (k - 3) * .28; x.strokeStyle = c1; x.globalAlpha = .35 + .3 * Math.sin(ph * 2 * P + k); x.beginPath(); x.moveTo(W * .5, 0); x.lineTo(W * .5 + Math.cos(a) * -W * .6, H * .9); x.stroke(); } x.globalAlpha = 1;
+  } else if (m === 'curse') {
+    figure(W * .5, ground, H * .22, '#8d96ab'); const cy = ground - H * .55, r = W * .15, a0 = ph * 2 * P;
+    x.strokeStyle = c1; x.lineWidth = 2; x.globalAlpha = .9; x.beginPath(); x.arc(W * .5, cy, r, 0, 2 * P); x.stroke();
+    x.beginPath(); for (let k = 0; k < 5; k++) { const a = a0 + k * 4 * P / 5 - P / 2; x.lineTo(W * .5 + Math.cos(a) * r, cy + Math.sin(a) * r); } x.closePath(); x.stroke(); x.globalAlpha = 1;
+    for (let k = 0; k < 5; k++) { const life = (ph + k / 5) % 1; dot(W * (.4 + .2 * (k / 5)), cy + life * H * .3, 2, c2, 1 - life); }
+  } else if (m === 'mark') {
+    figure(W * .2, ground, H * .2); figure(W * .72, ground, H * .2, '#8d96ab'); const cx = W * .72, cy = ground - H * .22, r = W * (.14 + .04 * Math.cos(ph * 2 * P));
+    x.strokeStyle = c1; x.lineWidth = 2; x.beginPath(); x.arc(cx, cy, r, 0, 2 * P); x.stroke(); [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dy]) => { x.beginPath(); x.moveTo(cx + dx * r * .6, cy + dy * r * .6); x.lineTo(cx + dx * r * 1.4, cy + dy * r * 1.4); x.stroke(); }); dot(cx, cy, 2.5, c2);
+  } else if (m === 'counter') {
+    figure(W * .2, ground, H * .2); figure(W * .8, ground, H * .2, '#8d96ab'); const q = Math.min(1, ph / .5), px = W * (.78 - .32 * q), py = ground - H * .3;
+    if (ph < .5) { glow(px, py, 10, c1); dot(px, py, 4, c2); } else { const r = (ph - .5) / .5; for (let k = 0; k < 10; k++) { const a = k / 10 * 2 * P; dot(W * .46 + Math.cos(a) * r * 22, py + Math.sin(a) * r * 22, 2, c1, 1 - r); } x.strokeStyle = '#ff6b6b'; x.lineWidth = 3; x.globalAlpha = 1 - r; x.beginPath(); x.moveTo(W * .4, py - 8); x.lineTo(W * .52, py + 8); x.moveTo(W * .52, py - 8); x.lineTo(W * .4, py + 8); x.stroke(); x.globalAlpha = 1; }
+  } else if (m === 'banish') {
+    const cx = W * .5, cy = H * .48, q = ease(Math.min(1, ph / .8)); x.strokeStyle = c1; for (let k = 0; k < 3; k++) { x.globalAlpha = .7; x.lineWidth = 2; x.beginPath(); x.ellipse(cx, cy, W * (.32 - k * .08), H * (.32 - k * .08), ph * 2 * P + k, 0, 1.6 * P); x.stroke(); } x.globalAlpha = 1;
+    glow(cx, cy, W * .2, c2, .5); x.save(); x.translate(cx, cy); x.scale(1 - q, 1 - q); x.rotate(q * 3); figure(0, H * .22, H * .22, '#aab3c8', 1 - q); x.restore();
+  } else if (m === 'revive') {
+    const q = ease(Math.min(1, ph / .7)); glow(W * .5, ground - H * .2, W * .35, c1, .25 + .35 * q); x.save(); x.translate(W * .5, ground); x.rotate((1 - q) * -P / 2); figure(0, 0, H * .22, '#cfd6e6'); x.restore();
+    for (let k = 0; k < 8; k++) { const life = (ph + k / 8) % 1; dot(W * (.3 + .4 * (k / 8)), ground - life * H * .6, 2, c2, Math.sin(life * P)); }
+  } else if (m === 'speak') {
+    const hs = H * .2 * 1.35, headY = ground - hs * 1.05; figure(W * .25, ground, H * .2); figure(W * .75, ground, H * .2, '#8d96ab');
+    [[.25, 0, 1], [.75, .5, -1]].forEach(([fx, off, dir]) => { const a = Math.max(0, Math.sin(((ph + off) % 1) * P * 1.1)); if (a <= 0) return; const bx = W * fx + dir * W * .1, by = headY - hs * .62, bw = W * .13, bh = H * .085;
+      x.globalAlpha = Math.min(1, a * 1.6); x.fillStyle = c1; x.beginPath(); x.ellipse(bx, by, bw, bh, 0, 0, 2 * P); x.fill();
+      x.beginPath(); x.moveTo(bx - dir * bw * .35, by + bh * .6); x.lineTo(W * fx + dir * W * .03, headY - hs * .38); x.lineTo(bx - dir * bw * .02, by + bh * .8); x.closePath(); x.fill();
+      const n = Math.min(3, Math.floor(((ph + off) % 1) * 8) + 1); for (let k = 0; k < n; k++) dot(bx + (k - 1) * 5, by, 1.6, '#1b2131'); x.globalAlpha = 1; });
+  } else if (m === 'glyph') {
+    figure(W * .5, ground - H * .05, H * .2, '#8d96ab', ph > .6 ? 1 - (ph - .6) * 1.5 : 1); const cx = W * .5, cy = ground + H * .02, pul = .5 + .5 * Math.sin(ph * 2 * P);
+    x.strokeStyle = c1; x.globalAlpha = .6 + .4 * pul; x.lineWidth = 2; x.beginPath(); x.ellipse(cx, cy, W * .34, H * .09, 0, 0, 2 * P); x.stroke(); x.beginPath(); x.ellipse(cx, cy, W * .24, H * .06, 0, 0, 2 * P); x.stroke();
+    for (let k = 0; k < 6; k++) { const a = ph * P + k / 6 * 2 * P; dot(cx + Math.cos(a) * W * .29, cy + Math.sin(a) * H * .075, 2, c2); } x.globalAlpha = 1; if (ph > .6) glow(cx, cy - H * .2, W * .3 * (ph - .6) * 2.5, c1, 1 - (ph - .6) * 2.5);
+  } else if (m === 'hand') {
+    // A spectral open hand: one continuous outline (palm, four fingers and a thumb), drifting over to lift a small vial.
+    // floats and drifts in a lazy figure-eight, flexing its fingers closed and open
+    const S = H * .5, hold = true, hx = W * .5 + Math.sin(ph * 2 * P) * W * .16, hy = ground - H * .02 + Math.sin(ph * 4 * P) * H * .05, tilt = Math.sin(ph * 2 * P) * .18;
+    for (let k = 0; k < 6; k++) { const life = (ph * 2 + k / 6) % 1; dot(hx - Math.cos(ph * 2 * P) * 14 * life + Math.sin(k * 7) * 6, hy - S * .25 + life * 8, 1.4, c2, (1 - life) * .7); }
+    glow(hx, hy - S * .45, S * .75, c1, .45);
+    x.save(); x.translate(hx, hy); x.rotate(tilt); x.scale(S, S);
+    // fingers: [base x, base y, angle from vertical, length, width]
+    const F = [[-.17, -.56, -.16, .34, .1], [-.055, -.6, -.04, .4, .105], [.06, -.58, .07, .37, .1], [.16, -.52, .2, .28, .085]];
+    const curl = .5 * Math.max(0, Math.sin(ph * 4 * P - 1)) ** 2;
+    x.beginPath(); x.moveTo(.18, 0); x.quadraticCurveTo(.25, -.25, .22, -.45);
+    F.slice().reverse().forEach(([bx, by, a, len, w], i) => { const A = a + curl * .4, L2 = len * (1 - curl * .35), ux = Math.sin(A), uy = -Math.cos(A), nx = -uy, ny = ux, tx = bx + ux * L2, ty = by + uy * L2;
+      x.lineTo(bx + nx * w / 2, by + ny * w / 2); x.lineTo(tx + nx * w / 2, ty + ny * w / 2); x.arc(tx, ty, w / 2, Math.atan2(ny, nx), Math.atan2(-ny, -nx), true); x.lineTo(bx - nx * w / 2, by - ny * w / 2);
+      if (i < 3) { const nb = F[2 - i]; x.quadraticCurveTo((bx + nb[0]) / 2, by + .05, nb[0] + Math.cos(nb[2]) * nb[4] / 2, nb[1] + Math.sin(nb[2]) * nb[4] / 2); } });
+    // thumb sweeping out from the lower palm
+    const ta = -.85 + curl * .55, tw = .13, tl = .3 - curl * .06, Bx = -.17, By = -.3, ux = Math.sin(ta), uy = -Math.cos(ta), nx = Math.cos(ta), ny = Math.sin(ta), tx = Bx + ux * tl, ty = By + uy * tl;
+    x.quadraticCurveTo(-.2, -.42, Bx + nx * tw / 2, By + ny * tw / 2); x.lineTo(tx + nx * tw / 2, ty + ny * tw / 2); x.arc(tx, ty, tw / 2, Math.atan2(ny, nx), Math.atan2(-ny, -nx), true); x.lineTo(Bx - nx * tw / 2 + .02, By - ny * tw / 2 + .04);
+    x.quadraticCurveTo(-.22, -.1, -.17, 0); x.closePath();
+    const g = x.createLinearGradient(0, -1, 0, 0); g.addColorStop(0, c2); g.addColorStop(1, c1); x.fillStyle = g; x.globalAlpha = .82; x.shadowColor = c1; x.shadowBlur = 14; x.fill(); x.shadowBlur = 0;
+    x.globalAlpha = .9; x.strokeStyle = c2; x.lineWidth = 1.4 / S; x.stroke();
+    // palm creases and knuckle lines
+    x.globalAlpha = .35; x.strokeStyle = '#ffffff'; x.lineWidth = 1 / S; x.beginPath(); x.moveTo(-.15, -.3); x.quadraticCurveTo(0, -.38, .19, -.33); x.moveTo(-.18, -.2); x.quadraticCurveTo(-.05, -.18, .02, -.3); x.stroke();
+    F.forEach(([bx, by, a, len]) => { const A = a + curl * .4, L2 = len * (1 - curl * .35), mx = bx + Math.sin(A) * L2 * .5, my = by - Math.cos(A) * L2 * .5; x.beginPath(); x.moveTo(mx - .03, my); x.lineTo(mx + .03, my); x.stroke(); });
+    x.globalAlpha = 1; x.restore();
+  } else if (m === 'weather') {
+    crowd([[.28, .2], [.5, 0], [.72, .3], [.6, .9]], px => Math.sin(ph * 10 * P + px * 9) * .8);
+    x.fillStyle = 'rgba(170,180,205,.6)'; x.beginPath(); x.ellipse(W * .45, H * .16, W * .3, H * .1, 0, 0, 2 * P); x.ellipse(W * .64, H * .14, W * .22, H * .09, 0, 0, 2 * P); x.fill();
+    for (let k = 0; k < 22; k++) { const life = (ph * 2 + k / 22) % 1, px = W * (.15 + .7 * ((k * 7 % 22) / 22)); x.strokeStyle = c1; x.globalAlpha = .8; x.lineWidth = 1.5; x.beginPath(); x.moveTo(px, H * .24 + life * H * .6); x.lineTo(px - 3, H * .24 + life * H * .6 + 7); x.stroke(); } x.globalAlpha = 1;
+  } else if (m === 'time') {
+    const cx = W * .5, cy = H * .48, r = W * .3; x.strokeStyle = c1; x.lineWidth = 3; x.beginPath(); x.arc(cx, cy, r, 0, 2 * P); x.stroke(); for (let k = 0; k < 12; k++) { const a = k / 12 * 2 * P; dot(cx + Math.cos(a) * r * .82, cy + Math.sin(a) * r * .82, 1.5, c2); }
+    const a1 = ph * 2 * P * 3 - P / 2, a2 = ph * 2 * P * .5 - P / 2; x.strokeStyle = c2; x.lineWidth = 2; x.beginPath(); x.moveTo(cx, cy); x.lineTo(cx + Math.cos(a1) * r * .75, cy + Math.sin(a1) * r * .75); x.stroke(); x.lineWidth = 3; x.beginPath(); x.moveTo(cx, cy); x.lineTo(cx + Math.cos(a2) * r * .5, cy + Math.sin(a2) * r * .5); x.stroke();
+  } else if (m === 'beast') {
+    const q = (Math.sin(ph * 2 * P) + 1) / 2; figure(W * .5, ground, H * .22, '#aab3c8', 1 - q); glow(W * .5, ground - H * .2, W * .3, c1, .3);
+    x.globalAlpha = q; x.fillStyle = c1; x.beginPath(); x.ellipse(W * .5, ground - H * .14, W * .2, H * .1, 0, 0, 2 * P); x.fill(); x.beginPath(); x.ellipse(W * .7, ground - H * .25, W * .08, H * .07, 0, 0, 2 * P); x.fill();
+    [.38, .46, .56, .62].forEach(lx => x.fillRect(W * lx, ground - H * .08, 4, H * .12)); x.beginPath(); x.moveTo(W * .72, ground - H * .3); x.lineTo(W * .76, ground - H * .4); x.lineTo(W * .68, ground - H * .31); x.fill(); x.globalAlpha = 1;
+  } else if (m === 'book') {
+    const cx = W * .5, cy = H * .55, fl = Math.sin(ph * 2 * P) * .3; x.fillStyle = '#e8e0cc'; x.beginPath(); x.moveTo(cx, cy); x.lineTo(cx - W * .3, cy - H * (.12 + fl * .1)); x.lineTo(cx - W * .3, cy + H * .14); x.lineTo(cx, cy + H * .2); x.fill(); x.beginPath(); x.moveTo(cx, cy); x.lineTo(cx + W * .3, cy - H * (.12 - fl * .1)); x.lineTo(cx + W * .3, cy + H * .14); x.lineTo(cx, cy + H * .2); x.fill();
+    for (let k = 0; k < 6; k++) { const life = (ph + k / 6) % 1; x.fillStyle = k % 2 ? c1 : c2; x.globalAlpha = Math.sin(life * P); x.font = 'bold 10px serif'; x.fillText('✦ᚱᛟ'[k % 3], W * (.3 + .4 * (k / 6)), cy - life * H * .4); } x.globalAlpha = 1;
+  } else if (m === 'music') {
+    figure(W * .3, ground, H * .22, '#aab3c8');
+    for (let k = 0; k < 4; k++) { const life = (ph + k / 4) % 1, px = W * (.38 + life * .45), py = ground - H * (.3 + .25 * life) + Math.sin(life * 6) * 6; x.globalAlpha = Math.sin(life * P); x.fillStyle = k % 2 ? c1 : c2; x.font = `bold ${12 + 4 * (k % 2)}px serif`; x.fillText(k % 2 ? '♪' : '♫', px, py); } x.globalAlpha = 1;
+  } else if (m === 'multi') {
+    swingScene([[0, -P * .62, P * .22], [.36, P * .22, -P * .5]], c2, c1, null, r => { for (let k = 0; k < 6; k++) { const sa = k / 6 * 2 * P, d = 4 + r * 14; dot(W * .7 + Math.cos(sa) * d, ground - H * .26 + Math.sin(sa) * d, 1.6, c2, 1 - r); } });
+  } else if (m === 'punch') {
+    // two quick jabs then a hook; the fist has knuckles and a thumb, the target rocks back
+    const fx = W * .3, fs = H * .22 * 1.35, sx = fx + fs * .14, sy = ground - fs * .5, jab = t0 => { const q = (ph - t0) / .16; return q < 0 || q > 1 ? 0 : Math.sin(q * P); };
+    const e = Math.max(jab(.05), jab(.3), jab(.55) * 1.15), hit = [.13, .38, .63].find(h => ph > h && ph < h + .12), rock = hit ? 4 : 0;
+    figure(fx + e * 3, ground, H * .22); figure(W * .74 + rock, ground, H * .2, '#8d96ab');
+    const reach = W * (.1 + .27 * e), hx = sx + reach, hy = sy - fs * .05 + (ph > .5 ? -Math.sin(e * P) * 3 : 0);
+    x.strokeStyle = '#aab3c8'; x.lineCap = 'round'; x.lineWidth = fs * .17; x.beginPath(); x.moveTo(sx, sy); x.lineTo(hx - fs * .1, hy); x.stroke();
+    if (e > .6) for (let k = 0; k < 3; k++) { x.strokeStyle = c2; x.globalAlpha = .5 * e; x.lineWidth = 1.2; x.beginPath(); x.moveTo(hx - fs * (.35 + k * .12), hy - 4 + k * 4); x.lineTo(hx - fs * .2, hy - 4 + k * 4); x.stroke(); } x.globalAlpha = 1;
+    x.save(); x.translate(hx, hy); const r = fs * .14; x.fillStyle = '#c3cbdc'; x.beginPath(); x.roundRect ? x.roundRect(-r * 1.1, -r, r * 2, r * 2, r * .6) : x.arc(0, 0, r, 0, 2 * P); x.fill();
+    x.strokeStyle = 'rgba(40,48,66,.55)'; x.lineWidth = 1; for (let k = 1; k < 4; k++) { x.beginPath(); x.moveTo(r * .2, -r + k * r * .5); x.lineTo(r * .85, -r + k * r * .5); x.stroke(); } x.beginPath(); x.moveTo(-r * .6, r * .3); x.quadraticCurveTo(0, r * .55, r * .3, r * .2); x.stroke(); x.restore();
+    if (hit) { const q = (ph - hit) / .12, cx = W * .74 - fs * .1, cy = hy; x.fillStyle = c1; x.globalAlpha = 1 - q; x.beginPath(); for (let k = 0; k < 12; k++) { const a = k / 12 * 2 * P, rr = (k % 2 ? 3 : 9) * (0.7 + q); x.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); } x.closePath(); x.fill(); x.globalAlpha = 1; }
+  } else if (m === 'smite') {
+    if (ph < .3) glow(W * .4, ground - H * .45, W * .22, c1, ph / .3 * .5);
+    swingScene([[0, -P * .62, P * .2]], c2, c1, c1, r => { glow(W * .72, ground - H * .25, 10 + r * 30, c1, 1 - r); for (let k = 0; k < 6; k++) { x.strokeStyle = c2; x.globalAlpha = 1 - r; x.lineWidth = 1.5; x.beginPath(); x.moveTo(W * .72 + (k - 2.5) * 2, 0); x.lineTo(W * .72 + (k - 2.5) * 4, ground - H * .25); x.stroke(); } x.globalAlpha = 1; });
+  } else if (m === 'steed') {
+    // a horse forms out of light inside a summoning circle, rears, then trots in place
+    const cx = W * .5, q = Math.min(1, ph / .45), rear = ph > .45 && ph < .65 ? Math.sin((ph - .45) / .2 * P) : 0, trot = ph > .65 ? Math.sin(ph * 16 * P) : 0;
+    x.strokeStyle = c1; x.lineWidth = 2; x.globalAlpha = .8; x.beginPath(); x.ellipse(cx, ground + H * .04, W * .36, H * .06, 0, 0, 2 * P); x.stroke(); x.globalAlpha = 1;
+    for (let k = 0; k < 7; k++) { const a = ph * 2 * P + k / 7 * 2 * P; dot(cx + Math.cos(a) * W * .36, ground + H * .04 + Math.sin(a) * H * .06, 2, c2); }
+    glow(cx, ground - H * .25, W * .35, c1, .35 * q);
+    x.save(); x.translate(cx, ground + H * .02); x.rotate(-rear * .35); x.globalAlpha = q; const s2 = W * .0055; x.scale(s2, s2);
+    const body = x.createLinearGradient(0, -60, 0, 0); body.addColorStop(0, c2); body.addColorStop(1, '#9aa6c0'); x.fillStyle = body; x.shadowColor = c1; x.shadowBlur = 10;
+    const leg = (lx, ang, back) => { x.save(); x.translate(lx, -22); x.rotate(ang); x.fillStyle = back ? '#7d88a3' : body; x.beginPath(); x.moveTo(-2.6, 0); x.lineTo(2.6, 0); x.lineTo(2, 12); x.lineTo(2.4, 22); x.lineTo(-2.2, 22); x.lineTo(-2, 12); x.closePath(); x.fill(); x.fillStyle = '#3a4155'; x.fillRect(-2.6, 20, 5.2, 3); x.restore(); };
+    leg(-22, -.15 + trot * .25, 1); leg(18, .2 - trot * .25 - rear * .9, 1);
+    // torso, neck, head, tail
+    x.fillStyle = body; x.beginPath(); x.ellipse(0, -30, 30, 12, 0, 0, 2 * P); x.fill();
+    x.beginPath(); x.moveTo(18, -38); x.quadraticCurveTo(26, -58, 34, -66); x.lineTo(42, -64); x.quadraticCurveTo(36, -48, 30, -28); x.closePath(); x.fill();
+    x.beginPath(); x.moveTo(32, -70); x.quadraticCurveTo(44, -72, 52, -60); x.quadraticCurveTo(54, -55, 48, -54); x.quadraticCurveTo(42, -58, 36, -58); x.closePath(); x.fill();
+    x.beginPath(); x.moveTo(33, -70); x.lineTo(35, -78); x.lineTo(38, -70); x.fill();
+    x.shadowBlur = 0; x.fillStyle = c1; x.beginPath(); x.moveTo(20, -40); x.quadraticCurveTo(24, -62, 34, -70); x.quadraticCurveTo(28, -56, 26, -36); x.closePath(); x.fill();
+    x.beginPath(); x.moveTo(-28, -36); x.quadraticCurveTo(-46, -34 + trot * 3, -44, -10); x.quadraticCurveTo(-36, -24, -27, -28); x.closePath(); x.fill();
+    dot(44, -64, 1.6, '#1b2131');
+    leg(-18, .1 - trot * .25, 0); leg(22, -.1 + trot * .25 - rear * 1.1, 0);
+    x.restore(); x.globalAlpha = 1;
+  } else if (m === 'cannon') {
+    // a small walking cannon on two legs fires a blast across at a target
+    const fire = ph > .3 && ph < .4, rec = ph > .3 ? Math.max(0, 1 - (ph - .3) / .2) * 4 : 0, bx = W * .26 - rec, by = ground - H * .14, step = Math.sin(ph * 8 * P) * (ph < .25 ? 1 : 0);
+    crowd([[.76, .2], [.86, .8]], () => (ph > .5 && ph < .62 ? 2 : 0));
+    x.strokeStyle = '#6b5440'; x.lineWidth = 3; x.lineCap = 'round'; x.beginPath(); x.moveTo(bx - 5, by + 4); x.lineTo(bx - 9 + step * 2, ground + H * .06); x.moveTo(bx + 5, by + 4); x.lineTo(bx + 9 - step * 2, ground + H * .06); x.stroke();
+    x.fillStyle = '#8a6a4a'; x.beginPath(); x.ellipse(bx, by + 2, 11, 6, 0, 0, 2 * P); x.fill();
+    x.save(); x.translate(bx, by - 2); x.rotate(-.12); const g = x.createLinearGradient(0, -6, 0, 6); g.addColorStop(0, '#d7dde8'); g.addColorStop(.5, '#8d97aa'); g.addColorStop(1, '#4b5367'); x.fillStyle = g;
+    x.beginPath(); x.moveTo(-8, -6); x.lineTo(16, -4.5); x.lineTo(16, 4.5); x.lineTo(-8, 6); x.quadraticCurveTo(-13, 0, -8, -6); x.fill(); x.fillStyle = '#c9a24e'; x.fillRect(12, -5.5, 4, 11); x.fillRect(-2, -6, 2.5, 12); x.restore();
+    dot(bx - 3, by + 2, 1.5, c2); glow(bx - 3, by + 2, 5, c1, .6);
+    if (fire) glow(bx + 17, by - 4, 14, c2, 1);
+    if (ph > .3 && ph < .55) { const q = (ph - .3) / .2; if (q < 1) { const px = bx + 17 + q * (W * .74 - bx - 17), py = by - 4 - Math.sin(q * P) * H * .06; for (let k = 0; k < 5; k++) dot(px - k * 4, py + k * .3, 3.5 - k * .5, c1, .7 - k * .12); dot(px, py, 3.5, c2); } }
+    if (ph > .5 && ph < .8) { const r = (ph - .5) / .3; glow(W * .76, ground - H * .22, 8 + r * 24, c1, 1 - r); for (let k = 0; k < 10; k++) { const a = k / 10 * 2 * P; dot(W * .76 + Math.cos(a) * r * 18, ground - H * .22 + Math.sin(a) * r * 14, 1.8, c2, 1 - r); } }
+    if (ph > .32 && ph < .7) for (let k = 0; k < 4; k++) { const r = (ph - .32) / .38; x.fillStyle = 'rgba(200,205,215,' + (.35 * (1 - r)) + ')'; x.beginPath(); x.arc(bx + 18 + k * 3, by - 6 - r * 12 - k * 3, 3 + r * 5, 0, 2 * P); x.fill(); }
+  } else if (m === 'slip') {
+    // a glossy oil slick is already on the floor; someone hurries onto it, their feet shoot out and they land flat on their back
+    const cx = W * .56, cy = ground + H * .07, rx = W * .36, ry = H * .07;
+    const sl = x.createRadialGradient(cx, cy, 1, cx, cy, rx); sl.addColorStop(0, '#9a7a32'); sl.addColorStop(.7, '#5e4a24'); sl.addColorStop(1, 'rgba(40,32,20,.0)'); x.fillStyle = sl; x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, 2 * P); x.fill();
+    x.strokeStyle = c1; x.globalAlpha = .55; x.lineWidth = 1.2; x.beginPath(); x.ellipse(cx, cy, rx * .92, ry * .8, 0, 0, 2 * P); x.stroke();
+    for (let k = 0; k < 3; k++) { const sx = cx + Math.sin(ph * 2 * P + k * 2.1) * rx * .5; x.globalAlpha = .55 + .3 * Math.sin(ph * 4 * P + k); x.fillStyle = k ? c1 : c2; x.beginPath(); x.ellipse(sx, cy - ry * .2, rx * (.12 - k * .025), ry * .16, 0, 0, 2 * P); x.fill(); } x.globalAlpha = 1;
+    const walk = ease(Math.min(1, ph / .28)), fall = Math.max(0, Math.min(1, (ph - .28) / .14)), lie = ph >= .42 && ph < .88, up = ph >= .88 ? (ph - .88) / .12 : 0;
+    const px = W * (.12 + .4 * walk) + fall * W * .05, bob = walk < 1 ? Math.abs(Math.sin(walk * 5 * P)) * 2 : 0, rot = (lie ? 1 : fall) * (1 - up);
+    // the person tips backwards: pivot at the feet, which slide forward as they go
+    x.save(); x.translate(px + rot * W * .08, ground + H * .02); x.rotate(-rot * P / 2); figure(0, -H * .02 - bob, H * .2, '#aab3c8'); x.restore();
+    if (fall > 0 && fall < 1) { x.strokeStyle = c2; x.lineWidth = 1.5; x.globalAlpha = .9; for (let k = 0; k < 3; k++) { x.beginPath(); x.moveTo(px + W * .02, ground - k * 4); x.lineTo(px + W * .16, ground - 2 - k * 5); x.stroke(); } x.globalAlpha = 1; }
+    if (ph > .4 && ph < .55) { const r = (ph - .4) / .15; for (let k = 0; k < 7; k++) { const a = P + k / 6 * P; dot(px + W * .02 + Math.cos(a) * r * 14, cy - 2 + Math.sin(a) * r * 9, 1.6, c2, 1 - r); } }
+    if (lie) for (let k = 0; k < 3; k++) { const a = ph * 6 * P + k * 2.1; x.fillStyle = c2; x.font = 'bold 9px sans-serif'; x.fillText('✦', px - W * .1 + Math.cos(a) * 9, ground - H * .13 + Math.sin(a) * 3); }
+  } else if (m === 'aura') {
+    figure(W * .5, ground, H * .22, '#cfd6e6');
+    for (let k = 0; k < 3; k++) { const life = (ph + k / 3) % 1; x.strokeStyle = c1; x.globalAlpha = 1 - life; x.lineWidth = 2; x.beginPath(); x.ellipse(W * .5, ground - H * .05, W * (.1 + life * .4), H * (.03 + life * .12), 0, 0, 2 * P); x.stroke(); } x.globalAlpha = 1; glow(W * .5, ground - H * .2, W * .3, c1, .3);
+  } else if (m === 'cloud') {
+    crowd([[.28, .3], [.5, 0], [.72, .4], [.6, .9]], px => Math.sin(ph * 6 * P + px * 9) * 1.2);
+    for (let k = 0; k < 11; k++) { const a = k / 11 * 2 * P + ph * P, r = W * (.24 + .05 * Math.sin(ph * 4 * P + k)); x.fillStyle = k % 2 ? c1 : c2; x.globalAlpha = .38; x.beginPath(); x.arc(W * .5 + Math.cos(a) * r, ground - H * .25 + Math.sin(a) * r * .45, W * .13, 0, 2 * P); x.fill(); } x.globalAlpha = 1;
+  } else if (m === 'meteor') {
+    crowd([[.25, .3], [.5, 0], [.75, .3], [.62, .9], [.38, .9]]);
+    for (let k = 0; k < 3; k++) { const q = ((ph + k / 3) % 1), tx = W * (.3 + k * .2), px = tx + (1 - q) * W * .35, py = q * (ground - H * .05); if (q < .85) { for (let t = 0; t < 6; t++) dot(px + t * 4, py - t * 5, 4 - t * .5, c1, .6 - t * .08); dot(px, py, 4.5, c2); } else glow(tx, ground - H * .05, 24, c1, (1 - q) * 6); }
+  } else if (m === 'heart') {
+    figure(W * .5, ground, H * .24, '#aab3c8'); const s = 7 + 3 * Math.abs(Math.sin(ph * 2 * P * 2)), px = W * .5, py = ground - H * .52;
+    x.fillStyle = c1; x.beginPath(); x.moveTo(px, py + s); x.bezierCurveTo(px - s * 1.6, py - s * .2, px - s * .6, py - s * 1.4, px, py - s * .4); x.bezierCurveTo(px + s * .6, py - s * 1.4, px + s * 1.6, py - s * .2, px, py + s); x.fill(); glow(px, py, s * 2.4, c1, .35);
+  } else if (m === 'armor') {
+    const cx = W * .5, cy = H * .5, sh = (ph * 1.4) % 1.4; x.fillStyle = '#8f9bb3'; x.beginPath(); x.moveTo(cx - W * .22, cy - H * .25); x.lineTo(cx + W * .22, cy - H * .25); x.lineTo(cx + W * .2, cy + H * .1); x.quadraticCurveTo(cx, cy + H * .32, cx - W * .2, cy + H * .1); x.closePath(); x.fill(); x.strokeStyle = c1; x.lineWidth = 2; x.stroke();
+    x.save(); x.clip(); x.fillStyle = 'rgba(255,255,255,.5)'; x.beginPath(); x.moveTo(cx - W * .4 + sh * W * .5, cy - H * .3); x.lineTo(cx - W * .32 + sh * W * .5, cy - H * .3); x.lineTo(cx - W * .5 + sh * W * .5, cy + H * .3); x.lineTo(cx - W * .58 + sh * W * .5, cy + H * .3); x.fill(); x.restore();
+  } else if (m === 'crit') {
+    swingScene([[0, -P * .66, P * .25]], '#ffffff', c1, null, r => { const cx = W * .72, cy = ground - H * .28; x.fillStyle = c1; x.globalAlpha = 1 - r * .7; x.beginPath(); for (let k = 0; k < 16; k++) { const a = k / 16 * 2 * P, rr = (k % 2 ? 6 : 16) * (0.5 + r); x.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); } x.closePath(); x.fill(); x.globalAlpha = 1; });
+  } else if (m === 'skill') {
+    const cx = W * .5, cy = H * .5, a = ph * 2 * P / 3, R = W * .22; x.fillStyle = c1; x.beginPath(); for (let k = 0; k < 16; k++) { const aa = a + k / 16 * 2 * P, rr = k % 2 ? R : R * 1.25; x.lineTo(cx + Math.cos(aa) * rr, cy + Math.sin(aa) * rr); } x.closePath(); x.fill(); dot(cx, cy, R * .45, '#1b2131');
+    for (let k = 0; k < 4; k++) { const life = (ph + k / 4) % 1; dot(cx + W * .3 * Math.cos(k * 1.6), cy - H * .3 * life, 2, c2, Math.sin(life * P)); }
+  } else if (m === 'create') {
+    const q = ease(Math.min(1, ph / .6)), cx = W * .5, cy = ground - H * .12; glow(cx, cy - H * .1, W * .3, c1, .4 * q);
+    x.save(); x.translate(cx, cy); x.scale(q, q); x.fillStyle = c2; x.fillRect(-W * .12, -H * .18, W * .24, H * .18); x.fillStyle = c1; x.fillRect(-W * .12, -H * .18, W * .24, H * .05); x.restore();
+    for (let k = 0; k < 8; k++) { const a = k / 8 * 2 * P + ph * 3, d = (1 - q) * W * .35 + 6; dot(cx + Math.cos(a) * d, cy - H * .1 + Math.sin(a) * d * .7, 2, c2, 1 - q * .5); }
+  } else if (m === 'undead') {
+    const q = ease(Math.min(1, ph / .7)); x.save(); x.beginPath(); x.rect(0, 0, W, ground + H * .08); x.clip(); const by = ground + (1 - q) * H * .45;
+    x.fillStyle = '#d9d4c3'; dot(W * .5, by - H * .36, H * .08, '#d9d4c3'); x.fillRect(W * .5 - 2, by - H * .28, 4, H * .22); for (let k = 0; k < 3; k++) x.fillRect(W * .5 - 9, by - H * (.24 - k * .05), 18, 2); dot(W * .48, by - H * .37, 1.6, c1); dot(W * .52, by - H * .37, 1.6, c1); x.restore();
+    for (let k = 0; k < 6; k++) { const life = (ph + k / 6) % 1; dot(W * (.3 + .4 * (k / 6)), ground - life * H * .3, 2, c1, Math.sin(life * P) * .7); }
+  } else if (m === 'lock') {
+    const cx = W * .5, cy = H * .55, open = Math.max(0, Math.sin(ph * 2 * P)); x.strokeStyle = c1; x.lineWidth = 4; x.beginPath(); x.arc(cx, cy - H * .12 - open * 8, W * .12, P, 0); x.stroke();
+    x.fillStyle = c2; x.fillRect(cx - W * .17, cy - H * .12, W * .34, H * .26); dot(cx, cy, 3.5, '#1b2131'); glow(cx, cy, W * .35, c1, .25);
+  } else {
+    for (let k = 0; k < 16; k++) { const life = (ph + k / 16) % 1, px = W * (.15 + .7 * ((k * 7 % 16) / 16)), py = H * (.2 + .6 * ((k * 11 % 16) / 16)); const s = Math.sin(life * P) * 4; x.fillStyle = k % 2 ? c1 : c2; x.globalAlpha = Math.sin(life * P); x.beginPath(); x.moveTo(px, py - s * 2); x.lineTo(px + s * .5, py - s * .5); x.lineTo(px + s * 2, py); x.lineTo(px + s * .5, py + s * .5); x.lineTo(px, py + s * 2); x.lineTo(px - s * .5, py + s * .5); x.lineTo(px - s * 2, py); x.lineTo(px - s * .5, py - s * .5); x.fill(); }
+    x.globalAlpha = 1; glow(W * .5, H * .5, W * .3, c1, .25);
+  }
+}
+let VFX_RAF = 0;
+// Put the animation in the open tooltip and run it while the tooltip is showing.
+function tipVfx(t, v) {
+  if (!t || !v) return; cancelAnimationFrame(VFX_RAF);
+  const cv = document.createElement('canvas'); cv.className = 'tipfx'; const S2 = 2, W = 96, H = 96; cv.width = W * S2; cv.height = H * S2; cv.setAttribute('aria-hidden', 'true');
+  t.insertBefore(cv, t.firstChild); const x = cv.getContext('2d'); x.scale(S2, S2); const t0 = performance.now();
+  const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const step = now => { if (!cv.isConnected || !t.classList.contains('on')) return; x.save(); vfxDraw(x, W, H, reduce ? 700 : now - t0, v); x.restore(); if (!reduce) VFX_RAF = requestAnimationFrame(step); };
+  step(t0);
+}
+// What to draw for each kind of info box.
+function vfxForSpell(sp) { const h = vfxHand('sp', sp.name, sp.base, sp.orig); if (h) return h; const sm = (() => { try { return spellMath(sp); } catch (e) { return {}; } })(); return vfxPick(sp.name, (sp.summary || '') + ' ' + (fullOfSpell(sp) || ''), { type: vfxType(sm.type), school: sp.school, heal: !!sm.heal && !sm.dice, attack: !!sm.attack }); }
+function vfxForFeat(f) { return vfxWithWeapon(vfxForFeat0(f), f.dname || f.name); }
+function vfxForFeat0(f) { const pk = /^pick:(\w+):(.+)$/.exec(String(f.key || '')); const h = (pk && vfxHand('op', pk[1] + ':' + pk[2])) || vfxHand('f', f.dname, f.name) || (pk && vfxHand('f', pk[2])) || vfxHand('sp', f.name) || vfxHand('mi', f.name); if (h) return h; const fx = (() => { try { return fxOf(f); } catch (e) { return {}; } })(); return vfxPick(f.dname || f.name, (f.desc || '') + ' ' + (fullOfFeat(f) || '') + ' ' + (fx.text || ''), {}); }
+const vfxWeaponKind = n => { n = String(n || '').toLowerCase(); return /\baxe|halberd/.test(n) ? 'axe' : /hammer|mace|maul|club|flail|morningstar|greatclub|rod of lordly/.test(n) ? 'hammer' : /spear|pike|trident|lance|glaive|javelin/.test(n) ? 'spear' : /quarterstaff|\bstaff/.test(n) ? 'staff' : /dagger|knife|sickle|shortsword|kukri/.test(n) ? 'dagger' : ''; };
+const vfxWithWeapon = (v, ...names) => { const w = names.map(vfxWeaponKind).find(Boolean); return w ? Object.assign({}, v, { w }) : v; };
+function vfxForAttack0(a, it) { return vfxPick(a.name + (it && it.weapon ? ' ' + it.weapon.base : ''), (a.notes || '') + ' ' + (a.type || ''), { weapon: a.kind === 'ranged' || (it && it.weapon && it.weapon.kind === 'ranged') ? 'ranged' : 'melee', type: vfxType(a.type) }); }
+function vfxForAttack(a, it) { return vfxWithWeapon(vfxForAttack0(a, it), it && it.weapon && it.weapon.base, a.name, it && it.name); }
+function vfxForItem(it) { return vfxWithWeapon(vfxForItem0(it), it.weapon && it.weapon.base, it.name); }
+function vfxForItem0(it) { const h = vfxHand('mi', it.magic && it.magic.name, it.name); if (h) return h; if (it.weapon) return vfxPick(it.name + ' ' + it.weapon.base, it.weapon.type, { weapon: it.weapon.kind === 'ranged' ? 'ranged' : 'melee', type: vfxType(it.weapon.type) }); if (it.armor) return vfxPick('shield', '', {}); if (/elixir|potion|philter|oil of/i.test(it.name) && !/healing/i.test(it.name)) return Object.assign(vfxPick(it.name, '', {}), { motif: 'morph', c: VFX_COL.trans }); return vfxPick(it.name, (it.summary || '') + ' ' + (it.notes || '') + ' ' + (fullOfItem(it) || ''), { heal: /potion of healing|healing/i.test(it.name) }); }
+
+
+// ---------- Spellcasting ability for a specific spell ----------
+function spellCI(sp) {
+  if (sp && sp.ab && (!CL[sp.cls] || !casterFor(sp.cls))) { const m = mod(sp.ab), b = itemSum('spell'); return { ab: sp.ab, mod: m, dc: 8 + PB() + m + b, atk: PB() + m + b + itemSum('spellAtk'), name: '' }; }
+  return castInfo(sp && sp.cls);
+}
+
+// ---------- Rebuild automatic features, spells and attacks ----------
+const PICK_OWNER = { fightingStyle: ['fighter', 'paladin', 'ranger', 'rangertce'], maneuver: ['fighter'], metamagic: ['sorcerer'], invocation: ['warlock'], pactBoon: ['warlock'], infusion: ['artificer'], arcaneShot: ['fighter'], rune: ['fighter'] };
+function rebuildAuto() {
+  const old = {}; S.features.forEach(f => { if (f.auto) old[f.key] = f; });
+  const out = [];
+  const add = (key, name, desc, source, o, extra) => {
+    o = o || {}; const prev = old[key];
+    { const fx = fxOf({ key, name, dname: name, desc, cls: extra.cls || '', kind: extra.kind || '' }); const d = {};
+      if (fx.col && !o.col) d.col = fx.col; if (fx.max != null && o.max == null) { d.max = fx.max; d.reset = fx.reset || 'long'; } if (fx.pool) d.pool = true;
+      ['crit', 'initProf', 'shortAt'].forEach(k => { if (fx[k] != null && o[k] == null) d[k] = fx[k]; }); if (fx.roll && !o.roll && !fx.cost && !fx.acts) d.rollFx = true;
+      o = Object.assign({}, o, d); }
+    const f = { key, dname: name, name: prev && prev.dname && prev.name !== prev.dname ? prev.name : name, desc: prev ? prev.desc : desc, source, auto: true, used: prev ? N(prev.used) : 0, dmax: o.max != null ? String(o.max) : '', dreset: o.reset || 'long', max: o.max != null ? String(o.max) : '', reset: o.reset || 'long', pool: !!o.pool, col: o.col || '', cls: extra.cls || '', kind: extra.kind || '' };
+    ['shortAt', 'crit', 'roll', 'initProf'].forEach(k => { if (o[k] != null) f[k] = o[k]; });
+    if (prev && prev.spells) { f.spells = prev.spells; f.spellOnce = prev.spellOnce; }
+    if (prev && prev.max !== prev.dmax) f.max = prev.max;
+    if (prev && prev.reset !== prev.dreset) f.reset = prev.reset;
+    out.push(f);
+  };
+  clsRows().forEach(r => {
+    const c = CL[r.key]; if (!c) return; const L = N(r.level);
+    c.features.forEach(([lv, nm, d, o]) => { if (lv <= L) add(r.key + ':' + nm, nm, d, `${c.name} ${lv}`, o ? { ...o, cls: o.cls || r.key } : o, { cls: r.key }); });
+    const s = subOf(r);
+    if (s) s.features.forEach(([lv, nm, d, o]) => { if (lv <= L) add(r.key + ':' + r.sub + ':' + nm, nm, d, `${s.name} ${lv}`, o, { cls: r.key }); });
+    (r.extraSubs || []).forEach(k => { const s2 = c.subclasses[k]; if (s2 && k !== r.sub) s2.features.forEach(([lv, nm, d, o]) => { if (lv <= xsubCap(r, k)) add(r.key + ':' + k + ':' + nm, nm, d, `${s2.name} ${lv}`, o, { cls: r.key }); }); });
+  });
+  const ri = raceInfo();
+  if (ri) ri.traits.forEach(([nm, d, o]) => { if (!o || !o.minLevel || lvl() >= o.minLevel) add('race:' + nm, nm, d, ri.name, o, { kind: 'race' }); });
+  if (ri && N(ri.darkvision) && !ri.traits.some(t => /darkvision/i.test(t[0]))) add('race:Darkvision', N(ri.darkvision) > 60 ? 'Superior Darkvision' : 'Darkvision', `You can see in dim light within ${N(ri.darkvision)} ft as if it were bright light, and in darkness as if it were dim light (shades of gray only).`, ri.name, {}, { kind: 'race' });
+  const bg = DND.backgrounds[S.background];
+  if (S.background === 'custom' && S.bgCustom && S.bgCustom.feature) add('bg:' + S.bgCustom.feature, S.bgCustom.feature, S.bgCustom.desc || '', (S.backgroundName || 'Custom') + ' background', null, { kind: 'bg' });
+  else if (bg && bg.feature) add('bg:' + bg.feature[0], bg.feature[0], bg.feature[1], bg.name + ' background', null, { kind: 'bg' });
+  (S.feats || []).forEach(n => { const ft = DND.feats.find(x => x[0] === n); const e = (ft && ft[4]) || {}; add('feat:' + n, (e.res && e.res.name) || n, ft ? ft[3] : '', 'Feat' + (ft && ft[2] ? ' (' + ft[2] + ')' : ''), e.res ? { ...e.res, col: e.col } : e.col ? { col: e.col } : null, { kind: 'feat' }); });
+  Object.entries(S.picks || {}).forEach(([type, names]) => {
+    const op = DND.options[type]; if (!op) return;
+    const owner = (PICK_OWNER[type] || []).find(k => clsLv(k)) || '';
+    (names || []).forEach(n => { const o = op.list.find(x => x[0] === n); add('pick:' + type + ':' + n, type === 'fightingStyle' ? 'Fighting Style: ' + n : n, o ? o[1] : '', op.label, null, { cls: owner, kind: 'pick' }); });
+  });
+  S.features = out.concat(S.features.filter(f => !f.auto));
+  // Always-prepared and racial spells
+  const want = [];
+  clsRows().forEach(r => { [[subOf(r), N(r.level)]].concat((r.extraSubs || []).map(k => [CL[r.key] && CL[r.key].subclasses[k], xsubCap(r, k)])).forEach(([s, cap]) => { if (s && s.spellMode === 'always' && s.spells) Object.keys(s.spells).forEach(lv => { if (cap >= N(lv)) s.spells[lv].forEach(n => want.push({ n, cls: r.key, src: s.name })); }); }); });
+  if (ri && ri.spells) ri.spells.forEach(([lv, n, note]) => { if (lvl() >= lv) want.push({ n, cls: 'race', note, src: ri.name, atWill: /at will/i.test(String(note)), ab: ((String(note).match(/\((STR|DEX|CON|INT|WIS|CHA)\)/) || [])[1] || (S.race.choices && S.race.choices.ab) || 'cha').toLowerCase() }); });
+  // Spells that class options give (Pact of the Tome cantrips, Book of Ancient Secrets rituals, at-will invocations)
+  Object.entries(S.picks || {}).forEach(([type, names]) => {
+    const op = DND.options[type]; if (!op) return; const owner = (PICK_OWNER[type] || []).find(k => clsLv(k)) || 'other';
+    (names || []).forEach(nm => { const e = op.list.find(x => x[0] === nm), fx = (e && e[3]) || {};
+      (fx.spells || []).forEach(n => want.push({ n, cls: owner, src: nm, note: fx.spellNote || '', once: fx.once }));
+      if (fx.grant) ((S.grantSpells || {})[nm] || []).forEach(n => want.push({ n, cls: owner, src: nm, note: fx.grant.some(g => g.ritualOnly) && (SPI(n) || {}).level > 0 ? 'Ritual only' : '' })); });
+  });
+  // Spells you attached to any feature (custom ones included)
+  S.features.forEach(f => (f.spells || []).forEach(n => want.push({ n, cls: f.cls && casterFor(f.cls) ? f.cls : 'other', src: f.name, note: f.spellNote || (f.spellAtWill ? 'at will' : ''), once: !!f.spellOnce && !f.spellAtWill, atWill: !!f.spellAtWill })));
+  // Spells features give on their own (Spirit Seeker rituals, Circle Spells, bonus cantrips…)
+  S.features.forEach(f => { if (f.kind === 'pick' && !fxOf(f).spellsAt) return; const fx = fxOf(f), cls = f.cls && casterFor(f.cls) ? f.cls : (fx.spellCls || 'other'), own = f.cls ? clsLv(f.cls) : lvl();
+    (f.kind === 'pick' ? [] : fx.spells || []).forEach(n => want.push({ n, cls, src: f.dname || f.name, note: fx.spellNote || '', once: !!fx.once }));
+    Object.entries(fx.spellsAt || {}).forEach(([lv, arr]) => { if (own >= N(lv)) arr.forEach(n => want.push({ n, cls, src: f.dname || f.name, note: fx.spellNote || '', once: !!fx.once })); }); });
+  // Spells an item lets you cast, while you're using it (equipped, or carried if ticked; attuned if it needs it)
+  S.inventory.forEach(it => { if (!hbItemOn(it)) return; const st = itemStores(it); (it.spells || []).forEach(n => want.push({ n, cls: 'other', src: it.name, note: st ? 'stored — gone once cast' : it.spellAtWill ? 'at will' : it.spellOnce ? 'once per long rest' : '', once: !st && !!it.spellOnce && !it.spellAtWill, atWill: !st && !!it.spellAtWill, stored: st, lvl: N((it.spellLevels || {})[n]), ab: (it.hb && it.hb.spellAb) || '', itemId: it.id })); });
+  const keyOf = (n, cls) => n.toLowerCase() + '|' + cls;
+  const wantKeys = new Set(want.map(w => keyOf(w.n, w.cls)));
+  S.spells = S.spells.filter(s => !s.auto || wantKeys.has(keyOf(s.name, s.cls)));
+  want.forEach(w => {
+    const ex0 = S.spells.find(s => keyOf(s.name, s.cls) === keyOf(w.n, w.cls) && s.always && s.auto);
+    if (ex0 && w.stored) { storedUse(ex0, w); ex0.item = w.itemId; ex0.ab = w.ab || (casters()[0] || {}).ab || 'cha'; ex0.note = w.src + ': ' + w.note; return; }
+    if (ex0 && ex0.usesOnly && w.itemId) { delete ex0.usesOnly; delete ex0.stored; delete ex0.uses; }
+    if (ex0 && (w.itemId || w.atWill || ex0.atWill)) { ex0.atWill = !!w.atWill && N(ex0.level) > 0; if (w.once && N(ex0.level) > 0) { if (!ex0.uses) ex0.uses = { max: '1', reset: 'long', used: 0 }; } else if (w.itemId || ex0.atWill) delete ex0.uses; if (w.itemId) { ex0.item = w.itemId; ex0.ab = w.ab || (casters()[0] || {}).ab || 'cha'; } ex0.note = w.src + (w.note ? ': ' + w.note : ''); return; }
+    if (S.spells.some(s => keyOf(s.name, s.cls) === keyOf(w.n, w.cls) && s.always)) return;
+    const ex = S.spells.find(s => s.name.toLowerCase() === w.n.toLowerCase() && s.cls === w.cls);
+    if (ex) { ex.always = true; ex.auto = true; return; }
+    const sp = spellEntry(w.n, w.cls); sp.always = true; sp.auto = true; sp.note = w.src + (w.note ? ': ' + w.note : '');
+    if (w.once && N(sp.level) > 0) sp.uses = { max: '1', reset: 'long', used: 0 };
+    if (w.atWill && N(sp.level) > 0) sp.atWill = true;
+    if (w.itemId) { sp.item = w.itemId; sp.ab = w.ab || (casters()[0] || {}).ab || 'cha'; }
+    if (w.stored) storedUse(sp, w);
+    if (w.cls === 'race') { sp.ab = w.ab; if (/once per long rest|1\/long rest|once per day/i.test(w.note || '') && N(sp.level) > 0) { sp.uses = { max: '1', reset: 'long', used: 0 }; const lv = String(w.note).match(/as (\d)(?:st|nd|rd|th)[- ]level/i); if (lv) sp.uses.level = N(lv[1]); } }
+    S.spells.push(sp);
+  });
+  // A spell you get automatically (a subclass list, a feat, an item) and also added by hand shows once: keep the automatic one.
+  // (A spell stored in an item — Spell-Storing Item, Ring of Spell Storing — is its own entry and always stays.)
+  { const autoK = new Set(S.spells.filter(s => s.auto).map(s => keyOf(s.name, s.cls))); S.spells = S.spells.filter(s => s.auto || s.stored || s.usesOnly || !autoK.has(keyOf(s.name, s.cls))); }
+  // Unarmed strike and natural weapons
+  const keep = S.attacks.filter(a => !a.auto);
+  const auto = [];
+  const monk = clsLv('monk') > 0;
+  auto.push({ name: 'Unarmed Strike', ab: monk ? 'monk' : 'str', prof: true, magic: 0, dice: monk ? '' : '1', type: 'bludgeoning', notes: monk ? 'Martial Arts: bonus-action strike after attacking' : '', kind: 'melee', monk, auto: 'unarmed' });
+  S.features.forEach(f => (fxOf(f).attacks || []).forEach(([n, d, t, ab, x]) => auto.push(Object.assign({ name: n, ab: ab || 'str', prof: true, magic: 0, dice: d, type: t, notes: f.dname || f.name, kind: 'melee', auto: 'feature' }, x || {}, x && x.hbDice ? { dice: fxRollExpr(d), notes: [f.dname || f.name, x.notes].filter(Boolean).join(' · ') } : {}))));
+  if (ri && ri.natural) ri.natural.forEach(([n, d, t]) => auto.push({ name: n, ab: 'str', prof: true, magic: 0, dice: d, type: t, notes: 'Natural weapon', kind: 'melee', monk, auto: 'natural' }));
+  S.attacks = auto.map(a => { const prev = S.attacks.find(x => x.auto && x.name === a.name); return prev ? Object.assign(prev, { monk: a.monk, ab: prev.ab === 'str' && a.ab === 'monk' ? 'monk' : prev.ab, dice: a.monk && prev.dice === '1' ? '' : a.hbDice ? a.dice : prev.dice }, a.hbDice ? { type: a.type, notes: a.notes, noModDmg: a.noModDmg, kind: a.kind, ab: a.ab } : {}) : a; }).reverse().concat(keep.slice().reverse()).reverse();
+}
+// Spells stored in an item (a Ring of Spell Storing): one use each, cast at the level it was stored at, and gone
+// until someone casts a spell into the item again (it doesn't come back on a rest).
+const itemStores = it => it.spellStored != null ? !!it.spellStored : /ring of spell storing/i.test(it.name + ' ' + ((it.magic && it.magic.name) || ''));
+function storedUse(sp, w) {
+  if (!sp.usesOnly || !sp.uses) sp.uses = { max: '1', used: 0, reset: 'never' };
+  sp.usesOnly = true; sp.stored = true; sp.uses.reset = 'never'; sp.prepared = true;
+  if (w.lvl > N(sp.level)) sp.uses.level = w.lvl; else delete sp.uses.level;
+}
+function spellEntry(n, cls) {
+  const d = SPI(n) || { name: n, level: 1, school: '', time: '1 action', range: '', comps: '', duration: '', conc: false, ritual: false, summary: '', src: '' };
+  return { name: d.name, level: d.level, school: d.school, time: d.time, range: d.range, comps: d.comps, duration: d.duration, conc: d.conc, ritual: d.ritual, summary: d.summary, src: d.src, cls, prepared: false, always: false, note: '' };
+}
+
+// ---------- Choice widgets (wizard, level up, feats) ----------
+const TOOL_AB = [[/thieves|forgery|tinker|jeweler|glass|weaver|leather|cobbler|carpenter|woodcarver|smith|mason|potter/i, 'dex'], [/navigator|herbal|vehicle|cook|brewer|gaming|dice|card|chess|dragonchess|three-dragon/i, 'wis'], [/instrument|lute|flute|drum|horn|lyre|bagpipe|viol|dulcimer|pan flute|shawm|disguise/i, 'cha'], [/alchemist|calligrapher|cartographer|painter|poison/i, 'int']];
+const toolAb = n => (TOOL_AB.find(([re]) => re.test(n)) || [0, 'int'])[1];
+const ALL_LANGS = () => DND.languages.standard.concat(DND.languages.exotic);
+const ALL_TOOLS = () => [...new Set(Object.values(DND.toolGroups).flat().concat(["Thieves' tools", "Disguise kit", "Forgery kit", "Herbalism kit", "Navigator's tools", "Poisoner's kit", "Vehicles (land)", "Vehicles (water)"]))];
+function toolsFrom(f) { if (!f || f === 'any') return ALL_TOOLS(); return [].concat(f).flatMap(x => x === 'any' ? ALL_TOOLS() : DND.toolGroups[x] || [x]); }
+// Prerequisites written on class options ("5th level, Tome", "Seeker patron (UA)", "Eldritch blast"):
+// returns '' when met, otherwise the reason the option can't be taken yet.
+function optPrereq(req, ctx) {
+  req = String(req || ''); if (!req || !ctx) return '';
+  const why = [];
+  const lv = /(\d+)(?:st|nd|rd|th) level/i.exec(req); if (lv && ctx.level && ctx.level < N(lv[1])) why.push(`${lv[1]}th level`);
+  const pk = /\b(Tome|Chain|Blade|Talisman)\b/.exec(req);
+  if (pk) { const pacts = pactsChosen(ctx); if (!pacts.some(x => new RegExp(pk[1], 'i').test(x))) why.push('Pact of the ' + pk[1]); }
+  const pat = /^([A-Z][\w' ]+?) patron/i.exec(req);
+  if (pat && ctx.cls) { const sub = ctx.sub || ((clsRows().find(r => r.key === ctx.cls) || {}).sub); const sn = sub && CL[ctx.cls] && CL[ctx.cls].subclasses[sub] ? CL[ctx.cls].subclasses[sub].name : ''; if (!new RegExp(pat[1], 'i').test(sn)) why.push(pat[1] + ' patron'); }
+  return why.length ? 'needs ' + why.join(' and ') : '';
+}
+// Pact boon picked so far (this wizard / level-up, or already on the sheet).
+function pactsChosen(ctx) {
+  const out = [];
+  Object.entries((ctx && ctx.CH) || {}).forEach(([k, v]) => { if (/pactBoon$/.test(k)) [].concat(v || []).forEach(x => x && out.push(x)); });
+  if (S && S.created && !(typeof W !== 'undefined' && W)) (S.picks && S.picks.pactBoon || []).forEach(x => out.push(x));
+  return out;
+}
+function choiceOptions(def, ctx) {
+  const skills = DND.skills.map(s => s[0]);
+  switch (def.type) {
+    case 'skill': return (def.from === 'any' || !def.from ? skills : def.from).map(x => [x, x]);
+    case 'expertise': return (Array.isArray(def.from) ? def.from : skills.concat(["Thieves' tools"])).map(x => [x, x]);
+    case 'element': return ['acid', 'cold', 'fire', 'lightning', 'thunder'].map(x => [x, x[0].toUpperCase() + x.slice(1)]);
+    case 'language': { const k = knownLangs(); return ALL_LANGS().map(x => [x, x, k.has(x.toLowerCase()) ? '(you already speak it)' : '']); }
+    case 'tool': { const t = toolsFrom(def.from); return (def.orLang ? t.concat(ALL_LANGS().map(l => 'Language: ' + l)) : t).map(x => [x, x]); }
+    case 'asi': return AB.filter(a => !(def.exclude || []).includes(a) && (!def.from || def.from.includes(a))).map(a => [a, `${ABN[a]} +${def.amount || 1}`]);
+    case 'feat': return DND.feats.map(f => [f[0], f[0] + (f[2] ? ` (${f[2]})` : '') + (f[1] !== 'PHB' ? ` · ${f[1]}` : '')]);
+    case 'cantrip': return DND.spells.filter(s => s.level === 0 && s.classes.includes(def.list)).map(s => [s.name, s.name]);
+    case 'spellpick': return DND.spells.filter(s => s.level === def.level && (!def.ritual || s.ritual) && (def.list === 'any' || s.classes.includes(def.list))).map(s => [s.name, `${s.name} — ${s.summary}`]);
+    case 'option': return def.options.map(([n, d]) => [n, `${n} — ${d}`]);
+    case 'weapon': return DND.weapons.filter(w => !def.from || w[1] === def.from).map(w => [w[0], w[0]]);
+    default: {
+      const op = DND.options[def.type]; if (!op) return [];
+      let list = op.list;
+      if (def.type === 'fightingStyle' && ctx && ctx.cls) list = list.filter(x => new RegExp(CL[ctx.cls].name, 'i').test(x[2] || ''));
+      return list.map(([n, d, src]) => [n, `${n} — ${d}${src && def.type !== 'fightingStyle' ? ' (' + src + ')' : ''}`, optPrereq(src, ctx)]);
+    }
+  }
+}
+const CHOICE_LABEL = { spellpick: 'Spell', skill: 'Skill', expertise: 'Expertise', language: 'Language', tool: 'Tool', asi: 'Ability increase', feat: 'Feat', cantrip: 'Cantrip', option: 'Option', weapon: 'Weapon proficiency' };
+function choiceLabel(def) { return def.label || CHOICE_LABEL[def.type] || (DND.options[def.type] && DND.options[def.type].label) || def.type; }
+function choiceUI(CH, id, def, ctx) {
+  ctx = Object.assign({ CH }, ctx || {});
+  const opts = choiceOptions(def, ctx), cur = CH[id] || [], n = def.n || 1;
+  let h = `<div class="chq"><span class="lbl">${esc(choiceLabel(def))}${n > 1 ? ` × ${n}` : ''}${def.note ? ` <span class="hint">${esc(def.note)}</span>` : ''}</span><div class="chsel">`;
+  // Options you don't qualify for stay visible but can't be picked; a pick that stopped qualifying is flagged.
+  const others = k => Object.entries(CH).filter(([kk]) => kk !== id && kk.endsWith('.' + def.type)).flatMap(([, v]) => v || []).concat(cur.filter((x, j) => j !== k), typeof LV !== 'undefined' && LV && S.picks ? S.picks[def.type] || [] : []);
+  const bad = [];
+  for (let k = 0; k < n; k++) h += `<select class="f" data-ch="${id}" data-k="${k}"><option value="">— choose —</option>${opts.map(([v, t, no]) => { const dup = DND.options[def.type] && others(k).includes(v); if (cur[k] === v && no) bad.push(`${v} ${no}`); return `<option value="${esc(v)}"${cur[k] === v ? ' selected' : ''}${(no || dup) && cur[k] !== v ? ' disabled' : ''}>${esc(t)}${no ? ' — ' + esc(no) : dup ? ' — already taken' : ''}</option>`; }).join('')}</select>`;
+  h += '</div>' + (bad.length ? `<p class="warn sm">${esc(bad.join('; '))}.</p>` : '');
+  if (def.type === 'feat') for (let k = 0; k < n; k++) if (cur[k]) h += featSubUI(CH, id + '.f' + k, cur[k]);
+  if (DND.options[def.type]) for (let k = 0; k < n; k++) { const e = cur[k] && DND.options[def.type].list.find(x => x[0] === cur[k]); const g = e && e[3] && e[3].grant; if (g) h += `<div class="featsub">${g.map((gd, j) => choiceUI(CH, `${id}.g${k}.${j}`, gd, ctx)).join('')}</div>`; }
+  return h + '</div>';
+}
+function featSubDefs(name) {
+  const ft = DND.feats.find(x => x[0] === name); if (!ft) return [];
+  const e = ft[4] || {}, defs = [];
+  if (e.asi) defs.push({ type: 'asi', n: 1, amount: 1, from: e.asi });
+  if (e.skills) defs.push({ type: 'skill', n: e.skills, from: 'any', label: 'Skill (or tool)' });
+  if (e.expertise) defs.push({ type: 'expertise', n: e.expertise });
+  if (e.langs) defs.push({ type: 'language', n: e.langs });
+  if (e.element) defs.push({ type: 'element', n: 1, label: 'Damage type' });
+  return defs;
+}
+function featSubUI(CH, id, name) {
+  const ft = DND.feats.find(x => x[0] === name); if (!ft) return '';
+  const defs = featSubDefs(name), e = ft[4] || {};
+  return `<div class="featsub"><p class="hint" style="margin:4px 0">${esc(ft[3])}${ft[2] ? ` <b>Prerequisite:</b> ${esc(ft[2])}` : ''}${e.spells ? ' — add its spells from the Spells tab after creating.' : ''}</p>${defs.map((d, k) => choiceUI(CH, id + '.' + k, d)).join('')}</div>`;
+}
+function chField(t) {
+  const CH = t.closest('#pendm') && PEND ? PEND.ans : t.closest('#grantm') && GRANT ? GRANT.CH : t.closest('#wizard') || t.closest('#rcmodal') ? W.ans : LV ? LV.ans : FEATM ? FEATM.ans : null; if (!CH) return;
+  const id = t.dataset.ch, k = N(t.dataset.k);
+  CH[id] = (CH[id] || []).slice(); CH[id][k] = t.value;
+  if (t.closest('#grantm')) { renderGrantPicker(); return; }
+  if (t.closest('#pendm')) { renderPending(); return; }
+  if (t.closest('#rcmodal')) { RC.kind === 'race' ? renderRaceChange() : renderBgChange(); return; }
+  if (t.closest('#wizard')) { const sc = $('#wizard .wz-body') ? $('#wizard .wz-body').scrollTop : 0; renderWizard(); if ($('#wizard .wz-body')) $('#wizard .wz-body').scrollTop = sc; } else if (LV) renderLevelUp(); else if (FEATM) renderFeatModal();
+}
+const ansList = (CH, id) => (CH[id] || []).filter(Boolean);
+// Apply a feat to S (ability increases, proficiencies)
+function applyFeat(name, CH, id) {
+  const ft = DND.feats.find(x => x[0] === name); if (!ft) return;
+  if (!S.feats.includes(name)) S.feats.push(name);
+  const e = ft[4] || {};
+  const bump = (a, n) => { S.abilities[a] = Math.min(20, N(S.abilities[a]) + n); };
+  if (e.asiFixed) Object.entries(e.asiFixed).forEach(([a, n]) => bump(a, n));
+  // Feats that train one named skill or tool: proficiency, or expertise if you already have it.
+  if (e.skillFixed) { const sk = S.skills.find(x => x.name.toLowerCase() === e.skillFixed.toLowerCase()), tl = (S.tools || []).find(x => x.name.toLowerCase() === e.skillFixed.toLowerCase()); setSkill(e.skillFixed, (sk && N(sk.prof) >= 1) || tl ? 2 : 1); }
+  const defs = featSubDefs(name), store = {};
+  defs.forEach((d, k) => {
+    const v = ansList(CH, id + '.' + k); store[d.type] = v;
+    if (d.type === 'asi') v.forEach(a => { bump(a, 1); if (e.saveProfFromAsi) S.saves[a] = true; });
+    if (d.type === 'skill') v.forEach(n => setSkill(n, 1));
+    if (d.type === 'expertise') v.forEach(n => setSkill(n, 2));
+    if (d.type === 'language') addText('languages', v);
+  });
+  if (e.armorCats) S.profs.armor = [...new Set((S.profs.armor || []).concat(e.armorCats))];
+  if (e.armorCats) S.profArmor = profArmorText();
+  S.featChoices[name] = store;
+}
+function setSkill(n, p) { const s = S.skills.find(x => x.name.toLowerCase() === String(n).toLowerCase()); if (s) s.prof = Math.max(N(s.prof), p); else { addText('profTools', [n]); if (p >= 2) { const t = S.tools.find(x => x.name.toLowerCase() === String(n).toLowerCase()); if (t) t.exp = true; } } }
+function addText(field, arr) {
+  if (field === 'languages') { arr.forEach(x => { if (x && !S.langs.some(c => c.toLowerCase() === x.toLowerCase())) S.langs.push(x); }); return; }
+  if (field === 'profTools') { arr.forEach(x => { if (x && !S.tools.some(c => c.name.toLowerCase() === x.toLowerCase())) S.tools.push({ name: x, exp: false, ab: toolAb(x) }); }); return; } const cur = String(S[field] || '').split(/,\s*/).filter(Boolean); arr.forEach(x => { if (x && !cur.some(c => c.toLowerCase() === x.toLowerCase())) cur.push(x); }); S[field] = cur.join(', '); }
+function profArmorText() { const a = S.profs.armor || []; return ['light', 'medium', 'heavy'].filter(x => a.includes(x)).map(x => x[0].toUpperCase() + x.slice(1) + ' armor').concat(a.includes('shield') ? ['Shields'] : []).join(', ') || 'None'; }
+function profWeaponText() { const w = S.profs.weapons || []; return w.map(x => x[0].toUpperCase() + x.slice(1) + ' weapons').concat(S.profs.weaponNames || []).join(', ') || 'None'; }
+
+// ---------- Spell picker ----------
+let PICK = { cls: '', lvl: 'all', q: '' };
+function listLettersFor(key) { const c = casterFor(key); return c ? c.list : ''; }
+function expandedFor(key) { const r = clsRows().find(x => x.key === key); if (!r) return []; return [[subOf(r), N(r.level)]].concat((r.extraSubs || []).map(k => [CL[r.key].subclasses[k], xsubCap(r, k)])).filter(([s]) => s && s.spellMode === 'expanded' && s.spells).flatMap(([s, cap]) => Object.keys(s.spells).filter(lv => cap >= N(lv)).flatMap(lv => s.spells[lv])); }
+// An extra subclass you took only some levels in (Shade: 1 level of The Fiend) only grants features and spells up to
+// that point — the class level you'd have after that many levels in it. No count recorded = the whole class level.
+function xsubCap(r, k) { const c = CL[r.key], n = N((r.extraSubLv || {})[k]); if (!n) return N(r.level); return Math.min(N(r.level), (N(c && c.sub && c.sub.level) || 1) - 1 + n); }
+function openSpellPicker(cls) {
+  PICK = { cls: cls || (casters()[0] || {}).key || 'other', lvl: '', q: '' };
+  if (!$('#modal').classList.contains('open')) openModal('', null, true);
+  renderPicker();
+}
+function renderPicker() {
+  const key = PICK.cls, c = casterFor(key), letter = c ? c.list : '';
+  const maxL = c ? maxSpellLevelFor(c) : 9;
+  const exp = expandedFor(key).map(n => n.toLowerCase());
+  let list = DND.spells.filter(s => (!letter || s.classes.includes(letter) || exp.includes(s.name.toLowerCase())) && s.level <= maxL);
+  const have = new Set(S.spells.filter(s => s.cls === key).map(s => s.name.toLowerCase()));
+  // A spell you already have from somewhere else (race, feat, class option) can't be added twice.
+  const elsewhere = new Map(S.spells.filter(s => s.cls !== key).map(s => [s.name.toLowerCase(), s.auto && s.note ? String(s.note).split(':')[0] : clsName(s.cls)]));
+  const lvls = [...new Set(list.map(s => s.level))].sort((a, b) => a - b);
+  const lim = c ? spellLimit(c) : null, cl = c ? cantripLimit(c) : null;
+  if (PICK.lvl === '' || (PICK.lvl !== 'all' && !lvls.includes(N(PICK.lvl)))) PICK.lvl = String(c && cl && countCantrips(key) < cl ? 0 : lvls.find(l => l > 0) != null ? lvls.find(l => l > 0) : lvls[0] || 0);
+  const haveAt = l => S.spells.filter(s => s.cls === key && N(s.level) === l).length;
+  const q = $('#spq') ? $('#spq').value : PICK.q;
+  $('#modal-body').innerHTML = `<h3>Add spells</h3>
+    <div class="row">${fld('For', `<select class="f" id="spcls">${clsRows().filter(r => casterFor(r.key)).map(r => [r.key, clsName(r.key)]).concat([['race', 'Racial'], ['feat', 'Feat (e.g. Magic Initiate)'], ['item', 'Item'], ['other', 'Other']]).map(([k, t]) => `<option value="${k}"${k === key ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>`)}
+      ${c ? `<span class="hint">${c.prepared ? 'Prepared' : 'Known'} ${c.prepared ? countPrep(key) : countKnown(key)}${lim != null ? '/' + lim : ''}${cl ? ` · cantrips ${countCantrips(key)}/${cl}` : ''} · up to ${maxL ? ORD[maxL - 1] + ' level' : 'cantrips'}${c.book ? ' · wizards add spells to their spellbook, then prepare them' : ''}</span>` : '<span class="hint">All spells from every list.</span>'}</div>
+    <div class="row" style="margin:6px 0"><input class="f" id="spq" placeholder="Search spells…" value="${esc(q)}" aria-label="Search spells" style="flex:1 1 200px">
+      <div class="chips">${lvls.map(l => [String(l), (l ? ORD[l - 1] + ' level' : 'Cantrips') + (haveAt(l) ? ` (${haveAt(l)})` : '')]).concat([['all', 'All']]).map(([k, t]) => `<button class="chip${PICK.lvl === k ? ' on' : ''}" data-act="spfilt" data-l="${k}">${t}</button>`).join('')}</div></div>
+    <div class="crlist">${list.filter(s => PICK.lvl === 'all' || String(s.level) === PICK.lvl).map(s => { const on = have.has(s.name.toLowerCase()); return `<div class="crrow" data-q="${esc((s.name + ' ' + s.school + ' ' + s.summary).toLowerCase())}"><div><b>${esc(s.name)}</b> <span class="hint">${s.level ? ORD[s.level - 1] : 'Cantrip'} · ${esc(s.school)} · ${esc(s.time)} · ${esc(s.range)}${s.conc ? ' · conc' : ''}${s.ritual ? ' · ritual' : ''} · ${esc(s.src)}</span><div class="hint">${esc(s.summary)}</div></div>${!on && elsewhere.has(s.name.toLowerCase()) ? `<span class="always" title="Already on your sheet">Have it (${esc(elsewhere.get(s.name.toLowerCase()))})</span>` : `<button class="btn sm ${on ? '' : 'gold'}" data-act="pickspell" data-n="${esc(s.name)}">${on ? 'Added ✓' : 'Add'}</button>`}</div>`; }).join('') || '<p class="hint">No spells available yet at this level.</p>'}</div>
+    <div class="actions"><button class="btn" data-act="close">Done</button></div>`;
+  $('#modal-body').classList.add('wide');
+  filterCatalogQ('#spq');
+}
+function filterCatalogQ(sel) { const q = ($(sel) && $(sel).value || '').trim().toLowerCase(); $$('#modal-body .crrow').forEach(r => r.style.display = !q || (r.dataset.q || '').includes(q) ? '' : 'none'); }
+function pickSpell(b) {
+  const n = b.dataset.n, key = PICK.cls, idx = S.spells.findIndex(s => s.cls === key && s.name.toLowerCase() === n.toLowerCase());
+  if (idx >= 0) { if (S.spells[idx].auto) { toast('That one is granted automatically.'); return; } S.spells.splice(idx, 1); pendingLabel = 'Remove spell ' + n; b.textContent = 'Add'; b.classList.add('gold'); }
+  else {
+    const sp = spellEntry(n, key), c = casterFor(key);
+    if (c && c.prepared && N(sp.level) > 0) { const lim = spellLimit(c); sp.prepared = !c.book && (lim == null || countPrep(key) < lim); }
+    if (!c && key !== 'other') sp.ab = (casters()[0] || {}).ab || 'cha';
+    if (key === 'feat' || key === 'race') { if (N(sp.level) > 0) sp.uses = { max: '1', reset: 'long', used: 0 }; }
+    S.spells.push(sp); pendingLabel = 'Add spell ' + n; b.textContent = 'Added ✓'; b.classList.remove('gold');
+  }
+  save(); render('spells', 'combat');
+  const hint = $('#modal-body .row .hint'); if (hint && casterFor(key)) { const c = casterFor(key), lim = spellLimit(c), cl = cantripLimit(c); hint.firstChild && (hint.textContent = `${c.prepared ? 'Prepared' : 'Known'} ${c.prepared ? countPrep(key) : countKnown(key)}${lim != null ? '/' + lim : ''}${cl ? ` · cantrips ${countCantrips(key)}/${cl}` : ''}`); }
+}
+
+// ---------- Feat modal (DM-granted or extra feats) ----------
+let FEATM = null;
+function openFeatModal() {
+  FEATM = { ans: {} }; LV = null;
+  renderFeatModal();
+}
+function renderFeatModal() {
+  const CH = FEATM.ans;
+  openModal(`<h3>Add a feat</h3><p class="hint" style="margin:0 0 8px">For feats from your DM, a background or a race. Feats taken at level up are added there automatically.</p>
+    <div id="featm">${choiceUI(CH, 'feat', { type: 'feat', n: 1 })}</div>
+    <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="featok">Add feat</button></div>`, null, true);
+}
+function featModalOK() {
+  const n = ansList(FEATM.ans, 'feat')[0]; if (!n) { toast('Choose a feat first.'); return; }
+  applyFeat(n, FEATM.ans, 'feat.f0'); rebuildAuto(); pendingLabel = 'Add feat ' + n; FEATM = null; closeModal(true); save(); render();
+  toast(`${esc(n)} added.`, '', 6000, { label: 'Undo', fn: () => undo(1) });
+}
+
+// ---------- Level up ----------
+let LV = null;
+function mcOK(key, scores) {
+  const sc = scores || S.abilities, c = CL[key]; if (!c || !c.mc) return true;
+  const ok = r => N(sc[r[0]]) >= r[1];
+  return c.mc.reqAny ? c.mc.req.some(ok) : c.mc.req.every(ok);
+}
+function openLevelUp() {
+  if (totalLevel() >= 20) { toast('Already level 20.'); return; }
+  FEATM = null;
+  LV = { cls: (clsRows()[0] || {}).key || '', ans: {}, hp: '', sub: '' };
+  openModal('', null, true); renderLevelUp();
+}
+function lvTarget() {
+  const key = LV.cls, row = clsRows().find(r => r.key === key), c = CL[key];
+  return { key, c, row, cur: row ? N(row.level) : 0, nl: (row ? N(row.level) : 0) + 1, isNew: !row };
+}
+function lvChoiceDefs(t) {
+  const defs = [], c = t.c, nl = t.nl, subKey = t.row && t.row.sub ? t.row.sub : LV.sub, s = subKey ? c.subclasses[subKey] : null;
+  if (c.asi.includes(nl)) defs.push({ id: 'asi', def: { type: 'asiOrFeat' } });
+  (c.choices || []).concat((s && s.choices) || []).forEach((ch, k) => { if (ch.level === nl) defs.push({ id: 'ch' + k + '.' + ch.type, def: ch }); });
+  if (t.isNew && c.mc && c.mc.skills) defs.push({ id: 'mcskill', def: { type: 'skill', n: c.mc.skills, from: c.skills.from } });
+  return defs;
+}
+function asiOrFeatUI(CH, id) {
+  const cur = CH[id] || [], mode = cur[0] || '';
+  let h = `<div class="chq asiq"><span class="lbl">Ability Score Improvement — raise your scores, or take a feat instead</span>
+    <div class="asimodes">${[['two', '+1 to two scores', 'e.g. DEX +1, CON +1'], ['one', '+2 to one score', 'e.g. STR +2'], ['feat', 'Take a feat', 'a new feature instead of scores']].map(([v, t, s2]) => `<button type="button" class="asimode${mode === v ? ' on' : ''}" data-asimode="${id}" data-v="${v}"><b>${t}</b><span>${s2}</span></button>`).join('')}</div><div class="chsel">`;
+  const abSel = k => `<select class="f" data-ch="${id}" data-k="${k}"><option value="">— ability —</option>${AB.map(a => `<option value="${a}"${cur[k] === a ? ' selected' : ''}>${ABN[a]} (${N(S.abilities[a])})</option>`).join('')}</select>`;
+  if (mode === 'two') h += abSel(1) + abSel(2); else if (mode === 'one') h += abSel(1);
+  h += '</div>';
+  if (mode === 'feat') h += choiceUI(CH, id + '.feat', { type: 'feat', n: 1 });
+  return h + '</div>';
+}
+function applyAsiOrFeat(CH, id) {
+  const cur = CH[id] || [], mode = cur[0] || '';
+  if (!mode) return '';
+  if (mode === 'feat') { const n = ansList(CH, id + '.feat')[0]; if (n) applyFeat(n, CH, id + '.feat.f0'); return n ? 'Feat: ' + n : ''; }
+  const bump = (a, n) => { if (a) S.abilities[a] = Math.min(20, N(S.abilities[a]) + n); };
+  if (mode === 'one') { bump(cur[1], 2); return cur[1] ? `${AB3[cur[1]]} +2` : ''; }
+  bump(cur[1], 1); bump(cur[2], 1); return [cur[1], cur[2]].filter(Boolean).map(a => AB3[a] + ' +1').join(', ');
+}
+function renderLevelUp() {
+  if (!LV) return;
+  const t = lvTarget(), c = t.c, rows = clsRows();
+  const conM = mod('con', true), avg = c ? Math.floor(c.hd / 2) + 1 : 0;
+  const twin = k => k === 'ranger' ? 'rangertce' : k === 'rangertce' ? 'ranger' : '';
+  const others = DND.classOrder.filter(k => !rows.some(r => r.key === k || r.key === twin(k)));
+  let body = '';
+  if (c) {
+    const subKey = t.row && t.row.sub ? t.row.sub : LV.sub, s = subKey ? c.subclasses[subKey] : null;
+    const feats = c.features.filter(f => f[0] === t.nl).concat(s ? s.features.filter(f => f[0] === t.nl) : []);
+    const xs = LV.extraSub && c.subclasses[LV.extraSub], xcap = xs ? Math.min(t.nl, (N(c.sub && c.sub.level) || 1) + N(((t.row || {}).extraSubLv || {})[LV.extraSub])) : 0; if (xs) feats.push(...xs.features.filter(f => f[0] <= xcap).map(f => [f[0], f[1] + ` (${xs.name})`, f[2]]));
+    const needSub = !(t.row && t.row.sub) && t.nl >= c.sub.level;
+    body += `<div class="lvsec"><h4>${esc(c.name)} ${t.nl}${t.isNew ? ' (new class)' : ''} · character level ${totalLevel() + 1}</h4>`;
+    if (t.isNew && !mcOK(t.key)) body += `<p class="warn">Multiclassing into ${esc(c.name)} needs ${c.mc.req.map(r => AB3[r[0]] + ' ' + r[1]).join(c.mc.reqAny ? ' or ' : ' and ')}. You can still continue if your DM allows it.</p>`;
+    if (t.isNew) { const bad = rows.filter(r => !mcOK(r.key)); if (bad.length) body += `<p class="warn">Your current class${bad.length > 1 ? 'es' : ''} (${bad.map(r => CL[r.key].name).join(', ')}) must also meet multiclass requirements.</p>`; body += `<p class="hint">You gain: ${esc(c.mc.profs || 'no new proficiencies')}.</p>`; }
+    if (needSub) body += fld(c.sub.label, `<select class="f" id="lvSub">${[['', '— choose —']].concat(Object.entries(c.subclasses).map(([k, v]) => [k, v.name + (v.src !== 'PHB' ? ' (' + v.src + ')' : '')])).map(([k, n]) => `<option value="${k}"${LV.sub === k ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>`);
+    body += feats.length ? `<ul class="newfeats">${feats.map(f => `<li><b>${esc(f[1])}</b> — ${esc(f[2])}</li>`).join('')}</ul>` : '<p class="hint">No new named features at this level.</p>';
+    const defs = lvChoiceDefs(t);
+    body += defs.map(d => d.def.type === 'asiOrFeat' ? asiOrFeatUI(LV.ans, d.id) : choiceUI(LV.ans, d.id, d.def, { cls: t.key, level: t.nl, sub: (t.row && t.row.sub) || LV.sub })).join('');
+    // Spell changes
+    const cd = c.caster || (s && s.caster);
+    if (cd && (!cd.from || t.nl >= cd.from)) {
+      const L0 = t.cur, L1 = t.nl, kn = a => (a ? N(a[Math.max(0, L1 - 1)]) - N(a[Math.max(0, L0 - 1)]) * (L0 ? 1 : 0) : 0);
+      const msg = [];
+      if (cd.cantrips && kn(cd.cantrips) > 0) msg.push(`learn ${kn(cd.cantrips)} new cantrip${kn(cd.cantrips) > 1 ? 's' : ''}`);
+      if (cd.known && kn(cd.known) > 0) msg.push(`learn ${kn(cd.known)} new spell${kn(cd.known) > 1 ? 's' : ''} (and may swap one)`);
+      if (cd.prepared) msg.push('prepare more spells (your limit grows automatically)');
+      if (cd.book) msg.push('add 2 spells to your spellbook');
+      if (msg.length) body += `<p class="hint">Spells: you can ${msg.join(', ')}. You'll pick them on the next screen.</p>`;
+    }
+    body += `<div class="row">${fld('HP gained', `<input class="f" id="lvHP" type="number" inputmode="numeric" value="${esc(LV.hp || (avg + conM))}" style="width:90px">`)}<button class="btn" data-act="lvroll">Roll 1d${c.hd} ${fmt(conM)}</button><span class="hint" id="lvRollNote">Average ${avg} ${fmt(conM)} CON = ${avg + conM}${hpPerLevelBonus() ? ` · plus ${hpPerLevelBonus() > lvl() ? 'your per-level bonuses' : 'your +1/level bonus'} automatically` : ''}</span></div></div>`;
+  }
+  $('#modal-body').innerHTML = `<h3>Level Up</h3>
+    <div class="lbl">Advance which class?</div>
+    <div class="chips">${rows.map(r => `<button class="chip${LV.cls === r.key ? ' on' : ''}" data-act="lvcls" data-k="${r.key}">${esc(CL[r.key].name)} ${r.level} → ${N(r.level) + 1}</button>`).join('')}
+      <select class="f" id="lvNew" style="width:auto"><option value="">+ Multiclass into…</option>${others.map(k => `<option value="${k}"${LV.cls === k ? ' selected' : ''}>${esc(CL[k].name)}${mcOK(k) ? '' : ' (requirements not met)'}</option>`).join('')}${rows.filter(r => r.sub).map(r => { const c2 = CL[r.key]; const subs = Object.entries(c2.subclasses).filter(([k]) => k !== r.sub && !(r.extraSubs || []).includes(k)); return subs.length ? `<optgroup label="Another ${esc(c2.sub.label)} (homebrew)">${subs.map(([k, v]) => `<option value="sub:${r.key}:${k}"${LV.extraSub === k && LV.cls === r.key ? ' selected' : ''}>${esc(c2.name)}: ${esc(v.name)}</option>`).join('')}</optgroup>` : ''; }).join('')}</select></div>
+    ${body}
+    <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="lvl-confirm">Level up</button></div>`;
+  $('#modal-body').classList.add('wide');
+  const ns = $('#lvNew'); if (ns) ns.onchange = () => { if (ns.value) { const m = /^sub:(\w+):(\w+)$/.exec(ns.value); if (m) { LV.cls = m[1]; LV.extraSub = m[2]; } else { LV.cls = ns.value; LV.extraSub = ''; } LV.sub = ''; LV.ans = {}; LV.hp = ''; renderLevelUp(); } };
+  const sb = $('#lvSub'); if (sb) sb.onchange = () => { LV.sub = sb.value; renderLevelUp(); };
+  const hp = $('#lvHP'); if (hp) hp.oninput = () => { LV.hp = hp.value; };
+}
+function lvRoll() { const t = lvTarget(), r = rollExpr('1d' + t.c.hd, { need: true, label: 'Hit points for this level (d' + t.c.hd + ')' }), cm = mod('con', true); LV.hp = String(Math.max(1, r.total + cm)); $('#lvHP').value = LV.hp; $('#lvRollNote').textContent = `Rolled ${r.total} ${fmt(cm)} CON = ${LV.hp}`; }
+function finishLevelUp() {
+  const t = lvTarget(); if (!t.c) return;
+  const needSub = !(t.row && t.row.sub) && t.nl >= t.c.sub.level;
+  if (needSub && !LV.sub) { toast(`Choose your ${esc(t.c.sub.label)} first.`, 'fumble'); return; }
+  if (!LV.skipAsk) { const miss = lvChoiceDefs({ ...t, row: t.row || null }).filter(d => d.def.type === 'asiOrFeat' ? !asiDone(LV.ans, d.id) : ansList(LV.ans, d.id).length < (d.def.n || 1));
+    if (miss.length) { toast(`Still to choose: ${esc(miss.map(d => d.def.type === 'asiOrFeat' ? 'Ability Score Improvement or feat' : d.def.label || choiceLabel(d.def)).join(', '))}.`, 'fumble', 9000, { label: 'Level up anyway', fn: () => { if (LV) { LV.skipAsk = true; finishLevelUp(); } } }); return; } }
+  const gainTotal = Math.max(1, N($('#lvHP').value) || 1), conM = mod('con', true);
+  const oldMax = maxHp();
+  if (t.isNew) {
+    S.classes.push({ key: t.key, level: 1, sub: LV.sub || '' });
+    const mc = t.c.mc || {};
+    if (mc.armorCats) S.profs.armor = [...new Set((S.profs.armor || []).concat(mc.armorCats))];
+    if (mc.weaponCats) S.profs.weapons = [...new Set((S.profs.weapons || []).concat(mc.weaponCats))];
+    S.profArmor = profArmorText(); S.profWeapons = profWeaponText();
+    if (/thieves' tools/i.test(mc.profs || '')) addText('profTools', ["Thieves' tools"]);
+    if (/tinker's tools/i.test(mc.profs || '')) addText('profTools', ["Tinker's tools"]);
+  } else { t.row.level = t.nl; if (LV.sub) t.row.sub = LV.sub; }
+  if (LV.extraSub && !t.isNew) { t.row.extraSubs = [...new Set((t.row.extraSubs || []).concat(LV.extraSub))]; t.row.extraSubLv = Object.assign({}, t.row.extraSubLv, { [LV.extraSub]: N((t.row.extraSubLv || {})[LV.extraSub]) + 1 }); }
+  const sub = subOf(clsRows().find(r => r.key === t.key));
+  if (sub && sub.profs && t.nl === t.c.sub.level) { if (sub.profs.armorCats) S.profs.armor = [...new Set((S.profs.armor || []).concat(sub.profs.armorCats))]; if (sub.profs.weaponCats) S.profs.weapons = [...new Set((S.profs.weapons || []).concat(sub.profs.weaponCats))]; S.profArmor = profArmorText(); S.profWeapons = profWeaponText(); }
+  const notes = [];
+  lvChoiceDefs({ ...t, row: clsRows().find(r => r.key === t.key), isNew: t.isNew }).forEach(d => {
+    const cid = d.id === 'asi' ? `asi.${t.key}.${t.nl}` : d.id === 'mcskill' ? `mc.${t.key}.skills` : `ch.${t.key}.${d.id.slice(2).split('.')[0]}.${t.nl}.${d.def.type}`;
+    S.answered = S.answered || {};
+    if (d.def.type === 'asiOrFeat') { if (asiDone(LV.ans, d.id)) S.answered[cid] = (LV.ans[d.id] || []).slice(); const r = applyAsiOrFeat(LV.ans, d.id); if (r) notes.push(r); return; }
+    const v = ansList(LV.ans, d.id); if (!v.length) return;
+    if (v.length >= (d.def.n || 1)) S.answered[cid] = v;
+    applyChoice(d.def, v, LV.ans, d.id); notes.push(`${choiceLabel(d.def)}: ${v.join(', ')}`);
+  });
+  S.hp.base = N(S.hp.base) + (gainTotal - conM);
+  rebuildAuto();
+  const gained = maxHp() - oldMax; S.hp.cur = N(S.hp.cur) + Math.max(0, gained);
+  const nl = totalLevel();
+  pendingLabel = `Level up: ${t.c.name} ${t.nl}`;
+  S.notes.unshift({ date: new Date().toISOString().slice(0, 10), title: `Reached level ${nl} (${t.c.name} ${t.nl})`, text: [`+${gained} max HP (now ${maxHp()}).`].concat(notes).join('\n') });
+  const caster = casterFor(t.key);
+  LV = null; closeModal(true); save(); render();
+  toast(`<div class="lvtoast"><b class="lvnum">${nl}</b><div>${esc(who())} reached level ${nl}!<div class="det">${esc(t.c.name)} ${t.nl} · +${gained} max HP${notes.length ? ' · ' + esc(notes.join(' · ')) : ''}</div></div></div>`, 'crit', 12000,
+    [caster ? { label: 'Choose spells', fn: () => openLevelSpells(t.key, t.nl) } : null, { label: 'Roll20', fn: () => { UI.macroChanged = true; saveUI(); openMacros(); } }].filter(Boolean));
+  // Second step of levelling up: new cantrips/spells and the swaps the class allows.
+  if (caster || t.key === 'warlock') openLevelSpells(t.key, t.nl, t.isNew);
+}
+// ---------- Level-up: spells ----------
+let LS = null;
+const ASI_LEVELS = k => (CL[k] && CL[k].asi) || [4, 8, 12, 16, 19];
+function lsList(key) {
+  const c = casterFor(key); if (!c) return [];
+  const exp = expandedFor(key).map(n => n.toLowerCase()), maxL = maxSpellLevelFor(c);
+  return DND.spells.filter(sp => (sp.classes.includes(c.list) || exp.includes(sp.name.toLowerCase())) && sp.level <= maxL);
+}
+function openLevelSpells(key, nl, isNew) {
+  const c = casterFor(key);
+  const knownNames = new Set(S.spells.map(x => x.name.toLowerCase()));  // includes racial and feat spells, so nothing is picked twice
+  const needC = c ? Math.max(0, (cantripLimit(c) || 0) - countCantrips(key)) : 0;
+  const needS = c && !c.prepared && !c.book ? Math.max(0, (spellLimit(c) || 0) - countKnown(key)) : c && c.book ? 2 : 0;
+  const swap = c && !c.prepared && !c.book && !isNew && ['warlock', 'sorcerer', 'bard', 'ranger', 'rangerrev'].includes(key) || (c && c.known && !c.prepared && !c.book && !isNew);
+  const ev = key === 'warlock' && ASI_LEVELS('warlock').includes(nl);
+  const versatile = !ev && ['sorcerer', 'bard', 'cleric', 'druid', 'wizard'].includes(key) && ASI_LEVELS(key).includes(nl);
+  const invSwap = key === 'warlock' && (S.picks.invocation || []).length && !isNew;
+  const prepAfter = !!(c && c.prepared && !c.book);
+  if (!needC && !needS && !swap && !ev && !versatile && !invSwap) { if (prepAfter) openPrepare(key, `${CL[key] ? CL[key].name : key} ${nl}: you can prepare ${spellLimit(c)} spells now, up to ${ORD[maxSpellLevelFor(c) - 1] || '1st'} level.`); return; }
+  LS = { prepAfter, key, nl, needC, needS, swap, ev, versatile, invSwap, cants: [], spells: [], out: '', in: '', invOut: '', invIn: '', evMode: '', evOut: '', evIn: '', known: knownNames };
+  renderLevelSpells();
+}
+function renderLevelSpells() {
+  const t = LS; if (!t) return;
+  const c = casterFor(t.key), list = lsList(t.key), name = CL[t.key] ? CL[t.key].name : t.key;
+  const avail = l => list.filter(x => x.level === l && !t.known.has(x.name.toLowerCase()) && x.name !== t.in && x.name !== t.evIn);
+  const box = (arr, kind, x) => `<label class="crrow sel${arr.includes(x.name) ? ' on' : ''}"><input type="checkbox" data-ls="${kind}" value="${esc(x.name)}"${arr.includes(x.name) ? ' checked' : ''}><div><b>${esc(x.name)}</b> <span class="hint">${x.level ? ORD[x.level - 1] + ' · ' : ''}${esc(x.school)} · ${esc(x.time)}${x.conc ? ' · conc' : ''}${x.ritual ? ' · ritual' : ''}</span><div class="hint">${esc(x.summary)}</div></div></label>`;
+  const opts = (arr, cur) => arr.map(([v, l]) => `<option value="${esc(v)}"${cur === v ? ' selected' : ''}>${esc(l)}</option>`).join('');
+  const mine = S.spells.filter(x => x.cls === t.key && !x.auto && !x.always);
+  let h = `<div id="lsmodal"><h3>${esc(name)} ${t.nl}: spells</h3><p class="hint">Pick what your new level gives you. You can also do this later from the Spells tab.</p>`;
+  if (t.needC) h += `<div class="ls-sec"><div class="wz-sph"><b>New cantrip${t.needC > 1 ? 's' : ''}</b><span class="cnt${t.cants.length === t.needC ? ' done' : t.cants.length > t.needC ? ' bad' : ''}">${t.cants.length} / ${t.needC}</span></div><div class="crlist short">${avail(0).map(x => box(t.cants, 'c', x)).join('')}</div></div>`;
+  if (t.needS) {
+    const lvls = [...new Set(list.filter(x => x.level > 0).map(x => x.level))].sort((a, b) => a - b), cur = t.lv && lvls.includes(t.lv) ? t.lv : lvls[lvls.length - 1];
+    h += `<div class="ls-sec"><div class="wz-sph"><b>${c.book ? 'Add to your spellbook' : 'New spell' + (t.needS > 1 ? 's' : '')}</b><span class="cnt${t.spells.length === t.needS ? ' done' : t.spells.length > t.needS ? ' bad' : ''}">${t.spells.length} / ${t.needS}</span></div>
+      <div class="segmini lvtabs">${lvls.map(l => `<button class="${l === cur ? 'on' : ''}" data-act="lslv" data-v="${l}">${ORD[l - 1]}${t.spells.filter(n => (SPI(n) || {}).level === l).length ? ` <b>${t.spells.filter(n => (SPI(n) || {}).level === l).length}</b>` : ''}</button>`).join('')}</div>
+      <div class="crlist short">${avail(cur).map(x => box(t.spells, 's', x)).join('')}</div></div>`;
+  }
+  if (t.swap && mine.some(x => N(x.level) > 0)) h += `<div class="ls-sec"><div class="wz-sph"><b>Replace a spell</b><span class="hint">Optional — swap one ${esc(name)} spell you know for another.</span></div>
+    <div class="row"><select class="f" data-lsf="out"><option value="">— keep all —</option>${opts(mine.filter(x => N(x.level) > 0).map(x => [x.name, x.name]), t.out)}</select><span>→</span>
+    <select class="f" data-lsf="in"${t.out ? '' : ' disabled'}><option value="">— choose —</option>${opts(list.filter(x => x.level > 0 && !t.known.has(x.name.toLowerCase()) && !t.spells.includes(x.name)).map(x => [x.name, `${x.name} (${ORD[x.level - 1]})`]), t.in)}</select></div></div>`;
+  if (t.invSwap) {
+    const inv = DND.options.invocation.list, ctx = { cls: 'warlock', level: t.nl };
+    h += `<div class="ls-sec"><div class="wz-sph"><b>Replace an invocation</b><span class="hint">Optional — swap one invocation for another you qualify for.</span></div>
+    <div class="row"><select class="f" data-lsf="invOut"><option value="">— keep all —</option>${opts(S.picks.invocation.map(n => [n, n]), t.invOut)}</select><span>→</span>
+    <select class="f" data-lsf="invIn"${t.invOut ? '' : ' disabled'}><option value="">— choose —</option>${inv.filter(e => !S.picks.invocation.includes(e[0]) && !optPrereq(e[2], ctx)).map(e => `<option value="${esc(e[0])}"${t.invIn === e[0] ? ' selected' : ''}>${esc(e[0])} — ${esc(e[1])}</option>`).join('')}</select></div></div>`;
+  }
+  if (t.ev || t.versatile) {
+    const myC = S.spells.filter(x => x.cls === t.key && N(x.level) === 0 && !x.always).map(x => [x.name, x.name]);
+    const modes = [['', 'Nothing'], ['cantrip', 'Replace a cantrip']].concat(t.ev ? [['pact', 'Replace your Pact Boon']].concat(t.nl >= 12 ? [['arcanum', 'Replace a Mystic Arcanum spell']] : []) : []);
+    h += `<div class="ls-sec"><div class="wz-sph"><b>${t.ev ? 'Eldritch Versatility' : 'Cantrip Versatility'}</b><span class="hint">Optional (Tasha's): at an Ability Score Improvement level you may swap one of these.</span></div>
+      <div class="segmini">${modes.map(([v, l]) => `<button class="${t.evMode === v ? 'on' : ''}" data-act="lsev" data-v="${v}">${l}</button>`).join('')}</div>`;
+    if (t.evMode === 'cantrip') h += `<div class="row"><select class="f" data-lsf="evOut"><option value="">— cantrip to drop —</option>${opts(myC, t.evOut)}</select><span>→</span><select class="f" data-lsf="evIn"><option value="">— new cantrip —</option>${opts(list.filter(x => x.level === 0 && !t.known.has(x.name.toLowerCase()) && !t.cants.includes(x.name)).map(x => [x.name, x.name]), t.evIn)}</select></div>`;
+    if (t.evMode === 'pact') h += `<div class="row"><span>${esc((S.picks.pactBoon || [])[0] || 'No pact boon')}</span><span>→</span><select class="f" data-lsf="evIn"><option value="">— new pact boon —</option>${DND.options.pactBoon.list.filter(e => !(S.picks.pactBoon || []).includes(e[0]) && !optPrereq(e[2], { cls: 'warlock', level: t.nl })).map(e => `<option value="${esc(e[0])}"${t.evIn === e[0] ? ' selected' : ''}>${esc(e[0])}</option>`).join('')}</select></div><p class="hint">Invocations that need your old pact stop working until you replace them.</p>`;
+    if (t.evMode === 'arcanum') h += `<p class="hint">Edit the Mystic Arcanum spell in the Spells tab (remove the old one and add the new one of the same level).</p>`;
+    h += '</div>';
+  }
+  h += `<div class="actions"><button class="btn" data-act="close">Later</button><button class="btn gold" data-act="lsok">Save spells</button></div></div>`;
+  if ($('#lsmodal') && $('#modal').classList.contains('open')) { const sc = $('#modal-body').scrollTop; $('#modal-body').innerHTML = h; $('#modal-body').scrollTop = sc; } else { openModal(h, null, true); }
+}
+function lsInput(t) {
+  if (!LS) return;
+  if (t.dataset.ls) { const arr = t.dataset.ls === 'c' ? LS.cants : LS.spells, lim = t.dataset.ls === 'c' ? LS.needC : LS.needS; const k = arr.indexOf(t.value); if (t.checked && k < 0) { if (arr.length >= lim) { t.checked = false; toast(`You can pick ${lim}.`); return; } arr.push(t.value); } else if (!t.checked && k >= 0) arr.splice(k, 1); }
+  if (t.dataset.lsf) { LS[t.dataset.lsf] = t.value; if (t.dataset.lsf === 'out' && !t.value) LS.in = ''; if (t.dataset.lsf === 'invOut' && !t.value) LS.invIn = ''; }
+  renderLevelSpells();
+}
+function lsSave() {
+  const t = LS; if (!t) return;
+  const added = [];
+  t.cants.concat(t.spells).forEach(n => { if (!S.spells.some(x => x.cls === t.key && x.name.toLowerCase() === n.toLowerCase())) { S.spells.push(spellEntry(n, t.key)); added.push(n); } });
+  if (t.out && t.in) { const k = S.spells.findIndex(x => x.cls === t.key && x.name === t.out); if (k >= 0) S.spells.splice(k, 1, spellEntry(t.in, t.key)); added.push(`${t.in} (replaced ${t.out})`); }
+  if (t.invOut && t.invIn) { S.picks.invocation = S.picks.invocation.map(n => n === t.invOut ? t.invIn : n); if (S.grantSpells) delete S.grantSpells[t.invOut]; added.push(`${t.invIn} (replaced ${t.invOut})`); }
+  if (t.evMode === 'cantrip' && t.evOut && t.evIn) { const k = S.spells.findIndex(x => x.cls === t.key && x.name === t.evOut); if (k >= 0) S.spells.splice(k, 1, spellEntry(t.evIn, t.key)); added.push(`${t.evIn} (replaced ${t.evOut})`); }
+  if (t.evMode === 'pact' && t.evIn) { const old = (S.picks.pactBoon || [])[0]; S.picks.pactBoon = [t.evIn]; if (old && S.grantSpells) delete S.grantSpells[old]; added.push(`${t.evIn} (replaced ${old || 'none'})`); }
+  const pa = t.prepAfter; LS = null; closeModal(true); pendingLabel = 'Level-up spells'; save(); rebuildAuto(); render();
+  if (added.length) toast('Added: ' + esc(added.join(', ')), '', 6000);
+  if (pa) openPrepare(t.key, `${CL[t.key] ? CL[t.key].name : t.key} ${t.nl}: choose today's prepared spells.`);
+}
+
+function applyChoice(def, v, CH, id) {
+  switch (def.type) {
+    case 'skill': v.forEach(n => setSkill(n, 1)); break;
+    case 'expertise': v.forEach(n => setSkill(n, 2)); break;
+    case 'language': addText('languages', v); break;
+    case 'tool': v.forEach(n => /^Language: /.test(n) ? addText('languages', [n.slice(10)]) : addText('profTools', [n])); break;
+    case 'weapon': S.profs.weaponNames = [...new Set((S.profs.weaponNames || []).concat(v))]; S.profWeapons = profWeaponText(); break;
+    case 'asi': v.forEach(a => { S.abilities[a] = Math.min(20, N(S.abilities[a]) + (def.amount || 1)); }); break;
+    case 'cantrip': v.forEach(n => { const c = def.cls || 'race'; if (!S.spells.some(s => s.name === n && s.cls === c)) { const sp = spellEntry(n, c); if (c === 'race') sp.ab = def.ab || 'int'; sp.always = true; sp.note = def.label || ''; S.spells.push(sp); } }); break;
+    case 'option': S.race.choices = Object.assign({}, S.race.choices, { [def.label]: v[0] }); break;
+    default: if (DND.options[def.type]) {
+      S.picks[def.type] = [...new Set((S.picks[def.type] || []).concat(v))];
+      v.forEach((name, k) => { const e = DND.options[def.type].list.find(x => x[0] === name), fx = (e && e[3]) || {};
+        (fx.skills || []).forEach(sk => setSkill(sk, 1));
+        if (fx.grant && CH) { S.grantSpells = S.grantSpells || {}; S.grantSpells[name] = fx.grant.flatMap((gd, j) => ansList(CH, `${id}.g${k}.${j}`)); } });
+    }
+  }
+}
+
+// ---------- Character creation wizard ----------
+let W = null;
+const WSTEPS = ['Start', 'Race', 'Class', 'Abilities', 'Background', 'Class options', 'Spells', 'Equipment', 'Review'];
+function newW() { return { sources: defaultSources(), step: 0, name: '', player: '', alignment: '', portrait: '', race: '', sub: '', tasha: false, ans: {}, classes: [{ key: '', level: 1, sub: '' }], method: 'pointbuy', base: { str: '', dex: '', con: '', int: '', wis: '', cha: '' }, rolls: [], bg: '', hpMode: 'avg', hpRolls: [], equip: 'kit', gold: '', kitOff: {}, spells: {} }; }
+function openWizard() { W = newW(); applySources(W.sources); $('#wizard').classList.add('open'); document.body.classList.add('wizopen'); renderWizard(); }
+function closeWizard() { if (S.created) applySources(S.sources); $('#wizard').classList.remove('open'); document.body.classList.remove('wizopen'); W = null; }
+const wzRace = () => { const r = DND.races[W.race]; if (!r) return null; const s = (r.subraces || {})[W.sub] || {}; return { r, s, name: s.name || r.name }; };
+function wzRaceChoices() {
+  const x = wzRace(); if (!x) return [];
+  const { r, s } = x; let ch = (s.replaceChoices ? [] : r.choices || []).concat(s.choices || []);
+  return ch;
+}
+function wzRaceAsi() {
+  const x = wzRace(); if (!x) return { fixed: {}, mode: '' };
+  const { r, s } = x; let a = s.asiReplace ? s.asi : r.asi;
+  if (!s.asiReplace && s.asi && typeof s.asi === 'object' && typeof a === 'object') { a = { ...a }; Object.entries(s.asi).forEach(([k, v]) => a[k] = (a[k] || 0) + v); }
+  if (typeof a === 'string') return { fixed: {}, mode: a };
+  if (W.tasha) { const vals = Object.values(a || {}).sort((p, q) => q - p); return { fixed: {}, mode: 'tasha', vals }; }
+  return { fixed: a || {}, mode: '' };
+}
+function wzRacialBonus() {
+  const ra = wzRaceAsi(), out = { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 };
+  Object.entries(ra.fixed).forEach(([k, v]) => out[k] += v);
+  const fl = W.ans['race.asi'] || [];
+  if (ra.mode === 'flex' || ra.mode === 'lineage') { if ((fl[0] || '21') === '21') { if (fl[1]) out[fl[1]] += 2; if (fl[2]) out[fl[2]] += 1; } else [fl[1], fl[2], fl[3]].forEach(a => { if (a) out[a] += 1; }); }
+  if (ra.mode === 'lineage1' && fl[1]) out[fl[1]] += 2;
+  if (ra.mode === 'tasha') (ra.vals || []).forEach((v, k) => { if (fl[k + 1]) out[fl[k + 1]] += v; });
+  wzRaceChoices().forEach((c, k) => { if (c.type === 'asi') ansList(W.ans, 'race.' + k).forEach(a => out[a] += c.amount || 1); });
+  return out;
+}
+function wzRaceAsiUI() {
+  const ra = wzRaceAsi(), fl = W.ans['race.asi'] || [];
+  const abSel = (k, lbl) => `<select class="f" data-ch="race.asi" data-k="${k}"><option value="">${lbl}</option>${AB.map(a => `<option value="${a}"${fl[k] === a ? ' selected' : ''}>${ABN[a]}</option>`).join('')}</select>`;
+  if (ra.mode === 'flex' || ra.mode === 'lineage') { const m = fl[0] || '21'; return `<div class="chq"><span class="lbl">Ability score increases</span><div class="chsel"><select class="f" data-ch="race.asi" data-k="0"><option value="21"${m === '21' ? ' selected' : ''}>+2 and +1</option><option value="111"${m === '111' ? ' selected' : ''}>+1 to three</option></select>${m === '21' ? abSel(1, '+2 to…') + abSel(2, '+1 to…') : abSel(1, '+1 to…') + abSel(2, '+1 to…') + abSel(3, '+1 to…')}</div></div>`; }
+  if (ra.mode === 'lineage1') return `<div class="chq"><span class="lbl">Ability score increase</span><div class="chsel">${abSel(1, '+2 to…')}</div></div>`;
+  if (ra.mode === 'tasha') return `<div class="chq"><span class="lbl">Ability score increases (moved)</span><div class="chsel">${ra.vals.map((v, k) => abSel(k + 1, `+${v} to…`)).join('')}</div></div>`;
+  const f = Object.entries(ra.fixed); return f.length ? `<p class="hint">Ability increases: ${f.map(([k, v]) => `${AB3[k]} +${v}`).join(', ')}</p>` : '';
+}
+const wzBaseScore = a => W.base[a] === '' ? (W.method === 'pointbuy' ? 8 : 10) : N(W.base[a]);
+function wzScores() { const rb = wzRacialBonus(), o = {}; AB.forEach(a => o[a] = wzBaseScore(a) + rb[a]); return o; }
+// Choices left blank in the wizard (Ability Score Improvements, skills, fighting styles, totems…)
+function asiDone(CH, id) { const c = CH[id] || [], m = c[0]; if (!m) return false; if (m === 'feat') { const n = ansList(CH, id + '.feat')[0]; return !!n && featSubDefs(n).every((d, k) => ansList(CH, id + '.feat.f0.' + k).length >= (d.n || 1)); } return m === 'one' ? !!c[1] : !!(c[1] && c[2]); }
+function wzUnanswered() {
+  const out = [];
+  wzRaceChoices().forEach((c, k) => { if (c.type === 'asi') return; if (ansList(W.ans, 'race.' + k).length < (c.n || 1)) out.push({ label: `${choiceLabel(c)} (race)`, step: 1 }); });
+  const b = DND.backgrounds[W.bg];
+  if (b) { if (b.skillChoice && ansList(W.ans, 'bg.skill').length < b.skillChoice.n) out.push({ label: 'Background skill', step: 4 }); if (b.toolChoice && ansList(W.ans, 'bg.tool').length < b.toolChoice.n) out.push({ label: 'Background tool', step: 4 }); if (b.langs && ansList(W.ans, 'bg.lang').length < b.langs) out.push({ label: 'Background language', step: 4 }); }
+  wzClassChoiceDefs().forEach(d => {
+    if (d.def.type === 'asiOrFeat') { if (!asiDone(W.ans, d.id)) out.push({ label: `${CL[d.cls].name} level ${d.lvl}: Ability Score Improvement or feat`, step: 5 }); return; }
+    if (ansList(W.ans, d.id).length < (d.def.n || 1)) out.push({ label: d.def.label || choiceLabel(d.def), step: 5 });
+  });
+  return out;
+}
+// Scores after ASIs and half-feats picked in the wizard.
+function wzFinalScores(sc) {
+  const o = { ...sc }, bump = (a, n) => { if (a && o[a] != null) o[a] = Math.min(20, o[a] + n); };
+  wzClassChoiceDefs().forEach(d => { if (d.def.type !== 'asiOrFeat') return; const c = W.ans[d.id] || [];
+    if (c[0] === 'one') bump(c[1], 2); else if (c[0] === 'two') { bump(c[1], 1); bump(c[2], 1); }
+    else if (c[0] === 'feat') { const n = ansList(W.ans, d.id + '.feat')[0], ft = n && DND.feats.find(x => x[0] === n), e = (ft && ft[4]) || {}; if (e.asiFixed) Object.entries(e.asiFixed).forEach(([a, v]) => bump(a, v)); featSubDefs(n || '').forEach((sd, k) => { if (sd.type === 'asi') ansList(W.ans, d.id + '.feat.f0.' + k).forEach(a => bump(a, 1)); }); } });
+  return o;
+}
+// Languages you already have: on the sheet, or (in creation) from your race and class.
+function wzRaceLangs() { const x = wzRace(); if (!x) return []; return [...new Set((x.r.languages || []).concat(x.s.languages || []))]; }
+function knownLangs() {
+  const out = new Set();
+  if (W && $('#wizard').classList.contains('open')) { wzRaceLangs().forEach(l => out.add(l.toLowerCase())); wzClassRows().forEach(r => (CL[r.key].languages || []).forEach(l => out.add(l.toLowerCase()))); }
+  else (S.langs || []).forEach(l => out.add(String(l).toLowerCase()));
+  return out;
+}
+// Spells your race (and its cantrip pick) already gives you in creation.
+function wzRacialSpells() {
+  const x = wzRace(), out = new Set(); if (!x) return out;
+  (x.r.spells || []).concat(x.s.spells || []).forEach(z => out.add(String(z[1]).toLowerCase()));
+  wzRaceChoices().forEach((c, k) => { if (c.type === 'cantrip') ansList(W.ans, 'race.' + k).forEach(n => out.add(n.toLowerCase())); });
+  return out;
+}
+function wzClassRows() { return W.classes.filter(r => CL[r.key]); }
+function wzTotalLevel() { return wzClassRows().reduce((t, r) => t + N(r.level), 0); }
+function wzClassChoiceDefs() {
+  const out = []; const rows = wzClassRows();
+  rows.forEach((r, ri) => {
+    const c = CL[r.key], s = r.sub ? c.subclasses[r.sub] : null, L = N(r.level);
+    if (ri === 0) out.push({ id: `cls.skills`, def: { type: 'skill', n: c.skills.n, from: c.skills.from, label: `${c.name} skills` }, cls: r.key });
+    else if (c.mc && c.mc.skills) out.push({ id: `mc.${r.key}.skills`, def: { type: 'skill', n: c.mc.skills, from: c.skills.from, label: `${c.name} multiclass skill` }, cls: r.key });
+    c.asi.filter(l => l <= L).forEach(l => out.push({ id: `asi.${r.key}.${l}`, def: { type: 'asiOrFeat' }, cls: r.key, lvl: l }));
+    (c.choices || []).concat((s && s.choices) || []).forEach((ch, k) => { if (ch.level <= L) out.push({ id: `ch.${r.key}.${k}.${ch.level}.${ch.type}`, def: { ...ch, label: `${choiceLabel(ch)} (${c.name} ${ch.level})` }, cls: r.key }); });
+  });
+  return out;
+}
+function wzSpellPlan() {
+  // Builds a temporary S-like view for the chosen classes to know limits.
+  const rows = wzClassRows(), sc = wzScores(), PBw = Math.ceil(Math.max(1, wzTotalLevel()) / 4) + 1, out = [];
+  rows.forEach(r => {
+    const c = CL[r.key], s = r.sub ? c.subclasses[r.sub] : null, L = N(r.level);
+    let cd = c.caster; if (!cd && s && s.caster && L >= c.sub.level) cd = s.caster;
+    if (!cd || (cd.from && L < cd.from)) return;
+    const m = Math.floor((sc[cd.ab] - 10) / 2);
+    const maxL = cd.type === 'pact' ? N(cd.pactLevel[L - 1]) : (FULL[cd.type === 'full' ? L : cd.type === 'third' ? (L >= 3 ? Math.ceil(L / 3) : 0) : Math.ceil(L / 2)] || []).length;
+    let lim = null;
+    if (cd.prepared) { const e = String(cd.prepared).replace(/[a-z]+/g, w => AB.includes(w) ? '(' + Math.floor((sc[w] - 10) / 2) + ')' : CL[w] ? '(' + L + ')' : w); try { lim = Math.max(1, Math.floor(Function('floor', '"use strict";return ' + e)(Math.floor))); } catch (x) { lim = 1; } }
+    else if (cd.known) lim = N(cd.known[L - 1]);
+    const book = cd.book ? 6 + 2 * (L - 1) : 0;
+    const exp = s && s.spellMode === 'expanded' && s.spells ? Object.keys(s.spells).filter(lv => L >= N(lv)).flatMap(lv => s.spells[lv]).map(n => n.toLowerCase()) : [];
+    const always = s && s.spellMode === 'always' && s.spells ? Object.keys(s.spells).filter(lv => L >= N(lv)).flatMap(lv => s.spells[lv]) : [];
+    out.push({ key: r.key, name: c.name, cd, maxL, lim, book, cant: cd.cantrips ? N(cd.cantrips[L - 1]) : 0, list: cd.list, exp, always, mod: m, PB: PBw });
+  });
+  return out;
+}
+function kitItems() {
+  const c = CL[(wzClassRows()[0] || {}).key], b = DND.backgrounds[W.bg];
+  return (c ? c.kit.map(k => ['class', k]) : []).concat(b && b.equip ? b.equip.map(k => ['bg', k]) : []);
+}
+function renderWizard() {
+  if (!W) return;
+  const st = W.step;
+  let body = '';
+  if (st === 0) {
+    body = `<div class="wz-intro"><p>Build any 5e (2014) character. Every choice can be changed later on the sheet.</p></div>
+      <div class="wz-grid">${fld('Character name', `<input class="f" data-wz="name" value="${esc(W.name)}" placeholder="Name" autofocus>`)}${window.SHEET_PAGES ? '' : fld('Player', `<input class="f" data-wz="player" value="${esc(W.player)}" placeholder="Your name">`)}
+      ${fld('Alignment', `<select class="f" data-wz="alignment"><option value="">—</option>${DND.alignments.map(a => `<option${W.alignment === a ? ' selected' : ''}>${esc(a)}</option>`).join('')}</select>`)}</div>
+      <div class="row" style="margin-top:12px"><img class="wz-portrait" src="${esc(W.portrait || PLACEHOLDER)}" alt=""><button class="btn" data-wact="portrait">${W.portrait ? 'Change portrait' : 'Add a portrait'}</button><span class="hint">Optional. The sheet's colors can match it.</span></div>
+      <div class="wz-src"><h4>Books for this character</h4><p class="hint">Only content from the books you tick will be offered. You can change this later in Settings → Books.</p>${sourcesHTML(W.sources)}</div>
+      <p class="hint" style="margin-top:16px">Already have a character exported from this sheet? <button class="linkbtn" data-wact="import">Import it</button></p>`;
+  } else if (st === 1) {
+    const x = wzRace();
+    body = `<div class="wz-grid">${fld('Race', `<select class="f" data-wz="race"><option value="">— choose a race —</option>${DND.raceGroups.map(([g, ks]) => `<optgroup label="${esc(g)}">${ks.filter(k => DND.races[k]).map(k => `<option value="${k}"${W.race === k ? ' selected' : ''}>${esc(DND.races[k].name)}${DND.races[k].src && DND.races[k].src !== 'PHB' ? ' (' + DND.races[k].src + ')' : ''}</option>`).join('')}</optgroup>`).join('')}</select>`)}
+      ${x && x.r.subraces ? fld('Subrace / variant', `<select class="f" data-wz="sub"><option value="">— choose —</option>${Object.entries(x.r.subraces).map(([k, s]) => `<option value="${k}"${W.sub === k ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select>`) : ''}</div>`;
+    if (x) {
+      const r = x.r, s = x.s, tr = (s.replaceTraits ? [] : r.traits || []).concat(s.traits || []);
+      const sp = (r.spells || []).concat(s.spells || []);
+      body += `<div class="wz-info"><p><b>${esc(x.name)}</b> · ${esc(s.size || r.size || 'Medium')} · speed ${s.speed || r.speed || 30} ft${(s.fly || r.fly) ? ', fly ' + (s.fly || r.fly) : ''}${(s.swim || r.swim) ? ', swim ' + (s.swim || r.swim) : ''}${(s.darkvision || r.darkvision) ? ' · darkvision ' + (s.darkvision || r.darkvision) + ' ft' : ''} · ${esc(DND.sources[s.src || r.src] || '')}</p>
+        <p><b>Languages:</b> ${esc(wzRaceLangs().join(', ') || '—')}${wzRaceChoices().some(c => c.type === 'language') ? ' + your choice below' : ''}</p>
+        <ul>${tr.map(t => `<li><b>${esc(t[0])}</b> — ${esc(t[1])}</li>`).join('')}${sp.map(z => `<li><b>${esc(z[1])}</b> at level ${z[0]} — ${esc(z[2])}</li>`).join('')}</ul>
+        ${typeof (s.asiReplace ? s.asi : r.asi) === 'object' ? `<label class="checkline"><input type="checkbox" data-wz="tasha"${W.tasha ? ' checked' : ''}> Customize origin (Tasha's): move this race's ability increases to any scores</label>` : ''}
+        ${wzRaceAsiUI()}
+        ${wzRaceChoices().map((c, k) => choiceUI(W.ans, 'race.' + k, c)).join('')}</div>`;
+    }
+  } else if (st === 2) {
+    const tl = wzTotalLevel();
+    // Every character starts at level 1; higher levels (and multiclassing) come from Level Up, one level at a time,
+    // so every choice a level gives is asked for in order.
+    W.classes = [Object.assign(W.classes[0] || {}, { level: 1 })];
+    body = `<p class="hint">Pick your class. Everyone starts at level 1 — use <b>Level Up</b> on the sheet to reach your level; it asks for each level's choices (subclass, Ability Score Improvements, spells) as you go, and is where you multiclass.</p>
+      ${W.classes.map((r, i) => { const c = CL[r.key]; return `<div class="wz-cls"><div class="wz-grid">${fld('Class', `<select class="f" data-wzc="${i}" data-f="key"><option value="">— choose —</option>${DND.classOrder.map(k => `<option value="${k}"${r.key === k ? ' selected' : ''}>${esc(CL[k].name)}${CL[k].src !== 'PHB' ? ' (' + CL[k].src + ')' : ''}</option>`).join('')}</select>`)}
+        ${c && c.sub.level <= 1 ? fld(c.sub.label, `<select class="f" data-wzc="${i}" data-f="sub"><option value="">— choose —</option>${Object.entries(c.subclasses).map(([k, s]) => `<option value="${k}"${r.sub === k ? ' selected' : ''}>${esc(s.name)}${s.src !== 'PHB' ? ' (' + s.src + ')' : ''}</option>`).join('')}</select>`) : c ? `<span class="hint">${esc(c.sub.label)} at level ${c.sub.level}</span>` : ''}</div>
+        ${c ? `<p class="hint">d${c.hd} Hit Dice · saves ${c.saves.map(a => AB3[a]).join(', ')} · ${esc(c.armor)} · ${esc(c.weapons)}</p>` : ''}
+        ${c && r.sub && c.subclasses[r.sub] ? `<p class="hint">${esc(c.subclasses[r.sub].features.filter(f => f[0] <= 1).map(f => f[1]).join(' · '))}</p>` : ''}</div>`; }).join('')}`;
+  } else if (st === 3) {
+    const rb = wzRacialBonus(), sc = wzScores();
+    const methods = [['pointbuy', 'Point buy'], ['array', 'Standard array'], ['roll', 'Roll 4d6'], ['manual', 'Enter scores']];
+    let ctl = '';
+    if (W.method === 'array' || W.method === 'roll') {
+      const pool = W.method === 'array' ? DND.standardArray : W.rolls;
+      ctl = W.method === 'roll' ? `<div class="row"><button class="btn gold" data-wact="roll">${W.rolls.length ? 'Reroll' : 'Roll'} 4d6 drop lowest ×6</button>${W.rolls.length ? `<span class="hint">Rolled: <b>${W.rolls.join(', ')}</b></span>` : ''}</div>` : `<p class="hint">Assign 15, 14, 13, 12, 10 and 8.</p>`;
+      if (pool.length) ctl += `<div class="abgrid">${AB.map(a => `<label class="fld"><span class="lbl">${ABN[a]}</span><select class="f" data-wzab="${a}"><option value="">—</option>${pool.map((v, k) => [v, k]).filter(([, k]) => !AB.some(o => o !== a && W.base['_' + o] === String(k))).map(([v, k]) => `<option value="${k}"${W.base['_' + a] === String(k) ? ' selected' : ''}>${v}</option>`).join('')}</select><span class="hint">${rb[a] ? `+${rb[a]} race = ` : ''}<b>${W.base[a] === '' ? '—' : sc[a]}</b></span></label>`).join('')}</div>`;
+    } else {
+      const pb = W.method === 'pointbuy', spent = pb ? AB.reduce((t, a) => t + N(DND.pointBuy[wzBaseScore(a)]), 0) : 0;
+      ctl = pb ? `<p class="pbleft">Points left <b class="${spent > 27 ? 'bad' : ''}">${27 - spent}</b> <span class="hint">of 27 · scores 8–15</span></p>` : '<p class="hint">Type your scores before racial bonuses.</p>';
+      ctl += pb ? `<div class="abgrid">${AB.map(a => { const v = wzBaseScore(a), nextCost = v < 15 ? N(DND.pointBuy[v + 1]) - N(DND.pointBuy[v]) : 0; return `<div class="fld pbcell"><span class="lbl">${ABN[a]}</span>
+          <div class="pbrow"><button type="button" class="pbbtn" data-wact="pb" data-a="${a}" data-d="-1" ${v <= 8 ? 'disabled' : ''} aria-label="Lower ${ABN[a]}">−</button><b class="pbval">${v}</b><button type="button" class="pbbtn" data-wact="pb" data-a="${a}" data-d="1" ${v >= 15 || spent + nextCost > 27 ? 'disabled' : ''} aria-label="Raise ${ABN[a]}">+</button></div>
+          <span class="hint">cost ${N(DND.pointBuy[v])}${v < 15 ? ` · next +${nextCost}` : ' · max'}</span><span class="hint">${rb[a] ? `+${rb[a]} race = ` : ''}<b>${sc[a]}</b> (${fmt(Math.floor((sc[a] - 10) / 2))})</span></div>`; }).join('')}</div>`
+        : `<div class="abgrid">${AB.map(a => `<label class="fld"><span class="lbl">${ABN[a]}</span><input class="f" type="number" inputmode="numeric" data-wzab="${a}" value="${esc(W.base[a])}" min="1" max="30"><span class="hint">${rb[a] ? `+${rb[a]} race = ` : ''}<b>${sc[a]}</b> (${fmt(Math.floor((sc[a] - 10) / 2))})</span></label>`).join('')}</div>`;
+    }
+    body = `<div class="segmini" style="margin-bottom:10px">${methods.map(([k, t]) => `<button class="${W.method === k ? 'on' : ''}" data-wact="method" data-v="${k}">${t}</button>`).join('')}</div>${ctl}
+      <p class="hint">Ability Score Improvements from your class levels come on the Class options step.</p>`;
+  } else if (st === 4) {
+    const b = DND.backgrounds[W.bg];
+    body = `<div class="wz-grid">${fld('Background', `<select class="f" data-wz="bg"><option value="">— choose —</option>${Object.entries(DND.backgrounds).map(([k, v]) => `<option value="${k}"${W.bg === k ? ' selected' : ''}>${esc(v.name)}${v.src !== 'PHB' ? ' (' + v.src + ')' : ''}</option>`).join('')}</select>`)}</div>`;
+    if (b) {
+      body += `<div class="wz-info"><p>${b.skills && b.skills.length ? `<b>Skills:</b> ${esc(b.skills.join(', '))} · ` : ''}${b.tools && b.tools.length ? `<b>Tools:</b> ${esc(b.tools.join(', '))} · ` : ''}<b>Feature:</b> ${esc(b.feature[0])} — ${esc(b.feature[1])}</p>
+        ${b.skillChoice ? choiceUI(W.ans, 'bg.skill', { type: 'skill', n: b.skillChoice.n, from: b.skillChoice.from }) : ''}
+        ${b.toolChoice ? choiceUI(W.ans, 'bg.tool', { type: 'tool', n: b.toolChoice.n, from: b.toolChoice.from, orLang: b.toolChoice.orLang, label: b.toolChoice.orLang ? 'Tool or language' : 'Tool' }) : ''}
+        ${b.langs ? choiceUI(W.ans, 'bg.lang', { type: 'language', n: b.langs }) : ''}
+        ${b.feat ? `<p><b>Feat:</b> ${esc(b.feat)}</p>` + featSubUI(W.ans, 'bg.feat', b.feat) : ''}
+        <p class="hint">Overlapping skill? Pick any other skill instead from the Core tab after creating.</p></div>`;
+    }
+  } else if (st === 5) {
+    const defs = wzClassChoiceDefs();
+    body = defs.length ? defs.map(d => d.def.type === 'asiOrFeat' ? `<div class="wz-asi"><span class="hint">${esc(CL[d.cls].name)} level ${d.lvl}</span>${asiOrFeatWz(d.id)}</div>` : choiceUI(W.ans, d.id, d.def, { cls: d.cls, level: N((W.classes.find(r => r.key === d.cls) || {}).level) || 1, sub: (W.classes.find(r => r.key === d.cls) || {}).sub })).join('') : '<p class="hint">Choose a class first.</p>';
+  } else if (st === 6) {
+    const plan = wzSpellPlan();
+    const x = wzRace(); const rsp = x ? (x.r.spells || []).concat(x.s.spells || []) : [];
+    body = plan.length ? plan.map(p => {
+      const ch = W.spells[p.key] = W.spells[p.key] || [];
+      const list = DND.spells.filter(s => (s.classes.includes(p.list) || p.exp.includes(s.name.toLowerCase())) && s.level <= p.maxL);
+      const nC = ch.filter(n => (SPI(n) || {}).level === 0).length, nS = ch.length - nC;
+      const target = p.book ? p.book : p.lim;
+      const rh = wzRacialSpells(), elsewhere = n => rh.has(n.toLowerCase()) || Object.entries(W.spells).some(([k, arr]) => k !== p.key && (arr || []).includes(n));
+      const row = s => `<label class="crrow sel${ch.includes(s.name) ? ' on' : ''}${elsewhere(s.name) && !ch.includes(s.name) ? ' dim' : ''}" data-q="${esc((s.name + ' ' + s.summary).toLowerCase())}"><input type="checkbox" data-wzsp="${p.key}" value="${esc(s.name)}"${ch.includes(s.name) ? ' checked' : ''}${elsewhere(s.name) && !ch.includes(s.name) ? ' disabled title="You already get this spell"' : ''}><div><b>${esc(s.name)}</b> <span class="hint">${esc(s.school)} · ${esc(s.time)} · ${esc(s.range)}${s.conc ? ' · conc' : ''}${s.ritual ? ' · ritual' : ''}</span><div class="hint">${esc(s.summary)}</div></div></label>`;
+      const cants = list.filter(s => s.level === 0), lvls = [...new Set(list.filter(s => s.level > 0).map(s => s.level))].sort((a, b) => a - b);
+      const cur = lvls.includes(N(W['lv' + p.key])) ? N(W['lv' + p.key]) : lvls[0];
+      const perL = l => ch.filter(n => (SPI(n) || {}).level === l).length;
+      const cantBlock = p.cant ? `<div class="wz-spsec"><div class="wz-sph"><b>Cantrips</b><span class="cnt${nC > p.cant ? ' bad' : nC === p.cant ? ' done' : ''}">${nC} / ${p.cant} chosen</span><span class="hint">At-will spells that never use a slot.</span></div>
+        <input class="f" placeholder="Search cantrips…" data-wzq="${p.key}c" value="${esc(W['q' + p.key + 'c'] || '')}">
+        <div class="crlist short">${cants.map(row).join('')}</div></div>` : '';
+      const spellBlock = lvls.length && target ? `<div class="wz-spsec"><div class="wz-sph"><b>${p.book ? 'Spellbook' : p.cd.prepared ? 'Prepared spells' : 'Spells known'}</b><span class="cnt${nS > target ? ' bad' : nS === target ? ' done' : ''}">${nS} / ${target} chosen</span><span class="hint">${p.book ? 'Wizards copy these into their spellbook and prepare from it each day.' : p.cd.prepared ? 'You can change these after each long rest.' : 'Spread them across any level you can cast.'}</span></div>
+        <div class="segmini lvtabs">${lvls.map(l => `<button class="${l === cur ? 'on' : ''}" data-wact="splv" data-k="${p.key}" data-v="${l}">${ORD[l - 1]} level${perL(l) ? ` <b>${perL(l)}</b>` : ''}</button>`).join('')}</div>
+        <input class="f" placeholder="Search ${ORD[cur - 1]}-level spells…" data-wzq="${p.key}s" value="${esc(W['q' + p.key + 's'] || '')}">
+        <div class="crlist short">${list.filter(s => s.level === cur).map(row).join('')}</div></div>` : '';
+      return `<div class="wz-sp"><h4>${esc(p.name)} <span class="hint">${AB3[p.cd.ab]} · spell save DC ${8 + p.PB + p.mod} · up to ${p.maxL ? ORD[p.maxL - 1] : 'cantrips'} level</span></h4>
+        ${p.always.length ? `<p class="hint">Always prepared (free): ${esc(p.always.join(', '))}</p>` : ''}${cantBlock}${spellBlock}</div>`;
+    }).join('') : '<p class="hint">No spellcasting at your starting level.</p>';
+    if (rsp.length) body += `<p class="hint">Racial spells are added automatically: ${esc(rsp.map(z => z[1] + ' (level ' + z[0] + ')').join(', '))}.</p>`;
+  } else if (st === 7) {
+    const c = CL[(wzClassRows()[0] || {}).key], b = DND.backgrounds[W.bg], kit = kitItems();
+    body = `<div class="segmini" style="margin-bottom:10px"><button class="${W.equip === 'kit' ? 'on' : ''}" data-wact="equip" data-v="kit">Starting equipment</button><button class="${W.equip === 'gold' ? 'on' : ''}" data-wact="equip" data-v="gold">Starting gold instead</button></div>`;
+    if (W.equip === 'kit') body += `<p class="hint">Untick anything you don't want. Choices like "a martial weapon" are set to a sensible default — swap items in Inventory any time, and add more from the full catalog.</p>
+      <div class="kit">${kit.map(([src, k], i) => { const [n, q] = k.split(':'); return `<label class="checkline"><input type="checkbox" data-wzkit="${i}"${W.kitOff[i] ? '' : ' checked'}> ${esc(n)}${q ? ' ×' + q : ''} <span class="hint">${src === 'bg' ? 'background' : 'class'}</span></label>`; }).join('')}</div>${b ? `<p class="hint">Plus ${b.gold} gp from your background.</p>` : ''}`;
+    else body += `<div class="row"><button class="btn gold" data-wact="rollgold">Roll ${esc(c ? c.gold : '')} gp</button>${fld('Gold', `<input class="f" type="number" data-wz="gold" value="${esc(W.gold)}" style="width:110px">`)}</div><p class="hint">Buy gear from the catalog in Inventory after creating.</p>`;
+    const extra = wzTotalLevel() - 1;
+    if (extra > 0) body += `<h4 style="margin-top:16px">Hit points for levels 2–${wzTotalLevel()}</h4><div class="segmini"><button class="${W.hpMode === 'avg' ? 'on' : ''}" data-wact="hpmode" data-v="avg">Take the average</button><button class="${W.hpMode === 'roll' ? 'on' : ''}" data-wact="hpmode" data-v="roll">Roll</button></div>${W.hpMode === 'roll' ? `<p class="hint">${W.hpRolls.length ? 'Rolled: ' + W.hpRolls.join(', ') : ''} <button class="btn sm" data-wact="rollhp">${W.hpRolls.length ? 'Reroll' : 'Roll'}</button></p>` : ''}`;
+  } else if (st === 8) {
+    const sc = wzScores(), x = wzRace(), b = DND.backgrounds[W.bg];
+    const probs = [];
+    if (!x) probs.push('Choose a race'); else if (x.r.subraces && !W.sub) probs.push('Choose a subrace');
+    if (!wzClassRows().length) probs.push('Choose a class'); if (wzTotalLevel() > 20) probs.push('Total level is over 20');
+    wzClassRows().forEach(r => { const c = CL[r.key]; if (N(r.level) >= c.sub.level && !r.sub) probs.push(`Choose a ${c.sub.label} for ${c.name}`); });
+    if (W.method === 'array' || W.method === 'roll') { if (AB.some(a => W.base[a] === '')) probs.push('Assign all ability scores'); }
+    const todo = wzUnanswered();
+    wzClassChoiceDefs().forEach(d => { const op = DND.options[d.def.type]; if (!op) return; const r = W.classes.find(x => x.key === d.cls) || {}; (W.ans[d.id] || []).forEach(v => { const e = op.list.find(x => x[0] === v); const no = e && optPrereq(e[2], { CH: W.ans, cls: d.cls, level: N(r.level), sub: r.sub }); if (no) probs.push(`${v} ${no}`); }); });
+    body = `<div class="wz-review"><p><b>${esc(W.name || 'Unnamed hero')}</b> — ${esc(x ? x.name : '?')} ${esc(wzClassRows().map(r => CL[r.key].name + ' ' + r.level + (r.sub ? ' (' + CL[r.key].subclasses[r.sub].name + ')' : '')).join(' / '))}${b ? ' · ' + esc(b.name) : ''}</p>
+      <div class="abrow">${(() => { const fin = wzFinalScores(sc); return AB.map(a => `<span><span class="lbl">${AB3[a]}</span><b>${fin[a]}</b> ${fmt(Math.floor((fin[a] - 10) / 2))}${fin[a] !== sc[a] ? `<small class="hint"> (${sc[a]} +${fin[a] - sc[a]})</small>` : ''}</span>`).join(''); })()}</div>
+      ${todo.length ? `<div class="wz-todo"><b>Still to choose:</b><ul>${todo.map(t => `<li>${esc(t.label)} <button class="linkbtn" data-wact="go" data-v="${t.step}">Choose</button></li>`).join('')}</ul><span class="hint">You can create now and finish these later from <b>Settings → Unfinished choices</b>.</span></div>` : ''}
+      ${probs.length ? `<p class="warn">${probs.map(esc).join(' · ')}</p>` : '<p>Everything is set. You can change anything later — scores, skills, spells and items are all editable on the sheet.</p>'}
+      <p class="hint">Scores include racial bonuses, Ability Score Improvements and half-feats.</p></div>`;
+  }
+  $('#wizard').innerHTML = `<div class="wz-box"><div class="wz-head"><h2>Create your character</h2><div class="wz-steps">${WSTEPS.map((t, i) => `<button class="wz-step${i === st ? ' on' : ''}${i < st ? ' done' : ''}" data-wact="go" data-v="${i}" aria-label="Step ${i + 1}: ${t}">${i + 1}. ${t}</button>`).join('')}</div><div class="wz-now">Step ${st + 1} of ${WSTEPS.length}<b>${WSTEPS[st]}</b></div></div>
+    <div class="wz-body"><h3>${WSTEPS[st]}</h3>${body}</div>
+    <div class="wz-foot">${st ? '<button class="btn" data-wact="back">Back</button>' : ''}<span class="grow"></span>${st < WSTEPS.length - 1 ? '<button class="btn gold" data-wact="next">Next</button>' : '<button class="btn gold" data-wact="create">Create character</button>'}</div></div>`;
+  $$('#wizard [data-wzq]').forEach(i => filterWzSpells(i));
+}
+function asiModeClick(b) {
+  const inWz = !!b.closest('#wizard'), inP = !!b.closest('#pendm') && PEND, CH = inWz ? W.ans : inP ? PEND.ans : LV ? LV.ans : null; if (!CH) return;
+  CH[b.dataset.asimode] = [b.dataset.v];
+  if (inP) renderPending(); else if (inWz) { const sc = $('#wizard .wz-body').scrollTop; renderWizard(); $('#wizard .wz-body').scrollTop = sc; } else renderLevelUp();
+}
+function pbStep(a, d) {
+  const cur = wzBaseScore(a), nv = Math.max(8, Math.min(15, cur + d));
+  const spent = AB.reduce((t, x) => t + N(DND.pointBuy[x === a ? nv : wzBaseScore(x)]), 0);
+  if (spent > 27) { toast('Not enough points left.'); return; }
+  W.base[a] = nv; renderWizard();
+}
+function asiOrFeatWz(id) { return asiOrFeatUI(W.ans, id).replace(/\(\d+\)<\/option>/g, '</option>'); }
+function filterWzSpells(inp) { const q = inp.value.trim().toLowerCase(), box = inp.nextElementSibling; $$('.crrow', box).forEach(r => r.style.display = !q || r.dataset.q.includes(q) ? '' : 'none'); }
+function wizField(e) {
+  const t = e.target, d = t.dataset;
+  if (d.wsrc) return wizSetSource(d.wsrc, t.checked);
+  if (d.ch !== undefined) return chField(t);
+  if (d.wz) { const v = t.type === 'checkbox' ? t.checked : t.value; W[d.wz] = v; if (d.wz === 'race') { W.sub = ''; W.ans = {}; W.tasha = false; } if (['race', 'sub', 'tasha', 'bg', 'alignment'].includes(d.wz)) renderWizard(); return; }
+  if (d.wzc !== undefined) { const r = W.classes[N(d.wzc)]; r[d.f] = d.f === 'level' ? N(t.value) : t.value; if (d.f === 'key') r.sub = ''; renderWizard(); return; }
+  if (d.wzab) {
+    if (W.method === 'array' || W.method === 'roll') { const pool = W.method === 'array' ? DND.standardArray : W.rolls; AB.forEach(a => { if (a !== d.wzab && W.base['_' + a] === t.value && t.value !== '') { W.base['_' + a] = ''; W.base[a] = ''; } }); W.base['_' + d.wzab] = t.value; W.base[d.wzab] = t.value === '' ? '' : pool[N(t.value)]; renderWizard(); }
+    else { W.base[d.wzab] = t.value === '' ? '' : (W.method === 'pointbuy' ? Math.max(8, Math.min(15, N(t.value))) : N(t.value)); if (e.type === 'change' || W.method === 'pointbuy') { const pos = t.dataset.wzab; renderWizard(); const el = $(`#wizard [data-wzab="${pos}"]`); if (el && e.type !== 'change') { el.focus(); } } }
+    return;
+  }
+  if (d.wzq) { W['q' + d.wzq] = t.value; filterWzSpells(t); return; }
+  if (d.wzsp) { const L = W.spells[d.wzsp] = W.spells[d.wzsp] || []; if (t.checked) L.push(t.value); else L.splice(L.indexOf(t.value), 1); t.closest('.crrow').classList.toggle('on', t.checked); const sc = $('#wizard .wz-body').scrollTop, ls = $$('#wizard .crlist').map(x => x.scrollTop); renderWizard(); $('#wizard .wz-body').scrollTop = sc; $$('#wizard .crlist').forEach((x, k) => x.scrollTop = ls[k] || 0); return; }
+  if (d.wzkit !== undefined) { W.kitOff[d.wzkit] = !t.checked; return; }
+}
+function wizClick(e) {
+  const am = e.target.closest('[data-asimode]'); if (am) return asiModeClick(am);
+  const b = e.target.closest('[data-wact]'); if (!b) return;
+  const a = b.dataset.wact;
+  switch (a) {
+    case 'next': W.step = Math.min(WSTEPS.length - 1, W.step + 1); break;
+    case 'back': W.step = Math.max(0, W.step - 1); break;
+    case 'go': W.step = N(b.dataset.v); break;
+    case 'portrait': $('#portraitFile').click(); return;
+    case 'import': $('#importFile').click(); return;
+    case 'addcls': W.classes.push({ key: '', level: 1, sub: '' }); break;
+    case 'delcls': W.classes.splice(N(b.dataset.i), 1); break;
+    case 'method': W.method = b.dataset.v; W.base = { str: '', dex: '', con: '', int: '', wis: '', cha: '' }; break;
+    case 'roll': W.rolls = Array.from({ length: 6 }, () => { const r = [1, 2, 3, 4].map(() => 1 + Math.floor(Math.random() * 6)).sort((x, y) => y - x); return r[0] + r[1] + r[2]; }); W.base = { str: '', dex: '', con: '', int: '', wis: '', cha: '' }; break;
+    case 'equip': W.equip = b.dataset.v; break;
+    case 'rollgold': { const c = CL[(wzClassRows()[0] || {}).key]; if (c) W.gold = rollExpr(c.gold.replace(/\*10$/, '')).total * (/\*10$/.test(c.gold) ? 10 : 1); break; }
+    case 'hpmode': W.hpMode = b.dataset.v; break;
+    case 'rollhp': W.hpRolls = []; wzClassRows().forEach((r, i) => { const c = CL[r.key]; for (let k = i === 0 ? 1 : 0; k < N(r.level); k++) W.hpRolls.push(rollExpr('1d' + c.hd).total); }); break;
+    case 'create': return buildCharacter();
+    case 'pb': return pbStep(b.dataset.a, N(b.dataset.d));
+    case 'splv': W['lv' + b.dataset.k] = N(b.dataset.v); W['q' + b.dataset.k + 's'] = ''; { const sc = $('#wizard .wz-body').scrollTop; renderWizard(); $('#wizard .wz-body').scrollTop = sc; } return;
+  }
+  renderWizard(); $('#wizard .wz-body').scrollTop = 0;
+}
+function findGear(name) {
+  const n = name.toLowerCase();
+  const w = DND.weapons.find(x => x[0].toLowerCase() === n); if (w) return makeWeaponItem(w);
+  const a = DND.armor.find(x => x[0].toLowerCase() === n); if (a) return makeArmorItem(a);
+  const g = DND.gear.find(x => x[0].toLowerCase() === n); if (g) return makeGearItem(g);
+  return { id: uid(), name, qty: 1, weight: 0, equipped: false, notes: '' };
+}
+function buildCharacter() {
+  const x = wzRace(), rows = wzClassRows();
+  if (!x || !rows.length) { toast('Choose at least a race and a class.', 'fumble'); W.step = !x ? 1 : 2; renderWizard(); return; }
+  if (wzTotalLevel() > 20) { toast('Total level can be at most 20.', 'fumble'); W.step = 2; renderWizard(); return; }
+  const sc = wzScores();
+  S = migrate(Object.assign(blankState(), { dataRev: EMBED.dataRev || '', layout: S.layout || {} }));
+  S.sources = W.sources.slice();
+  S.id = uid(); S.name = W.name.trim() || 'Unnamed Hero'; S.player = W.player; S.alignment = W.alignment; S.portrait = W.portrait;
+  S.race = { key: W.race, sub: W.sub, choices: {} }; S.raceName = x.name.toLowerCase().includes(x.r.name.toLowerCase()) ? x.name : x.name + ' ' + x.r.name;
+  S.classes = rows.map(r => ({ key: r.key, level: N(r.level), sub: N(r.level) >= CL[r.key].sub.level ? r.sub : '' }));
+  AB.forEach(a => S.abilities[a] = sc[a]);
+  const c0 = CL[rows[0].key];
+  c0.saves.forEach(a => S.saves[a] = true);
+  // Proficiencies
+  const ri = raceInfo();
+  S.profs = { armor: (c0.armorCats || []).slice(), weapons: (c0.weaponCats || []).slice(), weaponNames: (c0.weaponNames || []).slice() };
+  rows.slice(1).forEach(r => { const mc = CL[r.key].mc || {}; S.profs.armor.push(...(mc.armorCats || [])); S.profs.weapons.push(...(mc.weaponCats || [])); });
+  rows.forEach(r => { const s = r.sub && CL[r.key].subclasses[r.sub]; if (s && s.profs && N(r.level) >= CL[r.key].sub.level) { S.profs.armor.push(...(s.profs.armorCats || [])); S.profs.weapons.push(...(s.profs.weaponCats || [])); } });
+  if (ri) { if (ri.armorCats) S.profs.armor.push(...ri.armorCats); if (ri.weapons) S.profs.weaponNames.push(...ri.weapons); }
+  S.profs.armor = [...new Set(S.profs.armor)]; S.profs.weapons = [...new Set(S.profs.weapons)];
+  S.profArmor = profArmorText(); S.profWeapons = profWeaponText();
+  S.tools = []; S.langs = [];
+  const knownTool = x => ALL_TOOLS().find(t => t.toLowerCase() === x.trim().toLowerCase());
+  addText('profTools', String(c0.tools || '').split(',').map(knownTool).filter(Boolean));
+  rows.slice(1).forEach(r => addText('profTools', String((CL[r.key].mc || {}).profs || '').split(',').map(knownTool).filter(Boolean)));
+  addText('languages', wzRaceLangs().length ? wzRaceLangs() : (ri && ri.languages) || []);
+  rows.forEach(r => addText('languages', CL[r.key].languages || []));
+  if (ri && ri.skills) ri.skills.forEach(n => setSkill(n, 1));
+  if (ri && ri.tools) addText('profTools', ri.tools);
+  // Race choices
+  wzRaceChoices().forEach((c, k) => {
+    const v = ansList(W.ans, 'race.' + k); if (!v.length) return;
+    if (c.type === 'asi') return; // already in scores
+    if (c.type === 'feat') { v.forEach((n, j) => applyFeat(n, W.ans, `race.${k}.f${j}`)); return; }
+    if (c.type === 'option') { S.race.choices[c.label] = v[0]; return; }
+    applyChoice(c, v);
+  });
+  // Background
+  const b = DND.backgrounds[W.bg];
+  if (b) {
+    S.background = W.bg; S.backgroundName = b.name;
+    (b.skills || []).forEach(n => setSkill(n, 1));
+    addText('profTools', b.tools || []);
+    applyChoice({ type: 'skill' }, ansList(W.ans, 'bg.skill'));
+    applyChoice({ type: 'tool' }, ansList(W.ans, 'bg.tool'));
+    applyChoice({ type: 'language' }, ansList(W.ans, 'bg.lang'));
+    if (b.feat) applyFeat(b.feat, W.ans, 'bg.feat');
+  }
+  // Class options in level order
+  const defs = wzClassChoiceDefs();
+  S.answered = {};
+  defs.forEach(d => {
+    if (d.def.type === 'asiOrFeat') { if (asiDone(W.ans, d.id)) S.answered[d.id] = (W.ans[d.id] || []).slice(); applyAsiOrFeat(W.ans, d.id); return; }
+    if (ansList(W.ans, d.id).length >= (d.def.n || 1)) S.answered[d.id] = ansList(W.ans, d.id);
+    const v = ansList(W.ans, d.id); if (v.length) applyChoice(d.def, v, W.ans, d.id);
+  });
+  // Spells
+  wzSpellPlan().forEach(p => (W.spells[p.key] || []).forEach(n => { const sp = spellEntry(n, p.key); if (p.cd.prepared && N(sp.level) > 0) sp.prepared = true; S.spells.push(sp); }));
+  // Hit points
+  const conM = mod('con', true);
+  let base = c0.hd;
+  let k = 0;
+  rows.forEach((r, i) => { const c = CL[r.key]; for (let l = i === 0 ? 1 : 0; l < N(r.level); l++) { base += W.hpMode === 'roll' && W.hpRolls[k] != null ? W.hpRolls[k] : Math.floor(c.hd / 2) + 1; k++; } });
+  S.hp.base = base;
+  // Equipment
+  if (W.equip === 'kit') {
+    kitItems().forEach(([src, s2], i) => { if (W.kitOff[i]) return; const [n, q] = s2.split(':'); const it = findGear(n); it.qty = N(q) || 1; addInventoryItem(it, true); });
+    if (b) S.currency.gp = N(b.gold);
+  } else S.currency.gp = N(W.gold) + (b ? 0 : 0);
+  const arm = S.inventory.find(it => it.armor && it.armor.type !== 'shield' && (S.profs.armor || []).includes(it.armor.type)); if (arm) arm.equipped = true;
+  const sh = S.inventory.find(it => it.armor && it.armor.type === 'shield' && (S.profs.armor || []).includes('shield')); if (sh) sh.equipped = true;
+  const wpn = S.inventory.filter(it => it.weapon).slice(0, 2); wpn.forEach(it => it.equipped = true);
+  S.combat = {
+    action: [['Dash', 'Gain extra movement equal to your speed.'], ['Disengage', 'Your movement doesn\'t provoke opportunity attacks this turn.'], ['Dodge', 'Attacks against you have disadvantage; advantage on DEX saves until your next turn.'], ['Help', 'Give an ally advantage on a check or their next attack.'], ['Hide', 'Make a Stealth check to hide.'], ['Ready', 'Choose a trigger and a reaction to take.'], ['Search', 'Make a Perception or Investigation check.'], ['Use an Object', 'Interact with a second object or use an item.'], ['Grapple', 'Athletics vs the target\'s Athletics or Acrobatics; its speed becomes 0.'], ['Shove', 'Athletics contest to push 5 ft or knock prone.']].map(([name, text]) => ({ name, text })),
+    bonus: clsLv('rogue') >= 2 ? [{ name: 'Cunning Action', text: 'Dash, Disengage or Hide as a bonus action.' }] : [],
+    reaction: [{ name: 'Opportunity Attack', text: 'When a hostile creature you can see leaves your reach, make one melee attack.' }],
+    move: [['Stand up', 'Costs half your speed.'], ['Drop prone', 'Free.'], ['Interact', 'Draw a weapon, open a door, pick up an item — one free interaction.'], ['Climb / swim', 'Each foot costs 1 extra foot unless you have the speed.'], ['Jump', 'Long jump = STR score in feet with a 10 ft run.']].map(([name, text]) => ({ name, text }))
+  };
+  rebuildAuto();
+  S.hp.cur = maxHp();
+  S.created = true; S.notes = [{ date: new Date().toISOString().slice(0, 10), title: 'Character created', text: `${S.name}: ${S.raceName} ${classLabel()}${S.backgroundName ? ', ' + S.backgroundName : ''}.` }];
+  closeWizard();
+  LAST = snapAll(); HIST = []; REDO = [];
+  pendingLabel = 'Create character'; writeLocal(); save();
+  if (S.portrait) matchPortrait(false);
+  applyTheme(); applyLayout(); render();
+  toast(`<div><b>${esc(S.name)}</b> is ready!<div class="det">Everything auto-saves in this browser. Use <b>Save ▾ → Download</b> to keep a copy or share it.</div></div>`, 'crit', 10000);
+}
+
+
+// Choose the spells a class option grants, from its feature card (also fixes characters made before this existed).
+let GRANT = null;
+function openGrantPicker(type, o) {
+  const e = DND.options[type] && DND.options[type].list.find(x => x[0] === o), fx = (e && e[3]) || {}; if (!fx.grant) return;
+  const have = (S.grantSpells || {})[o] || [], CH = {}; let k = 0;
+  fx.grant.forEach((g, j) => { CH['g.' + j] = have.slice(k, k + g.n); k += g.n; });
+  GRANT = { type, o, fx, CH };
+  renderGrantPicker();
+}
+function renderGrantPicker() {
+  const t = GRANT; if (!t) return;
+  const html = `<div id="grantm"><h3>${esc(t.o)}</h3>${t.fx.grant.map((g, j) => choiceUI(t.CH, 'g.' + j, g)).join('')}
+    <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="grantok">Save</button></div></div>`;
+  if ($('#grantm') && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html, null, true);
+}
+
+// ---------- Unfinished choices ----------
+// Choices your character is owed for its class levels that were never made — skipped in creation, left blank
+// at a level-up, or added by a newer version of the sheet (e.g. a totem spirit). Pick them here, or mark them done.
+function owedChoices() {
+  const out = [], ans = S.answered, dis = S.dismissed || {};
+  clsRows().forEach((r, ri) => {
+    const c = CL[r.key]; if (!c) return; const L = N(r.level), s = subOf(r);
+    const all = (c.choices || []).concat((s && s.choices) || []);
+    // Class options are counted: enough picks of that kind means they're done.
+    const need = {}; all.forEach(ch => { if (ch.level <= L && DND.options[ch.type]) need[ch.type] = (need[ch.type] || 0) + (ch.n || 1); });
+    c.asi.filter(l => l <= L).forEach(l => out.push({ id: `asi.${r.key}.${l}`, def: { type: 'asiOrFeat' }, cls: r.key, lvl: l, label: `${c.name} ${l}: Ability Score Improvement or feat` }));
+    all.forEach((ch, k) => { if (ch.level > L) return; const id = `ch.${r.key}.${k}.${ch.level}.${ch.type}`;
+      if (DND.options[ch.type] && (S.picks[ch.type] || []).length >= need[ch.type]) return;
+      out.push({ id, def: ch, cls: r.key, lvl: ch.level, label: `${c.name} ${ch.level}: ${ch.label || choiceLabel(ch)}${(ch.n || 1) > 1 ? ' × ' + ch.n : ''}` }); });
+  });
+  // Choices inside feats (Elemental Adept's damage type, Resilient's ability…) that were never made.
+  (S.feats || []).forEach(n => featSubDefs(n).forEach((d, k) => { const have = ((S.featChoices || {})[n] || {})[d.type]; if (!have || [].concat(have).length < (d.n || 1)) out.push({ id: `feat.${n}.${k}`, def: d, feat: n, label: `${n}: ${d.label || choiceLabel(d)}` }); }));
+  // Notes left for the player: things to decide or check that the sheet can't pick for them.
+  // A decision either asks for a pick (skill, language, tool…) or offers a few outcomes to choose between.
+  (S.decisions || []).forEach(d => out.push({ id: 'dec.' + d.id, dec: true, text: d.text, def: d.def ? Object.assign({}, d.def) : d.options ? { type: 'decide', options: d.options } : { type: 'note' }, label: d.title }));
+  return out.filter(o => !(ans && ans[o.id]) && !dis[o.id]);
+}
+let PEND = null;
+function openPending() { PEND = { ans: {} }; if (!$('#modal').classList.contains('open')) openModal('', null, true); renderPending(); }
+function renderPending() {
+  if (!PEND) return;
+  const list = owedChoices();
+  const html = `<div id="pendm"><h3>Unfinished choices</h3>
+    <p class="hint">${list.length ? 'Choices your levels give you that were never made — skipped, left blank, or new in this version of the sheet. Pick each one, or mark it done if you already took care of it yourself.' : 'Nothing left to choose. Everything your levels give you has been picked.'}</p>
+    ${list.map(o => { const r = clsRows().find(x => x.key === o.cls) || {};
+      if (o.dec && o.def.type === 'decide') return `<div class="pendq"><div class="pendh"><b>${esc(o.label)}</b></div><p class="pendnote">${esc(o.text)}</p>
+        <div class="pendopts">${o.def.options.map((op, j) => `<button class="pendopt" data-act="pendpick" data-id="${esc(o.id)}" data-j="${j}"><b>${esc(op.label)}</b>${op.desc ? `<small>${esc(op.desc)}</small>` : ''}</button>`).join('')}</div></div>`;
+      if (o.dec && o.def.type === 'note') return `<div class="pendq"><div class="pendh"><b>${esc(o.label)}</b><span class="grow"></span><button class="btn sm gold" data-act="penddone" data-id="${esc(o.id)}">Got it</button></div><p class="pendnote">${esc(o.text)}</p></div>`;
+      if (o.dec) return `<div class="pendq"><div class="pendh"><b>${esc(o.label)}</b><span class="grow"></span><button class="btn sm ghost" data-act="penddone" data-id="${esc(o.id)}" title="You already sorted this out on the sheet yourself">Already done</button><button class="btn sm gold" data-act="pendok" data-id="${esc(o.id)}">Apply</button></div><p class="pendnote">${esc(o.text)}</p>${choiceUI(PEND.ans, o.id, o.def, {})}</div>`;
+      return `<div class="pendq"><div class="pendh"><b>${esc(o.label)}</b><span class="grow"></span><button class="btn sm ghost" data-act="penddone" data-id="${esc(o.id)}" title="You already made this choice on the sheet yourself">Already done</button><button class="btn sm gold" data-act="pendok" data-id="${esc(o.id)}">Apply</button></div>
+        ${o.def.type === 'asiOrFeat' ? asiOrFeatUI(PEND.ans, o.id) : choiceUI(PEND.ans, o.id, o.def, { cls: o.cls, level: N(r.level), sub: r.sub })}</div>`; }).join('')}
+    <div class="actions">${list.length > 1 ? '<button class="btn ghost" data-act="pendall">Mark all as done</button>' : ''}<button class="btn gold" data-act="close">Done</button></div></div>`;
+  $('#modal-body').innerHTML = html; $('#modal-body').classList.add('wide');
+}
+function pendApply(id) {
+  const o = owedChoices().find(x => x.id === id); if (!o) return;
+  if (o.def.type === 'asiOrFeat') { if (!asiDone(PEND.ans, id)) { toast('Finish this choice first.', 'fumble'); return; } }
+  else if (ansList(PEND.ans, id).length < (o.def.n || 1)) { toast('Finish this choice first.', 'fumble'); return; }
+  S.answered = S.answered || {};
+  let note;
+  if (o.def.type === 'asiOrFeat') { note = applyAsiOrFeat(PEND.ans, id); S.answered[id] = (PEND.ans[id] || []).slice(); }
+  else { const v = ansList(PEND.ans, id);
+    if (o.feat) { const ft = DND.feats.find(x => x[0] === o.feat), e = (ft && ft[4]) || {}; if (o.def.type === 'asi') v.forEach(a => { S.abilities[a] = Math.min(20, N(S.abilities[a]) + 1); if (e.saveProfFromAsi) S.saves[a] = true; }); else if (o.def.type !== 'element') applyChoice(o.def, v, PEND.ans, id);
+      S.featChoices = S.featChoices || {}; S.featChoices[o.feat] = Object.assign({}, S.featChoices[o.feat], { [o.def.type]: v }); }
+    else applyChoice(o.def, v, PEND.ans, id);
+    S.answered[id] = v; note = v.join(', '); }
+  rebuildAuto(); pendingLabel = o.label + (note ? ': ' + note : ''); save(); render(); renderPending();
+  toast(`<b>${esc(o.label)}</b>${note ? ' — ' + esc(note) : ''}`, '', 5000, { label: 'Undo', fn: () => undo(1) });
+}
+// Decisions with set outcomes: each option carries small edits to make to the sheet.
+function pendPick(id, j) {
+  const o = owedChoices().find(x => x.id === id); if (!o || o.def.type !== 'decide') return; const op = o.def.options[N(j)]; if (!op) return;
+  (op.ops || []).forEach(x => {
+    if (x.equip) { const i = S.inventory.findIndex(it => it.name === x.equip); if (i >= 0 && !S.inventory[i].equipped) equipItem(i); }
+    if (x.attune) { const i = S.inventory.findIndex(it => it.name === x.attune); if (i >= 0) { if (!S.inventory[i].equipped) equipItem(i); S.inventory[i].attuned = true; } }
+    if (x.armorProf) { S.profs.armor = [...new Set((S.profs.armor || []).concat(x.armorProf))]; S.profArmor = profArmorText(); }
+    if (x.addLang) addText('languages', [x.addLang]);
+    if (x.removeLang) S.langs = S.langs.filter(l => l.toLowerCase() !== x.removeLang.toLowerCase());
+    if (x.addTool) addText('profTools', [x.addTool]);
+    if (x.addSkill) setSkill(x.addSkill, 1);
+    if (x.removeSpell) S.spells = S.spells.filter(sp => sp.auto || sp.name.toLowerCase() !== x.removeSpell.toLowerCase());
+    if (x.dropSkill) { const sk = S.skills.find(k => k.name.toLowerCase() === x.dropSkill.toLowerCase()); if (sk) sk.prof = 0; }
+    if (x.addFeature && !S.features.some(f => f.name === x.addFeature.name)) S.features.push(Object.assign({ key: 'custom:' + x.addFeature.name, dname: x.addFeature.name, source: 'Custom', auto: false, used: 0, dmax: '', dreset: 'long', max: '', reset: 'long', pool: false, col: '', cls: '', kind: 'custom', desc: '' }, x.addFeature));
+  });
+  S.answered = Object.assign({}, S.answered, { [id]: [op.label] });
+  rebuildAuto(); pendingLabel = o.label + ': ' + op.label; save(); render(); renderPending();
+  toast(`<b>${esc(o.label)}</b> — ${esc(op.label)}`, '', 5000, { label: 'Undo', fn: () => undo(1) });
+}
+function pendDismiss(id) { S.dismissed = Object.assign({}, S.dismissed, { [id]: true }); pendingLabel = 'Marked a choice as done'; save(); render(); renderPending(); }
+// ---------- Preparing spells (clerics, druids, paladins, artificers; wizards from their spellbook) ----------
+let PREP = null;
+function openPrepare(key, note) { PREP = { key, lvl: '', note: note || '' }; if (!$('#modal').classList.contains('open')) openModal('', null, true); renderPrepare(); }
+function prepList(key) {
+  const c = casterFor(key); if (!c) return [];
+  if (c.book) return S.spells.filter(s => s.cls === key && N(s.level) > 0).map(s => SPI(s.name) || s);
+  const maxL = maxSpellLevelFor(c), exp = expandedFor(key).map(n => n.toLowerCase());
+  return DND.spells.filter(s => (s.classes.includes(c.list) || exp.includes(s.name.toLowerCase())) && s.level > 0 && s.level <= maxL);
+}
+function renderPrepare() {
+  const t = PREP; if (!t) return; const key = t.key, c = casterFor(key); if (!c) return;
+  const list = prepList(key), lim = spellLimit(c), n = countPrep(key);
+  const lvls = [...new Set(list.map(s => s.level))].sort((a, b) => a - b);
+  const cur = lvls.includes(N(t.lvl)) ? N(t.lvl) : t.lvl === 'all' ? 'all' : lvls[0];
+  const mine = nm => S.spells.find(s => s.cls === key && s.name.toLowerCase() === nm.toLowerCase());
+  const q = ($('#prq') && $('#prq').value) || '';
+  const row = s => { const m = mine(s.name), on = m && (m.prepared || m.always);
+    return `<div class="crrow prow${on ? ' on' : ''}" data-q="${esc((s.name + ' ' + s.school + ' ' + s.summary).toLowerCase())}"><div><b>${esc(s.name)}</b> <span class="hint">${ORD[s.level - 1]} · ${esc(s.school)} · ${esc(s.time)}${s.conc ? ' · conc' : ''}${s.ritual ? ' · ritual' : ''}</span><div class="hint">${esc(s.summary)}</div></div>
+      ${!m && S.spells.some(x => x.cls !== key && x.name.toLowerCase() === s.name.toLowerCase()) ? '<span class="always" title="You already have this spell from somewhere else">Have it</span>' : m && m.always ? '<span class="always" title="Always prepared; doesn\'t count">Always</span>' : `<button class="btn sm${on ? ' gold' : ''}" data-act="prepsp" data-n="${esc(s.name)}" aria-pressed="${!!on}">${on ? '✓ Prepared' : 'Prepare'}</button>`}</div>`; };
+  const html = `<div id="prepm"><h3>Prepare ${esc(c.name)} spells</h3>
+    ${t.note ? `<p class="hint" style="margin:0 0 6px">${esc(t.note)}</p>` : ''}
+    <div class="prephead"><span class="cnt${lim != null && n > lim ? ' bad' : n === lim ? ' done' : ''}"><b>${n}</b> / ${lim} prepared</span><span class="hint">${c.book ? 'From your spellbook. ' : 'Your whole class list is open to you. '}You can change them after a long rest. Always-prepared spells don't count.</span></div>
+    <div class="row" style="margin:6px 0"><input class="f" id="prq" placeholder="Search spells…" value="${esc(q)}" style="flex:1 1 200px"><div class="chips">${lvls.map(l => `<button class="chip${cur === l ? ' on' : ''}" data-act="preplv" data-l="${l}">${ORD[l - 1]}${S.spells.filter(s => s.cls === key && N(s.level) === l && s.prepared && !s.always).length ? ' (' + S.spells.filter(s => s.cls === key && N(s.level) === l && s.prepared && !s.always).length + ')' : ''}</button>`).join('')}<button class="chip${cur === 'all' ? ' on' : ''}" data-act="preplv" data-l="all">All</button></div></div>
+    <div class="crlist">${list.filter(s => cur === 'all' || s.level === cur).map(row).join('') || '<p class="hint">No spells here.</p>'}</div>
+    <div class="actions"><button class="btn gold" data-act="close">Done</button></div></div>`;
+  $('#modal-body').innerHTML = html; $('#modal-body').classList.add('wide');
+  const qi = $('#prq'); if (qi) { qi.oninput = () => filterCatalogQ('#prq'); filterCatalogQ('#prq'); }
+}
+function prepToggle(nm) {
+  const key = PREP && PREP.key, c = casterFor(key); if (!c) return;
+  const lim = spellLimit(c), idx = S.spells.findIndex(s => s.cls === key && s.name.toLowerCase() === nm.toLowerCase());
+  const sp = idx >= 0 ? S.spells[idx] : null;
+  if (sp && sp.always) { toast('That spell is always prepared.'); return; }
+  if (sp && sp.prepared) { if (c.book) sp.prepared = false; else S.spells.splice(idx, 1); pendingLabel = 'Unprepare ' + nm; }
+  else {
+    if (lim != null && countPrep(key) >= lim) { toast(`You can prepare ${lim} ${c.name.toLowerCase()} spells — unprepare one first.`, 'fumble'); return; }
+    if (sp) sp.prepared = true; else { const e = spellEntry(nm, key); e.prepared = true; S.spells.push(e); }
+    pendingLabel = 'Prepare ' + nm;
+  }
+  save(); render('spells'); refresh(); renderPrepare();
+}
+// ---------- Live sync ----------
+// Everyone who opens this sheet's claude.ai link sees the same character, live: one shared copy in the
+// artifact's database (sheets/main), and every change shows up on every open copy within a second or so.
+// Each viewer keeps their own tab, scroll, open panels, desktop/mobile layout and dice settings.
+// A document holds at most 256 KiB, so big sheets (pictures!) are split: sheets/main carries part 0 and
+// the count; sheets/part1, part2… are written first, each stamped with the same savedAt.
+// Failures never give up: transient ones retry with backoff until the sheet is synced again.
+const TAB = uid();
+const PART = 180000;
+// Per-viewer: never taken from someone else's copy.
+const LOCAL_SETTINGS = ['diceMode', 'r20campaign'];
+function keepLocal(next, cur) {
+  if (!next || !cur) return next;
+  next.layout = cur.layout;
+  next.settings = Object.assign({}, next.settings || {});
+  LOCAL_SETTINGS.forEach(k => { if (cur.settings && cur.settings[k] !== undefined) next.settings[k] = cur.settings[k]; else delete next.settings[k]; });
+  return next;
+}
+let GUESTCLAIM = false, GUESTDONE = false;
+let CLOUD = null, DBX = null, cloudBusy = false, cloudAgain = false, cloudTimer = null, cloudPending = null, cloudFails = 0, cloudParts = 1, cloudUnsub = null, cloudRO = false;
+const clock = () => new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+// The toolbar slot is small: show a short label, keep the full sentence as the hover text.
+function shortSync(t) { t = String(t || ''); const tm = (t.match(/(\d{1,2}:\d{2})/) || [])[1];
+  return /synced/i.test(t) ? '● Synced ' + (tm || '') : /view only/i.test(t) ? '● View only' : /retrying/i.test(t) ? 'Retrying…' : /reconnect/i.test(t) ? 'Reconnecting…' : /full/i.test(t) ? 'Sync full' : /not live/i.test(t) ? 'Not live' : /^saved/i.test(t) ? 'Saved ' + (tm || '') : t; }
+function syncHTML(t) { const sh = shortSync(t), m = isMobile() && sh.match(/^(.*?)\s+(\d{1,2}:\d{2})$/); return m ? esc(m[1]) + '<small class="sstime">' + esc(m[2]) + '</small>' : esc(sh); }
+function setSyncState(t) { UI.saveState = t; UI.saveFull = t; const el = $('#saveState'); if (el) { if (typeof fitToolbarSoon === 'function') fitToolbarSoon(); el.innerHTML = syncHTML(t); el.title = t; el.classList.toggle('live', /synced|view only/i.test(t)); } }
+// On the website, edits are gathered into one save after 1.5s of quiet (never held longer than 6s), and anything
+// waiting is saved at once when the tab is hidden or closed — far fewer database writes, still near-live for others.
+let cloudFirst = 0;
+function cloudPush() { if (!CLOUD || !S.created || cloudRO) return; clearTimeout(cloudTimer);
+  if (!window.SHEET_PAGES) { cloudTimer = setTimeout(cloudWrite, 350); return; }
+  const now = Date.now(); if (!cloudFirst) cloudFirst = now;
+  cloudTimer = setTimeout(() => { cloudFirst = 0; cloudWrite(); }, Math.max(0, Math.min(1500, cloudFirst + 6000 - now))); }
+function cloudFlush() { if (cloudTimer && cloudFirst) { clearTimeout(cloudTimer); cloudTimer = null; cloudFirst = 0; cloudWrite(); } }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') cloudFlush(); });
+addEventListener('pagehide', cloudFlush);
+const partRef = k => DBX.doc('sheets/part' + k);
+async function cloudWrite() {
+  if (!CLOUD || !S.created || cloudRO) return;
+  if (cloudBusy) { cloudAgain = true; return; }
+  cloudBusy = true;
+  try {
+    const str = JSON.stringify(S), at = N(S.savedAt) || Date.now(), parts = [];
+    for (let i = 0; i < str.length; i += PART) parts.push(str.slice(i, i + PART));
+    if (!parts.length) parts.push('');
+    for (let k = 1; k < parts.length; k++) await partRef(k).set({ savedAt: at, k, data: parts[k] });
+    await CLOUD.set({ v: 2, savedAt: at, tab: TAB, n: parts.length, data: parts[0], guestDone: GUESTDONE || GUESTCLAIM });
+    for (let k = parts.length; k < cloudParts; k++) { try { await partRef(k).delete(); } catch (e) {} }
+    cloudParts = parts.length; cloudFails = 0;
+    setSyncState('Live · synced ' + clock());
+  } catch (e) {
+    const c = e && e.code;
+    if (c === 'revoked' || c === 'not_granted' || c === 'capability_disabled' || c === 'capability_removed') { CLOUD = null; setSyncState('Not live here — open the sheet from its claude.ai link'); }
+    else if (c === 'invalid_argument' && !cloudFails) { cloudRO = true; setSyncState('Live · view only (you can\'t edit this sheet)'); }
+    else if (c === 'quota_exceeded') { setSyncState('Sync storage is full'); cloudFails++; setTimeout(cloudWrite, 60000); }
+    else { cloudFails++; setSyncState('Sync retrying…'); cloudAgain = true; }
+  }
+  cloudBusy = false;
+  if (cloudAgain) { cloudAgain = false; setTimeout(cloudWrite, cloudFails ? Math.min(60000, 1500 * Math.pow(2, Math.min(cloudFails, 5))) + Math.random() * 1500 : 50); }
+}
+// Whole sheet text from a main doc (v1 = one doc; v2 = parts). null while a newer save is still landing.
+async function cloudText(d, partOf) {
+  if (!d) return null;
+  if (d.sheet) return d.sheet;
+  const n = N(d.n) || 1; let str = d.data || '';
+  for (let k = 1; k < n; k++) { const sn = await (partOf || partRef)(k).get(); const p = sn.exists ? sn.data() : null; if (!p || N(p.savedAt) !== N(d.savedAt)) return null; str += p.data || ''; }
+  return str;
+}
+// Typing in a field or working in a popup: wait, then catch up (a re-render would steal focus or the popup's place).
+function busyEditing() { const a = document.activeElement; return $('#modal').classList.contains('open') || $('#wizard').classList.contains('open') || !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && !a.closest('#page-nothing')); }
+function adoptRemote(d) {
+  let next; try { next = JSON.parse(d.sheet); } catch (e) { return; }
+  if (!next || !next.created || !S.created) return;
+  if (busyEditing()) { cloudPending = d; return; }
+  cloudPending = null;
+  const sx = scrollX, sy = scrollY;
+  S = keepLocal(migrate(next), S); if (applyFixes(S)) rebuildAuto();
+  try { localStorage.setItem(keyFor(S.id), JSON.stringify(S)); } catch (e) {}
+  HIST = []; REDO = []; LAST = snapAll(); histButtons();
+  applySources(S.sources); applyTheme(); render();
+  scrollTo(sx, sy);
+  setSyncState('Live · synced ' + clock());
+}
+setInterval(() => { if (cloudPending && !busyEditing() && N(cloudPending.savedAt) > N(S.savedAt)) adoptRemote(cloudPending); else if (cloudPending && N(cloudPending.savedAt) <= N(S.savedAt)) cloudPending = null; }, 400);
+function cloudListen(ref, onFirst) {
+  let checked = false;
+  if (cloudUnsub) { try { cloudUnsub(); } catch (e) {} }
+  cloudUnsub = ref.onSnapshot(async snap => {
+    const d = snap.exists ? snap.data() : null;
+    if (d) { cloudParts = Math.max(cloudParts, N(d.n) || 1); if (d.guestDone) GUESTDONE = true; }
+    if (!checked) { if (snap.metadata.fromCache) return; checked = true; CLOUD = ref; if (await onFirst(d)) return; }
+    if (d && (d.sheet || d.v === 2) && d.tab !== TAB && N(d.savedAt) > N(S.savedAt)) {
+      const txt = await cloudText(d);
+      if (txt && N(d.savedAt) > N(S.savedAt)) adoptRemote({ savedAt: d.savedAt, sheet: txt });
+    }
+  }, e => {
+    const c = e && e.code;
+    if (c === 'revoked' || c === 'not_granted' || c === 'capability_disabled' || c === 'capability_removed') { CLOUD = null; setSyncState('Not live here — open the sheet from its claude.ai link'); return; }
+    setSyncState('Reconnecting…'); setTimeout(() => cloudListen(ref, async () => false), 3000 + Math.random() * 2000);
+  });
+}
+(async () => {
+  try {
+    if (!window.claude || !window.claude.use) { setSyncState(window.SHEET_PAGES ? 'Saved in this browser only' : 'Not live here — open the sheet from its claude.ai link'); return; }
+    const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+    if (!db) { setSyncState('Not live here — sign in on claude.ai'); return; }
+    DBX = db;
+    try { if (user && user.can && (await user.can('data.write')) === false) { cloudRO = true; setSyncState('Live · view only (you can\'t edit this sheet)'); } } catch (e) {}
+    let owner = false; try { owner = !!(user && await user.isOwner()); } catch (e) {}
+    cloudListen(db.doc('sheets/main'), async d => {
+      // Moving onto the shared copy: bring along this person's own earlier copy (their per-account synced
+      // copy, or this browser's) if it's newer than what's loaded.
+      let mine = !!HADLOCAL;
+      if (user) { try { const id = await user.id(); if (id) { const base = 'data/users/' + id, sn = await db.doc(base + '/sheet').get(), od = sn.exists ? sn.data() : null;
+        if (od && N(od.savedAt) > N(S.savedAt)) { const txt = await cloudText(od, k => db.doc(base + '/sheet_' + k)); if (txt) { try { const old = JSON.parse(txt); if (old && old.id === S.id) { S = keepLocal(migrate(old), S); S.savedAt = od.savedAt; applyFixes(S); rebuildAuto(); applySources(S.sources); applyTheme(); render(); mine = true; } } catch (e) {} } } } } catch (e) {} }
+      // Guests come first: the first time a guest who already has their own copy (with their settings and
+      // changes) opens the live sheet, their copy becomes the shared one — even over a newer owner copy.
+      if (!owner && mine && S.created && !cloudRO && !(d && d.guestDone)) { S.savedAt = Date.now(); GUESTCLAIM = true; await cloudWrite(); return true; }
+      if (S.created && (!d || N(d.savedAt) < N(S.savedAt))) {
+        // A newer copy of the sheet file is replacing the synced one: never lose the player's own settings, theme or layout.
+        if (d && !cloudRO) { try { const txt = await cloudText(d); const old = txt && JSON.parse(txt); if (old && old.id === S.id) { keepPrefs(S, old); try { applyTheme(); render(); } catch (e) {} } } catch (e) {} }
+        if (!cloudRO) cloudWrite(); }
+      else if (d) setSyncState(cloudRO ? 'Live · view only (you can\'t edit this sheet)' : 'Live · synced ' + clock());
+    });
+  } catch (e) {}
+})();
+// Catch up whenever the page comes back (phone unlocked, tab refocused) or the network returns.
+addEventListener('online', () => { if (CLOUD) cloudWrite(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && CLOUD && /retrying|full/i.test(UI.saveState || '')) cloudWrite(); });
+
+// ---------- Boot ----------
+// For the GitHub Pages loader (new characters get their link once created).
+window.sheetState = () => S; window.sheetToast = toast;
+window.sheetSet = (k, v) => { S[k] = v; pendingLabel = null; save(); render('header'); };
+window.sheetSummary = () => ({ name: S.name || '', player: S.player || '', race: S.raceName || '', cls: S.created ? classLabel() : '', level: S.created ? lvl() : 0, portrait: S.portrait || '', hp: S.created ? N(S.hp && S.hp.cur) + '/' + maxHp() : '' });
+if (S.created) applySources(S.sources);
+// Spells from a Ring of Spell Storing made before stored spells existed: set them up as stored now.
+const staleStore = () => (S.spells || []).some(sp => { const it = sp.item && (S.inventory || []).find(x => x.id === sp.item); return it && itemStores(it) && !sp.usesOnly; });
+if (S.created && (FIXED || staleStore())) { const at = S.savedAt; rebuildAuto(); writeLocal(); S.savedAt = at; } // one-off fixes don't count as a newer edit (a newer synced copy still wins)
+loadHist(FROM_LOCAL);
+applyLayout(); applyTheme();
+if (S.created) { render(); setTimeout(afterUpdate, 50); }
+else openWizard();
+window.addEventListener('resize', () => { if (!UI.layout) { const was = isMobile(); applyLayout(); if (was !== isMobile() && S.created) render(); } });
+})();
+

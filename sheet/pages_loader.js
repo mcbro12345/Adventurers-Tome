@@ -84,6 +84,11 @@ function wireDie(root) {
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
   let C = clean(Q.get('c')), G = clean(Q.get('g'));
+  // Phone view on a computer: the sheet runs inside a phone-sized frame, so it looks exactly as it does on a phone.
+  const FRAMED = window.top !== window && Q.has('pgframe'), PHONE_KEY = 'pg-phoneview';
+  if (FRAMED) { window.PG_IN_PHONE = true; window.PG_FORCE_MOBILE = true; document.documentElement.classList.add('pg-inphone'); }
+  window.pgPhoneView = on => { try { on ? localStorage.setItem(PHONE_KEY, '1') : localStorage.removeItem(PHONE_KEY); } catch (e) {}
+    if (FRAMED) { try { window.top.location.reload(); } catch (e) {} } else location.reload(); };
   const P = (Q.get('p') || '').slice(0, 60), O = (Q.get('o') || '').trim().toLowerCase().slice(0, 120);
   const LAST_G = 'dnd-hub-group';
   let NEWQ = !!Q.get('new'), ADMINQ = !!Q.get('admin'), TABQ = clean(Q.get('tab')), VIEWQ = Q.get('view') === 'shared' ? 'shared' : 'mine', LOGIN = false, SLUG = '', BAD = false;
@@ -218,6 +223,19 @@ function wireDie(root) {
     // quietly warm the cache so opening a sheet from here is quick
     setTimeout(() => [ASSETS.data, ASSETS.app].forEach(u => { const l = document.createElement('link'); l.rel = 'prefetch'; l.href = u; document.head.appendChild(l); }), 2500); return; }
 
+  // Phone view chosen on a wide screen: show the sheet in a phone frame instead of stretching the phone layout.
+  let phoneOn = false; try { phoneOn = localStorage.getItem(PHONE_KEY) === '1'; } catch (e) {}
+  if (C && !NEWQ && !FRAMED && phoneOn && innerWidth >= 640) {
+    if (load) load.remove(); document.documentElement.classList.remove('pg-loading'); document.documentElement.classList.add('pg-phonehost');
+    const u = new URL(location.href); u.searchParams.set('pgframe', '1'); u.searchParams.delete('v');
+    document.body.innerHTML = `<div class="pgph"><div class="pgph-bar"><span class="pgph-t"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M11 18.5h2"/></svg>Phone view</span>
+      <button class="pgph-back" id="pgph-back"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="13" rx="1.6"/><path d="M8 21h8M12 17v4"/></svg>Back to desktop view</button></div>
+      <div class="pgph-dev"><iframe class="pgph-f" src="${escH(u.pathname + u.search)}" title="Character sheet (phone view)"></iframe></div></div>`;
+    document.getElementById('pgph-back').onclick = () => window.pgPhoneView(false);
+    // a real phone's size (390 × 844); scaled down to fit if the window is shorter than that
+    const dev = document.querySelector('.pgph-dev'), fit = () => { const k = Math.min(1, (innerHeight - 84) / 868); dev.style.transform = k < 1 ? `scale(${k})` : ''; }; addEventListener('resize', fit); fit();
+    verCheck(); return; }
+
   const rid = () => { const a = new Uint8Array(18); crypto.getRandomValues(a); return btoa(String.fromCharCode(...a)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
   const NEW = !C;
   if (NEW) C = rid();
@@ -307,7 +325,16 @@ function wireDie(root) {
     hubChanged = true; hubSoon();
   }, 500); }
   // Back to the hub (desktop and phone).
-  if (G) { const a = document.createElement('a'); a.href = URLS.hub(G); a.className = 'pg-hublink'; a.title = 'All characters'; a.textContent = '⌂ Adventurer’s Tome'; document.body.appendChild(a);
+  if (G) { const a = document.createElement('a'); a.href = URLS.hub(G); a.className = 'pg-hublink'; a.title = 'All characters'; if (FRAMED) a.target = '_top'; a.textContent = '⌂ Adventurer’s Tome'; document.body.appendChild(a);
+    // On a computer it sits above the toolbar, level with the top of the header, and the toolbar drops so its bottom
+    // lines up with the bottom of the level box.
+    const de = document.documentElement, align = () => {
+      const lv = document.querySelector('.ident-top .lvlbox'), tb = document.querySelector('.ident-top .toolbar');
+      if (de.classList.contains('mobile') || !lv || !tb) { de.classList.remove('pg-al'); a.style.left = a.style.top = ''; return; }
+      const lr = lv.getBoundingClientRect(), tbh = tb.offsetHeight;
+      de.style.setProperty('--pg-tbm', Math.max(a.offsetHeight + 8, Math.round(lr.height - tbh)) + 'px');
+      const tr = tb.getBoundingClientRect(); a.style.left = Math.round(tr.left + scrollX) + 'px'; a.style.top = Math.round(lr.top + scrollY) + 'px'; de.classList.add('pg-al'); };
+    addEventListener('resize', align); setInterval(align, 600); setTimeout(align, 50);
   }
   // Who's looking at this sheet right now — shown once it's shared: small portraits beside the back button, you too.
   // Each open copy checks in once a minute (only while its tab is showing) and drops off when closed or idle.
