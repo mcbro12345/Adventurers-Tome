@@ -1,0 +1,11 @@
+{
+  "hosting": {
+    "site": "adventurers-tome",
+    "public": "docs",
+    "ignore": ["firebase.json", "**/.*"],
+    "headers": [
+      { "source": "**/*.@(html|json)", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
+      { "source": "**/*.png", "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400" }] }
+    ]
+  }
+}
