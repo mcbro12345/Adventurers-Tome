@@ -164,3 +164,32 @@ html.mobile .pg-shared { top: auto; bottom: calc(80px + env(safe-area-inset-bott
 body:has(#modal.open) .pg-hublink, body:has(#modal.open) .pg-shared, body.wizopen .pg-hublink { display: none !important; }
 /* The Admin panel is a desktop tool */
 @media (max-width: 640px) { :where(body.hubbody) #hub-admin { display: none; } }
+/* ===== Admin section (its own page) ===== */
+:where(body.adminbody) #hub { max-width: 1100px; }
+:where(body.adminbody) .ad-top { align-items: flex-end; }
+:where(body.adminbody) .ad-back { display: inline-block; font-size: .85rem; font-weight: 700; color: #c9962b; text-decoration: none; margin-bottom: 2px; }
+:where(body.adminbody) .ad-back:hover { text-decoration: underline; }
+:where(body.adminbody) .ad-nav { position: sticky; top: 0; z-index: 5; padding: 10px 0; margin-top: 6px; background: inherit; }
+:where(body.adminbody) .ad-page { padding: 6px 0 40px; }
+:where(body.adminbody) .ad-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 6px 0 4px; }
+:where(body.adminbody) .ad-h { font: 800 1.05rem Georgia, 'Times New Roman', serif; margin: 22px 0 6px; display: flex; align-items: center; gap: 8px; }
+:where(body.adminbody) .ad-h span { font: 700 .72rem system-ui, sans-serif; background: rgba(127,127,127,.15); border-radius: 999px; padding: 2px 9px; }
+:where(body.adminbody) .ad-search { width: 100%; max-width: 520px; box-sizing: border-box; border: 1px solid #c9b88f; border-radius: 10px; padding: 10px 12px; font: 15px system-ui, sans-serif; background: #fff; color: #1f2a44; margin: 6px 0 10px; }
+:where(body.hubbody) .hub-card .ad-search { max-width: none; }
+:where(body.adminbody) .ad-user { border: 1px solid #e8dcc1; border-left: 4px solid #c9962b; border-radius: 12px; padding: 10px 12px; margin: 8px 0; background: #fffaf0; }
+:where(body.adminbody) .ad-uhead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+:where(body.adminbody) .ad-uhead > span { font-size: .85rem; opacity: .75; word-break: break-all; }
+:where(body.adminbody) .ad-uhead > small { font-size: .76rem; opacity: .6; flex: 1; }
+:where(body.adminbody) .ad-user .ad-list { margin: 8px 0 2px; }
+:where(body.adminbody) .ad-none { margin: 6px 2px; }
+:where(body.adminbody) .ad-newfor { align-self: flex-start; }
+:where(body.adminbody) .ad-more { display: block; margin: 12px auto; }
+:where(body.adminbody) .ad-row { grid-template-columns: 44px minmax(0, 1fr) auto auto; }
+:where(body.adminbody) .ad-me { display: flex; flex-direction: column; gap: 2px; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; opacity: .9; }
+:where(body.adminbody) .ad-me select { border: 1px solid #c9b88f; border-radius: 8px; padding: 5px 6px; font: 13px system-ui, sans-serif; background: #fff; color: #1f2a44; text-transform: none; letter-spacing: 0; }
+:where(body.adminbody) .ad-mine { font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #c9962b; padding: 0 6px; }
+:where(body.hubbody) .pu-row { width: 100%; border: 0; cursor: pointer; text-align: left; font: inherit; color: inherit; }
+:where(body.hubbody) .pu-row:hover { background: rgba(201,150,43,.18); }
+@media (max-width: 760px) { :where(body.adminbody) .ad-row { grid-template-columns: 44px minmax(0, 1fr); } :where(body.adminbody) .ad-me, :where(body.adminbody) .ad-acts, :where(body.adminbody) .ad-mine { grid-column: 1 / -1; } :where(body.adminbody) .ad-acts { flex-wrap: wrap; } }
+@media (prefers-color-scheme: dark) { body.adminbody .ad-user { background: #161d2b; border-color: #2c3548; border-left-color: #c9962b; } body.adminbody .ad-search, body.adminbody .ad-me select, body.hubbody .hub-card .ad-search { background: #0f1420; color: #e9e3d3; border-color: #3a4560; } }
+:where(body.hubbody) a.btn.sm { display: inline-flex; align-items: center; }

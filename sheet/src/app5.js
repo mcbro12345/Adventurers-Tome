@@ -1051,7 +1051,16 @@ function shortSync(t) { t = String(t || ''); const tm = (t.match(/(\d{1,2}:\d{2}
   return /synced/i.test(t) ? '● Synced ' + (tm || '') : /view only/i.test(t) ? '● View only' : /retrying/i.test(t) ? 'Retrying…' : /reconnect/i.test(t) ? 'Reconnecting…' : /full/i.test(t) ? 'Sync full' : /not live/i.test(t) ? 'Not live' : /^saved/i.test(t) ? 'Saved ' + (tm || '') : t; }
 function syncHTML(t) { const sh = shortSync(t), m = isMobile() && sh.match(/^(.*?)\s+(\d{1,2}:\d{2})$/); return m ? esc(m[1]) + '<small class="sstime">' + esc(m[2]) + '</small>' : esc(sh); }
 function setSyncState(t) { UI.saveState = t; UI.saveFull = t; const el = $('#saveState'); if (el) { if (typeof fitToolbarSoon === 'function') fitToolbarSoon(); el.innerHTML = syncHTML(t); el.title = t; el.classList.toggle('live', /synced|view only/i.test(t)); } }
-function cloudPush() { if (!CLOUD || !S.created || cloudRO) return; clearTimeout(cloudTimer); cloudTimer = setTimeout(cloudWrite, 350); }
+// On the website, edits are gathered into one save after 1.5s of quiet (never held longer than 6s), and anything
+// waiting is saved at once when the tab is hidden or closed — far fewer database writes, still near-live for others.
+let cloudFirst = 0;
+function cloudPush() { if (!CLOUD || !S.created || cloudRO) return; clearTimeout(cloudTimer);
+  if (!window.SHEET_PAGES) { cloudTimer = setTimeout(cloudWrite, 350); return; }
+  const now = Date.now(); if (!cloudFirst) cloudFirst = now;
+  cloudTimer = setTimeout(() => { cloudFirst = 0; cloudWrite(); }, Math.max(0, Math.min(1500, cloudFirst + 6000 - now))); }
+function cloudFlush() { if (cloudTimer && cloudFirst) { clearTimeout(cloudTimer); cloudTimer = null; cloudFirst = 0; cloudWrite(); } }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') cloudFlush(); });
+addEventListener('pagehide', cloudFlush);
 const partRef = k => DBX.doc('sheets/part' + k);
 async function cloudWrite() {
   if (!CLOUD || !S.created || cloudRO) return;

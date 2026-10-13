@@ -6,8 +6,14 @@
 // Everyone signs in once per device (Google, or a link emailed to them). Each character belongs to one email;
 // the database only lets that player — and the DM — open or change it.
 const ADMIN_EMAIL = 'matthewcbro@gmail.com';
+// Every character lives in one library; the hub shows each person their own and the ones shared with them.
+const DEFAULT_G = 'WLdUj_I3XrA_9VIP';
+// Search keys for an account or character: every prefix of each word (and of the whole name / email), so the admin
+// pages can find "ryan", "o'neal" or "roneal1994@…" with one indexed lookup however many accounts there are.
+function searchKeys(...parts) { const out = new Set(); parts.forEach(p => { p = String(p || '').toLowerCase().trim(); if (!p) return;
+  new Set([p, ...p.split(/[\s@._'’-]+/)]).forEach(t => { t = t.slice(0, 24); for (let i = 1; i <= t.length; i++) out.add(t.slice(0, i)); }); }); return [...out].slice(0, 400); }
 (async () => {
-  const CFG = __CFG__, VER = '__VER__';
+  const CFG = __CFG__, VER = '__VER__', ASSETS = __ASSETS__;
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   let C = clean(Q.get('c')), G = clean(Q.get('g'));
   const P = (Q.get('p') || '').slice(0, 60), O = (Q.get('o') || '').trim().toLowerCase().slice(0, 120);
@@ -63,7 +69,8 @@ const ADMIN_EMAIL = 'matthewcbro@gmail.com';
     catch (e) { say(`That sign-in link didn't work (${(e && e.message) || 'expired or already used'}).<br><br><a href="${location.pathname}">Try again</a>`); }
     return;
   }
-  if (!C && !G && !Q.get('new') && lsGet(LAST_G)) { location.replace(location.pathname + '?g=' + lsGet(LAST_G)); return; }
+  if (!C && !G && !Q.get('new')) { location.replace(location.pathname + '?g=' + (clean(lsGet(LAST_G)) || DEFAULT_G)); return; }
+  if (!G && Q.get('new')) G = DEFAULT_G;
   const user = await new Promise(res => { const u = auth.onAuthStateChanged(x => { u(); res(x); }); });
   if (!user) { signIn(auth, say); return; }
   const EMAIL = (user.email || '').toLowerCase(), IS_OWNER = EMAIL === ADMIN_EMAIL;
@@ -71,10 +78,15 @@ const ADMIN_EMAIL = 'matthewcbro@gmail.com';
   try { const a = await fs.collection('config').doc('admins').get(); ADMINS = ((a.exists && a.data().emails) || []).map(x => String(x).toLowerCase()); if (ADMINS.includes(EMAIL)) IS_ADMIN = true; } catch (e) {}
   const signOut = () => auth.signOut().then(() => location.reload());
   window.pgSignOut = signOut;
-  // The player's name comes from the party's player list (the DM keeps it); otherwise their Google name.
-  let NAME = user.displayName || EMAIL.split('@')[0];
-  let PLAYERS = {};
-  const nameFrom = g => { try { const p = (g && g.players) || {}; PLAYERS = p; if (p[EMAIL]) NAME = p[EMAIL]; } catch (e) {} };
+  // Each account has its own record (name, email, when it joined). Made on first sign-in from the Google name; an admin
+  // can rename it. "Last seen" is refreshed at most once a day to keep database writes down.
+  const UREF = fs.collection('users').doc(EMAIL);
+  let ME = null;
+  try { const us = await UREF.get(); ME = us.exists ? us.data() : null;
+    if (!ME) { const nm = (user.displayName || EMAIL.split('@')[0]).slice(0, 60); ME = { email: EMAIL, name: nm, nameLower: nm.toLowerCase(), keys: searchKeys(nm, EMAIL.split('@')[0], EMAIL), createdAt: Date.now(), seenAt: Date.now() }; await UREF.set(ME); }
+    else if (!ME.seenAt || Date.now() - ME.seenAt > 864e5) UREF.update({ seenAt: Date.now() }).catch(() => {}); } catch (e) { console.warn('account record', e); }
+  let NAME = (ME && ME.name) || user.displayName || EMAIL.split('@')[0];
+  const UCACHE = {}, userDoc = em => UCACHE[em] || (UCACHE[em] = fs.collection('users').doc(em).get().then(x => x.exists ? x.data() : null, () => null));
 
   // A newer version of the site was pushed: load it. The party page reloads right away; a sheet reloads as soon as
   // nobody is in the middle of using it (or on a tap), after its last change has saved. The new address carries
@@ -88,13 +100,19 @@ const ADMIN_EMAIL = 'matthewcbro@gmail.com';
       const b = document.createElement('button'); b.id = 'pg-upd'; b.textContent = 'Updated — tap to reload'; b.onclick = () => { b.textContent = 'Saving…'; go(); }; document.body.appendChild(b);
       ['pointerdown', 'keydown', 'scroll'].forEach(ev => addEventListener(ev, idle, { passive: true })); idle(); } catch (e) {} };
     setInterval(check, 30 * 1000); document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); else if (NEWV) go(); }); setTimeout(check, 3000); };
-  if (G && !C && !Q.get('new')) { lsSet(LAST_G, G); if (load) load.remove(); document.documentElement.classList.remove('pg-loading'); hub(fs, auth, G, { EMAIL, IS_ADMIN, IS_OWNER, ADMINS, user, signOut }); verCheck(); return; }
+  if (G && !C && !Q.get('new')) { lsSet(LAST_G, G); if (load) load.remove(); document.documentElement.classList.remove('pg-loading'); hub(fs, auth, G, { EMAIL, IS_ADMIN, IS_OWNER, ADMINS, user, signOut, ME, page: Q.get('admin') && IS_ADMIN ? 'admin' : 'hub' }); verCheck();
+    // quietly warm the cache so opening a sheet from here is quick
+    setTimeout(() => [ASSETS.data, ASSETS.app].forEach(u => { const l = document.createElement('link'); l.rel = 'prefetch'; l.href = u; document.head.appendChild(l); }), 2500); return; }
 
   const rid = () => { const a = new Uint8Array(18); crypto.getRandomValues(a); return btoa(String.fromCharCode(...a)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
   const NEW = !C;
   if (NEW) C = rid();
   window.SHEET_PAGES = true; window.SHEET_CHAR = C;
-  const run = () => { if (load) load.remove(); document.documentElement.classList.remove('pg-loading'); const s = document.createElement('script'); s.textContent = document.getElementById('app-src').textContent; document.body.appendChild(s); };
+  // The game data and the app arrive as separate long-cached files; start fetching them now, run them in order later.
+  const fetched = Promise.all([ASSETS.data, ASSETS.app].map(u => fetch(u).then(r => { if (!r.ok) throw new Error(u); return r.text(); })));
+  const run = async () => { let src; try { src = await fetched; } catch (e) { say('Couldn\'t load the sheet. Check your connection and reload.'); return; }
+    if (load) load.remove(); document.documentElement.classList.remove('pg-loading');
+    src.forEach(t => { const s = document.createElement('script'); s.textContent = t; document.body.appendChild(s); }); };
   const col = fs.collection('sheets'), CACHE = 'dnd-pages-cache:' + C;
   let txt = null, missing = false, denied = false, OWNER = NEW ? ((IS_ADMIN && O) || EMAIL) : '', VIEWERS = [], EDITORS = [];
   if (!NEW) try {
@@ -114,10 +132,10 @@ const ADMIN_EMAIL = 'matthewcbro@gmail.com';
   if (txt) data.textContent = txt;
   if (G) lsSet(LAST_G, G);
   const hubCol = G ? fs.collection('groups/' + G + '/chars') : null;
-  if (G) { try { const g = await fs.collection('groups').doc(G).get(); nameFrom(g.exists && g.data()); } catch (e) {} }
   // Older copies didn't record an owner: take it from the party list.
   if (!OWNER && hubCol) { try { const h = await hubCol.doc(C).get(); OWNER = ((h.exists && h.data().owner) || '').toLowerCase(); } catch (e) {} }
   if (!OWNER) OWNER = EMAIL;
+  let OWNER_NAME = ''; userDoc(OWNER).then(u => { OWNER_NAME = (u && u.name) || ''; if (OWNER_NAME) setTimeout(() => { try { syncPlayer(); } catch (e) {} }, 0); });
   // What this person may do here: their own (or the DM) edits; someone it's shared with can edit or only look.
   const role = () => (IS_ADMIN || OWNER === EMAIL) ? 'owner' : EDITORS.includes(EMAIL) ? 'edit' : 'view';
 
@@ -129,11 +147,13 @@ const ADMIN_EMAIL = 'matthewcbro@gmail.com';
   // opened, viewed, or its layout, theme or settings were adjusted.
   const NOT_INFO = ['savedAt', 'layout', 'settings', 'theme', 'spellFilter', 'sources', 'dataRev', 'fixesDone', 'player'];
   const digest = st => { try { const o = Object.assign({}, st); NOT_INFO.forEach(k => delete o[k]); const s = JSON.stringify(o); let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return s.length + ':' + h; } catch (e) { return ''; } };
-  let LASTD = null, hubChanged = false, WROTE = 0;
+  let LASTD = null, hubChanged = false, WROTE = 0, LASTSUM = '';
   const hubUpdate = async changed => { if (!hubCol || !window.sheetSummary || role() === 'view') return; const st = window.sheetState && window.sheetState(); if (!st || !st.created) return;
     const s = window.sheetSummary();
     const when = changed ? { updatedAt: Date.now(), by: NAME } : {};
-    try { await hubCol.doc(C).set(Object.assign({ owner: OWNER, name: s.name, player: s.player, race: s.race, cls: s.cls, level: s.level, hp: s.hp, thumb: await thumb(s.portrait) }, EMAIL === OWNER && user.displayName ? { ownerName: user.displayName } : {}, when), { merge: true }); } catch (e) { console.warn('hub', e); } };
+    const sum = Object.assign({ owner: OWNER, name: s.name, player: s.player, race: s.race, cls: s.cls, level: s.level, thumb: await thumb(s.portrait), keys: searchKeys(s.name) }, NEW && !LASTSUM ? { createdAt: Date.now() } : {});
+    const key = JSON.stringify(sum); if (!changed && key === LASTSUM) return; // nothing on the card changed: skip the write
+    try { await hubCol.doc(C).set(Object.assign(sum, when), { merge: true }); LASTSUM = key; } catch (e) { console.warn('hub', e); } };
   const hubSoon = () => { try { const d = digest(window.sheetState()); if (LASTD !== null && d !== LASTD) hubChanged = true; LASTD = d; } catch (e) {}
     clearTimeout(hubT); hubT = setTimeout(() => { const c = hubChanged; hubChanged = false; hubUpdate(c); }, 1200); };
 
@@ -149,7 +169,7 @@ const ADMIN_EMAIL = 'matthewcbro@gmail.com';
   window.claude = { use: async n => n === 'db' ? db : n === 'user' ? cuser : null };
   run();
   // The Player field isn't typed in on the site: it's the owner's name from the player list.
-  const playerName = () => PLAYERS[OWNER] || P || '';
+  const playerName = () => OWNER_NAME || P || '';
   const syncPlayer = () => { try { const st = window.sheetState && window.sheetState(), want = playerName(); if (st && st.created && want && st.player !== want && role() !== 'view') window.sheetSet('player', want); } catch (e) {} };
   if (NEW && P) { try { const st = window.sheetState(); if (st && !st.player) st.player = P; } catch (e) {} }
   try { const st0 = window.sheetState(); if (st0 && st0.created) LASTD = digest(st0); } catch (e) {}
@@ -194,100 +214,39 @@ function signIn(auth, say) {
       msg(`<b>Check your email</b> (${em}) for a sign-in link and open it on this device. If it isn't there in a minute, look in Spam.`); } catch (x) { msg('Couldn\'t send the link: ' + ((x && x.message) || x)); } };
 }
 
-// ================= The party hub =================
+// ================= The hub, and the admin section =================
 function hub(fs, auth, G, ctx) {
-  const { EMAIL, IS_ADMIN, IS_OWNER, user, signOut } = ctx; let ADMINS = ctx.ADMINS || [];
-  const OPEN = 'dnd-hub-open:' + G, VIEW = 'dnd-hub-view';
+  const { EMAIL, IS_ADMIN, IS_OWNER, user, signOut, ME, page } = ctx; let ADMINS = ctx.ADMINS || [];
+  const OPEN = 'dnd-hub-open:' + G;
   const ls = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const ago = t => { if (!t) return ''; const s = (Date.now() - t) / 1000; return s < 60 ? 'just now' : s < 3600 ? Math.floor(s / 60) + 'm ago' : s < 86400 ? Math.floor(s / 3600) + 'h ago' : Math.floor(s / 86400) + 'd ago'; };
-  const base = location.pathname;
-  document.title = 'Adventurer’s Tome';
+  const day = t => t ? new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+  const base = location.pathname, HUB = base + '?g=' + G, ADMIN_URL = HUB + '&admin=1';
+  const ADMIN = page === 'admin';
+  document.title = ADMIN ? 'Admin — Adventurer’s Tome' : 'Adventurer’s Tome';
   document.body.innerHTML = '<div id="hub"></div><div id="hub-modal" class="hub-modal"></div><div id="hub-toast" class="hub-toast"></div>';
-  document.body.className = 'hubbody';
+  document.body.className = 'hubbody' + (ADMIN ? ' adminbody' : '');
   const root = document.getElementById('hub'), modal = document.getElementById('hub-modal');
-  let chars = [], group = { name: '', players: {} }, open = {}, view = 'mine';
+  let chars = [], open = {}, view = 'mine';
   try { open = JSON.parse(ls.get(OPEN) || '{}'); } catch (e) {}
   const toast = t => { const el = document.getElementById('hub-toast'); el.textContent = t; el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), 2600); };
-  const pmap = () => (group && group.players) || {};
-  const myName = () => pmap()[EMAIL] || user.displayName || EMAIL.split('@')[0];
-  const gName = em => { const c = chars.find(x => x.owner === em && x.ownerName); return c ? c.ownerName : ''; };
-  const nameOf = em => pmap()[em] || gName(em) || em;
+  const usersCol = fs.collection('users'), charsCol = fs.collection('groups/' + G + '/chars'), sheets = fs.collection('sheets');
+  const FV = firebase.firestore.FieldValue;
+  // Names come from each account's own record, looked up only when needed and remembered for this visit.
+  const UC = {}, NAMES = {};
+  const remember = (em, u) => { UC[em] = Promise.resolve(u); if (u && u.name) NAMES[em] = u.name; };
+  const userDoc = em => UC[em] || (UC[em] = usersCol.doc(em).get().then(x => { const d = x.exists ? x.data() : null; if (d && d.name) NAMES[em] = d.name; return d; }, () => null));
+  const nameOf = em => NAMES[em] || em;
+  const needNames = ems => Promise.all([...new Set(ems.filter(Boolean))].map(userDoc));
+  if (ME) remember(EMAIL, ME);
+  const myName = () => NAMES[EMAIL] || user.displayName || EMAIL.split('@')[0];
   const isMine = c => (c.owner || '') === EMAIL;
-  const admin = () => IS_ADMIN && view === 'all';
-  const charsCol = fs.collection('groups/' + G + '/chars'), gDoc = fs.collection('groups').doc(G), sheets = fs.collection('sheets');
-  const FV = firebase.firestore.FieldValue, FP = firebase.firestore.FieldPath;
-  const close = () => { modal.classList.remove('on'); ADMIN_ON = false; };
-  const playerOptions = sel => Object.entries(pmap()).sort((a, b) => a[1].localeCompare(b[1])).map(([em, n]) => `<option value="${esc(em)}"${em === sel ? ' selected' : ''}>${esc(n)} — ${esc(em)}</option>`).join('');
-
-  function createChar() {
-    if (!IS_ADMIN) { location.href = base + '?new=1&g=' + G + '&p=' + encodeURIComponent(myName()); return; }
-    modal.innerHTML = `<div class="hub-card"><h2>New character</h2><p class="hub-hint">Whose character is it? Only that player (and you) will be able to open it.</p>
-      <form id="new-f" class="who-f"><select id="new-o">${playerOptions(EMAIL)}</select><button class="btn gold">Create</button></form><button class="btn ghost" id="new-x">Cancel</button></div>`;
-    modal.classList.add('on');
-    modal.querySelector('#new-f').onsubmit = e => { e.preventDefault(); const o = modal.querySelector('#new-o').value; location.href = base + '?new=1&g=' + G + '&o=' + encodeURIComponent(o) + '&p=' + encodeURIComponent(nameOf(o)); };
-    modal.querySelector('#new-x').onclick = close;
-  }
-  async function giveTo(c, o) {
-    try { const s = await sheets.doc(c.id).get(); const n = Number(s.exists && s.data().n) || 1; await sheets.doc(c.id).update({ owner: o }); for (let k = 1; k < n; k++) await sheets.doc(c.id + '_p' + k).update({ owner: o }).catch(() => {});
-      await charsCol.doc(c.id).set({ owner: o, player: nameOf(o), playerSet: Date.now() }, { merge: true }); c.owner = o; c.player = nameOf(o); toast('Moved to ' + nameOf(o) + '.'); } catch (x) { toast('Couldn\'t move it: ' + (x.message || x)); } }
-  function moveChar(c) {
-    modal.innerHTML = `<div class="hub-card"><h2>Move ${esc(c.name || 'character')}</h2><p class="hub-hint">Give it to another player. They'll be able to open it; the current player won't anymore.</p>
-      <form id="mv-f" class="who-f"><select id="mv-o">${playerOptions(c.owner)}</select><button class="btn gold">Move</button></form><button class="btn ghost" id="mv-x">Cancel</button></div>`;
-    modal.classList.add('on');
-    modal.querySelector('#mv-f').onsubmit = async e => { e.preventDefault(); const o = modal.querySelector('#mv-o').value; close(); await giveTo(c, o); };
-    modal.querySelector('#mv-x').onclick = close;
-  }
-  function removeChar(c, back) {
-    modal.innerHTML = `<div class="hub-card"><h2>Remove ${esc(c.name || 'this character')} from the list?</h2><p class="hub-hint">The character itself isn't deleted — opening its link puts it back here.</p>
-      <div class="row"><button class="btn ghost" id="rm-x">Cancel</button><button class="btn red" id="rm-ok">Remove from list</button></div></div>`;
-    modal.classList.add('on');
-    modal.querySelector('#rm-ok').onclick = async () => { await charsCol.doc(c.id).delete(); chars = chars.filter(x => x.id !== c.id); toast('Removed from the list.'); back ? back() : close(); };
-    modal.querySelector('#rm-x').onclick = () => back ? back() : close();
-  }
-  const adminRefresh = () => { if (ADMIN_ON && modal.classList.contains('on') && modal.querySelector('.hub-card.admin') && !modal.contains(document.activeElement && document.activeElement.matches('input, select') ? document.activeElement : null)) adminPanel(); };
-  // ===== Admin: every character, the player list, and (for you) who else is an admin =====
-  let ATAB = 'chars', ADMIN_ON = false;
+  const close = () => modal.classList.remove('on');
   const pic = c => c.thumb ? `<img class="hc-pic" src="${esc(c.thumb)}" alt="">` : `<span class="hc-pic hc-nopic">${esc((c.name || '?')[0])}</span>`;
-  function adminPanel(tab) {
-    if (tab) ATAB = tab; ADMIN_ON = true;
-    const tabs = [['chars', 'Characters'], ['players', 'Players'], ['admins', 'Admins']];
-    let body = '';
-    if (ATAB === 'chars') {
-      const list = chars.slice().sort((a, b) => nameOf(a.owner || '').localeCompare(nameOf(b.owner || '')) || (a.name || '').localeCompare(b.name || ''));
-      body = `<p class="hub-hint">Every character in the party. Change the owner to give it to another player.</p><div class="ad-list">${list.map(c => `<div class="ad-row">${pic(c)}
-        <div class="ad-main"><b>${esc(c.name || 'Unnamed character')}</b><small>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}${c.updatedAt ? ' · updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}${(c.viewers || []).length ? ' · shared with ' + c.viewers.length : ''}</small></div>
-        <select class="ad-own" data-own="${esc(c.id)}" aria-label="Owner of ${esc(c.name || 'this character')}">${playerOptions(c.owner)}${c.owner && pmap()[c.owner] ? '' : `<option value="${esc(c.owner || '')}" selected>${esc(c.owner || '— no owner —')}</option>`}</select>
-        <div class="ad-acts"><a class="btn sm" href="${esc(base + '?c=' + c.id)}">Open</a><button class="btn sm" data-ash="${esc(c.id)}">Share</button><button class="btn sm ghost" data-arm="${esc(c.id)}">Remove</button></div></div>`).join('') || '<p class="hub-hint">No characters yet.</p>'}</div>`;
-    } else if (ATAB === 'players') {
-      const rows = Object.entries(pmap()).sort((a, b) => a[1].localeCompare(b[1])), count = em => chars.filter(c => c.owner === em).length;
-      body = `<p class="hub-hint">Each player signs in with their email (Google, or an emailed link). Their characters are locked to it. Edit a name to rename them.</p>
-        <div class="pl-list">${rows.map(([em, n]) => `<div class="pl-row"><input class="ad-name" data-pn="${esc(em)}" value="${esc(n)}" maxlength="40" aria-label="Name for ${esc(em)}"><span>${esc(em)}</span><small class="ad-n">${count(em)} character${count(em) === 1 ? '' : 's'}</small><button class="linkbtn" data-prm="${esc(em)}">remove</button></div>`).join('') || '<p class="hub-hint">No players yet.</p>'}</div>
-        <form id="pl-f" class="who-f pl-f"><input id="pl-n" placeholder="Name" maxlength="40" required><input id="pl-e" type="email" placeholder="Email" required><button class="btn gold">Add player</button></form>`;
-    } else {
-      body = `<p class="hub-hint">Admins can open, edit, share and move every character, manage players and remove characters from the list.${IS_OWNER ? '' : ' Only ' + esc(ADMIN_EMAIL) + ' can change who is an admin.'}</p>
-        <div class="pl-list"><div class="pl-row"><b>${esc(nameOf(ADMIN_EMAIL))}</b><span>${esc(ADMIN_EMAIL)}</span><small class="ad-n">always</small></div>
-        ${ADMINS.filter(em => em !== ADMIN_EMAIL).map(em => `<div class="pl-row"><b>${esc(pmap()[em] || '')}</b><span>${esc(em)}</span>${IS_OWNER ? `<button class="linkbtn" data-arm-admin="${esc(em)}">remove</button>` : ''}</div>`).join('')}</div>
-        ${IS_OWNER ? `<form id="ad-f" class="who-f pl-f"><input id="ad-e" type="email" placeholder="Email" list="ad-dl" required><datalist id="ad-dl">${Object.entries(pmap()).filter(([em]) => em !== ADMIN_EMAIL && !ADMINS.includes(em)).map(([em, n]) => `<option value="${esc(em)}">${esc(n)}</option>`).join('')}</datalist><button class="btn gold">Make admin</button></form>` : ''}`;
-    }
-    modal.innerHTML = `<div class="hub-card admin"><h2>Admin</h2><div class="hub-views ad-tabs">${tabs.map(([k, t]) => `<button class="${ATAB === k ? 'on' : ''}" data-atab="${k}">${t}${k === 'chars' ? ` <span>${chars.length}</span>` : k === 'players' ? ` <span>${Object.keys(pmap()).length}</span>` : ''}</button>`).join('')}</div>
-      <div class="ad-body">${body}</div><button class="btn ghost" id="ad-x">Done</button></div>`;
-    modal.classList.add('on');
-    const back = () => adminPanel();
-    modal.querySelectorAll('[data-atab]').forEach(b => b.onclick = () => adminPanel(b.dataset.atab));
-    modal.querySelector('#ad-x').onclick = () => { ADMIN_ON = false; close(); };
-    modal.querySelectorAll('[data-own]').forEach(sl => sl.onchange = async () => { const c = chars.find(x => x.id === sl.dataset.own); if (c && sl.value && sl.value !== c.owner) { await giveTo(c, sl.value); adminPanel(); } });
-    modal.querySelectorAll('[data-ash]').forEach(b => b.onclick = () => { const c = chars.find(x => x.id === b.dataset.ash); if (c) shareChar(c, back); });
-    modal.querySelectorAll('[data-arm]').forEach(b => b.onclick = () => { const c = chars.find(x => x.id === b.dataset.arm); if (c) removeChar(c, back); });
-    modal.querySelectorAll('[data-pn]').forEach(inp => inp.onchange = async () => { const n = inp.value.trim(); if (!n) { inp.value = pmap()[inp.dataset.pn] || ''; return; } await gDoc.update(new FP('players', inp.dataset.pn), n); toast('Renamed to ' + n + '.'); });
-    modal.querySelectorAll('[data-prm]').forEach(b => b.onclick = async () => { await gDoc.update(new FP('players', b.dataset.prm), FV.delete(), new FP('hidden', b.dataset.prm), true); toast('Removed ' + b.dataset.prm + ' from the players.'); });
-    const pf = modal.querySelector('#pl-f'); if (pf) pf.onsubmit = async e => { e.preventDefault(); const n = modal.querySelector('#pl-n').value.trim(), em = modal.querySelector('#pl-e').value.trim().toLowerCase(); if (!n || !em) return;
-      await gDoc.set({ players: { [em]: n }, hidden: { [em]: FV.delete() } }, { merge: true }); toast('Added ' + n + '.'); };
-    const cfg = fs.collection('config').doc('admins');
-    const af = modal.querySelector('#ad-f'); if (af) af.onsubmit = async e => { e.preventDefault(); const em = modal.querySelector('#ad-e').value.trim().toLowerCase(); if (!em || em === ADMIN_EMAIL) return;
-      try { await cfg.set({ emails: FV.arrayUnion(em) }, { merge: true }); ADMINS = [...new Set(ADMINS.concat(em))]; toast(nameOf(em) + ' is now an admin.'); adminPanel(); } catch (x) { toast('Couldn\'t add the admin — publish the new database rules first.'); } };
-    modal.querySelectorAll('[data-arm-admin]').forEach(b => b.onclick = async () => { const em = b.dataset.armAdmin; try { await cfg.set({ emails: FV.arrayRemove(em) }, { merge: true }); ADMINS = ADMINS.filter(x => x !== em); toast(em + ' is no longer an admin.'); adminPanel(); } catch (x) { toast('Couldn\'t remove the admin: ' + (x.message || x)); } });
-  }
+  const shareIcon = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>';
+
+  // ----- actions on one character (used by the hub's menus and the admin section) -----
   // Who else can open a character: everyone in "viewers" can look; those also in "editors" can change it.
   async function setAccess(c, V, E) {
     const acc = { viewers: V, editors: E.filter(x => V.includes(x)) };
@@ -295,42 +254,68 @@ function hub(fs, auth, G, ctx) {
     await sheets.doc(c.id).update(acc); for (let k = 1; k < n; k++) await sheets.doc(c.id + '_p' + k).update(acc).catch(() => {});
     await charsCol.doc(c.id).set(acc, { merge: true }); Object.assign(c, acc);
   }
+  async function giveTo(c, o) {
+    try { await userDoc(o); const s = await sheets.doc(c.id).get(); const n = Number(s.exists && s.data().n) || 1; await sheets.doc(c.id).update({ owner: o }); for (let k = 1; k < n; k++) await sheets.doc(c.id + '_p' + k).update({ owner: o }).catch(() => {});
+      await charsCol.doc(c.id).set({ owner: o, player: nameOf(o), playerSet: Date.now() }, { merge: true }); c.owner = o; c.player = nameOf(o); toast('Moved to ' + nameOf(o) + '.'); return true; } catch (x) { toast('Couldn\'t move it: ' + (x.message || x)); return false; } }
   function shareChar(c, back) {
     let V = [...(c.viewers || [])], E = [...(c.editors || [])];
     const paint = () => {
-
       modal.innerHTML = `<div class="hub-card wide"><h2>Share ${esc(c.name || 'this character')}</h2><p class="hub-hint">They'll find it under “Shared characters” after signing in with that email.</p>
-        <div class="pl-list">${V.map(em => `<div class="pl-row"><span class="sh-who">${pmap()[em] ? `<b>${esc(pmap()[em])}</b> ` : ''}<span>${esc(em)}</span></span><select data-acc="${esc(em)}"><option value="view">Can view</option><option value="edit"${E.includes(em) ? ' selected' : ''}>Can edit</option></select><button class="linkbtn" data-rm="${esc(em)}">remove</button></div>`).join('') || '<p class="hub-hint">Not shared with anyone yet.</p>'}</div>
+        <div class="pl-list">${V.map(em => `<div class="pl-row"><span class="sh-who">${NAMES[em] ? `<b>${esc(NAMES[em])}</b> ` : ''}<span>${esc(em)}</span></span><select data-acc="${esc(em)}"><option value="view">Can view</option><option value="edit"${E.includes(em) ? ' selected' : ''}>Can edit</option></select><button class="linkbtn" data-rm="${esc(em)}">remove</button></div>`).join('') || '<p class="hub-hint">Not shared with anyone yet.</p>'}</div>
         <form id="sh-f" class="who-f pl-f sh-f"><input id="sh-e" type="email" placeholder="Their email address" autocomplete="off" required><select id="sh-a"><option value="view">Can view</option><option value="edit">Can edit</option></select><button class="btn gold">Share</button></form>
         <button class="btn ghost" id="sh-x">Done</button></div>`;
       modal.classList.add('on');
-      const ei = modal.querySelector('#sh-e');
-      
-      const save = async (nv, ne, msg) => { try { await setAccess(c, nv, ne); V = c.viewers; E = c.editors; if (msg) toast(msg); paint(); } catch (x) { toast('Couldn\'t change sharing: ' + (x.message || x)); } };
-      modal.querySelector('#sh-f').onsubmit = e => { e.preventDefault(); const em = ei.value.trim().toLowerCase();
+      const save = async (nv, ne, msg) => { try { await setAccess(c, nv, ne); V = c.viewers; E = c.editors; if (msg) toast(msg); paint(); if (back && back.refresh) back.refresh(); } catch (x) { toast('Couldn\'t change sharing: ' + (x.message || x)); } };
+      modal.querySelector('#sh-f').onsubmit = e => { e.preventDefault(); const em = modal.querySelector('#sh-e').value.trim().toLowerCase();
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { toast('Type an email address.'); return; } if (em === c.owner) { toast('That’s the owner.'); return; }
         const ed = modal.querySelector('#sh-a').value === 'edit'; save([...V.filter(x => x !== em), em], ed ? [...E.filter(x => x !== em), em] : E.filter(x => x !== em), 'Shared with ' + nameOf(em) + '.'); };
       modal.querySelectorAll('[data-acc]').forEach(sel => sel.onchange = () => { const em = sel.dataset.acc; save(V, sel.value === 'edit' ? [...E.filter(x => x !== em), em] : E.filter(x => x !== em)); });
       modal.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { const em = b.dataset.rm; save(V.filter(x => x !== em), E.filter(x => x !== em), 'Stopped sharing with ' + nameOf(em) + '.'); });
-      modal.querySelector('#sh-x').onclick = () => back ? back() : close();
+      modal.querySelector('#sh-x').onclick = () => { close(); if (back) back(); };
     };
-    paint();
+    needNames(V).then(paint);
   }
-  const shareIcon = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>';
-  const shareNote = c => { const n = (c.viewers || []).length; return n ? `Shared with ${n} · ` : ''; };
+  // Admins: find an account by name or email (one indexed lookup however many accounts there are).
+  async function findUsers(q, after) { q = String(q || '').trim().toLowerCase().slice(0, 24);
+    let qq = q ? usersCol.where('keys', 'array-contains', q).limit(25) : usersCol.orderBy('createdAt', 'desc').limit(25); if (after) qq = qq.startAfter(after);
+    const r = await qq.get(); r.docs.forEach(d => remember(d.id, d.data())); return r; }
+  function pickUser(title, hint, done) {
+    modal.innerHTML = `<div class="hub-card wide"><h2>${esc(title)}</h2><p class="hub-hint">${esc(hint)}</p><input id="pu-q" class="ad-search" placeholder="Search by name or email" autocomplete="off"><div class="pl-list" id="pu-l"></div><button class="btn ghost" id="pu-x">Cancel</button></div>`;
+    modal.classList.add('on'); const q = modal.querySelector('#pu-q'), l = modal.querySelector('#pu-l'); let t = null;
+    const show = async () => { const v = q.value.trim().toLowerCase(); try { const r = await findUsers(v); const rows = r.docs.map(d => [d.id, d.data().name]);
+        if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v) && !rows.some(x => x[0] === v)) rows.push([v, '']);
+        l.innerHTML = rows.map(([em, n]) => `<button class="pl-row pu-row" data-pu="${esc(em)}"><b>${esc(n || 'No account yet')}</b><span>${esc(em)}</span></button>`).join('') || '<p class="hub-hint">Nobody matches.</p>';
+        l.querySelectorAll('[data-pu]').forEach(b => b.onclick = () => { close(); done(b.dataset.pu); }); } catch (x) { l.innerHTML = `<p class="hub-hint">Couldn't search (${esc(x.code || x.message || x)}).</p>`; } };
+    q.oninput = () => { clearTimeout(t); t = setTimeout(show, 250); }; modal.querySelector('#pu-x').onclick = close; q.focus(); show();
+  }
+  function moveChar(c, after) { pickUser('Give ' + (c.name || 'this character') + ' to…', 'They’ll own it; the current owner won’t be able to open it anymore unless it’s shared with them.', async o => { if (o && o !== c.owner && await giveTo(c, o) && after) after(); }); }
+  function removeChar(c, after) {
+    modal.innerHTML = `<div class="hub-card"><h2>Remove ${esc(c.name || 'this character')} from the list?</h2><p class="hub-hint">The character itself isn't deleted — opening its link puts it back.</p>
+      <div class="row"><button class="btn ghost" id="rm-x">Cancel</button><button class="btn red" id="rm-ok">Remove from list</button></div></div>`;
+    modal.classList.add('on');
+    modal.querySelector('#rm-ok').onclick = async () => { await charsCol.doc(c.id).delete(); chars = chars.filter(x => x.id !== c.id); toast('Removed from the list.'); close(); if (after) after(); };
+    modal.querySelector('#rm-x').onclick = close;
+  }
+  document.addEventListener('click', e => { if (e.target === modal) close(); });
+
+  if (ADMIN) return adminSection();
+
+  // ================= Hub: my characters and the ones shared with me =================
+  function createChar() { location.href = base + '?new=1&g=' + G + '&p=' + encodeURIComponent(myName()); }
   function card(c) {
-    const acc = IS_ADMIN ? '' : (c.editors || []).includes(EMAIL) ? '<span class="hc-acc edit">Can edit</span>' : '<span class="hc-acc">View only</span>';
-    return `<div class="hc${c.pin && isMine(c) ? ' pinned' : ''}"><a class="hc-main" href="${esc(base + '?c=' + c.id)}">${c.thumb ? `<img class="hc-pic" src="${esc(c.thumb)}" alt="">` : `<span class="hc-pic hc-nopic">${esc((c.name || '?')[0])}</span>`}
+    const acc = (c.editors || []).includes(EMAIL) ? '<span class="hc-acc edit">Can edit</span>' : '<span class="hc-acc">View only</span>';
+    return `<div class="hc${c.pin && isMine(c) ? ' pinned' : ''}"><a class="hc-main" href="${esc(base + '?c=' + c.id)}">${pic(c)}
       <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</span>
       <small>${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small>${acc}</span></a>
       ${IS_ADMIN ? `<div class="hc-menu"><button class="hc-dots" aria-label="More">⋯</button><div class="hc-list">
         <button data-a="share" data-id="${esc(c.id)}">Share…</button><button data-a="move" data-id="${esc(c.id)}">Give to another player</button><button data-a="rm" data-id="${esc(c.id)}">Remove from list</button></div></div>` : ''}</div>`;
   }
+  const shareNote = c => { const n = (c.viewers || []).length; return n ? `Shared with ${n} · ` : ''; };
   // Pinned first; then each player's own order (drag to change), then most recently updated.
   const ord = (a, b) => (!!b.pin - !!a.pin) || ((a.order != null ? a.order : 1e9) - (b.order != null ? b.order : 1e9)) || ((b.updatedAt || 0) - (a.updatedAt || 0));
   function row(c) {
     return `<div class="hr${c.pin ? ' pinned' : ''}" data-id="${esc(c.id)}" data-pin="${c.pin ? 1 : 0}"><span class="hr-grip" title="Drag to reorder" aria-label="Drag to reorder">⠿</span>
-      <a class="hr-main" href="${esc(base + '?c=' + c.id)}">${c.thumb ? `<img class="hc-pic" src="${esc(c.thumb)}" alt="">` : `<span class="hc-pic hc-nopic">${esc((c.name || '?')[0])}</span>`}
+      <a class="hr-main" href="${esc(base + '?c=' + c.id)}">${pic(c)}
       <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</span>
       <small>${shareNote(c)}${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small></span></a>
       <button class="hr-pin hr-share" data-share-id="${esc(c.id)}" title="Share">${shareIcon}</button><button class="hr-pin${c.pin ? ' on' : ''}" data-pin-id="${esc(c.id)}" title="${c.pin ? 'Unpin' : 'Pin to the top'}" aria-pressed="${!!c.pin}"><svg viewBox="0 0 24 24" width="18" height="18" fill="${c.pin ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 3h6l-1 6 4 4H6l4-4z"/><path d="M12 13v8"/></svg></button></div>`;
@@ -364,45 +349,153 @@ function hub(fs, auth, G, ctx) {
 
   function draw() {
     const SH = view === 'shared', mine = chars.filter(isMine), shared = chars.filter(c => !isMine(c)), groups = {};
-    shared.forEach(c => { const k = nameOf(c.owner || '') || (c.player || '').trim() || 'No player yet'; (groups[k] = groups[k] || []).push(c); });
+    shared.forEach(c => { const k = NAMES[c.owner] || (c.player || '').trim() || c.owner || 'No player yet'; (groups[k] = groups[k] || []).push(c); });
     const keys = Object.keys(groups).sort((a, b) => a.localeCompare(b));
     const byName = (a, b) => (a.name || '').localeCompare(b.name || '');
     const body = SH
       ? (keys.length ? keys.map(k => { const isOpen = open[k] != null ? open[k] : true; return `<details class="hub-folder" data-k="${esc(k)}" ${isOpen ? 'open' : ''}><summary><span class="hf-caret">▸</span><span class="hf-name">${esc(k)}</span><span class="hf-n">${groups[k].length}</span></summary>
         <div class="hf-body">${groups[k].sort(byName).map(card).join('')}</div></details>`; }).join('')
         : `<p class="hub-empty">Nothing has been shared with you yet. When another player shares a character with ${esc(EMAIL)}, it shows up here.</p>`)
-      : (mine.length ? `<div class="hl">${mine.sort(ord).map(row).join('')}</div>` : `<p class="hub-empty">You don’t have any characters yet — create one${IS_ADMIN ? '' : ', or ask whoever has yours to give it to you'}.</p>`);
+      : (mine.length ? `<div class="hl">${mine.sort(ord).map(row).join('')}</div>` : `<p class="hub-empty">You don’t have any characters yet — create one, or ask whoever has yours to give it to you.</p>`);
     root.innerHTML = `<header class="hub-top"><h1 class="hub-title">Adventurer’s Tome</h1>
       <div class="hub-me">Signed in as <b>${esc(myName())}</b> <span class="hub-em">${esc(EMAIL)}</span> · <button class="linkbtn" id="me-out">Sign out</button></div></header>
-      <div class="hub-views"><button class="${SH ? '' : 'on'}" data-view="mine">My characters <span>${mine.length}</span></button><button class="${SH ? 'on' : ''}" data-view="shared">Shared characters <span>${shared.length}</span></button>${IS_ADMIN ? '<button class="btn hub-admin" id="hub-admin">⚙ Admin</button>' : ''}</div>
+      <div class="hub-views"><button class="${SH ? '' : 'on'}" data-view="mine">My characters <span>${mine.length}</span></button><button class="${SH ? 'on' : ''}" data-view="shared">Shared characters <span>${shared.length}</span></button>${IS_ADMIN ? `<a class="btn hub-admin" id="hub-admin" href="${esc(ADMIN_URL)}">⚙ Admin</a>` : ''}</div>
       ${SH ? '' : '<div class="hub-bar"><button class="btn gold big" id="hub-new">＋ Create character</button></div>'}
       ${body}`;
     const nb = root.querySelector('#hub-new'); if (nb) nb.onclick = createChar;
     root.querySelector('#me-out').onclick = signOut;
     root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { view = b.dataset.view; draw(); });
-    const ad = root.querySelector('#hub-admin'); if (ad) ad.onclick = () => adminPanel('chars');
     root.querySelectorAll('[data-pin-id]').forEach(b => b.onclick = e => { e.preventDefault(); togglePin(b.dataset.pinId); });
     root.querySelectorAll('[data-share-id]').forEach(b => b.onclick = e => { e.preventDefault(); const c = chars.find(x => x.id === b.dataset.shareId); if (c) shareChar(c); });
     root.querySelectorAll('details.hub-folder').forEach(d => d.addEventListener('toggle', () => { open[d.dataset.k] = d.open; ls.set(OPEN, JSON.stringify(open)); }));
     root.querySelectorAll('.hc-dots').forEach(b => b.onclick = e => { e.stopPropagation(); const w = b.parentElement, on = !w.classList.contains('on'); root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')); w.classList.toggle('on', on); });
     root.querySelectorAll('.hc-list [data-a]').forEach(b => b.onclick = () => { const c = chars.find(x => x.id === b.dataset.id); b.closest('.hc-menu').classList.remove('on'); if (!c) return;
-      if (b.dataset.a === 'share') shareChar(c); if (b.dataset.a === 'move') moveChar(c); if (b.dataset.a === 'rm') removeChar(c); });
+      if (b.dataset.a === 'share') shareChar(c); if (b.dataset.a === 'move') moveChar(c, draw); if (b.dataset.a === 'rm') removeChar(c, draw); });
   }
   document.addEventListener('click', () => root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')));
   draw();
-  // The DM sees every character; everyone else sees their own plus the ones shared with them.
-  let gLoaded = false; const stamped = new Set(), added = new Set();
-  // New players: each owner's Google name is kept on their characters' party entries, and the first time an admin's
-  // party page sees an owner who isn't on the player list it adds them under that name (renameable in Admin → Players).
-  const autoPlayers = () => {
-    if (user.displayName) chars.filter(c => c.owner === EMAIL && c.ownerName !== user.displayName && !stamped.has(c.id)).forEach(c => { stamped.add(c.id); charsCol.doc(c.id).set({ ownerName: user.displayName }, { merge: true }).catch(() => {}); });
-    if (!IS_ADMIN || !gLoaded) return; const hidden = (group && group.hidden) || {};
-    const fresh = {}; chars.forEach(c => { const em = (c.owner || '').toLowerCase(); if (!em || pmap()[em] || hidden[em] || added.has(em)) return; const n = c.ownerName || (c.player && !/@/.test(c.player) ? c.player : ''); if (n) fresh[em] = n; });
-    if (Object.keys(fresh).length) { Object.keys(fresh).forEach(em => added.add(em)); gDoc.set({ players: fresh }, { merge: true }).catch(() => {}); } };
-  const lists = {}, merge = () => { const m = new Map(); Object.values(lists).forEach(l => l.forEach(c => m.set(c.id, c))); chars = [...m.values()]; autoPlayers(); if (!RD) draw(); adminRefresh(); };
+  // Everyone — admins too — sees their own characters plus the ones shared with them. Admins find the rest in Admin.
+  const lists = {}, merge = () => { const m = new Map(); Object.values(lists).forEach(l => l.forEach(c => m.set(c.id, c))); chars = [...m.values()]; if (!RD) draw();
+    needNames(chars.filter(c => !isMine(c)).map(c => c.owner)).then(() => { if (!RD) draw(); }); };
   const failed = e => { root.innerHTML = `<p class="hub-empty">Couldn't load the character list (${esc(e.code || e.message || e)}).<br><br>Signed in as ${esc(EMAIL)} · <button class="linkbtn" onclick="pgSignOut()">Sign out</button></p>`; console.error(e); };
-  gDoc.onSnapshot(s => { group = (s.exists && s.data()) || {}; gLoaded = true; autoPlayers(); if (!RD) draw(); adminRefresh(); }, () => {});
   const watch = (k, q) => q.onSnapshot(qs => { lists[k] = qs.docs.map(d => Object.assign({ id: d.id }, d.data())); merge(); }, failed);
-  if (IS_ADMIN) watch('all', charsCol); else { watch('mine', charsCol.where('owner', '==', EMAIL)); watch('shared', charsCol.where('viewers', 'array-contains', EMAIL)); }
+  watch('mine', charsCol.where('owner', '==', EMAIL)); watch('shared', charsCol.where('viewers', 'array-contains', EMAIL));
   setInterval(() => { if (!RD) draw(); }, 60000);
+
+  // ================= Admin section (its own page: ?g=…&admin=1) =================
+  function adminSection() {
+    const UREF = usersCol.doc(EMAIL); let CHECKED = Number(ME && ME.checkedAt) || 0;
+    let TAB = new URLSearchParams(location.search).get('tab') || 'new';
+    const TABS = [['new', 'New'], ['users', 'Users'], ['chars', 'Characters'], ['admins', 'Admins']];
+    const CH = {}; // characters on screen, by id
+    const setTab = t => { TAB = t; const u = new URL(location.href); u.searchParams.set('tab', t); history.replaceState(null, '', u); frame(); };
+    let NEWN = null;
+    function frame() {
+      root.innerHTML = `<header class="hub-top ad-top"><div><a class="ad-back" href="${esc(HUB)}">← My characters</a><h1 class="hub-title">Admin</h1></div>
+        <div class="hub-me">Signed in as <b>${esc(myName())}</b> <span class="hub-em">${esc(EMAIL)}</span> · <button class="linkbtn" id="me-out">Sign out</button></div></header>
+        <nav class="hub-views ad-nav">${TABS.map(([k, t]) => `<button class="${TAB === k ? 'on' : ''}" data-tab="${k}">${t}${k === 'new' && NEWN ? ` <span>${NEWN}</span>` : ''}</button>`).join('')}</nav>
+        <section id="ad-body" class="ad-page"><p class="hub-hint">Loading…</p></section>`;
+      root.querySelector('#me-out').onclick = signOut;
+      root.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
+      ({ new: tabNew, users: tabUsers, chars: tabChars, admins: tabAdmins })[TAB]();
+    }
+    const B = () => root.querySelector('#ad-body');
+    // One character as a row: what it is, whose it is, whether it's shared with you, and what you can do with it.
+    const myAccess = c => isMine(c) ? 'own' : (c.editors || []).includes(EMAIL) ? 'edit' : (c.viewers || []).includes(EMAIL) ? 'view' : '';
+    function crow(c, showOwner = true) { CH[c.id] = c; const a = myAccess(c);
+      return `<div class="ad-row" data-cid="${esc(c.id)}">${pic(c)}
+        <div class="ad-main"><b>${esc(c.name || 'Unnamed character')}</b><small>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}${showOwner ? ' · <span class="ad-own-n">' + esc(nameOf(c.owner || '')) + '</span>' : ''}${c.createdAt ? ' · made ' + esc(ago(c.createdAt)) : ''}${c.updatedAt ? ' · updated ' + esc(ago(c.updatedAt)) : ''}${(c.viewers || []).length ? ' · shared with ' + c.viewers.length : ''}</small></div>
+        ${a === 'own' ? '<span class="ad-mine">Yours</span>' : `<label class="ad-me"><span>Shared with you</span><select data-me="${esc(c.id)}"><option value="">No</option><option value="view"${a === 'view' ? ' selected' : ''}>Can view</option><option value="edit"${a === 'edit' ? ' selected' : ''}>Can edit</option></select></label>`}
+        <div class="ad-acts"><a class="btn sm" href="${esc(base + '?c=' + c.id)}">Open</a><button class="btn sm" data-ash="${esc(c.id)}">Share…</button><button class="btn sm" data-agive="${esc(c.id)}">Give to…</button><button class="btn sm ghost" data-arm="${esc(c.id)}">Remove</button></div></div>`; }
+    function wire(el, redo) {
+      el.querySelectorAll('[data-me]').forEach(sl => sl.onchange = async () => { const c = CH[sl.dataset.me]; if (!c) return; const v = sl.value;
+        const V = (c.viewers || []).filter(x => x !== EMAIL), E = (c.editors || []).filter(x => x !== EMAIL);
+        try { await setAccess(c, v ? [...V, EMAIL] : V, v === 'edit' ? [...E, EMAIL] : E); toast(v ? (c.name || 'It') + ' is shared with you (' + (v === 'edit' ? 'can edit' : 'view only') + ').' : 'Stopped sharing ' + (c.name || 'it') + ' with you.'); }
+        catch (x) { toast('Couldn\'t change it: ' + (x.message || x)); sl.value = myAccess(c) === 'own' ? '' : myAccess(c); } });
+      el.querySelectorAll('[data-ash]').forEach(b => b.onclick = () => { const c = CH[b.dataset.ash]; if (c) shareChar(c, Object.assign(() => {}, { refresh: redo })); });
+      el.querySelectorAll('[data-agive]').forEach(b => b.onclick = () => { const c = CH[b.dataset.agive]; if (c) moveChar(c, redo); });
+      el.querySelectorAll('[data-arm]').forEach(b => b.onclick = () => { const c = CH[b.dataset.arm]; if (c) removeChar(c, redo); });
+    }
+    const docs = r => r.docs.map(d => Object.assign({ id: d.id }, d.data()));
+    const failMsg = x => `<p class="hub-hint">Couldn't load this (${esc((x && (x.code || x.message)) || x)}). If it says permissions, the new database rules haven't been published yet.</p>`;
+
+    // --- New: accounts and characters since you last checked ---
+    async function tabNew() {
+      const el = B();
+      try {
+        const [ur, cr] = await Promise.all([usersCol.where('createdAt', '>', CHECKED).orderBy('createdAt', 'desc').limit(50).get(), charsCol.where('createdAt', '>', CHECKED).orderBy('createdAt', 'desc').limit(100).get()]);
+        const us = docs(ur); us.forEach(u => remember(u.id, u));
+        const fresh = new Set(us.map(u => u.id)), byUser = {};
+        await Promise.all(us.map(async u => { byUser[u.id] = docs(await charsCol.where('owner', '==', u.id).limit(50).get()); }));
+        const others = docs(cr).filter(c => !fresh.has(c.owner)); await needNames(others.map(c => c.owner));
+        const n = us.length + others.length; if (NEWN !== n) { NEWN = n; const t = root.querySelector('[data-tab="new"]'); if (t) t.innerHTML = 'New' + (n ? ` <span>${n}</span>` : ''); }
+        el.innerHTML = `<div class="ad-bar"><p class="hub-hint">${CHECKED ? 'Since you last checked on ' + esc(day(CHECKED)) + ' at ' + esc(new Date(CHECKED).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })) + '.' : 'Everything so far — you haven’t marked anything as checked yet.'}</p>${n ? '<button class="btn gold" id="ad-seen">Mark all as checked</button>' : ''}</div>
+          <h3 class="ad-h">New accounts <span>${us.length}${us.length === 50 ? '+' : ''}</span></h3>
+          ${us.length ? us.map(u => `<div class="ad-user"><div class="ad-uhead"><b>${esc(u.name || u.id)}</b><span>${esc(u.id)}</span><small>joined ${esc(ago(u.createdAt))}</small></div>
+            <div class="ad-list">${byUser[u.id].length ? byUser[u.id].map(c => crow(c, false)).join('') : '<p class="hub-hint ad-none">No characters yet.</p>'}</div></div>`).join('') : '<p class="hub-hint">No new accounts.</p>'}
+          <h3 class="ad-h">New characters from existing players <span>${others.length}</span></h3>
+          <div class="ad-list">${others.length ? others.map(c => crow(c)).join('') : '<p class="hub-hint">None.</p>'}</div>`;
+        wire(el, tabNew);
+        const sb = el.querySelector('#ad-seen'); if (sb) sb.onclick = async () => { const t = Date.now(); try { await UREF.update({ checkedAt: t }); CHECKED = t; NEWN = 0; toast('All caught up.'); frame(); } catch (x) { toast('Couldn\'t save that: ' + (x.message || x)); } };
+      } catch (x) { el.innerHTML = failMsg(x); }
+    }
+
+    // --- Users: search by name or email; open someone to see and manage their characters ---
+    let UQ = '', ULAST = null, UROWS = [];
+    async function tabUsers(more) {
+      const el = B();
+      if (!more) { el.innerHTML = `<input id="ad-uq" class="ad-search" placeholder="Search players by name or email" value="${esc(UQ)}" autocomplete="off"><div id="ad-ul" class="ad-ulist"><p class="hub-hint">Loading…</p></div>`;
+        const q = el.querySelector('#ad-uq'); let t = null; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { UQ = q.value; ULAST = null; UROWS = []; tabUsersList(); }, 250); }; if (!UQ) q.focus(); }
+      tabUsersList(more);
+    }
+    async function tabUsersList(more) {
+      const l = B().querySelector('#ad-ul'); if (!l) return;
+      try { const r = await findUsers(UQ, more ? ULAST : null); ULAST = r.docs[r.docs.length - 1] || ULAST; UROWS = (more ? UROWS : []).concat(docs(r));
+        const rows = UQ ? UROWS.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')) : UROWS;
+        l.innerHTML = (rows.map(u => `<div class="ad-user" data-u="${esc(u.id)}"><div class="ad-uhead"><input class="ad-name" data-uname="${esc(u.id)}" value="${esc(u.name || '')}" maxlength="60" aria-label="Name for ${esc(u.id)}"><span>${esc(u.id)}</span><small>joined ${esc(day(u.createdAt))}${u.seenAt ? ' · seen ' + esc(ago(u.seenAt)) : ''}${ADMINS.includes(u.id) || u.id === ADMIN_EMAIL ? ' · admin' : ''}</small><button class="btn sm" data-uc="${esc(u.id)}">Characters ▸</button></div><div class="ad-list ad-uchars"></div></div>`).join('') || `<p class="hub-hint">${UQ ? 'Nobody matches “' + esc(UQ) + '”.' : 'No accounts yet.'}</p>`)
+          + (r.docs.length === 25 ? '<button class="btn ad-more" id="ad-umore">Load more</button>' : '');
+        const mb = l.querySelector('#ad-umore'); if (mb) mb.onclick = () => tabUsers(true);
+        l.querySelectorAll('[data-uname]').forEach(inp => inp.onchange = async () => { const em = inp.dataset.uname, n = inp.value.trim().slice(0, 60); if (!n) return;
+          try { await usersCol.doc(em).update({ name: n, nameLower: n.toLowerCase(), keys: searchKeys(n, em.split('@')[0], em) }); remember(em, Object.assign({}, await UC[em], { name: n })); toast('Renamed to ' + n + '.'); } catch (x) { toast('Couldn\'t rename: ' + (x.message || x)); } });
+        l.querySelectorAll('[data-uc]').forEach(b => b.onclick = async () => { const box = b.closest('.ad-user').querySelector('.ad-uchars'), em = b.dataset.uc;
+          if (box.dataset.on) { box.innerHTML = ''; delete box.dataset.on; b.textContent = 'Characters ▸'; return; } box.dataset.on = 1; b.textContent = 'Characters ▾';
+          const fill = async () => { box.innerHTML = '<p class="hub-hint">Loading…</p>'; try { const cs = docs(await charsCol.where('owner', '==', em).limit(100).get());
+            box.innerHTML = (cs.length ? cs.sort((x, y) => (y.updatedAt || 0) - (x.updatedAt || 0)).map(c => crow(c, false)).join('') : '<p class="hub-hint ad-none">No characters yet.</p>')
+              + `<a class="btn sm ad-newfor" href="${esc(base + '?new=1&g=' + G + '&o=' + encodeURIComponent(em) + '&p=' + encodeURIComponent(nameOf(em)))}">＋ New character for ${esc(nameOf(em))}</a>`; wire(box, fill); } catch (x) { box.innerHTML = failMsg(x); } };
+          fill(); });
+      } catch (x) { l.innerHTML = failMsg(x); }
+    }
+
+    // --- Characters: newest activity first, or search by character name ---
+    let CQ = '', CLAST = null, CROWS = [];
+    async function tabChars(more) {
+      const el = B();
+      if (!more) { el.innerHTML = `<input id="ad-cq" class="ad-search" placeholder="Search characters by name" value="${esc(CQ)}" autocomplete="off"><div id="ad-cl" class="ad-list"><p class="hub-hint">Loading…</p></div>`;
+        const q = el.querySelector('#ad-cq'); let t = null; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { CQ = q.value; CLAST = null; CROWS = []; tabCharsList(); }, 250); }; }
+      tabCharsList(more);
+    }
+    async function tabCharsList(more) {
+      const l = B().querySelector('#ad-cl'); if (!l) return; const q = CQ.trim().toLowerCase().slice(0, 24);
+      try { let qq = q ? charsCol.where('keys', 'array-contains', q).limit(25) : charsCol.orderBy('updatedAt', 'desc').limit(25); if (more && CLAST) qq = qq.startAfter(CLAST);
+        const r = await qq.get(); CLAST = r.docs[r.docs.length - 1] || CLAST; CROWS = (more ? CROWS : []).concat(docs(r)); await needNames(CROWS.map(c => c.owner));
+        l.innerHTML = (CROWS.map(c => crow(c)).join('') || `<p class="hub-hint">${q ? 'No characters match “' + esc(CQ) + '”.' : 'No characters yet.'}</p>`) + (r.docs.length === 25 ? '<button class="btn ad-more" id="ad-cmore">Load more</button>' : '');
+        wire(l, () => tabChars()); const mb = l.querySelector('#ad-cmore'); if (mb) mb.onclick = () => tabChars(true);
+      } catch (x) { l.innerHTML = failMsg(x); }
+    }
+
+    // --- Admins ---
+    async function tabAdmins() {
+      const el = B(); await needNames([ADMIN_EMAIL, ...ADMINS]); const cfg = fs.collection('config').doc('admins');
+      el.innerHTML = `<p class="hub-hint">Admins can open, edit, share and move every character, and see new accounts here.${IS_OWNER ? '' : ' Only ' + esc(ADMIN_EMAIL) + ' can change who is an admin.'}</p>
+        <div class="pl-list"><div class="pl-row"><b>${esc(nameOf(ADMIN_EMAIL))}</b><span>${esc(ADMIN_EMAIL)}</span><small class="ad-n">always</small></div>
+        ${ADMINS.filter(em => em !== ADMIN_EMAIL).map(em => `<div class="pl-row"><b>${esc(NAMES[em] || '')}</b><span>${esc(em)}</span>${IS_OWNER ? `<button class="linkbtn" data-arm-admin="${esc(em)}">remove</button>` : ''}</div>`).join('')}</div>
+        ${IS_OWNER ? '<button class="btn gold" id="ad-add">＋ Make someone an admin</button>' : ''}`;
+      const ab = el.querySelector('#ad-add'); if (ab) ab.onclick = () => pickUser('Make an admin', 'They’ll be able to open and change every character.', async em => { if (!em || em === ADMIN_EMAIL) return;
+        try { await cfg.set({ emails: FV.arrayUnion(em) }, { merge: true }); ADMINS = [...new Set(ADMINS.concat(em))]; toast(nameOf(em) + ' is now an admin.'); tabAdmins(); } catch (x) { toast('Couldn\'t add the admin: ' + (x.message || x)); } });
+      el.querySelectorAll('[data-arm-admin]').forEach(b => b.onclick = async () => { const em = b.dataset.armAdmin; try { await cfg.set({ emails: FV.arrayRemove(em) }, { merge: true }); ADMINS = ADMINS.filter(x => x !== em); toast(em + ' is no longer an admin.'); tabAdmins(); } catch (x) { toast('Couldn\'t remove the admin: ' + (x.message || x)); } });
+    }
+    frame();
+    // the count on "New" shows even while you're on another section
+    if (TAB !== 'new') Promise.all([usersCol.where('createdAt', '>', CHECKED).limit(51).get(), charsCol.where('createdAt', '>', CHECKED).limit(101).get()]).then(([u, c]) => { const fresh = new Set(u.docs.map(d => d.id)); NEWN = u.size + c.docs.filter(d => !fresh.has(d.data().owner)).length; const t = root.querySelector('[data-tab="new"]'); if (t && NEWN) t.innerHTML = `New <span>${NEWN}</span>`; }, () => {});
+  }
 }

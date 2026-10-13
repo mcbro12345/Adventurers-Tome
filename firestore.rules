@@ -20,6 +20,15 @@ service cloud.firestore {
       allow update: if admin() || (signedIn() && (ownerWrite() || editorWrite()));
       allow list, delete: if false;
     }
+    // One record per account, keyed by email: made by the person on first sign-in; only admins can list or search them.
+    match /users/{em} {
+      allow get: if signedIn();
+      allow list: if admin();
+      allow create: if admin() || (signedIn() && em == me() && request.resource.data.email == me()
+        && request.resource.data.keys().hasOnly(['email', 'name', 'nameLower', 'keys', 'createdAt', 'seenAt']));
+      allow update: if admin() || (signedIn() && em == me() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt']));
+      allow delete: if admin();
+    }
     match /config/admins {
       allow get: if admin();
       allow create, update, delete: if owner0();

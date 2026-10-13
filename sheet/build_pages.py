@@ -7,12 +7,26 @@ OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(D, 'pages')
 cfg = json.load(open(os.path.join(D, 'pages_config.json')))
 html = open(os.path.join(D, 'DnD_Character_Sheet.html')).read()
 VER = time.strftime('%Y%m%d%H%M%S')
+os.makedirs(OUT, exist_ok=True)
 
-# Swap the app script for an inert copy; the loader below runs it once the character has been fetched.
-i = html.rindex('<script>\n')
-j = html.index('</script>', i)
-app = html[i + len('<script>\n'):j]
-html = html[:i] + '<script type="text/plain" id="app-src">\n' + app + '</script>' + html[j + len('</script>'):]
+# Big pieces go into versioned files under a/ that browsers keep for a year (the name changes whenever the content
+# does), so a repeat visit downloads only the small page. The loader fetches the game data and the app only when a
+# sheet is opened — the party page never needs them.
+import hashlib, glob
+A = os.path.join(OUT, 'a'); os.makedirs(A, exist_ok=True)
+def asset(kind, ext, text):
+    h = hashlib.sha256(text.encode()).hexdigest()[:12]; name = f'{kind}.{h}.{ext}'
+    open(os.path.join(A, name), 'w').write(text)
+    # keep the last few versions so a page still open from an older update can finish loading
+    old = sorted(glob.glob(os.path.join(A, f'{kind}.*.{ext}')), key=os.path.getmtime)
+    for f in old[:-6]: os.remove(f)
+    return 'a/' + name
+i = html.rindex('<script>\n'); j = html.index('</script>', i)
+APP = asset('app', 'js', html[i + len('<script>\n'):j]); html = html[:i] + html[j + len('</script>'):]
+i = html.index('<style>'); j = html.index('</style>', i)
+CSS = asset('sheet', 'css', html[i + len('<style>'):j]); html = html[:i] + '<link rel="stylesheet" href="' + CSS + '">' + html[j + len('</style>'):]
+i = html.index('<script>\n// Rules content'); j = html.index('</script>', i)
+DATA = asset('data', 'js', html[i + len('<script>\n'):j]); html = html[:i] + html[j + len('</script>'):]
 
 loader = ('''
 <script>document.documentElement.classList.add('pg-loading')</script>
@@ -23,13 +37,12 @@ loader = ('''
 <script>
 ''' + open(os.path.join(D, 'pages_loader.js')).read() + '''
 </script>
-''').replace('__CFG__', json.dumps(cfg)).replace('__VER__', VER)
+''').replace('__CFG__', json.dumps(cfg)).replace('__VER__', VER).replace('__ASSETS__', json.dumps({'data': DATA, 'app': APP}))
 html = re.sub(r'<title>[^<]*</title>', '<title>Adventurer’s Tome</title>', html, count=1)
 h = html.index('</head>'); html = html[:h] + '<link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome">\n' + html[h:]
 h = html.index('</head>'); html = html[:h] + '<style>' + open(os.path.join(D, 'pages.css')).read() + '</style>\n' + html[h:]
 k = html.rindex('</body>')
 html = html[:k] + loader + html[k:]
-os.makedirs(OUT, exist_ok=True)
 open(os.path.join(OUT, 'index.html'), 'w').write(html)
 open(os.path.join(OUT, 'version.json'), 'w').write(json.dumps({'v': VER}))
 open(os.path.join(OUT, '.nojekyll'), 'w').write('')
