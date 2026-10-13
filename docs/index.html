@@ -14,7 +14,7 @@
   })();
 </script>
 <link rel="stylesheet" href="a/sheet.babf4996c38b.css">
-<link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome">
+<link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
 #pg-load { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 40%, #1d2638 0%, #0f1420 70%); color: #e9e3d3; font: 600 15px system-ui, sans-serif; z-index: 9999; }
@@ -31,7 +31,7 @@ html.pg-loading, html.pg-loading body { background: #0f1420; }
 .pg-hublink { position: fixed; left: 10px; top: 10px; z-index: 60; background: rgba(15,22,38,.82); color: #f3e7c6; border: 1px solid rgba(201,150,43,.6); border-radius: 999px; padding: 4px 11px; font: 700 12px system-ui, sans-serif; text-decoration: none; backdrop-filter: blur(4px); }
 .pg-hublink:hover { background: #c9962b; color: #1b1406; }
 html.mobile .pg-hublink { top: auto; bottom: calc(80px + env(safe-area-inset-bottom)); left: 10px; }
-#pg-upd { position: fixed; left: 50%; bottom: 88px; transform: translateX(-50%); z-index: 9998; background: #c9962b; color: #1b1406; border: 0; border-radius: 999px; padding: 10px 18px; font: 700 14px system-ui, sans-serif; box-shadow: 0 8px 24px rgba(0,0,0,.3); cursor: pointer; }
+#pg-upd { position: fixed; left: 0; right: 0; margin: 0 auto; width: max-content; max-width: calc(100vw - 32px); white-space: nowrap; bottom: 88px; z-index: 9998; background: #c9962b; color: #1b1406; border: 0; border-radius: 999px; padding: 10px 18px; font: 700 14px system-ui, sans-serif; box-shadow: 0 8px 24px rgba(0,0,0,.3); cursor: pointer; }
 /* ---- Hub ---- */
 body.hubbody { margin: 0; background: #f4eee1; color: #1f2a44; font: 15px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; min-height: 100vh; }
 @media (prefers-color-scheme: dark) { body.hubbody { background: #0f1420; color: #e9e3d3; } body.hubbody .hc, body.hubbody .hub-folder, body.hubbody .hub-card { background: #1a2131; border-color: #2c3548; } body.hubbody .hc-list { background: #1a2131; border-color: #2c3548; } body.hubbody .hc-list button:hover { background: #242d40; } body.hubbody .who-f input { background: #0f1420; color: #e9e3d3; border-color: #3a4560; } body.hubbody .who { background: #242d40; color: #e9e3d3; border-color: #3a4560; } }
@@ -535,6 +535,19 @@ html.pg-phonehost, html.pg-phonehost body { margin: 0; height: 100%; background:
 .pgph-f { width: 100%; height: 100%; border: 0; border-radius: 34px; background: #0f1420; display: block; }
 html.pg-inphone .banner { padding-top: 84px !important; }
 html.pg-inphone .pg-hublink, html.pg-inphone .pg-shared { top: 48px; }
+
+/* the update pill: centred without transforms (the sheet's tap effect would otherwise knock it sideways) */
+#pg-upd, #pg-upd:hover, #pg-upd:active, #pg-upd:focus { transform: none !important; }
+#pg-upd:active { filter: brightness(.92); }
+html.mobile #pg-upd { bottom: calc(92px + env(safe-area-inset-bottom)); padding: 9px 16px; font-size: 13px; }
+/* phone view: no scrollbar inside the phone (phones don't have one taking up room); it lives beside the phone */
+html.pg-inphone { scrollbar-width: none; }
+html.pg-inphone::-webkit-scrollbar { display: none; }
+.pgph-sb { position: absolute; top: 60px; bottom: 60px; right: -30px; width: 8px; border-radius: 6px; background: rgba(255,255,255,.07); cursor: pointer; }
+.pgph-sb[hidden] { display: none; }
+.pgph-th { position: absolute; left: 0; right: 0; min-height: 28px; border-radius: 6px; background: rgba(201,150,43,.65); cursor: grab; touch-action: none; }
+.pgph-th:hover, .pgph-th.drag { background: #c9962b; }
+.pgph-th.drag { cursor: grabbing; }
 </style>
 </head>
 <body>
@@ -583,6 +596,11 @@ const DEFAULT_G = 'WLdUj_I3XrA_9VIP';
 // Clean addresses everywhere except the github.io backup (which can't serve made-up paths).
 const PRETTY = !/github\.io$/.test(location.hostname) && !window.PG_LEGACY;
 const LEG = location.pathname.replace(/[^/]*$/, '');
+// Addresses that belong to the site itself, never to a character.
+// Opened from a home-screen icon: the address is left exactly as saved — changing it can step outside what the phone
+// counts as "the app" and bring the browser's toolbar back.
+const STANDALONE = (() => { try { return navigator.standalone === true || matchMedia('(display-mode: standalone)').matches; } catch (e) { return false; } })();
+const RESERVED = new Set(['shared', 'login', 'new', 'admin', 'c', 'a', 'icons', 'icon', 'index', 'index-html', 'version-json', 'users', 'help', 'settings']);
 const slugify = s => String(s || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
 const enc = encodeURIComponent;
 const URLS = {
@@ -650,7 +668,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013170027', ASSETS = {"data": "a/data.3f7e0dc5a0bb.js", "app": "a/app.2a1517fb069e.js"};
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013171003', ASSETS = {"data": "a/data.3f7e0dc5a0bb.js", "app": "a/app.2a1517fb069e.js"};
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -672,7 +690,8 @@ function wireDie(root) {
     else if (parts.length === 1 && parts[0] === 'new') NEWQ = true;
     else if (parts[0] === 'admin' && parts.length <= 2) { ADMINQ = true; TABQ = clean(parts[1] || ''); }
     else if (parts[0] === 'c' && parts.length === 2) C = clean(parts[1]);
-    else if (parts.length === 2) SLUG = slugify(parts[0]) + '/' + slugify(parts[1]);
+    else if (parts.length === 2) SLUG = slugify(parts[0]) + '/' + slugify(parts[1]); // older /player/character addresses
+    else if (parts.length === 1 && slugify(parts[0])) SLUG = slugify(parts[0]);
     else BAD = true;
     if (!C && !SLUG) G = G || DEFAULT_G;
   }
@@ -733,7 +752,7 @@ function wireDie(root) {
   if (!PRETTY && !C && !G && !NEWQ) { location.replace(location.pathname + '?g=' + (clean(lsGet(LAST_G)) || DEFAULT_G)); return; }
   if (!G && NEWQ) G = DEFAULT_G;
   // old-style addresses arriving here (bookmarks, the github.io handover) switch to the clean ones
-  if (PRETTY && ['c', 'g', 'new', 'admin', 'view', 'tab'].some(k => Q.has(k))) {
+  if (PRETTY && !STANDALONE && ['c', 'g', 'new', 'admin', 'view', 'tab'].some(k => Q.has(k))) {
     const keep = new URLSearchParams(); ['o', 'p'].forEach(k => { if (Q.get(k)) keep.set(k, Q.get(k)); });
     const to = C ? '/c/' + C : NEWQ ? '/new' + (keep.toString() ? '?' + keep : '') : ADMINQ ? '/admin' + (TABQ ? '/' + TABQ : '') : VIEWQ === 'shared' ? '/shared' : '/';
     history.replaceState(null, '', to); }
@@ -761,7 +780,9 @@ function wireDie(root) {
   // /<player>/<character>: find it among what this person may open (an admin: anyone's). "Doesn't exist" and
   // "isn't yours" look the same, so guessing addresses can't even confirm a character exists.
   if (SLUG) { const lib = fs.collection('groups/' + DEFAULT_G + '/chars'); let hits = [];
-    try { if (IS_ADMIN) hits = (await lib.where('paths', 'array-contains', SLUG).get()).docs;
+    // /character-name: the address book says which character it is (opening it still needs access to that character)
+    if (!SLUG.includes('/')) { try { const r = await fs.collection('slugs').doc(SLUG).get(); if (r.exists && r.data().c) { const h = await lib.doc(r.data().c).get(); if (h.exists) hits = [h]; } } catch (e) {} }
+    else try { if (IS_ADMIN) hits = (await lib.where('paths', 'array-contains', SLUG).get()).docs;
       else { const [a, b] = await Promise.all([lib.where('paths', 'array-contains', SLUG).where('owner', '==', EMAIL).get(), lib.where('viewers', 'array-contains', EMAIL).get()]);
         hits = a.docs.concat(b.docs.filter(d => (d.data().paths || []).includes(SLUG))); } } catch (e) { console.warn('find', e); }
     hits.sort((x, y) => ((y.data().path === SLUG) - (x.data().path === SLUG)) || ((y.data().updatedAt || 0) - (x.data().updatedAt || 0)));
@@ -784,10 +805,11 @@ function wireDie(root) {
     const go = () => { const u = new URL(location.href); u.searchParams.set('v', NEWV); setTimeout(() => location.replace(u.toString()), 1200); };
     const busy = () => { const a = document.activeElement; return !!(a && /INPUT|TEXTAREA|SELECT/.test(a.tagName)) || !!document.querySelector('#modal.open, .hub-modal.on'); };
     const idle = () => { clearTimeout(idleT); idleT = setTimeout(() => { if (NEWV && (document.hidden || !busy())) go(); else idle(); }, 15000); };
-    const check = async () => { if (NEWV) return; try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); const v = (await r.json()).v; if (!v || v === VER || Q.get('v') === v) return; NEWV = v;
+    let checking = false; const check = async () => { if (NEWV || checking) return; checking = true; try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); const v = (await r.json()).v; if (!v || v === VER || Q.get('v') === v) return; NEWV = v;
       if (!C && !NEWQ && !busy()) return go();
+      if (document.getElementById('pg-upd')) return;
       const b = document.createElement('button'); b.id = 'pg-upd'; b.textContent = 'Updated — tap to reload'; b.onclick = () => { b.textContent = 'Saving…'; go(); }; document.body.appendChild(b);
-      ['pointerdown', 'keydown', 'scroll'].forEach(ev => addEventListener(ev, idle, { passive: true })); idle(); } catch (e) {} };
+      ['pointerdown', 'keydown', 'scroll'].forEach(ev => addEventListener(ev, idle, { passive: true })); idle(); } catch (e) {} finally { checking = false; } };
     setInterval(check, 30 * 1000); document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); else if (NEWV) go(); }); setTimeout(check, 3000); };
   if (G && !C && !NEWQ) { lsSet(LAST_G, G); if (ADMINQ && !IS_ADMIN && PRETTY) history.replaceState(null, '', '/');
     if (load) load.remove(); document.documentElement.classList.remove('pg-loading'); hub(fs, auth, G, { EMAIL, IS_ADMIN, IS_OWNER, ADMINS, user, signOut, ME, page: ADMINQ && IS_ADMIN ? 'admin' : 'hub', view: VIEWQ, tab: TABQ }); verCheck();
@@ -801,10 +823,23 @@ function wireDie(root) {
     const u = new URL(location.href); u.searchParams.set('pgframe', '1'); u.searchParams.delete('v');
     document.body.innerHTML = `<div class="pgph"><div class="pgph-bar"><span class="pgph-t"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M11 18.5h2"/></svg>Phone view</span>
       <button class="pgph-back" id="pgph-back"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="13" rx="1.6"/><path d="M8 21h8M12 17v4"/></svg>Back to desktop view</button></div>
-      <div class="pgph-dev"><iframe class="pgph-f" src="${escH(u.pathname + u.search)}" title="Character sheet (phone view)"></iframe></div></div>`;
+      <div class="pgph-dev"><iframe class="pgph-f" src="${escH(u.pathname + u.search)}" title="Character sheet (phone view)"></iframe><div class="pgph-sb" hidden><div class="pgph-th"></div></div></div></div>`;
     document.getElementById('pgph-back').onclick = () => window.pgPhoneView(false);
     // a real phone's size (390 × 844); scaled down to fit if the window is shorter than that
     const dev = document.querySelector('.pgph-dev'), fit = () => { const k = Math.min(1, (innerHeight - 84) / 868); dev.style.transform = k < 1 ? `scale(${k})` : ''; }; addEventListener('resize', fit); fit();
+    // the scrollbar beside the phone: mirrors the sheet's scrolling, can be dragged, and the mouse wheel anywhere scrolls the sheet
+    const fr = document.querySelector('.pgph-f'), sb = document.querySelector('.pgph-sb'), th = sb.firstElementChild;
+    const W = () => { try { return fr.contentWindow; } catch (e) { return null; } };
+    const geo = () => { const w = W(); if (!w || !w.document || !w.document.documentElement) return null; const de2 = w.document.documentElement; return { w, max: Math.max(0, de2.scrollHeight - w.innerHeight), vis: w.innerHeight, all: de2.scrollHeight }; };
+    const paintSb = () => { const g = geo(); if (!g || g.max < 2) { sb.hidden = true; return; } sb.hidden = false; const H = sb.clientHeight, h = Math.max(28, H * g.vis / g.all); th.style.height = h + 'px'; th.style.top = ((H - h) * (g.w.scrollY / g.max)) + 'px'; };
+    let hooked = null; const hook = () => { const w = W(); if (!w || hooked === w) return; hooked = w; w.addEventListener('scroll', paintSb, { passive: true }); w.addEventListener('resize', paintSb); };
+    fr.addEventListener('load', () => { hook(); paintSb(); }); setInterval(() => { hook(); paintSb(); }, 700);
+    th.addEventListener('pointerdown', e => { e.preventDefault(); const g = geo(); if (!g) return; th.classList.add('drag'); th.setPointerCapture(e.pointerId);
+      const y0 = e.clientY, s0 = g.w.scrollY, k = g.max / Math.max(1, sb.getBoundingClientRect().height - th.getBoundingClientRect().height);
+      const mv = ev => g.w.scrollTo(0, s0 + (ev.clientY - y0) * k), up = () => { th.classList.remove('drag'); th.removeEventListener('pointermove', mv); th.removeEventListener('pointerup', up); th.removeEventListener('pointercancel', up); };
+      th.addEventListener('pointermove', mv); th.addEventListener('pointerup', up); th.addEventListener('pointercancel', up); });
+    sb.addEventListener('pointerdown', e => { if (e.target !== sb) return; const g = geo(); if (!g) return; const r = sb.getBoundingClientRect(); g.w.scrollBy({ top: (e.clientY < th.getBoundingClientRect().top ? -1 : 1) * g.vis * .9, behavior: 'smooth' }); });
+    addEventListener('wheel', e => { const g = geo(); if (g) g.w.scrollBy(0, e.deltaY); }, { passive: true });
     verCheck(); return; }
 
   const rid = () => { const a = new Uint8Array(18); crypto.getRandomValues(a); return btoa(String.fromCharCode(...a)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
@@ -856,18 +891,23 @@ function wireDie(root) {
     const s = window.sheetSummary();
     const when = changed ? { updatedAt: Date.now(), by: NAME } : {};
     const sum = Object.assign({ owner: OWNER, name: s.name, player: s.player, race: s.race, cls: s.cls, level: s.level, thumb: await thumb(s.portrait), keys: searchKeys(s.name) }, NEW && !LASTSUM ? { createdAt: Date.now() } : {});
-    // its clean address: /<player>/<character>, made unique among this player's characters; older ones keep working
+    // its clean address: /<character>, unique across the site; older ones keep working
     const pth = role() === 'owner' ? await pathFor(s) : '';
     if (pth) sum.path = pth;
     const key = JSON.stringify(sum); if (!changed && key === LASTSUM) return; // nothing on the card changed: skip the write
     try { await hubCol.doc(C).set(Object.assign({}, sum, when, pth ? { paths: firebase.firestore.FieldValue.arrayUnion(pth) } : {}), { merge: true }); LASTSUM = key; if (pth) showPath(pth); } catch (e) { console.warn('hub', e); } };
+  // Its clean address is just the character's name: /zeebo. Names are claimed site-wide in an address book (slugs/{name} → which
+  // character), first come first served, so a second Zeebo becomes /zeebo-2. Earlier addresses keep pointing at it.
   let PATHKEY = '', PATHVAL = '';
-  const pathFor = async s => { const ps = slugify(OWNER_NAME || s.player || OWNER.split('@')[0]) || 'player', cb = slugify(s.name) || 'character', k0 = ps + '|' + cb;
-    if (k0 === PATHKEY) return PATHVAL;
-    const taken = new Set(); try { (await hubCol.where('owner', '==', OWNER).get()).docs.forEach(d => { if (d.id !== C) [d.data().path, ...(d.data().paths || [])].forEach(x => x && taken.add(x)); }); } catch (e) { return ''; }
-    let cs = cb, n = 2; while (taken.has(ps + '/' + cs)) cs = cb + '-' + n++;
-    PATHKEY = k0; PATHVAL = ps + '/' + cs; return PATHVAL; };
-  const showPath = pth => { if (PRETTY && pth && location.pathname !== '/' + pth) history.replaceState(null, '', '/' + pth + location.search.replace(/([?&])v=[^&]*&?/, '$1').replace(/[?&]$/, '')); };
+  const pathFor = async s => { const base = slugify(s.name) || 'character';
+    if (base === PATHKEY) return PATHVAL;
+    const book = fs.collection('slugs');
+    for (let n = RESERVED.has(base) ? 2 : 1; n < 60; n++) { const cand = n === 1 ? base : base + '-' + n;
+      let doc; try { doc = await book.doc(cand).get(); } catch (e) { return ''; }
+      if (doc.exists) { if (doc.data().c === C) { PATHKEY = base; PATHVAL = cand; return cand; } continue; }
+      try { await book.doc(cand).set({ c: C }); PATHKEY = base; PATHVAL = cand; return cand; } catch (e) { return ''; } }
+    return ''; };
+  const showPath = pth => { if (PRETTY && !STANDALONE && pth && location.pathname !== '/' + pth) history.replaceState(null, '', '/' + pth + location.search.replace(/([?&])v=[^&]*&?/, '$1').replace(/[?&]$/, '')); };
   const hubSoon = () => { try { const d = digest(window.sheetState()); if (LASTD !== null && d !== LASTD) hubChanged = true; LASTD = d; } catch (e) {}
     clearTimeout(hubT); hubT = setTimeout(() => { const c = hubChanged; hubChanged = false; hubUpdate(c); }, 1200); };
 
@@ -1071,6 +1111,7 @@ function hub(fs, auth, G, ctx) {
     modal.querySelector('#del-x').onclick = close;
     ok.onclick = async () => { if (!match()) return; ok.disabled = true; ok.textContent = 'Deleting…';
       try { const s0 = await sheets.doc(c.id).get(); const n = Number(s0.exists && s0.data().n) || 1;
+        for (const pth of new Set([c.path, ...(c.paths || [])])) if (pth && !pth.includes('/')) await fs.collection('slugs').doc(pth).delete().catch(() => {});
         for (let k = 1; k < n; k++) await sheets.doc(c.id + '_p' + k).delete().catch(() => {});
         if (s0.exists) await sheets.doc(c.id).delete(); await charsCol.doc(c.id).delete();
         ['dnd-pages-cache:', 'dnd-sheet-ui:'].forEach(k => { try { localStorage.removeItem(k + c.id); } catch (e) {} });
@@ -1354,14 +1395,11 @@ function hub(fs, auth, G, ctx) {
       } catch (x) { l.innerHTML = failMsg(x); }
     }
     function renameUser(em) {
-      const u = US[em] || {}; modal.innerHTML = `<div class="hub-card"><h2>Rename ${esc(u.name || em)}</h2><p class="hub-hint">This is the name shown for them everywhere, and in their characters’ addresses (old addresses keep working).</p>
+      const u = US[em] || {}; modal.innerHTML = `<div class="hub-card"><h2>Rename ${esc(u.name || em)}</h2><p class="hub-hint">This is the name shown for them everywhere.</p>
         <input id="rn-q" class="ad-search" maxlength="60" value="${esc(u.name || '')}"><div class="row"><button class="btn ghost" id="rn-x">Cancel</button><button class="btn gold" id="rn-ok">Save</button></div></div>`;
       modal.classList.add('on'); const q = modal.querySelector('#rn-q'); q.focus(); q.select(); modal.querySelector('#rn-x').onclick = close;
       const go = async () => { const n = q.value.trim().slice(0, 60); if (!n) return; close();
         try { await usersCol.doc(em).update({ name: n, nameLower: n.toLowerCase(), keys: searchKeys(n, em.split('@')[0], em) }); remember(em, Object.assign({}, u, { name: n })); US[em] = Object.assign({}, u, { name: n });
-          // their characters' addresses follow the new name (the old addresses keep working)
-          const ps = slugify(n) || 'player'; (await charsCol.where('owner', '==', em).get()).docs.forEach(d => { const c = d.data(), cs = (c.path || '').split('/')[1] || slugify(c.name) || 'character', np = ps + '/' + cs;
-            if (np !== c.path) charsCol.doc(d.id).set({ path: np, paths: FV.arrayUnion(np) }, { merge: true }).catch(() => {}); });
           toast('Renamed to ' + n + '.'); UROWS = UROWS.map(x => x.id === em ? Object.assign({}, x, { name: n }) : x); tabUsersList(); } catch (x) { toast('Couldn\'t rename: ' + (x.message || x)); } };
       modal.querySelector('#rn-ok').onclick = go; q.onkeydown = e => { if (e.key === 'Enter') go(); };
     }

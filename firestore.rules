@@ -42,6 +42,16 @@ service cloud.firestore {
       allow update: if admin() || (signedIn() && em == me() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt', 'pic', 'picChar', 'picColor', 'picClear']));
       allow delete: if admin();
     }
+    // The address book: /zeebo → which character. Anyone signed in can look an address up (it only says which character —
+    // opening it still needs access). Only the character's owner (or an admin) can claim, keep or free its addresses.
+    function ownsSheet(c) { return exists(/databases/$(db)/documents/sheets/$(c)) && get(/databases/$(db)/documents/sheets/$(c)).data.owner == me(); }
+    match /slugs/{s} {
+      allow get: if signedIn();
+      allow list: if admin();
+      allow create: if admin() || (signedIn() && request.resource.data.keys().hasOnly(['c']) && ownsSheet(request.resource.data.c));
+      allow update: if admin() || (signedIn() && request.resource.data.keys().hasOnly(['c']) && request.resource.data.c == resource.data.c && ownsSheet(resource.data.c));
+      allow delete: if admin() || (signedIn() && ownsSheet(resource.data.c));
+    }
     match /config/admins {
       allow get: if admin();
       allow create, update, delete: if owner0();
