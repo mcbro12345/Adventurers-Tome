@@ -9630,7 +9630,8 @@ function writeLocal() {
   }, 250);
 }
 const IOS_SAFARI = /iP(hone|od|ad)/.test(navigator.userAgent) && /Version\/[\d.]+.*Safari\//.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS/.test(navigator.userAgent);
-function tabLift() { return UI.tabLift != null ? N(UI.tabLift) : (IOS_SAFARI ? 48 : 0); }
+// Where the phone's bottom tab bar sits is a setting of this device (same for every character); 32 by default.
+function tabLift() { let v = null; try { v = localStorage.getItem('dnd-tablift'); } catch (e) {} return v != null && v !== '' ? N(v) : 32; }
 function applyTabLift() { document.documentElement.style.setProperty('--tablift', tabLift() + 'px'); }
 function saveUI() { try { localStorage.setItem(UI_KEY, JSON.stringify(UI)); } catch (e) {} }
 function applyLayout() { applyTabLift(); const m = UI.layout ? UI.layout === 'mobile' : window.innerWidth < 640; document.documentElement.classList.toggle('mobile', m); }
@@ -12432,7 +12433,7 @@ function mainClick(e) {
     case 'grantpick': openGrantPicker(b.dataset.t, b.dataset.o); break;
     case 'grantok': { const t = GRANT; if (!t) break; S.grantSpells = S.grantSpells || {}; S.grantSpells[t.o] = t.fx.grant.flatMap((g, j) => ansList(t.CH, 'g.' + j)); closeModal(true); pendingLabel = t.o + ': spells'; save(); rebuildAuto(); render(); break; }
     case 'gocore': UI.tab = 'core'; saveUI(); renderTabs(); window.scrollTo(0, 0); break;
-    case 'tablift': UI.tabLift = Math.max(0, Math.min(160, tabLift() + N(b.dataset.d))); saveUI(); applyTabLift(); { const v = b.parentNode.querySelector('b'); if (v) v.textContent = tabLift(); } break;
+    case 'tablift': try { localStorage.setItem('dnd-tablift', String(Math.max(0, Math.min(160, tabLift() + N(b.dataset.d))))); } catch (e) {} applyTabLift(); { const v = b.parentNode.querySelector('b'); if (v) v.textContent = tabLift(); } break;
     case 'settab': switchSetTab(b.dataset.k); break;
     case 'opensettings': openSettings(b.dataset.tab === 'class' ? 'char' : b.dataset.tab); pendingLabel = null; return;
     case 'rolllog': openRollLog(); break;
@@ -17262,7 +17263,7 @@ window.addEventListener('resize', () => { if (!UI.layout) { const was = isMobile
 // the database only lets that player — and the DM — open or change it.
 const ADMIN_EMAIL = 'matthewcbro@gmail.com';
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013014010';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013014626';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   let C = clean(Q.get('c')), G = clean(Q.get('g'));
   const P = (Q.get('p') || '').slice(0, 60), O = (Q.get('o') || '').trim().toLowerCase().slice(0, 120);

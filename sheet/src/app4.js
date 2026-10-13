@@ -283,7 +283,7 @@ function mainClick(e) {
     case 'grantpick': openGrantPicker(b.dataset.t, b.dataset.o); break;
     case 'grantok': { const t = GRANT; if (!t) break; S.grantSpells = S.grantSpells || {}; S.grantSpells[t.o] = t.fx.grant.flatMap((g, j) => ansList(t.CH, 'g.' + j)); closeModal(true); pendingLabel = t.o + ': spells'; save(); rebuildAuto(); render(); break; }
     case 'gocore': UI.tab = 'core'; saveUI(); renderTabs(); window.scrollTo(0, 0); break;
-    case 'tablift': UI.tabLift = Math.max(0, Math.min(160, tabLift() + N(b.dataset.d))); saveUI(); applyTabLift(); { const v = b.parentNode.querySelector('b'); if (v) v.textContent = tabLift(); } break;
+    case 'tablift': try { localStorage.setItem('dnd-tablift', String(Math.max(0, Math.min(160, tabLift() + N(b.dataset.d))))); } catch (e) {} applyTabLift(); { const v = b.parentNode.querySelector('b'); if (v) v.textContent = tabLift(); } break;
     case 'settab': switchSetTab(b.dataset.k); break;
     case 'opensettings': openSettings(b.dataset.tab === 'class' ? 'char' : b.dataset.tab); pendingLabel = null; return;
     case 'rolllog': openRollLog(); break;
