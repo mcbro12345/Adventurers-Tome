@@ -7,7 +7,7 @@ css = css.replace("/* Palette pulled from Zeke's mini: ivory tunic, golden cape,
 extra = open(os.path.join(D, 'src', 'extra.css')).read()
 import sys; sys.path.insert(0, D); from hoverguard import guard
 css = guard(css); extra = guard(extra)
-order = ['classes1', 'classes2', 'classes3', 'options', 'races', 'backgrounds_feats', 'gear', 'magic', 'rules', 'spells1', 'ua_classes_a', 'ua_classes_b', 'ua_races', 'ua_misc', 'spells2', 'creatures', 'auto', 'deck', 'featfx', 'fx_barbarian_bard', 'fx_cleric_druid', 'fx_fighter_monk', 'fx_paladin_ranger', 'fx_rogue_sorcerer', 'fx_warlock_wizard_artificer', 'fx_races', 'fx_feats_options', 'fx_ua', 'fx_ua2', 'fulltext']
+order = ['classes1', 'classes2', 'classes3', 'options', 'races', 'backgrounds_feats', 'gear', 'magic', 'rules', 'spells1', 'ua_classes_a', 'ua_classes_b', 'ua_races', 'ua_misc', 'spells2', 'creatures', 'auto', 'deck', 'featfx', 'fx_barbarian_bard', 'fx_cleric_druid', 'fx_fighter_monk', 'fx_paladin_ranger', 'fx_rogue_sorcerer', 'fx_warlock_wizard_artificer', 'fx_races', 'fx_feats_options', 'fx_ua', 'fx_ua2', 'fulltext', 'vfx']
 data = '\n'.join(open(os.path.join(D, 'data', f + '.js')).read() for f in order if os.path.exists(os.path.join(D, 'data', f + '.js')))
 # The Roll20 companion extension ships inside the sheet (Settings → Dice → Download extension).
 import base64
@@ -70,4 +70,4 @@ open(out, 'w').write(html)
 print(out, len(html))
 # Debug copy for tests: exposes internals as window.__t
 i = html.rindex('})();')
-open(os.path.join(D, 'Dbg.html'), 'w').write(html[:i] + "window.__t={vfxPick,featMax,slotMax,casters,spellLimit,countPrep,makeZip,browserInfo,downloadR20Ext,r20Lines,get S(){return S},get DECK(){return DECK},get LV(){return LV},get W(){return W},render,applyCardFx,rebuildAuto,spellMath,useFeature,useAct,fxOf,fxPassives,acInfo,speedInfo,saveVal,initVal,maxHp,takeDamage,closeModal,migrate,blankState,fxVisActs,finishShort,finishLong,setSyncState,makeWeaponItem,makeArmorItem,makeGearItem,makeMagicItem,addInventoryItem,equipItem,writeLocal,uid,spellEntry,skillVal,score,mod,castInfo,owedChoices,defensesDetail,measurePage,gridReset,set S(v){S=v}};\n" + html[i:])
+open(os.path.join(D, 'Dbg.html'), 'w').write(html[:i] + "window.__t={vfxPick,vfxDraw,vfxHand,vfxForKey,vfxForSpell,vfxForFeat,vfxForItem,VFX_COL,featMax,slotMax,casters,spellLimit,countPrep,makeZip,browserInfo,downloadR20Ext,r20Lines,get S(){return S},get DECK(){return DECK},get LV(){return LV},get W(){return W},render,applyCardFx,rebuildAuto,spellMath,useFeature,useAct,fxOf,fxPassives,acInfo,speedInfo,saveVal,initVal,maxHp,takeDamage,closeModal,migrate,blankState,fxVisActs,finishShort,finishLong,setSyncState,makeWeaponItem,makeArmorItem,makeGearItem,makeMagicItem,addInventoryItem,equipItem,writeLocal,uid,spellEntry,skillVal,score,mod,castInfo,owedChoices,defensesDetail,measurePage,gridReset,set S(v){S=v}};\n" + html[i:])
