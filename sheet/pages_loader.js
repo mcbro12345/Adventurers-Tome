@@ -60,6 +60,8 @@ function wireDie(root) {
 (async () => {
   const CFG = __CFG__, VER = '__VER__', ASSETS = __ASSETS__;
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
+  // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
+  if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
   let C = clean(Q.get('c')), G = clean(Q.get('g'));
   const P = (Q.get('p') || '').slice(0, 60), O = (Q.get('o') || '').trim().toLowerCase().slice(0, 120);
   const LAST_G = 'dnd-hub-group';
