@@ -504,7 +504,7 @@ function renderCompanions() {
 // Class companions: who may have them, which class level drives their stats, and how they arrive.
 const COMP_RULES = {
   'Steel Defender': { cls: 'artificer', req: () => hasSub('artificer', 'battlesmith') && clsLv('artificer') >= 3, perm: true, always: true, ab: 'int', command: 'On its turn (right after yours) it takes the action you command: Force-Empowered Rend, Repair, or any other action (Dash, Disengage, Help, Hide, Search…). Without a command it only takes the Dodge action.' },
-  'Homunculus Servant': { cls: 'artificer', req: () => clsLv('artificer') >= 2 && (S.picks.infusion || []).includes('Homunculus Servant'), perm: true, always: true, ab: 'int' },
+  'Homunculus Servant': { cls: 'artificer', req: () => clsLv('artificer') >= 2 && (S.inventory || []).some(it => it.infusion && it.infusion.name === 'Homunculus Servant'), perm: true, always: true, ab: 'int' },
   'Primal Companion (Land)': { cls: 'ranger', req: () => hasSub('ranger', 'beastmaster') && clsLv('ranger') >= 3, perm: true, group: 'primal', ab: 'wis' },
   'Primal Companion (Sea)': { cls: 'ranger', req: () => hasSub('ranger', 'beastmaster') && clsLv('ranger') >= 3, group: 'primal', ab: 'wis' },
   'Primal Companion (Sky)': { cls: 'ranger', req: () => hasSub('ranger', 'beastmaster') && clsLv('ranger') >= 3, group: 'primal', ab: 'wis' },
