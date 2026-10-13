@@ -53,3 +53,19 @@ body.hubbody { margin: 0; background: #f4eee1; color: #1f2a44; font: 15px/1.4 sy
 @media (max-width: 520px) { .hub-top h1 { font-size: 1.5rem; } .hf-body { grid-template-columns: 1fr; padding: 0 8px 10px; } }
 .hub-folder.solo { background: transparent; border: 0; } .hub-folder.solo .hf-body { padding: 0; }
 .hub-folder.solo > summary { display: none !important; }
+/* Player view: one character per row, pin + drag to reorder */
+.hl { display: flex; flex-direction: column; gap: 8px; }
+.hr { display: flex; align-items: center; background: #fff; border: 1px solid #e8dcc1; border-radius: 12px; transition: box-shadow .15s; }
+.hr:hover { box-shadow: 0 6px 18px rgba(0,0,0,.1); }
+.hr.pinned { border-color: #c9962b; box-shadow: inset 4px 0 0 #c9962b; }
+.hr.drag { opacity: .85; box-shadow: 0 12px 30px rgba(0,0,0,.25); position: relative; z-index: 3; }
+body.hdragging, body.hdragging * { user-select: none; cursor: grabbing !important; }
+.hr-grip { align-self: stretch; display: grid; place-items: center; width: 28px; color: #9aa3b8; cursor: grab; touch-action: none; font-size: 1.05rem; border-radius: 12px 0 0 12px; }
+.hr-grip:hover { color: #1f2a44; background: rgba(127,127,127,.08); }
+.hr-main { flex: 1; display: flex; gap: 14px; align-items: center; padding: 10px 8px 10px 2px; color: inherit; text-decoration: none; min-width: 0; }
+.hr .hc-pic { width: 60px; height: 60px; }
+.hr .hc-txt b { font-size: 1.08rem; white-space: normal; }
+.hr-pin { background: none; border: 0; color: #9aa3b8; padding: 8px; border-radius: 8px; cursor: pointer; display: grid; place-items: center; }
+.hr-pin:hover { color: #1f2a44; background: rgba(127,127,127,.1); } .hr-pin.on { color: #c9962b; }
+.hc.pinned { border-color: #c9962b; box-shadow: inset 4px 0 0 #c9962b; }
+@media (prefers-color-scheme: dark) { body.hubbody .hr { background: #1a2131; border-color: #2c3548; } body.hubbody .hr-grip:hover, body.hubbody .hr-pin:hover { color: #e9e3d3; } }

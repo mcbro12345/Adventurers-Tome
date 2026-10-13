@@ -141,12 +141,38 @@ function hub(fs, G) {
   }
   function card(c) {
     const link = base + '?c=' + c.id;
-    return `<div class="hc"><a class="hc-main" href="${esc(link)}">${c.thumb ? `<img class="hc-pic" src="${esc(c.thumb)}" alt="">` : `<span class="hc-pic hc-nopic">${esc((c.name || '?')[0])}</span>`}
+    return `<div class="hc${c.pin ? ' pinned' : ''}"><a class="hc-main" href="${esc(link)}">${c.thumb ? `<img class="hc-pic" src="${esc(c.thumb)}" alt="">` : `<span class="hc-pic hc-nopic">${esc((c.name || '?')[0])}</span>`}
       <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</span>
       <small>${c.hp ? 'HP ' + esc(c.hp) + ' · ' : ''}${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small></span></a>
       <div class="hc-menu"><button class="hc-dots" aria-label="More">⋯</button><div class="hc-list">
         <button data-a="copy" data-id="${esc(c.id)}">Copy link</button>${isAdmin() ? `<button data-a="move" data-id="${esc(c.id)}">Move to another player</button><button data-a="rm" data-id="${esc(c.id)}">Remove from list</button>` : ''}</div></div></div>`;
   }
+  // Pinned first; then each player's own order (drag to change), then most recently updated.
+  const ord = (a, b) => (!!b.pin - !!a.pin) || ((a.order != null ? a.order : 1e9) - (b.order != null ? b.order : 1e9)) || ((b.updatedAt || 0) - (a.updatedAt || 0));
+  function row(c) {
+    return `<div class="hr${c.pin ? ' pinned' : ''}" data-id="${esc(c.id)}" data-pin="${c.pin ? 1 : 0}"><span class="hr-grip" title="Drag to reorder" aria-label="Drag to reorder">⠿</span>
+      <a class="hr-main" href="${esc(base + '?c=' + c.id)}">${c.thumb ? `<img class="hc-pic" src="${esc(c.thumb)}" alt="">` : `<span class="hc-pic hc-nopic">${esc((c.name || '?')[0])}</span>`}
+      <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</span>
+      <small>${c.hp ? 'HP ' + esc(c.hp) + ' · ' : ''}${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small></span></a>
+      <button class="hr-pin${c.pin ? ' on' : ''}" data-pin-id="${esc(c.id)}" title="${c.pin ? 'Unpin' : 'Pin to the top'}" aria-pressed="${!!c.pin}"><svg viewBox="0 0 24 24" width="18" height="18" fill="${c.pin ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 3h6l-1 6 4 4H6l4-4z"/><path d="M12 13v8"/></svg></button>
+      <div class="hc-menu"><button class="hc-dots" aria-label="More">⋯</button><div class="hc-list"><button data-a="copy" data-id="${esc(c.id)}">Copy link</button></div></div></div>`;
+  }
+  async function saveOrder(ids) { await Promise.all(ids.map((id, i) => { const c = chars.find(x => x.id === id); if (c && c.order === i) return null; if (c) c.order = i; return charsCol.doc(id).set({ order: i }, { merge: true }); })); }
+  async function togglePin(id) { const c = chars.find(x => x.id === id); if (!c) return; const mine = chars.filter(x => isMine(x.player) || isAdmin());
+    const pin = !c.pin, same = mine.filter(x => !!x.pin === pin && x.id !== id).map(x => x.order != null ? x.order : 0);
+    const order = pin ? (same.length ? Math.max(...same) + 1 : 0) : (same.length ? Math.min(...same) - 1 : 0);
+    c.pin = pin; c.order = order; draw(); await charsCol.doc(id).set({ pin, order }, { merge: true }); toast(pin ? 'Pinned to the top.' : 'Unpinned.'); }
+  // Drag a row by its grip (mouse or touch). Pinned rows only move among pinned rows, the rest among the rest.
+  let RD = null;
+  document.addEventListener('pointerdown', e => { const g = e.target.closest && e.target.closest('.hr-grip'); if (!g) return; const r = g.closest('.hr'); e.preventDefault();
+    RD = { r, pin: r.dataset.pin, list: r.parentElement, y: e.clientY }; r.classList.add('drag'); document.body.classList.add('hdragging'); g.setPointerCapture && g.setPointerCapture(e.pointerId); });
+  document.addEventListener('pointermove', e => { if (!RD) return; e.preventDefault(); const peers = [...RD.list.querySelectorAll(':scope > .hr')].filter(x => x.dataset.pin === RD.pin && x !== RD.r);
+    for (const x of peers) { const b = x.getBoundingClientRect(), mid = b.top + b.height / 2; const before = RD.r.compareDocumentPosition(x) & Node.DOCUMENT_POSITION_PRECEDING;
+      if (before && e.clientY < mid) { x.before(RD.r); break; } if (!before && e.clientY > mid) { x.after(RD.r); } }
+    const edge = 60; if (e.clientY < edge) scrollBy(0, -10); else if (e.clientY > innerHeight - edge) scrollBy(0, 10); }, { passive: false });
+  const endDrag = () => { if (!RD) return; const d = RD; RD = null; d.r.classList.remove('drag'); document.body.classList.remove('hdragging');
+    const all = [...d.list.querySelectorAll(':scope > .hr')]; saveOrder(all.filter(x => x.dataset.pin === '1').map(x => x.dataset.id)).then(() => saveOrder(all.filter(x => x.dataset.pin !== '1').map(x => x.dataset.id))); };
+  document.addEventListener('pointerup', endDrag); document.addEventListener('pointercancel', endDrag);
   function draw() {
     const m = me(), groups = {}, admin = isAdmin();
     (admin ? chars : chars.filter(c => isMine(c.player))).forEach(c => { const k = (c.player || '').trim() || 'No player yet'; (groups[k] = groups[k] || []).push(c); });
@@ -155,9 +181,10 @@ function hub(fs, G) {
       <div class="hub-me">${m ? `Signed in as <b>${esc(m.name)}</b> <button class="linkbtn" id="me-chg">change</button>` : '<button class="linkbtn" id="me-chg">Who are you?</button>'}</div></header>
       <div class="hub-bar"><button class="btn gold big" id="hub-new">＋ Create character</button><span class="hub-hint">${admin ? `${chars.length} character${chars.length === 1 ? '' : 's'} · ${keys.length} player${keys.length === 1 ? '' : 's'}` : 'Your characters'}</span></div>
       ${keys.length ? keys.map(k => { const mine = isMine(k), isOpen = !admin || (open[k] != null ? open[k] : true); return `<details class="hub-folder${mine ? ' mine' : ''}${admin ? '' : ' solo'}" data-k="${esc(k)}" ${isOpen ? 'open' : ''}><summary${admin ? '' : ' hidden'}><span class="hf-caret">▸</span><span class="hf-name">${esc(k)}</span>${mine ? '<span class="hf-you">You</span>' : ''}<span class="hf-n">${groups[k].length}</span></summary>
-        <div class="hf-body">${groups[k].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).map(card).join('')}</div></details>`; }).join('') : `<p class="hub-empty">${m ? (admin ? 'No characters yet — create the first one.' : 'You don’t have any characters here yet — create one, or if you already have one, ask your DM to put it under <b>' + esc(m.name) + '</b>.') : 'Pick who you are to see your characters.'}</p>`}
+        <div class="${admin ? 'hf-body' : 'hl'}">${groups[k].sort(ord).map(admin ? card : row).join('')}</div></details>`; }).join('') : `<p class="hub-empty">${m ? (admin ? 'No characters yet — create the first one.' : 'You don’t have any characters here yet — create one, or if you already have one, ask your DM to put it under <b>' + esc(m.name) + '</b>.') : 'Pick who you are to see your characters.'}</p>`}
       <footer class="hub-foot">${admin ? 'Bookmark this page — it\'s your party\'s hub. Anyone with this link can open the characters in it, so only share it with your group.' : 'Bookmark this page to get back to your characters on this device.'}</footer>`;
     root.querySelector('#hub-new').onclick = createChar;
+    root.querySelectorAll('[data-pin-id]').forEach(b => b.onclick = e => { e.preventDefault(); togglePin(b.dataset.pinId); });
     root.querySelector('#me-chg').onclick = () => askWho(true);
     root.querySelectorAll('details.hub-folder').forEach(d => d.addEventListener('toggle', () => { open[d.dataset.k] = d.open; ls.set(OPEN, JSON.stringify(open)); }));
     root.querySelectorAll('.hc-dots').forEach(b => b.onclick = e => { e.stopPropagation(); const w = b.parentElement, on = !w.classList.contains('on'); root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')); w.classList.toggle('on', on); });
@@ -169,7 +196,7 @@ function hub(fs, G) {
   document.addEventListener('click', () => root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')));
   draw();
   gDoc.onSnapshot(s => { group = (s.exists && s.data()) || {}; draw(); }, () => {});
-  charsCol.onSnapshot(qs => { chars = qs.docs.map(d => Object.assign({ id: d.id }, d.data())); draw(); if (!me()) askWho(); },
+  charsCol.onSnapshot(qs => { chars = qs.docs.map(d => Object.assign({ id: d.id }, d.data())); if (!RD) draw(); if (!me()) askWho(); },
     e => { root.innerHTML = '<p class="hub-empty">Couldn\'t load the party list. Check your connection, or ask your DM for the party link again.</p>'; console.error(e); });
-  setInterval(draw, 60000);
+  setInterval(() => { if (!RD) draw(); }, 60000);
 }
