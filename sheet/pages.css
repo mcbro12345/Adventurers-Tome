@@ -622,3 +622,4 @@ html.pg-touch body.hubbody:not(.adminbody) .hub-views button { touch-action: man
 /* the Admin button: label centred top-to-bottom */
 :where(body.hubbody) .hp-row .hub-admin { display: inline-flex; align-items: center; justify-content: center; gap: 5px; line-height: 1; height: 26px; padding-top: 0; padding-bottom: 0; box-sizing: border-box; }
 @media (max-width: 640px) { :where(body.hubbody) .hp-row .hub-admin { height: 24px; } }
+@media (max-width: 640px) { :where(body.hubbody) .hp-row .hub-admin { height: 20px; padding: 0 7px; font-size: .66rem; border-radius: 6px; gap: 3px; } }
