@@ -629,7 +629,7 @@ function renderWizard() {
   let body = '';
   if (st === 0) {
     body = `<div class="wz-intro"><p>Build any 5e (2014) character. Every choice can be changed later on the sheet.</p></div>
-      <div class="wz-grid">${fld('Character name', `<input class="f" data-wz="name" value="${esc(W.name)}" placeholder="Name" autofocus>`)}${fld('Player', `<input class="f" data-wz="player" value="${esc(W.player)}" placeholder="Your name">`)}
+      <div class="wz-grid">${fld('Character name', `<input class="f" data-wz="name" value="${esc(W.name)}" placeholder="Name" autofocus>`)}${window.SHEET_PAGES ? '' : fld('Player', `<input class="f" data-wz="player" value="${esc(W.player)}" placeholder="Your name">`)}
       ${fld('Alignment', `<select class="f" data-wz="alignment"><option value="">—</option>${DND.alignments.map(a => `<option${W.alignment === a ? ' selected' : ''}>${esc(a)}</option>`).join('')}</select>`)}</div>
       <div class="row" style="margin-top:12px"><img class="wz-portrait" src="${esc(W.portrait || PLACEHOLDER)}" alt=""><button class="btn" data-wact="portrait">${W.portrait ? 'Change portrait' : 'Add a portrait'}</button><span class="hint">Optional. The sheet's colors can match it.</span></div>
       <div class="wz-src"><h4>Books for this character</h4><p class="hint">Only content from the books you tick will be offered. You can change this later in Settings → Books.</p>${sourcesHTML(W.sources)}</div>

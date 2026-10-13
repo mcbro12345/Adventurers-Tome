@@ -40,7 +40,8 @@ const ADMIN_EMAIL = 'matthewcbro@gmail.com';
   window.pgSignOut = signOut;
   // The player's name comes from the party's player list (the DM keeps it); otherwise their Google name.
   let NAME = user.displayName || EMAIL.split('@')[0];
-  const nameFrom = g => { try { const p = (g && g.players) || {}; if (p[EMAIL]) NAME = p[EMAIL]; } catch (e) {} };
+  let PLAYERS = {};
+  const nameFrom = g => { try { const p = (g && g.players) || {}; PLAYERS = p; if (p[EMAIL]) NAME = p[EMAIL]; } catch (e) {} };
 
   // A newer version of the site was pushed: offer a reload (anything open is saved first).
   const verCheck = () => { const check = async () => { try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); const v = (await r.json()).v; if (v && v !== VER && !document.getElementById('pg-upd')) { const b = document.createElement('button'); b.id = 'pg-upd'; b.textContent = 'Updated — tap to reload'; b.onclick = () => { b.textContent = 'Saving…'; setTimeout(() => location.reload(), 1200); }; document.body.appendChild(b); } } catch (e) {} };
@@ -96,13 +97,14 @@ const ADMIN_EMAIL = 'matthewcbro@gmail.com';
   const cuser = { id: async () => null, isOwner: async () => true, can: async () => role() !== 'view' };
   window.claude = { use: async n => n === 'db' ? db : n === 'user' ? cuser : null };
   run();
+  // The Player field isn't typed in on the site: it's the owner's name from the player list.
+  const playerName = () => PLAYERS[OWNER] || P || '';
+  const syncPlayer = () => { try { const st = window.sheetState && window.sheetState(), want = playerName(); if (st && st.created && want && st.player !== want && role() !== 'view') window.sheetSet('player', want); } catch (e) {} };
   if (NEW && P) { try { const st = window.sheetState(); if (st && !st.player) st.player = P; } catch (e) {} }
-  // Moved to another player's folder from the hub: the sheet's Player field follows.
-  if (!NEW && hubCol) setTimeout(async () => { try { const h = await hubCol.doc(C).get(); const hd = h.exists ? h.data() : null; const st = window.sheetState && window.sheetState();
-    if (hd && hd.playerSet && st && st.created && (hd.player || '') !== (st.player || '') && Number(hd.playerSet) > Number(st.savedAt || 0) - 1) window.sheetSet('player', hd.player || ''); } catch (e) {} hubUpdate(); }, 2500);
+  if (!NEW && hubCol) setTimeout(() => { syncPlayer(); hubUpdate(); }, 2500);
   // New character: once it's created (and saved to the cloud), its link goes in the address bar.
   if (NEW) { const t = setInterval(() => { let made = false; try { const st = window.sheetState && window.sheetState(); made = !!(st && st.created); } catch (e) {} if (!made) return; clearInterval(t);
-    history.replaceState(null, '', location.pathname + '?c=' + C);
+    history.replaceState(null, '', location.pathname + '?c=' + C); syncPlayer();
     setTimeout(() => window.sheetToast(`<div><b>Your character is saved</b><div class="det">${G ? 'It\'s on your party page. ' : ''}Open it on any device you're signed in on — it stays in sync. ${IS_ADMIN && OWNER !== EMAIL ? 'It belongs to ' + OWNER + '.' : 'Only you and the people you share it with can open it.'}</div></div>`, '', 12000), 600);
     hubSoon();
   }, 500); }
@@ -255,7 +257,7 @@ function hub(fs, auth, G, ctx) {
     const acc = IS_ADMIN ? '' : (c.editors || []).includes(EMAIL) ? '<span class="hc-acc edit">Can edit</span>' : '<span class="hc-acc">View only</span>';
     return `<div class="hc${c.pin && isMine(c) ? ' pinned' : ''}"><a class="hc-main" href="${esc(base + '?c=' + c.id)}">${c.thumb ? `<img class="hc-pic" src="${esc(c.thumb)}" alt="">` : `<span class="hc-pic hc-nopic">${esc((c.name || '?')[0])}</span>`}
       <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</span>
-      <small>${c.hp ? 'HP ' + esc(c.hp) + ' · ' : ''}${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small>${acc}</span></a>
+      <small>${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small>${acc}</span></a>
       ${IS_ADMIN ? `<div class="hc-menu"><button class="hc-dots" aria-label="More">⋯</button><div class="hc-list">
         <button data-a="share" data-id="${esc(c.id)}">Share…</button><button data-a="move" data-id="${esc(c.id)}">Give to another player</button><button data-a="rm" data-id="${esc(c.id)}">Remove from list</button></div></div>` : ''}</div>`;
   }
@@ -265,7 +267,7 @@ function hub(fs, auth, G, ctx) {
     return `<div class="hr${c.pin ? ' pinned' : ''}" data-id="${esc(c.id)}" data-pin="${c.pin ? 1 : 0}"><span class="hr-grip" title="Drag to reorder" aria-label="Drag to reorder">⠿</span>
       <a class="hr-main" href="${esc(base + '?c=' + c.id)}">${c.thumb ? `<img class="hc-pic" src="${esc(c.thumb)}" alt="">` : `<span class="hc-pic hc-nopic">${esc((c.name || '?')[0])}</span>`}
       <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</span>
-      <small>${shareNote(c)}${c.hp ? 'HP ' + esc(c.hp) + ' · ' : ''}${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small></span></a>
+      <small>${shareNote(c)}${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small></span></a>
       <button class="hr-pin hr-share" data-share-id="${esc(c.id)}" title="Share">${shareIcon}</button><button class="hr-pin${c.pin ? ' on' : ''}" data-pin-id="${esc(c.id)}" title="${c.pin ? 'Unpin' : 'Pin to the top'}" aria-pressed="${!!c.pin}"><svg viewBox="0 0 24 24" width="18" height="18" fill="${c.pin ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 3h6l-1 6 4 4H6l4-4z"/><path d="M12 13v8"/></svg></button></div>`;
   }
   async function saveOrder(ids) { await Promise.all(ids.map((id, i) => { const c = chars.find(x => x.id === id); if (c && c.order === i) return null; if (c) c.order = i; return charsCol.doc(id).set({ order: i }, { merge: true }); })); }
@@ -309,8 +311,7 @@ function hub(fs, auth, G, ctx) {
       <div class="hub-me">Signed in as <b>${esc(myName())}</b> <span class="hub-em">${esc(EMAIL)}</span> · <button class="linkbtn" id="me-out">Sign out</button></div></header>
       <div class="hub-views"><button class="${SH ? '' : 'on'}" data-view="mine">My characters <span>${mine.length}</span></button><button class="${SH ? 'on' : ''}" data-view="shared">Shared characters <span>${shared.length}</span></button>${IS_ADMIN ? '<button class="btn hub-admin" id="hub-admin">⚙ Admin</button>' : ''}</div>
       ${SH ? '' : '<div class="hub-bar"><button class="btn gold big" id="hub-new">＋ Create character</button></div>'}
-      ${body}
-      <footer class="hub-foot">Bookmark this page. You're signed in on this device. ${IS_ADMIN ? 'You can open and edit every character.' : 'Your characters only open for you and the people you share them with.'}</footer>`;
+      ${body}`;
     const nb = root.querySelector('#hub-new'); if (nb) nb.onclick = createChar;
     root.querySelector('#me-out').onclick = signOut;
     root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { view = b.dataset.view; ls.set(VIEW, view); draw(); });
