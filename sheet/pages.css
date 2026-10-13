@@ -226,8 +226,8 @@ body:has(#modal.open) .pg-hublink, body:has(#modal.open) .pg-shared, body.wizope
 
 :where(#pg-load) .pg-signin .hub-logo { margin: 0 0 14px; }
 :where(#pg-load) .pg-signin .hl-t { font-size: 2.1rem; }
-/* the logo d20: no glow while it rolls; a natural 20 lands with a white glow, a natural 1 with a red one */
+/* the logo d20: no glow while it rolls; a natural 20 lands with a green glow, a natural 1 with a red one */
 :where(body.hubbody, #pg-load) .hl-d20 { transition: filter .35s ease; }
 :where(body.hubbody, #pg-load) .hl-d20.hl-rolling { filter: none !important; }
-:where(body.hubbody, #pg-load) .hl-d20.crit { filter: drop-shadow(0 0 4px #fff) drop-shadow(0 0 12px rgba(255,255,255,.85)); }
+:where(body.hubbody, #pg-load) .hl-d20.crit { filter: drop-shadow(0 0 4px #5dff8a) drop-shadow(0 0 12px rgba(60,220,110,.85)); }
 :where(body.hubbody, #pg-load) .hl-d20.fumble { filter: drop-shadow(0 0 4px #ff4a3a) drop-shadow(0 0 12px rgba(230,50,40,.85)); }
