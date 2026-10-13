@@ -464,10 +464,12 @@ function hub(fs, auth, G, ctx) {
         <div class="hf-body">${groups[k].sort(byName).map(card).join('')}</div></details>`; }).join('')
         : `<p class="hub-empty">Nothing has been shared with you yet. When another player shares a character with ${esc(EMAIL)}, it shows up here.</p>`)
       : (mine.length ? `<div class="hl">${mine.sort(ord).map(row).join('')}</div>` : `<p class="hub-empty">You don’t have any characters yet — create one, or ask whoever has yours to give it to you.</p>`);
+    const keepLogo = root.querySelector('.hub-logo');
     root.innerHTML = `<header class="hub-top">${logoHTML()}
       <div class="hub-side"><div class="hub-me">Signed in as <b>${esc(myName())}</b> <span class="hub-em">${esc(EMAIL)}</span> · <button class="linkbtn" id="me-out">Sign out</button></div>${IS_ADMIN ? '<button class="btn hub-admin" id="hub-admin">⚙ Admin</button>' : ''}</div></header>
       <div class="hub-views"><button class="${SH ? '' : 'on'}" data-view="mine">My characters <span>${mine.length}</span></button><button class="${SH ? 'on' : ''}" data-view="shared">Shared characters <span>${shared.length}</span></button><button class="hub-new" id="hub-new"><span class="hn-plus" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="hn-txt"><b>Create character</b></span></button></div>
       ${body}`;
+    if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
     const nb = root.querySelector('#hub-new'); if (nb) nb.onclick = createChar;
     root.querySelector('#me-out').onclick = signOut;
     const ab = root.querySelector('#hub-admin'); if (ab) ab.onclick = () => { location.href = ADMIN_URL; };
@@ -511,7 +513,13 @@ function hub(fs, auth, G, ctx) {
       new: ['New', 'Accounts and characters that appeared since you last marked this as read.'] };
     // avatar: initials on a colour picked from the name, so the same person always looks the same
     const hue = t => [...String(t || '?')].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) % 360, 7);
-    const ava = (name, em) => { const ini = String(name || em || '?').split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?'; return `<span class="adm-ava" style="--h:${hue(em || name)}">${esc(ini)}</span>`; };
+    const ava = (name, em) => { const ini = String(name || em || '?').split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
+      const pic0 = em && PICS[em]; return `<span class="adm-ava${pic0 ? ' has-pic' : ''}" data-em="${esc(em || '')}" style="--h:${hue(em || name)}">${pic0 ? `<img src="${esc(pic0)}" alt="">` : esc(ini)}</span>`; };
+    // Each person's picture is the portrait of the first character they made (looked up once per visit).
+    const PICS = {}, PICQ = {};
+    const picFor = em => PICQ[em] || (PICQ[em] = charsCol.where('owner', '==', em).get().then(r => { const cs = r.docs.map(d => d.data()).filter(c => c.thumb).sort((a, b) => (a.createdAt || a.updatedAt || 9e15) - (b.createdAt || b.updatedAt || 9e15)); return PICS[em] = (cs[0] && cs[0].thumb) || ''; }, () => ''));
+    const fillPics = () => root.querySelectorAll('.adm-ava[data-em]:not(.has-pic)').forEach(el => { const em = el.dataset.em; if (!em) return; picFor(em).then(src => { if (src && el.isConnected && !el.classList.contains('has-pic')) { el.classList.add('has-pic'); el.innerHTML = `<img src="${esc(src)}" alt="">`; } }); });
+    new MutationObserver(() => fillPics()).observe(root, { childList: true, subtree: true });
     const roleOf = em => em === ADMIN_EMAIL ? ['Owner', 'r-own'] : ADMINS.includes(em) ? ['Admin', 'r-adm'] : ['Member', 'r-mem'];
     const when = t => t ? `<span title="${esc(new Date(t).toLocaleString())}">${esc(day(t))}</span>` : '<span class="adm-dim">—</span>';
     const kebab = items => `<div class="adm-mwrap"><button class="adm-kebab" aria-label="More actions">⋯</button><div class="adm-mlist">${items.map(([k, t, id, cls]) => `<button data-mi="${k}" data-id="${esc(id)}"${cls ? ` class="${cls}"` : ''}>${t}</button>`).join('')}</div></div>`;
@@ -519,6 +527,7 @@ function hub(fs, auth, G, ctx) {
     function frame() {
       const nav = (k, label) => `<button class="adm-ni${TAB === k ? ' on' : ''}" data-tab="${k}">${svg(k)}<span>${label}</span>${k === 'new' && NEWN ? `<b class="adm-badge">${NEWN}</b>` : ''}</button>`;
       const [title, desc] = PAGES[TAB];
+      const keepLogo = root.querySelector('.hub-logo');
       root.innerHTML = `<div class="adm"><aside class="adm-side">
           <div class="adm-brand">${logoHTML()}<span class="adm-tagline">Admin</span></div>
           <nav class="adm-nav"><div class="adm-sec">Manage</div>${nav('users', 'Users')}${nav('chars', 'Characters')}${nav('admins', 'Admins')}<div class="adm-sec">Activity</div>${nav('new', 'New')}</nav>
@@ -526,6 +535,7 @@ function hub(fs, auth, G, ctx) {
             <div class="adm-me">${ava(myName(), EMAIL)}<span><b>${esc(myName())}</b><small>${esc(EMAIL)}</small></span><button class="linkbtn" id="me-out">Sign out</button></div></div></aside>
         <main class="adm-main"><header class="adm-head"><div><h1>${esc(title)}</h1><p>${esc(desc)}</p></div><div class="adm-hact" id="adm-hact"></div></header>
           <section id="ad-body" class="adm-body"><p class="adm-dim">Loading…</p></section></main></div>`;
+      if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
       root.querySelector('#me-out').onclick = signOut;
       root.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
       ({ new: tabNew, users: tabUsers, chars: tabChars, admins: tabAdmins })[TAB]();
@@ -648,6 +658,7 @@ function hub(fs, auth, G, ctx) {
       el.querySelectorAll('[data-mi="unadmin"]').forEach(b => b.onclick = async () => { const em = b.dataset.id; try { await cfg.set({ emails: FV.arrayRemove(em) }, { merge: true }); ADMINS = ADMINS.filter(x => x !== em); toast(em + ' is no longer an admin.'); tabAdmins(); } catch (x) { toast('Couldn\'t remove the admin: ' + (x.message || x)); } });
     }
     frame(); wireDie(root);
+    root.addEventListener('click', e => { if (e.target.closest && e.target.closest('.hl-txt')) location.href = HUB; });
     // the count on "New" shows even while you're on another section
     if (TAB !== 'new') Promise.all([usersCol.where('createdAt', '>', CHECKED).limit(51).get(), charsCol.where('createdAt', '>', CHECKED).limit(101).get()]).then(([u, c]) => { const fresh = new Set(u.docs.map(d => d.id)); NEWN = u.size + c.docs.filter(d => !fresh.has(d.data().owner)).length; const t = root.querySelector('[data-tab="new"]'); if (t && NEWN && !t.querySelector('.adm-badge')) t.insertAdjacentHTML('beforeend', `<b class="adm-badge">${NEWN}</b>`); }, () => {});
   }
