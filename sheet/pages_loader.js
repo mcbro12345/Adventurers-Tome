@@ -128,7 +128,19 @@ const ADMIN_EMAIL = 'matthewcbro@gmail.com';
     hubChanged = true; hubSoon();
   }, 500); }
   // Back to the hub (desktop and phone).
-  if (G) { const a = document.createElement('a'); a.href = location.pathname + '?g=' + G; a.className = 'pg-hublink'; a.title = 'All characters'; a.textContent = '⌂ Characters'; document.body.appendChild(a); }
+  if (G) { const a = document.createElement('a'); a.href = location.pathname + '?g=' + G; a.className = 'pg-hublink'; a.title = 'All characters'; a.textContent = '⌂ Characters'; document.body.appendChild(a);
+    // On a phone it sits just above the bottom tab bar, wherever that bar ends up.
+    const place = () => { const t = document.getElementById('tabs'), r = t && t.getBoundingClientRect(); a.style.bottom = document.documentElement.classList.contains('mobile') && r && r.height && r.top > innerHeight / 2 ? (innerHeight - r.top + 8) + 'px' : ''; };
+    addEventListener('resize', place); setInterval(place, 1500); setTimeout(place, 300); }
+  // Adding this page to a phone's home screen: the icon is the character's portrait (the party page uses the dice icon).
+  const homeIcon = () => { try { const st = window.sheetState && window.sheetState(); if (!st || !st.created) return; document.title = (st.name || 'Character') + ' — D&D';
+    const set = (sel, mk) => { let e = document.head.querySelector(sel); if (!e) { e = mk(); document.head.appendChild(e); } return e; };
+    set('meta[name="apple-mobile-web-app-title"]', () => Object.assign(document.createElement('meta'), { name: 'apple-mobile-web-app-title' })).content = st.name || 'Character';
+    if (!st.portrait || st.portrait === homeIcon.p) return; homeIcon.p = st.portrait; const im = new Image(); im.onload = () => { try { const c = document.createElement('canvas'), n = 180, s = Math.min(im.width, im.height); c.width = c.height = n;
+      const x = c.getContext('2d'); x.fillStyle = '#1f2a44'; x.fillRect(0, 0, n, n); x.drawImage(im, (im.width - s) / 2, (im.height - s) / 2 * 0.6, s, s, 0, 0, n, n);
+      const url = c.toDataURL('image/png'); document.head.querySelectorAll('link[rel="apple-touch-icon"], link[rel="icon"]').forEach(l => l.remove());
+      [['apple-touch-icon', ''], ['icon', 'image/png']].forEach(([rel, type]) => { const l = document.createElement('link'); l.rel = rel; if (type) l.type = type; l.href = url; document.head.appendChild(l); }); } catch (e) {} }; im.src = st.portrait; } catch (e) {} };
+  setTimeout(homeIcon, 1500); setInterval(homeIcon, 60000);
   if (role() !== 'owner') { const t = document.createElement('div'); t.className = 'pg-shared' + (role() === 'view' ? ' view' : ''); t.textContent = role() === 'view' ? 'View only' : 'Shared with you · can edit'; document.body.appendChild(t); }
   verCheck();
 })();

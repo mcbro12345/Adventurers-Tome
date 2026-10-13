@@ -2404,3 +2404,34 @@ html.mobile .sp-top .sp-name { min-width: 0; }
 .cstrip.one { grid-template-columns: 1fr !important; }
 
 .sp-real { font-size: .72em; font-weight: 500; opacity: .6; margin-left: 4px; font-style: italic; white-space: nowrap; }
+
+/* ---- Phone: character creation as a full-screen, touch-first flow ----
+   A fixed header with a progress bar, one scrolling page per step, and big Back / Next buttons at the bottom. */
+.wz-now { display: none; }
+html.mobile body.wizopen #tabs, html.mobile body.wizopen .pg-hublink, html.mobile body.wizopen .pg-shared, html.mobile body.wizopen #pg-upd { display: none !important; }
+html.mobile .wizard.open { display: flex; flex-direction: column; overflow: hidden; z-index: 90; height: 100%; height: 100dvh; }
+html.mobile .wz-box { flex: 1; min-height: 0; width: 100%; max-width: none; padding: 0; display: flex; flex-direction: column; }
+html.mobile .wz-head { flex: none; padding: calc(env(safe-area-inset-top) + 12px) 16px 10px; background: var(--bg); border-bottom: 1px solid var(--line); }
+html.mobile .wz-head h2 { font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; color: var(--gold-ink); margin: 0 0 8px; }
+html.mobile .wz-steps { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 5px; overflow: visible; padding: 0; }
+html.mobile .wz-step { position: relative; height: 22px; padding: 0; border: 0; border-radius: 0; background: none; font-size: 0; color: transparent; }
+html.mobile .wz-step::after { content: ''; position: absolute; left: 0; right: 0; top: 8px; height: 6px; border-radius: 3px; background: var(--line); }
+html.mobile .wz-step.done::after { background: var(--gold); opacity: .55; }
+html.mobile .wz-step.on::after { background: var(--gold); }
+html.mobile .wz-now { display: block; font-size: .95rem; color: var(--soft); margin-top: 2px; }
+html.mobile .wz-now b { color: var(--ink); font-size: 1.25rem; display: block; margin-top: 2px; }
+html.mobile .wz-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; margin: 0; border: 0; border-radius: 0; box-shadow: none; padding: 18px 16px 28px; }
+html.mobile .wz-body > h3 { display: none; }
+html.mobile .wz-foot { flex: none; position: static; display: flex; gap: 10px; padding: 10px 16px calc(env(safe-area-inset-bottom) + 12px); background: var(--panel); border-top: 1px solid var(--line); }
+html.mobile .wz-foot .grow { display: none; }
+html.mobile .wz-foot .btn { flex: 1; min-height: 54px; font-size: 1.08rem; border-radius: 14px; padding: 0 12px; }
+html.mobile .wz-foot .btn.gold { flex: 2; }
+html.mobile .wizard input.f, html.mobile .wizard select.f, html.mobile .wizard textarea { font-size: 16px; min-height: 50px; padding: 10px 14px; border-radius: 12px; width: 100%; box-sizing: border-box; }
+html.mobile .wizard .wz-grid { grid-template-columns: 1fr; gap: 16px; }
+html.mobile .wizard .lbl { font-size: .78rem; margin-bottom: 6px; display: block; }
+html.mobile .wizard .btn { min-height: 46px; font-size: 1rem; border-radius: 12px; }
+html.mobile .wizard .pbrow { gap: 14px; }
+html.mobile .wizard .pbbtn { width: 50px; height: 50px; font-size: 1.5rem; }
+html.mobile .wizard .checkline { min-height: 44px; display: flex; align-items: center; gap: 10px; }
+html.mobile .wizard input[type=checkbox] { width: 22px; height: 22px; }
+html.mobile .wizard .wz-portrait { width: 84px; height: 84px; }

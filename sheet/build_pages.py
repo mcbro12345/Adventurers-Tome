@@ -22,6 +22,7 @@ loader = ('''
 ''' + open(os.path.join(D, 'pages_loader.js')).read() + '''
 </script>
 ''').replace('__CFG__', json.dumps(cfg)).replace('__VER__', VER)
+h = html.index('</head>'); html = html[:h] + '<link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="D&amp;D Sheets">\n' + html[h:]
 h = html.index('</head>'); html = html[:h] + '<style>' + open(os.path.join(D, 'pages.css')).read() + '</style>\n' + html[h:]
 k = html.rindex('</body>')
 html = html[:k] + loader + html[k:]
@@ -29,4 +30,6 @@ os.makedirs(OUT, exist_ok=True)
 open(os.path.join(OUT, 'index.html'), 'w').write(html)
 open(os.path.join(OUT, 'version.json'), 'w').write(json.dumps({'v': VER}))
 open(os.path.join(OUT, '.nojekyll'), 'w').write('')
+import shutil
+for n in (32, 180, 192, 512): shutil.copy(os.path.join(D, 'icons', f'icon-{n}.png'), os.path.join(OUT, f'icon-{n}.png'))
 print('pages built', VER, len(html))

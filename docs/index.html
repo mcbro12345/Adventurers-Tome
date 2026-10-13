@@ -3089,7 +3089,39 @@ html.mobile .sp-top .sp-name { min-width: 0; }
 
 .sp-real { font-size: .72em; font-weight: 500; opacity: .6; margin-left: 4px; font-style: italic; white-space: nowrap; }
 
+/* ---- Phone: character creation as a full-screen, touch-first flow ----
+   A fixed header with a progress bar, one scrolling page per step, and big Back / Next buttons at the bottom. */
+.wz-now { display: none; }
+html.mobile body.wizopen #tabs, html.mobile body.wizopen .pg-hublink, html.mobile body.wizopen .pg-shared, html.mobile body.wizopen #pg-upd { display: none !important; }
+html.mobile .wizard.open { display: flex; flex-direction: column; overflow: hidden; z-index: 90; height: 100%; height: 100dvh; }
+html.mobile .wz-box { flex: 1; min-height: 0; width: 100%; max-width: none; padding: 0; display: flex; flex-direction: column; }
+html.mobile .wz-head { flex: none; padding: calc(env(safe-area-inset-top) + 12px) 16px 10px; background: var(--bg); border-bottom: 1px solid var(--line); }
+html.mobile .wz-head h2 { font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; color: var(--gold-ink); margin: 0 0 8px; }
+html.mobile .wz-steps { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 5px; overflow: visible; padding: 0; }
+html.mobile .wz-step { position: relative; height: 22px; padding: 0; border: 0; border-radius: 0; background: none; font-size: 0; color: transparent; }
+html.mobile .wz-step::after { content: ''; position: absolute; left: 0; right: 0; top: 8px; height: 6px; border-radius: 3px; background: var(--line); }
+html.mobile .wz-step.done::after { background: var(--gold); opacity: .55; }
+html.mobile .wz-step.on::after { background: var(--gold); }
+html.mobile .wz-now { display: block; font-size: .95rem; color: var(--soft); margin-top: 2px; }
+html.mobile .wz-now b { color: var(--ink); font-size: 1.25rem; display: block; margin-top: 2px; }
+html.mobile .wz-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; margin: 0; border: 0; border-radius: 0; box-shadow: none; padding: 18px 16px 28px; }
+html.mobile .wz-body > h3 { display: none; }
+html.mobile .wz-foot { flex: none; position: static; display: flex; gap: 10px; padding: 10px 16px calc(env(safe-area-inset-bottom) + 12px); background: var(--panel); border-top: 1px solid var(--line); }
+html.mobile .wz-foot .grow { display: none; }
+html.mobile .wz-foot .btn { flex: 1; min-height: 54px; font-size: 1.08rem; border-radius: 14px; padding: 0 12px; }
+html.mobile .wz-foot .btn.gold { flex: 2; }
+html.mobile .wizard input.f, html.mobile .wizard select.f, html.mobile .wizard textarea { font-size: 16px; min-height: 50px; padding: 10px 14px; border-radius: 12px; width: 100%; box-sizing: border-box; }
+html.mobile .wizard .wz-grid { grid-template-columns: 1fr; gap: 16px; }
+html.mobile .wizard .lbl { font-size: .78rem; margin-bottom: 6px; display: block; }
+html.mobile .wizard .btn { min-height: 46px; font-size: 1rem; border-radius: 12px; }
+html.mobile .wizard .pbrow { gap: 14px; }
+html.mobile .wizard .pbbtn { width: 50px; height: 50px; font-size: 1.5rem; }
+html.mobile .wizard .checkline { min-height: 44px; display: flex; align-items: center; gap: 10px; }
+html.mobile .wizard input[type=checkbox] { width: 22px; height: 22px; }
+html.mobile .wizard .wz-portrait { width: 84px; height: 84px; }
+
 </style>
+<link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="D&amp;D Sheets">
 <style>.pg-hublink { position: fixed; left: 10px; top: 10px; z-index: 60; background: rgba(15,22,38,.82); color: #f3e7c6; border: 1px solid rgba(201,150,43,.6); border-radius: 999px; padding: 4px 11px; font: 700 12px system-ui, sans-serif; text-decoration: none; backdrop-filter: blur(4px); }
 .pg-hublink:hover { background: #c9962b; color: #1b1406; }
 html.mobile .pg-hublink { top: auto; bottom: calc(80px + env(safe-area-inset-bottom)); left: 10px; }
@@ -3230,6 +3262,14 @@ html.mobile .pg-shared { top: auto; bottom: calc(80px + env(safe-area-inset-bott
 :where(body.hubbody) .ad-n { font-size: .75rem; opacity: .6; white-space: nowrap; }
 @media (max-width: 640px) { :where(body.hubbody) .ad-row { grid-template-columns: 44px minmax(0, 1fr); } :where(body.hubbody) .ad-own, :where(body.hubbody) .ad-acts { grid-column: 1 / -1; } :where(body.hubbody) .pl-row { flex-wrap: wrap; } }
 @media (prefers-color-scheme: dark) { body.hubbody .ad-row { background: #1a2131; border-color: #2c3548; } body.hubbody .ad-own, body.hubbody .ad-name { background: #0f1420; color: #e9e3d3; border-color: #3a4560; } }
+/* ---- Phone fixes: cards never wider than the screen; admin window scrolls as one piece ---- */
+:where(body.hubbody) .hf-body { grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
+:where(body.hubbody) .hc, :where(body.hubbody) .hr { min-width: 0; }
+:where(body.hubbody) .hc-txt b { white-space: normal; overflow-wrap: anywhere; }
+:where(body.hubbody) .hub-card.admin { display: block; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+:where(body.hubbody) .ad-body { overflow: visible; min-height: 0; }
+:where(body.hubbody) .ad-acts .btn.ghost { color: inherit; border-color: rgba(127,127,127,.35); opacity: .85; }
+@media (max-width: 640px) { :where(body.hubbody) .hub-card.admin { max-height: calc(100dvh - 24px); } :where(body.hubbody) .hub-modal { align-items: flex-start; padding: 12px; } }
 </style>
 </head>
 <body>
@@ -16784,7 +16824,7 @@ function renderWizard() {
       ${probs.length ? `<p class="warn">${probs.map(esc).join(' · ')}</p>` : '<p>Everything is set. You can change anything later — scores, skills, spells and items are all editable on the sheet.</p>'}
       <p class="hint">Scores include racial bonuses, Ability Score Improvements and half-feats.</p></div>`;
   }
-  $('#wizard').innerHTML = `<div class="wz-box"><div class="wz-head"><h2>Create your character</h2><div class="wz-steps">${WSTEPS.map((t, i) => `<button class="wz-step${i === st ? ' on' : ''}${i < st ? ' done' : ''}" data-wact="go" data-v="${i}">${i + 1}. ${t}</button>`).join('')}</div></div>
+  $('#wizard').innerHTML = `<div class="wz-box"><div class="wz-head"><h2>Create your character</h2><div class="wz-steps">${WSTEPS.map((t, i) => `<button class="wz-step${i === st ? ' on' : ''}${i < st ? ' done' : ''}" data-wact="go" data-v="${i}" aria-label="Step ${i + 1}: ${t}">${i + 1}. ${t}</button>`).join('')}</div><div class="wz-now">Step ${st + 1} of ${WSTEPS.length}<b>${WSTEPS[st]}</b></div></div>
     <div class="wz-body"><h3>${WSTEPS[st]}</h3>${body}</div>
     <div class="wz-foot">${st ? '<button class="btn" data-wact="back">Back</button>' : ''}<span class="grow"></span>${st < WSTEPS.length - 1 ? '<button class="btn gold" data-wact="next">Next</button>' : '<button class="btn gold" data-wact="create">Create character</button>'}</div></div>`;
   $$('#wizard [data-wzq]').forEach(i => filterWzSpells(i));
@@ -17222,7 +17262,7 @@ window.addEventListener('resize', () => { if (!UI.layout) { const was = isMobile
 // the database only lets that player — and the DM — open or change it.
 const ADMIN_EMAIL = 'matthewcbro@gmail.com';
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013010256';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013014010';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   let C = clean(Q.get('c')), G = clean(Q.get('g'));
   const P = (Q.get('p') || '').slice(0, 60), O = (Q.get('o') || '').trim().toLowerCase().slice(0, 120);
@@ -17343,7 +17383,19 @@ const ADMIN_EMAIL = 'matthewcbro@gmail.com';
     hubChanged = true; hubSoon();
   }, 500); }
   // Back to the hub (desktop and phone).
-  if (G) { const a = document.createElement('a'); a.href = location.pathname + '?g=' + G; a.className = 'pg-hublink'; a.title = 'All characters'; a.textContent = '⌂ Characters'; document.body.appendChild(a); }
+  if (G) { const a = document.createElement('a'); a.href = location.pathname + '?g=' + G; a.className = 'pg-hublink'; a.title = 'All characters'; a.textContent = '⌂ Characters'; document.body.appendChild(a);
+    // On a phone it sits just above the bottom tab bar, wherever that bar ends up.
+    const place = () => { const t = document.getElementById('tabs'), r = t && t.getBoundingClientRect(); a.style.bottom = document.documentElement.classList.contains('mobile') && r && r.height && r.top > innerHeight / 2 ? (innerHeight - r.top + 8) + 'px' : ''; };
+    addEventListener('resize', place); setInterval(place, 1500); setTimeout(place, 300); }
+  // Adding this page to a phone's home screen: the icon is the character's portrait (the party page uses the dice icon).
+  const homeIcon = () => { try { const st = window.sheetState && window.sheetState(); if (!st || !st.created) return; document.title = (st.name || 'Character') + ' — D&D';
+    const set = (sel, mk) => { let e = document.head.querySelector(sel); if (!e) { e = mk(); document.head.appendChild(e); } return e; };
+    set('meta[name="apple-mobile-web-app-title"]', () => Object.assign(document.createElement('meta'), { name: 'apple-mobile-web-app-title' })).content = st.name || 'Character';
+    if (!st.portrait || st.portrait === homeIcon.p) return; homeIcon.p = st.portrait; const im = new Image(); im.onload = () => { try { const c = document.createElement('canvas'), n = 180, s = Math.min(im.width, im.height); c.width = c.height = n;
+      const x = c.getContext('2d'); x.fillStyle = '#1f2a44'; x.fillRect(0, 0, n, n); x.drawImage(im, (im.width - s) / 2, (im.height - s) / 2 * 0.6, s, s, 0, 0, n, n);
+      const url = c.toDataURL('image/png'); document.head.querySelectorAll('link[rel="apple-touch-icon"], link[rel="icon"]').forEach(l => l.remove());
+      [['apple-touch-icon', ''], ['icon', 'image/png']].forEach(([rel, type]) => { const l = document.createElement('link'); l.rel = rel; if (type) l.type = type; l.href = url; document.head.appendChild(l); }); } catch (e) {} }; im.src = st.portrait; } catch (e) {} };
+  setTimeout(homeIcon, 1500); setInterval(homeIcon, 60000);
   if (role() !== 'owner') { const t = document.createElement('div'); t.className = 'pg-shared' + (role() === 'view' ? ' view' : ''); t.textContent = role() === 'view' ? 'View only' : 'Shared with you · can edit'; document.body.appendChild(t); }
   verCheck();
 })();

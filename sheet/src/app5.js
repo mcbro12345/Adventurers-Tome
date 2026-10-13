@@ -737,7 +737,7 @@ function renderWizard() {
       ${probs.length ? `<p class="warn">${probs.map(esc).join(' · ')}</p>` : '<p>Everything is set. You can change anything later — scores, skills, spells and items are all editable on the sheet.</p>'}
       <p class="hint">Scores include racial bonuses, Ability Score Improvements and half-feats.</p></div>`;
   }
-  $('#wizard').innerHTML = `<div class="wz-box"><div class="wz-head"><h2>Create your character</h2><div class="wz-steps">${WSTEPS.map((t, i) => `<button class="wz-step${i === st ? ' on' : ''}${i < st ? ' done' : ''}" data-wact="go" data-v="${i}">${i + 1}. ${t}</button>`).join('')}</div></div>
+  $('#wizard').innerHTML = `<div class="wz-box"><div class="wz-head"><h2>Create your character</h2><div class="wz-steps">${WSTEPS.map((t, i) => `<button class="wz-step${i === st ? ' on' : ''}${i < st ? ' done' : ''}" data-wact="go" data-v="${i}" aria-label="Step ${i + 1}: ${t}">${i + 1}. ${t}</button>`).join('')}</div><div class="wz-now">Step ${st + 1} of ${WSTEPS.length}<b>${WSTEPS[st]}</b></div></div>
     <div class="wz-body"><h3>${WSTEPS[st]}</h3>${body}</div>
     <div class="wz-foot">${st ? '<button class="btn" data-wact="back">Back</button>' : ''}<span class="grow"></span>${st < WSTEPS.length - 1 ? '<button class="btn gold" data-wact="next">Next</button>' : '<button class="btn gold" data-wact="create">Create character</button>'}</div></div>`;
   $$('#wizard [data-wzq]').forEach(i => filterWzSpells(i));
