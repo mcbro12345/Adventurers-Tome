@@ -146,3 +146,6 @@ html.mobile .pg-shared { top: auto; bottom: calc(80px + env(safe-area-inset-bott
 :where(body.hubbody) .ad-body { overflow: visible; min-height: 0; }
 :where(body.hubbody) .ad-acts .btn.ghost { color: inherit; border-color: rgba(127,127,127,.35); opacity: .85; }
 @media (max-width: 640px) { :where(body.hubbody) .hub-card.admin { max-height: calc(100dvh - 24px); } :where(body.hubbody) .hub-modal { align-items: flex-start; padding: 12px; } }
+/* The Characters / shared tags stay under windows, menus and popups */
+.pg-hublink, .pg-shared { z-index: 35; }
+body:has(#modal.open) .pg-hublink, body:has(#modal.open) .pg-shared, body.wizopen .pg-hublink { display: none !important; }
