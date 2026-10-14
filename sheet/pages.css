@@ -729,3 +729,7 @@ body.hubbody:not(.adminbody) .hub-head { background: rgba(14,19,30,.97); }
 @media (prefers-color-scheme: light) { body:not(.adminbody) .pg-ct-mail { background: rgba(0,0,0,.04); } body:not(.adminbody) .pg-ct-btn { border-color: #d8c9a6; } }
 .pg-out-card:has(.pg-ct-mail) { max-width: 440px; }
 .pg-ct-mail span { word-break: normal; overflow-wrap: anywhere; font-size: .88rem; }
+/* Contact us / Admin sits at the right edge of the profile block, Sign out on the left */
+:where(body.hubbody) .hp-txt { display: flex; flex-direction: column; }
+:where(body.hubbody) .hp-row { width: 100%; }
+:where(body.hubbody) .hp-row .hub-admin { margin-left: auto !important; }
