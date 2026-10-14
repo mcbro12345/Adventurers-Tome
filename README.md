@@ -1,23 +1,37 @@
-# D&D 5e Character Sheet
+# Adventurer's Tome
 
-A single-page D&D 5e (2014) character sheet: automated rolls, combat turn tracker, spells, inventory with nested containers, companions, Roll20 dice, and live sync between devices.
+D&D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. A companion browser extension sends your rolls straight into your Roll20 game.
 
-**Live site:** served from [`docs/`](docs/) by GitHub Pages.
+**Open it:** [adventurers-tome.web.app](https://adventurers-tome.web.app) — free. Sign in with Google, or with a one-time link sent to your email.
 
-- Each character has a private link: `…/?c=<id>`. The character itself is stored in Firebase (Firestore), not in this repo, and stays in sync live on every device that has the link open.
-- Opening the site without `?c=` starts a new character that is saved in that browser only.
-- When a new version is pushed, open sheets show a "Sheet updated — tap to reload" banner.
+## Making a character
+- A step-by-step builder walks you through race, class, background, ability scores, equipment and spells.
+- When you level up, a wizard adds the new hit points, features, spell slots and spells of your choice.
 
-## Building
+## Playing
+- Hit points and temporary HP, short and long rests, hit dice, death saves and conditions.
+- One tap rolls attacks, damage, saves, checks and spells, with advantage and disadvantage.
+- Spell slots, class resources and limited-use items count down as you use them and refill on rests.
+- Spells and effects with a duration count down turn by turn; taking damage while concentrating prompts the save.
+- Tap any spell, feature, item or condition to read what it does without leaving the sheet.
+- Inventory with containers, weight and coins; a Creatures tab for companions, familiars and summons.
+- Story and Notes tabs for backstory, allies and session notes.
+- Undo, redo and a full history of changes.
 
-```
-cd sheet
-python3 build.py                 # builds the blank sheet (DnD_Character_Sheet.html)
-python3 build_pages.py ../docs   # builds the Pages site into docs/
-```
+## Making it yours
+- Rearrange panels and tabs, hide what you don't use, and pick the sheet's colors.
+- Add a portrait; it also becomes the icon if you add the sheet to your phone's home screen.
 
-`sheet/src` is the app code, `sheet/data` the rules content (SRD 5.1 plus short summaries), `sheet/ext` the Roll20 companion extension that the sheet can download. `sheet/pages_config.json` is the Firebase web config (public by design; access is controlled by Firestore rules).
+## Everywhere you play
+- Characters save to your account automatically and stay in sync live across every device.
+- Works on phones and computers; added to a home screen, it opens like an app.
 
-## Party hub
+## Rolling on Roll20
+A companion browser extension sends your rolls straight into your Roll20 game. Download it from the sheet's Settings → Dice.
 
-`?g=<group>` opens the party hub: every character in the group, in drop-down folders by player, with a **Create character** button. Each device picks "who's using it" once; that name is used to put your own characters first and to show who last changed a character. A device that has opened a hub goes straight back to it from the bare site address. Hub data lives in Firestore under `groups/<group>/chars`.
+## Sharing with your party
+- Share a character with other players by email, as view-only or can-edit.
+- Only you and the people you share with can open your characters.
+
+## Contact
+Questions, ideas or something not working: adventurerstome@googlegroups.com
