@@ -1,6 +1,6 @@
 # Adventurer's Tome
 
-D&D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. A companion browser extension sends your rolls straight into your Roll20 game.
+D&D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game.
 
 **Open it:** [adventurers-tome.web.app](https://adventurers-tome.web.app) — free. Sign in with Google, or with a one-time link sent to your email.
 
