@@ -1,4 +1,4 @@
-D&D Sheet <-> Roll20 companion extension
+Adventurer's Tome <-> Roll20 companion extension
 
 Chrome / Edge / Brave / Opera / Vivaldi:
 1. Unzip this download (Windows: right-click -> Extract All).

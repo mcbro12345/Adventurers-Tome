@@ -1,7 +1,13 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{db}/documents {
-    function signedIn() { return request.auth != null && request.auth.token.email_verified == true; }
+    // Signed in, and not blocked or signed out everywhere by an admin (the site owner can never be locked out).
+    function signedIn() { return request.auth != null && request.auth.token.email_verified == true && accountOK(); }
+    function accountOK() {
+      let p = /databases/$(db)/documents/users/$(request.auth.token.email.lower());
+      return request.auth.token.email.lower() == 'matthewcbro@gmail.com' || !exists(p)
+        || (get(p).data.get('banned', false) != true && get(p).data.get('revokedAt', 0) <= request.auth.token.auth_time * 1000);
+    }
     function me() { return request.auth.token.email.lower(); }
     function owner0() { return signedIn() && me() == 'matthewcbro@gmail.com'; }
     function admin() { return owner0() || (signedIn() && exists(/databases/$(db)/documents/config/admins)
@@ -51,6 +57,14 @@ service cloud.firestore {
       allow create: if admin() || (signedIn() && request.resource.data.keys().hasOnly(['c']) && ownsSheet(request.resource.data.c));
       allow update: if admin() || (signedIn() && request.resource.data.keys().hasOnly(['c']) && request.resource.data.c == resource.data.c && ownsSheet(resource.data.c));
       allow delete: if admin() || (signedIn() && ownsSheet(resource.data.c));
+    }
+    // Activity log: anyone signed in can add their own entries; only admins can read it; nobody can change or delete it.
+    match /audit/{id} {
+      allow create: if signedIn() && request.resource.data.by == me()
+        && request.resource.data.keys().hasOnly(['at', 'by', 'byName', 'act', 'target', 'tName', 'detail'])
+        && request.resource.data.act is string && request.resource.data.get('detail', '').size() <= 1500;
+      allow read: if admin();
+      allow update, delete: if false;
     }
     match /config/admins {
       allow get: if admin();

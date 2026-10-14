@@ -135,6 +135,7 @@ function commit() {
   else HIST.push({ t: now, label, keys: changed });
   while (HIST.length > HMAX) HIST.shift();
   REDO = []; persistHist(); histButtons();
+  try { if (window.onSheetChange) window.onSheetChange(label); } catch (e) {}
 }
 function applyEntry(e) {
   const inv = { t: e.t, label: e.label, keys: {} };
@@ -142,8 +143,8 @@ function applyEntry(e) {
   return inv;
 }
 function afterHist() { S = migrate(S); LAST = snapAll(); writeLocal(); persistHist(); render(); }
-function undo(n = 1) { let c = 0; while (c < n && HIST.length) { REDO.push(applyEntry(HIST.pop())); c++; } if (c) afterHist(); return c; }
-function redo(n = 1) { let c = 0; while (c < n && REDO.length) { HIST.push(applyEntry(REDO.pop())); c++; } if (c) afterHist(); return c; }
+function undo(n = 1) { let c = 0, lb = ''; while (c < n && HIST.length) { lb = HIST[HIST.length - 1].label; REDO.push(applyEntry(HIST.pop())); c++; } if (c) { afterHist(); try { if (window.onSheetChange) window.onSheetChange('Undo: ' + String(lb).replace(/^Edit: /, '')); } catch (e) {} } return c; }
+function redo(n = 1) { let c = 0, lb = ''; while (c < n && REDO.length) { lb = REDO[REDO.length - 1].label; HIST.push(applyEntry(REDO.pop())); c++; } if (c) { afterHist(); try { if (window.onSheetChange) window.onSheetChange('Redo: ' + String(lb).replace(/^Edit: /, '')); } catch (e) {} } return c; }
 let histTimer = null;
 function persistHist() {
   clearTimeout(histTimer);

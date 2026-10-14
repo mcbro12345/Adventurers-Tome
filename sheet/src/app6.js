@@ -793,7 +793,7 @@ function downloadR20Ext() {
     else { delete m.browser_specific_settings; if (m.background) delete m.background.scripts; }
     files['manifest.json'] = JSON.stringify(m, null, 2);
   } catch (e) {}
-  download('dnd-sheet-roll20-extension.zip', makeZip(files), 'application/zip');
+  download('adventurers-tome-roll20-extension.zip', makeZip(files), 'application/zip');
 }
 
 // Which browser this is, and how to load the Roll20 extension in it.

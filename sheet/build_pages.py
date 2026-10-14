@@ -26,18 +26,29 @@ APP = asset('app', 'js', html[i + len('<script>\n'):j]); html = html[:i] + html[
 i = html.index('<style>'); j = html.index('</style>', i)
 CSS = asset('sheet', 'css', html[i + len('<style>'):j]); html = html[:i] + '<link rel="stylesheet" href="' + CSS + '">' + html[j + len('</style>'):]
 i = html.index('<script>\n// Rules content'); j = html.index('</script>', i)
-DATA = asset('data', 'js', html[i + len('<script>\n'):j]); html = html[:i] + html[j + len('</script>'):]
+DTXT = html[i + len('<script>\n'):j]; html = html[:i] + html[j + len('</script>'):]
+# The full rules wording (what a spell or feature says when you tap it) is most of the game data, but a sheet can open
+# without it — tooltips show the short summary until it arrives. So it's its own file, fetched right after the sheet appears.
+FT = open(os.path.join(D, 'data', 'fulltext.js')).read()
+assert DTXT.count(FT) == 1, 'fulltext not found in the data'
+DATA = asset('data', 'js', DTXT.replace(FT, '') + '\nDND.full = DND.full || {}; DND.fullSRD = DND.fullSRD || [];')
+FULL = asset('full', 'js', FT)
 
 loader = ('''
 <script>document.documentElement.classList.add('pg-loading')</script>
-<div id="pg-load"><div class="pg-spin" role="status" aria-label="Loading"><svg viewBox="0 0 100 100" width="64" height="64" aria-hidden="true"><g fill="none" stroke="#c9962b" stroke-width="3.2" stroke-linejoin="round"><polygon points="50,6 89,28 89,72 50,94 11,72 11,28" fill="rgba(201,150,43,.10)"/><polygon points="50,24 72,62 28,62"/><path d="M50 6 L50 24 M89 28 L72 62 M89 72 L72 62 M50 94 L72 62 M50 94 L28 62 M11 72 L28 62 M11 28 L28 62 M11 28 L50 24 M89 28 L50 24"/></g><text x="50" y="54" text-anchor="middle" font-family="Georgia,serif" font-weight="800" font-size="15" fill="#f3e7c6">20</text></svg><b>Adventurer’s Tome</b><small>Rolling for initiative…</small></div></div>
+<div id="pg-load"><div class="pg-spin" role="status" aria-label="Loading"><svg class="pg-ld20" viewBox="0 0 100 100" width="72" height="72" aria-hidden="true"><defs><linearGradient id="pglg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f1d58a"/><stop offset=".55" stop-color="#c9962b"/><stop offset="1" stop-color="#8a6420"/></linearGradient></defs><polygon points="50,4 91,27 91,73 50,96 9,73 9,27" fill="rgba(201,150,43,.14)" stroke="url(#pglg)" stroke-width="4" stroke-linejoin="round"/><g fill="none" stroke="url(#pglg)" stroke-width="2.6" stroke-linejoin="round"><polygon points="50,24 73,63 27,63"/><path d="M50 4 L50 24 M91 27 L73 63 M91 73 L73 63 M50 96 L73 63 M50 96 L27 63 M9 73 L27 63 M9 27 L27 63 M9 27 L50 24 M91 27 L50 24"/></g><text x="50" y="55" text-anchor="middle" font-family="Georgia,serif" font-weight="800" font-size="15" fill="#f6e7bd"></text></svg><b>Adventurer’s Tome</b><small>Rolling for initiative…</small></div></div>
+<script>/* the loading die rolls over and over, like the logo's: a tumble with the face flickering, then it lands on a number for a moment */
+(function(){var d=document.querySelector('#pg-load .pg-ld20');if(!d||!d.animate)return;var f=d.querySelector('text'),K=[{offset:0,transform:'rotate(0deg) scale(1)',easing:'cubic-bezier(.3,0,.6,1)'},{offset:.18,transform:'rotate(150deg) scale(1.1) translateY(-4px)',easing:'linear'},{offset:.5,transform:'rotate(520deg) scale(1.06) translateY(-2px)',easing:'cubic-bezier(.15,.6,.35,1)'},{offset:.84,transform:'rotate(732deg) scale(.98)',easing:'cubic-bezier(.4,0,.4,1)'},{offset:1,transform:'rotate(720deg) scale(1)'}],R=function(){return 1+Math.floor(Math.random()*20)};
+function roll(){if(!document.getElementById('pg-load'))return;d.classList.remove('crit','fumble');var a=d.animate(K,{duration:1150}),nx=0,t=function(){var e=Number(a.currentTime)||0;if(a.playState==='finished')return;if(e>=nx&&e<1030){f.textContent=R();nx=e+45+230*Math.pow(e/1150,2)}requestAnimationFrame(t)};requestAnimationFrame(t);
+a.finished.then(function(){var n=R();f.textContent=n;d.classList.toggle('crit',n===20);d.classList.toggle('fumble',n===1);setTimeout(roll,900)})}
+if(!matchMedia('(prefers-reduced-motion: reduce)').matches)setTimeout(roll,150);else f.textContent='20'})();</script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script>
 ''' + open(os.path.join(D, 'pages_loader.js')).read() + '''
 </script>
-''').replace('__CFG__', json.dumps(cfg)).replace('__VER__', VER).replace('__ASSETS__', json.dumps({'data': DATA, 'app': APP}))
+''').replace('__CFG__', json.dumps(cfg)).replace('__VER__', VER).replace('__ASSETS__', json.dumps({'data': DATA, 'app': APP, 'full': FULL}))
 html = re.sub(r'<title>[^<]*</title>', '<title>Adventurer’s Tome</title>', html, count=1)
 # Files are referenced relative to the site root, so /chad-brooker/hiro still finds a/…, icons and version.json.
 # (The github.io copy lives in a sub-folder, so its root is that folder.)

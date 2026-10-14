@@ -19,7 +19,8 @@
 html.pg-loading, html.pg-loading body { background: #0f1420; }
 #pg-load { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 40%, #1d2638 0%, #0f1420 70%); color: #e9e3d3; font: 600 15px system-ui, sans-serif; z-index: 9999; }
 #pg-load .pg-spin { display: flex; flex-direction: column; align-items: center; gap: 10px; animation: pg-fade .4s ease both .15s; }
-#pg-load .pg-spin svg { animation: pg-roll 2.4s cubic-bezier(.5,.1,.5,.9) infinite; filter: drop-shadow(0 0 12px rgba(201,150,43,.35)); }
+#pg-load .pg-spin svg { transition: filter .35s ease; }
+#pg-load .pg-ld20.crit { filter: drop-shadow(0 0 5px rgba(80,230,120,.55)); } #pg-load .pg-ld20.fumble { filter: drop-shadow(0 0 5px rgba(235,70,55,.55)); }
 #pg-load .pg-spin b { font: 800 1.15rem Georgia, 'Times New Roman', serif; color: #c9962b; letter-spacing: .02em; margin-top: 4px; }
 #pg-load .pg-spin small { font-size: .82rem; opacity: .6; }
 #pg-load .pg-msg { max-width: 520px; padding: 0 18px; text-align: center; line-height: 1.5; }
@@ -750,6 +751,23 @@ body.hubbody:not(.adminbody) .hub-head { background: rgba(14,19,30,.97); }
 :where(body.hubbody) .hp-txt { display: flex; flex-direction: column; }
 :where(body.hubbody) .hp-row { width: 100%; }
 :where(body.hubbody) .hp-row .hub-admin { margin-left: auto !important; }
+/* Audit log */
+.au-f { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; align-items: end; margin-bottom: 14px; padding: 12px; border: 1px solid var(--adm-line); border-radius: 10px; background: var(--adm-panel); }
+.au-f label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.au-f label > span { font: 700 .66rem system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--adm-dim); }
+.au-f select, .au-f input { width: 100%; box-sizing: border-box; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--adm-line); background: var(--adm-bg); color: var(--adm-ink); font: 500 .86rem system-ui, sans-serif; }
+.au-f .au-q { grid-column: span 2; }
+.au-f #au-clr { justify-self: start; }
+.au-n { margin: 0 0 8px; }
+.au-t .au-when { white-space: nowrap; color: var(--adm-dim); font-size: .82rem; }
+.au-t .au-d { color: var(--adm-dim); font-size: .82rem; max-width: 420px; }
+.au-t a { color: #e6bd5a; text-decoration: none; font-weight: 700; } .au-t a:hover { text-decoration: underline; }
+@media (prefers-color-scheme: light) { .au-t a { color: #8a6420; } }
+@media (max-width: 640px) { .au-f { grid-template-columns: 1fr 1fr; } .au-f .au-q { grid-column: 1 / -1; } .au-t .au-d { max-width: none; } }
+.adm-tag.r-blk { background: rgba(214,90,69,.18); color: #e0705d; }
+.hub-card .ak-c { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; font-size: .88rem; cursor: pointer; }
+.hub-card .ak-c input { width: 16px; height: 16px; accent-color: #c9962b; }
+:where(#pg-load) .pg-kicked { margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; background: rgba(214,90,69,.14); color: #e0705d; font-size: .86rem; }
 </style>
 </head>
 <body>
@@ -779,7 +797,12 @@ body.hubbody:not(.adminbody) .hub-head { background: rgba(14,19,30,.97); }
 
 
 <script>document.documentElement.classList.add('pg-loading')</script>
-<div id="pg-load"><div class="pg-spin" role="status" aria-label="Loading"><svg viewBox="0 0 100 100" width="64" height="64" aria-hidden="true"><g fill="none" stroke="#c9962b" stroke-width="3.2" stroke-linejoin="round"><polygon points="50,6 89,28 89,72 50,94 11,72 11,28" fill="rgba(201,150,43,.10)"/><polygon points="50,24 72,62 28,62"/><path d="M50 6 L50 24 M89 28 L72 62 M89 72 L72 62 M50 94 L72 62 M50 94 L28 62 M11 72 L28 62 M11 28 L28 62 M11 28 L50 24 M89 28 L50 24"/></g><text x="50" y="54" text-anchor="middle" font-family="Georgia,serif" font-weight="800" font-size="15" fill="#f3e7c6">20</text></svg><b>Adventurer’s Tome</b><small>Rolling for initiative…</small></div></div>
+<div id="pg-load"><div class="pg-spin" role="status" aria-label="Loading"><svg class="pg-ld20" viewBox="0 0 100 100" width="72" height="72" aria-hidden="true"><defs><linearGradient id="pglg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f1d58a"/><stop offset=".55" stop-color="#c9962b"/><stop offset="1" stop-color="#8a6420"/></linearGradient></defs><polygon points="50,4 91,27 91,73 50,96 9,73 9,27" fill="rgba(201,150,43,.14)" stroke="url(#pglg)" stroke-width="4" stroke-linejoin="round"/><g fill="none" stroke="url(#pglg)" stroke-width="2.6" stroke-linejoin="round"><polygon points="50,24 73,63 27,63"/><path d="M50 4 L50 24 M91 27 L73 63 M91 73 L73 63 M50 96 L73 63 M50 96 L27 63 M9 73 L27 63 M9 27 L27 63 M9 27 L50 24 M91 27 L50 24"/></g><text x="50" y="55" text-anchor="middle" font-family="Georgia,serif" font-weight="800" font-size="15" fill="#f6e7bd"></text></svg><b>Adventurer’s Tome</b><small>Rolling for initiative…</small></div></div>
+<script>/* the loading die rolls over and over, like the logo's: a tumble with the face flickering, then it lands on a number for a moment */
+(function(){var d=document.querySelector('#pg-load .pg-ld20');if(!d||!d.animate)return;var f=d.querySelector('text'),K=[{offset:0,transform:'rotate(0deg) scale(1)',easing:'cubic-bezier(.3,0,.6,1)'},{offset:.18,transform:'rotate(150deg) scale(1.1) translateY(-4px)',easing:'linear'},{offset:.5,transform:'rotate(520deg) scale(1.06) translateY(-2px)',easing:'cubic-bezier(.15,.6,.35,1)'},{offset:.84,transform:'rotate(732deg) scale(.98)',easing:'cubic-bezier(.4,0,.4,1)'},{offset:1,transform:'rotate(720deg) scale(1)'}],R=function(){return 1+Math.floor(Math.random()*20)};
+function roll(){if(!document.getElementById('pg-load'))return;d.classList.remove('crit','fumble');var a=d.animate(K,{duration:1150}),nx=0,t=function(){var e=Number(a.currentTime)||0;if(a.playState==='finished')return;if(e>=nx&&e<1030){f.textContent=R();nx=e+45+230*Math.pow(e/1150,2)}requestAnimationFrame(t)};requestAnimationFrame(t);
+a.finished.then(function(){var n=R();f.textContent=n;d.classList.toggle('crit',n===20);d.classList.toggle('fumble',n===1);setTimeout(roll,900)})}
+if(!matchMedia('(prefers-reduced-motion: reduce)').matches)setTimeout(roll,150);else f.textContent='20'})();</script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -834,7 +857,7 @@ function pgContact() {
   const su = encodeURIComponent('Adventurer’s Tome'), m = document.createElement('div'); m.className = 'pg-out';
   m.innerHTML = `<div class="pg-out-card" role="dialog" aria-modal="true" aria-labelledby="pg-ct-h"><h2 id="pg-ct-h">Contact us</h2><p>Questions, ideas or something not working? Email us at</p>
     <div class="pg-ct-mail"><span>${CONTACT_EMAIL}</span><button class="pg-ct-copy">Copy</button></div>
-    <div class="pg-out-row pg-ct-row"><a class="pg-ct-btn" target="_blank" rel="noopener" href="https://mail.google.com/mail/?view=cm&fs=1&to=${CONTACT_EMAIL}&su=${su}">Open in Gmail</a><a class="pg-ct-btn" href="mailto:${CONTACT_EMAIL}?subject=${su}">Email app</a><button class="pg-out-no">Close</button></div></div>`;
+    <div class="pg-out-row pg-ct-row"><a class="pg-ct-btn" target="_blank" rel="noopener" href="https://mail.google.com/mail/?extsrc=mailto&url=${encodeURIComponent('mailto:' + CONTACT_EMAIL + '?subject=' + su)}">Open in Gmail</a><a class="pg-ct-btn" href="mailto:${CONTACT_EMAIL}?subject=${su}">Email app</a><button class="pg-out-no">Close</button></div></div>`;
   const close = () => { m.remove(); document.removeEventListener('keydown', key); }, key = e => { if (e.key === 'Escape') close(); };
   m.onclick = e => { if (e.target === m) close(); }; m.querySelector('.pg-out-no').onclick = close;
   m.querySelector('.pg-ct-copy').onclick = async e => { const b = e.target; try { await navigator.clipboard.writeText(CONTACT_EMAIL); b.textContent = 'Copied'; } catch (x) { const r = document.createRange(); r.selectNodeContents(m.querySelector('.pg-ct-mail span')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); b.textContent = 'Selected'; } setTimeout(() => { b.textContent = 'Copy'; }, 1600); };
@@ -901,7 +924,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013190346', ASSETS = {"data": "a/data.3f7e0dc5a0bb.js", "app": "a/app.2d69dfd91d60.js"};
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261013204058', ASSETS = {"data": "a/data.fb0e283a0601.js", "app": "a/app.e97971b1fc10.js", "full": "a/full.08c5d2dee3d4.js"};
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -996,7 +1019,7 @@ function wireDie(root) {
   const EMAIL = (user.email || '').toLowerCase(), IS_OWNER = EMAIL === ADMIN_EMAIL;
   let IS_ADMIN = IS_OWNER, ADMINS = [];
   try { const a = await fs.collection('config').doc('admins').get(); ADMINS = ((a.exists && a.data().emails) || []).map(x => String(x).toLowerCase()); if (ADMINS.includes(EMAIL)) IS_ADMIN = true; } catch (e) {}
-  const doSignOut = () => auth.signOut().then(() => location.replace(PRETTY ? '/login' : location.href));
+  const doSignOut = () => Promise.resolve(window.pgLog && pgLog('signout')).then(() => auth.signOut()).then(() => location.replace(PRETTY ? '/login' : location.href));
   // Signing out always asks first.
   const signOut = () => {
     if (document.querySelector('.pg-out')) return;
@@ -1024,13 +1047,27 @@ function wireDie(root) {
   // Each account has its own record (name, email, when it joined). Made on first sign-in from the Google name; an admin
   // can rename it. "Last seen" is refreshed at most once a day to keep database writes down.
   const UREF = fs.collection('users').doc(EMAIL);
-  let ME = null;
+  let ME = null, NEWACCT = false, ACCT_OK = false, ACCT_ERR = '';
   try { const us = await UREF.get(); ME = us.exists ? us.data() : null;
-    if (!ME) { const nm = (user.displayName || EMAIL.split('@')[0]).slice(0, 60); ME = { email: EMAIL, name: nm, nameLower: nm.toLowerCase(), keys: searchKeys(nm, EMAIL.split('@')[0], EMAIL), createdAt: Date.now(), seenAt: Date.now() }; if (user.photoURL) ME.gpic = user.photoURL; await UREF.set(ME); }
+    if (!ME) { NEWACCT = true; const nm = (user.displayName || EMAIL.split('@')[0]).slice(0, 60); ME = { email: EMAIL, name: nm, nameLower: nm.toLowerCase(), keys: searchKeys(nm, EMAIL.split('@')[0], EMAIL), createdAt: Date.now(), seenAt: Date.now() }; if (user.photoURL) ME.gpic = user.photoURL; await UREF.set(ME); }
     else if (!ME.seenAt || Date.now() - ME.seenAt > 864e5) UREF.update({ seenAt: Date.now() }).catch(() => {});
+    ACCT_OK = true;
     // keep their Google account photo on file (it's their picture until they choose another)
-    if (ME && user.photoURL && ME.gpic !== user.photoURL) { ME.gpic = user.photoURL; UREF.update({ gpic: user.photoURL }).catch(() => {}); } } catch (e) { console.warn('account record', e); }
+    if (ME && user.photoURL && ME.gpic !== user.photoURL) { ME.gpic = user.photoURL; UREF.update({ gpic: user.photoURL }).catch(() => {}); } } catch (e) { ACCT_ERR = (e && e.code) || ''; console.warn('account record', e); }
   let NAME = (ME && ME.name) || user.displayName || EMAIL.split('@')[0];
+  // Activity log (admins can read it): who did what, when.
+  window.pgLog = (act, f = {}) => { try { const e = { at: Date.now(), by: EMAIL, byName: NAME, act };
+    ['target', 'tName', 'detail'].forEach(k => { if (f[k] != null && f[k] !== '') e[k] = String(f[k]).slice(0, 1500); }); return fs.collection('audit').add(e).catch(() => {}); } catch (e) { return Promise.resolve(); } };
+  // A fresh sign-in (not just a remembered session) and a brand-new account are logged once.
+  try { const ls0 = Date.parse(user.metadata.lastSignInTime || '') || 0, mark = 'pg-signin-logged'; if (Date.now() - ls0 < 180000 && lsGet(mark) !== String(ls0)) { lsSet(mark, String(ls0)); pgLog(NEWACCT ? 'account' : 'signin'); } } catch (e) {}
+  // An admin can sign someone out of every device, or block them. Checked now and whenever their account record changes.
+  let AUTHAT = 0; try { AUTHAT = Date.parse((await user.getIdTokenResult()).authTime) || 0; } catch (e) {}
+  const kicked = d => d && (d.banned === true ? 'This account has been blocked. If you think this is a mistake, contact adventurerstome@googlegroups.com.' : (Number(d.revokedAt) || 0) > AUTHAT ? 'You were signed out of all your devices. Sign in again to continue.' : '');
+  const kick = msg => { lsSet('pg-kicked', msg); auth.signOut().then(() => location.replace(PRETTY ? '/login' : location.href)); };
+  // (when the database refuses even their own account record, an admin has signed them out or blocked them)
+  const LOCKED = 'You’ve been signed out. Sign in again — if that doesn’t work, contact adventurerstome@googlegroups.com.';
+  { const k0 = kicked(ME) || (ACCT_ERR === 'permission-denied' ? LOCKED : ''); if (k0) { kick(k0); return; } }
+  UREF.onSnapshot(d => { const k = kicked(d.exists ? d.data() : null); if (k) kick(k); }, e => { if (e && e.code === 'permission-denied') kick(LOCKED); });
   const UCACHE = {}, userDoc = em => UCACHE[em] || (UCACHE[em] = fs.collection('users').doc(em).get().then(x => x.exists ? x.data() : null, () => null));
 
   // A newer version of the site was pushed: load it. The party page reloads right away; a sheet reloads as soon as
@@ -1049,7 +1086,9 @@ function wireDie(root) {
   if (G && !C && !NEWQ) { lsSet(LAST_G, G); if (ADMINQ && !IS_ADMIN && PRETTY) history.replaceState(null, '', '/');
     if (load) load.remove(); document.documentElement.classList.remove('pg-loading'); hub(fs, auth, G, { EMAIL, IS_ADMIN, IS_OWNER, ADMINS, user, signOut, ME, page: ADMINQ && IS_ADMIN ? 'admin' : 'hub', view: VIEWQ, tab: TABQ }); verCheck();
     // quietly warm the cache so opening a sheet from here is quick
-    setTimeout(() => [ASSETS.data, ASSETS.app].forEach(u => { const l = document.createElement('link'); l.rel = 'prefetch'; l.href = u; document.head.appendChild(l); }), 2500); return; }
+    // (not on a very slow or data-saving connection, and only once the page has settled, so it never slows the list down)
+    const cn = navigator.connection || {}, slowNet = cn.saveData || /(^|-)2g$/.test(cn.effectiveType || '');
+    if (!slowNet) setTimeout(() => (window.requestIdleCallback || (f => setTimeout(f, 1)))(() => [ASSETS.data, ASSETS.app, ASSETS.full].filter(Boolean).forEach(u => { const l = document.createElement('link'); l.rel = 'prefetch'; l.href = u; document.head.appendChild(l); })), 4000); return; }
 
   // Phone view chosen on a wide screen: show the sheet in a phone frame instead of stretching the phone layout.
   // (asked for just now — it's used once, so reloading or coming back later shows the layout for this device again)
@@ -1085,9 +1124,13 @@ function wireDie(root) {
   document.documentElement.classList.add('pg-sheetpage');
   // The game data and the app arrive as separate long-cached files; start fetching them now, run them in order later.
   const fetched = Promise.all([ASSETS.data, ASSETS.app].map(u => fetch(u).then(r => { if (!r.ok) throw new Error(u); return r.text(); })));
+  // started once the essentials have arrived, so it doesn't compete with them on a slow connection
+  const fullTxt = fetched.then(() => ASSETS.full ? fetch(ASSETS.full).then(r => r.ok ? r.text() : '', () => '') : '', () => '');
   const run = async () => { let src; try { src = await fetched; } catch (e) { say('Couldn\'t load the sheet. Check your connection and reload.'); return; }
     if (load) load.remove(); document.documentElement.classList.remove('pg-loading');
-    src.forEach(t => { const s = document.createElement('script'); s.textContent = t; document.body.appendChild(s); }); };
+    src.forEach(t => { const s = document.createElement('script'); s.textContent = t; document.body.appendChild(s); });
+    // then the full rules wording, which only tooltips and the Spells/Features text need: once it's in, redraw so they use it
+    fullTxt.then(t => { if (!t) return; const s = document.createElement('script'); s.textContent = t; document.body.appendChild(s); try { if (typeof render === 'function') render(); } catch (e) {} }); };
   const col = fs.collection('sheets'), CACHE = 'dnd-pages-cache:' + C;
   let txt = null, missing = false, denied = false, OWNER = NEW ? ((IS_ADMIN && O) || EMAIL) : '', VIEWERS = [], EDITORS = [];
   if (!NEW) try {
@@ -1131,7 +1174,7 @@ function wireDie(root) {
     const pth = role() === 'owner' ? await pathFor(s) : '';
     if (pth) sum.path = pth;
     const key = JSON.stringify(sum); if (!changed && key === LASTSUM) return; // nothing on the card changed: skip the write
-    try { await hubCol.doc(C).set(Object.assign({}, sum, when, pth ? { paths: firebase.firestore.FieldValue.arrayUnion(pth) } : {}), { merge: true }); LASTSUM = key; if (pth) showPath(pth); } catch (e) { console.warn('hub', e); } };
+    try { await hubCol.doc(C).set(Object.assign({}, sum, when, pth ? { paths: firebase.firestore.FieldValue.arrayUnion(pth) } : {}), { merge: true }); const firstSave = !LASTSUM && NEW; LASTSUM = key; if (firstSave) pgLog('create', { target: C, tName: s.name }); if (pth) showPath(pth); } catch (e) { console.warn('hub', e); } };
   // Its clean address is just the character's name: /zeebo. Names are claimed site-wide in an address book (slugs/{name} → which
   // character), first come first served, so a second Zeebo becomes /zeebo-2. Earlier addresses keep pointing at it.
   let PATHKEY = '', PATHVAL = '';
@@ -1164,6 +1207,12 @@ function wireDie(root) {
   if (NEW && P) { try { const st = window.sheetState(); if (st && !st.player) st.player = P; } catch (e) {} }
   try { const st0 = window.sheetState(); if (st0 && st0.created) LASTD = digest(st0); } catch (e) {}
   if (!NEW && hubCol) setTimeout(() => { syncPlayer(); hubUpdate(false); }, 2500);
+  // Activity log for this sheet: that it was opened, and (gathered up, at most about once a minute) what was changed.
+  if (!NEW) setTimeout(() => { let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} pgLog('open', { target: C, tName: nm, detail: role() === 'view' ? 'view only' : '' }); }, 3000);
+  { let EDITS = [], editT = null; const flush = () => { clearTimeout(editT); editT = null; if (!EDITS.length) return; const L = [...new Set(EDITS)]; EDITS = [];
+      let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} pgLog('edit', { target: C, tName: nm, detail: L.slice(0, 20).join(' · ') + (L.length > 20 ? ' · …' : '') }); };
+    window.onSheetChange = label => { if (role() === 'view') return; EDITS.push(String(label || 'Change').replace(/^Edit: /, '')); if (!editT) editT = setTimeout(flush, 60000); };
+    document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); }); addEventListener('pagehide', flush); }
   if (!NEW && hubCol && PRETTY) hubCol.doc(C).get().then(d => { const pth = d.exists && d.data().path; if (pth) showPath(pth); }, () => {});
   // New character: once it's created (and saved to the cloud), its link goes in the address bar.
   if (NEW) { const t = setInterval(() => { let made = false; try { const st = window.sheetState && window.sheetState(); made = !!(st && st.created); } catch (e) {} if (!made) return; clearInterval(t);
@@ -1222,12 +1271,13 @@ function wireDie(root) {
 
 // ================= Sign in (once per device) =================
 function signIn(auth, say) {
+  const kickedMsg = (() => { try { const m = localStorage.getItem('pg-kicked'); localStorage.removeItem('pg-kicked'); return m || ''; } catch (e) { return ''; } })();
   say(`<div class="pg-signin">${logoHTML()}<h2>Sign in</h2>
     <p>Sign in once on this device to open your characters. Only you and the people you share them with can see or change them.</p>
     <button class="btn gold big" id="si-g"><svg viewBox="0 0 48 48" width="18" height="18" style="vertical-align:-3px;margin-right:8px"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>Sign in with Google</button>
     <div class="pg-or">or</div>
     <form id="si-f" class="who-f"><input id="si-e" type="email" placeholder="Your email address" autocomplete="email" required><button class="btn">Email me a link</button></form>
-    <p class="hub-hint" id="si-msg">No Google account? Type your email — you'll get a one-time sign-in link.</p>
+    <p class="hub-hint" id="si-msg">No Google account? Type your email — you'll get a one-time sign-in link.</p>${kickedMsg ? `<p class="pg-kicked">${kickedMsg}</p>` : ''}
     <p class="pg-contact">Trouble signing in? <a href="${CONTACT}">Contact us</a></p></div>`);
   wireDie(document.getElementById('pg-load'));
   const msg = t => { const m = document.getElementById('si-msg'); if (m) m.innerHTML = t; };
@@ -1285,11 +1335,16 @@ function hub(fs, auth, G, ctx) {
     const acc = { viewers: V, editors: E.filter(x => V.includes(x)) };
     const s0 = await sheets.doc(c.id).get(); const n = Number(s0.exists && s0.data().n) || 1;
     await sheets.doc(c.id).update(acc); for (let k = 1; k < n; k++) await sheets.doc(c.id + '_p' + k).update(acc).catch(() => {});
-    await charsCol.doc(c.id).set(acc, { merge: true }); Object.assign(c, acc);
+    await charsCol.doc(c.id).set(acc, { merge: true });
+    const V0 = c.viewers || [], E0 = c.editors || [], nm = c.name || '';
+    acc.viewers.filter(x => !V0.includes(x)).forEach(x => pgLog('share', { target: c.id, tName: nm, detail: x + (acc.editors.includes(x) ? ' (can edit)' : ' (view only)') }));
+    V0.filter(x => !acc.viewers.includes(x)).forEach(x => pgLog('unshare', { target: c.id, tName: nm, detail: x }));
+    acc.viewers.filter(x => V0.includes(x) && E0.includes(x) !== acc.editors.includes(x)).forEach(x => pgLog('access', { target: c.id, tName: nm, detail: x + (acc.editors.includes(x) ? ' can now edit' : ' is now view only') }));
+    Object.assign(c, acc);
   }
   async function giveTo(c, o) {
     try { await userDoc(o); const s = await sheets.doc(c.id).get(); const n = Number(s.exists && s.data().n) || 1; await sheets.doc(c.id).update({ owner: o }); for (let k = 1; k < n; k++) await sheets.doc(c.id + '_p' + k).update({ owner: o }).catch(() => {});
-      await charsCol.doc(c.id).set({ owner: o, player: nameOf(o), playerSet: Date.now() }, { merge: true }); c.owner = o; c.player = nameOf(o); toast('Moved to ' + nameOf(o) + '.'); return true; } catch (x) { toast('Couldn\'t move it: ' + (x.message || x)); return false; } }
+      await charsCol.doc(c.id).set({ owner: o, player: nameOf(o), playerSet: Date.now() }, { merge: true }); c.owner = o; c.player = nameOf(o); toast('Moved to ' + nameOf(o) + '.'); pgLog('give', { target: c.id, tName: c.name, detail: 'to ' + o }); return true; } catch (x) { toast('Couldn\'t move it: ' + (x.message || x)); return false; } }
   function shareChar(c, back) {
     let V = [...(c.viewers || [])], E = [...(c.editors || [])];
     const paint = () => {
@@ -1326,7 +1381,7 @@ function hub(fs, auth, G, ctx) {
     modal.innerHTML = `<div class="hub-card"><h2>Remove ${esc(c.name || 'this character')} from the list?</h2><p class="hub-hint">The character itself isn't deleted — opening its link puts it back.</p>
       <div class="row"><button class="btn ghost" id="rm-x">Cancel</button><button class="btn red" id="rm-ok">Remove from list</button></div></div>`;
     modal.classList.add('on');
-    modal.querySelector('#rm-ok').onclick = async () => { await charsCol.doc(c.id).delete(); chars = chars.filter(x => x.id !== c.id); toast('Removed from the list.'); close(); if (after) after(); };
+    modal.querySelector('#rm-ok').onclick = async () => { await charsCol.doc(c.id).delete(); chars = chars.filter(x => x.id !== c.id); toast('Removed from the list.'); pgLog('remove', { target: c.id, tName: c.name }); close(); if (after) after(); };
     modal.querySelector('#rm-x').onclick = close;
   }
   // Relinquish access: takes you off this character's share list — nothing else about the character changes.
@@ -1339,7 +1394,7 @@ function hub(fs, auth, G, ctx) {
       try { const s0 = await sheets.doc(c.id).get(); const n = Number(s0.exists && s0.data().n) || 1;
         for (let k = 1; k < n; k++) await sheets.doc(c.id + '_p' + k).update(acc).catch(() => {});
         await charsCol.doc(c.id).set(acc, { merge: true }); await sheets.doc(c.id).update(acc);
-        Object.assign(c, acc); if (!IS_ADMIN) chars = chars.filter(x => x.id !== c.id); toast('You no longer have access to ' + (c.name || 'that character') + '.'); close(); if (after) after(); }
+        Object.assign(c, acc); if (!IS_ADMIN) chars = chars.filter(x => x.id !== c.id); toast('You no longer have access to ' + (c.name || 'that character') + '.'); pgLog('leave', { target: c.id, tName: c.name }); close(); if (after) after(); }
       catch (x) { e.target.disabled = false; toast(x && x.code === 'permission-denied' ? 'Couldn’t do that yet — the new database rules need publishing.' : 'Couldn’t do that: ' + ((x && x.message) || x)); } };
   }
   // Deleting is for the owner (or an admin), never for people it's only shared with. It's permanent, so they type the
@@ -1360,7 +1415,7 @@ function hub(fs, auth, G, ctx) {
       try { const s0 = await sheets.doc(c.id).get(); const n = Number(s0.exists && s0.data().n) || 1;
         for (const pth of new Set([c.path, ...(c.paths || [])])) if (pth && !pth.includes('/')) await fs.collection('slugs').doc(pth).delete().catch(() => {});
         for (let k = 1; k < n; k++) await sheets.doc(c.id + '_p' + k).delete().catch(() => {});
-        if (s0.exists) await sheets.doc(c.id).delete(); await charsCol.doc(c.id).delete();
+        if (s0.exists) await sheets.doc(c.id).delete(); await charsCol.doc(c.id).delete(); pgLog('delete', { target: c.id, tName: c.name, detail: c.owner && c.owner !== EMAIL ? 'owned by ' + c.owner : '' });
         ['dnd-pages-cache:', 'dnd-sheet-ui:'].forEach(k => { try { localStorage.removeItem(k + c.id); } catch (e) {} });
         chars = chars.filter(x => x.id !== c.id); close(); toast((c.name || 'The character') + ' was deleted.'); if (after) after(); }
       catch (x) { ok.textContent = 'Delete forever'; ok.disabled = false; toast(x && x.code === 'permission-denied' ? 'Only the owner (or an admin) can delete it — if you are, the new database rules still need publishing.' : 'Couldn\'t delete it: ' + ((x && x.message) || x)); } };
@@ -1384,16 +1439,17 @@ function hub(fs, auth, G, ctx) {
         x.imageSmoothingQuality = 'high'; x.drawImage(im, (S - w * k) / 2, (S - h * k) / 2, w * k, h * k); return clear ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', .86); };
       let img = draw(192); if (img.length > 260000) img = draw(128); res({ img, clear }); };
     im.src = url; });
-  function pickPic() {
-    const mine = chars.filter(isMine).sort((a, b) => (a.createdAt || a.updatedAt || 0) - (b.createdAt || b.updatedAt || 0));
-    const GP = (ME && ME.gpic) || '', st = { mode: picModeOf(ME), color: okColor(ME && ME.picColor), char: (ME && ME.picChar) || '', img: ME && !ME.picChar ? (ME.pic || '') : '', clear: !!(ME && ME.picClear) }; if (st.mode === 'google' && !GP) st.mode = 'initials';
-    const auto = `hsl(${hueOf(EMAIL)}, 42%, 42%)`;
+  // Choose a picture — your own, or (for an admin) someone else's: who = { em, name, rec, list, after }.
+  function pickPic(who) { const SELF = !who, EM = SELF ? EMAIL : who.em, R = SELF ? ME : (who.rec || {}), NM = SELF ? myName() : (who.name || who.em);
+    const mine = (who ? who.list : chars.filter(isMine)).sort((a, b) => (a.createdAt || a.updatedAt || 0) - (b.createdAt || b.updatedAt || 0));
+    const GP = (R && R.gpic) || '', st = { mode: picModeOf(R), color: okColor(R && R.picColor), char: (R && R.picChar) || '', img: R && !R.picChar ? (R.pic || '') : '', clear: !!(R && R.picClear) }; if (st.mode === 'google' && !GP) st.mode = 'initials';
+    const auto = `hsl(${hueOf(EM)}, 42%, 42%)`;
     const ico = { google: '<svg viewBox="0 0 48 48" width="16" height="16"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.1 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.2 0-11.5-4.2-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>',
       initials: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19l4.5-12h1L14 19M5.8 15h6.4"/><path d="M15 12.5c.8-1 2-1.5 3-1.2 1.5.4 2 1.8 2 3.2V19M20 15.5c-2 0-4.5.2-4.5 2s2.2 1.8 4.5-.3"/></svg>',
       char: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>',
       upload: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>' };
-    modal.innerHTML = `<div class="hub-card wide pp"><h2>Your picture</h2>
-      <div class="pp-head"><span class="pp-prev"></span><div class="pp-who"><b>${esc(myName())}</b><small>Shows beside your name, and to others when you’re viewing a shared sheet together.</small></div></div>
+    modal.innerHTML = `<div class="hub-card wide pp"><h2>${SELF ? 'Your picture' : 'Picture for ' + esc(NM)}</h2>
+      <div class="pp-head"><span class="pp-prev"></span><div class="pp-who"><b>${esc(NM)}</b><small>${SELF ? 'Shows beside your name, and to others when you’re viewing a shared sheet together.' : 'Shows beside their name everywhere on the site.'}</small></div></div>
       <div class="pp-tabs${GP ? ' four' : ''}" role="tablist">${(GP ? [['google', 'Google']] : []).concat([['initials', 'Initials'], ['char', 'Character'], ['upload', 'Upload']]).map(([m, t]) => `<button role="tab" data-m="${m}">${ico[m]}${t}</button>`).join('')}</div>
       ${GP ? `<div class="pp-pane" data-p="google"><p class="pp-note pp-gnote">Your Google account picture. If you change it on Google, it updates here the next time you sign in.</p></div>` : ''}
       <div class="pp-pane" data-p="initials"><p class="pp-lbl">Background colour</p><div class="pp-sw">
@@ -1407,7 +1463,7 @@ function hub(fs, auth, G, ctx) {
     const $ = q => modal.querySelector(q), $$ = q => modal.querySelectorAll(q);
     const pick = () => st.mode === 'google' ? GP : st.mode === 'char' ? ((mine.find(c => c.id === st.char) || {}).thumb || '') : st.mode === 'upload' ? st.img : '';
     const paint = () => { const pic = pick();
-      $('.pp-prev').innerHTML = avaHTML(myName(), EMAIL, pic, '', '', { color: st.color, clear: st.mode === 'upload' && st.clear });
+      $('.pp-prev').innerHTML = avaHTML(NM, EM, pic, '', '', { color: st.color, clear: st.mode === 'upload' && st.clear });
       $$('.pp-tabs [data-m]').forEach(b => { const on = b.dataset.m === st.mode; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
       $$('.pp-pane').forEach(p => p.hidden = p.dataset.p !== st.mode);
       $$('.pp-c[data-c]').forEach(b => b.classList.toggle('on', b.dataset.c === st.color));
@@ -1428,7 +1484,7 @@ function hub(fs, auth, G, ctx) {
     $('#pp-x').onclick = close;
     $('#pp-ok').onclick = async () => { const ok = $('#pp-ok'); ok.disabled = true; ok.textContent = 'Saving…';
       const upd = st.mode === 'char' ? { picMode: 'char', picChar: st.char, pic: pick(), picClear: false, picColor: st.color } : st.mode === 'upload' ? { picMode: 'upload', picChar: '', pic: st.img, picClear: !!st.clear, picColor: st.color } : { picMode: st.mode === 'google' ? 'google' : 'initials', picChar: '', pic: '', picClear: false, picColor: st.color };
-      try { await usersCol.doc(EMAIL).update(upd); Object.assign(ME || {}, upd); close(); draw(); toast('Your picture is saved.'); }
+      try { await usersCol.doc(EM).update(upd); Object.assign(R || {}, upd); close(); if (SELF) { draw(); toast('Your picture is saved.'); pgLog('picture', { detail: upd.picMode }); } else { pgLog('user_picture', { target: EM, tName: NM, detail: upd.picMode }); toast('Picture changed for ' + NM + '.'); if (who.after) who.after(); } }
       catch (x) { ok.disabled = false; ok.textContent = 'Save'; toast(x && x.code === 'permission-denied' ? 'Couldn’t save it yet — the new database rules need publishing.' : 'Couldn’t save it: ' + ((x && x.message) || x)); } };
     paint();
   }
@@ -1540,11 +1596,12 @@ function hub(fs, auth, G, ctx) {
   // ================= Admin section (its own page: ?g=…&admin=1) =================
   function adminSection() {
     const UREF = usersCol.doc(EMAIL); let CHECKED = Number(ME && ME.checkedAt) || 0;
-    const T0 = ctx.tab === 'characters' ? 'chars' : ctx.tab; let TAB = ['users', 'chars', 'admins', 'new'].includes(T0) ? T0 : 'users';
+    const T0 = ctx.tab === 'characters' ? 'chars' : ctx.tab; let TAB = ['users', 'chars', 'admins', 'new', 'audit'].includes(T0) ? T0 : 'users';
     const CH = {}, US = {}; // characters and accounts on screen
     let NEWN = null;
     const setTab = t => { TAB = t; history.replaceState(null, '', URLS.admin(G, t === 'chars' ? 'characters' : t)); frame(); };
     const ic = {
+      audit: '<path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',
       users: '<path d="M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1"/><circle cx="9" cy="7" r="3.5"/><path d="M22 19v-1a4 4 0 0 0-3-3.9M16 3.5a3.5 3.5 0 0 1 0 7"/>',
       chars: '<path d="M4 4h11a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3z"/><path d="M4 17a3 3 0 0 1 3-3h11"/><path d="M8 8h6"/>',
       admins: '<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
@@ -1554,7 +1611,8 @@ function hub(fs, auth, G, ctx) {
     const PAGES = { users: ['Users', 'Everyone who has signed in. Search by name or email, rename someone, or look at their characters.'],
       chars: ['Characters', 'Every character on the site, newest activity first. Share any of them with yourself, or open, share, move or delete them.'],
       admins: ['Admins', 'Admins can open and edit every character, manage users and see new accounts.'],
-      new: ['New', 'Accounts and characters that appeared since you last marked this as read.'] };
+      new: ['New', 'Accounts and characters that appeared since you last marked this as read.'],
+      audit: ['Audit log', 'Everything people have done on the site: sign-ins, characters opened, created, edited, shared and deleted, and admin actions. Filter by person, action, character or date.'] };
     // avatar: initials on a colour picked from the name, so the same person always looks the same
     const hue = t => [...String(t || '?')].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) % 360, 7);
     const ava = (name, em) => { const ini = String(name || em || '?').split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
@@ -1576,7 +1634,7 @@ function hub(fs, auth, G, ctx) {
     function frame() {
       const nav = (k, label) => `<button class="adm-ni${TAB === k ? ' on' : ''}" data-tab="${k}">${svg(k)}<span>${label}</span>${k === 'new' && NEWN ? `<b class="adm-badge">${NEWN}</b>` : ''}</button>`;
       const [title, desc] = PAGES[TAB];
-      const navHTML = `<div class="adm-sec">Manage</div>${nav('users', 'Users')}${nav('chars', 'Characters')}${nav('admins', 'Admins')}<div class="adm-sec">Activity</div>${nav('new', 'New')}`;
+      const navHTML = `<div class="adm-sec">Manage</div>${nav('users', 'Users')}${nav('chars', 'Characters')}${nav('admins', 'Admins')}<div class="adm-sec">Activity</div>${nav('audit', 'Audit log')}${nav('new', 'New')}`;
       // Switching tabs only swaps the page on the right: the sidebar (and where its tab strip is scrolled to on a phone) stays put.
       const nv0 = root.querySelector('.adm-nav');
       if (nv0) { const x = nv0.scrollLeft; nv0.innerHTML = navHTML; nv0.scrollLeft = x;
@@ -1587,13 +1645,13 @@ function hub(fs, auth, G, ctx) {
         const kept = !again && PANES[TAB];
         if (kept) { curB.replaceWith(kept.b); curH.replaceWith(kept.h); PREV_TAB = TAB; nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab)); scrollTo(0, 0);
           // …and quietly brings it up to date behind the scenes
-          ({ new: () => tabNew(), users: () => tabUsersList(), chars: () => tabCharsList(), admins: () => tabAdmins() })[TAB](); return; }
+          ({ new: () => tabNew(), users: () => tabUsersList(), chars: () => tabCharsList(), admins: () => tabAdmins(), audit: () => tabAuditList() })[TAB](); return; }
         const nb = document.createElement('section'); nb.id = 'ad-body'; nb.className = 'adm-body'; nb.innerHTML = '<p class="adm-dim">Loading…</p>';
         const nh = document.createElement('div'); nh.id = 'adm-hact'; nh.className = 'adm-hact';
         if (again) { curB.replaceWith(nb); curH.replaceWith(nh); } else { curB.replaceWith(nb); curH.replaceWith(nh); } delete PANES[TAB]; PREV_TAB = TAB;
         nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
         const on = nv0.querySelector('.adm-ni.on'); if (on && on.scrollIntoView) { const r = on.getBoundingClientRect(), nr = nv0.getBoundingClientRect(); if (r.left < nr.left || r.right > nr.right) nv0.scrollBy({ left: r.left < nr.left ? r.left - nr.left - 12 : r.right - nr.right + 12, behavior: 'smooth' }); }
-        ({ new: tabNew, users: tabUsers, chars: tabChars, admins: tabAdmins })[TAB](); return; }
+        ({ new: tabNew, users: tabUsers, chars: tabChars, admins: tabAdmins, audit: tabAudit })[TAB](); return; }
       const keepLogo = root.querySelector('.hub-logo');
       root.innerHTML = `<div class="adm"><aside class="adm-side">
           <div class="adm-brand">${logoHTML()}</div>
@@ -1604,7 +1662,7 @@ function hub(fs, auth, G, ctx) {
       if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
       PREV_TAB = TAB;
       root.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
-      ({ new: tabNew, users: tabUsers, chars: tabChars, admins: tabAdmins })[TAB]();
+      ({ new: tabNew, users: tabUsers, chars: tabChars, admins: tabAdmins, audit: tabAudit })[TAB]();
     }
     const B = () => root.querySelector('#ad-body'), HA = () => root.querySelector('#adm-hact');
     document.addEventListener('click', e => { const k = e.target.closest && e.target.closest('.adm-kebab'); root.querySelectorAll('.adm-mwrap.on').forEach(w => { if (!k || w !== k.parentElement) w.classList.remove('on'); }); if (k) k.parentElement.classList.toggle('on'); });
@@ -1665,9 +1723,9 @@ function hub(fs, auth, G, ctx) {
       try { const r = await findUsers(UQ, more ? ULAST : null); ULAST = r.docs[r.docs.length - 1] || ULAST; UROWS = (more ? UROWS : []).concat(docs(r)); UROWS.forEach(u => { US[u.id] = u; });
         const rows = UQ ? UROWS.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')) : UROWS;
         const cnt = B().querySelector('#ad-uq-n'); if (cnt) cnt.textContent = rows.length ? rows.length + (r.docs.length === 25 ? '+' : '') + ' user' + (rows.length === 1 ? '' : 's') : '';
-        l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Last active</th><th></th><th></th></tr></thead><tbody>${rows.map(u => { const [rl, rc] = roleOf(u.id);
+        l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Last active</th><th></th><th></th></tr></thead><tbody>${rows.map(u => { const [rl, rc] = u.banned ? ['Blocked', 'r-blk'] : roleOf(u.id);
           return `<tr data-u="${esc(u.id)}"><td><span class="adm-who">${ava(u.name, u.id)}<b>${esc(u.name || '—')}</b></span></td><td class="adm-mail">${esc(u.id)}</td><td><span class="adm-tag ${rc}">${rl}</span></td><td>${when(u.createdAt)}</td><td>${u.seenAt ? esc(ago(u.seenAt)) : '<span class="adm-dim">—</span>'}</td>
-            <td><button class="adm-btn sm" data-uc="${esc(u.id)}">Characters ▸</button></td><td class="adm-act">${kebab([['rename', 'Rename…', u.id], ['newfor', 'New character for them', u.id], ['chars', 'Show characters', u.id]])}</td></tr>
+            <td><button class="adm-btn sm" data-uc="${esc(u.id)}">Characters ▸</button></td><td class="adm-act">${kebab([['rename', 'Rename…', u.id], ['pic', 'Change picture…', u.id], ['newfor', 'New character for them', u.id], ['chars', 'Show characters', u.id]].concat(u.id === ADMIN_EMAIL || u.id === EMAIL ? [] : [['signout', 'Sign out everywhere', u.id], u.banned ? ['unblock', 'Unblock', u.id] : ['block', 'Block…', u.id], ['delacct', 'Delete account…', u.id, 'danger']]))}</td></tr>
             <tr class="adm-subrow" data-sub="${esc(u.id)}" hidden><td colspan="7"></td></tr>`; }).join('')}</tbody></table></div>`
           + (r.docs.length === 25 ? '<button class="adm-btn adm-more" id="ad-umore">Load more</button>' : '') : `<p class="adm-empty">${UQ ? 'Nobody matches “' + esc(UQ) + '”.' : 'No accounts yet.'}</p>`;
         const mb = l.querySelector('#ad-umore'); if (mb) mb.onclick = () => tabUsers(true);
@@ -1678,16 +1736,108 @@ function hub(fs, auth, G, ctx) {
           fill(); };
         l.querySelectorAll('[data-uc]').forEach(b => b.onclick = () => toggle(b.dataset.uc));
         l.querySelectorAll('[data-mi]').forEach(b => b.onclick = () => { const em = b.dataset.id; b.closest('.adm-mwrap').classList.remove('on');
-          if (b.dataset.mi === 'chars') toggle(em); else if (b.dataset.mi === 'newfor') location.href = URLS.newChar(G, em, nameOf(em)); else if (b.dataset.mi === 'rename') renameUser(em); });
+          if (b.dataset.mi === 'chars') toggle(em); else if (b.dataset.mi === 'newfor') location.href = URLS.newChar(G, em, nameOf(em)); else if (b.dataset.mi === 'rename') renameUser(em); else userAction(b.dataset.mi, em); });
       } catch (x) { l.innerHTML = failMsg(x); }
     }
+    // --- Managing someone's account: picture, sign out everywhere, block, delete ---
+    const ask = (title, text, okLabel, danger, confirmText) => new Promise(res => {
+      modal.innerHTML = `<div class="hub-card"><h2>${title}</h2><p class="hub-hint">${text}</p>${confirmText ? `<label class="del-l">Type <b>${esc(confirmText)}</b> to confirm<input id="ak-q" class="ad-search" autocomplete="off" spellcheck="false"></label>` : ''}
+        <div class="row"><button class="btn ghost" id="ak-x">Cancel</button><button class="btn ${danger ? 'red' : 'gold'}" id="ak-ok"${confirmText ? ' disabled' : ''}>${okLabel}</button></div></div>`;
+      modal.classList.add('on'); const ok = modal.querySelector('#ak-ok'), q = modal.querySelector('#ak-q');
+      if (q) { q.oninput = () => { ok.disabled = q.value.trim().toLowerCase() !== confirmText.toLowerCase(); }; q.focus(); }
+      modal.querySelector('#ak-x').onclick = () => { close(); res(null); }; ok.onclick = () => { const extra = {}; modal.querySelectorAll('input[type=checkbox]').forEach(c => { extra[c.id] = c.checked; }); close(); res(extra); }; });
+    const wipeChar = async c => { const s0 = await sheets.doc(c.id).get().catch(() => null); const n = Number(s0 && s0.exists && s0.data().n) || 1;
+      for (const pth of new Set([c.path, ...(c.paths || [])])) if (pth && !pth.includes('/')) await fs.collection('slugs').doc(pth).delete().catch(() => {});
+      for (let k = 1; k < n; k++) await sheets.doc(c.id + '_p' + k).delete().catch(() => {});
+      if (s0 && s0.exists) await sheets.doc(c.id).delete().catch(() => {}); await charsCol.doc(c.id).delete().catch(() => {}); };
+    async function userAction(act, em) {
+      const u = US[em] || { id: em }, nm = u.name || em, ref = usersCol.doc(em), done = () => { delete PICS[em]; delete PICQ[em]; tabUsersList(); };
+      try {
+        if (act === 'pic') { const list = docs(await charsCol.where('owner', '==', em).limit(100).get()).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)); pickPic({ em, name: nm, rec: u, list, after: done }); return; }
+        if (act === 'signout') { if (!await ask('Sign ' + esc(nm) + ' out everywhere?', 'They’re signed out on every device right away and have to sign in again. Nothing else changes.', 'Sign out everywhere')) return;
+          await ref.update({ revokedAt: Date.now() }); u.revokedAt = Date.now(); pgLog('user_signout', { target: em, tName: nm }); toast(nm + ' was signed out everywhere.'); return; }
+        if (act === 'block') { if (!await ask('Block ' + esc(nm) + '?', 'They’re signed out everywhere and can’t use the site until you unblock them. Their characters stay as they are.', 'Block', true)) return;
+          await ref.update({ banned: true, revokedAt: Date.now() }); u.banned = true; pgLog('user_block', { target: em, tName: nm }); toast(nm + ' is blocked.'); done(); return; }
+        if (act === 'unblock') { await ref.update({ banned: false }); u.banned = false; pgLog('user_unblock', { target: em, tName: nm }); toast(nm + ' is unblocked.'); done(); return; }
+        if (act === 'delacct') {
+          const theirs = docs(await charsCol.where('owner', '==', em).limit(200).get());
+          const r = await ask('Delete ' + esc(nm) + '’s account?', `This removes their account record and signs them out everywhere. They could sign in again later and start fresh, unless you block them.
+            <label class="ak-c"><input type="checkbox" id="wipe" ${theirs.length ? 'checked' : 'disabled'}> Also delete their ${theirs.length} character${theirs.length === 1 ? '' : 's'}${theirs.length ? ' (can’t be undone)' : ''}</label>
+            <label class="ak-c"><input type="checkbox" id="block"> Block them from signing in again</label>`, 'Delete account', true, em);
+          if (!r) return; toast('Deleting…');
+          if (r.wipe) for (const c of theirs) await wipeChar(c);
+          if (r.block) await ref.set({ email: em, name: nm, nameLower: nm.toLowerCase(), keys: searchKeys(nm, em.split('@')[0], em), banned: true, revokedAt: Date.now(), createdAt: u.createdAt || Date.now() });
+          else { await ref.update({ revokedAt: Date.now() }).catch(() => {}); await ref.delete(); }
+          pgLog('user_delete', { target: em, tName: nm, detail: [r.wipe ? 'deleted ' + theirs.length + ' character' + (theirs.length === 1 ? '' : 's') : 'kept their characters', r.block ? 'blocked' : ''].filter(Boolean).join(', ') });
+          UROWS = r.block ? UROWS : UROWS.filter(x => x.id !== em); toast(nm + '’s account was deleted.'); done(); }
+      } catch (x) { toast('Couldn’t do that: ' + ((x && (x.code === 'permission-denied' ? 'the new database rules need publishing' : x.message)) || x)); }
+    }
+
+    // --- Audit log ---
+    const ACTS = { signin: 'Signed in', account: 'Created their account', signout: 'Signed out', open: 'Opened', create: 'Created', edit: 'Edited', delete: 'Deleted', give: 'Gave away', remove: 'Removed from the lists',
+      share: 'Shared', unshare: 'Stopped sharing', access: 'Changed access to', leave: 'Gave up access to', picture: 'Changed their picture',
+      rename_user: 'Renamed', admin_add: 'Made an admin:', admin_remove: 'Removed admin:', user_picture: 'Changed the picture of', user_signout: 'Signed out everywhere:', user_block: 'Blocked', user_unblock: 'Unblocked', user_delete: 'Deleted the account of' };
+    const AGROUPS = [['Signing in', ['signin', 'account', 'signout']], ['Characters', ['open', 'create', 'edit', 'delete', 'give', 'remove']], ['Sharing', ['share', 'unshare', 'access', 'leave']], ['Pictures', ['picture', 'user_picture']], ['Admin', ['rename_user', 'admin_add', 'admin_remove', 'user_signout', 'user_block', 'user_unblock', 'user_delete']]];
+    const CHAR_ACTS = new Set(['open', 'create', 'edit', 'delete', 'give', 'remove', 'share', 'unshare', 'access', 'leave']);
+    let AF = { who: '', act: '', ch: '', q: '', from: '', to: '' }, AROWS = [], ALAST = null, AFULL = false, APEOPLE = null;
+    const auditCol = fs.collection('audit');
+    async function tabAudit() {
+      const el = B(); HA().innerHTML = '<button class="adm-btn" id="au-ref">Refresh</button>';
+      if (!APEOPLE) { try { APEOPLE = docs(await usersCol.limit(500).get()).sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id)); APEOPLE.forEach(u => remember(u.id, u)); } catch (e) { APEOPLE = []; } }
+      el.innerHTML = `<div class="au-f">
+          <label><span>Person</span><select id="au-who"><option value="">Everyone</option>${APEOPLE.map(u => `<option value="${esc(u.id)}"${AF.who === u.id ? ' selected' : ''}>${esc(u.name || u.id)}</option>`).join('')}</select></label>
+          <label><span>Action</span><select id="au-act"><option value="">Everything</option>${AGROUPS.map(([g, ks]) => `<optgroup label="${g}"><option value="g:${g}"${AF.act === 'g:' + g ? ' selected' : ''}>All ${g.toLowerCase()}</option>${ks.map(k => `<option value="${k}"${AF.act === k ? ' selected' : ''}>${ACTS[k].replace(/:$/, '')}</option>`).join('')}</optgroup>`).join('')}</select></label>
+          <label><span>Character</span><input id="au-ch" placeholder="Any character" value="${esc(AF.ch)}" autocomplete="off"></label>
+          <label><span>From</span><input type="date" id="au-from" value="${esc(AF.from)}"></label>
+          <label><span>To</span><input type="date" id="au-to" value="${esc(AF.to)}"></label>
+          <label class="au-q"><span>Search</span><input id="au-q" placeholder="Anything in the details" value="${esc(AF.q)}" autocomplete="off"></label>
+          <button class="adm-btn sm" id="au-clr">Clear filters</button></div><div id="au-l"><p class="adm-dim">Loading…</p></div>`;
+      const g = id => el.querySelector('#' + id); let t = null;
+      const set = (k, v, refetch) => { AF[k] = v; if (refetch) { ALAST = null; AROWS = []; tabAuditList(); } else paintAudit(); };
+      g('au-who').onchange = e => set('who', e.target.value, true); g('au-act').onchange = e => set('act', e.target.value);
+      g('au-from').onchange = e => set('from', e.target.value, true); g('au-to').onchange = e => set('to', e.target.value, true);
+      g('au-ch').oninput = e => { clearTimeout(t); t = setTimeout(() => set('ch', e.target.value), 200); }; g('au-q').oninput = e => { clearTimeout(t); t = setTimeout(() => set('q', e.target.value), 200); };
+      g('au-clr').onclick = () => { AF = { who: '', act: '', ch: '', q: '', from: '', to: '' }; ALAST = null; AROWS = []; tabAudit(); };
+      HA().querySelector('#au-ref').onclick = () => { ALAST = null; AROWS = []; tabAuditList(); };
+      ALAST = null; AROWS = []; tabAuditList();
+    }
+    const dayMs = (d, end) => { if (!d) return 0; const t = new Date(d + 'T00:00:00').getTime(); return end ? t + 864e5 - 1 : t; };
+    async function tabAuditList(more) {
+      const l = B().querySelector('#au-l'); if (!l) return;
+      const from = dayMs(AF.from), to = dayMs(AF.to, true);
+      try { let q;
+        if (AF.who) q = auditCol.where('by', '==', AF.who).limit(500);
+        else { q = auditCol.orderBy('at', 'desc'); if (from) q = q.where('at', '>=', from); if (to) q = q.where('at', '<=', to); q = q.limit(150); if (more && ALAST) q = q.startAfter(ALAST); }
+        const r = await q.get(); if (!AF.who) ALAST = r.docs[r.docs.length - 1] || ALAST; AFULL = !AF.who && r.docs.length === 150;
+        AROWS = (more ? AROWS : []).concat(docs(r)); if (AF.who) AROWS.sort((a, b) => b.at - a.at);
+        paintAudit();
+      } catch (x) { l.innerHTML = failMsg(x); }
+    }
+    function paintAudit() {
+      const l = B().querySelector('#au-l'); if (!l) return;
+      const from = dayMs(AF.from), to = dayMs(AF.to, true), ch = AF.ch.trim().toLowerCase(), qq = AF.q.trim().toLowerCase();
+      const grp = AF.act.startsWith('g:') ? (AGROUPS.find(x => x[0] === AF.act.slice(2)) || [0, []])[1] : null;
+      const rows = AROWS.filter(e => (!grp || grp.includes(e.act)) && (!AF.act || grp || e.act === AF.act) && (!from || e.at >= from) && (!to || e.at <= to)
+        && (!ch || (CHAR_ACTS.has(e.act) && String(e.tName || '').toLowerCase().includes(ch)))
+        && (!qq || [e.byName, e.by, e.tName, e.target, e.detail, ACTS[e.act]].some(x => String(x || '').toLowerCase().includes(qq))));
+      const what = e => { const lab = esc(ACTS[e.act] || e.act); if (!e.target) return lab;
+        if (CHAR_ACTS.has(e.act)) return e.act === 'delete' || e.act === 'remove' ? `${lab} <b>${esc(e.tName || 'a character')}</b>` : `${lab} <a href="${esc(URLS.byId(e.target))}">${esc(e.tName || 'a character')}</a>`;
+        return `${lab} <b>${esc(e.tName || e.target)}</b>`; };
+      const stamp = t => { const d = new Date(t); return `<span title="${esc(d.toLocaleString())}">${esc(d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))} · ${esc(d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }))}</span>`; };
+      const cnt = `<p class="adm-dim au-n">${rows.length} event${rows.length === 1 ? '' : 's'}${AROWS.length !== rows.length ? (rows.length === 1 ? ' matches' : ' match') + ' (of ' + AROWS.length + ' loaded)' : ''}${AF.who && AROWS.length === 500 ? ' · showing their latest 500' : ''}</p>`;
+      l.innerHTML = cnt + (rows.length ? `<div class="adm-tw"><table class="adm-t au-t"><thead><tr><th>When</th><th>Who</th><th>What</th><th>Details</th></tr></thead><tbody>${rows.map(e => `<tr>
+          <td class="au-when">${stamp(e.at)}</td><td><span class="adm-who">${ava(e.byName || NAMES[e.by], e.by)}<b>${esc(e.byName || e.by)}</b></span></td><td>${what(e)}</td><td class="au-d">${esc(e.detail || '')}</td></tr>`).join('')}</tbody></table></div>` : '<p class="adm-empty">Nothing matches these filters.</p>')
+        + (AFULL ? '<button class="adm-btn adm-more" id="au-more">Load older</button>' : '');
+      const mb = l.querySelector('#au-more'); if (mb) mb.onclick = () => tabAuditList(true);
+    }
+
     function renameUser(em) {
       const u = US[em] || {}; modal.innerHTML = `<div class="hub-card"><h2>Rename ${esc(u.name || em)}</h2><p class="hub-hint">This is the name shown for them everywhere.</p>
         <input id="rn-q" class="ad-search" maxlength="60" value="${esc(u.name || '')}"><div class="row"><button class="btn ghost" id="rn-x">Cancel</button><button class="btn gold" id="rn-ok">Save</button></div></div>`;
       modal.classList.add('on'); const q = modal.querySelector('#rn-q'); q.focus(); q.select(); modal.querySelector('#rn-x').onclick = close;
       const go = async () => { const n = q.value.trim().slice(0, 60); if (!n) return; close();
         try { await usersCol.doc(em).update({ name: n, nameLower: n.toLowerCase(), keys: searchKeys(n, em.split('@')[0], em) }); remember(em, Object.assign({}, u, { name: n })); US[em] = Object.assign({}, u, { name: n });
-          toast('Renamed to ' + n + '.'); UROWS = UROWS.map(x => x.id === em ? Object.assign({}, x, { name: n }) : x); tabUsersList(); } catch (x) { toast('Couldn\'t rename: ' + (x.message || x)); } };
+          toast('Renamed to ' + n + '.'); pgLog('rename_user', { target: em, tName: n, detail: 'was ' + (u.name || em) }); UROWS = UROWS.map(x => x.id === em ? Object.assign({}, x, { name: n }) : x); tabUsersList(); } catch (x) { toast('Couldn\'t rename: ' + (x.message || x)); } };
       modal.querySelector('#rn-ok').onclick = go; q.onkeydown = e => { if (e.key === 'Enter') go(); };
     }
 
@@ -1717,8 +1867,8 @@ function hub(fs, auth, G, ctx) {
       el.innerHTML = `${IS_OWNER ? '' : `<p class="adm-note">Only ${esc(ADMIN_EMAIL)} can change who is an admin.</p>`}<div class="adm-tw"><table class="adm-t"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr></thead><tbody>
         ${list.map(em => { const [rl, rc] = roleOf(em); return `<tr><td><span class="adm-who">${ava(NAMES[em], em)}<b>${esc(NAMES[em] || '—')}</b></span></td><td class="adm-mail">${esc(em)}</td><td><span class="adm-tag ${rc}">${rl}</span></td><td class="adm-act">${IS_OWNER && em !== ADMIN_EMAIL ? kebab([['unadmin', 'Remove admin', em, 'danger']]) : ''}</td></tr>`; }).join('')}</tbody></table></div>`;
       const ab = HA().querySelector('#ad-add'); if (ab) ab.onclick = () => pickUser('Add an admin', 'They’ll be able to open and change every character.', async em => { if (!em || em === ADMIN_EMAIL) return;
-        try { await cfg.set({ emails: FV.arrayUnion(em) }, { merge: true }); ADMINS = [...new Set(ADMINS.concat(em))]; toast(nameOf(em) + ' is now an admin.'); tabAdmins(); } catch (x) { toast('Couldn\'t add the admin: ' + (x.message || x)); } });
-      el.querySelectorAll('[data-mi="unadmin"]').forEach(b => b.onclick = async () => { const em = b.dataset.id; try { await cfg.set({ emails: FV.arrayRemove(em) }, { merge: true }); ADMINS = ADMINS.filter(x => x !== em); toast(em + ' is no longer an admin.'); tabAdmins(); } catch (x) { toast('Couldn\'t remove the admin: ' + (x.message || x)); } });
+        try { await cfg.set({ emails: FV.arrayUnion(em) }, { merge: true }); ADMINS = [...new Set(ADMINS.concat(em))]; toast(nameOf(em) + ' is now an admin.'); pgLog('admin_add', { target: em, tName: nameOf(em) }); tabAdmins(); } catch (x) { toast('Couldn\'t add the admin: ' + (x.message || x)); } });
+      el.querySelectorAll('[data-mi="unadmin"]').forEach(b => b.onclick = async () => { const em = b.dataset.id; try { await cfg.set({ emails: FV.arrayRemove(em) }, { merge: true }); ADMINS = ADMINS.filter(x => x !== em); toast(em + ' is no longer an admin.'); pgLog('admin_remove', { target: em, tName: nameOf(em) }); tabAdmins(); } catch (x) { toast('Couldn\'t remove the admin: ' + (x.message || x)); } });
     }
     frame(); wireDie(root);
     root.addEventListener('click', e => { if (e.target.closest && e.target.closest('.hl-txt')) location.href = HUB; });
