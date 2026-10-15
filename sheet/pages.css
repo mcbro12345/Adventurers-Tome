@@ -1145,6 +1145,7 @@ html:has(#wizard.open) .pg-sb { z-index: 2000; }
   #pg-load, #pg-load.pg-leave { background: radial-gradient(ellipse at 50% 40%, #fbf6ea 0%, #f1e9d8 70%) !important; color: #1f2a44 !important; }
   #pg-load .pg-spin b { color: #a87a1c; }
   #pg-load .pg-spin small { opacity: .7; }
+  #pg-load .pg-ld20 text { fill: #7a5718; }
 }
 /* Sun / moon button beside Sign out in the lobby */
 :where(body.hubbody) .hp-row .hub-theme { display: inline-grid; place-items: center; width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 1px solid rgba(201,150,43,.4); background: transparent; color: #c9962b; cursor: pointer; flex: none; transition: background-color .15s, transform .1s; }
