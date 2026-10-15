@@ -1496,7 +1496,6 @@ html.mobile .toolbar > .savegrp { flex: 2 1 0 !important; display: flex !importa
 html.mobile .toolbar > .savegrp > .tbtn { flex: 1 1 auto !important; min-height: 40px; }
 html.mobile .toolbar > .savegrp .save-state { font-size: .66rem !important; max-width: 6.5em; white-space: normal; line-height: 1.1; }
 /* Player / race / background only on the Core tab */
-html.mobile:not([data-tab="core"]) .ident-grid { display: none; }
 html.mobile .ident-grid { gap: 4px 12px; }
 
 /* ---- Bottom tab bar ---- */

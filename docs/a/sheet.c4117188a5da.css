@@ -2165,7 +2165,6 @@ html.mobile .toolbar > .savegrp { flex: 2 1 0 !important; display: flex !importa
 html.mobile .toolbar > .savegrp > .tbtn { flex: 1 1 auto !important; min-height: 40px; }
 html.mobile .toolbar > .savegrp .save-state { font-size: .66rem !important; max-width: 6.5em; white-space: normal; line-height: 1.1; }
 /* Player / race / background only on the Core tab */
-html.mobile:not([data-tab="core"]) .ident-grid { display: none; }
 html.mobile .ident-grid { gap: 4px 12px; }
 
 /* ---- Bottom tab bar ---- */
@@ -3259,4 +3258,15 @@ html.mobile .tabs.tdrag .tab-ind { background: color-mix(in srgb, var(--gold) 26
 html.mobile .tabs.tdrag .tab.on:not(.thov) { color: var(--soft); }
 html.mobile .tabs .tab.thov { color: var(--gold-ink); }
 html.mobile .tabs .tab-ind { transition: transform .32s cubic-bezier(.3,1.25,.5,1), width .32s, height .32s; }
+/* Tapping the tooltip's ✕: the button presses in, then the tooltip slips down and fades away. */
+html.mobile #tipbox .tipx { transition: transform .12s ease, background-color .12s ease; -webkit-tap-highlight-color: transparent; }
+html.mobile #tipbox .tipx:active { transform: scale(.86) !important; background: var(--gold-soft); filter: none; }
+html.mobile #tipbox.closing { opacity: 0; transform: translateY(14px) scale(.98); transition: opacity .18s ease, transform .18s ease; pointer-events: none; }
+html.mobile #tipbox.closing .tipx { transform: rotate(90deg) scale(.86); transition: transform .18s ease; }
+html.mobile .tabs { -webkit-transform: translateZ(0); transform: translateZ(0); isolation: isolate; }
+html.mobile .notetip.tippin { color: inherit; background: none; }
+/* Phone tab bar: the same thin gold divider as the admin tabs, with a soft shadow cast up onto the page */
+html.mobile .tabs { border-top: 1px solid color-mix(in srgb, var(--gold) 32%, transparent) !important; box-shadow: 0 -8px 20px rgba(0,0,0,.28) !important; }
+html.mobile:not([data-theme="dark"]) .tabs { box-shadow: 0 -6px 16px rgba(60,45,20,.12) !important; }
+.modal:has(.setx) #modal-body { overflow-x: clip !important; }
 

@@ -1437,6 +1437,26 @@ let _tabIndKey = null;
 addEventListener('resize', () => slideTabInd());
 // Fonts or layout settling after load can shift the tabs; re-snap without animating.
 addEventListener('load', () => slideTabInd());
+// Switching tabs: the new page fades in (and on a phone slides in from the side of the tab it came from).
+// Switching tabs: the new page simply fades in. On a phone the strip of vitals above Core/Combat changes shape on the
+// way to or from those tabs, so it fades along with the page instead of snapping.
+function tabPageAnim(prev, nt) {
+  const pg = $('#page-' + nt); if (!pg || !pg.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const fade = el => { el.getAnimations && el.getAnimations().forEach(a => a.cancel()); el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'ease-out' }); };
+  $$('.page').forEach(p => p.getAnimations && p.getAnimations().forEach(a => a.cancel())); fade(pg);
+  const full = k => k === 'core' || k === 'combat', v = $('#sec-vitals');
+  if (v && isMobile() && full(prev) !== full(nt)) fade(v);
+}
+// Phones: a tap on the tab bar must never also land on the page that appears under it. iPhones sometimes deliver a
+// stray second click (or a press) to whatever is now at that spot, so for a moment after a tab switch, presses and
+// clicks outside the bar are ignored. The bar also gets its own layer so taps on it can't reach the page beneath.
+{
+  let at = 0;
+  const mark = e => { if (isMobile() && e.target.closest && e.target.closest('#tabs')) at = Date.now(); };
+  const eat = e => { if (Date.now() - at < 350 && !(e.target.closest && e.target.closest('#tabs'))) { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } };
+  addEventListener('pointerup', mark, true); addEventListener('click', mark, true);
+  ['click', 'mousedown', 'touchend', 'pointerdown'].forEach(t => addEventListener(t, eat, { capture: true, passive: false }));
+}
 // Phones: press the tab bar and slide along it — the highlight follows your finger and lets go on the tab you stop at.
 {
   const bar = $('#tabs'); let drag = null, eat = false;
@@ -2772,7 +2792,7 @@ function mainClick(e) {
     case 'equip': equipItem(i); break;
     case 'resetturn': S.turn.haste = false; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.attacks = 0; S.turn.speed0 = ''; S.turn.sneak = false; S.turn.readied = null; update(); render('combat'); toast(`Turn reset — round ${N(S.turn.round) || 1} actions are ready again.`); break;
     case 'fullscreen': if (fsOn()) { FS_USER_OFF = true; fsExit(); } else { FS_USER_OFF = false; fsEnter(); } break;
-    case 'tab': { const prev = UI.tab, nt = b.dataset.tab, mob = isMobile() && !b.closest('.cmini'); TABSCROLL[prev] = scrollY; UI.tab = nt; saveUI(); renderTabs(); requestAnimationFrame(alignHpSide); if (mob) window.scrollTo(0, prev === nt ? 0 : (TABSCROLL[nt] || 0)); } $$('#page-' + UI.tab + ' textarea.f').forEach(grow); fitItemRows(); if (b.closest('.cmini')) window.scrollTo(0, 0); break;
+    case 'tab': { const prev = UI.tab, nt = b.dataset.tab, mob = isMobile() && !b.closest('.cmini'); TABSCROLL[prev] = scrollY; UI.tab = nt; saveUI(); renderTabs(); if (prev !== nt && !b.closest('.cmini')) tabPageAnim(prev, nt); requestAnimationFrame(alignHpSide); if (mob) { const pg = $('#page-' + nt), keep = pg ? Math.min(TABSCROLL[prev] || 0, Math.max(0, pg.getBoundingClientRect().top + scrollY - 12)) : 0; window.scrollTo(0, prev === nt ? 0 : (TABSCROLL[nt] != null ? TABSCROLL[nt] : keep)); } } $$('#page-' + UI.tab + ' textarea.f').forEach(grow); fitItemRows(); if (b.closest('.cmini')) window.scrollTo(0, 0); break;
     case 'theme': {
       const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', t);
@@ -4150,13 +4170,12 @@ async function copyText(t) {
 // ---------- Rests ----------
 function shortRest() {
   const snap = JSON.stringify({ hp: S.hp, hdUsed: S.hdUsed });
-  const shortF = S.features.filter(f => resetOf(f) === 'short' && featMax(f) != null).map(f => f.name);
   const pools = hdPools();
   openModal(`<h3>Short Rest</h3>
     <p>Spend Hit Dice to heal. Each die heals its roll ${fmt(mod('con', true))} (CON).</p>
     <div class="hdrow">${Object.keys(pools).map(d => `<button class="btn gold" data-act="spendhd" data-d="${d}" id="hdBtn${d}" ${hdLeftOf(d) ? '' : 'disabled'}>Spend a d${d} <span class="hdleft" id="hdLeft${d}">· ${hdLeftOf(d)} left</span></button>`).join('')}</div>
     <p>HP <b id="hdHP">${N(S.hp.cur)}/${maxHp()}</b></p><p class="hint" id="hdLog"></p>
-    <p>Finishing the rest restores: ${[pact() ? 'Pact Magic slots' : ''].concat(shortF).filter(Boolean).map(esc).join(', ') || 'no short-rest features'}.</p>
+    <div id="srList">${srListHTML()}</div>
     <p class="hint">Cancel undoes any Hit Dice spent here.</p>
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="confirm-short">Finish Short Rest</button></div>`,
     () => { pendingLabel = 'Cancel short rest'; const o = JSON.parse(snap); S.hp = o.hp; S.hdUsed = o.hdUsed; update(); toast('Short rest cancelled — changes reverted.'); });
@@ -4170,7 +4189,7 @@ function spendHD(d) {
   $('#hdLeft' + d).textContent = `· ${hdLeftOf(d)} left`; $('#hdHP').textContent = N(S.hp.cur) + '/' + maxHp();
   $('#hdLog').textContent += `d${d}: rolled ${r.total} ${fmt(mod('con', true))} = +${heal} HP. `;
   if (!hdLeftOf(d)) $('#hdBtn' + d).disabled = true;
-  pendingLabel = 'Spend Hit Die'; update();
+  pendingLabel = 'Spend Hit Die'; update(); const sl = $('#srList'); if (sl) sl.innerHTML = srListHTML();
 }
 function finishShort() {
   endByRest([-1]);
@@ -4186,6 +4205,27 @@ function longRest() {
   openModal(`<h3>Long Rest</h3>
     ${L.length ? `<p class="hint" style="margin:0 0 8px">Taking a long rest will change:</p><ul class="lrlist">${L.map(x => `<li>${x}</li>`).join('')}</ul>` : '<p>You\'re already fully rested — nothing will change.</p>'}
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="confirm-long" autofocus>Take Long Rest</button></div>`);
+}
+// Exactly what finishShort() is about to change (Hit Dice you spend in the window show up in the HP line as you go).
+function shortRestChanges() {
+  const out = [], b = v => `<b>${v}</b>`, arrow = (a, z) => `${b(a)} → ${b(z)}`;
+  const uses = [];
+  S.features.forEach(f => { const m = featMax(f); if (resetOf(f) === 'short' && N(f.used) && m != null) uses.push(`${esc(f.dname || f.name)} ${arrow(Math.max(0, m - N(f.used)), m)}`); });
+  S.spells.forEach(sp => { if (sp.uses && sp.uses.reset === 'short' && N(sp.uses.used)) uses.push(`${esc(sp.name)} ${N(sp.uses.max) ? arrow(Math.max(0, N(sp.uses.max) - N(sp.uses.used)), N(sp.uses.max)) : 'uses back'}`); });
+  S.inventory.forEach(it => { if (it.charges && it.charges.reset === 'short' && N(it.charges.used)) { const m = N(it.charges.max); uses.push(`${esc(it.name)} ${arrow(Math.max(0, m - N(it.charges.used)), m)} charges`); } });
+  const pc = pact(); if (pc && N(S.pactUsed)) out.push(`Pact Magic slots ${arrow(Math.max(0, pc.count - N(S.pactUsed)), pc.count)}`);
+  if (uses.length) out.push(`Uses back: ${uses.join(', ')}`);
+  const ending = [];
+  Object.keys(S.condTurns || {}).forEach(c => { if (N(S.condTurns[c]) === -1 && S.conditions.includes(c)) ending.push(c); });
+  Object.keys(S.tmpMods || {}).forEach(k => { if (N(S.tmpMods[k].r) === -1) ending.push(`${tmName(k)} ${fmt(tmv(k))}`); });
+  if (abTempOn() && N(S.abTempR) === -1) ending.push('ability score changes');
+  (S.effects || []).forEach(e => { if (e.rounds != null && N(e.rounds) <= 600 && e.name) ending.push(e.name + (e.conc && e.name === S.concentration ? ' (concentration)' : '')); });
+  if (ending.length) out.push(`Ends: ${[...new Set(ending)].map(esc).join(', ')} <small>(an hour passes)</small>`);
+  return out;
+}
+function srListHTML() {
+  const L = shortRestChanges(), spent = Object.keys(hdPools()).some(d => hdLeftOf(d) < (hdPools()[d] || 0));
+  return L.length ? `<p class="hint" style="margin:10px 0 6px">Finishing the rest will also change:</p><ul class="lrlist">${L.map(x => `<li>${x}</li>`).join('')}</ul>` : `<p class="hint" style="margin:10px 0 6px">Nothing else changes when you finish${spent ? '' : ' — no short-rest uses are spent'}.</p>`;
 }
 // Exactly what finishLong() is about to change, worked out from the sheet as it is right now.
 function longRestChanges() {
@@ -4891,7 +4931,7 @@ function fitSettingsHeight() {
 }
 addEventListener('resize', () => { if (typeof settingsOpen === 'function' && settingsOpen()) fitSettingsHeight(); });
 function settingsOpen() { return $('#modal').classList.contains('open') && !!$('.setx'); }
-function setTabInk(anim) { const on = $('.stabs .stab.on'), ink = $('.stabs .stab-ink'); if (!on || !ink) return; ink.style.transition = anim ? '' : 'none'; ink.style.width = on.offsetWidth + 'px'; ink.style.transform = `translateX(${on.offsetLeft}px)`; if (on.scrollIntoView && anim) on.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' }); }
+function setTabInk(anim) { const on = $('.stabs .stab.on'), ink = $('.stabs .stab-ink'); if (!on || !ink) return; ink.style.transition = anim ? '' : 'none'; ink.style.width = on.offsetWidth + 'px'; ink.style.transform = `translateX(${on.offsetLeft}px)`; if (anim) { const bar = on.parentElement; if (bar && bar.scrollWidth > bar.clientWidth) bar.scrollTo({ left: on.offsetLeft - (bar.clientWidth - on.offsetWidth) / 2, behavior: 'smooth' }); } const mb = $('#modal-body'); if (mb && mb.scrollLeft) mb.scrollLeft = 0; }
 function switchSetTab(k) {
   if (k === SETTAB) return; const order = ['char', 'rules', 'dice', 'theme', 'data'], dir = order.indexOf(k) > order.indexOf(SETTAB) ? 'r' : 'l';
   SETTAB = k;
@@ -5072,6 +5112,7 @@ function inTipPath(t, x, y) {
   return (x >= q.left && x <= q.right && y >= Math.min(gapTop, gapBot) - 2 && y <= Math.max(gapTop, gapBot) + 2) || (x >= L && x <= R && y >= T && y <= B && (x >= q.left && x <= q.right || x >= r.left && x <= r.right));
 }
 document.addEventListener('mouseover', e => {
+  if (isMobile()) return; // phones: tooltips open and close by tapping only
   const b = e.target.closest && e.target.closest('.notetip'), t = $('#tipbox.on');
   if (b) { if (!(t && t._pinned && t._for !== b)) showTip(b); return; }
   if (!t || t._pinned || e.target.closest('#tipbox')) return;
@@ -5080,7 +5121,7 @@ document.addEventListener('mouseover', e => {
 document.addEventListener('mousemove', e => { const t = $('#tipbox.on'); if (!t || t._pinned || (e.target.closest && (e.target.closest('#tipbox') || e.target.closest('.notetip')))) return; if (!inTipPath(t, e.clientX, e.clientY)) hideTip(); }, { passive: true });
 // The mouse wheel over an ⓘ scrolls its box instead of the page.
 document.addEventListener('wheel', e => { const b = e.target.closest && e.target.closest('.notetip'), t = $('#tipbox.on'); if (!b || !t || t._for !== b) return; if (t.scrollHeight <= t.clientHeight) return; e.preventDefault(); t.scrollTop += e.deltaY; }, { passive: false });
-document.addEventListener('click', e => { if (e.target.closest && e.target.closest('.tipx')) { e.preventDefault(); e.stopPropagation(); const t = $('#tipbox.on'); if (t && !t.classList.contains('closing') && !matchMedia('(prefers-reduced-motion: reduce)').matches) { t.classList.add('closing'); clearTimeout(t._ct); t._ct = setTimeout(hideTip, 190); } else hideTip(); return; } const b = e.target.closest && e.target.closest('.notetip'); if (b) { e.preventDefault(); const t = $('#tipbox.on'); if (t && t._for === b && t._pinned) hideTip(); else { if (t && t._for) t._for.classList.remove('tippin'); showTip(b); const n = $('#tipbox.on'); if (n) { n._pinned = true; b.classList.add('tippin'); } } } else if (!e.target.closest('#tipbox')) hideTip(); }, true);
+document.addEventListener('click', e => { if (e.target.closest && e.target.closest('.tipx')) { e.preventDefault(); e.stopPropagation(); const t = $('#tipbox.on'); if (t && !t.classList.contains('closing') && !matchMedia('(prefers-reduced-motion: reduce)').matches) { t.classList.add('closing'); clearTimeout(t._ct); t._ct = setTimeout(hideTip, 190); } else hideTip(); return; } const b = e.target.closest && e.target.closest('.notetip'); if (b) { e.preventDefault(); const t = $('#tipbox.on'); if (isMobile()) { if (t && t._for === b) hideTip(); else showTip(b); return; } if (t && t._for === b && t._pinned) hideTip(); else { if (t && t._for) t._for.classList.remove('tippin'); showTip(b); const n = $('#tipbox.on'); if (n) { n._pinned = true; b.classList.add('tippin'); } } } else if (!e.target.closest('#tipbox')) hideTip(); }, true);
 addEventListener('scroll', e => { const t = e.target; if (t && t.nodeType === 1 && t.closest('#tipbox')) return; hideTip(); }, true);
 // Combat: long feature/item descriptions show two lines; click to read the rest.
 document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('#page-combat .cspg .opt-text'); if (t) t.classList.toggle('full'); });

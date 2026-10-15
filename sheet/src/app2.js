@@ -438,16 +438,14 @@ addEventListener('resize', () => slideTabInd());
 // Fonts or layout settling after load can shift the tabs; re-snap without animating.
 addEventListener('load', () => slideTabInd());
 // Switching tabs: the new page fades in (and on a phone slides in from the side of the tab it came from).
-// Switching tabs: the new page fades in, and on a phone eases in a little from the side of the tab it came from.
-// The jump to the new tab's scroll spot happens while the page is still transparent, and the strip of vitals above
-// fades too when it changes shape (full on Core/Combat, slim elsewhere), so nothing visibly snaps.
+// Switching tabs: the new page simply fades in. On a phone the strip of vitals above Core/Combat changes shape on the
+// way to or from those tabs, so it fades along with the page instead of snapping.
 function tabPageAnim(prev, nt) {
   const pg = $('#page-' + nt); if (!pg || !pg.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const keys = [...$$('#tabs .tab')].map(t => t.dataset.tab), dir = keys.indexOf(nt) >= keys.indexOf(prev) ? 1 : -1, mob = isMobile();
-  $$('.page').forEach(p => p.getAnimations && p.getAnimations().forEach(a => a.cancel()));
-  pg.animate([{ opacity: 0, transform: mob ? `translate3d(${dir * 26}px,0,0)` : 'translate3d(0,4px,0)' }, { opacity: 1, transform: 'translate3d(0,0,0)' }], { duration: mob ? 260 : 200, easing: 'cubic-bezier(.22,.9,.24,1)' });
+  const fade = el => { el.getAnimations && el.getAnimations().forEach(a => a.cancel()); el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'ease-out' }); };
+  $$('.page').forEach(p => p.getAnimations && p.getAnimations().forEach(a => a.cancel())); fade(pg);
   const full = k => k === 'core' || k === 'combat', v = $('#sec-vitals');
-  if (v && mob && full(prev) !== full(nt)) { v.getAnimations && v.getAnimations().forEach(a => a.cancel()); v.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' }); }
+  if (v && isMobile() && full(prev) !== full(nt)) fade(v);
 }
 // Phones: a tap on the tab bar must never also land on the page that appears under it. iPhones sometimes deliver a
 // stray second click (or a press) to whatever is now at that spot, so for a moment after a tab switch, presses and
