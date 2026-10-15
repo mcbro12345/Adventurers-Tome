@@ -910,3 +910,5 @@ body.hubbody:not(.adminbody) .hub-list { will-change: auto; }
 @media (prefers-reduced-motion: reduce) { body.hubbody .hub-views .hv-ind { transition: none; } }
 body.hubbody .hub-views.hv-drag > button[data-view] { color: #e9e3d3 !important; }
 @media (prefers-color-scheme: light) { body.hubbody .hub-views.hv-drag > button[data-view] { color: #1f2a44 !important; } body.hubbody .hub-views.hv-drag .hv-ind { opacity: .35; } }
+/* phones: Create character sits above the My / Shared switch */
+@media (max-width: 640px) { body.hubbody:not(.adminbody) .hub-views .hub-new { order: -1; margin-bottom: 4px; } }

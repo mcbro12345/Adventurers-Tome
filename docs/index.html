@@ -927,6 +927,8 @@ body.hubbody:not(.adminbody) .hub-list { will-change: auto; }
 @media (prefers-reduced-motion: reduce) { body.hubbody .hub-views .hv-ind { transition: none; } }
 body.hubbody .hub-views.hv-drag > button[data-view] { color: #e9e3d3 !important; }
 @media (prefers-color-scheme: light) { body.hubbody .hub-views.hv-drag > button[data-view] { color: #1f2a44 !important; } body.hubbody .hub-views.hv-drag .hv-ind { opacity: .35; } }
+/* phones: Create character sits above the My / Shared switch */
+@media (max-width: 640px) { body.hubbody:not(.adminbody) .hub-views .hub-new { order: -1; margin-bottom: 4px; } }
 </style>
 </head>
 <body>
@@ -1083,7 +1085,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261015093206', ASSETS = {"data": "a/data.fc7a76553b3c.js", "app": "a/app.599efdec4a03.js", "full": "a/full.08c5d2dee3d4.js"};
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261015093409', ASSETS = {"data": "a/data.fc7a76553b3c.js", "app": "a/app.599efdec4a03.js", "full": "a/full.08c5d2dee3d4.js"};
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
