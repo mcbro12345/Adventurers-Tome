@@ -1016,6 +1016,9 @@ html, body { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 /* coming from another page of the site: the loading screen is already up, so it shows at once instead of fading in again */
 html.pg-instant #pg-load { animation: none !important; }
 html #pg-load.pg-leave, html.pg-instant #pg-load.pg-leave { animation: pgLoadIn .25s ease both !important; }
+/* The lobby is always at least a hair taller than the screen. Switching lists changes the page's length; on iPhone,
+   flipping between "scrolls" and "doesn't scroll" nudged everything up a few pixels. Never flipping avoids that. */
+body.hubbody:not(.adminbody) #hub { min-height: calc(100vh + 1px); min-height: calc(100lvh + 1px); box-sizing: border-box; }
 </style>
 </head>
 <body>
@@ -1198,7 +1201,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261015110324', ASSETS = {"data": "a/data.fc7a76553b3c.js", "app": "a/app.0163b2b96bc5.js", "full": "a/full.08c5d2dee3d4.js"};
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261015110831', ASSETS = {"data": "a/data.fc7a76553b3c.js", "app": "a/app.0163b2b96bc5.js", "full": "a/full.08c5d2dee3d4.js"};
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
