@@ -803,7 +803,7 @@ function hub(fs, auth, G, ctx) {
       chars: ['Characters', 'Every character on the site, newest activity first. Share any of them with yourself, or open, share, move or delete them.'],
       admins: ['Admins', 'Admins can open and edit every character, manage users and see new accounts.'],
       new: ['New', 'Accounts and characters that appeared since you last marked this as read.'],
-      audit: ['Audit log', 'Everything people have done on the site: sign-ins, characters opened, created, edited, shared and deleted, and admin actions. Filter by person, action, character or date.'] };
+      audit: ['Audit log', 'Everything people have done on the site: sign-ins, characters opened, created, edited, shared and deleted, and admin actions. Search, or filter by date, person or activity; tap an event for its details.'] };
     // avatar: initials on a colour picked from the name, so the same person always looks the same
     const hue = t => [...String(t || '?')].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) % 360, 7);
     const ava = (name, em) => { const ini = String(name || em || '?').split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
@@ -822,7 +822,49 @@ function hub(fs, auth, G, ctx) {
     const kebab = items => `<div class="adm-mwrap"><button class="adm-kebab" aria-label="More actions">⋯</button><div class="adm-mlist">${items.map(([k, t, id, cls]) => `<button data-mi="${k}" data-id="${esc(id)}"${cls ? ` class="${cls}"` : ''}>${t}</button>`).join('')}</div></div>`;
 
     const PANES = {}; let PREV_TAB = '';
-    function frame() {
+    // Phones: the tabs sit at the bottom of the screen like the sheet's tab bar (same height setting), with a highlight
+    // that slides between tabs and can be dragged along the bar.
+    const PHONE = matchMedia('(max-width: 860px)');
+    let NAV_PREV = null, NAV_KEY = null;
+    try { const v = localStorage.getItem('dnd-tablift'); document.documentElement.style.setProperty('--tablift', (v != null && v !== '' ? Number(v) || 0 : 24) + 'px'); } catch (e) { document.documentElement.style.setProperty('--tablift', '24px'); }
+    function navPost() {
+      const nv = root.querySelector('.adm-nav'), side = root.querySelector('.adm-side'); if (!nv || !side) return;
+      if (PHONE.matches) { if (nv.parentElement !== root) root.appendChild(nv); }
+      else if (nv.parentElement !== side) side.insertBefore(nv, side.querySelector('.adm-foot'));
+      let ind = nv.querySelector('.adm-ind'); if (!ind) { ind = document.createElement('span'); ind.className = 'adm-ind'; ind.setAttribute('aria-hidden', 'true'); nv.prepend(ind); }
+      const on = nv.querySelector('.adm-ni.on'); if (!on || !PHONE.matches) { ind.style.display = 'none'; return; } ind.style.display = '';
+      const nr = nv.getBoundingClientRect(), r = on.getBoundingClientRect(), to = { x: r.left - nr.left, y: r.top - nr.top, w: r.width, h: r.height };
+      const set = p => { ind.style.transform = `translate(${p.x}px, ${p.y}px)`; ind.style.width = p.w + 'px'; ind.style.height = p.h + 'px'; };
+      const anim = NAV_PREV && NAV_KEY && NAV_KEY !== TAB && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+      ind.style.transition = 'none';
+      if (anim) { set(NAV_PREV); void ind.offsetWidth; ind.style.transition = ''; set(to); } else set(to);
+      NAV_PREV = to; NAV_KEY = TAB;
+    }
+    PHONE.addEventListener && PHONE.addEventListener('change', () => { NAV_PREV = null; navPost(); });
+    addEventListener('resize', () => { NAV_KEY = TAB; NAV_PREV = null; navPost(); });
+    {
+      let drag = null, eat = false;
+      const navEl = () => root.querySelector('.adm-nav');
+      const tabAt = x => [...(navEl() || document).querySelectorAll('.adm-ni')].find(t => { const r = t.getBoundingClientRect(); return x >= r.left && x <= r.right; });
+      root.addEventListener('pointerdown', e => { if (!PHONE.matches || !e.isPrimary || !e.target.closest('.adm-nav .adm-ni')) return; drag = { id: e.pointerId, x0: e.clientX, on: false, hov: null }; });
+      root.addEventListener('pointermove', e => {
+        if (!drag || e.pointerId !== drag.id) return; const nv = navEl(), ind = nv && nv.querySelector('.adm-ind'), cur = nv && nv.querySelector('.adm-ni.on'); if (!ind || !cur) return;
+        if (!drag.on) { if (Math.abs(e.clientX - drag.x0) < 8) return; drag.on = true; nv.classList.add('ndrag'); try { nv.setPointerCapture(e.pointerId); } catch (x) {} }
+        const nr = nv.getBoundingClientRect(), r = cur.getBoundingClientRect(), w = r.width, x = Math.max(4, Math.min(e.clientX - nr.left - w / 2, nr.width - w - 4));
+        ind.style.transition = 'none'; ind.style.transform = `translate(${x}px, ${r.top - nr.top}px)`; drag.pos = { x, y: r.top - nr.top, w, h: r.height };
+        const t = tabAt(e.clientX); if (t !== drag.hov) { if (drag.hov) drag.hov.classList.remove('nhov'); if (t) { t.classList.add('nhov'); try { navigator.vibrate && navigator.vibrate(4); } catch (x) {} } drag.hov = t; }
+      });
+      const end = e => {
+        if (!drag || e.pointerId !== drag.id) return; const d = drag; drag = null; const nv = navEl(); if (nv) nv.classList.remove('ndrag'); if (!d.on) return;
+        if (d.hov) d.hov.classList.remove('nhov'); eat = true; setTimeout(() => { eat = false; }, 400);
+        const t = e.type === 'pointercancel' ? null : tabAt(e.clientX); NAV_PREV = d.pos || NAV_PREV;
+        if (t && t.dataset.tab !== TAB) setTab(t.dataset.tab); else { NAV_KEY = '~drag'; navPost(); }
+      };
+      root.addEventListener('pointerup', end); root.addEventListener('pointercancel', end);
+      root.addEventListener('click', e => { if (eat && e.target.closest('.adm-nav')) { e.preventDefault(); e.stopPropagation(); } }, true);
+    }
+    function frame() { frame0(); navPost(); }
+    function frame0() {
       const nav = (k, label) => `<button class="adm-ni${TAB === k ? ' on' : ''}" data-tab="${k}">${svg(k)}<span>${label}</span>${k === 'new' && NEWN ? `<b class="adm-badge">${NEWN}</b>` : ''}</button>`;
       const [title, desc] = PAGES[TAB];
       const navHTML = `<div class="adm-sec">Manage</div>${nav('users', 'Users')}${nav('chars', 'Characters')}${nav('admins', 'Admins')}<div class="adm-sec">Activity</div>${nav('audit', 'Audit log')}${nav('new', 'New')}`;
@@ -970,32 +1012,44 @@ function hub(fs, auth, G, ctx) {
       rename_user: 'Renamed', admin_add: 'Made an admin:', admin_remove: 'Removed admin:', user_picture: 'Changed the picture of', user_signout: 'Signed out everywhere:', user_block: 'Blocked', user_unblock: 'Unblocked', user_delete: 'Deleted the account of' };
     const AGROUPS = [['Signing in', ['signin', 'account', 'signout']], ['Characters', ['open', 'create', 'edit', 'delete', 'give', 'remove']], ['Sharing', ['share', 'unshare', 'access', 'leave']], ['Pictures', ['picture', 'user_picture']], ['Admin', ['rename_user', 'admin_add', 'admin_remove', 'user_signout', 'user_block', 'user_unblock', 'user_delete']]];
     const CHAR_ACTS = new Set(['open', 'create', 'edit', 'delete', 'give', 'remove', 'share', 'unshare', 'access', 'leave']);
-    let AF = { who: '', act: '', ch: '', q: '', from: '', to: '' }, AROWS = [], ALAST = null, AFULL = false, APEOPLE = null;
+    let AF = { who: '', act: '', ch: '', q: '', from: '', to: '', range: '' }, AROWS, AOPEN = {} = [], ALAST = null, AFULL = false, APEOPLE = null;
     const auditCol = fs.collection('audit');
+    // Modelled on the Atlassian admin audit log: one search box, a row of filter pills, then a dense table of
+    // Date · Actor · Activity where each row opens to show the full details.
+    const AU_RANGES = [['', 'Any time'], ['1', 'Past 24 hours'], ['7', 'Past 7 days'], ['30', 'Past 30 days'], ['90', 'Past 90 days'], ['custom', 'Custom range…']];
+    const auRange = () => AF.range === 'custom' ? [dayMs(AF.from), dayMs(AF.to, true)] : AF.range ? [Date.now() - Number(AF.range) * 864e5, 0] : [0, 0];
     async function tabAudit() {
-      const el = B(); HA().innerHTML = '<button class="adm-btn" id="au-ref">Refresh</button>';
+      const el = B(); HA().innerHTML = `<button class="adm-btn" id="au-csv" title="Download what's shown as a spreadsheet">Export CSV</button><button class="adm-btn" id="au-ref">Refresh</button>`;
       if (!APEOPLE) { try { APEOPLE = docs(await usersCol.limit(500).get()).sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id)); APEOPLE.forEach(u => remember(u.id, u)); } catch (e) { APEOPLE = []; } }
-      el.innerHTML = `<div class="au-f">
-          <label><span>Person</span><select id="au-who"><option value="">Everyone</option>${APEOPLE.map(u => `<option value="${esc(u.id)}"${AF.who === u.id ? ' selected' : ''}>${esc(u.name || u.id)}</option>`).join('')}</select></label>
-          <label><span>Action</span><select id="au-act"><option value="">Everything</option>${AGROUPS.map(([g, ks]) => `<optgroup label="${g}"><option value="g:${g}"${AF.act === 'g:' + g ? ' selected' : ''}>All ${g.toLowerCase()}</option>${ks.map(k => `<option value="${k}"${AF.act === k ? ' selected' : ''}>${ACTS[k].replace(/:$/, '')}</option>`).join('')}</optgroup>`).join('')}</select></label>
-          <label><span>Character</span><input id="au-ch" placeholder="Any character" value="${esc(AF.ch)}" autocomplete="off"></label>
-          <label><span>From</span><input type="date" id="au-from" value="${esc(AF.from)}"></label>
-          <label><span>To</span><input type="date" id="au-to" value="${esc(AF.to)}"></label>
-          <label class="au-q"><span>Search</span><input id="au-q" placeholder="Anything in the details" value="${esc(AF.q)}" autocomplete="off"></label>
-          <button class="adm-btn sm" id="au-clr">Clear filters</button></div><div id="au-l"><p class="adm-dim">Loading…</p></div>`;
+      const opt = (v, t, val) => `<option value="${esc(v)}"${v === val ? ' selected' : ''}>${esc(t)}</option>`;
+      const pill = (id, label, inner, cur, on) => `<label class="au-pill${on ? ' on' : ''}"><span class="au-pl">${label}:</span> <b>${esc(cur)}</b><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg><select id="${id}" aria-label="${label}">${inner}</select></label>`;
+      const rangeP = pill('au-range', 'Date', AU_RANGES.map(([v, t]) => opt(v, t, AF.range)).join(''), AF.range === 'custom' ? 'Custom' : (AU_RANGES.find(r => r[0] === AF.range) || AU_RANGES[0])[1], !!AF.range);
+      const whoP = pill('au-who', 'Actor', opt('', 'Everyone', AF.who) + APEOPLE.map(u => opt(u.id, u.name || u.id, AF.who)).join(''), AF.who ? ((APEOPLE.find(u => u.id === AF.who) || {}).name || AF.who) : 'Everyone', !!AF.who);
+      const actP = pill('au-act', 'Activity', opt('', 'All activities', AF.act) + AGROUPS.map(([g, ks]) => `<optgroup label="${esc(g)}">${opt('g:' + g, 'All ' + g.toLowerCase(), AF.act)}${ks.map(k => opt(k, ACTS[k].replace(/:$/, ''), AF.act)).join('')}</optgroup>`).join(''),
+        !AF.act ? 'All' : AF.act.startsWith('g:') ? AF.act.slice(2) : ACTS[AF.act].replace(/:$/, ''), !!AF.act);
+      el.innerHTML = `<div class="au-bar">
+          <label class="au-search">${svg('search', 16)}<input id="au-q" type="search" placeholder="Search activity, people or characters" value="${esc(AF.q)}" autocomplete="off"></label>
+          <div class="au-pills">${rangeP}${whoP}${actP}
+            ${AF.range || AF.who || AF.act || AF.q ? '<button class="au-clr" id="au-clr">Clear filters</button>' : ''}</div>
+          ${AF.range === 'custom' ? `<div class="au-dates"><label><span>From</span><input type="date" id="au-from" value="${esc(AF.from)}"></label><label><span>To</span><input type="date" id="au-to" value="${esc(AF.to)}"></label></div>` : ''}
+        </div><div id="au-l"><p class="adm-dim">Loading…</p></div>`;
       const g = id => el.querySelector('#' + id); let t = null;
-      const set = (k, v, refetch) => { AF[k] = v; if (refetch) { ALAST = null; AROWS = []; tabAuditList(); } else paintAudit(); };
-      g('au-who').onchange = e => set('who', e.target.value, true); g('au-act').onchange = e => set('act', e.target.value);
-      g('au-from').onchange = e => set('from', e.target.value, true); g('au-to').onchange = e => set('to', e.target.value, true);
-      g('au-ch').oninput = e => { clearTimeout(t); t = setTimeout(() => set('ch', e.target.value), 200); }; g('au-q').oninput = e => { clearTimeout(t); t = setTimeout(() => set('q', e.target.value), 200); };
-      g('au-clr').onclick = () => { AF = { who: '', act: '', ch: '', q: '', from: '', to: '' }; ALAST = null; AROWS = []; tabAudit(); };
+      const set = (k, v, refetch, rebar) => { AF[k] = v; if (rebar) { const y = scrollY; tabAudit(); scrollTo(0, y); return; } if (refetch) { ALAST = null; AROWS = []; tabAuditList(); } else paintAudit(); };
+      g('au-who').onchange = e => set('who', e.target.value, false, true); g('au-act').onchange = e => set('act', e.target.value, false, true);
+      g('au-range').onchange = e => set('range', e.target.value, false, true);
+      if (g('au-from')) { g('au-from').onchange = e => set('from', e.target.value, true); g('au-to').onchange = e => set('to', e.target.value, true); }
+      g('au-q').oninput = e => { clearTimeout(t); t = setTimeout(() => { AF.q = e.target.value; paintAudit(); const c = g('au-clr'); if (!!c !== !!(AF.range || AF.who || AF.act || AF.q)) { const pos = e.target.selectionStart; tabAudit().then(() => { const q = B().querySelector('#au-q'); if (q) { q.focus(); try { q.setSelectionRange(pos, pos); } catch (x) {} } }); } }, 200); };
+      if (g('au-clr')) g('au-clr').onclick = () => { AF = { who: '', act: '', ch: '', q: '', from: '', to: '', range: '' }; tabAudit(); };
       HA().querySelector('#au-ref').onclick = () => { ALAST = null; AROWS = []; tabAuditList(); };
-      ALAST = null; AROWS = []; tabAuditList();
+      HA().querySelector('#au-csv').onclick = () => { const rows = auFiltered(), q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+        const csv = [['Date', 'Actor', 'Actor email', 'Activity', 'Target', 'Details'].map(q).join(',')].concat(rows.map(e => [new Date(e.at).toISOString(), e.byName || '', e.by, ACTS[e.act] || e.act, e.tName || e.target || '', e.detail || ''].map(q).join(','))).join('\n');
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'audit-log.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
+      ALAST = null; AROWS = []; await tabAuditList();
     }
     const dayMs = (d, end) => { if (!d) return 0; const t = new Date(d + 'T00:00:00').getTime(); return end ? t + 864e5 - 1 : t; };
     async function tabAuditList(more) {
       const l = B().querySelector('#au-l'); if (!l) return;
-      const from = dayMs(AF.from), to = dayMs(AF.to, true);
+      const [from, to] = auRange();
       try { let q;
         if (AF.who) q = auditCol.where('by', '==', AF.who).limit(500);
         else { q = auditCol.orderBy('at', 'desc'); if (from) q = q.where('at', '>=', from); if (to) q = q.where('at', '<=', to); q = q.limit(150); if (more && ALAST) q = q.startAfter(ALAST); }
@@ -1004,22 +1058,35 @@ function hub(fs, auth, G, ctx) {
         paintAudit();
       } catch (x) { l.innerHTML = failMsg(x); }
     }
+    function auFiltered() {
+      const [from, to] = auRange(), qq = AF.q.trim().toLowerCase();
+      const grp = AF.act.startsWith('g:') ? (AGROUPS.find(x => x[0] === AF.act.slice(2)) || [0, []])[1] : null;
+      return AROWS.filter(e => (!grp || grp.includes(e.act)) && (!AF.act || grp || e.act === AF.act) && (!from || e.at >= from) && (!to || e.at <= to)
+        && (!qq || [e.byName, e.by, e.tName, e.target, e.detail, ACTS[e.act]].some(x => String(x || '').toLowerCase().includes(qq))));
+    }
     function paintAudit() {
       const l = B().querySelector('#au-l'); if (!l) return;
-      const from = dayMs(AF.from), to = dayMs(AF.to, true), ch = AF.ch.trim().toLowerCase(), qq = AF.q.trim().toLowerCase();
-      const grp = AF.act.startsWith('g:') ? (AGROUPS.find(x => x[0] === AF.act.slice(2)) || [0, []])[1] : null;
-      const rows = AROWS.filter(e => (!grp || grp.includes(e.act)) && (!AF.act || grp || e.act === AF.act) && (!from || e.at >= from) && (!to || e.at <= to)
-        && (!ch || (CHAR_ACTS.has(e.act) && String(e.tName || '').toLowerCase().includes(ch)))
-        && (!qq || [e.byName, e.by, e.tName, e.target, e.detail, ACTS[e.act]].some(x => String(x || '').toLowerCase().includes(qq))));
+      const rows = auFiltered();
       const what = e => { const lab = esc(ACTS[e.act] || e.act); if (!e.target) return lab;
         if (CHAR_ACTS.has(e.act)) return e.act === 'delete' || e.act === 'remove' ? `${lab} <b>${esc(e.tName || 'a character')}</b>` : `${lab} <a href="${esc(URLS.byId(e.target))}">${esc(e.tName || 'a character')}</a>`;
         return `${lab} <b>${esc(e.tName || e.target)}</b>`; };
-      const stamp = t => { const d = new Date(t); return `<span title="${esc(d.toLocaleString())}">${esc(d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))} · ${esc(d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }))}</span>`; };
-      const cnt = `<p class="adm-dim au-n">${rows.length} event${rows.length === 1 ? '' : 's'}${AROWS.length !== rows.length ? (rows.length === 1 ? ' matches' : ' match') + ' (of ' + AROWS.length + ' loaded)' : ''}${AF.who && AROWS.length === 500 ? ' · showing their latest 500' : ''}</p>`;
-      l.innerHTML = cnt + (rows.length ? `<div class="adm-tw"><table class="adm-t au-t"><thead><tr><th>When</th><th>Who</th><th>What</th><th>Details</th></tr></thead><tbody>${rows.map(e => `<tr>
-          <td class="au-when">${stamp(e.at)}</td><td><span class="adm-who">${ava(e.byName || NAMES[e.by], e.by)}<b>${esc(e.byName || e.by)}</b></span></td><td>${what(e)}</td><td class="au-d">${esc(e.detail || '')}</td></tr>`).join('')}</tbody></table></div>` : '<p class="adm-empty">Nothing matches these filters.</p>')
+      const dt = t => { const d = new Date(t); return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' }) + ', ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }); };
+      const ago = t => { const m = Math.round((Date.now() - t) / 6e4); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' hr ago' : Math.round(m / 1440) + ' d ago'; };
+      const grpOf = a => (AGROUPS.find(([, ks]) => ks.includes(a)) || ['Other'])[0];
+      const det = e => `<dl class="au-dl"><dt>Date</dt><dd>${esc(new Date(e.at).toLocaleString())}</dd><dt>Actor</dt><dd>${esc(e.byName || '—')} <span class="adm-dim">${esc(e.by)}</span></dd>
+          <dt>Activity</dt><dd>${esc(ACTS[e.act] || e.act)} <span class="au-cat">${esc(grpOf(e.act))}</span></dd>${e.target ? `<dt>${CHAR_ACTS.has(e.act) ? 'Character' : 'Target'}</dt><dd>${CHAR_ACTS.has(e.act) && e.act !== 'delete' && e.act !== 'remove' ? `<a href="${esc(URLS.byId(e.target))}">${esc(e.tName || e.target)}</a>` : esc(e.tName || e.target)}</dd>` : ''}
+          ${e.detail ? `<dt>Details</dt><dd class="au-dd">${esc(e.detail)}</dd>` : ''}<dt>Event ID</dt><dd class="adm-dim au-id">${esc(e.id)}</dd></dl>`;
+      const cnt = `<div class="au-n"><span>${rows.length} event${rows.length === 1 ? '' : 's'}${AROWS.length !== rows.length ? ' of ' + AROWS.length + ' loaded' : ''}${AF.who && AROWS.length === 500 ? ' · their latest 500' : ''}</span></div>`;
+      l.innerHTML = cnt + (rows.length ? `<div class="au-tw"><table class="au-t"><thead><tr><th class="au-c-d">Date</th><th class="au-c-a">Actor</th><th>Activity</th><th class="au-c-x"></th></tr></thead><tbody>${rows.map(e => `<tr class="au-r${AOPEN[e.id] ? ' open' : ''}" data-id="${esc(e.id)}" tabindex="0" aria-expanded="${!!AOPEN[e.id]}">
+          <td class="au-c-d"><span title="${esc(new Date(e.at).toLocaleString())}">${esc(dt(e.at))}</span></td>
+          <td class="au-c-a"><span class="adm-who">${ava(e.byName || NAMES[e.by], e.by)}<span>${esc(e.byName || e.by)}</span></span></td>
+          <td class="au-c-w"><div class="au-what">${what(e)}</div>${e.detail ? `<div class="au-sub">${esc(e.detail)}</div>` : ''}<div class="au-meta">${ava(e.byName || NAMES[e.by], e.by)}<span>${esc(e.byName || e.by)}</span><span class="au-dot">·</span><span title="${esc(new Date(e.at).toLocaleString())}">${esc(ago(e.at))}</span></div></td>
+          <td class="au-c-x"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></td></tr>
+          ${AOPEN[e.id] ? `<tr class="au-x"><td colspan="4">${det(e)}</td></tr>` : ''}`).join('')}</tbody></table></div>` : '<p class="adm-empty">No activity matches these filters.</p>')
         + (AFULL ? '<button class="adm-btn adm-more" id="au-more">Load older</button>' : '');
       const mb = l.querySelector('#au-more'); if (mb) mb.onclick = () => tabAuditList(true);
+      l.querySelectorAll('tr.au-r').forEach(tr => { const tog = e => { if (e.target.closest('a')) return; AOPEN[tr.dataset.id] = !AOPEN[tr.dataset.id]; paintAudit(); };
+        tr.onclick = tog; tr.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tog(e); } }; });
     }
 
     function renameUser(em) {

@@ -749,14 +749,12 @@ function exhText(L) {
 // Temporary changes (curses, potions, spells) go in Conditions instead.
 // Skill proficiency and expertise are changed here; on the sheet only the misc bonus box stays editable.
 function openSkillManage() {
-  openModal(`<h3>Skills</h3><p class="hint" style="margin:0 0 10px">Tap the circle to cycle: not proficient → proficient → expertise. Misc is a permanent bonus; for something temporary use Conditions → Skill.</p>
-    <div class="skman">${S.skills.map((s, i) => `<div class="skman-row"><button class="profbtn p${N(s.prof)}" data-act="skillprof" data-i="${i}" aria-label="${esc(s.name)} proficiency"></button><span>${esc(s.name)} <small class="ab3">${esc(s.ab)}</small></span><span class="skman-lv">${['—', 'Proficient', 'Expertise'][N(s.prof)]}</span><label class="skman-misc" title="Permanent bonus (an item, a feat, a DM ruling)">Misc ${inp('skills.' + i + '.misc', { num: 1, cls: 'sm', label: s.name + ' misc bonus', ph: '0' })}</label><b class="skman-v">${fmt(skillVal(s))}</b></div>`).join('')}</div>
-    <div class="actions"><button class="btn gold" data-act="skillok">Done</button></div>`, () => render());
+  openModal(`<div class="sethead"><h3>Skills</h3><button class="btn sm gold" data-act="skillok">Done</button></div><p class="hint" style="margin:0 0 10px">Tap the circle to cycle: not proficient → proficient → expertise. Misc is a permanent bonus; for something temporary use Conditions → Skill.</p>
+    <div class="skman">${S.skills.map((s, i) => `<div class="skman-row"><button class="profbtn p${N(s.prof)}" data-act="skillprof" data-i="${i}" aria-label="${esc(s.name)} proficiency"></button><span>${esc(s.name)} <small class="ab3">${esc(s.ab)}</small></span><span class="skman-lv">${['—', 'Proficient', 'Expertise'][N(s.prof)]}</span><label class="skman-misc" title="Permanent bonus (an item, a feat, a DM ruling)">Misc ${inp('skills.' + i + '.misc', { num: 1, cls: 'sm', label: s.name + ' misc bonus', ph: '0' })}</label><b class="skman-v">${fmt(skillVal(s))}</b></div>`).join('')}</div>`, () => render());
 }
 function openAbilManage() {
-  openModal(`<h3>Abilities &amp; saves</h3><p class="hint" style="margin:0 0 10px">Your permanent scores and saving-throw proficiencies. For something temporary — a curse, a potion, a spell — use <button class="linkbtn" data-act="abopen">Conditions → Ability scores</button> instead.</p>
-    <div class="abman">${AB.map(a => `<div class="abman-row"><b>${ABN[a]}</b>${inp('abilities.' + a, { num: 1, cls: 'score', label: ABN[a] + ' score' })}<span class="hint" data-calc="eff:${a}"></span><label class="checkline">${chk('saves.' + a, ABN[a] + ' save proficiency')} Proficient in saves</label></div>`).join('')}</div>
-    <div class="actions"><button class="btn gold" data-act="abilok">Done</button></div>`, () => render());
+  openModal(`<div class="sethead"><h3>Abilities &amp; saves</h3><button class="btn sm gold" data-act="abilok">Done</button></div><p class="hint" style="margin:0 0 10px">Your permanent scores and saving-throw proficiencies. For something temporary — a curse, a potion, a spell — use <button class="linkbtn" data-act="abopen">Conditions → Ability scores</button> instead.</p>
+    <div class="abman">${AB.map(a => `<div class="abman-row"><b>${ABN[a]}</b>${inp('abilities.' + a, { num: 1, cls: 'score', label: ABN[a] + ' score' })}<span class="hint" data-calc="eff:${a}"></span><label class="checkline abman-sv">${chk('saves.' + a, ABN[a] + ' save proficiency')} <span>Proficient in saves</span></label></div>`).join('')}</div>`, () => render());
   refresh();
 }
 // "Ability scores" tile in Conditions: click it to open a small editor for temporary changes.
@@ -1442,11 +1440,41 @@ function finishShort() {
   pendingLabel = 'Short rest'; closeModal(true); save(); render(); toast('Short rest complete.'); setTimeout(() => announce(res), 300); fxTrigger('shortRest');
 }
 function longRest() {
+  const L = longRestChanges();
   openModal(`<h3>Long Rest</h3>
-    <ul><li>HP restored to full; temporary HP cleared</li><li>All spell slots and Pact Magic slots restored</li>
-      <li>Features that reset on a short or long rest are restored; item charges restored</li><li>All Hit Dice restored</li>
-      <li>Exhaustion reduced by 1${N(S.exhaustion) ? ` (to ${N(S.exhaustion) - 1})` : ''}</li><li>Active spells, summons, transformations, concentration and death saves cleared</li></ul>
+    ${L.length ? `<p class="hint" style="margin:0 0 8px">Taking a long rest will change:</p><ul class="lrlist">${L.map(x => `<li>${x}</li>`).join('')}</ul>` : '<p>You\'re already fully rested — nothing will change.</p>'}
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="confirm-long" autofocus>Take Long Rest</button></div>`);
+}
+// Exactly what finishLong() is about to change, worked out from the sheet as it is right now.
+function longRestChanges() {
+  const out = [], b = v => `<b>${v}</b>`, arrow = (a, z) => `${b(a)} → ${b(z)}`;
+  const mx = maxHp(), cur = N(S.hp.cur);
+  if (cur < mx) out.push(`Hit points ${arrow(cur, mx)} <small>(+${mx - cur})</small>`);
+  if (N(S.hp.temp)) out.push(`${b(N(S.hp.temp))} temporary HP cleared`);
+  const slots = []; for (let l = 0; l < 9; l++) { const m = slotMax(l), u = Math.min(N(S.slotsUsed[l]), m); if (m && u) slots.push(`${ORD[l]} ${arrow(m - u, m)}`); }
+  if (slots.length) out.push(`Spell slots: ${slots.join(', ')}`);
+  const pc = pact(); if (pc && N(S.pactUsed)) out.push(`Pact Magic slots ${arrow(Math.max(0, pc.count - N(S.pactUsed)), pc.count)}`);
+  const hd = hdPools(), hdl = Object.keys(hd).filter(d => N(S.hdUsed[d])).map(d => `d${d} ${arrow(hdLeftOf(d), hd[d])}`);
+  if (hdl.length) out.push(`Hit Dice: ${hdl.join(', ')}`);
+  const uses = [];
+  S.features.forEach(f => { const m = featMax(f); if ((resetOf(f) === 'short' || f.reset === 'long') && N(f.used) && m != null) uses.push(`${esc(f.dname || f.name)} ${arrow(Math.max(0, m - N(f.used)), m)}`); });
+  S.spells.forEach(sp => { if (sp.uses && !sp.usesOnly && N(sp.uses.used)) uses.push(`${esc(sp.name)} ${N(sp.uses.max) ? arrow(Math.max(0, N(sp.uses.max) - N(sp.uses.used)), N(sp.uses.max)) : 'uses back'}`); });
+  S.inventory.forEach(it => { if (it.charges && it.charges.reset !== 'none' && N(it.charges.used)) { const m = N(it.charges.max); uses.push(`${esc(it.name)} ${arrow(Math.max(0, m - N(it.charges.used)), m)} charges`); } });
+  (S.companions || []).forEach(c => { if (c.used && Object.values(c.used).some(v => N(v))) uses.push(`${esc(c.name)}'s abilities`); });
+  if (uses.length) out.push(`Uses back: ${uses.join(', ')}`);
+  if (N(S.exhaustion)) out.push(`Exhaustion ${arrow(N(S.exhaustion), N(S.exhaustion) - 1)}`);
+  const ending = [];
+  Object.keys(S.condTurns || {}).forEach(c => { if ([-1, -2].includes(N(S.condTurns[c])) && S.conditions.includes(c)) ending.push(c); });
+  S.conditions.forEach(c => { if (['Unconscious', 'Raging', 'Dodging'].includes(c) && !ending.includes(c)) ending.push(c); });
+  Object.keys(S.tmpMods || {}).forEach(k => { if ([-1, -2].includes(N(S.tmpMods[k].r))) ending.push(`${tmName(k)} ${fmt(tmv(k))}`); });
+  if (abTempOn() && [-1, -2].includes(N(S.abTempR))) ending.push('ability score changes');
+  if (ending.length) out.push(`Ends: ${ending.map(esc).join(', ')}`);
+  const active = (S.effects || []).map(e => e.name).filter(Boolean);
+  if (S.concentration && !active.includes(S.concentration)) active.unshift(S.concentration);
+  if (S.form) active.push(S.form.name || 'your transformation');
+  if (active.length) out.push(`Ends: ${[...new Set(active)].map(esc).join(', ')}${S.concentration ? ' (concentration drops)' : ''}`);
+  if (N((S.death || {}).s) || N((S.death || {}).f)) out.push('Death saves reset');
+  return out;
 }
 // Conditions and ability changes set to last "until a short rest" / "until a long rest" end here.
 function endByRest(kinds) {
@@ -1659,8 +1687,7 @@ function openAcManage() {
     <div class="mbig"><b>${ai.total}</b><span>armor class</span></div>
     <div class="mlines">${ai.parts.map(p => `<div class="mline"><span>${esc(p)}</span></div>`).join('')}</div>
     <div class="msec"><div class="msec-h"><b>Set it yourself</b><small>${man ? 'Set manually — armor and DEX are ignored.' : 'Automatic from your armor, shield and DEX.'}</small></div><span class="mset"><input class="f" type="number" inputmode="numeric" data-acin placeholder="${ai.total}" value="${man ? ai.total : ''}" aria-label="Armor class">${man ? '<button class="btn sm" data-act="acauto">Auto</button>' : ''}</span></div>
-    <div class="msec"><div class="msec-h"><b>Temporary change</b><small>Shield of Faith from an ally, a curse, cover…</small></div>${stepper('tmpmod', 'ac', tv ? fmt(tv) : '0', 'Temporary AC')}</div>
-    ${tv ? `<div class="msec"><div class="msec-h"><b>Lasts</b></div>${durStep('ac')}</div>` : ''}
+    <p class="hint" style="margin:8px 0 0">For a temporary change to AC (Shield of Faith from an ally, a curse, cover) use <b>Conditions</b>.</p>
   </div>`;
   if ($('#acmanage') && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html);
 }

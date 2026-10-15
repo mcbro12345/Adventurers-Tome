@@ -71,7 +71,7 @@ function pactPips() {
 const spellTags = (s, noAlways) => (s.always && !noAlways ? '<span class="tag oath" title="Always prepared; doesn\'t count against your limit">Always</span>' : '') + (s.conc ? '<span class="tag">Conc</span>' : '') + (s.ritual ? '<span class="tag">Ritual</span>' : '') + (s.atWill ? '<span class="tag" title="Cast without a slot">At will</span>' : '') + (s.uses ? `<span class="tag" title="Free casts">${Math.max(0, evalMax(s.uses.max) - N(s.uses.used))}/${evalMax(s.uses.max)} free</span>` : '');
 function prepCell(s, i) {
   if (s.always) return '<span class="always" title="Always prepared; doesn\'t count against your limit">Always</span>';
-  if (N(s.level) === 0) return '<span class="always known" title="Cantrips are always ready">—</span>';
+  if (N(s.level) === 0) return '<span class="always known cant" title="Cantrips are always ready">—</span>';
   if (!isPrepCaster(s.cls)) return '<span class="always known" title="Known spell: always ready">Known</span>';
   return `<label class="prepbox" title="Prepared">${chk(`spells.${i}.prepared`, 'Prepared')}</label>`;
 }
@@ -131,9 +131,9 @@ function renderSpells() {
   // groups can be dragged into any order.
   const castBtn = i => `<button class="btn gold${m ? '' : ' sm'}" data-act="cast" data-i="${i}" title="Cast and apply its effects">Cast</button>`;
   const rowM = i => { const s = S.spells[i], open = UI.open['spell:' + i];
-    return `<div class="sp-card${spReady(s) ? '' : ' unprep'}" data-si="${i}"><div class="sp-top">${cust ? spOrdCtl(i) : ''}${prepCell(s, i)}
-        <button class="sp-name" data-act="toggle" data-key="spell:${i}" aria-expanded="${!!open}">${spDisp(s)} <span class="caret">${open ? '▴' : '▾'}</span></button><button class="notetip" data-tip="${i}" data-tipkind="sp" aria-label="What ${esc(s.name)} does">ⓘ</button><span class="grow"></span>${castBtn(i)}</div>
-        <div class="sp-meta">${spellTags(s, true)} <span class="tag cls">${esc(spItem(s) ? '◆ ' + spItem(s).name : clsName(s.cls))}</span> ${meta(s)}</div><div class="sp-sum">${esc(s.summary || '')}</div>
+    return `<div class="sp-card${spReady(s) ? '' : ' unprep'}" data-si="${i}"><div class="sp-top">${cust ? spOrdCtl(i) : ''}
+        <button class="sp-name" data-act="toggle" data-key="spell:${i}" aria-expanded="${!!open}">${spDisp(s)}<span class="caret">${open ? '▴' : '▾'}</span></button><button class="notetip" data-tip="${i}" data-tipkind="sp" aria-label="What ${esc(s.name)} does">ⓘ</button><span class="grow"></span>${castBtn(i)}</div>
+        <div class="sp-meta">${prepCell(s, i)}${spellTags(s, true)} <span class="tag cls">${esc(spItem(s) ? '◆ ' + spItem(s).name : clsName(s.cls))}</span> ${meta(s)}</div><div class="sp-sum">${esc(s.summary || '')}</div>
         ${open ? `<div class="sp-detail">${detail(s, i)}</div>` : ''}</div>`; };
   const rowT = i => { const s = S.spells[i], open = UI.open['spell:' + i];
     return `<tr class="${spReady(s) ? '' : 'unprep'}" data-si="${i}"><td class="spc-p" style="text-align:center">${prepCell(s, i)}</td>
@@ -863,7 +863,7 @@ function calcText(key) {
     case 'atk': return S.attacks[a] ? fmt(atkHit(S.attacks[a])) : '';
     case 'dmg': return S.attacks[a] ? atkDmgText(S.attacks[a]) : '';
     case 'round': return String(N(S.turn.round) || 1);
-    case 'worth': { const c = S.currency, gp = N(c.cp) / 100 + N(c.sp) / 10 + N(c.ep) / 2 + N(c.gp) + N(c.pp) * 10; return `≈ ${Math.round(gp * 100) / 100} gp`; }
+    case 'worth': { const c = S.currency, gp = N(c.cp) / 100 + N(c.sp) / 10 + N(c.ep) / 2 + N(c.gp) + N(c.pp) * 10; return `≈ ${(Math.round(gp * 100) / 100).toLocaleString('en-US')} gp`; }
     case 'weight': return String(Math.round(weight() * 10) / 10);
     case 'carry': return String(carryCap());
     case 'encnote': { const s = score('str') * carryMult(), e = encLevel(); return ST('encumbrance') === 'variant' ? `Encumbered over ${Math.floor(5 * s)} lb (−10 ft), heavily over ${Math.floor(10 * s)} lb (−20 ft, disadvantage)${e ? ' · ' + ['', 'encumbered', 'heavily encumbered', 'over capacity'][e] : ''}` : e === 3 ? 'Over capacity: speed 5 ft' : ''; }
@@ -944,6 +944,7 @@ function fxTip(e) {
 function refresh() {
   if (!S.created) return;
   $$('[data-calc]').forEach(el => { const t = calcText(el.dataset.calc); if (el.textContent !== t) el.textContent = t; });
+  fitCoins();
   $$('[data-calc-title]').forEach(el => el.title = calcText(el.dataset.calcTitle));
   $$('[data-calc-html]').forEach(el => {
     const ae = document.activeElement;
@@ -1108,3 +1109,7 @@ function alignHpSide() {
   side.style.marginTop = Math.max(0, d) + 'px';
 }
 addEventListener('resize', () => alignHpSide());
+
+// Big coin piles shrink their number to fit the chip instead of getting cut off.
+function fitCoins() { $$('.cn .cin').forEach(el => { const n = String(el.value || '').length, z = n >= 8 ? .72 : n >= 7 ? .8 : n >= 6 ? .9 : n >= 5 ? 1 : 0; el.style.fontSize = z ? z + 'rem' : ''; }); }
+document.addEventListener('input', e => { if (e.target.classList && e.target.classList.contains('cin')) fitCoins(); });

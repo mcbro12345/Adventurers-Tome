@@ -437,6 +437,35 @@ let _tabIndKey = null;
 addEventListener('resize', () => slideTabInd());
 // Fonts or layout settling after load can shift the tabs; re-snap without animating.
 addEventListener('load', () => slideTabInd());
+// Phones: press the tab bar and slide along it — the highlight follows your finger and lets go on the tab you stop at.
+{
+  const bar = $('#tabs'); let drag = null, eat = false;
+  const tabAt = x => [...bar.querySelectorAll('.tab')].find(t => { const r = t.getBoundingClientRect(); return x >= r.left && x <= r.right; });
+  const place = (ind, x, w, y, h) => { ind.style.transform = `translate(${x}px, ${y}px)`; ind.style.width = w + 'px'; ind.style.height = h + 'px'; };
+  bar.addEventListener('pointerdown', e => {
+    if (!isMobile() || UI.editLayout || !e.isPrimary || !e.target.closest('.tab')) return;
+    drag = { id: e.pointerId, x0: e.clientX, on: false, hov: null };
+  });
+  bar.addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const ind = bar.querySelector('.tab-ind'), cur = bar.querySelector('.tab.on'); if (!ind || !cur) return;
+    if (!drag.on) { if (Math.abs(e.clientX - drag.x0) < 8) return; drag.on = true; bar.classList.add('tdrag'); try { bar.setPointerCapture(e.pointerId); } catch (x) {} }
+    const br = bar.getBoundingClientRect(), r = cur.getBoundingClientRect(), w = r.width, x = Math.max(4, Math.min(e.clientX - br.left - w / 2, br.width - w - 4));
+    ind.style.transition = 'none'; place(ind, x, w, r.top - br.top, r.height); drag.pos = { x, y: r.top - br.top, w, h: r.height };
+    const t = tabAt(e.clientX); if (t !== drag.hov) { if (drag.hov) drag.hov.classList.remove('thov'); if (t) { t.classList.add('thov'); try { navigator.vibrate && navigator.vibrate(4); } catch (x) {} } drag.hov = t; }
+  });
+  const end = e => {
+    if (!drag || e.pointerId !== drag.id) return; const d = drag; drag = null; bar.classList.remove('tdrag');
+    if (!d.on) return; eat = true; setTimeout(() => { eat = false; }, 400);
+    if (d.hov) d.hov.classList.remove('thov');
+    const t = e.type === 'pointercancel' ? null : tabAt(e.clientX), ind = bar.querySelector('.tab-ind');
+    _tabIndPrev = d.pos || _tabIndPrev;
+    if (t && t.dataset.tab !== UI.tab) { eat = false; t.click(); eat = true; }
+    else if (ind) { _tabIndKey = '~drag'; slideTabInd(); }
+  };
+  bar.addEventListener('pointerup', end); bar.addEventListener('pointercancel', end);
+  bar.addEventListener('click', e => { if (eat) { e.preventDefault(); e.stopPropagation(); } }, true);
+}
 
 const atkBtn = (i, short) => `<button class="btn gold sm atkbtn" data-act="attack" data-i="${i}" title="Roll to hit and damage; a natural 20 doubles the damage dice">⚔${short ? '' : ' Attack'}</button>`;
 const AB_ATK = [['str', 'STR'], ['dex', 'DEX'], ['fin', 'Finesse (best)'], ['monk', 'Monk (best)'], ['spell', 'Spellcasting'], ['int', 'INT'], ['wis', 'WIS'], ['cha', 'CHA'], ['', '—']];

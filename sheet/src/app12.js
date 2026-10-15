@@ -123,7 +123,9 @@ function vfxDraw(x, W, H, t, v) {
   };
   // A figure on the left swinging a weapon at a figure on the right. `swings` lists [start, from, to] in phase/radians.
   const swingScene = (swings, trailA, trailB, glowC, impact) => {
-    const fx = W * .28, fs = H * .22 * 1.35, sx = fx + fs * .12, sy = ground - fs * .55, L = W * (v.w === 'dagger' ? .26 : v.w === 'spear' || v.w === 'staff' ? .38 : .31);
+    const fx = W * .28, fs = H * .22 * 1.35, sx = fx + fs * .12, sy = ground - fs * .55, L = W * (v.w === 'dagger' ? .24 : v.w === 'spear' || v.w === 'staff' ? .3 : .25);
+    // The blade stops at the target's chest instead of cutting through it or down past its feet.
+    swings = swings.map(([st, a0, a1]) => [st, Math.min(a0, P * .02), Math.min(a1, P * .02)]);
     figure(fx, ground, H * .22); const hitAt = [];
     let ang = swings[0][1], live = null;
     swings.forEach(([st, a0, a1]) => { const wind = .08, dur = .2; if (ph >= st) { const q = (ph - st - wind) / dur; ang = q < 0 ? a0 - .15 * Math.sin(Math.min(1, (ph - st) / wind) * P / 2) : a0 + (a1 - a0) * ease(Math.min(1, q)); if (q >= 0 && q < 1.6) live = { a0, a: ang, q }; hitAt.push(st + wind + dur * .6); } });
@@ -191,7 +193,7 @@ function vfxDraw(x, W, H, t, v) {
     x.beginPath(); x.moveTo(-26, -30); x.quadraticCurveTo(-40, -40, -42, -30); x.quadraticCurveTo(-36, -30, -27, -24); x.fill();
     x.shadowBlur = 0; dot(31, -38, 1.8, '#1b2131'); x.restore(); x.globalAlpha = 1;
   } else if (m === 'slash') {
-    swingScene([[0, -P * .62, P * .22]], c2, c1, null, r => { for (let k = 0; k < 8; k++) { const sa = k / 8 * 2 * P + rnd() * .3, d = 4 + r * 16; dot(W * .7 + Math.cos(sa) * d, ground - H * .26 + Math.sin(sa) * d, 1.8, c2, 1 - r); } });
+    swingScene([[0, -P * .62, P * .22]], c2, c1, null, r => { for (let k = 0; k < 8; k++) { const sa = k / 8 * 2 * P + rnd() * .3, d = 4 + r * 16; dot(W * .66 + Math.cos(sa) * d, ground - H * .21 + Math.sin(sa) * d, 1.8, c2, 1 - r); } });
   } else if (m === 'dash') {
     const q = ease(ph), px = W * (.15 + .7 * q); figure(px, ground, H * .22, '#aab3c8');
     for (let k = 0; k < 6; k++) { x.strokeStyle = c1; x.globalAlpha = .6 - k * .08; x.lineWidth = 2; const ly = ground - H * (.1 + k * .06); x.beginPath(); x.moveTo(px - W * .08, ly); x.lineTo(px - W * (.2 + k * .03), ly); x.stroke(); } x.globalAlpha = 1;
