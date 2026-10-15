@@ -8,8 +8,15 @@
 // the database only lets that player — and the DM — open or change it.
 // Every way of leaving a page fades it out first, so the next page's loading screen fades in instead of popping.
 const PG_CALM = (() => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } })();
+// Leaving a page: the loading screen (dice and all) fades in over it right away, and the next page starts with that same
+// screen already showing, so there's no blank gap before the dice appear.
 function pgGo(url, replace) { const go = () => { if (url == null) location.reload(); else if (replace) location.replace(url); else location.href = url; };
-  if (PG_CALM) return go(); document.documentElement.classList.add('pg-leaving'); setTimeout(go, 300); }
+  if (PG_CALM) return go(); try { sessionStorage.setItem('pg-nav', String(Date.now())); } catch (e) {}
+  if (window.PG_LOAD_HTML && !document.getElementById('pg-load')) { const t = document.createElement('div'); t.innerHTML = window.PG_LOAD_HTML; const el = t.firstElementChild; el.classList.add('pg-leave'); el.style.zIndex = '10000'; document.body.appendChild(el);
+    if (window.pgWireDie) try { window.pgWireDie(el); } catch (e) {}
+    setTimeout(go, 260); return; }
+  document.documentElement.classList.add('pg-leaving'); setTimeout(go, 280); }
+addEventListener('pageshow', e => { if (e.persisted) document.querySelectorAll('#pg-load.pg-leave').forEach(x => x.remove()); });
 window.pgGo = pgGo;
 {
   // Windows and menus fade out instead of vanishing: when one loses its "open" class it keeps showing (as .closing,
@@ -172,6 +179,7 @@ function wireDie(root) {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return; e.preventDefault(); pgGo(u.href); });
   addEventListener('pageshow', () => document.documentElement.classList.remove('pg-leaving'));
   const load = document.getElementById('pg-load'), data = document.getElementById('sheet-data');
+  if (load) window.PG_LOAD_HTML = load.outerHTML;
   const say = html => { if (!load) return; load.innerHTML = `<div class="pg-msg">${html}</div>`; const m = load.firstElementChild; if (m && m.animate && !PG_CALM) m.animate([{ opacity: 0, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: 450, easing: 'ease-out' }); load.style.opacity = ''; load.style.transition = ''; };
   // ---- Moving house: the old GitHub Pages address hands each visitor over to adventurers-tome.web.app ----
   // The old page packs this browser's sheet settings (layouts, per-sheet settings, theme, tab bar, hub state, roll logs)

@@ -996,3 +996,6 @@ body.hubbody .hc-menu.closing .hc-list, body.hubbody .adm-mwrap.closing .adm-mli
 #pg-load .pg-spin b { font: 800 17px/22px Georgia, 'Times New Roman', serif !important; letter-spacing: .02em; margin: 4px 0 6px; padding: 0; color: #c9962b; }
 #pg-load .pg-spin small { font: 600 12px/16px system-ui, -apple-system, sans-serif !important; opacity: .6; margin: 0; padding: 0; letter-spacing: 0; }
 html, body { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+/* coming from another page of the site: the loading screen is already up, so it shows at once instead of fading in again */
+html.pg-instant #pg-load { animation: none !important; }
+#pg-load.pg-leave { animation: pgLoadIn .25s ease both !important; }
