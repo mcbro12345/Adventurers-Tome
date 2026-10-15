@@ -770,20 +770,27 @@ function hub(fs, auth, G, ctx) {
       await charsCol.doc(c.id).set({ owner: o, player: nameOf(o), playerSet: Date.now() }, { merge: true }); c.owner = o; c.player = nameOf(o); toast('Moved to ' + nameOf(o) + '.'); pgLog('give', { target: c.id, tName: c.name, detail: 'to ' + o }); return true; } catch (x) { toast('Couldn\'t move it: ' + (x.message || x)); return false; } }
   function shareChar(c, back) {
     let V = [...(c.viewers || [])], E = [...(c.editors || [])], PUB = '', pubBusy = false;
-    const paint = () => {
-      modal.innerHTML = `<div class="hub-card wide"><h2>Share ${esc(c.name || 'this character')}</h2><p class="hub-hint">They'll find it under “Shared characters” after signing in with that email.</p>
-        <div class="pl-list">${V.map(em => `<div class="pl-row"><span class="sh-who">${NAMES[em] ? `<b>${esc(NAMES[em])}</b> ` : ''}<span>${esc(em)}</span></span><select data-acc="${esc(em)}"><option value="view">Can view</option><option value="edit"${E.includes(em) ? ' selected' : ''}>Can edit</option></select><button class="linkbtn" data-rm="${esc(em)}">remove</button></div>`).join('') || '<p class="hub-hint">Not shared with anyone yet.</p>'}</div>
-        <form id="sh-f" class="who-f pl-f sh-f"><input id="sh-e" type="email" placeholder="Their email address" autocomplete="off" required><select id="sh-a"><option value="view">Can view</option><option value="edit">Can edit</option></select><button class="btn gold">Share</button></form>
-        <div class="sh-pub"><label class="sh-pub-t"><input type="checkbox" id="sh-pub"${PUB ? ' checked' : ''}${pubBusy ? ' disabled' : ''}><span><b>View-only link</b><small>Anyone with the link can look at this character without signing in. It stays up to date as it changes.</small></span></label>
-          ${PUB ? `<div class="sh-pub-row"><input readonly id="sh-pub-u" value="${esc(pubURL(PUB))}"><button class="btn" id="sh-pub-c">Copy link</button></div>` : ''}</div>
-        <button class="btn ghost" id="sh-x">Done</button></div>`;
-      modal.classList.add('on');
-      modal.querySelector('#sh-pub').onchange = async e => { const on = e.target.checked; pubBusy = true; paint();
+    // The view-only link section updates in place (the rest of the window isn't redrawn, so nothing flashes).
+    const paintPub = anim => { const box = modal.querySelector('.sh-pub'); if (!box) return;
+      box.innerHTML = `<label class="sh-pub-t"><input type="checkbox" id="sh-pub"${PUB ? ' checked' : ''}${pubBusy ? ' disabled' : ''}><span><b>View-only link</b><small>${pubBusy ? (PUB ? 'Turning the link off…' : 'Making the link…') : 'Anyone with the link can look at this character without signing in. It stays up to date as it changes.'}</small></span></label>
+        ${PUB && !pubBusy ? `<div class="sh-pub-row"><input readonly id="sh-pub-u" value="${esc(pubURL(PUB))}"><button class="btn" id="sh-pub-c">Copy link</button></div>` : ''}`;
+      const row = box.querySelector('.sh-pub-row'); if (anim && row && row.animate && !PG_CALM) row.animate([{ opacity: 0, transform: 'translateY(-4px)' }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'ease-out' });
+      box.querySelector('#sh-pub').onchange = async e => { const on = e.target.checked; pubBusy = true; paintPub(false);
         try { if (on) { PUB = await pubOn(c); pgLog('share', { target: c.id, tName: c.name || '', detail: 'view-only link turned on' }); toast('View-only link is on.'); }
           else { await pubOff(c, PUB); PUB = ''; pgLog('unshare', { target: c.id, tName: c.name || '', detail: 'view-only link turned off' }); toast('View-only link turned off — the old link no longer works.'); } }
         catch (x) { toast(x && x.code === 'permission-denied' ? 'View-only links aren’t switched on yet.' : 'Couldn’t change the link: ' + (x.message || x)); }
-        pubBusy = false; paint(); };
-      { const cp = modal.querySelector('#sh-pub-c'); if (cp) cp.onclick = async () => { const u = modal.querySelector('#sh-pub-u'); try { await navigator.clipboard.writeText(u.value); cp.textContent = 'Copied'; } catch (x) { u.select(); cp.textContent = 'Selected'; } setTimeout(() => { cp.textContent = 'Copy link'; }, 1600); }; }
+        pubBusy = false; paintPub(on && !!PUB); };
+      const cp = box.querySelector('#sh-pub-c'); if (cp) cp.onclick = async () => { const u = box.querySelector('#sh-pub-u'); try { await navigator.clipboard.writeText(u.value); cp.textContent = 'Copied'; } catch (x) { u.select(); cp.textContent = 'Selected'; } setTimeout(() => { cp.textContent = 'Copy link'; }, 1600); }; };
+    const paint = () => {
+      const html = `<h2>Share ${esc(c.name || 'this character')}</h2><p class="hub-hint">They'll find it under “Shared characters” after signing in with that email.</p>
+        <div class="pl-list">${V.map(em => `<div class="pl-row"><span class="sh-who">${NAMES[em] ? `<b>${esc(NAMES[em])}</b> ` : ''}<span>${esc(em)}</span></span><select data-acc="${esc(em)}"><option value="view">Can view</option><option value="edit"${E.includes(em) ? ' selected' : ''}>Can edit</option></select><button class="linkbtn" data-rm="${esc(em)}">remove</button></div>`).join('') || '<p class="hub-hint">Not shared with anyone yet.</p>'}</div>
+        <form id="sh-f" class="who-f pl-f sh-f"><input id="sh-e" type="email" placeholder="Their email address" autocomplete="off" required><select id="sh-a"><option value="view">Can view</option><option value="edit">Can edit</option></select><button class="btn gold">Share</button></form>
+        <div class="sh-pub"></div>
+        <button class="btn ghost" id="sh-x">Done</button>`;
+      // already open: swap what's inside the window rather than the window itself, so it doesn't pop in again
+      const card0 = modal.classList.contains('on') && modal.querySelector('.hub-card.sh-card'); if (card0) card0.innerHTML = html; else modal.innerHTML = `<div class="hub-card wide sh-card">${html}</div>`;
+      modal.classList.add('on');
+      paintPub(false);
       const save = async (nv, ne, msg) => { try { await setAccess(c, nv, ne); V = c.viewers; E = c.editors; if (msg) toast(msg); paint(); if (back && back.refresh) back.refresh(); } catch (x) { toast('Couldn\'t change sharing: ' + (x.message || x)); } };
       modal.querySelector('#sh-f').onsubmit = e => { e.preventDefault(); const em = modal.querySelector('#sh-e').value.trim().toLowerCase();
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { toast('Type an email address.'); return; } if (em === c.owner) { toast('That’s the owner.'); return; }
