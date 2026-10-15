@@ -965,3 +965,5 @@ html.pg-leaving { background: #0f1420; }
 @media (prefers-color-scheme: light) { html.pg-leaving { background: #f1e9d8; } }
 .pg-pres { opacity: 0; transition: opacity .35s ease; pointer-events: none; }
 .pg-pres.ready { opacity: 1; pointer-events: auto; }
+/* the viewers bubble hides with the Adventurer's Tome button while a window is open, so it never wanders */
+body:has(#modal.open) .pg-pres, body.wizopen .pg-pres { visibility: hidden !important; }

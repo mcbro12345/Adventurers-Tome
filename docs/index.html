@@ -982,6 +982,8 @@ html.pg-leaving { background: #0f1420; }
 @media (prefers-color-scheme: light) { html.pg-leaving { background: #f1e9d8; } }
 .pg-pres { opacity: 0; transition: opacity .35s ease; pointer-events: none; }
 .pg-pres.ready { opacity: 1; pointer-events: auto; }
+/* the viewers bubble hides with the Adventurer's Tome button while a window is open, so it never wanders */
+body:has(#modal.open) .pg-pres, body.wizopen .pg-pres { visibility: hidden !important; }
 </style>
 </head>
 <body>
@@ -1138,7 +1140,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261015101916', ASSETS = {"data": "a/data.fc7a76553b3c.js", "app": "a/app.28e82e06b7c4.js", "full": "a/full.08c5d2dee3d4.js"};
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261015102337', ASSETS = {"data": "a/data.fc7a76553b3c.js", "app": "a/app.28e82e06b7c4.js", "full": "a/full.08c5d2dee3d4.js"};
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -1463,7 +1465,7 @@ function wireDie(root) {
   // The viewers bubble always sits just right of the Adventurer's Tome button (moved along with it).
   // Who's viewing: stays invisible while the page is still laying itself out, then fades in once it has stopped moving.
   let presKey = '', presT = 0;
-  const placePres = () => { const box = document.querySelector('.pg-pres'), a = document.querySelector('.pg-hublink'); if (!box || !a) return;
+  const placePres = () => { const box = document.querySelector('.pg-pres'), a = document.querySelector('.pg-hublink'); if (!box || !a || !a.offsetParent || !a.offsetWidth) return; // hidden behind a window: leave it where it was
     const l = (a.offsetLeft + a.offsetWidth + 8) + 'px', t = (a.offsetTop + a.offsetHeight / 2) + 'px'; box.style.left = l; box.style.top = t;
     if (box.classList.contains('ready')) return; const k = l + t + (a.offsetParent ? 1 : 0); if (k !== presKey) { presKey = k; clearTimeout(presT); presT = setTimeout(() => { if (box.isConnected && a.offsetParent) box.classList.add('ready'); else presKey = ''; }, 600); } };
   new ResizeObserver(() => placePres()).observe(document.documentElement);

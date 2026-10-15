@@ -440,7 +440,7 @@ function wireDie(root) {
   // The viewers bubble always sits just right of the Adventurer's Tome button (moved along with it).
   // Who's viewing: stays invisible while the page is still laying itself out, then fades in once it has stopped moving.
   let presKey = '', presT = 0;
-  const placePres = () => { const box = document.querySelector('.pg-pres'), a = document.querySelector('.pg-hublink'); if (!box || !a) return;
+  const placePres = () => { const box = document.querySelector('.pg-pres'), a = document.querySelector('.pg-hublink'); if (!box || !a || !a.offsetParent || !a.offsetWidth) return; // hidden behind a window: leave it where it was
     const l = (a.offsetLeft + a.offsetWidth + 8) + 'px', t = (a.offsetTop + a.offsetHeight / 2) + 'px'; box.style.left = l; box.style.top = t;
     if (box.classList.contains('ready')) return; const k = l + t + (a.offsetParent ? 1 : 0); if (k !== presKey) { presKey = k; clearTimeout(presT); presT = setTimeout(() => { if (box.isConnected && a.offsetParent) box.classList.add('ready'); else presKey = ''; }, 600); } };
   new ResizeObserver(() => placePres()).observe(document.documentElement);
