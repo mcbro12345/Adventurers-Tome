@@ -1049,3 +1049,6 @@ html.pg-sbon::-webkit-scrollbar, html.pg-sbon body::-webkit-scrollbar { width: 0
    (vw/vh include the scrollbar), and keep the page from scrolling at all while the loading screen is up. */
 #pg-load .pg-spin { left: 50vw !important; top: 50vh !important; }
 html.pg-loading { overflow: hidden !important; }
+/* admin ⋯ menus: never make the table grow a scrollbar; near the bottom of the window they open upward */
+.adm-tw:has(.adm-mwrap.on) { overflow: visible; }
+.adm-mwrap.up .adm-mlist { top: auto !important; bottom: calc(100% + 4px) !important; }

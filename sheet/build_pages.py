@@ -45,7 +45,7 @@ function roll(start){if(!scr.isConnected)return;d.classList.remove('crit','fumbl
 a.finished.then(function(){var n=R();f.textContent=n;d.classList.toggle('crit',n===20);d.classList.toggle('fumble',n===1);setTimeout(function(){roll(0)},P)})}
 at=at||0;if(at<D)roll(at);else setTimeout(function(){roll(0)},Math.max(0,D+P-at))};
 var s=document.getElementById('pg-load');if(!s)return;if(matchMedia('(prefers-reduced-motion: reduce)').matches){var tx=s.querySelector('text');if(tx)tx.textContent='20';return}
-var n=window.PG_NAV_T;if(n){var e=Date.now()-n;pgDieRoll(s,e<D+P?e:0)}else setTimeout(function(){pgDieRoll(s,0)},150)})();</script>
+if(window.PG_NAV_T)pgDieRoll(s,0);else setTimeout(function(){pgDieRoll(s,0)},150)})();</script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>

@@ -13,7 +13,7 @@ const PG_CALM = (() => { try { return matchMedia('(prefers-reduced-motion: reduc
 function pgGo(url, replace) { const go = () => { if (url == null) location.reload(); else if (replace) location.replace(url); else location.href = url; };
   if (PG_CALM) return go(); try { sessionStorage.setItem('pg-nav', String(Date.now())); } catch (e) {}
   if (window.PG_LOAD_HTML && !document.getElementById('pg-load')) { const t = document.createElement('div'); t.innerHTML = window.PG_LOAD_HTML; const el = t.firstElementChild; el.classList.add('pg-leave'); el.style.zIndex = '10000'; document.body.appendChild(el);
-    if (window.pgDieRoll) try { window.pgDieRoll(el, 0); } catch (e) {}
+    // the die stays still at rest while this page is left, and starts rolling on the next page (no jump between the two)
     setTimeout(go, 260); return; }
   document.documentElement.classList.add('pg-leaving'); setTimeout(go, 280); }
 addEventListener('pageshow', e => { if (e.persisted) document.querySelectorAll('#pg-load.pg-leave').forEach(x => x.remove()); });
@@ -677,8 +677,6 @@ function hub(fs, auth, G, ctx) {
   }
   document.addEventListener('click', e => { if (e.target === modal) close(); });
 
-  if (ADMIN) return adminSection();
-
   // ================= Hub: my characters and the ones shared with me =================
   function createChar() { pgGo(URLS.newChar(G, '', myName())); }
   // Your picture: your initials (on a colour you can pick), one of your characters, or an image you upload.
@@ -748,6 +746,8 @@ function hub(fs, auth, G, ctx) {
       catch (x) { ok.disabled = false; ok.textContent = 'Save'; toast(x && x.code === 'permission-denied' ? 'Couldn’t save it yet — the new database rules need publishing.' : 'Couldn’t save it: ' + ((x && x.message) || x)); } };
     paint();
   }
+  // (the admin pages share the picture tools above, so they branch off only here)
+  if (ADMIN) return adminSection();
   function card(c) {
     const acc = (c.editors || []).includes(EMAIL) ? '<span class="hc-acc edit">Can edit</span>' : '<span class="hc-acc">View only</span>';
     return `<div class="hc${c.pin && isMine(c) ? ' pinned' : ''}"><a class="hc-main" href="${esc(URLS.char(c))}">${pic(c)}
@@ -1036,7 +1036,7 @@ function hub(fs, auth, G, ctx) {
       ({ new: tabNew, users: tabUsers, chars: tabChars, admins: tabAdmins, audit: tabAudit })[TAB]();
     }
     const B = () => root.querySelector('#ad-body'), HA = () => root.querySelector('#adm-hact');
-    document.addEventListener('click', e => { const k = e.target.closest && e.target.closest('.adm-kebab'); root.querySelectorAll('.adm-mwrap.on').forEach(w => { if (!k || w !== k.parentElement) w.classList.remove('on'); }); if (k) k.parentElement.classList.toggle('on'); });
+    document.addEventListener('click', e => { const k = e.target.closest && e.target.closest('.adm-kebab'); root.querySelectorAll('.adm-mwrap.on').forEach(w => { if (!k || w !== k.parentElement) w.classList.remove('on'); }); if (k) { const w = k.parentElement; w.classList.remove('up'); w.classList.toggle('on'); if (w.classList.contains('on')) { const l = w.querySelector('.adm-mlist'); if (l && l.getBoundingClientRect().bottom > innerHeight - 8) w.classList.add('up'); } } });
 
     // ----- characters as table rows -----
     const myAccess = c => isMine(c) ? 'own' : (c.editors || []).includes(EMAIL) ? 'edit' : (c.viewers || []).includes(EMAIL) ? 'view' : '';
