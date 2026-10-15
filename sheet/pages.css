@@ -1117,3 +1117,25 @@ html.mobile .wzh .wzh-back { font-size: .7rem; }
 html.mobile .wzh .hp-txt b, html.mobile .wzh .hp-txt small { max-width: 34vw; }
 .wzh > .wzh-back { display: inline-block; margin-top: 10px; }
 html.mobile .wzh > .wzh-back { margin: 8px 0 4px; font-size: .74rem; }
+/* Wizard on a computer: compact enough that the first step fits without scrolling */
+html:not(.mobile) .wzh { margin: 0 0 4px; }
+html:not(.mobile) .wzh .hub-top { padding-bottom: 8px; }
+html:not(.mobile) .wzh .hl-d20 { width: 58px; height: 58px; }
+html:not(.mobile) .wzh .hl-t { font-size: 2.5rem; }
+html:not(.mobile) .wzh .hl-a { font-size: .74rem; }
+html:not(.mobile) .wzh .hub-logo { gap: 12px; }
+html:not(.mobile) .wzh .hp-pic .pg-ava { width: 44px; height: 44px; font-size: .9rem; }
+html:not(.mobile) .wzh > .wzh-back { margin-top: 8px; }
+html:not(.mobile) .wz-box:has(.wzh) { padding-top: 10px; }
+html:not(.mobile) .wz-box:has(.wzh) .wz-head h2 { font-size: 1.3rem; margin: 0 0 6px; }
+html:not(.mobile) .wz-box:has(.wzh) .wz-body { padding: 10px 16px 12px; margin-top: 6px; }
+html:not(.mobile) .wz-box:has(.wzh) .wz-body h3 { margin: 0 0 4px; }
+html:not(.mobile) .wz-box:has(.wzh) .wz-body > p:first-of-type { margin: 0 0 8px; }
+html:not(.mobile) .wz-box:has(.wzh) .wz-portrait { width: 56px; height: 56px; }
+html:not(.mobile) .wz-box:has(.wzh) .wz-src { margin-top: 10px; }
+html:not(.mobile) .wz-box:has(.wzh) .wz-src > .hint { margin: 0 0 6px; }
+html:not(.mobile) .wz-box:has(.wzh) .srcopt { padding: 6px 9px; }
+html:not(.mobile) .wz-box:has(.wzh) .wz-foot { padding: 8px 0 10px; }
+html.pg-sbon #wizard { scrollbar-width: none; }
+html.pg-sbon #wizard::-webkit-scrollbar { width: 0; display: none; }
+html:has(#wizard.open) .pg-sb { z-index: 2000; }

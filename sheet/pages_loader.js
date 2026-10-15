@@ -65,15 +65,18 @@ function sheetScrollbar() {
   document.documentElement.classList.add('pg-sbon');
   const sb = document.createElement('div'); sb.className = 'pg-sb'; sb.hidden = true; sb.innerHTML = '<div class="pg-sb-th"></div>'; document.body.appendChild(sb); const th = sb.firstElementChild;
   const de = document.documentElement;
-  const paint = () => { const max = de.scrollHeight - innerHeight; if (max < 2 || document.querySelector('#modal.open, #wizard.open')) { sb.hidden = true; return; } sb.hidden = false;
-    const H = sb.clientHeight, h = Math.max(36, H * innerHeight / de.scrollHeight); th.style.height = h + 'px'; th.style.transform = `translateY(${(H - h) * (scrollY / max)}px)`; };
-  addEventListener('scroll', paint, { passive: true }); addEventListener('resize', paint); new ResizeObserver(paint).observe(document.body);
-  new MutationObserver(paint).observe(document.body, { attributes: true, subtree: true, attributeFilter: ['class'] }); setTimeout(paint, 100);
+  // What scrolls: the page, or the character wizard while it's open (it scrolls on its own, over the page).
+  const S = () => { const w = document.querySelector('#wizard.open'); if (w) return { y: w.scrollTop, vis: w.clientHeight, all: w.scrollHeight, to: y => { w.scrollTop = y; }, by: o => w.scrollBy(o) };
+    return { y: scrollY, vis: innerHeight, all: de.scrollHeight, to: y => scrollTo(0, y), by: o => scrollBy(o) }; };
+  const paint = () => { const g = S(), max = g.all - g.vis; if (max < 2 || document.querySelector('#modal.open')) { sb.hidden = true; return; } sb.hidden = false;
+    const H = sb.clientHeight, h = Math.max(36, H * g.vis / g.all); th.style.height = h + 'px'; th.style.transform = `translateY(${(H - h) * (g.y / max)}px)`; };
+  document.addEventListener('scroll', paint, { passive: true, capture: true }); addEventListener('resize', paint); new ResizeObserver(paint).observe(document.body);
+  new MutationObserver(paint).observe(document.body, { attributes: true, childList: true, subtree: true, attributeFilter: ['class'] }); setTimeout(paint, 100);
   th.addEventListener('pointerdown', e => { e.preventDefault(); th.classList.add('drag'); th.setPointerCapture(e.pointerId);
-    const y0 = e.clientY, s0 = scrollY, k = (de.scrollHeight - innerHeight) / Math.max(1, sb.clientHeight - th.offsetHeight);
-    const mv = ev => scrollTo(0, s0 + (ev.clientY - y0) * k), up = () => { th.classList.remove('drag'); th.removeEventListener('pointermove', mv); th.removeEventListener('pointerup', up); th.removeEventListener('pointercancel', up); };
+    const g = S(), y0 = e.clientY, s0 = g.y, k = (g.all - g.vis) / Math.max(1, sb.clientHeight - th.offsetHeight);
+    const mv = ev => g.to(s0 + (ev.clientY - y0) * k), up = () => { th.classList.remove('drag'); th.removeEventListener('pointermove', mv); th.removeEventListener('pointerup', up); th.removeEventListener('pointercancel', up); };
     th.addEventListener('pointermove', mv); th.addEventListener('pointerup', up); th.addEventListener('pointercancel', up); });
-  sb.addEventListener('pointerdown', e => { if (e.target !== sb) return; scrollBy({ top: (e.clientY < th.getBoundingClientRect().top ? -1 : 1) * innerHeight * .85, behavior: 'smooth' }); });
+  sb.addEventListener('pointerdown', e => { if (e.target !== sb) return; const g = S(); g.by({ top: (e.clientY < th.getBoundingClientRect().top ? -1 : 1) * g.vis * .85, behavior: 'smooth' }); });
 }
 {
   // Windows and menus fade out instead of vanishing: when one loses its "open" class it keeps showing (as .closing,
@@ -96,7 +99,7 @@ const LEG = location.pathname.replace(/[^/]*$/, '');
 // counts as "the app" and bring the browser's toolbar back.
 const STANDALONE = (() => { try { return navigator.standalone === true || matchMedia('(display-mode: standalone)').matches; } catch (e) { return false; } })();
 try { if (STANDALONE) document.documentElement.classList.add('pg-standalone'); } catch (e) {}
-const RESERVED = new Set(['shared', 'login', 'new', 'admin', 'c', 'a', 'icons', 'icon', 'index', 'index-html', 'version-json', 'users', 'help', 'settings']);
+const RESERVED = new Set(['shared', 'login', 'new', 'create', 'admin', 'c', 'a', 'icons', 'icon', 'index', 'index-html', 'version-json', 'users', 'help', 'settings']);
 const slugify = s => String(s || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
 const enc = encodeURIComponent;
 const URLS = {
@@ -105,7 +108,7 @@ const URLS = {
   admin: (G, tab) => PRETTY ? '/admin' + (tab ? '/' + tab : '') : LEG + '?g=' + G + '&admin=1' + (tab ? '&tab=' + tab : ''),
   char: c => PRETTY ? (c.path ? '/' + c.path : '/c/' + c.id) : LEG + '?c=' + c.id,
   byId: id => PRETTY ? '/c/' + id : LEG + '?c=' + id,
-  newChar: (G, o, p) => PRETTY ? '/new' + (o || p ? '?' + [o ? 'o=' + enc(o) : '', p ? 'p=' + enc(p) : ''].filter(Boolean).join('&') : '') : LEG + '?new=1&g=' + G + (o ? '&o=' + enc(o) : '') + (p ? '&p=' + enc(p) : ''),
+  newChar: (G, o, p) => PRETTY ? '/create' + (o || p ? '?' + [o ? 'o=' + enc(o) : '', p ? 'p=' + enc(p) : ''].filter(Boolean).join('&') : '') : LEG + '?new=1&g=' + G + (o ? '&o=' + enc(o) : '') + (p ? '&p=' + enc(p) : ''),
 };
 // Search keys for an account or character: every prefix of each word (and of the whole name / email), so the admin
 // pages can find "ryan", "o'neal" or "roneal1994@…" with one indexed lookup however many accounts there are.
@@ -217,7 +220,7 @@ function wireDie(root) {
     if (!parts.length) {}
     else if (parts.length === 1 && parts[0] === 'shared') VIEWQ = 'shared';
     else if (parts.length === 1 && parts[0] === 'login') LOGIN = true;
-    else if (parts.length === 1 && parts[0] === 'new') NEWQ = true;
+    else if (parts.length === 1 && (parts[0] === 'create' || parts[0] === 'new')) NEWQ = true;
     else if (parts[0] === 'admin' && parts.length <= 2) { ADMINQ = true; TABQ = clean(parts[1] || ''); }
     else if (parts[0] === 'c' && parts.length === 2) C = clean(parts[1]);
     else if (parts.length === 2) SLUG = slugify(parts[0]) + '/' + slugify(parts[1]); // older /player/character addresses
@@ -302,7 +305,7 @@ function wireDie(root) {
   // old-style addresses arriving here (bookmarks, the github.io handover) switch to the clean ones
   if (PRETTY && !STANDALONE && ['c', 'g', 'new', 'admin', 'view', 'tab'].some(k => Q.has(k))) {
     const keep = new URLSearchParams(); ['o', 'p'].forEach(k => { if (Q.get(k)) keep.set(k, Q.get(k)); });
-    const to = C ? '/c/' + C : NEWQ ? '/new' + (keep.toString() ? '?' + keep : '') : ADMINQ ? '/admin' + (TABQ ? '/' + TABQ : '') : VIEWQ === 'shared' ? '/shared' : '/';
+    const to = C ? '/c/' + C : NEWQ ? '/create' + (keep.toString() ? '?' + keep : '') : ADMINQ ? '/admin' + (TABQ ? '/' + TABQ : '') : VIEWQ === 'shared' ? '/shared' : '/';
     history.replaceState(null, '', to); }
   if (BAD) { say(`There’s nothing at this address.<br><br><a href="/">Go to your characters</a>`); return; }
   const user = await new Promise(res => { const u = auth.onAuthStateChanged(x => { u(); res(x); }); });
