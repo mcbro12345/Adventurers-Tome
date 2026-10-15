@@ -446,36 +446,6 @@ function tabPageAnim(prev, nt) {
   pg.getAnimations && pg.getAnimations().forEach(a => a.cancel());
   pg.animate ? pg.animate([{ opacity: 0, transform: mob ? `translate3d(${from}px,0,0)` : 'translate3d(0,4px,0)' }, { opacity: 1, transform: 'none' }], { duration: mob ? 280 : 200, easing: 'cubic-bezier(.22,.9,.24,1)' }) : 0;
 }
-// Phones: swipe a page sideways to go to the next or previous tab. The page follows your finger; let go past a third
-// of the screen (or flick) and the neighbouring tab slides in.
-{
-  let sw = null;
-  const hScroll = el => { for (let e = el; e && e !== document.body; e = e.parentElement) { const cs = getComputedStyle(e); if (/(auto|scroll)/.test(cs.overflowX) && e.scrollWidth > e.clientWidth + 2) return true; } return false; };
-  const neighbours = () => { const t = [...$$('#tabs .tab')], i = t.findIndex(x => x.dataset.tab === UI.tab); return { prev: t[i - 1], next: t[i + 1], cur: t[i] }; };
-  document.addEventListener('touchstart', e => {
-    sw = null; if (!isMobile() || UI.editLayout || e.touches.length > 1 || $('#modal').classList.contains('open') || document.body.classList.contains('wizopen')) return;
-    const pg = $('.page.on'); if (!pg || !e.target.closest || !e.target.closest('main.wrap') || e.target.closest('#tabs') || e.target.closest('input, textarea, select, [contenteditable], canvas, .idrag, [data-drag], [data-handle], .menu.open, .gdrag, .cgdrag') || hScroll(e.target)) return;
-    sw = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), pg, lock: null, dx: 0, n: neighbours() };
-  }, { passive: true });
-  document.addEventListener('touchmove', e => {
-    if (!sw) return; const dx = e.touches[0].clientX - sw.x, dy = e.touches[0].clientY - sw.y;
-    if (!sw.lock) { if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return; sw.lock = Math.abs(dx) > Math.abs(dy) * 1.3 ? 'x' : 'y'; if (sw.lock === 'x') document.documentElement.classList.add('tswiping'); }
-    if (sw.lock !== 'x') return; e.preventDefault();
-    const to = dx < 0 ? sw.n.next : sw.n.prev; sw.dx = to ? dx : dx / (3 + Math.abs(dx) / 50); sw.to = to;
-    if (sw.raf) return; sw.raf = requestAnimationFrame(() => { if (!sw) return; sw.raf = 0;
-      sw.pg.style.transition = 'none'; sw.pg.style.transform = `translate3d(${sw.dx}px,0,0)`; sw.pg.style.opacity = String(1 - Math.min(.45, Math.abs(sw.dx) / innerWidth * .9));
-      const ind = $('#tabs .tab-ind'), cur = sw.n.cur; if (ind && cur && sw.to) { const br = $('#tabs').getBoundingClientRect(), a = cur.getBoundingClientRect(), z = sw.to.getBoundingClientRect(), k = Math.min(1, Math.abs(sw.dx) / (innerWidth * .5));
-        ind.style.transition = 'none'; ind.style.transform = `translate(${a.left - br.left + (z.left - a.left) * k}px, ${a.top - br.top}px)`; sw.ix = a.left - br.left + (z.left - a.left) * k; sw.iy = a.top - br.top; } });
-  }, { passive: false });
-  const end = () => {
-    if (!sw) return; const s = sw; sw = null; if (s.raf) cancelAnimationFrame(s.raf); document.documentElement.classList.remove('tswiping'); if (s.lock !== 'x') return;
-    const v = Math.abs(s.dx) / Math.max(1, Date.now() - s.t), go = s.to && (Math.abs(s.dx) > innerWidth * .33 || v > .5);
-    const reset = anim => { s.pg.style.transition = anim ? 'transform .25s cubic-bezier(.22,.9,.24,1), opacity .2s' : 'none'; s.pg.style.transform = ''; s.pg.style.opacity = ''; if (anim) setTimeout(() => { s.pg.style.transition = ''; }, 280); };
-    if (go) { reset(false); if (s.ix != null) _tabIndPrev = Object.assign({}, _tabIndPrev, { x: s.ix, y: s.iy }); _tabSwipeDx = s.dx; s.to.click(); }
-    else { reset(true); const ind = $('#tabs .tab-ind'); if (ind) { ind.style.transition = ''; _tabIndKey = '~drag'; slideTabInd(); } }
-  };
-  document.addEventListener('touchend', end); document.addEventListener('touchcancel', end);
-}
 // Phones: a tap on the tab bar must never also land on the page that appears under it. iPhones sometimes deliver a
 // stray second click (or a press) to whatever is now at that spot, so for a moment after a tab switch, presses and
 // clicks outside the bar are ignored. The bar also gets its own layer so taps on it can't reach the page beneath.
