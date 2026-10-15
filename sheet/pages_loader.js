@@ -13,7 +13,7 @@ const PG_CALM = (() => { try { return matchMedia('(prefers-reduced-motion: reduc
 function pgGo(url, replace) { const go = () => { if (url == null) location.reload(); else if (replace) location.replace(url); else location.href = url; };
   if (PG_CALM) return go(); try { sessionStorage.setItem('pg-nav', String(Date.now())); } catch (e) {}
   if (window.PG_LOAD_HTML && !document.getElementById('pg-load')) { const t = document.createElement('div'); t.innerHTML = window.PG_LOAD_HTML; const el = t.firstElementChild; el.classList.add('pg-leave'); el.style.zIndex = '10000'; document.body.appendChild(el);
-    if (window.pgWireDie) try { window.pgWireDie(el); } catch (e) {}
+    if (window.pgDieRoll) try { window.pgDieRoll(el, 0); } catch (e) {}
     setTimeout(go, 260); return; }
   document.documentElement.classList.add('pg-leaving'); setTimeout(go, 280); }
 addEventListener('pageshow', e => { if (e.persisted) document.querySelectorAll('#pg-load.pg-leave').forEach(x => x.remove()); });
