@@ -2619,3 +2619,9 @@ html.mobile .wizard.closing { display: flex; flex-direction: column; overflow: h
 .menu.open .menu-list { animation: wPopIn .14s ease; }
 .menu.closing .menu-list { display: block; pointer-events: none; animation: wPopOut .14s ease forwards; }
 @media (prefers-reduced-motion: reduce) { .modal-bg.open, .modal-bg.open > .modal, .wizard.open, .menu.open .menu-list { animation: none !important; } }
+/* tooltips fade in and out too */
+#tipbox.on { animation: wFadeIn .16s ease; }
+#tipbox.closing:not(.on) { display: block; pointer-events: none; animation: wFadeOut .16s ease forwards; }
+html.mobile #tipbox.on { animation: wSheetIn .22s cubic-bezier(.22,.9,.24,1); }
+html.mobile #tipbox.closing:not(.on) { animation: wSheetOut .18s ease forwards; }
+@media (prefers-reduced-motion: reduce) { #tipbox.on { animation: none !important; } }

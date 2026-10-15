@@ -1437,6 +1437,16 @@ let _tabIndKey = null;
 addEventListener('resize', () => slideTabInd());
 // Fonts or layout settling after load can shift the tabs; re-snap without animating.
 addEventListener('load', () => slideTabInd());
+// Switching tabs: the new page fades in (and on a phone slides in from the side of the tab it came from).
+// Switching tabs: the new page simply fades in. On a phone the strip of vitals above Core/Combat changes shape on the
+// way to or from those tabs, so it fades along with the page instead of snapping.
+function tabPageAnim(prev, nt) {
+  const pg = $('#page-' + nt); if (!pg || !pg.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const fade = el => { el.getAnimations && el.getAnimations().forEach(a => a.cancel()); el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'ease-out' }); };
+  $$('.page').forEach(p => p.getAnimations && p.getAnimations().forEach(a => a.cancel())); fade(pg);
+  const full = k => k === 'core' || k === 'combat', v = $('#sec-vitals');
+  if (v && isMobile() && full(prev) !== full(nt)) fade(v);
+}
 // Phones: a tap on the tab bar must never also land on the page that appears under it. iPhones sometimes deliver a
 // stray second click (or a press) to whatever is now at that spot, so for a moment after a tab switch, presses and
 // clicks outside the bar are ignored. The bar also gets its own layer so taps on it can't reach the page beneath.
@@ -2782,7 +2792,7 @@ function mainClick(e) {
     case 'equip': equipItem(i); break;
     case 'resetturn': S.turn.haste = false; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.attacks = 0; S.turn.speed0 = ''; S.turn.sneak = false; S.turn.readied = null; update(); render('combat'); toast(`Turn reset — round ${N(S.turn.round) || 1} actions are ready again.`); break;
     case 'fullscreen': if (fsOn()) { FS_USER_OFF = true; fsExit(); } else { FS_USER_OFF = false; fsEnter(); } break;
-    case 'tab': { const prev = UI.tab, nt = b.dataset.tab, mob = isMobile() && !b.closest('.cmini'); TABSCROLL[prev] = scrollY; UI.tab = nt; saveUI(); renderTabs(); requestAnimationFrame(alignHpSide); if (mob) window.scrollTo(0, prev === nt ? 0 : (TABSCROLL[nt] || 0)); } $$('#page-' + UI.tab + ' textarea.f').forEach(grow); fitItemRows(); if (b.closest('.cmini')) window.scrollTo(0, 0); break;
+    case 'tab': { const prev = UI.tab, nt = b.dataset.tab, mob = isMobile() && !b.closest('.cmini'); TABSCROLL[prev] = scrollY; UI.tab = nt; saveUI(); renderTabs(); if (prev !== nt && !b.closest('.cmini')) tabPageAnim(prev, nt); requestAnimationFrame(alignHpSide); if (mob) { const pg = $('#page-' + nt), keep = pg ? Math.min(TABSCROLL[prev] || 0, Math.max(0, pg.getBoundingClientRect().top + scrollY - 12)) : 0; window.scrollTo(0, prev === nt ? 0 : (TABSCROLL[nt] != null ? TABSCROLL[nt] : keep)); } } $$('#page-' + UI.tab + ' textarea.f').forEach(grow); fitItemRows(); if (b.closest('.cmini')) window.scrollTo(0, 0); break;
     case 'theme': {
       const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', t);
@@ -4921,7 +4931,7 @@ function fitSettingsHeight() {
 }
 addEventListener('resize', () => { if (typeof settingsOpen === 'function' && settingsOpen()) fitSettingsHeight(); });
 function settingsOpen() { return $('#modal').classList.contains('open') && !!$('.setx'); }
-function setTabInk(anim) { const on = $('.stabs .stab.on'), ink = $('.stabs .stab-ink'); if (!on || !ink) return; ink.style.transition = anim ? '' : 'none'; ink.style.width = on.offsetWidth + 'px'; ink.style.transform = `translateX(${on.offsetLeft}px)`; if (on.scrollIntoView && anim) on.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' }); }
+function setTabInk(anim) { const on = $('.stabs .stab.on'), ink = $('.stabs .stab-ink'); if (!on || !ink) return; ink.style.transition = anim ? '' : 'none'; ink.style.width = on.offsetWidth + 'px'; ink.style.transform = `translateX(${on.offsetLeft}px)`; if (anim) { const bar = on.parentElement; if (bar && bar.scrollWidth > bar.clientWidth) bar.scrollTo({ left: on.offsetLeft - (bar.clientWidth - on.offsetWidth) / 2, behavior: 'smooth' }); } const mb = $('#modal-body'); if (mb && mb.scrollLeft) mb.scrollLeft = 0; }
 function switchSetTab(k) {
   if (k === SETTAB) return; const order = ['char', 'rules', 'dice', 'theme', 'data'], dir = order.indexOf(k) > order.indexOf(SETTAB) ? 'r' : 'l';
   SETTAB = k;
@@ -8371,5 +8381,15 @@ window.addEventListener('resize', () => { if (!LAYOUT_NOW) { const was = isMobil
   let kbT = 0;
   document.addEventListener('focusin', e => { clearTimeout(kbT); if (typing(e.target)) document.documentElement.classList.add('kbopen'); });
   document.addEventListener('focusout', () => { clearTimeout(kbT); kbT = setTimeout(() => { if (!typing(document.activeElement)) document.documentElement.classList.remove('kbopen'); }, 120); });
+}
+{
+  // Windows and menus fade out instead of vanishing: when one loses its "open" class it keeps showing (as .closing,
+  // not clickable) just long enough to fade, and opening it again cancels that.
+  const W = [['#modal', 'open'], ['#wizard', 'open'], ['.menu', 'open'], ['#tipbox', 'on']];
+  const match = el => W.find(([sel]) => el.matches && el.matches(sel));
+  new MutationObserver(ms => ms.forEach(m => { const el = m.target, w = match(el); if (!w) return; const cls = w[1], was = (' ' + (m.oldValue || '') + ' ').includes(' ' + cls + ' '), now = el.classList.contains(cls);
+    if (now) { if (!was && el.classList.contains('closing')) { clearTimeout(el._fc); el.classList.remove('closing'); } return; }
+    if (was && !now && !(' ' + (m.oldValue || '') + ' ').includes(' closing ') && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => el.classList.remove('closing'), 190); } }))
+    .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], attributeOldValue: true, subtree: true });
 }
 

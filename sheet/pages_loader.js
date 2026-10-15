@@ -17,7 +17,7 @@ window.pgGo = pgGo;
   const W = [['.hub-modal', 'on'], ['.hc-menu', 'on'], ['.adm-mwrap', 'on']];
   const match = el => W.find(([sel]) => el.matches && el.matches(sel));
   new MutationObserver(ms => ms.forEach(m => { const el = m.target, w = match(el); if (!w) return; const cls = w[1], was = (' ' + (m.oldValue || '') + ' ').includes(' ' + cls + ' '), now = el.classList.contains(cls);
-    if (now) { if (el.classList.contains('closing')) { clearTimeout(el._fc); el.classList.remove('closing'); } return; }
+    if (now) { if (!was && el.classList.contains('closing')) { clearTimeout(el._fc); el.classList.remove('closing'); } return; }
     if (was && !now && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => el.classList.remove('closing'), 190); } }))
     .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], attributeOldValue: true, subtree: true });
 }
@@ -139,7 +139,7 @@ function wireDie(root) {
   const FRAMED = window.top !== window && Q.has('pgframe'), PHONE_KEY = 'pg-phoneview';
   if (FRAMED) { window.PG_IN_PHONE = true; window.PG_FORCE_MOBILE = true; document.documentElement.classList.add('pg-inphone'); }
   window.pgPhoneView = on => { try { localStorage.removeItem(PHONE_KEY); on ? sessionStorage.setItem(PHONE_KEY, '1') : sessionStorage.removeItem(PHONE_KEY); } catch (e) {}
-    if (FRAMED) { try { window.top.location.reload(); } catch (e) {} } else pgGo(null); };
+    if (FRAMED) { try { window.top.pgGo ? window.top.pgGo(null) : window.top.location.reload(); } catch (e) {} } else pgGo(null); };
   const P = (Q.get('p') || '').slice(0, 60), O = (Q.get('o') || '').trim().toLowerCase().slice(0, 120);
   const LAST_G = 'dnd-hub-group';
   let NEWQ = !!Q.get('new'), ADMINQ = !!Q.get('admin'), TABQ = clean(Q.get('tab')), VIEWQ = Q.get('view') === 'shared' ? 'shared' : 'mine', LOGIN = false, SLUG = '', BAD = false;
@@ -313,12 +313,16 @@ function wireDie(root) {
   // (asked for just now — it's used once, so reloading or coming back later shows the layout for this device again)
   let phoneOn = false; try { phoneOn = sessionStorage.getItem(PHONE_KEY) === '1'; sessionStorage.removeItem(PHONE_KEY); localStorage.removeItem(PHONE_KEY); } catch (e) {}
   if (C && !NEWQ && !FRAMED && phoneOn && innerWidth >= 640) {
-    if (load) fadeLoad(load); else document.documentElement.classList.remove('pg-loading'); document.documentElement.classList.add('pg-phonehost');
+    document.documentElement.classList.add('pg-phonehost');
     const u = new URL(location.href); u.searchParams.set('pgframe', '1'); u.searchParams.delete('v');
-    document.body.innerHTML = `<div class="pgph"><div class="pgph-bar"><span class="pgph-t"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M11 18.5h2"/></svg>Phone view</span>
+    [...document.body.childNodes].forEach(n => { if (n !== load) n.remove(); });
+    document.body.insertAdjacentHTML('afterbegin', `<div class="pgph"><div class="pgph-bar"><span class="pgph-t"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M11 18.5h2"/></svg>Phone view</span>
       <button class="pgph-back" id="pgph-back"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="13" rx="1.6"/><path d="M8 21h8M12 17v4"/></svg>Back to desktop view</button></div>
-      <div class="pgph-dev"><iframe class="pgph-f" src="${escH(u.pathname + u.search)}" title="Character sheet (phone view)"></iframe><div class="pgph-sb" hidden><div class="pgph-th"></div></div></div></div>`;
+      <div class="pgph-dev"><iframe class="pgph-f" src="${escH(u.pathname + u.search)}" title="Character sheet (phone view)"></iframe><div class="pgph-sb" hidden><div class="pgph-th"></div></div></div></div>`);
     document.getElementById('pgph-back').onclick = () => window.pgPhoneView(false);
+    // the loading screen stays until the sheet inside the phone is ready, then fades away over the finished view
+    { const f = document.querySelector('.pgph-f'), t0 = Date.now(), ready = () => { try { const d = f.contentDocument; return !!d && d.readyState !== 'loading' && !d.getElementById('pg-load') && !!d.querySelector('.banner, #hub'); } catch (e) { return true; } };
+      const wait = () => { if (ready() || Date.now() - t0 > 12000) { if (load) fadeLoad(load); else document.documentElement.classList.remove('pg-loading'); } else setTimeout(wait, 100); }; wait(); }
     // a real phone's size (390 × 844); scaled down to fit if the window is shorter than that
     const dev = document.querySelector('.pgph-dev'), fit = () => { const k = Math.min(1, (innerHeight - 84) / 868); dev.style.transform = k < 1 ? `scale(${k})` : ''; }; addEventListener('resize', fit); fit();
     // the scrollbar beside the phone: mirrors the sheet's scrolling, can be dragged, and the mouse wheel anywhere scrolls the sheet
