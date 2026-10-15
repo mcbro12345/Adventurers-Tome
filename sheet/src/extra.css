@@ -2627,3 +2627,17 @@ html.mobile #tipbox.closing:not(.on) { animation: wSheetOut .18s ease forwards; 
 @media (prefers-reduced-motion: reduce) { #tipbox.on { animation: none !important; } }
 /* a tooltip with an animation is wide enough for the picture to sit beside the text, not above it */
 #tipbox:has(.tipfx) { min-width: min(280px, calc(100vw - 16px)); }
+
+/* Character wizard: things respond to touch and change smoothly */
+#wizard .wz-step { transition: background-color .2s ease, color .2s ease, border-color .2s ease, transform .1s ease; }
+html:not(.mobile) #wizard .wz-step:not(.on):hover { border-color: var(--gold); color: var(--ink); }
+#wizard .wz-step:active { transform: scale(.94); }
+html.mobile #wizard .wz-step { transform-origin: left center; }
+#wizard .srcopt { transition: border-color .15s ease, background-color .15s ease, transform .1s ease, filter .15s ease; }
+#wizard .srcopt:active:not(.locked) { transform: scale(.98); }
+#wizard .wz-foot .btn { transition: transform .1s ease, filter .15s ease, background-color .15s ease; }
+#wizard .wz-foot .btn:active { transform: scale(.95); }
+#wizard .wz-body .btn:active, #wizard .wz-body button:not(.wz-step):active { transform: scale(.96); }
+#wizard .wz-body .btn, #wizard .wz-body button { transition: transform .1s ease, background-color .15s ease, border-color .15s ease, color .15s ease; }
+#wizard .wz-portrait { transition: transform .2s ease; }
+@media (prefers-reduced-motion: reduce) { #wizard *, #wizard *:active { transition: none !important; transform: none !important; } }

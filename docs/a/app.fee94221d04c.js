@@ -1442,7 +1442,7 @@ addEventListener('load', () => slideTabInd());
 // way to or from those tabs, so it fades along with the page instead of snapping.
 function tabPageAnim(prev, nt) {
   const pg = $('#page-' + nt); if (!pg || !pg.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const fade = el => { el.getAnimations && el.getAnimations().forEach(a => a.cancel()); el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'ease-out' }); };
+  const fade = el => { el.getAnimations && el.getAnimations().forEach(a => a.cancel()); el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: isMobile() ? 240 : 200, easing: 'ease-out' }); };
   $$('.page').forEach(p => p.getAnimations && p.getAnimations().forEach(a => a.cancel())); fade(pg);
   const full = k => k === 'core' || k === 'combat', v = $('#sec-vitals');
   if (v && isMobile() && full(prev) !== full(nt)) fade(v);
@@ -2763,7 +2763,7 @@ document.addEventListener('input', e => { if (e.target.classList && e.target.cla
 
 // ---------- Click handling ----------
 document.addEventListener('click', e => rollGate(() => mainClick(e)));
-const TABSCROLL = {};
+const TABSCROLL = {}; let tabFadeT = 0;
 function mainClick(e) {
   if (e.target.closest('#wizard')) return wizClick(e);
   const menu = e.target.closest('.menu');
@@ -2792,7 +2792,20 @@ function mainClick(e) {
     case 'equip': equipItem(i); break;
     case 'resetturn': S.turn.haste = false; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.attacks = 0; S.turn.speed0 = ''; S.turn.sneak = false; S.turn.readied = null; update(); render('combat'); toast(`Turn reset — round ${N(S.turn.round) || 1} actions are ready again.`); break;
     case 'fullscreen': if (fsOn()) { FS_USER_OFF = true; fsExit(); } else { FS_USER_OFF = false; fsEnter(); } break;
-    case 'tab': { const prev = UI.tab, nt = b.dataset.tab, mob = isMobile() && !b.closest('.cmini'); TABSCROLL[prev] = scrollY; UI.tab = nt; saveUI(); renderTabs(); if (prev !== nt && !b.closest('.cmini')) tabPageAnim(prev, nt); requestAnimationFrame(alignHpSide); if (mob) { const pg = $('#page-' + nt), keep = pg ? Math.min(TABSCROLL[prev] || 0, Math.max(0, pg.getBoundingClientRect().top + scrollY - 12)) : 0; window.scrollTo(0, prev === nt ? 0 : (TABSCROLL[nt] != null ? TABSCROLL[nt] : keep)); } } $$('#page-' + UI.tab + ' textarea.f').forEach(grow); fitItemRows(); if (b.closest('.cmini')) window.scrollTo(0, 0); break;
+    case 'tab': { const prev = UI.tab, nt = b.dataset.tab, mini = !!b.closest('.cmini'), mob = isMobile() && !mini;
+      const go = () => { tabFadeT = 0; renderTabs(); if (prev !== nt && !mini) tabPageAnim(prev, nt); requestAnimationFrame(alignHpSide);
+        if (mob) { const pg = $('#page-' + nt), keep = pg ? Math.min(TABSCROLL[prev] || 0, Math.max(0, pg.getBoundingClientRect().top + scrollY - 12)) : 0; window.scrollTo(0, prev === nt ? 0 : (TABSCROLL[nt] != null ? TABSCROLL[nt] : keep)); }
+        $$('#page-' + UI.tab + ' textarea.f').forEach(grow); fitItemRows(); if (mini) window.scrollTo(0, 0); };
+      if (tabFadeT) { clearTimeout(tabFadeT.t); tabFadeT.go(); }
+      TABSCROLL[prev] = scrollY; UI.tab = nt; saveUI();
+      // phones: the tab highlight moves straight away, the old page fades out, then the new one fades in at its own scroll spot
+      if (mob && prev !== nt && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        $$('#tabs .tab').forEach(t => t.classList.toggle('on', t.dataset.tab === nt)); slideTabInd();
+        const old = $('#page-' + prev), full = k => k === 'core' || k === 'combat', v = $('#sec-vitals');
+        [old, full(prev) !== full(nt) ? v : null].forEach(el => { if (el && el.animate) { el.getAnimations().forEach(a => a.cancel()); el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 130, easing: 'ease-in', fill: 'forwards' }); } });
+        tabFadeT = { go: () => { [old, v].forEach(el => el && el.getAnimations && el.getAnimations().forEach(a => a.cancel())); go(); }, t: 0 }; tabFadeT.t = setTimeout(tabFadeT.go, 130);
+      } else go();
+      break; }
     case 'theme': {
       const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', t);
@@ -4358,7 +4371,7 @@ function readableInk(a, dark) { let c = dark ? mix(a, [255, 255, 255], 0.25) : m
 // Light/dark is kept with the character too (not only in this browser's storage), so a fresh copy of the sheet opens in the right mode.
 function applyMode() {
   const set = S.settings || (S.settings = {}); let ls = null; try { ls = localStorage.getItem('dnd-sheet-theme'); } catch (e) {}
-  if (set.colorMode !== 'dark' && set.colorMode !== 'light') { if (!PER_SHEET && (ls === 'dark' || ls === 'light')) set.colorMode = ls; else { if (PER_SHEET) document.documentElement.setAttribute('data-theme', window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); return; } }
+  if (set.colorMode !== 'dark' && set.colorMode !== 'light') { if (!PER_SHEET && (ls === 'dark' || ls === 'light')) set.colorMode = ls; else { if (PER_SHEET) { let pg = null; try { pg = localStorage.getItem('pg-theme'); } catch (e) {} document.documentElement.setAttribute('data-theme', pg === 'dark' || pg === 'light' ? pg : window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); } return; } }
   if (document.documentElement.getAttribute('data-theme') !== set.colorMode) document.documentElement.setAttribute('data-theme', set.colorMode);
   if (ls !== set.colorMode) try { localStorage.setItem('dnd-sheet-theme', set.colorMode); } catch (e) {}
 }
@@ -5095,6 +5108,7 @@ function placeTip(t, btn) {
   clearTimeout(t._ct); t.classList.remove('closing');
   if (isMobile() && !t.querySelector(':scope > .tipx')) t.insertAdjacentHTML('afterbegin', '<button class="tipx" type="button" aria-label="Close">✕</button>');
   t.style.maxHeight = ''; if (t._for !== btn) t.scrollTop = 0;
+  t.style.left = '0px'; t.style.top = '0px'; // measure at full width (not squeezed against the edge where the last tooltip sat)
   const r = btn.getBoundingClientRect(), w = t.offsetWidth, m = 8, below = innerHeight - r.bottom - 8 - m, above = r.top - 8 - m;
   let h = t.offsetHeight, left = Math.max(m, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - m)), top = r.bottom + 8;
   if (h > below) { if (above > below) { if (h > above) { t.style.maxHeight = above + 'px'; h = above; } top = r.top - 8 - h; } else t.style.maxHeight = Math.max(120, below) + 'px'; }
@@ -7945,10 +7959,20 @@ function renderWizard() {
       ${probs.length ? `<p class="warn">${probs.map(esc).join(' · ')}</p>` : '<p>Everything is set. You can change anything later — scores, skills, spells and items are all editable on the sheet.</p>'}
       <p class="hint">Scores include racial bonuses, Ability Score Improvements and half-feats.</p></div>`;
   }
-  $('#wizard').innerHTML = `<div class="wz-box"><div class="wz-head"><h2>Create your character</h2><div class="wz-steps">${WSTEPS.map((t, i) => `<button class="wz-step${i === st ? ' on' : ''}${i < st ? ' done' : ''}" data-wact="go" data-v="${i}" aria-label="Step ${i + 1}: ${t}">${i + 1}. ${t}</button>`).join('')}</div><div class="wz-now">Step ${st + 1} of ${WSTEPS.length}<b>${WSTEPS[st]}</b></div></div>
+  $('#wizard').innerHTML = `<div class="wz-box">${typeof window.wzHeader === 'function' ? window.wzHeader() : ''}<div class="wz-head"><h2>Create your character</h2><div class="wz-steps">${WSTEPS.map((t, i) => `<button class="wz-step${i === st ? ' on' : ''}${i < st ? ' done' : ''}" data-wact="go" data-v="${i}" aria-label="Step ${i + 1}: ${t}">${i + 1}. ${t}</button>`).join('')}</div><div class="wz-now">Step ${st + 1} of ${WSTEPS.length}<b>${WSTEPS[st]}</b></div></div>
     <div class="wz-body"><h3>${WSTEPS[st]}</h3>${body}</div>
     <div class="wz-foot">${st ? '<button class="btn" data-wact="back">Back</button>' : ''}<span class="grow"></span>${st < WSTEPS.length - 1 ? '<button class="btn gold" data-wact="next">Next</button>' : '<button class="btn gold" data-wact="create">Create character</button>'}</div></div>`;
   $$('#wizard [data-wzq]').forEach(i => filterWzSpells(i));
+  // Moving between steps: the new step slides in from the side you're heading (fades up on opening), and the step
+  // marker pops / the progress bar fills. Re-drawing the same step (picking options) doesn't animate.
+  const prevSt = W._shown; W._shown = st;
+  if (prevSt !== st && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+    const dir = prevSt == null ? 0 : st > prevSt ? 1 : -1, bd = $('#wizard .wz-body'), now = $('#wizard .wz-now'), on = $('#wizard .wz-step.on'), mob = document.documentElement.classList.contains('mobile');
+    const inK = dir ? [{ opacity: 0, transform: `translateX(${dir * 22}px)` }, { opacity: 1, transform: 'none' }] : [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }];
+    if (bd && bd.animate) bd.animate(inK, { duration: 280, easing: 'cubic-bezier(.2,.8,.3,1)' });
+    if (now && now.animate && mob) now.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' });
+    if (on && on.animate) on.animate(mob ? (dir >= 0 ? [{ transform: 'scaleX(.15)' }, { transform: 'none' }] : [{ opacity: .4 }, { opacity: 1 }]) : [{ transform: 'scale(.88)' }, { transform: 'none' }], { duration: mob ? 320 : 240, easing: 'cubic-bezier(.3,1.3,.5,1)' });
+  }
 }
 function asiModeClick(b) {
   const inWz = !!b.closest('#wizard'), inP = !!b.closest('#pendm') && PEND, CH = inWz ? W.ans : inP ? PEND.ans : LV ? LV.ans : null; if (!CH) return;
