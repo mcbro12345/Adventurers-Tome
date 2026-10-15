@@ -749,12 +749,17 @@ function hub(fs, auth, G, ctx) {
     if (!slideMode()) { tr.style.transform = ''; return; }
     tr.style.transition = anim && !calm() ? 'transform .34s cubic-bezier(.22,.9,.24,1)' : 'none';
     tr.style.transform = `translate3d(calc(${-idx * 100}% + ${dx || 0}px), 0, 0)`;
-    if (dx == null) { clearTimeout(tr._t); const off = () => panes.forEach((p, k) => p.classList.toggle('hp-off', k !== idx)); if (anim && !calm()) tr._t = setTimeout(off, 360); else off(); }
+    if (dx == null) { clearTimeout(tr._t); const off = () => panes.forEach((p, k) => { p.classList.toggle('hp-off', k !== idx); unclamp(p); }); if (anim && !calm()) tr._t = setTimeout(off, 360); else off(); }
   }
-  function switchView(v) { if (v === view) return; view = v; history.replaceState(null, '', view === 'shared' ? URLS.shared(G) : URLS.hub(G));
+  // While the lists slide, the one leaving is trimmed to what's on screen, so the page's height settles at the start of
+  // the slide (hidden in the motion) instead of jumping once it lands.
+  const clampPane = p => { if (!p) return; p.style.maxHeight = Math.max(0, innerHeight - p.getBoundingClientRect().top) + 'px'; p.style.overflow = 'hidden'; };
+  const unclamp = p => { if (p) { p.style.maxHeight = ''; p.style.overflow = ''; } };
+  function switchView(v) { if (v === view) return; const out0 = root.querySelector('.hub-pane.on'); view = v; history.replaceState(null, '', view === 'shared' ? URLS.shared(G) : URLS.hub(G));
     const tr = root.querySelector('.hub-track'); if (!tr) return draw();
-    tr.querySelectorAll('.hub-pane').forEach(p => p.classList.remove('hp-off'));
+    tr.querySelectorAll('.hub-pane').forEach(p => { p.classList.remove('hp-off'); if (p !== out0) unclamp(p); });
     if (scrollY > 0) scrollTo(0, 0);
+    if (slideMode()) clampPane(out0);
     placeInd(true); placeTrack(true); dispatchEvent(new Event('hub-view'));
     if (!slideMode()) { const on = tr.querySelector('.hub-pane.on'); if (on && !calm()) { on.classList.remove('fadein'); void on.offsetWidth; on.classList.add('fadein'); } }
   }
@@ -764,7 +769,7 @@ function hub(fs, auth, G, ctx) {
     document.addEventListener('touchstart', e => { const tr = root.querySelector('.hub-track'); if (!tr || !e.target.closest || e.target.closest('.hub-head, .hub-modal, .hub-toast, .pg-ct') || document.body.classList.contains('adminbody') || RD || e.touches.length > 1 || e.target.closest('.hr-grip, .hc-list, input, textarea')) return;
       sw = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), lock: null, dx: 0, tr, w: tr.getBoundingClientRect().width || innerWidth }; }, { passive: true });
     document.addEventListener('touchmove', e => { if (!sw) return; const dx = e.touches[0].clientX - sw.x, dy = e.touches[0].clientY - sw.y;
-      if (!sw.lock) { if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; sw.lock = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'; if (sw.lock === 'x') sw.tr.querySelectorAll('.hub-pane').forEach(p => p.classList.remove('hp-off')); }
+      if (!sw.lock) { if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; sw.lock = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'; if (sw.lock === 'x') sw.tr.querySelectorAll('.hub-pane').forEach(p => { if (p.classList.contains('hp-off')) { p.classList.remove('hp-off'); clampPane(p); } }); }
       if (sw.lock !== 'x') return; e.preventDefault();
       const can = (dx < 0 && view === 'mine') || (dx > 0 && view === 'shared'); sw.dx = can ? Math.max(-sw.w, Math.min(sw.w, dx)) : dx / (3 + Math.abs(dx) / 60);
       sw.last = { dx, t: Date.now() };

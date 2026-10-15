@@ -1408,13 +1408,12 @@ async function copyText(t) {
 // ---------- Rests ----------
 function shortRest() {
   const snap = JSON.stringify({ hp: S.hp, hdUsed: S.hdUsed });
-  const shortF = S.features.filter(f => resetOf(f) === 'short' && featMax(f) != null).map(f => f.name);
   const pools = hdPools();
   openModal(`<h3>Short Rest</h3>
     <p>Spend Hit Dice to heal. Each die heals its roll ${fmt(mod('con', true))} (CON).</p>
     <div class="hdrow">${Object.keys(pools).map(d => `<button class="btn gold" data-act="spendhd" data-d="${d}" id="hdBtn${d}" ${hdLeftOf(d) ? '' : 'disabled'}>Spend a d${d} <span class="hdleft" id="hdLeft${d}">· ${hdLeftOf(d)} left</span></button>`).join('')}</div>
     <p>HP <b id="hdHP">${N(S.hp.cur)}/${maxHp()}</b></p><p class="hint" id="hdLog"></p>
-    <p>Finishing the rest restores: ${[pact() ? 'Pact Magic slots' : ''].concat(shortF).filter(Boolean).map(esc).join(', ') || 'no short-rest features'}.</p>
+    <div id="srList">${srListHTML()}</div>
     <p class="hint">Cancel undoes any Hit Dice spent here.</p>
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="confirm-short">Finish Short Rest</button></div>`,
     () => { pendingLabel = 'Cancel short rest'; const o = JSON.parse(snap); S.hp = o.hp; S.hdUsed = o.hdUsed; update(); toast('Short rest cancelled — changes reverted.'); });
@@ -1428,7 +1427,7 @@ function spendHD(d) {
   $('#hdLeft' + d).textContent = `· ${hdLeftOf(d)} left`; $('#hdHP').textContent = N(S.hp.cur) + '/' + maxHp();
   $('#hdLog').textContent += `d${d}: rolled ${r.total} ${fmt(mod('con', true))} = +${heal} HP. `;
   if (!hdLeftOf(d)) $('#hdBtn' + d).disabled = true;
-  pendingLabel = 'Spend Hit Die'; update();
+  pendingLabel = 'Spend Hit Die'; update(); const sl = $('#srList'); if (sl) sl.innerHTML = srListHTML();
 }
 function finishShort() {
   endByRest([-1]);
@@ -1444,6 +1443,27 @@ function longRest() {
   openModal(`<h3>Long Rest</h3>
     ${L.length ? `<p class="hint" style="margin:0 0 8px">Taking a long rest will change:</p><ul class="lrlist">${L.map(x => `<li>${x}</li>`).join('')}</ul>` : '<p>You\'re already fully rested — nothing will change.</p>'}
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="confirm-long" autofocus>Take Long Rest</button></div>`);
+}
+// Exactly what finishShort() is about to change (Hit Dice you spend in the window show up in the HP line as you go).
+function shortRestChanges() {
+  const out = [], b = v => `<b>${v}</b>`, arrow = (a, z) => `${b(a)} → ${b(z)}`;
+  const uses = [];
+  S.features.forEach(f => { const m = featMax(f); if (resetOf(f) === 'short' && N(f.used) && m != null) uses.push(`${esc(f.dname || f.name)} ${arrow(Math.max(0, m - N(f.used)), m)}`); });
+  S.spells.forEach(sp => { if (sp.uses && sp.uses.reset === 'short' && N(sp.uses.used)) uses.push(`${esc(sp.name)} ${N(sp.uses.max) ? arrow(Math.max(0, N(sp.uses.max) - N(sp.uses.used)), N(sp.uses.max)) : 'uses back'}`); });
+  S.inventory.forEach(it => { if (it.charges && it.charges.reset === 'short' && N(it.charges.used)) { const m = N(it.charges.max); uses.push(`${esc(it.name)} ${arrow(Math.max(0, m - N(it.charges.used)), m)} charges`); } });
+  const pc = pact(); if (pc && N(S.pactUsed)) out.push(`Pact Magic slots ${arrow(Math.max(0, pc.count - N(S.pactUsed)), pc.count)}`);
+  if (uses.length) out.push(`Uses back: ${uses.join(', ')}`);
+  const ending = [];
+  Object.keys(S.condTurns || {}).forEach(c => { if (N(S.condTurns[c]) === -1 && S.conditions.includes(c)) ending.push(c); });
+  Object.keys(S.tmpMods || {}).forEach(k => { if (N(S.tmpMods[k].r) === -1) ending.push(`${tmName(k)} ${fmt(tmv(k))}`); });
+  if (abTempOn() && N(S.abTempR) === -1) ending.push('ability score changes');
+  (S.effects || []).forEach(e => { if (e.rounds != null && N(e.rounds) <= 600 && e.name) ending.push(e.name + (e.conc && e.name === S.concentration ? ' (concentration)' : '')); });
+  if (ending.length) out.push(`Ends: ${[...new Set(ending)].map(esc).join(', ')} <small>(an hour passes)</small>`);
+  return out;
+}
+function srListHTML() {
+  const L = shortRestChanges(), spent = Object.keys(hdPools()).some(d => hdLeftOf(d) < (hdPools()[d] || 0));
+  return L.length ? `<p class="hint" style="margin:10px 0 6px">Finishing the rest will also change:</p><ul class="lrlist">${L.map(x => `<li>${x}</li>`).join('')}</ul>` : `<p class="hint" style="margin:10px 0 6px">Nothing else changes when you finish${spent ? '' : ' — no short-rest uses are spent'}.</p>`;
 }
 // Exactly what finishLong() is about to change, worked out from the sheet as it is right now.
 function longRestChanges() {
