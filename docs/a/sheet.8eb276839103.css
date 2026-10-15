@@ -2165,7 +2165,6 @@ html.mobile .toolbar > .savegrp { flex: 2 1 0 !important; display: flex !importa
 html.mobile .toolbar > .savegrp > .tbtn { flex: 1 1 auto !important; min-height: 40px; }
 html.mobile .toolbar > .savegrp .save-state { font-size: .66rem !important; max-width: 6.5em; white-space: normal; line-height: 1.1; }
 /* Player / race / background only on the Core tab */
-html.mobile:not([data-tab="core"]) .ident-grid { display: none; }
 html.mobile .ident-grid { gap: 4px 12px; }
 
 /* ---- Bottom tab bar ---- */
@@ -3264,4 +3263,29 @@ html.mobile #tipbox .tipx { transition: transform .12s ease, background-color .1
 html.mobile #tipbox .tipx:active { transform: scale(.86) !important; background: var(--gold-soft); filter: none; }
 html.mobile #tipbox.closing { opacity: 0; transform: translateY(14px) scale(.98); transition: opacity .18s ease, transform .18s ease; pointer-events: none; }
 html.mobile #tipbox.closing .tipx { transform: rotate(90deg) scale(.86); transition: transform .18s ease; }
+html.mobile .tabs { -webkit-transform: translateZ(0); transform: translateZ(0); isolation: isolate; }
+html.mobile .notetip.tippin { color: inherit; background: none; }
+/* Phone tab bar: the same thin gold divider as the admin tabs, with a soft shadow cast up onto the page */
+html.mobile .tabs { border-top: 1px solid color-mix(in srgb, var(--gold) 32%, transparent) !important; box-shadow: 0 -8px 20px rgba(0,0,0,.28) !important; }
+html.mobile:not([data-theme="dark"]) .tabs { box-shadow: 0 -6px 16px rgba(60,45,20,.12) !important; }
+.modal:has(.setx) #modal-body { overflow-x: clip !important; }
+/* ===== Windows fade in and out ===== */
+@keyframes wFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes wFadeOut { from { opacity: 1; } to { opacity: 0; } }
+@keyframes wPopIn { from { opacity: 0; transform: translateY(6px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes wPopOut { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(6px) scale(.985); } }
+@keyframes wSheetIn { from { opacity: .4; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+@keyframes wSheetOut { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(24px); } }
+.modal-bg.open { animation: wFadeIn .2s ease; }
+.modal-bg.open > .modal { animation: wPopIn .22s cubic-bezier(.22,.9,.24,1); }
+.modal-bg.closing { display: flex; pointer-events: none; animation: wFadeOut .18s ease forwards; }
+.modal-bg.closing > .modal { animation: wPopOut .18s ease forwards; }
+html.mobile .modal-bg.open > .modal { animation: wSheetIn .26s cubic-bezier(.22,.9,.24,1); }
+html.mobile .modal-bg.closing > .modal { animation: wSheetOut .18s ease forwards; }
+.wizard.open { animation: wFadeIn .22s ease; }
+.wizard.closing { display: block; pointer-events: none; animation: wFadeOut .18s ease forwards; }
+html.mobile .wizard.closing { display: flex; flex-direction: column; overflow: hidden; z-index: 90; height: 100dvh; }
+.menu.open .menu-list { animation: wPopIn .14s ease; }
+.menu.closing .menu-list { display: block; pointer-events: none; animation: wPopOut .14s ease forwards; }
+@media (prefers-reduced-motion: reduce) { .modal-bg.open, .modal-bg.open > .modal, .wizard.open, .menu.open .menu-list { animation: none !important; } }
 

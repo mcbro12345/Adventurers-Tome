@@ -1177,3 +1177,13 @@ window.addEventListener('resize', () => { if (!LAYOUT_NOW) { const was = isMobil
   document.addEventListener('focusin', e => { clearTimeout(kbT); if (typing(e.target)) document.documentElement.classList.add('kbopen'); });
   document.addEventListener('focusout', () => { clearTimeout(kbT); kbT = setTimeout(() => { if (!typing(document.activeElement)) document.documentElement.classList.remove('kbopen'); }, 120); });
 }
+{
+  // Windows and menus fade out instead of vanishing: when one loses its "open" class it keeps showing (as .closing,
+  // not clickable) just long enough to fade, and opening it again cancels that.
+  const W = [['#modal', 'open'], ['#wizard', 'open'], ['.menu', 'open']];
+  const match = el => W.find(([sel]) => el.matches && el.matches(sel));
+  new MutationObserver(ms => ms.forEach(m => { const el = m.target, w = match(el); if (!w) return; const cls = w[1], was = (' ' + (m.oldValue || '') + ' ').includes(' ' + cls + ' '), now = el.classList.contains(cls);
+    if (now) { if (el.classList.contains('closing')) { clearTimeout(el._fc); el.classList.remove('closing'); } return; }
+    if (was && !now && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => el.classList.remove('closing'), 190); } }))
+    .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], attributeOldValue: true, subtree: true });
+}

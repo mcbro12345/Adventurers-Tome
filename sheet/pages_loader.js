@@ -11,6 +11,16 @@ const PG_CALM = (() => { try { return matchMedia('(prefers-reduced-motion: reduc
 function pgGo(url, replace) { const go = () => { if (url == null) location.reload(); else if (replace) location.replace(url); else location.href = url; };
   if (PG_CALM) return go(); document.documentElement.classList.add('pg-leaving'); setTimeout(go, 300); }
 window.pgGo = pgGo;
+{
+  // Windows and menus fade out instead of vanishing: when one loses its "open" class it keeps showing (as .closing,
+  // not clickable) just long enough to fade, and opening it again cancels that.
+  const W = [['.hub-modal', 'on'], ['.hc-menu', 'on'], ['.adm-mwrap', 'on']];
+  const match = el => W.find(([sel]) => el.matches && el.matches(sel));
+  new MutationObserver(ms => ms.forEach(m => { const el = m.target, w = match(el); if (!w) return; const cls = w[1], was = (' ' + (m.oldValue || '') + ' ').includes(' ' + cls + ' '), now = el.classList.contains(cls);
+    if (now) { if (el.classList.contains('closing')) { clearTimeout(el._fc); el.classList.remove('closing'); } return; }
+    if (was && !now && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => el.classList.remove('closing'), 190); } }))
+    .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], attributeOldValue: true, subtree: true });
+}
 const ADMIN_EMAIL = 'matthewcbro@gmail.com';
 // Every character lives in one library; the hub shows each person their own and the ones shared with them.
 const DEFAULT_G = 'WLdUj_I3XrA_9VIP';
@@ -149,9 +159,14 @@ function wireDie(root) {
   }
   const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
   // The loading screen fades away over the page instead of vanishing, and links between pages fade out first.
-  function fadeLoad(el) { if (!el || !el.isConnected) return; if (matchMedia('(prefers-reduced-motion: reduce)').matches) return el.remove();
-    const cur = getComputedStyle(el).opacity; el.style.animation = 'none'; el.style.opacity = cur; el.style.pointerEvents = 'none'; el.style.zIndex = '9999'; el.style.transition = 'opacity .6s ease'; void el.offsetWidth;
-    requestAnimationFrame(() => requestAnimationFrame(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 650); })); }
+  // The page underneath stays hidden until the loading screen has fully faded in; then the screen fades away over it.
+  function fadeLoad(el) { const de = document.documentElement; if (!el || !el.isConnected) { de.classList.remove('pg-loading'); return; }
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { de.classList.remove('pg-loading'); return el.remove(); }
+    const anims = el.getAnimations ? el.getAnimations().filter(a => a.playState === 'running') : [];
+    Promise.race([Promise.all(anims.map(a => a.finished.catch(() => {}))), new Promise(r => setTimeout(r, 700))]).then(() => {
+      const cur = getComputedStyle(el).opacity; el.style.animation = 'none'; el.style.opacity = cur; el.style.pointerEvents = 'none'; el.style.zIndex = '9999'; el.style.transition = 'opacity .6s ease'; void el.offsetWidth;
+      de.classList.remove('pg-loading');
+      requestAnimationFrame(() => requestAnimationFrame(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 650); })); }); }
   document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[href]'); if (!a || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || (a.target && a.target !== '_self') || a.hasAttribute('download')) return;
     let u; try { u = new URL(a.href, location.href); } catch (x) { return; } if (u.origin !== location.origin || (u.pathname === location.pathname && u.search === location.search)) return;
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return; e.preventDefault(); pgGo(u.href); });
@@ -288,7 +303,7 @@ function wireDie(root) {
       ['pointerdown', 'keydown', 'scroll'].forEach(ev => addEventListener(ev, idle, { passive: true })); idle(); } catch (e) {} finally { checking = false; } };
     setInterval(check, 30 * 1000); document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); else if (NEWV) go(); }); setTimeout(check, 3000); };
   if (G && !C && !NEWQ) { lsSet(LAST_G, G); if (ADMINQ && !IS_ADMIN && PRETTY) history.replaceState(null, '', '/');
-    if (load) fadeLoad(load); document.documentElement.classList.remove('pg-loading'); hub(fs, auth, G, { EMAIL, IS_ADMIN, IS_OWNER, ADMINS, user, signOut, ME, page: ADMINQ && IS_ADMIN ? 'admin' : 'hub', view: VIEWQ, tab: TABQ }); verCheck();
+    if (load) fadeLoad(load); else document.documentElement.classList.remove('pg-loading'); hub(fs, auth, G, { EMAIL, IS_ADMIN, IS_OWNER, ADMINS, user, signOut, ME, page: ADMINQ && IS_ADMIN ? 'admin' : 'hub', view: VIEWQ, tab: TABQ }); verCheck();
     // quietly warm the cache so opening a sheet from here is quick
     // (not on a very slow or data-saving connection, and only once the page has settled, so it never slows the list down)
     const cn = navigator.connection || {}, slowNet = cn.saveData || /(^|-)2g$/.test(cn.effectiveType || '');
@@ -298,7 +313,7 @@ function wireDie(root) {
   // (asked for just now — it's used once, so reloading or coming back later shows the layout for this device again)
   let phoneOn = false; try { phoneOn = sessionStorage.getItem(PHONE_KEY) === '1'; sessionStorage.removeItem(PHONE_KEY); localStorage.removeItem(PHONE_KEY); } catch (e) {}
   if (C && !NEWQ && !FRAMED && phoneOn && innerWidth >= 640) {
-    if (load) fadeLoad(load); document.documentElement.classList.remove('pg-loading'); document.documentElement.classList.add('pg-phonehost');
+    if (load) fadeLoad(load); else document.documentElement.classList.remove('pg-loading'); document.documentElement.classList.add('pg-phonehost');
     const u = new URL(location.href); u.searchParams.set('pgframe', '1'); u.searchParams.delete('v');
     document.body.innerHTML = `<div class="pgph"><div class="pgph-bar"><span class="pgph-t"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M11 18.5h2"/></svg>Phone view</span>
       <button class="pgph-back" id="pgph-back"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="13" rx="1.6"/><path d="M8 21h8M12 17v4"/></svg>Back to desktop view</button></div>
@@ -331,7 +346,7 @@ function wireDie(root) {
   // started once the essentials have arrived, so it doesn't compete with them on a slow connection
   const fullTxt = fetched.then(() => ASSETS.full ? fetch(ASSETS.full).then(r => r.ok ? r.text() : '', () => '') : '', () => '');
   const run = async () => { let src; try { src = await fetched; } catch (e) { say('Couldn\'t load the sheet. Check your connection and reload.'); return; }
-    document.documentElement.classList.remove('pg-loading');
+    if (!load) document.documentElement.classList.remove('pg-loading');
     src.forEach(t => { const s = document.createElement('script'); s.textContent = t; document.body.appendChild(s); });
     // wait for the sheet's first burst of work to finish so the fade runs smoothly instead of stuttering
     if (load) { if (!load.isConnected) document.body.appendChild(load); const go = () => fadeLoad(load); if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 600 }); else setTimeout(go, 150); }
@@ -509,7 +524,8 @@ function hub(fs, auth, G, ctx) {
   const base = location.pathname, HUB = URLS.hub(G), ADMIN_URL = URLS.admin(G);
   const ADMIN = page === 'admin';
   document.title = ADMIN ? 'Admin — Adventurer’s Tome' : 'Adventurer’s Tome';
-  { const keep = document.getElementById('pg-load'); if (keep) { const o = getComputedStyle(keep).opacity; keep.style.animation = 'none'; keep.style.opacity = o; } document.body.innerHTML = '<div id="hub"></div><div id="hub-modal" class="hub-modal"></div><div id="hub-toast" class="hub-toast"></div>'; if (keep) document.body.appendChild(keep); }
+  { const keep = document.getElementById('pg-load'); [...document.body.childNodes].forEach(n => { if (n !== keep) n.remove(); }); // the loading screen stays put (and keeps fading) while the page is swapped in under it
+    document.body.insertAdjacentHTML('afterbegin', '<div id="hub"></div><div id="hub-modal" class="hub-modal"></div><div id="hub-toast" class="hub-toast"></div>'); }
   document.body.className = 'hubbody' + (ADMIN ? ' adminbody' : '');
   const root = document.getElementById('hub'), modal = document.getElementById('hub-modal');
   if (TOUCH && !document.documentElement.classList.contains('pg-touch')) { document.documentElement.classList.add('pg-touch'); noHover(); }
@@ -829,7 +845,7 @@ function hub(fs, auth, G, ctx) {
     const nb = root.querySelector('#hub-new'); if (nb) nb.onclick = createChar;
     root.querySelector('#me-out').onclick = signOut;
     const ab = root.querySelector('#hub-admin'); if (ab) ab.onclick = () => { pgGo(ADMIN_URL); };
-    root.querySelector('#me-pic').onclick = pickPic;
+    root.querySelector('#me-pic').onclick = () => pickPic();
     root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => switchView(b.dataset.view));
     placeInd(false); placeTrack(false);
     root.querySelectorAll('details.hub-folder').forEach(d => d.addEventListener('toggle', () => { open[d.dataset.k] = d.open; ls.set(OPEN, JSON.stringify(open)); }));

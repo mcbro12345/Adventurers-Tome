@@ -2600,3 +2600,22 @@ html.mobile .notetip.tippin { color: inherit; background: none; }
 html.mobile .tabs { border-top: 1px solid color-mix(in srgb, var(--gold) 32%, transparent) !important; box-shadow: 0 -8px 20px rgba(0,0,0,.28) !important; }
 html.mobile:not([data-theme="dark"]) .tabs { box-shadow: 0 -6px 16px rgba(60,45,20,.12) !important; }
 .modal:has(.setx) #modal-body { overflow-x: clip !important; }
+/* ===== Windows fade in and out ===== */
+@keyframes wFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes wFadeOut { from { opacity: 1; } to { opacity: 0; } }
+@keyframes wPopIn { from { opacity: 0; transform: translateY(6px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes wPopOut { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(6px) scale(.985); } }
+@keyframes wSheetIn { from { opacity: .4; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+@keyframes wSheetOut { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(24px); } }
+.modal-bg.open { animation: wFadeIn .2s ease; }
+.modal-bg.open > .modal { animation: wPopIn .22s cubic-bezier(.22,.9,.24,1); }
+.modal-bg.closing { display: flex; pointer-events: none; animation: wFadeOut .18s ease forwards; }
+.modal-bg.closing > .modal { animation: wPopOut .18s ease forwards; }
+html.mobile .modal-bg.open > .modal { animation: wSheetIn .26s cubic-bezier(.22,.9,.24,1); }
+html.mobile .modal-bg.closing > .modal { animation: wSheetOut .18s ease forwards; }
+.wizard.open { animation: wFadeIn .22s ease; }
+.wizard.closing { display: block; pointer-events: none; animation: wFadeOut .18s ease forwards; }
+html.mobile .wizard.closing { display: flex; flex-direction: column; overflow: hidden; z-index: 90; height: 100dvh; }
+.menu.open .menu-list { animation: wPopIn .14s ease; }
+.menu.closing .menu-list { display: block; pointer-events: none; animation: wPopOut .14s ease forwards; }
+@media (prefers-reduced-motion: reduce) { .modal-bg.open, .modal-bg.open > .modal, .wizard.open, .menu.open .menu-list { animation: none !important; } }

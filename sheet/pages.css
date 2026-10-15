@@ -973,3 +973,19 @@ body:has(#modal.open) .pg-pres, body.wizopen .pg-pres { visibility: hidden !impo
 #pg-load .pg-spin { animation: none !important; }
 @keyframes pgLoadIn { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { #pg-load { animation: none; } }
+/* the page under the loading screen stays hidden until the screen starts fading away */
+html.pg-loading body > :not(#pg-load) { visibility: hidden !important; }
+/* windows and menus fade in and out */
+@keyframes hFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes hFadeOut { from { opacity: 1; } to { opacity: 0; } }
+@keyframes hPopIn { from { opacity: 0; transform: translateY(6px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes hPopOut { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(6px) scale(.985); } }
+body.hubbody .hub-modal.on { animation: hFadeIn .2s ease; }
+body.hubbody .hub-modal.on > * { animation: hPopIn .22s cubic-bezier(.22,.9,.24,1); }
+body.hubbody .hub-modal.closing { display: flex; pointer-events: none; animation: hFadeOut .18s ease forwards; }
+body.hubbody .hub-modal.closing > * { animation: hPopOut .18s ease forwards; }
+body.hubbody .hc-menu.on .hc-list, body.hubbody .adm-mwrap.on .adm-mlist { animation: hPopIn .14s ease; }
+body.hubbody .hc-menu.closing .hc-list, body.hubbody .adm-mwrap.closing .adm-mlist { display: block; pointer-events: none; animation: hPopOut .14s ease forwards; }
+@media (prefers-reduced-motion: reduce) { body.hubbody .hub-modal.on, body.hubbody .hub-modal.on > *, body.hubbody .hc-menu.on .hc-list, body.hubbody .adm-mwrap.on .adm-mlist { animation: none !important; } }
+/* the loading screen is sized to the whole window, so a scrollbar coming or going never nudges the dice */
+#pg-load { left: 0; top: 0; right: auto; bottom: auto; width: 100vw; height: 100vh; height: 100lvh; }
