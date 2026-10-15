@@ -32,10 +32,11 @@ const themeLabel = () => pgDark() ? 'Switch to light mode' : 'Switch to dark mod
 function themeBtnHTML() { return `<button class="hub-theme" id="hub-theme" title="${themeLabel()}" aria-label="${themeLabel()}">${pgDark() ? PG_SUN : PG_MOON}</button>`; }
 function wireThemeBtn(root) { const b = root.querySelector('#hub-theme'); if (!b) return;
   b.onclick = () => { const next = pgDark() ? 'light' : 'dark', de = document.documentElement;
-    if (!PG_CALM) { de.classList.add('pg-themeswap'); clearTimeout(de._ts); de._ts = setTimeout(() => de.classList.remove('pg-themeswap'), 420); }
-    de.setAttribute('data-pgtheme', next); try { localStorage.setItem('pg-theme', next); } catch (e) {}
-    b.innerHTML = pgDark() ? PG_SUN : PG_MOON; b.title = themeLabel(); b.setAttribute('aria-label', themeLabel());
-    if (b.animate && !PG_CALM) b.firstElementChild.animate([{ transform: 'rotate(-90deg) scale(.6)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 260, easing: 'cubic-bezier(.2,.9,.3,1)' }); }; }
+    // The whole page cross-fades from one look to the other (where the browser can), so nothing changes colour unevenly.
+    const flip = () => { de.setAttribute('data-pgtheme', next); try { localStorage.setItem('pg-theme', next); } catch (e) {}
+      b.innerHTML = pgDark() ? PG_SUN : PG_MOON; b.title = themeLabel(); b.setAttribute('aria-label', themeLabel()); };
+    const spin = () => { if (b.animate && !PG_CALM && b.firstElementChild) b.firstElementChild.animate([{ transform: 'rotate(-90deg) scale(.6)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 300, easing: 'cubic-bezier(.2,.9,.3,1)' }); };
+    if (!PG_CALM && document.startViewTransition) document.startViewTransition(flip).finished.then(spin, spin); else { flip(); spin(); } }; }
 // Small pop-up windows (contact, add to home screen, confirmations) fade out when closed instead of vanishing.
 // iPhones only show the pressed look (:active) on pages that listen for touches.
 document.addEventListener('touchstart', () => {}, { passive: true });

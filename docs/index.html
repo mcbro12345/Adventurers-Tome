@@ -1217,7 +1217,7 @@ html:has(#wizard.open) .pg-sb { z-index: 2000; }
 :where(body.hubbody, .wzh) .hp-row .hub-theme:active { transform: scale(.9); }
 @media (max-width: 640px) { :where(body.hubbody, .wzh) .hp-row .hub-theme { width: 22px; height: 22px; } :where(body.hubbody, .wzh) .hp-row .hub-theme svg { width: 13px; height: 13px; } }
 html[data-pgtheme="dark"] { color-scheme: dark; } html[data-pgtheme="light"] { color-scheme: light; }
-html.pg-themeswap body, html.pg-themeswap body * { transition: background-color .35s ease, color .35s ease, border-color .35s ease, box-shadow .35s ease !important; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .35s; animation-timing-function: ease; }
 @media (max-width: 640px) { body.hubbody:not(.adminbody) .hp-row:has(.hub-theme) { gap: 7px; } }
 @media (max-width: 640px) { body.hubbody:not(.adminbody) .hp-row:has(.hub-theme) .linkbtn, body.hubbody:not(.adminbody) .hp-row:has(.hub-theme) .hub-ctlink { font-size: .74rem; } body.hubbody:not(.adminbody) .hp-row:has(.hub-theme) { gap: 6px; } body.hubbody:not(.adminbody) .hub-top .hub-prof { gap: 6px; } }
 </style>
@@ -1297,10 +1297,11 @@ const themeLabel = () => pgDark() ? 'Switch to light mode' : 'Switch to dark mod
 function themeBtnHTML() { return `<button class="hub-theme" id="hub-theme" title="${themeLabel()}" aria-label="${themeLabel()}">${pgDark() ? PG_SUN : PG_MOON}</button>`; }
 function wireThemeBtn(root) { const b = root.querySelector('#hub-theme'); if (!b) return;
   b.onclick = () => { const next = pgDark() ? 'light' : 'dark', de = document.documentElement;
-    if (!PG_CALM) { de.classList.add('pg-themeswap'); clearTimeout(de._ts); de._ts = setTimeout(() => de.classList.remove('pg-themeswap'), 420); }
-    de.setAttribute('data-pgtheme', next); try { localStorage.setItem('pg-theme', next); } catch (e) {}
-    b.innerHTML = pgDark() ? PG_SUN : PG_MOON; b.title = themeLabel(); b.setAttribute('aria-label', themeLabel());
-    if (b.animate && !PG_CALM) b.firstElementChild.animate([{ transform: 'rotate(-90deg) scale(.6)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 260, easing: 'cubic-bezier(.2,.9,.3,1)' }); }; }
+    // The whole page cross-fades from one look to the other (where the browser can), so nothing changes colour unevenly.
+    const flip = () => { de.setAttribute('data-pgtheme', next); try { localStorage.setItem('pg-theme', next); } catch (e) {}
+      b.innerHTML = pgDark() ? PG_SUN : PG_MOON; b.title = themeLabel(); b.setAttribute('aria-label', themeLabel()); };
+    const spin = () => { if (b.animate && !PG_CALM && b.firstElementChild) b.firstElementChild.animate([{ transform: 'rotate(-90deg) scale(.6)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 300, easing: 'cubic-bezier(.2,.9,.3,1)' }); };
+    if (!PG_CALM && document.startViewTransition) document.startViewTransition(flip).finished.then(spin, spin); else { flip(); spin(); } }; }
 // Small pop-up windows (contact, add to home screen, confirmations) fade out when closed instead of vanishing.
 // iPhones only show the pressed look (:active) on pages that listen for touches.
 document.addEventListener('touchstart', () => {}, { passive: true });
@@ -1482,7 +1483,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261015154129', ASSETS = {"data": "a/data.fc7a76553b3c.js", "app": "a/app.a51e3c587b20.js", "full": "a/full.08c5d2dee3d4.js"};
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261015154316', ASSETS = {"data": "a/data.fc7a76553b3c.js", "app": "a/app.6fa9dc9e7d2e.js", "full": "a/full.08c5d2dee3d4.js"};
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }

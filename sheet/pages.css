@@ -1153,6 +1153,6 @@ html:has(#wizard.open) .pg-sb { z-index: 2000; }
 :where(body.hubbody) .hp-row .hub-theme:active { transform: scale(.9); }
 @media (max-width: 640px) { :where(body.hubbody) .hp-row .hub-theme { width: 22px; height: 22px; } :where(body.hubbody) .hp-row .hub-theme svg { width: 13px; height: 13px; } }
 html[data-pgtheme="dark"] { color-scheme: dark; } html[data-pgtheme="light"] { color-scheme: light; }
-html.pg-themeswap body, html.pg-themeswap body * { transition: background-color .35s ease, color .35s ease, border-color .35s ease, box-shadow .35s ease !important; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .35s; animation-timing-function: ease; }
 @media (max-width: 640px) { body.hubbody:not(.adminbody) .hp-row:has(.hub-theme) { gap: 7px; } }
 @media (max-width: 640px) { body.hubbody:not(.adminbody) .hp-row:has(.hub-theme) .linkbtn, body.hubbody:not(.adminbody) .hp-row:has(.hub-theme) .hub-ctlink { font-size: .74rem; } body.hubbody:not(.adminbody) .hp-row:has(.hub-theme) { gap: 6px; } body.hubbody:not(.adminbody) .hub-top .hub-prof { gap: 6px; } }
