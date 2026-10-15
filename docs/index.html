@@ -1110,6 +1110,16 @@ html:has(#pg-load)::-webkit-scrollbar { width: 0 !important; display: none !impo
   body.hubbody:not(.adminbody) .hub-views .pg-a2hs { display: block; order: -2; width: 100%; margin: 0 0 4px; text-align: center; font-size: .84rem; }
   body.hubbody:not(.adminbody) .hub-views .pg-a2hs a { display: flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 14px; border-radius: 12px; color: #c9962b; text-decoration: none; font-weight: 600; background: rgba(201,150,43,.1); border: 1px solid rgba(201,150,43,.3); }
 }
+.pg-out .pg-out-card { animation: pgCardIn .2s cubic-bezier(.2,.9,.3,1); }
+.pg-out.closing { pointer-events: none; animation: pgOutOut .17s ease forwards; }
+.pg-out.closing .pg-out-card { animation: pgCardOut .17s ease forwards; }
+@keyframes pgOutOut { to { opacity: 0; } }
+@keyframes pgCardIn { from { opacity: 0; transform: translateY(6px) scale(.97); } }
+@keyframes pgCardOut { to { opacity: 0; transform: translateY(4px) scale(.97); } }
+/* Add to home screen: presses in when tapped */
+.pg-a2hs a { transition: transform .1s ease, background-color .1s ease, filter .1s ease; -webkit-tap-highlight-color: transparent; }
+.pg-a2hs a:active { transform: scale(.96); background-color: rgba(201,150,43,.24) !important; filter: brightness(1.08); }
+@media (prefers-reduced-motion: reduce) { .pg-out .pg-out-card, .pg-out.closing, .pg-out.closing .pg-out-card { animation: none; } }
 </style>
 </head>
 <body>
@@ -1177,6 +1187,11 @@ function pgGo(url, replace) { const go = () => { if (url == null) location.reloa
   document.documentElement.classList.add('pg-leaving'); setTimeout(go, 280); }
 addEventListener('pageshow', e => { if (e.persisted) document.querySelectorAll('#pg-load.pg-leave').forEach(x => x.remove()); });
 window.pgGo = pgGo;
+// Small pop-up windows (contact, add to home screen, confirmations) fade out when closed instead of vanishing.
+// iPhones only show the pressed look (:active) on pages that listen for touches.
+document.addEventListener('touchstart', () => {}, { passive: true });
+function pgOutFade(m) { m.remove = () => { if (m._closing) return; m._closing = true;
+  if (PG_CALM || !m.isConnected) return Element.prototype.remove.call(m); m.classList.add('closing'); setTimeout(() => Element.prototype.remove.call(m), 170); }; }
 // Tabs tell each other about signing in, so finishing an emailed link in a new tab signs in the tab you started from.
 const PG_BC = (() => { try { return new BroadcastChannel('pg-auth'); } catch (e) { return null; } })();
 function pgAuthHandoff() { return new Promise(res => { if (!PG_BC) return res(false); let done = false;
@@ -1205,7 +1220,7 @@ function a2hsSteps() {
   const dots = '<svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" style="vertical-align:-3px"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>';
   const steps = pgIOS() ? [`Tap the <b>Share</b> button ${share} in your browser's toolbar.`, 'Scroll down and tap <b>Add to Home Screen</b>.', 'Tap <b>Add</b>.']
     : [`Open your browser's menu ${dots}.`, 'Tap <b>Add to Home screen</b> or <b>Install app</b>.', 'Tap <b>Add</b> or <b>Install</b>.'];
-  const m = document.createElement('div'); m.className = 'pg-out';
+  const m = document.createElement('div'); m.className = 'pg-out'; pgOutFade(m);
   m.innerHTML = `<div class="pg-out-card pg-a2hs-card" role="dialog" aria-modal="true" aria-labelledby="pg-a2-h"><h2 id="pg-a2-h">Add to home screen</h2><p>Open Adventurer’s Tome like an app, full screen, from your home screen.</p><ol>${steps.map(s => `<li>${s}</li>`).join('')}</ol><div class="pg-out-row"><button class="pg-out-no">Got it</button></div></div>`;
   const close = () => { m.remove(); document.removeEventListener('keydown', key); }, key = e => { if (e.key === 'Escape') close(); };
   m.onclick = e => { if (e.target === m) close(); }; m.querySelector('.pg-out-no').onclick = close; document.addEventListener('keydown', key); document.body.appendChild(m); }
@@ -1274,7 +1289,7 @@ const initials = (name, em) => { const w = String(name || em || '?').split(/[\s@
 const CONTACT_EMAIL = 'adventurerstome@googlegroups.com', CONTACT = '#contact';
 function pgContact() {
   if (document.querySelector('.pg-out')) return;
-  const su = encodeURIComponent('Adventurer’s Tome'), m = document.createElement('div'); m.className = 'pg-out';
+  const su = encodeURIComponent('Adventurer’s Tome'), m = document.createElement('div'); m.className = 'pg-out'; pgOutFade(m);
   m.innerHTML = `<div class="pg-out-card" role="dialog" aria-modal="true" aria-labelledby="pg-ct-h"><h2 id="pg-ct-h">Contact us</h2><p>Questions, ideas or something not working? Email us at</p>
     <div class="pg-ct-mail"><span>${CONTACT_EMAIL}</span><button class="pg-ct-copy">Copy</button></div>
     <div class="pg-out-row pg-ct-row"><a class="pg-ct-btn" target="_blank" rel="noopener" href="https://mail.google.com/mail/u/0/?view=cm&to=${encodeURIComponent(CONTACT_EMAIL)}&su=${su}">Open in Gmail</a><a class="pg-ct-btn" href="mailto:${CONTACT_EMAIL}?subject=${su}">Email app</a><button class="pg-out-no">Close</button></div></div>`;
@@ -1348,7 +1363,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261015150233', ASSETS = {"data": "a/data.fc7a76553b3c.js", "app": "a/app.0150b2f84cc2.js", "full": "a/full.08c5d2dee3d4.js"};
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261015150324', ASSETS = {"data": "a/data.fc7a76553b3c.js", "app": "a/app.0150b2f84cc2.js", "full": "a/full.08c5d2dee3d4.js"};
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -1465,7 +1480,7 @@ function wireDie(root) {
   // Signing out always asks first.
   const signOut = () => {
     if (document.querySelector('.pg-out')) return;
-    const m = document.createElement('div'); m.className = 'pg-out';
+    const m = document.createElement('div'); m.className = 'pg-out'; pgOutFade(m);
     m.innerHTML = '<div class="pg-out-card" role="dialog" aria-modal="true" aria-labelledby="pg-out-h"><h2 id="pg-out-h">Sign out?</h2><p>You’ll need to sign in again to open your characters on this device.</p><div class="pg-out-row"><button class="pg-out-no">Cancel</button><button class="pg-out-yes">Sign out</button></div></div>';
     const close = () => { m.remove(); document.removeEventListener('keydown', key); };
     const key = e => { if (e.key === 'Escape') close(); };
