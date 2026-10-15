@@ -1048,4 +1048,4 @@ html.pg-sbon::-webkit-scrollbar, html.pg-sbon body::-webkit-scrollbar { width: 0
 /* desktop: a scrollbar on one page and none on the next moved the dice by half its width. Centre on the whole window
    (vw/vh include the scrollbar), and keep the page from scrolling at all while the loading screen is up. */
 #pg-load .pg-spin { left: 50vw !important; top: 50vh !important; }
-html.pg-loading, html:has(#pg-load.pg-leave) { overflow: hidden !important; }
+html.pg-loading { overflow: hidden !important; }
