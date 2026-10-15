@@ -64,7 +64,8 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['at', 'by', 'byName', 'act', 'target', 'tName', 'detail'])
         && request.resource.data.act is string && request.resource.data.get('detail', '').size() <= 1500;
       allow read: if admin();
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if admin() && resource.data.at is number && resource.data.at < request.time.toMillis() - 604800000;
     }
     match /config/admins {
       allow get: if admin();

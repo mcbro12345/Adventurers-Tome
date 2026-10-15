@@ -1277,7 +1277,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261015141734', ASSETS = {"data": "a/data.fc7a76553b3c.js", "app": "a/app.0150b2f84cc2.js", "full": "a/full.08c5d2dee3d4.js"};
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261015141913', ASSETS = {"data": "a/data.fc7a76553b3c.js", "app": "a/app.0150b2f84cc2.js", "full": "a/full.08c5d2dee3d4.js"};
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -2064,7 +2064,7 @@ function hub(fs, auth, G, ctx) {
       chars: ['Characters', 'Every character on the site, newest activity first. Share any of them with yourself, or open, share, move or delete them.'],
       admins: ['Admins', 'Admins can open and edit every character, manage users and see new accounts.'],
       new: ['New', 'Accounts and characters that appeared since you last marked this as read.'],
-      audit: ['Audit log', 'Everything people have done on the site: sign-ins, characters opened, created, edited, shared and deleted, and admin actions. Search, or filter by date, person or activity; tap an event for its details.'] };
+      audit: ['Audit log', 'Everything people have done on the site: sign-ins, characters opened, created, edited, shared and deleted, and admin actions. Search, or filter by date, person or activity; tap an event for its details. Events are kept for 7 days.'] };
     // avatar: initials on a colour picked from the name, so the same person always looks the same
     const hue = t => [...String(t || '?')].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) % 360, 7);
     const ava = (name, em) => { const ini = String(name || em || '?').split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
@@ -2282,9 +2282,14 @@ function hub(fs, auth, G, ctx) {
     const CHAR_ACTS = new Set(['open', 'create', 'edit', 'delete', 'give', 'remove', 'share', 'unshare', 'access', 'leave']);
     let AF = { who: [], act: [], q: '', from: '', to: '', range: '' }, AROWS, AOPEN = {} = [], ALAST = null, AFULL = false, APEOPLE = null;
     const auditCol = fs.collection('audit');
+    // The log only keeps the past week: opening the admin page clears out anything older (the rules allow admins to
+    // delete only events more than 7 days old). Runs once per visit, in the background.
+    if (!window.PG_AUPRUNE) { window.PG_AUPRUNE = 1; (async () => { try { for (let i = 0; i < 20; i++) {
+      const snap = await auditCol.where('at', '<', Date.now() - 7 * 864e5 - 6e4).limit(400).get(); if (snap.empty) break;
+      const bt = fs.batch(); snap.docs.forEach(d => bt.delete(d.ref)); await bt.commit(); if (snap.size < 400) break; } } catch (e) {} })(); }
     // Modelled on the Atlassian admin audit log: one search box, a row of filter pills, then a dense table of
     // Date · Actor · Activity where each row opens to show the full details.
-    const AU_RANGES = [['', 'Any time'], ['1', 'Past 24 hours'], ['7', 'Past 7 days'], ['30', 'Past 30 days'], ['90', 'Past 90 days'], ['custom', 'Custom range…']];
+    const AU_RANGES = [['', 'Any time'], ['1', 'Past 24 hours'], ['3', 'Past 3 days'], ['7', 'Past 7 days'], ['custom', 'Custom range…']];
     const auRange = () => AF.range === 'custom' ? [dayMs(AF.from), dayMs(AF.to, true)] : AF.range ? [Date.now() - Number(AF.range) * 864e5, 0] : [0, 0];
     // Filter pills open a dropdown with its own search box and a checklist, as in Atlassian's admin.
     const auOn = () => !!(AF.range || AF.who.length || AF.act.length || AF.q);
