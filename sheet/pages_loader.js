@@ -316,7 +316,7 @@ function wireDie(root) {
   if (BAD) { say(`There’s nothing at this address.<br><br><a href="/">Go to your characters</a>`); return; }
   const user = await new Promise(res => { const u = auth.onAuthStateChanged(x => { u(); res(x); }); });
   if (!user) { if (PRETTY && !LOGIN) { const here = location.pathname + location.search; history.replaceState(null, '', '/login' + (here !== '/' ? '?next=' + enc(here) : '')); } signIn(auth, say); return; }
-  if (LOGIN) { const nx = Q.get('next') || '/'; location.replace(/^\/(?!\/)/.test(nx) ? nx : '/'); return; }
+  if (LOGIN) { const nx = Q.get('next') || '/'; pgGo(/^\/(?!\/)/.test(nx) ? nx : '/', true); return; } // keeps the loading screen up (no fade out and back in)
   const EMAIL = (user.email || '').toLowerCase(), IS_OWNER = EMAIL === ADMIN_EMAIL;
   let IS_ADMIN = IS_OWNER, ADMINS = [];
   try { const a = await fs.collection('config').doc('admins').get(); ADMINS = ((a.exists && a.data().emails) || []).map(x => String(x).toLowerCase()); if (ADMINS.includes(EMAIL)) IS_ADMIN = true; } catch (e) {}
