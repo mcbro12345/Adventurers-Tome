@@ -100,16 +100,18 @@ const LEG = location.pathname.replace(/[^/]*$/, '');
 // counts as "the app" and bring the browser's toolbar back.
 const STANDALONE = (() => { try { return navigator.standalone === true || matchMedia('(display-mode: standalone)').matches; } catch (e) { return false; } })();
 try { if (STANDALONE) document.documentElement.classList.add('pg-standalone'); } catch (e) {}
-const RESERVED = new Set(['shared', 'login', 'new', 'create', 'admin', 'c', 'a', 'icons', 'icon', 'index', 'index-html', 'version-json', 'users', 'help', 'settings']);
+const RESERVED = new Set(['shared', 'login', 'new', 'create', 'character', 'admin', 'c', 'a', 'icons', 'icon', 'index', 'index-html', 'version-json', 'users', 'help', 'settings']);
 const slugify = s => String(s || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
 const enc = encodeURIComponent;
+// A character's address: /character/zeebo (older /player/character addresses stay as they were).
+const pathURL = pth => pth.includes('/') ? '/' + pth : '/character/' + pth;
 const URLS = {
   hub: G => PRETTY ? '/' : LEG + '?g=' + G,
   shared: G => PRETTY ? '/shared' : LEG + '?g=' + G + '&view=shared',
   admin: (G, tab) => PRETTY ? '/admin' + (tab ? '/' + tab : '') : LEG + '?g=' + G + '&admin=1' + (tab ? '&tab=' + tab : ''),
-  char: c => PRETTY ? (c.path ? '/' + c.path : '/c/' + c.id) : LEG + '?c=' + c.id,
+  char: c => PRETTY ? (c.path ? pathURL(c.path) : '/c/' + c.id) : LEG + '?c=' + c.id,
   byId: id => PRETTY ? '/c/' + id : LEG + '?c=' + id,
-  newChar: (G, o, p) => PRETTY ? '/create' + (o || p ? '?' + [o ? 'o=' + enc(o) : '', p ? 'p=' + enc(p) : ''].filter(Boolean).join('&') : '') : LEG + '?new=1&g=' + G + (o ? '&o=' + enc(o) : '') + (p ? '&p=' + enc(p) : ''),
+  newChar: (G, o, p) => { try { if (o) sessionStorage.setItem('pg-newfor', JSON.stringify({ o, p: p || '' })); else sessionStorage.removeItem('pg-newfor'); } catch (e) {} return PRETTY ? '/create' : LEG + '?new=1&g=' + G; },
 };
 // Search keys for an account or character: every prefix of each word (and of the whole name / email), so the admin
 // pages can find "ryan", "o'neal" or "roneal1994@…" with one indexed lookup however many accounts there are.
@@ -212,7 +214,9 @@ function wireDie(root) {
   if (FRAMED) { window.PG_IN_PHONE = true; window.PG_FORCE_MOBILE = true; document.documentElement.classList.add('pg-inphone'); }
   window.pgPhoneView = on => { try { localStorage.removeItem(PHONE_KEY); on ? sessionStorage.setItem(PHONE_KEY, '1') : sessionStorage.removeItem(PHONE_KEY); } catch (e) {}
     if (FRAMED) { try { window.top.pgGo ? window.top.pgGo(null) : window.top.location.reload(); } catch (e) {} } else pgGo(null); };
-  const P = (Q.get('p') || '').slice(0, 60), O = (Q.get('o') || '').trim().toLowerCase().slice(0, 120);
+  // Making a character for someone else (admins): who it's for travels with the page, not in its address.
+  const NEWFOR = (() => { try { return JSON.parse(sessionStorage.getItem('pg-newfor') || 'null') || {}; } catch (e) { return {}; } })();
+  const P = String(Q.get('p') || NEWFOR.p || '').slice(0, 60), O = String(Q.get('o') || NEWFOR.o || '').trim().toLowerCase().slice(0, 120);
   const LAST_G = 'dnd-hub-group';
   let NEWQ = !!Q.get('new'), ADMINQ = !!Q.get('admin'), TABQ = clean(Q.get('tab')), VIEWQ = Q.get('view') === 'shared' ? 'shared' : 'mine', LOGIN = false, SLUG = '', BAD = false;
   if (PRETTY) {
@@ -224,6 +228,7 @@ function wireDie(root) {
     else if (parts.length === 1 && (parts[0] === 'create' || parts[0] === 'new')) NEWQ = true;
     else if (parts[0] === 'admin' && parts.length <= 2) { ADMINQ = true; TABQ = clean(parts[1] || ''); }
     else if (parts[0] === 'c' && parts.length === 2) C = clean(parts[1]);
+    else if (parts[0] === 'character' && parts.length === 2 && slugify(parts[1])) SLUG = slugify(parts[1]); // /character/zeebo
     else if (parts.length === 2) SLUG = slugify(parts[0]) + '/' + slugify(parts[1]); // older /player/character addresses
     else if (parts.length === 1 && slugify(parts[0])) SLUG = slugify(parts[0]);
     else BAD = true;
@@ -305,8 +310,8 @@ function wireDie(root) {
   if (!G && NEWQ) G = DEFAULT_G;
   // old-style addresses arriving here (bookmarks, the github.io handover) switch to the clean ones
   if (PRETTY && !STANDALONE && ['c', 'g', 'new', 'admin', 'view', 'tab'].some(k => Q.has(k))) {
-    const keep = new URLSearchParams(); ['o', 'p'].forEach(k => { if (Q.get(k)) keep.set(k, Q.get(k)); });
-    const to = C ? '/c/' + C : NEWQ ? '/create' + (keep.toString() ? '?' + keep : '') : ADMINQ ? '/admin' + (TABQ ? '/' + TABQ : '') : VIEWQ === 'shared' ? '/shared' : '/';
+    if (NEWQ && Q.get('o')) try { sessionStorage.setItem('pg-newfor', JSON.stringify({ o: Q.get('o'), p: Q.get('p') || '' })); } catch (e) {}
+    const to = C ? '/c/' + C : NEWQ ? '/create' : ADMINQ ? '/admin' + (TABQ ? '/' + TABQ : '') : VIEWQ === 'shared' ? '/shared' : '/';
     history.replaceState(null, '', to); }
   if (BAD) { say(`There’s nothing at this address.<br><br><a href="/">Go to your characters</a>`); return; }
   const user = await new Promise(res => { const u = auth.onAuthStateChanged(x => { u(); res(x); }); });
@@ -495,7 +500,7 @@ function wireDie(root) {
       if (doc.exists) { if (doc.data().c === C) { PATHKEY = base; PATHVAL = cand; return cand; } continue; }
       try { await book.doc(cand).set({ c: C }); PATHKEY = base; PATHVAL = cand; return cand; } catch (e) { return ''; } }
     return ''; };
-  const showPath = pth => { if (PRETTY && !STANDALONE && pth && location.pathname !== '/' + pth) history.replaceState(null, '', '/' + pth + location.search.replace(/([?&])v=[^&]*&?/, '$1').replace(/[?&]$/, '')); };
+  const showPath = pth => { if (PRETTY && !STANDALONE && pth && location.pathname !== pathURL(pth)) history.replaceState(null, '', pathURL(pth) + location.search.replace(/([?&])v=[^&]*&?/, '$1').replace(/[?&]$/, '')); };
   const hubSoon = () => { try { const d = digest(window.sheetState()); if (LASTD !== null && d !== LASTD) hubChanged = true; LASTD = d; } catch (e) {}
     clearTimeout(hubT); hubT = setTimeout(() => { const c = hubChanged; hubChanged = false; hubUpdate(c); }, 1200); };
 
@@ -511,9 +516,9 @@ function wireDie(root) {
   window.claude = { use: async n => n === 'db' ? db : n === 'user' ? cuser : null };
   run();
   // The Player field isn't typed in on the site: it's the owner's name from the player list.
-  const playerName = () => OWNER_NAME || P || '';
+  const playerName = () => OWNER_NAME || P || (OWNER === EMAIL ? (ME && ME.name) || user.displayName || '' : '');
   const syncPlayer = () => { try { const st = window.sheetState && window.sheetState(), want = playerName(); if (st && st.created && want && st.player !== want && role() !== 'view') window.sheetSet('player', want); } catch (e) {} };
-  if (NEW && P) { try { const st = window.sheetState(); if (st && !st.player) st.player = P; } catch (e) {} }
+  if (NEW && playerName()) { try { const st = window.sheetState(); if (st && !st.player) st.player = playerName(); } catch (e) {} }
   try { const st0 = window.sheetState(); if (st0 && st0.created) LASTD = digest(st0); } catch (e) {}
   if (!NEW && hubCol) setTimeout(() => { syncPlayer(); hubUpdate(false); }, 2500);
   // Activity log for this sheet: that it was opened, and (gathered up, at most about once a minute) what was changed.
@@ -524,7 +529,7 @@ function wireDie(root) {
     document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); }); addEventListener('pagehide', flush); }
   if (!NEW && hubCol && PRETTY) hubCol.doc(C).get().then(d => { const pth = d.exists && d.data().path; if (pth) showPath(pth); }, () => {});
   // New character: once it's created (and saved to the cloud), its link goes in the address bar.
-  if (NEW) { const t = setInterval(() => { let made = false; try { const st = window.sheetState && window.sheetState(); made = !!(st && st.created); } catch (e) {} if (!made) return; clearInterval(t);
+  if (NEW) { const t = setInterval(() => { let made = false; try { const st = window.sheetState && window.sheetState(); made = !!(st && st.created); } catch (e) {} if (!made) return; clearInterval(t); try { sessionStorage.removeItem('pg-newfor'); } catch (e) {}
     history.replaceState(null, '', URLS.byId(C)); syncPlayer();
     setTimeout(() => window.sheetToast(`<div><b>Your character is saved</b><div class="det">${G ? 'It\'s on your party page. ' : ''}Open it on any device you're signed in on — it stays in sync. ${IS_ADMIN && OWNER !== EMAIL ? 'It belongs to ' + OWNER + '.' : 'Only you and the people you share it with can open it.'}</div></div>`, '', 12000), 600);
     hubChanged = true; hubSoon();
@@ -742,7 +747,7 @@ function hub(fs, auth, G, ctx) {
   document.addEventListener('click', e => { if (e.target === modal) close(); });
 
   // ================= Hub: my characters and the ones shared with me =================
-  function createChar() { pgGo(URLS.newChar(G, '', myName())); }
+  function createChar() { pgGo(URLS.newChar(G)); }
   // Your picture: your initials (on a colour you can pick), one of your characters, or an image you upload.
   const myAva = () => { const a = avaOf(ME), ch = picModeOf(ME) === 'char' && ME.picChar && chars.find(c => c.id === ME.picChar && isMine(c)); if (ch && ch.thumb) a.pic = ch.thumb; return a; };
   // An uploaded image is shrunk to a small square here before saving. A transparent background is kept (as PNG) and the
@@ -989,6 +994,7 @@ function hub(fs, auth, G, ctx) {
 
   // ================= Admin section (its own page: ?g=…&admin=1) =================
   function adminSection() {
+    if (!window.PG_NF) { window.PG_NF = 1; document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-newfor]'); if (b) pgGo(URLS.newChar(G, b.dataset.newfor, nameOf(b.dataset.newfor))); }); }
     const UREF = usersCol.doc(EMAIL); let CHECKED = Number(ME && ME.checkedAt) || 0;
     const T0 = ctx.tab === 'characters' ? 'chars' : ctx.tab; let TAB = ['users', 'chars', 'admins', 'new', 'audit'].includes(T0) ? T0 : 'users';
     const CH = {}, US = {}; // characters and accounts on screen
@@ -1175,7 +1181,7 @@ function hub(fs, auth, G, ctx) {
         const toggle = async em => { const sub = l.querySelector(`[data-sub="${CSS.escape(em)}"]`), btn = l.querySelector(`[data-uc="${CSS.escape(em)}"]`); if (!sub) return;
           if (!sub.hidden) { sub.hidden = true; btn.textContent = 'Characters ▸'; return; } sub.hidden = false; btn.textContent = 'Characters ▾'; const cell = sub.firstElementChild;
           const fill = async () => { cell.innerHTML = '<p class="adm-dim">Loading…</p>'; try { const cs = docs(await charsCol.where('owner', '==', em).limit(100).get()).sort((x, y) => (y.updatedAt || 0) - (x.updatedAt || 0));
-            cell.innerHTML = ctable(cs, false) + `<a class="adm-btn sm" href="${esc(URLS.newChar(G, em, nameOf(em)))}">＋ New character for ${esc(nameOf(em))}</a>`; wire(cell, fill); } catch (x) { cell.innerHTML = failMsg(x); } };
+            cell.innerHTML = ctable(cs, false) + `<button class="adm-btn sm" data-newfor="${esc(em)}">＋ New character for ${esc(nameOf(em))}</button>`; wire(cell, fill); } catch (x) { cell.innerHTML = failMsg(x); } };
           fill(); };
         l.querySelectorAll('[data-uc]').forEach(b => b.onclick = () => toggle(b.dataset.uc));
         l.querySelectorAll('[data-mi]').forEach(b => b.onclick = async () => { const em = b.dataset.id; b.closest('.adm-mwrap').classList.remove('on');
