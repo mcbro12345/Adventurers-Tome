@@ -1139,3 +1139,10 @@ html:not(.mobile) .wz-box:has(.wzh) .wz-foot { padding: 8px 0 10px; }
 html.pg-sbon #wizard { scrollbar-width: none; }
 html.pg-sbon #wizard::-webkit-scrollbar { width: 0; display: none; }
 html:has(#wizard.open) .pg-sb { z-index: 2000; }
+/* Light mode: the loading screen is parchment too, so moving between light pages (and signing in) doesn't flash navy */
+@media (prefers-color-scheme: light) {
+  html.pg-loading, html.pg-loading body { background: #f6f1e6; }
+  #pg-load, #pg-load.pg-leave { background: radial-gradient(ellipse at 50% 40%, #fbf6ea 0%, #f1e9d8 70%) !important; color: #1f2a44 !important; }
+  #pg-load .pg-spin b { color: #a87a1c; }
+  #pg-load .pg-spin small { opacity: .7; }
+}
