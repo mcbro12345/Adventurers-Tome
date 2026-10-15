@@ -150,7 +150,7 @@ function wireDie(root) {
   const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
   // The loading screen fades away over the page instead of vanishing, and links between pages fade out first.
   function fadeLoad(el) { if (!el || !el.isConnected) return; if (matchMedia('(prefers-reduced-motion: reduce)').matches) return el.remove();
-    el.style.pointerEvents = 'none'; el.style.zIndex = '9999'; el.style.transition = 'opacity .6s ease'; void el.offsetWidth;
+    const cur = getComputedStyle(el).opacity; el.style.animation = 'none'; el.style.opacity = cur; el.style.pointerEvents = 'none'; el.style.zIndex = '9999'; el.style.transition = 'opacity .6s ease'; void el.offsetWidth;
     requestAnimationFrame(() => requestAnimationFrame(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 650); })); }
   document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[href]'); if (!a || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || (a.target && a.target !== '_self') || a.hasAttribute('download')) return;
     let u; try { u = new URL(a.href, location.href); } catch (x) { return; } if (u.origin !== location.origin || (u.pathname === location.pathname && u.search === location.search)) return;
@@ -333,7 +333,8 @@ function wireDie(root) {
   const run = async () => { let src; try { src = await fetched; } catch (e) { say('Couldn\'t load the sheet. Check your connection and reload.'); return; }
     document.documentElement.classList.remove('pg-loading');
     src.forEach(t => { const s = document.createElement('script'); s.textContent = t; document.body.appendChild(s); });
-    if (load) { if (load.parentNode !== document.body || load !== document.body.lastElementChild) document.body.appendChild(load); fadeLoad(load); }
+    // wait for the sheet's first burst of work to finish so the fade runs smoothly instead of stuttering
+    if (load) { if (!load.isConnected) document.body.appendChild(load); const go = () => fadeLoad(load); if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 600 }); else setTimeout(go, 150); }
     // then the full rules wording, which only tooltips and the Spells/Features text need: once it's in, redraw so they use it
     fullTxt.then(t => { if (!t) return; const s = document.createElement('script'); s.textContent = t; document.body.appendChild(s); try { if (typeof render === 'function') render(); } catch (e) {} }); };
   const col = fs.collection('sheets'), CACHE = 'dnd-pages-cache:' + C;
@@ -508,7 +509,7 @@ function hub(fs, auth, G, ctx) {
   const base = location.pathname, HUB = URLS.hub(G), ADMIN_URL = URLS.admin(G);
   const ADMIN = page === 'admin';
   document.title = ADMIN ? 'Admin — Adventurer’s Tome' : 'Adventurer’s Tome';
-  { const keep = document.getElementById('pg-load'); document.body.innerHTML = '<div id="hub"></div><div id="hub-modal" class="hub-modal"></div><div id="hub-toast" class="hub-toast"></div>'; if (keep) document.body.appendChild(keep); }
+  { const keep = document.getElementById('pg-load'); if (keep) { const o = getComputedStyle(keep).opacity; keep.style.animation = 'none'; keep.style.opacity = o; } document.body.innerHTML = '<div id="hub"></div><div id="hub-modal" class="hub-modal"></div><div id="hub-toast" class="hub-toast"></div>'; if (keep) document.body.appendChild(keep); }
   document.body.className = 'hubbody' + (ADMIN ? ' adminbody' : '');
   const root = document.getElementById('hub'), modal = document.getElementById('hub-modal');
   if (TOUCH && !document.documentElement.classList.contains('pg-touch')) { document.documentElement.classList.add('pg-touch'); noHover(); }

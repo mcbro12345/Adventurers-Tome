@@ -968,4 +968,8 @@ html.pg-leaving { background: #0f1420; }
 /* the viewers bubble hides with the Adventurer's Tome button while a window is open, so it never wanders */
 body:has(#modal.open) .pg-pres, body.wizopen .pg-pres { visibility: hidden !important; }
 
-#pg-load .pg-spin { animation: pg-fade .6s ease both .05s !important; }
+/* the loading screen (background and dice together) fades in as one */
+#pg-load { animation: pgLoadIn .5s ease both; }
+#pg-load .pg-spin { animation: none !important; }
+@keyframes pgLoadIn { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { #pg-load { animation: none; } }
