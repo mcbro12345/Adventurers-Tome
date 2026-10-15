@@ -614,6 +614,7 @@ function showTip(btn) {
   placeTip(t, btn);
 }
 function placeTip(t, btn) {
+  clearTimeout(t._ct); t.classList.remove('closing');
   if (isMobile() && !t.querySelector(':scope > .tipx')) t.insertAdjacentHTML('afterbegin', '<button class="tipx" type="button" aria-label="Close">✕</button>');
   t.style.maxHeight = ''; if (t._for !== btn) t.scrollTop = 0;
   const r = btn.getBoundingClientRect(), w = t.offsetWidth, m = 8, below = innerHeight - r.bottom - 8 - m, above = r.top - 8 - m;
@@ -621,7 +622,7 @@ function placeTip(t, btn) {
   if (h > below) { if (above > below) { if (h > above) { t.style.maxHeight = above + 'px'; h = above; } top = r.top - 8 - h; } else t.style.maxHeight = Math.max(120, below) + 'px'; }
   t.style.left = left + 'px'; t.style.top = Math.max(m, top) + 'px'; if (t._for !== btn) t._at = Date.now(); t._for = btn;
 }
-function hideTip() { const t = $('#tipbox'); if (t) { if (t._for) t._for.classList.remove('tippin'); t.classList.remove('on'); t._for = null; t._pinned = false; } $$('.notetip.tippin').forEach(x => x.classList.remove('tippin')); }
+function hideTip() { const t = $('#tipbox'); if (t) { clearTimeout(t._ct); t.classList.remove('closing'); if (t._for) t._for.classList.remove('tippin'); t.classList.remove('on'); t._for = null; t._pinned = false; } $$('.notetip.tippin').forEach(x => x.classList.remove('tippin')); }
 // Hovering an ⓘ shows its box; the mouse can cross the small gap into the box (and scroll it) without it closing.
 // Clicking an ⓘ pins its box open (the ⓘ changes color) until you click somewhere else.
 function inTipPath(t, x, y) {
@@ -641,7 +642,7 @@ document.addEventListener('mouseover', e => {
 document.addEventListener('mousemove', e => { const t = $('#tipbox.on'); if (!t || t._pinned || (e.target.closest && (e.target.closest('#tipbox') || e.target.closest('.notetip')))) return; if (!inTipPath(t, e.clientX, e.clientY)) hideTip(); }, { passive: true });
 // The mouse wheel over an ⓘ scrolls its box instead of the page.
 document.addEventListener('wheel', e => { const b = e.target.closest && e.target.closest('.notetip'), t = $('#tipbox.on'); if (!b || !t || t._for !== b) return; if (t.scrollHeight <= t.clientHeight) return; e.preventDefault(); t.scrollTop += e.deltaY; }, { passive: false });
-document.addEventListener('click', e => { if (e.target.closest && e.target.closest('.tipx')) { e.preventDefault(); e.stopPropagation(); hideTip(); return; } const b = e.target.closest && e.target.closest('.notetip'); if (b) { e.preventDefault(); const t = $('#tipbox.on'); if (t && t._for === b && t._pinned) hideTip(); else { if (t && t._for) t._for.classList.remove('tippin'); showTip(b); const n = $('#tipbox.on'); if (n) { n._pinned = true; b.classList.add('tippin'); } } } else if (!e.target.closest('#tipbox')) hideTip(); }, true);
+document.addEventListener('click', e => { if (e.target.closest && e.target.closest('.tipx')) { e.preventDefault(); e.stopPropagation(); const t = $('#tipbox.on'); if (t && !t.classList.contains('closing') && !matchMedia('(prefers-reduced-motion: reduce)').matches) { t.classList.add('closing'); clearTimeout(t._ct); t._ct = setTimeout(hideTip, 190); } else hideTip(); return; } const b = e.target.closest && e.target.closest('.notetip'); if (b) { e.preventDefault(); const t = $('#tipbox.on'); if (t && t._for === b && t._pinned) hideTip(); else { if (t && t._for) t._for.classList.remove('tippin'); showTip(b); const n = $('#tipbox.on'); if (n) { n._pinned = true; b.classList.add('tippin'); } } } else if (!e.target.closest('#tipbox')) hideTip(); }, true);
 addEventListener('scroll', e => { const t = e.target; if (t && t.nodeType === 1 && t.closest('#tipbox')) return; hideTip(); }, true);
 // Combat: long feature/item descriptions show two lines; click to read the rest.
 document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('#page-combat .cspg .opt-text'); if (t) t.classList.toggle('full'); });

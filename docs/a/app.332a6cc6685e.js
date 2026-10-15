@@ -135,6 +135,7 @@ function commit() {
   else HIST.push({ t: now, label, keys: changed });
   while (HIST.length > HMAX) HIST.shift();
   REDO = []; persistHist(); histButtons();
+  try { if (window.onSheetChange) window.onSheetChange(label); } catch (e) {}
 }
 function applyEntry(e) {
   const inv = { t: e.t, label: e.label, keys: {} };
@@ -142,8 +143,8 @@ function applyEntry(e) {
   return inv;
 }
 function afterHist() { S = migrate(S); LAST = snapAll(); writeLocal(); persistHist(); render(); }
-function undo(n = 1) { let c = 0; while (c < n && HIST.length) { REDO.push(applyEntry(HIST.pop())); c++; } if (c) afterHist(); return c; }
-function redo(n = 1) { let c = 0; while (c < n && REDO.length) { HIST.push(applyEntry(REDO.pop())); c++; } if (c) afterHist(); return c; }
+function undo(n = 1) { let c = 0, lb = ''; while (c < n && HIST.length) { lb = HIST[HIST.length - 1].label; REDO.push(applyEntry(HIST.pop())); c++; } if (c) { afterHist(); try { if (window.onSheetChange) window.onSheetChange('Undo: ' + String(lb).replace(/^Edit: /, '')); } catch (e) {} } return c; }
+function redo(n = 1) { let c = 0, lb = ''; while (c < n && REDO.length) { lb = REDO[REDO.length - 1].label; HIST.push(applyEntry(REDO.pop())); c++; } if (c) { afterHist(); try { if (window.onSheetChange) window.onSheetChange('Redo: ' + String(lb).replace(/^Edit: /, '')); } catch (e) {} } return c; }
 let histTimer = null;
 function persistHist() {
   clearTimeout(histTimer);
@@ -184,10 +185,14 @@ function writeLocal() {
 }
 const IOS_SAFARI = /iP(hone|od|ad)/.test(navigator.userAgent) && /Version\/[\d.]+.*Safari\//.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS/.test(navigator.userAgent);
 // Where the phone's bottom tab bar sits is a setting of this device (same for every character); 32 by default.
-function tabLift() { let v = null; try { v = localStorage.getItem('dnd-tablift'); } catch (e) {} return v != null && v !== '' ? N(v) : 32; }
+function tabLift() { let v = null; try { v = localStorage.getItem('dnd-tablift'); } catch (e) {} return v != null && v !== '' ? N(v) : 24; }
 function applyTabLift() { document.documentElement.style.setProperty('--tablift', tabLift() + 'px'); }
 function saveUI() { try { localStorage.setItem(UI_KEY, JSON.stringify(UI)); } catch (e) {} }
-function applyLayout() { applyTabLift(); const m = UI.layout ? UI.layout === 'mobile' : window.innerWidth < 640; document.documentElement.classList.toggle('mobile', m); }
+// An actual phone always uses the phone layout (the desktop layout can't be switched on there).
+const onPhone = () => { try { return !window.PG_IN_PHONE && matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600; } catch (e) { return false; } };
+// The layout always follows the device; the switch only lasts until the page is left or reloaded (it's never saved).
+let LAYOUT_NOW = '';
+function applyLayout() { applyTabLift(); const ph = onPhone(), m = window.PG_FORCE_MOBILE || ph || (LAYOUT_NOW ? LAYOUT_NOW === 'mobile' : window.innerWidth < 640); document.documentElement.classList.toggle('mobile', m); document.documentElement.classList.toggle('realphone', ph); }
 
 // ---------- Class / level math ----------
 const clsRows = () => S.classes || [];
@@ -1432,6 +1437,35 @@ let _tabIndKey = null;
 addEventListener('resize', () => slideTabInd());
 // Fonts or layout settling after load can shift the tabs; re-snap without animating.
 addEventListener('load', () => slideTabInd());
+// Phones: press the tab bar and slide along it — the highlight follows your finger and lets go on the tab you stop at.
+{
+  const bar = $('#tabs'); let drag = null, eat = false;
+  const tabAt = x => [...bar.querySelectorAll('.tab')].find(t => { const r = t.getBoundingClientRect(); return x >= r.left && x <= r.right; });
+  const place = (ind, x, w, y, h) => { ind.style.transform = `translate(${x}px, ${y}px)`; ind.style.width = w + 'px'; ind.style.height = h + 'px'; };
+  bar.addEventListener('pointerdown', e => {
+    if (!isMobile() || UI.editLayout || !e.isPrimary || !e.target.closest('.tab')) return;
+    drag = { id: e.pointerId, x0: e.clientX, on: false, hov: null };
+  });
+  bar.addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const ind = bar.querySelector('.tab-ind'), cur = bar.querySelector('.tab.on'); if (!ind || !cur) return;
+    if (!drag.on) { if (Math.abs(e.clientX - drag.x0) < 8) return; drag.on = true; bar.classList.add('tdrag'); try { bar.setPointerCapture(e.pointerId); } catch (x) {} }
+    const br = bar.getBoundingClientRect(), r = cur.getBoundingClientRect(), w = r.width, x = Math.max(4, Math.min(e.clientX - br.left - w / 2, br.width - w - 4));
+    ind.style.transition = 'none'; place(ind, x, w, r.top - br.top, r.height); drag.pos = { x, y: r.top - br.top, w, h: r.height };
+    const t = tabAt(e.clientX); if (t !== drag.hov) { if (drag.hov) drag.hov.classList.remove('thov'); if (t) { t.classList.add('thov'); try { navigator.vibrate && navigator.vibrate(4); } catch (x) {} } drag.hov = t; }
+  });
+  const end = e => {
+    if (!drag || e.pointerId !== drag.id) return; const d = drag; drag = null; bar.classList.remove('tdrag');
+    if (!d.on) return; eat = true; setTimeout(() => { eat = false; }, 400);
+    if (d.hov) d.hov.classList.remove('thov');
+    const t = e.type === 'pointercancel' ? null : tabAt(e.clientX), ind = bar.querySelector('.tab-ind');
+    _tabIndPrev = d.pos || _tabIndPrev;
+    if (t && t.dataset.tab !== UI.tab) { eat = false; t.click(); eat = true; }
+    else if (ind) { _tabIndKey = '~drag'; slideTabInd(); }
+  };
+  bar.addEventListener('pointerup', end); bar.addEventListener('pointercancel', end);
+  bar.addEventListener('click', e => { if (eat) { e.preventDefault(); e.stopPropagation(); } }, true);
+}
 
 const atkBtn = (i, short) => `<button class="btn gold sm atkbtn" data-act="attack" data-i="${i}" title="Roll to hit and damage; a natural 20 doubles the damage dice">⚔${short ? '' : ' Attack'}</button>`;
 const AB_ATK = [['str', 'STR'], ['dex', 'DEX'], ['fin', 'Finesse (best)'], ['monk', 'Monk (best)'], ['spell', 'Spellcasting'], ['int', 'INT'], ['wis', 'WIS'], ['cha', 'CHA'], ['', '—']];
@@ -1663,7 +1697,7 @@ function pactPips() {
 const spellTags = (s, noAlways) => (s.always && !noAlways ? '<span class="tag oath" title="Always prepared; doesn\'t count against your limit">Always</span>' : '') + (s.conc ? '<span class="tag">Conc</span>' : '') + (s.ritual ? '<span class="tag">Ritual</span>' : '') + (s.atWill ? '<span class="tag" title="Cast without a slot">At will</span>' : '') + (s.uses ? `<span class="tag" title="Free casts">${Math.max(0, evalMax(s.uses.max) - N(s.uses.used))}/${evalMax(s.uses.max)} free</span>` : '');
 function prepCell(s, i) {
   if (s.always) return '<span class="always" title="Always prepared; doesn\'t count against your limit">Always</span>';
-  if (N(s.level) === 0) return '<span class="always known" title="Cantrips are always ready">—</span>';
+  if (N(s.level) === 0) return '<span class="always known cant" title="Cantrips are always ready">—</span>';
   if (!isPrepCaster(s.cls)) return '<span class="always known" title="Known spell: always ready">Known</span>';
   return `<label class="prepbox" title="Prepared">${chk(`spells.${i}.prepared`, 'Prepared')}</label>`;
 }
@@ -1723,9 +1757,9 @@ function renderSpells() {
   // groups can be dragged into any order.
   const castBtn = i => `<button class="btn gold${m ? '' : ' sm'}" data-act="cast" data-i="${i}" title="Cast and apply its effects">Cast</button>`;
   const rowM = i => { const s = S.spells[i], open = UI.open['spell:' + i];
-    return `<div class="sp-card${spReady(s) ? '' : ' unprep'}" data-si="${i}"><div class="sp-top">${cust ? spOrdCtl(i) : ''}${prepCell(s, i)}
-        <button class="sp-name" data-act="toggle" data-key="spell:${i}" aria-expanded="${!!open}">${spDisp(s)} <span class="caret">${open ? '▴' : '▾'}</span></button><button class="notetip" data-tip="${i}" data-tipkind="sp" aria-label="What ${esc(s.name)} does">ⓘ</button><span class="grow"></span>${castBtn(i)}</div>
-        <div class="sp-meta">${spellTags(s, true)} <span class="tag cls">${esc(spItem(s) ? '◆ ' + spItem(s).name : clsName(s.cls))}</span> ${meta(s)}</div><div class="sp-sum">${esc(s.summary || '')}</div>
+    return `<div class="sp-card${spReady(s) ? '' : ' unprep'}" data-si="${i}"><div class="sp-top">${cust ? spOrdCtl(i) : ''}
+        <button class="sp-name" data-act="toggle" data-key="spell:${i}" aria-expanded="${!!open}">${spDisp(s)}<span class="caret">${open ? '▴' : '▾'}</span></button><button class="notetip" data-tip="${i}" data-tipkind="sp" aria-label="What ${esc(s.name)} does">ⓘ</button><span class="grow"></span>${castBtn(i)}</div>
+        <div class="sp-meta">${prepCell(s, i)}${spellTags(s, true)} <span class="tag cls">${esc(spItem(s) ? '◆ ' + spItem(s).name : clsName(s.cls))}</span> ${meta(s)}</div><div class="sp-sum">${esc(s.summary || '')}</div>
         ${open ? `<div class="sp-detail">${detail(s, i)}</div>` : ''}</div>`; };
   const rowT = i => { const s = S.spells[i], open = UI.open['spell:' + i];
     return `<tr class="${spReady(s) ? '' : 'unprep'}" data-si="${i}"><td class="spc-p" style="text-align:center">${prepCell(s, i)}</td>
@@ -2455,7 +2489,7 @@ function calcText(key) {
     case 'atk': return S.attacks[a] ? fmt(atkHit(S.attacks[a])) : '';
     case 'dmg': return S.attacks[a] ? atkDmgText(S.attacks[a]) : '';
     case 'round': return String(N(S.turn.round) || 1);
-    case 'worth': { const c = S.currency, gp = N(c.cp) / 100 + N(c.sp) / 10 + N(c.ep) / 2 + N(c.gp) + N(c.pp) * 10; return `≈ ${Math.round(gp * 100) / 100} gp`; }
+    case 'worth': { const c = S.currency, gp = N(c.cp) / 100 + N(c.sp) / 10 + N(c.ep) / 2 + N(c.gp) + N(c.pp) * 10; return `≈ ${(Math.round(gp * 100) / 100).toLocaleString('en-US')} gp`; }
     case 'weight': return String(Math.round(weight() * 10) / 10);
     case 'carry': return String(carryCap());
     case 'encnote': { const s = score('str') * carryMult(), e = encLevel(); return ST('encumbrance') === 'variant' ? `Encumbered over ${Math.floor(5 * s)} lb (−10 ft), heavily over ${Math.floor(10 * s)} lb (−20 ft, disadvantage)${e ? ' · ' + ['', 'encumbered', 'heavily encumbered', 'over capacity'][e] : ''}` : e === 3 ? 'Over capacity: speed 5 ft' : ''; }
@@ -2536,6 +2570,7 @@ function fxTip(e) {
 function refresh() {
   if (!S.created) return;
   $$('[data-calc]').forEach(el => { const t = calcText(el.dataset.calc); if (el.textContent !== t) el.textContent = t; });
+  fitCoins();
   $$('[data-calc-title]').forEach(el => el.title = calcText(el.dataset.calcTitle));
   $$('[data-calc-html]').forEach(el => {
     const ae = document.activeElement;
@@ -2701,6 +2736,10 @@ function alignHpSide() {
 }
 addEventListener('resize', () => alignHpSide());
 
+// Big coin piles shrink their number to fit the chip instead of getting cut off.
+function fitCoins() { $$('.cn .cin').forEach(el => { const n = String(el.value || '').length, z = n >= 8 ? .72 : n >= 7 ? .8 : n >= 6 ? .9 : n >= 5 ? 1 : 0; el.style.fontSize = z ? z + 'rem' : ''; }); }
+document.addEventListener('input', e => { if (e.target.classList && e.target.classList.contains('cin')) fitCoins(); });
+
 
 // ---------- Click handling ----------
 document.addEventListener('click', e => rollGate(() => mainClick(e)));
@@ -2727,7 +2766,8 @@ function mainClick(e) {
     case 'rbtime': { const ms = N($('#rbN').value) * N($('#rbU').value); rollback(countSince(ms), `the last ${N($('#rbN').value)} ${$('#rbU').selectedOptions[0].text}`); break; }
     case 'rbquick': rollback(countSince(N(b.dataset.ms)), b.firstChild.textContent.trim()); break;
     case 'redoall': { const c = redo(REDO.length); closeModal(true); toast(`Redid ${c} change(s).`); break; }
-    case 'layout': UI.layout = isMobile() ? 'desktop' : 'mobile'; saveUI(); applyLayout(); render(); window.scrollTo(0, 0); break;
+    case 'layout': if (onPhone()) break; if (window.pgPhoneView && (window.PG_IN_PHONE || (!isMobile() && window.innerWidth >= 640))) { window.pgPhoneView(!window.PG_IN_PHONE); break; }
+      LAYOUT_NOW = isMobile() ? 'desktop' : 'mobile'; applyLayout(); render(); window.scrollTo(0, 0); break;
     case 'attack': attackRoll(i, !b.closest('#page-combat') || !S.inCombat); break;
     case 'equip': equipItem(i); break;
     case 'resetturn': S.turn.haste = false; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.attacks = 0; S.turn.speed0 = ''; S.turn.sneak = false; S.turn.readied = null; update(); render('combat'); toast(`Turn reset — round ${N(S.turn.round) || 1} actions are ready again.`); break;
@@ -3451,14 +3491,12 @@ function exhText(L) {
 // Temporary changes (curses, potions, spells) go in Conditions instead.
 // Skill proficiency and expertise are changed here; on the sheet only the misc bonus box stays editable.
 function openSkillManage() {
-  openModal(`<h3>Skills</h3><p class="hint" style="margin:0 0 10px">Tap the circle to cycle: not proficient → proficient → expertise. Misc is a permanent bonus; for something temporary use Conditions → Skill.</p>
-    <div class="skman">${S.skills.map((s, i) => `<div class="skman-row"><button class="profbtn p${N(s.prof)}" data-act="skillprof" data-i="${i}" aria-label="${esc(s.name)} proficiency"></button><span>${esc(s.name)} <small class="ab3">${esc(s.ab)}</small></span><span class="skman-lv">${['—', 'Proficient', 'Expertise'][N(s.prof)]}</span><label class="skman-misc" title="Permanent bonus (an item, a feat, a DM ruling)">Misc ${inp('skills.' + i + '.misc', { num: 1, cls: 'sm', label: s.name + ' misc bonus', ph: '0' })}</label><b class="skman-v">${fmt(skillVal(s))}</b></div>`).join('')}</div>
-    <div class="actions"><button class="btn gold" data-act="skillok">Done</button></div>`, () => render());
+  openModal(`<div class="sethead"><h3>Skills</h3><button class="btn sm gold" data-act="skillok">Done</button></div><p class="hint" style="margin:0 0 10px">Tap the circle to cycle: not proficient → proficient → expertise. Misc is a permanent bonus; for something temporary use Conditions → Skill.</p>
+    <div class="skman">${S.skills.map((s, i) => `<div class="skman-row"><button class="profbtn p${N(s.prof)}" data-act="skillprof" data-i="${i}" aria-label="${esc(s.name)} proficiency"></button><span>${esc(s.name)} <small class="ab3">${esc(s.ab)}</small></span><span class="skman-lv">${['—', 'Proficient', 'Expertise'][N(s.prof)]}</span><label class="skman-misc" title="Permanent bonus (an item, a feat, a DM ruling)">Misc ${inp('skills.' + i + '.misc', { num: 1, cls: 'sm', label: s.name + ' misc bonus', ph: '0' })}</label><b class="skman-v">${fmt(skillVal(s))}</b></div>`).join('')}</div>`, () => render());
 }
 function openAbilManage() {
-  openModal(`<h3>Abilities &amp; saves</h3><p class="hint" style="margin:0 0 10px">Your permanent scores and saving-throw proficiencies. For something temporary — a curse, a potion, a spell — use <button class="linkbtn" data-act="abopen">Conditions → Ability scores</button> instead.</p>
-    <div class="abman">${AB.map(a => `<div class="abman-row"><b>${ABN[a]}</b>${inp('abilities.' + a, { num: 1, cls: 'score', label: ABN[a] + ' score' })}<span class="hint" data-calc="eff:${a}"></span><label class="checkline">${chk('saves.' + a, ABN[a] + ' save proficiency')} Proficient in saves</label></div>`).join('')}</div>
-    <div class="actions"><button class="btn gold" data-act="abilok">Done</button></div>`, () => render());
+  openModal(`<div class="sethead"><h3>Abilities &amp; saves</h3><button class="btn sm gold" data-act="abilok">Done</button></div><p class="hint" style="margin:0 0 10px">Your permanent scores and saving-throw proficiencies. For something temporary — a curse, a potion, a spell — use <button class="linkbtn" data-act="abopen">Conditions → Ability scores</button> instead.</p>
+    <div class="abman">${AB.map(a => `<div class="abman-row"><b>${ABN[a]}</b>${inp('abilities.' + a, { num: 1, cls: 'score', label: ABN[a] + ' score' })}<span class="hint" data-calc="eff:${a}"></span><label class="checkline abman-sv">${chk('saves.' + a, ABN[a] + ' save proficiency')} <span>Proficient in saves</span></label></div>`).join('')}</div>`, () => render());
   refresh();
 }
 // "Ability scores" tile in Conditions: click it to open a small editor for temporary changes.
@@ -4144,11 +4182,41 @@ function finishShort() {
   pendingLabel = 'Short rest'; closeModal(true); save(); render(); toast('Short rest complete.'); setTimeout(() => announce(res), 300); fxTrigger('shortRest');
 }
 function longRest() {
+  const L = longRestChanges();
   openModal(`<h3>Long Rest</h3>
-    <ul><li>HP restored to full; temporary HP cleared</li><li>All spell slots and Pact Magic slots restored</li>
-      <li>Features that reset on a short or long rest are restored; item charges restored</li><li>All Hit Dice restored</li>
-      <li>Exhaustion reduced by 1${N(S.exhaustion) ? ` (to ${N(S.exhaustion) - 1})` : ''}</li><li>Active spells, summons, transformations, concentration and death saves cleared</li></ul>
+    ${L.length ? `<p class="hint" style="margin:0 0 8px">Taking a long rest will change:</p><ul class="lrlist">${L.map(x => `<li>${x}</li>`).join('')}</ul>` : '<p>You\'re already fully rested — nothing will change.</p>'}
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="confirm-long" autofocus>Take Long Rest</button></div>`);
+}
+// Exactly what finishLong() is about to change, worked out from the sheet as it is right now.
+function longRestChanges() {
+  const out = [], b = v => `<b>${v}</b>`, arrow = (a, z) => `${b(a)} → ${b(z)}`;
+  const mx = maxHp(), cur = N(S.hp.cur);
+  if (cur < mx) out.push(`Hit points ${arrow(cur, mx)} <small>(+${mx - cur})</small>`);
+  if (N(S.hp.temp)) out.push(`${b(N(S.hp.temp))} temporary HP cleared`);
+  const slots = []; for (let l = 0; l < 9; l++) { const m = slotMax(l), u = Math.min(N(S.slotsUsed[l]), m); if (m && u) slots.push(`${ORD[l]} ${arrow(m - u, m)}`); }
+  if (slots.length) out.push(`Spell slots: ${slots.join(', ')}`);
+  const pc = pact(); if (pc && N(S.pactUsed)) out.push(`Pact Magic slots ${arrow(Math.max(0, pc.count - N(S.pactUsed)), pc.count)}`);
+  const hd = hdPools(), hdl = Object.keys(hd).filter(d => N(S.hdUsed[d])).map(d => `d${d} ${arrow(hdLeftOf(d), hd[d])}`);
+  if (hdl.length) out.push(`Hit Dice: ${hdl.join(', ')}`);
+  const uses = [];
+  S.features.forEach(f => { const m = featMax(f); if ((resetOf(f) === 'short' || f.reset === 'long') && N(f.used) && m != null) uses.push(`${esc(f.dname || f.name)} ${arrow(Math.max(0, m - N(f.used)), m)}`); });
+  S.spells.forEach(sp => { if (sp.uses && !sp.usesOnly && N(sp.uses.used)) uses.push(`${esc(sp.name)} ${N(sp.uses.max) ? arrow(Math.max(0, N(sp.uses.max) - N(sp.uses.used)), N(sp.uses.max)) : 'uses back'}`); });
+  S.inventory.forEach(it => { if (it.charges && it.charges.reset !== 'none' && N(it.charges.used)) { const m = N(it.charges.max); uses.push(`${esc(it.name)} ${arrow(Math.max(0, m - N(it.charges.used)), m)} charges`); } });
+  (S.companions || []).forEach(c => { if (c.used && Object.values(c.used).some(v => N(v))) uses.push(`${esc(c.name)}'s abilities`); });
+  if (uses.length) out.push(`Uses back: ${uses.join(', ')}`);
+  if (N(S.exhaustion)) out.push(`Exhaustion ${arrow(N(S.exhaustion), N(S.exhaustion) - 1)}`);
+  const ending = [];
+  Object.keys(S.condTurns || {}).forEach(c => { if ([-1, -2].includes(N(S.condTurns[c])) && S.conditions.includes(c)) ending.push(c); });
+  S.conditions.forEach(c => { if (['Unconscious', 'Raging', 'Dodging'].includes(c) && !ending.includes(c)) ending.push(c); });
+  Object.keys(S.tmpMods || {}).forEach(k => { if ([-1, -2].includes(N(S.tmpMods[k].r))) ending.push(`${tmName(k)} ${fmt(tmv(k))}`); });
+  if (abTempOn() && [-1, -2].includes(N(S.abTempR))) ending.push('ability score changes');
+  if (ending.length) out.push(`Ends: ${ending.map(esc).join(', ')}`);
+  const active = (S.effects || []).map(e => e.name).filter(Boolean);
+  if (S.concentration && !active.includes(S.concentration)) active.unshift(S.concentration);
+  if (S.form) active.push(S.form.name || 'your transformation');
+  if (active.length) out.push(`Ends: ${[...new Set(active)].map(esc).join(', ')}${S.concentration ? ' (concentration drops)' : ''}`);
+  if (N((S.death || {}).s) || N((S.death || {}).f)) out.push('Death saves reset');
+  return out;
 }
 // Conditions and ability changes set to last "until a short rest" / "until a long rest" end here.
 function endByRest(kinds) {
@@ -4361,8 +4429,7 @@ function openAcManage() {
     <div class="mbig"><b>${ai.total}</b><span>armor class</span></div>
     <div class="mlines">${ai.parts.map(p => `<div class="mline"><span>${esc(p)}</span></div>`).join('')}</div>
     <div class="msec"><div class="msec-h"><b>Set it yourself</b><small>${man ? 'Set manually — armor and DEX are ignored.' : 'Automatic from your armor, shield and DEX.'}</small></div><span class="mset"><input class="f" type="number" inputmode="numeric" data-acin placeholder="${ai.total}" value="${man ? ai.total : ''}" aria-label="Armor class">${man ? '<button class="btn sm" data-act="acauto">Auto</button>' : ''}</span></div>
-    <div class="msec"><div class="msec-h"><b>Temporary change</b><small>Shield of Faith from an ally, a curse, cover…</small></div>${stepper('tmpmod', 'ac', tv ? fmt(tv) : '0', 'Temporary AC')}</div>
-    ${tv ? `<div class="msec"><div class="msec-h"><b>Lasts</b></div>${durStep('ac')}</div>` : ''}
+    <p class="hint" style="margin:8px 0 0">For a temporary change to AC (Shield of Faith from an ally, a curse, cover) use <b>Conditions</b>.</p>
   </div>`;
   if ($('#acmanage') && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html);
 }
@@ -4985,13 +5052,15 @@ function showTip(btn) {
   placeTip(t, btn);
 }
 function placeTip(t, btn) {
+  clearTimeout(t._ct); t.classList.remove('closing');
+  if (isMobile() && !t.querySelector(':scope > .tipx')) t.insertAdjacentHTML('afterbegin', '<button class="tipx" type="button" aria-label="Close">✕</button>');
   t.style.maxHeight = ''; if (t._for !== btn) t.scrollTop = 0;
   const r = btn.getBoundingClientRect(), w = t.offsetWidth, m = 8, below = innerHeight - r.bottom - 8 - m, above = r.top - 8 - m;
   let h = t.offsetHeight, left = Math.max(m, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - m)), top = r.bottom + 8;
   if (h > below) { if (above > below) { if (h > above) { t.style.maxHeight = above + 'px'; h = above; } top = r.top - 8 - h; } else t.style.maxHeight = Math.max(120, below) + 'px'; }
   t.style.left = left + 'px'; t.style.top = Math.max(m, top) + 'px'; if (t._for !== btn) t._at = Date.now(); t._for = btn;
 }
-function hideTip() { const t = $('#tipbox'); if (t) { if (t._for) t._for.classList.remove('tippin'); t.classList.remove('on'); t._for = null; t._pinned = false; } $$('.notetip.tippin').forEach(x => x.classList.remove('tippin')); }
+function hideTip() { const t = $('#tipbox'); if (t) { clearTimeout(t._ct); t.classList.remove('closing'); if (t._for) t._for.classList.remove('tippin'); t.classList.remove('on'); t._for = null; t._pinned = false; } $$('.notetip.tippin').forEach(x => x.classList.remove('tippin')); }
 // Hovering an ⓘ shows its box; the mouse can cross the small gap into the box (and scroll it) without it closing.
 // Clicking an ⓘ pins its box open (the ⓘ changes color) until you click somewhere else.
 function inTipPath(t, x, y) {
@@ -5011,7 +5080,7 @@ document.addEventListener('mouseover', e => {
 document.addEventListener('mousemove', e => { const t = $('#tipbox.on'); if (!t || t._pinned || (e.target.closest && (e.target.closest('#tipbox') || e.target.closest('.notetip')))) return; if (!inTipPath(t, e.clientX, e.clientY)) hideTip(); }, { passive: true });
 // The mouse wheel over an ⓘ scrolls its box instead of the page.
 document.addEventListener('wheel', e => { const b = e.target.closest && e.target.closest('.notetip'), t = $('#tipbox.on'); if (!b || !t || t._for !== b) return; if (t.scrollHeight <= t.clientHeight) return; e.preventDefault(); t.scrollTop += e.deltaY; }, { passive: false });
-document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.notetip'); if (b) { e.preventDefault(); const t = $('#tipbox.on'); if (t && t._for === b && t._pinned) hideTip(); else { if (t && t._for) t._for.classList.remove('tippin'); showTip(b); const n = $('#tipbox.on'); if (n) { n._pinned = true; b.classList.add('tippin'); } } } else if (!e.target.closest('#tipbox')) hideTip(); }, true);
+document.addEventListener('click', e => { if (e.target.closest && e.target.closest('.tipx')) { e.preventDefault(); e.stopPropagation(); const t = $('#tipbox.on'); if (t && !t.classList.contains('closing') && !matchMedia('(prefers-reduced-motion: reduce)').matches) { t.classList.add('closing'); clearTimeout(t._ct); t._ct = setTimeout(hideTip, 190); } else hideTip(); return; } const b = e.target.closest && e.target.closest('.notetip'); if (b) { e.preventDefault(); const t = $('#tipbox.on'); if (t && t._for === b && t._pinned) hideTip(); else { if (t && t._for) t._for.classList.remove('tippin'); showTip(b); const n = $('#tipbox.on'); if (n) { n._pinned = true; b.classList.add('tippin'); } } } else if (!e.target.closest('#tipbox')) hideTip(); }, true);
 addEventListener('scroll', e => { const t = e.target; if (t && t.nodeType === 1 && t.closest('#tipbox')) return; hideTip(); }, true);
 // Combat: long feature/item descriptions show two lines; click to read the rest.
 document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('#page-combat .cspg .opt-text'); if (t) t.classList.toggle('full'); });
@@ -5164,7 +5233,7 @@ function downloadR20Ext() {
     else { delete m.browser_specific_settings; if (m.background) delete m.background.scripts; }
     files['manifest.json'] = JSON.stringify(m, null, 2);
   } catch (e) {}
-  download('dnd-sheet-roll20-extension.zip', makeZip(files), 'application/zip');
+  download('adventurers-tome-roll20-extension.zip', makeZip(files), 'application/zip');
 }
 
 // Which browser this is, and how to load the Roll20 extension in it.
@@ -6770,7 +6839,9 @@ function vfxDraw(x, W, H, t, v) {
   };
   // A figure on the left swinging a weapon at a figure on the right. `swings` lists [start, from, to] in phase/radians.
   const swingScene = (swings, trailA, trailB, glowC, impact) => {
-    const fx = W * .28, fs = H * .22 * 1.35, sx = fx + fs * .12, sy = ground - fs * .55, L = W * (v.w === 'dagger' ? .26 : v.w === 'spear' || v.w === 'staff' ? .38 : .31);
+    const fx = W * .28, fs = H * .22 * 1.35, sx = fx + fs * .12, sy = ground - fs * .55, L = W * (v.w === 'dagger' ? .24 : v.w === 'spear' || v.w === 'staff' ? .3 : .25);
+    // The blade stops at the target's chest instead of cutting through it or down past its feet.
+    swings = swings.map(([st, a0, a1]) => [st, Math.min(a0, P * .02), Math.min(a1, P * .02)]);
     figure(fx, ground, H * .22); const hitAt = [];
     let ang = swings[0][1], live = null;
     swings.forEach(([st, a0, a1]) => { const wind = .08, dur = .2; if (ph >= st) { const q = (ph - st - wind) / dur; ang = q < 0 ? a0 - .15 * Math.sin(Math.min(1, (ph - st) / wind) * P / 2) : a0 + (a1 - a0) * ease(Math.min(1, q)); if (q >= 0 && q < 1.6) live = { a0, a: ang, q }; hitAt.push(st + wind + dur * .6); } });
@@ -6838,7 +6909,7 @@ function vfxDraw(x, W, H, t, v) {
     x.beginPath(); x.moveTo(-26, -30); x.quadraticCurveTo(-40, -40, -42, -30); x.quadraticCurveTo(-36, -30, -27, -24); x.fill();
     x.shadowBlur = 0; dot(31, -38, 1.8, '#1b2131'); x.restore(); x.globalAlpha = 1;
   } else if (m === 'slash') {
-    swingScene([[0, -P * .62, P * .22]], c2, c1, null, r => { for (let k = 0; k < 8; k++) { const sa = k / 8 * 2 * P + rnd() * .3, d = 4 + r * 16; dot(W * .7 + Math.cos(sa) * d, ground - H * .26 + Math.sin(sa) * d, 1.8, c2, 1 - r); } });
+    swingScene([[0, -P * .62, P * .22]], c2, c1, null, r => { for (let k = 0; k < 8; k++) { const sa = k / 8 * 2 * P + rnd() * .3, d = 4 + r * 16; dot(W * .66 + Math.cos(sa) * d, ground - H * .21 + Math.sin(sa) * d, 1.8, c2, 1 - r); } });
   } else if (m === 'dash') {
     const q = ease(ph), px = W * (.15 + .7 * q); figure(px, ground, H * .22, '#aab3c8');
     for (let k = 0; k < 6; k++) { x.strokeStyle = c1; x.globalAlpha = .6 - k * .08; x.lineWidth = 2; const ly = ground - H * (.1 + k * .06); x.beginPath(); x.moveTo(px - W * .08, ly); x.lineTo(px - W * (.2 + k * .03), ly); x.stroke(); } x.globalAlpha = 1;
@@ -8261,6 +8332,13 @@ loadHist(FROM_LOCAL);
 applyLayout(); applyTheme();
 if (S.created) { render(); setTimeout(afterUpdate, 50); }
 else openWizard();
-window.addEventListener('resize', () => { if (!UI.layout) { const was = isMobile(); applyLayout(); if (was !== isMobile() && S.created) render(); } });
+window.addEventListener('resize', () => { if (!LAYOUT_NOW) { const was = isMobile(); applyLayout(); if (was !== isMobile() && S.created) render(); } });
 })();
+// While typing on a phone the keyboard is up: hide the bottom tab bar (like a native app) instead of letting it ride up above the keyboard.
+{
+  const typing = el => !!el && (el.isContentEditable || el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !/^(button|checkbox|radio|range|color|file|submit|reset|image)$/i.test(el.type || '')) || el.tagName === 'SELECT');
+  let kbT = 0;
+  document.addEventListener('focusin', e => { clearTimeout(kbT); if (typing(e.target)) document.documentElement.classList.add('kbopen'); });
+  document.addEventListener('focusout', () => { clearTimeout(kbT); kbT = setTimeout(() => { if (!typing(document.activeElement)) document.documentElement.classList.remove('kbopen'); }, 120); });
+}
 
