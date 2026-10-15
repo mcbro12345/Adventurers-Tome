@@ -852,3 +852,61 @@ body.hubbody:not(.adminbody) .hub-head { background: rgba(14,19,30,.97); }
   body.adminbody .adm-nav:not(.adm-side .adm-nav) .adm-ni { padding: 4px 0 !important; letter-spacing: -.01em; }
 }
 @media (max-width: 640px) { .au-dates label > span { width: 38px; flex: none; } }
+/* Audit filter dropdowns: a search box and a checklist, like Atlassian's */
+.au-pw { position: relative; flex: none; }
+.au-pill { font: inherit; font: 500 .84rem system-ui, sans-serif; }
+.au-pill.open { border-color: #c9962b; box-shadow: 0 0 0 2px rgba(201,150,43,.25); }
+.au-pill.open svg { transform: rotate(180deg); }
+.au-pill svg { transition: transform .15s; }
+.au-pop { position: absolute; left: 0; top: calc(100% + 6px); z-index: 60; width: 300px; max-width: calc(100vw - 24px); display: flex; flex-direction: column; background: var(--adm-panel); color: var(--adm-ink);
+  border: 1px solid var(--adm-line); border-radius: 10px; box-shadow: 0 12px 32px rgba(0,0,0,.4); overflow: hidden; animation: auPop .14s ease-out; }
+@keyframes auPop { from { opacity: 0; transform: translateY(-4px); } }
+.au-psearch { display: flex; align-items: center; gap: 8px; margin: 10px; padding: 0 10px; height: 36px; border: 1px solid var(--adm-line); border-radius: 7px; color: var(--adm-dim); background: var(--adm-bg); }
+.au-psearch:focus-within { border-color: #c9962b; }
+.au-psearch input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--adm-ink); font: 500 .88rem system-ui, sans-serif; }
+.au-ph { padding: 12px 14px 4px; font: 700 .7rem system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: var(--adm-dim); }
+.au-opts { max-height: 300px; overflow-y: auto; overscroll-behavior: contain; padding: 4px 0 6px; }
+.au-opt { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 14px; border: 0; background: none; color: inherit; font: 500 .88rem system-ui, sans-serif; text-align: left; cursor: pointer; }
+.au-opt:hover { background: var(--adm-hover); }
+.au-opt .adm-ava { width: 24px; height: 24px; font-size: .6rem; flex: none; }
+.au-ot { display: flex; flex-direction: column; min-width: 0; }
+.au-ot > span, .au-ot small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.au-ot small { color: var(--adm-dim); font-size: .74rem; }
+.au-cb { flex: none; width: 16px; height: 16px; border: 1.5px solid var(--adm-dim); border-radius: 4px; display: grid; place-items: center; box-sizing: border-box; }
+.au-cb.on { background: #c9962b; border-color: #c9962b; color: #141a28; }
+.au-rb { flex: none; width: 16px; height: 16px; border: 1.5px solid var(--adm-dim); border-radius: 50%; box-sizing: border-box; }
+.au-rb.on { border: 5px solid #c9962b; }
+.au-pg { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px 4px; font: 700 .68rem system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: var(--adm-dim); }
+.au-plink { border: 0; background: none; padding: 0; color: #e6bd5a; font: 600 .78rem system-ui, sans-serif; text-transform: none; letter-spacing: 0; cursor: pointer; }
+.au-plink:hover { text-decoration: underline; }
+.au-pfoot { display: flex; justify-content: space-between; align-items: center; padding: 9px 14px; border-top: 1px solid var(--adm-line); font: 500 .8rem system-ui, sans-serif; }
+.au-none { margin: 0; padding: 12px 14px; color: var(--adm-dim); font: 500 .85rem system-ui, sans-serif; }
+.au-pdates { display: flex; flex-direction: column; gap: 8px; padding: 6px 14px 14px; border-top: 1px solid var(--adm-line); }
+.au-pdates label { display: flex; align-items: center; gap: 8px; font: 600 .8rem system-ui, sans-serif; color: var(--adm-dim); }
+.au-pdates label > span { width: 38px; }
+.au-pdates input { flex: 1; min-width: 0; height: 34px; padding: 0 8px; border: 1px solid var(--adm-line); border-radius: 6px; background: var(--adm-bg); color: var(--adm-ink); font: 500 .86rem system-ui, sans-serif; color-scheme: dark; }
+@media (prefers-color-scheme: light) { .au-pop { box-shadow: 0 12px 32px rgba(60,45,20,.18); } .au-plink { color: #8a6420; } .au-pdates input { color-scheme: light; } }
+/* phones: the dropdown becomes a sheet from the bottom, with room for a thumb */
+@media (max-width: 640px) {
+  .au-pills { overflow: visible; flex-wrap: wrap; margin: 0; padding: 0; }
+  .au-pop { position: fixed; left: 0; right: 0; top: auto; bottom: 0; width: auto; max-width: none; border-radius: 16px 16px 0 0; padding-bottom: calc(var(--tablift, 24px) + 70px); max-height: 75vh; z-index: 70; animation: auSheet .2s ease-out; }
+  @keyframes auSheet { from { transform: translateY(30px); opacity: 0; } }
+  .au-psearch { height: 44px; } .au-psearch input { font-size: 16px; }
+  .au-opt { padding: 12px 16px; font-size: .95rem; }
+  .au-opts { max-height: none; flex: 1; min-height: 0; }
+  .au-pdates input { height: 42px; font-size: 16px; }
+}
+@media (max-width: 640px) {
+  body.adminbody .au-pop { bottom: calc(63px + var(--tablift, 24px)); padding-bottom: 0; max-height: 62vh; z-index: 45; border-bottom: 0; box-shadow: 0 0 0 100vmax rgba(5,8,14,.5), 0 -10px 30px rgba(0,0,0,.4); }
+}
+/* My / Shared characters: one highlight that slides between the two buttons */
+body.hubbody .hub-views .hv-ind { position: absolute; left: 0; top: 0; z-index: 0; border-radius: 999px; pointer-events: none; background: #1f2a44; transition: transform .3s cubic-bezier(.3,1.2,.5,1), width .3s cubic-bezier(.3,1.2,.5,1); }
+body.hubbody .hub-views.hv-has > button[data-view] { position: relative; z-index: 1; transition: color .2s, border-color .2s; }
+body.hubbody .hub-views.hv-has > button[data-view].on { background: transparent !important; border-color: transparent !important; }
+@media (prefers-color-scheme: dark) { body.hubbody .hub-views .hv-ind { background: #c9962b; } }
+html.pg-touch body.hubbody:not(.adminbody) .hub-list { touch-action: pan-y; }
+body.hubbody:not(.adminbody) { overflow-x: clip; }
+body.hubbody:not(.adminbody) .hub-list { will-change: auto; }
+@media (prefers-reduced-motion: reduce) { body.hubbody .hub-views .hv-ind { transition: none; } }
+body.hubbody .hub-views.hv-drag > button[data-view] { color: #e9e3d3 !important; }
+@media (prefers-color-scheme: light) { body.hubbody .hub-views.hv-drag > button[data-view] { color: #1f2a44 !important; } body.hubbody .hub-views.hv-drag .hv-ind { opacity: .35; } }
