@@ -58,7 +58,7 @@ service cloud.firestore {
       allow update: if admin() || (signedIn() && request.resource.data.keys().hasOnly(['c']) && request.resource.data.c == resource.data.c && ownsSheet(resource.data.c));
       allow delete: if admin() || (signedIn() && ownsSheet(resource.data.c));
     }
-    // Activity log: anyone signed in can add their own entries; only admins can read it; nobody can change or delete it.
+    // Activity log: anyone signed in can add their own entries; only admins can read it; nobody can change it, and admins can only delete events more than 7 days old.
     match /audit/{id} {
       allow create: if signedIn() && request.resource.data.by == me()
         && request.resource.data.keys().hasOnly(['at', 'by', 'byName', 'act', 'target', 'tName', 'detail'])
