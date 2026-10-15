@@ -1097,6 +1097,7 @@ html:has(#pg-load)::-webkit-scrollbar { width: 0 !important; display: none !impo
 @media (max-width: 640px) { :where(body.hubbody) .hp-row .hub-ctlink { font-size: .8rem; } }
 :where(body.hubbody) .hp-row .hub-ctlink { margin-left: auto; }
 :where(body.hubbody) .hp-row:has(.hub-ctlink) { width: 100%; }
+:where(#pg-load) .pg-signin .pg-kicked.ok { background: rgba(201,150,43,.14); color: inherit; }
 </style>
 </head>
 <body>
@@ -1303,7 +1304,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261015145129', ASSETS = {"data": "a/data.fc7a76553b3c.js", "app": "a/app.0150b2f84cc2.js", "full": "a/full.08c5d2dee3d4.js"};
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261015145301', ASSETS = {"data": "a/data.fc7a76553b3c.js", "app": "a/app.0150b2f84cc2.js", "full": "a/full.08c5d2dee3d4.js"};
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -1683,12 +1684,16 @@ function signIn(auth, say) {
     <p class="hub-hint" id="si-msg">No Google account? We'll email you a sign-in link.</p>${kickedMsg ? `<p class="pg-kicked">${kickedMsg}</p>` : ''}
     <p class="pg-contact">Trouble signing in? <a href="${CONTACT}">Contact us</a></p></div>`);
   wireDie(document.getElementById('pg-load'));
-  const msg = t => { const m = document.getElementById('si-msg'); if (m) { m.innerHTML = t; m.style.whiteSpace = 'normal'; } };
+  // Errors and the "check your email" note show in the box just above the bottom divider (where "You've been signed
+  // out" appears), replacing it; the hint line under the email field stays as it is.
+  const msg = (t, ok) => { const card = document.querySelector('.pg-signin'); if (!card) return; let m = card.querySelector('.pg-kicked');
+    if (!m) { m = document.createElement('p'); m.className = 'pg-kicked'; card.insertBefore(m, card.querySelector('.pg-contact')); }
+    m.classList.toggle('ok', !!ok); m.innerHTML = t; if (m.animate && !PG_CALM) m.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'ease-out' }); };
   document.getElementById('si-g').onclick = async () => { const pr = new firebase.auth.GoogleAuthProvider(); pr.setCustomParameters({ prompt: 'select_account' });
     try { await auth.signInWithPopup(pr); pgGo(null); } catch (e) { if (e && /popup/.test(e.code || '')) { auth.signInWithRedirect(pr); return; } msg('Couldn\'t sign in: ' + ((e && e.message) || e)); } };
   document.getElementById('si-f').onsubmit = async e => { e.preventDefault(); const em = document.getElementById('si-e').value.trim().toLowerCase(); if (!em) return;
     try { await auth.sendSignInLinkToEmail(em, { url: location.origin + location.pathname, handleCodeInApp: true }); try { localStorage.setItem('dnd-signin-email', em); localStorage.setItem('dnd-signin-back', location.href); } catch (x) {}
-      msg(`<b>Check your email</b> (${em}) for a sign-in link and open it on this device. If it isn't there in a minute, look in Spam.`); } catch (x) { msg('Couldn\'t send the link: ' + ((x && x.message) || x)); } };
+      msg(`<b>Check your email</b> (${em}) for a sign-in link and open it on this device. If it isn't there in a minute, look in Spam.`, true); } catch (x) { msg('Couldn\'t send the link: ' + ((x && x.message) || x)); } };
 }
 
 // ================= The hub, and the admin section =================
