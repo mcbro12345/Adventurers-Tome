@@ -1084,8 +1084,9 @@ html:has(#pg-load)::-webkit-scrollbar { width: 0 !important; display: none !impo
 :where(#pg-load) .pg-signin { text-align: center; padding: 30px 30px 22px; width: min(440px, calc(100vw - 32px)); box-sizing: border-box; }
 :where(#pg-load) .pg-signin .hub-logo { margin: 0 0 16px; }
 :where(#pg-load) .pg-signin p.pg-about { margin: 0 auto; max-width: 40ch; font-size: .9rem; line-height: 1.55; opacity: .78; text-wrap: balance; }
+:where(#pg-load) .pg-signin .pg-sdiv { height: 1px; margin: 22px 0 0; background: rgba(201,150,43,.28); }
 :where(#pg-load) .pg-signin .pg-kicked { margin: 18px 0 0; text-align: center; }
-:where(#pg-load) .pg-signin h2 { margin: 22px 0 14px; padding-top: 20px; border-top: 1px solid rgba(201,150,43,.28); font: 700 1.3rem Georgia, serif; letter-spacing: .01em; }
+:where(#pg-load) .pg-signin h2 { margin: 18px 0 14px; font: 700 1.3rem Georgia, serif; letter-spacing: .01em; }
 :where(#pg-load) .pg-signin .pg-or { margin: 16px 0 4px; }
 :where(#pg-load) .pg-signin .who-f { margin: 12px 0 0; }
 :where(#pg-load) .pg-signin .hub-hint { margin: 10px auto 0; white-space: nowrap; font-size: min(.8rem, calc((100vw - 76px) / 25)); line-height: 1.45; }
@@ -1298,7 +1299,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261015144744', ASSETS = {"data": "a/data.fc7a76553b3c.js", "app": "a/app.0150b2f84cc2.js", "full": "a/full.08c5d2dee3d4.js"};
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261015144923', ASSETS = {"data": "a/data.fc7a76553b3c.js", "app": "a/app.0150b2f84cc2.js", "full": "a/full.08c5d2dee3d4.js"};
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -1671,7 +1672,7 @@ function wireDie(root) {
 // ================= Sign in (once per device) =================
 function signIn(auth, say) {
   const kickedMsg = (() => { try { const m = localStorage.getItem('pg-kicked'); localStorage.removeItem('pg-kicked'); return m || ''; } catch (e) { return ''; } })();
-  say(`<div class="pg-signin">${logoHTML()}<p class="pg-about">D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game.</p>${kickedMsg ? `<p class="pg-kicked">${kickedMsg}</p>` : ''}<h2>Sign in</h2>
+  say(`<div class="pg-signin">${logoHTML()}<p class="pg-about">D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game.</p><div class="pg-sdiv"></div>${kickedMsg ? `<p class="pg-kicked">${kickedMsg}</p>` : ''}<h2>Sign in</h2>
     <button class="btn gold big" id="si-g"><svg viewBox="0 0 48 48" width="18" height="18" style="vertical-align:-3px;margin-right:8px"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>Sign in with Google</button>
     <div class="pg-or">or</div>
     <form id="si-f" class="who-f"><input id="si-e" type="email" placeholder="Your email address" autocomplete="email" required><button class="btn">Email me a link</button></form>
