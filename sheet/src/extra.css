@@ -2597,3 +2597,6 @@ html.mobile #tipbox.closing { opacity: 0; transform: translateY(14px) scale(.98)
 html.mobile #tipbox.closing .tipx { transform: rotate(90deg) scale(.86); transition: transform .18s ease; }
 html.mobile .tabs { -webkit-transform: translateZ(0); transform: translateZ(0); isolation: isolate; }
 html.mobile .notetip.tippin { color: inherit; background: none; }
+/* Phone tab bar: the same thin gold divider as the admin tabs, with a soft shadow cast up onto the page */
+html.mobile .tabs { border-top: 1px solid color-mix(in srgb, var(--gold) 32%, transparent) !important; box-shadow: 0 -8px 20px rgba(0,0,0,.28) !important; }
+html.mobile:not([data-theme="dark"]) .tabs { box-shadow: 0 -6px 16px rgba(60,45,20,.12) !important; }

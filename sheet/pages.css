@@ -768,7 +768,7 @@ body.hubbody:not(.adminbody) .hub-head { background: rgba(14,19,30,.97); }
   body.adminbody .adm-nav .adm-ni.nhov { color: #f1d58a; opacity: 1; }
   body.adminbody .adm-main { padding-bottom: calc(96px + var(--tablift, 24px)) !important; }
   body.adminbody .adm-body { animation: admIn .22s ease-out; }
-  @keyframes admIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes admIn { from { opacity: 0; } to { opacity: 1; } }
 }
 @media (max-width: 860px) and (prefers-color-scheme: light) { body.adminbody .adm-nav:not(.adm-side .adm-nav) { box-shadow: 0 -6px 16px rgba(60,45,20,.12); } }
 @media (prefers-reduced-motion: reduce) { body.adminbody .adm-body { animation: none !important; } body.adminbody .adm-nav .adm-ind { transition: none !important; } }
@@ -956,6 +956,10 @@ body.hubbody .hp-row .hub-chip { display: inline-flex !important; align-items: c
 body.hubbody .hp-row .hub-chip svg { flex: none; opacity: .9; }
 body.hubbody .hp-row .hub-chip:hover { background: rgba(201,150,43,.18) !important; border-color: #c9962b !important; }
 @media (prefers-color-scheme: light) { body.hubbody .hp-row .hub-chip { color: #8a6420 !important; border-color: rgba(138,100,32,.5) !important; background: rgba(201,150,43,.1) !important; } }
-@media (max-width: 640px) { body.hubbody .hp-row .hub-chip { height: 22px !important; padding: 0 8px !important; font-size: .68rem !important; gap: 4px; white-space: nowrap; } body.hubbody .hp-row .hub-chip svg { width: 11px; height: 11px; } }
-@media (max-width: 640px) { body.hubbody .hp-row .hub-chip svg { display: none; } }
-@media (max-width: 640px) { body.hubbody .hp-row { gap: 8px !important; } body.hubbody .hp-row .hub-chip { padding: 0 7px !important; } }
+@media (max-width: 640px) { body.hubbody .hp-row .hub-chip { height: 24px !important; padding: 0 9px !important; font-size: .72rem !important; gap: 5px; white-space: nowrap; } body.hubbody .hp-row .hub-chip svg { width: 12px; height: 12px; } }
+@media (max-width: 640px) { body.hubbody .hp-row { gap: 10px !important; } }
+@media (max-width: 420px) { body.hubbody .hp-row .hub-chip .cu-long { display: none; } }
+/* leaving a page: a quick fade before the next one (and its loading screen) comes in */
+html.pg-leaving body { opacity: 0; transition: opacity .16s ease; }
+html.pg-leaving { background: #0f1420; }
+@media (prefers-color-scheme: light) { html.pg-leaving { background: #f1e9d8; } }
