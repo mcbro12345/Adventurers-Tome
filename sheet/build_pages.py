@@ -61,7 +61,58 @@ html = html[:h] + '<script>document.write(\'<base href="\' + (/github\\.io$/.tes
 html = html.replace('<meta name="viewport" content="width=device-width, initial-scale=1">', '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">')
 h = html.index('</head>'); html = html[:h] + '<link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:type" content="website"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="Adventurer’s Tome"><meta property="og:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:url" content="https://adventurers-tome.web.app/"><meta property="og:image" content="https://adventurers-tome.web.app/og-roll.gif?v=2"><meta property="og:image:type" content="image/gif"><meta property="og:image:width" content="800"><meta property="og:image:height" content="420"><meta property="og:image:alt" content="Adventurer’s Tome — a gold d20 rolling a natural 20"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-roll.gif?v=2"><meta name="theme-color" content="#c9962b"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">\n' + html[h:]
 h = html.index('</head>'); html = html[:h] + '<link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#0f1420">' + html[h:]
-h = html.index('</head>'); html = html[:h] + '<style>' + open(os.path.join(D, 'pages.css')).read().replace(':where(body.hubbody, #pg-load)', ':where(body.hubbody, #pg-load, .wzh)').replace(':where(body.hubbody)', ':where(body.hubbody, .wzh)') + '</style>\n' + html[h:]
+# Light / dark: by default the site follows the device. Someone can pick one in the lobby (saved on this device), so every
+# "(prefers-color-scheme: X)" block is rewritten to apply when the device says X and nothing was picked, or when X was picked.
+def theme_css(css):
+    def split_top(sel):
+        out, d, cur = [], 0, ''
+        for ch in sel:
+            if ch in '([': d += 1
+            if ch in ')]': d -= 1
+            if ch == ',' and d == 0: out.append(cur); cur = ''
+            else: cur += ch
+        out.append(cur); return out
+    def pre(sel, cond):
+        sel = sel.strip()
+        if not sel: return sel
+        if sel.startswith('html') and (len(sel) == 4 or not (sel[4].isalnum() or sel[4] in '-_')): return 'html:where(' + cond + ')' + sel[4:]
+        if sel.startswith(':root'): return 'html:where(' + cond + ')' + sel[5:]
+        return ':where(html' + cond + ') ' + sel
+    def block_end(t, i):  # t[i] == '{'
+        d = 0
+        for j in range(i, len(t)):
+            if t[j] == '{': d += 1
+            elif t[j] == '}':
+                d -= 1
+                if d == 0: return j
+        return len(t) - 1
+    def prefix_rules(body, cond):
+        out, i = '', 0
+        while i < len(body):
+            j = body.find('{', i)
+            if j < 0: out += body[i:]; break
+            k = block_end(body, j); head = body[i:j]; inner = body[j + 1:k]
+            if head.strip().startswith('@'): out += head + '{' + prefix_rules(inner, cond) + '}'
+            else:
+                lead = head[:len(head) - len(head.lstrip())]
+                out += lead + ', '.join(pre(x, cond) for x in split_top(head.strip())) + ' {' + inner + '}'
+            i = k + 1
+        return out
+    out, i = '', 0
+    rx = re.compile(r'@media([^{]*?)\(prefers-color-scheme:\s*(dark|light)\)([^{]*)\{')
+    while True:
+        m = rx.search(css, i)
+        if not m: out += css[i:]; break
+        out += css[i:m.start()]; j = m.end() - 1; k = block_end(css, j); body = css[j + 1:k]; mode = m.group(2)
+        rest = (m.group(1) + m.group(3)).strip()
+        rest = re.sub(r'^and\s+|\s+and$', '', rest).strip()
+        auto = '@media ' + (rest + ' and ' if rest else '') + '(prefers-color-scheme: ' + mode + ') {' + prefix_rules(body, ':not([data-pgtheme])') + '}'
+        forced = prefix_rules(body, '[data-pgtheme="' + mode + '"]')
+        out += auto + '\n' + ('@media ' + rest + ' {' + forced + '}' if rest else forced)
+        i = k + 1
+    return out
+PGCSS = theme_css(open(os.path.join(D, 'pages.css')).read().replace(':where(body.hubbody, #pg-load)', ':where(body.hubbody, #pg-load, .wzh)').replace(':where(body.hubbody)', ':where(body.hubbody, .wzh)'))
+h = html.index('</head>'); html = html[:h] + '<script>try{var t=localStorage.getItem("pg-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-pgtheme",t)}catch(e){}</script><style>' + PGCSS + '</style>\n' + html[h:]
 k = html.rindex('</body>')
 html = html[:k] + loader + html[k:]
 open(os.path.join(OUT, 'index.html'), 'w').write(html)
