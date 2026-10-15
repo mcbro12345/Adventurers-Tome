@@ -442,7 +442,7 @@ addEventListener('load', () => slideTabInd());
 // way to or from those tabs, so it fades along with the page instead of snapping.
 function tabPageAnim(prev, nt) {
   const pg = $('#page-' + nt); if (!pg || !pg.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const fade = el => { el.getAnimations && el.getAnimations().forEach(a => a.cancel()); el.animate([{ opacity: .35 }, { opacity: 1 }], { duration: 180, easing: 'ease-out' }); }; // starts part-way so a full-screen page never blinks to blank
+  const fade = el => { el.getAnimations && el.getAnimations().forEach(a => a.cancel()); el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: isMobile() ? 240 : 200, easing: 'ease-out' }); };
   $$('.page').forEach(p => p.getAnimations && p.getAnimations().forEach(a => a.cancel())); fade(pg);
   const full = k => k === 'core' || k === 'combat', v = $('#sec-vitals');
   if (v && isMobile() && full(prev) !== full(nt)) fade(v);

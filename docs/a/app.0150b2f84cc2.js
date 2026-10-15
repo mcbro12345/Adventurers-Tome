@@ -1438,16 +1438,14 @@ addEventListener('resize', () => slideTabInd());
 // Fonts or layout settling after load can shift the tabs; re-snap without animating.
 addEventListener('load', () => slideTabInd());
 // Switching tabs: the new page fades in (and on a phone slides in from the side of the tab it came from).
-// Switching tabs: the new page fades in, and on a phone eases in a little from the side of the tab it came from.
-// The jump to the new tab's scroll spot happens while the page is still transparent, and the strip of vitals above
-// fades too when it changes shape (full on Core/Combat, slim elsewhere), so nothing visibly snaps.
+// Switching tabs: the new page simply fades in. On a phone the strip of vitals above Core/Combat changes shape on the
+// way to or from those tabs, so it fades along with the page instead of snapping.
 function tabPageAnim(prev, nt) {
   const pg = $('#page-' + nt); if (!pg || !pg.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const keys = [...$$('#tabs .tab')].map(t => t.dataset.tab), dir = keys.indexOf(nt) >= keys.indexOf(prev) ? 1 : -1, mob = isMobile();
-  $$('.page').forEach(p => p.getAnimations && p.getAnimations().forEach(a => a.cancel()));
-  pg.animate([{ opacity: 0, transform: mob ? `translate3d(${dir * 26}px,0,0)` : 'translate3d(0,4px,0)' }, { opacity: 1, transform: 'translate3d(0,0,0)' }], { duration: mob ? 260 : 200, easing: 'cubic-bezier(.22,.9,.24,1)' });
+  const fade = el => { el.getAnimations && el.getAnimations().forEach(a => a.cancel()); el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: isMobile() ? 240 : 200, easing: 'ease-out' }); };
+  $$('.page').forEach(p => p.getAnimations && p.getAnimations().forEach(a => a.cancel())); fade(pg);
   const full = k => k === 'core' || k === 'combat', v = $('#sec-vitals');
-  if (v && mob && full(prev) !== full(nt)) { v.getAnimations && v.getAnimations().forEach(a => a.cancel()); v.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' }); }
+  if (v && isMobile() && full(prev) !== full(nt)) fade(v);
 }
 // Phones: a tap on the tab bar must never also land on the page that appears under it. iPhones sometimes deliver a
 // stray second click (or a press) to whatever is now at that spot, so for a moment after a tab switch, presses and
@@ -2765,7 +2763,7 @@ document.addEventListener('input', e => { if (e.target.classList && e.target.cla
 
 // ---------- Click handling ----------
 document.addEventListener('click', e => rollGate(() => mainClick(e)));
-const TABSCROLL = {};
+const TABSCROLL = {}; let tabFadeT = 0;
 function mainClick(e) {
   if (e.target.closest('#wizard')) return wizClick(e);
   const menu = e.target.closest('.menu');
@@ -2794,7 +2792,20 @@ function mainClick(e) {
     case 'equip': equipItem(i); break;
     case 'resetturn': S.turn.haste = false; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.attacks = 0; S.turn.speed0 = ''; S.turn.sneak = false; S.turn.readied = null; update(); render('combat'); toast(`Turn reset — round ${N(S.turn.round) || 1} actions are ready again.`); break;
     case 'fullscreen': if (fsOn()) { FS_USER_OFF = true; fsExit(); } else { FS_USER_OFF = false; fsEnter(); } break;
-    case 'tab': { const prev = UI.tab, nt = b.dataset.tab, mob = isMobile() && !b.closest('.cmini'); TABSCROLL[prev] = scrollY; UI.tab = nt; saveUI(); renderTabs(); if (prev !== nt && !b.closest('.cmini')) tabPageAnim(prev, nt); requestAnimationFrame(alignHpSide); if (mob) { const pg = $('#page-' + nt), keep = pg ? Math.min(TABSCROLL[prev] || 0, Math.max(0, pg.getBoundingClientRect().top + scrollY - 12)) : 0; window.scrollTo(0, prev === nt ? 0 : (TABSCROLL[nt] != null ? TABSCROLL[nt] : keep)); } } $$('#page-' + UI.tab + ' textarea.f').forEach(grow); fitItemRows(); if (b.closest('.cmini')) window.scrollTo(0, 0); break;
+    case 'tab': { const prev = UI.tab, nt = b.dataset.tab, mini = !!b.closest('.cmini'), mob = isMobile() && !mini;
+      const go = () => { tabFadeT = 0; renderTabs(); if (prev !== nt && !mini) tabPageAnim(prev, nt); requestAnimationFrame(alignHpSide);
+        if (mob) { const pg = $('#page-' + nt), keep = pg ? Math.min(TABSCROLL[prev] || 0, Math.max(0, pg.getBoundingClientRect().top + scrollY - 12)) : 0; window.scrollTo(0, prev === nt ? 0 : (TABSCROLL[nt] != null ? TABSCROLL[nt] : keep)); }
+        $$('#page-' + UI.tab + ' textarea.f').forEach(grow); fitItemRows(); if (mini) window.scrollTo(0, 0); };
+      if (tabFadeT) { clearTimeout(tabFadeT.t); tabFadeT.go(); }
+      TABSCROLL[prev] = scrollY; UI.tab = nt; saveUI();
+      // phones: the tab highlight moves straight away, the old page fades out, then the new one fades in at its own scroll spot
+      if (mob && prev !== nt && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        $$('#tabs .tab').forEach(t => t.classList.toggle('on', t.dataset.tab === nt)); slideTabInd();
+        const old = $('#page-' + prev), full = k => k === 'core' || k === 'combat', v = $('#sec-vitals');
+        [old, full(prev) !== full(nt) ? v : null].forEach(el => { if (el && el.animate) { el.getAnimations().forEach(a => a.cancel()); el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 130, easing: 'ease-in', fill: 'forwards' }); } });
+        tabFadeT = { go: () => { [old, v].forEach(el => el && el.getAnimations && el.getAnimations().forEach(a => a.cancel())); go(); }, t: 0 }; tabFadeT.t = setTimeout(tabFadeT.go, 130);
+      } else go();
+      break; }
     case 'theme': {
       const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', t);
@@ -5097,6 +5108,7 @@ function placeTip(t, btn) {
   clearTimeout(t._ct); t.classList.remove('closing');
   if (isMobile() && !t.querySelector(':scope > .tipx')) t.insertAdjacentHTML('afterbegin', '<button class="tipx" type="button" aria-label="Close">✕</button>');
   t.style.maxHeight = ''; if (t._for !== btn) t.scrollTop = 0;
+  t.style.left = '0px'; t.style.top = '0px'; // measure at full width (not squeezed against the edge where the last tooltip sat)
   const r = btn.getBoundingClientRect(), w = t.offsetWidth, m = 8, below = innerHeight - r.bottom - 8 - m, above = r.top - 8 - m;
   let h = t.offsetHeight, left = Math.max(m, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - m)), top = r.bottom + 8;
   if (h > below) { if (above > below) { if (h > above) { t.style.maxHeight = above + 'px'; h = above; } top = r.top - 8 - h; } else t.style.maxHeight = Math.max(120, below) + 'px'; }
@@ -8383,5 +8395,15 @@ window.addEventListener('resize', () => { if (!LAYOUT_NOW) { const was = isMobil
   let kbT = 0;
   document.addEventListener('focusin', e => { clearTimeout(kbT); if (typing(e.target)) document.documentElement.classList.add('kbopen'); });
   document.addEventListener('focusout', () => { clearTimeout(kbT); kbT = setTimeout(() => { if (!typing(document.activeElement)) document.documentElement.classList.remove('kbopen'); }, 120); });
+}
+{
+  // Windows and menus fade out instead of vanishing: when one loses its "open" class it keeps showing (as .closing,
+  // not clickable) just long enough to fade, and opening it again cancels that.
+  const W = [['#modal', 'open'], ['#wizard', 'open'], ['.menu', 'open'], ['#tipbox', 'on']];
+  const match = el => W.find(([sel]) => el.matches && el.matches(sel));
+  new MutationObserver(ms => ms.forEach(m => { const el = m.target, w = match(el); if (!w) return; const cls = w[1], was = (' ' + (m.oldValue || '') + ' ').includes(' ' + cls + ' '), now = el.classList.contains(cls);
+    if (now) { if (!was && el.classList.contains('closing')) { clearTimeout(el._fc); el.classList.remove('closing'); } return; }
+    if (was && !now && !(' ' + (m.oldValue || '') + ' ').includes(' closing ') && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => el.classList.remove('closing'), 190); } }))
+    .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], attributeOldValue: true, subtree: true });
 }
 
