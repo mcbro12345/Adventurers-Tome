@@ -905,7 +905,6 @@ body.hubbody .hub-views.hv-has > button[data-view] { position: relative; z-index
 body.hubbody .hub-views.hv-has > button[data-view].on { background: transparent !important; border-color: transparent !important; }
 @media (prefers-color-scheme: dark) { body.hubbody .hub-views .hv-ind { background: #c9962b; } }
 html.pg-touch body.hubbody:not(.adminbody) .hub-list { touch-action: pan-y; }
-body.hubbody:not(.adminbody) { overflow-x: clip; }
 body.hubbody:not(.adminbody) .hub-list { will-change: auto; }
 @media (prefers-reduced-motion: reduce) { body.hubbody .hub-views .hv-ind { transition: none; } }
 body.hubbody .hub-views.hv-drag > button[data-view] { color: #e9e3d3 !important; }
@@ -945,3 +944,8 @@ body.hubbody:not(.adminbody) .hub-pane.fadein { animation: hubFade .24s ease-out
   body.hubbody:not(.adminbody) .hub-list > .hub-track { max-width: none !important; }
   body.hubbody:not(.adminbody) .hub-track .hub-pane { padding: 0 16px; }
 }
+
+/* the list that isn't showing never widens the page (no stray scrollbar), and both lists start the same distance below the top */
+body.hubbody:not(.adminbody) .hub-list:has(> .hub-track) { overflow-x: clip; }
+body.hubbody:not(.adminbody) .hub-pane > .hub-folder:first-child, body.hubbody:not(.adminbody) .hub-pane > .hl:first-child, body.hubbody:not(.adminbody) .hub-pane > .hub-empty:first-child { margin-top: 0 !important; }
+body.hubbody:not(.adminbody) .hub-list > .hub-folder:first-child { margin-top: 0 !important; }
