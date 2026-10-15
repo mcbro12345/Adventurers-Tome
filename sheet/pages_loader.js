@@ -360,10 +360,27 @@ function wireDie(root) {
   const run = async () => { let src; try { src = await fetched; } catch (e) { say('Couldn\'t load the sheet. Check your connection and reload.'); return; }
     if (!load) document.documentElement.classList.remove('pg-loading');
     src.forEach(t => { const s = document.createElement('script'); s.textContent = t; document.body.appendChild(s); });
+    if (!TOUCH && !FRAMED) sheetScrollbar();
     // wait for the sheet's first burst of work to finish so the fade runs smoothly instead of stuttering
     if (load) { if (!load.isConnected) document.body.appendChild(load); const go = () => fadeLoad(load); if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 600 }); else setTimeout(go, 150); }
     // then the full rules wording, which only tooltips and the Spells/Features text need: once it's in, redraw so they use it
     fullTxt.then(t => { if (!t) return; const s = document.createElement('script'); s.textContent = t; document.body.appendChild(s); try { if (typeof render === 'function') render(); } catch (e) {} }); };
+  // On a computer the sheet's own scrollbar is swapped for a slim one in the sheet's accent colour: drag it, click the
+  // track to jump a page, or just scroll as usual. It hides when there's nothing to scroll.
+  function sheetScrollbar() {
+    document.documentElement.classList.add('pg-sbon');
+    const sb = document.createElement('div'); sb.className = 'pg-sb'; sb.hidden = true; sb.innerHTML = '<div class="pg-sb-th"></div>'; document.body.appendChild(sb); const th = sb.firstElementChild;
+    const de = document.documentElement;
+    const paint = () => { const max = de.scrollHeight - innerHeight; if (max < 2 || document.querySelector('#modal.open, #wizard.open')) { sb.hidden = true; return; } sb.hidden = false;
+      const H = sb.clientHeight, h = Math.max(36, H * innerHeight / de.scrollHeight); th.style.height = h + 'px'; th.style.transform = `translateY(${(H - h) * (scrollY / max)}px)`; };
+    addEventListener('scroll', paint, { passive: true }); addEventListener('resize', paint); new ResizeObserver(paint).observe(document.body);
+    new MutationObserver(paint).observe(document.body, { attributes: true, subtree: true, attributeFilter: ['class'] }); setTimeout(paint, 100);
+    th.addEventListener('pointerdown', e => { e.preventDefault(); th.classList.add('drag'); th.setPointerCapture(e.pointerId);
+      const y0 = e.clientY, s0 = scrollY, k = (de.scrollHeight - innerHeight) / Math.max(1, sb.clientHeight - th.offsetHeight);
+      const mv = ev => scrollTo(0, s0 + (ev.clientY - y0) * k), up = () => { th.classList.remove('drag'); th.removeEventListener('pointermove', mv); th.removeEventListener('pointerup', up); th.removeEventListener('pointercancel', up); };
+      th.addEventListener('pointermove', mv); th.addEventListener('pointerup', up); th.addEventListener('pointercancel', up); });
+    sb.addEventListener('pointerdown', e => { if (e.target !== sb) return; scrollBy({ top: (e.clientY < th.getBoundingClientRect().top ? -1 : 1) * innerHeight * .85, behavior: 'smooth' }); });
+  }
   const col = fs.collection('sheets'), CACHE = 'dnd-pages-cache:' + C;
   let txt = null, missing = false, denied = false, OWNER = NEW ? ((IS_ADMIN && O) || EMAIL) : '', VIEWERS = [], EDITORS = [];
   if (!NEW) try {
@@ -703,7 +720,12 @@ function hub(fs, auth, G, ctx) {
     const paint = () => { const pic = pick();
       $('.pp-prev').innerHTML = avaHTML(NM, EM, pic, '', '', { color: st.color, clear: st.mode === 'upload' && st.clear });
       $$('.pp-tabs [data-m]').forEach(b => { const on = b.dataset.m === st.mode; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
-      $$('.pp-pane').forEach(p => p.hidden = p.dataset.p !== st.mode);
+      // the highlight slides to the chosen tab and that tab's page fades in from the side it came from
+      { const bar = $('.pp-tabs'), on = $('.pp-tabs [data-m].on'); let ind = bar.querySelector('.pp-ind'); const first = !ind; if (!ind) { ind = document.createElement('span'); ind.className = 'pp-ind'; ind.setAttribute('aria-hidden', 'true'); bar.prepend(ind); }
+        if (on) { ind.style.transition = first ? 'none' : ''; ind.style.transform = `translate(${on.offsetLeft}px, ${on.offsetTop}px)`; ind.style.width = on.offsetWidth + 'px'; ind.style.height = on.offsetHeight + 'px'; if (first) requestAnimationFrame(() => { ind.style.transition = ''; }); } }
+      { const order = [...$$('.pp-tabs [data-m]')].map(b => b.dataset.m), was = paint.last; $$('.pp-pane').forEach(p => { const show = p.dataset.p === st.mode; p.hidden = !show;
+        if (show && was && was !== st.mode && p.animate && !PG_CALM) p.animate([{ opacity: 0, transform: `translateX(${order.indexOf(st.mode) > order.indexOf(was) ? 16 : -16}px)` }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'cubic-bezier(.22,.9,.24,1)' }); });
+        paint.last = st.mode; }
       $$('.pp-c[data-c]').forEach(b => b.classList.toggle('on', b.dataset.c === st.color));
       const cu = $('.pp-cust'); cu.classList.toggle('on', !!st.color && !PG_SWATCH.includes(st.color)); if (cu.classList.contains('on')) cu.style.background = st.color; else cu.style.background = '';
       $$('[data-pp]').forEach(b => b.classList.toggle('on', st.mode === 'char' && b.dataset.pp === st.char));
@@ -809,8 +831,8 @@ function hub(fs, auth, G, ctx) {
   const padBot = () => parseFloat(getComputedStyle(root).paddingBottom) || 0;
   function prepIn(p) { if (!p || p._y != null) return; p.classList.remove('hp-off'); unclamp(p);
     const top = p.getBoundingClientRect().top + scrollY, max = Math.max(0, top + p.offsetHeight + padBot() - innerHeight);
-    p._y = Math.min(VSCROLL[p.dataset.pane] || 0, max); p.style.transform = `translate3d(0, ${scrollY - p._y}px, 0)`; }
-  addEventListener('scroll', () => { root.querySelectorAll('.hub-pane').forEach(p => { if (p._y != null) p.style.transform = `translate3d(0, ${scrollY - p._y}px, 0)`; }); }, { passive: true });
+    p._y = Math.min(VSCROLL[p.dataset.pane] || 0, max); p.style.transform = scrollY - p._y ? `translateY(${scrollY - p._y}px)` : ''; }
+  addEventListener('scroll', () => { root.querySelectorAll('.hub-pane').forEach(p => { if (p._y != null) p.style.transform = scrollY - p._y ? `translateY(${scrollY - p._y}px)` : ''; }); }, { passive: true });
   function switchView(v) { if (v === view) return; const out0 = root.querySelector('.hub-pane.on'); VSCROLL[view] = scrollY; view = v; history.replaceState(null, '', view === 'shared' ? URLS.shared(G) : URLS.hub(G));
     const tr = root.querySelector('.hub-track'); if (!tr) return draw();
     const inP = tr.querySelector(`.hub-pane[data-pane="${v}"]`);
@@ -942,7 +964,7 @@ function hub(fs, auth, G, ctx) {
       if (PHONE.matches) { if (nv.parentElement !== root) root.appendChild(nv); }
       else if (nv.parentElement !== side) side.insertBefore(nv, side.querySelector('.adm-foot'));
       let ind = nv.querySelector('.adm-ind'); if (!ind) { ind = document.createElement('span'); ind.className = 'adm-ind'; ind.setAttribute('aria-hidden', 'true'); nv.prepend(ind); }
-      const on = nv.querySelector('.adm-ni.on'); if (!on || !PHONE.matches) { ind.style.display = 'none'; return; } ind.style.display = '';
+      const on = nv.querySelector('.adm-ni.on'); if (!on) { ind.style.display = 'none'; return; } ind.style.display = '';
       const nr = nv.getBoundingClientRect(), r = on.getBoundingClientRect(), to = { x: r.left - nr.left, y: r.top - nr.top, w: r.width, h: r.height };
       const set = p => { ind.style.transform = `translate(${p.x}px, ${p.y}px)`; ind.style.width = p.w + 'px'; ind.style.height = p.h + 'px'; };
       const anim = NAV_PREV && NAV_KEY && NAV_KEY !== TAB && !matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -950,7 +972,7 @@ function hub(fs, auth, G, ctx) {
       if (anim) { set(NAV_PREV); void ind.offsetWidth; ind.style.transition = ''; set(to); } else set(to);
       NAV_PREV = to; NAV_KEY = TAB;
     }
-    PHONE.addEventListener && PHONE.addEventListener('change', () => { NAV_PREV = null; navPost(); });
+    PHONE.addEventListener && PHONE.addEventListener('change', () => { NAV_PREV = null; NAV_KEY = null; navPost(); });
     addEventListener('resize', () => { NAV_KEY = TAB; NAV_PREV = null; navPost(); });
     {
       let drag = null, eat = false;
@@ -1002,13 +1024,15 @@ function hub(fs, auth, G, ctx) {
       const keepLogo = root.querySelector('.hub-logo');
       root.innerHTML = `<div class="adm"><aside class="adm-side">
           <div class="adm-brand">${logoHTML()}</div>
+          <div class="adm-backrow"><a class="adm-back" href="${esc(HUB)}">← Adventurer’s Tome</a></div>
           <nav class="adm-nav">${navHTML}</nav>
-          <div class="adm-foot"><a class="adm-back" href="${esc(HUB)}">← Adventurer’s Tome</a></div></aside>
+          <div class="adm-foot adm-me">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(avaOf(ME))}<div class="adm-me-t"><b>${esc(myName())}</b><small>${esc(EMAIL)}</small><button class="linkbtn" id="adm-out">Sign out</button></div></div></aside>
         <main class="adm-main"><header class="adm-head"><div><h1>${esc(title)}</h1><p>${esc(desc)}</p></div><div class="adm-hact" id="adm-hact"></div></header>
           <section id="ad-body" class="adm-body"><p class="adm-dim">Loading…</p></section></main></div>`;
       if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
       PREV_TAB = TAB;
       root.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
+      { const o = root.querySelector('#adm-out'); if (o) o.onclick = signOut; }
       ({ new: tabNew, users: tabUsers, chars: tabChars, admins: tabAdmins, audit: tabAudit })[TAB]();
     }
     const B = () => root.querySelector('#ad-body'), HA = () => root.querySelector('#adm-hact');
@@ -1072,7 +1096,7 @@ function hub(fs, auth, G, ctx) {
         const cnt = B().querySelector('#ad-uq-n'); if (cnt) cnt.textContent = rows.length ? rows.length + (r.docs.length === 25 ? '+' : '') + ' user' + (rows.length === 1 ? '' : 's') : '';
         l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Last active</th><th></th><th></th></tr></thead><tbody>${rows.map(u => { const [rl, rc] = u.banned ? ['Blocked', 'r-blk'] : roleOf(u.id);
           return `<tr data-u="${esc(u.id)}"><td><span class="adm-who">${ava(u.name, u.id)}<b>${esc(u.name || '—')}</b></span></td><td class="adm-mail">${esc(u.id)}</td><td><span class="adm-tag ${rc}">${rl}</span></td><td>${when(u.createdAt)}</td><td>${u.seenAt ? esc(ago(u.seenAt)) : '<span class="adm-dim">—</span>'}</td>
-            <td><button class="adm-btn sm" data-uc="${esc(u.id)}">Characters ▸</button></td><td class="adm-act">${kebab([['rename', 'Rename…', u.id], ['pic', 'Change picture…', u.id], ['newfor', 'New character for them', u.id], ['chars', 'Show characters', u.id]].concat(u.id === ADMIN_EMAIL || u.id === EMAIL ? [] : [['signout', 'Sign out everywhere', u.id], u.banned ? ['unblock', 'Unblock', u.id] : ['block', 'Block…', u.id], ['delacct', 'Delete account…', u.id, 'danger']]))}</td></tr>
+            <td><button class="adm-btn sm" data-uc="${esc(u.id)}">Characters ▸</button></td><td class="adm-act">${kebab([['rename', 'Rename…', u.id], ['pic', 'Change picture…', u.id], ['newfor', 'New character for them', u.id]].concat(IS_OWNER && u.id !== ADMIN_EMAIL ? [ADMINS.includes(u.id) ? ['unadmin', 'Remove admin', u.id] : ['mkadmin', 'Make admin', u.id]] : [], u.id === ADMIN_EMAIL || u.id === EMAIL ? [] : [['signout', 'Sign out everywhere', u.id]].concat(u.banned ? [['unblock', 'Unblock', u.id]] : [], [['delacct', 'Delete account…', u.id, 'danger']])))}</td></tr>
             <tr class="adm-subrow" data-sub="${esc(u.id)}" hidden><td colspan="7"></td></tr>`; }).join('')}</tbody></table></div>`
           + (r.docs.length === 25 ? '<button class="adm-btn adm-more" id="ad-umore">Load more</button>' : '') : `<p class="adm-empty">${UQ ? 'Nobody matches “' + esc(UQ) + '”.' : 'No accounts yet.'}</p>`;
         const mb = l.querySelector('#ad-umore'); if (mb) mb.onclick = () => tabUsers(true);
@@ -1082,7 +1106,10 @@ function hub(fs, auth, G, ctx) {
             cell.innerHTML = ctable(cs, false) + `<a class="adm-btn sm" href="${esc(URLS.newChar(G, em, nameOf(em)))}">＋ New character for ${esc(nameOf(em))}</a>`; wire(cell, fill); } catch (x) { cell.innerHTML = failMsg(x); } };
           fill(); };
         l.querySelectorAll('[data-uc]').forEach(b => b.onclick = () => toggle(b.dataset.uc));
-        l.querySelectorAll('[data-mi]').forEach(b => b.onclick = () => { const em = b.dataset.id; b.closest('.adm-mwrap').classList.remove('on');
+        l.querySelectorAll('[data-mi]').forEach(b => b.onclick = async () => { const em = b.dataset.id; b.closest('.adm-mwrap').classList.remove('on');
+          if (b.dataset.mi === 'mkadmin' || b.dataset.mi === 'unadmin') { const add = b.dataset.mi === 'mkadmin', cfg = fs.collection('config').doc('admins');
+            if (add && !await ask('Make ' + esc(nameOf(em)) + ' an admin?', 'They’ll be able to open and change every character, manage users and see the audit log.', 'Make admin')) return;
+            cfg.set({ emails: add ? FV.arrayUnion(em) : FV.arrayRemove(em) }, { merge: true }).then(() => { ADMINS = add ? [...new Set(ADMINS.concat(em))] : ADMINS.filter(x => x !== em); toast(nameOf(em) + (add ? ' is now an admin.' : ' is no longer an admin.')); pgLog(add ? 'admin_add' : 'admin_remove', { target: em, tName: nameOf(em) }); delete PANES.admins; tabUsersList(); }, x => toast('Couldn’t change that: ' + (x.message || x))); return; }
           if (b.dataset.mi === 'chars') toggle(em); else if (b.dataset.mi === 'newfor') pgGo(URLS.newChar(G, em, nameOf(em))); else if (b.dataset.mi === 'rename') renameUser(em); else userAction(b.dataset.mi, em); });
       } catch (x) { l.innerHTML = failMsg(x); }
     }
@@ -1103,14 +1130,11 @@ function hub(fs, auth, G, ctx) {
         if (act === 'pic') { const list = docs(await charsCol.where('owner', '==', em).limit(100).get()).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)); pickPic({ em, name: nm, rec: u, list, after: done }); return; }
         if (act === 'signout') { if (!await ask('Sign ' + esc(nm) + ' out everywhere?', 'They’re signed out on every device right away and have to sign in again. Nothing else changes.', 'Sign out everywhere')) return;
           await ref.update({ revokedAt: Date.now() }); u.revokedAt = Date.now(); pgLog('user_signout', { target: em, tName: nm }); toast(nm + ' was signed out everywhere.'); return; }
-        if (act === 'block') { if (!await ask('Block ' + esc(nm) + '?', 'They’re signed out everywhere and can’t use the site until you unblock them. Their characters stay as they are.', 'Block', true)) return;
-          await ref.update({ banned: true, revokedAt: Date.now() }); u.banned = true; pgLog('user_block', { target: em, tName: nm }); toast(nm + ' is blocked.'); done(); return; }
         if (act === 'unblock') { await ref.update({ banned: false }); u.banned = false; pgLog('user_unblock', { target: em, tName: nm }); toast(nm + ' is unblocked.'); done(); return; }
         if (act === 'delacct') {
           const theirs = docs(await charsCol.where('owner', '==', em).limit(200).get());
-          const r = await ask('Delete ' + esc(nm) + '’s account?', `This removes their account record and signs them out everywhere. They could sign in again later and start fresh, unless you block them.
-            <label class="ak-c"><input type="checkbox" id="wipe" ${theirs.length ? 'checked' : 'disabled'}> Also delete their ${theirs.length} character${theirs.length === 1 ? '' : 's'}${theirs.length ? ' (can’t be undone)' : ''}</label>
-            <label class="ak-c"><input type="checkbox" id="block"> Block them from signing in again</label>`, 'Delete account', true, em);
+          const r = await ask('Delete ' + esc(nm) + '’s account?', `This removes their account record and signs them out everywhere. They could sign in again later and start fresh.
+            <label class="ak-c"><input type="checkbox" id="wipe" ${theirs.length ? 'checked' : 'disabled'}> Also delete their ${theirs.length} character${theirs.length === 1 ? '' : 's'}${theirs.length ? ' (can’t be undone)' : ''}</label>`, 'Delete account', true, em);
           if (!r) return; toast('Deleting…');
           if (r.wipe) for (const c of theirs) await wipeChar(c);
           if (r.block) await ref.set({ email: em, name: nm, nameLower: nm.toLowerCase(), keys: searchKeys(nm, em.split('@')[0], em), banned: true, revokedAt: Date.now(), createdAt: u.createdAt || Date.now() });

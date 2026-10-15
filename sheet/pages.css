@@ -1002,3 +1002,46 @@ html #pg-load.pg-leave, html.pg-instant #pg-load.pg-leave { animation: pgLoadIn 
 /* The lobby is always at least a hair taller than the screen. Switching lists changes the page's length; on iPhone,
    flipping between "scrolls" and "doesn't scroll" nudged everything up a few pixels. Never flipping avoids that. */
 body.hubbody:not(.adminbody) #hub { min-height: calc(100vh + 1px); min-height: calc(100lvh + 1px); box-sizing: border-box; }
+/* Admin: the way back sits right under the logo; the bottom of the sidebar shows who's signed in, like the lobby */
+.adm-backrow { padding: 10px 18px 12px; border-bottom: 1px solid rgba(255,255,255,.08); }
+.adm-me { flex-direction: row !important; align-items: center; gap: 10px !important; }
+body.adminbody .adm-me .pg-ava { display: grid !important; place-items: center; width: 38px !important; height: 38px !important; min-width: 38px; flex: 0 0 38px; padding: 0; border-radius: 50%; overflow: hidden; font: 800 .82rem Georgia, serif; box-sizing: border-box; }
+body.adminbody .adm-me .pg-ava img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.adm-me-t { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.adm-me-t b { font: 700 .86rem system-ui, sans-serif; color: var(--adm-side-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adm-me-t small { font: 500 .72rem system-ui, sans-serif; opacity: .6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adm-me-t .linkbtn { align-self: flex-start; margin-top: 3px; padding: 0; background: none; border: 0; color: #e6bd5a; font: 700 .74rem system-ui, sans-serif; text-decoration: underline; cursor: pointer; }
+@media (max-width: 860px) {
+  body.adminbody .adm-backrow { padding: 10px 14px; border-bottom: 0; border-top: 1px solid rgba(255,255,255,.08); }
+  body.adminbody .adm-foot.adm-me { display: none !important; }
+}
+/* Admin on a computer: the tab highlight slides between tabs, and each page fades in */
+.adm-side .adm-nav { position: relative; }
+.adm-side .adm-nav .adm-ind { display: block; position: absolute; left: 0; top: 0; z-index: 0; border-radius: 8px; pointer-events: none; background: rgba(201,150,43,.18);
+  transition: transform .3s cubic-bezier(.22,.9,.24,1), width .3s, height .3s; }
+.adm-side .adm-nav .adm-ind::before { content: ''; position: absolute; left: -10px; top: 6px; bottom: 6px; width: 3px; border-radius: 0 3px 3px 0; background: #c9962b; }
+.adm-side .adm-nav .adm-ni { position: relative; z-index: 1; }
+.adm-side .adm-nav:has(.adm-ind) .adm-ni.on { background: transparent; }
+.adm-side .adm-nav:has(.adm-ind) .adm-ni.on::before { display: none; }
+body.adminbody .adm-body { animation: admIn .24s ease; }
+@keyframes admIn { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .adm-side .adm-nav .adm-ind { transition: none; } body.adminbody .adm-body { animation: none; } }
+/* the dice are placed against the window itself, so nothing about the page underneath can move them */
+#pg-load .pg-spin { position: fixed !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; }
+/* the lobby lists keep one steady drawing layer, so nothing re-draws a pixel off when a slide finishes */
+body.hubbody:not(.adminbody) .hub-track { will-change: transform; }
+/* Sheets on a computer: the window's scrollbar is replaced by a slim one in the sheet's accent colour */
+html.pg-sbon { scrollbar-width: none; }
+html.pg-sbon::-webkit-scrollbar, html.pg-sbon body::-webkit-scrollbar { width: 0; height: 0; display: none; }
+.pg-sb { position: fixed; z-index: 30; right: 4px; top: 8px; bottom: 8px; width: 8px; border-radius: 6px; background: color-mix(in srgb, var(--ink, #e9e3d3) 8%, transparent); cursor: pointer; opacity: .75; transition: opacity .2s, width .15s, right .15s; }
+.pg-sb:hover, .pg-sb:has(.drag) { opacity: 1; width: 10px; right: 3px; }
+.pg-sb[hidden] { display: none; }
+.pg-sb-th { position: absolute; left: 0; right: 0; top: 0; min-height: 36px; border-radius: 6px; background: color-mix(in srgb, var(--gold, #c9962b) 75%, transparent); cursor: grab; touch-action: none; }
+.pg-sb-th:hover, .pg-sb-th.drag { background: var(--gold, #c9962b); }
+.pg-sb-th.drag { cursor: grabbing; }
+/* picture window: one gold highlight slides between the tabs */
+:where(body.hubbody) .pp-tabs { position: relative; }
+:where(body.hubbody) .pp-tabs .pp-ind { position: absolute; left: 0; top: 0; z-index: 0; border-radius: 9px; background: #c9962b; box-shadow: 0 2px 8px rgba(0,0,0,.2); pointer-events: none; transition: transform .3s cubic-bezier(.22,.9,.24,1), width .3s, height .3s; }
+:where(body.hubbody) .pp-tabs button { position: relative; z-index: 1; transition: color .2s; }
+:where(body.hubbody) .pp-tabs:has(.pp-ind) button.on { background: transparent; box-shadow: none; }
+@media (prefers-reduced-motion: reduce) { :where(body.hubbody) .pp-tabs .pp-ind { transition: none; } }

@@ -617,6 +617,7 @@ function placeTip(t, btn) {
   clearTimeout(t._ct); t.classList.remove('closing');
   if (isMobile() && !t.querySelector(':scope > .tipx')) t.insertAdjacentHTML('afterbegin', '<button class="tipx" type="button" aria-label="Close">✕</button>');
   t.style.maxHeight = ''; if (t._for !== btn) t.scrollTop = 0;
+  t.style.left = '0px'; t.style.top = '0px'; // measure at full width (not squeezed against the edge where the last tooltip sat)
   const r = btn.getBoundingClientRect(), w = t.offsetWidth, m = 8, below = innerHeight - r.bottom - 8 - m, above = r.top - 8 - m;
   let h = t.offsetHeight, left = Math.max(m, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - m)), top = r.bottom + 8;
   if (h > below) { if (above > below) { if (h > above) { t.style.maxHeight = above + 'px'; h = above; } top = r.top - 8 - h; } else t.style.maxHeight = Math.max(120, below) + 'px'; }

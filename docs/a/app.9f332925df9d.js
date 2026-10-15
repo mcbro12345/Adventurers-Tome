@@ -1438,43 +1438,14 @@ addEventListener('resize', () => slideTabInd());
 // Fonts or layout settling after load can shift the tabs; re-snap without animating.
 addEventListener('load', () => slideTabInd());
 // Switching tabs: the new page fades in (and on a phone slides in from the side of the tab it came from).
-let _tabSwipeDx = 0;
+// Switching tabs: the new page simply fades in. On a phone the strip of vitals above Core/Combat changes shape on the
+// way to or from those tabs, so it fades along with the page instead of snapping.
 function tabPageAnim(prev, nt) {
-  const pg = $('#page-' + nt); if (!pg || matchMedia('(prefers-reduced-motion: reduce)').matches) { _tabSwipeDx = 0; return; }
-  const keys = [...$$('#tabs .tab')].map(t => t.dataset.tab), dir = keys.indexOf(nt) >= keys.indexOf(prev) ? 1 : -1, mob = isMobile();
-  const from = mob ? dir * Math.max(30, Math.min(innerWidth * .28, innerWidth * .28 - Math.abs(_tabSwipeDx) * .2)) : 0; _tabSwipeDx = 0;
-  pg.getAnimations && pg.getAnimations().forEach(a => a.cancel());
-  pg.animate ? pg.animate([{ opacity: 0, transform: mob ? `translate3d(${from}px,0,0)` : 'translate3d(0,4px,0)' }, { opacity: 1, transform: 'none' }], { duration: mob ? 280 : 200, easing: 'cubic-bezier(.22,.9,.24,1)' }) : 0;
-}
-// Phones: swipe a page sideways to go to the next or previous tab. The page follows your finger; let go past a third
-// of the screen (or flick) and the neighbouring tab slides in.
-{
-  let sw = null;
-  const hScroll = el => { for (let e = el; e && e !== document.body; e = e.parentElement) { const cs = getComputedStyle(e); if (/(auto|scroll)/.test(cs.overflowX) && e.scrollWidth > e.clientWidth + 2) return true; } return false; };
-  const neighbours = () => { const t = [...$$('#tabs .tab')], i = t.findIndex(x => x.dataset.tab === UI.tab); return { prev: t[i - 1], next: t[i + 1], cur: t[i] }; };
-  document.addEventListener('touchstart', e => {
-    sw = null; if (!isMobile() || UI.editLayout || e.touches.length > 1 || $('#modal').classList.contains('open') || document.body.classList.contains('wizopen')) return;
-    const pg = $('.page.on'); if (!pg || !e.target.closest || !e.target.closest('main.wrap') || e.target.closest('#tabs') || e.target.closest('input, textarea, select, [contenteditable], canvas, .idrag, [data-drag], [data-handle], .menu.open, .gdrag, .cgdrag') || hScroll(e.target)) return;
-    sw = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), pg, lock: null, dx: 0, n: neighbours() };
-  }, { passive: true });
-  document.addEventListener('touchmove', e => {
-    if (!sw) return; const dx = e.touches[0].clientX - sw.x, dy = e.touches[0].clientY - sw.y;
-    if (!sw.lock) { if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return; sw.lock = Math.abs(dx) > Math.abs(dy) * 1.3 ? 'x' : 'y'; if (sw.lock === 'x') document.documentElement.classList.add('tswiping'); }
-    if (sw.lock !== 'x') return; e.preventDefault();
-    const to = dx < 0 ? sw.n.next : sw.n.prev; sw.dx = to ? dx : dx / (3 + Math.abs(dx) / 50); sw.to = to;
-    if (sw.raf) return; sw.raf = requestAnimationFrame(() => { if (!sw) return; sw.raf = 0;
-      sw.pg.style.transition = 'none'; sw.pg.style.transform = `translate3d(${sw.dx}px,0,0)`; sw.pg.style.opacity = String(1 - Math.min(.45, Math.abs(sw.dx) / innerWidth * .9));
-      const ind = $('#tabs .tab-ind'), cur = sw.n.cur; if (ind && cur && sw.to) { const br = $('#tabs').getBoundingClientRect(), a = cur.getBoundingClientRect(), z = sw.to.getBoundingClientRect(), k = Math.min(1, Math.abs(sw.dx) / (innerWidth * .5));
-        ind.style.transition = 'none'; ind.style.transform = `translate(${a.left - br.left + (z.left - a.left) * k}px, ${a.top - br.top}px)`; sw.ix = a.left - br.left + (z.left - a.left) * k; sw.iy = a.top - br.top; } });
-  }, { passive: false });
-  const end = () => {
-    if (!sw) return; const s = sw; sw = null; if (s.raf) cancelAnimationFrame(s.raf); document.documentElement.classList.remove('tswiping'); if (s.lock !== 'x') return;
-    const v = Math.abs(s.dx) / Math.max(1, Date.now() - s.t), go = s.to && (Math.abs(s.dx) > innerWidth * .33 || v > .5);
-    const reset = anim => { s.pg.style.transition = anim ? 'transform .25s cubic-bezier(.22,.9,.24,1), opacity .2s' : 'none'; s.pg.style.transform = ''; s.pg.style.opacity = ''; if (anim) setTimeout(() => { s.pg.style.transition = ''; }, 280); };
-    if (go) { reset(false); if (s.ix != null) _tabIndPrev = Object.assign({}, _tabIndPrev, { x: s.ix, y: s.iy }); _tabSwipeDx = s.dx; s.to.click(); }
-    else { reset(true); const ind = $('#tabs .tab-ind'); if (ind) { ind.style.transition = ''; _tabIndKey = '~drag'; slideTabInd(); } }
-  };
-  document.addEventListener('touchend', end); document.addEventListener('touchcancel', end);
+  const pg = $('#page-' + nt); if (!pg || !pg.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const fade = el => { el.getAnimations && el.getAnimations().forEach(a => a.cancel()); el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'ease-out' }); };
+  $$('.page').forEach(p => p.getAnimations && p.getAnimations().forEach(a => a.cancel())); fade(pg);
+  const full = k => k === 'core' || k === 'combat', v = $('#sec-vitals');
+  if (v && isMobile() && full(prev) !== full(nt)) fade(v);
 }
 // Phones: a tap on the tab bar must never also land on the page that appears under it. iPhones sometimes deliver a
 // stray second click (or a press) to whatever is now at that spot, so for a moment after a tab switch, presses and
@@ -4960,7 +4931,7 @@ function fitSettingsHeight() {
 }
 addEventListener('resize', () => { if (typeof settingsOpen === 'function' && settingsOpen()) fitSettingsHeight(); });
 function settingsOpen() { return $('#modal').classList.contains('open') && !!$('.setx'); }
-function setTabInk(anim) { const on = $('.stabs .stab.on'), ink = $('.stabs .stab-ink'); if (!on || !ink) return; ink.style.transition = anim ? '' : 'none'; ink.style.width = on.offsetWidth + 'px'; ink.style.transform = `translateX(${on.offsetLeft}px)`; if (on.scrollIntoView && anim) on.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' }); }
+function setTabInk(anim) { const on = $('.stabs .stab.on'), ink = $('.stabs .stab-ink'); if (!on || !ink) return; ink.style.transition = anim ? '' : 'none'; ink.style.width = on.offsetWidth + 'px'; ink.style.transform = `translateX(${on.offsetLeft}px)`; if (anim) { const bar = on.parentElement; if (bar && bar.scrollWidth > bar.clientWidth) bar.scrollTo({ left: on.offsetLeft - (bar.clientWidth - on.offsetWidth) / 2, behavior: 'smooth' }); } const mb = $('#modal-body'); if (mb && mb.scrollLeft) mb.scrollLeft = 0; }
 function switchSetTab(k) {
   if (k === SETTAB) return; const order = ['char', 'rules', 'dice', 'theme', 'data'], dir = order.indexOf(k) > order.indexOf(SETTAB) ? 'r' : 'l';
   SETTAB = k;
@@ -5124,6 +5095,7 @@ function placeTip(t, btn) {
   clearTimeout(t._ct); t.classList.remove('closing');
   if (isMobile() && !t.querySelector(':scope > .tipx')) t.insertAdjacentHTML('afterbegin', '<button class="tipx" type="button" aria-label="Close">✕</button>');
   t.style.maxHeight = ''; if (t._for !== btn) t.scrollTop = 0;
+  t.style.left = '0px'; t.style.top = '0px'; // measure at full width (not squeezed against the edge where the last tooltip sat)
   const r = btn.getBoundingClientRect(), w = t.offsetWidth, m = 8, below = innerHeight - r.bottom - 8 - m, above = r.top - 8 - m;
   let h = t.offsetHeight, left = Math.max(m, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - m)), top = r.bottom + 8;
   if (h > below) { if (above > below) { if (h > above) { t.style.maxHeight = above + 'px'; h = above; } top = r.top - 8 - h; } else t.style.maxHeight = Math.max(120, below) + 'px'; }
@@ -8410,5 +8382,15 @@ window.addEventListener('resize', () => { if (!LAYOUT_NOW) { const was = isMobil
   let kbT = 0;
   document.addEventListener('focusin', e => { clearTimeout(kbT); if (typing(e.target)) document.documentElement.classList.add('kbopen'); });
   document.addEventListener('focusout', () => { clearTimeout(kbT); kbT = setTimeout(() => { if (!typing(document.activeElement)) document.documentElement.classList.remove('kbopen'); }, 120); });
+}
+{
+  // Windows and menus fade out instead of vanishing: when one loses its "open" class it keeps showing (as .closing,
+  // not clickable) just long enough to fade, and opening it again cancels that.
+  const W = [['#modal', 'open'], ['#wizard', 'open'], ['.menu', 'open'], ['#tipbox', 'on']];
+  const match = el => W.find(([sel]) => el.matches && el.matches(sel));
+  new MutationObserver(ms => ms.forEach(m => { const el = m.target, w = match(el); if (!w) return; const cls = w[1], was = (' ' + (m.oldValue || '') + ' ').includes(' ' + cls + ' '), now = el.classList.contains(cls);
+    if (now) { if (!was && el.classList.contains('closing')) { clearTimeout(el._fc); el.classList.remove('closing'); } return; }
+    if (was && !now && !(' ' + (m.oldValue || '') + ' ').includes(' closing ') && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => el.classList.remove('closing'), 190); } }))
+    .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], attributeOldValue: true, subtree: true });
 }
 
