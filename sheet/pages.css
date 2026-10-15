@@ -1048,7 +1048,17 @@ html.pg-sbon::-webkit-scrollbar, html.pg-sbon body::-webkit-scrollbar { width: 0
 /* desktop: a scrollbar on one page and none on the next moved the dice by half its width. Centre on the whole window
    (vw/vh include the scrollbar), and keep the page from scrolling at all while the loading screen is up. */
 #pg-load .pg-spin { left: 50vw !important; top: 50vh !important; }
-html.pg-loading { overflow: hidden !important; }
+
 /* admin ⋯ menus: never make the table grow a scrollbar; near the bottom of the window they open upward */
 .adm-tw:has(.adm-mwrap.on) { overflow: visible; }
 .adm-mwrap.up .adm-mlist { top: auto !important; bottom: calc(100% + 4px) !important; }
+
+/* THE loading-screen shift: sheets and admin reserved space for a scrollbar ("gutter") but the lobby didn't, so the
+   window's width - and the centre of the dice - changed whenever the lobby was involved. Now no page reserves a gutter,
+   no page shows the browser's own scrollbar (sheets, admin and lobby all use the slim gold one), and while a loading
+   screen is up the page can't scroll at all. */
+html, html:has(body.hubbody) { scrollbar-gutter: auto !important; }
+html.pg-sbon, html:has(body.adminbody) { scrollbar-width: none; }
+html:has(body.adminbody)::-webkit-scrollbar { width: 0; height: 0; display: none; }
+html:has(#pg-load) { overflow: hidden !important; scrollbar-width: none !important; }
+html:has(#pg-load)::-webkit-scrollbar { width: 0 !important; display: none !important; }

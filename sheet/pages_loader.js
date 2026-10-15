@@ -18,6 +18,22 @@ function pgGo(url, replace) { const go = () => { if (url == null) location.reloa
   document.documentElement.classList.add('pg-leaving'); setTimeout(go, 280); }
 addEventListener('pageshow', e => { if (e.persisted) document.querySelectorAll('#pg-load.pg-leave').forEach(x => x.remove()); });
 window.pgGo = pgGo;
+  // On a computer the sheet's own scrollbar is swapped for a slim one in the sheet's accent colour: drag it, click the
+// track to jump a page, or just scroll as usual. It hides when there's nothing to scroll.
+function sheetScrollbar() {
+  document.documentElement.classList.add('pg-sbon');
+  const sb = document.createElement('div'); sb.className = 'pg-sb'; sb.hidden = true; sb.innerHTML = '<div class="pg-sb-th"></div>'; document.body.appendChild(sb); const th = sb.firstElementChild;
+  const de = document.documentElement;
+  const paint = () => { const max = de.scrollHeight - innerHeight; if (max < 2 || document.querySelector('#modal.open, #wizard.open')) { sb.hidden = true; return; } sb.hidden = false;
+    const H = sb.clientHeight, h = Math.max(36, H * innerHeight / de.scrollHeight); th.style.height = h + 'px'; th.style.transform = `translateY(${(H - h) * (scrollY / max)}px)`; };
+  addEventListener('scroll', paint, { passive: true }); addEventListener('resize', paint); new ResizeObserver(paint).observe(document.body);
+  new MutationObserver(paint).observe(document.body, { attributes: true, subtree: true, attributeFilter: ['class'] }); setTimeout(paint, 100);
+  th.addEventListener('pointerdown', e => { e.preventDefault(); th.classList.add('drag'); th.setPointerCapture(e.pointerId);
+    const y0 = e.clientY, s0 = scrollY, k = (de.scrollHeight - innerHeight) / Math.max(1, sb.clientHeight - th.offsetHeight);
+    const mv = ev => scrollTo(0, s0 + (ev.clientY - y0) * k), up = () => { th.classList.remove('drag'); th.removeEventListener('pointermove', mv); th.removeEventListener('pointerup', up); th.removeEventListener('pointercancel', up); };
+    th.addEventListener('pointermove', mv); th.addEventListener('pointerup', up); th.addEventListener('pointercancel', up); });
+  sb.addEventListener('pointerdown', e => { if (e.target !== sb) return; scrollBy({ top: (e.clientY < th.getBoundingClientRect().top ? -1 : 1) * innerHeight * .85, behavior: 'smooth' }); });
+}
 {
   // Windows and menus fade out instead of vanishing: when one loses its "open" class it keeps showing (as .closing,
   // not clickable) just long enough to fade, and opening it again cancels that.
@@ -365,22 +381,6 @@ function wireDie(root) {
     if (load) { if (!load.isConnected) document.body.appendChild(load); const go = () => fadeLoad(load); if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 600 }); else setTimeout(go, 150); }
     // then the full rules wording, which only tooltips and the Spells/Features text need: once it's in, redraw so they use it
     fullTxt.then(t => { if (!t) return; const s = document.createElement('script'); s.textContent = t; document.body.appendChild(s); try { if (typeof render === 'function') render(); } catch (e) {} }); };
-  // On a computer the sheet's own scrollbar is swapped for a slim one in the sheet's accent colour: drag it, click the
-  // track to jump a page, or just scroll as usual. It hides when there's nothing to scroll.
-  function sheetScrollbar() {
-    document.documentElement.classList.add('pg-sbon');
-    const sb = document.createElement('div'); sb.className = 'pg-sb'; sb.hidden = true; sb.innerHTML = '<div class="pg-sb-th"></div>'; document.body.appendChild(sb); const th = sb.firstElementChild;
-    const de = document.documentElement;
-    const paint = () => { const max = de.scrollHeight - innerHeight; if (max < 2 || document.querySelector('#modal.open, #wizard.open')) { sb.hidden = true; return; } sb.hidden = false;
-      const H = sb.clientHeight, h = Math.max(36, H * innerHeight / de.scrollHeight); th.style.height = h + 'px'; th.style.transform = `translateY(${(H - h) * (scrollY / max)}px)`; };
-    addEventListener('scroll', paint, { passive: true }); addEventListener('resize', paint); new ResizeObserver(paint).observe(document.body);
-    new MutationObserver(paint).observe(document.body, { attributes: true, subtree: true, attributeFilter: ['class'] }); setTimeout(paint, 100);
-    th.addEventListener('pointerdown', e => { e.preventDefault(); th.classList.add('drag'); th.setPointerCapture(e.pointerId);
-      const y0 = e.clientY, s0 = scrollY, k = (de.scrollHeight - innerHeight) / Math.max(1, sb.clientHeight - th.offsetHeight);
-      const mv = ev => scrollTo(0, s0 + (ev.clientY - y0) * k), up = () => { th.classList.remove('drag'); th.removeEventListener('pointermove', mv); th.removeEventListener('pointerup', up); th.removeEventListener('pointercancel', up); };
-      th.addEventListener('pointermove', mv); th.addEventListener('pointerup', up); th.addEventListener('pointercancel', up); });
-    sb.addEventListener('pointerdown', e => { if (e.target !== sb) return; scrollBy({ top: (e.clientY < th.getBoundingClientRect().top ? -1 : 1) * innerHeight * .85, behavior: 'smooth' }); });
-  }
   const col = fs.collection('sheets'), CACHE = 'dnd-pages-cache:' + C;
   let txt = null, missing = false, denied = false, OWNER = NEW ? ((IS_ADMIN && O) || EMAIL) : '', VIEWERS = [], EDITORS = [];
   if (!NEW) try {
@@ -999,6 +999,7 @@ function hub(fs, auth, G, ctx) {
     { let at = 0; const inNav = e => e.target.closest && e.target.closest('.adm-nav');
       addEventListener('pointerup', e => { if (PHONE.matches && inNav(e)) at = Date.now(); }, true);
       ['click', 'mousedown', 'touchend', 'pointerdown'].forEach(t => addEventListener(t, e => { if (Date.now() - at < 350 && !inNav(e)) { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); } }, { capture: true, passive: false })); }
+    if (!TOUCH && !document.querySelector('.pg-sb')) sheetScrollbar();
     function frame() { frame0(); navPost(); }
     function frame0() {
       const nav = (k, label) => `<button class="adm-ni${TAB === k ? ' on' : ''}" data-tab="${k}">${svg(k)}<span>${label}</span>${k === 'new' && NEWN ? `<b class="adm-badge">${NEWN}</b>` : ''}</button>`;

@@ -1065,10 +1065,20 @@ html.pg-sbon::-webkit-scrollbar, html.pg-sbon body::-webkit-scrollbar { width: 0
 /* desktop: a scrollbar on one page and none on the next moved the dice by half its width. Centre on the whole window
    (vw/vh include the scrollbar), and keep the page from scrolling at all while the loading screen is up. */
 #pg-load .pg-spin { left: 50vw !important; top: 50vh !important; }
-html.pg-loading { overflow: hidden !important; }
+
 /* admin ⋯ menus: never make the table grow a scrollbar; near the bottom of the window they open upward */
 .adm-tw:has(.adm-mwrap.on) { overflow: visible; }
 .adm-mwrap.up .adm-mlist { top: auto !important; bottom: calc(100% + 4px) !important; }
+
+/* THE loading-screen shift: sheets and admin reserved space for a scrollbar ("gutter") but the lobby didn't, so the
+   window's width - and the centre of the dice - changed whenever the lobby was involved. Now no page reserves a gutter,
+   no page shows the browser's own scrollbar (sheets, admin and lobby all use the slim gold one), and while a loading
+   screen is up the page can't scroll at all. */
+html, html:has(body.hubbody) { scrollbar-gutter: auto !important; }
+html.pg-sbon, html:has(body.adminbody) { scrollbar-width: none; }
+html:has(body.adminbody)::-webkit-scrollbar { width: 0; height: 0; display: none; }
+html:has(#pg-load) { overflow: hidden !important; scrollbar-width: none !important; }
+html:has(#pg-load)::-webkit-scrollbar { width: 0 !important; display: none !important; }
 </style>
 </head>
 <body>
@@ -1132,6 +1142,22 @@ function pgGo(url, replace) { const go = () => { if (url == null) location.reloa
   document.documentElement.classList.add('pg-leaving'); setTimeout(go, 280); }
 addEventListener('pageshow', e => { if (e.persisted) document.querySelectorAll('#pg-load.pg-leave').forEach(x => x.remove()); });
 window.pgGo = pgGo;
+  // On a computer the sheet's own scrollbar is swapped for a slim one in the sheet's accent colour: drag it, click the
+// track to jump a page, or just scroll as usual. It hides when there's nothing to scroll.
+function sheetScrollbar() {
+  document.documentElement.classList.add('pg-sbon');
+  const sb = document.createElement('div'); sb.className = 'pg-sb'; sb.hidden = true; sb.innerHTML = '<div class="pg-sb-th"></div>'; document.body.appendChild(sb); const th = sb.firstElementChild;
+  const de = document.documentElement;
+  const paint = () => { const max = de.scrollHeight - innerHeight; if (max < 2 || document.querySelector('#modal.open, #wizard.open')) { sb.hidden = true; return; } sb.hidden = false;
+    const H = sb.clientHeight, h = Math.max(36, H * innerHeight / de.scrollHeight); th.style.height = h + 'px'; th.style.transform = `translateY(${(H - h) * (scrollY / max)}px)`; };
+  addEventListener('scroll', paint, { passive: true }); addEventListener('resize', paint); new ResizeObserver(paint).observe(document.body);
+  new MutationObserver(paint).observe(document.body, { attributes: true, subtree: true, attributeFilter: ['class'] }); setTimeout(paint, 100);
+  th.addEventListener('pointerdown', e => { e.preventDefault(); th.classList.add('drag'); th.setPointerCapture(e.pointerId);
+    const y0 = e.clientY, s0 = scrollY, k = (de.scrollHeight - innerHeight) / Math.max(1, sb.clientHeight - th.offsetHeight);
+    const mv = ev => scrollTo(0, s0 + (ev.clientY - y0) * k), up = () => { th.classList.remove('drag'); th.removeEventListener('pointermove', mv); th.removeEventListener('pointerup', up); th.removeEventListener('pointercancel', up); };
+    th.addEventListener('pointermove', mv); th.addEventListener('pointerup', up); th.addEventListener('pointercancel', up); });
+  sb.addEventListener('pointerdown', e => { if (e.target !== sb) return; scrollBy({ top: (e.clientY < th.getBoundingClientRect().top ? -1 : 1) * innerHeight * .85, behavior: 'smooth' }); });
+}
 {
   // Windows and menus fade out instead of vanishing: when one loses its "open" class it keeps showing (as .closing,
   // not clickable) just long enough to fade, and opening it again cancels that.
@@ -1251,7 +1277,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261015135256', ASSETS = {"data": "a/data.fc7a76553b3c.js", "app": "a/app.0150b2f84cc2.js", "full": "a/full.08c5d2dee3d4.js"};
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261015140330', ASSETS = {"data": "a/data.fc7a76553b3c.js", "app": "a/app.0150b2f84cc2.js", "full": "a/full.08c5d2dee3d4.js"};
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -1479,22 +1505,6 @@ function wireDie(root) {
     if (load) { if (!load.isConnected) document.body.appendChild(load); const go = () => fadeLoad(load); if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 600 }); else setTimeout(go, 150); }
     // then the full rules wording, which only tooltips and the Spells/Features text need: once it's in, redraw so they use it
     fullTxt.then(t => { if (!t) return; const s = document.createElement('script'); s.textContent = t; document.body.appendChild(s); try { if (typeof render === 'function') render(); } catch (e) {} }); };
-  // On a computer the sheet's own scrollbar is swapped for a slim one in the sheet's accent colour: drag it, click the
-  // track to jump a page, or just scroll as usual. It hides when there's nothing to scroll.
-  function sheetScrollbar() {
-    document.documentElement.classList.add('pg-sbon');
-    const sb = document.createElement('div'); sb.className = 'pg-sb'; sb.hidden = true; sb.innerHTML = '<div class="pg-sb-th"></div>'; document.body.appendChild(sb); const th = sb.firstElementChild;
-    const de = document.documentElement;
-    const paint = () => { const max = de.scrollHeight - innerHeight; if (max < 2 || document.querySelector('#modal.open, #wizard.open')) { sb.hidden = true; return; } sb.hidden = false;
-      const H = sb.clientHeight, h = Math.max(36, H * innerHeight / de.scrollHeight); th.style.height = h + 'px'; th.style.transform = `translateY(${(H - h) * (scrollY / max)}px)`; };
-    addEventListener('scroll', paint, { passive: true }); addEventListener('resize', paint); new ResizeObserver(paint).observe(document.body);
-    new MutationObserver(paint).observe(document.body, { attributes: true, subtree: true, attributeFilter: ['class'] }); setTimeout(paint, 100);
-    th.addEventListener('pointerdown', e => { e.preventDefault(); th.classList.add('drag'); th.setPointerCapture(e.pointerId);
-      const y0 = e.clientY, s0 = scrollY, k = (de.scrollHeight - innerHeight) / Math.max(1, sb.clientHeight - th.offsetHeight);
-      const mv = ev => scrollTo(0, s0 + (ev.clientY - y0) * k), up = () => { th.classList.remove('drag'); th.removeEventListener('pointermove', mv); th.removeEventListener('pointerup', up); th.removeEventListener('pointercancel', up); };
-      th.addEventListener('pointermove', mv); th.addEventListener('pointerup', up); th.addEventListener('pointercancel', up); });
-    sb.addEventListener('pointerdown', e => { if (e.target !== sb) return; scrollBy({ top: (e.clientY < th.getBoundingClientRect().top ? -1 : 1) * innerHeight * .85, behavior: 'smooth' }); });
-  }
   const col = fs.collection('sheets'), CACHE = 'dnd-pages-cache:' + C;
   let txt = null, missing = false, denied = false, OWNER = NEW ? ((IS_ADMIN && O) || EMAIL) : '', VIEWERS = [], EDITORS = [];
   if (!NEW) try {
@@ -2113,6 +2123,7 @@ function hub(fs, auth, G, ctx) {
     { let at = 0; const inNav = e => e.target.closest && e.target.closest('.adm-nav');
       addEventListener('pointerup', e => { if (PHONE.matches && inNav(e)) at = Date.now(); }, true);
       ['click', 'mousedown', 'touchend', 'pointerdown'].forEach(t => addEventListener(t, e => { if (Date.now() - at < 350 && !inNav(e)) { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); } }, { capture: true, passive: false })); }
+    if (!TOUCH && !document.querySelector('.pg-sb')) sheetScrollbar();
     function frame() { frame0(); navPost(); }
     function frame0() {
       const nav = (k, label) => `<button class="adm-ni${TAB === k ? ' on' : ''}" data-tab="${k}">${svg(k)}<span>${label}</span>${k === 'new' && NEWN ? `<b class="adm-badge">${NEWN}</b>` : ''}</button>`;
