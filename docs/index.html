@@ -1225,6 +1225,33 @@ html[data-theme="light"] .wzh .wzh-back { color: #8a6420; opacity: 1; } html[dat
 html.mobile .wzh { padding-top: calc(env(safe-area-inset-top) + 10px); background: var(--bg); }
 html.mobile .wz-box:has(.wzh) .wz-head { padding-top: 6px; }
 html.mobile .wzh .hl-d20 { filter: none !important; }
+/* View only / shared tag: in line with the back button and the viewers bubble, to their right */
+.pg-shared.placed, html.mobile .pg-shared.placed { position: absolute; left: 0; top: 0; right: auto; bottom: auto; transform: translateY(-50%); white-space: nowrap; transition: left .25s ease; }
+html.pg-sheetpage:not(.mobile):not(.pg-al) .pg-shared.placed { opacity: 0; pointer-events: none; }
+html.pg-sheetpage.pg-al:not(.mobile) .pg-shared.placed { transition: opacity .2s, left .25s ease; }
+.adm-online { display: inline-flex; align-items: center; gap: 6px; color: #2f9e62; font-weight: 700; }
+.adm-online i { width: 8px; height: 8px; border-radius: 50%; background: #34c172; box-shadow: 0 0 0 0 rgba(52,193,114,.6); animation: admPulse 2s ease-out infinite; }
+@keyframes admPulse { 70% { box-shadow: 0 0 0 6px rgba(52,193,114,0); } 100% { box-shadow: 0 0 0 0 rgba(52,193,114,0); } }
+@media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) :where(body.hubbody, #pg-load, .wzh) :is(input:not([type=checkbox]):not([type=radio]), select, textarea) { background-color: #fff; color: #1f2a44; } }
+ :where(html[data-pgtheme="light"]) :where(body.hubbody, #pg-load, .wzh) :is(input:not([type=checkbox]):not([type=radio]), select, textarea) { background-color: #fff; color: #1f2a44; } 
+:where(body.hubbody, .wzh) .hp-name { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; }
+:where(body.hubbody, .wzh) .hp-name b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:where(body.hubbody, .wzh) .hp-rename { flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #c9962b; opacity: .65; cursor: pointer; transition: opacity .15s, background-color .15s, transform .1s; }
+:where(body.hubbody, .wzh) .hp-rename:hover { opacity: 1; background: rgba(201,150,43,.14); }
+:where(body.hubbody, .wzh) .hp-rename:active { transform: scale(.88); }
+@media (max-width: 640px) { :where(body.hubbody, .wzh) .hp-rename { width: 18px; height: 18px; } :where(body.hubbody, .wzh) .hp-rename svg { width: 11px; height: 11px; } :where(body.hubbody, .wzh) .hp-name b { max-width: 30vw; } }
+:where(body.hubbody, .wzh) .sh-pub { margin: 16px 0 14px; padding-top: 14px; border-top: 1px solid rgba(127,127,127,.2); }
+:where(body.hubbody, .wzh) .sh-pub-t { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+:where(body.hubbody, .wzh) .sh-pub-t input { margin-top: 3px; width: 17px; height: 17px; accent-color: #c9962b; flex: none; }
+:where(body.hubbody, .wzh) .sh-pub-t b { display: block; font-size: .95rem; }
+:where(body.hubbody, .wzh) .sh-pub-t small { display: block; opacity: .7; font-size: .8rem; line-height: 1.4; margin-top: 2px; }
+:where(body.hubbody, .wzh) .sh-pub-row { display: flex; gap: 8px; margin-top: 10px; }
+:where(body.hubbody, .wzh) .sh-pub-row input { flex: 1; min-width: 0; font: 13px ui-monospace, monospace; padding: 8px 10px; border-radius: 9px; border: 1px solid #c9b88f; }
+@media (prefers-color-scheme: dark) { :where(html:not([data-pgtheme])) :where(body.hubbody, .wzh) .sh-pub-row input { background: #0f1420; color: #e9e3d3; border-color: #3a4560; } }
+ :where(html[data-pgtheme="dark"]) :where(body.hubbody, .wzh) .sh-pub-row input { background: #0f1420; color: #e9e3d3; border-color: #3a4560; } 
+.pg-pubtag a { color: inherit; font-weight: 800; }
+.adm-online { white-space: nowrap; }
+.pg-shared.placed.wrap, html.mobile .pg-shared.placed.wrap { white-space: normal; font-size: 10.5px; line-height: 1.15; padding: 3px 9px; border-radius: 10px; text-align: center; }
 </style>
 </head>
 <body>
@@ -1306,7 +1333,8 @@ function wireThemeBtn(root) { const b = root.querySelector('#hub-theme'); if (!b
     const flip = () => { de.setAttribute('data-pgtheme', next); try { localStorage.setItem('pg-theme', next); } catch (e) {}
       b.innerHTML = pgDark() ? PG_SUN : PG_MOON; b.title = themeLabel(); b.setAttribute('aria-label', themeLabel()); };
     const spin = () => { if (b.animate && !PG_CALM && b.firstElementChild) b.firstElementChild.animate([{ transform: 'rotate(-90deg) scale(.6)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 300, easing: 'cubic-bezier(.2,.9,.3,1)' }); };
-    if (!PG_CALM && document.startViewTransition) document.startViewTransition(flip).finished.then(spin, spin); else { flip(); spin(); } }; }
+    // With the cross-fade, the old icon turns away and the new one turns in at the same time (see #hub-theme svg in the CSS).
+    if (!PG_CALM && document.startViewTransition) document.startViewTransition(flip); else { flip(); spin(); } }; }
 // Small pop-up windows (contact, add to home screen, confirmations) fade out when closed instead of vanishing.
 // iPhones only show the pressed look (:active) on pages that listen for touches.
 document.addEventListener('touchstart', () => {}, { passive: true });
@@ -1488,7 +1516,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261015155043', ASSETS = {"data": "a/data.fc7a76553b3c.js", "app": "a/app.fee94221d04c.js", "full": "a/full.08c5d2dee3d4.js"};
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261015184632', ASSETS = {"data": "a/data.fc7a76553b3c.js", "app": "a/app.fee94221d04c.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.d36a008132c7.html"}; window.PG_ASSETS = ASSETS;
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -1502,7 +1530,7 @@ function wireDie(root) {
   const NEWFOR = (() => { try { return JSON.parse(sessionStorage.getItem('pg-newfor') || 'null') || {}; } catch (e) { return {}; } })();
   const P = String(Q.get('p') || NEWFOR.p || '').slice(0, 60), O = String(Q.get('o') || NEWFOR.o || '').trim().toLowerCase().slice(0, 120);
   const LAST_G = 'dnd-hub-group';
-  let NEWQ = !!Q.get('new'), ADMINQ = !!Q.get('admin'), TABQ = clean(Q.get('tab')), VIEWQ = Q.get('view') === 'shared' ? 'shared' : 'mine', LOGIN = false, SLUG = '', BAD = false;
+  let NEWQ = !!Q.get('new'), ADMINQ = !!Q.get('admin'), TABQ = clean(Q.get('tab')), VIEWQ = Q.get('view') === 'shared' ? 'shared' : 'mine', LOGIN = false, SLUG = '', BAD = false, VIEWTOK = String(Q.get('pv') || '').replace(/[^\w-]/g, '').slice(0, 40);
   if (PRETTY) {
     const parts = location.pathname.split('/').filter(Boolean).map(x => { try { return decodeURIComponent(x); } catch (e) { return x; } });
     if (parts.length === 1 && parts[0] === 'index.html') parts.length = 0;
@@ -1512,6 +1540,7 @@ function wireDie(root) {
     else if (parts.length === 1 && (parts[0] === 'create' || parts[0] === 'new')) NEWQ = true;
     else if (parts[0] === 'admin' && parts.length <= 2) { ADMINQ = true; TABQ = clean(parts[1] || ''); }
     else if (parts[0] === 'c' && parts.length === 2) C = clean(parts[1]);
+    else if (parts[0] === 'view' && parts.length === 2) VIEWTOK = String(parts[1]).replace(/[^\w-]/g, '').slice(0, 40); // view-only link, no sign-in
     else if (parts[0] === 'character' && parts.length === 2 && slugify(parts[1])) SLUG = slugify(parts[1]); // /character/zeebo
     else if (parts.length === 2) SLUG = slugify(parts[0]) + '/' + slugify(parts[1]); // older /player/character addresses
     else if (parts.length === 1 && slugify(parts[0])) SLUG = slugify(parts[0]);
@@ -1590,6 +1619,27 @@ function wireDie(root) {
     catch (e) { say(`That sign-in link didn't work (${(e && e.message) || 'expired or already used'}).<br><br><a href="${location.pathname}">Try again</a>`); }
     return;
   }
+  // A view-only link: the sheet's public copy, for anyone, signed in or not. Nothing typed here is saved.
+  if (VIEWTOK) { const t = VIEWTOK, pc = fs.collection('pub'); let txt = null;
+    try { const d = await pc.doc(t).get(); if (d.exists) { const x = d.data(); let str = x.data || ''; const n = Number(x.n) || 1;
+      for (let k = 1; k < n; k++) { const q = await pc.doc(t + '_p' + k).get(); if (!q.exists || Number(q.data().savedAt) !== Number(x.savedAt)) { str = null; break; } str += q.data().data || ''; }
+      if (str) { JSON.parse(str); txt = str; } } } catch (e) { console.warn('view link', e); }
+    if (!txt) { say(`This view-only link isn’t working — it may have been turned off.<br><br><a href="${PRETTY ? '/' : location.pathname}">Go to Adventurer’s Tome</a>`); return; }
+    data.textContent = txt; window.SHEET_PAGES = true; window.SHEET_CHAR = 'pub_' + t; window.PG_PUBLIC = true;
+    document.documentElement.classList.add('pg-sheetpage', 'pg-public');
+    const ref = p => { const m = /^sheets\/(main|part(\d+))$/.exec(p); return m ? pc.doc(m[2] ? t + '_p' + m[2] : t) : null; };
+    const none = { get: async () => ({ exists: false, data: () => null }), set: async () => { throw { code: 'unsupported' }; }, delete: async () => {}, onSnapshot: () => () => {} };
+    const db = { doc: p => { const r = ref(p); if (!r) return none; return { get: () => r.get(), set: () => Promise.reject({ code: 'permission-denied' }), delete: async () => {}, onSnapshot: (cb, err) => r.onSnapshot(cb, err) }; } };
+    window.claude = { use: async n => n === 'db' ? db : n === 'user' ? { id: async () => null, isOwner: async () => false, can: async () => false } : null };
+    let src; try { src = await Promise.all([ASSETS.data, ASSETS.app].map(u => fetch(u).then(r => { if (!r.ok) throw new Error(u); return r.text(); }))); } catch (e) { say('Couldn\'t load the sheet. Check your connection and reload.'); return; }
+    if (!load) document.documentElement.classList.remove('pg-loading');
+    src.forEach(x => { const sc = document.createElement('script'); sc.textContent = x; document.body.appendChild(sc); });
+    if (!TOUCH && !FRAMED) sheetScrollbar();
+    if (load) { if (!load.isConnected) document.body.appendChild(load); const go = () => fadeLoad(load); if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 600 }); else setTimeout(go, 150); }
+    if (ASSETS.full) fetch(ASSETS.full).then(r => r.ok ? r.text() : '').then(x => { if (!x) return; const sc = document.createElement('script'); sc.textContent = x; document.body.appendChild(sc); try { if (typeof render === 'function') render(); } catch (e) {} }, () => {});
+    const tag = document.createElement('div'); tag.className = 'pg-shared view pg-pubtag'; tag.innerHTML = `View only (changes are not saved) · <a href="${PRETTY ? '/' : location.pathname}">Adventurer’s Tome</a>`; document.body.appendChild(tag);
+    try { const st = JSON.parse(txt); if (st && st.name) document.title = st.name + ' — Adventurer’s Tome'; } catch (e) {}
+    return; }
   if (!PRETTY && !C && !G && !NEWQ) { location.replace(location.pathname + '?g=' + (clean(lsGet(LAST_G)) || DEFAULT_G)); return; }
   if (!G && NEWQ) G = DEFAULT_G;
   // old-style addresses arriving here (bookmarks, the github.io handover) switch to the clean ones
@@ -1635,7 +1685,10 @@ function wireDie(root) {
   let ME = null, NEWACCT = false, ACCT_OK = false, ACCT_ERR = '';
   try { const us = await UREF.get(); ME = us.exists ? us.data() : null;
     if (!ME) { NEWACCT = true; const nm = (user.displayName || EMAIL.split('@')[0]).slice(0, 60); ME = { email: EMAIL, name: nm, nameLower: nm.toLowerCase(), keys: searchKeys(nm, EMAIL.split('@')[0], EMAIL), createdAt: Date.now(), seenAt: Date.now() }; if (user.photoURL) ME.gpic = user.photoURL; await UREF.set(ME); }
-    else if (!ME.seenAt || Date.now() - ME.seenAt > 864e5) UREF.update({ seenAt: Date.now() }).catch(() => {});
+    // "Last seen" doubles as "on the site right now": refreshed every couple of minutes while a page is showing.
+    else if (!ME.seenAt || Date.now() - ME.seenAt > 60000) UREF.update({ seenAt: Date.now() }).catch(() => {});
+    { let lastBeat = Date.now(); const beat = () => { if (document.hidden || Date.now() - lastBeat < 100000) return; lastBeat = Date.now(); UREF.update({ seenAt: lastBeat }).catch(() => {}); };
+      setInterval(beat, 120000); document.addEventListener('visibilitychange', beat); }
     ACCT_OK = true;
     // keep their Google account photo on file (it's their picture until they choose another)
     if (ME && user.photoURL && ME.gpic !== user.photoURL) { ME.gpic = user.photoURL; UREF.update({ gpic: user.photoURL }).catch(() => {}); } } catch (e) { ACCT_ERR = (e && e.code) || ''; console.warn('account record', e); }
@@ -1730,13 +1783,13 @@ function wireDie(root) {
     // then the full rules wording, which only tooltips and the Spells/Features text need: once it's in, redraw so they use it
     fullTxt.then(t => { if (!t) return; const s = document.createElement('script'); s.textContent = t; document.body.appendChild(s); try { if (typeof render === 'function') render(); } catch (e) {} }); };
   const col = fs.collection('sheets'), CACHE = 'dnd-pages-cache:' + C;
-  let txt = null, missing = false, denied = false, OWNER = NEW ? ((IS_ADMIN && O) || EMAIL) : '', VIEWERS = [], EDITORS = [];
+  let PUB = '', txt = null, missing = false, denied = false, OWNER = NEW ? ((IS_ADMIN && O) || EMAIL) : '', VIEWERS = [], EDITORS = [];
   if (!NEW) try {
     const sn = await col.doc(C).get();
     if (!sn.exists || !sn.data().data) missing = true;
     else {
       const d = sn.data(); let str = d.data || ''; const n = Number(d.n) || 1;
-      if (d.g && !G) G = clean(d.g); OWNER = (d.owner || '').toLowerCase(); VIEWERS = d.viewers || []; EDITORS = d.editors || [];
+      if (d.g && !G) G = clean(d.g); OWNER = (d.owner || '').toLowerCase(); VIEWERS = d.viewers || []; EDITORS = d.editors || []; PUB = d.pub || '';
       for (let k = 1; k < n; k++) { const p = await col.doc(C + '_p' + k).get(); const pd = p.exists ? p.data() : null; if (!pd || Number(pd.savedAt) !== Number(d.savedAt)) { str = null; break; } str += pd.data || ''; }
       if (str) { JSON.parse(str); txt = str; lsSet(CACHE, str); }
     }
@@ -1791,9 +1844,11 @@ function wireDie(root) {
   // The sheet's sync code talks to "db" like it does on claude.ai; here that's this character's Firestore documents.
   const docFor = p => { const m = /^sheets\/(main|part(\d+))$/.exec(p); return m ? [col.doc(m[2] ? C + '_p' + m[2] : C), !m[2]] : null; };
   const none = { get: async () => ({ exists: false, data: () => null }), set: async () => { throw { code: 'unsupported' }; }, delete: async () => {}, onSnapshot: () => () => {} };
+  // With a view-only link on, every save is mirrored to the public copy (pub/<link>, same layout as the sheet's own documents).
+  const pubMirror = (p, v, main) => { if (!PUB) return; const k = (/part(\d+)/.exec(p) || [])[1]; fs.collection('pub').doc(main ? PUB : PUB + '_p' + k).set(Object.assign({ c: C, savedAt: Number(v.savedAt) || Date.now(), data: v.data || '' }, main ? { n: Number(v.n) || 1, v: 2, tab: String(v.tab || 'x') } : {})).catch(() => {}); };
   const db = { doc: p => { const x = docFor(p); if (!x) return none; const [r, main] = x;
-    return { get: () => r.get(), set: v => { if (role() === 'view') return Promise.reject({ code: 'permission-denied' }); v = Object.assign({}, v, { owner: OWNER, viewers: VIEWERS, editors: EDITORS }, main && G ? { g: G } : {}); if (main) WROTE = Number(v.savedAt); const w = r.set(v); if (main) w.then(hubSoon, () => {}); return w; }, delete: () => r.delete(),
-      onSnapshot: (cb, err) => r.onSnapshot(s => { const d = s.exists && s.data(); if (d && d.owner) OWNER = String(d.owner).toLowerCase(); if (d) { VIEWERS = d.viewers || []; EDITORS = d.editors || []; } cb(s);
+    return { get: () => r.get(), set: v => { if (role() === 'view') return Promise.reject({ code: 'permission-denied' }); v = Object.assign({}, v, { owner: OWNER, viewers: VIEWERS, editors: EDITORS }, main && G ? { g: G } : {}, main && PUB ? { pub: PUB } : {}); if (main) WROTE = Number(v.savedAt); const w = r.set(v); if (main) w.then(hubSoon, () => {}); w.then(() => pubMirror(p, v, main), () => {}); return w; }, delete: () => r.delete(),
+      onSnapshot: (cb, err) => r.onSnapshot(s => { const d = s.exists && s.data(); if (d && d.owner) OWNER = String(d.owner).toLowerCase(); if (d) { VIEWERS = d.viewers || []; EDITORS = d.editors || []; if (main) PUB = d.pub || ''; } cb(s);
         // Someone else's change arriving here isn't this person's edit: take it as the new starting point.
         if (main && d && Number(d.savedAt) !== WROTE) setTimeout(() => { try { if (LASTD !== null) LASTD = digest(window.sheetState()); } catch (e) {} }, 800); }, err) }; } };
   const cuser = { id: async () => null, isOwner: async () => true, can: async () => role() !== 'view' };
@@ -1813,7 +1868,7 @@ function wireDie(root) {
     document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); }); addEventListener('pagehide', flush); }
   if (!NEW && hubCol && PRETTY) hubCol.doc(C).get().then(d => { const pth = d.exists && d.data().path; if (pth) showPath(pth); }, () => {});
   // New character: once it's created (and saved to the cloud), its link goes in the address bar.
-  if (NEW) { const t = setInterval(() => { let made = false; try { const st = window.sheetState && window.sheetState(); made = !!(st && st.created); } catch (e) {} if (!made) return; clearInterval(t); try { sessionStorage.removeItem('pg-newfor'); } catch (e) {}
+  if (NEW) { const t = setInterval(() => { let made = false; try { const st = window.sheetState && window.sheetState(); made = !!(st && st.created); } catch (e) {} if (!made) return; clearInterval(t); try { sessionStorage.removeItem('pg-newfor'); } catch (e) {} setTimeout(() => startPres(), 2500); // a new character's viewers bubble starts once it exists
     history.replaceState(null, '', URLS.byId(C)); syncPlayer();
     setTimeout(() => window.sheetToast(`<div><b>Your character is saved</b><div class="det">${G ? 'It\'s on your party page. ' : ''}Open it on any device you're signed in on — it stays in sync. ${IS_ADMIN && OWNER !== EMAIL ? 'It belongs to ' + OWNER + '.' : 'Only you and the people you share it with can open it.'}</div></div>`, '', 12000), 600);
     hubChanged = true; hubSoon();
@@ -1838,13 +1893,21 @@ function wireDie(root) {
   // The viewers bubble always sits just right of the Adventurer's Tome button (moved along with it).
   // Who's viewing: stays invisible while the page is still laying itself out, then fades in once it has stopped moving.
   let presKey = '', presT = 0;
-  const placePres = () => { const box = document.querySelector('.pg-pres'), a = document.querySelector('.pg-hublink'); if (!box || !a || !a.offsetParent || !a.offsetWidth) return; // hidden behind a window: leave it where it was
+  // The "View only" / "Shared with you" tag sits in the same row: after the viewers bubble, or after the back button.
+  const placeShared = () => { const t = document.querySelector('.pg-shared'), a = document.querySelector('.pg-hublink'); if (!t || !a || !a.offsetParent || !a.offsetWidth) return;
+    const box = document.querySelector('.pg-pres'), withBox = box && !box.hidden && box.classList.contains('ready') && box.offsetWidth;
+    const left = withBox ? box.offsetLeft + box.offsetWidth + 8 : a.offsetLeft + a.offsetWidth + 8;
+    // Not enough room in one line (phones): it wraps onto two short lines in the space that's left.
+    const room = document.documentElement.clientWidth - 8 - left; t.classList.remove('wrap'); t.style.maxWidth = '';
+    if (t.offsetWidth > room) { t.classList.add('wrap'); t.style.maxWidth = Math.max(96, room) + 'px'; }
+    t.style.left = left + 'px'; t.style.top = (a.offsetTop + a.offsetHeight / 2) + 'px'; t.classList.add('placed'); };
+  const placePres = () => { placeShared(); const box = document.querySelector('.pg-pres'), a = document.querySelector('.pg-hublink'); if (!box || !a || !a.offsetParent || !a.offsetWidth) return; // hidden behind a window: leave it where it was
     const l = (a.offsetLeft + a.offsetWidth + 8) + 'px', t = (a.offsetTop + a.offsetHeight / 2) + 'px'; box.style.left = l; box.style.top = t;
-    if (box.classList.contains('ready')) return; const k = l + t + (a.offsetParent ? 1 : 0); if (k !== presKey) { presKey = k; clearTimeout(presT); presT = setTimeout(() => { if (box.isConnected && a.offsetParent) box.classList.add('ready'); else presKey = ''; }, 600); } };
+    if (box.classList.contains('ready')) return; const k = l + t + (a.offsetParent ? 1 : 0); if (k !== presKey) { presKey = k; clearTimeout(presT); presT = setTimeout(() => { if (box.isConnected && a.offsetParent) { box.classList.add('ready'); placeShared(); } else presKey = ''; }, 600); } placeShared(); };
   new ResizeObserver(() => placePres()).observe(document.documentElement);
   // Who's looking at this sheet right now — shown once it's shared: small portraits beside the back button, you too.
   // Each open copy checks in once a minute (only while its tab is showing) and drops off when closed or idle.
-  if (!NEW) (() => {
+  let PRES_ON = false; const startPres = () => { if (PRES_ON) return; PRES_ON = true;
     const pcol = col.doc(C).collection('presence'), mine = pcol.doc(EMAIL); let seen = {}, box = null;
     const beat = async () => { if (document.hidden) return; const a = avaOf(ME); try { await mine.set({ name: NAME, pic: a.pic, color: a.color, clear: a.clear, at: Date.now() }); } catch (e) {} };
     const leave = () => { mine.delete().catch(() => {}); };
@@ -1857,7 +1920,8 @@ function wireDie(root) {
     document.addEventListener('visibilitychange', () => { if (document.hidden) leave(); else beat(); });
     addEventListener('pagehide', leave);
     pcol.onSnapshot(qs => { seen = {}; qs.docs.forEach(d => { seen[d.id] = d.data(); }); show(); }, () => {});
-  })();
+  };
+  if (!NEW) startPres();
   // Adding this page to a phone's home screen: the icon is the character's portrait (the party page uses the dice icon).
   const homeIcon = () => { try { const st = window.sheetState && window.sheetState(); if (!st || !st.created) return; document.title = (st.name || 'Character') + ' — Adventurer’s Tome';
     const set = (sel, mk) => { let e = document.head.querySelector(sel); if (!e) { e = mk(); document.head.appendChild(e); } return e; };
@@ -1867,7 +1931,7 @@ function wireDie(root) {
       const url = c.toDataURL('image/png'); document.head.querySelectorAll('link[rel="apple-touch-icon"], link[rel="icon"]').forEach(l => l.remove());
       [['apple-touch-icon', ''], ['icon', 'image/png']].forEach(([rel, type]) => { const l = document.createElement('link'); l.rel = rel; if (type) l.type = type; l.href = url; document.head.appendChild(l); }); } catch (e) {} }; im.src = st.portrait; } catch (e) {} };
   setTimeout(homeIcon, 1500); setInterval(homeIcon, 60000);
-  if (role() !== 'owner') { const t = document.createElement('div'); t.className = 'pg-shared' + (role() === 'view' ? ' view' : ''); t.textContent = role() === 'view' ? 'View only' : 'Shared with you · can edit'; document.body.appendChild(t); }
+  if (role() !== 'owner') { const t = document.createElement('div'); t.className = 'pg-shared' + (role() === 'view' ? ' view' : ''); t.textContent = role() === 'view' ? 'View only (changes are not saved)' : 'Shared with you · can edit'; document.body.appendChild(t); setTimeout(placeShared, 50); setInterval(placeShared, 1500); }
   verCheck();
 })();
 
@@ -1927,6 +1991,19 @@ function hub(fs, auth, G, ctx) {
   if (ME) remember(EMAIL, ME);
   const myName = () => NAMES[EMAIL] || user.displayName || EMAIL.split('@')[0];
   const isMine = c => (c.owner || '') === EMAIL;
+  // Your name (shown on your characters as the player, and to the people you share with): the pencil beside it.
+  function renameMe() {
+    modal.innerHTML = `<div class="hub-card"><h2>Your name</h2><p class="hub-hint">Shown on your characters as the player, and to people you share them with.</p>
+      <form id="rn-f" class="who-f"><input id="rn-n" maxlength="40" autocomplete="name" value="${esc(myName())}" required></form>
+      <div class="row"><button class="btn ghost" id="rn-x">Cancel</button><button class="btn gold" id="rn-ok">Save</button></div></div>`;
+    modal.classList.add('on'); const inp = modal.querySelector('#rn-n'); setTimeout(() => { inp.focus(); inp.select(); }, 30);
+    const save = async () => { const nm = inp.value.replace(/\s+/g, ' ').trim().slice(0, 40); if (!nm) { toast('Type a name.'); return; } if (nm === myName()) { close(); return; }
+      try { await usersCol.doc(EMAIL).update({ name: nm, nameLower: nm.toLowerCase(), keys: searchKeys(nm, EMAIL.split('@')[0], EMAIL) }); }
+      catch (x) { toast(x && x.code === 'permission-denied' ? 'Changing your name isn’t switched on yet.' : 'Couldn’t save your name: ' + (x.message || x)); return; }
+      NAMES[EMAIL] = nm; if (ME) ME.name = nm; pgLog('rename_user', { target: EMAIL, tName: nm, detail: 'changed their own name' });
+      chars.filter(isMine).forEach(c => { c.player = nm; charsCol.doc(c.id).set({ player: nm }, { merge: true }).catch(() => {}); });
+      close(); toast('Name changed to ' + nm + '.'); draw(); };
+    modal.querySelector('#rn-f').onsubmit = e => { e.preventDefault(); save(); }; modal.querySelector('#rn-ok').onclick = save; modal.querySelector('#rn-x').onclick = close; }
   const close = () => modal.classList.remove('on');
   const pic = c => c.thumb ? `<img class="hc-pic" src="${esc(c.thumb)}" alt="">` : `<span class="hc-pic hc-nopic">${esc(initials(c.name || '?'))}</span>`;
   // The wordmark: a gold d20 crest beside "Adventurer's" in spaced small caps over a large serif "Tome".
@@ -1935,9 +2012,44 @@ function hub(fs, auth, G, ctx) {
   const mi = d => `<svg class="mi" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
   const MI = { pin: mi('<path d="M9 3h6l-1 6 4 4H6l4-4z"/><path d="M12 13v8"/>'), unpin: mi('<path d="M9 3h6l-1 6 4 4H6l4-4z"/><path d="M12 13v8"/><path d="M3 3l18 18"/>'), share: shareIcon.replace(/width="\d+"/, 'width="16"').replace(/height="\d+"/, 'height="16"').replace('<svg', '<svg class="mi"'),
     move: mi('<circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 11h6M19 8l3 3-3 3"/>'), leave: mi('<path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4"/><path d="M10 17l-5-5 5-5M5 12h11"/>'),
-    del: mi('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>') };
+    del: mi('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>'), copy: mi('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/>'),
+    exp: mi('<path d="M12 4v11M7 10l5 5 5-5"/><path d="M5 19h14"/>') };
 
   // ----- actions on one character (used by the hub's menus and the admin section) -----
+  // A character's saved sheet, put back together (big sheets are split across a few documents).
+  async function sheetText(id) { const m = await sheets.doc(id).get(); if (!m.exists) throw new Error('That character couldn’t be found.'); const d = m.data(); let str = d.data || ''; const n = Number(d.n) || 1;
+    for (let k = 1; k < n; k++) { const p = await sheets.doc(id + '_p' + k).get(); str += (p.exists && p.data().data) || ''; } return { str, main: d }; }
+  const newId = () => { const a = new Uint8Array(18); crypto.getRandomValues(a); return btoa(String.fromCharCode(...a)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+  const chunks = (str, size = 900000) => { const out = []; for (let i = 0; i < str.length; i += size) out.push(str.slice(i, i + size)); return out.length ? out : ['']; };
+  const clip = o => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
+  // Make a copy: a new character of your own with everything the original has (yours or one shared with you).
+  async function copyChar(c) { toast('Copying ' + (c.name || 'the character') + '…');
+    try { const { str, main } = await sheetText(c.id), st = JSON.parse(str), now = Date.now(), id = newId();
+      const nm = ((st.name || c.name || 'Character') + ' (copy)').slice(0, 60); st.name = nm; st.id = newId(); st.player = myName(); st.savedAt = now;
+      const parts = chunks(JSON.stringify(st)), acc = { owner: EMAIL, viewers: [], editors: [] };
+      for (let k = 1; k < parts.length; k++) await sheets.doc(id + '_p' + k).set(Object.assign({ savedAt: now, data: parts[k] }, acc));
+      await sheets.doc(id).set(Object.assign({ v: 2, savedAt: now, tab: main.tab || 'x', n: parts.length, data: parts[0], g: G }, acc));
+      const sum = clip({ owner: EMAIL, name: nm, player: myName(), race: c.race, cls: c.cls, level: c.level, thumb: c.thumb || '', keys: searchKeys(nm), viewers: [], editors: [], createdAt: now, updatedAt: now, by: myName() });
+      await charsCol.doc(id).set(sum); pgLog('create', { target: id, tName: nm, detail: 'copy of ' + (c.name || 'a character') });
+      if (view !== 'mine') switchView('mine'); toast('Made a copy: ' + nm + '.'); }
+    catch (x) { toast('Couldn’t copy it: ' + (x.message || x)); } }
+  // Export: the character as one stand-alone .html file that opens in any browser, no account needed.
+  async function exportChar(c) { toast('Preparing ' + (c.name || 'the character') + '…');
+    try { const [{ str }, tpl] = await Promise.all([sheetText(c.id), fetch(window.PG_ASSETS.blank).then(r => { if (!r.ok) throw new Error('couldn’t load the sheet file'); return r.text(); })]);
+      const open = '<script id="sheet-data" type="application/json">', a = tpl.indexOf(open), b = tpl.indexOf('</' + 'script>', a); if (a < 0 || b < 0) throw new Error('bad sheet file');
+      const out = tpl.slice(0, a + open.length) + str.replace(/</g, '\\u003c') + tpl.slice(b);
+      const fname = (c.name || 'character').replace(/[^\w-]+/g, '_') + '_' + new Date().toISOString().slice(0, 10) + '_sheet.html';
+      const el = document.createElement('a'); el.href = URL.createObjectURL(new Blob([out], { type: 'text/html' })); el.download = fname; document.body.appendChild(el); el.click(); setTimeout(() => { URL.revokeObjectURL(el.href); el.remove(); }, 1500);
+      toast('Downloaded ' + fname + '.'); }
+    catch (x) { toast('Couldn’t export it: ' + (x.message || x)); } }
+  // View-only link: a copy of the sheet anyone can open without signing in, kept up to date as it's edited.
+  const pubCol = fs.collection('pub'), pubURL = t => location.origin + (PRETTY ? '/view/' + t : location.pathname + '?pv=' + t);
+  async function pubOn(c) { const { str, main } = await sheetText(c.id); const t = main.pub || newId().slice(0, 22), parts = chunks(str), now = Number(main.savedAt) || Date.now();
+    for (let k = 1; k < parts.length; k++) await pubCol.doc(t + '_p' + k).set({ c: c.id, savedAt: now, data: parts[k] });
+    await pubCol.doc(t).set({ c: c.id, savedAt: now, n: parts.length, data: parts[0], v: 2, tab: String(main.tab || 'x') });
+    if (main.pub !== t) await sheets.doc(c.id).update({ pub: t }); return t; }
+  async function pubOff(c, t) { const m = await pubCol.doc(t).get().catch(() => null), n = Number(m && m.exists && m.data().n) || 1;
+    await sheets.doc(c.id).update({ pub: firebase.firestore.FieldValue.delete() }); for (let k = 1; k < n; k++) await pubCol.doc(t + '_p' + k).delete().catch(() => {}); await pubCol.doc(t).delete().catch(() => {}); }
   // Who else can open a character: everyone in "viewers" can look; those also in "editors" can change it.
   async function setAccess(c, V, E) {
     const acc = { viewers: V, editors: E.filter(x => V.includes(x)) };
@@ -1954,13 +2066,21 @@ function hub(fs, auth, G, ctx) {
     try { await userDoc(o); const s = await sheets.doc(c.id).get(); const n = Number(s.exists && s.data().n) || 1; await sheets.doc(c.id).update({ owner: o }); for (let k = 1; k < n; k++) await sheets.doc(c.id + '_p' + k).update({ owner: o }).catch(() => {});
       await charsCol.doc(c.id).set({ owner: o, player: nameOf(o), playerSet: Date.now() }, { merge: true }); c.owner = o; c.player = nameOf(o); toast('Moved to ' + nameOf(o) + '.'); pgLog('give', { target: c.id, tName: c.name, detail: 'to ' + o }); return true; } catch (x) { toast('Couldn\'t move it: ' + (x.message || x)); return false; } }
   function shareChar(c, back) {
-    let V = [...(c.viewers || [])], E = [...(c.editors || [])];
+    let V = [...(c.viewers || [])], E = [...(c.editors || [])], PUB = '', pubBusy = false;
     const paint = () => {
       modal.innerHTML = `<div class="hub-card wide"><h2>Share ${esc(c.name || 'this character')}</h2><p class="hub-hint">They'll find it under “Shared characters” after signing in with that email.</p>
         <div class="pl-list">${V.map(em => `<div class="pl-row"><span class="sh-who">${NAMES[em] ? `<b>${esc(NAMES[em])}</b> ` : ''}<span>${esc(em)}</span></span><select data-acc="${esc(em)}"><option value="view">Can view</option><option value="edit"${E.includes(em) ? ' selected' : ''}>Can edit</option></select><button class="linkbtn" data-rm="${esc(em)}">remove</button></div>`).join('') || '<p class="hub-hint">Not shared with anyone yet.</p>'}</div>
         <form id="sh-f" class="who-f pl-f sh-f"><input id="sh-e" type="email" placeholder="Their email address" autocomplete="off" required><select id="sh-a"><option value="view">Can view</option><option value="edit">Can edit</option></select><button class="btn gold">Share</button></form>
+        <div class="sh-pub"><label class="sh-pub-t"><input type="checkbox" id="sh-pub"${PUB ? ' checked' : ''}${pubBusy ? ' disabled' : ''}><span><b>View-only link</b><small>Anyone with the link can look at this character without signing in. It stays up to date as it changes.</small></span></label>
+          ${PUB ? `<div class="sh-pub-row"><input readonly id="sh-pub-u" value="${esc(pubURL(PUB))}"><button class="btn" id="sh-pub-c">Copy link</button></div>` : ''}</div>
         <button class="btn ghost" id="sh-x">Done</button></div>`;
       modal.classList.add('on');
+      modal.querySelector('#sh-pub').onchange = async e => { const on = e.target.checked; pubBusy = true; paint();
+        try { if (on) { PUB = await pubOn(c); pgLog('share', { target: c.id, tName: c.name || '', detail: 'view-only link turned on' }); toast('View-only link is on.'); }
+          else { await pubOff(c, PUB); PUB = ''; pgLog('unshare', { target: c.id, tName: c.name || '', detail: 'view-only link turned off' }); toast('View-only link turned off — the old link no longer works.'); } }
+        catch (x) { toast(x && x.code === 'permission-denied' ? 'View-only links aren’t switched on yet.' : 'Couldn’t change the link: ' + (x.message || x)); }
+        pubBusy = false; paint(); };
+      { const cp = modal.querySelector('#sh-pub-c'); if (cp) cp.onclick = async () => { const u = modal.querySelector('#sh-pub-u'); try { await navigator.clipboard.writeText(u.value); cp.textContent = 'Copied'; } catch (x) { u.select(); cp.textContent = 'Selected'; } setTimeout(() => { cp.textContent = 'Copy link'; }, 1600); }; }
       const save = async (nv, ne, msg) => { try { await setAccess(c, nv, ne); V = c.viewers; E = c.editors; if (msg) toast(msg); paint(); if (back && back.refresh) back.refresh(); } catch (x) { toast('Couldn\'t change sharing: ' + (x.message || x)); } };
       modal.querySelector('#sh-f').onsubmit = e => { e.preventDefault(); const em = modal.querySelector('#sh-e').value.trim().toLowerCase();
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { toast('Type an email address.'); return; } if (em === c.owner) { toast('That’s the owner.'); return; }
@@ -1969,7 +2089,7 @@ function hub(fs, auth, G, ctx) {
       modal.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { const em = b.dataset.rm; save(V.filter(x => x !== em), E.filter(x => x !== em), 'Stopped sharing with ' + nameOf(em) + '.'); });
       modal.querySelector('#sh-x').onclick = () => { close(); if (back) back(); };
     };
-    (IS_ADMIN ? needNames(V) : Promise.resolve()).then(paint);
+    Promise.all([IS_ADMIN ? needNames(V) : null, sheets.doc(c.id).get().then(d => { PUB = (d.exists && d.data().pub) || ''; }, () => {})]).then(paint);
   }
   // Admins: find an account by name or email (one indexed lookup however many accounts there are).
   async function findUsers(q, after) { q = String(q || '').trim().toLowerCase().slice(0, 24);
@@ -2108,6 +2228,7 @@ function hub(fs, auth, G, ctx) {
       <small>${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small>${acc}</span></a>
       ${(() => { const inList = (c.viewers || []).includes(EMAIL) && !isMine(c), it = [];
         if (IS_ADMIN) it.push(['share', 'Share…'], ['move', 'Give to another player']);
+        it.push(['copy', 'Make a copy'], ['exp', 'Export']);
         if (inList) it.push(['leave', 'Relinquish access']);
         if (canDelete(c)) it.push(['del', 'Delete character…', 'hc-del']);
         return it.length ? `<div class="hc-menu"><button class="hc-dots" aria-label="More">⋯</button><div class="hc-list">${it.map(([a, t, k]) => `<button data-a="${a}" data-id="${esc(c.id)}"${k ? ` class="${k}"` : ''}>${MI[a]}${t}</button>`).join('')}</div></div>` : ''; })()}</div>`;
@@ -2121,7 +2242,7 @@ function hub(fs, auth, G, ctx) {
       <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</span>
       <small>${shareNote(c)}${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small></span></a>
       <div class="hc-menu hr-menu"><button class="hc-dots" aria-label="More options for ${esc(c.name || 'this character')}">⋯</button><div class="hc-list">
-        <button data-a="pin" data-id="${esc(c.id)}">${c.pin ? MI.unpin + 'Unpin' : MI.pin + 'Pin'}</button><button data-a="share" data-id="${esc(c.id)}">${MI.share}Share…</button>${canDelete(c) ? `<button data-a="del" data-id="${esc(c.id)}" class="hc-del">${MI.del}Delete character…</button>` : ''}</div></div></div>`;
+        <button data-a="pin" data-id="${esc(c.id)}">${c.pin ? MI.unpin + 'Unpin' : MI.pin + 'Pin'}</button><button data-a="share" data-id="${esc(c.id)}">${MI.share}Share…</button><button data-a="copy" data-id="${esc(c.id)}">${MI.copy}Make a copy</button><button data-a="exp" data-id="${esc(c.id)}">${MI.exp}Export</button>${canDelete(c) ? `<button data-a="del" data-id="${esc(c.id)}" class="hc-del">${MI.del}Delete character…</button>` : ''}</div></div></div>`;
   }
   async function saveOrder(ids) { await Promise.all(ids.map((id, i) => { const c = chars.find(x => x.id === id); if (c && c.order === i) return null; if (c) c.order = i; return charsCol.doc(id).set({ order: i }, { merge: true }); })); }
   async function togglePin(id) { const c = chars.find(x => x.id === id); if (!c) return; const mine = chars.filter(isMine);
@@ -2232,13 +2353,14 @@ function hub(fs, auth, G, ctx) {
     const keepLogo = root.querySelector('.hub-logo');
     root.innerHTML = `<div class="hub-head"><header class="hub-top">${logoHTML()}
       <div class="hub-side"><div class="hub-prof"><button class="hp-pic" id="me-pic" title="Choose your picture" aria-label="Choose your picture">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(myAva())}<span class="hp-edit" aria-hidden="true">✎</span></button>
-        <div class="hp-txt"><b>${esc(myName())}</b><small>${esc(EMAIL)}</small><div class="hp-row"><button class="linkbtn" id="me-out">Sign out</button>${themeBtnHTML()}${IS_ADMIN ? '<button class="hub-admin hub-chip" id="hub-admin"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Admin</span></button>' : '<a class="hub-ctlink" href="#contact">Contact us</a>'}</div></div></div></div></header>
+        <div class="hp-txt"><span class="hp-name"><b>${esc(myName())}</b><button class="hp-rename" id="me-rename" title="Change your name" aria-label="Change your name"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></button></span><small>${esc(EMAIL)}</small><div class="hp-row"><button class="linkbtn" id="me-out">Sign out</button>${themeBtnHTML()}${IS_ADMIN ? '<button class="hub-admin hub-chip" id="hub-admin"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Admin</span></button>' : '<a class="hub-ctlink" href="#contact">Contact us</a>'}</div></div></div></div></header>
       <div class="hub-views${TABS ? '' : ' no-seg'}">${seg}${a2hsHTML()}<button class="hub-new" id="hub-new"><span class="hn-plus" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="hn-txt"><b>Create character</b></span></button></div>
       </div><div class="hub-list">${body}</div>`;
     if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
     const nb = root.querySelector('#hub-new'); if (nb) nb.onclick = createChar; wireA2HS(root);
     root.querySelector('#me-out').onclick = signOut;
     wireThemeBtn(root);
+    { const rn = root.querySelector('#me-rename'); if (rn) rn.onclick = renameMe; }
     const ab = root.querySelector('#hub-admin'); if (ab) ab.onclick = () => { pgGo(ADMIN_URL); };
     root.querySelector('#me-pic').onclick = () => pickPic();
     root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => switchView(b.dataset.view));
@@ -2246,7 +2368,7 @@ function hub(fs, auth, G, ctx) {
     root.querySelectorAll('details.hub-folder').forEach(d => d.addEventListener('toggle', () => { open[d.dataset.k] = d.open; ls.set(OPEN, JSON.stringify(open)); }));
     root.querySelectorAll('.hc-dots').forEach(b => b.onclick = e => { e.stopPropagation(); const w = b.parentElement, on = !w.classList.contains('on'); root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')); w.classList.toggle('on', on); });
     root.querySelectorAll('.hc-list [data-a]').forEach(b => b.onclick = () => { const c = chars.find(x => x.id === b.dataset.id); b.closest('.hc-menu').classList.remove('on'); if (!c) return;
-      if (b.dataset.a === 'share') shareChar(c); if (b.dataset.a === 'move') moveChar(c, draw); if (b.dataset.a === 'leave') leaveChar(c, draw); if (b.dataset.a === 'pin') togglePin(c.id); if (b.dataset.a === 'del') deleteChar(c, draw); });
+      if (b.dataset.a === 'share') shareChar(c); if (b.dataset.a === 'move') moveChar(c, draw); if (b.dataset.a === 'leave') leaveChar(c, draw); if (b.dataset.a === 'pin') togglePin(c.id); if (b.dataset.a === 'del') deleteChar(c, draw); if (b.dataset.a === 'copy') copyChar(c); if (b.dataset.a === 'exp') exportChar(c); });
   }
   wireDie(root);
   document.addEventListener('click', () => root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')));
@@ -2458,7 +2580,7 @@ function hub(fs, auth, G, ctx) {
         const rows = UQ ? UROWS.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')) : UROWS;
         const cnt = B().querySelector('#ad-uq-n'); if (cnt) cnt.textContent = rows.length ? rows.length + (r.docs.length === 25 ? '+' : '') + ' user' + (rows.length === 1 ? '' : 's') : '';
         l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Last active</th><th></th><th></th></tr></thead><tbody>${rows.map(u => { const [rl, rc] = u.banned ? ['Blocked', 'r-blk'] : roleOf(u.id);
-          return `<tr data-u="${esc(u.id)}"><td><span class="adm-who">${ava(u.name, u.id)}<b>${esc(u.name || '—')}</b></span></td><td class="adm-mail">${esc(u.id)}</td><td><span class="adm-tag ${rc}">${rl}</span></td><td>${when(u.createdAt)}</td><td>${u.seenAt ? esc(ago(u.seenAt)) : '<span class="adm-dim">—</span>'}</td>
+          return `<tr data-u="${esc(u.id)}"><td><span class="adm-who">${ava(u.name, u.id)}<b>${esc(u.name || '—')}</b></span></td><td class="adm-mail">${esc(u.id)}</td><td><span class="adm-tag ${rc}">${rl}</span></td><td>${when(u.createdAt)}</td><td>${u.seenAt && Date.now() - u.seenAt < 4 * 60000 ? '<span class="adm-online" title="Has Adventurer’s Tome open right now"><i></i>Online now</span>' : u.seenAt ? esc(ago(u.seenAt)) : '<span class="adm-dim">—</span>'}</td>
             <td><button class="adm-btn sm" data-uc="${esc(u.id)}">Characters ▸</button></td><td class="adm-act">${kebab([['rename', 'Rename…', u.id], ['pic', 'Change picture…', u.id], ['newfor', 'New character for them', u.id]].concat(IS_OWNER && u.id !== ADMIN_EMAIL ? [ADMINS.includes(u.id) ? ['unadmin', 'Remove admin', u.id] : ['mkadmin', 'Make admin', u.id]] : [], u.id === ADMIN_EMAIL || u.id === EMAIL ? [] : [['signout', 'Sign out everywhere', u.id]].concat(u.banned ? [['unblock', 'Unblock', u.id]] : [], [['delacct', 'Delete account…', u.id, 'danger']])))}</td></tr>
             <tr class="adm-subrow" data-sub="${esc(u.id)}" hidden><td colspan="7"></td></tr>`; }).join('')}</tbody></table></div>`
           + (r.docs.length === 25 ? '<button class="adm-btn adm-more" id="ad-umore">Load more</button>' : '') : `<p class="adm-empty">${UQ ? 'Nobody matches “' + esc(UQ) + '”.' : 'No accounts yet.'}</p>`;

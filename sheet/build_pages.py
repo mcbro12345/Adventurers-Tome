@@ -21,6 +21,8 @@ def asset(kind, ext, text):
     old = sorted(glob.glob(os.path.join(A, f'{kind}.*.{ext}')), key=os.path.getmtime)
     for f in old[:-6]: os.remove(f)
     return 'a/' + name
+# A blank stand-alone sheet, filled in with a character when someone exports one from the character list.
+BLANK = asset('blank', 'html', html)
 i = html.rindex('<script>\n'); j = html.index('</script>', i)
 APP = asset('app', 'js', html[i + len('<script>\n'):j]); html = html[:i] + html[j + len('</script>'):]
 i = html.index('<style>'); j = html.index('</style>', i)
@@ -52,7 +54,7 @@ if(window.PG_NAV_T)pgDieRoll(s,0);else setTimeout(function(){pgDieRoll(s,0)},150
 <script>
 ''' + open(os.path.join(D, 'pages_loader.js')).read() + '''
 </script>
-''').replace('__CFG__', json.dumps(cfg)).replace('__VER__', VER).replace('__ASSETS__', json.dumps({'data': DATA, 'app': APP, 'full': FULL}))
+''').replace('__CFG__', json.dumps(cfg)).replace('__VER__', VER).replace('__ASSETS__', json.dumps({'data': DATA, 'app': APP, 'full': FULL, 'blank': BLANK}))
 html = re.sub(r'<title>[^<]*</title>', '<title>Adventurer’s Tome</title>', html, count=1)
 # Files are referenced relative to the site root, so /chad-brooker/hiro still finds a/…, icons and version.json.
 # (The github.io copy lives in a sub-folder, so its root is that folder.)

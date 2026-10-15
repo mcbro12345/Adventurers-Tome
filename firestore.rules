@@ -45,7 +45,8 @@ service cloud.firestore {
       allow list: if admin();
       allow create: if admin() || (signedIn() && em == me() && request.resource.data.email == me()
         && request.resource.data.keys().hasOnly(['email', 'name', 'nameLower', 'keys', 'createdAt', 'seenAt', 'gpic']));
-      allow update: if admin() || (signedIn() && em == me() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt', 'pic', 'picChar', 'picColor', 'picClear', 'picMode', 'gpic']));
+      allow update: if admin() || (signedIn() && em == me() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt', 'pic', 'picChar', 'picColor', 'picClear', 'picMode', 'gpic', 'name', 'nameLower', 'keys'])
+        && request.resource.data.get('name', '') is string && request.resource.data.get('name', '').size() <= 60);
       allow delete: if admin();
     }
     // The address book: /zeebo → which character. Anyone signed in can look an address up (it only says which character —
@@ -66,6 +67,17 @@ service cloud.firestore {
       allow read: if admin();
       allow update: if false;
       allow delete: if admin() && resource.data.at is number && resource.data.at < request.time.toMillis() - 604800000;
+    }
+    // View-only links: a public copy of a sheet at pub/<random link id> (big sheets split as <id>_p1, _p2…). Anyone can open
+    // one if they have the link; only someone who can edit the character can write or remove it. Links can't be listed.
+    function canEditSheet(c) { let sh = get(/databases/$(db)/documents/sheets/$(c)).data;
+      return admin() || (signedIn() && (sh.owner == me() || me() in sh.get('editors', []))); }
+    match /pub/{t} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if request.resource.data.keys().hasOnly(['c', 'savedAt', 'data', 'n', 'v', 'tab']) && request.resource.data.c is string && canEditSheet(request.resource.data.c);
+      allow update: if request.resource.data.keys().hasOnly(['c', 'savedAt', 'data', 'n', 'v', 'tab']) && request.resource.data.c == resource.data.c && canEditSheet(resource.data.c);
+      allow delete: if canEditSheet(resource.data.c);
     }
     match /config/admins {
       allow get: if admin();
