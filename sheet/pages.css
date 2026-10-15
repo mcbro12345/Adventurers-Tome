@@ -998,4 +998,4 @@ body.hubbody .hc-menu.closing .hc-list, body.hubbody .adm-mwrap.closing .adm-mli
 html, body { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 /* coming from another page of the site: the loading screen is already up, so it shows at once instead of fading in again */
 html.pg-instant #pg-load { animation: none !important; }
-#pg-load.pg-leave { animation: pgLoadIn .25s ease both !important; }
+html #pg-load.pg-leave, html.pg-instant #pg-load.pg-leave { animation: pgLoadIn .25s ease both !important; }
