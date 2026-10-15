@@ -145,7 +145,8 @@ function wireDie(root) {
   const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
   // The loading screen fades away over the page instead of vanishing, and links between pages fade out first.
   function fadeLoad(el) { if (!el || !el.isConnected) return; if (matchMedia('(prefers-reduced-motion: reduce)').matches) return el.remove();
-    el.style.pointerEvents = 'none'; el.style.transition = 'opacity .32s ease'; requestAnimationFrame(() => { el.style.opacity = '0'; }); setTimeout(() => el.remove(), 360); }
+    el.style.pointerEvents = 'none'; el.style.zIndex = '9999'; el.style.transition = 'opacity .34s ease'; void el.offsetWidth;
+    requestAnimationFrame(() => requestAnimationFrame(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 380); })); }
   document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[href]'); if (!a || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || a.target === '_blank' || a.hasAttribute('download')) return;
     let u; try { u = new URL(a.href, location.href); } catch (x) { return; } if (u.origin !== location.origin || (u.pathname === location.pathname && u.search === location.search)) return;
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return; e.preventDefault(); document.documentElement.classList.add('pg-leaving'); setTimeout(() => { location.href = u.href; }, 170); });
@@ -325,8 +326,9 @@ function wireDie(root) {
   // started once the essentials have arrived, so it doesn't compete with them on a slow connection
   const fullTxt = fetched.then(() => ASSETS.full ? fetch(ASSETS.full).then(r => r.ok ? r.text() : '', () => '') : '', () => '');
   const run = async () => { let src; try { src = await fetched; } catch (e) { say('Couldn\'t load the sheet. Check your connection and reload.'); return; }
-    if (load) fadeLoad(load); document.documentElement.classList.remove('pg-loading');
+    document.documentElement.classList.remove('pg-loading');
     src.forEach(t => { const s = document.createElement('script'); s.textContent = t; document.body.appendChild(s); });
+    if (load) { if (load.parentNode !== document.body || load !== document.body.lastElementChild) document.body.appendChild(load); fadeLoad(load); }
     // then the full rules wording, which only tooltips and the Spells/Features text need: once it's in, redraw so they use it
     fullTxt.then(t => { if (!t) return; const s = document.createElement('script'); s.textContent = t; document.body.appendChild(s); try { if (typeof render === 'function') render(); } catch (e) {} }); };
   const col = fs.collection('sheets'), CACHE = 'dnd-pages-cache:' + C;
@@ -436,7 +438,12 @@ function wireDie(root) {
     addEventListener('resize', alignSoon); setInterval(align, 1500); alignSoon();
   }
   // The viewers bubble always sits just right of the Adventurer's Tome button (moved along with it).
-  const placePres = () => { const box = document.querySelector('.pg-pres'), a = document.querySelector('.pg-hublink'); if (box && a) { box.style.left = (a.offsetLeft + a.offsetWidth + 8) + 'px'; box.style.top = (a.offsetTop + a.offsetHeight / 2) + 'px'; } };
+  // Who's viewing: stays invisible while the page is still laying itself out, then fades in once it has stopped moving.
+  let presKey = '', presT = 0;
+  const placePres = () => { const box = document.querySelector('.pg-pres'), a = document.querySelector('.pg-hublink'); if (!box || !a) return;
+    const l = (a.offsetLeft + a.offsetWidth + 8) + 'px', t = (a.offsetTop + a.offsetHeight / 2) + 'px'; box.style.left = l; box.style.top = t;
+    if (box.classList.contains('ready')) return; const k = l + t + (a.offsetParent ? 1 : 0); if (k !== presKey) { presKey = k; clearTimeout(presT); presT = setTimeout(() => { if (box.isConnected && a.offsetParent) box.classList.add('ready'); else presKey = ''; }, 600); } };
+  new ResizeObserver(() => placePres()).observe(document.documentElement);
   // Who's looking at this sheet right now — shown once it's shared: small portraits beside the back button, you too.
   // Each open copy checks in once a minute (only while its tab is showing) and drops off when closed or idle.
   if (!NEW) (() => {
@@ -445,8 +452,7 @@ function wireDie(root) {
     const leave = () => { mine.delete().catch(() => {}); };
     const show = () => { const now = Date.now(), here = Object.entries(seen).filter(([, d]) => now - (d.at || 0) < 150000).sort(([a], [b]) => (b === EMAIL) - (a === EMAIL));
       if (!box) { box = document.createElement('div'); box.className = 'pg-pres'; document.body.appendChild(box); }
-      const shared = VIEWERS.length > 0 || OWNER !== EMAIL;
-      box.hidden = !shared || !here.length;
+      box.hidden = !here.length; // you always see yourself, on your own sheet too
       box.innerHTML = here.map(([em, d]) => avaHTML(d.name, em, d.pic, em === EMAIL ? 'me' : '', em === EMAIL ? (d.name || NAME) + ' (you)' : (d.name || em), { color: d.color, clear: d.clear })).join('');
       placePres(); };
     beat(); setInterval(beat, 60000); setInterval(show, 1500);
@@ -497,7 +503,7 @@ function hub(fs, auth, G, ctx) {
   const base = location.pathname, HUB = URLS.hub(G), ADMIN_URL = URLS.admin(G);
   const ADMIN = page === 'admin';
   document.title = ADMIN ? 'Admin — Adventurer’s Tome' : 'Adventurer’s Tome';
-  document.body.innerHTML = '<div id="hub"></div><div id="hub-modal" class="hub-modal"></div><div id="hub-toast" class="hub-toast"></div>';
+  { const keep = document.getElementById('pg-load'); document.body.innerHTML = '<div id="hub"></div><div id="hub-modal" class="hub-modal"></div><div id="hub-toast" class="hub-toast"></div>'; if (keep) document.body.appendChild(keep); }
   document.body.className = 'hubbody' + (ADMIN ? ' adminbody' : '');
   const root = document.getElementById('hub'), modal = document.getElementById('hub-modal');
   if (TOUCH && !document.documentElement.classList.contains('pg-touch')) { document.documentElement.classList.add('pg-touch'); noHover(); }
@@ -770,6 +776,7 @@ function hub(fs, auth, G, ctx) {
   function prepIn(p) { if (!p || p._y != null) return; p.classList.remove('hp-off'); unclamp(p);
     const top = p.getBoundingClientRect().top + scrollY, max = Math.max(0, top + p.offsetHeight + padBot() - innerHeight);
     p._y = Math.min(VSCROLL[p.dataset.pane] || 0, max); p.style.transform = `translate3d(0, ${scrollY - p._y}px, 0)`; }
+  addEventListener('scroll', () => { root.querySelectorAll('.hub-pane').forEach(p => { if (p._y != null) p.style.transform = `translate3d(0, ${scrollY - p._y}px, 0)`; }); }, { passive: true });
   function switchView(v) { if (v === view) return; const out0 = root.querySelector('.hub-pane.on'); VSCROLL[view] = scrollY; view = v; history.replaceState(null, '', view === 'shared' ? URLS.shared(G) : URLS.hub(G));
     const tr = root.querySelector('.hub-track'); if (!tr) return draw();
     const inP = tr.querySelector(`.hub-pane[data-pane="${v}"]`);
