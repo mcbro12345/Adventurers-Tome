@@ -974,7 +974,7 @@ body:has(#modal.open) .pg-pres, body.wizopen .pg-pres { visibility: hidden !impo
 @keyframes pgLoadIn { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { #pg-load { animation: none; } }
 /* the page under the loading screen stays hidden until the screen starts fading away */
-html.pg-loading body > :not(#pg-load) { visibility: hidden !important; }
+html.pg-loading body > :not(#pg-load):not(.pg-out) { visibility: hidden !important; }
 /* windows and menus fade in and out */
 @keyframes hFadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes hFadeOut { from { opacity: 1; } to { opacity: 0; } }
@@ -1062,3 +1062,56 @@ html.pg-sbon, html:has(body.adminbody) { scrollbar-width: none; }
 html:has(body.adminbody)::-webkit-scrollbar { width: 0; height: 0; display: none; }
 html:has(#pg-load) { overflow: hidden !important; scrollbar-width: none !important; }
 html:has(#pg-load)::-webkit-scrollbar { width: 0 !important; display: none !important; }
+/* Sign-in card: one centred column. The logo and blurb introduce the site, a hairline separates them from the
+   sign-in options, and every line of text shares the same centre. */
+:where(#pg-load) .pg-signin { text-align: center; padding: 30px 30px 22px; width: min(440px, calc(100vw - 32px)); box-sizing: border-box; }
+:where(#pg-load) .pg-signin .hub-logo { margin: 0 0 16px; }
+:where(#pg-load) .pg-signin p.pg-about { margin: 0 auto; max-width: 40ch; font-size: .9rem; line-height: 1.55; opacity: .78; text-wrap: balance; }
+:where(#pg-load) .pg-signin .pg-sdiv { height: 1px; margin: 22px 0 0; background: rgba(201,150,43,.28); }
+:where(#pg-load) .pg-signin .pg-kicked { margin: 16px 0 0; text-align: center; }
+:where(#pg-load) .pg-signin h2 { margin: 18px 0 14px; font: 700 1.3rem Georgia, serif; letter-spacing: .01em; }
+:where(#pg-load) .pg-signin .pg-or { margin: 16px 0 4px; }
+:where(#pg-load) .pg-signin .who-f { margin: 12px 0 0; }
+:where(#pg-load) .pg-signin .hub-hint { margin: 10px auto 0; white-space: nowrap; font-size: min(.8rem, calc((100vw - 76px) / 25)); line-height: 1.45; }
+:where(#pg-load) .pg-signin .pg-contact { margin: 18px 0 0; padding-top: 14px; border-top: 1px solid rgba(127,127,127,.16); }
+@media (max-width: 480px) { :where(#pg-load) .pg-signin { padding: 24px 20px 18px; } }
+:where(body.hubbody) .hp-row .hub-ctlink { color: #c9962b; opacity: .8; text-decoration: none; border-bottom: 1px dotted currentColor; font-size: .86rem; line-height: 1.2; }
+:where(body.hubbody) .hp-row .hub-ctlink:hover { opacity: 1; }
+@media (max-width: 640px) { :where(body.hubbody) .hp-row .hub-ctlink { font-size: .8rem; } }
+:where(body.hubbody) .hp-row .hub-ctlink { margin-left: auto; }
+:where(body.hubbody) .hp-row:has(.hub-ctlink) { width: 100%; }
+:where(#pg-load) .pg-signin .pg-kicked.ok { background: rgba(201,150,43,.14); color: inherit; }
+/* "Add to home screen", under the sign-in card on phones */
+:where(#pg-load) .pg-a2hs { margin: 18px 0 0; text-align: center; font-size: .86rem; }
+:where(#pg-load) .pg-a2hs a { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 999px; color: #c9962b; text-decoration: none; font-weight: 600; background: rgba(201,150,43,.1); border: 1px solid rgba(201,150,43,.3); }
+:where(#pg-load) .pg-a2hs a:active { background: rgba(201,150,43,.2); }
+.pg-a2hs-card ol { margin: 4px 0 16px; padding-left: 22px; text-align: left; line-height: 1.6; }
+.pg-a2hs-card ol li + li { margin-top: 6px; }
+/* In the lobby it sits above "Create character", on phones only */
+:where(body.hubbody) .hub-views .pg-a2hs { display: none; }
+@media (max-width: 640px) {
+  body.hubbody:not(.adminbody) .hub-views .pg-a2hs { display: block; order: -2; width: 100%; margin: 0 0 4px; text-align: center; font-size: .84rem; }
+  body.hubbody:not(.adminbody) .hub-views .pg-a2hs a { display: flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 14px; border-radius: 12px; color: #c9962b; text-decoration: none; font-weight: 600; background: rgba(201,150,43,.1); border: 1px solid rgba(201,150,43,.3); }
+}
+.pg-out .pg-out-card { animation: pgCardIn .2s cubic-bezier(.2,.9,.3,1); }
+.pg-out.closing { pointer-events: none; animation: pgOutOut .17s ease forwards; }
+.pg-out.closing .pg-out-card { animation: pgCardOut .17s ease forwards; }
+@keyframes pgOutOut { to { opacity: 0; } }
+@keyframes pgCardIn { from { opacity: 0; transform: translateY(6px) scale(.97); } }
+@keyframes pgCardOut { to { opacity: 0; transform: translateY(4px) scale(.97); } }
+/* Add to home screen: presses in when tapped */
+.pg-a2hs a { transition: transform .1s ease, background-color .1s ease, filter .1s ease; -webkit-tap-highlight-color: transparent; }
+.pg-a2hs a:active { transform: scale(.96); background-color: rgba(201,150,43,.24) !important; filter: brightness(1.08); }
+@media (prefers-reduced-motion: reduce) { .pg-out .pg-out-card, .pg-out.closing, .pg-out.closing .pg-out-card { animation: none; } }
+/* Header over the character wizard: the lobby's header (logo, profile, gold divider) with a way back under the logo */
+.wzh { flex: none; margin: 0 0 16px; color: inherit; }
+.wzh .hub-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 14px; border-bottom: 3px solid #c9962b; }
+.wzh .wzh-brand { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
+.wzh .wzh-back { font-size: .8rem; opacity: .85; }
+.wzh .wzh-back:hover { opacity: 1; }
+.wzh .hp-pic { cursor: default; }
+html.mobile .wzh { margin: 0; padding: 10px 16px 0; }
+html.mobile .wzh .hub-top { padding-bottom: 10px; gap: 10px; }
+html.mobile .wzh .wzh-brand { gap: 3px; flex: 0 1 auto; }
+html.mobile .wzh .wzh-back { font-size: .7rem; }
+html.mobile .wzh .hp-txt b, html.mobile .wzh .hp-txt small { max-width: 34vw; }

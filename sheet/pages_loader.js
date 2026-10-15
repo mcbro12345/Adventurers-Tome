@@ -12,12 +12,53 @@ const PG_CALM = (() => { try { return matchMedia('(prefers-reduced-motion: reduc
 // screen already showing, so there's no blank gap before the dice appear.
 function pgGo(url, replace) { const go = () => { if (url == null) location.reload(); else if (replace) location.replace(url); else location.href = url; };
   if (PG_CALM) return go(); try { sessionStorage.setItem('pg-nav', String(Date.now())); } catch (e) {}
-  if (window.PG_LOAD_HTML && !document.getElementById('pg-load')) { const t = document.createElement('div'); t.innerHTML = window.PG_LOAD_HTML; const el = t.firstElementChild; el.classList.add('pg-leave'); el.style.zIndex = '10000'; document.body.appendChild(el);
+  // Already on a loading screen (e.g. finishing a sign-in link): keep it up and go straight on, so it doesn't fade out
+  // and back in. The sign-in card counts as a page: the loading screen fades in over it, like leaving any page.
+  const cur = document.getElementById('pg-load'), onCard = cur && cur.querySelector('.pg-signin, .pg-msg');
+  if (cur && !onCard && !cur.classList.contains('pg-leave')) { go(); return; }
+  if (window.PG_LOAD_HTML && (!cur || onCard)) { const t = document.createElement('div'); t.innerHTML = window.PG_LOAD_HTML; const el = t.firstElementChild; el.classList.add('pg-leave'); el.style.zIndex = '10000'; document.body.appendChild(el);
     // the die stays still at rest while this page is left, and starts rolling on the next page (no jump between the two)
     setTimeout(go, 260); return; }
   document.documentElement.classList.add('pg-leaving'); setTimeout(go, 280); }
 addEventListener('pageshow', e => { if (e.persisted) document.querySelectorAll('#pg-load.pg-leave').forEach(x => x.remove()); });
 window.pgGo = pgGo;
+// Small pop-up windows (contact, add to home screen, confirmations) fade out when closed instead of vanishing.
+// iPhones only show the pressed look (:active) on pages that listen for touches.
+document.addEventListener('touchstart', () => {}, { passive: true });
+function pgOutFade(m) { m.remove = () => { if (m._closing) return; m._closing = true;
+  if (PG_CALM || !m.isConnected) return Element.prototype.remove.call(m); m.classList.add('closing'); setTimeout(() => Element.prototype.remove.call(m), 170); }; }
+// Tabs tell each other about signing in, so finishing an emailed link in a new tab signs in the tab you started from.
+const PG_BC = (() => { try { return new BroadcastChannel('pg-auth'); } catch (e) { return null; } })();
+function pgAuthHandoff() { return new Promise(res => { if (!PG_BC) return res(false); let done = false;
+  const fin = v => { if (done) return; done = true; PG_BC.removeEventListener('message', on); res(v); };
+  const on = e => { if (e.data && e.data.t === 'ack') fin(true); };
+  PG_BC.addEventListener('message', on); PG_BC.postMessage({ t: 'signed-in' }); setTimeout(() => fin(false), 800); }); }
+// ================= Add to home screen =================
+// Android browsers offer their own install prompt, which is caught here so a button can open it later. iPhones have no
+// such prompt, so there the button shows the steps instead. Nothing shows once the site is running as an installed app.
+let PG_INSTALL = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); PG_INSTALL = e; document.querySelectorAll('.pg-a2hs').forEach(x => x.hidden = false); });
+addEventListener('appinstalled', () => { PG_INSTALL = null; try { localStorage.setItem('pg-installed', '1'); } catch (e) {} document.querySelectorAll('.pg-a2hs').forEach(x => x.remove()); });
+const pgStandalone = () => { try { return matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true; } catch (e) { return false; } };
+const pgIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const pgMobile = () => pgIOS() || /Android|Mobile/i.test(navigator.userAgent);
+function a2hsHTML() { if (pgStandalone() || !pgMobile()) return '';
+  return `<p class="pg-a2hs"><a href="#a2hs"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M12 8v6M9 11h6"/></svg>Add to home screen</a></p>`; }
+function wireA2HS(root) { const el = root && root.querySelector('.pg-a2hs'); if (!el) return;
+  // Already installed (Android can tell from the browser): don't offer it again.
+  try { if (navigator.getInstalledRelatedApps) navigator.getInstalledRelatedApps().then(l => { if (l && l.length) el.remove(); }).catch(() => {}); } catch (e) {}
+  el.querySelector('a').onclick = async e => { e.preventDefault();
+    if (PG_INSTALL) { const p = PG_INSTALL; PG_INSTALL = null; try { p.prompt(); const r = await p.userChoice; if (r && r.outcome === 'accepted') el.remove(); } catch (x) {} return; }
+    a2hsSteps(); }; }
+function a2hsSteps() {
+  const share = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg>';
+  const dots = '<svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" style="vertical-align:-3px"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>';
+  const steps = pgIOS() ? [`Tap the <b>Share</b> button ${share} in your browser's toolbar.`, 'Scroll down and tap <b>Add to Home Screen</b>.', 'Tap <b>Add</b>.']
+    : [`Open your browser's menu ${dots}.`, 'Tap <b>Add to Home screen</b> or <b>Install app</b>.', 'Tap <b>Add</b> or <b>Install</b>.'];
+  const m = document.createElement('div'); m.className = 'pg-out'; pgOutFade(m);
+  m.innerHTML = `<div class="pg-out-card pg-a2hs-card" role="dialog" aria-modal="true" aria-labelledby="pg-a2-h"><h2 id="pg-a2-h">Add to home screen</h2><p>Open Adventurer’s Tome like an app, full screen, from your home screen.</p><ol>${steps.map(s => `<li>${s}</li>`).join('')}</ol><div class="pg-out-row"><button class="pg-out-no">Got it</button></div></div>`;
+  const close = () => { m.remove(); document.removeEventListener('keydown', key); }, key = e => { if (e.key === 'Escape') close(); };
+  m.onclick = e => { if (e.target === m) close(); }; m.querySelector('.pg-out-no').onclick = close; document.addEventListener('keydown', key); document.body.appendChild(m); }
   // On a computer the sheet's own scrollbar is swapped for a slim one in the sheet's accent colour: drag it, click the
 // track to jump a page, or just scroll as usual. It hides when there's nothing to scroll.
 function sheetScrollbar() {
@@ -83,12 +124,16 @@ const initials = (name, em) => { const w = String(name || em || '?').split(/[\s@
 const CONTACT_EMAIL = 'adventurerstome@googlegroups.com', CONTACT = '#contact';
 function pgContact() {
   if (document.querySelector('.pg-out')) return;
-  const su = encodeURIComponent('Adventurer’s Tome'), m = document.createElement('div'); m.className = 'pg-out';
+  const su = encodeURIComponent('Adventurer’s Tome'), m = document.createElement('div'); m.className = 'pg-out'; pgOutFade(m);
   m.innerHTML = `<div class="pg-out-card" role="dialog" aria-modal="true" aria-labelledby="pg-ct-h"><h2 id="pg-ct-h">Contact us</h2><p>Questions, ideas or something not working? Email us at</p>
     <div class="pg-ct-mail"><span>${CONTACT_EMAIL}</span><button class="pg-ct-copy">Copy</button></div>
-    <div class="pg-out-row pg-ct-row"><a class="pg-ct-btn" target="_blank" rel="noopener" href="https://mail.google.com/mail/?extsrc=mailto&url=${encodeURIComponent('mailto:' + CONTACT_EMAIL + '?subject=' + su)}">Open in Gmail</a><a class="pg-ct-btn" href="mailto:${CONTACT_EMAIL}?subject=${su}">Email app</a><button class="pg-out-no">Close</button></div></div>`;
+    <div class="pg-out-row pg-ct-row"><a class="pg-ct-btn" target="_blank" rel="noopener" href="https://mail.google.com/mail/u/0/?view=cm&to=${encodeURIComponent(CONTACT_EMAIL)}&su=${su}">Open in Gmail</a><a class="pg-ct-btn" href="mailto:${CONTACT_EMAIL}?subject=${su}">Email app</a><button class="pg-out-no">Close</button></div></div>`;
   const close = () => { m.remove(); document.removeEventListener('keydown', key); }, key = e => { if (e.key === 'Escape') close(); };
   m.onclick = e => { if (e.target === m) close(); }; m.querySelector('.pg-out-no').onclick = close;
+  // On a computer, Gmail opens in its own small window sized to the message, rather than a full tab with empty sides.
+  m.querySelector('.pg-ct-btn[target]').onclick = e => { if (!matchMedia('(pointer: fine)').matches || innerWidth < 700) return;
+    const w = 760, h = 680, x = Math.max(0, (screenX || 0) + (outerWidth - w) / 2), y = Math.max(0, (screenY || 0) + (outerHeight - h) / 2);
+    if (window.open(e.currentTarget.href, 'pg-gmail', `popup,width=${w},height=${h},left=${Math.round(x)},top=${Math.round(y)}`)) { e.preventDefault(); close(); } };
   m.querySelector('.pg-ct-copy').onclick = async e => { const b = e.target; try { await navigator.clipboard.writeText(CONTACT_EMAIL); b.textContent = 'Copied'; } catch (x) { const r = document.createRange(); r.selectNodeContents(m.querySelector('.pg-ct-mail span')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); b.textContent = 'Selected'; } setTimeout(() => { b.textContent = 'Copy'; }, 1600); };
   document.addEventListener('keydown', key); document.body.appendChild(m); }
 document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[href="#contact"], [data-contact]'); if (a) { e.preventDefault(); pgContact(); } });
@@ -244,7 +289,11 @@ function wireDie(root) {
   if (auth.isSignInWithEmailLink(location.href)) {
     let em = lsGet('dnd-signin-email');
     if (!em) em = prompt('To finish signing in, type the email address the link was sent to:');
-    try { await auth.signInWithEmailLink((em || '').trim(), location.href); pgGo(lsGet('dnd-signin-back') || location.pathname, true); }
+    try { await auth.signInWithEmailLink((em || '').trim(), location.href);
+      // The link opened a new tab. If the tab that asked for it is still open, it takes over (it reloads, signed in)
+      // and this tab says so and closes itself where the browser allows; otherwise carry on here as before.
+      if (await pgAuthHandoff()) { say(`<div class="pg-signin pg-done">${logoHTML()}<h2>You're signed in</h2><p>Your Adventurer’s Tome tab is ready. You can close this one.</p></div>`); wireDie(document.getElementById('pg-load')); setTimeout(() => { try { window.close(); } catch (x) {} }, 900); return; }
+      pgGo(lsGet('dnd-signin-back') || location.pathname, true); }
     catch (e) { say(`That sign-in link didn't work (${(e && e.message) || 'expired or already used'}).<br><br><a href="${location.pathname}">Try again</a>`); }
     return;
   }
@@ -266,7 +315,7 @@ function wireDie(root) {
   // Signing out always asks first.
   const signOut = () => {
     if (document.querySelector('.pg-out')) return;
-    const m = document.createElement('div'); m.className = 'pg-out';
+    const m = document.createElement('div'); m.className = 'pg-out'; pgOutFade(m);
     m.innerHTML = '<div class="pg-out-card" role="dialog" aria-modal="true" aria-labelledby="pg-out-h"><h2 id="pg-out-h">Sign out?</h2><p>You’ll need to sign in again to open your characters on this device.</p><div class="pg-out-row"><button class="pg-out-no">Cancel</button><button class="pg-out-yes">Sign out</button></div></div>';
     const close = () => { m.remove(); document.removeEventListener('keydown', key); };
     const key = e => { if (e.key === 'Escape') close(); };
@@ -305,10 +354,10 @@ function wireDie(root) {
   try { const ls0 = Date.parse(user.metadata.lastSignInTime || '') || 0, mark = 'pg-signin-logged'; if (Date.now() - ls0 < 180000 && lsGet(mark) !== String(ls0)) { lsSet(mark, String(ls0)); pgLog(NEWACCT ? 'account' : 'signin'); } } catch (e) {}
   // An admin can sign someone out of every device, or block them. Checked now and whenever their account record changes.
   let AUTHAT = 0; try { AUTHAT = Date.parse((await user.getIdTokenResult()).authTime) || 0; } catch (e) {}
-  const kicked = d => d && (d.banned === true ? 'This account has been blocked. If you think this is a mistake, contact adventurerstome@googlegroups.com.' : (Number(d.revokedAt) || 0) > AUTHAT ? 'You were signed out of all your devices. Sign in again to continue.' : '');
+  const kicked = d => d && (d.banned === true ? 'This account has been blocked. If you think this is a mistake, contact adventurerstome@googlegroups.com.' : (Number(d.revokedAt) || 0) > AUTHAT ? 'You’ve been signed out.' : '');
   const kick = msg => { lsSet('pg-kicked', msg); auth.signOut().then(() => pgGo(PRETTY ? '/login' : location.href, true)); };
   // (when the database refuses even their own account record, an admin has signed them out or blocked them)
-  const LOCKED = 'You’ve been signed out. Sign in again — if that doesn’t work, contact adventurerstome@googlegroups.com.';
+  const LOCKED = 'You’ve been signed out.';
   { const k0 = kicked(ME) || (ACCT_ERR === 'permission-denied' ? LOCKED : ''); if (k0) { kick(k0); return; } }
   UREF.onSnapshot(d => { const k = kicked(d.exists ? d.data() : null); if (k) kick(k); }, e => { if (e && e.code === 'permission-denied') kick(LOCKED); });
   const UCACHE = {}, userDoc = em => UCACHE[em] || (UCACHE[em] = fs.collection('users').doc(em).get().then(x => x.exists ? x.data() : null, () => null));
@@ -367,6 +416,12 @@ function wireDie(root) {
   const rid = () => { const a = new Uint8Array(18); crypto.getRandomValues(a); return btoa(String.fromCharCode(...a)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
   const NEW = !C;
   if (NEW) C = rid();
+  // Making a new character: the wizard gets the lobby's header on top (logo, a way back, who's signed in).
+  if (NEW) { const HUBU = URLS.hub(G), nm = (ME && ME.name) || user.displayName || EMAIL.split('@')[0], av = avaOf(ME);
+    window.wzHeader = () => `<div class="wzh"><header class="hub-top"><div class="wzh-brand">${logoHTML()}<a class="adm-back wzh-back" href="${escH(HUBU)}">← Adventurer’s Tome</a></div>
+      <div class="hub-side"><div class="hub-prof"><span class="hp-pic wzh-pic">${avaHTML(nm, EMAIL, av.pic, '', '', av)}</span><div class="hp-txt"><b>${escH(nm)}</b><small>${escH(EMAIL)}</small><div class="hp-row"><button class="linkbtn" data-wzh="out">Sign out</button>${IS_ADMIN ? '' : `<a class="hub-ctlink" href="${CONTACT}">Contact us</a>`}</div></div></div></div></header></div>`;
+    document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('.wzh [data-wzh="out"], .wzh .wzh-back'); if (!t) return; e.preventDefault(); if (t.dataset.wzh === 'out') signOut(); else pgGo(HUBU); });
+    new MutationObserver(() => { const l = document.querySelector('#wizard .wzh'); if (l && !l._w) { l._w = 1; wireDie(l); } }).observe(document.documentElement, { childList: true, subtree: true }); }
   window.SHEET_PAGES = true; window.SHEET_CHAR = C;
   document.documentElement.classList.add('pg-sheetpage');
   // The game data and the app arrive as separate long-cached files; start fetching them now, run them in order later.
@@ -525,21 +580,26 @@ function wireDie(root) {
 
 // ================= Sign in (once per device) =================
 function signIn(auth, say) {
+  if (PG_BC) PG_BC.addEventListener('message', e => { if (e.data && e.data.t === 'signed-in' && document.querySelector('.pg-signin')) { PG_BC.postMessage({ t: 'ack' }); try { window.focus(); } catch (x) {} pgGo(null); } });
   const kickedMsg = (() => { try { const m = localStorage.getItem('pg-kicked'); localStorage.removeItem('pg-kicked'); return m || ''; } catch (e) { return ''; } })();
-  say(`<div class="pg-signin">${logoHTML()}<h2>Sign in</h2>
-    <p>Sign in once on this device to open your characters. Only you and the people you share them with can see or change them.</p>
+  say(`<div class="pg-signin">${logoHTML()}<p class="pg-about">D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game.</p><div class="pg-sdiv"></div><h2>Sign in</h2>
     <button class="btn gold big" id="si-g"><svg viewBox="0 0 48 48" width="18" height="18" style="vertical-align:-3px;margin-right:8px"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>Sign in with Google</button>
     <div class="pg-or">or</div>
     <form id="si-f" class="who-f"><input id="si-e" type="email" placeholder="Your email address" autocomplete="email" required><button class="btn">Email me a link</button></form>
-    <p class="hub-hint" id="si-msg">No Google account? Type your email — you'll get a one-time sign-in link.</p>${kickedMsg ? `<p class="pg-kicked">${kickedMsg}</p>` : ''}
-    <p class="pg-contact">Trouble signing in? <a href="${CONTACT}">Contact us</a></p></div>`);
+    <p class="hub-hint" id="si-msg">No Google account? We'll email you a sign-in link.</p>${kickedMsg ? `<p class="pg-kicked">${kickedMsg}</p>` : ''}
+    <p class="pg-contact">Trouble signing in? <a href="${CONTACT}">Contact us</a></p></div>${a2hsHTML()}`);
+  wireA2HS(document.getElementById('pg-load'));
   wireDie(document.getElementById('pg-load'));
-  const msg = t => { const m = document.getElementById('si-msg'); if (m) m.innerHTML = t; };
+  // Errors and the "check your email" note show in the box just above the bottom divider (where "You've been signed
+  // out" appears), replacing it; the hint line under the email field stays as it is.
+  const msg = (t, ok) => { const card = document.querySelector('.pg-signin'); if (!card) return; let m = card.querySelector('.pg-kicked');
+    if (!m) { m = document.createElement('p'); m.className = 'pg-kicked'; card.insertBefore(m, card.querySelector('.pg-contact')); }
+    m.classList.toggle('ok', !!ok); m.innerHTML = t; if (m.animate && !PG_CALM) m.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'ease-out' }); };
   document.getElementById('si-g').onclick = async () => { const pr = new firebase.auth.GoogleAuthProvider(); pr.setCustomParameters({ prompt: 'select_account' });
     try { await auth.signInWithPopup(pr); pgGo(null); } catch (e) { if (e && /popup/.test(e.code || '')) { auth.signInWithRedirect(pr); return; } msg('Couldn\'t sign in: ' + ((e && e.message) || e)); } };
   document.getElementById('si-f').onsubmit = async e => { e.preventDefault(); const em = document.getElementById('si-e').value.trim().toLowerCase(); if (!em) return;
     try { await auth.sendSignInLinkToEmail(em, { url: location.origin + location.pathname, handleCodeInApp: true }); try { localStorage.setItem('dnd-signin-email', em); localStorage.setItem('dnd-signin-back', location.href); } catch (x) {}
-      msg(`<b>Check your email</b> (${em}) for a sign-in link and open it on this device. If it isn't there in a minute, look in Spam.`); } catch (x) { msg('Couldn\'t send the link: ' + ((x && x.message) || x)); } };
+      msg(`<b>Check your email</b> (${em}) for a sign-in link and open it on this device. If it isn't there in a minute, look in Spam.`, true); } catch (x) { msg('Couldn\'t send the link: ' + ((x && x.message) || x)); } };
 }
 
 // ================= The hub, and the admin section =================
@@ -783,8 +843,10 @@ function hub(fs, auth, G, ctx) {
   document.addEventListener('pointerdown', e => { const g = e.target.closest && e.target.closest('.hr-grip'); if (!g || e.button > 0) return; const r = g.closest('.hr'); e.preventDefault();
     const b = r.getBoundingClientRect(), ph = document.createElement('div'); ph.className = 'hr-ph'; ph.style.height = b.height + 'px'; r.after(ph);
     Object.assign(r.style, { position: 'fixed', left: b.left + 'px', top: b.top + 'px', width: b.width + 'px', margin: 0, zIndex: 40, transition: 'none' });
-    RD = { r, ph, pin: r.dataset.pin, list: ph.parentElement, dy: e.clientY - b.top }; r.classList.add('drag'); document.body.classList.add('hdragging'); });
-  document.addEventListener('pointermove', e => { if (!RD) return; e.preventDefault(); RD.r.style.top = (e.clientY - RD.dy) + 'px';
+    // The lists sit in a sliding track, which shifts where "fixed" is measured from: correct for that offset.
+    const nb = r.getBoundingClientRect(), ox = nb.left - b.left, oy = nb.top - b.top; if (ox || oy) { r.style.left = (b.left - ox) + 'px'; r.style.top = (b.top - oy) + 'px'; }
+    RD = { r, ph, pin: r.dataset.pin, list: ph.parentElement, dy: e.clientY - b.top, oy }; r.classList.add('drag'); document.body.classList.add('hdragging'); });
+  document.addEventListener('pointermove', e => { if (!RD) return; e.preventDefault(); RD.r.style.top = (e.clientY - RD.dy - RD.oy) + 'px';
     const rows = [...RD.list.querySelectorAll(':scope > .hr')].filter(x => x !== RD.r), peers = rows.filter(x => x.dataset.pin === RD.pin);
     if (!peers.length) return;
     const tgt = peers.find(x => { const bb = x.getBoundingClientRect(); return e.clientY < bb.top + bb.height / 2; });
@@ -793,7 +855,7 @@ function hub(fs, auth, G, ctx) {
     const sc = RD.list.closest('.hub-scroll'), sr = sc ? sc.getBoundingClientRect() : { top: 0, bottom: innerHeight }, edge = 60, by = y => sc ? sc.scrollBy(0, y) : scrollBy(0, y);
     if (e.clientY < sr.top + edge) by(-10); else if (e.clientY > sr.bottom - edge) by(10); }, { passive: false });
   const endDrag = () => { if (!RD) return; const d = RD; RD = null; const pb = d.ph.getBoundingClientRect();
-    d.r.style.transition = 'top .16s ease, box-shadow .16s'; d.r.style.top = pb.top + 'px'; d.r.classList.remove('drag');
+    d.r.style.transition = 'top .16s ease, box-shadow .16s'; d.r.style.top = (pb.top - d.oy) + 'px'; d.r.classList.remove('drag');
     setTimeout(() => { d.ph.replaceWith(d.r); d.r.removeAttribute('style'); document.body.classList.remove('hdragging');
       const all = [...d.list.querySelectorAll(':scope > .hr')]; saveOrder(all.filter(x => x.dataset.pin === '1').map(x => x.dataset.id)).then(() => saveOrder(all.filter(x => x.dataset.pin !== '1').map(x => x.dataset.id))); }, 170); };
   document.addEventListener('pointerup', endDrag); document.addEventListener('pointercancel', endDrag);
@@ -819,8 +881,11 @@ function hub(fs, auth, G, ctx) {
     tr.style.transition = anim && !calm() ? 'transform .34s cubic-bezier(.22,.9,.24,1)' : 'none';
     tr.style.transform = `translate3d(calc(${-idx * 100}% + ${dx || 0}px), 0, 0)`;
     if (dx == null) { clearTimeout(tr._t); const off = () => { let y = null; panes.forEach((p, k) => { if (k === idx && p._y != null) { y = p._y; p._y = null; } p.style.transform = ''; p.classList.toggle('hp-off', k !== idx); unclamp(p); }); if (y != null) scrollTo(0, y); };
-      if (anim && !calm()) tr._t = setTimeout(off, 360); else off(); }
+      tr._off = off; if (anim && !calm()) tr._t = setTimeout(() => { tr._t = 0; tr._off = null; off(); }, 360); else { tr._off = null; off(); } }
   }
+  // A new swipe or tap can arrive before the last slide has landed. Finish the old landing first, so its clean-up never
+  // hides the list now coming in.
+  function settle() { const tr = root.querySelector('.hub-track'); if (!tr || !tr._off) return; clearTimeout(tr._t); const f = tr._off; tr._t = 0; tr._off = null; f(); }
   // While the lists slide, the one leaving is trimmed to what's on screen, so the page's height settles at the start of
   // the slide (hidden in the motion) instead of jumping once it lands.
   const clampPane = p => { if (!p) return; p.style.maxHeight = Math.max(0, innerHeight - p.getBoundingClientRect().top) + 'px'; p.style.overflow = 'hidden'; };
@@ -833,7 +898,7 @@ function hub(fs, auth, G, ctx) {
     const top = p.getBoundingClientRect().top + scrollY, max = Math.max(0, top + p.offsetHeight + padBot() - innerHeight);
     p._y = Math.min(VSCROLL[p.dataset.pane] || 0, max); p.style.transform = scrollY - p._y ? `translateY(${scrollY - p._y}px)` : ''; }
   addEventListener('scroll', () => { root.querySelectorAll('.hub-pane').forEach(p => { if (p._y != null) p.style.transform = scrollY - p._y ? `translateY(${scrollY - p._y}px)` : ''; }); }, { passive: true });
-  function switchView(v) { if (v === view) return; const out0 = root.querySelector('.hub-pane.on'); VSCROLL[view] = scrollY; view = v; history.replaceState(null, '', view === 'shared' ? URLS.shared(G) : URLS.hub(G));
+  function switchView(v) { if (v === view) return; settle(); const out0 = root.querySelector('.hub-pane.on'); VSCROLL[view] = scrollY; view = v; history.replaceState(null, '', view === 'shared' ? URLS.shared(G) : URLS.hub(G));
     const tr = root.querySelector('.hub-track'); if (!tr) return draw();
     const inP = tr.querySelector(`.hub-pane[data-pane="${v}"]`);
     if (!slideMode()) { tr.querySelectorAll('.hub-pane').forEach(p => { p.classList.remove('hp-off'); p.style.transform = ''; p._y = null; }); placeInd(true); placeTrack(false); scrollTo(0, VSCROLL[v] || 0); dispatchEvent(new Event('hub-view'));
@@ -846,8 +911,10 @@ function hub(fs, auth, G, ctx) {
   if (TOUCH) { let sw = null;
     document.addEventListener('touchstart', e => { const tr = root.querySelector('.hub-track'); if (!tr || !e.target.closest || e.target.closest('.hub-head, .hub-modal, .hub-toast, .pg-ct') || document.body.classList.contains('adminbody') || RD || e.touches.length > 1 || e.target.closest('.hr-grip, .hc-list, input, textarea')) return;
       sw = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), lock: null, dx: 0, tr, w: tr.getBoundingClientRect().width || innerWidth }; }, { passive: true });
-    document.addEventListener('touchmove', e => { if (!sw) return; const dx = e.touches[0].clientX - sw.x, dy = e.touches[0].clientY - sw.y;
-      if (!sw.lock) { if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; sw.lock = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'; if (sw.lock === 'x') { const other = sw.tr.querySelector(`.hub-pane[data-pane="${view === 'mine' ? 'shared' : 'mine'}"]`); VSCROLL[view] = scrollY; prepIn(other); } }
+    document.addEventListener('touchmove', e => { if (!sw) return; let dx = e.touches[0].clientX - sw.x; const dy = e.touches[0].clientY - sw.y;
+      if (!sw.lock) { if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; sw.lock = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'; if (sw.lock === 'x') { const mid = sw.tr._off != null, m0 = mid ? new DOMMatrix(getComputedStyle(sw.tr).transform).m41 : 0; settle();
+          if (mid) { const off = m0 - (view === 'shared' ? -sw.w : 0); sw.x -= off; placeTrack(false, dx + off); }
+          const other = sw.tr.querySelector(`.hub-pane[data-pane="${view === 'mine' ? 'shared' : 'mine'}"]`); VSCROLL[view] = scrollY; prepIn(other); dx = e.touches[0].clientX - sw.x; } }
       if (sw.lock !== 'x') return; e.preventDefault();
       const can = (dx < 0 && view === 'mine') || (dx > 0 && view === 'shared'); sw.dx = can ? Math.max(-sw.w, Math.min(sw.w, dx)) : dx / (3 + Math.abs(dx) / 60);
       sw.last = { dx, t: Date.now() };
@@ -872,11 +939,11 @@ function hub(fs, auth, G, ctx) {
     const keepLogo = root.querySelector('.hub-logo');
     root.innerHTML = `<div class="hub-head"><header class="hub-top">${logoHTML()}
       <div class="hub-side"><div class="hub-prof"><button class="hp-pic" id="me-pic" title="Choose your picture" aria-label="Choose your picture">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(myAva())}<span class="hp-edit" aria-hidden="true">✎</span></button>
-        <div class="hp-txt"><b>${esc(myName())}</b><small>${esc(EMAIL)}</small><div class="hp-row"><button class="linkbtn" id="me-out">Sign out</button>${IS_ADMIN ? '<button class="hub-admin hub-chip" id="hub-admin"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Admin</span></button>' : '<button class="hub-admin hub-chip" data-contact><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg><span>Contact<span class="cu-long"> us</span></span></button>'}</div></div></div></div></header>
-      <div class="hub-views${TABS ? '' : ' no-seg'}">${seg}<button class="hub-new" id="hub-new"><span class="hn-plus" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="hn-txt"><b>Create character</b></span></button></div>
+        <div class="hp-txt"><b>${esc(myName())}</b><small>${esc(EMAIL)}</small><div class="hp-row"><button class="linkbtn" id="me-out">Sign out</button>${IS_ADMIN ? '<button class="hub-admin hub-chip" id="hub-admin"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Admin</span></button>' : '<a class="hub-ctlink" href="#contact">Contact us</a>'}</div></div></div></div></header>
+      <div class="hub-views${TABS ? '' : ' no-seg'}">${seg}${a2hsHTML()}<button class="hub-new" id="hub-new"><span class="hn-plus" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="hn-txt"><b>Create character</b></span></button></div>
       </div><div class="hub-list">${body}</div>`;
     if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
-    const nb = root.querySelector('#hub-new'); if (nb) nb.onclick = createChar;
+    const nb = root.querySelector('#hub-new'); if (nb) nb.onclick = createChar; wireA2HS(root);
     root.querySelector('#me-out').onclick = signOut;
     const ab = root.querySelector('#hub-admin'); if (ab) ab.onclick = () => { pgGo(ADMIN_URL); };
     root.querySelector('#me-pic').onclick = () => pickPic();
@@ -935,7 +1002,7 @@ function hub(fs, auth, G, ctx) {
       chars: ['Characters', 'Every character on the site, newest activity first. Share any of them with yourself, or open, share, move or delete them.'],
       admins: ['Admins', 'Admins can open and edit every character, manage users and see new accounts.'],
       new: ['New', 'Accounts and characters that appeared since you last marked this as read.'],
-      audit: ['Audit log', 'Everything people have done on the site: sign-ins, characters opened, created, edited, shared and deleted, and admin actions. Search, or filter by date, person or activity; tap an event for its details.'] };
+      audit: ['Audit log', 'Everything people have done on the site: sign-ins, characters opened, created, edited, shared and deleted, and admin actions. Search, or filter by date, person or activity; tap an event for its details. Events are kept for 7 days.'] };
     // avatar: initials on a colour picked from the name, so the same person always looks the same
     const hue = t => [...String(t || '?')].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) % 360, 7);
     const ava = (name, em) => { const ini = String(name || em || '?').split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
@@ -1153,9 +1220,14 @@ function hub(fs, auth, G, ctx) {
     const CHAR_ACTS = new Set(['open', 'create', 'edit', 'delete', 'give', 'remove', 'share', 'unshare', 'access', 'leave']);
     let AF = { who: [], act: [], q: '', from: '', to: '', range: '' }, AROWS, AOPEN = {} = [], ALAST = null, AFULL = false, APEOPLE = null;
     const auditCol = fs.collection('audit');
+    // The log only keeps the past week: opening the admin page clears out anything older (the rules allow admins to
+    // delete only events more than 7 days old). Runs once per visit, in the background.
+    if (!window.PG_AUPRUNE) { window.PG_AUPRUNE = 1; (async () => { try { for (let i = 0; i < 20; i++) {
+      const snap = await auditCol.where('at', '<', Date.now() - 7 * 864e5 - 6e4).limit(400).get(); if (snap.empty) break;
+      const bt = fs.batch(); snap.docs.forEach(d => bt.delete(d.ref)); await bt.commit(); if (snap.size < 400) break; } } catch (e) {} })(); }
     // Modelled on the Atlassian admin audit log: one search box, a row of filter pills, then a dense table of
     // Date · Actor · Activity where each row opens to show the full details.
-    const AU_RANGES = [['', 'Any time'], ['1', 'Past 24 hours'], ['7', 'Past 7 days'], ['30', 'Past 30 days'], ['90', 'Past 90 days'], ['custom', 'Custom range…']];
+    const AU_RANGES = [['', 'Any time'], ['1', 'Past 24 hours'], ['3', 'Past 3 days'], ['7', 'Past 7 days'], ['custom', 'Custom range…']];
     const auRange = () => AF.range === 'custom' ? [dayMs(AF.from), dayMs(AF.to, true)] : AF.range ? [Date.now() - Number(AF.range) * 864e5, 0] : [0, 0];
     // Filter pills open a dropdown with its own search box and a checklist, as in Atlassian's admin.
     const auOn = () => !!(AF.range || AF.who.length || AF.act.length || AF.q);
