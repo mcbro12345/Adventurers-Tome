@@ -27,7 +27,7 @@ window.pgGo = pgGo;
 // Follows the device until someone picks one with the sun/moon button in the lobby; the pick is kept on this device.
 const pgDark = () => { const t = document.documentElement.getAttribute('data-pgtheme'); if (t) return t === 'dark'; try { return matchMedia('(prefers-color-scheme: dark)').matches; } catch (e) { return false; } };
 const PG_SUN = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>';
-const PG_MOON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z"/></svg>';
+const PG_MOON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
 const themeLabel = () => pgDark() ? 'Switch to light mode' : 'Switch to dark mode';
 function themeBtnHTML() { return `<button class="hub-theme" id="hub-theme" title="${themeLabel()}" aria-label="${themeLabel()}">${pgDark() ? PG_SUN : PG_MOON}</button>`; }
 function wireThemeBtn(root) { const b = root.querySelector('#hub-theme'); if (!b) return;

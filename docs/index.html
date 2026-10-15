@@ -1220,6 +1220,7 @@ html[data-pgtheme="dark"] { color-scheme: dark; } html[data-pgtheme="light"] { c
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .35s; animation-timing-function: ease; }
 @media (max-width: 640px) { body.hubbody:not(.adminbody) .hp-row:has(.hub-theme) { gap: 7px; } }
 @media (max-width: 640px) { body.hubbody:not(.adminbody) .hp-row:has(.hub-theme) .linkbtn, body.hubbody:not(.adminbody) .hp-row:has(.hub-theme) .hub-ctlink { font-size: .74rem; } body.hubbody:not(.adminbody) .hp-row:has(.hub-theme) { gap: 6px; } body.hubbody:not(.adminbody) .hub-top .hub-prof { gap: 6px; } }
+html[data-theme="light"] .wzh .wzh-back { color: #8a6420; opacity: 1; } html[data-theme="light"] .wzh .wzh-back:hover { color: #6e4f18; }
 </style>
 </head>
 <body>
@@ -1292,7 +1293,7 @@ window.pgGo = pgGo;
 // Follows the device until someone picks one with the sun/moon button in the lobby; the pick is kept on this device.
 const pgDark = () => { const t = document.documentElement.getAttribute('data-pgtheme'); if (t) return t === 'dark'; try { return matchMedia('(prefers-color-scheme: dark)').matches; } catch (e) { return false; } };
 const PG_SUN = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>';
-const PG_MOON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z"/></svg>';
+const PG_MOON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
 const themeLabel = () => pgDark() ? 'Switch to light mode' : 'Switch to dark mode';
 function themeBtnHTML() { return `<button class="hub-theme" id="hub-theme" title="${themeLabel()}" aria-label="${themeLabel()}">${pgDark() ? PG_SUN : PG_MOON}</button>`; }
 function wireThemeBtn(root) { const b = root.querySelector('#hub-theme'); if (!b) return;
@@ -1483,7 +1484,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261015154620', ASSETS = {"data": "a/data.fc7a76553b3c.js", "app": "a/app.fee94221d04c.js", "full": "a/full.08c5d2dee3d4.js"};
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261015154957', ASSETS = {"data": "a/data.fc7a76553b3c.js", "app": "a/app.fee94221d04c.js", "full": "a/full.08c5d2dee3d4.js"};
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
