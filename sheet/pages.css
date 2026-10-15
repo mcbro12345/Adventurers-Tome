@@ -1157,3 +1157,7 @@ html[data-pgtheme="dark"] { color-scheme: dark; } html[data-pgtheme="light"] { c
 @media (max-width: 640px) { body.hubbody:not(.adminbody) .hp-row:has(.hub-theme) { gap: 7px; } }
 @media (max-width: 640px) { body.hubbody:not(.adminbody) .hp-row:has(.hub-theme) .linkbtn, body.hubbody:not(.adminbody) .hp-row:has(.hub-theme) .hub-ctlink { font-size: .74rem; } body.hubbody:not(.adminbody) .hp-row:has(.hub-theme) { gap: 6px; } body.hubbody:not(.adminbody) .hub-top .hub-prof { gap: 6px; } }
 html[data-theme="light"] .wzh .wzh-back { color: #8a6420; opacity: 1; } html[data-theme="light"] .wzh .wzh-back:hover { color: #6e4f18; }
+/* Wizard on phones: the header sits below the status bar / notch, and the step header under it doesn't add that space again */
+html.mobile .wzh { padding-top: calc(env(safe-area-inset-top) + 10px); background: var(--bg); }
+html.mobile .wz-box:has(.wzh) .wz-head { padding-top: 6px; }
+html.mobile .wzh .hl-d20 { filter: none !important; }
