@@ -634,6 +634,7 @@ function inTipPath(t, x, y) {
   return (x >= q.left && x <= q.right && y >= Math.min(gapTop, gapBot) - 2 && y <= Math.max(gapTop, gapBot) + 2) || (x >= L && x <= R && y >= T && y <= B && (x >= q.left && x <= q.right || x >= r.left && x <= r.right));
 }
 document.addEventListener('mouseover', e => {
+  if (isMobile()) return; // phones: tooltips open and close by tapping only
   const b = e.target.closest && e.target.closest('.notetip'), t = $('#tipbox.on');
   if (b) { if (!(t && t._pinned && t._for !== b)) showTip(b); return; }
   if (!t || t._pinned || e.target.closest('#tipbox')) return;
@@ -642,7 +643,7 @@ document.addEventListener('mouseover', e => {
 document.addEventListener('mousemove', e => { const t = $('#tipbox.on'); if (!t || t._pinned || (e.target.closest && (e.target.closest('#tipbox') || e.target.closest('.notetip')))) return; if (!inTipPath(t, e.clientX, e.clientY)) hideTip(); }, { passive: true });
 // The mouse wheel over an ⓘ scrolls its box instead of the page.
 document.addEventListener('wheel', e => { const b = e.target.closest && e.target.closest('.notetip'), t = $('#tipbox.on'); if (!b || !t || t._for !== b) return; if (t.scrollHeight <= t.clientHeight) return; e.preventDefault(); t.scrollTop += e.deltaY; }, { passive: false });
-document.addEventListener('click', e => { if (e.target.closest && e.target.closest('.tipx')) { e.preventDefault(); e.stopPropagation(); const t = $('#tipbox.on'); if (t && !t.classList.contains('closing') && !matchMedia('(prefers-reduced-motion: reduce)').matches) { t.classList.add('closing'); clearTimeout(t._ct); t._ct = setTimeout(hideTip, 190); } else hideTip(); return; } const b = e.target.closest && e.target.closest('.notetip'); if (b) { e.preventDefault(); const t = $('#tipbox.on'); if (t && t._for === b && t._pinned) hideTip(); else { if (t && t._for) t._for.classList.remove('tippin'); showTip(b); const n = $('#tipbox.on'); if (n) { n._pinned = true; b.classList.add('tippin'); } } } else if (!e.target.closest('#tipbox')) hideTip(); }, true);
+document.addEventListener('click', e => { if (e.target.closest && e.target.closest('.tipx')) { e.preventDefault(); e.stopPropagation(); const t = $('#tipbox.on'); if (t && !t.classList.contains('closing') && !matchMedia('(prefers-reduced-motion: reduce)').matches) { t.classList.add('closing'); clearTimeout(t._ct); t._ct = setTimeout(hideTip, 190); } else hideTip(); return; } const b = e.target.closest && e.target.closest('.notetip'); if (b) { e.preventDefault(); const t = $('#tipbox.on'); if (isMobile()) { if (t && t._for === b) hideTip(); else showTip(b); return; } if (t && t._for === b && t._pinned) hideTip(); else { if (t && t._for) t._for.classList.remove('tippin'); showTip(b); const n = $('#tipbox.on'); if (n) { n._pinned = true; b.classList.add('tippin'); } } } else if (!e.target.closest('#tipbox')) hideTip(); }, true);
 addEventListener('scroll', e => { const t = e.target; if (t && t.nodeType === 1 && t.closest('#tipbox')) return; hideTip(); }, true);
 // Combat: long feature/item descriptions show two lines; click to read the rest.
 document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('#page-combat .cspg .opt-text'); if (t) t.classList.toggle('full'); });

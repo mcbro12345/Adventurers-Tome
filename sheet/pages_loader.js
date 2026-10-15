@@ -863,6 +863,10 @@ function hub(fs, auth, G, ctx) {
       root.addEventListener('pointerup', end); root.addEventListener('pointercancel', end);
       root.addEventListener('click', e => { if (eat && e.target.closest('.adm-nav')) { e.preventDefault(); e.stopPropagation(); } }, true);
     }
+    // a tap on the bottom tabs never also lands on the page that appears under the finger (iPhone stray clicks)
+    { let at = 0; const inNav = e => e.target.closest && e.target.closest('.adm-nav');
+      addEventListener('pointerup', e => { if (PHONE.matches && inNav(e)) at = Date.now(); }, true);
+      ['click', 'mousedown', 'touchend', 'pointerdown'].forEach(t => addEventListener(t, e => { if (Date.now() - at < 350 && !inNav(e)) { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); } }, { capture: true, passive: false })); }
     function frame() { frame0(); navPost(); }
     function frame0() {
       const nav = (k, label) => `<button class="adm-ni${TAB === k ? ' on' : ''}" data-tab="${k}">${svg(k)}<span>${label}</span>${k === 'new' && NEWN ? `<b class="adm-badge">${NEWN}</b>` : ''}</button>`;

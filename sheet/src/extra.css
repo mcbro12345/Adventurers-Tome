@@ -2595,3 +2595,5 @@ html.mobile #tipbox .tipx { transition: transform .12s ease, background-color .1
 html.mobile #tipbox .tipx:active { transform: scale(.86) !important; background: var(--gold-soft); filter: none; }
 html.mobile #tipbox.closing { opacity: 0; transform: translateY(14px) scale(.98); transition: opacity .18s ease, transform .18s ease; pointer-events: none; }
 html.mobile #tipbox.closing .tipx { transform: rotate(90deg) scale(.86); transition: transform .18s ease; }
+html.mobile .tabs { -webkit-transform: translateZ(0); transform: translateZ(0); isolation: isolate; }
+html.mobile .notetip.tippin { color: inherit; background: none; }

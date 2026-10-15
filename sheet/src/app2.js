@@ -437,6 +437,16 @@ let _tabIndKey = null;
 addEventListener('resize', () => slideTabInd());
 // Fonts or layout settling after load can shift the tabs; re-snap without animating.
 addEventListener('load', () => slideTabInd());
+// Phones: a tap on the tab bar must never also land on the page that appears under it. iPhones sometimes deliver a
+// stray second click (or a press) to whatever is now at that spot, so for a moment after a tab switch, presses and
+// clicks outside the bar are ignored. The bar also gets its own layer so taps on it can't reach the page beneath.
+{
+  let at = 0;
+  const mark = e => { if (isMobile() && e.target.closest && e.target.closest('#tabs')) at = Date.now(); };
+  const eat = e => { if (Date.now() - at < 350 && !(e.target.closest && e.target.closest('#tabs'))) { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } };
+  addEventListener('pointerup', mark, true); addEventListener('click', mark, true);
+  ['click', 'mousedown', 'touchend', 'pointerdown'].forEach(t => addEventListener(t, eat, { capture: true, passive: false }));
+}
 // Phones: press the tab bar and slide along it — the highlight follows your finger and lets go on the tab you stop at.
 {
   const bar = $('#tabs'); let drag = null, eat = false;
