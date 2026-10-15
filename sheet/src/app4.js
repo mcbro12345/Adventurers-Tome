@@ -30,7 +30,7 @@ function mainClick(e) {
     case 'equip': equipItem(i); break;
     case 'resetturn': S.turn.haste = false; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.attacks = 0; S.turn.speed0 = ''; S.turn.sneak = false; S.turn.readied = null; update(); render('combat'); toast(`Turn reset — round ${N(S.turn.round) || 1} actions are ready again.`); break;
     case 'fullscreen': if (fsOn()) { FS_USER_OFF = true; fsExit(); } else { FS_USER_OFF = false; fsEnter(); } break;
-    case 'tab': { const prev = UI.tab, nt = b.dataset.tab, mob = isMobile() && !b.closest('.cmini'); TABSCROLL[prev] = scrollY; UI.tab = nt; saveUI(); renderTabs(); requestAnimationFrame(alignHpSide); if (mob) window.scrollTo(0, prev === nt ? 0 : (TABSCROLL[nt] || 0)); } $$('#page-' + UI.tab + ' textarea.f').forEach(grow); fitItemRows(); if (b.closest('.cmini')) window.scrollTo(0, 0); break;
+    case 'tab': { const prev = UI.tab, nt = b.dataset.tab, mob = isMobile() && !b.closest('.cmini'); TABSCROLL[prev] = scrollY; UI.tab = nt; saveUI(); renderTabs(); if (prev !== nt && !b.closest('.cmini')) tabPageAnim(prev, nt); requestAnimationFrame(alignHpSide); if (mob) { const pg = $('#page-' + nt), keep = pg ? Math.min(TABSCROLL[prev] || 0, Math.max(0, pg.getBoundingClientRect().top + scrollY - 12)) : 0; window.scrollTo(0, prev === nt ? 0 : (TABSCROLL[nt] != null ? TABSCROLL[nt] : keep)); } } $$('#page-' + UI.tab + ' textarea.f').forEach(grow); fitItemRows(); if (b.closest('.cmini')) window.scrollTo(0, 0); break;
     case 'theme': {
       const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', t);

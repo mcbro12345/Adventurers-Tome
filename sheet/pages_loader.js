@@ -756,19 +756,27 @@ function hub(fs, auth, G, ctx) {
     if (!slideMode()) { tr.style.transform = ''; return; }
     tr.style.transition = anim && !calm() ? 'transform .34s cubic-bezier(.22,.9,.24,1)' : 'none';
     tr.style.transform = `translate3d(calc(${-idx * 100}% + ${dx || 0}px), 0, 0)`;
-    if (dx == null) { clearTimeout(tr._t); const off = () => panes.forEach((p, k) => { p.classList.toggle('hp-off', k !== idx); unclamp(p); }); if (anim && !calm()) tr._t = setTimeout(off, 360); else off(); }
+    if (dx == null) { clearTimeout(tr._t); const off = () => { let y = null; panes.forEach((p, k) => { if (k === idx && p._y != null) { y = p._y; p._y = null; } p.style.transform = ''; p.classList.toggle('hp-off', k !== idx); unclamp(p); }); if (y != null) scrollTo(0, y); };
+      if (anim && !calm()) tr._t = setTimeout(off, 360); else off(); }
   }
   // While the lists slide, the one leaving is trimmed to what's on screen, so the page's height settles at the start of
   // the slide (hidden in the motion) instead of jumping once it lands.
   const clampPane = p => { if (!p) return; p.style.maxHeight = Math.max(0, innerHeight - p.getBoundingClientRect().top) + 'px'; p.style.overflow = 'hidden'; };
   const unclamp = p => { if (p) { p.style.maxHeight = ''; p.style.overflow = ''; } };
-  function switchView(v) { if (v === view) return; const out0 = root.querySelector('.hub-pane.on'); view = v; history.replaceState(null, '', view === 'shared' ? URLS.shared(G) : URLS.hub(G));
+  // Each list remembers where you'd scrolled to. While sliding, the incoming list is shifted so it already shows that
+  // spot; when it lands the shift is swapped for the real scroll in the same frame, so nothing jumps or flashes.
+  const VSCROLL = { mine: 0, shared: 0 };
+  const padBot = () => parseFloat(getComputedStyle(root).paddingBottom) || 0;
+  function prepIn(p) { if (!p || p._y != null) return; p.classList.remove('hp-off'); unclamp(p);
+    const top = p.getBoundingClientRect().top + scrollY, max = Math.max(0, top + p.offsetHeight + padBot() - innerHeight);
+    p._y = Math.min(VSCROLL[p.dataset.pane] || 0, max); p.style.transform = `translate3d(0, ${scrollY - p._y}px, 0)`; }
+  function switchView(v) { if (v === view) return; const out0 = root.querySelector('.hub-pane.on'); VSCROLL[view] = scrollY; view = v; history.replaceState(null, '', view === 'shared' ? URLS.shared(G) : URLS.hub(G));
     const tr = root.querySelector('.hub-track'); if (!tr) return draw();
-    tr.querySelectorAll('.hub-pane').forEach(p => { p.classList.remove('hp-off'); if (p !== out0) unclamp(p); });
-    if (scrollY > 0) scrollTo(0, 0);
-    if (slideMode()) clampPane(out0);
+    const inP = tr.querySelector(`.hub-pane[data-pane="${v}"]`);
+    if (!slideMode()) { tr.querySelectorAll('.hub-pane').forEach(p => { p.classList.remove('hp-off'); p.style.transform = ''; p._y = null; }); placeInd(true); placeTrack(false); scrollTo(0, VSCROLL[v] || 0); dispatchEvent(new Event('hub-view'));
+      if (inP && !calm()) { inP.classList.remove('fadein'); void inP.offsetWidth; inP.classList.add('fadein'); } return; }
+    prepIn(inP); clampPane(out0);
     placeInd(true); placeTrack(true); dispatchEvent(new Event('hub-view'));
-    if (!slideMode()) { const on = tr.querySelector('.hub-pane.on'); if (on && !calm()) { on.classList.remove('fadein'); void on.offsetWidth; on.classList.add('fadein'); } }
   }
   addEventListener('resize', () => { placeInd(false); placeTrack(false); });
   // Phones: swipe sideways anywhere below the top to flip between the two lists.
@@ -776,14 +784,14 @@ function hub(fs, auth, G, ctx) {
     document.addEventListener('touchstart', e => { const tr = root.querySelector('.hub-track'); if (!tr || !e.target.closest || e.target.closest('.hub-head, .hub-modal, .hub-toast, .pg-ct') || document.body.classList.contains('adminbody') || RD || e.touches.length > 1 || e.target.closest('.hr-grip, .hc-list, input, textarea')) return;
       sw = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), lock: null, dx: 0, tr, w: tr.getBoundingClientRect().width || innerWidth }; }, { passive: true });
     document.addEventListener('touchmove', e => { if (!sw) return; const dx = e.touches[0].clientX - sw.x, dy = e.touches[0].clientY - sw.y;
-      if (!sw.lock) { if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; sw.lock = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'; if (sw.lock === 'x') sw.tr.querySelectorAll('.hub-pane').forEach(p => { if (p.classList.contains('hp-off')) { p.classList.remove('hp-off'); clampPane(p); } }); }
+      if (!sw.lock) { if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; sw.lock = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'; if (sw.lock === 'x') { const other = sw.tr.querySelector(`.hub-pane[data-pane="${view === 'mine' ? 'shared' : 'mine'}"]`); VSCROLL[view] = scrollY; prepIn(other); } }
       if (sw.lock !== 'x') return; e.preventDefault();
       const can = (dx < 0 && view === 'mine') || (dx > 0 && view === 'shared'); sw.dx = can ? Math.max(-sw.w, Math.min(sw.w, dx)) : dx / (3 + Math.abs(dx) / 60);
       sw.last = { dx, t: Date.now() };
       if (!sw.raf) sw.raf = requestAnimationFrame(() => { if (!sw) return; sw.raf = 0; placeTrack(false, sw.dx); const base = view === 'shared' ? 1 : 0; placeInd(false, Math.max(0, Math.min(1, base - sw.dx / sw.w))); }); }, { passive: false });
     const end = () => { if (!sw) return; const s = sw; sw = null; if (s.raf) cancelAnimationFrame(s.raf); if (s.lock !== 'x') return;
       const v = Math.abs(s.dx) / Math.max(1, Date.now() - s.t), go = ((s.dx < 0 && view === 'mine') || (s.dx > 0 && view === 'shared')) && (Math.abs(s.dx) > s.w * .3 || v > .45);
-      if (go) switchView(view === 'mine' ? 'shared' : 'mine'); else { placeInd(true); placeTrack(true); } };
+      if (go) switchView(view === 'mine' ? 'shared' : 'mine'); else { placeInd(true); placeTrack(true); const tr = root.querySelector('.hub-track'); const other = tr && tr.querySelector('.hub-pane:not(.on)'); if (other) other._y = null; } };
     document.addEventListener('touchend', end); document.addEventListener('touchcancel', end); }
   function draw() {
     const SH = view === 'shared', mine = chars.filter(isMine), shared = chars.filter(c => !isMine(c)), groups = {};
