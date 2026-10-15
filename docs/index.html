@@ -1217,6 +1217,7 @@ function pgGo(url, replace) { const go = () => { if (url == null) location.reloa
   // and back in. The sign-in card counts as a page: the loading screen fades in over it, like leaving any page.
   const cur = document.getElementById('pg-load'), onCard = cur && cur.querySelector('.pg-signin, .pg-msg');
   if (cur && !onCard && !cur.classList.contains('pg-leave')) { go(); return; }
+  if (cur && cur.classList.contains('pg-leave')) return; // already on the way out
   if (window.PG_LOAD_HTML && (!cur || onCard)) { const t = document.createElement('div'); t.innerHTML = window.PG_LOAD_HTML; const el = t.firstElementChild; el.classList.add('pg-leave'); el.style.zIndex = '10000'; document.body.appendChild(el);
     // the die stays still at rest while this page is left, and starts rolling on the next page (no jump between the two)
     setTimeout(go, 260); return; }
@@ -1402,7 +1403,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261015152115', ASSETS = {"data": "a/data.fc7a76553b3c.js", "app": "a/app.a51e3c587b20.js", "full": "a/full.08c5d2dee3d4.js"};
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261015152246', ASSETS = {"data": "a/data.fc7a76553b3c.js", "app": "a/app.a51e3c587b20.js", "full": "a/full.08c5d2dee3d4.js"};
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }

@@ -16,6 +16,7 @@ function pgGo(url, replace) { const go = () => { if (url == null) location.reloa
   // and back in. The sign-in card counts as a page: the loading screen fades in over it, like leaving any page.
   const cur = document.getElementById('pg-load'), onCard = cur && cur.querySelector('.pg-signin, .pg-msg');
   if (cur && !onCard && !cur.classList.contains('pg-leave')) { go(); return; }
+  if (cur && cur.classList.contains('pg-leave')) return; // already on the way out
   if (window.PG_LOAD_HTML && (!cur || onCard)) { const t = document.createElement('div'); t.innerHTML = window.PG_LOAD_HTML; const el = t.firstElementChild; el.classList.add('pg-leave'); el.style.zIndex = '10000'; document.body.appendChild(el);
     // the die stays still at rest while this page is left, and starts rolling on the next page (no jump between the two)
     setTimeout(go, 260); return; }
