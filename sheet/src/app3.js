@@ -308,7 +308,8 @@ function renderFeatures() {
     return extra;
   };
   // Known infusions live on the Infusions tab (they only do something once an item is infused).
-  const shown = S.features.map((f, i) => [f, i]).filter(([f]) => !isInfPick(f) && (ff === 'all' || featGroup(f) === ff) && (!q || (f.name + ' ' + f.desc).toLowerCase().includes(q)));
+  const shown = S.features.map((f, i) => [f, i]).filter(([f]) => !isInfPick(f) && (ff === 'all' || featGroup(f) === ff) && (!q || (f.name + ' ' + f.desc).toLowerCase().includes(q)))
+    .sort(([a], [b]) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base', numeric: true })); // A–Z within each group
   const order = clsRows().map(r => r.key).concat(groups.filter(g => !CL[g]));
   if (!groups.includes('feat') && ff === 'all' && !q) groups.push('feat');
   const sections = [...new Set(order.concat(groups))].filter(g => groups.includes(g) && (shown.some(([f]) => featGroup(f) === g) || (g === 'feat' && ff === 'all' && !q))).map(g => `<section class="fgroup"><h3 class="subh fghead"><span class="sh-dot"></span><span class="fgname">${esc(gname(g))}</span>${head(g)}</h3>
