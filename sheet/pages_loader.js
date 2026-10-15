@@ -755,7 +755,7 @@ function hub(fs, auth, G, ctx) {
     const tr = root.querySelector('.hub-track'); if (!tr) return draw();
     tr.querySelectorAll('.hub-pane').forEach(p => p.classList.remove('hp-off'));
     if (scrollY > 0) scrollTo(0, 0);
-    placeInd(true); placeTrack(true);
+    placeInd(true); placeTrack(true); dispatchEvent(new Event('hub-view'));
     if (!slideMode()) { const on = tr.querySelector('.hub-pane.on'); if (on && !calm()) { on.classList.remove('fadein'); void on.offsetWidth; on.classList.add('fadein'); } }
   }
   addEventListener('resize', () => { placeInd(false); placeTrack(false); });
@@ -790,7 +790,7 @@ function hub(fs, auth, G, ctx) {
     const keepLogo = root.querySelector('.hub-logo');
     root.innerHTML = `<div class="hub-head"><header class="hub-top">${logoHTML()}
       <div class="hub-side"><div class="hub-prof"><button class="hp-pic" id="me-pic" title="Choose your picture" aria-label="Choose your picture">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(myAva())}<span class="hp-edit" aria-hidden="true">✎</span></button>
-        <div class="hp-txt"><b>${esc(myName())}</b><small>${esc(EMAIL)}</small><div class="hp-row"><button class="linkbtn" id="me-out">Sign out</button>${IS_ADMIN ? '<button class="btn hub-admin" id="hub-admin">⚙ Admin</button>' : '<button class="btn hub-admin" data-contact>✉ Contact us</button>'}</div></div></div></div></header>
+        <div class="hp-txt"><b>${esc(myName())}</b><small>${esc(EMAIL)}</small><div class="hp-row"><button class="linkbtn" id="me-out">Sign out</button>${IS_ADMIN ? '<button class="hub-admin hub-chip" id="hub-admin"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Admin</span></button>' : '<button class="hub-admin hub-chip" data-contact><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg><span>Contact us</span></button>'}</div></div></div></div></header>
       <div class="hub-views${TABS ? '' : ' no-seg'}">${seg}<button class="hub-new" id="hub-new"><span class="hn-plus" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="hn-txt"><b>Create character</b></span></button></div>
       </div><div class="hub-list">${body}</div>`;
     if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
@@ -816,7 +816,8 @@ function hub(fs, auth, G, ctx) {
       const top = head.getBoundingClientRect().bottom + 14, bot = 16, H = Math.max(40, innerHeight - top - bot);
       sb.style.top = top + 'px'; sb.style.height = H + 'px'; sb.style.left = Math.min(innerWidth - 14, col.getBoundingClientRect().right + 14) + 'px';
       const h = Math.max(28, H * innerHeight / de.scrollHeight); th.style.height = h + 'px'; th.style.top = ((H - h) * (scrollY / max)) + 'px'; };
-    addEventListener('scroll', paint, { passive: true }); addEventListener('resize', paint); new MutationObserver(() => requestAnimationFrame(paint)).observe(root, { childList: true, subtree: true }); setTimeout(paint, 50);
+    addEventListener('scroll', paint, { passive: true }); addEventListener('resize', paint); new MutationObserver(() => requestAnimationFrame(paint)).observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'open'] }); setTimeout(paint, 50);
+    addEventListener('hub-view', () => { paint(); setTimeout(paint, 380); });
     th.addEventListener('pointerdown', e => { e.preventDefault(); th.classList.add('drag'); th.setPointerCapture(e.pointerId);
       const y0 = e.clientY, s0 = scrollY, k = (document.documentElement.scrollHeight - innerHeight) / Math.max(1, sb.clientHeight - th.offsetHeight);
       const mv = ev => scrollTo(0, s0 + (ev.clientY - y0) * k), up = () => { th.classList.remove('drag'); th.removeEventListener('pointermove', mv); th.removeEventListener('pointerup', up); th.removeEventListener('pointercancel', up); };
