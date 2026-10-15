@@ -6,6 +6,11 @@
 // The github.io backup copy keeps the older ?c=<id> / ?g=<group> / ?new=1 addresses, and those still work here too.
 // Everyone signs in once per device (Google, or a link emailed to them). Each character belongs to one email;
 // the database only lets that player — and the DM — open or change it.
+// Every way of leaving a page fades it out first, so the next page's loading screen fades in instead of popping.
+const PG_CALM = (() => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } })();
+function pgGo(url, replace) { const go = () => { if (url == null) location.reload(); else if (replace) location.replace(url); else location.href = url; };
+  if (PG_CALM) return go(); document.documentElement.classList.add('pg-leaving'); setTimeout(go, 300); }
+window.pgGo = pgGo;
 const ADMIN_EMAIL = 'matthewcbro@gmail.com';
 // Every character lives in one library; the hub shows each person their own and the ones shared with them.
 const DEFAULT_G = 'WLdUj_I3XrA_9VIP';
@@ -124,7 +129,7 @@ function wireDie(root) {
   const FRAMED = window.top !== window && Q.has('pgframe'), PHONE_KEY = 'pg-phoneview';
   if (FRAMED) { window.PG_IN_PHONE = true; window.PG_FORCE_MOBILE = true; document.documentElement.classList.add('pg-inphone'); }
   window.pgPhoneView = on => { try { localStorage.removeItem(PHONE_KEY); on ? sessionStorage.setItem(PHONE_KEY, '1') : sessionStorage.removeItem(PHONE_KEY); } catch (e) {}
-    if (FRAMED) { try { window.top.location.reload(); } catch (e) {} } else location.reload(); };
+    if (FRAMED) { try { window.top.location.reload(); } catch (e) {} } else pgGo(null); };
   const P = (Q.get('p') || '').slice(0, 60), O = (Q.get('o') || '').trim().toLowerCase().slice(0, 120);
   const LAST_G = 'dnd-hub-group';
   let NEWQ = !!Q.get('new'), ADMINQ = !!Q.get('admin'), TABQ = clean(Q.get('tab')), VIEWQ = Q.get('view') === 'shared' ? 'shared' : 'mine', LOGIN = false, SLUG = '', BAD = false;
@@ -145,14 +150,14 @@ function wireDie(root) {
   const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
   // The loading screen fades away over the page instead of vanishing, and links between pages fade out first.
   function fadeLoad(el) { if (!el || !el.isConnected) return; if (matchMedia('(prefers-reduced-motion: reduce)').matches) return el.remove();
-    el.style.pointerEvents = 'none'; el.style.zIndex = '9999'; el.style.transition = 'opacity .34s ease'; void el.offsetWidth;
-    requestAnimationFrame(() => requestAnimationFrame(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 380); })); }
-  document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[href]'); if (!a || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || a.target === '_blank' || a.hasAttribute('download')) return;
+    el.style.pointerEvents = 'none'; el.style.zIndex = '9999'; el.style.transition = 'opacity .6s ease'; void el.offsetWidth;
+    requestAnimationFrame(() => requestAnimationFrame(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 650); })); }
+  document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[href]'); if (!a || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || (a.target && a.target !== '_self') || a.hasAttribute('download')) return;
     let u; try { u = new URL(a.href, location.href); } catch (x) { return; } if (u.origin !== location.origin || (u.pathname === location.pathname && u.search === location.search)) return;
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return; e.preventDefault(); document.documentElement.classList.add('pg-leaving'); setTimeout(() => { location.href = u.href; }, 170); });
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return; e.preventDefault(); pgGo(u.href); });
   addEventListener('pageshow', () => document.documentElement.classList.remove('pg-leaving'));
   const load = document.getElementById('pg-load'), data = document.getElementById('sheet-data');
-  const say = html => { if (load) load.innerHTML = `<div class="pg-msg">${html}</div>`; };
+  const say = html => { if (!load) return; load.innerHTML = `<div class="pg-msg">${html}</div>`; const m = load.firstElementChild; if (m && m.animate && !PG_CALM) m.animate([{ opacity: 0, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: 450, easing: 'ease-out' }); load.style.opacity = ''; load.style.transition = ''; };
   // ---- Moving house: the old GitHub Pages address hands each visitor over to adventurers-tome.web.app ----
   // The old page packs this browser's sheet settings (layouts, per-sheet settings, theme, tab bar, hub state, roll logs)
   // and its saved sign-in into the part of the link after "#" (never sent to any server), and the new page unpacks it
@@ -200,7 +205,7 @@ function wireDie(root) {
   if (auth.isSignInWithEmailLink(location.href)) {
     let em = lsGet('dnd-signin-email');
     if (!em) em = prompt('To finish signing in, type the email address the link was sent to:');
-    try { await auth.signInWithEmailLink((em || '').trim(), location.href); location.replace(lsGet('dnd-signin-back') || location.pathname); }
+    try { await auth.signInWithEmailLink((em || '').trim(), location.href); pgGo(lsGet('dnd-signin-back') || location.pathname, true); }
     catch (e) { say(`That sign-in link didn't work (${(e && e.message) || 'expired or already used'}).<br><br><a href="${location.pathname}">Try again</a>`); }
     return;
   }
@@ -218,7 +223,7 @@ function wireDie(root) {
   const EMAIL = (user.email || '').toLowerCase(), IS_OWNER = EMAIL === ADMIN_EMAIL;
   let IS_ADMIN = IS_OWNER, ADMINS = [];
   try { const a = await fs.collection('config').doc('admins').get(); ADMINS = ((a.exists && a.data().emails) || []).map(x => String(x).toLowerCase()); if (ADMINS.includes(EMAIL)) IS_ADMIN = true; } catch (e) {}
-  const doSignOut = () => Promise.resolve(window.pgLog && pgLog('signout')).then(() => auth.signOut()).then(() => location.replace(PRETTY ? '/login' : location.href));
+  const doSignOut = () => Promise.resolve(window.pgLog && pgLog('signout')).then(() => auth.signOut()).then(() => pgGo(PRETTY ? '/login' : location.href, true));
   // Signing out always asks first.
   const signOut = () => {
     if (document.querySelector('.pg-out')) return;
@@ -262,7 +267,7 @@ function wireDie(root) {
   // An admin can sign someone out of every device, or block them. Checked now and whenever their account record changes.
   let AUTHAT = 0; try { AUTHAT = Date.parse((await user.getIdTokenResult()).authTime) || 0; } catch (e) {}
   const kicked = d => d && (d.banned === true ? 'This account has been blocked. If you think this is a mistake, contact adventurerstome@googlegroups.com.' : (Number(d.revokedAt) || 0) > AUTHAT ? 'You were signed out of all your devices. Sign in again to continue.' : '');
-  const kick = msg => { lsSet('pg-kicked', msg); auth.signOut().then(() => location.replace(PRETTY ? '/login' : location.href)); };
+  const kick = msg => { lsSet('pg-kicked', msg); auth.signOut().then(() => pgGo(PRETTY ? '/login' : location.href, true)); };
   // (when the database refuses even their own account record, an admin has signed them out or blocked them)
   const LOCKED = 'You’ve been signed out. Sign in again — if that doesn’t work, contact adventurerstome@googlegroups.com.';
   { const k0 = kicked(ME) || (ACCT_ERR === 'permission-denied' ? LOCKED : ''); if (k0) { kick(k0); return; } }
@@ -273,7 +278,7 @@ function wireDie(root) {
   // nobody is in the middle of using it (or on a tap), after its last change has saved. The new address carries
   // the version so the browser can't hand back its old cached copy.
   const verCheck = () => { let NEWV = null, idleT = null;
-    const go = () => { const u = new URL(location.href); u.searchParams.set('v', NEWV); setTimeout(() => location.replace(u.toString()), 1200); };
+    const go = () => { const u = new URL(location.href); u.searchParams.set('v', NEWV); setTimeout(() => pgGo(u.toString(), true), 1200); };
     const busy = () => { const a = document.activeElement; return !!(a && /INPUT|TEXTAREA|SELECT/.test(a.tagName)) || !!document.querySelector('#modal.open, .hub-modal.on'); };
     const idle = () => { clearTimeout(idleT); idleT = setTimeout(() => { if (NEWV && (document.hidden || !busy())) go(); else idle(); }, 15000); };
     let checking = false; const check = async () => { if (NEWV || checking) return; checking = true; try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); const v = (await r.json()).v; if (!v || v === VER || Q.get('v') === v) return; NEWV = v;
@@ -486,7 +491,7 @@ function signIn(auth, say) {
   wireDie(document.getElementById('pg-load'));
   const msg = t => { const m = document.getElementById('si-msg'); if (m) m.innerHTML = t; };
   document.getElementById('si-g').onclick = async () => { const pr = new firebase.auth.GoogleAuthProvider(); pr.setCustomParameters({ prompt: 'select_account' });
-    try { await auth.signInWithPopup(pr); location.reload(); } catch (e) { if (e && /popup/.test(e.code || '')) { auth.signInWithRedirect(pr); return; } msg('Couldn\'t sign in: ' + ((e && e.message) || e)); } };
+    try { await auth.signInWithPopup(pr); pgGo(null); } catch (e) { if (e && /popup/.test(e.code || '')) { auth.signInWithRedirect(pr); return; } msg('Couldn\'t sign in: ' + ((e && e.message) || e)); } };
   document.getElementById('si-f').onsubmit = async e => { e.preventDefault(); const em = document.getElementById('si-e').value.trim().toLowerCase(); if (!em) return;
     try { await auth.sendSignInLinkToEmail(em, { url: location.origin + location.pathname, handleCodeInApp: true }); try { localStorage.setItem('dnd-signin-email', em); localStorage.setItem('dnd-signin-back', location.href); } catch (x) {}
       msg(`<b>Check your email</b> (${em}) for a sign-in link and open it on this device. If it isn't there in a minute, look in Spam.`); } catch (x) { msg('Couldn\'t send the link: ' + ((x && x.message) || x)); } };
@@ -629,7 +634,7 @@ function hub(fs, auth, G, ctx) {
   if (ADMIN) return adminSection();
 
   // ================= Hub: my characters and the ones shared with me =================
-  function createChar() { location.href = URLS.newChar(G, '', myName()); }
+  function createChar() { pgGo(URLS.newChar(G, '', myName())); }
   // Your picture: your initials (on a colour you can pick), one of your characters, or an image you upload.
   const myAva = () => { const a = avaOf(ME), ch = picModeOf(ME) === 'char' && ME.picChar && chars.find(c => c.id === ME.picChar && isMine(c)); if (ch && ch.thumb) a.pic = ch.thumb; return a; };
   // An uploaded image is shrunk to a small square here before saving. A transparent background is kept (as PNG) and the
@@ -822,7 +827,7 @@ function hub(fs, auth, G, ctx) {
     if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
     const nb = root.querySelector('#hub-new'); if (nb) nb.onclick = createChar;
     root.querySelector('#me-out').onclick = signOut;
-    const ab = root.querySelector('#hub-admin'); if (ab) ab.onclick = () => { location.href = ADMIN_URL; };
+    const ab = root.querySelector('#hub-admin'); if (ab) ab.onclick = () => { pgGo(ADMIN_URL); };
     root.querySelector('#me-pic').onclick = pickPic;
     root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => switchView(b.dataset.view));
     placeInd(false); placeTrack(false);
@@ -995,7 +1000,7 @@ function hub(fs, auth, G, ctx) {
         try { await setAccess(c, v ? [...V, EMAIL] : V, v === 'edit' ? [...E, EMAIL] : E); toast(v ? (c.name || 'It') + ' is shared with you (' + (v === 'edit' ? 'can edit' : 'view only') + ').' : 'Stopped sharing ' + (c.name || 'it') + ' with you.'); }
         catch (x) { toast('Couldn\'t change it: ' + (x.message || x)); sl.value = myAccess(c) === 'own' ? '' : myAccess(c); } });
       el.querySelectorAll('[data-mi]').forEach(b => b.onclick = () => { const c = CH[b.dataset.id]; b.closest('.adm-mwrap').classList.remove('on'); if (!c) return;
-        ({ open: () => { location.href = URLS.char(c); }, share: () => shareChar(c, Object.assign(() => {}, { refresh: redo })), give: () => moveChar(c, redo), rm: () => removeChar(c, redo), del: () => deleteChar(c, redo) })[b.dataset.mi](); });
+        ({ open: () => { pgGo(URLS.char(c)); }, share: () => shareChar(c, Object.assign(() => {}, { refresh: redo })), give: () => moveChar(c, redo), rm: () => removeChar(c, redo), del: () => deleteChar(c, redo) })[b.dataset.mi](); });
     }
     const docs = r => r.docs.map(d => Object.assign({ id: d.id }, d.data()));
     const failMsg = x => `<p class="adm-empty">Couldn't load this (${esc((x && (x.code || x.message)) || x)}).</p>`;
@@ -1049,7 +1054,7 @@ function hub(fs, auth, G, ctx) {
           fill(); };
         l.querySelectorAll('[data-uc]').forEach(b => b.onclick = () => toggle(b.dataset.uc));
         l.querySelectorAll('[data-mi]').forEach(b => b.onclick = () => { const em = b.dataset.id; b.closest('.adm-mwrap').classList.remove('on');
-          if (b.dataset.mi === 'chars') toggle(em); else if (b.dataset.mi === 'newfor') location.href = URLS.newChar(G, em, nameOf(em)); else if (b.dataset.mi === 'rename') renameUser(em); else userAction(b.dataset.mi, em); });
+          if (b.dataset.mi === 'chars') toggle(em); else if (b.dataset.mi === 'newfor') pgGo(URLS.newChar(G, em, nameOf(em))); else if (b.dataset.mi === 'rename') renameUser(em); else userAction(b.dataset.mi, em); });
       } catch (x) { l.innerHTML = failMsg(x); }
     }
     // --- Managing someone's account: picture, sign out everywhere, block, delete ---
@@ -1246,7 +1251,7 @@ function hub(fs, auth, G, ctx) {
       el.querySelectorAll('[data-mi="unadmin"]').forEach(b => b.onclick = async () => { const em = b.dataset.id; try { await cfg.set({ emails: FV.arrayRemove(em) }, { merge: true }); ADMINS = ADMINS.filter(x => x !== em); toast(em + ' is no longer an admin.'); pgLog('admin_remove', { target: em, tName: nameOf(em) }); tabAdmins(); } catch (x) { toast('Couldn\'t remove the admin: ' + (x.message || x)); } });
     }
     frame(); wireDie(root);
-    root.addEventListener('click', e => { if (e.target.closest && e.target.closest('.hl-txt')) location.href = HUB; });
+    root.addEventListener('click', e => { if (e.target.closest && e.target.closest('.hl-txt')) pgGo(HUB); });
     // the count on "New" shows even while you're on another section
     if (TAB !== 'new') Promise.all([usersCol.where('createdAt', '>', CHECKED).limit(51).get(), charsCol.where('createdAt', '>', CHECKED).limit(101).get()]).then(([u, c]) => { const fresh = new Set(u.docs.map(d => d.id)); NEWN = u.size + c.docs.filter(d => !fresh.has(d.data().owner)).length; const t = root.querySelector('[data-tab="new"]'); if (t && NEWN && !t.querySelector('.adm-badge')) t.insertAdjacentHTML('beforeend', `<b class="adm-badge">${NEWN}</b>`); }, () => {});
   }

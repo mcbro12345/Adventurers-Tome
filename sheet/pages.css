@@ -960,10 +960,12 @@ body.hubbody .hp-row .hub-chip:hover { background: rgba(201,150,43,.18) !importa
 @media (max-width: 640px) { body.hubbody .hp-row { gap: 10px !important; } }
 @media (max-width: 420px) { body.hubbody .hp-row .hub-chip .cu-long { display: none; } }
 /* leaving a page: a quick fade before the next one (and its loading screen) comes in */
-html.pg-leaving body { opacity: 0; transition: opacity .16s ease; }
+html.pg-leaving body { opacity: 0; transition: opacity .28s ease; }
 html.pg-leaving { background: #0f1420; }
 @media (prefers-color-scheme: light) { html.pg-leaving { background: #f1e9d8; } }
 .pg-pres { opacity: 0; transition: opacity .35s ease; pointer-events: none; }
 .pg-pres.ready { opacity: 1; pointer-events: auto; }
 /* the viewers bubble hides with the Adventurer's Tome button while a window is open, so it never wanders */
 body:has(#modal.open) .pg-pres, body.wizopen .pg-pres { visibility: hidden !important; }
+
+#pg-load .pg-spin { animation: pg-fade .6s ease both .05s !important; }
