@@ -1115,3 +1115,5 @@ html.mobile .wzh .hub-top { padding-bottom: 10px; gap: 10px; }
 html.mobile .wzh .wzh-brand { gap: 3px; flex: 0 1 auto; }
 html.mobile .wzh .wzh-back { font-size: .7rem; }
 html.mobile .wzh .hp-txt b, html.mobile .wzh .hp-txt small { max-width: 34vw; }
+.wzh > .wzh-back { display: inline-block; margin-top: 10px; }
+html.mobile .wzh > .wzh-back { margin: 8px 0 4px; font-size: .74rem; }

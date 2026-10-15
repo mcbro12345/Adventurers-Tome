@@ -418,8 +418,8 @@ function wireDie(root) {
   if (NEW) C = rid();
   // Making a new character: the wizard gets the lobby's header on top (logo, a way back, who's signed in).
   if (NEW) { const HUBU = URLS.hub(G), nm = (ME && ME.name) || user.displayName || EMAIL.split('@')[0], av = avaOf(ME);
-    window.wzHeader = () => `<div class="wzh"><header class="hub-top"><div class="wzh-brand">${logoHTML()}<a class="adm-back wzh-back" href="${escH(HUBU)}">← Adventurer’s Tome</a></div>
-      <div class="hub-side"><div class="hub-prof"><span class="hp-pic wzh-pic">${avaHTML(nm, EMAIL, av.pic, '', '', av)}</span><div class="hp-txt"><b>${escH(nm)}</b><small>${escH(EMAIL)}</small><div class="hp-row"><button class="linkbtn" data-wzh="out">Sign out</button>${IS_ADMIN ? '' : `<a class="hub-ctlink" href="${CONTACT}">Contact us</a>`}</div></div></div></div></header></div>`;
+    window.wzHeader = () => `<div class="wzh"><header class="hub-top">${logoHTML()}
+      <div class="hub-side"><div class="hub-prof"><span class="hp-pic wzh-pic">${avaHTML(nm, EMAIL, av.pic, '', '', av)}</span><div class="hp-txt"><b>${escH(nm)}</b><small>${escH(EMAIL)}</small><div class="hp-row"><button class="linkbtn" data-wzh="out">Sign out</button>${IS_ADMIN ? '' : `<a class="hub-ctlink" href="${CONTACT}">Contact us</a>`}</div></div></div></div></header><a class="adm-back wzh-back" href="${escH(HUBU)}">← Adventurer’s Tome</a></div>`;
     document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('.wzh [data-wzh="out"], .wzh .wzh-back'); if (!t) return; e.preventDefault(); if (t.dataset.wzh === 'out') signOut(); else pgGo(HUBU); });
     new MutationObserver(() => { const l = document.querySelector('#wizard .wzh'); if (l && !l._w) { l._w = 1; wireDie(l); } }).observe(document.documentElement, { childList: true, subtree: true }); }
   window.SHEET_PAGES = true; window.SHEET_CHAR = C;
