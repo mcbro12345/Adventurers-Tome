@@ -912,3 +912,36 @@ body.hubbody .hub-views.hv-drag > button[data-view] { color: #e9e3d3 !important;
 @media (prefers-color-scheme: light) { body.hubbody .hub-views.hv-drag > button[data-view] { color: #1f2a44 !important; } body.hubbody .hub-views.hv-drag .hv-ind { opacity: .35; } }
 /* phones: Create character sits above the My / Shared switch */
 @media (max-width: 640px) { body.hubbody:not(.adminbody) .hub-views .hub-new { order: -1; margin-bottom: 4px; } }
+/* ================= Lobby: My characters / Shared with me as one segmented switch ================= */
+body.hubbody .hub-seg { position: relative; display: inline-flex; align-items: stretch; padding: 3px; gap: 0; border-radius: 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(201,150,43,.28); box-shadow: inset 0 1px 2px rgba(0,0,0,.35); }
+body.hubbody .hub-seg .hv-ind { position: absolute; left: 0; top: 3px; bottom: 3px; z-index: 0; border-radius: 9px; pointer-events: none;
+  background: linear-gradient(180deg, #e3b54e, #c9962b); box-shadow: 0 2px 8px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.35); transition: transform .34s cubic-bezier(.22,.9,.24,1), width .34s cubic-bezier(.22,.9,.24,1); will-change: transform; }
+body.hubbody .hub-views .hub-seg > button[data-view] { position: relative; z-index: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px; margin: 0; padding: 8px 16px; border: 0 !important; border-radius: 9px;
+  background: transparent !important; color: rgba(233,227,211,.72); font: 700 .86rem system-ui, sans-serif; letter-spacing: .01em; cursor: pointer; transition: color .25s; box-shadow: none !important; }
+body.hubbody .hub-views .hub-seg > button[data-view].on { color: #1b1406; }
+body.hubbody .hub-views .hub-seg > button[data-view] span { opacity: 1; margin: 0; min-width: 20px; height: 20px; padding: 0 6px; box-sizing: border-box; display: inline-grid; place-items: center; border-radius: 10px; font-size: .72rem; font-weight: 800; background: rgba(255,255,255,.08); color: inherit; transition: background .25s; }
+body.hubbody .hub-views .hub-seg > button[data-view].on span { background: rgba(27,20,6,.16); }
+@media (prefers-color-scheme: light) {
+  body.hubbody .hub-seg { background: rgba(31,42,68,.06); border-color: rgba(138,100,32,.3); box-shadow: inset 0 1px 2px rgba(60,45,20,.12); }
+  body.hubbody .hub-views .hub-seg > button[data-view] { color: rgba(31,42,68,.7); }
+  body.hubbody .hub-views .hub-seg > button[data-view] span { background: rgba(31,42,68,.08); }
+}
+body.hubbody .hub-views.no-seg { justify-content: flex-end; }
+html.pg-touch body.hubbody .hub-seg button { touch-action: manipulation; }
+/* the two lists side by side */
+body.hubbody:not(.adminbody) .hub-track { display: flex; align-items: flex-start; width: 100%; }
+body.hubbody:not(.adminbody) .hub-pane { flex: 0 0 100%; min-width: 0; box-sizing: border-box; }
+body.hubbody:not(.adminbody) .hub-pane.hp-off { height: 0; overflow: hidden; visibility: hidden; }
+body.hubbody:not(.adminbody) .hub-track.slide { will-change: transform; backface-visibility: hidden; }
+body.hubbody:not(.adminbody) .hub-track.fade { display: block; }
+body.hubbody:not(.adminbody) .hub-track.fade .hub-pane:not(.on) { display: none; }
+body.hubbody:not(.adminbody) .hub-pane.fadein { animation: hubFade .24s ease-out; }
+@keyframes hubFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (max-width: 640px) {
+  body.hubbody:not(.adminbody) .hub-views .hub-seg { display: flex; width: 100%; box-sizing: border-box; }
+  body.hubbody:not(.adminbody) .hub-views .hub-seg > button[data-view] { flex: 1 1 0; padding: 10px 6px; font-size: .86rem; }
+  /* full-bleed track on phones so the sliding list never gets clipped short of the screen edge */
+  body.hubbody:not(.adminbody) .hub-list:has(> .hub-track) { padding-left: 0; padding-right: 0; overflow-x: clip; }
+  body.hubbody:not(.adminbody) .hub-list > .hub-track { max-width: none !important; }
+  body.hubbody:not(.adminbody) .hub-track .hub-pane { padding: 0 16px; }
+}

@@ -729,64 +729,69 @@ function hub(fs, auth, G, ctx) {
       const all = [...d.list.querySelectorAll(':scope > .hr')]; saveOrder(all.filter(x => x.dataset.pin === '1').map(x => x.dataset.id)).then(() => saveOrder(all.filter(x => x.dataset.pin !== '1').map(x => x.dataset.id))); }, 170); };
   document.addEventListener('pointerup', endDrag); document.addEventListener('pointercancel', endDrag);
 
-  // My characters ⇄ Shared characters: the highlight slides between the two buttons; on a phone the list slides in
-  // from the side it came from (and you can swipe it across with a finger); on a computer it just fades.
-  let VIEW_ANIM = null, VIEW_IND = null;
-  function switchView(v, from) { if (v === view) return; const dir = v === 'shared' ? 1 : -1; VIEW_ANIM = { dir, from: from || 0 };
-    view = v; history.replaceState(null, '', view === 'shared' ? URLS.shared(G) : URLS.hub(G)); draw(); }
-  function viewFx() {
-    const bar = root.querySelector('.hub-views'), on = bar && bar.querySelector('[data-view].on'); if (!on) return;
-    let ind = bar.querySelector('.hv-ind'); if (!ind) { ind = document.createElement('span'); ind.className = 'hv-ind'; ind.setAttribute('aria-hidden', 'true'); bar.prepend(ind); }
-    bar.classList.add('hv-has');
-    const br = bar.getBoundingClientRect(), r = on.getBoundingClientRect(), to = { x: r.left - br.left, y: r.top - br.top, w: r.width, h: r.height };
-    const set = p => { ind.style.transform = `translate(${p.x}px, ${p.y}px)`; ind.style.width = p.w + 'px'; ind.style.height = p.h + 'px'; };
-    const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    ind.style.transition = 'none';
-    if (VIEW_ANIM && VIEW_IND && !calm) { set(VIEW_IND); void ind.offsetWidth; ind.style.transition = ''; set(to); } else set(to);
-    VIEW_IND = to;
-    const list = root.querySelector('.hub-list');
-    if (VIEW_ANIM && list && !calm) { const a = VIEW_ANIM, phone = TOUCH || innerWidth <= 640;
-      list.style.transition = 'none'; list.style.opacity = '0';
-      list.style.transform = phone ? `translateX(${a.dir * Math.max(40, innerWidth * .35 - Math.abs(a.from))}px)` : 'translateY(6px)';
-      void list.offsetWidth; list.style.transition = phone ? 'transform .26s cubic-bezier(.2,.8,.2,1), opacity .2s ease' : 'opacity .22s ease, transform .22s ease';
-      list.style.opacity = ''; list.style.transform = '';
-      setTimeout(() => { list.style.transition = ''; }, 300); }
-    VIEW_ANIM = null;
+  // My characters ⇄ Shared characters. Both lists sit side by side in a track: on a phone the track slides (and follows
+  // your finger when you swipe), on a computer the other list fades in. The switch only shows once something has
+  // been shared with you.
+  let VIEW_IND = null, SH_LOADED = false;
+  const slideMode = () => TOUCH || innerWidth <= 640;
+  const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function placeInd(anim, frac) {
+    const bar = root.querySelector('.hub-seg'), ind = bar && bar.querySelector('.hv-ind'), btns = bar ? [...bar.querySelectorAll('[data-view]')] : []; if (!ind || btns.length < 2) return;
+    const br = bar.getBoundingClientRect(), r0 = btns[0].getBoundingClientRect(), r1 = btns[1].getBoundingClientRect();
+    const f = frac != null ? frac : view === 'shared' ? 1 : 0, x = (r0.left - br.left) + ((r1.left - br.left) - (r0.left - br.left)) * f, w = r0.width + (r1.width - r0.width) * f;
+    ind.style.transition = anim && !calm() ? '' : 'none'; ind.style.transform = `translateX(${x}px)`; ind.style.width = w + 'px';
+    btns.forEach((b, k) => b.classList.toggle('on', Math.round(f) === k));
   }
-  addEventListener('resize', () => { VIEW_IND = null; viewFx(); });
-  // Phones: swipe the list sideways to flip between your characters and the shared ones.
+  function placeTrack(anim, dx) {
+    const tr = root.querySelector('.hub-track'); if (!tr) return; const idx = view === 'shared' ? 1 : 0;
+    tr.classList.toggle('slide', slideMode()); tr.classList.toggle('fade', !slideMode());
+    const panes = tr.querySelectorAll('.hub-pane'); panes.forEach((p, k) => p.classList.toggle('on', k === idx));
+    if (!slideMode()) { tr.style.transform = ''; return; }
+    tr.style.transition = anim && !calm() ? 'transform .34s cubic-bezier(.22,.9,.24,1)' : 'none';
+    tr.style.transform = `translate3d(calc(${-idx * 100}% + ${dx || 0}px), 0, 0)`;
+    if (dx == null) { clearTimeout(tr._t); const off = () => panes.forEach((p, k) => p.classList.toggle('hp-off', k !== idx)); if (anim && !calm()) tr._t = setTimeout(off, 360); else off(); }
+  }
+  function switchView(v) { if (v === view) return; view = v; history.replaceState(null, '', view === 'shared' ? URLS.shared(G) : URLS.hub(G));
+    const tr = root.querySelector('.hub-track'); if (!tr) return draw();
+    tr.querySelectorAll('.hub-pane').forEach(p => p.classList.remove('hp-off'));
+    if (scrollY > 0) scrollTo(0, 0);
+    placeInd(true); placeTrack(true);
+    if (!slideMode()) { const on = tr.querySelector('.hub-pane.on'); if (on && !calm()) { on.classList.remove('fadein'); void on.offsetWidth; on.classList.add('fadein'); } }
+  }
+  addEventListener('resize', () => { placeInd(false); placeTrack(false); });
+  // Phones: swipe sideways anywhere below the top to flip between the two lists.
   if (TOUCH) { let sw = null;
-    document.addEventListener('touchstart', e => { const l = root.querySelector('.hub-list'); if (!l || !e.target.closest || e.target.closest('.hub-head, .hub-modal, .hub-toast, .pg-ct, .hub-sb') || page === 'admin' || document.body.classList.contains('adminbody') || RD || e.touches.length > 1 || e.target.closest('.hr-grip, .hc-list, input, textarea')) return;
-      sw = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), l, lock: null, dx: 0 }; }, { passive: true });
+    document.addEventListener('touchstart', e => { const tr = root.querySelector('.hub-track'); if (!tr || !e.target.closest || e.target.closest('.hub-head, .hub-modal, .hub-toast, .pg-ct') || document.body.classList.contains('adminbody') || RD || e.touches.length > 1 || e.target.closest('.hr-grip, .hc-list, input, textarea')) return;
+      sw = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), lock: null, dx: 0, tr, w: tr.getBoundingClientRect().width || innerWidth }; }, { passive: true });
     document.addEventListener('touchmove', e => { if (!sw) return; const dx = e.touches[0].clientX - sw.x, dy = e.touches[0].clientY - sw.y;
-      if (!sw.lock) { if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return; sw.lock = Math.abs(dx) > Math.abs(dy) * 1.2 ? 'x' : 'y'; }
-      if (sw.lock !== 'x') return; e.preventDefault(); const hv = root.querySelector('.hub-views'); if (hv) hv.classList.add('hv-drag');
-      const can = (dx < 0 && view === 'mine') || (dx > 0 && view === 'shared'); sw.dx = can ? dx : dx * .25;
-      sw.l.style.transition = 'none'; sw.l.style.transform = `translateX(${sw.dx}px)`; sw.l.style.opacity = String(1 - Math.min(.5, Math.abs(sw.dx) / innerWidth));
-      const ind = root.querySelector('.hv-ind'), other = root.querySelector(`.hub-views [data-view="${view === 'mine' ? 'shared' : 'mine'}"]`);
-      if (ind && other && can && VIEW_IND) { const br = root.querySelector('.hub-views').getBoundingClientRect(), r = other.getBoundingClientRect(), k = Math.min(1, Math.abs(dx) / (innerWidth * .6));
-        ind.style.transition = 'none'; ind.style.transform = `translate(${VIEW_IND.x + (r.left - br.left - VIEW_IND.x) * k}px, ${VIEW_IND.y}px)`; ind.style.width = (VIEW_IND.w + (r.width - VIEW_IND.w) * k) + 'px'; } }, { passive: false });
-    const end = () => { if (!sw) return; const s = sw; sw = null; if (s.lock !== 'x') return; const hv = root.querySelector('.hub-views'); if (hv) hv.classList.remove('hv-drag');
-      const v = Math.abs(s.dx) / Math.max(1, Date.now() - s.t), go = ((s.dx < 0 && view === 'mine') || (s.dx > 0 && view === 'shared')) && (Math.abs(s.dx) > innerWidth * .25 || v > .5);
-      if (go) { const ind = root.querySelector('.hv-ind'); if (ind && VIEW_IND) { const m = /translate\(([-\d.]+)px/.exec(ind.style.transform); if (m) VIEW_IND = Object.assign({}, VIEW_IND, { x: +m[1], w: parseFloat(ind.style.width) }); }
-        switchView(view === 'mine' ? 'shared' : 'mine', s.dx); }
-      else { s.l.style.transition = 'transform .25s cubic-bezier(.2,.8,.2,1), opacity .2s'; s.l.style.transform = ''; s.l.style.opacity = ''; const ind = root.querySelector('.hv-ind'); if (ind && VIEW_IND) { ind.style.transition = ''; ind.style.transform = `translate(${VIEW_IND.x}px, ${VIEW_IND.y}px)`; ind.style.width = VIEW_IND.w + 'px'; } } };
+      if (!sw.lock) { if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; sw.lock = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'; if (sw.lock === 'x') sw.tr.querySelectorAll('.hub-pane').forEach(p => p.classList.remove('hp-off')); }
+      if (sw.lock !== 'x') return; e.preventDefault();
+      const can = (dx < 0 && view === 'mine') || (dx > 0 && view === 'shared'); sw.dx = can ? Math.max(-sw.w, Math.min(sw.w, dx)) : dx / (3 + Math.abs(dx) / 60);
+      sw.last = { dx, t: Date.now() };
+      if (!sw.raf) sw.raf = requestAnimationFrame(() => { if (!sw) return; sw.raf = 0; placeTrack(false, sw.dx); const base = view === 'shared' ? 1 : 0; placeInd(false, Math.max(0, Math.min(1, base - sw.dx / sw.w))); }); }, { passive: false });
+    const end = () => { if (!sw) return; const s = sw; sw = null; if (s.raf) cancelAnimationFrame(s.raf); if (s.lock !== 'x') return;
+      const v = Math.abs(s.dx) / Math.max(1, Date.now() - s.t), go = ((s.dx < 0 && view === 'mine') || (s.dx > 0 && view === 'shared')) && (Math.abs(s.dx) > s.w * .3 || v > .45);
+      if (go) switchView(view === 'mine' ? 'shared' : 'mine'); else { placeInd(true); placeTrack(true); } };
     document.addEventListener('touchend', end); document.addEventListener('touchcancel', end); }
   function draw() {
     const SH = view === 'shared', mine = chars.filter(isMine), shared = chars.filter(c => !isMine(c)), groups = {};
     shared.forEach(c => { const k = NAMES[c.owner] || (c.player || '').trim() || c.owner || 'No player yet'; (groups[k] = groups[k] || []).push(c); });
     const keys = Object.keys(groups).sort((a, b) => a.localeCompare(b));
     const byName = (a, b) => (a.name || '').localeCompare(b.name || '');
-    const body = SH
-      ? (keys.length ? keys.map(k => { const isOpen = open[k] != null ? open[k] : true; return `<details class="hub-folder" data-k="${esc(k)}" ${isOpen ? 'open' : ''}><summary><span class="hf-caret">▸</span><span class="hf-name">${esc(k)}</span><span class="hf-n">${groups[k].length}</span></summary>
+    const sharedHTML = keys.length ? keys.map(k => { const isOpen = open[k] != null ? open[k] : true; return `<details class="hub-folder" data-k="${esc(k)}" ${isOpen ? 'open' : ''}><summary><span class="hf-caret">▸</span><span class="hf-name">${esc(k)}</span><span class="hf-n">${groups[k].length}</span></summary>
         <div class="hf-body">${groups[k].sort(byName).map(card).join('')}</div></details>`; }).join('')
-        : `<p class="hub-empty">Nothing has been shared with you yet. When another player shares a character with ${esc(EMAIL)}, it shows up here.</p>`)
-      : (mine.length ? `<div class="hl">${mine.sort(ord).map(row).join('')}</div>` : `<p class="hub-empty">You don’t have any characters yet — create one, or ask whoever has yours to give it to you.</p>`);
+        : `<p class="hub-empty">Nothing has been shared with you yet. When another player shares a character with ${esc(EMAIL)}, it shows up here.</p>`;
+    const mineHTML = mine.length ? `<div class="hl">${mine.sort(ord).map(row).join('')}</div>` : `<p class="hub-empty">You don’t have any characters yet — create one, or ask whoever has yours to give it to you.</p>`;
+    const TABS = shared.length > 0 || (SH && !SH_LOADED);
+    if (!TABS && view === 'shared') { view = 'mine'; history.replaceState(null, '', URLS.hub(G)); }
+    const idx = view === 'shared' ? 1 : 0;
+    const body = TABS ? `<div class="hub-track"><div class="hub-pane${idx ? ' hp-off' : ' on'}" data-pane="mine">${mineHTML}</div><div class="hub-pane${idx ? ' on' : ' hp-off'}" data-pane="shared">${sharedHTML}</div></div>` : mineHTML;
+    const seg = TABS ? `<div class="hub-seg" role="tablist"><span class="hv-ind" aria-hidden="true"></span><button role="tab" class="${idx ? '' : 'on'}" data-view="mine">My characters <span>${mine.length}</span></button><button role="tab" class="${idx ? 'on' : ''}" data-view="shared">Shared with me <span>${shared.length}</span></button></div>` : '';
     const keepLogo = root.querySelector('.hub-logo');
     root.innerHTML = `<div class="hub-head"><header class="hub-top">${logoHTML()}
       <div class="hub-side"><div class="hub-prof"><button class="hp-pic" id="me-pic" title="Choose your picture" aria-label="Choose your picture">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(myAva())}<span class="hp-edit" aria-hidden="true">✎</span></button>
         <div class="hp-txt"><b>${esc(myName())}</b><small>${esc(EMAIL)}</small><div class="hp-row"><button class="linkbtn" id="me-out">Sign out</button>${IS_ADMIN ? '<button class="btn hub-admin" id="hub-admin">⚙ Admin</button>' : '<button class="btn hub-admin" data-contact>✉ Contact us</button>'}</div></div></div></div></header>
-      <div class="hub-views"><button class="${SH ? '' : 'on'}" data-view="mine">My characters <span>${mine.length}</span></button><button class="${SH ? 'on' : ''}" data-view="shared">Shared characters <span>${shared.length}</span></button><button class="hub-new" id="hub-new"><span class="hn-plus" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="hn-txt"><b>Create character</b></span></button></div>
+      <div class="hub-views${TABS ? '' : ' no-seg'}">${seg}<button class="hub-new" id="hub-new"><span class="hn-plus" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="hn-txt"><b>Create character</b></span></button></div>
       </div><div class="hub-list">${body}</div>`;
     if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
     const nb = root.querySelector('#hub-new'); if (nb) nb.onclick = createChar;
@@ -794,7 +799,7 @@ function hub(fs, auth, G, ctx) {
     const ab = root.querySelector('#hub-admin'); if (ab) ab.onclick = () => { location.href = ADMIN_URL; };
     root.querySelector('#me-pic').onclick = pickPic;
     root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => switchView(b.dataset.view));
-    viewFx();
+    placeInd(false); placeTrack(false);
     root.querySelectorAll('details.hub-folder').forEach(d => d.addEventListener('toggle', () => { open[d.dataset.k] = d.open; ls.set(OPEN, JSON.stringify(open)); }));
     root.querySelectorAll('.hc-dots').forEach(b => b.onclick = e => { e.stopPropagation(); const w = b.parentElement, on = !w.classList.contains('on'); root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')); w.classList.toggle('on', on); });
     root.querySelectorAll('.hc-list [data-a]').forEach(b => b.onclick = () => { const c = chars.find(x => x.id === b.dataset.id); b.closest('.hc-menu').classList.remove('on'); if (!c) return;
@@ -824,7 +829,7 @@ function hub(fs, auth, G, ctx) {
     if (IS_ADMIN) needNames(chars.filter(c => !isMine(c)).map(c => c.owner)).then(() => { if (!RD) draw(); });
     if (ME && ME.picChar) { const ch = chars.find(c => c.id === ME.picChar); if (ch && (ch.thumb || '') !== (ME.pic || '')) { ME.pic = ch.thumb || ''; usersCol.doc(EMAIL).update({ pic: ME.pic }).catch(() => {}); } } };
   const failed = e => { root.innerHTML = `<p class="hub-empty">Couldn't load the character list (${esc(e.code || e.message || e)}).<br><br>Signed in as ${esc(EMAIL)} · <button class="linkbtn" onclick="pgSignOut()">Sign out</button></p>`; console.error(e); };
-  const watch = (k, q) => q.onSnapshot(qs => { lists[k] = qs.docs.map(d => Object.assign({ id: d.id }, d.data())); merge(); }, failed);
+  const watch = (k, q) => q.onSnapshot(qs => { lists[k] = qs.docs.map(d => Object.assign({ id: d.id }, d.data())); if (k === 'shared') SH_LOADED = true; merge(); }, failed);
   watch('mine', charsCol.where('owner', '==', EMAIL)); watch('shared', charsCol.where('viewers', 'array-contains', EMAIL));
   setInterval(() => { if (!RD) draw(); }, 60000);
 
