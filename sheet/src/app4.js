@@ -794,26 +794,27 @@ function abEditor() {
     ${abTempOn() ? `<div class="cdur abed-dur"><span>Lasts</span><button data-act="abtempr" data-d="-1" aria-label="Shorter" ${r <= -2 ? 'disabled' : ''}>−</button><b class="cdur-v">${durText(r)}</b><button data-act="abtempr" data-d="1" aria-label="One round more">+</button><button class="linkbtn" data-act="abtempclear" style="margin-left:auto">Reset all</button></div>` : ''}`;
 }
 function openConditions() {
+  if ($('#condmodal.extfxm') && $('#modal').classList.contains('open')) return openExtFx(); // a refresh while Effects on you is open keeps it open
+  // Same layout as "Effects on you": tap a chip to put it on, tap it again to take it off.
   const on = n => S.conditions.includes(n), ex = N(S.exhaustion);
-  const chip = n => `<button class="cchip2${on(n) ? ' on' : ''}" data-act="togglecond" data-c="${esc(n)}" aria-pressed="${on(n)}" title="${esc(condDesc(n))}"><span class="ci">${COND_ICON[n] || '•'}</span>${esc(n)}</button>`;
+  const chip = n => `<button class="cchip2${on(n) ? ' on' : ''}" data-act="togglecond" data-c="${esc(n)}" aria-pressed="${on(n)}" title="${esc(on(n) ? 'Tap to remove it' : condDesc(n))}"><span class="ci">${COND_ICON[n] || '•'}</span>${esc(n)}</button>`;
   const condDur = n => { const cur = N((S.condTurns || {})[n]); return `<span class="mstep dur sm"><button data-act="condturn" data-c="${esc(n)}" data-d="-1" aria-label="Shorter" ${cur <= -2 ? 'disabled' : ''}>−</button><b>${durText(cur)}</b><button data-act="condturn" data-c="${esc(n)}" data-d="1" aria-label="One round more">+</button></span>`; };
-  const arow = (icon, name, desc, ctl, off) => `<div class="arow"><span class="ci">${icon}</span><div class="arow-t"><b>${name}</b>${desc ? `<small>${desc}</small>` : ''}</div>${ctl || ''}${off ? `<button class="icon-btn arow-x" ${off} aria-label="Remove">✕</button>` : ''}</div>`;
-  const act = [];
-  S.conditions.forEach(n => act.push(arow(COND_ICON[n] || '•', esc(n), esc(condDesc(n)) + (n === 'Hexed / Cursed' ? `<input class="f cnote2" data-condnote="${esc(n)}" value="${esc((S.condNotes || {})[n] || '')}" placeholder="What is it? e.g. Hex: disadvantage on STR checks">` : ''), ['Concentrating', 'Raging'].includes(n) ? '' : condDur(n), `data-act="togglecond" data-c="${esc(n)}"`)));
-  if (ex) act.push(arow('⧗', 'Exhaustion ' + ex, esc(exhText(ex)), '', 'data-act="exhset" data-v="0"'));
-  Object.keys(S.tmpMods || {}).forEach(k => act.push(arow(k === 'ac' ? '⛨' : /^skill:/.test(k) ? '✦' : '♥', `${tmName(k)} ${fmt(tmv(k))}`, k === 'ac' ? `AC is ${acTotal()} now` : /^skill:/.test(k) ? (() => { const sk = S.skills.find(x => x.name === tmName(k)); return sk ? `${esc(sk.name)} is ${fmt(skillVal(sk))} now` : ''; })() : `Max HP is ${maxHp()} now`, durStep(k), `data-act="tmpmodclear" data-k="${k}"`)));
-  if (abTempOn()) act.push(arow('±', 'Ability scores', esc(AB.filter(a => N(((S.abTemp || {})[a] || {}).d)).map(a => `${a.toUpperCase()} ${baseScore(a)}→${score(a)}`).join(', ')), `<span class="mstep dur sm"><button data-act="abtempr" data-d="-1" aria-label="Shorter" ${N(S.abTempR) <= -2 ? 'disabled' : ''}>−</button><b>${durText(N(S.abTempR))}</b><button data-act="abtempr" data-d="1" aria-label="Longer">+</button></span>`, 'data-act="abtempclear"'));
+  // how long each one that's on lasts, right under its section (like the options row in Effects on you)
+  const lasts = ns => { const a = ns.filter(n => on(n) && !['Concentrating', 'Raging'].includes(n)); return a.length ? `<div class="xpick xdur">${a.map(n => `<span class="xdur-i"><span class="xpick-l">${esc(n)}</span>${condDur(n)}</span>`).join('')}</div>` : ''; };
+  const mine = ['Dodging'].concat(clsLv('barbarian') ? ['Raging'] : []);
+  const other = S.conditions.filter(n => !STANDARD_CONDS.includes(n) && !mine.includes(n)); // older ones (Blessed, Hasted…) still show until removed
+  const sec = (lbl, ns) => ns.length ? `<div class="cm2-lbl">${lbl}</div><div class="cchips2">${ns.map(chip).join('')}</div>${lasts(ns)}` : '';
+  const n = S.conditions.length + (ex ? 1 : 0);
   const abc = AB.map(a => { const d = N(((S.abTemp || {})[a] || {}).d); return `<div class="abmini${d ? ' on' : ''}"><span>${a.toUpperCase()}</span><b>${score(a)}</b><div><button data-act="abtemp" data-a="${a}" data-d="-1" aria-label="${ABN[a]} −1">−</button><button data-act="abtemp" data-a="${a}" data-d="1" aria-label="${ABN[a]} +1">+</button></div></div>`; }).join('');
-  const html = `<div id="condmodal"><div class="sethead"><h3>Conditions</h3><span class="cm-count${act.length ? ' on' : ''}">${act.length ? act.length + ' active' : 'None active'}</span><span class="grow"></span><button class="btn sm gold" data-act="close">Done</button></div>
-    ${act.length ? `<div class="alist">${act.join('')}</div>` : ''}
-    <div class="cm2-lbl">Conditions</div><div class="cchips2">${STANDARD_CONDS.map(chip).join('')}</div>
-    <div class="cm2-lbl">Effects on you</div><div class="cchips2">${effectConds().map(chip).join('')}</div>
+  const html = `<div id="condmodal"><div class="sethead"><h3>Conditions</h3>${n ? `<span class="cm-count on">${n} on</span>` : ''}<span class="grow"></span><button class="btn sm gold" data-act="close">Done</button></div>
+    <p class="hint" style="margin:0 0 4px">Tap a condition to apply it. Tap it again to remove it.</p>
+    ${sec('Conditions', STANDARD_CONDS)}${sec('Your actions', mine)}${sec('Other', other)}
     <div class="cm2-lbl">Adjust</div>
     <div class="adjrow"><span class="adj-l">Exhaustion</span><div class="exhpills sm">${[0, 1, 2, 3, 4, 5, 6].map(l => `<button class="exhp${l === ex ? ' on' : ''}${l === 6 ? ' dead' : ''}" data-act="exhset" data-v="${l}" aria-label="Exhaustion ${l}">${l}</button>`).join('')}</div></div>
-    <div class="adjrow"><span class="adj-l">Max HP</span>${stepper('tmpmod', 'hpmax', tmv('hpmax') ? fmt(tmv('hpmax')) : '±0', 'Max HP')}<span class="adj-v">${maxHp()}</span></div>
-    <div class="adjrow"><span class="adj-l">AC</span>${stepper('tmpmod', 'ac', tmv('ac') ? fmt(tmv('ac')) : '±0', 'AC')}<span class="adj-v">${acTotal()}</span></div>
-    <div class="adjrow"><span class="adj-l">Skill</span><select class="f sm skpick" id="condSkill" aria-label="Skill">${S.skills.map(sk => `<option${(UI.condSkill || S.skills[0].name) === sk.name ? ' selected' : ''}>${esc(sk.name)}</option>`).join('')}</select>${(() => { const k = 'skill:' + (UI.condSkill || (S.skills[0] || {}).name); return stepper('tmpmod', esc(k), tmv(k) ? fmt(tmv(k)) : '±0', 'Skill'); })()}</div>
-    <div class="adjrow abrow"><span class="adj-l">Scores</span><div class="abminis">${abc}</div></div>
+    <div class="adjrow"><span class="adj-l">Max HP</span>${stepper('tmpmod', 'hpmax', tmv('hpmax') ? fmt(tmv('hpmax')) : '±0', 'Max HP')}<span class="adj-v">${maxHp()}</span>${tmv('hpmax') ? durStep('hpmax') : ''}</div>
+    <div class="adjrow"><span class="adj-l">AC</span>${stepper('tmpmod', 'ac', tmv('ac') ? fmt(tmv('ac')) : '±0', 'AC')}<span class="adj-v">${acTotal()}</span>${tmv('ac') ? durStep('ac') : ''}</div>
+    <div class="adjrow"><span class="adj-l">Skill</span><select class="f sm skpick" id="condSkill" aria-label="Skill">${S.skills.map(sk => `<option${(UI.condSkill || S.skills[0].name) === sk.name ? ' selected' : ''}>${esc(sk.name)}</option>`).join('')}</select>${(() => { const k = 'skill:' + (UI.condSkill || (S.skills[0] || {}).name); return stepper('tmpmod', esc(k), tmv(k) ? fmt(tmv(k)) : '±0', 'Skill') + (tmv(k) ? durStep(k) : ''); })()}</div>
+    <div class="adjrow abrow"><span class="adj-l">Scores</span><div class="abminis">${abc}</div>${abTempOn() ? `<span class="mstep dur sm"><button data-act="abtempr" data-d="-1" aria-label="Shorter" ${N(S.abTempR) <= -2 ? 'disabled' : ''}>−</button><b>${durText(N(S.abTempR))}</b><button data-act="abtempr" data-d="1" aria-label="Longer">+</button></span>` : ''}</div>
   </div>`;
   if ($('#condmodal') && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html);
 }
