@@ -1273,3 +1273,11 @@ html.mobile .pg-pubrow .pg-publogo .hl-d20 { width: 36px; height: 36px; }
 html.mobile .pg-pubrow .pg-publogo .hl-a { font-size: .56rem; letter-spacing: .34em; }
 html.mobile .pg-pubrow .pg-publogo .hl-t { font-size: 1.45rem; }
 html.mobile.pg-public .pg-pubrow .pg-pubtag { margin: 0; max-width: 46%; font-size: 11.5px; line-height: 1.2; padding: 6px 12px; border-radius: 12px; text-align: center; }
+/* Phones: the sheet header's top edge is one solid colour (the same one the browser bar above it uses), so the two meet
+   without a seam; the soft glow sits lower down instead of at the very top. */
+html.mobile header.banner { background: radial-gradient(ellipse 80% 90% at 28% 72%, color-mix(in srgb, #ffffff 7%, transparent) 0%, transparent 68%), linear-gradient(180deg, var(--navy) 0%, var(--navy) 18%, var(--navy2) 100%) !important; }
+/* the logo has no pressed effect on phones (it fired while scrolling) */
+html.mobile .pg-publogo .hub-logo, html.mobile .pg-publogo:active .hub-logo, html.mobile .pg-publogo:hover .hub-logo { transform: none !important; filter: none !important; transition: none !important; }
+html.mobile .pg-publogo { -webkit-tap-highlight-color: transparent; }
+html.mobile .pg-pubtag .pt-sub { display: block; font-weight: 600; font-size: .9em; opacity: .92; white-space: nowrap; }
+html.mobile.pg-public .pg-pubrow .pg-pubtag { max-width: none; white-space: normal; }

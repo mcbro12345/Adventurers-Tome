@@ -112,8 +112,7 @@ function sheetScrollbar() {
     if (document.getElementById('pg-load')) return '#0f1420';
     const bn = document.querySelector('header.banner'), wz = document.querySelector('#wizard.open');
     if (wz) { const c = getComputedStyle(wz).backgroundColor; if (solid(c)) return c; }
-    if (bn) { const v = cs.getPropertyValue('--navy').trim(), m = /^#?([0-9a-f]{6})$/i.exec(v); // the header is a touch lighter along its top edge
-      if (m) { const n = parseInt(m[1], 16), mix = c => Math.round(c * .95 + 255 * .05); return `rgb(${mix(n >> 16 & 255)},${mix(n >> 8 & 255)},${mix(n & 255)})`; } if (v) return v; }
+    if (bn) { const v = cs.getPropertyValue('--navy').trim(); if (v) return v; } // on a phone the header's top edge is exactly this colour
     const hh = document.querySelector('.hub-head, .adm-side'); if (hh) { const c = getComputedStyle(hh).backgroundColor; if (solid(c)) return c.replace(/rgba\(([^,]+),([^,]+),([^,]+),[^)]*\)/, 'rgb($1,$2,$3)'); }
     for (const el of [document.body, de]) { const c = el && getComputedStyle(el).backgroundColor; if (solid(c)) return c; }
     return '#0f1420'; };
@@ -355,7 +354,7 @@ function wireDie(root) {
     if (!TOUCH && !FRAMED) sheetScrollbar();
     if (load) { if (!load.isConnected) document.body.appendChild(load); const go = () => fadeLoad(load); if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 600 }); else setTimeout(go, 150); }
     if (ASSETS.full) fetch(ASSETS.full).then(r => r.ok ? r.text() : '').then(x => { if (!x) return; const sc = document.createElement('script'); sc.textContent = x; document.body.appendChild(sc); try { if (typeof render === 'function') render(); } catch (e) {} }, () => {});
-    const tag = document.createElement('div'); tag.className = 'pg-shared view pg-pubtag'; tag.textContent = 'View only (changes are not saved)'; document.body.appendChild(tag);
+    const tag = document.createElement('div'); tag.className = 'pg-shared view pg-pubtag'; tag.innerHTML = 'View only<span class="pt-sub"> (changes are not saved)</span>'; document.body.appendChild(tag);
     // The full logo across the top: tap it to go to Adventurer's Tome (the lobby, or sign in).
     { const lg = document.createElement('a'); lg.className = 'pg-publogo'; lg.href = PRETTY ? '/' : location.pathname; lg.title = 'Go to Adventurer’s Tome'; lg.setAttribute('aria-label', 'Go to Adventurer’s Tome'); lg.innerHTML = logoHTML(); document.body.prepend(lg); wireDie(lg);
       lg.addEventListener('click', e => { if (e.target.closest && e.target.closest('.hl-d20')) e.preventDefault(); }); // the die rolls; the words go to Adventurer's Tome
