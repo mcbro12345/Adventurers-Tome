@@ -111,6 +111,11 @@ document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.remove()); 
 { const de = document.documentElement; let last = ''; const tint = () => { const bn = document.querySelector('header.banner'), v = bn ? getComputedStyle(de).getPropertyValue('--navy').trim() : '';
     const c = document.getElementById('pg-load') && !window.PG_TINT_NOW ? '' : v; if (c !== last) { last = c; de.style.backgroundColor = c; } };
   setInterval(tint, 800); addEventListener('load', tint); window.pgTheme = () => { window.PG_TINT_NOW = true; tint(); }; }
+// Phones in the browser: a thin divider with a soft shadow along the bottom of Safari's bar, once the page scrolls under it.
+{ let ln = null; const edge = () => { const de = document.documentElement, on = de.classList.contains('mobile') && !de.classList.contains('pg-standalone') && !!document.querySelector('header.banner');
+    if (on && !ln) { ln = document.createElement('div'); ln.className = 'pg-topedge'; ln.setAttribute('aria-hidden', 'true'); document.body.appendChild(ln); }
+    if (ln) ln.classList.toggle('on', on && scrollY > 6); };
+  addEventListener('scroll', edge, { passive: true }); setInterval(edge, 1000); }
 const ADMIN_EMAIL = 'matthewcbro@gmail.com';
 // Every character lives in one library; the hub shows each person their own and the ones shared with them.
 const DEFAULT_G = 'WLdUj_I3XrA_9VIP';

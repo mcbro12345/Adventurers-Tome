@@ -1281,3 +1281,8 @@ html.mobile .pg-publogo .hub-logo, html.mobile .pg-publogo:active .hub-logo, htm
 html.mobile .pg-publogo { -webkit-tap-highlight-color: transparent; }
 html.mobile .pg-pubtag .pt-sub { display: block; font-weight: 600; font-size: .9em; opacity: .92; white-space: nowrap; }
 html.mobile.pg-public .pg-pubrow .pg-pubtag { max-width: none; white-space: normal; }
+/* the divider under Safari's bar on phones (shown once the page scrolls under it) */
+.pg-topedge { position: fixed; left: 0; right: 0; top: 0; height: 1px; z-index: 50; pointer-events: none; opacity: 0; transition: opacity .2s ease;
+  background: color-mix(in srgb, var(--gold, #c9962b) 45%, transparent); box-shadow: 0 1px 0 rgba(0,0,0,.35), 0 4px 12px rgba(0,0,0,.45); }
+.pg-topedge.on { opacity: 1; }
+body:has(#modal.open) .pg-topedge { opacity: 0; }
