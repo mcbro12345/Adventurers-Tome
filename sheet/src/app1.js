@@ -104,6 +104,8 @@ function migrate(s) {
   const b = blankState();
   for (const k in b) if (s[k] === undefined) s[k] = b[k];
   if (!Array.isArray(s.sources)) s.sources = defaultSources();
+  // Rings / Armor of Resistance that had their type picked in a dropdown become the named item ("Ring of Resistance (Fire)").
+  (s.inventory || []).forEach(it => { if (it && it.resPick && /\b(ring|armor) of resistance\b/i.test(it.name || '') && !/\((acid|cold|fire|force|lightning|necrotic|poison|psychic|radiant|thunder)\)\s*$/i.test(it.name || '')) it.name = it.name + ' (' + it.resPick[0].toUpperCase() + it.resPick.slice(1) + ')'; });
   s.slotsUsed = (s.slotsUsed || []).concat(Array(9).fill(0)).slice(0, 9);
   s.slotsOverride = (s.slotsOverride || []).concat(Array(9).fill('')).slice(0, 9);
   if (s.hp && s.hp.base === undefined) { s.hp.base = 0; s.hp.adj = N(s.hp.max); delete s.hp.max; }
@@ -234,7 +236,11 @@ function baseScore(ab) { const t = S.abTemp; S.abTemp = null; try { return score
 const mod = (ab, noForm) => Math.floor((score(ab, noForm) - 10) / 2);
 const auraBonus = () => (clsLv('paladin') >= 6 && !S.conditions.includes('Unconscious') ? Math.max(1, mod('cha')) : 0);
 const itemSum = k => itemMods().reduce((t, m) => t + N(m[k]), 0) + infSum(k);
-const saveVal = ab => mod(ab) + (S.saves[ab] || fxSaveProf(ab) ? PB() : 0) + itemSum('save') + auraBonus() + N((S.deckMods || {}).save) + fxSum('saveAll') + buffSum('save');
+// A paladin's Aura of Protection: your own, or an ally's you're standing in (set on the Core tab). They don't stack.
+const auraAll = () => Math.max(auraBonus(), N(S.allyAura));
+// Bonuses that apply to every saving throw — death saves included.
+const saveAllBonus = () => itemSum('save') + auraAll() + N((S.deckMods || {}).save) + fxSum('saveAll') + buffSum('save');
+const saveVal = ab => mod(ab) + (S.saves[ab] || fxSaveProf(ab) ? PB() : 0) + itemSum('save') + auraAll() + N((S.deckMods || {}).save) + fxSum('saveAll') + buffSum('save');
 const jack = () => clsLv('bard') >= 2;
 const remarkable = () => hasSub('fighter', 'champion') && clsLv('fighter') >= 7;
 function skillVal(sk) {
@@ -537,6 +543,10 @@ function rollMode(kind, ab) {
   if (kind === 'check' && ROLL_CTX !== 'init') fxPassives().forEach(p => { if ([].concat(p.checkAdv || []).includes(ab)) adv.push(p.src); });
   if (kind === 'save') fxPassives().forEach(p => { if ([].concat(p.saveAdv || []).includes(ab)) adv.push(p.src); });
   if (kind === 'check' && ROLL_CTX === 'skill:Perception') activeItems().forEach(it => { if ((it.mods || {}).percAdv) adv.push(it.name); });
+  // Armor that's noisy (padded, scale mail, half plate, all heavy armor…) gives disadvantage on Stealth — mithral doesn't.
+  if (kind === 'check' && ROLL_CTX === 'skill:Stealth') S.inventory.forEach(it => { if (!it.equipped || !it.armor || it.armor.type === 'shield' || /mithral/i.test(it.name + ' ' + ((it.magic || {}).name || ''))) return;
+    const base = DND.armor.find(x => x[0] === it.name || (it.armor.base === x[3] && it.armor.type === x[1] && new RegExp(x[0].replace(/ armor$/i, ''), 'i').test(it.name)));
+    if (it.armor.stealthDis || (it.armor.stealthDis == null && base && base[6]) || (it.armor.stealthDis == null && !base && it.armor.type === 'heavy')) dis.push(it.name + ' (noisy armor)'); });
   if (kind === 'check') { if (cond.includes('Poisoned')) dis.push('poisoned'); if (cond.includes('Frightened')) dis.push('frightened'); if (ex >= 1 && !exModern()) dis.push('exhaustion'); if (encLevel() >= 2 && ['str', 'dex', 'con'].includes(ab)) dis.push('heavily encumbered'); if (cond.includes('Raging') && ab === 'str') adv.push('rage'); }
   if (kind === 'save') {
     if (ex >= 3 && !exModern()) dis.push('exhaustion'); if (cond.includes('Restrained') && ab === 'dex') dis.push('restrained'); if (encLevel() >= 2 && ['str', 'dex', 'con'].includes(ab)) dis.push('heavily encumbered');

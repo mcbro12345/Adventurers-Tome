@@ -367,7 +367,7 @@ function renderInventory() {
         <span class="grow"></span>
         <button class="icon-btn ibtn${open ? ' on' : ''}" data-act="toggle" data-key="item:${it.id}" title="${open ? 'Close editing' : 'Edit details and notes'}" aria-label="Edit ${esc(it.name)}">${open ? '▴' : '✎'}</button>
         ${del('inventory', i)}</div>
-      <div class="imeta">${resPickItem(it) ? `<label class="respick${it.resPick ? '' : ' unset'}"><span>Resistance</span>${sel(`inventory.${i}.resPick`, [['', 'Choose a type…']].concat(RES_TYPES.map(t => [t, t[0].toUpperCase() + t.slice(1)])), { label: 'Damage type this item resists' })}</label>` : ''}${String(it.notes || '').trim() && !open ? `<div class="inote-m mnote">${esc(it.notes)}</div>` : ''}${badges}${ch}${isDeckItem(it) ? `<button class="btn sm gold" data-act="deck" data-i="${i}">Draw a card</button>` : ''}${it.heal ? `<button class="btn sm" data-act="drink" data-i="${i}">Drink (${esc(it.heal)})</button>` : ''}${it.hb && hbUsable(hbFx(it.hb)) ? `<button class="btn sm gold" data-act="useitem" data-i="${i}" ${hbItemReady(it) ? '' : 'disabled'} title="${hbItemOn(it) ? '' : it.attune && !it.attuned ? 'Attune first' : 'Equip it first'}">Use</button>` : ''}${hbChips(it)}
+      <div class="imeta">${resPickItem(it) && !it.resPick ? `<label class="respick unset"><span>Which ring is it?</span><select class="f" data-restype="${i}" aria-label="Damage type this item resists"><option value="">Choose its damage type…</option>${RES_TYPES.map(t => `<option value="${t}">${t[0].toUpperCase() + t.slice(1)}</option>`).join('')}</select></label>` : ''}${String(it.notes || '').trim() && !open ? `<div class="inote-m mnote">${esc(it.notes)}</div>` : ''}${badges}${ch}${isDeckItem(it) ? `<button class="btn sm gold" data-act="deck" data-i="${i}">Draw a card</button>` : ''}${it.heal ? `<button class="btn sm" data-act="drink" data-i="${i}">Drink (${esc(it.heal)})</button>` : ''}${it.hb && hbUsable(hbFx(it.hb)) ? `<button class="btn sm gold" data-act="useitem" data-i="${i}" ${hbItemReady(it) ? '' : 'disabled'} title="${hbItemOn(it) ? '' : it.attune && !it.attuned ? 'Attune first' : 'Equip it first'}">Use</button>` : ''}${hbChips(it)}
 </div>
       ${open ? `<div class="idetail"><div class="idet-top">${picThumb(`inventory.${i}.img`, it.name)}${fld('Notes', ta(`inventory.${i}.notes`, { rows: 2, cls: 'inotefull', label: 'Notes', ph: 'Add a note…' }))}</div>${it.summary ? `<p>${esc(it.summary)}</p>` : ''}${it.armor ? `<p class="hint">${esc(it.armor.type)} armor · AC ${it.armor.base}${it.armor.type === 'shield' ? '' : it.armor.dexCap === 0 ? '' : it.armor.dexCap ? ' + DEX (max ' + it.armor.dexCap + ')' : ' + DEX'}${it.armor.strReq ? ' · STR ' + it.armor.strReq : ''}${it.armor.stealthDis ? ' · Stealth disadvantage' : ''}</p>` : ''}${it.weapon ? `<p class="hint">${esc(it.weapon.cat)} ${esc(it.weapon.kind)} · ${esc(it.weapon.dice)} ${esc(it.weapon.type)}${it.weapon.props && it.weapon.props.length ? ' · ' + esc(it.weapon.props.join(', ')) : ''}${it.weapon.range ? ' · ' + esc(it.weapon.range) + ' ft' : ''}</p>` : ''}
         <div class="row">${fld('Weight (lb)', inp(`inventory.${i}.weight`, { num: 1 }))}${fld('Cost', inp(`inventory.${i}.cost`))}<label class="checkline">${chk(`inventory.${i}.attune`, 'Requires attunement')} Requires attunement</label></div>
@@ -631,7 +631,8 @@ function spellCastable(sp) {
 }
 const cgOpen = (col, k) => { const v = !!UI.open['cg:' + col + ':' + k]; return k === 'util' ? v : !v; };
 const cGroupHead = (col, k, name, icon, n, open) => `<button class="cspg-h" data-act="toggle" data-key="cg:${col}:${k}" aria-expanded="${open}" title="${open ? 'Collapse' : 'Expand'}"><span class="cspg-i">${icon}</span><b>${name}</b><span class="cspg-n">${n}</span><span class="caret">${open ? '▴' : '▾'}</span></button>`;
-const cGroup = (col, k, name, icon, n, inner) => { const open = cgOpen(col, k); return `<div class="cspg g-${k}${open ? '' : ' shut'}">${cGroupHead(col, k, name, icon, n, open)}${open ? `<div class="cspg-b">${inner}</div>` : ''}</div>`; };
+// A group with nothing in it starts collapsed (tap to open it anyway).
+const cGroup = (col, k, name, icon, n, inner) => { const empty = !N(n) || !String(inner || '').replace(/<[^>]*>/g, '').trim(), open = empty ? !!UI.open['cg:' + col + ':' + k] && k !== 'util' || (k === 'util' && !!UI.open['cg:' + col + ':' + k]) : cgOpen(col, k); return `<div class="cspg g-${k}${open ? '' : ' shut'}">${cGroupHead(col, k, name, icon, n, open)}${open ? `<div class="cspg-b">${inner}</div>` : ''}</div>`; };
 function combatSpellsHTML(col, spells) {
   const groups = {}; spells.forEach(x => (groups[spellGroup(x[0])] = groups[spellGroup(x[0])] || []).push(x));
   const lvTag = L => L ? ORD[L - 1] : 'Cantrip';
@@ -688,7 +689,7 @@ function oocHTML(comps) {
     return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(f.name)}</span><button class="notetip" data-tip="${i}" data-tipkind="feat" aria-label="What ${esc(f.name)} does">ⓘ</button>${max != null ? `<span class="pips" data-calc-html="featpips:${i}"></span>` : ''}<span class="grow"></span>${fxIsResource(f) ? '' : `${f.col ? `<span class="itag">${f.col === 'bonus' ? 'Bonus' : f.col[0].toUpperCase() + f.col.slice(1)}</span>` : ''}<button class="btn sm" data-act="usefeat" data-i="${i}" ${left === 0 && !fx.slotRestore ? 'disabled' : ''}>${fx.useLabel || (f.roll || fx.roll ? 'Use & roll' : 'Use')}</button>`}</div>${fxIsResource(f) && fxInfoLine(f) ? `<div class="opt-info">${esc(fxInfoLine(f))}</div>` : ''}${fxVisActs(f).length ? `<div class="fxacts">${fxActsHTML(f, i, null)}</div>` : ''}</div>`; };
   const skills = (S.skills || []).map((sk, i) => `<div class="ooc-sk" title="Roll ${esc(sk.name)}">${rollBtn('skill:' + i, sk.name)}<span>${esc(sk.name)}</span></div>`).join('');
   return `<div class="oocbar panel" ${PID('turnbar')}><div class="grow"><b class="ooc-t">Out of initiative</b><div class="hint">Exploring, talking, resting. Roll initiative to bring back rounds, turns and your action economy.</div></div>
-      <button class="btn gold big" data-act="startcombat">⚔ Roll Initiative</button></div>
+      <button class="btn ghost sm ooc-enter" data-act="entercombat" title="Switch to initiative mode without rolling (the DM already rolled, or you rolled elsewhere)">Initiative mode</button><button class="btn gold big" data-act="startcombat">⚔ Roll Initiative</button></div>
     <div class="cstrip">
       <div class="panel cs-slots" ${PID('slots')}><h2>Spell Slots</h2>${slotsPanelInner()}</div>
       <div class="panel cs-fx" ${PID('activefx')}>${activeFxInner(false)}</div>
@@ -895,7 +896,7 @@ function calcHTML(key) {
     }
     case 'death': {
       const row = (t, n, cls) => { let h = ''; for (let j = 0; j < 3; j++) h += `<button class="pip dot ${cls}${j < n ? '' : ' spent'}" data-pip="death${t}" data-j="${j}" aria-label="Death save ${t === 's' ? 'success' : 'failure'} ${j + 1}"></button>`; return h; };
-      return `<span class="dsrow" title="Successes"><span class="dl ok">✓</span><span class="pips">${row('s', N(S.death.s), '')}</span></span><span class="dsrow" title="Failures"><span class="dl bad">✕</span><span class="pips">${row('f', N(S.death.f), 'fail')}</span></span><button class="btn sm" data-act="deathsave" title="Roll a death saving throw">Roll</button>`;
+      return `<span class="dsrow" title="Successes"><span class="dl ok">✓</span><span class="pips">${row('s', N(S.death.s), 'ok')}</span></span><span class="dsrow" title="Failures"><span class="dl bad">✕</span><span class="pips">${row('f', N(S.death.f), 'fail')}</span></span><button class="btn sm" data-act="deathsave" title="Roll a death saving throw">Roll</button>`;
     }
     case 'slotpips': return slotPips(N(a));
     case 'pactpips': return pactPips();
@@ -956,7 +957,7 @@ function refresh() {
   $$('.econ[data-col]').forEach(el => { const col = el.dataset.col, done = N(S.turn.attacks), per = typeof attacksPerAction === 'function' ? attacksPerAction() : 1;
     const part = col === 'action' && (S.turn.used || {}).action && done > 0 && done < per, u = !!(S.turn.used || {})[col] && !part;
     el.classList.toggle('used', u); el.classList.toggle('partial', part); const pl = el.querySelector('.pill');
-    if (pl) { pl.textContent = part ? `${done}/${per} attacks` : u ? 'Used' : 'Ready'; pl.setAttribute('aria-pressed', u); pl.title = part ? `${per - done} attack${per - done > 1 ? 's' : ''} left in this Attack action` : 'Mark used / ready'; } });
+    if (pl) { pl.textContent = part ? `${done}/${per} attacks` : u ? 'Used' : 'Ready'; pl.classList.toggle('partial', part); pl.setAttribute('aria-pressed', u); pl.title = part ? `${per - done} attack${per - done > 1 ? 's' : ''} left in this Attack action` : 'Mark used / ready'; } });
   document.body.classList.toggle('down', !S.form && N(S.hp.cur) <= 0);
   { const su = !!(S.inCombat && S.turn && S.turn.sneak); $$('[data-act=sneak]').forEach(b => { b.classList.toggle('used', su); b.title = su ? 'Sneak Attack already used this turn (tap the diamond to reset it)' : ''; }); }
   const ca = canAttack();

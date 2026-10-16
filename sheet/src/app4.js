@@ -165,6 +165,9 @@ function mainClick(e) {
     case 'macroseenall': MACROS.forEach(m => S.macroSeen[m.key] = m.norm); writeLocal(); openMacros(true); toast('All macros marked as up to date.'); pendingLabel = null; return;
     case 'copymacro': copyMacro(b); pendingLabel = null; return;
     case 'macroadv': UI.macroAdv = b.dataset.v; saveUI(); openMacros(true); pendingLabel = null; return;
+    case 'copyurl': { const u = b.dataset.url; // browsers don't let a web page open their settings pages, so copy it for pasting
+      (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => toast(`Copied <b>${esc(u)}</b> — paste it into your browser's address bar.`), () => toast(`Type <b>${esc(u)}</b> into your browser's address bar.`)); return; }
+    case 'entercombat': { S.inCombat = true; S.turn = { round: 1, used: {}, moved: 0, attacks: 0 }; pendingLabel = 'Initiative mode'; save(); render(); window.scrollTo(0, Math.min(scrollY, ($('#tabs') || document.body).offsetTop)); toast('Initiative mode — rounds, turns and your action economy are on.'); return; }
     case 'startcombat': { S.inCombat = true; S.turn = { round: 1, used: {}, moved: 0, attacks: 0 }; pendingLabel = 'Roll initiative'; save(); render(); window.scrollTo(0, Math.min(scrollY, ($('#tabs') || document.body).offsetTop)); doRoll('init'); return; }
     case 'endcombat': { S.lethargy = 0; const spent = Object.entries(S.turn.ammo || {}).map(([id, n]) => [S.inventory.find(x => x.id === id), Math.floor(N(n) / 2)]).filter(([it, n]) => it && n > 0);
       if (spent.length) setTimeout(() => toast(`You can recover half your spent ammunition: ${spent.map(([it, n]) => n + ' ' + esc(it.name)).join(', ')}.`, '', 15000, { label: 'Recover', fn: () => { spent.forEach(([it, n]) => { it.qty = N(it.qty) + n; }); pendingLabel = 'Recover ammunition'; save(); render(); toast('Ammunition recovered.'); } }), 300); }
@@ -401,6 +404,10 @@ function attackRoll(i, free, opt) {
   const sa = sneakAuto(a, rm, nat1, isWeapon, opt.offTurn), sr = sa ? rollExpr(crit ? critDice(sa) : sa, { label: 'Sneak Attack (' + sa + ')' }) : null;
   if (sr && !opt.offTurn && S.inCombat) { S.turn.sneak = true; setTimeout(refresh, 0); }
   const total = d.total + xr.reduce((t, x) => t + x.r.total, 0) + rr.reduce((t, x) => t + x.r.total, 0) + (sr ? sr.total : 0);
+  // Damage by type (Booming Blade's thunder, Improved Divine Smite's radiant… aren't the weapon's type): resistances care.
+  const mainT = a.type ? String(a.type).toLowerCase() : 'damage', byType = {}, addT = (t, v) => { if (!v) return; t = String(t || '').trim().toLowerCase() || mainT; byType[t] = (byType[t] || 0) + v; };
+  addT(mainT, d.total + (sr ? sr.total : 0)); xr.forEach(x => addT(String(x.label).replace(/^[\d+d\s-]+/, ''), x.r.total)); rr.forEach((x, k) => addT(String(riders[k].dice).replace(/^[\d+d\s-]+/, ''), x.r.total));
+  const types = Object.entries(byType);
   const n1 = nat1 ? nat1Roll() : null;
   if (crit) critUntil = Date.now() + 60000;
   update();
@@ -414,7 +421,7 @@ function attackRoll(i, free, opt) {
   toast(`<b class="total">${h.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${crit ? 'CRITICAL HIT' : nat1 ? 'Natural 1 — miss' : 'to hit'}</div>
     ${(opt.notes || []).map(x => `<div class="det">${x}</div>`).join('')}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}<div class="det">Hit: ${esc(h.detail)} · Dmg: ${esc(d.detail)}${sr ? ` · <b>Sneak Attack</b>: ${esc(sr.detail)}` : ''}${xr.map(x => ` · ${esc(x.label)}: ${x.r.total}`).join('')}${rr.map(x => ` · <b>${esc(x.label)}</b>: ${x.r.total}`).join('')}</div>
     ${note ? `<div class="det">${esc(note)}</div>` : ''}<div class="det">${[ammoNote, free ? '' : `Attack ${N(S.turn.attacks)} of ${attacksPerAction()} this turn`].filter(Boolean).join(' · ')}${crit && hasFeature('Divine Smite') ? ' · a smite now also doubles' : ''}</div></div>
-    <div class="rc-dmg${nat1 ? ' void' : ''}"><b>${total}</b><span>${a.type ? esc(String(a.type).toLowerCase()) : 'damage'}${sr ? `<br><small>incl. ${sr.total} sneak</small>` : ''}</span></div>`, crit ? 'crit' : nat1 ? 'fumble' : '', crit ? 12000 : 9000, acts);
+    <div class="rc-dmg${nat1 ? ' void' : ''}"><b>${total}</b><span>${types.length > 1 ? `<span class="rc-types">${types.map(([t, v]) => `<i><b>${v}</b> ${esc(t)}</i>`).join('')}</span>` : esc(mainT)}${sr ? `<small>incl. ${sr.total} sneak</small>` : ''}</span></div>`, crit ? 'crit' : nat1 ? 'fumble' : '', crit ? 12000 : 9000, acts);
 }
 // Sneak Attack dice for this attack, or '' when it doesn't apply automatically.
 function sneakAuto(a, rm, nat1, isWeapon, offTurn) {
@@ -466,7 +473,9 @@ function doPip(p) {
   update();
 }
 function deathSave() {
-  const r = rollExpr('1d20', { need: true, label: 'Death save' }); let msg;
+  // Anything that adds to all saving throws (Bless, a Ring of Protection, an ally's Aura of Protection…) adds here too.
+  const db = saveAllBonus(), bl = blessed() ? '+1d4' : '';
+  const r = rollExpr('1d20' + (db ? sgn(db) : '') + bl, { need: true, label: 'Death save' }); let msg;
   if (r.d20 === 20) { S.hp.cur = 1; S.death = { s: 0, f: 0 }; S.conditions = S.conditions.filter(c => c !== 'Unconscious'); msg = 'Natural 20! You regain 1 HP and wake up.'; }
   else if (r.d20 === 1) { S.death.f = Math.min(3, N(S.death.f) + 2); msg = 'Natural 1 — two failures.'; }
   else if (r.total >= 10) { S.death.s = Math.min(3, N(S.death.s) + 1); msg = 'Success.'; }
@@ -1263,11 +1272,13 @@ function catalogAdd(t, n) {
   if (t === 'a') return addInventoryItem(makeArmorItem(DND.armor[n]));
   if (t === 'g') return addInventoryItem(makeGearItem(DND.gear[n]));
   if (t === 'm') {
-    const m = DND.magic[n], base = (m[6] || {}).base;
-    if (base === 'weapon' || base === 'armor' || base === 'shield') {
+    const m = DND.magic[n], base = (m[6] || {}).base, rt = (m[6] || {}).resType;
+    if (base === 'weapon' || base === 'armor' || base === 'shield' || rt) {
       CATBASE = n;
-      const list = base === 'weapon' ? DND.weapons.map((w, k) => [k, w[0]]) : DND.armor.map((a, k) => [k, a[0], a[1]]).filter(x => base === 'shield' ? x[2] === 'shield' : x[2] !== 'shield');
-      $('#modal-body').innerHTML = `<h3>${esc(m[0])}</h3><p class="hint">${esc(m[5])}</p>${fld('Which ' + base + '?', `<select class="f" id="catbase">${list.map(x => `<option value="${x[0]}">${esc(x[1])}</option>`).join('')}</select>`)}
+      const list = !base ? [] : base === 'weapon' ? DND.weapons.map((w, k) => [k, w[0]]) : DND.armor.map((a, k) => [k, a[0], a[1]]).filter(x => base === 'shield' ? x[2] === 'shield' : x[2] !== 'shield');
+      // Ring / Armor of Resistance: which damage type it resists is part of which ring it is (like picking the weapon for a +1 weapon).
+      const types = rt ? fld('Resistance to', `<div class="restypes">${RES_TYPES.map((t, k) => `<label class="restype"><input type="radio" name="catres" value="${t}"${k ? '' : ' checked'}><span>${t[0].toUpperCase() + t.slice(1)}</span></label>`).join('')}</div>`) : '';
+      $('#modal-body').innerHTML = `<h3>${esc(m[0])}</h3><p class="hint">${esc(m[5])}</p>${base ? fld('Which ' + base + '?', `<select class="f" id="catbase">${list.map(x => `<option value="${x[0]}">${esc(x[1])}</option>`).join('')}</select>`) : ''}${types}
         <div class="actions"><button class="btn" data-act="cattab" data-t="${esc(UI.catTab || 'all')}">Back</button><button class="btn gold" data-act="catbaseok" data-n="${n}">Add</button></div>`;
       return;
     }
@@ -1275,11 +1286,14 @@ function catalogAdd(t, n) {
   }
 }
 function catalogAddBase(n) {
-  const m = DND.magic[n], base = m[6].base, k = N($('#catbase').value);
-  const bi = base === 'weapon' ? makeWeaponItem(DND.weapons[k]) : makeArmorItem(DND.armor[k]);
+  const m = DND.magic[n], base = m[6].base, k = base ? N($('#catbase').value) : 0;
+  const bi = !base ? null : base === 'weapon' ? makeWeaponItem(DND.weapons[k]) : makeArmorItem(DND.armor[k]);
   const it = makeMagicItem(m, bi);
+  if (m[6].resType) { const r = $('input[name="catres"]:checked'), t = r ? r.value : RES_TYPES[0]; setResType(it, t); }
   addInventoryItem(it); openCatalog(true);
 }
+// "Ring of Resistance (Fire)": the type is in its name and gives the resistance while worn and attuned.
+function setResType(it, t) { it.resPick = t; it.name = String(it.name || '').replace(/\s*\((acid|cold|fire|force|lightning|necrotic|poison|psychic|radiant|thunder)\)\s*$/i, '') + ' (' + t[0].toUpperCase() + t.slice(1) + ')'; }
 function equipItem(i) {
   const it = S.inventory[i]; it.equipped = !it.equipped;
   const msgs = [];

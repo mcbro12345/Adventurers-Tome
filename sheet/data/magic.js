@@ -23,7 +23,7 @@ MI('Amulet of the Planes', 'SRD', 'wondrous', 'very rare', true, 'Action: DC 15 
 MI('Animated Shield', 'SRD', 'shield', 'very rare', true, 'Bonus action: shield floats and protects you for 1 minute, hands free.', { base: 'shield' });
 MI('Apparatus of the Crab', 'SRD', 'wondrous', 'legendary', false, 'A crab-shaped submersible vehicle.');
 MI('Armor of Invulnerability', 'SRD', 'armor', 'legendary', true, 'Resistance to nonmagical damage; once per day become immune for 10 minutes.', { base: 'armor' });
-MI('Armor of Resistance', 'SRD', 'armor', 'rare', true, 'Resistance to one damage type.', { base: 'armor' });
+MI('Armor of Resistance', 'SRD', 'armor', 'rare', true, 'Resistance to one damage type.', { base: 'armor', resType: true });
 MI('Armor of Vulnerability', 'SRD', 'armor', 'rare', true, 'Resistance to one physical type, vulnerability to the others (cursed).', { base: 'armor' });
 MI('Arrow-Catching Shield', 'SRD', 'shield', 'rare', true, '+2 AC vs ranged attacks; reaction to redirect a ranged attack to you.', { base: 'shield' });
 MI('Arrow of Slaying', 'SRD', 'ammo', 'very rare', false, 'A creature type takes 6d10 extra piercing (CON half).');
@@ -193,7 +193,7 @@ MI('Ring of Jumping', 'SRD', 'ring', 'uncommon', true, 'Cast jump at will.');
 MI('Ring of Mind Shielding', 'SRD', 'ring', 'uncommon', true, 'Immune to mind reading.');
 MI('Ring of Protection', 'SRD', 'ring', 'rare', true, '+1 AC and +1 to saving throws.', { ac: 1, save: 1 });
 MI('Ring of Regeneration', 'SRD', 'ring', 'very rare', true, 'Regain 1d6 HP every 10 minutes; regrow limbs.');
-MI('Ring of Resistance', 'SRD', 'ring', 'rare', true, 'Resistance to one damage type.');
+MI('Ring of Resistance', 'SRD', 'ring', 'rare', true, 'Resistance to one damage type.', { resType: true });
 MI('Ring of Shooting Stars', 'SRD', 'ring', 'very rare', true, 'Dancing lights, light, faerie fire, ball lightning, shooting stars.');
 MI('Ring of Spell Storing', 'SRD', 'ring', 'rare', true, 'Store up to 5 levels of spells.');
 MI('Ring of Spell Turning', 'SRD', 'ring', 'legendary', true, 'Advantage vs single-target spells; reflect them.');

@@ -38,6 +38,10 @@ service cloud.firestore {
       allow read: if admin() || (signedIn() && canSee(get(/databases/$(db)/documents/sheets/$(id)).data));
       allow write: if signedIn() && em == me() && (admin() || canSee(get(/databases/$(db)/documents/sheets/$(id)).data));
     }
+    // Rolling from a phone through the same character open on a computer: requests and answers, and the computer that's ready.
+    match /sheets/{id}/relay/{r} {
+      allow read, write: if signedIn() && canEditSheet(id);
+    }
     // One record per account, keyed by email: made by the person on first sign-in. Only that person and admins can
     // read it, and only admins can list or search them (names on shared characters come from the character itself).
     match /users/{em} {

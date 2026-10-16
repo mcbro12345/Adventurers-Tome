@@ -75,6 +75,15 @@ function rollGate(fn, given) {
 }
 // Fetch one roll: from Roll20 when connected, otherwise ask the player.
 async function getRoll(req) {
+  // Rolling from a phone through the sheet open on your computer, which posts it to Roll20 like any other roll.
+  if (diceMode() === 'remote' && window.PG_RELAY) {
+    const recent = R20.failAt && Date.now() - R20.failAt < 20000;
+    const r = recent ? { error: R20.failWhy } : await window.PG_RELAY.send({ expr: req.expr, label: req.label, first: req.first, min2: req.opts && req.opts.min2 || null, min2Terms: req.opts && req.opts.min2Terms || null }).catch(e => ({ error: String(e && e.message || e) }));
+    if (r && !r.error) { R20.failAt = 0; return Object.assign({ src: 'roll20' }, r); }
+    if (!recent) { R20.failAt = Date.now(); R20.failWhy = r && r.error || 'no answer'; toast(`<b>Your computer didn't answer</b> — the sheet rolled instead.<div class="det">Keep this character open on your computer with “Roll20 rolls for me” on and your Roll20 game open.</div>`, 'fumble', 8000); }
+    const loc = rollLocal(req.expr, req.opts || {});
+    return { src: 'sheet', total: loc.total, d20: loc.d20, detail: loc.detail };
+  }
   if (diceMode() === 'roll20') {
     // If Roll20 just failed, don't wait again for every roll of the same action: roll here straight away.
     const recent = R20.failAt && Date.now() - R20.failAt < 20000;
@@ -125,6 +134,10 @@ window.addEventListener('message', e => {
 });
 function r20Hello() { window.postMessage({ __dnd20: 'hello', dir: 'toExt' }, '*'); }
 setTimeout(r20Hello, 400);
+// On a computer with Roll20 rolls on, this sheet also rolls for its phone: requests from the phone come in through the
+// character's own storage and go to Roll20 exactly like a roll made here.
+setTimeout(() => { if (!window.PG_RELAY) return;
+  window.PG_RELAY.host(() => diceMode() === 'roll20' && R20.ok && !isMobile(), d => r20Roll(d.expr, d.label, d.first, d.min2, d.min2Terms)); }, 1500);
 // Chat lines for a roll, in the same style as the sheet's Roll20 macros:
 //   /em **attacks with Cutlass of Vengeance:**   ****   **Attack Roll (to hit):** [[1d20+6]]
 // The emote heads the first roll of an action; follow-up rolls (damage after an attack) just add their line.
@@ -215,7 +228,7 @@ function toast(html, cls = '', ms = 4500, action) {
   SKIPPED.length = 0;
   const t = document.createElement('div');
   t.className = 'toast ' + cls; t.innerHTML = /^\s*<(b class="total"|div)/.test(html) ? html : '<div>' + html + '</div>';
-  [].concat(action || []).filter(Boolean).forEach((ac, k) => { const b = document.createElement('button'); b.textContent = ac.label; if (k) b.style.marginLeft = '4px'; b.onclick = () => { rollGate(ac.fn); t.remove(); }; t.appendChild(b); });
+  { const acts = [].concat(action || []).filter(Boolean); if (acts.length) { const box = document.createElement('div'); box.className = 't-acts'; acts.forEach(ac => { const b = document.createElement('button'); b.textContent = ac.label; b.onclick = () => { rollGate(ac.fn); t.remove(); }; box.appendChild(b); }); t.appendChild(box); } }
   t.addEventListener('click', ev => { if (ev.target.tagName !== 'BUTTON') t.remove(); });
   // Dice results get their own big card in the middle of the screen; everything else stays in the corner.
   const isRoll = /^\s*<(b class="total"|div class="rc-multi")/.test(html);
@@ -360,7 +373,7 @@ function renderVitals() {
         <div class="hp-center">${f ? inp('form.hp', { num: 1, cls: 'cur', label: 'Form HP' }) + `<div class="hp-max">of ${N(f.maxhp)}</div>` : `<div class="curline">` + inp('hp.cur', { num: 1, cls: 'cur', label: 'Current HP' }) + `<span class="tmpbadge" data-calc="tmpb" title="Temporary hit points"></span></div><div class="hp-max">of <span class="maxv" data-calc="hpmaxv"></span></div>`}</div></div>
       <div class="hp-side">
         ${f ? `<div class="formnote">Your HP: <b data-calc="truehp"></b> <button class="btn sm" data-act="endform">Revert</button></div>` : ''}
-        <div class="hp-actions"><input class="f" id="hpAmt" type="number" inputmode="numeric" placeholder="Amount" aria-label="HP amount">
+        <div class="hp-actions"><input class="f" id="hpAmt" type="number" enterkeyhint="done" placeholder="Amount" aria-label="HP amount — press Enter to take damage, Shift+Enter to heal">
           <button class="btn red hpi" data-act="dmg" title="Take damage" aria-label="Take damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="heal" title="Heal" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmpbtn" data-act="tmphp" title="Gain temporary HP (they don't stack — the higher stays). 0 clears them." aria-label="Gain temporary HP">${ICON.hpTemp}</button></div>
         <div class="rest-actions"><button class="btn rest short" data-act="short" title="1 hour: spend Hit Dice, refresh short-rest features and Pact slots"><span class="ri">${ICON.hourglass}</span>Short Rest</button><button class="btn rest long" data-act="long" title="8 hours: full HP, all slots, features and Hit Dice"><span class="ri">${ICON.moon}</span>Long Rest</button></div>
       </div>
@@ -601,7 +614,7 @@ function renderCore() {
   $('#page-core').innerHTML = `
   <div class="core">
     <div class="panel" ${PID('abilities')}><h2><span class="grow">Abilities &amp; Saves</span><button class="btn sm" data-act="manageabil">Manage</button></h2><div class="abilities" data-zone="abil">${abil}</div>
-      <p class="hint" style="margin:10px 0 0">Tap any bonus to roll it. Conditions like poisoned or exhaustion apply to your rolls automatically.${auraBonus() ? ' Saves include your Aura of Protection.' : ''}</p></div>
+      <p class="hint" style="margin:10px 0 0">Tap any bonus to roll it. Conditions like poisoned or exhaustion apply to your rolls automatically.${auraBonus() ? ' Saves include your Aura of Protection.' : ''}</p>${clsLv('paladin') >= 6 ? '' : `<label class="allyaura"><span>Ally’s Aura of Protection</span>${sel('allyAura', [['', 'Not in one'], ['1', '+1'], ['2', '+2'], ['3', '+3'], ['4', '+4'], ['5', '+5']], { label: 'Bonus from an ally paladin’s Aura of Protection' })}</label>`}</div>
     <div class="panel" ${PID('skills')}><h2><span class="grow">Skills</span><button class="btn sm" data-act="manageskills">Manage</button></h2><div class="skills">${skills}</div>
       <div class="passive"><span><span class="ciw">Passive Perception${ciBtn('passive', 'passive Perception')}</span></span><span data-calc="passive"></span></div></div>
     <div class="stack col3">

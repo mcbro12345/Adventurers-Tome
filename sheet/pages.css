@@ -1186,3 +1186,26 @@ html.pg-sheetpage.pg-al:not(.mobile) .pg-shared.placed { transition: opacity .2s
 .pg-pubtag a { color: inherit; font-weight: 800; }
 .adm-online { white-space: nowrap; }
 .pg-shared.placed.wrap, html.mobile .pg-shared.placed.wrap { white-space: normal; font-size: 10.5px; line-height: 1.15; padding: 3px 9px; border-radius: 10px; text-align: center; }
+/* Admin ⋯ menus: floating above the page */
+.adm-mlist.portal { display: block; position: fixed; right: auto; bottom: auto; z-index: 3000; animation: hPopIn .14s ease; }
+.adm-mlist.portal.closing { display: block; pointer-events: none; animation: hPopOut .13s ease forwards; }
+@media (prefers-reduced-motion: reduce) { .adm-mlist.portal, .adm-mlist.portal.closing { animation: none; } }
+/* Admin filters: a search box plus compact dropdown pills */
+.adm-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin-bottom: 14px; }
+.adm-filters .adm-tool { flex: 1 1 320px; margin: 0; }
+.adm-fsels { display: flex; flex-wrap: wrap; gap: 8px; }
+.adm-fsel { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px 0 12px; border: 1px solid var(--adm-line); border-radius: 999px; background: var(--adm-panel); color: var(--adm-ink); font: 600 .82rem system-ui, sans-serif; cursor: pointer; transition: border-color .15s, background-color .15s; }
+.adm-fsel span { color: var(--adm-dim); font-weight: 600; }
+.adm-fsel select { appearance: none; -webkit-appearance: none; border: 0; background: transparent; color: inherit; font: 700 .82rem system-ui, sans-serif; padding: 0 16px 0 0; cursor: pointer; max-width: 180px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c9962b' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right center; background-size: 13px; }
+.adm-fsel select:focus { outline: none; }
+.adm-fsel:hover { border-color: #c9962b; }
+.adm-fsel.on { border-color: #c9962b; background: rgba(201,150,43,.12); }
+.adm-fsel select option { color: #1f2a44; background: #fff; }
+@media (max-width: 860px) { .adm-fsels { width: 100%; } .adm-fsel { flex: 1 1 auto; } .adm-fsel select { max-width: none; flex: 1; } }
+/* Admins typing someone's email: a dropdown of matching people (names or emails) */
+.pp-sug { position: fixed; z-index: 3000; max-height: 260px; overflow: auto; padding: 5px; border-radius: 10px; border: 1px solid #e3d6b8; background: #fffaf0; box-shadow: 0 14px 34px rgba(0,0,0,.25); animation: hPopIn .12s ease; scrollbar-width: thin; }
+.pp-sug button { display: flex; flex-direction: column; align-items: flex-start; width: 100%; padding: 7px 10px; border: 0; border-radius: 7px; background: transparent; color: #1f2a44; text-align: left; cursor: pointer; font: 600 .88rem system-ui, sans-serif; }
+.pp-sug button small { font-weight: 500; opacity: .65; font-size: .76rem; }
+.pp-sug button:hover, .pp-sug button.on { background: rgba(201,150,43,.16); }
+@media (prefers-color-scheme: dark) { .pp-sug { background: #1a2131; border-color: #2c3548; } .pp-sug button { color: #e9e3d3; } }

@@ -44,8 +44,9 @@ function openSettings(tab) {
       ${booksHTML()}
 `)}
     ${pane('dice', `
-      <div class="dicemodes">${[['sheet', 'The sheet rolls', 'Every roll happens here, fully automated.'], ['manual', 'I use my own rolls', 'Shows the dice to roll; asks for your total only when automation needs it (healing, temp HP, death saves…). Everything else is still tracked.'], ['roll20', 'Roll20 rolls for me', 'Rolls post to your Roll20 game’s chat and the results come back here (needs the companion extension).']].map(([v, t, d]) => `<label class="dmode${diceMode() === v ? ' on' : ''}"><input type="radio" name="dicemode" data-set="diceMode" value="${v}"${diceMode() === v ? ' checked' : ''}><span><b>${t}</b>${diceMode() === v ? `<small>${d}</small>` : ''}</span></label>`).join('')}</div>
+      <div class="dicemodes">${[['sheet', 'The sheet rolls', 'Every roll happens here, fully automated.'], ['manual', 'I use my own rolls', 'Shows the dice to roll; asks for your total only when automation needs it (healing, temp HP, death saves…). Everything else is still tracked.'], ['roll20', 'Roll20 rolls for me', 'Rolls post to your Roll20 game’s chat and the results come back here (needs the companion extension).']].concat(isMobile() || diceMode() === 'remote' ? [['remote', 'Roll in Roll20 from my phone', 'Roll here and it posts in Roll20 through this character open on your computer (with “Roll20 rolls for me” on there). Play from anywhere in the house.']] : []).map(([v, t, d]) => `<label class="dmode${diceMode() === v ? ' on' : ''}"><input type="radio" name="dicemode" data-set="diceMode" value="${v}"${diceMode() === v ? ' checked' : ''}><span><b>${t}</b>${diceMode() === v ? `<small>${d}</small>` : ''}</span></label>`).join('')}</div>
       ${diceMode() === 'roll20' ? '<div id="r20status" class="r20box"></div>' : ''}
+      ${diceMode() === 'remote' ? '<div id="relaystatus" class="r20box"><span class="hint">Checking for your computer…</span></div>' : ''}
       <button class="r20macros" data-act="macros" title="Copy Roll20 macros for everything rollable" aria-label="Roll20 macros"><img src="${R20_LOGO}" alt=""></button>
       <p class="hint" style="margin:4px 0 0">Copy macros for every attack, save, skill and spell.</p>
     `)}
@@ -88,7 +89,7 @@ function setSetting(t) {
   S.settings = Object.assign({}, S.settings, { [k]: v });
   pendingLabel = 'Setting: ' + k; save(); applyTheme(); render();
   if (k === 'inspiration') { const m = document.querySelector('#modal-body [data-set="inspMany"]'); if (m) { m.disabled = !v; const l = m.closest('.setrow'); l.classList.toggle('dis', !v); l.title = v ? '' : 'Turn on Track Inspiration first'; const sm = l.querySelector('small'); if (sm) sm.textContent = 'House rule — no limit on how many you can hold' + (v ? '' : ' (turn on Track Inspiration to use it)'); } }
-  if (k === 'diceMode') { reopenSettings(); toast(v === 'manual' ? 'You use your own rolls — the sheet tracks everything and asks for totals only when it needs them.' : v === 'roll20' ? 'Rolls go to Roll20 once the extension is connected.' : 'The sheet rolls the dice again.'); }
+  if (k === 'diceMode') { setTimeout(relayStatus, 50); reopenSettings(); toast(v === 'manual' ? 'You use your own rolls — the sheet tracks everything and asks for totals only when it needs them.' : v === 'roll20' ? 'Rolls go to Roll20 once the extension is connected.' : v === 'remote' ? 'Rolls from this phone go to Roll20 through your computer.' : 'The sheet rolls the dice again.'); }
 }
 function setThemeColor(k, v, live) {
   const th = Object.assign({}, S.theme);
@@ -562,7 +563,7 @@ function calcTip(k) {
     return out('Max HP', maxHp());
   }
   if (/^save:/.test(k)) { const a = k.slice(5), pr = S.saves[a] || fxSaveProf(a);
-    add(`${ab3(a)} modifier`, mod(a)); if (pr) add('Proficiency', PB()); add('Items', itemSum('save')); add('Aura of Protection', auraBonus()); add('Deck of Many Things', N((S.deckMods || {}).save)); add('Features', fxSum('saveAll')); add('Spells', buffSum('save'));
+    add(`${ab3(a)} modifier`, mod(a)); if (pr) add('Proficiency', PB()); add('Items', itemSum('save')); add(auraBonus() >= N(S.allyAura) ? 'Aura of Protection' : 'Ally’s Aura of Protection', auraAll()); add('Deck of Many Things', N((S.deckMods || {}).save)); add('Features', fxSum('saveAll')); add('Spells', buffSum('save'));
     if (!rows.length) rows.push([`${ab3(a)} modifier`, sg(0)]); return out(`${ABN[a]} save`, sg(saveVal(a))); }
   if (/^abil:/.test(k)) { const a = k.slice(5), b = S.abilities[a] === '' ? 10 : N(S.abilities[a]);
     rows.push(['Your score', String(b)]); fxPassives().forEach(p => { if (p.abil && p.abil[a]) add(p.src || 'Feature', p.abil[a]); }); itemMods().forEach(m => { if (m.abil && m.abil[a] > b) rows.push([m.src || 'Item sets it to', String(m.abil[a])]); });
@@ -606,7 +607,14 @@ function showTip(btn) {
   const atk = btn.dataset.tipkind === 'atk', it = (atk ? S.attacks : S.inventory)[N(btn.dataset.tip)]; if (!it) return hideTip();
   const wit = atk && it.item ? S.inventory.find(x => x.id === it.item) : atk ? null : it;
   const hb = wit && wit.hb ? hbSummary(wit.hb, wit) : [];
-  const bits = [atk && String(it.notes || '').trim() ? `<div class="tipprops">${esc(it.notes)}</div>` : '', wit && String(wit.notes || '').trim() ? `<div>${esc(wit.notes)}</div>` : '', wit && fullOfItem(wit) && !String(wit.notes || '').includes(fullOfItem(wit).slice(0, 60)) ? `<div class="tipdesc">${fullHTML(fullOfItem(wit))}</div>` : wit && wit.summary && wit.summary !== wit.notes ? `<div class="hint">${esc(wit.summary)}</div>` : '', hb.length ? `<div class="tiphb">⚙ ${esc(hb.join(' · '))}</div>` : ''].filter(Boolean);
+  // Attacks: what a hit does, with every damage type spelled out (weapon, magic extras, riders waiting for the next hit).
+  let dmgLine = '';
+  if (atk) { try { const ty = it.type ? String(it.type).toLowerCase() : '', isW = !it.effect || it.weaponLike, ex = isW ? extraDice(it).slice() : [];
+    if (it.kind === 'melee' && clsLv('paladin') >= 11 && isW) ex.push('1d8 radiant (Improved Divine Smite)');
+    const rid = isW ? (S.riders || []).map(r => r.dice + ' (' + r.name + ', next hit)') : [];
+    const parts = [`${esc(atkDmgText(it))}${ty ? ' ' + esc(ty) : ''}`].concat(ex.map(x => '+ ' + esc(x)), rid.map(x => '+ ' + esc(x)));
+    dmgLine = `<div class="tipline"><span>To hit</span> ${fmt(atkHit(it))}</div><div class="tipline"><span>Damage</span> ${parts.join(' ')}</div>`; } catch (e) {} }
+  const bits = [dmgLine, atk && String(it.notes || '').trim() ? `<div class="tipprops">${esc(it.notes)}</div>` : '', wit && String(wit.notes || '').trim() ? `<div>${esc(wit.notes)}</div>` : '', wit && fullOfItem(wit) && !String(wit.notes || '').includes(fullOfItem(wit).slice(0, 60)) ? `<div class="tipdesc">${fullHTML(fullOfItem(wit))}</div>` : wit && wit.summary && wit.summary !== wit.notes ? `<div class="hint">${esc(wit.summary)}</div>` : '', hb.length ? `<div class="tiphb">⚙ ${esc(hb.join(' · '))}</div>` : ''].filter(Boolean);
   if (!bits.length) return hideTip();
   let t = $('#tipbox'); if (!t) { t = document.createElement('div'); t.id = 'tipbox'; t.setAttribute('role', 'tooltip'); document.body.appendChild(t); }
   t.innerHTML = `${wit && wit.img ? `<img class="tipimg" src="${wit.img}" alt="">` : ''}<b>${esc(it.name)}</b>${wit && wit.attune ? `<span class="hint"> · ${wit.attuned ? 'attuned' : 'not attuned'}</span>` : ''}${bits.join('')}`; t.classList.add('on');
@@ -807,9 +815,9 @@ function browserInfo() {
   const unzip = `Download the extension and unzip it (Windows: right-click the .zip → <b>Extract All</b>; Mac: double-click it): ${dl}`;
   const pick = 'pick the <b>dnd-sheet-roll20-extension</b> folder — the one with <code>manifest.json</code> directly inside it';
   const finish = [`Sign in to Roll20 and open your game: ${open}`, 'Reload this sheet, come back here and pick your game.'];
-  const chromish = (name, url, devmode) => ({ name, ok: true, steps: [unzip, `Type <code>${url}</code> in the address bar.`, devmode, `Click <b>Load unpacked</b> and ${pick}. <span class="hint">Updating later works the same way — loading a newer version replaces the old one, no need to remove it first.</span>`].concat(finish) });
+  const chromish = (name, url, devmode) => ({ name, ok: true, steps: [unzip, `Open <button class="urlbtn" data-act="copyurl" data-url="${url}" title="Copy — browsers only let you open this page by pasting it into the address bar"><code>${url}</code><span aria-hidden="true">⧉</span></button> — tap it to copy, then paste it into the address bar.`, devmode, `Click <b>Load unpacked</b> and ${pick}. <span class="hint">Updating later works the same way — loading a newer version replaces the old one, no need to remove it first.</span>`].concat(finish) });
   if (/iPhone|iPad|Android/i.test(ua) || document.documentElement.classList.contains('mobile') && /Mobi/i.test(ua)) return { name: 'a phone or tablet', ok: false, why: 'Phone and tablet browsers can’t load this extension. Use “I use my own rolls” here, or open the sheet on a computer with Chrome, Edge, Brave, Opera or Firefox.' };
-  if (/Firefox\//.test(ua)) return { name: 'Firefox', ok: true, steps: [unzip, 'Type <code>about:debugging#/runtime/this-firefox</code> in the address bar.', 'Click <b>Load Temporary Add-on…</b> and choose the <code>manifest.json</code> file inside the unzipped folder (a newer version loaded this way replaces the old one).', 'Firefox removes temporary add-ons when it closes, so repeat this step after restarting Firefox.'].concat(finish) };
+  if (/Firefox\//.test(ua)) return { name: 'Firefox', ok: true, steps: [unzip, 'Open <button class="urlbtn" data-act="copyurl" data-url="about:debugging#/runtime/this-firefox" title="Copy"><code>about:debugging#/runtime/this-firefox</code><span aria-hidden="true">⧉</span></button> — tap it to copy, then paste it into the address bar.', 'Click <b>Load Temporary Add-on…</b> and choose the <code>manifest.json</code> file inside the unzipped folder (a newer version loaded this way replaces the old one).', 'Firefox removes temporary add-ons when it closes, so repeat this step after restarting Firefox.'].concat(finish) };
   if (/Edg\//.test(ua) || /Edge/.test(brands)) return chromish('Microsoft Edge', 'edge://extensions', 'Turn on <b>Developer mode</b> (left side of the page).');
   if (/OPR\//.test(ua) || /Opera/.test(brands)) return chromish('Opera', 'opera://extensions', 'Turn on <b>Developer mode</b> (top right).');
   if (navigator.brave || /Brave/.test(brands)) return chromish('Brave', 'brave://extensions', 'Turn on <b>Developer mode</b> (top right).');
@@ -830,5 +838,12 @@ function openR20Setup() {
 
 
 // Skills: tapping the name rolls it too (the whole bonus + name area is one target).
-document.addEventListener('click', e => { const hit = e.target.closest && e.target.closest('.sk-hit, .ooc-sk, .pvtool'); if (!hit || e.target.closest('.roll, .notetip')) return; const r = hit.querySelector('.roll'); if (r) r.click(); });
+document.addEventListener('click', e => { const hit = e.target.closest && e.target.closest('.sk-hit, .ooc-sk, .pvtool, .saverow'); if (!hit || e.target.closest('.roll, .notetip')) return; const r = hit.querySelector('.roll'); if (r) r.click(); });
 document.addEventListener('change', e => { if (e.target && e.target.id === 'condSkill') { UI.condSkill = e.target.value; if (mOpen('#condmodal')) openConditions(); } });
+
+// Phone → computer → Roll20: shows whether the computer is there to roll (it checks in every half minute while ready).
+function relayStatus() { const box = $('#relaystatus'); if (!box || !window.PG_RELAY) return;
+  window.PG_RELAY.hostSeen().then(at => { if (!box.isConnected) return; const ok = at && Date.now() - at < 75000;
+    box.innerHTML = ok ? `<b class="ok">✓ Your computer is ready</b><span class="hint">Rolls from here post in Roll20 through it.</span>` : `<b class="warn">Your computer isn’t connected</b><span class="hint">Open this character on your computer, choose “Roll20 rolls for me” in Settings → Dice there, and keep your Roll20 game open. Until then the sheet rolls here.</span>`; }, () => {}); }
+new MutationObserver(() => { const b = $('#relaystatus'); if (b && !b.dataset.seen) { b.dataset.seen = 1; relayStatus(); } }).observe(document.body, { childList: true, subtree: true });
+setInterval(() => { if ($('#relaystatus')) relayStatus(); }, 15000);

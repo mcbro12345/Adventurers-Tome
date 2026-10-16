@@ -13,8 +13,8 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.82922fa8003b.css">
-<link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:type" content="website"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="Adventurer’s Tome"><meta property="og:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:url" content="https://adventurers-tome.web.app/"><meta property="og:image" content="https://adventurers-tome.web.app/og-roll.gif?v=2"><meta property="og:image:type" content="image/gif"><meta property="og:image:width" content="800"><meta property="og:image:height" content="420"><meta property="og:image:alt" content="Adventurer’s Tome — a gold d20 rolling a natural 20"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-roll.gif?v=2"><meta name="theme-color" content="#c9962b"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="a/sheet.ad5be7e03a19.css">
+<link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:type" content="website"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="Adventurer’s Tome"><meta property="og:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:url" content="https://adventurers-tome.web.app/"><meta property="og:image" content="https://adventurers-tome.web.app/og-roll.gif?v=3"><meta property="og:image:type" content="image/gif"><meta property="og:image:width" content="800"><meta property="og:image:height" content="420"><meta property="og:image:alt" content="Adventurer’s Tome — a gold d20 rolling a natural 20"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-roll.gif?v=3"><meta name="theme-color" content="#c9962b"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#0f1420"><script>try{var t=localStorage.getItem("pg-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-pgtheme",t)}catch(e){}</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
 #pg-load { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 40%, #1d2638 0%, #0f1420 70%); color: #e9e3d3; font: 600 15px system-ui, sans-serif; z-index: 9999; }
@@ -1252,6 +1252,30 @@ html.pg-sheetpage.pg-al:not(.mobile) .pg-shared.placed { transition: opacity .2s
 .pg-pubtag a { color: inherit; font-weight: 800; }
 .adm-online { white-space: nowrap; }
 .pg-shared.placed.wrap, html.mobile .pg-shared.placed.wrap { white-space: normal; font-size: 10.5px; line-height: 1.15; padding: 3px 9px; border-radius: 10px; text-align: center; }
+/* Admin ⋯ menus: floating above the page */
+.adm-mlist.portal { display: block; position: fixed; right: auto; bottom: auto; z-index: 3000; animation: hPopIn .14s ease; }
+.adm-mlist.portal.closing { display: block; pointer-events: none; animation: hPopOut .13s ease forwards; }
+@media (prefers-reduced-motion: reduce) { .adm-mlist.portal, .adm-mlist.portal.closing { animation: none; } }
+/* Admin filters: a search box plus compact dropdown pills */
+.adm-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin-bottom: 14px; }
+.adm-filters .adm-tool { flex: 1 1 320px; margin: 0; }
+.adm-fsels { display: flex; flex-wrap: wrap; gap: 8px; }
+.adm-fsel { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px 0 12px; border: 1px solid var(--adm-line); border-radius: 999px; background: var(--adm-panel); color: var(--adm-ink); font: 600 .82rem system-ui, sans-serif; cursor: pointer; transition: border-color .15s, background-color .15s; }
+.adm-fsel span { color: var(--adm-dim); font-weight: 600; }
+.adm-fsel select { appearance: none; -webkit-appearance: none; border: 0; background: transparent; color: inherit; font: 700 .82rem system-ui, sans-serif; padding: 0 16px 0 0; cursor: pointer; max-width: 180px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c9962b' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right center; background-size: 13px; }
+.adm-fsel select:focus { outline: none; }
+.adm-fsel:hover { border-color: #c9962b; }
+.adm-fsel.on { border-color: #c9962b; background: rgba(201,150,43,.12); }
+.adm-fsel select option { color: #1f2a44; background: #fff; }
+@media (max-width: 860px) { .adm-fsels { width: 100%; } .adm-fsel { flex: 1 1 auto; } .adm-fsel select { max-width: none; flex: 1; } }
+/* Admins typing someone's email: a dropdown of matching people (names or emails) */
+.pp-sug { position: fixed; z-index: 3000; max-height: 260px; overflow: auto; padding: 5px; border-radius: 10px; border: 1px solid #e3d6b8; background: #fffaf0; box-shadow: 0 14px 34px rgba(0,0,0,.25); animation: hPopIn .12s ease; scrollbar-width: thin; }
+.pp-sug button { display: flex; flex-direction: column; align-items: flex-start; width: 100%; padding: 7px 10px; border: 0; border-radius: 7px; background: transparent; color: #1f2a44; text-align: left; cursor: pointer; font: 600 .88rem system-ui, sans-serif; }
+.pp-sug button small { font-weight: 500; opacity: .65; font-size: .76rem; }
+.pp-sug button:hover, .pp-sug button.on { background: rgba(201,150,43,.16); }
+@media (prefers-color-scheme: dark) { :where(html:not([data-pgtheme])) .pp-sug { background: #1a2131; border-color: #2c3548; } :where(html:not([data-pgtheme])) .pp-sug button { color: #e9e3d3; } }
+ :where(html[data-pgtheme="dark"]) .pp-sug { background: #1a2131; border-color: #2c3548; } :where(html[data-pgtheme="dark"]) .pp-sug button { color: #e9e3d3; } 
 </style>
 </head>
 <body>
@@ -1516,7 +1540,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261015190848', ASSETS = {"data": "a/data.fc7a76553b3c.js", "app": "a/app.934636d0111a.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.5f54458a66a6.html"}; window.PG_ASSETS = ASSETS;
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261015233046', ASSETS = {"data": "a/data.5bca103bd086.js", "app": "a/app.bffdefb1a56b.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.b228af993bdc.html"}; window.PG_ASSETS = ASSETS;
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -1711,18 +1735,21 @@ function wireDie(root) {
   // A newer version of the site was pushed: load it. The party page reloads right away; a sheet reloads as soon as
   // nobody is in the middle of using it (or on a tap), after its last change has saved. The new address carries
   // the version so the browser can't hand back its old cached copy.
-  const verCheck = () => { let NEWV = null, idleT = null;
-    const go = () => { const u = new URL(location.href); u.searchParams.set('v', NEWV); setTimeout(() => pgGo(u.toString(), true), 1200); };
-    const busy = () => { const a = document.activeElement; return !!(a && /INPUT|TEXTAREA|SELECT/.test(a.tagName)) || !!document.querySelector('#modal.open, .hub-modal.on'); };
-    const idle = () => { clearTimeout(idleT); idleT = setTimeout(() => { if (NEWV && (document.hidden || !busy())) go(); else idle(); }, 15000); };
-    let checking = false; const check = async () => { if (NEWV || checking) return; checking = true; try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); const v = (await r.json()).v; if (!v || v === VER || Q.get('v') === v) return; NEWV = v;
-      if (!C && !NEWQ && !busy()) return go();
-      if (document.getElementById('pg-upd')) return;
-      const b = document.createElement('button'); b.id = 'pg-upd'; b.textContent = 'Updated — tap to reload'; b.onclick = () => { b.textContent = 'Saving…'; go(); }; document.body.appendChild(b);
-      ['pointerdown', 'keydown', 'scroll'].forEach(ev => addEventListener(ev, idle, { passive: true })); idle(); } catch (e) {} finally { checking = false; } };
-    setInterval(check, 30 * 1000); document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); else if (NEWV) go(); }); setTimeout(check, 3000); };
+  // Updates arrive silently: a newer version is picked up the next time the tab is in the background (or on the next
+  // page you open) — never while you're looking at it, never mid character creation, level-up, or any open window.
+  const verCheck = () => { let NEWV = null, hideT = null;
+    const blocked = () => { const a = document.activeElement; return NEWQ || !!(a && /INPUT|TEXTAREA|SELECT/.test(a.tagName)) || !!document.querySelector('#wizard.open, #modal.open, .modal-bg.open, .hub-modal.on, .pg-out')
+      || (typeof LV !== 'undefined' && !!LV) || (typeof PEND !== 'undefined' && !!PEND) || (typeof W !== 'undefined' && W && W.step != null && document.querySelector('#wizard.open')); };
+    const go = () => { if (!NEWV || !document.hidden || blocked()) return; try { sessionStorage.setItem('pg-y', JSON.stringify({ y: scrollY, at: Date.now(), p: location.pathname })); } catch (e) {} location.reload(); };
+    let checking = false; const check = async () => { if (NEWV || checking) return; checking = true; try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); const v = (await r.json()).v; if (v && v !== VER) { NEWV = v; go(); } } catch (e) {} finally { checking = false; } };
+    setInterval(check, 60 * 1000); setTimeout(check, 5000);
+    // once the tab has been in the background for a few seconds (not just a quick glance at another tab)
+    document.addEventListener('visibilitychange', () => { clearTimeout(hideT); if (document.hidden) hideT = setTimeout(go, 4000); else check(); });
+    setInterval(() => { if (NEWV && document.hidden) go(); }, 30000); };
+  // …and you land back where you were: the same scroll position
+  const restoreY = () => { try { const d = JSON.parse(sessionStorage.getItem('pg-y') || 'null'); sessionStorage.removeItem('pg-y'); if (d && d.p === location.pathname && Date.now() - d.at < 10 * 60000 && d.y > 0) setTimeout(() => scrollTo(0, d.y), 350); } catch (e) {} };
   if (G && !C && !NEWQ) { lsSet(LAST_G, G); if (ADMINQ && !IS_ADMIN && PRETTY) history.replaceState(null, '', '/');
-    if (load) fadeLoad(load); else document.documentElement.classList.remove('pg-loading'); hub(fs, auth, G, { EMAIL, IS_ADMIN, IS_OWNER, ADMINS, user, signOut, ME, page: ADMINQ && IS_ADMIN ? 'admin' : 'hub', view: VIEWQ, tab: TABQ }); verCheck();
+    if (load) fadeLoad(load); else document.documentElement.classList.remove('pg-loading'); hub(fs, auth, G, { EMAIL, IS_ADMIN, IS_OWNER, ADMINS, user, signOut, ME, page: ADMINQ && IS_ADMIN ? 'admin' : 'hub', view: VIEWQ, tab: TABQ }); verCheck(); restoreY();
     // quietly warm the cache so opening a sheet from here is quick
     // (not on a very slow or data-saving connection, and only once the page has settled, so it never slows the list down)
     const cn = navigator.connection || {}, slowNet = cn.saveData || /(^|-)2g$/.test(cn.effectiveType || '');
@@ -1780,6 +1807,7 @@ function wireDie(root) {
     if (!TOUCH && !FRAMED) sheetScrollbar();
     // wait for the sheet's first burst of work to finish so the fade runs smoothly instead of stuttering
     if (load) { if (!load.isConnected) document.body.appendChild(load); const go = () => fadeLoad(load); if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 600 }); else setTimeout(go, 150); }
+    restoreY();
     // then the full rules wording, which only tooltips and the Spells/Features text need: once it's in, redraw so they use it
     fullTxt.then(t => { if (!t) return; const s = document.createElement('script'); s.textContent = t; document.body.appendChild(s); try { if (typeof render === 'function') render(); } catch (e) {} }); };
   const col = fs.collection('sheets'), CACHE = 'dnd-pages-cache:' + C;
@@ -1851,6 +1879,23 @@ function wireDie(root) {
       onSnapshot: (cb, err) => r.onSnapshot(s => { const d = s.exists && s.data(); if (d && d.owner) OWNER = String(d.owner).toLowerCase(); if (d) { VIEWERS = d.viewers || []; EDITORS = d.editors || []; if (main) PUB = d.pub || ''; } cb(s);
         // Someone else's change arriving here isn't this person's edit: take it as the new starting point.
         if (main && d && Number(d.savedAt) !== WROTE) setTimeout(() => { try { if (LASTD !== null) LASTD = digest(window.sheetState()); } catch (e) {} }, 800); }, err) }; } };
+  // Rolling from a phone through this character open on a computer (Settings → Dice): requests and answers pass through
+  // sheets/<id>/relay. The computer that's ready (Roll20 rolls on, extension connected) checks in as relay/host.
+  const relay = col.doc(C).collection('relay');
+  window.PG_RELAY = {
+    send: req => new Promise(res => { const ref = relay.doc(); let done = false, un = null;
+      const fin = v => { if (done) return; done = true; clearTimeout(t); if (un) un(); ref.delete().catch(() => {}); res(v); };
+      const t = setTimeout(() => fin({ error: 'no answer from your computer' }), 12000);
+      ref.set({ status: 'new', at: Date.now(), expr: String(req.expr || ''), label: String(req.label || ''), first: !!req.first, min2: req.min2 || null, min2Terms: Array.isArray(req.min2Terms) ? req.min2Terms : null, by: EMAIL })
+        .then(() => { un = ref.onSnapshot(s => { const d = s.exists && s.data(); if (d && d.status === 'done') { let r = null; try { r = JSON.parse(d.res); } catch (e) {} fin(r || { error: 'no result' }); } }, () => {}); }, e => fin({ error: (e && (e.code || e.message)) || 'couldn’t send' })); }),
+    host: (ready, roll) => { const me = Math.random().toString(36).slice(2);
+      const beat = () => { if (ready()) relay.doc('host').set({ at: Date.now(), by: EMAIL, tab: me }).catch(() => {}); }; setInterval(beat, 25000); setTimeout(beat, 2000);
+      relay.where('status', '==', 'new').onSnapshot(qs => qs.docChanges().forEach(async ch => { if (ch.type !== 'added' || !ready()) return; const d = ch.doc.data(); if (!d || Date.now() - (d.at || 0) > 15000) return;
+        // only one computer answers: claim it first
+        try { const mine = await fs.runTransaction(async tx => { const cur = await tx.get(ch.doc.ref); if (!cur.exists || cur.data().status !== 'new') return false; tx.update(ch.doc.ref, { status: 'busy', tab: me }); return true; }); if (!mine) return; } catch (e) { return; }
+        let r; try { r = await roll(d); } catch (e) { r = { error: String(e && e.message || e) }; }
+        ch.doc.ref.update({ status: 'done', res: JSON.stringify(r || { error: 'no result' }) }).catch(() => {}); }), () => {}); },
+    hostSeen: () => relay.doc('host').get().then(s => (s.exists && s.data().at) || 0) };
   const cuser = { id: async () => null, isOwner: async () => true, can: async () => role() !== 'view' };
   window.claude = { use: async n => n === 'db' ? db : n === 'user' ? cuser : null };
   run();
@@ -1909,15 +1954,18 @@ function wireDie(root) {
   // Each open copy checks in once a minute (only while its tab is showing) and drops off when closed or idle.
   let PRES_ON = false; const startPres = () => { if (PRES_ON) return; PRES_ON = true;
     const pcol = col.doc(C).collection('presence'), mine = pcol.doc(EMAIL); let seen = {}, box = null;
-    const beat = async () => { if (document.hidden) return; const a = avaOf(ME); try { await mine.set({ name: NAME, pic: a.pic, color: a.color, clear: a.clear, at: Date.now() }); } catch (e) {} };
+    // Keeps checking in while the tab is in the background too (browsers slow timers there to about once a minute,
+    // which is still inside the window below) — someone with the sheet in another tab is still looking at it.
+    const beat = async () => { const a = avaOf(ME); try { await mine.set({ name: NAME, pic: a.pic, color: a.color, clear: a.clear, at: Date.now() }); } catch (e) {} };
     const leave = () => { mine.delete().catch(() => {}); };
-    const show = () => { const now = Date.now(), here = Object.entries(seen).filter(([, d]) => now - (d.at || 0) < 150000).sort(([a], [b]) => (b === EMAIL) - (a === EMAIL));
+    // The character's owner comes first whenever they're here, then you, then everyone else.
+    const show = () => { const now = Date.now(), rank = em => em === OWNER ? 0 : em === EMAIL ? 1 : 2, here = Object.entries(seen).filter(([, d]) => now - (d.at || 0) < 200000).sort(([a], [b]) => rank(a) - rank(b));
       if (!box) { box = document.createElement('div'); box.className = 'pg-pres'; document.body.appendChild(box); }
       box.hidden = !here.length; // you always see yourself, on your own sheet too
       box.innerHTML = here.map(([em, d]) => avaHTML(d.name, em, d.pic, em === EMAIL ? 'me' : '', em === EMAIL ? (d.name || NAME) + ' (you)' : (d.name || em), { color: d.color, clear: d.clear })).join('');
       placePres(); };
     beat(); setInterval(beat, 60000); setInterval(show, 1500);
-    document.addEventListener('visibilitychange', () => { if (document.hidden) leave(); else beat(); });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) beat(); });
     addEventListener('pagehide', leave);
     pcol.onSnapshot(qs => { seen = {}; qs.docs.forEach(d => { seen[d.id] = d.data(); }); show(); }, () => {});
   };
@@ -2013,7 +2061,7 @@ function hub(fs, auth, G, ctx) {
   const MI = { pin: mi('<path d="M9 3h6l-1 6 4 4H6l4-4z"/><path d="M12 13v8"/>'), unpin: mi('<path d="M9 3h6l-1 6 4 4H6l4-4z"/><path d="M12 13v8"/><path d="M3 3l18 18"/>'), share: shareIcon.replace(/width="\d+"/, 'width="16"').replace(/height="\d+"/, 'height="16"').replace('<svg', '<svg class="mi"'),
     move: mi('<circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 11h6M19 8l3 3-3 3"/>'), leave: mi('<path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4"/><path d="M10 17l-5-5 5-5M5 12h11"/>'),
     del: mi('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>'), copy: mi('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/>'),
-    exp: mi('<path d="M12 4v11M7 10l5 5 5-5"/><path d="M5 19h14"/>') };
+    exp: mi('<path d="M12 4v11M7 10l5 5 5-5"/><path d="M5 19h14"/>'), tok: mi('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="10" r="2.6"/><path d="M7.5 17.5c1-2.2 2.6-3.2 4.5-3.2s3.5 1 4.5 3.2"/>') };
 
   // ----- actions on one character (used by the hub's menus and the admin section) -----
   // A character's saved sheet, put back together (big sheets are split across a few documents).
@@ -2042,14 +2090,32 @@ function hub(fs, auth, G, ctx) {
       const el = document.createElement('a'); el.href = URL.createObjectURL(new Blob([out], { type: 'text/html' })); el.download = fname; document.body.appendChild(el); el.click(); setTimeout(() => { URL.revokeObjectURL(el.href); el.remove(); }, 1500);
       toast('Downloaded ' + fname + '.'); }
     catch (x) { toast('Couldn’t export it: ' + (x.message || x)); } }
+  // Download token: a round picture of the character for a virtual tabletop, ringed in the sheet's accent colour.
+  async function tokenChar(c) { toast('Making ' + (c.name || 'the') + ' token…');
+    try { const { str } = await sheetText(c.id), st = JSON.parse(str), acc = /^#[0-9a-f]{6}$/i.test((st.theme || {}).accent || '') ? st.theme.accent : '#c9962b';
+      const src = st.portrait || c.thumb || '', N0 = 512, cv = document.createElement('canvas'); cv.width = cv.height = N0; const x = cv.getContext('2d'), R = N0 / 2, ring = 30;
+      const img = src ? await new Promise((res, rej) => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => res(im); im.onerror = rej; im.src = src; }) : null;
+      x.save(); x.beginPath(); x.arc(R, R, R - ring + 2, 0, Math.PI * 2); x.clip();
+      if (img) { const sz = Math.min(img.width, img.height), sx = (img.width - sz) / 2, sy = (img.height - sz) / 2 * 0.6; x.drawImage(img, sx, sy, sz, sz, ring - 2, ring - 2, N0 - 2 * (ring - 2), N0 - 2 * (ring - 2)); }
+      else { x.fillStyle = '#1f2a44'; x.fillRect(0, 0, N0, N0); x.fillStyle = '#f3e7c6'; x.font = '800 190px Georgia, serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(String(st.name || c.name || '?').split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase(), R, R + 8); }
+      const sh = x.createRadialGradient(R, R, R - ring - 40, R, R, R - ring + 2); sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,.35)'); x.fillStyle = sh; x.fillRect(0, 0, N0, N0); x.restore();
+      // the ring: accent colour with a little light on top and shade underneath, and a thin dark edge so it reads on any map
+      const g = x.createLinearGradient(0, 0, 0, N0), lt = (h, k) => { const n = parseInt(h.slice(1), 16), f = v => Math.max(0, Math.min(255, Math.round(v + (k > 0 ? (255 - v) * k : v * k)))); return `rgb(${f(n >> 16 & 255)},${f(n >> 8 & 255)},${f(n & 255)})`; };
+      g.addColorStop(0, lt(acc, .35)); g.addColorStop(.5, acc); g.addColorStop(1, lt(acc, -.35));
+      x.beginPath(); x.arc(R, R, R - ring / 2 - 2, 0, Math.PI * 2); x.lineWidth = ring; x.strokeStyle = g; x.stroke();
+      x.beginPath(); x.arc(R, R, R - 2, 0, Math.PI * 2); x.lineWidth = 4; x.strokeStyle = 'rgba(10,12,20,.85)'; x.stroke();
+      x.beginPath(); x.arc(R, R, R - ring - 1, 0, Math.PI * 2); x.lineWidth = 3; x.strokeStyle = 'rgba(10,12,20,.6)'; x.stroke();
+      const blob = await new Promise(res => cv.toBlob(res, 'image/png')), fname = (st.name || c.name || 'character').replace(/[^\w-]+/g, '_') + '_token.png';
+      const el = document.createElement('a'); el.href = URL.createObjectURL(blob); el.download = fname; document.body.appendChild(el); el.click(); setTimeout(() => { URL.revokeObjectURL(el.href); el.remove(); }, 1500); toast('Downloaded ' + fname + '.'); }
+    catch (e) { toast('Couldn’t make the token: ' + (e.message || e)); } }
   // View-only link: a copy of the sheet anyone can open without signing in, kept up to date as it's edited.
   const pubCol = fs.collection('pub'), pubURL = t => location.origin + (PRETTY ? '/view/' + t : location.pathname + '?pv=' + t);
   async function pubOn(c) { const { str, main } = await sheetText(c.id); const t = main.pub || newId().slice(0, 22), parts = chunks(str), now = Number(main.savedAt) || Date.now();
     for (let k = 1; k < parts.length; k++) await pubCol.doc(t + '_p' + k).set({ c: c.id, savedAt: now, data: parts[k] });
     await pubCol.doc(t).set({ c: c.id, savedAt: now, n: parts.length, data: parts[0], v: 2, tab: String(main.tab || 'x') });
-    if (main.pub !== t) await sheets.doc(c.id).update({ pub: t }); return t; }
+    if (main.pub !== t) await sheets.doc(c.id).update({ pub: t }); charsCol.doc(c.id).set({ pub: true }, { merge: true }).catch(() => {}); return t; }
   async function pubOff(c, t) { const m = await pubCol.doc(t).get().catch(() => null), n = Number(m && m.exists && m.data().n) || 1;
-    await sheets.doc(c.id).update({ pub: firebase.firestore.FieldValue.delete() }); for (let k = 1; k < n; k++) await pubCol.doc(t + '_p' + k).delete().catch(() => {}); await pubCol.doc(t).delete().catch(() => {}); }
+    await sheets.doc(c.id).update({ pub: firebase.firestore.FieldValue.delete() }); charsCol.doc(c.id).set({ pub: false }, { merge: true }).catch(() => {}); for (let k = 1; k < n; k++) await pubCol.doc(t + '_p' + k).delete().catch(() => {}); await pubCol.doc(t).delete().catch(() => {}); }
   // Who else can open a character: everyone in "viewers" can look; those also in "editors" can change it.
   async function setAccess(c, V, E) {
     const acc = { viewers: V, editors: E.filter(x => V.includes(x)) };
@@ -2089,6 +2155,7 @@ function hub(fs, auth, G, ctx) {
       modal.classList.add('on');
       paintPub(false);
       const save = async (nv, ne, msg) => { try { await setAccess(c, nv, ne); V = c.viewers; E = c.editors; if (msg) toast(msg); paint(); if (back && back.refresh) back.refresh(); } catch (x) { toast('Couldn\'t change sharing: ' + (x.message || x)); } };
+      peoplePicker(modal.querySelector('#sh-e'));
       modal.querySelector('#sh-f').onsubmit = e => { e.preventDefault(); const em = modal.querySelector('#sh-e').value.trim().toLowerCase();
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { toast('Type an email address.'); return; } if (em === c.owner) { toast('That’s the owner.'); return; }
         const ed = modal.querySelector('#sh-a').value === 'edit'; save([...V.filter(x => x !== em), em], ed ? [...E.filter(x => x !== em), em] : E.filter(x => x !== em), 'Shared with ' + nameOf(em) + '.'); };
@@ -2098,6 +2165,18 @@ function hub(fs, auth, G, ctx) {
     };
     Promise.all([IS_ADMIN ? needNames(V) : null, sheets.doc(c.id).get().then(d => { PUB = (d.exists && d.data().pub) || ''; }, () => {})]).then(paint);
   }
+  // Admins typing an email (sharing, giving a character away…): suggestions by name or email as they type; picking one fills it in.
+  function peoplePicker(inp, onPick) { if (!IS_ADMIN || !inp) return; let box = null, items = [], k = -1, t = null;
+    const shut = () => { if (box) { box.remove(); box = null; } items = []; k = -1; };
+    const place = () => { if (!box) return; const r = inp.getBoundingClientRect(); box.style.left = r.left + 'px'; box.style.top = (r.bottom + 4) + 'px'; box.style.width = Math.max(240, r.width) + 'px'; };
+    const paint = () => { if (!items.length) return shut(); if (!box) { box = document.createElement('div'); box.className = 'pp-sug'; document.body.appendChild(box); }
+      box.innerHTML = items.map((u, j) => `<button type="button" data-j="${j}"${j === k ? ' class="on"' : ''}>${esc(u.name || u.id)}<small>${esc(u.id)}</small></button>`).join(''); place();
+      box.querySelectorAll('[data-j]').forEach(b => b.onmousedown = e => { e.preventDefault(); pick(items[N(b.dataset.j)]); }); };
+    const pick = u => { inp.value = u.id; shut(); if (onPick) onPick(u.id); };
+    inp.setAttribute('autocomplete', 'off'); inp.type = 'text'; inp.placeholder = 'Their name or email';
+    inp.addEventListener('input', () => { clearTimeout(t); const q = inp.value.trim(); if (q.length < 1) return shut(); t = setTimeout(async () => { try { const r = await findUsers(q); items = r.docs.map(d => Object.assign({ id: d.id }, d.data())).slice(0, 8); k = -1; if (document.activeElement === inp) paint(); } catch (e) { shut(); } }, 160); });
+    inp.addEventListener('keydown', e => { if (!box) return; if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); k = (k + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length; paint(); } else if (e.key === 'Enter' && k >= 0) { e.preventDefault(); pick(items[k]); } else if (e.key === 'Escape') shut(); });
+    inp.addEventListener('blur', () => setTimeout(shut, 120)); addEventListener('scroll', place, { passive: true, capture: true }); }
   // Admins: find an account by name or email (one indexed lookup however many accounts there are).
   async function findUsers(q, after) { q = String(q || '').trim().toLowerCase().slice(0, 24);
     let qq = q ? usersCol.where('keys', 'array-contains', q).limit(25) : usersCol.orderBy('createdAt', 'desc').limit(25); if (after) qq = qq.startAfter(after);
@@ -2235,7 +2314,7 @@ function hub(fs, auth, G, ctx) {
       <small>${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small>${acc}</span></a>
       ${(() => { const inList = (c.viewers || []).includes(EMAIL) && !isMine(c), it = [];
         if (IS_ADMIN) it.push(['share', 'Share…'], ['move', 'Give to another player']);
-        it.push(['copy', 'Make a copy'], ['exp', 'Export']);
+        it.push(['copy', 'Make a copy'], ['exp', 'Export'], ['tok', 'Download token']);
         if (inList) it.push(['leave', 'Relinquish access']);
         if (canDelete(c)) it.push(['del', 'Delete character…', 'hc-del']);
         return it.length ? `<div class="hc-menu"><button class="hc-dots" aria-label="More">⋯</button><div class="hc-list">${it.map(([a, t, k]) => `<button data-a="${a}" data-id="${esc(c.id)}"${k ? ` class="${k}"` : ''}>${MI[a]}${t}</button>`).join('')}</div></div>` : ''; })()}</div>`;
@@ -2249,7 +2328,7 @@ function hub(fs, auth, G, ctx) {
       <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</span>
       <small>${shareNote(c)}${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small></span></a>
       <div class="hc-menu hr-menu"><button class="hc-dots" aria-label="More options for ${esc(c.name || 'this character')}">⋯</button><div class="hc-list">
-        <button data-a="pin" data-id="${esc(c.id)}">${c.pin ? MI.unpin + 'Unpin' : MI.pin + 'Pin'}</button><button data-a="share" data-id="${esc(c.id)}">${MI.share}Share…</button><button data-a="copy" data-id="${esc(c.id)}">${MI.copy}Make a copy</button><button data-a="exp" data-id="${esc(c.id)}">${MI.exp}Export</button>${canDelete(c) ? `<button data-a="del" data-id="${esc(c.id)}" class="hc-del">${MI.del}Delete character…</button>` : ''}</div></div></div>`;
+        <button data-a="pin" data-id="${esc(c.id)}">${c.pin ? MI.unpin + 'Unpin' : MI.pin + 'Pin'}</button><button data-a="share" data-id="${esc(c.id)}">${MI.share}Share…</button><button data-a="copy" data-id="${esc(c.id)}">${MI.copy}Make a copy</button><button data-a="exp" data-id="${esc(c.id)}">${MI.exp}Export</button><button data-a="tok" data-id="${esc(c.id)}">${MI.tok}Download token</button>${canDelete(c) ? `<button data-a="del" data-id="${esc(c.id)}" class="hc-del">${MI.del}Delete character…</button>` : ''}</div></div></div>`;
   }
   async function saveOrder(ids) { await Promise.all(ids.map((id, i) => { const c = chars.find(x => x.id === id); if (c && c.order === i) return null; if (c) c.order = i; return charsCol.doc(id).set({ order: i }, { merge: true }); })); }
   async function togglePin(id) { const c = chars.find(x => x.id === id); if (!c) return; const mine = chars.filter(isMine);
@@ -2375,7 +2454,7 @@ function hub(fs, auth, G, ctx) {
     root.querySelectorAll('details.hub-folder').forEach(d => d.addEventListener('toggle', () => { open[d.dataset.k] = d.open; ls.set(OPEN, JSON.stringify(open)); }));
     root.querySelectorAll('.hc-dots').forEach(b => b.onclick = e => { e.stopPropagation(); const w = b.parentElement, on = !w.classList.contains('on'); root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')); w.classList.toggle('on', on); });
     root.querySelectorAll('.hc-list [data-a]').forEach(b => b.onclick = () => { const c = chars.find(x => x.id === b.dataset.id); b.closest('.hc-menu').classList.remove('on'); if (!c) return;
-      if (b.dataset.a === 'share') shareChar(c); if (b.dataset.a === 'move') moveChar(c, draw); if (b.dataset.a === 'leave') leaveChar(c, draw); if (b.dataset.a === 'pin') togglePin(c.id); if (b.dataset.a === 'del') deleteChar(c, draw); if (b.dataset.a === 'copy') copyChar(c); if (b.dataset.a === 'exp') exportChar(c); });
+      if (b.dataset.a === 'share') shareChar(c); if (b.dataset.a === 'move') moveChar(c, draw); if (b.dataset.a === 'leave') leaveChar(c, draw); if (b.dataset.a === 'pin') togglePin(c.id); if (b.dataset.a === 'del') deleteChar(c, draw); if (b.dataset.a === 'copy') copyChar(c); if (b.dataset.a === 'exp') exportChar(c); if (b.dataset.a === 'tok') tokenChar(c); });
   }
   wireDie(root);
   document.addEventListener('click', () => root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')));
@@ -2410,7 +2489,8 @@ function hub(fs, auth, G, ctx) {
   function adminSection() {
     if (!window.PG_NF) { window.PG_NF = 1; document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-newfor]'); if (b) pgGo(URLS.newChar(G, b.dataset.newfor, nameOf(b.dataset.newfor))); }); }
     const UREF = usersCol.doc(EMAIL); let CHECKED = Number(ME && ME.checkedAt) || 0;
-    const T0 = ctx.tab === 'characters' ? 'chars' : ctx.tab; let TAB = ['users', 'chars', 'admins', 'new', 'audit'].includes(T0) ? T0 : 'users';
+    const UF0 = { role: '', act: '', joined: '' };
+    const T0 = ctx.tab === 'characters' ? 'chars' : ctx.tab; let TAB = ['users', 'chars', 'new', 'audit'].includes(T0) ? T0 : 'users'; if (T0 === 'admins') UF0.role = 'admin';
     const CH = {}, US = {}; // characters and accounts on screen
     let NEWN = null;
     const setTab = t => { TAB = t; history.replaceState(null, '', URLS.admin(G, t === 'chars' ? 'characters' : t)); frame(); };
@@ -2422,8 +2502,8 @@ function hub(fs, auth, G, ctx) {
       new: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
       search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>' };
     const svg = (k, n = 18) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ic[k]}</svg>`;
-    const PAGES = { users: ['Users', 'Everyone who has signed in. Search by name or email, rename someone, or look at their characters.'],
-      chars: ['Characters', 'Every character on the site, newest activity first. Share any of them with yourself, or open, share, move or delete them.'],
+    const PAGES = { users: ['Users', 'Everyone who has signed in, most recently active first. Search or filter by role, activity or when they joined; rename someone, make them an admin, or look at their characters.'],
+      chars: ['Characters', 'Every character on the site, newest activity first. Search or filter by player, sharing or last update; share any of them with yourself, or open, share, move or delete them.'],
       admins: ['Admins', 'Admins can open and edit every character, manage users and see new accounts.'],
       new: ['New', 'Accounts and characters that appeared since you last marked this as read.'],
       audit: ['Audit log', 'Everything people have done on the site: sign-ins, characters opened, created, edited, shared and deleted, and admin actions. Search, or filter by date, person or activity; tap an event for its details. Events are kept for 7 days.'] };
@@ -2495,7 +2575,7 @@ function hub(fs, auth, G, ctx) {
     function frame0() {
       const nav = (k, label) => `<button class="adm-ni${TAB === k ? ' on' : ''}" data-tab="${k}">${svg(k)}<span>${label}</span>${k === 'new' && NEWN ? `<b class="adm-badge">${NEWN}</b>` : ''}</button>`;
       const [title, desc] = PAGES[TAB];
-      const navHTML = `<div class="adm-sec">Manage</div>${nav('users', 'Users')}${nav('chars', 'Characters')}${nav('admins', 'Admins')}<div class="adm-sec">Activity</div>${nav('audit', 'Audit log')}${nav('new', 'New')}`;
+      const navHTML = `<div class="adm-sec">Manage</div>${nav('users', 'Users')}${nav('chars', 'Characters')}<div class="adm-sec">Activity</div>${nav('audit', 'Audit log')}${nav('new', 'New')}`;
       // Switching tabs only swaps the page on the right: the sidebar (and where its tab strip is scrolled to on a phone) stays put.
       const nv0 = root.querySelector('.adm-nav');
       if (nv0) { const x = nv0.scrollLeft; nv0.innerHTML = navHTML; nv0.scrollLeft = x;
@@ -2506,13 +2586,13 @@ function hub(fs, auth, G, ctx) {
         const kept = !again && PANES[TAB];
         if (kept) { curB.replaceWith(kept.b); curH.replaceWith(kept.h); PREV_TAB = TAB; nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab)); scrollTo(0, 0);
           // …and quietly brings it up to date behind the scenes
-          ({ new: () => tabNew(), users: () => tabUsersList(), chars: () => tabCharsList(), admins: () => tabAdmins(), audit: () => tabAuditList() })[TAB](); return; }
+          ({ new: () => tabNew(), users: () => paintUsers(), chars: () => paintChars(), audit: () => paintAudit() })[TAB](); return; }
         const nb = document.createElement('section'); nb.id = 'ad-body'; nb.className = 'adm-body'; nb.innerHTML = '<p class="adm-dim">Loading…</p>';
         const nh = document.createElement('div'); nh.id = 'adm-hact'; nh.className = 'adm-hact';
         if (again) { curB.replaceWith(nb); curH.replaceWith(nh); } else { curB.replaceWith(nb); curH.replaceWith(nh); } delete PANES[TAB]; PREV_TAB = TAB;
         nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
         const on = nv0.querySelector('.adm-ni.on'); if (on && on.scrollIntoView) { const r = on.getBoundingClientRect(), nr = nv0.getBoundingClientRect(); if (r.left < nr.left || r.right > nr.right) nv0.scrollBy({ left: r.left < nr.left ? r.left - nr.left - 12 : r.right - nr.right + 12, behavior: 'smooth' }); }
-        ({ new: tabNew, users: tabUsers, chars: tabChars, admins: tabAdmins, audit: tabAudit })[TAB](); return; }
+        ({ new: tabNew, users: tabUsers, chars: tabChars, audit: tabAudit })[TAB](); return; }
       const keepLogo = root.querySelector('.hub-logo');
       root.innerHTML = `<div class="adm"><aside class="adm-side">
           <div class="adm-brand">${logoHTML()}</div>
@@ -2525,10 +2605,24 @@ function hub(fs, auth, G, ctx) {
       PREV_TAB = TAB;
       root.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
       { const o = root.querySelector('#adm-out'); if (o) o.onclick = signOut; }
-      ({ new: tabNew, users: tabUsers, chars: tabChars, admins: tabAdmins, audit: tabAudit })[TAB]();
+      ({ new: tabNew, users: tabUsers, chars: tabChars, audit: tabAudit })[TAB]();
     }
     const B = () => root.querySelector('#ad-body'), HA = () => root.querySelector('#adm-hact');
-    document.addEventListener('click', e => { const k = e.target.closest && e.target.closest('.adm-kebab'); root.querySelectorAll('.adm-mwrap.on').forEach(w => { if (!k || w !== k.parentElement) w.classList.remove('on'); }); if (k) { const w = k.parentElement; w.classList.remove('up'); w.classList.toggle('on'); if (w.classList.contains('on')) { const l = w.querySelector('.adm-mlist'); if (l && l.getBoundingClientRect().bottom > innerHeight - 8) w.classList.add('up'); } } });
+    // ⋯ menus float above everything (moved to the top of the page while open), so a table never grows a scrollbar for them.
+    let MENU = null;
+    const closeAdmMenus = () => { const m = MENU; if (!m) return; MENU = null; m.w.classList.remove('on'); const l = m.l; l.classList.add('closing'); l.classList.remove('on');
+      setTimeout(() => { l.classList.remove('closing', 'portal'); l.style.left = l.style.top = ''; if (m.w.isConnected) m.w.appendChild(l); else l.remove(); if (MENU_PENDING) { const f = MENU_PENDING; MENU_PENDING = null; f(); } }, PG_CALM ? 0 : 130); };
+    let MENU_PENDING = null; const whenMenusClosed = f => { if (MENU) MENU_PENDING = f; else f(); };
+    document.addEventListener('click', e => { const k = e.target.closest && e.target.closest('.adm-kebab');
+      if (MENU && (!k || k.parentElement !== MENU.w) && !(e.target.closest && e.target.closest('.adm-mlist.portal') && !e.target.closest('[data-mi]'))) closeAdmMenus();
+      if (!k || (MENU && MENU.w === k.parentElement)) { if (k) closeAdmMenus(); return; }
+      const w = k.parentElement, l = w.querySelector('.adm-mlist'); if (!l) return;
+      document.body.appendChild(l); l.classList.add('portal', 'on'); w.classList.add('on'); MENU = { w, l };
+      const r = k.getBoundingClientRect(), mw = l.offsetWidth, mh = l.offsetHeight;
+      l.style.left = Math.max(8, Math.min(r.right - mw, innerWidth - mw - 8)) + 'px';
+      l.style.top = (r.bottom + 4 + mh > innerHeight - 8 && r.top - 4 - mh > 8 ? r.top - 4 - mh : Math.min(r.bottom + 4, innerHeight - mh - 8)) + 'px'; });
+    addEventListener('scroll', () => { if (MENU) closeAdmMenus(); }, { passive: true, capture: true }); addEventListener('resize', () => { if (MENU) closeAdmMenus(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && MENU) closeAdmMenus(); });
 
     // ----- characters as table rows -----
     const myAccess = c => isMine(c) ? 'own' : (c.editors || []).includes(EMAIL) ? 'edit' : (c.viewers || []).includes(EMAIL) ? 'view' : '';
@@ -2544,14 +2638,15 @@ function hub(fs, auth, G, ctx) {
         const V = (c.viewers || []).filter(x => x !== EMAIL), E = (c.editors || []).filter(x => x !== EMAIL);
         try { await setAccess(c, v ? [...V, EMAIL] : V, v === 'edit' ? [...E, EMAIL] : E); toast(v ? (c.name || 'It') + ' is shared with you (' + (v === 'edit' ? 'can edit' : 'view only') + ').' : 'Stopped sharing ' + (c.name || 'it') + ' with you.'); }
         catch (x) { toast('Couldn\'t change it: ' + (x.message || x)); sl.value = myAccess(c) === 'own' ? '' : myAccess(c); } });
-      el.querySelectorAll('[data-mi]').forEach(b => b.onclick = () => { const c = CH[b.dataset.id]; b.closest('.adm-mwrap').classList.remove('on'); if (!c) return;
+      el.querySelectorAll('[data-mi]').forEach(b => b.onclick = () => { const c = CH[b.dataset.id]; closeAdmMenus(); if (!c) return;
         ({ open: () => { pgGo(URLS.char(c)); }, share: () => shareChar(c, Object.assign(() => {}, { refresh: redo })), give: () => moveChar(c, redo), rm: () => removeChar(c, redo), del: () => deleteChar(c, redo) })[b.dataset.mi](); });
     }
     const docs = r => r.docs.map(d => Object.assign({ id: d.id }, d.data()));
     const failMsg = x => `<p class="adm-empty">Couldn't load this (${esc((x && (x.code || x.message)) || x)}).</p>`;
     const toolbar = (id, ph, val, count) => `<div class="adm-tool"><label class="adm-search">${svg('search', 16)}<input id="${id}" placeholder="${esc(ph)}" value="${esc(val)}" autocomplete="off"></label><span class="adm-count" id="${id}-n">${count || ''}</span></div>`;
 
-    // --- New ---
+    // --- New --- (redrawn by itself when accounts or characters change while it's open)
+    let NEWT = null; const newSoon = () => { clearTimeout(NEWT); NEWT = setTimeout(() => { if (TAB === 'new' && !MENU) tabNew(); }, 1500); };
     async function tabNew() {
       const el = B();
       try {
@@ -2573,38 +2668,52 @@ function hub(fs, auth, G, ctx) {
       } catch (x) { el.innerHTML = failMsg(x); }
     }
 
-    // --- Users ---
-    let UQ = '', ULAST = null, UROWS = [];
-    async function tabUsers(more) {
-      const el = B();
-      if (!more) { HA().innerHTML = ''; el.innerHTML = toolbar('ad-uq', 'Search by name or email', UQ) + '<div id="ad-ul"><p class="adm-dim">Loading…</p></div>';
-        const q = el.querySelector('#ad-uq'); let t = null; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { UQ = q.value; ULAST = null; UROWS = []; tabUsersList(); }, 250); }; if (!UQ && !TOUCH) q.focus(); }
-      tabUsersList(more);
+    // --- Users: everyone, live (a new sign-up or someone coming online shows up without a refresh) ---
+    let UQ = '', UROWS = [], ULIVE = null, UOPEN = new Set(); const UF = UF0, UCH = {};
+    const ONLINE = 4 * 60000, isOn = u => u.seenAt && Date.now() - u.seenAt < ONLINE;
+    const fsel = (id, label, opts, val) => `<label class="adm-fsel${val ? ' on' : ''}"><span>${label}</span><select id="${id}">${opts.map(([v, t]) => `<option value="${v}"${v === val ? ' selected' : ''}>${t}</option>`).join('')}</select></label>`;
+    async function tabUsers() {
+      const el = B(); HA().innerHTML = '';
+      el.innerHTML = `<div class="adm-filters">${toolbar('ad-uq', 'Search by name or email', UQ)}<div class="adm-fsels">
+          ${fsel('uf-role', 'Role', [['', 'Anyone'], ['owner', 'Owner'], ['admin', 'Admins'], ['member', 'Members'], ['blocked', 'Blocked']], UF.role)}
+          ${fsel('uf-act', 'Active', [['', 'Any time'], ['on', 'Online now'], ['1', 'Today'], ['7', 'This week'], ['30', 'This month'], ['old', 'Not in 30+ days']], UF.act)}
+          ${fsel('uf-join', 'Joined', [['', 'Any time'], ['7', 'Past week'], ['30', 'Past month']], UF.joined)}</div></div><div id="ad-ul"><p class="adm-dim">Loading…</p></div>`;
+      const q = el.querySelector('#ad-uq'); let t = null; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { UQ = q.value; paintUsers(); }, 150); }; if (!UQ && !TOUCH) q.focus();
+      [['uf-role', 'role'], ['uf-act', 'act'], ['uf-join', 'joined']].forEach(([id, k]) => { const sl = el.querySelector('#' + id); sl.onchange = () => { UF[k] = sl.value; sl.parentElement.classList.toggle('on', !!sl.value); paintUsers(); }; });
+      if (!ULIVE) ULIVE = usersCol.limit(1000).onSnapshot(qs => { UROWS = docs(qs); UROWS.forEach(u => { US[u.id] = u; remember(u.id, u); }); if (APEOPLE) APEOPLE = UROWS.slice().sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
+        if (TAB === 'users') paintUsers(); if (TAB === 'new' && qs.docChanges().some(ch => ch.type !== 'modified')) newSoon(); }, x => { const l = B().querySelector('#ad-ul'); if (l) l.innerHTML = failMsg(x); });
+      else paintUsers();
     }
-    async function tabUsersList(more) {
-      const l = B().querySelector('#ad-ul'); if (!l) return;
-      try { const r = await findUsers(UQ, more ? ULAST : null); ULAST = r.docs[r.docs.length - 1] || ULAST; UROWS = (more ? UROWS : []).concat(docs(r)); UROWS.forEach(u => { US[u.id] = u; });
-        const rows = UQ ? UROWS.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')) : UROWS;
-        const cnt = B().querySelector('#ad-uq-n'); if (cnt) cnt.textContent = rows.length ? rows.length + (r.docs.length === 25 ? '+' : '') + ' user' + (rows.length === 1 ? '' : 's') : '';
-        l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Last active</th><th></th><th></th></tr></thead><tbody>${rows.map(u => { const [rl, rc] = u.banned ? ['Blocked', 'r-blk'] : roleOf(u.id);
-          return `<tr data-u="${esc(u.id)}"><td><span class="adm-who">${ava(u.name, u.id)}<b>${esc(u.name || '—')}</b></span></td><td class="adm-mail">${esc(u.id)}</td><td><span class="adm-tag ${rc}">${rl}</span></td><td>${when(u.createdAt)}</td><td>${u.seenAt && Date.now() - u.seenAt < 4 * 60000 ? '<span class="adm-online" title="Has Adventurer’s Tome open right now"><i></i>Online now</span>' : u.seenAt ? esc(ago(u.seenAt)) : '<span class="adm-dim">—</span>'}</td>
-            <td><button class="adm-btn sm" data-uc="${esc(u.id)}">Characters ▸</button></td><td class="adm-act">${kebab([['rename', 'Rename…', u.id], ['pic', 'Change picture…', u.id], ['newfor', 'New character for them', u.id]].concat(IS_OWNER && u.id !== ADMIN_EMAIL ? [ADMINS.includes(u.id) ? ['unadmin', 'Remove admin', u.id] : ['mkadmin', 'Make admin', u.id]] : [], u.id === ADMIN_EMAIL || u.id === EMAIL ? [] : [['signout', 'Sign out everywhere', u.id]].concat(u.banned ? [['unblock', 'Unblock', u.id]] : [], [['delacct', 'Delete account…', u.id, 'danger']])))}</td></tr>
-            <tr class="adm-subrow" data-sub="${esc(u.id)}" hidden><td colspan="7"></td></tr>`; }).join('')}</tbody></table></div>`
-          + (r.docs.length === 25 ? '<button class="adm-btn adm-more" id="ad-umore">Load more</button>' : '') : `<p class="adm-empty">${UQ ? 'Nobody matches “' + esc(UQ) + '”.' : 'No accounts yet.'}</p>`;
-        const mb = l.querySelector('#ad-umore'); if (mb) mb.onclick = () => tabUsers(true);
-        const toggle = async em => { const sub = l.querySelector(`[data-sub="${CSS.escape(em)}"]`), btn = l.querySelector(`[data-uc="${CSS.escape(em)}"]`); if (!sub) return;
-          if (!sub.hidden) { sub.hidden = true; btn.textContent = 'Characters ▸'; return; } sub.hidden = false; btn.textContent = 'Characters ▾'; const cell = sub.firstElementChild;
-          const fill = async () => { cell.innerHTML = '<p class="adm-dim">Loading…</p>'; try { const cs = docs(await charsCol.where('owner', '==', em).limit(100).get()).sort((x, y) => (y.updatedAt || 0) - (x.updatedAt || 0));
-            cell.innerHTML = ctable(cs, false) + `<button class="adm-btn sm" data-newfor="${esc(em)}">＋ New character for ${esc(nameOf(em))}</button>`; wire(cell, fill); } catch (x) { cell.innerHTML = failMsg(x); } };
-          fill(); };
-        l.querySelectorAll('[data-uc]').forEach(b => b.onclick = () => toggle(b.dataset.uc));
-        l.querySelectorAll('[data-mi]').forEach(b => b.onclick = async () => { const em = b.dataset.id; b.closest('.adm-mwrap').classList.remove('on');
-          if (b.dataset.mi === 'mkadmin' || b.dataset.mi === 'unadmin') { const add = b.dataset.mi === 'mkadmin', cfg = fs.collection('config').doc('admins');
-            if (add && !await ask('Make ' + esc(nameOf(em)) + ' an admin?', 'They’ll be able to open and change every character, manage users and see the audit log.', 'Make admin')) return;
-            cfg.set({ emails: add ? FV.arrayUnion(em) : FV.arrayRemove(em) }, { merge: true }).then(() => { ADMINS = add ? [...new Set(ADMINS.concat(em))] : ADMINS.filter(x => x !== em); toast(nameOf(em) + (add ? ' is now an admin.' : ' is no longer an admin.')); pgLog(add ? 'admin_add' : 'admin_remove', { target: em, tName: nameOf(em) }); delete PANES.admins; tabUsersList(); }, x => toast('Couldn’t change that: ' + (x.message || x))); return; }
-          if (b.dataset.mi === 'chars') toggle(em); else if (b.dataset.mi === 'newfor') pgGo(URLS.newChar(G, em, nameOf(em))); else if (b.dataset.mi === 'rename') renameUser(em); else userAction(b.dataset.mi, em); });
-      } catch (x) { l.innerHTML = failMsg(x); }
+    setInterval(() => { if (TAB === 'users' && !document.hidden) paintUsers(); }, 30000); // "Online now" comes and goes with time too
+    const roleKey = u => u.banned ? 'blocked' : u.id === ADMIN_EMAIL ? 'owner' : ADMINS.includes(u.id) ? 'admin' : 'member';
+    function paintUsers() {
+      const l = B() && B().querySelector('#ad-ul'); if (!l) return; if (MENU || document.querySelector('.hub-modal.on')) return whenMenusClosed(paintUsers);
+      const q = UQ.trim().toLowerCase(), now = Date.now(), dayN = n => now - n * 864e5;
+      const rows = UROWS.filter(u => (!q || (String(u.name || '') + ' ' + u.id).toLowerCase().includes(q))
+          && (!UF.role || roleKey(u) === UF.role || (UF.role === 'admin' && roleKey(u) === 'owner'))
+          && (!UF.act || (UF.act === 'on' ? isOn(u) : UF.act === 'old' ? !(u.seenAt > dayN(30)) : u.seenAt > dayN(Number(UF.act))))
+          && (!UF.joined || u.createdAt > dayN(Number(UF.joined))))
+        .sort((a, b) => (isOn(b) - isOn(a)) || ((b.seenAt || 0) - (a.seenAt || 0)) || String(a.name || a.id).localeCompare(String(b.name || b.id)));
+      const cnt = B().querySelector('#ad-uq-n'); if (cnt) cnt.textContent = rows.length + ' of ' + UROWS.length + ' user' + (UROWS.length === 1 ? '' : 's') + (UROWS.filter(isOn).length ? ' · ' + UROWS.filter(isOn).length + ' online' : '');
+      const seen = u => isOn(u) ? '<span class="adm-online" title="Has Adventurer’s Tome open right now"><i></i>Online now</span>' : u.seenAt ? esc(ago(u.seenAt)) : '<span class="adm-dim">—</span>';
+      l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Last active</th><th></th><th></th></tr></thead><tbody>${rows.map(u => { const [rl, rc] = u.banned ? ['Blocked', 'r-blk'] : roleOf(u.id), open = UOPEN.has(u.id);
+          return `<tr data-u="${esc(u.id)}"><td><span class="adm-who">${ava(u.name, u.id)}<b>${esc(u.name || '—')}</b></span></td><td class="adm-mail">${esc(u.id)}</td><td><span class="adm-tag ${rc}">${rl}</span></td><td>${when(u.createdAt)}</td><td>${seen(u)}</td>
+            <td><button class="adm-btn sm" data-uc="${esc(u.id)}">Characters ${open ? '▾' : '▸'}</button></td><td class="adm-act">${kebab([['rename', 'Rename…', u.id], ['pic', 'Change picture…', u.id], ['newfor', 'New character for them', u.id]].concat(IS_OWNER && u.id !== ADMIN_EMAIL ? [ADMINS.includes(u.id) ? ['unadmin', 'Remove admin', u.id] : ['mkadmin', 'Make admin', u.id]] : [], u.id === ADMIN_EMAIL || u.id === EMAIL ? [] : [['signout', 'Sign out everywhere', u.id]].concat(u.banned ? [['unblock', 'Unblock', u.id]] : [], [['delacct', 'Delete account…', u.id, 'danger']])))}</td></tr>
+            <tr class="adm-subrow" data-sub="${esc(u.id)}"${open ? '' : ' hidden'}><td colspan="7"></td></tr>`; }).join('')}</tbody></table></div>`
+        : `<p class="adm-empty">${UROWS.length ? 'Nobody matches these filters.' : 'No accounts yet.'}</p>`;
+      const fill = async (em, cell, fresh) => { const show = cs => { cell.innerHTML = ctable(cs, false) + `<button class="adm-btn sm" data-newfor="${esc(em)}">＋ New character for ${esc(nameOf(em))}</button>`; wire(cell, () => fill(em, cell, true)); };
+        if (UCH[em] && !fresh) return show(UCH[em]); cell.innerHTML = '<p class="adm-dim">Loading…</p>';
+        try { UCH[em] = docs(await charsCol.where('owner', '==', em).limit(100).get()).sort((x, y) => (y.updatedAt || 0) - (x.updatedAt || 0)); if (cell.isConnected) show(UCH[em]); } catch (x) { cell.innerHTML = failMsg(x); } };
+      l.querySelectorAll('tr.adm-subrow:not([hidden])').forEach(sub => fill(sub.dataset.sub, sub.firstElementChild));
+      l.querySelectorAll('[data-uc]').forEach(b => b.onclick = () => { const em = b.dataset.uc, sub = l.querySelector(`[data-sub="${CSS.escape(em)}"]`); if (!sub) return;
+        if (UOPEN.has(em)) { UOPEN.delete(em); sub.hidden = true; b.textContent = 'Characters ▸'; return; } UOPEN.add(em); sub.hidden = false; b.textContent = 'Characters ▾'; fill(em, sub.firstElementChild, true); });
+      l.querySelectorAll('[data-mi]').forEach(b => b.onclick = async () => { const em = b.dataset.id; closeAdmMenus();
+        if (b.dataset.mi === 'mkadmin' || b.dataset.mi === 'unadmin') { const add = b.dataset.mi === 'mkadmin', cfg = fs.collection('config').doc('admins');
+          if (add && !await ask('Make ' + esc(nameOf(em)) + ' an admin?', 'They’ll be able to open and change every character, manage users and see the audit log.', 'Make admin')) return;
+          cfg.set({ emails: add ? FV.arrayUnion(em) : FV.arrayRemove(em) }, { merge: true }).then(() => { ADMINS = add ? [...new Set(ADMINS.concat(em))] : ADMINS.filter(x => x !== em); toast(nameOf(em) + (add ? ' is now an admin.' : ' is no longer an admin.')); pgLog(add ? 'admin_add' : 'admin_remove', { target: em, tName: nameOf(em) }); paintUsers(); }, x => toast('Couldn’t change that: ' + (x.message || x))); return; }
+        if (b.dataset.mi === 'newfor') pgGo(URLS.newChar(G, em, nameOf(em))); else if (b.dataset.mi === 'rename') renameUser(em); else userAction(b.dataset.mi, em); });
     }
+    const tabUsersList = () => paintUsers();
     // --- Managing someone's account: picture, sign out everywhere, block, delete ---
     const ask = (title, text, okLabel, danger, confirmText) => new Promise(res => {
       modal.innerHTML = `<div class="hub-card"><h2>${title}</h2><p class="hub-hint">${text}</p>${confirmText ? `<label class="del-l">Type <b>${esc(confirmText)}</b> to confirm<input id="ak-q" class="ad-search" autocomplete="off" spellcheck="false"></label>` : ''}
@@ -2658,8 +2767,9 @@ function hub(fs, auth, G, ctx) {
     const chev = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
     const pName = em => (APEOPLE.find(u => u.id === em) || {}).name || NAMES[em] || em;
     const actLabel = k => ACTS[k].replace(/:$/, '');
+    let ALIVE = null;
     async function tabAudit() {
-      const el = B(); HA().innerHTML = `<button class="adm-btn" id="au-csv" title="Download what's shown as a spreadsheet">Export CSV</button><button class="adm-btn" id="au-ref">Refresh</button>`;
+      const el = B(); HA().innerHTML = '';
       if (!APEOPLE) { try { APEOPLE = docs(await usersCol.limit(500).get()).sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id)); APEOPLE.forEach(u => remember(u.id, u)); } catch (e) { APEOPLE = []; } }
       el.innerHTML = `<div class="au-bar">
           <label class="au-search">${svg('search', 16)}<input id="au-q" type="search" placeholder="Search activity, people or characters" value="${esc(AF.q)}" autocomplete="off"></label>
@@ -2667,11 +2777,9 @@ function hub(fs, auth, G, ctx) {
       paintPills();
       let t = null; const q = el.querySelector('#au-q');
       q.oninput = () => { clearTimeout(t); t = setTimeout(() => { AF.q = q.value; paintAudit(); paintPills(); }, 200); };
-      HA().querySelector('#au-ref').onclick = () => { ALAST = null; AROWS = []; tabAuditList(); };
-      HA().querySelector('#au-csv').onclick = () => { const rows = auFiltered(), qq = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-        const csv = [['Date', 'Actor', 'Actor email', 'Activity', 'Target', 'Details'].map(qq).join(',')].concat(rows.map(e => [new Date(e.at).toISOString(), e.byName || '', e.by, ACTS[e.act] || e.act, e.tName || e.target || '', e.detail || ''].map(qq).join(','))).join('\n');
-        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'audit-log.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
-      ALAST = null; AROWS = []; await tabAuditList();
+      // The log is live: new events slide in as they happen (it only keeps the past week, so all of it is here).
+      if (!ALIVE) ALIVE = auditCol.orderBy('at', 'desc').limit(1500).onSnapshot(qs => { AROWS = docs(qs); AFULL = false; if (TAB === 'audit') paintAudit(); }, x => { const l = B().querySelector('#au-l'); if (l) l.innerHTML = failMsg(x); });
+      else paintAudit();
     }
     function paintPills() {
       const box = B().querySelector('#au-pills'); if (!box) return;
@@ -2683,11 +2791,11 @@ function hub(fs, auth, G, ctx) {
         + (auOn() ? '<button class="au-clr" id="au-clr">Clear filters</button>' : '');
       box.querySelectorAll('[data-pop]').forEach(b => b.onclick = e => { e.stopPropagation(); const open = b.parentElement.querySelector('.au-pop'); closePops(); if (!open) openPop(b.dataset.pop, b.parentElement); });
       const c = box.querySelector('#au-clr'); if (c) c.onclick = () => { const refetch = AF.who.length || AF.range; AF = { who: [], act: [], q: '', from: '', to: '', range: '' }; const q = B().querySelector('#au-q'); if (q) q.value = '';
-        paintPills(); if (refetch) { ALAST = null; AROWS = []; tabAuditList(); } else paintAudit(); };
+        paintPills(); paintAudit(); };
     }
     let POP_DIRTY = false;
     function closePops() { const was = root.querySelector('.au-pop'); root.querySelectorAll('.au-pop').forEach(p => p.remove()); root.querySelectorAll('.au-pill.open').forEach(p => p.classList.remove('open'));
-      if (was && POP_DIRTY) { POP_DIRTY = false; ALAST = null; AROWS = []; tabAuditList(); } }
+      if (was && POP_DIRTY) { POP_DIRTY = false; paintAudit(); } }
     document.addEventListener('click', e => { if (!e.target.closest || !e.target.closest('.au-pw')) closePops(); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closePops(); });
     function openPop(k, wrap) {
@@ -2719,25 +2827,14 @@ function hub(fs, auth, G, ctx) {
       if (!matchMedia('(pointer: coarse)').matches) inp.focus();
     }
     const dayMs = (d, end) => { if (!d) return 0; const t = new Date(d + 'T00:00:00').getTime(); return end ? t + 864e5 - 1 : t; };
-    async function tabAuditList(more) {
-      const l = B().querySelector('#au-l'); if (!l) return;
-      const [from, to] = auRange();
-      try { let q;
-        const by = AF.who.length && AF.who.length <= 30;
-        if (by) q = (AF.who.length === 1 ? auditCol.where('by', '==', AF.who[0]) : auditCol.where('by', 'in', AF.who)).limit(500);
-        else { q = auditCol.orderBy('at', 'desc'); if (from) q = q.where('at', '>=', from); if (to) q = q.where('at', '<=', to); q = q.limit(150); if (more && ALAST) q = q.startAfter(ALAST); }
-        const r = await q.get(); if (!by) ALAST = r.docs[r.docs.length - 1] || ALAST; AFULL = !by && r.docs.length === 150;
-        AROWS = (more ? AROWS : []).concat(docs(r)); if (by) AROWS.sort((a, b) => b.at - a.at);
-        paintAudit();
-      } catch (x) { l.innerHTML = failMsg(x); }
-    }
+    const tabAuditList = () => paintAudit();
     function auFiltered() {
       const [from, to] = auRange(), qq = AF.q.trim().toLowerCase();
       return AROWS.filter(e => (!AF.act.length || AF.act.includes(e.act)) && (!AF.who.length || AF.who.includes(e.by)) && (!from || e.at >= from) && (!to || e.at <= to)
         && (!qq || [e.byName, e.by, e.tName, e.target, e.detail, ACTS[e.act]].some(x => String(x || '').toLowerCase().includes(qq))));
     }
     function paintAudit() {
-      const l = B().querySelector('#au-l'); if (!l) return;
+      const l = B() && B().querySelector('#au-l'); if (!l || !AROWS) return;
       const rows = auFiltered();
       const what = e => { const lab = esc(ACTS[e.act] || e.act); if (!e.target) return lab;
         if (CHAR_ACTS.has(e.act)) return e.act === 'delete' || e.act === 'remove' ? `${lab} <b>${esc(e.tName || 'a character')}</b>` : `${lab} <a href="${esc(URLS.byId(e.target))}">${esc(e.tName || 'a character')}</a>`;
@@ -2772,34 +2869,40 @@ function hub(fs, auth, G, ctx) {
     }
 
     // --- Characters ---
-    let CQ = '', CLAST = null, CROWS = [];
-    async function tabChars(more) {
-      const el = B();
-      if (!more) { HA().innerHTML = ''; el.innerHTML = toolbar('ad-cq', 'Search characters by name', CQ) + '<div id="ad-cl"><p class="adm-dim">Loading…</p></div>';
-        const q = el.querySelector('#ad-cq'); let t = null; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { CQ = q.value; CLAST = null; CROWS = []; tabCharsList(); }, 250); }; }
-      tabCharsList(more);
+    // --- Characters: every character, live, with filters ---
+    let CQ = '', CROWS = [], CLIVE = null; const CF = { owner: '', share: '', upd: '' };
+    async function tabChars() {
+      const el = B(); HA().innerHTML = '';
+      el.innerHTML = `<div class="adm-filters">${toolbar('ad-cq', 'Search by character, race, class or player', CQ)}<div class="adm-fsels" id="cf-sels"></div></div><div id="ad-cl"><p class="adm-dim">Loading…</p></div>`;
+      const q = el.querySelector('#ad-cq'); let t = null; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { CQ = q.value; paintChars(); }, 150); };
+      if (!CLIVE) CLIVE = charsCol.limit(2000).onSnapshot(async qs => { CROWS = docs(qs); await needNames(CROWS.map(c => c.owner)); if (TAB === 'chars') paintChars(); if (TAB === 'new' && qs.docChanges().some(ch => ch.type !== 'modified')) newSoon(); },
+        x => { const l = B().querySelector('#ad-cl'); if (l) l.innerHTML = failMsg(x); });
+      else paintChars();
     }
-    async function tabCharsList(more) {
-      const l = B().querySelector('#ad-cl'); if (!l) return; const q = CQ.trim().toLowerCase().slice(0, 24);
-      try { let qq = q ? charsCol.where('keys', 'array-contains', q).limit(25) : charsCol.orderBy('updatedAt', 'desc').limit(25); if (more && CLAST) qq = qq.startAfter(CLAST);
-        const r = await qq.get(); CLAST = r.docs[r.docs.length - 1] || CLAST; CROWS = (more ? CROWS : []).concat(docs(r)); await needNames(CROWS.map(c => c.owner));
-        const cnt = B().querySelector('#ad-cq-n'); if (cnt) cnt.textContent = CROWS.length ? CROWS.length + (r.docs.length === 25 ? '+' : '') + ' character' + (CROWS.length === 1 ? '' : 's') : '';
-        l.innerHTML = ctable(CROWS, true, q ? 'No characters match “' + esc(CQ) + '”.' : 'No characters yet.') + (r.docs.length === 25 ? '<button class="adm-btn adm-more" id="ad-cmore">Load more</button>' : '');
-        wire(l, () => tabChars()); const mb = l.querySelector('#ad-cmore'); if (mb) mb.onclick = () => tabChars(true);
-      } catch (x) { l.innerHTML = failMsg(x); }
+    function paintCharSels() { const box = B() && B().querySelector('#cf-sels'); if (!box) return;
+      const owners = [...new Set(CROWS.map(c => c.owner).filter(Boolean))].sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
+      box.innerHTML = fsel('cf-owner', 'Player', [['', 'Anyone']].concat(owners.map(o => [esc(o), esc(nameOf(o))])), CF.owner)
+        + fsel('cf-share', 'Sharing', [['', 'Any'], ['shared', 'Shared'], ['private', 'Not shared'], ['me', 'Shared with me'], ['link', 'Has a view-only link']], CF.share)
+        + fsel('cf-upd', 'Updated', [['', 'Any time'], ['1', 'Today'], ['7', 'This week'], ['30', 'This month'], ['old', 'Not in 30+ days']], CF.upd);
+      [['cf-owner', 'owner'], ['cf-share', 'share'], ['cf-upd', 'upd']].forEach(([id, k]) => { const sl = box.querySelector('#' + id); sl.onchange = () => { CF[k] = sl.value; paintChars(); }; }); }
+    function paintChars() {
+      const l = B() && B().querySelector('#ad-cl'); if (!l) return; if (MENU || document.querySelector('.hub-modal.on')) return whenMenusClosed(paintChars);
+      paintCharSels();
+      const q = CQ.trim().toLowerCase(), now = Date.now(), dayN = n => now - n * 864e5;
+      const rows = CROWS.filter(c => (!q || [c.name, c.race, c.cls, c.player, nameOf(c.owner || ''), c.owner].some(x => String(x || '').toLowerCase().includes(q)))
+          && (!CF.owner || c.owner === CF.owner)
+          && (!CF.share || (CF.share === 'shared' ? (c.viewers || []).length : CF.share === 'private' ? !(c.viewers || []).length : CF.share === 'me' ? (c.viewers || []).includes(EMAIL) : !!c.pub))
+          && (!CF.upd || (CF.upd === 'old' ? !(c.updatedAt > dayN(30)) : c.updatedAt > dayN(Number(CF.upd)))))
+        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      const cnt = B().querySelector('#ad-cq-n'); if (cnt) cnt.textContent = rows.length + ' of ' + CROWS.length + ' character' + (CROWS.length === 1 ? '' : 's');
+      l.innerHTML = ctable(rows, true, CROWS.length ? 'No characters match these filters.' : 'No characters yet.');
+      wire(l, () => paintChars());
     }
-
-    // --- Admins ---
-    async function tabAdmins() {
-      const el = B(); await needNames([ADMIN_EMAIL, ...ADMINS]); const cfg = fs.collection('config').doc('admins');
-      HA().innerHTML = IS_OWNER ? '<button class="adm-btn primary" id="ad-add">Add admin</button>' : '';
-      const list = [ADMIN_EMAIL, ...ADMINS.filter(em => em !== ADMIN_EMAIL)];
-      el.innerHTML = `${IS_OWNER ? '' : `<p class="adm-note">Only ${esc(ADMIN_EMAIL)} can change who is an admin.</p>`}<div class="adm-tw"><table class="adm-t"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr></thead><tbody>
-        ${list.map(em => { const [rl, rc] = roleOf(em); return `<tr><td><span class="adm-who">${ava(NAMES[em], em)}<b>${esc(NAMES[em] || '—')}</b></span></td><td class="adm-mail">${esc(em)}</td><td><span class="adm-tag ${rc}">${rl}</span></td><td class="adm-act">${IS_OWNER && em !== ADMIN_EMAIL ? kebab([['unadmin', 'Remove admin', em, 'danger']]) : ''}</td></tr>`; }).join('')}</tbody></table></div>`;
-      const ab = HA().querySelector('#ad-add'); if (ab) ab.onclick = () => pickUser('Add an admin', 'They’ll be able to open and change every character.', async em => { if (!em || em === ADMIN_EMAIL) return;
-        try { await cfg.set({ emails: FV.arrayUnion(em) }, { merge: true }); ADMINS = [...new Set(ADMINS.concat(em))]; toast(nameOf(em) + ' is now an admin.'); pgLog('admin_add', { target: em, tName: nameOf(em) }); tabAdmins(); } catch (x) { toast('Couldn\'t add the admin: ' + (x.message || x)); } });
-      el.querySelectorAll('[data-mi="unadmin"]').forEach(b => b.onclick = async () => { const em = b.dataset.id; try { await cfg.set({ emails: FV.arrayRemove(em) }, { merge: true }); ADMINS = ADMINS.filter(x => x !== em); toast(em + ' is no longer an admin.'); pgLog('admin_remove', { target: em, tName: nameOf(em) }); tabAdmins(); } catch (x) { toast('Couldn\'t remove the admin: ' + (x.message || x)); } });
-    }
+    const tabCharsList = () => paintChars();
+    // keep New fresh: listen for accounts and characters even when that tab is opened first
+    const ensureLive = () => { if (!ULIVE) ULIVE = usersCol.limit(1000).onSnapshot(qs => { UROWS = docs(qs); UROWS.forEach(u => { US[u.id] = u; remember(u.id, u); }); if (TAB === 'users') paintUsers(); if (TAB === 'new' && qs.docChanges().some(ch => ch.type !== 'modified')) newSoon(); }, () => {});
+      if (!CLIVE) CLIVE = charsCol.limit(2000).onSnapshot(async qs => { CROWS = docs(qs); await needNames(CROWS.map(c => c.owner)); if (TAB === 'chars') paintChars(); if (TAB === 'new' && qs.docChanges().some(ch => ch.type !== 'modified')) newSoon(); }, () => {}); };
+    setTimeout(ensureLive, 1500);
     frame(); wireDie(root);
     root.addEventListener('click', e => { if (e.target.closest && e.target.closest('.hl-txt')) pgGo(HUB); });
     // the count on "New" shows even while you're on another section
