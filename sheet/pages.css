@@ -1311,3 +1311,10 @@ html.mobile.pg-public .pg-pubrow .pg-pubtag { max-width: none; white-space: norm
 /* phones, view-only link: the View only tag with who's viewing under it, on the right of the logo */
 .pg-pubside { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; min-width: 0; }
 html.mobile .pg-pubside .pg-pres { position: static !important; transform: none !important; opacity: 1 !important; pointer-events: auto; }
+/* phones, view-only link: pictures in the viewers bubble sit closer; the logo grows to match the taller right-hand side */
+html.mobile .pg-pubside .pg-pres { gap: 3px !important; }
+html.mobile .pg-pubrow .pg-publogo .hub-logo { gap: 8px; }
+html.mobile .pg-pubrow .pg-publogo .hl-d20 { width: 58px; height: 58px; }
+html.mobile .pg-pubrow .pg-publogo .hl-a { font-size: .62rem; letter-spacing: .28em; margin-bottom: 2px; }
+html.mobile .pg-pubrow .pg-publogo .hl-t { font-size: 1.95rem; }
+html.mobile .pg-pubrow .pg-publogo .hl-a { font-size: .58rem; letter-spacing: .22em; }
