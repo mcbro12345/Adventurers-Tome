@@ -83,6 +83,19 @@ service cloud.firestore {
       allow update: if request.resource.data.keys().hasOnly(['c', 'savedAt', 'data', 'n', 'v', 'tab']) && request.resource.data.c == resource.data.c && canEditSheet(resource.data.c);
       allow delete: if canEditSheet(resource.data.c);
     }
+    // Who's viewing a character that has a view-only link. Anyone with the link can see it (it shows on the public page
+    // too), and only while the link is on. People on the public link add {anon, at} under a random id; signed-in viewers
+    // add their own entry under their email.
+    function pubOnFor(c) { let s = /databases/$(db)/documents/sheets/$(c); return exists(s) && get(s).data.get('pub', '') != ''; }
+    match /pubviews/{c}/live/{v} {
+      allow read: if pubOnFor(c);
+      allow create, update: if pubOnFor(c) && request.resource.data.at is number
+        && ((request.resource.data.keys().hasOnly(['anon', 'at']) && request.resource.data.anon == true && v.matches('anon-[a-z0-9]{6,16}'))
+          || (signedIn() && v == me() && request.resource.data.anon == false
+            && request.resource.data.keys().hasOnly(['anon', 'at', 'name', 'pic', 'color', 'clear'])
+            && request.resource.data.get('name', '') is string && request.resource.data.get('name', '').size() <= 60));
+      allow delete: if v.matches('anon-[a-z0-9]{6,16}') || (signedIn() && v == me());
+    }
     match /config/admins {
       allow get: if admin();
       allow create, update, delete: if owner0();

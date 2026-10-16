@@ -1303,3 +1303,11 @@ html.mobile.pg-public .pg-pubrow .pg-pubtag { max-width: none; white-space: norm
 /* The Adventurer's Tome button, viewers, View only / shared tag and the view-only logo are part of the page: they stay
    put while a window is open, sitting underneath windows (50), the character wizard (40), menus and tooltips. */
 .pg-hublink, .pg-shared, .pg-pres, .pg-publogo.pinned, .pg-topedge { z-index: 30 !important; }
+/* Viewers bubble: snug around one picture, a little more room between several */
+.pg-pres { gap: 6px !important; padding: 2px 6px 2px 2px !important; }
+.pg-pres::after { margin-left: -1px !important; }
+/* someone on a view-only link (not signed in) */
+.pg-ava.anon { background: #4a5368; color: #d9dde6; display: inline-grid; place-items: center; }
+/* phones, view-only link: the View only tag with who's viewing under it, on the right of the logo */
+.pg-pubside { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; min-width: 0; }
+html.mobile .pg-pubside .pg-pres { position: static !important; transform: none !important; opacity: 1 !important; pointer-events: auto; }

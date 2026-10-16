@@ -1370,6 +1370,14 @@ html.mobile.pg-public .pg-pubrow .pg-pubtag { max-width: none; white-space: norm
 /* The Adventurer's Tome button, viewers, View only / shared tag and the view-only logo are part of the page: they stay
    put while a window is open, sitting underneath windows (50), the character wizard (40), menus and tooltips. */
 .pg-hublink, .pg-shared, .pg-pres, .pg-publogo.pinned, .pg-topedge { z-index: 30 !important; }
+/* Viewers bubble: snug around one picture, a little more room between several */
+.pg-pres { gap: 6px !important; padding: 2px 6px 2px 2px !important; }
+.pg-pres::after { margin-left: -1px !important; }
+/* someone on a view-only link (not signed in) */
+.pg-ava.anon { background: #4a5368; color: #d9dde6; display: inline-grid; place-items: center; }
+/* phones, view-only link: the View only tag with who's viewing under it, on the right of the logo */
+.pg-pubside { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; min-width: 0; }
+html.mobile .pg-pubside .pg-pres { position: static !important; transform: none !important; opacity: 1 !important; pointer-events: auto; }
 </style>
 </head>
 <body>
@@ -1597,6 +1605,8 @@ const avaOf = u => { const color = okColor(u && u.picColor), m = picModeOf(u);
 const avaStyle = (o, key) => { const c = okColor(o && o.color); return c ? `background:${c};color:${inkOn(c)}` : `--h:${hueOf(key)}`; };
 function avaHTML(name, em, pic, cls = '', title = '', o = {}) { const clear = !!(pic && o.clear); title = title || name || '';
   return `<span class="pg-ava ${cls}${pic ? ' has-pic' : ''}${clear ? ' clear' : ''}" style="${pic ? '' : avaStyle(o, em || name)}"${title ? ` title="${escH(title)}"` : ''}>${pic ? `<img src="${escH(pic)}" alt="">` : escH(initials(name, em))}</span>`; }
+// Someone looking through a view-only link (not signed in)
+const anonAvaHTML = me => `<span class="pg-ava anon${me ? ' me' : ''}" title="${me ? 'You (anonymous viewer)' : 'Anonymous viewer'}"><svg viewBox="0 0 24 24" width="62%" height="62%" fill="currentColor" aria-hidden="true"><circle cx="12" cy="8.2" r="4.2"/><path d="M3.8 20.5c.9-4.2 4.2-6.6 8.2-6.6s7.3 2.4 8.2 6.6z"/></svg></span>`;
 const firstThumb = list => { const cs = list.filter(c => c.thumb).sort((a, b) => (a.createdAt || a.updatedAt || 9e15) - (b.createdAt || b.updatedAt || 9e15)); return (cs[0] && cs[0].thumb) || ''; };
 // ================= The logo (sign-in page and character list) =================
 // A gold d20 crest beside "Adventurer's" in spaced small caps over a large serif "Tome". Hovering the die rolls it:
@@ -1646,7 +1656,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261016110555', ASSETS = {"data": "a/data.aff32fe95249.js", "app": "a/app.893f047662ea.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.8e5d750a17cf.html"}; window.PG_ASSETS = ASSETS;
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261016111610', ASSETS = {"data": "a/data.aff32fe95249.js", "app": "a/app.893f047662ea.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.8e5d750a17cf.html"}; window.PG_ASSETS = ASSETS;
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -1751,7 +1761,7 @@ function wireDie(root) {
   }
   // A view-only link: the sheet's public copy, for anyone, signed in or not. Nothing typed here is saved.
   if (VIEWTOK) { const t = VIEWTOK, pc = fs.collection('pub'); let txt = null;
-    try { const d = await pc.doc(t).get(); if (d.exists) { const x = d.data(); let str = x.data || ''; const n = Number(x.n) || 1;
+    let pubC = ''; try { const d = await pc.doc(t).get(); if (d.exists) { const x = d.data(); pubC = String(x.c || ''); let str = x.data || ''; const n = Number(x.n) || 1;
       for (let k = 1; k < n; k++) { const q = await pc.doc(t + '_p' + k).get(); if (!q.exists || Number(q.data().savedAt) !== Number(x.savedAt)) { str = null; break; } str += q.data().data || ''; }
       if (str) { JSON.parse(str); txt = str; } } } catch (e) { console.warn('view link', e); }
     if (!txt) { say(`This view-only link isn’t working — it may have been turned off.<br><br><a href="${PRETTY ? '/' : location.pathname}">Go to Adventurer’s Tome</a>`); return; }
@@ -1768,6 +1778,21 @@ function wireDie(root) {
     if (load) { if (!load.isConnected) document.body.appendChild(load); const go = () => fadeLoad(load); if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 600 }); else setTimeout(go, 150); }
     if (ASSETS.full) fetch(ASSETS.full).then(r => r.ok ? r.text() : '').then(x => { if (!x) return; const sc = document.createElement('script'); sc.textContent = x; document.body.appendChild(sc); try { if (typeof render === 'function') render(); } catch (e) {} }, () => {});
     const tag = document.createElement('div'); tag.className = 'pg-shared view pg-pubtag'; tag.innerHTML = 'View only<span class="pt-sub"> (changes are not saved)</span>'; document.body.appendChild(tag);
+    // Who's viewing: everyone on this link counts as an anonymous viewer, and signed-in people looking at the character show
+    // with their picture. (Only works while the link is on — the list closes with it.)
+    const pbox = document.createElement('div'); pbox.className = 'pg-pres pg-pubpres'; pbox.id = 'pg-pubpres'; pbox.hidden = true; document.body.appendChild(pbox);
+    if (pubC) { const live = fs.collection('pubviews').doc(pubC).collection('live'); let vid = ''; try { vid = sessionStorage.getItem('pg-anon') || ''; } catch (e) {}
+      if (!/^anon-[a-z0-9]{6,16}$/.test(vid)) { vid = 'anon-' + Math.random().toString(36).slice(2, 12).replace(/[^a-z0-9]/g, 'x').padEnd(8, 'x'); try { sessionStorage.setItem('pg-anon', vid); } catch (e) {} }
+      let seen = {}; const beat = () => { seen[vid] = { anon: true, at: Date.now() }; live.doc(vid).set({ anon: true, at: Date.now() }).catch(() => {}); };
+      const show = () => { const now = Date.now(), here = Object.entries(seen).filter(([, d]) => now - (d.at || 0) < 200000);
+        const named = here.filter(([, d]) => !d.anon), anons = here.filter(([, d]) => d.anon).sort(([a], [b]) => (a === vid ? -1 : b === vid ? 1 : 0));
+        pbox.hidden = !here.length;
+        pbox.innerHTML = named.map(([em, d]) => avaHTML(d.name, em, d.pic, '', d.name || 'Viewer', { color: d.color, clear: d.clear })).join('') + anons.map(([id]) => anonAvaHTML(id === vid)).join('');
+        if (window.pgPubPlace) window.pgPubPlace(); };
+      beat(); show(); setInterval(beat, 60000); setInterval(show, 15000);
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) beat(); });
+      addEventListener('pagehide', () => { live.doc(vid).delete().catch(() => {}); });
+      live.onSnapshot(qs => { const me = seen[vid]; seen = {}; qs.docs.forEach(d => { seen[d.id] = d.data(); }); if (!seen[vid] && me) seen[vid] = me; show(); }, () => {}); }
     // The full logo across the top: tap it to go to Adventurer's Tome (the lobby, or sign in).
     { const lg = document.createElement('a'); lg.className = 'pg-publogo'; lg.href = PRETTY ? '/' : location.pathname; lg.title = 'Go to Adventurer’s Tome'; lg.setAttribute('aria-label', 'Go to Adventurer’s Tome'); lg.innerHTML = logoHTML(); document.body.prepend(lg); wireDie(lg);
       lg.addEventListener('click', e => { if (e.target.closest && e.target.closest('.hl-d20')) e.preventDefault(); });
@@ -1776,9 +1801,11 @@ function wireDie(root) {
       // Tome button's spot (placed below), with the tag beside it.
       const home = () => { const mob = document.documentElement.classList.contains('mobile'), bn = document.querySelector('header.banner');
         if (mob) { let row = document.querySelector('.pg-pubrow'); if (!row) { row = document.createElement('div'); row.className = 'pg-pubrow'; }
-          if (bn && row.parentElement !== bn) bn.prepend(row); if (lg.parentElement !== row) row.prepend(lg); if (tag.parentElement !== row) row.appendChild(tag);
+          if (bn && row.parentElement !== bn) bn.prepend(row); if (lg.parentElement !== row) row.prepend(lg);
+          let side = row.querySelector('.pg-pubside'); if (!side) { side = document.createElement('div'); side.className = 'pg-pubside'; row.appendChild(side); }
+          if (tag.parentElement !== side) side.prepend(tag); const pb = document.getElementById('pg-pubpres'); if (pb && pb.parentElement !== side) side.appendChild(pb);
           lg.classList.remove('pinned'); lg.style.left = lg.style.top = ''; }
-        else { if (lg.parentElement !== document.body) document.body.appendChild(lg); if (tag.parentElement !== document.body) document.body.appendChild(tag); lg.classList.add('pinned'); } };
+        else { if (lg.parentElement !== document.body) document.body.appendChild(lg); if (tag.parentElement !== document.body) document.body.appendChild(tag); const pb = document.getElementById('pg-pubpres'); if (pb && pb.parentElement !== document.body) document.body.appendChild(pb); lg.classList.add('pinned'); } };
       lg.id = 'pg-publogo'; home(); addEventListener('resize', home); setTimeout(home, 500); setTimeout(home, 2000); }
     // On a computer the tag takes the Adventurer's Tome button's spot (above the toolbar, level with the top of the header)
     // and the toolbar drops down exactly as it does for a signed-in player.
@@ -1803,9 +1830,12 @@ function wireDie(root) {
         { const d = lg.querySelector('.hl-d20'); if (d && !d.classList.contains('hl-rolling') && !PG_DIE.rolling) { const r = d.getBoundingClientRect(), dt = r.top + scrollY, db = r.bottom + scrollY, adj = Math.round(((tbTop - db) - dt) / 2);
           if (adj) { y += adj; lg.style.top = y + 'px'; } } }
         const pos = x + ',' + y + ',' + lh + ',' + tbTop;
-        tag.style.left = (x + lg.offsetWidth + 12) + 'px'; tag.style.top = (y + lh / 2) + 'px';
+        // then who's viewing, then the View only tag
+        let nx = x + lg.offsetWidth + 12; const pb = document.getElementById('pg-pubpres');
+        if (pb && !pb.hidden) { pb.style.left = nx + 'px'; pb.style.top = (y + lh / 2) + 'px'; pb.classList.add('ready'); nx += pb.offsetWidth + 10; }
+        tag.style.left = nx + 'px'; tag.style.top = (y + lh / 2) + 'px';
         if (pos === align.last) de.classList.add('pg-al'); else { align.last = pos; requestAnimationFrame(align); } };
-      let q = 0; const soon = () => { if (!q) q = requestAnimationFrame(() => { q = 0; align(); }); };
+      let q = 0; const soon = () => { if (!q) q = requestAnimationFrame(() => { q = 0; align(); }); }; window.pgPubPlace = soon;
       new MutationObserver(soon).observe(document.body, { childList: true, subtree: true }); addEventListener('resize', soon); setInterval(align, 1500); soon(); }
     try { const st = JSON.parse(txt); if (st && st.name) document.title = st.name + ' — Adventurer’s Tome'; } catch (e) {}
     return; }
@@ -2093,7 +2123,7 @@ function wireDie(root) {
     t.style.left = left + 'px'; t.style.top = (a.offsetTop + a.offsetHeight / 2) + 'px'; t.classList.add('placed'); };
   const placePres = () => { placeShared(); const box = document.querySelector('.pg-pres'), a = document.querySelector('.pg-hublink'); if (!box || !a || !a.offsetParent || !a.offsetWidth) return; // hidden behind a window: leave it where it was
     const l = (a.offsetLeft + a.offsetWidth + 8) + 'px', t = (a.offsetTop + a.offsetHeight / 2) + 'px'; box.style.left = l; box.style.top = t;
-    if (box.classList.contains('ready')) return; const k = l + t + (a.offsetParent ? 1 : 0); if (k !== presKey) { presKey = k; clearTimeout(presT); presT = setTimeout(() => { if (box.isConnected && a.offsetParent) { box.classList.add('ready'); placeShared(); } else presKey = ''; }, 600); } placeShared(); };
+    if (box.classList.contains('ready')) return; if (document.documentElement.classList.contains('pg-al') || document.documentElement.classList.contains('mobile')) { box.classList.add('ready'); placeShared(); return; } const k = l + t + (a.offsetParent ? 1 : 0); if (k !== presKey) { presKey = k; clearTimeout(presT); presT = setTimeout(() => { if (box.isConnected && a.offsetParent) { box.classList.add('ready'); placeShared(); } else presKey = ''; }, 600); } placeShared(); };
   new ResizeObserver(() => placePres()).observe(document.documentElement);
   // Who's looking at this sheet right now — shown once it's shared: small portraits beside the back button, you too.
   // Each open copy checks in once a minute (only while its tab is showing) and drops off when closed or idle.
@@ -2101,18 +2131,25 @@ function wireDie(root) {
     const pcol = col.doc(C).collection('presence'), mine = pcol.doc(EMAIL); let seen = {}, box = null;
     // Keeps checking in while the tab is in the background too (browsers slow timers there to about once a minute,
     // which is still inside the window below) — someone with the sheet in another tab is still looking at it.
-    const beat = async () => { const a = avaOf(ME); try { await mine.set({ name: NAME, pic: a.pic, color: a.color, clear: a.clear, at: Date.now() }); } catch (e) {} };
-    const leave = () => { mine.delete().catch(() => {}); };
+    // With a view-only link on, you're also listed where the public page can see you, and people on that link show here.
+    const pv = PUB ? fs.collection('pubviews').doc(C).collection('live') : null; let anon = {};
+    const beat = async () => { const a = avaOf(ME), at = Date.now(); try { await mine.set({ name: NAME, pic: a.pic, color: a.color, clear: a.clear, at }); } catch (e) {}
+      if (pv) pv.doc(EMAIL).set({ anon: false, at, name: String(NAME || '').slice(0, 60), pic: a.pic || '', color: a.color || '', clear: !!a.clear }).catch(() => {}); };
+    const leave = () => { mine.delete().catch(() => {}); if (pv) pv.doc(EMAIL).delete().catch(() => {}); };
     // The character's owner comes first whenever they're here, then you, then everyone else.
     const show = () => { const now = Date.now(), rank = em => em === OWNER ? 0 : em === EMAIL ? 1 : 2, here = Object.entries(seen).filter(([, d]) => now - (d.at || 0) < 200000).sort(([a], [b]) => rank(a) - rank(b));
       if (!box) { box = document.createElement('div'); box.className = 'pg-pres'; document.body.appendChild(box); }
-      box.hidden = !here.length; // you always see yourself, on your own sheet too
-      box.innerHTML = here.map(([em, d]) => avaHTML(d.name, em, d.pic, em === EMAIL ? 'me' : '', em === EMAIL ? (d.name || NAME) + ' (you)' : (d.name || em), { color: d.color, clear: d.clear })).join('');
+      const anons = Object.values(anon).filter(d => now - (d.at || 0) < 200000);
+      box.hidden = !here.length && !anons.length; // you always see yourself, on your own sheet too
+      box.innerHTML = here.map(([em, d]) => avaHTML(d.name, em, d.pic, em === EMAIL ? 'me' : '', em === EMAIL ? (d.name || NAME) + ' (you)' : (d.name || em), { color: d.color, clear: d.clear })).join('') + anons.map(() => anonAvaHTML(false)).join('');
       placePres(); };
-    beat(); setInterval(beat, 60000); setInterval(show, 1500);
+    // you show straight away, without waiting for the first list from the server
+    { const a = avaOf(ME); seen[EMAIL] = { name: NAME, pic: a.pic, color: a.color, clear: a.clear, at: Date.now() }; }
+    beat(); show(); setInterval(beat, 60000); setInterval(show, 1500);
+    if (pv) pv.where('anon', '==', true).onSnapshot(qs => { anon = {}; qs.docs.forEach(d => { anon[d.id] = d.data(); }); show(); }, () => {});
     document.addEventListener('visibilitychange', () => { if (!document.hidden) beat(); });
     addEventListener('pagehide', leave);
-    pcol.onSnapshot(qs => { seen = {}; qs.docs.forEach(d => { seen[d.id] = d.data(); }); show(); }, () => {});
+    pcol.onSnapshot(qs => { const me0 = seen[EMAIL]; seen = {}; qs.docs.forEach(d => { seen[d.id] = d.data(); }); if (!seen[EMAIL] && me0) seen[EMAIL] = me0; show(); }, () => {});
   };
   if (!NEW) startPres();
   // Adding this page to a phone's home screen: the icon is the character's portrait (the party page uses the dice icon).
