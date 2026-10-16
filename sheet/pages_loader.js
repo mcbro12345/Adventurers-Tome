@@ -341,6 +341,18 @@ function wireDie(root) {
     if (load) { if (!load.isConnected) document.body.appendChild(load); const go = () => fadeLoad(load); if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 600 }); else setTimeout(go, 150); }
     if (ASSETS.full) fetch(ASSETS.full).then(r => r.ok ? r.text() : '').then(x => { if (!x) return; const sc = document.createElement('script'); sc.textContent = x; document.body.appendChild(sc); try { if (typeof render === 'function') render(); } catch (e) {} }, () => {});
     const tag = document.createElement('div'); tag.className = 'pg-shared view pg-pubtag'; tag.innerHTML = `View only (changes are not saved) · <a href="${PRETTY ? '/' : location.pathname}">Adventurer’s Tome</a>`; document.body.appendChild(tag);
+    // On a computer the tag takes the Adventurer's Tome button's spot (above the toolbar, level with the top of the header)
+    // and the toolbar drops down exactly as it does for a signed-in player.
+    { const de = document.documentElement, align = () => {
+        const lv = document.querySelector('.ident-top .lvlbox'), tb = document.querySelector('.ident-top .toolbar');
+        if (de.classList.contains('mobile') || !lv || !tb) { de.classList.remove('pg-al'); tag.classList.remove('placed'); tag.style.left = tag.style.top = ''; return; }
+        tag.classList.add('placed'); const lr = lv.getBoundingClientRect();
+        de.style.setProperty('--pg-tbm', Math.max(tag.offsetHeight + 8, Math.round(lr.height - tb.offsetHeight)) + 'px');
+        const tr = tb.getBoundingClientRect(), x = Math.round(tr.left + scrollX), y = Math.round(lr.top + scrollY), pos = x + ',' + y;
+        tag.style.left = x + 'px'; tag.style.top = (y + tag.offsetHeight / 2) + 'px';
+        if (pos === align.last) de.classList.add('pg-al'); else { align.last = pos; requestAnimationFrame(align); } };
+      let q = 0; const soon = () => { if (!q) q = requestAnimationFrame(() => { q = 0; align(); }); };
+      new MutationObserver(soon).observe(document.body, { childList: true, subtree: true }); addEventListener('resize', soon); setInterval(align, 1500); soon(); }
     try { const st = JSON.parse(txt); if (st && st.name) document.title = st.name + ' — Adventurer’s Tome'; } catch (e) {}
     return; }
   if (!PRETTY && !C && !G && !NEWQ) { location.replace(location.pathname + '?g=' + (clean(lsGet(LAST_G)) || DEFAULT_G)); return; }
