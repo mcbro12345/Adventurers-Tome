@@ -1251,3 +1251,9 @@ html.mobile .pg-publogo .hl-d20 { width: 34px; height: 34px; }
 html.mobile .pg-publogo .hl-t { font-size: 1.5rem; }
 html.mobile.pg-public .pg-pubtag { position: static !important; display: block; width: fit-content; max-width: calc(100% - 32px); margin: 2px auto 0; transform: none !important; text-align: center; white-space: normal; }
 html.mobile.pg-public .banner { padding-top: 4px !important; }
+.pg-publogo { background: none; padding-top: 12px; }
+.pg-publogo .hl-20 { fill: #f6e7bd; }
+.pg-publogo .hl-d20 { transition: transform .6s cubic-bezier(.3,1.4,.5,1); overflow: visible; }
+.pg-publogo .hl-d20.crit { filter: drop-shadow(0 0 5px rgba(80,230,120,.55)); }
+.pg-publogo .hl-d20.fumble { filter: drop-shadow(0 0 5px rgba(230,80,80,.55)); }
+html:not(.mobile).pg-public header.banner { padding-top: 0 !important; }

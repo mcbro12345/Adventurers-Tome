@@ -340,9 +340,13 @@ function wireDie(root) {
     if (!TOUCH && !FRAMED) sheetScrollbar();
     if (load) { if (!load.isConnected) document.body.appendChild(load); const go = () => fadeLoad(load); if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 600 }); else setTimeout(go, 150); }
     if (ASSETS.full) fetch(ASSETS.full).then(r => r.ok ? r.text() : '').then(x => { if (!x) return; const sc = document.createElement('script'); sc.textContent = x; document.body.appendChild(sc); try { if (typeof render === 'function') render(); } catch (e) {} }, () => {});
-    const tag = document.createElement('div'); tag.className = 'pg-shared view pg-pubtag'; tag.innerHTML = `View only (changes are not saved) · <a href="${PRETTY ? '/' : location.pathname}">Adventurer’s Tome</a>`; document.body.appendChild(tag);
+    const tag = document.createElement('div'); tag.className = 'pg-shared view pg-pubtag'; tag.textContent = 'View only (changes are not saved)'; document.body.appendChild(tag);
     // The full logo across the top: tap it to go to Adventurer's Tome (the lobby, or sign in).
-    { const lg = document.createElement('a'); lg.className = 'pg-publogo'; lg.href = PRETTY ? '/' : location.pathname; lg.title = 'Go to Adventurer’s Tome'; lg.setAttribute('aria-label', 'Go to Adventurer’s Tome'); lg.innerHTML = logoHTML(); document.body.prepend(lg); lg.after(tag); }
+    { const lg = document.createElement('a'); lg.className = 'pg-publogo'; lg.href = PRETTY ? '/' : location.pathname; lg.title = 'Go to Adventurer’s Tome'; lg.setAttribute('aria-label', 'Go to Adventurer’s Tome'); lg.innerHTML = logoHTML(); document.body.prepend(lg); wireDie(lg);
+      // it lives inside the sheet's header, on the same background; on a phone the tag sits right under it
+      const home = () => { const bn = document.querySelector('header.banner'); if (bn && lg.parentElement !== bn) bn.prepend(lg);
+        const mob = document.documentElement.classList.contains('mobile'); if (mob && lg.nextElementSibling !== tag) lg.after(tag); else if (!mob && tag.parentElement !== document.body) document.body.appendChild(tag); };
+      home(); new MutationObserver(() => { if (!lg.isConnected || (lg.parentElement && !lg.parentElement.matches('header.banner'))) home(); }).observe(document.body, { childList: true, subtree: true }); setTimeout(home, 500); setTimeout(home, 2000); }
     // On a computer the tag takes the Adventurer's Tome button's spot (above the toolbar, level with the top of the header)
     // and the toolbar drops down exactly as it does for a signed-in player.
     { const de = document.documentElement, align = () => {
