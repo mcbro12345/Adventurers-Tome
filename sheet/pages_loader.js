@@ -116,6 +116,7 @@ document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.remove()); 
     if (on && !ln) { ln = document.createElement('div'); ln.className = 'pg-topedge'; ln.setAttribute('aria-hidden', 'true'); document.body.appendChild(ln); }
     if (ln) ln.classList.toggle('on', on && scrollY > 6); };
   addEventListener('scroll', edge, { passive: true }); setInterval(edge, 1000); }
+let PG_RA = null; // the last "refresh their page" request seen; a new one while this page is open reloads it
 const ADMIN_EMAIL = 'matthewcbro@gmail.com';
 // Every character lives in one library; the hub shows each person their own and the ones shared with them.
 const DEFAULT_G = 'WLdUj_I3XrA_9VIP';
@@ -486,7 +487,17 @@ function wireDie(root) {
   // (when the database refuses even their own account record, an admin has signed them out or blocked them)
   const LOCKED = 'You’ve been signed out.';
   { const k0 = kicked(ME) || (ACCT_ERR === 'permission-denied' ? LOCKED : ''); if (k0) { kick(k0); return; } }
-  UREF.onSnapshot(d => { const k = kicked(d.exists ? d.data() : null); if (k) kick(k); }, e => { if (e && e.code === 'permission-denied') kick(LOCKED); });
+  UREF.onSnapshot(d => { const k = kicked(d.exists ? d.data() : null); if (k) kick(k); else { const u = d.exists ? d.data() : null, ra = Number(u && u.reloadAt) || 0; if (PG_RA === null) PG_RA = ra; else if (ra && ra !== PG_RA) { PG_RA = ra; location.reload(); return; } pgMsg(u); } }, e => { if (e && e.code === 'permission-denied') kick(LOCKED); });
+  // A message from the site's admin: pops up once (on whichever device sees it first), on any page.
+  function pgMsg(u) { const m = u && u.msg; if (!m || !m.id || !m.text || u.msgSeen === m.id) return; let seen = ''; try { seen = localStorage.getItem('pg-msg-seen') || ''; } catch (e) {} if (seen === m.id || document.getElementById('pg-msg')) return;
+    const open = () => { if (document.getElementById('pg-load')) return setTimeout(open, 400); if (document.getElementById('pg-msg')) return;
+      const w = document.createElement('div'); w.id = 'pg-msg'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-modal', 'true');
+      w.innerHTML = `<div class="pgm-card"><div class="pgm-h"><span class="pgm-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H8l-4 4z"/></svg></span><div><b>Message from ${escH(m.fromName || 'Adventurer’s Tome')}</b><small>${escH(new Date(m.at || Date.now()).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))}</small></div></div>
+        <div class="pgm-t">${escH(m.text).replace(/\n/g, '<br>')}</div><div class="pgm-row"><button class="pgm-ok" type="button">OK</button></div></div>`;
+      document.body.appendChild(w); const ok = w.querySelector('.pgm-ok'); setTimeout(() => ok.focus(), 50);
+      const done = () => { try { localStorage.setItem('pg-msg-seen', m.id); } catch (e) {} UREF.update({ msgSeen: m.id }).catch(() => {}); w.classList.add('out'); setTimeout(() => w.remove(), 200); };
+      ok.onclick = done; w.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); done(); } }); };
+    open(); }
   const UCACHE = {}, userDoc = em => UCACHE[em] || (UCACHE[em] = fs.collection('users').doc(em).get().then(x => x.exists ? x.data() : null, () => null));
 
   // A newer version of the site was pushed: load it. The party page reloads right away; a sheet reloads as soon as
@@ -1371,7 +1382,7 @@ function hub(fs, auth, G, ctx) {
     let MENU = null;
     const closeAdmMenus = () => { const m = MENU; if (!m) return; MENU = null; m.w.classList.remove('on'); const l = m.l; l.classList.add('closing'); l.classList.remove('on');
       setTimeout(() => { l.classList.remove('closing', 'portal'); l.style.left = l.style.top = ''; if (m.w.isConnected) m.w.appendChild(l); else l.remove(); if (MENU_PENDING) { const f = MENU_PENDING; MENU_PENDING = null; f(); } }, PG_CALM ? 0 : 130); };
-    let MENU_PENDING = null; const whenMenusClosed = f => { if (MENU) MENU_PENDING = f; else f(); };
+    let MENU_PENDING = null, WIN_WAIT = 0; const whenMenusClosed = f => { if (MENU) MENU_PENDING = f; else if (document.querySelector('.hub-modal.on')) { clearTimeout(WIN_WAIT); WIN_WAIT = setTimeout(() => whenMenusClosed(f), 400); } else f(); }; // a window is open: redraw once it closes
     document.addEventListener('click', e => { const k = e.target.closest && e.target.closest('.adm-kebab');
       if (MENU && (!k || k.parentElement !== MENU.w) && !(e.target.closest && e.target.closest('.adm-mlist.portal') && !e.target.closest('[data-mi]'))) closeAdmMenus();
       if (!k || (MENU && MENU.w === k.parentElement)) { if (k) closeAdmMenus(); return; }
@@ -1457,7 +1468,7 @@ function hub(fs, auth, G, ctx) {
       const seen = u => isOn(u) ? '<span class="adm-online" title="Has Adventurer’s Tome open right now"><i></i>Online now</span>' : u.seenAt ? esc(ago(u.seenAt)) : '<span class="adm-dim">—</span>';
       l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Last active</th><th></th><th></th></tr></thead><tbody>${rows.map(u => { const [rl, rc] = u.banned ? ['Blocked', 'r-blk'] : roleOf(u.id), open = UOPEN.has(u.id);
           return `<tr data-u="${esc(u.id)}"><td><span class="adm-who">${ava(u.name, u.id)}<b>${esc(u.name || '—')}</b></span></td><td class="adm-mail">${esc(u.id)}</td><td><span class="adm-tag ${rc}">${rl}</span></td><td>${when(u.createdAt)}</td><td>${seen(u)}</td>
-            <td><button class="adm-btn sm" data-uc="${esc(u.id)}">Characters ${open ? '▾' : '▸'}</button></td><td class="adm-act">${kebab([['rename', 'Rename…', u.id], ['pic', 'Change picture…', u.id], ['newfor', 'New character for them', u.id]].concat(IS_OWNER && u.id !== ADMIN_EMAIL ? [ADMINS.includes(u.id) ? ['unadmin', 'Remove admin', u.id] : ['mkadmin', 'Make admin', u.id]] : [], u.id === ADMIN_EMAIL || u.id === EMAIL ? [] : [['signout', 'Sign out everywhere', u.id]].concat(u.banned ? [['unblock', 'Unblock', u.id]] : [], [['delacct', 'Delete account…', u.id, 'danger']])))}</td></tr>
+            <td><button class="adm-btn sm" data-uc="${esc(u.id)}">Characters ${open ? '▾' : '▸'}</button></td><td class="adm-act">${kebab([['msg', 'Send a message…', u.id], ['reload', 'Refresh their page', u.id], ['rename', 'Rename…', u.id], ['pic', 'Change picture…', u.id], ['newfor', 'New character for them', u.id]].concat(IS_OWNER && u.id !== ADMIN_EMAIL ? [ADMINS.includes(u.id) ? ['unadmin', 'Remove admin', u.id] : ['mkadmin', 'Make admin', u.id]] : [], u.id === ADMIN_EMAIL || u.id === EMAIL ? [] : [['signout', 'Sign out everywhere', u.id]].concat(u.banned ? [['unblock', 'Unblock', u.id]] : [], [['delacct', 'Delete account…', u.id, 'danger']])))}</td></tr>
             <tr class="adm-subrow" data-sub="${esc(u.id)}"${open ? '' : ' hidden'}><td colspan="7"></td></tr>`; }).join('')}</tbody></table></div>`
         : `<p class="adm-empty">${UROWS.length ? 'Nobody matches these filters.' : 'No accounts yet.'}</p>`;
       const fill = async (em, cell, fresh) => { const show = cs => { cell.innerHTML = ctable(cs, false) + `<button class="adm-btn sm" data-newfor="${esc(em)}">＋ New character for ${esc(nameOf(em))}</button>`; wire(cell, () => fill(em, cell, true)); };
@@ -1487,6 +1498,16 @@ function hub(fs, auth, G, ctx) {
     async function userAction(act, em) {
       const u = US[em] || { id: em }, nm = u.name || em, ref = usersCol.doc(em), done = () => { delete PICS[em]; delete PICQ[em]; tabUsersList(); };
       try {
+        if (act === 'reload') { await ref.update({ reloadAt: Date.now() }); toast(nm + '’s open pages will refresh now.'); pgLog('user_reload', { target: em, tName: nm }); return; }
+        if (act === 'msg') { const last = u.msg && u.msg.text ? `<p class="hub-hint pm-last">Last message (${esc(new Date(u.msg.at || 0).toLocaleString())}) · ${u.msgSeen && u.msgSeen === u.msg.id ? '<b>seen</b>' : 'not seen yet'}:<br>“${esc(String(u.msg.text).slice(0, 200))}${String(u.msg.text).length > 200 ? '…' : ''}”</p>` : '';
+          modal.innerHTML = `<div class="hub-card"><h2>Message ${esc(nm)}</h2><p class="hub-hint">It pops up for them on Adventurer’s Tome: right away if they have it open, otherwise the next time they do. They see it once.</p>${last}
+            <textarea id="pm-t" class="ad-search pm-t" maxlength="1500" rows="5" placeholder="Your message"></textarea><div class="row"><button class="btn ghost" id="pm-x">Cancel</button><button class="btn gold" id="pm-ok" disabled>Send</button></div></div>`;
+          modal.classList.add('on'); const ta = modal.querySelector('#pm-t'), ok = modal.querySelector('#pm-ok'); ta.focus(); ta.oninput = () => { ok.disabled = !ta.value.trim(); }; modal.querySelector('#pm-x').onclick = close;
+          ok.onclick = async () => { const text = ta.value.trim().slice(0, 1500); if (!text) return; ok.disabled = true; ok.textContent = 'Sending…';
+            const m = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), text, from: EMAIL, fromName: String((ME && ME.name) || EMAIL), at: Date.now() };
+            try { await ref.update({ msg: m }); u.msg = m; US[em] = u; close(); toast('Message sent to ' + nm + '.'); pgLog('message', { target: em, tName: nm, detail: text }); }
+            catch (x) { ok.disabled = false; ok.textContent = 'Send'; toast('Couldn’t send it: ' + ((x && x.message) || x)); } };
+          return; }
         if (act === 'pic') { const list = docs(await charsCol.where('owner', '==', em).limit(100).get()).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)); pickPic({ em, name: nm, rec: u, list, after: done }); return; }
         if (act === 'signout') { if (!await ask('Sign ' + esc(nm) + ' out everywhere?', 'They’re signed out on every device right away and have to sign in again. Nothing else changes.', 'Sign out everywhere')) return;
           await ref.update({ revokedAt: Date.now() }); u.revokedAt = Date.now(); pgLog('user_signout', { target: em, tName: nm }); toast(nm + ' was signed out everywhere.'); return; }
@@ -1507,8 +1528,8 @@ function hub(fs, auth, G, ctx) {
     // --- Audit log ---
     const ACTS = { signin: 'Signed in', account: 'Created their account', signout: 'Signed out', open: 'Opened', create: 'Created', edit: 'Edited', delete: 'Deleted', give: 'Gave away', remove: 'Removed from the lists',
       share: 'Shared', unshare: 'Stopped sharing', access: 'Changed access to', leave: 'Gave up access to', picture: 'Changed their picture',
-      rename_user: 'Renamed', admin_add: 'Made an admin:', admin_remove: 'Removed admin:', user_picture: 'Changed the picture of', user_signout: 'Signed out everywhere:', user_block: 'Blocked', user_unblock: 'Unblocked', user_delete: 'Deleted the account of' };
-    const AGROUPS = [['Signing in', ['signin', 'account', 'signout']], ['Characters', ['open', 'create', 'edit', 'delete', 'give', 'remove']], ['Sharing', ['share', 'unshare', 'access', 'leave']], ['Pictures', ['picture', 'user_picture']], ['Admin', ['rename_user', 'admin_add', 'admin_remove', 'user_signout', 'user_block', 'user_unblock', 'user_delete']]];
+      rename_user: 'Renamed', admin_add: 'Made an admin:', admin_remove: 'Removed admin:', user_picture: 'Changed the picture of', user_signout: 'Signed out everywhere:', user_block: 'Blocked', user_unblock: 'Unblocked', user_delete: 'Deleted the account of', message: 'Sent a message to', user_reload: 'Refreshed the pages of' };
+    const AGROUPS = [['Signing in', ['signin', 'account', 'signout']], ['Characters', ['open', 'create', 'edit', 'delete', 'give', 'remove']], ['Sharing', ['share', 'unshare', 'access', 'leave']], ['Pictures', ['picture', 'user_picture']], ['Admin', ['rename_user', 'admin_add', 'admin_remove', 'user_signout', 'user_block', 'user_unblock', 'user_delete', 'message', 'user_reload']]];
     const CHAR_ACTS = new Set(['open', 'create', 'edit', 'delete', 'give', 'remove', 'share', 'unshare', 'access', 'leave']);
     let AF = { who: [], act: [], q: '', from: '', to: '', range: '' }, AROWS, AOPEN = {} = [], ALAST = null, AFULL = false, APEOPLE = null;
     const auditCol = fs.collection('audit');
