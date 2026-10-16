@@ -2721,3 +2721,7 @@ html #condmodal.extfxm .cchips2 .cchip2 { white-space: normal; overflow: visible
 .ravenchk.sm input { width: 14px; height: 14px; }
 .tile .ravenchk.sm { display: flex; justify-content: center; align-items: center; gap: 5px; white-space: normal; text-align: left; font-size: .72rem !important; font-weight: 600; color: var(--muted); letter-spacing: 0; text-transform: none; line-height: 1.2; }
 .tile .ravenchk.sm input { width: 13px !important; height: 13px !important; min-width: 0 !important; padding: 0 !important; flex: none; }
+/* the words get their own tight line box, so the box lines up with the letters whatever the system font */
+.ravenchk > span { display: block; line-height: 1.1; padding-top: .08em; }
+.ravenchk input { align-self: center; flex: none; }
+.tile .ravenchk.sm { white-space: nowrap; font-size: .7rem !important; }

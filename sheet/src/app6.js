@@ -849,5 +849,5 @@ new MutationObserver(() => { const b = $('#relaystatus'); if (b && !b.dataset.se
 setInterval(() => { if ($('#relaystatus')) relayStatus(); }, 15000);
 
 // Sentinel Raven: is the raven on your shoulder? (darkvision 30 ft and CHA on Perception while it is)
-function ravenChk(small) { return `<label class="ravenchk${small ? ' sm' : ''}" title="While your raven is perched on your shoulder: darkvision 30 ft and +${Math.max(0, mod('cha'))} (CHA) to Perception"><input type="checkbox" data-raven${ravenOn() ? ' checked' : ''}> ${small ? 'Raven perched' : 'Raven is on my shoulder'}</label>`; }
+function ravenChk(small) { return `<label class="ravenchk${small ? ' sm' : ''}" title="While your raven is perched on your shoulder: darkvision 30 ft and +${Math.max(0, mod('cha'))} (CHA) to Perception"><input type="checkbox" data-raven${ravenOn() ? ' checked' : ''}><span>${small ? 'Raven perched' : 'Raven is on my shoulder'}</span></label>`; }
 document.addEventListener('change', e => { if (!e.target || !e.target.matches || !e.target.matches('[data-raven]')) return; S.ravenPerched = e.target.checked; pendingLabel = e.target.checked ? 'Raven on your shoulder' : 'Raven off your shoulder'; save(); render(); });
