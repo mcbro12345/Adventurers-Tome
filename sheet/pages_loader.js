@@ -355,7 +355,8 @@ function wireDie(root) {
     const tag = document.createElement('div'); tag.className = 'pg-shared view pg-pubtag'; tag.innerHTML = 'View only<span class="pt-sub"> (changes are not saved)</span>'; document.body.appendChild(tag);
     // The full logo across the top: tap it to go to Adventurer's Tome (the lobby, or sign in).
     { const lg = document.createElement('a'); lg.className = 'pg-publogo'; lg.href = PRETTY ? '/' : location.pathname; lg.title = 'Go to Adventurer’s Tome'; lg.setAttribute('aria-label', 'Go to Adventurer’s Tome'); lg.innerHTML = logoHTML(); document.body.prepend(lg); wireDie(lg);
-      lg.addEventListener('click', e => { if (e.target.closest && e.target.closest('.hl-d20')) e.preventDefault(); }); // the die rolls; the words go to Adventurer's Tome
+      lg.addEventListener('click', e => { if (e.target.closest && e.target.closest('.hl-d20')) e.preventDefault(); });
+      lg.addEventListener('mouseenter', () => { if (!TOUCH) rollDie(lg); }); // on a computer, moving onto any part of the logo rolls the die // the die rolls; the words go to Adventurer's Tome
       // Phones: it sits at the top of the sheet's header with the tag right under it. Computers: it takes the Adventurer's
       // Tome button's spot (placed below), with the tag beside it.
       const home = () => { const mob = document.documentElement.classList.contains('mobile'), bn = document.querySelector('header.banner');
@@ -370,9 +371,14 @@ function wireDie(root) {
         const lv = document.querySelector('.ident-top .lvlbox'), tb = document.querySelector('.ident-top .toolbar');
         const lg = document.getElementById('pg-publogo');
         if (de.classList.contains('mobile') || !lv || !tb || !lg) { de.classList.remove('pg-al'); tag.classList.remove('placed'); tag.style.left = tag.style.top = ''; return; }
-        tag.classList.add('placed'); const lr = lv.getBoundingClientRect(), lh = lg.offsetHeight;
-        de.style.setProperty('--pg-tbm', Math.max(lh + 8, Math.round(lr.height - tb.offsetHeight)) + 'px');
-        const tr = tb.getBoundingClientRect(), x = Math.round(tr.left + scrollX), y = Math.round(lr.top + scrollY), pos = x + ',' + y + ',' + lh;
+        // as big as fits above the toolbar without making the header any taller
+        // As big as fits between the top of the page and the toolbar (which stays level with the bottom of the level box),
+        // so the header is no taller than usual.
+        const lr = lv.getBoundingClientRect(), tbm = Math.round(lr.height - tb.offsetHeight), top0 = Math.max(8, Math.round(lr.top + scrollY) - 12), bot = Math.round(lr.top + scrollY) + tbm - 7;
+        const room = Math.max(26, bot - top0); if (lg._room !== room) { lg._room = room; lg.style.setProperty('--plh', room + 'px'); }
+        tag.classList.add('placed'); const lh = lg.offsetHeight;
+        de.style.setProperty('--pg-tbm', Math.max(26 + 8, tbm) + 'px');
+        const tr = tb.getBoundingClientRect(), x = Math.round(tr.left + scrollX), y = bot - lh, pos = x + ',' + y + ',' + lh;
         lg.style.left = x + 'px'; lg.style.top = y + 'px';
         tag.style.left = (x + lg.offsetWidth + 12) + 'px'; tag.style.top = (y + lh / 2) + 'px';
         if (pos === align.last) de.classList.add('pg-al'); else { align.last = pos; requestAnimationFrame(align); } };
