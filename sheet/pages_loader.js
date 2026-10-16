@@ -343,19 +343,23 @@ function wireDie(root) {
     const tag = document.createElement('div'); tag.className = 'pg-shared view pg-pubtag'; tag.textContent = 'View only (changes are not saved)'; document.body.appendChild(tag);
     // The full logo across the top: tap it to go to Adventurer's Tome (the lobby, or sign in).
     { const lg = document.createElement('a'); lg.className = 'pg-publogo'; lg.href = PRETTY ? '/' : location.pathname; lg.title = 'Go to Adventurer’s Tome'; lg.setAttribute('aria-label', 'Go to Adventurer’s Tome'); lg.innerHTML = logoHTML(); document.body.prepend(lg); wireDie(lg);
-      // it lives inside the sheet's header, on the same background; on a phone the tag sits right under it
-      const home = () => { const bn = document.querySelector('header.banner'); if (bn && lg.parentElement !== bn) bn.prepend(lg);
-        const mob = document.documentElement.classList.contains('mobile'); if (mob && lg.nextElementSibling !== tag) lg.after(tag); else if (!mob && tag.parentElement !== document.body) document.body.appendChild(tag); };
-      home(); new MutationObserver(() => { if (!lg.isConnected || (lg.parentElement && !lg.parentElement.matches('header.banner'))) home(); }).observe(document.body, { childList: true, subtree: true }); setTimeout(home, 500); setTimeout(home, 2000); }
+      // Phones: it sits at the top of the sheet's header with the tag right under it. Computers: it takes the Adventurer's
+      // Tome button's spot (placed below), with the tag beside it.
+      const home = () => { const mob = document.documentElement.classList.contains('mobile'), bn = document.querySelector('header.banner');
+        if (mob) { if (bn && lg.parentElement !== bn) bn.prepend(lg); if (lg.nextElementSibling !== tag) lg.after(tag); lg.classList.remove('pinned'); lg.style.left = lg.style.top = ''; }
+        else { if (lg.parentElement !== document.body) document.body.appendChild(lg); if (tag.parentElement !== document.body) document.body.appendChild(tag); lg.classList.add('pinned'); } };
+      lg.id = 'pg-publogo'; home(); addEventListener('resize', home); setTimeout(home, 500); setTimeout(home, 2000); }
     // On a computer the tag takes the Adventurer's Tome button's spot (above the toolbar, level with the top of the header)
     // and the toolbar drops down exactly as it does for a signed-in player.
     { const de = document.documentElement, align = () => {
         const lv = document.querySelector('.ident-top .lvlbox'), tb = document.querySelector('.ident-top .toolbar');
-        if (de.classList.contains('mobile') || !lv || !tb) { de.classList.remove('pg-al'); tag.classList.remove('placed'); tag.style.left = tag.style.top = ''; return; }
-        tag.classList.add('placed'); const lr = lv.getBoundingClientRect();
-        de.style.setProperty('--pg-tbm', Math.max(tag.offsetHeight + 8, Math.round(lr.height - tb.offsetHeight)) + 'px');
-        const tr = tb.getBoundingClientRect(), x = Math.round(tr.left + scrollX), y = Math.round(lr.top + scrollY), pos = x + ',' + y;
-        tag.style.left = x + 'px'; tag.style.top = (y + tag.offsetHeight / 2) + 'px';
+        const lg = document.getElementById('pg-publogo');
+        if (de.classList.contains('mobile') || !lv || !tb || !lg) { de.classList.remove('pg-al'); tag.classList.remove('placed'); tag.style.left = tag.style.top = ''; return; }
+        tag.classList.add('placed'); const lr = lv.getBoundingClientRect(), lh = lg.offsetHeight;
+        de.style.setProperty('--pg-tbm', Math.max(lh + 8, Math.round(lr.height - tb.offsetHeight)) + 'px');
+        const tr = tb.getBoundingClientRect(), x = Math.round(tr.left + scrollX), y = Math.round(lr.top + scrollY), pos = x + ',' + y + ',' + lh;
+        lg.style.left = x + 'px'; lg.style.top = y + 'px';
+        tag.style.left = (x + lg.offsetWidth + 12) + 'px'; tag.style.top = (y + lh / 2) + 'px';
         if (pos === align.last) de.classList.add('pg-al'); else { align.last = pos; requestAnimationFrame(align); } };
       let q = 0; const soon = () => { if (!q) q = requestAnimationFrame(() => { q = 0; align(); }); };
       new MutationObserver(soon).observe(document.body, { childList: true, subtree: true }); addEventListener('resize', soon); setInterval(align, 1500); soon(); }

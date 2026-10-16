@@ -1257,3 +1257,12 @@ html.mobile.pg-public .banner { padding-top: 4px !important; }
 .pg-publogo .hl-d20.crit { filter: drop-shadow(0 0 5px rgba(80,230,120,.55)); }
 .pg-publogo .hl-d20.fumble { filter: drop-shadow(0 0 5px rgba(230,80,80,.55)); }
 html:not(.mobile).pg-public header.banner { padding-top: 0 !important; }
+/* Computers: the logo takes the Adventurer's Tome button's spot in the header; the View only tag sits beside it */
+.pg-publogo.pinned { position: absolute; padding: 0; z-index: 35; display: block; }
+.pg-publogo.pinned .hub-logo { gap: 8px; }
+.pg-publogo.pinned .hl-d20 { width: 32px; height: 32px; }
+.pg-publogo.pinned .hl-a { font-size: .5rem; letter-spacing: .36em; margin-bottom: 1px; }
+.pg-publogo.pinned .hl-t { font-size: 1.32rem; }
+html.pg-public:not(.mobile):not(.pg-al) .pg-publogo.pinned { opacity: 0; pointer-events: none; }
+html.pg-public.pg-al:not(.mobile) .pg-publogo.pinned { transition: opacity .2s; }
+body:has(#modal.open) .pg-publogo.pinned { visibility: hidden; }
