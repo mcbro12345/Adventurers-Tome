@@ -341,6 +341,8 @@ function wireDie(root) {
     if (load) { if (!load.isConnected) document.body.appendChild(load); const go = () => fadeLoad(load); if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 600 }); else setTimeout(go, 150); }
     if (ASSETS.full) fetch(ASSETS.full).then(r => r.ok ? r.text() : '').then(x => { if (!x) return; const sc = document.createElement('script'); sc.textContent = x; document.body.appendChild(sc); try { if (typeof render === 'function') render(); } catch (e) {} }, () => {});
     const tag = document.createElement('div'); tag.className = 'pg-shared view pg-pubtag'; tag.innerHTML = `View only (changes are not saved) · <a href="${PRETTY ? '/' : location.pathname}">Adventurer’s Tome</a>`; document.body.appendChild(tag);
+    // The full logo across the top: tap it to go to Adventurer's Tome (the lobby, or sign in).
+    { const lg = document.createElement('a'); lg.className = 'pg-publogo'; lg.href = PRETTY ? '/' : location.pathname; lg.title = 'Go to Adventurer’s Tome'; lg.setAttribute('aria-label', 'Go to Adventurer’s Tome'); lg.innerHTML = logoHTML(); document.body.prepend(lg); lg.after(tag); }
     // On a computer the tag takes the Adventurer's Tome button's spot (above the toolbar, level with the top of the header)
     // and the toolbar drops down exactly as it does for a signed-in player.
     { const de = document.documentElement, align = () => {

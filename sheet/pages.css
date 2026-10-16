@@ -1237,3 +1237,17 @@ body.adminbody .adm-me .pg-ava { box-shadow: none !important; border: 0 !importa
 .pg-pres { gap: 4px; }
 .pg-pres .pg-ava + .pg-ava { margin-left: 0; }
 .pg-pres .pg-ava, .pg-pres .pg-ava.me { box-shadow: none; }
+/* View-only links: the full logo across the top, linking to the lobby / sign in */
+.pg-publogo { display: flex; justify-content: center; padding: 14px 16px 6px; text-decoration: none; position: relative; z-index: 2; }
+.pg-publogo .hub-logo { display: inline-flex; align-items: center; gap: 10px; margin: 0; cursor: pointer; user-select: none; transition: transform .15s ease, filter .15s; }
+.pg-publogo:hover .hub-logo { transform: scale(1.03); filter: brightness(1.1); }
+.pg-publogo:active .hub-logo { transform: scale(.98); }
+.pg-publogo .hl-d20 { width: 40px; height: 40px; flex: none; }
+.pg-publogo .hl-txt { display: flex; flex-direction: column; line-height: 1; }
+.pg-publogo .hl-a { font: 700 .62rem/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; letter-spacing: .4em; text-transform: uppercase; color: #c9962b; margin: 0 0 2px 2px; }
+.pg-publogo .hl-t { font: italic 800 1.75rem/.95 Georgia, 'Times New Roman', serif; letter-spacing: .01em; background: linear-gradient(180deg, #f6e2a6 0%, #d9a93f 55%, #9c7124 100%); -webkit-background-clip: text; background-clip: text; color: transparent; padding-right: 4px; }
+html.mobile .pg-publogo { padding-top: calc(10px + env(safe-area-inset-top)); }
+html.mobile .pg-publogo .hl-d20 { width: 34px; height: 34px; }
+html.mobile .pg-publogo .hl-t { font-size: 1.5rem; }
+html.mobile.pg-public .pg-pubtag { position: static !important; display: block; width: fit-content; max-width: calc(100% - 32px); margin: 2px auto 0; transform: none !important; text-align: center; white-space: normal; }
+html.mobile.pg-public .banner { padding-top: 4px !important; }

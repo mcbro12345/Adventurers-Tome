@@ -1304,6 +1304,20 @@ body.adminbody .adm-me .pg-ava { box-shadow: none !important; border: 0 !importa
 .pg-pres { gap: 4px; }
 .pg-pres .pg-ava + .pg-ava { margin-left: 0; }
 .pg-pres .pg-ava, .pg-pres .pg-ava.me { box-shadow: none; }
+/* View-only links: the full logo across the top, linking to the lobby / sign in */
+.pg-publogo { display: flex; justify-content: center; padding: 14px 16px 6px; text-decoration: none; position: relative; z-index: 2; }
+.pg-publogo .hub-logo { display: inline-flex; align-items: center; gap: 10px; margin: 0; cursor: pointer; user-select: none; transition: transform .15s ease, filter .15s; }
+.pg-publogo:hover .hub-logo { transform: scale(1.03); filter: brightness(1.1); }
+.pg-publogo:active .hub-logo { transform: scale(.98); }
+.pg-publogo .hl-d20 { width: 40px; height: 40px; flex: none; }
+.pg-publogo .hl-txt { display: flex; flex-direction: column; line-height: 1; }
+.pg-publogo .hl-a { font: 700 .62rem/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; letter-spacing: .4em; text-transform: uppercase; color: #c9962b; margin: 0 0 2px 2px; }
+.pg-publogo .hl-t { font: italic 800 1.75rem/.95 Georgia, 'Times New Roman', serif; letter-spacing: .01em; background: linear-gradient(180deg, #f6e2a6 0%, #d9a93f 55%, #9c7124 100%); -webkit-background-clip: text; background-clip: text; color: transparent; padding-right: 4px; }
+html.mobile .pg-publogo { padding-top: calc(10px + env(safe-area-inset-top)); }
+html.mobile .pg-publogo .hl-d20 { width: 34px; height: 34px; }
+html.mobile .pg-publogo .hl-t { font-size: 1.5rem; }
+html.mobile.pg-public .pg-pubtag { position: static !important; display: block; width: fit-content; max-width: calc(100% - 32px); margin: 2px auto 0; transform: none !important; text-align: center; white-space: normal; }
+html.mobile.pg-public .banner { padding-top: 4px !important; }
 </style>
 </head>
 <body>
@@ -1568,7 +1582,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261016012018', ASSETS = {"data": "a/data.aff32fe95249.js", "app": "a/app.893f047662ea.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.8e5d750a17cf.html"}; window.PG_ASSETS = ASSETS;
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261016022754', ASSETS = {"data": "a/data.aff32fe95249.js", "app": "a/app.893f047662ea.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.8e5d750a17cf.html"}; window.PG_ASSETS = ASSETS;
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -1690,6 +1704,8 @@ function wireDie(root) {
     if (load) { if (!load.isConnected) document.body.appendChild(load); const go = () => fadeLoad(load); if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 600 }); else setTimeout(go, 150); }
     if (ASSETS.full) fetch(ASSETS.full).then(r => r.ok ? r.text() : '').then(x => { if (!x) return; const sc = document.createElement('script'); sc.textContent = x; document.body.appendChild(sc); try { if (typeof render === 'function') render(); } catch (e) {} }, () => {});
     const tag = document.createElement('div'); tag.className = 'pg-shared view pg-pubtag'; tag.innerHTML = `View only (changes are not saved) · <a href="${PRETTY ? '/' : location.pathname}">Adventurer’s Tome</a>`; document.body.appendChild(tag);
+    // The full logo across the top: tap it to go to Adventurer's Tome (the lobby, or sign in).
+    { const lg = document.createElement('a'); lg.className = 'pg-publogo'; lg.href = PRETTY ? '/' : location.pathname; lg.title = 'Go to Adventurer’s Tome'; lg.setAttribute('aria-label', 'Go to Adventurer’s Tome'); lg.innerHTML = logoHTML(); document.body.prepend(lg); lg.after(tag); }
     // On a computer the tag takes the Adventurer's Tome button's spot (above the toolbar, level with the top of the header)
     // and the toolbar drops down exactly as it does for a signed-in player.
     { const de = document.documentElement, align = () => {
