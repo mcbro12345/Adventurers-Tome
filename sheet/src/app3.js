@@ -908,7 +908,7 @@ function calcHTML(key) {
     case 'fxchips': {
       const fx = S.effects || [];
       if (!fx.length) return '<span class="hint">No spells or effects running.</span>';
-      return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${fmtRounds(e.rounds)}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">🎲 ${esc(e.repeat.dice)}</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join('');
+      return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${fmtRounds(e.rounds)}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">🎲 ${esc(e.repeat.dice)}</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join('');
     }
     case 'slotsall': {
       let h = '';
@@ -940,6 +940,8 @@ function fxTip(e) {
   if (e.conc) t.push('Concentration'); if (e.ally) t.push('on an ally');
   if (b.ac) t.push(`+${b.ac} AC`); if (b.acBase) t.push(`AC ${b.acBase} + DEX`); if (b.acMin) t.push(`AC at least ${b.acMin}`); if (b.speed) t.push(`+${b.speed} ft speed`); if (b.speedMult) t.push('speed doubled'); if (b.fly) t.push(`fly ${b.fly} ft`);
   if (b.atk) t.push(`+${b.atk} to hit`); if (b.dmg) t.push(`+${b.dmg} damage`); if (b.dmgDice) t.push(`+${b.dmgDice} on weapon hits`); if (b.bless) t.push('+1d4 attacks & saves'); if (b.meleeDmg) t.push(`+${b.meleeDmg} melee damage`);
+  if (b.aura) t.push(`+${b.aura} to saves (Aura of Protection)`); if (b.save) t.push(`+${b.save} to saves`); if (b.bane) t.push('−1d4 attacks & saves'); if ((b.resist || []).length) t.push('Resistance: ' + [].concat(b.resist).join(', '));
+  if (e.from) t.push('cast on you');
   if (e.maxHp) t.push(`+${e.maxHp} max HP`); if (b.note) t.push(b.note);
   return t.join(' · ');
 }

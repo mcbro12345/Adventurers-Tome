@@ -237,7 +237,7 @@ const mod = (ab, noForm) => Math.floor((score(ab, noForm) - 10) / 2);
 const auraBonus = () => (clsLv('paladin') >= 6 && !S.conditions.includes('Unconscious') ? Math.max(1, mod('cha')) : 0);
 const itemSum = k => itemMods().reduce((t, m) => t + N(m[k]), 0) + infSum(k);
 // A paladin's Aura of Protection: your own, or an ally's you're standing in (set on the Core tab). They don't stack.
-const auraAll = () => Math.max(auraBonus(), N(S.allyAura));
+const auraAll = () => Math.max(auraBonus(), N(S.allyAura), ...selfBuffs().map(b => N(b.aura)));
 // Bonuses that apply to every saving throw — death saves included.
 const saveAllBonus = () => itemSum('save') + auraAll() + N((S.deckMods || {}).save) + fxSum('saveAll') + buffSum('save');
 const saveVal = ab => mod(ab) + (S.saves[ab] || fxSaveProf(ab) ? PB() : 0) + itemSum('save') + auraAll() + N((S.deckMods || {}).save) + fxSum('saveAll') + buffSum('save');
@@ -412,6 +412,7 @@ function speedInfo() {
   if (arm && arm.armor.strReq && score('str') < arm.armor.strReq && !(r && /dwarf/i.test(r.name))) { walk -= 10; parts.push(`${arm.name} STR requirement −10`); }
   fxPassives().forEach(p => { const heavy = arm && arm.armor.type === 'heavy'; let n = 0; if (p.speed) n += N(p.speed); if (p.speedNoHeavy && !heavy) n += N(p.speedNoHeavy); if (p.speedNoArmor && !arm && !sh) n += N(p.speedNoArmor); if (n) { walk += n; parts.push(`${p.src} +${n}`); } });
   const bs = buffSum('speed'); if (bs) { walk += bs; parts.push(`Spells +${bs}`); }
+  if (selfBuffs().some(b => b.speedHalf)) { walk = Math.floor(walk / 2); parts.push('Slowed ×½'); }
   if (hasted()) { walk *= 2; parts.push('Haste ×2'); }
   const enc = encLevel(); if (enc === 3) { walk = Math.min(walk, 5); parts.push('Over carrying capacity: 5 ft'); } else if (enc) { walk -= enc === 2 ? 20 : 10; parts.push(enc === 2 ? 'Heavily encumbered −20' : 'Encumbered −10'); }
   if (exModern() && N(S.exhaustion)) { walk = Math.max(0, walk - 5 * N(S.exhaustion)); parts.push(`Exhaustion −${5 * N(S.exhaustion)}`); }
@@ -556,6 +557,10 @@ function rollMode(kind, ab) {
   // The sheet-wide Advantage / Disadvantage switch (Core → "d20 rolls" tile) applies to every attack, check and save.
   if (kind === 'check' && ROLL_CTX === 'skill:Perception') selfBuffs().forEach(b => { if (b.percAdv) adv.push('third eye'); });
   if (['attack', 'check', 'save'].includes(kind)) selfBuffs().forEach(b => { if (b.d20AdvNext) adv.push(typeof b.d20AdvNext === 'string' ? b.d20AdvNext : 'advantage'); });
+  // Spells others cast on you (Haste: DEX saves, Enhance Ability: one ability's checks, Hex: one ability's checks at disadvantage…)
+  fxActive().forEach(e => { const b = e.buff; if (!b || e.ally || e.self === false) return;
+    if (kind === 'save' && [].concat(b.saveAdv || []).includes(ab)) adv.push(e.name); if (kind === 'check' && ROLL_CTX !== 'init' && [].concat(b.checkAdv || []).includes(ab)) adv.push(e.name);
+    if (kind === 'check' && [].concat(b.checkDis || []).includes(ab)) dis.push(e.name); if (kind === 'save' && [].concat(b.saveDis || []).includes(ab)) dis.push(e.name); if (kind === 'attack' && b.atkDis) dis.push(e.name); });
   if (S.rollAdv === 'adv') adv.push('advantage (switch on)'); else if (S.rollAdv === 'dis') dis.push('disadvantage (switch on)');
   const auto = kind === 'save' && ['str', 'dex'].includes(ab) && cond.some(c => ['Paralyzed', 'Petrified', 'Stunned', 'Unconscious'].includes(c)) ? 'auto-fail' : '';
   return { mode: adv.length && dis.length ? 'normal' : adv.length ? 'adv' : dis.length ? 'dis' : 'normal', why: (adv.length && dis.length ? ['advantage and disadvantage cancel'] : adv.length ? adv : dis), auto };

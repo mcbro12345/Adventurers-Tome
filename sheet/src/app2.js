@@ -197,7 +197,12 @@ function d20Expr(bonus, kind, ab) {
   if (kind === 'attack') { const used = (S.effects || []).filter(e => e.buff && e.buff.atkAdvNext && !e.ally); if (used.length) S.effects = S.effects.filter(e => !used.includes(e)); }
   // Tides of Chaos (and the like): advantage on the next attack, check or save, used up by this roll.
   if (['attack', 'check', 'save'].includes(kind)) { const used = (S.effects || []).filter(e => e.buff && e.buff.d20AdvNext && !e.ally); if (used.length) S.effects = S.effects.filter(e => !used.includes(e)); }
-  return { expr: base + sgn(bonus - ex) + bless, rm, bless, ex };
+  // Bane: −1d4 on attacks and saves. Guidance / Resistance: +1d4 on the next check / save, then they're gone.
+  let extra = ''; const bs = selfBuffs();
+  if ((kind === 'attack' || kind === 'save') && bs.some(b => b.bane)) extra += '-1d4';
+  const once = k => { const e = (S.effects || []).find(x => x.buff && x.buff[k] && !x.ally); if (e) { extra += '+' + e.buff[k]; S.effects = S.effects.filter(x => x !== e); } };
+  if (kind === 'check' && ROLL_CTX !== 'init') once('checkDieNext'); if (kind === 'save') once('saveDieNext');
+  return { expr: base + sgn(bonus - ex) + bless + extra, rm, bless, ex };
 }
 // House rule (Settings → Rules): a natural 1 on an attack roll also rolls a d4, always the last roll.
 function nat1Roll() { return ST('nat1Roll') ? rollExpr('1d4', { label: 'Nat 1 Roll' }) : null; }
@@ -388,7 +393,7 @@ function renderVitals() {
   <div class="tile" data-zi="hd"><span class="lbl"><span class="ciw top">Hit Dice${ciBtn('hd', 'hit dice')}</span></span><span class="big" data-calc="hd"></span><span class="sub" data-calc="hdpools"></span></div>
   <div class="tile deathtile" data-zi="death"><span class="lbl">Death Saves</span><div class="death" data-calc-html="death"></div></div>
   <div class="tile condtile" data-zi="conds"><div class="tilehead"><span class="lbl">Conditions</span><button class="addc" data-act="conditions">+ Add</button><span class="advbtns" role="group" aria-label="All d20 rolls"><button class="advb adv${S.rollAdv === 'adv' ? ' on' : ''}" data-act="rolladv" data-v="adv" aria-pressed="${S.rollAdv === 'adv'}" title="Advantage on every attack, check and save"><span class="al">Advantage</span><span class="as">Adv</span></button><button class="advb dis${S.rollAdv === 'dis' ? ' on' : ''}" data-act="rolladv" data-v="dis" aria-pressed="${S.rollAdv === 'dis'}" title="Disadvantage on every attack, check and save"><span class="al">Disadvantage</span><span class="as">Dis</span></button></span></div><div class="condchips" data-calc-html="conds"></div></div>
-  <div class="tile fxtile" data-zi="effects"><div class="tilehead"><span class="lbl">Active spells &amp; effects</span><span class="hint" data-calc="concnote"></span></div><div class="fxchips" data-calc-html="fxchips"></div></div>
+  <div class="tile fxtile" data-zi="effects"><div class="tilehead"><span class="lbl">Active spells &amp; effects</span><button class="addc" data-act="addeffects" title="Spells and effects someone else put on you">+ Add</button><span class="hint" data-calc="concnote"></span></div><div class="fxchips" data-calc-html="fxchips"></div></div>
 `;
 }
 
@@ -614,7 +619,7 @@ function renderCore() {
   $('#page-core').innerHTML = `
   <div class="core">
     <div class="panel" ${PID('abilities')}><h2><span class="grow">Abilities &amp; Saves</span><button class="btn sm" data-act="manageabil">Manage</button></h2><div class="abilities" data-zone="abil">${abil}</div>
-      <p class="hint" style="margin:10px 0 0">Tap any bonus to roll it. Conditions like poisoned or exhaustion apply to your rolls automatically.${auraBonus() ? ' Saves include your Aura of Protection.' : ''}</p>${clsLv('paladin') >= 6 ? '' : `<label class="allyaura"><span>Ally’s Aura of Protection</span>${sel('allyAura', [['', 'Not in one'], ['1', '+1'], ['2', '+2'], ['3', '+3'], ['4', '+4'], ['5', '+5']], { label: 'Bonus from an ally paladin’s Aura of Protection' })}</label>`}</div>
+      <p class="hint" style="margin:10px 0 0">Tap any bonus to roll it. Conditions like poisoned or exhaustion apply to your rolls automatically.${auraBonus() ? ' Saves include your Aura of Protection.' : ''}</p></div>
     <div class="panel" ${PID('skills')}><h2><span class="grow">Skills</span><button class="btn sm" data-act="manageskills">Manage</button></h2><div class="skills">${skills}</div>
       <div class="passive"><span><span class="ciw">Passive Perception${ciBtn('passive', 'passive Perception')}</span></span><span data-calc="passive"></span></div></div>
     <div class="stack col3">

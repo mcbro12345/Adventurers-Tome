@@ -135,6 +135,7 @@ function defensesDetail() {
   const out = { resist: [], immune: [], adv: [] };
   const cap = t => { t = String(t).trim(); if (/^diseased$/i.test(t)) t = 'disease'; return t.charAt(0).toUpperCase() + t.slice(1); };
   const add = (arr, t, src) => { if (!t) return; const tt = cap(t), k = tt.toLowerCase(); let e = arr.find(x => x.k === k); if (!e) arr.push(e = { k, t: tt, src: [] }); if (src && !e.src.includes(src) && !k.startsWith(String(src).toLowerCase())) e.src.push(src); };
+  fxActive().forEach(e => { const b = e.buff; if (!b || e.ally || e.self === false) return; [].concat(b.resist || []).forEach(t => add(out.resist, t, e.name)); [].concat(b.immune || []).forEach(t => add(out.immune, t, e.name)); [].concat(b.condImmune || []).forEach(t => add(out.immune, t, e.name)); });
   fxPassives().forEach(p => {
     [].concat(p.resist || []).forEach(t => add(out.resist, t, p.src));
     [].concat(p.immune || []).forEach(t => add(out.immune, t, p.src));

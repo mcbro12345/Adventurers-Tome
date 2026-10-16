@@ -81,7 +81,10 @@ function mainClick(e) {
     case 'econ': S.turn.used[b.dataset.col] = !S.turn.used[b.dataset.col]; if (b.dataset.col === 'action' && !S.turn.used.action) S.turn.attacks = 0; update(); break;
     case 'econtab': UI.econTab = b.dataset.col; saveUI(); render('combat'); refresh(); pendingLabel = null; return;
     case 'qty': { const it = S.inventory[i]; it.qty = Math.max(0, N(it.qty) + N(b.dataset.d)); update(); break; }
-    case 'endeffect': endEffect(b.dataset.n); break;
+    case 'endeffect': endEffect(b.dataset.n); if ($('#condmodal.extfxm')) openExtFx(); break;
+    case 'addeffects': UI.extPick = ''; openExtFx(); break;
+    case 'extfx': addExtFx(b.dataset.k); break;
+    case 'extfxgo': addExtFx(b.dataset.k, b.dataset.v); break;
     case 'repeatfx': repeatEffect(N(b.dataset.j)); break;
     case 'stunstrike': stunningStrike(); break;
     case 'hasteact': hasteAct(b.dataset.k, b.dataset.i); break;
@@ -1740,3 +1743,82 @@ function openAcManage() {
 }
 
 const mOpen = sel => !!$(sel) && $('#modal').classList.contains('open') && $('#modal-body').contains($(sel));
+
+// ---------- Spells & effects someone else puts on you ----------
+// Like Conditions: pick what a party member (or an enemy) cast on you and the sheet applies it — AC, saves, speed, damage,
+// advantage — and counts it down with everything else. [key, name, group, rounds (null = until removed), buff, extras]
+const DMG5 = ['acid', 'cold', 'fire', 'lightning', 'thunder'], ABS6 = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
+const EXT_FX = [
+  ['bless', 'Bless', 'Rolls', 10, { bless: true }],
+  ['guidance', 'Guidance', 'Rolls', 10, { checkDieNext: '1d4', note: '+1d4 on your next ability check' }],
+  ['resistance', 'Resistance', 'Rolls', 10, { saveDieNext: '1d4', note: '+1d4 on your next saving throw' }],
+  ['enhance', 'Enhance Ability', 'Rolls', 600, {}, { pick: ABS6.map(a => [a, ABN[a]]), make: a => ({ checkAdv: [a], note: `Advantage on ${ABN[a]} checks` }), label: a => ABN[a] }],
+  ['heroism', 'Heroism', 'Rolls', 10, { condImmune: ['Frightened'], note: 'Immune to frightened; temporary HP at the start of each of your turns' }],
+  ['pwt', 'Pass without Trace', 'Rolls', 600, { note: '+10 to Dexterity (Stealth) checks; can’t be tracked by nonmagical means' }],
+  ['shieldfaith', 'Shield of Faith', 'Protection', 100, { ac: 2 }],
+  ['haste', 'Haste', 'Protection', 10, { ac: 2, speedMult: 2, saveAdv: ['dex'], note: 'One extra action each turn (one weapon attack, Dash, Disengage, Hide or Use an Object); when it ends you can’t move or act for a turn' }],
+  ['barkskin', 'Barkskin', 'Protection', 600, { acMin: 16 }],
+  ['magearmor', 'Mage Armor', 'Protection', 4800, { acBase: 13, unarmoredOnly: true }],
+  ['wardingbond', 'Warding Bond', 'Protection', 600, { ac: 1, save: 1, resist: ['all damage'], note: 'The caster takes the same damage you do' }],
+  ['stoneskin', 'Stoneskin', 'Protection', 600, { resist: ['nonmagical bludgeoning, piercing and slashing'] }],
+  ['protenergy', 'Protection from Energy', 'Protection', 600, {}, { pick: DMG5.map(t => [t, t[0].toUpperCase() + t.slice(1)]), make: t => ({ resist: [t] }), label: t => t[0].toUpperCase() + t.slice(1) }],
+  ['pfeg', 'Protection from Evil and Good', 'Protection', 100, { note: 'Aberrations, celestials, elementals, fey, fiends and undead have disadvantage to hit you and can’t charm, frighten or possess you' }],
+  ['sanctuary', 'Sanctuary', 'Protection', 10, { note: 'Anyone targeting you must make a WIS save first; ends if you attack or cast on an enemy' }],
+  ['blur', 'Blur', 'Protection', 10, { note: 'Attacks against you have disadvantage' }],
+  ['invis', 'Invisibility', 'Protection', 600, { note: 'Invisible until you attack or cast a spell' }],
+  ['ginvis', 'Greater Invisibility', 'Protection', 10, { atkAdv: 'invisible', note: 'Attacks against you have disadvantage' }],
+  ['deathward', 'Death Ward', 'Protection', 4800, { note: 'The first time you’d drop to 0 HP you drop to 1 instead (once)' }],
+  ['freedom', 'Freedom of Movement', 'Protection', 600, { note: 'Difficult terrain and magic can’t slow, paralyze or restrain you' }],
+  ['beacon', 'Beacon of Hope', 'Protection', 10, { saveAdv: ['wis'], note: 'Advantage on WIS saves and death saves; healing you is maximised' }],
+  ['holyaura', 'Holy Aura', 'Protection', 10, { saveAdv: ABS6, note: 'Attacks against you have disadvantage' }],
+  ['foresight', 'Foresight', 'Protection', 4800, { atkAdv: 'Foresight', saveAdv: ABS6, checkAdv: ABS6, note: 'Attacks against you have disadvantage' }],
+  ['longstrider', 'Longstrider', 'Movement', 600, { speed: 10 }],
+  ['fly', 'Fly', 'Movement', 100, { fly: 60 }],
+  ['spiderclimb', 'Spider Climb', 'Movement', 600, { note: 'Climb speed equal to your walking speed, even upside down' }],
+  ['waterbreath', 'Water Breathing', 'Movement', 14400, { note: 'You can breathe underwater' }],
+  ['jump', 'Jump', 'Movement', 10, { note: 'Your jump distance is tripled' }],
+  ['magicweapon', 'Magic Weapon', 'Weapons', 600, {}, { pick: [['1', '+1'], ['2', '+2 (4th-level slot)'], ['3', '+3 (6th-level slot)']], make: v => ({ atk: N(v), dmg: N(v), note: 'One weapon only' }), label: v => '+' + v }],
+  ['elemweapon', 'Elemental Weapon', 'Weapons', 600, {}, { pick: DMG5.map(t => [t, t[0].toUpperCase() + t.slice(1)]), make: t => ({ atk: 1, dmgDice: '1d4 ' + t, note: 'One weapon only' }), label: t => t[0].toUpperCase() + t.slice(1) }],
+  ['holyweapon', 'Holy Weapon', 'Weapons', 600, { dmgDice: '2d8 radiant', note: 'One weapon only' }],
+  ['crusader', 'Crusader’s Mantle', 'Weapons', 10, { dmgDice: '1d4 radiant' }],
+  ['enlarge', 'Enlarge', 'Weapons', 10, { dmgDice: '1d4', checkAdv: ['str'], saveAdv: ['str'], note: 'One size larger' }],
+  ['reduce', 'Reduce', 'Weapons', 10, { checkDis: ['str'], saveDis: ['str'], note: 'One size smaller; your weapon attacks deal 1d4 less damage' }],
+  ['aid', 'Aid', 'Hit points', 4800, {}, { pick: [['2', '2nd level (+5)'], ['3', '3rd (+10)'], ['4', '4th (+15)'], ['5', '5th (+20)']], hp: v => 5 * (N(v) - 1), make: () => ({}), label: v => '+' + 5 * (N(v) - 1) }],
+  ['aurapro', 'Aura of Protection', 'From an ally', null, {}, { pick: [1, 2, 3, 4, 5].map(n => [String(n), '+' + n]), make: v => ({ aura: N(v) }), label: v => '+' + v, why: 'A paladin within 10 ft (30 ft at 18th level) adds their CHA modifier to your saves' }],
+  ['auracourage', 'Aura of Courage', 'From an ally', null, { condImmune: ['Frightened'], note: 'You can’t be frightened while within the paladin’s aura' }],
+  ['bardic', 'Bardic Inspiration', 'From an ally', 100, {}, { pick: ['d6', 'd8', 'd10', 'd12'].map(d => [d, d]), make: d => ({ note: `Add 1${d} to one attack, check or save (tap the die to roll it)` }), repeat: d => ({ dice: '1' + d, type: 'Bardic Inspiration' }), label: d => d }],
+  ['emboldening', 'Emboldening Bond', 'From an ally', 600, { note: 'Once per turn, add 1d4 to an attack, check or save' }, { repeat: () => ({ dice: '1d4', type: 'Emboldening Bond' }) }],
+  ['bane', 'Bane', 'From an enemy', 10, { bane: true }],
+  ['slow', 'Slow', 'From an enemy', 10, { ac: -2, speedHalf: true, note: '−2 to DEX saves; no reactions; an action or a bonus action, not both' }],
+  ['faerie', 'Faerie Fire', 'From an enemy', 10, { note: 'Attacks against you have advantage; you can’t be invisible' }],
+  ['hex', 'Hex', 'From an enemy', 600, {}, { pick: ABS6.map(a => [a, ABN[a]]), make: a => ({ checkDis: [a], note: `Disadvantage on ${ABN[a]} checks` }), label: a => ABN[a] }],
+  ['curse', 'Bestow Curse', 'From an enemy', 10, {}, { pick: ABS6.map(a => [a, ABN[a]]), make: a => ({ checkDis: [a], saveDis: [a], note: `Disadvantage on ${ABN[a]} checks and saves` }), label: a => ABN[a] }],
+  ['rayenf', 'Ray of Enfeeblement', 'From an enemy', 10, { note: 'Your STR-based weapon attacks deal half damage' }],
+  ['heatmetal', 'Heat Metal', 'From an enemy', 10, { note: 'Fire damage each turn while holding or wearing the metal; disadvantage on attacks and checks if you keep holding it' }]
+];
+const EXT_GROUPS = ['Rolls', 'Protection', 'Movement', 'Weapons', 'Hit points', 'From an ally', 'From an enemy'];
+const extOn = k => (S.effects || []).find(e => e.xkey === k);
+function addExtFx(k, v) {
+  const d = EXT_FX.find(x => x[0] === k); if (!d) return; const [, name, group, rounds, buff, x = {}] = d;
+  const on = extOn(k); if (on) { S.effects = S.effects.filter(e => e !== on); if (on.maxHp) S.hp.cur = Math.min(N(S.hp.cur), maxHp()); pendingLabel = 'End ' + on.name; save(); render(); openExtFx(); return; }
+  if (x.pick && v == null) { UI.extPick = UI.extPick === k ? '' : k; openExtFx(); return; }
+  const nm = name + (x.label && v != null ? ' (' + x.label(v) + ')' : ''), b = Object.assign({}, buff, x.make ? x.make(v) : {});
+  const e = { name: nm, xkey: k, rounds, buff: b, from: group === 'From an enemy' ? 'enemy' : 'ally' };
+  if (x.hp) { e.maxHp = x.hp(v); S.hp.cur = N(S.hp.cur) + e.maxHp; }
+  if (x.repeat) e.repeat = x.repeat(v);
+  S.effects = (S.effects || []).filter(f => f.name !== nm).concat([e]); UI.extPick = '';
+  pendingLabel = nm + ' on you'; save(); render(); openExtFx();
+}
+function openExtFx() {
+  const act = (S.effects || []).map(e => `<div class="arow"><span class="ci">${e.from === 'enemy' ? '☠' : e.conc ? '◉' : '✦'}</span><div class="arow-t"><b>${esc(e.name)}</b><small>${esc(fxTip(e) || '')}${e.rounds != null ? ' · ' + esc(fmtRounds(e.rounds)) + ' left' : ''}</small></div><button class="icon-btn arow-x" data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></div>`);
+  const chip = d => { const [k, name, , , , x = {}] = d, on = !!extOn(k);
+    return `<button class="cchip2${on ? ' on' : ''}${UI.extPick === k ? ' picking' : ''}" data-act="extfx" data-k="${k}" aria-pressed="${on}" title="${esc(x.why || fxTip({ buff: Object.assign({}, d[4]) }) || name)}">${esc(name)}${x.pick && !on ? '<span class="cc-more">▾</span>' : ''}</button>`; };
+  const pickRow = g => { const d = EXT_FX.find(x => x[0] === UI.extPick && x[2] === g); if (!d) return ''; const x = d[5];
+    return `<div class="xpick"><span class="xpick-l">${esc(d[1])}:</span>${x.pick.map(([v, t]) => `<button class="btn sm" data-act="extfxgo" data-k="${d[0]}" data-v="${esc(v)}">${esc(t)}</button>`).join('')}</div>`; };
+  const html = `<div id="condmodal" class="extfxm"><div class="sethead"><h3>Spells &amp; effects on you</h3><span class="cm-count${act.length ? ' on' : ''}">${act.length ? act.length + ' active' : 'None active'}</span><span class="grow"></span><button class="btn sm gold" data-act="close">Done</button></div>
+    <p class="hint" style="margin:0 0 10px">Something a party member (or an enemy) cast on you. The sheet applies it to your AC, saves, speed and attacks, and counts it down with your other effects.</p>
+    ${act.length ? `<div class="alist">${act.join('')}</div>` : ''}
+    ${EXT_GROUPS.map(g => `<div class="cm2-lbl">${g}</div><div class="cchips2">${EXT_FX.filter(d => d[2] === g).map(chip).join('')}</div>${pickRow(g)}`).join('')}
+  </div>`;
+  if ($('#condmodal.extfxm') && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html);
+}

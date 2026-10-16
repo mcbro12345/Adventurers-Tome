@@ -2688,3 +2688,19 @@ html.mobile .oocbar .ooc-enter { margin: 0 0 6px; }
 .restype:has(input:checked) { border-color: var(--gold); background: var(--gold-soft); }
 .restype input { accent-color: var(--gold); margin: 0; }
 .toast.rollcard > .t-acts { padding-right: 44px; }
+/* Save rows: the number stays put on hover (the whole row lights up instead), like skills */
+.saverow .roll:hover, .saverow .roll:focus-visible { background: transparent !important; color: var(--ink) !important; filter: none !important; box-shadow: none !important; transform: none !important; border-color: transparent !important; }
+/* Spells & effects on you (same look as Conditions) */
+.extfxm .cchip2 .cc-more { margin-left: 4px; font-size: .7em; opacity: .7; }
+.extfxm .cchip2.picking { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold-soft); }
+.xpick { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0 2px; padding: 8px 10px; border: 1px dashed var(--gold); border-radius: 10px; background: var(--gold-soft); animation: wFadeIn .18s ease; }
+.xpick-l { font-weight: 700; font-size: .84rem; margin-right: 2px; }
+.fxc .fxfrom { margin-left: 3px; opacity: .65; font-size: .8em; }
+/* Phone → computer relay status */
+#relaystatus { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; }
+#relaystatus .rs-ic { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: .9rem; background: var(--panel2, rgba(127,127,127,.15)); color: var(--muted); }
+#relaystatus .rs-ic.ok { background: rgba(70,170,100,.18); color: #4fb36d; }
+#relaystatus .rs-ic.warn { background: rgba(220,150,40,.18); color: #e0a03a; }
+#relaystatus .rs-t { display: flex; flex-direction: column; gap: 3px; min-width: 0; line-height: 1.35; }
+#relaystatus .rs-t b { font-size: .95rem; }
+#relaystatus .rs-t span { color: var(--muted); font-size: .86rem; }

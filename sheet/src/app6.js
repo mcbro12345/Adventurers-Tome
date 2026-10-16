@@ -46,7 +46,7 @@ function openSettings(tab) {
     ${pane('dice', `
       <div class="dicemodes">${[['sheet', 'The sheet rolls', 'Every roll happens here, fully automated.'], ['manual', 'I use my own rolls', 'Shows the dice to roll; asks for your total only when automation needs it (healing, temp HP, death saves…). Everything else is still tracked.'], ['roll20', 'Roll20 rolls for me', 'Rolls post to your Roll20 game’s chat and the results come back here (needs the companion extension).']].concat(isMobile() || diceMode() === 'remote' ? [['remote', 'Roll in Roll20 from my phone', 'Roll here and it posts in Roll20 through this character open on your computer (with “Roll20 rolls for me” on there). Play from anywhere in the house.']] : []).map(([v, t, d]) => `<label class="dmode${diceMode() === v ? ' on' : ''}"><input type="radio" name="dicemode" data-set="diceMode" value="${v}"${diceMode() === v ? ' checked' : ''}><span><b>${t}</b>${diceMode() === v ? `<small>${d}</small>` : ''}</span></label>`).join('')}</div>
       ${diceMode() === 'roll20' ? '<div id="r20status" class="r20box"></div>' : ''}
-      ${diceMode() === 'remote' ? '<div id="relaystatus" class="r20box"><span class="hint">Checking for your computer…</span></div>' : ''}
+      ${diceMode() === 'remote' ? '<div id="relaystatus" class="r20box"><span class="rs-ic">…</span><div class="rs-t"><span>Checking for your computer…</span></div></div>' : ''}
       <button class="r20macros" data-act="macros" title="Copy Roll20 macros for everything rollable" aria-label="Roll20 macros"><img src="${R20_LOGO}" alt=""></button>
       <p class="hint" style="margin:4px 0 0">Copy macros for every attack, save, skill and spell.</p>
     `)}
@@ -844,6 +844,6 @@ document.addEventListener('change', e => { if (e.target && e.target.id === 'cond
 // Phone → computer → Roll20: shows whether the computer is there to roll (it checks in every half minute while ready).
 function relayStatus() { const box = $('#relaystatus'); if (!box || !window.PG_RELAY) return;
   window.PG_RELAY.hostSeen().then(at => { if (!box.isConnected) return; const ok = at && Date.now() - at < 75000;
-    box.innerHTML = ok ? `<b class="ok">✓ Your computer is ready</b><span class="hint">Rolls from here post in Roll20 through it.</span>` : `<b class="warn">Your computer isn’t connected</b><span class="hint">Open this character on your computer, choose “Roll20 rolls for me” in Settings → Dice there, and keep your Roll20 game open. Until then the sheet rolls here.</span>`; }, () => {}); }
+    box.innerHTML = ok ? `<span class="rs-ic ok">✓</span><div class="rs-t"><b>Your computer is ready</b><span>Rolls from here post in Roll20 through it.</span></div>` : `<span class="rs-ic warn">!</span><div class="rs-t"><b>Your computer isn’t connected</b><span>Open this character on your computer, choose “Roll20 rolls for me” in Settings → Dice there, and keep your Roll20 game open. Until then the sheet rolls here.</span></div>`; }, () => {}); }
 new MutationObserver(() => { const b = $('#relaystatus'); if (b && !b.dataset.seen) { b.dataset.seen = 1; relayStatus(); } }).observe(document.body, { childList: true, subtree: true });
 setInterval(() => { if ($('#relaystatus')) relayStatus(); }, 15000);

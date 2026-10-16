@@ -892,9 +892,10 @@ function hub(fs, auth, G, ctx) {
   }
   // Deleting is for the owner (or an admin), never for people it's only shared with. It's permanent, so they type the
   // character's name to confirm.
-  const canDelete = c => IS_ADMIN || (c.owner || '') === EMAIL;
-  function deleteChar(c, after) {
-    if (!canDelete(c)) return;
+  // Only the owner can delete a character from the lobby (editors can't, admins included); admins can from the admin panel.
+  const canDelete = (c, adm) => (c.owner || '') === EMAIL || (adm && IS_ADMIN);
+  function deleteChar(c, after, adm) {
+    if (!canDelete(c, adm)) return;
     const want = String(c.name || '').trim() || 'DELETE';
     modal.innerHTML = `<div class="hub-card"><h2>Delete ${esc(c.name || 'this character')}?</h2>
       <p class="hub-hint">This permanently deletes the character${(c.viewers || []).length ? ', including for everyone it’s shared with' : ''}. It can’t be undone.</p>
@@ -1318,7 +1319,7 @@ function hub(fs, auth, G, ctx) {
         try { await setAccess(c, v ? [...V, EMAIL] : V, v === 'edit' ? [...E, EMAIL] : E); toast(v ? (c.name || 'It') + ' is shared with you (' + (v === 'edit' ? 'can edit' : 'view only') + ').' : 'Stopped sharing ' + (c.name || 'it') + ' with you.'); }
         catch (x) { toast('Couldn\'t change it: ' + (x.message || x)); sl.value = myAccess(c) === 'own' ? '' : myAccess(c); } });
       el.querySelectorAll('[data-mi]').forEach(b => b.onclick = () => { const c = CH[b.dataset.id]; closeAdmMenus(); if (!c) return;
-        ({ open: () => { pgGo(URLS.char(c)); }, share: () => shareChar(c, Object.assign(() => {}, { refresh: redo })), give: () => moveChar(c, redo), rm: () => removeChar(c, redo), del: () => deleteChar(c, redo) })[b.dataset.mi](); });
+        ({ open: () => { pgGo(URLS.char(c)); }, share: () => shareChar(c, Object.assign(() => {}, { refresh: redo })), give: () => moveChar(c, redo), rm: () => removeChar(c, redo), del: () => deleteChar(c, redo, true) })[b.dataset.mi](); });
     }
     const docs = r => r.docs.map(d => Object.assign({ id: d.id }, d.data()));
     const failMsg = x => `<p class="adm-empty">Couldn't load this (${esc((x && (x.code || x.message)) || x)}).</p>`;
@@ -1450,16 +1451,25 @@ function hub(fs, auth, G, ctx) {
     async function tabAudit() {
       const el = B(); HA().innerHTML = '';
       if (!APEOPLE) { try { APEOPLE = docs(await usersCol.limit(500).get()).sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id)); APEOPLE.forEach(u => remember(u.id, u)); } catch (e) { APEOPLE = []; } }
-      el.innerHTML = `<div class="au-bar">
-          <label class="au-search">${svg('search', 16)}<input id="au-q" type="search" placeholder="Search activity, people or characters" value="${esc(AF.q)}" autocomplete="off"></label>
-          <div class="au-pills" id="au-pills"></div></div><div id="au-l"><p class="adm-dim">Loading…</p></div>`;
-      paintPills();
+      el.innerHTML = `<div class="adm-filters">${toolbar('au-q', 'Search activity, people or characters', AF.q)}<div class="adm-fsels" id="au-sels"></div></div><div id="au-l"><p class="adm-dim">Loading…</p></div>`;
+      paintAuSels();
       let t = null; const q = el.querySelector('#au-q');
-      q.oninput = () => { clearTimeout(t); t = setTimeout(() => { AF.q = q.value; paintAudit(); paintPills(); }, 200); };
+      q.oninput = () => { clearTimeout(t); t = setTimeout(() => { AF.q = q.value; paintAudit(); }, 150); };
       // The log is live: new events slide in as they happen (it only keeps the past week, so all of it is here).
       if (!ALIVE) ALIVE = auditCol.orderBy('at', 'desc').limit(1500).onSnapshot(qs => { AROWS = docs(qs); AFULL = false; if (TAB === 'audit') paintAudit(); }, x => { const l = B().querySelector('#au-l'); if (l) l.innerHTML = failMsg(x); });
       else paintAudit();
     }
+    function paintAuSels() { const box = B() && B().querySelector('#au-sels'); if (!box) return;
+      const seen = new Set((AROWS || []).map(e => e.by)), people = (APEOPLE || []).filter(u => seen.has(u.id) || AF.who.includes(u.id));
+      (AROWS || []).forEach(e => { if (!people.some(u => u.id === e.by)) people.push({ id: e.by, name: e.byName }); });
+      people.sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
+      const actOpts = [['', 'All']].concat(AGROUPS.flatMap(([g, ks]) => [['g:' + esc(g), esc(g)]].concat(ks.map(a => [a, ' ' + esc(actLabel(a))]))));
+      box.innerHTML = fsel('au-range', 'Date', AU_RANGES.filter(r => r[0] !== 'custom').map(([v, t]) => [v, esc(t)]), AF.range === 'custom' ? '' : AF.range)
+        + fsel('au-who', 'Actor', [['', 'Anyone']].concat(people.map(u => [esc(u.id), esc(u.name || u.id)])), AF.who[0] || '')
+        + fsel('au-act', 'Activity', actOpts, AF.act.length > 1 ? 'g:' + ((AGROUPS.find(([, ks]) => ks.length === AF.act.length && ks.every(a => AF.act.includes(a))) || [''])[0]) : AF.act[0] || '');
+      const on = (id, f) => { const sl = box.querySelector('#' + id); sl.onchange = () => { f(sl.value); sl.parentElement.classList.toggle('on', !!sl.value); paintAudit(); }; };
+      on('au-range', v => { AF.range = v; }); on('au-who', v => { AF.who = v ? [v] : []; });
+      on('au-act', v => { AF.act = !v ? [] : v.startsWith('g:') ? ((AGROUPS.find(([g]) => g === v.slice(2)) || [0, []])[1]).slice() : [v]; }); }
     function paintPills() {
       const box = B().querySelector('#au-pills'); if (!box) return;
       const lab = { range: AF.range === 'custom' ? (AF.from || AF.to ? [AF.from || '…', AF.to || '…'].join(' – ') : 'Custom') : (AU_RANGES.find(r => r[0] === AF.range) || AU_RANGES[0])[1],
@@ -1524,14 +1534,15 @@ function hub(fs, auth, G, ctx) {
       const det = e => `<dl class="au-dl"><dt>Date</dt><dd>${esc(new Date(e.at).toLocaleString())}</dd><dt>Actor</dt><dd>${esc(e.byName || '—')} <span class="adm-dim">${esc(e.by)}</span></dd>
           <dt>Activity</dt><dd>${esc(ACTS[e.act] || e.act)} <span class="au-cat">${esc(grpOf(e.act))}</span></dd>${e.target ? `<dt>${CHAR_ACTS.has(e.act) ? 'Character' : 'Target'}</dt><dd>${CHAR_ACTS.has(e.act) && e.act !== 'delete' && e.act !== 'remove' ? `<a href="${esc(URLS.byId(e.target))}">${esc(e.tName || e.target)}</a>` : esc(e.tName || e.target)}</dd>` : ''}
           ${e.detail ? `<dt>Details</dt><dd class="au-dd">${esc(e.detail)}</dd>` : ''}<dt>Event ID</dt><dd class="adm-dim au-id">${esc(e.id)}</dd></dl>`;
-      const cnt = `<div class="au-n"><span>${rows.length} event${rows.length === 1 ? '' : 's'}${AROWS.length !== rows.length ? ' of ' + AROWS.length + ' loaded' : ''}${AF.who.length && AROWS.length === 500 ? ' · their latest 500' : ''}</span></div>`;
-      l.innerHTML = cnt + (rows.length ? `<div class="au-tw"><table class="au-t"><thead><tr><th class="au-c-d">Date</th><th class="au-c-a">Actor</th><th>Activity</th><th class="au-c-x"></th></tr></thead><tbody>${rows.map(e => `<tr class="au-r${AOPEN[e.id] ? ' open' : ''}" data-id="${esc(e.id)}" tabindex="0" aria-expanded="${!!AOPEN[e.id]}">
-          <td class="au-c-d"><span title="${esc(new Date(e.at).toLocaleString())}">${esc(dt(e.at))}</span></td>
-          <td class="au-c-a"><span class="adm-who">${ava(e.byName || NAMES[e.by], e.by)}<span>${esc(e.byName || e.by)}</span></span></td>
-          <td class="au-c-w"><div class="au-what">${what(e)}</div>${e.detail ? `<div class="au-sub">${esc(e.detail)}</div>` : ''}<div class="au-meta">${ava(e.byName || NAMES[e.by], e.by)}<span>${esc(e.byName || e.by)}</span><span class="au-dot">·</span><span title="${esc(new Date(e.at).toLocaleString())}">${esc(ago(e.at))}</span></div></td>
-          <td class="au-c-x"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></td></tr>
-          ${AOPEN[e.id] ? `<tr class="au-x"><td colspan="4">${det(e)}</td></tr>` : ''}`).join('')}</tbody></table></div>` : '<p class="adm-empty">No activity matches these filters.</p>')
-        + (AFULL ? '<button class="adm-btn adm-more" id="au-more">Load older</button>' : '');
+      const cnt = B().querySelector('#au-q-n'); if (cnt) cnt.textContent = rows.length + ' of ' + AROWS.length + ' event' + (AROWS.length === 1 ? '' : 's');
+      if (!B().querySelector('#au-sels select:focus')) paintAuSels();
+      l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t au-t2"><thead><tr><th>Date</th><th>Actor</th><th>Activity</th><th>Category</th><th></th></tr></thead><tbody>${rows.map(e => `<tr class="au-r${AOPEN[e.id] ? ' open' : ''}" data-id="${esc(e.id)}" tabindex="0" aria-expanded="${!!AOPEN[e.id]}">
+          <td class="au-c-d"><span title="${esc(new Date(e.at).toLocaleString())}">${esc(ago(e.at))}</span><small>${esc(dt(e.at))}</small></td>
+          <td><span class="adm-who">${ava(e.byName || NAMES[e.by], e.by)}<b>${esc(e.byName || e.by)}</b></span></td>
+          <td class="au-c-w"><div class="au-what">${what(e)}</div>${e.detail ? `<div class="au-sub">${esc(e.detail)}</div>` : ''}</td>
+          <td><span class="adm-tag au-cat">${esc(grpOf(e.act))}</span></td>
+          <td class="au-c-x"><button class="adm-btn sm" tabindex="-1">Details ${AOPEN[e.id] ? '▾' : '▸'}</button></td></tr>
+          ${AOPEN[e.id] ? `<tr class="adm-subrow au-x"><td colspan="5">${det(e)}</td></tr>` : ''}`).join('')}</tbody></table></div>` : `<p class="adm-empty">${AROWS.length ? 'No activity matches these filters.' : 'No activity yet.'}</p>`;
       const mb = l.querySelector('#au-more'); if (mb) mb.onclick = () => tabAuditList(true);
       l.querySelectorAll('tr.au-r').forEach(tr => { const tog = e => { if (e.target.closest('a')) return; AOPEN[tr.dataset.id] = !AOPEN[tr.dataset.id]; paintAudit(); };
         tr.onclick = tog; tr.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tog(e); } }; });

@@ -1209,3 +1209,14 @@ html.pg-sheetpage.pg-al:not(.mobile) .pg-shared.placed { transition: opacity .2s
 .pp-sug button small { font-weight: 500; opacity: .65; font-size: .76rem; }
 .pp-sug button:hover, .pp-sug button.on { background: rgba(201,150,43,.16); }
 @media (prefers-color-scheme: dark) { .pp-sug { background: #1a2131; border-color: #2c3548; } .pp-sug button { color: #e9e3d3; } }
+/* Audit log, laid out like Users and Characters */
+.au-t2 .au-c-d { width: 1%; white-space: nowrap; color: var(--adm-ink); font-size: inherit; }
+.au-t2 .au-c-d small { display: block; color: var(--adm-dim); font-size: .76rem; margin-top: 1px; }
+.au-t2 .au-c-w { min-width: 220px; }
+.au-t2 .au-sub { -webkit-line-clamp: 2; }
+.au-t2 .au-cat { margin-left: 0; }
+.au-t2 .au-c-x { width: 1%; text-align: right; }
+.au-t2 tr.au-r { cursor: pointer; }
+.au-t2 tr.au-x > td { padding: 0 !important; }
+.au-t2 .au-c-x .adm-btn { white-space: nowrap; }
+@media (max-width: 860px) { body.adminbody .au-t2 td.au-c-x { display: none !important; } body.adminbody .au-t2 tr.au-x > td::before { display: none !important; } }
