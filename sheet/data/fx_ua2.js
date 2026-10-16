@@ -47,7 +47,7 @@
     'warlock:uaghost:Wire Walk': { none: true },
     'warlock:uaghost:Personal Encryption': { passive: { advNote: 'Saves against scrying, thought reading and magical location' } },
     'warlock:uaghost:Technovirus': { dc: 'spell', save: 'CON', roll: '8d10', rollNote: 'psychic (half on a success)' },
-    'warlock:uaravenqueen:Sentinel Raven': { passive: { sense: 'Darkvision 30 ft (raven on your shoulder)', advNote: 'Perception +CHA mod while the raven is on your shoulder' } },
+    'warlock:uaravenqueen:Sentinel Raven': {}, // darkvision and Perception come from the "on my shoulder" checkbox
     'warlock:uaravenqueen:Soul of the Raven': { col: 'bonus', use: R('Soul of the Raven', null, { note: 'Merged with your raven: Tiny, raven’s speed; only Dash, Disengage, Dodge, Help, Hide, Search' }), acts: [{ name: 'Return to normal', col: 'action', onlyWhen: { effect: 'Soul of the Raven' }, use: { endEffect: 'Soul of the Raven' }, text: 'You and the raven separate.' }] },
     "warlock:uaravenqueen:Raven's Shield": { passive: { resist: ['necrotic'], condImmune: ['Frightened'], advNote: 'Death saving throws' } },
     "warlock:uaravenqueen:Queen's Right Hand": { spells: ['Finger of Death'], once: true, spellNote: 'Once per long rest without a slot' },

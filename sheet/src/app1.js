@@ -243,12 +243,16 @@ const saveAllBonus = () => itemSum('save') + auraAll() + N((S.deckMods || {}).sa
 const saveVal = ab => mod(ab) + (S.saves[ab] || fxSaveProf(ab) ? PB() : 0) + itemSum('save') + auraAll() + N((S.deckMods || {}).save) + fxSum('saveAll') + buffSum('save');
 const jack = () => clsLv('bard') >= 2;
 const remarkable = () => hasSub('fighter', 'champion') && clsLv('fighter') >= 7;
+// Sentinel Raven (Raven Queen warlock): while the raven sits on your shoulder you get darkvision 30 ft and your CHA modifier on Perception.
+const ravenHas = () => S.features.some(f => f.key === 'warlock:uaravenqueen:Sentinel Raven');
+const ravenOn = () => ravenHas() && S.ravenPerched !== false;
 function skillVal(sk) {
   let p = N(sk.prof); const fe = fxList('skillExp'), fp = fxList('skillProf');
   if (fe.includes(sk.name)) p = Math.max(p, 2); else if (fp.includes(sk.name)) p = Math.max(p, 1);
   let v = mod(sk.ab) + Math.floor(p * PB()) + N(sk.misc) + itemSum('check') + tmv('skill:' + sk.name);
   if (!p && jack()) v += Math.floor(PB() / 2);
   else if (!p && remarkable() && ['str', 'dex', 'con'].includes(sk.ab)) v += Math.ceil(PB() / 2);
+  if (sk.name === 'Perception' && ravenOn()) v += mod('cha');
   return v;
 }
 const perception = () => { const p = S.skills.find(s => s.name === 'Perception'); return p ? skillVal(p) : mod('wis'); };
@@ -397,7 +401,7 @@ function raceInfo() {
   if (S.race.key === 'custom') { const c = S.race.custom || {}; return { name: c.name || 'Custom race', size: c.size || 'Medium', speed: N(c.speed) || 30, darkvision: N(c.darkvision) || 0, fly: N(c.fly) || 0, swim: N(c.swim) || 0, traits: c.traits || [], languages: [] }; }
   const r = DND.races[S.race.key]; if (!r) return null; const s = (r.subraces || {})[S.race.sub] || {}; return { ...r, ...s, name: s.name || r.name, traits: (s.replaceTraits ? [] : r.traits || []).concat(s.traits || []) }; }
 // Senses: darkvision from your race (a subrace's value replaces the base race's), plus invocations that see in the dark.
-function darkvisionFt() { const r = raceInfo(); return r ? N(r.darkvision) : 0; }
+function darkvisionFt() { const r = raceInfo(); return Math.max(r ? N(r.darkvision) : 0, ravenOn() ? 30 : 0); }
 function sensesText() { const dv = darkvisionFt(), ds = (S.picks && (S.picks.invocation || []).includes("Devil's Sight")); return [dv ? `Darkvision ${dv} ft` : '', ds ? "Devil's Sight 120 ft" : ''].concat(fxList('sense')).filter(Boolean).join(' · '); }
 function speedInfo() {
   if (S.form) return { walk: parseInt((S.form.speed.match(/walk (\d+)/) || [0, 0])[1]) || 0, text: S.form.speed };

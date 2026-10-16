@@ -571,7 +571,7 @@ function calcTip(k) {
     const sv = calcTip('save:' + a); return { name: ABN[a], html: out(ABN[a], `${score(a)} (${sg(mod(a))})`, 'Modifier = (score − 10) ÷ 2, rounded down.').html + `<div class="calcsub">Saving throw</div>` + sv.html }; }
   if (/^skill:/.test(k)) { const sk = S.skills[N(k.slice(6))]; if (!sk) return null; let p = N(sk.prof); const fe = fxList('skillExp'), fp = fxList('skillProf'); if (fe.includes(sk.name)) p = Math.max(p, 2); else if (fp.includes(sk.name)) p = Math.max(p, 1);
     add(`${ab3(sk.ab)} modifier`, mod(sk.ab)); add(p === 2 ? 'Expertise (2 × proficiency)' : 'Proficiency', Math.floor(p * PB())); if (!p && jack()) add('Jack of All Trades', Math.floor(PB() / 2)); else if (!p && remarkable() && ['str', 'dex', 'con'].includes(sk.ab)) add('Remarkable Athlete', Math.ceil(PB() / 2));
-    add('Misc', N(sk.misc)); add('Items', itemSum('check')); add('Temporary change', tmv('skill:' + sk.name)); if (!rows.length) rows.push([`${ab3(sk.ab)} modifier`, sg(0)]); return out(sk.name, sg(skillVal(sk))); }
+    add('Misc', N(sk.misc)); add('Items', itemSum('check')); add('Temporary change', tmv('skill:' + sk.name)); if (sk.name === 'Perception' && ravenOn()) add('Sentinel Raven on your shoulder (CHA)', mod('cha')); if (!rows.length) rows.push([`${ab3(sk.ab)} modifier`, sg(0)]); return out(sk.name, sg(skillVal(sk))); }
   if (/^dc:|^satk:/.test(k)) { const ck = k.split(':')[1], c = castInfo(ck), dc = k.startsWith('dc:'), exDC = exModern() && ST('exhaustionDC') ? Math.min(5, N(S.exhaustion)) : 0;
     if (dc) rows.push(['Base', '8']); add('Proficiency', PB()); add(`${ab3(c.ab || 'cha')} modifier`, c.mod); add('Items', itemSum('spell')); if (!dc) add('Spell attack items', itemSum('spellAtk')); if (dc && exDC) add('Exhaustion', -exDC);
     return out(dc ? 'Spell save DC' : 'Spell attack', dc ? c.dc : sg(c.atk)); }
@@ -847,3 +847,7 @@ function relayStatus() { const box = $('#relaystatus'); if (!box || !window.PG_R
     box.innerHTML = ok ? `<span class="rs-ic ok">✓</span><div class="rs-t"><b>Your computer is ready</b><span>Rolls from here post in Roll20 through it.</span></div>` : `<span class="rs-ic warn">!</span><div class="rs-t"><b>Your computer isn’t connected</b><span>Open this character on your computer, choose “Roll20 rolls for me” in Settings → Dice there, and keep your Roll20 game open. Until then the sheet rolls here.</span></div>`; }, () => {}); }
 new MutationObserver(() => { const b = $('#relaystatus'); if (b && !b.dataset.seen) { b.dataset.seen = 1; relayStatus(); } }).observe(document.body, { childList: true, subtree: true });
 setInterval(() => { if ($('#relaystatus')) relayStatus(); }, 15000);
+
+// Sentinel Raven: is the raven on your shoulder? (darkvision 30 ft and CHA on Perception while it is)
+function ravenChk(small) { return `<label class="ravenchk${small ? ' sm' : ''}" title="While your raven is perched on your shoulder: darkvision 30 ft and +${Math.max(0, mod('cha'))} (CHA) to Perception"><input type="checkbox" data-raven${ravenOn() ? ' checked' : ''}> ${small ? 'Raven perched' : 'Raven is on my shoulder'}</label>`; }
+document.addEventListener('change', e => { if (!e.target || !e.target.matches || !e.target.matches('[data-raven]')) return; S.ravenPerched = e.target.checked; pendingLabel = e.target.checked ? 'Raven on your shoulder' : 'Raven off your shoulder'; save(); render(); });
