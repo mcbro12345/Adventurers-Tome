@@ -108,15 +108,17 @@ function sheetScrollbar() {
 // page: the sheet's header, the lobby, light or dark — never a fixed colour.
 { const meta = () => { let m = document.querySelector('meta[name="theme-color"]'); if (!m) { m = document.createElement('meta'); m.name = 'theme-color'; document.head.appendChild(m); } document.querySelectorAll('meta[name="theme-color"]').forEach(x => { if (x !== m) x.remove(); }); return m; };
   const solid = c => c && c !== 'transparent' && !/rgba\([^)]*,\s*0\)$/.test(c);
-  const pick = () => { const de = document.documentElement, cs = getComputedStyle(de);
-    if (document.getElementById('pg-load')) return '#0f1420';
+  const pick = under => { const de = document.documentElement, cs = getComputedStyle(de);
+    if (!under && document.getElementById('pg-load')) return '#0f1420';
     const bn = document.querySelector('header.banner'), wz = document.querySelector('#wizard.open');
     if (wz) { const c = getComputedStyle(wz).backgroundColor; if (solid(c)) return c; }
     if (bn) { const v = cs.getPropertyValue('--navy').trim(); if (v) return v; } // on a phone the header's top edge is exactly this colour
     const hh = document.querySelector('.hub-head, .adm-side'); if (hh) { const c = getComputedStyle(hh).backgroundColor; if (solid(c)) return c.replace(/rgba\(([^,]+),([^,]+),([^,]+),[^)]*\)/, 'rgb($1,$2,$3)'); }
     for (const el of [document.body, de]) { const c = el && getComputedStyle(el).backgroundColor; if (solid(c)) return c; }
     return '#0f1420'; };
-  let last = ''; const apply = () => { const c = pick(); if (c !== last) { last = c; meta().content = c; } };
+  let last = '', hold = false; const apply = under => { if (hold && !under) return; const c = pick(under); if (c !== last) { last = c; meta().content = c; } };
+  // the loading screen calls this just before it fades, so the bar already matches the page coming in
+  window.pgTheme = () => { hold = true; apply(true); setTimeout(() => { hold = false; }, 1500); };
   setInterval(apply, 1200); addEventListener('load', apply); setTimeout(apply, 300); }
 const ADMIN_EMAIL = 'matthewcbro@gmail.com';
 // Every character lives in one library; the hub shows each person their own and the ones shared with them.
@@ -270,7 +272,7 @@ function wireDie(root) {
   function fadeLoad(el) { const de = document.documentElement; if (!el || !el.isConnected) { de.classList.remove('pg-loading'); return; }
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) { de.classList.remove('pg-loading'); return el.remove(); }
     const anims = el.getAnimations ? el.getAnimations().filter(a => a.playState === 'running') : [];
-    Promise.race([Promise.all(anims.map(a => a.finished.catch(() => {}))), new Promise(r => setTimeout(r, 700))]).then(() => {
+    Promise.race([Promise.all(anims.map(a => a.finished.catch(() => {}))), new Promise(r => setTimeout(r, 700))]).then(() => { if (window.pgTheme) window.pgTheme(); return new Promise(r => setTimeout(r, 120)); }).then(() => {
       const cur = getComputedStyle(el).opacity; el.style.animation = 'none'; el.style.opacity = cur; el.style.pointerEvents = 'none'; el.style.zIndex = '9999'; el.style.transition = 'opacity .6s ease'; void el.offsetWidth;
       de.classList.remove('pg-loading'); setTimeout(() => de.classList.remove('pg-instant'), 700);
       requestAnimationFrame(() => requestAnimationFrame(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 650); })); }); }
