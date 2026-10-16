@@ -1348,3 +1348,8 @@ html.mobile .pg-pubrow .pg-publogo .hl-a { font-size: calc(var(--mls, 60px) * .1
 :where(body.hubbody) .pm-t { width: 100%; min-height: 110px; resize: vertical; font: inherit; box-sizing: border-box; margin: 6px 0 4px; }
 :where(body.hubbody) .pm-last { font-size: .86rem; opacity: .85; }
 @media (prefers-color-scheme: light) { :root:not([data-pgtheme="dark"]) #pg-msg .pgm-card { background: #fffaf0; color: #2b2418; border-color: #d9b56a; } :root:not([data-pgtheme="dark"]) #pg-msg .pgm-h small { color: #7a6f5c; } }
+:where(body.hubbody) .pm-anon { display: flex; align-items: center; gap: 8px; margin: 4px 0 2px; font-size: .92rem; } :where(body.hubbody) .pm-anon .hub-hint { margin: 0; font-size: .8rem; }
+:where(body.hubbody) label.pm-anon { display: flex; align-items: flex-start; gap: 10px; margin: 6px 0 4px; cursor: pointer; }
+:where(body.hubbody) label.pm-anon input { width: 17px; height: 17px; margin: 2px 0 0; flex: none; accent-color: #c9962b; }
+:where(body.hubbody) label.pm-anon span { display: flex; flex-direction: column; gap: 1px; font-size: .93rem; }
+:where(body.hubbody) label.pm-anon small { opacity: .7; font-size: .8rem; }

@@ -1416,6 +1416,11 @@ html.mobile .pg-pubrow .pg-publogo .hl-a { font-size: calc(var(--mls, 60px) * .1
 :where(body.hubbody, .wzh) .pm-last { font-size: .86rem; opacity: .85; }
 @media (prefers-color-scheme: light) { html:where(:not([data-pgtheme])):not([data-pgtheme="dark"]) #pg-msg .pgm-card { background: #fffaf0; color: #2b2418; border-color: #d9b56a; } html:where(:not([data-pgtheme])):not([data-pgtheme="dark"]) #pg-msg .pgm-h small { color: #7a6f5c; } }
  html:where([data-pgtheme="light"]):not([data-pgtheme="dark"]) #pg-msg .pgm-card { background: #fffaf0; color: #2b2418; border-color: #d9b56a; } html:where([data-pgtheme="light"]):not([data-pgtheme="dark"]) #pg-msg .pgm-h small { color: #7a6f5c; } 
+:where(body.hubbody, .wzh) .pm-anon { display: flex; align-items: center; gap: 8px; margin: 4px 0 2px; font-size: .92rem; } :where(body.hubbody, .wzh) .pm-anon .hub-hint { margin: 0; font-size: .8rem; }
+:where(body.hubbody, .wzh) label.pm-anon { display: flex; align-items: flex-start; gap: 10px; margin: 6px 0 4px; cursor: pointer; }
+:where(body.hubbody, .wzh) label.pm-anon input { width: 17px; height: 17px; margin: 2px 0 0; flex: none; accent-color: #c9962b; }
+:where(body.hubbody, .wzh) label.pm-anon span { display: flex; flex-direction: column; gap: 1px; font-size: .93rem; }
+:where(body.hubbody, .wzh) label.pm-anon small { opacity: .7; font-size: .8rem; }
 </style>
 </head>
 <body>
@@ -1695,7 +1700,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261016143930', ASSETS = {"data": "a/data.aff32fe95249.js", "app": "a/app.831d985d5e3e.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.0698bbaaf9bd.html"}; window.PG_ASSETS = ASSETS;
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261016144311', ASSETS = {"data": "a/data.aff32fe95249.js", "app": "a/app.831d985d5e3e.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.0698bbaaf9bd.html"}; window.PG_ASSETS = ASSETS;
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -1953,7 +1958,7 @@ function wireDie(root) {
   function pgMsg(u) { const m = u && u.msg; if (!m || !m.id || !m.text || u.msgSeen === m.id) return; let seen = ''; try { seen = localStorage.getItem('pg-msg-seen') || ''; } catch (e) {} if (seen === m.id || document.getElementById('pg-msg')) return;
     const open = () => { if (document.getElementById('pg-load')) return setTimeout(open, 400); if (document.getElementById('pg-msg')) return;
       const w = document.createElement('div'); w.id = 'pg-msg'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-modal', 'true');
-      w.innerHTML = `<div class="pgm-card"><div class="pgm-h"><span class="pgm-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H8l-4 4z"/></svg></span><div><b>Message from ${escH(m.fromName || 'Adventurer’s Tome')}</b><small>${escH(new Date(m.at || Date.now()).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))}</small></div></div>
+      w.innerHTML = `<div class="pgm-card"><div class="pgm-h"><span class="pgm-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H8l-4 4z"/></svg></span><div><b>Message from ${escH(m.anon ? 'Adventurer’s Tome' : (m.fromName || 'Adventurer’s Tome'))}</b><small>${escH(new Date(m.at || Date.now()).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))}</small></div></div>
         <div class="pgm-t">${escH(m.text).replace(/\n/g, '<br>')}</div><div class="pgm-row"><button class="pgm-ok" type="button">OK</button></div></div>`;
       document.body.appendChild(w); const ok = w.querySelector('.pgm-ok'); setTimeout(() => ok.focus(), 50);
       const done = () => { try { localStorage.setItem('pg-msg-seen', m.id); } catch (e) {} UREF.update({ msgSeen: m.id }).catch(() => {}); w.classList.add('out'); setTimeout(() => w.remove(), 200); };
@@ -2962,11 +2967,12 @@ function hub(fs, auth, G, ctx) {
         if (act === 'reload') { await ref.update({ reloadAt: Date.now() }); toast(nm + '’s open pages will refresh now.'); pgLog('user_reload', { target: em, tName: nm }); return; }
         if (act === 'msg') { const last = u.msg && u.msg.text ? `<p class="hub-hint pm-last">Last message (${esc(new Date(u.msg.at || 0).toLocaleString())}) · ${u.msgSeen && u.msgSeen === u.msg.id ? '<b>seen</b>' : 'not seen yet'}:<br>“${esc(String(u.msg.text).slice(0, 200))}${String(u.msg.text).length > 200 ? '…' : ''}”</p>` : '';
           modal.innerHTML = `<div class="hub-card"><h2>Message ${esc(nm)}</h2><p class="hub-hint">It pops up for them on Adventurer’s Tome: right away if they have it open, otherwise the next time they do. They see it once.</p>${last}
-            <textarea id="pm-t" class="ad-search pm-t" maxlength="1500" rows="5" placeholder="Your message"></textarea><div class="row"><button class="btn ghost" id="pm-x">Cancel</button><button class="btn gold" id="pm-ok" disabled>Send</button></div></div>`;
+            <textarea id="pm-t" class="ad-search pm-t" maxlength="1500" rows="5" placeholder="Your message"></textarea><label class="pm-anon"><input type="checkbox" id="pm-anon"><span><b>Send anonymously</b><small>It shows as from “Adventurer’s Tome”</small></span></label><div class="row"><button class="btn ghost" id="pm-x">Cancel</button><button class="btn gold" id="pm-ok" disabled>Send</button></div></div>`;
           modal.classList.add('on'); const ta = modal.querySelector('#pm-t'), ok = modal.querySelector('#pm-ok'); ta.focus(); ta.oninput = () => { ok.disabled = !ta.value.trim(); }; modal.querySelector('#pm-x').onclick = close;
           ok.onclick = async () => { const text = ta.value.trim().slice(0, 1500); if (!text) return; ok.disabled = true; ok.textContent = 'Sending…';
-            const m = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), text, from: EMAIL, fromName: String((ME && ME.name) || EMAIL), at: Date.now() };
-            try { await ref.update({ msg: m }); u.msg = m; US[em] = u; close(); toast('Message sent to ' + nm + '.'); pgLog('message', { target: em, tName: nm, detail: text }); }
+            const anon = modal.querySelector('#pm-anon').checked; // anonymous: nothing on their side says who sent it (the audit log still does)
+            const m = Object.assign({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), text, at: Date.now() }, anon ? { anon: true } : { from: EMAIL, fromName: String((ME && ME.name) || EMAIL) });
+            try { await ref.update({ msg: m }); u.msg = m; US[em] = u; close(); toast((anon ? 'Anonymous message' : 'Message') + ' sent to ' + nm + '.'); pgLog('message', { target: em, tName: nm, detail: (anon ? '(anonymous) ' : '') + text }); }
             catch (x) { ok.disabled = false; ok.textContent = 'Send'; toast('Couldn’t send it: ' + ((x && x.message) || x)); } };
           return; }
         if (act === 'pic') { const list = docs(await charsCol.where('owner', '==', em).limit(100).get()).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)); pickPic({ em, name: nm, rec: u, list, after: done }); return; }
