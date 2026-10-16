@@ -2736,3 +2736,7 @@ html #condmodal.extfxm .cchips2 .cchip2 { white-space: normal; overflow: visible
 .rc-math .rm-r b { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .rc-math .rm-t { border-top: 1px solid rgba(244,238,223,.2); margin-top: 3px; padding-top: 4px; font-weight: 800; }
 .rc-math .rm-t span { opacity: 1; }
+.dmode .dsub { display: flex; align-items: flex-start; gap: 9px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line2); cursor: pointer; font-weight: 600; }
+.dmode .dsub input { flex: none; margin-top: 2px; }
+.dmode .dsub > span { display: flex; flex-direction: column; gap: 2px; }
+.dmode .dsub small { display: block; font-weight: 400; }
