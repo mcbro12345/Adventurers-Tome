@@ -709,7 +709,7 @@ function wireDie(root) {
       const url = c.toDataURL('image/png'); document.head.querySelectorAll('link[rel="apple-touch-icon"], link[rel="icon"]').forEach(l => l.remove());
       [['apple-touch-icon', ''], ['icon', 'image/png']].forEach(([rel, type]) => { const l = document.createElement('link'); l.rel = rel; if (type) l.type = type; l.href = url; document.head.appendChild(l); }); } catch (e) {} }; im.src = st.portrait; } catch (e) {} };
   setTimeout(homeIcon, 1500); setInterval(homeIcon, 60000);
-  if (role() !== 'owner') { const t = document.createElement('div'); t.className = 'pg-shared' + (role() === 'view' ? ' view' : ''); t.textContent = role() === 'view' ? 'View only (changes are not saved)' : 'Shared with you · can edit'; document.body.appendChild(t); setTimeout(placeShared, 50); setInterval(placeShared, 1500); }
+  if (role() !== 'owner') { const t = document.createElement('div'); t.className = 'pg-shared' + (role() === 'view' ? ' view' : ''); if (role() === 'view') t.innerHTML = 'View only<span class="pt-sub"> (changes are not saved)</span>'; else t.textContent = 'Shared with you · can edit'; document.body.appendChild(t); setTimeout(placeShared, 50); setInterval(placeShared, 1500); }
   verCheck();
 })();
 

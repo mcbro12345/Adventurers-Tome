@@ -188,7 +188,6 @@ html.mobile .pg-shared { top: auto; bottom: calc(80px + env(safe-area-inset-bott
 @media (max-width: 640px) { :where(body.hubbody, .wzh) .hub-card.admin { max-height: calc(100dvh - 24px); } :where(body.hubbody, .wzh) .hub-modal { align-items: flex-start; padding: 12px; } }
 /* The Characters / shared tags stay under windows, menus and popups */
 .pg-hublink, .pg-shared { z-index: 35; }
-body:has(#modal.open) .pg-hublink, body:has(#modal.open) .pg-shared, body.wizopen .pg-hublink { display: none !important; }
 /* The Admin panel is a desktop tool */
 @media (max-width: 640px) { :where(body.hubbody, .wzh) #hub-admin { display: none; } }
 /* ===== Admin section (its own page) ===== */
@@ -451,7 +450,6 @@ body.adminbody .adm-brand .hl-20 { fill: #f6e7bd; }
 .pg-pres .pg-ava + .pg-ava { margin-left: -6px; }
 .pg-pres .pg-ava.me { box-shadow: 0 0 0 2px #c9962b; }
 .pg-pres::after { content: ''; width: 7px; height: 7px; border-radius: 50%; margin-left: 7px; background: #4cd27a; box-shadow: 0 0 6px #4cd27a; }
-body:has(#modal.open) .pg-pres, body.wizopen .pg-pres { display: none !important; }
 
 /* sheets: a strip of room at the top so the back button and who's-viewing bubbles don't sit on the portrait */
 html.pg-sheetpage:not(.mobile):not(.pg-al) .banner { padding-top: 30px; }
@@ -1023,7 +1021,6 @@ html.pg-leaving { background: #0f1420; }
 .pg-pres { opacity: 0; transition: opacity .35s ease; pointer-events: none; }
 .pg-pres.ready { opacity: 1; pointer-events: auto; }
 /* the viewers bubble hides with the Adventurer's Tome button while a window is open, so it never wanders */
-body:has(#modal.open) .pg-pres, body.wizopen .pg-pres { visibility: hidden !important; }
 
 /* the loading screen (background and dice together) fades in as one */
 #pg-load { animation: pgLoadIn .5s ease both; }
@@ -1332,7 +1329,6 @@ html:not(.mobile).pg-public header.banner { padding-top: 0 !important; }
 .pg-publogo.pinned .hl-t { font-size: 1.32rem; }
 html.pg-public:not(.mobile):not(.pg-al) .pg-publogo.pinned { opacity: 0; pointer-events: none; }
 html.pg-public.pg-al:not(.mobile) .pg-publogo.pinned { transition: opacity .2s; }
-body:has(#modal.open) .pg-publogo.pinned { visibility: hidden; }
 /* Phones: logo on the left, View only tag on the right, in one row across the top */
 .pg-pubrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: calc(12px + env(safe-area-inset-top)) 16px 6px; }
 html.mobile .pg-pubrow .pg-publogo { padding: 0; flex: none; }
@@ -1352,7 +1348,6 @@ html.mobile.pg-public .pg-pubrow .pg-pubtag { max-width: none; white-space: norm
 .pg-topedge { position: fixed; left: 0; right: 0; top: 0; height: 1px; z-index: 50; pointer-events: none; opacity: 0; transition: opacity .2s ease;
   background: color-mix(in srgb, var(--gold, #c9962b) 45%, transparent); box-shadow: 0 1px 0 rgba(0,0,0,.35), 0 4px 12px rgba(0,0,0,.45); }
 .pg-topedge.on { opacity: 1; }
-body:has(#modal.open) .pg-topedge { opacity: 0; }
 /* desktop view-only logo: sized to the room above the toolbar (--plh is set by the page) */
 .pg-publogo.pinned .hub-logo { gap: calc(var(--plh, 32px) * .26); height: var(--plh, 32px); }
 .pg-publogo.pinned .hl-d20 { width: var(--plh, 32px); height: var(--plh, 32px); }
@@ -1363,6 +1358,18 @@ body:has(#modal.open) .pg-topedge { opacity: 0; }
 .pg-publogo.pinned .hl-d20 { width: calc(var(--plh, 32px) * 1.08); height: calc(var(--plh, 32px) * 1.08); margin: calc(var(--plh, 32px) * -.04) 0; }
 .pg-publogo.pinned .hl-t { font-size: calc(var(--plh, 32px) * .7); }
 .pg-publogo.pinned .hl-a { font-size: calc(var(--plh, 32px) * .18); }
+/* The View only tag everywhere (public links and shared view-only sheets, phone and computer): "View only" with
+   "(changes are not saved)" on a second, smaller line */
+.pg-shared.view { border-radius: 12px !important; padding: 5px 12px !important; text-align: center; line-height: 1.2 !important; white-space: nowrap; font-size: 11.5px !important; }
+.pg-shared.view .pt-sub { display: block; font-weight: 600; font-size: .9em; opacity: .92; white-space: nowrap; }
+
+/* not enough room (phones, beside the Adventurer's Tome button and viewers): it shrinks to fit */
+.pg-shared.view.wrap { white-space: nowrap !important; font-size: 9.5px !important; padding: 4px 9px !important; line-height: 1.15 !important; }
+.pg-shared.view.wrap .pt-sub { white-space: nowrap; font-size: .92em; }
+
+/* The Adventurer's Tome button, viewers, View only / shared tag and the view-only logo are part of the page: they stay
+   put while a window is open, sitting underneath windows (50), the character wizard (40), menus and tooltips. */
+.pg-hublink, .pg-shared, .pg-pres, .pg-publogo.pinned, .pg-topedge { z-index: 30 !important; }
 </style>
 </head>
 <body>
@@ -1639,7 +1646,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261016105515', ASSETS = {"data": "a/data.aff32fe95249.js", "app": "a/app.893f047662ea.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.8e5d750a17cf.html"}; window.PG_ASSETS = ASSETS;
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261016110555', ASSETS = {"data": "a/data.aff32fe95249.js", "app": "a/app.893f047662ea.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.8e5d750a17cf.html"}; window.PG_ASSETS = ASSETS;
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -2117,7 +2124,7 @@ function wireDie(root) {
       const url = c.toDataURL('image/png'); document.head.querySelectorAll('link[rel="apple-touch-icon"], link[rel="icon"]').forEach(l => l.remove());
       [['apple-touch-icon', ''], ['icon', 'image/png']].forEach(([rel, type]) => { const l = document.createElement('link'); l.rel = rel; if (type) l.type = type; l.href = url; document.head.appendChild(l); }); } catch (e) {} }; im.src = st.portrait; } catch (e) {} };
   setTimeout(homeIcon, 1500); setInterval(homeIcon, 60000);
-  if (role() !== 'owner') { const t = document.createElement('div'); t.className = 'pg-shared' + (role() === 'view' ? ' view' : ''); t.textContent = role() === 'view' ? 'View only (changes are not saved)' : 'Shared with you · can edit'; document.body.appendChild(t); setTimeout(placeShared, 50); setInterval(placeShared, 1500); }
+  if (role() !== 'owner') { const t = document.createElement('div'); t.className = 'pg-shared' + (role() === 'view' ? ' view' : ''); if (role() === 'view') t.innerHTML = 'View only<span class="pt-sub"> (changes are not saved)</span>'; else t.textContent = 'Shared with you · can edit'; document.body.appendChild(t); setTimeout(placeShared, 50); setInterval(placeShared, 1500); }
   verCheck();
 })();
 
