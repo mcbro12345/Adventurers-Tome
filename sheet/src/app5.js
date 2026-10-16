@@ -140,16 +140,16 @@ function choiceOptions(def, ctx) {
     case 'language': { const k = knownLangs(); return ALL_LANGS().map(x => [x, x, k.has(x.toLowerCase()) ? '(you already speak it)' : '']); }
     case 'tool': { const t = toolsFrom(def.from); return (def.orLang ? t.concat(ALL_LANGS().map(l => 'Language: ' + l)) : t).map(x => [x, x]); }
     case 'asi': return AB.filter(a => !(def.exclude || []).includes(a) && (!def.from || def.from.includes(a))).map(a => [a, `${ABN[a]} +${def.amount || 1}`]);
-    case 'feat': return DND.feats.map(f => [f[0], f[0] + (f[2] ? ` (${f[2]})` : '') + (f[1] !== 'PHB' ? ` · ${f[1]}` : '')]);
-    case 'cantrip': return DND.spells.filter(s => s.level === 0 && s.classes.includes(def.list)).map(s => [s.name, s.name]);
-    case 'spellpick': return DND.spells.filter(s => s.level === def.level && (!def.ritual || s.ritual) && (def.list === 'any' || s.classes.includes(def.list))).map(s => [s.name, `${s.name} — ${s.summary}`]);
+    case 'feat': return bookSort(DND.feats, f => f[1], f => f[0]).map(f => [f[0], f[0] + (f[2] ? ` (${f[2]})` : '') + (f[1] !== 'PHB' ? ` · ${f[1]}` : '')]);
+    case 'cantrip': return DND.spells.filter(s => s.level === 0 && s.classes.includes(def.list)).sort((a, b) => abc(a.name, b.name)).map(s => [s.name, s.name]);
+    case 'spellpick': return DND.spells.filter(s => s.level === def.level && (!def.ritual || s.ritual) && (def.list === 'any' || s.classes.includes(def.list))).sort((a, b) => abc(a.name, b.name)).map(s => [s.name, `${s.name} — ${s.summary}`]);
     case 'option': return def.options.map(([n, d]) => [n, `${n} — ${d}`]);
     case 'weapon': return DND.weapons.filter(w => !def.from || w[1] === def.from).map(w => [w[0], w[0]]);
     default: {
       const op = DND.options[def.type]; if (!op) return [];
       let list = op.list;
       if (def.type === 'fightingStyle' && ctx && ctx.cls) list = list.filter(x => new RegExp(CL[ctx.cls].name, 'i').test(x[2] || ''));
-      return list.map(([n, d, src]) => [n, `${n} — ${d}${src && def.type !== 'fightingStyle' ? ' (' + src + ')' : ''}`, optPrereq(src, ctx)]);
+      return bookSort(list, x => (srcCodes(x[2])[0] || ''), x => x[0]).map(([n, d, src]) => [n, `${n} — ${d}${src && def.type !== 'fightingStyle' ? ' (' + src + ')' : ''}`, optPrereq(src, ctx)]);
     }
   }
 }
@@ -346,7 +346,7 @@ function renderLevelUp() {
     body += `<div class="lvsec"><h4>${esc(c.name)} ${t.nl}${t.isNew ? ' (new class)' : ''} · character level ${totalLevel() + 1}</h4>`;
     if (t.isNew && !mcOK(t.key)) body += `<p class="warn">Multiclassing into ${esc(c.name)} needs ${c.mc.req.map(r => AB3[r[0]] + ' ' + r[1]).join(c.mc.reqAny ? ' or ' : ' and ')}. You can still continue if your DM allows it.</p>`;
     if (t.isNew) { const bad = rows.filter(r => !mcOK(r.key)); if (bad.length) body += `<p class="warn">Your current class${bad.length > 1 ? 'es' : ''} (${bad.map(r => CL[r.key].name).join(', ')}) must also meet multiclass requirements.</p>`; body += `<p class="hint">You gain: ${esc(c.mc.profs || 'no new proficiencies')}.</p>`; }
-    if (needSub) body += fld(c.sub.label, `<select class="f" id="lvSub">${[['', '— choose —']].concat(Object.entries(c.subclasses).map(([k, v]) => [k, v.name + (v.src !== 'PHB' ? ' (' + v.src + ')' : '')])).map(([k, n]) => `<option value="${k}"${LV.sub === k ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>`);
+    if (needSub) body += fld(c.sub.label, `<select class="f" id="lvSub">${[['', '— choose —']].concat(bookSort(Object.entries(c.subclasses), ([, v]) => v.src, ([, v]) => v.name).map(([k, v]) => [k, v.name + (v.src !== 'PHB' ? ' (' + v.src + ')' : '')])).map(([k, n]) => `<option value="${k}"${LV.sub === k ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>`);
     body += feats.length ? `<ul class="newfeats">${feats.map(f => `<li><b>${esc(f[1])}</b> — ${esc(f[2])}</li>`).join('')}</ul>` : '<p class="hint">No new named features at this level.</p>';
     const defs = lvChoiceDefs(t);
     body += defs.map(d => d.def.type === 'asiOrFeat' ? asiOrFeatUI(LV.ans, d.id) : choiceUI(LV.ans, d.id, d.def, { cls: t.key, level: t.nl, sub: (t.row && t.row.sub) || LV.sub })).join('');
@@ -639,8 +639,8 @@ function renderWizard() {
       <p class="hint" style="margin-top:16px">Already have a character exported from this sheet? <button class="linkbtn" data-wact="import">Import it</button></p>`;
   } else if (st === 1) {
     const x = wzRace();
-    body = `<div class="wz-grid">${fld('Race', `<select class="f" data-wz="race"><option value="">— choose a race —</option>${DND.raceGroups.map(([g, ks]) => `<optgroup label="${esc(g)}">${ks.filter(k => DND.races[k]).map(k => `<option value="${k}"${W.race === k ? ' selected' : ''}>${esc(DND.races[k].name)}${DND.races[k].src && DND.races[k].src !== 'PHB' ? ' (' + DND.races[k].src + ')' : ''}</option>`).join('')}</optgroup>`).join('')}</select>`)}
-      ${x && x.r.subraces ? fld('Subrace / variant', `<select class="f" data-wz="sub"><option value="">— choose —</option>${Object.entries(x.r.subraces).map(([k, s]) => `<option value="${k}"${W.sub === k ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select>`) : ''}</div>`;
+    body = `<div class="wz-grid">${fld('Race', `<select class="f" data-wz="race"><option value="">— choose a race —</option>${DND.raceGroups.map(([g, ks]) => `<optgroup label="${esc(g)}">${ks.filter(k => DND.races[k]).sort((a, b) => abc(DND.races[a].name, DND.races[b].name)).map(k => `<option value="${k}"${W.race === k ? ' selected' : ''}>${esc(DND.races[k].name)}${DND.races[k].src && DND.races[k].src !== 'PHB' ? ' (' + DND.races[k].src + ')' : ''}</option>`).join('')}</optgroup>`).join('')}</select>`)}
+      ${x && x.r.subraces ? fld('Subrace / variant', `<select class="f" data-wz="sub"><option value="">— choose —</option>${Object.entries(x.r.subraces).sort(([, a], [, b]) => abc(a.name, b.name)).map(([k, s]) => `<option value="${k}"${W.sub === k ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select>`) : ''}</div>`;
     if (x) {
       const r = x.r, s = x.s, tr = (s.replaceTraits ? [] : r.traits || []).concat(s.traits || []);
       const sp = (r.spells || []).concat(s.spells || []);
@@ -658,7 +658,7 @@ function renderWizard() {
     W.classes = [Object.assign(W.classes[0] || {}, { level: 1 })];
     body = `<p class="hint">Pick your class. Everyone starts at level 1 — use <b>Level Up</b> on the sheet to reach your level; it asks for each level's choices (subclass, Ability Score Improvements, spells) as you go, and is where you multiclass.</p>
       ${W.classes.map((r, i) => { const c = CL[r.key]; return `<div class="wz-cls"><div class="wz-grid">${fld('Class', `<select class="f" data-wzc="${i}" data-f="key"><option value="">— choose —</option>${DND.classOrder.map(k => `<option value="${k}"${r.key === k ? ' selected' : ''}>${esc(CL[k].name)}${CL[k].src !== 'PHB' ? ' (' + CL[k].src + ')' : ''}</option>`).join('')}</select>`)}
-        ${c && c.sub.level <= 1 ? fld(c.sub.label, `<select class="f" data-wzc="${i}" data-f="sub"><option value="">— choose —</option>${Object.entries(c.subclasses).map(([k, s]) => `<option value="${k}"${r.sub === k ? ' selected' : ''}>${esc(s.name)}${s.src !== 'PHB' ? ' (' + s.src + ')' : ''}</option>`).join('')}</select>`) : c ? `<span class="hint">${esc(c.sub.label)} at level ${c.sub.level}</span>` : ''}</div>
+        ${c && c.sub.level <= 1 ? fld(c.sub.label, `<select class="f" data-wzc="${i}" data-f="sub"><option value="">— choose —</option>${bookSort(Object.entries(c.subclasses), ([, v]) => v.src, ([, v]) => v.name).map(([k, s]) => `<option value="${k}"${r.sub === k ? ' selected' : ''}>${esc(s.name)}${s.src !== 'PHB' ? ' (' + s.src + ')' : ''}</option>`).join('')}</select>`) : c ? `<span class="hint">${esc(c.sub.label)} at level ${c.sub.level}</span>` : ''}</div>
         ${c ? `<p class="hint">d${c.hd} Hit Dice · saves ${c.saves.map(a => AB3[a]).join(', ')} · ${esc(c.armor)} · ${esc(c.weapons)}</p>` : ''}
         ${c && r.sub && c.subclasses[r.sub] ? `<p class="hint">${esc(c.subclasses[r.sub].features.filter(f => f[0] <= 1).map(f => f[1]).join(' · '))}</p>` : ''}</div>`; }).join('')}`;
   } else if (st === 3) {
@@ -681,7 +681,7 @@ function renderWizard() {
       <p class="hint">Ability Score Improvements from your class levels come on the Class options step.</p>`;
   } else if (st === 4) {
     const b = DND.backgrounds[W.bg];
-    body = `<div class="wz-grid">${fld('Background', `<select class="f" data-wz="bg"><option value="">— choose —</option>${Object.entries(DND.backgrounds).map(([k, v]) => `<option value="${k}"${W.bg === k ? ' selected' : ''}>${esc(v.name)}${v.src !== 'PHB' ? ' (' + v.src + ')' : ''}</option>`).join('')}</select>`)}</div>`;
+    body = `<div class="wz-grid">${fld('Background', `<select class="f" data-wz="bg"><option value="">— choose —</option>${bookSort(Object.entries(DND.backgrounds), ([, v]) => v.src, ([, v]) => v.name).map(([k, v]) => `<option value="${k}"${W.bg === k ? ' selected' : ''}>${esc(v.name)}${v.src !== 'PHB' ? ' (' + v.src + ')' : ''}</option>`).join('')}</select>`)}</div>`;
     if (b) {
       body += `<div class="wz-info"><p>${b.skills && b.skills.length ? `<b>Skills:</b> ${esc(b.skills.join(', '))} · ` : ''}${b.tools && b.tools.length ? `<b>Tools:</b> ${esc(b.tools.join(', '))} · ` : ''}<b>Feature:</b> ${esc(b.feature[0])} — ${esc(b.feature[1])}</p>
         ${b.skillChoice ? choiceUI(W.ans, 'bg.skill', { type: 'skill', n: b.skillChoice.n, from: b.skillChoice.from }) : ''}

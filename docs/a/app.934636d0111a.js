@@ -1,6 +1,10 @@
 (function () {
 'use strict';
 const PRISTINE = '<!doctype html>\n' + document.documentElement.outerHTML;
+// Lists grouped by book keep the books in their usual order; within each book, A–Z.
+var abc = (a, b) => String(a || '').localeCompare(String(b || ''), undefined, { sensitivity: 'base', numeric: true });
+function bookSort(list, srcOf, nameOf) { const ord = new Map(); list.forEach(x => { const k = String(srcOf(x) || ''); if (!ord.has(k)) ord.set(k, ord.size); });
+  return list.slice().sort((a, b) => (ord.get(String(srcOf(a) || '')) - ord.get(String(srcOf(b) || ''))) || abc(nameOf(a), nameOf(b))); }
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -655,7 +659,7 @@ function fxRollExpr(expr) {
 // Passive effects from every feature you have (some only while raging, concentrating or under an effect).
 let _fxpKey = '', _fxp = [];
 function fxPassives() {
-  const key = JSON.stringify(S.inventory.filter(it => it.infusion).map(it => [hbItemOn(it), it.attuned, it.infusion.name, it.infusion.choice])) + '|' + JSON.stringify(S.features.map(f => f.hb || 0)) + '|' + JSON.stringify(S.inventory.filter(it => it.hb).map(it => [hbItemOn(it), it.hb])) + '|' + S.features.length + '|' + S.conditions.join() + '|' + (S.effects || []).map(e => e.name).join() + '|' + S.concentration + '|' + totalLevel() + '|' + JSON.stringify(S.picks || {}) + '|' + S.features.map(f => f.name).join();
+  const key = JSON.stringify(S.inventory.filter(it => it.resPick).map(it => [hbItemOn(it), it.resPick])) + '|' + JSON.stringify(S.inventory.filter(it => it.infusion).map(it => [hbItemOn(it), it.attuned, it.infusion.name, it.infusion.choice])) + '|' + JSON.stringify(S.features.map(f => f.hb || 0)) + '|' + JSON.stringify(S.inventory.filter(it => it.hb).map(it => [hbItemOn(it), it.hb])) + '|' + S.features.length + '|' + S.conditions.join() + '|' + (S.effects || []).map(e => e.name).join() + '|' + S.concentration + '|' + totalLevel() + '|' + JSON.stringify(S.picks || {}) + '|' + S.features.map(f => f.name).join();
   if (key === _fxpKey) return _fxp;
   const out = [], raging = S.conditions.includes('Raging');
   S.features.forEach(f => {
@@ -669,6 +673,8 @@ function fxPassives() {
     push(fx.passive); if (raging) push(fx.raging, true);
     if (f.kind === 'race' && !(f.hb && f.hb.resist)) { const m = /\bresistance to ([a-z ,]+?) damage/i.exec(f.desc || ''); if (m && !/while|when you|choose/i.test(f.desc) && !/\byour\b/i.test(m[1])) out.push({ src: f.name, resist: m[1].split(/,\s*|\s+and\s+|\s+or\s+/).map(s => s.trim()).filter(Boolean) }); }
   });
+  // Items that resist a damage type of your choice (Ring of Resistance…), while worn and attuned
+  S.inventory.forEach(it => { if (it.resPick && resPickItem(it) && hbItemOn(it)) out.push({ src: it.name, item: it.id, resist: [it.resPick] }); });
   // Homebrew item effects (resistances, speeds, AC…) while the item is in use
   infPassives().forEach(p => out.push(p));
   S.inventory.forEach(it => { if (!hbItemOn(it)) return; const fx = hbFx(it.hb); if (fx && fx.passive) [].concat(fx.passive).forEach(x => { if (x.effect && !fxActive().some(e => e.name === x.effect)) return; out.push(Object.assign({ src: it.name, item: it.id }, x)); }); });
@@ -899,6 +905,9 @@ function fxD20Floor(kind, ab) {
   return fl;
 }
 
+// Magic items that give resistance to one damage type the wearer picks.
+const RES_TYPES = ['acid', 'cold', 'fire', 'force', 'lightning', 'necrotic', 'poison', 'psychic', 'radiant', 'thunder'];
+const resPickItem = it => !!it && /^(ring|armor) of resistance\b/i.test(String((it.magic && it.magic.name) || it.name || ''));
 // ---------- Homebrew automation (custom features, items, spells) ----------
 // Players fill a short form (f.hb / it.hb); hbFx turns it into the same fx record the built-in features use.
 const hbCSV = v => String(v || '').split(/\s*[,;\n]\s*/).map(x => x.trim()).filter(Boolean);
@@ -1442,7 +1451,7 @@ addEventListener('load', () => slideTabInd());
 // way to or from those tabs, so it fades along with the page instead of snapping.
 function tabPageAnim(prev, nt) {
   const pg = $('#page-' + nt); if (!pg || !pg.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const fade = el => { el.getAnimations && el.getAnimations().forEach(a => a.cancel()); el.animate([{ opacity: .35 }, { opacity: 1 }], { duration: 180, easing: 'ease-out' }); }; // starts part-way so a full-screen page never blinks to blank
+  const fade = el => { el.getAnimations && el.getAnimations().forEach(a => a.cancel()); el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: isMobile() ? 240 : 200, easing: 'ease-out' }); };
   $$('.page').forEach(p => p.getAnimations && p.getAnimations().forEach(a => a.cancel())); fade(pg);
   const full = k => k === 'core' || k === 'combat', v = $('#sec-vitals');
   if (v && isMobile() && full(prev) !== full(nt)) fade(v);
@@ -1954,7 +1963,8 @@ function renderFeatures() {
     return extra;
   };
   // Known infusions live on the Infusions tab (they only do something once an item is infused).
-  const shown = S.features.map((f, i) => [f, i]).filter(([f]) => !isInfPick(f) && (ff === 'all' || featGroup(f) === ff) && (!q || (f.name + ' ' + f.desc).toLowerCase().includes(q)));
+  const shown = S.features.map((f, i) => [f, i]).filter(([f]) => !isInfPick(f) && (ff === 'all' || featGroup(f) === ff) && (!q || (f.name + ' ' + f.desc).toLowerCase().includes(q)))
+    .sort(([a], [b]) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base', numeric: true })); // A–Z within each group
   const order = clsRows().map(r => r.key).concat(groups.filter(g => !CL[g]));
   if (!groups.includes('feat') && ff === 'all' && !q) groups.push('feat');
   const sections = [...new Set(order.concat(groups))].filter(g => groups.includes(g) && (shown.some(([f]) => featGroup(f) === g) || (g === 'feat' && ff === 'all' && !q))).map(g => `<section class="fgroup"><h3 class="subh fghead"><span class="sh-dot"></span><span class="fgname">${esc(gname(g))}</span>${head(g)}</h3>
@@ -2012,7 +2022,7 @@ function renderInventory() {
         <span class="grow"></span>
         <button class="icon-btn ibtn${open ? ' on' : ''}" data-act="toggle" data-key="item:${it.id}" title="${open ? 'Close editing' : 'Edit details and notes'}" aria-label="Edit ${esc(it.name)}">${open ? '▴' : '✎'}</button>
         ${del('inventory', i)}</div>
-      <div class="imeta">${String(it.notes || '').trim() && !open ? `<div class="inote-m mnote">${esc(it.notes)}</div>` : ''}${badges}${ch}${isDeckItem(it) ? `<button class="btn sm gold" data-act="deck" data-i="${i}">Draw a card</button>` : ''}${it.heal ? `<button class="btn sm" data-act="drink" data-i="${i}">Drink (${esc(it.heal)})</button>` : ''}${it.hb && hbUsable(hbFx(it.hb)) ? `<button class="btn sm gold" data-act="useitem" data-i="${i}" ${hbItemReady(it) ? '' : 'disabled'} title="${hbItemOn(it) ? '' : it.attune && !it.attuned ? 'Attune first' : 'Equip it first'}">Use</button>` : ''}${hbChips(it)}
+      <div class="imeta">${resPickItem(it) ? `<label class="respick${it.resPick ? '' : ' unset'}"><span>Resistance</span>${sel(`inventory.${i}.resPick`, [['', 'Choose a type…']].concat(RES_TYPES.map(t => [t, t[0].toUpperCase() + t.slice(1)])), { label: 'Damage type this item resists' })}</label>` : ''}${String(it.notes || '').trim() && !open ? `<div class="inote-m mnote">${esc(it.notes)}</div>` : ''}${badges}${ch}${isDeckItem(it) ? `<button class="btn sm gold" data-act="deck" data-i="${i}">Draw a card</button>` : ''}${it.heal ? `<button class="btn sm" data-act="drink" data-i="${i}">Drink (${esc(it.heal)})</button>` : ''}${it.hb && hbUsable(hbFx(it.hb)) ? `<button class="btn sm gold" data-act="useitem" data-i="${i}" ${hbItemReady(it) ? '' : 'disabled'} title="${hbItemOn(it) ? '' : it.attune && !it.attuned ? 'Attune first' : 'Equip it first'}">Use</button>` : ''}${hbChips(it)}
 </div>
       ${open ? `<div class="idetail"><div class="idet-top">${picThumb(`inventory.${i}.img`, it.name)}${fld('Notes', ta(`inventory.${i}.notes`, { rows: 2, cls: 'inotefull', label: 'Notes', ph: 'Add a note…' }))}</div>${it.summary ? `<p>${esc(it.summary)}</p>` : ''}${it.armor ? `<p class="hint">${esc(it.armor.type)} armor · AC ${it.armor.base}${it.armor.type === 'shield' ? '' : it.armor.dexCap === 0 ? '' : it.armor.dexCap ? ' + DEX (max ' + it.armor.dexCap + ')' : ' + DEX'}${it.armor.strReq ? ' · STR ' + it.armor.strReq : ''}${it.armor.stealthDis ? ' · Stealth disadvantage' : ''}</p>` : ''}${it.weapon ? `<p class="hint">${esc(it.weapon.cat)} ${esc(it.weapon.kind)} · ${esc(it.weapon.dice)} ${esc(it.weapon.type)}${it.weapon.props && it.weapon.props.length ? ' · ' + esc(it.weapon.props.join(', ')) : ''}${it.weapon.range ? ' · ' + esc(it.weapon.range) + ' ft' : ''}</p>` : ''}
         <div class="row">${fld('Weight (lb)', inp(`inventory.${i}.weight`, { num: 1 }))}${fld('Cost', inp(`inventory.${i}.cost`))}<label class="checkline">${chk(`inventory.${i}.attune`, 'Requires attunement')} Requires attunement</label></div>
@@ -2737,9 +2747,9 @@ document.addEventListener('focusout', e => { if (e.target.dataset && (e.target.d
 function subclassSettingsHTML() {
   return clsRows().map((r, k) => { const c = CL[r.key]; if (!c || !c.sub) return '';
     const can = N(r.level) >= c.sub.level || r.sub;
-    const sel = can ? `<select class="f subpick" data-subfor="${k}" aria-label="${esc(c.sub.label)}">${[['', '— choose —']].concat(Object.entries(c.subclasses).map(([kk, v]) => [kk, v.name + (v.src && v.src !== 'PHB' ? ` (${v.src})` : '')])).map(([kk, t]) => `<option value="${kk}"${r.sub === kk ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>` : `<span class="hint">at level ${c.sub.level}</span>`;
+    const sel = can ? `<select class="f subpick" data-subfor="${k}" aria-label="${esc(c.sub.label)}">${[['', '— choose —']].concat(bookSort(Object.entries(c.subclasses), ([, v]) => v.src, ([, v]) => v.name).map(([kk, v]) => [kk, v.name + (v.src && v.src !== 'PHB' ? ` (${v.src})` : '')])).map(([kk, t]) => `<option value="${kk}"${r.sub === kk ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>` : `<span class="hint">at level ${c.sub.level}</span>`;
     const extras = (r.extraSubs || []).map(xk => c.subclasses[xk] ? `<div class="xsubrow"><span>+ ${esc(c.subclasses[xk].name)}</span><span class="xsublv"><button class="btn sm" data-act="xsublv" data-i="${k}" data-k="${xk}" data-d="-1" aria-label="One level fewer">−</button><b>${N((r.extraSubLv || {})[xk]) ? `${N(r.extraSubLv[xk])} lv` : 'all'}</b><button class="btn sm" data-act="xsublv" data-i="${k}" data-k="${xk}" data-d="1" aria-label="One level more">+</button></span><button class="icon-btn" data-act="delxsub" data-i="${k}" data-k="${xk}" aria-label="Remove">✕</button></div>` : '').join('');
-    const add = r.sub && (r.extraSubs || []).length ? `<select class="f subpick" data-xsubfor="${k}" aria-label="Another subclass"><option value="">+ Second ${esc(c.sub.label.toLowerCase())} (homebrew)</option>${Object.entries(c.subclasses).filter(([kk]) => kk !== r.sub && !(r.extraSubs || []).includes(kk)).map(([kk, v]) => `<option value="${kk}">${esc(v.name)}</option>`).join('')}</select>` : '';
+    const add = r.sub && (r.extraSubs || []).length ? `<select class="f subpick" data-xsubfor="${k}" aria-label="Another subclass"><option value="">+ Second ${esc(c.sub.label.toLowerCase())} (homebrew)</option>${bookSort(Object.entries(c.subclasses), ([, v]) => v.src, ([, v]) => v.name).filter(([kk]) => kk !== r.sub && !(r.extraSubs || []).includes(kk)).map(([kk, v]) => `<option value="${kk}">${esc(v.name)}</option>`).join('')}</select>` : '';
     return `<div class="setrow subrow"><span><b>${esc(c.sub.label)}</b><small>${esc(c.name)} ${N(r.level)}</small></span>${sel}</div>${extras || add ? `<div class="subextra">${extras}${add}</div>` : ''}`; }).join('');
 }
 
@@ -2763,7 +2773,7 @@ document.addEventListener('input', e => { if (e.target.classList && e.target.cla
 
 // ---------- Click handling ----------
 document.addEventListener('click', e => rollGate(() => mainClick(e)));
-const TABSCROLL = {};
+const TABSCROLL = {}; let tabFadeT = 0;
 function mainClick(e) {
   if (e.target.closest('#wizard')) return wizClick(e);
   const menu = e.target.closest('.menu');
@@ -2792,7 +2802,20 @@ function mainClick(e) {
     case 'equip': equipItem(i); break;
     case 'resetturn': S.turn.haste = false; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.attacks = 0; S.turn.speed0 = ''; S.turn.sneak = false; S.turn.readied = null; update(); render('combat'); toast(`Turn reset — round ${N(S.turn.round) || 1} actions are ready again.`); break;
     case 'fullscreen': if (fsOn()) { FS_USER_OFF = true; fsExit(); } else { FS_USER_OFF = false; fsEnter(); } break;
-    case 'tab': { const prev = UI.tab, nt = b.dataset.tab, mob = isMobile() && !b.closest('.cmini'); TABSCROLL[prev] = scrollY; UI.tab = nt; saveUI(); renderTabs(); if (prev !== nt && !b.closest('.cmini')) tabPageAnim(prev, nt); requestAnimationFrame(alignHpSide); if (mob) { const pg = $('#page-' + nt), keep = pg ? Math.min(TABSCROLL[prev] || 0, Math.max(0, pg.getBoundingClientRect().top + scrollY - 12)) : 0; window.scrollTo(0, prev === nt ? 0 : (TABSCROLL[nt] != null ? TABSCROLL[nt] : keep)); } } $$('#page-' + UI.tab + ' textarea.f').forEach(grow); fitItemRows(); if (b.closest('.cmini')) window.scrollTo(0, 0); break;
+    case 'tab': { const prev = UI.tab, nt = b.dataset.tab, mini = !!b.closest('.cmini'), mob = isMobile() && !mini;
+      const go = () => { tabFadeT = 0; renderTabs(); if (prev !== nt && !mini) tabPageAnim(prev, nt); requestAnimationFrame(alignHpSide);
+        if (mob) { const pg = $('#page-' + nt), keep = pg ? Math.min(TABSCROLL[prev] || 0, Math.max(0, pg.getBoundingClientRect().top + scrollY - 12)) : 0; window.scrollTo(0, prev === nt ? 0 : (TABSCROLL[nt] != null ? TABSCROLL[nt] : keep)); }
+        $$('#page-' + UI.tab + ' textarea.f').forEach(grow); fitItemRows(); if (mini) window.scrollTo(0, 0); };
+      if (tabFadeT) { clearTimeout(tabFadeT.t); tabFadeT.go(); }
+      TABSCROLL[prev] = scrollY; UI.tab = nt; saveUI();
+      // phones: the tab highlight moves straight away, the old page fades out, then the new one fades in at its own scroll spot
+      if (mob && prev !== nt && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        $$('#tabs .tab').forEach(t => t.classList.toggle('on', t.dataset.tab === nt)); slideTabInd();
+        const old = $('#page-' + prev), full = k => k === 'core' || k === 'combat', v = $('#sec-vitals');
+        [old, full(prev) !== full(nt) ? v : null].forEach(el => { if (el && el.animate) { el.getAnimations().forEach(a => a.cancel()); el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 130, easing: 'ease-in', fill: 'forwards' }); } });
+        tabFadeT = { go: () => { [old, v].forEach(el => el && el.getAnimations && el.getAnimations().forEach(a => a.cancel())); go(); }, t: 0 }; tabFadeT.t = setTimeout(tabFadeT.go, 130);
+      } else go();
+      break; }
     case 'theme': {
       const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', t);
@@ -4358,7 +4381,7 @@ function readableInk(a, dark) { let c = dark ? mix(a, [255, 255, 255], 0.25) : m
 // Light/dark is kept with the character too (not only in this browser's storage), so a fresh copy of the sheet opens in the right mode.
 function applyMode() {
   const set = S.settings || (S.settings = {}); let ls = null; try { ls = localStorage.getItem('dnd-sheet-theme'); } catch (e) {}
-  if (set.colorMode !== 'dark' && set.colorMode !== 'light') { if (!PER_SHEET && (ls === 'dark' || ls === 'light')) set.colorMode = ls; else { if (PER_SHEET) document.documentElement.setAttribute('data-theme', window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); return; } }
+  if (set.colorMode !== 'dark' && set.colorMode !== 'light') { if (!PER_SHEET && (ls === 'dark' || ls === 'light')) set.colorMode = ls; else { if (PER_SHEET) { let pg = null; try { pg = localStorage.getItem('pg-theme'); } catch (e) {} document.documentElement.setAttribute('data-theme', pg === 'dark' || pg === 'light' ? pg : window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); } return; } }
   if (document.documentElement.getAttribute('data-theme') !== set.colorMode) document.documentElement.setAttribute('data-theme', set.colorMode);
   if (ls !== set.colorMode) try { localStorage.setItem('dnd-sheet-theme', set.colorMode); } catch (e) {}
 }
@@ -4791,8 +4814,8 @@ function renderRaceChange() {
         <ul>${((x.s.replaceTraits ? [] : x.r.traits || []).concat(x.s.traits || [])).map(t => `<li><b>${esc(t[0])}</b> — ${esc(t[1])}</li>`).join('')}</ul>
         ${wzRaceAsiUI()}${wzRaceChoices().map((ch, k) => choiceUI(W.ans, 'race.' + k, ch)).join('')}</div>` : '';
   $('#rcmodal').innerHTML = `<h3>Change race</h3>
-    <div class="wz-grid">${fld('Race', `<select class="f" data-rc="race"><option value="">— choose —</option>${DND.raceGroups.map(([g, ks]) => `<optgroup label="${esc(g)}">${ks.filter(k => DND.races[k]).map(k => `<option value="${k}"${W.race === k ? ' selected' : ''}>${esc(DND.races[k].name)}${DND.races[k].src !== 'PHB' ? ' (' + DND.races[k].src + ')' : ''}</option>`).join('')}</optgroup>`).join('')}<option value="custom"${W.race === 'custom' ? ' selected' : ''}>✎ Custom race…</option></select>`)}
-      ${x && x.r.subraces ? fld('Subrace', `<select class="f" data-rc="sub"><option value="">— choose —</option>${Object.entries(x.r.subraces).map(([k, s]) => `<option value="${k}"${W.sub === k ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select>`) : ''}</div>
+    <div class="wz-grid">${fld('Race', `<select class="f" data-rc="race"><option value="">— choose —</option>${DND.raceGroups.map(([g, ks]) => `<optgroup label="${esc(g)}">${ks.filter(k => DND.races[k]).sort((a, b) => abc(DND.races[a].name, DND.races[b].name)).map(k => `<option value="${k}"${W.race === k ? ' selected' : ''}>${esc(DND.races[k].name)}${DND.races[k].src !== 'PHB' ? ' (' + DND.races[k].src + ')' : ''}</option>`).join('')}</optgroup>`).join('')}<option value="custom"${W.race === 'custom' ? ' selected' : ''}>✎ Custom race…</option></select>`)}
+      ${x && x.r.subraces ? fld('Subrace', `<select class="f" data-rc="sub"><option value="">— choose —</option>${Object.entries(x.r.subraces).sort(([, a], [, b]) => abc(a.name, b.name)).map(([k, s]) => `<option value="${k}"${W.sub === k ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select>`) : ''}</div>
     ${body}
     <label class="checkline" style="margin-top:8px"><input type="checkbox" data-rc="removeOld"${RC.removeOld ? ' checked' : ''}> Remove what ${esc(S.raceName || 'my old race')} gave me (fixed ability bonuses, skills, languages, weapon and armor training)</label>
     <p class="hint">Traits, speed, senses, racial spells and natural weapons update automatically. Ability bonuses you placed yourself (like +2/+1) can't be traced — check your scores afterwards.</p>
@@ -4806,7 +4829,7 @@ function openBgChange() {
 function renderBgChange() {
   const b = DND.backgrounds[W.bg], c = RC.custom, cust = W.bg === 'custom';
   $('#rcmodal').innerHTML = `<h3>Change background</h3>
-    <div class="wz-grid">${fld('Background', `<select class="f" data-rc="bg"><option value="">— choose —</option>${Object.entries(DND.backgrounds).filter(([k]) => k !== 'custom').map(([k, v]) => `<option value="${k}"${W.bg === k ? ' selected' : ''}>${esc(v.name)}${v.src !== 'PHB' ? ' (' + v.src + ')' : ''}</option>`).join('')}<option value="custom"${cust ? ' selected' : ''}>✎ Custom background…</option></select>`)}</div>
+    <div class="wz-grid">${fld('Background', `<select class="f" data-rc="bg"><option value="">— choose —</option>${bookSort(Object.entries(DND.backgrounds), ([, v]) => v.src, ([, v]) => v.name).filter(([k]) => k !== 'custom').map(([k, v]) => `<option value="${k}"${W.bg === k ? ' selected' : ''}>${esc(v.name)}${v.src !== 'PHB' ? ' (' + v.src + ')' : ''}</option>`).join('')}<option value="custom"${cust ? ' selected' : ''}>✎ Custom background…</option></select>`)}</div>
     ${cust ? `<div class="wz-grid">${fld('Background name', `<input class="f" data-rc="name" value="${esc(c.name)}" placeholder="e.g. Smuggler">`)}${fld('Feature name', `<input class="f" data-rc="feature" value="${esc(c.feature)}" placeholder="e.g. Hidden Routes">`)}</div>
       ${fld('What the feature does', `<textarea class="f" rows="3" data-rc="desc">${esc(c.desc)}</textarea>`)}` : ''}
     ${b ? `<div class="wz-info">${b.skills && b.skills.length ? `<p><b>Skills:</b> ${esc(b.skills.join(', '))}${b.tools && b.tools.length ? ` · <b>Tools:</b> ${esc(b.tools.join(', '))}` : ''}</p>` : ''}${!cust ? `<p><b>Feature:</b> ${esc(b.feature[0])} — ${esc(b.feature[1])}</p>` : ''}
@@ -7346,16 +7369,16 @@ function choiceOptions(def, ctx) {
     case 'language': { const k = knownLangs(); return ALL_LANGS().map(x => [x, x, k.has(x.toLowerCase()) ? '(you already speak it)' : '']); }
     case 'tool': { const t = toolsFrom(def.from); return (def.orLang ? t.concat(ALL_LANGS().map(l => 'Language: ' + l)) : t).map(x => [x, x]); }
     case 'asi': return AB.filter(a => !(def.exclude || []).includes(a) && (!def.from || def.from.includes(a))).map(a => [a, `${ABN[a]} +${def.amount || 1}`]);
-    case 'feat': return DND.feats.map(f => [f[0], f[0] + (f[2] ? ` (${f[2]})` : '') + (f[1] !== 'PHB' ? ` · ${f[1]}` : '')]);
-    case 'cantrip': return DND.spells.filter(s => s.level === 0 && s.classes.includes(def.list)).map(s => [s.name, s.name]);
-    case 'spellpick': return DND.spells.filter(s => s.level === def.level && (!def.ritual || s.ritual) && (def.list === 'any' || s.classes.includes(def.list))).map(s => [s.name, `${s.name} — ${s.summary}`]);
+    case 'feat': return bookSort(DND.feats, f => f[1], f => f[0]).map(f => [f[0], f[0] + (f[2] ? ` (${f[2]})` : '') + (f[1] !== 'PHB' ? ` · ${f[1]}` : '')]);
+    case 'cantrip': return DND.spells.filter(s => s.level === 0 && s.classes.includes(def.list)).sort((a, b) => abc(a.name, b.name)).map(s => [s.name, s.name]);
+    case 'spellpick': return DND.spells.filter(s => s.level === def.level && (!def.ritual || s.ritual) && (def.list === 'any' || s.classes.includes(def.list))).sort((a, b) => abc(a.name, b.name)).map(s => [s.name, `${s.name} — ${s.summary}`]);
     case 'option': return def.options.map(([n, d]) => [n, `${n} — ${d}`]);
     case 'weapon': return DND.weapons.filter(w => !def.from || w[1] === def.from).map(w => [w[0], w[0]]);
     default: {
       const op = DND.options[def.type]; if (!op) return [];
       let list = op.list;
       if (def.type === 'fightingStyle' && ctx && ctx.cls) list = list.filter(x => new RegExp(CL[ctx.cls].name, 'i').test(x[2] || ''));
-      return list.map(([n, d, src]) => [n, `${n} — ${d}${src && def.type !== 'fightingStyle' ? ' (' + src + ')' : ''}`, optPrereq(src, ctx)]);
+      return bookSort(list, x => (srcCodes(x[2])[0] || ''), x => x[0]).map(([n, d, src]) => [n, `${n} — ${d}${src && def.type !== 'fightingStyle' ? ' (' + src + ')' : ''}`, optPrereq(src, ctx)]);
     }
   }
 }
@@ -7552,7 +7575,7 @@ function renderLevelUp() {
     body += `<div class="lvsec"><h4>${esc(c.name)} ${t.nl}${t.isNew ? ' (new class)' : ''} · character level ${totalLevel() + 1}</h4>`;
     if (t.isNew && !mcOK(t.key)) body += `<p class="warn">Multiclassing into ${esc(c.name)} needs ${c.mc.req.map(r => AB3[r[0]] + ' ' + r[1]).join(c.mc.reqAny ? ' or ' : ' and ')}. You can still continue if your DM allows it.</p>`;
     if (t.isNew) { const bad = rows.filter(r => !mcOK(r.key)); if (bad.length) body += `<p class="warn">Your current class${bad.length > 1 ? 'es' : ''} (${bad.map(r => CL[r.key].name).join(', ')}) must also meet multiclass requirements.</p>`; body += `<p class="hint">You gain: ${esc(c.mc.profs || 'no new proficiencies')}.</p>`; }
-    if (needSub) body += fld(c.sub.label, `<select class="f" id="lvSub">${[['', '— choose —']].concat(Object.entries(c.subclasses).map(([k, v]) => [k, v.name + (v.src !== 'PHB' ? ' (' + v.src + ')' : '')])).map(([k, n]) => `<option value="${k}"${LV.sub === k ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>`);
+    if (needSub) body += fld(c.sub.label, `<select class="f" id="lvSub">${[['', '— choose —']].concat(bookSort(Object.entries(c.subclasses), ([, v]) => v.src, ([, v]) => v.name).map(([k, v]) => [k, v.name + (v.src !== 'PHB' ? ' (' + v.src + ')' : '')])).map(([k, n]) => `<option value="${k}"${LV.sub === k ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>`);
     body += feats.length ? `<ul class="newfeats">${feats.map(f => `<li><b>${esc(f[1])}</b> — ${esc(f[2])}</li>`).join('')}</ul>` : '<p class="hint">No new named features at this level.</p>';
     const defs = lvChoiceDefs(t);
     body += defs.map(d => d.def.type === 'asiOrFeat' ? asiOrFeatUI(LV.ans, d.id) : choiceUI(LV.ans, d.id, d.def, { cls: t.key, level: t.nl, sub: (t.row && t.row.sub) || LV.sub })).join('');
@@ -7845,8 +7868,8 @@ function renderWizard() {
       <p class="hint" style="margin-top:16px">Already have a character exported from this sheet? <button class="linkbtn" data-wact="import">Import it</button></p>`;
   } else if (st === 1) {
     const x = wzRace();
-    body = `<div class="wz-grid">${fld('Race', `<select class="f" data-wz="race"><option value="">— choose a race —</option>${DND.raceGroups.map(([g, ks]) => `<optgroup label="${esc(g)}">${ks.filter(k => DND.races[k]).map(k => `<option value="${k}"${W.race === k ? ' selected' : ''}>${esc(DND.races[k].name)}${DND.races[k].src && DND.races[k].src !== 'PHB' ? ' (' + DND.races[k].src + ')' : ''}</option>`).join('')}</optgroup>`).join('')}</select>`)}
-      ${x && x.r.subraces ? fld('Subrace / variant', `<select class="f" data-wz="sub"><option value="">— choose —</option>${Object.entries(x.r.subraces).map(([k, s]) => `<option value="${k}"${W.sub === k ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select>`) : ''}</div>`;
+    body = `<div class="wz-grid">${fld('Race', `<select class="f" data-wz="race"><option value="">— choose a race —</option>${DND.raceGroups.map(([g, ks]) => `<optgroup label="${esc(g)}">${ks.filter(k => DND.races[k]).sort((a, b) => abc(DND.races[a].name, DND.races[b].name)).map(k => `<option value="${k}"${W.race === k ? ' selected' : ''}>${esc(DND.races[k].name)}${DND.races[k].src && DND.races[k].src !== 'PHB' ? ' (' + DND.races[k].src + ')' : ''}</option>`).join('')}</optgroup>`).join('')}</select>`)}
+      ${x && x.r.subraces ? fld('Subrace / variant', `<select class="f" data-wz="sub"><option value="">— choose —</option>${Object.entries(x.r.subraces).sort(([, a], [, b]) => abc(a.name, b.name)).map(([k, s]) => `<option value="${k}"${W.sub === k ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select>`) : ''}</div>`;
     if (x) {
       const r = x.r, s = x.s, tr = (s.replaceTraits ? [] : r.traits || []).concat(s.traits || []);
       const sp = (r.spells || []).concat(s.spells || []);
@@ -7864,7 +7887,7 @@ function renderWizard() {
     W.classes = [Object.assign(W.classes[0] || {}, { level: 1 })];
     body = `<p class="hint">Pick your class. Everyone starts at level 1 — use <b>Level Up</b> on the sheet to reach your level; it asks for each level's choices (subclass, Ability Score Improvements, spells) as you go, and is where you multiclass.</p>
       ${W.classes.map((r, i) => { const c = CL[r.key]; return `<div class="wz-cls"><div class="wz-grid">${fld('Class', `<select class="f" data-wzc="${i}" data-f="key"><option value="">— choose —</option>${DND.classOrder.map(k => `<option value="${k}"${r.key === k ? ' selected' : ''}>${esc(CL[k].name)}${CL[k].src !== 'PHB' ? ' (' + CL[k].src + ')' : ''}</option>`).join('')}</select>`)}
-        ${c && c.sub.level <= 1 ? fld(c.sub.label, `<select class="f" data-wzc="${i}" data-f="sub"><option value="">— choose —</option>${Object.entries(c.subclasses).map(([k, s]) => `<option value="${k}"${r.sub === k ? ' selected' : ''}>${esc(s.name)}${s.src !== 'PHB' ? ' (' + s.src + ')' : ''}</option>`).join('')}</select>`) : c ? `<span class="hint">${esc(c.sub.label)} at level ${c.sub.level}</span>` : ''}</div>
+        ${c && c.sub.level <= 1 ? fld(c.sub.label, `<select class="f" data-wzc="${i}" data-f="sub"><option value="">— choose —</option>${bookSort(Object.entries(c.subclasses), ([, v]) => v.src, ([, v]) => v.name).map(([k, s]) => `<option value="${k}"${r.sub === k ? ' selected' : ''}>${esc(s.name)}${s.src !== 'PHB' ? ' (' + s.src + ')' : ''}</option>`).join('')}</select>`) : c ? `<span class="hint">${esc(c.sub.label)} at level ${c.sub.level}</span>` : ''}</div>
         ${c ? `<p class="hint">d${c.hd} Hit Dice · saves ${c.saves.map(a => AB3[a]).join(', ')} · ${esc(c.armor)} · ${esc(c.weapons)}</p>` : ''}
         ${c && r.sub && c.subclasses[r.sub] ? `<p class="hint">${esc(c.subclasses[r.sub].features.filter(f => f[0] <= 1).map(f => f[1]).join(' · '))}</p>` : ''}</div>`; }).join('')}`;
   } else if (st === 3) {
@@ -7887,7 +7910,7 @@ function renderWizard() {
       <p class="hint">Ability Score Improvements from your class levels come on the Class options step.</p>`;
   } else if (st === 4) {
     const b = DND.backgrounds[W.bg];
-    body = `<div class="wz-grid">${fld('Background', `<select class="f" data-wz="bg"><option value="">— choose —</option>${Object.entries(DND.backgrounds).map(([k, v]) => `<option value="${k}"${W.bg === k ? ' selected' : ''}>${esc(v.name)}${v.src !== 'PHB' ? ' (' + v.src + ')' : ''}</option>`).join('')}</select>`)}</div>`;
+    body = `<div class="wz-grid">${fld('Background', `<select class="f" data-wz="bg"><option value="">— choose —</option>${bookSort(Object.entries(DND.backgrounds), ([, v]) => v.src, ([, v]) => v.name).map(([k, v]) => `<option value="${k}"${W.bg === k ? ' selected' : ''}>${esc(v.name)}${v.src !== 'PHB' ? ' (' + v.src + ')' : ''}</option>`).join('')}</select>`)}</div>`;
     if (b) {
       body += `<div class="wz-info"><p>${b.skills && b.skills.length ? `<b>Skills:</b> ${esc(b.skills.join(', '))} · ` : ''}${b.tools && b.tools.length ? `<b>Tools:</b> ${esc(b.tools.join(', '))} · ` : ''}<b>Feature:</b> ${esc(b.feature[0])} — ${esc(b.feature[1])}</p>
         ${b.skillChoice ? choiceUI(W.ans, 'bg.skill', { type: 'skill', n: b.skillChoice.n, from: b.skillChoice.from }) : ''}
@@ -7946,10 +7969,20 @@ function renderWizard() {
       ${probs.length ? `<p class="warn">${probs.map(esc).join(' · ')}</p>` : '<p>Everything is set. You can change anything later — scores, skills, spells and items are all editable on the sheet.</p>'}
       <p class="hint">Scores include racial bonuses, Ability Score Improvements and half-feats.</p></div>`;
   }
-  $('#wizard').innerHTML = `<div class="wz-box"><div class="wz-head"><h2>Create your character</h2><div class="wz-steps">${WSTEPS.map((t, i) => `<button class="wz-step${i === st ? ' on' : ''}${i < st ? ' done' : ''}" data-wact="go" data-v="${i}" aria-label="Step ${i + 1}: ${t}">${i + 1}. ${t}</button>`).join('')}</div><div class="wz-now">Step ${st + 1} of ${WSTEPS.length}<b>${WSTEPS[st]}</b></div></div>
+  $('#wizard').innerHTML = `<div class="wz-box">${typeof window.wzHeader === 'function' ? window.wzHeader() : ''}<div class="wz-head"><h2>Create your character</h2><div class="wz-steps">${WSTEPS.map((t, i) => `<button class="wz-step${i === st ? ' on' : ''}${i < st ? ' done' : ''}" data-wact="go" data-v="${i}" aria-label="Step ${i + 1}: ${t}">${i + 1}. ${t}</button>`).join('')}</div><div class="wz-now">Step ${st + 1} of ${WSTEPS.length}<b>${WSTEPS[st]}</b></div></div>
     <div class="wz-body"><h3>${WSTEPS[st]}</h3>${body}</div>
     <div class="wz-foot">${st ? '<button class="btn" data-wact="back">Back</button>' : ''}<span class="grow"></span>${st < WSTEPS.length - 1 ? '<button class="btn gold" data-wact="next">Next</button>' : '<button class="btn gold" data-wact="create">Create character</button>'}</div></div>`;
   $$('#wizard [data-wzq]').forEach(i => filterWzSpells(i));
+  // Moving between steps: the new step slides in from the side you're heading (fades up on opening), and the step
+  // marker pops / the progress bar fills. Re-drawing the same step (picking options) doesn't animate.
+  const prevSt = W._shown; W._shown = st;
+  if (prevSt !== st && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+    const dir = prevSt == null ? 0 : st > prevSt ? 1 : -1, bd = $('#wizard .wz-body'), now = $('#wizard .wz-now'), on = $('#wizard .wz-step.on'), mob = document.documentElement.classList.contains('mobile');
+    const inK = dir ? [{ opacity: 0, transform: `translateX(${dir * 22}px)` }, { opacity: 1, transform: 'none' }] : [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }];
+    if (bd && bd.animate) bd.animate(inK, { duration: 280, easing: 'cubic-bezier(.2,.8,.3,1)' });
+    if (now && now.animate && mob) now.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' });
+    if (on && on.animate) on.animate(mob ? (dir >= 0 ? [{ transform: 'scaleX(.15)' }, { transform: 'none' }] : [{ opacity: .4 }, { opacity: 1 }]) : [{ transform: 'scale(.88)' }, { transform: 'none' }], { duration: mob ? 320 : 240, easing: 'cubic-bezier(.3,1.3,.5,1)' });
+  }
 }
 function asiModeClick(b) {
   const inWz = !!b.closest('#wizard'), inP = !!b.closest('#pendm') && PEND, CH = inWz ? W.ans : inP ? PEND.ans : LV ? LV.ans : null; if (!CH) return;

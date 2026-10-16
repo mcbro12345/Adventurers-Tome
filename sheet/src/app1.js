@@ -1,6 +1,10 @@
 (function () {
 'use strict';
 const PRISTINE = '<!doctype html>\n' + document.documentElement.outerHTML;
+// Lists grouped by book keep the books in their usual order; within each book, A–Z.
+var abc = (a, b) => String(a || '').localeCompare(String(b || ''), undefined, { sensitivity: 'base', numeric: true });
+function bookSort(list, srcOf, nameOf) { const ord = new Map(); list.forEach(x => { const k = String(srcOf(x) || ''); if (!ord.has(k)) ord.set(k, ord.size); });
+  return list.slice().sort((a, b) => (ord.get(String(srcOf(a) || '')) - ord.get(String(srcOf(b) || ''))) || abc(nameOf(a), nameOf(b))); }
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

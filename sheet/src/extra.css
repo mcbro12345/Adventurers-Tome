@@ -2641,3 +2641,8 @@ html.mobile #wizard .wz-step { transform-origin: left center; }
 #wizard .wz-body .btn, #wizard .wz-body button { transition: transform .1s ease, background-color .15s ease, border-color .15s ease, color .15s ease; }
 #wizard .wz-portrait { transition: transform .2s ease; }
 @media (prefers-reduced-motion: reduce) { #wizard *, #wizard *:active { transition: none !important; transform: none !important; } }
+
+/* Ring / Armor of Resistance: pick the damage type it resists */
+.respick { display: inline-flex; align-items: center; gap: 6px; margin: 2px 8px 2px 0; font-size: .78rem; font-weight: 700; color: var(--soft); }
+.respick select.f { padding: 3px 8px; border-radius: 7px; font-size: .82rem; border: 1px solid var(--line); background: var(--field); color: var(--ink); }
+.respick.unset select.f { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold-soft); }

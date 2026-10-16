@@ -106,7 +106,7 @@ function fxRollExpr(expr) {
 // Passive effects from every feature you have (some only while raging, concentrating or under an effect).
 let _fxpKey = '', _fxp = [];
 function fxPassives() {
-  const key = JSON.stringify(S.inventory.filter(it => it.infusion).map(it => [hbItemOn(it), it.attuned, it.infusion.name, it.infusion.choice])) + '|' + JSON.stringify(S.features.map(f => f.hb || 0)) + '|' + JSON.stringify(S.inventory.filter(it => it.hb).map(it => [hbItemOn(it), it.hb])) + '|' + S.features.length + '|' + S.conditions.join() + '|' + (S.effects || []).map(e => e.name).join() + '|' + S.concentration + '|' + totalLevel() + '|' + JSON.stringify(S.picks || {}) + '|' + S.features.map(f => f.name).join();
+  const key = JSON.stringify(S.inventory.filter(it => it.resPick).map(it => [hbItemOn(it), it.resPick])) + '|' + JSON.stringify(S.inventory.filter(it => it.infusion).map(it => [hbItemOn(it), it.attuned, it.infusion.name, it.infusion.choice])) + '|' + JSON.stringify(S.features.map(f => f.hb || 0)) + '|' + JSON.stringify(S.inventory.filter(it => it.hb).map(it => [hbItemOn(it), it.hb])) + '|' + S.features.length + '|' + S.conditions.join() + '|' + (S.effects || []).map(e => e.name).join() + '|' + S.concentration + '|' + totalLevel() + '|' + JSON.stringify(S.picks || {}) + '|' + S.features.map(f => f.name).join();
   if (key === _fxpKey) return _fxp;
   const out = [], raging = S.conditions.includes('Raging');
   S.features.forEach(f => {
@@ -120,6 +120,8 @@ function fxPassives() {
     push(fx.passive); if (raging) push(fx.raging, true);
     if (f.kind === 'race' && !(f.hb && f.hb.resist)) { const m = /\bresistance to ([a-z ,]+?) damage/i.exec(f.desc || ''); if (m && !/while|when you|choose/i.test(f.desc) && !/\byour\b/i.test(m[1])) out.push({ src: f.name, resist: m[1].split(/,\s*|\s+and\s+|\s+or\s+/).map(s => s.trim()).filter(Boolean) }); }
   });
+  // Items that resist a damage type of your choice (Ring of Resistance…), while worn and attuned
+  S.inventory.forEach(it => { if (it.resPick && resPickItem(it) && hbItemOn(it)) out.push({ src: it.name, item: it.id, resist: [it.resPick] }); });
   // Homebrew item effects (resistances, speeds, AC…) while the item is in use
   infPassives().forEach(p => out.push(p));
   S.inventory.forEach(it => { if (!hbItemOn(it)) return; const fx = hbFx(it.hb); if (fx && fx.passive) [].concat(fx.passive).forEach(x => { if (x.effect && !fxActive().some(e => e.name === x.effect)) return; out.push(Object.assign({ src: it.name, item: it.id }, x)); }); });
@@ -350,6 +352,9 @@ function fxD20Floor(kind, ab) {
   return fl;
 }
 
+// Magic items that give resistance to one damage type the wearer picks.
+const RES_TYPES = ['acid', 'cold', 'fire', 'force', 'lightning', 'necrotic', 'poison', 'psychic', 'radiant', 'thunder'];
+const resPickItem = it => !!it && /^(ring|armor) of resistance\b/i.test(String((it.magic && it.magic.name) || it.name || ''));
 // ---------- Homebrew automation (custom features, items, spells) ----------
 // Players fill a short form (f.hb / it.hb); hbFx turns it into the same fx record the built-in features use.
 const hbCSV = v => String(v || '').split(/\s*[,;\n]\s*/).map(x => x.trim()).filter(Boolean);
