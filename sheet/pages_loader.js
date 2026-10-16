@@ -381,8 +381,12 @@ function wireDie(root) {
         const tbTop = Math.round(tb.getBoundingClientRect().top + scrollY), gap = 7;
         const room = Math.min(64, Math.max(26, tbTop - 2 * gap)); if (lg._room !== room) { lg._room = room; lg.style.setProperty('--plh', room + 'px'); }
         tag.classList.add('placed'); const lh = lg.offsetHeight;
-        const tr = tb.getBoundingClientRect(), x = Math.round(tr.left + scrollX), y = Math.round((tbTop - lh) / 2), pos = x + ',' + y + ',' + lh + ',' + tbTop;
+        const tr = tb.getBoundingClientRect(), x = Math.round(tr.left + scrollX); let y = Math.round((tbTop - lh) / 2);
         lg.style.left = x + 'px'; lg.style.top = y + 'px';
+        // then nudge it by where the die actually draws (browsers size it a little differently), so the die has the same gap above and below
+        { const d = lg.querySelector('.hl-d20'); if (d && !d.classList.contains('hl-rolling') && !PG_DIE.rolling) { const r = d.getBoundingClientRect(), dt = r.top + scrollY, db = r.bottom + scrollY, adj = Math.round(((tbTop - db) - dt) / 2);
+          if (adj) { y += adj; lg.style.top = y + 'px'; } } }
+        const pos = x + ',' + y + ',' + lh + ',' + tbTop;
         tag.style.left = (x + lg.offsetWidth + 12) + 'px'; tag.style.top = (y + lh / 2) + 'px';
         if (pos === align.last) de.classList.add('pg-al'); else { align.last = pos; requestAnimationFrame(align); } };
       let q = 0; const soon = () => { if (!q) q = requestAnimationFrame(() => { q = 0; align(); }); };
