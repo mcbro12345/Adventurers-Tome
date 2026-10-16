@@ -1677,7 +1677,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261016112901', ASSETS = {"data": "a/data.aff32fe95249.js", "app": "a/app.893f047662ea.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.8e5d750a17cf.html"}; window.PG_ASSETS = ASSETS;
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261016113049', ASSETS = {"data": "a/data.aff32fe95249.js", "app": "a/app.831d985d5e3e.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.0698bbaaf9bd.html"}; window.PG_ASSETS = ASSETS;
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -2732,7 +2732,7 @@ function hub(fs, auth, G, ctx) {
     // that slides between tabs and can be dragged along the bar.
     const PHONE = matchMedia('(max-width: 860px)');
     let NAV_PREV = null, NAV_KEY = null;
-    try { const v = localStorage.getItem('dnd-tablift'); document.documentElement.style.setProperty('--tablift', (v != null && v !== '' ? Number(v) || 0 : 24) + 'px'); } catch (e) { document.documentElement.style.setProperty('--tablift', '24px'); }
+    try { const v = localStorage.getItem('dnd-tablift'); document.documentElement.style.setProperty('--tablift', (v != null && v !== '' ? Number(v) || 0 : STANDALONE ? 24 : 0) + 'px'); } catch (e) { document.documentElement.style.setProperty('--tablift', STANDALONE ? '24px' : '0px'); }
     function navPost() {
       const nv = root.querySelector('.adm-nav'), side = root.querySelector('.adm-side'); if (!nv || !side) return;
       if (PHONE.matches) { if (nv.parentElement !== root) root.appendChild(nv); }

@@ -1288,7 +1288,7 @@ function hub(fs, auth, G, ctx) {
     // that slides between tabs and can be dragged along the bar.
     const PHONE = matchMedia('(max-width: 860px)');
     let NAV_PREV = null, NAV_KEY = null;
-    try { const v = localStorage.getItem('dnd-tablift'); document.documentElement.style.setProperty('--tablift', (v != null && v !== '' ? Number(v) || 0 : 24) + 'px'); } catch (e) { document.documentElement.style.setProperty('--tablift', '24px'); }
+    try { const v = localStorage.getItem('dnd-tablift'); document.documentElement.style.setProperty('--tablift', (v != null && v !== '' ? Number(v) || 0 : STANDALONE ? 24 : 0) + 'px'); } catch (e) { document.documentElement.style.setProperty('--tablift', STANDALONE ? '24px' : '0px'); }
     function navPost() {
       const nv = root.querySelector('.adm-nav'), side = root.querySelector('.adm-side'); if (!nv || !side) return;
       if (PHONE.matches) { if (nv.parentElement !== root) root.appendChild(nv); }
