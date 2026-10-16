@@ -106,6 +106,11 @@ function sheetScrollbar() {
 }
 // No coloured browser bar anywhere: the page itself shows at the very top (behind the clock on phones) and scrolls under it.
 document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.remove()); window.pgTheme = () => {};
+// Safari still draws its own bar behind the clock, filled with the page's background colour: on a sheet that's the
+// header's colour, so at the top of the page the bar and the header are one.
+{ const de = document.documentElement; let last = ''; const tint = () => { const bn = document.querySelector('header.banner'), v = bn ? getComputedStyle(de).getPropertyValue('--navy').trim() : '';
+    const c = document.getElementById('pg-load') && !window.PG_TINT_NOW ? '' : v; if (c !== last) { last = c; de.style.backgroundColor = c; } };
+  setInterval(tint, 800); addEventListener('load', tint); window.pgTheme = () => { window.PG_TINT_NOW = true; tint(); }; }
 const ADMIN_EMAIL = 'matthewcbro@gmail.com';
 // Every character lives in one library; the hub shows each person their own and the ones shared with them.
 const DEFAULT_G = 'WLdUj_I3XrA_9VIP';
