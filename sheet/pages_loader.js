@@ -374,11 +374,11 @@ function wireDie(root) {
         // as big as fits above the toolbar without making the header any taller
         // As big as fits between the top of the page and the toolbar (which stays level with the bottom of the level box),
         // so the header is no taller than usual.
-        const lr = lv.getBoundingClientRect(), tbm = Math.round(lr.height - tb.offsetHeight), top0 = Math.max(4, Math.round(lr.top + scrollY) - 20), bot = Math.round(lr.top + scrollY) + tbm - 4;
+        const lr = lv.getBoundingClientRect(), tbm = Math.round(lr.height - tb.offsetHeight), tbTop = Math.round(lr.top + scrollY) + tbm, top0 = 7, bot = tbTop - 7; // the same gap above it (to the top of the page) and below it (to the buttons)
         const room = Math.max(26, bot - top0); if (lg._room !== room) { lg._room = room; lg.style.setProperty('--plh', room + 'px'); }
         tag.classList.add('placed'); const lh = lg.offsetHeight;
         de.style.setProperty('--pg-tbm', Math.max(26 + 8, tbm) + 'px');
-        const tr = tb.getBoundingClientRect(), x = Math.round(tr.left + scrollX), y = bot - lh, pos = x + ',' + y + ',' + lh;
+        const tr = tb.getBoundingClientRect(), x = Math.round(tr.left + scrollX), y = Math.round((tbTop - lh) / 2), pos = x + ',' + y + ',' + lh;
         lg.style.left = x + 'px'; lg.style.top = y + 'px';
         tag.style.left = (x + lg.offsetWidth + 12) + 'px'; tag.style.top = (y + lh / 2) + 'px';
         if (pos === align.last) de.classList.add('pg-al'); else { align.last = pos; requestAnimationFrame(align); } };
