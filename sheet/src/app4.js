@@ -1796,7 +1796,9 @@ const EXT_FX = [
   ['rayenf', 'Ray of Enfeeblement', 'From an enemy', 10, { note: 'Your STR-based weapon attacks deal half damage' }],
   ['heatmetal', 'Heat Metal', 'From an enemy', 10, { note: 'Fire damage each turn while holding or wearing the metal; disadvantage on attacks and checks if you keep holding it' }]
 ];
-const EXT_GROUPS = ['Rolls', 'Protection', 'Movement', 'Weapons', 'Hit points', 'From an ally', 'From an enemy'];
+// The picker shows just the common ones, alphabetically, as buffs and debuffs.
+const EXT_SHOW = ['aid', 'aurapro', 'bardic', 'barkskin', 'bless', 'enhance', 'fly', 'ginvis', 'guidance', 'haste', 'heroism', 'longstrider', 'magearmor', 'magicweapon', 'protenergy', 'shieldfaith', 'wardingbond', 'bane', 'curse', 'faerie', 'hex', 'slow'];
+const EXT_GROUPS = [['Buffs', d => d[2] !== 'From an enemy'], ['Debuffs', d => d[2] === 'From an enemy']];
 const extOn = k => (S.effects || []).find(e => e.xkey === k);
 function addExtFx(k, v) {
   const d = EXT_FX.find(x => x[0] === k); if (!d) return; const [, name, group, rounds, buff, x = {}] = d;
@@ -1810,15 +1812,14 @@ function addExtFx(k, v) {
   pendingLabel = nm + ' on you'; save(); render(); openExtFx();
 }
 function openExtFx() {
-  const act = (S.effects || []).map(e => `<div class="arow"><span class="ci">${e.from === 'enemy' ? '☠' : e.conc ? '◉' : '✦'}</span><div class="arow-t"><b>${esc(e.name)}</b><small>${esc(fxTip(e) || '')}${e.rounds != null ? ' · ' + esc(fmtRounds(e.rounds)) + ' left' : ''}</small></div><button class="icon-btn arow-x" data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></div>`);
+  const n = (S.effects || []).filter(e => e.xkey).length, list = EXT_FX.filter(d => EXT_SHOW.includes(d[0])).sort((a, b) => a[1].localeCompare(b[1]));
   const chip = d => { const [k, name, , , , x = {}] = d, on = !!extOn(k);
-    return `<button class="cchip2${on ? ' on' : ''}${UI.extPick === k ? ' picking' : ''}" data-act="extfx" data-k="${k}" aria-pressed="${on}" title="${esc(x.why || fxTip({ buff: Object.assign({}, d[4]) }) || name)}">${esc(name)}${x.pick && !on ? '<span class="cc-more">▾</span>' : ''}</button>`; };
-  const pickRow = g => { const d = EXT_FX.find(x => x[0] === UI.extPick && x[2] === g); if (!d) return ''; const x = d[5];
-    return `<div class="xpick"><span class="xpick-l">${esc(d[1])}:</span>${x.pick.map(([v, t]) => `<button class="btn sm" data-act="extfxgo" data-k="${d[0]}" data-v="${esc(v)}">${esc(t)}</button>`).join('')}</div>`; };
-  const html = `<div id="condmodal" class="extfxm"><div class="sethead"><h3>Spells &amp; effects on you</h3><span class="cm-count${act.length ? ' on' : ''}">${act.length ? act.length + ' active' : 'None active'}</span><span class="grow"></span><button class="btn sm gold" data-act="close">Done</button></div>
-    <p class="hint" style="margin:0 0 10px">Something a party member (or an enemy) cast on you. The sheet applies it to your AC, saves, speed and attacks, and counts it down with your other effects.</p>
-    ${act.length ? `<div class="alist">${act.join('')}</div>` : ''}
-    ${EXT_GROUPS.map(g => `<div class="cm2-lbl">${g}</div><div class="cchips2">${EXT_FX.filter(d => d[2] === g).map(chip).join('')}</div>${pickRow(g)}`).join('')}
+    return `<button class="cchip2${on ? ' on' : ''}${UI.extPick === k ? ' picking' : ''}" data-act="extfx" data-k="${k}" aria-pressed="${on}" title="${esc(on ? 'Tap to end it' : x.why || fxTip({ buff: Object.assign({}, d[4]) }) || name)}">${esc(on ? extOn(k).name : name)}${x.pick && !on ? '<span class="cc-more">▾</span>' : ''}</button>`; };
+  const pickRow = ds => { const d = ds.find(x => x[0] === UI.extPick); if (!d) return '';
+    return `<div class="xpick"><span class="xpick-l">${esc(d[1])}:</span>${d[5].pick.map(([v, t]) => `<button class="btn sm" data-act="extfxgo" data-k="${d[0]}" data-v="${esc(v)}">${esc(t)}</button>`).join('')}</div>`; };
+  const html = `<div id="condmodal" class="extfxm"><div class="sethead"><h3>Effects on you</h3>${n ? `<span class="cm-count on">${n} on</span>` : ''}<span class="grow"></span><button class="btn sm gold" data-act="close">Done</button></div>
+    <p class="hint" style="margin:0 0 4px">Tap a spell someone cast on you. Tap it again to end it.</p>
+    ${EXT_GROUPS.map(([g, f]) => { const ds = list.filter(f); return `<div class="cm2-lbl">${g}</div><div class="cchips2">${ds.map(chip).join('')}</div>${pickRow(ds)}`; }).join('')}
   </div>`;
   if ($('#condmodal.extfxm') && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html);
 }

@@ -2711,3 +2711,4 @@ html.mobile .oocbar .ooc-enter { margin: 0 0 6px; }
 *::-webkit-scrollbar-track, *::-webkit-scrollbar-corner { background: transparent; }
 *::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--gold, #c9962b) 70%, transparent); border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
 *::-webkit-scrollbar-thumb:hover { background-color: var(--gold, #c9962b); }
+html #condmodal.extfxm .cchips2 .cchip2 { white-space: normal; overflow: visible; text-align: left; line-height: 1.2; min-width: 0; overflow-wrap: anywhere; }
