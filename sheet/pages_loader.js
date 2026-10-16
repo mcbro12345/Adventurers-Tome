@@ -104,6 +104,21 @@ function sheetScrollbar() {
     if (was && !now && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => el.classList.remove('closing'), 190); } }))
     .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], attributeOldValue: true, subtree: true });
 }
+// The phone browser's bar at the very top (behind the clock) takes the colour of whatever is showing at the top of the
+// page: the sheet's header, the lobby, light or dark — never a fixed colour.
+{ const meta = () => { let m = document.querySelector('meta[name="theme-color"]'); if (!m) { m = document.createElement('meta'); m.name = 'theme-color'; document.head.appendChild(m); } document.querySelectorAll('meta[name="theme-color"]').forEach(x => { if (x !== m) x.remove(); }); return m; };
+  const solid = c => c && c !== 'transparent' && !/rgba\([^)]*,\s*0\)$/.test(c);
+  const pick = () => { const de = document.documentElement, cs = getComputedStyle(de);
+    if (document.getElementById('pg-load')) return '#0f1420';
+    const bn = document.querySelector('header.banner'), wz = document.querySelector('#wizard.open');
+    if (wz) { const c = getComputedStyle(wz).backgroundColor; if (solid(c)) return c; }
+    if (bn) { const v = cs.getPropertyValue('--navy').trim(), m = /^#?([0-9a-f]{6})$/i.exec(v); // the header is a touch lighter along its top edge
+      if (m) { const n = parseInt(m[1], 16), mix = c => Math.round(c * .95 + 255 * .05); return `rgb(${mix(n >> 16 & 255)},${mix(n >> 8 & 255)},${mix(n & 255)})`; } if (v) return v; }
+    const hh = document.querySelector('.hub-head, .adm-side'); if (hh) { const c = getComputedStyle(hh).backgroundColor; if (solid(c)) return c.replace(/rgba\(([^,]+),([^,]+),([^,]+),[^)]*\)/, 'rgb($1,$2,$3)'); }
+    for (const el of [document.body, de]) { const c = el && getComputedStyle(el).backgroundColor; if (solid(c)) return c; }
+    return '#0f1420'; };
+  let last = ''; const apply = () => { const c = pick(); if (c !== last) { last = c; meta().content = c; } };
+  setInterval(apply, 1200); addEventListener('load', apply); setTimeout(apply, 300); }
 const ADMIN_EMAIL = 'matthewcbro@gmail.com';
 // Every character lives in one library; the hub shows each person their own and the ones shared with them.
 const DEFAULT_G = 'WLdUj_I3XrA_9VIP';
@@ -343,6 +358,7 @@ function wireDie(root) {
     const tag = document.createElement('div'); tag.className = 'pg-shared view pg-pubtag'; tag.textContent = 'View only (changes are not saved)'; document.body.appendChild(tag);
     // The full logo across the top: tap it to go to Adventurer's Tome (the lobby, or sign in).
     { const lg = document.createElement('a'); lg.className = 'pg-publogo'; lg.href = PRETTY ? '/' : location.pathname; lg.title = 'Go to Adventurer’s Tome'; lg.setAttribute('aria-label', 'Go to Adventurer’s Tome'); lg.innerHTML = logoHTML(); document.body.prepend(lg); wireDie(lg);
+      lg.addEventListener('click', e => { if (e.target.closest && e.target.closest('.hl-d20')) e.preventDefault(); }); // the die rolls; the words go to Adventurer's Tome
       // Phones: it sits at the top of the sheet's header with the tag right under it. Computers: it takes the Adventurer's
       // Tome button's spot (placed below), with the tag beside it.
       const home = () => { const mob = document.documentElement.classList.contains('mobile'), bn = document.querySelector('header.banner');
