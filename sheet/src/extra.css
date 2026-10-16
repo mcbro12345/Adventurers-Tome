@@ -2704,3 +2704,10 @@ html.mobile .oocbar .ooc-enter { margin: 0 0 6px; }
 #relaystatus .rs-t { display: flex; flex-direction: column; gap: 3px; min-width: 0; line-height: 1.35; }
 #relaystatus .rs-t b { font-size: .95rem; }
 #relaystatus .rs-t span { color: var(--muted); font-size: .86rem; }
+/* Every scrolling box (windows, lists, dropdowns, text boxes, tables) uses the same slim gold scrollbar as the page.
+   Places that hide their scrollbar on purpose (tab strips, the page itself on a computer) keep hiding it. */
+* { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--gold, #c9962b) 72%, transparent) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track, *::-webkit-scrollbar-corner { background: transparent; }
+*::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--gold, #c9962b) 70%, transparent); border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
+*::-webkit-scrollbar-thumb:hover { background-color: var(--gold, #c9962b); }

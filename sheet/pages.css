@@ -1220,3 +1220,10 @@ html.pg-sheetpage.pg-al:not(.mobile) .pg-shared.placed { transition: opacity .2s
 .au-t2 tr.au-x > td { padding: 0 !important; }
 .au-t2 .au-c-x .adm-btn { white-space: nowrap; }
 @media (max-width: 860px) { body.adminbody .au-t2 td.au-c-x { display: none !important; } body.adminbody .au-t2 tr.au-x > td::before { display: none !important; } }
+/* Every scrolling box in the lobby, admin and creation (menus, windows, suggestion lists, wide tables, text boxes) uses
+   the same slim gold scrollbar as the page. Places that hide theirs on purpose keep hiding it. */
+* { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--gold, #c9962b) 72%, transparent) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track, *::-webkit-scrollbar-corner { background: transparent; }
+*::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--gold, #c9962b) 70%, transparent); border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
+*::-webkit-scrollbar-thumb:hover { background-color: var(--gold, #c9962b); }
