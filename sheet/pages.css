@@ -1325,3 +1325,10 @@ html.mobile .pg-pubrow { gap: 8px; }
 html.mobile .pg-pubrow .pg-publogo .hl-d20 { width: min(68px, 17vw); height: min(68px, 17vw); }
 html.mobile .pg-pubrow .pg-publogo .hl-t { font-size: min(2.3rem, 9.4vw); }
 html.mobile .pg-pubrow .pg-publogo .hl-a { font-size: min(.56rem, 2.3vw); letter-spacing: .16em; }
+/* phones, view-only link: the logo is sized by the page to fill the space beside the tag (--mls = the die's size) */
+html.mobile .pg-pubrow .pg-publogo .hub-logo { gap: calc(var(--mls, 60px) * .13); }
+html.mobile .pg-pubrow .pg-publogo .hl-d20 { width: var(--mls, 60px); height: var(--mls, 60px); }
+html.mobile .pg-pubrow .pg-publogo .hl-t { font-size: calc(var(--mls, 60px) * .54); }
+html.mobile .pg-pubrow .pg-publogo .hl-a { font-size: calc(var(--mls, 60px) * .135); letter-spacing: .2em; margin: 0 0 calc(var(--mls, 60px) * .04) 2px; }
+/* viewer pictures sit close together everywhere */
+.pg-pres { gap: 3px !important; }

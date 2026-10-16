@@ -383,7 +383,12 @@ function wireDie(root) {
           if (tag.parentElement !== side) side.prepend(tag); const pb = document.getElementById('pg-pubpres'); if (pb && pb.parentElement !== side) side.appendChild(pb);
           lg.classList.remove('pinned'); lg.style.left = lg.style.top = ''; }
         else { if (lg.parentElement !== document.body) document.body.appendChild(lg); if (tag.parentElement !== document.body) document.body.appendChild(tag); const pb = document.getElementById('pg-pubpres'); if (pb && pb.parentElement !== document.body) document.body.appendChild(pb); lg.classList.add('pinned'); } };
-      lg.id = 'pg-publogo'; home(); addEventListener('resize', home); setTimeout(home, 500); setTimeout(home, 2000); }
+      // Phones: the logo grows to fill the room left of the View only tag (and about as tall as the tag plus the viewers).
+      const fit = () => { if (!document.documentElement.classList.contains('mobile')) return; const row = lg.parentElement, side = row && row.querySelector('.pg-pubside'), hl = lg.querySelector('.hub-logo'); if (!side || !hl) return;
+        const cs = getComputedStyle(row), avail = row.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - side.offsetWidth - 16;
+        lg.style.setProperty('--mls', '60px'); const w0 = hl.scrollWidth || 1, h = side.offsetHeight || 60;
+        const px = Math.floor(60 * Math.min(avail / w0, Math.max(1, (h + 6) / 60), 1.5)); lg.style.setProperty('--mls', Math.max(40, px) + 'px'); };
+      lg.id = 'pg-publogo'; home(); fit(); addEventListener('resize', () => { home(); fit(); }); setInterval(fit, 1500); setTimeout(fit, 300); if (document.fonts) document.fonts.ready.then(fit); setTimeout(home, 500); setTimeout(home, 2000); }
     // On a computer the tag takes the Adventurer's Tome button's spot (above the toolbar, level with the top of the header)
     // and the toolbar drops down exactly as it does for a signed-in player.
     { const de = document.documentElement, align = () => {

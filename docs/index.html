@@ -1392,6 +1392,13 @@ html.mobile .pg-pubrow { gap: 8px; }
 html.mobile .pg-pubrow .pg-publogo .hl-d20 { width: min(68px, 17vw); height: min(68px, 17vw); }
 html.mobile .pg-pubrow .pg-publogo .hl-t { font-size: min(2.3rem, 9.4vw); }
 html.mobile .pg-pubrow .pg-publogo .hl-a { font-size: min(.56rem, 2.3vw); letter-spacing: .16em; }
+/* phones, view-only link: the logo is sized by the page to fill the space beside the tag (--mls = the die's size) */
+html.mobile .pg-pubrow .pg-publogo .hub-logo { gap: calc(var(--mls, 60px) * .13); }
+html.mobile .pg-pubrow .pg-publogo .hl-d20 { width: var(--mls, 60px); height: var(--mls, 60px); }
+html.mobile .pg-pubrow .pg-publogo .hl-t { font-size: calc(var(--mls, 60px) * .54); }
+html.mobile .pg-pubrow .pg-publogo .hl-a { font-size: calc(var(--mls, 60px) * .135); letter-spacing: .2em; margin: 0 0 calc(var(--mls, 60px) * .04) 2px; }
+/* viewer pictures sit close together everywhere */
+.pg-pres { gap: 3px !important; }
 </style>
 </head>
 <body>
@@ -1670,7 +1677,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261016112410', ASSETS = {"data": "a/data.aff32fe95249.js", "app": "a/app.893f047662ea.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.8e5d750a17cf.html"}; window.PG_ASSETS = ASSETS;
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261016112901', ASSETS = {"data": "a/data.aff32fe95249.js", "app": "a/app.893f047662ea.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.8e5d750a17cf.html"}; window.PG_ASSETS = ASSETS;
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -1820,7 +1827,12 @@ function wireDie(root) {
           if (tag.parentElement !== side) side.prepend(tag); const pb = document.getElementById('pg-pubpres'); if (pb && pb.parentElement !== side) side.appendChild(pb);
           lg.classList.remove('pinned'); lg.style.left = lg.style.top = ''; }
         else { if (lg.parentElement !== document.body) document.body.appendChild(lg); if (tag.parentElement !== document.body) document.body.appendChild(tag); const pb = document.getElementById('pg-pubpres'); if (pb && pb.parentElement !== document.body) document.body.appendChild(pb); lg.classList.add('pinned'); } };
-      lg.id = 'pg-publogo'; home(); addEventListener('resize', home); setTimeout(home, 500); setTimeout(home, 2000); }
+      // Phones: the logo grows to fill the room left of the View only tag (and about as tall as the tag plus the viewers).
+      const fit = () => { if (!document.documentElement.classList.contains('mobile')) return; const row = lg.parentElement, side = row && row.querySelector('.pg-pubside'), hl = lg.querySelector('.hub-logo'); if (!side || !hl) return;
+        const cs = getComputedStyle(row), avail = row.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - side.offsetWidth - 16;
+        lg.style.setProperty('--mls', '60px'); const w0 = hl.scrollWidth || 1, h = side.offsetHeight || 60;
+        const px = Math.floor(60 * Math.min(avail / w0, Math.max(1, (h + 6) / 60), 1.5)); lg.style.setProperty('--mls', Math.max(40, px) + 'px'); };
+      lg.id = 'pg-publogo'; home(); fit(); addEventListener('resize', () => { home(); fit(); }); setInterval(fit, 1500); setTimeout(fit, 300); if (document.fonts) document.fonts.ready.then(fit); setTimeout(home, 500); setTimeout(home, 2000); }
     // On a computer the tag takes the Adventurer's Tome button's spot (above the toolbar, level with the top of the header)
     // and the toolbar drops down exactly as it does for a signed-in player.
     { const de = document.documentElement, align = () => {
