@@ -378,7 +378,8 @@ function wireDie(root) {
         de.style.setProperty('--pg-tbm', Math.max(26 + 8, tbm) + 'px');
         // Measured where the buttons really are (not where they should be), so the gap above the logo (to the top of the
         // page) and below it (to the buttons) come out the same on every screen.
-        const tbTop = Math.round(tb.getBoundingClientRect().top + scrollY), gap = 7;
+        const btns = [...tb.querySelectorAll('button, a')].map(b => b.getBoundingClientRect()).filter(r => r.width && r.height);
+        const tbTop = Math.round((btns.length ? Math.min(...btns.map(r => r.top)) : tb.getBoundingClientRect().top) + scrollY), gap = 7; // the top of the buttons themselves
         const room = Math.min(64, Math.max(26, tbTop - 2 * gap)); if (lg._room !== room) { lg._room = room; lg.style.setProperty('--plh', room + 'px'); }
         tag.classList.add('placed'); const lh = lg.offsetHeight;
         const tr = tb.getBoundingClientRect(), x = Math.round(tr.left + scrollX); let y = Math.round((tbTop - lh) / 2);
