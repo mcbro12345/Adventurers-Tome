@@ -106,7 +106,10 @@ function sheetScrollbar() {
 }
 // The phone browser's bar at the very top (behind the clock) takes the colour of whatever is showing at the top of the
 // page: the sheet's header, the lobby, light or dark — never a fixed colour.
-{ const meta = () => { let m = document.querySelector('meta[name="theme-color"]'); if (!m) { m = document.createElement('meta'); m.name = 'theme-color'; document.head.appendChild(m); } document.querySelectorAll('meta[name="theme-color"]').forEach(x => { if (x !== m) x.remove(); }); return m; };
+// iPhone / iPad Safari: no colour at all, so the page itself shows behind the clock and slides under it as you scroll.
+const PG_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+if (PG_IOS) { document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.remove()); window.pgTheme = () => {}; }
+else { const meta = () => { let m = document.querySelector('meta[name="theme-color"]'); if (!m) { m = document.createElement('meta'); m.name = 'theme-color'; document.head.appendChild(m); } document.querySelectorAll('meta[name="theme-color"]').forEach(x => { if (x !== m) x.remove(); }); return m; };
   const solid = c => c && c !== 'transparent' && !/rgba\([^)]*,\s*0\)$/.test(c);
   const pick = under => { const de = document.documentElement, cs = getComputedStyle(de);
     if (!under && document.getElementById('pg-load')) return '#0f1420';
