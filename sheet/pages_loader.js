@@ -374,11 +374,14 @@ function wireDie(root) {
         // as big as fits above the toolbar without making the header any taller
         // As big as fits between the top of the page and the toolbar (which stays level with the bottom of the level box),
         // so the header is no taller than usual.
-        const lr = lv.getBoundingClientRect(), tbm = Math.round(lr.height - tb.offsetHeight), tbTop = Math.round(lr.top + scrollY) + tbm, top0 = 7, bot = tbTop - 7; // the same gap above it (to the top of the page) and below it (to the buttons)
-        const room = Math.max(26, bot - top0); if (lg._room !== room) { lg._room = room; lg.style.setProperty('--plh', room + 'px'); }
-        tag.classList.add('placed'); const lh = lg.offsetHeight;
+        const lr = lv.getBoundingClientRect(), tbm = Math.round(lr.height - tb.offsetHeight);
         de.style.setProperty('--pg-tbm', Math.max(26 + 8, tbm) + 'px');
-        const tr = tb.getBoundingClientRect(), x = Math.round(tr.left + scrollX), y = Math.round((tbTop - lh) / 2), pos = x + ',' + y + ',' + lh;
+        // Measured where the buttons really are (not where they should be), so the gap above the logo (to the top of the
+        // page) and below it (to the buttons) come out the same on every screen.
+        const tbTop = Math.round(tb.getBoundingClientRect().top + scrollY), gap = 7;
+        const room = Math.min(64, Math.max(26, tbTop - 2 * gap)); if (lg._room !== room) { lg._room = room; lg.style.setProperty('--plh', room + 'px'); }
+        tag.classList.add('placed'); const lh = lg.offsetHeight;
+        const tr = tb.getBoundingClientRect(), x = Math.round(tr.left + scrollX), y = Math.round((tbTop - lh) / 2), pos = x + ',' + y + ',' + lh + ',' + tbTop;
         lg.style.left = x + 'px'; lg.style.top = y + 'px';
         tag.style.left = (x + lg.offsetWidth + 12) + 'px'; tag.style.top = (y + lh / 2) + 'px';
         if (pos === align.last) de.classList.add('pg-al'); else { align.last = pos; requestAnimationFrame(align); } };
