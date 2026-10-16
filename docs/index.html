@@ -1333,6 +1333,13 @@ html:not(.mobile).pg-public header.banner { padding-top: 0 !important; }
 html.pg-public:not(.mobile):not(.pg-al) .pg-publogo.pinned { opacity: 0; pointer-events: none; }
 html.pg-public.pg-al:not(.mobile) .pg-publogo.pinned { transition: opacity .2s; }
 body:has(#modal.open) .pg-publogo.pinned { visibility: hidden; }
+/* Phones: logo on the left, View only tag on the right, in one row across the top */
+.pg-pubrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: calc(12px + env(safe-area-inset-top)) 16px 6px; }
+html.mobile .pg-pubrow .pg-publogo { padding: 0; flex: none; }
+html.mobile .pg-pubrow .pg-publogo .hl-d20 { width: 36px; height: 36px; }
+html.mobile .pg-pubrow .pg-publogo .hl-a { font-size: .56rem; letter-spacing: .34em; }
+html.mobile .pg-pubrow .pg-publogo .hl-t { font-size: 1.45rem; }
+html.mobile.pg-public .pg-pubrow .pg-pubtag { margin: 0; max-width: 46%; font-size: 11.5px; line-height: 1.2; padding: 6px 12px; border-radius: 12px; text-align: center; }
 </style>
 </head>
 <body>
@@ -1612,7 +1619,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261016095434', ASSETS = {"data": "a/data.aff32fe95249.js", "app": "a/app.893f047662ea.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.8e5d750a17cf.html"}; window.PG_ASSETS = ASSETS;
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261016101341', ASSETS = {"data": "a/data.aff32fe95249.js", "app": "a/app.893f047662ea.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.8e5d750a17cf.html"}; window.PG_ASSETS = ASSETS;
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -1740,7 +1747,9 @@ function wireDie(root) {
       // Phones: it sits at the top of the sheet's header with the tag right under it. Computers: it takes the Adventurer's
       // Tome button's spot (placed below), with the tag beside it.
       const home = () => { const mob = document.documentElement.classList.contains('mobile'), bn = document.querySelector('header.banner');
-        if (mob) { if (bn && lg.parentElement !== bn) bn.prepend(lg); if (lg.nextElementSibling !== tag) lg.after(tag); lg.classList.remove('pinned'); lg.style.left = lg.style.top = ''; }
+        if (mob) { let row = document.querySelector('.pg-pubrow'); if (!row) { row = document.createElement('div'); row.className = 'pg-pubrow'; }
+          if (bn && row.parentElement !== bn) bn.prepend(row); if (lg.parentElement !== row) row.prepend(lg); if (tag.parentElement !== row) row.appendChild(tag);
+          lg.classList.remove('pinned'); lg.style.left = lg.style.top = ''; }
         else { if (lg.parentElement !== document.body) document.body.appendChild(lg); if (tag.parentElement !== document.body) document.body.appendChild(tag); lg.classList.add('pinned'); } };
       lg.id = 'pg-publogo'; home(); addEventListener('resize', home); setTimeout(home, 500); setTimeout(home, 2000); }
     // On a computer the tag takes the Adventurer's Tome button's spot (above the toolbar, level with the top of the header)

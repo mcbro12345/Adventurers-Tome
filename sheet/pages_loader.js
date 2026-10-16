@@ -362,7 +362,9 @@ function wireDie(root) {
       // Phones: it sits at the top of the sheet's header with the tag right under it. Computers: it takes the Adventurer's
       // Tome button's spot (placed below), with the tag beside it.
       const home = () => { const mob = document.documentElement.classList.contains('mobile'), bn = document.querySelector('header.banner');
-        if (mob) { if (bn && lg.parentElement !== bn) bn.prepend(lg); if (lg.nextElementSibling !== tag) lg.after(tag); lg.classList.remove('pinned'); lg.style.left = lg.style.top = ''; }
+        if (mob) { let row = document.querySelector('.pg-pubrow'); if (!row) { row = document.createElement('div'); row.className = 'pg-pubrow'; }
+          if (bn && row.parentElement !== bn) bn.prepend(row); if (lg.parentElement !== row) row.prepend(lg); if (tag.parentElement !== row) row.appendChild(tag);
+          lg.classList.remove('pinned'); lg.style.left = lg.style.top = ''; }
         else { if (lg.parentElement !== document.body) document.body.appendChild(lg); if (tag.parentElement !== document.body) document.body.appendChild(tag); lg.classList.add('pinned'); } };
       lg.id = 'pg-publogo'; home(); addEventListener('resize', home); setTimeout(home, 500); setTimeout(home, 2000); }
     // On a computer the tag takes the Adventurer's Tome button's spot (above the toolbar, level with the top of the header)

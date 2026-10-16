@@ -1266,3 +1266,10 @@ html:not(.mobile).pg-public header.banner { padding-top: 0 !important; }
 html.pg-public:not(.mobile):not(.pg-al) .pg-publogo.pinned { opacity: 0; pointer-events: none; }
 html.pg-public.pg-al:not(.mobile) .pg-publogo.pinned { transition: opacity .2s; }
 body:has(#modal.open) .pg-publogo.pinned { visibility: hidden; }
+/* Phones: logo on the left, View only tag on the right, in one row across the top */
+.pg-pubrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: calc(12px + env(safe-area-inset-top)) 16px 6px; }
+html.mobile .pg-pubrow .pg-publogo { padding: 0; flex: none; }
+html.mobile .pg-pubrow .pg-publogo .hl-d20 { width: 36px; height: 36px; }
+html.mobile .pg-pubrow .pg-publogo .hl-a { font-size: .56rem; letter-spacing: .34em; }
+html.mobile .pg-pubrow .pg-publogo .hl-t { font-size: 1.45rem; }
+html.mobile.pg-public .pg-pubrow .pg-pubtag { margin: 0; max-width: 46%; font-size: 11.5px; line-height: 1.2; padding: 6px 12px; border-radius: 12px; text-align: center; }
