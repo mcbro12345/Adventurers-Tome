@@ -1293,3 +1293,6 @@ body:has(#modal.open) .pg-topedge { opacity: 0; }
 .pg-publogo.pinned .hl-t { font-size: calc(var(--plh, 32px) * .66); line-height: .95; }
 .pg-publogo.pinned { height: var(--plh, 32px); overflow: visible; }
 .pg-publogo.pinned .hl-txt { justify-content: center; height: var(--plh, 32px); }
+.pg-publogo.pinned .hl-d20 { width: calc(var(--plh, 32px) * 1.08); height: calc(var(--plh, 32px) * 1.08); margin: calc(var(--plh, 32px) * -.04) 0; }
+.pg-publogo.pinned .hl-t { font-size: calc(var(--plh, 32px) * .7); }
+.pg-publogo.pinned .hl-a { font-size: calc(var(--plh, 32px) * .18); }

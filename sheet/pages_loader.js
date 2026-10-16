@@ -374,7 +374,7 @@ function wireDie(root) {
         // as big as fits above the toolbar without making the header any taller
         // As big as fits between the top of the page and the toolbar (which stays level with the bottom of the level box),
         // so the header is no taller than usual.
-        const lr = lv.getBoundingClientRect(), tbm = Math.round(lr.height - tb.offsetHeight), top0 = Math.max(8, Math.round(lr.top + scrollY) - 12), bot = Math.round(lr.top + scrollY) + tbm - 7;
+        const lr = lv.getBoundingClientRect(), tbm = Math.round(lr.height - tb.offsetHeight), top0 = Math.max(4, Math.round(lr.top + scrollY) - 20), bot = Math.round(lr.top + scrollY) + tbm - 4;
         const room = Math.max(26, bot - top0); if (lg._room !== room) { lg._room = room; lg.style.setProperty('--plh', room + 'px'); }
         tag.classList.add('placed'); const lh = lg.offsetHeight;
         de.style.setProperty('--pg-tbm', Math.max(26 + 8, tbm) + 'px');
