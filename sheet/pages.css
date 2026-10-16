@@ -1227,3 +1227,13 @@ html.pg-sheetpage.pg-al:not(.mobile) .pg-shared.placed { transition: opacity .2s
 *::-webkit-scrollbar-track, *::-webkit-scrollbar-corner { background: transparent; }
 *::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--gold, #c9962b) 70%, transparent); border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
 *::-webkit-scrollbar-thumb:hover { background-color: var(--gold, #c9962b); }
+/* Profile pictures: no gold ring around them */
+.adm-ava.has-pic { box-shadow: none; }
+:where(body.hubbody) .hp-pic .pg-ava { box-shadow: 0 4px 14px rgba(0,0,0,.3); }
+:where(body.hubbody) .pp-prev .pg-ava { box-shadow: 0 6px 18px rgba(0,0,0,.3); }
+.pg-pres .pg-ava.me { box-shadow: 0 0 0 2px rgba(15,22,38,.95); }
+body.adminbody .adm-me .pg-ava { box-shadow: none !important; border: 0 !important; }
+/* Who's viewing: pictures sit side by side, not stacked over each other */
+.pg-pres { gap: 4px; }
+.pg-pres .pg-ava + .pg-ava { margin-left: 0; }
+.pg-pres .pg-ava, .pg-pres .pg-ava.me { box-shadow: none; }

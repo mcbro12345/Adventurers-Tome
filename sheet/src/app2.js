@@ -13,7 +13,7 @@ function NeedRoll(req) { this.req = req; }
 function rollLocal(expr, opts, forced) {
   const clean = String(expr).replace(/\s+/g, '').replace(/−/g, '-');
   const re = /([+-]?)(\d*)d(\d+)(kh1|kl1)?|([+-]?)(\d+)/gi;
-  let m, total = 0, parts = [], d20 = null, k = 0, ti = 0;
+  let m, total = 0, parts = [], d20 = null, k = 0, ti = 0; const terms = [];
   while ((m = re.exec(clean))) {
     if (m[3]) {
       const sign = m[1] === '-' ? -1 : 1, n = N(m[2]) || 1, sides = N(m[3]);
@@ -27,10 +27,10 @@ function rollLocal(expr, opts, forced) {
       if (m[4]) { val = m[4] === 'kh1' ? Math.max(...rs) : Math.min(...rs); if (sides === 20) d20 = val; }
       else if (sides === 20 && n === 1) d20 = rs[0];
       total += sign * val;
-      parts.push((sign < 0 ? '− ' : '') + n + 'd' + sides + (m[4] || '') + ' [' + shown.join(', ') + ']');
-    } else if (m[6]) { const sign = m[5] === '-' ? -1 : 1; total += sign * N(m[6]); parts.push((sign < 0 ? '− ' : '+ ') + m[6]); }
+      parts.push((sign < 0 ? '− ' : '') + n + 'd' + sides + (m[4] || '') + ' [' + shown.join(', ') + ']'); terms.push({ dice: true, sign, n, sides, keep: m[4] || '', shown, val });
+    } else if (m[6]) { const sign = m[5] === '-' ? -1 : 1; total += sign * N(m[6]); parts.push((sign < 0 ? '− ' : '+ ') + m[6]); terms.push({ flat: true, v: sign * N(m[6]) }); }
   }
-  return { total, detail: parts.join(' '), d20 };
+  return { total, detail: parts.join(' '), d20, terms };
 }
 const prettyExpr = e => String(e).replace(/\s+/g, '').replace(/2d20kh1/g, '2d20 (keep highest)').replace(/2d20kl1/g, '2d20 (keep lowest)').replace(/\+-/g, '−').replace(/-/g, '−').replace(/\+/g, ' + ').replace(/−/g, ' − ').replace(/^ \+ /, '');
 // opts.min2: treat 1s on damage dice as 2s (Elemental Adept). opts.need: the sheet uses the result (healing, temp HP, death saves…).
@@ -183,9 +183,9 @@ async function r20Roll(expr, label, first, min2, mask) {
   try { const r = await send(lines); r.adept = true; delete r.dice; return r; }
   catch (e) { return send(r20Lines(label, expr, false)); }
 }
-function roll(label, expr, cls) {
+function roll(label, expr, cls, rows) {
   const r = rollExpr(expr, { label });
-  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det">${esc(r.detail)}</div></div>`, cls || (r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : ''));
+  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det dd">${esc(r.detail)}</div>${mathHTML([termMath(r, rows || ROLL_ROWS, 'Roll')])}</div>`, cls || (r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : ''));
   return r;
 }
 function d20Expr(bonus, kind, ab) {
@@ -199,21 +199,23 @@ function d20Expr(bonus, kind, ab) {
   if (['attack', 'check', 'save'].includes(kind)) { const used = (S.effects || []).filter(e => e.buff && e.buff.d20AdvNext && !e.ally); if (used.length) S.effects = S.effects.filter(e => !used.includes(e)); }
   // Bane: −1d4 on attacks and saves. Guidance / Resistance: +1d4 on the next check / save, then they're gone.
   let extra = ''; const bs = selfBuffs();
-  if ((kind === 'attack' || kind === 'save') && bs.some(b => b.bane)) extra += '-1d4';
-  const once = k => { const e = (S.effects || []).find(x => x.buff && x.buff[k] && !x.ally); if (e) { extra += '+' + e.buff[k]; S.effects = S.effects.filter(x => x !== e); } };
+  const dieNames = bless ? ['Bless'] : [];
+  if ((kind === 'attack' || kind === 'save') && bs.some(b => b.bane)) { extra += '-1d4'; dieNames.push('Bane'); }
+  const once = k => { const e = (S.effects || []).find(x => x.buff && x.buff[k] && !x.ally); if (e) { extra += '+' + e.buff[k]; dieNames.push(String(e.name).replace(/\s*\(.*\)$/, '')); S.effects = S.effects.filter(x => x !== e); } };
   if (kind === 'check' && ROLL_CTX !== 'init') once('checkDieNext'); if (kind === 'save') once('saveDieNext');
-  return { expr: base + sgn(bonus - ex) + bless + extra, rm, bless, ex };
+  return { expr: base + sgn(bonus - ex) + bless + extra, rm, bless, ex, dieNames, bonus };
 }
 // House rule (Settings → Rules): a natural 1 on an attack roll also rolls a d4, always the last roll.
 function nat1Roll() { return ST('nat1Roll') ? rollExpr('1d4', { label: 'Nat 1 Roll' }) : null; }
-function d20(label, bonus, kind, ab) {
-  const { expr, rm, bless, ex } = d20Expr(bonus, kind, ab);
+function d20(label, bonus, kind, ab, rows) {
+  const dx = d20Expr(bonus, kind, ab), { expr, rm, bless, ex } = dx;
   const r = rollExpr(expr, { label });
   const fl = typeof fxD20Floor === 'function' ? fxD20Floor(kind, ab) : null;
-  if (fl && r.d20 != null && r.d20 < fl) { r.total += fl - r.d20; r.detail += ` (d20 ${r.d20} counts as ${fl})`; r.d20 = fl; }
+  let floorUp = 0; if (fl && r.d20 != null && r.d20 < fl) { floorUp = fl - r.d20; r.total += floorUp; r.detail += ` (d20 ${r.d20} counts as ${fl})`; r.d20 = fl; }
+  const math = mathHTML([d20Math(r, dx, rows || ROLL_ROWS, 'Roll', floorUp ? [`d20 counts as ${fl}`, floorUp] : null)]);
   const note = [rm.mode !== 'normal' ? (rm.mode === 'adv' ? 'Advantage: ' : 'Disadvantage: ') + rm.why.join(', ') : '', bless ? 'Bless +1d4' : '', ex ? `Exhaustion −${ex}` : '', rm.auto ? 'Automatic failure (condition)' : ''].filter(Boolean).join(' · ');
   const n1 = kind === 'attack' && r.d20 === 1 ? nat1Roll() : null;
-  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det">${esc(r.detail)}</div>${note ? `<div class="det">${esc(note)}</div>` : ''}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}</div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '');
+  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det dd">${esc(r.detail)}</div>${note ? `<div class="det">${esc(note)}</div>` : ''}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}${math}</div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '');
   return r;
 }
 const doubleDice = e => String(e || '').replace(/(\d*)d(\d+)/gi, (m, n, sd) => (2 * (N(n) || 1)) + 'd' + sd);
@@ -239,12 +241,13 @@ function toast(html, cls = '', ms = 4500, action) {
   const isRoll = /^\s*<(b class="total"|div class="rc-multi")/.test(html);
   let box = $('#toasts');
   if (isRoll || cls === 'manual') logRoll(t.innerHTML, cls); else logEvent(t.innerHTML, cls);
+  if (isRoll && cls !== 'manual') postSheetRoll(t);
   if (isRoll) { box = $('#rolls'); if (!box) { box = document.createElement('div'); box.id = 'rolls'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); } t.classList.add('rollcard'); ms = Math.max(ms, 6500); }
   if (isRoll) box.prepend(t); else box.appendChild(t);
   const cap = isRoll ? (document.documentElement.classList.contains('mobile') ? 1 : 2) : document.documentElement.classList.contains('mobile') ? 2 : 5;
   if (isRoll) {
     // Each die is behind the 🎲 button: the card stays simple, but you can check for 1s, 20s and rerolls.
-    if (t.querySelector('.det')) { const db = document.createElement('button'); db.className = 'rc-dice'; db.title = 'Show each die'; db.textContent = '🎲'; db.onclick = ev => { ev.stopPropagation(); const on = t.classList.toggle('showdet'); clearTimeout(t._tm); if (!on) t._tm = setTimeout(() => t.remove(), 4000); }; t.appendChild(db); }
+    if (t.querySelector('.det, .rc-math')) { const db = document.createElement('button'); db.className = 'rc-dice'; db.title = 'Show the math'; db.textContent = '🎲'; db.onclick = ev => { ev.stopPropagation(); const on = t.classList.toggle('showdet'); clearTimeout(t._tm); if (!on) t._tm = setTimeout(() => t.remove(), 4000); }; t.appendChild(db); }
     { const btns = [...t.children].filter(c => c.tagName === 'BUTTON'); if (btns.length > 1) { const w = document.createElement('div'); w.className = 'rc-btns'; btns.forEach(b => { b.style.marginLeft = ''; w.appendChild(b); }); t.appendChild(w); } }
     while (box.children.length > cap) box.lastChild.remove(); t._tm = setTimeout(() => t.remove(), ms); return;
   }
@@ -661,3 +664,65 @@ function fsEnter() { const el = document.documentElement; try { const r = (el.re
 function fsExit() { try { const r = document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen(); if (r && r.catch) r.catch(() => {}); } catch (e) {} }
 let FS_USER_OFF = false;
 ['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => document.addEventListener(ev, () => { $$('.fsbtn').forEach(b => { b.innerHTML = fsOn() ? ICON.fsOut : ICON.fsIn; b.title = b.ariaLabel = fsOn() ? 'Exit full screen' : 'Full screen'; }); }));
+
+
+// ---------- "Show the math" on roll cards ----------
+// Each roll card's 🎲 opens a breakdown: every die and what it rolled, every bonus and where it comes from, and the total.
+let ROLL_ROWS = null; // the bonus's parts for the roll being made, set by whoever starts it
+const sgnv = v => (v < 0 ? '−' : '+') + Math.abs(v);
+// Fill in anything the parts don't explain, so the rows always add up to the bonus used.
+function fitRows(rows, want) { rows = (rows || []).filter(r => N(r[1])); const got = rows.reduce((t, r) => t + N(r[1]), 0); if (got !== want) rows.push([rows.length ? 'Other' : 'Modifier', want - got]); return rows.filter(r => N(r[1])); }
+const dieLbl = t => `${t.n}d${t.sides}${t.keep === 'kh1' ? ', keep highest' : t.keep === 'kl1' ? ', keep lowest' : ''}`;
+const dieSub = t => (t.shown && (t.shown.length > 1 || t.keep) ? '[' + t.shown.join(', ') + ']' : '');
+// A d20 roll: the d20, the bonus split into its parts, any extra dice (Bless, Bane, Guidance…), exhaustion.
+function d20Math(r, dx, rows, title, floorRow) {
+  if (!r.terms || !r.terms.length) return { title, rows: [['Rolled', r.detail || String(r.total)]], total: r.total };
+  const out = [], dice = r.terms.filter(t => t.dice), flat = r.terms.filter(t => t.flat).reduce((a, t) => a + t.v, 0), d0 = dice[0];
+  if (d0) out.push([d0.sides === 20 ? (d0.keep === 'kh1' ? 'd20 with advantage' : d0.keep === 'kl1' ? 'd20 with disadvantage' : 'd20') : dieLbl(d0), String(d0.val), dieSub(d0)]);
+  if (floorRow) out.push([floorRow[0], sgnv(floorRow[1])]);
+  fitRows(rows, flat + N(dx && dx.ex)).forEach(([l, v]) => out.push([l, sgnv(N(v))]));
+  if (dx && dx.ex) out.push([exModern() ? 'Exhaustion' : 'Exhaustion', sgnv(-dx.ex)]);
+  dice.slice(1).forEach((t, i) => out.push([((dx && dx.dieNames || [])[i] || 'Extra die') + ` (${t.n}d${t.sides})`, sgnv(t.sign * t.val), dieSub(t)]));
+  return { title, rows: out, total: r.total };
+}
+// Any other roll (damage, healing…): each die term, then the flat bonus split into its parts.
+function termMath(r, rows, title, names) {
+  if (!r.terms || !r.terms.length) return { title, rows: [['Rolled', r.detail || String(r.total)]], total: r.total };
+  const out = [], flat = r.terms.filter(t => t.flat).reduce((a, t) => a + t.v, 0);
+  r.terms.filter(t => t.dice).forEach((t, i) => out.push([((names || [])[i] ? names[i] + ' ' : '') + `(${t.n}d${t.sides})`, (t.sign < 0 ? '−' : '') + t.val, t.shown && t.shown.length > 1 ? '[' + t.shown.join(', ') + ']' : '']));
+  if (flat || (rows && rows.length)) fitRows(rows, flat).forEach(([l, v]) => out.push([l, sgnv(N(v))]));
+  return { title, rows: out, total: r.total };
+}
+function mathHTML(secs) {
+  secs = secs.filter(x => x && x.rows && x.rows.length); if (!secs.length) return '';
+  return `<div class="rc-math">${secs.map(x => `${secs.length > 1 || x.title !== 'Roll' ? `<div class="rm-h">${esc(x.title)}</div>` : ''}${x.rows.map(([l, v, sub]) => `<div class="rm-r"><span>${esc(l)}${sub ? ` <i>${esc(sub)}</i>` : ''}</span><b>${esc(String(v))}</b></div>`).join('')}<div class="rm-r rm-t"><span>Total</span><b>${esc(String(x.total))}</b></div>`).join('')}</div>`;
+}
+// The parts of each kind of bonus.
+const abRow = a => [`${String(a).toUpperCase()} modifier`, mod(a)];
+function calcRowsOf(k) { const c = typeof calcTip === 'function' ? calcTip(k) : null; return c && c.rows ? c.rows.map(([l, v]) => [l, typeof v === 'string' ? N(v.replace('−', '-')) : N(v)]).filter(r => !isNaN(r[1])) : null; }
+function atkHitRows(a) {
+  if (a.fixedHit != null && a.fixedHit !== '') return [['Attack bonus (set)', N(a.fixedHit)]];
+  const ab = attackAb(a), fit = a.item && S.inventory.find(x => x.id === a.item);
+  return [ab ? abRow(ab) : null, attackProf(a) ? ['Proficiency', PB()] : null, ['Magic bonus', N(a.magic)], ['Forged', forgeBonus(fit)], ['Infusion', infWeapon(fit, a, 'atk')], ['Spells and effects', a.effect ? 0 : buffSum('atk')], ['Item effects', itemBuffs(a).reduce((t, b) => t + N(b.atk), 0)], ['Spell attack items', a.ab === 'spell' ? itemSum('spellAtk') + itemSum('spell') : 0], a.kind === 'ranged' && fightingStyle('Archery') ? ['Archery', 2] : null].filter(Boolean);
+}
+function atkDmgRows(a) {
+  if (a.fixedHit != null && a.fixedHit !== '') return [];
+  const ab = attackAb(a), fit = a.item && S.inventory.find(x => x.id === a.item);
+  return [ab && !a.noModDmg ? abRow(ab) : null, ['Magic bonus', N(a.magic)], ['Forged', forgeBonus(fit)], ['Infusion', infWeapon(fit, a, 'dmg')], ['Spells and effects', a.effect ? 0 : buffSum('dmg') + (a.kind === 'melee' && ab === 'str' ? buffSum('meleeDmg') : 0)], ['Item effects', itemBuffs(a).reduce((t, b) => t + N(b.dmg), 0)], ['Features', a.kind === 'melee' ? fxSum('meleeDmg') : 0], a.kind === 'melee' && fightingStyle('Dueling') && a.oneHanded ? ['Dueling', 2] : null].filter(Boolean);
+}
+
+// ---------- Rolling on the sheet, shown in Roll20 too (Settings → Dice) ----------
+// The sheet rolls as usual; the result (not a new roll) is posted to your Roll20 game's chat through the extension.
+function postSheetRoll(t) {
+  if (diceMode() !== 'sheet' || !ST('sheetToR20') || !R20.ok) return;
+  const q = s => t.querySelector(s), txt = el => (el ? el.textContent.replace(/\s+/g, ' ').trim() : '');
+  const total = txt(q('b.total')), name = txt(q('.rc-name')) || txt(q('b.total + div > div')) || 'Roll', lbl = txt(q('.rc-lbl'));
+  const dmg = q('.rc-dmg') && !q('.rc-dmg.void') ? txt(q('.rc-dmg > b')) : '', dtype = q('.rc-dmg') ? txt(q('.rc-dmg > span')).replace(/^\d+\s*/, '') : '';
+  const multi = q('.rc-multi');
+  const clean = s => String(s).replace(/[[\]{}|]/g, '').slice(0, 160);
+  const cap = x => x.charAt(0).toUpperCase() + x.slice(1);
+  const lines = [`/em **${clean(multi ? txt(q('.rc-name')) : name)}** (rolled on the sheet)`];
+  if (multi) t.querySelectorAll('.rc-row').forEach(r => { const n = (r.textContent.match(/-?\d+/g) || []); if (n.length) lines.push(`**${clean(txt(r).replace(/-?\d+.*$/, '') || 'Roll')}:** [[${n[0]}]]${n[1] ? ` · damage [[${n[1]}]]` : ''}`); });
+  else if (total !== '') lines.push(`**${clean(lbl ? cap(lbl) : 'Result')}:** [[${N(total)}]]${dmg ? ` · **Damage:** [[${N(dmg)}]] ${clean(dtype)}` : ''}`);
+  if (lines.length > 1) r20Post(lines).catch(() => {});
+}

@@ -2725,3 +2725,14 @@ html #condmodal.extfxm .cchips2 .cchip2 { white-space: normal; overflow: visible
 .ravenchk > span { display: block; line-height: 1.1; padding-top: .08em; }
 .ravenchk input { align-self: center; flex: none; }
 .tile .ravenchk.sm { white-space: nowrap; font-size: .7rem !important; }
+/* Roll cards: 🎲 shows the math */
+.toast.rollcard .rc-math { display: none; margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(0,0,0,.22); border: 1px solid rgba(244,238,223,.14); font-size: .82rem; min-width: 210px; }
+.toast.rollcard.showdet .rc-math { display: block; }
+.toast.rollcard.showdet:has(.rc-math) .det.dd { display: none !important; }
+.rc-math .rm-h { font-weight: 800; font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; opacity: .7; margin: 6px 0 3px; }
+.rc-math .rm-h:first-child { margin-top: 0; }
+.rc-math .rm-r { display: flex; justify-content: space-between; gap: 14px; padding: 2px 0; }
+.rc-math .rm-r span { opacity: .85; text-align: left; } .rc-math .rm-r i { font-style: normal; opacity: .65; font-size: .92em; }
+.rc-math .rm-r b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rc-math .rm-t { border-top: 1px solid rgba(244,238,223,.2); margin-top: 3px; padding-top: 4px; font-weight: 800; }
+.rc-math .rm-t span { opacity: 1; }

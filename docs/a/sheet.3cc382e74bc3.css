@@ -3373,4 +3373,36 @@ html.mobile .oocbar .ooc-enter { margin: 0 0 6px; }
 #relaystatus .rs-t { display: flex; flex-direction: column; gap: 3px; min-width: 0; line-height: 1.35; }
 #relaystatus .rs-t b { font-size: .95rem; }
 #relaystatus .rs-t span { color: var(--muted); font-size: .86rem; }
+/* Every scrolling box (windows, lists, dropdowns, text boxes, tables) uses the same slim gold scrollbar as the page.
+   Places that hide their scrollbar on purpose (tab strips, the page itself on a computer) keep hiding it. */
+* { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--gold, #c9962b) 72%, transparent) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track, *::-webkit-scrollbar-corner { background: transparent; }
+*::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--gold, #c9962b) 70%, transparent); border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
+@media (hover:hover){:where(html:not(.mobile)) *::-webkit-scrollbar-thumb:hover{ background-color: var(--gold, #c9962b); }}
+html #condmodal.extfxm .cchips2 .cchip2 { white-space: normal; overflow: visible; text-align: left; line-height: 1.2; min-width: 0; overflow-wrap: anywhere; }
+.xdur { gap: 8px 16px; }
+.xdur-i { display: inline-flex; align-items: center; gap: 8px; }
+.adjrow { flex-wrap: wrap; }
+.ravenchk { display: inline-flex; align-items: center; gap: 7px; margin: 6px 0 2px; font-size: .86rem; font-weight: 600; cursor: pointer; user-select: none; }
+.ravenchk input { width: 16px; height: 16px; accent-color: var(--gold); margin: 0; }
+.ravenchk.sm { display: flex; justify-content: center; margin: 6px 0 0; font-size: .74rem; color: var(--muted); }
+.ravenchk.sm input { width: 14px; height: 14px; }
+.tile .ravenchk.sm { display: flex; justify-content: center; align-items: center; gap: 5px; white-space: normal; text-align: left; font-size: .72rem !important; font-weight: 600; color: var(--muted); letter-spacing: 0; text-transform: none; line-height: 1.2; }
+.tile .ravenchk.sm input { width: 13px !important; height: 13px !important; min-width: 0 !important; padding: 0 !important; flex: none; }
+/* the words get their own tight line box, so the box lines up with the letters whatever the system font */
+.ravenchk > span { display: block; line-height: 1.1; padding-top: .08em; }
+.ravenchk input { align-self: center; flex: none; }
+.tile .ravenchk.sm { white-space: nowrap; font-size: .7rem !important; }
+/* Roll cards: 🎲 shows the math */
+.toast.rollcard .rc-math { display: none; margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(0,0,0,.22); border: 1px solid rgba(244,238,223,.14); font-size: .82rem; min-width: 210px; }
+.toast.rollcard.showdet .rc-math { display: block; }
+.toast.rollcard.showdet:has(.rc-math) .det.dd { display: none !important; }
+.rc-math .rm-h { font-weight: 800; font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; opacity: .7; margin: 6px 0 3px; }
+.rc-math .rm-h:first-child { margin-top: 0; }
+.rc-math .rm-r { display: flex; justify-content: space-between; gap: 14px; padding: 2px 0; }
+.rc-math .rm-r span { opacity: .85; text-align: left; } .rc-math .rm-r i { font-style: normal; opacity: .65; font-size: .92em; }
+.rc-math .rm-r b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rc-math .rm-t { border-top: 1px solid rgba(244,238,223,.2); margin-top: 3px; padding-top: 4px; font-weight: 800; }
+.rc-math .rm-t span { opacity: 1; }
 
