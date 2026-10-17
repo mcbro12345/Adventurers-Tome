@@ -61,6 +61,9 @@ function rebuildAuto() {
   S.features.forEach(f => { if (f.kind === 'pick' && !fxOf(f).spellsAt) return; const fx = fxOf(f), cls = f.cls && casterFor(f.cls) ? f.cls : (fx.spellCls || 'other'), own = f.cls ? clsLv(f.cls) : lvl();
     (f.kind === 'pick' ? [] : fx.spells || []).forEach(n => want.push({ n, cls, src: f.dname || f.name, note: fx.spellNote || '', once: !!fx.once }));
     Object.entries(fx.spellsAt || {}).forEach(([lv, arr]) => { if (own >= N(lv)) arr.forEach(n => want.push({ n, cls, src: f.dname || f.name, note: fx.spellNote || '', once: !!fx.once })); }); });
+  // Magic Initiate: the two cantrips and the once-per-long-rest 1st-level spell you chose, cast with that class's ability
+  if (hasFeat('Magic Initiate')) { const c = MI_CLS.find(x => x[0] === (S.featCls || {})['Magic Initiate']) || MI_CLS[5];
+    ((S.grantSpells || {})['Magic Initiate'] || []).forEach(n => want.push({ n, cls: 'feat', src: 'Magic Initiate (' + c[3] + ')', note: N((SPI(n) || {}).level) > 0 ? 'once per long rest' : '', once: N((SPI(n) || {}).level) > 0, ab: c[2], featAb: true })); }
   // Spells an item lets you cast, while you're using it (equipped, or carried if ticked; attuned if it needs it)
   S.inventory.forEach(it => { if (!hbItemOn(it)) return; const st = itemStores(it); (it.spells || []).forEach(n => want.push({ n, cls: 'other', src: it.name, note: st ? 'stored — gone once cast' : it.spellAtWill ? 'at will' : it.spellOnce ? 'once per long rest' : '', once: !st && !!it.spellOnce && !it.spellAtWill, atWill: !st && !!it.spellAtWill, stored: st, lvl: N((it.spellLevels || {})[n]), ab: (it.hb && it.hb.spellAb) || '', itemId: it.id })); });
   const keyOf = (n, cls) => n.toLowerCase() + '|' + cls;
@@ -79,6 +82,7 @@ function rebuildAuto() {
     if (w.atWill && N(sp.level) > 0) sp.atWill = true;
     if (w.itemId) { sp.item = w.itemId; sp.ab = w.ab || (casters()[0] || {}).ab || 'cha'; }
     if (w.stored) storedUse(sp, w);
+    if (w.featAb) sp.ab = w.ab;
     if (w.cls === 'race') { sp.ab = w.ab; if (/once per long rest|1\/long rest|once per day/i.test(w.note || '') && N(sp.level) > 0) { sp.uses = { max: '1', reset: 'long', used: 0 }; const lv = String(w.note).match(/as (\d)(?:st|nd|rd|th)[- ]level/i); if (lv) sp.uses.level = N(lv[1]); } }
     S.spells.push(sp);
   });
@@ -914,9 +918,18 @@ function openGrantPicker(type, o) {
   GRANT = { type, o, fx, CH };
   renderGrantPicker();
 }
+// Magic Initiate: choose a class, then two of its cantrips and one of its 1st-level spells.
+const MI_CLS = [['bard', 'B', 'cha', 'Bard'], ['cleric', 'C', 'wis', 'Cleric'], ['druid', 'D', 'wis', 'Druid'], ['sorcerer', 'S', 'cha', 'Sorcerer'], ['warlock', 'K', 'cha', 'Warlock'], ['wizard', 'W', 'int', 'Wizard']];
+const miGrant = cls => { const c = MI_CLS.find(x => x[0] === cls) || MI_CLS[5]; return [{ type: 'spellpick', n: 2, level: 0, list: c[1], label: `${c[3]} cantrips` }, { type: 'spellpick', n: 1, level: 1, list: c[1], label: `${c[3]} 1st-level spell — once per long rest without a slot` }]; };
+function openMagicInitiate() {
+  const cls = (S.featCls || {})['Magic Initiate'] || 'wizard', have = (S.grantSpells || {})['Magic Initiate'] || [];
+  const CH = { 'g.0': have.filter(n => N((SPI(n) || {}).level) === 0).slice(0, 2), 'g.1': have.filter(n => N((SPI(n) || {}).level) === 1).slice(0, 1) };
+  GRANT = { mi: true, cls, o: 'Magic Initiate', fx: { grant: miGrant(cls) }, CH }; renderGrantPicker();
+}
 function renderGrantPicker() {
   const t = GRANT; if (!t) return;
-  const html = `<div id="grantm"><h3>${esc(t.o)}</h3>${t.fx.grant.map((g, j) => choiceUI(t.CH, 'g.' + j, g)).join('')}
+  const html = `<div id="grantm"><h3>${esc(t.o)}</h3>${t.mi ? `<p class="hint" style="margin:0 0 8px">Pick a class, then two of its cantrips and one of its 1st-level spells. You cast them with that class's ability (${esc((MI_CLS.find(x => x[0] === t.cls) || [])[2] || '').toUpperCase()}); the 1st-level spell once per long rest without a slot (or with your own slots, if you have them).</p>
+    <div class="seg miseg">${MI_CLS.map(([k, , , nm]) => `<button class="${t.cls === k ? 'on' : ''}" data-act="micls" data-v="${k}">${nm}</button>`).join('')}</div>` : ''}${t.fx.grant.map((g, j) => choiceUI(t.CH, 'g.' + j, g)).join('')}
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="grantok">Save</button></div></div>`;
   if ($('#grantm') && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html, null, true);
 }

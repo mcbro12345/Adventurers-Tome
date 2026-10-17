@@ -385,6 +385,7 @@ function acInfo() {
   if (sh && S.acOverride === '') { const v = 2 + N((sh.mods || {}).ac); total += v; parts.push(`Shield +${v}`); }
   activeItems().forEach(it => { const m = it.mods || {}; if (it.armor) return; if (m.ac && !(m.unarmoredOnly && (arm || sh))) { total += N(m.ac); parts.push(`${it.name} +${m.ac}`); } });
   const race = DND.races[S.race.key]; if (race && race.acBonus) { total += race.acBonus; parts.push(`${race.name} +${race.acBonus}`); }
+  if (dualWielder() && handsOf(oneHandMelee) >= 2) { total += 1; parts.push('Dual Wielder +1'); }
   if (arm && arm.forge && S.acOverride === '') { total += 1; parts.push('Blessing of the Forge +1'); }
   fxPassives().forEach(p => {
     const add = (v, why) => { const n = typeof v === 'number' ? v : N(evalMax(v)); if (n) { total += n; parts.push(`${p.src}${why ? ' (' + why + ')' : ''} ${n > 0 ? '+' : ''}${n}`); } };
@@ -473,6 +474,21 @@ function hpPerLevelBonus() {
 }
 
 // ---------- Attacks ----------
+// ---------- Two-weapon fighting (dual wielding) ----------
+// After you take the Attack action and attack with a light melee weapon in one hand, you can use your bonus action to
+// attack with a different light melee weapon in the other hand. That attack doesn't add your ability modifier to the
+// damage unless the modifier is negative (the Two-Weapon Fighting style adds it). Dual Wielder lets the weapons be any
+// one-handed melee weapons and gives +1 AC while you hold one in each hand.
+const twfStyle = () => fightingStyle('Two-Weapon Fighting');
+const dualWielder = () => hasFeat('Dual Wielder');
+const oneHandMelee = it => !!(it && it.equipped && it.weapon && it.weapon.kind === 'melee' && !(it.weapon.props || []).includes('two-handed'));
+const twfWeapon = it => oneHandMelee(it) && ((it.weapon.props || []).includes('light') || dualWielder());
+const handsOf = test => S.inventory.filter(test).reduce((n, it) => n + Math.max(1, Math.min(2, N(it.qty) || 1)), 0);
+const dualWielding = () => handsOf(twfWeapon) >= 2;
+// Only weapons you've set up for it (Inventory → "Off-hand (dual wield)") show as off-hand attacks.
+function offhandOK(a) { const it = a && a.item && S.inventory.find(x => x.id === a.item); return !!(it && twfWeapon(it)); }
+function offhandSet(a) { const it = a && a.item && S.inventory.find(x => x.id === a.item); return !!(it && it.offhand && twfWeapon(it)); }
+const offDrop = a => { if (twfStyle()) return 0; const ab = attackAb(a), m = ab && !a.noModDmg ? mod(ab) : 0; return m > 0 ? m : 0; };
 function attackAb(a) {
   const wb = wpnBind(a); if (wb && wb.wpn.ab === 'spell') return castInfo(wb.wpn.cls).ab;
   if (a.ab === 'spell') return castInfo(a.cls).ab;
@@ -1111,6 +1127,10 @@ function ringSpent(sp) {
   setTimeout(() => { rebuildAuto(); save(); render(); }, 0);
 }
 const ringItems = () => S.inventory.map((it, ii) => [it, ii]).filter(([it]) => itemStores(it) && !it.infusion);
+
+// Inventory: set a weapon up to be dual wielded (it shows as an off-hand bonus attack on the Combat tab).
+document.addEventListener('change', e => { const t = e.target; if (!t || !t.matches || !t.matches('[data-offhand]')) return; const it = S.inventory[N(t.dataset.offhand)]; if (!it) return;
+  it.offhand = t.checked; pendingLabel = `${it.name}: ${t.checked ? 'dual wield (off-hand)' : 'not dual wielded'}`; save(); render(); });
 
 
 // ---------- Dice ----------
@@ -2042,6 +2062,8 @@ function featSpellsHTML(f, i, ed) {
     h += `<div class="fc-spells"><span class="lbl">${esc(fx.grant.map(g => g.label).join(' · '))}</span>${have.map(n => `<span class="pbadge">${esc(n)}</span>`).join('')}
       <button class="btn sm${have.length < need ? ' gold' : ''}" data-act="grantpick" data-o="${esc(m[2])}" data-t="${m[1]}">${have.length < need ? `Choose (${have.length}/${need})` : 'Change'}</button></div>`;
   }
+  if (f.key === 'feat:Magic Initiate') { const have = (S.grantSpells || {})['Magic Initiate'] || [], c = MI_CLS.find(x => x[0] === (S.featCls || {})['Magic Initiate']);
+    h += `<div class="fc-spells"><span class="lbl">${c ? esc(c[3]) + ' spells' : 'Spells'}</span>${have.map(n => `<span class="pbadge">${esc(n)}</span>`).join('')}<button class="btn sm${have.length < 3 ? ' gold' : ''}" data-act="mipick">${have.length < 3 ? `Choose spells (${have.length}/3)` : 'Change'}</button></div>`; }
   if (fx.spells) h += `<div class="fc-spells"><span class="lbl">Spells</span>${fx.spells.map(n => `<span class="pbadge">${esc(n)}</span>`).join('')}${fx.spellNote ? `<span class="hint">${esc(fx.spellNote)}</span>` : ''}</div>`;
   const own = f.spells || [];
   if (own.length || ed) {
@@ -2213,7 +2235,7 @@ function renderInventory() {
         <span class="grow"></span>
         <button class="icon-btn ibtn${open ? ' on' : ''}" data-act="toggle" data-key="item:${it.id}" title="${open ? 'Close editing' : 'Edit details and notes'}" aria-label="Edit ${esc(it.name)}">${open ? '▴' : '✎'}</button>
         ${del('inventory', i)}</div>
-      <div class="imeta">${resPickItem(it) && !it.resPick ? `<label class="respick unset"><span>Which ring is it?</span><select class="f" data-restype="${i}" aria-label="Damage type this item resists"><option value="">Choose its damage type…</option>${RES_TYPES.map(t => `<option value="${t}">${t[0].toUpperCase() + t.slice(1)}</option>`).join('')}</select></label>` : ''}${String(it.notes || '').trim() && !open ? `<div class="inote-m mnote">${esc(it.notes)}</div>` : ''}${badges}${ch}${isDeckItem(it) ? `<button class="btn sm gold" data-act="deck" data-i="${i}">Draw a card</button>` : ''}${itemStores(it) && !it.infusion ? `<button class="btn sm gold" data-act="ringstore" data-i="${i}" title="${esc((it.spells || []).length ? 'Holds: ' + it.spells.join(', ') : 'Empty')}">Store a spell <small>${ringUsed(it)}/${ringCap(it)}</small></button>` : ''}${it.heal ? `<button class="btn sm" data-act="drink" data-i="${i}">Drink (${esc(it.heal)})</button>` : ''}${it.hb && hbUsable(hbFx(it.hb)) ? `<button class="btn sm gold" data-act="useitem" data-i="${i}" ${hbItemReady(it) ? '' : 'disabled'} title="${hbItemOn(it) ? '' : it.attune && !it.attuned ? 'Attune first' : 'Equip it first'}">Use</button>` : ''}${hbChips(it)}
+      <div class="imeta">${resPickItem(it) && !it.resPick ? `<label class="respick unset"><span>Which ring is it?</span><select class="f" data-restype="${i}" aria-label="Damage type this item resists"><option value="">Choose its damage type…</option>${RES_TYPES.map(t => `<option value="${t}">${t[0].toUpperCase() + t.slice(1)}</option>`).join('')}</select></label>` : ''}${String(it.notes || '').trim() && !open ? `<div class="inote-m mnote">${esc(it.notes)}</div>` : ''}${badges}${ch}${isDeckItem(it) ? `<button class="btn sm gold" data-act="deck" data-i="${i}">Draw a card</button>` : ''}${it.equipped && it.weapon && it.weapon.kind === 'melee' && !(it.weapon.props || []).includes('two-handed') && ((it.weapon.props || []).includes('light') || dualWielder()) ? `<label class="offchk" title="Dual wield: after attacking with a light melee weapon, attack with this one as a bonus action (Combat tab → Bonus Action)"><input type="checkbox" data-offhand="${i}"${it.offhand ? ' checked' : ''}> Off-hand (dual wield)</label>` : ''}${itemStores(it) && !it.infusion ? `<button class="btn sm gold" data-act="ringstore" data-i="${i}" title="${esc((it.spells || []).length ? 'Holds: ' + it.spells.join(', ') : 'Empty')}">Store a spell <small>${ringUsed(it)}/${ringCap(it)}</small></button>` : ''}${it.heal ? `<button class="btn sm" data-act="drink" data-i="${i}">Drink (${esc(it.heal)})</button>` : ''}${it.hb && hbUsable(hbFx(it.hb)) ? `<button class="btn sm gold" data-act="useitem" data-i="${i}" ${hbItemReady(it) ? '' : 'disabled'} title="${hbItemOn(it) ? '' : it.attune && !it.attuned ? 'Attune first' : 'Equip it first'}">Use</button>` : ''}${hbChips(it)}
 </div>
       ${open ? `<div class="idetail"><div class="idet-top">${picThumb(`inventory.${i}.img`, it.name)}${fld('Notes', ta(`inventory.${i}.notes`, { rows: 2, cls: 'inotefull', label: 'Notes', ph: 'Add a note…' }))}</div>${it.summary ? `<p>${esc(it.summary)}</p>` : ''}${it.armor ? `<p class="hint">${esc(it.armor.type)} armor · AC ${it.armor.base}${it.armor.type === 'shield' ? '' : it.armor.dexCap === 0 ? '' : it.armor.dexCap ? ' + DEX (max ' + it.armor.dexCap + ')' : ' + DEX'}${it.armor.strReq ? ' · STR ' + it.armor.strReq : ''}${it.armor.stealthDis ? ' · Stealth disadvantage' : ''}</p>` : ''}${it.weapon ? `<p class="hint">${esc(it.weapon.cat)} ${esc(it.weapon.kind)} · ${esc(it.weapon.dice)} ${esc(it.weapon.type)}${it.weapon.props && it.weapon.props.length ? ' · ' + esc(it.weapon.props.join(', ')) : ''}${it.weapon.range ? ' · ' + esc(it.weapon.range) + ' ft' : ''}</p>` : ''}
         <div class="row">${fld('Weight (lb)', inp(`inventory.${i}.weight`, { num: 1 }))}${fld('Cost', inp(`inventory.${i}.cost`))}<label class="checkline">${chk(`inventory.${i}.attune`, 'Requires attunement')} Requires attunement</label></div>
@@ -2456,6 +2478,17 @@ function renderNotes() {
 
 // ---------- Combat page ----------
 const COLS = [['action', 'Action'], ['bonus', 'Bonus Action'], ['reaction', 'Reaction'], ['move', 'Movement & Free']];
+// Bonus-action attacks: a feature's own (the second Psychic Blade), and the off-hand weapon when you're holding two.
+function bonusAtkHTML() {
+  const own = S.attacks.map((a, i) => [a, i]).filter(([a]) => a.bonus && atkShown(a)), off = S.attacks.map((a, i) => [a, i]).filter(([a]) => !a.bonus && offhandSet(a));
+  if (!own.length && !off.length) return '';
+  const used = !!(S.turn.used || {}).bonus, dmgTxt = (a, drop) => { const m = atkDmgMod(a) - drop, d = atkDice(a); return esc((d || '0') + (m ? sgn(m) : '')) + (a.type ? ' ' + esc(a.type) : ''); };
+  const row = ([a, i], kind) => { const drop = kind === 'off' ? offDrop(a) : 0, ready = kind === 'off' ? !!S.turn.lightAtk : !a.after || (S.turn.atkWith || []).includes(a.after);
+    const wait = S.inCombat && !used && !ready ? `<span class="bwait" title="${kind === 'off' ? `Attack with ${dualWielder() ? 'a one-handed melee weapon' : 'a light melee weapon'} first (Attack action)` : `Attack with your ${esc(a.after)} first (Attack action)`}">after ${kind === 'off' ? 'a light weapon attack' : esc(a.after) + ' attack'}</span>` : '';
+    return `<tr class="${S.inCombat && (used || !ready) ? 'dim' : ''}"><td>${esc(a.name.replace(/\s*\(bonus action\)$/i, ''))}${kind === 'off' ? ' <span class="itag">off-hand</span>' : ''}${wait}</td><td class="nowrap">${fmt(atkHit(a))}</td><td class="nowrap bdmg">${dmgTxt(a, drop)}</td><td><button class="btn gold sm atkbtn" data-act="bonusatk" data-i="${i}" data-kind="${kind}" title="Roll to hit and damage (uses your bonus action)">⚔</button></td></tr>`; };
+  const tips = off.length ? (twfStyle() ? 'Off-hand: your Two-Weapon Fighting style adds your ability modifier.' : 'Off-hand damage doesn’t add your ability modifier.') : '';
+  return `<div class="block bonusatk"><div class="sect">Bonus attack${used && S.inCombat ? ' <span class="hint">· bonus action used</span>' : ''}</div><table class="mini">${own.map(r => row(r, 'bonus')).join('')}${off.map(r => row(r, 'off')).join('')}</table>${tips ? `<div class="hint">${tips}</div>` : ''}</div>`;
+}
 // Combat tab: spells grouped by what they do in a fight (damage first, utility last and folded away),
 // each group sorted by level. Spells you can't cast right now (no slot left) are dimmed.
 const SPG = [
@@ -2579,7 +2612,7 @@ function renderCombat() {
     if (key === 'action') {
       body += hasteBlockHTML();
       body += `<div class="block"><div class="sect">Attack action <span class="atkpips" data-calc-html="atkpips" title="Attacks left this turn"></span><span class="grow"></span></div>
-        <table class="mini">${S.attacks.map((at, i) => { if (!atkShown(at)) return ''; const wi = at.item && S.inventory.find(x => x.id === at.item), tip = String(at.notes || '').trim() || (wi && (String(wi.notes || '').trim() || wi.hb)); const nmw = String(at.name).trim().split(/\s+/), lastW = nmw.pop(); return `<tr><td>${nmw.length ? esc(nmw.join(' ')) + ' ' : ''}<span class="nowrap">${esc(lastW)}${tip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(at.name)}">ⓘ</button>` : ''}</span></td><td>${rollBtn('atk:' + i, at.name + ' attack')}</td><td>${rollBtn('dmg:' + i, at.name + ' damage')}</td><td>${atkBtn(i, true)}</td></tr>`; }).join('') || '<tr><td class="hint">No attacks — add weapons in Inventory.</td></tr>'}</table>
+        <table class="mini">${S.attacks.map((at, i) => { if (!atkShown(at) || at.bonus) return ''; const wi = at.item && S.inventory.find(x => x.id === at.item), tip = String(at.notes || '').trim() || (wi && (String(wi.notes || '').trim() || wi.hb)); const nmw = String(at.name).trim().split(/\s+/), lastW = nmw.pop(); return `<tr><td>${nmw.length ? esc(nmw.join(' ')) + ' ' : ''}<span class="nowrap">${esc(lastW)}${tip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(at.name)}">ⓘ</button>` : ''}</span></td><td>${rollBtn('atk:' + i, at.name + ' attack')}</td><td>${rollBtn('dmg:' + i, at.name + ' damage')}</td><td>${atkBtn(i, true)}</td></tr>`; }).join('') || '<tr><td class="hint">No attacks — add weapons in Inventory.</td></tr>'}</table>
         <div class="hint" data-calc="ridersnote"></div>
         ${clsLv('rogue') ? `<div class="row sarow" style="margin-top:6px"><button class="btn sm gold" data-act="sneak">Sneak Attack ${sneakDice()}</button><span class="sadotw" data-calc-html="sneakdot"></span></div>` : ''}
         ${stunRowHTML()}
@@ -2587,6 +2620,7 @@ function renderCombat() {
           <button class="toggle${UI.smiteUndead ? ' on' : ''}" data-act="smiteundead" aria-pressed="${!!UI.smiteUndead}" title="Undead and fiends take +1d8">Undead / Fiend +1d8</button></div>
           <div class="smite-row" data-calc-html="smite"></div></div>` : ''}</div>`;
     }
+    if (key === 'bonus') body += bonusAtkHTML();
     if (key === 'move') {
       body += `<div class="block movebox">
         <div class="mv-top"><div class="mv-left"><b data-calc="moveleft"></b><span>ft left</span></div><div class="mv-sub" data-calc-html="movesub"></div></div>
@@ -2993,8 +3027,9 @@ function mainClick(e) {
     case 'layout': if (onPhone()) break; if (window.pgPhoneView && (window.PG_IN_PHONE || (!isMobile() && window.innerWidth >= 640))) { window.pgPhoneView(!window.PG_IN_PHONE); break; }
       LAYOUT_NOW = isMobile() ? 'desktop' : 'mobile'; applyLayout(); render(); window.scrollTo(0, 0); break;
     case 'attack': attackRoll(i, !b.closest('#page-combat') || !S.inCombat); break;
+    case 'bonusatk': bonusAttack(i, b.dataset.kind); break;
     case 'equip': equipItem(i); break;
-    case 'resetturn': S.turn.haste = false; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.attacks = 0; S.turn.speed0 = ''; S.turn.sneak = false; S.turn.readied = null; update(); render('combat'); toast(`Turn reset — round ${N(S.turn.round) || 1} actions are ready again.`); break;
+    case 'resetturn': S.turn.haste = false; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.attacks = 0; S.turn.atkWith = []; S.turn.lightAtk = false; S.turn.speed0 = ''; S.turn.sneak = false; S.turn.readied = null; update(); render('combat'); toast(`Turn reset — round ${N(S.turn.round) || 1} actions are ready again.`); break;
     case 'fullscreen': if (fsOn()) { FS_USER_OFF = true; fsExit(); } else { FS_USER_OFF = false; fsEnter(); } break;
     case 'tab': { const prev = UI.tab, nt = b.dataset.tab, mini = !!b.closest('.cmini'), mob = isMobile() && !mini;
       const go = () => { tabFadeT = 0; renderTabs(); if (prev !== nt && !mini) tabPageAnim(prev, nt); requestAnimationFrame(alignHpSide);
@@ -3271,7 +3306,9 @@ function mainClick(e) {
     case 'lsev': LS.evMode = b.dataset.v; LS.evOut = ''; LS.evIn = ''; renderLevelSpells(); break;
     case 'fspdel': { const f = S.features[i]; const n = f.spells.splice(N(b.dataset.j), 1)[0]; pendingLabel = `${f.name}: remove ${n}`; save(); rebuildAuto(); render(); break; }
     case 'grantpick': openGrantPicker(b.dataset.t, b.dataset.o); break;
-    case 'grantok': { const t = GRANT; if (!t) break; S.grantSpells = S.grantSpells || {}; S.grantSpells[t.o] = t.fx.grant.flatMap((g, j) => ansList(t.CH, 'g.' + j)); closeModal(true); pendingLabel = t.o + ': spells'; save(); rebuildAuto(); render(); break; }
+    case 'micls': { const t = GRANT; if (!t || !t.mi) break; t.cls = b.dataset.v; t.fx = { grant: miGrant(t.cls) }; t.CH = {}; renderGrantPicker(); break; }
+    case 'mipick': openMagicInitiate(); break;
+    case 'grantok': { const t = GRANT; if (!t) break; S.grantSpells = S.grantSpells || {}; if (t.mi) S.featCls = Object.assign({}, S.featCls, { [t.o]: t.cls }); S.grantSpells[t.o] = t.fx.grant.flatMap((g, j) => ansList(t.CH, 'g.' + j)); closeModal(true); pendingLabel = t.o + ': spells'; save(); rebuildAuto(); render(); break; }
     case 'gocore': UI.tab = 'core'; saveUI(); renderTabs(); window.scrollTo(0, 0); break;
     case 'tablift': try { localStorage.setItem('dnd-tablift', String(Math.max(0, Math.min(160, tabLift() + N(b.dataset.d))))); } catch (e) {} applyTabLift(); { const v = b.parentNode.querySelector('b'); if (v) v.textContent = tabLift(); } break;
     case 'settab': switchSetTab(b.dataset.k); break;
@@ -3346,6 +3383,18 @@ function spendAmmo(a) {
   if (!isFirearm(wit)) { S.turn.ammo = S.turn.ammo || {}; S.turn.ammo[am.id] = N(S.turn.ammo[am.id]) + 1; }
   return `${esc(am.name)}: ${am.qty} left${am.qty <= 5 ? ' — running low!' : ''}`;
 }
+// A bonus-action attack: the off-hand weapon (two-weapon fighting) or a feature's own one (the second Psychic Blade).
+function bonusAttack(i, kind) {
+  const a = S.attacks[i]; if (!a) return;
+  if (S.inCombat) {
+    if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; }
+    if (S.turn.used.bonus) { toast('You already used your bonus action this turn.', 'fumble'); return; }
+    if (kind === 'off' && !S.turn.lightAtk) { toast(`Attack with ${dualWielder() ? 'a one-handed melee weapon' : 'a light melee weapon'} first (with the Attack action) — then this off-hand attack is your bonus action.`, 'fumble', 7000); return; }
+    if (kind === 'bonus' && a.after && !(S.turn.atkWith || []).includes(a.after)) { toast(`Attack with your ${esc(a.after)} first (with the Attack action) — then this is your bonus action.`, 'fumble', 7000); return; }
+    S.turn.used.bonus = true; pendingLabel = (kind === 'off' ? 'Off-hand attack: ' : 'Bonus attack: ') + a.name; setTimeout(() => render('combat'), 0);
+  }
+  attackRoll(i, true, { offhand: kind === 'off', label: a.name + (kind === 'off' ? ' (off-hand)' : '') });
+}
 // From the Combat tab an attack uses up your attacks for the turn; from anywhere else it's just a roll.
 function attackRoll(i, free, opt) {
   opt = opt || {};
@@ -3354,8 +3403,8 @@ function attackRoll(i, free, opt) {
   if (!free && !canAttack()) { toast('No attacks left this turn.'); return; }
   pendingLabel = 'Attack with ' + a.name;
   const ammoNote = spendAmmo(a); if (ammoNote === null) return;
-  if (!free) { S.turn.attacks = N(S.turn.attacks) + 1; S.turn.used.action = true; }
-  const hit = atkHit(a), m = atkDmgMod(a);
+  if (!free) { S.turn.attacks = N(S.turn.attacks) + 1; S.turn.used.action = true; S.turn.atkWith = (S.turn.atkWith || []).concat([a.name]); if (offhandOK(a)) S.turn.lightAtk = true; if (S.inCombat) setTimeout(() => render('combat'), 0); } // the bonus attacks it unlocks light up
+  const drop = opt.offhand ? offDrop(a) : 0, hit = atkHit(a), m = atkDmgMod(a) - drop;
   ATK_ITEM = { id: a.item || '', weapon: !a.effect || !!a.weaponLike };
   let dd20; try { dd20 = d20Expr(hit, 'attack'); } finally { ATK_ITEM = null; }
   const { expr, rm, bless, ex } = dd20;
@@ -3386,7 +3435,7 @@ function attackRoll(i, free, opt) {
   update();
   const head = crit ? 'CRITICAL HIT! Damage dice doubled' : nat1 ? 'Natural 1: automatic miss' : 'to hit';
   const diceOf = r => (r.terms ? '[' + r.terms.filter(t => t.dice).map(t => t.shown.join(', ')).join(' | ') + ']' : '');
-  const dmgSec = termMath(d, atkDmgRows(a), 'Damage', [crit ? 'Weapon dice, doubled' : 'Weapon dice', brutal ? 'Brutal Critical' : '']);
+  const dmgSec = termMath(d, atkDmgRows(a).concat(drop ? [['Off-hand: no ability modifier', -drop]] : []), 'Damage', [crit ? 'Weapon dice, doubled' : 'Weapon dice', brutal ? 'Brutal Critical' : '']);
   xr.forEach(x => dmgSec.rows.push([x.label, String(x.r.total), diceOf(x.r)]));
   rr.forEach(x => dmgSec.rows.push([x.label, String(x.r.total), diceOf(x.r)]));
   if (sr) dmgSec.rows.push([`Sneak Attack (${crit ? critDice(sa) : sa})`, String(sr.total), diceOf(sr)]);
@@ -3562,7 +3611,7 @@ function nextTurn() {
   if (S.felineSpent && !S.turn.feline && N(S.turn.moved) <= 0) S.felineSpent = false;  // Feline Agility recharges after a turn without moving
   const held = S.turn.readied; S.turn.readied = null;
   if (held) setTimeout(() => readyLost(held, 'Your readied action ran out (it lasts until your next turn)'), 80);
-  S.turn.round = (N(S.turn.round) || 1) + 1; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.attacks = 0; S.turn.feline = false; S.turn.speed0 = ''; S.turn.sneak = false;
+  S.turn.round = (N(S.turn.round) || 1) + 1; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.atkWith = []; S.turn.lightAtk = false; S.turn.attacks = 0; S.turn.feline = false; S.turn.speed0 = ''; S.turn.sneak = false;
   S.turn.haste = false;
   // Haste's lethargy: the turn after it wears off you can't move or take actions.
   if (N(S.lethargy) === 1) { S.lethargy = 2; S.turn.speed0 = 'Haste lethargy'; setTimeout(() => toast('<b>Lethargic</b> — Haste wore off, so this turn you can’t move or take actions. You’re back to normal next turn.', 'fumble', 9000), 120); } else if (N(S.lethargy) === 2) S.lethargy = 0;
@@ -7622,6 +7671,9 @@ function rebuildAuto() {
   S.features.forEach(f => { if (f.kind === 'pick' && !fxOf(f).spellsAt) return; const fx = fxOf(f), cls = f.cls && casterFor(f.cls) ? f.cls : (fx.spellCls || 'other'), own = f.cls ? clsLv(f.cls) : lvl();
     (f.kind === 'pick' ? [] : fx.spells || []).forEach(n => want.push({ n, cls, src: f.dname || f.name, note: fx.spellNote || '', once: !!fx.once }));
     Object.entries(fx.spellsAt || {}).forEach(([lv, arr]) => { if (own >= N(lv)) arr.forEach(n => want.push({ n, cls, src: f.dname || f.name, note: fx.spellNote || '', once: !!fx.once })); }); });
+  // Magic Initiate: the two cantrips and the once-per-long-rest 1st-level spell you chose, cast with that class's ability
+  if (hasFeat('Magic Initiate')) { const c = MI_CLS.find(x => x[0] === (S.featCls || {})['Magic Initiate']) || MI_CLS[5];
+    ((S.grantSpells || {})['Magic Initiate'] || []).forEach(n => want.push({ n, cls: 'feat', src: 'Magic Initiate (' + c[3] + ')', note: N((SPI(n) || {}).level) > 0 ? 'once per long rest' : '', once: N((SPI(n) || {}).level) > 0, ab: c[2], featAb: true })); }
   // Spells an item lets you cast, while you're using it (equipped, or carried if ticked; attuned if it needs it)
   S.inventory.forEach(it => { if (!hbItemOn(it)) return; const st = itemStores(it); (it.spells || []).forEach(n => want.push({ n, cls: 'other', src: it.name, note: st ? 'stored — gone once cast' : it.spellAtWill ? 'at will' : it.spellOnce ? 'once per long rest' : '', once: !st && !!it.spellOnce && !it.spellAtWill, atWill: !st && !!it.spellAtWill, stored: st, lvl: N((it.spellLevels || {})[n]), ab: (it.hb && it.hb.spellAb) || '', itemId: it.id })); });
   const keyOf = (n, cls) => n.toLowerCase() + '|' + cls;
@@ -7640,6 +7692,7 @@ function rebuildAuto() {
     if (w.atWill && N(sp.level) > 0) sp.atWill = true;
     if (w.itemId) { sp.item = w.itemId; sp.ab = w.ab || (casters()[0] || {}).ab || 'cha'; }
     if (w.stored) storedUse(sp, w);
+    if (w.featAb) sp.ab = w.ab;
     if (w.cls === 'race') { sp.ab = w.ab; if (/once per long rest|1\/long rest|once per day/i.test(w.note || '') && N(sp.level) > 0) { sp.uses = { max: '1', reset: 'long', used: 0 }; const lv = String(w.note).match(/as (\d)(?:st|nd|rd|th)[- ]level/i); if (lv) sp.uses.level = N(lv[1]); } }
     S.spells.push(sp);
   });
@@ -7653,7 +7706,7 @@ function rebuildAuto() {
   auto.push({ name: 'Unarmed Strike', ab: monk ? 'monk' : 'str', prof: true, magic: 0, dice: monk ? '' : '1', type: 'bludgeoning', notes: monk ? 'Martial Arts: bonus-action strike after attacking' : '', kind: 'melee', monk, auto: 'unarmed' });
   S.features.forEach(f => (fxOf(f).attacks || []).forEach(([n, d, t, ab, x]) => auto.push(Object.assign({ name: n, ab: ab || 'str', prof: true, magic: 0, dice: d, type: t, notes: f.dname || f.name, kind: 'melee', auto: 'feature' }, x || {}, x && x.hbDice ? { dice: fxRollExpr(d), notes: [f.dname || f.name, x.notes].filter(Boolean).join(' · ') } : {}))));
   if (ri && ri.natural) ri.natural.forEach(([n, d, t]) => auto.push({ name: n, ab: 'str', prof: true, magic: 0, dice: d, type: t, notes: 'Natural weapon', kind: 'melee', monk, auto: 'natural' }));
-  S.attacks = auto.map(a => { const prev = S.attacks.find(x => x.auto && x.name === a.name); return prev ? Object.assign(prev, { monk: a.monk, ab: prev.ab === 'str' && a.ab === 'monk' ? 'monk' : prev.ab, dice: a.monk && prev.dice === '1' ? '' : a.hbDice ? a.dice : prev.dice }, a.hbDice ? { type: a.type, notes: a.notes, noModDmg: a.noModDmg, kind: a.kind, ab: a.ab } : {}) : a; }).reverse().concat(keep.slice().reverse()).reverse();
+  S.attacks = auto.map(a => { const prev = S.attacks.find(x => x.auto && x.name === a.name); return prev ? Object.assign(prev, { bonus: a.bonus, after: a.after, monk: a.monk, ab: prev.ab === 'str' && a.ab === 'monk' ? 'monk' : prev.ab, dice: a.monk && prev.dice === '1' ? '' : a.hbDice ? a.dice : prev.dice }, a.hbDice ? { type: a.type, notes: a.notes, noModDmg: a.noModDmg, kind: a.kind, ab: a.ab } : {}) : a; }).reverse().concat(keep.slice().reverse()).reverse();
 }
 // Spells stored in an item (a Ring of Spell Storing): one use each, cast at the level it was stored at, and gone
 // until someone casts a spell into the item again (it doesn't come back on a rest).
@@ -8475,9 +8528,18 @@ function openGrantPicker(type, o) {
   GRANT = { type, o, fx, CH };
   renderGrantPicker();
 }
+// Magic Initiate: choose a class, then two of its cantrips and one of its 1st-level spells.
+const MI_CLS = [['bard', 'B', 'cha', 'Bard'], ['cleric', 'C', 'wis', 'Cleric'], ['druid', 'D', 'wis', 'Druid'], ['sorcerer', 'S', 'cha', 'Sorcerer'], ['warlock', 'K', 'cha', 'Warlock'], ['wizard', 'W', 'int', 'Wizard']];
+const miGrant = cls => { const c = MI_CLS.find(x => x[0] === cls) || MI_CLS[5]; return [{ type: 'spellpick', n: 2, level: 0, list: c[1], label: `${c[3]} cantrips` }, { type: 'spellpick', n: 1, level: 1, list: c[1], label: `${c[3]} 1st-level spell — once per long rest without a slot` }]; };
+function openMagicInitiate() {
+  const cls = (S.featCls || {})['Magic Initiate'] || 'wizard', have = (S.grantSpells || {})['Magic Initiate'] || [];
+  const CH = { 'g.0': have.filter(n => N((SPI(n) || {}).level) === 0).slice(0, 2), 'g.1': have.filter(n => N((SPI(n) || {}).level) === 1).slice(0, 1) };
+  GRANT = { mi: true, cls, o: 'Magic Initiate', fx: { grant: miGrant(cls) }, CH }; renderGrantPicker();
+}
 function renderGrantPicker() {
   const t = GRANT; if (!t) return;
-  const html = `<div id="grantm"><h3>${esc(t.o)}</h3>${t.fx.grant.map((g, j) => choiceUI(t.CH, 'g.' + j, g)).join('')}
+  const html = `<div id="grantm"><h3>${esc(t.o)}</h3>${t.mi ? `<p class="hint" style="margin:0 0 8px">Pick a class, then two of its cantrips and one of its 1st-level spells. You cast them with that class's ability (${esc((MI_CLS.find(x => x[0] === t.cls) || [])[2] || '').toUpperCase()}); the 1st-level spell once per long rest without a slot (or with your own slots, if you have them).</p>
+    <div class="seg miseg">${MI_CLS.map(([k, , , nm]) => `<button class="${t.cls === k ? 'on' : ''}" data-act="micls" data-v="${k}">${nm}</button>`).join('')}</div>` : ''}${t.fx.grant.map((g, j) => choiceUI(t.CH, 'g.' + j, g)).join('')}
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="grantok">Save</button></div></div>`;
   if ($('#grantm') && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html, null, true);
 }
@@ -8735,7 +8797,9 @@ window.sheetSummary = () => ({ name: S.name || '', player: S.player || '', race:
 if (S.created) applySources(S.sources);
 // Spells from a Ring of Spell Storing made before stored spells existed: set them up as stored now.
 const staleStore = () => (S.spells || []).some(sp => { const it = sp.item && (S.inventory || []).find(x => x.id === sp.item); return it && itemStores(it) && !sp.usesOnly; });
-if (S.created && (FIXED || staleStore())) { const at = S.savedAt; rebuildAuto(); writeLocal(); S.savedAt = at; } // one-off fixes don't count as a newer edit (a newer synced copy still wins)
+// The second Psychic Blade became a proper bonus-action attack: sheets made before that pick it up now.
+const staleBonusAtk = () => (S.attacks || []).some(a => a.auto === 'feature' && /^Psychic Blade \(bonus/i.test(a.name) && !a.bonus);
+if (S.created && (FIXED || staleStore() || staleBonusAtk())) { const at = S.savedAt; rebuildAuto(); writeLocal(); S.savedAt = at; } // one-off fixes don't count as a newer edit (a newer synced copy still wins)
 loadHist(FROM_LOCAL);
 applyLayout(); applyTheme();
 if (S.created) { render(); setTimeout(afterUpdate, 50); }

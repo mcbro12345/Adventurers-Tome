@@ -306,7 +306,9 @@ function mainClick(e) {
     case 'lsev': LS.evMode = b.dataset.v; LS.evOut = ''; LS.evIn = ''; renderLevelSpells(); break;
     case 'fspdel': { const f = S.features[i]; const n = f.spells.splice(N(b.dataset.j), 1)[0]; pendingLabel = `${f.name}: remove ${n}`; save(); rebuildAuto(); render(); break; }
     case 'grantpick': openGrantPicker(b.dataset.t, b.dataset.o); break;
-    case 'grantok': { const t = GRANT; if (!t) break; S.grantSpells = S.grantSpells || {}; S.grantSpells[t.o] = t.fx.grant.flatMap((g, j) => ansList(t.CH, 'g.' + j)); closeModal(true); pendingLabel = t.o + ': spells'; save(); rebuildAuto(); render(); break; }
+    case 'micls': { const t = GRANT; if (!t || !t.mi) break; t.cls = b.dataset.v; t.fx = { grant: miGrant(t.cls) }; t.CH = {}; renderGrantPicker(); break; }
+    case 'mipick': openMagicInitiate(); break;
+    case 'grantok': { const t = GRANT; if (!t) break; S.grantSpells = S.grantSpells || {}; if (t.mi) S.featCls = Object.assign({}, S.featCls, { [t.o]: t.cls }); S.grantSpells[t.o] = t.fx.grant.flatMap((g, j) => ansList(t.CH, 'g.' + j)); closeModal(true); pendingLabel = t.o + ': spells'; save(); rebuildAuto(); render(); break; }
     case 'gocore': UI.tab = 'core'; saveUI(); renderTabs(); window.scrollTo(0, 0); break;
     case 'tablift': try { localStorage.setItem('dnd-tablift', String(Math.max(0, Math.min(160, tabLift() + N(b.dataset.d))))); } catch (e) {} applyTabLift(); { const v = b.parentNode.querySelector('b'); if (v) v.textContent = tabLift(); } break;
     case 'settab': switchSetTab(b.dataset.k); break;

@@ -199,6 +199,8 @@ function featSpellsHTML(f, i, ed) {
     h += `<div class="fc-spells"><span class="lbl">${esc(fx.grant.map(g => g.label).join(' · '))}</span>${have.map(n => `<span class="pbadge">${esc(n)}</span>`).join('')}
       <button class="btn sm${have.length < need ? ' gold' : ''}" data-act="grantpick" data-o="${esc(m[2])}" data-t="${m[1]}">${have.length < need ? `Choose (${have.length}/${need})` : 'Change'}</button></div>`;
   }
+  if (f.key === 'feat:Magic Initiate') { const have = (S.grantSpells || {})['Magic Initiate'] || [], c = MI_CLS.find(x => x[0] === (S.featCls || {})['Magic Initiate']);
+    h += `<div class="fc-spells"><span class="lbl">${c ? esc(c[3]) + ' spells' : 'Spells'}</span>${have.map(n => `<span class="pbadge">${esc(n)}</span>`).join('')}<button class="btn sm${have.length < 3 ? ' gold' : ''}" data-act="mipick">${have.length < 3 ? `Choose spells (${have.length}/3)` : 'Change'}</button></div>`; }
   if (fx.spells) h += `<div class="fc-spells"><span class="lbl">Spells</span>${fx.spells.map(n => `<span class="pbadge">${esc(n)}</span>`).join('')}${fx.spellNote ? `<span class="hint">${esc(fx.spellNote)}</span>` : ''}</div>`;
   const own = f.spells || [];
   if (own.length || ed) {
