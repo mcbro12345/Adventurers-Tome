@@ -462,57 +462,70 @@ function askHalfDamage(name) {
 const ringLvOf = (it, n) => Math.max(N((it.spellLevels || {})[n]), N((SPI(n) || {}).level) || 1);
 const ringUsed = it => (it.spells || []).reduce((t, n) => t + ringLvOf(it, n), 0);
 const ringCap = it => N(it.storeCap) || 5;
+// The window works like Add spells: search, level chips, and a Store button on each spell.
+let RS = null;
 function openRingStore(ii) {
-  const it = S.inventory[ii]; if (!it) return;
-  const used = ringUsed(it), cap = ringCap(it), left = Math.max(0, cap - used), canMe = casters().length > 0;
-  UI.rsWho = UI.rsWho === 'other' || !canMe ? 'other' : 'me';
-  const mine = [...new Map(S.spells.filter(s => !s.stored && N(s.level) >= 1 && N(s.level) <= 5 && CL[s.cls] && casterFor(s.cls)).map(s => [s.name.toLowerCase(), s])).values()].sort((a, b) => N(a.level) - N(b.level) || a.name.localeCompare(b.name));
-  const lvOpts = Array.from({ length: Math.min(5, left) }, (_, k) => k + 1);
-  const stored = (it.spells || []).map(n => `<span class="rs-chip">${esc(n)} <small>${ORD[ringLvOf(it, n) - 1]}</small><button class="icon-btn" data-act="ringdel" data-i="${ii}" data-n="${esc(n)}" title="Take it out (it's lost)" aria-label="Remove ${esc(n)}">✕</button></span>`).join('');
-  spellDatalist();
-  openModal(`<div id="ringstore"><h3>Store a spell in ${esc(it.name)}</h3>
-    <p class="hint" style="margin:0 0 10px">Anyone can cast a spell of 1st to 5th level into it, up to ${cap} levels in total. Whoever wears it can cast each stored spell once, at the level it was stored at and with the original caster's save DC and attack bonus. Once cast, it's gone and the room is free again.</p>
-    <div class="rs-cap"><div class="rs-bar"><i style="width:${Math.round(100 * Math.min(cap, used) / cap)}%"></i></div><b>${used} of ${cap} levels used</b></div>
-    ${stored ? `<div class="rs-list">${stored}</div>` : '<p class="hint" style="margin:6px 0 10px">It’s empty.</p>'}
-    ${left ? `${!canMe ? '' : `<div class="seg rs-who" role="radiogroup">`}${canMe ? `<button class="${UI.rsWho === 'me' ? 'on' : ''}" data-act="ringwho" data-i="${ii}" data-v="me">I cast it into the ring</button>` : ''}${canMe ? `<button class="${UI.rsWho === 'other' ? 'on' : ''}" data-act="ringwho" data-i="${ii}" data-v="other">Someone else casts it</button></div>` : ''}
-      ${UI.rsWho === 'me'
-        ? (mine.length ? `<div class="row">${fld('Spell', `<select class="f" id="rsSpell">${mine.filter(s => N(s.level) <= left).map(s => `<option value="${esc(s.name)}">${esc(s.name)} (${ORD[N(s.level) - 1]})</option>`).join('')}</select>`)}${fld('Cast at level', `<select class="f" id="rsLv">${lvOpts.map(L => `<option value="${L}">${ORD[L - 1]}${slotMax(L - 1) ? ` — ${slotsLeft(L - 1)} slot${slotsLeft(L - 1) === 1 ? '' : 's'} left` : pact() && pact().level === L ? ' — pact slot' : ' — no slots'}</option>`).join('')}</select>`)}</div>
-          <p class="hint">Uses one of your spell slots of that level, and stores your save DC and attack bonus.</p>` : '<p class="hint">You don\'t have any 1st–5th level spells to cast into it.</p>')
-        : `<div class="row">${fld('Spell', `<input class="f" id="rsSpell" list="allspells" placeholder="Spell name">`)}${fld('Stored at level', `<select class="f" id="rsLv">${lvOpts.map(L => `<option value="${L}">${ORD[L - 1]}</option>`).join('')}</select>`)}</div>
-          <div class="row">${fld('Their spell save DC', `<input class="f" id="rsDC" type="number" inputmode="numeric" placeholder="e.g. 15">`)}${fld('Their spell attack bonus', `<input class="f" id="rsAtk" type="number" inputmode="numeric" placeholder="e.g. 7">`)}</div>
-          <p class="hint">Leave the DC and attack bonus blank if you don't know them; your own are used then.</p>`}`
-      : `<p class="hint"><b>It's full.</b> Cast a stored spell (or take one out) to make room.</p>`}
-    <div class="actions"><button class="btn" data-act="close">${left ? 'Cancel' : 'Done'}</button>${left && (UI.rsWho === 'other' || mine.length) ? `<button class="btn gold" data-act="ringstorego" data-i="${ii}">Store it</button>` : ''}</div></div>`);
+  RS = { ii, who: RS && RS.ii === ii ? RS.who : (casters().length ? 'me' : 'other'), lvl: RS && RS.ii === ii ? RS.lvl : 'all', dc: RS && RS.ii === ii ? RS.dc : '', atk: RS && RS.ii === ii ? RS.atk : '' };
+  if (!$('#modal').classList.contains('open')) openModal('', null, true);
+  renderRingStore();
 }
-function ringStoreGo(ii) {
-  const it = S.inventory[ii]; if (!it) return;
-  const raw = String(($('#rsSpell') || {}).value || '').trim(), d = SPI(raw), name = d ? d.name : raw, L = N(($('#rsLv') || {}).value), left = ringCap(it) - ringUsed(it);
-  if (!name) { toast('Pick a spell to store.', 'fumble'); return; }
-  const base = d ? N(d.level) : 1;
-  if (d && (base < 1 || base > 5)) { toast(`${esc(name)} is ${base ? ORD[base - 1] + ' level' : 'a cantrip'} — only 1st to 5th level spells fit.`, 'fumble'); return; }
-  if (L < base) { toast(`${esc(name)} is ${ORD[base - 1]} level — store it at ${ORD[base - 1]} level or higher.`, 'fumble'); return; }
-  if (L > left) { toast(`Not enough room: ${left} level${left === 1 ? '' : 's'} left.`, 'fumble'); return; }
-  if ((it.spells || []).some(n => n.toLowerCase() === name.toLowerCase())) { toast(`${esc(it.name)} already holds ${esc(name)}.`, 'fumble'); return; }
+function renderRingStore() {
+  const it = S.inventory[RS.ii]; if (!it) return closeModal(true);
+  if ($('#rsDC')) RS.dc = $('#rsDC').value; if ($('#rsAtk')) RS.atk = $('#rsAtk').value;
+  const canMe = casters().length > 0; if (!canMe) RS.who = 'other';
+  const used = ringUsed(it), cap = ringCap(it), left = Math.max(0, cap - used), q = $('#rsq') ? $('#rsq').value : '';
+  const mineN = new Set(S.spells.filter(sp => !sp.stored && CL[sp.cls] && casterFor(sp.cls)).map(sp => sp.name.toLowerCase()));
+  const list = DND.spells.filter(sp => sp.level >= 1 && sp.level <= 5 && (RS.who === 'other' || mineN.has(sp.name.toLowerCase())));
+  const lvls = [...new Set(list.map(sp => sp.level))].sort((a, b) => a - b);
+  if (RS.lvl !== 'all' && !lvls.includes(N(RS.lvl))) RS.lvl = 'all';
+  const held = new Set((it.spells || []).map(n => n.toLowerCase()));
+  const slotTxt = L => slotMax(L - 1) ? `${slotsLeft(L - 1)} slot${slotsLeft(L - 1) === 1 ? '' : 's'} left` : pact() && pact().level === L ? 'pact slot' : 'no slots';
+  const rowFor = sp => {
+    const on = held.has(sp.name.toLowerCase()), fits = sp.level <= left, ups = DND.full ? spellUpcasts(sp.name) : true;
+    const Ls = Array.from({ length: Math.max(0, Math.min(5, left) - sp.level + 1) }, (_, k) => sp.level + k).filter(L => L === sp.level || ups);
+    const ctl = on ? `<button class="btn sm" data-act="ringdel" data-i="${RS.ii}" data-n="${esc((it.spells || []).find(n => n.toLowerCase() === sp.name.toLowerCase()))}" title="Take it out of the ring (it's lost)">Stored ✓ · take out</button>`
+      : !fits ? `<span class="always" title="Not enough room in the ring">Needs ${sp.level} level${sp.level > 1 ? 's' : ''}</span>`
+      : `<span class="rs-go">${Ls.length > 1 || RS.who === 'me' ? `<select class="f sm" data-rslv="${esc(sp.name)}" aria-label="Level to store ${esc(sp.name)} at">${Ls.map(L => `<option value="${L}">${ORD[L - 1]}${RS.who === 'me' ? ' · ' + slotTxt(L) : ''}</option>`).join('')}</select>` : ''}<button class="btn sm gold" data-act="ringstorego" data-n="${esc(sp.name)}">Store</button></span>`;
+    return `<div class="crrow" data-q="${esc((sp.name + ' ' + sp.school + ' ' + sp.summary).toLowerCase())}"><div><b>${esc(sp.name)}</b> <span class="hint">${ORD[sp.level - 1]} · ${esc(sp.school)} · ${esc(sp.time)} · ${esc(sp.range)}${sp.conc ? ' · conc' : ''}${sp.ritual ? ' · ritual' : ''} · ${esc(sp.src)}</span><div class="hint">${esc(sp.summary)}</div></div>${ctl}</div>`; };
+  const stored = (it.spells || []).map(n => `${esc(n)} (${ORD[ringLvOf(it, n) - 1]})`).join(', ');
+  $('#modal-body').innerHTML = `<div id="ringstore"><h3>Store spells in ${esc(it.name)}</h3>
+    <div class="row">${canMe ? fld('Cast into it by', `<select class="f" id="rsWho"><option value="me"${RS.who === 'me' ? ' selected' : ''}>Me (uses my spell slots)</option><option value="other"${RS.who === 'other' ? ' selected' : ''}>Someone else</option></select>`) : ''}
+      ${RS.who === 'other' ? `${fld('Their save DC', `<input class="f" id="rsDC" type="number" inputmode="numeric" placeholder="optional" value="${esc(RS.dc)}">`)}${fld('Their attack bonus', `<input class="f" id="rsAtk" type="number" inputmode="numeric" placeholder="optional" value="${esc(RS.atk)}">`)}` : ''}
+      <span class="hint"><span class="rs-meter"><i style="width:${Math.round(100 * Math.min(cap, used) / cap)}%"></i></span> ${used} of ${cap} levels used${stored ? ' · holds ' + stored : ' · empty'}. Whoever wears it casts each stored spell once, at the stored level${RS.who === 'other' ? ', with the caster\'s DC and attack bonus (yours if left blank)' : ', with your DC and attack bonus'}.</span></div>
+    <div class="row" style="margin:6px 0"><input class="f" id="rsq" placeholder="Search spells…" value="${esc(q)}" aria-label="Search spells" style="flex:1 1 200px">
+      <div class="chips">${lvls.map(l => [String(l), ORD[l - 1] + ' level']).concat([['all', 'All']]).map(([k, t]) => `<button class="chip${RS.lvl === k ? ' on' : ''}" data-act="rsfilt" data-l="${k}">${t}</button>`).join('')}</div></div>
+    ${!left ? '<p class="hint"><b>It\'s full.</b> Cast a stored spell, or take one out, to make room.</p>' : ''}
+    <div class="crlist">${list.filter(sp => RS.lvl === 'all' || String(sp.level) === RS.lvl).sort((a, b) => (held.has(b.name.toLowerCase()) - held.has(a.name.toLowerCase())) || a.level - b.level || a.name.localeCompare(b.name)).map(rowFor).join('') || `<p class="hint">${RS.who === 'me' ? 'You don\'t have any 1st–5th level spells.' : 'No spells.'}</p>`}</div>
+    <div class="actions"><button class="btn" data-act="close">Done</button></div></div>`;
+  $('#modal-body').classList.add('wide');
+  const qi = $('#rsq'); qi.oninput = () => filterCatalogQ('#rsq'); filterCatalogQ('#rsq');
+  const w = $('#rsWho'); if (w) w.onchange = () => { RS.who = w.value; renderRingStore(); };
+}
+function ringStoreGo(name) {
+  const it = S.inventory[RS && RS.ii]; if (!it) return;
+  const d = SPI(name); if (!d) return; const sel = document.querySelector(`[data-rslv="${CSS.escape(name)}"]`), L = sel ? N(sel.value) : N(d.level), left = ringCap(it) - ringUsed(it);
+  if (L < N(d.level) || L > 5) return; if (L > left) { toast(`Not enough room: ${left} level${left === 1 ? '' : 's'} left.`, 'fumble'); return; }
+  if ((it.spells || []).some(n => n.toLowerCase() === d.name.toLowerCase())) return;
   let cast = {};
-  if (UI.rsWho === 'me') {
-    const own = S.spells.find(s => s.name.toLowerCase() === name.toLowerCase() && !s.stored && CL[s.cls]);
+  if (RS.who === 'me') {
+    const own = S.spells.find(s => s.name.toLowerCase() === d.name.toLowerCase() && !s.stored && CL[s.cls]);
     if (slotMax(L - 1) > 0 && slotsLeft(L - 1) > 0) S.slotsUsed[L - 1] = N(S.slotsUsed[L - 1]) + 1;
     else if (pact() && pact().level === L && pactLeft() > 0) S.pactUsed = N(S.pactUsed) + 1;
     else { toast(`No ${ORD[L - 1]}-level spell slots left.`, 'fumble'); return; }
-    const ci = spellCI(own || { cls: (casters()[0] || {}).key }); cast = { dc: ci.dc, atk: ci.atk, by: S.name || '' };
+    const ci = spellCI(own || { cls: (casters()[0] || {}).key }); cast = { dc: ci.dc, atk: ci.atk };
   } else {
-    const dc = ($('#rsDC') || {}).value, atk = ($('#rsAtk') || {}).value;
+    const dc = $('#rsDC') ? $('#rsDC').value : RS.dc, atk = $('#rsAtk') ? $('#rsAtk').value : RS.atk;
     if (dc !== '' && dc != null) cast.dc = N(dc); if (atk !== '' && atk != null) cast.atk = N(atk);
   }
-  it.spells = (it.spells || []).concat([name]); it.spellLevels = Object.assign({}, it.spellLevels, { [name]: L });
-  it.spellCast = Object.assign({}, it.spellCast, { [name]: cast });
-  pendingLabel = `${it.name}: store ${name}`; closeModal(true); rebuildAuto(); save(); render();
-  toast(`<b>${esc(name)}</b> (${ORD[L - 1]} level) stored in ${esc(it.name)}. Cast it from your spells while you wear it.`, '', 6000, { label: 'Undo', fn: () => undo(1) });
+  it.spells = (it.spells || []).concat([d.name]); it.spellLevels = Object.assign({}, it.spellLevels, { [d.name]: L });
+  it.spellCast = Object.assign({}, it.spellCast, { [d.name]: cast });
+  pendingLabel = `${it.name}: store ${d.name}`; rebuildAuto(); save(); render(); renderRingStore();
+  toast(`<b>${esc(d.name)}</b> (${ORD[L - 1]} level) stored in ${esc(it.name)}.`, '', 4500, { label: 'Undo', fn: () => undo(1) });
 }
 function ringRemove(ii, n) {
   const it = S.inventory[ii]; if (!it) return;
   it.spells = (it.spells || []).filter(x => x !== n); if (it.spellLevels) delete it.spellLevels[n]; if (it.spellCast) delete it.spellCast[n];
-  pendingLabel = `${it.name}: take out ${n}`; rebuildAuto(); save(); render(); openRingStore(ii);
+  pendingLabel = `${it.name}: take out ${n}`; rebuildAuto(); save(); render(); if (RS && $('#ringstore')) renderRingStore(); else openRingStore(ii);
 }
 // A stored spell has been cast from the ring: it's gone, and its levels are free again.
 function ringSpent(sp) {

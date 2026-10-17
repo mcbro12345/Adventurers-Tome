@@ -134,9 +134,9 @@ function mainClick(e) {
     case 'forgego': forgeGo(N(b.dataset.fi), i); break;
     case 'spellstorego': spellStoreGo(N(b.dataset.fi)); break;
     case 'ringstore': openRingStore(N(b.dataset.i)); break;
-    case 'ringstorego': ringStoreGo(N(b.dataset.i)); break;
+    case 'ringstorego': ringStoreGo(b.dataset.n); break;
+    case 'rsfilt': RS.lvl = b.dataset.l; renderRingStore(); break;
     case 'ringdel': ringRemove(N(b.dataset.i), b.dataset.n); break;
-    case 'ringwho': UI.rsWho = b.dataset.v; openRingStore(N(b.dataset.i)); break;
     case 'wsspirit': { closeModal(true); const k = S.features.findIndex(f => f.name === 'Summon Wildfire Spirit'); if (k >= 0) useFeature(k, 'action'); return; }
     case 'pending': openPending(); pendingLabel = null; return;
     case 'recadd': RECOVER.pick.push(N(b.dataset.l)); renderRecover(); pendingLabel = null; return;

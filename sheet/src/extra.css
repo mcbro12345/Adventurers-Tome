@@ -2762,3 +2762,7 @@ html:not(.mobile) .spg-t tr:hover td.spname > .sord, html:not(.mobile) .spg-t td
 #ringstore .rs-who { display: flex; gap: 0; margin: 4px 0 10px; border: 1px solid var(--line2); border-radius: 10px; overflow: hidden; width: fit-content; max-width: 100%; }
 #ringstore .rs-who button { border: 0; background: transparent; color: var(--soft); padding: 7px 12px; font-weight: 700; font-size: .86rem; cursor: pointer; }
 #ringstore .rs-who button.on { background: var(--gold); color: var(--gold-ink, #1b1406); }
+#ringstore .rs-go { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+#ringstore .rs-go select { width: auto; min-width: 0; }
+#ringstore .rs-meter { display: inline-block; vertical-align: middle; width: 70px; height: 7px; border-radius: 5px; background: var(--panel2); border: 1px solid var(--line); overflow: hidden; margin-right: 4px; }
+#ringstore .rs-meter i { display: block; height: 100%; background: var(--gold); }
