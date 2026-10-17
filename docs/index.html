@@ -13,7 +13,7 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.6ba12efa3d09.css">
+<link rel="stylesheet" href="a/sheet.e9d8dae616bb.css">
 <link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:type" content="website"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="Adventurer’s Tome"><meta property="og:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:url" content="https://adventurers-tome.web.app/"><meta property="og:image" content="https://adventurers-tome.web.app/og-roll.gif?v=3"><meta property="og:image:type" content="image/gif"><meta property="og:image:width" content="800"><meta property="og:image:height" content="420"><meta property="og:image:alt" content="Adventurer’s Tome — a gold d20 rolling a natural 20"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-roll.gif?v=3"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest"><script>try{var t=localStorage.getItem("pg-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-pgtheme",t)}catch(e){}</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
@@ -1513,6 +1513,149 @@ html.mobile .pg-pubrow .pg-publogo .hl-a { font-size: calc(var(--mls, 60px) * .1
   :where(html[data-pgtheme="dark"]) body.hubbody .pty-sbody select, :where(html[data-pgtheme="dark"]) body.hubbody .pty-num { background: #0f1420; border-color: #3a4560; }
   :where(html[data-pgtheme="dark"]) body.hubbody .pty-tabs button { border-color: #3a4560; }
 
+/* ===== Party pages (making a party, joining one, a party's own page): laid out like the character creation screen ===== */
+:where(body.hubbody, .wzh) .pw { max-width: 1100px; margin: 0 auto; padding: calc(12px + env(safe-area-inset-top)) 16px 0; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; box-sizing: border-box; }
+:where(body.hubbody, .wzh) .pw .wzh { margin: 0 0 6px; }
+:where(body.hubbody, .wzh) .pw-head h2 { margin: 0 0 6px; font-size: 1.3rem; font-weight: 700; display: flex; align-items: center; gap: 8px; overflow-wrap: anywhere; }
+:where(body.hubbody, .wzh) .pw-head h2 .hp-rename { opacity: .7; } :where(body.hubbody, .wzh) .pw-head h2 .hp-rename:hover { opacity: 1; }
+:where(body.hubbody, .wzh) .pw-sub { margin: 0 0 10px; font-size: .9rem; opacity: .8; display: flex; align-items: center; flex-wrap: wrap; gap: 5px; }
+:where(body.hubbody, .wzh) .pw-sub svg { width: 15px; height: 15px; color: #c9962b; }
+:where(body.hubbody, .wzh) .pw-steps { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: none; }
+:where(body.hubbody, .wzh) .pw-steps::-webkit-scrollbar { display: none; }
+:where(body.hubbody, .wzh) .pw-step { flex: none; border: 1px solid #e3d6b8; background: #fff; border-radius: 999px; padding: 4px 11px; font: inherit; font-size: .8rem; font-weight: 600; color: #6b6252; cursor: pointer; transition: background-color .2s ease, color .2s ease, border-color .2s ease, transform .1s ease; }
+:where(body.hubbody, .wzh) .pw-step.done { color: #1f2a44; border-color: #c9962b; }
+:where(body.hubbody, .wzh) .pw-step.on { background: #1f2a44; color: #f4eee1; border-color: #1f2a44; }
+:where(body.hubbody, .wzh) .pw-step:disabled { cursor: default; }
+:where(body.hubbody, .wzh) .pw-step:not(.on):not(:disabled):hover { border-color: #c9962b; color: #1f2a44; }
+:where(body.hubbody, .wzh) .pw-step:not(:disabled):active { transform: scale(.94); }
+:where(body.hubbody, .wzh) .pw-now { display: none; }
+:where(body.hubbody, .wzh) .pw-body { flex: 1; background: #fff; border: 1px solid #e8dcc1; border-top: 3px solid #c9962b; border-radius: 12px; padding: 14px 18px 20px; margin-top: 6px; box-shadow: 0 8px 22px rgba(31,42,68,.08); }
+:where(body.hubbody, .wzh) .pw-body h3 { margin: 0 0 6px; font-size: 1.15rem; }
+:where(body.hubbody, .wzh) .pw-body > .hub-hint, :where(body.hubbody, .wzh) .pw-body .hub-hint { margin: 0 0 10px; }
+:where(body.hubbody, .wzh) .pw-h4 { margin: 20px 0 4px; font-size: .76rem; letter-spacing: .12em; text-transform: uppercase; color: #8a6420; }
+:where(body.hubbody, .wzh) .pw-foot { position: sticky; bottom: 0; z-index: 5; display: flex; gap: 8px; align-items: center; padding: 12px 0 calc(16px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, #f4eee1 30%); }
+:where(body.hubbody, .wzh) .pw-foot .grow { flex: 1; }
+:where(body.hubbody, .wzh) .pw-foot .btn { padding: 9px 20px; font-size: .95rem; text-decoration: none; }
+:where(body.hubbody, .wzh) .pw-form { margin: 6px 0 0; }
+:where(body.hubbody, .wzh) .pw-fld { display: flex; flex-direction: column; gap: 6px; max-width: 420px; }
+:where(body.hubbody, .wzh) .pw-fld > span { font-size: .76rem; letter-spacing: .12em; text-transform: uppercase; font-weight: 700; color: #8a6420; }
+:where(body.hubbody, .wzh) .pw-fld input { font: inherit; font-size: 1rem; padding: 10px 12px; border-radius: 8px; border: 1px solid #e3d6b8; background: #fffdf8; color: inherit; }
+:where(body.hubbody, .wzh) .pw-fld input:focus { outline: none; border-color: #c9962b; box-shadow: 0 0 0 3px rgba(201,150,43,.2); }
+:where(body.hubbody, .wzh) .pw-note h3 { margin: 12px 0 6px; font: 800 1.2rem Georgia, serif; }
+:where(body.hubbody, .wzh) .pw-note .row { margin-top: 12px; } :where(body.hubbody, .wzh) .pw-note .row a.btn { text-decoration: none; }
+:where(body.hubbody, .wzh) .pw-empty { padding: 16px 0 4px; margin: 0; opacity: .75; }
+:where(body.hubbody, .wzh) .pw-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+:where(body.hubbody, .wzh) .pw-body .sh-pub-row { margin: 6px 0 6px; }
+:where(body.hubbody, .wzh) .pw-body .pty-invf { margin: 6px 0 8px; }
+:where(body.hubbody, .wzh) .pw-body .pty-pick { max-height: none; }
+:where(body.hubbody, .wzh) .pw .pty-admin { margin: 0 0 8px; }
+:where(body.hubbody, .wzh) .pw .pty-runrow { border-top: 1px solid rgba(127,127,127,.18); padding: 12px 0; }
+:where(body.hubbody, .wzh) .pw .pty-runrow:first-of-type { border-top: 0; }
+:where(body.hubbody, .wzh) .pty-static { cursor: default; } :where(body.hubbody, .wzh) .pty-static:hover { background: transparent; }
+/* A character in the party */
+:where(body.hubbody, .wzh) .pm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; margin-top: 12px; }
+:where(body.hubbody, .wzh) .pm { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid #e8dcc1; border-radius: 12px; background: #faf6ec; transition: border-color .15s, box-shadow .15s; }
+:where(body.hubbody, .wzh) .pm:hover { border-color: #d9b56a; }
+:where(body.hubbody, .wzh) .pm.down { border-color: #c9573f; } :where(body.hubbody, .wzh) .pm.dead { opacity: .6; filter: grayscale(.7); }
+:where(body.hubbody, .wzh) .pm-top { display: flex; align-items: center; gap: 10px; padding-right: 22px; }
+:where(body.hubbody, .wzh) .pm-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 11px; color: inherit; text-decoration: none; }
+:where(body.hubbody, .wzh) a.pm-main:hover b { color: #8a6420; }
+:where(body.hubbody, .wzh) .pm-pic { width: 52px; height: 52px; flex: none; border-radius: 10px; object-fit: cover; border: 2px solid #c9962b; box-sizing: border-box; }
+:where(body.hubbody, .wzh) .pm-nopic { display: grid; place-items: center; background: #2b3245; color: #f1d58a; font: 800 1.05rem Georgia, serif; }
+:where(body.hubbody, .wzh) .pm-nopic.sm { width: 40px; height: 40px; font-size: .9rem; }
+:where(body.hubbody, .wzh) .pm-txt { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+:where(body.hubbody, .wzh) .pm-txt > * { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:where(body.hubbody, .wzh) .pm-txt b { font-size: 1.02rem; } :where(body.hubbody, .wzh) .pm-txt span { font-size: .85rem; opacity: .85; } :where(body.hubbody, .wzh) .pm-txt small { font-size: .75rem; opacity: .6; }
+:where(body.hubbody, .wzh) .pm .pty-ring { margin: 0; width: 60px; height: 60px; }
+:where(body.hubbody, .wzh) .pm .hc-menu { position: absolute; top: 6px; right: 6px; }
+:where(body.hubbody, .wzh) .pm-stats { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+:where(body.hubbody, .wzh) .pm-stats span { display: inline-flex; align-items: baseline; gap: 5px; padding: 3px 9px; border-radius: 99px; background: rgba(127,127,127,.12); font-size: .82rem; }
+:where(body.hubbody, .wzh) .pm-stats small { font-size: .64rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; opacity: .65; }
+:where(body.hubbody, .wzh) .pm-stats b { font-variant-numeric: tabular-nums; }
+:where(body.hubbody, .wzh) .pm-st { font-style: normal; font-weight: 700; font-size: .8rem; color: #b5452f; }
+:where(body.hubbody, .wzh) .pm-on { display: flex; flex-wrap: wrap; gap: 4px; }
+:where(body.hubbody, .wzh) .pm-on span { font-size: .74rem; padding: 2px 8px; border-radius: 99px; border: 1px solid rgba(181,69,47,.4); color: #a3442f; }
+@media (prefers-color-scheme: dark) {
+  :where(html:not([data-pgtheme])) body.hubbody .pw-step { background: #1a2131; border-color: #2c3548; color: #a9a294; }
+  :where(html:not([data-pgtheme])) body.hubbody .pw-step.done { color: #e9e3d3; border-color: #c9962b; }
+  :where(html:not([data-pgtheme])) body.hubbody .pw-step.on { background: #0f1420; color: #fff; border-color: #0f1420; }
+  :where(html:not([data-pgtheme])) body.hubbody .pw-step:not(.on):not(:disabled):hover { color: #e9e3d3; }
+  :where(html:not([data-pgtheme])) body.hubbody .pw-body { background: #1a2131; border-color: #2c3548; border-top-color: #c9962b; box-shadow: 0 10px 28px rgba(0,0,0,.35); }
+  :where(html:not([data-pgtheme])) body.hubbody .pw-h4, :where(html:not([data-pgtheme])) body.hubbody .pw-fld > span { color: #e7c46e; }
+  :where(html:not([data-pgtheme])) body.hubbody .pw-foot { background: linear-gradient(transparent, #0f1420 30%); }
+  :where(html:not([data-pgtheme])) body.hubbody .pw-fld input { background: #0f1420; border-color: #3a4560; }
+  :where(html:not([data-pgtheme])) body.hubbody .pm { background: #141b2b; border-color: #2c3548; }
+  :where(html:not([data-pgtheme])) body.hubbody .pm:hover { border-color: #4a5570; }
+  :where(html:not([data-pgtheme])) body.hubbody .pm.down { border-color: #c9573f; }
+  :where(html:not([data-pgtheme])) body.hubbody a.pm-main:hover b { color: #e7c46e; }
+  :where(html:not([data-pgtheme])) body.hubbody .pm-st { color: #f0a08d; }
+  :where(html:not([data-pgtheme])) body.hubbody .pm-on span { color: #f0a08d; border-color: rgba(240,160,141,.4); }
+}
+
+  :where(html[data-pgtheme="dark"]) body.hubbody .pw-step { background: #1a2131; border-color: #2c3548; color: #a9a294; }
+  :where(html[data-pgtheme="dark"]) body.hubbody .pw-step.done { color: #e9e3d3; border-color: #c9962b; }
+  :where(html[data-pgtheme="dark"]) body.hubbody .pw-step.on { background: #0f1420; color: #fff; border-color: #0f1420; }
+  :where(html[data-pgtheme="dark"]) body.hubbody .pw-step:not(.on):not(:disabled):hover { color: #e9e3d3; }
+  :where(html[data-pgtheme="dark"]) body.hubbody .pw-body { background: #1a2131; border-color: #2c3548; border-top-color: #c9962b; box-shadow: 0 10px 28px rgba(0,0,0,.35); }
+  :where(html[data-pgtheme="dark"]) body.hubbody .pw-h4, :where(html[data-pgtheme="dark"]) body.hubbody .pw-fld > span { color: #e7c46e; }
+  :where(html[data-pgtheme="dark"]) body.hubbody .pw-foot { background: linear-gradient(transparent, #0f1420 30%); }
+  :where(html[data-pgtheme="dark"]) body.hubbody .pw-fld input { background: #0f1420; border-color: #3a4560; }
+  :where(html[data-pgtheme="dark"]) body.hubbody .pm { background: #141b2b; border-color: #2c3548; }
+  :where(html[data-pgtheme="dark"]) body.hubbody .pm:hover { border-color: #4a5570; }
+  :where(html[data-pgtheme="dark"]) body.hubbody .pm.down { border-color: #c9573f; }
+  :where(html[data-pgtheme="dark"]) body.hubbody a.pm-main:hover b { color: #e7c46e; }
+  :where(html[data-pgtheme="dark"]) body.hubbody .pm-st { color: #f0a08d; }
+  :where(html[data-pgtheme="dark"]) body.hubbody .pm-on span { color: #f0a08d; border-color: rgba(240,160,141,.4); }
+
+/* Phones: like the creation steps there — the header, then the step name, a full-width card and big buttons at the bottom */
+@media (max-width: 640px) {
+  :where(body.hubbody, .wzh) .pw { padding: 0; }
+  :where(body.hubbody, .wzh) .pw .wzh { margin: 0; padding: calc(env(safe-area-inset-top) + 10px) 16px 0; }
+  :where(body.hubbody, .wzh) .pw-head { padding: 6px 16px 10px; border-bottom: 1px solid rgba(127,127,127,.2); }
+  :where(body.hubbody, .wzh) .pw-head h2 { font-size: 1.2rem; }
+  :where(body.hubbody, .wzh) .pw-steps { margin: 0 -16px; padding: 0 16px 2px; }
+  :where(body.hubbody, .wzh) .pw.seq .pw-head h2 { font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; color: #8a6420; margin: 0 0 8px; }
+  :where(body.hubbody, .wzh) .pw.seq .pw-steps { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 5px; margin: 0; padding: 0; overflow: visible; }
+  :where(body.hubbody, .wzh) .pw.seq .pw-step { position: relative; height: 22px; padding: 0; border: 0; border-radius: 0; background: none; font-size: 0; color: transparent; }
+  :where(body.hubbody, .wzh) .pw.seq .pw-step::after { content: ''; position: absolute; left: 0; right: 0; top: 8px; height: 6px; border-radius: 3px; background: rgba(127,127,127,.3); }
+  :where(body.hubbody, .wzh) .pw.seq .pw-step.done::after { background: #c9962b; opacity: .55; }
+  :where(body.hubbody, .wzh) .pw.seq .pw-step.on::after { background: #c9962b; }
+  :where(body.hubbody, .wzh) .pw.seq .pw-now { display: block; font-size: .95rem; opacity: .75; margin-top: 2px; }
+  :where(body.hubbody, .wzh) .pw.seq .pw-now b { display: block; font-size: 1.25rem; margin-top: 2px; opacity: 1; }
+  :where(body.hubbody, .wzh) .pw.seq .pw-body > h3:first-child { display: none; }
+  :where(body.hubbody, .wzh) .pw-body { margin: 0; border: 0; border-radius: 0; box-shadow: none; padding: 18px 16px 28px; }
+  :where(body.hubbody, .wzh) .pw-foot { gap: 10px; padding: 10px 16px calc(env(safe-area-inset-bottom) + 12px); background: #fff; border-top: 1px solid #e8dcc1; }
+  :where(body.hubbody, .wzh) .pw-foot .grow { display: none; }
+  :where(body.hubbody, .wzh) .pw-foot .btn { flex: 1; min-height: 50px; font-size: 1.02rem; border-radius: 14px; padding: 0 12px; display: inline-flex; align-items: center; justify-content: center; }
+  :where(body.hubbody, .wzh) .pw-foot .btn.gold { flex: 2; }
+  :where(body.hubbody, .wzh) .pm-grid { grid-template-columns: 1fr; }
+  :where(body.hubbody, .wzh) .pw .pty-runrow > span:first-child { width: 100%; }
+}
+@media (max-width: 640px) and (prefers-color-scheme: dark) {
+  :where(html:not([data-pgtheme])) body.hubbody .pw.seq .pw-head h2 { color: #e7c46e; }
+  :where(html:not([data-pgtheme])) body.hubbody .pw-foot { background: #1a2131; border-top-color: #2c3548; }
+  :where(html:not([data-pgtheme])) body.hubbody .pw-body { background: transparent; }
+}
+@media (max-width: 640px) {
+  :where(html[data-pgtheme="dark"]) body.hubbody .pw.seq .pw-head h2 { color: #e7c46e; }
+  :where(html[data-pgtheme="dark"]) body.hubbody .pw-foot { background: #1a2131; border-top-color: #2c3548; }
+  :where(html[data-pgtheme="dark"]) body.hubbody .pw-body { background: transparent; }
+}
+:where(body.hubbody, .wzh) .pl-row.pty-prow > .hc-pic, :where(body.hubbody, .wzh) .pl-row.pty-prow > .pm-pic, :where(body.hubbody, .wzh) .pl-row.pty-prow > .pty-go { flex: none; opacity: 1; font-size: inherit; word-break: normal; }
+:where(body.hubbody, .wzh) .pl-row.pty-prow > .hc-pic { width: 40px; height: 40px; border-radius: 9px; }
+:where(body.hubbody, .wzh) .pl-row.pty-prow > .pty-go { font-size: .82rem; }
+:where(body.hubbody, .wzh) .pl-row.pty-prow .pty-ct b { min-width: 0; }
+:where(body.hubbody, .wzh) .pw .pl-list { display: flex; flex-direction: column; gap: 6px; }
+:where(body.hubbody, .wzh) .pw .pl-row .sh-who { flex-direction: row; gap: 0 8px; }
+:where(body.hubbody, .wzh) .pw-foot .btn.ghost { color: inherit; border-color: rgba(127,127,127,.35); background: transparent; }
+:where(body.hubbody, .wzh) .pw-foot .btn.ghost:hover { background: rgba(127,127,127,.12); }
+body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
+@media (max-width: 640px) {
+  body.hubbody .pw.seq .pw-step, body.hubbody .pw.seq .pw-step.on, body.hubbody .pw.seq .pw-step.done { background: none; border: 0; }
+  :where(body.hubbody, .wzh) .pw-foot .btn.ghost { border-color: rgba(127,127,127,.4); }
+}
+:where(body.hubbody, .wzh) .pty-invtag { flex: none; align-self: center; margin: 0 14px 0 8px; padding: 4px 10px; border-radius: 99px; background: linear-gradient(180deg, #f1d58a, #d9ab48); color: #1b1406; font-size: .76rem; font-weight: 800; }
+:where(body.adminbody) .adm-t .adm-tag.r-own { white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -1796,7 +1939,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261017211619', ASSETS = {"data": "a/data.7b40b57b683f.js", "app": "a/app.dbecc77980e4.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.e43186d622da.html"}; window.PG_ASSETS = ASSETS;
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261017164552', ASSETS = {"data": "a/data.7b40b57b683f.js", "app": "a/app.620d20c4cc4d.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.40bb05c4cc5b.html"}; window.PG_ASSETS = ASSETS;
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -2634,7 +2777,7 @@ function hub(fs, auth, G, ctx) {
   document.addEventListener('click', e => { if (e.target === modal) close(); });
 
   // Parties: the strip on the characters page, a party's own page, invite links and the admin list.
-  let PM_ = null; const PMx = () => PM_ || (PM_ = partyModule({ fs, EMAIL, IS_ADMIN, modal, toast, esc, close, root, G, chars: () => chars, nameOf, needNames, myName, pic, peoplePicker }));
+  let PM_ = null; const PMx = () => PM_ || (PM_ = partyModule({ fs, EMAIL, IS_ADMIN, modal, toast, esc, close, root, G, chars: () => chars, nameOf, needNames, myName, pic, peoplePicker, myAva: () => myAva(), signOut }));
   // ================= Hub: my characters and the ones shared with me =================
   function createChar() { pgGo(URLS.newChar(G)); }
   // Your picture: your initials (on a colour you can pick), one of your characters, or an image you upload.
@@ -2798,7 +2941,10 @@ function hub(fs, auth, G, ctx) {
     const top = p.getBoundingClientRect().top + scrollY, max = Math.max(0, top + p.offsetHeight + padBot() - innerHeight);
     p._y = Math.min(VSCROLL[p.dataset.pane] || 0, max); p.style.transform = scrollY - p._y ? `translateY(${scrollY - p._y}px)` : ''; }
   addEventListener('scroll', () => { root.querySelectorAll('.hub-pane').forEach(p => { if (p._y != null) p.style.transform = scrollY - p._y ? `translateY(${scrollY - p._y}px)` : ''; }); }, { passive: true });
-  function switchView(v) { if (v === view) return; settle(); const out0 = root.querySelector('.hub-pane.on'); VSCROLL[view] = scrollY; view = v; history.replaceState(null, '', view === 'mine' ? URLS.hub(G) : URLS[view](G));
+  // The gold button beside the tabs makes whatever the tab lists: a character, or (on Parties) a party.
+  function newBtn() { const nb = root.querySelector('#hub-new'); if (!nb) return; const pty = view === 'parties', t = nb.querySelector('.hn-txt b');
+    if (t) t.textContent = pty ? 'New party' : 'Create character'; nb.onclick = () => pty ? PMx().newParty() : createChar(); }
+  function switchView(v) { if (v === view) return; settle(); setTimeout(newBtn, 0); const out0 = root.querySelector('.hub-pane.on'); VSCROLL[view] = scrollY; view = v; history.replaceState(null, '', view === 'mine' ? URLS.hub(G) : URLS[view](G));
     const tr = root.querySelector('.hub-track'); if (!tr) return draw();
     const inP = tr.querySelector(`.hub-pane[data-pane="${v}"]`);
     if (!slideMode()) { tr.querySelectorAll('.hub-pane').forEach(p => { p.classList.remove('hp-off'); p.style.transform = ''; p._y = null; }); placeInd(true); placeTrack(false); scrollTo(0, VSCROLL[v] || 0); dispatchEvent(new Event('hub-view'));
@@ -2845,7 +2991,7 @@ function hub(fs, auth, G, ctx) {
       </div><div class="hub-list">${body}</div>`;
     if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
     PMx().wirePane();
-    const nb = root.querySelector('#hub-new'); if (nb) nb.onclick = createChar; wireA2HS(root);
+    newBtn(); wireA2HS(root);
     root.querySelector('#me-out').onclick = signOut;
     wireThemeBtn(root);
     { const rn = root.querySelector('#me-rename'); if (rn) rn.onclick = renameMe; }
@@ -3503,131 +3649,210 @@ function partyModule(H) {
     const inv = INVS.filter(p => !MINE.some(m => m.id === p.id));
     const rows = MINE.slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).map(p => { const n = (p.chars || []).length, role = p.dm === EMAIL ? 'You’re the DM' : (p.mgrs || []).includes(EMAIL) ? 'Co-DM' : 'DM ' + dmLabel(p);
       return `<div class="hr"><a class="hr-main" href="${esc(URLS.party(p.id))}">${ptyPic(isMgr(p))}<span class="hc-txt"><b>${esc(p.name || 'Unnamed party')}</b><span>${esc(role)} · ${plural(n, 'character')}</span><small>${p.updatedAt ? 'Updated ' + ago(p.updatedAt) : ''}</small></span></a></div>`; }).join('');
-    const invs = inv.map(p => `<div class="hr pty-inviterow"><span class="hr-main">${ptyPic(false)}<span class="hc-txt"><b>${esc(p.name || 'A party')}</b><span>${esc(p.dmName || p.dm)} invited you to join</span></span></span><span class="pty-invbtns"><button class="btn gold" data-pinv="${esc(p.id)}">Join…</button><button class="btn ghost" data-pno="${esc(p.id)}">Decline</button></span></div>`).join('');
-    return `<div id="hub-parties">${invs || rows ? `<div class="hl">${invs}${rows}</div>` : LOADED ? '<p class="hub-empty">Running a game? Make a party: you’re its DM, and you get a link to send your players. Their characters join it, and you see them all in one place.</p>' : ''}
-      <div class="pty-newrow"><button class="btn gold" id="pty-new" type="button">+ New party</button></div></div>`;
+    // An invitation opens the party's join steps (where you can also turn it down).
+    const invs = inv.map(p => `<div class="hr pty-inviterow"><a class="hr-main" href="${esc(URLS.party(p.id))}">${ptyPic(false)}<span class="hc-txt"><b>${esc(p.name || 'A party')}</b><span>${esc(p.dmName || p.dm)} invited you to join</span><small>Open it to choose a character, or decline</small></span><span class="pty-invtag">Invitation</span></a></div>`).join('');
+    return `<div id="hub-parties">${invs || rows ? `<div class="hl">${invs}${rows}</div>` : LOADED ? '<p class="hub-empty">Running a game? Make a party with <b>New party</b>: you’re its DM, and you get a link to send your players. Their characters join it, and you all see each other in one place.</p>' : ''}
+</div>`;
   }
   const count = () => MINE.length + INVS.filter(p => !MINE.some(m => m.id === p.id)).length;
   function paintStrip() { const el = root.querySelector('#hub-parties'); if (!el) return; el.outerHTML = paneHTML(); wirePane();
     const n = root.querySelector('.hub-seg [data-view="parties"] span'); if (n) n.textContent = count(); }
   function wirePane() { const el = root.querySelector('#hub-parties'); if (!el) return;
-    const nb = el.querySelector('#pty-new'); if (nb) nb.onclick = newParty;
-    el.querySelectorAll('[data-pinv]').forEach(b => b.onclick = () => { const p = INVS.find(x => x.id === b.dataset.pinv); if (p) chooseChar(p, ''); });
-    el.querySelectorAll('[data-pno]').forEach(b => b.onclick = async () => { b.disabled = true; try { await PC.doc(b.dataset.pno).update({ invited: FV.arrayRemove(EMAIL) }); toast('Invitation declined.'); } catch (x) { b.disabled = false; toast('Couldn’t decline: ' + (x.message || x)); } });
   }
 
-  // ----- making a party -----
-  function newParty() {
-    modal.innerHTML = `<div class="hub-card"><h2>New party</h2><p class="hub-hint">You’ll be its DM. Next you get a link to send your players — they join with a character of theirs, or make a new one from the link.</p>
-      <form id="np-f" class="who-f"><input id="np-n" maxlength="60" placeholder="Party name, e.g. The Lost Mine crew" required></form>
-      <div class="row"><button class="btn ghost" id="np-x">Cancel</button><button class="btn gold" id="np-ok">Create party</button></div></div>`;
-    modal.classList.add('on'); const inp = modal.querySelector('#np-n'); setTimeout(() => inp.focus(), 30);
-    const go = async () => { const nm = inp.value.replace(/\s+/g, ' ').trim().slice(0, 60); if (!nm) { toast('Give the party a name.'); return; }
-      const ok = modal.querySelector('#np-ok'); ok.disabled = true; ok.textContent = 'Creating…';
-      const ref = PC.doc(), t = ptyCode(), now = Date.now();
-      try { await ref.set({ name: nm, dm: EMAIL, dmName: H.myName(), by: EMAIL, createdAt: now, updatedAt: now, chars: [], people: [EMAIL], mgrs: [], invited: [], inv: t, via: '', gone: '' });
-        await IC.doc(t).set({ p: ref.id, name: nm, dm: EMAIL, dmName: H.myName(), at: now }).catch(() => {});
-        pgLog('party_create', { target: ref.id, tName: nm }); close(); pgGo(URLS.party(ref.id)); }
-      catch (x) { ok.disabled = false; ok.textContent = 'Create party'; toast(x && x.code === 'permission-denied' ? 'Parties aren’t switched on yet — the new database rules need publishing.' : 'Couldn’t create it: ' + (x.message || x)); } };
-    modal.querySelector('#np-f').onsubmit = e => { e.preventDefault(); go(); }; modal.querySelector('#np-ok').onclick = go; modal.querySelector('#np-x').onclick = close;
+  // ----- pages: laid out like the character creation screen -----
+  // The lobby's header (logo, who's signed in, a way back), a title with its steps or sections as pills, one card with a
+  // gold top edge, and the buttons along the bottom. Making a party and joining one go step by step; a party's own page
+  // uses the same pills as sections.
+  const headHTML = () => { const a = H.myAva(), nm = H.myName();
+    return `<div class="wzh"><header class="hub-top">${logoHTML()}<div class="hub-side"><div class="hub-prof"><span class="hp-pic wzh-pic">${avaHTML(nm, EMAIL, a.pic, '', '', a)}</span><div class="hp-txt"><b>${esc(nm)}</b><small>${esc(EMAIL)}</small><div class="hp-row"><button class="linkbtn" data-pw="out">Sign out</button><a class="hub-ctlink" href="${CONTACT}">Contact us</a></div></div></div></div></header><a class="adm-back wzh-back" href="${esc(URLS.parties(G))}">← Adventurer’s Tome</a></div>`; };
+  // steps: [[key, label]]; seq = numbered steps you go through in order (later ones can't be clicked yet).
+  function shell({ title, sub, steps, on, body, foot, seq }) {
+    const idx = Math.max(0, (steps || []).findIndex(s => s[0] === on));
+    const pills = steps && steps.length > 1 ? `<div class="pw-steps" role="tablist">${steps.map(([k, t], i) => `<button class="pw-step${k === on ? ' on' : ''}${seq && i < idx ? ' done' : ''}" role="tab" aria-selected="${k === on}" data-pstep="${k}"${seq && i > idx ? ' disabled' : ''}>${seq ? (i + 1) + '. ' : ''}${esc(t)}</button>`).join('')}</div>` : '';
+    root.innerHTML = `<div class="pw${seq ? ' seq' : ''}">${headHTML()}<div class="pw-head"><h2>${title}</h2>${sub ? `<p class="pw-sub">${sub}</p>` : ''}${pills}${seq && steps ? `<div class="pw-now">Step ${idx + 1} of ${steps.length}<b>${esc(steps[idx][1])}</b></div>` : ''}</div>
+      <div class="pw-body">${body}</div>${foot ? `<div class="pw-foot">${foot}</div>` : ''}</div>`;
+    wireDie(root);
+    const out = root.querySelector('[data-pw="out"]'); if (out) out.onclick = () => H.signOut();
+    const back = root.querySelector('.wzh-back'); if (back) back.onclick = e => { e.preventDefault(); pgGo(URLS.parties(G)); };
+    return root.querySelector('.pw-body');
+  }
+  const note = (h, text, btns) => `<div class="pw-note"><span class="pty-jic">${IC_PARTY}</span><h3>${h}</h3>${text ? `<p class="hub-hint">${text}</p>` : ''}${btns ? `<div class="row">${btns}</div>` : ''}</div>`;
+  const goHub = `<a class="btn gold" href="${esc(URLS.parties(G))}">Go to your parties</a>`;
+  const charRow = (c, act, label) => `<button class="pl-row pty-prow" data-${act}="${esc(c.id)}">${H.pic(c)}<span class="pty-ct"><b>${esc(c.name || 'Unnamed character')}</b><small>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</small></span><span class="pty-go">${label}</span></button>`;
+  const cardOf = c => ({ name: c.name || '', race: c.race || '', cls: c.cls || '', level: c.level || 0, thumb: c.thumb || '', player: H.myName(), path: c.path || '' });
+  // A character made from here (or from an invite link) joins the party as soon as it's saved.
+  const makeFor = (p, token) => { try { sessionStorage.setItem('pg-join', JSON.stringify({ p: p.id, t: token || '', name: p.name || '', at: Date.now() })); } catch (e) {} pgGo(URLS.newChar(G)); };
+
+  // ----- making a party: 1. its name, 2. inviting the players -----
+  function newPage() {
+    document.title = 'New party — Adventurer’s Tome';
+    const steps = [['name', 'Name'], ['invite', 'Invite players']];
+    let made = null;
+    const step1 = () => {
+      shell({ title: 'Create a party', steps, on: 'name', seq: true,
+        body: `<h3>Name</h3><p class="hub-hint">You’ll be its DM. Next you get a link to send your players: they join with a character they already have, or make a new one from the link.</p>
+          <form id="np-f" class="pw-form"><label class="pw-fld"><span>Party name</span><input id="np-n" maxlength="60" placeholder="e.g. The Lost Mine crew" autocomplete="off" required></label></form>`,
+        foot: `<a class="btn" href="${esc(URLS.parties(G))}" id="np-x">Cancel</a><span class="grow"></span><button class="btn gold" id="np-ok">Create party</button>` });
+      const inp = root.querySelector('#np-n'); setTimeout(() => inp.focus(), 30);
+      root.querySelector('#np-x').onclick = e => { e.preventDefault(); pgGo(URLS.parties(G)); };
+      const go = async () => { const nm = inp.value.replace(/\s+/g, ' ').trim().slice(0, 60); if (!nm) { toast('Give the party a name.'); inp.focus(); return; }
+        const ok = root.querySelector('#np-ok'); ok.disabled = true; ok.textContent = 'Creating…';
+        const ref = PC.doc(), t = ptyCode(), now = Date.now();
+        try { await ref.set({ name: nm, dm: EMAIL, dmName: H.myName(), by: EMAIL, createdAt: now, updatedAt: now, chars: [], people: [EMAIL], mgrs: [], invited: [], inv: t, via: '', gone: '' });
+          await IC.doc(t).set({ p: ref.id, name: nm, dm: EMAIL, dmName: H.myName(), at: now }).catch(() => {});
+          pgLog('party_create', { target: ref.id, tName: nm }); made = { id: ref.id, name: nm, inv: t, invited: [] }; history.replaceState(null, '', URLS.party(ref.id)); step2(); }
+        catch (x) { ok.disabled = false; ok.textContent = 'Create party'; fail(x, 'create it'); } };
+      root.querySelector('#np-f').onsubmit = e => { e.preventDefault(); go(); }; root.querySelector('#np-ok').onclick = go;
+    };
+    const step2 = () => {
+      const el = shell({ title: esc(made.name), steps, on: 'invite', seq: true,
+        body: `<h3>Invite players</h3>${inviteHTML(made, true)}`,
+        foot: `<span class="grow"></span><button class="btn gold" id="np-open">Open the party</button>` });
+      wireInvite(el, made, () => step2());
+      root.querySelector('#np-open').onclick = () => pgGo(URLS.party(made.id));
+      root.querySelectorAll('[data-pstep="name"]').forEach(b => b.disabled = true); // already made: renaming is on the party page
+    };
+    step1();
   }
 
-  // ----- joining: pick one of your characters, or make a new one -----
-  function chooseChar(p, token, after) {
-    const mine = myChars().filter(c => !(p.chars || []).includes(c.id)).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    modal.innerHTML = `<div class="hub-card wide"><h2>Join ${esc(p.name || 'the party')}</h2><p class="hub-hint">DM: ${esc(p.dmName || p.dm || '')}. Bring a character you already have, or make a new one — it joins the party as soon as it’s made. A character is in one party at a time.</p>
-      <div class="pl-list pty-pick">${mine.map(c => `<button class="pl-row pty-prow" data-pc="${esc(c.id)}">${H.pic(c)}<span class="pty-ct"><b>${esc(c.name || 'Unnamed character')}</b><small>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</small></span><span class="pty-go">Bring</span></button>`).join('') || '<p class="hub-hint">You don’t have a character yet.</p>'}</div>
-      <div class="row"><button class="btn ghost" id="jc-x">Cancel</button><button class="btn gold" id="jc-new">+ Make a new character</button></div></div>`;
-    modal.classList.add('on');
-    modal.querySelector('#jc-x').onclick = () => { close(); if (after) after(); };
-    modal.querySelector('#jc-new').onclick = () => { try { sessionStorage.setItem('pg-join', JSON.stringify({ p: p.id, t: token || '', name: p.name || '', at: Date.now() })); } catch (e) {} close(); pgGo(URLS.newChar(G)); };
-    modal.querySelectorAll('[data-pc]').forEach(b => b.onclick = async () => { const c = mine.find(x => x.id === b.dataset.pc); if (!c) return; modal.querySelectorAll('button').forEach(x => x.disabled = true); b.querySelector('.pty-go').textContent = 'Joining…';
-      try { await ptyJoin(fs, EMAIL, p.id, c.id, token, { name: c.name || '', race: c.race || '', cls: c.cls || '', level: c.level || 0, thumb: c.thumb || '', player: H.myName(), path: c.path || '' });
-        pgLog('party_join', { target: p.id, tName: p.name, detail: c.name || '' }); close(); toast((c.name || 'Your character') + ' joined ' + (p.name || 'the party') + '.'); pgGo(URLS.party(p.id)); }
-      catch (x) { modal.querySelectorAll('button').forEach(y => y.disabled = false); b.querySelector('.pty-go').textContent = 'Bring'; toast(x && x.code === 'permission-denied' ? 'Couldn’t join — the link may have been turned off. Ask your DM for a new one.' : 'Couldn’t join: ' + (x.message || x)); } });
+  // The invite section: the link, email invitations, who's been asked. Used when making a party and on its page.
+  function inviteHTML(p, fresh) {
+    const link = p.inv ? URLS.join(p.inv) : '';
+    return `<p class="hub-hint">${fresh ? 'Send this link to your players. ' : ''}Anyone signed in who has the link can join with one of their characters, or make a new one that joins as soon as it’s made.</p>
+      ${link ? `<div class="sh-pub-row"><input readonly id="pt-link" value="${esc(link)}" aria-label="Invite link"><button class="btn" id="pt-copy">Copy link</button></div><div class="pty-linkrow"><button class="linkbtn" id="pt-relink">Make a new link</button> · <button class="linkbtn" id="pt-unlink">Turn the link off</button></div>` : `<div class="pty-linkrow"><button class="btn gold" id="pt-relink">Turn on an invite link</button></div>`}
+      <h4 class="pw-h4">Or invite them by email</h4><p class="hub-hint">They’ll see the invitation on their characters page.</p>
+      <form id="pt-inv-f" class="who-f pl-f sh-f pty-invf"><input id="pt-inv-e" type="email" placeholder="Their email address" autocomplete="off" required><button class="btn gold">Invite</button></form>
+      ${(p.invited || []).length ? `<div class="pl-list">${p.invited.map(em => `<div class="pl-row"><span class="sh-who"><span>${esc(em)}</span> <small class="hub-hint">invited</small></span><button class="linkbtn" data-uninv="${esc(em)}">cancel</button></div>`).join('')}</div>` : ''}`;
   }
-  // /join/<code>: who invited you, then the same picker.
+  function wireInvite(el, p, again) {
+    const $1 = s => el.querySelector(s), on = (s, f) => { const b = $1(s); if (b) b.onclick = f; };
+    const keep = (k, v) => { p[k] = v; if (again) again(); };
+    on('#pt-copy', async () => { const u = $1('#pt-link'), b = $1('#pt-copy'); try { await navigator.clipboard.writeText(u.value); b.textContent = 'Copied'; } catch (x) { u.select(); b.textContent = 'Selected'; } setTimeout(() => { b.textContent = 'Copy link'; }, 1600); });
+    on('#pt-relink', async () => { const t = ptyCode(), old = p.inv; try { await IC.doc(t).set({ p: p.id, name: p.name || '', dm: p.dm || EMAIL, dmName: p.dmName || H.myName(), at: Date.now() }); if (old) await IC.doc(old).delete().catch(() => {}); await PC.doc(p.id).update({ inv: t, updatedAt: Date.now() }); toast(old ? 'New link made — the old one no longer works.' : 'Invite link is on.'); keep('inv', t); } catch (x) { fail(x, 'make a link'); } });
+    on('#pt-unlink', async () => { try { const t = p.inv; await PC.doc(p.id).update({ inv: '', updatedAt: Date.now() }); if (t) await IC.doc(t).delete().catch(() => {}); toast('Invite link turned off.'); keep('inv', ''); } catch (x) { fail(x, 'turn the link off'); } });
+    const f = $1('#pt-inv-f'); if (f) { H.peoplePicker($1('#pt-inv-e')); f.onsubmit = async e => { e.preventDefault(); const em = $1('#pt-inv-e').value.trim().toLowerCase();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { toast('Type an email address.'); return; }
+      if ((p.invited || []).includes(em)) { toast(em + ' is already invited.'); return; }
+      try { await PC.doc(p.id).update({ invited: FV.arrayUnion(em), updatedAt: Date.now() }); pgLog('party_invite', { target: p.id, tName: p.name, detail: em }); toast('Invited ' + em + '.'); keep('invited', (p.invited || []).concat([em])); } catch (x) { fail(x, 'invite them'); } }; }
+    el.querySelectorAll('[data-uninv]').forEach(b => b.onclick = async () => { const em = b.dataset.uninv; try { await PC.doc(p.id).update({ invited: FV.arrayRemove(em) }); keep('invited', (p.invited || []).filter(x => x !== em)); } catch (x) { fail(x, 'cancel it'); } });
+  }
+
+  // ----- joining (an invite link, or an email invitation): 1. the invitation, 2. which character -----
   async function joinPage(token) {
     document.title = 'Join a party — Adventurer’s Tome';
-    const shell = msg => { root.innerHTML = `<div class="hub-head"><header class="hub-top">${logoHTML()}</header></div><div class="hub-list"><div class="pty-join">${msg}</div></div>`; wireDie(root); };
-    shell('<p class="hub-empty">Opening the invitation…</p>');
+    shell({ title: 'Join a party', body: '<p class="hub-hint">Opening the invitation…</p>' });
     let inv = null; try { const d = await IC.doc(token).get(); inv = d.exists ? d.data() : null; } catch (e) {}
-    if (!inv) return shell(`<div class="hub-card pty-jcard"><h2>This invite link doesn’t work</h2><p class="hub-hint">It may have been replaced or turned off. Ask your DM for a new link.</p><div class="row"><a class="btn gold" href="${esc(URLS.hub(G))}">Go to your characters</a></div></div>`);
+    if (!inv) return shell({ title: 'Join a party', body: note('This invite link doesn’t work', 'It may have been replaced or turned off. Ask your DM for a new link.', goHub) });
     let p = null; try { const d = await PC.doc(inv.p).get(); p = d.exists ? Object.assign({ id: d.id }, d.data()) : null; } catch (e) {}
-    if (p && (p.people || []).includes(EMAIL) && !(p.invited || []).includes(EMAIL)) { /* already in it */ }
-    const party = p || { id: inv.p, name: inv.name, dm: inv.dm, dmName: inv.dmName, chars: [] };
-    shell(`<div class="hub-card pty-jcard"><span class="pty-jic">${IC_PARTY}</span><h2>You’re invited to ${esc(party.name || 'a party')}</h2><p class="hub-hint">DM: <b>${esc(party.dmName || party.dm || '')}</b>. Join with one of your characters or make a new one. Everyone in the party sees each other’s characters, can hand each other items and cast spells on each other; the DM can open every sheet in it.</p>
-      <div class="row">${p && (p.people || []).includes(EMAIL) ? `<a class="btn ghost" href="${esc(URLS.party(party.id))}">Open the party</a>` : `<a class="btn ghost" href="${esc(URLS.hub(G))}">Not now</a>`}<button class="btn gold" id="pj-go">Choose a character…</button></div></div>`);
-    root.querySelector('#pj-go').onclick = () => chooseChar(party, token);
+    joinFlow(p || { id: inv.p, name: inv.name, dm: inv.dm, dmName: inv.dmName, chars: [] }, token, p && (p.people || []).includes(EMAIL) && (p.chars || []).length > 0);
+  }
+  function joinFlow(p, token, already) {
+    const steps = [['inv', 'Invitation'], ['char', 'Choose a character']], nm = esc(p.name || 'a party');
+    const step1 = () => { shell({ title: 'Join ' + nm, steps, on: 'inv', seq: true,
+        body: `<h3>Invitation</h3>${note(`You’re invited to ${nm}`, `DM: <b>${esc(p.dmName || p.dm || '')}</b>. Everyone in the party sees each other’s characters (HP, AC and conditions) and can hand each other items and cast spells on each other from their sheets. The DM can open every sheet in it.`)}`,
+        foot: `${already ? `<a class="btn" href="${esc(URLS.party(p.id))}">Open the party</a>` : `<button class="btn" id="pj-no">${token ? 'Not now' : 'Decline'}</button>`}<span class="grow"></span><button class="btn gold" id="pj-next">Next</button>` });
+      const no = root.querySelector('#pj-no'); if (no) no.onclick = async () => { if (!token) { no.disabled = true; try { await PC.doc(p.id).update({ invited: FV.arrayRemove(EMAIL) }); toast('Invitation declined.'); } catch (x) { no.disabled = false; return fail(x, 'decline it'); } } pgGo(URLS.parties(G)); };
+      root.querySelector('#pj-next').onclick = step2; };
+    const step2 = () => {
+      const mine = myChars().filter(c => !(p.chars || []).includes(c.id)).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      const el = shell({ title: 'Join ' + nm, steps, on: 'char', seq: true,
+        body: `<h3>Choose a character</h3><p class="hub-hint">Bring a character you already have, or make a new one: it joins the party as soon as it’s made. A character is in one party at a time, so one that’s in another party moves here.</p>
+          ${mine.length ? `<div class="pl-list pty-pick">${mine.map(c => charRow(c, 'pc', 'Bring')).join('')}</div>` : '<p class="hub-hint">You don’t have any characters yet.</p>'}`,
+        foot: `<button class="btn" id="pj-back">Back</button><span class="grow"></span><button class="btn gold" id="pj-new">+ Make a new character</button>` });
+      root.querySelector('#pj-back').onclick = step1; root.querySelector('#pj-new').onclick = () => makeFor(p, token);
+      root.querySelectorAll('[data-pstep="inv"]').forEach(b => b.onclick = step1);
+      el.querySelectorAll('[data-pc]').forEach(b => b.onclick = async () => { const c = mine.find(x => x.id === b.dataset.pc); if (!c) return; root.querySelectorAll('.pw button').forEach(x => x.disabled = true); b.querySelector('.pty-go').textContent = 'Joining…';
+        try { await ptyJoin(fs, EMAIL, p.id, c.id, token, cardOf(c)); pgLog('party_join', { target: p.id, tName: p.name, detail: c.name || '' }); toast((c.name || 'Your character') + ' joined ' + (p.name || 'the party') + '.'); pgGo(URLS.party(p.id)); }
+        catch (x) { root.querySelectorAll('.pw button').forEach(y => y.disabled = false); b.querySelector('.pty-go').textContent = 'Bring'; toast(x && x.code === 'permission-denied' ? 'Couldn’t join — the link may have been turned off. Ask your DM for a new one.' : 'Couldn’t join: ' + ((x && x.message) || x)); } });
+    };
+    step1();
   }
 
-  // ----- a party's own page -----
-  let P = null, PLOADED = false, CARDS = {}, PID = '', unP = null, unC = null;
+  // ----- a party's own page: Characters, then (for whoever runs it) Invite players and Who runs it -----
+  let P = null, PLOADED = false, CARDS = {}, PID = '', unP = null, unC = null, SEC = 'chars', JOINING = false;
   function partyPage(pid) {
+    if (pid === 'new') return newPage();
     PID = pid; document.title = 'Party — Adventurer’s Tome';
-    root.innerHTML = `<div class="hub-head"><header class="hub-top">${logoHTML()}<div class="hub-side"><a class="pty-back" href="${esc(URLS.hub(G))}">← Your characters</a></div></header></div><div class="hub-list"><div id="pty-page"><p class="hub-empty">Loading the party…</p></div></div>`;
-    wireDie(root);
+    try { const s = new URLSearchParams(location.search).get('s'); if (s) SEC = s; } catch (e) {}
+    shell({ title: 'Party', body: '<p class="hub-hint">Loading the party…</p>' });
     unP = PC.doc(pid).onSnapshot(d => { PLOADED = true; P = d.exists ? Object.assign({ id: d.id }, d.data()) : null; if (P) document.title = (P.name || 'Party') + ' — Adventurer’s Tome'; paint(); },
-      e => { const el = root.querySelector('#pty-page'); if (el) el.innerHTML = `<div class="hub-card pty-jcard"><h2>You’re not in this party</h2><p class="hub-hint">Only its players and DM can open it. If you were given an invite link, open that instead.</p><div class="row"><a class="btn gold" href="${esc(URLS.hub(G))}">Go to your characters</a></div></div>`; });
+      () => { PLOADED = true; P = null; shell({ title: 'Party', body: note('You’re not in this party', 'Only its players and DM can open it. If you were sent an invite link, open that instead.', goHub) }); });
     unC = PC.doc(pid).collection('cards').onSnapshot(qs => { CARDS = {}; qs.docs.forEach(d => CARDS[d.id] = d.data()); paint(); }, () => {});
-    setInterval(() => { if (!document.hidden) paint(); }, 60000);
   }
-  const hpPct = c => { const mx = Number(c.maxhp) || 0; return mx ? Math.max(0, Math.min(100, Math.round(100 * (Number(c.hp) || 0) / mx))) : 0; };
-  const statusOf = c => c.dead ? ['Dead', 'dead'] : c.stable ? ['Stable at 0 HP', 'down'] : (Number(c.maxhp) && Number(c.hp) <= 0) ? ['Down — making death saves', 'down'] : null;
+  const statusOf = c => c.dead ? ['Dead', 'dead'] : c.stable ? ['Stable at 0 HP', 'down'] : (Number(c.maxhp) && Number(c.hp) <= 0) ? ['Down — death saves', 'down'] : null;
   // The same HP ring as on the sheet: gold for HP (red when low), blue after it for temp HP.
   const ring = (cur, max, tmp) => { max = Math.max(1, Number(max) || 0); cur = Math.max(0, Math.min(Number(cur) || 0, max)); tmp = Math.max(0, Number(tmp) || 0);
     const r = 52, C = 2 * Math.PI * r, tot = Math.max(max, cur + tmp), x = C * cur / tot, y = C * tmp / tot;
     return `<svg viewBox="0 0 120 120" aria-hidden="true"><circle class="rt" cx="60" cy="60" r="${r}"/><circle class="rf${cur / max <= .35 ? ' low' : ''}" cx="60" cy="60" r="${r}" stroke-dasharray="${x} ${C}"/>${tmp ? `<circle class="rtmp" cx="60" cy="60" r="${r}" stroke-dasharray="${y} ${C}" stroke-dashoffset="${-x}"/>` : ''}</svg>`; };
-  // A character in the party: the lobby's character card, with its HP ring and what's on it.
+  const hrefOf = (id, c) => c.path ? (c.path.includes('/') ? '/' + c.path : '/character/' + c.path) : URLS.byId(id);
+  // A character in the party: picture, name and class, the HP ring, AC / speed / passive Perception, and what's on it.
   function memberCard(id) {
-    const c = CARDS[id] || {}, mine = c.owner === EMAIL, run = canRun(P), st = statusOf(c);
-    const open = mine || run || IS_ADMIN, href = c.path ? (c.path.includes('/') ? '/' + c.path : '/character/' + c.path) : URLS.byId(id);
+    const c = CARDS[id] || {}, mine = c.owner === EMAIL, run = canRun(P), st = statusOf(c), open = mine || run;
     const on = [].concat(c.conds || [], Number(c.exh) ? ['Exhaustion ' + Number(c.exh)] : [], c.conc ? ['Concentrating: ' + c.conc] : [], c.fx || []);
-    const menu = [run ? ['send', 'Send damage, healing, loot…'] : null, open ? ['open', 'Open sheet'] : null, (run || mine) ? ['rm', mine && !run ? 'Leave the party' : 'Remove from the party'] : null].filter(Boolean);
-    const pic = c.thumb ? `<img class="hc-pic" src="${esc(c.thumb)}" alt="">` : `<span class="hc-pic hc-nopic">${esc(initials(c.name || '?'))}</span>`;
-    const txt = `<span class="hc-txt"><b>${esc(c.name || 'A character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'Joining…')}</span><small>${[c.player, c.ac ? 'AC ' + c.ac : '', st ? st[0] : ''].filter(Boolean).map(esc).join(' · ')}</small>${on.length ? `<small class="pty-on">${esc(on.join(' · '))}</small>` : ''}</span>`;
-    return `<div class="hc pty-card${st ? ' ' + st[1] : ''}" data-cid="${esc(id)}">${open ? `<a class="hc-main" href="${esc(href)}">${pic}${txt}</a>` : `<span class="hc-main">${pic}${txt}</span>`}
-      ${c.maxhp ? `<span class="pty-ring" title="${Number(c.hp) || 0} of ${c.maxhp} HP${Number(c.temp) ? ' (+' + c.temp + ' temporary)' : ''}"><span class="ring-svg">${ring(c.hp, c.maxhp, c.temp)}</span><b>${Number(c.hp) || 0}</b><small>of ${c.maxhp}</small></span>` : ''}
-      ${menu.length ? `<div class="hc-menu"><button class="hc-dots" aria-label="More">⋯</button><div class="hc-list">${menu.map(([a, t]) => `<button data-pm="${a}" data-id="${esc(id)}"${a === 'rm' ? ' class="hc-del"' : ''}>${t}</button>`).join('')}</div></div>` : ''}</div>`;
+    const menu = [run ? ['send', 'Send damage, healing, loot…'] : null, open ? ['open', 'Open sheet'] : null, run || mine ? ['rm', mine && !run ? 'Leave the party' : 'Remove from the party'] : null].filter(Boolean);
+    const pic = c.thumb ? `<img class="pm-pic" src="${esc(c.thumb)}" alt="">` : `<span class="pm-pic pm-nopic">${esc(initials(c.name || '?'))}</span>`;
+    const who = `<span class="pm-txt"><b>${esc(c.name || 'A character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'Joining…')}</span>${c.player ? `<small>${esc(c.player)}${mine ? ' (you)' : ''}</small>` : ''}</span>`;
+    const stats = [c.ac ? ['AC', c.ac] : null, c.speed ? ['Speed', c.speed] : null, c.pp ? ['Passive', c.pp] : null].filter(Boolean);
+    return `<div class="pm${st ? ' ' + st[1] : ''}" data-cid="${esc(id)}">
+      <div class="pm-top">${open ? `<a class="pm-main" href="${esc(hrefOf(id, c))}">${pic}${who}</a>` : `<span class="pm-main">${pic}${who}</span>`}
+        ${c.maxhp ? `<span class="pty-ring" title="${Number(c.hp) || 0} of ${c.maxhp} HP${Number(c.temp) ? ' (+' + c.temp + ' temporary)' : ''}"><span class="ring-svg">${ring(c.hp, c.maxhp, c.temp)}</span><b>${Number(c.hp) || 0}</b><small>of ${c.maxhp}</small></span>` : ''}
+        ${menu.length ? `<div class="hc-menu"><button class="hc-dots" aria-label="More for ${esc(c.name || 'this character')}">⋯</button><div class="hc-list">${menu.map(([a, t]) => `<button data-pm="${a}" data-id="${esc(id)}"${a === 'rm' ? ' class="hc-del"' : ''}>${t}</button>`).join('')}</div></div>` : ''}</div>
+      ${stats.length || st ? `<div class="pm-stats">${stats.map(([k, v]) => `<span><small>${k}</small><b>${esc(String(v))}</b></span>`).join('')}${st ? `<em class="pm-st">${esc(st[0])}</em>` : ''}</div>` : ''}
+      ${on.length ? `<div class="pm-on">${on.map(t => `<span>${esc(t)}</span>`).join('')}</div>` : ''}</div>`;
   }
   function paint() {
-    const el = root.querySelector('#pty-page'); if (!el || !PLOADED) return;
-    if (!P) { el.innerHTML = `<div class="hub-card pty-jcard"><h2>This party doesn’t exist anymore</h2><p class="hub-hint">Its DM may have deleted it.</p><div class="row"><a class="btn gold" href="${esc(URLS.hub(G))}">Go to your characters</a></div></div>`; return; }
+    if (!PLOADED || JOINING) return;
+    if (!P) return shell({ title: 'Party', body: note('This party doesn’t exist anymore', 'Its DM may have deleted it.', goHub) });
     if (modal.classList.contains('on') && modal.querySelector('.pty-keep')) return;
-    const run = canRun(P), dmMe = P.dm === EMAIL || IS_ADMIN, ids = (P.chars || []).slice(), inParty = (P.people || []).includes(EMAIL);
+    const run = canRun(P), ids = (P.chars || []).slice(), inParty = (P.people || []).includes(EMAIL);
+    // Invited by email and not in it yet: the invitation, step by step.
+    if (!inParty && !run && (P.invited || []).includes(EMAIL)) { JOINING = true; return joinFlow(P, '', false); }
     const mineIn = ids.filter(id => (CARDS[id] || {}).owner === EMAIL), mineOut = myChars().filter(c => !ids.includes(c.id)), canAdd = run || !!P.inv;
-    const link = P.inv ? URLS.join(P.inv) : '';
-    el.innerHTML = `<div class="pty-head"><span class="pty-hic">${IC_PARTY}</span><div class="pty-htxt"><h1>${esc(P.name || 'Unnamed party')}${run ? ` <button class="hp-rename" id="pt-ren" title="Rename the party" aria-label="Rename the party"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></button>` : ''}</h1>
-        <p>${IC_CROWN} DM <b>${esc(dmLabel(P))}</b>${(P.mgrs || []).length ? ' · co-DM' + ((P.mgrs || []).length > 1 ? 's' : '') + ' ' + (P.mgrs || []).map(m => esc(m === EMAIL ? 'you' : H.nameOf(m))).join(', ') : ''} · ${plural(ids.length, 'character')}</p></div>
-        ${run && ids.length ? `<button class="btn gold" id="pt-all">Send to everyone…</button>` : ''}</div>
-      ${IS_ADMIN && !isMgr(P) && !inParty ? '<p class="pty-admin">You’re seeing this party as an admin — it isn’t in your own list. You can still change anything here.</p>' : ''}
-      ${ids.length ? `<div class="hf-body pty-grid">${ids.map(memberCard).join('')}</div>` : `<p class="hub-empty">No characters yet.${run ? ' Send your players the invite link below.' : ''}</p>`}
-      ${run ? `<section class="pty-sec"><h2>Invite players</h2><p class="hub-hint">Anyone signed in who has this link can join with one of their characters, or make a new one that joins as soon as it’s made.</p>
-        ${link ? `<div class="sh-pub-row"><input readonly id="pt-link" value="${esc(link)}"><button class="btn" id="pt-copy">Copy link</button></div><div class="pty-linkrow"><button class="linkbtn" id="pt-relink">Make a new link</button> · <button class="linkbtn" id="pt-unlink">Turn the link off</button></div>` : `<div class="pty-linkrow"><button class="btn gold" id="pt-relink">Turn on an invite link</button></div>`}
-        <form id="pt-inv-f" class="who-f pl-f sh-f pty-invf"><input id="pt-inv-e" type="email" placeholder="Or invite by email" autocomplete="off" required><button class="btn gold">Invite</button></form>
-        ${(P.invited || []).length ? `<div class="pl-list">${P.invited.map(em => `<div class="pl-row"><span class="sh-who"><span>${esc(em)}</span> <small class="hub-hint">invited</small></span><button class="linkbtn" data-uninv="${esc(em)}">cancel</button></div>`).join('')}</div>` : ''}</section>` : ''}
-      ${(canAdd && mineOut.length) || IS_ADMIN ? `<section class="pty-sec"><h2>Add a character</h2>${mineOut.length && canAdd ? `<div class="pl-list pty-pick">${mineOut.map(c => `<button class="pl-row pty-prow" data-add="${esc(c.id)}">${H.pic(c)}<span class="pty-ct"><b>${esc(c.name || 'Unnamed character')}</b><small>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</small></span><span class="pty-go">Add</span></button>`).join('')}</div>` : ''}
-        ${IS_ADMIN ? `<button class="btn" id="pt-addany">Add anyone’s character…</button>` : ''}${canAdd ? ` <button class="btn" id="pt-addnew">+ Make a new character for this party</button>` : ''}</section>` : ''}
-      ${run ? `<section class="pty-sec"><h2>Who runs it</h2>
+    const steps = [['chars', 'Characters']].concat(run ? [['invite', 'Invite players'], ['run', 'Who runs it']] : inParty ? [['mine', 'Your characters']] : []);
+    if (!steps.some(s => s[0] === SEC)) SEC = 'chars';
+    const mgrs = (P.mgrs || []).map(m => m === EMAIL ? 'you' : H.nameOf(m));
+    const sub = `${IC_CROWN} DM <b>${esc(dmLabel(P))}</b>${mgrs.length ? ` · co-DM${mgrs.length > 1 ? 's' : ''} ${esc(mgrs.join(', '))}` : ''} · ${plural(ids.length, 'character')}`;
+    const title = `${esc(P.name || 'Unnamed party')}${run ? ` <button class="hp-rename" id="pt-ren" title="Rename the party" aria-label="Rename the party"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></button>` : ''}`;
+    const adminNote = IS_ADMIN && !isMgr(P) && !inParty ? '<p class="pty-admin">You’re seeing this party as an admin. It isn’t in your own list, but you can change anything here.</p>' : '';
+    let body = '', foot = '';
+    if (SEC === 'chars') {
+      body = `<h3>Characters</h3>${adminNote}<p class="hub-hint">${run ? 'Everyone’s HP, AC and conditions, kept up to date by their sheets. Use ⋯ on a character to send them damage, healing, loot and more, or open their sheet.' : 'Everyone in the party. Hand items over and cast spells on each other from the Party tab on your sheet.'}</p>
+        ${ids.length ? `<div class="pm-grid">${ids.map(memberCard).join('')}</div>` : `<p class="pw-empty">No characters yet.${run ? ' Send your players the invite link (Invite players).' : ''}</p>`}`;
+      foot = run && ids.length ? `<span class="grow"></span><button class="btn gold" id="pt-all">Send to everyone…</button>` : run ? `<span class="grow"></span><button class="btn gold" data-pstep="invite">Invite players</button>` : '';
+    } else if (SEC === 'invite') {
+      body = `<h3>Invite players</h3>${inviteHTML(P)}
+        ${(canAdd && mineOut.length) || IS_ADMIN ? `<h4 class="pw-h4">Add a character yourself</h4>${mineOut.length && canAdd ? `<div class="pl-list pty-pick">${mineOut.map(c => charRow(c, 'add', 'Add')).join('')}</div>` : ''}
+          <div class="pw-btns">${IS_ADMIN ? '<button class="btn" id="pt-addany">Add anyone’s character…</button>' : ''}<button class="btn" id="pt-addnew">+ Make a new character for this party</button></div>` : ''}`;
+      foot = P.inv ? `<span class="grow"></span><button class="btn gold" id="pt-copy2">Copy invite link</button>` : '';
+    } else if (SEC === 'run') {
+      const dmMe = P.dm === EMAIL || IS_ADMIN;
+      body = `<h3>Who runs it</h3><p class="hub-hint">The DM and co-DMs can open every sheet in the party, send things to the characters and invite players. Only the DM changes who runs it.</p>
         <div class="pty-runrow"><span>DM</span><b>${esc(dmLabel(P))}</b>${dmMe ? '<button class="btn sm" id="pt-dm">Change DM…</button>' : ''}</div>
-        <div class="pty-runrow"><span>Co-DMs</span><span class="pty-mgrs">${(P.mgrs || []).map(m => `<span class="pty-mgr">${esc(m === EMAIL ? 'You' : H.nameOf(m))}${dmMe ? ` <button class="linkbtn" data-unmgr="${esc(m)}" aria-label="Remove co-DM">×</button>` : ''}</span>`).join('') || '<small class="hub-hint">None — co-DMs can do everything the DM can, except change who runs the party.</small>'}</span>${dmMe ? '<button class="btn sm" id="pt-mgr">Add a co-DM…</button>' : ''}</div></section>` : ''}
-      <section class="pty-sec pty-foot">${mineIn.length && !run ? `<button class="btn ghost" id="pt-leave">Leave the party</button>` : ''}${!run && !mineIn.length && inParty && P.dm !== EMAIL ? `<button class="btn ghost" id="pt-off">Remove it from my list</button>` : ''}${(P.mgrs || []).includes(EMAIL) && P.dm !== EMAIL ? `<button class="btn ghost" id="pt-off">Stop being a co-DM</button>` : ''}${dmMe ? `<button class="btn red" id="pt-del">Delete the party…</button>` : ''}</section>`;
+        <div class="pty-runrow"><span>Co-DMs</span><span class="pty-mgrs">${(P.mgrs || []).map(m => `<span class="pty-mgr">${esc(m === EMAIL ? 'You' : H.nameOf(m))}${dmMe ? ` <button class="linkbtn" data-unmgr="${esc(m)}" aria-label="Remove co-DM">×</button>` : ''}</span>`).join('') || '<small class="hub-hint">None yet</small>'}</span>${dmMe ? '<button class="btn sm" id="pt-mgr">Add a co-DM…</button>' : ''}</div>`;
+      foot = `${dmMe ? '<button class="btn red" id="pt-del">Delete the party…</button>' : ''}${(P.mgrs || []).includes(EMAIL) && P.dm !== EMAIL ? '<button class="btn" id="pt-off">Stop being a co-DM</button>' : ''}`;
+    } else if (SEC === 'mine') {
+      body = `<h3>Your characters</h3>${mineIn.length ? `<div class="pl-list">${mineIn.map(id => { const c = CARDS[id] || {}; return `<div class="pl-row pty-prow pty-static"><span class="pm-pic pm-nopic sm">${esc(initials(c.name || '?'))}</span><span class="pty-ct"><b>${esc(c.name || 'Your character')}</b><small>${esc([c.race, c.cls].filter(Boolean).join(' · '))}</small></span><button class="linkbtn" data-pm="rm" data-id="${esc(id)}">Leave</button></div>`; }).join('')}</div>` : '<p class="hub-hint">None of your characters is in this party.</p>'}
+        ${canAdd && mineOut.length ? `<h4 class="pw-h4">Bring another character</h4><div class="pl-list pty-pick">${mineOut.map(c => charRow(c, 'add', 'Bring')).join('')}</div>` : ''}
+        ${canAdd ? '<div class="pw-btns"><button class="btn" id="pt-addnew">+ Make a new character for this party</button></div>' : ''}`;
+      foot = mineIn.length ? '<button class="btn" id="pt-leave">Leave the party</button>' : '<button class="btn" id="pt-off">Remove it from my list</button>';
+    }
+    // A redraw keeps whatever was typed in the invite box.
+    const typed = root.querySelector('#pt-inv-e'), tv = typed ? typed.value : '', hadFocus = typed && document.activeElement === typed;
+    const el = shell({ title, sub, steps, on: SEC, body, foot });
+    if (tv && el.querySelector('#pt-inv-e')) { el.querySelector('#pt-inv-e').value = tv; if (hadFocus) el.querySelector('#pt-inv-e').focus(); }
     wirePage(el);
   }
-  const fail = (x, what) => toast(x && x.code === 'permission-denied' ? 'You can’t do that in this party (or the new database rules still need publishing).' : 'Couldn’t ' + what + ': ' + ((x && x.message) || x));
+  const fail = (x, what) => toast(x && x.code === 'permission-denied' ? 'You can’t do that in this party.' : 'Couldn’t ' + what + ': ' + ((x && x.message) || x));
   function wirePage(el) {
-    const $1 = s => el.querySelector(s), on = (s, f) => { const b = $1(s); if (b) b.onclick = f; };
+    const $1 = s => root.querySelector(s), on = (s, f) => { const b = $1(s); if (b) b.onclick = f; };
+    root.querySelectorAll('[data-pstep]').forEach(b => b.onclick = () => { SEC = b.dataset.pstep; history.replaceState(null, '', URLS.party(PID) + (SEC === 'chars' ? '' : (URLS.party(PID).includes('?') ? '&' : '?') + 's=' + SEC)); paint(); scrollTo(0, 0); });
     on('#pt-ren', () => askText('Rename the party', P.name || '', 60, async v => { await PC.doc(PID).update({ name: v, updatedAt: Date.now() }); if (P.inv) IC.doc(P.inv).set({ p: PID, name: v, dm: P.dm, dmName: P.dmName || '', at: Date.now() }).catch(() => {}); }));
-    on('#pt-copy', async () => { const u = $1('#pt-link'), b = $1('#pt-copy'); try { await navigator.clipboard.writeText(u.value); b.textContent = 'Copied'; } catch (x) { u.select(); b.textContent = 'Selected'; } setTimeout(() => { b.textContent = 'Copy link'; }, 1600); });
-    on('#pt-relink', async () => { const t = ptyCode(); try { await IC.doc(t).set({ p: PID, name: P.name || '', dm: P.dm, dmName: P.dmName || '', at: Date.now() }); if (P.inv) await IC.doc(P.inv).delete().catch(() => {}); await PC.doc(PID).update({ inv: t, updatedAt: Date.now() }); toast(P.inv ? 'New link made — the old one no longer works.' : 'Invite link is on.'); } catch (x) { fail(x, 'make a link'); } });
-    on('#pt-unlink', async () => { try { const t = P.inv; await PC.doc(PID).update({ inv: '', updatedAt: Date.now() }); if (t) await IC.doc(t).delete().catch(() => {}); toast('Invite link turned off.'); } catch (x) { fail(x, 'turn the link off'); } });
-    const f = $1('#pt-inv-f'); if (f) { H.peoplePicker($1('#pt-inv-e')); f.onsubmit = async e => { e.preventDefault(); const em = $1('#pt-inv-e').value.trim().toLowerCase();
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { toast('Type an email address.'); return; }
-      try { await PC.doc(PID).update({ invited: FV.arrayUnion(em), updatedAt: Date.now() }); pgLog('party_invite', { target: PID, tName: P.name, detail: em }); toast('Invited ' + em + ' — it shows on their characters page.'); } catch (x) { fail(x, 'invite them'); } }; }
-    el.querySelectorAll('[data-uninv]').forEach(b => b.onclick = async () => { try { await PC.doc(PID).update({ invited: FV.arrayRemove(b.dataset.uninv) }); } catch (x) { fail(x, 'cancel it'); } });
+    wireInvite(el, P, null);
+    on('#pt-copy2', () => { const b = $1('#pt-copy'); if (b) b.click(); const b2 = $1('#pt-copy2'); if (b2) { b2.textContent = 'Copied'; setTimeout(() => { b2.textContent = 'Copy invite link'; }, 1600); } });
     el.querySelectorAll('[data-add]').forEach(b => b.onclick = async () => { const c = myChars().find(x => x.id === b.dataset.add); if (!c) return; b.disabled = true; b.querySelector('.pty-go').textContent = 'Adding…';
-      try { await ptyJoin(fs, EMAIL, PID, c.id, P.inv || '', { name: c.name || '', race: c.race || '', cls: c.cls || '', level: c.level || 0, thumb: c.thumb || '', player: H.myName(), path: c.path || '' }); toast((c.name || 'Your character') + ' joined the party.'); } catch (x) { b.disabled = false; fail(x, 'add it'); } });
-    on('#pt-addnew', () => { try { sessionStorage.setItem('pg-join', JSON.stringify({ p: PID, t: P.inv || '', name: P.name || '', at: Date.now() })); } catch (e) {} pgGo(URLS.newChar(G)); });
+      try { await ptyJoin(fs, EMAIL, PID, c.id, P.inv || '', cardOf(c)); toast((c.name || 'Your character') + ' joined the party.'); } catch (x) { b.disabled = false; b.querySelector('.pty-go').textContent = 'Add'; fail(x, 'add it'); } });
+    on('#pt-addnew', () => makeFor(P, P.inv || ''));
     on('#pt-addany', () => adminAddChar());
     on('#pt-all', () => sendDialog(null));
     on('#pt-dm', () => pickPerson('Who’s the DM?', 'They run the party. You stay on as a co-DM (you can step down later).', async em => {
@@ -3638,16 +3863,17 @@ function partyModule(H) {
     on('#pt-mgr', () => pickPerson('Add a co-DM', 'Co-DMs can open every sheet in the party, send things to the characters and invite players.', async em => { await PC.doc(PID).update({ mgrs: FV.arrayUnion(em), people: FV.arrayUnion(em), updatedAt: Date.now() }); toast(H.nameOf(em) + ' is a co-DM.'); }));
     el.querySelectorAll('[data-unmgr]').forEach(b => b.onclick = async () => { const em = b.dataset.unmgr, keep = Object.values(CARDS).some(c => c.owner === em);
       try { await PC.doc(PID).update(Object.assign({ mgrs: FV.arrayRemove(em), updatedAt: Date.now() }, keep ? {} : { people: FV.arrayRemove(em) })); } catch (x) { fail(x, 'remove them'); } });
-    on('#pt-leave', () => { const mine = (P.chars || []).filter(id => (CARDS[id] || {}).owner === EMAIL); confirmBox(`Leave ${esc(P.name || 'the party')}?`, `${mine.length > 1 ? 'Your characters leave' : 'Your character leaves'} the party. You can join again with an invite link.`, 'Leave', async () => { for (const id of mine) await ptyLeave(fs, EMAIL, PID, id, { owner: EMAIL }); pgLog('party_leave', { target: PID, tName: P.name }); pgGo(URLS.hub(G)); }); });
-    on('#pt-off', async () => { try { await PC.doc(PID).update({ people: FV.arrayRemove(EMAIL), mgrs: FV.arrayRemove(EMAIL), invited: FV.arrayRemove(EMAIL), updatedAt: Date.now() }); pgGo(URLS.hub(G)); } catch (x) { fail(x, 'do that'); } });
-    on('#pt-del', () => deleteParty(P, () => pgGo(URLS.hub(G))));
+    on('#pt-leave', () => { const mine = (P.chars || []).filter(id => (CARDS[id] || {}).owner === EMAIL); confirmBox(`Leave ${esc(P.name || 'the party')}?`, `${mine.length > 1 ? 'Your characters leave' : 'Your character leaves'} the party. You can join again with an invite link.`, 'Leave', async () => { for (const id of mine) await ptyLeave(fs, EMAIL, PID, id, { owner: EMAIL }); pgLog('party_leave', { target: PID, tName: P.name }); pgGo(URLS.parties(G)); }); });
+    on('#pt-off', async () => { try { await PC.doc(PID).update({ people: FV.arrayRemove(EMAIL), mgrs: FV.arrayRemove(EMAIL), invited: FV.arrayRemove(EMAIL), updatedAt: Date.now() }); pgGo(URLS.parties(G)); } catch (x) { fail(x, 'do that'); } });
+    on('#pt-del', () => deleteParty(P, () => pgGo(URLS.parties(G))));
     el.querySelectorAll('.hc-dots').forEach(b => b.onclick = e => { e.stopPropagation(); const w = b.parentElement, o = !w.classList.contains('on'); el.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')); w.classList.toggle('on', o); });
     el.querySelectorAll('[data-pm]').forEach(b => b.onclick = () => { const id = b.dataset.id, c = CARDS[id] || {}; const m = b.closest('.hc-menu'); if (m) m.classList.remove('on');
       if (b.dataset.pm === 'send') sendDialog(id);
-      if (b.dataset.pm === 'open') { const a = el.querySelector(`.pty-card[data-cid="${id}"] a.hc-main`); if (a) pgGo(a.href); }
-      if (b.dataset.pm === 'rm') confirmBox(c.owner === EMAIL && !canRun(P) ? `Leave ${esc(P.name || 'the party')}?` : `Remove ${esc(c.name || 'this character')}?`, 'It leaves the party: the others no longer see it, and nothing more can be sent to it. It isn’t deleted.', c.owner === EMAIL && !canRun(P) ? 'Leave' : 'Remove',
-        async () => { await ptyLeave(fs, EMAIL, PID, id, { owner: c.owner, asMgr: c.owner !== EMAIL, admin: IS_ADMIN }); pgLog('party_remove', { target: PID, tName: P.name, detail: c.name || id }); toast((c.name || 'The character') + ' left the party.'); }); });
+      if (b.dataset.pm === 'open') pgGo(hrefOf(id, c));
+      if (b.dataset.pm === 'rm') { const self = c.owner === EMAIL && !canRun(P); confirmBox(self ? `Leave ${esc(P.name || 'the party')}?` : `Remove ${esc(c.name || 'this character')}?`, 'It leaves the party: the others no longer see it, and nothing more can be sent to it. The character isn’t deleted.', self ? 'Leave' : 'Remove',
+        async () => { await ptyLeave(fs, EMAIL, PID, id, { owner: c.owner, asMgr: c.owner !== EMAIL, admin: IS_ADMIN }); pgLog('party_remove', { target: PID, tName: P.name, detail: c.name || id }); toast((c.name || 'The character') + ' left the party.'); }); } });
   }
+  document.addEventListener('click', e => { if (!e.target.closest || e.target.closest('.hc-menu')) return; root.querySelectorAll('.pw .hc-menu.on').forEach(x => x.classList.remove('on')); });
   function askText(title, val, max, save) {
     modal.innerHTML = `<div class="hub-card"><h2>${esc(title)}</h2><form id="at-f" class="who-f"><input id="at-n" maxlength="${max}" value="${esc(val)}" required></form><div class="row"><button class="btn ghost" id="at-x">Cancel</button><button class="btn gold" id="at-ok">Save</button></div></div>`;
     modal.classList.add('on'); const inp = modal.querySelector('#at-n'); setTimeout(() => { inp.focus(); inp.select(); }, 30);
@@ -3769,7 +3995,7 @@ function partyModule(H) {
   }
 
   listen();
-  return { paneHTML, count, wirePane, partyPage, joinPage, adminTab, refresh: () => paint() };
+  return { paneHTML, count, wirePane, partyPage, joinPage, adminTab, refresh: () => paint(), newParty: () => pgGo(URLS.party('new')) };
 }
 
 </script>

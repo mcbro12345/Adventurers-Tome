@@ -24,7 +24,10 @@ window.partyCard = () => {
     fx: fxActive().filter(e => !e.ally && e.self !== false).map(e => e.name).slice(0, 14) };
 };
 let PTY_RT = null;
-window.onPartyChange = () => { clearTimeout(PTY_RT); PTY_RT = setTimeout(() => { if (!S.created) return; if (UI.tab === 'party' && !ptyBusy()) render('party'); else renderTabs(); }, 120); };
+// The party tab is kept current even while another tab is showing (it appears once the party has loaded); while you're
+// typing in it, it waits so the box you're in isn't redrawn under you.
+window.onPartyChange = () => { clearTimeout(PTY_RT); PTY_RT = setTimeout(function go() { if (!S.created) return; const a = document.activeElement;
+  if (a && a.closest && a.closest('#page-party') && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) { PTY_RT = setTimeout(go, 600); return; } render('party'); }, 120); };
 
 // ----- the log of what's been sent and received -----
 function ptyLog(dir, who, text) { S.ptyLog = [{ at: Date.now(), dir, who: String(who || '').slice(0, 80), text: String(text || '').slice(0, 300) }].concat(S.ptyLog || []).slice(0, 60); }
@@ -75,16 +78,18 @@ function ptyCardHTML(m) {
 }
 function renderParty() {
   const pg = $('#page-party'); if (!pg) return;
-  if (!ptyOn()) { pg.innerHTML = `<div class="panel" ${PID('party')}><h2>Party</h2><p class="hint">This character isn’t in a party. Your DM can send you an invite link — or make your own party from your characters page.</p></div>`; return; }
+  // Not part of the panel layout (Edit layout never moves or hides it): the tab only exists while you're in a party.
+  if (!ptyOn()) { pg.innerHTML = ''; return; }
   const P = PTYX().info(), ms = ptyMembers(), act = ptyAct(), abil = act ? ptyAbilities() : [], auras = abil.filter(a => a.def.kind === 'aura');
-  pg.innerHTML = `<div class="panel" ${PID('party')}>
-      <h2><span class="grow">${esc(P.name)}</span>${act && ms.length > 1 ? '<button class="btn sm" data-pa="cast" data-id="">Cast on several…</button><button class="btn sm" data-pa="ability" data-id="">Ability on several…</button>' : ''}<a class="btn sm" href="${esc(P.url)}" target="_top">Party page</a></h2>
-      <p class="hint">DM ${esc(P.dmName || '')}${act ? ' · What you do here lands on their sheet straight away.' : ' · You’re looking at this sheet as the DM.'}</p>
-      ${ms.length ? '' : '<p class="hint">Nobody else has joined yet.</p>'}</div>
-    ${ms.length ? `<div class="ptym-grid">${ms.map(ptyCardHTML).join('')}</div>` : ''}
-    ${auras.length ? `<div class="panel" ${PID('partyauras')}><h2>Your auras</h2><p class="hint">Turn on who is close enough to get it (they keep it until you turn it off, or you drop to 0 HP).</p>${auras.map(a => { const on = (S.ptyAuras || {})[a.name] || [];
-      return `<div class="ptya"><b>${esc(a.name)}</b><span class="hint">${esc(ptyFormula(a.def.label || '') || a.def.text || '')}</span><div class="ptya-who">${ms.map(m => `<label class="checkline"><input type="checkbox" data-aura="${esc(a.name)}" data-id="${esc(m.id)}"${on.includes(m.id) ? ' checked' : ''}> ${esc(m.name)}</label>`).join('')}</div></div>`; }).join('')}</div>` : ''}
-    <div class="panel" ${PID('partylog')}><h2>Party log</h2>${(S.ptyLog || []).length ? `<div class="ptylog">${S.ptyLog.slice(0, 30).map(l => `<div class="ptyl ${l.dir}"><span class="ptyl-d">${l.dir === 'in' ? '⬇' : '⬆'}</span><span class="ptyl-t">${esc(l.text)}<small>${l.dir === 'in' ? 'from ' : 'to '}${esc(l.who)} · ${esc(ptyAgo(l.at))}</small></span></div>`).join('')}</div>` : '<p class="hint">What you send and receive shows up here.</p>'}</div>`;
+  const n = ms.length + 1, dm = P.mgr ? 'You' : (P.dmName || 'the DM');
+  const head = `<div class="panel ptyhead"><div class="ptyh"><span class="ptyh-ic" aria-hidden="true">${TAB_ICON.party}</span><div class="ptyh-t"><b>${esc(P.name)}</b><span>DM ${esc(dm)} · ${n} character${n === 1 ? '' : 's'}${act ? '' : ' · you’re viewing this sheet'}</span></div>
+      <div class="ptyh-btns">${act && ms.length > 1 ? '<button class="btn sm" data-pa="cast" data-id="">Cast on several…</button><button class="btn sm" data-pa="ability" data-id="">Ability on several…</button>' : ''}<a class="btn sm" href="${esc(P.url)}" target="_top">Party page</a></div></div>
+      ${act && ms.length ? '<p class="hint ptyh-hint">Healing, items, spells and abilities you send land on their sheet straight away (or the next time it’s opened).</p>' : ''}</div>`;
+  const cards = ms.length ? `<div class="ptym-grid">${ms.map(ptyCardHTML).join('')}</div>` : `<div class="panel"><p class="hint" style="margin:0">Nobody else has joined yet. Your DM can share the party’s invite link from the party page.</p></div>`;
+  const aurasP = auras.length ? `<div class="panel ptyauras"><h2>Your auras</h2><p class="hint">Tick who’s close enough to get it. They keep it until you untick them, or you drop to 0 HP.</p>${auras.map(a => { const on = (S.ptyAuras || {})[a.name] || [];
+      return `<div class="ptya"><b>${esc(a.name)}</b><span class="hint">${esc(ptyFormula(a.def.label || '') || a.def.text || '')}</span><div class="ptya-who">${ms.map(m => `<label class="checkline"><input type="checkbox" data-aura="${esc(a.name)}" data-id="${esc(m.id)}"${on.includes(m.id) ? ' checked' : ''}> ${esc(m.name)}</label>`).join('')}</div></div>`; }).join('')}</div>` : '';
+  const logP = `<div class="panel ptylogp"><h2>Party log</h2>${(S.ptyLog || []).length ? `<div class="ptylog">${S.ptyLog.slice(0, 30).map(l => `<div class="ptyl ${l.dir}"><span class="ptyl-d" aria-label="${l.dir === 'in' ? 'Received' : 'Sent'}">${l.dir === 'in' ? '↓' : '↑'}</span><span class="ptyl-t">${esc(l.text)}<small>${l.dir === 'in' ? 'from ' : 'to '}${esc(l.who)} · ${esc(ptyAgo(l.at))}</small></span></div>`).join('')}</div>` : '<p class="hint" style="margin:0">What you send and receive shows up here.</p>'}</div>`;
+  pg.innerHTML = `<div class="ptytab">${head}${cards}<div class="ptyfoot${aurasP ? '' : ' one'}">${aurasP}${logP}</div></div>`;
 }
 document.addEventListener('change', e => { const t = e.target; if (!t.dataset || t.dataset.aura == null) return; ptyAura(t.dataset.aura, t.dataset.id, t.checked); });
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-pa]'); if (!b || e.target.closest('#wizard')) return; e.preventDefault();

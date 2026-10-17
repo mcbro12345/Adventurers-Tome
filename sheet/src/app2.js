@@ -403,12 +403,13 @@ function renderVitals() {
 const TABS0 = [['core', 'Core'], ['combat', 'Combat'], ['spells', 'Spells'], ['features', 'Features'], ['inventory', 'Inventory'], ['infusions', 'Infusions'], ['companions', 'Creatures'], ['party', 'Party'], ['story', 'Story'], ['notes', 'Notes']];
 function tabOrder() {
   const all = TABS0.concat(ctabs().map(t => [t.key, t.name])), L = (S.layout && S.layout.tabs) || [], keys = all.map(t => t[0]);
-  return L.filter(k => keys.includes(k)).concat(keys.filter(k => !L.includes(k))).map(k => all.find(t => t[0] === k));
+  // The Party tab only exists while the character is in a party (not even as a hidden tab in Edit layout).
+  return L.filter(k => keys.includes(k)).concat(keys.filter(k => !L.includes(k))).map(k => all.find(t => t[0] === k)).filter(t => t[0] !== 'party' || ptyOn());
 }
 // Tabs and panels a character has no use for hide themselves (no spellcasting → no Spells tab or slot panels; no Infuse Item → no Infusions tab).
 // Edit layout can still show them: that choice is kept in layout.shownTabs / layout.shown.
 const noSpells = () => !casters().length && !(S.spells || []).length && !pact();
-const tabAutoHidden = k => (k === 'infusions' && clsLv('artificer') < 2) || (k === 'spells' && noSpells()) || (k === 'party' && !ptyOn());
+const tabAutoHidden = k => (k === 'infusions' && clsLv('artificer') < 2) || (k === 'spells' && noSpells());
 // No slots at all (no casting class, pact or stored spells): the Spell Slots panels step aside and Active Spells takes the room.
 const noSlots = () => !casters().length && !pact() && ![0, 1, 2, 3, 4, 5, 6, 7, 8].some(k => slotMax(k) > 0) && !(S.spells || []).some(s => s.usesOnly);
 const panelAutoHidden = id => (['slots', 'activefx'].includes(id) && noSpells()) || (id === 'slots' && noSlots());
@@ -430,7 +431,7 @@ const TAB_ICON = {
 };
 function renderTabs() {
   const ed = !!UI.editLayout, tabs = tabOrder();
-  if (tabHidden(UI.tab) && !ed) UI.tab = (tabs.find(t => !tabHidden(t[0])) || tabs[0])[0];
+  if ((tabHidden(UI.tab) && !ed) || !tabs.some(t => t[0] === UI.tab)) UI.tab = (tabs.find(t => !tabHidden(t[0])) || tabs[0])[0];
   document.documentElement.dataset.tab = UI.tab;
   $('#tabs').innerHTML = tabs.map(([k, t], j) => {
     const hid = tabHidden(k); if (hid && !ed) return '';
@@ -438,6 +439,7 @@ function renderTabs() {
     return `<div class="tabwrap${hid ? ' hid' : ''}" data-tabkey="${k}">${ed ? '<span class="tgrip" data-handle="tab" title="Drag to reorder">⠿</span>' : ''}<button class="tab${UI.tab === k ? ' on' : ''}" role="tab" aria-selected="${UI.tab === k}" data-act="tab" data-tab="${k}"><span class="ticon" aria-hidden="true">${TAB_ICON[k] || (isCustomTab(k) ? `<span class="cticon">${esc((ctabs().find(t => t.key === k) || {}).icon || '★')}</span>` : TAB_ICON.notes)}</span><span class="tlabel">${esc(label)}</span>${k === 'companions' && (S.companions.length || S.form) ? ` <span class="tabcount">${S.companions.length + (S.form ? 1 : 0)}</span>` : ''}</button>${ed ? `<div class="menu tabmenu"><button class="pmenu" data-act="menu" title="Tab options">⋯</button><div class="menu-list"><button data-act="tabrename" data-k="${k}">Rename tab</button><button data-act="tabhide" data-k="${k}">${hid ? 'Show tab' : 'Hide tab'}</button><button data-act="tabmove" data-k="${k}" data-d="-1" ${j ? '' : 'disabled'}>Move left</button><button data-act="tabmove" data-k="${k}" data-d="1" ${j < tabs.length - 1 ? '' : 'disabled'}>Move right</button>${isCustomTab(k) ? `<button data-act="ctabdel" data-k="${k}">Delete tab</button>` : ''}</div></div>` : ''}</div>`;
   }).join('') + '<span class="tab-ind" aria-hidden="true"></span>';
   tabOrder().forEach(([k]) => { const pg = $('#page-' + k); if (pg) pg.classList.toggle('on', UI.tab === k); });
+  if (UI.tab !== 'party' && $('#page-party')) $('#page-party').classList.remove('on');
   slideTabInd();
 }
 // The highlight under the selected tab slides from the previous tab to the new one.

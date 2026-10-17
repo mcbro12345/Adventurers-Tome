@@ -2819,3 +2819,22 @@ html .bonusatk table.mini td .bwait { display: block; font-size: .7rem !importan
 .ptycoins { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
 .ptycast { max-height: 60vh; overflow-y: auto; }
 html.mobile .ptym-grid { grid-template-columns: 1fr; }
+
+/* Party tab (outside the panel layout): header, member cards, auras and the log */
+.ptytab { display: flex; flex-direction: column; gap: 14px; }
+.ptytab > .panel, .ptytab .ptyfoot > .panel { margin: 0; }
+.ptyh { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.ptyh-ic { flex: none; width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; background: var(--gold-soft); color: var(--gold-ink); border: 1px solid var(--gold); }
+.ptyh-ic svg { width: 22px; height: 22px; }
+.ptyh-t { flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: 2px; }
+.ptyh-t b { font-size: 1.25rem; line-height: 1.2; }
+.ptyh-t span { color: var(--slate); font-size: .85rem; }
+.ptyh-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.ptyh-btns a.btn { text-decoration: none; }
+.ptyh-hint { margin: 10px 0 0; }
+.ptym-grid { margin-bottom: 0; }
+.ptyfoot { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.ptyfoot.one { grid-template-columns: 1fr; }
+html.mobile .ptyfoot { grid-template-columns: 1fr; }
+html.mobile .ptyh-btns { width: 100%; } html.mobile .ptyh-btns .btn { flex: 1; text-align: center; }
+.ptyl-d { background: var(--line); color: var(--soft); font-weight: 700; }
