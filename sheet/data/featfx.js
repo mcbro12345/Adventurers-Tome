@@ -420,6 +420,11 @@
     Swamp: [['Darkness', "Melf's Acid Arrow"], ['Water Walk', 'Stinking Cloud'], ['Freedom of Movement', 'Locate Creature'], ['Insect Plague', 'Scrying']],
     Underdark: [['Spider Climb', 'Web'], ['Gaseous Form', 'Stinking Cloud'], ['Greater Invisibility', 'Stone Shape'], ['Cloudkill', 'Insect Plague']] };
   DND.options.landCircle = { label: 'Circle Spells land', list: Object.entries(LAND).map(([k, v]) => [k, 'Always prepared: ' + v.map(x => x.join(', ')).join('; ') + '.', 'Circle of the Land', { spellsAt: { 3: v[0], 5: v[1], 7: v[2], 9: v[3] } }]) };
+  // PHB ranger: Favored Enemy (1st, 6th, 14th) and Natural Explorer terrains (1st, 6th, 10th)
+  const FE = ['Aberrations', 'Beasts', 'Celestials', 'Constructs', 'Dragons', 'Elementals', 'Fey', 'Fiends', 'Giants', 'Monstrosities', 'Oozes', 'Plants', 'Undead', 'Humanoids (two races)'];
+  DND.options.favoredEnemy = { label: 'Favored Enemy', list: FE.map(t => [t, `Advantage on Survival checks to track ${t.replace(' (two races)', ' of the two races you pick')} and on INT checks to recall facts about them.`, 'Ranger', { passive: { advNote: `Survival to track, and INT checks to recall info, vs ${t}` } }]) };
+  const FT = ['Arctic', 'Coast', 'Desert', 'Forest', 'Grassland', 'Mountain', 'Swamp', 'Underdark'];
+  DND.options.favoredTerrain = { label: 'Favored Terrain', list: FT.map(t => [t, `Double proficiency on INT/WIS checks about it (if proficient); your group isn't slowed by difficult terrain or lost except by magic; stay alert while doing other things; stealthy at normal pace when alone; forage double food; learn more when tracking.`, 'Ranger', {}]) };
   DND.options.hunterPrey = { label: "Hunter's Prey", list: [
     ['Colossus Slayer', 'Once per turn, +1d8 damage to a creature below its max HP.', 'Hunter', { col: 'action', roll: '1d8', rollNote: 'extra damage (target below max HP)' }],
     ['Giant Killer', 'Reaction: attack a Large or larger creature within 5 ft that attacks you.', 'Hunter', { col: 'reaction' }],

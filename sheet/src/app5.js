@@ -7,7 +7,7 @@ function spellCI(sp) {
 }
 
 // ---------- Rebuild automatic features, spells and attacks ----------
-const PICK_OWNER = { fightingStyle: ['fighter', 'paladin', 'ranger', 'rangertce'], maneuver: ['fighter'], metamagic: ['sorcerer'], invocation: ['warlock'], pactBoon: ['warlock'], infusion: ['artificer'], arcaneShot: ['fighter'], rune: ['fighter'] };
+const PICK_OWNER = { fightingStyle: ['fighter', 'paladin', 'ranger', 'rangertce'], maneuver: ['fighter'], metamagic: ['sorcerer'], invocation: ['warlock'], pactBoon: ['warlock'], infusion: ['artificer'], arcaneShot: ['fighter'], rune: ['fighter'], favoredEnemy: ['ranger'], favoredTerrain: ['ranger'] };
 function rebuildAuto() {
   const old = {}; S.features.forEach(f => { if (f.auto) old[f.key] = f; });
   const out = [];
@@ -143,7 +143,7 @@ function choiceOptions(def, ctx) {
     case 'expertise': return (Array.isArray(def.from) ? def.from : skills.concat(["Thieves' tools"])).map(x => [x, x]);
     case 'element': return ['acid', 'cold', 'fire', 'lightning', 'thunder'].map(x => [x, x[0].toUpperCase() + x.slice(1)]);
     case 'language': { const k = knownLangs(); return ALL_LANGS().map(x => [x, x, k.has(x.toLowerCase()) ? '(you already speak it)' : '']); }
-    case 'tool': { const t = toolsFrom(def.from); return (def.orLang ? t.concat(ALL_LANGS().map(l => 'Language: ' + l)) : t).map(x => [x, x]); }
+    case 'tool': { const t = toolsFrom(def.from), k = def.orLang ? knownLangs() : null; return t.map(x => [x, x]).concat(def.orLang ? ALL_LANGS().map(l => ['Language: ' + l, 'Language: ' + l, k.has(l.toLowerCase()) ? '(you already speak it)' : '']) : []); }
     case 'asi': return AB.filter(a => !(def.exclude || []).includes(a) && (!def.from || def.from.includes(a))).map(a => [a, `${ABN[a]} +${def.amount || 1}`]);
     case 'feat': return bookSort(DND.feats, f => f[1], f => f[0]).map(f => [f[0], f[0] + (f[2] ? ` (${f[2]})` : '') + (f[1] !== 'PHB' ? ` · ${f[1]}` : '')]);
     case 'cantrip': return DND.spells.filter(s => s.level === 0 && s.classes.includes(def.list)).sort((a, b) => abc(a.name, b.name)).map(s => [s.name, s.name]);
@@ -167,7 +167,11 @@ function choiceUI(CH, id, def, ctx) {
   // Options you don't qualify for stay visible but can't be picked; a pick that stopped qualifying is flagged.
   const others = k => Object.entries(CH).filter(([kk]) => kk !== id && kk.endsWith('.' + def.type)).flatMap(([, v]) => v || []).concat(cur.filter((x, j) => j !== k), typeof LV !== 'undefined' && LV && S.picks ? S.picks[def.type] || [] : []);
   const bad = [];
-  for (let k = 0; k < n; k++) h += `<select class="f" data-ch="${id}" data-k="${k}"><option value="">— choose —</option>${opts.map(([v, t, no]) => { const dup = DND.options[def.type] && others(k).includes(v); if (cur[k] === v && no) bad.push(`${v} ${no}`); return `<option value="${esc(v)}"${cur[k] === v ? ' selected' : ''}${(no || dup) && cur[k] !== v ? ' disabled' : ''}>${esc(t)}${no ? ' — ' + esc(no) : dup ? ' — already taken' : ''}</option>`; }).join('')}</select>`;
+  // Languages: anything picked in another language (or tool-or-language) slot of this wizard counts as taken.
+  const langNames = new Set(ALL_LANGS());
+  const langOthers = k => Object.entries(CH).filter(([kk]) => kk !== id).flatMap(([, v]) => [].concat(v || [])).concat(cur.filter((x, j) => j !== k)).map(x => String(x || '').replace(/^Language: /, '')).filter(x => langNames.has(x));
+  const isLang = def.type === 'language' || def.orLang;
+  for (let k = 0; k < n; k++) h += `<select class="f" data-ch="${id}" data-k="${k}"><option value="">— choose —</option>${opts.map(([v, t, no]) => { const lv = isLang && String(v).replace(/^Language: /, ''); const dup = DND.options[def.type] ? others(k).includes(v) : isLang && langNames.has(lv) && langOthers(k).includes(lv); if (cur[k] === v && no) bad.push(`${v} ${no}`); return `<option value="${esc(v)}"${cur[k] === v ? ' selected' : ''}${(no || dup) && cur[k] !== v ? ' disabled' : ''}>${esc(t)}${no ? ' — ' + esc(no) : dup ? ' — already taken' : ''}</option>`; }).join('')}</select>`;
   h += '</div>' + (bad.length ? `<p class="warn sm">${esc(bad.join('; '))}.</p>` : '');
   if (def.type === 'feat') for (let k = 0; k < n; k++) if (cur[k]) h += featSubUI(CH, id + '.f' + k, cur[k]);
   if (DND.options[def.type]) for (let k = 0; k < n; k++) { const e = cur[k] && DND.options[def.type].list.find(x => x[0] === cur[k]); const g = e && e[3] && e[3].grant; if (g) h += `<div class="featsub">${g.map((gd, j) => choiceUI(CH, `${id}.g${k}.${j}`, gd, ctx)).join('')}</div>`; }

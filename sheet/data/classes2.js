@@ -249,7 +249,7 @@ DND.classes.ranger = {
   sub: { level: 3, label: 'Ranger Archetype' }, asi: [4, 8, 12, 16, 19], gold: '5d4*10', extraAttack: { 5: 2 },
   caster: { type: 'half', ab: 'wis', list: 'R', from: 2, known: [0, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11] },
   kit: ['Scale Mail', 'Shortsword:2', "Dungeoneer's Pack", 'Longbow', 'Arrows:20'],
-  choices: [{ level: 2, type: 'fightingStyle', n: 1 }],
+  choices: [{ level: 1, type: 'favoredEnemy', n: 1 }, { level: 1, type: 'language', n: 1, label: 'Favored Enemy — a language your favored enemy speaks' }, { level: 1, type: 'favoredTerrain', n: 1 }, { level: 2, type: 'fightingStyle', n: 1 }, { level: 6, type: 'favoredEnemy', n: 1 }, { level: 6, type: 'language', n: 1, label: 'Favored Enemy — a language your new favored enemy speaks' }, { level: 6, type: 'favoredTerrain', n: 1 }, { level: 10, type: 'favoredTerrain', n: 1 }, { level: 14, type: 'favoredEnemy', n: 1 }, { level: 14, type: 'language', n: 1, label: 'Favored Enemy — a language your new favored enemy speaks' }],
   features: [
     [1, 'Favored Enemy', 'Choose a favored enemy type (another at 6th and 14th): advantage on Survival to track and INT checks to recall info; learn a language.'],
     [1, 'Natural Explorer', 'Choose a favored terrain (more at 6th and 10th) for travel and tracking benefits.'],
