@@ -258,6 +258,7 @@ function skillVal(sk) {
   if (!p && jack()) v += Math.floor(PB() / 2);
   else if (!p && remarkable() && ['str', 'dex', 'con'].includes(sk.ab)) v += Math.ceil(PB() / 2);
   if (sk.name === 'Perception' && ravenOn()) v += mod('cha');
+  v += fxSkillBonus(sk.name).reduce((t, x) => t + x[1], 0);
   return v;
 }
 const perception = () => { const p = S.skills.find(s => s.name === 'Perception'); return p ? skillVal(p) : mod('wis'); };

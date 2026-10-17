@@ -127,6 +127,7 @@ function fxPassives() {
   S.inventory.forEach(it => { if (!hbItemOn(it)) return; const fx = hbFx(it.hb); if (fx && fx.passive) [].concat(fx.passive).forEach(x => { if (x.effect && !fxActive().some(e => e.name === x.effect)) return; out.push(Object.assign({ src: it.name, item: it.id }, x)); }); });
   _fxpKey = key; _fxp = out; return out;
 }
+const fxSkillBonus = name => fxPassives().filter(p => p.skillBonus && p.skillBonus[name]).map(p => [p.src, N(p.skillBonus[name])]);
 const fxSum = (k, filter) => fxPassives().filter(p => p[k] != null && (!filter || filter(p))).reduce((t, p) => t + (typeof p[k] === 'number' ? p[k] : p[k] === 'attuned' ? attunedCount() : N(evalMax(p[k]))), 0);
 const fxList = k => [...new Set(fxPassives().flatMap(p => [].concat(p[k] || [])))];
 const fxSaveProf = ab => fxPassives().some(p => p.saveProf === 'all' || [].concat(p.saveProf || []).includes(ab));
@@ -387,6 +388,8 @@ function hbFx(hb) {
   if (has('maxHp')) p.maxHp = hbNum(hb.maxHp);
   if (hb.initAdv) p.initAdv = true;
   if (has('skillAdv')) p.skillAdv = hbCSV(hb.skillAdv);
+  // "Nature +1, Stealth 2": flat bonuses to particular skills
+  if (has('skillBonus')) { const sb = {}; String(hb.skillBonus).split(/\s*[,;]\s*/).forEach(x => { const m = /^(.+?)\s*([+-]?\s*\d+)$/.exec(x.trim()); if (!m) return; const k = DND.skills.find(z => z[0].toLowerCase() === m[1].trim().toLowerCase()); if (k) sb[k[0]] = (sb[k[0]] || 0) + N(m[2].replace(/\s/g, '')); }); if (Object.keys(sb).length) p.skillBonus = sb; }
   if (Object.keys(p).length) { if (has('whileEffect')) p.effect = String(hb.whileEffect).trim(); o.passive = p; }
   if (has('roll')) o.roll = String(hb.roll).trim();
   if (has('rollNote')) o.rollNote = String(hb.rollNote);
