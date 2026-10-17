@@ -2853,3 +2853,12 @@ html.mobile .ptyh-btns { width: 100%; } html.mobile .ptyh-btns .btn { flex: 1; t
 
 .ptym-pl { font-size: .82rem; color: var(--soft); margin-top: 1px; }
 .ptym .comp-h2 { align-items: center; }
+.ptym .comp-h2 .grow { min-width: 0; }
+.ptym .cname { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ptym .cname.n2 { font-size: .95rem; } .ptym .cname.n3 { font-size: .8rem; }
+.ptyask-l { display: flex; flex-direction: column; gap: 8px; max-height: 55vh; overflow-y: auto; }
+.ptyask-r { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line2); border-left: 3px solid var(--gold); border-radius: 10px; background: var(--panel2); }
+.ptyask-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ptyask-t span { font-size: .9rem; } .ptyask-t small { font-size: .72rem; color: var(--soft); }
+.ptyask-b { flex: none; display: flex; gap: 6px; }
+@media (max-width: 520px) { .ptyask-r { flex-direction: column; align-items: stretch; } .ptyask-b .btn { flex: 1; } }

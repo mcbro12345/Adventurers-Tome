@@ -29,10 +29,11 @@ service cloud.firestore {
     // The character says which party it's in; the party has to list it too.
     function partyView(id, d) { return d.get('party', '') is string && d.get('party', '') != '' && partyMgr(get(/databases/$(db)/documents/parties/$(d.party)).data)
       && (id in get(/databases/$(db)/documents/parties/$(d.party)).data.chars || id.replace('_p[0-9]+$', '') in get(/databases/$(db)/documents/parties/$(d.party)).data.chars); }
-    // Someone in the same party applying what they sent to a character nobody has open (healing, an item, a spell…):
+    // The party's DM applying what they sent to a character nobody has open (healing, an item, a spell…); other
+    // players' changes wait in the inbox for the character's player to accept:
     // only the character's saved data changes — never who owns it, who it's shared with, or which party it's in.
     function partyWrite(id) { let d = resource.data; return d.get('party', '') is string && d.get('party', '') != ''
-      && me() in get(/databases/$(db)/documents/parties/$(d.party)).data.people
+      && partyMgr(get(/databases/$(db)/documents/parties/$(d.party)).data)
       && (id in get(/databases/$(db)/documents/parties/$(d.party)).data.chars || id.replace('_p[0-9]+$', '') in get(/databases/$(db)/documents/parties/$(d.party)).data.chars)
       && request.resource.data.diff(d).affectedKeys().hasOnly(['data', 'savedAt', 'tab', 'n']); }
     // Everyone in the party can read a party member's saved character (to apply what they send when it isn't open).

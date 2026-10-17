@@ -712,7 +712,7 @@ function wireDie(root) {
       if (!d) return; let data = {}; try { data = JSON.parse(d.data || '{}'); } catch (e) {}
       PTY_Q.push({ kind: d.kind, data, from: d.from || '', fromName: d.fromName || '', by: d.by || '', at: d.at || Date.now(), p: d.p, ref: d.ref || ch.doc.id }); ptyDeliver(); }), () => { inboxOn = false; }); }
   window.PG_PARTY = {
-    on: () => !!PTY, self: C, canAct: () => role() !== 'view',
+    on: () => !!PTY, self: C, email: EMAIL, owner: () => OWNER, canAct: () => role() !== 'view',
     info: () => PTY ? { loading: !!PTY.loading, id: PTY.id, name: PTY.name || 'Party', dm: PTY.dm, dmName: PTY.dmName || PTY.dm, mgr: PTY.dm === EMAIL, url: URLS.party(PTY.id, PTY.name) } : null,
     members: () => PTY ? (PTY.chars || []).filter(id => id !== C).map(id => { const c = PTY_CARDS[id] || {}, l = PTY_LIVE[id]; return Object.assign({ id, name: 'A character' }, !l ? c : Number(l.at) >= Number(c.at || 0) ? Object.assign({}, c, l) : Object.assign({}, l, c)); }) : [],
     me: () => PTY_CARDS[C] || null,
@@ -1926,8 +1926,10 @@ function ptyApplyState(st, m, card) {
   return null; // a saving throw, an attack, a rest or a new form: waits for the player
 }
 // Nobody picked it up: apply it to the saved character (all its documents at once, so nothing is half-written).
-async function ptyDeliverClosed(fs, pid, to, ref) {
+async function ptyDeliverClosed(fs, pid, to, ref, EMAIL, kind) {
   const sh = fs.collection('sheets'), ib = sh.doc(to).collection('inbox').doc(ref);
+  // only the DM's changes are applied to a closed sheet; anything from another player waits for them to accept it
+  if (!['note', 'end'].includes(kind)) { try { const pd = await fs.collection('parties').doc(pid).get(); if (!pd.exists || pd.data().dm !== EMAIL) return; } catch (e) { return; } }
   let card = null; try { const c = await fs.collection('parties').doc(pid).collection('cards').doc(to).get(); card = c.exists ? c.data() : null; } catch (e) {}
   let after = null, mDelta = 0; const fxMax = st => (st.effects || []).reduce((t, e) => t + (e.ally || e.self === false ? 0 : Number(e.maxHp) || 0), 0);
   try { await fs.runTransaction(async tx => { const m0 = await tx.get(ib); if (!m0.exists) return; const m = m0.data(); let data = {}; try { data = JSON.parse(m.data || '{}'); } catch (e) {}
@@ -1950,7 +1952,7 @@ async function ptyDeliverClosed(fs, pid, to, ref) {
 function ptySend(fs, EMAIL, pid, to, kind, data, from, fromName, ref) {
   ref = ref || fs.collection('x').doc().id;
   return fs.collection('sheets').doc(to).collection('inbox').doc(ref).set({ p: pid, ref, from: from || '', fromName: String(fromName || '').slice(0, 80), by: EMAIL, at: Date.now(), kind, data: JSON.stringify(data || {}) })
-    .then(() => { setTimeout(() => ptyDeliverClosed(fs, pid, to, ref), 5000); return ref; });
+    .then(() => { setTimeout(() => ptyDeliverClosed(fs, pid, to, ref, EMAIL, kind), 5000); return ref; });
 }
 // Take back something sent: still waiting → simply removed; already applied → the character undoes exactly what it changed.
 async function ptyRecall(fs, EMAIL, pid, to, ref, from, fromName) {
@@ -2008,10 +2010,12 @@ function partyModule(H) {
   const headHTML = () => { const a = H.myAva(), nm = H.myName();
     return `<div class="wzh"><header class="hub-top">${logoHTML()}<div class="hub-side"><div class="hub-prof"><span class="hp-pic wzh-pic">${avaHTML(nm, EMAIL, a.pic, '', '', a)}</span><div class="hp-txt"><b>${esc(nm)}</b><small>${esc(EMAIL)}</small><div class="hp-row"><button class="linkbtn" data-pw="out">Sign out</button><a class="hub-ctlink" href="${CONTACT}">Contact us</a></div></div></div></div></header><a class="adm-back wzh-back" href="${esc(URLS.parties(G))}">← Adventurer’s Tome</a></div>`; };
   // steps: [[key, label]]; seq = numbered steps you go through in order (later ones can't be clicked yet).
-  function shell({ title, sub, steps, on, body, foot, seq }) {
+  function shell({ title, sub, steps, on, body, foot, seq, inBody }) {
     const idx = Math.max(0, (steps || []).findIndex(s => s[0] === on));
     const pills = steps && steps.length > 1 ? `<div class="pw-steps" role="tablist">${steps.map(([k, t], i) => `<button class="pw-step${k === on ? ' on' : ''}${seq && i < idx ? ' done' : ''}" role="tab" aria-selected="${k === on}" data-pstep="${k}"${seq && i > idx ? ' disabled' : ''}>${seq ? (i + 1) + '. ' : ''}${esc(t)}</button>`).join('')}</div>` : '';
-    root.innerHTML = `<div class="pw${seq ? ' seq' : ''}">${headHTML()}<div class="pw-head"><h2>${title}</h2>${sub ? `<p class="pw-sub">${sub}</p>` : ''}${pills}${seq && steps ? `<div class="pw-now">Step ${idx + 1} of ${steps.length}<b>${esc(steps[idx][1])}</b></div>` : ''}</div>
+    // inBody: the title sits at the top of the card itself (a party's page)
+    if (inBody) { body = `<div class="pw-intitle"><h2>${title}</h2>${sub ? `<p class="pw-sub">${sub}</p>` : ''}</div>${body}`; title = ''; sub = ''; }
+    root.innerHTML = `<div class="pw${seq ? ' seq' : ''}${inBody ? ' inbody' : ''}">${headHTML()}<div class="pw-head">${title ? `<h2>${title}</h2>` : ''}${sub ? `<p class="pw-sub">${sub}</p>` : ''}${pills}${seq && steps ? `<div class="pw-now">Step ${idx + 1} of ${steps.length}<b>${esc(steps[idx][1])}</b></div>` : ''}</div>
       <div class="pw-body">${body}</div>${foot ? `<div class="pw-foot">${foot}</div>` : ''}</div>`;
     wireDie(root);
     const out = root.querySelector('[data-pw="out"]'); if (out) out.onclick = () => H.signOut();
@@ -2140,7 +2144,7 @@ function partyModule(H) {
     const on = [].concat(st ? [st[0]] : [], c.conds || [], Number(c.exh) ? ['Exhaustion ' + Number(c.exh)] : [], c.conc ? ['Concentrating: ' + c.conc] : [], c.fx || []);
     const menu = [run ? ['send', 'Damage, heal or give…'] : null, open ? ['open', 'Open sheet'] : null, run || mine ? ['rm', mine && !run ? 'Leave the party' : 'Remove from the party'] : null].filter(Boolean);
     const pic = c.thumb ? `<img class="pm-pic" src="${esc(c.thumb)}" alt="">` : `<span class="pm-pic pm-nopic">${esc(initials(c.name || '?'))}</span>`;
-    const who = `<span class="pm-txt"><b>${esc(c.name || 'A character')}</b>${c.player ? `<small>${esc(c.player)}${mine ? ' (you)' : ''}</small>` : '<small>Joining…</small>'}</span>`;
+    const nl = String(c.name || '').length, who = `<span class="pm-txt"><b class="${nl > 26 ? 'n3' : nl > 17 ? 'n2' : ''}" title="${esc(c.name || '')}">${esc(c.name || 'A character')}</b>${c.player ? `<small>${esc(c.player)}${mine ? ' (you)' : ''}</small>` : '<small>Joining…</small>'}</span>`;
     const hp = max ? `<div class="pm-hp"><span class="pty-ring" title="${cur} of ${max} HP${Number(c.temp) ? ' (+' + c.temp + ' temporary)' : ''}"><span class="ring-svg">${ring(c.hp, max, c.temp)}</span><b>${cur}</b><small>of ${max}</small>${Number(c.temp) ? `<em class="pm-tmp">+${Number(c.temp)}</em>` : ''}</span>
         ${run ? `<div class="pm-hpq"><input class="pm-q" id="pmq-${esc(id)}" inputmode="numeric" placeholder="Amount" aria-label="Amount for ${esc(c.name || 'them')}">
           <div class="pm-hpb"><button class="pm-hb dmg" data-q="dmg" data-id="${esc(id)}" title="Damage" aria-label="Damage">${PM_IC.dmg}</button><button class="pm-hb heal" data-q="heal" data-id="${esc(id)}" title="Heal" aria-label="Heal">${PM_IC.heal}</button><button class="pm-hb tmp" data-q="temp" data-id="${esc(id)}" title="Temporary HP" aria-label="Temporary HP">${PM_IC.temp}</button></div></div>` : ''}</div>` : '';
@@ -2177,9 +2181,9 @@ function partyModule(H) {
     const invited = run && (P.invited || []).length ? `<h4 class="pw-h4">Invited</h4><div class="pl-list">${P.invited.map(em => `<div class="pl-row pty-invrow"><span class="pty-invwho"><b>${esc(H.nameOf(em))}</b><small>${H.nameOf(em) !== em ? esc(em) + ' · ' : ''}hasn’t answered yet</small></span><button class="linkbtn" data-uninv="${esc(em)}">Cancel</button></div>`).join('')}</div>` : '';
     const body = `${adminNote}<p class="hub-hint">${run ? 'Everyone’s HP, AC and conditions, kept up to date by their sheets. Use <b>Party actions</b> to damage, heal or reward them (everyone at once, or just some), or ⋯ on a character for just them.' : 'Everyone in the party. Hand items over and cast spells on each other from the Party tab on your sheet.'}</p>
       ${ids.length ? `<div class="pm-grid">${ids.map(memberCard).join('')}</div>` : `<p class="pw-empty">No characters yet.${run ? ' Use <b>Add characters</b> to bring some in.' : ''}</p>`}${invited}`;
-    const foot = run ? `${P.dm === EMAIL || IS_ADMIN ? '<button class="btn red" id="pt-del"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg><span class="pw-lg">Delete party…</span><span class="pw-sm">Delete</span></button>' : ''}<span class="grow"></span><button class="btn" id="pt-add"><span class="pw-lg">Add characters</span><span class="pw-sm">Add</span></button>${ids.length ? '<button class="btn gold" id="pt-all"><span class="pw-lg">Party actions…</span><span class="pw-sm">Actions</span></button>' : ''}`
+    const foot = run ? `${P.dm === EMAIL ? '<button class="btn red" id="pt-del"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg><span class="pw-lg">Delete party…</span><span class="pw-sm">Delete</span></button>' : ''}<span class="grow"></span><button class="btn" id="pt-add"><span class="pw-lg">Add characters</span><span class="pw-sm">Add</span></button>${ids.length ? '<button class="btn gold" id="pt-all"><span class="pw-lg">Party actions…</span><span class="pw-sm">Actions</span></button>' : ''}`
       : mineIn.length ? '<button class="btn" id="pt-leave">Leave the party</button>' : inParty ? '<button class="btn" id="pt-off">Remove it from my list</button>' : '';
-    const el = shell({ title, sub, body, foot });
+    const el = shell({ title, sub, body, foot, inBody: true });
     wirePage(el);
   }
   // A party's picture (or its icon). The DM taps it to change it.
@@ -2238,11 +2242,10 @@ function partyModule(H) {
   // ----- Add characters: ones you can see (shared with you, or your own), or ask someone by email -----
   function addHTML(p) {
     const ids = p.chars || [], have = c => ids.includes(c.id);
-    const mine = H.chars().filter(c => c.owner === EMAIL && !have(c)), shared = H.chars().filter(c => c.owner !== EMAIL && !have(c));
-    const row = c => `<button class="pl-row pty-prow" data-add="${esc(c.id)}">${H.pic(c)}<span class="pty-ct"><b>${esc(c.name || 'Unnamed character')}</b><small>${esc([[c.race, c.cls].filter(Boolean).join(' · '), c.owner !== EMAIL ? H.nameOf(c.owner) : ''].filter(Boolean).join(' · ') || 'New character')}</small></span><span class="pty-go">Add</span></button>`;
-    return `<p class="hub-hint">Add a character that’s been shared with you, or invite players with the link or by email: they choose which character to bring (or make a new one) when they accept.</p>
-      <h4 class="pw-h4">Shared with you</h4>${shared.length ? `<div class="pl-list pty-pick">${shared.map(row).join('')}</div>` : '<p class="hub-hint">Nobody has shared a character with you yet.</p>'}
-      ${mine.length ? `<h4 class="pw-h4">Your characters</h4><div class="pl-list pty-pick">${mine.map(row).join('')}</div>` : ''}
+    const list = H.chars().filter(c => !have(c)).sort((a, b) => (a.owner === EMAIL ? 0 : 1) - (b.owner === EMAIL ? 0 : 1) || String(a.name || '').localeCompare(String(b.name || '')));
+    const row = c => `<button class="pl-row pty-prow" data-add="${esc(c.id)}" data-q="${esc((String(c.name || '') + ' ' + (c.owner !== EMAIL ? H.nameOf(c.owner) : '')).toLowerCase())}">${H.pic(c)}<span class="pty-ct"><b>${esc(c.name || 'Unnamed character')}</b><small>${esc([[c.race, c.cls].filter(Boolean).join(' · ') || 'New character', c.owner !== EMAIL ? H.nameOf(c.owner) : 'Yours'].filter(Boolean).join(' · '))}</small></span><span class="pty-go">Add</span></button>`;
+    return `<p class="hub-hint">Add one of your characters or one that’s been shared with you, or invite players with the link or by email: they choose which character to bring (or make a new one) when they accept.</p>
+      <h4 class="pw-h4">Characters</h4>${list.length > 6 ? '<input id="pt-acq" class="ad-search pty-acq" type="search" placeholder="Search characters or players" autocomplete="off">' : ''}${list.length ? `<div class="pl-list pty-pick">${list.map(row).join('')}</div>` : '<p class="hub-hint">No characters to add yet: make one, or ask a player to share theirs with you.</p>'}
       <h4 class="pw-h4">Invite players</h4><div class="pty-linkw">${invLinkHTML(p)}</div>
       <form id="pt-inv-f" class="who-f pl-f sh-f pty-invf"><input id="pt-inv-e" type="email" placeholder="Or invite by email address" autocomplete="off" required><button class="btn gold">Invite</button></form>
       <div class="pty-invl">${(p.invited || []).map(em => `<span class="pty-invd">${esc(em)} <small>invited</small></span>`).join('')}</div>
@@ -2251,6 +2254,7 @@ function partyModule(H) {
   function wireAdd(box, p) {
     const ai = box.querySelector('#pt-addany'); if (ai) ai.onclick = () => adminAddChar(p);
     wireLink(box, p);
+    const aq = box.querySelector('#pt-acq'); if (aq) aq.oninput = () => { const q = aq.value.trim().toLowerCase(); box.querySelectorAll('.pty-pick [data-add]').forEach(r => { r.hidden = !!q && !r.dataset.q.includes(q); }); };
     H.peoplePicker(box.querySelector('#pt-inv-e'));
     box.querySelector('#pt-inv-f').onsubmit = async e => { e.preventDefault(); const inp = box.querySelector('#pt-inv-e'), em = inp.value.trim().toLowerCase();
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { toast('Type an email address.'); return; }

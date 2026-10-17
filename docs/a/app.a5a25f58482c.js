@@ -128,7 +128,7 @@ function setP(path, val) { const ks = path.split('.'); let o = S; for (let i = 0
 // ---------- Undo history ----------
 const HMAX = 300;
 const hkey = () => keyFor(S.id || 'blank') + ':history';
-const TRACK = k => !['savedAt', 'spellFilter', 'macroSeen'].includes(k);
+const TRACK = k => !['savedAt', 'spellFilter', 'macroSeen', 'ptyLog', 'ptyNews'].includes(k);
 let HIST = [], REDO = [], LAST = null, pendingLabel = null;
 function snapAll() { const o = {}; for (const k in S) if (TRACK(k)) o[k] = JSON.stringify(S[k]); return o; }
 function commit() {
@@ -147,6 +147,7 @@ function commit() {
 }
 function applyEntry(e) {
   const inv = { t: e.t, label: e.label, keys: {} };
+  if (e.pty) { inv.pty = e.pty; if (typeof ptyHist === 'function') ptyHist(e.pty); } // things sent to the party: taken back, or sent again
   for (const k in e.keys) { inv.keys[k] = k in S ? JSON.stringify(S[k]) : null; if (e.keys[k] === null) delete S[k]; else S[k] = JSON.parse(e.keys[k]); }
   return inv;
 }
@@ -1591,12 +1592,14 @@ function renderVitals() {
 const TABS0 = [['core', 'Core'], ['combat', 'Combat'], ['spells', 'Spells'], ['features', 'Features'], ['inventory', 'Inventory'], ['infusions', 'Infusions'], ['companions', 'Creatures'], ['party', 'Party'], ['story', 'Story'], ['notes', 'Notes']];
 function tabOrder() {
   const all = TABS0.concat(ctabs().map(t => [t.key, t.name])), L = (S.layout && S.layout.tabs) || [], keys = all.map(t => t[0]);
-  return L.filter(k => keys.includes(k)).concat(keys.filter(k => !L.includes(k))).map(k => all.find(t => t[0] === k));
+  // The Party tab only exists while the character is in a party (not even as a hidden tab in Edit layout), and it's always last.
+  const o = L.filter(k => keys.includes(k)).concat(keys.filter(k => !L.includes(k))).map(k => all.find(t => t[0] === k)).filter(t => t[0] !== 'party');
+  return ptyOn() ? o.concat([all.find(t => t[0] === 'party')]) : o;
 }
 // Tabs and panels a character has no use for hide themselves (no spellcasting → no Spells tab or slot panels; no Infuse Item → no Infusions tab).
 // Edit layout can still show them: that choice is kept in layout.shownTabs / layout.shown.
 const noSpells = () => !casters().length && !(S.spells || []).length && !pact();
-const tabAutoHidden = k => (k === 'infusions' && clsLv('artificer') < 2) || (k === 'spells' && noSpells()) || (k === 'party' && !ptyOn());
+const tabAutoHidden = k => (k === 'infusions' && clsLv('artificer') < 2) || (k === 'spells' && noSpells());
 // No slots at all (no casting class, pact or stored spells): the Spell Slots panels step aside and Active Spells takes the room.
 const noSlots = () => !casters().length && !pact() && ![0, 1, 2, 3, 4, 5, 6, 7, 8].some(k => slotMax(k) > 0) && !(S.spells || []).some(s => s.usesOnly);
 const panelAutoHidden = id => (['slots', 'activefx'].includes(id) && noSpells()) || (id === 'slots' && noSlots());
@@ -1618,7 +1621,7 @@ const TAB_ICON = {
 };
 function renderTabs() {
   const ed = !!UI.editLayout, tabs = tabOrder();
-  if (tabHidden(UI.tab) && !ed) UI.tab = (tabs.find(t => !tabHidden(t[0])) || tabs[0])[0];
+  if ((tabHidden(UI.tab) && !ed) || !tabs.some(t => t[0] === UI.tab)) UI.tab = (tabs.find(t => !tabHidden(t[0])) || tabs[0])[0];
   document.documentElement.dataset.tab = UI.tab;
   $('#tabs').innerHTML = tabs.map(([k, t], j) => {
     const hid = tabHidden(k); if (hid && !ed) return '';
@@ -1626,6 +1629,7 @@ function renderTabs() {
     return `<div class="tabwrap${hid ? ' hid' : ''}" data-tabkey="${k}">${ed ? '<span class="tgrip" data-handle="tab" title="Drag to reorder">⠿</span>' : ''}<button class="tab${UI.tab === k ? ' on' : ''}" role="tab" aria-selected="${UI.tab === k}" data-act="tab" data-tab="${k}"><span class="ticon" aria-hidden="true">${TAB_ICON[k] || (isCustomTab(k) ? `<span class="cticon">${esc((ctabs().find(t => t.key === k) || {}).icon || '★')}</span>` : TAB_ICON.notes)}</span><span class="tlabel">${esc(label)}</span>${k === 'companions' && (S.companions.length || S.form) ? ` <span class="tabcount">${S.companions.length + (S.form ? 1 : 0)}</span>` : ''}</button>${ed ? `<div class="menu tabmenu"><button class="pmenu" data-act="menu" title="Tab options">⋯</button><div class="menu-list"><button data-act="tabrename" data-k="${k}">Rename tab</button><button data-act="tabhide" data-k="${k}">${hid ? 'Show tab' : 'Hide tab'}</button><button data-act="tabmove" data-k="${k}" data-d="-1" ${j ? '' : 'disabled'}>Move left</button><button data-act="tabmove" data-k="${k}" data-d="1" ${j < tabs.length - 1 ? '' : 'disabled'}>Move right</button>${isCustomTab(k) ? `<button data-act="ctabdel" data-k="${k}">Delete tab</button>` : ''}</div></div>` : ''}</div>`;
   }).join('') + '<span class="tab-ind" aria-hidden="true"></span>';
   tabOrder().forEach(([k]) => { const pg = $('#page-' + k); if (pg) pg.classList.toggle('on', UI.tab === k); });
+  if (UI.tab !== 'party' && $('#page-party')) $('#page-party').classList.remove('on');
   slideTabInd();
 }
 // The highlight under the selected tab slides from the previous tab to the new one.
@@ -2182,7 +2186,7 @@ function hbBox(path, hb, kind, key, it, ii) {
   const spells = kind === 'item' ? `<div class="hbsec"><div class="hbt">Spells it lets you cast</div><div class="fc-spells">${(it.spells || []).map((n, j) => `<span class="pchip">${esc(n)}${itemStores(it) && N((SPI(n) || {}).level) > 0 ? ` <select class="isplv" data-isplv="${ii}" data-n="${esc(n)}" aria-label="Level ${esc(n)} is stored at">${[1, 2, 3, 4, 5].filter(L => L >= N((SPI(n) || {}).level)).map(L => `<option value="${L}"${Math.max(N((it.spellLevels || {})[n]), N((SPI(n) || {}).level)) === L ? ' selected' : ''}>${ORD[L - 1]}</option>`).join('')}</select>` : ''}<button data-act="ispdel" data-i="${ii}" data-j="${j}" aria-label="Remove ${esc(n)}">✕</button></span>`).join('') || '<span class="hint">None yet</span>'}
     <input class="f fspadd" list="allspells" data-isp="${ii}" placeholder="+ Add a spell…" aria-label="Add a spell this item casts"><label class="checkline"><input type="checkbox" data-istore="${ii}"${itemStores(it) ? ' checked' : ''}> Stored in it — each is gone once cast (like a Ring of Spell Storing)</label><label class="checkline">${chk(path + '.spellOnce')} Leveled spells once per long rest</label><label class="checkline">${chk(path + '.spellAtWill')} At will (no slot)</label>${fld('Cast with', sel(P + 'spellAb', [['', 'Your spellcasting'], ...AB.map(a => [a, ABN[a]])]))}</div></div>` : '';
   const saved = kind === 'item' && it && (S.customItems || []).some(x => x.name.toLowerCase() === String(it.name || '').toLowerCase());
-  const save = kind === 'item' && it ? `<div class="hbsave"><button class="btn sm gold" data-act="hbsaveitem" data-i="${ii}">${saved ? 'Update saved item' : 'Save to custom items'}</button><span class="hint">${saved ? 'Saved — it’s in the Custom tab of Add an item. Saving again replaces that copy.' : 'Keeps a copy (with all this automation) in the Custom tab of Add an item, for this character.'}</span></div>` : '';
+  const save = kind === 'item' && it ? `<div class="hbsave"><button class="btn sm gold" data-act="hbsaveitem" data-i="${ii}">${saved ? 'Update homebrew item' : 'Save to homebrew items'}</button><span class="hint">${saved ? 'Saved — it’s in the Homebrew tab of Add an item. Saving again replaces that copy.' : 'Keeps a copy (with all this automation) in the Homebrew tab of Add an item, for this character and everyone in their party.'}</span></div>` : '';
   return `<div class="hbbox open">${head}<div class="hbbody">${save}${always}${spells}${use}${atk}<p class="hint">Numbers accept formulas: <code>prof</code>, <code>wis</code>, <code>level</code>, <code>druid</code>, <code>1d6+prof</code>. Separate several entries with commas.</p></div></div>`;
 }
 function spellDatalist() { if (!$('#allspells')) { const dl = document.createElement('datalist'); dl.id = 'allspells'; dl.innerHTML = DND.spells.map(x => `<option value="${esc(x.name)}">`).join(''); document.body.appendChild(dl); } }
@@ -2286,10 +2290,13 @@ function renderInventory() {
     // Only one place to go: the button moves the item straight there (Unequip → Pack when you have no other containers).
     const mv = dests.length === 1 && (it.equipped || bags.length) ? (it.equipped ? `<button class="mvbtn" data-act="moveto" data-i="${i}" data-to="${esc(dests[0][0])}" title="Unequip and put it in your ${esc(dests[0][1])}">Unequip</button>` : `<button class="mvto" data-act="moveto" data-i="${i}" data-to="${esc(dests[0][0])}" title="Move to ${esc(dests[0][1])}" aria-label="Move ${esc(it.name)} to ${esc(dests[0][1])}">⇄</button>`)
       : dests.length && (it.equipped || bags.length) ? `<div class="menu mvmenu"><button class="mvto" data-act="menu" aria-haspopup="true" title="Move to another container" aria-label="Move ${esc(it.name)}">⇄</button><div class="menu-list"><div class="mlabel">Move to</div>${dests.map(([v, t]) => `<button data-act="moveto" data-i="${i}" data-to="${esc(v)}">${esc(t)}</button>`).join('')}</div></div>` : '';
+    // In a party, the same button hands the item to a party member (it leaves your inventory and lands in theirs).
+    const pms = typeof ptyAct === 'function' && ptyAct() ? ptyMembers() : [];
+    const mvP = pms.length ? `<div class="menu mvmenu"><button class="mvto" data-act="menu" aria-haspopup="true" title="Move or give to a party member" aria-label="Move or give ${esc(it.name)}">⇄</button><div class="menu-list">${dests.length && (it.equipped || bags.length) ? `<div class="mlabel">Move to</div>${dests.map(([v, t]) => `<button data-act="moveto" data-i="${i}" data-to="${esc(v)}">${esc(t)}</button>`).join('')}` : ''}<div class="mlabel">Give to</div>${pms.map(m => `<button data-pa="giveto" data-id="${esc(m.id)}" data-i="${i}">${esc(m.name || 'A party member')}</button>`).join('')}</div></div>` : '';
     return `<div class="irow irow2${it.magic ? ' magic' : ''}" data-ii="${i}" data-q="${esc((it.name + ' ' + (it.notes || '') + ' ' + ((it.magic || {}).rarity || '')).toLowerCase())}">
       <div class="iname-row" title="${esc(it.name)}"><span class="idrag" data-drag="${i}" title="Drag to reorder, or into another container" aria-hidden="true">⠿</span>${ta(`inventory.${i}.name`, { rows: 1, cls: 'iname', label: 'Item name' })}${String(it.notes || '').trim() || it.img ? `<button class="notetip" data-tip="${i}" aria-label="Notes for ${esc(it.name)}" title="">ⓘ</button>` : ''}</div>
       <div class="ictl">${invArrows(i)}<div class="qty"><button data-act="qty" data-i="${i}" data-d="-1" aria-label="One fewer">−</button>${inp(`inventory.${i}.qty`, { num: 1, cls: 'qtyin', label: 'Quantity' })}<button data-act="qty" data-i="${i}" data-d="1" aria-label="One more">+</button></div>
-        ${it.equipped ? '' : `<button class="mvbtn eq" data-act="equip" data-i="${i}" title="Equip">Equip</button>`}${mv}
+        ${it.equipped ? '' : `<button class="mvbtn eq" data-act="equip" data-i="${i}" title="Equip">Equip</button>`}${pms.length ? (mv.startsWith('<button class="mvbtn"') ? mv : '') + mvP : mv}
         <span class="grow"></span>
         <button class="icon-btn ibtn${open ? ' on' : ''}" data-act="toggle" data-key="item:${it.id}" title="${open ? 'Close editing' : 'Edit details and notes'}" aria-label="Edit ${esc(it.name)}">${open ? '▴' : '✎'}</button>
         ${del('inventory', i)}</div>
@@ -2562,6 +2569,7 @@ function spellGroup(sp) {
 function spellCastable(sp) {
   if (sp.usesOnly) return N(evalMax(sp.uses && sp.uses.max)) - N(sp.uses && sp.uses.used) > 0;
   const L = N(sp.level); if (!L || sp.atWill) return true;
+  if (sp.ritual) return true; // a ritual never needs a slot
   if (sp.uses && N(sp.uses.max) && N(sp.uses.used) < (evalMax(sp.uses.max) || 0)) return true;
   for (let l = L; l <= 9; l++) if (slotMax(l - 1) > 0 && slotsLeft(l - 1) > 0) return true;
   const pc = pact(); return !!(pc && pc.level >= L && pactLeft() > 0);
@@ -2623,7 +2631,7 @@ function oocHTML(comps) {
   const spells = S.spells.map((sp, i) => [sp, i]).filter(([sp]) => spReady(sp));
   const feats = S.features.map((f, i) => [f, i]).filter(([f]) => !fxHidden(f) && !isStunStrike(f) && (fxIsResource(f) ? featMax(f) != null || fxVisActs(f).length : (featMax(f) != null || f.col || fxOf(f).use || fxOf(f).roll || fxOf(f).target))).sort((a, b) => fxIsResource(b[0]) - fxIsResource(a[0]));
   const featRow = ([f, i]) => { const max = featMax(f), fx = fxOf(f), left = max != null ? Math.max(0, max - N(f.used)) : null;
-    return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(f.name)}</span><button class="notetip" data-tip="${i}" data-tipkind="feat" aria-label="What ${esc(f.name)} does">ⓘ</button>${max != null ? `<span class="pips" data-calc-html="featpips:${i}"></span>` : ''}<span class="grow"></span>${fxIsResource(f) ? '' : `${f.col ? `<span class="itag">${f.col === 'bonus' ? 'Bonus' : f.col[0].toUpperCase() + f.col.slice(1)}</span>` : ''}<button class="btn sm" data-act="usefeat" data-i="${i}" ${left === 0 && !fx.slotRestore ? 'disabled' : ''}>${fx.useLabel || (f.roll || fx.roll ? 'Use & roll' : 'Use')}</button>`}</div>${fxIsResource(f) && fxInfoLine(f) ? `<div class="opt-info">${esc(fxInfoLine(f))}</div>` : ''}${fxVisActs(f).length ? `<div class="fxacts">${fxActsHTML(f, i, null)}</div>` : ''}</div>`; };
+    return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(f.name)}</span><button class="notetip" data-tip="${i}" data-tipkind="feat" aria-label="What ${esc(f.name)} does">ⓘ</button>${max != null ? `<span class="pips" data-calc-html="featpips:${i}"></span>` : ''}<span class="grow"></span>${fxIsResource(f) ? '' : `${f.col ? `<span class="itag">${f.col === 'bonus' ? 'Bonus' : f.col[0].toUpperCase() + f.col.slice(1)}</span>` : ''}<button class="btn sm" data-act="usefeat" data-i="${i}" ${left === 0 && !fx.slotRestore ? 'disabled' : ''}>${fx.useLabel || (f.roll || fx.roll ? 'Use & roll' : 'Use')}</button>${typeof ptyFeatBtn === 'function' ? ptyFeatBtn(f, i) : ''}`}</div>${fxIsResource(f) && fxInfoLine(f) ? `<div class="opt-info">${esc(fxInfoLine(f))}</div>` : ''}${fxVisActs(f).length ? `<div class="fxacts">${fxActsHTML(f, i, null)}</div>` : ''}</div>`; };
   const skills = (S.skills || []).map((sk, i) => `<div class="ooc-sk" title="Roll ${esc(sk.name)}">${rollBtn('skill:' + i, sk.name)}<span>${esc(sk.name)}</span></div>`).join('');
   return `<div class="oocbar panel" ${PID('turnbar')}><div class="grow"><b class="ooc-t">Out of initiative</b><div class="hint">Exploring, talking, resting. Roll initiative to bring back rounds, turns and your action economy.</div></div>
       <button class="btn ghost sm ooc-enter" data-act="entercombat" title="Switch to initiative mode without rolling (the DM already rolled, or you rolled elsewhere)">Initiative mode</button><button class="btn gold big" data-act="startcombat">⚔ Roll Initiative</button></div>
@@ -2653,7 +2661,7 @@ function renderCombat() {
     const max = featMax(f), key = `fopt:${fi}`, open = !m || UI.open[key], fx = fxOf(f), own = f.col === col, info = own ? fxInfoLine(f) : '';
     const useBtn = !own || fxIsResource(f) || (max != null && f.pool && !fx.cost) ? '' : `<button class="btn sm${max != null || fx.cost || fx.roll ? '' : ' ghost'}" data-act="usefeat" data-i="${fi}" data-col="${col}">${f.roll || fx.roll ? 'Use & roll' : max != null || fx.cost || fx.use ? 'Use' : 'Take'}</button>`;
     return `<div class="opt"><div class="opt-head">${m ? `<button class="opt-name opt-tog" data-act="toggle" data-key="${key}" aria-expanded="${!!open}">${esc(f.name)} <span class="caret">${open ? '▴' : '▾'}</span></button>` : `<span class="opt-name">${esc(f.name)}</span>`}
-      <button class="notetip" data-tip="${fi}" data-tipkind="feat" aria-label="What ${esc(f.name)} does">ⓘ</button>${max != null ? `<span class="pips" data-calc-html="featpips:${fi}"></span>` : ''}${useBtn}</div>
+      <button class="notetip" data-tip="${fi}" data-tipkind="feat" aria-label="What ${esc(f.name)} does">ⓘ</button>${max != null ? `<span class="pips" data-calc-html="featpips:${fi}"></span>` : ''}${useBtn}${own && typeof ptyFeatBtn === 'function' ? ptyFeatBtn(f, fi) : ''}</div>
       ${info ? `<div class="opt-info">${esc(info)}</div>` : ''}${fx.acts ? `<div class="fxacts">${fxActsHTML(f, fi, col)}</div>` : ''}
       ${open && f.desc && own ? `<div class="opt-text">${esc(formulaDC(f.desc))}</div>` : ''}</div>`;
   };
@@ -3294,9 +3302,9 @@ function mainClick(e) {
       toast(`<b>${esc(c.name)}</b> is commanded — on its turn it takes the action you choose (attack with its Rend, Repair, Dash, Help…).`, '', 6000, { label: 'Undo', fn: () => undo(1) }); break; }
     case 'catalog': openCatalog(); break;
     case 'hbsaveitem': saveCustomItem(i); break;
-    case 'catcdel': { const n = N(b.dataset.n), c = (S.customItems || [])[n]; if (!c) break; S.customItems.splice(n, 1); pendingLabel = 'Remove custom item: ' + c.name; save(); openCatalog(true); toast(`Removed ${esc(c.name)} from your custom items.`, '', 5000, { label: 'Undo', fn: () => { undo(1); openCatalog(true); } }); break; }
+    case 'catcdel': { const n = N(b.dataset.n), c = (S.customItems || [])[n]; if (!c) break; S.customItems.splice(n, 1); pendingLabel = 'Remove homebrew item: ' + c.name; save(); openCatalog(true); toast(`Removed ${esc(c.name)} from your homebrew items.`, '', 5000, { label: 'Undo', fn: () => { undo(1); openCatalog(true); } }); break; }
     case 'cattab': UI.catTab = b.dataset.t; saveUI(); openCatalog(true); pendingLabel = null; return;
-    case 'catadd': catalogAdd(b.dataset.t, N(b.dataset.n)); break;
+    case 'catadd': catalogAdd(b.dataset.t, b.dataset.t === 'ch' ? b.dataset.n : N(b.dataset.n)); break;
     case 'catbaseok': catalogAddBase(N(b.dataset.n)); break;
     case 'charge': { const it = S.inventory[i]; it.charges.used = Math.max(0, Math.min(N(it.charges.max), N(it.charges.used) - N(b.dataset.d))); pendingLabel = (N(b.dataset.d) < 0 ? 'Use charge: ' : 'Restore charge: ') + it.name; update(); render(); refresh(); break; }
     case 'attune': attune(i); break;
@@ -4331,8 +4339,8 @@ function saveCustomItem(i) {
   const c = JSON.parse(JSON.stringify(it)); ['id', 'equipped', 'attuned', 'bag', 'offhand', 'hbKnown', 'resPick'].forEach(k => delete c[k]);
   if (c.charges) c.charges.used = 0; c.qty = 1;
   S.customItems = (S.customItems || []).filter(x => x.name.toLowerCase() !== String(c.name || '').toLowerCase()).concat([c]);
-  pendingLabel = 'Save custom item: ' + c.name; save(); render();
-  toast(`<b>${esc(c.name)}</b> saved to your custom items.<div class="det">Add more any time: Add an item → Custom.</div>`, '', 5000, { label: 'Undo', fn: () => undo(1) });
+  pendingLabel = 'Save homebrew item: ' + c.name; save(); render();
+  toast(`<b>${esc(c.name)}</b> saved to your homebrew items.<div class="det">Add more any time: Add an item → Homebrew. Everyone in your party sees it there too.</div>`, '', 5000, { label: 'Undo', fn: () => undo(1) });
 }
 function customItemInfo(c) {
   const bits = [c.weapon ? `${c.weapon.cat || ''} ${c.weapon.kind || ''} weapon · ${c.weapon.dice || ''} ${c.weapon.type || ''}` : '', c.armor ? `${c.armor.type} armor · AC ${c.armor.base}` : '', c.magic ? c.magic.rarity || 'magic' : ''].filter(x => x.trim());
@@ -4373,14 +4381,18 @@ function openCatalog(keep) {
   const A = () => DND.armor.map((a, n) => [a[0], `<div class="crrow" data-q="${esc((a[0] + ' ' + a[1] + ' armor').toLowerCase())}"><div><b>${esc(a[0])}</b>${kind(a[1] === 'shield' ? 'Shield' : 'Armor')} ${cost(a[2])}<div class="hint">${esc(a[1])} · AC ${a[1] === 'shield' ? '+2' : a[3] + (a[4] === 0 ? '' : a[4] ? ' + DEX (max ' + a[4] + ')' : ' + DEX')}${a[5] ? ' · STR ' + a[5] : ''}${a[6] ? ' · stealth disadvantage' : ''}</div></div><button class="btn sm gold" data-act="catadd" data-t="a" data-n="${n}">Add</button></div>`]);
   const G = () => DND.gear.map((g, n) => [g[0], `<div class="crrow" data-q="${esc((g[0] + ' ' + g[1] + ' gear').toLowerCase())}"><div><b>${esc(g[0])}</b>${kind('Gear')} ${cost(g[2])}<div class="hint">${esc(g[1])}${g[4] ? ' · ' + esc(g[4]) : ''}</div></div><button class="btn sm gold" data-act="catadd" data-t="g" data-n="${n}">Add</button></div>`]).concat(DND.gear.map((g, n) => [g, n]).filter(([g]) => g[1] === 'ammo').map(([g, n]) => ['Silvered ' + g[0].toLowerCase(), `<div class="crrow" data-q="${esc(('silvered ' + g[0] + ' ammo gear silver').toLowerCase())}"><div><b>Silvered ${esc(g[0].toLowerCase())}</b>${kind('Gear')} ${cost('100 gp/10')}<div class="hint">ammo · 10 pieces · silvered: gets past resistance to nonmagical attacks that aren’t silvered</div></div><button class="btn sm gold" data-act="catadd" data-t="gs" data-n="${n}">Add</button></div>`]));
   const M = () => DND.magic.map((m, n) => [m[0], `<div class="crrow" data-q="${esc((m[0] + ' ' + m[2] + ' ' + m[3] + ' ' + m[1] + ' magic').toLowerCase())}"><div><b>${esc(m[0])}</b>${kind('Magic')} <span class="tag rar r-${esc(String(m[3]).replace(/\s+/g, ''))}">${esc(m[3])}</span>${m[4] ? ' <span class="tag">attune</span>' : ''} <span class="hint">${esc(m[1])}</span><div class="hint">${esc(m[5])}</div></div><button class="btn sm gold" data-act="catadd" data-t="m" data-n="${n}">Add</button></div>`]);
-  const C = () => (S.customItems || []).map((c, n) => [c.name, `<div class="crrow" data-q="${esc((c.name + ' custom homebrew ' + (c.summary || '') + ' ' + (c.notes || '')).toLowerCase())}"><div><b>${esc(c.name)}</b>${kind('Custom')} ${cost(c.cost)}<div class="hint">${esc(customItemInfo(c))}</div></div><span class="crbtns"><button class="btn sm" data-act="catcdel" data-n="${n}" title="Remove from your custom items" aria-label="Remove ${esc(c.name)} from custom items">✕</button><button class="btn sm gold" data-act="catadd" data-t="c" data-n="${n}">Add</button></span></div>`]);
+  // Homebrew: this character's saved homebrew items, then the ones everyone else in the party has saved.
+  const hbRow = (c, from, t, n, del) => [c.name, `<div class="crrow" data-q="${esc((c.name + ' custom homebrew ' + (from || '') + ' ' + (c.summary || '') + ' ' + (c.notes || '')).toLowerCase())}"><div><b>${esc(c.name)}</b>${kind('Homebrew')} ${cost(c.cost)}<div class="hint">${from ? `<span class="hbfrom">${esc(from)}’s</span> · ` : ''}${esc(customItemInfo(c))}</div></div><span class="crbtns">${del ? `<button class="btn sm" data-act="catcdel" data-n="${n}" title="Remove from your homebrew items" aria-label="Remove ${esc(c.name)} from your homebrew items">✕</button>` : ''}<button class="btn sm gold" data-act="catadd" data-t="${t}" data-n="${n}">Add</button></span></div>`];
+  const C = () => { const own = (S.customItems || []), seen = new Set(own.map(c => c.name.toLowerCase())), out = own.map((c, n) => hbRow(c, '', 'c', n, true));
+    (typeof ptyOn === 'function' && ptyOn() ? ptyMembers() : []).forEach(m => (m.hb || []).forEach((c, j) => { if (!c || !c.name || seen.has(c.name.toLowerCase())) return; seen.add(c.name.toLowerCase()); out.push(hbRow(c, m.name || 'A party member', 'ch', esc(m.id) + ':' + j, false)); }));
+    return out; };
   const list = tab === 'weapons' ? W() : tab === 'armor' ? A() : tab === 'gear' ? G() : tab === 'magic' ? M() : tab === 'custom' ? C()
     : W().concat(A(), G(), M(), C()).sort((x, y) => String(x[0]).localeCompare(String(y[0]), undefined, { sensitivity: 'base' }));
   const rows = list.map(x => x[1]).join('');
   const html = `<h3>Add an item</h3>
-    <div class="segmini" style="margin-bottom:8px">${[['all', 'All'], ['weapons', 'Weapons'], ['armor', 'Armor'], ['gear', 'Gear & tools'], ['magic', 'Magic items'], ['custom', 'Custom']].map(([k, t]) => `<button class="${tab === k ? 'on' : ''}" data-act="cattab" data-t="${k}">${t}</button>`).join('')}</div>
+    <div class="segmini" style="margin-bottom:8px">${[['all', 'All'], ['weapons', 'Weapons'], ['armor', 'Armor'], ['gear', 'Gear & tools'], ['magic', 'Magic items'], ['custom', 'Homebrew']].map(([k, t]) => `<button class="${tab === k ? 'on' : ''}" data-act="cattab" data-t="${k}">${t}</button>`).join('')}</div>
     <input class="f" id="catq" placeholder="Search…" value="${esc(q)}" aria-label="Search items" autofocus>
-    <div class="crlist">${rows || (tab === 'custom' ? '<p class="hint crempty">No custom items yet. Open an item in Inventory (✎), then ⚙ Homebrew automation → <b>Save to custom items</b>.</p>' : '')}</div>
+    <div class="crlist">${rows || (tab === 'custom' ? '<p class="hint crempty">No homebrew items yet. Open an item in Inventory (✎), then ⚙ Homebrew automation → <b>Save to homebrew items</b>. Items others in your party save show up here too.</p>' : '')}</div>
     <div class="actions"><button class="btn" data-act="close">Done</button></div>`;
   if (keep && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html, null, true);
   filterCatalog();
@@ -4393,6 +4405,7 @@ function catalogAdd(t, n) {
   if (t === 'w') return addInventoryItem(makeWeaponItem(DND.weapons[n]));
   if (t === 'a') return addInventoryItem(makeArmorItem(DND.armor[n]));
   if (t === 'g') return addInventoryItem(makeGearItem(DND.gear[n]));
+  if (t === 'ch') { const [mid, j] = String(n).split(':'), m = (typeof ptyMembers === 'function' ? ptyMembers() : []).find(x => x.id === mid), c = m && (m.hb || [])[N(j)]; if (!c) return; const it = JSON.parse(JSON.stringify(c)); it.id = uid(); it.qty = N(it.qty) || 1; it.equipped = false; return addInventoryItem(it); }
   if (t === 'c') { const c = (S.customItems || [])[n]; if (!c) return; const it = JSON.parse(JSON.stringify(c)); it.id = uid(); it.qty = N(it.qty) || 1; it.equipped = false; delete it.savedFrom; return addInventoryItem(it); }
   if (t === 'ws') { const it = makeWeaponItem(DND.weapons[n]); it.name = 'Silvered ' + it.name.toLowerCase(); it.silvered = true; it.cost = silverCost(it.cost, 1); return addInventoryItem(it); }
   if (t === 'gs') { const it = makeGearItem(DND.gear[n]); it.name = 'Silvered ' + it.name.toLowerCase(); it.silvered = true; it.qty = 10; it.cost = '100 gp/10'; return addInventoryItem(it); }
@@ -6153,7 +6166,7 @@ function compCard(c, i, mini, inCol) {
           <div class="chp-btns"><button class="btn hpi dmg" data-act="comphp" data-i="${i}" data-d="-1" title="Damage ${esc(c.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="comphp" data-i="${i}" data-d="1" title="Heal ${esc(c.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-act="comphp" data-i="${i}" data-d="0" title="Give ${esc(c.name)} temporary HP (they don't stack — the higher stays)" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div></div>` : '';
   return `<div class="${mini ? 'cm-card' : inCol ? 'comp2 incol' : 'panel comp2'}"><div class="comp-h2">${picThumb(c.tmpl ? `compMods.${c.tmpl}.img` : `companions.${i}.img`, c.name)}<div class="grow"><b class="cname">${esc(c.name)}</b><div class="ctags">${(inCol ? [] : tags).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div></div>
       ${inCol ? compCmdBtn(c, i) : ''}<button class="icon-btn" data-act="compedit" data-i="${i}" title="Edit ${esc(c.name)}" aria-label="Edit">✎</button>${c.tmpl && COMP_RULES[c.tmpl] && COMP_RULES[c.tmpl].always ? '' : `<button class="btn sm ghost" data-act="dismiss" data-i="${i}">Dismiss</button>`}</div>
-    <div class="cstat2">${hp}<div class="cchips"><span class="cchip2"><small>AC</small><b>${N(c.ac)}</b></span><span class="cchip2 wide"><small>Speed</small><b>${esc(compSpeedText(c.speed))}</b></span>${c.multi > 1 ? `<span class="cchip2"><small>Attacks</small><b>${c.multi}</b></span>` : ''}</div></div>
+    <div class="cstat2">${hp}<div class="csts"><span class="cst"><small>AC</small><b>${N(c.ac)}</b></span><span class="cst wide"><small>Speed</small><b>${esc(compSpeedText(c.speed))}</b></span>${c.multi > 1 ? `<span class="cst"><small>Attacks</small><b>${c.multi}</b></span>` : ''}</div></div>
     ${acts ? `<div class="cacts">${acts}</div>` : ''}
     ${!mini && String(c.notes || '').trim() ? (inCol ? `<details class="cnotes-d"><summary>How ${esc(c.name)} works</summary><div class="cnotes">${esc(c.notes)}</div></details>` : `<div class="cnotes">${esc(c.notes)}</div>`) : ''}</div>`;
 }
@@ -7726,55 +7739,80 @@ window.partyCard = () => {
     form: S.form ? { name: S.form.name, hp: N(S.form.hp), maxhp: N(S.form.maxhp) } : null, speed: speedFt(), pp: passive(),
     conds: (S.conditions || []).filter(c => c !== 'Concentrating' && c !== 'Dodging'), exh: N(S.exhaustion), conc: S.concentration || '',
     dead: N(S.death.f) >= 3, stable: N(S.hp.cur) <= 0 && N(S.death.s) >= 3,
-    fx: fxActive().filter(e => !e.ally && e.self !== false).map(e => e.name).slice(0, 14) };
+    fx: fxActive().filter(e => !e.ally && e.self !== false).map(e => e.name).slice(0, 14),
+    // this character's homebrew items: everyone in the party can add them from Add an item → Homebrew
+    hb: (S.customItems || []).slice(0, 60).map(c => { const x = JSON.parse(JSON.stringify(c)); delete x.img; return x; }) };
 };
 let PTY_RT = null;
-window.onPartyChange = () => { clearTimeout(PTY_RT); PTY_RT = setTimeout(() => { if (!S.created) return; if (UI.tab === 'party' && !ptyBusy()) render('party'); else renderTabs(); }, 120); };
+// The party tab is kept current even while another tab is showing (it appears once the party has loaded); while you're
+// typing in it, it waits so the box you're in isn't redrawn under you.
+window.onPartyChange = () => { clearTimeout(PTY_RT); PTY_RT = setTimeout(function go() { if (!S.created) return; const a = document.activeElement;
+  if (a && a.closest && a.closest('#page-party') && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) { PTY_RT = setTimeout(go, 600); return; }
+  // Who's in it changed (or the party just loaded): Inventory's give menus and Combat's "On…" buttons follow.
+  const key = ptyOn() + ':' + ptyMembers().map(m => m.id + '/' + (m.name || '')).join(',');
+  if (key !== PTY_MK) { PTY_MK = key; render(); } else render('party'); }, 120); };
+let PTY_MK = '';
 
 // ----- the log of what's been sent and received -----
 function ptyLog(dir, who, text) { S.ptyLog = [{ at: Date.now(), dir, who: String(who || '').slice(0, 80), text: String(text || '').slice(0, 300) }].concat(S.ptyLog || []).slice(0, 60); }
 const ptyAgo = t => { const s = (Date.now() - t) / 1000; return s < 60 ? 'just now' : s < 3600 ? Math.floor(s / 60) + 'm ago' : s < 86400 ? Math.floor(s / 3600) + 'h ago' : new Date(t).toLocaleDateString(); };
 // Send one thing to some party members; the log and a toast say what went where.
-async function ptySend(ids, kind, data, text, quiet) {
+// Each send is part of your undo history: Undo takes it back on their sheet, Redo sends it again.
+async function ptySend(ids, kind, data, text, quiet, grp) {
   ids = [...new Set(ids || [])].filter(Boolean); if (!ids.length || !ptyAct()) return 0;
-  let ok = 0; for (const id of ids) { try { await PTYX().send(id, kind, data); ok++; } catch (e) { console.warn('party send', e); } }
-  if (ok) { ptyLog('out', ptyNames(ids), text); save(); if (UI.tab === 'party') render('party'); if (!quiet) toast(`${esc(text)} → <b>${esc(ptyNames(ids))}</b>`, '', 5000); }
+  await null; // after the change that sent it has been saved (a spell's slot, the item leaving your pack…)
+  const recs = ids.map(to => ({ to, ref: PTYX().newRef(), kind, data, text }));
+  if (grp && grp.entry) { grp.entry.pty = grp.entry.pty.concat(recs); persistHist(); } else { const e = ptyHistAdd(recs, text); if (grp) grp.entry = e; }
+  let ok = 0; for (const r of recs) { try { await PTYX().send(r.to, kind, data, r.ref); ok++; } catch (e) { r.failed = true; console.warn('party send', e); } }
+  if (ok) { ptyLog('out', ptyNames(ids), text); save(); if (UI.tab === 'party') render('party'); if (!quiet) toast(`${esc(text)} → <b>${esc(ptyNames(ids))}</b>${ptyFreeKind(kind) || (PTYX().info() || {}).mgr ? '' : `<div class="det">${ids.length > 1 ? 'They’re' : 'They’re'} asked to accept it on their sheet.</div>`}`, '', 6000); }
   else toast('Couldn’t reach the party right now — check your connection.', 'fumble', 7000);
   return ok;
 }
 
+function ptyHistAdd(recs, text) {
+  let e = HIST[HIST.length - 1];
+  if (e && Date.now() - e.t < 250 && !e.pty) e.pty = recs; // one Undo step with the change you just made
+  else { e = { t: Date.now(), label: text, keys: {}, pty: recs }; HIST.push(e); while (HIST.length > HMAX) HIST.shift(); REDO = []; }
+  persistHist(); histButtons(); return e;
+}
+function ptyHist(recs) {
+  if (!ptyAct()) return; const back = !recs[0].undone;
+  recs.forEach(r => { r.undone = back; if (back) PTYX().recall(r.to, r.ref).catch(() => {}); else PTYX().send(r.to, r.kind, r.data, r.ref).catch(() => {}); });
+  ptyLog('out', ptyNames([...new Set(recs.map(r => r.to))]), (back ? 'Took back: ' : 'Sent again: ') + (recs[0].text || recs[0].kind));
+}
 // ----- the Party tab -----
 // Each party member is shown like a creature card: the HP ring with Damage / Heal / Temp HP beside it, then AC and speed.
 function ptyCardHTML(m) {
   const down = m.dead ? 'dead' : N(m.maxhp) && N(m.hp) <= 0 ? 'down' : '', act = ptyAct(), f = m.form;
   const cur = f ? N(f.hp) : N(m.hp), max = f ? N(f.maxhp) : N(m.maxhp), id = esc(m.id);
-  const tags = [m.cls, m.player, f ? 'As ' + f.name : '', m.dead ? 'Dead' : down ? (m.stable ? 'Stable at 0 HP' : 'Making death saves') : ''].filter(Boolean);
-  const on = [].concat(m.conds || [], N(m.exh) ? ['Exhaustion ' + N(m.exh)] : [], m.conc ? ['Concentrating: ' + m.conc] : [], m.fx || []);
+  const on = [].concat([f ? 'As ' + f.name : '', m.dead ? 'Dead' : down ? (m.stable ? 'Stable at 0 HP' : 'Making death saves') : ''].filter(Boolean), m.conds || [], N(m.exh) ? ['Exhaustion ' + N(m.exh)] : [], m.conc ? ['Concentrating: ' + m.conc] : [], m.fx || []);
   const more = [['coins', 'Give coins'], ['help', 'Help (advantage on their next roll)'], down && !m.dead && !m.stable ? ['stab', 'Stabilize (Medicine, DC 10)'] : null, ['note', 'Send a message']].filter(Boolean);
   const hp = max ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(cur, max, m.temp, f ? ' form' : '')}</div>
       <div class="chp-center"><div class="curline"><b class="ptym-cur">${cur}</b>${N(m.temp) ? `<span class="tmpbadge">+${N(m.temp)}</span>` : ''}</div><div class="hp-max">of ${max}</div></div></div>
       ${act ? `<div class="chp-side"><input class="f" id="ptyq-${id}" inputmode="numeric" placeholder="Amount" aria-label="Amount for ${esc(m.name)}">
         <div class="chp-btns"><button class="btn hpi dmg" data-pa="qdmg" data-id="${id}" title="Damage ${esc(m.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-pa="qheal" data-id="${id}" title="Heal ${esc(m.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-pa="qtemp" data-id="${id}" title="Give ${esc(m.name)} temporary HP" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div>` : ''}</div>` : '';
   return `<div class="panel comp2 ptym${down ? ' ' + down : ''}" data-mid="${id}"><div class="comp-h2">${m.thumb ? `<span class="picth"><img src="${esc(m.thumb)}" alt=""></span>` : `<span class="picadd">${esc(String(m.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''))}</span>`}
-      <div class="grow"><b class="cname">${esc(m.name || 'A character')}</b><div class="ctags">${tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div></div>
-      ${act ? `<div class="menu"><button class="icon-btn" data-act="menu" aria-haspopup="true" aria-label="More for ${esc(m.name || 'them')}">⋯</button><div class="menu-list">${more.map(([k, t]) => `<button data-pa="${k}" data-id="${id}">${esc(t)}</button>`).join('')}</div></div>` : ''}</div>
-    <div class="cstat2">${hp}<div class="cchips"><span class="cchip2"><small>AC</small><b>${esc(m.ac || '—')}</b></span>${m.speed ? `<span class="cchip2"><small>Speed</small><b>${N(m.speed)}</b></span>` : ''}${m.level ? `<span class="cchip2"><small>Level</small><b>${N(m.level)}</b></span>` : ''}</div></div>
+      <div class="grow"><b class="cname${String(m.name || '').length > 26 ? ' n3' : String(m.name || '').length > 17 ? ' n2' : ''}" title="${esc(m.name || '')}">${esc(m.name || 'A character')}</b>${m.player ? `<div class="ptym-pl">${esc(m.player)}</div>` : ''}</div>
+</div>
+    <div class="cstat2">${hp}<div class="csts"><span class="cst"><small>AC</small><b>${esc(m.ac || '—')}</b></span>${m.speed ? `<span class="cst"><small>Speed</small><b>${N(m.speed)}</b></span>` : ''}${m.level ? `<span class="cst"><small>Level</small><b>${N(m.level)}</b></span>` : ''}</div></div>
     ${on.length ? `<div class="ctags">${on.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>` : ''}
-    ${act ? `<div class="ptym-act"><button class="btn sm gold" data-pa="cast" data-id="${id}">Cast a spell on them</button><button class="btn sm" data-pa="ability" data-id="${id}">Use an ability</button><button class="btn sm" data-pa="give" data-id="${id}">Give an item</button></div>` : ''}
+    ${act ? `<div class="ptym-act"><button class="btn sm gold" data-pa="cast" data-id="${id}" title="Cast a spell on them">Cast a spell</button><button class="btn sm" data-pa="ability" data-id="${id}" title="Use an ability on them">Ability</button><button class="btn sm" data-pa="give" data-id="${id}" title="Give them an item">Give item</button><div class="menu up"><button class="icon-btn" data-act="menu" aria-haspopup="true" aria-label="More for ${esc(m.name || 'them')}">⋯</button><div class="menu-list">${more.map(([k, t]) => `<button data-pa="${k}" data-id="${id}">${esc(t)}</button>`).join('')}</div></div></div>` : ''}
   </div>`;
 }
 function renderParty() {
   const pg = $('#page-party'); if (!pg) return;
-  if (!ptyOn()) { pg.innerHTML = `<div class="panel" ${PID('party')}><h2>Party</h2><p class="hint">This character isn’t in a party. Your DM can send you an invite link — or make your own party from your characters page.</p></div>`; return; }
+  // Not part of the panel layout (Edit layout never moves or hides it): the tab only exists while you're in a party.
+  if (!ptyOn()) { pg.innerHTML = ''; return; }
   const P = PTYX().info(), ms = ptyMembers(), act = ptyAct(), abil = act ? ptyAbilities() : [], auras = abil.filter(a => a.def.kind === 'aura');
-  pg.innerHTML = `<div class="panel" ${PID('party')}>
-      <h2><span class="grow">${esc(P.name)}</span>${act && ms.length > 1 ? '<button class="btn sm" data-pa="cast" data-id="">Cast on several…</button><button class="btn sm" data-pa="ability" data-id="">Ability on several…</button>' : ''}<a class="btn sm" href="${esc(P.url)}" target="_top">Party page</a></h2>
-      <p class="hint">DM ${esc(P.dmName || '')}${act ? ' · What you do here lands on their sheet straight away.' : ' · You’re looking at this sheet as the DM.'}</p>
-      ${ms.length ? '' : '<p class="hint">Nobody else has joined yet.</p>'}</div>
-    ${ms.length ? `<div class="ptym-grid">${ms.map(ptyCardHTML).join('')}</div>` : ''}
-    ${auras.length ? `<div class="panel" ${PID('partyauras')}><h2>Your auras</h2><p class="hint">Turn on who is close enough to get it (they keep it until you turn it off, or you drop to 0 HP).</p>${auras.map(a => { const on = (S.ptyAuras || {})[a.name] || [];
-      return `<div class="ptya"><b>${esc(a.name)}</b><span class="hint">${esc(ptyFormula(a.def.label || '') || a.def.text || '')}</span><div class="ptya-who">${ms.map(m => `<label class="checkline"><input type="checkbox" data-aura="${esc(a.name)}" data-id="${esc(m.id)}"${on.includes(m.id) ? ' checked' : ''}> ${esc(m.name)}</label>`).join('')}</div></div>`; }).join('')}</div>` : ''}
-    <div class="panel" ${PID('partylog')}><h2>Party log</h2>${(S.ptyLog || []).length ? `<div class="ptylog">${S.ptyLog.slice(0, 30).map(l => `<div class="ptyl ${l.dir}"><span class="ptyl-d">${l.dir === 'in' ? '⬇' : '⬆'}</span><span class="ptyl-t">${esc(l.text)}<small>${l.dir === 'in' ? 'from ' : 'to '}${esc(l.who)} · ${esc(ptyAgo(l.at))}</small></span></div>`).join('')}</div>` : '<p class="hint">What you send and receive shows up here.</p>'}</div>`;
+  const n = ms.length + 1, dm = P.mgr ? 'You' : (P.dmName || 'the DM');
+  const head = `<div class="panel ptyhead"><div class="ptyh"><span class="ptyh-ic" aria-hidden="true">${TAB_ICON.party}</span><div class="ptyh-t"><b>${esc(P.name)}</b><span>DM ${esc(dm)} · ${n} character${n === 1 ? '' : 's'}${act ? '' : ' · you’re viewing this sheet'}</span></div>
+      <div class="ptyh-btns">${act && ms.length > 1 ? '<button class="btn sm" data-pa="cast" data-id="" title="Pick the spell, then everyone it reaches">Cast a spell on allies…</button><button class="btn sm" data-pa="ability" data-id="" title="Pick the ability, then everyone it reaches">Use an ability on allies…</button>' : ''}<a class="btn sm" href="${esc(P.url)}" target="_top">Party page</a></div></div>
+      ${act && ms.length ? `<p class="hint ptyh-hint">${P.mgr ? 'As the DM, what you send lands on their sheet straight away (or the next time it’s opened).' : 'Healing, items, spells and abilities you send pop up on their sheet for them to accept.'}</p>` : ''}</div>`;
+  const cards = P.loading ? `<div class="panel"><p class="hint" style="margin:0">Loading the party…</p></div>` : ms.length ? `<div class="ptym-grid">${ms.map(ptyCardHTML).join('')}</div>` : `<div class="panel"><p class="hint" style="margin:0">Nobody else has joined yet. Your DM can share the party’s invite link from the party page.</p></div>`;
+  const aurasP = auras.length ? `<div class="panel ptyauras"><h2>Your auras</h2><p class="hint">Tick who’s close enough to get it. They keep it until you untick them, or you drop to 0 HP.</p>${auras.map(a => { const on = (S.ptyAuras || {})[a.name] || [];
+      return `<div class="ptya"><b>${esc(a.name)}</b><span class="hint">${esc(ptyFormula(a.def.label || '') || a.def.text || '')}</span><div class="ptya-who">${ms.map(m => `<label class="checkline"><input type="checkbox" data-aura="${esc(a.name)}" data-id="${esc(m.id)}"${on.includes(m.id) ? ' checked' : ''}> ${esc(m.name)}</label>`).join('')}</div></div>`; }).join('')}</div>` : '';
+  const logP = `<div class="panel ptylogp"><h2>Party log</h2>${(S.ptyLog || []).length ? `<div class="ptylog">${S.ptyLog.slice(0, 30).map(l => `<div class="ptyl ${l.dir}"><span class="ptyl-d" aria-label="${l.dir === 'in' ? 'Received' : 'Sent'}">${l.dir === 'in' ? '↓' : '↑'}</span><span class="ptyl-t">${esc(l.text)}<small>${l.dir === 'in' ? 'from ' : 'to '}${esc(l.who)} · ${esc(ptyAgo(l.at))}</small></span></div>`).join('')}</div>` : '<p class="hint" style="margin:0">What you send and receive shows up here.</p>'}</div>`;
+  pg.innerHTML = `<div class="ptytab">${head}${cards}<div class="ptyfoot${aurasP ? '' : ' one'}">${aurasP}${logP}</div></div>`;
 }
 document.addEventListener('change', e => { const t = e.target; if (!t.dataset || t.dataset.aura == null) return; ptyAura(t.dataset.aura, t.dataset.id, t.checked); });
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-pa]'); if (!b || e.target.closest('#wizard')) return; e.preventDefault();
@@ -7796,6 +7834,13 @@ function ptyClick(k, id, b) {
     case 'pk': return ptyPickDone(b);
     case 'amt': return ptyAmountGo(b.dataset.k);
     case 'giveit': return ptyGiveGo(N(b.dataset.i), b.dataset.mode);
+    case 'askok': return ptyAnswer(b.dataset.ref, true);
+    case 'askno': return ptyAnswer(b.dataset.ref, false);
+    case 'askall': return ptyAnswer('*', b.dataset.ok === '1');
+    case 'askshow': return ptyAskShow(true);
+    case 'giveto': return ptyGiveTo(N(b.dataset.i), id);
+    case 'featon': { const f = S.features[N(b.dataset.i)]; if (!f) return; return ptyUseAbility({ name: f.dname || f.name, def: ptyFeatDef(f), f, fi: N(b.dataset.i), col: f.col }, null); }
+    case 'givetogo': return ptyGiveGo(N(b.dataset.i), 'give', true);
     case 'coinsgo': return ptyCoinsGo();
     case 'castit': return ptyCastGo(N(b.dataset.i));
     case 'abil': return ptyAbilityGo(N(b.dataset.j));
@@ -7847,17 +7892,24 @@ function ptyAmountGo() {
   else ptySend(a.ids, 'hit', { dmg: r.total, type, why: w }, `${r.total}${type ? ' ' + type : ''} damage${why ? ' (' + why + ')' : ''}`);
 }
 // Hand over an item from your inventory (or feed them a potion).
-let PTY_GIVE = null;
+let PTY_GIVE = null, PTY_GQ = '';
 function ptyGive(id) {
   if (!id) return ptyPickTargets('Give an item to…', 1, x => ptyGive(x[0]));
-  PTY_GIVE = id;
+  if (PTY_GIVE !== id) PTY_GQ = ''; PTY_GIVE = id;
   const list = S.inventory.map((it, i) => [it, i]).sort((x, y) => (x[0].equipped ? 1 : 0) - (y[0].equipped ? 1 : 0) || String(x[0].name).localeCompare(y[0].name));
   openModal(`<h3>Give ${esc(ptyNm(id))} an item</h3><p class="hint" style="margin:0 0 8px">It leaves your inventory and goes into theirs (equipped items are unequipped; attunement ends).</p>
-    <div class="ptygive">${list.map(([it, i]) => `<div class="ptyg-row"><span class="ptyg-n"><b>${esc(it.name)}</b><small>${[N(it.qty) > 1 ? '×' + N(it.qty) : '', it.equipped ? 'equipped' : '', it.attuned ? 'attuned' : '', it.magic ? esc(it.magic.rarity || 'magic') : ''].filter(Boolean).join(' · ')}</small></span>
+    ${list.length > 5 ? `<input class="f ptyg-s" type="search" placeholder="Search your inventory…" aria-label="Search your inventory" value="${esc(PTY_GQ)}">` : ''}
+    <div class="ptygive">${list.map(([it, i]) => `<div class="ptyg-row" data-gn="${esc(String(it.name || '').toLowerCase())}"><span class="ptyg-n"><b>${esc(it.name)}</b><small>${[N(it.qty) > 1 ? '×' + N(it.qty) : '', it.equipped ? 'equipped' : '', it.attuned ? 'attuned' : '', it.magic ? esc(it.magic.rarity || 'magic') : ''].filter(Boolean).join(' · ')}</small></span>
       ${N(it.qty) > 1 ? `<input class="f sm ptyg-q" type="number" min="1" max="${N(it.qty)}" value="1" data-gq="${i}" aria-label="How many">` : ''}${it.heal ? `<button class="btn sm" data-pa="giveit" data-i="${i}" data-mode="feed" title="Use your action to give them a drink">Feed it</button>` : ''}<button class="btn sm gold" data-pa="giveit" data-i="${i}" data-mode="give">Give</button></div>`).join('') || '<p class="hint">Your inventory is empty.</p>'}</div>
+    <p class="hint ptyg-none" hidden>Nothing matches.</p>
     <div class="actions"><button class="btn" data-act="close">Done</button></div>`, null, true);
+  const sb = $('#modal-body .ptyg-s'); if (!sb) { PTY_GQ = ''; return; }
+  const flt = () => { PTY_GQ = sb.value; const q = sb.value.trim().toLowerCase(); let n = 0;
+    $$('#modal-body .ptyg-row').forEach(r => { const h = !!q && !r.dataset.gn.includes(q); r.hidden = h; if (!h) n++; });
+    $('#modal-body .ptyg-none').hidden = n > 0; };
+  sb.oninput = flt; flt(); if (!matchMedia('(pointer:coarse)').matches) { sb.focus(); sb.setSelectionRange(sb.value.length, sb.value.length); }
 }
-function ptyGiveGo(i, mode) {
+function ptyGiveGo(i, mode, one) {
   const to = PTY_GIVE, it = S.inventory[i]; if (!to || !it) return;
   if (mode === 'feed') { const r = rollExpr(it.heal, { need: true, label: it.name + ': healing for ' + ptyNm(to) }); if (r.skipped) return;
     it.qty = Math.max(0, N(it.qty) - 1); if (!it.qty) { S.inventory.splice(i, 1); S.attacks = S.attacks.filter(a => a.item !== it.id); }
@@ -7869,7 +7921,15 @@ function ptyGiveGo(i, mode) {
   else it.qty = N(it.qty) - q;
   pendingLabel = `Give ${q > 1 ? q + ' × ' : ''}${it.name} to ${ptyNm(to)}`; save(); render();
   ptySend([to], 'item', { item: c }, `Gave ${q > 1 ? q + ' × ' : ''}${it.name}`);
-  if (S.inventory.length) ptyGive(to); else closeModal(true);
+  if (one) closeModal(true); else if (S.inventory.length) ptyGive(to); else closeModal(true);
+}
+// From an item's ⇄ menu in Inventory: give it to one party member (asks how many when it's a stack).
+function ptyGiveTo(i, to) {
+  const it = S.inventory[i]; if (!it || !to) return; PTY_GIVE = to;
+  if (N(it.qty) <= 1) return ptyGiveGo(i, 'give', true);
+  openModal(`<h3>Give ${esc(it.name)} to ${esc(ptyNm(to))}</h3><p class="hint" style="margin:0 0 8px">You have ${N(it.qty)}. It leaves your inventory and goes into theirs.</p>
+    ${fld('How many', `<input class="f" type="number" min="1" max="${N(it.qty)}" value="${N(it.qty)}" data-gq="${i}" inputmode="numeric">`)}
+    <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-pa="givetogo" data-i="${i}">Give</button></div>`);
 }
 // Coins: split between several, or to one.
 let PTY_COIN = null;
@@ -7979,7 +8039,7 @@ function ptyAfterCast(sp, a, L, x, c) {
   if (d.form) { const fm = $('#ptyForm') ? $('#ptyForm').value : x.form || ''; if (fm) { msgs.push(['form', { cr: fm, name: sp.name, rounds: rounds || null, src: { c: me, n: sp.name }, why: who + '’s ' + sp.name }]); text.push('turned into a ' + fm); } }
   if (fx) { msgs.push(['effect', { fx }]); text.push(fxName + (rounds ? ' for ' + fmtRounds(rounds) : '')); }
   if (!msgs.length && d.note) msgs.push(['note', { text: `${who} cast ${sp.name} on you. ${d.note}` }]);
-  (async () => { for (const [k, v] of msgs) await ptySend(ids, k, v, `${sp.name}${text.length ? ': ' + text.join(', ') : ''}`, true); toast(`<b>${esc(spLabel(sp))}</b> → ${esc(ptyNames(ids))}${text.length ? `<div class="det">${esc(text.join(' · '))}</div>` : ''}`, '', 6000); })();
+  (async () => { const grp = {}; for (const [k, v] of msgs) await ptySend(ids, k, v, `${sp.name}${text.length ? ': ' + text.join(', ') : ''}`, true, grp); toast(`<b>${esc(spLabel(sp))}</b> → ${esc(ptyNames(ids))}${text.length ? `<div class="det">${esc(text.join(' · '))}</div>` : ''}`, '', 6000); })();
   // the ones you choose for each of them (Lesser Restoration: which condition…)
   if ((d.cure && d.cure.pick) || d.exh || d.endFx) setTimeout(() => ptyChooseFor(sp.name, d, ids.slice()), 400);
   if (fx || (d.form && msgs.some(m => m[0] === 'form'))) { if (c.eff && (S.effects || []).includes(c.eff)) S.ptyCasts = (S.ptyCasts || []).filter(z => z.n !== sp.name).concat([{ n: sp.name, to: ids, at: Date.now() }]); }
@@ -8050,7 +8110,10 @@ function ptyAbilityMenu(ids) {
 function ptyAbilityGo(j) { const m = PTY_ABMENU; if (!m) return; const ab = m.list[j]; closeModal(true); PTY_ABMENU = null; ptyUseAbility(ab, m.ids); }
 // Spend it (a use, pool points or another feature's uses) and send what it does.
 function ptyUseAbility(ab, ids, spent) {
-  if (!ab) return; const d = ab.def, nmax = d.n === 'any' ? 99 : d.n ? N(ptyFormula(String(d.n))) || 1 : 1;
+  if (!ab) return; const inc = ab.col && S.inCombat && ['action', 'bonus', 'reaction'].includes(ab.col) && !spent;
+  if (inc && incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions.`, 'fumble'); return; }
+  if (inc && S.turn.used[ab.col]) { toast(`Your ${ab.col === 'bonus' ? 'bonus action' : ab.col} is already used this turn.`, 'fumble'); return; }
+  const d = ab.def, nmax = d.n === 'any' ? 99 : d.n ? N(ptyFormula(String(d.n))) || 1 : 1;
   if (!ids || !ids.length) return ptyPickTargets(ab.name + ' — on who?', nmax, x => ptyUseAbility(ab, x, spent));
   if (ids.length > nmax) { toast(`${esc(ab.name)} reaches ${nmax} creature${nmax === 1 ? '' : 's'}.`, 'fumble'); return; }
   if (d.pool && !spent) return ptyPoolAsk(ab, ids);
@@ -8060,6 +8123,7 @@ function ptyUseAbility(ab, ids, spent) {
   if (d.kind === 'stab') { const sk = S.skills.find(s => s.name === 'Medicine'); const r = d20(`Medicine to stabilize ${ptyNames(ids)} (DC 10)`, sk ? skillVal(sk) : mod('wis'), 'check', 'wis'); if (!r || r.skipped) return;
     if (r.total >= 10) ptySend(ids, 'stabilize', { why: who }, 'Stabilized (Medicine ' + r.total + ')'); else toast(`Medicine ${r.total} — not enough to stabilize (DC 10).`, 'fumble', 6000); return; }
   const err = spend(); if (err) { toast(esc(err), 'fumble'); return; }
+  if (inc) S.turn.used[ab.col] = true; // a pool (Lay on Hands…) spends the action once you've said how much
   pendingLabel = 'Use ' + ab.name + ' on ' + ptyNames(ids);
   const extra = ids.length === 1 && ptyMember(ids[0]) ? { tlevel: N(ptyMember(ids[0]).level) } : { tlevel: 1 };
   if (d.kind === 'heal' || d.kind === 'temp') {
@@ -8087,7 +8151,7 @@ function ptyPoolAsk(ab, ids) {
   const go = cure => { const p = PTY_POOL; if (!p) return; const f = S.features[p.ab.fi]; let n = cure ? N(d.cureCost) : Math.floor(N($('#ptyPool').value));
     if (!n || n < 1) { toast('Type how many.'); return; } if (n * p.ids.length > fxLeft(p.ab.fi)) { toast('Not enough left in the pool.', 'fumble'); return; }
     let amt = n; if (d.die && !cure) { const r = rollExpr(n + d.die, { need: true, label: p.ab.name }); if (r.skipped) return; amt = r.total; }
-    f.used = N(f.used) + n * p.ids.length; PTY_POOL = null; closeModal(true); pendingLabel = `${p.ab.name} on ${ptyNames(p.ids)}`; save(); render();
+    f.used = N(f.used) + n * p.ids.length; if (p.ab.col && S.inCombat && ['action', 'bonus', 'reaction'].includes(p.ab.col)) S.turn.used[p.ab.col] = true; PTY_POOL = null; closeModal(true); pendingLabel = `${p.ab.name} on ${ptyNames(p.ids)}`; save(); render();
     const why = `${S.name || 'An ally'}’s ${p.ab.name}`;
     if (cure) ptySend(p.ids, 'cure', { conds: d.cure, why, note: 'A disease or poison is cured' }, `${p.ab.name}: cured poison/disease`);
     else ptySend(p.ids, 'heal', { amt, why }, `${p.ab.name}: ${amt} HP`); };
@@ -8101,6 +8165,12 @@ function ptySplitAsk(ab, ids, total) {
   $('#ptySplitGo').onclick = () => { const v = $$('#modal-body [data-split]').map(x => [x.dataset.split, Math.max(0, Math.floor(N(x.value)))]).filter(([, n]) => n);
     const sum = v.reduce((t, [, n]) => t + n, 0); if (sum > total) { toast(`That’s ${sum} — you have ${total}.`, 'fumble'); return; }
     closeModal(true); v.forEach(([id, n]) => ptySend([id], 'heal', { amt: n, why: `${S.name || 'An ally'}’s ${ab.name}` }, `${ab.name}: ${n} HP`)); };
+}
+// In the Combat tab, an ability that works on others gets a small "On…" button beside Use: pick who, and it's spent and sent.
+const ptyFeatDef = f => { const nm = f.dname || f.name; return ALLYFEAT(nm) || ALLYFEAT(String(nm).replace(/^Channel Divinity: /, '')); };
+function ptyFeatBtn(f, fi) {
+  if (!ptyAct() || !ptyMembers().length) return ''; const d = ptyFeatDef(f); if (!d || d.kind === 'aura') return '';
+  return `<button class="btn sm ptyon" data-pa="featon" data-i="${fi}" title="Use ${esc(f.dname || f.name)} on a party member" aria-label="Use ${esc(f.dname || f.name)} on a party member">${TAB_ICON.party}<span>On…</span></button>`;
 }
 // After using a feature the usual way (Use & roll): offer it to a party member.
 function ptyFeatAct(name, r, f) {
@@ -8118,9 +8188,75 @@ const PTY_IN = [];
 window.sheetIncoming = m => { PTY_IN.push(m); ptyInFlush(); };
 // Held back only while you're typing, or making or levelling up the character (a window being open is fine).
 function ptyBusy() { const a = document.activeElement; return $('#wizard').classList.contains('open') || (typeof LV !== 'undefined' && !!LV) || !!(a && (a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || (a.tagName === 'INPUT' && !/^(checkbox|radio|button|submit|range|color|file)$/i.test(a.type || '')))); }
-function ptyInFlush() { if (!S.created || ptyBusy()) { clearTimeout(ptyInFlush._t); ptyInFlush._t = setTimeout(ptyInFlush, 800); return; }
-  let changed = false; while (PTY_IN.length) { const m = PTY_IN.shift(); try { if (ptyApply(m)) changed = true; } catch (e) { console.warn('party message', e); } }
-  if (changed) { save(); render(); } }
+// Anything another player sends that changes this character waits for you to accept it (no griefing). The DM's
+// changes, your own characters', messages, and a spell ending that someone had cast on you go straight through.
+const ptyFreeKind = k => ['note', 'end', 'reply'].includes(k);
+function ptyTrusted(m) { const P = PTYX(), I = P && P.info(); if (ptyFreeKind(m.kind)) return true; if (!m.by) return false;
+  return !!I && (m.by === I.dm || m.by === P.email || m.by === (P.owner && P.owner())); }
+function ptyInFlush() { const I = PTYX() && PTYX().info(); if (!S.created || ptyBusy() || !I || I.loading) { clearTimeout(ptyInFlush._t); ptyInFlush._t = setTimeout(ptyInFlush, 800); return; }
+  let changed = false, asked = false; while (PTY_IN.length) { const m = PTY_IN.shift(); try {
+    // taken back before you answered: it just goes away
+    if (m.kind === 'undo' && (S.ptyAsk || []).some(a => a.ref === m.data.ref)) { const a = S.ptyAsk.find(x => x.ref === m.data.ref); S.ptyAsk = S.ptyAsk.filter(x => x !== a); changed = true; toast(`<div><b>${esc(m.fromName || 'Someone')}</b> took back what they sent<div class="det">${esc(ptyDesc(a.m))}</div></div>`, '', 6000); continue; }
+    if (!ptyTrusted(m)) { if (!(S.ptyAsk || []).some(a => a.ref === m.ref)) { S.ptyAsk = (S.ptyAsk || []).concat([{ ref: m.ref || uid(), at: Date.now(), m }]).slice(-40); changed = asked = true; } continue; }
+    const b = PTYX().snap(S); if (ptyApply(m)) { changed = true; ptyGot(m, b); } } catch (e) { console.warn('party message', e); } }
+  if (changed) { save(); render(); } if (asked) ptyAskShow(); }
+// What a message would do, in a few words (for the accept window).
+function ptyDesc(m) { const d = m.data || {}, why = d.why && d.why !== m.fromName ? ' (' + d.why + ')' : '';
+  switch (m.kind) {
+    case 'heal': return (d.amt === 'max' ? 'Heal you to full HP' : `Heal you ${N(d.amt)} HP`) + why;
+    case 'temp': return `Give you ${N(d.amt)} temporary HP` + why;
+    case 'damage': return `Deal you ${N(d.amt)}${d.type ? ' ' + d.type : ''} damage` + why;
+    case 'hit': return `${d.why || d.spell || 'An attack'}: ${d.dmg ? N(d.dmg) + (d.type ? ' ' + d.type : '') + ' damage' : 'a spell'}${d.save ? ` (${d.save} save, DC ${N(d.dc)})` : ''}`;
+    case 'effect': { const fx = d.fx || {}; const t = typeof fxTip === 'function' ? fxTip(fx) : ''; return `${fx.name || 'An effect'}${t ? ': ' + t : ''}${fx.rounds ? ' · ' + fmtRounds(fx.rounds) : ''}`; }
+    case 'cure': return 'End ' + [].concat(d.conds || [], d.fx || [], d.exh ? [(N(d.exh) > 0 ? 'add' : 'remove') + ' a level of exhaustion'] : [], d.curse ? ['curses'] : []).join(', ') + why;
+    case 'cond': return `Give you the ${d.cond} condition${N(d.rounds) ? ' for ' + N(d.rounds) + ' rounds' : ''}` + why;
+    case 'revive': return 'Bring you back' + why; case 'stabilize': return 'Stabilize you' + why;
+    case 'rest': return `Ask you to take a ${d.kind === 'long' ? 'long' : 'short'} rest`;
+    case 'form': return `Turn you into a ${d.cr}${d.name ? ' (' + d.name + ')' : ''}`;
+    case 'item': return `Give you ${N((d.item || {}).qty) > 1 ? N(d.item.qty) + ' × ' : ''}${(d.item || {}).name || 'an item'}`;
+    case 'loot': return `Give you ${N(d.qty) > 1 ? N(d.qty) + ' × ' : ''}${d.name || 'an item'}`;
+    case 'coins': return 'Give you ' + ['pp', 'gp', 'ep', 'sp', 'cp'].filter(k => N(d[k])).map(k => N(d[k]) + ' ' + k).join(', ');
+    case 'inspire': return 'Give you Inspiration';
+    case 'undo': { const g = (S.ptyGot || []).find(x => x.ref === d.ref); return 'Take back: ' + (g ? g.text : 'something they sent'); }
+  }
+  return m.kind; }
+function ptyAskShow(force) {
+  const A = S.ptyAsk || []; if (!A.length) { if ($('#modal-body .ptyask')) closeModal(true); return; }
+  const mine = $('#modal').classList.contains('open') && $('#modal-body .ptyask');
+  // don't pull a window out from under you: a toast offers it instead
+  if (!force && $('#modal').classList.contains('open') && !mine) { toast(`<div><b>${A.length === 1 ? esc(A[0].m.fromName || 'Someone') + ' wants to change your sheet' : A.length + ' changes waiting for you'}</b><div class="det">Nothing changes until you accept.</div></div>`, 'alert', 15000, { label: 'Review', fn: () => ptyAskShow(true) }); return; }
+  openModal(`<div class="ptyask"><h3>${A.length === 1 ? 'Accept this change?' : `Accept these ${A.length} changes?`}</h3><p class="hint" style="margin:0 0 10px">Someone in your party is trying to change your sheet. Nothing happens unless you accept.</p>
+    <div class="ptyask-l">${A.map(a => `<div class="ptyask-r"><div class="ptyask-t"><b>${esc(a.m.fromName || 'Someone')}</b><span>${esc(ptyDesc(a.m))}</span><small>${esc(ptyAgo(a.at))}</small></div>
+      <div class="ptyask-b"><button class="btn sm" data-pa="askno" data-ref="${esc(a.ref)}">Decline</button><button class="btn sm gold" data-pa="askok" data-ref="${esc(a.ref)}">Accept</button></div></div>`).join('')}</div>
+    <div class="actions">${A.length > 1 ? '<button class="btn" data-pa="askall" data-ok="0">Decline all</button><button class="btn gold" data-pa="askall" data-ok="1">Accept all</button>' : '<button class="btn" data-act="close">Later</button>'}</div></div>`, null, true);
+}
+function ptyAnswer(ref, ok) {
+  const all = S.ptyAsk || [], pick = ref === '*' ? all.slice() : all.filter(a => a.ref === ref); if (!pick.length) return ptyAskShow(true);
+  S.ptyAsk = all.filter(a => !pick.includes(a)); let changed = false;
+  pick.forEach(a => { const m = a.m, text = ptyDesc(m);
+    if (ok) { try { const b = PTYX().snap(S); if (ptyApply(m)) { changed = true; ptyGot(m, b); } } catch (e) { console.warn('party message', e); } }
+    else { ptyLog('in', m.fromName || '', 'Declined: ' + text); changed = true; }
+    if (m.from && PTYX()) PTYX().send(m.from, 'reply', { ok, text, n: S.name || '' }).catch(() => {}); });
+  if (!pendingLabel) pendingLabel = ok ? 'Accepted party changes' : 'Declined party changes';
+  save(); render(); if ((S.ptyAsk || []).length) ptyAskShow(true); else closeModal(true);
+}
+// anything still waiting when the sheet opens
+setTimeout(() => { if ((S.ptyAsk || []).length && S.created) ptyAskShow(); }, 3500);
+function ptyGot(m, before, text) { if (!m.ref || m.kind === 'undo') return; const rev = PTYX().diff(before, S); if (!Object.keys(rev).length) return;
+  S.ptyGot = (S.ptyGot || []).filter(x => x.ref !== m.ref).concat([{ ref: m.ref, rev, text: text || (S.ptyLog && S.ptyLog[0] && S.ptyLog[0].text) || m.kind }]).slice(-80); }
+const PTY_CANCEL = new Set();
+// While this sheet was closed: what the party did to it, and items that still need their stats or attacks.
+function ptyCatchUp() {
+  if (!S.created || !ptyAct()) return; let ch = false;
+  (S.inventory || []).forEach((it, i) => { if (!it.ptyNew) return; ch = true; delete it.ptyNew;
+    if (it.ptyLoot) { const full = ptyLootItem(it.ptyLoot, it.notes); full.id = it.id; full.qty = it.qty; S.inventory[i] = it = full; }
+    if (it.weapon && !S.attacks.some(a => a.item === it.id)) S.attacks.push(attackFromItem(it)); });
+  if (ch) rebuildAuto();
+  const news = S.ptyNews || []; if (news.length) { S.ptyNews = []; ch = true;
+    toast(`<div><b>While you were away</b>${news.slice(-8).map(n => `<div class="det">${esc(n.text)}${n.who ? ' — ' + esc(n.who) : ''}</div>`).join('')}${news.length > 8 ? `<div class="det">…and ${news.length - 8} more (Party tab → Party log)</div>` : ''}</div>`, 'alert', 20000); }
+  if (ch) { pendingLabel = 'Party updates'; save(); render(); }
+}
+setTimeout(ptyCatchUp, 2500); setInterval(ptyCatchUp, 20000);
 // Damage after resistances and immunities this sheet knows about.
 function ptyResist(n, type) { type = String(type || '').toLowerCase(); if (!type) return [n, '']; const D = defensesDetail(), has = arr => arr.some(x => x.k.includes(type) || /^all damage/.test(x.k));
   if (has(D.immune)) return [0, 'immune']; if (has(D.resist)) return [Math.floor(n / 2), 'resistant']; return [n, '']; }
@@ -8172,7 +8308,11 @@ function ptyApply(m) {
     case 'coins': { const got = []; ['cp', 'sp', 'ep', 'gp', 'pp'].forEach(k => { const v = Math.max(0, N(d[k])); if (v) { S.currency[k] = N(S.currency[k]) + v; got.push(v + ' ' + k); } }); if (!got.length) return false;
       pendingLabel = 'Coins from ' + who; note('Received ' + got.join(', ')); toast(`<div><b>${esc(who)}</b> gave you <b>${esc(got.join(', '))}</b></div>`, 'crit', 7000); return true; }
     case 'inspire': { S.insp = Math.min(inspMax(), Math.max(0, N(S.insp)) + 1); pendingLabel = 'Inspiration from ' + who; note('Inspiration'); toast(`<div><b>Inspiration!</b><div class="det">From ${esc(who)}${ST('inspiration') ? '' : ' (turn on Inspiration in Settings → Rules to see it on the sheet)'}</div></div>`, 'crit', 8000); return true; }
+    case 'reply': { note(`${d.ok ? 'Accepted' : 'Declined'}: ${d.text || ''}`); toast(`<div><b>${esc(d.n || who)}</b> ${d.ok ? 'accepted' : 'declined'}<div class="det">${esc(d.text || '')}</div></div>`, d.ok ? '' : 'alert', 6000); return true; }
     case 'note': { note(String(d.text || '')); toast(`<div><b>${esc(who)}</b><div class="det">${esc(d.text || '')}</div></div>`, 'alert', 30000); return true; }
+    case 'undo': { const g = (S.ptyGot || []).find(x => x.ref === d.ref); if (!g) { PTY_CANCEL.add(d.ref); return false; }
+      PTYX().revert(S, g.rev); S.ptyGot = S.ptyGot.filter(x => x !== g); S.hp.cur = Math.min(N(S.hp.cur), maxHp()); pendingLabel = `${who} took back: ${g.text}`; note(`Took back: ${g.text}`);
+      toast(`<div><b>${esc(who)}</b> took back what they sent<div class="det">${esc(g.text)}</div></div>`, 'alert', 7000); return true; }
   }
   return false;
 }
@@ -8194,14 +8334,14 @@ function ptyLootItem(name, notes) {
 // A harmful spell or the DM's damage: the save or attack is settled here, on the sheet that's hit.
 function ptyHitPrompt(m) {
   const d = m.data || {}, who = m.fromName || 'Someone', why = d.why || who, ab = String(d.save || '').toLowerCase().slice(0, 3);
-  const land = (full, saved) => { let n = full ? N(d.dmg) : 0; if (saved && d.half) n = Math.floor(N(d.dmg) / 2); else if (saved) n = 0;
+  const land = (full, saved) => { if (m.ref && PTY_CANCEL.has(m.ref)) { toast(`${esc(who)} took that back.`); return; } const before = PTYX().snap(S); let n = full ? N(d.dmg) : 0; if (saved && d.half) n = Math.floor(N(d.dmg) / 2); else if (saved) n = 0;
     const [dmg, r] = ptyResist(n, d.type), done = [];
     if (dmg > 0) { takeDamage(dmg); done.push(`${dmg}${d.type ? ' ' + d.type : ''} damage${r ? ' (' + r + ')' : ''}`); }
     if (!saved && full) { [].concat(d.cond || []).forEach(c => { if (!S.conditions.includes(c)) S.conditions.push(c); if (N(d.rounds)) { S.condTurns = S.condTurns || {}; S.condTurns[c] = Math.min(N(d.rounds), 10); } done.push(c); });
       if (d.buff) { const nm = d.fxName || d.spell || 'Curse'; S.effects = (S.effects || []).filter(e => e.name !== nm).concat([{ name: nm, rounds: N(d.rounds) || 10, buff: d.buff, from: 'enemy', src: d.src }]); done.push(nm); }
       if (d.src && (d.cond || []).length) { const e = { name: d.spell, rounds: N(d.rounds) || 10, buff: {}, from: who, src: d.src, conds: [].concat(d.cond) }; S.effects = (S.effects || []).filter(x => x.name !== e.name).concat([e]); } }
     pendingLabel = why + (done.length ? ': ' + done.join(', ') : '');
-    ptyLog('in', who, `${why}: ${done.length ? done.join(', ') : saved ? 'saved, no effect' : 'missed'}`); save(); render();
+    ptyLog('in', who, `${why}: ${done.length ? done.join(', ') : saved ? 'saved, no effect' : 'missed'}`); ptyGot(m, before, `${why}: ${done.join(', ')}`); save(); render();
     toast(`<div><b>${esc(why)}</b><div class="det">${done.length ? esc(done.join(' · ')) : saved ? 'You saved — no effect.' : 'No effect.'}</div></div>`, done.length ? 'fumble' : 'crit', 7000); };
   const desc = `${N(d.dmg) ? `${N(d.dmg)}${d.type ? ' ' + esc(d.type) : ''} damage` : ''}${(d.cond || []).length ? (N(d.dmg) ? ' and ' : '') + esc([].concat(d.cond).join(', ')) : ''}${d.buff ? (N(d.dmg) || (d.cond || []).length ? ' and ' : '') + esc(d.fxName || d.spell || 'a curse') : ''}${d.note ? ' — ' + esc(d.note) : ''}`;
   let acts, head;

@@ -46,7 +46,7 @@ async function ptySend(ids, kind, data, text, quiet, grp) {
   const recs = ids.map(to => ({ to, ref: PTYX().newRef(), kind, data, text }));
   if (grp && grp.entry) { grp.entry.pty = grp.entry.pty.concat(recs); persistHist(); } else { const e = ptyHistAdd(recs, text); if (grp) grp.entry = e; }
   let ok = 0; for (const r of recs) { try { await PTYX().send(r.to, kind, data, r.ref); ok++; } catch (e) { r.failed = true; console.warn('party send', e); } }
-  if (ok) { ptyLog('out', ptyNames(ids), text); save(); if (UI.tab === 'party') render('party'); if (!quiet) toast(`${esc(text)} → <b>${esc(ptyNames(ids))}</b>`, '', 5000); }
+  if (ok) { ptyLog('out', ptyNames(ids), text); save(); if (UI.tab === 'party') render('party'); if (!quiet) toast(`${esc(text)} → <b>${esc(ptyNames(ids))}</b>${ptyFreeKind(kind) || (PTYX().info() || {}).mgr ? '' : `<div class="det">${ids.length > 1 ? 'They’re' : 'They’re'} asked to accept it on their sheet.</div>`}`, '', 6000); }
   else toast('Couldn’t reach the party right now — check your connection.', 'fumble', 7000);
   return ok;
 }
@@ -74,7 +74,7 @@ function ptyCardHTML(m) {
       ${act ? `<div class="chp-side"><input class="f" id="ptyq-${id}" inputmode="numeric" placeholder="Amount" aria-label="Amount for ${esc(m.name)}">
         <div class="chp-btns"><button class="btn hpi dmg" data-pa="qdmg" data-id="${id}" title="Damage ${esc(m.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-pa="qheal" data-id="${id}" title="Heal ${esc(m.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-pa="qtemp" data-id="${id}" title="Give ${esc(m.name)} temporary HP" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div>` : ''}</div>` : '';
   return `<div class="panel comp2 ptym${down ? ' ' + down : ''}" data-mid="${id}"><div class="comp-h2">${m.thumb ? `<span class="picth"><img src="${esc(m.thumb)}" alt=""></span>` : `<span class="picadd">${esc(String(m.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''))}</span>`}
-      <div class="grow"><b class="cname">${esc(m.name || 'A character')}</b>${m.player ? `<div class="ptym-pl">${esc(m.player)}</div>` : ''}</div>
+      <div class="grow"><b class="cname${String(m.name || '').length > 26 ? ' n3' : String(m.name || '').length > 17 ? ' n2' : ''}" title="${esc(m.name || '')}">${esc(m.name || 'A character')}</b>${m.player ? `<div class="ptym-pl">${esc(m.player)}</div>` : ''}</div>
 </div>
     <div class="cstat2">${hp}<div class="csts"><span class="cst"><small>AC</small><b>${esc(m.ac || '—')}</b></span>${m.speed ? `<span class="cst"><small>Speed</small><b>${N(m.speed)}</b></span>` : ''}${m.level ? `<span class="cst"><small>Level</small><b>${N(m.level)}</b></span>` : ''}</div></div>
     ${on.length ? `<div class="ctags">${on.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>` : ''}
@@ -88,8 +88,8 @@ function renderParty() {
   const P = PTYX().info(), ms = ptyMembers(), act = ptyAct(), abil = act ? ptyAbilities() : [], auras = abil.filter(a => a.def.kind === 'aura');
   const n = ms.length + 1, dm = P.mgr ? 'You' : (P.dmName || 'the DM');
   const head = `<div class="panel ptyhead"><div class="ptyh"><span class="ptyh-ic" aria-hidden="true">${TAB_ICON.party}</span><div class="ptyh-t"><b>${esc(P.name)}</b><span>DM ${esc(dm)} · ${n} character${n === 1 ? '' : 's'}${act ? '' : ' · you’re viewing this sheet'}</span></div>
-      <div class="ptyh-btns">${act && ms.length > 1 ? '<button class="btn sm" data-pa="cast" data-id="">Cast on several…</button><button class="btn sm" data-pa="ability" data-id="">Ability on several…</button>' : ''}<a class="btn sm" href="${esc(P.url)}" target="_top">Party page</a></div></div>
-      ${act && ms.length ? '<p class="hint ptyh-hint">Healing, items, spells and abilities you send land on their sheet straight away (or the next time it’s opened).</p>' : ''}</div>`;
+      <div class="ptyh-btns">${act && ms.length > 1 ? '<button class="btn sm" data-pa="cast" data-id="" title="Pick the spell, then everyone it reaches">Cast a spell on allies…</button><button class="btn sm" data-pa="ability" data-id="" title="Pick the ability, then everyone it reaches">Use an ability on allies…</button>' : ''}<a class="btn sm" href="${esc(P.url)}" target="_top">Party page</a></div></div>
+      ${act && ms.length ? `<p class="hint ptyh-hint">${P.mgr ? 'As the DM, what you send lands on their sheet straight away (or the next time it’s opened).' : 'Healing, items, spells and abilities you send pop up on their sheet for them to accept.'}</p>` : ''}</div>`;
   const cards = P.loading ? `<div class="panel"><p class="hint" style="margin:0">Loading the party…</p></div>` : ms.length ? `<div class="ptym-grid">${ms.map(ptyCardHTML).join('')}</div>` : `<div class="panel"><p class="hint" style="margin:0">Nobody else has joined yet. Your DM can share the party’s invite link from the party page.</p></div>`;
   const aurasP = auras.length ? `<div class="panel ptyauras"><h2>Your auras</h2><p class="hint">Tick who’s close enough to get it. They keep it until you untick them, or you drop to 0 HP.</p>${auras.map(a => { const on = (S.ptyAuras || {})[a.name] || [];
       return `<div class="ptya"><b>${esc(a.name)}</b><span class="hint">${esc(ptyFormula(a.def.label || '') || a.def.text || '')}</span><div class="ptya-who">${ms.map(m => `<label class="checkline"><input type="checkbox" data-aura="${esc(a.name)}" data-id="${esc(m.id)}"${on.includes(m.id) ? ' checked' : ''}> ${esc(m.name)}</label>`).join('')}</div></div>`; }).join('')}</div>` : '';
@@ -116,6 +116,10 @@ function ptyClick(k, id, b) {
     case 'pk': return ptyPickDone(b);
     case 'amt': return ptyAmountGo(b.dataset.k);
     case 'giveit': return ptyGiveGo(N(b.dataset.i), b.dataset.mode);
+    case 'askok': return ptyAnswer(b.dataset.ref, true);
+    case 'askno': return ptyAnswer(b.dataset.ref, false);
+    case 'askall': return ptyAnswer('*', b.dataset.ok === '1');
+    case 'askshow': return ptyAskShow(true);
     case 'giveto': return ptyGiveTo(N(b.dataset.i), id);
     case 'featon': { const f = S.features[N(b.dataset.i)]; if (!f) return; return ptyUseAbility({ name: f.dname || f.name, def: ptyFeatDef(f), f, fi: N(b.dataset.i), col: f.col }, null); }
     case 'givetogo': return ptyGiveGo(N(b.dataset.i), 'give', true);
@@ -466,9 +470,60 @@ const PTY_IN = [];
 window.sheetIncoming = m => { PTY_IN.push(m); ptyInFlush(); };
 // Held back only while you're typing, or making or levelling up the character (a window being open is fine).
 function ptyBusy() { const a = document.activeElement; return $('#wizard').classList.contains('open') || (typeof LV !== 'undefined' && !!LV) || !!(a && (a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || (a.tagName === 'INPUT' && !/^(checkbox|radio|button|submit|range|color|file)$/i.test(a.type || '')))); }
-function ptyInFlush() { if (!S.created || ptyBusy()) { clearTimeout(ptyInFlush._t); ptyInFlush._t = setTimeout(ptyInFlush, 800); return; }
-  let changed = false; while (PTY_IN.length) { const m = PTY_IN.shift(); try { const b = PTYX().snap(S); if (ptyApply(m)) { changed = true; ptyGot(m, b); } } catch (e) { console.warn('party message', e); } }
-  if (changed) { save(); render(); } }
+// Anything another player sends that changes this character waits for you to accept it (no griefing). The DM's
+// changes, your own characters', messages, and a spell ending that someone had cast on you go straight through.
+const ptyFreeKind = k => ['note', 'end', 'reply'].includes(k);
+function ptyTrusted(m) { const P = PTYX(), I = P && P.info(); if (ptyFreeKind(m.kind)) return true; if (!m.by) return false;
+  return !!I && (m.by === I.dm || m.by === P.email || m.by === (P.owner && P.owner())); }
+function ptyInFlush() { const I = PTYX() && PTYX().info(); if (!S.created || ptyBusy() || !I || I.loading) { clearTimeout(ptyInFlush._t); ptyInFlush._t = setTimeout(ptyInFlush, 800); return; }
+  let changed = false, asked = false; while (PTY_IN.length) { const m = PTY_IN.shift(); try {
+    // taken back before you answered: it just goes away
+    if (m.kind === 'undo' && (S.ptyAsk || []).some(a => a.ref === m.data.ref)) { const a = S.ptyAsk.find(x => x.ref === m.data.ref); S.ptyAsk = S.ptyAsk.filter(x => x !== a); changed = true; toast(`<div><b>${esc(m.fromName || 'Someone')}</b> took back what they sent<div class="det">${esc(ptyDesc(a.m))}</div></div>`, '', 6000); continue; }
+    if (!ptyTrusted(m)) { if (!(S.ptyAsk || []).some(a => a.ref === m.ref)) { S.ptyAsk = (S.ptyAsk || []).concat([{ ref: m.ref || uid(), at: Date.now(), m }]).slice(-40); changed = asked = true; } continue; }
+    const b = PTYX().snap(S); if (ptyApply(m)) { changed = true; ptyGot(m, b); } } catch (e) { console.warn('party message', e); } }
+  if (changed) { save(); render(); } if (asked) ptyAskShow(); }
+// What a message would do, in a few words (for the accept window).
+function ptyDesc(m) { const d = m.data || {}, why = d.why && d.why !== m.fromName ? ' (' + d.why + ')' : '';
+  switch (m.kind) {
+    case 'heal': return (d.amt === 'max' ? 'Heal you to full HP' : `Heal you ${N(d.amt)} HP`) + why;
+    case 'temp': return `Give you ${N(d.amt)} temporary HP` + why;
+    case 'damage': return `Deal you ${N(d.amt)}${d.type ? ' ' + d.type : ''} damage` + why;
+    case 'hit': return `${d.why || d.spell || 'An attack'}: ${d.dmg ? N(d.dmg) + (d.type ? ' ' + d.type : '') + ' damage' : 'a spell'}${d.save ? ` (${d.save} save, DC ${N(d.dc)})` : ''}`;
+    case 'effect': { const fx = d.fx || {}; const t = typeof fxTip === 'function' ? fxTip(fx) : ''; return `${fx.name || 'An effect'}${t ? ': ' + t : ''}${fx.rounds ? ' · ' + fmtRounds(fx.rounds) : ''}`; }
+    case 'cure': return 'End ' + [].concat(d.conds || [], d.fx || [], d.exh ? [(N(d.exh) > 0 ? 'add' : 'remove') + ' a level of exhaustion'] : [], d.curse ? ['curses'] : []).join(', ') + why;
+    case 'cond': return `Give you the ${d.cond} condition${N(d.rounds) ? ' for ' + N(d.rounds) + ' rounds' : ''}` + why;
+    case 'revive': return 'Bring you back' + why; case 'stabilize': return 'Stabilize you' + why;
+    case 'rest': return `Ask you to take a ${d.kind === 'long' ? 'long' : 'short'} rest`;
+    case 'form': return `Turn you into a ${d.cr}${d.name ? ' (' + d.name + ')' : ''}`;
+    case 'item': return `Give you ${N((d.item || {}).qty) > 1 ? N(d.item.qty) + ' × ' : ''}${(d.item || {}).name || 'an item'}`;
+    case 'loot': return `Give you ${N(d.qty) > 1 ? N(d.qty) + ' × ' : ''}${d.name || 'an item'}`;
+    case 'coins': return 'Give you ' + ['pp', 'gp', 'ep', 'sp', 'cp'].filter(k => N(d[k])).map(k => N(d[k]) + ' ' + k).join(', ');
+    case 'inspire': return 'Give you Inspiration';
+    case 'undo': { const g = (S.ptyGot || []).find(x => x.ref === d.ref); return 'Take back: ' + (g ? g.text : 'something they sent'); }
+  }
+  return m.kind; }
+function ptyAskShow(force) {
+  const A = S.ptyAsk || []; if (!A.length) { if ($('#modal-body .ptyask')) closeModal(true); return; }
+  const mine = $('#modal').classList.contains('open') && $('#modal-body .ptyask');
+  // don't pull a window out from under you: a toast offers it instead
+  if (!force && $('#modal').classList.contains('open') && !mine) { toast(`<div><b>${A.length === 1 ? esc(A[0].m.fromName || 'Someone') + ' wants to change your sheet' : A.length + ' changes waiting for you'}</b><div class="det">Nothing changes until you accept.</div></div>`, 'alert', 15000, { label: 'Review', fn: () => ptyAskShow(true) }); return; }
+  openModal(`<div class="ptyask"><h3>${A.length === 1 ? 'Accept this change?' : `Accept these ${A.length} changes?`}</h3><p class="hint" style="margin:0 0 10px">Someone in your party is trying to change your sheet. Nothing happens unless you accept.</p>
+    <div class="ptyask-l">${A.map(a => `<div class="ptyask-r"><div class="ptyask-t"><b>${esc(a.m.fromName || 'Someone')}</b><span>${esc(ptyDesc(a.m))}</span><small>${esc(ptyAgo(a.at))}</small></div>
+      <div class="ptyask-b"><button class="btn sm" data-pa="askno" data-ref="${esc(a.ref)}">Decline</button><button class="btn sm gold" data-pa="askok" data-ref="${esc(a.ref)}">Accept</button></div></div>`).join('')}</div>
+    <div class="actions">${A.length > 1 ? '<button class="btn" data-pa="askall" data-ok="0">Decline all</button><button class="btn gold" data-pa="askall" data-ok="1">Accept all</button>' : '<button class="btn" data-act="close">Later</button>'}</div></div>`, null, true);
+}
+function ptyAnswer(ref, ok) {
+  const all = S.ptyAsk || [], pick = ref === '*' ? all.slice() : all.filter(a => a.ref === ref); if (!pick.length) return ptyAskShow(true);
+  S.ptyAsk = all.filter(a => !pick.includes(a)); let changed = false;
+  pick.forEach(a => { const m = a.m, text = ptyDesc(m);
+    if (ok) { try { const b = PTYX().snap(S); if (ptyApply(m)) { changed = true; ptyGot(m, b); } } catch (e) { console.warn('party message', e); } }
+    else { ptyLog('in', m.fromName || '', 'Declined: ' + text); changed = true; }
+    if (m.from && PTYX()) PTYX().send(m.from, 'reply', { ok, text, n: S.name || '' }).catch(() => {}); });
+  if (!pendingLabel) pendingLabel = ok ? 'Accepted party changes' : 'Declined party changes';
+  save(); render(); if ((S.ptyAsk || []).length) ptyAskShow(true); else closeModal(true);
+}
+// anything still waiting when the sheet opens
+setTimeout(() => { if ((S.ptyAsk || []).length && S.created) ptyAskShow(); }, 3500);
 function ptyGot(m, before, text) { if (!m.ref || m.kind === 'undo') return; const rev = PTYX().diff(before, S); if (!Object.keys(rev).length) return;
   S.ptyGot = (S.ptyGot || []).filter(x => x.ref !== m.ref).concat([{ ref: m.ref, rev, text: text || (S.ptyLog && S.ptyLog[0] && S.ptyLog[0].text) || m.kind }]).slice(-80); }
 const PTY_CANCEL = new Set();
@@ -535,6 +590,7 @@ function ptyApply(m) {
     case 'coins': { const got = []; ['cp', 'sp', 'ep', 'gp', 'pp'].forEach(k => { const v = Math.max(0, N(d[k])); if (v) { S.currency[k] = N(S.currency[k]) + v; got.push(v + ' ' + k); } }); if (!got.length) return false;
       pendingLabel = 'Coins from ' + who; note('Received ' + got.join(', ')); toast(`<div><b>${esc(who)}</b> gave you <b>${esc(got.join(', '))}</b></div>`, 'crit', 7000); return true; }
     case 'inspire': { S.insp = Math.min(inspMax(), Math.max(0, N(S.insp)) + 1); pendingLabel = 'Inspiration from ' + who; note('Inspiration'); toast(`<div><b>Inspiration!</b><div class="det">From ${esc(who)}${ST('inspiration') ? '' : ' (turn on Inspiration in Settings → Rules to see it on the sheet)'}</div></div>`, 'crit', 8000); return true; }
+    case 'reply': { note(`${d.ok ? 'Accepted' : 'Declined'}: ${d.text || ''}`); toast(`<div><b>${esc(d.n || who)}</b> ${d.ok ? 'accepted' : 'declined'}<div class="det">${esc(d.text || '')}</div></div>`, d.ok ? '' : 'alert', 6000); return true; }
     case 'note': { note(String(d.text || '')); toast(`<div><b>${esc(who)}</b><div class="det">${esc(d.text || '')}</div></div>`, 'alert', 30000); return true; }
     case 'undo': { const g = (S.ptyGot || []).find(x => x.ref === d.ref); if (!g) { PTY_CANCEL.add(d.ref); return false; }
       PTYX().revert(S, g.rev); S.ptyGot = S.ptyGot.filter(x => x !== g); S.hp.cur = Math.min(N(S.hp.cur), maxHp()); pendingLabel = `${who} took back: ${g.text}`; note(`Took back: ${g.text}`);

@@ -1728,3 +1728,11 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 :where(body.hubbody) .pty-invwho { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 :where(body.hubbody) .pty-invwho b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 :where(body.hubbody) .pty-invwho small { font-size: .78rem; opacity: .65; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:where(body.hubbody) .pm-txt b.n2 { font-size: .9rem; } :where(body.hubbody) .pm-txt b.n3 { font-size: .8rem; }
+:where(body.hubbody) .pty-acq { width: 100%; box-sizing: border-box; margin: 0 0 8px; }
+:where(body.hubbody) .pty-pick [data-add][hidden] { display: none; }
+:where(body.hubbody) .pw.inbody .pw-head { display: none; }
+:where(body.hubbody) .pw-intitle h2 .hp-rename { opacity: .7; } :where(body.hubbody) .pw-intitle h2 .pw-tt { min-width: 0; overflow-wrap: anywhere; }
+:where(body.hubbody) .pw-intitle { padding: 2px 0 12px; margin: 0 0 12px; border-bottom: 1px solid rgba(127,127,127,.2); }
+:where(body.hubbody) .pw-intitle h2 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 1.45rem; }
+:where(body.hubbody) .pw-intitle .pw-sub { margin: 6px 0 0; }
