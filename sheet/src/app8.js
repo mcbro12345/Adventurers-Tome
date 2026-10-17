@@ -364,11 +364,11 @@ const hbNum = v => (/^\s*walk\s*$/i.test(String(v)) ? 'walk' : /^-?\d+$/.test(St
 const hbItemOn = it => !!it && (it.equipped || !!it.carried) && (!it.attune || !!it.attuned);
 // The table's own homebrew items: these get their effect set up as soon as they show up in an inventory
 // (only when the item has no homebrew settings of its own, so a player's edits always win).
-const HB_KNOWN = [
+function hbKnownList() { return [
   [/\bspider legs?\b/i, { hb: { consume: true, effName: 'Spider Legs', effSkillAdv: 'Perception', effNote: 'Advantage on Perception checks until your next long rest', text: 'Advantage on Perception checks until your next long rest.' }, carried: true }]
-];
+]; }
 function hbKnownItem(it) {
-  if (!it || it.hb || it.hbKnown) return; const k = HB_KNOWN.find(([re]) => re.test(it.name || '')); if (!k) return;
+  if (!it || it.hb || it.hbKnown) return; const k = hbKnownList().find(([re]) => re.test(it.name || '')); if (!k) return;
   it.hb = JSON.parse(JSON.stringify(k[1].hb)); if (k[1].carried) it.carried = true; it.hbKnown = 1;
 }
 function hbFx(hb) {

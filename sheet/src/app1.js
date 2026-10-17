@@ -104,7 +104,7 @@ function migrate(s) {
   const b = blankState();
   for (const k in b) if (s[k] === undefined) s[k] = b[k];
   if (!Array.isArray(s.sources)) s.sources = defaultSources();
-  if (Array.isArray(s.inventory) && typeof hbKnownItem === 'function') s.inventory.forEach(hbKnownItem);
+  if (Array.isArray(s.inventory) && typeof hbKnownItem === 'function') try { s.inventory.forEach(hbKnownItem); } catch (e) {}
   // Rings / Armor of Resistance that had their type picked in a dropdown become the named item ("Ring of Resistance (Fire)").
   (s.inventory || []).forEach(it => { if (it && it.resPick && /\b(ring|armor) of resistance\b/i.test(it.name || '') && !/\((acid|cold|fire|force|lightning|necrotic|poison|psychic|radiant|thunder)\)\s*$/i.test(it.name || '')) it.name = it.name + ' (' + it.resPick[0].toUpperCase() + it.resPick.slice(1) + ')'; });
   s.slotsUsed = (s.slotsUsed || []).concat(Array(9).fill(0)).slice(0, 9);
