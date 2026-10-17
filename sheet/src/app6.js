@@ -127,6 +127,8 @@ function _applyPanelLayout() {
   const L = S.layout || {}, pages = L.grid ? {} : (L.pages || {}), ae = document.activeElement, ed = !!UI.editLayout;
   // Panels added in later versions go next to their neighbours in a saved layout.
   [['spells', 'mmspells', 'spellcasting'], ['combat', 'metamagic', 'activefx']].forEach(([pg, id, after]) => { const a = pages[pg]; if (a && !a.includes(id) && $(`#page-${pg} [data-pid="${id}"]`)) { const k = a.indexOf(after); a.splice(k < 0 ? a.length : k + 1, 0, id); } });
+  // The Spells tab's Spell Slots and Active Spells panels (same look as Combat) go at the top, before the class cards.
+  { const a = pages.spells; if (a) [['spslots', null], ['spfx', 'spslots']].forEach(([id, after]) => { if (a.includes(id) || !$(`#page-spells [data-pid="${id}"]`)) return; const k = after ? a.indexOf(after) + 1 : Math.max(0, a.indexOf('spellcasting')); a.splice(k < 0 ? 0 : k, 0, id); }); }
   const by = {};
   $$('.page [data-pid]').forEach(el => (by[el.dataset.pid] = by[el.dataset.pid] || []).push(el));
   Object.keys(by).forEach(id => { const els = by[id]; if (els.length < 2) return; const keep = els.find(e => e.contains(ae)) || els.reduce((a, b) => (N(b.dataset.gen) > N(a.dataset.gen) ? b : a)); els.forEach(e => { if (e !== keep) e.remove(); }); by[id] = [keep]; });

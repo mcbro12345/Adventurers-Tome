@@ -150,13 +150,13 @@ function renderSpells() {
   const lvls = [...new Set(S.spells.map(s => N(s.level)))].sort((a, b) => a - b);
   const filt = [['all', 'All'], ['ready', 'Ready to cast']].concat(cs.length > 1 ? cs.map(c => ['c:' + c.key, c.name]) : []).concat(lvls.map(l => [String(l), l === 0 ? 'Cantrips' : ORD[l - 1]]));
   $('#page-spells').innerHTML = `
-  ${noSlots() ? `<div class="panel cs-fx" ${PID('spellcasting')}>${activeFxInner(false)}</div>` : `<div class="panel" ${PID('spellcasting')}><h2><span class="grow">Spellcasting</span><button class="btn ghost sm" data-act="toggle" data-key="slotcfg">${UI.open.slotcfg ? 'Done' : 'Customize slots'}</button></h2>
-    <div class="sc-wrap2${noSlots() ? ' fxonly' : ''}${cs.length ? '' : ' nocls'}">${noSlots() ? '' : `<div class="sc-slotpanel cs-slots"><h3 class="sc-slottitle">${realSlots() ? 'Spell Slots' : 'Stored spells'}${p ? ' <span class="sc-sub">Pact slots return on a short rest</span>' : ''}</h3>${slotsPanelInner()}</div>
-      ${cs.length ? `<div class="sc-cards">${tiles}</div>` : ''}`}
-      <div class="sc-slotpanel sc-fxpanel cs-fx">${activeFxInner(true)}</div></div>
-    ${UI.open.slotcfg ? `<div style="margin-top:10px"><p class="hint">Slots follow the multiclass spellcaster table (caster level ${casterLevel()}). Type a number to override a level; blank = automatic.</p>
-      <div class="slots">${ORD.map((o, i) => fld(o + ' max', inp('slotsOverride.' + i, { num: 1, ph: String(FULL[Math.min(20, casterLevel())][i] || 0) }))).join('')}</div></div>` : ''}
-  </div>`}
+  ${noSlots() ? `<div class="panel cs-fx" ${PID('spellcasting')}>${activeFxInner(false)}</div>` : `<div class="cstrip">
+    <div class="panel cs-slots" ${PID('spslots')}><h2><span class="grow">${realSlots() ? 'Spell Slots' : 'Stored spells'}</span>${realSlots() ? `<button class="btn ghost sm" data-act="toggle" data-key="slotcfg">${UI.open.slotcfg ? 'Done' : 'Customize'}</button>` : ''}</h2>${slotsPanelInner()}
+      ${UI.open.slotcfg && realSlots() ? `<div style="margin-top:10px"><p class="hint">Slots follow the multiclass spellcaster table (caster level ${casterLevel()}). Type a number to override a level; blank = automatic.</p>
+      <div class="slots">${ORD.map((o, i) => fld(o + ' max', inp('slotsOverride.' + i, { num: 1, ph: String(FULL[Math.min(20, casterLevel())][i] || 0) }))).join('')}</div></div>` : ''}${p ? '<p class="hint" style="margin:6px 0 0">Pact slots return on a short rest.</p>' : ''}</div>
+    <div class="panel cs-fx" ${PID('spfx')}>${activeFxInner(false)}</div>
+  </div>
+  ${cs.length ? `<div class="panel" ${PID('spellcasting')}><h2>Spellcasting</h2><div class="sc-cards">${tiles}</div></div>` : ''}`}
   ${mmPanelHTML('mmspells')}
   <div class="panel" ${PID('spelllist')}><h2><span class="grow">Spells</span><button class="btn gold" data-act="addspells" data-cls="">+ Add spells</button><button class="btn" data-act="add" data-list="spells">+ Custom spell</button></h2>
     <div class="spsortbar"><span class="lbl">Group spells by</span><div class="segmini">${[['level', 'Level'], ['purpose', 'Purpose'], ['custom', 'My categories']].map(([k, t]) => `<button class="${ST('combatSpellSort') === k ? 'on' : ''}" data-act="spsort" data-k="${k}">${t}</button>`).join('')}</div>${cust ? '<button class="btn sm" data-act="spcatadd">+ Category</button><span class="hint">Drag spells to reorder them or move them between categories. ' + (m ? '' : 'Drag a category by its ⠿ to rearrange. ') + 'The Combat tab uses the same groups and order.</span>' : '<span class="hint">' + (m ? '' : 'Drag a group by its ⠿ to rearrange. ') + 'The Combat tab uses the same groups and order.</span>'}</div>
@@ -694,7 +694,7 @@ function oocHTML(comps) {
   return `<div class="oocbar panel" ${PID('turnbar')}><div class="grow"><b class="ooc-t">Out of initiative</b><div class="hint">Exploring, talking, resting. Roll initiative to bring back rounds, turns and your action economy.</div></div>
       <button class="btn ghost sm ooc-enter" data-act="entercombat" title="Switch to initiative mode without rolling (the DM already rolled, or you rolled elsewhere)">Initiative mode</button><button class="btn gold big" data-act="startcombat">⚔ Roll Initiative</button></div>
     <div class="cstrip">
-      <div class="panel cs-slots" ${PID('slots')}><h2>Spell Slots</h2>${slotsPanelInner()}</div>
+      <div class="panel cs-slots" ${PID('slots')}><h2>${realSlots() ? 'Spell Slots' : 'Stored spells'}</h2>${slotsPanelInner()}</div>
       <div class="panel cs-fx" ${PID('activefx')}>${activeFxInner(false)}</div>
     </div>
     ${mmPanelHTML()}
@@ -800,7 +800,7 @@ function renderCombat() {
     <span class="hint">One Action, one Bonus Action, movement and one Reaction per round. Using something here marks it spent; Next Turn resets them and counts down spell durations.</span>
   </div>
   <div class="cstrip">
-    <div class="panel cs-slots" ${PID('slots')}><h2>Spell Slots</h2>${slotsPanelInner()}</div>
+    <div class="panel cs-slots" ${PID('slots')}><h2>${realSlots() ? 'Spell Slots' : 'Stored spells'}</h2>${slotsPanelInner()}</div>
     <div class="panel cs-fx" ${PID('activefx')}>${activeFxInner(false)}</div>
   </div>
   ${mmPanelHTML()}

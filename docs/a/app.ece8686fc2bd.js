@@ -191,7 +191,10 @@ function writeLocal() {
 }
 const IOS_SAFARI = /iP(hone|od|ad)/.test(navigator.userAgent) && /Version\/[\d.]+.*Safari\//.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS/.test(navigator.userAgent);
 // Where the phone's bottom tab bar sits is a setting of this device (same for every character); 32 by default.
-function tabLift() { let v = null; try { v = localStorage.getItem('dnd-tablift'); } catch (e) {} return v != null && v !== '' ? N(v) : 24; }
+// The phone's bottom tab bar: on the home-screen app it sits a little above the home bar; in the browser it sits right on
+// the browser's own bar (you can still move it in Settings → Theme).
+const tabStandalone = () => { try { return navigator.standalone === true || matchMedia('(display-mode: standalone)').matches || document.documentElement.classList.contains('pg-standalone'); } catch (e) { return false; } };
+function tabLift() { let v = null; try { v = localStorage.getItem('dnd-tablift'); } catch (e) {} return v != null && v !== '' ? N(v) : tabStandalone() ? 24 : 0; }
 function applyTabLift() { document.documentElement.style.setProperty('--tablift', tabLift() + 'px'); }
 function saveUI() { try { localStorage.setItem(UI_KEY, JSON.stringify(UI)); } catch (e) {} }
 // An actual phone always uses the phone layout (the desktop layout can't be switched on there).
@@ -1027,6 +1030,88 @@ function askHalfDamage(name) {
   });
 }
 
+// ---------- Ring of Spell Storing ----------
+// Anyone can cast a spell of 1st–5th level into the ring (up to 5 levels' worth in total). Whoever wears it can then cast
+// each stored spell once, at the level it was stored at and with the original caster's save DC and attack bonus; once
+// cast, it's gone and its levels are free again.
+const ringLvOf = (it, n) => Math.max(N((it.spellLevels || {})[n]), N((SPI(n) || {}).level) || 1);
+const ringUsed = it => (it.spells || []).reduce((t, n) => t + ringLvOf(it, n), 0);
+const ringCap = it => N(it.storeCap) || 5;
+// The window works like Add spells: search, level chips, and a Store button on each spell.
+let RS = null;
+function openRingStore(ii) {
+  RS = { ii, who: RS && RS.ii === ii ? RS.who : (casters().length ? 'me' : 'other'), lvl: RS && RS.ii === ii ? RS.lvl : 'all', dc: RS && RS.ii === ii ? RS.dc : '', atk: RS && RS.ii === ii ? RS.atk : '' };
+  if (!$('#modal').classList.contains('open')) openModal('', null, true);
+  renderRingStore();
+}
+function renderRingStore() {
+  const it = S.inventory[RS.ii]; if (!it) return closeModal(true);
+  if ($('#rsDC')) RS.dc = $('#rsDC').value; if ($('#rsAtk')) RS.atk = $('#rsAtk').value;
+  const canMe = casters().length > 0; if (!canMe) RS.who = 'other';
+  const used = ringUsed(it), cap = ringCap(it), left = Math.max(0, cap - used), q = $('#rsq') ? $('#rsq').value : '';
+  const mineN = new Set(S.spells.filter(sp => !sp.stored && CL[sp.cls] && casterFor(sp.cls)).map(sp => sp.name.toLowerCase()));
+  const list = DND.spells.filter(sp => sp.level >= 1 && sp.level <= 5 && (RS.who === 'other' || mineN.has(sp.name.toLowerCase())));
+  const lvls = [...new Set(list.map(sp => sp.level))].sort((a, b) => a - b);
+  if (RS.lvl !== 'all' && !lvls.includes(N(RS.lvl))) RS.lvl = 'all';
+  const held = new Set((it.spells || []).map(n => n.toLowerCase()));
+  const slotTxt = L => slotMax(L - 1) ? `${slotsLeft(L - 1)} slot${slotsLeft(L - 1) === 1 ? '' : 's'} left` : pact() && pact().level === L ? 'pact slot' : 'no slots';
+  const rowFor = sp => {
+    const on = held.has(sp.name.toLowerCase()), fits = sp.level <= left, ups = DND.full ? spellUpcasts(sp.name) : true;
+    const Ls = Array.from({ length: Math.max(0, Math.min(5, left) - sp.level + 1) }, (_, k) => sp.level + k).filter(L => L === sp.level || ups);
+    const ctl = on ? `<button class="btn sm" data-act="ringdel" data-i="${RS.ii}" data-n="${esc((it.spells || []).find(n => n.toLowerCase() === sp.name.toLowerCase()))}" title="Take it out of the ring (it's lost)">Stored ✓ · take out</button>`
+      : !fits ? `<span class="always" title="Not enough room in the ring">Needs ${sp.level} level${sp.level > 1 ? 's' : ''}</span>`
+      : `<span class="rs-go">${Ls.length > 1 || RS.who === 'me' ? `<select class="f sm" data-rslv="${esc(sp.name)}" aria-label="Level to store ${esc(sp.name)} at">${Ls.map(L => `<option value="${L}">${ORD[L - 1]}${RS.who === 'me' ? ' · ' + slotTxt(L) : ''}</option>`).join('')}</select>` : ''}<button class="btn sm gold" data-act="ringstorego" data-n="${esc(sp.name)}">Store</button></span>`;
+    return `<div class="crrow" data-q="${esc((sp.name + ' ' + sp.school + ' ' + sp.summary).toLowerCase())}"><div><b>${esc(sp.name)}</b> <span class="hint">${ORD[sp.level - 1]} · ${esc(sp.school)} · ${esc(sp.time)} · ${esc(sp.range)}${sp.conc ? ' · conc' : ''}${sp.ritual ? ' · ritual' : ''} · ${esc(sp.src)}</span><div class="hint">${esc(sp.summary)}</div></div>${ctl}</div>`; };
+  const stored = (it.spells || []).map(n => `${esc(n)} (${ORD[ringLvOf(it, n) - 1]})`).join(', ');
+  $('#modal-body').innerHTML = `<div id="ringstore"><h3>Store spells in ${esc(it.name)}</h3>
+    <div class="row">${canMe ? fld('Cast into it by', `<select class="f" id="rsWho"><option value="me"${RS.who === 'me' ? ' selected' : ''}>Me (uses my spell slots)</option><option value="other"${RS.who === 'other' ? ' selected' : ''}>Someone else</option></select>`) : ''}
+      ${RS.who === 'other' ? `${fld('Their save DC', `<input class="f" id="rsDC" type="number" inputmode="numeric" placeholder="optional" value="${esc(RS.dc)}">`)}${fld('Their attack bonus', `<input class="f" id="rsAtk" type="number" inputmode="numeric" placeholder="optional" value="${esc(RS.atk)}">`)}` : ''}
+      <span class="hint"><span class="rs-meter"><i style="width:${Math.round(100 * Math.min(cap, used) / cap)}%"></i></span> ${used} of ${cap} levels used${stored ? ' · holds ' + stored : ' · empty'}. Whoever wears it casts each stored spell once, at the stored level${RS.who === 'other' ? ', with the caster\'s DC and attack bonus (yours if left blank)' : ', with your DC and attack bonus'}.</span></div>
+    <div class="row" style="margin:6px 0"><input class="f" id="rsq" placeholder="Search spells…" value="${esc(q)}" aria-label="Search spells" style="flex:1 1 200px">
+      <div class="chips">${lvls.map(l => [String(l), ORD[l - 1] + ' level']).concat([['all', 'All']]).map(([k, t]) => `<button class="chip${RS.lvl === k ? ' on' : ''}" data-act="rsfilt" data-l="${k}">${t}</button>`).join('')}</div></div>
+    ${!left ? '<p class="hint"><b>It\'s full.</b> Cast a stored spell, or take one out, to make room.</p>' : ''}
+    <div class="crlist">${list.filter(sp => RS.lvl === 'all' || String(sp.level) === RS.lvl).sort((a, b) => (held.has(b.name.toLowerCase()) - held.has(a.name.toLowerCase())) || a.level - b.level || a.name.localeCompare(b.name)).map(rowFor).join('') || `<p class="hint">${RS.who === 'me' ? 'You don\'t have any 1st–5th level spells.' : 'No spells.'}</p>`}</div>
+    <div class="actions"><button class="btn" data-act="close">Done</button></div></div>`;
+  $('#modal-body').classList.add('wide');
+  const qi = $('#rsq'); qi.oninput = () => filterCatalogQ('#rsq'); filterCatalogQ('#rsq');
+  const w = $('#rsWho'); if (w) w.onchange = () => { RS.who = w.value; renderRingStore(); };
+}
+function ringStoreGo(name) {
+  const it = S.inventory[RS && RS.ii]; if (!it) return;
+  const d = SPI(name); if (!d) return; const sel = document.querySelector(`[data-rslv="${CSS.escape(name)}"]`), L = sel ? N(sel.value) : N(d.level), left = ringCap(it) - ringUsed(it);
+  if (L < N(d.level) || L > 5) return; if (L > left) { toast(`Not enough room: ${left} level${left === 1 ? '' : 's'} left.`, 'fumble'); return; }
+  if ((it.spells || []).some(n => n.toLowerCase() === d.name.toLowerCase())) return;
+  let cast = {};
+  if (RS.who === 'me') {
+    const own = S.spells.find(s => s.name.toLowerCase() === d.name.toLowerCase() && !s.stored && CL[s.cls]);
+    if (slotMax(L - 1) > 0 && slotsLeft(L - 1) > 0) S.slotsUsed[L - 1] = N(S.slotsUsed[L - 1]) + 1;
+    else if (pact() && pact().level === L && pactLeft() > 0) S.pactUsed = N(S.pactUsed) + 1;
+    else { toast(`No ${ORD[L - 1]}-level spell slots left.`, 'fumble'); return; }
+    const ci = spellCI(own || { cls: (casters()[0] || {}).key }); cast = { dc: ci.dc, atk: ci.atk };
+  } else {
+    const dc = $('#rsDC') ? $('#rsDC').value : RS.dc, atk = $('#rsAtk') ? $('#rsAtk').value : RS.atk;
+    if (dc !== '' && dc != null) cast.dc = N(dc); if (atk !== '' && atk != null) cast.atk = N(atk);
+  }
+  it.spells = (it.spells || []).concat([d.name]); it.spellLevels = Object.assign({}, it.spellLevels, { [d.name]: L });
+  it.spellCast = Object.assign({}, it.spellCast, { [d.name]: cast });
+  pendingLabel = `${it.name}: store ${d.name}`; rebuildAuto(); save(); render(); renderRingStore();
+  toast(`<b>${esc(d.name)}</b> (${ORD[L - 1]} level) stored in ${esc(it.name)}.`, '', 4500, { label: 'Undo', fn: () => undo(1) });
+}
+function ringRemove(ii, n) {
+  const it = S.inventory[ii]; if (!it) return;
+  it.spells = (it.spells || []).filter(x => x !== n); if (it.spellLevels) delete it.spellLevels[n]; if (it.spellCast) delete it.spellCast[n];
+  pendingLabel = `${it.name}: take out ${n}`; rebuildAuto(); save(); render(); if (RS && $('#ringstore')) renderRingStore(); else openRingStore(ii);
+}
+// A stored spell has been cast from the ring: it's gone, and its levels are free again.
+function ringSpent(sp) {
+  const it = spItem(sp); if (!it || !itemStores(it) || sp.cls === 'artificer') return;
+  if (N(evalMax(sp.uses && sp.uses.max) || 1) - N(sp.uses && sp.uses.used) > 0) return;
+  const n = (it.spells || []).find(x => x.toLowerCase() === String(sp.name).toLowerCase()); if (!n) return;
+  it.spells = it.spells.filter(x => x !== n); if (it.spellLevels) delete it.spellLevels[n]; if (it.spellCast) delete it.spellCast[n];
+  setTimeout(() => { rebuildAuto(); save(); render(); }, 0);
+}
+const ringItems = () => S.inventory.map((it, ii) => [it, ii]).filter(([it]) => itemStores(it) && !it.infusion);
+
 
 // ---------- Dice ----------
 // Three ways to roll (Settings → Dice):
@@ -1833,8 +1918,10 @@ function prepCell(s, i) {
   if (!isPrepCaster(s.cls)) return '<span class="always known" title="Known spell: always ready">Known</span>';
   return `<label class="prepbox" title="Prepared">${chk(`spells.${i}.prepared`, 'Prepared')}</label>`;
 }
+// Real spell slots (from a class, pact magic or custom slots) — not just spells stored in an item
+const realSlots = () => casters().length > 0 || !!pact() || [0, 1, 2, 3, 4, 5, 6, 7, 8].some(k => slotMax(k) > 0);
 function slotsPanelInner() {
-  return `${(() => { const cl = typeof casters === 'function' ? casters() : []; return cl.length ? `<div class="cs-scstats">${cl.map(c => `<div class="cs-scrow">${cl.length > 1 ? `<span class="cs-scn">${esc(c.name)}</span>` : ''}<span class="cs-sc"><small><span class="ciw top">Save DC${ciBtn('dc:' + c.key, 'your spell save DC')}</span></small><b data-calc="dc:${c.key}"></b></span><span class="cs-sc"><small><span class="ciw top">Spell attack${ciBtn('satk:' + c.key, 'your spell attack')}</span></small>${rollBtn('spellatk:' + c.key, c.name + ' spell attack')}</span></div>`).join('')}</div>` : ''; })()}<div data-calc-html="slotsall"></div><p class="hint" style="margin:6px 0 0">Spent automatically when you cast or smite. Tap a diamond to adjust.</p>`;
+  return `${(() => { const cl = typeof casters === 'function' ? casters() : []; return cl.length ? `<div class="cs-scstats">${cl.map(c => `<div class="cs-scrow">${cl.length > 1 ? `<span class="cs-scn">${esc(c.name)}</span>` : ''}<span class="cs-sc"><small><span class="ciw top">Save DC${ciBtn('dc:' + c.key, 'your spell save DC')}</span></small><b data-calc="dc:${c.key}"></b></span><span class="cs-sc"><small><span class="ciw top">Spell attack${ciBtn('satk:' + c.key, 'your spell attack')}</span></small>${rollBtn('spellatk:' + c.key, c.name + ' spell attack')}</span></div>`).join('')}</div>` : ''; })()}<div data-calc-html="slotsall"></div><p class="hint" style="margin:6px 0 0">${realSlots() ? 'Spent automatically when you cast or smite. Tap a diamond to adjust.' : 'Each stored spell is used up when you cast it.'}</p>${typeof ringItems === 'function' && ringItems().length ? `<div class="rs-btns">${ringItems().map(([it, ii]) => `<button class="btn sm gold" data-act="ringstore" data-i="${ii}">Store a spell${ringItems().length > 1 ? ' in ' + esc(it.name) : ''} <small>${ringUsed(it)}/${ringCap(it)}</small></button>`).join('')}</div>` : ''}`;
 }
 // The Active Spells panel — the same one on Combat and (compact) on Spells.
 function activeFxInner(small) {
@@ -1906,13 +1993,13 @@ function renderSpells() {
   const lvls = [...new Set(S.spells.map(s => N(s.level)))].sort((a, b) => a - b);
   const filt = [['all', 'All'], ['ready', 'Ready to cast']].concat(cs.length > 1 ? cs.map(c => ['c:' + c.key, c.name]) : []).concat(lvls.map(l => [String(l), l === 0 ? 'Cantrips' : ORD[l - 1]]));
   $('#page-spells').innerHTML = `
-  ${noSlots() ? `<div class="panel cs-fx" ${PID('spellcasting')}>${activeFxInner(false)}</div>` : `<div class="panel" ${PID('spellcasting')}><h2><span class="grow">Spellcasting</span><button class="btn ghost sm" data-act="toggle" data-key="slotcfg">${UI.open.slotcfg ? 'Done' : 'Customize slots'}</button></h2>
-    <div class="sc-wrap2${noSlots() ? ' fxonly' : ''}">${noSlots() ? '' : `<div class="sc-slotpanel cs-slots"><h3 class="sc-slottitle">Spell Slots${p ? ' <span class="sc-sub">Pact slots return on a short rest</span>' : ''}</h3>${slotsPanelInner()}</div>
-      <div class="sc-cards">${tiles}</div>`}
-      <div class="sc-slotpanel sc-fxpanel cs-fx">${activeFxInner(true)}</div></div>
-    ${UI.open.slotcfg ? `<div style="margin-top:10px"><p class="hint">Slots follow the multiclass spellcaster table (caster level ${casterLevel()}). Type a number to override a level; blank = automatic.</p>
-      <div class="slots">${ORD.map((o, i) => fld(o + ' max', inp('slotsOverride.' + i, { num: 1, ph: String(FULL[Math.min(20, casterLevel())][i] || 0) }))).join('')}</div></div>` : ''}
-  </div>`}
+  ${noSlots() ? `<div class="panel cs-fx" ${PID('spellcasting')}>${activeFxInner(false)}</div>` : `<div class="cstrip">
+    <div class="panel cs-slots" ${PID('spslots')}><h2><span class="grow">${realSlots() ? 'Spell Slots' : 'Stored spells'}</span>${realSlots() ? `<button class="btn ghost sm" data-act="toggle" data-key="slotcfg">${UI.open.slotcfg ? 'Done' : 'Customize'}</button>` : ''}</h2>${slotsPanelInner()}
+      ${UI.open.slotcfg && realSlots() ? `<div style="margin-top:10px"><p class="hint">Slots follow the multiclass spellcaster table (caster level ${casterLevel()}). Type a number to override a level; blank = automatic.</p>
+      <div class="slots">${ORD.map((o, i) => fld(o + ' max', inp('slotsOverride.' + i, { num: 1, ph: String(FULL[Math.min(20, casterLevel())][i] || 0) }))).join('')}</div></div>` : ''}${p ? '<p class="hint" style="margin:6px 0 0">Pact slots return on a short rest.</p>' : ''}</div>
+    <div class="panel cs-fx" ${PID('spfx')}>${activeFxInner(false)}</div>
+  </div>
+  ${cs.length ? `<div class="panel" ${PID('spellcasting')}><h2>Spellcasting</h2><div class="sc-cards">${tiles}</div></div>` : ''}`}
   ${mmPanelHTML('mmspells')}
   <div class="panel" ${PID('spelllist')}><h2><span class="grow">Spells</span><button class="btn gold" data-act="addspells" data-cls="">+ Add spells</button><button class="btn" data-act="add" data-list="spells">+ Custom spell</button></h2>
     <div class="spsortbar"><span class="lbl">Group spells by</span><div class="segmini">${[['level', 'Level'], ['purpose', 'Purpose'], ['custom', 'My categories']].map(([k, t]) => `<button class="${ST('combatSpellSort') === k ? 'on' : ''}" data-act="spsort" data-k="${k}">${t}</button>`).join('')}</div>${cust ? '<button class="btn sm" data-act="spcatadd">+ Category</button><span class="hint">Drag spells to reorder them or move them between categories. ' + (m ? '' : 'Drag a category by its ⠿ to rearrange. ') + 'The Combat tab uses the same groups and order.</span>' : '<span class="hint">' + (m ? '' : 'Drag a group by its ⠿ to rearrange. ') + 'The Combat tab uses the same groups and order.</span>'}</div>
@@ -2126,7 +2213,7 @@ function renderInventory() {
         <span class="grow"></span>
         <button class="icon-btn ibtn${open ? ' on' : ''}" data-act="toggle" data-key="item:${it.id}" title="${open ? 'Close editing' : 'Edit details and notes'}" aria-label="Edit ${esc(it.name)}">${open ? '▴' : '✎'}</button>
         ${del('inventory', i)}</div>
-      <div class="imeta">${resPickItem(it) && !it.resPick ? `<label class="respick unset"><span>Which ring is it?</span><select class="f" data-restype="${i}" aria-label="Damage type this item resists"><option value="">Choose its damage type…</option>${RES_TYPES.map(t => `<option value="${t}">${t[0].toUpperCase() + t.slice(1)}</option>`).join('')}</select></label>` : ''}${String(it.notes || '').trim() && !open ? `<div class="inote-m mnote">${esc(it.notes)}</div>` : ''}${badges}${ch}${isDeckItem(it) ? `<button class="btn sm gold" data-act="deck" data-i="${i}">Draw a card</button>` : ''}${it.heal ? `<button class="btn sm" data-act="drink" data-i="${i}">Drink (${esc(it.heal)})</button>` : ''}${it.hb && hbUsable(hbFx(it.hb)) ? `<button class="btn sm gold" data-act="useitem" data-i="${i}" ${hbItemReady(it) ? '' : 'disabled'} title="${hbItemOn(it) ? '' : it.attune && !it.attuned ? 'Attune first' : 'Equip it first'}">Use</button>` : ''}${hbChips(it)}
+      <div class="imeta">${resPickItem(it) && !it.resPick ? `<label class="respick unset"><span>Which ring is it?</span><select class="f" data-restype="${i}" aria-label="Damage type this item resists"><option value="">Choose its damage type…</option>${RES_TYPES.map(t => `<option value="${t}">${t[0].toUpperCase() + t.slice(1)}</option>`).join('')}</select></label>` : ''}${String(it.notes || '').trim() && !open ? `<div class="inote-m mnote">${esc(it.notes)}</div>` : ''}${badges}${ch}${isDeckItem(it) ? `<button class="btn sm gold" data-act="deck" data-i="${i}">Draw a card</button>` : ''}${itemStores(it) && !it.infusion ? `<button class="btn sm gold" data-act="ringstore" data-i="${i}" title="${esc((it.spells || []).length ? 'Holds: ' + it.spells.join(', ') : 'Empty')}">Store a spell <small>${ringUsed(it)}/${ringCap(it)}</small></button>` : ''}${it.heal ? `<button class="btn sm" data-act="drink" data-i="${i}">Drink (${esc(it.heal)})</button>` : ''}${it.hb && hbUsable(hbFx(it.hb)) ? `<button class="btn sm gold" data-act="useitem" data-i="${i}" ${hbItemReady(it) ? '' : 'disabled'} title="${hbItemOn(it) ? '' : it.attune && !it.attuned ? 'Attune first' : 'Equip it first'}">Use</button>` : ''}${hbChips(it)}
 </div>
       ${open ? `<div class="idetail"><div class="idet-top">${picThumb(`inventory.${i}.img`, it.name)}${fld('Notes', ta(`inventory.${i}.notes`, { rows: 2, cls: 'inotefull', label: 'Notes', ph: 'Add a note…' }))}</div>${it.summary ? `<p>${esc(it.summary)}</p>` : ''}${it.armor ? `<p class="hint">${esc(it.armor.type)} armor · AC ${it.armor.base}${it.armor.type === 'shield' ? '' : it.armor.dexCap === 0 ? '' : it.armor.dexCap ? ' + DEX (max ' + it.armor.dexCap + ')' : ' + DEX'}${it.armor.strReq ? ' · STR ' + it.armor.strReq : ''}${it.armor.stealthDis ? ' · Stealth disadvantage' : ''}</p>` : ''}${it.weapon ? `<p class="hint">${esc(it.weapon.cat)} ${esc(it.weapon.kind)} · ${esc(it.weapon.dice)} ${esc(it.weapon.type)}${it.weapon.props && it.weapon.props.length ? ' · ' + esc(it.weapon.props.join(', ')) : ''}${it.weapon.range ? ' · ' + esc(it.weapon.range) + ' ft' : ''}</p>` : ''}
         <div class="row">${fld('Weight (lb)', inp(`inventory.${i}.weight`, { num: 1 }))}${fld('Cost', inp(`inventory.${i}.cost`))}<label class="checkline">${chk(`inventory.${i}.attune`, 'Requires attunement')} Requires attunement</label></div>
@@ -2450,7 +2537,7 @@ function oocHTML(comps) {
   return `<div class="oocbar panel" ${PID('turnbar')}><div class="grow"><b class="ooc-t">Out of initiative</b><div class="hint">Exploring, talking, resting. Roll initiative to bring back rounds, turns and your action economy.</div></div>
       <button class="btn ghost sm ooc-enter" data-act="entercombat" title="Switch to initiative mode without rolling (the DM already rolled, or you rolled elsewhere)">Initiative mode</button><button class="btn gold big" data-act="startcombat">⚔ Roll Initiative</button></div>
     <div class="cstrip">
-      <div class="panel cs-slots" ${PID('slots')}><h2>Spell Slots</h2>${slotsPanelInner()}</div>
+      <div class="panel cs-slots" ${PID('slots')}><h2>${realSlots() ? 'Spell Slots' : 'Stored spells'}</h2>${slotsPanelInner()}</div>
       <div class="panel cs-fx" ${PID('activefx')}>${activeFxInner(false)}</div>
     </div>
     ${mmPanelHTML()}
@@ -2556,7 +2643,7 @@ function renderCombat() {
     <span class="hint">One Action, one Bonus Action, movement and one Reaction per round. Using something here marks it spent; Next Turn resets them and counts down spell durations.</span>
   </div>
   <div class="cstrip">
-    <div class="panel cs-slots" ${PID('slots')}><h2>Spell Slots</h2>${slotsPanelInner()}</div>
+    <div class="panel cs-slots" ${PID('slots')}><h2>${realSlots() ? 'Spell Slots' : 'Stored spells'}</h2>${slotsPanelInner()}</div>
     <div class="panel cs-fx" ${PID('activefx')}>${activeFxInner(false)}</div>
   </div>
   ${mmPanelHTML()}
@@ -3012,6 +3099,10 @@ function mainClick(e) {
     case 'useact': if (flurryAct(i, b.dataset.j)) { flurryOfBlows(i, b.dataset.j, b.dataset.col, false); break; } useAct(i, b.dataset.j === undefined ? null : b.dataset.j, b.dataset.col); break;
     case 'forgego': forgeGo(N(b.dataset.fi), i); break;
     case 'spellstorego': spellStoreGo(N(b.dataset.fi)); break;
+    case 'ringstore': openRingStore(N(b.dataset.i)); break;
+    case 'ringstorego': ringStoreGo(b.dataset.n); break;
+    case 'rsfilt': RS.lvl = b.dataset.l; renderRingStore(); break;
+    case 'ringdel': ringRemove(N(b.dataset.i), b.dataset.n); break;
     case 'wsspirit': { closeModal(true); const k = S.features.findIndex(f => f.name === 'Summon Wildfire Spirit'); if (k >= 0) useFeature(k, 'action'); return; }
     case 'pending': openPending(); pendingLabel = null; return;
     case 'recadd': RECOVER.pick.push(N(b.dataset.l)); renderRecover(); pendingLabel = null; return;
@@ -3547,7 +3638,7 @@ function readyPay(k, L) {
   const sp = S.spells[r.i];
   if (k === 'slot') S.slotsUsed[L - 1] = N(S.slotsUsed[L - 1]) + 1;
   else if (k === 'pact') S.pactUsed = N(S.pactUsed) + 1;
-  else if ((k === 'free' || k === 'store') && sp && sp.uses) sp.uses.used = N(sp.uses.used) + 1;
+  else if ((k === 'free' || k === 'store') && sp && sp.uses) { sp.uses.used = N(sp.uses.used) + 1; if (sp.stored) ringSpent(sp); }
   r.paid = { k, L };
   readyCommit(r);
 }
@@ -3798,7 +3889,7 @@ function castSpell(i, col, force) {
     if (!left) { const fi = S.features.findIndex(f => fxOf(f).target === 'spellstore'); toast(`<b>${esc(sp.name)}</b>: no stored uses left. Store a spell again after a long rest.`, 'fumble', 8000, fi >= 0 ? { label: 'Store a spell', fn: () => openSpellStore(fi) } : null); return; }
     const SL = Math.max(base, N(sp.uses && sp.uses.level) || base), ex = castExtrasHTML(sp, SL); if (!ex) return executeCast(i, 'free', SL, col, {});
     CASTING = { i, col };
-    return openModal(`<h3>Cast ${esc(spLabel(sp))}</h3><p class="hint" style="margin:0 0 8px">From your Spell-Storing Item · ${left} of ${mx} uses left</p>${ex}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="castgo" data-k="free" data-l="${SL}">Cast</button></div>`);
+    return openModal(`<h3>Cast ${esc(spLabel(sp))}</h3><p class="hint" style="margin:0 0 8px">${sp.cls === 'artificer' ? 'From your Spell-Storing Item' : 'Stored in ' + esc((spItem(sp) || {}).name || 'an item')} · ${sp.cls === 'artificer' ? left + ' of ' + mx + ' uses left' : 'gone once cast'}</p>${ex}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="castgo" data-k="free" data-l="${SL}">Cast</button></div>`);
   }
   if (sp.uses) { const mx = evalMax(sp.uses.max) || 0, left = Math.max(0, mx - N(sp.uses.used)); if (mx) opts.push({ k: 'free', L: Math.max(base, N(sp.uses.level) || base), label: `Free use (${left}/${mx})`, left }); }
   if (base > 0) {
@@ -3861,7 +3952,7 @@ function executeCast(i, how, L, col, x) {
   pendingLabel = `Cast ${sp.name}` + (how === 'slot' ? ` (${ORD[L - 1]} slot)` : how === 'pact' ? ' (pact slot)' : how === 'free' ? ' (free use)' : how === 'atwill' ? ' (at will)' : how === 'ritual' ? ' (ritual)' : '');
   if (how === 'slot') S.slotsUsed[L - 1] = N(S.slotsUsed[L - 1]) + 1;
   if (how === 'pact') S.pactUsed = N(S.pactUsed) + 1;
-  if (how === 'free') sp.uses.used = N(sp.uses.used) + 1;
+  if (how === 'free') { sp.uses.used = N(sp.uses.used) + 1; if (sp.stored) ringSpent(sp); }
   const tcol = col || null; if (tcol && ST('autoSpend')) S.turn.used[tcol] = true;
   const ci = spellCI(sp), lines = [], out = [];
   const self = x.self !== false;
@@ -4757,9 +4848,8 @@ function openSettings(tab) {
       ${booksHTML()}
 `)}
     ${pane('dice', `
-      <div class="dicemodes">${[['sheet', 'The sheet rolls', 'Every roll happens here, fully automated.'], ['manual', 'I use my own rolls', 'Shows the dice to roll; asks for your total only when automation needs it (healing, temp HP, death saves…). Everything else is still tracked.'], ['roll20', 'Roll20 rolls for me', 'Rolls post to your Roll20 game’s chat and the results come back here (needs the companion extension).']].concat(isMobile() || diceMode() === 'remote' ? [['remote', 'Roll in Roll20 from my phone', 'Roll here and it posts in Roll20 through this character open on your computer (with “Roll20 rolls for me” on there). Play from anywhere in the house.']] : []).map(([v, t, d]) => `<label class="dmode${diceMode() === v ? ' on' : ''}"><input type="radio" name="dicemode" data-set="diceMode" value="${v}"${diceMode() === v ? ' checked' : ''}><span><b>${t}</b>${diceMode() === v ? `<small>${d}</small>` : ''}</span></label>`).join('')}</div>
-      ${diceMode() === 'sheet' && !isMobile() ? tog('sheetToR20', 'Also show my rolls in Roll20', 'The sheet still rolls; each result is posted to your Roll20 game’s chat too (needs the companion extension and your game open).' + (ST('sheetToR20') && !R20.ok ? ' <b>The extension isn’t connected on this page.</b>' : '')) : ''}
-      ${diceMode() === 'roll20' ? '<div id="r20status" class="r20box"></div>' : ''}
+      <div class="dicemodes">${[['sheet', 'The sheet rolls', 'Every roll happens here, fully automated.'], ['manual', 'I use my own rolls', 'Shows the dice to roll; asks for your total only when automation needs it (healing, temp HP, death saves…). Everything else is still tracked.'], ['roll20', 'Roll20 rolls for me', 'Rolls post to your Roll20 game’s chat and the results come back here (needs the companion extension).']].concat(isMobile() || diceMode() === 'remote' ? [['remote', 'Roll in Roll20 from my phone', 'Roll here and it posts in Roll20 through this character open on your computer (with “Roll20 rolls for me” on there). Play from anywhere in the house.']] : []).map(([v, t, d]) => `<label class="dmode${diceMode() === v ? ' on' : ''}"><input type="radio" name="dicemode" data-set="diceMode" value="${v}"${diceMode() === v ? ' checked' : ''}><span><b>${t}</b>${diceMode() === v ? `<small>${d}</small>` : ''}${v === 'sheet' && diceMode() === v && !isMobile() ? `<span class="dsub"><input type="checkbox" data-set="sheetToR20"${ST('sheetToR20') ? ' checked' : ''} aria-label="Also show my rolls in Roll20"><span>Also show my rolls in Roll20<small>Each result is posted to your Roll20 game’s chat too (needs the extension and your game open).</small></span></span>` : ''}</span></label>`).join('')}</div>
+      ${diceMode() === 'roll20' || (diceMode() === 'sheet' && ST('sheetToR20') && !isMobile()) ? '<div id="r20status" class="r20box"></div>' : ''}
       ${diceMode() === 'remote' ? '<div id="relaystatus" class="r20box"><span class="rs-ic">…</span><div class="rs-t"><span>Checking for your computer…</span></div></div>' : ''}
       <button class="r20macros" data-act="macros" title="Copy Roll20 macros for everything rollable" aria-label="Roll20 macros"><img src="${R20_LOGO}" alt=""></button>
       <p class="hint" style="margin:4px 0 0">Copy macros for every attack, save, skill and spell.</p>
@@ -4803,6 +4893,7 @@ function setSetting(t) {
   S.settings = Object.assign({}, S.settings, { [k]: v });
   pendingLabel = 'Setting: ' + k; save(); applyTheme(); render();
   if (k === 'inspiration') { const m = document.querySelector('#modal-body [data-set="inspMany"]'); if (m) { m.disabled = !v; const l = m.closest('.setrow'); l.classList.toggle('dis', !v); l.title = v ? '' : 'Turn on Track Inspiration first'; const sm = l.querySelector('small'); if (sm) sm.textContent = 'House rule — no limit on how many you can hold' + (v ? '' : ' (turn on Track Inspiration to use it)'); } }
+  if (k === 'sheetToR20') { reopenSettings(); if (v) setTimeout(() => { r20Hello(); setTimeout(renderR20Box, 500); }, 50); }
   if (k === 'diceMode') { setTimeout(relayStatus, 50); reopenSettings(); toast(v === 'manual' ? 'You use your own rolls — the sheet tracks everything and asks for totals only when it needs them.' : v === 'roll20' ? 'Rolls go to Roll20 once the extension is connected.' : v === 'remote' ? 'Rolls from this phone go to Roll20 through your computer.' : 'The sheet rolls the dice again.'); }
 }
 function setThemeColor(k, v, live) {
@@ -4840,6 +4931,8 @@ function _applyPanelLayout() {
   const L = S.layout || {}, pages = L.grid ? {} : (L.pages || {}), ae = document.activeElement, ed = !!UI.editLayout;
   // Panels added in later versions go next to their neighbours in a saved layout.
   [['spells', 'mmspells', 'spellcasting'], ['combat', 'metamagic', 'activefx']].forEach(([pg, id, after]) => { const a = pages[pg]; if (a && !a.includes(id) && $(`#page-${pg} [data-pid="${id}"]`)) { const k = a.indexOf(after); a.splice(k < 0 ? a.length : k + 1, 0, id); } });
+  // The Spells tab's Spell Slots and Active Spells panels (same look as Combat) go at the top, before the class cards.
+  { const a = pages.spells; if (a) [['spslots', null], ['spfx', 'spslots']].forEach(([id, after]) => { if (a.includes(id) || !$(`#page-spells [data-pid="${id}"]`)) return; const k = after ? a.indexOf(after) + 1 : Math.max(0, a.indexOf('spellcasting')); a.splice(k < 0 ? 0 : k, 0, id); }); }
   const by = {};
   $$('.page [data-pid]').forEach(el => (by[el.dataset.pid] = by[el.dataset.pid] || []).push(el));
   Object.keys(by).forEach(id => { const els = by[id]; if (els.length < 2) return; const keep = els.find(e => e.contains(ae)) || els.reduce((a, b) => (N(b.dataset.gen) > N(a.dataset.gen) ? b : a)); els.forEach(e => { if (e !== keep) e.remove(); }); by[id] = [keep]; });
@@ -5565,6 +5658,9 @@ setInterval(() => { if ($('#relaystatus')) relayStatus(); }, 15000);
 // Sentinel Raven: is the raven on your shoulder? (darkvision 30 ft and CHA on Perception while it is)
 function ravenChk(small) { return `<label class="ravenchk${small ? ' sm' : ''}" title="While your raven is perched on your shoulder: darkvision 30 ft and +${Math.max(0, mod('cha'))} (CHA) to Perception"><input type="checkbox" data-raven${ravenOn() ? ' checked' : ''}><span>${small ? 'Raven perched' : 'Raven is on my shoulder'}</span></label>`; }
 document.addEventListener('change', e => { if (!e.target || !e.target.matches || !e.target.matches('[data-raven]')) return; S.ravenPerched = e.target.checked; pendingLabel = e.target.checked ? 'Raven on your shoulder' : 'Raven off your shoulder'; save(); render(); });
+
+// The "also show in Roll20" box sits inside the sheet-rolls card: tapping its words ticks it (not the card's radio).
+document.addEventListener('click', e => { const d = e.target.closest && e.target.closest('.dsub'); if (!d || e.target.tagName === 'INPUT') return; e.preventDefault(); d.querySelector('input').click(); });
 
 // ---------- Sources ----------
 // Which books a character draws from. Picked on the first step of creation and changeable later in Settings → Books.
@@ -6794,6 +6890,10 @@ function ensureGrid() {
 // placed go to the bottom of their home tab; removed ones stay off the sheet.
 function gridApply(by) {
   const L = S.layout, grid = L.grid, removed = new Set(L.removed || []), placed = new Set(Object.values(grid).flat().map(i => i.id));
+  // The Spells tab's Spell Slots and Active Spells panels (same look as Combat) start at the top of a saved grid, side by side.
+  if (grid.spells) { const need = ['spslots', 'spfx'].filter(id => by[id] && !placed.has(id) && !removed.has(id));
+    if (need.length) { const sc = grid.spells.find(i => i.id === 'spellcasting'), y0 = sc ? sc.y : 0, ws = Math.round(GCOLS / 3); grid.spells.forEach(i => { if (i.y >= y0) i.y += 1; });
+      need.forEach(id => { grid.spells.push(id === 'spslots' ? { id, x: 0, y: y0, w: ws, h: 1 } : { id, x: need.length === 2 ? ws : 0, y: y0, w: need.length === 2 ? GCOLS - ws : GCOLS, h: 1 }); placed.add(id); }); } }
   Object.keys(by).forEach(id => { if (placed.has(id) || removed.has(id)) return; const home = by[id][0].dataset.home, pg = grid[home] ? home : null; if (!pg) return;
     grid[pg].push({ id, x: 0, y: grid[pg].reduce((m, i) => Math.max(m, i.y + i.h), 0), w: GCOLS, h: 1 }); placed.add(id); });
   const mob = isMobile(), ed = !!UI.editLayout;
@@ -7462,6 +7562,7 @@ function vfxForItem0(it) { const h = vfxHand('mi', it.magic && it.magic.name, it
 
 // ---------- Spellcasting ability for a specific spell ----------
 function spellCI(sp) {
+  if (sp && sp.stored && sp.item && sp.cls !== 'artificer') { const it = spItem(sp), c = it && it.spellCast && it.spellCast[sp.name]; if (c && (c.dc != null || c.atk != null)) { const b = spellCI(Object.assign({}, sp, { stored: false })); return Object.assign({}, b, c.dc != null ? { dc: N(c.dc) } : {}, c.atk != null ? { atk: N(c.atk) } : {}); } }
   if (sp && sp.ab && (!CL[sp.cls] || !casterFor(sp.cls))) { const m = mod(sp.ab), b = itemSum('spell'); return { ab: sp.ab, mod: m, dc: 8 + PB() + m + b, atk: PB() + m + b + itemSum('spellAtk'), name: '' }; }
   return castInfo(sp && sp.cls);
 }
