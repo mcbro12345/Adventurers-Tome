@@ -389,7 +389,7 @@ function bonusAttack(i, kind) {
     if (S.turn.used.bonus) { toast('You already used your bonus action this turn.', 'fumble'); return; }
     if (kind === 'off' && !S.turn.lightAtk) { toast(`Attack with ${dualWielder() ? 'a one-handed melee weapon' : 'a light melee weapon'} first (with the Attack action) — then this off-hand attack is your bonus action.`, 'fumble', 7000); return; }
     if (kind === 'bonus' && a.after && !(S.turn.atkWith || []).includes(a.after)) { toast(`Attack with your ${esc(a.after)} first (with the Attack action) — then this is your bonus action.`, 'fumble', 7000); return; }
-    S.turn.used.bonus = true; pendingLabel = (kind === 'off' ? 'Off-hand attack: ' : 'Bonus attack: ') + a.name;
+    S.turn.used.bonus = true; pendingLabel = (kind === 'off' ? 'Off-hand attack: ' : 'Bonus attack: ') + a.name; setTimeout(() => render('combat'), 0);
   }
   attackRoll(i, true, { offhand: kind === 'off', label: a.name + (kind === 'off' ? ' (off-hand)' : '') });
 }
@@ -401,7 +401,7 @@ function attackRoll(i, free, opt) {
   if (!free && !canAttack()) { toast('No attacks left this turn.'); return; }
   pendingLabel = 'Attack with ' + a.name;
   const ammoNote = spendAmmo(a); if (ammoNote === null) return;
-  if (!free) { S.turn.attacks = N(S.turn.attacks) + 1; S.turn.used.action = true; S.turn.atkWith = (S.turn.atkWith || []).concat([a.name]); if (offhandOK(a)) S.turn.lightAtk = true; }
+  if (!free) { S.turn.attacks = N(S.turn.attacks) + 1; S.turn.used.action = true; S.turn.atkWith = (S.turn.atkWith || []).concat([a.name]); if (offhandOK(a)) S.turn.lightAtk = true; if (S.inCombat) setTimeout(() => render('combat'), 0); } // the bonus attacks it unlocks light up
   const drop = opt.offhand ? offDrop(a) : 0, hit = atkHit(a), m = atkDmgMod(a) - drop;
   ATK_ITEM = { id: a.item || '', weapon: !a.effect || !!a.weaponLike };
   let dd20; try { dd20 = d20Expr(hit, 'attack'); } finally { ATK_ITEM = null; }

@@ -191,7 +191,10 @@ function writeLocal() {
 }
 const IOS_SAFARI = /iP(hone|od|ad)/.test(navigator.userAgent) && /Version\/[\d.]+.*Safari\//.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS/.test(navigator.userAgent);
 // Where the phone's bottom tab bar sits is a setting of this device (same for every character); 32 by default.
-function tabLift() { let v = null; try { v = localStorage.getItem('dnd-tablift'); } catch (e) {} return v != null && v !== '' ? N(v) : 24; }
+// The phone's bottom tab bar: on the home-screen app it sits a little above the home bar; in the browser it sits right on
+// the browser's own bar (you can still move it in Settings → Theme).
+const tabStandalone = () => { try { return navigator.standalone === true || matchMedia('(display-mode: standalone)').matches || document.documentElement.classList.contains('pg-standalone'); } catch (e) { return false; } };
+function tabLift() { let v = null; try { v = localStorage.getItem('dnd-tablift'); } catch (e) {} return v != null && v !== '' ? N(v) : tabStandalone() ? 24 : 0; }
 function applyTabLift() { document.documentElement.style.setProperty('--tablift', tabLift() + 'px'); }
 function saveUI() { try { localStorage.setItem(UI_KEY, JSON.stringify(UI)); } catch (e) {} }
 // An actual phone always uses the phone layout (the desktop layout can't be switched on there).
@@ -382,6 +385,7 @@ function acInfo() {
   if (sh && S.acOverride === '') { const v = 2 + N((sh.mods || {}).ac); total += v; parts.push(`Shield +${v}`); }
   activeItems().forEach(it => { const m = it.mods || {}; if (it.armor) return; if (m.ac && !(m.unarmoredOnly && (arm || sh))) { total += N(m.ac); parts.push(`${it.name} +${m.ac}`); } });
   const race = DND.races[S.race.key]; if (race && race.acBonus) { total += race.acBonus; parts.push(`${race.name} +${race.acBonus}`); }
+  if (dualWielder() && handsOf(oneHandMelee) >= 2) { total += 1; parts.push('Dual Wielder +1'); }
   if (arm && arm.forge && S.acOverride === '') { total += 1; parts.push('Blessing of the Forge +1'); }
   fxPassives().forEach(p => {
     const add = (v, why) => { const n = typeof v === 'number' ? v : N(evalMax(v)); if (n) { total += n; parts.push(`${p.src}${why ? ' (' + why + ')' : ''} ${n > 0 ? '+' : ''}${n}`); } };
@@ -470,6 +474,19 @@ function hpPerLevelBonus() {
 }
 
 // ---------- Attacks ----------
+// ---------- Two-weapon fighting (dual wielding) ----------
+// After you take the Attack action and attack with a light melee weapon in one hand, you can use your bonus action to
+// attack with a different light melee weapon in the other hand. That attack doesn't add your ability modifier to the
+// damage unless the modifier is negative (the Two-Weapon Fighting style adds it). Dual Wielder lets the weapons be any
+// one-handed melee weapons and gives +1 AC while you hold one in each hand.
+const twfStyle = () => fightingStyle('Two-Weapon Fighting');
+const dualWielder = () => hasFeat('Dual Wielder');
+const oneHandMelee = it => !!(it && it.equipped && it.weapon && it.weapon.kind === 'melee' && !(it.weapon.props || []).includes('two-handed'));
+const twfWeapon = it => oneHandMelee(it) && ((it.weapon.props || []).includes('light') || dualWielder());
+const handsOf = test => S.inventory.filter(test).reduce((n, it) => n + Math.max(1, Math.min(2, N(it.qty) || 1)), 0);
+const dualWielding = () => handsOf(twfWeapon) >= 2;
+function offhandOK(a) { const it = a && a.item && S.inventory.find(x => x.id === a.item); return !!(it && twfWeapon(it)); }
+const offDrop = a => { if (twfStyle()) return 0; const ab = attackAb(a), m = ab && !a.noModDmg ? mod(ab) : 0; return m > 0 ? m : 0; };
 function attackAb(a) {
   const wb = wpnBind(a); if (wb && wb.wpn.ab === 'spell') return castInfo(wb.wpn.cls).ab;
   if (a.ab === 'spell') return castInfo(a.cls).ab;
@@ -1026,6 +1043,88 @@ function askHalfDamage(name) {
     toast(`<b>${esc(name)}</b> — you take <b>${half}</b> instead of ${full} damage.`, '', 7000, { label: 'Undo', fn: () => undo(1) });
   });
 }
+
+// ---------- Ring of Spell Storing ----------
+// Anyone can cast a spell of 1st–5th level into the ring (up to 5 levels' worth in total). Whoever wears it can then cast
+// each stored spell once, at the level it was stored at and with the original caster's save DC and attack bonus; once
+// cast, it's gone and its levels are free again.
+const ringLvOf = (it, n) => Math.max(N((it.spellLevels || {})[n]), N((SPI(n) || {}).level) || 1);
+const ringUsed = it => (it.spells || []).reduce((t, n) => t + ringLvOf(it, n), 0);
+const ringCap = it => N(it.storeCap) || 5;
+// The window works like Add spells: search, level chips, and a Store button on each spell.
+let RS = null;
+function openRingStore(ii) {
+  RS = { ii, who: RS && RS.ii === ii ? RS.who : (casters().length ? 'me' : 'other'), lvl: RS && RS.ii === ii ? RS.lvl : 'all', dc: RS && RS.ii === ii ? RS.dc : '', atk: RS && RS.ii === ii ? RS.atk : '' };
+  if (!$('#modal').classList.contains('open')) openModal('', null, true);
+  renderRingStore();
+}
+function renderRingStore() {
+  const it = S.inventory[RS.ii]; if (!it) return closeModal(true);
+  if ($('#rsDC')) RS.dc = $('#rsDC').value; if ($('#rsAtk')) RS.atk = $('#rsAtk').value;
+  const canMe = casters().length > 0; if (!canMe) RS.who = 'other';
+  const used = ringUsed(it), cap = ringCap(it), left = Math.max(0, cap - used), q = $('#rsq') ? $('#rsq').value : '';
+  const mineN = new Set(S.spells.filter(sp => !sp.stored && CL[sp.cls] && casterFor(sp.cls)).map(sp => sp.name.toLowerCase()));
+  const list = DND.spells.filter(sp => sp.level >= 1 && sp.level <= 5 && (RS.who === 'other' || mineN.has(sp.name.toLowerCase())));
+  const lvls = [...new Set(list.map(sp => sp.level))].sort((a, b) => a - b);
+  if (RS.lvl !== 'all' && !lvls.includes(N(RS.lvl))) RS.lvl = 'all';
+  const held = new Set((it.spells || []).map(n => n.toLowerCase()));
+  const slotTxt = L => slotMax(L - 1) ? `${slotsLeft(L - 1)} slot${slotsLeft(L - 1) === 1 ? '' : 's'} left` : pact() && pact().level === L ? 'pact slot' : 'no slots';
+  const rowFor = sp => {
+    const on = held.has(sp.name.toLowerCase()), fits = sp.level <= left, ups = DND.full ? spellUpcasts(sp.name) : true;
+    const Ls = Array.from({ length: Math.max(0, Math.min(5, left) - sp.level + 1) }, (_, k) => sp.level + k).filter(L => L === sp.level || ups);
+    const ctl = on ? `<button class="btn sm" data-act="ringdel" data-i="${RS.ii}" data-n="${esc((it.spells || []).find(n => n.toLowerCase() === sp.name.toLowerCase()))}" title="Take it out of the ring (it's lost)">Stored ✓ · take out</button>`
+      : !fits ? `<span class="always" title="Not enough room in the ring">Needs ${sp.level} level${sp.level > 1 ? 's' : ''}</span>`
+      : `<span class="rs-go">${Ls.length > 1 || RS.who === 'me' ? `<select class="f sm" data-rslv="${esc(sp.name)}" aria-label="Level to store ${esc(sp.name)} at">${Ls.map(L => `<option value="${L}">${ORD[L - 1]}${RS.who === 'me' ? ' · ' + slotTxt(L) : ''}</option>`).join('')}</select>` : ''}<button class="btn sm gold" data-act="ringstorego" data-n="${esc(sp.name)}">Store</button></span>`;
+    return `<div class="crrow" data-q="${esc((sp.name + ' ' + sp.school + ' ' + sp.summary).toLowerCase())}"><div><b>${esc(sp.name)}</b> <span class="hint">${ORD[sp.level - 1]} · ${esc(sp.school)} · ${esc(sp.time)} · ${esc(sp.range)}${sp.conc ? ' · conc' : ''}${sp.ritual ? ' · ritual' : ''} · ${esc(sp.src)}</span><div class="hint">${esc(sp.summary)}</div></div>${ctl}</div>`; };
+  const stored = (it.spells || []).map(n => `${esc(n)} (${ORD[ringLvOf(it, n) - 1]})`).join(', ');
+  $('#modal-body').innerHTML = `<div id="ringstore"><h3>Store spells in ${esc(it.name)}</h3>
+    <div class="row">${canMe ? fld('Cast into it by', `<select class="f" id="rsWho"><option value="me"${RS.who === 'me' ? ' selected' : ''}>Me (uses my spell slots)</option><option value="other"${RS.who === 'other' ? ' selected' : ''}>Someone else</option></select>`) : ''}
+      ${RS.who === 'other' ? `${fld('Their save DC', `<input class="f" id="rsDC" type="number" inputmode="numeric" placeholder="optional" value="${esc(RS.dc)}">`)}${fld('Their attack bonus', `<input class="f" id="rsAtk" type="number" inputmode="numeric" placeholder="optional" value="${esc(RS.atk)}">`)}` : ''}
+      <span class="hint"><span class="rs-meter"><i style="width:${Math.round(100 * Math.min(cap, used) / cap)}%"></i></span> ${used} of ${cap} levels used${stored ? ' · holds ' + stored : ' · empty'}. Whoever wears it casts each stored spell once, at the stored level${RS.who === 'other' ? ', with the caster\'s DC and attack bonus (yours if left blank)' : ', with your DC and attack bonus'}.</span></div>
+    <div class="row" style="margin:6px 0"><input class="f" id="rsq" placeholder="Search spells…" value="${esc(q)}" aria-label="Search spells" style="flex:1 1 200px">
+      <div class="chips">${lvls.map(l => [String(l), ORD[l - 1] + ' level']).concat([['all', 'All']]).map(([k, t]) => `<button class="chip${RS.lvl === k ? ' on' : ''}" data-act="rsfilt" data-l="${k}">${t}</button>`).join('')}</div></div>
+    ${!left ? '<p class="hint"><b>It\'s full.</b> Cast a stored spell, or take one out, to make room.</p>' : ''}
+    <div class="crlist">${list.filter(sp => RS.lvl === 'all' || String(sp.level) === RS.lvl).sort((a, b) => (held.has(b.name.toLowerCase()) - held.has(a.name.toLowerCase())) || a.level - b.level || a.name.localeCompare(b.name)).map(rowFor).join('') || `<p class="hint">${RS.who === 'me' ? 'You don\'t have any 1st–5th level spells.' : 'No spells.'}</p>`}</div>
+    <div class="actions"><button class="btn" data-act="close">Done</button></div></div>`;
+  $('#modal-body').classList.add('wide');
+  const qi = $('#rsq'); qi.oninput = () => filterCatalogQ('#rsq'); filterCatalogQ('#rsq');
+  const w = $('#rsWho'); if (w) w.onchange = () => { RS.who = w.value; renderRingStore(); };
+}
+function ringStoreGo(name) {
+  const it = S.inventory[RS && RS.ii]; if (!it) return;
+  const d = SPI(name); if (!d) return; const sel = document.querySelector(`[data-rslv="${CSS.escape(name)}"]`), L = sel ? N(sel.value) : N(d.level), left = ringCap(it) - ringUsed(it);
+  if (L < N(d.level) || L > 5) return; if (L > left) { toast(`Not enough room: ${left} level${left === 1 ? '' : 's'} left.`, 'fumble'); return; }
+  if ((it.spells || []).some(n => n.toLowerCase() === d.name.toLowerCase())) return;
+  let cast = {};
+  if (RS.who === 'me') {
+    const own = S.spells.find(s => s.name.toLowerCase() === d.name.toLowerCase() && !s.stored && CL[s.cls]);
+    if (slotMax(L - 1) > 0 && slotsLeft(L - 1) > 0) S.slotsUsed[L - 1] = N(S.slotsUsed[L - 1]) + 1;
+    else if (pact() && pact().level === L && pactLeft() > 0) S.pactUsed = N(S.pactUsed) + 1;
+    else { toast(`No ${ORD[L - 1]}-level spell slots left.`, 'fumble'); return; }
+    const ci = spellCI(own || { cls: (casters()[0] || {}).key }); cast = { dc: ci.dc, atk: ci.atk };
+  } else {
+    const dc = $('#rsDC') ? $('#rsDC').value : RS.dc, atk = $('#rsAtk') ? $('#rsAtk').value : RS.atk;
+    if (dc !== '' && dc != null) cast.dc = N(dc); if (atk !== '' && atk != null) cast.atk = N(atk);
+  }
+  it.spells = (it.spells || []).concat([d.name]); it.spellLevels = Object.assign({}, it.spellLevels, { [d.name]: L });
+  it.spellCast = Object.assign({}, it.spellCast, { [d.name]: cast });
+  pendingLabel = `${it.name}: store ${d.name}`; rebuildAuto(); save(); render(); renderRingStore();
+  toast(`<b>${esc(d.name)}</b> (${ORD[L - 1]} level) stored in ${esc(it.name)}.`, '', 4500, { label: 'Undo', fn: () => undo(1) });
+}
+function ringRemove(ii, n) {
+  const it = S.inventory[ii]; if (!it) return;
+  it.spells = (it.spells || []).filter(x => x !== n); if (it.spellLevels) delete it.spellLevels[n]; if (it.spellCast) delete it.spellCast[n];
+  pendingLabel = `${it.name}: take out ${n}`; rebuildAuto(); save(); render(); if (RS && $('#ringstore')) renderRingStore(); else openRingStore(ii);
+}
+// A stored spell has been cast from the ring: it's gone, and its levels are free again.
+function ringSpent(sp) {
+  const it = spItem(sp); if (!it || !itemStores(it) || sp.cls === 'artificer') return;
+  if (N(evalMax(sp.uses && sp.uses.max) || 1) - N(sp.uses && sp.uses.used) > 0) return;
+  const n = (it.spells || []).find(x => x.toLowerCase() === String(sp.name).toLowerCase()); if (!n) return;
+  it.spells = it.spells.filter(x => x !== n); if (it.spellLevels) delete it.spellLevels[n]; if (it.spellCast) delete it.spellCast[n];
+  setTimeout(() => { rebuildAuto(); save(); render(); }, 0);
+}
+const ringItems = () => S.inventory.map((it, ii) => [it, ii]).filter(([it]) => itemStores(it) && !it.infusion);
 
 
 // ---------- Dice ----------
@@ -1833,8 +1932,10 @@ function prepCell(s, i) {
   if (!isPrepCaster(s.cls)) return '<span class="always known" title="Known spell: always ready">Known</span>';
   return `<label class="prepbox" title="Prepared">${chk(`spells.${i}.prepared`, 'Prepared')}</label>`;
 }
+// Real spell slots (from a class, pact magic or custom slots) — not just spells stored in an item
+const realSlots = () => casters().length > 0 || !!pact() || [0, 1, 2, 3, 4, 5, 6, 7, 8].some(k => slotMax(k) > 0);
 function slotsPanelInner() {
-  return `${(() => { const cl = typeof casters === 'function' ? casters() : []; return cl.length ? `<div class="cs-scstats">${cl.map(c => `<div class="cs-scrow">${cl.length > 1 ? `<span class="cs-scn">${esc(c.name)}</span>` : ''}<span class="cs-sc"><small><span class="ciw top">Save DC${ciBtn('dc:' + c.key, 'your spell save DC')}</span></small><b data-calc="dc:${c.key}"></b></span><span class="cs-sc"><small><span class="ciw top">Spell attack${ciBtn('satk:' + c.key, 'your spell attack')}</span></small>${rollBtn('spellatk:' + c.key, c.name + ' spell attack')}</span></div>`).join('')}</div>` : ''; })()}<div data-calc-html="slotsall"></div><p class="hint" style="margin:6px 0 0">Spent automatically when you cast or smite. Tap a diamond to adjust.</p>`;
+  return `${(() => { const cl = typeof casters === 'function' ? casters() : []; return cl.length ? `<div class="cs-scstats">${cl.map(c => `<div class="cs-scrow">${cl.length > 1 ? `<span class="cs-scn">${esc(c.name)}</span>` : ''}<span class="cs-sc"><small><span class="ciw top">Save DC${ciBtn('dc:' + c.key, 'your spell save DC')}</span></small><b data-calc="dc:${c.key}"></b></span><span class="cs-sc"><small><span class="ciw top">Spell attack${ciBtn('satk:' + c.key, 'your spell attack')}</span></small>${rollBtn('spellatk:' + c.key, c.name + ' spell attack')}</span></div>`).join('')}</div>` : ''; })()}<div data-calc-html="slotsall"></div><p class="hint" style="margin:6px 0 0">${realSlots() ? 'Spent automatically when you cast or smite. Tap a diamond to adjust.' : 'Each stored spell is used up when you cast it.'}</p>${typeof ringItems === 'function' && ringItems().length ? `<div class="rs-btns">${ringItems().map(([it, ii]) => `<button class="btn sm gold" data-act="ringstore" data-i="${ii}">Store a spell${ringItems().length > 1 ? ' in ' + esc(it.name) : ''} <small>${ringUsed(it)}/${ringCap(it)}</small></button>`).join('')}</div>` : ''}`;
 }
 // The Active Spells panel — the same one on Combat and (compact) on Spells.
 function activeFxInner(small) {
@@ -1906,13 +2007,13 @@ function renderSpells() {
   const lvls = [...new Set(S.spells.map(s => N(s.level)))].sort((a, b) => a - b);
   const filt = [['all', 'All'], ['ready', 'Ready to cast']].concat(cs.length > 1 ? cs.map(c => ['c:' + c.key, c.name]) : []).concat(lvls.map(l => [String(l), l === 0 ? 'Cantrips' : ORD[l - 1]]));
   $('#page-spells').innerHTML = `
-  ${noSlots() ? `<div class="panel cs-fx" ${PID('spellcasting')}>${activeFxInner(false)}</div>` : `<div class="panel" ${PID('spellcasting')}><h2><span class="grow">Spellcasting</span><button class="btn ghost sm" data-act="toggle" data-key="slotcfg">${UI.open.slotcfg ? 'Done' : 'Customize slots'}</button></h2>
-    <div class="sc-wrap2${noSlots() ? ' fxonly' : ''}">${noSlots() ? '' : `<div class="sc-slotpanel cs-slots"><h3 class="sc-slottitle">Spell Slots${p ? ' <span class="sc-sub">Pact slots return on a short rest</span>' : ''}</h3>${slotsPanelInner()}</div>
-      <div class="sc-cards">${tiles}</div>`}
-      <div class="sc-slotpanel sc-fxpanel cs-fx">${activeFxInner(true)}</div></div>
-    ${UI.open.slotcfg ? `<div style="margin-top:10px"><p class="hint">Slots follow the multiclass spellcaster table (caster level ${casterLevel()}). Type a number to override a level; blank = automatic.</p>
-      <div class="slots">${ORD.map((o, i) => fld(o + ' max', inp('slotsOverride.' + i, { num: 1, ph: String(FULL[Math.min(20, casterLevel())][i] || 0) }))).join('')}</div></div>` : ''}
-  </div>`}
+  ${noSlots() ? `<div class="panel cs-fx" ${PID('spellcasting')}>${activeFxInner(false)}</div>` : `<div class="cstrip">
+    <div class="panel cs-slots" ${PID('spslots')}><h2><span class="grow">${realSlots() ? 'Spell Slots' : 'Stored spells'}</span>${realSlots() ? `<button class="btn ghost sm" data-act="toggle" data-key="slotcfg">${UI.open.slotcfg ? 'Done' : 'Customize'}</button>` : ''}</h2>${slotsPanelInner()}
+      ${UI.open.slotcfg && realSlots() ? `<div style="margin-top:10px"><p class="hint">Slots follow the multiclass spellcaster table (caster level ${casterLevel()}). Type a number to override a level; blank = automatic.</p>
+      <div class="slots">${ORD.map((o, i) => fld(o + ' max', inp('slotsOverride.' + i, { num: 1, ph: String(FULL[Math.min(20, casterLevel())][i] || 0) }))).join('')}</div></div>` : ''}${p ? '<p class="hint" style="margin:6px 0 0">Pact slots return on a short rest.</p>' : ''}</div>
+    <div class="panel cs-fx" ${PID('spfx')}>${activeFxInner(false)}</div>
+  </div>
+  ${cs.length ? `<div class="panel" ${PID('spellcasting')}><h2>Spellcasting</h2><div class="sc-cards">${tiles}</div></div>` : ''}`}
   ${mmPanelHTML('mmspells')}
   <div class="panel" ${PID('spelllist')}><h2><span class="grow">Spells</span><button class="btn gold" data-act="addspells" data-cls="">+ Add spells</button><button class="btn" data-act="add" data-list="spells">+ Custom spell</button></h2>
     <div class="spsortbar"><span class="lbl">Group spells by</span><div class="segmini">${[['level', 'Level'], ['purpose', 'Purpose'], ['custom', 'My categories']].map(([k, t]) => `<button class="${ST('combatSpellSort') === k ? 'on' : ''}" data-act="spsort" data-k="${k}">${t}</button>`).join('')}</div>${cust ? '<button class="btn sm" data-act="spcatadd">+ Category</button><span class="hint">Drag spells to reorder them or move them between categories. ' + (m ? '' : 'Drag a category by its ⠿ to rearrange. ') + 'The Combat tab uses the same groups and order.</span>' : '<span class="hint">' + (m ? '' : 'Drag a group by its ⠿ to rearrange. ') + 'The Combat tab uses the same groups and order.</span>'}</div>
@@ -2126,7 +2227,7 @@ function renderInventory() {
         <span class="grow"></span>
         <button class="icon-btn ibtn${open ? ' on' : ''}" data-act="toggle" data-key="item:${it.id}" title="${open ? 'Close editing' : 'Edit details and notes'}" aria-label="Edit ${esc(it.name)}">${open ? '▴' : '✎'}</button>
         ${del('inventory', i)}</div>
-      <div class="imeta">${resPickItem(it) && !it.resPick ? `<label class="respick unset"><span>Which ring is it?</span><select class="f" data-restype="${i}" aria-label="Damage type this item resists"><option value="">Choose its damage type…</option>${RES_TYPES.map(t => `<option value="${t}">${t[0].toUpperCase() + t.slice(1)}</option>`).join('')}</select></label>` : ''}${String(it.notes || '').trim() && !open ? `<div class="inote-m mnote">${esc(it.notes)}</div>` : ''}${badges}${ch}${isDeckItem(it) ? `<button class="btn sm gold" data-act="deck" data-i="${i}">Draw a card</button>` : ''}${it.heal ? `<button class="btn sm" data-act="drink" data-i="${i}">Drink (${esc(it.heal)})</button>` : ''}${it.hb && hbUsable(hbFx(it.hb)) ? `<button class="btn sm gold" data-act="useitem" data-i="${i}" ${hbItemReady(it) ? '' : 'disabled'} title="${hbItemOn(it) ? '' : it.attune && !it.attuned ? 'Attune first' : 'Equip it first'}">Use</button>` : ''}${hbChips(it)}
+      <div class="imeta">${resPickItem(it) && !it.resPick ? `<label class="respick unset"><span>Which ring is it?</span><select class="f" data-restype="${i}" aria-label="Damage type this item resists"><option value="">Choose its damage type…</option>${RES_TYPES.map(t => `<option value="${t}">${t[0].toUpperCase() + t.slice(1)}</option>`).join('')}</select></label>` : ''}${String(it.notes || '').trim() && !open ? `<div class="inote-m mnote">${esc(it.notes)}</div>` : ''}${badges}${ch}${isDeckItem(it) ? `<button class="btn sm gold" data-act="deck" data-i="${i}">Draw a card</button>` : ''}${itemStores(it) && !it.infusion ? `<button class="btn sm gold" data-act="ringstore" data-i="${i}" title="${esc((it.spells || []).length ? 'Holds: ' + it.spells.join(', ') : 'Empty')}">Store a spell <small>${ringUsed(it)}/${ringCap(it)}</small></button>` : ''}${it.heal ? `<button class="btn sm" data-act="drink" data-i="${i}">Drink (${esc(it.heal)})</button>` : ''}${it.hb && hbUsable(hbFx(it.hb)) ? `<button class="btn sm gold" data-act="useitem" data-i="${i}" ${hbItemReady(it) ? '' : 'disabled'} title="${hbItemOn(it) ? '' : it.attune && !it.attuned ? 'Attune first' : 'Equip it first'}">Use</button>` : ''}${hbChips(it)}
 </div>
       ${open ? `<div class="idetail"><div class="idet-top">${picThumb(`inventory.${i}.img`, it.name)}${fld('Notes', ta(`inventory.${i}.notes`, { rows: 2, cls: 'inotefull', label: 'Notes', ph: 'Add a note…' }))}</div>${it.summary ? `<p>${esc(it.summary)}</p>` : ''}${it.armor ? `<p class="hint">${esc(it.armor.type)} armor · AC ${it.armor.base}${it.armor.type === 'shield' ? '' : it.armor.dexCap === 0 ? '' : it.armor.dexCap ? ' + DEX (max ' + it.armor.dexCap + ')' : ' + DEX'}${it.armor.strReq ? ' · STR ' + it.armor.strReq : ''}${it.armor.stealthDis ? ' · Stealth disadvantage' : ''}</p>` : ''}${it.weapon ? `<p class="hint">${esc(it.weapon.cat)} ${esc(it.weapon.kind)} · ${esc(it.weapon.dice)} ${esc(it.weapon.type)}${it.weapon.props && it.weapon.props.length ? ' · ' + esc(it.weapon.props.join(', ')) : ''}${it.weapon.range ? ' · ' + esc(it.weapon.range) + ' ft' : ''}</p>` : ''}
         <div class="row">${fld('Weight (lb)', inp(`inventory.${i}.weight`, { num: 1 }))}${fld('Cost', inp(`inventory.${i}.cost`))}<label class="checkline">${chk(`inventory.${i}.attune`, 'Requires attunement')} Requires attunement</label></div>
@@ -2369,6 +2470,17 @@ function renderNotes() {
 
 // ---------- Combat page ----------
 const COLS = [['action', 'Action'], ['bonus', 'Bonus Action'], ['reaction', 'Reaction'], ['move', 'Movement & Free']];
+// Bonus-action attacks: a feature's own (the second Psychic Blade), and the off-hand weapon when you're holding two.
+function bonusAtkHTML() {
+  const own = S.attacks.map((a, i) => [a, i]).filter(([a]) => a.bonus && atkShown(a)), off = dualWielding() ? S.attacks.map((a, i) => [a, i]).filter(([a]) => !a.bonus && offhandOK(a)) : [];
+  if (!own.length && !off.length) return '';
+  const used = !!(S.turn.used || {}).bonus, dmgTxt = (a, drop) => { const m = atkDmgMod(a) - drop, d = atkDice(a); return esc((d || '0') + (m ? sgn(m) : '')) + (a.type ? ' ' + esc(a.type) : ''); };
+  const row = ([a, i], kind) => { const drop = kind === 'off' ? offDrop(a) : 0, ready = kind === 'off' ? !!S.turn.lightAtk : !a.after || (S.turn.atkWith || []).includes(a.after);
+    const wait = S.inCombat && !used && !ready ? `<span class="bwait" title="${kind === 'off' ? `Attack with ${dualWielder() ? 'a one-handed melee weapon' : 'a light melee weapon'} first (Attack action)` : `Attack with your ${esc(a.after)} first (Attack action)`}">after ${kind === 'off' ? 'a light weapon attack' : esc(a.after) + ' attack'}</span>` : '';
+    return `<tr class="${S.inCombat && used ? 'dim' : ''}"><td>${esc(a.name.replace(/\s*\(bonus action\)$/i, ''))}${kind === 'off' ? ' <span class="itag">off-hand</span>' : ''}${wait}</td><td class="nowrap">${fmt(atkHit(a))}</td><td class="nowrap bdmg">${dmgTxt(a, drop)}</td><td><button class="btn gold sm atkbtn" data-act="bonusatk" data-i="${i}" data-kind="${kind}" title="Roll to hit and damage (uses your bonus action)">⚔</button></td></tr>`; };
+  const tips = off.length ? (twfStyle() ? 'Off-hand: your Two-Weapon Fighting style adds your ability modifier.' : 'Off-hand damage doesn’t add your ability modifier.') : '';
+  return `<div class="block bonusatk"><div class="sect">Bonus attack${used && S.inCombat ? ' <span class="hint">· bonus action used</span>' : ''}</div><table class="mini">${own.map(r => row(r, 'bonus')).join('')}${off.map(r => row(r, 'off')).join('')}</table>${tips ? `<div class="hint">${tips}</div>` : ''}</div>`;
+}
 // Combat tab: spells grouped by what they do in a fight (damage first, utility last and folded away),
 // each group sorted by level. Spells you can't cast right now (no slot left) are dimmed.
 const SPG = [
@@ -2450,7 +2562,7 @@ function oocHTML(comps) {
   return `<div class="oocbar panel" ${PID('turnbar')}><div class="grow"><b class="ooc-t">Out of initiative</b><div class="hint">Exploring, talking, resting. Roll initiative to bring back rounds, turns and your action economy.</div></div>
       <button class="btn ghost sm ooc-enter" data-act="entercombat" title="Switch to initiative mode without rolling (the DM already rolled, or you rolled elsewhere)">Initiative mode</button><button class="btn gold big" data-act="startcombat">⚔ Roll Initiative</button></div>
     <div class="cstrip">
-      <div class="panel cs-slots" ${PID('slots')}><h2>Spell Slots</h2>${slotsPanelInner()}</div>
+      <div class="panel cs-slots" ${PID('slots')}><h2>${realSlots() ? 'Spell Slots' : 'Stored spells'}</h2>${slotsPanelInner()}</div>
       <div class="panel cs-fx" ${PID('activefx')}>${activeFxInner(false)}</div>
     </div>
     ${mmPanelHTML()}
@@ -2492,7 +2604,7 @@ function renderCombat() {
     if (key === 'action') {
       body += hasteBlockHTML();
       body += `<div class="block"><div class="sect">Attack action <span class="atkpips" data-calc-html="atkpips" title="Attacks left this turn"></span><span class="grow"></span></div>
-        <table class="mini">${S.attacks.map((at, i) => { if (!atkShown(at)) return ''; const wi = at.item && S.inventory.find(x => x.id === at.item), tip = String(at.notes || '').trim() || (wi && (String(wi.notes || '').trim() || wi.hb)); const nmw = String(at.name).trim().split(/\s+/), lastW = nmw.pop(); return `<tr><td>${nmw.length ? esc(nmw.join(' ')) + ' ' : ''}<span class="nowrap">${esc(lastW)}${tip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(at.name)}">ⓘ</button>` : ''}</span></td><td>${rollBtn('atk:' + i, at.name + ' attack')}</td><td>${rollBtn('dmg:' + i, at.name + ' damage')}</td><td>${atkBtn(i, true)}</td></tr>`; }).join('') || '<tr><td class="hint">No attacks — add weapons in Inventory.</td></tr>'}</table>
+        <table class="mini">${S.attacks.map((at, i) => { if (!atkShown(at) || at.bonus) return ''; const wi = at.item && S.inventory.find(x => x.id === at.item), tip = String(at.notes || '').trim() || (wi && (String(wi.notes || '').trim() || wi.hb)); const nmw = String(at.name).trim().split(/\s+/), lastW = nmw.pop(); return `<tr><td>${nmw.length ? esc(nmw.join(' ')) + ' ' : ''}<span class="nowrap">${esc(lastW)}${tip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(at.name)}">ⓘ</button>` : ''}</span></td><td>${rollBtn('atk:' + i, at.name + ' attack')}</td><td>${rollBtn('dmg:' + i, at.name + ' damage')}</td><td>${atkBtn(i, true)}</td></tr>`; }).join('') || '<tr><td class="hint">No attacks — add weapons in Inventory.</td></tr>'}</table>
         <div class="hint" data-calc="ridersnote"></div>
         ${clsLv('rogue') ? `<div class="row sarow" style="margin-top:6px"><button class="btn sm gold" data-act="sneak">Sneak Attack ${sneakDice()}</button><span class="sadotw" data-calc-html="sneakdot"></span></div>` : ''}
         ${stunRowHTML()}
@@ -2500,6 +2612,7 @@ function renderCombat() {
           <button class="toggle${UI.smiteUndead ? ' on' : ''}" data-act="smiteundead" aria-pressed="${!!UI.smiteUndead}" title="Undead and fiends take +1d8">Undead / Fiend +1d8</button></div>
           <div class="smite-row" data-calc-html="smite"></div></div>` : ''}</div>`;
     }
+    if (key === 'bonus') body += bonusAtkHTML();
     if (key === 'move') {
       body += `<div class="block movebox">
         <div class="mv-top"><div class="mv-left"><b data-calc="moveleft"></b><span>ft left</span></div><div class="mv-sub" data-calc-html="movesub"></div></div>
@@ -2556,7 +2669,7 @@ function renderCombat() {
     <span class="hint">One Action, one Bonus Action, movement and one Reaction per round. Using something here marks it spent; Next Turn resets them and counts down spell durations.</span>
   </div>
   <div class="cstrip">
-    <div class="panel cs-slots" ${PID('slots')}><h2>Spell Slots</h2>${slotsPanelInner()}</div>
+    <div class="panel cs-slots" ${PID('slots')}><h2>${realSlots() ? 'Spell Slots' : 'Stored spells'}</h2>${slotsPanelInner()}</div>
     <div class="panel cs-fx" ${PID('activefx')}>${activeFxInner(false)}</div>
   </div>
   ${mmPanelHTML()}
@@ -2906,8 +3019,9 @@ function mainClick(e) {
     case 'layout': if (onPhone()) break; if (window.pgPhoneView && (window.PG_IN_PHONE || (!isMobile() && window.innerWidth >= 640))) { window.pgPhoneView(!window.PG_IN_PHONE); break; }
       LAYOUT_NOW = isMobile() ? 'desktop' : 'mobile'; applyLayout(); render(); window.scrollTo(0, 0); break;
     case 'attack': attackRoll(i, !b.closest('#page-combat') || !S.inCombat); break;
+    case 'bonusatk': bonusAttack(i, b.dataset.kind); break;
     case 'equip': equipItem(i); break;
-    case 'resetturn': S.turn.haste = false; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.attacks = 0; S.turn.speed0 = ''; S.turn.sneak = false; S.turn.readied = null; update(); render('combat'); toast(`Turn reset — round ${N(S.turn.round) || 1} actions are ready again.`); break;
+    case 'resetturn': S.turn.haste = false; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.attacks = 0; S.turn.atkWith = []; S.turn.lightAtk = false; S.turn.speed0 = ''; S.turn.sneak = false; S.turn.readied = null; update(); render('combat'); toast(`Turn reset — round ${N(S.turn.round) || 1} actions are ready again.`); break;
     case 'fullscreen': if (fsOn()) { FS_USER_OFF = true; fsExit(); } else { FS_USER_OFF = false; fsEnter(); } break;
     case 'tab': { const prev = UI.tab, nt = b.dataset.tab, mini = !!b.closest('.cmini'), mob = isMobile() && !mini;
       const go = () => { tabFadeT = 0; renderTabs(); if (prev !== nt && !mini) tabPageAnim(prev, nt); requestAnimationFrame(alignHpSide);
@@ -3012,6 +3126,10 @@ function mainClick(e) {
     case 'useact': if (flurryAct(i, b.dataset.j)) { flurryOfBlows(i, b.dataset.j, b.dataset.col, false); break; } useAct(i, b.dataset.j === undefined ? null : b.dataset.j, b.dataset.col); break;
     case 'forgego': forgeGo(N(b.dataset.fi), i); break;
     case 'spellstorego': spellStoreGo(N(b.dataset.fi)); break;
+    case 'ringstore': openRingStore(N(b.dataset.i)); break;
+    case 'ringstorego': ringStoreGo(b.dataset.n); break;
+    case 'rsfilt': RS.lvl = b.dataset.l; renderRingStore(); break;
+    case 'ringdel': ringRemove(N(b.dataset.i), b.dataset.n); break;
     case 'wsspirit': { closeModal(true); const k = S.features.findIndex(f => f.name === 'Summon Wildfire Spirit'); if (k >= 0) useFeature(k, 'action'); return; }
     case 'pending': openPending(); pendingLabel = null; return;
     case 'recadd': RECOVER.pick.push(N(b.dataset.l)); renderRecover(); pendingLabel = null; return;
@@ -3255,6 +3373,18 @@ function spendAmmo(a) {
   if (!isFirearm(wit)) { S.turn.ammo = S.turn.ammo || {}; S.turn.ammo[am.id] = N(S.turn.ammo[am.id]) + 1; }
   return `${esc(am.name)}: ${am.qty} left${am.qty <= 5 ? ' — running low!' : ''}`;
 }
+// A bonus-action attack: the off-hand weapon (two-weapon fighting) or a feature's own one (the second Psychic Blade).
+function bonusAttack(i, kind) {
+  const a = S.attacks[i]; if (!a) return;
+  if (S.inCombat) {
+    if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; }
+    if (S.turn.used.bonus) { toast('You already used your bonus action this turn.', 'fumble'); return; }
+    if (kind === 'off' && !S.turn.lightAtk) { toast(`Attack with ${dualWielder() ? 'a one-handed melee weapon' : 'a light melee weapon'} first (with the Attack action) — then this off-hand attack is your bonus action.`, 'fumble', 7000); return; }
+    if (kind === 'bonus' && a.after && !(S.turn.atkWith || []).includes(a.after)) { toast(`Attack with your ${esc(a.after)} first (with the Attack action) — then this is your bonus action.`, 'fumble', 7000); return; }
+    S.turn.used.bonus = true; pendingLabel = (kind === 'off' ? 'Off-hand attack: ' : 'Bonus attack: ') + a.name; setTimeout(() => render('combat'), 0);
+  }
+  attackRoll(i, true, { offhand: kind === 'off', label: a.name + (kind === 'off' ? ' (off-hand)' : '') });
+}
 // From the Combat tab an attack uses up your attacks for the turn; from anywhere else it's just a roll.
 function attackRoll(i, free, opt) {
   opt = opt || {};
@@ -3263,8 +3393,8 @@ function attackRoll(i, free, opt) {
   if (!free && !canAttack()) { toast('No attacks left this turn.'); return; }
   pendingLabel = 'Attack with ' + a.name;
   const ammoNote = spendAmmo(a); if (ammoNote === null) return;
-  if (!free) { S.turn.attacks = N(S.turn.attacks) + 1; S.turn.used.action = true; }
-  const hit = atkHit(a), m = atkDmgMod(a);
+  if (!free) { S.turn.attacks = N(S.turn.attacks) + 1; S.turn.used.action = true; S.turn.atkWith = (S.turn.atkWith || []).concat([a.name]); if (offhandOK(a)) S.turn.lightAtk = true; if (S.inCombat) setTimeout(() => render('combat'), 0); } // the bonus attacks it unlocks light up
+  const drop = opt.offhand ? offDrop(a) : 0, hit = atkHit(a), m = atkDmgMod(a) - drop;
   ATK_ITEM = { id: a.item || '', weapon: !a.effect || !!a.weaponLike };
   let dd20; try { dd20 = d20Expr(hit, 'attack'); } finally { ATK_ITEM = null; }
   const { expr, rm, bless, ex } = dd20;
@@ -3295,7 +3425,7 @@ function attackRoll(i, free, opt) {
   update();
   const head = crit ? 'CRITICAL HIT! Damage dice doubled' : nat1 ? 'Natural 1: automatic miss' : 'to hit';
   const diceOf = r => (r.terms ? '[' + r.terms.filter(t => t.dice).map(t => t.shown.join(', ')).join(' | ') + ']' : '');
-  const dmgSec = termMath(d, atkDmgRows(a), 'Damage', [crit ? 'Weapon dice, doubled' : 'Weapon dice', brutal ? 'Brutal Critical' : '']);
+  const dmgSec = termMath(d, atkDmgRows(a).concat(drop ? [['Off-hand: no ability modifier', -drop]] : []), 'Damage', [crit ? 'Weapon dice, doubled' : 'Weapon dice', brutal ? 'Brutal Critical' : '']);
   xr.forEach(x => dmgSec.rows.push([x.label, String(x.r.total), diceOf(x.r)]));
   rr.forEach(x => dmgSec.rows.push([x.label, String(x.r.total), diceOf(x.r)]));
   if (sr) dmgSec.rows.push([`Sneak Attack (${crit ? critDice(sa) : sa})`, String(sr.total), diceOf(sr)]);
@@ -3471,7 +3601,7 @@ function nextTurn() {
   if (S.felineSpent && !S.turn.feline && N(S.turn.moved) <= 0) S.felineSpent = false;  // Feline Agility recharges after a turn without moving
   const held = S.turn.readied; S.turn.readied = null;
   if (held) setTimeout(() => readyLost(held, 'Your readied action ran out (it lasts until your next turn)'), 80);
-  S.turn.round = (N(S.turn.round) || 1) + 1; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.attacks = 0; S.turn.feline = false; S.turn.speed0 = ''; S.turn.sneak = false;
+  S.turn.round = (N(S.turn.round) || 1) + 1; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.atkWith = []; S.turn.lightAtk = false; S.turn.attacks = 0; S.turn.feline = false; S.turn.speed0 = ''; S.turn.sneak = false;
   S.turn.haste = false;
   // Haste's lethargy: the turn after it wears off you can't move or take actions.
   if (N(S.lethargy) === 1) { S.lethargy = 2; S.turn.speed0 = 'Haste lethargy'; setTimeout(() => toast('<b>Lethargic</b> — Haste wore off, so this turn you can’t move or take actions. You’re back to normal next turn.', 'fumble', 9000), 120); } else if (N(S.lethargy) === 2) S.lethargy = 0;
@@ -3547,7 +3677,7 @@ function readyPay(k, L) {
   const sp = S.spells[r.i];
   if (k === 'slot') S.slotsUsed[L - 1] = N(S.slotsUsed[L - 1]) + 1;
   else if (k === 'pact') S.pactUsed = N(S.pactUsed) + 1;
-  else if ((k === 'free' || k === 'store') && sp && sp.uses) sp.uses.used = N(sp.uses.used) + 1;
+  else if ((k === 'free' || k === 'store') && sp && sp.uses) { sp.uses.used = N(sp.uses.used) + 1; if (sp.stored) ringSpent(sp); }
   r.paid = { k, L };
   readyCommit(r);
 }
@@ -3798,7 +3928,7 @@ function castSpell(i, col, force) {
     if (!left) { const fi = S.features.findIndex(f => fxOf(f).target === 'spellstore'); toast(`<b>${esc(sp.name)}</b>: no stored uses left. Store a spell again after a long rest.`, 'fumble', 8000, fi >= 0 ? { label: 'Store a spell', fn: () => openSpellStore(fi) } : null); return; }
     const SL = Math.max(base, N(sp.uses && sp.uses.level) || base), ex = castExtrasHTML(sp, SL); if (!ex) return executeCast(i, 'free', SL, col, {});
     CASTING = { i, col };
-    return openModal(`<h3>Cast ${esc(spLabel(sp))}</h3><p class="hint" style="margin:0 0 8px">From your Spell-Storing Item · ${left} of ${mx} uses left</p>${ex}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="castgo" data-k="free" data-l="${SL}">Cast</button></div>`);
+    return openModal(`<h3>Cast ${esc(spLabel(sp))}</h3><p class="hint" style="margin:0 0 8px">${sp.cls === 'artificer' ? 'From your Spell-Storing Item' : 'Stored in ' + esc((spItem(sp) || {}).name || 'an item')} · ${sp.cls === 'artificer' ? left + ' of ' + mx + ' uses left' : 'gone once cast'}</p>${ex}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="castgo" data-k="free" data-l="${SL}">Cast</button></div>`);
   }
   if (sp.uses) { const mx = evalMax(sp.uses.max) || 0, left = Math.max(0, mx - N(sp.uses.used)); if (mx) opts.push({ k: 'free', L: Math.max(base, N(sp.uses.level) || base), label: `Free use (${left}/${mx})`, left }); }
   if (base > 0) {
@@ -3861,7 +3991,7 @@ function executeCast(i, how, L, col, x) {
   pendingLabel = `Cast ${sp.name}` + (how === 'slot' ? ` (${ORD[L - 1]} slot)` : how === 'pact' ? ' (pact slot)' : how === 'free' ? ' (free use)' : how === 'atwill' ? ' (at will)' : how === 'ritual' ? ' (ritual)' : '');
   if (how === 'slot') S.slotsUsed[L - 1] = N(S.slotsUsed[L - 1]) + 1;
   if (how === 'pact') S.pactUsed = N(S.pactUsed) + 1;
-  if (how === 'free') sp.uses.used = N(sp.uses.used) + 1;
+  if (how === 'free') { sp.uses.used = N(sp.uses.used) + 1; if (sp.stored) ringSpent(sp); }
   const tcol = col || null; if (tcol && ST('autoSpend')) S.turn.used[tcol] = true;
   const ci = spellCI(sp), lines = [], out = [];
   const self = x.self !== false;
@@ -4840,6 +4970,8 @@ function _applyPanelLayout() {
   const L = S.layout || {}, pages = L.grid ? {} : (L.pages || {}), ae = document.activeElement, ed = !!UI.editLayout;
   // Panels added in later versions go next to their neighbours in a saved layout.
   [['spells', 'mmspells', 'spellcasting'], ['combat', 'metamagic', 'activefx']].forEach(([pg, id, after]) => { const a = pages[pg]; if (a && !a.includes(id) && $(`#page-${pg} [data-pid="${id}"]`)) { const k = a.indexOf(after); a.splice(k < 0 ? a.length : k + 1, 0, id); } });
+  // The Spells tab's Spell Slots and Active Spells panels (same look as Combat) go at the top, before the class cards.
+  { const a = pages.spells; if (a) [['spslots', null], ['spfx', 'spslots']].forEach(([id, after]) => { if (a.includes(id) || !$(`#page-spells [data-pid="${id}"]`)) return; const k = after ? a.indexOf(after) + 1 : Math.max(0, a.indexOf('spellcasting')); a.splice(k < 0 ? 0 : k, 0, id); }); }
   const by = {};
   $$('.page [data-pid]').forEach(el => (by[el.dataset.pid] = by[el.dataset.pid] || []).push(el));
   Object.keys(by).forEach(id => { const els = by[id]; if (els.length < 2) return; const keep = els.find(e => e.contains(ae)) || els.reduce((a, b) => (N(b.dataset.gen) > N(a.dataset.gen) ? b : a)); els.forEach(e => { if (e !== keep) e.remove(); }); by[id] = [keep]; });
@@ -6797,6 +6929,10 @@ function ensureGrid() {
 // placed go to the bottom of their home tab; removed ones stay off the sheet.
 function gridApply(by) {
   const L = S.layout, grid = L.grid, removed = new Set(L.removed || []), placed = new Set(Object.values(grid).flat().map(i => i.id));
+  // The Spells tab's Spell Slots and Active Spells panels (same look as Combat) start at the top of a saved grid, side by side.
+  if (grid.spells) { const need = ['spslots', 'spfx'].filter(id => by[id] && !placed.has(id) && !removed.has(id));
+    if (need.length) { const sc = grid.spells.find(i => i.id === 'spellcasting'), y0 = sc ? sc.y : 0, ws = Math.round(GCOLS / 3); grid.spells.forEach(i => { if (i.y >= y0) i.y += 1; });
+      need.forEach(id => { grid.spells.push(id === 'spslots' ? { id, x: 0, y: y0, w: ws, h: 1 } : { id, x: need.length === 2 ? ws : 0, y: y0, w: need.length === 2 ? GCOLS - ws : GCOLS, h: 1 }); placed.add(id); }); } }
   Object.keys(by).forEach(id => { if (placed.has(id) || removed.has(id)) return; const home = by[id][0].dataset.home, pg = grid[home] ? home : null; if (!pg) return;
     grid[pg].push({ id, x: 0, y: grid[pg].reduce((m, i) => Math.max(m, i.y + i.h), 0), w: GCOLS, h: 1 }); placed.add(id); });
   const mob = isMobile(), ed = !!UI.editLayout;
@@ -7465,6 +7601,7 @@ function vfxForItem0(it) { const h = vfxHand('mi', it.magic && it.magic.name, it
 
 // ---------- Spellcasting ability for a specific spell ----------
 function spellCI(sp) {
+  if (sp && sp.stored && sp.item && sp.cls !== 'artificer') { const it = spItem(sp), c = it && it.spellCast && it.spellCast[sp.name]; if (c && (c.dc != null || c.atk != null)) { const b = spellCI(Object.assign({}, sp, { stored: false })); return Object.assign({}, b, c.dc != null ? { dc: N(c.dc) } : {}, c.atk != null ? { atk: N(c.atk) } : {}); } }
   if (sp && sp.ab && (!CL[sp.cls] || !casterFor(sp.cls))) { const m = mod(sp.ab), b = itemSum('spell'); return { ab: sp.ab, mod: m, dc: 8 + PB() + m + b, atk: PB() + m + b + itemSum('spellAtk'), name: '' }; }
   return castInfo(sp && sp.cls);
 }
@@ -7555,7 +7692,7 @@ function rebuildAuto() {
   auto.push({ name: 'Unarmed Strike', ab: monk ? 'monk' : 'str', prof: true, magic: 0, dice: monk ? '' : '1', type: 'bludgeoning', notes: monk ? 'Martial Arts: bonus-action strike after attacking' : '', kind: 'melee', monk, auto: 'unarmed' });
   S.features.forEach(f => (fxOf(f).attacks || []).forEach(([n, d, t, ab, x]) => auto.push(Object.assign({ name: n, ab: ab || 'str', prof: true, magic: 0, dice: d, type: t, notes: f.dname || f.name, kind: 'melee', auto: 'feature' }, x || {}, x && x.hbDice ? { dice: fxRollExpr(d), notes: [f.dname || f.name, x.notes].filter(Boolean).join(' · ') } : {}))));
   if (ri && ri.natural) ri.natural.forEach(([n, d, t]) => auto.push({ name: n, ab: 'str', prof: true, magic: 0, dice: d, type: t, notes: 'Natural weapon', kind: 'melee', monk, auto: 'natural' }));
-  S.attacks = auto.map(a => { const prev = S.attacks.find(x => x.auto && x.name === a.name); return prev ? Object.assign(prev, { monk: a.monk, ab: prev.ab === 'str' && a.ab === 'monk' ? 'monk' : prev.ab, dice: a.monk && prev.dice === '1' ? '' : a.hbDice ? a.dice : prev.dice }, a.hbDice ? { type: a.type, notes: a.notes, noModDmg: a.noModDmg, kind: a.kind, ab: a.ab } : {}) : a; }).reverse().concat(keep.slice().reverse()).reverse();
+  S.attacks = auto.map(a => { const prev = S.attacks.find(x => x.auto && x.name === a.name); return prev ? Object.assign(prev, { bonus: a.bonus, after: a.after, monk: a.monk, ab: prev.ab === 'str' && a.ab === 'monk' ? 'monk' : prev.ab, dice: a.monk && prev.dice === '1' ? '' : a.hbDice ? a.dice : prev.dice }, a.hbDice ? { type: a.type, notes: a.notes, noModDmg: a.noModDmg, kind: a.kind, ab: a.ab } : {}) : a; }).reverse().concat(keep.slice().reverse()).reverse();
 }
 // Spells stored in an item (a Ring of Spell Storing): one use each, cast at the level it was stored at, and gone
 // until someone casts a spell into the item again (it doesn't come back on a rest).
@@ -8637,7 +8774,9 @@ window.sheetSummary = () => ({ name: S.name || '', player: S.player || '', race:
 if (S.created) applySources(S.sources);
 // Spells from a Ring of Spell Storing made before stored spells existed: set them up as stored now.
 const staleStore = () => (S.spells || []).some(sp => { const it = sp.item && (S.inventory || []).find(x => x.id === sp.item); return it && itemStores(it) && !sp.usesOnly; });
-if (S.created && (FIXED || staleStore())) { const at = S.savedAt; rebuildAuto(); writeLocal(); S.savedAt = at; } // one-off fixes don't count as a newer edit (a newer synced copy still wins)
+// The second Psychic Blade became a proper bonus-action attack: sheets made before that pick it up now.
+const staleBonusAtk = () => (S.attacks || []).some(a => a.auto === 'feature' && /^Psychic Blade \(bonus/i.test(a.name) && !a.bonus);
+if (S.created && (FIXED || staleStore() || staleBonusAtk())) { const at = S.savedAt; rebuildAuto(); writeLocal(); S.savedAt = at; } // one-off fixes don't count as a newer edit (a newer synced copy still wins)
 loadHist(FROM_LOCAL);
 applyLayout(); applyTheme();
 if (S.created) { render(); setTimeout(afterUpdate, 50); }
