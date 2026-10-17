@@ -2816,6 +2816,8 @@ html .bonusatk table.mini td .bwait { display: block; font-size: .7rem !importan
 .ptyg-n b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ptyg-n small { color: var(--slate); font-size: .75rem; }
 .ptyg-q { width: 64px !important; }
+.ptyg-s { width: 100%; margin: 0 0 8px; }
+.ptyg-row[hidden] { display: none; }
 .ptycoins { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
 .ptycast { max-height: 60vh; overflow-y: auto; }
 html.mobile .ptym-grid { grid-template-columns: 1fr; }

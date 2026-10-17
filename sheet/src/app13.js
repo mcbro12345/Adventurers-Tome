@@ -91,7 +91,7 @@ function renderParty() {
   const head = `<div class="panel ptyhead"><div class="ptyh"><span class="ptyh-ic" aria-hidden="true">${TAB_ICON.party}</span><div class="ptyh-t"><b>${esc(P.name)}</b><span>DM ${esc(dm)} · ${n} character${n === 1 ? '' : 's'}${act ? '' : ' · you’re viewing this sheet'}</span></div>
       <div class="ptyh-btns">${act && ms.length > 1 ? '<button class="btn sm" data-pa="cast" data-id="">Cast on several…</button><button class="btn sm" data-pa="ability" data-id="">Ability on several…</button>' : ''}<a class="btn sm" href="${esc(P.url)}" target="_top">Party page</a></div></div>
       ${act && ms.length ? '<p class="hint ptyh-hint">Healing, items, spells and abilities you send land on their sheet straight away (or the next time it’s opened).</p>' : ''}</div>`;
-  const cards = ms.length ? `<div class="ptym-grid">${ms.map(ptyCardHTML).join('')}</div>` : `<div class="panel"><p class="hint" style="margin:0">Nobody else has joined yet. Your DM can share the party’s invite link from the party page.</p></div>`;
+  const cards = P.loading ? `<div class="panel"><p class="hint" style="margin:0">Loading the party…</p></div>` : ms.length ? `<div class="ptym-grid">${ms.map(ptyCardHTML).join('')}</div>` : `<div class="panel"><p class="hint" style="margin:0">Nobody else has joined yet. Your DM can share the party’s invite link from the party page.</p></div>`;
   const aurasP = auras.length ? `<div class="panel ptyauras"><h2>Your auras</h2><p class="hint">Tick who’s close enough to get it. They keep it until you untick them, or you drop to 0 HP.</p>${auras.map(a => { const on = (S.ptyAuras || {})[a.name] || [];
       return `<div class="ptya"><b>${esc(a.name)}</b><span class="hint">${esc(ptyFormula(a.def.label || '') || a.def.text || '')}</span><div class="ptya-who">${ms.map(m => `<label class="checkline"><input type="checkbox" data-aura="${esc(a.name)}" data-id="${esc(m.id)}"${on.includes(m.id) ? ' checked' : ''}> ${esc(m.name)}</label>`).join('')}</div></div>`; }).join('')}</div>` : '';
   const logP = `<div class="panel ptylogp"><h2>Party log</h2>${(S.ptyLog || []).length ? `<div class="ptylog">${S.ptyLog.slice(0, 30).map(l => `<div class="ptyl ${l.dir}"><span class="ptyl-d" aria-label="${l.dir === 'in' ? 'Received' : 'Sent'}">${l.dir === 'in' ? '↓' : '↑'}</span><span class="ptyl-t">${esc(l.text)}<small>${l.dir === 'in' ? 'from ' : 'to '}${esc(l.who)} · ${esc(ptyAgo(l.at))}</small></span></div>`).join('')}</div>` : '<p class="hint" style="margin:0">What you send and receive shows up here.</p>'}</div>`;
@@ -171,15 +171,22 @@ function ptyAmountGo() {
   else ptySend(a.ids, 'hit', { dmg: r.total, type, why: w }, `${r.total}${type ? ' ' + type : ''} damage${why ? ' (' + why + ')' : ''}`);
 }
 // Hand over an item from your inventory (or feed them a potion).
-let PTY_GIVE = null;
+let PTY_GIVE = null, PTY_GQ = '';
 function ptyGive(id) {
   if (!id) return ptyPickTargets('Give an item to…', 1, x => ptyGive(x[0]));
-  PTY_GIVE = id;
+  if (PTY_GIVE !== id) PTY_GQ = ''; PTY_GIVE = id;
   const list = S.inventory.map((it, i) => [it, i]).sort((x, y) => (x[0].equipped ? 1 : 0) - (y[0].equipped ? 1 : 0) || String(x[0].name).localeCompare(y[0].name));
   openModal(`<h3>Give ${esc(ptyNm(id))} an item</h3><p class="hint" style="margin:0 0 8px">It leaves your inventory and goes into theirs (equipped items are unequipped; attunement ends).</p>
-    <div class="ptygive">${list.map(([it, i]) => `<div class="ptyg-row"><span class="ptyg-n"><b>${esc(it.name)}</b><small>${[N(it.qty) > 1 ? '×' + N(it.qty) : '', it.equipped ? 'equipped' : '', it.attuned ? 'attuned' : '', it.magic ? esc(it.magic.rarity || 'magic') : ''].filter(Boolean).join(' · ')}</small></span>
+    ${list.length > 5 ? `<input class="f ptyg-s" type="search" placeholder="Search your inventory…" aria-label="Search your inventory" value="${esc(PTY_GQ)}">` : ''}
+    <div class="ptygive">${list.map(([it, i]) => `<div class="ptyg-row" data-gn="${esc(String(it.name || '').toLowerCase())}"><span class="ptyg-n"><b>${esc(it.name)}</b><small>${[N(it.qty) > 1 ? '×' + N(it.qty) : '', it.equipped ? 'equipped' : '', it.attuned ? 'attuned' : '', it.magic ? esc(it.magic.rarity || 'magic') : ''].filter(Boolean).join(' · ')}</small></span>
       ${N(it.qty) > 1 ? `<input class="f sm ptyg-q" type="number" min="1" max="${N(it.qty)}" value="1" data-gq="${i}" aria-label="How many">` : ''}${it.heal ? `<button class="btn sm" data-pa="giveit" data-i="${i}" data-mode="feed" title="Use your action to give them a drink">Feed it</button>` : ''}<button class="btn sm gold" data-pa="giveit" data-i="${i}" data-mode="give">Give</button></div>`).join('') || '<p class="hint">Your inventory is empty.</p>'}</div>
+    <p class="hint ptyg-none" hidden>Nothing matches.</p>
     <div class="actions"><button class="btn" data-act="close">Done</button></div>`, null, true);
+  const sb = $('#modal-body .ptyg-s'); if (!sb) { PTY_GQ = ''; return; }
+  const flt = () => { PTY_GQ = sb.value; const q = sb.value.trim().toLowerCase(); let n = 0;
+    $$('#modal-body .ptyg-row').forEach(r => { const h = !!q && !r.dataset.gn.includes(q); r.hidden = h; if (!h) n++; });
+    $('#modal-body .ptyg-none').hidden = n > 0; };
+  sb.oninput = flt; flt(); if (!matchMedia('(pointer:coarse)').matches) { sb.focus(); sb.setSelectionRange(sb.value.length, sb.value.length); }
 }
 function ptyGiveGo(i, mode, one) {
   const to = PTY_GIVE, it = S.inventory[i]; if (!to || !it) return;

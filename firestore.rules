@@ -160,7 +160,8 @@ service cloud.firestore {
     match /invites/{t} {
       allow get: if signedIn();
       allow list: if false;
-      allow create, update: if admin() || (signedIn() && request.resource.data.keys().hasOnly(['p', 'name', 'dm', 'dmName', 'at'])
+      allow create, update: if admin() || (signedIn() && request.resource.data.keys().hasOnly(['p', 'name', 'dm', 'dmName', 'at', 'n', 'pic'])
+        && (!('pic' in request.resource.data) || (request.resource.data.pic is string && request.resource.data.pic.size() < 300000))
         && partyMgr(partyOf(request.resource.data.p)));
       allow delete: if admin() || (signedIn() && partyMgr(partyOf(resource.data.p)));
     }
