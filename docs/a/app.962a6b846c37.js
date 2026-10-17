@@ -1592,8 +1592,9 @@ function renderVitals() {
 const TABS0 = [['core', 'Core'], ['combat', 'Combat'], ['spells', 'Spells'], ['features', 'Features'], ['inventory', 'Inventory'], ['infusions', 'Infusions'], ['companions', 'Creatures'], ['party', 'Party'], ['story', 'Story'], ['notes', 'Notes']];
 function tabOrder() {
   const all = TABS0.concat(ctabs().map(t => [t.key, t.name])), L = (S.layout && S.layout.tabs) || [], keys = all.map(t => t[0]);
-  // The Party tab only exists while the character is in a party (not even as a hidden tab in Edit layout).
-  return L.filter(k => keys.includes(k)).concat(keys.filter(k => !L.includes(k))).map(k => all.find(t => t[0] === k)).filter(t => t[0] !== 'party' || ptyOn());
+  // The Party tab only exists while the character is in a party (not even as a hidden tab in Edit layout), and it's always last.
+  const o = L.filter(k => keys.includes(k)).concat(keys.filter(k => !L.includes(k))).map(k => all.find(t => t[0] === k)).filter(t => t[0] !== 'party');
+  return ptyOn() ? o.concat([all.find(t => t[0] === 'party')]) : o;
 }
 // Tabs and panels a character has no use for hide themselves (no spellcasting → no Spells tab or slot panels; no Infuse Item → no Infusions tab).
 // Edit layout can still show them: that choice is kept in layout.shownTabs / layout.shown.
@@ -2568,6 +2569,7 @@ function spellGroup(sp) {
 function spellCastable(sp) {
   if (sp.usesOnly) return N(evalMax(sp.uses && sp.uses.max)) - N(sp.uses && sp.uses.used) > 0;
   const L = N(sp.level); if (!L || sp.atWill) return true;
+  if (sp.ritual) return true; // a ritual never needs a slot
   if (sp.uses && N(sp.uses.max) && N(sp.uses.used) < (evalMax(sp.uses.max) || 0)) return true;
   for (let l = L; l <= 9; l++) if (slotMax(l - 1) > 0 && slotsLeft(l - 1) > 0) return true;
   const pc = pact(); return !!(pc && pc.level >= L && pactLeft() > 0);
@@ -6164,7 +6166,7 @@ function compCard(c, i, mini, inCol) {
           <div class="chp-btns"><button class="btn hpi dmg" data-act="comphp" data-i="${i}" data-d="-1" title="Damage ${esc(c.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="comphp" data-i="${i}" data-d="1" title="Heal ${esc(c.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-act="comphp" data-i="${i}" data-d="0" title="Give ${esc(c.name)} temporary HP (they don't stack — the higher stays)" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div></div>` : '';
   return `<div class="${mini ? 'cm-card' : inCol ? 'comp2 incol' : 'panel comp2'}"><div class="comp-h2">${picThumb(c.tmpl ? `compMods.${c.tmpl}.img` : `companions.${i}.img`, c.name)}<div class="grow"><b class="cname">${esc(c.name)}</b><div class="ctags">${(inCol ? [] : tags).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div></div>
       ${inCol ? compCmdBtn(c, i) : ''}<button class="icon-btn" data-act="compedit" data-i="${i}" title="Edit ${esc(c.name)}" aria-label="Edit">✎</button>${c.tmpl && COMP_RULES[c.tmpl] && COMP_RULES[c.tmpl].always ? '' : `<button class="btn sm ghost" data-act="dismiss" data-i="${i}">Dismiss</button>`}</div>
-    <div class="cstat2">${hp}<div class="cchips"><span class="cchip2"><small>AC</small><b>${N(c.ac)}</b></span><span class="cchip2 wide"><small>Speed</small><b>${esc(compSpeedText(c.speed))}</b></span>${c.multi > 1 ? `<span class="cchip2"><small>Attacks</small><b>${c.multi}</b></span>` : ''}</div></div>
+    <div class="cstat2">${hp}<div class="csts"><span class="cst"><small>AC</small><b>${N(c.ac)}</b></span><span class="cst wide"><small>Speed</small><b>${esc(compSpeedText(c.speed))}</b></span>${c.multi > 1 ? `<span class="cst"><small>Attacks</small><b>${c.multi}</b></span>` : ''}</div></div>
     ${acts ? `<div class="cacts">${acts}</div>` : ''}
     ${!mini && String(c.notes || '').trim() ? (inCol ? `<details class="cnotes-d"><summary>How ${esc(c.name)} works</summary><div class="cnotes">${esc(c.notes)}</div></details>` : `<div class="cnotes">${esc(c.notes)}</div>`) : ''}</div>`;
 }
@@ -7762,7 +7764,7 @@ async function ptySend(ids, kind, data, text, quiet, grp) {
   const recs = ids.map(to => ({ to, ref: PTYX().newRef(), kind, data, text }));
   if (grp && grp.entry) { grp.entry.pty = grp.entry.pty.concat(recs); persistHist(); } else { const e = ptyHistAdd(recs, text); if (grp) grp.entry = e; }
   let ok = 0; for (const r of recs) { try { await PTYX().send(r.to, kind, data, r.ref); ok++; } catch (e) { r.failed = true; console.warn('party send', e); } }
-  if (ok) { ptyLog('out', ptyNames(ids), text); save(); if (UI.tab === 'party') render('party'); if (!quiet) toast(`${esc(text)} → <b>${esc(ptyNames(ids))}</b>`, '', 5000); }
+  if (ok) { ptyLog('out', ptyNames(ids), text); save(); if (UI.tab === 'party') render('party'); if (!quiet) toast(`${esc(text)} → <b>${esc(ptyNames(ids))}</b>${ptyFreeKind(kind) || (PTYX().info() || {}).mgr ? '' : `<div class="det">${ids.length > 1 ? 'They’re' : 'They’re'} asked to accept it on their sheet.</div>`}`, '', 6000); }
   else toast('Couldn’t reach the party right now — check your connection.', 'fumble', 7000);
   return ok;
 }
@@ -7783,19 +7785,18 @@ function ptyHist(recs) {
 function ptyCardHTML(m) {
   const down = m.dead ? 'dead' : N(m.maxhp) && N(m.hp) <= 0 ? 'down' : '', act = ptyAct(), f = m.form;
   const cur = f ? N(f.hp) : N(m.hp), max = f ? N(f.maxhp) : N(m.maxhp), id = esc(m.id);
-  const tags = [m.cls, m.player, f ? 'As ' + f.name : '', m.dead ? 'Dead' : down ? (m.stable ? 'Stable at 0 HP' : 'Making death saves') : ''].filter(Boolean);
-  const on = [].concat(m.conds || [], N(m.exh) ? ['Exhaustion ' + N(m.exh)] : [], m.conc ? ['Concentrating: ' + m.conc] : [], m.fx || []);
+  const on = [].concat([f ? 'As ' + f.name : '', m.dead ? 'Dead' : down ? (m.stable ? 'Stable at 0 HP' : 'Making death saves') : ''].filter(Boolean), m.conds || [], N(m.exh) ? ['Exhaustion ' + N(m.exh)] : [], m.conc ? ['Concentrating: ' + m.conc] : [], m.fx || []);
   const more = [['coins', 'Give coins'], ['help', 'Help (advantage on their next roll)'], down && !m.dead && !m.stable ? ['stab', 'Stabilize (Medicine, DC 10)'] : null, ['note', 'Send a message']].filter(Boolean);
   const hp = max ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(cur, max, m.temp, f ? ' form' : '')}</div>
       <div class="chp-center"><div class="curline"><b class="ptym-cur">${cur}</b>${N(m.temp) ? `<span class="tmpbadge">+${N(m.temp)}</span>` : ''}</div><div class="hp-max">of ${max}</div></div></div>
       ${act ? `<div class="chp-side"><input class="f" id="ptyq-${id}" inputmode="numeric" placeholder="Amount" aria-label="Amount for ${esc(m.name)}">
         <div class="chp-btns"><button class="btn hpi dmg" data-pa="qdmg" data-id="${id}" title="Damage ${esc(m.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-pa="qheal" data-id="${id}" title="Heal ${esc(m.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-pa="qtemp" data-id="${id}" title="Give ${esc(m.name)} temporary HP" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div>` : ''}</div>` : '';
   return `<div class="panel comp2 ptym${down ? ' ' + down : ''}" data-mid="${id}"><div class="comp-h2">${m.thumb ? `<span class="picth"><img src="${esc(m.thumb)}" alt=""></span>` : `<span class="picadd">${esc(String(m.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''))}</span>`}
-      <div class="grow"><b class="cname">${esc(m.name || 'A character')}</b><div class="ctags">${tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div></div>
-      ${act ? `<div class="menu"><button class="icon-btn" data-act="menu" aria-haspopup="true" aria-label="More for ${esc(m.name || 'them')}">⋯</button><div class="menu-list">${more.map(([k, t]) => `<button data-pa="${k}" data-id="${id}">${esc(t)}</button>`).join('')}</div></div>` : ''}</div>
-    <div class="cstat2">${hp}<div class="cchips"><span class="cchip2"><small>AC</small><b>${esc(m.ac || '—')}</b></span>${m.speed ? `<span class="cchip2"><small>Speed</small><b>${N(m.speed)}</b></span>` : ''}${m.level ? `<span class="cchip2"><small>Level</small><b>${N(m.level)}</b></span>` : ''}</div></div>
+      <div class="grow"><b class="cname${String(m.name || '').length > 26 ? ' n3' : String(m.name || '').length > 17 ? ' n2' : ''}" title="${esc(m.name || '')}">${esc(m.name || 'A character')}</b>${m.player ? `<div class="ptym-pl">${esc(m.player)}</div>` : ''}</div>
+</div>
+    <div class="cstat2">${hp}<div class="csts"><span class="cst"><small>AC</small><b>${esc(m.ac || '—')}</b></span>${m.speed ? `<span class="cst"><small>Speed</small><b>${N(m.speed)}</b></span>` : ''}${m.level ? `<span class="cst"><small>Level</small><b>${N(m.level)}</b></span>` : ''}</div></div>
     ${on.length ? `<div class="ctags">${on.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>` : ''}
-    ${act ? `<div class="ptym-act"><button class="btn sm gold" data-pa="cast" data-id="${id}">Cast a spell on them</button><button class="btn sm" data-pa="ability" data-id="${id}">Use an ability</button><button class="btn sm" data-pa="give" data-id="${id}">Give an item</button></div>` : ''}
+    ${act ? `<div class="ptym-act"><button class="btn sm gold" data-pa="cast" data-id="${id}" title="Cast a spell on them">Cast a spell</button><button class="btn sm" data-pa="ability" data-id="${id}" title="Use an ability on them">Ability</button><button class="btn sm" data-pa="give" data-id="${id}" title="Give them an item">Give item</button><div class="menu up"><button class="icon-btn" data-act="menu" aria-haspopup="true" aria-label="More for ${esc(m.name || 'them')}">⋯</button><div class="menu-list">${more.map(([k, t]) => `<button data-pa="${k}" data-id="${id}">${esc(t)}</button>`).join('')}</div></div></div>` : ''}
   </div>`;
 }
 function renderParty() {
@@ -7805,9 +7806,9 @@ function renderParty() {
   const P = PTYX().info(), ms = ptyMembers(), act = ptyAct(), abil = act ? ptyAbilities() : [], auras = abil.filter(a => a.def.kind === 'aura');
   const n = ms.length + 1, dm = P.mgr ? 'You' : (P.dmName || 'the DM');
   const head = `<div class="panel ptyhead"><div class="ptyh"><span class="ptyh-ic" aria-hidden="true">${TAB_ICON.party}</span><div class="ptyh-t"><b>${esc(P.name)}</b><span>DM ${esc(dm)} · ${n} character${n === 1 ? '' : 's'}${act ? '' : ' · you’re viewing this sheet'}</span></div>
-      <div class="ptyh-btns">${act && ms.length > 1 ? '<button class="btn sm" data-pa="cast" data-id="">Cast on several…</button><button class="btn sm" data-pa="ability" data-id="">Ability on several…</button>' : ''}<a class="btn sm" href="${esc(P.url)}" target="_top">Party page</a></div></div>
-      ${act && ms.length ? '<p class="hint ptyh-hint">Healing, items, spells and abilities you send land on their sheet straight away (or the next time it’s opened).</p>' : ''}</div>`;
-  const cards = ms.length ? `<div class="ptym-grid">${ms.map(ptyCardHTML).join('')}</div>` : `<div class="panel"><p class="hint" style="margin:0">Nobody else has joined yet. Your DM can share the party’s invite link from the party page.</p></div>`;
+      <div class="ptyh-btns">${act && ms.length > 1 ? '<button class="btn sm" data-pa="cast" data-id="" title="Pick the spell, then everyone it reaches">Cast a spell on allies…</button><button class="btn sm" data-pa="ability" data-id="" title="Pick the ability, then everyone it reaches">Use an ability on allies…</button>' : ''}<a class="btn sm" href="${esc(P.url)}" target="_top">Party page</a></div></div>
+      ${act && ms.length ? `<p class="hint ptyh-hint">${P.mgr ? 'As the DM, what you send lands on their sheet straight away (or the next time it’s opened).' : 'Healing, items, spells and abilities you send pop up on their sheet for them to accept.'}</p>` : ''}</div>`;
+  const cards = P.loading ? `<div class="panel"><p class="hint" style="margin:0">Loading the party…</p></div>` : ms.length ? `<div class="ptym-grid">${ms.map(ptyCardHTML).join('')}</div>` : `<div class="panel"><p class="hint" style="margin:0">Nobody else has joined yet. Your DM can share the party’s invite link from the party page.</p></div>`;
   const aurasP = auras.length ? `<div class="panel ptyauras"><h2>Your auras</h2><p class="hint">Tick who’s close enough to get it. They keep it until you untick them, or you drop to 0 HP.</p>${auras.map(a => { const on = (S.ptyAuras || {})[a.name] || [];
       return `<div class="ptya"><b>${esc(a.name)}</b><span class="hint">${esc(ptyFormula(a.def.label || '') || a.def.text || '')}</span><div class="ptya-who">${ms.map(m => `<label class="checkline"><input type="checkbox" data-aura="${esc(a.name)}" data-id="${esc(m.id)}"${on.includes(m.id) ? ' checked' : ''}> ${esc(m.name)}</label>`).join('')}</div></div>`; }).join('')}</div>` : '';
   const logP = `<div class="panel ptylogp"><h2>Party log</h2>${(S.ptyLog || []).length ? `<div class="ptylog">${S.ptyLog.slice(0, 30).map(l => `<div class="ptyl ${l.dir}"><span class="ptyl-d" aria-label="${l.dir === 'in' ? 'Received' : 'Sent'}">${l.dir === 'in' ? '↓' : '↑'}</span><span class="ptyl-t">${esc(l.text)}<small>${l.dir === 'in' ? 'from ' : 'to '}${esc(l.who)} · ${esc(ptyAgo(l.at))}</small></span></div>`).join('')}</div>` : '<p class="hint" style="margin:0">What you send and receive shows up here.</p>'}</div>`;
@@ -7833,6 +7834,8 @@ function ptyClick(k, id, b) {
     case 'pk': return ptyPickDone(b);
     case 'amt': return ptyAmountGo(b.dataset.k);
     case 'giveit': return ptyGiveGo(N(b.dataset.i), b.dataset.mode);
+    case 'askok': return ptyAnswer(b.dataset.ref, true);
+    case 'askno': return ptyAnswer(b.dataset.ref, false);
     case 'giveto': return ptyGiveTo(N(b.dataset.i), id);
     case 'featon': { const f = S.features[N(b.dataset.i)]; if (!f) return; return ptyUseAbility({ name: f.dname || f.name, def: ptyFeatDef(f), f, fi: N(b.dataset.i), col: f.col }, null); }
     case 'givetogo': return ptyGiveGo(N(b.dataset.i), 'give', true);
@@ -7887,15 +7890,22 @@ function ptyAmountGo() {
   else ptySend(a.ids, 'hit', { dmg: r.total, type, why: w }, `${r.total}${type ? ' ' + type : ''} damage${why ? ' (' + why + ')' : ''}`);
 }
 // Hand over an item from your inventory (or feed them a potion).
-let PTY_GIVE = null;
+let PTY_GIVE = null, PTY_GQ = '';
 function ptyGive(id) {
   if (!id) return ptyPickTargets('Give an item to…', 1, x => ptyGive(x[0]));
-  PTY_GIVE = id;
+  if (PTY_GIVE !== id) PTY_GQ = ''; PTY_GIVE = id;
   const list = S.inventory.map((it, i) => [it, i]).sort((x, y) => (x[0].equipped ? 1 : 0) - (y[0].equipped ? 1 : 0) || String(x[0].name).localeCompare(y[0].name));
   openModal(`<h3>Give ${esc(ptyNm(id))} an item</h3><p class="hint" style="margin:0 0 8px">It leaves your inventory and goes into theirs (equipped items are unequipped; attunement ends).</p>
-    <div class="ptygive">${list.map(([it, i]) => `<div class="ptyg-row"><span class="ptyg-n"><b>${esc(it.name)}</b><small>${[N(it.qty) > 1 ? '×' + N(it.qty) : '', it.equipped ? 'equipped' : '', it.attuned ? 'attuned' : '', it.magic ? esc(it.magic.rarity || 'magic') : ''].filter(Boolean).join(' · ')}</small></span>
+    ${list.length > 5 ? `<input class="f ptyg-s" type="search" placeholder="Search your inventory…" aria-label="Search your inventory" value="${esc(PTY_GQ)}">` : ''}
+    <div class="ptygive">${list.map(([it, i]) => `<div class="ptyg-row" data-gn="${esc(String(it.name || '').toLowerCase())}"><span class="ptyg-n"><b>${esc(it.name)}</b><small>${[N(it.qty) > 1 ? '×' + N(it.qty) : '', it.equipped ? 'equipped' : '', it.attuned ? 'attuned' : '', it.magic ? esc(it.magic.rarity || 'magic') : ''].filter(Boolean).join(' · ')}</small></span>
       ${N(it.qty) > 1 ? `<input class="f sm ptyg-q" type="number" min="1" max="${N(it.qty)}" value="1" data-gq="${i}" aria-label="How many">` : ''}${it.heal ? `<button class="btn sm" data-pa="giveit" data-i="${i}" data-mode="feed" title="Use your action to give them a drink">Feed it</button>` : ''}<button class="btn sm gold" data-pa="giveit" data-i="${i}" data-mode="give">Give</button></div>`).join('') || '<p class="hint">Your inventory is empty.</p>'}</div>
+    <p class="hint ptyg-none" hidden>Nothing matches.</p>
     <div class="actions"><button class="btn" data-act="close">Done</button></div>`, null, true);
+  const sb = $('#modal-body .ptyg-s'); if (!sb) { PTY_GQ = ''; return; }
+  const flt = () => { PTY_GQ = sb.value; const q = sb.value.trim().toLowerCase(); let n = 0;
+    $$('#modal-body .ptyg-row').forEach(r => { const h = !!q && !r.dataset.gn.includes(q); r.hidden = h; if (!h) n++; });
+    $('#modal-body .ptyg-none').hidden = n > 0; };
+  sb.oninput = flt; flt(); if (!matchMedia('(pointer:coarse)').matches) { sb.focus(); sb.setSelectionRange(sb.value.length, sb.value.length); }
 }
 function ptyGiveGo(i, mode, one) {
   const to = PTY_GIVE, it = S.inventory[i]; if (!to || !it) return;
@@ -8176,9 +8186,64 @@ const PTY_IN = [];
 window.sheetIncoming = m => { PTY_IN.push(m); ptyInFlush(); };
 // Held back only while you're typing, or making or levelling up the character (a window being open is fine).
 function ptyBusy() { const a = document.activeElement; return $('#wizard').classList.contains('open') || (typeof LV !== 'undefined' && !!LV) || !!(a && (a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || (a.tagName === 'INPUT' && !/^(checkbox|radio|button|submit|range|color|file)$/i.test(a.type || '')))); }
-function ptyInFlush() { if (!S.created || ptyBusy()) { clearTimeout(ptyInFlush._t); ptyInFlush._t = setTimeout(ptyInFlush, 800); return; }
-  let changed = false; while (PTY_IN.length) { const m = PTY_IN.shift(); try { const b = PTYX().snap(S); if (ptyApply(m)) { changed = true; ptyGot(m, b); } } catch (e) { console.warn('party message', e); } }
-  if (changed) { save(); render(); } }
+// Anything another player sends that changes this character waits for you to accept it (no griefing). The DM's
+// changes, your own characters', messages, and a spell ending that someone had cast on you go straight through.
+const ptyFreeKind = k => ['note', 'end', 'reply'].includes(k);
+function ptyTrusted(m) { const P = PTYX(), I = P && P.info(); if (ptyFreeKind(m.kind)) return true; if (!m.by) return false;
+  // only the DM, or this character's own player (their own characters) — not whoever happens to have the sheet open
+  return !!I && (m.by === I.dm || m.by === (P.owner && P.owner())); }
+function ptyInFlush() { const I = PTYX() && PTYX().info(); if (!S.created || ptyBusy() || !I || I.loading) { clearTimeout(ptyInFlush._t); ptyInFlush._t = setTimeout(ptyInFlush, 800); return; }
+  let changed = false, asked = false; while (PTY_IN.length) { const m = PTY_IN.shift(); try {
+    // taken back before you answered: it just goes away
+    if (m.kind === 'undo' && (S.ptyAsk || []).some(a => a.ref === m.data.ref)) { const a = S.ptyAsk.find(x => x.ref === m.data.ref); S.ptyAsk = S.ptyAsk.filter(x => x !== a); changed = true; toast(`<div><b>${esc(m.fromName || 'Someone')}</b> took back what they sent<div class="det">${esc(ptyDesc(a.m))}</div></div>`, '', 6000); asked = true; continue; }
+    if (!ptyTrusted(m)) { if (!(S.ptyAsk || []).some(a => a.ref === m.ref)) { S.ptyAsk = (S.ptyAsk || []).concat([{ ref: m.ref || uid(), at: Date.now(), m }]).slice(-40); changed = asked = true; } continue; }
+    const b = PTYX().snap(S); if (ptyApply(m)) { changed = true; ptyGot(m, b); } } catch (e) { console.warn('party message', e); } }
+  if (changed) { save(); render(); } if (asked || (S.ptyAsk || []).length) ptyAskShow(); }
+// What a message would do, in a few words (for the accept window).
+function ptyDesc(m) { const d = m.data || {}, why = d.why && d.why !== m.fromName ? ' (' + d.why + ')' : '';
+  switch (m.kind) {
+    case 'heal': return (d.amt === 'max' ? 'Heal you to full HP' : `Heal you ${N(d.amt)} HP`) + why;
+    case 'temp': return `Give you ${N(d.amt)} temporary HP` + why;
+    case 'damage': return `Deal you ${N(d.amt)}${d.type ? ' ' + d.type : ''} damage` + why;
+    case 'hit': { const bits = [d.dmg ? N(d.dmg) + (d.type ? ' ' + d.type : '') + ' damage' : '', [].concat(d.cond || []).join(', '), d.save ? `${d.save} save, DC ${N(d.dc)}` : d.hit != null ? 'attack roll ' + N(d.hit) : ''].filter(Boolean); if (!d.spell) return `Deal you ${d.dmg ? N(d.dmg) + (d.type ? ' ' + d.type : '') + ' damage' : 'damage'}${bits.filter(x => !/damage$/.test(x)).length ? ' (' + bits.filter(x => !/damage$/.test(x)).join(', ') + ')' : ''}${why}`; return `Hit you with ${d.spell}${bits.length ? ' (' + bits.join(', ') + ')' : ''}`; }
+    case 'effect': { const fx = d.fx || {}; const t = typeof fxTip === 'function' ? fxTip(fx) : ''; return `Give you ${fx.name || 'an effect'}${t || fx.rounds ? ' (' + [t, fx.rounds ? 'for ' + fmtRounds(fx.rounds) : ''].filter(Boolean).join(', ') + ')' : ''}`; }
+    case 'cure': return 'End ' + [].concat(d.conds || [], d.fx || [], d.exh ? [(N(d.exh) > 0 ? 'add' : 'remove') + ' a level of exhaustion'] : [], d.curse ? ['curses'] : []).join(', ') + why;
+    case 'cond': return `Give you the ${d.cond} condition${N(d.rounds) ? ' for ' + N(d.rounds) + ' rounds' : ''}` + why;
+    case 'revive': return 'Bring you back' + why; case 'stabilize': return 'Stabilize you' + why;
+    case 'rest': return `Ask you to take a ${d.kind === 'long' ? 'long' : 'short'} rest`;
+    case 'form': return `Turn you into a ${d.cr}${d.name ? ' (' + d.name + ')' : ''}`;
+    case 'item': return `Give you ${N((d.item || {}).qty) > 1 ? N(d.item.qty) + ' × ' : ''}${(d.item || {}).name || 'an item'}`;
+    case 'loot': return `Give you ${N(d.qty) > 1 ? N(d.qty) + ' × ' : ''}${d.name || 'an item'}`;
+    case 'coins': return 'Give you ' + ['pp', 'gp', 'ep', 'sp', 'cp'].filter(k => N(d[k])).map(k => N(d[k]) + ' ' + k).join(', ');
+    case 'inspire': return 'Give you Inspiration';
+    case 'undo': { const g = (S.ptyGot || []).find(x => x.ref === d.ref); return 'Take back: ' + (g ? g.text : 'something they sent'); }
+  }
+  return m.kind; }
+// One question at a time, in its own window on top of everything (whatever else you have open stays as it was):
+// who, and what they're doing to you. Yes or No.
+function ptyAskShow() {
+  const A = S.ptyAsk || []; let ov = $('#ptyask-ov');
+  if (!A.length || !S.created) { if (ov) ov.remove(); return; }
+  if (!ov) { ov = document.createElement('div'); ov.id = 'ptyask-ov'; ov.className = 'ptyask-bg'; document.body.appendChild(ov); }
+  const a = A[0], d = ptyDesc(a.m), what = d.charAt(0).toLowerCase() + d.slice(1);
+  ov.innerHTML = `<div class="ptyask-m" role="alertdialog" aria-modal="true" aria-labelledby="ptyask-q">
+    ${A.length > 1 ? `<div class="ptyask-n">1 of ${A.length}</div>` : ''}
+    <p class="ptyask-q" id="ptyask-q"><b>${esc(a.m.fromName || 'Someone')}</b> wants to ${esc(what)}.</p>
+    <div class="ptyask-b"><button class="btn" data-pa="askno" data-ref="${esc(a.ref)}">No</button><button class="btn gold" data-pa="askok" data-ref="${esc(a.ref)}">Yes</button></div></div>`;
+  const y = ov.querySelector('[data-pa=askok]'); if (y && !matchMedia('(pointer:coarse)').matches) setTimeout(() => y.focus(), 30);
+}
+function ptyAnswer(ref, ok) {
+  const all = S.ptyAsk || [], pick = all.filter(a => a.ref === ref); if (!pick.length) return ptyAskShow();
+  S.ptyAsk = all.filter(a => !pick.includes(a));
+  pick.forEach(a => { const m = a.m, text = ptyDesc(m);
+    if (ok) { try { m.agreed = true; const b = PTYX().snap(S); if (ptyApply(m)) ptyGot(m, b); } catch (e) { console.warn('party message', e); } }
+    else ptyLog('in', m.fromName || '', 'Said no: ' + text);
+    if (m.from && PTYX()) PTYX().send(m.from, 'reply', { ok, text, n: S.name || '' }).catch(() => {}); });
+  if (!pendingLabel) pendingLabel = ok ? 'Accepted a party change' : 'Turned down a party change';
+  save(); render(); ptyAskShow();
+}
+// anything still waiting when the sheet opens
+setTimeout(() => { if ((S.ptyAsk || []).length && S.created) ptyAskShow(); }, 3500);
 function ptyGot(m, before, text) { if (!m.ref || m.kind === 'undo') return; const rev = PTYX().diff(before, S); if (!Object.keys(rev).length) return;
   S.ptyGot = (S.ptyGot || []).filter(x => x.ref !== m.ref).concat([{ ref: m.ref, rev, text: text || (S.ptyLog && S.ptyLog[0] && S.ptyLog[0].text) || m.kind }]).slice(-80); }
 const PTY_CANCEL = new Set();
@@ -8245,6 +8310,7 @@ function ptyApply(m) {
     case 'coins': { const got = []; ['cp', 'sp', 'ep', 'gp', 'pp'].forEach(k => { const v = Math.max(0, N(d[k])); if (v) { S.currency[k] = N(S.currency[k]) + v; got.push(v + ' ' + k); } }); if (!got.length) return false;
       pendingLabel = 'Coins from ' + who; note('Received ' + got.join(', ')); toast(`<div><b>${esc(who)}</b> gave you <b>${esc(got.join(', '))}</b></div>`, 'crit', 7000); return true; }
     case 'inspire': { S.insp = Math.min(inspMax(), Math.max(0, N(S.insp)) + 1); pendingLabel = 'Inspiration from ' + who; note('Inspiration'); toast(`<div><b>Inspiration!</b><div class="det">From ${esc(who)}${ST('inspiration') ? '' : ' (turn on Inspiration in Settings → Rules to see it on the sheet)'}</div></div>`, 'crit', 8000); return true; }
+    case 'reply': { note(`${d.ok ? 'They said yes' : 'They said no'}: ${d.text || ''}`); toast(`<div><b>${esc(d.n || who)}</b> ${d.ok ? 'said yes' : 'said no'}<div class="det">${esc(d.text || '')}</div></div>`, d.ok ? '' : 'alert', 6000); return true; }
     case 'note': { note(String(d.text || '')); toast(`<div><b>${esc(who)}</b><div class="det">${esc(d.text || '')}</div></div>`, 'alert', 30000); return true; }
     case 'undo': { const g = (S.ptyGot || []).find(x => x.ref === d.ref); if (!g) { PTY_CANCEL.add(d.ref); return false; }
       PTYX().revert(S, g.rev); S.ptyGot = S.ptyGot.filter(x => x !== g); S.hp.cur = Math.min(N(S.hp.cur), maxHp()); pendingLabel = `${who} took back: ${g.text}`; note(`Took back: ${g.text}`);
@@ -8286,7 +8352,8 @@ function ptyHitPrompt(m) {
   else if (ab && AB.includes(ab)) { head = `DC ${N(d.dc)} ${ab.toUpperCase()} save${d.half ? ' (half on a success)' : ''}`;
     acts = [{ label: `Roll ${ab.toUpperCase()} save`, fn: () => { const r = d20(`${why}: DC ${N(d.dc)} ${ab.toUpperCase()} save`, saveVal(ab), 'save', ab); if (!r || r.skipped) { setTimeout(() => ptyHitPrompt(m), 50); return; } land(true, r.total >= N(d.dc)); } },
       { label: 'I failed', fn: () => land(true, false) }, { label: 'I saved', fn: () => land(true, true) }]; }
-  else { head = 'No save'; acts = [{ label: 'Take it', fn: () => land(true, false) }, { label: 'Ignore', fn: () => land(false, false) }]; }
+  else { if (m.agreed) return land(true, false); // you already said yes to it
+    head = 'No save'; acts = [{ label: 'Take it', fn: () => land(true, false) }, { label: 'Ignore', fn: () => land(false, false) }]; }
   toast(`<div><b>${esc(why)}</b><div class="det">${esc(head)}</div>${desc ? `<div class="det">${desc}</div>` : ''}</div>`, 'alert', 120000, acts);
 }
 // Warding Bond: the damage you take is also taken by the caster.

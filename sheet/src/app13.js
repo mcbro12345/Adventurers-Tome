@@ -472,7 +472,8 @@ function ptyBusy() { const a = document.activeElement; return $('#wizard').class
 // changes, your own characters', messages, and a spell ending that someone had cast on you go straight through.
 const ptyFreeKind = k => ['note', 'end', 'reply'].includes(k);
 function ptyTrusted(m) { const P = PTYX(), I = P && P.info(); if (ptyFreeKind(m.kind)) return true; if (!m.by) return false;
-  return !!I && (m.by === I.dm || m.by === P.email || m.by === (P.owner && P.owner())); }
+  // only the DM, or this character's own player (their own characters) — not whoever happens to have the sheet open
+  return !!I && (m.by === I.dm || m.by === (P.owner && P.owner())); }
 function ptyInFlush() { const I = PTYX() && PTYX().info(); if (!S.created || ptyBusy() || !I || I.loading) { clearTimeout(ptyInFlush._t); ptyInFlush._t = setTimeout(ptyInFlush, 800); return; }
   let changed = false, asked = false; while (PTY_IN.length) { const m = PTY_IN.shift(); try {
     // taken back before you answered: it just goes away
