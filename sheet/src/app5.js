@@ -1,6 +1,7 @@
 
 // ---------- Spellcasting ability for a specific spell ----------
 function spellCI(sp) {
+  if (sp && sp.stored && sp.item && sp.cls !== 'artificer') { const it = spItem(sp), c = it && it.spellCast && it.spellCast[sp.name]; if (c && (c.dc != null || c.atk != null)) { const b = spellCI(Object.assign({}, sp, { stored: false })); return Object.assign({}, b, c.dc != null ? { dc: N(c.dc) } : {}, c.atk != null ? { atk: N(c.atk) } : {}); } }
   if (sp && sp.ab && (!CL[sp.cls] || !casterFor(sp.cls))) { const m = mod(sp.ab), b = itemSum('spell'); return { ab: sp.ab, mod: m, dc: 8 + PB() + m + b, atk: PB() + m + b + itemSum('spellAtk'), name: '' }; }
   return castInfo(sp && sp.cls);
 }

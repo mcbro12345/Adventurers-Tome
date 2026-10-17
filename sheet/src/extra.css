@@ -2740,3 +2740,25 @@ html #condmodal.extfxm .cchips2 .cchip2 { white-space: normal; overflow: visible
 .dmode .dsub input { flex: none; margin-top: 2px; }
 .dmode .dsub > span { display: flex; flex-direction: column; gap: 2px; }
 .dmode .dsub small { display: block; font-weight: 400; }
+/* My categories (table): the drag handle, ▲▼ and move-to buttons sit at the right end of the name and show on hover,
+   so spell names line up with the Name heading exactly as in the Level and Purpose views */
+html:not(.mobile) .spg-t td.spname { position: relative; }
+html:not(.mobile) .spg-t td.spname > .sord { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); margin: 0; padding: 2px 4px; border-radius: 8px; background: var(--panel); box-shadow: 0 0 0 1px var(--line); opacity: 0; transition: opacity .12s; z-index: 2; }
+html:not(.mobile) .spg-t td.spname > .sord .iord, html:not(.mobile) .spg-t td.spname > .sord .spmv .mvto { opacity: 1; }
+html:not(.mobile) .spg-t tr:hover td.spname > .sord, html:not(.mobile) .spg-t td.spname > .sord:focus-within, html:not(.mobile) .spg-t td.spname > .sord:has(.spmv.open), body.sdragging .spg-t td.spname > .sord { opacity: 1; }
+/* No class spellcasting (only spells stored in an item): two columns, no empty gap */
+@media (min-width: 720px) { .sc-wrap2.nocls:not(.fxonly) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; } }
+.rs-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.rs-btns small, .irow .btn small { opacity: .75; font-weight: 600; margin-left: 4px; }
+/* Ring of Spell Storing window */
+#ringstore .rs-cap { display: flex; align-items: center; gap: 10px; margin: 2px 0 8px; }
+#ringstore .rs-bar { flex: 1; height: 8px; border-radius: 6px; background: var(--panel2); overflow: hidden; border: 1px solid var(--line); }
+#ringstore .rs-bar i { display: block; height: 100%; background: var(--gold); border-radius: 6px; }
+#ringstore .rs-cap b { font-size: .85rem; white-space: nowrap; }
+#ringstore .rs-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+#ringstore .rs-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; border-radius: 999px; border: 1px solid var(--line2); background: var(--panel2); font-weight: 600; font-size: .86rem; }
+#ringstore .rs-chip small { opacity: .7; font-weight: 600; }
+#ringstore .rs-chip .icon-btn { width: 22px; height: 22px; font-size: .75rem; }
+#ringstore .rs-who { display: flex; gap: 0; margin: 4px 0 10px; border: 1px solid var(--line2); border-radius: 10px; overflow: hidden; width: fit-content; max-width: 100%; }
+#ringstore .rs-who button { border: 0; background: transparent; color: var(--soft); padding: 7px 12px; font-weight: 700; font-size: .86rem; cursor: pointer; }
+#ringstore .rs-who button.on { background: var(--gold); color: var(--gold-ink, #1b1406); }

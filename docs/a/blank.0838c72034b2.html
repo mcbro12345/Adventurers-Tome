@@ -3405,6 +3405,47 @@ html #condmodal.extfxm .cchips2 .cchip2 { white-space: normal; overflow: visible
 .ravenchk.sm input { width: 14px; height: 14px; }
 .tile .ravenchk.sm { display: flex; justify-content: center; align-items: center; gap: 5px; white-space: normal; text-align: left; font-size: .72rem !important; font-weight: 600; color: var(--muted); letter-spacing: 0; text-transform: none; line-height: 1.2; }
 .tile .ravenchk.sm input { width: 13px !important; height: 13px !important; min-width: 0 !important; padding: 0 !important; flex: none; }
+/* the words get their own tight line box, so the box lines up with the letters whatever the system font */
+.ravenchk > span { display: block; line-height: 1.1; padding-top: .08em; }
+.ravenchk input { align-self: center; flex: none; }
+.tile .ravenchk.sm { white-space: nowrap; font-size: .7rem !important; }
+/* Roll cards: 🎲 shows the math */
+.toast.rollcard .rc-math { display: none; margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(0,0,0,.22); border: 1px solid rgba(244,238,223,.14); font-size: .82rem; min-width: 210px; }
+.toast.rollcard.showdet .rc-math { display: block; }
+.toast.rollcard.showdet:has(.rc-math) .det.dd { display: none !important; }
+.rc-math .rm-h { font-weight: 800; font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; opacity: .7; margin: 6px 0 3px; }
+.rc-math .rm-h:first-child { margin-top: 0; }
+.rc-math .rm-r { display: flex; justify-content: space-between; gap: 14px; padding: 2px 0; }
+.rc-math .rm-r span { opacity: .85; text-align: left; } .rc-math .rm-r i { font-style: normal; opacity: .65; font-size: .92em; }
+.rc-math .rm-r b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rc-math .rm-t { border-top: 1px solid rgba(244,238,223,.2); margin-top: 3px; padding-top: 4px; font-weight: 800; }
+.rc-math .rm-t span { opacity: 1; }
+.dmode .dsub { display: flex; align-items: flex-start; gap: 9px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line2); cursor: pointer; font-weight: 600; }
+.dmode .dsub input { flex: none; margin-top: 2px; }
+.dmode .dsub > span { display: flex; flex-direction: column; gap: 2px; }
+.dmode .dsub small { display: block; font-weight: 400; }
+/* My categories (table): the drag handle, ▲▼ and move-to buttons sit at the right end of the name and show on hover,
+   so spell names line up with the Name heading exactly as in the Level and Purpose views */
+html:not(.mobile) .spg-t td.spname { position: relative; }
+html:not(.mobile) .spg-t td.spname > .sord { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); margin: 0; padding: 2px 4px; border-radius: 8px; background: var(--panel); box-shadow: 0 0 0 1px var(--line); opacity: 0; transition: opacity .12s; z-index: 2; }
+html:not(.mobile) .spg-t td.spname > .sord .iord, html:not(.mobile) .spg-t td.spname > .sord .spmv .mvto { opacity: 1; }
+ html:not(.mobile) .spg-t td.spname > .sord:focus-within, html:not(.mobile) .spg-t td.spname > .sord:has(.spmv.open), body.sdragging .spg-t td.spname > .sord { opacity: 1; }@media (hover:hover){html:not(.mobile):not(.mobile) .spg-t tr:hover td.spname > .sord{ opacity: 1; }}
+/* No class spellcasting (only spells stored in an item): two columns, no empty gap */
+@media (min-width: 720px) { .sc-wrap2.nocls:not(.fxonly) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; } }
+.rs-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.rs-btns small, .irow .btn small { opacity: .75; font-weight: 600; margin-left: 4px; }
+/* Ring of Spell Storing window */
+#ringstore .rs-cap { display: flex; align-items: center; gap: 10px; margin: 2px 0 8px; }
+#ringstore .rs-bar { flex: 1; height: 8px; border-radius: 6px; background: var(--panel2); overflow: hidden; border: 1px solid var(--line); }
+#ringstore .rs-bar i { display: block; height: 100%; background: var(--gold); border-radius: 6px; }
+#ringstore .rs-cap b { font-size: .85rem; white-space: nowrap; }
+#ringstore .rs-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+#ringstore .rs-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; border-radius: 999px; border: 1px solid var(--line2); background: var(--panel2); font-weight: 600; font-size: .86rem; }
+#ringstore .rs-chip small { opacity: .7; font-weight: 600; }
+#ringstore .rs-chip .icon-btn { width: 22px; height: 22px; font-size: .75rem; }
+#ringstore .rs-who { display: flex; gap: 0; margin: 4px 0 10px; border: 1px solid var(--line2); border-radius: 10px; overflow: hidden; width: fit-content; max-width: 100%; }
+#ringstore .rs-who button { border: 0; background: transparent; color: var(--soft); padding: 7px 12px; font-weight: 700; font-size: .86rem; cursor: pointer; }
+#ringstore .rs-who button.on { background: var(--gold); color: var(--gold-ink, #1b1406); }
 
 </style>
 </head>
@@ -9777,7 +9818,10 @@ function writeLocal() {
 }
 const IOS_SAFARI = /iP(hone|od|ad)/.test(navigator.userAgent) && /Version\/[\d.]+.*Safari\//.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS/.test(navigator.userAgent);
 // Where the phone's bottom tab bar sits is a setting of this device (same for every character); 32 by default.
-function tabLift() { let v = null; try { v = localStorage.getItem('dnd-tablift'); } catch (e) {} return v != null && v !== '' ? N(v) : 24; }
+// The phone's bottom tab bar: on the home-screen app it sits a little above the home bar; in the browser it sits right on
+// the browser's own bar (you can still move it in Settings → Theme).
+const tabStandalone = () => { try { return navigator.standalone === true || matchMedia('(display-mode: standalone)').matches || document.documentElement.classList.contains('pg-standalone'); } catch (e) { return false; } };
+function tabLift() { let v = null; try { v = localStorage.getItem('dnd-tablift'); } catch (e) {} return v != null && v !== '' ? N(v) : tabStandalone() ? 24 : 0; }
 function applyTabLift() { document.documentElement.style.setProperty('--tablift', tabLift() + 'px'); }
 function saveUI() { try { localStorage.setItem(UI_KEY, JSON.stringify(UI)); } catch (e) {} }
 // An actual phone always uses the phone layout (the desktop layout can't be switched on there).
@@ -10613,6 +10657,75 @@ function askHalfDamage(name) {
   });
 }
 
+// ---------- Ring of Spell Storing ----------
+// Anyone can cast a spell of 1st–5th level into the ring (up to 5 levels' worth in total). Whoever wears it can then cast
+// each stored spell once, at the level it was stored at and with the original caster's save DC and attack bonus; once
+// cast, it's gone and its levels are free again.
+const ringLvOf = (it, n) => Math.max(N((it.spellLevels || {})[n]), N((SPI(n) || {}).level) || 1);
+const ringUsed = it => (it.spells || []).reduce((t, n) => t + ringLvOf(it, n), 0);
+const ringCap = it => N(it.storeCap) || 5;
+function openRingStore(ii) {
+  const it = S.inventory[ii]; if (!it) return;
+  const used = ringUsed(it), cap = ringCap(it), left = Math.max(0, cap - used), canMe = casters().length > 0;
+  UI.rsWho = UI.rsWho === 'other' || !canMe ? 'other' : 'me';
+  const mine = [...new Map(S.spells.filter(s => !s.stored && N(s.level) >= 1 && N(s.level) <= 5 && CL[s.cls] && casterFor(s.cls)).map(s => [s.name.toLowerCase(), s])).values()].sort((a, b) => N(a.level) - N(b.level) || a.name.localeCompare(b.name));
+  const lvOpts = Array.from({ length: Math.min(5, left) }, (_, k) => k + 1);
+  const stored = (it.spells || []).map(n => `<span class="rs-chip">${esc(n)} <small>${ORD[ringLvOf(it, n) - 1]}</small><button class="icon-btn" data-act="ringdel" data-i="${ii}" data-n="${esc(n)}" title="Take it out (it's lost)" aria-label="Remove ${esc(n)}">✕</button></span>`).join('');
+  spellDatalist();
+  openModal(`<div id="ringstore"><h3>Store a spell in ${esc(it.name)}</h3>
+    <p class="hint" style="margin:0 0 10px">Anyone can cast a spell of 1st to 5th level into it, up to ${cap} levels in total. Whoever wears it can cast each stored spell once, at the level it was stored at and with the original caster's save DC and attack bonus. Once cast, it's gone and the room is free again.</p>
+    <div class="rs-cap"><div class="rs-bar"><i style="width:${Math.round(100 * Math.min(cap, used) / cap)}%"></i></div><b>${used} of ${cap} levels used</b></div>
+    ${stored ? `<div class="rs-list">${stored}</div>` : '<p class="hint" style="margin:6px 0 10px">It’s empty.</p>'}
+    ${left ? `${!canMe ? '' : `<div class="seg rs-who" role="radiogroup">`}${canMe ? `<button class="${UI.rsWho === 'me' ? 'on' : ''}" data-act="ringwho" data-i="${ii}" data-v="me">I cast it into the ring</button>` : ''}${canMe ? `<button class="${UI.rsWho === 'other' ? 'on' : ''}" data-act="ringwho" data-i="${ii}" data-v="other">Someone else casts it</button></div>` : ''}
+      ${UI.rsWho === 'me'
+        ? (mine.length ? `<div class="row">${fld('Spell', `<select class="f" id="rsSpell">${mine.filter(s => N(s.level) <= left).map(s => `<option value="${esc(s.name)}">${esc(s.name)} (${ORD[N(s.level) - 1]})</option>`).join('')}</select>`)}${fld('Cast at level', `<select class="f" id="rsLv">${lvOpts.map(L => `<option value="${L}">${ORD[L - 1]}${slotMax(L - 1) ? ` — ${slotsLeft(L - 1)} slot${slotsLeft(L - 1) === 1 ? '' : 's'} left` : pact() && pact().level === L ? ' — pact slot' : ' — no slots'}</option>`).join('')}</select>`)}</div>
+          <p class="hint">Uses one of your spell slots of that level, and stores your save DC and attack bonus.</p>` : '<p class="hint">You don\'t have any 1st–5th level spells to cast into it.</p>')
+        : `<div class="row">${fld('Spell', `<input class="f" id="rsSpell" list="allspells" placeholder="Spell name">`)}${fld('Stored at level', `<select class="f" id="rsLv">${lvOpts.map(L => `<option value="${L}">${ORD[L - 1]}</option>`).join('')}</select>`)}</div>
+          <div class="row">${fld('Their spell save DC', `<input class="f" id="rsDC" type="number" inputmode="numeric" placeholder="e.g. 15">`)}${fld('Their spell attack bonus', `<input class="f" id="rsAtk" type="number" inputmode="numeric" placeholder="e.g. 7">`)}</div>
+          <p class="hint">Leave the DC and attack bonus blank if you don't know them; your own are used then.</p>`}`
+      : `<p class="hint"><b>It's full.</b> Cast a stored spell (or take one out) to make room.</p>`}
+    <div class="actions"><button class="btn" data-act="close">${left ? 'Cancel' : 'Done'}</button>${left && (UI.rsWho === 'other' || mine.length) ? `<button class="btn gold" data-act="ringstorego" data-i="${ii}">Store it</button>` : ''}</div></div>`);
+}
+function ringStoreGo(ii) {
+  const it = S.inventory[ii]; if (!it) return;
+  const raw = String(($('#rsSpell') || {}).value || '').trim(), d = SPI(raw), name = d ? d.name : raw, L = N(($('#rsLv') || {}).value), left = ringCap(it) - ringUsed(it);
+  if (!name) { toast('Pick a spell to store.', 'fumble'); return; }
+  const base = d ? N(d.level) : 1;
+  if (d && (base < 1 || base > 5)) { toast(`${esc(name)} is ${base ? ORD[base - 1] + ' level' : 'a cantrip'} — only 1st to 5th level spells fit.`, 'fumble'); return; }
+  if (L < base) { toast(`${esc(name)} is ${ORD[base - 1]} level — store it at ${ORD[base - 1]} level or higher.`, 'fumble'); return; }
+  if (L > left) { toast(`Not enough room: ${left} level${left === 1 ? '' : 's'} left.`, 'fumble'); return; }
+  if ((it.spells || []).some(n => n.toLowerCase() === name.toLowerCase())) { toast(`${esc(it.name)} already holds ${esc(name)}.`, 'fumble'); return; }
+  let cast = {};
+  if (UI.rsWho === 'me') {
+    const own = S.spells.find(s => s.name.toLowerCase() === name.toLowerCase() && !s.stored && CL[s.cls]);
+    if (slotMax(L - 1) > 0 && slotsLeft(L - 1) > 0) S.slotsUsed[L - 1] = N(S.slotsUsed[L - 1]) + 1;
+    else if (pact() && pact().level === L && pactLeft() > 0) S.pactUsed = N(S.pactUsed) + 1;
+    else { toast(`No ${ORD[L - 1]}-level spell slots left.`, 'fumble'); return; }
+    const ci = spellCI(own || { cls: (casters()[0] || {}).key }); cast = { dc: ci.dc, atk: ci.atk, by: S.name || '' };
+  } else {
+    const dc = ($('#rsDC') || {}).value, atk = ($('#rsAtk') || {}).value;
+    if (dc !== '' && dc != null) cast.dc = N(dc); if (atk !== '' && atk != null) cast.atk = N(atk);
+  }
+  it.spells = (it.spells || []).concat([name]); it.spellLevels = Object.assign({}, it.spellLevels, { [name]: L });
+  it.spellCast = Object.assign({}, it.spellCast, { [name]: cast });
+  pendingLabel = `${it.name}: store ${name}`; closeModal(true); rebuildAuto(); save(); render();
+  toast(`<b>${esc(name)}</b> (${ORD[L - 1]} level) stored in ${esc(it.name)}. Cast it from your spells while you wear it.`, '', 6000, { label: 'Undo', fn: () => undo(1) });
+}
+function ringRemove(ii, n) {
+  const it = S.inventory[ii]; if (!it) return;
+  it.spells = (it.spells || []).filter(x => x !== n); if (it.spellLevels) delete it.spellLevels[n]; if (it.spellCast) delete it.spellCast[n];
+  pendingLabel = `${it.name}: take out ${n}`; rebuildAuto(); save(); render(); openRingStore(ii);
+}
+// A stored spell has been cast from the ring: it's gone, and its levels are free again.
+function ringSpent(sp) {
+  const it = spItem(sp); if (!it || !itemStores(it) || sp.cls === 'artificer') return;
+  if (N(evalMax(sp.uses && sp.uses.max) || 1) - N(sp.uses && sp.uses.used) > 0) return;
+  const n = (it.spells || []).find(x => x.toLowerCase() === String(sp.name).toLowerCase()); if (!n) return;
+  it.spells = it.spells.filter(x => x !== n); if (it.spellLevels) delete it.spellLevels[n]; if (it.spellCast) delete it.spellCast[n];
+  setTimeout(() => { rebuildAuto(); save(); render(); }, 0);
+}
+const ringItems = () => S.inventory.map((it, ii) => [it, ii]).filter(([it]) => itemStores(it) && !it.infusion);
+
 
 // ---------- Dice ----------
 // Three ways to roll (Settings → Dice):
@@ -10628,7 +10741,7 @@ function NeedRoll(req) { this.req = req; }
 function rollLocal(expr, opts, forced) {
   const clean = String(expr).replace(/\s+/g, '').replace(/−/g, '-');
   const re = /([+-]?)(\d*)d(\d+)(kh1|kl1)?|([+-]?)(\d+)/gi;
-  let m, total = 0, parts = [], d20 = null, k = 0, ti = 0;
+  let m, total = 0, parts = [], d20 = null, k = 0, ti = 0; const terms = [];
   while ((m = re.exec(clean))) {
     if (m[3]) {
       const sign = m[1] === '-' ? -1 : 1, n = N(m[2]) || 1, sides = N(m[3]);
@@ -10642,10 +10755,10 @@ function rollLocal(expr, opts, forced) {
       if (m[4]) { val = m[4] === 'kh1' ? Math.max(...rs) : Math.min(...rs); if (sides === 20) d20 = val; }
       else if (sides === 20 && n === 1) d20 = rs[0];
       total += sign * val;
-      parts.push((sign < 0 ? '− ' : '') + n + 'd' + sides + (m[4] || '') + ' [' + shown.join(', ') + ']');
-    } else if (m[6]) { const sign = m[5] === '-' ? -1 : 1; total += sign * N(m[6]); parts.push((sign < 0 ? '− ' : '+ ') + m[6]); }
+      parts.push((sign < 0 ? '− ' : '') + n + 'd' + sides + (m[4] || '') + ' [' + shown.join(', ') + ']'); terms.push({ dice: true, sign, n, sides, keep: m[4] || '', shown, val });
+    } else if (m[6]) { const sign = m[5] === '-' ? -1 : 1; total += sign * N(m[6]); parts.push((sign < 0 ? '− ' : '+ ') + m[6]); terms.push({ flat: true, v: sign * N(m[6]) }); }
   }
-  return { total, detail: parts.join(' '), d20 };
+  return { total, detail: parts.join(' '), d20, terms };
 }
 const prettyExpr = e => String(e).replace(/\s+/g, '').replace(/2d20kh1/g, '2d20 (keep highest)').replace(/2d20kl1/g, '2d20 (keep lowest)').replace(/\+-/g, '−').replace(/-/g, '−').replace(/\+/g, ' + ').replace(/−/g, ' − ').replace(/^ \+ /, '');
 // opts.min2: treat 1s on damage dice as 2s (Elemental Adept). opts.need: the sheet uses the result (healing, temp HP, death saves…).
@@ -10798,9 +10911,9 @@ async function r20Roll(expr, label, first, min2, mask) {
   try { const r = await send(lines); r.adept = true; delete r.dice; return r; }
   catch (e) { return send(r20Lines(label, expr, false)); }
 }
-function roll(label, expr, cls) {
+function roll(label, expr, cls, rows) {
   const r = rollExpr(expr, { label });
-  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det">${esc(r.detail)}</div></div>`, cls || (r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : ''));
+  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det dd">${esc(r.detail)}</div>${mathHTML([termMath(r, rows || ROLL_ROWS, 'Roll')])}</div>`, cls || (r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : ''));
   return r;
 }
 function d20Expr(bonus, kind, ab) {
@@ -10814,21 +10927,23 @@ function d20Expr(bonus, kind, ab) {
   if (['attack', 'check', 'save'].includes(kind)) { const used = (S.effects || []).filter(e => e.buff && e.buff.d20AdvNext && !e.ally); if (used.length) S.effects = S.effects.filter(e => !used.includes(e)); }
   // Bane: −1d4 on attacks and saves. Guidance / Resistance: +1d4 on the next check / save, then they're gone.
   let extra = ''; const bs = selfBuffs();
-  if ((kind === 'attack' || kind === 'save') && bs.some(b => b.bane)) extra += '-1d4';
-  const once = k => { const e = (S.effects || []).find(x => x.buff && x.buff[k] && !x.ally); if (e) { extra += '+' + e.buff[k]; S.effects = S.effects.filter(x => x !== e); } };
+  const dieNames = bless ? ['Bless'] : [];
+  if ((kind === 'attack' || kind === 'save') && bs.some(b => b.bane)) { extra += '-1d4'; dieNames.push('Bane'); }
+  const once = k => { const e = (S.effects || []).find(x => x.buff && x.buff[k] && !x.ally); if (e) { extra += '+' + e.buff[k]; dieNames.push(String(e.name).replace(/\s*\(.*\)$/, '')); S.effects = S.effects.filter(x => x !== e); } };
   if (kind === 'check' && ROLL_CTX !== 'init') once('checkDieNext'); if (kind === 'save') once('saveDieNext');
-  return { expr: base + sgn(bonus - ex) + bless + extra, rm, bless, ex };
+  return { expr: base + sgn(bonus - ex) + bless + extra, rm, bless, ex, dieNames, bonus };
 }
 // House rule (Settings → Rules): a natural 1 on an attack roll also rolls a d4, always the last roll.
 function nat1Roll() { return ST('nat1Roll') ? rollExpr('1d4', { label: 'Nat 1 Roll' }) : null; }
-function d20(label, bonus, kind, ab) {
-  const { expr, rm, bless, ex } = d20Expr(bonus, kind, ab);
+function d20(label, bonus, kind, ab, rows) {
+  const dx = d20Expr(bonus, kind, ab), { expr, rm, bless, ex } = dx;
   const r = rollExpr(expr, { label });
   const fl = typeof fxD20Floor === 'function' ? fxD20Floor(kind, ab) : null;
-  if (fl && r.d20 != null && r.d20 < fl) { r.total += fl - r.d20; r.detail += ` (d20 ${r.d20} counts as ${fl})`; r.d20 = fl; }
+  let floorUp = 0; if (fl && r.d20 != null && r.d20 < fl) { floorUp = fl - r.d20; r.total += floorUp; r.detail += ` (d20 ${r.d20} counts as ${fl})`; r.d20 = fl; }
+  const math = mathHTML([d20Math(r, dx, rows || ROLL_ROWS, 'Roll', floorUp ? [`d20 counts as ${fl}`, floorUp] : null)]);
   const note = [rm.mode !== 'normal' ? (rm.mode === 'adv' ? 'Advantage: ' : 'Disadvantage: ') + rm.why.join(', ') : '', bless ? 'Bless +1d4' : '', ex ? `Exhaustion −${ex}` : '', rm.auto ? 'Automatic failure (condition)' : ''].filter(Boolean).join(' · ');
   const n1 = kind === 'attack' && r.d20 === 1 ? nat1Roll() : null;
-  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det">${esc(r.detail)}</div>${note ? `<div class="det">${esc(note)}</div>` : ''}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}</div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '');
+  toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det dd">${esc(r.detail)}</div>${note ? `<div class="det">${esc(note)}</div>` : ''}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}${math}</div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '');
   return r;
 }
 const doubleDice = e => String(e || '').replace(/(\d*)d(\d+)/gi, (m, n, sd) => (2 * (N(n) || 1)) + 'd' + sd);
@@ -10854,12 +10969,13 @@ function toast(html, cls = '', ms = 4500, action) {
   const isRoll = /^\s*<(b class="total"|div class="rc-multi")/.test(html);
   let box = $('#toasts');
   if (isRoll || cls === 'manual') logRoll(t.innerHTML, cls); else logEvent(t.innerHTML, cls);
+  if (isRoll && cls !== 'manual') postSheetRoll(t);
   if (isRoll) { box = $('#rolls'); if (!box) { box = document.createElement('div'); box.id = 'rolls'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); } t.classList.add('rollcard'); ms = Math.max(ms, 6500); }
   if (isRoll) box.prepend(t); else box.appendChild(t);
   const cap = isRoll ? (document.documentElement.classList.contains('mobile') ? 1 : 2) : document.documentElement.classList.contains('mobile') ? 2 : 5;
   if (isRoll) {
     // Each die is behind the 🎲 button: the card stays simple, but you can check for 1s, 20s and rerolls.
-    if (t.querySelector('.det')) { const db = document.createElement('button'); db.className = 'rc-dice'; db.title = 'Show each die'; db.textContent = '🎲'; db.onclick = ev => { ev.stopPropagation(); const on = t.classList.toggle('showdet'); clearTimeout(t._tm); if (!on) t._tm = setTimeout(() => t.remove(), 4000); }; t.appendChild(db); }
+    if (t.querySelector('.det, .rc-math')) { const db = document.createElement('button'); db.className = 'rc-dice'; db.title = 'Show the math'; db.textContent = '🎲'; db.onclick = ev => { ev.stopPropagation(); const on = t.classList.toggle('showdet'); clearTimeout(t._tm); if (!on) t._tm = setTimeout(() => t.remove(), 4000); }; t.appendChild(db); }
     { const btns = [...t.children].filter(c => c.tagName === 'BUTTON'); if (btns.length > 1) { const w = document.createElement('div'); w.className = 'rc-btns'; btns.forEach(b => { b.style.marginLeft = ''; w.appendChild(b); }); t.appendChild(w); } }
     while (box.children.length > cap) box.lastChild.remove(); t._tm = setTimeout(() => t.remove(), ms); return;
   }
@@ -11278,6 +11394,68 @@ let FS_USER_OFF = false;
 ['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => document.addEventListener(ev, () => { $$('.fsbtn').forEach(b => { b.innerHTML = fsOn() ? ICON.fsOut : ICON.fsIn; b.title = b.ariaLabel = fsOn() ? 'Exit full screen' : 'Full screen'; }); }));
 
 
+// ---------- "Show the math" on roll cards ----------
+// Each roll card's 🎲 opens a breakdown: every die and what it rolled, every bonus and where it comes from, and the total.
+let ROLL_ROWS = null; // the bonus's parts for the roll being made, set by whoever starts it
+const sgnv = v => (v < 0 ? '−' : '+') + Math.abs(v);
+// Fill in anything the parts don't explain, so the rows always add up to the bonus used.
+function fitRows(rows, want) { rows = (rows || []).filter(r => N(r[1])); const got = rows.reduce((t, r) => t + N(r[1]), 0); if (got !== want) rows.push([rows.length ? 'Other' : 'Modifier', want - got]); return rows.filter(r => N(r[1])); }
+const dieLbl = t => `${t.n}d${t.sides}${t.keep === 'kh1' ? ', keep highest' : t.keep === 'kl1' ? ', keep lowest' : ''}`;
+const dieSub = t => (t.shown && (t.shown.length > 1 || t.keep) ? '[' + t.shown.join(', ') + ']' : '');
+// A d20 roll: the d20, the bonus split into its parts, any extra dice (Bless, Bane, Guidance…), exhaustion.
+function d20Math(r, dx, rows, title, floorRow) {
+  if (!r.terms || !r.terms.length) return { title, rows: [['Rolled', r.detail || String(r.total)]], total: r.total };
+  const out = [], dice = r.terms.filter(t => t.dice), flat = r.terms.filter(t => t.flat).reduce((a, t) => a + t.v, 0), d0 = dice[0];
+  if (d0) out.push([d0.sides === 20 ? (d0.keep === 'kh1' ? 'd20 with advantage' : d0.keep === 'kl1' ? 'd20 with disadvantage' : 'd20') : dieLbl(d0), String(d0.val), dieSub(d0)]);
+  if (floorRow) out.push([floorRow[0], sgnv(floorRow[1])]);
+  fitRows(rows, flat + N(dx && dx.ex)).forEach(([l, v]) => out.push([l, sgnv(N(v))]));
+  if (dx && dx.ex) out.push([exModern() ? 'Exhaustion' : 'Exhaustion', sgnv(-dx.ex)]);
+  dice.slice(1).forEach((t, i) => out.push([((dx && dx.dieNames || [])[i] || 'Extra die') + ` (${t.n}d${t.sides})`, sgnv(t.sign * t.val), dieSub(t)]));
+  return { title, rows: out, total: r.total };
+}
+// Any other roll (damage, healing…): each die term, then the flat bonus split into its parts.
+function termMath(r, rows, title, names) {
+  if (!r.terms || !r.terms.length) return { title, rows: [['Rolled', r.detail || String(r.total)]], total: r.total };
+  const out = [], flat = r.terms.filter(t => t.flat).reduce((a, t) => a + t.v, 0);
+  r.terms.filter(t => t.dice).forEach((t, i) => out.push([((names || [])[i] ? names[i] + ' ' : '') + `(${t.n}d${t.sides})`, (t.sign < 0 ? '−' : '') + t.val, t.shown && t.shown.length > 1 ? '[' + t.shown.join(', ') + ']' : '']));
+  if (flat || (rows && rows.length)) fitRows(rows, flat).forEach(([l, v]) => out.push([l, sgnv(N(v))]));
+  return { title, rows: out, total: r.total };
+}
+function mathHTML(secs) {
+  secs = secs.filter(x => x && x.rows && x.rows.length); if (!secs.length) return '';
+  return `<div class="rc-math">${secs.map(x => `${secs.length > 1 || x.title !== 'Roll' ? `<div class="rm-h">${esc(x.title)}</div>` : ''}${x.rows.map(([l, v, sub]) => `<div class="rm-r"><span>${esc(l)}${sub ? ` <i>${esc(sub)}</i>` : ''}</span><b>${esc(String(v))}</b></div>`).join('')}<div class="rm-r rm-t"><span>Total</span><b>${esc(String(x.total))}</b></div>`).join('')}</div>`;
+}
+// The parts of each kind of bonus.
+const abRow = a => [`${String(a).toUpperCase()} modifier`, mod(a)];
+function calcRowsOf(k) { const c = typeof calcTip === 'function' ? calcTip(k) : null; return c && c.rows ? c.rows.map(([l, v]) => [l, typeof v === 'string' ? N(v.replace('−', '-')) : N(v)]).filter(r => !isNaN(r[1])) : null; }
+function atkHitRows(a) {
+  if (a.fixedHit != null && a.fixedHit !== '') return [['Attack bonus (set)', N(a.fixedHit)]];
+  const ab = attackAb(a), fit = a.item && S.inventory.find(x => x.id === a.item);
+  return [ab ? abRow(ab) : null, attackProf(a) ? ['Proficiency', PB()] : null, ['Magic bonus', N(a.magic)], ['Forged', forgeBonus(fit)], ['Infusion', infWeapon(fit, a, 'atk')], ['Spells and effects', a.effect ? 0 : buffSum('atk')], ['Item effects', itemBuffs(a).reduce((t, b) => t + N(b.atk), 0)], ['Spell attack items', a.ab === 'spell' ? itemSum('spellAtk') + itemSum('spell') : 0], a.kind === 'ranged' && fightingStyle('Archery') ? ['Archery', 2] : null].filter(Boolean);
+}
+function atkDmgRows(a) {
+  if (a.fixedHit != null && a.fixedHit !== '') return [];
+  const ab = attackAb(a), fit = a.item && S.inventory.find(x => x.id === a.item);
+  return [ab && !a.noModDmg ? abRow(ab) : null, ['Magic bonus', N(a.magic)], ['Forged', forgeBonus(fit)], ['Infusion', infWeapon(fit, a, 'dmg')], ['Spells and effects', a.effect ? 0 : buffSum('dmg') + (a.kind === 'melee' && ab === 'str' ? buffSum('meleeDmg') : 0)], ['Item effects', itemBuffs(a).reduce((t, b) => t + N(b.dmg), 0)], ['Features', a.kind === 'melee' ? fxSum('meleeDmg') : 0], a.kind === 'melee' && fightingStyle('Dueling') && a.oneHanded ? ['Dueling', 2] : null].filter(Boolean);
+}
+
+// ---------- Rolling on the sheet, shown in Roll20 too (Settings → Dice) ----------
+// The sheet rolls as usual; the result (not a new roll) is posted to your Roll20 game's chat through the extension.
+function postSheetRoll(t) {
+  if (diceMode() !== 'sheet' || !ST('sheetToR20') || !R20.ok) return;
+  const q = s => t.querySelector(s), txt = el => (el ? el.textContent.replace(/\s+/g, ' ').trim() : '');
+  const total = txt(q('b.total')), name = txt(q('.rc-name')) || txt(q('b.total + div > div')) || 'Roll', lbl = txt(q('.rc-lbl'));
+  const dmg = q('.rc-dmg') && !q('.rc-dmg.void') ? txt(q('.rc-dmg > b')) : '', dtype = q('.rc-dmg') ? txt(q('.rc-dmg > span')).replace(/^\d+\s*/, '') : '';
+  const multi = q('.rc-multi');
+  const clean = s => String(s).replace(/[[\]{}|]/g, '').slice(0, 160);
+  const cap = x => x.charAt(0).toUpperCase() + x.slice(1);
+  const lines = [`/em **${clean(multi ? txt(q('.rc-name')) : name)}** (rolled on the sheet)`];
+  if (multi) t.querySelectorAll('.rc-row').forEach(r => { const n = (r.textContent.match(/-?\d+/g) || []); if (n.length) lines.push(`**${clean(txt(r).replace(/-?\d+.*$/, '') || 'Roll')}:** [[${n[0]}]]${n[1] ? ` · damage [[${n[1]}]]` : ''}`); });
+  else if (total !== '') lines.push(`**${clean(lbl ? cap(lbl) : 'Result')}:** [[${N(total)}]]${dmg ? ` · **Damage:** [[${N(dmg)}]] ${clean(dtype)}` : ''}`);
+  if (lines.length > 1) r20Post(lines).catch(() => {});
+}
+
+
 // ---------- Spell helpers ----------
 const SPI = n => DND.spellIndex[String(n || '').toLowerCase()];
 const AUTO = n => DND.spellAuto[n] || {};
@@ -11354,8 +11532,10 @@ function prepCell(s, i) {
   if (!isPrepCaster(s.cls)) return '<span class="always known" title="Known spell: always ready">Known</span>';
   return `<label class="prepbox" title="Prepared">${chk(`spells.${i}.prepared`, 'Prepared')}</label>`;
 }
+// Real spell slots (from a class, pact magic or custom slots) — not just spells stored in an item
+const realSlots = () => casters().length > 0 || !!pact() || [0, 1, 2, 3, 4, 5, 6, 7, 8].some(k => slotMax(k) > 0);
 function slotsPanelInner() {
-  return `${(() => { const cl = typeof casters === 'function' ? casters() : []; return cl.length ? `<div class="cs-scstats">${cl.map(c => `<div class="cs-scrow">${cl.length > 1 ? `<span class="cs-scn">${esc(c.name)}</span>` : ''}<span class="cs-sc"><small><span class="ciw top">Save DC${ciBtn('dc:' + c.key, 'your spell save DC')}</span></small><b data-calc="dc:${c.key}"></b></span><span class="cs-sc"><small><span class="ciw top">Spell attack${ciBtn('satk:' + c.key, 'your spell attack')}</span></small>${rollBtn('spellatk:' + c.key, c.name + ' spell attack')}</span></div>`).join('')}</div>` : ''; })()}<div data-calc-html="slotsall"></div><p class="hint" style="margin:6px 0 0">Spent automatically when you cast or smite. Tap a diamond to adjust.</p>`;
+  return `${(() => { const cl = typeof casters === 'function' ? casters() : []; return cl.length ? `<div class="cs-scstats">${cl.map(c => `<div class="cs-scrow">${cl.length > 1 ? `<span class="cs-scn">${esc(c.name)}</span>` : ''}<span class="cs-sc"><small><span class="ciw top">Save DC${ciBtn('dc:' + c.key, 'your spell save DC')}</span></small><b data-calc="dc:${c.key}"></b></span><span class="cs-sc"><small><span class="ciw top">Spell attack${ciBtn('satk:' + c.key, 'your spell attack')}</span></small>${rollBtn('spellatk:' + c.key, c.name + ' spell attack')}</span></div>`).join('')}</div>` : ''; })()}<div data-calc-html="slotsall"></div><p class="hint" style="margin:6px 0 0">${realSlots() ? 'Spent automatically when you cast or smite. Tap a diamond to adjust.' : 'Each stored spell is used up when you cast it.'}</p>${typeof ringItems === 'function' && ringItems().length ? `<div class="rs-btns">${ringItems().map(([it, ii]) => `<button class="btn sm gold" data-act="ringstore" data-i="${ii}">Store a spell${ringItems().length > 1 ? ' in ' + esc(it.name) : ''} <small>${ringUsed(it)}/${ringCap(it)}</small></button>`).join('')}</div>` : ''}`;
 }
 // The Active Spells panel — the same one on Combat and (compact) on Spells.
 function activeFxInner(small) {
@@ -11428,8 +11608,8 @@ function renderSpells() {
   const filt = [['all', 'All'], ['ready', 'Ready to cast']].concat(cs.length > 1 ? cs.map(c => ['c:' + c.key, c.name]) : []).concat(lvls.map(l => [String(l), l === 0 ? 'Cantrips' : ORD[l - 1]]));
   $('#page-spells').innerHTML = `
   ${noSlots() ? `<div class="panel cs-fx" ${PID('spellcasting')}>${activeFxInner(false)}</div>` : `<div class="panel" ${PID('spellcasting')}><h2><span class="grow">Spellcasting</span><button class="btn ghost sm" data-act="toggle" data-key="slotcfg">${UI.open.slotcfg ? 'Done' : 'Customize slots'}</button></h2>
-    <div class="sc-wrap2${noSlots() ? ' fxonly' : ''}">${noSlots() ? '' : `<div class="sc-slotpanel cs-slots"><h3 class="sc-slottitle">Spell Slots${p ? ' <span class="sc-sub">Pact slots return on a short rest</span>' : ''}</h3>${slotsPanelInner()}</div>
-      <div class="sc-cards">${tiles}</div>`}
+    <div class="sc-wrap2${noSlots() ? ' fxonly' : ''}${cs.length ? '' : ' nocls'}">${noSlots() ? '' : `<div class="sc-slotpanel cs-slots"><h3 class="sc-slottitle">${realSlots() ? 'Spell Slots' : 'Stored spells'}${p ? ' <span class="sc-sub">Pact slots return on a short rest</span>' : ''}</h3>${slotsPanelInner()}</div>
+      ${cs.length ? `<div class="sc-cards">${tiles}</div>` : ''}`}
       <div class="sc-slotpanel sc-fxpanel cs-fx">${activeFxInner(true)}</div></div>
     ${UI.open.slotcfg ? `<div style="margin-top:10px"><p class="hint">Slots follow the multiclass spellcaster table (caster level ${casterLevel()}). Type a number to override a level; blank = automatic.</p>
       <div class="slots">${ORD.map((o, i) => fld(o + ' max', inp('slotsOverride.' + i, { num: 1, ph: String(FULL[Math.min(20, casterLevel())][i] || 0) }))).join('')}</div></div>` : ''}
@@ -11647,7 +11827,7 @@ function renderInventory() {
         <span class="grow"></span>
         <button class="icon-btn ibtn${open ? ' on' : ''}" data-act="toggle" data-key="item:${it.id}" title="${open ? 'Close editing' : 'Edit details and notes'}" aria-label="Edit ${esc(it.name)}">${open ? '▴' : '✎'}</button>
         ${del('inventory', i)}</div>
-      <div class="imeta">${resPickItem(it) && !it.resPick ? `<label class="respick unset"><span>Which ring is it?</span><select class="f" data-restype="${i}" aria-label="Damage type this item resists"><option value="">Choose its damage type…</option>${RES_TYPES.map(t => `<option value="${t}">${t[0].toUpperCase() + t.slice(1)}</option>`).join('')}</select></label>` : ''}${String(it.notes || '').trim() && !open ? `<div class="inote-m mnote">${esc(it.notes)}</div>` : ''}${badges}${ch}${isDeckItem(it) ? `<button class="btn sm gold" data-act="deck" data-i="${i}">Draw a card</button>` : ''}${it.heal ? `<button class="btn sm" data-act="drink" data-i="${i}">Drink (${esc(it.heal)})</button>` : ''}${it.hb && hbUsable(hbFx(it.hb)) ? `<button class="btn sm gold" data-act="useitem" data-i="${i}" ${hbItemReady(it) ? '' : 'disabled'} title="${hbItemOn(it) ? '' : it.attune && !it.attuned ? 'Attune first' : 'Equip it first'}">Use</button>` : ''}${hbChips(it)}
+      <div class="imeta">${resPickItem(it) && !it.resPick ? `<label class="respick unset"><span>Which ring is it?</span><select class="f" data-restype="${i}" aria-label="Damage type this item resists"><option value="">Choose its damage type…</option>${RES_TYPES.map(t => `<option value="${t}">${t[0].toUpperCase() + t.slice(1)}</option>`).join('')}</select></label>` : ''}${String(it.notes || '').trim() && !open ? `<div class="inote-m mnote">${esc(it.notes)}</div>` : ''}${badges}${ch}${isDeckItem(it) ? `<button class="btn sm gold" data-act="deck" data-i="${i}">Draw a card</button>` : ''}${itemStores(it) && !it.infusion ? `<button class="btn sm gold" data-act="ringstore" data-i="${i}" title="${esc((it.spells || []).length ? 'Holds: ' + it.spells.join(', ') : 'Empty')}">Store a spell <small>${ringUsed(it)}/${ringCap(it)}</small></button>` : ''}${it.heal ? `<button class="btn sm" data-act="drink" data-i="${i}">Drink (${esc(it.heal)})</button>` : ''}${it.hb && hbUsable(hbFx(it.hb)) ? `<button class="btn sm gold" data-act="useitem" data-i="${i}" ${hbItemReady(it) ? '' : 'disabled'} title="${hbItemOn(it) ? '' : it.attune && !it.attuned ? 'Attune first' : 'Equip it first'}">Use</button>` : ''}${hbChips(it)}
 </div>
       ${open ? `<div class="idetail"><div class="idet-top">${picThumb(`inventory.${i}.img`, it.name)}${fld('Notes', ta(`inventory.${i}.notes`, { rows: 2, cls: 'inotefull', label: 'Notes', ph: 'Add a note…' }))}</div>${it.summary ? `<p>${esc(it.summary)}</p>` : ''}${it.armor ? `<p class="hint">${esc(it.armor.type)} armor · AC ${it.armor.base}${it.armor.type === 'shield' ? '' : it.armor.dexCap === 0 ? '' : it.armor.dexCap ? ' + DEX (max ' + it.armor.dexCap + ')' : ' + DEX'}${it.armor.strReq ? ' · STR ' + it.armor.strReq : ''}${it.armor.stealthDis ? ' · Stealth disadvantage' : ''}</p>` : ''}${it.weapon ? `<p class="hint">${esc(it.weapon.cat)} ${esc(it.weapon.kind)} · ${esc(it.weapon.dice)} ${esc(it.weapon.type)}${it.weapon.props && it.weapon.props.length ? ' · ' + esc(it.weapon.props.join(', ')) : ''}${it.weapon.range ? ' · ' + esc(it.weapon.range) + ' ft' : ''}</p>` : ''}
         <div class="row">${fld('Weight (lb)', inp(`inventory.${i}.weight`, { num: 1 }))}${fld('Cost', inp(`inventory.${i}.cost`))}<label class="checkline">${chk(`inventory.${i}.attune`, 'Requires attunement')} Requires attunement</label></div>
@@ -12533,6 +12713,10 @@ function mainClick(e) {
     case 'useact': if (flurryAct(i, b.dataset.j)) { flurryOfBlows(i, b.dataset.j, b.dataset.col, false); break; } useAct(i, b.dataset.j === undefined ? null : b.dataset.j, b.dataset.col); break;
     case 'forgego': forgeGo(N(b.dataset.fi), i); break;
     case 'spellstorego': spellStoreGo(N(b.dataset.fi)); break;
+    case 'ringstore': openRingStore(N(b.dataset.i)); break;
+    case 'ringstorego': ringStoreGo(N(b.dataset.i)); break;
+    case 'ringdel': ringRemove(N(b.dataset.i), b.dataset.n); break;
+    case 'ringwho': UI.rsWho = b.dataset.v; openRingStore(N(b.dataset.i)); break;
     case 'wsspirit': { closeModal(true); const k = S.features.findIndex(f => f.name === 'Summon Wildfire Spirit'); if (k >= 0) useFeature(k, 'action'); return; }
     case 'pending': openPending(); pendingLabel = null; return;
     case 'recadd': RECOVER.pick.push(N(b.dataset.l)); renderRecover(); pendingLabel = null; return;
@@ -12757,14 +12941,14 @@ document.addEventListener('keydown', e => {
 let critUntil = 0;
 function doRoll(key) {
   const [k, a] = key.split(':');
-  if (k === 'tool') { const t = S.tools[a]; return d20(t.name + (t.exp ? ' (expertise)' : ''), toolBonus(t), 'check', t.ab || toolAb(t.name)); }
-  if (k === 'mod') return d20(ABN[a] + ' check', mod(a), 'check', a);
-  if (k === 'save') return d20(ABN[a] + ' save', saveVal(a), 'save', a);
-  if (k === 'skill') { const s = S.skills[a]; ROLL_CTX = 'skill:' + s.name; try { return d20(s.name + (s.note ? ' — ' + s.note : ''), skillVal(s), 'check', s.ab); } finally { ROLL_CTX = ''; } }
-  if (k === 'init') { ROLL_CTX = 'init'; try { fxTrigger('initiative'); save(); return d20('Initiative', initVal(), 'check', 'dex'); } finally { ROLL_CTX = ''; } }
-  if (k === 'spellatk') return d20(clsName(a) + ' spell attack', castInfo(a).atk, 'attack');
-  if (k === 'atk') { const at = S.attacks[a], note = spendAmmo(at); if (note === null) return; if (note) { pendingLabel = 'Fire ' + at.name; update(); } ATK_ITEM = { id: at.item || '', weapon: !at.effect || !!at.weaponLike }; try { return d20(at.name + ' attack' + (note ? ' · ' + note : ''), atkHit(at), 'attack'); } finally { ATK_ITEM = null; } }
-  if (k === 'dmg') { const at = S.attacks[a]; const m = atkDmgMod(at); return roll(at.name + ' damage' + (at.type ? ' (' + at.type + ')' : ''), (atkDice(at) || '0') + (m ? sgn(m) : '')); }
+  if (k === 'tool') { const t = S.tools[a]; return d20(t.name + (t.exp ? ' (expertise)' : ''), toolBonus(t), 'check', t.ab || toolAb(t.name), [abRow(t.ab || toolAb(t.name)), [t.exp ? 'Expertise (2 × proficiency)' : 'Proficiency', PB() * (t.exp ? 2 : 1)]]); }
+  if (k === 'mod') return d20(ABN[a] + ' check', mod(a), 'check', a, [abRow(a)]);
+  if (k === 'save') return d20(ABN[a] + ' save', saveVal(a), 'save', a, calcRowsOf('save:' + a));
+  if (k === 'skill') { const s = S.skills[a]; ROLL_CTX = 'skill:' + s.name; try { return d20(s.name + (s.note ? ' — ' + s.note : ''), skillVal(s), 'check', s.ab, calcRowsOf('skill:' + a)); } finally { ROLL_CTX = ''; } }
+  if (k === 'init') { ROLL_CTX = 'init'; try { fxTrigger('initiative'); save(); return d20('Initiative', initVal(), 'check', 'dex', calcRowsOf('init')); } finally { ROLL_CTX = ''; } }
+  if (k === 'spellatk') return d20(clsName(a) + ' spell attack', castInfo(a).atk, 'attack', null, calcRowsOf('satk:' + a));
+  if (k === 'atk') { const at = S.attacks[a], note = spendAmmo(at); if (note === null) return; if (note) { pendingLabel = 'Fire ' + at.name; update(); } ATK_ITEM = { id: at.item || '', weapon: !at.effect || !!at.weaponLike }; try { return d20(at.name + ' attack' + (note ? ' · ' + note : ''), atkHit(at), 'attack', null, atkHitRows(at)); } finally { ATK_ITEM = null; } }
+  if (k === 'dmg') { const at = S.attacks[a]; const m = atkDmgMod(at); return roll(at.name + ' damage' + (at.type ? ' (' + at.type + ')' : ''), (atkDice(at) || '0') + (m ? sgn(m) : ''), '', atkDmgRows(at)); }
 }
 // One shot of ammunition per attack roll. Returns a note, or null when you're out (the roll is cancelled).
 function spendAmmo(a) {
@@ -12815,6 +12999,13 @@ function attackRoll(i, free, opt) {
   if (crit) critUntil = Date.now() + 60000;
   update();
   const head = crit ? 'CRITICAL HIT! Damage dice doubled' : nat1 ? 'Natural 1: automatic miss' : 'to hit';
+  const diceOf = r => (r.terms ? '[' + r.terms.filter(t => t.dice).map(t => t.shown.join(', ')).join(' | ') + ']' : '');
+  const dmgSec = termMath(d, atkDmgRows(a), 'Damage', [crit ? 'Weapon dice, doubled' : 'Weapon dice', brutal ? 'Brutal Critical' : '']);
+  xr.forEach(x => dmgSec.rows.push([x.label, String(x.r.total), diceOf(x.r)]));
+  rr.forEach(x => dmgSec.rows.push([x.label, String(x.r.total), diceOf(x.r)]));
+  if (sr) dmgSec.rows.push([`Sneak Attack (${crit ? critDice(sa) : sa})`, String(sr.total), diceOf(sr)]);
+  dmgSec.total = total;
+  const math = mathHTML([d20Math(h, dd20, atkHitRows(a), 'To hit'), nat1 ? null : dmgSec]);
   const note = [rm.mode !== 'normal' ? (rm.mode === 'adv' ? 'Advantage: ' : 'Disadvantage: ') + rm.why.join(', ') : '', bless ? 'Bless +1d4' : '', ex ? `Exhaustion −${ex}` : ''].filter(Boolean).join(' · ');
   const keepR = riders.filter(x => !x.once);
   const acts = keepR.length ? [{ label: 'Missed — keep riders', fn: () => { S.riders = (S.riders || []).concat(keepR); pendingLabel = 'Keep riders'; update(); toast('Riders saved for your next hit.'); } }] : [];
@@ -12822,8 +13013,8 @@ function attackRoll(i, free, opt) {
   if (sr && !opt.offTurn) acts.push({ label: 'Missed — Sneak Attack not used', fn: () => { S.turn.sneak = false; pendingLabel = 'Sneak Attack not used'; update(); refresh(); toast('Sneak Attack is ready again this turn.'); } });
   // The card shows just the two numbers: to hit and damage. The full breakdown goes to the roll log.
   toast(`<b class="total">${h.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${crit ? 'CRITICAL HIT' : nat1 ? 'Natural 1 — miss' : 'to hit'}</div>
-    ${(opt.notes || []).map(x => `<div class="det">${x}</div>`).join('')}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}<div class="det">Hit: ${esc(h.detail)} · Dmg: ${esc(d.detail)}${sr ? ` · <b>Sneak Attack</b>: ${esc(sr.detail)}` : ''}${xr.map(x => ` · ${esc(x.label)}: ${x.r.total}`).join('')}${rr.map(x => ` · <b>${esc(x.label)}</b>: ${x.r.total}`).join('')}</div>
-    ${note ? `<div class="det">${esc(note)}</div>` : ''}<div class="det">${[ammoNote, free ? '' : `Attack ${N(S.turn.attacks)} of ${attacksPerAction()} this turn`].filter(Boolean).join(' · ')}${crit && hasFeature('Divine Smite') ? ' · a smite now also doubles' : ''}</div></div>
+    ${(opt.notes || []).map(x => `<div class="det">${x}</div>`).join('')}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}<div class="det dd">Hit: ${esc(h.detail)} · Dmg: ${esc(d.detail)}${sr ? ` · <b>Sneak Attack</b>: ${esc(sr.detail)}` : ''}${xr.map(x => ` · ${esc(x.label)}: ${x.r.total}`).join('')}${rr.map(x => ` · <b>${esc(x.label)}</b>: ${x.r.total}`).join('')}</div>
+    ${note ? `<div class="det">${esc(note)}</div>` : ''}<div class="det">${[ammoNote, free ? '' : `Attack ${N(S.turn.attacks)} of ${attacksPerAction()} this turn`].filter(Boolean).join(' · ')}${crit && hasFeature('Divine Smite') ? ' · a smite now also doubles' : ''}</div>${math}</div>
     <div class="rc-dmg${nat1 ? ' void' : ''}"><b>${total}</b><span>${types.length > 1 ? `<span class="rc-types">${types.map(([t, v]) => `<i><b>${v}</b> ${esc(t)}</i>`).join('')}</span>` : esc(mainT)}${sr ? `<small>incl. ${sr.total} sneak</small>` : ''}</span></div>`, crit ? 'crit' : nat1 ? 'fumble' : '', crit ? 12000 : 9000, acts);
 }
 // Sneak Attack dice for this attack, or '' when it doesn't apply automatically.
@@ -13061,7 +13252,7 @@ function readyPay(k, L) {
   const sp = S.spells[r.i];
   if (k === 'slot') S.slotsUsed[L - 1] = N(S.slotsUsed[L - 1]) + 1;
   else if (k === 'pact') S.pactUsed = N(S.pactUsed) + 1;
-  else if ((k === 'free' || k === 'store') && sp && sp.uses) sp.uses.used = N(sp.uses.used) + 1;
+  else if ((k === 'free' || k === 'store') && sp && sp.uses) { sp.uses.used = N(sp.uses.used) + 1; if (sp.stored) ringSpent(sp); }
   r.paid = { k, L };
   readyCommit(r);
 }
@@ -13312,7 +13503,7 @@ function castSpell(i, col, force) {
     if (!left) { const fi = S.features.findIndex(f => fxOf(f).target === 'spellstore'); toast(`<b>${esc(sp.name)}</b>: no stored uses left. Store a spell again after a long rest.`, 'fumble', 8000, fi >= 0 ? { label: 'Store a spell', fn: () => openSpellStore(fi) } : null); return; }
     const SL = Math.max(base, N(sp.uses && sp.uses.level) || base), ex = castExtrasHTML(sp, SL); if (!ex) return executeCast(i, 'free', SL, col, {});
     CASTING = { i, col };
-    return openModal(`<h3>Cast ${esc(spLabel(sp))}</h3><p class="hint" style="margin:0 0 8px">From your Spell-Storing Item · ${left} of ${mx} uses left</p>${ex}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="castgo" data-k="free" data-l="${SL}">Cast</button></div>`);
+    return openModal(`<h3>Cast ${esc(spLabel(sp))}</h3><p class="hint" style="margin:0 0 8px">${sp.cls === 'artificer' ? 'From your Spell-Storing Item' : 'Stored in ' + esc((spItem(sp) || {}).name || 'an item')} · ${sp.cls === 'artificer' ? left + ' of ' + mx + ' uses left' : 'gone once cast'}</p>${ex}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="castgo" data-k="free" data-l="${SL}">Cast</button></div>`);
   }
   if (sp.uses) { const mx = evalMax(sp.uses.max) || 0, left = Math.max(0, mx - N(sp.uses.used)); if (mx) opts.push({ k: 'free', L: Math.max(base, N(sp.uses.level) || base), label: `Free use (${left}/${mx})`, left }); }
   if (base > 0) {
@@ -13375,7 +13566,7 @@ function executeCast(i, how, L, col, x) {
   pendingLabel = `Cast ${sp.name}` + (how === 'slot' ? ` (${ORD[L - 1]} slot)` : how === 'pact' ? ' (pact slot)' : how === 'free' ? ' (free use)' : how === 'atwill' ? ' (at will)' : how === 'ritual' ? ' (ritual)' : '');
   if (how === 'slot') S.slotsUsed[L - 1] = N(S.slotsUsed[L - 1]) + 1;
   if (how === 'pact') S.pactUsed = N(S.pactUsed) + 1;
-  if (how === 'free') sp.uses.used = N(sp.uses.used) + 1;
+  if (how === 'free') { sp.uses.used = N(sp.uses.used) + 1; if (sp.stored) ringSpent(sp); }
   const tcol = col || null; if (tcol && ST('autoSpend')) S.turn.used[tcol] = true;
   const ci = spellCI(sp), lines = [], out = [];
   const self = x.self !== false;
@@ -14271,8 +14462,8 @@ function openSettings(tab) {
       ${booksHTML()}
 `)}
     ${pane('dice', `
-      <div class="dicemodes">${[['sheet', 'The sheet rolls', 'Every roll happens here, fully automated.'], ['manual', 'I use my own rolls', 'Shows the dice to roll; asks for your total only when automation needs it (healing, temp HP, death saves…). Everything else is still tracked.'], ['roll20', 'Roll20 rolls for me', 'Rolls post to your Roll20 game’s chat and the results come back here (needs the companion extension).']].concat(isMobile() || diceMode() === 'remote' ? [['remote', 'Roll in Roll20 from my phone', 'Roll here and it posts in Roll20 through this character open on your computer (with “Roll20 rolls for me” on there). Play from anywhere in the house.']] : []).map(([v, t, d]) => `<label class="dmode${diceMode() === v ? ' on' : ''}"><input type="radio" name="dicemode" data-set="diceMode" value="${v}"${diceMode() === v ? ' checked' : ''}><span><b>${t}</b>${diceMode() === v ? `<small>${d}</small>` : ''}</span></label>`).join('')}</div>
-      ${diceMode() === 'roll20' ? '<div id="r20status" class="r20box"></div>' : ''}
+      <div class="dicemodes">${[['sheet', 'The sheet rolls', 'Every roll happens here, fully automated.'], ['manual', 'I use my own rolls', 'Shows the dice to roll; asks for your total only when automation needs it (healing, temp HP, death saves…). Everything else is still tracked.'], ['roll20', 'Roll20 rolls for me', 'Rolls post to your Roll20 game’s chat and the results come back here (needs the companion extension).']].concat(isMobile() || diceMode() === 'remote' ? [['remote', 'Roll in Roll20 from my phone', 'Roll here and it posts in Roll20 through this character open on your computer (with “Roll20 rolls for me” on there). Play from anywhere in the house.']] : []).map(([v, t, d]) => `<label class="dmode${diceMode() === v ? ' on' : ''}"><input type="radio" name="dicemode" data-set="diceMode" value="${v}"${diceMode() === v ? ' checked' : ''}><span><b>${t}</b>${diceMode() === v ? `<small>${d}</small>` : ''}${v === 'sheet' && diceMode() === v && !isMobile() ? `<span class="dsub"><input type="checkbox" data-set="sheetToR20"${ST('sheetToR20') ? ' checked' : ''} aria-label="Also show my rolls in Roll20"><span>Also show my rolls in Roll20<small>Each result is posted to your Roll20 game’s chat too (needs the extension and your game open).</small></span></span>` : ''}</span></label>`).join('')}</div>
+      ${diceMode() === 'roll20' || (diceMode() === 'sheet' && ST('sheetToR20') && !isMobile()) ? '<div id="r20status" class="r20box"></div>' : ''}
       ${diceMode() === 'remote' ? '<div id="relaystatus" class="r20box"><span class="rs-ic">…</span><div class="rs-t"><span>Checking for your computer…</span></div></div>' : ''}
       <button class="r20macros" data-act="macros" title="Copy Roll20 macros for everything rollable" aria-label="Roll20 macros"><img src="${R20_LOGO}" alt=""></button>
       <p class="hint" style="margin:4px 0 0">Copy macros for every attack, save, skill and spell.</p>
@@ -14316,6 +14507,7 @@ function setSetting(t) {
   S.settings = Object.assign({}, S.settings, { [k]: v });
   pendingLabel = 'Setting: ' + k; save(); applyTheme(); render();
   if (k === 'inspiration') { const m = document.querySelector('#modal-body [data-set="inspMany"]'); if (m) { m.disabled = !v; const l = m.closest('.setrow'); l.classList.toggle('dis', !v); l.title = v ? '' : 'Turn on Track Inspiration first'; const sm = l.querySelector('small'); if (sm) sm.textContent = 'House rule — no limit on how many you can hold' + (v ? '' : ' (turn on Track Inspiration to use it)'); } }
+  if (k === 'sheetToR20') { reopenSettings(); if (v) setTimeout(() => { r20Hello(); setTimeout(renderR20Box, 500); }, 50); }
   if (k === 'diceMode') { setTimeout(relayStatus, 50); reopenSettings(); toast(v === 'manual' ? 'You use your own rolls — the sheet tracks everything and asks for totals only when it needs them.' : v === 'roll20' ? 'Rolls go to Roll20 once the extension is connected.' : v === 'remote' ? 'Rolls from this phone go to Roll20 through your computer.' : 'The sheet rolls the dice again.'); }
 }
 function setThemeColor(k, v, live) {
@@ -14769,7 +14961,7 @@ new MutationObserver(ms => { if (ms.some(m => m.addedNodes.length)) svgInfoIcons
 const ciBtn = (k, what) => `<button class="notetip ci" data-tip="calc:${k}" data-tipkind="cond" aria-label="How ${esc(what || 'this')} is worked out"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.6" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="5" r="1" fill="currentColor"/><path d="M8 7.3v4.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>`;
 function calcTip(k) {
   const sg = v => (v >= 0 ? '+' : '−') + Math.abs(v), rows = [], add = (l, v) => { if (v === 0 || v === '' || v == null) return; rows.push([l, typeof v === 'number' ? sg(v) : v]); };
-  const out = (name, total, note) => ({ name, html: `<div class="calcrows">${rows.map(([l, v]) => `<div class="calcrow"><span>${esc(l)}</span><b>${esc(String(v))}</b></div>`).join('')}<div class="calcrow tot"><span>Total</span><b>${esc(String(total))}</b></div></div>${note ? `<div class="hint">${note}</div>` : ''}` });
+  const out = (name, total, note) => ({ name, rows: rows.slice(), html: `<div class="calcrows">${rows.map(([l, v]) => `<div class="calcrow"><span>${esc(l)}</span><b>${esc(String(v))}</b></div>`).join('')}<div class="calcrow tot"><span>Total</span><b>${esc(String(total))}</b></div></div>${note ? `<div class="hint">${note}</div>` : ''}` });
   const ab3 = a => a.toUpperCase();
   if (k === 'ac') { const i = acInfo(); i.parts.forEach(p => rows.push([p, ''])); return out('Armor Class', i.total, S.acOverride !== '' && S.acOverride != null && !S.form ? 'Set manually — use Manage to go back to automatic.' : ''); }
   if (k === 'init') {
@@ -15076,8 +15268,11 @@ new MutationObserver(() => { const b = $('#relaystatus'); if (b && !b.dataset.se
 setInterval(() => { if ($('#relaystatus')) relayStatus(); }, 15000);
 
 // Sentinel Raven: is the raven on your shoulder? (darkvision 30 ft and CHA on Perception while it is)
-function ravenChk(small) { return `<label class="ravenchk${small ? ' sm' : ''}" title="While your raven is perched on your shoulder: darkvision 30 ft and +${Math.max(0, mod('cha'))} (CHA) to Perception"><input type="checkbox" data-raven${ravenOn() ? ' checked' : ''}> ${small ? 'Raven perched' : 'Raven is on my shoulder'}</label>`; }
+function ravenChk(small) { return `<label class="ravenchk${small ? ' sm' : ''}" title="While your raven is perched on your shoulder: darkvision 30 ft and +${Math.max(0, mod('cha'))} (CHA) to Perception"><input type="checkbox" data-raven${ravenOn() ? ' checked' : ''}><span>${small ? 'Raven perched' : 'Raven is on my shoulder'}</span></label>`; }
 document.addEventListener('change', e => { if (!e.target || !e.target.matches || !e.target.matches('[data-raven]')) return; S.ravenPerched = e.target.checked; pendingLabel = e.target.checked ? 'Raven on your shoulder' : 'Raven off your shoulder'; save(); render(); });
+
+// The "also show in Roll20" box sits inside the sheet-rolls card: tapping its words ticks it (not the card's radio).
+document.addEventListener('click', e => { const d = e.target.closest && e.target.closest('.dsub'); if (!d || e.target.tagName === 'INPUT') return; e.preventDefault(); d.querySelector('input').click(); });
 
 // ---------- Sources ----------
 // Which books a character draws from. Picked on the first step of creation and changeable later in Settings → Books.
@@ -16975,6 +17170,7 @@ function vfxForItem0(it) { const h = vfxHand('mi', it.magic && it.magic.name, it
 
 // ---------- Spellcasting ability for a specific spell ----------
 function spellCI(sp) {
+  if (sp && sp.stored && sp.item && sp.cls !== 'artificer') { const it = spItem(sp), c = it && it.spellCast && it.spellCast[sp.name]; if (c && (c.dc != null || c.atk != null)) { const b = spellCI(Object.assign({}, sp, { stored: false })); return Object.assign({}, b, c.dc != null ? { dc: N(c.dc) } : {}, c.atk != null ? { atk: N(c.atk) } : {}); } }
   if (sp && sp.ab && (!CL[sp.cls] || !casterFor(sp.cls))) { const m = mod(sp.ab), b = itemSum('spell'); return { ab: sp.ab, mod: m, dc: 8 + PB() + m + b, atk: PB() + m + b + itemSum('spellAtk'), name: '' }; }
   return castInfo(sp && sp.cls);
 }
@@ -18019,7 +18215,7 @@ function prepToggle(nm) {
 const TAB = uid();
 const PART = 180000;
 // Per-viewer: never taken from someone else's copy.
-const LOCAL_SETTINGS = ['diceMode', 'r20campaign'];
+const LOCAL_SETTINGS = ['diceMode', 'r20campaign', 'sheetToR20'];
 function keepLocal(next, cur) {
   if (!next || !cur) return next;
   next.layout = cur.layout;

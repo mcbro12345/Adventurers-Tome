@@ -133,6 +133,10 @@ function mainClick(e) {
     case 'useact': if (flurryAct(i, b.dataset.j)) { flurryOfBlows(i, b.dataset.j, b.dataset.col, false); break; } useAct(i, b.dataset.j === undefined ? null : b.dataset.j, b.dataset.col); break;
     case 'forgego': forgeGo(N(b.dataset.fi), i); break;
     case 'spellstorego': spellStoreGo(N(b.dataset.fi)); break;
+    case 'ringstore': openRingStore(N(b.dataset.i)); break;
+    case 'ringstorego': ringStoreGo(N(b.dataset.i)); break;
+    case 'ringdel': ringRemove(N(b.dataset.i), b.dataset.n); break;
+    case 'ringwho': UI.rsWho = b.dataset.v; openRingStore(N(b.dataset.i)); break;
     case 'wsspirit': { closeModal(true); const k = S.features.findIndex(f => f.name === 'Summon Wildfire Spirit'); if (k >= 0) useFeature(k, 'action'); return; }
     case 'pending': openPending(); pendingLabel = null; return;
     case 'recadd': RECOVER.pick.push(N(b.dataset.l)); renderRecover(); pendingLabel = null; return;
@@ -668,7 +672,7 @@ function readyPay(k, L) {
   const sp = S.spells[r.i];
   if (k === 'slot') S.slotsUsed[L - 1] = N(S.slotsUsed[L - 1]) + 1;
   else if (k === 'pact') S.pactUsed = N(S.pactUsed) + 1;
-  else if ((k === 'free' || k === 'store') && sp && sp.uses) sp.uses.used = N(sp.uses.used) + 1;
+  else if ((k === 'free' || k === 'store') && sp && sp.uses) { sp.uses.used = N(sp.uses.used) + 1; if (sp.stored) ringSpent(sp); }
   r.paid = { k, L };
   readyCommit(r);
 }
@@ -919,7 +923,7 @@ function castSpell(i, col, force) {
     if (!left) { const fi = S.features.findIndex(f => fxOf(f).target === 'spellstore'); toast(`<b>${esc(sp.name)}</b>: no stored uses left. Store a spell again after a long rest.`, 'fumble', 8000, fi >= 0 ? { label: 'Store a spell', fn: () => openSpellStore(fi) } : null); return; }
     const SL = Math.max(base, N(sp.uses && sp.uses.level) || base), ex = castExtrasHTML(sp, SL); if (!ex) return executeCast(i, 'free', SL, col, {});
     CASTING = { i, col };
-    return openModal(`<h3>Cast ${esc(spLabel(sp))}</h3><p class="hint" style="margin:0 0 8px">From your Spell-Storing Item · ${left} of ${mx} uses left</p>${ex}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="castgo" data-k="free" data-l="${SL}">Cast</button></div>`);
+    return openModal(`<h3>Cast ${esc(spLabel(sp))}</h3><p class="hint" style="margin:0 0 8px">${sp.cls === 'artificer' ? 'From your Spell-Storing Item' : 'Stored in ' + esc((spItem(sp) || {}).name || 'an item')} · ${sp.cls === 'artificer' ? left + ' of ' + mx + ' uses left' : 'gone once cast'}</p>${ex}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="castgo" data-k="free" data-l="${SL}">Cast</button></div>`);
   }
   if (sp.uses) { const mx = evalMax(sp.uses.max) || 0, left = Math.max(0, mx - N(sp.uses.used)); if (mx) opts.push({ k: 'free', L: Math.max(base, N(sp.uses.level) || base), label: `Free use (${left}/${mx})`, left }); }
   if (base > 0) {
@@ -982,7 +986,7 @@ function executeCast(i, how, L, col, x) {
   pendingLabel = `Cast ${sp.name}` + (how === 'slot' ? ` (${ORD[L - 1]} slot)` : how === 'pact' ? ' (pact slot)' : how === 'free' ? ' (free use)' : how === 'atwill' ? ' (at will)' : how === 'ritual' ? ' (ritual)' : '');
   if (how === 'slot') S.slotsUsed[L - 1] = N(S.slotsUsed[L - 1]) + 1;
   if (how === 'pact') S.pactUsed = N(S.pactUsed) + 1;
-  if (how === 'free') sp.uses.used = N(sp.uses.used) + 1;
+  if (how === 'free') { sp.uses.used = N(sp.uses.used) + 1; if (sp.stored) ringSpent(sp); }
   const tcol = col || null; if (tcol && ST('autoSpend')) S.turn.used[tcol] = true;
   const ci = spellCI(sp), lines = [], out = [];
   const self = x.self !== false;
