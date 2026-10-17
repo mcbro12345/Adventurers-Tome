@@ -2793,7 +2793,6 @@ html .bonusatk table.mini td .bwait { display: block; font-size: .7rem !importan
 .ptym .menu { position: relative; } .ptym .menu-list { right: 0; left: auto; min-width: 220px; }
 .ptym-cur { font-size: 1.6rem; font-weight: 700; line-height: 1.05; }
 .ptym-act { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 6px; margin-top: auto; align-items: center; }
-.ptym .menu.up .menu-list { top: auto; bottom: calc(100% + 4px); }
 .ptym-act .btn { min-width: 0; padding-left: 6px; padding-right: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; justify-content: center; }
 .ptym .csts { align-self: flex-start; }
 .ptya { padding: 8px 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
