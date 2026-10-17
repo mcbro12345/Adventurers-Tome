@@ -30,14 +30,29 @@ window.onPartyChange = () => { clearTimeout(PTY_RT); PTY_RT = setTimeout(() => {
 function ptyLog(dir, who, text) { S.ptyLog = [{ at: Date.now(), dir, who: String(who || '').slice(0, 80), text: String(text || '').slice(0, 300) }].concat(S.ptyLog || []).slice(0, 60); }
 const ptyAgo = t => { const s = (Date.now() - t) / 1000; return s < 60 ? 'just now' : s < 3600 ? Math.floor(s / 60) + 'm ago' : s < 86400 ? Math.floor(s / 3600) + 'h ago' : new Date(t).toLocaleDateString(); };
 // Send one thing to some party members; the log and a toast say what went where.
-async function ptySend(ids, kind, data, text, quiet) {
+// Each send is part of your undo history: Undo takes it back on their sheet, Redo sends it again.
+async function ptySend(ids, kind, data, text, quiet, grp) {
   ids = [...new Set(ids || [])].filter(Boolean); if (!ids.length || !ptyAct()) return 0;
-  let ok = 0; for (const id of ids) { try { await PTYX().send(id, kind, data); ok++; } catch (e) { console.warn('party send', e); } }
+  await null; // after the change that sent it has been saved (a spell's slot, the item leaving your pack…)
+  const recs = ids.map(to => ({ to, ref: PTYX().newRef(), kind, data, text }));
+  if (grp && grp.entry) { grp.entry.pty = grp.entry.pty.concat(recs); persistHist(); } else { const e = ptyHistAdd(recs, text); if (grp) grp.entry = e; }
+  let ok = 0; for (const r of recs) { try { await PTYX().send(r.to, kind, data, r.ref); ok++; } catch (e) { r.failed = true; console.warn('party send', e); } }
   if (ok) { ptyLog('out', ptyNames(ids), text); save(); if (UI.tab === 'party') render('party'); if (!quiet) toast(`${esc(text)} → <b>${esc(ptyNames(ids))}</b>`, '', 5000); }
   else toast('Couldn’t reach the party right now — check your connection.', 'fumble', 7000);
   return ok;
 }
 
+function ptyHistAdd(recs, text) {
+  let e = HIST[HIST.length - 1];
+  if (e && Date.now() - e.t < 250 && !e.pty) e.pty = recs; // one Undo step with the change you just made
+  else { e = { t: Date.now(), label: text, keys: {}, pty: recs }; HIST.push(e); while (HIST.length > HMAX) HIST.shift(); REDO = []; }
+  persistHist(); histButtons(); return e;
+}
+function ptyHist(recs) {
+  if (!ptyAct()) return; const back = !recs[0].undone;
+  recs.forEach(r => { r.undone = back; if (back) PTYX().recall(r.to, r.ref).catch(() => {}); else PTYX().send(r.to, r.kind, r.data, r.ref).catch(() => {}); });
+  ptyLog('out', ptyNames([...new Set(recs.map(r => r.to))]), (back ? 'Took back: ' : 'Sent again: ') + (recs[0].text || recs[0].kind));
+}
 // ----- the Party tab -----
 // Each party member is shown like a creature card: the HP ring with Damage / Heal / Temp HP beside it, then AC and speed.
 function ptyCardHTML(m) {
@@ -274,7 +289,7 @@ function ptyAfterCast(sp, a, L, x, c) {
   if (d.form) { const fm = $('#ptyForm') ? $('#ptyForm').value : x.form || ''; if (fm) { msgs.push(['form', { cr: fm, name: sp.name, rounds: rounds || null, src: { c: me, n: sp.name }, why: who + '’s ' + sp.name }]); text.push('turned into a ' + fm); } }
   if (fx) { msgs.push(['effect', { fx }]); text.push(fxName + (rounds ? ' for ' + fmtRounds(rounds) : '')); }
   if (!msgs.length && d.note) msgs.push(['note', { text: `${who} cast ${sp.name} on you. ${d.note}` }]);
-  (async () => { for (const [k, v] of msgs) await ptySend(ids, k, v, `${sp.name}${text.length ? ': ' + text.join(', ') : ''}`, true); toast(`<b>${esc(spLabel(sp))}</b> → ${esc(ptyNames(ids))}${text.length ? `<div class="det">${esc(text.join(' · '))}</div>` : ''}`, '', 6000); })();
+  (async () => { const grp = {}; for (const [k, v] of msgs) await ptySend(ids, k, v, `${sp.name}${text.length ? ': ' + text.join(', ') : ''}`, true, grp); toast(`<b>${esc(spLabel(sp))}</b> → ${esc(ptyNames(ids))}${text.length ? `<div class="det">${esc(text.join(' · '))}</div>` : ''}`, '', 6000); })();
   // the ones you choose for each of them (Lesser Restoration: which condition…)
   if ((d.cure && d.cure.pick) || d.exh || d.endFx) setTimeout(() => ptyChooseFor(sp.name, d, ids.slice()), 400);
   if (fx || (d.form && msgs.some(m => m[0] === 'form'))) { if (c.eff && (S.effects || []).includes(c.eff)) S.ptyCasts = (S.ptyCasts || []).filter(z => z.n !== sp.name).concat([{ n: sp.name, to: ids, at: Date.now() }]); }
@@ -414,8 +429,23 @@ window.sheetIncoming = m => { PTY_IN.push(m); ptyInFlush(); };
 // Held back only while you're typing, or making or levelling up the character (a window being open is fine).
 function ptyBusy() { const a = document.activeElement; return $('#wizard').classList.contains('open') || (typeof LV !== 'undefined' && !!LV) || !!(a && (a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || (a.tagName === 'INPUT' && !/^(checkbox|radio|button|submit|range|color|file)$/i.test(a.type || '')))); }
 function ptyInFlush() { if (!S.created || ptyBusy()) { clearTimeout(ptyInFlush._t); ptyInFlush._t = setTimeout(ptyInFlush, 800); return; }
-  let changed = false; while (PTY_IN.length) { const m = PTY_IN.shift(); try { if (ptyApply(m)) changed = true; } catch (e) { console.warn('party message', e); } }
+  let changed = false; while (PTY_IN.length) { const m = PTY_IN.shift(); try { const b = PTYX().snap(S); if (ptyApply(m)) { changed = true; ptyGot(m, b); } } catch (e) { console.warn('party message', e); } }
   if (changed) { save(); render(); } }
+function ptyGot(m, before, text) { if (!m.ref || m.kind === 'undo') return; const rev = PTYX().diff(before, S); if (!Object.keys(rev).length) return;
+  S.ptyGot = (S.ptyGot || []).filter(x => x.ref !== m.ref).concat([{ ref: m.ref, rev, text: text || (S.ptyLog && S.ptyLog[0] && S.ptyLog[0].text) || m.kind }]).slice(-80); }
+const PTY_CANCEL = new Set();
+// While this sheet was closed: what the party did to it, and items that still need their stats or attacks.
+function ptyCatchUp() {
+  if (!S.created || !ptyAct()) return; let ch = false;
+  (S.inventory || []).forEach((it, i) => { if (!it.ptyNew) return; ch = true; delete it.ptyNew;
+    if (it.ptyLoot) { const full = ptyLootItem(it.ptyLoot, it.notes); full.id = it.id; full.qty = it.qty; S.inventory[i] = it = full; }
+    if (it.weapon && !S.attacks.some(a => a.item === it.id)) S.attacks.push(attackFromItem(it)); });
+  if (ch) rebuildAuto();
+  const news = S.ptyNews || []; if (news.length) { S.ptyNews = []; ch = true;
+    toast(`<div><b>While you were away</b>${news.slice(-8).map(n => `<div class="det">${esc(n.text)}${n.who ? ' — ' + esc(n.who) : ''}</div>`).join('')}${news.length > 8 ? `<div class="det">…and ${news.length - 8} more (Party tab → Party log)</div>` : ''}</div>`, 'alert', 20000); }
+  if (ch) { pendingLabel = 'Party updates'; save(); render(); }
+}
+setTimeout(ptyCatchUp, 2500); setInterval(ptyCatchUp, 20000);
 // Damage after resistances and immunities this sheet knows about.
 function ptyResist(n, type) { type = String(type || '').toLowerCase(); if (!type) return [n, '']; const D = defensesDetail(), has = arr => arr.some(x => x.k.includes(type) || /^all damage/.test(x.k));
   if (has(D.immune)) return [0, 'immune']; if (has(D.resist)) return [Math.floor(n / 2), 'resistant']; return [n, '']; }
@@ -468,6 +498,9 @@ function ptyApply(m) {
       pendingLabel = 'Coins from ' + who; note('Received ' + got.join(', ')); toast(`<div><b>${esc(who)}</b> gave you <b>${esc(got.join(', '))}</b></div>`, 'crit', 7000); return true; }
     case 'inspire': { S.insp = Math.min(inspMax(), Math.max(0, N(S.insp)) + 1); pendingLabel = 'Inspiration from ' + who; note('Inspiration'); toast(`<div><b>Inspiration!</b><div class="det">From ${esc(who)}${ST('inspiration') ? '' : ' (turn on Inspiration in Settings → Rules to see it on the sheet)'}</div></div>`, 'crit', 8000); return true; }
     case 'note': { note(String(d.text || '')); toast(`<div><b>${esc(who)}</b><div class="det">${esc(d.text || '')}</div></div>`, 'alert', 30000); return true; }
+    case 'undo': { const g = (S.ptyGot || []).find(x => x.ref === d.ref); if (!g) { PTY_CANCEL.add(d.ref); return false; }
+      PTYX().revert(S, g.rev); S.ptyGot = S.ptyGot.filter(x => x !== g); S.hp.cur = Math.min(N(S.hp.cur), maxHp()); pendingLabel = `${who} took back: ${g.text}`; note(`Took back: ${g.text}`);
+      toast(`<div><b>${esc(who)}</b> took back what they sent<div class="det">${esc(g.text)}</div></div>`, 'alert', 7000); return true; }
   }
   return false;
 }
@@ -489,14 +522,14 @@ function ptyLootItem(name, notes) {
 // A harmful spell or the DM's damage: the save or attack is settled here, on the sheet that's hit.
 function ptyHitPrompt(m) {
   const d = m.data || {}, who = m.fromName || 'Someone', why = d.why || who, ab = String(d.save || '').toLowerCase().slice(0, 3);
-  const land = (full, saved) => { let n = full ? N(d.dmg) : 0; if (saved && d.half) n = Math.floor(N(d.dmg) / 2); else if (saved) n = 0;
+  const land = (full, saved) => { if (m.ref && PTY_CANCEL.has(m.ref)) { toast(`${esc(who)} took that back.`); return; } const before = PTYX().snap(S); let n = full ? N(d.dmg) : 0; if (saved && d.half) n = Math.floor(N(d.dmg) / 2); else if (saved) n = 0;
     const [dmg, r] = ptyResist(n, d.type), done = [];
     if (dmg > 0) { takeDamage(dmg); done.push(`${dmg}${d.type ? ' ' + d.type : ''} damage${r ? ' (' + r + ')' : ''}`); }
     if (!saved && full) { [].concat(d.cond || []).forEach(c => { if (!S.conditions.includes(c)) S.conditions.push(c); if (N(d.rounds)) { S.condTurns = S.condTurns || {}; S.condTurns[c] = Math.min(N(d.rounds), 10); } done.push(c); });
       if (d.buff) { const nm = d.fxName || d.spell || 'Curse'; S.effects = (S.effects || []).filter(e => e.name !== nm).concat([{ name: nm, rounds: N(d.rounds) || 10, buff: d.buff, from: 'enemy', src: d.src }]); done.push(nm); }
       if (d.src && (d.cond || []).length) { const e = { name: d.spell, rounds: N(d.rounds) || 10, buff: {}, from: who, src: d.src, conds: [].concat(d.cond) }; S.effects = (S.effects || []).filter(x => x.name !== e.name).concat([e]); } }
     pendingLabel = why + (done.length ? ': ' + done.join(', ') : '');
-    ptyLog('in', who, `${why}: ${done.length ? done.join(', ') : saved ? 'saved, no effect' : 'missed'}`); save(); render();
+    ptyLog('in', who, `${why}: ${done.length ? done.join(', ') : saved ? 'saved, no effect' : 'missed'}`); ptyGot(m, before, `${why}: ${done.join(', ')}`); save(); render();
     toast(`<div><b>${esc(why)}</b><div class="det">${done.length ? esc(done.join(' · ')) : saved ? 'You saved — no effect.' : 'No effect.'}</div></div>`, done.length ? 'fumble' : 'crit', 7000); };
   const desc = `${N(d.dmg) ? `${N(d.dmg)}${d.type ? ' ' + esc(d.type) : ''} damage` : ''}${(d.cond || []).length ? (N(d.dmg) ? ' and ' : '') + esc([].concat(d.cond).join(', ')) : ''}${d.buff ? (N(d.dmg) || (d.cond || []).length ? ' and ' : '') + esc(d.fxName || d.spell || 'a curse') : ''}${d.note ? ' — ' + esc(d.note) : ''}`;
   let acts, head;

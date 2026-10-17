@@ -128,7 +128,7 @@ function setP(path, val) { const ks = path.split('.'); let o = S; for (let i = 0
 // ---------- Undo history ----------
 const HMAX = 300;
 const hkey = () => keyFor(S.id || 'blank') + ':history';
-const TRACK = k => !['savedAt', 'spellFilter', 'macroSeen'].includes(k);
+const TRACK = k => !['savedAt', 'spellFilter', 'macroSeen', 'ptyLog', 'ptyNews'].includes(k);
 let HIST = [], REDO = [], LAST = null, pendingLabel = null;
 function snapAll() { const o = {}; for (const k in S) if (TRACK(k)) o[k] = JSON.stringify(S[k]); return o; }
 function commit() {
@@ -147,6 +147,7 @@ function commit() {
 }
 function applyEntry(e) {
   const inv = { t: e.t, label: e.label, keys: {} };
+  if (e.pty) { inv.pty = e.pty; if (typeof ptyHist === 'function') ptyHist(e.pty); } // things sent to the party: taken back, or sent again
   for (const k in e.keys) { inv.keys[k] = k in S ? JSON.stringify(S[k]) : null; if (e.keys[k] === null) delete S[k]; else S[k] = JSON.parse(e.keys[k]); }
   return inv;
 }

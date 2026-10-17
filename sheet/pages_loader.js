@@ -680,13 +680,15 @@ function wireDie(root) {
     col.doc(C).collection('inbox').orderBy('at').onSnapshot(qs => qs.docChanges().forEach(async ch => { if (ch.type !== 'added') return;
       let d = null; try { d = await fs.runTransaction(async tx => { const cur = await tx.get(ch.doc.ref); if (!cur.exists) return null; tx.delete(ch.doc.ref); return cur.data(); }); } catch (e) { return; }
       if (!d) return; let data = {}; try { data = JSON.parse(d.data || '{}'); } catch (e) {}
-      PTY_Q.push({ kind: d.kind, data, from: d.from || '', fromName: d.fromName || '', by: d.by || '', at: d.at || Date.now(), p: d.p }); ptyDeliver(); }), () => { inboxOn = false; }); }
+      PTY_Q.push({ kind: d.kind, data, from: d.from || '', fromName: d.fromName || '', by: d.by || '', at: d.at || Date.now(), p: d.p, ref: d.ref || ch.doc.id }); ptyDeliver(); }), () => { inboxOn = false; }); }
   window.PG_PARTY = {
     on: () => !!PTY, self: C, canAct: () => role() !== 'view',
     info: () => PTY ? { id: PTY.id, name: PTY.name || 'Party', dm: PTY.dm, dmName: PTY.dmName || PTY.dm, mgr: PTY.dm === EMAIL || (PTY.mgrs || []).includes(EMAIL), url: URLS.party(PTY.id) } : null,
     members: () => PTY ? (PTY.chars || []).filter(id => id !== C).map(id => Object.assign({ id, name: 'A character' }, PTY_CARDS[id] || {})) : [],
     me: () => PTY_CARDS[C] || null,
-    send: (to, kind, data) => { if (!PTY) return Promise.reject(new Error('Not in a party')); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} return ptySend(fs, EMAIL, PTY.id, to, kind, data, C, nm); },
+    send: (to, kind, data, ref) => { if (!PTY) return Promise.reject(new Error('Not in a party')); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} return ptySend(fs, EMAIL, PTY.id, to, kind, data, C, nm, ref); },
+    recall: (to, ref) => { if (!PTY) return Promise.resolve(''); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} return ptyRecall(fs, EMAIL, PTY.id, to, ref, C, nm); },
+    newRef: () => fs.collection('x').doc().id, snap: ptySnap, diff: ptyDiff, revert: ptyRevert,
     card: () => ptyCardSoon()
   };
   // The sheet's sync code talks to "db" like it does on claude.ai; here that's this character's Firestore documents.
@@ -1818,9 +1820,104 @@ async function ptyJoin(fs, EMAIL, pid, c, token, card) {
   await ptySetSheetParty(fs, c, pid);
   if (card) await ref.collection('cards').doc(c).set(Object.assign({ owner: EMAIL, at: Date.now() }, card), { merge: true }).catch(() => {});
 }
-// Send something to a character's sheet (it's applied there the next time that sheet is open).
-function ptySend(fs, EMAIL, pid, to, kind, data, from, fromName) {
-  return fs.collection('sheets').doc(to).collection('inbox').add({ p: pid, from: from || '', fromName: String(fromName || '').slice(0, 80), by: EMAIL, at: Date.now(), kind, data: JSON.stringify(data || {}) });
+// ----- What's sent between party members -----
+// Each thing sent has its own id (ref). The character's open sheet picks it up and applies it; when nobody has that sheet
+// open, the sender's browser applies it to the saved character itself (anything that needs the player — a saving
+// throw, a rest, a new form — waits for them). Every applied thing remembers exactly what it changed (ptyGot), so the
+// sender's Undo can take it back later even if the character has changed since.
+const ptyClone = o => o == null ? o : JSON.parse(JSON.stringify(o));
+function ptySnap(st) { const h = st.hp || {}; return { hp: Number(h.cur) || 0, temp: Number(h.temp) || 0, death: ptyClone(st.death || { s: 0, f: 0 }), conds: (st.conditions || []).slice(), exh: Number(st.exhaustion) || 0, insp: Number(st.insp) || 0,
+  cur: ptyClone(st.currency || {}), fx: ptyClone(st.effects || []), items: (st.inventory || []).map(it => [it.id, Number(it.qty) || 1]), form: ptyClone(st.form || null) }; }
+function ptyDiff(b, st) { const a = ptySnap(st), r = {};
+  if (a.hp !== b.hp) r.hp = a.hp - b.hp; if (a.temp !== b.temp) r.temp = [b.temp, a.temp];
+  if (JSON.stringify(a.death) !== JSON.stringify(b.death)) r.death = b.death;
+  const add = a.conds.filter(c => !b.conds.includes(c)), rm = b.conds.filter(c => !a.conds.includes(c)); if (add.length) r.addC = add; if (rm.length) r.rmC = rm;
+  if (a.exh !== b.exh) r.exh = a.exh - b.exh; if (a.insp !== b.insp) r.insp = a.insp - b.insp;
+  const cur = {}; ['cp', 'sp', 'ep', 'gp', 'pp'].forEach(k => { const d = (Number(a.cur[k]) || 0) - (Number(b.cur[k]) || 0); if (d) cur[k] = d; }); if (Object.keys(cur).length) r.cur = cur;
+  const bj = new Map(b.fx.map(e => [e.name, JSON.stringify(e)])), aj = new Map(a.fx.map(e => [e.name, JSON.stringify(e)]));
+  const addF = a.fx.filter(e => bj.get(e.name) !== aj.get(e.name)).map(e => e.name), rmF = b.fx.filter(e => aj.get(e.name) !== bj.get(e.name)); if (addF.length) r.addF = addF; if (rmF.length) r.rmF = rmF;
+  const bi = new Map(b.items), items = []; a.items.forEach(([id, q]) => { const was = bi.get(id); if (was == null) items.push([id, q]); else if (q > was) items.push([id, q - was]); }); if (items.length) r.items = items;
+  if (JSON.stringify(a.form) !== JSON.stringify(b.form)) r.form = [b.form];
+  return r; }
+function ptyRevert(st, r) {
+  st.hp = st.hp || {}; if (r.hp) st.hp.cur = Math.max(0, (Number(st.hp.cur) || 0) - r.hp); if (r.temp && Number(st.hp.temp) === r.temp[1]) st.hp.temp = r.temp[0];
+  if (r.death) st.death = r.death;
+  st.conditions = (st.conditions || []).filter(c => !(r.addC || []).includes(c)).concat((r.rmC || []).filter(c => !(st.conditions || []).includes(c)));
+  if (r.exh) st.exhaustion = Math.max(0, (Number(st.exhaustion) || 0) - r.exh); if (r.insp) st.insp = Math.max(0, (Number(st.insp) || 0) - r.insp);
+  if (r.cur) { st.currency = st.currency || {}; Object.keys(r.cur).forEach(k => { st.currency[k] = Math.max(0, (Number(st.currency[k]) || 0) - r.cur[k]); }); }
+  st.effects = (st.effects || []).filter(e => !(r.addF || []).includes(e.name)).concat((r.rmF || []).filter(e => !(st.effects || []).some(x => x.name === e.name)));
+  (r.items || []).forEach(([id, q]) => { const it = (st.inventory || []).find(x => x.id === id); if (!it) return; it.qty = (Number(it.qty) || 1) - q; if (it.qty <= 0) { st.inventory = st.inventory.filter(x => x !== it); st.attacks = (st.attacks || []).filter(a => a.item !== id); } });
+  if (r.form) st.form = r.form[0];
+}
+// Applied to a saved character nobody has open. Returns what to say, or null when it has to wait for the player.
+function ptyApplyState(st, m, card) {
+  const d = m.data || {}, who = m.fromName || 'Someone', why = d.why || who, maxhp = Number(card && card.maxhp) || 1e9;
+  st.hp = st.hp || { cur: 0, base: 0, adj: 0, temp: 0 }; st.conditions = st.conditions || []; st.effects = st.effects || []; st.inventory = st.inventory || []; st.currency = st.currency || {};
+  const up = () => { if (Number(st.hp.cur) > 0) { st.conditions = st.conditions.filter(c => c !== 'Unconscious'); st.death = { s: 0, f: 0 }; } };
+  const nid = () => Math.random().toString(36).slice(2, 10);
+  switch (m.kind) {
+    case 'heal': { const b = Number(st.hp.cur) || 0; st.hp.cur = d.amt === 'max' ? maxhp : Math.min(maxhp, b + (Number(d.amt) || 0)); if (b <= 0) up(); return `Healed ${st.hp.cur - b} HP (${why})`; }
+    case 'temp': { const v = Number(d.amt) || 0; if (v > (Number(st.hp.temp) || 0)) st.hp.temp = v; return `${v} temporary HP (${why})`; }
+    case 'damage': { let n = Number(d.amt) || 0; const t = Number(st.hp.temp) || 0, a = Math.min(t, n); st.hp.temp = t - a; n -= a; const b = Number(st.hp.cur) || 0; st.hp.cur = Math.max(0, b - n);
+      if (b > 0 && st.hp.cur === 0 && !st.conditions.includes('Unconscious')) st.conditions.push('Unconscious'); return `Took ${Number(d.amt) || 0} damage (${why})`; }
+    case 'effect': { const fx = Object.assign({}, d.fx || {}); if (!fx.name) return ''; fx.from = fx.from || who; delete fx.conc;
+      if (fx.wpn) { const at = (st.attacks || []).find(a => a.item && st.inventory.some(it => it.id === a.item && it.equipped && it.weapon)) || (st.attacks || []).find(a => a.item); if (at) fx.item = at.item; delete fx.wpn; }
+      const old = st.effects.find(e => e.name === fx.name); if (old && old.maxHp) st.hp.cur = Math.max(0, st.hp.cur - Number(old.maxHp));
+      st.effects = st.effects.filter(e => e.name !== fx.name).concat([fx]); if (fx.maxHp) st.hp.cur = (Number(st.hp.cur) || 0) + Number(fx.maxHp);
+      if (fx.buff && fx.buff.tempN && Number(fx.buff.tempN) > (Number(st.hp.temp) || 0)) st.hp.temp = Number(fx.buff.tempN); return `${fx.name} from ${who}`; }
+    case 'end': { const gone = st.effects.filter(e => e.src && e.src.c === m.from && e.src.n === d.n); if (!gone.length) return '';
+      gone.forEach(e => { if (e.maxHp) st.hp.cur = Math.min(st.hp.cur, maxhp - Number(e.maxHp)); (e.conds || []).forEach(c => { st.conditions = st.conditions.filter(x => x !== c); }); });
+      st.effects = st.effects.filter(e => !gone.includes(e)); if (st.form && gone.some(e => e.name === st.form.effect)) st.form = null; return `${d.n} ended`; }
+    case 'cure': { const done = []; (d.conds || []).forEach(c => { if (st.conditions.includes(c)) { st.conditions = st.conditions.filter(x => x !== c); done.push(c); } });
+      if (d.exh) { const b = Number(st.exhaustion) || 0; st.exhaustion = Math.max(0, Math.min(6, b + Number(d.exh))); if (b !== st.exhaustion) done.push('exhaustion ' + b + ' → ' + st.exhaustion); }
+      if (d.curse) st.effects = st.effects.filter(e => { const c = (e.buff && e.buff.curse) || /curse|hex/i.test(e.name); if (c) done.push(e.name); return !c; });
+      (d.fx || []).forEach(n => { if (st.effects.some(e => e.name === n)) { st.effects = st.effects.filter(e => e.name !== n); done.push(n); } });
+      st.effects = st.effects.filter(e => !(e.conds && e.conds.length && !e.conds.some(c => st.conditions.includes(c))));
+      return done.length ? `Ended ${done.join(', ')} (${why})` : ''; }
+    case 'cond': { if (!d.cond) return ''; if (!st.conditions.includes(d.cond)) st.conditions.push(d.cond); if (Number(d.rounds)) { st.condTurns = st.condTurns || {}; st.condTurns[d.cond] = Number(d.rounds); } return `${d.cond} (${why})`; }
+    case 'revive': { st.hp.cur = Math.max(Number(st.hp.cur) || 0, d.hp === 'max' ? maxhp : Math.max(1, Number(d.hp) || 1)); st.death = { s: 0, f: 0 }; st.conditions = st.conditions.filter(c => c !== 'Unconscious'); return `Brought back with ${st.hp.cur} HP (${why})`; }
+    case 'stabilize': { if ((Number(st.hp.cur) || 0) > 0) return ''; st.death = { s: 3, f: Math.min(2, Number((st.death || {}).f) || 0) }; return `Stabilized (${why})`; }
+    case 'item': case 'loot': { const it = m.kind === 'item' ? Object.assign({}, d.item || {}) : { name: String(d.name || 'Item'), qty: Math.max(1, Number(d.qty) || 1), weight: 0, notes: d.notes || '', ptyLoot: String(d.name || '') };
+      if (!it.name) return ''; it.id = nid(); it.equipped = false; it.ptyNew = true; st.inventory.push(it); return `Received ${Number(it.qty) > 1 ? it.qty + ' × ' : ''}${it.name} from ${who}`; }
+    case 'coins': { const got = []; ['cp', 'sp', 'ep', 'gp', 'pp'].forEach(k => { const v = Math.max(0, Number(d[k]) || 0); if (v) { st.currency[k] = (Number(st.currency[k]) || 0) + v; got.push(v + ' ' + k); } }); return got.length ? `Received ${got.join(', ')} from ${who}` : ''; }
+    case 'inspire': { st.insp = Math.min(st.settings && st.settings.inspMany ? 1e9 : 1, (Number(st.insp) || 0) + 1); return `Inspiration from ${who}`; }
+    case 'note': return String(d.text || '');
+    case 'undo': { const g = (st.ptyGot || []).find(x => x.ref === d.ref); if (!g) return ''; ptyRevert(st, g.rev); st.ptyGot = st.ptyGot.filter(x => x !== g); return `${who} took back: ${g.text || 'something they sent'}`; }
+  }
+  return null; // a saving throw, an attack, a rest or a new form: waits for the player
+}
+// Nobody picked it up: apply it to the saved character (all its documents at once, so nothing is half-written).
+async function ptyDeliverClosed(fs, pid, to, ref) {
+  const sh = fs.collection('sheets'), ib = sh.doc(to).collection('inbox').doc(ref);
+  let card = null; try { const c = await fs.collection('parties').doc(pid).collection('cards').doc(to).get(); card = c.exists ? c.data() : null; } catch (e) {}
+  let after = null, mDelta = 0; const fxMax = st => (st.effects || []).reduce((t, e) => t + (e.ally || e.self === false ? 0 : Number(e.maxHp) || 0), 0);
+  try { await fs.runTransaction(async tx => { const m0 = await tx.get(ib); if (!m0.exists) return; const m = m0.data(); let data = {}; try { data = JSON.parse(m.data || '{}'); } catch (e) {}
+    const main = await tx.get(sh.doc(to)); if (!main.exists) return; const md = main.data(), n = Number(md.n) || 1, parts = [];
+    for (let k = 1; k < n; k++) { const p = await tx.get(sh.doc(to + '_p' + k)); if (!p.exists || Number(p.data().savedAt) !== Number(md.savedAt)) return; parts.push(p.data().data || ''); }
+    let st; try { st = JSON.parse((md.data || '') + parts.join('')); } catch (e) { return; }
+    const msg = { kind: m.kind, data, from: m.from || '', fromName: m.fromName || '' }, before = ptySnap(st), m0x = fxMax(st), text = ptyApplyState(st, msg, card);
+    if (text === null) return; // the player has to do this one
+    if (text && m.kind !== 'undo') st.ptyGot = (st.ptyGot || []).concat([{ ref, rev: ptyDiff(before, st), text }]).slice(-80);
+    if (text) { st.ptyLog = [{ at: Date.now(), dir: 'in', who: m.fromName || '', text }].concat(st.ptyLog || []).slice(0, 60); st.ptyNews = (st.ptyNews || []).concat([{ who: m.fromName || '', text }]).slice(-30); }
+    const at = Date.now(); st.savedAt = at; const str = JSON.stringify(st), out = []; for (let i = 0; i < str.length; i += 180000) out.push(str.slice(i, i + 180000));
+    if (out.length > n) return; // it would need a new part: leave it for the player's own sheet
+    for (let k = 1; k < n; k++) tx.update(sh.doc(to + '_p' + k), { savedAt: at, data: out[k] || '' });
+    tx.update(sh.doc(to), { savedAt: at, data: out[0], tab: 'party', n: Math.max(1, out.length) }); tx.delete(ib);
+    after = st; mDelta = fxMax(st) - m0x; }); } catch (e) { console.warn('party delivery', e); return; }
+  if (after && card) { const h = after.hp || {}; fs.collection('parties').doc(pid).collection('cards').doc(to).set({ hp: Number(h.cur) || 0, temp: Number(h.temp) || 0, conds: (after.conditions || []).filter(c => c !== 'Concentrating'), exh: Number(after.exhaustion) || 0,
+    fx: (after.effects || []).filter(e => !e.ally && e.self !== false).map(e => e.name).slice(0, 14), maxhp: Number(card.maxhp || 0) + mDelta, stable: (Number(h.cur) || 0) <= 0 && Number((after.death || {}).s) >= 3, at: Date.now() }, { merge: true }).catch(() => {}); }
+}
+// Send something to a character. If its sheet doesn't pick it up within a few seconds, it's applied to the saved copy.
+function ptySend(fs, EMAIL, pid, to, kind, data, from, fromName, ref) {
+  ref = ref || fs.collection('x').doc().id;
+  return fs.collection('sheets').doc(to).collection('inbox').doc(ref).set({ p: pid, ref, from: from || '', fromName: String(fromName || '').slice(0, 80), by: EMAIL, at: Date.now(), kind, data: JSON.stringify(data || {}) })
+    .then(() => { setTimeout(() => ptyDeliverClosed(fs, pid, to, ref), 5000); return ref; });
+}
+// Take back something sent: still waiting → simply removed; already applied → the character undoes exactly what it changed.
+async function ptyRecall(fs, EMAIL, pid, to, ref, from, fromName) {
+  const ib = fs.collection('sheets').doc(to).collection('inbox').doc(ref);
+  try { const x = await ib.get(); if (x.exists) { await ib.delete(); return 'pulled'; } } catch (e) {}
+  await ptySend(fs, EMAIL, pid, to, 'undo', { ref }, from, fromName); return 'undone';
 }
 
 function partyModule(H) {
