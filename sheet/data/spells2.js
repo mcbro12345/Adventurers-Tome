@@ -13,7 +13,7 @@ Control Water|4|Tra|A|300 ft|VSM|10 minutes|c|CDW|Flood, part, redirect or whirl
 Death Ward|4|Abj|A|Touch|VS|8 hours||CP|The first time the target would drop to 0 HP, it drops to 1 instead|PHB
 Dimension Door|4|Con|A|500 ft|V|Instantaneous||BKSW|Teleport up to 500 ft with one passenger|PHB
 Divination|4|Div|A|Self|VSM|Instantaneous|r|C|Ask your deity one question about the next week|PHB
-Dominate Beast|4|Enc|A|60 ft|VS|1 minute|c|DS|Control a beast, WIS save|PHB
+Dominate Beast|4|Enc|A|60 ft|VS|1 minute|c|DRS|Control a beast, WIS save|PHB
 Elemental Bane|4|Tra|A|90 ft|VS|1 minute|c|ADKW|Target loses resistance to an element and takes +2d6 of it, CON save|XGE
 Evard's Black Tentacles|4|Con|A|90 ft|VSM|1 minute|c|W|Tentacles restrain and deal 3d6 bludgeoning, DEX save|PHB
 Fabricate|4|Tra|10m|120 ft|VS|Instantaneous||AW|Turn raw materials into products|PHB
@@ -74,7 +74,7 @@ Enervation|5|Nec|A|60 ft|VS|1 minute|c|KSW|4d8 necrotic each turn, DEX save half
 Far Step|5|Con|BA|Self|V|1 minute|c|KSW|Teleport 60 ft as a bonus action each turn|XGE
 Flame Strike|5|Evo|A|60 ft|VSM|Instantaneous||C|4d6 fire + 4d6 radiant in a column, DEX save half|PHB
 Geas|5|Enc|1m|60 ft|V|30 days||BCDPW|Command a creature; 5d10 psychic if it disobeys, WIS save|PHB
-Greater Restoration|5|Abj|A|Touch|VSM|Instantaneous||ABCD|End exhaustion, charm, petrification, curses or stat reduction|PHB
+Greater Restoration|5|Abj|A|Touch|VSM|Instantaneous||ABCDR|End exhaustion, charm, petrification, curses or stat reduction|PHB
 Hallow|5|Evo|24h|Touch|VSM|Until dispelled||C|Consecrate an area with protective effects|PHB
 Hold Monster|5|Enc|A|90 ft|VSM|1 minute|c|BKSW|Paralyze any creature, WIS save|PHB
 Holy Weapon|5|Evo|BA|Touch|VS|1 hour|c|CP|Weapon deals +2d8 radiant; burst to blind|XGE

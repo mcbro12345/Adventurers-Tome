@@ -74,7 +74,7 @@ Dissonant Whispers|1|Enc|A|60 ft|V|Instantaneous||B|3d6 psychic, WIS save half; 
 Divine Favor|1|Evo|BA|Self|VS|1 minute|c|P|Weapon attacks deal +1d4 radiant|PHB
 Earth Tremor|1|Evo|A|Self (10 ft)|VS|Instantaneous||BDSW|1d6 bludgeoning and prone, DEX save|XGE
 Ensnaring Strike|1|Con|BA|Self|V|1 minute|c|R|Next hit restrains the target (STR save); 1d6 piercing each turn|PHB
-Entangle|1|Con|A|90 ft|VS|1 minute|c|D|Plants restrain creatures in a 20 ft square, STR save|PHB
+Entangle|1|Con|A|90 ft|VS|1 minute|c|DR|Plants restrain creatures in a 20 ft square, STR save|PHB
 Expeditious Retreat|1|Tra|BA|Self|VS|10 minutes|c|AKSW|Dash as a bonus action each turn|PHB
 Faerie Fire|1|Evo|A|60 ft|V|1 minute|c|ABD|Outline creatures in light; attacks against them have advantage, DEX save|PHB
 False Life|1|Nec|A|Self|VSM|1 hour||ASW|Gain 1d4 + 4 temporary HP|PHB
@@ -103,7 +103,7 @@ Protection from Evil and Good|1|Abj|A|Touch|VSM|10 minutes|c|CKPW|Protection fro
 Purify Food and Drink|1|Tra|A|10 ft|VS|Instantaneous|r|ACDP|Remove poison and disease from food and drink|PHB
 Ray of Sickness|1|Nec|A|60 ft|VS|Instantaneous||SW|Ranged spell attack, 2d8 poison; poisoned (CON save)|PHB
 Sanctuary|1|Abj|BA|30 ft|VSM|1 minute||AC|Attackers must make a WIS save or pick another target|PHB
-Searing Smite|1|Evo|BA|Self|V|1 minute|c|P|Next hit +1d6 fire; target burns 1d6 each turn until a CON save|PHB
+Searing Smite|1|Evo|BA|Self|V|1 minute|c|PR|Next hit +1d6 fire; target burns 1d6 each turn until a CON save|PHB
 Shield|1|Abj|R|Self|VS|1 round||SW|+5 AC until your next turn; immune to magic missile|PHB
 Shield of Faith|1|Abj|BA|60 ft|VSM|10 minutes|c|CP|+2 AC|PHB
 Silent Image|1|Ill|A|60 ft|VSM|10 minutes|c|BSW|Visual illusion up to a 15 ft cube|PHB
@@ -120,7 +120,7 @@ Witch Bolt|1|Evo|A|30 ft|VSM|1 minute|c|KSW|Ranged spell attack, 1d12 lightning;
 Wrathful Smite|1|Evo|BA|Self|V|1 minute|c|P|Next melee hit +1d6 psychic; frightened (WIS save)|PHB
 Zephyr Strike|1|Tra|BA|Self|V|1 minute|c|R|Move without provoking; one attack with advantage and +1d8 force|XGE
 Aganazzar's Scorcher|2|Evo|A|30 ft line|VSM|Instantaneous||SW|3d8 fire in a line, DEX save half|XGE
-Aid|2|Abj|A|30 ft|VSM|8 hours||ACP|Up to three creatures gain +5 max and current HP|PHB
+Aid|2|Abj|A|30 ft|VSM|8 hours||ACPR|Up to three creatures gain +5 max and current HP|PHB
 Alter Self|2|Tra|A|Self|VS|1 hour|c|ASW|Aquatic adaptation, change appearance, or natural weapons|PHB
 Animal Messenger|2|Enc|A|30 ft|VSM|24 hours|r|BDR|A Tiny beast delivers a message|PHB
 Arcane Lock|2|Abj|A|Touch|VSM|Until dispelled||AW|Magically lock a door or container|PHB
@@ -141,7 +141,7 @@ Detect Thoughts|2|Div|A|Self|VSM|1 minute|c|BSW|Read surface thoughts, WIS save 
 Dragon's Breath|2|Tra|BA|Touch|VSM|1 minute|c|ASW|Target can exhale 3d6 elemental breath, DEX save half|XGE
 Dust Devil|2|Con|A|60 ft|VSM|1 minute|c|DSW|Whirlwind deals 1d8 bludgeoning and pushes, STR save|XGE
 Earthbind|2|Tra|A|300 ft|V|1 minute|c|DKSW|Flying creature's speed becomes 0 and it descends, STR save|XGE
-Enhance Ability|2|Tra|A|Touch|VSM|1 hour|c|ABCDS|Advantage on checks with one ability, plus a bonus effect|PHB
+Enhance Ability|2|Tra|A|Touch|VSM|1 hour|c|ABCDRS|Advantage on checks with one ability, plus a bonus effect|PHB
 Enlarge/Reduce|2|Tra|A|30 ft|VSM|1 minute|c|ASW|Grow (+1d4 damage) or shrink (−1d4) a creature, CON save|PHB
 Enthrall|2|Enc|A|60 ft|VS|1 minute||BK|Creatures have disadvantage on Perception vs others, WIS save|PHB
 Find Steed|2|Con|10m|30 ft|VS|Instantaneous||P|Summon an intelligent loyal steed|PHB
@@ -149,7 +149,7 @@ Find Traps|2|Div|A|120 ft|VS|Instantaneous||CDR|Sense traps within line of sight
 Flame Blade|2|Evo|BA|Self|VSM|10 minutes|c|D|Fiery blade: melee spell attack 3d6 fire|PHB
 Flaming Sphere|2|Con|A|60 ft|VSM|1 minute|c|DW|Rolling sphere, 2d6 fire, DEX save half|PHB
 Gentle Repose|2|Nec|A|Touch|VSM|10 days|r|ACPW|Preserve a corpse from decay and undeath|PHB
-Gust of Wind|2|Evo|A|Self (60 ft line)|VSM|1 minute|c|DSW|Strong wind pushes creatures 15 ft, STR save|PHB
+Gust of Wind|2|Evo|A|Self (60 ft line)|VSM|1 minute|c|DRSW|Strong wind pushes creatures 15 ft, STR save|PHB
 Healing Spirit|2|Con|BA|60 ft|VS|1 minute|c|DR|Spirit heals 1d6 to creatures that enter its space|XGE
 Heat Metal|2|Tra|A|60 ft|VSM|1 minute|c|ABD|Metal object glows red-hot: 2d8 fire each turn|PHB
 Hold Person|2|Enc|A|60 ft|VSM|1 minute|c|BCDKSW|Paralyze a humanoid, WIS save|PHB
@@ -160,7 +160,7 @@ Levitate|2|Tra|A|60 ft|VSM|10 minutes|c|ASW|Float a creature or object up to 20 
 Locate Animals or Plants|2|Div|A|Self|VSM|Instantaneous|r|BDR|Find the nearest beast or plant of a kind within 5 miles|PHB
 Locate Object|2|Div|A|Self|VSM|10 minutes|c|BCDPRW|Sense the direction of a known object within 1,000 ft|PHB
 Magic Mouth|2|Ill|1m|30 ft|VSM|Until dispelled|r|ABW|Object speaks a message when triggered|PHB
-Magic Weapon|2|Tra|BA|Touch|VS|1 hour|c|APW|Weapon becomes +1|PHB
+Magic Weapon|2|Tra|BA|Touch|VS|1 hour|c|APRW|Weapon becomes +1|PHB
 Maximilian's Earthen Grasp|2|Tra|A|30 ft|VSM|1 minute|c|SW|Earthen hand restrains, 2d6 bludgeoning, STR save|XGE
 Melf's Acid Arrow|2|Evo|A|90 ft|VSM|Instantaneous||AW|Ranged spell attack, 4d4 acid now and 2d4 next turn|PHB
 Mind Spike|2|Div|A|60 ft|S|1 hour|c|KSW|3d8 psychic, WIS save half; you track the target|XGE
@@ -210,7 +210,7 @@ Create Food and Water|3|Con|A|30 ft|VS|Instantaneous||CP|Food and water for 15 c
 Crusader's Mantle|3|Evo|A|Self|V|1 minute|c|P|Allies within 30 ft deal +1d4 radiant with weapons|PHB
 Daylight|3|Evo|A|60 ft|VS|1 hour||CDPRS|60 ft sphere of bright light|PHB
 Dispel Magic|3|Abj|A|120 ft|VS|Instantaneous||ABCDKPSW|End spells of 3rd level or lower (check for higher)|PHB
-Elemental Weapon|3|Tra|A|Touch|VS|1 hour|c|ADP|Weapon gains +1 and +1d4 elemental damage|PHB
+Elemental Weapon|3|Tra|A|Touch|VS|1 hour|c|ADPR|Weapon gains +1 and +1d4 elemental damage|PHB
 Enemies Abound|3|Enc|A|120 ft|VS|1 minute|c|BKSW|Target treats everyone as an enemy, INT save|XGE
 Erupting Earth|3|Tra|A|120 ft|VSM|Instantaneous||DSW|3d12 bludgeoning in a 20 ft cube, DEX save half|XGE
 Fear|3|Ill|A|Self (30 ft cone)|VSM|1 minute|c|BKSW|Creatures drop items and flee, WIS save|PHB
