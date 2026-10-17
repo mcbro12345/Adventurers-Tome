@@ -1481,7 +1481,7 @@ html.mobile .pg-pubrow .pg-publogo .hl-a { font-size: calc(var(--mls, 60px) * .1
 :where(body.hubbody) .pm { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid #e8dcc1; border-radius: 12px; background: #faf6ec; transition: border-color .15s, box-shadow .15s; }
 :where(body.hubbody) .pm:hover { border-color: #d9b56a; }
 :where(body.hubbody) .pm.down { border-color: #c9573f; } :where(body.hubbody) .pm.dead { opacity: .6; filter: grayscale(.7); }
-:where(body.hubbody) .pm-top { display: flex; align-items: center; gap: 10px; padding-right: 22px; }
+:where(body.hubbody) .pm-top { display: flex; align-items: center; gap: 10px; }
 :where(body.hubbody) .pm-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 11px; color: inherit; text-decoration: none; }
 :where(body.hubbody) a.pm-main:hover b { color: #8a6420; }
 :where(body.hubbody) .pm-pic { width: 52px; height: 52px; flex: none; border-radius: 10px; object-fit: cover; border: 2px solid #c9962b; box-sizing: border-box; }
@@ -1490,8 +1490,6 @@ html.mobile .pg-pubrow .pg-publogo .hl-a { font-size: calc(var(--mls, 60px) * .1
 :where(body.hubbody) .pm-txt { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
 :where(body.hubbody) .pm-txt > * { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 :where(body.hubbody) .pm-txt b { font-size: 1.02rem; } :where(body.hubbody) .pm-txt span { font-size: .85rem; opacity: .85; } :where(body.hubbody) .pm-txt small { font-size: .75rem; opacity: .6; }
-:where(body.hubbody) .pm .pty-ring { margin: 0; width: 60px; height: 60px; }
-:where(body.hubbody) .pm .hc-menu { position: absolute; top: 6px; right: 6px; }
 :where(body.hubbody) .pm-stats { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 :where(body.hubbody) .pm-stats span { display: inline-flex; align-items: baseline; gap: 5px; padding: 3px 9px; border-radius: 99px; background: rgba(127,127,127,.12); font-size: .82rem; }
 :where(body.hubbody) .pm-stats small { font-size: .64rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; opacity: .65; }
@@ -1687,3 +1685,46 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
   :where(body.hubbody) .pty-link-t { flex-basis: calc(100% - 52px); }
   :where(body.hubbody) .pty-link-b { flex: 1; } :where(body.hubbody) .pty-link-b .btn { flex: 1; }
 }
+
+/* party page cards, laid out like the sheet's Party tab */
+:where(body.hubbody) .pm-hp { display: flex; align-items: center; gap: 14px; padding: 12px; border-radius: 12px; background: rgba(127,127,127,.08); border: 1px solid rgba(127,127,127,.18); }
+:where(body.hubbody) .pm .pty-ring { margin: 0; width: 88px; height: 88px; }
+:where(body.hubbody) .pm .pty-ring b { font-size: 1.5rem; } :where(body.hubbody) .pm .pty-ring small { font-size: .7rem; margin-top: 2px; }
+:where(body.hubbody) .pm .pty-ring circle { stroke-width: 9; }
+:where(body.hubbody) .pm-tmp { position: absolute; top: 2px; right: -10px; font-style: normal; font-size: .7rem; font-weight: 800; padding: 1px 6px; border-radius: 99px; background: #1d5f6c; color: #bdf1fb; border: 1px solid #3fb0c4; }
+:where(body.hubbody) .pm-hpq { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+:where(body.hubbody) .pm-q { width: 100%; box-sizing: border-box; padding: 7px 10px; border-radius: 8px; border: 1px solid #d9cbaa; background: #fff; color: inherit; font: inherit; }
+:where(body.hubbody) .pm-hpb { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+:where(body.hubbody) .pm-hb { height: 36px; display: grid; place-items: center; border-radius: 8px; cursor: pointer; border: 1px solid; padding: 0; }
+:where(body.hubbody) .pm-hb svg { width: 19px; height: 19px; }
+:where(body.hubbody) .pm-hb.dmg { background: #fbe6e1; border-color: #e0806b; color: #b5452f; }
+:where(body.hubbody) .pm-hb.heal { background: #e2f4e8; border-color: #6cc08a; color: #2f7d4f; }
+:where(body.hubbody) .pm-hb.tmp { background: #e0f0f8; border-color: #6db3d6; color: #24709a; }
+:where(body.hubbody) .pm-hb:disabled { opacity: .5; cursor: default; }
+:where(body.hubbody) .pm-csts { display: inline-flex; align-self: flex-start; border-radius: 12px; overflow: hidden; border: 1px solid rgba(127,127,127,.22); background: rgba(127,127,127,.08); }
+:where(body.hubbody) .pm-csts span { display: flex; flex-direction: column; align-items: center; padding: 6px 13px; gap: 1px; }
+:where(body.hubbody) .pm-csts span + span { border-left: 1px solid rgba(127,127,127,.22); }
+:where(body.hubbody) .pm-csts small { font-size: .58rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; opacity: .65; }
+:where(body.hubbody) .pm-csts b { font-size: 1.1rem; font-variant-numeric: tabular-nums; line-height: 1.15; }
+:where(body.hubbody) .pm-foot { display: flex; align-items: center; gap: 6px; margin-top: auto; padding-top: 2px; }
+:where(body.hubbody) .pm-foot a.btn { text-decoration: none; }
+:where(body.hubbody) .pm-foot .hc-menu { position: relative; }
+:where(body.hubbody) .hc-menu.up .hc-list { top: auto; bottom: calc(100% + 4px); right: 0; left: auto; }
+@media (prefers-color-scheme: dark) {
+  body.hubbody .pm-q { background: #0f1420; border-color: #3a4560; }
+  body.hubbody .pm-hb.dmg { background: #3a1f1d; border-color: #c9573f; color: #f0a08d; }
+  body.hubbody .pm-hb.heal { background: #17301f; border-color: #3c9d6b; color: #8fe0aa; }
+  body.hubbody .pm-hb.tmp { background: #13283a; border-color: #3f8fd2; color: #8cc8f0; }
+}
+
+:where(body.hubbody) .pw-sm { display: none; }
+#pt-del svg { width: 15px; height: 15px; flex: none; }
+@media (max-width: 640px) {
+  :where(body.hubbody) .pw-lg { display: none; } :where(body.hubbody) .pw-sm { display: inline; }
+  :where(body.hubbody) #pt-del, :where(body.hubbody) #pt-add, :where(body.hubbody) #pt-all { white-space: nowrap; }
+  :where(body.hubbody) .pw-body .pl-row { flex-wrap: wrap; row-gap: 2px; }
+}
+:where(body.hubbody) .pty-invrow { display: flex; align-items: center; gap: 10px; }
+:where(body.hubbody) .pty-invwho { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+:where(body.hubbody) .pty-invwho b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:where(body.hubbody) .pty-invwho small { font-size: .78rem; opacity: .65; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

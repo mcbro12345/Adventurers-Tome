@@ -647,6 +647,7 @@ function spellGroup(sp) {
 function spellCastable(sp) {
   if (sp.usesOnly) return N(evalMax(sp.uses && sp.uses.max)) - N(sp.uses && sp.uses.used) > 0;
   const L = N(sp.level); if (!L || sp.atWill) return true;
+  if (sp.ritual) return true; // a ritual never needs a slot
   if (sp.uses && N(sp.uses.max) && N(sp.uses.used) < (evalMax(sp.uses.max) || 0)) return true;
   for (let l = L; l <= 9; l++) if (slotMax(l - 1) > 0 && slotsLeft(l - 1) > 0) return true;
   const pc = pact(); return !!(pc && pc.level >= L && pactLeft() > 0);

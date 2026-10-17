@@ -67,19 +67,18 @@ function ptyHist(recs) {
 function ptyCardHTML(m) {
   const down = m.dead ? 'dead' : N(m.maxhp) && N(m.hp) <= 0 ? 'down' : '', act = ptyAct(), f = m.form;
   const cur = f ? N(f.hp) : N(m.hp), max = f ? N(f.maxhp) : N(m.maxhp), id = esc(m.id);
-  const tags = [m.cls, m.player, f ? 'As ' + f.name : '', m.dead ? 'Dead' : down ? (m.stable ? 'Stable at 0 HP' : 'Making death saves') : ''].filter(Boolean);
-  const on = [].concat(m.conds || [], N(m.exh) ? ['Exhaustion ' + N(m.exh)] : [], m.conc ? ['Concentrating: ' + m.conc] : [], m.fx || []);
+  const on = [].concat([f ? 'As ' + f.name : '', m.dead ? 'Dead' : down ? (m.stable ? 'Stable at 0 HP' : 'Making death saves') : ''].filter(Boolean), m.conds || [], N(m.exh) ? ['Exhaustion ' + N(m.exh)] : [], m.conc ? ['Concentrating: ' + m.conc] : [], m.fx || []);
   const more = [['coins', 'Give coins'], ['help', 'Help (advantage on their next roll)'], down && !m.dead && !m.stable ? ['stab', 'Stabilize (Medicine, DC 10)'] : null, ['note', 'Send a message']].filter(Boolean);
   const hp = max ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(cur, max, m.temp, f ? ' form' : '')}</div>
       <div class="chp-center"><div class="curline"><b class="ptym-cur">${cur}</b>${N(m.temp) ? `<span class="tmpbadge">+${N(m.temp)}</span>` : ''}</div><div class="hp-max">of ${max}</div></div></div>
       ${act ? `<div class="chp-side"><input class="f" id="ptyq-${id}" inputmode="numeric" placeholder="Amount" aria-label="Amount for ${esc(m.name)}">
         <div class="chp-btns"><button class="btn hpi dmg" data-pa="qdmg" data-id="${id}" title="Damage ${esc(m.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-pa="qheal" data-id="${id}" title="Heal ${esc(m.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-pa="qtemp" data-id="${id}" title="Give ${esc(m.name)} temporary HP" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div>` : ''}</div>` : '';
   return `<div class="panel comp2 ptym${down ? ' ' + down : ''}" data-mid="${id}"><div class="comp-h2">${m.thumb ? `<span class="picth"><img src="${esc(m.thumb)}" alt=""></span>` : `<span class="picadd">${esc(String(m.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''))}</span>`}
-      <div class="grow"><b class="cname">${esc(m.name || 'A character')}</b><div class="ctags">${tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div></div>
-      ${act ? `<div class="menu"><button class="icon-btn" data-act="menu" aria-haspopup="true" aria-label="More for ${esc(m.name || 'them')}">⋯</button><div class="menu-list">${more.map(([k, t]) => `<button data-pa="${k}" data-id="${id}">${esc(t)}</button>`).join('')}</div></div>` : ''}</div>
-    <div class="cstat2">${hp}<div class="cchips"><span class="cchip2"><small>AC</small><b>${esc(m.ac || '—')}</b></span>${m.speed ? `<span class="cchip2"><small>Speed</small><b>${N(m.speed)}</b></span>` : ''}${m.level ? `<span class="cchip2"><small>Level</small><b>${N(m.level)}</b></span>` : ''}</div></div>
+      <div class="grow"><b class="cname">${esc(m.name || 'A character')}</b>${m.player ? `<div class="ptym-pl">${esc(m.player)}</div>` : ''}</div>
+</div>
+    <div class="cstat2">${hp}<div class="csts"><span class="cst"><small>AC</small><b>${esc(m.ac || '—')}</b></span>${m.speed ? `<span class="cst"><small>Speed</small><b>${N(m.speed)}</b></span>` : ''}${m.level ? `<span class="cst"><small>Level</small><b>${N(m.level)}</b></span>` : ''}</div></div>
     ${on.length ? `<div class="ctags">${on.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>` : ''}
-    ${act ? `<div class="ptym-act"><button class="btn sm gold" data-pa="cast" data-id="${id}">Cast a spell on them</button><button class="btn sm" data-pa="ability" data-id="${id}">Use an ability</button><button class="btn sm" data-pa="give" data-id="${id}">Give an item</button></div>` : ''}
+    ${act ? `<div class="ptym-act"><button class="btn sm gold" data-pa="cast" data-id="${id}" title="Cast a spell on them">Cast a spell</button><button class="btn sm" data-pa="ability" data-id="${id}" title="Use an ability on them">Ability</button><button class="btn sm" data-pa="give" data-id="${id}" title="Give them an item">Give item</button><div class="menu up"><button class="icon-btn" data-act="menu" aria-haspopup="true" aria-label="More for ${esc(m.name || 'them')}">⋯</button><div class="menu-list">${more.map(([k, t]) => `<button data-pa="${k}" data-id="${id}">${esc(t)}</button>`).join('')}</div></div></div>` : ''}
   </div>`;
 }
 function renderParty() {

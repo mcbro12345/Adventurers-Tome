@@ -403,8 +403,9 @@ function renderVitals() {
 const TABS0 = [['core', 'Core'], ['combat', 'Combat'], ['spells', 'Spells'], ['features', 'Features'], ['inventory', 'Inventory'], ['infusions', 'Infusions'], ['companions', 'Creatures'], ['party', 'Party'], ['story', 'Story'], ['notes', 'Notes']];
 function tabOrder() {
   const all = TABS0.concat(ctabs().map(t => [t.key, t.name])), L = (S.layout && S.layout.tabs) || [], keys = all.map(t => t[0]);
-  // The Party tab only exists while the character is in a party (not even as a hidden tab in Edit layout).
-  return L.filter(k => keys.includes(k)).concat(keys.filter(k => !L.includes(k))).map(k => all.find(t => t[0] === k)).filter(t => t[0] !== 'party' || ptyOn());
+  // The Party tab only exists while the character is in a party (not even as a hidden tab in Edit layout), and it's always last.
+  const o = L.filter(k => keys.includes(k)).concat(keys.filter(k => !L.includes(k))).map(k => all.find(t => t[0] === k)).filter(t => t[0] !== 'party');
+  return ptyOn() ? o.concat([all.find(t => t[0] === 'party')]) : o;
 }
 // Tabs and panels a character has no use for hide themselves (no spellcasting → no Spells tab or slot panels; no Infuse Item → no Infusions tab).
 // Edit layout can still show them: that choice is kept in layout.shownTabs / layout.shown.
