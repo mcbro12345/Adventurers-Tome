@@ -1353,3 +1353,6 @@ html.mobile .pg-pubrow .pg-publogo .hl-a { font-size: calc(var(--mls, 60px) * .1
 :where(body.hubbody) label.pm-anon input { width: 17px; height: 17px; margin: 2px 0 0; flex: none; accent-color: #c9962b; }
 :where(body.hubbody) label.pm-anon span { display: flex; flex-direction: column; gap: 1px; font-size: .93rem; }
 :where(body.hubbody) label.pm-anon small { opacity: .7; font-size: .8rem; }
+
+#pg-msg .pgm-t a { color: #e2b04a; text-decoration: underline; text-underline-offset: 2px; word-break: break-all; }
+#pg-msg .pgm-t a:hover { color: #f3c866; }

@@ -489,11 +489,14 @@ function wireDie(root) {
   { const k0 = kicked(ME) || (ACCT_ERR === 'permission-denied' ? LOCKED : ''); if (k0) { kick(k0); return; } }
   UREF.onSnapshot(d => { const k = kicked(d.exists ? d.data() : null); if (k) kick(k); else { const u = d.exists ? d.data() : null, ra = Number(u && u.reloadAt) || 0; if (PG_RA === null) PG_RA = ra; else if (ra && ra !== PG_RA) { PG_RA = ra; location.reload(); return; } pgMsg(u); } }, e => { if (e && e.code === 'permission-denied') kick(LOCKED); });
   // A message from the site's admin: pops up once (on whichever device sees it first), on any page.
+  // Web addresses in a message become links (opened in a new tab). Runs on already-escaped text.
+  function linkify(h) { return h.replace(/\b(?:https?:\/\/|www\.)[^\s<]+/gi, u => { const tail = (u.match(/[.,;:!?)\]'"]+$/) || [''])[0], url = tail ? u.slice(0, -tail.length) : u;
+    return `<a href="${/^www\./i.test(url) ? 'https://' + url : url}" target="_blank" rel="noopener noreferrer">${url}</a>${tail}`; }); }
   function pgMsg(u) { const m = u && u.msg; if (!m || !m.id || !m.text || u.msgSeen === m.id) return; let seen = ''; try { seen = localStorage.getItem('pg-msg-seen') || ''; } catch (e) {} if (seen === m.id || document.getElementById('pg-msg')) return;
     const open = () => { if (document.getElementById('pg-load')) return setTimeout(open, 400); if (document.getElementById('pg-msg')) return;
       const w = document.createElement('div'); w.id = 'pg-msg'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-modal', 'true');
       w.innerHTML = `<div class="pgm-card"><div class="pgm-h"><span class="pgm-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H8l-4 4z"/></svg></span><div><b>Message from ${escH(m.anon ? 'Adventurer’s Tome' : (m.fromName || 'Adventurer’s Tome'))}</b><small>${escH(new Date(m.at || Date.now()).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))}</small></div></div>
-        <div class="pgm-t">${escH(m.text).replace(/\n/g, '<br>')}</div><div class="pgm-row"><button class="pgm-ok" type="button">OK</button></div></div>`;
+        <div class="pgm-t">${linkify(escH(m.text)).replace(/\n/g, '<br>')}</div><div class="pgm-row"><button class="pgm-ok" type="button">OK</button></div></div>`;
       document.body.appendChild(w); const ok = w.querySelector('.pgm-ok'); setTimeout(() => ok.focus(), 50);
       const done = () => { try { localStorage.setItem('pg-msg-seen', m.id); } catch (e) {} UREF.update({ msgSeen: m.id }).catch(() => {}); w.classList.add('out'); setTimeout(() => w.remove(), 200); };
       ok.onclick = done; w.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); done(); } }); };
