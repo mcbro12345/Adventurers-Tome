@@ -613,6 +613,17 @@ function renderNotes() {
 
 // ---------- Combat page ----------
 const COLS = [['action', 'Action'], ['bonus', 'Bonus Action'], ['reaction', 'Reaction'], ['move', 'Movement & Free']];
+// Bonus-action attacks: a feature's own (the second Psychic Blade), and the off-hand weapon when you're holding two.
+function bonusAtkHTML() {
+  const own = S.attacks.map((a, i) => [a, i]).filter(([a]) => a.bonus && atkShown(a)), off = dualWielding() ? S.attacks.map((a, i) => [a, i]).filter(([a]) => !a.bonus && offhandOK(a)) : [];
+  if (!own.length && !off.length) return '';
+  const used = !!(S.turn.used || {}).bonus, dmgTxt = (a, drop) => { const m = atkDmgMod(a) - drop, d = atkDice(a); return esc((d || '0') + (m ? sgn(m) : '')) + (a.type ? ' ' + esc(a.type) : ''); };
+  const row = ([a, i], kind) => { const drop = kind === 'off' ? offDrop(a) : 0, ready = kind === 'off' ? !!S.turn.lightAtk : !a.after || (S.turn.atkWith || []).includes(a.after);
+    return `<tr class="${S.inCombat && (used || !ready) ? 'dim' : ''}"><td>${esc(a.name)}${kind === 'off' ? ' <span class="itag">off-hand</span>' : ''}</td><td class="nowrap">${fmt(atkHit(a))}</td><td class="nowrap bdmg">${dmgTxt(a, drop)}</td><td><button class="btn gold sm atkbtn" data-act="bonusatk" data-i="${i}" data-kind="${kind}" title="Roll to hit and damage (uses your bonus action)">⚔</button></td></tr>`; };
+  const tips = [own.filter(([a]) => a.after).map(([a]) => `${esc(a.name)}: after you attack with your ${esc(a.after)} this turn.`).join(' '),
+    off.length ? `Two-weapon fighting: after you attack with ${dualWielder() ? 'a one-handed melee weapon' : 'a light melee weapon'} (Attack action), attack with the other one. ${twfStyle() ? 'Your Two-Weapon Fighting style adds your ability modifier to its damage.' : 'Its damage doesn’t add your ability modifier (unless it’s negative).'}` : ''].filter(Boolean).join(' ');
+  return `<div class="block bonusatk"><div class="sect">Bonus attack${used && S.inCombat ? ' <span class="hint">· bonus action used</span>' : ''}</div><table class="mini">${own.map(r => row(r, 'bonus')).join('')}${off.map(r => row(r, 'off')).join('')}</table>${tips ? `<div class="hint">${tips}</div>` : ''}</div>`;
+}
 // Combat tab: spells grouped by what they do in a fight (damage first, utility last and folded away),
 // each group sorted by level. Spells you can't cast right now (no slot left) are dimmed.
 const SPG = [
@@ -736,7 +747,7 @@ function renderCombat() {
     if (key === 'action') {
       body += hasteBlockHTML();
       body += `<div class="block"><div class="sect">Attack action <span class="atkpips" data-calc-html="atkpips" title="Attacks left this turn"></span><span class="grow"></span></div>
-        <table class="mini">${S.attacks.map((at, i) => { if (!atkShown(at)) return ''; const wi = at.item && S.inventory.find(x => x.id === at.item), tip = String(at.notes || '').trim() || (wi && (String(wi.notes || '').trim() || wi.hb)); const nmw = String(at.name).trim().split(/\s+/), lastW = nmw.pop(); return `<tr><td>${nmw.length ? esc(nmw.join(' ')) + ' ' : ''}<span class="nowrap">${esc(lastW)}${tip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(at.name)}">ⓘ</button>` : ''}</span></td><td>${rollBtn('atk:' + i, at.name + ' attack')}</td><td>${rollBtn('dmg:' + i, at.name + ' damage')}</td><td>${atkBtn(i, true)}</td></tr>`; }).join('') || '<tr><td class="hint">No attacks — add weapons in Inventory.</td></tr>'}</table>
+        <table class="mini">${S.attacks.map((at, i) => { if (!atkShown(at) || at.bonus) return ''; const wi = at.item && S.inventory.find(x => x.id === at.item), tip = String(at.notes || '').trim() || (wi && (String(wi.notes || '').trim() || wi.hb)); const nmw = String(at.name).trim().split(/\s+/), lastW = nmw.pop(); return `<tr><td>${nmw.length ? esc(nmw.join(' ')) + ' ' : ''}<span class="nowrap">${esc(lastW)}${tip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(at.name)}">ⓘ</button>` : ''}</span></td><td>${rollBtn('atk:' + i, at.name + ' attack')}</td><td>${rollBtn('dmg:' + i, at.name + ' damage')}</td><td>${atkBtn(i, true)}</td></tr>`; }).join('') || '<tr><td class="hint">No attacks — add weapons in Inventory.</td></tr>'}</table>
         <div class="hint" data-calc="ridersnote"></div>
         ${clsLv('rogue') ? `<div class="row sarow" style="margin-top:6px"><button class="btn sm gold" data-act="sneak">Sneak Attack ${sneakDice()}</button><span class="sadotw" data-calc-html="sneakdot"></span></div>` : ''}
         ${stunRowHTML()}
@@ -744,6 +755,7 @@ function renderCombat() {
           <button class="toggle${UI.smiteUndead ? ' on' : ''}" data-act="smiteundead" aria-pressed="${!!UI.smiteUndead}" title="Undead and fiends take +1d8">Undead / Fiend +1d8</button></div>
           <div class="smite-row" data-calc-html="smite"></div></div>` : ''}</div>`;
     }
+    if (key === 'bonus') body += bonusAtkHTML();
     if (key === 'move') {
       body += `<div class="block movebox">
         <div class="mv-top"><div class="mv-left"><b data-calc="moveleft"></b><span>ft left</span></div><div class="mv-sub" data-calc-html="movesub"></div></div>

@@ -3390,4 +3390,54 @@ html #condmodal.extfxm .cchips2 .cchip2 { white-space: normal; overflow: visible
 .ravenchk.sm input { width: 14px; height: 14px; }
 .tile .ravenchk.sm { display: flex; justify-content: center; align-items: center; gap: 5px; white-space: normal; text-align: left; font-size: .72rem !important; font-weight: 600; color: var(--muted); letter-spacing: 0; text-transform: none; line-height: 1.2; }
 .tile .ravenchk.sm input { width: 13px !important; height: 13px !important; min-width: 0 !important; padding: 0 !important; flex: none; }
+/* the words get their own tight line box, so the box lines up with the letters whatever the system font */
+.ravenchk > span { display: block; line-height: 1.1; padding-top: .08em; }
+.ravenchk input { align-self: center; flex: none; }
+.tile .ravenchk.sm { white-space: nowrap; font-size: .7rem !important; }
+/* Roll cards: 🎲 shows the math */
+.toast.rollcard .rc-math { display: none; margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(0,0,0,.22); border: 1px solid rgba(244,238,223,.14); font-size: .82rem; min-width: 210px; }
+.toast.rollcard.showdet .rc-math { display: block; }
+.toast.rollcard.showdet:has(.rc-math) .det.dd { display: none !important; }
+.rc-math .rm-h { font-weight: 800; font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; opacity: .7; margin: 6px 0 3px; }
+.rc-math .rm-h:first-child { margin-top: 0; }
+.rc-math .rm-r { display: flex; justify-content: space-between; gap: 14px; padding: 2px 0; }
+.rc-math .rm-r span { opacity: .85; text-align: left; } .rc-math .rm-r i { font-style: normal; opacity: .65; font-size: .92em; }
+.rc-math .rm-r b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rc-math .rm-t { border-top: 1px solid rgba(244,238,223,.2); margin-top: 3px; padding-top: 4px; font-weight: 800; }
+.rc-math .rm-t span { opacity: 1; }
+.dmode .dsub { display: flex; align-items: flex-start; gap: 9px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line2); cursor: pointer; font-weight: 600; }
+.dmode .dsub input { flex: none; margin-top: 2px; }
+.dmode .dsub > span { display: flex; flex-direction: column; gap: 2px; }
+.dmode .dsub small { display: block; font-weight: 400; }
+/* My categories (table): the drag handle, ▲▼ and move-to buttons sit at the right end of the name and show on hover,
+   so spell names line up with the Name heading exactly as in the Level and Purpose views */
+html:not(.mobile) .spg-t td.spname { position: relative; }
+html:not(.mobile) .spg-t td.spname > .sord { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); margin: 0; padding: 2px 4px; border-radius: 8px; background: var(--panel); box-shadow: 0 0 0 1px var(--line); opacity: 0; transition: opacity .12s; z-index: 2; }
+html:not(.mobile) .spg-t td.spname > .sord .iord, html:not(.mobile) .spg-t td.spname > .sord .spmv .mvto { opacity: 1; }
+ html:not(.mobile) .spg-t td.spname > .sord:focus-within, html:not(.mobile) .spg-t td.spname > .sord:has(.spmv.open), body.sdragging .spg-t td.spname > .sord { opacity: 1; }@media (hover:hover){html:not(.mobile):not(.mobile) .spg-t tr:hover td.spname > .sord{ opacity: 1; }}
+/* No class spellcasting (only spells stored in an item): two columns, no empty gap */
+@media (min-width: 720px) { .sc-wrap2.nocls:not(.fxonly) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; } }
+.rs-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.rs-btns small, .irow .btn small { opacity: .75; font-weight: 600; margin-left: 4px; }
+/* Ring of Spell Storing window */
+#ringstore .rs-cap { display: flex; align-items: center; gap: 10px; margin: 2px 0 8px; }
+#ringstore .rs-bar { flex: 1; height: 8px; border-radius: 6px; background: var(--panel2); overflow: hidden; border: 1px solid var(--line); }
+#ringstore .rs-bar i { display: block; height: 100%; background: var(--gold); border-radius: 6px; }
+#ringstore .rs-cap b { font-size: .85rem; white-space: nowrap; }
+#ringstore .rs-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+#ringstore .rs-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; border-radius: 999px; border: 1px solid var(--line2); background: var(--panel2); font-weight: 600; font-size: .86rem; }
+#ringstore .rs-chip small { opacity: .7; font-weight: 600; }
+#ringstore .rs-chip .icon-btn { width: 22px; height: 22px; font-size: .75rem; }
+#ringstore .rs-who { display: flex; gap: 0; margin: 4px 0 10px; border: 1px solid var(--line2); border-radius: 10px; overflow: hidden; width: fit-content; max-width: 100%; }
+#ringstore .rs-who button { border: 0; background: transparent; color: var(--soft); padding: 7px 12px; font-weight: 700; font-size: .86rem; cursor: pointer; }
+#ringstore .rs-who button.on { background: var(--gold); color: var(--gold-ink, #1b1406); }
+#ringstore .rs-go { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+#ringstore .rs-go select { width: auto; min-width: 0; }
+#ringstore .rs-meter { display: inline-block; vertical-align: middle; width: 70px; height: 7px; border-radius: 5px; background: var(--panel2); border: 1px solid var(--line); overflow: hidden; margin-right: 4px; }
+#ringstore .rs-meter i { display: block; height: 100%; background: var(--gold); }
+/* Bonus attacks (off-hand weapon, second Psychic Blade) in the Bonus Action column */
+.bonusatk table.mini tr.dim { opacity: .55; }
+.bonusatk .bdmg { color: var(--soft); font-size: .86rem; }
+.bonusatk .itag { margin-left: 4px; }
+.bonusatk .itag { white-space: nowrap; }
 

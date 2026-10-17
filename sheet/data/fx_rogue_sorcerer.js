@@ -100,7 +100,7 @@
       { name: 'Regain a die', col: 'bonus', use: { regain: { from: 'Psionic Power', n: 1 } }, text: 'Once per short or long rest' }] },
     'rogue:soulknife:Psychic Blades': { attacks: [
       ['Psychic Blade', '1d6', 'psychic', 'fin', { kind: 'melee', notes: 'Finesse; thrown 60/120 ft; vanishes after the attack; leaves no mark' }],
-      ['Psychic Blade (bonus action)', '1d4', 'psychic', 'fin', { kind: 'melee', notes: 'Bonus action after attacking with a psychic blade; other hand free' }]] },
+      ['Psychic Blade (bonus action)', '1d4', 'psychic', 'fin', { kind: 'melee', bonus: true, after: 'Psychic Blade', notes: 'Bonus action after attacking with a psychic blade; other hand free' }]] },
     'rogue:soulknife:Soul Blades': { acts: [
       { name: 'Homing Strikes', cost: { from: 'Psionic Power', n: 1 }, roll: '1psi', rollNote: 'added to a missed psychic blade attack (die lost only if it then hits)' },
       { name: 'Psychic Teleportation', col: 'bonus', cost: { from: 'Psionic Power', n: 1 }, roll: '1psi', rollNote: '× 10 ft: throw a blade and teleport to an unoccupied space there' }] },

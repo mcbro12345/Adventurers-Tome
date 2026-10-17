@@ -27,8 +27,9 @@ function mainClick(e) {
     case 'layout': if (onPhone()) break; if (window.pgPhoneView && (window.PG_IN_PHONE || (!isMobile() && window.innerWidth >= 640))) { window.pgPhoneView(!window.PG_IN_PHONE); break; }
       LAYOUT_NOW = isMobile() ? 'desktop' : 'mobile'; applyLayout(); render(); window.scrollTo(0, 0); break;
     case 'attack': attackRoll(i, !b.closest('#page-combat') || !S.inCombat); break;
+    case 'bonusatk': bonusAttack(i, b.dataset.kind); break;
     case 'equip': equipItem(i); break;
-    case 'resetturn': S.turn.haste = false; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.attacks = 0; S.turn.speed0 = ''; S.turn.sneak = false; S.turn.readied = null; update(); render('combat'); toast(`Turn reset — round ${N(S.turn.round) || 1} actions are ready again.`); break;
+    case 'resetturn': S.turn.haste = false; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.attacks = 0; S.turn.atkWith = []; S.turn.lightAtk = false; S.turn.speed0 = ''; S.turn.sneak = false; S.turn.readied = null; update(); render('combat'); toast(`Turn reset — round ${N(S.turn.round) || 1} actions are ready again.`); break;
     case 'fullscreen': if (fsOn()) { FS_USER_OFF = true; fsExit(); } else { FS_USER_OFF = false; fsEnter(); } break;
     case 'tab': { const prev = UI.tab, nt = b.dataset.tab, mini = !!b.closest('.cmini'), mob = isMobile() && !mini;
       const go = () => { tabFadeT = 0; renderTabs(); if (prev !== nt && !mini) tabPageAnim(prev, nt); requestAnimationFrame(alignHpSide);
@@ -380,6 +381,18 @@ function spendAmmo(a) {
   if (!isFirearm(wit)) { S.turn.ammo = S.turn.ammo || {}; S.turn.ammo[am.id] = N(S.turn.ammo[am.id]) + 1; }
   return `${esc(am.name)}: ${am.qty} left${am.qty <= 5 ? ' — running low!' : ''}`;
 }
+// A bonus-action attack: the off-hand weapon (two-weapon fighting) or a feature's own one (the second Psychic Blade).
+function bonusAttack(i, kind) {
+  const a = S.attacks[i]; if (!a) return;
+  if (S.inCombat) {
+    if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; }
+    if (S.turn.used.bonus) { toast('You already used your bonus action this turn.', 'fumble'); return; }
+    if (kind === 'off' && !S.turn.lightAtk) { toast(`Attack with ${dualWielder() ? 'a one-handed melee weapon' : 'a light melee weapon'} first (with the Attack action) — then this off-hand attack is your bonus action.`, 'fumble', 7000); return; }
+    if (kind === 'bonus' && a.after && !(S.turn.atkWith || []).includes(a.after)) { toast(`Attack with your ${esc(a.after)} first (with the Attack action) — then this is your bonus action.`, 'fumble', 7000); return; }
+    S.turn.used.bonus = true; pendingLabel = (kind === 'off' ? 'Off-hand attack: ' : 'Bonus attack: ') + a.name;
+  }
+  attackRoll(i, true, { offhand: kind === 'off', label: a.name + (kind === 'off' ? ' (off-hand)' : '') });
+}
 // From the Combat tab an attack uses up your attacks for the turn; from anywhere else it's just a roll.
 function attackRoll(i, free, opt) {
   opt = opt || {};
@@ -388,8 +401,8 @@ function attackRoll(i, free, opt) {
   if (!free && !canAttack()) { toast('No attacks left this turn.'); return; }
   pendingLabel = 'Attack with ' + a.name;
   const ammoNote = spendAmmo(a); if (ammoNote === null) return;
-  if (!free) { S.turn.attacks = N(S.turn.attacks) + 1; S.turn.used.action = true; }
-  const hit = atkHit(a), m = atkDmgMod(a);
+  if (!free) { S.turn.attacks = N(S.turn.attacks) + 1; S.turn.used.action = true; S.turn.atkWith = (S.turn.atkWith || []).concat([a.name]); if (offhandOK(a)) S.turn.lightAtk = true; }
+  const drop = opt.offhand ? offDrop(a) : 0, hit = atkHit(a), m = atkDmgMod(a) - drop;
   ATK_ITEM = { id: a.item || '', weapon: !a.effect || !!a.weaponLike };
   let dd20; try { dd20 = d20Expr(hit, 'attack'); } finally { ATK_ITEM = null; }
   const { expr, rm, bless, ex } = dd20;
@@ -420,7 +433,7 @@ function attackRoll(i, free, opt) {
   update();
   const head = crit ? 'CRITICAL HIT! Damage dice doubled' : nat1 ? 'Natural 1: automatic miss' : 'to hit';
   const diceOf = r => (r.terms ? '[' + r.terms.filter(t => t.dice).map(t => t.shown.join(', ')).join(' | ') + ']' : '');
-  const dmgSec = termMath(d, atkDmgRows(a), 'Damage', [crit ? 'Weapon dice, doubled' : 'Weapon dice', brutal ? 'Brutal Critical' : '']);
+  const dmgSec = termMath(d, atkDmgRows(a).concat(drop ? [['Off-hand: no ability modifier', -drop]] : []), 'Damage', [crit ? 'Weapon dice, doubled' : 'Weapon dice', brutal ? 'Brutal Critical' : '']);
   xr.forEach(x => dmgSec.rows.push([x.label, String(x.r.total), diceOf(x.r)]));
   rr.forEach(x => dmgSec.rows.push([x.label, String(x.r.total), diceOf(x.r)]));
   if (sr) dmgSec.rows.push([`Sneak Attack (${crit ? critDice(sa) : sa})`, String(sr.total), diceOf(sr)]);
@@ -596,7 +609,7 @@ function nextTurn() {
   if (S.felineSpent && !S.turn.feline && N(S.turn.moved) <= 0) S.felineSpent = false;  // Feline Agility recharges after a turn without moving
   const held = S.turn.readied; S.turn.readied = null;
   if (held) setTimeout(() => readyLost(held, 'Your readied action ran out (it lasts until your next turn)'), 80);
-  S.turn.round = (N(S.turn.round) || 1) + 1; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.attacks = 0; S.turn.feline = false; S.turn.speed0 = ''; S.turn.sneak = false;
+  S.turn.round = (N(S.turn.round) || 1) + 1; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.atkWith = []; S.turn.lightAtk = false; S.turn.attacks = 0; S.turn.feline = false; S.turn.speed0 = ''; S.turn.sneak = false;
   S.turn.haste = false;
   // Haste's lethargy: the turn after it wears off you can't move or take actions.
   if (N(S.lethargy) === 1) { S.lethargy = 2; S.turn.speed0 = 'Haste lethargy'; setTimeout(() => toast('<b>Lethargic</b> — Haste wore off, so this turn you can’t move or take actions. You’re back to normal next turn.', 'fumble', 9000), 120); } else if (N(S.lethargy) === 2) S.lethargy = 0;

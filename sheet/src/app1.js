@@ -385,6 +385,7 @@ function acInfo() {
   if (sh && S.acOverride === '') { const v = 2 + N((sh.mods || {}).ac); total += v; parts.push(`Shield +${v}`); }
   activeItems().forEach(it => { const m = it.mods || {}; if (it.armor) return; if (m.ac && !(m.unarmoredOnly && (arm || sh))) { total += N(m.ac); parts.push(`${it.name} +${m.ac}`); } });
   const race = DND.races[S.race.key]; if (race && race.acBonus) { total += race.acBonus; parts.push(`${race.name} +${race.acBonus}`); }
+  if (dualWielder() && handsOf(oneHandMelee) >= 2) { total += 1; parts.push('Dual Wielder +1'); }
   if (arm && arm.forge && S.acOverride === '') { total += 1; parts.push('Blessing of the Forge +1'); }
   fxPassives().forEach(p => {
     const add = (v, why) => { const n = typeof v === 'number' ? v : N(evalMax(v)); if (n) { total += n; parts.push(`${p.src}${why ? ' (' + why + ')' : ''} ${n > 0 ? '+' : ''}${n}`); } };
@@ -473,6 +474,19 @@ function hpPerLevelBonus() {
 }
 
 // ---------- Attacks ----------
+// ---------- Two-weapon fighting (dual wielding) ----------
+// After you take the Attack action and attack with a light melee weapon in one hand, you can use your bonus action to
+// attack with a different light melee weapon in the other hand. That attack doesn't add your ability modifier to the
+// damage unless the modifier is negative (the Two-Weapon Fighting style adds it). Dual Wielder lets the weapons be any
+// one-handed melee weapons and gives +1 AC while you hold one in each hand.
+const twfStyle = () => fightingStyle('Two-Weapon Fighting');
+const dualWielder = () => hasFeat('Dual Wielder');
+const oneHandMelee = it => !!(it && it.equipped && it.weapon && it.weapon.kind === 'melee' && !(it.weapon.props || []).includes('two-handed'));
+const twfWeapon = it => oneHandMelee(it) && ((it.weapon.props || []).includes('light') || dualWielder());
+const handsOf = test => S.inventory.filter(test).reduce((n, it) => n + Math.max(1, Math.min(2, N(it.qty) || 1)), 0);
+const dualWielding = () => handsOf(twfWeapon) >= 2;
+function offhandOK(a) { const it = a && a.item && S.inventory.find(x => x.id === a.item); return !!(it && twfWeapon(it)); }
+const offDrop = a => { if (twfStyle()) return 0; const ab = attackAb(a), m = ab && !a.noModDmg ? mod(ab) : 0; return m > 0 ? m : 0; };
 function attackAb(a) {
   const wb = wpnBind(a); if (wb && wb.wpn.ab === 'spell') return castInfo(wb.wpn.cls).ab;
   if (a.ab === 'spell') return castInfo(a.cls).ab;

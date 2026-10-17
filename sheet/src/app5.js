@@ -92,7 +92,7 @@ function rebuildAuto() {
   auto.push({ name: 'Unarmed Strike', ab: monk ? 'monk' : 'str', prof: true, magic: 0, dice: monk ? '' : '1', type: 'bludgeoning', notes: monk ? 'Martial Arts: bonus-action strike after attacking' : '', kind: 'melee', monk, auto: 'unarmed' });
   S.features.forEach(f => (fxOf(f).attacks || []).forEach(([n, d, t, ab, x]) => auto.push(Object.assign({ name: n, ab: ab || 'str', prof: true, magic: 0, dice: d, type: t, notes: f.dname || f.name, kind: 'melee', auto: 'feature' }, x || {}, x && x.hbDice ? { dice: fxRollExpr(d), notes: [f.dname || f.name, x.notes].filter(Boolean).join(' · ') } : {}))));
   if (ri && ri.natural) ri.natural.forEach(([n, d, t]) => auto.push({ name: n, ab: 'str', prof: true, magic: 0, dice: d, type: t, notes: 'Natural weapon', kind: 'melee', monk, auto: 'natural' }));
-  S.attacks = auto.map(a => { const prev = S.attacks.find(x => x.auto && x.name === a.name); return prev ? Object.assign(prev, { monk: a.monk, ab: prev.ab === 'str' && a.ab === 'monk' ? 'monk' : prev.ab, dice: a.monk && prev.dice === '1' ? '' : a.hbDice ? a.dice : prev.dice }, a.hbDice ? { type: a.type, notes: a.notes, noModDmg: a.noModDmg, kind: a.kind, ab: a.ab } : {}) : a; }).reverse().concat(keep.slice().reverse()).reverse();
+  S.attacks = auto.map(a => { const prev = S.attacks.find(x => x.auto && x.name === a.name); return prev ? Object.assign(prev, { bonus: a.bonus, after: a.after, monk: a.monk, ab: prev.ab === 'str' && a.ab === 'monk' ? 'monk' : prev.ab, dice: a.monk && prev.dice === '1' ? '' : a.hbDice ? a.dice : prev.dice }, a.hbDice ? { type: a.type, notes: a.notes, noModDmg: a.noModDmg, kind: a.kind, ab: a.ab } : {}) : a; }).reverse().concat(keep.slice().reverse()).reverse();
 }
 // Spells stored in an item (a Ring of Spell Storing): one use each, cast at the level it was stored at, and gone
 // until someone casts a spell into the item again (it doesn't come back on a rest).
@@ -1174,7 +1174,9 @@ window.sheetSummary = () => ({ name: S.name || '', player: S.player || '', race:
 if (S.created) applySources(S.sources);
 // Spells from a Ring of Spell Storing made before stored spells existed: set them up as stored now.
 const staleStore = () => (S.spells || []).some(sp => { const it = sp.item && (S.inventory || []).find(x => x.id === sp.item); return it && itemStores(it) && !sp.usesOnly; });
-if (S.created && (FIXED || staleStore())) { const at = S.savedAt; rebuildAuto(); writeLocal(); S.savedAt = at; } // one-off fixes don't count as a newer edit (a newer synced copy still wins)
+// The second Psychic Blade became a proper bonus-action attack: sheets made before that pick it up now.
+const staleBonusAtk = () => (S.attacks || []).some(a => a.auto === 'feature' && /^Psychic Blade \(bonus/i.test(a.name) && !a.bonus);
+if (S.created && (FIXED || staleStore() || staleBonusAtk())) { const at = S.savedAt; rebuildAuto(); writeLocal(); S.savedAt = at; } // one-off fixes don't count as a newer edit (a newer synced copy still wins)
 loadHist(FROM_LOCAL);
 applyLayout(); applyTheme();
 if (S.created) { render(); setTimeout(afterUpdate, 50); }

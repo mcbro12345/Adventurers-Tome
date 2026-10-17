@@ -261,7 +261,7 @@
     'Sudden Strike': { col: 'bonus' },
     'Elegant Maneuver': { col: 'bonus' },
     'Panache': { col: 'action' },
-    'soulknife:Psychic Blades': { attacks: [['Psychic Blade', '1d6', 'psychic', 'fin', { notes: 'Finesse, thrown 60 ft; vanishes after the attack' }], ['Psychic Blade (bonus)', '1d4', 'psychic', 'fin', { notes: 'Bonus action after attacking with a psychic blade' }]] },
+    'soulknife:Psychic Blades': { attacks: [['Psychic Blade', '1d6', 'psychic', 'fin', { notes: 'Finesse, thrown 60 ft; vanishes after the attack' }], ['Psychic Blade (bonus)', '1d4', 'psychic', 'fin', { bonus: true, after: 'Psychic Blade', notes: 'Bonus action after attacking with a psychic blade' }]] },
     'soulknife:Psionic Power': { resource: true, acts: [
       { name: 'Psi-Bolstered Knack', cost: true, roll: '1psi', rollNote: 'added to a failed skill or tool check' },
       { name: 'Psychic Whispers', col: 'action', cost: true, roll: '1psi', rollNote: 'hours of telepathy' }] },
