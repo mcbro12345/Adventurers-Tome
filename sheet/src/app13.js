@@ -486,7 +486,7 @@ function ptyDesc(m) { const d = m.data || {}, why = d.why && d.why !== m.fromNam
     case 'heal': return (d.amt === 'max' ? 'Heal you to full HP' : `Heal you ${N(d.amt)} HP`) + why;
     case 'temp': return `Give you ${N(d.amt)} temporary HP` + why;
     case 'damage': return `Deal you ${N(d.amt)}${d.type ? ' ' + d.type : ''} damage` + why;
-    case 'hit': { const bits = [d.dmg ? N(d.dmg) + (d.type ? ' ' + d.type : '') + ' damage' : '', [].concat(d.cond || []).join(', '), d.save ? `${d.save} save, DC ${N(d.dc)}` : d.hit != null ? 'attack roll ' + N(d.hit) : ''].filter(Boolean); return `Hit you with ${d.spell || d.why || 'an attack'}${bits.length ? ' (' + bits.join(', ') + ')' : ''}`; }
+    case 'hit': { const bits = [d.dmg ? N(d.dmg) + (d.type ? ' ' + d.type : '') + ' damage' : '', [].concat(d.cond || []).join(', '), d.save ? `${d.save} save, DC ${N(d.dc)}` : d.hit != null ? 'attack roll ' + N(d.hit) : ''].filter(Boolean); if (!d.spell) return `Deal you ${d.dmg ? N(d.dmg) + (d.type ? ' ' + d.type : '') + ' damage' : 'damage'}${bits.filter(x => !/damage$/.test(x)).length ? ' (' + bits.filter(x => !/damage$/.test(x)).join(', ') + ')' : ''}${why}`; return `Hit you with ${d.spell}${bits.length ? ' (' + bits.join(', ') + ')' : ''}`; }
     case 'effect': { const fx = d.fx || {}; const t = typeof fxTip === 'function' ? fxTip(fx) : ''; return `Give you ${fx.name || 'an effect'}${t || fx.rounds ? ' (' + [t, fx.rounds ? 'for ' + fmtRounds(fx.rounds) : ''].filter(Boolean).join(', ') + ')' : ''}`; }
     case 'cure': return 'End ' + [].concat(d.conds || [], d.fx || [], d.exh ? [(N(d.exh) > 0 ? 'add' : 'remove') + ' a level of exhaustion'] : [], d.curse ? ['curses'] : []).join(', ') + why;
     case 'cond': return `Give you the ${d.cond} condition${N(d.rounds) ? ' for ' + N(d.rounds) + ' rounds' : ''}` + why;
@@ -517,7 +517,7 @@ function ptyAnswer(ref, ok) {
   const all = S.ptyAsk || [], pick = all.filter(a => a.ref === ref); if (!pick.length) return ptyAskShow();
   S.ptyAsk = all.filter(a => !pick.includes(a));
   pick.forEach(a => { const m = a.m, text = ptyDesc(m);
-    if (ok) { try { const b = PTYX().snap(S); if (ptyApply(m)) ptyGot(m, b); } catch (e) { console.warn('party message', e); } }
+    if (ok) { try { m.agreed = true; const b = PTYX().snap(S); if (ptyApply(m)) ptyGot(m, b); } catch (e) { console.warn('party message', e); } }
     else ptyLog('in', m.fromName || '', 'Said no: ' + text);
     if (m.from && PTYX()) PTYX().send(m.from, 'reply', { ok, text, n: S.name || '' }).catch(() => {}); });
   if (!pendingLabel) pendingLabel = ok ? 'Accepted a party change' : 'Turned down a party change';
@@ -633,7 +633,8 @@ function ptyHitPrompt(m) {
   else if (ab && AB.includes(ab)) { head = `DC ${N(d.dc)} ${ab.toUpperCase()} save${d.half ? ' (half on a success)' : ''}`;
     acts = [{ label: `Roll ${ab.toUpperCase()} save`, fn: () => { const r = d20(`${why}: DC ${N(d.dc)} ${ab.toUpperCase()} save`, saveVal(ab), 'save', ab); if (!r || r.skipped) { setTimeout(() => ptyHitPrompt(m), 50); return; } land(true, r.total >= N(d.dc)); } },
       { label: 'I failed', fn: () => land(true, false) }, { label: 'I saved', fn: () => land(true, true) }]; }
-  else { head = 'No save'; acts = [{ label: 'Take it', fn: () => land(true, false) }, { label: 'Ignore', fn: () => land(false, false) }]; }
+  else { if (m.agreed) return land(true, false); // you already said yes to it
+    head = 'No save'; acts = [{ label: 'Take it', fn: () => land(true, false) }, { label: 'Ignore', fn: () => land(false, false) }]; }
   toast(`<div><b>${esc(why)}</b><div class="det">${esc(head)}</div>${desc ? `<div class="det">${desc}</div>` : ''}</div>`, 'alert', 120000, acts);
 }
 // Warding Bond: the damage you take is also taken by the caster.

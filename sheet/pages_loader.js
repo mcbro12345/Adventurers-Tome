@@ -2162,7 +2162,7 @@ function partyModule(H) {
   // A character's card, laid out like the cards in a sheet's Party tab: who, HP (with quick damage/heal for the DM),
   // AC/speed/level, what's on them, and its actions along the bottom.
   function memberCard(id) {
-    const c = cardFor(id), mine = c.owner === EMAIL, run = canRun(P), dmMe = P.dm === EMAIL, st = statusOf(c), open = mine || run, max = Number(c.maxhp) || 0, cur = Number(c.hp) || 0;
+    const c = cardFor(id), mine = c.owner === EMAIL, run = canRun(P), dmMe = !!actor(), st = statusOf(c), open = mine || run, max = Number(c.maxhp) || 0, cur = Number(c.hp) || 0;
     const on = [].concat(st ? [st[0]] : [], c.conds || [], Number(c.exh) ? ['Exhaustion ' + Number(c.exh)] : [], c.conc ? ['Concentrating: ' + c.conc] : [], c.fx || []);
     const menu = [dmMe ? ['send', 'Damage, heal or give…'] : null, open ? ['open', 'Open sheet'] : null, run || mine ? ['rm', mine && !run ? 'Leave the party' : 'Remove from the party'] : null].filter(Boolean);
     const pic = c.thumb ? `<img class="pm-pic" src="${esc(c.thumb)}" alt="">` : `<span class="pm-pic pm-nopic">${esc(initials(c.name || '?'))}</span>`;
@@ -2178,13 +2178,19 @@ function partyModule(H) {
       ${open || menu.length ? `<div class="pm-foot">${dmMe ? `<button class="btn gold sm" data-pm="send" data-id="${esc(id)}">Actions…</button>` : ''}${open ? `<a class="btn sm" href="${esc(hrefOf(id, c))}">Open sheet</a>` : ''}<span class="grow"></span>
         ${menu.length ? `<div class="hc-menu up"><button class="hc-dots" aria-label="More for ${esc(c.name || 'this character')}">⋯</button><div class="hc-list">${menu.map(([a, t]) => `<button data-pm="${a}" data-id="${esc(id)}"${a === 'rm' ? ' class="hc-del"' : ''}>${t}</button>`).join('')}</div></div>` : ''}</div>` : ''}</div>`;
   }
-  // The DM's quick damage / heal / temp HP on a card.
+  // Who can do things to characters from this page, and how it's sent: the DM (straight onto the sheet) or an admin;
+  // anyone else with a character in the party asks — it pops up on that player's sheet for them to say yes or no.
+  const actor = () => { if (!P) return null; if (P.dm === EMAIL) return { from: '', name: H.myName() + ' (DM)', why: 'The DM', dm: true };
+    const mine = (P.chars || []).find(id => (CARDS[id] || {}).owner === EMAIL);
+    if (mine) return { from: mine, name: H.myName(), why: H.myName() }; if (IS_ADMIN) return { from: '', name: H.myName(), why: H.myName() }; return null; };
+  const sentMsg = (a, msg) => a && a.dm ? msg + '.' : msg + ' — they’ll be asked to accept it.';
+  // Quick damage / heal / temp HP on a card.
   async function quickHP(b) {
     const id = b.dataset.id, k = b.dataset.q, inp = root.querySelector('#pmq-' + CSS.escape(id)), n = Math.max(0, Math.floor(Number(inp && inp.value) || 0));
     if (!n) { toast('Type an amount first.'); if (inp) inp.focus(); return; }
-    const by = P.dm === EMAIL ? H.myName() + ' (DM)' : H.myName(), nm = (CARDS[id] || {}).name || 'them';
-    const [kind, data, msg] = k === 'dmg' ? ['hit', { dmg: n, why: 'The DM' }, `${n} damage to ${nm}`] : k === 'heal' ? ['heal', { amt: n, why: 'The DM' }, `Healed ${nm} ${n} HP`] : ['temp', { amt: n, why: 'The DM' }, `Gave ${nm} ${n} temp HP`];
-    b.disabled = true; try { await ptySend(fs, EMAIL, PID, id, kind, data, '', by); if (inp) inp.value = ''; toast(msg + '.'); pgLog('party_send', { target: PID, tName: P.name, detail: kind + ' → ' + nm }); } catch (x) { fail(x, 'send it'); } finally { b.disabled = false; }
+    const a = actor(); if (!a) return; const nm = (CARDS[id] || {}).name || 'them';
+    const [kind, data, msg] = k === 'dmg' ? ['hit', { dmg: n, why: a.why }, `${n} damage to ${nm}`] : k === 'heal' ? ['heal', { amt: n, why: a.why }, `Healed ${nm} ${n} HP`] : ['temp', { amt: n, why: a.why }, `Gave ${nm} ${n} temp HP`];
+    b.disabled = true; try { await ptySend(fs, EMAIL, PID, id, kind, data, a.from, a.name); if (inp) inp.value = ''; toast(sentMsg(a, msg)); pgLog('party_send', { target: PID, tName: P.name, detail: kind + ' → ' + nm }); } catch (x) { fail(x, 'send it'); } finally { b.disabled = false; }
   }
   function paint() {
     if (!PLOADED || JOINING) return;
@@ -2203,8 +2209,8 @@ function partyModule(H) {
     const invited = run && (P.invited || []).length ? `<h4 class="pw-h4">Invited</h4><div class="pl-list">${P.invited.map(em => `<div class="pl-row pty-invrow"><span class="pty-invwho"><b>${esc(H.nameOf(em))}</b><small>${H.nameOf(em) !== em ? esc(em) + ' · ' : ''}hasn’t answered yet</small></span><button class="linkbtn" data-uninv="${esc(em)}">Cancel</button></div>`).join('')}</div>` : '';
     const body = `${adminNote}
       ${ids.length ? `<div class="pm-grid">${ids.map(memberCard).join('')}</div>` : `<p class="pw-empty">No characters yet.${P.dm === EMAIL ? ' Use <b>Add characters</b> to bring some in.' : ''}</p>`}${invited}`;
-    const foot = run ? `${P.dm === EMAIL ? '<button class="btn red" id="pt-del"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg><span class="pw-lg">Delete party…</span><span class="pw-sm">Delete</span></button>' : ''}<span class="grow"></span>${P.dm === EMAIL ? '<button class="btn" id="pt-add"><span class="pw-lg">Add characters</span><span class="pw-sm">Add</span></button>' : ''}${ids.length && P.dm === EMAIL ? '<button class="btn gold" id="pt-all"><span class="pw-lg">Party actions…</span><span class="pw-sm">Actions</span></button>' : ''}`
-      : mineIn.length ? '<button class="btn" id="pt-leave">Leave the party</button>' : inParty ? '<button class="btn" id="pt-off">Remove it from my list</button>' : '';
+    const foot = run ? `${P.dm === EMAIL ? '<button class="btn red" id="pt-del"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg><span class="pw-lg">Delete party…</span><span class="pw-sm">Delete</span></button>' : ''}<span class="grow"></span>${P.dm === EMAIL ? '<button class="btn" id="pt-add"><span class="pw-lg">Add characters</span><span class="pw-sm">Add</span></button>' : ''}${ids.length && actor() ? '<button class="btn gold" id="pt-all"><span class="pw-lg">Party actions…</span><span class="pw-sm">Actions</span></button>' : ''}`
+      : mineIn.length ? `<button class="btn" id="pt-leave">Leave the party</button><span class="grow"></span>${ids.length ? '<button class="btn gold" id="pt-all"><span class="pw-lg">Party actions…</span><span class="pw-sm">Actions</span></button>' : ''}` : inParty ? '<button class="btn" id="pt-off">Remove it from my list</button>' : '';
     const el = shell({ title, sub, body, foot, inBody: true });
     wirePage(el);
   }
@@ -2444,7 +2450,7 @@ function partyModule(H) {
     };
     const goBtn = () => { const g = modal.querySelector('#sd-go'); if (g && !g.dataset.busy) { g.textContent = goTxt(); g.disabled = !sel.size; } };
     const go = () => { const ids = all.filter(i => sel.has(i)); if (!ids.length) return toast('Choose who it’s for.');
-      const n = Math.max(0, Math.floor(Number(F.n) || 0)), why = String(F.why || '').trim(), by = why || 'The DM';
+      const n = Math.max(0, Math.floor(Number(F.n) || 0)), why = String(F.why || '').trim(), by = why || (actor() || {}).why || 'The DM';
       if (kind === 'dmg') { if (!n) return toast('Type how much damage.'); if (F.save && !Number(F.dc)) return toast('Type the DC.'); return send(ids, ['hit', { dmg: n, type: F.type, why: by, save: F.save, dc: F.save ? Number(F.dc) : 0, half: !!F.half }]); }
       if (kind === 'heal') return F.n === 'max' ? send(ids, ['heal', { amt: 'max', why: by }]) : n ? send(ids, ['heal', { amt: n, why: by }]) : toast('Type how much to heal, or choose To full HP.');
       if (kind === 'temp') return n ? send(ids, ['temp', { amt: n, why: by }]) : toast('Type how many temporary HP.');
@@ -2458,9 +2464,9 @@ function partyModule(H) {
       const b = modal.querySelector('#sd-go'); if (b) { b.disabled = true; b.dataset.busy = '1'; b.textContent = 'Sending…'; } let ok = 0;
       for (let j = 0; j < ids.length; j++) { let d = data;
         if (split) { d = {}; Object.keys(data).forEach(c => { const each = Math.floor(data[c] / ids.length), rest = data[c] - each * ids.length, x = each + (j === 0 ? rest : 0); if (x) d[c] = x; }); if (!Object.keys(d).length) continue; }
-        try { await ptySend(fs, EMAIL, PID, ids[j], k, d, '', (P.dm === EMAIL ? H.myName() + ' (DM)' : H.myName())); ok++; } catch (x) { console.warn(x); } }
+        const a = actor(); if (!a) break; try { await ptySend(fs, EMAIL, PID, ids[j], k, d, a.from, a.name); ok++; } catch (x) { console.warn(x); } }
       if (b) { delete b.dataset.busy; goBtn(); }
-      if (ok) { toast(`Sent to ${ok === 1 ? nm(ids[0]) : plural(ok, 'character')}.`); pgLog('party_send', { target: PID, tName: P.name, detail: k + ' → ' + whoTxt() }); } else toast('Couldn’t send it — check your connection.');
+      if (ok) { toast(sentMsg(actor(), `Sent to ${ok === 1 ? nm(ids[0]) : plural(ok, 'character')}`)); pgLog('party_send', { target: PID, tName: P.name, detail: k + ' → ' + whoTxt() }); } else toast('Couldn’t send it — check your connection.');
     };
     paintD();
   }
