@@ -28,6 +28,7 @@ function blankState() {
   return {
     id: '', dataRev: '', created: false, sources: null, savedAt: 0, portrait: '', theme: { accent: '' },
     name: '', player: '', alignment: '', xp: '', faith: '',
+    customItems: [],
     race: { key: '', sub: '', choices: {} }, raceName: '', background: '', backgroundName: '',
     classes: [], abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     saves: { str: false, dex: false, con: false, int: false, wis: false, cha: false },

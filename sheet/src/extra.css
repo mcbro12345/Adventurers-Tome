@@ -2778,3 +2778,7 @@ html .bonusatk table.mini td .bwait { display: block; font-size: .7rem !importan
 #grantm .miseg { display: flex; flex-wrap: wrap; gap: 0; margin: 0 0 12px; border: 1px solid var(--line2); border-radius: 10px; overflow: hidden; width: fit-content; max-width: 100%; }
 #grantm .miseg button { border: 0; background: transparent; color: var(--soft); padding: 7px 12px; font-weight: 700; font-size: .86rem; cursor: pointer; }
 #grantm .miseg button.on { background: var(--gold); color: var(--gold-ink, #1b1406); }
+.crrow .crbtns { display: flex; gap: 6px; flex: none; }
+.crempty { padding: 14px 10px; margin: 0; }
+.hbsave { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 2px 0 10px; border-bottom: 1px solid var(--line2); margin-bottom: 10px; }
+.hbsave .hint { font-size: .78rem; flex: 1; min-width: 180px; }

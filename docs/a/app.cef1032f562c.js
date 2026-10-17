@@ -28,6 +28,7 @@ function blankState() {
   return {
     id: '', dataRev: '', created: false, sources: null, savedAt: 0, portrait: '', theme: { accent: '' },
     name: '', player: '', alignment: '', xp: '', faith: '',
+    customItems: [],
     race: { key: '', sub: '', choices: {} }, raceName: '', background: '', backgroundName: '',
     classes: [], abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     saves: { str: false, dex: false, con: false, int: false, wis: false, cha: false },
@@ -104,6 +105,7 @@ function migrate(s) {
   const b = blankState();
   for (const k in b) if (s[k] === undefined) s[k] = b[k];
   if (!Array.isArray(s.sources)) s.sources = defaultSources();
+  if (Array.isArray(s.inventory) && typeof hbKnownItem === 'function') try { s.inventory.forEach(hbKnownItem); } catch (e) {}
   // Rings / Armor of Resistance that had their type picked in a dropdown become the named item ("Ring of Resistance (Fire)").
   (s.inventory || []).forEach(it => { if (it && it.resPick && /\b(ring|armor) of resistance\b/i.test(it.name || '') && !/\((acid|cold|fire|force|lightning|necrotic|poison|psychic|radiant|thunder)\)\s*$/i.test(it.name || '')) it.name = it.name + ' (' + it.resPick[0].toUpperCase() + it.resPick.slice(1) + ')'; });
   s.slotsUsed = (s.slotsUsed || []).concat(Array(9).fill(0)).slice(0, 9);
@@ -564,6 +566,7 @@ function rollMode(kind, ab) {
   if ((kind === 'check' || kind === 'save') && ['str', 'dex'].includes(ab) && armorNonProf().length) dis.push('armor not proficient');
   if (kind === 'check' && ROLL_CTX === 'init') { fxPassives().forEach(p => { if (p.initAdv) adv.push(p.src); }); activeItems().forEach(it => { if ((it.mods || {}).initAdv) adv.push(it.name); }); }
   if (kind === 'check' && String(ROLL_CTX).startsWith('skill:')) fxPassives().forEach(p => { if ([].concat(p.skillAdv || []).includes(ROLL_CTX.slice(6))) adv.push(p.src); });
+  if (kind === 'check' && String(ROLL_CTX).startsWith('skill:')) fxActive().forEach(e => { if (e.buff && !e.ally && [].concat(e.buff.skillAdv || []).includes(ROLL_CTX.slice(6))) adv.push(e.name); });
   if (kind === 'check' && ROLL_CTX !== 'init') fxPassives().forEach(p => { if ([].concat(p.checkAdv || []).includes(ab)) adv.push(p.src); });
   if (kind === 'save') fxPassives().forEach(p => { if ([].concat(p.saveAdv || []).includes(ab)) adv.push(p.src); });
   if (kind === 'check' && ROLL_CTX === 'skill:Perception') activeItems().forEach(it => { if ((it.mods || {}).percAdv) adv.push(it.name); });
@@ -953,6 +956,15 @@ const hbCSV = v => String(v || '').split(/\s*[,;\n]\s*/).map(x => x.trim()).filt
 const hbNum = v => (/^\s*walk\s*$/i.test(String(v)) ? 'walk' : /^-?\d+$/.test(String(v).trim()) ? Number(v) : String(v).trim());
 // An item's effects work while it's equipped (or merely carried, if ticked) and attuned when it needs attunement.
 const hbItemOn = it => !!it && (it.equipped || !!it.carried) && (!it.attune || !!it.attuned);
+// The table's own homebrew items: these get their effect set up as soon as they show up in an inventory
+// (only when the item has no homebrew settings of its own, so a player's edits always win).
+function hbKnownList() { return [
+  [/\bspider legs?\b/i, { hb: { consume: true, effName: 'Spider Legs', effSkillAdv: 'Perception', effNote: 'Advantage on Perception checks until your next long rest', text: 'Advantage on Perception checks until your next long rest.' }, carried: true }]
+]; }
+function hbKnownItem(it) {
+  if (!it || it.hb || it.hbKnown) return; const k = hbKnownList().find(([re]) => re.test(it.name || '')); if (!k) return;
+  it.hb = JSON.parse(JSON.stringify(k[1].hb)); if (k[1].carried) it.carried = true; it.hbKnown = 1;
+}
 function hbFx(hb) {
   if (!hb || typeof hb !== 'object') return null;
   const o = {}, p = {}, has = k => hb[k] != null && String(hb[k]).trim() !== '' && hb[k] !== false;
@@ -985,6 +997,7 @@ function hbFx(hb) {
     if (has('effSpeed')) b.speed = hbNum(hb.effSpeed);
     if (has('effAc')) b.ac = hbNum(hb.effAc);
     if (has('effNote')) b.note = String(hb.effNote);
+    if (has('effSkillAdv')) b.skillAdv = hbCSV(hb.effSkillAdv).map(x => { const k = DND.skills.find(z => z[0].toLowerCase() === x.toLowerCase()); return k ? k[0] : x; });
     u.effect = { name: String(hb.effName).trim(), rounds: has('effRounds') && N(hb.effRounds) ? N(hb.effRounds) : null, conc: !!hb.effConc, buff: b };
   }
   if (has('summon')) u.companion = String(hb.summon);
@@ -1001,6 +1014,42 @@ function hbFx(hb) {
 const hbUsable = fx => !!(fx && (fx.roll || fx.use || fx.dash || fx.text || fx.dc || fx.cost || fx.refuel));
 const hbItemReady = it => hbItemOn(it) && !(it.charges && N(it.charges.max) > 0 && N(it.charges.used) >= N(it.charges.max)) && !(it.hb && it.hb.consume && N(it.qty) <= 0);
 // Use an item: spends a charge if it has them, then applies its homebrew effect.
+// ---------- Thrown items ----------
+// Flasks and vials you throw as an action (an improvised ranged attack: no proficiency unless you're a Tavern Brawler),
+// and magic items you hurl for an area effect with a saving throw.
+const THROWN = [
+  [/^acid\b/i, { dice: '2d6', type: 'acid', range: '20 ft', note: 'Throw up to 20 ft or splash a creature within 5 ft; the vial shatters.' }],
+  [/^alchemist['’]?s fire/i, { dice: '1d4', type: 'fire', range: '20 ft', note: 'On a hit the target keeps burning: 1d4 fire at the start of each of its turns until a creature uses an action to put it out (DC 10 DEX check).' }],
+  [/^holy water/i, { dice: '2d6', type: 'radiant', range: '20 ft', note: 'Only hurts fiends and undead.' }],
+  [/^oil\b/i, { dice: '', type: '', range: '20 ft', note: 'On a hit the target is doused: if it takes fire damage within 1 minute, +5 fire. Or pour it on the ground (5 ft square) and light it: it burns for 2 rounds, 5 fire to anything that enters or ends its turn there.' }],
+  [/^bead of force/i, { save: 'DEX', dc: 15, dice: '5d4', type: 'force', range: '60 ft', note: '10 ft radius. A creature that fails is also trapped in a sphere of force for 1 minute.' }],
+  [/^necklace of fireballs/i, { save: 'DEX', dc: 15, dice: '8d6', type: 'fire', range: '60 ft', bead: true, note: 'Detach a bead: 20 ft radius fireball, half damage on a success. Throwing several beads at once adds 1d6 per extra bead.' }]
+];
+const throwOf = it => { if (!it || it.weapon) return null; const nm = String((it.magic && it.magic.name) || it.name || ''); const t = THROWN.find(([re]) => re.test(nm) || re.test(String(it.name || ''))); return t ? t[1] : null; };
+function throwItem(i) {
+  const it = S.inventory[i], t = throwOf(it); if (!t) return;
+  if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions.`, 'fumble'); return; }
+  if (S.inCombat && S.turn.used.action) { toast('Your action is already used this turn.', 'fumble'); return; }
+  if (t.bead && it.charges && N(it.charges.used) >= N(it.charges.max)) { toast(`${esc(it.name)} has no beads left.`, 'fumble'); return; }
+  pendingLabel = 'Throw ' + it.name;
+  if (S.inCombat) S.turn.used.action = true;
+  const nm = it.name.replace(/\s*\((flask|vial)\)\s*$/i, '');
+  // What it costs: one flask from the stack, or one bead from the necklace.
+  let left = '';
+  if (t.bead) { if (it.charges) { it.charges.used = N(it.charges.used) + 1; left = `${N(it.charges.max) - it.charges.used} beads left`; } else left = 'Take a bead off the necklace'; }
+  else { it.qty = Math.max(0, N(it.qty || 1) - 1); left = it.qty ? `${it.qty} left` : 'That was your last one'; if (!it.qty) S.inventory.splice(i, 1); }
+  if (t.save) {
+    const r = rollExpr(t.dice, { label: nm + ' damage' });
+    update(); render();
+    toast(`<b class="total">${r.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${esc(t.type)} damage</div><div class="det"><b>DC ${t.dc} ${t.save} save</b> · ${esc(t.range)}</div><div class="det">${esc(t.note)}</div><div class="det dd">${esc(r.detail)}</div><div class="det">${esc(left)}</div></div>`, '', 9000, { label: 'Undo', fn: () => undo(1) });
+    return;
+  }
+  const brawler = (S.feats || []).some(f => /tavern brawler/i.test(f));
+  const a = { name: nm, ab: 'dex', prof: brawler, magic: 0, dice: t.dice || '0', type: t.type, kind: 'ranged', effect: true, noModDmg: true, notes: '' };
+  if (!t.dice) { update(); render(); d20(nm + ' (thrown)', atkHit(a), 'attack', 'dex', atkHitRows(a)); toast(`<div><b>${esc(nm)}</b><div class="det">${esc(t.note)}</div><div class="det">${esc(left)}</div></div>`, '', 9000); return; }
+  attackRoll(a, true, { label: nm + ' (thrown)', notes: [esc(t.range) + ' · improvised' + (brawler ? ' (Tavern Brawler: proficient)' : ', no proficiency'), esc(t.note), esc(left)] });
+  render();
+}
 function useItem(i, col) {
   const it = S.inventory[i]; if (!it) return;
   const fx = hbFx(it.hb) || {};
@@ -2087,7 +2136,7 @@ function hbSummary(hb, it) {
   if (p.resist) b.push('Resist ' + p.resist.join(', ')); if (p.immune) b.push('Immune ' + p.immune.join(', ')); if (p.condImmune) b.push("Can't be " + p.condImmune.join(', ').toLowerCase());
   if (p.advNote) b.push('Advantage notes'); if (p.sense) b.push(p.sense); ['fly', 'swim', 'climb'].forEach(k => { if (p[k]) b.push(k + ' ' + (p[k] === 'walk' ? '= walk' : p[k] + ' ft')); });
   if (p.ac) b.push('AC ' + sgn(N(p.ac))); if (p.saveAll) b.push('Saves +' + p.saveAll); if (p.init) b.push('Init +' + p.init); if (p.speed) b.push('Speed +' + p.speed);
-  if (fx.roll) b.push('Rolls ' + fx.roll); if (fx.save) b.push(fx.save + ' save'); if (fx.cost) b.push('Costs ' + fxCostText(fx.cost)); if (u.effect) b.push('Starts ' + u.effect.name); if (u.temp) b.push('Temp HP'); if (u.heal) b.push('Heals'); if (fx.dash) b.push('Dash'); if (u.companion) b.push('Summons ' + u.companion);
+  if (fx.roll) b.push('Rolls ' + fx.roll); if (fx.save) b.push(fx.save + ' save'); if (fx.cost) b.push('Costs ' + fxCostText(fx.cost)); if (u.effect) b.push('Starts ' + u.effect.name + (u.effect.buff && (u.effect.buff.skillAdv || []).length ? ' (advantage on ' + u.effect.buff.skillAdv.join(', ') + ')' : '')); if (u.temp) b.push('Temp HP'); if (u.heal) b.push('Heals'); if (fx.dash) b.push('Dash'); if (u.companion) b.push('Summons ' + u.companion);
   if (fx.attacks) b.push('Attack: ' + fx.attacks[0][0]);
   if (fx.refuel) b.push('Recovers a slot (≤ ' + ORD[fx.refuel - 1] + ')');
   if (hb && hb.othersDis) b.push('Curse: other weapons at disadvantage'); if (hb && hb.hurtSave) b.push(`DC ${hb.hurtDC || 10} ${String(hb.hurtSave).toUpperCase()} save when hurt`);
@@ -2120,13 +2169,15 @@ function hbBox(path, hb, kind, key, it, ii) {
     ${fld('Roll', I('roll', { ph: '2d10+wis' }))}${fld('Roll note', I('rollNote', { ph: 'fire damage' }))}<label class="checkline">${chk(P + 'healRoll')} Roll heals ("Heal me")</label><label class="checkline">${chk(P + 'selfDmg')} Roll damages me</label>
     ${fld('Target saves', sel(P + 'saveAb', abilOpts))}${fld('Save DC', I('dc', { ph: 'spell or 15' }))}
     ${kind === 'item' ? fld('Recovers a spell slot up to level', I('refuel', { num: 1, ph: '3' })) : ''}${fld('Temp HP', I('temp', { ph: 'cha+level' }))}${fld('Heal yourself', I('heal', { ph: '1d8+wis' }))}<label class="checkline">${chk(P + 'dash')} Dash (adds your speed)</label>${kind === 'item' ? `<label class="checkline">${chk(P + 'consume')} Using it uses one up</label>` : ''}
-    ${fld('Starts effect', I('effName', { ph: 'effect name' }))}${fld('Lasts', sel(P + 'effRounds', durs))}${fld('Effect: fly', I('effFly', { ph: '30' }))}${fld('Effect: AC', I('effAc', { ph: '2' }))}${fld('Effect: speed', I('effSpeed', { ph: '10' }))}${fld('Effect note', I('effNote', { ph: 'shown on the effect' }))}<label class="checkline">${chk(P + 'effConc')} Concentration</label>
+    ${fld('Starts effect', I('effName', { ph: 'effect name' }))}${fld('Lasts', sel(P + 'effRounds', durs))}${fld('Effect: fly', I('effFly', { ph: '30' }))}${fld('Effect: AC', I('effAc', { ph: '2' }))}${fld('Effect: speed', I('effSpeed', { ph: '10' }))}${fld('Effect: advantage on', I('effSkillAdv', { ph: 'Perception, Stealth' }))}${fld('Effect note', I('effNote', { ph: 'shown on the effect' }))}<label class="checkline">${chk(P + 'effConc')} Concentration</label>
     ${comps.length ? fld('Summons', sel(P + 'summon', [['', '—']].concat(comps.map(c => [c, c])))) : ''}${fld('Only while effect', I('onlyEffect', { ph: 'effect name' }))}${fld('Text shown', I('text', { ph: 'reminder when used' }))}${fld('Remind me', sel(P + 'triggerOn', [['', '—'], ['longRest', 'After a long rest'], ['shortRest', 'After a short rest'], ['initiative', 'When I roll initiative'], ['zero', 'When I drop to 0 HP']]))}</div></div>`;
   const atk = `<div class="hbsec"><div class="hbt">Adds an attack</div><div class="hbgrid">${fld('Attack name', I('atkName', { ph: 'Flame Seed' }))}${fld('Damage', I('atkDice', { ph: '1d6+prof' }))}${fld('Type', I('atkType', { ph: 'fire' }))}
     ${fld('To hit with', sel(P + 'atkAb', [['spell', 'Spell attack'], ['str', 'STR'], ['dex', 'DEX'], ['fin', 'STR or DEX'], ['con', 'CON'], ['int', 'INT'], ['wis', 'WIS'], ['cha', 'CHA']]))}${fld('Kind', sel(P + 'atkKind', [['melee', 'Melee'], ['ranged', 'Ranged']]))}${fld('Range (ft)', I('atkRange', { ph: '60' }))}${fld('Attack note', I('atkNote', { ph: 'only while…' }))}<label class="checkline">${chk(P + 'atkAddMod')} Add ability modifier to damage</label></div></div>`;
   const spells = kind === 'item' ? `<div class="hbsec"><div class="hbt">Spells it lets you cast</div><div class="fc-spells">${(it.spells || []).map((n, j) => `<span class="pchip">${esc(n)}${itemStores(it) && N((SPI(n) || {}).level) > 0 ? ` <select class="isplv" data-isplv="${ii}" data-n="${esc(n)}" aria-label="Level ${esc(n)} is stored at">${[1, 2, 3, 4, 5].filter(L => L >= N((SPI(n) || {}).level)).map(L => `<option value="${L}"${Math.max(N((it.spellLevels || {})[n]), N((SPI(n) || {}).level)) === L ? ' selected' : ''}>${ORD[L - 1]}</option>`).join('')}</select>` : ''}<button data-act="ispdel" data-i="${ii}" data-j="${j}" aria-label="Remove ${esc(n)}">✕</button></span>`).join('') || '<span class="hint">None yet</span>'}
     <input class="f fspadd" list="allspells" data-isp="${ii}" placeholder="+ Add a spell…" aria-label="Add a spell this item casts"><label class="checkline"><input type="checkbox" data-istore="${ii}"${itemStores(it) ? ' checked' : ''}> Stored in it — each is gone once cast (like a Ring of Spell Storing)</label><label class="checkline">${chk(path + '.spellOnce')} Leveled spells once per long rest</label><label class="checkline">${chk(path + '.spellAtWill')} At will (no slot)</label>${fld('Cast with', sel(P + 'spellAb', [['', 'Your spellcasting'], ...AB.map(a => [a, ABN[a]])]))}</div></div>` : '';
-  return `<div class="hbbox open">${head}<div class="hbbody">${always}${spells}${use}${atk}<p class="hint">Numbers accept formulas: <code>prof</code>, <code>wis</code>, <code>level</code>, <code>druid</code>, <code>1d6+prof</code>. Separate several entries with commas.</p></div></div>`;
+  const saved = kind === 'item' && it && (S.customItems || []).some(x => x.name.toLowerCase() === String(it.name || '').toLowerCase());
+  const save = kind === 'item' && it ? `<div class="hbsave"><button class="btn sm gold" data-act="hbsaveitem" data-i="${ii}">${saved ? 'Update saved item' : 'Save to custom items'}</button><span class="hint">${saved ? 'Saved — it’s in the Custom tab of Add an item. Saving again replaces that copy.' : 'Keeps a copy (with all this automation) in the Custom tab of Add an item, for this character.'}</span></div>` : '';
+  return `<div class="hbbox open">${head}<div class="hbbody">${save}${always}${spells}${use}${atk}<p class="hint">Numbers accept formulas: <code>prof</code>, <code>wis</code>, <code>level</code>, <code>druid</code>, <code>1d6+prof</code>. Separate several entries with commas.</p></div></div>`;
 }
 function spellDatalist() { if (!$('#allspells')) { const dl = document.createElement('datalist'); dl.id = 'allspells'; dl.innerHTML = DND.spells.map(x => `<option value="${esc(x.name)}">`).join(''); document.body.appendChild(dl); } }
 function renderFeatures() {
@@ -2217,6 +2268,7 @@ function renderInventory() {
   const purse = COIN.filter(([c]) => c !== 'ep' || ST('electrum')).map(([c, t]) => `
     <div class="cn ${c}" title="${t}"><i class="cdot"></i><span class="cl">${c.toUpperCase()}</span>
       <button data-act="coin" data-c="${c}" data-d="-1" aria-label="Subtract 1 ${t}">−</button>${inp('currency.' + c, { num: 1, cls: 'cin', label: t + ' pieces' })}<button data-act="coin" data-c="${c}" data-d="1" aria-label="Add 1 ${t}">+</button></div>`).join('');
+  S.inventory.forEach(hbKnownItem);
   const eq = S.inventory.map((it, i) => [it, i]).filter(([it]) => it.equipped);
   const pack = S.inventory.map((it, i) => [it, i]).filter(([it]) => !it.equipped && !bagOf(it));
   const bags = S.bags || [];
@@ -2235,7 +2287,7 @@ function renderInventory() {
         <span class="grow"></span>
         <button class="icon-btn ibtn${open ? ' on' : ''}" data-act="toggle" data-key="item:${it.id}" title="${open ? 'Close editing' : 'Edit details and notes'}" aria-label="Edit ${esc(it.name)}">${open ? '▴' : '✎'}</button>
         ${del('inventory', i)}</div>
-      <div class="imeta">${resPickItem(it) && !it.resPick ? `<label class="respick unset"><span>Which ring is it?</span><select class="f" data-restype="${i}" aria-label="Damage type this item resists"><option value="">Choose its damage type…</option>${RES_TYPES.map(t => `<option value="${t}">${t[0].toUpperCase() + t.slice(1)}</option>`).join('')}</select></label>` : ''}${String(it.notes || '').trim() && !open ? `<div class="inote-m mnote">${esc(it.notes)}</div>` : ''}${badges}${ch}${isDeckItem(it) ? `<button class="btn sm gold" data-act="deck" data-i="${i}">Draw a card</button>` : ''}${it.equipped && it.weapon && it.weapon.kind === 'melee' && !(it.weapon.props || []).includes('two-handed') && ((it.weapon.props || []).includes('light') || dualWielder()) ? `<label class="offchk" title="Dual wield: after attacking with a light melee weapon, attack with this one as a bonus action (Combat tab → Bonus Action)"><input type="checkbox" data-offhand="${i}"${it.offhand ? ' checked' : ''}> Off-hand (dual wield)</label>` : ''}${itemStores(it) && !it.infusion ? `<button class="btn sm gold" data-act="ringstore" data-i="${i}" title="${esc((it.spells || []).length ? 'Holds: ' + it.spells.join(', ') : 'Empty')}">Store a spell <small>${ringUsed(it)}/${ringCap(it)}</small></button>` : ''}${it.heal ? `<button class="btn sm" data-act="drink" data-i="${i}">Drink (${esc(it.heal)})</button>` : ''}${it.hb && hbUsable(hbFx(it.hb)) ? `<button class="btn sm gold" data-act="useitem" data-i="${i}" ${hbItemReady(it) ? '' : 'disabled'} title="${hbItemOn(it) ? '' : it.attune && !it.attuned ? 'Attune first' : 'Equip it first'}">Use</button>` : ''}${hbChips(it)}
+      <div class="imeta">${resPickItem(it) && !it.resPick ? `<label class="respick unset"><span>Which ring is it?</span><select class="f" data-restype="${i}" aria-label="Damage type this item resists"><option value="">Choose its damage type…</option>${RES_TYPES.map(t => `<option value="${t}">${t[0].toUpperCase() + t.slice(1)}</option>`).join('')}</select></label>` : ''}${String(it.notes || '').trim() && !open ? `<div class="inote-m mnote">${esc(it.notes)}</div>` : ''}${badges}${ch}${isDeckItem(it) ? `<button class="btn sm gold" data-act="deck" data-i="${i}">Draw a card</button>` : ''}${throwOf(it) ? `<button class="btn sm gold" data-act="throwit" data-i="${i}" title="Throw it (uses your action)">Throw</button>` : ''}${packOf(it.name) ? `<button class="btn sm gold" data-act="unpack" data-i="${i}" title="Replace the pack with everything it contains">Unpack</button>` : ''}${it.equipped && it.weapon && it.weapon.kind === 'melee' && !(it.weapon.props || []).includes('two-handed') && ((it.weapon.props || []).includes('light') || dualWielder()) ? `<label class="offchk" title="Dual wield: after attacking with a light melee weapon, attack with this one as a bonus action (Combat tab → Bonus Action)"><input type="checkbox" data-offhand="${i}"${it.offhand ? ' checked' : ''}> Off-hand (dual wield)</label>` : ''}${itemStores(it) && !it.infusion ? `<button class="btn sm gold" data-act="ringstore" data-i="${i}" title="${esc((it.spells || []).length ? 'Holds: ' + it.spells.join(', ') : 'Empty')}">Store a spell <small>${ringUsed(it)}/${ringCap(it)}</small></button>` : ''}${it.heal ? `<button class="btn sm" data-act="drink" data-i="${i}">Drink (${esc(it.heal)})</button>` : ''}${it.hb && hbUsable(hbFx(it.hb)) ? `<button class="btn sm gold" data-act="useitem" data-i="${i}" ${hbItemReady(it) ? '' : 'disabled'} title="${hbItemOn(it) ? '' : it.attune && !it.attuned ? 'Attune first' : 'Equip it first'}">Use</button>` : ''}${hbChips(it)}
 </div>
       ${open ? `<div class="idetail"><div class="idet-top">${picThumb(`inventory.${i}.img`, it.name)}${fld('Notes', ta(`inventory.${i}.notes`, { rows: 2, cls: 'inotefull', label: 'Notes', ph: 'Add a note…' }))}</div>${it.summary ? `<p>${esc(it.summary)}</p>` : ''}${it.armor ? `<p class="hint">${esc(it.armor.type)} armor · AC ${it.armor.base}${it.armor.type === 'shield' ? '' : it.armor.dexCap === 0 ? '' : it.armor.dexCap ? ' + DEX (max ' + it.armor.dexCap + ')' : ' + DEX'}${it.armor.strReq ? ' · STR ' + it.armor.strReq : ''}${it.armor.stealthDis ? ' · Stealth disadvantage' : ''}</p>` : ''}${it.weapon ? `<p class="hint">${esc(it.weapon.cat)} ${esc(it.weapon.kind)} · ${esc(it.weapon.dice)} ${esc(it.weapon.type)}${it.weapon.props && it.weapon.props.length ? ' · ' + esc(it.weapon.props.join(', ')) : ''}${it.weapon.range ? ' · ' + esc(it.weapon.range) + ' ft' : ''}</p>` : ''}
         <div class="row">${fld('Weight (lb)', inp(`inventory.${i}.weight`, { num: 1 }))}${fld('Cost', inp(`inventory.${i}.cost`))}<label class="checkline">${chk(`inventory.${i}.attune`, 'Requires attunement')} Requires attunement</label></div>
@@ -2649,6 +2701,11 @@ function renderCombat() {
       const items = hbItemActs(key);
       if (items.length) body += cGroup(key, 'item', 'Items', '⚙', items.length, items.map(([it, i]) => { const ch = it.charges && N(it.charges.max) > 0 ? it.charges : null, fx = hbFx(it.hb), info = [dcVal(fx.dc) ? `DC ${dcVal(fx.dc)}${fx.save ? ' ' + fx.save : ''}` : '', fx.roll ? 'roll ' + fxRollExpr(fx.roll) : '', fx.dash ? 'Dash' : ''].filter(Boolean).join(' · ');
         return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(it.name)}</span>${String(it.notes || '').trim() || it.summary || it.hb ? `<button class="notetip" data-tip="${i}" aria-label="What ${esc(it.name)} does">ⓘ</button>` : ''}${ch ? `<span class="tag">${Math.max(0, N(ch.max) - N(ch.used))}/${N(ch.max)}</span>` : ''}<button class="btn sm" data-act="useitem" data-i="${i}" data-col="${key}" ${ch && N(ch.used) >= N(ch.max) ? 'disabled' : ''}>${fx.roll ? 'Use & roll' : 'Use'}</button></div>${info ? `<div class="opt-info">${esc(info)}</div>` : ''}${it.hb.text ? `<div class="opt-text">${esc(fxText(it.hb.text))}</div>` : ''}</div>`; }).join(''));
+      // Flasks and beads you can throw (holy water, acid, Bead of Force…): the action column.
+      if (key === 'action') { const th = S.inventory.map((it, i) => [it, i]).filter(([it]) => throwOf(it) && !(it.hb && hbUsable(hbFx(it.hb))) && N(it.qty || 1) > 0);
+        if (th.length) body += cGroup(key, 'throw', 'Throwables', '🧪', th.length, th.map(([it, i]) => { const t = throwOf(it), ch = t.bead && it.charges && N(it.charges.max) > 0 ? it.charges : null;
+          const info = t.save ? `${t.dice} ${t.type} · DC ${t.dc} ${t.save} save · ${t.range}` : `ranged attack · ${t.dice ? t.dice + ' ' + t.type : 'douses the target'} · ${t.range}`;
+          return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(it.name)}</span><span class="tag">${ch ? Math.max(0, N(ch.max) - N(ch.used)) + '/' + N(ch.max) : '×' + (N(it.qty) || 1)}</span><button class="btn sm" data-act="throwit" data-i="${i}" ${ch && N(ch.used) >= N(ch.max) ? 'disabled' : ''}>Throw</button></div><div class="opt-info">${esc(info)}</div><div class="opt-text">${esc(t.note)}</div></div>`; }).join('')); }
       // Standard options (Dash, Dodge…) live in their own group; ✎ there edits, adds, reorders or removes them.
       const stdChips = `<div class="chips">${list.map(o => `<button class="chip" data-act="markopt" data-col="${key}" data-name="${esc(o.name)}" data-text="${esc(o.text)}" title="${esc(o.text)}">${esc(o.name)}</button>`).join('')}</div>`;
       const stdEdit = `<div class="std-edit">${list.map((o, j) => optEdit(key, o, j)).join('')}<div class="row std-edit-btns"><button class="btn sm" data-act="add" data-list="combat.${key}">+ Add option</button><span class="grow"></span><button class="btn sm gold" data-act="toggle" data-key="econedit:${key}">Done</button></div></div>`;
@@ -3230,6 +3287,8 @@ function mainClick(e) {
       S.turn.used.bonus = true; S.turn.commanded = Object.assign({}, S.turn.commanded, { [c.id]: true }); pendingLabel = 'Command ' + c.name; update(); render('combat'); refresh();
       toast(`<b>${esc(c.name)}</b> is commanded — on its turn it takes the action you choose (attack with its Rend, Repair, Dash, Help…).`, '', 6000, { label: 'Undo', fn: () => undo(1) }); break; }
     case 'catalog': openCatalog(); break;
+    case 'hbsaveitem': saveCustomItem(i); break;
+    case 'catcdel': { const n = N(b.dataset.n), c = (S.customItems || [])[n]; if (!c) break; S.customItems.splice(n, 1); pendingLabel = 'Remove custom item: ' + c.name; save(); openCatalog(true); toast(`Removed ${esc(c.name)} from your custom items.`, '', 5000, { label: 'Undo', fn: () => { undo(1); openCatalog(true); } }); break; }
     case 'cattab': UI.catTab = b.dataset.t; saveUI(); openCatalog(true); pendingLabel = null; return;
     case 'catadd': catalogAdd(b.dataset.t, N(b.dataset.n)); break;
     case 'catbaseok': catalogAddBase(N(b.dataset.n)); break;
@@ -3286,6 +3345,8 @@ function mainClick(e) {
     case 'booksedit': UI.open.booksedit = !UI.open.booksedit; saveUI(); reopenSettings(); break;
     case 'addbag': openAddBag(); break;
     case 'deck': openDeck(i); break;
+    case 'unpack': unpackItem(i); break;
+    case 'throwit': throwItem(i); break;
     case 'decktype': S.deck.variant = b.dataset.v; DECK.last = null; save(); renderDeck(); break;
     case 'deckdeclare': { const n = Math.max(1, Math.min(22, N($('#deckn').value))); S.deck.left = n; pendingLabel = `Declare ${n} card${n > 1 ? 's' : ''}`; save(); deckDraw(); break; }
     case 'deckdraw': deckDraw(); break;
@@ -3398,7 +3459,7 @@ function bonusAttack(i, kind) {
 // From the Combat tab an attack uses up your attacks for the turn; from anywhere else it's just a roll.
 function attackRoll(i, free, opt) {
   opt = opt || {};
-  const a = S.attacks[i]; if (!a) return;
+  const a = i && typeof i === 'object' ? i : S.attacks[i]; if (!a) return; // an attack object works too (thrown flasks)
   if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; }
   if (!free && !canAttack()) { toast('No attacks left this turn.'); return; }
   pendingLabel = 'Attack with ' + a.name;
@@ -3738,8 +3799,8 @@ function markOpt(b) {
     const k = S.skills.findIndex(x => x.name === 'Athletics'); if (k >= 0) doRoll('skill:' + k);
     toast(`<div><b>${esc(nm)}</b> — uses attack ${S.turn.attacks} of ${per}.<div class="det">${/grapple/i.test(nm) ? 'The target contests with Athletics or Acrobatics. If you win it is Grappled (speed 0) until it escapes. It must be no more than one size larger than you.' : 'The target contests with Athletics or Acrobatics. If you win, knock it Prone or push it 5 ft away. It must be no more than one size larger than you.'}</div></div>`, '', 8000); return; }
   if (col !== 'move' && S.inCombat && S.turn.used[col]) { toast(`Your ${col === 'bonus' ? 'bonus action' : col} is already used this turn.`, 'fumble'); return; }
-  if (col === 'action' && /^use an object$/i.test(nm)) { const items = S.inventory.map((it, i) => [it, i]).filter(([it]) => it.heal || (it.hb && hbUsable(hbFx(it.hb)) && hbItemReady(it)));
-    if (items.length) { openModal(`<h3>Use an Object</h3><p class="hint" style="margin:0 0 8px">Uses your action. Pick the item — or just mark the action used for anything else (a lever, a door, a second item).</p><div class="castopts">${items.map(([it, i]) => `<button class="castopt" data-act="${it.heal ? 'drink' : 'useitem'}" data-i="${i}" data-col="action"><b>${esc(it.name)}</b><span>${it.heal ? 'Drink — heals ' + esc(it.heal) : esc((hbSummary(it.hb, it) || []).slice(0, 3).join(' · ') || 'Use it')}</span></button>`).join('')}</div><div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn" data-act="useobjplain">Something else</button></div>`); return; } }
+  if (col === 'action' && /^use an object$/i.test(nm)) { const items = S.inventory.map((it, i) => [it, i]).filter(([it]) => it.heal || throwOf(it) || (it.hb && hbUsable(hbFx(it.hb)) && hbItemReady(it)));
+    if (items.length) { openModal(`<h3>Use an Object</h3><p class="hint" style="margin:0 0 8px">Uses your action. Pick the item — or just mark the action used for anything else (a lever, a door, a second item).</p><div class="castopts">${items.map(([it, i]) => `<button class="castopt" data-act="${it.heal ? 'drink' : throwOf(it) && !it.hb ? 'throwit' : 'useitem'}" data-i="${i}" data-col="action"><b>${esc(it.name)}</b><span>${it.heal ? 'Drink — heals ' + esc(it.heal) : throwOf(it) && !it.hb ? 'Throw — ' + esc(throwOf(it).save ? `${throwOf(it).dice} ${throwOf(it).type}, DC ${throwOf(it).dc} ${throwOf(it).save} save` : throwOf(it).dice ? `ranged attack, ${throwOf(it).dice} ${throwOf(it).type}` : 'ranged attack, douses the target') : esc((hbSummary(it.hb, it) || []).slice(0, 3).join(' · ') || 'Use it')}</span></button>`).join('')}</div><div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn" data-act="useobjplain">Something else</button></div>`); return; } }
   if (col === 'move' && /^stand up$/i.test(nm)) { if (!S.conditions.includes('Prone')) { toast("You're not prone.", 'fumble'); return; }
     const half = Math.ceil(speedFt() / 2), mv = Math.max(0, N(S.turn.moved)); if (S.inCombat && mv + half > moveBudget()) { toast(`Standing up costs ${half} ft and you only have ${Math.max(0, moveBudget() - mv)} ft left.`, 'fumble'); return; }
     S.conditions = S.conditions.filter(c => c !== 'Prone'); if (S.inCombat) S.turn.moved = mv + half; pendingLabel = 'Stand up'; update(); render(); toast(`<b>Stand up</b> — no longer prone${S.inCombat ? `. Used ${half} ft of movement` : ''}.`, '', 4000, { label: 'Undo', fn: () => undo(1) }); return; }
@@ -4248,8 +4309,25 @@ function attackFromItem(it) {
   const monkOK = clsLv('monk') && ((w.cat === 'simple' && !ranged && !props.includes('heavy') && !props.includes('two-handed')) || /shortsword/i.test(it.name));
   const ab = monkOK ? 'monk' : props.includes('finesse') ? 'fin' : ranged ? 'dex' : 'str';
   const vers = props.find(p => /versatile/.test(p));
-  return { name: it.name, ab, prof: profWeapon([w.base || it.name, w.cat]), magic: N((it.mods || {}).atk), dice: w.dice, type: w.type, notes: props.filter(p => !/versatile/.test(p)).concat(vers ? [vers.replace('versatile ', 'two hands ')] : []).join(', ') + (w.range ? ` · ${w.range} ft` : ''), kind: ranged ? 'ranged' : 'melee', oneHanded: !props.includes('two-handed') && !ranged, monk: monkOK, item: it.id };
+  return { name: it.name, ab, prof: profWeapon([w.base || it.name, w.cat]), magic: N((it.mods || {}).atk), dice: w.dice, type: w.type, notes: props.filter(p => !/versatile/.test(p)).concat(vers ? [vers.replace('versatile ', 'two hands ')] : []).join(', ') + (w.range ? ` · ${w.range} ft` : '') + (it.silvered ? ' · silvered' : ''), kind: ranged ? 'ranged' : 'melee', oneHanded: !props.includes('two-handed') && !ranged, monk: monkOK, item: it.id };
 }
+// Custom items: a character's own saved homebrew items (Add an item → Custom). A copy of the item as it is set up,
+// without what belongs to the one you're carrying (where it is, equipped, attuned, charges spent).
+function saveCustomItem(i) {
+  const it = S.inventory[i]; if (!it) return;
+  const c = JSON.parse(JSON.stringify(it)); ['id', 'equipped', 'attuned', 'bag', 'offhand', 'hbKnown', 'resPick'].forEach(k => delete c[k]);
+  if (c.charges) c.charges.used = 0; c.qty = 1;
+  S.customItems = (S.customItems || []).filter(x => x.name.toLowerCase() !== String(c.name || '').toLowerCase()).concat([c]);
+  pendingLabel = 'Save custom item: ' + c.name; save(); render();
+  toast(`<b>${esc(c.name)}</b> saved to your custom items.<div class="det">Add more any time: Add an item → Custom.</div>`, '', 5000, { label: 'Undo', fn: () => undo(1) });
+}
+function customItemInfo(c) {
+  const bits = [c.weapon ? `${c.weapon.cat || ''} ${c.weapon.kind || ''} weapon · ${c.weapon.dice || ''} ${c.weapon.type || ''}` : '', c.armor ? `${c.armor.type} armor · AC ${c.armor.base}` : '', c.magic ? c.magic.rarity || 'magic' : ''].filter(x => x.trim());
+  const hb = typeof hbSummary === 'function' && c.hb ? hbSummary(c.hb, c) : [];
+  return bits.concat(hb.slice(0, 3)).concat(c.summary ? [c.summary] : []).join(' · ') || 'Homebrew item';
+}
+// Silvering a weapon costs 100 gp on top of its price (PHB).
+function silverCost(c, add) { const m = String(c || '').match(/([\d.,]+)\s*(cp|sp|ep|gp|pp)/i); if (!m) return '100 gp'; const v = parseFloat(m[1].replace(/,/g, '')) * ({ cp: 0.01, sp: 0.1, ep: 0.5, gp: 1, pp: 10 })[m[2].toLowerCase()]; return (Math.round((v + 100 * add) * 100) / 100) + ' gp'; }
 function makeWeaponItem(w) { const [name, cat, kind, cost, dice, type, weight, props, range] = w; return { id: uid(), name, qty: 1, weight, cost, equipped: false, notes: '', weapon: { cat, kind, dice, type, props: props || [], range: range || '', base: name } }; }
 function makeArmorItem(a) { const [name, type, cost, base, dexCap, strReq, stealthDis, weight] = a; return { id: uid(), name, qty: 1, weight, cost, equipped: false, notes: '', armor: { type, base, dexCap, strReq, stealthDis } }; }
 function makeGearItem(g) { const [name, cat, cost, weight, notes] = g; const it = { id: uid(), name, qty: 1, weight, cost, equipped: false, notes: '', summary: notes || '' }; const m = String(notes || '').match(/(\d+d\d+)\s*\+?\s*(\d+)?\s*HP/i); return it; }
@@ -4278,17 +4356,18 @@ function openCatalog(keep) {
   const tab = UI.catTab || 'all', q = keep && $('#catq') ? $('#catq').value : '';
   const cost = c => c ? `<span class="hint">${esc(c)}</span>` : '';
   const kind = t => tab === 'all' ? ` <span class="tag catkind">${t}</span>` : '';
-  const W = () => DND.weapons.map((w, n) => [w[0], `<div class="crrow" data-q="${esc((w[0] + ' ' + w[1] + ' ' + w[2] + ' ' + w[5] + ' weapon').toLowerCase())}"><div><b>${esc(w[0])}</b>${kind('Weapon')} ${cost(w[3])}<div class="hint">${esc(w[1])} ${esc(w[2])} · ${esc(w[4])} ${esc(w[5])}${w[7] && w[7].length ? ' · ' + esc(w[7].join(', ')) : ''}${w[8] ? ' · ' + esc(w[8]) + ' ft' : ''}${profWeapon(w) ? '' : ' · <b>not proficient</b>'}</div></div><button class="btn sm gold" data-act="catadd" data-t="w" data-n="${n}">Add</button></div>`]);
+  const W = () => DND.weapons.map((w, n) => [w[0], `<div class="crrow" data-q="${esc((w[0] + ' ' + w[1] + ' ' + w[2] + ' ' + w[5] + ' weapon').toLowerCase())}"><div><b>${esc(w[0])}</b>${kind('Weapon')} ${cost(w[3])}<div class="hint">${esc(w[1])} ${esc(w[2])} · ${esc(w[4])} ${esc(w[5])}${w[7] && w[7].length ? ' · ' + esc(w[7].join(', ')) : ''}${w[8] ? ' · ' + esc(w[8]) + ' ft' : ''}${profWeapon(w) ? '' : ' · <b>not proficient</b>'}</div></div><button class="btn sm gold" data-act="catadd" data-t="w" data-n="${n}">Add</button></div>`]).concat(DND.weapons.map((w, n) => [w[0] + ' (silvered)', `<div class="crrow" data-q="${esc(('silvered ' + w[0] + ' ' + w[1] + ' ' + w[2] + ' ' + w[5] + ' weapon silver').toLowerCase())}"><div><b>Silvered ${esc(w[0].toLowerCase())}</b>${kind('Weapon')} ${cost(silverCost(w[3], 1))}<div class="hint">${esc(w[1])} ${esc(w[2])} · ${esc(w[4])} ${esc(w[5])} · silvered: gets past resistance to nonmagical attacks that aren’t silvered${profWeapon(w) ? '' : ' · <b>not proficient</b>'}</div></div><button class="btn sm gold" data-act="catadd" data-t="ws" data-n="${n}">Add</button></div>`]));
   const A = () => DND.armor.map((a, n) => [a[0], `<div class="crrow" data-q="${esc((a[0] + ' ' + a[1] + ' armor').toLowerCase())}"><div><b>${esc(a[0])}</b>${kind(a[1] === 'shield' ? 'Shield' : 'Armor')} ${cost(a[2])}<div class="hint">${esc(a[1])} · AC ${a[1] === 'shield' ? '+2' : a[3] + (a[4] === 0 ? '' : a[4] ? ' + DEX (max ' + a[4] + ')' : ' + DEX')}${a[5] ? ' · STR ' + a[5] : ''}${a[6] ? ' · stealth disadvantage' : ''}</div></div><button class="btn sm gold" data-act="catadd" data-t="a" data-n="${n}">Add</button></div>`]);
-  const G = () => DND.gear.map((g, n) => [g[0], `<div class="crrow" data-q="${esc((g[0] + ' ' + g[1] + ' gear').toLowerCase())}"><div><b>${esc(g[0])}</b>${kind('Gear')} ${cost(g[2])}<div class="hint">${esc(g[1])}${g[4] ? ' · ' + esc(g[4]) : ''}</div></div><button class="btn sm gold" data-act="catadd" data-t="g" data-n="${n}">Add</button></div>`]);
+  const G = () => DND.gear.map((g, n) => [g[0], `<div class="crrow" data-q="${esc((g[0] + ' ' + g[1] + ' gear').toLowerCase())}"><div><b>${esc(g[0])}</b>${kind('Gear')} ${cost(g[2])}<div class="hint">${esc(g[1])}${g[4] ? ' · ' + esc(g[4]) : ''}</div></div><button class="btn sm gold" data-act="catadd" data-t="g" data-n="${n}">Add</button></div>`]).concat(DND.gear.map((g, n) => [g, n]).filter(([g]) => g[1] === 'ammo').map(([g, n]) => ['Silvered ' + g[0].toLowerCase(), `<div class="crrow" data-q="${esc(('silvered ' + g[0] + ' ammo gear silver').toLowerCase())}"><div><b>Silvered ${esc(g[0].toLowerCase())}</b>${kind('Gear')} ${cost('100 gp/10')}<div class="hint">ammo · 10 pieces · silvered: gets past resistance to nonmagical attacks that aren’t silvered</div></div><button class="btn sm gold" data-act="catadd" data-t="gs" data-n="${n}">Add</button></div>`]));
   const M = () => DND.magic.map((m, n) => [m[0], `<div class="crrow" data-q="${esc((m[0] + ' ' + m[2] + ' ' + m[3] + ' ' + m[1] + ' magic').toLowerCase())}"><div><b>${esc(m[0])}</b>${kind('Magic')} <span class="tag rar r-${esc(String(m[3]).replace(/\s+/g, ''))}">${esc(m[3])}</span>${m[4] ? ' <span class="tag">attune</span>' : ''} <span class="hint">${esc(m[1])}</span><div class="hint">${esc(m[5])}</div></div><button class="btn sm gold" data-act="catadd" data-t="m" data-n="${n}">Add</button></div>`]);
-  const list = tab === 'weapons' ? W() : tab === 'armor' ? A() : tab === 'gear' ? G() : tab === 'magic' ? M()
-    : W().concat(A(), G(), M()).sort((x, y) => String(x[0]).localeCompare(String(y[0]), undefined, { sensitivity: 'base' }));
+  const C = () => (S.customItems || []).map((c, n) => [c.name, `<div class="crrow" data-q="${esc((c.name + ' custom homebrew ' + (c.summary || '') + ' ' + (c.notes || '')).toLowerCase())}"><div><b>${esc(c.name)}</b>${kind('Custom')} ${cost(c.cost)}<div class="hint">${esc(customItemInfo(c))}</div></div><span class="crbtns"><button class="btn sm" data-act="catcdel" data-n="${n}" title="Remove from your custom items" aria-label="Remove ${esc(c.name)} from custom items">✕</button><button class="btn sm gold" data-act="catadd" data-t="c" data-n="${n}">Add</button></span></div>`]);
+  const list = tab === 'weapons' ? W() : tab === 'armor' ? A() : tab === 'gear' ? G() : tab === 'magic' ? M() : tab === 'custom' ? C()
+    : W().concat(A(), G(), M(), C()).sort((x, y) => String(x[0]).localeCompare(String(y[0]), undefined, { sensitivity: 'base' }));
   const rows = list.map(x => x[1]).join('');
   const html = `<h3>Add an item</h3>
-    <div class="segmini" style="margin-bottom:8px">${[['all', 'All'], ['weapons', 'Weapons'], ['armor', 'Armor'], ['gear', 'Gear & tools'], ['magic', 'Magic items']].map(([k, t]) => `<button class="${tab === k ? 'on' : ''}" data-act="cattab" data-t="${k}">${t}</button>`).join('')}</div>
+    <div class="segmini" style="margin-bottom:8px">${[['all', 'All'], ['weapons', 'Weapons'], ['armor', 'Armor'], ['gear', 'Gear & tools'], ['magic', 'Magic items'], ['custom', 'Custom']].map(([k, t]) => `<button class="${tab === k ? 'on' : ''}" data-act="cattab" data-t="${k}">${t}</button>`).join('')}</div>
     <input class="f" id="catq" placeholder="Search…" value="${esc(q)}" aria-label="Search items" autofocus>
-    <div class="crlist">${rows}</div>
+    <div class="crlist">${rows || (tab === 'custom' ? '<p class="hint crempty">No custom items yet. Open an item in Inventory (✎), then ⚙ Homebrew automation → <b>Save to custom items</b>.</p>' : '')}</div>
     <div class="actions"><button class="btn" data-act="close">Done</button></div>`;
   if (keep && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html, null, true);
   filterCatalog();
@@ -4301,6 +4380,9 @@ function catalogAdd(t, n) {
   if (t === 'w') return addInventoryItem(makeWeaponItem(DND.weapons[n]));
   if (t === 'a') return addInventoryItem(makeArmorItem(DND.armor[n]));
   if (t === 'g') return addInventoryItem(makeGearItem(DND.gear[n]));
+  if (t === 'c') { const c = (S.customItems || [])[n]; if (!c) return; const it = JSON.parse(JSON.stringify(c)); it.id = uid(); it.qty = N(it.qty) || 1; it.equipped = false; delete it.savedFrom; return addInventoryItem(it); }
+  if (t === 'ws') { const it = makeWeaponItem(DND.weapons[n]); it.name = 'Silvered ' + it.name.toLowerCase(); it.silvered = true; it.cost = silverCost(it.cost, 1); return addInventoryItem(it); }
+  if (t === 'gs') { const it = makeGearItem(DND.gear[n]); it.name = 'Silvered ' + it.name.toLowerCase(); it.silvered = true; it.qty = 10; it.cost = '100 gp/10'; return addInventoryItem(it); }
   if (t === 'm') {
     const m = DND.magic[n], base = (m[6] || {}).base, rt = (m[6] || {}).resType;
     if (base === 'weapon' || base === 'armor' || base === 'shield' || rt) {
@@ -8340,7 +8422,7 @@ function renderWizard() {
     const c = CL[(wzClassRows()[0] || {}).key], b = DND.backgrounds[W.bg], kit = kitItems();
     body = `<div class="segmini" style="margin-bottom:10px"><button class="${W.equip === 'kit' ? 'on' : ''}" data-wact="equip" data-v="kit">Starting equipment</button><button class="${W.equip === 'gold' ? 'on' : ''}" data-wact="equip" data-v="gold">Starting gold instead</button></div>`;
     if (W.equip === 'kit') body += `<p class="hint">Untick anything you don't want. Choices like "a martial weapon" are set to a sensible default — swap items in Inventory any time, and add more from the full catalog.</p>
-      <div class="kit">${kit.map(([src, k], i) => { const [n, q] = k.split(':'); return `<label class="checkline"><input type="checkbox" data-wzkit="${i}"${W.kitOff[i] ? '' : ' checked'}> ${esc(n)}${q ? ' ×' + q : ''} <span class="hint">${src === 'bg' ? 'background' : 'class'}</span></label>`; }).join('')}</div>${b ? `<p class="hint">Plus ${b.gold} gp from your background.</p>` : ''}`;
+      <div class="kit">${kit.map(([src, k], i) => { const [n, q] = k.split(':'); return `<label class="checkline"><input type="checkbox" data-wzkit="${i}"${W.kitOff[i] ? '' : ' checked'}> ${esc(n)}${q ? ' ×' + q : ''} <span class="hint">${src === 'bg' ? 'background' : 'class'}</span>${packOf(n) ? `<span class="hint packin">— unpacks into ${esc(packOf(n).map(([x, c]) => (c ? c + ' × ' : '') + x.replace(/\s*\(.*\)$/, '').toLowerCase()).join(', '))}</span>` : ''}</label>`; }).join('')}</div>${b ? `<p class="hint">Plus ${b.gold} gp from your background.</p>` : ''}`;
     else body += `<div class="row"><button class="btn gold" data-wact="rollgold">Roll ${esc(c ? c.gold : '')} gp</button>${fld('Gold', `<input class="f" type="number" data-wz="gold" value="${esc(W.gold)}" style="width:110px">`)}</div><p class="hint">Buy gear from the catalog in Inventory after creating.</p>`;
     const extra = wzTotalLevel() - 1;
     if (extra > 0) body += `<h4 style="margin-top:16px">Hit points for levels 2–${wzTotalLevel()}</h4><div class="segmini"><button class="${W.hpMode === 'avg' ? 'on' : ''}" data-wact="hpmode" data-v="avg">Take the average</button><button class="${W.hpMode === 'roll' ? 'on' : ''}" data-wact="hpmode" data-v="roll">Roll</button></div>${W.hpMode === 'roll' ? `<p class="hint">${W.hpRolls.length ? 'Rolled: ' + W.hpRolls.join(', ') : ''} <button class="btn sm" data-wact="rollhp">${W.hpRolls.length ? 'Reroll' : 'Roll'}</button></p>` : ''}`;
@@ -8426,6 +8508,31 @@ function wizClick(e) {
   }
   renderWizard(); $('#wizard .wz-body').scrollTop = 0;
 }
+// What each equipment pack holds (PHB / VRGR). Picking a pack gives you these items, not a "pack" item.
+const PACKS = {
+  "burglar's pack": [['Backpack'], ['Ball bearings (bag of 1,000)'], ['String (10 feet)'], ['Bell'], ['Candle', 5], ['Crowbar'], ['Hammer'], ['Piton', 10], ['Lantern, hooded'], ['Oil (flask)', 2], ['Rations (1 day)', 5], ['Tinderbox'], ['Waterskin'], ['Rope, hempen (50 feet)']],
+  "diplomat's pack": [['Chest'], ['Case, map or scroll', 2], ['Fine clothes'], ['Ink (1 ounce bottle)'], ['Ink pen'], ['Lamp'], ['Oil (flask)', 2], ['Paper (one sheet)', 5], ['Perfume (vial)'], ['Sealing wax'], ['Soap']],
+  "dungeoneer's pack": [['Backpack'], ['Crowbar'], ['Hammer'], ['Piton', 10], ['Torch', 10], ['Tinderbox'], ['Rations (1 day)', 10], ['Waterskin'], ['Rope, hempen (50 feet)']],
+  "entertainer's pack": [['Backpack'], ['Bedroll'], ['Costume clothes', 2], ['Candle', 5], ['Rations (1 day)', 5], ['Waterskin'], ['Disguise kit']],
+  "explorer's pack": [['Backpack'], ['Bedroll'], ['Mess kit'], ['Tinderbox'], ['Torch', 10], ['Rations (1 day)', 10], ['Waterskin'], ['Rope, hempen (50 feet)']],
+  "priest's pack": [['Backpack'], ['Blanket'], ['Candle', 10], ['Tinderbox'], ['Alms box'], ['Incense', 2], ['Censer'], ['Vestments'], ['Rations (1 day)', 2], ['Waterskin']],
+  "scholar's pack": [['Backpack'], ['Book of lore'], ['Ink (1 ounce bottle)'], ['Ink pen'], ['Parchment (one sheet)', 10], ['Little bag of sand'], ['Knife, small']],
+  "monster hunter's pack": [['Chest'], ['Crowbar'], ['Hammer'], ['Wooden stake', 3], ['Holy symbol'], ['Holy water (flask)'], ['Manacles'], ['Mirror, steel'], ['Oil (flask)'], ['Tinderbox'], ['Torch', 3]]
+};
+const packOf = name => PACKS[String(name || '').toLowerCase().trim()] || null;
+// Add an item, stacking it onto one you already carry with the same name (plain gear only).
+function addStacked(it, bag) {
+  const same = !it.weapon && !it.armor && S.inventory.find(x => !x.weapon && !x.armor && !x.magic && !x.equipped && (x.bag || '') === (bag || '') && x.name.toLowerCase() === it.name.toLowerCase());
+  if (same) { same.qty = N(same.qty || 1) + N(it.qty || 1); return; }
+  if (bag) it.bag = bag; addInventoryItem(it, true);
+}
+function addPackContents(name, times, bag) { packOf(name).forEach(([n, q]) => { const it = findGear(n); it.qty = (q || 1) * (times || 1); addStacked(it, bag); }); }
+// Open a pack already in your inventory: it becomes the things inside it.
+function unpackItem(i) {
+  const it = S.inventory[i]; if (!it || !packOf(it.name)) return;
+  S.inventory.splice(i, 1); addPackContents(it.name, N(it.qty) || 1, it.bag && !it.equipped ? it.bag : '');
+  pendingLabel = 'Unpack ' + it.name; save(); render(); toast(`Unpacked ${esc(it.name)}.`, '', 5000, { label: 'Undo', fn: () => undo(1) });
+}
 function findGear(name) {
   const n = name.toLowerCase();
   const w = DND.weapons.find(x => x[0].toLowerCase() === n); if (w) return makeWeaponItem(w);
@@ -8499,7 +8606,7 @@ function buildCharacter() {
   S.hp.base = base;
   // Equipment
   if (W.equip === 'kit') {
-    kitItems().forEach(([src, s2], i) => { if (W.kitOff[i]) return; const [n, q] = s2.split(':'); const it = findGear(n); it.qty = N(q) || 1; addInventoryItem(it, true); });
+    kitItems().forEach(([src, s2], i) => { if (W.kitOff[i]) return; const [n, q] = s2.split(':'); if (packOf(n)) return addPackContents(n, N(q) || 1); const it = findGear(n); it.qty = N(q) || 1; addStacked(it); });
     if (b) S.currency.gp = N(b.gold);
   } else S.currency.gp = N(W.gold) + (b ? 0 : 0);
   const arm = S.inventory.find(it => it.armor && it.armor.type !== 'shield' && (S.profs.armor || []).includes(it.armor.type)); if (arm) arm.equipped = true;
