@@ -536,3 +536,7 @@ function ringSpent(sp) {
   setTimeout(() => { rebuildAuto(); save(); render(); }, 0);
 }
 const ringItems = () => S.inventory.map((it, ii) => [it, ii]).filter(([it]) => itemStores(it) && !it.infusion);
+
+// Inventory: set a weapon up to be dual wielded (it shows as an off-hand bonus attack on the Combat tab).
+document.addEventListener('change', e => { const t = e.target; if (!t || !t.matches || !t.matches('[data-offhand]')) return; const it = S.inventory[N(t.dataset.offhand)]; if (!it) return;
+  it.offhand = t.checked; pendingLabel = `${it.name}: ${t.checked ? 'dual wield (off-hand)' : 'not dual wielded'}`; save(); render(); });

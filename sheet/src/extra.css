@@ -2773,3 +2773,5 @@ html:not(.mobile) .spg-t tr:hover td.spname > .sord, html:not(.mobile) .spg-t td
 .bonusatk .itag { white-space: nowrap; }
 .bonusatk .bwait { display: block; font-size: .72rem; color: var(--muted); font-weight: 600; margin-top: 1px; }
 html .bonusatk table.mini td .bwait { display: block; font-size: .7rem !important; font-weight: 500 !important; color: var(--muted) !important; margin-top: 1px; line-height: 1.25; }
+.offchk { display: inline-flex; align-items: center; gap: 6px; font-size: .8rem; font-weight: 600; color: var(--soft); cursor: pointer; padding: 2px 8px 2px 4px; border: 1px solid var(--line2); border-radius: 999px; }
+.offchk input { width: 14px; height: 14px; margin: 0; accent-color: var(--gold); }

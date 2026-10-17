@@ -485,7 +485,9 @@ const oneHandMelee = it => !!(it && it.equipped && it.weapon && it.weapon.kind =
 const twfWeapon = it => oneHandMelee(it) && ((it.weapon.props || []).includes('light') || dualWielder());
 const handsOf = test => S.inventory.filter(test).reduce((n, it) => n + Math.max(1, Math.min(2, N(it.qty) || 1)), 0);
 const dualWielding = () => handsOf(twfWeapon) >= 2;
+// Only weapons you've set up for it (Inventory → "Off-hand (dual wield)") show as off-hand attacks.
 function offhandOK(a) { const it = a && a.item && S.inventory.find(x => x.id === a.item); return !!(it && twfWeapon(it)); }
+function offhandSet(a) { const it = a && a.item && S.inventory.find(x => x.id === a.item); return !!(it && it.offhand && twfWeapon(it)); }
 const offDrop = a => { if (twfStyle()) return 0; const ab = attackAb(a), m = ab && !a.noModDmg ? mod(ab) : 0; return m > 0 ? m : 0; };
 function attackAb(a) {
   const wb = wpnBind(a); if (wb && wb.wpn.ab === 'spell') return castInfo(wb.wpn.cls).ab;
