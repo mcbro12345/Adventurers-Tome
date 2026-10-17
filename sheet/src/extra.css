@@ -2838,3 +2838,7 @@ html.mobile .ptym-grid { grid-template-columns: 1fr; }
 html.mobile .ptyfoot { grid-template-columns: 1fr; }
 html.mobile .ptyh-btns { width: 100%; } html.mobile .ptyh-btns .btn { flex: 1; text-align: center; }
 .ptyl-d { background: var(--line); color: var(--soft); font-weight: 700; }
+
+/* "On…" beside Use in the Combat tab: use an ability on a party member */
+.btn.ptyon { display: inline-flex; align-items: center; gap: 4px; padding-left: 7px; }
+.btn.ptyon svg { width: 15px; height: 15px; }

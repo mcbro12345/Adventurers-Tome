@@ -134,11 +134,13 @@ service cloud.firestore {
         && n.people == o.people.removeAll([me()]) && n.mgrs == o.mgrs.removeAll([me()]) && n.invited == o.invited.removeAll([me()]); }
     function declineOK() { let o = resource.data; let n = request.resource.data;
       return me() in o.invited && n.diff(o).affectedKeys().hasOnly(['invited']) && n.invited == o.invited.removeAll([me()]); }
-    // The DM and co-DMs change anything except adding other people's characters (players join themselves); only the
-    // DM hands the party to a new DM or changes who the co-DMs are.
-    function mgrOK() { let o = resource.data; let n = request.resource.data;
-      return partyMgr(o) && n.chars.removeAll(o.chars).size() == 0 && n.by == o.by
-        && (me() == o.dm || (n.dm == o.dm && n.mgrs == o.mgrs)); }
+    // The DM changes anything; characters come in one at a time (players join with their own). An admin can hand the
+    // party to a new DM.
+    // The DM can also add a character that's been shared with them (one at a time); its player then sees the party.
+    function seesSheet(c) { let d = get(/databases/$(db)/documents/sheets/$(c)).data; return d.owner == me() || me() in d.get('viewers', []); }
+    function mgrOK() { let o = resource.data; let n = request.resource.data; let add = n.chars.removeAll(o.chars);
+      return partyMgr(o) && n.by == o.by && (me() == o.dm || (n.dm == o.dm && n.mgrs == o.mgrs))
+        && (add.size() == 0 || (add.size() == 1 && seesSheet(add[0]))); }
     match /parties/{p} {
       allow get: if admin() || (signedIn() && (me() in resource.data.people || me() in resource.data.invited || partyMgr(resource.data)));
       allow list: if admin() || (signedIn() && (me() in resource.data.people || me() in resource.data.invited));

@@ -1559,3 +1559,25 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 }
 :where(body.hubbody) .pty-invtag { flex: none; align-self: center; margin: 0 14px 0 8px; padding: 4px 10px; border-radius: 99px; background: linear-gradient(180deg, #f1d58a, #d9ab48); color: #1b1406; font-size: .76rem; font-weight: 800; }
 :where(body.adminbody) .adm-t .adm-tag.r-own { white-space: nowrap; }
+/* Party picture: beside the party's name, in the lobby list and in the admin table */
+:where(body.hubbody) .pw-head h2 .pw-tt { min-width: 0; }
+:where(body.hubbody) .pw-ppic { position: relative; flex: none; width: 46px; height: 46px; border-radius: 12px; overflow: hidden; display: grid; place-items: center; padding: 0; border: 2px solid #c9962b; background: #2b3245; color: #f1d58a; font: inherit; }
+:where(body.hubbody) .pw-ppic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+:where(body.hubbody) .pw-ppic svg { width: 24px; height: 24px; }
+:where(body.hubbody) button.pw-ppic { cursor: pointer; }
+:where(body.hubbody) .pw-pedit { position: absolute; right: 2px; bottom: 2px; width: 17px; height: 17px; border-radius: 50%; display: grid; place-items: center; background: #c9962b; color: #1b1406; font-size: 10px; opacity: 0; transition: opacity .15s; }
+:where(body.hubbody) button.pw-ppic:hover .pw-pedit, :where(body.hubbody) button.pw-ppic:focus-visible .pw-pedit, :where(body.hubbody) .pw-ppic.none .pw-pedit { opacity: 1; }
+:where(body.hubbody) .pw-picrow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+:where(body.hubbody) .pw-picrow .pw-ppic { width: 60px; height: 60px; }
+:where(body.hubbody) .pw-picrow .hub-hint { margin: 0; }
+:where(body.hubbody) img.pty-pic, :where(body.hubbody) img.pty-admic { object-fit: cover; }
+:where(body.hubbody) .pty-invl { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 4px; }
+:where(body.hubbody) .pty-invl:empty { display: none; }
+:where(body.hubbody) .pty-invd { font-size: .82rem; padding: 3px 10px; border-radius: 99px; background: rgba(201,150,43,.14); }
+:where(body.hubbody) .pty-invd small { opacity: .65; }
+:where(body.hubbody) .pty-addc .pty-pick { max-height: 34vh; overflow-y: auto; }
+:where(body.hubbody) .pty-addc .row { margin-top: 14px; }
+:where(body.hubbody) .pty-addc #pt-addany { margin-top: 8px; font-size: .85rem; }
+:where(body.adminbody) .adm-dmbtn { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+:where(body.adminbody) .adm-dmbtn:hover span { text-decoration: underline; }
+@media (max-width: 640px) { :where(body.hubbody) .pw-ppic { width: 40px; height: 40px; } }

@@ -27,7 +27,11 @@ let PTY_RT = null;
 // The party tab is kept current even while another tab is showing (it appears once the party has loaded); while you're
 // typing in it, it waits so the box you're in isn't redrawn under you.
 window.onPartyChange = () => { clearTimeout(PTY_RT); PTY_RT = setTimeout(function go() { if (!S.created) return; const a = document.activeElement;
-  if (a && a.closest && a.closest('#page-party') && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) { PTY_RT = setTimeout(go, 600); return; } render('party'); }, 120); };
+  if (a && a.closest && a.closest('#page-party') && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) { PTY_RT = setTimeout(go, 600); return; }
+  // Who's in it changed (or the party just loaded): Inventory's give menus and Combat's "On…" buttons follow.
+  const key = ptyOn() + ':' + ptyMembers().map(m => m.id + '/' + (m.name || '')).join(',');
+  if (key !== PTY_MK) { PTY_MK = key; render(); } else render('party'); }, 120); };
+let PTY_MK = '';
 
 // ----- the log of what's been sent and received -----
 function ptyLog(dir, who, text) { S.ptyLog = [{ at: Date.now(), dir, who: String(who || '').slice(0, 80), text: String(text || '').slice(0, 300) }].concat(S.ptyLog || []).slice(0, 60); }
@@ -111,6 +115,9 @@ function ptyClick(k, id, b) {
     case 'pk': return ptyPickDone(b);
     case 'amt': return ptyAmountGo(b.dataset.k);
     case 'giveit': return ptyGiveGo(N(b.dataset.i), b.dataset.mode);
+    case 'giveto': return ptyGiveTo(N(b.dataset.i), id);
+    case 'featon': { const f = S.features[N(b.dataset.i)]; if (!f) return; return ptyUseAbility({ name: f.dname || f.name, def: ptyFeatDef(f), f, fi: N(b.dataset.i), col: f.col }, null); }
+    case 'givetogo': return ptyGiveGo(N(b.dataset.i), 'give', true);
     case 'coinsgo': return ptyCoinsGo();
     case 'castit': return ptyCastGo(N(b.dataset.i));
     case 'abil': return ptyAbilityGo(N(b.dataset.j));
@@ -172,7 +179,7 @@ function ptyGive(id) {
       ${N(it.qty) > 1 ? `<input class="f sm ptyg-q" type="number" min="1" max="${N(it.qty)}" value="1" data-gq="${i}" aria-label="How many">` : ''}${it.heal ? `<button class="btn sm" data-pa="giveit" data-i="${i}" data-mode="feed" title="Use your action to give them a drink">Feed it</button>` : ''}<button class="btn sm gold" data-pa="giveit" data-i="${i}" data-mode="give">Give</button></div>`).join('') || '<p class="hint">Your inventory is empty.</p>'}</div>
     <div class="actions"><button class="btn" data-act="close">Done</button></div>`, null, true);
 }
-function ptyGiveGo(i, mode) {
+function ptyGiveGo(i, mode, one) {
   const to = PTY_GIVE, it = S.inventory[i]; if (!to || !it) return;
   if (mode === 'feed') { const r = rollExpr(it.heal, { need: true, label: it.name + ': healing for ' + ptyNm(to) }); if (r.skipped) return;
     it.qty = Math.max(0, N(it.qty) - 1); if (!it.qty) { S.inventory.splice(i, 1); S.attacks = S.attacks.filter(a => a.item !== it.id); }
@@ -184,7 +191,15 @@ function ptyGiveGo(i, mode) {
   else it.qty = N(it.qty) - q;
   pendingLabel = `Give ${q > 1 ? q + ' × ' : ''}${it.name} to ${ptyNm(to)}`; save(); render();
   ptySend([to], 'item', { item: c }, `Gave ${q > 1 ? q + ' × ' : ''}${it.name}`);
-  if (S.inventory.length) ptyGive(to); else closeModal(true);
+  if (one) closeModal(true); else if (S.inventory.length) ptyGive(to); else closeModal(true);
+}
+// From an item's ⇄ menu in Inventory: give it to one party member (asks how many when it's a stack).
+function ptyGiveTo(i, to) {
+  const it = S.inventory[i]; if (!it || !to) return; PTY_GIVE = to;
+  if (N(it.qty) <= 1) return ptyGiveGo(i, 'give', true);
+  openModal(`<h3>Give ${esc(it.name)} to ${esc(ptyNm(to))}</h3><p class="hint" style="margin:0 0 8px">You have ${N(it.qty)}. It leaves your inventory and goes into theirs.</p>
+    ${fld('How many', `<input class="f" type="number" min="1" max="${N(it.qty)}" value="${N(it.qty)}" data-gq="${i}" inputmode="numeric">`)}
+    <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-pa="givetogo" data-i="${i}">Give</button></div>`);
 }
 // Coins: split between several, or to one.
 let PTY_COIN = null;
@@ -365,7 +380,10 @@ function ptyAbilityMenu(ids) {
 function ptyAbilityGo(j) { const m = PTY_ABMENU; if (!m) return; const ab = m.list[j]; closeModal(true); PTY_ABMENU = null; ptyUseAbility(ab, m.ids); }
 // Spend it (a use, pool points or another feature's uses) and send what it does.
 function ptyUseAbility(ab, ids, spent) {
-  if (!ab) return; const d = ab.def, nmax = d.n === 'any' ? 99 : d.n ? N(ptyFormula(String(d.n))) || 1 : 1;
+  if (!ab) return; const inc = ab.col && S.inCombat && ['action', 'bonus', 'reaction'].includes(ab.col) && !spent;
+  if (inc && incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions.`, 'fumble'); return; }
+  if (inc && S.turn.used[ab.col]) { toast(`Your ${ab.col === 'bonus' ? 'bonus action' : ab.col} is already used this turn.`, 'fumble'); return; }
+  const d = ab.def, nmax = d.n === 'any' ? 99 : d.n ? N(ptyFormula(String(d.n))) || 1 : 1;
   if (!ids || !ids.length) return ptyPickTargets(ab.name + ' — on who?', nmax, x => ptyUseAbility(ab, x, spent));
   if (ids.length > nmax) { toast(`${esc(ab.name)} reaches ${nmax} creature${nmax === 1 ? '' : 's'}.`, 'fumble'); return; }
   if (d.pool && !spent) return ptyPoolAsk(ab, ids);
@@ -375,6 +393,7 @@ function ptyUseAbility(ab, ids, spent) {
   if (d.kind === 'stab') { const sk = S.skills.find(s => s.name === 'Medicine'); const r = d20(`Medicine to stabilize ${ptyNames(ids)} (DC 10)`, sk ? skillVal(sk) : mod('wis'), 'check', 'wis'); if (!r || r.skipped) return;
     if (r.total >= 10) ptySend(ids, 'stabilize', { why: who }, 'Stabilized (Medicine ' + r.total + ')'); else toast(`Medicine ${r.total} — not enough to stabilize (DC 10).`, 'fumble', 6000); return; }
   const err = spend(); if (err) { toast(esc(err), 'fumble'); return; }
+  if (inc) S.turn.used[ab.col] = true; // a pool (Lay on Hands…) spends the action once you've said how much
   pendingLabel = 'Use ' + ab.name + ' on ' + ptyNames(ids);
   const extra = ids.length === 1 && ptyMember(ids[0]) ? { tlevel: N(ptyMember(ids[0]).level) } : { tlevel: 1 };
   if (d.kind === 'heal' || d.kind === 'temp') {
@@ -402,7 +421,7 @@ function ptyPoolAsk(ab, ids) {
   const go = cure => { const p = PTY_POOL; if (!p) return; const f = S.features[p.ab.fi]; let n = cure ? N(d.cureCost) : Math.floor(N($('#ptyPool').value));
     if (!n || n < 1) { toast('Type how many.'); return; } if (n * p.ids.length > fxLeft(p.ab.fi)) { toast('Not enough left in the pool.', 'fumble'); return; }
     let amt = n; if (d.die && !cure) { const r = rollExpr(n + d.die, { need: true, label: p.ab.name }); if (r.skipped) return; amt = r.total; }
-    f.used = N(f.used) + n * p.ids.length; PTY_POOL = null; closeModal(true); pendingLabel = `${p.ab.name} on ${ptyNames(p.ids)}`; save(); render();
+    f.used = N(f.used) + n * p.ids.length; if (p.ab.col && S.inCombat && ['action', 'bonus', 'reaction'].includes(p.ab.col)) S.turn.used[p.ab.col] = true; PTY_POOL = null; closeModal(true); pendingLabel = `${p.ab.name} on ${ptyNames(p.ids)}`; save(); render();
     const why = `${S.name || 'An ally'}’s ${p.ab.name}`;
     if (cure) ptySend(p.ids, 'cure', { conds: d.cure, why, note: 'A disease or poison is cured' }, `${p.ab.name}: cured poison/disease`);
     else ptySend(p.ids, 'heal', { amt, why }, `${p.ab.name}: ${amt} HP`); };
@@ -416,6 +435,12 @@ function ptySplitAsk(ab, ids, total) {
   $('#ptySplitGo').onclick = () => { const v = $$('#modal-body [data-split]').map(x => [x.dataset.split, Math.max(0, Math.floor(N(x.value)))]).filter(([, n]) => n);
     const sum = v.reduce((t, [, n]) => t + n, 0); if (sum > total) { toast(`That’s ${sum} — you have ${total}.`, 'fumble'); return; }
     closeModal(true); v.forEach(([id, n]) => ptySend([id], 'heal', { amt: n, why: `${S.name || 'An ally'}’s ${ab.name}` }, `${ab.name}: ${n} HP`)); };
+}
+// In the Combat tab, an ability that works on others gets a small "On…" button beside Use: pick who, and it's spent and sent.
+const ptyFeatDef = f => { const nm = f.dname || f.name; return ALLYFEAT(nm) || ALLYFEAT(String(nm).replace(/^Channel Divinity: /, '')); };
+function ptyFeatBtn(f, fi) {
+  if (!ptyAct() || !ptyMembers().length) return ''; const d = ptyFeatDef(f); if (!d || d.kind === 'aura') return '';
+  return `<button class="btn sm ptyon" data-pa="featon" data-i="${fi}" title="Use ${esc(f.dname || f.name)} on a party member" aria-label="Use ${esc(f.dname || f.name)} on a party member">${TAB_ICON.party}<span>On…</span></button>`;
 }
 // After using a feature the usual way (Use & roll): offer it to a party member.
 function ptyFeatAct(name, r, f) {
