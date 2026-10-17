@@ -2092,10 +2092,13 @@ html.mobile .sc-fxpanel { grid-column: 1 / -1; }
 .ctemp { margin-left: auto; font-size: .78rem; font-weight: 700; color: #3f8fd2; }
 .chp-bar { height: 6px; border-radius: 99px; background: var(--line2); overflow: hidden; } .chp-bar i { display: block; height: 100%; background: linear-gradient(90deg, #3c9d6b, #7cc68f); border-radius: 99px; }
 .chp-ctl { display: flex; gap: 6px; align-items: center; } .chp-ctl .f.sm { width: 64px; text-align: center; }
-.cchips { display: flex; gap: 8px; flex-wrap: wrap; }
-.cchip2 { background: var(--panel2); border: 1px solid var(--line2); border-radius: 12px; padding: 8px 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 60px; }
-.cchip2 small { font-size: .6rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--soft); } .cchip2 b { font-size: 1.15rem; }
-.cchip2.wide b { font-size: .9rem; text-align: center; }
+/* AC, speed, level…: one strip of stat cells */
+.csts { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(58px, auto); align-self: center; background: var(--panel2); border: 1px solid var(--line2); border-radius: 12px; overflow: hidden; }
+.cst { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 7px 14px; min-width: 0; text-align: center; }
+.cst + .cst { border-left: 1px solid var(--line2); }
+.cst small { font-size: .58rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--soft); line-height: 1.2; }
+.cst b { font-size: 1.15rem; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.cst.wide b { font-size: .88rem; white-space: nowrap; }
 .cacts { display: flex; flex-direction: column; border: 1px solid var(--line2); border-radius: 12px; overflow: hidden; }
 .cact { display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; align-items: center; padding: 8px 10px; border-bottom: 1px dashed var(--line2); }
 .cact:last-child { border-bottom: 0; }
@@ -2108,7 +2111,7 @@ html.mobile .sc-fxpanel { grid-column: 1 / -1; }
 .cm-card:last-child { border-bottom: 0; }
 .cm-card .picthumb, .cm-card .pic { width: 40px; height: 40px; }
 .cm-card .chp { flex-basis: 180px; padding: 6px 8px; } .cm-card .chp-top b { font-size: 1.1rem; }
-.cm-card .cchip2 { padding: 4px 10px; } .cm-card .cact { padding: 6px 8px; }
+.cm-card .cst { padding: 4px 10px; } .cm-card .cact { padding: 6px 8px; }
 .ce-row { display: grid; grid-template-columns: 1.4fr .9fr 60px 80px 70px 56px 1.6fr 28px; gap: 6px; align-items: center; margin-bottom: 6px; }
 @media (max-width: 760px) { .ce-row { grid-template-columns: 1fr 1fr 1fr; } }
 /* Out-of-combat mode */
@@ -2886,7 +2889,6 @@ html #tabs .tab > .tabcount { position: absolute; z-index: 2; top: 3px; left: ca
 html.mobile #tabs .tabcount { top: 2px; left: auto; right: 6px; font-size: .58rem; padding: 0 4px; }
 .chp.chp2 { flex: 0 1 380px; }
 .cm-card .chp.chp2 { flex: 0 1 340px; }
-.cstat2 .cchips { align-self: center; }
 /* Creatures inside the Bonus Action column during initiative */
 .incol-comps { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
 .comp2.incol { background: var(--panel2); border: 1px solid var(--line2); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
@@ -2897,9 +2899,9 @@ html.mobile #tabs .tabcount { top: 2px; left: auto; right: 6px; font-size: .58re
 .comp2.incol .chp2 .chp-center { inset: 10px; }
 .comp2.incol .chp2 .chp-center .f.cur { font-size: 1.25rem; width: 44px; }
 .comp2.incol .chp2 .btn.hpi { height: 32px; }
-.comp2.incol .cchips { align-self: stretch; }
-.comp2.incol .cchip2 { flex: 1; flex-direction: row; gap: 6px; border-radius: 10px; padding: 5px 10px; min-width: 0; }
-.comp2.incol .cchip2 b { font-size: .95rem; }
+.comp2.incol .csts { align-self: stretch; grid-auto-columns: 1fr; }
+.comp2.incol .cst { flex-direction: row; gap: 6px; padding: 5px 8px; }
+.comp2.incol .cst b { font-size: .95rem; }
 .comp2.incol .cacts { margin: 0; }
 .cnotes-d summary { cursor: pointer; font-size: .78rem; font-weight: 700; color: var(--soft); list-style: none; }
 .cnotes-d summary::before { content: '▸ '; } .cnotes-d[open] summary::before { content: '▾ '; }
@@ -3459,7 +3461,9 @@ html .bonusatk table.mini td .bwait { display: block; font-size: .7rem !importan
 .ptym .picadd { font: 800 .95rem Georgia, serif; color: var(--gold-ink); }
 .ptym .menu { position: relative; } .ptym .menu-list { right: 0; left: auto; min-width: 220px; }
 .ptym-cur { font-size: 1.6rem; font-weight: 700; line-height: 1.05; }
-.ptym-act { display: flex; flex-wrap: wrap; gap: 6px; }
+.ptym-act { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 6px; margin-top: auto; align-items: center; }
+.ptym-act .btn { min-width: 0; padding-left: 6px; padding-right: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; justify-content: center; }
+.ptym .csts { align-self: flex-start; }
 .ptya { padding: 8px 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
 .ptya:first-of-type { border-top: 0; }
 .ptya-who { display: flex; flex-wrap: wrap; gap: 4px 14px; }
@@ -3485,6 +3489,8 @@ html .bonusatk table.mini td .bwait { display: block; font-size: .7rem !importan
 .ptyg-n b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ptyg-n small { color: var(--slate); font-size: .75rem; }
 .ptyg-q { width: 64px !important; }
+.ptyg-s { width: 100%; margin: 0 0 8px; }
+.ptyg-row[hidden] { display: none; }
 .ptycoins { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
 .ptycast { max-height: 60vh; overflow-y: auto; }
 html.mobile .ptym-grid { grid-template-columns: 1fr; }
@@ -3511,4 +3517,18 @@ html.mobile .ptyh-btns { width: 100%; } html.mobile .ptyh-btns .btn { flex: 1; t
 /* "On…" beside Use in the Combat tab: use an ability on a party member */
 .btn.ptyon { display: inline-flex; align-items: center; gap: 4px; padding-left: 7px; }
 .btn.ptyon svg { width: 15px; height: 15px; }
+.crrow .hbfrom { color: var(--gold-ink); font-weight: 700; }
+
+.ptym-pl { font-size: .82rem; color: var(--soft); margin-top: 1px; }
+.ptym .comp-h2 { align-items: center; }
+.ptym .comp-h2 .grow { min-width: 0; }
+.ptym .cname { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ptym .cname.n2 { font-size: .95rem; } .ptym .cname.n3 { font-size: .8rem; }
+.ptyask-bg { position: fixed; inset: 0; z-index: 10050; display: grid; place-items: center; padding: 16px; background: rgba(8,10,16,.62); backdrop-filter: blur(2px); animation: ptyFade .15s ease; }
+@keyframes ptyFade { from { opacity: 0; } to { opacity: 1; } }
+.ptyask-m { width: min(440px, 100%); background: var(--panel); color: var(--ink); border: 1px solid var(--line2); border-top: 3px solid var(--gold); border-radius: 16px; padding: 20px 20px 16px; box-shadow: 0 24px 60px rgba(0,0,0,.45); animation: wPopIn .2s cubic-bezier(.22,.9,.24,1); }
+.ptyask-n { font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--soft); margin-bottom: 6px; }
+.ptyask-q { margin: 0 0 18px; font-size: 1.1rem; line-height: 1.45; }
+.ptyask-b { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ptyask-b .btn { justify-content: center; padding: 11px 0; font-size: 1rem; }
 

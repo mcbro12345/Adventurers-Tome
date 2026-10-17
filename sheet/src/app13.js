@@ -118,8 +118,6 @@ function ptyClick(k, id, b) {
     case 'giveit': return ptyGiveGo(N(b.dataset.i), b.dataset.mode);
     case 'askok': return ptyAnswer(b.dataset.ref, true);
     case 'askno': return ptyAnswer(b.dataset.ref, false);
-    case 'askall': return ptyAnswer('*', b.dataset.ok === '1');
-    case 'askshow': return ptyAskShow(true);
     case 'giveto': return ptyGiveTo(N(b.dataset.i), id);
     case 'featon': { const f = S.features[N(b.dataset.i)]; if (!f) return; return ptyUseAbility({ name: f.dname || f.name, def: ptyFeatDef(f), f, fi: N(b.dataset.i), col: f.col }, null); }
     case 'givetogo': return ptyGiveGo(N(b.dataset.i), 'give', true);
@@ -478,18 +476,18 @@ function ptyTrusted(m) { const P = PTYX(), I = P && P.info(); if (ptyFreeKind(m.
 function ptyInFlush() { const I = PTYX() && PTYX().info(); if (!S.created || ptyBusy() || !I || I.loading) { clearTimeout(ptyInFlush._t); ptyInFlush._t = setTimeout(ptyInFlush, 800); return; }
   let changed = false, asked = false; while (PTY_IN.length) { const m = PTY_IN.shift(); try {
     // taken back before you answered: it just goes away
-    if (m.kind === 'undo' && (S.ptyAsk || []).some(a => a.ref === m.data.ref)) { const a = S.ptyAsk.find(x => x.ref === m.data.ref); S.ptyAsk = S.ptyAsk.filter(x => x !== a); changed = true; toast(`<div><b>${esc(m.fromName || 'Someone')}</b> took back what they sent<div class="det">${esc(ptyDesc(a.m))}</div></div>`, '', 6000); continue; }
+    if (m.kind === 'undo' && (S.ptyAsk || []).some(a => a.ref === m.data.ref)) { const a = S.ptyAsk.find(x => x.ref === m.data.ref); S.ptyAsk = S.ptyAsk.filter(x => x !== a); changed = true; toast(`<div><b>${esc(m.fromName || 'Someone')}</b> took back what they sent<div class="det">${esc(ptyDesc(a.m))}</div></div>`, '', 6000); asked = true; continue; }
     if (!ptyTrusted(m)) { if (!(S.ptyAsk || []).some(a => a.ref === m.ref)) { S.ptyAsk = (S.ptyAsk || []).concat([{ ref: m.ref || uid(), at: Date.now(), m }]).slice(-40); changed = asked = true; } continue; }
     const b = PTYX().snap(S); if (ptyApply(m)) { changed = true; ptyGot(m, b); } } catch (e) { console.warn('party message', e); } }
-  if (changed) { save(); render(); } if (asked) ptyAskShow(); }
+  if (changed) { save(); render(); } if (asked || (S.ptyAsk || []).length) ptyAskShow(); }
 // What a message would do, in a few words (for the accept window).
 function ptyDesc(m) { const d = m.data || {}, why = d.why && d.why !== m.fromName ? ' (' + d.why + ')' : '';
   switch (m.kind) {
     case 'heal': return (d.amt === 'max' ? 'Heal you to full HP' : `Heal you ${N(d.amt)} HP`) + why;
     case 'temp': return `Give you ${N(d.amt)} temporary HP` + why;
     case 'damage': return `Deal you ${N(d.amt)}${d.type ? ' ' + d.type : ''} damage` + why;
-    case 'hit': return `${d.why || d.spell || 'An attack'}: ${d.dmg ? N(d.dmg) + (d.type ? ' ' + d.type : '') + ' damage' : 'a spell'}${d.save ? ` (${d.save} save, DC ${N(d.dc)})` : ''}`;
-    case 'effect': { const fx = d.fx || {}; const t = typeof fxTip === 'function' ? fxTip(fx) : ''; return `${fx.name || 'An effect'}${t ? ': ' + t : ''}${fx.rounds ? ' · ' + fmtRounds(fx.rounds) : ''}`; }
+    case 'hit': { const bits = [d.dmg ? N(d.dmg) + (d.type ? ' ' + d.type : '') + ' damage' : '', [].concat(d.cond || []).join(', '), d.save ? `${d.save} save, DC ${N(d.dc)}` : d.hit != null ? 'attack roll ' + N(d.hit) : ''].filter(Boolean); return `Hit you with ${d.spell || d.why || 'an attack'}${bits.length ? ' (' + bits.join(', ') + ')' : ''}`; }
+    case 'effect': { const fx = d.fx || {}; const t = typeof fxTip === 'function' ? fxTip(fx) : ''; return `Give you ${fx.name || 'an effect'}${t || fx.rounds ? ' (' + [t, fx.rounds ? 'for ' + fmtRounds(fx.rounds) : ''].filter(Boolean).join(', ') + ')' : ''}`; }
     case 'cure': return 'End ' + [].concat(d.conds || [], d.fx || [], d.exh ? [(N(d.exh) > 0 ? 'add' : 'remove') + ' a level of exhaustion'] : [], d.curse ? ['curses'] : []).join(', ') + why;
     case 'cond': return `Give you the ${d.cond} condition${N(d.rounds) ? ' for ' + N(d.rounds) + ' rounds' : ''}` + why;
     case 'revive': return 'Bring you back' + why; case 'stabilize': return 'Stabilize you' + why;
@@ -502,25 +500,28 @@ function ptyDesc(m) { const d = m.data || {}, why = d.why && d.why !== m.fromNam
     case 'undo': { const g = (S.ptyGot || []).find(x => x.ref === d.ref); return 'Take back: ' + (g ? g.text : 'something they sent'); }
   }
   return m.kind; }
-function ptyAskShow(force) {
-  const A = S.ptyAsk || []; if (!A.length) { if ($('#modal-body .ptyask')) closeModal(true); return; }
-  const mine = $('#modal').classList.contains('open') && $('#modal-body .ptyask');
-  // don't pull a window out from under you: a toast offers it instead
-  if (!force && $('#modal').classList.contains('open') && !mine) { toast(`<div><b>${A.length === 1 ? esc(A[0].m.fromName || 'Someone') + ' wants to change your sheet' : A.length + ' changes waiting for you'}</b><div class="det">Nothing changes until you accept.</div></div>`, 'alert', 15000, { label: 'Review', fn: () => ptyAskShow(true) }); return; }
-  openModal(`<div class="ptyask"><h3>${A.length === 1 ? 'Accept this change?' : `Accept these ${A.length} changes?`}</h3><p class="hint" style="margin:0 0 10px">Someone in your party is trying to change your sheet. Nothing happens unless you accept.</p>
-    <div class="ptyask-l">${A.map(a => `<div class="ptyask-r"><div class="ptyask-t"><b>${esc(a.m.fromName || 'Someone')}</b><span>${esc(ptyDesc(a.m))}</span><small>${esc(ptyAgo(a.at))}</small></div>
-      <div class="ptyask-b"><button class="btn sm" data-pa="askno" data-ref="${esc(a.ref)}">Decline</button><button class="btn sm gold" data-pa="askok" data-ref="${esc(a.ref)}">Accept</button></div></div>`).join('')}</div>
-    <div class="actions">${A.length > 1 ? '<button class="btn" data-pa="askall" data-ok="0">Decline all</button><button class="btn gold" data-pa="askall" data-ok="1">Accept all</button>' : '<button class="btn" data-act="close">Later</button>'}</div></div>`, null, true);
+// One question at a time, in its own window on top of everything (whatever else you have open stays as it was):
+// who, and what they're doing to you. Yes or No.
+function ptyAskShow() {
+  const A = S.ptyAsk || []; let ov = $('#ptyask-ov');
+  if (!A.length || !S.created) { if (ov) ov.remove(); return; }
+  if (!ov) { ov = document.createElement('div'); ov.id = 'ptyask-ov'; ov.className = 'ptyask-bg'; document.body.appendChild(ov); }
+  const a = A[0], d = ptyDesc(a.m), what = d.charAt(0).toLowerCase() + d.slice(1);
+  ov.innerHTML = `<div class="ptyask-m" role="alertdialog" aria-modal="true" aria-labelledby="ptyask-q">
+    ${A.length > 1 ? `<div class="ptyask-n">1 of ${A.length}</div>` : ''}
+    <p class="ptyask-q" id="ptyask-q"><b>${esc(a.m.fromName || 'Someone')}</b> wants to ${esc(what)}.</p>
+    <div class="ptyask-b"><button class="btn" data-pa="askno" data-ref="${esc(a.ref)}">No</button><button class="btn gold" data-pa="askok" data-ref="${esc(a.ref)}">Yes</button></div></div>`;
+  const y = ov.querySelector('[data-pa=askok]'); if (y && !matchMedia('(pointer:coarse)').matches) setTimeout(() => y.focus(), 30);
 }
 function ptyAnswer(ref, ok) {
-  const all = S.ptyAsk || [], pick = ref === '*' ? all.slice() : all.filter(a => a.ref === ref); if (!pick.length) return ptyAskShow(true);
-  S.ptyAsk = all.filter(a => !pick.includes(a)); let changed = false;
+  const all = S.ptyAsk || [], pick = all.filter(a => a.ref === ref); if (!pick.length) return ptyAskShow();
+  S.ptyAsk = all.filter(a => !pick.includes(a));
   pick.forEach(a => { const m = a.m, text = ptyDesc(m);
-    if (ok) { try { const b = PTYX().snap(S); if (ptyApply(m)) { changed = true; ptyGot(m, b); } } catch (e) { console.warn('party message', e); } }
-    else { ptyLog('in', m.fromName || '', 'Declined: ' + text); changed = true; }
+    if (ok) { try { const b = PTYX().snap(S); if (ptyApply(m)) ptyGot(m, b); } catch (e) { console.warn('party message', e); } }
+    else ptyLog('in', m.fromName || '', 'Said no: ' + text);
     if (m.from && PTYX()) PTYX().send(m.from, 'reply', { ok, text, n: S.name || '' }).catch(() => {}); });
-  if (!pendingLabel) pendingLabel = ok ? 'Accepted party changes' : 'Declined party changes';
-  save(); render(); if ((S.ptyAsk || []).length) ptyAskShow(true); else closeModal(true);
+  if (!pendingLabel) pendingLabel = ok ? 'Accepted a party change' : 'Turned down a party change';
+  save(); render(); ptyAskShow();
 }
 // anything still waiting when the sheet opens
 setTimeout(() => { if ((S.ptyAsk || []).length && S.created) ptyAskShow(); }, 3500);
@@ -590,7 +591,7 @@ function ptyApply(m) {
     case 'coins': { const got = []; ['cp', 'sp', 'ep', 'gp', 'pp'].forEach(k => { const v = Math.max(0, N(d[k])); if (v) { S.currency[k] = N(S.currency[k]) + v; got.push(v + ' ' + k); } }); if (!got.length) return false;
       pendingLabel = 'Coins from ' + who; note('Received ' + got.join(', ')); toast(`<div><b>${esc(who)}</b> gave you <b>${esc(got.join(', '))}</b></div>`, 'crit', 7000); return true; }
     case 'inspire': { S.insp = Math.min(inspMax(), Math.max(0, N(S.insp)) + 1); pendingLabel = 'Inspiration from ' + who; note('Inspiration'); toast(`<div><b>Inspiration!</b><div class="det">From ${esc(who)}${ST('inspiration') ? '' : ' (turn on Inspiration in Settings → Rules to see it on the sheet)'}</div></div>`, 'crit', 8000); return true; }
-    case 'reply': { note(`${d.ok ? 'Accepted' : 'Declined'}: ${d.text || ''}`); toast(`<div><b>${esc(d.n || who)}</b> ${d.ok ? 'accepted' : 'declined'}<div class="det">${esc(d.text || '')}</div></div>`, d.ok ? '' : 'alert', 6000); return true; }
+    case 'reply': { note(`${d.ok ? 'They said yes' : 'They said no'}: ${d.text || ''}`); toast(`<div><b>${esc(d.n || who)}</b> ${d.ok ? 'said yes' : 'said no'}<div class="det">${esc(d.text || '')}</div></div>`, d.ok ? '' : 'alert', 6000); return true; }
     case 'note': { note(String(d.text || '')); toast(`<div><b>${esc(who)}</b><div class="det">${esc(d.text || '')}</div></div>`, 'alert', 30000); return true; }
     case 'undo': { const g = (S.ptyGot || []).find(x => x.ref === d.ref); if (!g) { PTY_CANCEL.add(d.ref); return false; }
       PTYX().revert(S, g.rev); S.ptyGot = S.ptyGot.filter(x => x !== g); S.hp.cur = Math.min(N(S.hp.cur), maxHp()); pendingLabel = `${who} took back: ${g.text}`; note(`Took back: ${g.text}`);
