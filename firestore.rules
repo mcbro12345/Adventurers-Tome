@@ -25,10 +25,23 @@ service cloud.firestore {
       && request.resource.data.viewers == resource.data.viewers.removeAll([me()])
       && request.resource.data.get('editors', []) == resource.data.get('editors', []).removeAll([me()]); }
     function createOK() { return request.resource.data.owner == me() || me() in request.resource.data.editors; }
+    // A party's DM (and anyone the DM made a co-DM) can look at — not change — the characters in their party.
+    // The character says which party it's in; the party has to list it too.
+    function partyView(id, d) { return d.get('party', '') is string && d.get('party', '') != '' && partyMgr(get(/databases/$(db)/documents/parties/$(d.party)).data)
+      && (id in get(/databases/$(db)/documents/parties/$(d.party)).data.chars || id.replace('_p[0-9]+$', '') in get(/databases/$(db)/documents/parties/$(d.party)).data.chars); }
+    // Someone in the same party applying what they sent to a character nobody has open (healing, an item, a spell…):
+    // only the character's saved data changes — never who owns it, who it's shared with, or which party it's in.
+    function partyWrite(id) { let d = resource.data; return d.get('party', '') is string && d.get('party', '') != ''
+      && me() in get(/databases/$(db)/documents/parties/$(d.party)).data.people
+      && (id in get(/databases/$(db)/documents/parties/$(d.party)).data.chars || id.replace('_p[0-9]+$', '') in get(/databases/$(db)/documents/parties/$(d.party)).data.chars)
+      && request.resource.data.diff(d).affectedKeys().hasOnly(['data', 'savedAt', 'tab', 'n']); }
+    // Everyone in the party can read a party member's saved character (to apply what they send when it isn't open).
+    function partyRead(id, d) { return d.get('party', '') is string && d.get('party', '') != '' && me() in get(/databases/$(db)/documents/parties/$(d.party)).data.people
+      && (id in get(/databases/$(db)/documents/parties/$(d.party)).data.chars || id.replace('_p[0-9]+$', '') in get(/databases/$(db)/documents/parties/$(d.party)).data.chars); }
     match /sheets/{id} {
-      allow get: if admin() || (signedIn() && (resource == null || canSee(resource.data)));
+      allow get: if admin() || (signedIn() && (resource == null || canSee(resource.data) || partyView(id, resource.data) || partyRead(id, resource.data)));
       allow create: if admin() || (signedIn() && createOK());
-      allow update: if admin() || (signedIn() && (ownerWrite() || editorWrite() || leaveWrite()));
+      allow update: if admin() || (signedIn() && (ownerWrite() || editorWrite() || leaveWrite() || partyWrite(id)));
       // only the owner (or an admin) can delete a character — never someone it's merely shared with
       allow delete: if admin() || (signedIn() && resource.data.owner == me());
       allow list: if false;
@@ -95,6 +108,72 @@ service cloud.firestore {
             && request.resource.data.keys().hasOnly(['anon', 'at', 'name', 'pic', 'color', 'clear'])
             && request.resource.data.get('name', '') is string && request.resource.data.get('name', '').size() <= 60));
       allow delete: if v.matches('anon-[a-z0-9]{6,16}') || (signedIn() && v == me());
+    }
+    // ================= Parties =================
+    // parties/{p}: { name, dm, by, createdAt, updatedAt, chars (character ids), people (everyone who sees it in their
+    // list: the players, the DM, co-DMs), mgrs (co-DMs), invited (emails asked to join), inv (the invite link's code,
+    // '' when off), via, gone }. The DM and co-DMs run it; players join with the link (or an email invite) and can
+    // bring only their own characters, and leave whenever they like. Admins can do anything.
+    function partyMgr(pd) { return signedIn() && (me() == pd.dm || me() in pd.get('mgrs', [])); }
+    function partyOf(p) { return get(/databases/$(db)/documents/parties/$(p)).data; }
+    function lastChar() { return request.resource.data.chars[request.resource.data.chars.size() - 1]; }
+    // Joining: one character of your own is added at the end, and you're added to the people who see the party.
+    function joinOK() { let o = resource.data; let n = request.resource.data;
+      return n.diff(o).affectedKeys().hasOnly(['chars', 'people', 'invited', 'via', 'updatedAt'])
+        && n.chars.size() == o.chars.size() + 1 && n.chars == o.chars.concat([lastChar()]) && !(lastChar() in o.chars) && ownsSheet(lastChar())
+        && n.people.removeAll(o.people).hasOnly([me()]) && o.people.removeAll(n.people).size() == 0
+        && (n.invited == o.invited || n.invited == o.invited.removeAll([me()]))
+        && (me() in o.invited || partyMgr(o) || (n.via is string && n.via != '' && n.via == o.inv)); }
+    // Leaving: take one of your own characters out (n.gone says which), and optionally yourself off the list.
+    function leaveOK() { let o = resource.data; let n = request.resource.data;
+      return n.diff(o).affectedKeys().hasOnly(['chars', 'people', 'gone', 'updatedAt']) && n.gone is string && n.gone in o.chars && ownsSheet(n.gone)
+        && n.chars == o.chars.removeAll([n.gone]) && (n.people == o.people || n.people == o.people.removeAll([me()])); }
+    // Taking yourself off the list (a co-DM stepping down), or turning an invitation down.
+    function selfOffOK() { let o = resource.data; let n = request.resource.data;
+      return me() != o.dm && n.diff(o).affectedKeys().hasOnly(['people', 'mgrs', 'invited', 'updatedAt'])
+        && n.people == o.people.removeAll([me()]) && n.mgrs == o.mgrs.removeAll([me()]) && n.invited == o.invited.removeAll([me()]); }
+    function declineOK() { let o = resource.data; let n = request.resource.data;
+      return me() in o.invited && n.diff(o).affectedKeys().hasOnly(['invited']) && n.invited == o.invited.removeAll([me()]); }
+    // The DM and co-DMs change anything except adding other people's characters (players join themselves); only the
+    // DM hands the party to a new DM or changes who the co-DMs are.
+    function mgrOK() { let o = resource.data; let n = request.resource.data;
+      return partyMgr(o) && n.chars.removeAll(o.chars).size() == 0 && n.by == o.by
+        && (me() == o.dm || (n.dm == o.dm && n.mgrs == o.mgrs)); }
+    match /parties/{p} {
+      allow get: if admin() || (signedIn() && (me() in resource.data.people || me() in resource.data.invited || partyMgr(resource.data)));
+      allow list: if admin() || (signedIn() && (me() in resource.data.people || me() in resource.data.invited));
+      allow create: if signedIn() && request.resource.data.dm == me() && request.resource.data.by == me() && request.resource.data.chars.size() == 0
+        && me() in request.resource.data.people && request.resource.data.name is string && request.resource.data.name.size() <= 80;
+      allow update: if admin() || (signedIn() && request.resource.data.name is string && request.resource.data.name.size() <= 80
+        && (mgrOK() || joinOK() || leaveOK() || selfOffOK() || declineOK()));
+      allow delete: if admin() || (signedIn() && me() == resource.data.dm);
+      // Each character's card (name, picture, HP, AC, conditions), kept up to date by the character's own sheet.
+      match /cards/{c} {
+        allow read: if admin() || (signedIn() && (me() in partyOf(p).people || partyMgr(partyOf(p))));
+        allow write: if admin() || (signedIn() && c in partyOf(p).chars && (canEditSheet(c) || me() in partyOf(p).people));
+        allow delete: if signedIn() && partyMgr(partyOf(p));
+      }
+    }
+    // An invite link: /join/<code> says which party (anyone signed in who has the link can look it up).
+    match /invites/{t} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create, update: if admin() || (signedIn() && request.resource.data.keys().hasOnly(['p', 'name', 'dm', 'dmName', 'at'])
+        && partyMgr(partyOf(request.resource.data.p)));
+      allow delete: if admin() || (signedIn() && partyMgr(partyOf(resource.data.p)));
+    }
+    // Things party members send each other (an item handed over, healing, a spell cast on them…). They wait here until
+    // the character's own sheet picks them up and applies them. Only someone in the same party can send one — the DM, a
+    // co-DM, or a player sending from a character in that party they can edit — and only that character's sheet reads them.
+    function partySend(id) { let d = request.resource.data; let pd = partyOf(d.p);
+      return id in pd.chars && (admin() || partyMgr(pd) || (d.from is string && d.from in pd.chars && canEditSheet(d.from))); }
+    match /sheets/{id}/inbox/{m} {
+      allow create: if signedIn() && request.resource.data.by == me() && request.resource.data.keys().hasOnly(['p', 'ref', 'from', 'fromName', 'by', 'at', 'kind', 'data'])
+        && request.resource.data.data is string && request.resource.data.data.size() < 400000 && partySend(id);
+      allow read, delete: if signedIn() && canEditSheet(id);
+      // the sender can take back (or deliver) what they sent while it's still waiting
+      allow get, delete: if signedIn() && resource.data.by == me();
+      allow update: if false;
     }
     match /config/admins {
       allow get: if admin();

@@ -530,6 +530,7 @@ function hpAction(kind) {
 function takeDamage(amt) {
   { const raw = amt, adj = surgeDamageAdj(amt); if (adj !== raw) { setTimeout(() => toast(adj < raw ? `Resistance to all damage: ${raw} → <b>${adj}</b>.` : `Vulnerable to all damage: ${raw} → <b>${adj}</b>.`, '', 5000), 60); amt = adj; } }
   const hp = S.hp; pendingLabel = `Took ${amt} damage`;
+  if (amt > 0 && typeof ptyBondDamage === 'function') ptyBondDamage(amt); // Warding Bond: the caster takes it too
   if (amt > 0) setTimeout(() => S.inventory.forEach(it => { const h = it.hb || {}; if (!h.hurtSave || !hbItemOn(it)) return; const ab = h.hurtSave, dc = N(h.hurtDC) || 10;
     toast(`<div><b>${esc(it.name)}</b><div class="det">DC ${dc} ${ab.toUpperCase()} save${h.hurtText ? ' — on a failure: ' + esc(h.hurtText) : ''}</div></div>`, 'alert', 20000, [{ label: 'Roll save', fn: () => { const r = d20(`${it.name}: DC ${dc} ${ab.toUpperCase()} save`, saveVal(ab), 'save', ab); if (r && !r.skipped) toast(r.total >= dc ? `Saved against ${esc(it.name)}.` : `<b>Failed</b> — ${esc(h.hurtText || it.name)}`, r.total >= dc ? '' : 'fumble', 9000); } }]);
   }), 250);
@@ -545,10 +546,12 @@ function takeDamage(amt) {
   const before = N(hp.cur);
   if (before <= 0 && d > 0) { S.death.f = Math.min(3, N(S.death.f) + 1); update(); toast('Damage while at 0 HP — one death save failure (two on a crit).', 'fumble', 7000); return; }
   hp.cur = Math.max(0, before - d);
+  if (hp.cur === 0 && before > 0 && typeof ptyDeathWard === 'function' && ptyDeathWard()) hp.cur = 1;
   if (hp.cur === 0 && before > 0) {
     if (!S.conditions.includes('Unconscious')) S.conditions.push('Unconscious');
     toast(`${esc(who())} drops to 0 HP — roll death saves.`, 'fumble', 7000);
     fxTrigger('zero');
+    if (typeof ptyAurasOff === 'function' && Object.keys(S.ptyAuras || {}).length) ptyAurasOff('dropped to 0 HP');
     if (conc) { update(); breakConc('dropped to 0 HP'); return; }
   } else if (conc && d >= 0 && ST('concPrompt')) setTimeout(() => concCheck(dc), 50);
   update();
@@ -630,7 +633,7 @@ function nextTurn() {
   toast(`Round ${S.turn.round} — action, bonus action, reaction and movement ready.`);
   announce(res);
   const tmpEach = fxActive().find(e => e.buff && e.buff.tempEach && !e.ally);
-  if (tmpEach) { const v = Math.max(0, castInfo().mod || 0); if (v > N(S.hp.temp)) { S.hp.temp = v; save(); refresh(); toast(`${esc(tmpEach.name)}: ${v} temporary HP.`); } }
+  if (tmpEach) { const v = tmpEach.buff.tempN != null ? N(tmpEach.buff.tempN) : Math.max(0, castInfo().mod || 0); /* cast by an ally: their modifier */ if (v > N(S.hp.temp)) { S.hp.temp = v; save(); refresh(); toast(`${esc(tmpEach.name)}: ${v} temporary HP.`); } }
   wildTurnStart();
 }
 // ---------- Ready action ----------
@@ -911,7 +914,7 @@ function useFeature(i, col, opt) {
   const sc = []; clsRows().forEach(row => { const c = CL[row.key], s = subOf(row); (c.scaling || []).concat((s && s.scaling) || []).forEach(([n, t]) => { if (new RegExp('\\b' + n.split(' ')[0].replace(/[^a-z]/gi, '') + '\\b', 'i').test(f.name) && n !== 'Rage Damage') sc.push(n + ': ' + scaleVal(t, N(row.level))); }); });
   pendingLabel = 'Use ' + f.name; update(); render();
   const left = max != null && !f.pool ? `${Math.max(0, max - N(f.used))}/${max} left` : '';
-  toast(`${r ? `<b class="total">${r.total}</b>` : ''}<div><div><b>${esc(f.name)}</b>${left ? ' · ' + left : ''}</div>${r ? `<div class="det">${esc(r.detail)}${fx.rollNote ? ' ' + esc(fx.rollNote) : ''}</div>` : ''}${sc.length ? `<div class="det">${esc(sc.join(' · '))}</div>` : ''}${lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, '', 8000, [healAct, { label: 'Undo', fn: () => undo(1) }].filter(Boolean));
+  toast(`${r ? `<b class="total">${r.total}</b>` : ''}<div><div><b>${esc(f.name)}</b>${left ? ' · ' + left : ''}</div>${r ? `<div class="det">${esc(r.detail)}${fx.rollNote ? ' ' + esc(fx.rollNote) : ''}</div>` : ''}${sc.length ? `<div class="det">${esc(sc.join(' · '))}</div>` : ''}${lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, '', 8000, [healAct, typeof ptyFeatAct === 'function' ? ptyFeatAct(f.name, r, f) : null, { label: 'Undo', fn: () => undo(1) }].filter(Boolean));
 }
 function smite(l) {
   let L;
@@ -964,7 +967,9 @@ function castSpell(i, col, force) {
 }
 function castExtrasHTML(sp, base) {
   const a = AUTO(sp.name); let h = '';
-  if (a.ask) h += `<label class="checkline big"><input type="checkbox" id="castSelf" checked> ${esc(a.ask)}</label>`;
+  const pt = typeof ptyCastPicker === 'function' ? ptyCastPicker(sp, base) : null;
+  if (pt) h += pt.html;
+  if (a.ask && !(pt && pt.self)) h += `<label class="checkline big"><input type="checkbox" id="castSelf" checked> ${esc(a.ask)}</label>`;
   if (a.summon) { const d = DND.summons[a.summon]; h += fld('Spirit type', `<select class="f" id="castKind">${d.kinds.map(k => `<option>${esc(k)}</option>`).join('')}</select>`); }
   const crSel = (list, id, label, keep) => fld(label, `<select class="f" id="${id}">${(keep ? list : list.slice().sort((x, y) => y.cr - x.cr || x.name.localeCompare(y.name))).map(c => `<option value="${esc(c.name)}">${esc(c.name)} (CR ${DND.crLabel(c.cr)}, AC ${c.ac}, HP ${c.hp})</option>`).join('')}</select>`);
   if (a.familiar) h += crSel(DND.creatures.filter(c => c.tags.includes('familiar') || (hasFeature('Pact of the Chain') && c.tags.includes('chain'))), 'castCr', 'Familiar form', true);
@@ -987,7 +992,7 @@ function castGo(b) {
   // closed, so the choices made in it are remembered on the button.
   if (!b.__cast) {
     if (!CASTING) return;
-    b.__cast = { i: CASTING.i, col: CASTING.col, x: { self: $('#castSelf') ? $('#castSelf').checked : true, kind: $('#castKind') && $('#castKind').value, cr: $('#castCr') && $('#castCr').value, wpn: $('#castWpn') ? $('#castWpn').value : '' } };
+    b.__cast = { i: CASTING.i, col: CASTING.col, x: { tgts: typeof ptyPicked === 'function' ? ptyPicked() : null, pick: $('#ptyPick') ? $('#ptyPick').value : '', self: $('#castSelf') ? $('#castSelf').checked : true, kind: $('#castKind') && $('#castKind').value, cr: $('#castCr') && $('#castCr').value, wpn: $('#castWpn') ? $('#castWpn').value : '' } };
   }
   const { i, col, x } = b.__cast; CASTING = null; closeModal(true);
   executeCast(i, b.dataset.k, N(b.dataset.l), col, x);
@@ -1035,11 +1040,12 @@ function executeCast(i, how, L, col, x) {
     if (!eff.ally) { const t = fxTip({ buff: bf }); if (t) lines.push(t + (wat ? ' — ' + esc(wat.name) + ' only' : '')); } else lines.push('On an ally — your own stats are unchanged');
     needEffect = true;
   }
+  let ptyMax = null, ptyTemp = null, ptyHeal = null;
   if (a.maxHp && self) {
     const v = a.maxHp.roll ? rollExpr(a.maxHp.roll, { need: true, label: sp.name + ': extra hit points' }).total : N(a.maxHp.base) + N(a.maxHp.up) * Math.max(0, L - base);
-    eff.maxHp = v; S.hp.cur = N(S.hp.cur) + v; needEffect = true; lines.push(`+${v} max HP and current HP`);
+    eff.maxHp = v; ptyMax = v; S.hp.cur = N(S.hp.cur) + v; needEffect = true; lines.push(`+${v} max HP and current HP`);
   }
-  if (sm.temp) { const r = rollExpr(sm.temp, { need: true, label: sp.name + ': temporary HP' }); if (r.total > N(S.hp.temp)) S.hp.temp = r.total; lines.push(`${r.total} temporary HP${r.total <= N(S.hp.temp) && S.hp.temp !== r.total ? ' (kept your higher temp HP)' : ''}`); }
+  if (sm.temp) { const r = rollExpr(sm.temp, { need: true, label: sp.name + ': temporary HP' }); ptyTemp = r.total; if (r.total > N(S.hp.temp)) S.hp.temp = r.total; lines.push(`${r.total} temporary HP${r.total <= N(S.hp.temp) && S.hp.temp !== r.total ? ' (kept your higher temp HP)' : ''}`); }
   // Riders, weapon cantrips
   if (a.rider) { let d = a.rider; if (a.riderUp && L > base) { const m = a.riderUp.match(/(\d+)d(\d+)/); const m0 = d.match(/^(\d+)d(\d+)(.*)$/); if (m && m0 && m0[2] === m[2]) d = (N(m0[1]) + N(m[1]) * (L - base)) + 'd' + m0[2] + m0[3]; } S.riders = (S.riders || []).filter(r => r.name !== sp.name).concat([{ name: sp.name, dice: d }]); lines.push(`Your next weapon hit adds ${d}`); }
   if (a.weapon) {
@@ -1111,7 +1117,7 @@ function executeCast(i, how, L, col, x) {
     else {
       const supreme = hasSub('cleric', 'life') && clsLv('cleric') >= 17;
       const hx = supreme ? sm.heal.replace(/(\d*)d(\d+)/g, (m0, n, s2) => String((N(n) || 1) * N(s2))) : sm.heal;
-      const r = rollExpr(hx, { label: sp.name + ' healing' }); mainTotal = r.total;
+      const r = rollExpr(hx, { label: sp.name + ' healing' }); mainTotal = r.total; ptyHeal = r;
       out.push(`Heals <b>${r.total}</b>${a.each ? ' each' : ''} (${esc(hx)}: ${esc(r.detail)})`);
       healAct = { label: 'Heal me', fn: () => useAmt(r, sp.name + ': healing you got', n => healSelf(n, `${sp.name}: +${n} HP`)) };
     }
@@ -1127,13 +1133,14 @@ function executeCast(i, how, L, col, x) {
     lines.push(`Backlash (cast again before a short rest): ${r.total}${bt ? ' ' + esc(bt) : ''} damage to you${res ? ` — resistant, you take ${dmg}` : ''} (${esc(r.detail)})`);
     backAct = { label: `Take ${dmg} damage`, fn: () => { takeDamage(dmg); save(); render(); } };
   }
+  if (typeof ptyAfterCast === 'function') { const pl = ptyAfterCast(sp, a, L, x, { self, heal: ptyHeal, healAll: sm.heal === 'all', temp: ptyTemp, maxHp: ptyMax, eff, rounds, card, beamRows, sm, ci, mainTotal, wat }); if (pl) { lines.push(...pl.lines); if (pl.noSelfHeal) healAct = null; } }
   [].concat(beamRows.filter(r => r.nat1), card && card.nat1 ? [card] : []).forEach(() => { const r = nat1Roll(); if (r) out.unshift(`<span class="rc-n1"><b>Nat 1 Roll:</b> ${r.total}</span>`); });
   if (MAXDMG && DICE_TOUCHED) S.effects = S.effects.filter(e => !(e.buff && e.buff.maxNext));
   MAXDMG = false; EMPOWER = 0;
   const surgeShow = wildAfterCast(sp);
   save(); render();
   if (surgeShow) setTimeout(surgeShow, 350);
-  const acts = [healAct, backAct, { label: 'Undo', fn: () => undo(1) }].filter(Boolean);
+  const acts = [healAct, backAct, typeof ptyHitAct === 'function' ? ptyHitAct() : null, { label: 'Undo', fn: () => undo(1) }].filter(Boolean);
   // Rolls go on the big card like weapon attacks: to hit and damage (one row per beam/ray); the details go to the roll log.
   const how2 = how === 'slot' ? `${ORD[L - 1]}-level slot` : how === 'pact' ? 'pact slot' : how === 'free' ? 'free use' : how === 'atwill' ? 'at will' : how === 'ritual' ? 'ritual' : '';
   const dets = out.map(o => `<div class="det">${o}</div>`).join('') + lines.map(l => `<div class="det">${l}</div>`).join('');

@@ -128,7 +128,7 @@ function setP(path, val) { const ks = path.split('.'); let o = S; for (let i = 0
 // ---------- Undo history ----------
 const HMAX = 300;
 const hkey = () => keyFor(S.id || 'blank') + ':history';
-const TRACK = k => !['savedAt', 'spellFilter', 'macroSeen'].includes(k);
+const TRACK = k => !['savedAt', 'spellFilter', 'macroSeen', 'ptyLog', 'ptyNews'].includes(k);
 let HIST = [], REDO = [], LAST = null, pendingLabel = null;
 function snapAll() { const o = {}; for (const k in S) if (TRACK(k)) o[k] = JSON.stringify(S[k]); return o; }
 function commit() {
@@ -147,6 +147,7 @@ function commit() {
 }
 function applyEntry(e) {
   const inv = { t: e.t, label: e.label, keys: {} };
+  if (e.pty) { inv.pty = e.pty; if (typeof ptyHist === 'function') ptyHist(e.pty); } // things sent to the party: taken back, or sent again
   for (const k in e.keys) { inv.keys[k] = k in S ? JSON.stringify(S[k]) : null; if (e.keys[k] === null) delete S[k]; else S[k] = JSON.parse(e.keys[k]); }
   return inv;
 }
@@ -177,6 +178,7 @@ function save() {
   if (S.effects && S.effects.length) S.effects = S.effects.filter(e => !e.conc || e.name === S.concentration);
   if (S.created) cleanupLinked();
   if (typeof hasteWatch === 'function') hasteWatch();
+  if (typeof ptyWatchCasts === 'function') ptyWatchCasts();
   commit(); writeLocal();
 }
 function writeLocal() {
@@ -264,7 +266,7 @@ function skillVal(sk) {
 const perception = () => { const p = S.skills.find(s => s.name === 'Perception'); return p ? skillVal(p) : mod('wis'); };
 const passive = () => 10 + perception() + (hasFeat('Observant') ? 5 : 0) + (activeItems().some(it => (it.mods || {}).percAdv) ? 5 : 0);
 function initVal() {
-  let v = mod('dex') + itemSum('check');
+  let v = mod('dex') + itemSum('check') + buffSum('init'); // (an ally's Aura of the Sentinel)
   if (hasFeat('Alert')) v += 5;
   if (S.features.some(f => f.initProf)) v += PB();
   if (jack()) v += Math.floor(PB() / 2);
@@ -565,7 +567,7 @@ function rollMode(kind, ab) {
     if (ATK_ITEM && ATK_ITEM.weapon) S.inventory.forEach(it => { if (it.hb && it.hb.othersDis && hbItemOn(it) && it.id !== ATK_ITEM.id) dis.push(it.name + ' (curse: other weapons)'); });
   }
   if ((kind === 'check' || kind === 'save') && ['str', 'dex'].includes(ab) && armorNonProf().length) dis.push('armor not proficient');
-  if (kind === 'check' && ROLL_CTX === 'init') { fxPassives().forEach(p => { if (p.initAdv) adv.push(p.src); }); activeItems().forEach(it => { if ((it.mods || {}).initAdv) adv.push(it.name); }); }
+  if (kind === 'check' && ROLL_CTX === 'init') { fxPassives().forEach(p => { if (p.initAdv) adv.push(p.src); }); fxActive().forEach(e => { if (e.buff && e.buff.initAdv && !e.ally && e.self !== false) adv.push(e.name); }); activeItems().forEach(it => { if ((it.mods || {}).initAdv) adv.push(it.name); }); }
   if (kind === 'check' && String(ROLL_CTX).startsWith('skill:')) fxPassives().forEach(p => { if ([].concat(p.skillAdv || []).includes(ROLL_CTX.slice(6))) adv.push(p.src); });
   if (kind === 'check' && String(ROLL_CTX).startsWith('skill:')) fxActive().forEach(e => { if (e.buff && !e.ally && [].concat(e.buff.skillAdv || []).includes(ROLL_CTX.slice(6))) adv.push(e.name); });
   if (kind === 'check' && ROLL_CTX !== 'init') fxPassives().forEach(p => { if ([].concat(p.checkAdv || []).includes(ab)) adv.push(p.src); });

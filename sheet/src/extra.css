@@ -2782,3 +2782,40 @@ html .bonusatk table.mini td .bwait { display: block; font-size: .7rem !importan
 .crempty { padding: 14px 10px; margin: 0; }
 .hbsave { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 2px 0 10px; border-bottom: 1px solid var(--line2); margin-bottom: 10px; }
 .hbsave .hint { font-size: .78rem; flex: 1; min-width: 180px; }
+
+/* ---------- Party tab (members are drawn like creature cards) ---------- */
+.ptym-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; margin-bottom: 14px; }
+.ptym-grid > .panel { margin: 0; }
+.ptym.down { border-color: var(--red); } .ptym.dead { opacity: .6; filter: grayscale(.7); }
+.ptym .picadd { font: 800 .95rem Georgia, serif; color: var(--gold-ink); }
+.ptym .menu { position: relative; } .ptym .menu-list { right: 0; left: auto; min-width: 220px; }
+.ptym-cur { font-size: 1.6rem; font-weight: 700; line-height: 1.05; }
+.ptym-act { display: flex; flex-wrap: wrap; gap: 6px; }
+.ptya { padding: 8px 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
+.ptya:first-of-type { border-top: 0; }
+.ptya-who { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.ptylog { display: flex; flex-direction: column; gap: 6px; max-height: 380px; overflow-y: auto; }
+.ptyl { display: flex; gap: 8px; align-items: flex-start; font-size: .88rem; }
+.ptyl-d { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: .72rem; background: var(--soft); }
+.ptyl.in .ptyl-d { background: var(--gold-soft); color: var(--gold-ink); }
+.ptyl-t { display: flex; flex-direction: column; min-width: 0; }
+.ptyl-t small { color: var(--slate); font-size: .75rem; }
+/* Picking who (the cast window and the party pickers) */
+.ptypick { margin: 4px 0 10px; padding: 10px 12px; border: 1px solid var(--gold); border-radius: 12px; background: var(--gold-soft); }
+.ptypick .hint { margin: 6px 0 0; }
+.ptypick .fld { margin-top: 8px; }
+.ptypk { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.ptychk { display: inline-flex; align-items: center; gap: 8px; padding: 6px 11px 6px 8px; border-radius: 10px; border: 1px solid var(--line2); background: var(--panel); cursor: pointer; }
+.ptychk:has(input:checked) { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+.ptychk input { width: 16px; height: 16px; accent-color: var(--gold); margin: 0; }
+.ptychk span { display: flex; flex-direction: column; line-height: 1.2; }
+.ptychk small { color: var(--slate); font-size: .72rem; }
+.ptygive { display: flex; flex-direction: column; gap: 6px; max-height: 55vh; overflow-y: auto; }
+.ptyg-row { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 10px; }
+.ptyg-n { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.ptyg-n b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ptyg-n small { color: var(--slate); font-size: .75rem; }
+.ptyg-q { width: 64px !important; }
+.ptycoins { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+.ptycast { max-height: 60vh; overflow-y: auto; }
+html.mobile .ptym-grid { grid-template-columns: 1fr; }
