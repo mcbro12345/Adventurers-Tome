@@ -286,6 +286,7 @@ function mainClick(e) {
     case 'booksedit': UI.open.booksedit = !UI.open.booksedit; saveUI(); reopenSettings(); break;
     case 'addbag': openAddBag(); break;
     case 'deck': openDeck(i); break;
+    case 'unpack': unpackItem(i); break;
     case 'decktype': S.deck.variant = b.dataset.v; DECK.last = null; save(); renderDeck(); break;
     case 'deckdeclare': { const n = Math.max(1, Math.min(22, N($('#deckn').value))); S.deck.left = n; pendingLabel = `Declare ${n} card${n > 1 ? 's' : ''}`; save(); deckDraw(); break; }
     case 'deckdraw': deckDraw(); break;

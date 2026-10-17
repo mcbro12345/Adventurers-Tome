@@ -730,7 +730,7 @@ function renderWizard() {
     const c = CL[(wzClassRows()[0] || {}).key], b = DND.backgrounds[W.bg], kit = kitItems();
     body = `<div class="segmini" style="margin-bottom:10px"><button class="${W.equip === 'kit' ? 'on' : ''}" data-wact="equip" data-v="kit">Starting equipment</button><button class="${W.equip === 'gold' ? 'on' : ''}" data-wact="equip" data-v="gold">Starting gold instead</button></div>`;
     if (W.equip === 'kit') body += `<p class="hint">Untick anything you don't want. Choices like "a martial weapon" are set to a sensible default — swap items in Inventory any time, and add more from the full catalog.</p>
-      <div class="kit">${kit.map(([src, k], i) => { const [n, q] = k.split(':'); return `<label class="checkline"><input type="checkbox" data-wzkit="${i}"${W.kitOff[i] ? '' : ' checked'}> ${esc(n)}${q ? ' ×' + q : ''} <span class="hint">${src === 'bg' ? 'background' : 'class'}</span></label>`; }).join('')}</div>${b ? `<p class="hint">Plus ${b.gold} gp from your background.</p>` : ''}`;
+      <div class="kit">${kit.map(([src, k], i) => { const [n, q] = k.split(':'); return `<label class="checkline"><input type="checkbox" data-wzkit="${i}"${W.kitOff[i] ? '' : ' checked'}> ${esc(n)}${q ? ' ×' + q : ''} <span class="hint">${src === 'bg' ? 'background' : 'class'}</span>${packOf(n) ? `<span class="hint packin">— unpacks into ${esc(packOf(n).map(([x, c]) => (c ? c + ' × ' : '') + x.replace(/\s*\(.*\)$/, '').toLowerCase()).join(', '))}</span>` : ''}</label>`; }).join('')}</div>${b ? `<p class="hint">Plus ${b.gold} gp from your background.</p>` : ''}`;
     else body += `<div class="row"><button class="btn gold" data-wact="rollgold">Roll ${esc(c ? c.gold : '')} gp</button>${fld('Gold', `<input class="f" type="number" data-wz="gold" value="${esc(W.gold)}" style="width:110px">`)}</div><p class="hint">Buy gear from the catalog in Inventory after creating.</p>`;
     const extra = wzTotalLevel() - 1;
     if (extra > 0) body += `<h4 style="margin-top:16px">Hit points for levels 2–${wzTotalLevel()}</h4><div class="segmini"><button class="${W.hpMode === 'avg' ? 'on' : ''}" data-wact="hpmode" data-v="avg">Take the average</button><button class="${W.hpMode === 'roll' ? 'on' : ''}" data-wact="hpmode" data-v="roll">Roll</button></div>${W.hpMode === 'roll' ? `<p class="hint">${W.hpRolls.length ? 'Rolled: ' + W.hpRolls.join(', ') : ''} <button class="btn sm" data-wact="rollhp">${W.hpRolls.length ? 'Reroll' : 'Roll'}</button></p>` : ''}`;
@@ -816,6 +816,31 @@ function wizClick(e) {
   }
   renderWizard(); $('#wizard .wz-body').scrollTop = 0;
 }
+// What each equipment pack holds (PHB / VRGR). Picking a pack gives you these items, not a "pack" item.
+const PACKS = {
+  "burglar's pack": [['Backpack'], ['Ball bearings (bag of 1,000)'], ['String (10 feet)'], ['Bell'], ['Candle', 5], ['Crowbar'], ['Hammer'], ['Piton', 10], ['Lantern, hooded'], ['Oil (flask)', 2], ['Rations (1 day)', 5], ['Tinderbox'], ['Waterskin'], ['Rope, hempen (50 feet)']],
+  "diplomat's pack": [['Chest'], ['Case, map or scroll', 2], ['Fine clothes'], ['Ink (1 ounce bottle)'], ['Ink pen'], ['Lamp'], ['Oil (flask)', 2], ['Paper (one sheet)', 5], ['Perfume (vial)'], ['Sealing wax'], ['Soap']],
+  "dungeoneer's pack": [['Backpack'], ['Crowbar'], ['Hammer'], ['Piton', 10], ['Torch', 10], ['Tinderbox'], ['Rations (1 day)', 10], ['Waterskin'], ['Rope, hempen (50 feet)']],
+  "entertainer's pack": [['Backpack'], ['Bedroll'], ['Costume clothes', 2], ['Candle', 5], ['Rations (1 day)', 5], ['Waterskin'], ['Disguise kit']],
+  "explorer's pack": [['Backpack'], ['Bedroll'], ['Mess kit'], ['Tinderbox'], ['Torch', 10], ['Rations (1 day)', 10], ['Waterskin'], ['Rope, hempen (50 feet)']],
+  "priest's pack": [['Backpack'], ['Blanket'], ['Candle', 10], ['Tinderbox'], ['Alms box'], ['Incense', 2], ['Censer'], ['Vestments'], ['Rations (1 day)', 2], ['Waterskin']],
+  "scholar's pack": [['Backpack'], ['Book of lore'], ['Ink (1 ounce bottle)'], ['Ink pen'], ['Parchment (one sheet)', 10], ['Little bag of sand'], ['Knife, small']],
+  "monster hunter's pack": [['Chest'], ['Crowbar'], ['Hammer'], ['Wooden stake', 3], ['Holy symbol'], ['Holy water (flask)'], ['Manacles'], ['Mirror, steel'], ['Oil (flask)'], ['Tinderbox'], ['Torch', 3]]
+};
+const packOf = name => PACKS[String(name || '').toLowerCase().trim()] || null;
+// Add an item, stacking it onto one you already carry with the same name (plain gear only).
+function addStacked(it, bag) {
+  const same = !it.weapon && !it.armor && S.inventory.find(x => !x.weapon && !x.armor && !x.magic && !x.equipped && (x.bag || '') === (bag || '') && x.name.toLowerCase() === it.name.toLowerCase());
+  if (same) { same.qty = N(same.qty || 1) + N(it.qty || 1); return; }
+  if (bag) it.bag = bag; addInventoryItem(it, true);
+}
+function addPackContents(name, times, bag) { packOf(name).forEach(([n, q]) => { const it = findGear(n); it.qty = (q || 1) * (times || 1); addStacked(it, bag); }); }
+// Open a pack already in your inventory: it becomes the things inside it.
+function unpackItem(i) {
+  const it = S.inventory[i]; if (!it || !packOf(it.name)) return;
+  S.inventory.splice(i, 1); addPackContents(it.name, N(it.qty) || 1, it.bag && !it.equipped ? it.bag : '');
+  pendingLabel = 'Unpack ' + it.name; save(); render(); toast(`Unpacked ${esc(it.name)}.`, '', 5000, { label: 'Undo', fn: () => undo(1) });
+}
 function findGear(name) {
   const n = name.toLowerCase();
   const w = DND.weapons.find(x => x[0].toLowerCase() === n); if (w) return makeWeaponItem(w);
@@ -889,7 +914,7 @@ function buildCharacter() {
   S.hp.base = base;
   // Equipment
   if (W.equip === 'kit') {
-    kitItems().forEach(([src, s2], i) => { if (W.kitOff[i]) return; const [n, q] = s2.split(':'); const it = findGear(n); it.qty = N(q) || 1; addInventoryItem(it, true); });
+    kitItems().forEach(([src, s2], i) => { if (W.kitOff[i]) return; const [n, q] = s2.split(':'); if (packOf(n)) return addPackContents(n, N(q) || 1); const it = findGear(n); it.qty = N(q) || 1; addStacked(it); });
     if (b) S.currency.gp = N(b.gold);
   } else S.currency.gp = N(W.gold) + (b ? 0 : 0);
   const arm = S.inventory.find(it => it.armor && it.armor.type !== 'shield' && (S.profs.armor || []).includes(it.armor.type)); if (arm) arm.equipped = true;
