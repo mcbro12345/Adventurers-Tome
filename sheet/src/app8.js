@@ -362,6 +362,15 @@ const hbCSV = v => String(v || '').split(/\s*[,;\n]\s*/).map(x => x.trim()).filt
 const hbNum = v => (/^\s*walk\s*$/i.test(String(v)) ? 'walk' : /^-?\d+$/.test(String(v).trim()) ? Number(v) : String(v).trim());
 // An item's effects work while it's equipped (or merely carried, if ticked) and attuned when it needs attunement.
 const hbItemOn = it => !!it && (it.equipped || !!it.carried) && (!it.attune || !!it.attuned);
+// The table's own homebrew items: these get their effect set up as soon as they show up in an inventory
+// (only when the item has no homebrew settings of its own, so a player's edits always win).
+const HB_KNOWN = [
+  [/\bspider legs?\b/i, { hb: { consume: true, effName: 'Spider Legs', effSkillAdv: 'Perception', effNote: 'Advantage on Perception checks until your next long rest', text: 'Advantage on Perception checks until your next long rest.' }, carried: true }]
+];
+function hbKnownItem(it) {
+  if (!it || it.hb || it.hbKnown) return; const k = HB_KNOWN.find(([re]) => re.test(it.name || '')); if (!k) return;
+  it.hb = JSON.parse(JSON.stringify(k[1].hb)); if (k[1].carried) it.carried = true; it.hbKnown = 1;
+}
 function hbFx(hb) {
   if (!hb || typeof hb !== 'object') return null;
   const o = {}, p = {}, has = k => hb[k] != null && String(hb[k]).trim() !== '' && hb[k] !== false;
@@ -394,6 +403,7 @@ function hbFx(hb) {
     if (has('effSpeed')) b.speed = hbNum(hb.effSpeed);
     if (has('effAc')) b.ac = hbNum(hb.effAc);
     if (has('effNote')) b.note = String(hb.effNote);
+    if (has('effSkillAdv')) b.skillAdv = hbCSV(hb.effSkillAdv).map(x => { const k = DND.skills.find(z => z[0].toLowerCase() === x.toLowerCase()); return k ? k[0] : x; });
     u.effect = { name: String(hb.effName).trim(), rounds: has('effRounds') && N(hb.effRounds) ? N(hb.effRounds) : null, conc: !!hb.effConc, buff: b };
   }
   if (has('summon')) u.companion = String(hb.summon);

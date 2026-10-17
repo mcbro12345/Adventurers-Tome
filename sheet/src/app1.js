@@ -104,6 +104,7 @@ function migrate(s) {
   const b = blankState();
   for (const k in b) if (s[k] === undefined) s[k] = b[k];
   if (!Array.isArray(s.sources)) s.sources = defaultSources();
+  if (Array.isArray(s.inventory) && typeof hbKnownItem === 'function') s.inventory.forEach(hbKnownItem);
   // Rings / Armor of Resistance that had their type picked in a dropdown become the named item ("Ring of Resistance (Fire)").
   (s.inventory || []).forEach(it => { if (it && it.resPick && /\b(ring|armor) of resistance\b/i.test(it.name || '') && !/\((acid|cold|fire|force|lightning|necrotic|poison|psychic|radiant|thunder)\)\s*$/i.test(it.name || '')) it.name = it.name + ' (' + it.resPick[0].toUpperCase() + it.resPick.slice(1) + ')'; });
   s.slotsUsed = (s.slotsUsed || []).concat(Array(9).fill(0)).slice(0, 9);
@@ -564,6 +565,7 @@ function rollMode(kind, ab) {
   if ((kind === 'check' || kind === 'save') && ['str', 'dex'].includes(ab) && armorNonProf().length) dis.push('armor not proficient');
   if (kind === 'check' && ROLL_CTX === 'init') { fxPassives().forEach(p => { if (p.initAdv) adv.push(p.src); }); activeItems().forEach(it => { if ((it.mods || {}).initAdv) adv.push(it.name); }); }
   if (kind === 'check' && String(ROLL_CTX).startsWith('skill:')) fxPassives().forEach(p => { if ([].concat(p.skillAdv || []).includes(ROLL_CTX.slice(6))) adv.push(p.src); });
+  if (kind === 'check' && String(ROLL_CTX).startsWith('skill:')) fxActive().forEach(e => { if (e.buff && !e.ally && [].concat(e.buff.skillAdv || []).includes(ROLL_CTX.slice(6))) adv.push(e.name); });
   if (kind === 'check' && ROLL_CTX !== 'init') fxPassives().forEach(p => { if ([].concat(p.checkAdv || []).includes(ab)) adv.push(p.src); });
   if (kind === 'save') fxPassives().forEach(p => { if ([].concat(p.saveAdv || []).includes(ab)) adv.push(p.src); });
   if (kind === 'check' && ROLL_CTX === 'skill:Perception') activeItems().forEach(it => { if ((it.mods || {}).percAdv) adv.push(it.name); });
