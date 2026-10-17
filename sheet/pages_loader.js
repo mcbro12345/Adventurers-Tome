@@ -658,7 +658,7 @@ function wireDie(root) {
   const ptySetLocal = pid => { PARTY = pid || ''; PTY_SET = Date.now(); ptyWatch(PARTY); };
   function ptyWatch(pid) {
     pid = pid || ''; if (pid === PTY_ID) return; PTY_ID = pid;
-    if (unPty) unPty(); if (unPtyC) unPtyC(); unPty = unPtyC = null; PTY = null; PTY_CARDS = {}; PTY_CK = ''; ptyChanged();
+    if (unPty) unPty(); if (unPtyC) unPtyC(); unPty = unPtyC = null; PTY = null; PTY_CARDS = {}; PTY_CK = ''; ptyLiveWatch([]); ptyChanged();
     if (!pid) return;
     unPty = PCOL.doc(pid).onSnapshot(d => { const pd = d.exists ? d.data() : null;
       if (!pd || !(pd.chars || []).includes(C)) { PTY = null; ptyChanged();
@@ -667,7 +667,15 @@ function wireDie(root) {
         return; }
       PTY = Object.assign({ id: pid }, pd); ptyChanged(); inboxStart(); ptyCardSoon();
       if (!unPtyC) unPtyC = PCOL.doc(pid).collection('cards').onSnapshot(qs => { PTY_CARDS = {}; qs.docs.forEach(x => PTY_CARDS[x.id] = x.data()); ptyChanged(); }, () => {});
+      ptyLiveWatch((pd.chars || []).filter(id => id !== C));
     }, () => { PTY = null; ptyChanged(); });
+  }
+  // The other characters' saved sheets, live (their summary changes with every save, open or not).
+  const PTY_LIVE = {}, unPL = {};
+  function ptyLiveWatch(ids) {
+    ids.forEach(id => { if (unPL[id]) return; unPL[id] = col.doc(id).onSnapshot(sn => { const d = sn.exists ? sn.data() : null; let pc = null; try { pc = d && d.pcard ? JSON.parse(d.pcard) : null; } catch (e) {} if (!pc) return;
+      pc.at = Number(d.savedAt) || 0; const same = JSON.stringify(PTY_LIVE[id]) === JSON.stringify(pc); PTY_LIVE[id] = pc; if (!same) ptyChanged(); }, () => {}); });
+    Object.keys(unPL).forEach(id => { if (!ids.includes(id)) { unPL[id](); delete unPL[id]; delete PTY_LIVE[id]; } });
   }
   const ptyCardSoon = () => { clearTimeout(ptyT); ptyT = setTimeout(ptyCard, 700); };
   const ptyCard = async () => { if (!PTY || role() === 'view' || !window.partyCard || !window.sheetSummary) return; let c; try { c = window.partyCard(); } catch (e) { return; } if (!c) return;
@@ -684,7 +692,7 @@ function wireDie(root) {
   window.PG_PARTY = {
     on: () => !!PTY, self: C, canAct: () => role() !== 'view',
     info: () => PTY ? { id: PTY.id, name: PTY.name || 'Party', dm: PTY.dm, dmName: PTY.dmName || PTY.dm, mgr: PTY.dm === EMAIL, url: URLS.party(PTY.id) } : null,
-    members: () => PTY ? (PTY.chars || []).filter(id => id !== C).map(id => Object.assign({ id, name: 'A character' }, PTY_CARDS[id] || {})) : [],
+    members: () => PTY ? (PTY.chars || []).filter(id => id !== C).map(id => { const c = PTY_CARDS[id] || {}, l = PTY_LIVE[id]; return Object.assign({ id, name: 'A character' }, !l ? c : Number(l.at) >= Number(c.at || 0) ? Object.assign({}, c, l) : Object.assign({}, l, c)); }) : [],
     me: () => PTY_CARDS[C] || null,
     send: (to, kind, data, ref) => { if (!PTY) return Promise.reject(new Error('Not in a party')); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} return ptySend(fs, EMAIL, PTY.id, to, kind, data, C, nm, ref); },
     recall: (to, ref) => { if (!PTY) return Promise.resolve(''); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} return ptyRecall(fs, EMAIL, PTY.id, to, ref, C, nm); },
@@ -693,7 +701,7 @@ function wireDie(root) {
   };
   // A small summary saved with the character (HP, AC, speed, conditions…): a party card fills itself in from it even when
   // the character was added before its sheet had been opened in the party.
-  const pcardNow = () => { try { const c = window.partyCard && window.partyCard(); return c ? JSON.stringify(c) : ''; } catch (e) { return ''; } };
+  const pcardNow = () => { try { const c = window.partyCard && window.partyCard(); if (!c) return ''; delete c.hb; return JSON.stringify(c); } catch (e) { return ''; } };
   // The sheet's sync code talks to "db" like it does on claude.ai; here that's this character's Firestore documents.
   const docFor = p => { const m = /^sheets\/(main|part(\d+))$/.exec(p); return m ? [col.doc(m[2] ? C + '_p' + m[2] : C), !m[2]] : null; };
   const none = { get: async () => ({ exists: false, data: () => null }), set: async () => { throw { code: 'unsupported' }; }, delete: async () => {}, onSnapshot: () => () => {} };
@@ -2069,9 +2077,9 @@ function partyModule(H) {
   const hrefOf = (id, c) => c.path ? (c.path.includes('/') ? '/' + c.path : '/character/' + c.path) : URLS.byId(id);
   // A character in the party: picture, name and class, the HP ring, AC / speed / passive Perception, and what's on it.
   function memberCard(id) {
-    const c = CARDS[id] || {}, mine = c.owner === EMAIL, run = canRun(P), st = statusOf(c), open = mine || run;
+    const c = cardFor(id), mine = c.owner === EMAIL, run = canRun(P), st = statusOf(c), open = mine || run;
     const on = [].concat(c.conds || [], Number(c.exh) ? ['Exhaustion ' + Number(c.exh)] : [], c.conc ? ['Concentrating: ' + c.conc] : [], c.fx || []);
-    const menu = [run ? ['send', 'Send damage, healing, loot…'] : null, open ? ['open', 'Open sheet'] : null, run || mine ? ['rm', mine && !run ? 'Leave the party' : 'Remove from the party'] : null].filter(Boolean);
+    const menu = [run ? ['send', 'Damage, heal or give…'] : null, open ? ['open', 'Open sheet'] : null, run || mine ? ['rm', mine && !run ? 'Leave the party' : 'Remove from the party'] : null].filter(Boolean);
     const pic = c.thumb ? `<img class="pm-pic" src="${esc(c.thumb)}" alt="">` : `<span class="pm-pic pm-nopic">${esc(initials(c.name || '?'))}</span>`;
     const who = `<span class="pm-txt"><b>${esc(c.name || 'A character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'Joining…')}</span>${c.player ? `<small>${esc(c.player)}${mine ? ' (you)' : ''}</small>` : ''}</span>`;
     const stats = [!Number(c.maxhp) && c.hp != null ? ['HP', c.hp] : null, c.ac ? ['AC', c.ac] : null, c.speed ? ['Speed', c.speed] : null, c.pp ? ['Passive', c.pp] : null].filter(Boolean);
@@ -2089,15 +2097,15 @@ function partyModule(H) {
     const run = canRun(P), ids = (P.chars || []).slice(), inParty = (P.people || []).includes(EMAIL);
     // Invited by email and not in it yet: the invitation, step by step.
     if (!inParty && !run && (P.invited || []).includes(EMAIL)) { JOINING = true; return joinFlow(P, '', false); }
-    repairCards(ids);
+    repairCards(ids); watchSheets(ids);
     const mineIn = ids.filter(id => (CARDS[id] || {}).owner === EMAIL);
     const sub = `${IC_CROWN} DM <b>${esc(dmLabel(P))}</b> · ${plural(ids.length, 'character')}`;
     const title = `${partyPicHTML(P, run)}<span class="pw-tt">${esc(P.name || 'Unnamed party')}</span>${run ? ` <button class="hp-rename" id="pt-ren" title="Rename the party" aria-label="Rename the party"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></button>` : ''}`;
     const adminNote = IS_ADMIN && P.dm !== EMAIL && !inParty ? '<p class="pty-admin">You’re seeing this party as an admin. It isn’t in your own list, but you can change anything here.</p>' : '';
     const invited = run && (P.invited || []).length ? `<h4 class="pw-h4">Invited</h4><div class="pl-list">${P.invited.map(em => `<div class="pl-row"><span class="sh-who"><span>${esc(H.nameOf(em))}</span>${H.nameOf(em) !== em ? ` <small class="hub-hint">${esc(em)}</small>` : ''}</span><small class="hub-hint">hasn’t answered yet</small><button class="linkbtn" data-uninv="${esc(em)}">cancel</button></div>`).join('')}</div>` : '';
-    const body = `${adminNote}<p class="hub-hint">${run ? 'Everyone’s HP, AC and conditions, kept up to date by their sheets. Use ⋯ on a character to send them damage, healing, loot and more, or to open their sheet.' : 'Everyone in the party. Hand items over and cast spells on each other from the Party tab on your sheet.'}</p>
+    const body = `${adminNote}<p class="hub-hint">${run ? 'Everyone’s HP, AC and conditions, kept up to date by their sheets. Use <b>Party actions</b> to damage, heal or reward them (everyone at once, or just some), or ⋯ on a character for just them.' : 'Everyone in the party. Hand items over and cast spells on each other from the Party tab on your sheet.'}</p>
       ${ids.length ? `<div class="pm-grid">${ids.map(memberCard).join('')}</div>` : `<p class="pw-empty">No characters yet.${run ? ' Use <b>Add characters</b> to bring some in.' : ''}</p>`}${invited}`;
-    const foot = run ? `${P.dm === EMAIL || IS_ADMIN ? '<button class="btn" id="pt-del">Delete party…</button>' : ''}<span class="grow"></span><button class="btn" id="pt-add">Add characters</button>${ids.length ? '<button class="btn gold" id="pt-all">Send to everyone…</button>' : ''}`
+    const foot = run ? `${P.dm === EMAIL || IS_ADMIN ? '<button class="btn" id="pt-del">Delete party…</button>' : ''}<span class="grow"></span><button class="btn" id="pt-add">Add characters</button>${ids.length ? '<button class="btn gold" id="pt-all">Party actions…</button>' : ''}`
       : mineIn.length ? '<button class="btn" id="pt-leave">Leave the party</button>' : inParty ? '<button class="btn" id="pt-off">Remove it from my list</button>' : '';
     const el = shell({ title, sub, body, foot });
     wirePage(el);
@@ -2110,6 +2118,19 @@ function partyModule(H) {
       r.onload = () => { const im = new Image(); im.onload = () => { try { const n = 256, s = Math.min(im.width, im.height), c = document.createElement('canvas'); c.width = c.height = n; const x = c.getContext('2d'); x.imageSmoothingQuality = 'high';
           x.drawImage(im, (im.width - s) / 2, (im.height - s) / 2, s, s, 0, 0, n, n); res(c.toDataURL('image/jpeg', .85)); } catch (e) { res(''); } }; im.onerror = () => { toast('That file isn’t an image this browser can open.'); res(''); }; im.src = r.result; };
       r.readAsDataURL(file); }; f.click(); });
+  // Live from each character's saved sheet: every save carries a summary (pcard) — HP, AC, speed, conditions — so the
+  // cards change the moment a player's sheet does, open or not. Whichever is newer wins: the sheet, or its party card
+  // (which is also updated when something sent to a closed sheet is applied).
+  const LIVE = {}, unS = {}; let liveT = null;
+  const liveOf = d => { let pc = null; try { pc = d.pcard ? JSON.parse(d.pcard) : null; } catch (e) {}
+    if (!pc && Number(d.n || 1) === 1) { try { const st = JSON.parse(d.data || '{}'); if (st && st.hp) pc = { name: st.name || '', hp: Number(st.hp.cur) || 0, temp: Number(st.hp.temp) || 0, conds: (st.conditions || []).filter(c => c !== 'Concentrating' && c !== 'Dodging'), exh: Number(st.exhaustion) || 0 }; } catch (e) {} }
+    return pc ? Object.assign(pc, { at: Number(d.savedAt) || 0 }) : null; };
+  function watchSheets(ids) {
+    ids.forEach(id => { if (unS[id]) return; unS[id] = fs.collection('sheets').doc(id).onSnapshot(sn => { const d = sn.exists ? sn.data() : null, l = d && liveOf(d); if (!l) return;
+      const same = JSON.stringify(LIVE[id]) === JSON.stringify(l); LIVE[id] = l; if (!same) { clearTimeout(liveT); liveT = setTimeout(paint, 150); } }, () => {}); });
+    Object.keys(unS).forEach(id => { if (!ids.includes(id)) { unS[id](); delete unS[id]; delete LIVE[id]; } });
+  }
+  const cardFor = id => { const c = CARDS[id] || {}, l = LIVE[id]; if (!l) return c; return Number(l.at) >= Number(c.at || 0) ? Object.assign({}, c, l) : Object.assign({}, l, c); };
   // A character's card is written by its own sheet. One that was added before its sheet had been opened is filled in
   // from the summary its sheet saves along with it (HP, AC, speed…), so it never shows up blank.
   const REPAIRED = new Set();
@@ -2230,44 +2251,81 @@ function partyModule(H) {
   // Loot comes from the same lists as the sheet's Add an item (loaded only when needed).
   let DNDP = null; const loadDND = () => DNDP || (DNDP = window.DND && window.DND.gear ? Promise.resolve() : fetch(window.PG_ASSETS.data).then(r => r.text()).then(t => { const s = document.createElement('script'); s.textContent = t; document.body.appendChild(s); }).catch(() => {}));
   const lootList = () => { const D = window.DND || {}, out = []; (D.weapons || []).forEach(w => out.push([w[0], 'Weapon'])); (D.armor || []).forEach(a => out.push([a[0], 'Armor'])); (D.gear || []).forEach(g => out.push([g[0], 'Gear'])); (D.magic || []).forEach(m => { if (!/^(Weapon|Armor|Shield|Ammunition) \+\d$/.test(m[0])) out.push([m[0], (m[3] || 'magic') + ' magic item']); }); return out; };
+  // ----- Party actions: the DM picks who (everyone, or some), what, and the details -----
+  const SI = d => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const PA_KINDS = [
+    ['dmg', 'Damage', SI('<path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6M16 16l4 4M19 21l2-2"/>')],
+    ['heal', 'Heal', SI('<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/><path d="M12 9v6M9 12h6"/>')],
+    ['temp', 'Temp HP', SI('<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M12 9v6M9 12h6"/>')],
+    ['cond', 'Condition', SI('<circle cx="12" cy="12" r="9"/><path d="M8 15s1.5-2 4-2 4 2 4 2M9 9h.01M15 9h.01"/>')],
+    ['loot', 'Give item', SI('<path d="M20 12v9H4v-9M2 7h20v5H2zM12 21V7M12 7H7.5a2.5 2.5 0 1 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 1 0 0-5C13 2 12 7 12 7z"/>')],
+    ['coins', 'Give coins', SI('<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>')],
+    ['insp', 'Inspiration', SI('<path d="M12 2l3 6.5 7 .8-5.2 4.8 1.4 7L12 17.6 5.8 21l1.4-7L2 9.3l7-.8z"/>')],
+    ['rest', 'Rest', SI('<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>')],
+    ['msg', 'Message', SI('<path d="M4 5h16v11H8l-4 4z"/>')]];
   function sendDialog(id) {
-    const ids = id ? [id] : (P.chars || []).slice(), who = id ? (CARDS[id] || {}).name || 'this character' : 'everyone in the party';
-    let tab = 'dmg';
-    const T = [['dmg', 'Damage'], ['heal', 'Healing'], ['temp', 'Temp HP'], ['cond', 'Condition'], ['loot', 'Item'], ['coins', 'Coins'], ['more', 'More']];
-    const body = () => tab === 'dmg' ? `<div class="pty-frow"><input class="pty-num" id="sd-n" type="number" min="0" inputmode="numeric" placeholder="Amount"><select id="sd-t"><option value="">Any type</option>${PTY_DMG.map(t => `<option>${t}</option>`).join('')}</select></div>
-          <div class="pty-frow"><label class="ak-c"><input type="checkbox" id="sd-save"> They make a saving throw</label><select id="sd-ab">${['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'].map(a => `<option${a === 'DEX' ? ' selected' : ''}>${a}</option>`).join('')}</select><input class="pty-num" id="sd-dc" type="number" min="1" placeholder="DC"><label class="ak-c"><input type="checkbox" id="sd-half" checked> half on a success</label></div>
-          <input id="sd-why" class="ad-search" maxlength="80" placeholder="What hit them (shown to the player), e.g. Falling rocks">`
-      : tab === 'heal' || tab === 'temp' ? `<div class="pty-frow"><input class="pty-num" id="sd-n" type="number" min="0" inputmode="numeric" placeholder="${tab === 'heal' ? 'HP healed' : 'Temporary HP'}"></div><input id="sd-why" class="ad-search" maxlength="80" placeholder="From what (optional)">`
-      : tab === 'cond' ? `<div class="pty-frow"><select id="sd-c">${PTY_CONDS.map(c => `<option>${c}</option>`).join('')}<option value="__exh">Exhaustion +1</option><option value="__exhm">Exhaustion −1</option></select><select id="sd-cm"><option value="add">Add it</option><option value="rm">Remove it</option></select><input class="pty-num" id="sd-r" type="number" min="0" placeholder="Rounds (optional)"></div><input id="sd-why" class="ad-search" maxlength="80" placeholder="Why (optional)">`
-      : tab === 'loot' ? `<input id="sd-q" class="ad-search" placeholder="Search the item lists, or type a custom item" autocomplete="off" list="sd-ql"><datalist id="sd-ql"></datalist><div class="pty-frow"><input class="pty-num" id="sd-qty" type="number" min="1" value="1" aria-label="How many"><input id="sd-note" class="ad-search" maxlength="300" placeholder="Notes (optional)"></div><p class="hub-hint">Items from the lists arrive with their stats (weapons, armor, magic). Anything else arrives as a custom item.</p>`
-      : tab === 'coins' ? `<div class="pty-coins">${['pp', 'gp', 'ep', 'sp', 'cp'].map(c => `<label><span>${c.toUpperCase()}</span><input class="pty-num" data-coin="${c}" type="number" inputmode="numeric" placeholder="0"></label>`).join('')}</div>${ids.length > 1 ? '<label class="ak-c"><input type="checkbox" id="sd-split" checked> Split it evenly between them (whole coins; the rest goes to the first)</label>' : ''}`
-      : `<div class="pty-more"><button class="btn" data-more="insp">Give Inspiration</button><button class="btn" data-more="short">Ask for a short rest</button><button class="btn" data-more="long">Ask for a long rest</button><button class="btn" data-more="stab">Stabilize (at 0 HP)</button><button class="btn" data-more="revive">Bring back at 1 HP</button></div><textarea id="sd-msg" class="ad-search" rows="2" maxlength="500" placeholder="Or send a message that pops up on their sheet"></textarea>`;
-    const paintD = () => {
-      modal.innerHTML = `<div class="hub-card wide pty-keep pty-send"><h2>Send to ${esc(who)}</h2>${!id ? `<p class="hub-hint">${plural(ids.length, 'character')}. It’s applied on each sheet (when it’s next opened, if nobody has it open).</p>` : '<p class="hub-hint">It’s applied on their sheet right away if it’s open, or the next time it is.</p>'}
-        <div class="pty-tabs">${T.map(([k, t]) => `<button class="${tab === k ? 'on' : ''}" data-st="${k}">${t}</button>`).join('')}</div><div class="pty-sbody">${body()}</div>
-        <div class="row"><button class="btn ghost" id="sd-x">Close</button>${tab === 'more' ? '<button class="btn gold" id="sd-go">Send message</button>' : '<button class="btn gold" id="sd-go">Send</button>'}</div></div>`;
-      modal.classList.add('on');
-      modal.querySelectorAll('[data-st]').forEach(b => b.onclick = () => { tab = b.dataset.st; paintD(); });
-      modal.querySelector('#sd-x').onclick = () => { close(); paint(); };
-      if (tab === 'loot') loadDND().then(() => { const dl = modal.querySelector('#sd-ql'); if (dl) dl.innerHTML = lootList().map(([n, t]) => `<option value="${esc(n)}">${esc(t)}</option>`).join(''); });
-      modal.querySelectorAll('[data-more]').forEach(b => b.onclick = () => send(b.dataset.more === 'insp' ? ['inspire', {}] : b.dataset.more === 'stab' ? ['stabilize', {}] : b.dataset.more === 'revive' ? ['revive', { hp: 1, why: 'The DM' }] : ['rest', { kind: b.dataset.more }]));
-      modal.querySelector('#sd-go').onclick = () => { const v = s => { const e = modal.querySelector(s); return e ? e.value : ''; }, n = Math.max(0, Math.floor(Number(v('#sd-n')) || 0)), why = v('#sd-why').trim();
-        if (tab === 'dmg') { if (!n) return toast('Type an amount.'); const sv = modal.querySelector('#sd-save').checked; if (sv && !Number(v('#sd-dc'))) return toast('Type the DC.'); return send(['hit', { dmg: n, type: v('#sd-t'), why: why || 'The DM', save: sv ? v('#sd-ab') : '', dc: sv ? Number(v('#sd-dc')) : 0, half: modal.querySelector('#sd-half').checked }]); }
-        if (tab === 'heal') return n ? send(['heal', { amt: n, why: why || 'The DM' }]) : toast('Type an amount.');
-        if (tab === 'temp') return n ? send(['temp', { amt: n, why: why || 'The DM' }]) : toast('Type an amount.');
-        if (tab === 'cond') { const c = v('#sd-c'), rm = v('#sd-cm') === 'rm'; if (c === '__exh' || c === '__exhm') return send(['cure', { exh: c === '__exh' ? 1 : -1, why: why || 'The DM' }]); return send(rm ? ['cure', { conds: [c], why: why || 'The DM' }] : ['cond', { cond: c, rounds: Number(v('#sd-r')) || 0, why: why || 'The DM' }]); }
-        if (tab === 'loot') { const nm = v('#sd-q').trim().slice(0, 120); if (!nm) return toast('Pick or type an item.'); return send(['loot', { name: nm, qty: Math.max(1, Math.floor(Number(v('#sd-qty')) || 1)), notes: v('#sd-note').trim() }]); }
-        if (tab === 'coins') { const c = {}; modal.querySelectorAll('[data-coin]').forEach(i => { const x = Math.max(0, Math.floor(Number(i.value) || 0)); if (x) c[i.dataset.coin] = x; }); if (!Object.keys(c).length) return toast('Type some coins.');
-          const split = ids.length > 1 && modal.querySelector('#sd-split') && modal.querySelector('#sd-split').checked; return send(['coins', c], split); }
-        const msg = v('#sd-msg').trim(); if (!msg) return toast('Type a message.'); return send(['note', { text: msg }]); };
+    const all = (P.chars || []).slice(); let sel = new Set(id ? [id] : all), kind = 'dmg';
+    const F = { n: '', type: '', save: '', dc: '', half: true, why: '', cond: 'Poisoned', cmode: 'add', rounds: '', item: '', qty: 1, note: '', coins: {}, split: true, rest: 'short', msg: '' };
+    const nm = i => (CARDS[i] || {}).name || 'A character';
+    const whoTxt = () => { const n = sel.size; return n === all.length && n > 1 ? 'everyone' : n === 1 ? nm([...sel][0]) : n + ' characters'; };
+    const goTxt = () => { const n = Number(F.n) || 0, w = whoTxt(); return { dmg: n ? `Deal ${n} damage to ${w}` : `Damage ${w}`, heal: F.n === 'max' ? `Heal ${w} to full` : n ? `Heal ${w} ${n} HP` : `Heal ${w}`, temp: n ? `Give ${w} ${n} temp HP` : `Give ${w} temp HP`, cond: F.cond.startsWith('__') ? `Change ${w}’s exhaustion` : `${F.cmode === 'rm' ? 'Remove' : 'Add'} ${F.cond}`, loot: `Give ${w} ${F.item ? (Number(F.qty) > 1 ? F.qty + ' × ' : '') + F.item : 'an item'}`, coins: `Give ${w} coins`, insp: `Give ${w} Inspiration`, rest: `Ask ${w} for a ${F.rest} rest`, msg: `Send to ${w}` }[kind]; };
+    const chip = i => { const c = cardFor(i); return `<button class="pa-who${sel.has(i) ? ' on' : ''}" data-who="${esc(i)}" aria-pressed="${sel.has(i)}">${c.thumb ? `<img src="${esc(c.thumb)}" alt="">` : `<span class="pa-ini">${esc(initials(c.name || '?'))}</span>`}<span class="pa-wt"><b>${esc(c.name || 'A character')}</b>${Number(c.maxhp) ? `<small>${Number(c.hp) || 0}/${c.maxhp} HP</small>` : ''}</span></button>`; };
+    const seg = (key, opts) => `<div class="pa-seg">${opts.map(([v, t]) => `<button class="${String(F[key]) === String(v) ? 'on' : ''}" data-f="${key}" data-v="${esc(v)}">${esc(t)}</button>`).join('')}</div>`;
+    const field = (lbl, html, cls) => `<label class="pa-fld${cls ? ' ' + cls : ''}"><span>${lbl}</span>${html}</label>`;
+    const inp = (key, o = {}) => `<input class="pa-in${o.num ? ' num' : ''}" data-in="${key}" value="${esc(F[key] === 'max' ? '' : F[key])}"${o.num ? ' type="number" min="0" inputmode="numeric"' : ''}${o.ph ? ` placeholder="${esc(o.ph)}"` : ''}${o.list ? ` list="${o.list}"` : ''}${o.max ? ` maxlength="${o.max}"` : ''}>`;
+    const form = () => {
+      if (kind === 'dmg') return `<div class="pa-row">${field('Amount', inp('n', { num: 1, ph: '0' }), 'sm')}${field('Damage type', `<select class="pa-in" data-in="type"><option value="">Any</option>${PTY_DMG.map(t => `<option${F.type === t ? ' selected' : ''}>${t}</option>`).join('')}</select>`)}</div>
+        ${field('Saving throw', seg('save', [['', 'None'], ['STR', 'STR'], ['DEX', 'DEX'], ['CON', 'CON'], ['INT', 'INT'], ['WIS', 'WIS'], ['CHA', 'CHA']]))}
+        ${F.save ? `<div class="pa-row">${field('DC', inp('dc', { num: 1, ph: '15' }), 'sm')}<label class="pa-chk"><input type="checkbox" data-in="half"${F.half ? ' checked' : ''}> Half damage on a success</label></div>` : ''}
+        ${field('What hit them <em>(they see this)</em>', inp('why', { ph: 'e.g. Falling rocks', max: 80 }))}<p class="pa-note">${F.save ? 'Each player rolls the save on their sheet; the damage lands once they have.' : 'It’s taken off their HP straight away (after temp HP, resistances and immunities).'}</p>`;
+      if (kind === 'heal') return `<div class="pa-row">${field('Amount', inp('n', { num: 1, ph: '0' }), 'sm')}<button class="btn${F.n === 'max' ? ' gold' : ''} pa-full" data-f="n" data-v="max">To full HP</button></div>${field('From what <em>(optional)</em>', inp('why', { ph: 'e.g. A night at the temple', max: 80 }))}`;
+      if (kind === 'temp') return `${field('Temporary HP', inp('n', { num: 1, ph: '0' }), 'sm')}${field('From what <em>(optional)</em>', inp('why', { ph: 'e.g. Inspiring speech', max: 80 }))}<p class="pa-note">Temporary HP don’t stack: anyone who already has more keeps theirs.</p>`;
+      if (kind === 'cond') return `${field('Add or remove', seg('cmode', [['add', 'Add'], ['rm', 'Remove']]))}<div class="pa-conds">${PTY_CONDS.concat(['__exh', '__exhm']).map(c => `<button class="${F.cond === c ? 'on' : ''}" data-f="cond" data-v="${c}">${c === '__exh' ? 'Exhaustion +1' : c === '__exhm' ? 'Exhaustion −1' : c}</button>`).join('')}</div>
+        ${F.cmode === 'add' && !F.cond.startsWith('__') ? `<div class="pa-row">${field('For how many rounds <em>(optional)</em>', inp('rounds', { num: 1, ph: 'until removed' }), 'sm')}${field('Why <em>(optional)</em>', inp('why', { ph: 'e.g. Spider bite', max: 80 }))}</div>` : ''}`;
+      if (kind === 'loot') return `${field('Item', inp('item', { ph: 'Search the item lists, or type your own', list: 'pa-ql', max: 120 }))}<datalist id="pa-ql"></datalist>
+        <div class="pa-row">${field('How many', inp('qty', { num: 1 }), 'sm')}${field('Notes <em>(optional)</em>', inp('note', { ph: 'e.g. Engraved with a raven', max: 300 }))}</div><p class="pa-note">Items from the lists arrive with their stats (weapons, armor, magic items); anything else arrives as a custom item. ${sel.size > 1 ? 'Each of them gets this many.' : ''}</p>`;
+      if (kind === 'coins') return `<div class="pa-coins">${['pp', 'gp', 'ep', 'sp', 'cp'].map(c => `<label class="pa-fld"><span>${c.toUpperCase()}</span><input class="pa-in num" data-coin="${c}" type="number" min="0" inputmode="numeric" placeholder="0" value="${esc(F.coins[c] || '')}"></label>`).join('')}</div>
+        ${sel.size > 1 ? `${field('How', seg('split', [[true, 'Split it between them'], [false, 'Each gets this much']]))}` : ''}`;
+      if (kind === 'insp') return `<p class="pa-note big">${sel.size > 1 ? 'Each of them gets' : 'They get'} Inspiration: advantage on one attack roll, saving throw or ability check of their choice.</p>`;
+      if (kind === 'rest') return `${field('Which rest', seg('rest', [['short', 'Short rest'], ['long', 'Long rest']]))}<p class="pa-note">It pops up on their sheet with a button to take it, so they still choose hit dice, spells and the rest.</p>`;
+      return `${field('Message', `<textarea class="pa-in" data-in="msg" rows="3" maxlength="500" placeholder="It pops up on their sheet">${esc(F.msg)}</textarea>`)}`;
     };
-    const send = async ([kind, data], split) => {
-      const b = modal.querySelector('#sd-go'); if (b) b.disabled = true; let ok = 0;
+    const paintD = () => {
+      const keep = modal.querySelector('.pa-body'), y = keep ? keep.scrollTop : 0;
+      modal.innerHTML = `<div class="hub-card wide pty-keep pa"><h2>Party actions</h2>
+        <div class="pa-body"><div class="pa-h">Who</div><div class="pa-whos">${all.length > 1 ? `<button class="pa-who all${sel.size === all.length ? ' on' : ''}" data-who="*"><span class="pa-ini">${IC_PARTY}</span><span class="pa-wt"><b>Everyone</b><small>${plural(all.length, 'character')}</small></span></button>` : ''}${all.map(chip).join('')}</div>
+        <div class="pa-h">What</div><div class="pa-kinds">${PA_KINDS.map(([k, t, ic]) => `<button class="pa-kind${kind === k ? ' on' : ''}" data-kind="${k}">${ic}<span>${t}</span></button>`).join('')}</div>
+        <div class="pa-form">${form()}</div></div>
+        <div class="row pa-foot"><button class="btn ghost" id="sd-x">Close</button><button class="btn gold" id="sd-go"${sel.size ? '' : ' disabled'}>${esc(goTxt())}</button></div></div>`;
+      modal.classList.add('on'); const nb = modal.querySelector('.pa-body'); if (nb) nb.scrollTop = y;
+      modal.querySelector('#sd-x').onclick = () => { close(); paint(); };
+      modal.querySelectorAll('[data-who]').forEach(b => b.onclick = () => { const w = b.dataset.who; if (w === '*') sel = sel.size === all.length ? new Set() : new Set(all); else sel.has(w) ? sel.delete(w) : sel.add(w); paintD(); });
+      modal.querySelectorAll('[data-kind]').forEach(b => b.onclick = () => { kind = b.dataset.kind; if (kind !== 'heal' && F.n === 'max') F.n = ''; paintD(); });
+      modal.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { const k = b.dataset.f, v = b.dataset.v; F[k] = v === 'true' ? true : v === 'false' ? false : v; paintD(); });
+      modal.querySelectorAll('[data-in]').forEach(x => { const k = x.dataset.in, upd = () => { F[k] = x.type === 'checkbox' ? x.checked : x.value; const g = modal.querySelector('#sd-go'); if (g) g.textContent = goTxt(); }; x.oninput = upd; x.onchange = upd; });
+      modal.querySelectorAll('[data-coin]').forEach(x => x.oninput = () => { F.coins[x.dataset.coin] = x.value; });
+      if (kind === 'loot') loadDND().then(() => { const dl = modal.querySelector('#pa-ql'); if (dl) dl.innerHTML = lootList().map(([n, t]) => `<option value="${esc(n)}">${esc(t)}</option>`).join(''); });
+      const first = modal.querySelector('.pa-form input:not([type=checkbox]), .pa-form textarea'); if (first && !TOUCH) first.focus();
+      modal.querySelector('#sd-go').onclick = go;
+    };
+    const go = () => { const ids = all.filter(i => sel.has(i)); if (!ids.length) return toast('Choose who it’s for.');
+      const n = Math.max(0, Math.floor(Number(F.n) || 0)), why = String(F.why || '').trim(), by = why || 'The DM';
+      if (kind === 'dmg') { if (!n) return toast('Type how much damage.'); if (F.save && !Number(F.dc)) return toast('Type the DC.'); return send(ids, ['hit', { dmg: n, type: F.type, why: by, save: F.save, dc: F.save ? Number(F.dc) : 0, half: !!F.half }]); }
+      if (kind === 'heal') return F.n === 'max' ? send(ids, ['heal', { amt: 'max', why: by }]) : n ? send(ids, ['heal', { amt: n, why: by }]) : toast('Type how much to heal, or choose To full HP.');
+      if (kind === 'temp') return n ? send(ids, ['temp', { amt: n, why: by }]) : toast('Type how many temporary HP.');
+      if (kind === 'cond') { const c = F.cond; if (c === '__exh' || c === '__exhm') return send(ids, ['cure', { exh: c === '__exh' ? 1 : -1, why: by }]); return send(ids, F.cmode === 'rm' ? ['cure', { conds: [c], why: by }] : ['cond', { cond: c, rounds: Number(F.rounds) || 0, why: by }]); }
+      if (kind === 'loot') { const it = String(F.item || '').trim().slice(0, 120); if (!it) return toast('Pick or type an item.'); return send(ids, ['loot', { name: it, qty: Math.max(1, Math.floor(Number(F.qty) || 1)), notes: String(F.note || '').trim() }]); }
+      if (kind === 'coins') { const c = {}; Object.keys(F.coins).forEach(k => { const x = Math.max(0, Math.floor(Number(F.coins[k]) || 0)); if (x) c[k] = x; }); if (!Object.keys(c).length) return toast('Type some coins.'); return send(ids, ['coins', c], ids.length > 1 && F.split); }
+      if (kind === 'insp') return send(ids, ['inspire', {}]);
+      if (kind === 'rest') return send(ids, ['rest', { kind: F.rest }]);
+      const m = String(F.msg || '').trim(); if (!m) return toast('Type a message.'); return send(ids, ['note', { text: m }]); };
+    const send = async (ids, [k, data], split) => {
+      const b = modal.querySelector('#sd-go'); if (b) { b.disabled = true; b.textContent = 'Sending…'; } let ok = 0;
       for (let j = 0; j < ids.length; j++) { let d = data;
-        if (split) { d = {}; Object.keys(data).forEach(k => { const each = Math.floor(data[k] / ids.length), rest = data[k] - each * ids.length; const x = each + (j === 0 ? rest : 0); if (x) d[k] = x; }); if (!Object.keys(d).length) continue; }
-        try { await ptySend(fs, EMAIL, PID, ids[j], kind, d, '', (P.dm === EMAIL ? H.myName() + ' (DM)' : H.myName())); ok++; } catch (x) { console.warn(x); } }
-      if (b) b.disabled = false;
-      if (ok) { toast(`Sent to ${ok === 1 && id ? who : plural(ok, 'character')}.`); pgLog('party_send', { target: PID, tName: P.name, detail: kind + ' → ' + (id ? who : 'everyone') }); } else toast('Couldn’t send it (the new database rules may still need publishing).');
+        if (split) { d = {}; Object.keys(data).forEach(c => { const each = Math.floor(data[c] / ids.length), rest = data[c] - each * ids.length, x = each + (j === 0 ? rest : 0); if (x) d[c] = x; }); if (!Object.keys(d).length) continue; }
+        try { await ptySend(fs, EMAIL, PID, ids[j], k, d, '', (P.dm === EMAIL ? H.myName() + ' (DM)' : H.myName())); ok++; } catch (x) { console.warn(x); } }
+      if (b) { b.disabled = false; b.textContent = goTxt(); }
+      if (ok) { toast(`Sent to ${ok === 1 ? nm(ids[0]) : plural(ok, 'character')}.`); pgLog('party_send', { target: PID, tName: P.name, detail: k + ' → ' + whoTxt() }); } else toast('Couldn’t send it — check your connection.');
     };
     paintD();
   }

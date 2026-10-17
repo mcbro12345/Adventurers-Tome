@@ -21,7 +21,9 @@ window.partyCard = () => {
     form: S.form ? { name: S.form.name, hp: N(S.form.hp), maxhp: N(S.form.maxhp) } : null, speed: speedFt(), pp: passive(),
     conds: (S.conditions || []).filter(c => c !== 'Concentrating' && c !== 'Dodging'), exh: N(S.exhaustion), conc: S.concentration || '',
     dead: N(S.death.f) >= 3, stable: N(S.hp.cur) <= 0 && N(S.death.s) >= 3,
-    fx: fxActive().filter(e => !e.ally && e.self !== false).map(e => e.name).slice(0, 14) };
+    fx: fxActive().filter(e => !e.ally && e.self !== false).map(e => e.name).slice(0, 14),
+    // this character's homebrew items: everyone in the party can add them from Add an item → Homebrew
+    hb: (S.customItems || []).slice(0, 60).map(c => { const x = JSON.parse(JSON.stringify(c)); delete x.img; return x; }) };
 };
 let PTY_RT = null;
 // The party tab is kept current even while another tab is showing (it appears once the party has loaded); while you're

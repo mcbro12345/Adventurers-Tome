@@ -231,9 +231,9 @@ function mainClick(e) {
       toast(`<b>${esc(c.name)}</b> is commanded — on its turn it takes the action you choose (attack with its Rend, Repair, Dash, Help…).`, '', 6000, { label: 'Undo', fn: () => undo(1) }); break; }
     case 'catalog': openCatalog(); break;
     case 'hbsaveitem': saveCustomItem(i); break;
-    case 'catcdel': { const n = N(b.dataset.n), c = (S.customItems || [])[n]; if (!c) break; S.customItems.splice(n, 1); pendingLabel = 'Remove custom item: ' + c.name; save(); openCatalog(true); toast(`Removed ${esc(c.name)} from your custom items.`, '', 5000, { label: 'Undo', fn: () => { undo(1); openCatalog(true); } }); break; }
+    case 'catcdel': { const n = N(b.dataset.n), c = (S.customItems || [])[n]; if (!c) break; S.customItems.splice(n, 1); pendingLabel = 'Remove homebrew item: ' + c.name; save(); openCatalog(true); toast(`Removed ${esc(c.name)} from your homebrew items.`, '', 5000, { label: 'Undo', fn: () => { undo(1); openCatalog(true); } }); break; }
     case 'cattab': UI.catTab = b.dataset.t; saveUI(); openCatalog(true); pendingLabel = null; return;
-    case 'catadd': catalogAdd(b.dataset.t, N(b.dataset.n)); break;
+    case 'catadd': catalogAdd(b.dataset.t, b.dataset.t === 'ch' ? b.dataset.n : N(b.dataset.n)); break;
     case 'catbaseok': catalogAddBase(N(b.dataset.n)); break;
     case 'charge': { const it = S.inventory[i]; it.charges.used = Math.max(0, Math.min(N(it.charges.max), N(it.charges.used) - N(b.dataset.d))); pendingLabel = (N(b.dataset.d) < 0 ? 'Use charge: ' : 'Restore charge: ') + it.name; update(); render(); refresh(); break; }
     case 'attune': attune(i); break;
@@ -1268,8 +1268,8 @@ function saveCustomItem(i) {
   const c = JSON.parse(JSON.stringify(it)); ['id', 'equipped', 'attuned', 'bag', 'offhand', 'hbKnown', 'resPick'].forEach(k => delete c[k]);
   if (c.charges) c.charges.used = 0; c.qty = 1;
   S.customItems = (S.customItems || []).filter(x => x.name.toLowerCase() !== String(c.name || '').toLowerCase()).concat([c]);
-  pendingLabel = 'Save custom item: ' + c.name; save(); render();
-  toast(`<b>${esc(c.name)}</b> saved to your custom items.<div class="det">Add more any time: Add an item → Custom.</div>`, '', 5000, { label: 'Undo', fn: () => undo(1) });
+  pendingLabel = 'Save homebrew item: ' + c.name; save(); render();
+  toast(`<b>${esc(c.name)}</b> saved to your homebrew items.<div class="det">Add more any time: Add an item → Homebrew. Everyone in your party sees it there too.</div>`, '', 5000, { label: 'Undo', fn: () => undo(1) });
 }
 function customItemInfo(c) {
   const bits = [c.weapon ? `${c.weapon.cat || ''} ${c.weapon.kind || ''} weapon · ${c.weapon.dice || ''} ${c.weapon.type || ''}` : '', c.armor ? `${c.armor.type} armor · AC ${c.armor.base}` : '', c.magic ? c.magic.rarity || 'magic' : ''].filter(x => x.trim());
@@ -1310,14 +1310,18 @@ function openCatalog(keep) {
   const A = () => DND.armor.map((a, n) => [a[0], `<div class="crrow" data-q="${esc((a[0] + ' ' + a[1] + ' armor').toLowerCase())}"><div><b>${esc(a[0])}</b>${kind(a[1] === 'shield' ? 'Shield' : 'Armor')} ${cost(a[2])}<div class="hint">${esc(a[1])} · AC ${a[1] === 'shield' ? '+2' : a[3] + (a[4] === 0 ? '' : a[4] ? ' + DEX (max ' + a[4] + ')' : ' + DEX')}${a[5] ? ' · STR ' + a[5] : ''}${a[6] ? ' · stealth disadvantage' : ''}</div></div><button class="btn sm gold" data-act="catadd" data-t="a" data-n="${n}">Add</button></div>`]);
   const G = () => DND.gear.map((g, n) => [g[0], `<div class="crrow" data-q="${esc((g[0] + ' ' + g[1] + ' gear').toLowerCase())}"><div><b>${esc(g[0])}</b>${kind('Gear')} ${cost(g[2])}<div class="hint">${esc(g[1])}${g[4] ? ' · ' + esc(g[4]) : ''}</div></div><button class="btn sm gold" data-act="catadd" data-t="g" data-n="${n}">Add</button></div>`]).concat(DND.gear.map((g, n) => [g, n]).filter(([g]) => g[1] === 'ammo').map(([g, n]) => ['Silvered ' + g[0].toLowerCase(), `<div class="crrow" data-q="${esc(('silvered ' + g[0] + ' ammo gear silver').toLowerCase())}"><div><b>Silvered ${esc(g[0].toLowerCase())}</b>${kind('Gear')} ${cost('100 gp/10')}<div class="hint">ammo · 10 pieces · silvered: gets past resistance to nonmagical attacks that aren’t silvered</div></div><button class="btn sm gold" data-act="catadd" data-t="gs" data-n="${n}">Add</button></div>`]));
   const M = () => DND.magic.map((m, n) => [m[0], `<div class="crrow" data-q="${esc((m[0] + ' ' + m[2] + ' ' + m[3] + ' ' + m[1] + ' magic').toLowerCase())}"><div><b>${esc(m[0])}</b>${kind('Magic')} <span class="tag rar r-${esc(String(m[3]).replace(/\s+/g, ''))}">${esc(m[3])}</span>${m[4] ? ' <span class="tag">attune</span>' : ''} <span class="hint">${esc(m[1])}</span><div class="hint">${esc(m[5])}</div></div><button class="btn sm gold" data-act="catadd" data-t="m" data-n="${n}">Add</button></div>`]);
-  const C = () => (S.customItems || []).map((c, n) => [c.name, `<div class="crrow" data-q="${esc((c.name + ' custom homebrew ' + (c.summary || '') + ' ' + (c.notes || '')).toLowerCase())}"><div><b>${esc(c.name)}</b>${kind('Custom')} ${cost(c.cost)}<div class="hint">${esc(customItemInfo(c))}</div></div><span class="crbtns"><button class="btn sm" data-act="catcdel" data-n="${n}" title="Remove from your custom items" aria-label="Remove ${esc(c.name)} from custom items">✕</button><button class="btn sm gold" data-act="catadd" data-t="c" data-n="${n}">Add</button></span></div>`]);
+  // Homebrew: this character's saved homebrew items, then the ones everyone else in the party has saved.
+  const hbRow = (c, from, t, n, del) => [c.name, `<div class="crrow" data-q="${esc((c.name + ' custom homebrew ' + (from || '') + ' ' + (c.summary || '') + ' ' + (c.notes || '')).toLowerCase())}"><div><b>${esc(c.name)}</b>${kind('Homebrew')} ${cost(c.cost)}<div class="hint">${from ? `<span class="hbfrom">${esc(from)}’s</span> · ` : ''}${esc(customItemInfo(c))}</div></div><span class="crbtns">${del ? `<button class="btn sm" data-act="catcdel" data-n="${n}" title="Remove from your homebrew items" aria-label="Remove ${esc(c.name)} from your homebrew items">✕</button>` : ''}<button class="btn sm gold" data-act="catadd" data-t="${t}" data-n="${n}">Add</button></span></div>`];
+  const C = () => { const own = (S.customItems || []), seen = new Set(own.map(c => c.name.toLowerCase())), out = own.map((c, n) => hbRow(c, '', 'c', n, true));
+    (typeof ptyOn === 'function' && ptyOn() ? ptyMembers() : []).forEach(m => (m.hb || []).forEach((c, j) => { if (!c || !c.name || seen.has(c.name.toLowerCase())) return; seen.add(c.name.toLowerCase()); out.push(hbRow(c, m.name || 'A party member', 'ch', esc(m.id) + ':' + j, false)); }));
+    return out; };
   const list = tab === 'weapons' ? W() : tab === 'armor' ? A() : tab === 'gear' ? G() : tab === 'magic' ? M() : tab === 'custom' ? C()
     : W().concat(A(), G(), M(), C()).sort((x, y) => String(x[0]).localeCompare(String(y[0]), undefined, { sensitivity: 'base' }));
   const rows = list.map(x => x[1]).join('');
   const html = `<h3>Add an item</h3>
-    <div class="segmini" style="margin-bottom:8px">${[['all', 'All'], ['weapons', 'Weapons'], ['armor', 'Armor'], ['gear', 'Gear & tools'], ['magic', 'Magic items'], ['custom', 'Custom']].map(([k, t]) => `<button class="${tab === k ? 'on' : ''}" data-act="cattab" data-t="${k}">${t}</button>`).join('')}</div>
+    <div class="segmini" style="margin-bottom:8px">${[['all', 'All'], ['weapons', 'Weapons'], ['armor', 'Armor'], ['gear', 'Gear & tools'], ['magic', 'Magic items'], ['custom', 'Homebrew']].map(([k, t]) => `<button class="${tab === k ? 'on' : ''}" data-act="cattab" data-t="${k}">${t}</button>`).join('')}</div>
     <input class="f" id="catq" placeholder="Search…" value="${esc(q)}" aria-label="Search items" autofocus>
-    <div class="crlist">${rows || (tab === 'custom' ? '<p class="hint crempty">No custom items yet. Open an item in Inventory (✎), then ⚙ Homebrew automation → <b>Save to custom items</b>.</p>' : '')}</div>
+    <div class="crlist">${rows || (tab === 'custom' ? '<p class="hint crempty">No homebrew items yet. Open an item in Inventory (✎), then ⚙ Homebrew automation → <b>Save to homebrew items</b>. Items others in your party save show up here too.</p>' : '')}</div>
     <div class="actions"><button class="btn" data-act="close">Done</button></div>`;
   if (keep && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html, null, true);
   filterCatalog();
@@ -1330,6 +1334,7 @@ function catalogAdd(t, n) {
   if (t === 'w') return addInventoryItem(makeWeaponItem(DND.weapons[n]));
   if (t === 'a') return addInventoryItem(makeArmorItem(DND.armor[n]));
   if (t === 'g') return addInventoryItem(makeGearItem(DND.gear[n]));
+  if (t === 'ch') { const [mid, j] = String(n).split(':'), m = (typeof ptyMembers === 'function' ? ptyMembers() : []).find(x => x.id === mid), c = m && (m.hb || [])[N(j)]; if (!c) return; const it = JSON.parse(JSON.stringify(c)); it.id = uid(); it.qty = N(it.qty) || 1; it.equipped = false; return addInventoryItem(it); }
   if (t === 'c') { const c = (S.customItems || [])[n]; if (!c) return; const it = JSON.parse(JSON.stringify(c)); it.id = uid(); it.qty = N(it.qty) || 1; it.equipped = false; delete it.savedFrom; return addInventoryItem(it); }
   if (t === 'ws') { const it = makeWeaponItem(DND.weapons[n]); it.name = 'Silvered ' + it.name.toLowerCase(); it.silvered = true; it.cost = silverCost(it.cost, 1); return addInventoryItem(it); }
   if (t === 'gs') { const it = makeGearItem(DND.gear[n]); it.name = 'Silvered ' + it.name.toLowerCase(); it.silvered = true; it.qty = 10; it.cost = '100 gp/10'; return addInventoryItem(it); }

@@ -1581,3 +1581,60 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 :where(body.adminbody) .adm-dmbtn { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
 :where(body.adminbody) .adm-dmbtn:hover span { text-decoration: underline; }
 @media (max-width: 640px) { :where(body.hubbody) .pw-ppic { width: 40px; height: 40px; } }
+/* ===== Party actions window ===== */
+:where(body.hubbody) .hub-card.pa { width: min(640px, 100%); display: flex; flex-direction: column; max-height: min(88vh, 900px); padding-bottom: 14px; }
+:where(body.hubbody) .pa h2 { margin-bottom: 4px; }
+:where(body.hubbody) .pa-body { overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
+:where(body.hubbody) .pa-h { margin: 14px 0 8px; font-size: .74rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #8a6420; }
+:where(body.hubbody) .pa-whos { display: flex; flex-wrap: wrap; gap: 6px; }
+:where(body.hubbody) .pa-who { display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px 5px 5px; border-radius: 99px; border: 1px solid #e3d6b8; background: transparent; color: inherit; font: inherit; cursor: pointer; transition: border-color .15s, background-color .15s, transform .1s; }
+:where(body.hubbody) .pa-who:active { transform: scale(.96); }
+:where(body.hubbody) .pa-who img, :where(body.hubbody) .pa-ini { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; flex: none; display: grid; place-items: center; background: #2b3245; color: #f1d58a; font: 800 .72rem Georgia, serif; }
+:where(body.hubbody) .pa-ini svg { width: 17px; height: 17px; }
+:where(body.hubbody) .pa-wt { display: flex; flex-direction: column; line-height: 1.15; text-align: left; }
+:where(body.hubbody) .pa-wt b { font-size: .88rem; } :where(body.hubbody) .pa-wt small { font-size: .7rem; opacity: .65; }
+:where(body.hubbody) .pa-who.on { border-color: #c9962b; background: rgba(201,150,43,.16); box-shadow: inset 0 0 0 1px #c9962b; }
+:where(body.hubbody) .pa-kinds { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+:where(body.hubbody) .pa-kind { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px 10px; border-radius: 12px; border: 1px solid #e3d6b8; background: transparent; color: inherit; font: inherit; font-size: .82rem; font-weight: 700; cursor: pointer; transition: border-color .15s, background-color .15s, transform .1s; }
+:where(body.hubbody) .pa-kind svg { color: #b08a3c; }
+:where(body.hubbody) .pa-kind:hover { border-color: #c9962b; }
+:where(body.hubbody) .pa-kind:active { transform: scale(.96); }
+:where(body.hubbody) .pa-kind.on { background: linear-gradient(180deg, #f1d58a, #d9ab48); border-color: #a07220; color: #1b1406; }
+:where(body.hubbody) .pa-kind.on svg { color: #1b1406; }
+:where(body.hubbody) .pa-form { margin-top: 14px; padding: 14px; border-radius: 12px; background: rgba(127,127,127,.08); display: flex; flex-direction: column; gap: 12px; }
+:where(body.hubbody) .pa-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+:where(body.hubbody) .pa-row > .pa-fld { flex: 1; min-width: 160px; } :where(body.hubbody) .pa-row > .pa-fld.sm { flex: 0 0 120px; min-width: 0; }
+:where(body.hubbody) .pa-fld { display: flex; flex-direction: column; gap: 5px; margin: 0; }
+:where(body.hubbody) .pa-fld > span { font-size: .74rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .75; }
+:where(body.hubbody) .pa-fld > span em { font-style: normal; text-transform: none; letter-spacing: 0; opacity: .8; font-weight: 600; }
+:where(body.hubbody) .pa-in { font: inherit; font-size: .98rem; padding: 9px 11px; border-radius: 9px; border: 1px solid #e3d6b8; background: #fff; color: inherit; width: 100%; box-sizing: border-box; }
+:where(body.hubbody) .pa-in.num { font-variant-numeric: tabular-nums; font-size: 1.1rem; font-weight: 700; }
+:where(body.hubbody) .pa-in:focus { outline: none; border-color: #c9962b; box-shadow: 0 0 0 3px rgba(201,150,43,.2); }
+:where(body.hubbody) textarea.pa-in { resize: vertical; }
+:where(body.hubbody) .pa-seg { display: flex; flex-wrap: wrap; gap: 4px; }
+:where(body.hubbody) .pa-seg button, :where(body.hubbody) .pa-conds button { font: inherit; font-size: .84rem; font-weight: 700; padding: 6px 12px; border-radius: 99px; border: 1px solid #e3d6b8; background: transparent; color: inherit; cursor: pointer; }
+:where(body.hubbody) .pa-seg button.on, :where(body.hubbody) .pa-conds button.on { background: #1f2a44; border-color: #1f2a44; color: #f4eee1; }
+:where(body.hubbody) .pa-conds { display: flex; flex-wrap: wrap; gap: 5px; }
+:where(body.hubbody) .pa-chk { display: inline-flex; align-items: center; gap: 8px; font-size: .9rem; padding-bottom: 9px; cursor: pointer; }
+:where(body.hubbody) .pa-chk input { width: 17px; height: 17px; accent-color: #c9962b; }
+:where(body.hubbody) .pa-full { align-self: flex-end; }
+:where(body.hubbody) .pa-coins { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+:where(body.hubbody) .pa-note { margin: 0; font-size: .84rem; opacity: .7; } :where(body.hubbody) .pa-note.big { font-size: .95rem; opacity: .85; }
+:where(body.hubbody) .pa-foot { margin-top: 14px; }
+:where(body.hubbody) .pa-foot #sd-go { flex: 0 1 auto; max-width: 70%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (prefers-color-scheme: dark) {
+  body.hubbody .pa-h { color: #e7c46e; }
+  body.hubbody .pa-who, body.hubbody .pa-kind, body.hubbody .pa-seg button, body.hubbody .pa-conds button { border-color: #3a4560; }
+  body.hubbody .pa-who.on { border-color: #c9962b; }
+  body.hubbody .pa-kind svg { color: #e7c46e; } body.hubbody .pa-kind.on svg { color: #1b1406; }
+  body.hubbody .pa-kind.on { border-color: #a07220; }
+  body.hubbody .pa-in { background: #0f1420; border-color: #3a4560; }
+  body.hubbody .pa-seg button.on, body.hubbody .pa-conds button.on { background: #e9e3d3; border-color: #e9e3d3; color: #0f1420; }
+  body.hubbody .pa-form { background: rgba(0,0,0,.18); }
+}
+@media (max-width: 640px) {
+  :where(body.hubbody) .hub-card.pa { max-height: 92vh; }
+  :where(body.hubbody) .pa-kinds { grid-template-columns: repeat(3, 1fr); }
+  :where(body.hubbody) .pa-coins { grid-template-columns: repeat(3, 1fr); }
+  :where(body.hubbody) .pa-foot #sd-go { max-width: none; flex: 1; }
+}

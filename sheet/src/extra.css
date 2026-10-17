@@ -2842,3 +2842,4 @@ html.mobile .ptyh-btns { width: 100%; } html.mobile .ptyh-btns .btn { flex: 1; t
 /* "On…" beside Use in the Combat tab: use an ability on a party member */
 .btn.ptyon { display: inline-flex; align-items: center; gap: 4px; padding-left: 7px; }
 .btn.ptyon svg { width: 15px; height: 15px; }
+.crrow .hbfrom { color: var(--gold-ink); font-weight: 700; }
