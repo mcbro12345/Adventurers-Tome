@@ -287,6 +287,7 @@ function mainClick(e) {
     case 'addbag': openAddBag(); break;
     case 'deck': openDeck(i); break;
     case 'unpack': unpackItem(i); break;
+    case 'throwit': throwItem(i); break;
     case 'decktype': S.deck.variant = b.dataset.v; DECK.last = null; save(); renderDeck(); break;
     case 'deckdeclare': { const n = Math.max(1, Math.min(22, N($('#deckn').value))); S.deck.left = n; pendingLabel = `Declare ${n} card${n > 1 ? 's' : ''}`; save(); deckDraw(); break; }
     case 'deckdraw': deckDraw(); break;
@@ -399,7 +400,7 @@ function bonusAttack(i, kind) {
 // From the Combat tab an attack uses up your attacks for the turn; from anywhere else it's just a roll.
 function attackRoll(i, free, opt) {
   opt = opt || {};
-  const a = S.attacks[i]; if (!a) return;
+  const a = i && typeof i === 'object' ? i : S.attacks[i]; if (!a) return; // an attack object works too (thrown flasks)
   if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; }
   if (!free && !canAttack()) { toast('No attacks left this turn.'); return; }
   pendingLabel = 'Attack with ' + a.name;
@@ -739,8 +740,8 @@ function markOpt(b) {
     const k = S.skills.findIndex(x => x.name === 'Athletics'); if (k >= 0) doRoll('skill:' + k);
     toast(`<div><b>${esc(nm)}</b> — uses attack ${S.turn.attacks} of ${per}.<div class="det">${/grapple/i.test(nm) ? 'The target contests with Athletics or Acrobatics. If you win it is Grappled (speed 0) until it escapes. It must be no more than one size larger than you.' : 'The target contests with Athletics or Acrobatics. If you win, knock it Prone or push it 5 ft away. It must be no more than one size larger than you.'}</div></div>`, '', 8000); return; }
   if (col !== 'move' && S.inCombat && S.turn.used[col]) { toast(`Your ${col === 'bonus' ? 'bonus action' : col} is already used this turn.`, 'fumble'); return; }
-  if (col === 'action' && /^use an object$/i.test(nm)) { const items = S.inventory.map((it, i) => [it, i]).filter(([it]) => it.heal || (it.hb && hbUsable(hbFx(it.hb)) && hbItemReady(it)));
-    if (items.length) { openModal(`<h3>Use an Object</h3><p class="hint" style="margin:0 0 8px">Uses your action. Pick the item — or just mark the action used for anything else (a lever, a door, a second item).</p><div class="castopts">${items.map(([it, i]) => `<button class="castopt" data-act="${it.heal ? 'drink' : 'useitem'}" data-i="${i}" data-col="action"><b>${esc(it.name)}</b><span>${it.heal ? 'Drink — heals ' + esc(it.heal) : esc((hbSummary(it.hb, it) || []).slice(0, 3).join(' · ') || 'Use it')}</span></button>`).join('')}</div><div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn" data-act="useobjplain">Something else</button></div>`); return; } }
+  if (col === 'action' && /^use an object$/i.test(nm)) { const items = S.inventory.map((it, i) => [it, i]).filter(([it]) => it.heal || throwOf(it) || (it.hb && hbUsable(hbFx(it.hb)) && hbItemReady(it)));
+    if (items.length) { openModal(`<h3>Use an Object</h3><p class="hint" style="margin:0 0 8px">Uses your action. Pick the item — or just mark the action used for anything else (a lever, a door, a second item).</p><div class="castopts">${items.map(([it, i]) => `<button class="castopt" data-act="${it.heal ? 'drink' : throwOf(it) && !it.hb ? 'throwit' : 'useitem'}" data-i="${i}" data-col="action"><b>${esc(it.name)}</b><span>${it.heal ? 'Drink — heals ' + esc(it.heal) : throwOf(it) && !it.hb ? 'Throw — ' + esc(throwOf(it).save ? `${throwOf(it).dice} ${throwOf(it).type}, DC ${throwOf(it).dc} ${throwOf(it).save} save` : throwOf(it).dice ? `ranged attack, ${throwOf(it).dice} ${throwOf(it).type}` : 'ranged attack, douses the target') : esc((hbSummary(it.hb, it) || []).slice(0, 3).join(' · ') || 'Use it')}</span></button>`).join('')}</div><div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn" data-act="useobjplain">Something else</button></div>`); return; } }
   if (col === 'move' && /^stand up$/i.test(nm)) { if (!S.conditions.includes('Prone')) { toast("You're not prone.", 'fumble'); return; }
     const half = Math.ceil(speedFt() / 2), mv = Math.max(0, N(S.turn.moved)); if (S.inCombat && mv + half > moveBudget()) { toast(`Standing up costs ${half} ft and you only have ${Math.max(0, moveBudget() - mv)} ft left.`, 'fumble'); return; }
     S.conditions = S.conditions.filter(c => c !== 'Prone'); if (S.inCombat) S.turn.moved = mv + half; pendingLabel = 'Stand up'; update(); render(); toast(`<b>Stand up</b> — no longer prone${S.inCombat ? `. Used ${half} ft of movement` : ''}.`, '', 4000, { label: 'Undo', fn: () => undo(1) }); return; }

@@ -410,6 +410,42 @@ function hbFx(hb) {
 const hbUsable = fx => !!(fx && (fx.roll || fx.use || fx.dash || fx.text || fx.dc || fx.cost || fx.refuel));
 const hbItemReady = it => hbItemOn(it) && !(it.charges && N(it.charges.max) > 0 && N(it.charges.used) >= N(it.charges.max)) && !(it.hb && it.hb.consume && N(it.qty) <= 0);
 // Use an item: spends a charge if it has them, then applies its homebrew effect.
+// ---------- Thrown items ----------
+// Flasks and vials you throw as an action (an improvised ranged attack: no proficiency unless you're a Tavern Brawler),
+// and magic items you hurl for an area effect with a saving throw.
+const THROWN = [
+  [/^acid\b/i, { dice: '2d6', type: 'acid', range: '20 ft', note: 'Throw up to 20 ft or splash a creature within 5 ft; the vial shatters.' }],
+  [/^alchemist['’]?s fire/i, { dice: '1d4', type: 'fire', range: '20 ft', note: 'On a hit the target keeps burning: 1d4 fire at the start of each of its turns until a creature uses an action to put it out (DC 10 DEX check).' }],
+  [/^holy water/i, { dice: '2d6', type: 'radiant', range: '20 ft', note: 'Only hurts fiends and undead.' }],
+  [/^oil\b/i, { dice: '', type: '', range: '20 ft', note: 'On a hit the target is doused: if it takes fire damage within 1 minute, +5 fire. Or pour it on the ground (5 ft square) and light it: it burns for 2 rounds, 5 fire to anything that enters or ends its turn there.' }],
+  [/^bead of force/i, { save: 'DEX', dc: 15, dice: '5d4', type: 'force', range: '60 ft', note: '10 ft radius. A creature that fails is also trapped in a sphere of force for 1 minute.' }],
+  [/^necklace of fireballs/i, { save: 'DEX', dc: 15, dice: '8d6', type: 'fire', range: '60 ft', bead: true, note: 'Detach a bead: 20 ft radius fireball, half damage on a success. Throwing several beads at once adds 1d6 per extra bead.' }]
+];
+const throwOf = it => { if (!it || it.weapon) return null; const nm = String((it.magic && it.magic.name) || it.name || ''); const t = THROWN.find(([re]) => re.test(nm) || re.test(String(it.name || ''))); return t ? t[1] : null; };
+function throwItem(i) {
+  const it = S.inventory[i], t = throwOf(it); if (!t) return;
+  if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions.`, 'fumble'); return; }
+  if (S.inCombat && S.turn.used.action) { toast('Your action is already used this turn.', 'fumble'); return; }
+  if (t.bead && it.charges && N(it.charges.used) >= N(it.charges.max)) { toast(`${esc(it.name)} has no beads left.`, 'fumble'); return; }
+  pendingLabel = 'Throw ' + it.name;
+  if (S.inCombat) S.turn.used.action = true;
+  const nm = it.name.replace(/\s*\((flask|vial)\)\s*$/i, '');
+  // What it costs: one flask from the stack, or one bead from the necklace.
+  let left = '';
+  if (t.bead) { if (it.charges) { it.charges.used = N(it.charges.used) + 1; left = `${N(it.charges.max) - it.charges.used} beads left`; } else left = 'Take a bead off the necklace'; }
+  else { it.qty = Math.max(0, N(it.qty || 1) - 1); left = it.qty ? `${it.qty} left` : 'That was your last one'; if (!it.qty) S.inventory.splice(i, 1); }
+  if (t.save) {
+    const r = rollExpr(t.dice, { label: nm + ' damage' });
+    update(); render();
+    toast(`<b class="total">${r.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${esc(t.type)} damage</div><div class="det"><b>DC ${t.dc} ${t.save} save</b> · ${esc(t.range)}</div><div class="det">${esc(t.note)}</div><div class="det dd">${esc(r.detail)}</div><div class="det">${esc(left)}</div></div>`, '', 9000, { label: 'Undo', fn: () => undo(1) });
+    return;
+  }
+  const brawler = (S.feats || []).some(f => /tavern brawler/i.test(f));
+  const a = { name: nm, ab: 'dex', prof: brawler, magic: 0, dice: t.dice || '0', type: t.type, kind: 'ranged', effect: true, noModDmg: true, notes: '' };
+  if (!t.dice) { update(); render(); d20(nm + ' (thrown)', atkHit(a), 'attack', 'dex', atkHitRows(a)); toast(`<div><b>${esc(nm)}</b><div class="det">${esc(t.note)}</div><div class="det">${esc(left)}</div></div>`, '', 9000); return; }
+  attackRoll(a, true, { label: nm + ' (thrown)', notes: [esc(t.range) + ' · improvised' + (brawler ? ' (Tavern Brawler: proficient)' : ', no proficiency'), esc(t.note), esc(left)] });
+  render();
+}
 function useItem(i, col) {
   const it = S.inventory[i]; if (!it) return;
   const fx = hbFx(it.hb) || {};
