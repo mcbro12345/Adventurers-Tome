@@ -578,7 +578,7 @@ DND.classes.ranger = {
   sub: { level: 3, label: 'Ranger Archetype' }, asi: [4, 8, 12, 16, 19], gold: '5d4*10', extraAttack: { 5: 2 },
   caster: { type: 'half', ab: 'wis', list: 'R', from: 2, known: [0, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11] },
   kit: ['Scale Mail', 'Shortsword:2', "Dungeoneer's Pack", 'Longbow', 'Arrows:20'],
-  choices: [{ level: 2, type: 'fightingStyle', n: 1 }],
+  choices: [{ level: 1, type: 'favoredEnemy', n: 1 }, { level: 1, type: 'language', n: 1, label: 'Favored Enemy — a language your favored enemy speaks' }, { level: 1, type: 'favoredTerrain', n: 1 }, { level: 2, type: 'fightingStyle', n: 1 }, { level: 6, type: 'favoredEnemy', n: 1 }, { level: 6, type: 'language', n: 1, label: 'Favored Enemy — a language your new favored enemy speaks' }, { level: 6, type: 'favoredTerrain', n: 1 }, { level: 10, type: 'favoredTerrain', n: 1 }, { level: 14, type: 'favoredEnemy', n: 1 }, { level: 14, type: 'language', n: 1, label: 'Favored Enemy — a language your new favored enemy speaks' }],
   features: [
     [1, 'Favored Enemy', 'Choose a favored enemy type (another at 6th and 14th): advantage on Survival to track and INT checks to recall info; learn a language.'],
     [1, 'Natural Explorer', 'Choose a favored terrain (more at 6th and 10th) for travel and tracking benefits.'],
@@ -2020,7 +2020,7 @@ Dissonant Whispers|1|Enc|A|60 ft|V|Instantaneous||B|3d6 psychic, WIS save half; 
 Divine Favor|1|Evo|BA|Self|VS|1 minute|c|P|Weapon attacks deal +1d4 radiant|PHB
 Earth Tremor|1|Evo|A|Self (10 ft)|VS|Instantaneous||BDSW|1d6 bludgeoning and prone, DEX save|XGE
 Ensnaring Strike|1|Con|BA|Self|V|1 minute|c|R|Next hit restrains the target (STR save); 1d6 piercing each turn|PHB
-Entangle|1|Con|A|90 ft|VS|1 minute|c|D|Plants restrain creatures in a 20 ft square, STR save|PHB
+Entangle|1|Con|A|90 ft|VS|1 minute|c|DR|Plants restrain creatures in a 20 ft square, STR save|PHB
 Expeditious Retreat|1|Tra|BA|Self|VS|10 minutes|c|AKSW|Dash as a bonus action each turn|PHB
 Faerie Fire|1|Evo|A|60 ft|V|1 minute|c|ABD|Outline creatures in light; attacks against them have advantage, DEX save|PHB
 False Life|1|Nec|A|Self|VSM|1 hour||ASW|Gain 1d4 + 4 temporary HP|PHB
@@ -2049,7 +2049,7 @@ Protection from Evil and Good|1|Abj|A|Touch|VSM|10 minutes|c|CKPW|Protection fro
 Purify Food and Drink|1|Tra|A|10 ft|VS|Instantaneous|r|ACDP|Remove poison and disease from food and drink|PHB
 Ray of Sickness|1|Nec|A|60 ft|VS|Instantaneous||SW|Ranged spell attack, 2d8 poison; poisoned (CON save)|PHB
 Sanctuary|1|Abj|BA|30 ft|VSM|1 minute||AC|Attackers must make a WIS save or pick another target|PHB
-Searing Smite|1|Evo|BA|Self|V|1 minute|c|P|Next hit +1d6 fire; target burns 1d6 each turn until a CON save|PHB
+Searing Smite|1|Evo|BA|Self|V|1 minute|c|PR|Next hit +1d6 fire; target burns 1d6 each turn until a CON save|PHB
 Shield|1|Abj|R|Self|VS|1 round||SW|+5 AC until your next turn; immune to magic missile|PHB
 Shield of Faith|1|Abj|BA|60 ft|VSM|10 minutes|c|CP|+2 AC|PHB
 Silent Image|1|Ill|A|60 ft|VSM|10 minutes|c|BSW|Visual illusion up to a 15 ft cube|PHB
@@ -2066,7 +2066,7 @@ Witch Bolt|1|Evo|A|30 ft|VSM|1 minute|c|KSW|Ranged spell attack, 1d12 lightning;
 Wrathful Smite|1|Evo|BA|Self|V|1 minute|c|P|Next melee hit +1d6 psychic; frightened (WIS save)|PHB
 Zephyr Strike|1|Tra|BA|Self|V|1 minute|c|R|Move without provoking; one attack with advantage and +1d8 force|XGE
 Aganazzar's Scorcher|2|Evo|A|30 ft line|VSM|Instantaneous||SW|3d8 fire in a line, DEX save half|XGE
-Aid|2|Abj|A|30 ft|VSM|8 hours||ACP|Up to three creatures gain +5 max and current HP|PHB
+Aid|2|Abj|A|30 ft|VSM|8 hours||ACPR|Up to three creatures gain +5 max and current HP|PHB
 Alter Self|2|Tra|A|Self|VS|1 hour|c|ASW|Aquatic adaptation, change appearance, or natural weapons|PHB
 Animal Messenger|2|Enc|A|30 ft|VSM|24 hours|r|BDR|A Tiny beast delivers a message|PHB
 Arcane Lock|2|Abj|A|Touch|VSM|Until dispelled||AW|Magically lock a door or container|PHB
@@ -2087,7 +2087,7 @@ Detect Thoughts|2|Div|A|Self|VSM|1 minute|c|BSW|Read surface thoughts, WIS save 
 Dragon's Breath|2|Tra|BA|Touch|VSM|1 minute|c|ASW|Target can exhale 3d6 elemental breath, DEX save half|XGE
 Dust Devil|2|Con|A|60 ft|VSM|1 minute|c|DSW|Whirlwind deals 1d8 bludgeoning and pushes, STR save|XGE
 Earthbind|2|Tra|A|300 ft|V|1 minute|c|DKSW|Flying creature's speed becomes 0 and it descends, STR save|XGE
-Enhance Ability|2|Tra|A|Touch|VSM|1 hour|c|ABCDS|Advantage on checks with one ability, plus a bonus effect|PHB
+Enhance Ability|2|Tra|A|Touch|VSM|1 hour|c|ABCDRS|Advantage on checks with one ability, plus a bonus effect|PHB
 Enlarge/Reduce|2|Tra|A|30 ft|VSM|1 minute|c|ASW|Grow (+1d4 damage) or shrink (−1d4) a creature, CON save|PHB
 Enthrall|2|Enc|A|60 ft|VS|1 minute||BK|Creatures have disadvantage on Perception vs others, WIS save|PHB
 Find Steed|2|Con|10m|30 ft|VS|Instantaneous||P|Summon an intelligent loyal steed|PHB
@@ -2095,7 +2095,7 @@ Find Traps|2|Div|A|120 ft|VS|Instantaneous||CDR|Sense traps within line of sight
 Flame Blade|2|Evo|BA|Self|VSM|10 minutes|c|D|Fiery blade: melee spell attack 3d6 fire|PHB
 Flaming Sphere|2|Con|A|60 ft|VSM|1 minute|c|DW|Rolling sphere, 2d6 fire, DEX save half|PHB
 Gentle Repose|2|Nec|A|Touch|VSM|10 days|r|ACPW|Preserve a corpse from decay and undeath|PHB
-Gust of Wind|2|Evo|A|Self (60 ft line)|VSM|1 minute|c|DSW|Strong wind pushes creatures 15 ft, STR save|PHB
+Gust of Wind|2|Evo|A|Self (60 ft line)|VSM|1 minute|c|DRSW|Strong wind pushes creatures 15 ft, STR save|PHB
 Healing Spirit|2|Con|BA|60 ft|VS|1 minute|c|DR|Spirit heals 1d6 to creatures that enter its space|XGE
 Heat Metal|2|Tra|A|60 ft|VSM|1 minute|c|ABD|Metal object glows red-hot: 2d8 fire each turn|PHB
 Hold Person|2|Enc|A|60 ft|VSM|1 minute|c|BCDKSW|Paralyze a humanoid, WIS save|PHB
@@ -2106,7 +2106,7 @@ Levitate|2|Tra|A|60 ft|VSM|10 minutes|c|ASW|Float a creature or object up to 20 
 Locate Animals or Plants|2|Div|A|Self|VSM|Instantaneous|r|BDR|Find the nearest beast or plant of a kind within 5 miles|PHB
 Locate Object|2|Div|A|Self|VSM|10 minutes|c|BCDPRW|Sense the direction of a known object within 1,000 ft|PHB
 Magic Mouth|2|Ill|1m|30 ft|VSM|Until dispelled|r|ABW|Object speaks a message when triggered|PHB
-Magic Weapon|2|Tra|BA|Touch|VS|1 hour|c|APW|Weapon becomes +1|PHB
+Magic Weapon|2|Tra|BA|Touch|VS|1 hour|c|APRW|Weapon becomes +1|PHB
 Maximilian's Earthen Grasp|2|Tra|A|30 ft|VSM|1 minute|c|SW|Earthen hand restrains, 2d6 bludgeoning, STR save|XGE
 Melf's Acid Arrow|2|Evo|A|90 ft|VSM|Instantaneous||AW|Ranged spell attack, 4d4 acid now and 2d4 next turn|PHB
 Mind Spike|2|Div|A|60 ft|S|1 hour|c|KSW|3d8 psychic, WIS save half; you track the target|XGE
@@ -2156,7 +2156,7 @@ Create Food and Water|3|Con|A|30 ft|VS|Instantaneous||CP|Food and water for 15 c
 Crusader's Mantle|3|Evo|A|Self|V|1 minute|c|P|Allies within 30 ft deal +1d4 radiant with weapons|PHB
 Daylight|3|Evo|A|60 ft|VS|1 hour||CDPRS|60 ft sphere of bright light|PHB
 Dispel Magic|3|Abj|A|120 ft|VS|Instantaneous||ABCDKPSW|End spells of 3rd level or lower (check for higher)|PHB
-Elemental Weapon|3|Tra|A|Touch|VS|1 hour|c|ADP|Weapon gains +1 and +1d4 elemental damage|PHB
+Elemental Weapon|3|Tra|A|Touch|VS|1 hour|c|ADPR|Weapon gains +1 and +1d4 elemental damage|PHB
 Enemies Abound|3|Enc|A|120 ft|VS|1 minute|c|BKSW|Target treats everyone as an enemy, INT save|XGE
 Erupting Earth|3|Tra|A|120 ft|VSM|Instantaneous||DSW|3d12 bludgeoning in a 20 ft cube, DEX save half|XGE
 Fear|3|Ill|A|Self (30 ft cone)|VSM|1 minute|c|BKSW|Creatures drop items and flee, WIS save|PHB
@@ -2913,7 +2913,7 @@ Control Water|4|Tra|A|300 ft|VSM|10 minutes|c|CDW|Flood, part, redirect or whirl
 Death Ward|4|Abj|A|Touch|VS|8 hours||CP|The first time the target would drop to 0 HP, it drops to 1 instead|PHB
 Dimension Door|4|Con|A|500 ft|V|Instantaneous||BKSW|Teleport up to 500 ft with one passenger|PHB
 Divination|4|Div|A|Self|VSM|Instantaneous|r|C|Ask your deity one question about the next week|PHB
-Dominate Beast|4|Enc|A|60 ft|VS|1 minute|c|DS|Control a beast, WIS save|PHB
+Dominate Beast|4|Enc|A|60 ft|VS|1 minute|c|DRS|Control a beast, WIS save|PHB
 Elemental Bane|4|Tra|A|90 ft|VS|1 minute|c|ADKW|Target loses resistance to an element and takes +2d6 of it, CON save|XGE
 Evard's Black Tentacles|4|Con|A|90 ft|VSM|1 minute|c|W|Tentacles restrain and deal 3d6 bludgeoning, DEX save|PHB
 Fabricate|4|Tra|10m|120 ft|VS|Instantaneous||AW|Turn raw materials into products|PHB
@@ -2974,7 +2974,7 @@ Enervation|5|Nec|A|60 ft|VS|1 minute|c|KSW|4d8 necrotic each turn, DEX save half
 Far Step|5|Con|BA|Self|V|1 minute|c|KSW|Teleport 60 ft as a bonus action each turn|XGE
 Flame Strike|5|Evo|A|60 ft|VSM|Instantaneous||C|4d6 fire + 4d6 radiant in a column, DEX save half|PHB
 Geas|5|Enc|1m|60 ft|V|30 days||BCDPW|Command a creature; 5d10 psychic if it disobeys, WIS save|PHB
-Greater Restoration|5|Abj|A|Touch|VSM|Instantaneous||ABCD|End exhaustion, charm, petrification, curses or stat reduction|PHB
+Greater Restoration|5|Abj|A|Touch|VSM|Instantaneous||ABCDR|End exhaustion, charm, petrification, curses or stat reduction|PHB
 Hallow|5|Evo|24h|Touch|VSM|Until dispelled||C|Consecrate an area with protective effects|PHB
 Hold Monster|5|Enc|A|90 ft|VSM|1 minute|c|BKSW|Paralyze any creature, WIS save|PHB
 Holy Weapon|5|Evo|BA|Touch|VS|1 hour|c|CP|Weapon deals +2d8 radiant; burst to blind|XGE
@@ -3842,6 +3842,11 @@ DND.moreCards = {
     Swamp: [['Darkness', "Melf's Acid Arrow"], ['Water Walk', 'Stinking Cloud'], ['Freedom of Movement', 'Locate Creature'], ['Insect Plague', 'Scrying']],
     Underdark: [['Spider Climb', 'Web'], ['Gaseous Form', 'Stinking Cloud'], ['Greater Invisibility', 'Stone Shape'], ['Cloudkill', 'Insect Plague']] };
   DND.options.landCircle = { label: 'Circle Spells land', list: Object.entries(LAND).map(([k, v]) => [k, 'Always prepared: ' + v.map(x => x.join(', ')).join('; ') + '.', 'Circle of the Land', { spellsAt: { 3: v[0], 5: v[1], 7: v[2], 9: v[3] } }]) };
+  // PHB ranger: Favored Enemy (1st, 6th, 14th) and Natural Explorer terrains (1st, 6th, 10th)
+  const FE = ['Aberrations', 'Beasts', 'Celestials', 'Constructs', 'Dragons', 'Elementals', 'Fey', 'Fiends', 'Giants', 'Monstrosities', 'Oozes', 'Plants', 'Undead', 'Humanoids (two races)'];
+  DND.options.favoredEnemy = { label: 'Favored Enemy', list: FE.map(t => [t, `Advantage on Survival checks to track ${t.replace(' (two races)', ' of the two races you pick')} and on INT checks to recall facts about them.`, 'Ranger', { passive: { advNote: `Survival to track, and INT checks to recall info, vs ${t}` } }]) };
+  const FT = ['Arctic', 'Coast', 'Desert', 'Forest', 'Grassland', 'Mountain', 'Swamp', 'Underdark'];
+  DND.options.favoredTerrain = { label: 'Favored Terrain', list: FT.map(t => [t, `Double proficiency on INT/WIS checks about it (if proficient); your group isn't slowed by difficult terrain or lost except by magic; stay alert while doing other things; stealthy at normal pace when alone; forage double food; learn more when tracking.`, 'Ranger', {}]) };
   DND.options.hunterPrey = { label: "Hunter's Prey", list: [
     ['Colossus Slayer', 'Once per turn, +1d8 damage to a creature below its max HP.', 'Hunter', { col: 'action', roll: '1d8', rollNote: 'extra damage (target below max HP)' }],
     ['Giant Killer', 'Reaction: attack a Large or larger creature within 5 ft that attacks you.', 'Hunter', { col: 'reaction' }],
@@ -6134,6 +6139,194 @@ DND.moreCards = {
   dis('Mastery of Water', [A('Desiccate', 1, 'action', { roll: '1d10', rollNote: 'necrotic per point', save: 'CON' }), A('Watery Grasp', 2, 'action', { roll: '2d6', rollNote: 'bludgeoning', save: 'STR' }), A('Water Whip', 3, 'action', { roll: '3d6', rollNote: 'bludgeoning, 60 ft line', save: 'DEX' }), A('Water Breathing', 5, 'action'), A('Water Sphere', 6, 'action'), A('Animate Water', 7, 'action')], { swim: 'walk' });
   dis('Mastery of Weather', [A('Cloud Steps', 1, 'bonus'), A('Hungry Lightning', 1, 'action', { roll: '1d8', rollNote: 'lightning per point', save: 'DEX' }), A('Wall of Clouds', 2, 'action'), A('Whirlwind', 2, 'action', { save: 'STR' }), A('Lightning Leap', 5, 'action', { roll: '6d6', rollNote: 'lightning, 60 ft line', save: 'DEX' }), A('Wall of Thunder', 6, 'action'), A('Thunder Clap', 7, 'action', { roll: '8d6', rollNote: 'thunder; stunned', save: 'CON' })], { resist: ['lightning', 'thunder'] });
   dis('Mastery of Wood and Earth', [A('Animate Weapon', 1, 'action', { roll: '1d10', rollNote: 'force per point' }), A('Warp Weapon', 2, 'action'), A('Warp Armor', 3, 'action'), A('Wall of Wood', 3, 'action'), A('Armored Form', 6, 'bonus', { use: R('Armored Form', 10, { note: 'Resistance to bludgeoning, piercing and slashing' }) }), A('Animate Earth', 7, 'action')], { ac: 1 });
+})();
+
+// Party play: what a spell or feature does to another character in your party when you use it on them.
+// It's sent to their sheet, which applies it (HP, temp HP, a timed effect with its bonuses, conditions…).
+//
+// DND.allyFx[spell] — a spell cast on party members:
+//   n  how many creatures it can target (default 1; 'any' = everyone in range), up  more per slot level above the spell's
+//   self false = can't target the caster · heal true = the cast's healing roll (x2 doubles it) · temp 'formula' temp HP
+//   tempEach 'formula' temp HP at the start of each of their turns · maxHp {base, up} or {roll} · buff {...} (the same
+//   bonuses as the sheet's own effects: ac, acMin, acBase, speed, speedMult, fly, atk, dmg, dmgDice, bless, save,
+//   saveAdv, checkAdv, skillAdv, resist, immune, condImmune, atkAdv, note…) · pick [[value, label]] + mk(v) → buff
+//   (+ upBuff {slot: buff}) · rounds (otherwise from the duration) · cure {pick|all: [conditions]} · exh −1 · endFx
+//   (ends a harmful effect on them) · revive 1|'max' · stab · rest 'short' · form (they take a creature's shape)
+//   wpn (bound to their weapon) · bond (Warding Bond: their damage is shared with you) · note (shown with it)
+// DND.allyHit[spell] — a harmful spell that catches party members: a condition on a failed save (with its damage, if
+//   any, taken from the spell itself) or a timed debuff.
+// DND.allyFeat[feature] — class, race and feat abilities used on party members (see app13.js for how each is spent).
+(function () {
+  const ABS = ['str', 'dex', 'con', 'int', 'wis', 'cha'], ABN = { str: 'Strength', dex: 'Dexterity', con: 'Constitution', int: 'Intelligence', wis: 'Wisdom', cha: 'Charisma' };
+  const EN = ['acid', 'cold', 'fire', 'lightning', 'thunder'], cap = t => t[0].toUpperCase() + t.slice(1);
+  const ABPICK = ABS.map(a => [a, ABN[a]]), ENPICK = EN.map(t => [t, cap(t)]);
+  const LR = ['Blinded', 'Deafened', 'Paralyzed', 'Poisoned'];
+  DND.allyFx = {
+    // ---- Healing ----
+    'Cure Wounds': { heal: true, self: true, up: 0 },
+    'Healing Word': { heal: true },
+    'Mass Healing Word': { heal: true, n: 6 },
+    'Mass Cure Wounds': { heal: true, n: 6 },
+    'Prayer of Healing': { heal: true, n: 6, self: false, note: 'Also a short rest’s worth of healing time (10 minutes)' },
+    'Heal': { heal: true, cure: { all: ['Blinded', 'Deafened'] } },
+    'Mass Heal': { heal: true, n: 'any', cure: { all: ['Blinded', 'Deafened'] }, note: 'Split up to 700 HP among the targets (each gets the amount you send)' },
+    'Power Word Heal': { heal: 'max', cure: { all: ['Charmed', 'Frightened', 'Paralyzed', 'Stunned', 'Prone'] } },
+    'Regenerate': { heal: true, rounds: 600, buff: { note: 'Regains 1 HP at the start of each turn; severed body parts regrow after 2 minutes' } },
+    'Healing Spirit': { heal: true, note: 'The spirit heals whoever enters or starts a turn in its space' },
+    'Aura of Vitality': { heal: true, note: 'Bonus action each turn: heal someone in the aura again (Party tab → Heal)' },
+    'Life Transference': { heal: 'x2', self: false },
+    'Goodberry': { note: 'Hand the berries over from your inventory (Give) — each heals 1 HP' },
+    // ---- Coming back ----
+    'Spare the Dying': { stab: true, self: false },
+    'Revivify': { revive: 1, self: false, note: 'Died within the last minute (300 gp of diamonds, consumed)' },
+    'Raise Dead': { revive: 1, self: false, buff: { note: '−4 to attack rolls, saves and ability checks, easing by 1 with each long rest' }, rounds: 4 * 14400, note: 'Died within 10 days (500 gp diamond, consumed)' },
+    'Reincarnate': { revive: 'max', self: false, note: 'A new body: the DM rolls the new race' },
+    'Resurrection': { revive: 'max', self: false, note: 'Died within a century (1,000 gp diamond, consumed)' },
+    'True Resurrection': { revive: 'max', self: false, note: 'Died within 200 years (25,000 gp of diamonds, consumed)' },
+    // ---- Restoration ----
+    'Lesser Restoration': { cure: { pick: LR }, note: 'Or ends one disease' },
+    'Greater Restoration': { cure: { pick: ['Charmed', 'Petrified'] }, exh: -1, endFx: 'curse', note: 'Or ends one curse, an ability score reduction, or a reduction to max HP' },
+    'Remove Curse': { endFx: 'curse', note: 'Ends every curse on the target' },
+    'Dispel Magic': { endFx: 'spell', note: 'Ends one spell of 3rd level or lower on the target (check for higher)' },
+    'Calm Emotions': { cure: { all: ['Charmed', 'Frightened'] }, n: 'any', rounds: 10, buff: { note: 'Charm and fear suppressed (or indifferent to creatures of your choice)' } },
+    'Protection from Poison': { cure: { all: ['Poisoned'] }, buff: { resist: ['poison'], note: 'Advantage on saves against being poisoned' } },
+    'Heroism': { n: 1, up: 1, tempEach: 'M', temp: 'M', buff: { condImmune: ['Frightened'], note: 'Immune to frightened; temp HP at the start of each turn' } },
+    // ---- Rolls ----
+    'Bless': { n: 3, up: 1, buff: { bless: true } },
+    'Guidance': { buff: { checkDieNext: '1d4', note: '+1d4 on your next ability check' } },
+    'Resistance': { buff: { saveDieNext: '1d4', note: '+1d4 on your next saving throw' } },
+    'Enhance Ability': { n: 1, up: 1, pick: ABPICK, mk: a => ({ checkAdv: [a], note: `Advantage on ${ABN[a]} checks${a === 'con' ? '; 2d6 temp HP' : a === 'str' ? '; carrying capacity doubles' : a === 'dex' ? '; no falling damage from 20 ft or less' : ''}` }), label: a => ABN[a] },
+    'Pass without Trace': { n: 'any', buff: { note: '+10 to Dexterity (Stealth) checks; can’t be tracked except by magic' } },
+    'Beacon of Hope': { n: 'any', buff: { saveAdv: ['wis'], note: 'Advantage on WIS saves and death saves; healing you receive is maximized' } },
+    'Skill Empowerment': { buff: { note: 'Expertise in one skill you’re proficient in' } },
+    'Foresight': { buff: { atkAdv: 'Foresight', saveAdv: ABS, checkAdv: ABS, note: 'Can’t be surprised; attacks against you have disadvantage' } },
+    'Synchronicity': { buff: { initAdv: true, note: 'Advantage on initiative; timing and chance events tend to go your way' } },
+    'Holy Aura': { n: 'any', buff: { saveAdv: ABS, note: 'Attacks against you have disadvantage; fiends and undead that hit you are blinded (CON save)' } },
+    'Circle of Power': { n: 'any', buff: { note: 'Advantage on saves against spells and magic; a successful half-damage save takes none' } },
+    'Aura of Purity': { n: 'any', buff: { resist: ['poison'], condImmune: [], note: 'Can’t be diseased; advantage on saves against being blinded, charmed, deafened, frightened, paralyzed, poisoned or stunned' } },
+    'Aura of Life': { n: 'any', buff: { resist: ['necrotic'], note: 'Max HP can’t be reduced; at 0 HP, regain 1 HP when starting a turn in the aura' } },
+    // ---- Protection ----
+    'Shield of Faith': { buff: { ac: 2 } },
+    'Mage Armor': { buff: { acBase: 13, unarmoredOnly: true } },
+    'Barkskin': { buff: { acMin: 16 } },
+    'Warding Bond': { self: false, bond: true, buff: { ac: 1, save: 1, resist: ['all damage'], note: 'The caster takes the same damage you do' } },
+    'Stoneskin': { buff: { resist: ['nonmagical bludgeoning, piercing and slashing'] } },
+    'Protection from Energy': { pick: ENPICK, mk: t => ({ resist: [t] }), label: cap },
+    'Protection from Evil and Good': { buff: { note: 'Aberrations, celestials, elementals, fey, fiends and undead have disadvantage to hit you and can’t charm, frighten or possess you' } },
+    'Protection from Ballistics': { buff: { resist: ['firearms and other ballistics'] } },
+    'Thought Shield': { buff: { resist: ['psychic'], note: 'Telepathy and mind reading can’t reach you' } },
+    'Intellect Fortress': { n: 1, up: 1, buff: { resist: ['psychic'], saveAdv: ['int', 'wis', 'cha'] } },
+    'Mind Blank': { buff: { immune: ['psychic'], condImmune: ['Charmed'], note: 'Immune to divination and having your mind read' } },
+    'Fizban\'s Platinum Shield': { buff: { ac: 2, resist: ['acid', 'cold', 'fire', 'lightning', 'poison'], note: 'Half cover; evasion against DEX saves for half damage' } },
+    'Sanctuary': { buff: { note: 'Anyone targeting you must make a WIS save first; ends if you attack or cast on an enemy' } },
+    'Death Ward': { buff: { deathWard: true, note: 'The first time you’d drop to 0 HP you drop to 1 instead (once)' } },
+    'Freedom of Movement': { buff: { condImmune: ['Paralyzed', 'Restrained'], note: 'Difficult terrain and magic can’t slow you; escape a grapple with 5 ft of movement' } },
+    'Blur': { self: true, buff: { note: 'Attacks against you have disadvantage' } },
+    'Invisibility': { n: 1, up: 1, buff: { note: 'Invisible until you attack or cast a spell' } },
+    'Greater Invisibility': { buff: { atkAdv: 'invisible', note: 'Attacks against you have disadvantage' } },
+    'Nondetection': { buff: { note: 'Can’t be targeted by divination or seen through magical scrying' } },
+    'Feign Death': { buff: { note: 'Appear dead; blinded and incapacitated, speed 0; resistance to all damage but psychic' } },
+    'Gaseous Form': { buff: { resist: ['nonmagical damage'], fly: 10, note: 'Misty cloud: advantage on STR, DEX and CON saves; can’t attack or cast' } },
+    'Nystul\'s Magic Aura': { buff: { note: 'Your aura reads as another creature type to divination' } },
+    // ---- Movement and senses ----
+    'Longstrider': { n: 1, up: 1, buff: { speed: 10 } },
+    'Haste': { buff: { ac: 2, speedMult: 2, saveAdv: ['dex'], note: 'One extra action each turn (one weapon attack, Dash, Disengage, Hide or Use an Object); when it ends you can’t move or act for a turn' } },
+    'Fly': { n: 1, up: 1, buff: { fly: 60 } },
+    'Jump': { buff: { note: 'Your jump distance is tripled' } },
+    'Spider Climb': { buff: { note: 'Climb speed equal to your walking speed, even upside down, hands free' } },
+    'Feather Fall': { n: 5, rounds: 10, buff: { note: 'Fall 60 ft per round and take no falling damage' } },
+    'Water Breathing': { n: 10, buff: { note: 'You can breathe underwater' } },
+    'Water Walk': { n: 10, buff: { note: 'You can walk on liquid surfaces' } },
+    'Wind Walk': { n: 10, buff: { fly: 300, note: 'A cloud of vapor: resistance to nonmagical damage; 1 minute to change back' } },
+    'Darkvision': { buff: { note: 'Darkvision 60 ft' } },
+    'See Invisibility': { buff: { note: 'You see invisible creatures and objects' } },
+    'True Seeing': { buff: { note: 'Truesight 120 ft' } },
+    'Tongues': { buff: { note: 'You understand and speak any language' } },
+    'Rary\'s Telepathic Bond': { n: 8, buff: { note: 'Telepathic link with the others in the bond' } },
+    'Enlarge/Reduce': { pick: [['enlarge', 'Enlarge'], ['reduce', 'Reduce']], mk: v => v === 'enlarge' ? { dmgDice: '1d4', checkAdv: ['str'], saveAdv: ['str'], note: 'One size larger' } : { checkDis: ['str'], saveDis: ['str'], note: 'One size smaller; your weapon attacks deal 1d4 less damage' }, label: cap },
+    'Seeming': { n: 'any', buff: { note: 'Disguised as someone else (an Investigation check against the DC sees through it)' } },
+    'Catnap': { n: 3, up: 1, rest: 'short' },
+    // ---- Weapons ----
+    'Magic Weapon': { wpn: true, buff: { atk: 1, dmg: 1 }, upBuff: { 4: { atk: 2, dmg: 2 }, 6: { atk: 3, dmg: 3 } } },
+    'Elemental Weapon': { wpn: true, pick: ENPICK, mk: t => ({ atk: 1, dmgDice: '1d4 ' + t }), label: cap, upBuff: { 5: { atk: 2 }, 7: { atk: 3 } } },
+    'Holy Weapon': { wpn: true, buff: { dmgDice: '2d8 radiant' } },
+    'Flame Arrows': { buff: { note: 'Ammunition from the quiver deals +1d6 fire (12 pieces)' } },
+    'Crusader\'s Mantle': { n: 'any', buff: { dmgDice: '1d4 radiant' } },
+    // ---- Bigger magic ----
+    'Aid': { n: 3, maxHp: { base: 5, up: 5 } },
+    'Heroes\' Feast': { n: 12, maxHp: { roll: '2d10' }, buff: { immune: ['poison'], condImmune: ['Frightened', 'Poisoned'], saveAdv: ['wis'] } },
+    'Polymorph': { form: 'beast' },
+    'True Polymorph': { form: 'any' },
+    'Mass Polymorph': { n: 10, form: 'beast' },
+    'Animal Shapes': { n: 'any', form: 'beast' },
+    'Shapechange': { form: 'any', selfOnly: true }
+  };
+  // Harmful spells: a condition on a failed save (the save and DC come from your sheet). Timed debuffs work like an
+  // enemy's spell in Effects on you.
+  DND.allyHit = {
+    'Hold Person': { cond: 'Paralyzed' }, 'Hold Monster': { cond: 'Paralyzed' }, 'Sleep': { cond: 'Unconscious', noSave: true, note: 'If their HP is under the total you rolled' },
+    'Blindness/Deafness': { pick: [['Blinded', 'Blinded'], ['Deafened', 'Deafened']] }, 'Color Spray': { cond: 'Blinded', noSave: true, rounds: 1 },
+    'Tasha\'s Hideous Laughter': { cond: ['Prone', 'Incapacitated'] }, 'Hypnotic Pattern': { cond: ['Charmed', 'Incapacitated'] },
+    'Charm Person': { cond: 'Charmed' }, 'Charm Monster': { cond: 'Charmed' }, 'Dominate Person': { cond: 'Charmed' }, 'Dominate Monster': { cond: 'Charmed' }, 'Dominate Beast': { cond: 'Charmed' },
+    'Cause Fear': { cond: 'Frightened' }, 'Fear': { cond: 'Frightened' }, 'Command': { cond: [], rounds: 1, note: 'They follow a one-word command on their next turn' },
+    'Entangle': { cond: 'Restrained' }, 'Web': { cond: 'Restrained' }, 'Evard\'s Black Tentacles': { cond: 'Restrained' }, 'Watery Sphere': { cond: 'Restrained' },
+    'Grease': { cond: 'Prone' }, 'Earth Tremor': { cond: 'Prone' }, 'Thunderwave': { cond: [], note: 'Pushed 10 ft on a failed save' },
+    'Flesh to Stone': { cond: 'Restrained', note: 'Petrified after three failed saves' }, 'Power Word Stun': { cond: 'Stunned', noSave: true }, 'Divine Word': { cond: ['Deafened', 'Blinded'] },
+    'Stinking Cloud': { cond: [], note: 'Loses its action on a failed save while in the cloud' }, 'Banishment': { cond: 'Incapacitated', note: 'Banished to another plane' },
+    'Otto\'s Irresistible Dance': { cond: [], noSave: true, buff: { note: 'Dancing: disadvantage on DEX saves and attacks; attacks against you have advantage; speed 0' }, rounds: 10 },
+    'Bane': { buff: { bane: true } }, 'Slow': { buff: { ac: -2, speedHalf: true, note: '−2 to DEX saves; no reactions; an action or a bonus action, not both' } },
+    'Faerie Fire': { buff: { note: 'Attacks against you have advantage; you can’t be invisible' } }, 'Hex': { pick: ABPICK, mk: a => ({ checkDis: [a], note: `Disadvantage on ${ABN[a]} checks` }), label: a => ABN[a], noSave: true },
+    'Bestow Curse': { pick: ABPICK, mk: a => ({ checkDis: [a], saveDis: [a], curse: true, note: `Disadvantage on ${ABN[a]} checks and saves` }), label: a => ABN[a] },
+    'Ray of Enfeeblement': { buff: { note: 'Your STR-based weapon attacks deal half damage' } }, 'Heat Metal': { noSave: true, buff: { note: 'Fire damage each turn while holding or wearing the metal; disadvantage on attacks and checks if you keep holding it' } },
+    'Contagion': { buff: { note: 'Diseased: a magical disease takes hold after three failed saves' } }
+  };
+  // Abilities used on party members. kind: heal (roll or amount), temp, fx (a timed effect), aura (on while you keep it
+  // up — sent to whoever's close enough), insp (a die they can add), cure, stab. cost: 'use' (one use of the feature),
+  // 'pool' (points from the feature's pool), {from, n} (another feature's uses), none = free.
+  DND.allyFeat = {
+    'Bardic Inspiration': { kind: 'insp', die: '1bi', cost: 'use', rounds: 100, text: 'Add the die to one ability check, attack roll or saving throw in the next 10 minutes' },
+    'Lay on Hands': { kind: 'heal', pool: true, cureCost: 5, cure: ['Poisoned'], text: 'Spend points from your pool to heal them, or 5 points to cure a disease or neutralize a poison' },
+    'Healing Hands': { kind: 'heal', roll: '{prof}d4', cost: 'use' },
+    'Healing Hands (MPMM)': { kind: 'heal', roll: '{prof}d4', cost: 'use' },
+    'Healing Hands (Volo)': { kind: 'heal', roll: '{level}', cost: 'use' },
+    'Healing Light': { kind: 'heal', pool: true, die: 'd6', text: 'Spend dice from your pool (bonus action): they regain the total' },
+    'Rallying Cry': { kind: 'heal', roll: '{fighter}', n: 3, text: 'When you use Second Wind: up to three allies within 60 ft regain HP' },
+    'Song of Rest': { kind: 'heal', roll: '1d{tier(bard,2,6,9,8,13,10,17,12)}', n: 'any', text: 'After a short rest: allies who spent Hit Dice regain extra HP' },
+    'Chef': { kind: 'heal', roll: '1d8', n: '{4+prof}', text: 'After a short rest: allies who spent Hit Dice and ate your food regain extra HP' },
+    'Inspiring Leader': { kind: 'temp', roll: '{level+cha}', n: 6, text: '10 minutes of inspiring words: up to six creatures gain temporary HP (once per short or long rest each)' },
+    'Healer': { kind: 'heal', roll: '1d6+4+{tlevel}', text: 'With a healer’s kit (action): they regain 1d6 + 4 + their level in HP (once per short or long rest each); or stabilize them and give them 1 HP' },
+    'Channel Divinity: Preserve Life': { kind: 'heal', amount: '{5*cleric}', cost: { from: 'Channel Divinity', n: 1 }, n: 'any', split: true, text: 'Share 5 × your cleric level HP among creatures within 30 ft (each up to half its max HP)' },
+    'Channel Divinity: Balm of Peace': { kind: 'heal', roll: '2d6+{wis}', n: 'any', cost: { from: 'Channel Divinity', n: 1 } },
+    'Channel Divinity: Twilight Sanctuary': { kind: 'temp', roll: '1d6+{cleric}', n: 'any', text: 'A creature ending its turn in the sphere gains temp HP (or ends charmed or frightened)', cure: ['Charmed', 'Frightened'] },
+    'Twilight Sanctuary': { kind: 'temp', roll: '1d6+{cleric}', n: 'any', cure: ['Charmed', 'Frightened'] },
+    'Celestial Resilience': { kind: 'temp', roll: '{floor(warlock/2)+cha}', n: 5, text: 'After a rest: up to five creatures gain temp HP' },
+    'Rally': { kind: 'temp', roll: '1sup+{cha}', cost: { from: 'Combat Superiority', n: 1 }, text: 'A friendly creature that can hear you gains temp HP equal to the die + your CHA' },
+    'Mantle of Inspiration': { kind: 'temp', roll: '{tier(bard,3,5,5,8,10,11,15,14)}', n: '{max(1,cha)}', cost: { from: 'Bardic Inspiration', n: 1 }, text: 'Bonus action: creatures you choose gain temp HP and can use their reaction to move' },
+    'Spirit Totem: Bear': { kind: 'temp', roll: '5+{druid}', n: 'any' },
+    'Aura of Protection': { kind: 'aura', buff: { aura: '{max(1,cha)}' }, label: '+{max(1,cha)} to saves', text: 'Creatures within 10 ft (30 ft at 18th level) add your CHA modifier to their saving throws' },
+    'Aura of Courage': { kind: 'aura', buff: { condImmune: ['Frightened'] }, text: 'Can’t be frightened while within your aura' },
+    'Aura of Devotion': { kind: 'aura', buff: { condImmune: ['Charmed'] }, text: 'Can’t be charmed while within your aura' },
+    'Aura of Warding': { kind: 'aura', buff: { resist: ['damage from spells'] }, text: 'Resistance to damage from spells while within your aura' },
+    'Aura of Alacrity': { kind: 'aura', buff: { speed: 10 }, text: '+10 ft walking speed while starting a turn near you' },
+    'Aura of the Sentinel': { kind: 'aura', buff: { init: '{prof}', note: 'Add the paladin’s proficiency bonus to initiative' } },
+    'Aura of the Guardian': { kind: 'aura', buff: { note: 'The paladin can take damage that would hit you (reaction)' } },
+    'Emboldening Bond': { kind: 'fx', cost: 'use', n: '{prof}', rounds: 600, buff: { note: 'Once per turn, add 1d4 to an attack, check or save' }, repeat: { dice: '1d4', type: 'Emboldening Bond' } },
+    'Blessing of the Trickster': { kind: 'fx', rounds: 600, buff: { skillAdv: ['Stealth'], note: 'Advantage on Stealth checks' } },
+    'Vigilant Blessing': { kind: 'fx', rounds: 14400, buff: { initAdv: true, note: 'Advantage on your next initiative roll' } },
+    'Channel Divinity: Knowledge of the Ages': null,
+    'Cleansing Touch': { kind: 'cure', endFx: 'spell', cost: 'use', text: 'End one spell on them' },
+    'Flash of Genius': { kind: 'insp', flat: '{int}', cost: 'use', rounds: 1, text: 'Reaction: add your INT modifier to their ability check or saving throw' },
+    'Bend Luck': { kind: 'insp', die: '1d4', cost: { from: 'Font of Magic', n: 2 }, rounds: 1, text: 'Reaction: add 1d4 to their attack, check or save' },
+    'Bolstering Magic': { kind: 'insp', die: '1d3', rounds: 100, text: 'Add 1d3 to attack rolls and ability checks for 10 minutes' },
+    'Combat Inspiration': null,
+    'Commander\'s Strike': { kind: 'insp', die: '1sup', cost: { from: 'Combat Superiority', n: 1 }, rounds: 1, text: 'They can use their reaction to make one weapon attack, adding the die to the damage' },
+    'Maneuvering Attack': { kind: 'fx', cost: { from: 'Combat Superiority', n: 1 }, rounds: 1, buff: { note: 'Reaction: move up to half your speed without provoking opportunity attacks from the target' } },
+    'Inspiring Surge': { kind: 'fx', rounds: 1, buff: { note: 'Use your reaction to make one weapon attack' } },
+    'Warding Maneuver': { kind: 'fx', die: '1d8', rounds: 1, buff: { note: 'Add the die to your AC against one attack' } },
+    'Protective Field': { kind: 'fx', rounds: 1, buff: { note: 'Damage you take from one hit is reduced by the psi warrior’s die + INT' } },
+    'Help': { kind: 'fx', rounds: 1, buff: { d20AdvNext: 'Help', note: 'Advantage on your next ability check, or your next attack against the creature you were helped with' } },
+    'Stabilize': { kind: 'stab', text: 'Medicine check (DC 10) to stabilize someone at 0 HP' }
+  };
 })();
 
 

@@ -833,8 +833,8 @@ function renderCombat() {
   econGroupsApply();
 }
 
-const SECTIONS = { header: renderHeader, vitals: renderVitals, core: renderCore, spells: renderSpells, features: renderFeatures, inventory: renderInventory, infusions: renderInfusions, companions: renderCompanions, story: renderStory, combat: renderCombat, notes: renderNotes };
-const SECTION_EL = { header: '#sec-header', vitals: '#sec-vitals', core: '#page-core', spells: '#page-spells', features: '#page-features', inventory: '#page-inventory', infusions: '#page-infusions', companions: '#page-companions', story: '#page-story', combat: '#page-combat', notes: '#page-notes' };
+const SECTIONS = { header: renderHeader, vitals: renderVitals, core: renderCore, spells: renderSpells, features: renderFeatures, inventory: renderInventory, infusions: renderInfusions, companions: renderCompanions, party: renderParty, story: renderStory, combat: renderCombat, notes: renderNotes };
+const SECTION_EL = { header: '#sec-header', vitals: '#sec-vitals', core: '#page-core', spells: '#page-spells', features: '#page-features', inventory: '#page-inventory', infusions: '#page-infusions', companions: '#page-companions', party: '#page-party', story: '#page-story', combat: '#page-combat', notes: '#page-notes' };
 function render(...names) {
   if (!S.created) return;
   GEN++;

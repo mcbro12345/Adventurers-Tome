@@ -13,7 +13,7 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.3d0101349174.css">
+<link rel="stylesheet" href="a/sheet.6ba12efa3d09.css">
 <link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:type" content="website"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="Adventurer’s Tome"><meta property="og:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:url" content="https://adventurers-tome.web.app/"><meta property="og:image" content="https://adventurers-tome.web.app/og-roll.gif?v=3"><meta property="og:image:type" content="image/gif"><meta property="og:image:width" content="800"><meta property="og:image:height" content="420"><meta property="og:image:alt" content="Adventurer’s Tome — a gold d20 rolling a natural 20"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-roll.gif?v=3"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest"><script>try{var t=localStorage.getItem("pg-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-pgtheme",t)}catch(e){}</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
@@ -1424,6 +1424,95 @@ html.mobile .pg-pubrow .pg-publogo .hl-a { font-size: calc(var(--mls, 60px) * .1
 
 #pg-msg .pgm-t a { color: #e2b04a; text-decoration: underline; text-underline-offset: 2px; word-break: break-all; }
 #pg-msg .pgm-t a:hover { color: #f3c866; }
+
+/* ================= Parties ================= */
+/* Lobby tab and party page reuse the character rows/cards (.hr, .hc, .hf-body); these are the few extras. */
+:where(body.hubbody, .wzh) .pty-pic { display: grid; place-items: center; background: #2b3245; color: #f1d58a; }
+:where(body.hubbody, .wzh) .pty-pic.dm { background: linear-gradient(135deg, #f1d58a, #c9962b); color: #1b1406; }
+:where(body.hubbody, .wzh) .pty-pic svg { width: 26px; height: 26px; }
+:where(body.hubbody, .wzh) .pty-inviterow { border-color: #c9962b; }
+:where(body.hubbody, .wzh) .pty-invbtns { display: flex; gap: 6px; padding: 0 12px 0 0; flex: none; }
+:where(body.hubbody, .wzh) .pty-newrow { display: flex; justify-content: center; margin: 14px 0 0; }
+:where(body.hubbody, .wzh) .pty-prow { display: flex !important; align-items: center; gap: 10px; width: 100%; text-align: left; cursor: pointer; font: inherit; color: inherit; background: transparent; border: 1px solid #e8dcc1; border-radius: 12px; padding: 8px 10px; margin: 0 0 6px; }
+:where(body.hubbody, .wzh) .pty-prow:hover { background: rgba(201,150,43,.1); }
+:where(body.hubbody, .wzh) .pty-prow .hc-pic { width: 40px; height: 40px; }
+:where(body.hubbody, .wzh) .pty-pick { max-height: 50vh; overflow-y: auto; }
+:where(body.hubbody, .wzh) .pty-ct { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+:where(body.hubbody, .wzh) .pty-ct small { opacity: .7; font-size: .8rem; }
+:where(body.hubbody, .wzh) .pty-go { flex: none; font-weight: 800; font-size: .82rem; color: #8a6420; }
+:where(body.hubbody, .wzh) .pty-join { display: grid; place-items: center; padding: 30px 0; }
+:where(body.hubbody, .wzh) .pty-jic { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; background: linear-gradient(135deg, #f1d58a, #c9962b); color: #1b1406; margin: 0 0 10px; }
+:where(body.hubbody, .wzh) .pty-jic svg { width: 26px; height: 26px; }
+:where(body.hubbody, .wzh) .pty-jcard .row a.btn { text-decoration: none; }
+:where(body.hubbody, .wzh) .pty-back { font-weight: 700; color: #8a6420; text-decoration: none; }
+/* A party's page */
+:where(body.hubbody, .wzh) #pty-page { padding: 6px 0 40px; }
+:where(body.hubbody, .wzh) .pty-head { display: flex; align-items: center; gap: 14px; margin: 6px 0 16px; }
+:where(body.hubbody, .wzh) .pty-hic { flex: none; width: 56px; height: 56px; border-radius: 10px; border: 2px solid #c9962b; display: grid; place-items: center; background: #2b3245; color: #f1d58a; }
+:where(body.hubbody, .wzh) .pty-hic svg { width: 28px; height: 28px; }
+:where(body.hubbody, .wzh) .pty-htxt { flex: 1; min-width: 0; }
+:where(body.hubbody, .wzh) .pty-htxt h1 { margin: 0; font: 800 1.6rem Georgia, serif; display: flex; align-items: center; gap: 8px; overflow-wrap: anywhere; }
+:where(body.hubbody, .wzh) .pty-htxt p { margin: 3px 0 0; opacity: .8; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; font-size: .92rem; }
+:where(body.hubbody, .wzh) .pty-htxt p svg { width: 15px; height: 15px; color: #c9962b; }
+:where(body.hubbody, .wzh) .pty-admin { margin: 0 0 14px; font-size: .88rem; opacity: .75; }
+:where(body.hubbody, .wzh) .pty-grid { padding: 0; }
+:where(body.hubbody, .wzh) .pty-card.down { border-color: #c9573f; } :where(body.hubbody, .wzh) .pty-card.dead { opacity: .6; filter: grayscale(.7); }
+:where(body.hubbody, .wzh) .pty-card .hc-txt small.pty-on { color: #a3442f; opacity: .9; white-space: normal; }
+/* the sheet's HP ring */
+:where(body.hubbody, .wzh) .pty-ring { position: relative; flex: none; width: 64px; height: 64px; align-self: center; margin-right: 34px; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; }
+:where(body.hubbody, .wzh) .pty-ring .ring-svg, :where(body.hubbody, .wzh) .pty-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+:where(body.hubbody, .wzh) .pty-ring svg { transform: rotate(-90deg); }
+:where(body.hubbody, .wzh) .pty-ring circle { fill: none; stroke-width: 11; }
+:where(body.hubbody, .wzh) .pty-ring .rt { stroke: #e8dcc1; } :where(body.hubbody, .wzh) .pty-ring .rf { stroke: #c9962b; stroke-linecap: round; } :where(body.hubbody, .wzh) .pty-ring .rf.low { stroke: #c9573f; }
+:where(body.hubbody, .wzh) .pty-ring .rtmp { stroke: #24879a; stroke-linecap: round; }
+:where(body.hubbody, .wzh) .pty-ring b { font-size: 1.05rem; font-variant-numeric: tabular-nums; } :where(body.hubbody, .wzh) .pty-ring small { font-size: .6rem; opacity: .65; }
+:where(body.hubbody, .wzh) .pty-card .hc-menu { position: absolute; top: 4px; right: 4px; }
+:where(body.hubbody, .wzh) .pty-sec { margin: 26px 0 0; padding: 18px 0 0; border-top: 1px solid rgba(127,127,127,.2); }
+:where(body.hubbody, .wzh) .pty-sec h2 { margin: 0 0 6px; font: 800 1.1rem Georgia, serif; }
+:where(body.hubbody, .wzh) .pty-sec .sh-pub-row { margin: 10px 0 6px; }
+:where(body.hubbody, .wzh) .pty-linkrow { font-size: .88rem; margin: 0 0 10px; }
+:where(body.hubbody, .wzh) .pty-runrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 0; }
+:where(body.hubbody, .wzh) .pty-runrow > span:first-child { width: 80px; flex: none; font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; opacity: .65; font-weight: 700; }
+:where(body.hubbody, .wzh) .pty-mgrs { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+:where(body.hubbody, .wzh) .pty-mgr { padding: 2px 6px 2px 10px; border-radius: 99px; background: rgba(127,127,127,.12); font-size: .88rem; }
+:where(body.hubbody, .wzh) .pty-foot { display: flex; gap: 10px; flex-wrap: wrap; }
+/* The DM's "Send to…" window */
+:where(body.hubbody, .wzh) .pty-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin: 10px 0 12px; }
+:where(body.hubbody, .wzh) .pty-tabs button { font: inherit; font-size: .85rem; font-weight: 700; padding: 6px 12px; border-radius: 99px; border: 1px solid #e3d6b8; background: transparent; color: inherit; cursor: pointer; }
+:where(body.hubbody, .wzh) .pty-tabs button.on { background: linear-gradient(180deg, #f1d58a, #d9ab48); border-color: #a07220; color: #1b1406; }
+:where(body.hubbody, .wzh) .pty-sbody { display: flex; flex-direction: column; gap: 10px; }
+:where(body.hubbody, .wzh) .pty-frow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+:where(body.hubbody, .wzh) .pty-sbody select, :where(body.hubbody, .wzh) .pty-num { font: inherit; padding: 8px 10px; border-radius: 10px; border: 1px solid #e3d6b8; background: #fff; color: inherit; }
+:where(body.hubbody, .wzh) .pty-num { width: 110px; }
+:where(body.hubbody, .wzh) .pty-sbody .ak-c { margin: 0; }
+:where(body.hubbody, .wzh) .pty-coins { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+:where(body.hubbody, .wzh) .pty-coins label { display: flex; flex-direction: column; gap: 3px; font-size: .78rem; font-weight: 800; }
+:where(body.hubbody, .wzh) .pty-coins .pty-num { width: 100%; box-sizing: border-box; }
+:where(body.hubbody, .wzh) .pty-more { display: flex; gap: 6px; flex-wrap: wrap; }
+:where(body.hubbody, .wzh) .pty-admic { display: grid; place-items: center; color: #f1d58a; background: #2b3245; }
+:where(body.hubbody, .wzh) .pty-admic svg { width: 20px; height: 20px; }
+@media (max-width: 640px) {
+  :where(body.hubbody, .wzh) .pty-inviterow { flex-wrap: wrap; } :where(body.hubbody, .wzh) .pty-invbtns { padding: 0 10px 10px 82px; }
+  :where(body.hubbody, .wzh) .pty-head { flex-wrap: wrap; } :where(body.hubbody, .wzh) .pty-head #pt-all { width: 100%; }
+  :where(body.hubbody, .wzh) .pty-htxt h1 { font-size: 1.35rem; }
+  :where(body.hubbody, .wzh) .pty-coins { grid-template-columns: repeat(3, 1fr); }
+}
+@media (prefers-color-scheme: dark) {
+  :where(html:not([data-pgtheme])) body.hubbody .pty-prow { border-color: #2c3548; }
+  :where(html:not([data-pgtheme])) body.hubbody .pty-go, :where(html:not([data-pgtheme])) body.hubbody .pty-back { color: #e7c46e; }
+  :where(html:not([data-pgtheme])) body.hubbody .pty-card .hc-txt small.pty-on { color: #f0a08d; }
+  :where(html:not([data-pgtheme])) body.hubbody .pty-ring .rt { stroke: #2c3548; }
+  :where(html:not([data-pgtheme])) body.hubbody .pty-sbody select, :where(html:not([data-pgtheme])) body.hubbody .pty-num { background: #0f1420; border-color: #3a4560; }
+  :where(html:not([data-pgtheme])) body.hubbody .pty-tabs button { border-color: #3a4560; }
+}
+
+  :where(html[data-pgtheme="dark"]) body.hubbody .pty-prow { border-color: #2c3548; }
+  :where(html[data-pgtheme="dark"]) body.hubbody .pty-go, :where(html[data-pgtheme="dark"]) body.hubbody .pty-back { color: #e7c46e; }
+  :where(html[data-pgtheme="dark"]) body.hubbody .pty-card .hc-txt small.pty-on { color: #f0a08d; }
+  :where(html[data-pgtheme="dark"]) body.hubbody .pty-ring .rt { stroke: #2c3548; }
+  :where(html[data-pgtheme="dark"]) body.hubbody .pty-sbody select, :where(html[data-pgtheme="dark"]) body.hubbody .pty-num { background: #0f1420; border-color: #3a4560; }
+  :where(html[data-pgtheme="dark"]) body.hubbody .pty-tabs button { border-color: #3a4560; }
+
 </style>
 </head>
 <body>
@@ -1438,6 +1527,7 @@ html.mobile .pg-pubrow .pg-publogo .hl-a { font-size: calc(var(--mls, 60px) * .1
   <section class="page" id="page-inventory"></section>
   <section class="page" id="page-infusions"></section>
   <section class="page" id="page-companions"></section>
+  <section class="page" id="page-party"></section>
   <section class="page" id="page-story"></section>
   <section class="page" id="page-notes"></section>
 </main>
@@ -1597,7 +1687,7 @@ const LEG = location.pathname.replace(/[^/]*$/, '');
 // counts as "the app" and bring the browser's toolbar back.
 const STANDALONE = (() => { try { return navigator.standalone === true || matchMedia('(display-mode: standalone)').matches; } catch (e) { return false; } })();
 try { if (STANDALONE) document.documentElement.classList.add('pg-standalone'); } catch (e) {}
-const RESERVED = new Set(['shared', 'login', 'new', 'create', 'character', 'admin', 'c', 'a', 'icons', 'icon', 'index', 'index-html', 'version-json', 'users', 'help', 'settings']);
+const RESERVED = new Set(['party', 'join', 'parties', 'shared', 'login', 'new', 'create', 'character', 'admin', 'c', 'a', 'icons', 'icon', 'index', 'index-html', 'version-json', 'users', 'help', 'settings']);
 const slugify = s => String(s || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
 const enc = encodeURIComponent;
 // A character's address: /character/zeebo (older /player/character addresses stay as they were).
@@ -1605,9 +1695,12 @@ const pathURL = pth => pth.includes('/') ? '/' + pth : '/character/' + pth;
 const URLS = {
   hub: G => PRETTY ? '/' : LEG + '?g=' + G,
   shared: G => PRETTY ? '/shared' : LEG + '?g=' + G + '&view=shared',
+  parties: G => PRETTY ? '/parties' : LEG + '?g=' + G + '&view=parties',
   admin: (G, tab) => PRETTY ? '/admin' + (tab ? '/' + tab : '') : LEG + '?g=' + G + '&admin=1' + (tab ? '&tab=' + tab : ''),
   char: c => PRETTY ? (c.path ? pathURL(c.path) : '/c/' + c.id) : LEG + '?c=' + c.id,
   byId: id => PRETTY ? '/c/' + id : LEG + '?c=' + id,
+  party: id => PRETTY ? '/party/' + id : LEG + '?party=' + id,
+  join: t => (PRETTY ? location.origin + '/join/' + t : location.origin + LEG + '?join=' + t),
   newChar: (G, o, p) => { try { if (o) sessionStorage.setItem('pg-newfor', JSON.stringify({ o, p: p || '' })); else sessionStorage.removeItem('pg-newfor'); } catch (e) {} return PRETTY ? '/create' : LEG + '?new=1&g=' + G; },
 };
 // Search keys for an account or character: every prefix of each word (and of the whole name / email), so the admin
@@ -1703,7 +1796,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261017041118', ASSETS = {"data": "a/data.2415f9a756fa.js", "app": "a/app.76a79df7d464.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.67fdc61ae2dc.html"}; window.PG_ASSETS = ASSETS;
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261017210529', ASSETS = {"data": "a/data.7b40b57b683f.js", "app": "a/app.f1231b4dd783.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.edb94962bc12.html"}; window.PG_ASSETS = ASSETS;
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -1717,16 +1810,20 @@ function wireDie(root) {
   const NEWFOR = (() => { try { return JSON.parse(sessionStorage.getItem('pg-newfor') || 'null') || {}; } catch (e) { return {}; } })();
   const P = String(Q.get('p') || NEWFOR.p || '').slice(0, 60), O = String(Q.get('o') || NEWFOR.o || '').trim().toLowerCase().slice(0, 120);
   const LAST_G = 'dnd-hub-group';
-  let NEWQ = !!Q.get('new'), ADMINQ = !!Q.get('admin'), TABQ = clean(Q.get('tab')), VIEWQ = Q.get('view') === 'shared' ? 'shared' : 'mine', LOGIN = false, SLUG = '', BAD = false, VIEWTOK = String(Q.get('pv') || '').replace(/[^\w-]/g, '').slice(0, 40);
+  let NEWQ = !!Q.get('new'), ADMINQ = !!Q.get('admin'), TABQ = clean(Q.get('tab')), VIEWQ = ['shared', 'parties'].includes(Q.get('view')) ? Q.get('view') : 'mine', LOGIN = false, SLUG = '', BAD = false, VIEWTOK = String(Q.get('pv') || '').replace(/[^\w-]/g, '').slice(0, 40);
+  // A party's page (/party/<id>) and an invite link (/join/<code>).
+  let PARTYQ = clean(Q.get('party')), JOINQ = clean(Q.get('join'));
   if (PRETTY) {
     const parts = location.pathname.split('/').filter(Boolean).map(x => { try { return decodeURIComponent(x); } catch (e) { return x; } });
     if (parts.length === 1 && parts[0] === 'index.html') parts.length = 0;
     if (!parts.length) {}
-    else if (parts.length === 1 && parts[0] === 'shared') VIEWQ = 'shared';
+    else if (parts.length === 1 && (parts[0] === 'shared' || parts[0] === 'parties')) VIEWQ = parts[0];
     else if (parts.length === 1 && parts[0] === 'login') LOGIN = true;
     else if (parts.length === 1 && (parts[0] === 'create' || parts[0] === 'new')) NEWQ = true;
     else if (parts[0] === 'admin' && parts.length <= 2) { ADMINQ = true; TABQ = clean(parts[1] || ''); }
     else if (parts[0] === 'c' && parts.length === 2) C = clean(parts[1]);
+    else if (parts[0] === 'party' && parts.length === 2) PARTYQ = clean(parts[1]);
+    else if (parts[0] === 'join' && parts.length === 2) JOINQ = clean(parts[1]);
     else if (parts[0] === 'view' && parts.length === 2) VIEWTOK = String(parts[1]).replace(/[^\w-]/g, '').slice(0, 40); // view-only link, no sign-in
     else if (parts[0] === 'character' && parts.length === 2 && slugify(parts[1])) SLUG = slugify(parts[1]); // /character/zeebo
     else if (parts.length === 2) SLUG = slugify(parts[0]) + '/' + slugify(parts[1]); // older /player/character addresses
@@ -1891,12 +1988,12 @@ function wireDie(root) {
       new MutationObserver(soon).observe(document.body, { childList: true, subtree: true }); addEventListener('resize', soon); setInterval(align, 1500); soon(); }
     try { const st = JSON.parse(txt); if (st && st.name) document.title = st.name + ' — Adventurer’s Tome'; } catch (e) {}
     return; }
-  if (!PRETTY && !C && !G && !NEWQ) { location.replace(location.pathname + '?g=' + (clean(lsGet(LAST_G)) || DEFAULT_G)); return; }
-  if (!G && NEWQ) G = DEFAULT_G;
+  if (!PRETTY && !C && !G && !NEWQ && !PARTYQ && !JOINQ) { location.replace(location.pathname + '?g=' + (clean(lsGet(LAST_G)) || DEFAULT_G)); return; }
+  if (!G && (NEWQ || PARTYQ || JOINQ)) G = DEFAULT_G;
   // old-style addresses arriving here (bookmarks, the github.io handover) switch to the clean ones
-  if (PRETTY && !STANDALONE && ['c', 'g', 'new', 'admin', 'view', 'tab'].some(k => Q.has(k))) {
+  if (PRETTY && !STANDALONE && ['c', 'g', 'new', 'admin', 'view', 'tab', 'party', 'join'].some(k => Q.has(k))) {
     if (NEWQ && Q.get('o')) try { sessionStorage.setItem('pg-newfor', JSON.stringify({ o: Q.get('o'), p: Q.get('p') || '' })); } catch (e) {}
-    const to = C ? '/c/' + C : NEWQ ? '/create' : ADMINQ ? '/admin' + (TABQ ? '/' + TABQ : '') : VIEWQ === 'shared' ? '/shared' : '/';
+    const to = C ? '/c/' + C : NEWQ ? '/create' : ADMINQ ? '/admin' + (TABQ ? '/' + TABQ : '') : PARTYQ ? '/party/' + PARTYQ : JOINQ ? '/join/' + JOINQ : VIEWQ !== 'mine' ? '/' + VIEWQ : '/';
     history.replaceState(null, '', to); }
   if (BAD) { say(`There’s nothing at this address.<br><br><a href="/">Go to your characters</a>`); return; }
   const user = await new Promise(res => { const u = auth.onAuthStateChanged(x => { u(); res(x); }); });
@@ -1989,7 +2086,7 @@ function wireDie(root) {
   // …and you land back where you were: the same scroll position
   const restoreY = () => { try { const d = JSON.parse(sessionStorage.getItem('pg-y') || 'null'); sessionStorage.removeItem('pg-y'); if (d && d.p === location.pathname && Date.now() - d.at < 10 * 60000 && d.y > 0) setTimeout(() => scrollTo(0, d.y), 350); } catch (e) {} };
   if (G && !C && !NEWQ) { lsSet(LAST_G, G); if (ADMINQ && !IS_ADMIN && PRETTY) history.replaceState(null, '', '/');
-    if (load) fadeLoad(load); else document.documentElement.classList.remove('pg-loading'); hub(fs, auth, G, { EMAIL, IS_ADMIN, IS_OWNER, ADMINS, user, signOut, ME, page: ADMINQ && IS_ADMIN ? 'admin' : 'hub', view: VIEWQ, tab: TABQ }); verCheck(); restoreY();
+    if (load) fadeLoad(load); else document.documentElement.classList.remove('pg-loading'); hub(fs, auth, G, { EMAIL, IS_ADMIN, IS_OWNER, ADMINS, user, signOut, ME, page: ADMINQ && IS_ADMIN ? 'admin' : PARTYQ ? 'party' : JOINQ ? 'join' : 'hub', view: VIEWQ, tab: TABQ, party: PARTYQ, join: JOINQ }); verCheck(); restoreY();
     // quietly warm the cache so opening a sheet from here is quick
     // (not on a very slow or data-saving connection, and only once the page has settled, so it never slows the list down)
     const cn = navigator.connection || {}, slowNet = cn.saveData || /(^|-)2g$/.test(cn.effectiveType || '');
@@ -2051,13 +2148,13 @@ function wireDie(root) {
     // then the full rules wording, which only tooltips and the Spells/Features text need: once it's in, redraw so they use it
     fullTxt.then(t => { if (!t) return; const s = document.createElement('script'); s.textContent = t; document.body.appendChild(s); try { if (typeof render === 'function') render(); } catch (e) {} }); };
   const col = fs.collection('sheets'), CACHE = 'dnd-pages-cache:' + C;
-  let PUB = '', txt = null, missing = false, denied = false, OWNER = NEW ? ((IS_ADMIN && O) || EMAIL) : '', VIEWERS = [], EDITORS = [];
+  let PUB = '', PARTY = '', txt = null, missing = false, denied = false, OWNER = NEW ? ((IS_ADMIN && O) || EMAIL) : '', VIEWERS = [], EDITORS = [];
   if (!NEW) try {
     const sn = await col.doc(C).get();
     if (!sn.exists || !sn.data().data) missing = true;
     else {
       const d = sn.data(); let str = d.data || ''; const n = Number(d.n) || 1;
-      if (d.g && !G) G = clean(d.g); OWNER = (d.owner || '').toLowerCase(); VIEWERS = d.viewers || []; EDITORS = d.editors || []; PUB = d.pub || '';
+      if (d.g && !G) G = clean(d.g); OWNER = (d.owner || '').toLowerCase(); VIEWERS = d.viewers || []; EDITORS = d.editors || []; PUB = d.pub || ''; PARTY = clean(d.party || '');
       for (let k = 1; k < n; k++) { const p = await col.doc(C + '_p' + k).get(); const pd = p.exists ? p.data() : null; if (!pd || Number(pd.savedAt) !== Number(d.savedAt)) { str = null; break; } str += pd.data || ''; }
       if (str) { JSON.parse(str); txt = str; lsSet(CACHE, str); }
     }
@@ -2109,14 +2206,56 @@ function wireDie(root) {
   const hubSoon = () => { try { const d = digest(window.sheetState()); if (LASTD !== null && d !== LASTD) hubChanged = true; LASTD = d; } catch (e) {}
     clearTimeout(hubT); hubT = setTimeout(() => { const c = hubChanged; hubChanged = false; hubUpdate(c); }, 1200); };
 
+
+  // ----- Parties: which party this character is in, everyone's cards, and things sent to it -----
+  // The DM opening a player's sheet sees the party too, but only the character's own sheet (its owner, an editor or an
+  // admin) keeps its card up to date and picks up what's sent to it.
+  const PCOL = fs.collection('parties');
+  let PTY = null, PTY_ID = null, PTY_CARDS = {}, unPty = null, unPtyC = null, PTY_SET = 0, PTY_CK = '', ptyT = null, inboxOn = false;
+  const PTY_Q = [];
+  const ptyChanged = () => { if (window.onPartyChange) { try { window.onPartyChange(); } catch (e) { console.warn(e); } } };
+  const ptySetLocal = pid => { PARTY = pid || ''; PTY_SET = Date.now(); ptyWatch(PARTY); };
+  function ptyWatch(pid) {
+    pid = pid || ''; if (pid === PTY_ID) return; PTY_ID = pid;
+    if (unPty) unPty(); if (unPtyC) unPtyC(); unPty = unPtyC = null; PTY = null; PTY_CARDS = {}; PTY_CK = ''; ptyChanged();
+    if (!pid) return;
+    unPty = PCOL.doc(pid).onSnapshot(d => { const pd = d.exists ? d.data() : null;
+      if (!pd || !(pd.chars || []).includes(C)) { PTY = null; ptyChanged();
+        // taken out of the party (or it was deleted): this character forgets it
+        if (role() === 'owner' && PARTY === pid && Date.now() - PTY_SET > 15000) { PARTY = ''; ptySetSheetParty(fs, C, '').catch(() => {}); ptyWatch(''); }
+        return; }
+      PTY = Object.assign({ id: pid }, pd); ptyChanged(); inboxStart(); ptyCardSoon();
+      if (!unPtyC) unPtyC = PCOL.doc(pid).collection('cards').onSnapshot(qs => { PTY_CARDS = {}; qs.docs.forEach(x => PTY_CARDS[x.id] = x.data()); ptyChanged(); }, () => {});
+    }, () => { PTY = null; ptyChanged(); });
+  }
+  const ptyCardSoon = () => { clearTimeout(ptyT); ptyT = setTimeout(ptyCard, 700); };
+  const ptyCard = async () => { if (!PTY || role() === 'view' || !window.partyCard || !window.sheetSummary) return; let c; try { c = window.partyCard(); } catch (e) { return; } if (!c) return;
+    const s = window.sheetSummary(); c = Object.assign(c, { owner: OWNER, player: (typeof playerName === 'function' && playerName()) || s.player || '', thumb: await thumb(s.portrait), path: PATHVAL || '' });
+    const key = JSON.stringify(c); if (key === PTY_CK) return; PTY_CK = key;
+    try { await PCOL.doc(PTY.id).collection('cards').doc(C).set(Object.assign({ at: Date.now() }, c)); } catch (e) { PTY_CK = ''; } };
+  // Things sent to this character wait in its inbox; the first open copy of the sheet claims each one and applies it.
+  const ptyDeliver = () => { if (!window.sheetIncoming) return setTimeout(ptyDeliver, 600); while (PTY_Q.length) { const m = PTY_Q.shift(); try { window.sheetIncoming(m); } catch (e) { console.warn('party message', e); } } };
+  function inboxStart() { if (inboxOn || role() === 'view') return; inboxOn = true;
+    col.doc(C).collection('inbox').orderBy('at').onSnapshot(qs => qs.docChanges().forEach(async ch => { if (ch.type !== 'added') return;
+      let d = null; try { d = await fs.runTransaction(async tx => { const cur = await tx.get(ch.doc.ref); if (!cur.exists) return null; tx.delete(ch.doc.ref); return cur.data(); }); } catch (e) { return; }
+      if (!d) return; let data = {}; try { data = JSON.parse(d.data || '{}'); } catch (e) {}
+      PTY_Q.push({ kind: d.kind, data, from: d.from || '', fromName: d.fromName || '', by: d.by || '', at: d.at || Date.now(), p: d.p }); ptyDeliver(); }), () => { inboxOn = false; }); }
+  window.PG_PARTY = {
+    on: () => !!PTY, self: C, canAct: () => role() !== 'view',
+    info: () => PTY ? { id: PTY.id, name: PTY.name || 'Party', dm: PTY.dm, dmName: PTY.dmName || PTY.dm, mgr: PTY.dm === EMAIL || (PTY.mgrs || []).includes(EMAIL), url: URLS.party(PTY.id) } : null,
+    members: () => PTY ? (PTY.chars || []).filter(id => id !== C).map(id => Object.assign({ id, name: 'A character' }, PTY_CARDS[id] || {})) : [],
+    me: () => PTY_CARDS[C] || null,
+    send: (to, kind, data) => { if (!PTY) return Promise.reject(new Error('Not in a party')); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} return ptySend(fs, EMAIL, PTY.id, to, kind, data, C, nm); },
+    card: () => ptyCardSoon()
+  };
   // The sheet's sync code talks to "db" like it does on claude.ai; here that's this character's Firestore documents.
   const docFor = p => { const m = /^sheets\/(main|part(\d+))$/.exec(p); return m ? [col.doc(m[2] ? C + '_p' + m[2] : C), !m[2]] : null; };
   const none = { get: async () => ({ exists: false, data: () => null }), set: async () => { throw { code: 'unsupported' }; }, delete: async () => {}, onSnapshot: () => () => {} };
   // With a view-only link on, every save is mirrored to the public copy (pub/<link>, same layout as the sheet's own documents).
   const pubMirror = (p, v, main) => { if (!PUB) return; const k = (/part(\d+)/.exec(p) || [])[1]; fs.collection('pub').doc(main ? PUB : PUB + '_p' + k).set(Object.assign({ c: C, savedAt: Number(v.savedAt) || Date.now(), data: v.data || '' }, main ? { n: Number(v.n) || 1, v: 2, tab: String(v.tab || 'x') } : {})).catch(() => {}); };
   const db = { doc: p => { const x = docFor(p); if (!x) return none; const [r, main] = x;
-    return { get: () => r.get(), set: v => { if (role() === 'view') return Promise.reject({ code: 'permission-denied' }); v = Object.assign({}, v, { owner: OWNER, viewers: VIEWERS, editors: EDITORS }, main && G ? { g: G } : {}, main && PUB ? { pub: PUB } : {}); if (main) WROTE = Number(v.savedAt); const w = r.set(v); if (main) w.then(hubSoon, () => {}); w.then(() => pubMirror(p, v, main), () => {}); return w; }, delete: () => r.delete(),
-      onSnapshot: (cb, err) => r.onSnapshot(s => { const d = s.exists && s.data(); if (d && d.owner) OWNER = String(d.owner).toLowerCase(); if (d) { VIEWERS = d.viewers || []; EDITORS = d.editors || []; if (main) PUB = d.pub || ''; } cb(s);
+    return { get: () => r.get(), set: v => { if (role() === 'view') return Promise.reject({ code: 'permission-denied' }); v = Object.assign({}, v, { owner: OWNER, viewers: VIEWERS, editors: EDITORS }, main && G ? { g: G } : {}, main && PUB ? { pub: PUB } : {}, PARTY ? { party: PARTY } : {}); if (main) WROTE = Number(v.savedAt); const w = r.set(v); if (main) w.then(() => { hubSoon(); ptyCardSoon(); }, () => {}); w.then(() => pubMirror(p, v, main), () => {}); return w; }, delete: () => r.delete(),
+      onSnapshot: (cb, err) => r.onSnapshot(s => { const d = s.exists && s.data(); if (d && d.owner) OWNER = String(d.owner).toLowerCase(); if (d) { VIEWERS = d.viewers || []; EDITORS = d.editors || []; if (main) { PUB = d.pub || ''; if (Date.now() - PTY_SET > 15000 && clean(d.party || '') !== PARTY) { PARTY = clean(d.party || ''); ptyWatch(PARTY); } } } cb(s);
         // Someone else's change arriving here isn't this person's edit: take it as the new starting point.
         if (main && d && Number(d.savedAt) !== WROTE) setTimeout(() => { try { if (LASTD !== null) LASTD = digest(window.sheetState()); } catch (e) {} }, 800); }, err) }; } };
   // Rolling from a phone through this character open on a computer (Settings → Dice): requests and answers pass through
@@ -2145,6 +2284,9 @@ function wireDie(root) {
   if (NEW && playerName()) { try { const st = window.sheetState(); if (st && !st.player) st.player = playerName(); } catch (e) {} }
   try { const st0 = window.sheetState(); if (st0 && st0.created) LASTD = digest(st0); } catch (e) {}
   if (!NEW && hubCol) setTimeout(() => { syncPlayer(); hubUpdate(false); }, 2500);
+  if (!NEW) { if (PARTY) ptyWatch(PARTY);
+    // a character that a party lists but that doesn't know it yet (it joined while this sheet was being saved elsewhere)
+    else if (role() !== 'view') setTimeout(() => PCOL.where('people', 'array-contains', EMAIL).get().then(qs => { const d = qs.docs.find(x => (x.data().chars || []).includes(C)); if (d && !PARTY) { ptySetLocal(d.id); if (role() === 'owner') ptySetSheetParty(fs, C, d.id).catch(() => {}); } }, () => {}), 4000); }
   // Activity log for this sheet: that it was opened, and (gathered up, at most about once a minute) what was changed.
   if (!NEW) setTimeout(() => { let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} pgLog('open', { target: C, tName: nm, detail: role() === 'view' ? 'view only' : '' }); }, 3000);
   { let EDITS = [], editT = null; const flush = () => { clearTimeout(editT); editT = null; if (!EDITS.length) return; const L = [...new Set(EDITS)]; EDITS = [];
@@ -2155,6 +2297,15 @@ function wireDie(root) {
   // New character: once it's created (and saved to the cloud), its link goes in the address bar.
   if (NEW) { const t = setInterval(() => { let made = false; try { const st = window.sheetState && window.sheetState(); made = !!(st && st.created); } catch (e) {} if (!made) return; clearInterval(t); try { sessionStorage.removeItem('pg-newfor'); } catch (e) {} setTimeout(() => startPres(), 2500); // a new character's viewers bubble starts once it exists
     history.replaceState(null, '', URLS.byId(C)); syncPlayer();
+    // Made from a party's invite link (or its "make a new character" button): it joins that party once it's saved.
+    { let J = null; try { J = JSON.parse(sessionStorage.getItem('pg-join') || 'null'); sessionStorage.removeItem('pg-join'); } catch (e) {}
+      if (J && J.p && Date.now() - (J.at || 0) < 6 * 3600000 && OWNER === EMAIL) { ptySetLocal(clean(J.p)); let tries = 0;
+        const tryJoin = async () => { tries++; const ok = await col.doc(C).get().then(x => x.exists, () => false); if (!ok) { if (tries < 30) setTimeout(tryJoin, 2000); return; }
+          let s = {}; try { s = window.sheetSummary(); } catch (e) {}
+          try { await ptyJoin(fs, EMAIL, clean(J.p), C, J.t || '', { name: s.name || '', race: s.race || '', cls: s.cls || '', level: s.level || 0, player: playerName() || '' }); PTY_SET = Date.now(); ptyWatch(''); ptyWatch(clean(J.p)); pgLog('party_join', { target: J.p, tName: J.name || '', detail: s.name || '' });
+            setTimeout(() => window.sheetToast(`<div><b>Joined ${escH(J.name || 'the party')}</b><div class="det">Your party is in the Party tab: hand items over and cast spells on each other from there.</div></div>`, '', 9000), 2500); }
+          catch (e) { PARTY = ''; ptyWatch(''); window.sheetToast(`<div><b>Couldn’t join ${escH(J.name || 'the party')}</b><div class="det">${escH(e && e.code === 'permission-denied' ? 'The invite link may have been turned off — ask your DM for a new one.' : (e && e.message) || String(e))}</div></div>`, 'fumble', 12000); } };
+        setTimeout(tryJoin, 1500); } }
     setTimeout(() => window.sheetToast(`<div><b>Your character is saved</b><div class="det">${G ? 'It\'s on your party page. ' : ''}Open it on any device you're signed in on — it stays in sync. ${IS_ADMIN && OWNER !== EMAIL ? 'It belongs to ' + OWNER + '.' : 'Only you and the people you share it with can open it.'}</div></div>`, '', 12000), 600);
     hubChanged = true; hubSoon();
   }, 500); }
@@ -2272,7 +2423,9 @@ function hub(fs, auth, G, ctx) {
   if (TOUCH && !document.documentElement.classList.contains('pg-touch')) { document.documentElement.classList.add('pg-touch'); noHover(); }
   // no pinch-zooming the characters page (it should feel like an app, not a web page)
   if (TOUCH && !window.PG_NOZOOM) { window.PG_NOZOOM = true; ['gesturestart', 'gesturechange'].forEach(t => document.addEventListener(t, e => { if (!document.body.classList.contains('adminbody') && !e.target.closest('.hub-modal')) e.preventDefault(); }, { passive: false })); }
-  let chars = [], open = {}, view = ctx.view === 'shared' ? 'shared' : 'mine';
+  let chars = [], open = {}, view = ['shared', 'parties'].includes(ctx.view) ? ctx.view : 'mine';
+  // The lobby's tabs, left to right.
+  const VIEWS = ['mine', 'parties', 'shared'], vi = v => Math.max(0, VIEWS.indexOf(v));
   try { open = JSON.parse(ls.get(OPEN) || '{}'); } catch (e) {}
   const toast = t => { const el = document.getElementById('hub-toast'); el.textContent = t; el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), 2600); };
   const usersCol = fs.collection('users'), charsCol = fs.collection('groups/' + G + '/chars'), sheets = fs.collection('sheets');
@@ -2478,6 +2631,8 @@ function hub(fs, auth, G, ctx) {
   }
   document.addEventListener('click', e => { if (e.target === modal) close(); });
 
+  // Parties: the strip on the characters page, a party's own page, invite links and the admin list.
+  let PM_ = null; const PMx = () => PM_ || (PM_ = partyModule({ fs, EMAIL, IS_ADMIN, modal, toast, esc, close, root, G, chars: () => chars, nameOf, needNames, myName, pic, peoplePicker }));
   // ================= Hub: my characters and the ones shared with me =================
   function createChar() { pgGo(URLS.newChar(G)); }
   // Your picture: your initials (on a colour you can pick), one of your characters, or an image you upload.
@@ -2610,13 +2765,14 @@ function hub(fs, auth, G, ctx) {
   const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   function placeInd(anim, frac) {
     const bar = root.querySelector('.hub-seg'), ind = bar && bar.querySelector('.hv-ind'), btns = bar ? [...bar.querySelectorAll('[data-view]')] : []; if (!ind || btns.length < 2) return;
-    const br = bar.getBoundingClientRect(), r0 = btns[0].getBoundingClientRect(), r1 = btns[1].getBoundingClientRect();
-    const f = frac != null ? frac : view === 'shared' ? 1 : 0, x = (r0.left - br.left) + ((r1.left - br.left) - (r0.left - br.left)) * f, w = r0.width + (r1.width - r0.width) * f;
+    const f = frac != null ? frac : vi(view), k0 = Math.max(0, Math.min(btns.length - 2, Math.floor(f))), t = f - k0;
+    const br = bar.getBoundingClientRect(), r0 = btns[k0].getBoundingClientRect(), r1 = btns[k0 + 1].getBoundingClientRect();
+    const x = (r0.left - br.left) + (r1.left - r0.left) * t, w = r0.width + (r1.width - r0.width) * t;
     ind.style.transition = anim && !calm() ? '' : 'none'; ind.style.transform = `translateX(${x}px)`; ind.style.width = w + 'px';
     btns.forEach((b, k) => b.classList.toggle('on', Math.round(f) === k));
   }
   function placeTrack(anim, dx) {
-    const tr = root.querySelector('.hub-track'); if (!tr) return; const idx = view === 'shared' ? 1 : 0;
+    const tr = root.querySelector('.hub-track'); if (!tr) return; const idx = vi(view);
     tr.classList.toggle('slide', slideMode()); tr.classList.toggle('fade', !slideMode());
     const panes = tr.querySelectorAll('.hub-pane'); panes.forEach((p, k) => p.classList.toggle('on', k === idx));
     if (!slideMode()) { tr.style.transform = ''; return; }
@@ -2634,13 +2790,13 @@ function hub(fs, auth, G, ctx) {
   const unclamp = p => { if (p) { p.style.maxHeight = ''; p.style.overflow = ''; } };
   // Each list remembers where you'd scrolled to. While sliding, the incoming list is shifted so it already shows that
   // spot; when it lands the shift is swapped for the real scroll in the same frame, so nothing jumps or flashes.
-  const VSCROLL = { mine: 0, shared: 0 };
+  const VSCROLL = { mine: 0, parties: 0, shared: 0 };
   const padBot = () => parseFloat(getComputedStyle(root).paddingBottom) || 0;
   function prepIn(p) { if (!p || p._y != null) return; p.classList.remove('hp-off'); unclamp(p);
     const top = p.getBoundingClientRect().top + scrollY, max = Math.max(0, top + p.offsetHeight + padBot() - innerHeight);
     p._y = Math.min(VSCROLL[p.dataset.pane] || 0, max); p.style.transform = scrollY - p._y ? `translateY(${scrollY - p._y}px)` : ''; }
   addEventListener('scroll', () => { root.querySelectorAll('.hub-pane').forEach(p => { if (p._y != null) p.style.transform = scrollY - p._y ? `translateY(${scrollY - p._y}px)` : ''; }); }, { passive: true });
-  function switchView(v) { if (v === view) return; settle(); const out0 = root.querySelector('.hub-pane.on'); VSCROLL[view] = scrollY; view = v; history.replaceState(null, '', view === 'shared' ? URLS.shared(G) : URLS.hub(G));
+  function switchView(v) { if (v === view) return; settle(); const out0 = root.querySelector('.hub-pane.on'); VSCROLL[view] = scrollY; view = v; history.replaceState(null, '', view === 'mine' ? URLS.hub(G) : URLS[view](G));
     const tr = root.querySelector('.hub-track'); if (!tr) return draw();
     const inP = tr.querySelector(`.hub-pane[data-pane="${v}"]`);
     if (!slideMode()) { tr.querySelectorAll('.hub-pane').forEach(p => { p.classList.remove('hp-off'); p.style.transform = ''; p._y = null; }); placeInd(true); placeTrack(false); scrollTo(0, VSCROLL[v] || 0); dispatchEvent(new Event('hub-view'));
@@ -2655,17 +2811,18 @@ function hub(fs, auth, G, ctx) {
       sw = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), lock: null, dx: 0, tr, w: tr.getBoundingClientRect().width || innerWidth }; }, { passive: true });
     document.addEventListener('touchmove', e => { if (!sw) return; let dx = e.touches[0].clientX - sw.x; const dy = e.touches[0].clientY - sw.y;
       if (!sw.lock) { if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; sw.lock = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'; if (sw.lock === 'x') { const mid = sw.tr._off != null, m0 = mid ? new DOMMatrix(getComputedStyle(sw.tr).transform).m41 : 0; settle();
-          if (mid) { const off = m0 - (view === 'shared' ? -sw.w : 0); sw.x -= off; placeTrack(false, dx + off); }
-          const other = sw.tr.querySelector(`.hub-pane[data-pane="${view === 'mine' ? 'shared' : 'mine'}"]`); VSCROLL[view] = scrollY; prepIn(other); dx = e.touches[0].clientX - sw.x; } }
+          if (mid) { const off = m0 + vi(view) * sw.w; sw.x -= off; placeTrack(false, dx + off); }
+          VSCROLL[view] = scrollY; [VIEWS[vi(view) - 1], VIEWS[vi(view) + 1]].filter(Boolean).forEach(n => prepIn(sw.tr.querySelector(`.hub-pane[data-pane="${n}"]`))); dx = e.touches[0].clientX - sw.x; } }
       if (sw.lock !== 'x') return; e.preventDefault();
-      const can = (dx < 0 && view === 'mine') || (dx > 0 && view === 'shared'); sw.dx = can ? Math.max(-sw.w, Math.min(sw.w, dx)) : dx / (3 + Math.abs(dx) / 60);
+      const can = (dx < 0 && vi(view) < VIEWS.length - 1) || (dx > 0 && vi(view) > 0); sw.dx = can ? Math.max(-sw.w, Math.min(sw.w, dx)) : dx / (3 + Math.abs(dx) / 60);
       sw.last = { dx, t: Date.now() };
-      if (!sw.raf) sw.raf = requestAnimationFrame(() => { if (!sw) return; sw.raf = 0; placeTrack(false, sw.dx); const base = view === 'shared' ? 1 : 0; placeInd(false, Math.max(0, Math.min(1, base - sw.dx / sw.w))); }); }, { passive: false });
+      if (!sw.raf) sw.raf = requestAnimationFrame(() => { if (!sw) return; sw.raf = 0; placeTrack(false, sw.dx); placeInd(false, Math.max(0, Math.min(VIEWS.length - 1, vi(view) - sw.dx / sw.w))); }); }, { passive: false });
     const end = () => { if (!sw) return; const s = sw; sw = null; if (s.raf) cancelAnimationFrame(s.raf); if (s.lock !== 'x') return;
-      const v = Math.abs(s.dx) / Math.max(1, Date.now() - s.t), go = ((s.dx < 0 && view === 'mine') || (s.dx > 0 && view === 'shared')) && (Math.abs(s.dx) > s.w * .3 || v > .45);
-      if (go) switchView(view === 'mine' ? 'shared' : 'mine'); else { placeInd(true); placeTrack(true); const tr = root.querySelector('.hub-track'); const other = tr && tr.querySelector('.hub-pane:not(.on)'); if (other) other._y = null; } };
+      const v = Math.abs(s.dx) / Math.max(1, Date.now() - s.t), go = ((s.dx < 0 && vi(view) < VIEWS.length - 1) || (s.dx > 0 && vi(view) > 0)) && (Math.abs(s.dx) > s.w * .3 || v > .45);
+      if (go) switchView(VIEWS[vi(view) + (s.dx < 0 ? 1 : -1)]); else { placeInd(true); placeTrack(true); const tr = root.querySelector('.hub-track'); if (tr) tr.querySelectorAll('.hub-pane:not(.on)').forEach(p => { p._y = null; }); } };
     document.addEventListener('touchend', end); document.addEventListener('touchcancel', end); }
   function draw() {
+    if (page === 'party' || page === 'join') { if (PM_) PM_.refresh(); return; }
     const SH = view === 'shared', mine = chars.filter(isMine), shared = chars.filter(c => !isMine(c)), groups = {};
     shared.forEach(c => { const k = NAMES[c.owner] || (c.player || '').trim() || c.owner || 'No player yet'; (groups[k] = groups[k] || []).push(c); });
     const keys = Object.keys(groups).sort((a, b) => a.localeCompare(b));
@@ -2675,9 +2832,9 @@ function hub(fs, auth, G, ctx) {
         : `<p class="hub-empty">Nothing has been shared with you yet. When another player shares a character with ${esc(EMAIL)}, it shows up here.</p>`;
     const mineHTML = mine.length ? `<div class="hl">${mine.sort(ord).map(row).join('')}</div>` : `<p class="hub-empty">You don’t have any characters yet — create one, or ask whoever has yours to give it to you.</p>`;
     const TABS = true;
-    const idx = view === 'shared' ? 1 : 0;
-    const body = TABS ? `<div class="hub-track"><div class="hub-pane${idx ? ' hp-off' : ' on'}" data-pane="mine">${mineHTML}</div><div class="hub-pane${idx ? ' on' : ' hp-off'}" data-pane="shared">${sharedHTML}</div></div>` : mineHTML;
-    const seg = TABS ? `<div class="hub-seg" role="tablist"><span class="hv-ind" aria-hidden="true"></span><button role="tab" class="${idx ? '' : 'on'}" data-view="mine">My characters <span>${mine.length}</span></button><button role="tab" class="${idx ? 'on' : ''}" data-view="shared">Shared with me <span>${shared.length}</span></button></div>` : '';
+    const idx = vi(view), pane = (k, html) => `<div class="hub-pane${idx === vi(k) ? ' on' : ' hp-off'}" data-pane="${k}">${html}</div>`, tab = (k, t, n) => `<button role="tab" class="${idx === vi(k) ? 'on' : ''}" data-view="${k}">${t} <span>${n}</span></button>`;
+    const body = TABS ? `<div class="hub-track">${pane('mine', mineHTML)}${pane('parties', PMx().paneHTML())}${pane('shared', sharedHTML)}</div>` : mineHTML;
+    const seg = TABS ? `<div class="hub-seg" role="tablist"><span class="hv-ind" aria-hidden="true"></span>${tab('mine', 'My characters', mine.length)}${tab('parties', 'Parties', PMx().count())}${tab('shared', 'Shared with me', shared.length)}</div>` : '';
     const keepLogo = root.querySelector('.hub-logo');
     root.innerHTML = `<div class="hub-head"><header class="hub-top">${logoHTML()}
       <div class="hub-side"><div class="hub-prof"><button class="hp-pic" id="me-pic" title="Choose your picture" aria-label="Choose your picture">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(myAva())}<span class="hp-edit" aria-hidden="true">✎</span></button>
@@ -2685,6 +2842,7 @@ function hub(fs, auth, G, ctx) {
       <div class="hub-views${TABS ? '' : ' no-seg'}">${seg}${a2hsHTML()}<button class="hub-new" id="hub-new"><span class="hn-plus" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="hn-txt"><b>Create character</b></span></button></div>
       </div><div class="hub-list">${body}</div>`;
     if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
+    PMx().wirePane();
     const nb = root.querySelector('#hub-new'); if (nb) nb.onclick = createChar; wireA2HS(root);
     root.querySelector('#me-out').onclick = signOut;
     wireThemeBtn(root);
@@ -2717,7 +2875,7 @@ function hub(fs, auth, G, ctx) {
       th.addEventListener('pointermove', mv); th.addEventListener('pointerup', up); th.addEventListener('pointercancel', up); });
     sb.addEventListener('pointerdown', e => { if (e.target !== sb) return; scrollBy({ top: (e.clientY < th.getBoundingClientRect().top ? -1 : 1) * innerHeight * .8, behavior: 'smooth' }); });
   })();
-  draw();
+  if (page === 'party') PMx().partyPage(ctx.party); else if (page === 'join') PMx().joinPage(ctx.join); else draw();
   // Everyone — admins too — sees their own characters plus the ones shared with them. Admins find the rest in Admin.
   const lists = {}, merge = () => { const m = new Map(); Object.values(lists).forEach(l => l.forEach(c => m.set(c.id, c))); chars = [...m.values()]; if (!RD) draw();
     if (IS_ADMIN) needNames(chars.filter(c => !isMine(c)).map(c => c.owner)).then(() => { if (!RD) draw(); });
@@ -2732,7 +2890,7 @@ function hub(fs, auth, G, ctx) {
     if (!window.PG_NF) { window.PG_NF = 1; document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-newfor]'); if (b) pgGo(URLS.newChar(G, b.dataset.newfor, nameOf(b.dataset.newfor))); }); }
     const UREF = usersCol.doc(EMAIL); let CHECKED = Number(ME && ME.checkedAt) || 0;
     const UF0 = { role: '', act: '', joined: '' };
-    const T0 = ctx.tab === 'characters' ? 'chars' : ctx.tab; let TAB = ['users', 'chars', 'new', 'audit'].includes(T0) ? T0 : 'users'; if (T0 === 'admins') UF0.role = 'admin';
+    const T0 = ctx.tab === 'characters' ? 'chars' : ctx.tab; let TAB = ['users', 'chars', 'parties', 'new', 'audit'].includes(T0) ? T0 : 'users'; if (T0 === 'admins') UF0.role = 'admin';
     const CH = {}, US = {}; // characters and accounts on screen
     let NEWN = null;
     const setTab = t => { TAB = t; history.replaceState(null, '', URLS.admin(G, t === 'chars' ? 'characters' : t)); frame(); };
@@ -2740,12 +2898,14 @@ function hub(fs, auth, G, ctx) {
       audit: '<path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',
       users: '<path d="M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1"/><circle cx="9" cy="7" r="3.5"/><path d="M22 19v-1a4 4 0 0 0-3-3.9M16 3.5a3.5 3.5 0 0 1 0 7"/>',
       chars: '<path d="M4 4h11a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3z"/><path d="M4 17a3 3 0 0 1 3-3h11"/><path d="M8 8h6"/>',
+      parties: '<circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M2.5 20c.6-3.3 2.8-5.5 5.5-5.5s4.9 2.2 5.5 5.5M10.5 20c.6-3.3 2.8-5.5 5.5-5.5s4.9 2.2 5.5 5.5"/>',
       admins: '<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
       new: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
       search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>' };
     const svg = (k, n = 18) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ic[k]}</svg>`;
     const PAGES = { users: ['Users', 'Everyone who has signed in, most recently active first. Search or filter by role, activity or when they joined; rename someone, make them an admin, or look at their characters.'],
       chars: ['Characters', 'Every character on the site, newest activity first. Search or filter by player, sharing or last update; share any of them with yourself, or open, share, move or delete them.'],
+      parties: ['Parties', 'Every party on the site, most recently active first. Choose which ones show in your own list — to look on, or to help run them as a co-DM — or open, run or delete any of them.'],
       admins: ['Admins', 'Admins can open and edit every character, manage users and see new accounts.'],
       new: ['New', 'Accounts and characters that appeared since you last marked this as read.'],
       audit: ['Audit log', 'Everything people have done on the site: sign-ins, characters opened, created, edited, shared and deleted, and admin actions. Search, or filter by date, person or activity; tap an event for its details. Events are kept for 7 days.'] };
@@ -2817,7 +2977,7 @@ function hub(fs, auth, G, ctx) {
     function frame0() {
       const nav = (k, label) => `<button class="adm-ni${TAB === k ? ' on' : ''}" data-tab="${k}">${svg(k)}<span>${label}</span>${k === 'new' && NEWN ? `<b class="adm-badge">${NEWN}</b>` : ''}</button>`;
       const [title, desc] = PAGES[TAB];
-      const navHTML = `<div class="adm-sec">Manage</div>${nav('users', 'Users')}${nav('chars', 'Characters')}<div class="adm-sec">Activity</div>${nav('audit', 'Audit log')}${nav('new', 'New')}`;
+      const navHTML = `<div class="adm-sec">Manage</div>${nav('users', 'Users')}${nav('chars', 'Characters')}${nav('parties', 'Parties')}<div class="adm-sec">Activity</div>${nav('audit', 'Audit log')}${nav('new', 'New')}`;
       // Switching tabs only swaps the page on the right: the sidebar (and where its tab strip is scrolled to on a phone) stays put.
       const nv0 = root.querySelector('.adm-nav');
       if (nv0) { const x = nv0.scrollLeft; nv0.innerHTML = navHTML; nv0.scrollLeft = x;
@@ -2828,13 +2988,13 @@ function hub(fs, auth, G, ctx) {
         const kept = !again && PANES[TAB];
         if (kept) { curB.replaceWith(kept.b); curH.replaceWith(kept.h); PREV_TAB = TAB; nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab)); scrollTo(0, 0);
           // …and quietly brings it up to date behind the scenes
-          ({ new: () => tabNew(), users: () => paintUsers(), chars: () => paintChars(), audit: () => paintAudit() })[TAB](); return; }
+          ({ new: () => tabNew(), users: () => paintUsers(), chars: () => paintChars(), parties: () => tabParties(), audit: () => paintAudit() })[TAB](); return; }
         const nb = document.createElement('section'); nb.id = 'ad-body'; nb.className = 'adm-body'; nb.innerHTML = '<p class="adm-dim">Loading…</p>';
         const nh = document.createElement('div'); nh.id = 'adm-hact'; nh.className = 'adm-hact';
         if (again) { curB.replaceWith(nb); curH.replaceWith(nh); } else { curB.replaceWith(nb); curH.replaceWith(nh); } delete PANES[TAB]; PREV_TAB = TAB;
         nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
         const on = nv0.querySelector('.adm-ni.on'); if (on && on.scrollIntoView) { const r = on.getBoundingClientRect(), nr = nv0.getBoundingClientRect(); if (r.left < nr.left || r.right > nr.right) nv0.scrollBy({ left: r.left < nr.left ? r.left - nr.left - 12 : r.right - nr.right + 12, behavior: 'smooth' }); }
-        ({ new: tabNew, users: tabUsers, chars: tabChars, audit: tabAudit })[TAB](); return; }
+        ({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit })[TAB](); return; }
       const keepLogo = root.querySelector('.hub-logo');
       root.innerHTML = `<div class="adm"><aside class="adm-side">
           <div class="adm-brand">${logoHTML()}</div>
@@ -2847,7 +3007,7 @@ function hub(fs, auth, G, ctx) {
       PREV_TAB = TAB;
       root.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
       { const o = root.querySelector('#adm-out'); if (o) o.onclick = signOut; }
-      ({ new: tabNew, users: tabUsers, chars: tabChars, audit: tabAudit })[TAB]();
+      ({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit })[TAB]();
     }
     const B = () => root.querySelector('#ad-body'), HA = () => root.querySelector('#adm-hact');
     // ⋯ menus float above everything (moved to the top of the page while open), so a table never grows a scrollbar for them.
@@ -3162,6 +3322,9 @@ function hub(fs, auth, G, ctx) {
       wire(l, () => paintChars());
     }
     const tabCharsList = () => paintChars();
+    // --- Parties ---
+    const PQ = { v: '' };
+    const tabParties = () => PMx().adminTab(B, { HA, toolbar, failMsg, ava, when, kebab, PQ, closeMenus: closeAdmMenus, isTab: () => TAB === 'parties', busy: () => !!(MENU || document.querySelector('.hub-modal.on')), later: whenMenusClosed });
     // keep New fresh: listen for accounts and characters even when that tab is opened first
     const ensureLive = () => { if (!ULIVE) ULIVE = usersCol.limit(1000).onSnapshot(qs => { UROWS = docs(qs); UROWS.forEach(u => { US[u.id] = u; remember(u.id, u); }); if (TAB === 'users') paintUsers(); if (TAB === 'new' && qs.docChanges().some(ch => ch.type !== 'modified')) newSoon(); }, () => {});
       if (!CLIVE) CLIVE = charsCol.limit(2000).onSnapshot(async qs => { CROWS = docs(qs); await needNames(CROWS.map(c => c.owner)); if (TAB === 'chars') paintChars(); if (TAB === 'new' && qs.docChanges().some(ch => ch.type !== 'modified')) newSoon(); }, () => {}); };
@@ -3172,6 +3335,344 @@ function hub(fs, auth, G, ctx) {
     if (TAB !== 'new') Promise.all([usersCol.where('createdAt', '>', CHECKED).limit(51).get(), charsCol.where('createdAt', '>', CHECKED).limit(101).get()]).then(([u, c]) => { const fresh = new Set(u.docs.map(d => d.id)); NEWN = u.size + c.docs.filter(d => !fresh.has(d.data().owner)).length; const t = root.querySelector('[data-tab="new"]'); if (t && NEWN && !t.querySelector('.adm-badge')) t.insertAdjacentHTML('beforeend', `<b class="adm-badge">${NEWN}</b>`); }, () => {});
   }
 
+}
+
+// ================= Parties =================
+// A party is a DM (whoever made it — an admin or the DM can hand it to someone else), the characters in it, and a link
+// that brings players in. Players join with their own characters (an existing one, or a new one made from the link),
+// see each other's HP and conditions, and hand items over or cast spells on each other from their sheets. The DM (and
+// any co-DMs) can open every sheet in the party and send damage, healing, loot and conditions to anyone in it.
+const PTY_CONDS = ['Blinded', 'Charmed', 'Deafened', 'Frightened', 'Grappled', 'Incapacitated', 'Invisible', 'Paralyzed', 'Petrified', 'Poisoned', 'Prone', 'Restrained', 'Stunned', 'Unconscious'];
+const PTY_DMG = ['acid', 'bludgeoning', 'cold', 'fire', 'force', 'lightning', 'necrotic', 'piercing', 'poison', 'psychic', 'radiant', 'slashing', 'thunder'];
+const ptyCode = () => { const a = new Uint8Array(12); crypto.getRandomValues(a); return btoa(String.fromCharCode(...a)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+// Every document of a character (big ones are split in parts) says which party it's in, so the DM can open all of it.
+async function ptySetSheetParty(fs, c, pid) {
+  const sh = fs.collection('sheets'), v = pid ? { party: pid } : { party: firebase.firestore.FieldValue.delete() };
+  const s0 = await sh.doc(c).get(); if (!s0.exists) return; const n = Number(s0.data().n) || 1;
+  await sh.doc(c).update(v); for (let k = 1; k < n; k++) await sh.doc(c + '_p' + k).update(v).catch(() => {});
+}
+// Take a character out of its party (its owner leaving, or the DM removing it).
+async function ptyLeave(fs, EMAIL, pid, c, opts = {}) {
+  const ref = fs.collection('parties').doc(pid), FV = firebase.firestore.FieldValue;
+  let pd = null; try { const s = await ref.get(); pd = s.exists ? s.data() : null; } catch (e) {}
+  if (pd && (pd.chars || []).includes(c)) {
+    let owner = opts.owner || '';
+    try { const cd = await ref.collection('cards').doc(c).get(); if (cd.exists) { owner = owner || cd.data().owner || ''; await cd.ref.delete(); } } catch (e) {}
+    const cards = await ref.collection('cards').get().catch(() => null), others = cards ? cards.docs.filter(d => d.id !== c && d.data().owner === owner).length : 1;
+    const keep = !owner || others > 0 || owner === pd.dm || (pd.mgrs || []).includes(owner);
+    const upd = { chars: FV.arrayRemove(c), updatedAt: Date.now() };
+    if (!keep) upd.people = FV.arrayRemove(owner);
+    if (!opts.asMgr) upd.gone = c;
+    await ref.update(upd);
+  }
+  if (!opts.asMgr || opts.admin) await ptySetSheetParty(fs, c, '').catch(() => {});
+}
+// Bring a character into a party: with the party's link (token), an email invitation, or as its DM. A character is in
+// one party at a time, so joining another moves it.
+async function ptyJoin(fs, EMAIL, pid, c, token, card) {
+  const ref = fs.collection('parties').doc(pid), FV = firebase.firestore.FieldValue;
+  const s0 = await fs.collection('sheets').doc(c).get(); const old = s0.exists ? s0.data().party || '' : '';
+  if (old && old !== pid) await ptyLeave(fs, EMAIL, old, c).catch(() => {});
+  await ref.update({ chars: FV.arrayUnion(c), people: FV.arrayUnion(EMAIL), invited: FV.arrayRemove(EMAIL), via: token || '', updatedAt: Date.now() });
+  await ptySetSheetParty(fs, c, pid);
+  if (card) await ref.collection('cards').doc(c).set(Object.assign({ owner: EMAIL, at: Date.now() }, card), { merge: true }).catch(() => {});
+}
+// Send something to a character's sheet (it's applied there the next time that sheet is open).
+function ptySend(fs, EMAIL, pid, to, kind, data, from, fromName) {
+  return fs.collection('sheets').doc(to).collection('inbox').add({ p: pid, from: from || '', fromName: String(fromName || '').slice(0, 80), by: EMAIL, at: Date.now(), kind, data: JSON.stringify(data || {}) });
+}
+
+function partyModule(H) {
+  const { fs, EMAIL, IS_ADMIN, modal, toast, esc, close, root, G } = H;
+  const FV = firebase.firestore.FieldValue, PC = fs.collection('parties'), IC = fs.collection('invites');
+  const isMgr = p => !!p && (p.dm === EMAIL || (p.mgrs || []).includes(EMAIL));
+  const canRun = p => IS_ADMIN || isMgr(p);
+  const myChars = () => H.chars().filter(c => (c.owner || '') === EMAIL);
+  const dmLabel = p => p.dm === EMAIL ? 'You' : (p.dmName || H.nameOf(p.dm) || p.dm);
+  const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+  const MI2 = d => `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const IC_PARTY = MI2('<circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M2.5 20c.6-3.3 2.8-5.5 5.5-5.5s4.9 2.2 5.5 5.5M10.5 20c.6-3.3 2.8-5.5 5.5-5.5s4.9 2.2 5.5 5.5"/>');
+  const IC_CROWN = MI2('<path d="M3 8l4 4 5-7 5 7 4-4-2 11H5z"/>');
+  let MINE = [], INVS = [], LOADED = false;
+  const listen = () => {
+    PC.where('people', 'array-contains', EMAIL).onSnapshot(qs => { MINE = qs.docs.map(d => Object.assign({ id: d.id }, d.data())); LOADED = true; paintStrip(); }, e => { console.warn('parties', e); LOADED = true; paintStrip(); });
+    PC.where('invited', 'array-contains', EMAIL).onSnapshot(qs => { INVS = qs.docs.map(d => Object.assign({ id: d.id }, d.data())); paintStrip(); }, () => {});
+  };
+
+  // ----- the Parties tab in the lobby (rows look like the character rows) -----
+  const ago = t => { if (!t) return ''; const x = (Date.now() - t) / 1000; return x < 60 ? 'just now' : x < 3600 ? Math.floor(x / 60) + 'm ago' : x < 86400 ? Math.floor(x / 3600) + 'h ago' : Math.floor(x / 86400) + 'd ago'; };
+  const ptyPic = (dm) => `<span class="hc-pic hc-nopic pty-pic${dm ? ' dm' : ''}">${dm ? IC_CROWN : IC_PARTY}</span>`;
+  function paneHTML() {
+    const inv = INVS.filter(p => !MINE.some(m => m.id === p.id));
+    const rows = MINE.slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).map(p => { const n = (p.chars || []).length, role = p.dm === EMAIL ? 'You’re the DM' : (p.mgrs || []).includes(EMAIL) ? 'Co-DM' : 'DM ' + dmLabel(p);
+      return `<div class="hr"><a class="hr-main" href="${esc(URLS.party(p.id))}">${ptyPic(isMgr(p))}<span class="hc-txt"><b>${esc(p.name || 'Unnamed party')}</b><span>${esc(role)} · ${plural(n, 'character')}</span><small>${p.updatedAt ? 'Updated ' + ago(p.updatedAt) : ''}</small></span></a></div>`; }).join('');
+    const invs = inv.map(p => `<div class="hr pty-inviterow"><span class="hr-main">${ptyPic(false)}<span class="hc-txt"><b>${esc(p.name || 'A party')}</b><span>${esc(p.dmName || p.dm)} invited you to join</span></span></span><span class="pty-invbtns"><button class="btn gold" data-pinv="${esc(p.id)}">Join…</button><button class="btn ghost" data-pno="${esc(p.id)}">Decline</button></span></div>`).join('');
+    return `<div id="hub-parties">${invs || rows ? `<div class="hl">${invs}${rows}</div>` : LOADED ? '<p class="hub-empty">Running a game? Make a party: you’re its DM, and you get a link to send your players. Their characters join it, and you see them all in one place.</p>' : ''}
+      <div class="pty-newrow"><button class="btn gold" id="pty-new" type="button">+ New party</button></div></div>`;
+  }
+  const count = () => MINE.length + INVS.filter(p => !MINE.some(m => m.id === p.id)).length;
+  function paintStrip() { const el = root.querySelector('#hub-parties'); if (!el) return; el.outerHTML = paneHTML(); wirePane();
+    const n = root.querySelector('.hub-seg [data-view="parties"] span'); if (n) n.textContent = count(); }
+  function wirePane() { const el = root.querySelector('#hub-parties'); if (!el) return;
+    const nb = el.querySelector('#pty-new'); if (nb) nb.onclick = newParty;
+    el.querySelectorAll('[data-pinv]').forEach(b => b.onclick = () => { const p = INVS.find(x => x.id === b.dataset.pinv); if (p) chooseChar(p, ''); });
+    el.querySelectorAll('[data-pno]').forEach(b => b.onclick = async () => { b.disabled = true; try { await PC.doc(b.dataset.pno).update({ invited: FV.arrayRemove(EMAIL) }); toast('Invitation declined.'); } catch (x) { b.disabled = false; toast('Couldn’t decline: ' + (x.message || x)); } });
+  }
+
+  // ----- making a party -----
+  function newParty() {
+    modal.innerHTML = `<div class="hub-card"><h2>New party</h2><p class="hub-hint">You’ll be its DM. Next you get a link to send your players — they join with a character of theirs, or make a new one from the link.</p>
+      <form id="np-f" class="who-f"><input id="np-n" maxlength="60" placeholder="Party name, e.g. The Lost Mine crew" required></form>
+      <div class="row"><button class="btn ghost" id="np-x">Cancel</button><button class="btn gold" id="np-ok">Create party</button></div></div>`;
+    modal.classList.add('on'); const inp = modal.querySelector('#np-n'); setTimeout(() => inp.focus(), 30);
+    const go = async () => { const nm = inp.value.replace(/\s+/g, ' ').trim().slice(0, 60); if (!nm) { toast('Give the party a name.'); return; }
+      const ok = modal.querySelector('#np-ok'); ok.disabled = true; ok.textContent = 'Creating…';
+      const ref = PC.doc(), t = ptyCode(), now = Date.now();
+      try { await ref.set({ name: nm, dm: EMAIL, dmName: H.myName(), by: EMAIL, createdAt: now, updatedAt: now, chars: [], people: [EMAIL], mgrs: [], invited: [], inv: t, via: '', gone: '' });
+        await IC.doc(t).set({ p: ref.id, name: nm, dm: EMAIL, dmName: H.myName(), at: now }).catch(() => {});
+        pgLog('party_create', { target: ref.id, tName: nm }); close(); pgGo(URLS.party(ref.id)); }
+      catch (x) { ok.disabled = false; ok.textContent = 'Create party'; toast(x && x.code === 'permission-denied' ? 'Parties aren’t switched on yet — the new database rules need publishing.' : 'Couldn’t create it: ' + (x.message || x)); } };
+    modal.querySelector('#np-f').onsubmit = e => { e.preventDefault(); go(); }; modal.querySelector('#np-ok').onclick = go; modal.querySelector('#np-x').onclick = close;
+  }
+
+  // ----- joining: pick one of your characters, or make a new one -----
+  function chooseChar(p, token, after) {
+    const mine = myChars().filter(c => !(p.chars || []).includes(c.id)).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    modal.innerHTML = `<div class="hub-card wide"><h2>Join ${esc(p.name || 'the party')}</h2><p class="hub-hint">DM: ${esc(p.dmName || p.dm || '')}. Bring a character you already have, or make a new one — it joins the party as soon as it’s made. A character is in one party at a time.</p>
+      <div class="pl-list pty-pick">${mine.map(c => `<button class="pl-row pty-prow" data-pc="${esc(c.id)}">${H.pic(c)}<span class="pty-ct"><b>${esc(c.name || 'Unnamed character')}</b><small>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</small></span><span class="pty-go">Bring</span></button>`).join('') || '<p class="hub-hint">You don’t have a character yet.</p>'}</div>
+      <div class="row"><button class="btn ghost" id="jc-x">Cancel</button><button class="btn gold" id="jc-new">+ Make a new character</button></div></div>`;
+    modal.classList.add('on');
+    modal.querySelector('#jc-x').onclick = () => { close(); if (after) after(); };
+    modal.querySelector('#jc-new').onclick = () => { try { sessionStorage.setItem('pg-join', JSON.stringify({ p: p.id, t: token || '', name: p.name || '', at: Date.now() })); } catch (e) {} close(); pgGo(URLS.newChar(G)); };
+    modal.querySelectorAll('[data-pc]').forEach(b => b.onclick = async () => { const c = mine.find(x => x.id === b.dataset.pc); if (!c) return; modal.querySelectorAll('button').forEach(x => x.disabled = true); b.querySelector('.pty-go').textContent = 'Joining…';
+      try { await ptyJoin(fs, EMAIL, p.id, c.id, token, { name: c.name || '', race: c.race || '', cls: c.cls || '', level: c.level || 0, thumb: c.thumb || '', player: H.myName(), path: c.path || '' });
+        pgLog('party_join', { target: p.id, tName: p.name, detail: c.name || '' }); close(); toast((c.name || 'Your character') + ' joined ' + (p.name || 'the party') + '.'); pgGo(URLS.party(p.id)); }
+      catch (x) { modal.querySelectorAll('button').forEach(y => y.disabled = false); b.querySelector('.pty-go').textContent = 'Bring'; toast(x && x.code === 'permission-denied' ? 'Couldn’t join — the link may have been turned off. Ask your DM for a new one.' : 'Couldn’t join: ' + (x.message || x)); } });
+  }
+  // /join/<code>: who invited you, then the same picker.
+  async function joinPage(token) {
+    document.title = 'Join a party — Adventurer’s Tome';
+    const shell = msg => { root.innerHTML = `<div class="hub-head"><header class="hub-top">${logoHTML()}</header></div><div class="hub-list"><div class="pty-join">${msg}</div></div>`; wireDie(root); };
+    shell('<p class="hub-empty">Opening the invitation…</p>');
+    let inv = null; try { const d = await IC.doc(token).get(); inv = d.exists ? d.data() : null; } catch (e) {}
+    if (!inv) return shell(`<div class="hub-card pty-jcard"><h2>This invite link doesn’t work</h2><p class="hub-hint">It may have been replaced or turned off. Ask your DM for a new link.</p><div class="row"><a class="btn gold" href="${esc(URLS.hub(G))}">Go to your characters</a></div></div>`);
+    let p = null; try { const d = await PC.doc(inv.p).get(); p = d.exists ? Object.assign({ id: d.id }, d.data()) : null; } catch (e) {}
+    if (p && (p.people || []).includes(EMAIL) && !(p.invited || []).includes(EMAIL)) { /* already in it */ }
+    const party = p || { id: inv.p, name: inv.name, dm: inv.dm, dmName: inv.dmName, chars: [] };
+    shell(`<div class="hub-card pty-jcard"><span class="pty-jic">${IC_PARTY}</span><h2>You’re invited to ${esc(party.name || 'a party')}</h2><p class="hub-hint">DM: <b>${esc(party.dmName || party.dm || '')}</b>. Join with one of your characters or make a new one. Everyone in the party sees each other’s characters, can hand each other items and cast spells on each other; the DM can open every sheet in it.</p>
+      <div class="row">${p && (p.people || []).includes(EMAIL) ? `<a class="btn ghost" href="${esc(URLS.party(party.id))}">Open the party</a>` : `<a class="btn ghost" href="${esc(URLS.hub(G))}">Not now</a>`}<button class="btn gold" id="pj-go">Choose a character…</button></div></div>`);
+    root.querySelector('#pj-go').onclick = () => chooseChar(party, token);
+  }
+
+  // ----- a party's own page -----
+  let P = null, PLOADED = false, CARDS = {}, PID = '', unP = null, unC = null;
+  function partyPage(pid) {
+    PID = pid; document.title = 'Party — Adventurer’s Tome';
+    root.innerHTML = `<div class="hub-head"><header class="hub-top">${logoHTML()}<div class="hub-side"><a class="pty-back" href="${esc(URLS.hub(G))}">← Your characters</a></div></header></div><div class="hub-list"><div id="pty-page"><p class="hub-empty">Loading the party…</p></div></div>`;
+    wireDie(root);
+    unP = PC.doc(pid).onSnapshot(d => { PLOADED = true; P = d.exists ? Object.assign({ id: d.id }, d.data()) : null; if (P) document.title = (P.name || 'Party') + ' — Adventurer’s Tome'; paint(); },
+      e => { const el = root.querySelector('#pty-page'); if (el) el.innerHTML = `<div class="hub-card pty-jcard"><h2>You’re not in this party</h2><p class="hub-hint">Only its players and DM can open it. If you were given an invite link, open that instead.</p><div class="row"><a class="btn gold" href="${esc(URLS.hub(G))}">Go to your characters</a></div></div>`; });
+    unC = PC.doc(pid).collection('cards').onSnapshot(qs => { CARDS = {}; qs.docs.forEach(d => CARDS[d.id] = d.data()); paint(); }, () => {});
+    setInterval(() => { if (!document.hidden) paint(); }, 60000);
+  }
+  const hpPct = c => { const mx = Number(c.maxhp) || 0; return mx ? Math.max(0, Math.min(100, Math.round(100 * (Number(c.hp) || 0) / mx))) : 0; };
+  const statusOf = c => c.dead ? ['Dead', 'dead'] : c.stable ? ['Stable at 0 HP', 'down'] : (Number(c.maxhp) && Number(c.hp) <= 0) ? ['Down — making death saves', 'down'] : null;
+  // The same HP ring as on the sheet: gold for HP (red when low), blue after it for temp HP.
+  const ring = (cur, max, tmp) => { max = Math.max(1, Number(max) || 0); cur = Math.max(0, Math.min(Number(cur) || 0, max)); tmp = Math.max(0, Number(tmp) || 0);
+    const r = 52, C = 2 * Math.PI * r, tot = Math.max(max, cur + tmp), x = C * cur / tot, y = C * tmp / tot;
+    return `<svg viewBox="0 0 120 120" aria-hidden="true"><circle class="rt" cx="60" cy="60" r="${r}"/><circle class="rf${cur / max <= .35 ? ' low' : ''}" cx="60" cy="60" r="${r}" stroke-dasharray="${x} ${C}"/>${tmp ? `<circle class="rtmp" cx="60" cy="60" r="${r}" stroke-dasharray="${y} ${C}" stroke-dashoffset="${-x}"/>` : ''}</svg>`; };
+  // A character in the party: the lobby's character card, with its HP ring and what's on it.
+  function memberCard(id) {
+    const c = CARDS[id] || {}, mine = c.owner === EMAIL, run = canRun(P), st = statusOf(c);
+    const open = mine || run || IS_ADMIN, href = c.path ? (c.path.includes('/') ? '/' + c.path : '/character/' + c.path) : URLS.byId(id);
+    const on = [].concat(c.conds || [], Number(c.exh) ? ['Exhaustion ' + Number(c.exh)] : [], c.conc ? ['Concentrating: ' + c.conc] : [], c.fx || []);
+    const menu = [run ? ['send', 'Send damage, healing, loot…'] : null, open ? ['open', 'Open sheet'] : null, (run || mine) ? ['rm', mine && !run ? 'Leave the party' : 'Remove from the party'] : null].filter(Boolean);
+    const pic = c.thumb ? `<img class="hc-pic" src="${esc(c.thumb)}" alt="">` : `<span class="hc-pic hc-nopic">${esc(initials(c.name || '?'))}</span>`;
+    const txt = `<span class="hc-txt"><b>${esc(c.name || 'A character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'Joining…')}</span><small>${[c.player, c.ac ? 'AC ' + c.ac : '', st ? st[0] : ''].filter(Boolean).map(esc).join(' · ')}</small>${on.length ? `<small class="pty-on">${esc(on.join(' · '))}</small>` : ''}</span>`;
+    return `<div class="hc pty-card${st ? ' ' + st[1] : ''}" data-cid="${esc(id)}">${open ? `<a class="hc-main" href="${esc(href)}">${pic}${txt}</a>` : `<span class="hc-main">${pic}${txt}</span>`}
+      ${c.maxhp ? `<span class="pty-ring" title="${Number(c.hp) || 0} of ${c.maxhp} HP${Number(c.temp) ? ' (+' + c.temp + ' temporary)' : ''}"><span class="ring-svg">${ring(c.hp, c.maxhp, c.temp)}</span><b>${Number(c.hp) || 0}</b><small>of ${c.maxhp}</small></span>` : ''}
+      ${menu.length ? `<div class="hc-menu"><button class="hc-dots" aria-label="More">⋯</button><div class="hc-list">${menu.map(([a, t]) => `<button data-pm="${a}" data-id="${esc(id)}"${a === 'rm' ? ' class="hc-del"' : ''}>${t}</button>`).join('')}</div></div>` : ''}</div>`;
+  }
+  function paint() {
+    const el = root.querySelector('#pty-page'); if (!el || !PLOADED) return;
+    if (!P) { el.innerHTML = `<div class="hub-card pty-jcard"><h2>This party doesn’t exist anymore</h2><p class="hub-hint">Its DM may have deleted it.</p><div class="row"><a class="btn gold" href="${esc(URLS.hub(G))}">Go to your characters</a></div></div>`; return; }
+    if (modal.classList.contains('on') && modal.querySelector('.pty-keep')) return;
+    const run = canRun(P), dmMe = P.dm === EMAIL || IS_ADMIN, ids = (P.chars || []).slice(), inParty = (P.people || []).includes(EMAIL);
+    const mineIn = ids.filter(id => (CARDS[id] || {}).owner === EMAIL), mineOut = myChars().filter(c => !ids.includes(c.id)), canAdd = run || !!P.inv;
+    const link = P.inv ? URLS.join(P.inv) : '';
+    el.innerHTML = `<div class="pty-head"><span class="pty-hic">${IC_PARTY}</span><div class="pty-htxt"><h1>${esc(P.name || 'Unnamed party')}${run ? ` <button class="hp-rename" id="pt-ren" title="Rename the party" aria-label="Rename the party"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></button>` : ''}</h1>
+        <p>${IC_CROWN} DM <b>${esc(dmLabel(P))}</b>${(P.mgrs || []).length ? ' · co-DM' + ((P.mgrs || []).length > 1 ? 's' : '') + ' ' + (P.mgrs || []).map(m => esc(m === EMAIL ? 'you' : H.nameOf(m))).join(', ') : ''} · ${plural(ids.length, 'character')}</p></div>
+        ${run && ids.length ? `<button class="btn gold" id="pt-all">Send to everyone…</button>` : ''}</div>
+      ${IS_ADMIN && !isMgr(P) && !inParty ? '<p class="pty-admin">You’re seeing this party as an admin — it isn’t in your own list. You can still change anything here.</p>' : ''}
+      ${ids.length ? `<div class="hf-body pty-grid">${ids.map(memberCard).join('')}</div>` : `<p class="hub-empty">No characters yet.${run ? ' Send your players the invite link below.' : ''}</p>`}
+      ${run ? `<section class="pty-sec"><h2>Invite players</h2><p class="hub-hint">Anyone signed in who has this link can join with one of their characters, or make a new one that joins as soon as it’s made.</p>
+        ${link ? `<div class="sh-pub-row"><input readonly id="pt-link" value="${esc(link)}"><button class="btn" id="pt-copy">Copy link</button></div><div class="pty-linkrow"><button class="linkbtn" id="pt-relink">Make a new link</button> · <button class="linkbtn" id="pt-unlink">Turn the link off</button></div>` : `<div class="pty-linkrow"><button class="btn gold" id="pt-relink">Turn on an invite link</button></div>`}
+        <form id="pt-inv-f" class="who-f pl-f sh-f pty-invf"><input id="pt-inv-e" type="email" placeholder="Or invite by email" autocomplete="off" required><button class="btn gold">Invite</button></form>
+        ${(P.invited || []).length ? `<div class="pl-list">${P.invited.map(em => `<div class="pl-row"><span class="sh-who"><span>${esc(em)}</span> <small class="hub-hint">invited</small></span><button class="linkbtn" data-uninv="${esc(em)}">cancel</button></div>`).join('')}</div>` : ''}</section>` : ''}
+      ${(canAdd && mineOut.length) || IS_ADMIN ? `<section class="pty-sec"><h2>Add a character</h2>${mineOut.length && canAdd ? `<div class="pl-list pty-pick">${mineOut.map(c => `<button class="pl-row pty-prow" data-add="${esc(c.id)}">${H.pic(c)}<span class="pty-ct"><b>${esc(c.name || 'Unnamed character')}</b><small>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</small></span><span class="pty-go">Add</span></button>`).join('')}</div>` : ''}
+        ${IS_ADMIN ? `<button class="btn" id="pt-addany">Add anyone’s character…</button>` : ''}${canAdd ? ` <button class="btn" id="pt-addnew">+ Make a new character for this party</button>` : ''}</section>` : ''}
+      ${run ? `<section class="pty-sec"><h2>Who runs it</h2>
+        <div class="pty-runrow"><span>DM</span><b>${esc(dmLabel(P))}</b>${dmMe ? '<button class="btn sm" id="pt-dm">Change DM…</button>' : ''}</div>
+        <div class="pty-runrow"><span>Co-DMs</span><span class="pty-mgrs">${(P.mgrs || []).map(m => `<span class="pty-mgr">${esc(m === EMAIL ? 'You' : H.nameOf(m))}${dmMe ? ` <button class="linkbtn" data-unmgr="${esc(m)}" aria-label="Remove co-DM">×</button>` : ''}</span>`).join('') || '<small class="hub-hint">None — co-DMs can do everything the DM can, except change who runs the party.</small>'}</span>${dmMe ? '<button class="btn sm" id="pt-mgr">Add a co-DM…</button>' : ''}</div></section>` : ''}
+      <section class="pty-sec pty-foot">${mineIn.length && !run ? `<button class="btn ghost" id="pt-leave">Leave the party</button>` : ''}${!run && !mineIn.length && inParty && P.dm !== EMAIL ? `<button class="btn ghost" id="pt-off">Remove it from my list</button>` : ''}${(P.mgrs || []).includes(EMAIL) && P.dm !== EMAIL ? `<button class="btn ghost" id="pt-off">Stop being a co-DM</button>` : ''}${dmMe ? `<button class="btn red" id="pt-del">Delete the party…</button>` : ''}</section>`;
+    wirePage(el);
+  }
+  const fail = (x, what) => toast(x && x.code === 'permission-denied' ? 'You can’t do that in this party (or the new database rules still need publishing).' : 'Couldn’t ' + what + ': ' + ((x && x.message) || x));
+  function wirePage(el) {
+    const $1 = s => el.querySelector(s), on = (s, f) => { const b = $1(s); if (b) b.onclick = f; };
+    on('#pt-ren', () => askText('Rename the party', P.name || '', 60, async v => { await PC.doc(PID).update({ name: v, updatedAt: Date.now() }); if (P.inv) IC.doc(P.inv).set({ p: PID, name: v, dm: P.dm, dmName: P.dmName || '', at: Date.now() }).catch(() => {}); }));
+    on('#pt-copy', async () => { const u = $1('#pt-link'), b = $1('#pt-copy'); try { await navigator.clipboard.writeText(u.value); b.textContent = 'Copied'; } catch (x) { u.select(); b.textContent = 'Selected'; } setTimeout(() => { b.textContent = 'Copy link'; }, 1600); });
+    on('#pt-relink', async () => { const t = ptyCode(); try { await IC.doc(t).set({ p: PID, name: P.name || '', dm: P.dm, dmName: P.dmName || '', at: Date.now() }); if (P.inv) await IC.doc(P.inv).delete().catch(() => {}); await PC.doc(PID).update({ inv: t, updatedAt: Date.now() }); toast(P.inv ? 'New link made — the old one no longer works.' : 'Invite link is on.'); } catch (x) { fail(x, 'make a link'); } });
+    on('#pt-unlink', async () => { try { const t = P.inv; await PC.doc(PID).update({ inv: '', updatedAt: Date.now() }); if (t) await IC.doc(t).delete().catch(() => {}); toast('Invite link turned off.'); } catch (x) { fail(x, 'turn the link off'); } });
+    const f = $1('#pt-inv-f'); if (f) { H.peoplePicker($1('#pt-inv-e')); f.onsubmit = async e => { e.preventDefault(); const em = $1('#pt-inv-e').value.trim().toLowerCase();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { toast('Type an email address.'); return; }
+      try { await PC.doc(PID).update({ invited: FV.arrayUnion(em), updatedAt: Date.now() }); pgLog('party_invite', { target: PID, tName: P.name, detail: em }); toast('Invited ' + em + ' — it shows on their characters page.'); } catch (x) { fail(x, 'invite them'); } }; }
+    el.querySelectorAll('[data-uninv]').forEach(b => b.onclick = async () => { try { await PC.doc(PID).update({ invited: FV.arrayRemove(b.dataset.uninv) }); } catch (x) { fail(x, 'cancel it'); } });
+    el.querySelectorAll('[data-add]').forEach(b => b.onclick = async () => { const c = myChars().find(x => x.id === b.dataset.add); if (!c) return; b.disabled = true; b.querySelector('.pty-go').textContent = 'Adding…';
+      try { await ptyJoin(fs, EMAIL, PID, c.id, P.inv || '', { name: c.name || '', race: c.race || '', cls: c.cls || '', level: c.level || 0, thumb: c.thumb || '', player: H.myName(), path: c.path || '' }); toast((c.name || 'Your character') + ' joined the party.'); } catch (x) { b.disabled = false; fail(x, 'add it'); } });
+    on('#pt-addnew', () => { try { sessionStorage.setItem('pg-join', JSON.stringify({ p: PID, t: P.inv || '', name: P.name || '', at: Date.now() })); } catch (e) {} pgGo(URLS.newChar(G)); });
+    on('#pt-addany', () => adminAddChar());
+    on('#pt-all', () => sendDialog(null));
+    on('#pt-dm', () => pickPerson('Who’s the DM?', 'They run the party. You stay on as a co-DM (you can step down later).', async em => {
+      const upd = { dm: em, dmName: H.nameOf(em) === em ? '' : H.nameOf(em), people: FV.arrayUnion(em), mgrs: FV.arrayRemove(em), updatedAt: Date.now() };
+      await PC.doc(PID).update(upd); if (P.dm && P.dm !== em) await PC.doc(PID).update({ mgrs: FV.arrayUnion(P.dm), people: FV.arrayUnion(P.dm) }).catch(() => {});
+      if (P.inv) IC.doc(P.inv).set({ p: PID, name: P.name || '', dm: em, dmName: upd.dmName, at: Date.now() }).catch(() => {});
+      pgLog('party_dm', { target: PID, tName: P.name, detail: 'DM is now ' + em }); toast(H.nameOf(em) + ' is now the DM.'); }));
+    on('#pt-mgr', () => pickPerson('Add a co-DM', 'Co-DMs can open every sheet in the party, send things to the characters and invite players.', async em => { await PC.doc(PID).update({ mgrs: FV.arrayUnion(em), people: FV.arrayUnion(em), updatedAt: Date.now() }); toast(H.nameOf(em) + ' is a co-DM.'); }));
+    el.querySelectorAll('[data-unmgr]').forEach(b => b.onclick = async () => { const em = b.dataset.unmgr, keep = Object.values(CARDS).some(c => c.owner === em);
+      try { await PC.doc(PID).update(Object.assign({ mgrs: FV.arrayRemove(em), updatedAt: Date.now() }, keep ? {} : { people: FV.arrayRemove(em) })); } catch (x) { fail(x, 'remove them'); } });
+    on('#pt-leave', () => { const mine = (P.chars || []).filter(id => (CARDS[id] || {}).owner === EMAIL); confirmBox(`Leave ${esc(P.name || 'the party')}?`, `${mine.length > 1 ? 'Your characters leave' : 'Your character leaves'} the party. You can join again with an invite link.`, 'Leave', async () => { for (const id of mine) await ptyLeave(fs, EMAIL, PID, id, { owner: EMAIL }); pgLog('party_leave', { target: PID, tName: P.name }); pgGo(URLS.hub(G)); }); });
+    on('#pt-off', async () => { try { await PC.doc(PID).update({ people: FV.arrayRemove(EMAIL), mgrs: FV.arrayRemove(EMAIL), invited: FV.arrayRemove(EMAIL), updatedAt: Date.now() }); pgGo(URLS.hub(G)); } catch (x) { fail(x, 'do that'); } });
+    on('#pt-del', () => deleteParty(P, () => pgGo(URLS.hub(G))));
+    el.querySelectorAll('.hc-dots').forEach(b => b.onclick = e => { e.stopPropagation(); const w = b.parentElement, o = !w.classList.contains('on'); el.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')); w.classList.toggle('on', o); });
+    el.querySelectorAll('[data-pm]').forEach(b => b.onclick = () => { const id = b.dataset.id, c = CARDS[id] || {}; const m = b.closest('.hc-menu'); if (m) m.classList.remove('on');
+      if (b.dataset.pm === 'send') sendDialog(id);
+      if (b.dataset.pm === 'open') { const a = el.querySelector(`.pty-card[data-cid="${id}"] a.hc-main`); if (a) pgGo(a.href); }
+      if (b.dataset.pm === 'rm') confirmBox(c.owner === EMAIL && !canRun(P) ? `Leave ${esc(P.name || 'the party')}?` : `Remove ${esc(c.name || 'this character')}?`, 'It leaves the party: the others no longer see it, and nothing more can be sent to it. It isn’t deleted.', c.owner === EMAIL && !canRun(P) ? 'Leave' : 'Remove',
+        async () => { await ptyLeave(fs, EMAIL, PID, id, { owner: c.owner, asMgr: c.owner !== EMAIL, admin: IS_ADMIN }); pgLog('party_remove', { target: PID, tName: P.name, detail: c.name || id }); toast((c.name || 'The character') + ' left the party.'); }); });
+  }
+  function askText(title, val, max, save) {
+    modal.innerHTML = `<div class="hub-card"><h2>${esc(title)}</h2><form id="at-f" class="who-f"><input id="at-n" maxlength="${max}" value="${esc(val)}" required></form><div class="row"><button class="btn ghost" id="at-x">Cancel</button><button class="btn gold" id="at-ok">Save</button></div></div>`;
+    modal.classList.add('on'); const inp = modal.querySelector('#at-n'); setTimeout(() => { inp.focus(); inp.select(); }, 30);
+    const go = async () => { const v = inp.value.replace(/\s+/g, ' ').trim().slice(0, max); if (!v) return; try { await save(v); close(); } catch (x) { fail(x, 'save it'); } };
+    modal.querySelector('#at-f').onsubmit = e => { e.preventDefault(); go(); }; modal.querySelector('#at-ok').onclick = go; modal.querySelector('#at-x').onclick = close;
+  }
+  function confirmBox(title, text, label, go) {
+    modal.innerHTML = `<div class="hub-card"><h2>${title}</h2><p class="hub-hint">${esc(text)}</p><div class="row"><button class="btn ghost" id="cb-x">Cancel</button><button class="btn red" id="cb-ok">${esc(label)}</button></div></div>`;
+    modal.classList.add('on'); modal.querySelector('#cb-x').onclick = close;
+    modal.querySelector('#cb-ok').onclick = async e => { e.target.disabled = true; try { await go(); close(); } catch (x) { e.target.disabled = false; fail(x, 'do that'); } };
+  }
+  // A person by email: admins get suggestions from every account; anyone else types the address (players in the party are offered first).
+  function pickPerson(title, hint, done) {
+    const known = [...new Set(Object.values(CARDS).map(c => c.owner).filter(Boolean))].filter(em => em !== P.dm);
+    modal.innerHTML = `<div class="hub-card wide"><h2>${esc(title)}</h2><p class="hub-hint">${esc(hint)}</p>
+      ${known.length ? `<div class="pl-list">${known.map(em => `<button class="pl-row pu-row" data-pp="${esc(em)}"><b>${esc(Object.values(CARDS).find(c => c.owner === em).player || em)}</b><span>${esc(em)}</span></button>`).join('')}</div>` : ''}
+      <form id="pp-f" class="who-f pl-f sh-f"><input id="pp-e" type="email" placeholder="Their email address" autocomplete="off" required><button class="btn gold">OK</button></form><button class="btn ghost" id="pp-x">Cancel</button></div>`;
+    modal.classList.add('on'); H.peoplePicker(modal.querySelector('#pp-e'));
+    const go = async em => { em = String(em || '').trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { toast('Type an email address.'); return; } try { await done(em); close(); } catch (x) { fail(x, 'change it'); } };
+    modal.querySelector('#pp-f').onsubmit = e => { e.preventDefault(); go(modal.querySelector('#pp-e').value); };
+    modal.querySelectorAll('[data-pp]').forEach(b => b.onclick = () => go(b.dataset.pp)); modal.querySelector('#pp-x').onclick = close;
+  }
+  // Admins: put anyone's character in the party.
+  function adminAddChar() {
+    const lib = fs.collection('groups/' + G + '/chars');
+    modal.innerHTML = `<div class="hub-card wide"><h2>Add a character</h2><p class="hub-hint">Any character on the site. It moves here from any party it’s in now.</p><input id="aa-q" class="ad-search" placeholder="Search by character name" autocomplete="off"><div class="pl-list" id="aa-l"></div><button class="btn ghost" id="aa-x">Close</button></div>`;
+    modal.classList.add('on'); const q = modal.querySelector('#aa-q'), l = modal.querySelector('#aa-l'); let t = null;
+    const show = async () => { const v = q.value.trim().toLowerCase().slice(0, 24); try { const r = await (v ? lib.where('keys', 'array-contains', v).limit(25) : lib.orderBy('updatedAt', 'desc').limit(25)).get();
+      const rows = r.docs.map(d => Object.assign({ id: d.id }, d.data())).filter(c => !(P.chars || []).includes(c.id)); await H.needNames(rows.map(c => c.owner));
+      l.innerHTML = rows.map(c => `<button class="pl-row pty-prow" data-aa="${esc(c.id)}">${H.pic(c)}<span class="pty-ct"><b>${esc(c.name || 'Unnamed character')}</b><small>${esc([c.race, c.cls].filter(Boolean).join(' · '))} · ${esc(H.nameOf(c.owner || ''))}</small></span><span class="pty-go">Add</span></button>`).join('') || '<p class="hub-hint">Nothing matches.</p>';
+      l.querySelectorAll('[data-aa]').forEach(b => b.onclick = async () => { const c = rows.find(x => x.id === b.dataset.aa); if (!c) return; b.disabled = true; b.querySelector('.pty-go').textContent = 'Adding…';
+        try { const s0 = await fs.collection('sheets').doc(c.id).get(), old = s0.exists ? s0.data().party || '' : ''; if (old && old !== PID) await ptyLeave(fs, EMAIL, old, c.id, { owner: c.owner, asMgr: true, admin: true }).catch(() => {});
+          await PC.doc(PID).update({ chars: FV.arrayUnion(c.id), people: FV.arrayUnion(c.owner), invited: FV.arrayRemove(c.owner), updatedAt: Date.now() }); await ptySetSheetParty(fs, c.id, PID);
+          await PC.doc(PID).collection('cards').doc(c.id).set({ owner: c.owner, name: c.name || '', race: c.race || '', cls: c.cls || '', level: c.level || 0, thumb: c.thumb || '', player: H.nameOf(c.owner || ''), path: c.path || '', at: Date.now() }, { merge: true });
+          pgLog('party_add', { target: PID, tName: P.name, detail: c.name || c.id }); b.querySelector('.pty-go').textContent = 'Added'; } catch (x) { b.disabled = false; b.querySelector('.pty-go').textContent = 'Add'; fail(x, 'add it'); } }); }
+      catch (x) { l.innerHTML = `<p class="hub-hint">Couldn't search (${esc(x.code || x.message || x)}).</p>`; } };
+    q.oninput = () => { clearTimeout(t); t = setTimeout(show, 250); }; modal.querySelector('#aa-x').onclick = close; q.focus(); show();
+  }
+  function deleteParty(p, after) {
+    confirmBox(`Delete ${esc(p.name || 'this party')}?`, 'The party is gone for everyone in it. The characters aren’t deleted — they just aren’t in a party anymore.', 'Delete party', async () => {
+      const ref = PC.doc(p.id), cs = await ref.collection('cards').get().catch(() => null);
+      if (cs) for (const d of cs.docs) await d.ref.delete().catch(() => {});
+      if (IS_ADMIN) for (const c of p.chars || []) await ptySetSheetParty(fs, c, '').catch(() => {});
+      if (p.inv) await IC.doc(p.inv).delete().catch(() => {});
+      await ref.delete(); pgLog('party_delete', { target: p.id, tName: p.name }); toast((p.name || 'The party') + ' was deleted.'); if (after) after(); });
+  }
+
+  // ----- the DM sends something to one character, or to everyone -----
+  // Loot comes from the same lists as the sheet's Add an item (loaded only when needed).
+  let DNDP = null; const loadDND = () => DNDP || (DNDP = window.DND && window.DND.gear ? Promise.resolve() : fetch(window.PG_ASSETS.data).then(r => r.text()).then(t => { const s = document.createElement('script'); s.textContent = t; document.body.appendChild(s); }).catch(() => {}));
+  const lootList = () => { const D = window.DND || {}, out = []; (D.weapons || []).forEach(w => out.push([w[0], 'Weapon'])); (D.armor || []).forEach(a => out.push([a[0], 'Armor'])); (D.gear || []).forEach(g => out.push([g[0], 'Gear'])); (D.magic || []).forEach(m => { if (!/^(Weapon|Armor|Shield|Ammunition) \+\d$/.test(m[0])) out.push([m[0], (m[3] || 'magic') + ' magic item']); }); return out; };
+  function sendDialog(id) {
+    const ids = id ? [id] : (P.chars || []).slice(), who = id ? (CARDS[id] || {}).name || 'this character' : 'everyone in the party';
+    let tab = 'dmg';
+    const T = [['dmg', 'Damage'], ['heal', 'Healing'], ['temp', 'Temp HP'], ['cond', 'Condition'], ['loot', 'Item'], ['coins', 'Coins'], ['more', 'More']];
+    const body = () => tab === 'dmg' ? `<div class="pty-frow"><input class="pty-num" id="sd-n" type="number" min="0" inputmode="numeric" placeholder="Amount"><select id="sd-t"><option value="">Any type</option>${PTY_DMG.map(t => `<option>${t}</option>`).join('')}</select></div>
+          <div class="pty-frow"><label class="ak-c"><input type="checkbox" id="sd-save"> They make a saving throw</label><select id="sd-ab">${['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'].map(a => `<option${a === 'DEX' ? ' selected' : ''}>${a}</option>`).join('')}</select><input class="pty-num" id="sd-dc" type="number" min="1" placeholder="DC"><label class="ak-c"><input type="checkbox" id="sd-half" checked> half on a success</label></div>
+          <input id="sd-why" class="ad-search" maxlength="80" placeholder="What hit them (shown to the player), e.g. Falling rocks">`
+      : tab === 'heal' || tab === 'temp' ? `<div class="pty-frow"><input class="pty-num" id="sd-n" type="number" min="0" inputmode="numeric" placeholder="${tab === 'heal' ? 'HP healed' : 'Temporary HP'}"></div><input id="sd-why" class="ad-search" maxlength="80" placeholder="From what (optional)">`
+      : tab === 'cond' ? `<div class="pty-frow"><select id="sd-c">${PTY_CONDS.map(c => `<option>${c}</option>`).join('')}<option value="__exh">Exhaustion +1</option><option value="__exhm">Exhaustion −1</option></select><select id="sd-cm"><option value="add">Add it</option><option value="rm">Remove it</option></select><input class="pty-num" id="sd-r" type="number" min="0" placeholder="Rounds (optional)"></div><input id="sd-why" class="ad-search" maxlength="80" placeholder="Why (optional)">`
+      : tab === 'loot' ? `<input id="sd-q" class="ad-search" placeholder="Search the item lists, or type a custom item" autocomplete="off" list="sd-ql"><datalist id="sd-ql"></datalist><div class="pty-frow"><input class="pty-num" id="sd-qty" type="number" min="1" value="1" aria-label="How many"><input id="sd-note" class="ad-search" maxlength="300" placeholder="Notes (optional)"></div><p class="hub-hint">Items from the lists arrive with their stats (weapons, armor, magic). Anything else arrives as a custom item.</p>`
+      : tab === 'coins' ? `<div class="pty-coins">${['pp', 'gp', 'ep', 'sp', 'cp'].map(c => `<label><span>${c.toUpperCase()}</span><input class="pty-num" data-coin="${c}" type="number" inputmode="numeric" placeholder="0"></label>`).join('')}</div>${ids.length > 1 ? '<label class="ak-c"><input type="checkbox" id="sd-split" checked> Split it evenly between them (whole coins; the rest goes to the first)</label>' : ''}`
+      : `<div class="pty-more"><button class="btn" data-more="insp">Give Inspiration</button><button class="btn" data-more="short">Ask for a short rest</button><button class="btn" data-more="long">Ask for a long rest</button><button class="btn" data-more="stab">Stabilize (at 0 HP)</button><button class="btn" data-more="revive">Bring back at 1 HP</button></div><textarea id="sd-msg" class="ad-search" rows="2" maxlength="500" placeholder="Or send a message that pops up on their sheet"></textarea>`;
+    const paintD = () => {
+      modal.innerHTML = `<div class="hub-card wide pty-keep pty-send"><h2>Send to ${esc(who)}</h2>${!id ? `<p class="hub-hint">${plural(ids.length, 'character')}. It’s applied on each sheet (when it’s next opened, if nobody has it open).</p>` : '<p class="hub-hint">It’s applied on their sheet right away if it’s open, or the next time it is.</p>'}
+        <div class="pty-tabs">${T.map(([k, t]) => `<button class="${tab === k ? 'on' : ''}" data-st="${k}">${t}</button>`).join('')}</div><div class="pty-sbody">${body()}</div>
+        <div class="row"><button class="btn ghost" id="sd-x">Close</button>${tab === 'more' ? '<button class="btn gold" id="sd-go">Send message</button>' : '<button class="btn gold" id="sd-go">Send</button>'}</div></div>`;
+      modal.classList.add('on');
+      modal.querySelectorAll('[data-st]').forEach(b => b.onclick = () => { tab = b.dataset.st; paintD(); });
+      modal.querySelector('#sd-x').onclick = () => { close(); paint(); };
+      if (tab === 'loot') loadDND().then(() => { const dl = modal.querySelector('#sd-ql'); if (dl) dl.innerHTML = lootList().map(([n, t]) => `<option value="${esc(n)}">${esc(t)}</option>`).join(''); });
+      modal.querySelectorAll('[data-more]').forEach(b => b.onclick = () => send(b.dataset.more === 'insp' ? ['inspire', {}] : b.dataset.more === 'stab' ? ['stabilize', {}] : b.dataset.more === 'revive' ? ['revive', { hp: 1, why: 'The DM' }] : ['rest', { kind: b.dataset.more }]));
+      modal.querySelector('#sd-go').onclick = () => { const v = s => { const e = modal.querySelector(s); return e ? e.value : ''; }, n = Math.max(0, Math.floor(Number(v('#sd-n')) || 0)), why = v('#sd-why').trim();
+        if (tab === 'dmg') { if (!n) return toast('Type an amount.'); const sv = modal.querySelector('#sd-save').checked; if (sv && !Number(v('#sd-dc'))) return toast('Type the DC.'); return send(['hit', { dmg: n, type: v('#sd-t'), why: why || 'The DM', save: sv ? v('#sd-ab') : '', dc: sv ? Number(v('#sd-dc')) : 0, half: modal.querySelector('#sd-half').checked }]); }
+        if (tab === 'heal') return n ? send(['heal', { amt: n, why: why || 'The DM' }]) : toast('Type an amount.');
+        if (tab === 'temp') return n ? send(['temp', { amt: n, why: why || 'The DM' }]) : toast('Type an amount.');
+        if (tab === 'cond') { const c = v('#sd-c'), rm = v('#sd-cm') === 'rm'; if (c === '__exh' || c === '__exhm') return send(['cure', { exh: c === '__exh' ? 1 : -1, why: why || 'The DM' }]); return send(rm ? ['cure', { conds: [c], why: why || 'The DM' }] : ['cond', { cond: c, rounds: Number(v('#sd-r')) || 0, why: why || 'The DM' }]); }
+        if (tab === 'loot') { const nm = v('#sd-q').trim().slice(0, 120); if (!nm) return toast('Pick or type an item.'); return send(['loot', { name: nm, qty: Math.max(1, Math.floor(Number(v('#sd-qty')) || 1)), notes: v('#sd-note').trim() }]); }
+        if (tab === 'coins') { const c = {}; modal.querySelectorAll('[data-coin]').forEach(i => { const x = Math.max(0, Math.floor(Number(i.value) || 0)); if (x) c[i.dataset.coin] = x; }); if (!Object.keys(c).length) return toast('Type some coins.');
+          const split = ids.length > 1 && modal.querySelector('#sd-split') && modal.querySelector('#sd-split').checked; return send(['coins', c], split); }
+        const msg = v('#sd-msg').trim(); if (!msg) return toast('Type a message.'); return send(['note', { text: msg }]); };
+    };
+    const send = async ([kind, data], split) => {
+      const b = modal.querySelector('#sd-go'); if (b) b.disabled = true; let ok = 0;
+      for (let j = 0; j < ids.length; j++) { let d = data;
+        if (split) { d = {}; Object.keys(data).forEach(k => { const each = Math.floor(data[k] / ids.length), rest = data[k] - each * ids.length; const x = each + (j === 0 ? rest : 0); if (x) d[k] = x; }); if (!Object.keys(d).length) continue; }
+        try { await ptySend(fs, EMAIL, PID, ids[j], kind, d, '', (P.dm === EMAIL ? H.myName() + ' (DM)' : H.myName())); ok++; } catch (x) { console.warn(x); } }
+      if (b) b.disabled = false;
+      if (ok) { toast(`Sent to ${ok === 1 && id ? who : plural(ok, 'character')}.`); pgLog('party_send', { target: PID, tName: P.name, detail: kind + ' → ' + (id ? who : 'everyone') }); } else toast('Couldn’t send it (the new database rules may still need publishing).');
+    };
+    paintD();
+  }
+
+  // ----- admin: every party, and whether it's in your own list -----
+  let AROWS = [], ALIVE = null;
+  function adminTab(B, A) {
+    const el = B(); A.HA().innerHTML = '';
+    el.innerHTML = `<div class="adm-filters">${A.toolbar('ad-pq', 'Search by party, DM or character', A.PQ.v)}</div><div id="ad-pl"><p class="adm-dim">Loading…</p></div>`;
+    const q = el.querySelector('#ad-pq'); let t = null; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { A.PQ.v = q.value; adminPaint(B, A); }, 150); };
+    if (!ALIVE) ALIVE = PC.limit(1000).onSnapshot(async qs => { AROWS = qs.docs.map(d => Object.assign({ id: d.id }, d.data())); await H.needNames(AROWS.map(p => p.dm)); if (A.isTab()) adminPaint(B, A); }, x => { const l = B().querySelector('#ad-pl'); if (l) l.innerHTML = A.failMsg(x); });
+    else adminPaint(B, A);
+  }
+  const accessOf = p => p.dm === EMAIL ? 'dm' : (p.mgrs || []).includes(EMAIL) ? 'manage' : (p.people || []).includes(EMAIL) ? 'view' : '';
+  function adminPaint(B, A) {
+    const l = B() && B().querySelector('#ad-pl'); if (!l) return; if (A.busy()) return A.later(() => adminPaint(B, A));
+    const qv = String(A.PQ.v || '').trim().toLowerCase();
+    const rows = AROWS.filter(p => !qv || [p.name, p.dmName, H.nameOf(p.dm), p.dm].some(x => String(x || '').toLowerCase().includes(qv))).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    const cnt = B().querySelector('#ad-pq-n'); if (cnt) cnt.textContent = rows.length + ' of ' + plural(AROWS.length, 'party').replace('partys', 'parties');
+    l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t"><thead><tr><th>Party</th><th>DM</th><th>Characters</th><th>Your access</th><th>Updated</th><th>Created</th><th></th></tr></thead><tbody>${rows.map(p => { const a = accessOf(p);
+      return `<tr><td><a class="adm-char" href="${esc(URLS.party(p.id))}"><span class="hc-pic hc-nopic pty-admic">${IC_PARTY}</span><span><b>${esc(p.name || 'Unnamed party')}</b><small>${(p.invited || []).length ? plural(p.invited.length, 'invitation') + ' open' : p.inv ? 'Invite link on' : 'No invite link'}</small></span></a></td>
+        <td><span class="adm-who">${A.ava(H.nameOf(p.dm || ''), p.dm)}<span>${esc(p.dmName || H.nameOf(p.dm || '') || '—')}</span></span></td><td>${(p.chars || []).length}</td>
+        <td>${a === 'dm' ? '<span class="adm-tag r-own">You’re the DM</span>' : `<select class="adm-sel" data-pacc="${esc(p.id)}" aria-label="Your access"><option value="">Not in my list</option><option value="view"${a === 'view' ? ' selected' : ''}>Can view</option><option value="manage"${a === 'manage' ? ' selected' : ''}>Can manage (co-DM)</option></select>`}</td>
+        <td>${A.when(p.updatedAt)}</td><td>${A.when(p.createdAt)}</td><td class="adm-act">${A.kebab([['open', 'Open', p.id], ['del', 'Delete party…', p.id, 'danger']])}</td></tr>`; }).join('')}</tbody></table></div>` : `<p class="adm-empty">${AROWS.length ? 'No parties match.' : 'No parties yet.'}</p>`;
+    l.querySelectorAll('[data-pacc]').forEach(sl => sl.onchange = async () => { const v = sl.value, ref = PC.doc(sl.dataset.pacc), p = AROWS.find(x => x.id === sl.dataset.pacc);
+      try { await ref.update(v === 'manage' ? { people: FV.arrayUnion(EMAIL), mgrs: FV.arrayUnion(EMAIL) } : v === 'view' ? { people: FV.arrayUnion(EMAIL), mgrs: FV.arrayRemove(EMAIL) } : { people: FV.arrayRemove(EMAIL), mgrs: FV.arrayRemove(EMAIL) });
+        toast(v ? (p.name || 'The party') + ' is in your list (' + (v === 'manage' ? 'co-DM' : 'view') + ').' : (p.name || 'The party') + ' is out of your list.'); pgLog('party_access', { target: p.id, tName: p.name, detail: v || 'none' }); }
+      catch (x) { fail(x, 'change it'); sl.value = accessOf(p); } });
+    l.querySelectorAll('[data-mi]').forEach(b => b.onclick = () => { const p = AROWS.find(x => x.id === b.dataset.id); A.closeMenus(); if (!p) return; if (b.dataset.mi === 'open') pgGo(URLS.party(p.id)); if (b.dataset.mi === 'del') deleteParty(p, () => adminPaint(B, A)); });
+  }
+
+  listen();
+  return { paneHTML, count, wirePane, partyPage, joinPage, adminTab, refresh: () => paint() };
 }
 
 </script>

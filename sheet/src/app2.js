@@ -400,7 +400,7 @@ function renderVitals() {
 `;
 }
 
-const TABS0 = [['core', 'Core'], ['combat', 'Combat'], ['spells', 'Spells'], ['features', 'Features'], ['inventory', 'Inventory'], ['infusions', 'Infusions'], ['companions', 'Creatures'], ['story', 'Story'], ['notes', 'Notes']];
+const TABS0 = [['core', 'Core'], ['combat', 'Combat'], ['spells', 'Spells'], ['features', 'Features'], ['inventory', 'Inventory'], ['infusions', 'Infusions'], ['companions', 'Creatures'], ['party', 'Party'], ['story', 'Story'], ['notes', 'Notes']];
 function tabOrder() {
   const all = TABS0.concat(ctabs().map(t => [t.key, t.name])), L = (S.layout && S.layout.tabs) || [], keys = all.map(t => t[0]);
   return L.filter(k => keys.includes(k)).concat(keys.filter(k => !L.includes(k))).map(k => all.find(t => t[0] === k));
@@ -408,7 +408,7 @@ function tabOrder() {
 // Tabs and panels a character has no use for hide themselves (no spellcasting → no Spells tab or slot panels; no Infuse Item → no Infusions tab).
 // Edit layout can still show them: that choice is kept in layout.shownTabs / layout.shown.
 const noSpells = () => !casters().length && !(S.spells || []).length && !pact();
-const tabAutoHidden = k => (k === 'infusions' && clsLv('artificer') < 2) || (k === 'spells' && noSpells());
+const tabAutoHidden = k => (k === 'infusions' && clsLv('artificer') < 2) || (k === 'spells' && noSpells()) || (k === 'party' && !ptyOn());
 // No slots at all (no casting class, pact or stored spells): the Spell Slots panels step aside and Active Spells takes the room.
 const noSlots = () => !casters().length && !pact() && ![0, 1, 2, 3, 4, 5, 6, 7, 8].some(k => slotMax(k) > 0) && !(S.spells || []).some(s => s.usesOnly);
 const panelAutoHidden = id => (['slots', 'activefx'].includes(id) && noSpells()) || (id === 'slots' && noSlots());
@@ -424,6 +424,7 @@ const TAB_ICON = {
   inventory: _ti('<path d="M6 8h12l1 13H5z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>'),
   infusions: _ti('<path d="M9 3h6M10 3v5L4.5 18A2 2 0 0 0 6.3 21h11.4a2 2 0 0 0 1.8-3L14 8V3"/><path d="M7.5 14h9"/>'),
   companions: _ti('<circle cx="5.5" cy="10" r="2"/><circle cx="9.5" cy="5.5" r="2"/><circle cx="14.5" cy="5.5" r="2"/><circle cx="18.5" cy="10" r="2"/><path d="M12 12c-3 0-5 3-5 5.5 0 2 1.5 3 3 2.5l2-.6 2 .6c1.5.5 3-.5 3-2.5 0-2.5-2-5.5-5-5.5z"/>'),
+  party: _ti('<circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M2.5 20c.6-3.3 2.8-5.5 5.5-5.5s4.9 2.2 5.5 5.5M10.5 20c.6-3.3 2.8-5.5 5.5-5.5s4.9 2.2 5.5 5.5"/>'),
   story: _ti('<path d="M4 4h6a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4z"/><path d="M20 4h-6a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h6z"/>'),
   notes: _ti('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>')
 };
