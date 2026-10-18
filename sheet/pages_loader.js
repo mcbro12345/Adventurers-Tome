@@ -43,6 +43,16 @@ function wireThemeBtn(root) { const b = root.querySelector('#hub-theme'); if (!b
 document.addEventListener('touchstart', () => {}, { passive: true });
 function pgOutFade(m) { m.remove = () => { if (m._closing) return; m._closing = true;
   if (PG_CALM || !m.isConnected) return Element.prototype.remove.call(m); m.classList.add('closing'); setTimeout(() => Element.prototype.remove.call(m), 170); }; }
+// While the mouse is over a pop-up window, scrolling only moves what's inside it: once a list reaches its end the
+// page behind doesn't take over and scroll instead.
+const PG_WINS = '.hub-modal.on, #pg-msg, .pg-out, .modal-bg.open';
+const pgCanScroll = (el, d, x) => { const cs = getComputedStyle(el), ov = x ? cs.overflowX : cs.overflowY; if (!/auto|scroll|overlay/.test(ov)) return false;
+  const pos = x ? el.scrollLeft : el.scrollTop, max = x ? el.scrollWidth - el.clientWidth : el.scrollHeight - el.clientHeight;
+  return max > 1 && (d < 0 ? pos > 0 : pos < max - 1); };
+addEventListener('wheel', e => { const w = e.target.closest && e.target.closest(PG_WINS); if (!w || e.ctrlKey) return;
+  const x = Math.abs(e.deltaX) > Math.abs(e.deltaY), d = x ? e.deltaX : e.deltaY; if (!d) return;
+  for (let el = e.target; el && el !== document.body; el = el.parentElement) { if (pgCanScroll(el, d, x)) return; if (el === w) break; }
+  e.preventDefault(); }, { passive: false, capture: true });
 // Tabs tell each other about signing in, so finishing an emailed link in a new tab signs in the tab you started from.
 const PG_BC = (() => { try { return new BroadcastChannel('pg-auth'); } catch (e) { return null; } })();
 function pgAuthHandoff() { return new Promise(res => { if (!PG_BC) return res(false); let done = false;
