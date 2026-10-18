@@ -193,14 +193,21 @@ const initials = (name, em) => { const w = String(name || em || '?').split(/[\s@
 // Where people can reach us. A plain mailto link does nothing on a computer with no email app set up, so this opens a
 // small box with the address, a copy button, and links to Gmail and the device's email app.
 const CONTACT_EMAIL = 'adventurerstome@googlegroups.com', CONTACT = '#contact';
+const BUG_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 7.5V6a3 3 0 0 1 6 0v1.5"/><rect x="7" y="7.5" width="10" height="12.5" rx="5"/><path d="M12 11v9M3.5 13H7M17 13h3.5M4.5 8l2.6 1.8M19.5 8l-2.6 1.8M4.5 19.5l2.8-2M19.5 19.5l-2.8-2"/></svg>';
+// A note in the bottom-right corner, on any page (a bug report sent, or one of yours fixed). Tap it to dismiss.
+function pgCorner(html, ms = 7000) { let box = document.getElementById('pg-corner'); if (!box) { box = document.createElement('div'); box.id = 'pg-corner'; document.body.appendChild(box); }
+  const t = document.createElement('div'); t.className = 'pg-ctoast'; t.innerHTML = html; t.onclick = () => t.remove(); box.appendChild(t);
+  setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 250); }, ms); }
 function pgContact() {
   if (document.querySelector('.pg-out')) return;
   const su = encodeURIComponent('Adventurer’s Tome'), m = document.createElement('div'); m.className = 'pg-out'; pgOutFade(m);
   m.innerHTML = `<div class="pg-out-card" role="dialog" aria-modal="true" aria-labelledby="pg-ct-h"><h2 id="pg-ct-h">Contact us</h2><p>Questions, ideas or something not working? Email us at</p>
     <div class="pg-ct-mail"><span>${CONTACT_EMAIL}</span><button class="pg-ct-copy">Copy</button></div>
+    ${window.pgBugReport ? `<button class="pg-ct-bug">${BUG_SVG}<span>Report a bug</span></button>` : ''}
     <div class="pg-out-row pg-ct-row"><a class="pg-ct-btn" target="_blank" rel="noopener" href="https://mail.google.com/mail/u/0/?view=cm&to=${encodeURIComponent(CONTACT_EMAIL)}&su=${su}">Open in Gmail</a><a class="pg-ct-btn" href="mailto:${CONTACT_EMAIL}?subject=${su}">Email app</a><button class="pg-out-no">Close</button></div></div>`;
   const close = () => { m.remove(); document.removeEventListener('keydown', key); }, key = e => { if (e.key === 'Escape') close(); };
   m.onclick = e => { if (e.target === m) close(); }; m.querySelector('.pg-out-no').onclick = close;
+  { const bb = m.querySelector('.pg-ct-bug'); if (bb) bb.onclick = () => { close(); setTimeout(() => window.pgBugReport && window.pgBugReport(), 200); }; }
   // On a computer, Gmail opens in its own small window sized to the message, rather than a full tab with empty sides.
   m.querySelector('.pg-ct-btn[target]').onclick = e => { if (!matchMedia('(pointer: fine)').matches || innerWidth < 700) return;
     const w = 760, h = 680, x = Math.max(0, (screenX || 0) + (outerWidth - w) / 2), y = Math.max(0, (screenY || 0) + (outerHeight - h) / 2);
@@ -584,6 +591,27 @@ function wireDie(root) {
       ok.onclick = done; w.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); done(); } }); return w; }
   window.pgPreviewWelcome = (wm, nx) => { const ex = document.getElementById('pg-msg'); if (ex) ex.remove(); pgFlow(Object.assign({ id: 'preview' }, wm), nx ? Object.assign({ id: 'preview2' }, nx) : null);
     setTimeout(() => { const c = document.getElementById('pg-msg'); if (c) c.dataset.k = 'preview'; }, 0); };
+  // Bug reports: a small window (the bug button on a sheet, or Contact us) that lands in the admin page's Bug reports
+  // tab. When an admin marks one fixed, its sender gets a note in the corner — on whatever page is open, right away or
+  // the next time they open the site.
+  const bugsCol = fs.collection('bugs');
+  window.pgBugReport = () => { if (document.querySelector('.pg-out')) return; const m = document.createElement('div'); m.className = 'pg-out'; pgOutFade(m);
+    m.innerHTML = `<div class="pg-out-card pg-bug-card" role="dialog" aria-modal="true" aria-labelledby="pg-bug-h"><h2 id="pg-bug-h">Report a bug</h2><p>Something not working right? Tell us what happened and we’ll take a look. You’ll get a note when it’s fixed.</p>
+      <label class="pg-bug-l">Summary<input class="pg-bug-s" maxlength="120" placeholder="e.g. Spell slots don’t come back on a long rest" autocomplete="off"></label>
+      <label class="pg-bug-l">What happened<textarea class="pg-bug-d" rows="6" placeholder="What you did, what you expected, and what happened instead"></textarea></label>
+      <div class="pg-out-row"><button class="pg-out-no">Cancel</button><button class="pg-out-yes" disabled>Send</button></div></div>`;
+    const close = () => { m.remove(); document.removeEventListener('keydown', key); }, key = e => { if (e.key === 'Escape') close(); };
+    const sm = m.querySelector('.pg-bug-s'), ds = m.querySelector('.pg-bug-d'), ok = m.querySelector('.pg-out-yes');
+    sm.oninput = () => { ok.disabled = !sm.value.trim(); }; m.onclick = e => { if (e.target === m) close(); }; m.querySelector('.pg-out-no').onclick = close;
+    ok.onclick = async () => { ok.disabled = true; ok.textContent = 'Sending…'; let ch = ''; try { ch = (window.sheetState && window.sheetState().name) || ''; } catch (e) {}
+      try { await bugsCol.add({ sum: sm.value.trim().slice(0, 120), desc: ds.value.trim().slice(0, 20000), by: EMAIL, byName: String(NAME || '').slice(0, 60), at: Date.now(), where: location.pathname.slice(0, 200), ch: String(ch).slice(0, 80), ua: navigator.userAgent.slice(0, 300), status: 'open' });
+        close(); pgCorner('<b>Thanks, your bug report was sent.</b><div class="det">We’ll let you know when it’s fixed.</div>'); }
+      catch (x) { ok.disabled = false; ok.textContent = 'Send'; pgCorner('<b>Couldn’t send it.</b><div class="det">' + escH(x && x.code === 'permission-denied' ? 'Try again in a little while.' : (x && x.message) || x) + '</div>'); } };
+    document.addEventListener('keydown', key); document.body.appendChild(m); setTimeout(() => sm.focus(), 50); };
+  bugsCol.where('by', '==', EMAIL).onSnapshot(qs => qs.docs.forEach(x => { const b = x.data(); if (b.status !== 'fixed' || b.seen) return;
+    const k = 'pg-bugfix-' + x.id; let done = ''; try { done = localStorage.getItem(k) || ''; } catch (e) {} if (done === String(b.fixedAt)) return;
+    try { localStorage.setItem(k, String(b.fixedAt)); } catch (e) {} x.ref.update({ seen: true }).catch(() => {});
+    pgCorner(`<b>Bug fixed: ${escH(b.sum)}</b><div class="det">Thanks for reporting it!</div>`, 12000); }), () => {});
   window.pgPreview = (m, k) => { const ex = document.getElementById('pg-msg'); if (ex) ex.remove(); pgCard(Object.assign({ id: 'preview' }, m), k); document.getElementById('pg-msg').dataset.k = 'preview'; };
   const UCACHE = {}, userDoc = em => UCACHE[em] || (UCACHE[em] = fs.collection('users').doc(em).get().then(x => x.exists ? x.data() : null, () => null));
 
@@ -1441,9 +1469,9 @@ function hub(fs, auth, G, ctx) {
     if (!window.PG_NF) { window.PG_NF = 1; document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-newfor]'); if (b) pgGo(URLS.newChar(G, b.dataset.newfor, nameOf(b.dataset.newfor))); }); }
     const UREF = usersCol.doc(EMAIL); let CHECKED = Number(ME && ME.checkedAt) || 0;
     const UF0 = { role: '', act: '', joined: '' };
-    const T0 = ctx.tab === 'characters' ? 'chars' : ctx.tab; let TAB = ['users', 'chars', 'parties', 'new', 'audit', 'notice', 'welcome'].includes(T0) ? T0 : 'users'; if (T0 === 'admins') UF0.role = 'admin';
+    const T0 = ctx.tab === 'characters' ? 'chars' : ctx.tab; let TAB = ['users', 'chars', 'parties', 'new', 'audit', 'bugs', 'notice', 'welcome'].includes(T0) ? T0 : 'users'; if (T0 === 'admins') UF0.role = 'admin';
     const CH = {}, US = {}; // characters and accounts on screen
-    let NEWN = null;
+    let NEWN = null, BUGN = 0;
     const setTab = t => { TAB = t; history.replaceState(null, '', URLS.admin(G, t === 'chars' ? 'characters' : t)); frame(); };
     const ic = {
       audit: '<path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',
@@ -1451,6 +1479,7 @@ function hub(fs, auth, G, ctx) {
       chars: '<path d="M4 4h11a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3z"/><path d="M4 17a3 3 0 0 1 3-3h11"/><path d="M8 8h6"/>',
       parties: '<circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M2.5 20c.6-3.3 2.8-5.5 5.5-5.5s4.9 2.2 5.5 5.5M10.5 20c.6-3.3 2.8-5.5 5.5-5.5s4.9 2.2 5.5 5.5"/>',
       admins: '<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+      bugs: '<path d="M9 7.5V6a3 3 0 0 1 6 0v1.5"/><rect x="7" y="7.5" width="10" height="12.5" rx="5"/><path d="M12 11v9M3.5 13H7M17 13h3.5M4.5 8l2.6 1.8M19.5 8l-2.6 1.8M4.5 19.5l2.8-2M19.5 19.5l-2.8-2"/>',
       welcome: '<path d="M4 11.5 12 5l8 6.5V20a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1z"/>',
       notice: '<path d="M3 10v4a1 1 0 0 0 1 1h3l6 4V5L7 9H4a1 1 0 0 0-1 1z"/><path d="M17 8.5a5 5 0 0 1 0 7M19.8 6a8.5 8.5 0 0 1 0 12"/>',
       new: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
@@ -1461,6 +1490,7 @@ function hub(fs, auth, G, ctx) {
       parties: ['Parties', 'Every party on the site, most recently active first. Change who the DM is, choose which ones show in your own list, or open or delete any of them.'],
       admins: ['Admins', 'Admins can open and edit every character, manage users and see new accounts.'],
       new: ['New', 'Accounts and characters that appeared since you last marked this as read.'],
+      bugs: ['Bug reports', 'What people have reported with the bug button (on a sheet, or in Contact us), newest first; new ones show up the moment they’re sent. Mark one fixed and its sender gets a note in the corner of whatever page they have open — or the next time they open the site.'],
       welcome: ['Welcome', 'What every new account sees the first time it signs in. If a notice is out, a Next button takes them on to it. Off until you turn it on.'],
       notice: ['Notice', 'A message to everyone: it pops up once for every account, from “Adventurer’s Tome” (nobody sees who sent it), right away if they have the site open, otherwise the next time they do.'],
       audit: ['Audit log', 'Everything people have done on the site: sign-ins, characters opened, created, edited, shared and deleted, and admin actions. Search, or filter by date, person or activity; tap an event for its details. Events are kept for 7 days.'] };
@@ -1530,9 +1560,9 @@ function hub(fs, auth, G, ctx) {
     if (!TOUCH && !document.querySelector('.pg-sb')) sheetScrollbar();
     function frame() { frame0(); navPost(); }
     function frame0() {
-      const nav = (k, label) => `<button class="adm-ni${TAB === k ? ' on' : ''}" data-tab="${k}">${svg(k)}<span>${label}</span>${k === 'new' && NEWN ? `<b class="adm-badge">${NEWN}</b>` : ''}</button>`;
+      const nav = (k, label) => `<button class="adm-ni${TAB === k ? ' on' : ''}" data-tab="${k}">${svg(k)}<span>${label}</span>${k === 'new' && NEWN ? `<b class="adm-badge">${NEWN}</b>` : k === 'bugs' && BUGN ? `<b class="adm-badge">${BUGN}</b>` : ''}</button>`;
       const [title, desc] = PAGES[TAB];
-      const navHTML = `<div class="adm-sec">Manage</div>${nav('users', 'Users')}${nav('chars', 'Characters')}${nav('parties', 'Parties')}<div class="adm-sec">Activity</div>${nav('audit', 'Audit log')}${nav('new', 'New')}<div class="adm-sec">Announce</div>${nav('notice', 'Notice')}${nav('welcome', 'Welcome')}`;
+      const navHTML = `<div class="adm-sec">Manage</div>${nav('users', 'Users')}${nav('chars', 'Characters')}${nav('parties', 'Parties')}<div class="adm-sec">Activity</div>${nav('audit', 'Audit log')}${nav('new', 'New')}${nav('bugs', 'Bug reports')}<div class="adm-sec">Announce</div>${nav('notice', 'Notice')}${nav('welcome', 'Welcome')}`;
       // Switching tabs only swaps the page on the right: the sidebar (and where its tab strip is scrolled to on a phone) stays put.
       const nv0 = root.querySelector('.adm-nav');
       if (nv0) { const x = nv0.scrollLeft; nv0.innerHTML = navHTML; nv0.scrollLeft = x;
@@ -1543,13 +1573,13 @@ function hub(fs, auth, G, ctx) {
         const kept = !again && PANES[TAB];
         if (kept) { curB.replaceWith(kept.b); curH.replaceWith(kept.h); PREV_TAB = TAB; nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab)); scrollTo(0, 0);
           // …and quietly brings it up to date behind the scenes
-          ({ new: () => tabNew(), users: () => paintUsers(), chars: () => paintChars(), parties: () => tabParties(), audit: () => paintAudit(), notice: () => tabNotice(), welcome: () => tabWelcome() })[TAB](); return; }
+          ({ new: () => tabNew(), users: () => paintUsers(), chars: () => paintChars(), parties: () => tabParties(), audit: () => paintAudit(), notice: () => tabNotice(), welcome: () => tabWelcome(), bugs: () => paintBugs() })[TAB](); return; }
         const nb = document.createElement('section'); nb.id = 'ad-body'; nb.className = 'adm-body'; nb.innerHTML = '<p class="adm-dim">Loading…</p>';
         const nh = document.createElement('div'); nh.id = 'adm-hact'; nh.className = 'adm-hact';
         if (again) { curB.replaceWith(nb); curH.replaceWith(nh); } else { curB.replaceWith(nb); curH.replaceWith(nh); } delete PANES[TAB]; PREV_TAB = TAB;
         nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
         const on = nv0.querySelector('.adm-ni.on'); if (on && on.scrollIntoView) { const r = on.getBoundingClientRect(), nr = nv0.getBoundingClientRect(); if (r.left < nr.left || r.right > nr.right) nv0.scrollBy({ left: r.left < nr.left ? r.left - nr.left - 12 : r.right - nr.right + 12, behavior: 'smooth' }); }
-        ({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit, notice: tabNotice, welcome: tabWelcome })[TAB](); return; }
+        ({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit, notice: tabNotice, welcome: tabWelcome, bugs: tabBugs })[TAB](); return; }
       const keepLogo = root.querySelector('.hub-logo');
       root.innerHTML = `<div class="adm"><aside class="adm-side">
           <div class="adm-brand">${logoHTML()}</div>
@@ -1562,7 +1592,7 @@ function hub(fs, auth, G, ctx) {
       PREV_TAB = TAB;
       root.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
       { const o = root.querySelector('#adm-out'); if (o) o.onclick = signOut; }
-      ({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit, notice: tabNotice, welcome: tabWelcome })[TAB]();
+      ({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit, notice: tabNotice, welcome: tabWelcome, bugs: tabBugs })[TAB]();
     }
     const B = () => root.querySelector('#ad-body'), HA = () => root.querySelector('#adm-hact');
     // ⋯ menus float above everything (moved to the top of the page while open), so a table never grows a scrollbar for them.
@@ -1717,8 +1747,8 @@ function hub(fs, auth, G, ctx) {
     // --- Audit log ---
     const ACTS = { signin: 'Signed in', account: 'Created their account', signout: 'Signed out', open: 'Opened', create: 'Created', edit: 'Edited', delete: 'Deleted', give: 'Gave away', remove: 'Removed from the lists',
       share: 'Shared', unshare: 'Stopped sharing', access: 'Changed access to', leave: 'Gave up access to', picture: 'Changed their picture',
-      rename_user: 'Renamed', admin_add: 'Made an admin:', admin_remove: 'Removed admin:', user_picture: 'Changed the picture of', user_signout: 'Signed out everywhere:', user_block: 'Blocked', user_unblock: 'Unblocked', user_delete: 'Deleted the account of', message: 'Sent a message to', notice: 'Sent a notice to', notice_revoke: 'Revoked the notice to', welcome: 'Saved the welcome message for', welcome_off: 'Turned off the welcome message for', welcome_reset: 'Reset the welcome message for', user_reload: 'Refreshed the pages of' };
-    const AGROUPS = [['Signing in', ['signin', 'account', 'signout']], ['Characters', ['open', 'create', 'edit', 'delete', 'give', 'remove']], ['Sharing', ['share', 'unshare', 'access', 'leave']], ['Pictures', ['picture', 'user_picture']], ['Admin', ['rename_user', 'admin_add', 'admin_remove', 'user_signout', 'user_block', 'user_unblock', 'user_delete', 'message', 'notice', 'notice_revoke', 'welcome', 'welcome_off', 'welcome_reset', 'user_reload']]];
+      rename_user: 'Renamed', admin_add: 'Made an admin:', admin_remove: 'Removed admin:', user_picture: 'Changed the picture of', user_signout: 'Signed out everywhere:', user_block: 'Blocked', user_unblock: 'Unblocked', user_delete: 'Deleted the account of', message: 'Sent a message to', notice: 'Sent a notice to', notice_revoke: 'Revoked the notice to', notice_edit: 'Edited the notice to', welcome: 'Saved the welcome message for', welcome_off: 'Turned off the welcome message for', welcome_reset: 'Reset the welcome message for', user_reload: 'Refreshed the pages of' };
+    const AGROUPS = [['Signing in', ['signin', 'account', 'signout']], ['Characters', ['open', 'create', 'edit', 'delete', 'give', 'remove']], ['Sharing', ['share', 'unshare', 'access', 'leave']], ['Pictures', ['picture', 'user_picture']], ['Admin', ['rename_user', 'admin_add', 'admin_remove', 'user_signout', 'user_block', 'user_unblock', 'user_delete', 'message', 'notice', 'notice_revoke', 'notice_edit', 'welcome', 'welcome_off', 'welcome_reset', 'user_reload']]];
     const CHAR_ACTS = new Set(['open', 'create', 'edit', 'delete', 'give', 'remove', 'share', 'unshare', 'access', 'leave']);
     let AF = { who: [], act: [], q: '', from: '', to: '', range: '' }, AROWS, AOPEN = {} = [], ALAST = null, AFULL = false, APEOPLE = null;
     const auditCol = fs.collection('audit');
@@ -1890,27 +1920,55 @@ function hub(fs, auth, G, ctx) {
     const copyText = async (t, b) => { try { await navigator.clipboard.writeText(t); } catch (e) { const x = document.createElement('textarea'); x.value = t; x.style.position = 'fixed'; x.style.opacity = '0'; document.body.appendChild(x); x.select(); try { document.execCommand('copy'); } catch (e2) {} x.remove(); }
       if (b) { const t0 = b.textContent; b.textContent = 'Copied'; setTimeout(() => { b.textContent = t0; }, 1500); } };
     const cfgCol = fs.collection('config');
+    // "Who's seen it": a window listing who has (and, if given, who hasn't yet) — for notices and the welcome message
+    const whoSeen = (all, text, who, not, note) => { const byId = Object.fromEntries(all.map(u => [u.id, u]));
+      const list = ids => ids.map(id => byId[id] || { id }).sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id))).map(u => `<div class="nt-sl-row">${ava(u.name, u.id)}<span><b>${esc(u.name || u.id)}</b><small>${esc(u.id)}</small></span></div>`).join('');
+      modal.innerHTML = `<div class="hub-card nt-sl"><h2>Who’s seen it</h2><p class="hub-hint">“${esc(String(text || '').slice(0, 120))}${String(text || '').length > 120 ? '…' : ''}”</p>
+        ${who ? `<h4 class="pw-h4">Seen (${who.length})</h4>${who.length ? `<div class="nt-sl-list">${list(who)}</div>` : '<p class="hub-hint">Nobody yet.</p>'}` : `<p class="hub-hint">${esc(note || '')}</p>`}
+        ${not ? `<h4 class="pw-h4">Not seen yet (${not.length})</h4>${not.length ? `<div class="nt-sl-list">${list(not)}</div>` : '<p class="hub-hint">Everyone’s seen it.</p>'}` : ''}
+        <div class="row"><button class="btn gold" id="sl-x">Close</button></div></div>`;
+      modal.classList.add('on'); modal.querySelector('#sl-x').onclick = close; };
     async function tabNotice() {
       const el = B(); HA().innerHTML = ''; let all = [], log = [];
       try { [all, log] = await Promise.all([usersCol.limit(2000).get().then(docs), noticesCol.orderBy('at', 'desc').limit(200).get().then(docs)]); } catch (x) { el.innerHTML = failMsg(x); return; }
       const live = log.find(n => !n.endedAt) || null;
-      const seenOf = n => all.filter(u => u.noticeSeen === n.id).length, gotOf = n => all.filter(u => u.notice && u.notice.id === n.id);
+      const seenWho = n => all.filter(u => u.noticeSeen === n.id).map(u => u.id), seenOf = n => seenWho(n).length, gotOf = n => all.filter(u => u.notice && u.notice.id === n.id);
       const stat = n => n.endedAt ? n.ended === 'revoked' ? 'Revoked' : 'Replaced' : 'Live';
-      const row = n => `<tr><td>${when(n.at)}</td><td class="nt-txt">${esc(String(n.text || '').slice(0, 240))}${String(n.text || '').length > 240 ? '…' : ''}</td><td>${esc(n.byName || n.by || '')}</td><td>${n.endedAt ? (n.seen || 0) : seenOf(n)} / ${n.sent || 0}</td><td><span class="adm-tag">${stat(n)}</span>${n.endedAt ? `<small class="adm-dim"> ${when(n.endedAt)}</small>` : ''}</td><td class="nt-acts"><button class="adm-btn sm" data-ntpv="${esc(n.id)}">Preview</button><button class="adm-btn sm" data-ntcp="${esc(n.id)}">Copy</button></td></tr>`;
-      el.innerHTML = `<div class="adm-stats"><div class="adm-stat"><small>Goes to</small><b>${all.length}</b></div>${live ? `<div class="adm-stat"><small>Current notice seen by</small><b>${seenOf(live)} / ${live.sent || 0}</b></div>` : ''}</div>
-        ${live ? `<p class="adm-note"><b>Current notice</b> (sent ${esc(new Date(live.at).toLocaleString())}):<br>“${esc(String(live.text).slice(0, 400))}${String(live.text).length > 400 ? '…' : ''}”</p><div class="row"><button class="adm-btn" id="nt-rv">Revoke it</button></div>` : '<p class="adm-note">No notice is out right now.</p>'}
+      const row = n => `<tr><td>${when(n.at)}</td><td class="nt-txt">${esc(String(n.text || '').slice(0, 240))}${String(n.text || '').length > 240 ? '…' : ''}</td><td>${esc(n.byName || n.by || '')}</td><td><button class="linkbtn nt-seen" data-ntseen="${esc(n.id)}" title="Who’s seen it">${n.endedAt ? (n.seen || 0) : seenOf(n)} / ${n.sent || 0}</button></td><td><span class="adm-tag">${stat(n)}</span>${n.endedAt ? `<small class="adm-dim"> ${when(n.endedAt)}</small>` : ''}</td><td class="nt-acts"><button class="adm-btn sm" data-ntpv="${esc(n.id)}">Preview</button><button class="adm-btn sm" data-ntcp="${esc(n.id)}">Copy</button></td></tr>`;
+      el.innerHTML = `<div class="adm-stats"><div class="adm-stat"><small>Goes to</small><b>${all.length}</b></div>${live ? `<button class="adm-stat nt-seenstat" data-ntseen="${esc(live.id)}" title="Who’s seen it"><small>Current notice seen by</small><b>${seenOf(live)} / ${live.sent || 0}</b></button>` : ''}</div>
+        ${live ? `<div id="nt-cur"><p class="adm-note"><b>Current notice</b> (sent ${esc(new Date(live.at).toLocaleString())}${live.editedAt ? ', edited ' + esc(new Date(live.editedAt).toLocaleString()) : ''}):<br>“${esc(String(live.text).slice(0, 400))}${String(live.text).length > 400 ? '…' : ''}”</p><div class="row"><button class="adm-btn" id="nt-ed">Edit</button><button class="adm-btn" id="nt-rv">Revoke it</button></div></div>` : '<p class="adm-note">No notice is out right now.</p>'}
         <h3 class="nt-h">New notice</h3><textarea id="nt-t" class="ad-search pm-t" rows="7" placeholder="Your notice"></textarea>${NT_FMT}
         ${live ? '<p class="adm-note">Sending it replaces the current notice for anyone who hasn’t seen it yet.</p>' : ''}<div class="row"><label class="nt-wl">Window width ${ntWSel('nt-w')}</label><button class="adm-btn" id="nt-pv" disabled>Preview</button><button class="adm-btn primary" id="nt-ok" disabled>Send to everyone</button></div>
         <h3 class="nt-h">Past notices</h3>${log.length ? `<div class="adm-tw"><table class="adm-t"><thead><tr><th>Sent</th><th>Notice</th><th>By</th><th>Seen</th><th>Status</th><th></th></tr></thead><tbody>${log.map(row).join('')}</tbody></table></div>` : '<p class="adm-dim">None yet.</p>'}`;
       // ends the live notice: takes it off everyone who still holds it, and keeps how many saw it
       const end = async (n, how) => { const hold = gotOf(n);
         for (let i = 0; i < hold.length; i += 400) { const bt = fs.batch(); hold.slice(i, i + 400).forEach(u => bt.update(usersCol.doc(u.id), { notice: FV.delete() })); await bt.commit(); }
-        await noticesCol.doc(n.id).update({ endedAt: Date.now(), ended: how, seen: seenOf(n) }); if (how === 'revoked') await cfgCol.doc('notice').delete(); };
+        await noticesCol.doc(n.id).update({ endedAt: Date.now(), ended: how, seen: seenOf(n), seenBy: seenWho(n) }); if (how === 'revoked') await cfgCol.doc('notice').delete(); };
       const ta = el.querySelector('#nt-t'), ok = el.querySelector('#nt-ok'), pv = el.querySelector('#nt-pv'); ta.oninput = () => { ok.disabled = pv.disabled = !ta.value.trim(); };
       pv.onclick = () => { const text = ta.value.trim().slice(0, 200000); if (text) window.pgPreview({ text, at: Date.now(), anon: true, w: Number(el.querySelector('#nt-w').value) }, 'notice'); };
       el.querySelectorAll('[data-ntpv]').forEach(b => b.onclick = () => { const n = log.find(x => x.id === b.dataset.ntpv); if (n) window.pgPreview({ text: n.text, at: n.at, anon: true, w: n.w }, 'notice'); });
       // Copy: the notice exactly as it was typed (formatting marks and all), ready to paste back in or anywhere else
       el.querySelectorAll('[data-ntcp]').forEach(b => b.onclick = () => { const n = log.find(x => x.id === b.dataset.ntcp); if (n) copyText(String(n.text || ''), b); });
+      // Edit the notice that's out: anyone who hasn't seen it yet gets the new version; anyone who has isn't shown it again
+      const ed = el.querySelector('#nt-ed');
+      if (ed) ed.onclick = () => { const box = el.querySelector('#nt-cur');
+        box.innerHTML = `<p class="adm-note"><b>Edit the current notice.</b> People who’ve already seen it won’t see it again; everyone who hasn’t gets this version.</p>
+          <textarea id="ne-t" class="ad-search pm-t" rows="9">${esc(live.text || '')}</textarea>${NT_FMT}
+          <div class="row"><label class="nt-wl">Window width ${ntWSel('ne-w', live.w)}</label><button class="adm-btn" id="ne-x">Cancel</button><button class="adm-btn" id="ne-pv">Preview</button><button class="adm-btn primary" id="ne-ok">Save changes</button></div>`;
+        const et = box.querySelector('#ne-t'), ev = () => ({ text: et.value.trim().slice(0, 200000), w: Number(box.querySelector('#ne-w').value) || 720 }); et.focus();
+        box.querySelector('#ne-x').onclick = () => tabNotice();
+        box.querySelector('#ne-pv').onclick = () => { const v = ev(); if (v.text) window.pgPreview({ text: v.text, at: live.at, anon: true, w: v.w }, 'notice'); };
+        box.querySelector('#ne-ok').onclick = async e => { const v = ev(), b = e.currentTarget; if (!v.text) return toast('The notice can’t be empty.'); b.disabled = true;
+          const m = { id: live.id, text: v.text, at: live.at, anon: true, w: v.w }, unseen = gotOf(live).filter(u => u.noticeSeen !== live.id);
+          try { await noticesCol.doc(live.id).update({ text: v.text, w: v.w, editedAt: Date.now() }); await cfgCol.doc('notice').set(m);
+            for (let i = 0; i < unseen.length; i += 400) { const bt = fs.batch(); unseen.slice(i, i + 400).forEach(u => bt.update(usersCol.doc(u.id), { notice: m })); await bt.commit(); }
+            pgLog('notice_edit', { target: 'everyone', tName: 'everyone', detail: v.text }); toast('Notice updated for the ' + unseen.length + ' who haven’t seen it yet.'); }
+          catch (x) { b.disabled = false; return toast('Couldn’t save it: ' + ((x && (x.code === 'permission-denied' ? 'the new database rules need publishing' : x.message)) || x)); }
+          if (TAB === 'notice') tabNotice(); }; };
+      // Who's seen a notice (and, while it's out, who hasn't yet)
+      el.querySelectorAll('[data-ntseen]').forEach(b => b.onclick = () => { const n = log.find(x => x.id === b.dataset.ntseen); if (!n) return;
+        const who = n.endedAt ? n.seenBy : seenWho(n);
+        whoSeen(all, n.text, who, n.endedAt ? null : gotOf(n).map(u => u.id).filter(id => !(who || []).includes(id) && id !== EMAIL), who ? '' : 'This notice ended before the list of who saw it was kept: ' + (n.seen || 0) + ' people saw it.'); });
       const rv = el.querySelector('#nt-rv');
       if (rv) rv.onclick = async () => { if (!await ask('Revoke this notice?', 'It disappears for everyone who hasn’t seen it yet (and closes if it’s on their screen). It stays in the log.', 'Revoke', true)) return;
         rv.disabled = true; try { await end(live, 'revoked'); pgLog('notice_revoke', { target: 'everyone', tName: 'everyone', detail: live.text }); toast('Notice revoked.'); } catch (x) { toast('Couldn’t revoke it: ' + ((x && (x.code === 'permission-denied' ? 'the new database rules need publishing' : x.message)) || x)); } if (TAB === 'notice') tabNotice(); };
@@ -1919,18 +1977,44 @@ function hub(fs, auth, G, ctx) {
         ok.disabled = true; ok.textContent = 'Sending…';
         const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6), m = { id, text, at: Date.now(), anon: true, w: Number(el.querySelector('#nt-w').value) || 720 };
         try { await noticesCol.doc(id).set({ text, w: m.w, at: m.at, by: EMAIL, byName: String((ME && ME.name) || EMAIL), sent: all.length });
-          if (live) await noticesCol.doc(live.id).update({ endedAt: Date.now(), ended: 'replaced', seen: seenOf(live) });
+          if (live) await noticesCol.doc(live.id).update({ endedAt: Date.now(), ended: 'replaced', seen: seenOf(live), seenBy: seenWho(live) });
           await cfgCol.doc('notice').set(m); /* the one that's out, for accounts made after it was sent (shown after the welcome) */
           for (let i = 0; i < all.length; i += 400) { const bt = fs.batch(); all.slice(i, i + 400).forEach(u => bt.update(usersCol.doc(u.id), u.id === EMAIL ? { notice: m, noticeSeen: id } : { notice: m })); /* (the sender has seen it) */ await bt.commit(); }
           pgLog('notice', { target: 'everyone', tName: 'everyone', detail: text }); toast('Notice sent to ' + all.length + ' accounts.'); }
         catch (x) { ok.disabled = false; ok.textContent = 'Send to everyone'; toast('Couldn’t send it: ' + ((x && (x.code === 'permission-denied' ? 'the new database rules need publishing' : x.message)) || x)); return; }
         if (TAB === 'notice') tabNotice(); };
     }
+    // --- Bug reports: live, newest first; open ones counted on the tab ---
+    const bugsAdm = fs.collection('bugs'); let BROWS = null, BLIVE = null, BF = 'open', BCHECKED = Number(ME && ME.bugsCheckedAt) || 0; // (new = sent since you last marked them read, like the New tab)
+    const bugBadge = () => { const t = root.querySelector('[data-tab="bugs"]'); if (!t) return; const bd = t.querySelector('.adm-badge'); if (BUGN && !bd) t.insertAdjacentHTML('beforeend', `<b class="adm-badge">${BUGN}</b>`); else if (bd) BUGN ? (bd.textContent = BUGN) : bd.remove(); };
+    const bugsLive = () => { if (!BLIVE) BLIVE = bugsAdm.orderBy('at', 'desc').limit(500).onSnapshot(qs => { BROWS = docs(qs); BUGN = BROWS.filter(b => (b.at || 0) > BCHECKED).length; bugBadge(); if (TAB === 'bugs') paintBugs(); }, x => { const l = B() && B().querySelector('#bg-l'); if (l) l.innerHTML = failMsg(x); }); };
+    const browserOf = ua => { ua = String(ua || ''); const b = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : ''; return [b, /iPhone|iPad|Android/.test(ua) ? 'phone' : ''].filter(Boolean).join(' · '); };
+    function tabBugs() { const el = B(); HA().innerHTML = '';
+      el.innerHTML = `<div class="adm-filters"><div class="adm-fsels"><select class="adm-sel" id="bg-f" aria-label="Show"><option value="open">Open</option><option value="fixed">Fixed</option><option value="all">All</option></select></div></div><div id="bg-l"><p class="adm-dim">Loading…</p></div>`;
+      const f = el.querySelector('#bg-f'); f.value = BF; f.onchange = () => { BF = f.value; paintBugs(); }; bugsLive(); if (BROWS) paintBugs(); }
+    function paintBugs() { const l = B() && B().querySelector('#bg-l'); if (!l || !BROWS) return;
+      if (TAB === 'bugs') { HA().innerHTML = BUGN ? '<button class="adm-btn primary" id="bg-seen">Mark as read</button>' : ''; const sb = HA().querySelector('#bg-seen');
+        if (sb) sb.onclick = async () => { const t = Date.now(); try { await UREF.update({ bugsCheckedAt: t }); BCHECKED = t; BUGN = 0; bugBadge(); paintBugs(); toast('Marked as read.'); } catch (x) { toast('Couldn\'t save that: ' + (x.message || x)); } }; }
+      const rows = BROWS.filter(b => BF === 'all' || (BF === 'fixed' ? b.status === 'fixed' : b.status !== 'fixed'));
+      l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t bg-t"><thead><tr><th>Reported</th><th>From</th><th>Bug</th><th>Where</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(b => `<tr>
+          <td>${when(b.at)}</td><td><span class="adm-who">${ava(b.byName, b.by)}<span><b>${esc(b.byName || b.by)}</b><small class="adm-mail">${esc(b.by)}</small></span></span></td>
+          <td class="bg-txt">${(b.at || 0) > BCHECKED ? '<span class="adm-tag bg-new">New</span> ' : ''}<b>${esc(b.sum)}</b>${b.desc ? `<div class="bg-desc">${esc(b.desc)}</div>` : ''}</td>
+          <td class="bg-where">${b.ch ? `<b>${esc(b.ch)}</b><br>` : ''}<a href="${esc(b.where || '/')}" target="_blank" rel="noopener">${esc(b.where || '/')}</a>${browserOf(b.ua) ? `<br><small class="adm-dim" title="${esc(b.ua)}">${esc(browserOf(b.ua))}</small>` : ''}</td>
+          <td>${b.status === 'fixed' ? `<span class="adm-tag r-own">Fixed</span><br><small class="adm-dim">${when(b.fixedAt)}${b.seen ? ' · they’ve seen it' : ''}</small>` : '<span class="adm-tag">Open</span>'}</td>
+          <td class="nt-acts">${b.status === 'fixed' ? `<button class="adm-btn sm" data-bg="open" data-id="${esc(b.id)}">Reopen</button>` : `<button class="adm-btn sm primary" data-bg="fixed" data-id="${esc(b.id)}">Mark fixed</button>`}<button class="adm-btn sm" data-bg="del" data-id="${esc(b.id)}">Delete</button></td></tr>`).join('')}</tbody></table></div>`
+        : `<p class="adm-empty">${BF === 'fixed' ? 'Nothing marked fixed yet.' : BF === 'open' ? 'No open bug reports.' : 'No bug reports yet.'}</p>`;
+      l.querySelectorAll('[data-bg]').forEach(b => b.onclick = async () => { const id = b.dataset.id, x = BROWS.find(y => y.id === id) || {}, act = b.dataset.bg; b.disabled = true;
+        try { if (act === 'fixed') { await bugsAdm.doc(id).update({ status: 'fixed', fixedAt: Date.now(), fixedBy: EMAIL, seen: false }); toast('Marked fixed. ' + (x.byName || x.by || 'They') + ' will get a note.'); }
+          else if (act === 'open') { await bugsAdm.doc(id).update({ status: 'open', fixedAt: FV.delete(), fixedBy: FV.delete(), seen: FV.delete() }); toast('Reopened.'); }
+          else { if (!await ask('Delete this bug report?', esc(x.sum || ''), 'Delete', true)) { b.disabled = false; return; } await bugsAdm.doc(id).delete(); toast('Bug report deleted.'); } }
+        catch (y) { b.disabled = false; toast('Couldn’t do that: ' + ((y && (y.code === 'permission-denied' ? 'the new database rules need publishing' : y.message)) || y)); } });
+    }
+    setTimeout(bugsLive, 1200); // the open count shows on the tab from any admin page
     // --- Welcome: the message every new account sees the first time it signs in (then the current notice, with Next) ---
     async function tabWelcome() {
       const el = B(); HA().innerHTML = ''; let all = [], wel = null, live = null;
       try { [all, wel, live] = await Promise.all([usersCol.limit(2000).get().then(docs), cfgCol.doc('welcome').get().then(d => d.exists ? d.data() : null, () => null), cfgCol.doc('notice').get().then(d => d.exists ? d.data() : null, () => null)]); } catch (x) { el.innerHTML = failMsg(x); return; }
-      el.innerHTML = `<div class="adm-stats"><div class="adm-stat"><small>Status</small><b>${wel && wel.on ? 'On' : 'Off'}</b></div><div class="adm-stat"><small>Seen by</small><b>${all.filter(u => u.welcomeSeen).length}</b></div></div>
+      el.innerHTML = `<div class="adm-stats"><div class="adm-stat"><small>Status</small><b>${wel && wel.on ? 'On' : 'Off'}</b></div><button class="adm-stat nt-seenstat" id="wl-seen" title="Who’s seen it"><small>Seen by</small><b>${all.filter(u => u.welcomeSeen).length}</b></button></div>
         <p class="adm-note">${wel && wel.on ? `New accounts see this the first time they sign in${live ? ', then the current notice (with a Next button)' : ''}.` : 'Nothing is shown yet. Edit the message below, check it with Preview, then <b>Save and turn on</b>.'}</p>
         <textarea id="wl-t" class="ad-search pm-t" rows="12" placeholder="Welcome message">${esc((wel && wel.text) || WELCOME0)}</textarea>${NT_FMT}
         <div class="row"><label class="nt-wl">Window width ${ntWSel('wl-w', wel && wel.w)}</label><button class="adm-btn" id="wl-pv">Preview</button><button class="adm-btn" id="wl-cp">Copy</button>${wel && wel.on ? '<button class="adm-btn" id="wl-off">Turn off</button>' : ''}<button class="adm-btn primary" id="wl-ok">${wel && wel.on ? 'Save changes' : 'Save and turn on'}</button></div>`;
@@ -1938,6 +2022,9 @@ function hub(fs, auth, G, ctx) {
       const wt = el.querySelector('#wl-t'), wv = () => ({ text: wt.value.trim().slice(0, 200000), w: Number(el.querySelector('#wl-w').value) || 720 }), fail = x => toast('Couldn’t save it: ' + ((x && (x.code === 'permission-denied' ? 'the new database rules need publishing' : x.message)) || x));
       el.querySelector('#wl-pv').onclick = () => { const v = wv(); if (v.text) window.pgPreviewWelcome(Object.assign({ at: Date.now(), anon: true }, v), live ? { text: live.text, at: live.at, anon: true, w: live.w } : null); };
       el.querySelector('#wl-cp').onclick = e => copyText(wt.value, e.currentTarget);
+      // seen: everyone marked seen; not yet: accounts it's waiting for (made since it was turned on, or shown again to them)
+      el.querySelector('#wl-seen').onclick = () => whoSeen(all, (wel && wel.text) || wt.value, all.filter(u => u.welcomeSeen).map(u => u.id),
+        wel && wel.on ? all.filter(u => !u.welcomeSeen && u.id !== EMAIL && (u.welcomeReset || (Number(u.createdAt) >= Number(wel.since || 0) && Number(u.createdAt) > Date.now() - 30 * 864e5))).map(u => u.id) : null);
       el.querySelector('#wl-ok').onclick = async e => { const v = wv(), b = e.currentTarget; if (!v.text) return toast('Write the welcome message first.'); b.disabled = true;
         try { await cfgCol.doc('welcome').set(Object.assign(v, { on: true, at: Date.now(), by: EMAIL, since: (wel && wel.since) || Date.now() })); pgLog('welcome', { target: 'new accounts', tName: 'new accounts', detail: v.text }); toast(wel && wel.on ? 'Welcome message saved.' : 'Welcome message is on: new accounts will see it.'); }
         catch (x) { b.disabled = false; return fail(x); } if (TAB === 'welcome') tabWelcome(); };

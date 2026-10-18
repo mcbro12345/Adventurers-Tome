@@ -2867,3 +2867,8 @@ html.mobile .ptyh-btns { width: 100%; } html.mobile .ptyh-btns .btn { flex: 1; t
 .r20manual { margin: 4px 0 10px; } .r20manual summary { cursor: pointer; color: var(--slate); font-size: .88rem; }
 .r20steps a.btn { display: inline-flex; align-items: center; text-decoration: none; white-space: nowrap; }
 .r20go { margin: 6px 0 2px; } .r20note { display: block; margin-top: 6px; font-size: .82rem; }
+/* the bug-report button: on a phone it sits just right of Log in the top corner */
+html.mobile.hasbug .devbtn.bugbtn { position: absolute; top: 10px; right: 48px; }
+html.mobile.hasbug .devbtn.logbtn { right: 84px; }
+html.mobile.hasbug.realphone .devbtn.bugbtn, html.mobile.hasbug.pg-inphone .devbtn.bugbtn { right: 12px; }
+html.mobile.hasbug.realphone .devbtn.logbtn, html.mobile.hasbug.pg-inphone .devbtn.logbtn { right: 48px; }
