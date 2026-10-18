@@ -1546,6 +1546,8 @@ html.mobile .pg-pubrow .pg-publogo .hl-a { font-size: calc(var(--mls, 60px) * .1
 :where(body.hubbody) .pl-row.pty-prow > .hc-pic { width: 40px; height: 40px; border-radius: 9px; }
 :where(body.hubbody) .pl-row.pty-prow > .pty-go { font-size: .82rem; }
 :where(body.hubbody) .pl-row.pty-prow .pty-ct b { min-width: 0; }
+/* (.pl-row spans stretch, fade and break anywhere — not the name and details here) */
+:where(body.hubbody) .pl-row.pty-prow > .pty-ct { flex: 1; min-width: 0; opacity: 1; font-size: inherit; word-break: normal; overflow-wrap: anywhere; }
 :where(body.hubbody) .pw .pl-list { display: flex; flex-direction: column; gap: 6px; }
 :where(body.hubbody) .pw .pl-row .sh-who { flex-direction: row; gap: 0 8px; }
 :where(body.hubbody) .pw-foot .btn.ghost { color: inherit; border-color: rgba(127,127,127,.35); background: transparent; }
