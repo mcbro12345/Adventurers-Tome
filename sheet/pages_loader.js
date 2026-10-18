@@ -1921,13 +1921,15 @@ function hub(fs, auth, G, ctx) {
       if (b) { const t0 = b.textContent; b.textContent = 'Copied'; setTimeout(() => { b.textContent = t0; }, 1500); } };
     const cfgCol = fs.collection('config');
     // "Who's seen it": a window listing who has (and, if given, who hasn't yet) — for notices and the welcome message
-    const whoSeen = (all, text, who, not, note) => { const byId = Object.fromEntries(all.map(u => [u.id, u]));
+    const whoSeen = (all, text, who, not, note) => { const byId = Object.fromEntries(all.map(u => [u.id, u])); all.forEach(u => { if (!PICS[u.id]) PICS[u.id] = avaOf(u); }); // (their pictures)
       const list = ids => ids.map(id => byId[id] || { id }).sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id))).map(u => `<div class="nt-sl-row">${ava(u.name, u.id)}<span><b>${esc(u.name || u.id)}</b><small>${esc(u.id)}</small></span></div>`).join('');
       modal.innerHTML = `<div class="hub-card nt-sl"><h2>Who’s seen it</h2><p class="hub-hint">“${esc(String(text || '').slice(0, 120))}${String(text || '').length > 120 ? '…' : ''}”</p>
-        ${who ? `<h4 class="pw-h4">Seen (${who.length})</h4>${who.length ? `<div class="nt-sl-list">${list(who)}</div>` : '<p class="hub-hint">Nobody yet.</p>'}` : `<p class="hub-hint">${esc(note || '')}</p>`}
-        ${not ? `<h4 class="pw-h4">Not seen yet (${not.length})</h4>${not.length ? `<div class="nt-sl-list">${list(not)}</div>` : '<p class="hub-hint">Everyone’s seen it.</p>'}` : ''}
+        ${who ? `<h4 class="pw-h4">Seen (${who.length})</h4>${who.length ? `<div class="nt-sl-wrap"><div class="nt-sl-list">${list(who)}</div></div>` : '<p class="hub-hint">Nobody yet.</p>'}` : `<p class="hub-hint">${esc(note || '')}</p>`}
+        ${not ? `<h4 class="pw-h4">Not seen yet (${not.length})</h4>${not.length ? `<div class="nt-sl-wrap"><div class="nt-sl-list">${list(not)}</div></div>` : '<p class="hub-hint">Everyone’s seen it.</p>'}` : ''}
         <div class="row"><button class="btn gold" id="sl-x">Close</button></div></div>`;
-      modal.classList.add('on'); modal.querySelector('#sl-x').onclick = close; };
+      modal.classList.add('on'); modal.querySelector('#sl-x').onclick = close;
+      // shadows at the top / bottom of a list while there's more to scroll that way
+      modal.querySelectorAll('.nt-sl-list').forEach(l => { const w = l.parentElement, shade = () => { w.classList.toggle('sc-t', l.scrollTop > 2); w.classList.toggle('sc-b', l.scrollTop + l.clientHeight < l.scrollHeight - 2); }; l.addEventListener('scroll', shade, { passive: true }); shade(); }); };
     async function tabNotice() {
       const el = B(); HA().innerHTML = ''; let all = [], log = [];
       try { [all, log] = await Promise.all([usersCol.limit(2000).get().then(docs), noticesCol.orderBy('at', 'desc').limit(200).get().then(docs)]); } catch (x) { el.innerHTML = failMsg(x); return; }
@@ -1987,7 +1989,8 @@ function hub(fs, auth, G, ctx) {
     // --- Bug reports: live, newest first; open ones counted on the tab ---
     const bugsAdm = fs.collection('bugs'); let BROWS = null, BLIVE = null, BF = 'open', BCHECKED = Number(ME && ME.bugsCheckedAt) || 0; // (new = sent since you last marked them read, like the New tab)
     const bugBadge = () => { const t = root.querySelector('[data-tab="bugs"]'); if (!t) return; const bd = t.querySelector('.adm-badge'); if (BUGN && !bd) t.insertAdjacentHTML('beforeend', `<b class="adm-badge">${BUGN}</b>`); else if (bd) BUGN ? (bd.textContent = BUGN) : bd.remove(); };
-    const bugsLive = () => { if (!BLIVE) BLIVE = bugsAdm.orderBy('at', 'desc').limit(500).onSnapshot(qs => { BROWS = docs(qs); BUGN = BROWS.filter(b => (b.at || 0) > BCHECKED).length; bugBadge(); if (TAB === 'bugs') paintBugs(); }, x => { const l = B() && B().querySelector('#bg-l'); if (l) l.innerHTML = failMsg(x); }); };
+    const bugsLive = () => { if (!BLIVE) BLIVE = bugsAdm.orderBy('at', 'desc').limit(500).onSnapshot(qs => { BROWS = docs(qs); BUGN = BROWS.filter(b => (b.at || 0) > BCHECKED).length; bugBadge(); if (TAB === 'bugs') paintBugs();
+      Promise.all([...new Set(BROWS.map(b => b.by))].filter(em => em && !PICS[em]).map(picFor)).then(n => { if (n.length && TAB === 'bugs') paintBugs(); }); }, x => { const l = B() && B().querySelector('#bg-l'); if (l) l.innerHTML = failMsg(x); }); };
     const browserOf = ua => { ua = String(ua || ''); const b = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : ''; return [b, /iPhone|iPad|Android/.test(ua) ? 'phone' : ''].filter(Boolean).join(' · '); };
     function tabBugs() { const el = B(); HA().innerHTML = '';
       el.innerHTML = `<div class="adm-filters"><div class="adm-fsels"><select class="adm-sel" id="bg-f" aria-label="Show"><option value="open">Open</option><option value="fixed">Fixed</option><option value="all">All</option></select></div></div><div id="bg-l"><p class="adm-dim">Loading…</p></div>`;
