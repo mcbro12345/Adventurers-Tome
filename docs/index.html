@@ -1909,6 +1909,8 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 .nt-sl .nt-sl-row { display: flex; align-items: center; gap: 10px; } .nt-sl .nt-sl-row span { min-width: 0; } .nt-sl .nt-sl-row b, .nt-sl .nt-sl-row small { display: block; overflow-wrap: anywhere; } .nt-sl .nt-sl-row small { opacity: .7; font-size: .8rem; }
 @media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body:not(.adminbody) .nt-sl .nt-sl-wrap::before, :where(html:not([data-pgtheme])) .nt-sl .nt-sl-wrap::before { background: linear-gradient(rgba(60,40,10,.12), transparent); } :where(html:not([data-pgtheme])) .nt-sl .nt-sl-wrap::after { background: linear-gradient(transparent, rgba(60,40,10,.12)); } }
  :where(html[data-pgtheme="light"]) body:not(.adminbody) .nt-sl .nt-sl-wrap::before, :where(html[data-pgtheme="light"]) .nt-sl .nt-sl-wrap::before { background: linear-gradient(rgba(60,40,10,.12), transparent); } :where(html[data-pgtheme="light"]) .nt-sl .nt-sl-wrap::after { background: linear-gradient(transparent, rgba(60,40,10,.12)); } 
+/* scroll areas inside pop-up windows don't hand their scrolling on to the page behind */
+.hub-modal, .hub-modal .hub-card, .nt-sl .nt-sl-list, #pg-msg .pgm-t, .pg-out, .pg-out-card { overscroll-behavior: contain; }
 </style>
 </head>
 <body>
@@ -1998,6 +2000,16 @@ function wireThemeBtn(root) { const b = root.querySelector('#hub-theme'); if (!b
 document.addEventListener('touchstart', () => {}, { passive: true });
 function pgOutFade(m) { m.remove = () => { if (m._closing) return; m._closing = true;
   if (PG_CALM || !m.isConnected) return Element.prototype.remove.call(m); m.classList.add('closing'); setTimeout(() => Element.prototype.remove.call(m), 170); }; }
+// While the mouse is over a pop-up window, scrolling only moves what's inside it: once a list reaches its end the
+// page behind doesn't take over and scroll instead.
+const PG_WINS = '.hub-modal.on, #pg-msg, .pg-out, .modal-bg.open';
+const pgCanScroll = (el, d, x) => { const cs = getComputedStyle(el), ov = x ? cs.overflowX : cs.overflowY; if (!/auto|scroll|overlay/.test(ov)) return false;
+  const pos = x ? el.scrollLeft : el.scrollTop, max = x ? el.scrollWidth - el.clientWidth : el.scrollHeight - el.clientHeight;
+  return max > 1 && (d < 0 ? pos > 0 : pos < max - 1); };
+addEventListener('wheel', e => { const w = e.target.closest && e.target.closest(PG_WINS); if (!w || e.ctrlKey) return;
+  const x = Math.abs(e.deltaX) > Math.abs(e.deltaY), d = x ? e.deltaX : e.deltaY; if (!d) return;
+  for (let el = e.target; el && el !== document.body; el = el.parentElement) { if (pgCanScroll(el, d, x)) return; if (el === w) break; }
+  e.preventDefault(); }, { passive: false, capture: true });
 // Tabs tell each other about signing in, so finishing an emailed link in a new tab signs in the tab you started from.
 const PG_BC = (() => { try { return new BroadcastChannel('pg-auth'); } catch (e) { return null; } })();
 function pgAuthHandoff() { return new Promise(res => { if (!PG_BC) return res(false); let done = false;
@@ -2233,7 +2245,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261018234036', ASSETS = {"data": "a/data.3b68312eb554.js", "app": "a/app.d5022000ff6d.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.864f58521488.html"}; window.PG_ASSETS = ASSETS;
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261018234502', ASSETS = {"data": "a/data.3b68312eb554.js", "app": "a/app.d5022000ff6d.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.864f58521488.html"}; window.PG_ASSETS = ASSETS;
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
