@@ -850,23 +850,27 @@ function wireDie(root) {
     // which is still inside the window below) — someone with the sheet in another tab is still looking at it.
     // With a view-only link on, you're also listed where the public page can see you, and people on that link show here.
     const pv = PUB ? fs.collection('pubviews').doc(C).collection('live') : null; let anon = {};
-    const beat = async () => { const a = avaOf(ME), at = Date.now(); try { await mine.set({ name: NAME, pic: a.pic, color: a.color, clear: a.clear, at }); } catch (e) {}
+    // Only someone the sheet belongs to or is shared with shows up as viewing it. An admin who opened it without being
+    // given access sees who's here but isn't listed (checked each time, so sharing it with them later puts them in).
+    const counted = () => OWNER === EMAIL || VIEWERS.includes(EMAIL) || EDITORS.includes(EMAIL);
+    const beat = async () => { if (!counted()) { if (seen[EMAIL]) { delete seen[EMAIL]; leave(); } return; }
+      const a = avaOf(ME), at = Date.now(); seen[EMAIL] = { name: NAME, pic: a.pic, color: a.color, clear: a.clear, at }; try { await mine.set({ name: NAME, pic: a.pic, color: a.color, clear: a.clear, at }); } catch (e) {}
       if (pv) pv.doc(EMAIL).set({ anon: false, at, name: String(NAME || '').slice(0, 60), pic: a.pic || '', color: a.color || '', clear: !!a.clear }).catch(() => {}); };
     const leave = () => { mine.delete().catch(() => {}); if (pv) pv.doc(EMAIL).delete().catch(() => {}); };
     // The character's owner comes first whenever they're here, then you, then everyone else.
     const show = () => { const now = Date.now(), rank = em => em === OWNER ? 0 : em === EMAIL ? 1 : 2, here = Object.entries(seen).filter(([, d]) => now - (d.at || 0) < 200000).sort(([a], [b]) => rank(a) - rank(b));
       if (!box) { box = document.createElement('div'); box.className = 'pg-pres'; document.body.appendChild(box); }
       const anons = Object.values(anon).filter(d => now - (d.at || 0) < 200000);
-      box.hidden = !here.length && !anons.length; // you always see yourself, on your own sheet too
+      box.hidden = !here.length && !anons.length; // you see yourself whenever you count as viewing it, on your own sheet too
       box.innerHTML = here.map(([em, d]) => avaHTML(d.name, em, d.pic, em === EMAIL ? 'me' : '', em === EMAIL ? (d.name || NAME) + ' (you)' : (d.name || em), { color: d.color, clear: d.clear })).join('') + anons.map(() => anonAvaHTML(false)).join('');
       placePres(); };
     // you show straight away, without waiting for the first list from the server
-    { const a = avaOf(ME); seen[EMAIL] = { name: NAME, pic: a.pic, color: a.color, clear: a.clear, at: Date.now() }; }
+    if (counted()) { const a = avaOf(ME); seen[EMAIL] = { name: NAME, pic: a.pic, color: a.color, clear: a.clear, at: Date.now() }; }
     beat(); show(); setInterval(beat, 60000); setInterval(show, 1500);
     if (pv) pv.where('anon', '==', true).onSnapshot(qs => { anon = {}; qs.docs.forEach(d => { anon[d.id] = d.data(); }); show(); }, () => {});
     document.addEventListener('visibilitychange', () => { if (!document.hidden) beat(); });
     addEventListener('pagehide', leave);
-    pcol.onSnapshot(qs => { const me0 = seen[EMAIL]; seen = {}; qs.docs.forEach(d => { seen[d.id] = d.data(); }); if (!seen[EMAIL] && me0) seen[EMAIL] = me0; show(); }, () => {});
+    pcol.onSnapshot(qs => { const me0 = seen[EMAIL]; seen = {}; qs.docs.forEach(d => { seen[d.id] = d.data(); }); if (!counted()) delete seen[EMAIL]; else if (!seen[EMAIL] && me0) seen[EMAIL] = me0; show(); }, () => {});
   };
   if (!NEW) startPres();
   // Adding this page to a phone's home screen: the icon is the character's portrait (the party page uses the dice icon).
