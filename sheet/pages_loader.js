@@ -1930,8 +1930,10 @@ function hub(fs, auth, G, ctx) {
     const copyText = async (t, b) => { try { await navigator.clipboard.writeText(t); } catch (e) { const x = document.createElement('textarea'); x.value = t; x.style.position = 'fixed'; x.style.opacity = '0'; document.body.appendChild(x); x.select(); try { document.execCommand('copy'); } catch (e2) {} x.remove(); }
       if (b) { const t0 = b.textContent; b.textContent = 'Copied'; setTimeout(() => { b.textContent = t0; }, 1500); } };
     const cfgCol = fs.collection('config');
+    // You and the Claude account still get notices and the welcome, but aren't counted in "goes to" / "seen by" or listed.
+    const NOCOUNT = new Set([EMAIL, ADMIN_EMAIL, 'matthewcbro+claude@gmail.com']), counted = em => !NOCOUNT.has(String(em || '').toLowerCase());
     // "Who's seen it": a window listing who has (and, if given, who hasn't yet) — for notices and the welcome message
-    const whoSeen = (all, text, who, not, note) => { const byId = Object.fromEntries(all.map(u => [u.id, u])); all.forEach(u => { if (!PICS[u.id]) PICS[u.id] = avaOf(u); }); // (their pictures)
+    const whoSeen = (all, text, who, not, note) => { who = who && who.filter(counted); not = not && not.filter(counted); const byId = Object.fromEntries(all.map(u => [u.id, u])); all.forEach(u => { if (!PICS[u.id]) PICS[u.id] = avaOf(u); }); // (their pictures)
       const list = ids => ids.map(id => byId[id] || { id }).sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id))).map(u => `<div class="nt-sl-row">${ava(u.name, u.id)}<span><b>${esc(u.name || u.id)}</b><small>${esc(u.id)}</small></span></div>`).join('');
       modal.innerHTML = `<div class="hub-card nt-sl"><h2>Who’s seen it</h2><p class="hub-hint">“${esc(String(text || '').slice(0, 120))}${String(text || '').length > 120 ? '…' : ''}”</p>
         ${who ? `<h4 class="pw-h4">Seen (${who.length})</h4>${who.length ? `<div class="nt-sl-wrap"><div class="nt-sl-list">${list(who)}</div></div>` : '<p class="hub-hint">Nobody yet.</p>'}` : `<p class="hub-hint">${esc(note || '')}</p>`}
@@ -1944,10 +1946,12 @@ function hub(fs, auth, G, ctx) {
       const el = B(); HA().innerHTML = ''; let all = [], log = [];
       try { [all, log] = await Promise.all([usersCol.limit(2000).get().then(docs), noticesCol.orderBy('at', 'desc').limit(200).get().then(docs)]); } catch (x) { el.innerHTML = failMsg(x); return; }
       const live = log.find(n => !n.endedAt) || null;
-      const seenWho = n => all.filter(u => u.noticeSeen === n.id).map(u => u.id), seenOf = n => seenWho(n).length, gotOf = n => all.filter(u => u.notice && u.notice.id === n.id);
+      const ppl = all.filter(u => counted(u.id)), seenWho = n => ppl.filter(u => u.noticeSeen === n.id).map(u => u.id), seenOf = n => seenWho(n).length,
+        // how many it went to, not counting you or the Claude account (older notices counted everyone; they're adjusted)
+        sentOf = n => n.counted ? (n.sent || 0) : Math.max(0, (n.sent || 0) - (all.length - ppl.length)), seenPast = n => n.seenBy ? n.seenBy.filter(counted).length : (n.seen || 0), gotOf = n => all.filter(u => u.notice && u.notice.id === n.id);
       const stat = n => n.endedAt ? n.ended === 'revoked' ? 'Revoked' : 'Replaced' : 'Live';
-      const row = n => `<tr><td>${when(n.at)}</td><td class="nt-txt">${esc(String(n.text || '').slice(0, 240))}${String(n.text || '').length > 240 ? '…' : ''}</td><td>${esc(n.byName || n.by || '')}</td><td><button class="linkbtn nt-seen" data-ntseen="${esc(n.id)}" title="Who’s seen it">${n.endedAt ? (n.seen || 0) : seenOf(n)} / ${n.sent || 0}</button></td><td><span class="adm-tag">${stat(n)}</span>${n.endedAt ? `<small class="adm-dim"> ${when(n.endedAt)}</small>` : ''}</td><td class="nt-acts"><button class="adm-btn sm" data-ntpv="${esc(n.id)}">Preview</button><button class="adm-btn sm" data-ntcp="${esc(n.id)}">Copy</button></td></tr>`;
-      el.innerHTML = `<div class="adm-stats"><div class="adm-stat"><small>Goes to</small><b>${all.length}</b></div>${live ? `<button class="adm-stat nt-seenstat" data-ntseen="${esc(live.id)}" title="Who’s seen it"><small>Current notice seen by</small><b>${seenOf(live)} / ${live.sent || 0}</b></button>` : ''}</div>
+      const row = n => `<tr><td>${when(n.at)}</td><td class="nt-txt">${esc(String(n.text || '').slice(0, 240))}${String(n.text || '').length > 240 ? '…' : ''}</td><td>${esc(n.byName || n.by || '')}</td><td><button class="linkbtn nt-seen" data-ntseen="${esc(n.id)}" title="Who’s seen it">${n.endedAt ? seenPast(n) : seenOf(n)} / ${sentOf(n)}</button></td><td><span class="adm-tag">${stat(n)}</span>${n.endedAt ? `<small class="adm-dim"> ${when(n.endedAt)}</small>` : ''}</td><td class="nt-acts"><button class="adm-btn sm" data-ntpv="${esc(n.id)}">Preview</button><button class="adm-btn sm" data-ntcp="${esc(n.id)}">Copy</button></td></tr>`;
+      el.innerHTML = `<div class="adm-stats"><div class="adm-stat"><small>Goes to</small><b>${ppl.length}</b></div>${live ? `<button class="adm-stat nt-seenstat" data-ntseen="${esc(live.id)}" title="Who’s seen it"><small>Current notice seen by</small><b>${seenOf(live)} / ${sentOf(live)}</b></button>` : ''}</div>
         ${live ? `<div id="nt-cur"><p class="adm-note"><b>Current notice</b> (sent ${esc(new Date(live.at).toLocaleString())}${live.editedAt ? ', edited ' + esc(new Date(live.editedAt).toLocaleString()) : ''}):<br>“${esc(String(live.text).slice(0, 400))}${String(live.text).length > 400 ? '…' : ''}”</p><div class="row"><button class="adm-btn" id="nt-ed">Edit</button><button class="adm-btn" id="nt-rv">Revoke it</button></div></div>` : '<p class="adm-note">No notice is out right now.</p>'}
         <h3 class="nt-h">New notice</h3><textarea id="nt-t" class="ad-search pm-t" rows="7" placeholder="Your notice"></textarea>${NT_FMT}
         ${live ? '<p class="adm-note">Sending it replaces the current notice for anyone who hasn’t seen it yet.</p>' : ''}<div class="row"><label class="nt-wl">Window width ${ntWSel('nt-w')}</label><button class="adm-btn" id="nt-pv" disabled>Preview</button><button class="adm-btn primary" id="nt-ok" disabled>Send to everyone</button></div>
@@ -1980,19 +1984,19 @@ function hub(fs, auth, G, ctx) {
       // Who's seen a notice (and, while it's out, who hasn't yet)
       el.querySelectorAll('[data-ntseen]').forEach(b => b.onclick = () => { const n = log.find(x => x.id === b.dataset.ntseen); if (!n) return;
         const who = n.endedAt ? n.seenBy : seenWho(n);
-        whoSeen(all, n.text, who, n.endedAt ? null : gotOf(n).map(u => u.id).filter(id => !(who || []).includes(id) && id !== EMAIL), who ? '' : 'This notice ended before the list of who saw it was kept: ' + (n.seen || 0) + ' people saw it.'); });
+        whoSeen(all, n.text, who, n.endedAt ? null : gotOf(n).map(u => u.id).filter(id => !(who || []).includes(id) && id !== EMAIL), who ? '' : 'This notice ended before the list of who saw it was kept: ' + seenPast(n) + ' people saw it.'); });
       const rv = el.querySelector('#nt-rv');
       if (rv) rv.onclick = async () => { if (!await ask('Revoke this notice?', 'It disappears for everyone who hasn’t seen it yet (and closes if it’s on their screen). It stays in the log.', 'Revoke', true)) return;
         rv.disabled = true; try { await end(live, 'revoked'); pgLog('notice_revoke', { target: 'everyone', tName: 'everyone', detail: live.text }); toast('Notice revoked.'); } catch (x) { toast('Couldn’t revoke it: ' + ((x && (x.code === 'permission-denied' ? 'the new database rules need publishing' : x.message)) || x)); } if (TAB === 'notice') tabNotice(); };
       ok.onclick = async () => { const text = ta.value.trim().slice(0, 200000); if (!text) return;
-        if (!await ask('Send this notice to everyone?', `It pops up once for all ${all.length} accounts, from “Adventurer’s Tome”.${live ? ' It replaces the current notice for anyone who hasn’t seen it.' : ''}`, 'Send to everyone')) return;
+        if (!await ask('Send this notice to everyone?', `It pops up once for all ${ppl.length} accounts, from “Adventurer’s Tome”.${live ? ' It replaces the current notice for anyone who hasn’t seen it.' : ''}`, 'Send to everyone')) return;
         ok.disabled = true; ok.textContent = 'Sending…';
         const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6), m = { id, text, at: Date.now(), anon: true, w: Number(el.querySelector('#nt-w').value) || 720 };
-        try { await noticesCol.doc(id).set({ text, w: m.w, at: m.at, by: EMAIL, byName: String((ME && ME.name) || EMAIL), sent: all.length });
+        try { await noticesCol.doc(id).set({ text, w: m.w, at: m.at, by: EMAIL, byName: String((ME && ME.name) || EMAIL), sent: ppl.length, counted: true });
           if (live) await noticesCol.doc(live.id).update({ endedAt: Date.now(), ended: 'replaced', seen: seenOf(live), seenBy: seenWho(live) });
           await cfgCol.doc('notice').set(m); /* the one that's out, for accounts made after it was sent (shown after the welcome) */
           for (let i = 0; i < all.length; i += 400) { const bt = fs.batch(); all.slice(i, i + 400).forEach(u => bt.update(usersCol.doc(u.id), u.id === EMAIL ? { notice: m, noticeSeen: id } : { notice: m })); /* (the sender has seen it) */ await bt.commit(); }
-          pgLog('notice', { target: 'everyone', tName: 'everyone', detail: text }); toast('Notice sent to ' + all.length + ' accounts.'); }
+          pgLog('notice', { target: 'everyone', tName: 'everyone', detail: text }); toast('Notice sent to ' + ppl.length + ' accounts.'); }
         catch (x) { ok.disabled = false; ok.textContent = 'Send to everyone'; toast('Couldn’t send it: ' + ((x && (x.code === 'permission-denied' ? 'the new database rules need publishing' : x.message)) || x)); return; }
         if (TAB === 'notice') tabNotice(); };
     }
@@ -2027,7 +2031,7 @@ function hub(fs, auth, G, ctx) {
     async function tabWelcome() {
       const el = B(); HA().innerHTML = ''; let all = [], wel = null, live = null;
       try { [all, wel, live] = await Promise.all([usersCol.limit(2000).get().then(docs), cfgCol.doc('welcome').get().then(d => d.exists ? d.data() : null, () => null), cfgCol.doc('notice').get().then(d => d.exists ? d.data() : null, () => null)]); } catch (x) { el.innerHTML = failMsg(x); return; }
-      el.innerHTML = `<div class="adm-stats"><div class="adm-stat"><small>Status</small><b>${wel && wel.on ? 'On' : 'Off'}</b></div><button class="adm-stat nt-seenstat" id="wl-seen" title="Who’s seen it"><small>Seen by</small><b>${all.filter(u => u.welcomeSeen).length}</b></button></div>
+      el.innerHTML = `<div class="adm-stats"><div class="adm-stat"><small>Status</small><b>${wel && wel.on ? 'On' : 'Off'}</b></div><button class="adm-stat nt-seenstat" id="wl-seen" title="Who’s seen it"><small>Seen by</small><b>${all.filter(u => u.welcomeSeen && counted(u.id)).length}</b></button></div>
         <p class="adm-note">${wel && wel.on ? `New accounts see this the first time they sign in${live ? ', then the current notice (with a Next button)' : ''}.` : 'Nothing is shown yet. Edit the message below, check it with Preview, then <b>Save and turn on</b>.'}</p>
         <textarea id="wl-t" class="ad-search pm-t" rows="12" placeholder="Welcome message">${esc((wel && wel.text) || WELCOME0)}</textarea>${NT_FMT}
         <div class="row"><label class="nt-wl">Window width ${ntWSel('wl-w', wel && wel.w)}</label><button class="adm-btn" id="wl-pv">Preview</button><button class="adm-btn" id="wl-cp">Copy</button>${wel && wel.on ? '<button class="adm-btn" id="wl-off">Turn off</button>' : ''}<button class="adm-btn primary" id="wl-ok">${wel && wel.on ? 'Save changes' : 'Save and turn on'}</button></div>`;
