@@ -129,10 +129,12 @@ function r20Send(msg, ms) {
 }
 window.addEventListener('message', e => {
   const d = e.data; if (!d || !d.__dnd20 || d.dir !== 'toSheet') return;
-  if (d.__dnd20 === 'hi') { R20.ok = true; R20.ver = d.version || ''; R20.caps = Array.isArray(d.caps) ? d.caps : []; if (!R20.warned && R20.ver && R20.ver !== 'mock' && R20.ver.split('.').map(Number).reduce((t, v, i) => t + v * [10000, 100, 1][i], 0) < 10400) { R20.warned = true; setTimeout(() => toast('A newer Roll20 extension is out (auras can follow your tokens on the map). Settings → Dice → Download.', '', 9000, { label: 'Settings', fn: () => openSettings() }), 1500); } if ($('#r20status')) renderR20Box(); return; }
+  if (d.__dnd20 === 'hi') { if (R20.counting) R20.hiN = (R20.hiN || 0) + 1; R20.ok = true; R20.ver = d.version || ''; R20.caps = Array.isArray(d.caps) ? d.caps : []; if (!R20.warned && R20.ver && R20.ver !== 'mock' && R20.ver.split('.').map(Number).reduce((t, v, i) => t + v * [10000, 100, 1][i], 0) < 10400) { R20.warned = true; setTimeout(() => toast('A newer Roll20 extension is out (auras can follow your tokens on the map). See Settings → Dice.', '', 9000, { label: 'Settings', fn: () => openSettings() }), 1500); } if ($('#r20status')) renderR20Box(); return; }
   if (d.id && R20.wait[d.id]) R20.wait[d.id](d);
 });
-function r20Hello() { window.postMessage({ __dnd20: 'hello', dir: 'toExt' }, '*'); }
+function r20Hello() { R20.counting = true; R20.hiN = 0; window.postMessage({ __dnd20: 'hello', dir: 'toExt' }, '*');
+  // two answers: the extension is installed twice, and every roll would post twice in Roll20
+  setTimeout(() => { R20.counting = false; const two = R20.hiN > 1; if (two !== !!R20.dupes) { R20.dupes = two; if ($('#r20status')) renderR20Box(); } }, 1500); }
 setTimeout(r20Hello, 400);
 // On a computer with Roll20 rolls on, this sheet also rolls for its phone: requests from the phone come in through the
 // character's own storage and go to Roll20 exactly like a roll made here.
