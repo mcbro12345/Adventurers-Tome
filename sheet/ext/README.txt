@@ -7,7 +7,9 @@ To load this download instead:
 2. Open chrome://extensions (edge://extensions, brave://extensions, opera://extensions).
 3. Turn on Developer mode, click "Load unpacked", and pick the unzipped folder - the one with manifest.json directly inside it.
 
-Firefox:
+Firefox: the easiest way is Firefox Add-ons (it updates itself and stays after a restart):
+https://addons.mozilla.org/en-US/firefox/addon/adventurers-tome-roll20/
+To load this download instead:
 1. Unzip this download.
 2. Open about:debugging#/runtime/this-firefox, click "Load Temporary Add-on...", choose manifest.json in the unzipped folder.
    (Firefox removes it when it closes; load it again after a restart.)
