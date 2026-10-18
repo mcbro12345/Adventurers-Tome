@@ -1742,3 +1742,7 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 .adm-body .nt-h { margin: 26px 0 8px; font: 800 1rem system-ui, sans-serif; }
 .adm-body .adm-t td.nt-txt { white-space: normal; min-width: 260px; max-width: 520px; overflow-wrap: anywhere; }
 .adm-body .pm-t { max-width: 640px; }
+#pg-msg .pgm-t .pgm-hd { display: block; font-size: 1.08em; margin: 8px 0 2px; }
+#pg-msg .pgm-t .pgm-hd:first-child { margin-top: 0; }
+#pg-msg .pgm-t ul { margin: 2px 0 6px; padding-left: 20px; } #pg-msg .pgm-t li { margin: 2px 0; }
+.adm-body .nt-fmt { font-size: .8rem; margin: -4px 0 10px; } .adm-body .nt-fmt code { font-size: .78rem; }
