@@ -63,7 +63,7 @@ service cloud.firestore {
       allow list: if admin();
       allow create: if admin() || (signedIn() && em == me() && request.resource.data.email == me()
         && request.resource.data.keys().hasOnly(['email', 'name', 'nameLower', 'keys', 'createdAt', 'seenAt', 'gpic']));
-      allow update: if admin() || (signedIn() && em == me() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt', 'pic', 'picChar', 'picColor', 'picClear', 'picMode', 'gpic', 'name', 'nameLower', 'keys', 'msgSeen', 'noticeSeen', 'partyOrder'])
+      allow update: if admin() || (signedIn() && em == me() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt', 'pic', 'picChar', 'picColor', 'picClear', 'picMode', 'gpic', 'name', 'nameLower', 'keys', 'msgSeen', 'noticeSeen', 'welcomeSeen', 'partyOrder'])
         && (!('partyOrder' in request.resource.data) || (request.resource.data.partyOrder is list && request.resource.data.partyOrder.size() <= 200))
         && request.resource.data.get('name', '') is string && request.resource.data.get('name', '').size() <= 60);
       allow delete: if admin();
@@ -187,6 +187,16 @@ service cloud.firestore {
     match /config/admins {
       allow get: if admin();
       allow create, update, delete: if owner0();
+    }
+    // The first-time welcome message, and the notice that's out right now (shown to a new account after the welcome):
+    // anyone signed in can read them; only admins set them.
+    match /config/welcome {
+      allow get: if signedIn();
+      allow create, update, delete: if admin();
+    }
+    match /config/notice {
+      allow get: if signedIn();
+      allow create, update, delete: if admin();
     }
     match /groups/{g} {
       allow get: if signedIn();
