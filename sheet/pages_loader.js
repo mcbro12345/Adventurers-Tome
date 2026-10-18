@@ -557,6 +557,7 @@ function wireDie(root) {
   // the pop-up itself (the admin page's Preview shows the same one, and OK just closes it)
   function pgCard(m, k, after) {
       const w = document.createElement('div'); w.id = 'pg-msg'; w.dataset.k = k; w.dataset.id = m.id; w.setAttribute('role', 'dialog'); w.setAttribute('aria-modal', 'true');
+      const wd = Math.round(Number(m.w) || 0); if (wd >= 320 && wd <= 1600) w.style.setProperty('--pgm-w', wd + 'px'); /* a notice can say how wide its window is */
       w.innerHTML = `<div class="pgm-card"><div class="pgm-h"><span class="pgm-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H8l-4 4z"/></svg></span><div><b>${k === 'notice' ? 'Notice' : 'Message'} from ${escH(m.anon ? 'Adventurer’s Tome' : (m.fromName || 'Adventurer’s Tome'))}</b><small>${escH(new Date(m.at || Date.now()).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))}</small></div></div>
         <div class="pgm-t">${pgMark(m.text)}</div><div class="pgm-row"><button class="pgm-ok" type="button">OK</button></div></div>`;
       document.body.appendChild(w); const ok = w.querySelector('.pgm-ok'); setTimeout(() => ok.focus(), 50);
@@ -1858,6 +1859,7 @@ function hub(fs, auth, G, ctx) {
     // --- Notice: the same pop-up as "Send a message…", always from “Adventurer’s Tome”, to every account. One is out at a time:
     // a new one replaces it for anyone who hasn't seen it yet, and Revoke takes it back. Every notice is kept in the log.
     const noticesCol = fs.collection('notices'), FV = firebase.firestore.FieldValue;
+    const NT_W = [[480, 'Narrow'], [720, 'Normal'], [960, 'Wide'], [1200, 'Extra wide']];
     async function tabNotice() {
       const el = B(); HA().innerHTML = ''; let all = [], log = [];
       try { [all, log] = await Promise.all([usersCol.limit(2000).get().then(docs), noticesCol.orderBy('at', 'desc').limit(200).get().then(docs)]); } catch (x) { el.innerHTML = failMsg(x); return; }
@@ -1868,23 +1870,23 @@ function hub(fs, auth, G, ctx) {
       el.innerHTML = `<div class="adm-stats"><div class="adm-stat"><small>Goes to</small><b>${all.length}</b></div>${live ? `<div class="adm-stat"><small>Current notice seen by</small><b>${seenOf(live)} / ${live.sent || 0}</b></div>` : ''}</div>
         ${live ? `<p class="adm-note"><b>Current notice</b> (sent ${esc(new Date(live.at).toLocaleString())}):<br>“${esc(String(live.text).slice(0, 400))}${String(live.text).length > 400 ? '…' : ''}”</p><div class="row"><button class="adm-btn" id="nt-rv">Revoke it</button></div>` : '<p class="adm-note">No notice is out right now.</p>'}
         <h3 class="nt-h">New notice</h3><textarea id="nt-t" class="ad-search pm-t" rows="7" placeholder="Your notice"></textarea><p class="adm-note nt-fmt">**bold** · *italic* · <code># Heading</code> on its own line · <code>- </code> for a list · web addresses become links</p>
-        ${live ? '<p class="adm-note">Sending it replaces the current notice for anyone who hasn’t seen it yet.</p>' : ''}<div class="row"><button class="adm-btn" id="nt-pv" disabled>Preview</button><button class="adm-btn primary" id="nt-ok" disabled>Send to everyone</button></div>
+        ${live ? '<p class="adm-note">Sending it replaces the current notice for anyone who hasn’t seen it yet.</p>' : ''}<div class="row"><label class="nt-wl">Window width <select class="adm-sel" id="nt-w">${NT_W.map(([v, l]) => `<option value="${v}"${v === 720 ? ' selected' : ''}>${l}</option>`).join('')}</select></label><button class="adm-btn" id="nt-pv" disabled>Preview</button><button class="adm-btn primary" id="nt-ok" disabled>Send to everyone</button></div>
         <h3 class="nt-h">Past notices</h3>${log.length ? `<div class="adm-tw"><table class="adm-t"><thead><tr><th>Sent</th><th>Notice</th><th>By</th><th>Seen</th><th>Status</th><th></th></tr></thead><tbody>${log.map(row).join('')}</tbody></table></div>` : '<p class="adm-dim">None yet.</p>'}`;
       // ends the live notice: takes it off everyone who still holds it, and keeps how many saw it
       const end = async (n, how) => { const hold = gotOf(n);
         for (let i = 0; i < hold.length; i += 400) { const bt = fs.batch(); hold.slice(i, i + 400).forEach(u => bt.update(usersCol.doc(u.id), { notice: FV.delete() })); await bt.commit(); }
         await noticesCol.doc(n.id).update({ endedAt: Date.now(), ended: how, seen: seenOf(n) }); };
       const ta = el.querySelector('#nt-t'), ok = el.querySelector('#nt-ok'), pv = el.querySelector('#nt-pv'); ta.oninput = () => { ok.disabled = pv.disabled = !ta.value.trim(); };
-      pv.onclick = () => { const text = ta.value.trim().slice(0, 200000); if (text) window.pgPreview({ text, at: Date.now(), anon: true }, 'notice'); };
-      el.querySelectorAll('[data-ntpv]').forEach(b => b.onclick = () => { const n = log.find(x => x.id === b.dataset.ntpv); if (n) window.pgPreview({ text: n.text, at: n.at, anon: true }, 'notice'); });
+      pv.onclick = () => { const text = ta.value.trim().slice(0, 200000); if (text) window.pgPreview({ text, at: Date.now(), anon: true, w: Number(el.querySelector('#nt-w').value) }, 'notice'); };
+      el.querySelectorAll('[data-ntpv]').forEach(b => b.onclick = () => { const n = log.find(x => x.id === b.dataset.ntpv); if (n) window.pgPreview({ text: n.text, at: n.at, anon: true, w: n.w }, 'notice'); });
       const rv = el.querySelector('#nt-rv');
       if (rv) rv.onclick = async () => { if (!await ask('Revoke this notice?', 'It disappears for everyone who hasn’t seen it yet (and closes if it’s on their screen). It stays in the log.', 'Revoke', true)) return;
         rv.disabled = true; try { await end(live, 'revoked'); pgLog('notice_revoke', { target: 'everyone', tName: 'everyone', detail: live.text }); toast('Notice revoked.'); } catch (x) { toast('Couldn’t revoke it: ' + ((x && (x.code === 'permission-denied' ? 'the new database rules need publishing' : x.message)) || x)); } if (TAB === 'notice') tabNotice(); };
       ok.onclick = async () => { const text = ta.value.trim().slice(0, 200000); if (!text) return;
         if (!await ask('Send this notice to everyone?', `It pops up once for all ${all.length} accounts, from “Adventurer’s Tome”.${live ? ' It replaces the current notice for anyone who hasn’t seen it.' : ''}`, 'Send to everyone')) return;
         ok.disabled = true; ok.textContent = 'Sending…';
-        const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6), m = { id, text, at: Date.now(), anon: true };
-        try { await noticesCol.doc(id).set({ text, at: m.at, by: EMAIL, byName: String((ME && ME.name) || EMAIL), sent: all.length });
+        const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6), m = { id, text, at: Date.now(), anon: true, w: Number(el.querySelector('#nt-w').value) || 720 };
+        try { await noticesCol.doc(id).set({ text, w: m.w, at: m.at, by: EMAIL, byName: String((ME && ME.name) || EMAIL), sent: all.length });
           if (live) await noticesCol.doc(live.id).update({ endedAt: Date.now(), ended: 'replaced', seen: seenOf(live) });
           for (let i = 0; i < all.length; i += 400) { const bt = fs.batch(); all.slice(i, i + 400).forEach(u => bt.update(usersCol.doc(u.id), u.id === EMAIL ? { notice: m, noticeSeen: id } : { notice: m })); /* (the sender has seen it) */ await bt.commit(); }
           pgLog('notice', { target: 'everyone', tName: 'everyone', detail: text }); toast('Notice sent to ' + all.length + ' accounts.'); }
