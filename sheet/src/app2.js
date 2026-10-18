@@ -129,7 +129,7 @@ function r20Send(msg, ms) {
 }
 window.addEventListener('message', e => {
   const d = e.data; if (!d || !d.__dnd20 || d.dir !== 'toSheet') return;
-  if (d.__dnd20 === 'hi') { R20.ok = true; R20.ver = d.version || ''; R20.caps = Array.isArray(d.caps) ? d.caps : []; if (!R20.warned && R20.ver && R20.ver !== 'mock' && R20.ver.split('.').map(Number).reduce((t, v, i) => t + v * [10000, 100, 1][i], 0) < 10303) { R20.warned = true; setTimeout(() => toast('A newer Roll20 extension is available (new icon, no warnings, and future updates replace the old version by themselves). Settings → Dice → Download.', '', 9000, { label: 'Settings', fn: () => openSettings() }), 1500); } if ($('#r20status')) renderR20Box(); return; }
+  if (d.__dnd20 === 'hi') { R20.ok = true; R20.ver = d.version || ''; R20.caps = Array.isArray(d.caps) ? d.caps : []; if (!R20.warned && R20.ver && R20.ver !== 'mock' && R20.ver.split('.').map(Number).reduce((t, v, i) => t + v * [10000, 100, 1][i], 0) < 10400) { R20.warned = true; setTimeout(() => toast('A newer Roll20 extension is out (auras can follow your tokens on the map). Settings → Dice → Download.', '', 9000, { label: 'Settings', fn: () => openSettings() }), 1500); } if ($('#r20status')) renderR20Box(); return; }
   if (d.id && R20.wait[d.id]) R20.wait[d.id](d);
 });
 function r20Hello() { window.postMessage({ __dnd20: 'hello', dir: 'toExt' }, '*'); }

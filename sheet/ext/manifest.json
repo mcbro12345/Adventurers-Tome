@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Adventurer’s Tome ↔ Roll20",
-  "version": "1.3.3",
+  "version": "1.4.0",
   "description": "Sends rolls from your Adventurer’s Tome character sheet to your Roll20 game’s chat and reads the results back, and tells the sheet how far apart the party’s tokens are.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4A4d+2F0czdgfrsYye0WJLKGPuFsF14ERbKZcE+kzNB+OWk7ziKiBs7b8K7g1lMqS4vUGcXTCJiKfa6GQyIQoob6AcyggdOHIn9MvHV59V40L9gxbY7/4bP7ePhr1KjCBciY3qWFoTqXpVRfbBt0zOwcYxcmgPPLI7kl9/bYpRyQRThUHT9sjNZl5wok1j67yfHZObrNJ/k9f4y42BJZx0DYX+B9cII0QdEzohSrgq/vtWEDwV+u8Ry6duLpTEiP5Jn92iAiXgh77PFVpQJaSxKoBmkfeDJctXRUBgnP0q9Cl62XA+nT2WhcNP/YlYbVmpbT4fMd/9OSWEvKLlOLxQIDAQAB",
   "icons": {
