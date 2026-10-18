@@ -1930,8 +1930,9 @@ function hub(fs, auth, G, ctx) {
     const copyText = async (t, b) => { try { await navigator.clipboard.writeText(t); } catch (e) { const x = document.createElement('textarea'); x.value = t; x.style.position = 'fixed'; x.style.opacity = '0'; document.body.appendChild(x); x.select(); try { document.execCommand('copy'); } catch (e2) {} x.remove(); }
       if (b) { const t0 = b.textContent; b.textContent = 'Copied'; setTimeout(() => { b.textContent = t0; }, 1500); } };
     const cfgCol = fs.collection('config');
-    // You and the Claude account still get notices and the welcome, but aren't counted in "goes to" / "seen by" or listed.
-    const NOCOUNT = new Set([EMAIL, ADMIN_EMAIL, 'matthewcbro+claude@gmail.com']), counted = em => !NOCOUNT.has(String(em || '').toLowerCase());
+    // You, the Claude account and the test/team accounts still get notices and the welcome, but aren't counted in
+    // "goes to" / "seen by" or listed.
+    const NOCOUNT = new Set([EMAIL, ADMIN_EMAIL, 'matthewcbro+claude@gmail.com', 'matthewcbro+nonadmin@gmail.com', 'roneal@netspend.com', 'mbreaux@netspend.com']), counted = em => !NOCOUNT.has(String(em || '').toLowerCase());
     // "Who's seen it": a window listing who has (and, if given, who hasn't yet) — for notices and the welcome message
     const whoSeen = (all, text, who, not, note) => { who = who && who.filter(counted); not = not && not.filter(counted); const byId = Object.fromEntries(all.map(u => [u.id, u])); all.forEach(u => { if (!PICS[u.id]) PICS[u.id] = avaOf(u); }); // (their pictures)
       const list = ids => ids.map(id => byId[id] || { id }).sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id))).map(u => `<div class="nt-sl-row">${ava(u.name, u.id)}<span><b>${esc(u.name || u.id)}</b><small>${esc(u.id)}</small></span></div>`).join('');
