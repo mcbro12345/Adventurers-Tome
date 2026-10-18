@@ -1343,6 +1343,7 @@ html.mobile .pg-pubrow .pg-publogo .hl-a { font-size: calc(var(--mls, 60px) * .1
 #pg-msg .pgm-ic { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: rgba(201,150,43,.18); color: #e2b350; }
 #pg-msg .pgm-t { white-space: normal; overflow-wrap: anywhere; padding: 2px 2px 4px; }
 #pg-msg .pgm-row { display: flex; justify-content: flex-end; margin-top: 14px; }
+#pg-msg .pgm-row { position: sticky; bottom: -16px; z-index: 1; margin: 6px -20px -16px; padding: 10px 20px 16px; background: inherit; border-radius: 0 0 16px 16px; } /* OK stays in view while a long notice scrolls */
 #pg-msg .pgm-ok { border: 0; border-radius: 10px; padding: 9px 22px; font: 700 14px system-ui, sans-serif; background: #c9962b; color: #1b1406; cursor: pointer; }
 #pg-msg .pgm-ok:active { transform: scale(.97); }
 :where(body.hubbody) .pm-t { width: 100%; min-height: 110px; resize: vertical; font: inherit; box-sizing: border-box; margin: 6px 0 4px; }
