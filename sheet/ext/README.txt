@@ -1,6 +1,8 @@
 Adventurer's Tome <-> Roll20 companion extension
 
-Chrome / Edge / Brave / Opera / Vivaldi:
+Chrome / Edge / Brave / Opera / Vivaldi: the easiest way is the Chrome Web Store (it updates itself):
+https://chromewebstore.google.com/detail/mgpepimfnfhagocgdbmmngiennbijgcd
+To load this download instead:
 1. Unzip this download (Windows: right-click -> Extract All).
 2. Open chrome://extensions (edge://extensions, brave://extensions, opera://extensions).
 3. Turn on Developer mode, click "Load unpacked", and pick the unzipped folder - the one with manifest.json directly inside it.

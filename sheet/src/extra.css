@@ -2864,3 +2864,4 @@ html.mobile .ptyh-btns { width: 100%; } html.mobile .ptyh-btns .btn { flex: 1; t
 .ptyask-b .btn { justify-content: center; padding: 11px 0; font-size: 1rem; }
 .ptyask-why { margin: -10px 0 16px; font-size: .86rem; color: var(--soft); line-height: 1.4; padding: 8px 10px; border-radius: 8px; background: var(--panel2); border: 1px solid var(--line2); }
 .r20aura-st { margin: 0 0 6px; padding: 6px 9px; border-radius: 8px; background: var(--panel2); border: 1px dashed var(--line2); font-size: .8rem; }
+.r20manual { margin: 4px 0 10px; } .r20manual summary { cursor: pointer; color: var(--slate); font-size: .88rem; }
