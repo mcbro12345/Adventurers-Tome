@@ -49,6 +49,8 @@ function openSettings(tab) {
       ${diceMode() === 'remote' ? '<div id="relaystatus" class="r20box"><span class="rs-ic">…</span><div class="rs-t"><span>Checking for your computer…</span></div></div>' : ''}
       <button class="r20macros" data-act="macros" title="Copy Roll20 macros for everything rollable" aria-label="Roll20 macros"><img src="${R20_LOGO}" alt=""></button>
       <p class="hint" style="margin:4px 0 0">Copy macros for every attack, save, skill and spell.</p>
+      ${(() => { const ok = r20AuraOK(), why = !R20.ok ? 'Needs the Roll20 companion extension (and your game open in Roll20).' : !ok ? 'Download the extension again (button above) to get this — your copy is older.' : 'Your auras (like Aura of Protection) go on and off by themselves as party members’ tokens move in and out of range. Each person is still asked first, with how far apart you are. Tokens are matched to characters by name.';
+        return `<label class="setrow r20aura${ok ? '' : ' dis'}"${ok ? '' : ` title="${esc(why)}"`}><input type="checkbox" data-set="r20auras"${ok && ST('r20auras') ? ' checked' : ''}${ok ? '' : ' disabled'}><span><b>Auras follow Roll20 tokens</b><small>${esc(why)}</small></span></label>`; })()}
     `)}
     ${pane('rules', `
       ${row('Exhaustion', opt('exhaustionRule', [['2014', '2014 table'], ['2024', '2024 rule']]), exModern() ? '−2 to d20s and −5 ft per level' : 'Effects stack by level')}

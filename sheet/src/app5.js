@@ -1088,7 +1088,7 @@ function prepToggle(nm) {
 const TAB = uid();
 const PART = 180000;
 // Per-viewer: never taken from someone else's copy.
-const LOCAL_SETTINGS = ['diceMode', 'r20campaign', 'sheetToR20'];
+const LOCAL_SETTINGS = ['diceMode', 'r20campaign', 'sheetToR20', 'r20auras'];
 function keepLocal(next, cur) {
   if (!next || !cur) return next;
   next.layout = cur.layout;

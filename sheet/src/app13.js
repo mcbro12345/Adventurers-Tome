@@ -91,7 +91,7 @@ function renderParty() {
       <div class="ptyh-btns">${act && ms.length > 1 ? '<button class="btn sm" data-pa="cast" data-id="" title="Pick the spell, then everyone it reaches">Cast a spell on allies…</button><button class="btn sm" data-pa="ability" data-id="" title="Pick the ability, then everyone it reaches">Use an ability on allies…</button>' : ''}<a class="btn sm" href="${esc(P.url)}" target="_top">Party page</a></div></div>
       ${act && ms.length ? `<p class="hint ptyh-hint">${P.mgr ? 'As the DM, what you send lands on their sheet straight away (or the next time it’s opened).' : 'Healing, items, spells and abilities you send pop up on their sheet for them to accept.'}</p>` : ''}</div>`;
   const cards = P.loading ? `<div class="panel"><p class="hint" style="margin:0">Loading the party…</p></div>` : ms.length ? `<div class="ptym-grid">${ms.map(ptyCardHTML).join('')}</div>` : `<div class="panel"><p class="hint" style="margin:0">Nobody else has joined yet. Your DM can share the party’s invite link from the party page.</p></div>`;
-  const aurasP = auras.length ? `<div class="panel ptyauras"><h2>Your auras</h2><p class="hint">Tick who’s close enough to get it. They keep it until you untick them, or you drop to 0 HP.</p>${auras.map(a => { const on = (S.ptyAuras || {})[a.name] || [];
+  const aurasP = auras.length ? `<div class="panel ptyauras"><h2>Your auras</h2>${r20AuraOn() ? `<p class="hint r20aura-st">${esc(R20A.status || 'Watching your Roll20 tokens…')}</p>` : ''}<p class="hint">Tick who’s close enough to get it. They keep it until you untick them, or you drop to 0 HP.</p>${auras.map(a => { const on = (S.ptyAuras || {})[a.name] || [];
       return `<div class="ptya"><b>${esc(a.name)}</b><span class="hint">${esc(ptyFormula(a.def.label || '') || a.def.text || '')}</span><div class="ptya-who">${ms.map(m => `<label class="checkline"><input type="checkbox" data-aura="${esc(a.name)}" data-id="${esc(m.id)}"${on.includes(m.id) ? ' checked' : ''}> ${esc(m.name)}</label>`).join('')}</div></div>`; }).join('')}</div>` : '';
   const logP = `<div class="panel ptylogp"><h2>Party log</h2>${(S.ptyLog || []).length ? `<div class="ptylog">${S.ptyLog.slice(0, 30).map(l => `<div class="ptyl ${l.dir}"><span class="ptyl-d" aria-label="${l.dir === 'in' ? 'Received' : 'Sent'}">${l.dir === 'in' ? '↓' : '↑'}</span><span class="ptyl-t">${esc(l.text)}<small>${l.dir === 'in' ? 'from ' : 'to '}${esc(l.who)} · ${esc(ptyAgo(l.at))}</small></span></div>`).join('')}</div>` : '<p class="hint" style="margin:0">What you send and receive shows up here.</p>'}</div>`;
   pg.innerHTML = `<div class="ptytab">${head}${cards}<div class="ptyfoot${aurasP ? '' : ' one'}">${aurasP}${logP}</div></div>`;
@@ -353,13 +353,13 @@ function ptyWatchCasts() {
   done.forEach(z => z.to.forEach(id => PTYX().send(id, 'end', { n: z.n, why: (S.name || 'The caster') + '’s ' + z.n }).catch(() => {})));
 }
 // Auras: on for whoever is close enough, until turned off.
-function ptyAura(name, id, on) {
+function ptyAura(name, id, on, reason) {
   const ab = ptyAbilities().find(a => a.name === name); if (!ab) return;
   S.ptyAuras = Object.assign({}, S.ptyAuras); const cur = new Set(S.ptyAuras[name] || []);
   const me = PTYX().self, fxn = `${name} (${S.name || 'ally'})`;
   if (on) { cur.add(id); const b = JSON.parse(JSON.stringify(ab.def.buff || {})); Object.keys(b).forEach(k => { if (typeof b[k] === 'string' && /\{/.test(b[k])) b[k] = /note/.test(k) ? ptyFormula(b[k]) : N(ptyFormula(b[k])); });
-    PTYX().send(id, 'effect', { fx: { name: fxn, rounds: null, buff: b, from: S.name || 'an ally', src: { c: me, n: name, aura: true } } }).catch(() => {}); ptyLog('out', ptyNm(id), name + ' on'); }
-  else { cur.delete(id); PTYX().send(id, 'end', { n: name, why: name + ' ended' }).catch(() => {}); ptyLog('out', ptyNm(id), name + ' off'); }
+    PTYX().send(id, 'effect', Object.assign({ fx: { name: fxn, rounds: null, buff: b, from: S.name || 'an ally', src: { c: me, n: name, aura: true } }, label: ptyFormula(ab.def.label || ab.def.text || '') }, reason ? { reason } : {})).catch(() => {}); ptyLog('out', ptyNm(id), name + ' on' + (reason ? ' (in range on the map)' : '')); }
+  else { cur.delete(id); PTYX().send(id, 'end', Object.assign({ n: name, why: name + ' ended' }, reason ? { reason } : {})).catch(() => {}); ptyLog('out', ptyNm(id), name + ' off' + (reason ? ' (out of range on the map)' : '')); }
   S.ptyAuras[name] = [...cur]; pendingLabel = name + (on ? ' on ' : ' off for ') + ptyNm(id); save();
 }
 // Auras end for everyone when you drop to 0 HP.
@@ -471,7 +471,7 @@ function ptyBusy() { const a = document.activeElement; return $('#wizard').class
 // Anything another player sends that changes this character waits for you to accept it (no griefing). The DM's
 // changes, your own characters', messages, and a spell ending that someone had cast on you go straight through.
 const ptyFreeKind = k => ['note', 'end', 'reply'].includes(k);
-function ptyTrusted(m) { const P = PTYX(), I = P && P.info(); if (ptyFreeKind(m.kind)) return true; if (!m.by) return false;
+function ptyTrusted(m) { const P = PTYX(), I = P && P.info(); if (ptyFreeKind(m.kind) && !(m.data && m.data.reason)) return true; if (!m.by) return false;
   // only the DM, or this character's own player (their own characters) — not whoever happens to have the sheet open
   return !!I && (m.by === I.dm || m.by === (P.owner && P.owner())); }
 function ptyInFlush() { const I = PTYX() && PTYX().info(); if (!S.created || ptyBusy() || !I || I.loading) { clearTimeout(ptyInFlush._t); ptyInFlush._t = setTimeout(ptyInFlush, 800); return; }
@@ -488,7 +488,7 @@ function ptyDesc(m) { const d = m.data || {}, why = d.why && d.why !== m.fromNam
     case 'temp': return `Give you ${N(d.amt)} temporary HP` + why;
     case 'damage': return `Deal you ${N(d.amt)}${d.type ? ' ' + d.type : ''} damage` + why;
     case 'hit': { const bits = [d.dmg ? N(d.dmg) + (d.type ? ' ' + d.type : '') + ' damage' : '', [].concat(d.cond || []).join(', '), d.save ? `${d.save} save, DC ${N(d.dc)}` : d.hit != null ? 'attack roll ' + N(d.hit) : ''].filter(Boolean); if (!d.spell) return `Deal you ${d.dmg ? N(d.dmg) + (d.type ? ' ' + d.type : '') + ' damage' : 'damage'}${bits.filter(x => !/damage$/.test(x)).length ? ' (' + bits.filter(x => !/damage$/.test(x)).join(', ') + ')' : ''}${why}`; return `Hit you with ${d.spell}${bits.length ? ' (' + bits.join(', ') + ')' : ''}`; }
-    case 'effect': { const fx = d.fx || {}; const t = typeof fxTip === 'function' ? fxTip(fx) : ''; return `Give you ${fx.name || 'an effect'}${t || fx.rounds ? ' (' + [t, fx.rounds ? 'for ' + fmtRounds(fx.rounds) : ''].filter(Boolean).join(', ') + ')' : ''}`; }
+    case 'effect': { const fx = d.fx || {}; if (fx.src && fx.src.aura) return `Give you ${fx.src.n}${d.label ? ' (' + d.label + ')' : ''}`; const t = typeof fxTip === 'function' ? fxTip(fx) : ''; return `Give you ${fx.name || 'an effect'}${t || fx.rounds ? ' (' + [t, fx.rounds ? 'for ' + fmtRounds(fx.rounds) : ''].filter(Boolean).join(', ') + ')' : ''}`; }
     case 'cure': return 'End ' + [].concat(d.conds || [], d.fx || [], d.exh ? [(N(d.exh) > 0 ? 'add' : 'remove') + ' a level of exhaustion'] : [], d.curse ? ['curses'] : []).join(', ') + why;
     case 'cond': return `Give you the ${d.cond} condition${N(d.rounds) ? ' for ' + N(d.rounds) + ' rounds' : ''}` + why;
     case 'revive': return 'Bring you back' + why; case 'stabilize': return 'Stabilize you' + why;
@@ -498,6 +498,7 @@ function ptyDesc(m) { const d = m.data || {}, why = d.why && d.why !== m.fromNam
     case 'loot': return `Give you ${N(d.qty) > 1 ? N(d.qty) + ' × ' : ''}${d.name || 'an item'}`;
     case 'coins': return 'Give you ' + ['pp', 'gp', 'ep', 'sp', 'cp'].filter(k => N(d[k])).map(k => N(d[k]) + ' ' + k).join(', ');
     case 'inspire': return 'Give you Inspiration';
+    case 'end': return `End ${d.n || 'an effect'} on you`;
     case 'undo': { const g = (S.ptyGot || []).find(x => x.ref === d.ref); return 'Take back: ' + (g ? g.text : 'something they sent'); }
   }
   return m.kind; }
@@ -510,7 +511,7 @@ function ptyAskShow() {
   const a = A[0], d = ptyDesc(a.m), what = d.charAt(0).toLowerCase() + d.slice(1);
   ov.innerHTML = `<div class="ptyask-m" role="alertdialog" aria-modal="true" aria-labelledby="ptyask-q">
     ${A.length > 1 ? `<div class="ptyask-n">1 of ${A.length}</div>` : ''}
-    <p class="ptyask-q" id="ptyask-q"><b>${esc(a.m.fromName || 'Someone')}</b> wants to ${esc(what)}.</p>
+    <p class="ptyask-q" id="ptyask-q"><b>${esc(a.m.fromName || 'Someone')}</b> wants to ${esc(what)}.</p>${a.m.data && a.m.data.reason ? `<p class="ptyask-why">${esc(a.m.data.reason)}</p>` : ''}
     <div class="ptyask-b"><button class="btn" data-pa="askno" data-ref="${esc(a.ref)}">No</button><button class="btn gold" data-pa="askok" data-ref="${esc(a.ref)}">Yes</button></div></div>`;
   const y = ov.querySelector('[data-pa=askok]'); if (y && !matchMedia('(pointer:coarse)').matches) setTimeout(() => y.focus(), 30);
 }
@@ -592,7 +593,8 @@ function ptyApply(m) {
     case 'coins': { const got = []; ['cp', 'sp', 'ep', 'gp', 'pp'].forEach(k => { const v = Math.max(0, N(d[k])); if (v) { S.currency[k] = N(S.currency[k]) + v; got.push(v + ' ' + k); } }); if (!got.length) return false;
       pendingLabel = 'Coins from ' + who; note('Received ' + got.join(', ')); toast(`<div><b>${esc(who)}</b> gave you <b>${esc(got.join(', '))}</b></div>`, 'crit', 7000); return true; }
     case 'inspire': { S.insp = Math.min(inspMax(), Math.max(0, N(S.insp)) + 1); pendingLabel = 'Inspiration from ' + who; note('Inspiration'); toast(`<div><b>Inspiration!</b><div class="det">From ${esc(who)}${ST('inspiration') ? '' : ' (turn on Inspiration in Settings → Rules to see it on the sheet)'}</div></div>`, 'crit', 8000); return true; }
-    case 'reply': { note(`${d.ok ? 'They said yes' : 'They said no'}: ${d.text || ''}`); toast(`<div><b>${esc(d.n || who)}</b> ${d.ok ? 'said yes' : 'said no'}<div class="det">${esc(d.text || '')}</div></div>`, d.ok ? '' : 'alert', 6000); return true; }
+    case 'reply': { if (!d.ok && m.from && S.ptyAuras) Object.keys(S.ptyAuras).forEach(n => { if (String(d.text || '').includes(n)) { S.ptyAuras[n] = (S.ptyAuras[n] || []).filter(x => x !== m.from); R20A.no[n + '|' + m.from] = true; } });
+      note(`${d.ok ? 'They said yes' : 'They said no'}: ${d.text || ''}`); toast(`<div><b>${esc(d.n || who)}</b> ${d.ok ? 'said yes' : 'said no'}<div class="det">${esc(d.text || '')}</div></div>`, d.ok ? '' : 'alert', 6000); return true; }
     case 'note': { note(String(d.text || '')); toast(`<div><b>${esc(who)}</b><div class="det">${esc(d.text || '')}</div></div>`, 'alert', 30000); return true; }
     case 'undo': { const g = (S.ptyGot || []).find(x => x.ref === d.ref); if (!g) { PTY_CANCEL.add(d.ref); return false; }
       PTYX().revert(S, g.rev); S.ptyGot = S.ptyGot.filter(x => x !== g); S.hp.cur = Math.min(N(S.hp.cur), maxHp()); pendingLabel = `${who} took back: ${g.text}`; note(`Took back: ${g.text}`);
@@ -642,3 +644,50 @@ function ptyHitPrompt(m) {
 function ptyBondDamage(amt) { if (!ptyAct()) return; (S.effects || []).filter(e => e.bond && (e.rounds == null || N(e.rounds) > 0)).forEach(e => PTYX().send(e.bond, 'damage', { amt, why: `Warding Bond with ${S.name || 'an ally'}` }).catch(() => {})); }
 // Death Ward: the first drop to 0 HP is 1 HP instead.
 function ptyDeathWard() { const e = (S.effects || []).find(x => x.buff && x.buff.deathWard); if (!e) return false; S.effects = S.effects.filter(x => x !== e); setTimeout(() => toast(`<b>Death Ward</b> — you drop to 1 HP instead of 0. It’s used up.`, 'crit', 8000), 80); return true; }
+
+
+// ----- Auras that follow Roll20 tokens (Settings → Dice, needs the companion extension) -----
+// Every few seconds the map is read: your token and your party's, matched by name to the characters. Anyone who comes
+// within one of your auras is offered it (with how far apart you are); anyone who leaves it is asked to drop it.
+const R20A = { busy: false, want: {}, seen: {}, sent: {}, no: {}, status: '' };
+const r20AuraOK = () => !!(R20.ok && (R20.caps || []).includes('tokens'));
+const r20AuraOn = () => !!(ST('r20auras') && r20AuraOK() && ptyAct() && !isMobile());
+// How far an aura reaches, in feet.
+function ptyAuraReach(name) {
+  const pal = clsLv('paladin'), big = pal >= 18;
+  if (/Alacrity/.test(name)) return big ? 10 : 5;
+  if (/Aura of (Protection|Courage|Devotion|Warding|Hate|the Sentinel|the Guardian|Conquest)/i.test(name)) return big ? 30 : 10;
+  const d = ALLYFEAT(name) || {}; return N(d.reach) || 10;
+}
+// Feet between two tokens, edge to edge, the way the map measures (adjacent = 5 ft).
+function r20Dist(a, b, map) {
+  const g = map.grid || 70, gap = (d, sa, sb) => Math.max(0, Math.abs(d) - (sa + sb) / 2 + g) / g;
+  const sx = Math.round(gap(a.x - b.x, a.w, b.w) * 100) / 100, sy = Math.round(gap(a.y - b.y, a.h, b.h) * 100) / 100;
+  const X = Math.round(sx), Y = Math.round(sy);
+  const sq = map.diag === 'pythagorean' ? Math.round(Math.hypot(sx, sy)) : map.diag === 'threefive' ? Math.max(X, Y) + Math.floor(Math.min(X, Y) / 2) : map.diag === 'manhattan' ? X + Y : Math.max(X, Y);
+  return sq * (map.scale || 5);
+}
+const r20Tok = (map, nm) => { const k = String(nm || '').trim().toLowerCase(); if (!k) return null; return map.tokens.find(t => String(t.cname).trim().toLowerCase() === k) || map.tokens.find(t => String(t.name).trim().toLowerCase() === k) || null; };
+async function r20AuraTick() {
+  if (R20A.busy || !r20AuraOn() || !S.created || N(S.hp.cur) <= 0) return;
+  const auras = ptyAbilities().filter(a => a.def.kind === 'aura'); if (!auras.length) return;
+  R20A.busy = true; let map;
+  try { map = await r20Send({ type: 'tokens', campaign: ST('r20campaign') || '' }, 6000); } catch (e) { R20A.status = 'Roll20: ' + e.message; R20A.busy = false; if (UI.tab === 'party') render('party'); return; }
+  R20A.busy = false;
+  const me = r20Tok(map, S.name), was = R20A.status;
+  if (!me) { R20A.status = `No token named “${S.name}” on the Roll20 page “${map.page}” — auras aren’t changed until there is one.`; if (was !== R20A.status && UI.tab === 'party') render('party'); return; }
+  const ms = ptyMembers(), found = ms.filter(m => r20Tok(map, m.name));
+  R20A.status = `Following the tokens on “${map.page}”: ${found.length ? found.map(m => m.name).join(', ') : 'no party members’ tokens found yet'}.`;
+  auras.forEach(a => { const reach = ptyAuraReach(a.name), on = new Set((S.ptyAuras || {})[a.name] || []);
+    ms.forEach(m => { const t = r20Tok(map, m.name); if (!t) return; // not on the map: leave it as it is
+      const ft = r20Dist(me, t, map), inR = ft <= reach, k = a.name + '|' + m.id;
+      // wait until it's been that way for two looks in a row (not while a token is being dragged across)
+      if (R20A.seen[k] !== inR) { R20A.seen[k] = inR; return; }
+      if (!inR) delete R20A.no[k];
+      if (inR === on.has(m.id) || R20A.no[k]) return;
+      if (R20A.sent[k] && Date.now() - R20A.sent[k] < 15000) return; R20A.sent[k] = Date.now();
+      const why = inR ? `On the Roll20 map, ${m.name} is ${ft} ft from ${S.name || 'you'} — ${a.name} reaches ${reach} ft.` : `On the Roll20 map, ${m.name} is now ${ft} ft from ${S.name || 'you'} — out of ${a.name}’s ${reach} ft.`;
+      ptyAura(a.name, m.id, inR, why); save(); }); });
+  if (was !== R20A.status && UI.tab === 'party') render('party');
+}
+setInterval(r20AuraTick, 3000);

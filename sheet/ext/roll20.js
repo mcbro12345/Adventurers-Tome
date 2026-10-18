@@ -72,7 +72,17 @@
     chain = job.catch(() => {});
     return job;
   }
+  // Where the tokens are: Roll20's own map data lives in the page itself, so roll20-main.js (which runs there) reads it.
+  function tokens() {
+    return new Promise((resolve) => {
+      const id = 't' + Math.random().toString(36).slice(2);
+      const on = (e) => { const d = e.data; if (e.source !== window || !d || d.__tomeTok !== 'ans' || d.id !== id) return; removeEventListener('message', on); clearTimeout(t); resolve(d.res || { error: 'no answer' }); };
+      const t = setTimeout(() => { removeEventListener('message', on); resolve({ error: 'Reload the Roll20 tab once so the extension can read the map.' }); }, 3000);
+      addEventListener('message', on); window.postMessage({ __tomeTok: 'ask', id }, '*');
+    });
+  }
   chrome.runtime.onMessage.addListener((msg, sender, send) => {
+    if (msg.type === 'tokens') { tokens().then(send); return true; }
     if (msg.type === 'info') { send({ campaign: campaign(), player: speakingAs() }); return; }
     if (msg.type === 'roll') { roll(msg).then(send); return true; }
     if (msg.type === 'post') { chain = chain.then(async () => { speakAs(msg.who); const ls = (msg.lines || []).map(cleanLine); for (let k = 0; k < ls.length; k++) { post(ls[k]); await wait(160); } }).then(() => send({ ok: true }), (e) => send({ error: String(e) })); return true; }

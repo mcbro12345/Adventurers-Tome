@@ -12,7 +12,7 @@ async function games() {
 chrome.runtime.onMessage.addListener((msg, sender, send) => {
   (async () => {
     if (msg.type === 'campaigns') return send({ list: await games() });
-    if (msg.type === 'roll' || msg.type === 'post') {
+    if (msg.type === 'roll' || msg.type === 'post' || msg.type === 'tokens') {
       const list = await games();
       if (!list.length) return send({ error: 'No Roll20 game is open. Open your game in Roll20 first.' });
       const g = (msg.campaign && list.find((x) => x.campaign === msg.campaign)) || (msg.campaign ? null : list[0]);
