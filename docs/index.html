@@ -2186,7 +2186,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261018204331', ASSETS = {"data": "a/data.3b68312eb554.js", "app": "a/app.9c00c2ac9e16.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.3e3bb7e3d7b3.html"}; window.PG_ASSETS = ASSETS;
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261018204933', ASSETS = {"data": "a/data.3b68312eb554.js", "app": "a/app.9c00c2ac9e16.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.3e3bb7e3d7b3.html"}; window.PG_ASSETS = ASSETS;
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -3579,9 +3579,9 @@ function hub(fs, auth, G, ctx) {
         if (act === 'reload') { await ref.update({ reloadAt: Date.now() }); toast(nm + '’s open pages will refresh now.'); pgLog('user_reload', { target: em, tName: nm }); return; }
         if (act === 'msg') { const last = u.msg && u.msg.text ? `<p class="hub-hint pm-last">Last message (${esc(new Date(u.msg.at || 0).toLocaleString())}) · ${u.msgSeen && u.msgSeen === u.msg.id ? '<b>seen</b>' : 'not seen yet'}:<br>“${esc(String(u.msg.text).slice(0, 200))}${String(u.msg.text).length > 200 ? '…' : ''}”</p>` : '';
           modal.innerHTML = `<div class="hub-card"><h2>Message ${esc(nm)}</h2><p class="hub-hint">It pops up for them on Adventurer’s Tome: right away if they have it open, otherwise the next time they do. They see it once.</p>${last}
-            <textarea id="pm-t" class="ad-search pm-t" maxlength="1500" rows="5" placeholder="Your message"></textarea><label class="pm-anon"><input type="checkbox" id="pm-anon"><span><b>Send anonymously</b><small>It shows as from “Adventurer’s Tome”</small></span></label><div class="row"><button class="btn ghost" id="pm-x">Cancel</button><button class="btn gold" id="pm-ok" disabled>Send</button></div></div>`;
+            <textarea id="pm-t" class="ad-search pm-t" rows="5" placeholder="Your message"></textarea><label class="pm-anon"><input type="checkbox" id="pm-anon"><span><b>Send anonymously</b><small>It shows as from “Adventurer’s Tome”</small></span></label><div class="row"><button class="btn ghost" id="pm-x">Cancel</button><button class="btn gold" id="pm-ok" disabled>Send</button></div></div>`;
           modal.classList.add('on'); const ta = modal.querySelector('#pm-t'), ok = modal.querySelector('#pm-ok'); ta.focus(); ta.oninput = () => { ok.disabled = !ta.value.trim(); }; modal.querySelector('#pm-x').onclick = close;
-          ok.onclick = async () => { const text = ta.value.trim().slice(0, 1500); if (!text) return; ok.disabled = true; ok.textContent = 'Sending…';
+          ok.onclick = async () => { const text = ta.value.trim().slice(0, 200000); if (!text) return; ok.disabled = true; ok.textContent = 'Sending…';
             const anon = modal.querySelector('#pm-anon').checked; // anonymous: nothing on their side says who sent it (the audit log still does)
             const m = Object.assign({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), text, at: Date.now() }, anon ? { anon: true } : { from: EMAIL, fromName: String((ME && ME.name) || EMAIL) });
             try { await ref.update({ msg: m }); u.msg = m; US[em] = u; close(); toast((anon ? 'Anonymous message' : 'Message') + ' sent to ' + nm + '.'); pgLog('message', { target: em, tName: nm, detail: (anon ? '(anonymous) ' : '') + text }); }
@@ -3782,7 +3782,7 @@ function hub(fs, auth, G, ctx) {
       const row = n => `<tr><td>${when(n.at)}</td><td class="nt-txt">${esc(String(n.text || '').slice(0, 240))}${String(n.text || '').length > 240 ? '…' : ''}</td><td>${esc(n.byName || n.by || '')}</td><td>${n.endedAt ? (n.seen || 0) : seenOf(n)} / ${n.sent || 0}</td><td><span class="adm-tag">${stat(n)}</span>${n.endedAt ? `<small class="adm-dim"> ${when(n.endedAt)}</small>` : ''}</td><td><button class="adm-btn sm" data-ntpv="${esc(n.id)}">Preview</button></td></tr>`;
       el.innerHTML = `<div class="adm-stats"><div class="adm-stat"><small>Goes to</small><b>${all.length}</b></div>${live ? `<div class="adm-stat"><small>Current notice seen by</small><b>${seenOf(live)} / ${live.sent || 0}</b></div>` : ''}</div>
         ${live ? `<p class="adm-note"><b>Current notice</b> (sent ${esc(new Date(live.at).toLocaleString())}):<br>“${esc(String(live.text).slice(0, 400))}${String(live.text).length > 400 ? '…' : ''}”</p><div class="row"><button class="adm-btn" id="nt-rv">Revoke it</button></div>` : '<p class="adm-note">No notice is out right now.</p>'}
-        <h3 class="nt-h">New notice</h3><textarea id="nt-t" class="ad-search pm-t" maxlength="1500" rows="7" placeholder="Your notice"></textarea><p class="adm-note nt-fmt">**bold** · *italic* · <code># Heading</code> on its own line · <code>- </code> for a list · web addresses become links</p>
+        <h3 class="nt-h">New notice</h3><textarea id="nt-t" class="ad-search pm-t" rows="7" placeholder="Your notice"></textarea><p class="adm-note nt-fmt">**bold** · *italic* · <code># Heading</code> on its own line · <code>- </code> for a list · web addresses become links</p>
         ${live ? '<p class="adm-note">Sending it replaces the current notice for anyone who hasn’t seen it yet.</p>' : ''}<div class="row"><button class="adm-btn" id="nt-pv" disabled>Preview</button><button class="adm-btn primary" id="nt-ok" disabled>Send to everyone</button></div>
         <h3 class="nt-h">Past notices</h3>${log.length ? `<div class="adm-tw"><table class="adm-t"><thead><tr><th>Sent</th><th>Notice</th><th>By</th><th>Seen</th><th>Status</th><th></th></tr></thead><tbody>${log.map(row).join('')}</tbody></table></div>` : '<p class="adm-dim">None yet.</p>'}`;
       // ends the live notice: takes it off everyone who still holds it, and keeps how many saw it
@@ -3790,12 +3790,12 @@ function hub(fs, auth, G, ctx) {
         for (let i = 0; i < hold.length; i += 400) { const bt = fs.batch(); hold.slice(i, i + 400).forEach(u => bt.update(usersCol.doc(u.id), { notice: FV.delete() })); await bt.commit(); }
         await noticesCol.doc(n.id).update({ endedAt: Date.now(), ended: how, seen: seenOf(n) }); };
       const ta = el.querySelector('#nt-t'), ok = el.querySelector('#nt-ok'), pv = el.querySelector('#nt-pv'); ta.oninput = () => { ok.disabled = pv.disabled = !ta.value.trim(); };
-      pv.onclick = () => { const text = ta.value.trim().slice(0, 1500); if (text) window.pgPreview({ text, at: Date.now(), anon: true }, 'notice'); };
+      pv.onclick = () => { const text = ta.value.trim().slice(0, 200000); if (text) window.pgPreview({ text, at: Date.now(), anon: true }, 'notice'); };
       el.querySelectorAll('[data-ntpv]').forEach(b => b.onclick = () => { const n = log.find(x => x.id === b.dataset.ntpv); if (n) window.pgPreview({ text: n.text, at: n.at, anon: true }, 'notice'); });
       const rv = el.querySelector('#nt-rv');
       if (rv) rv.onclick = async () => { if (!await ask('Revoke this notice?', 'It disappears for everyone who hasn’t seen it yet (and closes if it’s on their screen). It stays in the log.', 'Revoke', true)) return;
         rv.disabled = true; try { await end(live, 'revoked'); pgLog('notice_revoke', { target: 'everyone', tName: 'everyone', detail: live.text }); toast('Notice revoked.'); } catch (x) { toast('Couldn’t revoke it: ' + ((x && (x.code === 'permission-denied' ? 'the new database rules need publishing' : x.message)) || x)); } if (TAB === 'notice') tabNotice(); };
-      ok.onclick = async () => { const text = ta.value.trim().slice(0, 1500); if (!text) return;
+      ok.onclick = async () => { const text = ta.value.trim().slice(0, 200000); if (!text) return;
         if (!await ask('Send this notice to everyone?', `It pops up once for all ${all.length} accounts, from “Adventurer’s Tome”.${live ? ' It replaces the current notice for anyone who hasn’t seen it.' : ''}`, 'Send to everyone')) return;
         ok.disabled = true; ok.textContent = 'Sending…';
         const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6), m = { id, text, at: Date.now(), anon: true };
