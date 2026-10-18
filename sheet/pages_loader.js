@@ -533,6 +533,14 @@ function wireDie(root) {
   // Web addresses in a message become links (opened in a new tab). Runs on already-escaped text.
   function linkify(h) { return h.replace(/\b(?:https?:\/\/|www\.)[^\s<]+/gi, u => { const tail = (u.match(/[.,;:!?)\]'"]+$/) || [''])[0], url = tail ? u.slice(0, -tail.length) : u;
     return `<a href="${/^www\./i.test(url) ? 'https://' + url : url}" target="_blank" rel="noopener noreferrer">${url}</a>${tail}`; }); }
+  // Light formatting in messages and notices: **bold**, *italic*, "# " heading lines and "- " list lines.
+  function pgMark(t) { const inl = h => linkify(h.replace(/\*\*(?=\S)([^*]+?)\*\*/g, '<b>$1</b>').replace(/(^|[^*\w])\*(?=\S)([^*]+?)\*(?!\w)/g, '$1<i>$2</i>'));
+    let out = '', ul = false;
+    escH(String(t || '')).split('\n').forEach(l => { const li = /^\s*[-•]\s+(.*)$/.exec(l), hd = /^\s*#{1,3}\s+(.*)$/.exec(l);
+      if (li) { out += (ul ? '' : '<ul>') + '<li>' + inl(li[1]) + '</li>'; ul = true; return; }
+      if (ul) { out += '</ul>'; ul = false; }
+      out += hd ? '<b class="pgm-hd">' + inl(hd[1]) + '</b>' : inl(l) + '<br>'; });
+    return (ul ? out + '</ul>' : out).replace(/(<br>)+$/, ''); }
   // A notice (to everyone) has its own slot beside the personal message, so neither replaces the other; they show one after the other.
   // A notice that's revoked or replaced while it's on screen closes.
   let PGU = null;
@@ -550,7 +558,7 @@ function wireDie(root) {
   function pgCard(m, k, after) {
       const w = document.createElement('div'); w.id = 'pg-msg'; w.dataset.k = k; w.dataset.id = m.id; w.setAttribute('role', 'dialog'); w.setAttribute('aria-modal', 'true');
       w.innerHTML = `<div class="pgm-card"><div class="pgm-h"><span class="pgm-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H8l-4 4z"/></svg></span><div><b>${k === 'notice' ? 'Notice' : 'Message'} from ${escH(m.anon ? 'Adventurer’s Tome' : (m.fromName || 'Adventurer’s Tome'))}</b><small>${escH(new Date(m.at || Date.now()).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))}</small></div></div>
-        <div class="pgm-t">${linkify(escH(m.text)).replace(/\n/g, '<br>')}</div><div class="pgm-row"><button class="pgm-ok" type="button">OK</button></div></div>`;
+        <div class="pgm-t">${pgMark(m.text)}</div><div class="pgm-row"><button class="pgm-ok" type="button">OK</button></div></div>`;
       document.body.appendChild(w); const ok = w.querySelector('.pgm-ok'); setTimeout(() => ok.focus(), 50);
       const done = () => { if (after) after(); w.classList.add('out'); setTimeout(() => w.remove(), 200); };
       ok.onclick = done; w.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); done(); } }); }
@@ -1859,14 +1867,15 @@ function hub(fs, auth, G, ctx) {
       const row = n => `<tr><td>${when(n.at)}</td><td class="nt-txt">${esc(String(n.text || '').slice(0, 240))}${String(n.text || '').length > 240 ? '…' : ''}</td><td>${esc(n.byName || n.by || '')}</td><td>${n.endedAt ? (n.seen || 0) : seenOf(n)} / ${n.sent || 0}</td><td><span class="adm-tag">${stat(n)}</span>${n.endedAt ? `<small class="adm-dim"> ${when(n.endedAt)}</small>` : ''}</td><td><button class="adm-btn sm" data-ntpv="${esc(n.id)}">Preview</button></td></tr>`;
       el.innerHTML = `<div class="adm-stats"><div class="adm-stat"><small>Goes to</small><b>${all.length}</b></div>${live ? `<div class="adm-stat"><small>Current notice seen by</small><b>${seenOf(live)} / ${live.sent || 0}</b></div>` : ''}</div>
         ${live ? `<p class="adm-note"><b>Current notice</b> (sent ${esc(new Date(live.at).toLocaleString())}):<br>“${esc(String(live.text).slice(0, 400))}${String(live.text).length > 400 ? '…' : ''}”</p><div class="row"><button class="adm-btn" id="nt-rv">Revoke it</button></div>` : '<p class="adm-note">No notice is out right now.</p>'}
-        <h3 class="nt-h">New notice</h3><textarea id="nt-t" class="ad-search pm-t" maxlength="1500" rows="7" placeholder="Your notice — web addresses become links"></textarea>
-        ${live ? '<p class="adm-note">Sending it replaces the current notice for anyone who hasn’t seen it yet.</p>' : ''}<div class="row"><button class="adm-btn primary" id="nt-ok" disabled>Send to everyone</button></div>
+        <h3 class="nt-h">New notice</h3><textarea id="nt-t" class="ad-search pm-t" maxlength="1500" rows="7" placeholder="Your notice"></textarea><p class="adm-note nt-fmt">**bold** · *italic* · <code># Heading</code> on its own line · <code>- </code> for a list · web addresses become links</p>
+        ${live ? '<p class="adm-note">Sending it replaces the current notice for anyone who hasn’t seen it yet.</p>' : ''}<div class="row"><button class="adm-btn" id="nt-pv" disabled>Preview</button><button class="adm-btn primary" id="nt-ok" disabled>Send to everyone</button></div>
         <h3 class="nt-h">Past notices</h3>${log.length ? `<div class="adm-tw"><table class="adm-t"><thead><tr><th>Sent</th><th>Notice</th><th>By</th><th>Seen</th><th>Status</th><th></th></tr></thead><tbody>${log.map(row).join('')}</tbody></table></div>` : '<p class="adm-dim">None yet.</p>'}`;
       // ends the live notice: takes it off everyone who still holds it, and keeps how many saw it
       const end = async (n, how) => { const hold = gotOf(n);
         for (let i = 0; i < hold.length; i += 400) { const bt = fs.batch(); hold.slice(i, i + 400).forEach(u => bt.update(usersCol.doc(u.id), { notice: FV.delete() })); await bt.commit(); }
         await noticesCol.doc(n.id).update({ endedAt: Date.now(), ended: how, seen: seenOf(n) }); };
-      const ta = el.querySelector('#nt-t'), ok = el.querySelector('#nt-ok'); ta.oninput = () => { ok.disabled = !ta.value.trim(); };
+      const ta = el.querySelector('#nt-t'), ok = el.querySelector('#nt-ok'), pv = el.querySelector('#nt-pv'); ta.oninput = () => { ok.disabled = pv.disabled = !ta.value.trim(); };
+      pv.onclick = () => { const text = ta.value.trim().slice(0, 1500); if (text) window.pgPreview({ text, at: Date.now(), anon: true }, 'notice'); };
       el.querySelectorAll('[data-ntpv]').forEach(b => b.onclick = () => { const n = log.find(x => x.id === b.dataset.ntpv); if (n) window.pgPreview({ text: n.text, at: n.at, anon: true }, 'notice'); });
       const rv = el.querySelector('#nt-rv');
       if (rv) rv.onclick = async () => { if (!await ask('Revoke this notice?', 'It disappears for everyone who hasn’t seen it yet (and closes if it’s on their screen). It stays in the log.', 'Revoke', true)) return;
