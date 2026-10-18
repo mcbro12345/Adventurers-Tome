@@ -1775,5 +1775,11 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 /* Notice → who's seen it */
 .adm-body button.adm-stat.nt-seenstat { text-align: left; font: inherit; color: inherit; cursor: pointer; } .adm-body button.adm-stat.nt-seenstat:hover { border-color: #c9962b; }
 .adm-body .linkbtn.nt-seen { font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; background: none; border: 0; padding: 0; color: inherit; }
-.nt-sl .nt-sl-list { max-height: 260px; overflow: auto; margin: 4px 0 12px; display: grid; gap: 6px; }
+.nt-sl .nt-sl-wrap { position: relative; margin: 6px 0 14px; border-top: 1px solid rgba(201,150,43,.3); border-bottom: 1px solid rgba(201,150,43,.3); }
+.nt-sl .nt-sl-wrap::before, .nt-sl .nt-sl-wrap::after { content: ''; position: absolute; left: 0; right: 0; height: 12px; pointer-events: none; opacity: 0; transition: opacity .15s ease; z-index: 1; }
+.nt-sl .nt-sl-wrap::before { top: 0; background: linear-gradient(rgba(0,0,0,.3), transparent); }
+.nt-sl .nt-sl-wrap::after { bottom: 0; background: linear-gradient(transparent, rgba(0,0,0,.3)); }
+.nt-sl .nt-sl-wrap.sc-t::before, .nt-sl .nt-sl-wrap.sc-b::after { opacity: 1; }
+.nt-sl .nt-sl-list { max-height: 260px; overflow: auto; padding: 8px 2px; display: grid; gap: 6px; }
 .nt-sl .nt-sl-row { display: flex; align-items: center; gap: 10px; } .nt-sl .nt-sl-row span { min-width: 0; } .nt-sl .nt-sl-row b, .nt-sl .nt-sl-row small { display: block; overflow-wrap: anywhere; } .nt-sl .nt-sl-row small { opacity: .7; font-size: .8rem; }
+@media (prefers-color-scheme: light) { body:not(.adminbody) .nt-sl .nt-sl-wrap::before, .nt-sl .nt-sl-wrap::before { background: linear-gradient(rgba(60,40,10,.12), transparent); } .nt-sl .nt-sl-wrap::after { background: linear-gradient(transparent, rgba(60,40,10,.12)); } }
