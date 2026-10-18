@@ -533,15 +533,28 @@ function wireDie(root) {
   // Web addresses in a message become links (opened in a new tab). Runs on already-escaped text.
   function linkify(h) { return h.replace(/\b(?:https?:\/\/|www\.)[^\s<]+/gi, u => { const tail = (u.match(/[.,;:!?)\]'"]+$/) || [''])[0], url = tail ? u.slice(0, -tail.length) : u;
     return `<a href="${/^www\./i.test(url) ? 'https://' + url : url}" target="_blank" rel="noopener noreferrer">${url}</a>${tail}`; }); }
-  function pgMsg(u) { const m = u && u.msg; if (!m || !m.id || !m.text || u.msgSeen === m.id) return; let seen = ''; try { seen = localStorage.getItem('pg-msg-seen') || ''; } catch (e) {} if (seen === m.id || document.getElementById('pg-msg')) return;
-    const open = () => { if (document.getElementById('pg-load')) return setTimeout(open, 400); if (document.getElementById('pg-msg')) return;
-      const w = document.createElement('div'); w.id = 'pg-msg'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-modal', 'true');
-      w.innerHTML = `<div class="pgm-card"><div class="pgm-h"><span class="pgm-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H8l-4 4z"/></svg></span><div><b>Message from ${escH(m.anon ? 'Adventurer’s Tome' : (m.fromName || 'Adventurer’s Tome'))}</b><small>${escH(new Date(m.at || Date.now()).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))}</small></div></div>
+  // A notice (to everyone) has its own slot beside the personal message, so neither replaces the other; they show one after the other.
+  // A notice that's revoked or replaced while it's on screen closes.
+  let PGU = null;
+  function pgMsg(u) { PGU = u; const cur = document.getElementById('pg-msg');
+    if (cur && cur.dataset.k === 'notice' && !(u && u.notice && u.notice.id === cur.dataset.id)) { cur.classList.add('out'); setTimeout(() => cur.remove(), 200); }
+    pgPop('msg', 'msgSeen', 'pg-msg-seen'); pgPop('notice', 'noticeSeen', 'pg-notice-seen'); }
+  function pgPop(k, sk, lk) { const u = PGU, m = u && u[k]; if (!m || !m.id || !m.text || u[sk] === m.id) return;
+    const seenHere = () => { try { return localStorage.getItem(lk) === m.id; } catch (e) { return false; } }; if (seenHere()) return;
+    const open = () => { const v = PGU && PGU[k]; if (!v || v.id !== m.id || PGU[sk] === m.id || seenHere()) return;
+      if (document.getElementById('pg-load')) return setTimeout(open, 400);
+      const ex = document.getElementById('pg-msg'); if (ex) { if (ex.dataset.id !== m.id) setTimeout(open, 600); return; }
+      pgCard(m, k, () => { try { localStorage.setItem(lk, m.id); } catch (e) {} UREF.update({ [sk]: m.id }).catch(() => {}); }); };
+    open(); }
+  // the pop-up itself (the admin page's Preview shows the same one, and OK just closes it)
+  function pgCard(m, k, after) {
+      const w = document.createElement('div'); w.id = 'pg-msg'; w.dataset.k = k; w.dataset.id = m.id; w.setAttribute('role', 'dialog'); w.setAttribute('aria-modal', 'true');
+      w.innerHTML = `<div class="pgm-card"><div class="pgm-h"><span class="pgm-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H8l-4 4z"/></svg></span><div><b>${k === 'notice' ? 'Notice' : 'Message'} from ${escH(m.anon ? 'Adventurer’s Tome' : (m.fromName || 'Adventurer’s Tome'))}</b><small>${escH(new Date(m.at || Date.now()).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))}</small></div></div>
         <div class="pgm-t">${linkify(escH(m.text)).replace(/\n/g, '<br>')}</div><div class="pgm-row"><button class="pgm-ok" type="button">OK</button></div></div>`;
       document.body.appendChild(w); const ok = w.querySelector('.pgm-ok'); setTimeout(() => ok.focus(), 50);
-      const done = () => { try { localStorage.setItem('pg-msg-seen', m.id); } catch (e) {} UREF.update({ msgSeen: m.id }).catch(() => {}); w.classList.add('out'); setTimeout(() => w.remove(), 200); };
-      ok.onclick = done; w.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); done(); } }); };
-    open(); }
+      const done = () => { if (after) after(); w.classList.add('out'); setTimeout(() => w.remove(), 200); };
+      ok.onclick = done; w.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); done(); } }); }
+  window.pgPreview = (m, k) => { const ex = document.getElementById('pg-msg'); if (ex) ex.remove(); pgCard(Object.assign({ id: 'preview' }, m), k); document.getElementById('pg-msg').dataset.k = 'preview'; };
   const UCACHE = {}, userDoc = em => UCACHE[em] || (UCACHE[em] = fs.collection('users').doc(em).get().then(x => x.exists ? x.data() : null, () => null));
 
   // A newer version of the site was pushed: load it. The party page reloads right away; a sheet reloads as soon as
@@ -1398,7 +1411,7 @@ function hub(fs, auth, G, ctx) {
     if (!window.PG_NF) { window.PG_NF = 1; document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-newfor]'); if (b) pgGo(URLS.newChar(G, b.dataset.newfor, nameOf(b.dataset.newfor))); }); }
     const UREF = usersCol.doc(EMAIL); let CHECKED = Number(ME && ME.checkedAt) || 0;
     const UF0 = { role: '', act: '', joined: '' };
-    const T0 = ctx.tab === 'characters' ? 'chars' : ctx.tab; let TAB = ['users', 'chars', 'parties', 'new', 'audit'].includes(T0) ? T0 : 'users'; if (T0 === 'admins') UF0.role = 'admin';
+    const T0 = ctx.tab === 'characters' ? 'chars' : ctx.tab; let TAB = ['users', 'chars', 'parties', 'new', 'audit', 'notice'].includes(T0) ? T0 : 'users'; if (T0 === 'admins') UF0.role = 'admin';
     const CH = {}, US = {}; // characters and accounts on screen
     let NEWN = null;
     const setTab = t => { TAB = t; history.replaceState(null, '', URLS.admin(G, t === 'chars' ? 'characters' : t)); frame(); };
@@ -1408,6 +1421,7 @@ function hub(fs, auth, G, ctx) {
       chars: '<path d="M4 4h11a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3z"/><path d="M4 17a3 3 0 0 1 3-3h11"/><path d="M8 8h6"/>',
       parties: '<circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M2.5 20c.6-3.3 2.8-5.5 5.5-5.5s4.9 2.2 5.5 5.5M10.5 20c.6-3.3 2.8-5.5 5.5-5.5s4.9 2.2 5.5 5.5"/>',
       admins: '<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+      notice: '<path d="M3 10v4a1 1 0 0 0 1 1h3l6 4V5L7 9H4a1 1 0 0 0-1 1z"/><path d="M17 8.5a5 5 0 0 1 0 7M19.8 6a8.5 8.5 0 0 1 0 12"/>',
       new: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
       search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>' };
     const svg = (k, n = 18) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ic[k]}</svg>`;
@@ -1416,6 +1430,7 @@ function hub(fs, auth, G, ctx) {
       parties: ['Parties', 'Every party on the site, most recently active first. Change who the DM is, choose which ones show in your own list, or open or delete any of them.'],
       admins: ['Admins', 'Admins can open and edit every character, manage users and see new accounts.'],
       new: ['New', 'Accounts and characters that appeared since you last marked this as read.'],
+      notice: ['Notice', 'A message to everyone: it pops up once for every account, from “Adventurer’s Tome” (nobody sees who sent it), right away if they have the site open, otherwise the next time they do.'],
       audit: ['Audit log', 'Everything people have done on the site: sign-ins, characters opened, created, edited, shared and deleted, and admin actions. Search, or filter by date, person or activity; tap an event for its details. Events are kept for 7 days.'] };
     // avatar: initials on a colour picked from the name, so the same person always looks the same
     const hue = t => [...String(t || '?')].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) % 360, 7);
@@ -1485,7 +1500,7 @@ function hub(fs, auth, G, ctx) {
     function frame0() {
       const nav = (k, label) => `<button class="adm-ni${TAB === k ? ' on' : ''}" data-tab="${k}">${svg(k)}<span>${label}</span>${k === 'new' && NEWN ? `<b class="adm-badge">${NEWN}</b>` : ''}</button>`;
       const [title, desc] = PAGES[TAB];
-      const navHTML = `<div class="adm-sec">Manage</div>${nav('users', 'Users')}${nav('chars', 'Characters')}${nav('parties', 'Parties')}<div class="adm-sec">Activity</div>${nav('audit', 'Audit log')}${nav('new', 'New')}`;
+      const navHTML = `<div class="adm-sec">Manage</div>${nav('users', 'Users')}${nav('chars', 'Characters')}${nav('parties', 'Parties')}<div class="adm-sec">Activity</div>${nav('audit', 'Audit log')}${nav('new', 'New')}<div class="adm-sec">Announce</div>${nav('notice', 'Notice')}`;
       // Switching tabs only swaps the page on the right: the sidebar (and where its tab strip is scrolled to on a phone) stays put.
       const nv0 = root.querySelector('.adm-nav');
       if (nv0) { const x = nv0.scrollLeft; nv0.innerHTML = navHTML; nv0.scrollLeft = x;
@@ -1496,13 +1511,13 @@ function hub(fs, auth, G, ctx) {
         const kept = !again && PANES[TAB];
         if (kept) { curB.replaceWith(kept.b); curH.replaceWith(kept.h); PREV_TAB = TAB; nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab)); scrollTo(0, 0);
           // …and quietly brings it up to date behind the scenes
-          ({ new: () => tabNew(), users: () => paintUsers(), chars: () => paintChars(), parties: () => tabParties(), audit: () => paintAudit() })[TAB](); return; }
+          ({ new: () => tabNew(), users: () => paintUsers(), chars: () => paintChars(), parties: () => tabParties(), audit: () => paintAudit(), notice: () => tabNotice() })[TAB](); return; }
         const nb = document.createElement('section'); nb.id = 'ad-body'; nb.className = 'adm-body'; nb.innerHTML = '<p class="adm-dim">Loading…</p>';
         const nh = document.createElement('div'); nh.id = 'adm-hact'; nh.className = 'adm-hact';
         if (again) { curB.replaceWith(nb); curH.replaceWith(nh); } else { curB.replaceWith(nb); curH.replaceWith(nh); } delete PANES[TAB]; PREV_TAB = TAB;
         nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
         const on = nv0.querySelector('.adm-ni.on'); if (on && on.scrollIntoView) { const r = on.getBoundingClientRect(), nr = nv0.getBoundingClientRect(); if (r.left < nr.left || r.right > nr.right) nv0.scrollBy({ left: r.left < nr.left ? r.left - nr.left - 12 : r.right - nr.right + 12, behavior: 'smooth' }); }
-        ({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit })[TAB](); return; }
+        ({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit, notice: tabNotice })[TAB](); return; }
       const keepLogo = root.querySelector('.hub-logo');
       root.innerHTML = `<div class="adm"><aside class="adm-side">
           <div class="adm-brand">${logoHTML()}</div>
@@ -1515,7 +1530,7 @@ function hub(fs, auth, G, ctx) {
       PREV_TAB = TAB;
       root.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
       { const o = root.querySelector('#adm-out'); if (o) o.onclick = signOut; }
-      ({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit })[TAB]();
+      ({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit, notice: tabNotice })[TAB]();
     }
     const B = () => root.querySelector('#ad-body'), HA = () => root.querySelector('#adm-hact');
     // ⋯ menus float above everything (moved to the top of the page while open), so a table never grows a scrollbar for them.
@@ -1669,8 +1684,8 @@ function hub(fs, auth, G, ctx) {
     // --- Audit log ---
     const ACTS = { signin: 'Signed in', account: 'Created their account', signout: 'Signed out', open: 'Opened', create: 'Created', edit: 'Edited', delete: 'Deleted', give: 'Gave away', remove: 'Removed from the lists',
       share: 'Shared', unshare: 'Stopped sharing', access: 'Changed access to', leave: 'Gave up access to', picture: 'Changed their picture',
-      rename_user: 'Renamed', admin_add: 'Made an admin:', admin_remove: 'Removed admin:', user_picture: 'Changed the picture of', user_signout: 'Signed out everywhere:', user_block: 'Blocked', user_unblock: 'Unblocked', user_delete: 'Deleted the account of', message: 'Sent a message to', user_reload: 'Refreshed the pages of' };
-    const AGROUPS = [['Signing in', ['signin', 'account', 'signout']], ['Characters', ['open', 'create', 'edit', 'delete', 'give', 'remove']], ['Sharing', ['share', 'unshare', 'access', 'leave']], ['Pictures', ['picture', 'user_picture']], ['Admin', ['rename_user', 'admin_add', 'admin_remove', 'user_signout', 'user_block', 'user_unblock', 'user_delete', 'message', 'user_reload']]];
+      rename_user: 'Renamed', admin_add: 'Made an admin:', admin_remove: 'Removed admin:', user_picture: 'Changed the picture of', user_signout: 'Signed out everywhere:', user_block: 'Blocked', user_unblock: 'Unblocked', user_delete: 'Deleted the account of', message: 'Sent a message to', notice: 'Sent a notice to', notice_revoke: 'Revoked the notice to', user_reload: 'Refreshed the pages of' };
+    const AGROUPS = [['Signing in', ['signin', 'account', 'signout']], ['Characters', ['open', 'create', 'edit', 'delete', 'give', 'remove']], ['Sharing', ['share', 'unshare', 'access', 'leave']], ['Pictures', ['picture', 'user_picture']], ['Admin', ['rename_user', 'admin_add', 'admin_remove', 'user_signout', 'user_block', 'user_unblock', 'user_delete', 'message', 'notice', 'notice_revoke', 'user_reload']]];
     const CHAR_ACTS = new Set(['open', 'create', 'edit', 'delete', 'give', 'remove', 'share', 'unshare', 'access', 'leave']);
     let AF = { who: [], act: [], q: '', from: '', to: '', range: '' }, AROWS, AOPEN = {} = [], ALAST = null, AFULL = false, APEOPLE = null;
     const auditCol = fs.collection('audit');
@@ -1832,6 +1847,41 @@ function hub(fs, auth, G, ctx) {
     const tabCharsList = () => paintChars();
     // --- Parties ---
     const PQ = { v: '' };
+    // --- Notice: the same pop-up as "Send a message…", always from “Adventurer’s Tome”, to every account. One is out at a time:
+    // a new one replaces it for anyone who hasn't seen it yet, and Revoke takes it back. Every notice is kept in the log.
+    const noticesCol = fs.collection('notices'), FV = firebase.firestore.FieldValue;
+    async function tabNotice() {
+      const el = B(); HA().innerHTML = ''; let all = [], log = [];
+      try { [all, log] = await Promise.all([usersCol.limit(2000).get().then(docs), noticesCol.orderBy('at', 'desc').limit(200).get().then(docs)]); } catch (x) { el.innerHTML = failMsg(x); return; }
+      const live = log.find(n => !n.endedAt) || null;
+      const seenOf = n => all.filter(u => u.noticeSeen === n.id).length, gotOf = n => all.filter(u => u.notice && u.notice.id === n.id);
+      const stat = n => n.endedAt ? n.ended === 'revoked' ? 'Revoked' : 'Replaced' : 'Live';
+      const row = n => `<tr><td>${when(n.at)}</td><td class="nt-txt">${esc(String(n.text || '').slice(0, 240))}${String(n.text || '').length > 240 ? '…' : ''}</td><td>${esc(n.byName || n.by || '')}</td><td>${n.endedAt ? (n.seen || 0) : seenOf(n)} / ${n.sent || 0}</td><td><span class="adm-tag">${stat(n)}</span>${n.endedAt ? `<small class="adm-dim"> ${when(n.endedAt)}</small>` : ''}</td><td><button class="adm-btn sm" data-ntpv="${esc(n.id)}">Preview</button></td></tr>`;
+      el.innerHTML = `<div class="adm-stats"><div class="adm-stat"><small>Goes to</small><b>${all.length}</b></div>${live ? `<div class="adm-stat"><small>Current notice seen by</small><b>${seenOf(live)} / ${live.sent || 0}</b></div>` : ''}</div>
+        ${live ? `<p class="adm-note"><b>Current notice</b> (sent ${esc(new Date(live.at).toLocaleString())}):<br>“${esc(String(live.text).slice(0, 400))}${String(live.text).length > 400 ? '…' : ''}”</p><div class="row"><button class="adm-btn" id="nt-rv">Revoke it</button></div>` : '<p class="adm-note">No notice is out right now.</p>'}
+        <h3 class="nt-h">New notice</h3><textarea id="nt-t" class="ad-search pm-t" maxlength="1500" rows="7" placeholder="Your notice — web addresses become links"></textarea>
+        ${live ? '<p class="adm-note">Sending it replaces the current notice for anyone who hasn’t seen it yet.</p>' : ''}<div class="row"><button class="adm-btn primary" id="nt-ok" disabled>Send to everyone</button></div>
+        <h3 class="nt-h">Past notices</h3>${log.length ? `<div class="adm-tw"><table class="adm-t"><thead><tr><th>Sent</th><th>Notice</th><th>By</th><th>Seen</th><th>Status</th><th></th></tr></thead><tbody>${log.map(row).join('')}</tbody></table></div>` : '<p class="adm-dim">None yet.</p>'}`;
+      // ends the live notice: takes it off everyone who still holds it, and keeps how many saw it
+      const end = async (n, how) => { const hold = gotOf(n);
+        for (let i = 0; i < hold.length; i += 400) { const bt = fs.batch(); hold.slice(i, i + 400).forEach(u => bt.update(usersCol.doc(u.id), { notice: FV.delete() })); await bt.commit(); }
+        await noticesCol.doc(n.id).update({ endedAt: Date.now(), ended: how, seen: seenOf(n) }); };
+      const ta = el.querySelector('#nt-t'), ok = el.querySelector('#nt-ok'); ta.oninput = () => { ok.disabled = !ta.value.trim(); };
+      el.querySelectorAll('[data-ntpv]').forEach(b => b.onclick = () => { const n = log.find(x => x.id === b.dataset.ntpv); if (n) window.pgPreview({ text: n.text, at: n.at, anon: true }, 'notice'); });
+      const rv = el.querySelector('#nt-rv');
+      if (rv) rv.onclick = async () => { if (!await ask('Revoke this notice?', 'It disappears for everyone who hasn’t seen it yet (and closes if it’s on their screen). It stays in the log.', 'Revoke', true)) return;
+        rv.disabled = true; try { await end(live, 'revoked'); pgLog('notice_revoke', { target: 'everyone', tName: 'everyone', detail: live.text }); toast('Notice revoked.'); } catch (x) { toast('Couldn’t revoke it: ' + ((x && (x.code === 'permission-denied' ? 'the new database rules need publishing' : x.message)) || x)); } if (TAB === 'notice') tabNotice(); };
+      ok.onclick = async () => { const text = ta.value.trim().slice(0, 1500); if (!text) return;
+        if (!await ask('Send this notice to everyone?', `It pops up once for all ${all.length} accounts, from “Adventurer’s Tome”.${live ? ' It replaces the current notice for anyone who hasn’t seen it.' : ''}`, 'Send to everyone')) return;
+        ok.disabled = true; ok.textContent = 'Sending…';
+        const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6), m = { id, text, at: Date.now(), anon: true };
+        try { await noticesCol.doc(id).set({ text, at: m.at, by: EMAIL, byName: String((ME && ME.name) || EMAIL), sent: all.length });
+          if (live) await noticesCol.doc(live.id).update({ endedAt: Date.now(), ended: 'replaced', seen: seenOf(live) });
+          for (let i = 0; i < all.length; i += 400) { const bt = fs.batch(); all.slice(i, i + 400).forEach(u => bt.update(usersCol.doc(u.id), u.id === EMAIL ? { notice: m, noticeSeen: id } : { notice: m })); /* (the sender has seen it) */ await bt.commit(); }
+          pgLog('notice', { target: 'everyone', tName: 'everyone', detail: text }); toast('Notice sent to ' + all.length + ' accounts.'); }
+        catch (x) { ok.disabled = false; ok.textContent = 'Send to everyone'; toast('Couldn’t send it: ' + ((x && (x.code === 'permission-denied' ? 'the new database rules need publishing' : x.message)) || x)); return; }
+        if (TAB === 'notice') tabNotice(); };
+    }
     const tabParties = () => PMx().adminTab(B, { HA, toolbar, failMsg, ava, when, kebab, PQ, closeMenus: closeAdmMenus, isTab: () => TAB === 'parties', busy: () => !!(MENU || document.querySelector('.hub-modal.on')), later: whenMenusClosed });
     // keep New fresh: listen for accounts and characters even when that tab is opened first
     const ensureLive = () => { if (!ULIVE) ULIVE = usersCol.limit(1000).onSnapshot(qs => { UROWS = docs(qs); UROWS.forEach(u => { US[u.id] = u; remember(u.id, u); }); if (TAB === 'users') paintUsers(); if (TAB === 'new' && qs.docChanges().some(ch => ch.type !== 'modified')) newSoon(); }, () => {});
