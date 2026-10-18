@@ -1870,6 +1870,7 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 #pg-msg .pgm-t ul { margin: 0 0 4px; padding-left: 20px; } #pg-msg .pgm-t li { margin: 2px 0; }
 .adm-body .nt-fmt { font-size: .8rem; margin: -4px 0 10px; } .adm-body .nt-fmt code { font-size: .78rem; }
 .adm-body .nt-wl { display: inline-flex; align-items: center; gap: 8px; margin-right: 6px; font: 600 .86rem system-ui, sans-serif; color: var(--adm-dim); }
+.adm-body .adm-t td.nt-acts { white-space: nowrap; } .adm-body .nt-acts .adm-btn + .adm-btn { margin-left: 6px; }
 </style>
 </head>
 <body>
@@ -2187,7 +2188,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261018205022', ASSETS = {"data": "a/data.3b68312eb554.js", "app": "a/app.9c00c2ac9e16.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.3e3bb7e3d7b3.html"}; window.PG_ASSETS = ASSETS;
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261018205710', ASSETS = {"data": "a/data.3b68312eb554.js", "app": "a/app.9c00c2ac9e16.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.3e3bb7e3d7b3.html"}; window.PG_ASSETS = ASSETS;
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -3782,7 +3783,7 @@ function hub(fs, auth, G, ctx) {
       const live = log.find(n => !n.endedAt) || null;
       const seenOf = n => all.filter(u => u.noticeSeen === n.id).length, gotOf = n => all.filter(u => u.notice && u.notice.id === n.id);
       const stat = n => n.endedAt ? n.ended === 'revoked' ? 'Revoked' : 'Replaced' : 'Live';
-      const row = n => `<tr><td>${when(n.at)}</td><td class="nt-txt">${esc(String(n.text || '').slice(0, 240))}${String(n.text || '').length > 240 ? '…' : ''}</td><td>${esc(n.byName || n.by || '')}</td><td>${n.endedAt ? (n.seen || 0) : seenOf(n)} / ${n.sent || 0}</td><td><span class="adm-tag">${stat(n)}</span>${n.endedAt ? `<small class="adm-dim"> ${when(n.endedAt)}</small>` : ''}</td><td><button class="adm-btn sm" data-ntpv="${esc(n.id)}">Preview</button></td></tr>`;
+      const row = n => `<tr><td>${when(n.at)}</td><td class="nt-txt">${esc(String(n.text || '').slice(0, 240))}${String(n.text || '').length > 240 ? '…' : ''}</td><td>${esc(n.byName || n.by || '')}</td><td>${n.endedAt ? (n.seen || 0) : seenOf(n)} / ${n.sent || 0}</td><td><span class="adm-tag">${stat(n)}</span>${n.endedAt ? `<small class="adm-dim"> ${when(n.endedAt)}</small>` : ''}</td><td class="nt-acts"><button class="adm-btn sm" data-ntpv="${esc(n.id)}">Preview</button><button class="adm-btn sm" data-ntcp="${esc(n.id)}">Copy</button></td></tr>`;
       el.innerHTML = `<div class="adm-stats"><div class="adm-stat"><small>Goes to</small><b>${all.length}</b></div>${live ? `<div class="adm-stat"><small>Current notice seen by</small><b>${seenOf(live)} / ${live.sent || 0}</b></div>` : ''}</div>
         ${live ? `<p class="adm-note"><b>Current notice</b> (sent ${esc(new Date(live.at).toLocaleString())}):<br>“${esc(String(live.text).slice(0, 400))}${String(live.text).length > 400 ? '…' : ''}”</p><div class="row"><button class="adm-btn" id="nt-rv">Revoke it</button></div>` : '<p class="adm-note">No notice is out right now.</p>'}
         <h3 class="nt-h">New notice</h3><textarea id="nt-t" class="ad-search pm-t" rows="7" placeholder="Your notice"></textarea><p class="adm-note nt-fmt">**bold** · *italic* · <code># Heading</code> on its own line · <code>- </code> for a list · web addresses become links</p>
@@ -3795,6 +3796,10 @@ function hub(fs, auth, G, ctx) {
       const ta = el.querySelector('#nt-t'), ok = el.querySelector('#nt-ok'), pv = el.querySelector('#nt-pv'); ta.oninput = () => { ok.disabled = pv.disabled = !ta.value.trim(); };
       pv.onclick = () => { const text = ta.value.trim().slice(0, 200000); if (text) window.pgPreview({ text, at: Date.now(), anon: true, w: Number(el.querySelector('#nt-w').value) }, 'notice'); };
       el.querySelectorAll('[data-ntpv]').forEach(b => b.onclick = () => { const n = log.find(x => x.id === b.dataset.ntpv); if (n) window.pgPreview({ text: n.text, at: n.at, anon: true, w: n.w }, 'notice'); });
+      // Copy: the notice exactly as it was typed (formatting marks and all), ready to paste back in or anywhere else
+      el.querySelectorAll('[data-ntcp]').forEach(b => b.onclick = async () => { const n = log.find(x => x.id === b.dataset.ntcp); if (!n) return; const t = String(n.text || '');
+        try { await navigator.clipboard.writeText(t); } catch (e) { const x = document.createElement('textarea'); x.value = t; x.style.position = 'fixed'; x.style.opacity = '0'; document.body.appendChild(x); x.select(); try { document.execCommand('copy'); } catch (e2) {} x.remove(); }
+        b.textContent = 'Copied'; setTimeout(() => { b.textContent = 'Copy'; }, 1500); });
       const rv = el.querySelector('#nt-rv');
       if (rv) rv.onclick = async () => { if (!await ask('Revoke this notice?', 'It disappears for everyone who hasn’t seen it yet (and closes if it’s on their screen). It stays in the log.', 'Revoke', true)) return;
         rv.disabled = true; try { await end(live, 'revoked'); pgLog('notice_revoke', { target: 'everyone', tName: 'everyone', detail: live.text }); toast('Notice revoked.'); } catch (x) { toast('Couldn’t revoke it: ' + ((x && (x.code === 'permission-denied' ? 'the new database rules need publishing' : x.message)) || x)); } if (TAB === 'notice') tabNotice(); };
