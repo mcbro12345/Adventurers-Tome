@@ -1344,6 +1344,10 @@ html.mobile .pg-pubrow .pg-publogo .hl-a { font-size: calc(var(--mls, 60px) * .1
 #pg-msg .pgm-t { white-space: normal; overflow-wrap: anywhere; padding: 2px 2px 4px; }
 #pg-msg .pgm-row { display: flex; justify-content: flex-end; margin-top: 14px; }
 #pg-msg .pgm-row { position: sticky; bottom: -16px; z-index: 1; margin: 6px -20px -16px; padding: 10px 20px 16px; background: inherit; border-radius: 0 0 16px 16px; } /* OK stays in view while a long notice scrolls */
+#pg-msg .pgm-card > .pgm-h { position: sticky; top: -18px; z-index: 1; margin: -18px -20px 12px; padding: 18px 20px 12px; background: inherit; border-radius: 16px 16px 0 0; border-bottom: 1px solid rgba(201,150,43,.3); transition: box-shadow .15s ease; } /* the heading stays at the top */
+#pg-msg .pgm-row { border-top: 1px solid rgba(201,150,43,.3); margin-top: 12px; padding-top: 12px; transition: box-shadow .15s ease; }
+#pg-msg .pgm-card.sc-t > .pgm-h { box-shadow: 0 8px 14px -8px rgba(0,0,0,.4); }
+#pg-msg .pgm-card.sc-b .pgm-row { box-shadow: 0 -8px 14px -8px rgba(0,0,0,.4); }
 #pg-msg .pgm-ok { border: 0; border-radius: 10px; padding: 9px 22px; font: 700 14px system-ui, sans-serif; background: #c9962b; color: #1b1406; cursor: pointer; }
 #pg-msg .pgm-ok:active { transform: scale(.97); }
 :where(body.hubbody) .pm-t { width: 100%; min-height: 110px; resize: vertical; font: inherit; box-sizing: border-box; margin: 6px 0 4px; }

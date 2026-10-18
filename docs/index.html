@@ -1411,6 +1411,10 @@ html.mobile .pg-pubrow .pg-publogo .hl-a { font-size: calc(var(--mls, 60px) * .1
 #pg-msg .pgm-t { white-space: normal; overflow-wrap: anywhere; padding: 2px 2px 4px; }
 #pg-msg .pgm-row { display: flex; justify-content: flex-end; margin-top: 14px; }
 #pg-msg .pgm-row { position: sticky; bottom: -16px; z-index: 1; margin: 6px -20px -16px; padding: 10px 20px 16px; background: inherit; border-radius: 0 0 16px 16px; } /* OK stays in view while a long notice scrolls */
+#pg-msg .pgm-card > .pgm-h { position: sticky; top: -18px; z-index: 1; margin: -18px -20px 12px; padding: 18px 20px 12px; background: inherit; border-radius: 16px 16px 0 0; border-bottom: 1px solid rgba(201,150,43,.3); transition: box-shadow .15s ease; } /* the heading stays at the top */
+#pg-msg .pgm-row { border-top: 1px solid rgba(201,150,43,.3); margin-top: 12px; padding-top: 12px; transition: box-shadow .15s ease; }
+#pg-msg .pgm-card.sc-t > .pgm-h { box-shadow: 0 8px 14px -8px rgba(0,0,0,.4); }
+#pg-msg .pgm-card.sc-b .pgm-row { box-shadow: 0 -8px 14px -8px rgba(0,0,0,.4); }
 #pg-msg .pgm-ok { border: 0; border-radius: 10px; padding: 9px 22px; font: 700 14px system-ui, sans-serif; background: #c9962b; color: #1b1406; cursor: pointer; }
 #pg-msg .pgm-ok:active { transform: scale(.97); }
 :where(body.hubbody, .wzh) .pm-t { width: 100%; min-height: 110px; resize: vertical; font: inherit; box-sizing: border-box; margin: 6px 0 4px; }
@@ -2189,7 +2193,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261018210353', ASSETS = {"data": "a/data.3b68312eb554.js", "app": "a/app.9c00c2ac9e16.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.3e3bb7e3d7b3.html"}; window.PG_ASSETS = ASSETS;
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261018210641', ASSETS = {"data": "a/data.3b68312eb554.js", "app": "a/app.9c00c2ac9e16.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.3e3bb7e3d7b3.html"}; window.PG_ASSETS = ASSETS;
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -2478,7 +2482,8 @@ function wireDie(root) {
       const wd = Math.round(Number(m.w) || 0); if (wd >= 320 && wd <= 1600) w.style.setProperty('--pgm-w', wd + 'px'); /* a notice can say how wide its window is */
       w.innerHTML = `<div class="pgm-card"><div class="pgm-h"><span class="pgm-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H8l-4 4z"/></svg></span><div><b>${k === 'notice' ? 'Notice' : 'Message'} from ${escH(m.anon ? 'Adventurer’s Tome' : (m.fromName || 'Adventurer’s Tome'))}</b><small>${escH(new Date(m.at || Date.now()).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))}</small></div></div>
         <div class="pgm-t">${pgMark(m.text)}</div><div class="pgm-row"><button class="pgm-ok" type="button">OK</button></div></div>`;
-      document.body.appendChild(w); const ok = w.querySelector('.pgm-ok'); setTimeout(() => { ok.focus({ preventScroll: true }); w.querySelector('.pgm-card').scrollTop = 0; }, 50); /* opens at the top of a long notice, not at its OK button */
+      document.body.appendChild(w); const ok = w.querySelector('.pgm-ok'); const card = w.querySelector('.pgm-card'), shade = () => { card.classList.toggle('sc-t', card.scrollTop > 2); card.classList.toggle('sc-b', card.scrollTop + card.clientHeight < card.scrollHeight - 2); }; /* shadows under the header / above OK while there's more to scroll */
+      card.addEventListener('scroll', shade, { passive: true }); shade(); setTimeout(() => { ok.focus({ preventScroll: true }); card.scrollTop = 0; shade(); }, 50); /* opens at the top of a long notice, not at its OK button */
       const done = () => { if (after) after(); w.classList.add('out'); setTimeout(() => w.remove(), 200); };
       ok.onclick = done; w.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); done(); } }); }
   window.pgPreview = (m, k) => { const ex = document.getElementById('pg-msg'); if (ex) ex.remove(); pgCard(Object.assign({ id: 'preview' }, m), k); document.getElementById('pg-msg').dataset.k = 'preview'; };
