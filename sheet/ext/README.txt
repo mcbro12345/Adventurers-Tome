@@ -11,4 +11,4 @@ Firefox:
    (Firefox removes it when it closes; load it again after a restart.)
 
 Then sign in to Roll20, open your game, reload your character sheet, and in Settings -> Dice choose "Roll20 rolls for me" and pick your game.
-The extension only talks to app.roll20.net and to pages that are the character sheet; it sends nothing anywhere else.
+The extension only runs on app.roll20.net and on the Adventurer's Tome site (adventurers-tome.web.app); it sends nothing anywhere else.

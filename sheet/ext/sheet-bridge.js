@@ -1,4 +1,4 @@
-// Runs in every page but stays silent unless the D&D character sheet says hello.
+// Runs only on the Adventurer’s Tome site (see manifest.json) and stays silent unless the character sheet says hello.
 // It only relays the sheet's own messages ({__dnd20: ...}) to the extension and the answers back.
 (function () {
   if (window.__dnd20bridge) return; window.__dnd20bridge = true;
