@@ -1738,3 +1738,7 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 :where(body.hubbody) .pw-intitle { padding: 2px 0 12px; margin: 0 0 12px; border-bottom: 1px solid rgba(127,127,127,.2); }
 :where(body.hubbody) .pw-intitle h2 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 1.45rem; }
 :where(body.hubbody) .pw-intitle .pw-sub { margin: 6px 0 0; }
+/* Admin → Notice */
+.adm-body .nt-h { margin: 26px 0 8px; font: 800 1rem system-ui, sans-serif; }
+.adm-body .adm-t td.nt-txt { white-space: normal; min-width: 260px; max-width: 520px; overflow-wrap: anywhere; }
+.adm-body .pm-t { max-width: 640px; }
