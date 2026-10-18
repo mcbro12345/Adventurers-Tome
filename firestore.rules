@@ -188,6 +188,16 @@ service cloud.firestore {
       allow get: if admin();
       allow create, update, delete: if owner0();
     }
+    // Bug reports: anyone signed in can send one (as themselves); they can read their own (to hear when it's fixed) and
+    // only mark it seen. Admins read, fix, reopen and delete them.
+    match /bugs/{b} {
+      allow create: if signedIn() && request.resource.data.by == me() && request.resource.data.status == 'open'
+        && request.resource.data.keys().hasOnly(['sum', 'desc', 'by', 'byName', 'at', 'where', 'ch', 'ua', 'status'])
+        && request.resource.data.sum is string && request.resource.data.sum.size() <= 200 && request.resource.data.get('desc', '').size() <= 20000;
+      allow read: if admin() || (signedIn() && resource.data.by == me());
+      allow update: if admin() || (signedIn() && resource.data.by == me() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seen']));
+      allow delete: if admin();
+    }
     // The first-time welcome message, and the notice that's out right now (shown to a new account after the welcome):
     // anyone signed in can read them; only admins set them.
     match /config/welcome {

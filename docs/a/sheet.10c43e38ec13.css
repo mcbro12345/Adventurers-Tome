@@ -3462,7 +3462,6 @@ html .bonusatk table.mini td .bwait { display: block; font-size: .7rem !importan
 .ptym .menu { position: relative; } .ptym .menu-list { right: 0; left: auto; min-width: 220px; }
 .ptym-cur { font-size: 1.6rem; font-weight: 700; line-height: 1.05; }
 .ptym-act { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 6px; margin-top: auto; align-items: center; }
-.ptym .menu.up .menu-list { top: auto; bottom: calc(100% + 4px); }
 .ptym-act .btn { min-width: 0; padding-left: 6px; padding-right: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; justify-content: center; }
 .ptym .csts { align-self: flex-start; }
 .ptya { padding: 8px 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
@@ -3525,10 +3524,21 @@ html.mobile .ptyh-btns { width: 100%; } html.mobile .ptyh-btns .btn { flex: 1; t
 .ptym .comp-h2 .grow { min-width: 0; }
 .ptym .cname { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ptym .cname.n2 { font-size: .95rem; } .ptym .cname.n3 { font-size: .8rem; }
-.ptyask-l { display: flex; flex-direction: column; gap: 8px; max-height: 55vh; overflow-y: auto; }
-.ptyask-r { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line2); border-left: 3px solid var(--gold); border-radius: 10px; background: var(--panel2); }
-.ptyask-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.ptyask-t span { font-size: .9rem; } .ptyask-t small { font-size: .72rem; color: var(--soft); }
-.ptyask-b { flex: none; display: flex; gap: 6px; }
-@media (max-width: 520px) { .ptyask-r { flex-direction: column; align-items: stretch; } .ptyask-b .btn { flex: 1; } }
+.ptyask-bg { position: fixed; inset: 0; z-index: 10050; display: grid; place-items: center; padding: 16px; background: rgba(8,10,16,.62); backdrop-filter: blur(2px); animation: ptyFade .15s ease; }
+@keyframes ptyFade { from { opacity: 0; } to { opacity: 1; } }
+.ptyask-m { width: min(440px, 100%); background: var(--panel); color: var(--ink); border: 1px solid var(--line2); border-top: 3px solid var(--gold); border-radius: 16px; padding: 20px 20px 16px; box-shadow: 0 24px 60px rgba(0,0,0,.45); animation: wPopIn .2s cubic-bezier(.22,.9,.24,1); }
+.ptyask-n { font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--soft); margin-bottom: 6px; }
+.ptyask-q { margin: 0 0 18px; font-size: 1.1rem; line-height: 1.45; }
+.ptyask-b { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ptyask-b .btn { justify-content: center; padding: 11px 0; font-size: 1rem; }
+.ptyask-why { margin: -10px 0 16px; font-size: .86rem; color: var(--soft); line-height: 1.4; padding: 8px 10px; border-radius: 8px; background: var(--panel2); border: 1px solid var(--line2); }
+.r20aura-st { margin: 0 0 6px; padding: 6px 9px; border-radius: 8px; background: var(--panel2); border: 1px dashed var(--line2); font-size: .8rem; }
+.r20manual { margin: 4px 0 10px; } .r20manual summary { cursor: pointer; color: var(--slate); font-size: .88rem; }
+.r20steps a.btn { display: inline-flex; align-items: center; text-decoration: none; white-space: nowrap; }
+.r20go { margin: 6px 0 2px; } .r20note { display: block; margin-top: 6px; font-size: .82rem; }
+/* the bug-report button: on a phone it sits just right of Log in the top corner */
+html.mobile.hasbug .devbtn.bugbtn { position: absolute; top: 10px; right: 48px; }
+html.mobile.hasbug .devbtn.logbtn { right: 84px; }
+html.mobile.hasbug.realphone .devbtn.bugbtn, html.mobile.hasbug.pg-inphone .devbtn.bugbtn { right: 12px; }
+html.mobile.hasbug.realphone .devbtn.logbtn, html.mobile.hasbug.pg-inphone .devbtn.logbtn { right: 48px; }
 
