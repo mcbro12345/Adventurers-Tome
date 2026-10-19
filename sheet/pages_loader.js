@@ -211,6 +211,53 @@ const initials = (name, em) => { const w = String(name || em || '?').split(/[\s@
 // small box with the address, a copy button, and links to Gmail and the device's email app.
 const CONTACT_EMAIL = 'adventurerstome@googlegroups.com', CONTACT = '#contact';
 const BUG_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 7.5V6a3 3 0 0 1 6 0v1.5"/><rect x="7" y="7.5" width="10" height="12.5" rx="5"/><path d="M12 11v9M3.5 13H7M17 13h3.5M4.5 8l2.6 1.8M19.5 8l-2.6 1.8M4.5 19.5l2.8-2M19.5 19.5l-2.8-2"/></svg>';
+// Crop an uploaded picture before it's used, like Discord's: the image sits behind a circle (or rounded square) window,
+// drag to move it, zoom with the slider, the mouse wheel or two fingers, then Apply. Resolves { url, clear } — clear
+// when the result has see-through parts (kept as PNG) — or null if cancelled. o: { shape: 'circle'|'square', size, title }.
+function pgCrop(file, o = {}) {
+  return new Promise((done, fail) => {
+    const src = URL.createObjectURL(file), im = new Image();
+    im.onerror = () => { URL.revokeObjectURL(src); fail(new Error('That file isn’t an image this browser can open.')); };
+    im.onload = () => {
+      const W = im.naturalWidth || im.width, H = im.naturalHeight || im.height; if (!W || !H) { URL.revokeObjectURL(src); return fail(new Error('That image looks empty.')); }
+      const S = Math.min(340, innerWidth - 72), Cb = Math.round(S * .86), base = Math.max(Cb / W, Cb / H), round = o.shape === 'circle';
+      let z = 1, x = 0, y = 0;
+      const m = document.createElement('div'); m.className = 'pg-out pg-cropw'; pgOutFade(m);
+      m.innerHTML = `<div class="pg-out-card pg-crop" role="dialog" aria-modal="true" aria-labelledby="pg-crop-h"><h2 id="pg-crop-h">${escH(o.title || 'Edit image')}</h2>
+        <div class="pgc-stage" style="width:${S}px;height:${S}px"><img class="pgc-img" src="${src}" alt="" draggable="false"><div class="pgc-win${round ? ' round' : ''}" style="width:${Cb}px;height:${Cb}px"></div></div>
+        <div class="pgc-zoom"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
+          <input type="range" min="1" max="4" step="0.01" value="1" aria-label="Zoom"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></div>
+        <div class="pg-out-row"><button class="pgc-reset">Reset</button><span class="grow"></span><button class="pg-out-no">Cancel</button><button class="pg-out-yes">Apply</button></div></div>`;
+      const img = m.querySelector('.pgc-img'), stage = m.querySelector('.pgc-stage'), zr = m.querySelector('input[type=range]');
+      const clamp = () => { const dw = W * base * z, dh = H * base * z, mx = Math.max(0, (dw - Cb) / 2), my = Math.max(0, (dh - Cb) / 2); x = Math.max(-mx, Math.min(mx, x)); y = Math.max(-my, Math.min(my, y)); };
+      const show = () => { clamp(); const dw = W * base * z, dh = H * base * z; img.style.width = dw + 'px'; img.style.height = dh + 'px'; img.style.transform = `translate(${S / 2 - dw / 2 + x}px, ${S / 2 - dh / 2 + y}px)`; zr.value = z; };
+      const zoomTo = nz => { nz = Math.max(1, Math.min(4, nz)); x *= nz / z; y *= nz / z; z = nz; show(); };
+      zr.oninput = () => zoomTo(Number(zr.value));
+      stage.addEventListener('wheel', e => { e.preventDefault(); zoomTo(z * Math.exp(-e.deltaY * .0015)); }, { passive: false });
+      const pts = new Map(); let last = null, pinch = 0;
+      stage.addEventListener('pointerdown', e => { stage.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); last = [e.clientX, e.clientY]; if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); } });
+      stage.addEventListener('pointermove', e => { if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, [e.clientX, e.clientY]);
+        if (pts.size === 2) { const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch) zoomTo(z * d / pinch); pinch = d; return; }
+        x += e.clientX - last[0]; y += e.clientY - last[1]; last = [e.clientX, e.clientY]; show(); });
+      const up = e => { pts.delete(e.pointerId); pinch = 0; const r = [...pts.values()][0]; last = r || null; };
+      stage.addEventListener('pointerup', up); stage.addEventListener('pointercancel', up);
+      const key = e => { if (e.key === 'Escape') finish(null); else if (e.key === 'Enter') apply(); };
+      const finish = r => { document.removeEventListener('keydown', key); m.remove(); URL.revokeObjectURL(src); done(r); };
+      const apply = () => { const N = o.size || 512, c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d'); g.imageSmoothingQuality = 'high';
+        const k = base * z, sx = W / 2 - (Cb / 2 + x) / k, sy = H / 2 - (Cb / 2 + y) / k, sw = Cb / k; g.drawImage(im, sx, sy, sw, sw, 0, 0, N, N);
+        let clear = false; try { const px = g.getImageData(0, 0, N, N).data; for (let i = 3; i < px.length; i += 16) if (px[i] < 235) { clear = true; break; } } catch (e) {}
+        let url = clear ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', .86);
+        if (url.length > 300000 && N > 192) { const d = document.createElement('canvas'); d.width = d.height = 192; d.getContext('2d').drawImage(c, 0, 0, 192, 192); url = clear ? d.toDataURL('image/png') : d.toDataURL('image/jpeg', .86); }
+        finish({ url, clear }); };
+      m.querySelector('.pgc-reset').onclick = () => { z = 1; x = y = 0; show(); };
+      m.querySelector('.pg-out-no').onclick = () => finish(null); m.querySelector('.pg-out-yes').onclick = apply;
+      m.onclick = e => { if (e.target === m) finish(null); };
+      document.addEventListener('keydown', key); document.body.appendChild(m); show(); setTimeout(() => m.querySelector('.pg-out-yes').focus(), 50);
+    };
+    im.src = src;
+  });
+}
+window.pgCrop = pgCrop;
 // A note in the bottom-right corner, on any page (a bug report sent, or one of yours fixed). Tap it to dismiss.
 function pgCorner(html, ms = 7000) { let box = document.getElementById('pg-corner'); if (!box) { box = document.createElement('div'); box.id = 'pg-corner'; document.body.appendChild(box); }
   const t = document.createElement('div'); t.className = 'pg-ctoast'; t.innerHTML = html; t.onclick = () => t.remove(); box.appendChild(t);
@@ -1220,7 +1267,8 @@ function hub(fs, auth, G, ctx) {
   const myAva = () => { const a = avaOf(ME), ch = picModeOf(ME) === 'char' && ME.picChar && chars.find(c => c.id === ME.picChar && isMine(c)); if (ch && ch.thumb) a.pic = ch.thumb; return a; };
   // An uploaded image is shrunk to a small square here before saving. A transparent background is kept (as PNG) and the
   // whole image fits inside; otherwise it's cropped to fill the circle.
-  const prepPic = file => new Promise((res, rej) => { const url = URL.createObjectURL(file), im = new Image();
+  const prepPic = file => pgCrop(file, { shape: 'circle', size: 192, title: 'Edit picture' }).then(r => { if (!r) throw Object.assign(new Error(''), { cancel: true }); return { img: r.url, clear: r.clear }; });
+  const prepPic0 = file => new Promise((res, rej) => { const url = URL.createObjectURL(file), im = new Image();
     im.onerror = () => { URL.revokeObjectURL(url); rej(new Error('That file isn’t an image this browser can open.')); };
     im.onload = () => { URL.revokeObjectURL(url); const w = im.naturalWidth || im.width, h = im.naturalHeight || im.height; if (!w || !h) return rej(new Error('That image looks empty.'));
       const t = document.createElement('canvas'); t.width = t.height = 64; const tc = t.getContext('2d'); tc.drawImage(im, 0, 0, 64, 64); const px = tc.getImageData(0, 0, 64, 64).data;
@@ -1272,7 +1320,7 @@ function hub(fs, auth, G, ctx) {
     $$('[data-pp]').forEach(b => b.onclick = () => { st.char = b.dataset.pp; paint(); });
     const err = $('.pp-err'), take = async f => { err.hidden = true; if (!f) return; if (!/^image\//.test(f.type || 'image/')) { err.textContent = 'That isn’t an image file.'; err.hidden = false; return; }
       if (f.size > 15e6) { err.textContent = 'That image is too big (over 15 MB).'; err.hidden = false; return; }
-      try { const r = await prepPic(f); st.img = r.img; st.clear = r.clear; paint(); } catch (x) { err.textContent = x.message || String(x); err.hidden = false; } };
+      try { const r = await prepPic(f); st.img = r.img; st.clear = r.clear; paint(); } catch (x) { if (x && x.cancel) return; err.textContent = x.message || String(x); err.hidden = false; } };
     const fi = $('.pp-drop input'); fi.onchange = () => { take(fi.files[0]); fi.value = ''; };
     const dz = $('.pp-drop'); ['dragenter', 'dragover'].forEach(t => dz.addEventListener(t, e => { e.preventDefault(); dz.classList.add('over'); }));
     ['dragleave', 'drop'].forEach(t => dz.addEventListener(t, () => dz.classList.remove('over'))); dz.addEventListener('drop', e => { e.preventDefault(); take(e.dataTransfer.files[0]); });
@@ -2444,10 +2492,8 @@ function partyModule(H) {
   const partyPicHTML = (p, edit) => `<${edit ? 'button' : 'span'} class="pw-ppic${p.pic ? '' : ' none'}"${edit ? ` id="pt-pic" title="${p.pic ? 'Change the party’s picture' : 'Add a picture for the party'}" aria-label="Party picture"` : ''}>${p.pic ? `<img src="${esc(p.pic)}" alt="">` : IC_PARTY}${edit ? '<span class="pw-pedit" aria-hidden="true">✎</span>' : ''}</${edit ? 'button' : 'span'}>`;
   // Pick an image and make a small square picture of it (kept with the party, so it shows everywhere straight away).
   const pickPic = () => new Promise(res => { const f = document.createElement('input'); f.type = 'file'; f.accept = 'image/*';
-    f.onchange = () => { const file = f.files && f.files[0]; if (!file) return res(''); const r = new FileReader();
-      r.onload = () => { const im = new Image(); im.onload = () => { try { const n = 256, s = Math.min(im.width, im.height), c = document.createElement('canvas'); c.width = c.height = n; const x = c.getContext('2d'); x.imageSmoothingQuality = 'high';
-          x.drawImage(im, (im.width - s) / 2, (im.height - s) / 2, s, s, 0, 0, n, n); res(c.toDataURL('image/jpeg', .85)); } catch (e) { res(''); } }; im.onerror = () => { toast('That file isn’t an image this browser can open.'); res(''); }; im.src = r.result; };
-      r.readAsDataURL(file); }; f.click(); });
+    f.onchange = () => { const file = f.files && f.files[0]; if (!file) return res(''); pgCrop(file, { shape: 'square', size: 256, title: 'Party picture' }).then(r => res(r ? r.url : ''), e => { toast(e.message || 'That file isn’t an image this browser can open.'); res(''); }); };
+    f.click(); });
   // Live from each character's saved sheet: every save carries a summary (pcard) — HP, AC, speed, conditions — so the
   // cards change the moment a player's sheet does, open or not. Whichever is newer wins: the sheet, or its party card
   // (which is also updated when something sent to a closed sheet is applied).

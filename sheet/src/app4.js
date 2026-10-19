@@ -1662,8 +1662,10 @@ $('#importFile').addEventListener('change', e => {
   r.readAsText(f); e.target.value = '';
 });
 let PICPATH = '';
-$('#picFile') && $('#picFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (!f || !PICPATH) return; const path = PICPATH; loadPortrait(f, url => { setP(path, url); pendingLabel = 'Add picture'; save(); render(); }, 320); e.target.value = ''; });
-function loadPortrait(file, cb, size) {
+$('#picFile') && $('#picFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (!f || !PICPATH) return; const path = PICPATH; loadPortrait(f, url => { setP(path, url); pendingLabel = 'Add picture'; save(); render(); }, 320, 'Picture'); e.target.value = ''; });
+function loadPortrait(file, cb, size, title) {
+  // on the site: crop and zoom it first (the window every upload uses); the stand-alone file fits it to the square
+  if (window.pgCrop) { window.pgCrop(file, { shape: 'square', size: size || 560, title: title || (size ? 'Edit picture' : 'Portrait') }).then(r => { if (r) cb(r.url); }, e => toast(esc(e.message || 'That file isn’t an image.'), 'fumble')); return; }
   const img = new Image(), url = URL.createObjectURL(file);
   img.onload = () => {
     const s = size || 560, c = document.createElement('canvas'); c.width = c.height = s;
