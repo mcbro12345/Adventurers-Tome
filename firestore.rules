@@ -62,7 +62,9 @@ service cloud.firestore {
     }
     // Rolling from a phone through the same character open on a computer: requests and answers, and the computer that's ready.
     match /sheets/{id}/relay/{r} {
-      allow read, write: if signedIn() && canEditSheet(id);
+      allow read, update, delete: if signedIn() && canEditSheet(id);
+      // a roll request (or the "computer ready" note) is always signed with who sent it
+      allow create: if signedIn() && canEditSheet(id) && request.resource.data.by == me();
     }
     // One record per account, keyed by email: made by the person on first sign-in. Only that person and admins can
     // read it, and only admins can list or search them (names on shared characters come from the character itself).
@@ -94,7 +96,10 @@ service cloud.firestore {
     match /audit/{id} {
       allow create: if signedIn() && request.resource.data.by == me()
         && request.resource.data.keys().hasOnly(['at', 'by', 'byName', 'act', 'target', 'tName', 'detail'])
-        && request.resource.data.act is string && request.resource.data.get('detail', '').size() <= 1500;
+        && request.resource.data.act is string && request.resource.data.act.matches('[a-z_]{1,40}')
+        && request.resource.data.get('target', '') is string && request.resource.data.get('target', '').size() <= 200
+        && request.resource.data.get('tName', '') is string && request.resource.data.get('tName', '').size() <= 200
+        && request.resource.data.get('detail', '') is string && request.resource.data.get('detail', '').size() <= 1500;
       allow read: if admin();
       allow update: if false;
       allow delete: if admin() && resource.data.at is number && resource.data.at < request.time.toMillis() - 604800000;
@@ -119,6 +124,7 @@ service cloud.firestore {
     match /pubviews/{c}/live/{v} {
       allow read: if pubOnFor(c);
       allow create, update: if pubOnFor(c) && request.resource.data.at is number
+        && request.resource.data.at > request.time.toMillis() - 3600000 && request.resource.data.at < request.time.toMillis() + 3600000
         && ((request.resource.data.keys().hasOnly(['anon', 'at']) && request.resource.data.anon == true && v.matches('anon-[a-z0-9]{6,16}'))
           || (signedIn() && v == viewId() && request.resource.data.anon == false
             && request.resource.data.keys().hasOnly(['anon', 'at', 'name', 'pic', 'color', 'clear'])
@@ -168,7 +174,8 @@ service cloud.firestore {
       // Each character's card (name, picture, HP, AC, conditions), kept up to date by the character's own sheet.
       match /cards/{c} {
         allow read: if admin() || (signedIn() && (me() in partyOf(p).people || partyMgr(partyOf(p))));
-        allow write: if admin() || (signedIn() && c in partyOf(p).chars && (canEditSheet(c) || me() in partyOf(p).people));
+        // only the character's own player (or whoever can edit it) and the DM keep it up to date
+        allow write: if admin() || (signedIn() && c in partyOf(p).chars && (canEditSheet(c) || partyMgr(partyOf(p))));
         allow delete: if signedIn() && partyMgr(partyOf(p));
       }
     }
@@ -184,8 +191,9 @@ service cloud.firestore {
     // Things party members send each other (an item handed over, healing, a spell cast on them…). They wait here until
     // the character's own sheet picks them up and applies them. Only someone in the same party can send one — the DM, a
     // co-DM, or a player sending from a character in that party they can edit — and only that character's sheet reads them.
+    // "from" can't be faked: it's empty (the DM themselves) or a character the sender can edit.
     function partySend(id) { let d = request.resource.data; let pd = partyOf(d.p);
-      return id in pd.chars && (admin() || partyMgr(pd) || (d.from is string && d.from in pd.chars && canEditSheet(d.from))); }
+      return id in pd.chars && (admin() || (d.from == '' && partyMgr(pd)) || (d.from is string && d.from in pd.chars && canEditSheet(d.from))); }
     match /sheets/{id}/inbox/{m} {
       allow create: if signedIn() && request.resource.data.by == me() && request.resource.data.keys().hasOnly(['p', 'ref', 'from', 'fromName', 'by', 'at', 'kind', 'data'])
         && request.resource.data.data is string && request.resource.data.data.size() < 400000 && partySend(id);
