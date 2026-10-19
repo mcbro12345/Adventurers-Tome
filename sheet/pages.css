@@ -1791,3 +1791,14 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 :where(body.hubbody) .pm-csts.pm-quad span + span { border-left: 0; }
 :where(body.hubbody) .pm-csts.pm-quad span:nth-child(even) { border-left: 1px solid rgba(127,127,127,.22); }
 :where(body.hubbody) .pm-csts.pm-quad span:nth-child(n+3) { border-top: 1px solid rgba(127,127,127,.22); }
+/* Picture crop window (every upload): the image behind a circle / rounded-square window, everything outside it dimmed */
+.pg-out-card.pg-crop { max-width: 420px; width: auto; }
+.pg-crop .pgc-stage { position: relative; margin: 6px auto 14px; overflow: hidden; border-radius: 12px; background: #0b0f18; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.pg-crop .pgc-stage:active { cursor: grabbing; }
+.pg-crop .pgc-img { position: absolute; left: 0; top: 0; max-width: none; pointer-events: none; transform-origin: 0 0; }
+.pg-crop .pgc-win { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 14px; box-shadow: 0 0 0 9999px rgba(8,11,18,.62); outline: 2px solid rgba(255,255,255,.9); pointer-events: none; }
+.pg-crop .pgc-win.round { border-radius: 50%; }
+.pg-crop .pgc-zoom { display: flex; align-items: center; gap: 10px; margin: 0 4px 16px; opacity: .9; }
+.pg-crop .pgc-zoom input { flex: 1; accent-color: #c9962b; }
+.pg-crop .pg-out-row .grow { flex: 1; }
+.pg-crop .pgc-reset { border-color: transparent !important; opacity: .8; }
