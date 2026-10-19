@@ -1785,3 +1785,9 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 @media (prefers-color-scheme: light) { body:not(.adminbody) .nt-sl .nt-sl-wrap::before, .nt-sl .nt-sl-wrap::before { background: linear-gradient(rgba(60,40,10,.12), transparent); } .nt-sl .nt-sl-wrap::after { background: linear-gradient(transparent, rgba(60,40,10,.12)); } }
 /* scroll areas inside pop-up windows don't hand their scrolling on to the page behind */
 .hub-modal, .hub-modal .hub-card, .nt-sl .nt-sl-list, #pg-msg .pgm-t, .pg-out, .pg-out-card { overscroll-behavior: contain; }
+/* Party page, seen by a player: AC / speed / level / passive as a 2 × 2 grid beside the HP ring (where the DM's controls are) */
+:where(body.hubbody) .pm-hp .pm-csts.pm-quad { flex: 1; min-width: 0; align-self: stretch; display: grid; grid-template-columns: 1fr 1fr; }
+:where(body.hubbody) .pm-csts.pm-quad span { justify-content: center; padding: 6px 8px; }
+:where(body.hubbody) .pm-csts.pm-quad span + span { border-left: 0; }
+:where(body.hubbody) .pm-csts.pm-quad span:nth-child(even) { border-left: 1px solid rgba(127,127,127,.22); }
+:where(body.hubbody) .pm-csts.pm-quad span:nth-child(n+3) { border-top: 1px solid rgba(127,127,127,.22); }
