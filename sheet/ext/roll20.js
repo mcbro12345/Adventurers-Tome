@@ -37,14 +37,21 @@
     return true;
   }
   // Lines come from the sheet in the same style as its macros: an /em heading, a "****" spacer, then "**Label:** [[dice]]".
-  // Only dice notation is allowed inside [[ ]]; everything else is plain chat text.
-  const cleanLine = (t) => String(t).replace(/\[\[([^\]]*)\]\]/g, (m, x) => { const tr = /&\{tracker\}/.test(x); const d = x.replace(/&\{tracker\}/g, '').replace(/[^\ddkhl+\-\s{},]/gi, '').trim(); return '[[' + d + (tr ? ' &{tracker}' : '') + ']]'; });
+  // Only dice notation is allowed inside [[ ]]; everything else is plain chat text: no other / commands (whispers etc.),
+  // no ! API commands or # macros, and no templates, ability calls or chat buttons — whatever page asked for it.
+  const cleanDice = (x) => { const tr = /&\{tracker\}/.test(x); const d = x.replace(/&\{tracker\}/g, '').replace(/[^\ddkhl+\-\s{},]/gi, '').trim(); return '[[' + d + (tr ? ' &{tracker}' : '') + ']]'; };
+  const cleanText = (t) => t.replace(/&\{/g, '& {').replace(/%\{/g, '% {').replace(/@\{/g, '@ {').replace(/\]\(/g, '] (');
+  const cleanLine = (t) => { let s = String(t).replace(/[\r\n]+/g, ' ').slice(0, 500);
+    if (/^\s*\//.test(s) && !/^\/em\s/.test(s)) s = s.replace(/^\s*\/+/, '');
+    s = s.replace(/^\s*[!#]+/, '');
+    return s.split(/(\[\[[^\]]*\]\])/).map((part) => /^\[\[/.test(part) ? cleanDice(part.slice(2, -2)) : cleanText(part)).join(''); };
+  const cleanLines = (ls) => (Array.isArray(ls) ? ls : []).slice(0, 8).map(cleanLine);
   function roll(req) {
     const job = chain.then(() => new Promise(async (resolve) => {
       if (!chatBox()) return resolve({ error: "Couldn't find Roll20's chat box. Is the chat panel open?" });
       speakAs(req.who);
-      const before = messages().length;
-      let lines = Array.isArray(req.lines) && req.lines.length ? req.lines.map(cleanLine) : null;
+      const me = speakingAs().toLowerCase(), before = messages().length;
+      let lines = Array.isArray(req.lines) && req.lines.length ? cleanLines(req.lines) : null;
       let key;
       if (lines) {
         const last = lines[lines.length - 1];
@@ -63,6 +70,8 @@
           const el = list[i]; if (el.__dnd20seen) continue;
           if (i >= before && (/\berror\b/.test(el.className) || /SyntaxError|error with your formula|could not parse/i.test(el.textContent)) && !el.__dnd20err) { el.__dnd20err = true; clearInterval(tick); return resolve({ error: 'Roll20 rejected the roll: ' + el.textContent.trim().slice(0, 140) }); }
           if (key && !el.textContent.includes(key)) continue;
+          // only our own message counts: another player could post a line with the same label
+          const by = el.querySelector('.by'); if (by && me && by.textContent.replace(/:\s*$/, '').trim().toLowerCase() !== me) continue;
           const r = readResult(el); if (!r) continue;
           el.__dnd20seen = true; clearInterval(tick); return resolve(r);
         }
@@ -85,6 +94,6 @@
     if (msg.type === 'tokens') { tokens().then(send); return true; }
     if (msg.type === 'info') { send({ campaign: campaign(), player: speakingAs() }); return; }
     if (msg.type === 'roll') { roll(msg).then(send); return true; }
-    if (msg.type === 'post') { chain = chain.then(async () => { speakAs(msg.who); const ls = (msg.lines || []).map(cleanLine); for (let k = 0; k < ls.length; k++) { post(ls[k]); await wait(160); } }).then(() => send({ ok: true }), (e) => send({ error: String(e) })); return true; }
+    if (msg.type === 'post') { chain = chain.then(async () => { speakAs(msg.who); const ls = cleanLines(msg.lines); for (let k = 0; k < ls.length; k++) { post(ls[k]); await wait(160); } }).then(() => send({ ok: true }), (e) => send({ error: String(e) })); return true; }
   });
 })();

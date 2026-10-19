@@ -387,7 +387,12 @@ function wireDie(root) {
   // On the new address, Google sign-in runs through the site itself, so Google's account picker says
   // "continue to adventurers-tome.web.app" (and Safari doesn't block it as a third-party sign-in).
   if (location.hostname === 'adventurers-tome.web.app') CFG.authDomain = location.hostname;
-  try { firebase.initializeApp(CFG); fs = firebase.firestore(); auth = firebase.auth(); } catch (e) { console.error(e); }
+  // App Check (optional): once a reCAPTCHA v3 site key is in pages_config.json ("appCheckKey"), every request carries
+  // proof it came from this site, so Firebase can turn away scripts and bots that call the database directly.
+  const { appCheckKey, ...FBCFG } = CFG;
+  if (appCheckKey) await new Promise(res => { const sc = document.createElement('script'); sc.src = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check-compat.js'; sc.onload = sc.onerror = res; document.head.appendChild(sc); });
+  try { firebase.initializeApp(FBCFG); if (appCheckKey && firebase.appCheck) firebase.appCheck().activate(new firebase.appCheck.ReCaptchaV3Provider(appCheckKey), true);
+    fs = firebase.firestore(); auth = firebase.auth(); } catch (e) { console.error(e); }
   if (!fs || !auth) { say('Couldn\'t start the sheet. Check your connection and reload.'); return; }
   if (window.PG_EMU) { fs.useEmulator('localhost', 8080); auth.useEmulator('http://localhost:9099', { disableWarnings: true }); if (window.PG_EMU_USER) { await auth.signOut(); await auth.signInWithCredential(firebase.auth.GoogleAuthProvider.credential(JSON.stringify(window.PG_EMU_USER))); } } // tests only
 
@@ -860,6 +865,7 @@ function wireDie(root) {
     host: (ready, roll) => { const me = Math.random().toString(36).slice(2);
       const beat = () => { if (ready()) relay.doc('host').set({ at: Date.now(), by: EMAIL, tab: me }).catch(() => {}); }; setInterval(beat, 25000); setTimeout(beat, 2000);
       relay.where('status', '==', 'new').onSnapshot(qs => qs.docChanges().forEach(async ch => { if (ch.type !== 'added' || !ready()) return; const d = ch.doc.data(); if (!d || Date.now() - (d.at || 0) > 15000) return;
+        if (d.by !== EMAIL) return; // only your own rolls (your phone → your computer), never someone else's who can edit it
         // only one computer answers: claim it first
         try { const mine = await fs.runTransaction(async tx => { const cur = await tx.get(ch.doc.ref); if (!cur.exists || cur.data().status !== 'new') return false; tx.update(ch.doc.ref, { status: 'busy', tab: me }); return true; }); if (!mine) return; } catch (e) { return; }
         let r; try { r = await roll(d); } catch (e) { r = { error: String(e && e.message || e) }; }
