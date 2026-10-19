@@ -860,11 +860,14 @@ function wireDie(root) {
       m.querySelector('.pg-out-yes').onclick = () => { done(); ptySetLocal(d.id); ptySetSheetParty(fs, C, d.id).catch(() => {}); };
       m.querySelector('.pg-out-no').onclick = () => { done(); ptyLeave(fs, EMAIL, d.id, C, { owner: EMAIL }).catch(() => {}); };
       document.body.appendChild(m); }, () => {}), 4000); }
-  // Activity log for this sheet: that it was opened, and (gathered up, at most about once a minute) what was changed.
-  if (!NEW) setTimeout(() => { let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} pgLog('open', { target: C, tName: nm, detail: role() === 'view' ? 'view only' : '' }); }, 3000);
-  { let EDITS = [], editT = null; const flush = () => { clearTimeout(editT); editT = null; if (!EDITS.length) return; const L = [...new Set(EDITS)]; EDITS = [];
+  // Activity log for this sheet: that it was opened (as soon as its name is known), and what was changed — a burst of
+  // changes is one entry, logged 2 seconds after the last of them (and never more than 10 seconds after the first).
+  if (!NEW) { const t0 = Date.now(), logOpen = () => { let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} if (!nm && Date.now() - t0 < 3000) return setTimeout(logOpen, 150);
+    pgLog('open', { target: C, tName: nm, detail: role() === 'view' ? 'view only' : '' }); }; setTimeout(logOpen, 150); }
+  { let EDITS = [], editT = null, first = 0; const flush = () => { clearTimeout(editT); editT = null; first = 0; if (!EDITS.length) return; const L = [...new Set(EDITS)]; EDITS = [];
       let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} pgLog('edit', { target: C, tName: nm, detail: L.slice(0, 20).join(' · ') + (L.length > 20 ? ' · …' : '') }); };
-    window.onSheetChange = label => { if (role() === 'view') return; EDITS.push(String(label || 'Change').replace(/^Edit: /, '')); if (!editT) editT = setTimeout(flush, 60000); };
+    window.onSheetChange = label => { if (role() === 'view') return; EDITS.push(String(label || 'Change').replace(/^Edit: /, '')); if (!first) first = Date.now();
+      clearTimeout(editT); editT = setTimeout(flush, Math.max(0, Math.min(2000, first + 10000 - Date.now()))); };
     document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); }); addEventListener('pagehide', flush); }
   if (!NEW && hubCol && PRETTY) hubCol.doc(C).get().then(d => { const pth = d.exists && d.data().path; if (pth) showPath(pth); }, () => {});
   // New character: once it's created (and saved to the cloud), its link goes in the address bar.
