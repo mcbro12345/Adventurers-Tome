@@ -10,6 +10,12 @@
 const PG_CALM = (() => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } })();
 // Leaving a page: the loading screen (dice and all) fades in over it right away, and the next page starts with that same
 // screen already showing, so there's no blank gap before the dice appear.
+// Who's viewing a public link is listed under a fingerprint of each signed-in viewer's email ("u-" + the start of its
+// SHA-256), never the email itself: anyone with the link can read that list. (The database rules check the same thing.)
+const pgViewId = async em => { const h = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(em || '').toLowerCase())));
+  return 'u-' + [...h].map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 24); };
+// A place on this site to go to, or '' if it isn't one (a ?next= or a saved "come back here" can't send anyone elsewhere).
+function pgSafePath(v) { try { const u = new URL(String(v || ''), location.origin); return u.origin === location.origin && /^https?:$/.test(u.protocol) ? u.pathname + u.search + u.hash : ''; } catch (e) { return ''; } }
 function pgGo(url, replace) { const go = () => { if (url == null) location.reload(); else if (replace) location.replace(url); else location.href = url; };
   if (PG_CALM) return go(); try { sessionStorage.setItem('pg-nav', String(Date.now())); } catch (e) {}
   // Already on a loading screen (e.g. finishing a sign-in link): keep it up and go straight on, so it doesn't fade out
@@ -127,7 +133,8 @@ document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.remove()); 
     if (ln) ln.classList.toggle('on', on && scrollY > 6); };
   addEventListener('scroll', edge, { passive: true }); setInterval(edge, 1000); }
 let PG_RA = null; // the last "refresh their page" request seen; a new one while this page is open reloads it
-const ADMIN_EMAIL = 'matthewcbro@gmail.com';
+// The site owner, by their sign-in account id (not their email, so no personal info is in the code).
+const OWNER_UID = 'Ns3qDtOrAcNcJkZKHemhBedz9oA2';
 // Every character lives in one library; the hub shows each person their own and the ones shared with them.
 const DEFAULT_G = 'WLdUj_I3XrA_9VIP';
 // Clean addresses everywhere except the github.io backup (which can't serve made-up paths).
@@ -189,14 +196,14 @@ const URLS = {
   newChar: (G, o, p) => { try { if (o) sessionStorage.setItem('pg-newfor', JSON.stringify({ o, p: p || '' })); else sessionStorage.removeItem('pg-newfor'); } catch (e) {} return PRETTY ? '/create' : LEG + '?new=1&g=' + G; },
 };
 // Search keys for an account or character: every prefix of each word (and of the whole name / email), so the admin
-// pages can find "ryan", "o'neal" or "roneal1994@…" with one indexed lookup however many accounts there are.
+// pages can find "sam", "o'hara" or "sohara1990@…" with one indexed lookup however many accounts there are.
 function searchKeys(...parts) { const out = new Set(); parts.forEach(p => { p = String(p || '').toLowerCase().trim(); if (!p) return;
   new Set([p, ...p.split(/[\s@._'’-]+/)]).forEach(t => { t = t.slice(0, 24); for (let i = 1; i <= t.length; i++) out.add(t.slice(0, i)); }); }); return [...out].slice(0, 400); }
 // A person's little picture: their chosen character portrait (or their first character's), else initials on a colour
 // picked from their email so the same person always looks the same.
 const escH = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const hueOf = t => [...String(t || '?')].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) % 360, 7);
-// first and last initials: "Matthew Breaux" → MB, "Shade of Twilight of the Dark Forest" → SF
+// first and last initials: "Ada Lovelace" → AL, "Shade of Twilight of the Dark Forest" → SF
 const initials = (name, em) => { const w = String(name || em || '?').split(/[\s@._-]+/).filter(x => /[\p{L}\p{N}]/u.test(x)); return w.length ? (w[0][0] + (w.length > 1 ? w[w.length - 1][0] : '')).toUpperCase() : '?'; };
 // A person's picture: their initials on a colour (theirs, or one picked from their email), a character portrait, or an
 // uploaded image — which, if it has a transparent background, is shown as-is with no circle or border.
@@ -369,8 +376,11 @@ function wireDie(root) {
   }
   if (location.hash.startsWith('#move=')) {
     const raw = location.hash.slice(6); history.replaceState(null, '', location.pathname + location.search);
-    try { const d = await unpack(raw); if (d && Date.now() - (d.at || 0) < 15 * 60 * 1000) {
-      Object.entries(d.ls || {}).forEach(([k, v]) => { if (lsGet(k) == null) lsSet(k, v); });
+    // Only a hand-off that really comes from the old page counts (anyone can make a link with #move= on it), and only
+    // the settings it's allowed to carry: the same kinds the old page packs.
+    const fromOld = /^https:\/\/mcbro12345\.github\.io\//.test(document.referrer || '');
+    try { const d = fromOld ? await unpack(raw) : null; if (d && Date.now() - (d.at || 0) < 15 * 60 * 1000) {
+      Object.entries(d.ls || {}).forEach(([k, v]) => { if (typeof v === 'string' && v.length <= 60000 && /^dnd-/.test(k) && !/^dnd-(sheet:|sheet-path:|signin-)/.test(k) && lsGet(k) == null) lsSet(k, v); });
       if (d.au && d.au.uid && d.au.apiKey === CFG.apiKey && !(await idbAuth()) && lsGet(AU_KEY) == null) lsSet(AU_KEY, JSON.stringify(d.au)); } } catch (e) { console.warn('move', e); }
   }
   let fs = null, auth = null;
@@ -391,8 +401,8 @@ function wireDie(root) {
       // The link opened a new tab. If the tab that asked for it is still open, it takes over (it reloads, signed in)
       // and this tab says so and closes itself where the browser allows; otherwise carry on here as before.
       if (await pgAuthHandoff()) { say(`<div class="pg-signin pg-done">${logoHTML()}<h2>You're signed in</h2><p>Your Adventurer’s Tome tab is ready. You can close this one.</p></div>`); wireDie(document.getElementById('pg-load')); setTimeout(() => { try { window.close(); } catch (x) {} }, 900); return; }
-      pgGo(lsGet('dnd-signin-back') || location.pathname, true); }
-    catch (e) { say(`That sign-in link didn't work (${(e && e.message) || 'expired or already used'}).<br><br><a href="${location.pathname}">Try again</a>`); }
+      pgGo(pgSafePath(lsGet('dnd-signin-back')) || location.pathname, true); }
+    catch (e) { say(`That sign-in link didn't work (${escH((e && e.message) || 'expired or already used')}).<br><br><a href="${location.pathname}">Try again</a>`); }
     return;
   }
   // A view-only link: the sheet's public copy, for anyone, signed in or not. Nothing typed here is saved.
@@ -490,8 +500,8 @@ function wireDie(root) {
   if (BAD) { say(`There’s nothing at this address.<br><br><a href="/">Go to your characters</a>`); return; }
   const user = await new Promise(res => { const u = auth.onAuthStateChanged(x => { u(); res(x); }); });
   if (!user) { if (PRETTY && !LOGIN) { const here = location.pathname + location.search; history.replaceState(null, '', '/login' + (here !== '/' ? '?next=' + enc(here) : '')); } signIn(auth, say); return; }
-  if (LOGIN) { const nx = Q.get('next') || '/'; pgGo(/^\/(?!\/)/.test(nx) ? nx : '/', true); return; } // keeps the loading screen up (no fade out and back in)
-  const EMAIL = (user.email || '').toLowerCase(), IS_OWNER = EMAIL === ADMIN_EMAIL;
+  if (LOGIN) { pgGo(pgSafePath(Q.get('next')) || '/', true); return; } // keeps the loading screen up (no fade out and back in)
+  const EMAIL = (user.email || '').toLowerCase(), IS_OWNER = user.uid === OWNER_UID;
   let IS_ADMIN = IS_OWNER, ADMINS = [];
   try { const a = await fs.collection('config').doc('admins').get(); ADMINS = ((a.exists && a.data().emails) || []).map(x => String(x).toLowerCase()); if (ADMINS.includes(EMAIL)) IS_ADMIN = true; } catch (e) {}
   const doSignOut = () => Promise.resolve(window.pgLog && pgLog('signout')).then(() => auth.signOut()).then(() => pgGo(PRETTY ? '/login' : location.href, true));
@@ -529,6 +539,7 @@ function wireDie(root) {
     else if (!ME.seenAt || Date.now() - ME.seenAt > 60000) UREF.update({ seenAt: Date.now() }).catch(() => {});
     { let lastBeat = Date.now(); const beat = () => { if (document.hidden || Date.now() - lastBeat < 100000) return; lastBeat = Date.now(); UREF.update({ seenAt: lastBeat }).catch(() => {}); };
       setInterval(beat, 120000); document.addEventListener('visibilitychange', beat); }
+    if (IS_OWNER && ME && ME.owner !== true) UREF.update({ owner: true }).catch(() => {}); // (lets the admin page show who the owner is)
     ACCT_OK = true;
     // keep their Google account photo on file (it's their picture until they choose another)
     if (ME && user.photoURL && ME.gpic !== user.photoURL) { ME.gpic = user.photoURL; UREF.update({ gpic: user.photoURL }).catch(() => {}); } } catch (e) { ACCT_ERR = (e && e.code) || ''; console.warn('account record', e); }
@@ -868,7 +879,17 @@ function wireDie(root) {
   if (!NEW && role() !== 'view') setTimeout(() => { const pc = pcardNow(); if (pc && pc !== PCARD0) col.doc(C).update({ pcard: pc }).then(() => { PCARD0 = pc; }, () => {}); }, 3000);
   if (!NEW) { if (PARTY) ptyWatch(PARTY);
     // a character that a party lists but that doesn't know it yet (it joined while this sheet was being saved elsewhere)
-    else if (role() !== 'view') setTimeout(() => PCOL.where('people', 'array-contains', EMAIL).get().then(qs => { const d = qs.docs.find(x => (x.data().chars || []).includes(C)); if (d && !PARTY) { ptySetLocal(d.id); if (role() === 'owner') ptySetSheetParty(fs, C, d.id).catch(() => {}); } }, () => {}), 4000); }
+    // Someone else put this character in their party (a DM it's shared with can): its owner says yes before the sheet
+    // links up — linking lets that party's DM change it and its players read it.
+    else if (role() !== 'view') setTimeout(() => PCOL.where('people', 'array-contains', EMAIL).get().then(qs => { const d = qs.docs.find(x => (x.data().chars || []).includes(C)); if (!d || PARTY) return;
+      if (role() !== 'owner') { ptySetLocal(d.id); return; }
+      const p = d.data(), m = document.createElement('div'); m.className = 'pg-out'; pgOutFade(m);
+      m.innerHTML = `<div class="pg-out-card" role="dialog" aria-modal="true" aria-labelledby="pg-pj-h"><h2 id="pg-pj-h">Join ${escH(p.name || 'this party')}?</h2><p>${escH(p.dmName || 'Its DM')} added ${escH(((window.sheetState && window.sheetState()) || {}).name || 'this character')} to their party. Joining lets the party’s DM make changes to it (healing, items, spells) and lets the other players see it.</p>
+        <div class="pg-out-row"><button class="pg-out-no">No thanks</button><button class="pg-out-yes">Join</button></div></div>`;
+      const done = () => m.remove();
+      m.querySelector('.pg-out-yes').onclick = () => { done(); ptySetLocal(d.id); ptySetSheetParty(fs, C, d.id).catch(() => {}); };
+      m.querySelector('.pg-out-no').onclick = () => { done(); ptyLeave(fs, EMAIL, d.id, C, { owner: EMAIL }).catch(() => {}); };
+      document.body.appendChild(m); }, () => {}), 4000); }
   // Activity log for this sheet: that it was opened, and (gathered up, at most about once a minute) what was changed.
   if (!NEW) setTimeout(() => { let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} pgLog('open', { target: C, tName: nm, detail: role() === 'view' ? 'view only' : '' }); }, 3000);
   { let EDITS = [], editT = null; const flush = () => { clearTimeout(editT); editT = null; if (!EDITS.length) return; const L = [...new Set(EDITS)]; EDITS = [];
@@ -888,7 +909,7 @@ function wireDie(root) {
             setTimeout(() => window.sheetToast(`<div><b>Joined ${escH(J.name || 'the party')}</b><div class="det">Your party is in the Party tab: hand items over and cast spells on each other from there.</div></div>`, '', 9000), 2500); }
           catch (e) { PARTY = ''; ptyWatch(''); window.sheetToast(`<div><b>Couldn’t join ${escH(J.name || 'the party')}</b><div class="det">${escH(e && e.code === 'permission-denied' ? 'The invite link may have been turned off — ask your DM for a new one.' : (e && e.message) || String(e))}</div></div>`, 'fumble', 12000); } };
         setTimeout(tryJoin, 1500); } }
-    setTimeout(() => window.sheetToast(`<div><b>Your character is saved</b><div class="det">${G ? 'It\'s on your party page. ' : ''}Open it on any device you're signed in on — it stays in sync. ${IS_ADMIN && OWNER !== EMAIL ? 'It belongs to ' + OWNER + '.' : 'Only you and the people you share it with can open it.'}</div></div>`, '', 12000), 600);
+    setTimeout(() => window.sheetToast(`<div><b>Your character is saved</b><div class="det">${G ? 'It\'s on your party page. ' : ''}Open it on any device you're signed in on — it stays in sync. ${IS_ADMIN && OWNER !== EMAIL ? 'It belongs to ' + escH(OWNER) + '.' : 'Only you and the people you share it with can open it.'}</div></div>`, '', 12000), 600);
     hubChanged = true; hubSoon();
   }, 500); }
   // Back to the hub (desktop and phone).
@@ -930,14 +951,15 @@ function wireDie(root) {
     // Keeps checking in while the tab is in the background too (browsers slow timers there to about once a minute,
     // which is still inside the window below) — someone with the sheet in another tab is still looking at it.
     // With a view-only link on, you're also listed where the public page can see you, and people on that link show here.
-    const pv = PUB ? fs.collection('pubviews').doc(C).collection('live') : null; let anon = {};
+    const pv = PUB ? fs.collection('pubviews').doc(C).collection('live') : null; let anon = {}, PVID = '';
+    if (pv) pgViewId(EMAIL).then(v => { PVID = v; beat(); }, () => {});
     // Only someone the sheet belongs to or is shared with shows up as viewing it. An admin who opened it without being
     // given access sees who's here but isn't listed (checked each time, so sharing it with them later puts them in).
     const counted = () => OWNER === EMAIL || VIEWERS.includes(EMAIL) || EDITORS.includes(EMAIL);
     const beat = async () => { if (!counted()) { if (seen[EMAIL]) { delete seen[EMAIL]; leave(); } return; }
       const a = avaOf(ME), at = Date.now(); seen[EMAIL] = { name: NAME, pic: a.pic, color: a.color, clear: a.clear, at }; try { await mine.set({ name: NAME, pic: a.pic, color: a.color, clear: a.clear, at }); } catch (e) {}
-      if (pv) pv.doc(EMAIL).set({ anon: false, at, name: String(NAME || '').slice(0, 60), pic: a.pic || '', color: a.color || '', clear: !!a.clear }).catch(() => {}); };
-    const leave = () => { mine.delete().catch(() => {}); if (pv) pv.doc(EMAIL).delete().catch(() => {}); };
+      if (pv && PVID) pv.doc(PVID).set({ anon: false, at, name: String(NAME || '').slice(0, 60), pic: a.pic || '', color: a.color || '', clear: !!a.clear }).catch(() => {}); };
+    const leave = () => { mine.delete().catch(() => {}); if (pv && PVID) pv.doc(PVID).delete().catch(() => {}); };
     // The character's owner comes first whenever they're here, then you, then everyone else.
     const show = () => { const now = Date.now(), rank = em => em === OWNER ? 0 : em === EMAIL ? 1 : 2, here = Object.entries(seen).filter(([, d]) => now - (d.at || 0) < 200000).sort(([a], [b]) => rank(a) - rank(b));
       if (!box) { box = document.createElement('div'); box.className = 'pg-pres'; document.body.appendChild(box); }
@@ -975,7 +997,7 @@ function signIn(auth, say) {
     <button class="btn gold big" id="si-g"><svg viewBox="0 0 48 48" width="18" height="18" style="vertical-align:-3px;margin-right:8px"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>Sign in with Google</button>
     <div class="pg-or">or</div>
     <form id="si-f" class="who-f"><input id="si-e" type="email" placeholder="Your email address" autocomplete="email" required><button class="btn">Email me a link</button></form>
-    <p class="hub-hint" id="si-msg">No Google account? We'll email you a sign-in link.</p>${kickedMsg ? `<p class="pg-kicked">${kickedMsg}</p>` : ''}
+    <p class="hub-hint" id="si-msg">No Google account? We'll email you a sign-in link.</p>${kickedMsg ? `<p class="pg-kicked">${escH(kickedMsg)}</p>` : ''}
     <p class="pg-contact">Trouble signing in? <a href="${CONTACT}">Contact us</a></p></div>${a2hsHTML()}`);
   wireA2HS(document.getElementById('pg-load'));
   wireDie(document.getElementById('pg-load'));
@@ -985,10 +1007,10 @@ function signIn(auth, say) {
     if (!m) { m = document.createElement('p'); m.className = 'pg-kicked'; card.insertBefore(m, card.querySelector('.pg-contact')); }
     m.classList.toggle('ok', !!ok); m.innerHTML = t; if (m.animate && !PG_CALM) m.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'ease-out' }); };
   document.getElementById('si-g').onclick = async () => { const pr = new firebase.auth.GoogleAuthProvider(); pr.setCustomParameters({ prompt: 'select_account' });
-    try { await auth.signInWithPopup(pr); pgGo(null); } catch (e) { if (e && /popup/.test(e.code || '')) { auth.signInWithRedirect(pr); return; } msg('Couldn\'t sign in: ' + ((e && e.message) || e)); } };
+    try { await auth.signInWithPopup(pr); pgGo(null); } catch (e) { if (e && /popup/.test(e.code || '')) { auth.signInWithRedirect(pr); return; } msg('Couldn\'t sign in: ' + escH((e && e.message) || e)); } };
   document.getElementById('si-f').onsubmit = async e => { e.preventDefault(); const em = document.getElementById('si-e').value.trim().toLowerCase(); if (!em) return;
     try { await auth.sendSignInLinkToEmail(em, { url: location.origin + location.pathname, handleCodeInApp: true }); try { localStorage.setItem('dnd-signin-email', em); localStorage.setItem('dnd-signin-back', location.href); } catch (x) {}
-      msg(`<b>Check your email</b> (${em}) for a sign-in link and open it on this device. If it isn't there in a minute, look in Spam.`, true); } catch (x) { msg('Couldn\'t send the link: ' + ((x && x.message) || x)); } };
+      msg(`<b>Check your email</b> (${escH(em)}) for a sign-in link and open it on this device. If it isn't there in a minute, look in Spam.`, true); } catch (x) { msg('Couldn\'t send the link: ' + escH((x && x.message) || x)); } };
 }
 
 // ================= The hub, and the admin section =================
@@ -1478,6 +1500,11 @@ function hub(fs, auth, G, ctx) {
   function adminSection() {
     if (!window.PG_NF) { window.PG_NF = 1; document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-newfor]'); if (b) pgGo(URLS.newChar(G, b.dataset.newfor, nameOf(b.dataset.newfor))); }); }
     const UREF = usersCol.doc(EMAIL); let CHECKED = Number(ME && ME.checkedAt) || 0;
+    // Who the owner is (their record says so) and who's left out of notice numbers (config/quiet) — both from the database.
+    const cfgCol = fs.collection('config'), OWNERS = new Set(IS_OWNER ? [EMAIL] : []); let QUIET = new Set();
+    const ownerEm = em => OWNERS.has(em) || !!((US[em] || {}).owner), seeOwners = list => list.forEach(u => { if (u && u.owner) OWNERS.add(u.id); });
+    const quietP = cfgCol.doc('quiet').get().then(d => { QUIET = new Set(((d.exists && d.data().emails) || []).map(x => String(x).toLowerCase())); }, () => {});
+    quietP.then(() => { if (TAB === 'users') paintUsers(); });
     const UF0 = { role: '', act: '', joined: '' };
     const T0 = ctx.tab === 'characters' ? 'chars' : ctx.tab; let TAB = ['users', 'chars', 'parties', 'new', 'audit', 'bugs', 'notice', 'welcome'].includes(T0) ? T0 : 'users'; if (T0 === 'admins') UF0.role = 'admin';
     const CH = {}, US = {}; // characters and accounts on screen
@@ -1517,7 +1544,7 @@ function hub(fs, auth, G, ctx) {
     const labelCells = () => root.querySelectorAll('table.adm-t:not([data-l])').forEach(t => { t.dataset.l = 1; const hs = [...t.querySelectorAll('thead th')].map(th => th.textContent.trim());
       t.querySelectorAll('tbody > tr').forEach(tr => [...tr.children].forEach((td, i) => { if (hs[i] && !td.dataset.l) td.dataset.l = hs[i]; })); });
     new MutationObserver(() => { fillPics(); labelCells(); }).observe(root, { childList: true, subtree: true });
-    const roleOf = em => em === ADMIN_EMAIL ? ['Owner', 'r-own'] : ADMINS.includes(em) ? ['Admin', 'r-adm'] : ['Member', 'r-mem'];
+    const roleOf = em => ownerEm(em) ? ['Owner', 'r-own'] : ADMINS.includes(em) ? ['Admin', 'r-adm'] : ['Member', 'r-mem'];
     const when = t => t ? `<span title="${esc(new Date(t).toLocaleString())}">${esc(day(t))}</span>` : '<span class="adm-dim">—</span>';
     const kebab = items => `<div class="adm-mwrap"><button class="adm-kebab" aria-label="More actions">⋯</button><div class="adm-mlist">${items.map(([k, t, id, cls]) => `<button data-mi="${k}" data-id="${esc(id)}"${cls ? ` class="${cls}"` : ''}>${t}</button>`).join('')}</div></div>`;
 
@@ -1682,7 +1709,7 @@ function hub(fs, auth, G, ctx) {
       else paintUsers();
     }
     setInterval(() => { if (TAB === 'users' && !document.hidden) paintUsers(); }, 30000); // "Online now" comes and goes with time too
-    const roleKey = u => u.banned ? 'blocked' : u.id === ADMIN_EMAIL ? 'owner' : ADMINS.includes(u.id) ? 'admin' : 'member';
+    const roleKey = u => u.banned ? 'blocked' : ownerEm(u.id) ? 'owner' : ADMINS.includes(u.id) ? 'admin' : 'member';
     function paintUsers() {
       const l = B() && B().querySelector('#ad-ul'); if (!l) return; if (MENU || document.querySelector('.hub-modal.on')) return whenMenusClosed(paintUsers);
       const q = UQ.trim().toLowerCase(), now = Date.now(), dayN = n => now - n * 864e5;
@@ -1695,7 +1722,7 @@ function hub(fs, auth, G, ctx) {
       const seen = u => isOn(u) ? '<span class="adm-online" title="Has Adventurer’s Tome open right now"><i></i>Online now</span>' : u.seenAt ? esc(ago(u.seenAt)) : '<span class="adm-dim">—</span>';
       l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Last active</th><th></th><th></th></tr></thead><tbody>${rows.map(u => { const [rl, rc] = u.banned ? ['Blocked', 'r-blk'] : roleOf(u.id), open = UOPEN.has(u.id);
           return `<tr data-u="${esc(u.id)}"><td><span class="adm-who">${ava(u.name, u.id)}<b>${esc(u.name || '—')}</b></span></td><td class="adm-mail">${esc(u.id)}</td><td><span class="adm-tag ${rc}">${rl}</span></td><td>${when(u.createdAt)}</td><td>${seen(u)}</td>
-            <td><button class="adm-btn sm" data-uc="${esc(u.id)}">Characters ${open ? '▾' : '▸'}</button></td><td class="adm-act">${kebab([['msg', 'Send a message…', u.id], ['welcome', 'Show welcome message again', u.id], ['reload', 'Refresh their page', u.id], ['rename', 'Rename…', u.id], ['pic', 'Change picture…', u.id], ['newfor', 'New character for them', u.id]].concat(IS_OWNER && u.id !== ADMIN_EMAIL ? [ADMINS.includes(u.id) ? ['unadmin', 'Remove admin', u.id] : ['mkadmin', 'Make admin', u.id]] : [], u.id === ADMIN_EMAIL || u.id === EMAIL ? [] : [['signout', 'Sign out everywhere', u.id]].concat(u.banned ? [['unblock', 'Unblock', u.id]] : [], [['delacct', 'Delete account…', u.id, 'danger']])))}</td></tr>
+            <td><button class="adm-btn sm" data-uc="${esc(u.id)}">Characters ${open ? '▾' : '▸'}</button></td><td class="adm-act">${kebab([['msg', 'Send a message…', u.id], ['welcome', 'Show welcome message again', u.id], ['quiet', QUIET.has(u.id) ? 'Count in notice numbers' : 'Leave out of notice numbers', u.id], ['reload', 'Refresh their page', u.id], ['rename', 'Rename…', u.id], ['pic', 'Change picture…', u.id], ['newfor', 'New character for them', u.id]].concat(IS_OWNER && !ownerEm(u.id) ? [ADMINS.includes(u.id) ? ['unadmin', 'Remove admin', u.id] : ['mkadmin', 'Make admin', u.id]] : [], ownerEm(u.id) || u.id === EMAIL ? [] : [['signout', 'Sign out everywhere', u.id]].concat(u.banned ? [['unblock', 'Unblock', u.id]] : [], [['delacct', 'Delete account…', u.id, 'danger']])))}</td></tr>
             <tr class="adm-subrow" data-sub="${esc(u.id)}"${open ? '' : ' hidden'}><td colspan="7"></td></tr>`; }).join('')}</tbody></table></div>`
         : `<p class="adm-empty">${UROWS.length ? 'Nobody matches these filters.' : 'No accounts yet.'}</p>`;
       const fill = async (em, cell, fresh) => { const show = cs => { cell.innerHTML = ctable(cs, false) + `<button class="adm-btn sm" data-newfor="${esc(em)}">＋ New character for ${esc(nameOf(em))}</button>`; wire(cell, () => fill(em, cell, true)); };
@@ -1725,6 +1752,8 @@ function hub(fs, auth, G, ctx) {
     async function userAction(act, em) {
       const u = US[em] || { id: em }, nm = u.name || em, ref = usersCol.doc(em), done = () => { delete PICS[em]; delete PICQ[em]; tabUsersList(); };
       try {
+        if (act === 'quiet') { const on = !QUIET.has(em); await cfgCol.doc('quiet').set({ emails: on ? FV.arrayUnion(em) : FV.arrayRemove(em) }, { merge: true }); on ? QUIET.add(em) : QUIET.delete(em);
+          toast(nm + (on ? ' is left out of' : ' is counted in') + ' notice and welcome numbers.'); done(); return; }
         if (act === 'welcome') { await ref.update({ welcomeSeen: FV.delete(), welcomeReset: Date.now() }); pgLog('welcome_reset', { target: em, tName: nm }); toast(nm + ' will see the welcome message again' + (await cfgCol.doc('welcome').get().then(d => d.exists && d.data().on, () => true) ? '.' : ' once you turn it on (Notice tab).')); return; }
         if (act === 'reload') { await ref.update({ reloadAt: Date.now() }); toast(nm + '’s open pages will refresh now.'); pgLog('user_reload', { target: em, tName: nm }); return; }
         if (act === 'msg') { const last = u.msg && u.msg.text ? `<p class="hub-hint pm-last">Last message (${esc(new Date(u.msg.at || 0).toLocaleString())}) · ${u.msgSeen && u.msgSeen === u.msg.id ? '<b>seen</b>' : 'not seen yet'}:<br>“${esc(String(u.msg.text).slice(0, 200))}${String(u.msg.text).length > 200 ? '…' : ''}”</p>` : '';
@@ -1929,10 +1958,9 @@ function hub(fs, auth, G, ctx) {
     const WELCOME0 = 'Hey, glad you\'re here!\n\nThis is where your D&D characters live. Make a character, keep everything on one sheet, and play from your computer or your phone.\n\n# What you can do\n- **Make a character** step by step. It walks you through everything\n- **Roll from your sheet.** Tap any attack, skill or save to roll it\n- **Spells, items and HP** are all tracked for you, rests and level ups too\n- **Share your character** with friends or your DM so they can look at it or help edit it\n- **Join a party** with your group. Heal each other, cast spells on each other and hand over loot\n- **Use Roll20?** Get the Roll20 extension in Settings → Dice and your rolls go straight into your game\n\n# Getting started\nHit **Create character** in the lobby and you\'re off. If your DM sent you a party invite link, open it and pick your character to join.\n\nHave fun!';
     const copyText = async (t, b) => { try { await navigator.clipboard.writeText(t); } catch (e) { const x = document.createElement('textarea'); x.value = t; x.style.position = 'fixed'; x.style.opacity = '0'; document.body.appendChild(x); x.select(); try { document.execCommand('copy'); } catch (e2) {} x.remove(); }
       if (b) { const t0 = b.textContent; b.textContent = 'Copied'; setTimeout(() => { b.textContent = t0; }, 1500); } };
-    const cfgCol = fs.collection('config');
-    // You, the Claude account and the test/team accounts still get notices and the welcome, but aren't counted in
-    // "goes to" / "seen by" or listed.
-    const NOCOUNT = new Set([EMAIL, ADMIN_EMAIL, 'matthewcbro+claude@gmail.com', 'matthewcbro+nonadmin@gmail.com', 'roneal@netspend.com', 'mbreaux@netspend.com']), counted = em => !NOCOUNT.has(String(em || '').toLowerCase());
+    // You, the owner and anyone set to "Leave out of notice numbers" (Users ⋯ menu; kept in the database, not the code)
+    // still get notices and the welcome, but aren't counted in "goes to" / "seen by" or listed.
+    const counted = em => { em = String(em || '').toLowerCase(); return em !== EMAIL && !ownerEm(em) && !QUIET.has(em); };
     // "Who's seen it": a window listing who has (and, if given, who hasn't yet) — for notices and the welcome message
     const whoSeen = (all, text, who, not, note) => { who = who && who.filter(counted); not = not && not.filter(counted); const byId = Object.fromEntries(all.map(u => [u.id, u])); all.forEach(u => { if (!PICS[u.id]) PICS[u.id] = avaOf(u); }); // (their pictures)
       const list = ids => ids.map(id => byId[id] || { id }).sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id))).map(u => `<div class="nt-sl-row">${ava(u.name, u.id)}<span><b>${esc(u.name || u.id)}</b><small>${esc(u.id)}</small></span></div>`).join('');
@@ -1945,7 +1973,7 @@ function hub(fs, auth, G, ctx) {
       modal.querySelectorAll('.nt-sl-list').forEach(l => { const w = l.parentElement, shade = () => { w.classList.toggle('sc-t', l.scrollTop > 2); w.classList.toggle('sc-b', l.scrollTop + l.clientHeight < l.scrollHeight - 2); }; l.addEventListener('scroll', shade, { passive: true }); shade(); }); };
     async function tabNotice() {
       const el = B(); HA().innerHTML = ''; let all = [], log = [];
-      try { [all, log] = await Promise.all([usersCol.limit(2000).get().then(docs), noticesCol.orderBy('at', 'desc').limit(200).get().then(docs)]); } catch (x) { el.innerHTML = failMsg(x); return; }
+      try { [all, log] = await Promise.all([usersCol.limit(2000).get().then(docs), noticesCol.orderBy('at', 'desc').limit(200).get().then(docs), quietP]); } catch (x) { el.innerHTML = failMsg(x); return; } seeOwners(all);
       const live = log.find(n => !n.endedAt) || null;
       const ppl = all.filter(u => counted(u.id)), seenWho = n => ppl.filter(u => u.noticeSeen === n.id).map(u => u.id), seenOf = n => seenWho(n).length,
         // how many it went to, not counting you or the Claude account (older notices counted everyone; they're adjusted)
@@ -2017,7 +2045,7 @@ function hub(fs, auth, G, ctx) {
       l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t bg-t"><thead><tr><th>Reported</th><th>From</th><th>Bug</th><th>Where</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(b => `<tr>
           <td>${when(b.at)}</td><td><span class="adm-who">${ava(b.byName, b.by)}<span><b>${esc(b.byName || b.by)}</b><small class="adm-mail">${esc(b.by)}</small></span></span></td>
           <td class="bg-txt">${(b.at || 0) > BCHECKED ? '<span class="adm-tag bg-new">New</span> ' : ''}<b>${esc(b.sum)}</b>${b.desc ? `<div class="bg-desc">${esc(b.desc)}</div>` : ''}</td>
-          <td class="bg-where">${b.ch ? `<b>${esc(b.ch)}</b><br>` : ''}<a href="${esc(b.where || '/')}" target="_blank" rel="noopener">${esc(b.where || '/')}</a>${browserOf(b.ua) ? `<br><small class="adm-dim" title="${esc(b.ua)}">${esc(browserOf(b.ua))}</small>` : ''}</td>
+          <td class="bg-where">${b.ch ? `<b>${esc(b.ch)}</b><br>` : ''}${/^\/(?![\/\\])/.test(b.where || '/') ? `<a href="${esc(b.where || '/')}" target="_blank" rel="noopener">${esc(b.where || '/')}</a>` : esc(b.where)}${browserOf(b.ua) ? `<br><small class="adm-dim" title="${esc(b.ua)}">${esc(browserOf(b.ua))}</small>` : ''}</td>
           <td>${b.status === 'fixed' ? `<span class="adm-tag r-own">Fixed</span><br><small class="adm-dim">${when(b.fixedAt)}${b.seen ? ' · they’ve seen it' : ''}</small>` : '<span class="adm-tag">Open</span>'}</td>
           <td class="nt-acts">${b.status === 'fixed' ? `<button class="adm-btn sm" data-bg="open" data-id="${esc(b.id)}">Reopen</button>` : `<button class="adm-btn sm primary" data-bg="fixed" data-id="${esc(b.id)}">Mark fixed</button>`}<button class="adm-btn sm" data-bg="del" data-id="${esc(b.id)}">Delete</button></td></tr>`).join('')}</tbody></table></div>`
         : `<p class="adm-empty">${BF === 'fixed' ? 'Nothing marked fixed yet.' : BF === 'open' ? 'No open bug reports.' : 'No bug reports yet.'}</p>`;
@@ -2031,7 +2059,7 @@ function hub(fs, auth, G, ctx) {
     // --- Welcome: the message every new account sees the first time it signs in (then the current notice, with Next) ---
     async function tabWelcome() {
       const el = B(); HA().innerHTML = ''; let all = [], wel = null, live = null;
-      try { [all, wel, live] = await Promise.all([usersCol.limit(2000).get().then(docs), cfgCol.doc('welcome').get().then(d => d.exists ? d.data() : null, () => null), cfgCol.doc('notice').get().then(d => d.exists ? d.data() : null, () => null)]); } catch (x) { el.innerHTML = failMsg(x); return; }
+      try { [all, wel, live] = await Promise.all([usersCol.limit(2000).get().then(docs), cfgCol.doc('welcome').get().then(d => d.exists ? d.data() : null, () => null), cfgCol.doc('notice').get().then(d => d.exists ? d.data() : null, () => null)]); } catch (x) { el.innerHTML = failMsg(x); return; } await quietP; seeOwners(all);
       el.innerHTML = `<div class="adm-stats"><div class="adm-stat"><small>Status</small><b>${wel && wel.on ? 'On' : 'Off'}</b></div><button class="adm-stat nt-seenstat" id="wl-seen" title="Who’s seen it"><small>Seen by</small><b>${all.filter(u => u.welcomeSeen && counted(u.id)).length}</b></button></div>
         <p class="adm-note">${wel && wel.on ? `New accounts see this the first time they sign in${live ? ', then the current notice (with a Next button)' : ''}.` : 'Nothing is shown yet. Edit the message below, check it with Preview, then <b>Save and turn on</b>.'}</p>
         <textarea id="wl-t" class="ad-search pm-t" rows="12" placeholder="Welcome message">${esc((wel && wel.text) || WELCOME0)}</textarea>${NT_FMT}
@@ -2375,7 +2403,7 @@ function partyModule(H) {
   const ring = (cur, max, tmp) => { max = Math.max(1, Number(max) || 0); cur = Math.max(0, Math.min(Number(cur) || 0, max)); tmp = Math.max(0, Number(tmp) || 0);
     const r = 52, C = 2 * Math.PI * r, tot = Math.max(max, cur + tmp), x = C * cur / tot, y = C * tmp / tot;
     return `<svg viewBox="0 0 120 120" aria-hidden="true"><circle class="rt" cx="60" cy="60" r="${r}"/><circle class="rf${cur / max <= .35 ? ' low' : ''}" cx="60" cy="60" r="${r}" stroke-dasharray="${x} ${C}"/>${tmp ? `<circle class="rtmp" cx="60" cy="60" r="${r}" stroke-dasharray="${y} ${C}" stroke-dashoffset="${-x}"/>` : ''}</svg>`; };
-  const hrefOf = (id, c) => c.path ? (c.path.includes('/') ? '/' + c.path : '/character/' + c.path) : URLS.byId(id);
+  const hrefOf = (id, c) => /^[\w-]+(\/[\w-]+)?$/.test(String(c.path || '')) ? (c.path.includes('/') ? '/' + c.path : '/character/' + c.path) : URLS.byId(id); // (a card's path is written by its player: only a plain address on this site)
   // A character in the party: picture, name and class, the HP ring, AC / speed / passive Perception, and what's on it.
   const PM_IC = { dmg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M12.5 7.5 10.5 11l3 2-2 3.5"/></svg>',
     heal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M12 9.5v6M9 12.5h6"/></svg>',

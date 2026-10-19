@@ -7,7 +7,23 @@ function bookSort(list, srcOf, nameOf) { const ord = new Map(); list.forEach(x =
   return list.slice().sort((a, b) => (ord.get(String(srcOf(a) || '')) - ord.get(String(srcOf(b) || ''))) || abc(nameOf(a), nameOf(b))); }
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
-const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Anything other people can put into a character (sharing, party messages, a public copy) is cleaned on the way in:
+// pictures must be real image links, ids plain text, and no keys that reach into JavaScript's object machinery.
+const safeImg = v => typeof v === 'string' && (/^data:image\/[\w.+-]+;base64,[A-Za-z0-9+/=\s]*$/i.test(v) || /^(https?:\/\/|blob:)[^\s"'<>`]*$/i.test(v) || /^[\w./-]*$/.test(v)) ? v : '';
+function cleanData(o, d = 0) {
+  if (!o || typeof o !== 'object' || d > 40) return o;
+  for (const k of Object.keys(o)) {
+    if (k === '__proto__' || k === 'constructor' || k === 'prototype') { delete o[k]; continue; }
+    const v = o[k];
+    if (typeof v === 'string') {
+      if (/^(img|image|portrait|pic|thumb|src)$/i.test(k)) o[k] = safeImg(v);
+      else if (k === 'id' || /Id$/.test(k)) o[k] = v.replace(/[^\w:.@+-]/g, '').slice(0, 120);
+      else if (k === 'col' || k === 'dir') o[k] = v.replace(/[^\w-]/g, '').slice(0, 30);
+    } else if (v && typeof v === 'object') cleanData(v, d + 1);
+  }
+  return o;
+}
 // A spell can carry the player's own name for it ("Smog Beam" for Fire Bolt): shown first, with the real spell name beside it.
 const spLabel = sp => String((sp && (sp.flavor || '').trim()) || (sp && sp.name) || '');
 const spDisp = sp => sp && (sp.flavor || '').trim() ? `${esc(sp.flavor.trim())} <span class="sp-real">${esc(sp.name)}</span>` : esc(sp && sp.name);
@@ -102,6 +118,7 @@ function applyFixes(s) {
   return changed;
 }
 function migrate(s) {
+  cleanData(s);
   const b = blankState();
   for (const k in b) if (s[k] === undefined) s[k] = b[k];
   if (!Array.isArray(s.sources)) s.sources = defaultSources();
