@@ -1,15 +1,17 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{db}/documents {
+    // The site owner, by their sign-in account id (not their email, so the rules hold no personal info).
+    function ownerUid() { return request.auth != null && request.auth.uid == 'Ns3qDtOrAcNcJkZKHemhBedz9oA2'; }
     // Signed in, and not blocked or signed out everywhere by an admin (the site owner can never be locked out).
     function signedIn() { return request.auth != null && request.auth.token.email_verified == true && accountOK(); }
     function accountOK() {
       let p = /databases/$(db)/documents/users/$(request.auth.token.email.lower());
-      return request.auth.token.email.lower() == 'matthewcbro@gmail.com' || !exists(p)
+      return ownerUid() || !exists(p)
         || (get(p).data.get('banned', false) != true && get(p).data.get('revokedAt', 0) <= request.auth.token.auth_time * 1000);
     }
     function me() { return request.auth.token.email.lower(); }
-    function owner0() { return signedIn() && me() == 'matthewcbro@gmail.com'; }
+    function owner0() { return signedIn() && ownerUid(); }
     function admin() { return owner0() || (signedIn() && exists(/databases/$(db)/documents/config/admins)
       && me() in get(/databases/$(db)/documents/config/admins).data.emails); }
     // Who may open a character: its owner, anyone it's shared with, and the DM. Editors may also change it, but not who owns it or who it's shared with.
@@ -24,7 +26,13 @@ service cloud.firestore {
       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewers', 'editors'])
       && request.resource.data.viewers == resource.data.viewers.removeAll([me()])
       && request.resource.data.get('editors', []) == resource.data.get('editors', []).removeAll([me()]); }
-    function createOK() { return request.resource.data.owner == me() || me() in request.resource.data.editors; }
+    // A new character is always your own. The one exception: an editor saving a big character adds its extra pieces
+    // (<id>_p1, _p2…), which belong to the same owner as the main one.
+    function mainOf(id) { return get(/databases/$(db)/documents/sheets/$(id.replace('_p[0-9]+$', ''))).data; }
+    function createOK(id) { return request.resource.data.owner == me()
+      || (id.matches('.+_p[0-9]+') && me() in mainOf(id).get('editors', []) && request.resource.data.owner == mainOf(id).owner); }
+    // Character ids are plain letters, digits, - and _ (they end up in addresses and on the page).
+    function idOK(id) { return id.matches('[A-Za-z0-9_-]{1,80}'); }
     // A party's DM (and anyone the DM made a co-DM) can look at — not change — the characters in their party.
     // The character says which party it's in; the party has to list it too.
     function partyView(id, d) { return d.get('party', '') is string && d.get('party', '') != '' && partyMgr(get(/databases/$(db)/documents/parties/$(d.party)).data)
@@ -41,7 +49,7 @@ service cloud.firestore {
       && (id in get(/databases/$(db)/documents/parties/$(d.party)).data.chars || id.replace('_p[0-9]+$', '') in get(/databases/$(db)/documents/parties/$(d.party)).data.chars); }
     match /sheets/{id} {
       allow get: if admin() || (signedIn() && (resource == null || canSee(resource.data) || partyView(id, resource.data) || partyRead(id, resource.data)));
-      allow create: if admin() || (signedIn() && createOK());
+      allow create: if admin() || (signedIn() && idOK(id) && createOK(id));
       allow update: if admin() || (signedIn() && (ownerWrite() || editorWrite() || leaveWrite() || partyWrite(id)));
       // only the owner (or an admin) can delete a character — never someone it's merely shared with
       allow delete: if admin() || (signedIn() && resource.data.owner == me());
@@ -104,16 +112,18 @@ service cloud.firestore {
     }
     // Who's viewing a character that has a view-only link. Anyone with the link can see it (it shows on the public page
     // too), and only while the link is on. People on the public link add {anon, at} under a random id; signed-in viewers
-    // add their own entry under their email.
+    // add their own entry under a fingerprint of their email (viewId), so the list never shows emails.
+    // A signed-in viewer is listed as "u-" + the start of their email's SHA-256, never by email (the list is public).
+    function viewId() { return 'u-' + hashing.sha256(me()).toHexString().lower().replace('^(.{24}).*$', '$1'); }
     function pubOnFor(c) { let s = /databases/$(db)/documents/sheets/$(c); return exists(s) && get(s).data.get('pub', '') != ''; }
     match /pubviews/{c}/live/{v} {
       allow read: if pubOnFor(c);
       allow create, update: if pubOnFor(c) && request.resource.data.at is number
         && ((request.resource.data.keys().hasOnly(['anon', 'at']) && request.resource.data.anon == true && v.matches('anon-[a-z0-9]{6,16}'))
-          || (signedIn() && v == me() && request.resource.data.anon == false
+          || (signedIn() && v == viewId() && request.resource.data.anon == false
             && request.resource.data.keys().hasOnly(['anon', 'at', 'name', 'pic', 'color', 'clear'])
             && request.resource.data.get('name', '') is string && request.resource.data.get('name', '').size() <= 60));
-      allow delete: if v.matches('anon-[a-z0-9]{6,16}') || (signedIn() && v == me());
+      allow delete: if v.matches('anon-[a-z0-9]{6,16}') || (signedIn() && v == viewId());
     }
     // ================= Parties =================
     // parties/{p}: { name, dm, by, createdAt, updatedAt, chars (character ids), people (everyone who sees it in their
@@ -188,12 +198,21 @@ service cloud.firestore {
       allow get: if admin();
       allow create, update, delete: if owner0();
     }
+    // Accounts left out of the notice / welcome numbers (admin page, Users ⋯ menu).
+    match /config/quiet {
+      allow get, create, update, delete: if admin();
+    }
     // Bug reports: anyone signed in can send one (as themselves); they can read their own (to hear when it's fixed) and
     // only mark it seen. Admins read, fix, reopen and delete them.
     match /bugs/{b} {
       allow create: if signedIn() && request.resource.data.by == me() && request.resource.data.status == 'open'
         && request.resource.data.keys().hasOnly(['sum', 'desc', 'by', 'byName', 'at', 'where', 'ch', 'ua', 'status'])
-        && request.resource.data.sum is string && request.resource.data.sum.size() <= 200 && request.resource.data.get('desc', '').size() <= 20000;
+        && request.resource.data.sum is string && request.resource.data.sum.size() <= 200
+        && request.resource.data.get('desc', '') is string && request.resource.data.get('desc', '').size() <= 20000
+        && request.resource.data.get('where', '/') is string && request.resource.data.get('where', '/').matches('/[^/\\\\].{0,199}|/')
+        && request.resource.data.get('ch', '') is string && request.resource.data.get('ch', '').size() <= 80
+        && request.resource.data.get('ua', '') is string && request.resource.data.get('ua', '').size() <= 300
+        && request.resource.data.get('byName', '') is string && request.resource.data.get('byName', '').size() <= 60;
       allow read: if admin() || (signedIn() && resource.data.by == me());
       allow update: if admin() || (signedIn() && resource.data.by == me() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seen']));
       allow delete: if admin();
@@ -214,7 +233,7 @@ service cloud.firestore {
       allow list, delete: if false;
       match /chars/{c} {
         allow read: if admin() || (signedIn() && (resource == null || canSee(resource.data)));
-        allow create: if admin() || (signedIn() && createOK());
+        allow create: if admin() || (signedIn() && idOK(c) && request.resource.data.owner == me());
         allow update: if admin() || (signedIn() && (ownerWrite() || editorWrite() || leaveWrite()));
         allow delete: if admin() || (signedIn() && resource.data.owner == me());
       }

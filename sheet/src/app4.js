@@ -55,7 +55,7 @@ function mainClick(e) {
     case 'menu': b.closest('.menu').classList.toggle('open'); break;
     case 'portrait': $('#portraitFile').click(); break;
     case 'pic': PICPATH = b.dataset.path; closeModal(true); $('#picFile').click(); return;
-    case 'picview': { const v = getP(b.dataset.path); openModal(`<div class="picview"><img src="${v}" alt=""></div><div class="actions"><button class="btn red" data-act="picdel" data-path="${esc(b.dataset.path)}">Remove</button><button class="btn" data-act="pic" data-path="${esc(b.dataset.path)}">Change</button><button class="btn gold" data-act="close">Close</button></div>`); return; }
+    case 'picview': { const v = getP(b.dataset.path); openModal(`<div class="picview"><img src="${esc(safeImg(v))}" alt=""></div><div class="actions"><button class="btn red" data-act="picdel" data-path="${esc(b.dataset.path)}">Remove</button><button class="btn" data-act="pic" data-path="${esc(b.dataset.path)}">Change</button><button class="btn gold" data-act="close">Close</button></div>`); return; }
     case 'picdel': setP(b.dataset.path, ''); pendingLabel = 'Remove picture'; closeModal(true); save(); render(); return;
     case 'dmg': case 'heal': case 'tmphp': hpAction(act); break;
     case 'skillprof': S.skills[i].prof = (N(S.skills[i].prof) + 1) % 3; b.className = 'profbtn p' + S.skills[i].prof; pendingLabel = S.skills[i].name + ': ' + ['not proficient', 'proficient', 'expertise'][S.skills[i].prof]; update(); { const r = b.closest('.skman-row'); if (r) { r.querySelector('.skman-lv').textContent = ['—', 'Proficient', 'Expertise'][S.skills[i].prof]; r.querySelector('.skman-v').textContent = fmt(skillVal(S.skills[i])); } } break;

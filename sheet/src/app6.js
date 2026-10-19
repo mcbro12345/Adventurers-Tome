@@ -622,7 +622,7 @@ function showTip(btn) {
   const bits = [dmgLine, atk && String(it.notes || '').trim() ? `<div class="tipprops">${esc(it.notes)}</div>` : '', wit && String(wit.notes || '').trim() ? `<div>${esc(wit.notes)}</div>` : '', wit && fullOfItem(wit) && !String(wit.notes || '').includes(fullOfItem(wit).slice(0, 60)) ? `<div class="tipdesc">${fullHTML(fullOfItem(wit))}</div>` : wit && wit.summary && wit.summary !== wit.notes ? `<div class="hint">${esc(wit.summary)}</div>` : '', hb.length ? `<div class="tiphb">⚙ ${esc(hb.join(' · '))}</div>` : ''].filter(Boolean);
   if (!bits.length) return hideTip();
   let t = $('#tipbox'); if (!t) { t = document.createElement('div'); t.id = 'tipbox'; t.setAttribute('role', 'tooltip'); document.body.appendChild(t); }
-  t.innerHTML = `${wit && wit.img ? `<img class="tipimg" src="${wit.img}" alt="">` : ''}<b>${esc(it.name)}</b>${wit && wit.attune ? `<span class="hint"> · ${wit.attuned ? 'attuned' : 'not attuned'}</span>` : ''}${bits.join('')}`; t.classList.add('on');
+  t.innerHTML = `${wit && wit.img ? `<img class="tipimg" src="${esc(safeImg(wit.img))}" alt="">` : ''}<b>${esc(it.name)}</b>${wit && wit.attune ? `<span class="hint"> · ${wit.attuned ? 'attuned' : 'not attuned'}</span>` : ''}${bits.join('')}`; t.classList.add('on');
   try { if (atk) tipVfx(t, vfxForAttack(it, wit)); else if (wit && (wit.weapon || wit.magic || (wit.spells || []).length || wit.hb || wit.consumable || /potion|elixir|scroll|oil|philter/i.test(wit.name))) tipVfx(t, vfxForItem(wit)); } catch (e) {}
   placeTip(t, btn);
 }

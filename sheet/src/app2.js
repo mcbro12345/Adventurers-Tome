@@ -285,7 +285,7 @@ const del = (list, i) => `<button class="icon-btn" data-act="del" data-list="${l
 const mv = (list, i) => `<button class="icon-btn mv" data-act="up" data-list="${list}" data-i="${i}" title="Move up" aria-label="Move up">↑</button>`;
 const ABOPTS = AB.map(a => [a, AB3[a]]);
 // A small picture (people, companions, items): tap to view it big, change or remove it.
-const picThumb = (path, label) => { const v = getP(path); return v ? `<button class="picth" data-act="picview" data-path="${esc(path)}" title="Picture of ${esc(label)}"><img src="${v}" alt="${esc(label)}"></button>` : `<button class="picadd" data-act="pic" data-path="${esc(path)}" title="Add a picture" aria-label="Add a picture of ${esc(label)}">${ICON.image || '🖼'}</button>`; };
+const picThumb = (path, label) => { const v = getP(path); return v ? `<button class="picth" data-act="picview" data-path="${esc(path)}" title="Picture of ${esc(label)}"><img src="${esc(safeImg(v))}" alt="${esc(label)}"></button>` : `<button class="picadd" data-act="pic" data-path="${esc(path)}" title="Add a picture" aria-label="Add a picture of ${esc(label)}">${ICON.image || '🖼'}</button>`; };
 const isMobile = () => document.documentElement.classList.contains('mobile');
 const who = () => S.name || 'Your character';
 
