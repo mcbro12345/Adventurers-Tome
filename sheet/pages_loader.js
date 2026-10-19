@@ -347,42 +347,6 @@ function wireDie(root) {
   const load = document.getElementById('pg-load'), data = document.getElementById('sheet-data');
   if (load) window.PG_LOAD_HTML = load.outerHTML;
   const say = html => { if (!load) return; load.innerHTML = `<div class="pg-msg">${html}</div>`; const m = load.firstElementChild; if (m && m.animate && !PG_CALM) m.animate([{ opacity: 0, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: 450, easing: 'ease-out' }); load.style.opacity = ''; load.style.transition = ''; };
-  // ---- Moving house: the old GitHub Pages address hands each visitor over to adventurers-tome.web.app ----
-  // The old page packs this browser's sheet settings (layouts, per-sheet settings, theme, tab bar, hub state, roll logs)
-  // and its saved sign-in into the part of the link after "#" (never sent to any server), and the new page unpacks it
-  // and wipes it from the address bar. If the new address can't be reached, the old one keeps working as before.
-  const MOVE = window.PG_MOVE || { from: /(^|\.)github\.io$/, to: 'https://adventurers-tome.web.app' };
-  const AU_KEY = 'firebase:authUser:' + CFG.apiKey + ':[DEFAULT]';
-  const idbAuth = () => new Promise(res => { try { const rq = indexedDB.open('firebaseLocalStorageDb'); let made = false;
-    rq.onupgradeneeded = () => { made = true; }; rq.onerror = () => res(null);
-    rq.onsuccess = () => { const db = rq.result; if (made || !db.objectStoreNames.contains('firebaseLocalStorage')) { db.close(); if (made) indexedDB.deleteDatabase('firebaseLocalStorageDb'); return res(null); }
-      try { const g = db.transaction('firebaseLocalStorage', 'readonly').objectStore('firebaseLocalStorage').get(AU_KEY); g.onsuccess = () => { db.close(); res(g.result ? g.result.value : null); }; g.onerror = () => { db.close(); res(null); }; } catch (e) { db.close(); res(null); } }; } catch (e) { res(null); } });
-  const toB64 = u8 => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
-  const fromB64 = t => { const s = atob(t.replace(/-/g, '+').replace(/_/g, '/')); const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; };
-  const pack = async o => { const u = new TextEncoder().encode(JSON.stringify(o)); if (window.CompressionStream) { try { return 'z' + toB64(new Uint8Array(await new Response(new Blob([u]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer())); } catch (e) {} } return 'j' + toB64(u); };
-  const unpack = async t => { const u = fromB64(t.slice(1)); const b = t[0] === 'z' ? new Uint8Array(await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer()) : u; return JSON.parse(new TextDecoder().decode(b)); };
-  if (MOVE.from.test(location.hostname) && !Q.get('handoff') && !Q.get('oobCode') && !Q.get('stay')) {
-    // only once the new address is running this version or newer (it can lag a minute behind after an update)
-    const up = await Promise.race([fetch(MOVE.to + '/version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json()).then(j => String(j.v || '') >= VER, () => false), new Promise(r => setTimeout(() => r(false), 5000))]);
-    if (up) {
-      say('Moving to Adventurer’s Tome…');
-      const ls = {}; let room = 250000; const keys = []; try { for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i)); } catch (e) {}
-      const logs = k => /^dnd-(rolllog|evlog):/.test(k);
-      keys.filter(k => /^dnd-/.test(k) && !/^dnd-(sheet:|sheet-path:|signin-)/.test(k)).sort((a, b) => logs(a) - logs(b)).forEach(k => { const v = lsGet(k); if (v == null || v.length > 60000 || v.length > room) return; ls[k] = v; room -= v.length; });
-      let au = await idbAuth(); if (!au) { try { au = JSON.parse(lsGet(AU_KEY) || 'null'); } catch (e) {} }
-      let pay = ''; try { pay = await pack({ ls, au, at: Date.now() }); } catch (e) {}
-      location.replace(MOVE.to + '/' + location.search + (pay ? '#move=' + pay : '')); return;
-    }
-  }
-  if (location.hash.startsWith('#move=')) {
-    const raw = location.hash.slice(6); history.replaceState(null, '', location.pathname + location.search);
-    // Only a hand-off that really comes from the old page counts (anyone can make a link with #move= on it), and only
-    // the settings it's allowed to carry: the same kinds the old page packs.
-    const fromOld = /^https:\/\/mcbro12345\.github\.io\//.test(document.referrer || '');
-    try { const d = fromOld ? await unpack(raw) : null; if (d && Date.now() - (d.at || 0) < 15 * 60 * 1000) {
-      Object.entries(d.ls || {}).forEach(([k, v]) => { if (typeof v === 'string' && v.length <= 60000 && /^dnd-/.test(k) && !/^dnd-(sheet:|sheet-path:|signin-)/.test(k) && lsGet(k) == null) lsSet(k, v); });
-      if (d.au && d.au.uid && d.au.apiKey === CFG.apiKey && !(await idbAuth()) && lsGet(AU_KEY) == null) lsSet(AU_KEY, JSON.stringify(d.au)); } } catch (e) { console.warn('move', e); }
-  }
   let fs = null, auth = null;
   // On the new address, Google sign-in runs through the site itself, so Google's account picker says
   // "continue to adventurers-tome.web.app" (and Safari doesn't block it as a third-party sign-in).
