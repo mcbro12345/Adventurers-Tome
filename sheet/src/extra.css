@@ -3011,3 +3011,25 @@ html.mobile .devbtn.dicebtn { position: absolute; top: 10px; right: 84px; }
 html.mobile.realphone .devbtn.dicebtn, html.mobile.pg-inphone .devbtn.dicebtn { right: 48px; }
 html.mobile.hasbug .devbtn.dicebtn { right: 120px; }
 html.mobile.hasbug.realphone .devbtn.dicebtn, html.mobile.hasbug.pg-inphone .devbtn.dicebtn { right: 84px; }
+.smite-chk { display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel2); cursor: pointer; margin: 4px 0 6px; }
+.smite-chk input { width: 17px; height: 17px; accent-color: var(--gold); flex: none; margin: 0; }
+.smite-chk span { display: flex; flex-direction: column; min-width: 0; }
+.smite-chk b { font-size: .88rem; }
+.smite-chk small { color: var(--soft); font-size: .74rem; }
+.smite-chk.on { border-color: var(--gold); background: var(--gold-soft); }
+.smite-chk.harm { margin-top: 8px; }
+.smite-lv { display: flex; flex-wrap: wrap; gap: 6px; }
+.smite-btn.sel { outline: 1.5px solid var(--line2); }
+.smite-btn.on { outline: 2px solid var(--gold); background: var(--gold-soft); }
+/* HP box: the damage type picker sits beside the amount (resets to Any after each hit) */
+.hp-actions .hp-amtrow { grid-column: 1 / -1; display: flex; gap: 6px; min-width: 0; }
+.hp-actions .hp-amtrow input { flex: 1 1 auto; min-width: 0; width: auto !important; }
+.hp-actions .hp-amtrow .hptype { flex: 0 0 auto; width: 96px; min-width: 0; padding: 0 6px; font-size: .85rem; border: 1px solid var(--line); background: var(--field); color: var(--ink); border-radius: 8px; }
+.hp-actions .hp-amtrow .hptype:not([value=""]) { font-weight: 600; }
+/* Inspiration: "Use" sits under the star (only while you have some) */
+.insp-use { position: absolute; left: 50%; bottom: -50px; transform: translateX(-50%); z-index: 6; padding: 2px 12px; border-radius: 999px; border: 1.5px solid var(--gold); background: var(--gold); color: var(--gold-ink); font-weight: 800; font-size: .7rem; letter-spacing: .04em; cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,.25); }
+.insp-use:hover { filter: brightness(1.08); }
+.insp-use.mini { display: none; }
+html.mobile .insp-use:not(.mini) { display: none; }
+html.mobile .insp-use.mini { display: inline-block; position: static; transform: none; margin-left: 6px; align-self: center; box-shadow: none; padding: 4px 10px; }
+.insp-opts { grid-template-columns: 1fr; }

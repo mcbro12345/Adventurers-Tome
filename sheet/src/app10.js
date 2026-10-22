@@ -357,12 +357,33 @@ function inspHTML(mini) {
   if (!ST('inspiration')) return '';
   const n = Math.max(0, N(S.insp)), mx = inspMax();
   // One at a time: the badge itself is the switch — tap the star to fill it, tap again to spend it.
+  const use = n ? `<button class="insp-use${mini ? ' mini' : ''}" data-act="inspuse" title="Reroll your last attack, check or save, or have advantage on the next one">Use</button>` : '';
   if (mx === 1) return `<button class="insp one${mini ? ' mini' : ''}${n ? ' on' : ''}" data-act="insp" data-d="${n ? -1 : 1}" aria-pressed="${!!n}" title="${n ? 'Inspired — tap to spend it' : 'Tap when you gain Inspiration'}">
-    <span class="insp-c"><b class="insp-n">${n ? '★' : '☆'}</b><span class="insp-l">Inspiration</span></span></button>`;
+    <span class="insp-c"><b class="insp-n">${n ? '★' : '☆'}</b><span class="insp-l">Inspiration</span></span></button>${use}`;
   return `<div class="insp${mini ? ' mini' : ''}${n ? ' on' : ''}" title="Inspiration${mx === 1 ? ' (one at a time)' : ''}">
     <button class="insp-b" data-act="insp" data-d="-1" ${n ? '' : 'disabled'} aria-label="Spend Inspiration">−</button>
     <span class="insp-c"><b class="insp-n">${mx === 1 ? (n ? '★' : '☆') : n}</b><span class="insp-l">Inspiration</span></span>
-    <button class="insp-b" data-act="insp" data-d="1" ${n >= mx ? 'disabled' : ''} aria-label="Gain Inspiration">+</button></div>`;
+    <button class="insp-b" data-act="insp" data-d="1" ${n >= mx ? 'disabled' : ''} aria-label="Gain Inspiration">+</button></div>${use}`;
+}
+// Use Inspiration: reroll the last attack / check / save, or keep it as advantage on the next one (shown with your
+// active effects until that roll uses it up).
+let LAST_D20 = null;
+function inspUse() {
+  if (!(N(S.insp) > 0)) return;
+  const L = LAST_D20 && Date.now() - LAST_D20.t < 10 * 60000 ? LAST_D20 : null;
+  openModal(`<h3>Use Inspiration</h3><p class="hint" style="margin:0 0 10px">It’s used up either way.</p><div class="castopts insp-opts">
+    <button class="castopt" data-act="inspgo" data-k="reroll" ${L ? '' : 'disabled'}><b>Reroll the last roll</b><span>${L ? esc(L.label) + (L.total != null ? ' — was ' + L.total : '') : 'No recent attack, check or save'}</span></button>
+    <button class="castopt" data-act="inspgo" data-k="next"><b>Advantage on my next roll</b><span>Your next attack, ability check or saving throw</span></button></div>
+    <div class="actions"><button class="btn" data-act="close">Cancel</button></div>`);
+}
+function inspGo(k) {
+  closeModal(true); if (!(N(S.insp) > 0)) return;
+  S.insp = Math.max(0, N(S.insp) - 1);
+  if (k === 'next') { S.effects = (S.effects || []).filter(x => x.name !== 'Inspiration').concat([{ name: 'Inspiration', rounds: null, conc: false, buff: { d20AdvNext: 'Inspiration', note: 'Advantage on your next attack roll, ability check or saving throw' } }]);
+    pendingLabel = 'Inspiration: advantage on the next roll'; save(); render(); toast('<b>Inspiration</b> — your next attack, check or save has advantage.', '', 5000, { label: 'Undo', fn: () => undo(1) }); return; }
+  const L = LAST_D20; pendingLabel = 'Inspiration: reroll'; save(); render('header');
+  if (L.attack != null) attackRoll(L.attack, true, { label: L.label.replace(/ \(Inspiration reroll\)$/, '') + ' (Inspiration reroll)' });
+  else d20(L.label.replace(/ \(Inspiration reroll\)$/, '') + ' (Inspiration reroll)', L.bonus, L.kind, L.ab, L.rows);
 }
 function inspAdj(d) {
   const was = Math.max(0, N(S.insp)), n = Math.max(0, Math.min(inspMax(), was + d)); if (n === was) return;
@@ -731,6 +752,17 @@ function stunRowHTML() {
   if (!stunStrikeFeat()) return '';
   return `<div class="row stunrow"><button class="btn sm" data-act="stunstrike" title="Use right after a melee hit — not an action">Stunning Strike <small>1 ki</small></button><span class="hint">After a melee hit (unarmed counts): DC ${stunDC()} CON save or stunned until the end of your next turn. Once per hit.</span></div>`;
 }
+// Hand of Harm (Way of Mercy): like a smite for unarmed strikes. Tick it and your next unarmed hit spends 1 ki and adds
+// a Martial Arts die + WIS necrotic, once per turn (free during Flurry of Blows from 11th level: untick "costs ki").
+const maDie = () => '1' + (martialDie() || 'd4');
+const harmFeat = () => S.features.find(f => /^hand of harm$/i.test(String(f.name).trim()));
+function harmRowHTML() {
+  if (!harmFeat()) return ''; const on = !!S.harmArm, used = S.inCombat && S.turn.harm;
+  return `<label class="smite-chk harm${on ? ' on' : ''}"><input type="checkbox" data-harmarm${on ? ' checked' : ''}${used ? ' disabled' : ''}><span><b>Hand of Harm on my next unarmed hit</b><small>${used ? 'Already used this turn' : `1 ki · ${maDie()} + WIS necrotic${hasFeature("Physician's Touch") ? ' · and the target is poisoned until the end of your next turn' : ''} · ${stunKiLeft()} ki left`}</small></span></label>`;
+}
+document.addEventListener('change', e => { const t = e.target;
+  if (t.matches && t.matches('[data-smitearm]')) { S.smiteArm = { on: t.checked, l: smiteSel() }; pendingLabel = t.checked ? 'Divine Smite ready' : 'Divine Smite off'; save(); refresh(); }
+  if (t.matches && t.matches('[data-harmarm]')) { S.harmArm = t.checked; pendingLabel = t.checked ? 'Hand of Harm ready' : 'Hand of Harm off'; save(); refresh(); } });
 function stunningStrike() {
   const f = stunStrikeFeat(); if (!f) return;
   const err = fxSpend({ from: (stunKi() || {}).name || 'Ki', n: 1 }, 'monk'); if (err) { toast(esc(err), 'fumble'); return; }

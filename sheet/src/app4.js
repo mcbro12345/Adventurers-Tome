@@ -123,6 +123,8 @@ function mainClick(e) {
     case 'spstep': spStep(i, N(b.dataset.d)); return;
     case 'spto': spMoveTo(i, b.dataset.k, null); $$('.menu.open').forEach(m => m.classList.remove('open')); return;
     case 'insp': inspAdj(N(b.dataset.d)); return;
+    case 'inspuse': inspUse(); return;
+    case 'inspgo': inspGo(b.dataset.k); return;
     case 'invstep': invStep(i, N(b.dataset.d)); return;
     case 'surgeok': surgeApply(); return;
     case 'surgepick': surgePick(b.dataset.k); return;
@@ -160,6 +162,7 @@ function mainClick(e) {
     case 'readyfire': readyFire(); break;
     case 'readydrop': { const r = S.turn.readied; S.turn.readied = null; pendingLabel = 'Drop readied action'; update(); render('combat'); if (r) readyLost(r, 'You let it go'); break; }
     case 'smite': smite(b.dataset.l); break;
+    case 'smitelv': { const was = S.smiteArm || {}, same = !!was.on && String(was.l) === b.dataset.l; S.smiteArm = { on: !same, l: b.dataset.l }; pendingLabel = S.smiteArm.on ? 'Divine Smite ready' : 'Divine Smite off'; save(); refresh(); return; }
     case 'sneaktog': S.turn.sneak = !S.turn.sneak; pendingLabel = S.turn.sneak ? 'Sneak Attack used' : 'Sneak Attack ready'; update(); return;
     case 'sneak': { const d = sneakDice(); const c = Date.now() < critUntil; if (S.inCombat && S.turn.sneak) toast('Sneak Attack was already used this turn (once per turn) — rolling anyway.', '', 4000); if (S.inCombat) S.turn.sneak = true; pendingLabel = 'Sneak Attack'; save(); refresh(); roll(`Sneak Attack${c ? ' · CRIT, dice doubled' : ''}`, c ? doubleDice(d) : d); return; }
     case 'smiteundead': UI.smiteUndead = !UI.smiteUndead; saveUI(); b.classList.toggle('on', UI.smiteUndead); b.setAttribute('aria-pressed', UI.smiteUndead); refresh(); pendingLabel = null; return;
@@ -422,6 +425,7 @@ function attackRoll(i, free, opt) {
   const nm = opt.label || a.name;
   const h = rollExpr(expr, { label: nm + ' attack' });
   const crit = h.d20 >= critRange(), nat1 = h.d20 === 1;
+  LAST_D20 = { t: Date.now(), label: nm, attack: i, total: h.skipped ? null : h.total };
   let dice = atkDice(a) || '0';
   const isWeapon = !a.effect || a.weaponLike;
   const extras = isWeapon ? extraDice(a) : [];
@@ -432,6 +436,16 @@ function attackRoll(i, free, opt) {
   const dexp = (crit ? critDice(dice) : dice) + (brutal && /\d*d\d+/.test(dice) ? '+' + diceTimes(dice.match(/\d*d\d+/)[0].replace(/^\d*/, '1'), brutal) : '') + (m ? sgn(m) : '');
   const d = rollExpr(dexp, { label: nm + ' damage' });
   const xr = extras.map(x => { const dd = (x.match(/\d*d\d+/) || [''])[0]; const r = rollExpr(crit ? doubleDice(dd) : dd, { label: nm + ' damage (' + String(x).replace(/^\S+\s*/, '') + ')' }); return { label: x, r }; });
+  // Divine Smite / Hand of Harm armed from the Combat tab: the hit spends the slot (or ki) and adds the dice.
+  if (!nat1 && isWeapon && a.kind === 'melee' && S.smiteArm && S.smiteArm.on && hasFeature('Divine Smite')) { const l = smiteSel(); if (l !== '') {
+    let L; if (l === 'pact') { S.pactUsed = N(S.pactUsed) + 1; L = pact().level - 1; } else { L = N(l); S.slotsUsed[L] = N(S.slotsUsed[L]) + 1; }
+    const n = Math.min(6, Math.min(5, L + 2) + (UI.smiteUndead ? 1 : 0)) * (crit ? 2 : 1); S.smiteArm = { on: false, l };
+    xr.push({ label: n + 'd8 radiant', r: rollExpr(n + 'd8', { label: 'Divine Smite (' + (l === 'pact' ? 'pact slot' : ORD[L] + ' slot') + ')' }), refund: () => { if (l === 'pact') S.pactUsed = Math.max(0, N(S.pactUsed) - 1); else S.slotsUsed[L] = Math.max(0, N(S.slotsUsed[L]) - 1); S.smiteArm = { on: true, l }; }, what: 'Divine Smite' }); } }
+  if (!nat1 && S.harmArm && /unarmed strike/i.test(a.name) && harmFeat() && !(S.inCombat && S.turn.harm)) { const k = stunKi();
+    if (k && stunKiLeft() > 0) { k.used = N(k.used) + 1; S.harmArm = false; if (S.inCombat) S.turn.harm = true;
+      const ma = maDie(), w = mod('wis'), n = crit ? doubleDice(ma) : ma;
+      xr.push({ label: ma + ' necrotic', r: rollExpr(n + (w ? sgn(w) : ''), { label: 'Hand of Harm' }), refund: () => { k.used = Math.max(0, N(k.used) - 1); S.harmArm = true; if (S.inCombat) S.turn.harm = false; }, what: 'Hand of Harm' }); }
+    else toast('No ki left for Hand of Harm.', 'fumble'); }
   const rr = riders.map(x => { const dd = String(x.dice).match(/\d*d\d+(?:\+\d*d\d+)*/); const r = dd ? rollExpr(crit ? doubleDice(dd[0]) : dd[0]) : { total: 0, detail: '' }; return { label: x.name + ' ' + x.dice, r }; });
   // Sneak Attack rolls itself when the attack has advantage with a finesse or ranged weapon (once per turn).
   const sa = sneakAuto(a, rm, nat1, isWeapon, opt.offTurn), sr = sa ? rollExpr(crit ? critDice(sa) : sa, { label: 'Sneak Attack (' + sa + ')' }) : null;
@@ -456,6 +470,7 @@ function attackRoll(i, free, opt) {
   const keepR = riders.filter(x => !x.once);
   const acts = keepR.length ? [{ label: 'Missed — keep riders', fn: () => { S.riders = (S.riders || []).concat(keepR); pendingLabel = 'Keep riders'; update(); toast('Riders saved for your next hit.'); } }] : [];
   if (!nat1 && a.kind === 'melee' && stunStrikeFeat() && stunKiLeft() > 0) acts.push({ label: 'Stunning Strike (1 ki)', fn: () => stunningStrike() });
+  xr.filter(x => x.refund).forEach(x => acts.push({ label: `Missed — get ${x.what === 'Divine Smite' ? 'the slot' : 'the ki'} back`, fn: () => { x.refund(); pendingLabel = x.what + ' not used'; update(); render(); toast(`${x.what} is ready again for your next hit.`); } }));
   if (sr && !opt.offTurn) acts.push({ label: 'Missed — Sneak Attack not used', fn: () => { S.turn.sneak = false; pendingLabel = 'Sneak Attack not used'; update(); refresh(); toast('Sneak Attack is ready again this turn.'); } });
   // The card shows just the two numbers: to hit and damage. The full breakdown goes to the roll log.
   toast(`<b class="total">${h.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${crit ? 'CRITICAL HIT' : nat1 ? 'Natural 1 — miss' : 'to hit'}</div>
@@ -532,7 +547,11 @@ function hpAction(kind) {
   if (raw === '' || !amt) { $('#hpAmt').focus(); toast('Type an amount in the box first.'); return; }
   $('#hpAmt').value = '';
   if (kind === 'tmphp') { const cur = N(S.hp.temp); if (amt <= cur) { toast(`You keep your <b>${cur}</b> temporary HP — they don't stack, the higher one stays.`, '', 6000); return; } S.hp.temp = amt; pendingLabel = `Temp HP ${amt}`; update(); render('vitals'); toast(`<b>${amt}</b> temporary HP${cur ? ` (replaces ${cur})` : ''}.`); return; }
-  if (kind === 'dmg') takeDamage(amt); else healSelf(amt);
+  if (kind === 'dmg') { const sel = $('#hpType'), type = sel ? sel.value : ''; if (sel) sel.value = '';
+    if (type) { const D = defensesDetail(), vul = (D.vuln || []).some(x => x.k.includes(type)); let [n, how] = ptyResist(amt, type); if (vul && how !== 'immune') { n = how === 'resistant' ? amt : amt * 2; how = how === 'resistant' ? 'resistant and vulnerable' : 'vulnerable'; }
+      if (how) setTimeout(() => toast(how === 'immune' ? `You're <b>immune</b> to ${esc(type)} damage — no damage taken.` : `${esc(type[0].toUpperCase() + type.slice(1))} damage, you're ${how}: ${amt} → <b>${n}</b>.`, '', 6000), 60);
+      if (!n) { pendingLabel = null; return; } return takeDamage(n); }
+    takeDamage(amt); } else healSelf(amt);
 }
 function takeDamage(amt) {
   { const raw = amt, adj = surgeDamageAdj(amt); if (adj !== raw) { setTimeout(() => toast(adj < raw ? `Resistance to all damage: ${raw} → <b>${adj}</b>.` : `Vulnerable to all damage: ${raw} → <b>${adj}</b>.`, '', 5000), 60); amt = adj; } }

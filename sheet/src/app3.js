@@ -699,16 +699,15 @@ function spellsFor(col) {
   return S.spells.map((sp, i) => [sp, i]).filter(([sp]) => spReady(sp) && castCol(sp.time) === col)
     .sort((x, y) => N(x[0].level) - N(y[0].level) || String(x[0].name).localeCompare(y[0].name));
 }
+// Divine Smite: tick the box (and pick a slot) and your next melee weapon hit smites: the slot is spent and the radiant
+// dice are rolled with the attack's damage (doubled on a crit). Missed? The attack card gives the slot back.
+const smiteSlots = () => { const out = []; for (let i = 0; i < 9; i++) if (slotMax(i)) out.push([String(i), Math.min(5, i + 2), ORD[i] + ' slot', slotsLeft(i)]); const p = pact(); if (p) out.push(['pact', Math.min(5, p.level + 1), 'Pact slot', pactLeft()]); return out; };
+const smiteSel = () => { const A = S.smiteArm || {}, sl = smiteSlots(); return sl.some(x => x[0] === String(A.l) && x[3] > 0) ? String(A.l) : ((sl.find(x => x[3] > 0) || [])[0] ?? ''); };
 function smiteHTML() {
-  let h = '';
-  const p = pact();
-  for (let i = 0; i < 9; i++) {
-    const m = slotMax(i); if (!m) continue;
-    const left = slotsLeft(i), dice = Math.min(5, i + 2) + (UI.smiteUndead ? 1 : 0);
-    h += `<button class="smite-btn" data-act="smite" data-l="${i}" ${left ? '' : 'disabled'} title="Spend a ${ORD[i]}-level slot (${left} left)"><b>${Math.min(6, dice)}d8</b><span>${ORD[i]} slot</span></button>`;
-  }
-  if (p) { const dice = Math.min(5, p.level + 1) + (UI.smiteUndead ? 1 : 0); h += `<button class="smite-btn" data-act="smite" data-l="pact" ${pactLeft() ? '' : 'disabled'}><b>${Math.min(6, dice)}d8</b><span>Pact slot</span></button>`; }
-  return h || '<span class="hint">No slots</span>';
+  const sl = smiteSlots(); if (!sl.length) return '<span class="hint">No slots</span>';
+  const on = !!(S.smiteArm && S.smiteArm.on), cur = smiteSel();
+  return `<label class="smite-chk${on ? ' on' : ''}"><input type="checkbox" data-smitearm${on ? ' checked' : ''}${cur === '' ? ' disabled' : ''}><span><b>Smite on my next hit</b><small>${on ? 'Your next melee weapon hit spends the slot below' : 'Tick it, pick a slot, then attack'}</small></span></label>
+    <div class="smite-lv">${sl.map(([k, d, nm, left]) => `<button class="smite-btn${k === cur ? ' sel' : ''}${k === cur && on ? ' on' : ''}" data-act="smitelv" data-l="${k}" ${left ? '' : 'disabled'} title="${left} left"><b>${Math.min(6, d + (UI.smiteUndead ? 1 : 0))}d8</b><span>${nm}</span></button>`).join('')}</div>`;
 }
 const sneakDice = () => { const r = clsLv('rogue'); return r ? Math.ceil(r / 2) + 'd6' : ''; };
 // Out of combat: no turn tracker or action economy — just what you reach for between fights.
@@ -766,7 +765,7 @@ function renderCombat() {
         <table class="mini">${S.attacks.map((at, i) => { if (!atkShown(at) || at.bonus) return ''; const wi = at.item && S.inventory.find(x => x.id === at.item), tip = String(at.notes || '').trim() || (wi && (String(wi.notes || '').trim() || wi.hb)); const nmw = String(at.name).trim().split(/\s+/), lastW = nmw.pop(); return `<tr><td>${nmw.length ? esc(nmw.join(' ')) + ' ' : ''}<span class="nowrap">${esc(lastW)}${tip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(at.name)}">ⓘ</button>` : ''}</span></td><td>${rollBtn('atk:' + i, at.name + ' attack')}</td><td>${rollBtn('dmg:' + i, at.name + ' damage')}</td><td>${atkBtn(i, true)}</td></tr>`; }).join('') || '<tr><td class="hint">No attacks — add weapons in Inventory.</td></tr>'}</table>
         <div class="hint" data-calc="ridersnote"></div>
         ${clsLv('rogue') ? `<div class="row sarow" style="margin-top:6px"><button class="btn sm gold" data-act="sneak">Sneak Attack ${sneakDice()}</button><span class="sadotw" data-calc-html="sneakdot"></span></div>` : ''}
-        ${stunRowHTML()}
+        ${stunRowHTML()}${harmRowHTML()}
         ${hasFeature('Divine Smite') ? `<div class="smite"><div class="sect" style="width:100%">Divine Smite <span class="grow"></span>
           <button class="toggle${UI.smiteUndead ? ' on' : ''}" data-act="smiteundead" aria-pressed="${!!UI.smiteUndead}" title="Undead and fiends take +1d8">Undead / Fiend +1d8</button></div>
           <div class="smite-row" data-calc-html="smite"></div></div>` : ''}</div>`;
