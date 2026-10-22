@@ -1785,7 +1785,7 @@ function mount(root, ctx) {
   if (CTX.partyHost) { const slot = document.createElement('div'); slot.className = 'dk-partyslot'; root.insertBefore(slot, root.querySelector('.dk-page').nextSibling); slot.appendChild(CTX.partyHost); }
   render();
   try { const top = root.querySelector('.dk-top'), setH = () => root.style.setProperty('--toph', Math.round(top.getBoundingClientRect().height) + 'px'); setH(); if (window.ResizeObserver) { const ro = new ResizeObserver(setH); ro.observe(top); LISTEN.push([{ removeEventListener: () => ro.disconnect() }, 'x', null]); } } catch (e) {}
-  on(root, 'click', onClick); on(root, 'pointerdown', e => { mwDrag(e); if (e.target.closest && e.target.closest('.drwin')) ROOT.classList.add('dk-rfront'); else if (e.target.closest && e.target.closest('.dk-mcard')) ROOT.classList.remove('dk-rfront'); }); on(window, 'resize', () => { if (ROOT) ROOT.classList.toggle('dk-mw', mwDesk()); }); on(root, 'change', onChange); on(root, 'input', onInput);
+  on(root, 'click', onClick); on(root, 'dblclick', e => { if (e.target.closest && e.target.closest('.dk-nsplit')) { UI.nrw = 0; saveUI(); nrSet(NRW0); } }); on(root, 'keydown', nrKey); on(root, 'pointerdown', e => { mwDrag(e); nrDrag(e); if (e.target.closest && e.target.closest('.drwin')) ROOT.classList.add('dk-rfront'); else if (e.target.closest && e.target.closest('.dk-mcard')) ROOT.classList.remove('dk-rfront'); }); on(window, 'resize', () => { if (ROOT) ROOT.classList.toggle('dk-mw', mwDesk()); }); on(root, 'change', onChange); on(root, 'input', onInput);
   on(root, 'mousedown', e => { const t = e.target.closest && e.target.closest('[data-ed],[data-auto]'); if (!t) return; e.preventDefault(); if (t.dataset.ed) edCmd(t.dataset.ed); else edAutoPick(N(t.dataset.auto)); });
   on(root, 'paste', e => { if (e.target.closest && e.target.closest('.dk-ed')) edPaste(e); });
   on(root, 'dragstart', e => { onDragStart(e); if (DRAG) ROOT.classList.add('dk-dragon'); }); on(root, 'dragover', onDragOver); on(root, 'drop', e => { onDrop(e); ROOT.classList.remove('dk-dragon'); }); on(root, 'dragend', () => { DRAG = null; ROOT.classList.remove('dk-dragon'); $$('.dragging').forEach(x => x.classList.remove('dragging')); });
@@ -2440,7 +2440,7 @@ function notesRailHTML() {
 }
 function notesHTML() {
   const p = UI.nview === 'timeline' ? null : pageById(UI.np);
-  return `<div class="dk-sess dk-notesv"><div class="dk-scrim" data-act="tree"></div><nav class="dk-rail" aria-label="Notes">${notesRailHTML()}</nav>
+  return `<div class="dk-sess dk-notesv" style="--nrw:${nrW()}px"><div class="dk-scrim" data-act="tree"></div><nav class="dk-rail" aria-label="Notes">${notesRailHTML()}</nav><div class="dk-nsplit" role="separator" aria-orientation="vertical" aria-label="Page list width (drag, or use the arrow keys; double-click to reset)" tabindex="0" title="Drag to resize · double-click to reset"></div>
     <main class="dk-main"><div class="dk-pbar"><button class="dk-btn" data-act="tree">${ICON.menu}<span>${p ? esc(pathOf(p).map(x => x.title).join(' › ')) : UI.nview === 'timeline' ? 'Timeline' : 'All pages'}</span></button></div>
     ${UI.nview === 'timeline' ? timelineHTML() : p ? pageHTML(p) : notesHomeHTML()}</main></div>`;
 }
@@ -2601,6 +2601,18 @@ function movePage(id, parent, at) {
   sib.splice(idx, 0, p); sib.forEach((x, i) => { if (x.order !== i + 1) { x.order = i + 1; nSave(x); } });
   if (parent) UI.nopen[parent] = true; nSave(p); paint();
 }
+
+// the divider between the page list and the page: drag it (or arrow keys); the width is remembered on this device
+const NRW0 = 290, nrClamp = w => Math.round(Math.max(180, Math.min(w, Math.min(640, innerWidth - 420))));
+const nrW = () => nrClamp(N(UI.nrw) || NRW0);
+function nrSet(w, keep) { const v = $('.dk-notesv'); w = nrClamp(w); if (v) v.style.setProperty('--nrw', w + 'px'); if (keep) { UI.nrw = w; saveUI(); } return w; }
+function nrDrag(e) {
+  const sp = e.target.closest && e.target.closest('.dk-nsplit'); if (!sp || e.button > 0) return; e.preventDefault();
+  const v = $('.dk-notesv'), x0 = v.getBoundingClientRect().left; let w = nrW(); sp.classList.add('on'); document.body.style.cursor = 'col-resize'; ROOT.classList.add('dk-resizing');
+  const mv = ev => { w = nrSet(ev.clientX - x0); }, up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); sp.classList.remove('on'); document.body.style.cursor = ''; ROOT.classList.remove('dk-resizing'); nrSet(w, true); };
+  addEventListener('pointermove', mv); addEventListener('pointerup', up);
+}
+function nrKey(e) { const sp = e.target.closest && e.target.closest('.dk-nsplit'); if (!sp) return false; const d = e.key === 'ArrowLeft' ? -16 : e.key === 'ArrowRight' ? 16 : 0; if (!d) return false; e.preventDefault(); nrSet(nrW() + d, true); return true; }
 // ---------- Atlas: map pages with pins (pan, zoom, pins linking to pages; a pin to another map opens it) ----------
 const MAPV = {}; // pageId -> {s, x, y} view
 const PIN_COLORS = ['#c9962b', '#b6402d', '#2f8a57', '#2f6ca8', '#7a4fb8', '#1f2a44', '#d9732f', '#ffffff'];
