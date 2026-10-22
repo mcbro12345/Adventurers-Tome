@@ -1234,7 +1234,7 @@ function rechargeRoll(inst, ek) {
   toast({ big: r, title: `${inst.name} · ${baseName(e.n)} recharge`, det: ok ? '<b>Recharged</b> and ready' : `Needs ${a.rech}–6. Still spent.`, cls: ok ? 'crit' : '' });
   addLog({ who: inst.name, label: baseName(e.n) + ' recharge', total: r, detail: ok ? 'recharged' : 'not yet' }); save(); paint();
 }
-function restInst(inst) { inst.turn = null; inst.used = {}; inst.spent = {}; inst.hp = inst.max; inst.temp = 0; inst.down = false; inst.conds = []; inst.conc = ''; }
+function restInst(inst) { inst.turn = null; inst.used = {}; inst.spent = {}; inst.hp = inst.max; inst.temp = 0; inst.down = false; inst.conds = []; inst.conc = ''; inst.exh = Math.max(0, N(inst.exh) - 1); }
 // ---------- Illustrated tokens: a round token per creature (game-icons.net art, CC BY 3.0, coloured by type, ring by CR),
 // or the DM's own picture. Used in lists, stat blocks, cards, the tracker, the generator, note mentions and the Turn order. ----------
 const TOKI = () => window.DESK_ICONS || { icons: {}, cre: {}, types: {} };
@@ -1367,7 +1367,7 @@ function topHTML() {
     <div class="dk-tools"><button class="dk-tb dk-dicebtn" data-act="settings" data-k="dice" title="Dice settings"><span class="dk-dot"></span><span class="dk-dicelbl">Desk rolls</span></button>
       ${p && typeof CTX.turnOrder === 'function' ? `<button class="dk-tb dk-tobtn" data-act="turnorder" title="Open the party’s Turn order">${ICON.init}<span class="dk-tl">Turn order</span></button>` : ''}<button class="dk-tb" data-act="diceroller" title="Dice roller" aria-pressed="${!!$('.drwin:not(.closing)')}">${ICON.dice}<span class="dk-tl">Roll</span></button>
       <button class="dk-tb" data-act="log" title="Roll log" aria-pressed="${UI.log}">${ICON.log}<span class="dk-tl">Log</span></button>
-      <button class="dk-tb" data-act="settings" title="Settings">${ICON.gear}</button>${CTX && CTX.bugReport ? `<button class="dk-tb" data-act="bugreport" title="Report a bug" aria-label="Report a bug">${ICON.bug}</button>` : ''}</div>
+      <button class="dk-tb" data-act="settings" title="Settings">${ICON.gear}</button>${CTX && CTX.bugReport ? `<button class="dk-tb" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` : ''}</div>
     <span class="dk-sync">${esc(syncMsg)}</span>`;
 }
 function paintDice() {
@@ -1396,7 +1396,7 @@ function paint0(pg) {
   $$('[data-keep]').forEach(el => { if (keep[el.dataset.keep]) el.scrollTop = keep[el.dataset.keep]; });
   if (fid) { const el = document.getElementById(fid); if (el && el !== document.activeElement) { el.focus({ preventScroll: true }); if (sel) try { el.setSelectionRange(sel[0], sel[1]); } catch (e) {} } }
   if (Math.abs(scrollY - y) > 2) scrollTo(scrollX, y);
-  ROOT.classList.toggle('dk-tree-open', !!UI.tree);
+  ROOT.classList.toggle('dk-tree-open', !!UI.tree); if (ROOT.dataset.tab !== (UI.tab || '') && UI.tab === 'notes' && innerWidth > 900) scrollTo(0, 0); ROOT.dataset.tab = UI.tab || '';
   try { pills(); animView(pg); } catch (e) {}
 }
 function flashHP(iid, k) { requestAnimationFrame(() => $$(`[data-hpflash="${iid}"]`).forEach(el => { el.classList.remove('hurt', 'heal'); void el.offsetWidth; el.classList.add(k); })); }
@@ -1449,14 +1449,31 @@ function overviewHTML(s) {
     ${g.list.length ? `<div class="dk-cards">${g.list.map(cardHTML).join('')}</div>` : '<p class="dk-hint dk-gnone">Empty. Add creatures with the box above.</p>'}</section>`;
   return sessHead(s) + s.groups.map(grp).join('') + cardsHTML(s);
 }
+// session cards: the same panel as a creature on the character sheet's Creatures tab
 function cardHTML(x) {
-  const c = instC(x), p = hpPct(x);
-  return `<article class="dk-ccard${x.down ? ' down' : ''}" data-iid="${x.iid}">
-    <button class="dk-ccmain" data-act="sel" data-iid="${x.iid}"><span class="dk-cchd">${tokenHTML(c, 38, 'dk-cctok')}<b>${esc(x.name)}</b>${c ? `<small>CR ${crLabel(N(c.cr))} ${esc(c.type || '')}</small>` : '<small class="bad">stat block missing</small>'}</span>
-      <span class="dk-ccbody" data-hpflash="${x.iid}"><span class="dk-ccring" title="${x.hp} of ${x.max} HP${N(x.temp) ? ' (+' + x.temp + ' temporary)' : ''}"><span class="dk-ring">${hpRing(x)}</span><b class="${p <= 35 ? 'low' : ''}">${x.hp}</b><small>of ${x.max}</small>${N(x.temp) ? `<em>+${x.temp}</em>` : ''}</span>
-        <span class="dk-ccstats"><span class="dk-ccst ac"><small>AC</small><b>${x.ac}</b></span><span class="dk-ccst"><small>Speed</small><b>${c ? speedFt(c) : '—'}</b></span></span></span>
-      <span class="dk-ccfoot">${x.down ? '<span class="dk-chip dead">Down</span>' : ''}${x.conc ? `<span class="dk-chip conc">${ICON.conc}${esc(x.conc)}</span>` : ''}${condChips(x)}${econMini(x)}${CTX.party && inTurn(x.iid) ? '<span class="dk-chip to" title="In the Turn order">Turn order</span>' : ''}</span></button>
-    <div class="dk-ccq"><input class="dk-f dk-num" id="dk-q-${x.iid}" data-q="${x.iid}" type="text" autocomplete="off" enterkeyhint="done" maxlength="6" placeholder="-dmg / +heal" title="Type 20 or -20 for damage, +20 to heal, then Enter" aria-label="Amount for ${esc(x.name)}"><button class="dk-hpi dmg sm" data-act="qdmg" data-iid="${x.iid}" title="Damage" aria-label="Damage ${esc(x.name)}">${ICON.hpDmg}</button><button class="dk-hpi heal sm" data-act="qheal" data-iid="${x.iid}" title="Heal" aria-label="Heal ${esc(x.name)}">${ICON.hpHeal}</button></div>
+  const c = instC(x), p = hpPct(x), sp = c ? String(c.speed || '').split(/,\s*/) : [];
+  const tags = c ? ['CR ' + crLabel(N(c.cr)), c.type || ''].filter(Boolean) : [];
+  const acts = c ? (c.actions || []).map((e, i) => {
+    const a = analyze(e), ek = entKey('actions', i), multi = /^multiattack/i.test(e.n), ml = multi ? parseMulti(c) : null;
+    if (multi && !ml) return '';
+    const k = multi ? 'multi' : a.hit != null ? 'attack' : a.save ? 'save' : a.dmg.length ? 'dmg' : '';
+    if (!k) return '';
+    const dm = parts => parts.map(q => esc(q.expr) + (q.type ? ' ' + esc(q.type) : '')).join(' + ');
+    const info = k === 'multi' ? esc(ml.map(z => baseName(c.actions[z.i].n) + (z.n > 1 ? ' ×' + z.n : '')).join(', '))
+      : k === 'attack' ? `<button class="dk-rl atk" data-act="atk" data-ek="${ek}" title="Attack roll and damage">${sg(a.hit)}</button> to hit${a.dmg.length ? ' · ' + dm(a.dmg) : ''}`
+      : k === 'save' ? `<b>DC ${a.save.dc} ${ABS[a.save.ab].toUpperCase()}</b>${a.sdmg.length ? ' · ' + dm(a.sdmg) : ''}` : dm(a.dmg);
+    const btn = k === 'multi' ? `<button class="dk-btn sm gold" data-act="multi">Roll all</button>` : k === 'attack' ? `<button class="dk-btn sm gold" data-act="atk" data-ek="${ek}">Attack</button>` : k === 'save' ? `<button class="dk-btn sm gold" data-act="save" data-ek="${ek}">${a.sdmg.length ? 'Damage' : 'Save'}</button>` : `<button class="dk-btn sm gold" data-act="dmg" data-ek="${ek}">Roll</button>`;
+    return `<div class="dk-cact k-${k}"><span class="dk-cact-i" aria-hidden="true">${k === 'attack' ? '⚔' : k === 'save' ? '⛨' : k === 'multi' ? '⚔⚔' : '🎲'}</span><div class="dk-cact-m"><b>${esc(baseName(e.n))}</b><div class="dk-cact-s">${info}</div></div><div class="dk-cact-b">${btn}</div></div>`;
+  }).join('') : '';
+  const chips = (x.down ? '<span class="dk-chip dead">Down</span>' : '') + (x.conc ? `<span class="dk-chip conc">${ICON.conc}${esc(x.conc)}</span>` : '') + condChips(x) + (N(x.exh) ? `<span class="dk-chip cond">Exhaustion ${N(x.exh)}</span>` : '');
+  return `<article class="dk-ccard dk-comp2${x.down ? ' down' : ''}" data-iid="${x.iid}">
+    <div class="dk-ch2"><button class="dk-chtok" data-act="sel" data-iid="${x.iid}" aria-label="Open ${esc(x.name)}">${tokenHTML(c, 46, 'dk-cctok')}</button><button class="dk-chname" data-act="sel" data-iid="${x.iid}"><b class="dk-cname">${esc(x.name)}</b><span class="dk-ctags">${c ? tags.map(t => `<span class="dk-tag">${esc(t)}</span>`).join('') : '<span class="dk-tag bad">stat block missing</span>'}${CTX.party && inTurn(x.iid) ? '<span class="dk-tag to">Turn order</span>' : ''}</span></button>${econMini(x)}</div>
+    <div class="dk-cstat2"><div class="dk-chp2" data-hpflash="${x.iid}"><div class="dk-chp-ring" title="${x.hp} of ${x.max} HP${N(x.temp) ? ' (+' + x.temp + ' temporary)' : ''}"><span class="dk-ring">${hpRing(x)}</span><span class="dk-chp-c"><b class="${p <= 35 ? 'low' : ''}">${x.hp}</b>${N(x.temp) ? `<em>+${x.temp}</em>` : ''}<small>of ${x.max}</small></span></div>
+      <div class="dk-chp-side"><input class="dk-f" id="dk-q-${x.iid}" data-q="${x.iid}" type="text" autocomplete="off" enterkeyhint="done" maxlength="6" placeholder="Amount" title="Type 20 or -20 for damage, +20 to heal, then Enter" aria-label="Amount for ${esc(x.name)}">
+        <div class="dk-chp-btns"><button class="dk-hpi dmg sm" data-act="qdmg" data-iid="${x.iid}" title="Damage" aria-label="Damage ${esc(x.name)}">${ICON.hpDmg}</button><button class="dk-hpi heal sm" data-act="qheal" data-iid="${x.iid}" title="Heal" aria-label="Heal ${esc(x.name)}">${ICON.hpHeal}</button><button class="dk-hpi tmp sm" data-act="qtemp" data-iid="${x.iid}" title="Temporary HP (they don’t stack — the higher stays)" aria-label="Temporary HP for ${esc(x.name)}">${ICON.hpTemp}</button></div></div></div>
+      <div class="dk-csts"><span class="dk-cst"><small>AC</small><b>${x.ac}</b></span><span class="dk-cst wide" title="${esc(c ? c.speed || '' : '')}"><small>Speed</small><b>${c ? speedFt(c) + ' ft' : '—'}</b>${sp.length > 1 ? `<i>${esc(sp.slice(1).map(z => z.replace(/\s*ft\.?/i, '')).join(' · '))}</i>` : ''}</span></div></div>
+    ${chips ? `<div class="dk-ccfoot">${chips}</div>` : ''}
+    ${acts ? `<div class="dk-cacts">${acts}</div>` : ''}
   </article>`;
 }
 // the same HP ring as the character sheet: gold arc (red when low), temp HP in blue after it
@@ -1474,7 +1491,7 @@ function detailHTML(x, s) {
       <div class="dk-ringw"><div class="dk-ring">${hpRing(x)}</div>
         <div class="dk-ringc"><div class="dk-ringcur"><input class="dk-hpcur ${hpCls(p)}" id="dk-hp-${x.iid}" data-ch="hp" data-iid="${x.iid}" value="${x.hp}" inputmode="numeric" aria-label="Current HP">${N(x.temp) ? `<span class="dk-tmpb" title="Temporary hit points">+${x.temp}</span>` : ''}</div>
           <div class="dk-ringmax">of <input class="dk-hpmax" id="dk-mx-${x.iid}" data-ch="max" data-iid="${x.iid}" value="${x.max}" inputmode="numeric" aria-label="Max HP"></div></div></div>
-      <div class="dk-hpside"><div class="dk-hpamt"><select class="dk-f dk-hpsel" id="dk-hpType" aria-label="Damage type (resistances and immunities apply)" title="Damage type: its resistances and immunities apply"><option value="">Any</option>${DTYPES.map(d => `<option value="${d}">${d[0].toUpperCase() + d.slice(1)}</option>`).join('')}</select><input class="dk-f" id="dk-hpAmt" type="text" autocomplete="off" enterkeyhint="done" maxlength="6" placeholder="-dmg / +heal" title="Type 20 or -20 for damage, +20 to heal, then Enter" aria-label="Amount"></div>
+      <div class="dk-hpside"><div class="dk-hpamt"><select class="dk-f dk-hpsel" id="dk-hpType" aria-label="Damage type (resistances and immunities apply)" title="Damage type: its resistances and immunities apply"><option value="">Any</option>${DTYPES.map(d => `<option value="${d}">${d[0].toUpperCase() + d.slice(1)}</option>`).join('')}</select><input class="dk-f" id="dk-hpAmt" type="text" autocomplete="off" enterkeyhint="done" maxlength="6" placeholder="Amount" title="Type 20 or -20 for damage, +20 to heal, then Enter" aria-label="Amount"></div>
         <div class="dk-hpib"><button class="dk-hpi dmg" data-act="hpdmg" data-iid="${x.iid}" title="Damage" aria-label="Damage">${ICON.hpDmg}</button><button class="dk-hpi heal" data-act="hpheal" data-iid="${x.iid}" title="Heal" aria-label="Heal">${ICON.hpHeal}</button><button class="dk-hpi tmp" data-act="hptemp" data-iid="${x.iid}" title="Temporary HP (the higher stays)" aria-label="Temporary HP">${ICON.hpTemp}</button></div>
         <label class="dk-chk dk-hpmag"><input type="checkbox" id="dk-hpMagic"> Magical damage</label></div>
     </div>
@@ -1486,9 +1503,7 @@ function detailHTML(x, s) {
     <div class="dk-sec"><span class="dk-lbl">This turn</span><div class="dk-econ">${ECON.map(([k, n]) => `<button class="dk-ec${t[k] ? ' used' : ''}" data-act="econ" data-k="${k}" data-iid="${x.iid}" aria-pressed="${!!t[k]}"><b>${n}</b><small>${t[k] ? 'used' : 'ready'}</small></button>`).join('')}</div>
       <div class="dk-move"><div><span>Movement</span><b>${left}</b><small>/ ${mm} ft</small></div><div class="dk-mvb">${[5, 10, 15, 30].map(f => `<button class="dk-btn sm" data-act="move" data-f="${f}" data-iid="${x.iid}">−${f}</button>`).join('')}<button class="dk-btn sm${t.dash ? ' on' : ''}" data-act="dash" data-iid="${x.iid}" title="Dash: double movement, uses the action">Dash</button></div></div>
       <button class="dk-btn gold wide" data-act="newturn" data-iid="${x.iid}" title="Ready action, bonus action, reaction and movement; regain legendary actions; roll recharges; count timed conditions down">${ICON.refresh} New turn</button></div>
-    <div class="dk-sec"><span class="dk-lbl">Conditions</span><div class="dk-chips">${condChips(x, true)}${x.conc ? `<span class="dk-chip conc">${ICON.conc} ${esc(x.conc)}<button data-act="rmconc" data-iid="${x.iid}" aria-label="End concentration">${ICON.x}</button></span>` : ''}${!(x.conds || []).length && !x.conc ? '<span class="dk-hint">None</span>' : ''}${(x.conds || []).some(cd => N(cd.r)) ? `<button class="dk-btn sm" data-act="tick" data-iid="${x.iid}" title="Count timed conditions down by one round">−1 round</button>` : ''}</div>
-      <div class="dk-row dk-addcond"><select class="dk-f" id="dk-cdN" aria-label="Condition">${COND.map(n => `<option>${n}</option>`).join('')}<option value="__other">Other…</option></select><input class="dk-f dk-num" id="dk-cdR" type="number" min="0" placeholder="rounds" aria-label="Rounds (blank = until removed)"><button class="dk-btn sm" data-act="addcond" data-iid="${x.iid}">Add</button></div>
-      <div class="dk-row dk-addcond"><input class="dk-f" id="dk-concIn" placeholder="Concentrating on…" aria-label="Concentration spell" list="dk-spl"><button class="dk-btn sm" data-act="setconc" data-iid="${x.iid}">Set</button></div></div>
+    ${condPanel(x)}
     ${others.length ? `<div class="dk-sec"><span class="dk-lbl">Target</span><select class="dk-f" data-ch="tg" data-iid="${x.iid}" aria-label="Target"><option value="">No target — just roll</option>${others.map(y => `<option value="${y.iid}"${y.iid === x.tg ? ' selected' : ''}>${esc(y.name)} (AC ${y.ac}, ${y.hp}/${y.max} HP)</option>`).join('')}</select><small class="dk-hint">Attacks are checked against its AC, and damage applies to it in one click.</small></div>` : ''}
     <div class="dk-sec"><span class="dk-lbl">Notes</span><textarea class="dk-f" id="dk-nt-${x.iid}" data-ch="notes" data-iid="${x.iid}" rows="2" placeholder="Anything to remember about this one">${esc(x.notes || '')}</textarea></div>
   </section>`;
@@ -1611,6 +1626,43 @@ function animView(pg) {
   }
 }
 window.addEventListener('resize', () => { clearTimeout(pills.t); pills.t = setTimeout(pills, 120); });
+// ---------- Conditions panel (same look as the character sheet's) ----------
+const COND_ICON = { Blinded: '◌', Charmed: '♥', Deafened: '◎', Frightened: '!', Grappled: '✊', Incapacitated: '✕', Invisible: '◇', Paralyzed: '❚❚', Petrified: '▣', Poisoned: '☠', Prone: '↧', Restrained: '⛓', Stunned: '✶', Unconscious: 'z', Raging: '⚡', Hasted: '»', Blessed: '✦', Dodging: '↔', Concentrating: '◉' };
+const STD_CONDS = ['Blinded', 'Charmed', 'Deafened', 'Frightened', 'Grappled', 'Incapacitated', 'Invisible', 'Paralyzed', 'Petrified', 'Poisoned', 'Prone', 'Restrained', 'Stunned', 'Unconscious'];
+const EXTRA_CONDS = ['Dodging', 'Hasted', 'Blessed', 'Raging'];
+const condDur = r => N(r) ? plural(N(r), 'round') : 'Until removed';
+// the chips on the tracker: tap ⓘ for what it does, ✕ to take it off
+function condPanel(x) {
+  const ex = N(x.exh), cs = x.conds || [];
+  const chips = cs.map(cd => `<span class="dk-cchip"><span class="ccn">${esc(cd.n)}</span>${condText(cd.n) ? `<button class="dk-ctip" data-act="condinfo" data-n="${esc(cd.n)}" aria-label="What ${esc(cd.n)} does">ⓘ</button>` : ''}${N(cd.r) ? `<small class="cturns">${plural(N(cd.r), 'rd')}</small>` : ''}<button data-act="rmcond" data-iid="${x.iid}" data-id="${cd.id}" aria-label="Remove ${esc(cd.n)}">✕</button></span>`).join('')
+    + (x.conc ? `<span class="dk-cchip conc"><span class="ccn">${ICON.conc} ${esc(x.conc)}</span><button data-act="rmconc" data-iid="${x.iid}" aria-label="End concentration">✕</button></span>` : '')
+    + (ex ? `<span class="dk-cchip exh"><span class="ccn">Exhaustion ${ex}</span><button class="dk-ctip" data-act="condinfo" data-n="Exhaustion" aria-label="What exhaustion does">ⓘ</button><button data-act="exh" data-d="-1" data-iid="${x.iid}" aria-label="Less exhaustion">−</button><button data-act="exh" data-d="1" data-iid="${x.iid}" aria-label="More exhaustion">+</button></span>` : '');
+  return `<div class="dk-sec dk-condsec"><div class="dk-condhd"><span class="dk-lbl">Conditions</span><span class="dk-grow"></span>${cs.some(cd => N(cd.r)) ? `<button class="dk-addc" data-act="tick" data-iid="${x.iid}" title="Count timed conditions down by one round">−1 round</button>` : ''}<button class="dk-addc" data-act="condwin" data-iid="${x.iid}">+ Add</button></div>
+    <div class="dk-condchips">${chips || '<span class="dk-hint">None</span>'}</div></div>`;
+}
+const EXH_TEXT = 'Each level gives −2 to every d20 test and −5 ft speed (2024 rules); at 6 it dies. A long rest removes one level.';
+// the window: tap a condition to put it on, tap again to take it off
+function condWinHTML(x) {
+  const cs = x.conds || [], on = n => cs.some(c => c.n === n), ex = N(x.exh), cnt = cs.length + (ex ? 1 : 0) + (x.conc ? 1 : 0);
+  const chip = n => `<button class="dk-cchip2${on(n) ? ' on' : ''}" data-act="togcond" data-iid="${x.iid}" data-n="${esc(n)}" aria-pressed="${on(n)}" title="${esc(on(n) ? 'Tap to remove it' : condText(n))}"><span class="ci">${COND_ICON[n] || '•'}</span>${esc(n)}</button>`;
+  const other = cs.filter(c => !STD_CONDS.includes(c.n) && !EXTRA_CONDS.includes(c.n)).map(c => c.n);
+  const lasts = ns => { const a = cs.filter(c => ns.includes(c.n)); return a.length ? `<div class="dk-cdur">${a.map(c => `<span class="dk-cdur-i"><span class="dk-cdur-l">${esc(c.n)}</span><span class="dk-mstep"><button data-act="condr" data-iid="${x.iid}" data-id="${c.id}" data-d="-1" aria-label="Shorter" ${N(c.r) ? '' : 'disabled'}>−</button><b>${condDur(c.r)}</b><button data-act="condr" data-iid="${x.iid}" data-id="${c.id}" data-d="1" aria-label="One round more">+</button></span></span>`).join('')}</div>` : ''; };
+  const sec = (lbl, ns) => ns.length ? `<div class="dk-cm-lbl">${lbl}</div><div class="dk-cchips2">${ns.map(chip).join('')}</div>${lasts(ns)}` : '';
+  return `<span id="dk-condw" data-iid="${x.iid}" hidden></span><div class="dk-sethead"><h2>Conditions · ${esc(x.name)}</h2>${cnt ? `<span class="dk-cmcount">${cnt} on</span>` : ''}<span class="dk-grow"></span><button class="dk-btn sm gold" data-act="close">Done</button></div>
+    <p class="dk-hint" style="margin:0 0 4px">Tap a condition to apply it. Tap it again to remove it.</p>
+    ${sec('Conditions', STD_CONDS)}${sec('Actions &amp; spells', EXTRA_CONDS)}${sec('Other', other)}
+    <div class="dk-row dk-addcond"><input class="dk-f" id="dk-cdOther" placeholder="Something else (e.g. Slowed, Hexed)" maxlength="40" aria-label="Other condition"><button class="dk-btn sm" data-act="addother" data-iid="${x.iid}">Add</button></div>
+    <div class="dk-cm-lbl">Adjust</div>
+    <div class="dk-adjrow"><span class="dk-adj-l">Exhaustion</span><div class="dk-exhpills">${[0, 1, 2, 3, 4, 5, 6].map(l => `<button class="dk-exhp${l === ex ? ' on' : ''}${l === 6 ? ' dead' : ''}" data-act="exhset" data-iid="${x.iid}" data-v="${l}" aria-label="Exhaustion ${l}">${l}</button>`).join('')}</div></div>
+    <div class="dk-adjrow"><span class="dk-adj-l">Concentrating</span><div class="dk-row dk-grow"><input class="dk-f" id="dk-concIn" value="${esc(x.conc || '')}" placeholder="Spell name" aria-label="Concentration spell" list="dk-spl"><button class="dk-btn sm" data-act="setconc" data-iid="${x.iid}">Set</button>${x.conc ? `<button class="dk-btn sm" data-act="rmconc" data-iid="${x.iid}">End</button>` : ''}</div></div>`;
+}
+function openCondWin(x) {
+  const m = $('.dk-modal'), c = $('.dk-mcard'), again = $('#dk-condw') && m && m.classList.contains('open'), pos = again ? c.style.translate : '', sc = again ? c.scrollTop : 0;
+  openModal(condWinHTML(x), { cls: 'dk-condwin', focus: false });
+  if (again) { c.style.translate = pos; c.scrollTop = sc; }
+}
+// after a change from the window: save, repaint the desk, refresh the window if it's showing
+function condChanged(x) { save(); paint(); if ($('#dk-condw') && $('#dk-condw').dataset.iid === x.iid) openCondWin(x); }
 // ---------- creature editor, paste, settings, backup, quick roll ----------
 let ED = null;
 function openEditor(c, isNew, from) {
@@ -1843,7 +1895,7 @@ async function onClick(e) {
     case 'saveeff': { const g = curSession().groups.find(z => z.id === b.dataset.gid); openSaveDialog({ title: 'Saving throw', dc: 13, ab: 1, parts: [], half: true }); SV.rows.forEach(r => { r.on = !!g.list.find(z => z.iid === r.iid) && !findInst(r.iid).down; }); return paintSave(); }
     case 'addc': { const q = $('#dk-addq'), v = q.value.trim(); if (!v) { q.focus(); return; } const exact = allCreatures().find(c => c.name.toLowerCase() === v.toLowerCase()) || searchCreatures(v, 1)[0]; if (!exact) return toastInfo(`No creature called “${esc(v)}”. Try the bestiary, or paste its stat block there.`); return addPicked(exact.id); }
     case 'pickc': return addPicked(b.dataset.cid);
-    case 'qdmg': case 'qheal': { const inp = $(`[data-q="${iid}"]`), v = hpAmt(inp.value).n; if (!v) { inp.focus(); return; } if (act === 'qdmg') applyDamage(x, v, '', true); else heal(x, v); return; }
+    case 'qdmg': case 'qheal': case 'qtemp': { const inp = $(`[data-q="${iid}"]`), v = hpAmt(inp.value).n; if (!v) { inp.focus(); return; } if (act === 'qdmg') applyDamage(x, v, '', true); else if (act === 'qtemp') setTemp(x, v); else heal(x, v); return; }
     case 'dup': { const g = groupOf(iid); if (!g) return; const out = addToGroup(g.s, g.g, x.cid, 1); save(); paint(); return toastInfo(`Added <b>${esc(out[0].name)}</b>.`); }
     case 'rest': restInst(x); save(); paint(); return toastInfo(`${esc(x.name)} is fresh: full HP, conditions cleared, every use back.`);
     case 'movegrp': { const g = groupOf(iid), to = g.s.groups.find(z => z.id === b.dataset.gid); g.g.list = g.g.list.filter(z => z !== x); to.list.push(x); save(); paint(); return; }
@@ -1853,11 +1905,18 @@ async function onClick(e) {
     case 'move': { const t = turnOf(x); t.mv = Math.min(moveMax(x), N(t.mv) + N(b.dataset.f)); save(); return paint(); }
     case 'dash': { const t = turnOf(x); if (!t.dash) { t.dash = 1; useEcon(x, 'a', 'Dash'); } else t.dash = 0; save(); return paint(); }
     case 'newturn': newTurn(x); save(); return paint();
-    case 'rmcond': x.conds = (x.conds || []).filter(c => c.id !== b.dataset.id); save(); return paint();
-    case 'tick': { const got = []; tickConds(x, got); save(); paint(); return got.length && toastInfo(esc(x.name + ': ' + got.join(', '))); }
+    case 'rmcond': x.conds = (x.conds || []).filter(c => c.id !== b.dataset.id); return condChanged(x);
+    case 'condwin': return x && openCondWin(x);
+    case 'condinfo': { const n = b.dataset.n; return toast({ title: esc(n), det: esc(n === 'Exhaustion' ? EXH_TEXT : condText(n)) }); }
+    case 'togcond': { const n = b.dataset.n; if ((x.conds || []).some(c => c.n === n)) x.conds = x.conds.filter(c => c.n !== n); else addCond(x, n, 0); return condChanged(x); }
+    case 'condr': { const c = (x.conds || []).find(z => z.id === b.dataset.id); if (c) c.r = Math.max(0, N(c.r) + N(b.dataset.d)); return condChanged(x); }
+    case 'addother': { const i = $('#dk-cdOther'), v = i.value.trim(); if (!v) { i.focus(); return; } addCond(x, v, 0); return condChanged(x); }
+    case 'exh': x.exh = Math.max(0, Math.min(6, N(x.exh) + N(b.dataset.d))); return condChanged(x);
+    case 'exhset': x.exh = Math.max(0, Math.min(6, N(b.dataset.v))); return condChanged(x);
+    case 'tick': { const got = []; tickConds(x, got); condChanged(x); return got.length && toastInfo(esc(x.name + ': ' + got.join(', '))); }
     case 'addcond': { let n = $('#dk-cdN').value; const r = $('#dk-cdR').value; if (n === '__other') return askText('Other condition', '', v => { addCond(x, v, r); save(); paint(); }, { okLabel: 'Add', ph: 'e.g. Slowed, Hexed' }); if (n === 'Concentrating') return toastInfo('Use “Concentrating on…” below, so the desk reminds you to roll when it takes damage.'); addCond(x, n, r); save(); return paint(); }
-    case 'setconc': { const v = $('#dk-concIn').value.trim(); if (!v) { $('#dk-concIn').focus(); return; } x.conc = v; save(); return paint(); }
-    case 'rmconc': x.conc = ''; save(); return paint();
+    case 'setconc': { const v = $('#dk-concIn').value.trim(); if (!v) { $('#dk-concIn').focus(); return; } x.conc = v; return condChanged(x); }
+    case 'rmconc': x.conc = ''; return condChanged(x);
     case 'init': { const ctx = ctxOf(b) || (x && { inst: x, c: instC(x), who: x.name, whoBase: (instC(x) || {}).name }); if (!ctx || !ctx.c) return; return doCheck(ctx, 'init'); }
     case 'newc': return openEditor(blankCreature(), true);
     case 'paste': return openPaste();
@@ -1976,7 +2035,9 @@ function onDocDown(e) {
   if (!e.target.closest || !e.target.closest('.dk-picker')) $$('.dk-sugg').forEach(s => { s.hidden = true; });
   if (e.target.classList && e.target.classList.contains('dk-modal')) closeModal();
 }
-function onStorage(e) { if (e.key && e.key === toKey() && readTurnHP()) { save(); paint(); } }
+// the Turn order changed: HP that changed there comes back here, and "In Turn order" buttons follow who's on the list
+let TURN_SIG = null; const turnSig = () => { const t = toRead(); return t ? t.rows.map(r => r.desk || '').filter(Boolean).sort().join() : ''; };
+function onStorage(e) { if (!e.key || e.key !== toKey()) return; const hp = readTurnHP(), sig = turnSig(), moved = sig !== TURN_SIG; TURN_SIG = sig; if (hp) save(); if (hp || moved) paint(); }
 
 // ---------- mount ----------
 const LISTEN = [];
@@ -2003,10 +2064,10 @@ function mount(root, ctx) {
   if (CTX.partyHost) { const slot = document.createElement('div'); slot.className = 'dk-partyslot'; root.insertBefore(slot, root.querySelector('.dk-page').nextSibling); slot.appendChild(CTX.partyHost); }
   render();
   try { const top = root.querySelector('.dk-top'), setH = () => root.style.setProperty('--toph', Math.round(top.getBoundingClientRect().height) + 'px'); setH(); if (window.ResizeObserver) { const ro = new ResizeObserver(setH); ro.observe(top); LISTEN.push([{ removeEventListener: () => ro.disconnect() }, 'x', null]); } } catch (e) {}
-  on(root, 'click', onClick); on(root, 'pointerdown', e => { mwDrag(e); if (e.target.closest && e.target.closest('.drwin')) ROOT.classList.add('dk-rfront'); else if (e.target.closest && e.target.closest('.dk-mcard')) ROOT.classList.remove('dk-rfront'); }); on(window, 'resize', () => { if (ROOT) ROOT.classList.toggle('dk-mw', mwDesk()); }); on(root, 'change', onChange); on(root, 'input', onInput);
+  on(root, 'click', onClick); on(root, 'dblclick', e => { if (e.target.closest && e.target.closest('.dk-nsplit')) { UI.nrw = 0; saveUI(); nrSet(NRW0); } }); on(root, 'keydown', nrKey); on(root, 'pointerdown', e => { mwDrag(e); nrDrag(e); if (e.target.closest && e.target.closest('.drwin')) ROOT.classList.add('dk-rfront'); else if (e.target.closest && e.target.closest('.dk-mcard')) ROOT.classList.remove('dk-rfront'); }); on(window, 'resize', () => { if (ROOT) ROOT.classList.toggle('dk-mw', mwDesk()); }); on(root, 'change', onChange); on(root, 'input', onInput);
   on(root, 'mousedown', e => { const t = e.target.closest && e.target.closest('[data-ed],[data-auto]'); if (!t) return; e.preventDefault(); if (t.dataset.ed) edCmd(t.dataset.ed); else edAutoPick(N(t.dataset.auto)); });
   on(root, 'paste', e => { if (e.target.closest && e.target.closest('.dk-ed')) edPaste(e); });
-  on(root, 'dragstart', onDragStart); on(root, 'dragover', onDragOver); on(root, 'drop', onDrop); on(root, 'dragend', () => { DRAG = null; $$('.dragging').forEach(x => x.classList.remove('dragging')); });
+  on(root, 'dragstart', e => { onDragStart(e); if (DRAG) ROOT.classList.add('dk-dragon'); }); on(root, 'dragover', onDragOver); on(root, 'drop', e => { onDrop(e); ROOT.classList.remove('dk-dragon'); }); on(root, 'dragend', () => { DRAG = null; ROOT.classList.remove('dk-dragon'); $$('.dragging').forEach(x => x.classList.remove('dragging')); });
   on(root, 'mouseover', onNotesOver); on(window, 'beforeunload', () => { if (NCLOUD) flushNotes(); });
   on(document, 'keydown', onKey); on(document, 'mousedown', onDocDown); on(document, 'touchstart', onDocDown, { passive: true });
   on(window, 'message', onR20Msg); on(document, 'visibilitychange', onVis); on(window, 'storage', onStorage);
@@ -2642,7 +2703,8 @@ function notesFiltered() {
   L.sort(f === 'recent' || q ? (a, b) => (q ? (b.title.toLowerCase().includes(q) - a.title.toLowerCase().includes(q)) : 0) || N(b.edited) - N(a.edited) : (a, b) => a.title.localeCompare(b.title));
   return f === 'recent' ? L.slice(0, 30) : L;
 }
-function snippet(p, q) { const t = pageText(p); if (!q) return esc(t.slice(0, 110)); const i = t.toLowerCase().indexOf(q.toLowerCase()); if (i < 0) return esc(t.slice(0, 110)); const a = Math.max(0, i - 40); return (a ? '…' : '') + esc(t.slice(a, i)) + '<mark>' + esc(t.slice(i, i + q.length)) + '</mark>' + esc(t.slice(i + q.length, i + q.length + 70)); }
+const cut = (t, n) => t.length <= n ? t : t.slice(0, n).replace(/\s+\S*$/, '') + '…';
+function snippet(p, q) { const t = pageText(p); if (!q) return esc(cut(t, 160)); const i = t.toLowerCase().indexOf(q.toLowerCase()); if (i < 0) return esc(cut(t, 160)); const a = Math.max(0, i - 40); return (a ? '…' : '') + esc(t.slice(a, i)) + '<mark>' + esc(t.slice(i, i + q.length)) + '</mark>' + esc(t.slice(i + q.length, i + q.length + 70)); }
 function treeHTML(pid, depth) {
   return kids(pid).map(p => { const ks = kids(p.id), open = UI.nopen[p.id] || isAncestor(p.id, UI.np);
     return `<div class="dk-nt" data-nid="${p.id}"><div class="dk-ntrow${p.id === UI.np ? ' on' : ''}" draggable="true" data-drag="${p.id}" style="--d:${depth}">${ks.length ? `<button class="dk-caret${open ? ' open' : ''}" data-act="ntoggle" data-id="${p.id}" aria-label="${open ? 'Collapse' : 'Expand'}">${ICON.caret}</button>` : '<span class="dk-ntsp"></span>'}<button class="dk-ntn" data-act="nopen" data-id="${p.id}">${nIcon(p.type, '', p.color)}<span>${esc(p.title)}</span>${p.fav ? '<i class="dk-star">★</i>' : ''}</button></div>${ks.length && open ? treeHTML(p.id, depth + 1) : ''}</div>`; }).join('');
@@ -2658,7 +2720,7 @@ function notesRailHTML() {
 }
 function notesHTML() {
   const p = UI.nview === 'timeline' ? null : pageById(UI.np);
-  return `<div class="dk-sess dk-notesv"><div class="dk-scrim" data-act="tree"></div><nav class="dk-rail" aria-label="Notes">${notesRailHTML()}</nav>
+  return `<div class="dk-sess dk-notesv" style="--nrw:${nrW()}px"><div class="dk-scrim" data-act="tree"></div><nav class="dk-rail" aria-label="Notes">${notesRailHTML()}</nav><div class="dk-nsplit" role="separator" aria-orientation="vertical" aria-label="Page list width (drag, or use the arrow keys; double-click to reset)" tabindex="0" title="Drag to resize · double-click to reset"></div>
     <main class="dk-main"><div class="dk-pbar"><button class="dk-btn" data-act="tree">${ICON.menu}<span>${p ? esc(pathOf(p).map(x => x.title).join(' › ')) : UI.nview === 'timeline' ? 'Timeline' : 'All pages'}</span></button></div>
     ${UI.nview === 'timeline' ? timelineHTML() : p ? pageHTML(p) : notesHomeHTML()}</main></div>`;
 }
@@ -2819,6 +2881,18 @@ function movePage(id, parent, at) {
   sib.splice(idx, 0, p); sib.forEach((x, i) => { if (x.order !== i + 1) { x.order = i + 1; nSave(x); } });
   if (parent) UI.nopen[parent] = true; nSave(p); paint();
 }
+
+// the divider between the page list and the page: drag it (or arrow keys); the width is remembered on this device
+const NRW0 = 290, nrClamp = w => Math.round(Math.max(180, Math.min(w, Math.min(640, innerWidth - 420))));
+const nrW = () => nrClamp(N(UI.nrw) || NRW0);
+function nrSet(w, keep) { const v = $('.dk-notesv'); w = nrClamp(w); if (v) v.style.setProperty('--nrw', w + 'px'); if (keep) { UI.nrw = w; saveUI(); } return w; }
+function nrDrag(e) {
+  const sp = e.target.closest && e.target.closest('.dk-nsplit'); if (!sp || e.button > 0) return; e.preventDefault();
+  const v = $('.dk-notesv'), x0 = v.getBoundingClientRect().left; let w = nrW(); sp.classList.add('on'); document.body.style.cursor = 'col-resize'; ROOT.classList.add('dk-resizing');
+  const mv = ev => { w = nrSet(ev.clientX - x0); }, up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); sp.classList.remove('on'); document.body.style.cursor = ''; ROOT.classList.remove('dk-resizing'); nrSet(w, true); };
+  addEventListener('pointermove', mv); addEventListener('pointerup', up);
+}
+function nrKey(e) { const sp = e.target.closest && e.target.closest('.dk-nsplit'); if (!sp) return false; const d = e.key === 'ArrowLeft' ? -16 : e.key === 'ArrowRight' ? 16 : 0; if (!d) return false; e.preventDefault(); nrSet(nrW() + d, true); return true; }
 // ---------- Atlas: map pages with pins (pan, zoom, pins linking to pages; a pin to another map opens it) ----------
 const MAPV = {}; // pageId -> {s, x, y} view
 const PIN_COLORS = ['#c9962b', '#b6402d', '#2f8a57', '#2f6ca8', '#7a4fb8', '#1f2a44', '#d9732f', '#ffffff'];

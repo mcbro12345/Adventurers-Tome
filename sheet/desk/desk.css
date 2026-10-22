@@ -1209,3 +1209,7 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
   .dk[data-tab=notes] .dk-nsplit:focus { outline: none; }
   .dk-resizing, .dk-resizing * { user-select: none !important; }
 }
+/* timeline (and anything else in the notes pane) never runs past the right edge */
+.dk-tlist li > div { min-width: 0; flex: 1; } .dk-tlist p { overflow-wrap: anywhere; min-width: 0; }
+.dk-main > * { min-width: 0; max-width: 100%; box-sizing: border-box; }
+.dk[data-tab=notes] .dk-main { overflow-x: hidden; }
