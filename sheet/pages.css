@@ -1903,3 +1903,10 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 :where(body.hubbody) .pty-pick.sc-top::before { box-shadow: 0 0 9px 5px rgba(60,40,10,.22); }
 :where(body.hubbody) .pty-pick.sc-bot::after { box-shadow: 0 0 9px 5px rgba(60,40,10,.22); }
 @media (prefers-color-scheme: dark) { body.hubbody .pl-list.pty-pick { border-color: #2c3548; } body.hubbody .pty-pick > .pty-prow + .pty-prow { border-top-color: #2c3548 !important; } body.hubbody .pty-pick.sc-top::before, body.hubbody .pty-pick.sc-bot::after { box-shadow: 0 0 10px 6px rgba(0,0,0,.55); } }
+/* Picture already set: adjust or replace */
+.pg-picch .pgpc-prev { display: flex; justify-content: center; margin: 10px 0 16px; }
+.pg-picch .pgpc-prev img { width: 120px; height: 120px; object-fit: cover; border-radius: 14px; border: 2px solid #c9962b; }
+.pg-picch .pgpc-btns { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.pg-picch .pgpc-btns button { font: 700 .95rem system-ui, sans-serif; padding: 11px 16px; border-radius: 10px; cursor: pointer; border: 1px solid #3a4560; background: transparent; color: inherit; }
+.pg-picch .pgpc-btns .pg-out-yes { background: #c9962b; border-color: #c9962b; color: #1a1408; }
+.pg-picch .pg-out-row button { font: 700 .9rem system-ui, sans-serif; }

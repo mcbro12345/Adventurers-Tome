@@ -230,14 +230,32 @@ const BUG_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" str
 // Crop an uploaded picture before it's used, like Discord's: the image sits behind a circle (or rounded square) window,
 // drag to move it, zoom with the slider, the mouse wheel or two fingers, then Apply. Resolves { url, clear } — clear
 // when the result has see-through parts (kept as PNG) — or null if cancelled. o: { shape: 'circle'|'square', size, title }.
+// o.keep: remember the original (on this device) under that key, so the picture can be re-cropped later (pgRecrop).
+const pgIDB = () => new Promise((res, rej) => { const r = indexedDB.open('pg-crop', 1); r.onupgradeneeded = () => r.result.createObjectStore('o'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+const pgKeepGet = k => pgIDB().then(db => new Promise(res => { const q = db.transaction('o').objectStore('o').get(k); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); })).catch(() => null);
+const pgKeepPut = (k, v) => pgIDB().then(db => { db.transaction('o', 'readwrite').objectStore('o').put(v, k); }).catch(() => {});
+// Re-crop a picture that's already in use: from the original it was cut from (when this device has it), starting
+// where it was last cropped; otherwise from the picture itself.
+function pgRecrop(keep, cur, o = {}) { return pgKeepGet(keep).then(rec => rec && rec.blob ? pgCrop(rec.blob, Object.assign({}, o, { keep, state: rec })) : pgCrop(cur, Object.assign({}, o, { keep }))); }
+window.pgRecrop = pgRecrop;
+// A picture that's already set: adjust how it's cropped, or pick a new one.
+function picChoice(cur, adjust, replace) {
+  const m = document.createElement('div'); m.className = 'pg-out pg-picch'; pgOutFade(m);
+  m.innerHTML = `<div class="pg-out-card" role="dialog" aria-modal="true"><h2>Picture</h2><div class="pgpc-prev"><img src="${escH(cur)}" alt=""></div>
+    <div class="pgpc-btns"><button class="pg-out-yes" data-k="a">Adjust crop &amp; zoom</button><button class="pg-out-no" data-k="r">Upload a new picture</button></div><div class="pg-out-row"><span class="grow"></span><button class="pg-out-no" data-k="x">Cancel</button></div></div>`;
+  const end = () => m.remove();
+  m.onclick = e => { const b = e.target.closest('button'); if (e.target === m || (b && b.dataset.k === 'x')) { end(); return; } if (!b) return; end(); if (b.dataset.k === 'a') adjust(); else replace(); };
+  document.body.appendChild(m);
+}
+window.picChoice = picChoice;
 function pgCrop(file, o = {}) {
   return new Promise((done, fail) => {
-    const src = URL.createObjectURL(file), im = new Image();
-    im.onerror = () => { URL.revokeObjectURL(src); fail(new Error('That file isn’t an image this browser can open.')); };
+    const isStr = typeof file === 'string', src = isStr ? file : URL.createObjectURL(file), im = new Image(), rv = () => { if (!isStr) URL.revokeObjectURL(src); };
+    im.onerror = () => { rv(); fail(new Error('That file isn’t an image this browser can open.')); };
     im.onload = () => {
-      const W = im.naturalWidth || im.width, H = im.naturalHeight || im.height; if (!W || !H) { URL.revokeObjectURL(src); return fail(new Error('That image looks empty.')); }
+      const W = im.naturalWidth || im.width, H = im.naturalHeight || im.height; if (!W || !H) { rv(); return fail(new Error('That image looks empty.')); }
       const S = Math.min(340, innerWidth - 72), Cb = Math.round(S * .86), base = Math.max(Cb / W, Cb / H), round = o.shape === 'circle';
-      let z = 1, x = 0, y = 0;
+      let z = 1, x = 0, y = 0; if (o.state) { z = Math.max(1, Math.min(4, Number(o.state.z) || 1)); x = (Number(o.state.nx) || 0) * Cb; y = (Number(o.state.ny) || 0) * Cb; }
       const m = document.createElement('div'); m.className = 'pg-out pg-cropw'; pgOutFade(m);
       m.innerHTML = `<div class="pg-out-card pg-crop" role="dialog" aria-modal="true" aria-labelledby="pg-crop-h"><h2 id="pg-crop-h">${escH(o.title || 'Edit image')}</h2>
         <div class="pgc-stage" style="width:${S}px;height:${S}px"><img class="pgc-img" src="${src}" alt="" draggable="false"><div class="pgc-win${round ? ' round' : ''}" style="width:${Cb}px;height:${Cb}px"></div></div>
@@ -258,12 +276,13 @@ function pgCrop(file, o = {}) {
       const up = e => { pts.delete(e.pointerId); pinch = 0; const r = [...pts.values()][0]; last = r || null; };
       stage.addEventListener('pointerup', up); stage.addEventListener('pointercancel', up);
       const key = e => { if (e.key === 'Escape') finish(null); else if (e.key === 'Enter') apply(); };
-      const finish = r => { document.removeEventListener('keydown', key); m.remove(); URL.revokeObjectURL(src); done(r); };
+      const finish = r => { document.removeEventListener('keydown', key); m.remove(); rv(); done(r); };
       const apply = () => { const N = o.size || 512, c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d'); g.imageSmoothingQuality = 'high';
         const k = base * z, sx = W / 2 - (Cb / 2 + x) / k, sy = H / 2 - (Cb / 2 + y) / k, sw = Cb / k; g.drawImage(im, sx, sy, sw, sw, 0, 0, N, N);
         let clear = false; try { const px = g.getImageData(0, 0, N, N).data; for (let i = 3; i < px.length; i += 16) if (px[i] < 235) { clear = true; break; } } catch (e) {}
         let url = clear ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', .86);
         if (url.length > 300000 && N > 192) { const d = document.createElement('canvas'); d.width = d.height = 192; d.getContext('2d').drawImage(c, 0, 0, 192, 192); url = clear ? d.toDataURL('image/png') : d.toDataURL('image/jpeg', .86); }
+        if (o.keep) { const st = { z, nx: x / Cb, ny: y / Cb }; (isStr ? fetch(src).then(r => r.blob()) : Promise.resolve(file)).then(blob => pgKeepPut(o.keep, Object.assign({ blob }, st)), () => {}); }
         finish({ url, clear }); };
       m.querySelector('.pgc-reset').onclick = () => { z = 1; x = y = 0; show(); };
       m.querySelector('.pg-out-no').onclick = () => finish(null); m.querySelector('.pg-out-yes').onclick = apply;
@@ -2557,8 +2576,8 @@ function partyModule(H) {
   // A party's picture (or its icon). The DM taps it to change it.
   const partyPicHTML = (p, edit) => `<${edit ? 'button' : 'span'} class="pw-ppic${p.pic ? '' : ' none'}"${edit ? ` id="pt-pic" title="${p.pic ? 'Change the party’s picture' : 'Add a picture for the party'}" aria-label="Party picture"` : ''}>${p.pic ? `<img src="${esc(p.pic)}" alt="">` : IC_PARTY}${edit ? '<span class="pw-pedit" aria-hidden="true">✎</span>' : ''}</${edit ? 'button' : 'span'}>`;
   // Pick an image and make a small square picture of it (kept with the party, so it shows everywhere straight away).
-  const pickPic = () => new Promise(res => { const f = document.createElement('input'); f.type = 'file'; f.accept = 'image/*';
-    f.onchange = () => { const file = f.files && f.files[0]; if (!file) return res(''); pgCrop(file, { shape: 'square', size: 256, title: 'Party picture' }).then(r => res(r ? r.url : ''), e => { toast(e.message || 'That file isn’t an image this browser can open.'); res(''); }); };
+  const pickPic = keep => new Promise(res => { const f = document.createElement('input'); f.type = 'file'; f.accept = 'image/*';
+    f.onchange = () => { const file = f.files && f.files[0]; if (!file) return res(''); pgCrop(file, { shape: 'square', size: 256, title: 'Party picture', keep }).then(r => res(r ? r.url : ''), e => { toast(e.message || 'That file isn’t an image this browser can open.'); res(''); }); };
     f.click(); });
   // Live from each character's saved sheet: every save carries a summary (pcard) — HP, AC, speed, conditions — so the
   // cards change the moment a player's sheet does, open or not. Whichever is newer wins: the sheet, or its party card
@@ -2712,7 +2731,8 @@ function partyModule(H) {
   function wirePage(el) {
     const $1 = s => root.querySelector(s), on = (s, f) => { const b = $1(s); if (b) b.onclick = f; };
     on('#pt-ren', () => askText('Rename the party', P.name || '', 60, async v => { await PC.doc(PID).update({ name: v, updatedAt: Date.now() }); invSync(Object.assign({}, P, { id: PID, name: v })); }));
-    on('#pt-pic', async () => { const pic = await pickPic(); if (!pic) return; try { await PC.doc(PID).update({ pic, updatedAt: Date.now() }); invSync(Object.assign({}, P, { id: PID, pic })); toast('Picture updated.'); } catch (x) { fail(x, 'save the picture'); } });
+    on('#pt-pic', async () => { const k = 'party:' + PID, cur = P.pic;
+      const pic = cur ? await new Promise(res => picChoice(cur, () => pgRecrop(k, cur, { shape: 'square', size: 256, title: 'Party picture' }).then(r => res(r ? r.url : ''), () => res('')), () => pickPic(k).then(res))) : await pickPic(k); if (!pic) return; try { await PC.doc(PID).update({ pic, updatedAt: Date.now() }); invSync(Object.assign({}, P, { id: PID, pic })); toast('Picture updated.'); } catch (x) { fail(x, 'save the picture'); } });
     on('#pt-add', () => addDialog());
     on('#pt-all', () => sendDialog(null));
     on('#pt-turn', () => turnOrder(!document.getElementById('towin')));

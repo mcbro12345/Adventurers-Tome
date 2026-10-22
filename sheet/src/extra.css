@@ -3051,3 +3051,5 @@ html.mobile .insp-grp.mini > .insp.mini { margin-left: 0; }
 .cstrip.three:has(> .cs-slots.phid) { grid-template-columns: minmax(190px, 3fr) 5fr !important; }
 @media (max-width: 1100px) { html:not(.mobile) .cstrip.three { grid-template-columns: 1fr 1fr; } html:not(.mobile) .cstrip.three > .cs-fx { grid-column: 1 / -1; } }
 html.mobile .cstrip.three { grid-template-columns: 1fr; }
+.hbb-ct2 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.hbb-ct2 > .hint { width: 82px; flex: none; font-size: 11px; }
