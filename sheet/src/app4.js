@@ -14,6 +14,10 @@ function mainClick(e) {
   const b = e.target.closest('[data-act]');
   if (!b) return;
   const act = b.dataset.act, i = N(b.dataset.i);
+  // the button that opened the window that's showing closes it again
+  { const sig = b.closest('#modal') ? null : act + '|' + JSON.stringify(b.dataset);
+    if (sig && MODAL_BY === sig && $('#modal').classList.contains('open') && !$('#modal').classList.contains('closing')) { closeModal(); return; }
+    MODAL_SIG = sig; setTimeout(() => { MODAL_SIG = null; }, 0); }
   pendingLabel = actLabel(act, b, i);
   const closeMenus = () => $$('.menu.open').forEach(m => m.classList.remove('open'));
   switch (act) {

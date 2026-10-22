@@ -3230,7 +3230,7 @@ function partyModule(H) {
 // turn order) trade places with pop-up windows (the sheet's windows and the lobby's) without lifting those pop-ups
 // over their own menus and tips.
 (() => {
-  const FLOAT = '.drwin, .pcwin, .towin', POP = '#modal.open, .modal-bg.open, .hub-modal.open, .pg-out', H = document.documentElement;
+  const FLOAT = '.drwin, .pcwin, .towin', POP = '#modal.open, .modal-bg.open, .hub-modal.on, .pg-out', H = document.documentElement;
   const front = w => {
     if (!w || H.classList.contains('mobile') || matchMedia('(max-width: 640px)').matches) return;
     if (w.matches(FLOAT)) {
@@ -3240,14 +3240,28 @@ function partyModule(H) {
     } else { H.classList.add('wpop-front'); H.classList.remove('wfloat-front'); }
   };
   const winOf = t => t && t.closest ? t.closest(FLOAT + ', ' + POP) : null;
+  // Pressing the button that opened a window again closes it (site pop-ups; the sheet's own windows do this in app4.js)
+  let lastSig = null, lastT = 0;
+  const sigOf = el => el.id ? '#' + el.id : Object.keys(el.dataset).length ? 'd:' + JSON.stringify(el.dataset) : 'c:' + el.className + '|' + el.textContent.trim().slice(0, 40);
+  const by = w => { if (lastSig && Date.now() - lastT < 1500) w.__by = lastSig; };
+  const shut = w => { const c = w.querySelector(':scope > .pg-out-card, :scope > .hub-card') || w, x = c.querySelector(':scope > .mw-head .mw-x'); if (x) return x.click();
+    const no = c.querySelector('.pg-out-no') || [...c.querySelectorAll('button')].find(b => /^(cancel|close|not now|done|no)$/i.test(b.textContent.trim()));
+    if (no) return no.click(); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); if (w.classList.contains('hub-modal')) w.classList.remove('on'); };
+  addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('button, a, [role=button], [data-act]');
+    if (!b || b.closest(FLOAT + ', .pg-out, .hub-modal, #modal, #pg-msg')) { lastSig = null; return; }
+    const sig = sigOf(b), open = [...document.querySelectorAll('.pg-out, .hub-modal.on')].find(w => w.__by === sig && !w.classList.contains('closing'));
+    if (open) { e.stopImmediatePropagation(); e.preventDefault(); shut(open); lastSig = null; return; }
+    lastSig = sig; lastT = Date.now();
+  }, true);
   addEventListener('pointerdown', e => front(winOf(e.target)), true);
   addEventListener('focusin', e => front(winOf(e.target)), true);
   // a window that has just opened starts in front
   const seen = new WeakSet();
   new MutationObserver(ms => { for (const m of ms) {
-    if (m.type === 'childList') m.addedNodes.forEach(n => { if (n.nodeType === 1 && n.matches(FLOAT + ', .pg-out')) front(n); });
-    else { const t = m.target; if (t.matches && t.matches('.modal-bg.open, .hub-modal.open')) { if (!seen.has(t)) { seen.add(t); front(t); } } else if (t.classList) seen.delete(t); }
+    if (m.type === 'childList') m.addedNodes.forEach(n => { if (n.nodeType === 1 && n.matches(FLOAT + ', .pg-out')) { front(n); by(n); } });
+    else { const t = m.target; if (t.matches && t.matches('.modal-bg.open, .hub-modal.on')) { if (!seen.has(t)) { seen.add(t); front(t); by(t); } } else if (t.classList) seen.delete(t); }
   }
-    if (H.classList.contains('wpop-front') && !document.querySelector('.modal-bg.open:not(.closing), .hub-modal.open:not(.closing), .pg-out:not(.closing)')) H.classList.remove('wpop-front');
+    if (H.classList.contains('wpop-front') && !document.querySelector('.modal-bg.open:not(.closing), .hub-modal.on:not(.closing), .pg-out:not(.closing)')) H.classList.remove('wpop-front');
   }).observe(document.body || document.documentElement, { childList: true, attributes: true, attributeFilter: ['class'], subtree: true });
 })();

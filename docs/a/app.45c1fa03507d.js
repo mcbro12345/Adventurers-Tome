@@ -96,6 +96,7 @@ function keepPrefs(into, from) { if (!into || !from || (into.id && from.id && in
 })();
 let UI = { tab: 'core', open: {} };
 try { UI = Object.assign(UI, JSON.parse(localStorage.getItem(UI_KEY) || '{}')); } catch (e) {}
+UI.chatPop = false; // windows always start closed when a sheet opens
 UI.open = UI.open || {};
 // One-off corrections shipped with a sheet update (EMBED.fixes). Each runs once per character, whichever copy is
 // loaded (this browser's, the cloud's or the file's), so a fix isn't lost to a newer saved copy.
@@ -723,7 +724,7 @@ function fxRollExpr(expr) {
 let _fxpKey = '', _fxp = [];
 function fxPassives() {
   const key = JSON.stringify(S.inventory.filter(it => it.resPick).map(it => [hbItemOn(it), it.resPick])) + '|' + JSON.stringify(S.inventory.filter(it => it.infusion).map(it => [hbItemOn(it), it.attuned, it.infusion.name, it.infusion.choice])) + '|' + JSON.stringify(S.features.map(f => f.hb || 0)) + '|' + JSON.stringify(S.inventory.filter(it => it.hb).map(it => [hbItemOn(it), it.hb])) + '|' + S.features.length + '|' + S.conditions.join() + '|' + (S.effects || []).map(e => e.name).join() + '|' + S.concentration + '|' + totalLevel() + '|' + JSON.stringify(S.picks || {}) + '|' + S.features.map(f => f.name).join();
-  if (key === _fxpKey) return _fxp;
+  const mdKey = JSON.stringify(S.manualDef || null); if (key + mdKey === _fxpKey) return _fxp;
   const out = [], raging = S.conditions.includes('Raging');
   S.features.forEach(f => {
     const fx = fxOf(f), own = f.cls ? clsLv(f.cls) : lvl();
@@ -741,7 +742,9 @@ function fxPassives() {
   // Homebrew item effects (resistances, speeds, AC…) while the item is in use
   infPassives().forEach(p => out.push(p));
   S.inventory.forEach(it => { if (!hbItemOn(it)) return; const fx = hbFx(it.hb); if (fx && fx.passive) [].concat(fx.passive).forEach(x => { if (x.effect && !fxActive().some(e => e.name === x.effect)) return; out.push(Object.assign({ src: it.name, item: it.id }, x)); }); });
-  _fxpKey = key; _fxp = out; return out;
+  { const md = S.manualDef || {}, cn = DEF_COND.map(c => c.toLowerCase()), im = md.immune || [];
+    if ((md.resist || []).length || im.length) out.push({ src: 'Added by you', resist: (md.resist || []).map(t => t.toLowerCase()), immune: im.filter(t => !cn.includes(t.toLowerCase())).map(t => t.toLowerCase()), condImmune: im.filter(t => cn.includes(t.toLowerCase())) }); }
+  _fxpKey = key + mdKey; _fxp = out; return out;
 }
 const fxSkillBonus = name => fxPassives().filter(p => p.skillBonus && p.skillBonus[name]).map(p => [p.src, N(p.skillBonus[name])]);
 const fxSum = (k, filter) => fxPassives().filter(p => p[k] != null && (!filter || filter(p))).reduce((t, p) => t + (typeof p[k] === 'number' ? p[k] : p[k] === 'attuned' ? attunedCount() : N(evalMax(p[k]))), 0);
@@ -1469,7 +1472,9 @@ function toast(html, cls = '', ms = 4500, action) {
   setTimeout(() => t.remove(), ms);
 }
 let onModalCancel = null;
+let MODAL_BY = null, MODAL_SIG = null; // which button opened the window that's showing
 function openModal(html, onCancel, wide) {
+  MODAL_BY = MODAL_SIG;
   onModalCancel = onCancel || null; $('#modal-body').classList.remove('xwide'); $('#modal-body').classList.toggle('wide', !!wide); $('#modal-body').innerHTML = html; $('#modal').classList.add('open');
   const f = $('#modal-body [autofocus]'); if (f) f.focus();
 }
@@ -1496,7 +1501,7 @@ function openModal(html, onCancel, wide) {
 })();
 function closeModal(confirmed) {
   if (!$('#modal').classList.contains('open')) return;
-  $('#modal').classList.remove('open');
+  $('#modal').classList.remove('open'); MODAL_BY = null;
   const cb = onModalCancel; onModalCancel = null;
   if (!confirmed && cb) cb();
 }
@@ -1610,7 +1615,7 @@ function renderHeader() {
   $('#sec-header').innerHTML = `
   <div class="banner-row"><div class="portrait-wrap"><img id="portraitImg" src="${esc(pic)}" alt="${esc((S.name || 'Character') + '’s portrait')}">
     <label class="portrait-edit" tabindex="0" data-act="portrait">Change portrait</label></div>${inspHTML()}</div>
-  <div class="ident"><h1 class="sr-only">${esc(S.name || 'Character sheet')}</h1>
+  <div class="ident${idf ? '' : ' noid'}"><h1 class="sr-only">${esc(S.name || 'Character sheet')}</h1>
     <div class="ident-top">
       <img class="mini-portrait" src="${esc(pic)}" alt="" data-act="portrait">
       <div class="namebox">${ST('showName') ? inp('name', { cls: 'name', label: 'Character name', ph: 'Character name', fit: 10 }) : ''}
@@ -1892,6 +1897,21 @@ function profsHTML() {
     ${bad.length ? `<p class="warn sm">Wearing ${esc(bad.join(', '))} without proficiency: disadvantage on STR/DEX checks, saves and attacks, and no spellcasting.</p>` : ''}</div>`;
 }
 // The detailed editor shown in the Manage window.
+// Resistances and immunities you add yourself (a boon, a curse, a DM ruling) — alongside the ones your race, features,
+// items and spells already give, which are listed here with where they come from.
+const DEF_DMG = ['Acid', 'Bludgeoning', 'Cold', 'Fire', 'Force', 'Lightning', 'Necrotic', 'Piercing', 'Poison', 'Psychic', 'Radiant', 'Slashing', 'Thunder', 'Nonmagical bludgeoning, piercing and slashing'];
+const DEF_COND = ['Blinded', 'Charmed', 'Deafened', 'Disease', 'Exhaustion', 'Frightened', 'Grappled', 'Incapacitated', 'Paralyzed', 'Petrified', 'Poisoned', 'Prone', 'Restrained', 'Stunned', 'Unconscious', 'Magical sleep'];
+function defManageHTML() {
+  const md = S.manualDef || { resist: [], immune: [] }, d = defensesDetail();
+  const given = (arr, kind) => arr.filter(e => !(e.src.length === 1 && e.src[0] === 'Added by you')).map(e => `<span class="pchip given" title="From ${esc(e.src.filter(x => x !== 'Added by you').join(', ') || 'your sheet')}">${esc(e.t)}<small>${esc(e.src.filter(x => x !== 'Added by you').join(', '))}</small></span>`).join('');
+  const mine = (list, kind) => list.map((t, i) => `<span class="pchip">${esc(t)}<button data-act="defdel" data-kind="${kind}" data-i="${i}" aria-label="Remove ${esc(t)}">✕</button></span>`).join('');
+  const sel = (id, label, opts, have) => `<select class="f addsel" id="${id}" aria-label="${esc(label)}"><option value="">+ ${esc(label)}…</option>${opts.filter(o => !have.some(h => h.toLowerCase() === o.toLowerCase())).map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select>`;
+  return `<section class="pmsec"><h4>Resistances &amp; immunities</h4><p class="hint">Ones from your race, features, items and spells are added automatically (shown with where they come from). Add any others here — a boon, a curse, something your DM gave you. Damage you take uses all of them.</p>
+      <div class="defrow"><b>Resistant</b><div class="ptogs">${given(d.resist) || ''}${mine(md.resist || [], 'resist') || ''}${!d.resist.length && !(md.resist || []).length ? '<span class="hint">None</span>' : ''}</div></div>
+      <div class="ptogs" style="margin:6px 0 10px">${sel('addResist', 'Add a resistance', DEF_DMG, md.resist || [])}</div>
+      <div class="defrow"><b>Immune</b><div class="ptogs">${given(d.immune) || ''}${mine(md.immune || [], 'immune') || ''}${!d.immune.length && !(md.immune || []).length ? '<span class="hint">None</span>' : ''}</div></div>
+      <div class="ptogs" style="margin-top:6px">${sel('addImmune', 'Add an immunity', DEF_DMG.concat(DEF_COND), md.immune || [])}</div></section>`;
+}
 function profsManageInner() {
   const P = S.profs, bad = armorNonProf();
   const tog = (act, v, on, label, sub) => `<button class="ptog big${on ? ' on' : ''}" data-act="${act}" data-v="${v}" aria-pressed="${on}"><span class="pt-check">${on ? '✓' : ''}</span><span><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</span></button>`;
@@ -1915,6 +1935,7 @@ function profsManageInner() {
     <section class="pmsec"><h4>Tools</h4><p class="hint">Choose the ability each tool rolls with. Expertise doubles your proficiency bonus.</p>
       <div class="tools">${tools || '<span class="hint">No tool proficiencies.</span>'}</div>
       <div class="ptogs" style="margin-top:8px">${addSel('addTool', 'Add a tool', ALL_TOOLS().filter(n => !(S.tools || []).some(t => t.name === n)))}${other('tool', 'Other tool…')}</div></section>
+    ${defManageHTML()}
     <section class="pmsec"><h4>Languages</h4>
       <div class="ptogs">${langs || '<span class="hint">None</span>'}</div>
       <div class="ptogs" style="margin-top:8px">${addSel('addLang', 'Add a language', ALL_LANGS().filter(n => !(S.langs || []).includes(n)))}${other('lang', 'Other language…')}</div></section>
@@ -1938,12 +1959,12 @@ function renderCore() {
       ${s.note ? `<span class="sknote">${esc(s.note)}</span>` : ''}</div>`).join('');
   $('#page-core').innerHTML = `
   <div class="core">
-    <div class="panel" ${PID('abilities')}><h2><span class="grow">Abilities &amp; Saves</span><button class="btn sm" data-act="manageabil">Manage</button></h2><div class="abilities" data-zone="abil">${abil}</div>
+    <div class="panel" ${PID('abilities')}><h2><span class="grow">Abilities &amp; Saves</span><button class="tmanage tmanage-in" data-act="manageabil">Manage</button></h2><div class="abilities" data-zone="abil">${abil}</div>
       <p class="hint" style="margin:10px 0 0">Tap any bonus to roll it. Conditions like poisoned or exhaustion apply to your rolls automatically.${auraBonus() ? ' Saves include your Aura of Protection.' : ''}</p></div>
-    <div class="panel" ${PID('skills')}><h2><span class="grow">Skills</span><button class="btn sm" data-act="manageskills">Manage</button></h2><div class="skills">${skills}</div>
+    <div class="panel" ${PID('skills')}><h2><span class="grow">Skills</span><button class="tmanage tmanage-in" data-act="manageskills">Manage</button></h2><div class="skills">${skills}</div>
       <div class="passive"><span><span class="ciw">Passive Perception${ciBtn('passive', 'passive Perception')}</span></span><span data-calc="passive"></span></div></div>
     <div class="stack col3">
-      <div class="panel" ${PID('profs')}><h2><span class="grow">Proficiencies &amp; Languages</span><button class="btn sm" data-act="manageprofs">Manage</button></h2>${profsHTML()}</div>
+      <div class="panel" ${PID('profs')}><h2><span class="grow">Proficiencies &amp; Languages</span><button class="tmanage tmanage-in" data-act="manageprofs">Manage</button></h2>${profsHTML()}</div>
     </div>
   </div>`;
 }
@@ -2043,6 +2064,27 @@ function postSheetRoll(t) {
   else if (total !== '') lines.push(`**${clean(lbl ? cap(lbl) : 'Result')}:** [[${N(total)}]]${dmg ? ` · **Damage:** [[${N(dmg)}]] ${clean(dtype)}` : ''}`);
   if (lines.length > 1) r20Post(lines).catch(() => {});
 }
+// Header with Player/Race/Background/Alignment/Faith all off (desktop): the portrait shrinks to the height of the
+// name and subtitle, so its top lines up with the top of the name and the header gets shorter.
+(() => {
+  let ro = null;
+  const fit = () => {
+    const h = document.getElementById('sec-header'); if (!h) return;
+    const pw = h.querySelector('.portrait-wrap'), id = h.querySelector('.ident.noid'), nb = id && id.querySelector('.namebox');
+    if (!pw) return;
+    if (!nb || document.documentElement.classList.contains('mobile')) { pw.style.width = pw.style.height = ''; return; }
+    const top = id.querySelector('.ident-top') || nb, fill = Math.round(Math.max(64, Math.min(148, top.getBoundingClientRect().height, h.querySelector('.ident').getBoundingClientRect().height)));
+    if (pw.style.width !== fill + 'px') pw.style.width = pw.style.height = fill + 'px';
+  };
+  const wire = () => {
+    const h = document.getElementById('sec-header'); if (!h) return setTimeout(wire, 300);
+    ro = new ResizeObserver(fit);
+    new MutationObserver(() => { ro.disconnect(); h.querySelectorAll('.namebox, .ident-top').forEach(e => ro.observe(e)); fit(); }).observe(h, { childList: true });
+    h.querySelectorAll('.namebox, .ident-top').forEach(e => ro.observe(e)); fit();
+    addEventListener('resize', fit);
+  };
+  wire();
+})();
 
 
 // ---------- Spell helpers ----------
@@ -3004,10 +3046,10 @@ function calcHTML(key) {
     case 'movebar': return `<i style="width:${Math.max(0, 100 - Math.max(0, N(S.turn.moved)) / Math.max(1, moveBudget()) * 100)}%"></i>`;
     case 'conds': {
       const ex = N(S.exhaustion);
-      return (S.rollAdv ? `<span class="cchip ${S.rollAdv === 'adv' ? 'advc' : 'disc'}">${S.rollAdv === 'adv' ? 'Advantage' : 'Disadvantage'} <small class="cturns">all d20 rolls</small><button data-act="rolladv" data-v="${S.rollAdv}" aria-label="Turn off">✕</button></span>` : '') + S.conditions.map((c, k) => `<span class="cchip">${esc(c)}<button class="notetip" data-tip="${k}" data-tipkind="cond" aria-label="What ${esc(c)} does">ⓘ</button>${(S.condTurns || {})[c] ? ` <small class="cturns">${durShort(N(S.condTurns[c]))}</small>` : ''}<button data-act="dropcond" data-c="${esc(c)}" aria-label="Remove ${esc(c)}">✕</button></span>`).join('') +
-        Object.keys(S.tmpMods || {}).map(k => `<span class="cchip abt${tmv(k) > 0 ? ' pos' : ''}">${tmName(k)} ${fmt(tmv(k))}${tmr(k) > 0 ? ` <small class="hint">${tmr(k)} rd</small>` : ''}<button data-act="tmpmodclear" data-k="${k}" aria-label="End ${tmName(k)} change">✕</button></span>`).join('') +
-        Object.keys(S.abTemp || {}).map(a => { const r = N(S.abTempR); return `<span class="cchip abt">${a.toUpperCase()} ${baseScore(a)}→${score(a)}<button class="notetip" data-tip="ab:${a}" data-tipkind="cond" aria-label="About this ${ABN[a]} change">ⓘ</button>${r ? ` <small class="cturns">${durShort(r)}</small>` : ''}<button data-act="abtempclear" data-a="${a}" aria-label="End ${ABN[a]} change">✕</button></span>`; }).join('') +
-        (ex ? `<span class="cchip exh">Exhaustion ${ex}<button class="notetip" data-tip="exh" data-tipkind="cond" aria-label="What exhaustion does">ⓘ</button><button data-act="exh" data-d="-1" aria-label="Less exhaustion">−</button><button data-act="exh" data-d="1" aria-label="More exhaustion">+</button></span>` : '') +
+      return (S.rollAdv ? `<span class="cchip ${S.rollAdv === 'adv' ? 'advc' : 'disc'}"><span class="ccn">${S.rollAdv === 'adv' ? 'Advantage' : 'Disadvantage'} <small class="cturns">all d20 rolls</small></span><button data-act="rolladv" data-v="${S.rollAdv}" aria-label="Turn off">✕</button></span>` : '') + S.conditions.map((c, k) => `<span class="cchip"><span class="ccn">${esc(c)}</span><button class="notetip" data-tip="${k}" data-tipkind="cond" aria-label="What ${esc(c)} does">ⓘ</button>${(S.condTurns || {})[c] ? ` <small class="cturns">${durShort(N(S.condTurns[c]))}</small>` : ''}<button data-act="dropcond" data-c="${esc(c)}" aria-label="Remove ${esc(c)}">✕</button></span>`).join('') +
+        Object.keys(S.tmpMods || {}).map(k => `<span class="cchip abt${tmv(k) > 0 ? ' pos' : ''}"><span class="ccn">${tmName(k)} ${fmt(tmv(k))}</span>${tmr(k) > 0 ? ` <small class="hint">${tmr(k)} rd</small>` : ''}<button data-act="tmpmodclear" data-k="${k}" aria-label="End ${tmName(k)} change">✕</button></span>`).join('') +
+        Object.keys(S.abTemp || {}).map(a => { const r = N(S.abTempR); return `<span class="cchip abt"><span class="ccn">${a.toUpperCase()} ${baseScore(a)}→${score(a)}</span><button class="notetip" data-tip="ab:${a}" data-tipkind="cond" aria-label="About this ${ABN[a]} change">ⓘ</button>${r ? ` <small class="cturns">${durShort(r)}</small>` : ''}<button data-act="abtempclear" data-a="${a}" aria-label="End ${ABN[a]} change">✕</button></span>`; }).join('') +
+        (ex ? `<span class="cchip exh"><span class="ccn">Exhaustion ${ex}</span><button class="notetip" data-tip="exh" data-tipkind="cond" aria-label="What exhaustion does">ⓘ</button><button data-act="exh" data-d="-1" aria-label="Less exhaustion">−</button><button data-act="exh" data-d="1" aria-label="More exhaustion">+</button></span>` : '') +
         (S.conditions.length || ex || S.rollAdv || Object.keys(S.abTemp || {}).length || Object.keys(S.tmpMods || {}).length ? '' : '<span class="hint">None</span>');
     }
   }
@@ -3124,6 +3166,7 @@ function onField(e) {
     pendingLabel = 'Edit: Armor class'; save(); refresh(); return;
   }
   if (t.dataset.hpmax !== undefined) { if (t.value === '') return; const extra = maxHp() - baseMaxHp(); S.hp.adj = N(t.value) - extra - hpMaxCalc(); pendingLabel = 'Edit: Max HP'; save(); refresh(); return; }
+  if (t.id === 'addResist' || t.id === 'addImmune') { const v = t.value; t.value = ''; if (!v) return; const k = t.id === 'addResist' ? 'resist' : 'immune'; S.manualDef = S.manualDef || { resist: [], immune: [] }; S.manualDef[k] = (S.manualDef[k] || []).concat([v]); pendingLabel = (k === 'resist' ? 'Add resistance: ' : 'Add immunity: ') + v; save(); openProfs(); render('core'); return; }
   if (['addWeapon', 'addTool', 'addLang'].includes(t.id)) { const v = t.value; t.value = ''; if (!v) return; const kind = { addWeapon: 'weapon', addTool: 'tool', addLang: 'lang' }[t.id]; if (v === '__other') { openModal(`<h3>Add ${kind === 'lang' ? 'a language' : kind === 'tool' ? 'a tool' : 'a weapon'}</h3>${fld('Name', '<input class="f" id="otherIn" autofocus>')}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="otherok" data-k="${kind}">Add</button></div>`); return; } addProf(kind, v); return; }
   if (t.id === 'featQ') { UI.featQ = t.value; clearTimeout(window._fq); window._fq = setTimeout(() => { render('features'); const e = $('#featQ'); if (e) { e.focus(); e.setSelectionRange(e.value.length, e.value.length); } }, 250); return; }
   if (t.dataset.set !== undefined) return setSetting(t);
@@ -3211,6 +3254,10 @@ function mainClick(e) {
   const b = e.target.closest('[data-act]');
   if (!b) return;
   const act = b.dataset.act, i = N(b.dataset.i);
+  // the button that opened the window that's showing closes it again
+  { const sig = b.closest('#modal') ? null : act + '|' + JSON.stringify(b.dataset);
+    if (sig && MODAL_BY === sig && $('#modal').classList.contains('open') && !$('#modal').classList.contains('closing')) { closeModal(); return; }
+    MODAL_SIG = sig; setTimeout(() => { MODAL_SIG = null; }, 0); }
   pendingLabel = actLabel(act, b, i);
   const closeMenus = () => $$('.menu.open').forEach(m => m.classList.remove('open'));
   switch (act) {
@@ -3486,6 +3533,7 @@ function mainClick(e) {
     case 'pwdel': { const n = S.profs.weaponNames.splice(i, 1)[0]; pendingLabel = 'Remove proficiency: ' + n; save(); render(); break; }
     case 'toolexp': S.tools[i].exp = !S.tools[i].exp; pendingLabel = (S.tools[i].exp ? 'Expertise: ' : 'Proficient: ') + S.tools[i].name; save(); render(); break;
     case 'tooldel': { const n = S.tools.splice(i, 1)[0]; pendingLabel = 'Remove tool: ' + n.name; save(); render(); toast(`Removed ${esc(n.name)}.`, '', 5000, { label: 'Undo', fn: () => undo(1) }); break; }
+    case 'defdel': { const k = b.dataset.kind === 'immune' ? 'immune' : 'resist'; const md = S.manualDef || {}; const n = (md[k] || []).splice(i, 1)[0]; if (n == null) break; pendingLabel = (k === 'resist' ? 'Remove resistance: ' : 'Remove immunity: ') + n; save(); openProfs(); render('core'); break; }
     case 'langdel': { const n = S.langs.splice(i, 1)[0]; pendingLabel = 'Remove language: ' + n; save(); render(); toast(`Removed ${esc(n)}.`, '', 5000, { label: 'Undo', fn: () => undo(1) }); break; }
     case 'manageprofs': openProfs(); break;
     case 'booksedit': UI.open.booksedit = !UI.open.booksedit; saveUI(); reopenSettings(); break;
