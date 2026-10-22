@@ -1545,6 +1545,7 @@ function toolbarHTML() {
     settings: `<button class="tbtn" data-zi="settings" data-act="settings" title="Settings">${ICON.gear}<span class="tl">Settings</span></button>`,
     save: `<div class="savegrp" data-zi="save"><span class="save-state${/synced|view only/i.test(UI.saveState || '') ? ' live' : ''}" id="saveState" title="${esc(UI.saveState || 'Auto-saves')}">${syncHTML(UI.saveState || 'Auto-saves')}</span></div>`,
     dice: `<button class="devbtn dicebtn" data-zi="dice" data-act="diceroller" title="Dice roller" aria-label="Dice roller"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 2.5l8.5 4.9v9.2L12 21.5l-8.5-4.9V7.4z"/><path d="M12 7.5l4.3 7.4H7.7zM12 2.5v5M20.5 7.4l-4.2 7.5M3.5 7.4l4.2 7.5M12 21.5l-4.3-6.6M12 21.5l4.3-6.6"/></svg></button>`,
+    ...({ chat: `<button class="devbtn chatbtn" data-zi="chat" data-act="chatwin" title="Party chat" aria-label="Party chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h8M8 13h5"/></svg></button>` }),
     rolllog: `<button class="devbtn logbtn" data-zi="rolllog" data-act="rolllog" title="Log — every roll, plus everything else that popped up" aria-label="Log">${ICON.log}</button>`,
     // (on a phone it sits next to Log; on a computer, after the layout switch)
     ...(isMobile() && window.SHEET_PAGES ? { bug: `<button class="devbtn bugbtn" data-zi="bug" data-act="bugreport" title="Report a bug" aria-label="Report a bug">${ICON.bug}</button>` } : {}),
@@ -3428,6 +3429,7 @@ function mainClick(e) {
     case 'settab': switchSetTab(b.dataset.k); break;
     case 'opensettings': openSettings(b.dataset.tab === 'class' ? 'char' : b.dataset.tab); pendingLabel = null; return;
     case 'diceroller': diceRoller(); return;
+    case 'chatwin': if ($('#pcwin')) ptyChatDock(); else ptyChatPopOut(); return;
     case 'rolllog': openRollLog(); break;
     case 'bugreport': if (window.pgBugReport) window.pgBugReport(); else { const a = document.createElement('a'); a.href = '#contact'; document.body.appendChild(a); a.click(); a.remove(); } break;
     case 'clearlog': if (UI.logTab === 'events') { EVLOG = []; saveEvLog(); } else { ROLLLOG = []; saveRollLog(); } openRollLog(); break;
@@ -7920,11 +7922,11 @@ function renderParty() {
   const head = `<div class="panel ptyhead"><div class="ptyh"><span class="ptyh-ic${P.pic ? ' pic' : ''}" aria-hidden="true">${P.pic ? `<img src="${esc(P.pic)}" alt="">` : TAB_ICON.party}</span><div class="ptyh-t"><b>${esc(P.name)}</b><span>DM ${esc(dm)} · ${n} character${n === 1 ? '' : 's'}${act ? '' : ' · you’re viewing this sheet'}</span></div>
       <div class="ptyh-btns">${act && ms.length > 1 ? '<button class="btn sm" data-pa="cast" data-id="" title="Pick the spell, then everyone it reaches">Cast a spell on allies…</button><button class="btn sm" data-pa="ability" data-id="" title="Pick the ability, then everyone it reaches">Use an ability on allies…</button>' : ''}<a class="btn sm" href="${esc(P.url)}" target="_top">Party page</a></div></div>
       ${act && ms.length ? `<p class="hint ptyh-hint">${P.mgr ? 'As the DM, what you send lands on their sheet straight away (or the next time it’s opened).' : 'Healing, items, spells and abilities you send pop up on their sheet for them to accept.'}</p>` : ''}</div>`;
-  const cards = P.loading ? `<div class="panel"><p class="hint" style="margin:0">Loading the party…</p></div>` : ms.length ? `<div class="ptym-grid">${ms.map(ptyCardHTML).join('')}</div>` : `<div class="panel"><p class="hint" style="margin:0">Nobody else has joined yet. Your DM can share the party’s invite link from the party page.</p></div>`;
+  const cards = P.loading ? `<div class="sk-auto" data-k="cards" data-n="3"></div>` : ms.length ? `<div class="ptym-grid">${ms.map(ptyCardHTML).join('')}</div>` : `<div class="panel"><p class="hint" style="margin:0">Nobody else has joined yet. Your DM can share the party’s invite link from the party page.</p></div>`;
   const aurasP = auras.length ? `<div class="panel ptyauras"><h2>Your auras</h2>${r20AuraOn() ? `<p class="hint r20aura-st">${esc(R20A.status || 'Watching your Roll20 tokens…')}</p>` : ''}<p class="hint">Tick who’s close enough to get it. They keep it until you untick them, or you drop to 0 HP.</p>${auras.map(a => { const on = (S.ptyAuras || {})[a.name] || [];
       return `<div class="ptya"><b>${esc(a.name)}</b><span class="hint">${esc(ptyFormula(a.def.label || '') || a.def.text || '')}</span><div class="ptya-who">${ms.map(m => `<label class="checkline"><input type="checkbox" data-aura="${esc(a.name)}" data-id="${esc(m.id)}"${on.includes(m.id) ? ' checked' : ''}> ${esc(m.name)}</label>`).join('')}</div></div>`; }).join('')}</div>` : '';
   const logP = `<div class="panel ptylogp"><h2>Party log</h2>${(S.ptyLog || []).length ? `<div class="ptylog">${S.ptyLog.slice(0, 30).map(l => `<div class="ptyl ${esc(l.dir)}"><span class="ptyl-d" aria-label="${l.dir === 'in' ? 'Received' : 'Sent'}">${l.dir === 'in' ? '↓' : '↑'}</span><span class="ptyl-t">${esc(l.text)}<small>${l.dir === 'in' ? 'from ' : 'to '}${esc(l.who)} · ${esc(ptyAgo(l.at))}</small></span></div>`).join('')}</div>` : '<p class="hint" style="margin:0">What you send and receive shows up here.</p>'}</div>`;
-  const ch = PTYX().chat, chatP = ch && ch.on() ? (UI.chatPop ? `<div class="panel ptychat ptychat-popped"><h2>Party chat</h2><div class="ptychat-lock"><span aria-hidden="true">⧉</span><p>The chat is popped out in its own window.</p><button class="btn sm" data-pa="chatdock">Bring it back here</button></div></div>` : `<div class="panel ptychat"><h2><span class="grow">Party chat</span><button class="btn ghost sm ptychat-popbtn" data-pa="chatpop" title="Open the chat in its own window (stays open on every tab)" aria-label="Open the chat in its own window">⧉</button></h2>${ptyChatInner()}</div>`)
+  const ch = PTYX().chat, chatP = ch && ch.on() ? (UI.chatPop ? `<div class="panel ptychat ptychat-popped"><h2>Party chat</h2><div class="ptychat-lock"><span aria-hidden="true">⧉</span><p>The chat is popped out in its own window.</p><button class="btn sm" data-pa="chatdock">Bring it back here</button></div></div>` : `<div class="panel ptychat"><h2><span class="grow">Party chat</span><button class="icon-btn ptychat-popbtn" data-pa="chatpop" title="Open the chat in its own window (stays open on every tab)" aria-label="Open the chat in its own window"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-8 8"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></button></h2>${ptyChatInner()}</div>`)
     : !P.loading ? `<div class="panel ptychat ptychat-off"><h2>Party chat</h2><div class="ptychat-lock"><span aria-hidden="true">🔒</span><p>${PTYX().owner() !== PTYX().email ? `Only ${esc(S.player || 'this character’s player')} can see and send this character’s party chat.` : 'Party chat is just for the players — as the DM, you can’t see it.'}</p></div></div>` : '';
   // Party chat sits to the right of everything else (below it on a phone).
   pg.innerHTML = `<div class="ptytab">${head}<div class="ptymain${chatP ? ' haschat' : ''}"><div class="ptyleft">${cards}<div class="ptyfoot${aurasP ? '' : ' one'}">${aurasP}${logP}</div></div>${chatP}</div></div>`;
@@ -7946,13 +7948,13 @@ function ptyChatWin() {
   if (w) return;
   let pos = null; try { pos = JSON.parse(localStorage.getItem('dnd-pcwin') || 'null'); } catch (e) {}
   w = document.createElement('div'); w.id = 'pcwin'; w.className = 'pcwin'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Party chat');
-  w.innerHTML = `<div class="pcw-head"><b>Party chat</b><button class="pcw-b" data-pcw="dock" title="Put it back in the Party tab" aria-label="Put it back in the Party tab">⇲</button><button class="pcw-b" data-pcw="x" title="Close" aria-label="Close">✕</button></div><div class="pcw-body">${ptyChatInner()}</div>`;
+  w.innerHTML = `<div class="pcw-head"><b>Party chat</b><button class="pcw-b" data-pcw="x" title="Close" aria-label="Close">✕</button></div><div class="pcw-body">${ptyChatInner()}</div>`;
   document.body.appendChild(w);
-  const W = innerWidth, H = innerHeight, r = w.getBoundingClientRect();
-  w.style.left = Math.min(Math.max(6, pos && pos.x != null ? pos.x : W - r.width - 24), W - r.width - 6) + 'px'; w.style.top = Math.min(Math.max(6, pos && pos.y != null ? pos.y : 90), H - 80) + 'px';
-  if (pos && pos.h) w.style.height = Math.max(260, Math.min(H - 20, pos.h)) + 'px';
+  const W = innerWidth, H = innerHeight; if (pos && pos.h) w.style.height = Math.max(260, Math.min(H - 20, pos.h)) + 'px'; if (pos && pos.w) w.style.width = Math.max(280, Math.min(W - 12, pos.w)) + 'px'; const r = w.getBoundingClientRect();
+  // opens in the bottom-right corner; after you've moved it, it stays where you put it
+  w.style.left = Math.min(Math.max(6, pos && pos.x != null ? pos.x : W - r.width - 20), W - r.width - 6) + 'px'; w.style.top = Math.min(Math.max(6, pos && pos.y != null ? pos.y : H - r.height - 20), H - 80) + 'px';
   ptyChatWire();
-  const keep = () => { const b = w.getBoundingClientRect(); try { localStorage.setItem('dnd-pcwin', JSON.stringify({ x: b.left, y: b.top, h: b.height })); } catch (e) {} };
+  const keep = () => { const b = w.getBoundingClientRect(); try { localStorage.setItem('dnd-pcwin', JSON.stringify({ x: b.left, y: b.top, h: b.height, w: b.width })); } catch (e) {} };
   new ResizeObserver(() => { clearTimeout(keep.t); keep.t = setTimeout(keep, 300); }).observe(w);
   w.addEventListener('pointerdown', e => { const hd = e.target.closest('.pcw-head'); if (!hd || e.target.closest('button')) return; e.preventDefault();
     if (isMobile()) { const y0 = e.clientY; hd.setPointerCapture(e.pointerId); const mv = ev => { w.style.transform = `translateY(${Math.max(0, ev.clientY - y0)}px)`; };
@@ -7964,7 +7966,7 @@ function ptyChatWin() {
     hd.addEventListener('pointermove', mv); hd.addEventListener('pointerup', up); });
   w.addEventListener('click', e => { const b = e.target.closest('[data-pcw]'); if (b) ptyChatDock(); });
 }
-function ptyChatPopOut() { UI.chatPop = true; if (typeof saveUI === 'function') saveUI(); render('party'); ptyChatWin(); setTimeout(() => { const i = $('#ptychat-in'); if (i) i.focus(); }, 60); }
+function ptyChatPopOut() { try { const p = JSON.parse(localStorage.getItem('dnd-pcwin') || 'null'); if (p) localStorage.setItem('dnd-pcwin', JSON.stringify({ h: p.h, w: p.w })); } catch (e) {} UI.chatPop = true; if (typeof saveUI === 'function') saveUI(); render('party'); ptyChatWin(); setTimeout(() => { const i = $('#ptychat-in'); if (i) i.focus(); }, 60); }
 function ptyChatDock() { UI.chatPop = false; if (typeof saveUI === 'function') saveUI(); const w = $('#pcwin'); if (w) w.remove(); render('party'); }
 document.addEventListener('change', e => { const t = e.target; if (!t.dataset || t.dataset.aura == null) return; ptyAura(t.dataset.aura, t.dataset.id, t.checked); });
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-pa]'); if (!b || e.target.closest('#wizard')) return; e.preventDefault();
@@ -8661,12 +8663,21 @@ let PTY_STICK = 0;
 const ptyChatAway = l => l.scrollHeight - l.scrollTop - l.clientHeight > 60;
 function ptyChatBottom() { const l = $('#ptychat-l'); if (!l) return; l.scrollTo({ top: l.scrollHeight, behavior: 'smooth' }); const j = $('#ptychat-jump'); if (j) { j.hidden = true; j.classList.remove('new'); } }
 function ptyChatJumpShow() { const l = $('#ptychat-l'), j = $('#ptychat-jump'); if (!l || !j) return; const away = ptyChatAway(l); j.hidden = !away; if (!away) j.classList.remove('new'); }
-window.onPartyChatList = () => { if (UI.chatPop && !$('#pcwin')) ptyChatWin(); const l = $('#ptychat-l'); if (!l) { if (UI.tab === 'party') render('party'); return; } const end = !ptyChatAway(l), n0 = l.children.length; l.innerHTML = ptyChatList();
+window.onPartyChatList = () => { ptyUnreadMark(); if (UI.chatPop && !$('#pcwin')) ptyChatWin(); const l = $('#ptychat-l'); if (!l) { if (UI.tab === 'party') render('party'); return; } const end = !ptyChatAway(l), n0 = l.children.length; l.innerHTML = ptyChatList();
   if (end || Date.now() - PTY_STICK < 4000) { PTY_STICK = 0; l.scrollTop = l.scrollHeight; ptyChatJumpShow(); }
   else { const j = $('#ptychat-jump'); if (j && l.children.length > n0) { j.hidden = false; j.classList.add('new'); j.firstChild.textContent = 'New messages — jump to present '; } } };
 // New party chat messages: a note in the corner (unless the chat is on screen) and a count on the Party tab until it's opened.
 let PTY_UNREAD = 0;
-function ptyUnreadMark() { const t = document.querySelector('.tab[data-tab="party"]'); if (!t) return; if (UI.tab === 'party' && !document.hidden) PTY_UNREAD = 0; t.classList.toggle('unread', PTY_UNREAD > 0); if (PTY_UNREAD > 0) t.dataset.unread = PTY_UNREAD > 9 ? '9+' : PTY_UNREAD; else delete t.dataset.unread; }
+// The chat button shows straight away on reload: whether this sheet had chat last time is remembered on this device
+// (and corrected as soon as the party has loaded).
+const PCHAT_KEY = () => 'pg-pchat:' + (S && S.id || '');
+try { if (localStorage.getItem(PCHAT_KEY()) === '1') document.documentElement.classList.add('pchat'); } catch (e) {}
+const PCHAT_T0 = Date.now();
+function ptyUnreadMark() { const P0 = PTYX(), on = !!(P0 && ptyOn() && P0.chat && P0.chat.on());
+  // shown the moment chat is there; only hidden once the page has had a few seconds to connect
+  if (on || Date.now() - PCHAT_T0 > 6000) { document.documentElement.classList.toggle('pchat', on); try { localStorage.setItem(PCHAT_KEY(), on ? '1' : '0'); } catch (e) {} }
+  { const cb = document.querySelector('.devbtn.chatbtn'); if (cb) { const n = $('#pcwin') ? 0 : PTY_UNREAD; cb.classList.toggle('unread', n > 0); if (n > 0) cb.dataset.unread = n > 9 ? '9+' : n; else delete cb.dataset.unread; } }
+  const t = document.querySelector('.tab[data-tab="party"]'); if (!t) return; if ((UI.tab === 'party' || $('#pcwin')) && !document.hidden) PTY_UNREAD = 0; t.classList.toggle('unread', PTY_UNREAD > 0); if (PTY_UNREAD > 0) t.dataset.unread = PTY_UNREAD > 9 ? '9+' : PTY_UNREAD; else delete t.dataset.unread; }
 setInterval(ptyUnreadMark, 1500); document.addEventListener('visibilitychange', ptyUnreadMark);
 window.onPartyChat = m => { const here = !document.hidden && $('#ptychat-l') && (UI.tab === 'party' || $('#pcwin')); if (here) return; PTY_UNREAD++; ptyUnreadMark(); ptyChatPop(m); };
 // A party chat message gets its own card in the corner: who sent it (their picture, in their sheet's colour), the

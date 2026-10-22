@@ -2041,6 +2041,24 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 @media (prefers-color-scheme: dark) { :where(html:not([data-pgtheme])) body.hubbody .pm-qt { background: #0f1420; border-color: #3a4560; } }
  :where(html[data-pgtheme="dark"]) body.hubbody .pm-qt { background: #0f1420; border-color: #3a4560; } 
 .pg-hublink .pg-hl-ic { width: 16px; height: 16px; vertical-align: -3px; margin-right: 5px; }
+/* Skeleton loaders */
+.sk { display: block; background: linear-gradient(90deg, rgba(127,127,127,.14) 0%, rgba(127,127,127,.26) 40%, rgba(127,127,127,.14) 80%) 0 0 / 300% 100%; border-radius: 6px; animation: skShimmer 1.3s ease-in-out infinite; }
+@keyframes skShimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
+.sk-wrap { display: flex; flex-direction: column; gap: 10px; padding: 6px 0; }
+.sk-row { display: flex; align-items: center; gap: 12px; }
+.sk-c { width: 40px; height: 40px; border-radius: 50%; flex: none; }
+.sk-sq { width: 44px; height: 44px; border-radius: 10px; flex: none; }
+.sk-lines { flex: 1; display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.sk-l1 { height: 13px; } .sk-l2 { height: 10px; }
+.sk-tag { width: 56px; height: 20px; border-radius: 999px; flex: none; }
+.sk-wrap .sk-row { padding: 10px 12px; border: 1px solid rgba(127,127,127,.18); border-radius: 12px; }
+.sk-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: 12px; }
+.sk-card { display: flex; flex-direction: column; gap: 14px; padding: 14px; border: 1px solid rgba(127,127,127,.2); border-radius: 14px; }
+.sk-hp { display: flex; align-items: center; gap: 14px; }
+.sk-ring { width: 78px; height: 78px; border-radius: 50%; flex: none; }
+.sk-bar { height: 26px; border-radius: 8px; } .sk-bar.short { width: 70%; }
+.sk-btns { display: flex; gap: 8px; } .sk-btn { flex: 1; height: 26px; border-radius: 8px; }
 </style>
 </head>
 <body>
@@ -2132,9 +2150,16 @@ function pgOnlineWhy(back) { const p = location.pathname, q = location.search, t
   if (/admin/.test(p + q)) return verb + 'the admin page';
   if (/^\/view\/|[?&]pv=/.test(p + q)) return verb + 'a shared view-only sheet';
   return verb + 'the lobby'; }
+// Skeleton loaders: grey shapes where things are about to appear (instead of the word "Loading…"). Any empty
+// <div class="sk-auto" data-k="rows|cards" data-n="5"> on the page is filled in by itself.
+const SKEL = {
+  rows: n => `<div class="sk-wrap" aria-busy="true" aria-label="Loading">${Array.from({ length: n }, (_, i) => `<div class="sk-row"><span class="sk sk-c"></span><span class="sk-lines"><span class="sk sk-l1" style="width:${[52, 38, 60, 44, 56, 41][i % 6]}%"></span><span class="sk sk-l2" style="width:${[30, 24, 36, 28, 33, 22][i % 6]}%"></span></span><span class="sk sk-tag"></span></div>`).join('')}</div>`,
+  cards: n => `<div class="sk-cards" aria-busy="true" aria-label="Loading">${Array.from({ length: n }, () => `<div class="sk-card"><div class="sk-row"><span class="sk sk-sq"></span><span class="sk-lines"><span class="sk sk-l1" style="width:55%"></span><span class="sk sk-l2" style="width:35%"></span></span></div><div class="sk-hp"><span class="sk sk-ring"></span><span class="sk-lines"><span class="sk sk-bar"></span><span class="sk sk-bar"></span><span class="sk sk-bar short"></span></span></div><div class="sk-btns"><span class="sk sk-btn"></span><span class="sk sk-btn"></span><span class="sk sk-btn"></span></div></div>`).join('')}</div>` };
+window.PG_SKEL = SKEL;
+function pgSkelFill() { document.querySelectorAll('.sk-auto:empty').forEach(el => { el.innerHTML = (SKEL[el.dataset.k] || SKEL.rows)(Number(el.dataset.n) || 5); }); }
 function pgScrollFx() { document.querySelectorAll('.pty-pick').forEach(el => { const t = el.scrollTop > 2, b = el.scrollTop + el.clientHeight < el.scrollHeight - 2; el.classList.toggle('sc-top', t); el.classList.toggle('sc-bot', b); }); }
 document.addEventListener('scroll', e => { if (e.target && e.target.classList && e.target.classList.contains('pty-pick')) pgScrollFx(); }, true);
-new MutationObserver(() => { cancelAnimationFrame(pgScrollFx.r); pgScrollFx.r = requestAnimationFrame(pgScrollFx); }).observe(document.documentElement, { childList: true, subtree: true });
+new MutationObserver(() => { pgSkelFill(); cancelAnimationFrame(pgScrollFx.r); pgScrollFx.r = requestAnimationFrame(pgScrollFx); }).observe(document.documentElement, { childList: true, subtree: true });
 function wireThemeBtn(root) { const b = root.querySelector('#hub-theme'); if (!b) return;
   // The sun's thin rays look lopsided when the button lands between two screen pixels (it does in some header rows,
   // like an admin's): nudge it onto whole pixels.
@@ -2474,7 +2499,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261021212553', ASSETS = {"data": "a/data.48cfdb40bbe4.js", "app": "a/app.47901da1f77a.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.538797dd5122.html"}; window.PG_ASSETS = ASSETS;
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261021213221', ASSETS = {"data": "a/data.48cfdb40bbe4.js", "app": "a/app.0daf72966d4d.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.580f4d58b7cf.html"}; window.PG_ASSETS = ASSETS;
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -3629,10 +3654,11 @@ function hub(fs, auth, G, ctx) {
     shared.forEach(c => { const k = NAMES[c.owner] || (c.player || '').trim() || c.owner || 'No player yet'; (groups[k] = groups[k] || []).push(c); });
     const keys = Object.keys(groups).sort((a, b) => a.localeCompare(b));
     const byName = (a, b) => (a.name || '').localeCompare(b.name || '');
+    const noList = k => { try { return !lists[k]; } catch (e) { return true; } }; // (draw can run before the lists exist)
     const sharedHTML = keys.length ? keys.map(k => { const isOpen = open[k] != null ? open[k] : true; return `<details class="hub-folder" data-k="${esc(k)}" ${isOpen ? 'open' : ''}><summary><span class="hf-caret">▸</span><span class="hf-name">${esc(k)}</span><span class="hf-n">${groups[k].length}</span></summary>
         <div class="hf-body">${groups[k].sort(byName).map(card).join('')}</div></details>`; }).join('')
-        : `<p class="hub-empty">Nothing has been shared with you yet. When another player shares a character with ${esc(EMAIL)}, it shows up here.</p>`;
-    const mineHTML = mine.length ? `<div class="hl">${mine.sort(ord).map(row).join('')}</div>` : `<p class="hub-empty">You don’t have any characters yet — create one, or ask whoever has yours to give it to you.</p>`;
+        : !SH_LOADED && noList('shared') ? SKEL.rows(3) : `<p class="hub-empty">Nothing has been shared with you yet. When another player shares a character with ${esc(EMAIL)}, it shows up here.</p>`;
+    const mineHTML = noList('mine') && !mine.length ? SKEL.rows(4) : mine.length ? `<div class="hl">${mine.sort(ord).map(row).join('')}</div>` : `<p class="hub-empty">You don’t have any characters yet — create one, or ask whoever has yours to give it to you.</p>`;
     const TABS = true;
     const idx = vi(view), pane = (k, html) => `<div class="hub-pane${idx === vi(k) ? ' on' : ' hp-off'}" data-pane="${k}">${html}</div>`, tab = (k, t, n) => `<button role="tab" class="${idx === vi(k) ? 'on' : ''}" data-view="${k}">${t} <span>${n}</span></button>`;
     const body = TABS ? `<div class="hub-track">${pane('mine', mineHTML)}${pane('parties', PMx().paneHTML())}${pane('shared', sharedHTML)}</div>` : mineHTML;
@@ -3808,7 +3834,7 @@ function hub(fs, auth, G, ctx) {
         if (kept) { curB.replaceWith(kept.b); curH.replaceWith(kept.h); PREV_TAB = TAB; nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab)); scrollTo(0, 0);
           // …and quietly brings it up to date behind the scenes
           ({ new: () => tabNew(), users: () => paintUsers(), chars: () => paintChars(), parties: () => tabParties(), audit: () => paintAudit(), notice: () => tabNotice(), welcome: () => tabWelcome(), bugs: () => paintBugs() })[TAB](); return; }
-        const nb = document.createElement('section'); nb.id = 'ad-body'; nb.className = 'adm-body'; nb.innerHTML = '<p class="adm-dim">Loading…</p>';
+        const nb = document.createElement('section'); nb.id = 'ad-body'; nb.className = 'adm-body'; nb.innerHTML = '<div class="sk-auto" data-n="6"></div>';
         const nh = document.createElement('div'); nh.id = 'adm-hact'; nh.className = 'adm-hact';
         if (again) { curB.replaceWith(nb); curH.replaceWith(nh); } else { curB.replaceWith(nb); curH.replaceWith(nh); } delete PANES[TAB]; PREV_TAB = TAB;
         nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
@@ -3821,7 +3847,7 @@ function hub(fs, auth, G, ctx) {
           <nav class="adm-nav">${navHTML}</nav>
           <div class="adm-foot adm-me">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(avaOf(ME))}<div class="adm-me-t"><b>${esc(myName())}</b><small>${esc(EMAIL)}</small><button class="linkbtn" id="adm-out">Sign out</button></div></div></aside>
         <main class="adm-main"><header class="adm-head"><div><h1>${esc(title)}</h1><p>${esc(desc)}</p></div><div class="adm-hact" id="adm-hact"></div></header>
-          <section id="ad-body" class="adm-body"><p class="adm-dim">Loading…</p></section></main></div>`;
+          <section id="ad-body" class="adm-body"><div class="sk-auto" data-n="6"></div></section></main></div>`;
       if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
       PREV_TAB = TAB;
       root.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
@@ -3902,7 +3928,7 @@ function hub(fs, auth, G, ctx) {
       el.innerHTML = `<div class="adm-filters">${toolbar('ad-uq', 'Search by name or email', UQ)}<div class="adm-fsels">
           ${fsel('uf-role', 'Role', [['', 'Anyone'], ['owner', 'Owner'], ['admin', 'Admins'], ['member', 'Members'], ['blocked', 'Blocked']], UF.role)}
           ${fsel('uf-act', 'Active', [['', 'Any time'], ['on', 'Online now'], ['1', 'Today'], ['7', 'This week'], ['30', 'This month'], ['old', 'Not in 30+ days']], UF.act)}
-          ${fsel('uf-join', 'Joined', [['', 'Any time'], ['7', 'Past week'], ['30', 'Past month']], UF.joined)}</div></div><div id="ad-ul"><p class="adm-dim">Loading…</p></div>`;
+          ${fsel('uf-join', 'Joined', [['', 'Any time'], ['7', 'Past week'], ['30', 'Past month']], UF.joined)}</div></div><div id="ad-ul"><div class="sk-auto" data-n="6"></div></div>`;
       const q = el.querySelector('#ad-uq'); let t = null; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { UQ = q.value; paintUsers(); }, 150); }; if (!UQ && !TOUCH) q.focus();
       [['uf-role', 'role'], ['uf-act', 'act'], ['uf-join', 'joined']].forEach(([id, k]) => { const sl = el.querySelector('#' + id); sl.onchange = () => { UF[k] = sl.value; sl.parentElement.classList.toggle('on', !!sl.value); paintUsers(); }; });
       if (!ULIVE) ULIVE = usersCol.limit(1000).onSnapshot(qs => { UROWS = docs(qs); UROWS.forEach(u => { US[u.id] = u; remember(u.id, u); }); if (APEOPLE) APEOPLE = UROWS.slice().sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
@@ -3929,7 +3955,7 @@ function hub(fs, auth, G, ctx) {
             <tr class="adm-subrow" data-sub="${esc(u.id)}"${open ? '' : ' hidden'}><td colspan="7"></td></tr>`; }).join('')}</tbody></table></div>`
         : `<p class="adm-empty">${UROWS.length ? 'Nobody matches these filters.' : 'No accounts yet.'}</p>`;
       const fill = async (em, cell, fresh) => { const show = cs => { cell.innerHTML = ctable(cs, false) + `<button class="adm-btn sm" data-newfor="${esc(em)}">＋ New character for ${esc(nameOf(em))}</button>`; wire(cell, () => fill(em, cell, true)); };
-        if (UCH[em] && !fresh) return show(UCH[em]); cell.innerHTML = '<p class="adm-dim">Loading…</p>';
+        if (UCH[em] && !fresh) return show(UCH[em]); cell.innerHTML = '<div class="sk-auto" data-n="6"></div>';
         try { UCH[em] = docs(await charsCol.where('owner', '==', em).limit(100).get()).sort((x, y) => (y.updatedAt || 0) - (x.updatedAt || 0)); if (cell.isConnected) show(UCH[em]); } catch (x) { cell.innerHTML = failMsg(x); } };
       l.querySelectorAll('tr.adm-subrow:not([hidden])').forEach(sub => fill(sub.dataset.sub, sub.firstElementChild));
       l.querySelectorAll('[data-uc]').forEach(b => b.onclick = () => { const em = b.dataset.uc, sub = l.querySelector(`[data-sub="${CSS.escape(em)}"]`); if (!sub) return;
@@ -4017,7 +4043,7 @@ function hub(fs, auth, G, ctx) {
     async function tabAudit() {
       const el = B(); HA().innerHTML = '';
       if (!APEOPLE) { try { APEOPLE = docs(await usersCol.limit(500).get()).sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id)); APEOPLE.forEach(u => remember(u.id, u)); } catch (e) { APEOPLE = []; } }
-      el.innerHTML = `<div class="adm-filters">${toolbar('au-q', 'Search activity, people or characters', AF.q)}<div class="adm-fsels" id="au-sels"></div></div><div id="au-l"><p class="adm-dim">Loading…</p></div>`;
+      el.innerHTML = `<div class="adm-filters">${toolbar('au-q', 'Search activity, people or characters', AF.q)}<div class="adm-fsels" id="au-sels"></div></div><div id="au-l"><div class="sk-auto" data-n="6"></div></div>`;
       paintAuSels();
       let t = null; const q = el.querySelector('#au-q');
       q.oninput = () => { clearTimeout(t); t = setTimeout(() => { AF.q = q.value; paintAudit(); }, 150); };
@@ -4137,7 +4163,7 @@ function hub(fs, auth, G, ctx) {
     let CQ = '', CROWS = [], CLIVE = null; const CF = { owner: '', share: '', upd: '' };
     async function tabChars() {
       const el = B(); HA().innerHTML = '';
-      el.innerHTML = `<div class="adm-filters">${toolbar('ad-cq', 'Search by character, race, class or player', CQ)}<div class="adm-fsels" id="cf-sels"></div></div><div id="ad-cl"><p class="adm-dim">Loading…</p></div>`;
+      el.innerHTML = `<div class="adm-filters">${toolbar('ad-cq', 'Search by character, race, class or player', CQ)}<div class="adm-fsels" id="cf-sels"></div></div><div id="ad-cl"><div class="sk-auto" data-n="6"></div></div>`;
       const q = el.querySelector('#ad-cq'); let t = null; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { CQ = q.value; paintChars(); }, 150); };
       if (!CLIVE) CLIVE = charsCol.limit(2000).onSnapshot(async qs => { CROWS = docs(qs); await needNames(CROWS.map(c => c.owner)); if (TAB === 'chars') paintChars(); if (TAB === 'new' && qs.docChanges().some(ch => ch.type !== 'modified')) newSoon(); },
         x => { const l = B().querySelector('#ad-cl'); if (l) l.innerHTML = failMsg(x); });
@@ -4252,7 +4278,7 @@ function hub(fs, auth, G, ctx) {
       Promise.all([...new Set(BROWS.map(b => b.by))].filter(em => em && !PICS[em]).map(picFor)).then(n => { if (n.length && TAB === 'bugs') paintBugs(); }); }, x => { const l = B() && B().querySelector('#bg-l'); if (l) l.innerHTML = failMsg(x); }); };
     const browserOf = ua => { ua = String(ua || ''); const b = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : ''; return [b, /iPhone|iPad|Android/.test(ua) ? 'phone' : ''].filter(Boolean).join(' · '); };
     function tabBugs() { const el = B(); HA().innerHTML = '';
-      el.innerHTML = `<div class="adm-filters"><div class="adm-fsels"><select class="adm-sel" id="bg-f" aria-label="Show"><option value="open">Open</option><option value="fixed">Fixed</option><option value="all">All</option></select></div></div><div id="bg-l"><p class="adm-dim">Loading…</p></div>`;
+      el.innerHTML = `<div class="adm-filters"><div class="adm-fsels"><select class="adm-sel" id="bg-f" aria-label="Show"><option value="open">Open</option><option value="fixed">Fixed</option><option value="all">All</option></select></div></div><div id="bg-l"><div class="sk-auto" data-n="6"></div></div>`;
       const f = el.querySelector('#bg-f'); f.value = BF; f.onchange = () => { BF = f.value; paintBugs(); }; bugsLive(); if (BROWS) paintBugs(); }
     function paintBugs() { const l = B() && B().querySelector('#bg-l'); if (!l || !BROWS) return;
       if (TAB === 'bugs') { HA().innerHTML = BUGN ? '<button class="adm-btn primary" id="bg-seen">Mark as read</button>' : ''; const sb = HA().querySelector('#bg-seen');
@@ -4495,7 +4521,7 @@ function partyModule(H) {
       return `<div class="hr" data-id="${esc(p.id)}" data-pin="0" data-party="1"><span class="hr-grip" title="Drag to reorder" aria-label="Drag to reorder">⠿</span><a class="hr-main" href="${esc(URLS.party(p.id, p.name))}">${ptyPic(p)}<span class="hc-txt"><b>${esc(p.name || 'Unnamed party')}</b><span>${esc(role)} · ${plural(n, 'character')}</span><small>${p.updatedAt ? 'Updated ' + ago(p.updatedAt) : ''}</small></span></a></div>`; }).join('');
     // An invitation opens the party's join steps (where you can also turn it down).
     const invs = inv.map(p => `<div class="hr pty-inviterow"><a class="hr-main" href="${esc(URLS.party(p.id, p.name))}">${ptyPic(p)}<span class="hc-txt"><b>${esc(p.name || 'A party')}</b><span>${esc(p.dmName || p.dm)} invited you to join</span><small>Open it to choose a character, or decline</small></span><span class="pty-invtag">Invitation</span></a></div>`).join('');
-    return `<div id="hub-parties">${invs || rows ? `<div class="hl">${invs}${rows}</div>` : LOADED ? '<p class="hub-empty">Running a game? Make a party with <b>New party</b>: you’re its DM, and you get a link to send your players. Their characters join it, and you all see each other in one place.</p>' : ''}
+    return `<div id="hub-parties">${invs || rows ? `<div class="hl">${invs}${rows}</div>` : LOADED ? '<p class="hub-empty">Running a game? Make a party with <b>New party</b>: you’re its DM, and you get a link to send your players. Their characters join it, and you all see each other in one place.</p>' : SKEL.rows(2)}
 </div>`;
   }
   const count = () => MINE.length + INVS.filter(p => !MINE.some(m => m.id === p.id)).length;
@@ -4627,7 +4653,7 @@ function partyModule(H) {
     document.title = 'Party — Adventurer’s Tome';
     const known = (pcGet(SLUGKEY) || {})[pid] || pid, cached = pcGet(PKEY(known));
     if (cached && cached.P) { PID = known; P = cached.P; CARDS = cached.cards || {}; Object.assign(LIVE, cached.live || {}); PLOADED = true; CLOADED = true; paint(); }
-    else shell({ title: 'Party', body: '<p class="hub-hint">Loading the party…</p>' });
+    else shell({ title: 'Party', body: '<div class="sk-auto" data-k="cards" data-n="4"></div><span hidden>Loading the party</span>' });
     const id = cached && cached.P ? known : await resolveParty(pid);
     if (!id) return shell({ title: 'Party', body: note('You’re not in this party', 'Only its players and DM can open it. If you were invited, the invitation is on your Parties tab.', goHub) });
     PID = id;
@@ -5050,7 +5076,7 @@ function partyModule(H) {
   }
   function adminTab(B, A) {
     const el = B(); A.HA().innerHTML = '';
-    el.innerHTML = `<div class="adm-filters">${A.toolbar('ad-pq', 'Search by party, DM or character', A.PQ.v)}</div><div id="ad-pl"><p class="adm-dim">Loading…</p></div>`;
+    el.innerHTML = `<div class="adm-filters">${A.toolbar('ad-pq', 'Search by party, DM or character', A.PQ.v)}</div><div id="ad-pl"><div class="sk-auto" data-n="6"></div></div>`;
     const q = el.querySelector('#ad-pq'); let t = null; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { A.PQ.v = q.value; adminPaint(B, A); }, 150); };
     if (!ALIVE) ALIVE = PC.limit(1000).onSnapshot(async qs => { AROWS = qs.docs.map(d => Object.assign({ id: d.id }, d.data())); await H.needNames(AROWS.map(p => p.dm)); if (A.isTab()) adminPaint(B, A); }, x => { const l = B().querySelector('#ad-pl'); if (l) l.innerHTML = A.failMsg(x); });
     else adminPaint(B, A);

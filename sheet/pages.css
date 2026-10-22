@@ -1913,3 +1913,21 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 :where(body.hubbody) .pm-qt { width: 100%; box-sizing: border-box; padding: 4px 8px; height: 28px; border-radius: 8px; border: 1px solid #d9cbaa; background: #fff; color: inherit; font: inherit; font-size: .85rem; margin-bottom: -5px; }
 @media (prefers-color-scheme: dark) { body.hubbody .pm-qt { background: #0f1420; border-color: #3a4560; } }
 .pg-hublink .pg-hl-ic { width: 16px; height: 16px; vertical-align: -3px; margin-right: 5px; }
+/* Skeleton loaders */
+.sk { display: block; background: linear-gradient(90deg, rgba(127,127,127,.14) 0%, rgba(127,127,127,.26) 40%, rgba(127,127,127,.14) 80%) 0 0 / 300% 100%; border-radius: 6px; animation: skShimmer 1.3s ease-in-out infinite; }
+@keyframes skShimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
+.sk-wrap { display: flex; flex-direction: column; gap: 10px; padding: 6px 0; }
+.sk-row { display: flex; align-items: center; gap: 12px; }
+.sk-c { width: 40px; height: 40px; border-radius: 50%; flex: none; }
+.sk-sq { width: 44px; height: 44px; border-radius: 10px; flex: none; }
+.sk-lines { flex: 1; display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.sk-l1 { height: 13px; } .sk-l2 { height: 10px; }
+.sk-tag { width: 56px; height: 20px; border-radius: 999px; flex: none; }
+.sk-wrap .sk-row { padding: 10px 12px; border: 1px solid rgba(127,127,127,.18); border-radius: 12px; }
+.sk-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: 12px; }
+.sk-card { display: flex; flex-direction: column; gap: 14px; padding: 14px; border: 1px solid rgba(127,127,127,.2); border-radius: 14px; }
+.sk-hp { display: flex; align-items: center; gap: 14px; }
+.sk-ring { width: 78px; height: 78px; border-radius: 50%; flex: none; }
+.sk-bar { height: 26px; border-radius: 8px; } .sk-bar.short { width: 70%; }
+.sk-btns { display: flex; gap: 8px; } .sk-btn { flex: 1; height: 26px; border-radius: 8px; }
