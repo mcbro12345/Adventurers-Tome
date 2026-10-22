@@ -1865,7 +1865,7 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 .to-row + .to-row { margin-top: 3px; }
 .to-row.cur { background: var(--to-cur); box-shadow: inset 4px 0 0 #c9962b; }
 .to-row.fresh .to-v { animation: toFresh 1.6s ease-out; }
-.to-pic { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; flex: none; border: 2px solid #c9962b; box-sizing: border-box; }
+.to-pic { width: 34px; height: 34px; border-radius: 8px; object-fit: cover; flex: none; border: 2px solid #c9962b; box-sizing: border-box; }
 .to-np { display: grid; place-items: center; background: #2b3245; font-size: 12px; font-weight: 700; color: #f1d58a; }
 .to-nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 15px system-ui, sans-serif; }
 .to-v { width: 46px; flex: none; text-align: right; background: transparent; color: var(--to-ink); border: 1px solid transparent; border-radius: 6px; padding: 2px 4px; font: 800 22px/1.1 system-ui, sans-serif; user-select: text; }
