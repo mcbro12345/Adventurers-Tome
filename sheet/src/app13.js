@@ -118,9 +118,9 @@ function ptyChatWin() {
   w = document.createElement('div'); w.id = 'pcwin'; w.className = 'pcwin'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Party chat');
   w.innerHTML = `<div class="pcw-head"><b>Party chat</b><button class="pcw-b" data-pcw="dock" title="Put it back in the Party tab" aria-label="Put it back in the Party tab">⇲</button><button class="pcw-b" data-pcw="x" title="Close" aria-label="Close">✕</button></div><div class="pcw-body">${ptyChatInner()}</div>`;
   document.body.appendChild(w);
-  const W = innerWidth, H = innerHeight, r = w.getBoundingClientRect();
-  w.style.left = Math.min(Math.max(6, pos && pos.x != null ? pos.x : W - r.width - 24), W - r.width - 6) + 'px'; w.style.top = Math.min(Math.max(6, pos && pos.y != null ? pos.y : 90), H - 80) + 'px';
-  if (pos && pos.h) w.style.height = Math.max(260, Math.min(H - 20, pos.h)) + 'px';
+  const W = innerWidth, H = innerHeight; if (pos && pos.h) w.style.height = Math.max(260, Math.min(H - 20, pos.h)) + 'px'; const r = w.getBoundingClientRect();
+  // opens in the bottom-right corner; after you've moved it, it stays where you put it
+  w.style.left = Math.min(Math.max(6, pos && pos.x != null ? pos.x : W - r.width - 20), W - r.width - 6) + 'px'; w.style.top = Math.min(Math.max(6, pos && pos.y != null ? pos.y : H - r.height - 20), H - 80) + 'px';
   ptyChatWire();
   const keep = () => { const b = w.getBoundingClientRect(); try { localStorage.setItem('dnd-pcwin', JSON.stringify({ x: b.left, y: b.top, h: b.height })); } catch (e) {} };
   new ResizeObserver(() => { clearTimeout(keep.t); keep.t = setTimeout(keep, 300); }).observe(w);
@@ -134,7 +134,7 @@ function ptyChatWin() {
     hd.addEventListener('pointermove', mv); hd.addEventListener('pointerup', up); });
   w.addEventListener('click', e => { const b = e.target.closest('[data-pcw]'); if (b) ptyChatDock(); });
 }
-function ptyChatPopOut() { UI.chatPop = true; if (typeof saveUI === 'function') saveUI(); render('party'); ptyChatWin(); setTimeout(() => { const i = $('#ptychat-in'); if (i) i.focus(); }, 60); }
+function ptyChatPopOut() { try { const p = JSON.parse(localStorage.getItem('dnd-pcwin') || 'null'); if (p) localStorage.setItem('dnd-pcwin', JSON.stringify({ h: p.h })); } catch (e) {} UI.chatPop = true; if (typeof saveUI === 'function') saveUI(); render('party'); ptyChatWin(); setTimeout(() => { const i = $('#ptychat-in'); if (i) i.focus(); }, 60); }
 function ptyChatDock() { UI.chatPop = false; if (typeof saveUI === 'function') saveUI(); const w = $('#pcwin'); if (w) w.remove(); render('party'); }
 document.addEventListener('change', e => { const t = e.target; if (!t.dataset || t.dataset.aura == null) return; ptyAura(t.dataset.aura, t.dataset.id, t.checked); });
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-pa]'); if (!b || e.target.closest('#wizard')) return; e.preventDefault();
