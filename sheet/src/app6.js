@@ -377,7 +377,7 @@ function raceChangeOK() {
     S.raceName = S.race.custom.name;
   } else {
     const bonus = wzRacialBonus();
-    S.race = { key: W.race, sub: W.sub, choices: {} }; S.raceName = x.name.toLowerCase().includes(x.r.name.toLowerCase()) ? x.name : x.name + ' ' + x.r.name;
+    S.race = { key: W.race, sub: W.sub, choices: {} }; S.raceName = x.name.toLowerCase().includes(x.r.name.toLowerCase()) ? x.name : x.name.replace(/\s*\([A-Z][A-Za-z]{1,5}\)$/, '') + ' ' + x.r.name;
     AB.forEach(a => { if (bonus[a]) S.abilities[a] = Math.min(30, N(S.abilities[a]) + bonus[a]); });
     const nw = raceFixed(W.race, W.sub);
     addText('languages', nw.langs); nw.skills.forEach(n => setSkill(n, 1)); addText('profTools', nw.tools);

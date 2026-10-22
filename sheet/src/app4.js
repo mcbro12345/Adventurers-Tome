@@ -577,6 +577,10 @@ function takeDamage(amt) {
     toast(`${esc(nm)} drops to 0 HP — you revert${d ? ` and take the remaining ${d}` : ''}.`, 'alert', 8000);
   }
   const before = N(hp.cur);
+  // Massive damage (PHB): damage left over after dropping to 0 that equals or beats your HP maximum kills outright.
+  if (d > 0 && d - Math.max(0, before) >= maxHp() && maxHp() > 0) { if (before > 0 && typeof ptyDeathWard === 'function' && ptyDeathWard()) { hp.cur = 1; update(); return; } hp.cur = 0; S.death.f = 3; if (!S.conditions.includes('Unconscious')) S.conditions.push('Unconscious'); update(); fxTrigger('zero');
+    toast(`<div><b>Massive damage</b><div class="det">${d - Math.max(0, before)} damage left over after 0 HP is at least ${esc(who())}'s HP maximum (${maxHp()}) — instant death. If your DM rules otherwise, clear the death save failures.</div></div>`, 'fumble', 12000);
+    if (conc) breakConc('died'); return; }
   if (before <= 0 && d > 0) { S.death.f = Math.min(3, N(S.death.f) + 1); update(); toast('Damage while at 0 HP — one death save failure (two on a crit).', 'fumble', 7000); return; }
   hp.cur = Math.max(0, before - d);
   if (hp.cur === 0 && before > 0 && typeof ptyDeathWard === 'function' && ptyDeathWard()) hp.cur = 1;
@@ -1590,7 +1594,7 @@ function shortRestChanges() {
 }
 function srListHTML() {
   const L = shortRestChanges(), spent = Object.keys(hdPools()).some(d => hdLeftOf(d) < (hdPools()[d] || 0));
-  return L.length ? `<p class="hint" style="margin:10px 0 6px">Finishing the rest will also change:</p><ul class="lrlist">${L.map(x => `<li>${x}</li>`).join('')}</ul>` : `<p class="hint" style="margin:10px 0 6px">Nothing else changes when you finish${spent ? '' : ' — no short-rest uses are spent'}.</p>`;
+  return L.length ? `<p class="hint" style="margin:10px 0 6px">Finishing the rest will also change:</p><ul class="lrlist">${L.map(x => `<li>${x}</li>`).join('')}</ul>` : `<p class="hint" style="margin:10px 0 6px">Nothing else changes when you finish${spent ? '' : ' — nothing you’ve used recharges on a short rest'}.</p>`;
 }
 // Exactly what finishLong() is about to change, worked out from the sheet as it is right now.
 function longRestChanges() {
@@ -1732,12 +1736,13 @@ function applyMode() {
 function applyTheme() {
   applyMode();
   const st = document.documentElement.style, th = S.theme || {}, dark = document.documentElement.getAttribute('data-theme') === 'dark';
-  ['--gold', '--gold-ink', '--gold-soft', '--navy', '--navy2'].forEach(v => st.removeProperty(v));
+  ['--gold', '--gold-ink', '--gold-soft', '--gold-banner', '--navy', '--navy2'].forEach(v => st.removeProperty(v));
   const a = hexToRgb(th.accent);
   st.removeProperty('--on-gold');
   if (a) { // text on the accent colour: white or dark navy, whichever is easier to read (WCAG contrast)
     const rl = c => { const v = [0, 1, 2].map(i => { const x = c[i] / 255; return x <= .03928 ? x / 12.92 : Math.pow((x + .055) / 1.055, 2.4); }); return .2126 * v[0] + .7152 * v[1] + .0722 * v[2]; }, L = rl(a);
-    st.setProperty('--on-gold', 1.05 / (L + .05) >= (L + .05) / (rl([29, 37, 54]) + .05) ? '#FFFFFF' : '#1D2536'); st.setProperty('--gold', rgbHex(a)); st.setProperty('--gold-ink', rgbHex(readableInk(a, dark))); st.setProperty('--gold-soft', rgbHex(dark ? mix(a, [20, 24, 32], 0.75) : mix(a, [255, 255, 255], 0.78))); }
+    st.setProperty('--on-gold', 1.05 / (L + .05) >= (L + .05) / (rl([29, 37, 54]) + .05) ? '#FFFFFF' : '#1D2536'); st.setProperty('--gold', rgbHex(a)); st.setProperty('--gold-ink', rgbHex(readableInk(a, dark))); st.setProperty('--gold-soft', rgbHex(dark ? mix(a, [20, 24, 32], 0.75) : mix(a, [255, 255, 255], 0.78)));
+    { let c = a; for (let k = 0; k < 10 && lumOf(c) < 0.45; k++) c = mix(c, [255, 255, 255], 0.2); st.setProperty('--gold-banner', rgbHex(c)); } } // labels on the dark banner stay readable with a dark accent
   const g = hexToRgb(th.bg);
   ['--bg', '--bg2'].forEach(v => st.removeProperty(v));
   if (g) { st.setProperty('--bg', rgbHex(dark ? mix(g, [8, 10, 16], 0.82) : g)); st.setProperty('--bg2', rgbHex(dark ? mix(g, [14, 18, 26], 0.75) : mix(g, [0, 0, 0], 0.06))); }

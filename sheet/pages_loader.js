@@ -192,6 +192,15 @@ function pgPillWire(el) { let st = null;
 // Desktop: the site's pop-ups (lobby, party page, admin) are floating windows like the dice roller and chat: a title bar
 // to drag and a ✕, with the page behind still usable.
 const pgMwDesk = () => innerWidth > 640 && !document.documentElement.classList.contains('mobile');
+// Escape closes the open pop-up window (lobby, party page, admin), the same as its ✕ / Cancel / Done, unless a menu,
+// picker or confirmation on top of it took the key first.
+document.addEventListener('keydown', e => { if (e.key !== 'Escape' || !e.isTrusted || e.defaultPrevented) return;
+  const hm = [...document.querySelectorAll('.hc-menu.on')]; if (hm.length && !document.querySelector('.pg-out')) { hm.forEach(m => m.classList.remove('on')); const d = hm[0].querySelector('.hc-dots'); if (d) d.focus(); return; }
+  if (document.querySelector('.pg-out, .au-pop, .hc-menu.on, #pgpmenu, .adm-mlist.on, .adm-mlist.closing, .pp-sug')) return;
+  const cards = [...document.querySelectorAll('.hub-modal.on > .hub-card')].filter(c => c.offsetParent); const c = cards[cards.length - 1]; if (!c) return;
+  setTimeout(() => { if (!c.isConnected || !c.closest('.hub-modal.on')) return; const x = c.querySelector(':scope > .mw-head .mw-x'); if (x) return x.click();
+    const no = c.querySelector('.pg-out-no') || [...c.querySelectorAll('button')].find(b => b.offsetParent && /^(cancel|close|not now|done|no|✕)$/i.test(b.textContent.trim()));
+    if (no) no.click(); else c.closest('.hub-modal').classList.remove('on'); }, 0); });
 function pgMwDress() { document.documentElement.classList.toggle('pgmw', pgMwDesk()); if (!pgMwDesk()) return;
   document.querySelectorAll('.hub-modal.on > .hub-card, .pg-out > .pg-out-card').forEach(c => { if (c.querySelector(':scope > .mw-head')) return;
     const h = [...c.querySelectorAll('h2, h3')].find(x => x.offsetParent && x.getBoundingClientRect().top - c.getBoundingClientRect().top < 140); const t = h ? h.textContent.trim() : '';
@@ -1434,7 +1443,7 @@ function hub(fs, auth, G, ctx) {
         pubBusy = false; paintPub(on && !!PUB); };
       const cp = box.querySelector('#sh-pub-c'); if (cp) cp.onclick = async () => { const u = box.querySelector('#sh-pub-u'); try { await navigator.clipboard.writeText(u.value); cp.textContent = 'Copied'; } catch (x) { u.select(); cp.textContent = 'Selected'; } setTimeout(() => { cp.textContent = 'Copy link'; }, 1600); }; };
     const paint = () => {
-      const html = `<h2>Share ${esc(c.name || 'this character')}</h2><p class="hub-hint">They'll find it under “Shared characters” after signing in with that email.</p>
+      const html = `<h2>Share ${esc(c.name || 'this character')}</h2><p class="hub-hint">They’ll find it under “Shared with me” after signing in with that email.</p>
         <div class="pl-list">${V.map(em => `<div class="pl-row"><span class="sh-who">${NAMES[em] ? `<b>${esc(NAMES[em])}</b> ` : ''}<span>${esc(em)}</span></span><select data-acc="${esc(em)}"><option value="view">Can view</option><option value="edit"${E.includes(em) ? ' selected' : ''}>Can edit</option></select><button class="linkbtn" data-rm="${esc(em)}">remove</button></div>`).join('') || '<p class="hub-hint">Not shared with anyone yet.</p>'}</div>
         <form id="sh-f" class="who-f pl-f sh-f"><input id="sh-e" type="email" placeholder="Their email address" autocomplete="off" required><select id="sh-a"><option value="view">Can view</option><option value="edit">Can edit</option></select><button class="btn gold">Share</button></form>
         <div class="sh-pub"></div>
@@ -1483,7 +1492,7 @@ function hub(fs, auth, G, ctx) {
 
   // Relinquish access: takes you off this character's share list — nothing else about the character changes.
   function leaveChar(c, after) {
-    modal.innerHTML = `<div class="hub-card"><h2>Relinquish access to ${esc(c.name || 'this character')}?</h2><p class="hub-hint">It's no longer shared with you, so it leaves your Shared characters. ${esc(c.player || 'Its owner')} can share it with you again.</p>
+    modal.innerHTML = `<div class="hub-card"><h2>Relinquish access to ${esc(c.name || 'this character')}?</h2><p class="hub-hint">It's no longer shared with you, so it leaves your “Shared with me” list. ${esc(c.player || 'Its owner')} can share it with you again.</p>
       <div class="row"><button class="btn ghost" id="lv-x">Cancel</button><button class="btn red" id="lv-ok">Relinquish access</button></div></div>`;
     modal.classList.add('on'); modal.querySelector('#lv-x').onclick = close;
     modal.querySelector('#lv-ok').onclick = async e => { e.target.disabled = true;

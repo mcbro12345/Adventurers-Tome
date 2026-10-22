@@ -13,7 +13,7 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.ba40061423a9.css">
+<link rel="stylesheet" href="a/sheet.5ebb1669187a.css">
 <link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:type" content="website"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="Adventurer’s Tome"><meta property="og:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:url" content="https://adventurers-tome.web.app/"><meta property="og:image" content="https://adventurers-tome.web.app/og-roll.gif?v=3"><meta property="og:image:type" content="image/gif"><meta property="og:image:width" content="800"><meta property="og:image:height" content="420"><meta property="og:image:alt" content="Adventurer’s Tome — a gold d20 rolling a natural 20"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-roll.gif?v=3"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest"><script>try{var t=localStorage.getItem("pg-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-pgtheme",t)}catch(e){}</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
@@ -1264,7 +1264,7 @@ html.pg-sheetpage.pg-al:not(.mobile) .pg-shared.placed { transition: opacity .2s
 .adm-fsel:hover { border-color: #c9962b; }
 .adm-fsel.on { border-color: #c9962b; background: rgba(201,150,43,.12); }
 .adm-fsel select option { color: #1f2a44; background: #fff; }
-@media (max-width: 860px) { .adm-fsels { width: 100%; } .adm-fsel { flex: 1 1 auto; } .adm-fsel select { max-width: none; flex: 1; } }
+@media (max-width: 860px) { .adm-fsels { width: 100%; } .adm-fsel { flex: 1 1 auto; min-width: 0; max-width: 100%; } .adm-fsel select { max-width: none; flex: 1; min-width: 0; } }
 /* Admins typing someone's email: a dropdown of matching people (names or emails) */
 .pp-sug { position: fixed; z-index: 3000; max-height: 260px; overflow: auto; padding: 5px; border-radius: 10px; border: 1px solid #e3d6b8; background: #fffaf0; box-shadow: 0 14px 34px rgba(0,0,0,.25); animation: hPopIn .12s ease; scrollbar-width: thin; }
 .pp-sug button { display: flex; flex-direction: column; align-items: flex-start; width: 100%; padding: 7px 10px; border: 0; border-radius: 7px; background: transparent; color: #1f2a44; text-align: left; cursor: pointer; font: 600 .88rem system-ui, sans-serif; }
@@ -2430,6 +2430,15 @@ function pgPillWire(el) { let st = null;
 // Desktop: the site's pop-ups (lobby, party page, admin) are floating windows like the dice roller and chat: a title bar
 // to drag and a ✕, with the page behind still usable.
 const pgMwDesk = () => innerWidth > 640 && !document.documentElement.classList.contains('mobile');
+// Escape closes the open pop-up window (lobby, party page, admin), the same as its ✕ / Cancel / Done, unless a menu,
+// picker or confirmation on top of it took the key first.
+document.addEventListener('keydown', e => { if (e.key !== 'Escape' || !e.isTrusted || e.defaultPrevented) return;
+  const hm = [...document.querySelectorAll('.hc-menu.on')]; if (hm.length && !document.querySelector('.pg-out')) { hm.forEach(m => m.classList.remove('on')); const d = hm[0].querySelector('.hc-dots'); if (d) d.focus(); return; }
+  if (document.querySelector('.pg-out, .au-pop, .hc-menu.on, #pgpmenu, .adm-mlist.on, .adm-mlist.closing, .pp-sug')) return;
+  const cards = [...document.querySelectorAll('.hub-modal.on > .hub-card')].filter(c => c.offsetParent); const c = cards[cards.length - 1]; if (!c) return;
+  setTimeout(() => { if (!c.isConnected || !c.closest('.hub-modal.on')) return; const x = c.querySelector(':scope > .mw-head .mw-x'); if (x) return x.click();
+    const no = c.querySelector('.pg-out-no') || [...c.querySelectorAll('button')].find(b => b.offsetParent && /^(cancel|close|not now|done|no|✕)$/i.test(b.textContent.trim()));
+    if (no) no.click(); else c.closest('.hub-modal').classList.remove('on'); }, 0); });
 function pgMwDress() { document.documentElement.classList.toggle('pgmw', pgMwDesk()); if (!pgMwDesk()) return;
   document.querySelectorAll('.hub-modal.on > .hub-card, .pg-out > .pg-out-card').forEach(c => { if (c.querySelector(':scope > .mw-head')) return;
     const h = [...c.querySelectorAll('h2, h3')].find(x => x.offsetParent && x.getBoundingClientRect().top - c.getBoundingClientRect().top < 140); const t = h ? h.textContent.trim() : '';
@@ -2787,7 +2796,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022100037', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.020da477e0a8.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.074a890779f2.html"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022111104', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.1838f1a5d0f0.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.ae0a4bbb17c1.html"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -3672,7 +3681,7 @@ function hub(fs, auth, G, ctx) {
         pubBusy = false; paintPub(on && !!PUB); };
       const cp = box.querySelector('#sh-pub-c'); if (cp) cp.onclick = async () => { const u = box.querySelector('#sh-pub-u'); try { await navigator.clipboard.writeText(u.value); cp.textContent = 'Copied'; } catch (x) { u.select(); cp.textContent = 'Selected'; } setTimeout(() => { cp.textContent = 'Copy link'; }, 1600); }; };
     const paint = () => {
-      const html = `<h2>Share ${esc(c.name || 'this character')}</h2><p class="hub-hint">They'll find it under “Shared characters” after signing in with that email.</p>
+      const html = `<h2>Share ${esc(c.name || 'this character')}</h2><p class="hub-hint">They’ll find it under “Shared with me” after signing in with that email.</p>
         <div class="pl-list">${V.map(em => `<div class="pl-row"><span class="sh-who">${NAMES[em] ? `<b>${esc(NAMES[em])}</b> ` : ''}<span>${esc(em)}</span></span><select data-acc="${esc(em)}"><option value="view">Can view</option><option value="edit"${E.includes(em) ? ' selected' : ''}>Can edit</option></select><button class="linkbtn" data-rm="${esc(em)}">remove</button></div>`).join('') || '<p class="hub-hint">Not shared with anyone yet.</p>'}</div>
         <form id="sh-f" class="who-f pl-f sh-f"><input id="sh-e" type="email" placeholder="Their email address" autocomplete="off" required><select id="sh-a"><option value="view">Can view</option><option value="edit">Can edit</option></select><button class="btn gold">Share</button></form>
         <div class="sh-pub"></div>
@@ -3721,7 +3730,7 @@ function hub(fs, auth, G, ctx) {
 
   // Relinquish access: takes you off this character's share list — nothing else about the character changes.
   function leaveChar(c, after) {
-    modal.innerHTML = `<div class="hub-card"><h2>Relinquish access to ${esc(c.name || 'this character')}?</h2><p class="hub-hint">It's no longer shared with you, so it leaves your Shared characters. ${esc(c.player || 'Its owner')} can share it with you again.</p>
+    modal.innerHTML = `<div class="hub-card"><h2>Relinquish access to ${esc(c.name || 'this character')}?</h2><p class="hub-hint">It's no longer shared with you, so it leaves your “Shared with me” list. ${esc(c.player || 'Its owner')} can share it with you again.</p>
       <div class="row"><button class="btn ghost" id="lv-x">Cancel</button><button class="btn red" id="lv-ok">Relinquish access</button></div></div>`;
     modal.classList.add('on'); modal.querySelector('#lv-x').onclick = close;
     modal.querySelector('#lv-ok').onclick = async e => { e.target.disabled = true;

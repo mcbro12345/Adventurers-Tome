@@ -139,7 +139,7 @@ function pactsChosen(ctx) {
 function choiceOptions(def, ctx) {
   const skills = DND.skills.map(s => s[0]);
   switch (def.type) {
-    case 'skill': return (def.from === 'any' || !def.from ? skills : def.from).map(x => [x, x]);
+    case 'skill': { const k = knownSkills(); return (def.from === 'any' || !def.from ? skills : def.from).map(x => [x, x, k.has(x.toLowerCase()) ? '(you already have it)' : '']); }
     case 'expertise': return (Array.isArray(def.from) ? def.from : skills.concat(["Thieves' tools"])).map(x => [x, x]);
     case 'element': return ['acid', 'cold', 'fire', 'lightning', 'thunder'].map(x => [x, x[0].toUpperCase() + x.slice(1)]);
     case 'language': { const k = knownLangs(); return ALL_LANGS().map(x => [x, x, k.has(x.toLowerCase()) ? '(you already speak it)' : '']); }
@@ -171,7 +171,7 @@ function choiceUI(CH, id, def, ctx) {
   const langNames = new Set(ALL_LANGS());
   const langOthers = k => Object.entries(CH).filter(([kk]) => kk !== id).flatMap(([, v]) => [].concat(v || [])).concat(cur.filter((x, j) => j !== k)).map(x => String(x || '').replace(/^Language: /, '')).filter(x => langNames.has(x));
   const isLang = def.type === 'language' || def.orLang;
-  for (let k = 0; k < n; k++) h += `<select class="f" data-ch="${id}" data-k="${k}"><option value="">— choose —</option>${opts.map(([v, t, no]) => { const lv = isLang && String(v).replace(/^Language: /, ''); const dup = DND.options[def.type] ? others(k).includes(v) : isLang && langNames.has(lv) && langOthers(k).includes(lv); if (cur[k] === v && no) bad.push(`${v} ${no}`); return `<option value="${esc(v)}"${cur[k] === v ? ' selected' : ''}${(no || dup) && cur[k] !== v ? ' disabled' : ''}>${esc(t)}${no ? ' — ' + esc(no) : dup ? ' — already taken' : ''}</option>`; }).join('')}</select>`;
+  for (let k = 0; k < n; k++) h += `<select class="f" data-ch="${id}" data-k="${k}"><option value="">— choose —</option>${opts.map(([v, t, no]) => { const lv = isLang && String(v).replace(/^Language: /, ''); const dup = DND.options[def.type] ? others(k).includes(v) : def.type === 'skill' ? Object.entries(CH).filter(([kk]) => kk !== id && /skill$/.test(kk)).flatMap(([, x]) => [].concat(x || [])).concat(cur.filter((x, j) => j !== k)).includes(v) : isLang && langNames.has(lv) && langOthers(k).includes(lv); if (cur[k] === v && no) bad.push(`${v} ${no}`); return `<option value="${esc(v)}"${cur[k] === v ? ' selected' : ''}${(no || dup) && cur[k] !== v ? ' disabled' : ''}>${esc(t)}${no ? ' — ' + esc(no) : dup ? ' — already taken' : ''}</option>`; }).join('')}</select>`;
   h += '</div>' + (bad.length ? `<p class="warn sm">${esc(bad.join('; '))}.</p>` : '');
   if (def.type === 'feat') for (let k = 0; k < n; k++) if (cur[k]) h += featSubUI(CH, id + '.f' + k, cur[k]);
   if (DND.options[def.type]) for (let k = 0; k < n; k++) { const e = cur[k] && DND.options[def.type].list.find(x => x[0] === cur[k]); const g = e && e[3] && e[3].grant; if (g) h += `<div class="featsub">${g.map((gd, j) => choiceUI(CH, `${id}.g${k}.${j}`, gd, ctx)).join('')}</div>`; }
@@ -574,6 +574,10 @@ function wzUnanswered() {
     if (d.def.type === 'asiOrFeat') { if (!asiDone(W.ans, d.id)) out.push({ label: `${CL[d.cls].name} level ${d.lvl}: Ability Score Improvement or feat`, step: 5 }); return; }
     if (ansList(W.ans, d.id).length < (d.def.n || 1)) out.push({ label: d.def.label || choiceLabel(d.def), step: 5 });
   });
+  // Spells: fewer cantrips or spells than the class gets
+  try { wzSpellPlan().forEach(p => { const ch = W.spells[p.key] || [], nC = ch.filter(n => (SPI(n) || {}).level === 0).length, nS = ch.length - nC, target = p.book ? p.book : p.lim;
+    if (p.cant && nC < p.cant) out.push({ label: `${p.name} cantrips (${nC} of ${p.cant})`, step: 6 });
+    if (target && p.maxL && nS < target) out.push({ label: `${p.name} ${p.book ? 'spellbook spells' : p.cd.prepared ? 'prepared spells' : 'spells known'} (${nS} of ${target})`, step: 6 }); }); } catch (e) {}
   return out;
 }
 // Scores after ASIs and half-feats picked in the wizard.
@@ -583,6 +587,13 @@ function wzFinalScores(sc) {
     if (c[0] === 'one') bump(c[1], 2); else if (c[0] === 'two') { bump(c[1], 1); bump(c[2], 1); }
     else if (c[0] === 'feat') { const n = ansList(W.ans, d.id + '.feat')[0], ft = n && DND.feats.find(x => x[0] === n), e = (ft && ft[4]) || {}; if (e.asiFixed) Object.entries(e.asiFixed).forEach(([a, v]) => bump(a, v)); featSubDefs(n || '').forEach((sd, k) => { if (sd.type === 'asi') ansList(W.ans, d.id + '.feat.f0.' + k).forEach(a => bump(a, 1)); }); } });
   return o;
+}
+// Skills you already have: on the sheet, or (in creation) the fixed ones from your race and background.
+function knownSkills() {
+  const out = new Set();
+  try { if (W && $('#wizard').classList.contains('open')) { const x = wzRace(); if (x) (x.r.skills || []).concat(x.s.skills || []).forEach(n => out.add(String(n).toLowerCase())); const b = DND.backgrounds[W.bg]; if (b) (b.skills || []).forEach(n => out.add(String(n).toLowerCase())); }
+    else (S.skills || []).forEach(s => { if (N(s.prof) >= 1) out.add(String(s.name).toLowerCase()); }); } catch (e) {}
+  return out;
 }
 // Languages you already have: on the sheet, or (in creation) from your race and class.
 function wzRaceLangs() { const x = wzRace(); if (!x) return []; return [...new Set((x.r.languages || []).concat(x.s.languages || []))]; }
@@ -745,8 +756,8 @@ function renderWizard() {
     wzClassChoiceDefs().forEach(d => { const op = DND.options[d.def.type]; if (!op) return; const r = W.classes.find(x => x.key === d.cls) || {}; (W.ans[d.id] || []).forEach(v => { const e = op.list.find(x => x[0] === v); const no = e && optPrereq(e[2], { CH: W.ans, cls: d.cls, level: N(r.level), sub: r.sub }); if (no) probs.push(`${v} ${no}`); }); });
     body = `<div class="wz-review"><p><b>${esc(W.name || 'Unnamed hero')}</b> — ${esc(x ? x.name : '?')} ${esc(wzClassRows().map(r => CL[r.key].name + ' ' + r.level + (r.sub ? ' (' + CL[r.key].subclasses[r.sub].name + ')' : '')).join(' / '))}${b ? ' · ' + esc(b.name) : ''}</p>
       <div class="abrow">${(() => { const fin = wzFinalScores(sc); return AB.map(a => `<span><span class="lbl">${AB3[a]}</span><b>${fin[a]}</b> ${fmt(Math.floor((fin[a] - 10) / 2))}${fin[a] !== sc[a] ? `<small class="hint"> (${sc[a]} +${fin[a] - sc[a]})</small>` : ''}</span>`).join(''); })()}</div>
-      ${todo.length ? `<div class="wz-todo"><b>Still to choose:</b><ul>${todo.map(t => `<li>${esc(t.label)} <button class="linkbtn" data-wact="go" data-v="${t.step}">Choose</button></li>`).join('')}</ul><span class="hint">You can create now and finish these later from <b>Settings → Unfinished choices</b>.</span></div>` : ''}
-      ${probs.length ? `<p class="warn">${probs.map(esc).join(' · ')}</p>` : '<p>Everything is set. You can change anything later — scores, skills, spells and items are all editable on the sheet.</p>'}
+      ${todo.length ? `<div class="wz-todo"><b>Still to choose:</b><ul>${todo.map(t => `<li>${esc(t.label)} <button class="linkbtn" data-wact="go" data-v="${t.step}">Choose</button></li>`).join('')}</ul><span class="hint">You can create now and finish these later ${todo.every(t => t.step === 6) ? 'from the <b>Spells</b> tab' : todo.some(t => t.step === 6) ? 'from the <b>Spells</b> tab and <b>Settings → Unfinished choices</b>' : 'from <b>Settings → Unfinished choices</b>'}.</span></div>` : ''}
+      ${probs.length ? `<p class="warn">${probs.map(esc).join(' · ')}</p>` : todo.length ? '' : '<p>Everything is set. You can change anything later — scores, skills, spells and items are all editable on the sheet.</p>'}
       <p class="hint">Scores include racial bonuses, Ability Score Improvements and half-feats.</p></div>`;
   }
   $('#wizard').innerHTML = `<div class="wz-box">${typeof window.wzHeader === 'function' ? window.wzHeader() : ''}<div class="wz-head"><h2>Create your character</h2><div class="wz-steps">${WSTEPS.map((t, i) => `<button class="wz-step${i === st ? ' on' : ''}${i < st ? ' done' : ''}" data-wact="go" data-v="${i}" aria-label="Step ${i + 1}: ${t}">${i + 1}. ${t}</button>`).join('')}</div><div class="wz-now">Step ${st + 1} of ${WSTEPS.length}<b>${WSTEPS[st]}</b></div></div>
@@ -856,7 +867,7 @@ function buildCharacter() {
   S = migrate(Object.assign(blankState(), { dataRev: EMBED.dataRev || '', layout: S.layout || {} }));
   S.sources = W.sources.slice();
   S.id = uid(); S.name = W.name.trim() || 'Unnamed Hero'; S.player = W.player; S.alignment = W.alignment; S.portrait = W.portrait;
-  S.race = { key: W.race, sub: W.sub, choices: {} }; S.raceName = x.name.toLowerCase().includes(x.r.name.toLowerCase()) ? x.name : x.name + ' ' + x.r.name;
+  S.race = { key: W.race, sub: W.sub, choices: {} }; S.raceName = x.name.toLowerCase().includes(x.r.name.toLowerCase()) ? x.name : x.name.replace(/\s*\([A-Z][A-Za-z]{1,5}\)$/, '') + ' ' + x.r.name;
   S.classes = rows.map(r => ({ key: r.key, level: N(r.level), sub: N(r.level) >= CL[r.key].sub.level ? r.sub : '' }));
   AB.forEach(a => S.abilities[a] = sc[a]);
   const c0 = CL[rows[0].key];

@@ -2665,7 +2665,7 @@ html.mobile .advb { font-size: .8rem; padding: 6px 12px; }
 
 .tile.condtile { container-type: inline-size; }
 .advb .as { display: none; }
-@container (max-width: 330px) { .advb .al { display: none; } .advb .as { display: inline; } }
+@container (max-width: 372px) { .advb .al { display: none; } .advb .as { display: inline; } }
 
 .sarow { flex-wrap: nowrap !important; }
 .sadotw .hint { white-space: nowrap; display: inline-block; min-width: 7.2em; }
@@ -4049,4 +4049,55 @@ html:not(.mobile) .ident.noid .namebox { align-self: flex-end; }
 html:not(.mobile) .ident.noid .subtitle { margin-bottom: -4px; }
 /* The info button on condition chips sits dead centre on the chip */
 .cchip .notetip { display: inline-flex !important; align-items: center; justify-content: center; align-self: center; width: 16px; height: 16px; padding: 0; margin: 0 0 0 3px; line-height: 16px; vertical-align: middle; }
+/* Condition chips: the word sits on the chip's centre line (capital letters centred), with the icons kept centred too */
+.cchip > .ccn { position: relative; top: 1px; }
+/* Phones: the sheet's corner icons sit a little higher, clear of the name and subtitle */
+html.mobile #sec-header .devbtn { top: 3px !important; }
+/* Window titles: bigger, and tall enough that letters like g and y aren't clipped */
+html.mwin .mw-head b { font-size: 1.15rem !important; line-height: 1.4 !important; padding-bottom: 1px; }
+/* Header with the identity fields off: smaller portrait (sized in app2.js to the name block) and less space above */
+html:not(.mobile) .banner .wrap:has(.ident.noid) { padding-top: 10px; padding-bottom: 12px; }
+html:not(.mobile) #sec-header:has(> .ident.noid) .portrait-wrap { transition: none; }
+/* Spellcasting panel: one clean block per class (name, ability, button) with a meter for prepared spells and cantrips */
+.scx-panel .scx-list { gap: 0; }
+.scx { border: 0; border-radius: 0; background: transparent; padding: 4px 2px 12px; gap: 10px; }
+.scx + .scx { border-top: 1px solid var(--line); padding-top: 12px; }
+.scx-h { align-items: center; gap: 8px; min-height: 30px; }
+.scx-h b { font-size: 1.05rem; }
+.scx-h small { padding: 2px 7px; border-radius: 999px; background: var(--gold-soft); color: var(--gold-ink); font-size: .66rem; letter-spacing: .08em; }
+.scx-h .scx-b { margin-left: auto; display: flex; gap: 6px; flex-wrap: nowrap; }
+.scx-h .scx-b .btn { flex: none; padding: 5px 14px; }
+.scx-go { background: transparent; border: 1px solid var(--gold); color: var(--gold-ink); font-weight: 700; }
+@media (hover:hover){:where(html:not(.mobile)) .scx-go:hover{ background: var(--gold); color: var(--on-gold, #fff); }}
+.scx-m { display: flex; flex-direction: column; gap: 5px; }
+.scx-mr { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.scx-mr span { font-size: .72rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--soft); }
+.scx-mr b { font-size: 1rem; font-variant-numeric: tabular-nums; }
+.scx-bar { height: 6px; border-radius: 999px; background: var(--field); border: 1px solid var(--line); overflow: hidden; }
+.scx-bar i { display: block; height: 100%; width: calc(var(--p, 0) * 100%); background: var(--gold); border-radius: inherit; transition: width .25s ease; }
+.scx-m.full .scx-bar i { background: #3c9d6b; }
+.scx-m.over .scx-bar i { background: var(--red); } .scx-m.over .scx-mr b { color: var(--red); }
+/* Rest buttons: the words' capitals sit on the same centre line as the icon */
+.btn.rest .rl { position: relative; top: 1px; }
+.btn.rest .ri { position: relative; top: 0; }
+/* "On my next hit" options (Divine Smite, Hand of Harm): a tidy row with a switch instead of a big checkbox card */
+.smite-chk { gap: 10px; padding: 8px 10px; border-radius: 10px; background: transparent; border: 1px dashed var(--line2, var(--line)); transition: border-color .15s, background .15s; }
+@media (hover:hover){:where(html:not(.mobile)) .smite-chk:hover{ border-color: var(--gold); }}
+.smite-chk span { flex: 1; gap: 1px; }
+.smite-chk b { font-size: .86rem; font-weight: 700; }
+.smite-chk small { font-size: .72rem; line-height: 1.3; }
+.smite-chk input { order: 3; appearance: none; -webkit-appearance: none; width: 34px; height: 20px; border-radius: 999px; background: var(--field); border: 1px solid var(--line2, var(--line)); position: relative; cursor: pointer; transition: background .15s, border-color .15s; }
+.smite-chk input::before { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--soft); transition: transform .18s ease, background .15s; }
+.smite-chk input:checked { background: var(--gold); border-color: var(--gold); }
+.smite-chk input:checked::before { transform: translateX(14px); background: var(--on-gold, #fff); }
+.smite-chk input:disabled { opacity: .45; cursor: not-allowed; }
+.smite-chk input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.smite-chk.on { border-style: solid; border-color: var(--gold); background: var(--gold-soft); }
+.smite-chk .sm-cost { order: 2; flex: none; font-style: normal; font-size: .68rem; font-weight: 700; letter-spacing: .03em; padding: 2px 8px; border-radius: 999px; background: var(--field); color: var(--soft); white-space: nowrap; }
+.smite-chk .sm-cost.none { color: var(--red); }
+.smite-chk { border-style: solid; background: var(--panel2); }
+.smite-chk:has(input:checked) { border-color: var(--gold); background: var(--gold-soft); }
+
+/* Labels on the dark banner: a dark accent colour is lightened so it stays readable */
+.banner .lbl { color: var(--gold-banner, var(--gold)); }
 

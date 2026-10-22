@@ -1198,7 +1198,7 @@ html.pg-sheetpage.pg-al:not(.mobile) .pg-shared.placed { transition: opacity .2s
 .adm-fsel:hover { border-color: #c9962b; }
 .adm-fsel.on { border-color: #c9962b; background: rgba(201,150,43,.12); }
 .adm-fsel select option { color: #1f2a44; background: #fff; }
-@media (max-width: 860px) { .adm-fsels { width: 100%; } .adm-fsel { flex: 1 1 auto; } .adm-fsel select { max-width: none; flex: 1; } }
+@media (max-width: 860px) { .adm-fsels { width: 100%; } .adm-fsel { flex: 1 1 auto; min-width: 0; max-width: 100%; } .adm-fsel select { max-width: none; flex: 1; min-width: 0; } }
 /* Admins typing someone's email: a dropdown of matching people (names or emails) */
 .pp-sug { position: fixed; z-index: 3000; max-height: 260px; overflow: auto; padding: 5px; border-radius: 10px; border: 1px solid #e3d6b8; background: #fffaf0; box-shadow: 0 14px 34px rgba(0,0,0,.25); animation: hPopIn .12s ease; scrollbar-width: thin; }
 .pp-sug button { display: flex; flex-direction: column; align-items: flex-start; width: 100%; padding: 7px 10px; border: 0; border-radius: 7px; background: transparent; color: #1f2a44; text-align: left; cursor: pointer; font: 600 .88rem system-ui, sans-serif; }

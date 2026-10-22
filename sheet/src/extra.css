@@ -3428,3 +3428,6 @@ html:not(.mobile) #sec-header:has(> .ident.noid) .portrait-wrap { transition: no
 .smite-chk .sm-cost.none { color: var(--red); }
 .smite-chk { border-style: solid; background: var(--panel2); }
 .smite-chk:has(input:checked) { border-color: var(--gold); background: var(--gold-soft); }
+
+/* Labels on the dark banner: a dark accent colour is lightened so it stays readable */
+.banner .lbl { color: var(--gold-banner, var(--gold)); }
