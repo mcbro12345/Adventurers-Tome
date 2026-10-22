@@ -2894,3 +2894,35 @@ html.mobile.hasbug.realphone .devbtn.logbtn, html.mobile.hasbug.pg-inphone .devb
 .ptyc-t { font-size: .92rem; overflow-wrap: anywhere; white-space: pre-wrap; }
 .ptychat-f { display: flex; gap: 8px; margin-top: 8px; }
 .ptychat-f .f { flex: 1; min-width: 0; }
+
+/* Dice roller window (in the style of Roll20's) */
+.drwin { position: fixed; z-index: 9000; width: 300px; background: #2b2b2e; color: #eee; border: 1px solid #47474d; border-radius: 10px; box-shadow: 0 18px 44px rgba(0,0,0,.5); font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; user-select: none; }
+.drwin.drag { opacity: .95; }
+.dr-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #1f1f22; border-bottom: 1px solid #47474d; border-radius: 10px 10px 0 0; cursor: grab; touch-action: none; }
+.dr-head b { flex: 1; font-size: .9rem; letter-spacing: .02em; }
+.dr-grip { color: #8a8a93; }
+.dr-x { width: 26px; height: 26px; border-radius: 6px; border: 0; background: transparent; color: #bbb; cursor: pointer; font-size: .9rem; }
+.dr-x:hover { background: #3a3a40; color: #fff; }
+.dr-dice { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 10px; }
+.dr-die { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0 6px; border-radius: 8px; border: 1px solid #47474d; background: #34343a; color: #eee; cursor: pointer; font: 700 .78rem system-ui, sans-serif; }
+.dr-die svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
+.dr-die:hover { border-color: #e10085; }
+.dr-die.on { border-color: #e10085; background: #3d2a36; color: #ff5cb8; }
+.dr-die em { position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 5px; box-sizing: border-box; border-radius: 10px; background: #e10085; color: #fff; font: 800 .72rem/20px system-ui, sans-serif; font-style: normal; text-align: center; }
+.dr-row { display: flex; gap: 8px; padding: 0 10px 8px; align-items: center; }
+.dr-mod { display: flex; align-items: center; border: 1px solid #47474d; border-radius: 8px; overflow: hidden; }
+.dr-mod button { width: 30px; height: 30px; border: 0; background: #34343a; color: #eee; cursor: pointer; font-size: 1rem; }
+.dr-mod b { min-width: 38px; text-align: center; font-size: .9rem; }
+.dr-adv { flex: 1; display: flex; border: 1px solid #47474d; border-radius: 8px; overflow: hidden; }
+.dr-adv button { flex: 1; height: 30px; border: 0; background: #34343a; color: #ccc; cursor: pointer; font: 700 .74rem system-ui, sans-serif; }
+.dr-adv button + button { border-left: 1px solid #47474d; }
+.dr-adv button.on { background: #e10085; color: #fff; }
+.dr-adv button:disabled { opacity: .45; cursor: default; }
+.dr-f { display: block; width: calc(100% - 20px); box-sizing: border-box; margin: 0 10px 8px; padding: 8px 10px; border-radius: 8px; border: 1px solid #47474d; background: #1f1f22; color: #fff; font: 600 .95rem ui-monospace, Menlo, monospace; user-select: text; }
+.dr-act { display: flex; gap: 8px; padding: 0 10px 10px; }
+.dr-clear { padding: 9px 14px; border-radius: 8px; border: 1px solid #47474d; background: transparent; color: #ccc; cursor: pointer; font: 700 .85rem system-ui, sans-serif; }
+.dr-roll { flex: 1; padding: 9px 14px; border-radius: 8px; border: 0; background: #e10085; color: #fff; cursor: pointer; font: 800 .95rem system-ui, sans-serif; letter-spacing: .03em; }
+.dr-roll:hover { background: #ff1a9a; }
+.dr-last { display: flex; flex-wrap: wrap; gap: 5px; padding: 8px 10px 10px; border-top: 1px solid #47474d; }
+.dr-last button { padding: 3px 8px; border-radius: 6px; border: 1px solid #47474d; background: #34343a; color: #ddd; cursor: pointer; font: 600 .74rem ui-monospace, Menlo, monospace; }
+html.mobile .drwin { width: min(320px, calc(100vw - 16px)); }

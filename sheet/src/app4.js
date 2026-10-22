@@ -317,6 +317,7 @@ function mainClick(e) {
     case 'tablift': try { localStorage.setItem('dnd-tablift', String(Math.max(0, Math.min(160, tabLift() + N(b.dataset.d))))); } catch (e) {} applyTabLift(); { const v = b.parentNode.querySelector('b'); if (v) v.textContent = tabLift(); } break;
     case 'settab': switchSetTab(b.dataset.k); break;
     case 'opensettings': openSettings(b.dataset.tab === 'class' ? 'char' : b.dataset.tab); pendingLabel = null; return;
+    case 'diceroller': diceRoller(); return;
     case 'rolllog': openRollLog(); break;
     case 'bugreport': if (window.pgBugReport) window.pgBugReport(); else { const a = document.createElement('a'); a.href = '#contact'; document.body.appendChild(a); a.click(); a.remove(); } break;
     case 'clearlog': if (UI.logTab === 'events') { EVLOG = []; saveEvLog(); } else { ROLLLOG = []; saveRollLog(); } openRollLog(); break;
@@ -373,7 +374,10 @@ function doRoll(key) {
   if (k === 'mod') return d20(ABN[a] + ' check', mod(a), 'check', a, [abRow(a)]);
   if (k === 'save') return d20(ABN[a] + ' save', saveVal(a), 'save', a, calcRowsOf('save:' + a));
   if (k === 'skill') { const s = S.skills[a]; ROLL_CTX = 'skill:' + s.name; try { return d20(s.name + (s.note ? ' — ' + s.note : ''), skillVal(s), 'check', s.ab, calcRowsOf('skill:' + a)); } finally { ROLL_CTX = ''; } }
-  if (k === 'init') { ROLL_CTX = 'init'; try { fxTrigger('initiative'); save(); return d20('Initiative', initVal(), 'check', 'dex', calcRowsOf('init')); } finally { ROLL_CTX = ''; } }
+  if (k === 'init') { ROLL_CTX = 'init'; try { fxTrigger('initiative'); save(); const r = d20('Initiative', initVal(), 'check', 'dex', calcRowsOf('init'));
+    // in a party, the DM's turn order gets it (when the sheet or Roll20 rolls; with your own dice you tell the DM)
+    if (r && !r.skipped && window.PG_PARTY && PG_PARTY.on() && PG_PARTY.init && ['sheet', 'roll20', 'remote'].includes(diceMode())) PG_PARTY.init(r.total);
+    return r; } finally { ROLL_CTX = ''; } }
   if (k === 'spellatk') return d20(clsName(a) + ' spell attack', castInfo(a).atk, 'attack', null, calcRowsOf('satk:' + a));
   if (k === 'atk') { const at = S.attacks[a], note = spendAmmo(at); if (note === null) return; if (note) { pendingLabel = 'Fire ' + at.name; update(); } ATK_ITEM = { id: at.item || '', weapon: !at.effect || !!at.weaponLike }; try { return d20(at.name + ' attack' + (note ? ' · ' + note : ''), atkHit(at), 'attack', null, atkHitRows(at)); } finally { ATK_ITEM = null; } }
   if (k === 'dmg') { const at = S.attacks[a]; const m = atkDmgMod(at); return roll(at.name + ' damage' + (at.type ? ' (' + at.type + ')' : ''), (atkDice(at) || '0') + (m ? sgn(m) : ''), '', atkDmgRows(at)); }

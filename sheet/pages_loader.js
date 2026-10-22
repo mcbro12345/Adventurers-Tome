@@ -869,6 +869,8 @@ function wireDie(root) {
       if (!chatFirst) qs.docChanges().forEach(ch => { if (ch.type === 'added' && ch.doc.data().by !== EMAIL && window.onPartyChat) { try { window.onPartyChat(ch.doc.data()); } catch (e) {} } });
       chatFirst = false; if (window.onPartyChatList) { try { window.onPartyChatList(); } catch (e) {} } }, () => { CHAT = []; }); }
   window.PG_PARTY = {
+    // an initiative roll goes to the DM's turn order (picked up even when it isn't open)
+    init: v => { if (!PTY || PTY.loading || PTY.seeded || role() === 'view') return Promise.resolve(); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} return PCOL.doc(PTY.id).collection('init').doc(C).set({ v: Number(v) || 0, at: Date.now(), n: String(nm).slice(0, 120) }).catch(() => {}); },
     chat: { on: () => !!unChat, list: () => CHAT.filter(m => Number(m.at) > Date.now() - CHAT_TTL), mine: m => m.by === EMAIL,
       send: t => { t = String(t || '').trim().slice(0, 1000); if (!t || !unChat) return Promise.reject(new Error('Not in the chat')); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {}
         return PCOL.doc(chatPid).collection('chat').add({ at: Date.now(), by: EMAIL, c: C, n: String(nm || 'Someone').slice(0, 120), t }); } },
@@ -2543,7 +2545,7 @@ function partyModule(H) {
     const invited = run && (P.invited || []).length ? `<h4 class="pw-h4">Invited</h4><div class="pl-list">${P.invited.map(em => `<div class="pl-row pty-invrow"><span class="pty-invwho"><b>${esc(H.nameOf(em))}</b><small>${H.nameOf(em) !== em ? esc(em) + ' · ' : ''}hasn’t answered yet</small></span><button class="linkbtn" data-uninv="${esc(em)}">Cancel</button></div>`).join('')}</div>` : '';
     const body = `${adminNote}
       ${ids.length ? `<div class="pm-grid">${ids.map(memberCard).join('')}</div>` : `<p class="pw-empty">No characters yet.${P.dm === EMAIL ? ' Use <b>Add characters</b> to bring some in.' : ''}</p>`}${invited}`;
-    const foot = run ? `${P.dm === EMAIL ? '<button class="btn red" id="pt-del"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg><span class="pw-lg">Delete party…</span><span class="pw-sm">Delete</span></button>' : ''}<span class="grow"></span>${P.dm === EMAIL ? '<button class="btn" id="pt-add"><span class="pw-lg">Add characters</span><span class="pw-sm">Add</span></button>' : ''}${ids.length && actor() ? '<button class="btn gold" id="pt-all"><span class="pw-lg">Party actions…</span><span class="pw-sm">Actions</span></button>' : ''}`
+    const foot = run ? `${P.dm === EMAIL ? '<button class="btn red" id="pt-del"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg><span class="pw-lg">Delete party…</span><span class="pw-sm">Delete</span></button>' : ''}<span class="grow"></span>${P.dm === EMAIL ? '<button class="btn" id="pt-add"><span class="pw-lg">Add characters</span><span class="pw-sm">Add</span></button>' : ''}${ids.length && actor() ? '<button class="btn" id="pt-turn" title="Initiative tracker"><span class="pw-lg">Turn order</span><span class="pw-sm">Turns</span></button>' : ''}${ids.length && actor() ? '<button class="btn gold" id="pt-all"><span class="pw-lg">Party actions…</span><span class="pw-sm">Actions</span></button>' : ''}`
       : mineIn.length ? `<button class="btn" id="pt-leave">Leave the party</button><span class="grow"></span>` : inParty ? '<button class="btn" id="pt-off">Remove it from my list</button>' : '';
     const el = shell({ title, sub, body, foot, inBody: true, noReady: true });
     wirePage(el); if (window.pgReady && (CLOADED || ids.length === 0)) window.pgReady();
@@ -2638,12 +2640,76 @@ function partyModule(H) {
     pgLog('party_add', { target: p.id, tName: p.name, detail: c.name || c.id });
   }
   const fail = (x, what) => toast(x && x.code === 'permission-denied' ? 'You can’t do that in this party.' : 'Couldn’t ' + what + ': ' + ((x && x.message) || x));
+  // ----- Turn order: the DM's initiative tracker, a small window like Roll20's. Every character in the party is in it;
+  // the DM types the numbers, or they fill in by themselves when a player rolls initiative on their sheet (any dice mode
+  // where the sheet sees the total). Kept on this device per party; the top row is whose turn it is. -----
+  const TKEY = () => 'pg-turn:' + PID;
+  let TO = null, unI = null, INIT = {};
+  const toLoad = () => { let t = null; try { t = JSON.parse(localStorage.getItem(TKEY()) || 'null'); } catch (e) {} t = t && typeof t === 'object' ? t : {};
+    return { rows: Array.isArray(t.rows) ? t.rows : [], round: Number(t.round) || 1, cut: Number(t.cut) || 0, x: t.x, y: t.y, open: !!t.open }; };
+  const toSave = () => { if (!TO) return; try { localStorage.setItem(TKEY(), JSON.stringify(TO)); } catch (e) {} };
+  // Brings the list in line with the party: new characters added (at the bottom), departed ones dropped; fills rolls.
+  function toSync() {
+    if (!TO || !P) return false; let ch = false; const ids = P.chars || [];
+    TO.rows = TO.rows.filter(r => { const keep = r.custom || ids.includes(r.id); if (!keep) ch = true; return keep; });
+    ids.forEach(id => { if (!TO.rows.some(r => r.id === id)) { TO.rows.push({ id, v: '', at: 0 }); ch = true; } });
+    TO.rows.forEach(r => { const i = !r.custom && INIT[r.id]; if (i && Number(i.at) > Math.max(Number(r.at) || 0, TO.cut) && typeof i.v === 'number') { r.v = i.v; r.at = Number(i.at); r.fresh = Date.now(); ch = true; } });
+    return ch;
+  }
+  function initWatch() {
+    if (unI || !PID || !actor()) return;
+    unI = PC.doc(PID).collection('init').onSnapshot(qs => { const was = INIT; INIT = {}; qs.docs.forEach(d => INIT[d.id] = d.data());
+      if (!TO) TO = toLoad(); const got = qs.docChanges().filter(x => x.type !== 'removed' && Number(x.doc.data().at) > TO.cut && (!was[x.doc.id] || was[x.doc.id].at !== x.doc.data().at));
+      if (toSync()) { toSave(); toPaint(); if (got.length && !document.getElementById('towin')) { const d = got[0].doc.data(); toast(`${d.n || 'A player'} rolled ${Number(d.v)} for initiative. It’s in your Turn order.`); } } }, () => {});
+  }
+  const toRowHTML = (r, i) => { const c = r.custom ? { name: r.name } : cardFor(r.id), nm = c.name || 'Unnamed';
+    const pic = r.custom ? `<span class="to-pic to-np">${esc(initials(nm))}</span>` : c.thumb ? `<img class="to-pic" src="${esc(c.thumb)}" alt="">` : `<span class="to-pic to-np">${esc(initials(nm))}</span>`;
+    return `<li class="to-row${i === 0 ? ' cur' : ''}${r.fresh && Date.now() - r.fresh < 4000 ? ' fresh' : ''}" data-i="${i}">${pic}<span class="to-nm" title="${esc(nm)}">${esc(nm)}</span><input class="to-v" data-i="${i}" inputmode="numeric" value="${esc(String(r.v ?? ''))}" aria-label="Initiative for ${esc(nm)}"><button class="to-x" data-x="${i}" title="Take off the list" aria-label="Remove ${esc(nm)}">×</button></li>`; };
+  function toPaint() {
+    const w = document.getElementById('towin'); if (!w || !TO) return;
+    const ae = document.activeElement; if (ae && ae.classList.contains('to-v') && w.contains(ae)) { clearTimeout(toPaint.t); toPaint.t = setTimeout(toPaint, 700); return; }
+    w.querySelector('.to-list').innerHTML = TO.rows.length ? TO.rows.map(toRowHTML).join('') : '<li class="to-empty">No one yet.</li>';
+    w.querySelector('.to-rnd b').textContent = TO.round;
+    w.querySelectorAll('.to-v').forEach(x => { x.onchange = () => { const r = TO.rows[+x.dataset.i]; if (!r) return; const t = x.value.trim(); r.v = t === '' ? '' : (isNaN(Number(t)) ? t : Number(t)); r.at = Date.now(); toSave(); };
+      x.onkeydown = e => { if (e.key === 'Enter') { x.blur(); const n = w.querySelector(`.to-v[data-i="${+x.dataset.i + 1}"]`); if (n) n.focus(); } }; });
+    w.querySelectorAll('[data-x]').forEach(b => b.onclick = () => { TO.rows.splice(+b.dataset.x, 1); toSave(); toPaint(); });
+  }
+  function turnOrder(show) {
+    if (!actor()) return; if (!TO) TO = toLoad(); toSync();
+    let w = document.getElementById('towin'); if (w) { if (!show) { w.remove(); TO.open = false; toSave(); } return; }
+    w = document.createElement('div'); w.id = 'towin'; w.className = 'towin'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Turn order');
+    w.innerHTML = `<div class="to-hd"><span class="to-tt">Turn Order</span><button class="to-c" title="Close" aria-label="Close">×</button></div>
+      <ol class="to-list"></ol>
+      <div class="to-ft"><button class="to-b" data-to="sort" title="Sort highest first">Sort</button><button class="to-b" data-to="add" title="Add someone who isn’t in the party (a monster, an NPC)">+ Add</button><button class="to-b" data-to="clear" title="Start a new fight: clears the numbers">Clear</button>
+        <span class="grow"></span><span class="to-rnd">Round <b>1</b></span><button class="to-b to-arr" data-to="prev" title="Previous turn" aria-label="Previous turn">‹</button><button class="to-b to-arr to-next" data-to="next" title="Next turn" aria-label="Next turn">›</button></div>`;
+    document.body.appendChild(w);
+    const vw = innerWidth, vh = innerHeight, W = Math.min(300, vw - 16);
+    w.style.left = Math.max(8, Math.min(vw - W - 8, TO.x != null ? TO.x : vw - W - 24)) + 'px'; w.style.top = Math.max(8, Math.min(vh - 120, TO.y != null ? TO.y : 90)) + 'px';
+    TO.open = true; toSave(); toPaint();
+    // drag by the title bar
+    const hd = w.querySelector('.to-hd'); hd.onpointerdown = e => { if (e.target.closest('button')) return; e.preventDefault(); const r = w.getBoundingClientRect(), ox = e.clientX - r.left, oy = e.clientY - r.top; hd.setPointerCapture(e.pointerId); w.classList.add('drag');
+      hd.onpointermove = m => { const x = Math.max(0, Math.min(innerWidth - r.width, m.clientX - ox)), y = Math.max(0, Math.min(innerHeight - 40, m.clientY - oy)); w.style.left = x + 'px'; w.style.top = y + 'px'; };
+      hd.onpointerup = () => { hd.onpointermove = hd.onpointerup = null; w.classList.remove('drag'); TO.x = parseFloat(w.style.left); TO.y = parseFloat(w.style.top); toSave(); }; };
+    w.querySelector('.to-c').onclick = () => turnOrder(false);
+    w.querySelectorAll('[data-to]').forEach(b => b.onclick = () => { const a = b.dataset.to; document.activeElement && document.activeElement.blur && document.activeElement.blur();
+      // the round goes up each time the turn comes back round to whoever was on top after sorting
+      const num = r => r.v === '' || isNaN(Number(r.v)) ? -Infinity : Number(r.v);
+      if (a === 'sort') { TO.rows.sort((x, y) => num(y) - num(x)); TO.rows.forEach((r, i) => r.first = i === 0); }
+      if ((a === 'next' || a === 'prev') && TO.rows.length && !TO.rows.some(r => r.first)) TO.rows[0].first = true;
+      if (a === 'next' && TO.rows.length > 1) { TO.rows.push(TO.rows.shift()); if (TO.rows[0].first) TO.round++; }
+      if (a === 'prev' && TO.rows.length > 1) { if (TO.rows[0].first) TO.round = Math.max(1, TO.round - 1); TO.rows.unshift(TO.rows.pop()); }
+      if (a === 'add') return askText('Add to the turn order', '', 60, v => { TO.rows.push({ custom: true, id: 'x' + Date.now().toString(36), name: v, v: '', at: Date.now() }); toSave(); toPaint(); });
+      if (a === 'clear') { TO.rows = TO.rows.filter(r => !r.custom).map(r => ({ id: r.id, v: '', at: 0 })); TO.round = 1; TO.cut = Date.now(); Object.keys(INIT).forEach(id => PC.doc(PID).collection('init').doc(id).delete().catch(() => {})); }
+      toSave(); toPaint(); });
+  }
   function wirePage(el) {
     const $1 = s => root.querySelector(s), on = (s, f) => { const b = $1(s); if (b) b.onclick = f; };
     on('#pt-ren', () => askText('Rename the party', P.name || '', 60, async v => { await PC.doc(PID).update({ name: v, updatedAt: Date.now() }); invSync(Object.assign({}, P, { id: PID, name: v })); }));
     on('#pt-pic', async () => { const pic = await pickPic(); if (!pic) return; try { await PC.doc(PID).update({ pic, updatedAt: Date.now() }); invSync(Object.assign({}, P, { id: PID, pic })); toast('Picture updated.'); } catch (x) { fail(x, 'save the picture'); } });
     on('#pt-add', () => addDialog());
     on('#pt-all', () => sendDialog(null));
+    on('#pt-turn', () => turnOrder(!document.getElementById('towin')));
+    initWatch(); if (actor() && !document.getElementById('towin') && (TO || toLoad()).open) turnOrder(true); else if (TO && document.getElementById('towin') && toSync()) { toSave(); toPaint(); }
     el.querySelectorAll('[data-uninv]').forEach(b => b.onclick = async () => { const em = b.dataset.uninv; try { await PC.doc(PID).update({ invited: FV.arrayRemove(em) }); } catch (x) { fail(x, 'cancel it'); } });
     on('#pt-leave', () => { const mine = (P.chars || []).filter(id => (CARDS[id] || {}).owner === EMAIL), pid = PID, pnm = P.name || ''; confirmBox(`Leave ${esc(pnm || 'the party')}?`, `${mine.length > 1 ? 'Your characters leave' : 'Your character leaves'} the party. The DM can invite you again.`, 'Leave', async () => { LEAVING = true; try { for (const id of mine) await ptyLeave(fs, EMAIL, pid, id, { owner: EMAIL }); } catch (x) { LEAVING = false; throw x; } try { localStorage.removeItem(PKEY(pid)); } catch (e) {} pgLog('party_leave', { target: pid, tName: pnm }); close(); toast('You left ' + (pnm || 'the party') + '.'); pgGo(URLS.parties(G)); }); });
     on('#pt-off', async () => { try { await PC.doc(PID).update({ people: FV.arrayRemove(EMAIL), invited: FV.arrayRemove(EMAIL), updatedAt: Date.now() }); pgGo(URLS.parties(G)); } catch (x) { fail(x, 'do that'); } });

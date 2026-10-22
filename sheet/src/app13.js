@@ -724,3 +724,52 @@ function ptyChatList() { const ch = PTYX() && PTYX().chat; const L = ch ? ch.lis
 window.onPartyChatList = () => { const l = $('#ptychat-l'); if (!l) { if (UI.tab === 'party') render('party'); return; } const end = l.scrollHeight - l.scrollTop - l.clientHeight < 40; l.innerHTML = ptyChatList(); if (end) l.scrollTop = l.scrollHeight; };
 window.onPartyChat = m => { const here = UI.tab === 'party' && !document.hidden && $('#ptychat-l'); if (here) return;
   toast(`<div><b>${esc(m.n || 'Someone')}</b> <span class="det" style="display:inline">· party chat</span><div class="det">${esc(String(m.t || '').slice(0, 200))}</div></div>`, '', 7000, { label: 'Reply', fn: () => { UI.tab = 'party'; saveUI && saveUI(); render(); setTimeout(() => { const i = $('#ptychat-in'); if (i) i.focus(); }, 80); } }); };
+
+
+// ----- Dice roller: a little window like Roll20's — tap dice to build a roll, add a modifier, roll -----
+// Rolls go through the sheet's dice (so with "Roll20 rolls for me" they're rolled in your game) and land in the Log.
+const DR_DICE = [4, 6, 8, 10, 12, 20, 100];
+let DR = null;
+function drExpr() { const parts = DR_DICE.filter(d => DR.pool[d]).map(d => d === 20 && DR.adv !== 'n' && DR.pool[d] === 1 ? `2d20${DR.adv === 'a' ? 'kh1' : 'kl1'}` : `${DR.pool[d]}d${d}`);
+  const m = N(DR.mod); return parts.length ? parts.join('+') + (m ? (m > 0 ? '+' : '') + m : '') : ''; }
+function diceRoller() {
+  let w = $('#drwin'); if (w) { w.remove(); return; }
+  DR = DR || (() => { let o = null; try { o = JSON.parse(localStorage.getItem('dnd-dr') || 'null'); } catch (e) {} return { pool: {}, mod: 0, adv: 'n', x: o && o.x, y: o && o.y, last: (o && o.last) || [] }; })();
+  w = document.createElement('div'); w.id = 'drwin'; w.className = 'drwin'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Dice roller');
+  document.body.appendChild(w); drPaint();
+  const W = innerWidth, H = innerHeight, r = w.getBoundingClientRect();
+  const x = DR.x != null ? Math.min(Math.max(6, DR.x), W - r.width - 6) : W - r.width - 24, y = DR.y != null ? Math.min(Math.max(6, DR.y), H - 60) : Math.max(70, H - r.height - 90);
+  w.style.left = x + 'px'; w.style.top = y + 'px';
+  // drag by the title bar
+  w.addEventListener('pointerdown', e => { const hd = e.target.closest('.dr-head'); if (!hd || e.target.closest('button')) return; e.preventDefault();
+    const b = w.getBoundingClientRect(), dx = e.clientX - b.left, dy = e.clientY - b.top; hd.setPointerCapture(e.pointerId); w.classList.add('drag');
+    const mv = ev => { const nx = Math.min(Math.max(0, ev.clientX - dx), innerWidth - b.width), ny = Math.min(Math.max(0, ev.clientY - dy), innerHeight - 40); w.style.left = nx + 'px'; w.style.top = ny + 'px'; };
+    const up = () => { w.classList.remove('drag'); hd.removeEventListener('pointermove', mv); hd.removeEventListener('pointerup', up); const bb = w.getBoundingClientRect(); DR.x = bb.left; DR.y = bb.top; drKeep(); };
+    hd.addEventListener('pointermove', mv); hd.addEventListener('pointerup', up); });
+  w.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const k = b.dataset.dr;
+    if (k === 'x') return w.remove();
+    if (k === 'die') { const d = N(b.dataset.d); DR.pool[d] = Math.min(99, N(DR.pool[d]) + 1); }
+    if (k === 'mod') DR.mod = N(DR.mod) + N(b.dataset.v);
+    if (k === 'adv') DR.adv = b.dataset.v;
+    if (k === 'clear') { DR.pool = {}; DR.mod = 0; DR.adv = 'n'; }
+    if (k === 'again') { const L = DR.last[N(b.dataset.i)]; if (L) return drRoll(L); }
+    if (k === 'roll') { const ex = ($('#dr-f') || {}).value || drExpr(); return drRoll(ex); }
+    drPaint(); });
+  // right-click (or long-press) a die to take one away
+  w.addEventListener('contextmenu', e => { const b = e.target.closest('[data-dr=die]'); if (!b) return; e.preventDefault(); const d = N(b.dataset.d); DR.pool[d] = Math.max(0, N(DR.pool[d]) - 1); if (!DR.pool[d]) delete DR.pool[d]; drPaint(); });
+  w.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'dr-f') { e.preventDefault(); drRoll(e.target.value); } if (e.key === 'Escape') w.remove(); });
+}
+const DR_SHAPE = { 4: 'M12 3l9 16H3z', 6: 'M5 5h14v14H5z', 8: 'M12 2l9 10-9 10-9-10z', 10: 'M12 2l9 7-3 12H6L3 9z', 12: 'M12 2l9 6.5-3.4 10.5H6.4L3 8.5z', 20: 'M12 2l8.7 5v10L12 22l-8.7-5V7z', 100: 'M12 2l9 7-3 12H6L3 9z' };
+function drPaint() { const w = $('#drwin'); if (!w) return; const ex = drExpr();
+  w.innerHTML = `<div class="dr-head"><span class="dr-grip" aria-hidden="true">⠿</span><b>Dice Roller</b><button class="dr-x" data-dr="x" aria-label="Close">✕</button></div>
+    <div class="dr-dice">${DR_DICE.map(d => `<button class="dr-die${DR.pool[d] ? ' on' : ''}" data-dr="die" data-d="${d}" title="Add a d${d} (right-click to take one away)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${DR_SHAPE[d]}"/></svg><span>d${d}</span>${DR.pool[d] ? `<em>${DR.pool[d]}</em>` : ''}</button>`).join('')}</div>
+    <div class="dr-row"><div class="dr-mod"><button data-dr="mod" data-v="-1" aria-label="Modifier −1">−</button><b>${N(DR.mod) >= 0 ? '+' : ''}${N(DR.mod)}</b><button data-dr="mod" data-v="1" aria-label="Modifier +1">+</button></div>
+      <div class="dr-adv">${[['d', 'Dis'], ['n', 'Normal'], ['a', 'Adv']].map(([v, t]) => `<button class="${DR.adv === v ? 'on' : ''}" data-dr="adv" data-v="${v}"${DR.pool[20] === 1 ? '' : ' disabled title="Advantage works on a single d20"'}>${t}</button>`).join('')}</div></div>
+    <input class="dr-f" id="dr-f" value="${esc(ex)}" placeholder="e.g. 2d6+3" aria-label="Roll formula" spellcheck="false">
+    <div class="dr-act"><button class="dr-clear" data-dr="clear">Clear</button><button class="dr-roll" data-dr="roll">Roll</button></div>
+    ${DR.last.length ? `<div class="dr-last">${DR.last.map((l, i) => `<button data-dr="again" data-i="${i}" title="Roll ${esc(l)} again">${esc(l)}</button>`).join('')}</div>` : ''}`; }
+function drKeep() { try { localStorage.setItem('dnd-dr', JSON.stringify({ x: DR.x, y: DR.y, last: DR.last })); } catch (e) {} }
+function drRoll(ex) { ex = String(ex || '').replace(/\s+/g, '').toLowerCase(); if (!/^[\dd+\-khl]+$/.test(ex) || !/\d*d\d+/.test(ex)) { toast('Type a roll like 2d6+3.', 'fumble'); return; }
+  DR.last = [ex].concat(DR.last.filter(x => x !== ex)).slice(0, 5); drKeep();
+  rollGate(() => { const r = rollExpr(ex, { label: 'Dice roller: ' + ex }); toast(`<b class="total">${r.total}</b><div><div>Rolled ${esc(ex)}</div><div class="det dd">${esc(r.detail || '')}</div></div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '', 8000); });
+  drPaint(); }
