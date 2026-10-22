@@ -1914,9 +1914,9 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 @media (prefers-color-scheme: dark) { body.hubbody .pm-qt { background: #0f1420; border-color: #3a4560; } }
 .pg-hublink .pg-hl-ic { width: 16px; height: 16px; vertical-align: -3px; margin-right: 5px; }
 /* Skeleton loaders */
-.sk { display: block; background: linear-gradient(90deg, rgba(127,127,127,.14) 0%, rgba(127,127,127,.26) 40%, rgba(127,127,127,.14) 80%) 0 0 / 300% 100%; border-radius: 6px; animation: skShimmer 1.3s ease-in-out infinite; }
+.skl { display: block; background: linear-gradient(90deg, rgba(127,127,127,.14) 0%, rgba(127,127,127,.26) 40%, rgba(127,127,127,.14) 80%) 0 0 / 300% 100%; border-radius: 6px; animation: skShimmer 1.3s ease-in-out infinite; }
 @keyframes skShimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
-@media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .skl { animation: none; } }
 .sk-wrap { display: flex; flex-direction: column; gap: 10px; padding: 6px 0; }
 .sk-row { display: flex; align-items: center; gap: 12px; }
 .sk-c { width: 40px; height: 40px; border-radius: 50%; flex: none; }
