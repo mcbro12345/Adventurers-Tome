@@ -375,3 +375,66 @@
   // Ends conditions shown earlier in the loop (they fade away) with a cleansing sparkle
   def('cure', { w: .6, front(x, S, p, a) { const c = a.args.length ? C2(S, a) : ANI.PAL.heal; each(S, a, t => { const k = E.out(p); H.ring(x, t.x, t.y - 16, 4 + k * 20, c[1], 2 * (1 - p), 1 - p); for (let i = 0; i < 6; i++) { const an = i / 6 * TAU + p * 2; H.star4(x, t.x + Math.cos(an) * 14 * k, t.y - 16 + Math.sin(an) * 14 * k, 2.4, c[1], 1 - p); } if (p > .5) ICON.check && ANI.icon(x, 'check', t.pt.head[0], t.pt.head[1] - 10, 5, c, S.T, 0, (1 - p) * 2); }); } });
 })();
+// The classic spectral Mage Hand: one glowing open hand that drifts in a lazy figure-eight, flexing its fingers
+(() => {
+  const { def, H, C2, E, clamp } = ANI, P = Math.PI, G = ANI.GROUND;
+  def('magehand', { w: .7, keep: 1, front(x, S, p, a) {
+    const [c1, c2] = C2(S, a), ph = (S.T % 3000) / 3000, k = E.back(clamp(p * 1.6)), Sz = 34 * k, bx = +(a.kv.x || 58), by = +(a.kv.y || 70);
+    const hx = bx + Math.sin(ph * 2 * P) * 12, hy = by + Math.sin(ph * 4 * P) * 3.5, tilt = Math.sin(ph * 2 * P) * .18;
+    if (p < 1) for (let i = 0; i < 8; i++) { const an = i / 8 * P * 2 + p * 3; H.star4(x, bx + Math.cos(an) * 16 * (1 - p), by - 12 + Math.sin(an) * 12 * (1 - p), 2, c2, 1 - p); }
+    for (let i = 0; i < 6; i++) { const life = (ph * 2 + i / 6) % 1; H.dot(x, hx - Math.cos(ph * 2 * P) * 14 * life + Math.sin(i * 7) * 6, hy - Sz * .25 + life * 8, 1.2, c2, (1 - life) * .7 * k); }
+    if (Sz < 1) return; H.glow(x, hx, hy - Sz * .45, Sz * .75, c1, .45);
+    x.save(); x.translate(hx, hy); x.rotate(tilt); x.scale(Sz, Sz);
+    const F = [[-.17, -.56, -.16, .34, .1], [-.055, -.6, -.04, .4, .105], [.06, -.58, .07, .37, .1], [.16, -.52, .2, .28, .085]];
+    const curl = .5 * Math.max(0, Math.sin(ph * 4 * P - 1)) ** 2;
+    x.beginPath(); x.moveTo(.18, 0); x.quadraticCurveTo(.25, -.25, .22, -.45);
+    F.slice().reverse().forEach(([bx2, by2, an, len, w], i) => { const A = an + curl * .4, L2 = len * (1 - curl * .35), ux = Math.sin(A), uy = -Math.cos(A), nx = -uy, ny = ux, tx = bx2 + ux * L2, ty = by2 + uy * L2;
+      x.lineTo(bx2 + nx * w / 2, by2 + ny * w / 2); x.lineTo(tx + nx * w / 2, ty + ny * w / 2); x.arc(tx, ty, w / 2, Math.atan2(ny, nx), Math.atan2(-ny, -nx), true); x.lineTo(bx2 - nx * w / 2, by2 - ny * w / 2);
+      if (i < 3) { const nb = F[2 - i]; x.quadraticCurveTo((bx2 + nb[0]) / 2, by2 + .05, nb[0] + Math.cos(nb[2]) * nb[4] / 2, nb[1] + Math.sin(nb[2]) * nb[4] / 2); } });
+    const ta = -.85 + curl * .55, tw = .13, tl = .3 - curl * .06, Bx = -.17, By = -.3, ux = Math.sin(ta), uy = -Math.cos(ta), nx = Math.cos(ta), ny = Math.sin(ta), tx = Bx + ux * tl, ty = By + uy * tl;
+    x.quadraticCurveTo(-.2, -.42, Bx + nx * tw / 2, By + ny * tw / 2); x.lineTo(tx + nx * tw / 2, ty + ny * tw / 2); x.arc(tx, ty, tw / 2, Math.atan2(ny, nx), Math.atan2(-ny, -nx), true); x.lineTo(Bx - nx * tw / 2 + .02, By - ny * tw / 2 + .04);
+    x.quadraticCurveTo(-.22, -.1, -.17, 0); x.closePath();
+    const g = x.createLinearGradient(0, -1, 0, 0); g.addColorStop(0, c2); g.addColorStop(1, c1); x.fillStyle = g; x.globalAlpha = .82 * clamp(p * 3); x.shadowColor = c1; x.shadowBlur = 10; x.fill(); x.shadowBlur = 0;
+    x.globalAlpha = .9 * clamp(p * 3); x.strokeStyle = c2; x.lineWidth = 1.2 / Sz; x.stroke();
+    x.globalAlpha = .35; x.strokeStyle = '#ffffff'; x.lineWidth = 1 / Sz; x.beginPath(); x.moveTo(-.15, -.3); x.quadraticCurveTo(0, -.38, .19, -.33); x.moveTo(-.18, -.2); x.quadraticCurveTo(-.05, -.18, .02, -.3); x.stroke();
+    F.forEach(([bx2, by2, an, len]) => { const A = an + curl * .4, L2 = len * (1 - curl * .35), mx = bx2 + Math.sin(A) * L2 * .5, my = by2 - Math.cos(A) * L2 * .5; x.beginPath(); x.moveTo(mx - .03, my); x.lineTo(mx + .03, my); x.stroke(); });
+    x.restore();
+  } });
+})();
+// Readability fixes: thunder shockwave, grease slick, time-skip, fabricate (materials -> product)
+(() => {
+  const { def, H, C2, E, ICON, rgba, lerp, clamp, rng } = ANI, P = Math.PI, TAU = P * 2, G = ANI.GROUND;
+  const icon = ANI.icon, impact = ANI.impact;
+  // a booming ))) wave that bursts out from the caster and hurls everyone in front back
+  def('shockwave', { w: .7, mod(S, p, a) { const c = S.A.caster; c.pose = 'idle'; c.blend = [ANI.POSE.point, E.out(clamp(p * 5)) * (1 - clamp((p - .7) * 3.3))]; if (p > .12 && p < .4) S.shake += 3;
+      S.A.targets.forEach(t => { const hit = clamp((p - .12) * 1.6 - (t.x - c.x) / 120); if (hit > 0) { t.dx = (t.dx || 0) + 9 * E.out(hit); t.dy = (t.dy || 0) - 5 * Math.sin(clamp(hit * 1.4) * P); t.rot = (t.rot || 0) + .35 * Math.sin(clamp(hit * 1.4) * P); if (hit < .4) { t.tint = '#ffffff'; t.tintA = .7 * (1 - hit / .4); } } }); },
+    front(x, S, p, a) { const [c1, c2] = C2(S, a), h = S.A.caster.pt.hand, k = clamp((p - .1) * 1.4);
+      if (p < .14) H.glow(x, h[0], h[1], 10 * p / .14, c2, .8);
+      for (let i = 0; i < 4; i++) { const q = clamp(k * 1.3 - i * .12); if (q <= 0 || q >= 1) continue; const r = 6 + q * 78; x.save(); x.globalAlpha = (1 - q) * .95; x.strokeStyle = i % 2 ? c1 : c2; x.lineWidth = 4 * (1 - q) + 1; x.shadowColor = c1; x.shadowBlur = 6; x.beginPath(); x.arc(h[0], h[1], r, -.95, .95); x.stroke(); x.restore(); }
+      if (k > 0 && k < .7) { const r = rng(S.T / 60 | 0); for (let i = 0; i < 3; i++) { const an = (r() - .5) * 1.6, d = 10 + k * 70; H.bolt(x, h[0] + Math.cos(an) * d * .6, h[1] + Math.sin(an) * d * .6, h[0] + Math.cos(an) * d, h[1] + Math.sin(an) * d, [c1, c2], .8, 3, r, 1); } }
+      if (k > 0 && k < 1) for (let i = 0; i < 10; i++) { const q = clamp(k * 1.2 - i * .03); H.dot(x, h[0] + q * (40 + i * 5), G - Math.sin(q * P) * (4 + i % 3 * 3), 1, '#b8ad96', (1 - q) * .8); } } });
+  // a glossy puddle of grease spreads across the floor under the foes; they wobble, slip and fall
+  def('slick', { w: .8, keep: 1, mod(S, p, a) { S.A.targets.forEach((t, i) => { const q = clamp((p - .25 - i * .08) * 2.5); if (q > 0 && q < 1) { t.rot = (t.rot || 0) + Math.sin(q * P * 3) * .35 * (1 - q * .3); t.dx = (t.dx || 0) + Math.sin(q * P * 2) * 3; } }); },
+    back(x, S, p, a) { const [c1, c2] = C2(S, a), ar = ANI.P.area(S), k = E.out(clamp(p * 2.2)), w = 30 * k;
+      x.save(); x.globalAlpha = .85; x.fillStyle = rgba(c1, .75); x.beginPath(); for (let i = 0; i <= 24; i++) { const an = i / 24 * TAU, rr = 1 + Math.sin(an * 3 + 1) * .12 + Math.sin(an * 5) * .06; x.lineTo(ar[0] + Math.cos(an) * w * rr, G + 1 + Math.sin(an) * w * .2 * rr); } x.closePath(); x.fill();
+      x.globalAlpha = .55; x.fillStyle = c2; x.beginPath(); x.ellipse(ar[0] - w * .3, G - w * .04, w * .28, w * .05, -.05, 0, TAU); x.fill();
+      x.globalAlpha = .9; x.fillStyle = '#ffffff'; const sh = (S.T / 1400) % 1; x.beginPath(); x.ellipse(ar[0] - w * .6 + sh * w * 1.2, G - w * .03, w * .07, w * .018, 0, 0, TAU); x.fill(); x.restore();
+      if (p < .5) for (let i = 0; i < 5; i++) { const q = clamp(p * 3 - i * .1); H.dot(x, ar[0] + (i - 2) * 9, lerp(G - 40, G, E.in(q)), 1.6, c1, q < 1 ? .9 : 0); } } });
+  // the target blinks out of the present: a clock spins through the missing moment, then it pops back unaware
+  def('timeskip', { w: 1, keep: 1, mod(S, p, a) { const out = clamp((p - .12) / .16), back = clamp((p - .78) / .08); S.A.targets.forEach(t => { t.alpha = (t.alpha == null ? 1 : t.alpha) * (1 - out + back); t.s = (t.s || 1) * (1 - .25 * (out - back)); if (p > .86 && p < .95) { t.tint = '#ffffff'; t.tintA = .6 * (1 - (p - .86) / .09); } }); },
+    front(x, S, p, a) { const [c1, c2] = C2(S, a); S.A.targets.forEach(t => { const cx = t.x, cy = t.y - 20, vis = Math.sin(clamp((p - .12) / .72) * P), sp = p < .78 ? (p - .12) * 30 : 0;
+      if (p > .1 && p < .3) { for (let i = 0; i < 10; i++) { const an = i / 10 * TAU + p * 6, d = 4 + (p - .1) * 90; H.dot(x, cx + Math.cos(an) * d, cy + Math.sin(an) * d * 1.3, 1.2, c2, 1 - (p - .1) * 5); } }
+      if (vis > 0) { x.save(); x.globalAlpha = vis * .9; x.translate(cx, cy); x.strokeStyle = c2; x.lineWidth = 1.4; x.shadowColor = c1; x.shadowBlur = 8; x.beginPath(); x.arc(0, 0, 14, 0, TAU); x.stroke(); x.shadowBlur = 0;
+        for (let i = 0; i < 12; i++) { const an = i / 12 * TAU; x.beginPath(); x.moveTo(Math.cos(an) * 11.5, Math.sin(an) * 11.5); x.lineTo(Math.cos(an) * 13.5, Math.sin(an) * 13.5); x.stroke(); }
+        x.lineWidth = 1.8; x.beginPath(); x.moveTo(0, 0); x.lineTo(Math.sin(sp) * 11, -Math.cos(sp) * 11); x.moveTo(0, 0); x.lineTo(Math.sin(sp / 12) * 7, -Math.cos(sp / 12) * 7); x.stroke();
+        x.setLineDash([2, 3]); x.globalAlpha = vis * .5; x.beginPath(); x.ellipse(0, 20, 9, 2.5, 0, 0, TAU); x.stroke(); x.restore(); }
+      if (p > .78 && p < .95) impact(x, cx, cy, [c1, c2], (p - .78) / .17, .6); }); } });
+  // raw materials float up, swirl together into a ball of light and become a finished object (last icon arg)
+  def('fabricate', { w: 1, keep: 1, mod(S, p) { const c = S.A.caster; c.pose = 'idle'; c.blend = [ANI.POSE.cast || ANI.POSE.raise, E.out(clamp(p * 4))]; },
+    front(x, S, p, a) { const c = C2(S, a), ics = a.args.filter(z => ICON[z]), prod = ics.pop(), mats = ics.length ? ics : ['rock'], cx = 58, cy = 56;
+      mats.forEach((m, i) => { const home = [cx - 16 + i * 32 / Math.max(1, mats.length - 1 || 1), G - 6], q = E.in(clamp((p - .1) / .4)), an = q * P * 2 + i * TAU / mats.length, rr = 18 * (1 - q);
+        const px = lerp(home[0], cx + Math.cos(an) * rr, clamp(p / .15)), py = lerp(home[1], cy + Math.sin(an) * rr * .6, clamp(p / .15)); if (q < 1) icon(x, m, px, py, 6.5 * (1 - q * .7), null, S.T, q * 3); });
+      if (p > .35 && p < .6) { const k = (p - .35) / .25; H.glow(x, cx, cy, 6 + k * 10, c[0], .8); for (let i = 0; i < 8; i++) { const an = i / 8 * TAU + S.T / 120; H.dot(x, cx + Math.cos(an) * (14 - k * 10), cy + Math.sin(an) * (9 - k * 6), 1, c[1], 1); } }
+      if (p > .5 && p < .7) impact(x, cx, cy, c, (p - .5) / .2, .7);
+      if (p > .52 && prod) { const k = E.back(clamp((p - .52) * 4)); H.glow(x, cx, cy, 14, c[0], .35); icon(x, prod, cx, cy + Math.sin(S.T / 400) * 1.2, 11 * k, null, S.T); } } });
+})();
