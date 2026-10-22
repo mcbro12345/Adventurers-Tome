@@ -530,12 +530,13 @@ function rollDie(root) {
     { offset: 1, transform: 'rotate(720deg) scale(1)' }], { duration: DUR, easing: 'linear' });
   let next = 0, done = false;
   const tick = () => { if (done) return; const el = Number(anim.currentTime) || 0;
-    if (el >= next && el < DUR - 120) { const f = face(); if (f) f.textContent = 1 + Math.floor(Math.random() * 20); next = el + 45 + 230 * Math.pow(el / DUR, 2); }
+    if (el >= next && el < DUR - 120) { const v = 1 + Math.floor(Math.random() * 20); document.querySelectorAll('.hl-20').forEach(f => { f.textContent = v; }); next = el + 45 + 230 * Math.pow(el / DUR, 2); }
     requestAnimationFrame(tick); };
   requestAnimationFrame(tick);
   const land = () => { if (done) return; done = true;
-    PG_DIE.n = 1 + Math.floor(Math.random() * 20); PG_DIE.rolled = true; const f = face(); if (f) f.textContent = PG_DIE.n;
-    const dd = root.querySelector('.hl-d20') || d; dd.classList.remove('hl-rolling'); dd.classList.toggle('crit', PG_DIE.n === 20); dd.classList.toggle('fumble', PG_DIE.n === 1); PG_DIE.rolling = false; };
+    PG_DIE.n = 1 + Math.floor(Math.random() * 20); PG_DIE.rolled = true;
+    /* every copy of the logo gets the number, including one redrawn mid-roll (the DM's Desk can redraw its header while the die spins) */
+    document.querySelectorAll('.hl-20').forEach(f => { f.textContent = PG_DIE.n; }); [d].concat(Array.from(document.querySelectorAll('.hl-d20'))).forEach(dd => { dd.classList.remove('hl-rolling'); dd.classList.toggle('crit', PG_DIE.n === 20); dd.classList.toggle('fumble', PG_DIE.n === 1); }); PG_DIE.rolling = false; };
   anim.finished.then(land, land);
 }
 // Touchscreens (no mouse to hover with): hover effects are switched off so nothing lights up by itself; taps get their own feedback.
@@ -911,7 +912,7 @@ function wireDie(root) {
         return hbCol.add({ item: JSON.stringify(it), name, at: Date.now(), by: EMAIL }).then(r => { pgLog('party_hb', { target: pid, tName: party.name, detail: name }); return r.id; }); },
       remove: id => hbCol.doc(String(id)).delete() } : null;
     return Object.assign({ fs, EMAIL, party, back: { href: URLS.parties(G), label: 'Parties' },
-      logo: (() => { let first = true; return { html: () => logoHTML(), wire: el => { wireDie(el); if (first) { first = false; const go = () => { const d = document.querySelector('.dk-logo'); if (!d) return; PG_DIE.rolling = false; rollDie(d); }; setTimeout(go, 300); /* (the party page's own hidden logo may be mid-roll; the desk's starts straight away anyway) */ } } }; })() /* the desk's die rolls once when it opens, like the lobby's */, bugReport: () => window.pgBugReport && window.pgBugReport(), partyHB, makeNpc: party ? () => { try { sessionStorage.setItem('pg-join', JSON.stringify({ p: pid, t: '', name: party.name, at: Date.now(), npc: true })); } catch (e) {} pgGo(URLS.newChar(G)); } : null }, extra || {}); };
+      logo: (() => { let first = true; return { html: () => logoHTML(), wire: el => { wireDie(el); if (!first && !PG_DIE.rolled && !PG_DIE.rolling) { PG_DIE.rolling = false; rollDie(el); } if (first) { first = false; const go = () => { const d = document.querySelector('.dk-logo'); if (!d) return; PG_DIE.rolling = false; rollDie(d); }; setTimeout(go, 300); /* (the party page's own hidden logo may be mid-roll; the desk's starts straight away anyway) */ } } }; })() /* the desk's die rolls once when it opens, like the lobby's */, bugReport: () => window.pgBugReport && window.pgBugReport(), partyHB, makeNpc: party ? () => { try { sessionStorage.setItem('pg-join', JSON.stringify({ p: pid, t: '', name: party.name, at: Date.now(), npc: true })); } catch (e) {} pgGo(URLS.newChar(G)); } : null }, extra || {}); };
   if (DESKQ && G) { lsSet(LAST_G, G);
     const pid = clean(Q.get('for') || '');
     document.title = 'DM’s Desk — Adventurer’s Tome';

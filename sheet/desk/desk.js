@@ -1170,14 +1170,31 @@ function overviewHTML(s) {
     ${g.list.length ? `<div class="dk-cards">${g.list.map(cardHTML).join('')}</div>` : '<p class="dk-hint dk-gnone">Empty. Add creatures with the box above.</p>'}</section>`;
   return sessHead(s) + s.groups.map(grp).join('') + cardsHTML(s);
 }
+// session cards: the same panel as a creature on the character sheet's Creatures tab
 function cardHTML(x) {
-  const c = instC(x), p = hpPct(x);
-  return `<article class="dk-ccard${x.down ? ' down' : ''}" data-iid="${x.iid}">
-    <button class="dk-ccmain" data-act="sel" data-iid="${x.iid}"><span class="dk-cchd">${tokenHTML(c, 38, 'dk-cctok')}<b>${esc(x.name)}</b>${c ? `<small>CR ${crLabel(N(c.cr))} ${esc(c.type || '')}</small>` : '<small class="bad">stat block missing</small>'}</span>
-      <span class="dk-ccbody" data-hpflash="${x.iid}"><span class="dk-ccring" title="${x.hp} of ${x.max} HP${N(x.temp) ? ' (+' + x.temp + ' temporary)' : ''}"><span class="dk-ring">${hpRing(x)}</span><b class="${p <= 35 ? 'low' : ''}">${x.hp}</b><small>of ${x.max}</small>${N(x.temp) ? `<em>+${x.temp}</em>` : ''}</span>
-        <span class="dk-ccstats"><span class="dk-ccst ac"><small>AC</small><b>${x.ac}</b></span><span class="dk-ccst"><small>Speed</small><b>${c ? speedFt(c) : '—'}</b></span></span></span>
-      <span class="dk-ccfoot">${x.down ? '<span class="dk-chip dead">Down</span>' : ''}${x.conc ? `<span class="dk-chip conc">${ICON.conc}${esc(x.conc)}</span>` : ''}${condChips(x)}${N(x.exh) ? `<span class="dk-chip cond">Exhaustion ${N(x.exh)}</span>` : ''}${econMini(x)}${CTX.party && inTurn(x.iid) ? '<span class="dk-chip to" title="In the Turn order">Turn order</span>' : ''}</span></button>
-    <div class="dk-ccq"><input class="dk-f dk-num" id="dk-q-${x.iid}" data-q="${x.iid}" type="text" autocomplete="off" enterkeyhint="done" maxlength="6" placeholder="Amount" title="Type 20 or -20 for damage, +20 to heal, then Enter" aria-label="Amount for ${esc(x.name)}"><button class="dk-hpi dmg sm" data-act="qdmg" data-iid="${x.iid}" title="Damage" aria-label="Damage ${esc(x.name)}">${ICON.hpDmg}</button><button class="dk-hpi heal sm" data-act="qheal" data-iid="${x.iid}" title="Heal" aria-label="Heal ${esc(x.name)}">${ICON.hpHeal}</button></div>
+  const c = instC(x), p = hpPct(x), sp = c ? String(c.speed || '').split(/,\s*/) : [];
+  const tags = c ? ['CR ' + crLabel(N(c.cr)), c.type || ''].filter(Boolean) : [];
+  const acts = c ? (c.actions || []).map((e, i) => {
+    const a = analyze(e), ek = entKey('actions', i), multi = /^multiattack/i.test(e.n), ml = multi ? parseMulti(c) : null;
+    if (multi && !ml) return '';
+    const k = multi ? 'multi' : a.hit != null ? 'attack' : a.save ? 'save' : a.dmg.length ? 'dmg' : '';
+    if (!k) return '';
+    const dm = parts => parts.map(q => esc(q.expr) + (q.type ? ' ' + esc(q.type) : '')).join(' + ');
+    const info = k === 'multi' ? esc(ml.map(z => baseName(c.actions[z.i].n) + (z.n > 1 ? ' ×' + z.n : '')).join(', '))
+      : k === 'attack' ? `<button class="dk-rl atk" data-act="atk" data-ek="${ek}" title="Attack roll and damage">${sg(a.hit)}</button> to hit${a.dmg.length ? ' · ' + dm(a.dmg) : ''}`
+      : k === 'save' ? `<b>DC ${a.save.dc} ${ABS[a.save.ab].toUpperCase()}</b>${a.sdmg.length ? ' · ' + dm(a.sdmg) : ''}` : dm(a.dmg);
+    const btn = k === 'multi' ? `<button class="dk-btn sm gold" data-act="multi">Roll all</button>` : k === 'attack' ? `<button class="dk-btn sm gold" data-act="atk" data-ek="${ek}">Attack</button>` : k === 'save' ? `<button class="dk-btn sm gold" data-act="save" data-ek="${ek}">${a.sdmg.length ? 'Damage' : 'Save'}</button>` : `<button class="dk-btn sm gold" data-act="dmg" data-ek="${ek}">Roll</button>`;
+    return `<div class="dk-cact k-${k}"><span class="dk-cact-i" aria-hidden="true">${k === 'attack' ? '⚔' : k === 'save' ? '⛨' : k === 'multi' ? '⚔⚔' : '🎲'}</span><div class="dk-cact-m"><b>${esc(baseName(e.n))}</b><div class="dk-cact-s">${info}</div></div><div class="dk-cact-b">${btn}</div></div>`;
+  }).join('') : '';
+  const chips = (x.down ? '<span class="dk-chip dead">Down</span>' : '') + (x.conc ? `<span class="dk-chip conc">${ICON.conc}${esc(x.conc)}</span>` : '') + condChips(x) + (N(x.exh) ? `<span class="dk-chip cond">Exhaustion ${N(x.exh)}</span>` : '');
+  return `<article class="dk-ccard dk-comp2${x.down ? ' down' : ''}" data-iid="${x.iid}">
+    <div class="dk-ch2"><button class="dk-chtok" data-act="sel" data-iid="${x.iid}" aria-label="Open ${esc(x.name)}">${tokenHTML(c, 46, 'dk-cctok')}</button><button class="dk-chname" data-act="sel" data-iid="${x.iid}"><b class="dk-cname">${esc(x.name)}</b><span class="dk-ctags">${c ? tags.map(t => `<span class="dk-tag">${esc(t)}</span>`).join('') : '<span class="dk-tag bad">stat block missing</span>'}${CTX.party && inTurn(x.iid) ? '<span class="dk-tag to">Turn order</span>' : ''}</span></button>${econMini(x)}</div>
+    <div class="dk-cstat2"><div class="dk-chp2" data-hpflash="${x.iid}"><div class="dk-chp-ring" title="${x.hp} of ${x.max} HP${N(x.temp) ? ' (+' + x.temp + ' temporary)' : ''}"><span class="dk-ring">${hpRing(x)}</span><span class="dk-chp-c"><b class="${p <= 35 ? 'low' : ''}">${x.hp}</b>${N(x.temp) ? `<em>+${x.temp}</em>` : ''}<small>of ${x.max}</small></span></div>
+      <div class="dk-chp-side"><input class="dk-f" id="dk-q-${x.iid}" data-q="${x.iid}" type="text" autocomplete="off" enterkeyhint="done" maxlength="6" placeholder="Amount" title="Type 20 or -20 for damage, +20 to heal, then Enter" aria-label="Amount for ${esc(x.name)}">
+        <div class="dk-chp-btns"><button class="dk-hpi dmg sm" data-act="qdmg" data-iid="${x.iid}" title="Damage" aria-label="Damage ${esc(x.name)}">${ICON.hpDmg}</button><button class="dk-hpi heal sm" data-act="qheal" data-iid="${x.iid}" title="Heal" aria-label="Heal ${esc(x.name)}">${ICON.hpHeal}</button><button class="dk-hpi tmp sm" data-act="qtemp" data-iid="${x.iid}" title="Temporary HP (they don’t stack — the higher stays)" aria-label="Temporary HP for ${esc(x.name)}">${ICON.hpTemp}</button></div></div></div>
+      <div class="dk-csts"><span class="dk-cst"><small>AC</small><b>${x.ac}</b></span><span class="dk-cst wide" title="${esc(c ? c.speed || '' : '')}"><small>Speed</small><b>${c ? speedFt(c) + ' ft' : '—'}</b>${sp.length > 1 ? `<i>${esc(sp.slice(1).map(z => z.replace(/\s*ft\.?/i, '')).join(' · '))}</i>` : ''}</span></div></div>
+    ${chips ? `<div class="dk-ccfoot">${chips}</div>` : ''}
+    ${acts ? `<div class="dk-cacts">${acts}</div>` : ''}
   </article>`;
 }
 // the same HP ring as the character sheet: gold arc (red when low), temp HP in blue after it
@@ -1599,7 +1616,7 @@ async function onClick(e) {
     case 'saveeff': { const g = curSession().groups.find(z => z.id === b.dataset.gid); openSaveDialog({ title: 'Saving throw', dc: 13, ab: 1, parts: [], half: true }); SV.rows.forEach(r => { r.on = !!g.list.find(z => z.iid === r.iid) && !findInst(r.iid).down; }); return paintSave(); }
     case 'addc': { const q = $('#dk-addq'), v = q.value.trim(); if (!v) { q.focus(); return; } const exact = allCreatures().find(c => c.name.toLowerCase() === v.toLowerCase()) || searchCreatures(v, 1)[0]; if (!exact) return toastInfo(`No creature called “${esc(v)}”. Try the bestiary, or paste its stat block there.`); return addPicked(exact.id); }
     case 'pickc': return addPicked(b.dataset.cid);
-    case 'qdmg': case 'qheal': { const inp = $(`[data-q="${iid}"]`), v = hpAmt(inp.value).n; if (!v) { inp.focus(); return; } if (act === 'qdmg') applyDamage(x, v, '', true); else heal(x, v); return; }
+    case 'qdmg': case 'qheal': case 'qtemp': { const inp = $(`[data-q="${iid}"]`), v = hpAmt(inp.value).n; if (!v) { inp.focus(); return; } if (act === 'qdmg') applyDamage(x, v, '', true); else if (act === 'qtemp') setTemp(x, v); else heal(x, v); return; }
     case 'dup': { const g = groupOf(iid); if (!g) return; const out = addToGroup(g.s, g.g, x.cid, 1); save(); paint(); return toastInfo(`Added <b>${esc(out[0].name)}</b>.`); }
     case 'rest': restInst(x); save(); paint(); return toastInfo(`${esc(x.name)} is fresh: full HP, conditions cleared, every use back.`);
     case 'movegrp': { const g = groupOf(iid), to = g.s.groups.find(z => z.id === b.dataset.gid); g.g.list = g.g.list.filter(z => z !== x); to.list.push(x); save(); paint(); return; }
@@ -1771,7 +1788,7 @@ function mount(root, ctx) {
   on(root, 'click', onClick); on(root, 'pointerdown', e => { mwDrag(e); if (e.target.closest && e.target.closest('.drwin')) ROOT.classList.add('dk-rfront'); else if (e.target.closest && e.target.closest('.dk-mcard')) ROOT.classList.remove('dk-rfront'); }); on(window, 'resize', () => { if (ROOT) ROOT.classList.toggle('dk-mw', mwDesk()); }); on(root, 'change', onChange); on(root, 'input', onInput);
   on(root, 'mousedown', e => { const t = e.target.closest && e.target.closest('[data-ed],[data-auto]'); if (!t) return; e.preventDefault(); if (t.dataset.ed) edCmd(t.dataset.ed); else edAutoPick(N(t.dataset.auto)); });
   on(root, 'paste', e => { if (e.target.closest && e.target.closest('.dk-ed')) edPaste(e); });
-  on(root, 'dragstart', onDragStart); on(root, 'dragover', onDragOver); on(root, 'drop', onDrop); on(root, 'dragend', () => { DRAG = null; $$('.dragging').forEach(x => x.classList.remove('dragging')); });
+  on(root, 'dragstart', e => { onDragStart(e); if (DRAG) ROOT.classList.add('dk-dragon'); }); on(root, 'dragover', onDragOver); on(root, 'drop', e => { onDrop(e); ROOT.classList.remove('dk-dragon'); }); on(root, 'dragend', () => { DRAG = null; ROOT.classList.remove('dk-dragon'); $$('.dragging').forEach(x => x.classList.remove('dragging')); });
   on(root, 'mouseover', onNotesOver); on(window, 'beforeunload', () => { if (NCLOUD) flushNotes(); });
   on(document, 'keydown', onKey); on(document, 'mousedown', onDocDown); on(document, 'touchstart', onDocDown, { passive: true });
   on(window, 'message', onR20Msg); on(document, 'visibilitychange', onVis); on(window, 'storage', onStorage);
