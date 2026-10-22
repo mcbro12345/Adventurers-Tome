@@ -47,12 +47,17 @@ async function pgInviteImage(p) {
   let bg = g.createRadialGradient(W / 2, H * .3, 40, W / 2, H * .45, W * .75); bg.addColorStop(0, '#26324b'); bg.addColorStop(.55, '#141b2b'); bg.addColorStop(1, '#0a0e17'); g.fillStyle = bg; g.fillRect(0, 0, W, H);
   [[.08, .2], [.9, .16], [.94, .72], [.05, .8], [.2, .92], [.78, .9], [.15, .45], [.86, .42]].forEach(([x, y], i) => { g.fillStyle = i % 2 ? 'rgba(255,255,255,.35)' : 'rgba(231,196,110,.5)'; g.beginPath(); g.arc(x * W, y * H, i % 3 ? 1.4 : 2, 0, 7); g.fill(); });
   // the card
-  const cx = 150, cy = 22, cw = 900, ch = 586; g.save(); g.shadowColor = 'rgba(0,0,0,.55)'; g.shadowBlur = 50; g.shadowOffsetY = 18; rr(cx, cy, cw, ch, 30);
+  const cx = 150, cy = 46, cw = 900, ch = 568; g.save(); g.shadowColor = 'rgba(0,0,0,.55)'; g.shadowBlur = 50; g.shadowOffsetY = 18; rr(cx, cy, cw, ch, 30);
   const cg = g.createLinearGradient(0, cy, 0, cy + ch); cg.addColorStop(0, '#1e2739'); cg.addColorStop(1, '#161d2c'); g.fillStyle = cg; g.fill(); g.restore();
   g.save(); rr(cx, cy, cw, ch, 30); g.clip(); const gl = g.createRadialGradient(W / 2, cy + 40, 10, W / 2, cy + 40, 300); gl.addColorStop(0, 'rgba(231,176,72,.38)'); gl.addColorStop(1, 'rgba(231,176,72,0)'); g.fillStyle = gl; g.fillRect(cx, cy, cw, 340); g.restore();
   rr(cx, cy, cw, ch, 30); g.lineWidth = 2.5; g.strokeStyle = '#c9962b'; g.stroke();
+  // the Adventurer's Tome badge sitting on the card's top edge
+  { g.font = '700 26px Georgia, "Times New Roman", serif'; const bt = 'Adventurer’s Tome', bw = g.measureText(bt).width + 44 + 12 + 38, bh = 54, bx = W / 2 - bw / 2, by = cy - bh / 2;
+    rr(bx, by, bw, bh, bh / 2); g.fillStyle = '#0f1420'; g.fill(); g.lineWidth = 2; g.strokeStyle = '#c9962b'; g.stroke();
+    let ix = bx + 14; try { const d = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = (window.PG_DICE_SRC || '/dice-clear.png'); }); g.imageSmoothingQuality = 'high'; g.drawImage(d, ix, by + 5, 44, 44); ix += 44 + 12; } catch (e) { ix += 10; }
+    g.fillStyle = '#e7c46e'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(bt, ix, by + bh / 2 + 1); g.textBaseline = 'alphabetic'; }
   // the party's seal
-  const sx = W / 2, sy = cy + 104, sr = 74; g.save(); g.shadowColor = 'rgba(231,176,72,.55)'; g.shadowBlur = 30; g.beginPath(); g.arc(sx, sy, sr + 6, 0, 7); g.fillStyle = '#c9962b'; g.fill(); g.restore();
+  const sx = W / 2, sy = cy + 114, sr = 72; g.save(); g.shadowColor = 'rgba(231,176,72,.55)'; g.shadowBlur = 30; g.beginPath(); g.arc(sx, sy, sr + 6, 0, 7); g.fillStyle = '#c9962b'; g.fill(); g.restore();
   g.beginPath(); g.arc(sx, sy, sr, 0, 7); g.fillStyle = '#121826'; g.fill();
   let drew = false; if (p.pic) { try { const load = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
     const im = await load(p.pic); let src = [im, 0, 0, im.width, im.height];
@@ -68,17 +73,17 @@ async function pgInviteImage(p) {
   // words
   const fit = (t, font, max) => { g.font = font; let s = t; while (g.measureText(s).width > max && s.length > 3) s = s.slice(0, -2); return s === t ? t : s.trim() + '…'; };
   g.textAlign = 'center'; g.textBaseline = 'alphabetic';
-  g.fillStyle = '#e7c46e'; g.font = '800 22px system-ui, -apple-system, "Segoe UI", sans-serif'; const kick = 'YOU’RE INVITED TO JOIN'; let x0 = sx - (g.measureText(kick).width + (kick.length - 1) * 5) / 2; g.textAlign = 'left'; for (const ch2 of kick) { g.fillText(ch2, x0, cy + 236); x0 += g.measureText(ch2).width + 5; } g.textAlign = 'center';
-  g.fillStyle = '#fff7e6'; g.fillText(fit(p.name || 'a party', '700 64px Georgia, "Times New Roman", serif', cw - 100), sx, cy + 306);
+  g.fillStyle = '#e7c46e'; g.font = '800 22px system-ui, -apple-system, "Segoe UI", sans-serif'; const kick = 'YOU’RE INVITED TO JOIN'; let x0 = sx - (g.measureText(kick).width + (kick.length - 1) * 5) / 2; g.textAlign = 'left'; for (const ch2 of kick) { g.fillText(ch2, x0, cy + 242); x0 += g.measureText(ch2).width + 5; } g.textAlign = 'center';
+  g.fillStyle = '#fff7e6'; g.fillText(fit(p.name || 'a party', '700 64px Georgia, "Times New Roman", serif', cw - 100), sx, cy + 310);
   const meta = [dm ? 'Dungeon Master ' + dm : '', n ? n + ' adventurer' + (n === 1 ? '' : 's') + ' so far' : ''].filter(Boolean).join('   •   ');
-  g.fillStyle = '#c6bfae'; g.fillText(fit(meta, '500 26px system-ui, -apple-system, "Segoe UI", sans-serif', cw - 120), sx, cy + 350);
+  g.fillStyle = '#c6bfae'; g.fillText(fit(meta, '500 26px system-ui, -apple-system, "Segoe UI", sans-serif', cw - 120), sx, cy + 352);
   // divider
   const dy = cy + 384; const ln = (a, b) => { const lg = g.createLinearGradient(a, 0, b, 0); lg.addColorStop(a < sx ? 0 : 1, 'rgba(201,150,43,0)'); lg.addColorStop(a < sx ? 1 : 0, 'rgba(201,150,43,.7)'); g.strokeStyle = lg; g.lineWidth = 1.5; g.beginPath(); g.moveTo(a, dy); g.lineTo(b, dy); g.stroke(); };
   ln(sx - 220, sx - 24); ln(sx + 24, sx + 220); g.fillStyle = '#c9962b'; g.beginPath(); g.moveTo(sx, dy - 7); g.lineTo(sx + 7, dy); g.lineTo(sx, dy + 7); g.lineTo(sx - 7, dy); g.closePath(); g.fill();
   // what being in a party means
   const perks = ['See each other’s HP, AC and conditions, live', 'Hand over items and cast spells on each other', 'Share homebrew items with the whole party', 'Your DM can open every character sheet in the party'];
   g.textAlign = 'left'; g.font = '500 25px system-ui, -apple-system, "Segoe UI", sans-serif'; const px = sx - (Math.max(...perks.map(t => g.measureText(t).width)) + 26) / 2;
-  perks.forEach((t, i) => { const y = cy + 430 + i * 40; g.beginPath(); g.arc(px, y - 8, 13, 0, 7); g.fillStyle = 'rgba(201,150,43,.22)'; g.fill(); g.strokeStyle = '#e7c46e'; g.lineWidth = 3; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath(); g.moveTo(px - 6, y - 8); g.lineTo(px - 1.5, y - 3.5); g.lineTo(px + 6.5, y - 13); g.stroke(); g.fillStyle = '#ddd6c6'; g.fillText(t, px + 26, y); });
+  perks.forEach((t, i) => { const y = cy + 426 + i * 38; g.beginPath(); g.arc(px, y - 8, 13, 0, 7); g.fillStyle = 'rgba(201,150,43,.22)'; g.fill(); g.strokeStyle = '#e7c46e'; g.lineWidth = 3; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath(); g.moveTo(px - 6, y - 8); g.lineTo(px - 1.5, y - 3.5); g.lineTo(px + 6.5, y - 13); g.stroke(); g.fillStyle = '#ddd6c6'; g.fillText(t, px + 26, y); });
   return c.toDataURL('image/png');
 }
 window.pgInviteImage = pgInviteImage;
@@ -2719,16 +2724,16 @@ function partyModule(H) {
   const INVUSE = {}; const invUse = code => INVUSE[code] ? Promise.resolve(INVUSE[code]) : IC.doc(code).get().then(d => (INVUSE[code] = d.exists ? { max: Number(d.data().max) || 0, used: Number(d.data().used) || 0 } : { max: 0, used: 0 }), () => ({ max: 0, used: 0 }));
   const invMaxSel = (v) => `<select id="pt-lmax" class="pty-lmax" aria-label="How many players the link is for"><option value="0"${!v ? ' selected' : ''}>any number of players</option>${[1, 2, 3, 4, 5, 6, 7, 8].map(n => `<option value="${n}"${v === n ? ' selected' : ''}>${n} player${n > 1 ? 's' : ''}</option>`).join('')}</select>`;
   // the invite panel as a picture, for the link's preview card (redrawn when the party's name, picture or size changes)
-  const invCardKey = p => ['png3', p.name || '', (p.pic || '').length, (p.chars || []).length, p.dmName || ''].join('|');
-  const invCard = async (code, p) => { try { const k = invCardKey(p); let was = null; try { was = localStorage.getItem('pg-invcard:' + code); } catch (e) {} if (was === k) return; const img = await pgInviteImage(p);
+  const invCardKey = p => ['png4', p.name || '', (p.pic || '').length, (p.chars || []).length, p.dmName || ''].join('|');
+  const invCard = async (code, p, loud) => { try { const k = invCardKey(p); let was = null; try { was = localStorage.getItem('pg-invcard:' + code); } catch (e) {} if (was === k) return; const img = await pgInviteImage(p);
     // A sharp PNG is bigger than one Firestore document holds, so the rest of it goes in invcard/<code>/part/<i>.
     const PART = 880000, bits = []; for (let i = 0; i < img.length; i += PART) bits.push(img.slice(i, i + PART)); const D = fs.collection('invcard').doc(code);
     await D.set({ p: p.id, name: String(p.name || '').slice(0, 200), dmName: String(p.dmName || p.dm || '').slice(0, 200), n: (p.chars || []).length, img: bits[0], k: bits.length, at: Date.now() });
-    for (let i = 1; i < bits.length; i++) await D.collection('part').doc(String(i)).set({ img: bits[i] }); try { localStorage.setItem('pg-invcard:' + code, k); } catch (e) {} } catch (e) { console.warn('invite card', e); } };
+    for (let i = 1; i < bits.length; i++) await D.collection('part').doc(String(i)).set({ img: bits[i] }); try { localStorage.setItem('pg-invcard:' + code, k); } catch (e) {} } catch (e) { console.warn('invite card', e); if (loud || !invCard.told) { invCard.told = true; toast('The invite link works, but its preview picture couldn’t be saved: ' + ((e && (e.code || e.message)) || e)); } } };
   const invSync = p => { if (p && p.inv) { invPut(p.inv, p).catch(() => {}); invCard(p.inv, p); } };
   const invNew = async (p, max) => { const r = Array.from(crypto.getRandomValues(new Uint8Array(5)), b => 'abcdefghjkmnpqrstuvwxyz23456789'[b % 31]).join('');
     const code = (partySlug(p.name) || 'party').slice(0, 40) + '-' + r, old = p.inv; max = Math.max(0, Math.min(50, Math.floor(Number(max) || 0)));
-    await invPut(code, p, { max, used: 0 }); INVUSE[code] = { max, used: 0 }; invCard(code, p); await PC.doc(p.id).update({ inv: code, updatedAt: Date.now() }); if (old) { IC.doc(old).delete().catch(() => {}); { const D = fs.collection('invcard').doc(old); Promise.all([1, 2, 3, 4, 5].map(i => D.collection('part').doc(String(i)).delete().catch(() => {}))).then(() => D.delete()).catch(() => {}); } } p.inv = code; return code; };
+    await invPut(code, p, { max, used: 0 }); INVUSE[code] = { max, used: 0 }; await invCard(code, Object.assign({}, p, { inv: code }), true); await PC.doc(p.id).update({ inv: code, updatedAt: Date.now() }); if (old) { IC.doc(old).delete().catch(() => {}); { const D = fs.collection('invcard').doc(old); Promise.all([1, 2, 3, 4, 5].map(i => D.collection('part').doc(String(i)).delete().catch(() => {}))).then(() => D.delete()).catch(() => {}); } } p.inv = code; return code; };
   const invLinkHTML = p => `<div class="pty-link${p.inv ? '' : ' off'}">
       <span class="pty-link-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></span>
       ${p.inv ? `<span class="pty-link-t"><b>Invite link</b><code title="${esc(URLS.join(p.inv))}">${esc(URLS.join(p.inv).replace(/^https?:\/\//, ''))}</code></span>
