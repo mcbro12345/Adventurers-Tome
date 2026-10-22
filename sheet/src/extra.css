@@ -3021,13 +3021,13 @@ html.mobile.hasbug.realphone .devbtn.dicebtn, html.mobile.hasbug.pg-inphone .dev
 .smite-btn.sel { outline: 1.5px solid var(--line2); }
 .smite-btn.on { outline: 2px solid var(--gold); background: var(--gold-soft); }
 /* HP box: the damage type picker sits above the amount (resets to Any after each hit) */
-.hp-actions .hp-amtrow { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.hp-actions .hp-amtrow { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 2px; min-width: 0; margin-top: 4px; }
 .hp-actions .hp-amtrow input { flex: 0 0 auto; min-width: 0; width: 100% !important; }
 .hp-actions .hp-amtrow .hptype { flex: 0 0 auto; width: 100%; min-width: 0; height: 30px; padding: 0 8px; font-size: .85rem; border: 1px solid var(--line); background: var(--field); color: var(--ink); border-radius: 8px; }
 .hp-actions .hp-amtrow .hptype:not([value=""]) { font-weight: 600; }
 /* Inspiration: "Use" sits under the star (only while you have some) */
-.insp-use { position: absolute; left: 50%; bottom: -50px; transform: translateX(-50%); z-index: 6; padding: 2px 12px; border-radius: 999px; border: 1.5px solid var(--gold); background: var(--gold); color: var(--gold-ink); font-weight: 800; font-size: .7rem; letter-spacing: .04em; cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,.25); }
-.insp-use:hover { filter: brightness(1.08); }
+.insp-use { position: absolute; left: 50%; bottom: -43px; transform: translateX(-50%); z-index: 5; padding: 5px 14px 2px; border-radius: 0 0 10px 10px; border: 1.5px solid var(--gold); border-top: 0; background: var(--panel); color: var(--gold-ink); font-weight: 800; font-size: .58rem; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,.22); }
+.insp-use:hover { background: var(--gold-soft); }
 .insp-use.mini { display: none; }
 html.mobile .insp-use:not(.mini) { display: none; }
 html.mobile .insp-use.mini { display: inline-block; position: static; transform: none; margin-left: 6px; align-self: center; box-shadow: none; padding: 4px 10px; }
