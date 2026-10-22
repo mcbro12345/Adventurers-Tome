@@ -763,7 +763,12 @@ function wireDie(root) {
     // One rule for "came online", whatever the page or device: an open page finds their last heartbeat (on any
     // device) 4+ minutes old. Background tabs count too (browsers may slow or freeze them), and the log says so.
     { window.pgSeenAt = (ME && ME.seenAt) || 0; let firstBeat = true;
-    window.pgBeat = (force) => { if (!ME) return; const now = Date.now(), last = window.pgSeenAt || 0; if (!force && now - last < 100000) return;
+    // seenFg: the last heartbeat from a page that was on screen (the admin Users list shows "background tab" when only hidden tabs are beating).
+    // Written separately, so seenAt keeps working even before the database rules allow seenFg.
+    window.pgFgAt = (ME && ME.seenFg) || 0;
+    window.pgBeat = (force) => { if (!ME) return; const now = Date.now(), last = window.pgSeenAt || 0, fg = !document.hidden;
+      if (fg && (force || now - (window.pgFgAt || 0) >= 100000)) { window.pgFgAt = now; UREF.update({ seenFg: now }).catch(() => {}); }
+      if (!force && now - last < 100000) return;
       const away = !last || now - last > 4 * 60000, first = firstBeat; firstBeat = false; window.pgSeenAt = now; UREF.update({ seenAt: now }).catch(() => {});
       if (away && !NEWACCT && window.pgLog) setTimeout(() => pgLog('online', { detail: first && window.pgSignedIn ? 'by signing in' : pgOnlineWhy(!first, document.hidden) }), first ? 400 : 0); };
     setInterval(() => window.pgBeat(), 30000); document.addEventListener('visibilitychange', () => window.pgBeat()); }
@@ -786,7 +791,7 @@ function wireDie(root) {
   // (when the database refuses even their own account record, an admin has signed them out or blocked them)
   const LOCKED = 'You’ve been signed out.';
   { const k0 = kicked(ME) || (ACCT_ERR === 'permission-denied' ? LOCKED : ''); if (k0) { kick(k0); return; } }
-  UREF.onSnapshot(d => { { const sa = d.exists && Number(d.data().seenAt); if (sa > (window.pgSeenAt || 0)) window.pgSeenAt = sa; } const k = kicked(d.exists ? d.data() : null); if (k) kick(k); else { const u = d.exists ? d.data() : null, ra = Number(u && u.reloadAt) || 0; if (PG_RA === null) PG_RA = ra; else if (ra && ra !== PG_RA) { PG_RA = ra; location.reload(); return; } pgMsg(u); } }, e => { if (e && e.code === 'permission-denied') kick(LOCKED); });
+  UREF.onSnapshot(d => { { const sa = d.exists && Number(d.data().seenAt), sf = d.exists && Number(d.data().seenFg); if (sa > (window.pgSeenAt || 0)) window.pgSeenAt = sa; if (sf > (window.pgFgAt || 0)) window.pgFgAt = sf; } const k = kicked(d.exists ? d.data() : null); if (k) kick(k); else { const u = d.exists ? d.data() : null, ra = Number(u && u.reloadAt) || 0; if (PG_RA === null) PG_RA = ra; else if (ra && ra !== PG_RA) { PG_RA = ra; location.reload(); return; } pgMsg(u); } }, e => { if (e && e.code === 'permission-denied') kick(LOCKED); });
   // A message from the site's admin: pops up once (on whichever device sees it first), on any page.
   // Web addresses in a message become links (opened in a new tab). Runs on already-escaped text.
   function linkify(h) { return h.replace(/\b(?:https?:\/\/|www\.)[^\s<]+/gi, u => { const tail = (u.match(/[.,;:!?)\]'"]+$/) || [''])[0], url = tail ? u.slice(0, -tail.length) : u;
@@ -2007,7 +2012,7 @@ function hub(fs, auth, G, ctx) {
       const el = B(); HA().innerHTML = '';
       el.innerHTML = `<div class="adm-filters">${toolbar('ad-uq', 'Search by name or email', UQ)}<div class="adm-fsels">
           ${fsel('uf-role', 'Role', [['', 'Anyone'], ['owner', 'Owner'], ['admin', 'Admins'], ['member', 'Members'], ['blocked', 'Blocked']], UF.role)}
-          ${fsel('uf-act', 'Active', [['', 'Any time'], ['on', 'Online now'], ['1', 'Today'], ['7', 'This week'], ['30', 'This month'], ['old', 'Not in 30+ days']], UF.act)}
+          ${fsel('uf-act', 'Active', [['', 'Any time'], ['on', 'Online'], ['1', 'Today'], ['7', 'This week'], ['30', 'This month'], ['old', 'Not in 30+ days']], UF.act)}
           ${fsel('uf-join', 'Joined', [['', 'Any time'], ['7', 'Past week'], ['30', 'Past month']], UF.joined)}</div></div><div id="ad-ul"><div class="sk-auto" data-n="6"></div></div>`;
       const q = el.querySelector('#ad-uq'); let t = null; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { UQ = q.value; paintUsers(); }, 150); }; if (!UQ && !TOUCH) q.focus();
       [['uf-role', 'role'], ['uf-act', 'act'], ['uf-join', 'joined']].forEach(([id, k]) => { const sl = el.querySelector('#' + id); sl.onchange = () => { UF[k] = sl.value; sl.parentElement.classList.toggle('on', !!sl.value); paintUsers(); }; });
@@ -2028,7 +2033,7 @@ function hub(fs, auth, G, ctx) {
           && (!UF.joined || u.createdAt > dayN(Number(UF.joined))))
         .sort((a, b) => (isOn(b) - isOn(a)) || (isOn(a) ? onRank(a) - onRank(b) : ((b.seenAt || 0) - (a.seenAt || 0))) || String(a.name || a.id).localeCompare(String(b.name || b.id)));
       const cnt = B().querySelector('#ad-uq-n'); if (cnt) cnt.textContent = rows.length + ' of ' + UROWS.length + ' user' + (UROWS.length === 1 ? '' : 's') + (UROWS.filter(isOn).length ? ' · ' + UROWS.filter(isOn).length + ' online' : '');
-      const seen = u => isOn(u) ? '<span class="adm-online" title="Has Adventurer’s Tome open right now"><i></i>Online now</span>' : u.seenAt ? esc(ago(u.seenAt)) : '<span class="adm-dim">—</span>';
+      const seen = u => isOn(u) ? (u.seenFg && Date.now() - u.seenFg > ONLINE ? '<span class="adm-online bg" title="Has Adventurer’s Tome open in a tab, but not on screen (another tab or app is in front, or the window is minimised)"><i></i>Online</span>' : '<span class="adm-online" title="Has Adventurer’s Tome open and on screen right now"><i></i>Online</span>') : u.seenAt ? esc(ago(u.seenAt)) : '<span class="adm-dim">—</span>';
       l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Last active</th><th></th><th></th></tr></thead><tbody>${rows.map(u => { const [rl, rc] = u.banned ? ['Blocked', 'r-blk'] : roleOf(u.id), open = UOPEN.has(u.id);
           return `<tr data-u="${esc(u.id)}"><td><span class="adm-who">${ava(u.name, u.id)}<b>${esc(u.name || '—')}</b></span></td><td class="adm-mail">${esc(u.id)}</td><td><span class="adm-tag ${rc}">${rl}</span></td><td>${when(u.createdAt)}</td><td>${seen(u)}</td>
             <td><button class="adm-btn sm" data-uc="${esc(u.id)}">Characters ${open ? '▾' : '▸'}</button></td><td class="adm-act">${kebab([['msg', 'Send a message…', u.id], ['welcome', 'Show welcome message again', u.id], ['renotice', 'Show the notice again', u.id], ['quiet', QUIET.has(u.id) ? 'Count in notice numbers' : 'Leave out of notice numbers', u.id], ['reload', 'Refresh their page', u.id], ['rename', 'Rename…', u.id], ['pic', 'Change picture…', u.id], ['newfor', 'New character for them', u.id]].concat(IS_OWNER && !ownerEm(u.id) ? [ADMINS.includes(u.id) ? ['unadmin', 'Remove admin', u.id] : ['mkadmin', 'Make admin', u.id]] : [], ownerEm(u.id) || u.id === EMAIL ? [] : [['signout', 'Sign out everywhere', u.id]].concat(u.banned ? [['unblock', 'Unblock', u.id]] : [], [['delacct', 'Delete account…', u.id, 'danger']])))}</td></tr>

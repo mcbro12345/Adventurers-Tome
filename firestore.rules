@@ -73,7 +73,7 @@ service cloud.firestore {
       allow list: if admin();
       allow create: if admin() || (signedIn() && em == me() && request.resource.data.email == me()
         && request.resource.data.keys().hasOnly(['email', 'name', 'nameLower', 'keys', 'createdAt', 'seenAt', 'gpic']));
-      allow update: if admin() || (signedIn() && em == me() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt', 'pic', 'picChar', 'picColor', 'picClear', 'picMode', 'gpic', 'name', 'nameLower', 'keys', 'msgSeen', 'noticeSeen', 'welcomeSeen', 'partyOrder'])
+      allow update: if admin() || (signedIn() && em == me() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt', 'seenFg', 'pic', 'picChar', 'picColor', 'picClear', 'picMode', 'gpic', 'name', 'nameLower', 'keys', 'msgSeen', 'noticeSeen', 'welcomeSeen', 'partyOrder'])
         && (!('partyOrder' in request.resource.data) || (request.resource.data.partyOrder is list && request.resource.data.partyOrder.size() <= 200))
         && request.resource.data.get('name', '') is string && request.resource.data.get('name', '').size() <= 60);
       allow delete: if admin();
