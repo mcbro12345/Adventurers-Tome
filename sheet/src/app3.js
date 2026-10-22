@@ -1140,9 +1140,8 @@ function alignHpSide() {
   // Measure where the ring sits in the normal layout, pin it there, then slide only the controls down.
   wrap.style.alignItems = ''; ring.style.marginTop = ''; side.style.marginTop = '';
   const r0 = ring.getBoundingClientRect().top - wrap.getBoundingClientRect().top;
-  wrap.style.alignItems = 'flex-start'; ring.style.marginTop = r0 + 'px'; side.style.marginTop = '0px';
-  const c = cur.getBoundingClientRect(), a = amt.getBoundingClientRect(), d = (c.top + c.height / 2) - (a.top + a.height / 2);
-  side.style.marginTop = Math.max(0, d) + 'px';
+  // (kept compact now: the ring and the controls are simply centred on each other, nothing is pushed down)
+  void r0; wrap.style.alignItems = 'center';
 }
 addEventListener('resize', () => alignHpSide());
 

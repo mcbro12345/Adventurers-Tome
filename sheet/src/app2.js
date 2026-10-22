@@ -385,7 +385,7 @@ function renderVitals() {
   const strip = `<button class="mstrip" data-act="gocore" aria-label="Hit points and armor class — open Core"><span class="ms-hp">♥ <b data-calc="mhp"></b></span><span>AC <b data-calc="acv"></b></span><span>Init <b data-calc="init"></b></span><span>Speed <b data-calc="speed"></b></span><span class="ms-go">Core ›</span></button>`;
   $('#sec-vitals').innerHTML = `${strip}
   <div class="tile hp" data-zi="hp">
-    <span class="lbl">${f ? esc(f.source || 'Form') + ': ' + esc(f.name) : '<span class="ciw">Hit Points' + ciBtn('hp', 'max HP') + '</span>'}</span>
+    <span class="lbl">${f ? esc(f.source || 'Form') + ': ' + esc(f.name) : '<span class="ciw">Hit Points' + ciBtn('hp', 'max HP') + '</span><button class="tmanage hpman hpman-in" data-act="hpmanage">Manage</button>'}</span>
     <div class="hp-wrap">
       <div class="hp-ring"><div class="ring-svg" data-calc-html="hpring"></div>
         <div class="hp-center">${f ? inp('form.hp', { num: 1, cls: 'cur', label: 'Form HP' }) + `<div class="hp-max">of ${N(f.maxhp)}</div>` : `<div class="curline">` + inp('hp.cur', { num: 1, cls: 'cur', label: 'Current HP' }) + `<span class="tmpbadge" data-calc="tmpb" title="Temporary hit points"></span></div><div class="hp-max">of <span class="maxv" data-calc="hpmaxv"></span></div>`}</div></div>
@@ -396,7 +396,7 @@ function renderVitals() {
         <div class="rest-actions"><button class="btn rest short" data-act="short" title="1 hour: spend Hit Dice, refresh short-rest features and Pact slots"><span class="ri">${ICON.hourglass}</span>Short Rest</button><button class="btn rest long" data-act="long" title="8 hours: full HP, all slots, features and Hit Dice"><span class="ri">${ICON.moon}</span>Long Rest</button></div>
       </div>
     </div>
-    ${f ? '' : '<button class="tmanage hpman" data-act="hpmanage">Manage</button>'}
+    
   </div>
   <div class="tile ac" data-zi="ac"><span class="lbl"><span class="ciw top">Armor Class${ciBtn('ac', 'your AC')}</span></span><button class="tmanage" data-act="acmanage">Manage</button><span class="big acv" data-calc="acv"></span><div class="ac-fx" data-calc-html="aceffects"></div></div>
   <div class="tile" data-zi="init"><span class="lbl"><span class="ciw top">Initiative${ciBtn('init', 'initiative')}</span></span>${rollBtn('init', 'Initiative', 'big')}</div>

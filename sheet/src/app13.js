@@ -71,7 +71,7 @@ function ptyCardHTML(m) {
   const more = [['coins', 'Give coins'], ['help', 'Help (advantage on their next roll)'], down && !m.dead && !m.stable ? ['stab', 'Stabilize (Medicine, DC 10)'] : null, ['note', 'Send a message']].filter(Boolean);
   const hp = max ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(cur, max, m.temp, f ? ' form' : '')}</div>
       <div class="chp-center"><div class="curline"><b class="ptym-cur">${cur}</b>${N(m.temp) ? `<span class="tmpbadge">+${N(m.temp)}</span>` : ''}</div><div class="hp-max">of ${max}</div></div></div>
-      ${act ? `<div class="chp-side"><input class="f" id="ptyq-${esc(id)}" inputmode="numeric" placeholder="Amount" aria-label="Amount for ${esc(m.name)}">
+      ${act ? `<div class="chp-side"><select class="f ptyqt" id="ptyqt-${esc(id)}" aria-label="Damage type for ${esc(m.name)}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="ptyq-${esc(id)}" inputmode="numeric" placeholder="Amount" aria-label="Amount for ${esc(m.name)}">
         <div class="chp-btns"><button class="btn hpi dmg" data-pa="qdmg" data-id="${esc(id)}" title="Damage ${esc(m.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-pa="qheal" data-id="${esc(id)}" title="Heal ${esc(m.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-pa="qtemp" data-id="${esc(id)}" title="Give ${esc(m.name)} temporary HP" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div>` : ''}</div>` : '';
   return `<div class="panel comp2 ptym${down ? ' ' + down : ''}" data-mid="${esc(id)}"><div class="comp-h2">${m.thumb ? `<span class="picth"><img src="${esc(m.thumb)}" alt=""></span>` : `<span class="picadd">${esc(String(m.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''))}</span>`}
       <div class="grow"><b class="cname${String(m.name || '').length > 26 ? ' n3' : String(m.name || '').length > 17 ? ' n2' : ''}" title="${esc(m.name || '')}">${esc(m.name || 'A character')}</b>${m.player ? `<div class="ptym-pl">${esc(m.player)}</div>` : ''}</div>
@@ -87,7 +87,7 @@ function renderParty() {
   if (!ptyOn()) { pg.innerHTML = ''; return; }
   const P = PTYX().info(), ms = ptyMembers(), act = ptyAct(), abil = act ? ptyAbilities() : [], auras = abil.filter(a => a.def.kind === 'aura');
   const n = ms.length + 1, dm = P.mgr ? 'You' : (P.dmName || 'the DM');
-  const head = `<div class="panel ptyhead"><div class="ptyh"><span class="ptyh-ic" aria-hidden="true">${TAB_ICON.party}</span><div class="ptyh-t"><b>${esc(P.name)}</b><span>DM ${esc(dm)} · ${n} character${n === 1 ? '' : 's'}${act ? '' : ' · you’re viewing this sheet'}</span></div>
+  const head = `<div class="panel ptyhead"><div class="ptyh"><span class="ptyh-ic${P.pic ? ' pic' : ''}" aria-hidden="true">${P.pic ? `<img src="${esc(P.pic)}" alt="">` : TAB_ICON.party}</span><div class="ptyh-t"><b>${esc(P.name)}</b><span>DM ${esc(dm)} · ${n} character${n === 1 ? '' : 's'}${act ? '' : ' · you’re viewing this sheet'}</span></div>
       <div class="ptyh-btns">${act && ms.length > 1 ? '<button class="btn sm" data-pa="cast" data-id="" title="Pick the spell, then everyone it reaches">Cast a spell on allies…</button><button class="btn sm" data-pa="ability" data-id="" title="Pick the ability, then everyone it reaches">Use an ability on allies…</button>' : ''}<a class="btn sm" href="${esc(P.url)}" target="_top">Party page</a></div></div>
       ${act && ms.length ? `<p class="hint ptyh-hint">${P.mgr ? 'As the DM, what you send lands on their sheet straight away (or the next time it’s opened).' : 'Healing, items, spells and abilities you send pop up on their sheet for them to accept.'}</p>` : ''}</div>`;
   const cards = P.loading ? `<div class="panel"><p class="hint" style="margin:0">Loading the party…</p></div>` : ms.length ? `<div class="ptym-grid">${ms.map(ptyCardHTML).join('')}</div>` : `<div class="panel"><p class="hint" style="margin:0">Nobody else has joined yet. Your DM can share the party’s invite link from the party page.</p></div>`;
@@ -150,10 +150,10 @@ function ptyPickDone() { const p = PTY_PICK; if (!p) return; const ids = $$('#mo
 // The amount box on a member's card (a number or a roll like 2d4+2), like a creature card's.
 function ptyQuick(kind, id) { const inp = $('#ptyq-' + CSS.escape(id)); const v = inp ? inp.value : ''; if (!String(v).trim()) { if (inp) inp.focus(); toast('Type an amount in the box first.'); return; }
   const r = ptyRollAmt(v, (kind === 'heal' ? 'Healing for ' : kind === 'temp' ? 'Temporary HP for ' : 'Damage to ') + ptyNm(id)); if (!r) { toast('Type a number or a roll like 2d6+3.'); return; } if (r.skipped || !(r.total > 0)) return;
-  if (inp) inp.value = ''; const w = S.name || 'an ally';
+  if (inp) inp.value = ''; const w = S.name || 'an ally', ts = $('#ptyqt-' + CSS.escape(id)), dt = kind === 'dmg' && ts ? ts.value : ''; if (ts) ts.value = '';
   if (kind === 'heal') ptySend([id], 'heal', { amt: r.total, why: w }, `Healed ${r.total} HP`);
   else if (kind === 'temp') ptySend([id], 'temp', { amt: r.total, why: w }, `${r.total} temporary HP`);
-  else ptySend([id], 'hit', { dmg: r.total, why: w }, `${r.total} damage`); }
+  else ptySend([id], 'hit', Object.assign({ dmg: r.total, why: w }, dt ? { type: dt } : {}), `${r.total}${dt ? ' ' + dt : ''} damage`); }
 // Heal / temp HP / damage by an amount (or a roll).
 let PTY_AMT = null;
 function ptyAmount(kind, ids) {

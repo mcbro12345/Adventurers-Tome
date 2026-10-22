@@ -13,7 +13,7 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.185adbea0fb2.css">
+<link rel="stylesheet" href="a/sheet.8885fbe1d017.css">
 <link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:type" content="website"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="Adventurer’s Tome"><meta property="og:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:url" content="https://adventurers-tome.web.app/"><meta property="og:image" content="https://adventurers-tome.web.app/og-roll.gif?v=3"><meta property="og:image:type" content="image/gif"><meta property="og:image:width" content="800"><meta property="og:image:height" content="420"><meta property="og:image:alt" content="Adventurer’s Tome — a gold d20 rolling a natural 20"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-roll.gif?v=3"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest"><script>try{var t=localStorage.getItem("pg-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-pgtheme",t)}catch(e){}</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
@@ -2037,6 +2037,9 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 .pg-picch .pgpc-btns button { font: 700 .95rem system-ui, sans-serif; padding: 11px 16px; border-radius: 10px; cursor: pointer; border: 1px solid #3a4560; background: transparent; color: inherit; }
 .pg-picch .pgpc-btns .pg-out-yes { background: #c9962b; border-color: #c9962b; color: #1a1408; }
 .pg-picch .pg-out-row button { font: 700 .9rem system-ui, sans-serif; }
+:where(body.hubbody, .wzh) .pm-qt { width: 100%; box-sizing: border-box; padding: 4px 8px; height: 28px; border-radius: 8px; border: 1px solid #d9cbaa; background: #fff; color: inherit; font: inherit; font-size: .85rem; margin-bottom: -5px; }
+@media (prefers-color-scheme: dark) { :where(html:not([data-pgtheme])) body.hubbody .pm-qt { background: #0f1420; border-color: #3a4560; } }
+ :where(html[data-pgtheme="dark"]) body.hubbody .pm-qt { background: #0f1420; border-color: #3a4560; } 
 </style>
 </head>
 <body>
@@ -2460,7 +2463,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261021203032', ASSETS = {"data": "a/data.48cfdb40bbe4.js", "app": "a/app.b757d91d4076.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.f29dbb6eba20.html"}; window.PG_ASSETS = ASSETS;
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261021203415', ASSETS = {"data": "a/data.48cfdb40bbe4.js", "app": "a/app.47716301391e.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.38dcb82161da.html"}; window.PG_ASSETS = ASSETS;
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -2981,7 +2984,7 @@ function wireDie(root) {
       send: t => { t = String(t || '').trim().slice(0, 1000); if (!t || !unChat) return Promise.reject(new Error('Not in the chat')); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {}
         return PCOL.doc(chatPid).collection('chat').add({ at: Date.now(), by: EMAIL, c: C, n: String(nm || 'Someone').slice(0, 120), t }); } },
     on: () => !!PTY, self: C, email: EMAIL, owner: () => OWNER, canAct: () => role() !== 'view',
-    info: () => PTY ? { loading: !!PTY.loading, id: PTY.id, name: PTY.name || 'Party', dm: PTY.dm, dmName: PTY.dmName || PTY.dm, mgrs: PTY.mgrs || [], mgr: PTY.dm === EMAIL || (PTY.mgrs || []).includes(EMAIL), url: URLS.party(PTY.id, PTY.name) } : null,
+    info: () => PTY ? { loading: !!PTY.loading, id: PTY.id, name: PTY.name || 'Party', dm: PTY.dm, dmName: PTY.dmName || PTY.dm, mgrs: PTY.mgrs || [], pic: /^(data:image\/|https:\/\/)/.test(String(PTY.pic || '')) ? PTY.pic : '', mgr: PTY.dm === EMAIL || (PTY.mgrs || []).includes(EMAIL), url: URLS.party(PTY.id, PTY.name) } : null,
     members: () => PTY ? (PTY.chars || []).filter(id => id !== C).map(id => { const c = PTY_CARDS[id] || {}, l = PTY_LIVE[id]; return Object.assign({ id, name: 'A character' }, !l ? c : Number(l.at) >= Number(c.at || 0) ? Object.assign({}, c, l) : Object.assign({}, l, c)); }) : [],
     me: () => PTY_CARDS[C] || null,
     send: (to, kind, data, ref) => { if (!PTY) return Promise.reject(new Error('Not in a party')); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} return ptySend(fs, EMAIL, PTY.id, to, kind, data, C, nm, ref); },
@@ -4409,6 +4412,7 @@ async function ptyRecall(fs, EMAIL, pid, to, ref, from, fromName) {
   await ptySend(fs, EMAIL, pid, to, 'undo', { ref }, from, fromName); return 'undone';
 }
 
+const PTY_DT = ['Acid', 'Bludgeoning', 'Cold', 'Fire', 'Force', 'Lightning', 'Necrotic', 'Piercing', 'Poison', 'Psychic', 'Radiant', 'Slashing', 'Thunder'];
 function partyModule(H) {
   const { fs, EMAIL, IS_ADMIN, modal, toast, esc, close, root, G } = H;
   const FV = firebase.firestore.FieldValue, PC = fs.collection('parties'), IC = fs.collection('invites');
@@ -4609,7 +4613,7 @@ function partyModule(H) {
     // a player looking at the party: no controls — the HP ring with AC / speed / level / passive in a 2 × 2 grid beside it
     const grid = `<div class="pm-csts pm-quad">${[['AC', c.ac || '—'], ['Speed', c.speed || '—'], ['Level', c.level || '—'], ['Passive', c.pp || '—']].map(([k, v]) => `<span><small>${k}</small><b>${esc(String(v))}</b></span>`).join('')}</div>`;
     const hp = max ? `<div class="pm-hp"><span class="pty-ring" title="${cur} of ${max} HP${Number(c.temp) ? ' (+' + c.temp + ' temporary)' : ''}"><span class="ring-svg">${ring(c.hp, max, c.temp)}</span><b>${cur}</b><small>of ${max}</small>${Number(c.temp) ? `<em class="pm-tmp">+${Number(c.temp)}</em>` : ''}</span>
-        ${dmMe ? `<div class="pm-hpq"><input class="pm-q" id="pmq-${esc(id)}" inputmode="numeric" placeholder="Amount" aria-label="Amount for ${esc(c.name || 'them')}">
+        ${dmMe ? `<div class="pm-hpq"><select class="pm-qt" id="pmqt-${esc(id)}" aria-label="Damage type for ${esc(c.name || 'them')}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${PTY_DT.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="pm-q" id="pmq-${esc(id)}" inputmode="numeric" placeholder="Amount" aria-label="Amount for ${esc(c.name || 'them')}">
           <div class="pm-hpb"><button class="pm-hb dmg" data-q="dmg" data-id="${esc(id)}" title="Damage" aria-label="Damage">${PM_IC.dmg}</button><button class="pm-hb heal" data-q="heal" data-id="${esc(id)}" title="Heal" aria-label="Heal">${PM_IC.heal}</button><button class="pm-hb tmp" data-q="temp" data-id="${esc(id)}" title="Temporary HP" aria-label="Temporary HP">${PM_IC.temp}</button></div></div>` : grid}</div>` : '';
     const stats = [!max && c.hp != null ? ['HP', c.hp] : null, ['AC', c.ac || '—'], c.speed ? ['Speed', c.speed] : null, c.level ? ['Level', c.level] : null, c.pp ? ['Passive', c.pp] : null].filter(Boolean);
     return `<div class="pm${st ? ' ' + st[1] : ''}" data-cid="${esc(id)}">
@@ -4630,13 +4634,14 @@ function partyModule(H) {
     const id = b.dataset.id, k = b.dataset.q, inp = root.querySelector('#pmq-' + CSS.escape(id)), n = Math.max(0, Math.floor(Number(inp && inp.value) || 0));
     if (!n) { toast('Type an amount first.'); if (inp) inp.focus(); return; }
     const a = actor(); if (!a) return; const nm = (CARDS[id] || {}).name || 'them';
-    const [kind, data, msg] = k === 'dmg' ? ['hit', { dmg: n, why: a.why, ask: true }, `${n} damage to ${nm}`] : k === 'heal' ? ['heal', { amt: n, why: a.why, ask: true }, `Healed ${nm} ${n} HP`] : ['temp', { amt: n, why: a.why, ask: true }, `Gave ${nm} ${n} temp HP`];
-    b.disabled = true; try { await ptySend(fs, EMAIL, PID, id, kind, data, a.from, a.name); if (inp) inp.value = ''; toast(sentMsg(a, msg)); pgLog('party_send', { target: PID, tName: P.name, detail: kind + ' → ' + nm }); } catch (x) { fail(x, 'send it'); } finally { b.disabled = false; }
+    const tsel = root.querySelector('#pmqt-' + CSS.escape(id)), dt = k === 'dmg' && tsel ? tsel.value : '';
+    const [kind, data, msg] = k === 'dmg' ? ['hit', Object.assign({ dmg: n, why: a.why, ask: true }, dt ? { type: dt } : {}), `${n}${dt ? ' ' + dt : ''} damage to ${nm}`] : k === 'heal' ? ['heal', { amt: n, why: a.why, ask: true }, `Healed ${nm} ${n} HP`] : ['temp', { amt: n, why: a.why, ask: true }, `Gave ${nm} ${n} temp HP`];
+    b.disabled = true; try { await ptySend(fs, EMAIL, PID, id, kind, data, a.from, a.name); if (inp) inp.value = ''; if (tsel) tsel.value = ''; toast(sentMsg(a, msg)); pgLog('party_send', { target: PID, tName: P.name, detail: kind + ' → ' + nm }); } catch (x) { fail(x, 'send it'); } finally { b.disabled = false; }
   }
   function paint() {
     if (!PLOADED || JOINING || LEAVING) return;
     // not while the DM is typing an amount on a card (it'd be wiped); it catches up a moment later
-    { const ae = document.activeElement; if (ae && ae.classList && ae.classList.contains('pm-q') && ae.value) { clearTimeout(paint.t); paint.t = setTimeout(paint, 900); return; } }
+    { const ae = document.activeElement; if (ae && ae.classList && (ae.classList.contains('pm-q') && ae.value || ae.classList.contains('pm-qt'))) { clearTimeout(paint.t); paint.t = setTimeout(paint, 900); return; } }
     if (!P) return shell({ title: 'Party', body: note('This party doesn’t exist anymore', 'Its DM may have deleted it.', goHub) });
     if (modal.classList.contains('on') && modal.querySelector('.pty-keep')) return;
     const run = canRun(P), ids = (P.chars || []).slice(), inParty = (P.people || []).includes(EMAIL);

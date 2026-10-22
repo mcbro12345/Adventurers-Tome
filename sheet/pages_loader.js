@@ -898,7 +898,7 @@ function wireDie(root) {
       send: t => { t = String(t || '').trim().slice(0, 1000); if (!t || !unChat) return Promise.reject(new Error('Not in the chat')); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {}
         return PCOL.doc(chatPid).collection('chat').add({ at: Date.now(), by: EMAIL, c: C, n: String(nm || 'Someone').slice(0, 120), t }); } },
     on: () => !!PTY, self: C, email: EMAIL, owner: () => OWNER, canAct: () => role() !== 'view',
-    info: () => PTY ? { loading: !!PTY.loading, id: PTY.id, name: PTY.name || 'Party', dm: PTY.dm, dmName: PTY.dmName || PTY.dm, mgrs: PTY.mgrs || [], mgr: PTY.dm === EMAIL || (PTY.mgrs || []).includes(EMAIL), url: URLS.party(PTY.id, PTY.name) } : null,
+    info: () => PTY ? { loading: !!PTY.loading, id: PTY.id, name: PTY.name || 'Party', dm: PTY.dm, dmName: PTY.dmName || PTY.dm, mgrs: PTY.mgrs || [], pic: /^(data:image\/|https:\/\/)/.test(String(PTY.pic || '')) ? PTY.pic : '', mgr: PTY.dm === EMAIL || (PTY.mgrs || []).includes(EMAIL), url: URLS.party(PTY.id, PTY.name) } : null,
     members: () => PTY ? (PTY.chars || []).filter(id => id !== C).map(id => { const c = PTY_CARDS[id] || {}, l = PTY_LIVE[id]; return Object.assign({ id, name: 'A character' }, !l ? c : Number(l.at) >= Number(c.at || 0) ? Object.assign({}, c, l) : Object.assign({}, l, c)); }) : [],
     me: () => PTY_CARDS[C] || null,
     send: (to, kind, data, ref) => { if (!PTY) return Promise.reject(new Error('Not in a party')); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} return ptySend(fs, EMAIL, PTY.id, to, kind, data, C, nm, ref); },
@@ -2326,6 +2326,7 @@ async function ptyRecall(fs, EMAIL, pid, to, ref, from, fromName) {
   await ptySend(fs, EMAIL, pid, to, 'undo', { ref }, from, fromName); return 'undone';
 }
 
+const PTY_DT = ['Acid', 'Bludgeoning', 'Cold', 'Fire', 'Force', 'Lightning', 'Necrotic', 'Piercing', 'Poison', 'Psychic', 'Radiant', 'Slashing', 'Thunder'];
 function partyModule(H) {
   const { fs, EMAIL, IS_ADMIN, modal, toast, esc, close, root, G } = H;
   const FV = firebase.firestore.FieldValue, PC = fs.collection('parties'), IC = fs.collection('invites');
@@ -2526,7 +2527,7 @@ function partyModule(H) {
     // a player looking at the party: no controls — the HP ring with AC / speed / level / passive in a 2 × 2 grid beside it
     const grid = `<div class="pm-csts pm-quad">${[['AC', c.ac || '—'], ['Speed', c.speed || '—'], ['Level', c.level || '—'], ['Passive', c.pp || '—']].map(([k, v]) => `<span><small>${k}</small><b>${esc(String(v))}</b></span>`).join('')}</div>`;
     const hp = max ? `<div class="pm-hp"><span class="pty-ring" title="${cur} of ${max} HP${Number(c.temp) ? ' (+' + c.temp + ' temporary)' : ''}"><span class="ring-svg">${ring(c.hp, max, c.temp)}</span><b>${cur}</b><small>of ${max}</small>${Number(c.temp) ? `<em class="pm-tmp">+${Number(c.temp)}</em>` : ''}</span>
-        ${dmMe ? `<div class="pm-hpq"><input class="pm-q" id="pmq-${esc(id)}" inputmode="numeric" placeholder="Amount" aria-label="Amount for ${esc(c.name || 'them')}">
+        ${dmMe ? `<div class="pm-hpq"><select class="pm-qt" id="pmqt-${esc(id)}" aria-label="Damage type for ${esc(c.name || 'them')}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${PTY_DT.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="pm-q" id="pmq-${esc(id)}" inputmode="numeric" placeholder="Amount" aria-label="Amount for ${esc(c.name || 'them')}">
           <div class="pm-hpb"><button class="pm-hb dmg" data-q="dmg" data-id="${esc(id)}" title="Damage" aria-label="Damage">${PM_IC.dmg}</button><button class="pm-hb heal" data-q="heal" data-id="${esc(id)}" title="Heal" aria-label="Heal">${PM_IC.heal}</button><button class="pm-hb tmp" data-q="temp" data-id="${esc(id)}" title="Temporary HP" aria-label="Temporary HP">${PM_IC.temp}</button></div></div>` : grid}</div>` : '';
     const stats = [!max && c.hp != null ? ['HP', c.hp] : null, ['AC', c.ac || '—'], c.speed ? ['Speed', c.speed] : null, c.level ? ['Level', c.level] : null, c.pp ? ['Passive', c.pp] : null].filter(Boolean);
     return `<div class="pm${st ? ' ' + st[1] : ''}" data-cid="${esc(id)}">
@@ -2547,13 +2548,14 @@ function partyModule(H) {
     const id = b.dataset.id, k = b.dataset.q, inp = root.querySelector('#pmq-' + CSS.escape(id)), n = Math.max(0, Math.floor(Number(inp && inp.value) || 0));
     if (!n) { toast('Type an amount first.'); if (inp) inp.focus(); return; }
     const a = actor(); if (!a) return; const nm = (CARDS[id] || {}).name || 'them';
-    const [kind, data, msg] = k === 'dmg' ? ['hit', { dmg: n, why: a.why, ask: true }, `${n} damage to ${nm}`] : k === 'heal' ? ['heal', { amt: n, why: a.why, ask: true }, `Healed ${nm} ${n} HP`] : ['temp', { amt: n, why: a.why, ask: true }, `Gave ${nm} ${n} temp HP`];
-    b.disabled = true; try { await ptySend(fs, EMAIL, PID, id, kind, data, a.from, a.name); if (inp) inp.value = ''; toast(sentMsg(a, msg)); pgLog('party_send', { target: PID, tName: P.name, detail: kind + ' → ' + nm }); } catch (x) { fail(x, 'send it'); } finally { b.disabled = false; }
+    const tsel = root.querySelector('#pmqt-' + CSS.escape(id)), dt = k === 'dmg' && tsel ? tsel.value : '';
+    const [kind, data, msg] = k === 'dmg' ? ['hit', Object.assign({ dmg: n, why: a.why, ask: true }, dt ? { type: dt } : {}), `${n}${dt ? ' ' + dt : ''} damage to ${nm}`] : k === 'heal' ? ['heal', { amt: n, why: a.why, ask: true }, `Healed ${nm} ${n} HP`] : ['temp', { amt: n, why: a.why, ask: true }, `Gave ${nm} ${n} temp HP`];
+    b.disabled = true; try { await ptySend(fs, EMAIL, PID, id, kind, data, a.from, a.name); if (inp) inp.value = ''; if (tsel) tsel.value = ''; toast(sentMsg(a, msg)); pgLog('party_send', { target: PID, tName: P.name, detail: kind + ' → ' + nm }); } catch (x) { fail(x, 'send it'); } finally { b.disabled = false; }
   }
   function paint() {
     if (!PLOADED || JOINING || LEAVING) return;
     // not while the DM is typing an amount on a card (it'd be wiped); it catches up a moment later
-    { const ae = document.activeElement; if (ae && ae.classList && ae.classList.contains('pm-q') && ae.value) { clearTimeout(paint.t); paint.t = setTimeout(paint, 900); return; } }
+    { const ae = document.activeElement; if (ae && ae.classList && (ae.classList.contains('pm-q') && ae.value || ae.classList.contains('pm-qt'))) { clearTimeout(paint.t); paint.t = setTimeout(paint, 900); return; } }
     if (!P) return shell({ title: 'Party', body: note('This party doesn’t exist anymore', 'Its DM may have deleted it.', goHub) });
     if (modal.classList.contains('on') && modal.querySelector('.pty-keep')) return;
     const run = canRun(P), ids = (P.chars || []).slice(), inParty = (P.people || []).includes(EMAIL);
