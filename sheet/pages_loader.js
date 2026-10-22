@@ -911,7 +911,7 @@ function wireDie(root) {
         return hbCol.add({ item: JSON.stringify(it), name, at: Date.now(), by: EMAIL }).then(r => { pgLog('party_hb', { target: pid, tName: party.name, detail: name }); return r.id; }); },
       remove: id => hbCol.doc(String(id)).delete() } : null;
     return Object.assign({ fs, EMAIL, party, back: { href: URLS.parties(G), label: 'Parties' },
-      logo: { html: () => logoHTML(), wire: el => wireDie(el) }, bugReport: () => window.pgBugReport && window.pgBugReport(), partyHB, makeNpc: party ? () => { try { sessionStorage.setItem('pg-join', JSON.stringify({ p: pid, t: '', name: party.name, at: Date.now(), npc: true })); } catch (e) {} pgGo(URLS.newChar(G)); } : null }, extra || {}); };
+      logo: (() => { let first = true; return { html: () => logoHTML(), wire: el => { wireDie(el); if (first) { first = false; let n = 0; const go = () => { const d = document.querySelector('.dk-logo'); if (!d) return; if (PG_DIE.rolling && n++ < 20) return setTimeout(go, 150); rollDie(d); }; setTimeout(go, 450); } } }; })() /* the desk's die rolls once when it opens, like the lobby's */, bugReport: () => window.pgBugReport && window.pgBugReport(), partyHB, makeNpc: party ? () => { try { sessionStorage.setItem('pg-join', JSON.stringify({ p: pid, t: '', name: party.name, at: Date.now(), npc: true })); } catch (e) {} pgGo(URLS.newChar(G)); } : null }, extra || {}); };
   if (DESKQ && G) { lsSet(LAST_G, G);
     const pid = clean(Q.get('for') || '');
     document.title = 'DM’s Desk — Adventurer’s Tome';
