@@ -2231,7 +2231,8 @@ button.to-hp:hover, button.to-ac:hover { border-color: var(--to-line); color: va
 .to-dkn { display: grid; gap: 1px; min-width: 0; } .to-dkn b { font-weight: 700; } .to-dkn small { opacity: .7; font-size: 12.5px; }
 /* A DM's party page lives inside the DM's Desk (its Party tab): no site header or duplicate buttons there */
 body.dkhost #hub .wzh, body.dkhost #hub #pt-desk, body.dkhost #hub #pt-turn { display: none !important; }
-body.dkhost #hub .pw { padding-top: 0; margin-top: 0; }
+body.dkhost #hub { min-height: 0 !important; }
+body.dkhost #hub .pw { padding-top: 12px; margin-top: 0; margin-bottom: 0 !important; min-height: calc(100vh - var(--toph, 120px)); min-height: calc(100dvh - var(--toph, 120px)); } /* fills the space under the desk's header exactly, so it only scrolls when there's more to show */
 </style>
 </head>
 <body>
@@ -2836,7 +2837,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022133942', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.75ba6b2cce8b.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.ca0eafbad24f.html", "desk": "a/desk.fc8fcb53766c.js", "deskcss": "a/deskcss.afb0a4288bb0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022134650', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.75ba6b2cce8b.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.ca0eafbad24f.html", "desk": "a/desk.fc8fcb53766c.js", "deskcss": "a/deskcss.afb0a4288bb0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
