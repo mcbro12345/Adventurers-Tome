@@ -198,7 +198,9 @@ function pgMwDress() { document.documentElement.classList.toggle('pgmw', pgMwDes
     if (h) h.classList.add('mw-hid'); const bar = document.createElement('div'); bar.className = 'mw-head'; bar.innerHTML = `<b>${escH(t || 'Window')}</b><button class="mw-x" type="button" title="Close" aria-label="Close">✕</button>`;
     bar.querySelector('.mw-x').onclick = () => { const no = c.querySelector('.pg-out-no') || [...c.querySelectorAll('button')].find(b => /^(cancel|close|not now|done|no)$/i.test(b.textContent.trim()));
       if (no) return no.click(); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); const m = c.closest('.hub-modal'); if (m && m.classList.contains('on')) m.classList.remove('on'); };
-    c.prepend(bar); }); }
+    c.prepend(bar); });
+  // Close / Done buttons that only close the window aren't needed next to the ✕ (it presses them for you)
+  document.querySelectorAll('.hub-modal.on > .hub-card, .pg-out > .pg-out-card').forEach(c => { if (!c.querySelector(':scope > .mw-head')) return; c.querySelectorAll('button').forEach(x => { if (!x.closest('.mw-head') && /^(close|done)$/i.test(x.textContent.trim())) x.classList.add('mw-hid'); }); }); }
 new MutationObserver(() => { cancelAnimationFrame(pgMwDress.r); pgMwDress.r = requestAnimationFrame(pgMwDress); }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
 function pgPartyFrames() { document.querySelectorAll('img.pty-pic, img.pty-admic, .pw-ppic > img, .pj-seal > img, .ptyh-ic.pic > img').forEach(im => {
   const src = im.getAttribute('src') || '', key = src.length + ':' + src.slice(-40), el = im.matches('.pty-pic, .pty-admic') ? im : im.parentElement; if (!src || el.dataset.pacc === key) return; el.dataset.pacc = key;

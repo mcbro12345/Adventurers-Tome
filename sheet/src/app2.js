@@ -304,8 +304,11 @@ function mwDress() { const b = $('#modal-body'); if (!b) return; const de = docu
     const row = h.parentElement; if (row && row !== b) [...row.children].forEach(x => { if (x !== h && x.matches('button') && /^(done|close)$/i.test(x.textContent.trim())) x.classList.add('mw-hid'); });
     if (row && row !== b && ![...row.children].some(x => !x.classList.contains('mw-hid') && x.offsetParent)) row.classList.add('mw-hid'); }
   const bar = document.createElement('div'); bar.className = 'mw-head'; bar.innerHTML = `<b>${esc(t || 'Window')}</b><button class="mw-x" type="button" title="Close" aria-label="Close">✕</button>`;
-  bar.querySelector('.mw-x').onclick = () => closeModal(); b.prepend(bar); }
-new MutationObserver(() => { if ($('#modal').classList.contains('open')) mwDress(); }).observe($('#modal-body'), { childList: true });
+  bar.querySelector('.mw-x').onclick = () => closeModal(); b.prepend(bar); mwTidy(); }
+// Done / Close buttons that only close the window aren't needed next to the title bar's ✕ (a row left empty goes too).
+function mwTidy() { const b = $('#modal-body'); if (!b || !mwDesk()) return; b.querySelectorAll('[data-act="close"]').forEach(x => { if (/^(done|close)$/i.test(x.textContent.trim())) x.classList.add('mw-hid'); });
+  b.querySelectorAll('.actions, .row').forEach(r => { if (r.children.length && ![...r.children].some(x => !x.classList.contains('mw-hid') && getComputedStyle(x).display !== 'none')) r.classList.add('mw-hid'); }); }
+new MutationObserver(() => { if ($('#modal').classList.contains('open')) { mwDress(); mwTidy(); } }).observe($('#modal-body'), { childList: true, subtree: true });
 new MutationObserver(() => { if ($('#modal').classList.contains('open')) mwDress(); }).observe($('#modal'), { attributes: true, attributeFilter: ['class'] });
 addEventListener('resize', () => document.documentElement.classList.toggle('mwin', mwDesk()));
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); $$('.menu.open').forEach(m => m.classList.remove('open')); } });
