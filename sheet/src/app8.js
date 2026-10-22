@@ -491,7 +491,7 @@ function useItem(i, col) {
 // Items with something to do in a fight show up in the Combat columns.
 const hbItemActs = col => S.inventory.map((it, i) => [it, i]).filter(([it]) => it.hb && hbUsable(hbFx(it.hb)) && (it.hb.col || '') === col && hbItemOn(it));
 // Custom spells: extra rules a player can give a homebrew spell (crit range, half damage on a miss, upcast dice, backlash).
-const spAuto = sp => Object.assign({}, AUTO(sp.name), sp && sp.hb ? Object.fromEntries(Object.entries({ up: sp.hb.up, crit: N(sp.hb.crit) || null, missHalf: !!sp.hb.missHalf, backlash: sp.hb.backlash, backlashType: sp.hb.backlashType }).filter(([, v]) => v != null && v !== '' && v !== false)) : {});
+const spAuto = sp => Object.assign({}, AUTO(sp.name), sp && sp.hb ? Object.fromEntries(Object.entries({ dmg: sp.hb.dmg, type: sp.hb.type, attack: sp.hb.hit === 'attack' || null, heal: sp.hb.heal ? sp.hb.heal + (sp.hb.healMod ? '+M' : '') : null, healUp: sp.hb.healUp, up: sp.hb.up, crit: N(sp.hb.crit) || null, missHalf: !!sp.hb.missHalf, backlash: sp.hb.backlash, backlashType: sp.hb.backlashType }).filter(([, v]) => v != null && v !== '' && v !== false)) : {});
 const spItem = sp => sp && sp.item ? S.inventory.find(it => it.id === sp.item) : null;
 
 // Uncanny Dodge and the like: ask how much damage the attack did, then take half.

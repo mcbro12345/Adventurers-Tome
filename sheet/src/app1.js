@@ -103,6 +103,9 @@ var HADLOCAL; // set by load(): this browser already had its own copy of this ch
 var FIXED; // no initializer: load() runs (and may set it) before this line is reached
 function applyFixes(s) {
   const done = new Set(s.fixesDone || []); let changed = false;
+  // Built in (every sheet): encumbrance on for everyone who had it off; Istalyn's sling bullets become bullets for her pistol.
+  if (!done.has('enc1')) { if (s.settings && s.settings.encumbrance === 'off') s.settings.encumbrance = 'standard'; done.add('enc1'); changed = true; }
+  if (!done.has('bullets1')) { if (/^istalyn\b/i.test(String(s.name || ''))) (s.inventory || []).forEach(it => { if (it && /^sling bullets$/i.test(String(it.name || '').trim())) { it.name = 'Bullets'; it.weight = 0.2; } }); done.add('bullets1'); changed = true; }
   (EMBED.fixes || []).forEach(f => {
     if (done.has(f.id) || (f.who && s.id !== f.who)) return;
     if (f.type === 'spellstore' && !(s.spells || []).some(x => x.stored)) { const it = (s.inventory || []).find(x => x.name === f.item), d = DND.spellIndex[String(f.spell).toLowerCase()];
@@ -136,7 +139,6 @@ function migrate(s) {
   s.profs = Object.assign({ armor: [], weapons: [], weaponNames: [] }, s.profs || {});
   s.turn = Object.assign({ round: 1, used: {}, moved: 0, attacks: 0 }, s.turn || {}); s.turn.used = s.turn.used || {};
   if (!Array.isArray(s.conditions)) s.conditions = [];
-  ['action', 'bonus', 'reaction', 'move'].forEach(k => { if (!s.combat[k]) s.combat[k] = []; });
   return s;
 }
 function getP(path) { return path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), S); }

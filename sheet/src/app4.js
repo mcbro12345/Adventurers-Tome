@@ -240,6 +240,8 @@ function mainClick(e) {
     case 'drink': drink(i); break;
     case 'useitem': useItem(i, b.dataset.col); break;
     case 'ispdel': { const it = S.inventory[i]; const n = it.spells.splice(N(b.dataset.j), 1)[0]; pendingLabel = `${it.name}: remove ${n}`; rebuildAuto(); save(); render(); break; }
+    case 'hbnew': openHomebrew(b.dataset.k); return;
+    case 'hbbopen': openHomebrew(b.dataset.k, N(b.dataset.i)); return;
     case 'hbopen': UI.open['hb:' + b.dataset.key] = !UI.open['hb:' + b.dataset.key]; render(); break;
     case 'addspells': openSpellPicker(b.dataset.cls); pendingLabel = null; return;
     case 'spfilt': PICK.lvl = b.dataset.l; renderPicker(); pendingLabel = null; return;

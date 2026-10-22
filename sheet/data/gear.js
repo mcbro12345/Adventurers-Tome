@@ -62,7 +62,7 @@ DND.armor = [
 // Adventuring gear, tools, packs, mounts: [name, category, cost, weight, notes]
 DND.gear = [
   ['Abacus', 'gear', '2 gp', 2], ['Acid (vial)', 'gear', '25 gp', 1, 'Throw: 2d6 acid (ranged attack, 20 ft)'], ["Alchemist's fire (flask)", 'gear', '50 gp', 1, 'Throw: 1d4 fire each turn until extinguished (DC 10 DEX)'],
-  ['Arrows', 'ammo', '1 gp/20', 0.05], ['Blowgun needles', 'ammo', '1 gp/50', 0.02], ['Crossbow bolts', 'ammo', '1 gp/20', 0.075], ['Sling bullets', 'ammo', '4 cp/20', 0.075],
+  ['Arrows', 'ammo', '1 gp/20', 0.05], ['Blowgun needles', 'ammo', '1 gp/50', 0.02], ['Crossbow bolts', 'ammo', '1 gp/20', 0.075], ['Sling bullets', 'ammo', '4 cp/20', 0.075], ['Bullets', 'ammo', '3 gp/10', 0.2],
   ['Antitoxin (vial)', 'gear', '50 gp', 0, 'Advantage on saves vs poison for 1 hour'], ['Crystal', 'focus', '10 gp', 1, 'Arcane focus'], ['Orb', 'focus', '20 gp', 3, 'Arcane focus'], ['Rod', 'focus', '10 gp', 2, 'Arcane focus'], ['Staff', 'focus', '5 gp', 4, 'Arcane focus'], ['Wand', 'focus', '10 gp', 1, 'Arcane focus'],
   ['Backpack', 'gear', '2 gp', 5], ['Ball bearings (bag of 1,000)', 'gear', '1 gp', 2], ['Barrel', 'gear', '2 gp', 70], ['Basket', 'gear', '4 sp', 2], ['Bedroll', 'gear', '1 gp', 7], ['Bell', 'gear', '1 gp', 0], ['Blanket', 'gear', '5 sp', 3], ['Block and tackle', 'gear', '1 gp', 5],
   ['Book', 'gear', '25 gp', 5], ['Bottle, glass', 'gear', '2 gp', 2], ['Bucket', 'gear', '5 cp', 2], ['Caltrops (bag of 20)', 'gear', '1 gp', 2], ['Candle', 'gear', '1 cp', 0], ['Case, crossbow bolt', 'gear', '1 gp', 1], ['Case, map or scroll', 'gear', '1 gp', 1], ['Chain (10 feet)', 'gear', '5 gp', 10], ['Chalk (1 piece)', 'gear', '1 cp', 0], ['Chest', 'gear', '5 gp', 25],

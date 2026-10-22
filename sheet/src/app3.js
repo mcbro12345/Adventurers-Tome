@@ -35,8 +35,9 @@ function spellMath(sp, L) {
   const sv = sum.match(/\b(STR|DEX|CON|INT|WIS|CHA)\b save/i); if (sv) o.save = sv[1].toUpperCase();
   o.attack = !!a.attack || /spell attack/i.test(sum) || !!a.beams;
   o.half = /half/i.test(sum);
+  if (sp.hb && sp.hb.dmg) { o.save = sp.hb.hit === 'save' ? String(sp.hb.save || 'DEX').toUpperCase() : ''; o.half = !!sp.hb.half; if (sp.hb.hit === 'auto') o.attack = false; }
   if (o.dice && a.up && L > base) { const m = String(a.up).match(/(\d+)d(\d+)/); if (m) o.dice = addDice(o.dice, (N(m[1]) * (L - base)) + 'd' + m[2]); }
-  if (base === 0 && DND.cantripScale.includes(sp.name) && o.dice) o.dice = diceTimes(o.dice, cantripTier());
+  if (base === 0 && (DND.cantripScale.includes(sp.name) || (sp.hb && sp.hb.scale)) && o.dice) o.dice = diceTimes(o.dice, cantripTier());
   if (a.heal) {
     const ci = spellCI(sp), M = ci.mod != null ? ci.mod : 0;
     let h = String(a.heal).replace('+M', M ? sgn(M) : '');
@@ -122,7 +123,7 @@ function renderSpells() {
       ${fld('Class', sel(`spells.${i}.cls`, clsRows().map(r => [r.key, clsName(r.key)]).concat([['race', 'Racial'], ['feat', 'Feat'], ['item', 'Item'], ['other', 'Other']])))}
       <label class="checkline">${chk(`spells.${i}.conc`)} Concentration</label><label class="checkline">${chk(`spells.${i}.ritual`)} Ritual</label><label class="checkline">${chk(`spells.${i}.always`)} Always prepared</label>
       ${fld('Needs item', sel(`spells.${i}.item`, [['', '— none —']].concat(S.inventory.map(it => [it.id, it.name]))), '')}
-      ${s.auto ? '' : `${fld('Upcast dice', inp(`spells.${i}.hb.up`, { ph: 'e.g. 2d4 per level' }))}${fld('Crits on', inp(`spells.${i}.hb.crit`, { ph: '20', num: 1 }))}<label class="checkline">${chk(`spells.${i}.hb.missHalf`)} Half damage on a miss</label>${fld('Backlash after 1st cast', inp(`spells.${i}.hb.backlash`, { ph: 'e.g. 1d10+slot' }))}${fld('Backlash type', inp(`spells.${i}.hb.backlashType`, { ph: 'fire' }))}`}
+      ${s.auto ? '' : `<div class="span-all">${hbbOpenRow('spell', i, s.hb, s)}</div>`}
       ${s.src ? `<span class="hint">Source: ${esc(DND.sources[s.src] || s.src)}</span>` : ''}
       ${m ? `<div style="text-align:right"><button class="btn red" data-act="del" data-list="spells" data-i="${i}">Remove spell</button></div>` : ''}</div>
       ${fullOfSpell(s) ? `<div class="fullbox">${fullHTML(fullOfSpell(s))}${isSRDKey('sp:' + s.name) && !String(s.full || '').trim() ? '<div class="hint srdnote">Text: SRD 5.1, CC-BY-4.0</div>' : ''}</div>` : ''}
@@ -158,7 +159,7 @@ function renderSpells() {
   </div>
   ${cs.length ? `<div class="panel" ${PID('spellcasting')}><h2>Spellcasting</h2><div class="sc-cards">${tiles}</div></div>` : ''}`}
   ${mmPanelHTML('mmspells')}
-  <div class="panel" ${PID('spelllist')}><h2><span class="grow">Spells</span><button class="btn gold" data-act="addspells" data-cls="">+ Add spells</button><button class="btn" data-act="add" data-list="spells">+ Custom spell</button></h2>
+  <div class="panel" ${PID('spelllist')}><h2><span class="grow">Spells</span><button class="btn gold" data-act="addspells" data-cls="">+ Add spells</button><button class="btn" data-act="hbnew" data-k="spell">+ Homebrew spell</button></h2>
     <div class="spsortbar"><span class="lbl">Group spells by</span><div class="segmini">${[['level', 'Level'], ['purpose', 'Purpose'], ['custom', 'My categories']].map(([k, t]) => `<button class="${ST('combatSpellSort') === k ? 'on' : ''}" data-act="spsort" data-k="${k}">${t}</button>`).join('')}</div>${cust ? '<button class="btn sm" data-act="spcatadd">+ Category</button><span class="hint">Drag spells to reorder them or move them between categories. ' + (m ? '' : 'Drag a category by its ⠿ to rearrange. ') + 'The Combat tab uses the same groups and order.</span>' : '<span class="hint">' + (m ? '' : 'Drag a group by its ⠿ to rearrange. ') + 'The Combat tab uses the same groups and order.</span>'}</div>
     <div class="filters">${filt.map(([k, t]) => `<button class="chip${f === k ? ' on' : ''}" data-act="filter" data-f="${k}">${esc(t)}</button>`).join('')}</div>
     ${!S.spells.length ? '<p class="hint">No spells yet. Use <b>Add spells</b> to pick from every spell in the allowed books.</p>' : m ? `<div class="sp-list spg-list">${list || '<p class="hint">No spells match this filter.</p>'}</div>` : `<div class="scrollx"><div class="spg-wrap"><table class="grid spells spg-th">
@@ -293,7 +294,7 @@ function renderFeatures() {
           ${fld('Used as', sel(`features.${i}.col`, [['', '—'], ['action', 'Action'], ['bonus', 'Bonus action'], ['reaction', 'Reaction']]))}<label class="checkline">${chk(`features.${i}.pool`)} Points pool</label></div>
           ${fld('Short summary (shown on the Combat tab)', ta(`features.${i}.desc`, { rows: 3, label: 'Description' }))}
           ${fld('Your own wording (replaces the full description when filled in)', ta(`features.${i}.full`, { rows: 5, label: 'Your own wording', ph: fullDefaultFeat(f) ? 'Optional — leave blank to use the built-in description' : 'Optional — the full description' }))}
-          ${hbBox(`features.${i}`, f.hb, 'feat', 'f' + i)}
+          ${hbbOpenRow('feat', i, f.hb, f)}
           <div class="row"><span class="hint">Uses accept formulas like <code>1+cha</code>, <code>prof</code> or <code>5*level</code>.</span><span class="grow"></span>${f.kind === 'feat' ? `<button class="btn sm red" data-act="delfeatn" data-n="${esc(String(f.key).slice(5))}">Remove feat</button>` : ''}${f.auto ? `<button class="btn sm ghost" data-act="featreset" data-i="${i}">Restore original</button>` : `<button class="btn sm red" data-act="del" data-list="features" data-i="${i}">Delete</button>`}</div></div>`
         : (fullOfFeat(f).length > 280 ? `<div class="fc-desc fc-full${UI.open['ffull:' + i] ? ' open' : ''}" data-act="toggle" data-key="ffull:${i}" title="Click to ${UI.open['ffull:' + i] ? 'collapse' : 'read all'}">${fullHTML(fullOfFeat(f))}</div>` : `<div class="fc-desc">${fullHTML(fullOfFeat(f))}</div>`)}${fx.acts && !ed ? `<div class="fxacts">${fxActsHTML(f, i)}</div>` : ''}
       ${featSpellsHTML(f, i, ed)}
@@ -322,7 +323,7 @@ function renderFeatures() {
   const sections = [...new Set(order.concat(groups))].filter(g => groups.includes(g) && (shown.some(([f]) => featGroup(f) === g) || (g === 'feat' && ff === 'all' && !q))).map(g => `<section class="fgroup"><h3 class="subh fghead"><span class="sh-dot"></span><span class="fgname">${esc(gname(g))}</span>${head(g)}</h3>
     <div class="fgrid">${shown.filter(([f]) => featGroup(f) === g).map(([f, i]) => card(f, i)).join('') || (g === 'feat' ? '<p class="hint">No feats yet. Feats from level-ups are added automatically.</p>' : '')}</div></section>`).join('');
   $('#page-features').innerHTML = `
-  <div class="panel" ${PID('featlist')}><h2><span class="grow">Features &amp; Traits</span><span class="hint lvhint" style="text-transform:none;letter-spacing:0">Total level ${totalLevel()} · proficiency ${fmt(PB())}</span><button class="btn sm" data-act="add" data-list="features">+ Custom feature</button></h2>
+  <div class="panel" ${PID('featlist')}><h2><span class="grow">Features &amp; Traits</span><span class="hint lvhint" style="text-transform:none;letter-spacing:0">Total level ${totalLevel()} · proficiency ${fmt(PB())}</span><button class="btn sm" data-act="hbnew" data-k="feat">+ Homebrew feature</button></h2>
     <div class="filters" style="margin-top:0"><input class="f featq" id="featQ" placeholder="Search features…" value="${esc(UI.featQ || '')}" aria-label="Search features"><button class="chip${ff === 'all' ? ' on' : ''}" data-act="featfilter" data-f="all">All</button>${groups.filter(g => g !== 'feat' || S.features.some(f => featGroup(f) === 'feat')).map(g => `<button class="chip${ff === g ? ' on' : ''}" data-act="featfilter" data-f="${g}">${esc(gname(g))}</button>`).join('')}</div>
     ${sections || '<p class="hint">No features match.</p>'}
     <p class="hint">Features from your class, race, background and feats are added and updated automatically as you level. Tap ✎ on a card to change it.</p></div>`;
@@ -382,12 +383,12 @@ function renderInventory() {
 </div>
       ${open ? `<div class="idetail"><div class="idet-top">${picThumb(`inventory.${i}.img`, it.name)}${fld('Notes', ta(`inventory.${i}.notes`, { rows: 2, cls: 'inotefull', label: 'Notes', ph: 'Add a note…' }))}</div>${it.summary ? `<p>${esc(it.summary)}</p>` : ''}${it.armor ? `<p class="hint">${esc(it.armor.type)} armor · AC ${it.armor.base}${it.armor.type === 'shield' ? '' : it.armor.dexCap === 0 ? '' : it.armor.dexCap ? ' + DEX (max ' + it.armor.dexCap + ')' : ' + DEX'}${it.armor.strReq ? ' · STR ' + it.armor.strReq : ''}${it.armor.stealthDis ? ' · Stealth disadvantage' : ''}</p>` : ''}${it.weapon ? `<p class="hint">${esc(it.weapon.cat)} ${esc(it.weapon.kind)} · ${esc(it.weapon.dice)} ${esc(it.weapon.type)}${it.weapon.props && it.weapon.props.length ? ' · ' + esc(it.weapon.props.join(', ')) : ''}${it.weapon.range ? ' · ' + esc(it.weapon.range) + ' ft' : ''}</p>` : ''}
         <div class="row">${fld('Weight (lb)', inp(`inventory.${i}.weight`, { num: 1 }))}${fld('Cost', inp(`inventory.${i}.cost`))}<label class="checkline">${chk(`inventory.${i}.attune`, 'Requires attunement')} Requires attunement</label></div>
-        ${hbBox(`inventory.${i}`, it.hb, 'item', 'i' + it.id, it, i)}</div>` : ''}
+        ${hbbOpenRow('item', i, it.hb, it)}</div>` : ''}
     </div>`;
   };
   $('#page-inventory').innerHTML = `
   <div class="panel inv-panel" ${PID('inventory')}>
-    <h2><span class="grow">Inventory</span><button class="btn gold" data-act="catalog">+ Add item</button><button class="btn" data-act="add" data-list="inventory">+ Custom item</button><button class="btn" data-act="addbag" title="Add a bag of holding, backpack or other container">+ Container</button></h2>
+    <h2><span class="grow">Inventory</span><button class="btn gold" data-act="catalog">+ Add item</button><button class="btn" data-act="hbnew" data-k="item">+ Homebrew item</button><button class="btn" data-act="addbag" title="Add a bag of holding, backpack or other container">+ Container</button></h2>
     <div class="purse">${purse}<span class="worth pworth" data-calc="worth" title="Total value of your coins in gold"></span></div>
     <div class="invsearch"><input class="f invq" type="search" data-scope="all" placeholder="Search your inventory…" aria-label="Search inventory" value="${esc(UI.invQ || '')}"></div>
     <div class="invstats"><span>Attuned <b data-calc="attune"></b></span>${ST('encumbrance') === 'off' ? '' : '<span>Carrying <b data-calc="weight"></b> / <span data-calc="carry"></span> lb</span><span class="hint" data-calc="encnote"></span>'}</div>

@@ -291,7 +291,7 @@ const isMobile = () => document.documentElement.classList.contains('mobile');
 const who = () => S.name || 'Your character';
 
 // ---------- Settings ----------
-const SETDEF = { combatSpellSort: 'level', protectorScales: false, advancement: 'milestone', abilityStyle: 'mod', showName: true, showRace: true, showBackground: true, showPlayer: true, showAlignment: false, showFaith: false, showRoll20: true, encumbrance: 'off', exhaustionRule: '2014', exhaustionDC: false, concPrompt: true, durationAlerts: true, autoSpend: true, critRule: 'double', density: 'comfortable', fontScale: 100, hpLevelUp: 'avg', confirmDelete: false, showCastHints: true, inspiration: false, inspMany: false, electrum: false };
+const SETDEF = { combatSpellSort: 'level', protectorScales: false, advancement: 'milestone', abilityStyle: 'mod', showName: true, showRace: true, showBackground: true, showPlayer: true, showAlignment: false, showFaith: false, showRoll20: true, encumbrance: 'standard', exhaustionRule: '2014', exhaustionDC: false, concPrompt: true, durationAlerts: true, autoSpend: true, critRule: 'double', density: 'comfortable', fontScale: 100, hpLevelUp: 'avg', confirmDelete: false, showCastHints: true, inspiration: false, inspMany: false, electrum: false };
 let GEN = 0, RENDERING = '';
 const PID = id => `data-pid="${id}" data-gen="${GEN}" data-home="${RENDERING}"`;
 const ST = k => (S.settings && S.settings[k] !== undefined ? S.settings[k] : SETDEF[k]);
@@ -528,7 +528,7 @@ function formAttacksHTML() {
   return `<div class="formatk"><div class="sect">${esc(S.form.name)} attacks</div>${(S.form.attacks || []).map((a, j) => `<div class="fa-row"><b>${esc(a[0])}</b><button class="roll" data-act="crroll" data-who="form" data-j="${j}" data-what="hit">${a[1] === '' ? 'save' : fmt(N(a[1]))}</button><button class="roll" data-act="crroll" data-who="form" data-j="${j}" data-what="dmg">${esc(a[2] || '—')}</button><span class="muted">${esc(a[3] || '')}</span></div>`).join('')}</div>`;
 }
 // Attacks from inventory weapons only show while that weapon is equipped.
-const atkShown = a => { if (!a.item) return true; const it = S.inventory.find(x => x.id === a.item); return !it || !!it.equipped; };
+const atkShown = a => { if (!a.item) return true; const it = S.inventory.find(x => x.id === a.item); return !it || !!it.equipped || !!it.noEquip; };
 const ammoItem = a => a && a.ammo ? S.inventory.find(it => it.id === a.ammo) : null;
 // Compact attack rows: name, hit, damage and the attack button; tap the name to edit everything else.
 function attacksHTML() {
