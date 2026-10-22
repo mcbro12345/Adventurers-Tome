@@ -13,7 +13,7 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.354cba635781.css">
+<link rel="stylesheet" href="a/sheet.1509c37c18f9.css">
 <link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:type" content="website"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="Adventurer’s Tome"><meta property="og:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:url" content="https://adventurers-tome.web.app/"><meta property="og:image" content="https://adventurers-tome.web.app/og-roll.gif?v=3"><meta property="og:image:type" content="image/gif"><meta property="og:image:width" content="800"><meta property="og:image:height" content="420"><meta property="og:image:alt" content="Adventurer’s Tome — a gold d20 rolling a natural 20"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-roll.gif?v=3"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest"><script>try{var t=localStorage.getItem("pg-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-pgtheme",t)}catch(e){}</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
@@ -2167,6 +2167,15 @@ body.hubbody:not(.adminbody) .hub-pane { position: relative; }
 @media (pointer: fine) and (min-width: 641px) { html:not(.mobile) :is(#modal-body, .hub-modal > .hub-card, .pg-out-card, #pg-msg .pgm-card) :is(h2, h3, .rl-head, .pw-head):first-of-type { cursor: move; } }
 .win-moving { transition: none !important; box-shadow: 0 30px 70px rgba(0,0,0,.5) !important; }
 body.win-dragging, body.win-dragging * { user-select: none !important; cursor: move !important; }
+/* Desktop: the site's pop-ups are floating windows (title bar, ✕, page behind stays usable) */
+html.pgmw body.hubbody .hub-modal.on, html.pgmw .pg-out { background: transparent !important; pointer-events: none; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; animation: none; }
+html.pgmw body.hubbody .hub-modal.on > .hub-card, html.pgmw .pg-out > .pg-out-card { pointer-events: auto; padding-top: 0 !important; border-top: 3px solid #c9962b !important; box-shadow: 0 18px 50px rgba(0,0,0,.5); overflow: hidden auto; max-height: calc(100vh - 40px); }
+html.pgmw .mw-head { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 8px; margin: 0 -22px 14px; padding: 9px 10px 9px 16px; background: rgba(127,127,127,.08); border-bottom: 1px solid rgba(127,127,127,.22); cursor: move; user-select: none; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+html.pgmw .mw-head b { flex: 1; min-width: 0; font: 700 .95rem Georgia, "Times New Roman", serif; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.pgmw .mw-x { width: 28px; height: 28px; border-radius: 7px; border: 0; background: transparent; color: inherit; opacity: .7; cursor: pointer; font-size: .95rem; display: inline-grid; place-items: center; flex: none; }
+html.pgmw .mw-x:hover, html.pgmw .mw-x:focus-visible { opacity: 1; background: rgba(127,127,127,.2); }
+html.pgmw .mw-hid { display: none !important; }
+html:not(.pgmw) .mw-head { display: none; }
 </style>
 </head>
 <body>
@@ -2384,7 +2393,7 @@ function pgPillWire(el) { let st = null;
 // Desktop: every pop-up window can be moved by dragging its title (the heading at the top). It opens centred again
 // next time.
 (() => { if (window.__pgWinDrag) return; window.__pgWinDrag = 1; const WIN = '#modal-body, .hub-modal > .hub-card, .pg-out-card, #pg-msg .pgm-card, .wz-card, .wizard > .wz';
-  const HANDLE = 'h2, h3, .rl-head, .pw-head, .mhead, .wz-head, .pgm-head';
+  const HANDLE = '.mw-head, h2, h3, .rl-head, .pw-head, .mhead, .wz-head, .pgm-head';
   const desk = () => !document.documentElement.classList.contains('mobile') && innerWidth > 640 && matchMedia('(pointer: fine)').matches;
   document.addEventListener('pointerdown', e => { if (!desk() || e.button !== 0 || !e.target.closest) return; const w = e.target.closest(WIN); if (!w) return;
     const h = e.target.closest(HANDLE); if (!h || !w.contains(h) || e.target.closest('button, input, select, textarea, a, label, [contenteditable]')) return;
@@ -2402,6 +2411,17 @@ function pgPillWire(el) { let st = null;
   new MutationObserver(ms => ms.forEach(m => { const t = m.target; if (t.classList && (t.classList.contains('open') || t.classList.contains('on'))) t.querySelectorAll(WIN).forEach(w => { w.style.translate = ''; }); else if (t.matches && t.matches(WIN) && m.type === 'childList') t.style.translate = ''; }))
     .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], subtree: true });
 })();
+// Desktop: the site's pop-ups (lobby, party page, admin) are floating windows like the dice roller and chat: a title bar
+// to drag and a ✕, with the page behind still usable.
+const pgMwDesk = () => innerWidth > 640 && !document.documentElement.classList.contains('mobile');
+function pgMwDress() { document.documentElement.classList.toggle('pgmw', pgMwDesk()); if (!pgMwDesk()) return;
+  document.querySelectorAll('.hub-modal.on > .hub-card, .pg-out > .pg-out-card').forEach(c => { if (c.querySelector(':scope > .mw-head')) return;
+    const h = [...c.querySelectorAll('h2, h3')].find(x => x.offsetParent && x.getBoundingClientRect().top - c.getBoundingClientRect().top < 140); const t = h ? h.textContent.trim() : '';
+    if (h) h.classList.add('mw-hid'); const bar = document.createElement('div'); bar.className = 'mw-head'; bar.innerHTML = `<b>${escH(t || 'Window')}</b><button class="mw-x" type="button" title="Close" aria-label="Close">✕</button>`;
+    bar.querySelector('.mw-x').onclick = () => { const no = c.querySelector('.pg-out-no') || [...c.querySelectorAll('button')].find(b => /^(cancel|close|not now|done|no)$/i.test(b.textContent.trim()));
+      if (no) return no.click(); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); const m = c.closest('.hub-modal'); if (m && m.classList.contains('on')) m.classList.remove('on'); };
+    c.prepend(bar); }); }
+new MutationObserver(() => { cancelAnimationFrame(pgMwDress.r); pgMwDress.r = requestAnimationFrame(pgMwDress); }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
 function pgPartyFrames() { document.querySelectorAll('img.pty-pic, img.pty-admic, .pw-ppic > img, .pj-seal > img, .ptyh-ic.pic > img').forEach(im => {
   const src = im.getAttribute('src') || '', key = src.length + ':' + src.slice(-40), el = im.matches('.pty-pic, .pty-admic') ? im : im.parentElement; if (!src || el.dataset.pacc === key) return; el.dataset.pacc = key;
   const put = col => { if (col) el.style.borderColor = col; };
@@ -2749,7 +2769,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022012343', ASSETS = {"data": "a/data.48cfdb40bbe4.js", "app": "a/app.1f6bbf8109a3.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.6b7ac50da759.html"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022012745', ASSETS = {"data": "a/data.48cfdb40bbe4.js", "app": "a/app.334f0af5acce.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.b2d0726b0855.html"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }

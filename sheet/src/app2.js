@@ -268,7 +268,7 @@ function openModal(html, onCancel, wide) {
 // Desktop: every pop-up window can be moved by dragging its title (the heading at the top). It opens centred again
 // next time.
 (() => { if (window.__pgWinDrag) return; window.__pgWinDrag = 1; const WIN = '#modal-body, .hub-modal > .hub-card, .pg-out-card, #pg-msg .pgm-card, .wz-card, .wizard > .wz';
-  const HANDLE = 'h2, h3, .rl-head, .pw-head, .mhead, .wz-head, .pgm-head';
+  const HANDLE = '.mw-head, h2, h3, .rl-head, .pw-head, .mhead, .wz-head, .pgm-head';
   const desk = () => !document.documentElement.classList.contains('mobile') && innerWidth > 640 && matchMedia('(pointer: fine)').matches;
   document.addEventListener('pointerdown', e => { if (!desk() || e.button !== 0 || !e.target.closest) return; const w = e.target.closest(WIN); if (!w) return;
     const h = e.target.closest(HANDLE); if (!h || !w.contains(h) || e.target.closest('button, input, select, textarea, a, label, [contenteditable]')) return;
@@ -293,6 +293,18 @@ function closeModal(confirmed) {
   if (!confirmed && cb) cb();
 }
 $('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+// Desktop: pop-up windows work like the dice roller and the chat window — a floating window with its own title bar
+// (drag it to move it, ✕ to close), and the page behind stays usable instead of being dimmed and blocked.
+const mwDesk = () => !document.documentElement.classList.contains('mobile') && innerWidth > 640;
+function mwDress() { const b = $('#modal-body'); if (!b) return; const de = document.documentElement; de.classList.toggle('mwin', mwDesk());
+  if (!mwDesk() || b.querySelector(':scope > .mw-head')) return;
+  const h = [...b.querySelectorAll('h2, h3')].find(x => x.offsetParent && x.getBoundingClientRect().top - b.getBoundingClientRect().top < 140);
+  const t = h ? h.textContent.trim() : ''; if (h) h.classList.add('mw-hid');
+  const bar = document.createElement('div'); bar.className = 'mw-head'; bar.innerHTML = `<b>${esc(t || 'Window')}</b><button class="mw-x" type="button" title="Close" aria-label="Close">✕</button>`;
+  bar.querySelector('.mw-x').onclick = () => closeModal(); b.prepend(bar); }
+new MutationObserver(() => { if ($('#modal').classList.contains('open')) mwDress(); }).observe($('#modal-body'), { childList: true });
+new MutationObserver(() => { if ($('#modal').classList.contains('open')) mwDress(); }).observe($('#modal'), { attributes: true, attributeFilter: ['class'] });
+addEventListener('resize', () => document.documentElement.classList.toggle('mwin', mwDesk()));
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); $$('.menu.open').forEach(m => m.classList.remove('open')); } });
 
 // ---------- Field helpers ----------

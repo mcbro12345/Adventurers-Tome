@@ -171,7 +171,7 @@ function pgPillWire(el) { let st = null;
 // Desktop: every pop-up window can be moved by dragging its title (the heading at the top). It opens centred again
 // next time.
 (() => { if (window.__pgWinDrag) return; window.__pgWinDrag = 1; const WIN = '#modal-body, .hub-modal > .hub-card, .pg-out-card, #pg-msg .pgm-card, .wz-card, .wizard > .wz';
-  const HANDLE = 'h2, h3, .rl-head, .pw-head, .mhead, .wz-head, .pgm-head';
+  const HANDLE = '.mw-head, h2, h3, .rl-head, .pw-head, .mhead, .wz-head, .pgm-head';
   const desk = () => !document.documentElement.classList.contains('mobile') && innerWidth > 640 && matchMedia('(pointer: fine)').matches;
   document.addEventListener('pointerdown', e => { if (!desk() || e.button !== 0 || !e.target.closest) return; const w = e.target.closest(WIN); if (!w) return;
     const h = e.target.closest(HANDLE); if (!h || !w.contains(h) || e.target.closest('button, input, select, textarea, a, label, [contenteditable]')) return;
@@ -189,6 +189,17 @@ function pgPillWire(el) { let st = null;
   new MutationObserver(ms => ms.forEach(m => { const t = m.target; if (t.classList && (t.classList.contains('open') || t.classList.contains('on'))) t.querySelectorAll(WIN).forEach(w => { w.style.translate = ''; }); else if (t.matches && t.matches(WIN) && m.type === 'childList') t.style.translate = ''; }))
     .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], subtree: true });
 })();
+// Desktop: the site's pop-ups (lobby, party page, admin) are floating windows like the dice roller and chat: a title bar
+// to drag and a ✕, with the page behind still usable.
+const pgMwDesk = () => innerWidth > 640 && !document.documentElement.classList.contains('mobile');
+function pgMwDress() { document.documentElement.classList.toggle('pgmw', pgMwDesk()); if (!pgMwDesk()) return;
+  document.querySelectorAll('.hub-modal.on > .hub-card, .pg-out > .pg-out-card').forEach(c => { if (c.querySelector(':scope > .mw-head')) return;
+    const h = [...c.querySelectorAll('h2, h3')].find(x => x.offsetParent && x.getBoundingClientRect().top - c.getBoundingClientRect().top < 140); const t = h ? h.textContent.trim() : '';
+    if (h) h.classList.add('mw-hid'); const bar = document.createElement('div'); bar.className = 'mw-head'; bar.innerHTML = `<b>${escH(t || 'Window')}</b><button class="mw-x" type="button" title="Close" aria-label="Close">✕</button>`;
+    bar.querySelector('.mw-x').onclick = () => { const no = c.querySelector('.pg-out-no') || [...c.querySelectorAll('button')].find(b => /^(cancel|close|not now|done|no)$/i.test(b.textContent.trim()));
+      if (no) return no.click(); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); const m = c.closest('.hub-modal'); if (m && m.classList.contains('on')) m.classList.remove('on'); };
+    c.prepend(bar); }); }
+new MutationObserver(() => { cancelAnimationFrame(pgMwDress.r); pgMwDress.r = requestAnimationFrame(pgMwDress); }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
 function pgPartyFrames() { document.querySelectorAll('img.pty-pic, img.pty-admic, .pw-ppic > img, .pj-seal > img, .ptyh-ic.pic > img').forEach(im => {
   const src = im.getAttribute('src') || '', key = src.length + ':' + src.slice(-40), el = im.matches('.pty-pic, .pty-admic') ? im : im.parentElement; if (!src || el.dataset.pacc === key) return; el.dataset.pacc = key;
   const put = col => { if (col) el.style.borderColor = col; };
