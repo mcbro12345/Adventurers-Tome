@@ -7,13 +7,13 @@ css = css.replace("/* Palette pulled from Zeke's mini: ivory tunic, golden cape,
 extra = open(os.path.join(D, 'src', 'extra.css')).read()
 import sys; sys.path.insert(0, D); from hoverguard import guard
 css = guard(css); extra = guard(extra)
-order = ['classes1', 'classes2', 'classes3', 'options', 'races', 'backgrounds_feats', 'gear', 'magic', 'rules', 'spells1', 'ua_classes_a', 'ua_classes_b', 'ua_races', 'ua_misc', 'spells2', 'creatures', 'auto', 'deck', 'featfx', 'fx_barbarian_bard', 'fx_cleric_druid', 'fx_fighter_monk', 'fx_paladin_ranger', 'fx_rogue_sorcerer', 'fx_warlock_wizard_artificer', 'fx_races', 'fx_feats_options', 'fx_ua', 'fx_ua2', 'allyfx', 'fulltext', 'vfx']
+order = ['classes1', 'classes2', 'classes3', 'options', 'races', 'backgrounds_feats', 'gear', 'magic', 'rules', 'spells1', 'ua_classes_a', 'ua_classes_b', 'ua_races', 'ua_misc', 'spells2', 'creatures', 'auto', 'deck', 'featfx', 'fx_barbarian_bard', 'fx_cleric_druid', 'fx_fighter_monk', 'fx_paladin_ranger', 'fx_rogue_sorcerer', 'fx_warlock_wizard_artificer', 'fx_races', 'fx_feats_options', 'fx_ua', 'fx_ua2', 'allyfx', 'fulltext', 'vfx', 'anim']
 data = '\n'.join(open(os.path.join(D, 'data', f + '.js')).read() for f in order if os.path.exists(os.path.join(D, 'data', f + '.js')))
 # The Roll20 companion extension ships inside the sheet (Settings → Dice → Download extension).
 import base64
 ext = {n: ('b64:' + base64.b64encode(open(os.path.join(D, 'ext', n), 'rb').read()).decode() if n.endswith('.png') else open(os.path.join(D, 'ext', n)).read()) for n in sorted(os.listdir(os.path.join(D, 'ext')))}
 data += '\nDND.r20ext = ' + json.dumps(ext).replace('</', '<\\/') + ';'
-app = '\n'.join(open(os.path.join(D, 'src', f'app{i}.js')).read() for i in [1, 8, 2, 3, 4, 6, 7, 9, 10, 11, 12, 13, 14, 5])
+app = '\n'.join(open(os.path.join(D, 'src', f'app{i}.js')).read() for i in [1, 8, 2, 3, 4, 6, 7, 9, 10, 11, 12, 15, 16, 17, 13, 14, 5])
 for bad in ['</script', '<!--']:
     assert bad not in data and bad not in app, bad
 embed = json.dumps({'created': False, 'dataRev': 'blank-1'})

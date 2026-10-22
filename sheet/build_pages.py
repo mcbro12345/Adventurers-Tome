@@ -33,8 +33,11 @@ DTXT = html[i + len('<script>\n'):j]; html = html[:i] + html[j + len('</script>'
 # without it — tooltips show the short summary until it arrives. So it's its own file, fetched right after the sheet appears.
 FT = open(os.path.join(D, 'data', 'fulltext.js')).read()
 assert DTXT.count(FT) == 1, 'fulltext not found in the data'
-DATA = asset('data', 'js', DTXT.replace(FT, '') + '\nDND.full = DND.full || {}; DND.fullSRD = DND.fullSRD || [];')
-FULL = asset('full', 'js', FT)
+# The animation storyboards are only needed when an info box opens, so they ride along with the full text too.
+AN = open(os.path.join(D, 'data', 'anim.js')).read() if os.path.exists(os.path.join(D, 'data', 'anim.js')) else ''
+if AN: assert DTXT.count(AN) == 1, 'anim not found in the data'
+DATA = asset('data', 'js', DTXT.replace(FT, '').replace(AN, '') + '\nDND.full = DND.full || {}; DND.fullSRD = DND.fullSRD || []; DND.anim = DND.anim || {};')
+FULL = asset('full', 'js', FT + '\n' + AN)
 
 loader = ('''
 <script>document.documentElement.classList.add('pg-loading');try{var n=+sessionStorage.getItem('pg-nav');if(n&&Date.now()-n<8000){document.documentElement.classList.add('pg-instant');window.PG_NAV_T=n}sessionStorage.removeItem('pg-nav')}catch(e){}</script>
