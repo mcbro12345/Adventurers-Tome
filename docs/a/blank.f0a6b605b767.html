@@ -2680,7 +2680,7 @@ html.mobile .advb { font-size: .8rem; padding: 6px 12px; }
 
 .tile.condtile { container-type: inline-size; }
 .advb .as { display: none; }
-@container (max-width: 330px) { .advb .al { display: none; } .advb .as { display: inline; } }
+@container (max-width: 420px) { .advb .al { display: none; } .advb .as { display: inline; } }
 
 .sarow { flex-wrap: nowrap !important; }
 .sadotw .hint { white-space: nowrap; display: inline-block; min-width: 7.2em; }
@@ -3987,7 +3987,7 @@ html.mobile #modal .segmini > button { flex: none; white-space: nowrap; }
 .tile.hp .btn.rest { white-space: nowrap; padding-left: 6px; padding-right: 6px; gap: 5px; justify-content: center; min-width: 0; } .tile.hp .btn.rest svg { width: 14px; height: 14px; flex: none; }
 /* when the two rest buttons are narrow, the hourglass and moon step aside so the words stay on one line */
 .tile.hp .rest-actions { container-type: inline-size; }
-@container (max-width: 200px) { .tile.hp .btn.rest { flex-direction: column; gap: 3px; padding-top: 6px; padding-bottom: 6px; font-size: .8rem; line-height: 1.1; } .tile.hp .btn.rest .ri { display: inline-flex; } }
+@container (max-width: 200px) { .tile.hp .btn.rest { flex-direction: row; gap: 3px; padding-left: 3px; padding-right: 3px; font-size: .78rem; line-height: 1.1; } .tile.hp .btn.rest .ri { display: inline-flex; } .tile.hp .btn.rest .ri svg { width: 12px; height: 12px; } }
 html.mobile.kbup .pcwin .ptychat-cmds { display: none; }
 /* Phones: "Initiative mode" and "Roll Initiative" sit side by side as one tidy row of equal-height buttons */
 html.mobile .oocbar .ooc-enter { grid-column: 1 / span 1; white-space: nowrap; border-radius: 10px; padding: 12px 8px; font-size: .9rem; align-self: stretch; }
@@ -4038,7 +4038,7 @@ html.mwin .rl-head:has(> .mw-hid) { padding-top: 0; }
 html:not(.mwin) .mw-head { display: none; }
 html.mwin .modal-bg > .modal { overflow-x: hidden; }
 /* Desktop: Settings is tall enough that no tab needs a scrollbar */
-html.mwin .modal:has(.setx) { height: min(calc(100vh - 40px), 840px); }
+html.mwin .modal:has(.setx) { height: min(calc(100vh - 40px), 640px); }
 /* windows turn slightly see-through while dragged, like the dice roller */
 .win-moving { opacity: .95; }
 .defrow { display: grid; grid-template-columns: 82px 1fr; gap: 8px; align-items: start; margin-top: 6px; }
@@ -4046,10 +4046,33 @@ html.mwin .modal:has(.setx) { height: min(calc(100vh - 40px), 840px); }
 .pchip.given { opacity: .9; border-style: dashed; } .pchip.given small { margin-left: 6px; color: var(--soft); font-size: .72rem; font-weight: 500; }
 /* When the header shows only the name (no Player / Race / Background… fields), the name block sits centred beside the portrait */
 .ident.noid .ident-grid { display: none; }
-html:not(.mobile) #sec-header:has(> .ident.noid) { align-items: center; }
-html:not(.mobile) .ident.noid { align-self: center; }
+html:not(.mobile) #sec-header:has(> .ident.noid) { align-items: flex-end; }
+html:not(.mobile) .ident.noid { align-self: flex-end; }
 /* every Manage button looks like the small one on the Hit Points panel */
 .tmanage.tmanage-in { position: static; margin-left: auto; flex: none; align-self: center; }
+/* the ⓘ on a condition chip sits dead centre on the line */
+.cchip .notetip.ci { width: 16px; height: 16px; place-items: center; vertical-align: middle; align-self: center; margin-top: 0; margin-bottom: 0; line-height: 1; }
+.cchip .notetip.ci svg { width: 14px; height: 14px; display: block; margin: 0; }
+/* Desktop: the Skills manager lays its skills out in two columns, so it isn't taller than the screen */
+html.mwin .modal:has(.skman) { max-width: min(860px, 96vw) !important; }
+html.mwin .skman { display: grid; grid-template-columns: 1fr 1fr; column-gap: 22px; }
+
+/* Header with Player/Race/Background/Alignment/Faith all off: the whole row drops so its bottom lines up with the portrait's bottom */
+html:not(.mobile) .ident.noid { padding-bottom: 0 !important; margin-bottom: 0 !important; }
+html:not(.mobile) .ident.noid .ident-top { align-items: flex-end !important; padding-bottom: 0 !important; margin-bottom: 0 !important; }
+html:not(.mobile) .ident.noid .namebox { align-self: flex-end; }
+html:not(.mobile) .ident.noid .subtitle { margin-bottom: -4px; }
+/* The info button on condition chips sits dead centre on the chip */
+.cchip .notetip { display: inline-flex !important; align-items: center; justify-content: center; align-self: center; width: 16px; height: 16px; padding: 0; margin: 0 0 0 3px; line-height: 16px; vertical-align: middle; }
+/* Condition chips: the word sits on the chip's centre line (capital letters centred), with the icons kept centred too */
+.cchip > .ccn { position: relative; top: 1px; }
+/* Phones: the sheet's corner icons sit a little higher, clear of the name and subtitle */
+html.mobile #sec-header .devbtn { top: 3px !important; }
+/* Window titles: bigger, and tall enough that letters like g and y aren't clipped */
+html.mwin .mw-head b { font-size: 1.15rem !important; line-height: 1.4 !important; padding-bottom: 1px; }
+/* Header with the identity fields off: smaller portrait (sized in app2.js to the name block) and less space above */
+html:not(.mobile) .banner .wrap:has(.ident.noid) { padding-top: 10px; padding-bottom: 12px; }
+html:not(.mobile) #sec-header:has(> .ident.noid) .portrait-wrap { transition: none; }
 
 </style>
 </head>
@@ -10521,6 +10544,7 @@ function keepPrefs(into, from) { if (!into || !from || (into.id && from.id && in
 })();
 let UI = { tab: 'core', open: {} };
 try { UI = Object.assign(UI, JSON.parse(localStorage.getItem(UI_KEY) || '{}')); } catch (e) {}
+UI.chatPop = false; // windows always start closed when a sheet opens
 UI.open = UI.open || {};
 // One-off corrections shipped with a sheet update (EMBED.fixes). Each runs once per character, whichever copy is
 // loaded (this browser's, the cloud's or the file's), so a fix isn't lost to a newer saved copy.
@@ -12486,6 +12510,27 @@ function postSheetRoll(t) {
   else if (total !== '') lines.push(`**${clean(lbl ? cap(lbl) : 'Result')}:** [[${N(total)}]]${dmg ? ` · **Damage:** [[${N(dmg)}]] ${clean(dtype)}` : ''}`);
   if (lines.length > 1) r20Post(lines).catch(() => {});
 }
+// Header with Player/Race/Background/Alignment/Faith all off (desktop): the portrait shrinks to the height of the
+// name and subtitle, so its top lines up with the top of the name and the header gets shorter.
+(() => {
+  let ro = null;
+  const fit = () => {
+    const h = document.getElementById('sec-header'); if (!h) return;
+    const pw = h.querySelector('.portrait-wrap'), id = h.querySelector('.ident.noid'), nb = id && id.querySelector('.namebox');
+    if (!pw) return;
+    if (!nb || document.documentElement.classList.contains('mobile')) { pw.style.width = pw.style.height = ''; return; }
+    const top = id.querySelector('.ident-top') || nb, fill = Math.round(Math.max(64, Math.min(148, top.getBoundingClientRect().height, h.querySelector('.ident').getBoundingClientRect().height)));
+    if (pw.style.width !== fill + 'px') pw.style.width = pw.style.height = fill + 'px';
+  };
+  const wire = () => {
+    const h = document.getElementById('sec-header'); if (!h) return setTimeout(wire, 300);
+    ro = new ResizeObserver(fit);
+    new MutationObserver(() => { ro.disconnect(); h.querySelectorAll('.namebox, .ident-top').forEach(e => ro.observe(e)); fit(); }).observe(h, { childList: true });
+    h.querySelectorAll('.namebox, .ident-top').forEach(e => ro.observe(e)); fit();
+    addEventListener('resize', fit);
+  };
+  wire();
+})();
 
 
 // ---------- Spell helpers ----------
@@ -13447,10 +13492,10 @@ function calcHTML(key) {
     case 'movebar': return `<i style="width:${Math.max(0, 100 - Math.max(0, N(S.turn.moved)) / Math.max(1, moveBudget()) * 100)}%"></i>`;
     case 'conds': {
       const ex = N(S.exhaustion);
-      return (S.rollAdv ? `<span class="cchip ${S.rollAdv === 'adv' ? 'advc' : 'disc'}">${S.rollAdv === 'adv' ? 'Advantage' : 'Disadvantage'} <small class="cturns">all d20 rolls</small><button data-act="rolladv" data-v="${S.rollAdv}" aria-label="Turn off">✕</button></span>` : '') + S.conditions.map((c, k) => `<span class="cchip">${esc(c)}<button class="notetip" data-tip="${k}" data-tipkind="cond" aria-label="What ${esc(c)} does">ⓘ</button>${(S.condTurns || {})[c] ? ` <small class="cturns">${durShort(N(S.condTurns[c]))}</small>` : ''}<button data-act="dropcond" data-c="${esc(c)}" aria-label="Remove ${esc(c)}">✕</button></span>`).join('') +
-        Object.keys(S.tmpMods || {}).map(k => `<span class="cchip abt${tmv(k) > 0 ? ' pos' : ''}">${tmName(k)} ${fmt(tmv(k))}${tmr(k) > 0 ? ` <small class="hint">${tmr(k)} rd</small>` : ''}<button data-act="tmpmodclear" data-k="${k}" aria-label="End ${tmName(k)} change">✕</button></span>`).join('') +
-        Object.keys(S.abTemp || {}).map(a => { const r = N(S.abTempR); return `<span class="cchip abt">${a.toUpperCase()} ${baseScore(a)}→${score(a)}<button class="notetip" data-tip="ab:${a}" data-tipkind="cond" aria-label="About this ${ABN[a]} change">ⓘ</button>${r ? ` <small class="cturns">${durShort(r)}</small>` : ''}<button data-act="abtempclear" data-a="${a}" aria-label="End ${ABN[a]} change">✕</button></span>`; }).join('') +
-        (ex ? `<span class="cchip exh">Exhaustion ${ex}<button class="notetip" data-tip="exh" data-tipkind="cond" aria-label="What exhaustion does">ⓘ</button><button data-act="exh" data-d="-1" aria-label="Less exhaustion">−</button><button data-act="exh" data-d="1" aria-label="More exhaustion">+</button></span>` : '') +
+      return (S.rollAdv ? `<span class="cchip ${S.rollAdv === 'adv' ? 'advc' : 'disc'}"><span class="ccn">${S.rollAdv === 'adv' ? 'Advantage' : 'Disadvantage'} <small class="cturns">all d20 rolls</small></span><button data-act="rolladv" data-v="${S.rollAdv}" aria-label="Turn off">✕</button></span>` : '') + S.conditions.map((c, k) => `<span class="cchip"><span class="ccn">${esc(c)}</span><button class="notetip" data-tip="${k}" data-tipkind="cond" aria-label="What ${esc(c)} does">ⓘ</button>${(S.condTurns || {})[c] ? ` <small class="cturns">${durShort(N(S.condTurns[c]))}</small>` : ''}<button data-act="dropcond" data-c="${esc(c)}" aria-label="Remove ${esc(c)}">✕</button></span>`).join('') +
+        Object.keys(S.tmpMods || {}).map(k => `<span class="cchip abt${tmv(k) > 0 ? ' pos' : ''}"><span class="ccn">${tmName(k)} ${fmt(tmv(k))}</span>${tmr(k) > 0 ? ` <small class="hint">${tmr(k)} rd</small>` : ''}<button data-act="tmpmodclear" data-k="${k}" aria-label="End ${tmName(k)} change">✕</button></span>`).join('') +
+        Object.keys(S.abTemp || {}).map(a => { const r = N(S.abTempR); return `<span class="cchip abt"><span class="ccn">${a.toUpperCase()} ${baseScore(a)}→${score(a)}</span><button class="notetip" data-tip="ab:${a}" data-tipkind="cond" aria-label="About this ${ABN[a]} change">ⓘ</button>${r ? ` <small class="cturns">${durShort(r)}</small>` : ''}<button data-act="abtempclear" data-a="${a}" aria-label="End ${ABN[a]} change">✕</button></span>`; }).join('') +
+        (ex ? `<span class="cchip exh"><span class="ccn">Exhaustion ${ex}</span><button class="notetip" data-tip="exh" data-tipkind="cond" aria-label="What exhaustion does">ⓘ</button><button data-act="exh" data-d="-1" aria-label="Less exhaustion">−</button><button data-act="exh" data-d="1" aria-label="More exhaustion">+</button></span>` : '') +
         (S.conditions.length || ex || S.rollAdv || Object.keys(S.abTemp || {}).length || Object.keys(S.tmpMods || {}).length ? '' : '<span class="hint">None</span>');
     }
   }

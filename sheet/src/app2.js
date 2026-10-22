@@ -860,14 +860,14 @@ function postSheetRoll(t) {
     const pw = h.querySelector('.portrait-wrap'), id = h.querySelector('.ident.noid'), nb = id && id.querySelector('.namebox');
     if (!pw) return;
     if (!nb || document.documentElement.classList.contains('mobile')) { pw.style.width = pw.style.height = ''; return; }
-    const s = Math.round(Math.max(64, Math.min(148, nb.getBoundingClientRect().height)));
-    if (pw.style.width !== s + 'px') pw.style.width = pw.style.height = s + 'px';
+    const top = id.querySelector('.ident-top') || nb, fill = Math.round(Math.max(64, Math.min(148, top.getBoundingClientRect().height, h.querySelector('.ident').getBoundingClientRect().height)));
+    if (pw.style.width !== fill + 'px') pw.style.width = pw.style.height = fill + 'px';
   };
   const wire = () => {
     const h = document.getElementById('sec-header'); if (!h) return setTimeout(wire, 300);
     ro = new ResizeObserver(fit);
-    new MutationObserver(() => { ro.disconnect(); const nb = h.querySelector('.namebox'); if (nb) ro.observe(nb); fit(); }).observe(h, { childList: true });
-    const nb = h.querySelector('.namebox'); if (nb) ro.observe(nb); fit();
+    new MutationObserver(() => { ro.disconnect(); h.querySelectorAll('.namebox, .ident-top').forEach(e => ro.observe(e)); fit(); }).observe(h, { childList: true });
+    h.querySelectorAll('.namebox, .ident-top').forEach(e => ro.observe(e)); fit();
     addEventListener('resize', fit);
   };
   wire();
