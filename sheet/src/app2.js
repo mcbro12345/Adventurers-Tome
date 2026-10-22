@@ -299,7 +299,10 @@ const mwDesk = () => !document.documentElement.classList.contains('mobile') && i
 function mwDress() { const b = $('#modal-body'); if (!b) return; const de = document.documentElement; de.classList.toggle('mwin', mwDesk());
   if (!mwDesk() || b.querySelector(':scope > .mw-head')) return;
   const h = [...b.querySelectorAll('h2, h3')].find(x => x.offsetParent && x.getBoundingClientRect().top - b.getBoundingClientRect().top < 140);
-  const t = h ? h.textContent.trim() : ''; if (h) h.classList.add('mw-hid');
+  const t = h ? h.textContent.trim() : ''; if (h) { h.classList.add('mw-hid');
+    // a Done / Close button sitting beside the heading would be left stranded: the title bar's ✕ does the same job
+    const row = h.parentElement; if (row && row !== b) [...row.children].forEach(x => { if (x !== h && x.matches('button') && /^(done|close)$/i.test(x.textContent.trim())) x.classList.add('mw-hid'); });
+    if (row && row !== b && ![...row.children].some(x => !x.classList.contains('mw-hid') && x.offsetParent)) row.classList.add('mw-hid'); }
   const bar = document.createElement('div'); bar.className = 'mw-head'; bar.innerHTML = `<b>${esc(t || 'Window')}</b><button class="mw-x" type="button" title="Close" aria-label="Close">✕</button>`;
   bar.querySelector('.mw-x').onclick = () => closeModal(); b.prepend(bar); }
 new MutationObserver(() => { if ($('#modal').classList.contains('open')) mwDress(); }).observe($('#modal-body'), { childList: true });

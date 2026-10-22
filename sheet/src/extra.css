@@ -3352,3 +3352,4 @@ html.mwin .mw-x:hover, html.mwin .mw-x:focus-visible { background: color-mix(in 
 html.mwin .mw-hid { display: none !important; }
 html.mwin .rl-head:has(> .mw-hid) { padding-top: 0; }
 html:not(.mwin) .mw-head { display: none; }
+html.mwin .modal-bg > .modal { overflow-x: hidden; }
