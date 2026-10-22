@@ -1708,9 +1708,9 @@ function toolbarHTML() {
     ...({ chat: `<button class="devbtn chatbtn" data-zi="chat" data-act="chatwin" title="Party chat" aria-label="Party chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h8M8 13h5"/></svg></button>` }),
     rolllog: `<button class="devbtn logbtn" data-zi="rolllog" data-act="rolllog" title="Log — every roll, plus everything else that popped up" aria-label="Log">${ICON.log}</button>`,
     // (on a phone it sits next to Log; on a computer, after the layout switch)
-    ...(isMobile() && window.SHEET_PAGES ? { bug: `<button class="devbtn bugbtn" data-zi="bug" data-act="bugreport" title="Report a bug" aria-label="Report a bug">${ICON.bug}</button>` } : {}),
+    ...(isMobile() && window.SHEET_PAGES ? { bug: `<button class="devbtn bugbtn" data-zi="bug" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` } : {}),
     device: `<button class="devbtn" data-zi="device" data-act="layout" title="${isMobile() ? 'Switch to desktop layout' : 'Switch to phone layout'}" aria-label="${isMobile() ? 'Desktop layout' : 'Phone layout'}">${isMobile() ? ICON.desk : ICON.phone}</button>`,
-    ...(!isMobile() && window.SHEET_PAGES ? { bug: `<button class="devbtn bugbtn" data-zi="bug" data-act="bugreport" title="Report a bug" aria-label="Report a bug">${ICON.bug}</button>` } : {}),
+    ...(!isMobile() && window.SHEET_PAGES ? { bug: `<button class="devbtn bugbtn" data-zi="bug" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` } : {}),
     fullscreen: false ? `<button class="devbtn fsbtn" data-zi="fullscreen" data-act="fullscreen" title="${fsOn() ? 'Exit full screen' : 'Full screen'}" aria-label="${fsOn() ? 'Exit full screen' : 'Full screen'}">${fsOn() ? ICON.fsOut : ICON.fsIn}</button>` : '',
   };
   document.documentElement.classList.toggle('hasbug', !!items.bug); // (on a phone the corner buttons make room for it)
@@ -1762,7 +1762,7 @@ function renderVitals() {
         <div class="hp-center">${f ? inp('form.hp', { num: 1, cls: 'cur', label: 'Form HP' }) + `<div class="hp-max">of ${N(f.maxhp)}</div>` : `<div class="curline">` + inp('hp.cur', { num: 1, cls: 'cur', label: 'Current HP' }) + `<span class="tmpbadge" data-calc="tmpb" title="Temporary hit points"></span></div><div class="hp-max">of <span class="maxv" data-calc="hpmaxv"></span></div>`}</div></div>
       <div class="hp-side">
         ${f ? `<div class="formnote">Your HP: <b data-calc="truehp"></b> <button class="btn sm" data-act="endform">Revert</button></div>` : ''}
-        <div class="hp-actions"><div class="hp-amtrow"><select class="f hptype" id="hpType" aria-label="Damage type (resistances and immunities apply)" title="Damage type: your resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="hpAmt" type="text" inputmode="text" autocomplete="off" enterkeyhint="done" placeholder="-dmg / +heal" aria-label="HP amount: type -20 (or 20) and press Enter for damage, +20 to heal"></div>
+        <div class="hp-actions"><div class="hp-amtrow"><select class="f hptype" id="hpType" aria-label="Damage type (resistances and immunities apply)" title="Damage type: your resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="hpAmt" type="text" inputmode="text" autocomplete="off" enterkeyhint="done" placeholder="Amount" aria-label="HP amount: type -20 (or 20) and press Enter for damage, +20 to heal"></div>
           <button class="btn red hpi" data-act="dmg" title="Take damage" aria-label="Take damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="heal" title="Heal" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmpbtn" data-act="tmphp" title="Gain temporary HP (they don't stack — the higher stays). 0 clears them." aria-label="Gain temporary HP">${ICON.hpTemp}</button></div>
         <div class="rest-actions"><button class="btn rest short" data-act="short" title="1 hour: spend Hit Dice, refresh short-rest features and Pact slots"><span class="ri">${ICON.hourglass}</span><span class="rl">Short Rest</span></button><button class="btn rest long" data-act="long" title="8 hours: full HP, all slots, features and Hit Dice"><span class="ri">${ICON.moon}</span><span class="rl">Long Rest</span></button></div>
       </div>
@@ -3204,8 +3204,8 @@ function refresh() {
   const ca = canAttack();
   $$('.ammo[data-calc]').forEach(el => el.classList.toggle('out', /^0 /.test(el.textContent)));
   $$('#page-combat [data-act=attack]').forEach(b => { b.disabled = !ca; b.title = ca ? 'Roll to hit and damage; a crit doubles the damage dice' : 'No attacks left this turn (Next Turn / Reset Turn on the Combat tab)'; });
-  $$('[data-prepfor]').forEach(el => { const c = casterFor(el.dataset.prepfor); if (!c) return; const lim = spellLimit(c), n = c.prepared ? countPrep(c.key) : countKnown(c.key); el.classList.toggle('over', lim != null && n > lim); el.classList.toggle('full', lim != null && n === lim); el.style.setProperty('--p', lim ? Math.min(1, n / lim) : 0); });
-  $$('[data-cantfor]').forEach(el => { const c = casterFor(el.dataset.cantfor); if (!c) return; const n = countCantrips(c.key), lim = cantripLimit(c); el.classList.toggle('over', n > lim); el.classList.toggle('full', n === lim); el.style.setProperty('--p', lim ? Math.min(1, n / lim) : 0); });
+  $$('[data-prepfor]').forEach(el => { const c = casterFor(el.dataset.prepfor); if (!c) return; const lim = spellLimit(c), n = c.prepared ? countPrep(c.key) : countKnown(c.key); el.classList.toggle('over', lim != null && n > lim); el.classList.toggle('full', lim != null && n === lim); el.style.setProperty('--p', lim ? Math.min(1, n / lim) : 0); }); 
+  $$('[data-cantfor]').forEach(el => { const c = casterFor(el.dataset.cantfor); if (!c) return; const n = countCantrips(c.key), lim = cantripLimit(c); el.classList.toggle('over', n > lim); el.classList.toggle('full', n === lim); el.style.setProperty('--p', lim ? Math.min(1, n / lim) : 0); }); $$('[data-prepfor], [data-cantfor]').forEach(el => { if (!el.classList.contains('anim')) requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('anim'))); }); // bars start at their value; only later changes slide
   const aci = $('#acTotal'); if (aci && aci !== document.activeElement && String(aci.value) !== String(acTotal())) aci.value = acTotal();
   const hmi = $('#hpMaxIn'); if (hmi && hmi !== document.activeElement && String(hmi.value) !== String(maxHp())) hmi.value = maxHp();
   $$('.tile.ac').forEach(el => el.classList.toggle('boosted', !S.form && fxActive().some(e => e.buff && (N(e.buff.ac) || e.buff.acMin || e.buff.acBase) && !e.ally)));
@@ -5771,10 +5771,15 @@ function fitSettingsHeight() {
   const m = $('#modal-body'), sx = $('.setx'); if (!m || !sx) return;
   m.style.removeProperty('--seth');
   const panes = $$('.setx .stpane'); let tallest = 0;
-  panes.forEach(p => { const was = p.style.cssText; p.style.cssText = 'display:block;position:absolute;visibility:hidden;left:0;right:0;top:0'; tallest = Math.max(tallest, p.scrollHeight); p.style.cssText = was; });
+  const pw = sx.clientWidth - (parseFloat(getComputedStyle(sx).paddingLeft) || 0) - (parseFloat(getComputedStyle(sx).paddingRight) || 0); // measured at the width it really shows at, so wrapped lines count
+  panes.forEach(p => { const was = p.style.cssText; p.style.cssText = `display:block;position:absolute;visibility:hidden;left:0;top:0;width:${pw}px;box-sizing:border-box`; tallest = Math.max(tallest, p.getBoundingClientRect().height, p.scrollHeight); p.style.cssText = was; });
   const chrome = m.getBoundingClientRect().height - sx.getBoundingClientRect().height;  // header, tabs and padding
   const cap = isMobile() ? 0.88 * innerHeight : innerHeight - 32;
   m.style.setProperty('--seth', Math.ceil(Math.min(cap, chrome + tallest + 4)) + 'px');
+  // a row appearing or going (e.g. the 2024 exhaustion rule adds one) re-fits the window
+  if (typeof ResizeObserver === 'function') { if (!m._setRO) m._setRO = new ResizeObserver(() => { clearTimeout(m._setRT); m._setRT = setTimeout(() => { if (settingsOpen()) fitSettingsHeight(); }, 80); }); m._setRO.disconnect(); $$('.setx .stpane').forEach(p => m._setRO.observe(p)); }
+  // whatever the measuring missed (padding, margins) shows up as scroll on the open tab: add it on
+  requestAnimationFrame(() => { const x = $('.setx'); if (!x || !m.isConnected) return; const more = x.scrollHeight - x.clientHeight; if (more > 0) m.style.setProperty('--seth', Math.ceil(Math.min(cap, m.getBoundingClientRect().height + more + 2)) + 'px'); });
 }
 addEventListener('resize', () => { if (typeof settingsOpen === 'function' && settingsOpen()) fitSettingsHeight(); });
 function settingsOpen() { return $('#modal').classList.contains('open') && !!$('.setx'); }
@@ -6531,7 +6536,7 @@ function compCard(c, i, mini, inCol) {
   const hp = c.count > 1 ? `<div class="grpHp">${(c.hps || []).map((h, k) => `<label class="ghp"><span>#${k + 1}</span>${inp(`companions.${i}.hps.${k}`, { num: 1, cls: 'sm', label: c.name + ' ' + (k + 1) + ' HP' })}</label>`).join('')}<span class="hint">of ${N(c.maxhp)} each</span></div>`
     : c.maxhp ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(c.hp, c.maxhp, c.temp)}</div>
         <div class="chp-center"><div class="curline">${inp(`companions.${i}.hp`, { num: 1, cls: 'cur', label: c.name + ' current HP' })}${N(c.temp) ? `<span class="tmpbadge">+${N(c.temp)}</span>` : ''}</div><div class="hp-max">of ${N(c.maxhp)}</div></div></div>
-        <div class="chp-side"><input class="f" id="chp${i}" type="text" autocomplete="off" placeholder="-dmg / +heal" aria-label="${esc(c.name)} HP: -20 (or 20) for damage, +20 to heal, then Enter">
+        <div class="chp-side"><input class="f" id="chp${i}" type="text" autocomplete="off" placeholder="Amount" aria-label="${esc(c.name)} HP: -20 (or 20) for damage, +20 to heal, then Enter">
           <div class="chp-btns"><button class="btn hpi dmg" data-act="comphp" data-i="${i}" data-d="-1" title="Damage ${esc(c.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="comphp" data-i="${i}" data-d="1" title="Heal ${esc(c.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-act="comphp" data-i="${i}" data-d="0" title="Give ${esc(c.name)} temporary HP (they don't stack — the higher stays)" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div></div>` : '';
   return `<div class="${mini ? 'cm-card' : inCol ? 'comp2 incol' : 'panel comp2'}"><div class="comp-h2">${picThumb(c.tmpl ? `compMods.${c.tmpl}.img` : `companions.${i}.img`, c.name)}<div class="grow"><b class="cname">${esc(c.name)}</b><div class="ctags">${(inCol ? [] : tags).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div></div>
       ${inCol ? compCmdBtn(c, i) : ''}<button class="icon-btn" data-act="compedit" data-i="${i}" title="Edit ${esc(c.name)}" aria-label="Edit">✎</button>${c.tmpl && COMP_RULES[c.tmpl] && COMP_RULES[c.tmpl].always ? '' : `<button class="btn sm ghost" data-act="dismiss" data-i="${i}">Dismiss</button>`}</div>
@@ -8977,7 +8982,7 @@ function ptyCardHTML(m) {
   const more = [['coins', 'Give coins'], ['help', 'Help (advantage on their next roll)'], down && !m.dead && !m.stable ? ['stab', 'Stabilize (Medicine, DC 10)'] : null, ['note', 'Send a message']].filter(Boolean);
   const hp = max ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(cur, max, m.temp, f ? ' form' : '')}</div>
       <div class="chp-center"><div class="curline"><b class="ptym-cur">${cur}</b>${N(m.temp) ? `<span class="tmpbadge">+${N(m.temp)}</span>` : ''}</div><div class="hp-max">of ${max}</div></div></div>
-      ${act ? `<div class="chp-side"><select class="f ptyqt" id="ptyqt-${esc(id)}" aria-label="Damage type for ${esc(m.name)}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="ptyq-${esc(id)}" autocomplete="off" placeholder="-dmg / +heal" aria-label="Amount for ${esc(m.name)}: -20 (or 20) for damage, +20 to heal, then Enter">
+      ${act ? `<div class="chp-side"><select class="f ptyqt" id="ptyqt-${esc(id)}" aria-label="Damage type for ${esc(m.name)}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="ptyq-${esc(id)}" autocomplete="off" placeholder="Amount" aria-label="Amount for ${esc(m.name)}: -20 (or 20) for damage, +20 to heal, then Enter">
         <div class="chp-btns"><button class="btn hpi dmg" data-pa="qdmg" data-id="${esc(id)}" title="Damage ${esc(m.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-pa="qheal" data-id="${esc(id)}" title="Heal ${esc(m.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-pa="qtemp" data-id="${esc(id)}" title="Give ${esc(m.name)} temporary HP" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div>` : ''}</div>` : '';
   return `<div class="panel comp2 ptym${down ? ' ' + down : ''}" data-mid="${esc(id)}"><div class="comp-h2">${m.thumb ? `<span class="picth"${/^#[0-9a-f]{6}$/i.test(m.acc || '') ? ` style="border-color:${m.acc}"` : ''}><img src="${esc(m.thumb)}" alt=""></span>` : `<span class="picadd">${esc(String(m.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''))}</span>`}
       <div class="grow"><b class="cname${String(m.name || '').length > 26 ? ' n3' : String(m.name || '').length > 17 ? ' n2' : ''}" title="${esc(m.name || '')}">${esc(m.name || 'A character')}</b>${m.player ? `<div class="ptym-pl">${esc(m.player)}</div>` : ''}</div>
@@ -9701,12 +9706,22 @@ function ptyChatWho(m) { const x = ptyMembers().find(y => y.id === m.c) || {}, o
 function ptyChatAva(w) { const ini = String(w.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join('');
   // a see-through picture shows as-is, with no circle or border (like in the lobby)
   const st = w.clear && w.thumb ? '' : /^#[0-9a-f]{3,8}$/i.test(w.acc || '') ? ` style="border-color:${w.acc}${w.bg && !w.thumb ? ';background:' + w.bg + ';color:#fff' : ''}"` : ''; return `<span class="ptyc-ava${w.clear && w.thumb ? ' clear' : ''}"${st}>${w.thumb ? `<img src="${esc(w.thumb)}" alt="">` : esc(ini)}</span>`; }
+// iMessage-style extras: "Read by …" under your newest message, and a bubble with bouncing dots while someone's typing.
+const PTY_TYPING_MS = 7000;
+function ptyChatTypers() { const ch = PTYX() && PTYX().chat; if (!ch || !ch.others) return []; const now = Date.now(); return ch.others().filter(o => Number(o.t) && now - Number(o.t) < PTY_TYPING_MS).slice(0, 3); }
+function ptyChatReceipt(L) { const ch = PTYX().chat; if (!ch.others) return ''; let k = L.length - 1; while (k >= 0 && !ch.mine(L[k])) k--; if (k < 0) return ''; const m = L[k];
+  const t = x => new Date(Number(x)).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const oth = ch.others();
+  if (m.w) { const o = oth.find(x => x.c === m.to); return { k, html: o && Number(o.r) >= Number(m.at) ? `Read ${t(o.r)}` : 'Delivered' }; }
+  const rd = oth.filter(x => Number(x.r) >= Number(m.at)), nm = rd.map(x => esc(String(x.n || 'Someone').split(/\s+/)[0]));
+  return { k, html: !rd.length ? 'Delivered' : rd.length === 1 ? `Read by ${nm[0]} ${t(rd[0].r)}` : rd.length === oth.length && oth.length > 2 ? 'Read by everyone' : 'Read by ' + (nm.length === 2 ? nm.join(' and ') : nm.slice(0, -1).join(', ') + ' and ' + nm[nm.length - 1]) }; }
+function ptyChatTypingHTML() { return ptyChatTypers().map(o => `<div class="ptyc ptyc-typing" aria-live="polite">${ptyChatAva({ name: o.n, thumb: /^(data:image\/|https:\/\/)/.test(o.pp || '') ? o.pp : '', acc: /^#[0-9a-f]{3,8}$/i.test(o.pc || '') ? o.pc : '', bg: /^#[0-9a-f]{3,8}$/i.test(o.pc || '') ? o.pc : '', clear: !!o.pk })}<div class="ptyc-dots" title="${esc(o.n || 'Someone')} is typing" aria-label="${esc(o.n || 'Someone')} is typing"><i></i><i></i><i></i></div></div>`).join(''); }
 function ptyChatList() { const ch = PTYX() && PTYX().chat; const L = ch ? ch.list().slice(-80) : [];
-  if (!L.length) return '<p class="hint" style="margin:0">No messages yet.</p>';
-  let prev = null;
-  return L.map(m => { const me = ch.mine(m), w = ptyChatWho(m), same = prev && prev.c === m.c && !!prev.w === !!m.w && prev.to === m.to && m.at - prev.at < 5 * 60e3; prev = m;
+  if (!L.length) return '<p class="hint" style="margin:0">No messages yet.</p>' + ptyChatTypingHTML();
+  let prev = null; const rc = ptyChatReceipt(L);
+  return L.map((m, idx) => { const me = ch.mine(m), w = ptyChatWho(m), same = prev && prev.c === m.c && !!prev.w === !!m.w && prev.to === m.to && m.at - prev.at < 5 * 60e3; prev = m;
     const tag = m.w ? `<em class="ptyc-wh">${me ? 'whisper to ' + esc(m.toN || 'them') : 'whispers to you'}</em>` : '';
-    return `<div class="ptyc${me ? ' me' : ''}${m.w ? ' wh' : ''}${same ? ' cont' : ''}">${same ? '<span class="ptyc-ava sp"></span>' : ptyChatAva(w)}<div class="ptyc-b">${same ? '' : `<span class="ptyc-n">${esc(w.name)}${tag}<small>${new Date(m.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</small></span>`}<span class="ptyc-t">${esc(m.t)}</span></div></div>`; }).join(''); }
+    return `<div class="ptyc${me ? ' me' : ''}${m.w ? ' wh' : ''}${same ? ' cont' : ''}">${same ? '<span class="ptyc-ava sp"></span>' : ptyChatAva(w)}<div class="ptyc-b">${same ? '' : `<span class="ptyc-n">${esc(w.name)}${tag}<small>${new Date(m.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</small></span>`}<span class="ptyc-t">${esc(m.t)}</span></div></div>${rc && rc.k === idx ? `<div class="ptyc-rr">${rc.html}</div>` : ''}`; }).join('') + ptyChatTypingHTML(); }
 // Who a name at the start of the text means: the longest party character name it starts with (or a first name).
 // Who a name at the start of the text means: a party player's name (or their character's), longest match first, then a first name.
 // Two players with the same name (or one player with two characters) are told apart as "Name (Character)": the list fills
@@ -9728,7 +9743,7 @@ function ptyChatSubmit() {
     if (PTY_WCMDS.includes(cmd)) { const [who, msg] = ptyChatTarget(m[2]); if (who === 'dup') { toast('More than one player goes by that name — pick them from the list (it adds their character’s name).', 'fumble'); i.value = '/' + cmd + ' '; i.focus(); ptyChatAC(); return; } if (!who) { toast('Who to? Type a party character’s name after /' + cmd + '.', 'fumble'); return; } if (!msg) { toast('Type your message after the name.', 'fumble'); return; } to = who.id; t = msg; }
     else if (PTY_RCMDS.includes(cmd)) { const last = ptyChatLastFrom(); if (!last) { toast('No one to reply to yet.', 'fumble'); return; } if (!m[2].trim()) { toast('Type your reply after /' + cmd + '.', 'fumble'); return; } to = last.c; t = m[2].trim(); }
     else { toast(`Unknown command /${esc(cmd)}. Try /whisper (or /w) and /r.`, 'fumble'); return; } }
-  const keep = i.value; i.value = ''; ptyChatAC(); ptyChatBottom(); PTY_STICK = Date.now();
+  const keep = i.value; i.value = ''; ptyChatAC(); ptyChatBottom(); PTY_STICK = Date.now(); if (PTYX().chat.typing) PTYX().chat.typing(false);
   // after a whisper, keep the box ready for the next one to the same person
   if (to) { const w = ptyMembers().find(x => x.id === to); if (w && m && PTY_WCMDS.includes(m[1].toLowerCase())) i.value = '/' + m[1].toLowerCase() + ' ' + ptyWName(w) + ' '; }
   PTYX().chat.send(t, to).catch(x => { i.value = keep; toast('Couldn’t send: ' + esc(x.message || x), 'fumble'); });
@@ -9749,6 +9764,9 @@ function ptyChatACPick(k) { const x = PTY_AC.items[k], i = $('#ptychat-in'); if 
 function ptyChatWireAC() {
   const i = $('#ptychat-in'), box = $('#ptychat-ac'); if (!i || !box) return;
   i.addEventListener('input', ptyChatAC);
+  // typing indicator: only for the party chat (not commands or whispers), refreshed while you keep typing
+  const typ = () => { const ch = PTYX() && PTYX().chat; if (!ch || !ch.typing) return; const v = i.value.trim(); ch.typing(!!v && !v.startsWith('/')); };
+  i.addEventListener('input', typ); i.addEventListener('blur', () => { const ch = PTYX() && PTYX().chat; if (ch && ch.typing) ch.typing(false); }); i.addEventListener('focus', typ);
   i.addEventListener('keydown', e => { if (box.hidden || !PTY_AC.items.length) return;
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); PTY_AC.k = (PTY_AC.k + (e.key === 'ArrowDown' ? 1 : -1) + PTY_AC.items.length) % PTY_AC.items.length; box.querySelectorAll('.ac-i').forEach((b, k) => b.classList.toggle('on', k === PTY_AC.k)); }
     else if (e.key === 'Tab' || (e.key === 'Enter' && PTY_AC.items[PTY_AC.k] && PTY_AC.items[PTY_AC.k].fill.trim() !== i.value.trim())) { e.preventDefault(); ptyChatACPick(PTY_AC.k); }
@@ -9776,7 +9794,13 @@ function ptyUnreadMark() { setTimeout(() => { if (typeof mtabSync === 'function'
   // shown the moment chat is there; only hidden once the page has had a few seconds to connect
   if (on || Date.now() - PCHAT_T0 > 6000) { document.documentElement.classList.toggle('pchat', on); try { localStorage.setItem(PCHAT_KEY(), on ? '1' : '0'); } catch (e) {} }
   { const cb = document.querySelector('.devbtn.chatbtn'); if (cb) { const n = $('#pcwin') ? 0 : PTY_UNREAD; cb.classList.toggle('unread', n > 0); if (n > 0) cb.dataset.unread = n > 9 ? '9+' : n; else delete cb.dataset.unread; } }
+  ptyChatSeen();
   const t = document.querySelector('.tab[data-tab="party"]'); if (!t) return; if ((UI.tab === 'party' || $('#pcwin')) && !document.hidden) PTY_UNREAD = 0; t.classList.toggle('unread', PTY_UNREAD > 0); if (PTY_UNREAD > 0) t.dataset.unread = PTY_UNREAD > 9 ? '9+' : PTY_UNREAD; else delete t.dataset.unread; }
+// read receipts: the chat on screen (Party tab or its window, page in front) counts as having read the newest message
+function ptyChatSeen() { const ch = PTYX() && PTYX().chat; if (!ch || !ch.read || !ch.on() || document.hidden || !$('#ptychat-l') || !(UI.tab === 'party' || $('#pcwin'))) return; const L = ch.list(); for (let k = L.length - 1; k >= 0; k--) if (!ch.mine(L[k])) { ch.read(L[k].at); break; } }
+// someone started or stopped typing, or read something: redraw the list (staying at the bottom if you were there)
+window.onPartyChatTyping = () => { const l = $('#ptychat-l'); if (!l) return; const end = !ptyChatAway(l), h = ptyChatList(); if (l._h === h) return; l._h = h; l.innerHTML = h; if (end) l.scrollTop = l.scrollHeight; };
+setInterval(() => { const l = $('#ptychat-l'); if (l && l.querySelector('.ptyc-typing')) window.onPartyChatTyping(); }, 2000); // a typing bubble goes away if they stop without sending
 setInterval(ptyUnreadMark, 1500); document.addEventListener('visibilitychange', ptyUnreadMark);
 window.onPartyChat = m => { const here = !document.hidden && $('#ptychat-l') && (UI.tab === 'party' || $('#pcwin')); if (here) return; PTY_UNREAD++; ptyUnreadMark(); ptyChatPop(m); };
 // A party chat message gets its own card in the corner: who sent it (their picture, in their sheet's colour), the
@@ -10987,12 +11011,12 @@ function renderWizard() {
   let body = '';
   if (st === 0) {
     body = `<div class="wz-intro"><p>Build any 5e (2014) character. Every choice can be changed later on the sheet.</p></div>
-      <div class="wz-ddb top"><div><b>Made your character on D&amp;D Beyond?</b><span class="hint">Bring it over: classes, scores, spells, equipment and notes.</span></div><button class="btn" data-wact="ddb">Import from D&amp;D Beyond</button></div>
       <div class="wz-grid">${fld('Character name', `<input class="f" data-wz="name" value="${esc(W.name)}" placeholder="Name" autofocus>`)}${window.SHEET_PAGES ? '' : fld('Player', `<input class="f" data-wz="player" value="${esc(W.player)}" placeholder="Your name">`)}
       ${fld('Alignment', `<select class="f" data-wz="alignment"><option value="">—</option>${DND.alignments.map(a => `<option${W.alignment === a ? ' selected' : ''}>${esc(a)}</option>`).join('')}</select>`)}</div>
       <div class="row" style="margin-top:12px"><img class="wz-portrait" src="${esc(W.portrait || PLACEHOLDER)}" alt=""><button class="btn" data-wact="portrait">${W.portrait ? 'Change portrait' : 'Add a portrait'}</button><span class="hint">Optional. The sheet's colors can match it.</span></div>
       <div class="wz-src"><h4>Books for this character</h4><p class="hint">Only content from the books you tick will be offered. You can change this later in Settings → Books.</p>${sourcesHTML(W.sources)}</div>
-      <p class="hint" style="margin-top:16px">Already have a character exported from this sheet? <button class="linkbtn" data-wact="import">Import it</button></p>`;
+      <p class="hint" style="margin-top:16px">Already have a character exported from this sheet? <button class="linkbtn" data-wact="import">Import it</button></p>
+      <div class="wz-ddb bottom"><div><b>Made your character on D&amp;D Beyond?</b><span class="hint">Bring it over: classes, scores, spells, equipment and notes.</span></div><button class="btn" data-wact="ddb">Import from D&amp;D Beyond</button></div>`;
   } else if (st === 1) {
     const x = wzRace();
     body = `<div class="wz-grid">${fld('Race', `<select class="f" data-wz="race"><option value="">— choose a race —</option>${DND.raceGroups.map(([g, ks]) => `<optgroup label="${esc(g)}">${ks.filter(k => DND.races[k]).sort((a, b) => abc(DND.races[a].name, DND.races[b].name)).map(k => `<option value="${k}"${W.race === k ? ' selected' : ''}>${esc(DND.races[k].name)}${DND.races[k].src && DND.races[k].src !== 'PHB' ? ' (' + DND.races[k].src + ')' : ''}</option>`).join('')}</optgroup>`).join('')}</select>`)}
