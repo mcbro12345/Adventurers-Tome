@@ -1452,7 +1452,7 @@ function mount(root, ctx) {
   root.innerHTML = `<header class="dk-top"></header><div class="dk-page"></div>
     <aside class="dk-log" aria-label="Roll log"><div class="dk-loghd"><h2>Roll log</h2><button class="dk-btn sm" data-act="clearlog">Clear</button><button class="dk-ix" data-act="log" aria-label="Close">${ICON.x}</button></div><div class="dk-loglist"></div></aside>
     <div class="dk-modal" role="presentation"><div class="dk-mcard" role="dialog" aria-modal="true"></div></div>
-    <div class="dk-toasts" aria-live="polite"></div><input type="file" class="dk-impf" accept=".json,application/json" hidden><input type="file" class="dk-imgf" accept="image/*" hidden><input type="file" class="dk-nimgf" accept="image/*" hidden><input type="file" class="dk-mapf" accept="image/*" hidden><input type="file" class="dk-nimpf" accept=".md,.markdown,.txt,.html,.htm,.zip,.textpack,.json,image/*" multiple hidden><input type="file" class="dk-ndirf" webkitdirectory multiple hidden><div class="dk-auto" hidden></div><input type="file" class="dk-notef" accept=".pdf,.docx,.txt,.md,.markdown,text/plain,application/pdf" multiple hidden>`;
+    <div class="dk-toasts" aria-live="polite"></div><input type="file" class="dk-impf" accept=".json,application/json" hidden><input type="file" class="dk-imgf" accept="image/*" hidden><input type="file" class="dk-nimgf" accept="image/*" hidden><input type="file" class="dk-mapf" accept="image/*" hidden><input type="file" class="dk-nimpf" accept=".lk,.md,.markdown,.txt,.html,.htm,.zip,.textpack,.json,image/*" multiple hidden><input type="file" class="dk-ndirf" webkitdirectory multiple hidden><div class="dk-auto" hidden></div><input type="file" class="dk-notef" accept=".pdf,.docx,.txt,.md,.markdown,text/plain,application/pdf" multiple hidden>`;
   const loc = lsGet(''); S = normalize(loc && loc.v ? loc : null);
   const u = lsGet('-ui'); if (u) UI = Object.assign(UI, u, { tree: false, log: false });
   UI.ptab = UI.ptab || {};
@@ -1885,7 +1885,7 @@ const NICON = {
   lore: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/>', quest: '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>',
   session: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/>', event: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>', map: '<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/>',
 };
-const nIcon = (t, cls) => `<svg class="${cls || 'dk-nic'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:${(NTYPES[t] || NTYPES.blank).c}" aria-hidden="true">${NICON[t] || NICON.blank}</svg>`;
+const nIcon = (t, cls, col) => `<svg class="${cls || 'dk-nic'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:${/^#[0-9a-f]{3,8}$/i.test(col || '') ? col : (NTYPES[t] || NTYPES.blank).c}" aria-hidden="true">${NICON[t] || NICON.blank}</svg>`;
 let NT = { pages: {}, syncedAt: 0, del: [] };
 const NSYNC = new Map(); let NBASE = null, IBASE = null, NCLOUD = false, nT = 0, nFlushing = false, nAgain = false;
 const IMGC = {}; // image id -> dataURL
@@ -2109,7 +2109,7 @@ function notesFiltered() {
 function snippet(p, q) { const t = pageText(p); if (!q) return esc(t.slice(0, 110)); const i = t.toLowerCase().indexOf(q.toLowerCase()); if (i < 0) return esc(t.slice(0, 110)); const a = Math.max(0, i - 40); return (a ? '…' : '') + esc(t.slice(a, i)) + '<mark>' + esc(t.slice(i, i + q.length)) + '</mark>' + esc(t.slice(i + q.length, i + q.length + 70)); }
 function treeHTML(pid, depth) {
   return kids(pid).map(p => { const ks = kids(p.id), open = UI.nopen[p.id] || isAncestor(p.id, UI.np);
-    return `<div class="dk-nt" data-nid="${p.id}"><div class="dk-ntrow${p.id === UI.np ? ' on' : ''}" draggable="true" data-drag="${p.id}" style="--d:${depth}">${ks.length ? `<button class="dk-caret${open ? ' open' : ''}" data-act="ntoggle" data-id="${p.id}" aria-label="${open ? 'Collapse' : 'Expand'}">${ICON.caret}</button>` : '<span class="dk-ntsp"></span>'}<button class="dk-ntn" data-act="nopen" data-id="${p.id}">${nIcon(p.type)}<span>${esc(p.title)}</span>${p.fav ? '<i class="dk-star">★</i>' : ''}</button></div>${ks.length && open ? treeHTML(p.id, depth + 1) : ''}</div>`; }).join('');
+    return `<div class="dk-nt" data-nid="${p.id}"><div class="dk-ntrow${p.id === UI.np ? ' on' : ''}" draggable="true" data-drag="${p.id}" style="--d:${depth}">${ks.length ? `<button class="dk-caret${open ? ' open' : ''}" data-act="ntoggle" data-id="${p.id}" aria-label="${open ? 'Collapse' : 'Expand'}">${ICON.caret}</button>` : '<span class="dk-ntsp"></span>'}<button class="dk-ntn" data-act="nopen" data-id="${p.id}">${nIcon(p.type, '', p.color)}<span>${esc(p.title)}</span>${p.fav ? '<i class="dk-star">★</i>' : ''}</button></div>${ks.length && open ? treeHTML(p.id, depth + 1) : ''}</div>`; }).join('');
 }
 function notesRailHTML() {
   const res = notesFiltered(), f = UI.nf || 'all', tags = allTags(), q = String(UI.nq || '').trim();
@@ -2135,8 +2135,10 @@ function notesHomeHTML() {
     <section class="dk-card"><h2 class="dk-h2">Start something</h2><div class="dk-row">${Object.entries(NTYPES).map(([k, t]) => `<button class="dk-btn sm" data-act="nnew" data-t="${k}">${nIcon(k)} ${esc(t.n)}</button>`).join('')}</div></section>`;
 }
 function propsHTML(p) {
-  const T = NTYPES[p.type] || NTYPES.blank; if (!T.props.length) return '';
-  return `<div class="dk-nprops">${T.props.map(([k, lb, kind, opts]) => {
+  const T = NTYPES[p.type] || NTYPES.blank, X = Array.isArray(p.xprops) ? p.xprops : [];
+  const xs = X.map((x, i) => `<label class="dk-npx"><span class="dk-lbl">${esc(x.t)}</span>${String(x.v).length > 60 || /\n/.test(x.v) ? `<textarea class="dk-f" data-npx="${i}" rows="2" maxlength="2000">${esc(x.v)}</textarea>` : `<input class="dk-f" data-npx="${i}" value="${esc(x.v)}" maxlength="2000">`}</label>`).join('');
+  if (!T.props.length) return xs ? `<div class="dk-nprops">${xs}</div>` : '';
+  return `<div class="dk-nprops">${xs}${T.props.map(([k, lb, kind, opts]) => {
     const v = (p.props || {})[k] || '';
     if (kind === 'sel') return `<label><span class="dk-lbl">${lb}</span><select class="dk-f" data-np="${k}"><option value=""></option>${opts.map(o => `<option${o === v ? ' selected' : ''}>${o}</option>`).join('')}</select></label>`;
     if (kind === 'page') { const locs = pagesList().filter(x => x.id !== p.id && (x.type === 'location' || x.type === 'map')).sort((a, b) => a.title.localeCompare(b.title)); return `<label><span class="dk-lbl">${lb}</span><div class="dk-row nowrap"><select class="dk-f" data-np="${k}"><option value="">—</option>${locs.map(o => `<option value="${o.id}"${o.id === v ? ' selected' : ''}>${esc(o.title)}</option>`).join('')}</select>${v && pageById(v) ? `<button class="dk-btn sm icon" data-act="nopen" data-id="${esc(v)}" aria-label="Open">${ICON.caret}</button>` : ''}</div></label>`; }
@@ -2285,7 +2287,7 @@ const MAPV = {}; // pageId -> {s, x, y} view
 const PIN_COLORS = ['#c9962b', '#b6402d', '#2f8a57', '#2f6ca8', '#7a4fb8', '#1f2a44', '#d9732f', '#ffffff'];
 function mapHTML(p) {
   const m = p.map || {};
-  if (!m.img) return `<div class="dk-mapempty"><div class="dk-emblem">${nIcon('map', '')}</div><p>Upload a map picture — a region, a city, a dungeon — then drop pins that link to your pages.</p><button class="dk-btn gold" data-act="mapimg">Upload a map</button></div>`;
+  if (!m.img) return `<div class="dk-mapempty"><div class="dk-emblem">${nIcon('map', '')}</div><p>${(m.pins || []).length ? `${plural(m.pins.length, 'pin')} from LegendKeeper ${m.pins.length === 1 ? 'is' : 'are'} ready — upload this map’s picture and they’ll appear in place.` : 'Upload a map picture — a region, a city, a dungeon — then drop pins that link to your pages.'}</p><button class="dk-btn gold" data-act="mapimg">Upload a map</button></div>`;
   return `<div class="dk-mapbox${UI.pinMode ? ' pinning' : ''}"><div class="dk-map" data-map="${p.id}"><div class="dk-mapin" style="width:${m.w}px;height:${m.h}px"><img data-img="${esc(m.img)}" alt="" draggable="false">
       ${(m.pins || []).map(pin => { const lp = pageById(pin.page); return `<button class="dk-pin${lp && lp.type === 'map' ? ' sub' : ''}" data-pin="${pin.id}" style="left:${pin.x * 100}%;top:${pin.y * 100}%;--pc:${esc(pin.color || '#c9962b')}" title="${esc(pin.label || (lp && lp.title) || 'Pin')}"><span>${lp ? nIcon(lp.type, 'dk-pinic') : ''}</span><em>${esc(pin.label || (lp && lp.title) || '')}</em></button>`; }).join('')}</div></div>
     <div class="dk-mapctl"><button class="dk-btn sm icon" data-act="mapzoom" data-d="1" aria-label="Zoom in">+</button><button class="dk-btn sm icon" data-act="mapzoom" data-d="-1" aria-label="Zoom out">−</button><button class="dk-btn sm" data-act="mapfit">Fit</button><button class="dk-btn sm${UI.pinMode ? ' on' : ''}" data-act="pinmode">${UI.pinMode ? 'Tap the map…' : '📍 Add pin'}</button><button class="dk-btn sm ghost" data-act="mapimg">Change picture</button></div>
@@ -2432,13 +2434,14 @@ function importPreview(plan, label) {
   const n = plan.pages.length, P = {}; plan.pages.forEach(p => { (P[p.parentKey || ''] = P[p.parentKey || ''] || []).push(p); });
   const tree = (k, d) => (P[k] || []).slice(0, 60).map(p => `<div class="dk-ipt" style="--d:${d}">${nIcon(p.type || 'blank')} ${esc(p.title)}${p.tags && p.tags.length ? ` <small>#${esc(p.tags.slice(0, 3).join(' #'))}</small>` : ''}</div>${d < 6 ? tree(p.key, d + 1) : ''}`).join('');
   openModal(`<h2>Import ${esc(label)}</h2>
-    <div class="dk-istats"><span><b>${n}</b> pages</span><span><b>${plan.found}</b> pictures</span>${plan.missing.length ? `<span class="bad"><b>${plan.missing.length}</b> pictures not in the upload</span>` : ''}<span><b>${plan.unresolved.length}</b> links to pages that don’t exist</span></div>
+    <div class="dk-istats"><span><b>${n}</b> pages</span>${plan.lk ? `${plan.stats.maps ? `<span><b>${plan.stats.maps}</b> maps · <b>${plan.stats.pins}</b> pins</span>` : ''}${plan.stats.props ? `<span><b>${plan.stats.props}</b> properties</span>` : ''}${plan.stats.hiddenDocs ? `<span><b>${plan.stats.hiddenDocs}</b> hidden tabs → secret blocks</span>` : ''}` : ''}<span><b>${plan.found}</b> pictures</span>${plan.missing.length ? `<span class="bad"><b>${plan.missing.length}</b> pictures not in the upload</span>` : ''}<span><b>${plan.unresolved.length}</b> links to pages that don’t exist</span></div>
     <div class="dk-itree">${plan.backup ? plan.pages.slice(0, 80).map(p => `<div class="dk-ipt">${esc(p.title)}</div>`).join('') : tree('', 0)}</div>
     ${plan.unresolved.length ? `<details><summary class="dk-hint">Links that don’t point to a page yet (they stay as links; clicking one makes the page)</summary><p class="dk-hint">${esc(plan.unresolved.slice(0, 40).join(', '))}${plan.unresolved.length > 40 ? '…' : ''}</p></details>` : ''}
     ${plan.missing.length ? `<details><summary class="dk-hint">Pictures that weren’t in the upload</summary><p class="dk-hint">${esc(plan.missing.slice(0, 30).join(', '))}</p></details>` : ''}
+    ${plan.lk ? `<p class="dk-hint">Names, aliases, tags, icon colours, the page tree and its order come across exactly. ${plan.stats.maps ? 'Map pictures aren’t inside a .lk file — open each map page and upload its picture; the pins are already placed. ' : ''}${plan.stats.media ? 'Pictures in pages stay as links to LegendKeeper. ' : ''}</p>` : ''}
     <p class="dk-hint">Imports add pages — nothing you already have is changed. Pages with a name you already use get a number added.</p>
     <div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn gold" id="dk-impGo">Import ${plural(n, 'page')}</button></div>`, { wide: true, focus: false });
-  $('#dk-impGo').onclick = () => { $('#dk-impGo').disabled = true; $('#dk-impGo').textContent = 'Importing…'; commitImport(plan).catch(e => { toast({ title: 'Import stopped', det: esc(e.message), cls: 'bad' }); closeModal(true); }); };
+  $('#dk-impGo').onclick = () => { $('#dk-impGo').disabled = true; $('#dk-impGo').textContent = 'Importing…'; (plan.lk ? commitLk(plan) : commitImport(plan)).catch(e => { toast({ title: 'Import stopped', det: esc(e.message), cls: 'bad' }); closeModal(true); }); };
 }
 async function commitImport(plan) {
   const idOf = new Map(), made = [];
@@ -2468,6 +2471,7 @@ async function commitImport(plan) {
 async function runImport(files) {
   files = Array.from(files || []); if (!files.length) return;
   const label = files.length === 1 ? files[0].name : (files[0].webkitRelativePath || '').split('/')[0] || plural(files.length, 'file');
+  if (files.length === 1 && /\.(lk|json)$/i.test(files[0].name)) { try { const root = await readLkFile(files[0]); if (root) return importPreview(planLk(root, files[0].name), files[0].name); } catch (e) { if (/\.lk$/i.test(files[0].name)) return toast({ title: 'Couldn’t open that .lk file', det: esc(e.message || ''), cls: 'bad' }); } }
   toastInfo('Reading your files…', null, 'nimp');
   try { const entries = await collectEntries(files); if (!entries.some(e => e.text != null)) return toastInfo('No Markdown, HTML or backup files were found in that upload.'); const plan = await planImport(entries, label); if (!plan.pages.length) return toastInfo('Nothing to import there.'); importPreview(plan, label); }
   catch (e) { toast({ title: 'Couldn’t read that', det: esc(e.message), cls: 'bad' }); }
@@ -2475,6 +2479,7 @@ async function runImport(files) {
 function openImport() {
   openModal(`<h2>Import notes</h2><p class="dk-hint">Bring in a wiki from another app. You’ll see what will be imported before anything is added.</p>
     <div class="dk-impgrid">
+      <button class="dk-impopt" data-imp="files"><b>LegendKeeper project</b><small>The .lk file (Project settings → Export) — keeps names and order exactly</small></button>
       <button class="dk-impopt" data-imp="zip"><b>LegendKeeper</b><small>Its export .zip (Markdown or HTML)</small></button>
       <button class="dk-impopt" data-imp="zip"><b>Obsidian</b><small>Your vault as a .zip, or pick the vault folder below</small></button>
       <button class="dk-impopt" data-imp="zip"><b>Craft</b><small>Space or document export: .zip of Markdown or HTML, .textbundle or .textpack</small></button>
@@ -2494,6 +2499,161 @@ async function exportNotes(kind) {
   await walk('', '');
   for (const p of pagesList()) for (const m of String(p.html).matchAll(/data-img="(i[a-z0-9]+)"/g)) { const u = await getImg(m[1]); if (u) zip.file('images/' + m[1] + '.jpg', u.split(',')[1], { base64: true }); }
   const blob = await zip.generateAsync({ type: 'blob' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'dm-desk-notes-' + new Date().toISOString().slice(0, 10) + '.zip'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+// ---------- LegendKeeper project file (.lk) import: gzip JSON with every resource, its tabs (documents), properties,
+// aliases, tags, icon colour, the tree (parentId) and the sibling order (pos, a fractional index compared as plain strings). ----------
+const isLkJson = j => j && typeof j === 'object' && Array.isArray(j.resources) && (j.exportId != null || j.resourceCount != null || j.hash != null);
+LIBS.pako = 'https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js';
+async function gunzipBytes(buf) {
+  if (typeof DecompressionStream === 'function') { const s = new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip')); return await new Response(s).text(); }
+  await loadScript(LIBS.pako); return window.pako.ungzip(new Uint8Array(buf), { to: 'string' });
+}
+// Reads a .lk (gzip) or an already-unpacked .json; returns the root object or null.
+async function readLkFile(file) {
+  const buf = await file.arrayBuffer(), b = new Uint8Array(buf.slice(0, 2));
+  let text; if (b[0] === 0x1f && b[1] === 0x8b) text = await gunzipBytes(buf); else text = new TextDecoder().decode(buf);
+  let j = null; try { j = JSON.parse(text); } catch (e) { return null; }
+  return isLkJson(j) ? j : null;
+}
+const lkCmp = (a, b) => { const x = String(a.pos == null ? '' : a.pos), y = String(b.pos == null ? '' : b.pos); return x < y ? -1 : x > y ? 1 : 0; };
+const lkStr = (v, n) => String(v == null ? '' : v).slice(0, n || 500);
+const lkColor = c => /^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? String(c) : '';
+const lkHref = u => /^https?:\/\//i.test(String(u || '')) ? String(u) : '';
+const LK_PANEL = { info: 'info', note: 'note', tip: 'tip', success: 'success', warning: 'warning', error: 'danger', danger: 'danger', quote: 'quote', example: 'example', question: 'question' };
+// ProseMirror / ADF-like JSON -> our HTML (always sanitized again by clean() on commit)
+function lkHtml(node, ctx) {
+  if (!node || typeof node !== 'object') return '';
+  const kids = () => (Array.isArray(node.content) ? node.content : []).map(c => lkHtml(c, ctx)).join(''), a = node.attrs || {};
+  switch (node.type) {
+    case 'doc': return kids();
+    case 'paragraph': return `<p>${kids() || '<br>'}</p>`;
+    case 'heading': { const l = Math.min(3, Math.max(1, N(a.level) || 2)); return `<h${l}>${kids()}</h${l}>`; }
+    case 'text': {
+      let t = esc(node.text || ''); for (const m of (node.marks || [])) {
+        if (m.type === 'strong') t = `<strong>${t}</strong>`; else if (m.type === 'em') t = `<em>${t}</em>`; else if (m.type === 'underline') t = `<u>${t}</u>`;
+        else if (m.type === 'strike') t = `<s>${t}</s>`; else if (m.type === 'code') t = `<code>${t}</code>`;
+        else if (m.type === 'link') { const h = lkHref((m.attrs || {}).href); const rid = lkResId((m.attrs || {}).href, ctx); if (rid) t = `<a class="wl" data-lkid="${esc(rid)}">${t}</a>`; else if (h) t = `<a href="${esc(h)}" rel="noopener" target="_blank">${t}</a>`; }
+      } return t; }
+    case 'hardBreak': return '<br>';
+    case 'bulletList': return `<ul>${kids()}</ul>`;
+    case 'orderedList': return `<ol>${kids()}</ol>`;
+    case 'listItem': return `<li>${kids()}</li>`;
+    case 'taskList': return `<ul class="checks">${kids()}</ul>`;
+    case 'taskItem': return `<li${String(a.state).toUpperCase() === 'DONE' ? ' data-done="1"' : ''}>${kids()}</li>`;
+    case 'blockquote': return `<blockquote>${kids()}</blockquote>`;
+    case 'codeBlock': return `<pre><code>${esc((node.content || []).map(c => c.text || '').join(''))}</code></pre>`;
+    case 'rule': return '<hr>';
+    case 'table': return `<table><tbody>${kids()}</tbody></table>`;
+    case 'tableRow': return `<tr>${kids()}</tr>`;
+    case 'tableHeader': case 'tableCell': { const tg = node.type === 'tableHeader' ? 'th' : 'td', cs = N(a.colspan) > 1 ? ` colspan="${N(a.colspan)}"` : '', rs = N(a.rowspan) > 1 ? ` rowspan="${N(a.rowspan)}"` : ''; return `<${tg}${cs}${rs}>${kids()}</${tg}>`; }
+    case 'mention': { const id = lkStr(a.id, 80), txt = lkStr(a.text, 200).replace(/^@/, '') || (ctx.byId.get(id) || {}).name || 'link'; if (!ctx.byId.has(id)) ctx.unresolved.add(txt); return ctx.byId.has(id) ? `<a class="wl" data-lkid="${esc(id)}">${esc(txt)}</a>` : `<a class="wl" data-title="${esc(txt)}">${esc(txt)}</a>`; }
+    case 'mediaSingle': case 'mediaGroup': return kids();
+    case 'media': case 'image': { const u = lkHref(a.url || a.src); ctx.media++; return u ? `<p>🖼 Picture from LegendKeeper: <a href="${esc(u)}" rel="noopener" target="_blank">${esc(u.split('/').pop().split('?')[0] || 'open')}</a></p>` : '<p>🖼 (a picture that wasn’t in the export)</p>'; }
+    case 'layoutSection': case 'layoutColumn': return kids();
+    case 'panel': { const k = String(a.panelType || 'info').toLowerCase(); if (/secret|hidden|gm|dm/.test(k)) return `<div class="secret">${kids()}</div>`; return `<div class="callout" data-kind="${LK_PANEL[k] || 'note'}">${kids()}</div>`; }
+    case 'expand': case 'nestedExpand': return `<details><summary>${esc(lkStr(a.title, 200) || 'Details')}</summary>${kids()}</details>`;
+    case 'extension': return a.text ? `<p><em>${esc(lkStr(a.text))}</em></p>` : '';
+    case 'bodiedExtension': return kids();
+    case 'emoji': return esc(lkStr(a.text || a.shortName, 20));
+    case 'status': return a.text ? `<code>${esc(lkStr(a.text, 60))}</code>` : '';
+    case 'date': return a.timestamp ? esc(new Date(N(a.timestamp)).toISOString().slice(0, 10)) : '';
+    case 'inlineCard': case 'blockCard': { const rid = lkResId(a.url, ctx); if (rid) return `<a class="wl" data-lkid="${esc(rid)}">${esc((ctx.byId.get(rid) || {}).name || 'link')}</a>`; const u = lkHref(a.url); return u ? `<a href="${esc(u)}" rel="noopener" target="_blank">${esc(u)}</a>` : ''; }
+    default: return kids();
+  }
+}
+// a LegendKeeper link/uri that points at a resource in this export
+function lkResId(u, ctx) { const s = String(u || ''); if (!s) return ''; if (ctx.byId.has(s)) return s; for (const m of s.matchAll(/[A-Za-z0-9_-]{6,}/g)) if (ctx.byId.has(m[0])) return m[0]; return ''; }
+// plain text out of any property value (strings, lists, rich text, resource refs)
+function lkText(v, ctx, depth) {
+  depth = depth || 0; if (v == null || depth > 6) return '';
+  if (typeof v === 'string') return ctx.byId.has(v) ? ctx.byId.get(v).name : v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (Array.isArray(v)) return v.map(x => lkText(x, ctx, depth + 1)).filter(Boolean).join(', ');
+  if (v.type && (v.content || v.text != null)) return v.type === 'text' ? String(v.text || '') : (v.content || []).map(x => lkText(x, ctx, depth + 1)).join(v.type === 'doc' ? '\n' : '');
+  for (const k of ['resourceId', 'id', 'value', 'text', 'name', 'title', 'url', 'values', 'items', 'resources', 'content']) if (v[k] != null) { const t = lkText(v[k], ctx, depth + 1); if (t) return t; }
+  return '';
+}
+const LK_TYPE = [[/npc|character|person|people|creature|monster|deity|god/i, 'npc'], [/location|place|city|town|region|country|dungeon|area|realm|world|continent|kingdom|planet/i, 'location'], [/faction|guild|organi[sz]ation|group|order|house|clan/i, 'faction'], [/item|artifact|weapon|relic|object/i, 'item'], [/quest|mission|plot|adventure/i, 'quest'], [/session|log|journal/i, 'session'], [/lore|history|myth|religion|legend|culture/i, 'lore'], [/event|battle|war/i, 'event']];
+function lkPageType(r) { const words = [].concat(r.tags || [], r.iconGlyph || ''); for (const w of words) for (const [re, t] of LK_TYPE) if (re.test(String(w))) return t; return 'blank'; }
+// Turns the export into the same plan the other importers produce (pages in tree + sibling order)
+function planLk(root, label) {
+  const res = (root.resources || []).filter(r => r && r.id && typeof r.name === 'string');
+  const ctx = { byId: new Map(res.map(r => [String(r.id), r])), unresolved: new Set(), media: 0 };
+  const byParent = new Map(); res.forEach(r => { const pk = r.parentId && ctx.byId.has(String(r.parentId)) ? String(r.parentId) : ''; if (!byParent.has(pk)) byParent.set(pk, []); byParent.get(pk).push(r); });
+  byParent.forEach(l => l.sort(lkCmp));
+  const pages = [], pins = []; let maps = 0, hiddenDocs = 0, props = 0;
+  const calName = id => ((root.calendars || []).find(c => c.id === id) || {}).name || '';
+  const visit = (pk, parentKey, seen) => (byParent.get(pk) || []).forEach((r, i) => {
+    if (seen.has(r.id)) return; seen.add(r.id);
+    const docs = (r.documents || []).filter(d => d && typeof d === 'object').slice().sort((a, b) => (b.isFirst === true) - (a.isFirst === true) || lkCmp(a, b));
+    const first = docs.find(d => d.type === 'page') || null, firstAny = docs[0] || null;
+    const after = []; const page = { key: 'lk:' + r.id, lkid: r.id, lkpos: String(r.pos || ''), title: lkStr(r.name, 200) || 'Untitled', parentKey, rank: i + 1, type: lkPageType(r), html: '', tags: (r.tags || []).map(t => lkStr(t, 60)).filter(Boolean).slice(0, 40), aliases: (r.aliases || []).map(t => lkStr(t, 120)).filter(Boolean).slice(0, 20), props: {}, xprops: [], color: lkColor(r.iconColor), imgs: [] };
+    let html = '';
+    const wrapHidden = (d, h) => { if (d.isHidden) { hiddenDocs++; return `<div class="secret">${h}</div>`; } return h; };
+    for (const d of docs) {
+      const isBody = d === first && (firstAny === first || firstAny.type !== 'map');
+      if (d.type === 'page' || (!d.type && d.content && d.content.type === 'doc')) {
+        let h = d.content && d.content.type ? lkHtml(d.content, ctx) : '';
+        if (!isBody) h = `<h2>${esc(lkStr(d.name, 120) || 'Notes')}</h2>` + (h || '<p></p>');
+        html += wrapHidden(d, h);
+      } else if (d.type === 'map') {
+        maps++; const m = d.map || {}, c = d.content || {}, mx = N(m.minX), Mx = N(m.maxX), my = N(m.minY), My = N(m.maxY), w = Mx - mx || 1, hgt = My - my || 1;
+        const mp = (c.pins || []).filter(p => p && Array.isArray(p.pos) && !p.polygon && !p.polyline).map(p => ({ id: 'n' + uid(), x: Math.max(0, Math.min(1, (N(p.pos[0]) - mx) / w)), y: Math.max(0, Math.min(1, (N(p.pos[1]) - my) / hgt)), label: lkStr(p.name, 60), lkuri: lkResId(p.uri, ctx), color: lkColor(p.iconColor) || '#c9962b' }));
+        pins.push(...mp);
+        const mapPage = { pins: mp, bounds: [mx, Mx, my, My] };
+        if (d === firstAny) { page.type = 'map'; page.map = mapPage; }
+        else { const mk = 'lkmap:' + r.id + ':' + d.id; after.push({ key: mk, title: (lkStr(d.name, 120) && d.name !== 'Map' ? lkStr(d.name, 120) : page.title + ' — map'), parentKey: page.key, rank: -1, type: 'map', html: '<p></p>', tags: [], aliases: [], props: {}, xprops: [], imgs: [], map: mapPage, lkchild: true }); }
+      } else if (d.type === 'time') {
+        const c = d.content || {}, lanes = new Map((c.lanes || []).map(l => [l.id, l.name])), ev = (c.events || []).slice().sort((a, b) => N(a.start) - N(b.start) || lkCmp(a, b));
+        let h = `<h2>${esc(lkStr(d.name, 120) || 'Timeline')}</h2>${calName(d.calendarId) ? `<p><em>Calendar: ${esc(calName(d.calendarId))}</em></p>` : ''}`;
+        h += ev.length ? `<ul>${ev.map(e => `<li><strong>${esc(lkStr(e.name, 200))}</strong>${lanes.get(e.laneId) ? ` · ${esc(lanes.get(e.laneId))}` : ''} <code>${esc(String(e.start))}${e.end != null ? '–' + esc(String(e.end)) : ''}</code></li>`).join('')}</ul>` : '<p>No events.</p>';
+        html += wrapHidden(d, h);
+      } else if (d.type === 'board') {
+        const c = d.content || {}, recs = (c.shapesV2 || []).map(x => x && x.val).concat(c.shapes || []).filter(Boolean);
+        const texts = recs.map(v => lkStr((v.props && (v.props.text || v.props.name || v.props.title)) || v.text || v.name || '', 300).trim()).filter(Boolean);
+        html += wrapHidden(d, `<h2>${esc(lkStr(d.name, 120) || 'Board')}</h2>${texts.length ? `<ul>${texts.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : '<p>(a board — its cards had no text)</p>'}`);
+      } else if (d.content && d.content.type === 'doc') html += wrapHidden(d, `<h2>${esc(lkStr(d.name, 120))}</h2>` + lkHtml(d.content, ctx));
+    }
+    if (r.isHidden) html = `<div class="secret">${html || '<p></p>'}</div>`;
+    page.html = html || '<p></p>';
+    (r.properties || []).slice().sort(lkCmp).forEach(pr => { if (!pr || pr.type === 'TAGS') return; const t = lkStr(pr.title, 80) || lkStr(pr.type, 40); const v = lkText(pr.data, ctx).slice(0, 2000); page.xprops.push({ t, v }); props++; });
+    pages.push(page, ...after); visit(r.id, page.key, seen);
+  });
+  visit('', '', new Set());
+  // orphans (a parent missing from the export) were put at the top by byParent; mentions are checked against the export
+  return { lk: true, pages, rootKey: null, images: new Map(), imgByBase: new Map(), unresolved: [...ctx.unresolved], missing: [], found: 0, stats: { maps, pins: pins.length, hiddenDocs, props, media: ctx.media, cals: (root.calendars || []).length }, label };
+}
+async function commitLk(plan) {
+  const idOf = new Map(), made = [], before = new Set(pagesList().map(p => p.title.toLowerCase()));
+  const uniq = t => { let s = t, n = 2; while (before.has(s.toLowerCase())) s = `${t} (${n++})`; return s; };
+  const topBase = Math.max(0, ...kids('').map(p => N(p.order) < 1e9 ? N(p.order) : 0)) + 1;
+  let n = 0; const total = plan.pages.length, stamp = () => { const b = $('#dk-impGo'); if (b) b.textContent = `Importing… ${n}/${total}`; };
+  // pages arrive parents-first and already in sibling order
+  const ranks = new Map();
+  for (const p of plan.pages) {
+    const parent = p.parentKey ? idOf.get(p.parentKey) || '' : ''; const k = parent || '__top'; const r = (ranks.get(k) || 0) + 1; ranks.set(k, r);
+    const np = newPage({ title: uniq(p.title), type: p.type || 'blank', parent, order: parent ? r : topBase + r, tags: p.tags || [], aliases: p.aliases || [], props: p.props || {}, html: '<p></p>' });
+    if (p.xprops && p.xprops.length) np.xprops = p.xprops; if (p.color) np.color = p.color; if (p.lkid) np.lk = { id: p.lkid, pos: p.lkpos };
+    if (p.map) np.map = { pins: p.map.pins, w: 0, h: 0, img: '', lkBounds: p.map.bounds };
+    idOf.set(p.key, np.id); made.push(np); n++; if (n % 25 === 0) { stamp(); await new Promise(r2 => setTimeout(r2, 0)); }
+  }
+  const byLk = new Map(plan.pages.filter(p => p.lkid).map(p => [p.lkid, idOf.get(p.key)]));
+  for (const p of plan.pages) {
+    const np = pageById(idOf.get(p.key)); let h = p.html.replace(/<a class="wl" data-lkid="([^"]+)">/g, (m, id) => byLk.get(id) ? `<a class="wl" data-page="${byLk.get(id)}">` : '<a class="wl">');
+    h = h.replace(/<a class="wl" data-title="([^"]+)">/g, (m, t) => { const x = pageByTitle(t.replace(/&amp;/g, '&')); return x ? `<a class="wl" data-page="${x.id}">` : m; });
+    np.html = clean(h) || '<p></p>';
+    if (np.map) np.map.pins.forEach(pin => { if (pin.lkuri && byLk.get(pin.lkuri)) pin.page = byLk.get(pin.lkuri); delete pin.lkuri; });
+  }
+  made.forEach(p => nSave(p)); const first = made.find(p => !p.parent); if (first) { UI.np = first.id; }
+  UI.nq = ''; UI.nf = 'all'; closeModal(true); paint(); toastInfo(`Imported ${plural(made.length, 'page')} from LegendKeeper${plan.stats.maps ? ` — ${plural(plan.stats.maps, 'map')} need their pictures uploaded` : ''}.`, null, 'nimp');
+}
+async function runLkImport(file) {
+  toastInfo('Reading your LegendKeeper project…', null, 'nimp');
+  let root; try { root = await readLkFile(file); } catch (e) { return toast({ title: 'Couldn’t open that .lk file', det: esc(e.message || ''), cls: 'bad' }); }
+  if (!root) return toast({ title: 'That isn’t a LegendKeeper project file', det: 'In LegendKeeper: Project settings → Export → Download .lk file.', cls: 'bad' });
+  const plan = planLk(root, file.name.replace(/\.(lk|json)$/i, ''));
+  if (!plan.pages.length) return toastInfo('That project has no pages.', null, 'nimp');
+  importPreview(plan, file.name);
 }
 // ---------- Notes: clicks, typing, files ----------
 function openPage(id) { const p = pageById(id); if (!p) return; UI.np = id; UI.nview = ''; UI.tree = false; pathOf(p).forEach(x => { if (x.id !== id) UI.nopen[x.id] = true; }); saveUI(); paint(); scrollTo(0, 0); }
@@ -2556,6 +2716,7 @@ function onNotesChange(el) {
   if (el.id === 'dk-ntag') { UI.nf = el.value ? 'tag' : 'all'; UI.ntag = el.value; saveUI(); paint(); return true; }
   if (!p) return false;
   if (el.dataset.nt === 'title') { const v = el.value.trim() || 'Untitled'; if (v !== p.title) { p.title = v; nSave(p); } paint(); return true; }
+  if (el.dataset.npx != null && p && Array.isArray(p.xprops) && p.xprops[N(el.dataset.npx)]) { p.xprops[N(el.dataset.npx)].v = String(el.value).slice(0, 2000); nSave(p); return true; }
   if (el.dataset.np) { p.props = p.props || {}; p.props[el.dataset.np] = String(el.value).slice(0, 200); nSave(p); paint(); return true; }
   if (el.dataset.npstat) { const v = el.value.trim().toLowerCase(), c = allCreatures().find(z => z.name.toLowerCase() === v); p.props = p.props || {}; p.props.stat = c ? c.id : ''; if (v && !c) toastInfo('No creature with that name in your bestiary.'); nSave(p); paint(); return true; }
   if (el.id === 'dk-tag-' + p.id) { addTags(p, el.value); return true; }
