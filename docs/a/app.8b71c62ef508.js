@@ -96,6 +96,7 @@ function keepPrefs(into, from) { if (!into || !from || (into.id && from.id && in
 })();
 let UI = { tab: 'core', open: {} };
 try { UI = Object.assign(UI, JSON.parse(localStorage.getItem(UI_KEY) || '{}')); } catch (e) {}
+UI.chatPop = false; // windows always start closed when a sheet opens
 UI.open = UI.open || {};
 // One-off corrections shipped with a sheet update (EMBED.fixes). Each runs once per character, whichever copy is
 // loaded (this browser's, the cloud's or the file's), so a fix isn't lost to a newer saved copy.
@@ -723,7 +724,7 @@ function fxRollExpr(expr) {
 let _fxpKey = '', _fxp = [];
 function fxPassives() {
   const key = JSON.stringify(S.inventory.filter(it => it.resPick).map(it => [hbItemOn(it), it.resPick])) + '|' + JSON.stringify(S.inventory.filter(it => it.infusion).map(it => [hbItemOn(it), it.attuned, it.infusion.name, it.infusion.choice])) + '|' + JSON.stringify(S.features.map(f => f.hb || 0)) + '|' + JSON.stringify(S.inventory.filter(it => it.hb).map(it => [hbItemOn(it), it.hb])) + '|' + S.features.length + '|' + S.conditions.join() + '|' + (S.effects || []).map(e => e.name).join() + '|' + S.concentration + '|' + totalLevel() + '|' + JSON.stringify(S.picks || {}) + '|' + S.features.map(f => f.name).join();
-  if (key === _fxpKey) return _fxp;
+  const mdKey = JSON.stringify(S.manualDef || null); if (key + mdKey === _fxpKey) return _fxp;
   const out = [], raging = S.conditions.includes('Raging');
   S.features.forEach(f => {
     const fx = fxOf(f), own = f.cls ? clsLv(f.cls) : lvl();
@@ -741,7 +742,9 @@ function fxPassives() {
   // Homebrew item effects (resistances, speeds, AC…) while the item is in use
   infPassives().forEach(p => out.push(p));
   S.inventory.forEach(it => { if (!hbItemOn(it)) return; const fx = hbFx(it.hb); if (fx && fx.passive) [].concat(fx.passive).forEach(x => { if (x.effect && !fxActive().some(e => e.name === x.effect)) return; out.push(Object.assign({ src: it.name, item: it.id }, x)); }); });
-  _fxpKey = key; _fxp = out; return out;
+  { const md = S.manualDef || {}, cn = DEF_COND.map(c => c.toLowerCase()), im = md.immune || [];
+    if ((md.resist || []).length || im.length) out.push({ src: 'Added by you', resist: (md.resist || []).map(t => t.toLowerCase()), immune: im.filter(t => !cn.includes(t.toLowerCase())).map(t => t.toLowerCase()), condImmune: im.filter(t => cn.includes(t.toLowerCase())) }); }
+  _fxpKey = key + mdKey; _fxp = out; return out;
 }
 const fxSkillBonus = name => fxPassives().filter(p => p.skillBonus && p.skillBonus[name]).map(p => [p.src, N(p.skillBonus[name])]);
 const fxSum = (k, filter) => fxPassives().filter(p => p[k] != null && (!filter || filter(p))).reduce((t, p) => t + (typeof p[k] === 'number' ? p[k] : p[k] === 'attuned' ? attunedCount() : N(evalMax(p[k]))), 0);
@@ -1473,6 +1476,27 @@ function openModal(html, onCancel, wide) {
   onModalCancel = onCancel || null; $('#modal-body').classList.remove('xwide'); $('#modal-body').classList.toggle('wide', !!wide); $('#modal-body').innerHTML = html; $('#modal').classList.add('open');
   const f = $('#modal-body [autofocus]'); if (f) f.focus();
 }
+// Desktop: every pop-up window can be moved by dragging its title (the heading at the top). It opens centred again
+// next time.
+(() => { if (window.__pgWinDrag) return; window.__pgWinDrag = 1; const WIN = '#modal-body, .hub-modal > .hub-card, .pg-out-card, #pg-msg .pgm-card, .wz-card, .wizard > .wz';
+  const HANDLE = '.mw-head, h2, h3, .rl-head, .pw-head, .mhead, .wz-head, .pgm-head';
+  const desk = () => !document.documentElement.classList.contains('mobile') && innerWidth > 640 && matchMedia('(pointer: fine)').matches;
+  document.addEventListener('pointerdown', e => { if (!desk() || e.button !== 0 || !e.target.closest) return; const w = e.target.closest(WIN); if (!w) return;
+    const h = e.target.closest(HANDLE); if (!h || !w.contains(h) || e.target.closest('button, input, select, textarea, a, label, [contenteditable]')) return;
+    // only a heading near the top of the window counts as its title bar
+    if (h.getBoundingClientRect().top - w.getBoundingClientRect().top > 90) return;
+    e.preventDefault(); const m0 = (w.style.translate || '0px 0px').split(' ').map(parseFloat), x0 = e.clientX - (m0[0] || 0), y0 = e.clientY - (m0[1] || 0), r = w.getBoundingClientRect();
+    const minX = -(r.left - (m0[0] || 0)) - r.width + 80, maxX = innerWidth - (r.left - (m0[0] || 0)) - 80, minY = -(r.top - (m0[1] || 0)), maxY = innerHeight - (r.top - (m0[1] || 0)) - 48;
+    document.body.classList.add('win-dragging'); w.classList.add('win-moving');
+    const mv = ev => { const x = Math.max(minX, Math.min(maxX, ev.clientX - x0)), y = Math.max(minY, Math.min(maxY, ev.clientY - y0)); w.style.translate = `${Math.round(x)}px ${Math.round(y)}px`; };
+    const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); document.body.classList.remove('win-dragging'); w.classList.remove('win-moving');
+      // a click that ends a drag mustn't close the window
+      const eat = ev => { ev.stopPropagation(); ev.preventDefault(); }; addEventListener('click', eat, { capture: true, once: true }); setTimeout(() => removeEventListener('click', eat, true), 0); };
+    addEventListener('pointermove', mv); addEventListener('pointerup', up); });
+  // a window opening again starts back in the middle
+  new MutationObserver(ms => ms.forEach(m => { const t = m.target; if (t.classList && (t.classList.contains('open') || t.classList.contains('on'))) t.querySelectorAll(WIN).forEach(w => { w.style.translate = ''; }); else if (t.matches && t.matches(WIN) && m.type === 'childList') t.style.translate = ''; }))
+    .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], subtree: true });
+})();
 function closeModal(confirmed) {
   if (!$('#modal').classList.contains('open')) return;
   $('#modal').classList.remove('open');
@@ -1480,6 +1504,24 @@ function closeModal(confirmed) {
   if (!confirmed && cb) cb();
 }
 $('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+// Desktop: pop-up windows work like the dice roller and the chat window — a floating window with its own title bar
+// (drag it to move it, ✕ to close), and the page behind stays usable instead of being dimmed and blocked.
+const mwDesk = () => !document.documentElement.classList.contains('mobile') && innerWidth > 640;
+function mwDress() { const b = $('#modal-body'); if (!b) return; const de = document.documentElement; de.classList.toggle('mwin', mwDesk());
+  if (!mwDesk() || b.querySelector(':scope > .mw-head')) return;
+  const h = [...b.querySelectorAll('h2, h3')].find(x => x.offsetParent && x.getBoundingClientRect().top - b.getBoundingClientRect().top < 140);
+  const t = h ? h.textContent.trim() : ''; if (h) { h.classList.add('mw-hid');
+    // a Done / Close button sitting beside the heading would be left stranded: the title bar's ✕ does the same job
+    const row = h.parentElement; if (row && row !== b) [...row.children].forEach(x => { if (x !== h && x.matches('button') && /^(done|close)$/i.test(x.textContent.trim())) x.classList.add('mw-hid'); });
+    if (row && row !== b && ![...row.children].some(x => !x.classList.contains('mw-hid') && x.offsetParent)) row.classList.add('mw-hid'); }
+  const bar = document.createElement('div'); bar.className = 'mw-head'; bar.innerHTML = `<b>${esc(t || 'Window')}</b><button class="mw-x" type="button" title="Close" aria-label="Close">✕</button>`;
+  bar.querySelector('.mw-x').onclick = () => closeModal(); b.prepend(bar); mwTidy(); }
+// Done / Close buttons that only close the window aren't needed next to the title bar's ✕ (a row left empty goes too).
+function mwTidy() { const b = $('#modal-body'); if (!b || !mwDesk()) return; b.querySelectorAll('[data-act="close"]').forEach(x => { if (/^(done|close)$/i.test(x.textContent.trim())) x.classList.add('mw-hid'); });
+  b.querySelectorAll('.actions, .row').forEach(r => { if (r.children.length && ![...r.children].some(x => !x.classList.contains('mw-hid') && getComputedStyle(x).display !== 'none')) r.classList.add('mw-hid'); }); }
+new MutationObserver(() => { if ($('#modal').classList.contains('open')) { mwDress(); mwTidy(); } }).observe($('#modal-body'), { childList: true, subtree: true });
+new MutationObserver(() => { if ($('#modal').classList.contains('open')) mwDress(); }).observe($('#modal'), { attributes: true, attributeFilter: ['class'] });
+addEventListener('resize', () => document.documentElement.classList.toggle('mwin', mwDesk()));
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); $$('.menu.open').forEach(m => m.classList.remove('open')); } });
 
 // ---------- Field helpers ----------
@@ -1571,7 +1613,7 @@ function renderHeader() {
   $('#sec-header').innerHTML = `
   <div class="banner-row"><div class="portrait-wrap"><img id="portraitImg" src="${esc(pic)}" alt="${esc((S.name || 'Character') + '’s portrait')}">
     <label class="portrait-edit" tabindex="0" data-act="portrait">Change portrait</label></div>${inspHTML()}</div>
-  <div class="ident"><h1 class="sr-only">${esc(S.name || 'Character sheet')}</h1>
+  <div class="ident${idf ? '' : ' noid'}"><h1 class="sr-only">${esc(S.name || 'Character sheet')}</h1>
     <div class="ident-top">
       <img class="mini-portrait" src="${esc(pic)}" alt="" data-act="portrait">
       <div class="namebox">${ST('showName') ? inp('name', { cls: 'name', label: 'Character name', ph: 'Character name', fit: 10 }) : ''}
@@ -1853,6 +1895,21 @@ function profsHTML() {
     ${bad.length ? `<p class="warn sm">Wearing ${esc(bad.join(', '))} without proficiency: disadvantage on STR/DEX checks, saves and attacks, and no spellcasting.</p>` : ''}</div>`;
 }
 // The detailed editor shown in the Manage window.
+// Resistances and immunities you add yourself (a boon, a curse, a DM ruling) — alongside the ones your race, features,
+// items and spells already give, which are listed here with where they come from.
+const DEF_DMG = ['Acid', 'Bludgeoning', 'Cold', 'Fire', 'Force', 'Lightning', 'Necrotic', 'Piercing', 'Poison', 'Psychic', 'Radiant', 'Slashing', 'Thunder', 'Nonmagical bludgeoning, piercing and slashing'];
+const DEF_COND = ['Blinded', 'Charmed', 'Deafened', 'Disease', 'Exhaustion', 'Frightened', 'Grappled', 'Incapacitated', 'Paralyzed', 'Petrified', 'Poisoned', 'Prone', 'Restrained', 'Stunned', 'Unconscious', 'Magical sleep'];
+function defManageHTML() {
+  const md = S.manualDef || { resist: [], immune: [] }, d = defensesDetail();
+  const given = (arr, kind) => arr.filter(e => !(e.src.length === 1 && e.src[0] === 'Added by you')).map(e => `<span class="pchip given" title="From ${esc(e.src.filter(x => x !== 'Added by you').join(', ') || 'your sheet')}">${esc(e.t)}<small>${esc(e.src.filter(x => x !== 'Added by you').join(', '))}</small></span>`).join('');
+  const mine = (list, kind) => list.map((t, i) => `<span class="pchip">${esc(t)}<button data-act="defdel" data-kind="${kind}" data-i="${i}" aria-label="Remove ${esc(t)}">✕</button></span>`).join('');
+  const sel = (id, label, opts, have) => `<select class="f addsel" id="${id}" aria-label="${esc(label)}"><option value="">+ ${esc(label)}…</option>${opts.filter(o => !have.some(h => h.toLowerCase() === o.toLowerCase())).map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select>`;
+  return `<section class="pmsec"><h4>Resistances &amp; immunities</h4><p class="hint">Ones from your race, features, items and spells are added automatically (shown with where they come from). Add any others here — a boon, a curse, something your DM gave you. Damage you take uses all of them.</p>
+      <div class="defrow"><b>Resistant</b><div class="ptogs">${given(d.resist) || ''}${mine(md.resist || [], 'resist') || ''}${!d.resist.length && !(md.resist || []).length ? '<span class="hint">None</span>' : ''}</div></div>
+      <div class="ptogs" style="margin:6px 0 10px">${sel('addResist', 'Add a resistance', DEF_DMG, md.resist || [])}</div>
+      <div class="defrow"><b>Immune</b><div class="ptogs">${given(d.immune) || ''}${mine(md.immune || [], 'immune') || ''}${!d.immune.length && !(md.immune || []).length ? '<span class="hint">None</span>' : ''}</div></div>
+      <div class="ptogs" style="margin-top:6px">${sel('addImmune', 'Add an immunity', DEF_DMG.concat(DEF_COND), md.immune || [])}</div></section>`;
+}
 function profsManageInner() {
   const P = S.profs, bad = armorNonProf();
   const tog = (act, v, on, label, sub) => `<button class="ptog big${on ? ' on' : ''}" data-act="${act}" data-v="${v}" aria-pressed="${on}"><span class="pt-check">${on ? '✓' : ''}</span><span><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</span></button>`;
@@ -1876,6 +1933,7 @@ function profsManageInner() {
     <section class="pmsec"><h4>Tools</h4><p class="hint">Choose the ability each tool rolls with. Expertise doubles your proficiency bonus.</p>
       <div class="tools">${tools || '<span class="hint">No tool proficiencies.</span>'}</div>
       <div class="ptogs" style="margin-top:8px">${addSel('addTool', 'Add a tool', ALL_TOOLS().filter(n => !(S.tools || []).some(t => t.name === n)))}${other('tool', 'Other tool…')}</div></section>
+    ${defManageHTML()}
     <section class="pmsec"><h4>Languages</h4>
       <div class="ptogs">${langs || '<span class="hint">None</span>'}</div>
       <div class="ptogs" style="margin-top:8px">${addSel('addLang', 'Add a language', ALL_LANGS().filter(n => !(S.langs || []).includes(n)))}${other('lang', 'Other language…')}</div></section>
@@ -1899,12 +1957,12 @@ function renderCore() {
       ${s.note ? `<span class="sknote">${esc(s.note)}</span>` : ''}</div>`).join('');
   $('#page-core').innerHTML = `
   <div class="core">
-    <div class="panel" ${PID('abilities')}><h2><span class="grow">Abilities &amp; Saves</span><button class="btn sm" data-act="manageabil">Manage</button></h2><div class="abilities" data-zone="abil">${abil}</div>
+    <div class="panel" ${PID('abilities')}><h2><span class="grow">Abilities &amp; Saves</span><button class="tmanage tmanage-in" data-act="manageabil">Manage</button></h2><div class="abilities" data-zone="abil">${abil}</div>
       <p class="hint" style="margin:10px 0 0">Tap any bonus to roll it. Conditions like poisoned or exhaustion apply to your rolls automatically.${auraBonus() ? ' Saves include your Aura of Protection.' : ''}</p></div>
-    <div class="panel" ${PID('skills')}><h2><span class="grow">Skills</span><button class="btn sm" data-act="manageskills">Manage</button></h2><div class="skills">${skills}</div>
+    <div class="panel" ${PID('skills')}><h2><span class="grow">Skills</span><button class="tmanage tmanage-in" data-act="manageskills">Manage</button></h2><div class="skills">${skills}</div>
       <div class="passive"><span><span class="ciw">Passive Perception${ciBtn('passive', 'passive Perception')}</span></span><span data-calc="passive"></span></div></div>
     <div class="stack col3">
-      <div class="panel" ${PID('profs')}><h2><span class="grow">Proficiencies &amp; Languages</span><button class="btn sm" data-act="manageprofs">Manage</button></h2>${profsHTML()}</div>
+      <div class="panel" ${PID('profs')}><h2><span class="grow">Proficiencies &amp; Languages</span><button class="tmanage tmanage-in" data-act="manageprofs">Manage</button></h2>${profsHTML()}</div>
     </div>
   </div>`;
 }
@@ -3085,6 +3143,7 @@ function onField(e) {
     pendingLabel = 'Edit: Armor class'; save(); refresh(); return;
   }
   if (t.dataset.hpmax !== undefined) { if (t.value === '') return; const extra = maxHp() - baseMaxHp(); S.hp.adj = N(t.value) - extra - hpMaxCalc(); pendingLabel = 'Edit: Max HP'; save(); refresh(); return; }
+  if (t.id === 'addResist' || t.id === 'addImmune') { const v = t.value; t.value = ''; if (!v) return; const k = t.id === 'addResist' ? 'resist' : 'immune'; S.manualDef = S.manualDef || { resist: [], immune: [] }; S.manualDef[k] = (S.manualDef[k] || []).concat([v]); pendingLabel = (k === 'resist' ? 'Add resistance: ' : 'Add immunity: ') + v; save(); openProfs(); render('core'); return; }
   if (['addWeapon', 'addTool', 'addLang'].includes(t.id)) { const v = t.value; t.value = ''; if (!v) return; const kind = { addWeapon: 'weapon', addTool: 'tool', addLang: 'lang' }[t.id]; if (v === '__other') { openModal(`<h3>Add ${kind === 'lang' ? 'a language' : kind === 'tool' ? 'a tool' : 'a weapon'}</h3>${fld('Name', '<input class="f" id="otherIn" autofocus>')}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="otherok" data-k="${kind}">Add</button></div>`); return; } addProf(kind, v); return; }
   if (t.id === 'featQ') { UI.featQ = t.value; clearTimeout(window._fq); window._fq = setTimeout(() => { render('features'); const e = $('#featQ'); if (e) { e.focus(); e.setSelectionRange(e.value.length, e.value.length); } }, 250); return; }
   if (t.dataset.set !== undefined) return setSetting(t);
@@ -3447,6 +3506,7 @@ function mainClick(e) {
     case 'pwdel': { const n = S.profs.weaponNames.splice(i, 1)[0]; pendingLabel = 'Remove proficiency: ' + n; save(); render(); break; }
     case 'toolexp': S.tools[i].exp = !S.tools[i].exp; pendingLabel = (S.tools[i].exp ? 'Expertise: ' : 'Proficient: ') + S.tools[i].name; save(); render(); break;
     case 'tooldel': { const n = S.tools.splice(i, 1)[0]; pendingLabel = 'Remove tool: ' + n.name; save(); render(); toast(`Removed ${esc(n.name)}.`, '', 5000, { label: 'Undo', fn: () => undo(1) }); break; }
+    case 'defdel': { const k = b.dataset.kind === 'immune' ? 'immune' : 'resist'; const md = S.manualDef || {}; const n = (md[k] || []).splice(i, 1)[0]; if (n == null) break; pendingLabel = (k === 'resist' ? 'Remove resistance: ' : 'Remove immunity: ') + n; save(); openProfs(); render('core'); break; }
     case 'langdel': { const n = S.langs.splice(i, 1)[0]; pendingLabel = 'Remove language: ' + n; save(); render(); toast(`Removed ${esc(n)}.`, '', 5000, { label: 'Undo', fn: () => undo(1) }); break; }
     case 'manageprofs': openProfs(); break;
     case 'booksedit': UI.open.booksedit = !UI.open.booksedit; saveUI(); reopenSettings(); break;

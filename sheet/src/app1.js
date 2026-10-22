@@ -96,6 +96,7 @@ function keepPrefs(into, from) { if (!into || !from || (into.id && from.id && in
 })();
 let UI = { tab: 'core', open: {} };
 try { UI = Object.assign(UI, JSON.parse(localStorage.getItem(UI_KEY) || '{}')); } catch (e) {}
+UI.chatPop = false; // windows always start closed when a sheet opens
 UI.open = UI.open || {};
 // One-off corrections shipped with a sheet update (EMBED.fixes). Each runs once per character, whichever copy is
 // loaded (this browser's, the cloud's or the file's), so a fix isn't lost to a newer saved copy.

@@ -3016,7 +3016,7 @@ function partyModule(H) {
     on('#pt-add', () => addDialog());
     on('#pt-all', () => sendDialog(null));
     on('#pt-turn', () => turnOrder(!document.getElementById('towin')));
-    initWatch(); if (actor() && !document.getElementById('towin') && (TO || toLoad()).open) turnOrder(true); else if (TO && document.getElementById('towin') && toSync()) { toSave(); toPaint(); }
+    initWatch(); if (TO && document.getElementById('towin') && toSync()) { toSave(); toPaint(); }
     el.querySelectorAll('[data-uninv]').forEach(b => b.onclick = async () => { const em = b.dataset.uninv; try { await PC.doc(PID).update({ invited: FV.arrayRemove(em) }); } catch (x) { fail(x, 'cancel it'); } });
     on('#pt-leave', () => { const mine = (P.chars || []).filter(id => (CARDS[id] || {}).owner === EMAIL), pid = PID, pnm = P.name || ''; confirmBox(`Leave ${esc(pnm || 'the party')}?`, `${mine.length > 1 ? 'Your characters leave' : 'Your character leaves'} the party. The DM can invite you again.`, 'Leave', async () => { LEAVING = true; try { for (const id of mine) await ptyLeave(fs, EMAIL, pid, id, { owner: EMAIL }); } catch (x) { LEAVING = false; throw x; } try { localStorage.removeItem(PKEY(pid)); } catch (e) {} pgLog('party_leave', { target: pid, tName: pnm }); close(); toast('You left ' + (pnm || 'the party') + '.'); pgGo(URLS.parties(G)); }); });
     on('#pt-off', async () => { try { await PC.doc(PID).update({ people: FV.arrayRemove(EMAIL), invited: FV.arrayRemove(EMAIL), updatedAt: Date.now() }); pgGo(URLS.parties(G)); } catch (x) { fail(x, 'do that'); } });
