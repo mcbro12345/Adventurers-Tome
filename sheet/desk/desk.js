@@ -33,6 +33,9 @@ const SPI = {}; DATA.spells.forEach(s => { SPI[s.n.toLowerCase()] = s; });
 const SRD = {}; DATA.monsters.forEach(m => { SRD[m.id] = m; });
 const ordinal = n => n + (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th');
 const ICON = {
+  hpDmg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M12.5 7.5 10.5 11l3 2-2 3.5"/></svg>',
+  hpHeal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M12 9.5v6M9 12.5h6"/></svg>',
+  hpTemp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6z"/><path d="M12 9v6M9 12h6"/></svg>',
   bug: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 7.5V6a3 3 0 0 1 6 0v1.5"/><rect x="7" y="7.5" width="10" height="12.5" rx="5"/><path d="M12 11v9M3.5 13H7M17 13h3.5M4.5 8l2.6 1.8M19.5 8l-2.6 1.8M4.5 19.5l2.8-2M19.5 19.5l-2.8-2"/></svg>',
   dice: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 21 7v10l-9 5-9-5V7z"/><path d="M12 2v20M3 7l18 10M21 7 3 17"/></svg>',
   log: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>',
@@ -1022,7 +1025,7 @@ function onTokAct(act, b) {
 async function tokShrinkOld() {
   let ch = false; for (const c of Object.values(S.creatures)) { if (c.img && c.img.length > 20000) { try { c.img = await thumbImage(c.img); ch = true; } catch (e) {} } }
   if (ch) { TOKMEMO.clear(); refreshInstPics(); save(); paint(); }
-  else if (S.sessions.some(s => s.groups.some(g => g.list.some(x => !x.pic && instC(x))))) { refreshInstPics(); save(); }
+  else if (S.settings.tokv !== 2 || S.sessions.some(s => s.groups.some(g => g.list.some(x => !x.pic && instC(x))))) { S.settings.tokv = 2; refreshInstPics(); save(); } // (tokv 2: token art re-drawn correctly)
 }
 // ---------- the party page's Turn order (kept on this device in localStorage, per party) ----------
 // Rows the desk adds: {custom:true, id, name, v (initiative), at, hp, maxhp, ac, desk:<iid>, hpAt}
@@ -1176,6 +1179,9 @@ function cardHTML(x) {
     <div class="dk-ccq"><input class="dk-f dk-num" id="dk-q-${x.iid}" data-q="${x.iid}" type="text" autocomplete="off" enterkeyhint="done" maxlength="6" placeholder="−dmg / +heal" title="Type 20 or −20 for damage, +20 to heal, then Enter" aria-label="Amount for ${esc(x.name)}"><button class="dk-btn sm red" data-act="qdmg" data-iid="${x.iid}" title="Damage">−</button><button class="dk-btn sm green" data-act="qheal" data-iid="${x.iid}" title="Heal">+</button></div>
   </article>`;
 }
+// the same HP ring as the character sheet: gold arc (red when low), temp HP in blue after it
+function hpRing(x) { const max = Math.max(1, N(x.max)), cur = Math.max(0, Math.min(N(x.hp), max)), tmp = Math.max(0, N(x.temp)), r = 52, C = 2 * Math.PI * r, tot = Math.max(max, cur + tmp), a = C * cur / tot, b = C * tmp / tot;
+  return `<svg viewBox="0 0 120 120" aria-hidden="true"><circle class="rt" cx="60" cy="60" r="${r}"/><circle class="rf${cur / max <= .35 ? ' low' : ''}" cx="60" cy="60" r="${r}" stroke-dasharray="${a.toFixed(1)} ${C.toFixed(1)}"/>${tmp ? `<circle class="rtmp" cx="60" cy="60" r="${r}" stroke-dasharray="${b.toFixed(1)} ${C.toFixed(1)}" stroke-dashoffset="${(-a).toFixed(1)}"/>` : ''}</svg>`; }
 function detailHTML(x, s) {
   const c = instC(x), others = sessionInsts(s).filter(y => y.iid !== x.iid), t = turnOf(x), mm = moveMax(x), left = Math.max(0, mm - N(t.mv)), p = hpPct(x), into = CTX.party && inTurn(x.iid);
   const tracker = `<section class="dk-card dk-track" data-iid="${x.iid}">
@@ -1184,12 +1190,14 @@ function detailHTML(x, s) {
       <div class="dk-menu"><button class="dk-btn icon sm" data-act="menu" aria-label="More" aria-haspopup="menu">${ICON.dots}</button><div class="dk-mlist" role="menu">${c ? `<button data-act="dup" data-iid="${x.iid}">Add another ${esc(c.name)}</button>` : ''}<button data-act="rest" data-iid="${x.iid}">Reset (full HP, uses back)</button>${s.groups.length > 1 ? s.groups.filter(g => !g.list.includes(x)).map(g => `<button data-act="movegrp" data-iid="${x.iid}" data-gid="${g.id}">Move to ${esc(g.name)}</button>`).join('') : ''}<button class="red" data-act="rm" data-iid="${x.iid}">Remove from session</button></div></div></div>
     <div class="dk-trname">${tokenHTML(c, 46)}<input class="dk-title" id="dk-nm-${x.iid}" data-ch="name" data-iid="${x.iid}" value="${esc(x.name)}" aria-label="Name" maxlength="60"></div>
     <div class="dk-sub">${c ? `${esc(c.size)} ${esc(c.type)} · CR ${crLabel(N(c.cr))} · ${XP_OF(c).toLocaleString()} XP` : 'This creature’s stat block was deleted from your bestiary.'}</div>
-    <div class="dk-hp" data-hpflash="${x.iid}">
-      <div class="dk-hpnum"><span class="dk-lbl">Hit points</span><div><input class="dk-hpcur ${hpCls(p)}" id="dk-hp-${x.iid}" data-ch="hp" data-iid="${x.iid}" value="${x.hp}" inputmode="numeric" aria-label="Current HP"><span>/</span><input class="dk-hpmax" id="dk-mx-${x.iid}" data-ch="max" data-iid="${x.iid}" value="${x.max}" inputmode="numeric" aria-label="Max HP"></div>${N(x.temp) ? `<span class="dk-temp" title="Temporary hit points">+${x.temp} temp</span>` : ''}</div>${hpBar(x, 'big')}
-      <div class="dk-hpctl"><input class="dk-f dk-num" id="dk-hpAmt" type="text" autocomplete="off" enterkeyhint="done" maxlength="6" placeholder="−dmg / +heal" title="Type 20 or −20 for damage, +20 to heal, then Enter" aria-label="Amount">
-        <div class="dk-hpbtns"><button class="dk-btn red" data-act="hpdmg" data-iid="${x.iid}">Damage</button><button class="dk-btn green" data-act="hpheal" data-iid="${x.iid}">Heal</button><button class="dk-btn" data-act="hptemp" data-iid="${x.iid}">Temp</button></div>
-        <div class="dk-hptype"><select class="dk-f" id="dk-hpType" aria-label="Damage type"><option value="">any damage type</option>${DTYPES.map(d => `<option>${d}</option>`).join('')}</select><label class="dk-chk"><input type="checkbox" id="dk-hpMagic"> magical</label></div></div>
-      </div>
+    <div class="dk-hp dk-hpr" data-hpflash="${x.iid}">
+      <div class="dk-ringw"><div class="dk-ring">${hpRing(x)}</div>
+        <div class="dk-ringc"><div class="dk-ringcur"><input class="dk-hpcur ${hpCls(p)}" id="dk-hp-${x.iid}" data-ch="hp" data-iid="${x.iid}" value="${x.hp}" inputmode="numeric" aria-label="Current HP">${N(x.temp) ? `<span class="dk-tmpb" title="Temporary hit points">+${x.temp}</span>` : ''}</div>
+          <div class="dk-ringmax">of <input class="dk-hpmax" id="dk-mx-${x.iid}" data-ch="max" data-iid="${x.iid}" value="${x.max}" inputmode="numeric" aria-label="Max HP"></div></div></div>
+      <div class="dk-hpside"><div class="dk-hpamt"><select class="dk-f dk-hpsel" id="dk-hpType" aria-label="Damage type (resistances and immunities apply)" title="Damage type: its resistances and immunities apply"><option value="">Any</option>${DTYPES.map(d => `<option value="${d}">${d[0].toUpperCase() + d.slice(1)}</option>`).join('')}</select><input class="dk-f" id="dk-hpAmt" type="text" autocomplete="off" enterkeyhint="done" maxlength="6" placeholder="-dmg / +heal" title="Type 20 or -20 for damage, +20 to heal, then Enter" aria-label="Amount"></div>
+        <div class="dk-hpib"><button class="dk-hpi dmg" data-act="hpdmg" data-iid="${x.iid}" title="Damage" aria-label="Damage">${ICON.hpDmg}</button><button class="dk-hpi heal" data-act="hpheal" data-iid="${x.iid}" title="Heal" aria-label="Heal">${ICON.hpHeal}</button><button class="dk-hpi tmp" data-act="hptemp" data-iid="${x.iid}" title="Temporary HP (the higher stays)" aria-label="Temporary HP">${ICON.hpTemp}</button></div>
+        <label class="dk-chk dk-hpmag"><input type="checkbox" id="dk-hpMagic"> Magical damage</label></div>
+    </div>
     <div class="dk-tiles"><label class="dk-tile"><span class="dk-lbl">AC</span><input class="dk-tin" id="dk-ac-${x.iid}" data-ch="ac" data-iid="${x.iid}" value="${x.ac}" inputmode="numeric" aria-label="Armor class"></label>
       <button class="dk-tile" data-act="init" title="Roll initiative"><span class="dk-lbl">Initiative</span><b>${c ? sg(cInit(c)) : '—'}</b></button>
       <div class="dk-tile" title="${c ? esc(c.speed) : ''}"><span class="dk-lbl">Speed</span><b class="sm">${c ? speedFt(c) + ' ft' : '—'}${c && /,/.test(c.speed || '') ? `<small>${esc(c.speed.split(/,\s*/).slice(1).map(z => z.replace(/\s*ft\.?/i, '')).join(' · '))}</small>` : ''}</b></div>
