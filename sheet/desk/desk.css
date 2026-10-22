@@ -1213,3 +1213,9 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 .dk-tlist li > div { min-width: 0; flex: 1; } .dk-tlist p { overflow-wrap: anywhere; min-width: 0; }
 .dk-main > * { min-width: 0; max-width: 100%; box-sizing: border-box; }
 .dk[data-tab=notes] .dk-main { overflow-x: hidden; }
+/* tab icons sit on the middle of the words: the label's box is trimmed to its capital letters, so centering lines them up in any font */
+.dk-tabs button svg { display: block; flex: none; }
+.dk-tabs button span { line-height: 1; text-box: trim-both cap alphabetic; }
+.dk-tabs button:not(.on) svg { color: inherit !important; stroke: currentColor; }
+.dk-tabs button:not(.on) svg [stroke]:not([stroke=none]) { stroke: currentColor; }
+@supports (text-box: trim-both cap alphabetic) { @media (min-width: 641px) { .dk-tabs button { padding-top: 10px; padding-bottom: 10px; } } }
