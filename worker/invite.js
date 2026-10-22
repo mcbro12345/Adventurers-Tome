@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 // Adventurer's Tome — party invite links.
 // https://<this worker>/<code> shows a rich preview (the party's own invite panel) when the link is pasted in Discord,
 // iMessage, Slack and the like, and sends people straight on to the site's join page. The picture is drawn by the DM's
@@ -12,6 +13,18 @@ async function card(code, ctx) {
   const j = await r.json().catch(() => null), f = (j && j.fields) || {}; const v = k => f[k] ? (f[k].stringValue ?? f[k].integerValue ?? '') : '';
   return { name: v('name'), dm: v('dmName'), n: Number(v('n')) || 0, img: v('img'), k: Number(v('k')) || 1, at: v('at') };
 }
+// The picture, put back together from its pieces and decoded once, then kept in Cloudflare's cache (a new version of the
+// picture has a new "at", so a new cache entry).
+async function picture(code, c, ctx) {
+  if (!c || !/^data:image\/(jpeg|png);base64,/.test(c.img)) return null;
+  const cache = caches.default, key = new Request('https://cache.invite/pic/' + code + '/' + c.at);
+  const hit = await cache.match(key); if (hit) return { body: await hit.arrayBuffer(), type: hit.headers.get('Content-Type') };
+  const parts = await Promise.all(Array.from({ length: Math.max(0, Math.min(c.k, 8) - 1) }, (_, i) => fetch(DOC(code) + '/part/' + (i + 1)).then(r => r.ok ? r.json() : null).catch(() => null)));
+  let all = c.img; for (const j of parts) { const v = j && j.fields && j.fields.img && j.fields.img.stringValue; if (!v) return null; all += v; }
+  const type = all.slice(5, all.indexOf(';')), body = Buffer.from(all.slice(all.indexOf(',') + 1), 'base64');
+  ctx.waitUntil(cache.put(key, new Response(body, { headers: { 'Content-Type': type, 'Cache-Control': 'public, max-age=86400' } })));
+  return { body, type };
+}
 export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url), path = decodeURIComponent(url.pathname.replace(/^\/+/, ''));
@@ -20,12 +33,11 @@ export default {
     const code = m[1], join = SITE + '/join/' + encodeURIComponent(code);
     const c = await card(code, ctx);
     if (m[2]) { // the picture
-      if (!c || !/^data:image\/(jpeg|png);base64,/.test(c.img)) return Response.redirect(SITE + '/og-invite.png', 302);
-      let all = c.img; // a big picture is split over invcard/<code>/part/1, 2…
-      for (let i = 1; i < Math.min(c.k, 6); i++) { const r = await fetch(DOC(code) + '/part/' + i); if (!r.ok) return Response.redirect(SITE + '/og-invite.png', 302); const j = await r.json().catch(() => null); all += (j && j.fields && j.fields.img && j.fields.img.stringValue) || ''; }
-      const type = all.slice(5, all.indexOf(';')), bin = Uint8Array.from(atob(all.slice(all.indexOf(',') + 1)), ch => ch.charCodeAt(0));
-      return new Response(bin, { headers: { 'Content-Type': type, 'Cache-Control': 'public, max-age=300' } });
+      const bytes = await picture(code, c, ctx);
+      if (!bytes) return Response.redirect(SITE + '/og-invite.png', 302);
+      return new Response(bytes.body, { headers: { 'Content-Type': bytes.type, 'Cache-Control': 'public, max-age=86400' } });
     }
+    if (c && c.img) ctx.waitUntil(picture(code, c, ctx).catch(() => {})); // get the picture ready before the preview asks for it
     const title = c && c.name ? `You’re invited to join ${c.name}` : 'You’re invited to join a party';
     // One fact per line (Discord keeps the line breaks), then what to do.
     const facts = c ? [c.dm ? 'Dungeon Master: ' + c.dm : '', c.n ? 'Adventurers so far: ' + c.n : ''].filter(Boolean) : [];
