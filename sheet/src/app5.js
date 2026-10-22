@@ -1212,7 +1212,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && CL
 // For the GitHub Pages loader (new characters get their link once created).
 window.sheetState = () => S; window.sheetToast = toast;
 window.sheetSet = (k, v) => { S[k] = v; pendingLabel = null; save(); render('header'); };
-window.sheetSummary = () => ({ name: S.name || '', player: S.player || '', race: S.raceName || '', cls: S.created ? classLabel() : '', level: S.created ? lvl() : 0, portrait: S.portrait || '', hp: S.created ? N(S.hp && S.hp.cur) + '/' + maxHp() : '' });
+window.sheetSummary = () => ({ name: S.name || '', player: S.player || '', race: S.raceName || '', cls: S.created ? classLabel() : '', level: S.created ? lvl() : 0, portrait: S.portrait || '', acc: /^#[0-9a-f]{6}$/i.test((S.theme || {}).accent || '') ? S.theme.accent : '', hp: S.created ? N(S.hp && S.hp.cur) + '/' + maxHp() : '' });
 if (S.created) applySources(S.sources);
 // Spells from a Ring of Spell Storing made before stored spells existed: set them up as stored now.
 const staleStore = () => (S.spells || []).some(sp => { const it = sp.item && (S.inventory || []).find(x => x.id === sp.item); return it && itemStores(it) && !sp.usesOnly; });

@@ -220,6 +220,8 @@ function searchKeys(...parts) { const out = new Set(); parts.forEach(p => { p = 
 const escH = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const hueOf = t => [...String(t || '?')].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) % 360, 7);
 // first and last initials: "Ada Lovelace" → AL, "Shade of Twilight of the Dark Forest" → SF
+// A character's picture frame takes the colour the sheet itself uses (its accent).
+const accStyle = c => /^#[0-9a-f]{6}$/i.test((c && c.acc) || '') ? ` style="border-color:${c.acc}"` : '';
 const initials = (name, em) => { const w = String(name || em || '?').split(/[\s@._-]+/).filter(x => /[\p{L}\p{N}]/u.test(x)); return w.length ? (w[0][0] + (w.length > 1 ? w[w.length - 1][0] : '')).toUpperCase() : '?'; };
 // A person's picture: their initials on a colour (theirs, or one picked from their email), a character portrait, or an
 // uploaded image — which, if it has a transparent background, is shown as-is with no circle or border.
@@ -807,7 +809,7 @@ function wireDie(root) {
   const hubUpdate = async changed => { if (!hubCol || !window.sheetSummary || role() === 'view') return; const st = window.sheetState && window.sheetState(); if (!st || !st.created) return;
     const s = window.sheetSummary();
     const when = changed ? { updatedAt: Date.now(), by: NAME } : {};
-    const sum = Object.assign({ owner: OWNER, name: s.name, player: s.player, race: s.race, cls: s.cls, level: s.level, thumb: await thumb(s.portrait), keys: searchKeys(s.name) }, NEW && !LASTSUM ? { createdAt: Date.now() } : {});
+    const sum = Object.assign({ owner: OWNER, name: s.name, player: s.player, race: s.race, cls: s.cls, level: s.level, thumb: await thumb(s.portrait), acc: s.acc || '', keys: searchKeys(s.name) }, NEW && !LASTSUM ? { createdAt: Date.now() } : {});
     // its clean address: /<character>, unique across the site; older ones keep working
     const pth = role() === 'owner' ? await pathFor(s) : '';
     if (pth) sum.path = pth;
@@ -871,7 +873,7 @@ function wireDie(root) {
   }
   const ptyCardSoon = () => { clearTimeout(ptyT); ptyT = setTimeout(ptyCard, 700); };
   const ptyCard = async () => { if (!PTY || PTY.seeded || PTY.loading || role() === 'view' || !window.partyCard || !window.sheetSummary) return; let c; try { c = window.partyCard(); } catch (e) { return; } if (!c) return;
-    const s = window.sheetSummary(); c = Object.assign(c, { owner: OWNER, player: (typeof playerName === 'function' && playerName()) || s.player || '', thumb: await thumb(s.portrait), path: PATHVAL || '' });
+    const s = window.sheetSummary(); c = Object.assign(c, { owner: OWNER, player: (typeof playerName === 'function' && playerName()) || s.player || '', thumb: await thumb(s.portrait), acc: s.acc || '', path: PATHVAL || '' });
     const key = JSON.stringify(c); if (key === PTY_CK) return; PTY_CK = key;
     try { await PCOL.doc(PTY.id).collection('cards').doc(C).set(Object.assign({ at: Date.now() }, c)); } catch (e) { PTY_CK = ''; } };
   // Things sent to this character wait in its inbox; the first open copy of the sheet claims each one and applies it.
@@ -1136,7 +1138,7 @@ function hub(fs, auth, G, ctx) {
       close(); toast('Name changed to ' + nm + '.'); draw(); };
     modal.querySelector('#rn-f').onsubmit = e => { e.preventDefault(); save(); }; modal.querySelector('#rn-ok').onclick = save; modal.querySelector('#rn-x').onclick = close; }
   const close = () => modal.classList.remove('on');
-  const pic = c => c.thumb ? `<img class="hc-pic" src="${esc(c.thumb)}" alt="">` : `<span class="hc-pic hc-nopic">${esc(initials(c.name || '?'))}</span>`;
+  const pic = c => c.thumb ? `<img class="hc-pic" src="${esc(c.thumb)}" alt=""${accStyle(c)}>` : `<span class="hc-pic hc-nopic"${accStyle(c)}>${esc(initials(c.name || '?'))}</span>`;
   // The wordmark: a gold d20 crest beside "Adventurer's" in spaced small caps over a large serif "Tome".
   const shareIcon = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>';
   // Icons for the ⋯ menus (same line style as the old row buttons).
@@ -2522,7 +2524,7 @@ function partyModule(H) {
     const on = [].concat(st ? [st[0]] : [], c.conds || [], Number(c.exh) ? ['Exhaustion ' + Number(c.exh)] : [], c.conc ? ['Concentrating: ' + c.conc] : [], c.fx || []);
     const menu = [dmMe ? ['send', 'Damage, heal or give…'] : null, open ? ['open', 'Open sheet'] : null, run || mine ? ['rm', mine && !run ? 'Leave the party' : 'Remove from the party'] : null].filter(Boolean);
     const dots = (cls) => `<div class="hc-menu ${cls}"><button class="hc-dots" aria-label="More for ${esc(c.name || 'this character')}">⋯</button><div class="hc-list">${menu.map(([a, t]) => `<button data-pm="${a}" data-id="${esc(id)}"${a === 'rm' ? ' class="hc-del"' : ''}>${t}</button>`).join('')}</div></div>`;
-    const pic = c.thumb ? `<img class="pm-pic" src="${esc(c.thumb)}" alt="">` : `<span class="pm-pic pm-nopic">${esc(initials(c.name || '?'))}</span>`;
+    const pic = c.thumb ? `<img class="pm-pic" src="${esc(c.thumb)}" alt=""${accStyle(c)}>` : `<span class="pm-pic pm-nopic"${accStyle(c)}>${esc(initials(c.name || '?'))}</span>`;
     const nl = String(c.name || '').length, who = `<span class="pm-txt"><b class="${nl > 26 ? 'n3' : nl > 17 ? 'n2' : ''}" title="${esc(c.name || '')}">${esc(c.name || 'A character')}</b>${c.player || c.owner ? `<small>${esc(c.player || H.nameOf(c.owner))}${mine ? ' (you)' : ''}</small>` : ''}</span>`;
     // a player looking at the party: no controls — the HP ring with AC / speed / level / passive in a 2 × 2 grid beside it
     const grid = `<div class="pm-csts pm-quad">${[['AC', c.ac || '—'], ['Speed', c.speed || '—'], ['Level', c.level || '—'], ['Passive', c.pp || '—']].map(([k, v]) => `<span><small>${k}</small><b>${esc(String(v))}</b></span>`).join('')}</div>`;
