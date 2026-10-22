@@ -1708,9 +1708,9 @@ function toolbarHTML() {
     ...({ chat: `<button class="devbtn chatbtn" data-zi="chat" data-act="chatwin" title="Party chat" aria-label="Party chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h8M8 13h5"/></svg></button>` }),
     rolllog: `<button class="devbtn logbtn" data-zi="rolllog" data-act="rolllog" title="Log — every roll, plus everything else that popped up" aria-label="Log">${ICON.log}</button>`,
     // (on a phone it sits next to Log; on a computer, after the layout switch)
-    ...(isMobile() && window.SHEET_PAGES ? { bug: `<button class="devbtn bugbtn" data-zi="bug" data-act="bugreport" title="Report a bug" aria-label="Report a bug">${ICON.bug}</button>` } : {}),
+    ...(isMobile() && window.SHEET_PAGES ? { bug: `<button class="devbtn bugbtn" data-zi="bug" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` } : {}),
     device: `<button class="devbtn" data-zi="device" data-act="layout" title="${isMobile() ? 'Switch to desktop layout' : 'Switch to phone layout'}" aria-label="${isMobile() ? 'Desktop layout' : 'Phone layout'}">${isMobile() ? ICON.desk : ICON.phone}</button>`,
-    ...(!isMobile() && window.SHEET_PAGES ? { bug: `<button class="devbtn bugbtn" data-zi="bug" data-act="bugreport" title="Report a bug" aria-label="Report a bug">${ICON.bug}</button>` } : {}),
+    ...(!isMobile() && window.SHEET_PAGES ? { bug: `<button class="devbtn bugbtn" data-zi="bug" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` } : {}),
     fullscreen: false ? `<button class="devbtn fsbtn" data-zi="fullscreen" data-act="fullscreen" title="${fsOn() ? 'Exit full screen' : 'Full screen'}" aria-label="${fsOn() ? 'Exit full screen' : 'Full screen'}">${fsOn() ? ICON.fsOut : ICON.fsIn}</button>` : '',
   };
   document.documentElement.classList.toggle('hasbug', !!items.bug); // (on a phone the corner buttons make room for it)
@@ -1762,7 +1762,7 @@ function renderVitals() {
         <div class="hp-center">${f ? inp('form.hp', { num: 1, cls: 'cur', label: 'Form HP' }) + `<div class="hp-max">of ${N(f.maxhp)}</div>` : `<div class="curline">` + inp('hp.cur', { num: 1, cls: 'cur', label: 'Current HP' }) + `<span class="tmpbadge" data-calc="tmpb" title="Temporary hit points"></span></div><div class="hp-max">of <span class="maxv" data-calc="hpmaxv"></span></div>`}</div></div>
       <div class="hp-side">
         ${f ? `<div class="formnote">Your HP: <b data-calc="truehp"></b> <button class="btn sm" data-act="endform">Revert</button></div>` : ''}
-        <div class="hp-actions"><div class="hp-amtrow"><select class="f hptype" id="hpType" aria-label="Damage type (resistances and immunities apply)" title="Damage type: your resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="hpAmt" type="number" enterkeyhint="done" placeholder="Amount" aria-label="HP amount — press Enter to take damage, Shift+Enter to heal"></div>
+        <div class="hp-actions"><div class="hp-amtrow"><select class="f hptype" id="hpType" aria-label="Damage type (resistances and immunities apply)" title="Damage type: your resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="hpAmt" type="text" inputmode="text" autocomplete="off" enterkeyhint="done" placeholder="Amount" aria-label="HP amount: type -20 (or 20) and press Enter for damage, +20 to heal"></div>
           <button class="btn red hpi" data-act="dmg" title="Take damage" aria-label="Take damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="heal" title="Heal" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmpbtn" data-act="tmphp" title="Gain temporary HP (they don't stack — the higher stays). 0 clears them." aria-label="Gain temporary HP">${ICON.hpTemp}</button></div>
         <div class="rest-actions"><button class="btn rest short" data-act="short" title="1 hour: spend Hit Dice, refresh short-rest features and Pact slots"><span class="ri">${ICON.hourglass}</span><span class="rl">Short Rest</span></button><button class="btn rest long" data-act="long" title="8 hours: full HP, all slots, features and Hit Dice"><span class="ri">${ICON.moon}</span><span class="rl">Long Rest</span></button></div>
       </div>
@@ -3609,6 +3609,7 @@ function mainClick(e) {
     case 'useitem': useItem(i, b.dataset.col); break;
     case 'ispdel': { const it = S.inventory[i]; const n = it.spells.splice(N(b.dataset.j), 1)[0]; pendingLabel = `${it.name}: remove ${n}`; rebuildAuto(); save(); render(); break; }
     case 'hbnew': openHomebrew(b.dataset.k); return;
+    case 'itempaste': openItemPaste(); return;
     case 'hbbopen': openHomebrew(b.dataset.k, N(b.dataset.i)); return;
     case 'hbopen': UI.open['hb:' + b.dataset.key] = !UI.open['hb:' + b.dataset.key]; render(); break;
     case 'addspells': openSpellPicker(b.dataset.cls); pendingLabel = null; return;
@@ -3735,7 +3736,10 @@ document.addEventListener('keydown', e => {
     if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); const lb = REDO.length && REDO[REDO.length - 1].label; if (redo(1)) toast('Redid: ' + esc(lb)); return; }
   }
   if (e.key === 'Enter' && e.target.classList && e.target.classList.contains('portrait-edit')) $('#portraitFile').click();
-  if (e.key === 'Enter' && e.target.id === 'hpAmt') hpAction(e.shiftKey ? 'heal' : 'dmg');
+  // HP boxes: "+20" heals, "-20" (or just "20") is damage
+  if (e.key === 'Enter' && e.target.id === 'hpAmt') hpAction(e.shiftKey || /^\s*\+/.test(e.target.value) ? 'heal' : 'dmg');
+  if (e.key === 'Enter' && /^chp\d+$/.test(e.target.id || '')) { e.preventDefault(); compHp(N(e.target.id.slice(3)), /^\s*\+/.test(e.target.value) ? 1 : -1); }
+  if (e.key === 'Enter' && /^ptyq-/.test(e.target.id || '')) { e.preventDefault(); ptyQuick(/^\s*\+/.test(e.target.value) ? 'heal' : 'dmg', e.target.id.slice(5)); }
 });
 
 // ---------- Rolling ----------
@@ -3915,7 +3919,7 @@ function deathSave() {
 
 // ---------- HP, concentration, time ----------
 function hpAction(kind) {
-  const raw = $('#hpAmt').value, amt = Math.abs(N(raw));
+  const raw = String($('#hpAmt').value).trim().replace(/[−–]/g, '-'), amt = Math.abs(N(raw.replace(/^\+/, '')));
   if (kind === 'tmphp' && raw !== '' && !amt) { $('#hpAmt').value = ''; if (N(S.hp.temp)) { S.hp.temp = 0; pendingLabel = 'Temp HP cleared'; update(); render('vitals'); toast('Temporary HP cleared.'); } return; }
   if (raw === '' || !amt) { $('#hpAmt').focus(); toast('Type an amount in the box first.'); return; }
   $('#hpAmt').value = '';
@@ -4656,7 +4660,7 @@ function addClassCompanion(n, viaFeature) {
   pendingLabel = 'Add ' + n; if (!viaFeature) closeModal(true); save(); render(); if (!viaFeature) toast(`${esc(n)} added.`);
 }
 function compHp(i, d) {
-  const c = S.companions[i], el = $('#chp' + i), amt = Math.abs(N(el && el.value));
+  const c = S.companions[i], el = $('#chp' + i), amt = Math.abs(N(el && String(el.value).trim().replace(/[−–]/g, '-').replace(/^\+/, '')));
   if (!amt) { if (el) el.focus(); toast('Type an amount first.'); return; }
   if (d === 0) { c.temp = Math.max(N(c.temp), amt); pendingLabel = `${c.name} gains ${amt} temp HP`; if (el) el.value = ''; save(); render(); refresh(); return; }
   if (d < 0 && N(c.temp)) { const t = Math.min(N(c.temp), amt); c.temp = N(c.temp) - t; c.hp = Math.max(0, N(c.hp) - (amt - t)); } else c.hp = Math.max(0, Math.min(N(c.maxhp), N(c.hp) + d * amt));
@@ -4739,6 +4743,7 @@ function openCatalog(keep) {
   const html = `<h3>Add an item</h3>
     <div class="segmini" style="margin-bottom:8px">${[['all', 'All'], ['weapons', 'Weapons'], ['armor', 'Armor'], ['gear', 'Gear & tools'], ['magic', 'Magic items'], ['custom', 'Homebrew']].map(([k, t]) => `<button class="${tab === k ? 'on' : ''}" data-act="cattab" data-t="${k}">${t}</button>`).join('')}</div>
     <input class="f" id="catq" placeholder="Search…" value="${esc(q)}" aria-label="Search items" autofocus>
+    ${tab === 'custom' ? '<div class="catpaste"><button class="btn sm gold" data-act="itempaste">📋 Paste an item</button><span class="hint">From a book, PDF or D&amp;D Beyond — it becomes a homebrew item with its bonuses, charges and spells working.</span></div>' : ''}
     <div class="crlist">${rows || (tab === 'custom' ? '<p class="hint crempty">No homebrew items yet. Open an item in Inventory (✎), then ⚙ Homebrew automation → <b>Save to homebrew items</b>. Items others in your party save show up here too.</p>' : '')}</div>
     <div class="actions"><button class="btn" data-act="close">Done</button></div>`;
   if (keep && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html, null, true);
@@ -5766,10 +5771,15 @@ function fitSettingsHeight() {
   const m = $('#modal-body'), sx = $('.setx'); if (!m || !sx) return;
   m.style.removeProperty('--seth');
   const panes = $$('.setx .stpane'); let tallest = 0;
-  panes.forEach(p => { const was = p.style.cssText; p.style.cssText = 'display:block;position:absolute;visibility:hidden;left:0;right:0;top:0'; tallest = Math.max(tallest, p.scrollHeight); p.style.cssText = was; });
+  const pw = sx.clientWidth - (parseFloat(getComputedStyle(sx).paddingLeft) || 0) - (parseFloat(getComputedStyle(sx).paddingRight) || 0); // measured at the width it really shows at, so wrapped lines count
+  panes.forEach(p => { const was = p.style.cssText; p.style.cssText = `display:block;position:absolute;visibility:hidden;left:0;top:0;width:${pw}px;box-sizing:border-box`; tallest = Math.max(tallest, p.getBoundingClientRect().height, p.scrollHeight); p.style.cssText = was; });
   const chrome = m.getBoundingClientRect().height - sx.getBoundingClientRect().height;  // header, tabs and padding
   const cap = isMobile() ? 0.88 * innerHeight : innerHeight - 32;
   m.style.setProperty('--seth', Math.ceil(Math.min(cap, chrome + tallest + 4)) + 'px');
+  // a row appearing or going (e.g. the 2024 exhaustion rule adds one) re-fits the window
+  if (typeof ResizeObserver === 'function') { if (!m._setRO) m._setRO = new ResizeObserver(() => { clearTimeout(m._setRT); m._setRT = setTimeout(() => { if (settingsOpen()) fitSettingsHeight(); }, 80); }); m._setRO.disconnect(); $$('.setx .stpane').forEach(p => m._setRO.observe(p)); }
+  // whatever the measuring missed (padding, margins) shows up as scroll on the open tab: add it on
+  requestAnimationFrame(() => { const x = $('.setx'); if (!x || !m.isConnected) return; const more = x.scrollHeight - x.clientHeight; if (more > 0) m.style.setProperty('--seth', Math.ceil(Math.min(cap, m.getBoundingClientRect().height + more + 2)) + 'px'); });
 }
 addEventListener('resize', () => { if (typeof settingsOpen === 'function' && settingsOpen()) fitSettingsHeight(); });
 function settingsOpen() { return $('#modal').classList.contains('open') && !!$('.setx'); }
@@ -6526,7 +6536,7 @@ function compCard(c, i, mini, inCol) {
   const hp = c.count > 1 ? `<div class="grpHp">${(c.hps || []).map((h, k) => `<label class="ghp"><span>#${k + 1}</span>${inp(`companions.${i}.hps.${k}`, { num: 1, cls: 'sm', label: c.name + ' ' + (k + 1) + ' HP' })}</label>`).join('')}<span class="hint">of ${N(c.maxhp)} each</span></div>`
     : c.maxhp ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(c.hp, c.maxhp, c.temp)}</div>
         <div class="chp-center"><div class="curline">${inp(`companions.${i}.hp`, { num: 1, cls: 'cur', label: c.name + ' current HP' })}${N(c.temp) ? `<span class="tmpbadge">+${N(c.temp)}</span>` : ''}</div><div class="hp-max">of ${N(c.maxhp)}</div></div></div>
-        <div class="chp-side"><input class="f" id="chp${i}" type="number" inputmode="numeric" placeholder="Amount" aria-label="${esc(c.name)} HP amount">
+        <div class="chp-side"><input class="f" id="chp${i}" type="text" autocomplete="off" placeholder="Amount" aria-label="${esc(c.name)} HP: -20 (or 20) for damage, +20 to heal, then Enter">
           <div class="chp-btns"><button class="btn hpi dmg" data-act="comphp" data-i="${i}" data-d="-1" title="Damage ${esc(c.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="comphp" data-i="${i}" data-d="1" title="Heal ${esc(c.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-act="comphp" data-i="${i}" data-d="0" title="Give ${esc(c.name)} temporary HP (they don't stack — the higher stays)" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div></div>` : '';
   return `<div class="${mini ? 'cm-card' : inCol ? 'comp2 incol' : 'panel comp2'}"><div class="comp-h2">${picThumb(c.tmpl ? `compMods.${c.tmpl}.img` : `companions.${i}.img`, c.name)}<div class="grow"><b class="cname">${esc(c.name)}</b><div class="ctags">${(inCol ? [] : tags).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div></div>
       ${inCol ? compCmdBtn(c, i) : ''}<button class="icon-btn" data-act="compedit" data-i="${i}" title="Edit ${esc(c.name)}" aria-label="Edit">✎</button>${c.tmpl && COMP_RULES[c.tmpl] && COMP_RULES[c.tmpl].always ? '' : `<button class="btn sm ghost" data-act="dismiss" data-i="${i}">Dismiss</button>`}</div>
@@ -8972,7 +8982,7 @@ function ptyCardHTML(m) {
   const more = [['coins', 'Give coins'], ['help', 'Help (advantage on their next roll)'], down && !m.dead && !m.stable ? ['stab', 'Stabilize (Medicine, DC 10)'] : null, ['note', 'Send a message']].filter(Boolean);
   const hp = max ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(cur, max, m.temp, f ? ' form' : '')}</div>
       <div class="chp-center"><div class="curline"><b class="ptym-cur">${cur}</b>${N(m.temp) ? `<span class="tmpbadge">+${N(m.temp)}</span>` : ''}</div><div class="hp-max">of ${max}</div></div></div>
-      ${act ? `<div class="chp-side"><select class="f ptyqt" id="ptyqt-${esc(id)}" aria-label="Damage type for ${esc(m.name)}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="ptyq-${esc(id)}" inputmode="numeric" placeholder="Amount" aria-label="Amount for ${esc(m.name)}">
+      ${act ? `<div class="chp-side"><select class="f ptyqt" id="ptyqt-${esc(id)}" aria-label="Damage type for ${esc(m.name)}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="ptyq-${esc(id)}" autocomplete="off" placeholder="Amount" aria-label="Amount for ${esc(m.name)}: -20 (or 20) for damage, +20 to heal, then Enter">
         <div class="chp-btns"><button class="btn hpi dmg" data-pa="qdmg" data-id="${esc(id)}" title="Damage ${esc(m.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-pa="qheal" data-id="${esc(id)}" title="Heal ${esc(m.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-pa="qtemp" data-id="${esc(id)}" title="Give ${esc(m.name)} temporary HP" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div>` : ''}</div>` : '';
   return `<div class="panel comp2 ptym${down ? ' ' + down : ''}" data-mid="${esc(id)}"><div class="comp-h2">${m.thumb ? `<span class="picth"${/^#[0-9a-f]{6}$/i.test(m.acc || '') ? ` style="border-color:${m.acc}"` : ''}><img src="${esc(m.thumb)}" alt=""></span>` : `<span class="picadd">${esc(String(m.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''))}</span>`}
       <div class="grow"><b class="cname${String(m.name || '').length > 26 ? ' n3' : String(m.name || '').length > 17 ? ' n2' : ''}" title="${esc(m.name || '')}">${esc(m.name || 'A character')}</b>${m.player ? `<div class="ptym-pl">${esc(m.player)}</div>` : ''}</div>
@@ -9112,7 +9122,7 @@ function ptyPickDone() { const p = PTY_PICK; if (!p) return; const ids = $$('#mo
   PTY_PICK = null; closeModal(true); p.done(ids); }
 
 // The amount box on a member's card (a number or a roll like 2d4+2), like a creature card's.
-function ptyQuick(kind, id) { const inp = $('#ptyq-' + CSS.escape(id)); const v = inp ? inp.value : ''; if (!String(v).trim()) { if (inp) inp.focus(); toast('Type an amount in the box first.'); return; }
+function ptyQuick(kind, id) { const inp = $('#ptyq-' + CSS.escape(id)); const v = (inp ? String(inp.value) : '').trim().replace(/^[+\-−–]\s*/, ''); if (!String(v).trim()) { if (inp) inp.focus(); toast('Type an amount in the box first.'); return; }
   const r = ptyRollAmt(v, (kind === 'heal' ? 'Healing for ' : kind === 'temp' ? 'Temporary HP for ' : 'Damage to ') + ptyNm(id)); if (!r) { toast('Type a number or a roll like 2d6+3.'); return; } if (r.skipped || !(r.total > 0)) return;
   if (inp) inp.value = ''; const w = S.name || 'an ally', ts = $('#ptyqt-' + CSS.escape(id)), dt = kind === 'dmg' && ts ? ts.value : ''; if (ts) ts.value = '';
   if (kind === 'heal') ptySend([id], 'heal', { amt: r.total, why: w }, `Healed ${r.total} HP`);
@@ -9696,12 +9706,22 @@ function ptyChatWho(m) { const x = ptyMembers().find(y => y.id === m.c) || {}, o
 function ptyChatAva(w) { const ini = String(w.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join('');
   // a see-through picture shows as-is, with no circle or border (like in the lobby)
   const st = w.clear && w.thumb ? '' : /^#[0-9a-f]{3,8}$/i.test(w.acc || '') ? ` style="border-color:${w.acc}${w.bg && !w.thumb ? ';background:' + w.bg + ';color:#fff' : ''}"` : ''; return `<span class="ptyc-ava${w.clear && w.thumb ? ' clear' : ''}"${st}>${w.thumb ? `<img src="${esc(w.thumb)}" alt="">` : esc(ini)}</span>`; }
+// iMessage-style extras: "Read by …" under your newest message, and a bubble with bouncing dots while someone's typing.
+const PTY_TYPING_MS = 7000;
+function ptyChatTypers() { const ch = PTYX() && PTYX().chat; if (!ch || !ch.others) return []; const now = Date.now(); return ch.others().filter(o => Number(o.t) && now - Number(o.t) < PTY_TYPING_MS).slice(0, 3); }
+function ptyChatReceipt(L) { const ch = PTYX().chat; if (!ch.others) return ''; let k = L.length - 1; while (k >= 0 && !ch.mine(L[k])) k--; if (k < 0) return ''; const m = L[k];
+  const t = x => new Date(Number(x)).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const oth = ch.others();
+  if (m.w) { const o = oth.find(x => x.c === m.to); return { k, html: o && Number(o.r) >= Number(m.at) ? `Read ${t(o.r)}` : 'Delivered' }; }
+  const rd = oth.filter(x => Number(x.r) >= Number(m.at)), nm = rd.map(x => esc(String(x.n || 'Someone').split(/\s+/)[0]));
+  return { k, html: !rd.length ? 'Delivered' : rd.length === 1 ? `Read by ${nm[0]} ${t(rd[0].r)}` : rd.length === oth.length && oth.length > 2 ? 'Read by everyone' : 'Read by ' + (nm.length === 2 ? nm.join(' and ') : nm.slice(0, -1).join(', ') + ' and ' + nm[nm.length - 1]) }; }
+function ptyChatTypingHTML() { return ptyChatTypers().map(o => `<div class="ptyc ptyc-typing" aria-live="polite">${ptyChatAva({ name: o.n, thumb: /^(data:image\/|https:\/\/)/.test(o.pp || '') ? o.pp : '', acc: /^#[0-9a-f]{3,8}$/i.test(o.pc || '') ? o.pc : '', bg: /^#[0-9a-f]{3,8}$/i.test(o.pc || '') ? o.pc : '', clear: !!o.pk })}<div class="ptyc-dots" title="${esc(o.n || 'Someone')} is typing" aria-label="${esc(o.n || 'Someone')} is typing"><i></i><i></i><i></i></div></div>`).join(''); }
 function ptyChatList() { const ch = PTYX() && PTYX().chat; const L = ch ? ch.list().slice(-80) : [];
-  if (!L.length) return '<p class="hint" style="margin:0">No messages yet.</p>';
-  let prev = null;
-  return L.map(m => { const me = ch.mine(m), w = ptyChatWho(m), same = prev && prev.c === m.c && !!prev.w === !!m.w && prev.to === m.to && m.at - prev.at < 5 * 60e3; prev = m;
+  if (!L.length) return '<p class="hint" style="margin:0">No messages yet.</p>' + ptyChatTypingHTML();
+  let prev = null; const rc = ptyChatReceipt(L);
+  return L.map((m, idx) => { const me = ch.mine(m), w = ptyChatWho(m), same = prev && prev.c === m.c && !!prev.w === !!m.w && prev.to === m.to && m.at - prev.at < 5 * 60e3; prev = m;
     const tag = m.w ? `<em class="ptyc-wh">${me ? 'whisper to ' + esc(m.toN || 'them') : 'whispers to you'}</em>` : '';
-    return `<div class="ptyc${me ? ' me' : ''}${m.w ? ' wh' : ''}${same ? ' cont' : ''}">${same ? '<span class="ptyc-ava sp"></span>' : ptyChatAva(w)}<div class="ptyc-b">${same ? '' : `<span class="ptyc-n">${esc(w.name)}${tag}<small>${new Date(m.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</small></span>`}<span class="ptyc-t">${esc(m.t)}</span></div></div>`; }).join(''); }
+    return `<div class="ptyc${me ? ' me' : ''}${m.w ? ' wh' : ''}${same ? ' cont' : ''}">${same ? '<span class="ptyc-ava sp"></span>' : ptyChatAva(w)}<div class="ptyc-b">${same ? '' : `<span class="ptyc-n">${esc(w.name)}${tag}<small>${new Date(m.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</small></span>`}<span class="ptyc-t">${esc(m.t)}</span></div></div>${rc && rc.k === idx ? `<div class="ptyc-rr">${rc.html}</div>` : ''}`; }).join('') + ptyChatTypingHTML(); }
 // Who a name at the start of the text means: the longest party character name it starts with (or a first name).
 // Who a name at the start of the text means: a party player's name (or their character's), longest match first, then a first name.
 // Two players with the same name (or one player with two characters) are told apart as "Name (Character)": the list fills
@@ -9723,7 +9743,7 @@ function ptyChatSubmit() {
     if (PTY_WCMDS.includes(cmd)) { const [who, msg] = ptyChatTarget(m[2]); if (who === 'dup') { toast('More than one player goes by that name — pick them from the list (it adds their character’s name).', 'fumble'); i.value = '/' + cmd + ' '; i.focus(); ptyChatAC(); return; } if (!who) { toast('Who to? Type a party character’s name after /' + cmd + '.', 'fumble'); return; } if (!msg) { toast('Type your message after the name.', 'fumble'); return; } to = who.id; t = msg; }
     else if (PTY_RCMDS.includes(cmd)) { const last = ptyChatLastFrom(); if (!last) { toast('No one to reply to yet.', 'fumble'); return; } if (!m[2].trim()) { toast('Type your reply after /' + cmd + '.', 'fumble'); return; } to = last.c; t = m[2].trim(); }
     else { toast(`Unknown command /${esc(cmd)}. Try /whisper (or /w) and /r.`, 'fumble'); return; } }
-  const keep = i.value; i.value = ''; ptyChatAC(); ptyChatBottom(); PTY_STICK = Date.now();
+  const keep = i.value; i.value = ''; ptyChatAC(); ptyChatBottom(); PTY_STICK = Date.now(); if (PTYX().chat.typing) PTYX().chat.typing(false);
   // after a whisper, keep the box ready for the next one to the same person
   if (to) { const w = ptyMembers().find(x => x.id === to); if (w && m && PTY_WCMDS.includes(m[1].toLowerCase())) i.value = '/' + m[1].toLowerCase() + ' ' + ptyWName(w) + ' '; }
   PTYX().chat.send(t, to).catch(x => { i.value = keep; toast('Couldn’t send: ' + esc(x.message || x), 'fumble'); });
@@ -9744,6 +9764,9 @@ function ptyChatACPick(k) { const x = PTY_AC.items[k], i = $('#ptychat-in'); if 
 function ptyChatWireAC() {
   const i = $('#ptychat-in'), box = $('#ptychat-ac'); if (!i || !box) return;
   i.addEventListener('input', ptyChatAC);
+  // typing indicator: only for the party chat (not commands or whispers), refreshed while you keep typing
+  const typ = () => { const ch = PTYX() && PTYX().chat; if (!ch || !ch.typing) return; const v = i.value.trim(); ch.typing(!!v && !v.startsWith('/')); };
+  i.addEventListener('input', typ); i.addEventListener('blur', () => { const ch = PTYX() && PTYX().chat; if (ch && ch.typing) ch.typing(false); }); i.addEventListener('focus', typ);
   i.addEventListener('keydown', e => { if (box.hidden || !PTY_AC.items.length) return;
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); PTY_AC.k = (PTY_AC.k + (e.key === 'ArrowDown' ? 1 : -1) + PTY_AC.items.length) % PTY_AC.items.length; box.querySelectorAll('.ac-i').forEach((b, k) => b.classList.toggle('on', k === PTY_AC.k)); }
     else if (e.key === 'Tab' || (e.key === 'Enter' && PTY_AC.items[PTY_AC.k] && PTY_AC.items[PTY_AC.k].fill.trim() !== i.value.trim())) { e.preventDefault(); ptyChatACPick(PTY_AC.k); }
@@ -9771,7 +9794,13 @@ function ptyUnreadMark() { setTimeout(() => { if (typeof mtabSync === 'function'
   // shown the moment chat is there; only hidden once the page has had a few seconds to connect
   if (on || Date.now() - PCHAT_T0 > 6000) { document.documentElement.classList.toggle('pchat', on); try { localStorage.setItem(PCHAT_KEY(), on ? '1' : '0'); } catch (e) {} }
   { const cb = document.querySelector('.devbtn.chatbtn'); if (cb) { const n = $('#pcwin') ? 0 : PTY_UNREAD; cb.classList.toggle('unread', n > 0); if (n > 0) cb.dataset.unread = n > 9 ? '9+' : n; else delete cb.dataset.unread; } }
+  ptyChatSeen();
   const t = document.querySelector('.tab[data-tab="party"]'); if (!t) return; if ((UI.tab === 'party' || $('#pcwin')) && !document.hidden) PTY_UNREAD = 0; t.classList.toggle('unread', PTY_UNREAD > 0); if (PTY_UNREAD > 0) t.dataset.unread = PTY_UNREAD > 9 ? '9+' : PTY_UNREAD; else delete t.dataset.unread; }
+// read receipts: the chat on screen (Party tab or its window, page in front) counts as having read the newest message
+function ptyChatSeen() { const ch = PTYX() && PTYX().chat; if (!ch || !ch.read || !ch.on() || document.hidden || !$('#ptychat-l') || !(UI.tab === 'party' || $('#pcwin'))) return; const L = ch.list(); for (let k = L.length - 1; k >= 0; k--) if (!ch.mine(L[k])) { ch.read(L[k].at); break; } }
+// someone started or stopped typing, or read something: redraw the list (staying at the bottom if you were there)
+window.onPartyChatTyping = () => { const l = $('#ptychat-l'); if (!l) return; const end = !ptyChatAway(l), h = ptyChatList(); if (l._h === h) return; l._h = h; l.innerHTML = h; if (end) l.scrollTop = l.scrollHeight; };
+setInterval(() => { const l = $('#ptychat-l'); if (l && l.querySelector('.ptyc-typing')) window.onPartyChatTyping(); }, 2000); // a typing bubble goes away if they stop without sending
 setInterval(ptyUnreadMark, 1500); document.addEventListener('visibilitychange', ptyUnreadMark);
 window.onPartyChat = m => { const here = !document.hidden && $('#ptychat-l') && (UI.tab === 'party' || $('#pcwin')); if (here) return; PTY_UNREAD++; ptyUnreadMark(); ptyChatPop(m); };
 // A party chat message gets its own card in the corner: who sent it (their picture, in their sheet's colour), the
@@ -9891,12 +9920,12 @@ const hbbCount = (...ps) => ps.filter(p => { const v = hbbV(p); return v != null
 const hbbSum = (pairs) => pairs.filter(([p]) => { const v = hbbV(p); return v != null && v !== '' && v !== false; }).map(([p, t]) => t || String(hbbV(p))).join(' · ');
 
 // ----- Opening -----
-function openHomebrew(kind, idx) {
+function openHomebrew(kind, idx, preset, read) {
   const isNew = !(idx >= 0), list = kind === 'item' ? S.inventory : kind === 'feat' ? S.features : S.spells;
-  const src = isNew ? (kind === 'item' ? BLANK.inventory() : kind === 'feat' ? BLANK.features() : BLANK.spells()) : list[idx];
+  const src = preset || (isNew ? (kind === 'item' ? BLANK.inventory() : kind === 'feat' ? BLANK.features() : BLANK.spells()) : list[idx]);
   if (!src) return;
   const d = JSON.parse(JSON.stringify(src)); d.hb = d.hb || {};
-  if (isNew) d.name = '';
+  if (isNew && !preset) d.name = '';
   if (kind === 'item') {
     const w = d.weapon || {}, a = S.attacks.find(x => x.item === d.id) || {}, m = /(\d+)d(\d+)/.exec(w.dice || '') || [], rg = String(w.range || '').split('/');
     d._type = d.hbType || (d.weapon ? 'weapon' : d.hb.consume ? 'consumable' : 'magic');
@@ -9906,7 +9935,9 @@ function openHomebrew(kind, idx) {
     d._props = (w.props || []).filter(p => !/^ammunition|^loading$/.test(p)).join(', '); d._loading = (w.props || []).includes('loading'); d._cat = w.cat || 'martial';
     d._keep = !isNew && (S.customItems || []).some(x => x.name.toLowerCase() === String(d.name || '').toLowerCase());
   }
-  if (kind === 'item' && isNew) d.hb.col = 'action';
+  if (kind === 'item' && isNew && !preset) d.hb.col = 'action';
+  if (kind === 'item' && preset && d.mods && N(d.mods.atk)) d._mag = String(N(d.mods.atk));
+  if (kind === 'item' && preset && d.weapon && !d.hb.col) d.hb.col = 'action';
   if (kind === 'feat') { d._limited = String(d.max ?? '').trim() !== '' ? '1' : ''; d.col = d.col || ''; }
   if (kind === 'spell') {
     const h = d.hb, m = /(\d+)d(\d+)/.exec(h.dmg || '') || [], u = /(\d+)d(\d+)/.exec(h.up || '') || [];
@@ -9915,7 +9946,7 @@ function openHomebrew(kind, idx) {
     d._time = ['1 action', '1 bonus action', '1 reaction', '1 minute', '10 minutes', '1 hour', '8 hours'].includes(d.time) ? d.time : (d.time ? 'other' : '1 action'); d._timeX = d._time === 'other' ? d.time : '';
     d.level = String(N(d.level)); d._sum0 = d.summary || '';
   }
-  HBB = { kind, idx: isNew ? -1 : idx, d, isNew, adv: !!(HBB_ADV_ON(kind, d)), sec: {} };
+  HBB = { kind, idx: isNew ? -1 : idx, d, isNew, adv: !!(HBB_ADV_ON(kind, d)), sec: {}, read: read || null };
   spellDatalist();
   openModal('<div id="hbb"></div>', () => { HBB = null; }, true);
   hbbPaint();
@@ -9932,6 +9963,7 @@ function hbbPaint() {
   const basic = K === 'item' ? hbbItemBasic() : K === 'feat' ? hbbFeatBasic() : hbbSpellBasic();
   const adv = HBB.adv ? `<div class="hbb-adv">${K === 'item' ? hbbItemAdv() : K === 'feat' ? hbbFeatAdv() : hbbSpellAdv()}<p class="hint hbb-fhint">Numbers can be formulas: <code>prof</code>, <code>wis</code>, <code>level</code>, <code>1d6+prof</code>. Separate several entries with commas.</p></div>` : '';
   box.innerHTML = `<div class="hbb-head"><h3>${HBB.isNew ? 'New homebrew ' + title : 'Edit ' + esc(HBB.d.name || title)}</h3><label class="hbb-switch" title="Show every option the sheet can automate"><input type="checkbox" data-hbbadv${HBB.adv ? ' checked' : ''}><span class="tr"><i></i></span><span>Advanced</span></label></div>
+    ${HBB.read ? `<div class="hbb-read"><b>Read from the pasted text</b><ul>${HBB.read.done.map(l => `<li>✓ ${esc(l)}</li>`).join('')}${HBB.read.left.map(l => `<li class="warn">! ${esc(l)}</li>`).join('')}</ul><small class="hint">Check it below, then add it. Anything else it does stays in “What it does”.</small></div>` : ''}
     <div class="hbb-body">${basic}${adv}</div>
     <div class="actions hbb-acts">${K === 'item' ? `<label class="hbb-chk sm" title="So you (and your party) can add it again from Add an item → Homebrew"><input type="checkbox" data-hbb="_keep"${HBB.d._keep ? ' checked' : ''}><span><b>Also save to my homebrew items</b></span></label>` : ''}<span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-hbbsave>${HBB.isNew ? 'Create ' + title : 'Save'}</button></div>`;
   $('#modal-body').scrollTop = sc;
@@ -10188,6 +10220,142 @@ function hbbRiderFields(kind) {
   }
   return h + `</div>`;
 }
+
+// Paste an item's text from a book / PDF / D&D Beyond → the builder, filled in, to check and add.
+function openItemPaste() {
+  openModal(`<h3>Paste an item</h3><p class="hint">Paste a magic item — its name, the type line (“Weapon (longsword), rare (requires attunement)”), then its text. Bonuses, charges, spells, extra damage, resistances and speeds become automation you can check before adding it.</p>
+    <textarea class="f" id="ipaste" rows="10" aria-label="Item text" placeholder="Ring of Protection&#10;Ring, rare (requires attunement)&#10;You gain a +1 bonus to AC and saving throws while wearing this ring."></textarea>
+    <div class="actions"><span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn gold" id="ipasteGo">Read item</button></div>`, null, true);
+  setTimeout(() => { const t = $('#ipaste'); if (t) t.focus(); }, 30);
+  $('#ipasteGo').onclick = () => { const v = $('#ipaste').value; if (!v.trim()) return; const ctx = { weapons: DND.weapons, armor: DND.armor, spells: DND.spells.map(x => x.name) }, r = ItemParse.parse(v, ctx);
+    if (!r) { toast('That didn’t look like an item — the first line should be its name.', 'fumble'); return; }
+    const it = ItemParse.toItem(r.spec, ctx); it.id = uid(); closeModal(true); openHomebrew('item', -1, it, { done: r.done, left: r.left }); };
+}
+
+// ==== ITEMPARSE START — shared with the DM's Desk (desk/build.sh copies this block into desk.js; edit it only here) ====
+// Magic item text (book, PDF, D&D Beyond, 2014 or 2024 wording) → a spec → a character-sheet item with it.hb automation.
+// ctx: { weapons: DND.weapons rows, armor: DND.armor rows, spells: [spell names] }. No globals used, so both apps can share it.
+const ItemParse = (() => {
+  const n = x => Number(x) || 0, low = s => String(s || '').toLowerCase();
+  const DT = ['acid', 'bludgeoning', 'cold', 'fire', 'force', 'lightning', 'necrotic', 'piercing', 'poison', 'psychic', 'radiant', 'slashing', 'thunder'];
+  const CONDS = ['Blinded', 'Charmed', 'Deafened', 'Frightened', 'Grappled', 'Incapacitated', 'Paralyzed', 'Petrified', 'Poisoned', 'Prone', 'Restrained', 'Stunned', 'Unconscious'];
+  const RAR = ['common', 'uncommon', 'rare', 'very rare', 'legendary', 'artifact'];
+  const WORDN = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, twelve: 12, twenty: 20, fifty: 50 };
+  const LIG = { 'ﬀ': 'ff', 'ﬁ': 'fi', 'ﬂ': 'fl', 'ﬃ': 'ffi', 'ﬄ': 'ffl' };
+  function norm(raw) {
+    let t = String(raw || '').replace(/\r\n?/g, '\n').replace(/[ﬀﬁﬂﬃﬄ]/g, m => LIG[m]).replace(/[­​-‍﻿]/g, '').replace(/[  -  ]/g, ' ')
+      .replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[−‒–]/g, '-').replace(/\t/g, ' ');
+    const L = t.split('\n').map(l => l.replace(/^\s*(?:>\s*)+/, '').replace(/^#{1,6}\s+/, '').replace(/\*\*\*|\*\*|__/g, '').replace(/(^|[\s(])[*_]([^*_]+?)[*_](?=[\s.,;:)]|$)/g, '$1$2').replace(/\s+/g, ' ').trim());
+    for (let i = L.length - 2; i >= 0; i--) if (/[a-z]-$/.test(L[i]) && /^[a-z]/.test(L[i + 1] || '')) { L[i] = L[i].slice(0, -1) + L[i + 1]; L.splice(i + 1, 1); }
+    return L;
+  }
+  const TYPE_RE = /^(weapon|armor|armour|shield|wondrous item|ring|potion|scroll|staff|wand|rod|ammunition)\b\s*(?:\(([^)]*)\))?\s*,?\s*(.*)$/i;
+  const num = s => /^\d+$/.test(s) ? n(s) : WORDN[low(s)] || 0;
+  const cap1 = s => s.charAt(0).toUpperCase() + s.slice(1);
+  function parse(raw, ctx) {
+    ctx = ctx || {}; const W = ctx.weapons || [], A = ctx.armor || [], SP = (ctx.spells || []).slice().sort((a, b) => b.length - a.length);
+    const L = norm(raw).filter(Boolean); if (!L.length) return null;
+    const s = { name: L[0].replace(/[.:]$/, ''), type: 'wondrous', rarity: 'uncommon', attune: false, attuneBy: '', summary: '', notes: '' }, done = [], left = [];
+    let i = 1; const tm = L[1] && TYPE_RE.exec(L[1]);
+    if (tm) {
+      i = 2; let ty = low(tm[1]).replace('armour', 'armor').replace('wondrous item', 'wondrous'); const base = low(tm[2] || ''), rest = low(tm[3] || '');
+      const rm = RAR.slice().reverse().find(r => rest.includes(r)) || (/varies/.test(rest) ? 'rare' : ''); if (rm) s.rarity = rm;
+      const at = /requires attunement(?: by ([^)]+))?/i.exec(L[1]); if (at) { s.attune = true; s.attuneBy = (at[1] || '').replace(/\)$/, '').trim(); }
+      if (ty === 'weapon' || ty === 'ammunition') {
+        const exact = W.find(w => low(w[0]) === base || low(w[0]) === base.replace(/s$/, '')) || W.find(w => base && base.split(/,|\bor\b/).some(b => low(w[0]) === b.trim()));
+        const pick = exact || (/sword/.test(base) ? W.find(w => w[0] === 'Longsword') : /axe/.test(base) ? W.find(w => w[0] === 'Battleaxe') : /bow/.test(base) ? W.find(w => w[0] === 'Longbow') : /ranged/.test(base) ? W.find(w => w[0] === 'Shortbow') : W.find(w => w[0] === 'Longsword'));
+        if (pick) { s.weapon = { base: pick[0], magic: 0 }; if (!exact) left.push(`Base weapon “${tm[2] || 'any'}” — set to ${pick[0]}; change it if you like.`); }
+        s.type = 'weapon';
+      } else if (ty === 'armor' || ty === 'shield') {
+        const exact = ty === 'shield' ? A.find(a => a[0] === 'Shield') : A.find(a => low(a[0]) === base || low(a[0]).replace(/ armor$/, '') === base || low(a[0]) === base + ' armor');
+        const pick = exact || A.find(a => /medium or heavy|heavy/.test(base) ? a[0] === 'Chain Mail' : /light/.test(base) ? a[0] === 'Studded Leather' : /medium/.test(base) ? a[0] === 'Breastplate' : a[0] === 'Chain Mail');
+        if (pick) { s.armor = { base: pick[0], magic: 0 }; if (!exact) left.push(`Base armor “${tm[2] || 'any'}” — set to ${pick[0]}; change it if you like.`); }
+        s.type = 'armor';
+      } else s.type = ty;
+      done.push(`${cap1(s.rarity)} ${s.type === 'wondrous' ? 'wondrous item' : s.type}${s.attune ? ', attunement' + (s.attuneBy ? ' by ' + s.attuneBy : '') : ''}`);
+    }
+    const body = L.slice(i).join(' '), sents = body.split(/(?<=[.!?])\s+(?=[A-Z])/), lb = body.toLowerCase();
+    s.notes = L.slice(i).join('\n');
+    let m;
+    if ((m = /\+(\d) bonus to attack (?:rolls )?and damage rolls/i.exec(body)) && s.weapon) { s.weapon.magic = n(m[1]); done.push(`+${m[1]} to attack and damage`); }
+    const acm = /\+(\d) bonus to (?:your )?(?:AC|Armor Class)( and (?:to )?saving throws)?/i.exec(body);
+    if (acm) { if (s.armor && !acm[2]) s.armor.magic = n(acm[1]); else { s.bonuses = s.bonuses || {}; s.bonuses.ac = n(acm[1]); } if (acm[2]) { s.bonuses = s.bonuses || {}; s.bonuses.saves = n(acm[1]); } done.push(`+${acm[1]} AC${acm[2] ? ' and saves' : ''}`); }
+    if (!acm || !acm[2]) { const sm = /\+(\d) bonus to (?:all )?saving throws/i.exec(body); if (sm) { s.bonuses = s.bonuses || {}; s.bonuses.saves = n(sm[1]); done.push(`+${sm[1]} to saves`); } }
+    if ((m = /\+(\d) bonus to spell attack rolls/i.exec(body))) { s.bonuses = s.bonuses || {}; s.bonuses.spell = n(m[1]); done.push(`+${m[1]} spell attack${/saving throw DCs?|save DC/i.test(body) ? ' and DC' : ''}`); }
+    if ((m = /has (\d+|[a-z]+) charges/i.exec(body)) && num(m[1])) {
+      const reset = /at dawn|each dawn|daily/i.test(body) ? 'long' : /short or long rest|short rest/i.test(body) ? 'short' : /long rest/i.test(body) ? 'long' : 'none';
+      s.charges = { max: num(m[1]), reset }; const rg = /regains? (all expended charges|\d+d\d+(?:\s*\+\s*\d+)?|\d+) (?:expended )?charges?/i.exec(body);
+      done.push(`${num(m[1])} charges${reset === 'none' ? '' : ', back ' + (reset === 'short' ? 'after a short rest' : 'at dawn')}${rg && !/all/i.test(rg[1]) ? ` (regains ${rg[1].replace(/\s+/g, '')} — the sheet refills all of them)` : ''}`);
+    }
+    // spells it casts (in sentences about casting), with their charge costs kept as a note
+    const spells = [], costs = [];
+    sents.filter(x => /\bcast\b|\bcasting\b/i.test(x)).forEach(x => { let rest = x;
+      for (const nm of SP) { const re = new RegExp('\\b' + nm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b(\\s*\\(([^)]*)\\))?', 'i'); const k = re.exec(rest); if (!k) continue;
+        if (/^(light|shield|fly|wish|command|sleep|bless|guidance|resistance|identify|message)$/i.test(nm) && !new RegExp('\\b' + nm + '\\b(?:\\s*spell|\\s*\\(|,|\\s+or\\b|\\s+and\\b|\\.)', 'i').test(rest.slice(k.index))) continue;
+        if (!spells.includes(nm)) spells.push(nm); if (k[2] && /charge/i.test(k[2])) costs.push(`${nm}: ${k[2]}`); rest = rest.slice(0, k.index) + ' ' + rest.slice(k.index + k[0].length); } });
+    spells.sort((a, b) => lb.indexOf(low(a)) - lb.indexOf(low(b))); costs.sort((a, b) => lb.indexOf(low(a.split(':')[0])) - lb.indexOf(low(b.split(':')[0])));
+    if (spells.length) { s.spells = spells.slice(0, 8); if (/can't (?:be used|do so) (?:this way )?again until the next dawn|once per (?:day|long rest)|1\/day/i.test(body) && !s.charges) s.spellOnce = true; done.push('Casts ' + s.spells.join(', ') + (costs.length ? ' (' + costs.join('; ') + ')' : '')); }
+    if (costs.length) s.notes += '\nCharge costs: ' + costs.join('; ') + '.';
+    // extra damage on a hit → an add-on to this weapon's attacks
+    if ((m = /(?:deals?|takes?) an extra (\d+d\d+(?:\s*\+\s*\d+)?)\s+([a-z]+) damage/i.exec(body)) && DT.includes(low(m[2]))) {
+      const sent = sents.find(x => x.includes(m[0])) || '', ask = /\b(while|if|when you hit (?:a|an) |against|whenever)\b/i.test(sent.slice(0, sent.indexOf(m[0]) + 1));
+      s.onHit = { dice: m[1].replace(/\s+/g, ''), type: low(m[2]), ask }; done.push(`On a hit: +${s.onHit.dice} ${s.onHit.type}${ask ? ' (a button — you choose when it applies)' : ''}`);
+    }
+    const P = {};
+    const typesIn = t => DT.filter(d => new RegExp('\\b' + d + '\\b').test(low(t)));
+    for (const k of body.matchAll(/resistance to ([a-z ,]+?) damage/gi)) { const ts = typesIn(k[1]); if (ts.length && !/all damage/i.test(k[0])) P.resist = (P.resist || []).concat(ts); }
+    for (const k of body.matchAll(/immun(?:e|ity) to ([a-z ,]+?) damage/gi)) { const ts = typesIn(k[1]); if (ts.length) P.immune = (P.immune || []).concat(ts); }
+    for (const k of body.matchAll(/(?:can't be|immune to being|immunity to being|immune to the) (charmed|frightened|poisoned|paralyzed|stunned|blinded|deafened|petrified|restrained|grappled)/gi)) P.condImmune = (P.condImmune || []).concat(cap1(low(k[1])));
+    if ((m = /flying speed (?:of (\d+) feet|equal to your walking speed)/i.exec(body))) P.fly = m[1] ? n(m[1]) : 'walk';
+    if ((m = /swimming speed (?:of (\d+) feet|equal to your walking speed)/i.exec(body))) P.swim = m[1] ? n(m[1]) : 'walk';
+    if ((m = /climbing speed (?:of (\d+) feet|equal to your walking speed)/i.exec(body))) P.climb = m[1] ? n(m[1]) : 'walk';
+    if ((m = /(?:walking )?speed increases by (\d+) feet/i.exec(body))) P.speed = n(m[1]);
+    if ((m = /darkvision (?:out )?to a range of (\d+) feet|darkvision (?:with a range of )?(\d+) feet/i.exec(body))) P.sense = 'Darkvision ' + (m[1] || m[2]) + ' ft';
+    const adv = sents.filter(x => /\byou have advantage on\b|\bgives? you advantage\b/i.test(x)).map(x => x.replace(/^.*?advantage on /i, '').replace(/[.,;]?\s*as the .*$|\.$/i, '').trim()).filter(Boolean);
+    if (adv.length) P.adv = adv.join('; ').slice(0, 200);
+    if (Object.keys(P).length) { Object.keys(P).forEach(k => { if (Array.isArray(P[k])) P[k] = Array.from(new Set(P[k])); }); s.passive = P;
+      done.push([P.resist && 'Resist ' + P.resist.join(', '), P.immune && 'Immune ' + P.immune.join(', '), P.condImmune && "Can't be " + P.condImmune.join(', ').toLowerCase(), P.fly && 'Fly ' + P.fly, P.swim && 'Swim ' + P.swim, P.climb && 'Climb ' + P.climb, P.speed && 'Speed +' + P.speed, P.sense, P.adv && 'Advantage: ' + P.adv].filter(Boolean).join(' · ')); }
+    // potions and scrolls are used up; healing potions heal
+    if (s.type === 'potion' || s.type === 'scroll') { s.consumable = true; s.qty = 1; }
+    if ((m = /regains? (\d+d\d+(?:\s*\+\s*\d+)?|\d+) hit points/i.exec(body)) && (s.consumable || /\bdrink\b/i.test(body))) { s.use = Object.assign(s.use || {}, { heal: m[1].replace(/\s+/g, ''), col: /bonus action/i.test(body) && !/action to (?:drink|administer)/i.test(body) ? 'bonus' : 'action' }); done.push('Heals ' + s.use.heal + ' when used'); }
+    else if (s.consumable) s.use = Object.assign(s.use || {}, { col: 'action' });
+    if (/\bcurse[ds]?\b/i.test(body)) { left.push('It’s cursed — the curse is in the description.'); if (/disadvantage on attack rolls (?:made )?with weapons other than/i.test(body)) s.curse = { othersDis: true }; }
+    if (/while (?:you're |you are )?(?:wearing|carrying|holding)|while it is on your person|while you carry/i.test(body) && !s.weapon && !s.armor && /carrying|on your person|carry/i.test(body)) s.carried = true;
+    s.summary = (sents[0] || '').slice(0, 200);
+    return { spec: s, done, left };
+  }
+  // spec → the sheet's item object (what S.inventory / S.customItems hold)
+  function toItem(s, ctx) {
+    ctx = ctx || {}; const W = ctx.weapons || [], A = ctx.armor || [], it = { name: s.name, qty: s.qty || 1, weight: s.weight || 0, cost: s.cost || '', equipped: false, notes: s.notes || '' }, hb = {}, mods = {};
+    if (s.summary) it.summary = s.summary;
+    it.magic = { rarity: s.rarity, type: s.type === 'armor' && s.armor && s.armor.base === 'Shield' ? 'shield' : s.type, src: 'Homebrew', name: s.name };
+    if (s.attune) { it.attune = true; it.attuneBy = s.attuneBy || ''; it.attuned = false; }
+    if (s.weapon) { const w = W.find(x => x[0] === s.weapon.base); if (w) { it.weapon = { cat: w[1], kind: w[2], dice: w[4], type: w[5], props: (w[7] || []).slice(), range: w[8] || '', base: w[0] }; if (!s.weight) it.weight = w[6]; if (s.weapon.magic) { mods.atk = s.weapon.magic; mods.dmg = s.weapon.magic; } } }
+    if (s.armor) { const a = A.find(x => x[0] === s.armor.base); if (a) { it.armor = { type: a[1], base: a[3], dexCap: a[4], strReq: a[5], stealthDis: a[6] }; if (!s.weight) it.weight = a[7]; if (s.armor.magic) mods.ac = s.armor.magic; } }
+    if (s.bonuses) { if (s.bonuses.ac) mods.ac = n(mods.ac) + s.bonuses.ac; if (s.bonuses.saves) mods.save = s.bonuses.saves; if (s.bonuses.spell) mods.spell = s.bonuses.spell; }
+    if (Object.keys(mods).length) it.mods = mods;
+    it.hbType = it.weapon ? 'weapon' : s.consumable ? 'consumable' : 'magic';
+    if (s.charges) it.charges = { max: s.charges.max, used: 0, reset: s.charges.reset };
+    if (s.spells && s.spells.length) { it.spells = s.spells.slice(); if (s.spellOnce) it.spellOnce = true; if (s.spellAtWill) it.spellAtWill = true; if (s.spellAb) hb.spellAb = s.spellAb; }
+    if (s.consumable) { hb.consume = true; if (s.type === 'potion' || s.type === 'scroll') it.consumable = true; }
+    const u = s.use || {}; if (u.col) hb.col = u.col; if (u.roll) hb.roll = u.roll; if (u.rollNote) hb.rollNote = u.rollNote; if (u.healRoll) hb.healRoll = true; if (u.selfDmg) hb.selfDmg = true;
+    if (u.heal) { hb.heal = u.heal; if (s.type === 'potion') it.heal = u.heal; } if (u.temp) hb.temp = u.temp; if (u.saveAb) { hb.saveAb = u.saveAb; hb.dc = String(u.dc || 'spell'); } if (u.dash) hb.dash = true; if (u.text) hb.text = u.text;
+    const p = s.passive || {}; ['resist', 'immune', 'condImmune'].forEach(k => { if (p[k] && p[k].length) hb[k] = p[k].join(', '); });
+    ['speed', 'fly', 'swim', 'climb', 'sense', 'skillBonus', 'adv'].forEach(k => { if (p[k]) hb[k] = String(p[k]); }); if (p.init) hb.init = String(p.init); if (p.initAdv) hb.initAdv = true; if (p.maxHp) hb.maxHp = String(p.maxHp);
+    const e = s.effect; if (e) { hb.effName = e.name; if (e.rounds) hb.effRounds = e.rounds; if (e.fly) hb.effFly = String(e.fly); if (e.ac) hb.effAc = String(e.ac); if (e.speed) hb.effSpeed = String(e.speed); if (e.skillAdv && e.skillAdv.length) hb.effSkillAdv = e.skillAdv.join(', '); if (e.note) hb.effNote = e.note; if (e.conc) hb.effConc = true; if (!hb.col) hb.col = 'action'; }
+    const a = s.attack; if (a) { hb.atkName = a.name; hb.atkDice = a.dice; if (a.type) hb.atkType = a.type; hb.atkAb = a.ab; hb.atkKind = a.kind; if (a.range) hb.atkRange = String(a.range); if (a.addMod) hb.atkAddMod = true; if (a.note) hb.atkNote = a.note; }
+    const c = s.curse; if (c) { if (c.othersDis) hb.othersDis = true; if (c.hurtSave) { hb.hurtSave = c.hurtSave; hb.hurtDC = String(c.hurtDC || 10); if (c.hurtText) hb.hurtText = c.hurtText; } }
+    // extra damage on a hit rides on this weapon's own attack (the sheet's add-ons)
+    const oh = s.onHit; if (oh && oh.dice) { hb.on = 'name:' + s.name; hb.onDmg = oh.dice; if (oh.type) hb.onType = oh.type; hb.onAsk = oh.ask ? '' : 'false'; hb.onCost = 'none'; }
+    if (s.carried) it.carried = true;
+    if (it.weapon) it.noEquip = false;
+    if (!it.weapon && (hb.col || it.charges || hb.consume) && !hb.text) { hb.text = String(s.summary || s.notes || '').slice(0, 400) || 'You use ' + s.name + '.'; hb.textAuto = 1; }
+    if (Object.keys(hb).length) it.hb = hb;
+    return it;
+  }
+  return { parse, toItem, norm, DT, CONDS };
+})();
+// ==== ITEMPARSE END ====
 
 
 // ---------- Spellcasting ability for a specific spell ----------

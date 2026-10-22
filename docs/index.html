@@ -13,7 +13,7 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.70d982177bf5.css">
+<link rel="stylesheet" href="a/sheet.27c18c6013ba.css">
 <link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:type" content="website"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="Adventurer’s Tome"><meta property="og:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:url" content="https://adventurers-tome.web.app/"><meta property="og:image" content="https://adventurers-tome.web.app/og-roll.gif?v=3"><meta property="og:image:type" content="image/gif"><meta property="og:image:width" content="800"><meta property="og:image:height" content="420"><meta property="og:image:alt" content="Adventurer’s Tome — a gold d20 rolling a natural 20"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-roll.gif?v=3"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest"><script>try{var t=localStorage.getItem("pg-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-pgtheme",t)}catch(e){}</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
@@ -2271,6 +2271,12 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 .adm-online b { font: inherit; text-box: trim-both cap alphabetic; }
 .adm-online.bg { font-weight: 700; }
 .adm-online i { flex: none; }
+/* who's viewing: each picture has its own dot, green when they're looking at it, yellow when it's open in a background tab */
+.pg-pres::after { display: none !important; }
+.pg-pw { position: relative; display: inline-flex; flex: none; }
+.pg-pw > i { position: absolute; right: -1px; bottom: -1px; width: 8px; height: 8px; border-radius: 50%; background: #4cd27a; box-shadow: 0 0 0 2px rgba(15,22,38,.95), 0 0 6px rgba(76,210,122,.7); }
+.pg-pw.bg > i { background: #d6ae45; box-shadow: 0 0 0 2px rgba(15,22,38,.95); }
+.pg-pres .pg-pw + .pg-pw { margin-left: 0; }
 </style>
 </head>
 <body>
@@ -2894,7 +2900,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022182802', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.9d662a081579.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.95fa42b3596b.html", "desk": "a/desk.1dfc6c020af7.js", "deskcss": "a/deskcss.a22ed732de5c.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022183654', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.316f40cb4c93.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.ab908916fa40.html", "desk": "a/desk.1dfc6c020af7.js", "deskcss": "a/deskcss.a22ed732de5c.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -3671,7 +3677,7 @@ function wireDie(root) {
     // given access sees who's here but isn't listed (checked each time, so sharing it with them later puts them in).
     const counted = () => OWNER === EMAIL || VIEWERS.includes(EMAIL) || EDITORS.includes(EMAIL);
     const beat = async () => { if (!counted()) { if (seen[EMAIL]) { delete seen[EMAIL]; leave(); } return; }
-      const a = avaOf(ME), at = Date.now(); seen[EMAIL] = { name: NAME, pic: a.pic, color: a.color, clear: a.clear, at }; try { await mine.set({ name: NAME, pic: a.pic, color: a.color, clear: a.clear, at }); } catch (e) {}
+      const a = avaOf(ME), at = Date.now(), bg = !!document.hidden; seen[EMAIL] = { name: NAME, pic: a.pic, color: a.color, clear: a.clear, at, bg }; try { await mine.set({ name: NAME, pic: a.pic, color: a.color, clear: a.clear, at, bg }); } catch (e) {}
       if (pv && PVID) pv.doc(PVID).set({ anon: false, at, name: String(NAME || '').slice(0, 60), pic: a.pic || '', color: a.color || '', clear: !!a.clear }).catch(() => {}); };
     const leave = () => { mine.delete().catch(() => {}); if (pv && PVID) pv.doc(PVID).delete().catch(() => {}); };
     // The character's owner comes first whenever they're here, then you, then everyone else.
@@ -3679,13 +3685,13 @@ function wireDie(root) {
       if (!box) { box = document.createElement('div'); box.className = 'pg-pres'; document.body.appendChild(box); }
       const anons = Object.values(anon).filter(d => now - (d.at || 0) < 200000);
       box.hidden = !here.length && !anons.length; // you see yourself whenever you count as viewing it, on your own sheet too
-      box.innerHTML = here.map(([em, d]) => avaHTML(d.name, em, d.pic, em === EMAIL ? 'me' : '', em === EMAIL ? (d.name || NAME) + ' (you)' : (d.name || em), { color: d.color, clear: d.clear })).join('') + anons.map(() => anonAvaHTML(false)).join('');
+      box.innerHTML = here.map(([em, d]) => { const bg = em === EMAIL ? !!document.hidden : !!d.bg; /* green: looking at it now; yellow: open in a tab that isn't in front */ return `<span class="pg-pw${bg ? ' bg' : ''}">${avaHTML(d.name, em, d.pic, em === EMAIL ? 'me' : '', (em === EMAIL ? (d.name || NAME) + ' (you)' : (d.name || em)) + (bg ? ' · has it open in another tab' : ' · looking at it now'), { color: d.color, clear: d.clear })}<i></i></span>`; }).join('') + anons.map(() => anonAvaHTML(false)).join('');
       placePres(); };
     // you show straight away, without waiting for the first list from the server
     if (counted()) { const a = avaOf(ME); seen[EMAIL] = { name: NAME, pic: a.pic, color: a.color, clear: a.clear, at: Date.now() }; }
     beat(); show(); setInterval(beat, 60000); setInterval(show, 1500);
     if (pv) pv.where('anon', '==', true).onSnapshot(qs => { anon = {}; qs.docs.forEach(d => { anon[d.id] = d.data(); }); show(); }, () => {});
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) beat(); });
+    document.addEventListener('visibilitychange', () => { beat(); show(); });
     addEventListener('pagehide', leave);
     pcol.onSnapshot(qs => { const me0 = seen[EMAIL]; seen = {}; qs.docs.forEach(d => { seen[d.id] = d.data(); }); if (!counted()) delete seen[EMAIL]; else if (!seen[EMAIL] && me0) seen[EMAIL] = me0; show(); }, () => {});
   };

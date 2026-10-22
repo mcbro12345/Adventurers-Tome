@@ -3354,7 +3354,7 @@ html.mwin .rl-head:has(> .mw-hid) { padding-top: 0; }
 html:not(.mwin) .mw-head { display: none; }
 html.mwin .modal-bg > .modal { overflow-x: hidden; }
 /* Desktop: Settings is tall enough that no tab needs a scrollbar */
-html.mwin .modal:has(.setx) { height: min(calc(100vh - 40px), 640px); }
+html.mwin .modal:has(.setx) { height: min(calc(100vh - 32px), var(--seth, 640px)); max-height: calc(100vh - 32px); }
 /* windows turn slightly see-through while dragged, like the dice roller */
 .win-moving { opacity: .95; }
 .defrow { display: grid; grid-template-columns: 82px 1fr; gap: 8px; align-items: start; margin-top: 6px; }

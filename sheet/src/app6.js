@@ -457,6 +457,10 @@ function fitSettingsHeight() {
   const chrome = m.getBoundingClientRect().height - sx.getBoundingClientRect().height;  // header, tabs and padding
   const cap = isMobile() ? 0.88 * innerHeight : innerHeight - 32;
   m.style.setProperty('--seth', Math.ceil(Math.min(cap, chrome + tallest + 4)) + 'px');
+  // a row appearing or going (e.g. the 2024 exhaustion rule adds one) re-fits the window
+  if (typeof ResizeObserver === 'function') { if (!m._setRO) m._setRO = new ResizeObserver(() => { clearTimeout(m._setRT); m._setRT = setTimeout(() => { if (settingsOpen()) fitSettingsHeight(); }, 80); }); m._setRO.disconnect(); $$('.setx .stpane').forEach(p => m._setRO.observe(p)); }
+  // whatever the measuring missed (padding, margins) shows up as scroll on the open tab: add it on
+  requestAnimationFrame(() => { const x = $('.setx'); if (!x || !m.isConnected) return; const more = x.scrollHeight - x.clientHeight; if (more > 0) m.style.setProperty('--seth', Math.ceil(Math.min(cap, m.getBoundingClientRect().height + more + 2)) + 'px'); });
 }
 addEventListener('resize', () => { if (typeof settingsOpen === 'function' && settingsOpen()) fitSettingsHeight(); });
 function settingsOpen() { return $('#modal').classList.contains('open') && !!$('.setx'); }

@@ -1354,7 +1354,7 @@ function wireDie(root) {
     // given access sees who's here but isn't listed (checked each time, so sharing it with them later puts them in).
     const counted = () => OWNER === EMAIL || VIEWERS.includes(EMAIL) || EDITORS.includes(EMAIL);
     const beat = async () => { if (!counted()) { if (seen[EMAIL]) { delete seen[EMAIL]; leave(); } return; }
-      const a = avaOf(ME), at = Date.now(); seen[EMAIL] = { name: NAME, pic: a.pic, color: a.color, clear: a.clear, at }; try { await mine.set({ name: NAME, pic: a.pic, color: a.color, clear: a.clear, at }); } catch (e) {}
+      const a = avaOf(ME), at = Date.now(), bg = !!document.hidden; seen[EMAIL] = { name: NAME, pic: a.pic, color: a.color, clear: a.clear, at, bg }; try { await mine.set({ name: NAME, pic: a.pic, color: a.color, clear: a.clear, at, bg }); } catch (e) {}
       if (pv && PVID) pv.doc(PVID).set({ anon: false, at, name: String(NAME || '').slice(0, 60), pic: a.pic || '', color: a.color || '', clear: !!a.clear }).catch(() => {}); };
     const leave = () => { mine.delete().catch(() => {}); if (pv && PVID) pv.doc(PVID).delete().catch(() => {}); };
     // The character's owner comes first whenever they're here, then you, then everyone else.
@@ -1362,13 +1362,13 @@ function wireDie(root) {
       if (!box) { box = document.createElement('div'); box.className = 'pg-pres'; document.body.appendChild(box); }
       const anons = Object.values(anon).filter(d => now - (d.at || 0) < 200000);
       box.hidden = !here.length && !anons.length; // you see yourself whenever you count as viewing it, on your own sheet too
-      box.innerHTML = here.map(([em, d]) => avaHTML(d.name, em, d.pic, em === EMAIL ? 'me' : '', em === EMAIL ? (d.name || NAME) + ' (you)' : (d.name || em), { color: d.color, clear: d.clear })).join('') + anons.map(() => anonAvaHTML(false)).join('');
+      box.innerHTML = here.map(([em, d]) => { const bg = em === EMAIL ? !!document.hidden : !!d.bg; /* green: looking at it now; yellow: open in a tab that isn't in front */ return `<span class="pg-pw${bg ? ' bg' : ''}">${avaHTML(d.name, em, d.pic, em === EMAIL ? 'me' : '', (em === EMAIL ? (d.name || NAME) + ' (you)' : (d.name || em)) + (bg ? ' · has it open in another tab' : ' · looking at it now'), { color: d.color, clear: d.clear })}<i></i></span>`; }).join('') + anons.map(() => anonAvaHTML(false)).join('');
       placePres(); };
     // you show straight away, without waiting for the first list from the server
     if (counted()) { const a = avaOf(ME); seen[EMAIL] = { name: NAME, pic: a.pic, color: a.color, clear: a.clear, at: Date.now() }; }
     beat(); show(); setInterval(beat, 60000); setInterval(show, 1500);
     if (pv) pv.where('anon', '==', true).onSnapshot(qs => { anon = {}; qs.docs.forEach(d => { anon[d.id] = d.data(); }); show(); }, () => {});
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) beat(); });
+    document.addEventListener('visibilitychange', () => { beat(); show(); });
     addEventListener('pagehide', leave);
     pcol.onSnapshot(qs => { const me0 = seen[EMAIL]; seen = {}; qs.docs.forEach(d => { seen[d.id] = d.data(); }); if (!counted()) delete seen[EMAIL]; else if (!seen[EMAIL] && me0) seen[EMAIL] = me0; show(); }, () => {});
   };

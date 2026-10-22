@@ -4023,7 +4023,7 @@ html.mwin .rl-head:has(> .mw-hid) { padding-top: 0; }
 html:not(.mwin) .mw-head { display: none; }
 html.mwin .modal-bg > .modal { overflow-x: hidden; }
 /* Desktop: Settings is tall enough that no tab needs a scrollbar */
-html.mwin .modal:has(.setx) { height: min(calc(100vh - 40px), 640px); }
+html.mwin .modal:has(.setx) { height: min(calc(100vh - 32px), var(--seth, 640px)); max-height: calc(100vh - 32px); }
 /* windows turn slightly see-through while dragged, like the dice roller */
 .win-moving { opacity: .95; }
 .defrow { display: grid; grid-template-columns: 82px 1fr; gap: 8px; align-items: start; margin-top: 6px; }
@@ -4100,4 +4100,50 @@ html:not(.mobile) #sec-header:has(> .ident.noid) .portrait-wrap { transition: no
 
 /* Labels on the dark banner: a dark accent colour is lightened so it stays readable */
 .banner .lbl { color: var(--gold-banner, var(--gold)); }
+/* Import from D&D Beyond */
+.wz-ddb { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 4px 0 16px; padding: 12px 14px; border: 1px solid var(--line); border-left: 4px solid #c53131; border-radius: 10px; background: var(--panel2); }
+.wz-ddb > div { flex: 1 1 220px; display: grid; gap: 2px; }
+.ddb .fld { display: grid; gap: 4px; margin: 10px 0 6px; }
+.ddb .ddb-err { color: var(--red); font-weight: 600; margin: 8px 0; }
+.ddb-alt { margin-top: 12px; border-top: 1px solid var(--line2); padding-top: 10px; }
+.ddb-alt summary { cursor: pointer; font-weight: 700; color: var(--gold-ink); }
+.ddb-steps { margin: 8px 0; padding-left: 20px; } .ddb-steps li { margin: 3px 0; }
+.ddb-alt textarea { width: 100%; font: 12px ui-monospace, monospace; margin: 6px 0; }
+.ddb-who { display: flex; gap: 12px; align-items: center; margin: 6px 0 10px; }
+.ddb-who img { width: 64px; height: 64px; border-radius: 12px; object-fit: cover; border: 2px solid var(--gold); }
+.ddb-who > div { display: grid; gap: 2px; min-width: 0; } .ddb-who b { font-size: 1.15rem; } .ddb-who span { color: var(--soft); font-size: .88rem; }
+.ddb-abs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin: 4px 0 10px; }
+.ddb-ab { display: grid; text-align: center; border: 1px solid var(--line); border-radius: 9px; padding: 5px 0; background: var(--panel2); } .ddb-ab small { font-size: .66rem; font-weight: 700; letter-spacing: .08em; color: var(--gold-ink); } .ddb-ab b { font-size: 1.15rem; }
+.ddb-opts { display: flex; gap: 14px; flex-wrap: wrap; margin: 8px 0; }
+.ddb-miss { margin: 10px 0; border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; background: var(--panel2); }
+.ddb-miss summary { cursor: pointer; font-weight: 700; }
+.ddb-miss ul { max-height: 180px; overflow-y: auto; margin: 6px 0 0; padding-left: 18px; font-size: .86rem; }
+.ddb-allok { color: var(--green, #3d7653); font-weight: 600; }
+@media (max-width: 480px) { .ddb-abs { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+html.mobile body.wizopen #modal.open, html.mobile body.wizopen #modal.closing { z-index: 95; } /* windows opened from character creation (e.g. D&D Beyond import) sit above it on a phone */
+/* add-ons ("riders") */
+.rider-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: 6px; vertical-align: middle; }
+.rider-chip { display: inline-flex; align-items: center; gap: 4px; font-size: .72rem; font-weight: 700; padding: 1px 8px; border-radius: 99px; background: var(--gold-soft, #f6e7bf); color: var(--gold-ink, #8f620e); border: 1px solid rgba(201,150,43,.45); white-space: nowrap; }
+.rider-chip b { font-weight: 800; }
+.rider-chip.out { opacity: .5; text-decoration: line-through; }
+.rider-chips.blk { display: flex; margin: 6px 0 0; }
+.hbb-rider { border: 1px dashed rgba(201,150,43,.55); }
+.opt-info.rider { font-size: .8rem; }
+.toast .rc-rider { display: block; font-size: .82rem; margin-top: 3px; line-height: 1.35; }
+.toast .rc-rider.sm { font-size: .74rem; color: var(--soft); }
+/* Paste an item → builder */
+.catpaste { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 2px 0 10px; }
+.catpaste .hint { flex: 1; min-width: 180px; }
+.hbb-read { border: 1px dashed var(--line); border-radius: 10px; padding: 8px 12px; margin: 0 0 12px; background: var(--panel2); }
+.hbb-read ul { margin: 6px 0 4px; padding: 0; list-style: none; display: grid; gap: 3px; font-size: .88rem; }
+.hbb-read li.warn { color: var(--gold-ink); }
+/* party chat: iMessage-style typing bubble and read receipts */
+.ptyc-typing { align-items: center; animation: ptycIn .18s ease-out; }
+.ptyc-dots { display: inline-flex; gap: 4px; align-items: center; padding: 9px 12px; border-radius: 16px 16px 16px 4px; background: var(--panel); border: 1px solid var(--line); }
+.ptyc-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--soft); opacity: .45; animation: ptycDot 1.2s infinite ease-in-out; }
+.ptyc-dots i:nth-child(2) { animation-delay: .18s; } .ptyc-dots i:nth-child(3) { animation-delay: .36s; }
+@keyframes ptycDot { 0%, 60%, 100% { transform: translateY(0); opacity: .45; } 30% { transform: translateY(-4px); opacity: 1; } }
+@keyframes ptycIn { from { opacity: 0; transform: translateY(4px) scale(.96); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ptyc-dots i, .ptyc-typing { animation: none; } }
+.ptyc-rr { align-self: flex-start; font-size: .68rem; font-weight: 600; color: var(--soft); margin: -3px 0 2px 42px; }
 
