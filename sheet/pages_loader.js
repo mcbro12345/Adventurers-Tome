@@ -3024,14 +3024,41 @@ function partyModule(H) {
       toPaint(); };
     inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); fin(true); } if (e.key === 'Escape') { e.stopPropagation(); fin(false); } }; inp.onblur = () => fin(true);
   }
-  function toAddDialog() {
+  // "Add someone…": type one in, or pick creatures and NPCs saved in your DM's Desk (their HP then stays in sync with it).
+  function toAddDialog(mode) {
     const fld = (id, lbl, ph, num) => `<label class="to-af"><span>${lbl}</span><input id="${id}" ${num ? 'inputmode="numeric"' : ''} placeholder="${ph}" maxlength="${num ? 4 : 60}" autocomplete="off"></label>`;
-    modal.innerHTML = `<div class="hub-card"><h2>Add to the turn order</h2><form id="ta-f" class="who-f to-addf">${fld('ta-n', 'Name', 'e.g. Goblin boss')}<div class="to-arow">${fld('ta-i', 'Initiative', '–', 1)}${fld('ta-h', 'HP', '–', 1)}${fld('ta-a', 'AC', '–', 1)}</div><p class="hub-hint">Only the name is needed. Tap HP or AC in the list later to change them.</p><button type="submit" hidden></button></form><div class="row"><button class="btn ghost" id="ta-x">Cancel</button><button class="btn gold" id="ta-ok">Add</button></div></div>`;
-    modal.classList.add('on'); const $m = s => modal.querySelector(s); setTimeout(() => $m('#ta-n').focus(), 30);
-    const num = s => { const t = $m(s).value.trim(); return t === '' || isNaN(Number(t)) ? '' : Number(t); };
-    const go = () => { const name = $m('#ta-n').value.replace(/\s+/g, ' ').trim().slice(0, 60); if (!name) return $m('#ta-n').focus(); const hp = num('#ta-h');
-      TO.rows.push({ custom: true, id: 'x' + Date.now().toString(36), name, v: num('#ta-i'), at: Date.now(), hp, maxhp: hp, ac: num('#ta-a') }); toSave(); toPaint(); close(); };
-    $m('#ta-f').onsubmit = e => { e.preventDefault(); go(); }; $m('#ta-ok').onclick = go; $m('#ta-x').onclick = close;
+    const desk = mode === 'desk';
+    modal.innerHTML = `<div class="hub-card${desk ? ' wide' : ''}"><h2>Add to the turn order</h2><div class="to-amode" role="tablist"><button role="tab" data-am="new" aria-selected="${!desk}" class="${desk ? '' : 'on'}">Someone new</button><button role="tab" data-am="desk" aria-selected="${desk}" class="${desk ? 'on' : ''}">From your DM’s Desk</button></div>
+      ${desk ? '<div class="to-dk" id="ta-dk"><p class="hub-hint">Loading your desk…</p></div>' : `<form id="ta-f" class="who-f to-addf">${fld('ta-n', 'Name', 'e.g. Goblin boss')}<div class="to-arow">${fld('ta-i', 'Initiative', '–', 1)}${fld('ta-h', 'HP', '–', 1)}${fld('ta-a', 'AC', '–', 1)}</div><p class="hub-hint">Only the name is needed. Tap HP or AC in the list later to change them.</p><button type="submit" hidden></button></form>`}
+      <div class="row"><button class="btn ghost" id="ta-x">Cancel</button><button class="btn gold" id="ta-ok"${desk ? ' disabled' : ''}>Add</button></div></div>`;
+    modal.classList.add('on'); const $m = s => modal.querySelector(s);
+    modal.querySelectorAll('[data-am]').forEach(b => b.onclick = () => { if ((b.dataset.am === 'desk') !== desk) toAddDialog(b.dataset.am); });
+    $m('#ta-x').onclick = close;
+    if (!desk) {
+      setTimeout(() => $m('#ta-n').focus(), 30);
+      const num = s => { const t = $m(s).value.trim(); return t === '' || isNaN(Number(t)) ? '' : Number(t); };
+      const go = () => { const name = $m('#ta-n').value.replace(/\s+/g, ' ').trim().slice(0, 60); if (!name) return $m('#ta-n').focus(); const hp = num('#ta-h');
+        TO.rows.push({ custom: true, id: 'x' + Date.now().toString(36), name, v: num('#ta-i'), at: Date.now(), hp, maxhp: hp, ac: num('#ta-a') }); toSave(); toPaint(); close(); };
+      $m('#ta-f').onsubmit = e => { e.preventDefault(); go(); }; $m('#ta-ok').onclick = go; return;
+    }
+    const box = $m('#ta-dk'), picked = new Map(); let items = [];
+    const n = v => Number(v) || 0, sg = v => (v >= 0 ? '+' : '') + v;
+    fs.collection('desks').doc(EMAIL).collection('sessions').get().then(qs => {
+      if (!box.isConnected) return;
+      const ses = qs.docs.map(d => d.data() && d.data().data).filter(x => x && x.id).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      items = []; const html = ses.map(se => { const rows = [];
+        (se.groups || []).forEach(g => (g.list || []).forEach(x => { if (!x || !x.iid) return; const k = items.push({ kind: 'c', x, se }) - 1; const on = TO.rows.some(r => r.desk === x.iid);
+          rows.push(`<label class="to-dkr${on ? ' in' : ''}"><input type="checkbox" data-k="${k}"${on ? ' disabled' : ''}><span class="to-dkn"><b>${esc(x.name || 'Creature')}</b><small>${g.name && (se.groups || []).length > 1 ? esc(g.name) + ' · ' : ''}${on ? 'already in the turn order' : `HP ${n(x.hp)}/${n(x.max)} · AC ${n(x.ac) || '—'}${x.ini != null ? ' · init ' + sg(n(x.ini)) : ''}`}</small></span></label>`); }));
+        (se.cards || []).filter(c => c && c.kind === 'npc' && c.npc && c.npc.name && !(se.groups || []).some(g => (g.list || []).some(x => x.name === c.npc.name))).forEach(c => { const k = items.push({ kind: 'n', c, se }) - 1;
+          rows.push(`<label class="to-dkr"><input type="checkbox" data-k="${k}"><span class="to-dkn"><b>${esc(c.npc.name)}</b><small>NPC${c.npc.occupation ? ' · ' + esc(c.npc.occupation) : ''} · no stat block</small></span></label>`); });
+        return rows.length ? `<details class="to-dks" open><summary>${esc(se.title || 'Session')}<small>${rows.length}</small></summary>${rows.join('')}</details>` : ''; }).join('');
+      box.innerHTML = html ? `<p class="hub-hint">Pick who joins the fight. Their initiative is rolled for them; damage you deal here or in the desk stays in sync.</p><div class="to-dkl">${html}</div>` : `<p class="hub-hint">Nothing saved in your DM’s Desk yet. Add creatures or NPCs to a session there first.</p>${PRETTY ? `<p><a class="btn" href="/desk?for=${encodeURIComponent(PID)}" target="_blank">Open the DM’s Desk</a></p>` : ''}`;
+      box.querySelectorAll('[data-k]').forEach(c => c.onchange = () => { if (c.checked) picked.set(c.dataset.k, items[+c.dataset.k]); else picked.delete(c.dataset.k); const ok = $m('#ta-ok'); ok.disabled = !picked.size; ok.textContent = picked.size > 1 ? `Add ${picked.size}` : 'Add'; });
+    }, x => { if (box.isConnected) box.innerHTML = `<p class="hub-hint">${x && x.code === 'permission-denied' ? 'Your DM’s Desk can’t be read yet: the site’s database rules need the DM’s Desk update.' : 'Couldn’t load your DM’s Desk. Check your connection and try again.'}</p>`; });
+    $m('#ta-ok').onclick = () => { if (!picked.size) return; const now = Date.now(), d20 = () => 1 + Math.floor(Math.random() * 20), got = [];
+      picked.forEach(it => { if (it.kind === 'c') { const x = it.x, v = d20() + n(x.ini); TO.rows.push({ custom: true, id: 'd' + now.toString(36) + Math.random().toString(36).slice(2, 6), name: x.name || 'Creature', v, at: now, hp: n(x.hp), maxhp: n(x.max), ac: n(x.ac) || '', desk: x.iid, hpAt: n(x.hpAt) || now }); got.push(`${x.name} ${v}`); }
+        else { const v = d20(); TO.rows.push({ custom: true, id: 'x' + now.toString(36) + Math.random().toString(36).slice(2, 6), name: it.c.npc.name, v, at: now, hp: '', maxhp: '', ac: '' }); got.push(`${it.c.npc.name} ${v}`); } });
+      toSave(); toPaint(); close(); toast('Rolled initiative: ' + got.join(' · ')); };
   }
   // The DM's Desk (another tab) adds and updates rows in the same saved list.
   window.addEventListener('storage', e => { if (!PID || e.key !== TKEY() || !TO) return; const keep = { x: TO.x, y: TO.y, h: TO.h, open: TO.open, min: TO.min }; TO = Object.assign(toLoad(), keep); toSync(); toPaint(); });

@@ -2083,3 +2083,15 @@ button.to-hp:hover, button.to-ac:hover { border-color: var(--to-line); color: va
 .pty-npc small { color: var(--pg-soft, #8f8778); font-size: 13px; line-height: 1.35; }
 .pty-npc-ic { color: #c9962b; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 10px; background: rgba(201,150,43,.14); flex: none; }
 @media (max-width: 560px) { .pty-npc { flex-wrap: wrap; } .pty-npc .btn { width: 100%; } }
+.to-amode { display: flex; gap: 4px; padding: 3px; border-radius: 11px; background: rgba(127,127,127,.12); margin: 4px 0 12px; }
+.to-amode button { flex: 1; border: 0; background: none; color: inherit; font: 700 14px system-ui, sans-serif; padding: 8px 10px; border-radius: 8px; opacity: .7; cursor: pointer; transition: background .2s, opacity .2s; }
+.to-amode button.on { background: #c9962b; color: #1b1406; opacity: 1; }
+.to-dkl { max-height: min(52vh, 460px); overflow-y: auto; display: grid; gap: 8px; margin: 8px 0 4px; overscroll-behavior: contain; }
+.to-dks { border: 1px solid rgba(201,150,43,.3); border-radius: 12px; padding: 4px 8px 6px; }
+.to-dks summary { cursor: pointer; font: 700 14px system-ui, sans-serif; padding: 6px 2px; display: flex; gap: 8px; align-items: center; }
+.to-dks summary small { margin-left: auto; opacity: .6; font-weight: 600; }
+.to-dkr { display: flex; align-items: center; gap: 10px; padding: 7px 6px; border-radius: 8px; cursor: pointer; }
+.to-dkr:hover { background: rgba(127,127,127,.1); }
+.to-dkr.in { opacity: .55; cursor: default; }
+.to-dkr input { width: 18px; height: 18px; accent-color: #c9962b; flex: none; }
+.to-dkn { display: grid; gap: 1px; min-width: 0; } .to-dkn b { font-weight: 700; } .to-dkn small { opacity: .7; font-size: 12.5px; }
