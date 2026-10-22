@@ -266,21 +266,59 @@ function toast(o) {
 }
 const toastInfo = (msg, actions, key) => toast({ det: msg, actions, key });
 let MODAL_CLOSE = null;
-function openModal(html, o) {
-  o = o || {}; const m = $('.dk-modal'), c = $('.dk-mcard');
-  if (MODAL_CLOSE && m.classList.contains('open')) { const f = MODAL_CLOSE; MODAL_CLOSE = null; f(); }
-  c.className = 'dk-mcard' + (o.wide ? ' wide' : '') + (o.cls ? ' ' + o.cls : ''); m.classList.toggle('dk-msheet', !!o.sheet); c.innerHTML = html; m.classList.add('open'); m.scrollTop = 0; MODAL_CLOSE = o.onClose || null;
-  const f = c.querySelector('input:not([type=checkbox]),textarea,select'); if (f && innerWidth > 700 && o.focus !== false) setTimeout(() => f.focus(), 30);
+// Desktop: pop-ups are floating windows like the character sheet's — a title bar to drag, ✕ to close, the page behind
+// stays usable, they fade in and out and remember where you put them. Phones keep bottom sheets.
+const mwDesk = () => innerWidth > 640;
+let MODAL_BY = null, LAST_OPENER = null, LAST_OPENER_T = 0;
+const WINPOS = (() => { try { return JSON.parse(localStorage.getItem('pg-desk-win') || '{}') || {}; } catch (e) { return {}; } })();
+const winKeep = () => { try { localStorage.setItem('pg-desk-win', JSON.stringify(WINPOS)); } catch (e) {} };
+const openerSig = b => b ? (b.dataset.act || '') + '|' + JSON.stringify(Object.assign({}, b.dataset)) : '';
+function mwDress(c) {
+  ROOT.classList.toggle('dk-mw', mwDesk()); c.querySelectorAll(':scope > .dk-mwhead').forEach(x => x.remove()); if (!mwDesk()) return;
+  const h = c.querySelector(':scope > h2, :scope > .dk-sethead > h2, :scope > header > h2'); const t = h ? h.textContent.trim() : 'Window';
+  if (h) { h.classList.add('dk-mwhid'); const row = h.parentElement; if (row !== c) { [...row.children].forEach(x => { if (x !== h && x.matches('button') && /^(done|close)$/i.test(x.textContent.trim())) x.classList.add('dk-mwhid'); }); if (![...row.children].some(x => !x.classList.contains('dk-mwhid'))) row.classList.add('dk-mwhid'); } }
+  c.querySelectorAll('[data-act="close"]').forEach(x => { if (/^(done|close)$/i.test(x.textContent.trim())) x.classList.add('dk-mwhid'); });
+  c.querySelectorAll('.dk-acts').forEach(r => { if (![...r.children].some(x => !x.classList.contains('dk-mwhid') && !x.classList.contains('dk-grow'))) r.classList.add('dk-mwhid'); });
+  const bar = document.createElement('div'); bar.className = 'dk-mwhead'; bar.innerHTML = `<b>${esc(t)}</b><button class="dk-mwx" type="button" data-act="close" title="Close" aria-label="Close">✕</button>`; c.prepend(bar);
+  const key = c.dataset.win = (c.className.match(/dk-setwin/) ? 'settings' : t).slice(0, 60), pos = WINPOS[key];
+  c.style.translate = pos ? `${pos[0]}px ${pos[1]}px` : '';
+  if (pos) requestAnimationFrame(() => { const r = c.getBoundingClientRect(); if (r.right < 80 || r.left > innerWidth - 80 || r.top < 0 || r.top > innerHeight - 48) { c.style.translate = ''; delete WINPOS[key]; } });
 }
-function closeModal(silent) { const m = $('.dk-modal'); if (!m) return; m.classList.remove('open'); $('.dk-mcard').innerHTML = ''; const f = MODAL_CLOSE; MODAL_CLOSE = null; SV = null; if (f && !silent) f(); }
+function mwDrag(e) {
+  const bar = e.target.closest && e.target.closest('.dk-mwhead'); if (!bar || e.button !== 0 || e.target.closest('button') || !mwDesk()) return;
+  const c = bar.parentElement; e.preventDefault(); const m0 = (c.style.translate || '0px 0px').split(' ').map(parseFloat), x0 = e.clientX - (m0[0] || 0), y0 = e.clientY - (m0[1] || 0), r = c.getBoundingClientRect();
+  const bx = r.left - (m0[0] || 0), by = r.top - (m0[1] || 0); c.classList.add('dk-moving');
+  const mv = ev => { const x = Math.max(-bx - r.width + 100, Math.min(innerWidth - bx - 100, ev.clientX - x0)), y = Math.max(-by, Math.min(innerHeight - by - 48, ev.clientY - y0)); c.style.translate = `${Math.round(x)}px ${Math.round(y)}px`; };
+  const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); c.classList.remove('dk-moving'); const t = (c.style.translate || '0px 0px').split(' ').map(parseFloat); WINPOS[c.dataset.win || 'w'] = [t[0] || 0, t[1] || 0]; winKeep(); };
+  addEventListener('pointermove', mv); addEventListener('pointerup', up);
+}
+function openModal(html, o) {
+  o = o || {}; const m = $('.dk-modal'), c = $('.dk-mcard'), wasOpen = m.classList.contains('open'), prevBy = MODAL_BY, prevPos = c.style.translate;
+  if (MODAL_CLOSE && m.classList.contains('open')) { const f = MODAL_CLOSE; MODAL_CLOSE = null; f(); }
+  c.className = 'dk-mcard' + (o.wide ? ' wide' : '') + (o.cls ? ' ' + o.cls : ''); m.classList.toggle('dk-msheet', !!o.sheet); c.innerHTML = html; m.classList.add('open'); m.scrollTop = 0; c.scrollTop = 0; MODAL_CLOSE = o.onClose || null;
+  const fresh = LAST_OPENER && Date.now() - LAST_OPENER_T < 600; MODAL_BY = fresh ? LAST_OPENER : wasOpen ? prevBy : null; LAST_OPENER = null;
+  mwDress(c); if (wasOpen && !fresh && prevPos && !WINPOS[c.dataset.win]) c.style.translate = prevPos; c.style.animation = wasOpen ? 'none' : ''; ROOT.classList.remove('dk-rfront');
+  const f = c.querySelector('input:not([type=checkbox]):not(.dk-swi),textarea,select'); if (f && innerWidth > 700 && o.focus !== false) setTimeout(() => f.focus(), 30);
+}
+function closeModal(silent) {
+  const m = $('.dk-modal'); if (!m) return; const c = $('.dk-mcard');
+  // the window fades out as a copy while the real one is free for the next pop-up straight away
+  if (m.classList.contains('open') && mwDesk() && !calm() && c.innerHTML) { const g = c.cloneNode(true), r = c.getBoundingClientRect(); g.classList.add('dk-mghost'); g.removeAttribute('id'); g.querySelectorAll('[id]').forEach(x => x.removeAttribute('id'));
+    Object.assign(g.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', translate: 'none' }); ROOT.appendChild(g); setTimeout(() => g.remove(), 200); }
+  m.classList.remove('open'); c.innerHTML = ''; c.style.translate = ''; MODAL_BY = null; const f = MODAL_CLOSE; MODAL_CLOSE = null; SV = null; if (f && !silent) f(); }
+// runs a confirm/ask callback; a failure (e.g. the save was refused or timed out) is shown instead of vanishing
+function runOk(fn, ...a) { const bad = e => { console.warn(e); toast({ title: 'That didn’t work', det: esc((e && e.message) || 'Try again in a moment.'), cls: 'bad' }); };
+  try { const r = fn(...a); if (r && typeof r.then === 'function') r.then(null, bad); } catch (e) { bad(e); } }
+// a cloud write that can't hang forever without telling anyone
+const withTimeout = (pr, ms, what) => Promise.race([pr, new Promise((_, rej) => setTimeout(() => rej(new Error((what || 'Saving') + ' is taking too long — check your connection and try again.')), ms || 12000))]);
 function confirmBox(msg, okLabel, ok, danger) {
-  openModal(`<h2>Are you sure?</h2><p>${msg}</p><div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn ${danger ? 'red' : 'gold'}" id="dk-cbOk">${esc(okLabel)}</button></div>`);
-  $('#dk-cbOk').onclick = () => { closeModal(true); ok(); };
+  openModal(`<h2>Are you sure?</h2><p>${msg}</p><div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn ${danger ? 'red' : 'gold'}" id="dk-cbOk">${esc(okLabel)}</button></div>`, { cls: 'dk-small' });
+  $('#dk-cbOk').onclick = () => { closeModal(true); runOk(ok); };
 }
 function askText(title, val, ok, o) {
   o = o || {};
-  openModal(`<h2>${esc(title)}</h2>${o.hint ? `<p class="dk-hint">${o.hint}</p>` : ''}<input class="dk-f" id="dk-atIn" value="${esc(val || '')}" maxlength="${o.max || 80}" placeholder="${esc(o.ph || '')}"><div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn gold" id="dk-atOk">${esc(o.okLabel || 'Save')}</button></div>`);
-  const inp = $('#dk-atIn'), go = () => { const v = inp.value.trim(); if (!v && !o.allowEmpty) return inp.focus(); closeModal(true); ok(v); };
+  openModal(`<h2>${esc(title)}</h2>${o.hint ? `<p class="dk-hint">${o.hint}</p>` : ''}<input class="dk-f" id="dk-atIn" value="${esc(val || '')}" maxlength="${o.max || 80}" placeholder="${esc(o.ph || '')}"><div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn gold" id="dk-atOk">${esc(o.okLabel || 'Save')}</button></div>`, { cls: 'dk-small' });
+  const inp = $('#dk-atIn'), go = () => { const v = inp.value.trim(); if (!v && !o.allowEmpty) return inp.focus(); closeModal(true); runOk(ok, v); };
   setTimeout(() => { inp.focus(); inp.select(); }, 30); $('#dk-atOk').onclick = go; inp.onkeydown = e => { if (e.key === 'Enter') go(); };
 }
 // ---------- reading stat blocks (attacks, damage, saves, spells, pasted text) ----------
@@ -928,7 +966,7 @@ function cardHTML(x) {
     <button class="dk-ccmain" data-act="sel" data-iid="${x.iid}"><span class="dk-cchd"><b>${esc(x.name)}</b>${c ? `<small>CR ${crLabel(N(c.cr))} ${esc(c.type || '')}</small>` : '<small class="bad">stat block missing</small>'}</span>
       <span class="dk-cchp" data-hpflash="${x.iid}"><span class="dk-ccnum ${hpCls(p)}">${x.hp}<small>/${x.max}</small>${N(x.temp) ? `<em>+${x.temp}</em>` : ''}</span><span class="dk-ccac" title="Armor class">${ICON.shield}<b>${x.ac}</b></span></span>${hpBar(x)}
       <span class="dk-ccfoot">${x.down ? '<span class="dk-chip dead">Down</span>' : ''}${x.conc ? `<span class="dk-chip conc">${ICON.conc}${esc(x.conc)}</span>` : ''}${condChips(x)}${econMini(x)}${CTX.party && inTurn(x.iid) ? '<span class="dk-chip to" title="In the Turn order">Turn order</span>' : ''}</span></button>
-    <div class="dk-ccq"><input class="dk-f dk-num" id="dk-q-${x.iid}" data-q="${x.iid}" type="number" inputmode="numeric" placeholder="HP ±" aria-label="Amount for ${esc(x.name)}"><button class="dk-btn sm red" data-act="qdmg" data-iid="${x.iid}" title="Damage">−</button><button class="dk-btn sm green" data-act="qheal" data-iid="${x.iid}" title="Heal">+</button></div>
+    <div class="dk-ccq"><input class="dk-f dk-num" id="dk-q-${x.iid}" data-q="${x.iid}" type="text" autocomplete="off" enterkeyhint="done" maxlength="6" placeholder="−dmg / +heal" title="Type 20 or −20 for damage, +20 to heal, then Enter" aria-label="Amount for ${esc(x.name)}"><button class="dk-btn sm red" data-act="qdmg" data-iid="${x.iid}" title="Damage">−</button><button class="dk-btn sm green" data-act="qheal" data-iid="${x.iid}" title="Heal">+</button></div>
   </article>`;
 }
 function detailHTML(x, s) {
@@ -941,7 +979,7 @@ function detailHTML(x, s) {
     <div class="dk-sub">${c ? `${esc(c.size)} ${esc(c.type)} · CR ${crLabel(N(c.cr))} · ${XP_OF(c).toLocaleString()} XP` : 'This creature’s stat block was deleted from your bestiary.'}</div>
     <div class="dk-hp" data-hpflash="${x.iid}">
       <div class="dk-hpnum"><span class="dk-lbl">Hit points</span><div><input class="dk-hpcur ${hpCls(p)}" id="dk-hp-${x.iid}" data-ch="hp" data-iid="${x.iid}" value="${x.hp}" inputmode="numeric" aria-label="Current HP"><span>/</span><input class="dk-hpmax" id="dk-mx-${x.iid}" data-ch="max" data-iid="${x.iid}" value="${x.max}" inputmode="numeric" aria-label="Max HP"></div>${N(x.temp) ? `<span class="dk-temp" title="Temporary hit points">+${x.temp} temp</span>` : ''}</div>${hpBar(x, 'big')}
-      <div class="dk-hpctl"><input class="dk-f dk-num" id="dk-hpAmt" type="number" inputmode="numeric" placeholder="HP" aria-label="Amount">
+      <div class="dk-hpctl"><input class="dk-f dk-num" id="dk-hpAmt" type="text" autocomplete="off" enterkeyhint="done" maxlength="6" placeholder="−dmg / +heal" title="Type 20 or −20 for damage, +20 to heal, then Enter" aria-label="Amount">
         <div class="dk-hpbtns"><button class="dk-btn red" data-act="hpdmg" data-iid="${x.iid}">Damage</button><button class="dk-btn green" data-act="hpheal" data-iid="${x.iid}">Heal</button><button class="dk-btn" data-act="hptemp" data-iid="${x.iid}">Temp</button></div>
         <div class="dk-hptype"><select class="dk-f" id="dk-hpType" aria-label="Damage type"><option value="">any damage type</option>${DTYPES.map(d => `<option>${d}</option>`).join('')}</select><label class="dk-chk"><input type="checkbox" id="dk-hpMagic"> magical</label></div></div>
       </div>
@@ -1139,7 +1177,7 @@ function openSettings(tab) {
   const TABS = [['dice', 'Dice'], ['creatures', 'Creatures'], ['ai', 'AI helper'], ['data', 'Data'], ['notes', 'Notes']];
   if (!TABS.some(t => t[0] === SETTAB)) SETTAB = 'dice';
   const row = (t, ctl, sub, cls) => `<div class="dk-setrow${cls ? ' ' + cls : ''}"><span class="dk-setl"><b>${t}</b>${sub ? `<small>${sub}</small>` : ''}</span><span class="dk-setc">${ctl}</span></div>`;
-  const tog = (k, t, sub) => `<label class="dk-setrow dk-settog"><span class="dk-setl"><b>${t}</b>${sub ? `<small>${sub}</small>` : ''}</span><span class="dk-setc"><input type="checkbox" class="dk-switch" data-set="${k}" ${st[k] ? 'checked' : ''}></span></label>`;
+  const tog = (k, t, sub) => `<label class="dk-setrow dk-settog"><span class="dk-setl"><b>${t}</b>${sub ? `<small>${sub}</small>` : ''}</span><span class="dk-setc"><input type="checkbox" class="dk-swi" role="switch" data-set="${k}" ${st[k] ? 'checked' : ''}><span class="dk-switch" aria-hidden="true"></span></span></label>`;
   const mode = (name, val, lbl, hint) => `<label class="dk-radio"><input type="radio" name="dk-${name}" data-set="${name}" value="${val}" ${String(st[name]) === String(val) ? 'checked' : ''}><span><b>${lbl}</b>${hint ? `<small>${hint}</small>` : ''}</span></label>`;
   const pane = (k, h) => `<section class="dk-stpane${SETTAB === k ? ' on' : ''}" data-pane="${k}" role="tabpanel" aria-label="${k}">${h}</section>`;
   const np = (typeof pagesList === 'function' ? pagesList() : []).length;
@@ -1234,11 +1272,15 @@ function onAISet(act) {
     aiCall('Reply with {"ok": true}.', { max: 50 }).then(t => { if (st) st.textContent = /ok/i.test(t) ? '✓ The key works.' : '✓ Connected.'; }).catch(e => { if (st) st.textContent = '✗ ' + e.message; });
   }
 }
+// one box for HP: "-20" or "20" is damage, "+20" heals
+const hpAmt = v => { const m = /^\s*([+\-\u2212])?\s*(\d{1,4})\s*$/.exec(String(v || '')); return m ? { n: N(m[2]), heal: m[1] === '+' } : { n: 0, heal: false }; };
 // ---------- clicks, typing ----------
 const sessFor = iid => (groupOf(iid) || {}).s;
 async function onClick(e) {
   if (onNotesClick(e)) return;
   const b = e.target.closest('[data-act],[data-sv]'); if (!b || !ROOT.contains(b) || b.disabled) return;
+  // pressing the button that opened a window again closes it
+  if (!b.closest('.dk-mcard')) { const sig = openerSig(b); if (MODAL_BY && sig === MODAL_BY && $('.dk-modal.open')) { closeModal(); return; } LAST_OPENER = sig; LAST_OPENER_T = Date.now(); }
   if (b.dataset.sv && SV) return onSaveClick(b);
   const act = b.dataset.act, iid = b.dataset.iid, x = iid ? findInst(iid) : null;
   if (act !== 'menu') closeMenus();
@@ -1308,12 +1350,12 @@ async function onClick(e) {
     case 'saveeff': { const g = curSession().groups.find(z => z.id === b.dataset.gid); openSaveDialog({ title: 'Saving throw', dc: 13, ab: 1, parts: [], half: true }); SV.rows.forEach(r => { r.on = !!g.list.find(z => z.iid === r.iid) && !findInst(r.iid).down; }); return paintSave(); }
     case 'addc': { const q = $('#dk-addq'), v = q.value.trim(); if (!v) { q.focus(); return; } const exact = allCreatures().find(c => c.name.toLowerCase() === v.toLowerCase()) || searchCreatures(v, 1)[0]; if (!exact) return toastInfo(`No creature called “${esc(v)}”. Try the bestiary, or paste its stat block there.`); return addPicked(exact.id); }
     case 'pickc': return addPicked(b.dataset.cid);
-    case 'qdmg': case 'qheal': { const inp = $(`[data-q="${iid}"]`), v = N(inp.value); if (!v) { inp.focus(); return; } if (act === 'qdmg') applyDamage(x, v, '', true); else heal(x, v); return; }
+    case 'qdmg': case 'qheal': { const inp = $(`[data-q="${iid}"]`), v = hpAmt(inp.value).n; if (!v) { inp.focus(); return; } if (act === 'qdmg') applyDamage(x, v, '', true); else heal(x, v); return; }
     case 'dup': { const g = groupOf(iid); if (!g) return; const out = addToGroup(g.s, g.g, x.cid, 1); save(); paint(); return toastInfo(`Added <b>${esc(out[0].name)}</b>.`); }
     case 'rest': restInst(x); save(); paint(); return toastInfo(`${esc(x.name)} is fresh: full HP, conditions cleared, every use back.`);
     case 'movegrp': { const g = groupOf(iid), to = g.s.groups.find(z => z.id === b.dataset.gid); g.g.list = g.g.list.filter(z => z !== x); to.list.push(x); save(); paint(); return; }
     case 'rm': return confirmBox(`Remove <b>${esc(x.name)}</b> from this session?`, 'Remove', () => { const g = groupOf(iid); g.g.list = g.g.list.filter(z => z !== x); sessionInsts(g.s).forEach(z => { if (z.tg === iid) z.tg = ''; }); if (CTX.party && inTurn(iid)) { const t = toRead(); t.rows = t.rows.filter(r => r.desk !== iid); toWrite(t); } UI.sel = ''; save(); paint(); }, true);
-    case 'hpdmg': case 'hpheal': case 'hptemp': { const amt = N($('#dk-hpAmt').value); if (!amt) { $('#dk-hpAmt').focus(); return; } if (act === 'hpdmg') { const t = $('#dk-hpType').value; if (t) applyParts(x, [{ total: amt, type: t }], $('#dk-hpMagic').checked); else applyDamage(x, amt); } else if (act === 'hpheal') heal(x, amt); else setTemp(x, amt); return; }
+    case 'hpdmg': case 'hpheal': case 'hptemp': { const amt = hpAmt($('#dk-hpAmt').value).n; if (!amt) { $('#dk-hpAmt').focus(); return; } if (act === 'hpdmg') { const t = $('#dk-hpType').value; if (t) applyParts(x, [{ total: amt, type: t }], $('#dk-hpMagic').checked); else applyDamage(x, amt); } else if (act === 'hpheal') heal(x, amt); else setTemp(x, amt); return; }
     case 'econ': { const t = turnOf(x), k = b.dataset.k; t[k] = t[k] ? 0 : 1; save(); return paint(); }
     case 'move': { const t = turnOf(x); t.mv = Math.min(moveMax(x), N(t.mv) + N(b.dataset.f)); save(); return paint(); }
     case 'dash': { const t = turnOf(x); if (!t.dash) { t.dash = 1; useEcon(x, 'a', 'Dash'); } else t.dash = 0; save(); return paint(); }
@@ -1429,8 +1471,8 @@ function onKey(e) {
     if (e.key === 'Enter') { e.preventDefault(); const hi = items[SUGI]; if (hi && !box.hidden) { box.hidden = true; addPicked(hi.dataset.cid); } else onClick({ target: $('[data-act="addc"]') }); return; }
     if (e.key === 'Escape') { box.hidden = true; return; }
   }
-  if (el && el.dataset && el.dataset.q && e.key === 'Enter') { e.preventDefault(); onClick({ target: $(`[data-act="${e.shiftKey ? 'qheal' : 'qdmg'}"][data-iid="${el.dataset.q}"]`) }); return; }
-  if (el && el.id === 'dk-hpAmt' && e.key === 'Enter') { e.preventDefault(); onClick({ target: $('[data-act="hpdmg"]') }); return; }
+  if (el && el.dataset && el.dataset.q && e.key === 'Enter') { e.preventDefault(); onClick({ target: $(`[data-act="${e.shiftKey || hpAmt(el.value).heal ? 'qheal' : 'qdmg'}"][data-iid="${el.dataset.q}"]`) }); return; }
+  if (el && el.id === 'dk-hpAmt' && e.key === 'Enter') { e.preventDefault(); onClick({ target: $(`[data-act="${hpAmt(el.value).heal ? 'hpheal' : 'hpdmg'}"]`) }); return; }
   if (el && el.matches && el.matches('input.dk-title, input.dk-gname, .dk-hp input, .dk-tin') && e.key === 'Enter') { el.blur(); return; }
   if (e.key === 'Escape') { if ($('.dk-modal.open')) return closeModal(); if ($('.dk-menu.open')) return closeMenus(); if (UI.tree) { UI.tree = false; ROOT.classList.remove('dk-tree-open'); return; } if (UI.log) { UI.log = false; ROOT.classList.remove('dk-log-open'); } }
 }
@@ -1467,7 +1509,7 @@ function mount(root, ctx) {
   if (CTX.partyHost) { const slot = document.createElement('div'); slot.className = 'dk-partyslot'; root.insertBefore(slot, root.querySelector('.dk-page').nextSibling); slot.appendChild(CTX.partyHost); }
   render();
   try { const top = root.querySelector('.dk-top'), setH = () => root.style.setProperty('--toph', Math.round(top.getBoundingClientRect().height) + 'px'); setH(); if (window.ResizeObserver) { const ro = new ResizeObserver(setH); ro.observe(top); LISTEN.push([{ removeEventListener: () => ro.disconnect() }, 'x', null]); } } catch (e) {}
-  on(root, 'click', onClick); on(root, 'change', onChange); on(root, 'input', onInput);
+  on(root, 'click', onClick); on(root, 'pointerdown', e => { mwDrag(e); if (e.target.closest && e.target.closest('.drwin')) ROOT.classList.add('dk-rfront'); else if (e.target.closest && e.target.closest('.dk-mcard')) ROOT.classList.remove('dk-rfront'); }); on(window, 'resize', () => { if (ROOT) ROOT.classList.toggle('dk-mw', mwDesk()); }); on(root, 'change', onChange); on(root, 'input', onInput);
   on(root, 'mousedown', e => { const t = e.target.closest && e.target.closest('[data-ed],[data-auto]'); if (!t) return; e.preventDefault(); if (t.dataset.ed) edCmd(t.dataset.ed); else edAutoPick(N(t.dataset.auto)); });
   on(root, 'paste', e => { if (e.target.closest && e.target.closest('.dk-ed')) edPaste(e); });
   on(root, 'dragstart', onDragStart); on(root, 'dragover', onDragOver); on(root, 'drop', onDrop); on(root, 'dragend', () => { DRAG = null; $$('.dragging').forEach(x => x.classList.remove('dragging')); });
@@ -1712,10 +1754,10 @@ function encGenHTML() {
       <div class="dk-eflavor">${GEN.ai ? `<h3>${esc(GEN.ai.title || 'Encounter')}</h3>${GEN.ai.setup ? `<p>${esc(GEN.ai.setup)}</p>` : ''}${GEN.ai.tactics ? `<p><b>Tactics.</b> ${esc(GEN.ai.tactics)}</p>` : ''}${GEN.ai.twist ? `<p><b>Twist.</b> ${esc(GEN.ai.twist)}</p>` : ''}${GEN.ai.hook ? `<p><b>Hook.</b> ${esc(GEN.ai.hook)}</p>` : ''}<small class="dk-hint">Written by AI — check it before you use it.</small>` : `<p><b>Where.</b> ${esc(cap(GEN.place))}. <b>How they fight.</b> ${esc(GEN.tactic)}</p>`}
         ${UI.genAI && aiReady() ? `<button class="dk-btn sm" data-act="aienc" ${GEN.busy ? 'disabled' : ''}>${GEN.busy ? 'Writing…' : GEN.ai ? 'Rewrite with AI' : 'Write it up with AI'}</button>` : ''}${GEN.raw && !GEN.ai ? `<details><summary class="dk-hint">What the AI sent</summary><pre class="dk-raw">${esc(GEN.raw)}</pre></details>` : ''}</div>
       <div class="dk-eadd"><span class="dk-lbl">Add to</span><div class="dk-row">${sessPickHTML('dk-gTo', 'A new group in the open session')}<button class="dk-btn gold" data-act="genadd">${ICON.plus} Add to session</button></div></div>`
-    : `<div class="dk-empty sm"><div class="dk-emblem">${ICON.sword}</div><h2>Balanced fights in one click</h2><p>Set your party and difficulty, pick where they are, and the desk builds a fight from the bestiary using the DMG’s XP budgets. Lock the creatures you like and reroll the rest.</p></div>`}</section>
+    : `<div class="dk-empty sm"><div class="dk-emblem">${ICON.sword}</div><h2>Balanced fights in one click</h2><p>Set your party and difficulty, pick where they are, and the desk builds a fight from the bestiary using the DMG’s XP budgets. Lock the creatures you like and reroll the rest.</p></div>`}</section></div>
     <section class="dk-card dk-scenes"><div class="dk-row" style="justify-content:space-between"><h2>Not every encounter is a fight</h2><button class="dk-btn sm gold" data-act="gscene">${ICON.dice} Roll one</button></div>
       <div class="dk-chips">${['hazard', 'discovery', 'social', 'weather', 'trap'].map(k => `<button class="dk-btn sm" data-act="gscene" data-k="${k}">${cap(k)}</button>`).join('')}</div>
-      ${GEN.scenes.length ? `<div class="dk-slist">${GEN.scenes.map((s, i) => `<div class="dk-scene"><span class="dk-chip ${s[0]}">${esc(cap(s[0]))}</span><p>${esc(s[1])}</p><button class="dk-btn sm" data-act="gsnote" data-i="${i}" title="Save it as a note in the open session">Save to session</button></div>`).join('')}</div>` : `<p class="dk-hint">Hazards, discoveries, run-ins, weather and traps for ${esc(ENVN[UI.genP.env] || 'any terrain')}.</p>`}</section></div>`;
+      ${GEN.scenes.length ? `<div class="dk-slist">${GEN.scenes.map((s, i) => `<div class="dk-scene"><span class="dk-chip ${s[0]}">${esc(cap(s[0]))}</span><p>${esc(s[1])}</p><button class="dk-btn sm" data-act="gsnote" data-i="${i}" title="Save it as a note in the open session">Save to session</button></div>`).join('')}</div>` : `<p class="dk-hint">Hazards, discoveries, run-ins, weather and traps for ${esc(ENVN[UI.genP.env] || 'any terrain')}.</p>`}</section>`;
 }
 function npcGenHTML() {
   const n = NPCG.npc, L = NPCG.locks, has = !!n.name;
@@ -2904,9 +2946,9 @@ function hbHTML() {
         ${s._dropped && s._dropped.length ? `<p class="dk-hint">Left out (the sheet can’t use it): ${esc(s._dropped.join(', '))}</p>` : ''}${HBM.ai ? '<p class="dk-hint">Designed by AI — check it before you hand it out.</p>' : ''}
         ${ai && s ? `<div class="dk-refine"><input class="dk-f" id="dk-hbRef" maxlength="500" placeholder="Ask for changes — e.g. “make it a ring and drop the curse”"><button class="dk-btn" data-act="hbref" ${HBM.busy ? 'disabled' : ''}>Refine</button></div>` : ''}
         <div class="dk-row dk-hbacts"><button class="dk-btn gold" data-act="hbsave">Save to my desk items</button>${CTX.partyHB ? `<button class="dk-btn gold" data-act="hbparty">Add to ${esc((CTX.party && CTX.party.name) || 'party')} homebrew</button>` : ''}<button class="dk-btn" data-act="hbcopy">Copy as JSON</button></div>`
-      : HBM.raw ? `<details open><summary class="dk-hint">The AI’s reply couldn’t be turned into an item. Here it is as plain text:</summary><pre class="dk-raw">${esc(HBM.raw)}</pre></details>` : `<div class="dk-empty sm"><div class="dk-emblem">✦</div><h2>Items that work on the sheet</h2><p>Every bonus, charge, spell and power is built from the character sheet’s own automation, so it just works when a player adds it.</p></div>`}</section>
+      : HBM.raw ? `<details open><summary class="dk-hint">The AI’s reply couldn’t be turned into an item. Here it is as plain text:</summary><pre class="dk-raw">${esc(HBM.raw)}</pre></details>` : `<div class="dk-empty sm"><div class="dk-emblem">✦</div><h2>Items that work on the sheet</h2><p>Every bonus, charge, spell and power is built from the character sheet’s own automation, so it just works when a player adds it.</p></div>`}</section></div>
     <section class="dk-card dk-hblists"><div class="dk-hbcol"><h2>My desk items</h2>${HBM.mine == null ? '<p class="dk-hint">Loading…</p>' : HBM.mine.length ? HBM.mine.map(d => `<div class="dk-hbrow"><b>${esc((d.data && d.data.spec && d.data.spec.name) || 'Item')}</b><small>${esc(cap(((d.data || {}).spec || {}).rarity || ''))}</small><span class="dk-grow"></span><button class="dk-btn sm" data-act="hbopen" data-id="${esc(d._id)}">Open</button><button class="dk-ix" data-act="hbdel" data-id="${esc(d._id)}" aria-label="Delete">${ICON.trash}</button></div>`).join('') : '<p class="dk-hint">Items you save show up here.</p>'}</div>
-      ${CTX.partyHB ? `<div class="dk-hbcol"><h2>${esc((CTX.party && CTX.party.name) || 'Party')} homebrew</h2><p class="dk-hint">Players see these under Add an item → Homebrew.</p>${HBM.party == null ? '<p class="dk-hint">Loading…</p>' : HBM.party.length ? HBM.party.map(x => `<div class="dk-hbrow"><b>${esc(x.name || 'Item')}</b><small>${esc(cap((x.magic || {}).rarity || ''))}</small><span class="dk-grow"></span><button class="dk-ix" data-act="hbpdel" data-id="${esc(x._pid)}" aria-label="Remove from party">${ICON.trash}</button></div>`).join('') : '<p class="dk-hint">Nothing yet.</p>'}</div>` : ''}</section></div>`;
+      ${CTX.partyHB ? `<div class="dk-hbcol"><h2>${esc((CTX.party && CTX.party.name) || 'Party')} homebrew</h2><p class="dk-hint">Players see these under Add an item → Homebrew.</p>${HBM.party == null ? '<p class="dk-hint">Loading…</p>' : HBM.party.length ? HBM.party.map(x => `<div class="dk-hbrow"><b>${esc(x.name || 'Item')}</b><small>${esc(cap((x.magic || {}).rarity || ''))}</small><span class="dk-grow"></span><button class="dk-ix" data-act="hbpdel" data-id="${esc(x._pid)}" aria-label="Remove from party">${ICON.trash}</button></div>`).join('') : '<p class="dk-hint">Nothing yet.</p>'}</div>` : ''}</section>`;
 }
 function hbFormHTML(s) {
   const I = (k, v, o) => `<label><span class="dk-lbl">${o.l}</span><input class="dk-f" data-hbf="${k}" value="${esc(v == null ? '' : v)}"${o.ph ? ` placeholder="${esc(o.ph)}"` : ''}${o.list ? ` list="${o.list}"` : ''}></label>`;
@@ -2949,12 +2991,14 @@ async function onHBAct(act, b) {
     case 'hbref': { const v = ($('#dk-hbRef') || {}).value || ''; if (!v.trim()) return true; hbAI(v); return true; }
     case 'hbnew': HBM.spec = hbBlank(); HBM.ai = false; HBM.edit = true; paint(); return true;
     case 'hbedit': if (HBM.edit) hbReadForm(); HBM.edit = !HBM.edit; paint(); return true;
-    case 'hbsave': { if (HBM.edit) hbReadForm(); const c = ITEMS(); if (!c || !HBM.spec) return true; const it = itemFromSpec(HBM.spec), id = HBM.savedId || 'h' + uid(); await c.doc(id).set({ savedAt: Date.now(), data: { spec: Object.assign({}, HBM.spec, { _dropped: [] }), item: it } }); HBM.savedId = id; toastInfo(`Saved <b>${esc(it.name)}</b> to your desk items.`); hbLoadLists(); return true; }
+    case 'hbsave': { if (HBM.edit) hbReadForm(); const c = ITEMS(); if (!c || !HBM.spec) return true; const it = itemFromSpec(HBM.spec), id = HBM.savedId || 'h' + uid(); try { await withTimeout(c.doc(id).set({ savedAt: Date.now(), data: { spec: Object.assign({}, HBM.spec, { _dropped: [] }), item: it } })); } catch (e) { toast({ title: 'Couldn’t save the item', det: esc(e.message || ''), cls: 'bad' }); return true; } HBM.savedId = id; toastInfo(`Saved <b>${esc(it.name)}</b> to your desk items.`); hbLoadLists(); return true; }
     case 'hbparty': { if (HBM.edit) hbReadForm(); if (!CTX.partyHB || !HBM.spec) return true; const it = itemFromSpec(HBM.spec); try { await CTX.partyHB.add(JSON.parse(JSON.stringify(it))); toastInfo(`<b>${esc(it.name)}</b> is in your party’s homebrew — players can add it from Add an item → Homebrew.`); hbLoadLists(); } catch (e) { toast({ title: 'Couldn’t add it to the party', det: esc(e.message || ''), cls: 'bad' }); } return true; }
     case 'hbcopy': { if (HBM.edit) hbReadForm(); const t = JSON.stringify(itemFromSpec(HBM.spec), null, 1); try { await navigator.clipboard.writeText(t); toastInfo('Copied the item as JSON.'); } catch (e) { openModal(`<h2>Item JSON</h2><textarea class="dk-f" rows="14" readonly>${esc(t)}</textarea><div class="dk-acts"><button class="dk-btn" data-act="close">Close</button></div>`); } return true; }
     case 'hbopen': { const d = (HBM.mine || []).find(x => x._id === b.dataset.id); if (d && d.data && d.data.spec) { const v = shapeHB(d.data.spec); if (v) { v._dropped = []; HBM.spec = v; HBM.savedId = d._id; HBM.ai = false; HBM.edit = false; paint(); scrollTo(0, 0); } } return true; }
-    case 'hbdel': confirmBox('Delete this item from your desk?', 'Delete', async () => { const c = ITEMS(); if (c) await c.doc(b.dataset.id).delete(); if (HBM.savedId === b.dataset.id) HBM.savedId = null; hbLoadLists(); }, true); return true;
-    case 'hbpdel': confirmBox('Take this item out of your party’s homebrew? Characters who already have it keep theirs.', 'Remove', async () => { try { await CTX.partyHB.remove(b.dataset.id); } catch (e) {} hbLoadLists(); }, true); return true;
+    case 'hbdel': { const id = b.dataset.id; confirmBox('Delete this item from your desk?', 'Delete', async () => { const c = ITEMS(); if (!c) return; const keep = HBM.mine; HBM.mine = (HBM.mine || []).filter(x => x._id !== id); if (HBM.savedId === id) HBM.savedId = null; paint();
+      try { await withTimeout(c.doc(id).delete(), 12000, 'Deleting'); toastInfo('Item deleted.'); } catch (e) { HBM.mine = keep; paint(); throw e; } hbLoadLists(); }, true); return true; }
+    case 'hbpdel': { const id = b.dataset.id; confirmBox('Take this item out of your party’s homebrew? Characters who already have it keep theirs.', 'Remove', async () => { if (!CTX.partyHB) return; const keep = HBM.party; HBM.party = (HBM.party || []).filter(x => x._pid !== id); paint();
+      try { await withTimeout(Promise.resolve(CTX.partyHB.remove(id)), 12000, 'Removing'); toastInfo('Removed from your party’s homebrew.'); } catch (e) { HBM.party = keep; paint(); throw e; } hbLoadLists(); }, true); return true; }
   }
   return false;
 }
