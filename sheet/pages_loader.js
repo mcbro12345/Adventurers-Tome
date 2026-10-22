@@ -907,11 +907,12 @@ function wireDie(root) {
     chat: { on: () => !!unChat, canSend: () => OWNER === EMAIL, list: () => CHAT.concat(Object.values(WH).filter(w => w.to === C || w.c === C)).filter(m => Number(m.at) > Date.now() - CHAT_TTL).sort((a, b) => Number(a.at) - Number(b.at)), mine: m => m.c === C,
       // to: a character id in the party for a whisper (only you and that character's player see it)
       send: (t, to) => { t = String(t || '').trim().slice(0, 1000); if (!t || !unChat) return Promise.reject(new Error('Not in the chat')); if (OWNER !== EMAIL) return Promise.reject(new Error('Only this character’s player can send messages from it.')); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {}
-        const base = { at: Date.now(), by: EMAIL, c: C, n: String(nm || 'Someone').slice(0, 120), t };
+        // the chat shows people as themselves: their name and account picture go with each message
+        const av = avaOf(ME), pp = String(av.pic || ''), base = { at: Date.now(), by: EMAIL, c: C, n: String(nm || 'Someone').slice(0, 120), t, pn: String(NAME || '').slice(0, 60), pp: pp.length <= 60000 ? pp : '', pc: String(av.color || '').slice(0, 20) };
         if (!to) return PCOL.doc(chatPid).collection('chat').add(base);
         const card = PTY_CARDS[to] || {}, live = PTY_LIVE[to] || {}, toEm = card.owner || live.owner || '';
         if (!toEm) return Promise.reject(new Error('Couldn’t find that character’s player.'));
-        return PCOL.doc(chatPid).collection('whisper').add(Object.assign(base, { to, toEm, toN: String(card.name || live.name || 'them').slice(0, 120) })); } },
+        return PCOL.doc(chatPid).collection('whisper').add(Object.assign(base, { to, toEm, toN: String(card.player || card.name || live.name || 'them').slice(0, 120) })); } },
     on: () => !!PTY, self: C, email: EMAIL, owner: () => OWNER, canAct: () => role() !== 'view',
     info: () => PTY ? { loading: !!PTY.loading, id: PTY.id, name: PTY.name || 'Party', dm: PTY.dm, dmName: PTY.dmName || PTY.dm, mgrs: PTY.mgrs || [], pic: /^(data:image\/|https:\/\/)/.test(String(PTY.pic || '')) ? PTY.pic : '', mgr: PTY.dm === EMAIL || (PTY.mgrs || []).includes(EMAIL), url: URLS.party(PTY.id, PTY.name) } : null,
     members: () => PTY ? (PTY.chars || []).filter(id => id !== C).map(id => { const c = PTY_CARDS[id] || {}, l = PTY_LIVE[id]; return Object.assign({ id, name: 'A character' }, !l ? c : Number(l.at) >= Number(c.at || 0) ? Object.assign({}, c, l) : Object.assign({}, l, c)); }) : [],

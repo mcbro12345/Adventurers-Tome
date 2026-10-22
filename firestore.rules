@@ -189,7 +189,7 @@ service cloud.firestore {
       function chatter() { let d = partyOf(p); return signedIn() && me() in d.people && me() != d.dm && !(me() in d.get('mgrs', [])); }
       match /chat/{m} {
         allow read: if chatter();
-        allow create: if chatter() && request.resource.data.keys().hasOnly(['at', 'by', 'c', 'n', 't'])
+        allow create: if chatter() && request.resource.data.keys().hasOnly(['at', 'by', 'c', 'n', 't', 'pn', 'pp', 'pc']) && request.resource.data.get('pp', '').size() <= 60000 && request.resource.data.get('pn', '').size() <= 60
           && request.resource.data.by == me() && request.resource.data.t is string && request.resource.data.t.size() > 0 && request.resource.data.t.size() <= 1000
           && request.resource.data.n is string && request.resource.data.n.size() <= 120 && request.resource.data.c in partyOf(p).chars && ownsSheet(request.resource.data.c)
           && request.resource.data.at is number;
@@ -198,7 +198,7 @@ service cloud.firestore {
       // Whispers (/whisper or /w, and /r to reply): one player's character to another's. Only the two of them can read it.
       match /whisper/{m} {
         allow read: if signedIn() && (resource.data.by == me() || resource.data.toEm == me());
-        allow create: if chatter() && request.resource.data.keys().hasOnly(['at', 'by', 'c', 'n', 't', 'to', 'toEm', 'toN'])
+        allow create: if chatter() && request.resource.data.keys().hasOnly(['at', 'by', 'c', 'n', 't', 'to', 'toEm', 'toN', 'pn', 'pp', 'pc']) && request.resource.data.get('pp', '').size() <= 60000 && request.resource.data.get('pn', '').size() <= 60
           && request.resource.data.by == me() && request.resource.data.t is string && request.resource.data.t.size() > 0 && request.resource.data.t.size() <= 1000
           && request.resource.data.n is string && request.resource.data.n.size() <= 120 && request.resource.data.toN is string && request.resource.data.toN.size() <= 120
           && request.resource.data.c in partyOf(p).chars && ownsSheet(request.resource.data.c)

@@ -7924,11 +7924,13 @@ function renderParty() {
   const aurasP = auras.length ? `<div class="panel ptyauras"><h2>Your auras</h2>${r20AuraOn() ? `<p class="hint r20aura-st">${esc(R20A.status || 'Watching your Roll20 tokens…')}</p>` : ''}<p class="hint">Tick who’s close enough to get it. They keep it until you untick them, or you drop to 0 HP.</p>${auras.map(a => { const on = (S.ptyAuras || {})[a.name] || [];
       return `<div class="ptya"><b>${esc(a.name)}</b><span class="hint">${esc(ptyFormula(a.def.label || '') || a.def.text || '')}</span><div class="ptya-who">${ms.map(m => `<label class="checkline"><input type="checkbox" data-aura="${esc(a.name)}" data-id="${esc(m.id)}"${on.includes(m.id) ? ' checked' : ''}> ${esc(m.name)}</label>`).join('')}</div></div>`; }).join('')}</div>` : '';
   const logP = `<div class="panel ptylogp"><h2>Party log</h2>${(S.ptyLog || []).length ? `<div class="ptylog">${S.ptyLog.slice(0, 30).map(l => `<div class="ptyl ${esc(l.dir)}"><span class="ptyl-d" aria-label="${l.dir === 'in' ? 'Received' : 'Sent'}">${l.dir === 'in' ? '↓' : '↑'}</span><span class="ptyl-t">${esc(l.text)}<small>${l.dir === 'in' ? 'from ' : 'to '}${esc(l.who)} · ${esc(ptyAgo(l.at))}</small></span></div>`).join('')}</div>` : '<p class="hint" style="margin:0">What you send and receive shows up here.</p>'}</div>`;
-  const ch = PTYX().chat, chatP = ch && ch.on() ? `<div class="panel ptychat"><h2>Party chat</h2><p class="hint ptychat-h">Just the players: your DM can’t see this, and messages disappear after 12 hours.</p><div class="ptychat-l" id="ptychat-l">${ptyChatList()}</div>
-    <form class="ptychat-f" id="ptychat-f"><input class="f" id="ptychat-in" maxlength="1000" placeholder="Message the party…" autocomplete="off" aria-label="Message the party"><button class="btn gold">Send</button></form></div>` : '';
-  pg.innerHTML = `<div class="ptytab">${head}${cards}${chatP}<div class="ptyfoot${aurasP ? '' : ' one'}">${aurasP}${logP}</div></div>`;
-  const cf = $('#ptychat-f'); if (cf) cf.onsubmit = e => { e.preventDefault(); const i = $('#ptychat-in'), t = i.value.trim(); if (!t) return; i.value = ''; PTYX().chat.send(t).catch(x => { i.value = t; toast('Couldn’t send: ' + esc(x.message || x), 'fumble'); }); };
-  const cl = $('#ptychat-l'); if (cl) cl.scrollTop = cl.scrollHeight;
+  const ch = PTYX().chat, chatP = ch && ch.on() ? `<div class="panel ptychat"><h2>Party chat</h2><p class="hint ptychat-h">Just the players: your DM can’t see this, and messages disappear after 12 hours.</p>${ch.canSend() ? '<div class="ptychat-cmds"><code>/w name message</code><span>whisper to a player</span><code>/r message</code><span>reply to the last whisper</span></div>' : ''}<div class="ptychat-lw"><div class="ptychat-l" id="ptychat-l">${ptyChatList()}</div><button type="button" class="ptychat-jump" id="ptychat-jump" hidden>Jump to present <span aria-hidden="true">↓</span></button></div>
+    ${ch.canSend() ? `<form class="ptychat-f" id="ptychat-f"><div class="ptychat-ac" id="ptychat-ac" hidden></div><input class="f" id="ptychat-in" maxlength="1000" placeholder="Message the party…" autocomplete="off" aria-label="Message the party"><button class="btn gold">Send</button></form>` : `<p class="hint ptychat-ro">Only ${esc(S.player || 'this character’s player')} can send messages from this sheet.</p>`}</div>`
+    : !P.loading ? `<div class="panel ptychat ptychat-off"><h2>Party chat</h2><div class="ptychat-lock"><span aria-hidden="true">🔒</span><p>${PTYX().owner() !== PTYX().email ? `Only ${esc(S.player || 'this character’s player')} can see and send this character’s party chat.` : 'Party chat is just for the players — as the DM, you can’t see it.'}</p></div></div>` : '';
+  // Party chat sits to the right of everything else (below it on a phone).
+  pg.innerHTML = `<div class="ptytab">${head}<div class="ptymain${chatP ? ' haschat' : ''}"><div class="ptyleft">${cards}<div class="ptyfoot${aurasP ? '' : ' one'}">${aurasP}${logP}</div></div>${chatP}</div></div>`;
+  const cf = $('#ptychat-f'); if (cf) { cf.onsubmit = e => { e.preventDefault(); ptyChatSubmit(); }; ptyChatWireAC(); }
+  const cl = $('#ptychat-l'); if (cl) { cl.scrollTop = cl.scrollHeight; cl.onscroll = ptyChatJumpShow; const j = $('#ptychat-jump'); if (j) j.onclick = ptyChatBottom; }
 }
 document.addEventListener('change', e => { const t = e.target; if (!t.dataset || t.dataset.aura == null) return; ptyAura(t.dataset.aura, t.dataset.id, t.checked); });
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-pa]'); if (!b || e.target.closest('#wizard')) return; e.preventDefault();
@@ -7946,7 +7948,7 @@ function ptyClick(k, id, b) {
     case 'ability': return ptyAbilityMenu(ids);
     case 'help': return ptyUseAbility(ptyAbilities().find(a => a.name === 'Help'), ids);
     case 'stab': return ptyUseAbility(ptyAbilities().find(a => a.name === 'Stabilize'), ids);
-    case 'note': return ptyNote(ids);
+    case 'note': { const ch = PTYX() && PTYX().chat; if (ch && ch.on() && ch.canSend() && ids.length === 1) { const m = ptyMembers().find(x => x.id === ids[0]); if (m) return ptyChatFill('/whisper ' + ptyWName(m) + ' '); } return ptyNote(ids); }
     case 'pk': return ptyPickDone(b);
     case 'amt': return ptyAmountGo(b.dataset.k);
     case 'giveit': return ptyGiveGo(N(b.dataset.i), b.dataset.mode);
@@ -8548,10 +8550,81 @@ function ptyMsgShow(who, text) { if (who != null) PTY_MSGQ.push({ who, text, at:
 
 
 // ----- party chat (players only; the DM can't see it) -----
+// ----- Party chat: pictures, whispers and commands -----
+// /whisper or /w <name> <message>: only you and that character's player see it. /r <message>: answer
+// the last whisper you got (or the last person who wrote). After /whisper or /w, the party's names are suggested.
+const PTY_WCMDS = ['whisper', 'w'], PTY_RCMDS = ['r'];
+const PTY_CMD_LIST = [['/whisper', 'name message', 'Whisper to a player'], ['/w', 'name message', 'Same as /whisper'], ['/r', 'message', 'Reply to the last whisper (or the last message)']];
+// People show as themselves (their account name and picture); older messages without those fall back to the character.
+function ptyChatWho(m) { const x = ptyMembers().find(y => y.id === m.c) || {}, okc = /^#[0-9a-f]{3,8}$/i.test(m.pc || '') ? m.pc : '';
+  if (m.pn) return { name: m.pn, thumb: /^(data:image\/|https:\/\/)/.test(m.pp || '') ? m.pp : '', acc: okc, bg: okc };
+  return { name: m.n || x.player || x.name || 'Someone', thumb: x.thumb || '', acc: x.acc || '' }; }
+function ptyChatAva(w) { const ini = String(w.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join('');
+  const st = /^#[0-9a-f]{3,8}$/i.test(w.acc || '') ? ` style="border-color:${w.acc}${w.bg && !w.thumb ? ';background:' + w.bg + ';color:#fff' : ''}"` : ''; return `<span class="ptyc-ava"${st}>${w.thumb ? `<img src="${esc(w.thumb)}" alt="">` : esc(ini)}</span>`; }
 function ptyChatList() { const ch = PTYX() && PTYX().chat; const L = ch ? ch.list().slice(-80) : [];
   if (!L.length) return '<p class="hint" style="margin:0">No messages yet.</p>';
-  return L.map(m => `<div class="ptyc${ch.mine(m) ? ' me' : ''}"><span class="ptyc-n">${esc(ch.mine(m) ? 'You' : m.n || 'Someone')}<small>${new Date(m.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</small></span><span class="ptyc-t">${esc(m.t)}</span></div>`).join(''); }
-window.onPartyChatList = () => { const l = $('#ptychat-l'); if (!l) { if (UI.tab === 'party') render('party'); return; } const end = l.scrollHeight - l.scrollTop - l.clientHeight < 40; l.innerHTML = ptyChatList(); if (end) l.scrollTop = l.scrollHeight; };
+  let prev = null;
+  return L.map(m => { const me = ch.mine(m), w = ptyChatWho(m), same = prev && prev.c === m.c && !!prev.w === !!m.w && prev.to === m.to && m.at - prev.at < 5 * 60e3; prev = m;
+    const tag = m.w ? `<em class="ptyc-wh">${me ? 'whisper to ' + esc(m.toN || 'them') : 'whispers to you'}</em>` : '';
+    return `<div class="ptyc${me ? ' me' : ''}${m.w ? ' wh' : ''}${same ? ' cont' : ''}">${same ? '<span class="ptyc-ava sp"></span>' : ptyChatAva(w)}<div class="ptyc-b">${same ? '' : `<span class="ptyc-n">${esc(w.name)}${tag}<small>${new Date(m.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</small></span>`}<span class="ptyc-t">${esc(m.t)}</span></div></div>`; }).join(''); }
+// Who a name at the start of the text means: the longest party character name it starts with (or a first name).
+// Who a name at the start of the text means: a party player's name (or their character's), longest match first, then a first name.
+// Two players with the same name (or one player with two characters) are told apart as "Name (Character)": the list fills
+// that in, and a plain name that fits more than one asks you to pick.
+const ptyWName = m => { const p = String(m.player || '').trim(), dup = p && ptyMembers().filter(x => String(x.player || '').trim().toLowerCase() === p.toLowerCase()).length > 1; return p ? (dup ? `${p} (${m.name})` : p) : String(m.name || ''); };
+function ptyChatTarget(rest) { const low = rest.toLowerCase(), names = [];
+  ptyMembers().forEach(m => [ptyWName(m), m.player, m.name].forEach(n => { n = String(n || '').trim(); if (n) names.push([n.toLowerCase(), m]); }));
+  names.sort((a, b) => b[0].length - a[0].length);
+  const pick = n => { const hits = [...new Set(names.filter(x => x[0] === n).map(x => x[1]))]; return hits.length > 1 ? 'dup' : hits[0]; };
+  for (const [n] of names) if (low === n || low.startsWith(n + ' ')) { const m = pick(n); return [m, rest.slice(n.length).trim()]; }
+  for (const [n] of names) { const f = n.split(/\s+/)[0]; if (f && (low === f || low.startsWith(f + ' '))) { const hits = [...new Set(names.filter(x => x[0].split(/\s+/)[0] === f).map(x => x[1]))]; return [hits.length > 1 ? 'dup' : hits[0], rest.slice(f.length).trim()]; } }
+  return [null, rest]; }
+function ptyChatLastFrom() { const ch = PTYX().chat, L = ch.list(); for (let k = L.length - 1; k >= 0; k--) if (L[k].w && L[k].to === PTYX().self && L[k].c !== PTYX().self) return L[k];
+  for (let k = L.length - 1; k >= 0; k--) if (!ch.mine(L[k])) return L[k]; return null; }
+function ptyChatSubmit() {
+  const i = $('#ptychat-in'); let t = i.value.trim(); if (!t) return; let to = '';
+  const m = /^\/(\w+)\s*([\s\S]*)$/.exec(t);
+  if (m) { const cmd = m[1].toLowerCase();
+    if (PTY_WCMDS.includes(cmd)) { const [who, msg] = ptyChatTarget(m[2]); if (who === 'dup') { toast('More than one player goes by that name — pick them from the list (it adds their character’s name).', 'fumble'); i.value = '/' + cmd + ' '; i.focus(); ptyChatAC(); return; } if (!who) { toast('Who to? Type a party character’s name after /' + cmd + '.', 'fumble'); return; } if (!msg) { toast('Type your message after the name.', 'fumble'); return; } to = who.id; t = msg; }
+    else if (PTY_RCMDS.includes(cmd)) { const last = ptyChatLastFrom(); if (!last) { toast('No one to reply to yet.', 'fumble'); return; } if (!m[2].trim()) { toast('Type your reply after /' + cmd + '.', 'fumble'); return; } to = last.c; t = m[2].trim(); }
+    else { toast(`Unknown command /${esc(cmd)}. Try /whisper (or /w) and /r.`, 'fumble'); return; } }
+  const keep = i.value; i.value = ''; ptyChatAC(); ptyChatBottom(); PTY_STICK = Date.now();
+  // after a whisper, keep the box ready for the next one to the same person
+  if (to) { const w = ptyMembers().find(x => x.id === to); if (w && m && PTY_WCMDS.includes(m[1].toLowerCase())) i.value = '/' + m[1].toLowerCase() + ' ' + ptyWName(w) + ' '; }
+  PTYX().chat.send(t, to).catch(x => { i.value = keep; toast('Couldn’t send: ' + esc(x.message || x), 'fumble'); });
+}
+function ptyChatFill(v) { UI.tab = 'party'; if (typeof saveUI === 'function') saveUI(); if (!$('#ptychat-in')) render('party'); setTimeout(() => { const i = $('#ptychat-in'); if (!i) return; i.value = v; i.focus(); i.setSelectionRange(v.length, v.length); i.scrollIntoView({ block: 'center', behavior: 'smooth' }); ptyChatAC(); }, 60); }
+// Autocomplete under the box: commands after "/", then names after a whisper command.
+let PTY_AC = { items: [], k: 0 };
+function ptyChatAC() {
+  const i = $('#ptychat-in'), box = $('#ptychat-ac'); if (!i || !box) return; const v = i.value; let items = [];
+  const m1 = /^\/(\w*)$/.exec(v), m2 = /^\/(\w+)\s+([^]*)$/.exec(v);
+  void m1; if (m2 && PTY_WCMDS.includes(m2[1].toLowerCase()) && (!ptyChatTarget(m2[2])[0] || ptyChatTarget(m2[2])[0] === 'dup')) { const q = m2[2].toLowerCase(); const hit = n => { n = String(n || '').toLowerCase(); return n.startsWith(q) || n.split(/\s+/).some(w => w.startsWith(q)); };
+    items = ptyMembers().filter(x => hit(x.player) || hit(x.name)).map(x => { const nm = x.player || x.name; return { fill: '/' + m2[1].toLowerCase() + ' ' + ptyWName(x) + ' ', html: `${ptyChatAva({ name: nm, thumb: x.thumb, acc: x.acc })}<b>${esc(nm)}</b>${x.player ? `<small>${esc(x.name)}</small>` : ''}` }; }); }
+  PTY_AC = { items, k: 0 };
+  if (!items.length) { box.hidden = true; box.innerHTML = ''; return; }
+  box.innerHTML = items.map((x, k) => `<button type="button" class="ac-i${k === 0 ? ' on' : ''}" data-k="${k}">${x.html}</button>`).join(''); box.hidden = false;
+}
+function ptyChatACPick(k) { const x = PTY_AC.items[k], i = $('#ptychat-in'); if (!x || !i) return; i.value = x.fill; i.focus(); ptyChatAC(); }
+function ptyChatWireAC() {
+  const i = $('#ptychat-in'), box = $('#ptychat-ac'); if (!i || !box) return;
+  i.addEventListener('input', ptyChatAC);
+  i.addEventListener('keydown', e => { if (box.hidden || !PTY_AC.items.length) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); PTY_AC.k = (PTY_AC.k + (e.key === 'ArrowDown' ? 1 : -1) + PTY_AC.items.length) % PTY_AC.items.length; box.querySelectorAll('.ac-i').forEach((b, k) => b.classList.toggle('on', k === PTY_AC.k)); }
+    else if (e.key === 'Tab' || (e.key === 'Enter' && PTY_AC.items[PTY_AC.k] && PTY_AC.items[PTY_AC.k].fill.trim() !== i.value.trim())) { e.preventDefault(); ptyChatACPick(PTY_AC.k); }
+    else if (e.key === 'Escape') { box.hidden = true; } });
+  box.addEventListener('mousedown', e => { const b = e.target.closest('.ac-i'); if (!b) return; e.preventDefault(); ptyChatACPick(N(b.dataset.k)); });
+  i.addEventListener('blur', () => setTimeout(() => { box.hidden = true; }, 120));
+}
+// Scrolled up in the chat: a "Jump to present" bar (like Discord's) brings you back to the newest messages; sending one
+// always does.
+let PTY_STICK = 0;
+const ptyChatAway = l => l.scrollHeight - l.scrollTop - l.clientHeight > 60;
+function ptyChatBottom() { const l = $('#ptychat-l'); if (!l) return; l.scrollTo({ top: l.scrollHeight, behavior: 'smooth' }); const j = $('#ptychat-jump'); if (j) { j.hidden = true; j.classList.remove('new'); } }
+function ptyChatJumpShow() { const l = $('#ptychat-l'), j = $('#ptychat-jump'); if (!l || !j) return; const away = ptyChatAway(l); j.hidden = !away; if (!away) j.classList.remove('new'); }
+window.onPartyChatList = () => { const l = $('#ptychat-l'); if (!l) { if (UI.tab === 'party') render('party'); return; } const end = !ptyChatAway(l), n0 = l.children.length; l.innerHTML = ptyChatList();
+  if (end || Date.now() - PTY_STICK < 4000) { PTY_STICK = 0; l.scrollTop = l.scrollHeight; ptyChatJumpShow(); }
+  else { const j = $('#ptychat-jump'); if (j && l.children.length > n0) { j.hidden = false; j.classList.add('new'); j.firstChild.textContent = 'New messages — jump to present '; } } };
 // New party chat messages: a note in the corner (unless the chat is on screen) and a count on the Party tab until it's opened.
 let PTY_UNREAD = 0;
 function ptyUnreadMark() { const t = document.querySelector('.tab[data-tab="party"]'); if (!t) return; if (UI.tab === 'party' && !document.hidden) PTY_UNREAD = 0; t.classList.toggle('unread', PTY_UNREAD > 0); if (PTY_UNREAD > 0) t.dataset.unread = PTY_UNREAD > 9 ? '9+' : PTY_UNREAD; else delete t.dataset.unread; }
@@ -8561,12 +8634,12 @@ window.onPartyChat = m => { const here = UI.tab === 'party' && !document.hidden 
 // message in a bubble, and a box to answer straight from there. Stays while you're hovering or typing; up to 3 stack.
 function ptyChatPop(m) {
   let box = $('#pcpop'); if (!box) { box = document.createElement('div'); box.id = 'pcpop'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); }
-  const who = (window.PG_PARTY && window.PG_PARTY.members ? window.PG_PARTY.members() : []).find(x => x.id === m.c) || {}, nm = m.n || who.name || 'Someone';
-  const acc = /^#[0-9a-f]{6}$/i.test(who.acc || '') ? who.acc : '', ini = String(nm).split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+  const pw = ptyChatWho(m), who = { thumb: pw.thumb, acc: pw.acc }, nm = pw.name;
+  const acc = /^#[0-9a-f]{3,8}$/i.test(who.acc || '') ? who.acc : '', ini = String(nm).split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
   const el = document.createElement('div'); el.className = 'pcp'; if (acc) el.style.setProperty('--pc', acc);
-  el.innerHTML = `<div class="pcp-top"><span class="pcp-ava">${who.thumb ? `<img src="${esc(who.thumb)}" alt="">` : esc(ini)}</span><span class="pcp-who"><b>${esc(nm)}</b><small>💬 Party chat · just now</small></span><button class="pcp-x" aria-label="Dismiss">✕</button></div>
+  el.innerHTML = `<div class="pcp-top"><span class="pcp-ava">${who.thumb ? `<img src="${esc(who.thumb)}" alt="">` : esc(ini)}</span><span class="pcp-who"><b>${esc(nm)}</b><small>${m.w ? '🤫 Whispered to you' : '💬 Party chat'} · just now</small></span><button class="pcp-x" aria-label="Dismiss">✕</button></div>
     <div class="pcp-msg">${esc(String(m.t || '').slice(0, 400))}</div>
-    <form class="pcp-rep"><input placeholder="Reply to the party…" maxlength="1000" aria-label="Reply"><button aria-label="Send">➤</button></form>`;
+    <form class="pcp-rep"><input placeholder="${m.w ? 'Whisper back…' : 'Reply to the party…'}" maxlength="1000" aria-label="Reply"><button aria-label="Send">➤</button></form>`;
   box.prepend(el); while (box.children.length > 3) box.lastChild.remove();
   requestAnimationFrame(() => el.classList.add('in'));
   let t = null; const gone = () => { el.classList.remove('in'); el.classList.add('out'); setTimeout(() => el.remove(), 260); };
@@ -8574,7 +8647,7 @@ function ptyChatPop(m) {
   el.querySelector('.pcp-x').onclick = gone;
   el.querySelector('.pcp-msg').onclick = () => { gone(); UI.tab = 'party'; if (typeof saveUI === 'function') saveUI(); render(); setTimeout(() => { const i = $('#ptychat-in'); if (i) i.focus(); }, 80); };
   el.querySelector('form').onsubmit = e => { e.preventDefault(); const i = el.querySelector('input'), v = i.value.trim(); if (!v) return; i.disabled = true;
-    window.PG_PARTY.chat.send(v).then(() => { el.querySelector('.pcp-rep').outerHTML = '<div class="pcp-sent">✓ Sent</div>'; setTimeout(gone, 1200); }, x => { i.disabled = false; toast(esc((x && x.message) || 'Couldn’t send it.'), 'fumble'); }); };
+    window.PG_PARTY.chat.send(v, m.w ? m.c : '').then(() => { el.querySelector('.pcp-rep').outerHTML = '<div class="pcp-sent">✓ Sent</div>'; setTimeout(gone, 1200); }, x => { i.disabled = false; toast(esc((x && x.message) || 'Couldn’t send it.'), 'fumble'); }); };
 }
 
 
