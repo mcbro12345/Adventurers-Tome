@@ -13,7 +13,7 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.daa1d788d4e5.css">
+<link rel="stylesheet" href="a/sheet.913234fc495c.css">
 <link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:type" content="website"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="Adventurer’s Tome"><meta property="og:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:url" content="https://adventurers-tome.web.app/"><meta property="og:image" content="https://adventurers-tome.web.app/og-roll.gif?v=3"><meta property="og:image:type" content="image/gif"><meta property="og:image:width" content="800"><meta property="og:image:height" content="420"><meta property="og:image:alt" content="Adventurer’s Tome — a gold d20 rolling a natural 20"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-roll.gif?v=3"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest"><script>try{var t=localStorage.getItem("pg-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-pgtheme",t)}catch(e){}</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
@@ -2465,7 +2465,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261021204224', ASSETS = {"data": "a/data.48cfdb40bbe4.js", "app": "a/app.bdd10c5a140d.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.b50d13202781.html"}; window.PG_ASSETS = ASSETS;
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261021204457', ASSETS = {"data": "a/data.48cfdb40bbe4.js", "app": "a/app.97f9ca97c4f9.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.733aeca13a84.html"}; window.PG_ASSETS = ASSETS;
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -2971,7 +2971,7 @@ function wireDie(root) {
       PTY_Q.push({ kind: d.kind, data, from: d.from || '', fromName: d.fromName || '', by: d.by || '', at: d.at || Date.now(), p: d.p, ref: d.ref || ch.doc.id }); ptyDeliver(); }), () => { inboxOn = false; }); }
   // ----- the players' chat (the DM can't see it; never logged; cleared after 12 hours) -----
   const CHAT_TTL = 12 * 3600e3; let CHAT = [], unChat = null, chatPid = '', chatFirst = true;
-  const chatOK = pd => role() !== 'view' && (pd.people || []).includes(EMAIL) && pd.dm !== EMAIL && !(pd.mgrs || []).includes(EMAIL);
+  const chatOK = pd => OWNER === EMAIL && (pd.people || []).includes(EMAIL) && pd.dm !== EMAIL && !(pd.mgrs || []).includes(EMAIL);
   function chatStop() { if (unChat) unChat(); unChat = null; chatPid = ''; CHAT = []; }
   function chatStart(pid, pd) { if (!chatOK(pd)) { if (chatPid) { chatStop(); ptyChanged(); } return; } if (chatPid === pid) return; chatStop(); chatPid = pid; chatFirst = true;
     const cc = PCOL.doc(pid).collection('chat'), cut = Date.now() - CHAT_TTL;

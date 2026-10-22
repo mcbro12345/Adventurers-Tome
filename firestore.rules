@@ -184,14 +184,14 @@ service cloud.firestore {
         allow write: if signedIn() && c in partyOf(p).chars && canEditSheet(c) && request.resource.data.keys().hasOnly(['v', 'at', 'n']) && request.resource.data.v is number;
         allow delete: if signedIn() && partyMgr(partyOf(p));
       }
-      // The players' own chat: the DM (and co-DMs) can't read it. Nothing about it is logged, and messages are cleared
+      // The players' own chat: the DM (and co-DMs) can't read it, and only a character's owner can post as it. Nothing about it is logged, and messages are cleared
       // after 12 hours by whichever player's sheet notices them first.
       function chatter() { let d = partyOf(p); return signedIn() && me() in d.people && me() != d.dm && !(me() in d.get('mgrs', [])); }
       match /chat/{m} {
         allow read: if chatter();
         allow create: if chatter() && request.resource.data.keys().hasOnly(['at', 'by', 'c', 'n', 't'])
           && request.resource.data.by == me() && request.resource.data.t is string && request.resource.data.t.size() > 0 && request.resource.data.t.size() <= 1000
-          && request.resource.data.n is string && request.resource.data.n.size() <= 120 && request.resource.data.c in partyOf(p).chars && canEditSheet(request.resource.data.c)
+          && request.resource.data.n is string && request.resource.data.n.size() <= 120 && request.resource.data.c in partyOf(p).chars && ownsSheet(request.resource.data.c)
           && request.resource.data.at is number;
         allow delete: if chatter() && (resource.data.by == me() || resource.data.at < request.time.toMillis() - 43200000);
       }

@@ -3087,3 +3087,8 @@ html.mobile #pcpop { top: calc(10px + env(safe-area-inset-top)); bottom: auto; r
 html.mobile .pcp { transform: translateY(-20px); }
 html.mobile .pcp.in { transform: none; }
 html.mobile .pcp-rep input { font-size: 16px; }
+.ptychat-lw { position: relative; }
+.ptychat-jump { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 2; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line2); background: var(--panel); color: var(--ink); font-weight: 700; font-size: .78rem; cursor: pointer; box-shadow: 0 6px 16px rgba(0,0,0,.3); white-space: nowrap; }
+.ptychat-jump:hover { border-color: var(--gold); }
+.ptychat-jump.new { background: var(--gold); color: var(--gold-ink); border-color: var(--gold); }
+.ptychat-jump[hidden] { display: none; }

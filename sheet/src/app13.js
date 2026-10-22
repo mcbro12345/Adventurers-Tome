@@ -94,11 +94,11 @@ function renderParty() {
   const aurasP = auras.length ? `<div class="panel ptyauras"><h2>Your auras</h2>${r20AuraOn() ? `<p class="hint r20aura-st">${esc(R20A.status || 'Watching your Roll20 tokens…')}</p>` : ''}<p class="hint">Tick who’s close enough to get it. They keep it until you untick them, or you drop to 0 HP.</p>${auras.map(a => { const on = (S.ptyAuras || {})[a.name] || [];
       return `<div class="ptya"><b>${esc(a.name)}</b><span class="hint">${esc(ptyFormula(a.def.label || '') || a.def.text || '')}</span><div class="ptya-who">${ms.map(m => `<label class="checkline"><input type="checkbox" data-aura="${esc(a.name)}" data-id="${esc(m.id)}"${on.includes(m.id) ? ' checked' : ''}> ${esc(m.name)}</label>`).join('')}</div></div>`; }).join('')}</div>` : '';
   const logP = `<div class="panel ptylogp"><h2>Party log</h2>${(S.ptyLog || []).length ? `<div class="ptylog">${S.ptyLog.slice(0, 30).map(l => `<div class="ptyl ${esc(l.dir)}"><span class="ptyl-d" aria-label="${l.dir === 'in' ? 'Received' : 'Sent'}">${l.dir === 'in' ? '↓' : '↑'}</span><span class="ptyl-t">${esc(l.text)}<small>${l.dir === 'in' ? 'from ' : 'to '}${esc(l.who)} · ${esc(ptyAgo(l.at))}</small></span></div>`).join('')}</div>` : '<p class="hint" style="margin:0">What you send and receive shows up here.</p>'}</div>`;
-  const ch = PTYX().chat, chatP = ch && ch.on() ? `<div class="panel ptychat"><h2>Party chat</h2><p class="hint ptychat-h">Just the players: your DM can’t see this, and messages disappear after 12 hours.</p><div class="ptychat-l" id="ptychat-l">${ptyChatList()}</div>
+  const ch = PTYX().chat, chatP = ch && ch.on() ? `<div class="panel ptychat"><h2>Party chat</h2><p class="hint ptychat-h">Just the players: your DM can’t see this, and messages disappear after 12 hours.</p><div class="ptychat-lw"><div class="ptychat-l" id="ptychat-l">${ptyChatList()}</div><button type="button" class="ptychat-jump" id="ptychat-jump" hidden>Jump to present <span aria-hidden="true">↓</span></button></div>
     <form class="ptychat-f" id="ptychat-f"><input class="f" id="ptychat-in" maxlength="1000" placeholder="Message the party…" autocomplete="off" aria-label="Message the party"><button class="btn gold">Send</button></form></div>` : '';
   pg.innerHTML = `<div class="ptytab">${head}${cards}${chatP}<div class="ptyfoot${aurasP ? '' : ' one'}">${aurasP}${logP}</div></div>`;
-  const cf = $('#ptychat-f'); if (cf) cf.onsubmit = e => { e.preventDefault(); const i = $('#ptychat-in'), t = i.value.trim(); if (!t) return; i.value = ''; PTYX().chat.send(t).catch(x => { i.value = t; toast('Couldn’t send: ' + esc(x.message || x), 'fumble'); }); };
-  const cl = $('#ptychat-l'); if (cl) cl.scrollTop = cl.scrollHeight;
+  const cf = $('#ptychat-f'); if (cf) cf.onsubmit = e => { e.preventDefault(); const i = $('#ptychat-in'), t = i.value.trim(); if (!t) return; i.value = ''; ptyChatBottom(); PTY_STICK = Date.now(); PTYX().chat.send(t).catch(x => { i.value = t; toast('Couldn’t send: ' + esc(x.message || x), 'fumble'); }); };
+  const cl = $('#ptychat-l'); if (cl) { cl.scrollTop = cl.scrollHeight; cl.onscroll = ptyChatJumpShow; const j = $('#ptychat-jump'); if (j) j.onclick = ptyChatBottom; }
 }
 document.addEventListener('change', e => { const t = e.target; if (!t.dataset || t.dataset.aura == null) return; ptyAura(t.dataset.aura, t.dataset.id, t.checked); });
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-pa]'); if (!b || e.target.closest('#wizard')) return; e.preventDefault();
@@ -721,7 +721,15 @@ function ptyMsgShow(who, text) { if (who != null) PTY_MSGQ.push({ who, text, at:
 function ptyChatList() { const ch = PTYX() && PTYX().chat; const L = ch ? ch.list().slice(-80) : [];
   if (!L.length) return '<p class="hint" style="margin:0">No messages yet.</p>';
   return L.map(m => `<div class="ptyc${ch.mine(m) ? ' me' : ''}"><span class="ptyc-n">${esc(ch.mine(m) ? 'You' : m.n || 'Someone')}<small>${new Date(m.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</small></span><span class="ptyc-t">${esc(m.t)}</span></div>`).join(''); }
-window.onPartyChatList = () => { const l = $('#ptychat-l'); if (!l) { if (UI.tab === 'party') render('party'); return; } const end = l.scrollHeight - l.scrollTop - l.clientHeight < 40; l.innerHTML = ptyChatList(); if (end) l.scrollTop = l.scrollHeight; };
+// Scrolled up in the chat: a "Jump to present" bar (like Discord's) brings you back to the newest messages; sending one
+// always does.
+let PTY_STICK = 0;
+const ptyChatAway = l => l.scrollHeight - l.scrollTop - l.clientHeight > 60;
+function ptyChatBottom() { const l = $('#ptychat-l'); if (!l) return; l.scrollTo({ top: l.scrollHeight, behavior: 'smooth' }); const j = $('#ptychat-jump'); if (j) { j.hidden = true; j.classList.remove('new'); } }
+function ptyChatJumpShow() { const l = $('#ptychat-l'), j = $('#ptychat-jump'); if (!l || !j) return; const away = ptyChatAway(l); j.hidden = !away; if (!away) j.classList.remove('new'); }
+window.onPartyChatList = () => { const l = $('#ptychat-l'); if (!l) { if (UI.tab === 'party') render('party'); return; } const end = !ptyChatAway(l), n0 = l.children.length; l.innerHTML = ptyChatList();
+  if (end || Date.now() - PTY_STICK < 4000) { PTY_STICK = 0; l.scrollTop = l.scrollHeight; ptyChatJumpShow(); }
+  else { const j = $('#ptychat-jump'); if (j && l.children.length > n0) { j.hidden = false; j.classList.add('new'); j.firstChild.textContent = 'New messages — jump to present '; } } };
 // New party chat messages: a note in the corner (unless the chat is on screen) and a count on the Party tab until it's opened.
 let PTY_UNREAD = 0;
 function ptyUnreadMark() { const t = document.querySelector('.tab[data-tab="party"]'); if (!t) return; if (UI.tab === 'party' && !document.hidden) PTY_UNREAD = 0; t.classList.toggle('unread', PTY_UNREAD > 0); if (PTY_UNREAD > 0) t.dataset.unread = PTY_UNREAD > 9 ? '9+' : PTY_UNREAD; else delete t.dataset.unread; }

@@ -885,7 +885,7 @@ function wireDie(root) {
       PTY_Q.push({ kind: d.kind, data, from: d.from || '', fromName: d.fromName || '', by: d.by || '', at: d.at || Date.now(), p: d.p, ref: d.ref || ch.doc.id }); ptyDeliver(); }), () => { inboxOn = false; }); }
   // ----- the players' chat (the DM can't see it; never logged; cleared after 12 hours) -----
   const CHAT_TTL = 12 * 3600e3; let CHAT = [], unChat = null, chatPid = '', chatFirst = true;
-  const chatOK = pd => role() !== 'view' && (pd.people || []).includes(EMAIL) && pd.dm !== EMAIL && !(pd.mgrs || []).includes(EMAIL);
+  const chatOK = pd => OWNER === EMAIL && (pd.people || []).includes(EMAIL) && pd.dm !== EMAIL && !(pd.mgrs || []).includes(EMAIL);
   function chatStop() { if (unChat) unChat(); unChat = null; chatPid = ''; CHAT = []; }
   function chatStart(pid, pd) { if (!chatOK(pd)) { if (chatPid) { chatStop(); ptyChanged(); } return; } if (chatPid === pid) return; chatStop(); chatPid = pid; chatFirst = true;
     const cc = PCOL.doc(pid).collection('chat'), cut = Date.now() - CHAT_TTL;
