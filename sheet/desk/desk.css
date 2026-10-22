@@ -93,7 +93,7 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 .dk-chip { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 2px 9px; font-size: .74rem; font-weight: 700; background: var(--card2); border: 1px solid var(--line); white-space: nowrap; line-height: 1.5; }
 .dk-chip svg { width: 11px; height: 11px; }
 .dk-chip em { font-style: normal; background: rgba(127,127,127,.18); border-radius: 999px; padding: 0 5px; font-size: .68rem; }
-.dk-chip.cond { background: var(--blue-soft); border-color: transparent; color: var(--blue); }
+.dk-chip.cond { background: var(--red-soft); border-color: var(--red); color: var(--red); }
 .dk-chip.conc { background: var(--purple-soft); border-color: transparent; color: var(--purple); }
 .dk-chip.dead { background: var(--red-soft); border-color: transparent; color: var(--red); }
 .dk-chip.to { background: var(--gold-soft); border-color: transparent; color: var(--gold-ink); }
@@ -1066,3 +1066,55 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 .dk-ccq { display: grid; grid-template-columns: minmax(0, 1fr) 44px 44px; gap: 6px; align-items: center; }
 .dk-hpi.sm { height: 40px; }
 .dk-hpi.sm svg:not(.dk-partyslot svg) { width: 19px; height: 19px; }
+/* conditions panel, same look as the character sheet */
+.dk-condhd { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.dk-condhd .dk-lbl { margin: 0; }
+.dk .dk-addc { border: 1px solid var(--line); background: var(--card2); color: var(--ink); font: inherit; font-size: .74rem; font-weight: 700; border-radius: 999px; padding: 3px 10px; cursor: pointer; }
+.dk .dk-addc:hover { border-color: var(--gold); }
+.dk-condchips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; min-height: 24px; }
+.dk-cchip { font-size: .76rem; font-weight: 700; background: var(--red-soft); color: var(--red); border: 1px solid var(--red); border-radius: 999px; padding: 1px 3px 1px 9px; display: inline-flex; gap: 3px; align-items: center; line-height: 1.4; }
+.dk-cchip .ccn { display: inline-flex; align-items: center; gap: 4px; }
+.dk-cchip .ccn svg { width: 12px; height: 12px; }
+.dk-cchip.exh { background: var(--card2); color: var(--ink); border-color: var(--line); }
+.dk-cchip.conc { background: var(--gold-soft); color: var(--gold-ink); border-color: var(--gold); }
+.dk-cchip .cturns { font-size: .68rem; opacity: .8; }
+.dk .dk-cchip button { border: 0; background: transparent; color: inherit; width: 20px; height: 20px; border-radius: 50%; font-size: .8rem; padding: 0; display: inline-grid; place-items: center; cursor: pointer; min-height: 0; }
+.dk .dk-cchip button.dk-ctip { width: 16px; height: 16px; font-size: .78rem; opacity: .8; }
+.dk .dk-cchip button:hover { background: rgba(0,0,0,.08); opacity: 1; }
+.dk-cmcount { font-size: .78rem; font-weight: 700; border-radius: 999px; padding: 2px 10px; background: var(--red-soft); color: var(--red); border: 1px solid var(--red); }
+.dk-condwin .dk-sethead { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.dk-condwin .dk-sethead h2 { margin: 0; }
+.dk-cm-lbl { font-size: .68rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--soft); margin: 12px 0 6px; }
+.dk-cchips2 { display: flex; flex-wrap: wrap; gap: 6px; }
+.dk .dk-cchip2 { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px 6px 8px; border-radius: 999px; border: 1px solid var(--line); background: var(--card2); color: var(--ink); font: inherit; font-size: .82rem; font-weight: 700; cursor: pointer; transition: background .15s, border-color .15s; }
+.dk-cchip2 .ci { width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center; font-size: .72rem; background: var(--card); border: 1px solid var(--line); }
+.dk .dk-cchip2:hover { border-color: var(--gold); }
+.dk .dk-cchip2.on { background: var(--gold); border-color: var(--gold); color: #fff; }
+.dk-cchip2.on .ci { background: rgba(255,255,255,.22); border-color: transparent; }
+.dk-cdur { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 8px; }
+.dk-cdur-i { display: inline-flex; align-items: center; gap: 8px; }
+.dk-cdur-l { font-weight: 700; font-size: .84rem; }
+.dk-mstep { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--card2); }
+.dk .dk-mstep button { width: 28px; height: 28px; border: 0; background: none; font: inherit; font-size: .95rem; font-weight: 800; color: var(--ink); cursor: pointer; padding: 0; min-height: 0; }
+.dk .dk-mstep button:hover:not(:disabled) { background: var(--gold-soft); }
+.dk .dk-mstep button:disabled { opacity: .3; cursor: default; }
+.dk-mstep b { min-width: 6.6em; text-align: center; font-size: .7rem; font-weight: 700; }
+.dk-condwin .dk-addcond { margin-top: 10px; }
+.dk-adjrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 6px 0; }
+.dk-adj-l { font-weight: 700; font-size: .84rem; min-width: 7.5em; }
+.dk-adjrow .dk-row { flex: 1 1 200px; display: flex; gap: 6px; }
+.dk-adjrow .dk-row .dk-f { flex: 1; min-width: 0; }
+.dk-exhpills { display: flex; gap: 4px; flex-wrap: wrap; }
+.dk .dk-exhp { width: 32px; height: 32px; padding: 0; border-radius: 9px; border: 1px solid var(--line); background: var(--card2); color: var(--ink); font: inherit; font-weight: 800; cursor: pointer; min-height: 0; }
+.dk .dk-exhp.on { background: var(--red); border-color: var(--red); color: #fff; }
+.dk .dk-exhp.on:first-child { background: var(--green); border-color: var(--green); }
+.dk-exhp.dead { border-style: dashed !important; }
+.dk-mcard.dk-condwin { max-width: 560px; }
+@media (max-width: 700px) {
+  .dk-condwin .dk-cchips2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .dk-condwin .dk-cchip2 { width: 100%; min-width: 0; justify-content: flex-start; gap: 10px; padding: 11px 12px; border-radius: 14px; font-size: .92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dk-condwin .dk-exhpills { flex: 1 1 100%; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+  .dk-condwin .dk-exhp { width: 100%; height: 40px; }
+  .dk .dk-cchip button { width: 26px; height: 26px; }
+}
+@media (max-width: 700px) { .dk-condwin .dk-adj-l { flex: 1 1 100%; } }
