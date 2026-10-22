@@ -2821,7 +2821,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022115151', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.1838f1a5d0f0.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.ae0a4bbb17c1.html", "desk": "a/desk.dce508a2d4b3.js", "deskcss": "a/deskcss.13ce9cabbef1.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022115847', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.1838f1a5d0f0.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.ae0a4bbb17c1.html", "desk": "a/desk.eea74271785f.js", "deskcss": "a/deskcss.680defe4fba9.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -3174,6 +3174,7 @@ function wireDie(root) {
     if (pid) { try { const d = await fs.collection('parties').doc(pid).get(); if (d.exists) party = { id: pid, name: d.data().name || 'Party' }; } catch (e) {} }
     try { window.pgDesk.mount(root, { fs, EMAIL, party, back: party ? { href: URLS.party(pid, party.name), label: party.name } : { href: URLS.hub(G), label: 'Adventurer’s Tome' },
       makeNpc: party ? () => { try { sessionStorage.setItem('pg-join', JSON.stringify({ p: pid, t: '', name: party.name, at: Date.now(), npc: true })); } catch (e) {} pgGo(URLS.newChar(G)); } : null }); } catch (e) { console.error(e); return fail(); }
+    if (!TOUCH && !FRAMED) sheetScrollbar(); // the slim gold scrollbar, like every other page (the browser's own one shifted everything when it came and went)
     pgLog('desk_open', party ? { target: pid, tName: party.name } : {});
     requestAnimationFrame(() => { if (load) fadeLoad(load); else document.documentElement.classList.remove('pg-loading'); }); verCheck(); return; }
   if (G && !C && !NEWQ) { lsSet(LAST_G, G); if (ADMINQ && !IS_ADMIN && PRETTY) history.replaceState(null, '', '/');

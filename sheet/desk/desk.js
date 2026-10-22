@@ -826,7 +826,7 @@ function econMini(x) { const t = turnOf(x), left = Math.max(0, moveMax(x) - N(t.
 function render() {
   if (!ROOT) return;
   ROOT.querySelector('.dk-top').innerHTML = topHTML();
-  paint(); paintDice();
+  paint(); paintDice(); try { pills(); } catch (e) {}
 }
 function topHTML() {
   const b = CTX.back, p = CTX.party;
@@ -860,6 +860,7 @@ function paint0(pg) {
   if (fid) { const el = document.getElementById(fid); if (el && el !== document.activeElement) { el.focus({ preventScroll: true }); if (sel) try { el.setSelectionRange(sel[0], sel[1]); } catch (e) {} } }
   if (Math.abs(scrollY - y) > 2) scrollTo(scrollX, y);
   ROOT.classList.toggle('dk-tree-open', !!UI.tree);
+  try { pills(); animView(pg); } catch (e) {}
 }
 function flashHP(iid, k) { requestAnimationFrame(() => $$(`[data-hpflash="${iid}"]`).forEach(el => { el.classList.remove('hurt', 'heal'); void el.offsetWidth; el.classList.add(k); })); }
 
@@ -1030,6 +1031,40 @@ function paintLog() {
   const box = $('.dk-loglist'); if (!box) return;
   box.innerHTML = LOG.length ? LOG.map(e => e.note ? `<div class="dk-lg note">${esc(e.note)}</div>` : `<div class="dk-lg ${e.cls || ''}"><div><b>${esc(e.who ? e.who + ' · ' : '')}</b>${esc(e.label)} ${e.src === 'roll20' ? '<span class="dk-tag20">Roll20</span>' : ''}</div><div class="dk-lt">${esc(e.total)}</div><div class="dk-ld">${esc(e.detail || '')} · ${new Date(e.t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div></div>`).join('') : '<p class="dk-hint">Rolls show up here.</p>';
 }
+// ----- Motion: a sliding highlight under the selected tab, and the page gliding in from the side it's coming from -----
+const PILL = {}, TABORD = ['sessions', 'bestiary', 'gen'];
+let LASTV = null;
+const calm = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
+function pills() {
+  $$('.dk-tabs, .dk-seg2').forEach(g => {
+    const key = g.classList.contains('dk-tabs') ? 'tabs' : g.closest('.dk-gen') ? 'gen' : 'sv', on = g.querySelector(':scope > button.on');
+    let p = g.querySelector(':scope > .dk-pill'); const fresh = !p;
+    if (fresh) { p = document.createElement('span'); p.className = 'dk-pill'; p.setAttribute('aria-hidden', 'true'); g.prepend(p); }
+    g.classList.add('dk-pilled');
+    if (!on || !on.offsetWidth) { p.style.opacity = '0'; return; }
+    const r = { x: on.offsetLeft, y: on.offsetTop, w: on.offsetWidth, h: on.offsetHeight }, prev = PILL[key]; PILL[key] = r;
+    const put = q => { p.style.transform = `translate(${q.x}px,${q.y}px)`; p.style.width = q.w + 'px'; p.style.height = q.h + 'px'; };
+    p.style.opacity = '1';
+    if (fresh && prev && !calm() && (prev.x !== r.x || prev.w !== r.w)) { p.style.transition = 'none'; put(prev); void p.offsetWidth; p.style.transition = ''; }
+    else if (fresh) { p.style.transition = 'none'; put(r); void p.offsetWidth; p.style.transition = ''; return; }
+    put(r);
+  });
+}
+const glide = (el, dx, dy, ms) => { if (!el || !el.animate) return; el.animate([{ opacity: 0, transform: `translate(${dx}px,${dy}px)` }, { opacity: 1, transform: 'none' }], { duration: ms || 280, easing: 'cubic-bezier(.2,.8,.2,1)' }); };
+function animView(pg) {
+  const v = { tab: UI.tab, sess: UI.session || '', sel: UI.sel || '', sv: UI.sv || 'creatures', gen: UI.gen || 'enc', best: UI.best || '' }, o = LASTV; LASTV = v;
+  if (!o || calm()) return;
+  if (o.tab !== v.tab) { const d = TABORD.indexOf(v.tab) > TABORD.indexOf(o.tab) ? 1 : -1; [...pg.children].forEach(c => glide(c, 28 * d, 0, 300)); return; }
+  if (v.tab === 'gen' && o.gen !== v.gen) { const d = v.gen === 'npc' ? 1 : -1; $$('.dk-gen > :not(.dk-seg2)').forEach(c => glide(c, 24 * d, 0)); return; }
+  if (v.tab === 'bestiary' && o.best !== v.best) { const m = $('.dk-best > :last-child'); glide(m, 0, 8, 220); return; }
+  if (v.tab === 'sessions') {
+    const main = $('.dk-main');
+    if (o.sess !== v.sess) return glide(main, 0, 10, 260);
+    if (o.sel !== v.sel) return glide(main, v.sel && !o.sel ? 22 : !v.sel && o.sel ? -22 : 0, v.sel && o.sel ? 6 : 0, 260);
+    if (o.sv !== v.sv) { const d = v.sv === 'plan' ? 1 : -1; [...(main ? main.children : [])].filter(c => !c.querySelector('.dk-seg2') && !c.classList.contains('dk-pbar')).forEach(c => glide(c, 24 * d, 0)); }
+  }
+}
+window.addEventListener('resize', () => { clearTimeout(pills.t); pills.t = setTimeout(pills, 120); });
 // ---------- creature editor, paste, settings, backup, quick roll ----------
 let ED = null;
 function openEditor(c, isNew, from) {

@@ -911,6 +911,7 @@ function wireDie(root) {
     if (pid) { try { const d = await fs.collection('parties').doc(pid).get(); if (d.exists) party = { id: pid, name: d.data().name || 'Party' }; } catch (e) {} }
     try { window.pgDesk.mount(root, { fs, EMAIL, party, back: party ? { href: URLS.party(pid, party.name), label: party.name } : { href: URLS.hub(G), label: 'Adventurer’s Tome' },
       makeNpc: party ? () => { try { sessionStorage.setItem('pg-join', JSON.stringify({ p: pid, t: '', name: party.name, at: Date.now(), npc: true })); } catch (e) {} pgGo(URLS.newChar(G)); } : null }); } catch (e) { console.error(e); return fail(); }
+    if (!TOUCH && !FRAMED) sheetScrollbar(); // the slim gold scrollbar, like every other page (the browser's own one shifted everything when it came and went)
     pgLog('desk_open', party ? { target: pid, tName: party.name } : {});
     requestAnimationFrame(() => { if (load) fadeLoad(load); else document.documentElement.classList.remove('pg-loading'); }); verCheck(); return; }
   if (G && !C && !NEWQ) { lsSet(LAST_G, G); if (ADMINQ && !IS_ADMIN && PRETTY) history.replaceState(null, '', '/');

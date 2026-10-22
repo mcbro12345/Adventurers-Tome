@@ -50,7 +50,7 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 .dk-tb svg { width: 17px; height: 17px; }
 .dk-dot { width: 9px; height: 9px; border-radius: 50%; background: #8a95ad; box-shadow: 0 0 0 3px rgba(255,255,255,.06); }
 .dk-dot.ok { background: #5bd08a; } .dk-dot.bad { background: #e5806e; }
-.dk-sync { flex-basis: 100%; order: 9; font-size: .72rem; opacity: .55; text-align: right; margin-top: -6px; height: 0; overflow: visible; pointer-events: none; }
+.dk-sync { flex-basis: 100%; order: 9; font-size: .72rem; opacity: .55; text-align: right; margin-top: -13px; height: 0; line-height: 1; overflow: visible; pointer-events: none; }
 .dk-sync.bad { color: #ffb4a6; opacity: .9; }
 
 /* ---------- generic ---------- */
@@ -567,3 +567,14 @@ button.dk-tile:hover { border-color: var(--gold); }
   .dk-toasts { left: 12px; right: 12px; width: auto; bottom: calc(12px + env(safe-area-inset-bottom)); }
   .dk-sync { display: none; }
 }
+/* ----- motion ----- */
+
+.dk-pilled { position: relative; isolation: isolate; }
+.dk-pilled > button { position: relative; z-index: 1; transition: color .22s ease, background-color .2s ease, transform .12s ease; }
+.dk-pilled > button.on { background: transparent !important; box-shadow: none !important; }
+.dk-pill { position: absolute; left: 0; top: 0; z-index: 0; border-radius: 9px; pointer-events: none; transition: transform .38s cubic-bezier(.3,1.25,.45,1), width .38s cubic-bezier(.3,1.25,.45,1), height .2s ease, opacity .2s; will-change: transform, width; }
+.dk-tabs .dk-pill { background: var(--gold); box-shadow: 0 2px 10px rgba(201,150,43,.4); }
+.dk-seg2 .dk-pill { background: var(--card); box-shadow: 0 1px 5px rgba(0,0,0,.16); }
+.dk :is(.dk-btn, .dk-tb):active:not(:disabled) { transform: scale(.97); }
+.dk-tabs button:active, .dk-seg2 button:active { transform: scale(.95); }
+@media (prefers-reduced-motion: reduce) { .dk-pill { transition: none; } }
