@@ -3055,7 +3055,8 @@ html.mobile .cstrip.three { grid-template-columns: 1fr; }
 .hbb-ct2 > .hint { width: 82px; flex: none; font-size: 11px; }
 /* Vitals kept short: Hit Points' Manage sits in the panel's top-right corner, so no empty strip along the bottom */
 html .tile.hp { padding-bottom: 9px !important; }
-html .tile.hp .tmanage.hpman.hpman-in { position: static !important; margin-left: 8px; vertical-align: 1px; }
+html .tile.hp .tmanage.hpman.hpman-in { position: static !important; margin-left: auto; }
+.tile.hp > .lbl:has(.hpman-in), .tile.hp .lbl:has(> .hpman-in) { display: flex; align-items: center; width: 100%; }
 html.mobile .tile.hp { padding-bottom: 9px !important; }
 .chp2 .chp-side select.ptyqt { width: 100%; height: 28px; padding: 0 8px; font-size: .82rem; border: 1px solid var(--line); background: var(--field); color: var(--ink); border-radius: 8px; margin-bottom: -4px; }
 .ptyh-ic.pic { padding: 0; overflow: hidden; background: none; }
