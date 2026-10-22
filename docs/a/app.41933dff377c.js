@@ -1214,7 +1214,9 @@ document.addEventListener('change', e => { const t = e.target; if (!t || !t.matc
 //            (you get the dice to roll), and a roll the sheet needs for its automation (healing, temp HP, death saves…) asks you for your total.
 //   roll20 — every roll is sent to your Roll20 game's chat through the companion browser extension, and the result comes back into the sheet.
 // The last two work by replaying the action: when a roll is needed, the action is undone, the number is fetched, and the action runs again with it.
-const diceMode = () => ST('diceMode') || 'sheet';
+// A sheet saved as a file (exported) runs on its own: anything that needs the site (the Roll20 extension, the phone relay)
+// is off there, and its rolls simply happen on the sheet.
+const diceMode = () => { const m = ST('diceMode') || 'sheet'; return !window.SHEET_PAGES && (m === 'roll20' || m === 'remote') ? 'sheet' : m; };
 let ROLLQ = null, ROLL_LBL = '';
 const SKIPPED = [];
 function NeedRoll(req) { this.req = req; }
@@ -1936,7 +1938,7 @@ function atkDmgRows(a) {
 // ---------- Rolling on the sheet, shown in Roll20 too (Settings → Dice) ----------
 // The sheet rolls as usual; the result (not a new roll) is posted to your Roll20 game's chat through the extension.
 function postSheetRoll(t) {
-  if (diceMode() !== 'sheet' || !ST('sheetToR20') || !R20.ok) return;
+  if (diceMode() !== 'sheet' || !ST('sheetToR20') || !R20.ok || !window.SHEET_PAGES) return;
   const q = s => t.querySelector(s), txt = el => (el ? el.textContent.replace(/\s+/g, ' ').trim() : '');
   const total = txt(q('b.total')), name = txt(q('.rc-name')) || txt(q('b.total + div > div')) || 'Roll', lbl = txt(q('.rc-lbl'));
   const dmg = q('.rc-dmg') && !q('.rc-dmg.void') ? txt(q('.rc-dmg > b')) : '', dtype = q('.rc-dmg') ? txt(q('.rc-dmg > span')).replace(/^\d+\s*/, '') : '';
@@ -5065,12 +5067,12 @@ function openSettings(tab) {
       ${booksHTML()}
 `)}
     ${pane('dice', `
-      <div class="dicemodes">${[['sheet', 'The sheet rolls', 'Every roll happens here, fully automated.'], ['manual', 'I use my own rolls', 'Shows the dice to roll; asks for your total only when automation needs it (healing, temp HP, death saves…). Everything else is still tracked.'], ['roll20', 'Roll20 rolls for me', 'Rolls post to your Roll20 game’s chat and the results come back here (needs the companion extension).']].concat(isMobile() || diceMode() === 'remote' ? [['remote', 'Roll in Roll20 from my phone', 'Roll here and it posts in Roll20 through this character open on your computer (with “Roll20 rolls for me” on there). Play from anywhere in the house.']] : []).map(([v, t, d]) => `<label class="dmode${diceMode() === v ? ' on' : ''}"><input type="radio" name="dicemode" data-set="diceMode" value="${v}"${diceMode() === v ? ' checked' : ''}><span><b>${t}</b>${diceMode() === v ? `<small>${d}</small>` : ''}${v === 'sheet' && diceMode() === v && !isMobile() ? `<span class="dsub"><input type="checkbox" data-set="sheetToR20"${ST('sheetToR20') ? ' checked' : ''} aria-label="Also show my rolls in Roll20"><span>Also show my rolls in Roll20<small>Each result is posted to your Roll20 game’s chat too (needs the extension and your game open).</small></span></span>` : ''}</span></label>`).join('')}</div>
-      ${diceMode() === 'roll20' || (diceMode() === 'sheet' && ST('sheetToR20') && !isMobile()) ? '<div id="r20status" class="r20box"></div>' : ''}
+      <div class="dicemodes">${[['sheet', 'The sheet rolls', 'Every roll happens here, fully automated.'], ['manual', 'I use my own rolls', 'Shows the dice to roll; asks for your total only when automation needs it (healing, temp HP, death saves…). Everything else is still tracked.'], ['roll20', 'Roll20 rolls for me', 'Rolls post to your Roll20 game’s chat and the results come back here (needs the companion extension).']].filter(([v]) => v !== 'roll20' || window.SHEET_PAGES).concat(window.SHEET_PAGES && (isMobile() || diceMode() === 'remote') ? [['remote', 'Roll in Roll20 from my phone', 'Roll here and it posts in Roll20 through this character open on your computer (with “Roll20 rolls for me” on there). Play from anywhere in the house.']] : []).map(([v, t, d]) => `<label class="dmode${diceMode() === v ? ' on' : ''}"><input type="radio" name="dicemode" data-set="diceMode" value="${v}"${diceMode() === v ? ' checked' : ''}><span><b>${t}</b>${diceMode() === v ? `<small>${d}</small>` : ''}${v === 'sheet' && diceMode() === v && !isMobile() && window.SHEET_PAGES ? `<span class="dsub"><input type="checkbox" data-set="sheetToR20"${ST('sheetToR20') ? ' checked' : ''} aria-label="Also show my rolls in Roll20"><span>Also show my rolls in Roll20<small>Each result is posted to your Roll20 game’s chat too (needs the extension and your game open).</small></span></span>` : ''}</span></label>`).join('')}</div>
+      ${window.SHEET_PAGES && (diceMode() === 'roll20' || (diceMode() === 'sheet' && ST('sheetToR20') && !isMobile())) ? '<div id="r20status" class="r20box"></div>' : ''}
       ${diceMode() === 'remote' ? '<div id="relaystatus" class="r20box"><span class="rs-ic">…</span><div class="rs-t"><span>Checking for your computer…</span></div></div>' : ''}
       <button class="r20macros" data-act="macros" title="Copy Roll20 macros for everything rollable" aria-label="Roll20 macros"><img src="${R20_LOGO}" alt=""></button>
       <p class="hint" style="margin:4px 0 0">Copy macros for every attack, save, skill and spell.</p>
-      ${(() => { const ok = r20AuraOK(), why = !R20.ok ? 'Needs the Roll20 companion extension (and your game open in Roll20).' : !ok ? 'Download the extension again (button above) to get this — your copy is older.' : 'Your auras (like Aura of Protection) go on and off by themselves as party members’ tokens move in and out of range. Each person is still asked first, with how far apart you are. Tokens are matched to characters by name.';
+      ${!window.SHEET_PAGES ? '' : (() => { const ok = r20AuraOK(), why = !R20.ok ? 'Needs the Roll20 companion extension (and your game open in Roll20).' : !ok ? 'Download the extension again (button above) to get this — your copy is older.' : 'Your auras (like Aura of Protection) go on and off by themselves as party members’ tokens move in and out of range. Each person is still asked first, with how far apart you are. Tokens are matched to characters by name.';
         return `<label class="setrow r20aura${ok ? '' : ' dis'}"${ok ? '' : ` title="${esc(why)}"`}><input type="checkbox" data-set="r20auras"${ok && ST('r20auras') ? ' checked' : ''}${ok ? '' : ' disabled'}><span><b>Auras follow Roll20 tokens</b><small>${esc(why)}</small></span></label>`; })()}
     `)}
     ${pane('rules', `
@@ -7901,7 +7903,7 @@ function ptyCardHTML(m) {
       <div class="chp-center"><div class="curline"><b class="ptym-cur">${cur}</b>${N(m.temp) ? `<span class="tmpbadge">+${N(m.temp)}</span>` : ''}</div><div class="hp-max">of ${max}</div></div></div>
       ${act ? `<div class="chp-side"><select class="f ptyqt" id="ptyqt-${esc(id)}" aria-label="Damage type for ${esc(m.name)}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="ptyq-${esc(id)}" inputmode="numeric" placeholder="Amount" aria-label="Amount for ${esc(m.name)}">
         <div class="chp-btns"><button class="btn hpi dmg" data-pa="qdmg" data-id="${esc(id)}" title="Damage ${esc(m.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-pa="qheal" data-id="${esc(id)}" title="Heal ${esc(m.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-pa="qtemp" data-id="${esc(id)}" title="Give ${esc(m.name)} temporary HP" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div>` : ''}</div>` : '';
-  return `<div class="panel comp2 ptym${down ? ' ' + down : ''}" data-mid="${esc(id)}"><div class="comp-h2">${m.thumb ? `<span class="picth"><img src="${esc(m.thumb)}" alt=""></span>` : `<span class="picadd">${esc(String(m.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''))}</span>`}
+  return `<div class="panel comp2 ptym${down ? ' ' + down : ''}" data-mid="${esc(id)}"><div class="comp-h2">${m.thumb ? `<span class="picth"${/^#[0-9a-f]{6}$/i.test(m.acc || '') ? ` style="border-color:${m.acc}"` : ''}><img src="${esc(m.thumb)}" alt=""></span>` : `<span class="picadd">${esc(String(m.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''))}</span>`}
       <div class="grow"><b class="cname${String(m.name || '').length > 26 ? ' n3' : String(m.name || '').length > 17 ? ' n2' : ''}" title="${esc(m.name || '')}">${esc(m.name || 'A character')}</b>${m.player ? `<div class="ptym-pl">${esc(m.player)}</div>` : ''}</div>
 </div>
     <div class="cstat2">${hp}<div class="csts"><span class="cst"><small>AC</small><b>${esc(m.ac || '—')}</b></span>${m.speed ? `<span class="cst"><small>Speed</small><b>${N(m.speed)}</b></span>` : ''}${m.level ? `<span class="cst"><small>Level</small><b>${N(m.level)}</b></span>` : ''}</div></div>
@@ -7922,11 +7924,13 @@ function renderParty() {
   const aurasP = auras.length ? `<div class="panel ptyauras"><h2>Your auras</h2>${r20AuraOn() ? `<p class="hint r20aura-st">${esc(R20A.status || 'Watching your Roll20 tokens…')}</p>` : ''}<p class="hint">Tick who’s close enough to get it. They keep it until you untick them, or you drop to 0 HP.</p>${auras.map(a => { const on = (S.ptyAuras || {})[a.name] || [];
       return `<div class="ptya"><b>${esc(a.name)}</b><span class="hint">${esc(ptyFormula(a.def.label || '') || a.def.text || '')}</span><div class="ptya-who">${ms.map(m => `<label class="checkline"><input type="checkbox" data-aura="${esc(a.name)}" data-id="${esc(m.id)}"${on.includes(m.id) ? ' checked' : ''}> ${esc(m.name)}</label>`).join('')}</div></div>`; }).join('')}</div>` : '';
   const logP = `<div class="panel ptylogp"><h2>Party log</h2>${(S.ptyLog || []).length ? `<div class="ptylog">${S.ptyLog.slice(0, 30).map(l => `<div class="ptyl ${esc(l.dir)}"><span class="ptyl-d" aria-label="${l.dir === 'in' ? 'Received' : 'Sent'}">${l.dir === 'in' ? '↓' : '↑'}</span><span class="ptyl-t">${esc(l.text)}<small>${l.dir === 'in' ? 'from ' : 'to '}${esc(l.who)} · ${esc(ptyAgo(l.at))}</small></span></div>`).join('')}</div>` : '<p class="hint" style="margin:0">What you send and receive shows up here.</p>'}</div>`;
-  const ch = PTYX().chat, chatP = ch && ch.on() ? `<div class="panel ptychat"><h2>Party chat</h2><p class="hint ptychat-h">Just the players: your DM can’t see this, and messages disappear after 12 hours.</p><div class="ptychat-l" id="ptychat-l">${ptyChatList()}</div>
-    <form class="ptychat-f" id="ptychat-f"><input class="f" id="ptychat-in" maxlength="1000" placeholder="Message the party…" autocomplete="off" aria-label="Message the party"><button class="btn gold">Send</button></form></div>` : '';
-  pg.innerHTML = `<div class="ptytab">${head}${cards}${chatP}<div class="ptyfoot${aurasP ? '' : ' one'}">${aurasP}${logP}</div></div>`;
-  const cf = $('#ptychat-f'); if (cf) cf.onsubmit = e => { e.preventDefault(); const i = $('#ptychat-in'), t = i.value.trim(); if (!t) return; i.value = ''; PTYX().chat.send(t).catch(x => { i.value = t; toast('Couldn’t send: ' + esc(x.message || x), 'fumble'); }); };
-  const cl = $('#ptychat-l'); if (cl) cl.scrollTop = cl.scrollHeight;
+  const ch = PTYX().chat, chatP = ch && ch.on() ? `<div class="panel ptychat"><h2>Party chat</h2><p class="hint ptychat-h">Just the players: your DM can’t see this, and messages disappear after 12 hours.</p><div class="ptychat-lw"><div class="ptychat-l" id="ptychat-l">${ptyChatList()}</div><button type="button" class="ptychat-jump" id="ptychat-jump" hidden>Jump to present <span aria-hidden="true">↓</span></button></div>
+    ${ch.canSend() ? `<form class="ptychat-f" id="ptychat-f"><div class="ptychat-ac" id="ptychat-ac" hidden></div><input class="f" id="ptychat-in" maxlength="1000" placeholder="Message the party… (/w name to whisper, /r to reply)" autocomplete="off" aria-label="Message the party"><button class="btn gold">Send</button></form>` : `<p class="hint ptychat-ro">Only ${esc(S.player || 'this character’s player')} can send messages from this sheet.</p>`}</div>`
+    : !P.loading ? `<div class="panel ptychat ptychat-off"><h2>Party chat</h2><div class="ptychat-lock"><span aria-hidden="true">🔒</span><p>${PTYX().owner() !== PTYX().email ? `Only ${esc(S.player || 'this character’s player')} can see and send this character’s party chat.` : 'Party chat is just for the players — as the DM, you can’t see it.'}</p></div></div>` : '';
+  // Party chat sits to the right of everything else (below it on a phone).
+  pg.innerHTML = `<div class="ptytab">${head}<div class="ptymain${chatP ? ' haschat' : ''}"><div class="ptyleft">${cards}<div class="ptyfoot${aurasP ? '' : ' one'}">${aurasP}${logP}</div></div>${chatP}</div></div>`;
+  const cf = $('#ptychat-f'); if (cf) { cf.onsubmit = e => { e.preventDefault(); ptyChatSubmit(); }; ptyChatWireAC(); }
+  const cl = $('#ptychat-l'); if (cl) { cl.scrollTop = cl.scrollHeight; cl.onscroll = ptyChatJumpShow; const j = $('#ptychat-jump'); if (j) j.onclick = ptyChatBottom; }
 }
 document.addEventListener('change', e => { const t = e.target; if (!t.dataset || t.dataset.aura == null) return; ptyAura(t.dataset.aura, t.dataset.id, t.checked); });
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-pa]'); if (!b || e.target.closest('#wizard')) return; e.preventDefault();
@@ -7944,7 +7948,7 @@ function ptyClick(k, id, b) {
     case 'ability': return ptyAbilityMenu(ids);
     case 'help': return ptyUseAbility(ptyAbilities().find(a => a.name === 'Help'), ids);
     case 'stab': return ptyUseAbility(ptyAbilities().find(a => a.name === 'Stabilize'), ids);
-    case 'note': return ptyNote(ids);
+    case 'note': { const ch = PTYX() && PTYX().chat; if (ch && ch.on() && ch.canSend() && ids.length === 1) { const m = ptyMembers().find(x => x.id === ids[0]); if (m) return ptyChatFill('/whisper ' + m.name + ' '); } return ptyNote(ids); }
     case 'pk': return ptyPickDone(b);
     case 'amt': return ptyAmountGo(b.dataset.k);
     case 'giveit': return ptyGiveGo(N(b.dataset.i), b.dataset.mode);
@@ -8546,12 +8550,96 @@ function ptyMsgShow(who, text) { if (who != null) PTY_MSGQ.push({ who, text, at:
 
 
 // ----- party chat (players only; the DM can't see it) -----
+// ----- Party chat: pictures, whispers and commands -----
+// /whisper, /w, /msg, /dm <name> <message>: only you and that character's player see it. /r or /reply <message>: answer
+// the last whisper you got (or the last person who wrote). Typing / shows the commands; after one, the names.
+const PTY_WCMDS = ['whisper', 'w', 'msg', 'dm'], PTY_RCMDS = ['reply', 'r'];
+const PTY_CMD_LIST = [['/whisper', 'name message', 'Message one character privately'], ['/msg', 'name message', 'Same as /whisper'], ['/dm', 'name message', 'Same as /whisper'], ['/reply', 'message', 'Answer the last whisper (or the last message)'], ['/r', 'message', 'Same as /reply']];
+function ptyChatWho(m) { const ch = PTYX().chat; if (ch.mine(m)) return { name: S.name || m.n || 'You', thumb: S.portrait || '', acc: (S.theme || {}).accent || '' };
+  const x = ptyMembers().find(y => y.id === m.c) || {}; return { name: m.n || x.name || 'Someone', thumb: x.thumb || '', acc: x.acc || '' }; }
+function ptyChatAva(w) { const ini = String(w.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join('');
+  const st = /^#[0-9a-f]{6}$/i.test(w.acc || '') ? ` style="border-color:${w.acc}"` : ''; return `<span class="ptyc-ava"${st}>${w.thumb ? `<img src="${esc(w.thumb)}" alt="">` : esc(ini)}</span>`; }
 function ptyChatList() { const ch = PTYX() && PTYX().chat; const L = ch ? ch.list().slice(-80) : [];
   if (!L.length) return '<p class="hint" style="margin:0">No messages yet.</p>';
-  return L.map(m => `<div class="ptyc${ch.mine(m) ? ' me' : ''}"><span class="ptyc-n">${esc(ch.mine(m) ? 'You' : m.n || 'Someone')}<small>${new Date(m.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</small></span><span class="ptyc-t">${esc(m.t)}</span></div>`).join(''); }
-window.onPartyChatList = () => { const l = $('#ptychat-l'); if (!l) { if (UI.tab === 'party') render('party'); return; } const end = l.scrollHeight - l.scrollTop - l.clientHeight < 40; l.innerHTML = ptyChatList(); if (end) l.scrollTop = l.scrollHeight; };
-window.onPartyChat = m => { const here = UI.tab === 'party' && !document.hidden && $('#ptychat-l'); if (here) return;
-  toast(`<div><b>${esc(m.n || 'Someone')}</b> <span class="det" style="display:inline">· party chat</span><div class="det">${esc(String(m.t || '').slice(0, 200))}</div></div>`, '', 7000, { label: 'Reply', fn: () => { UI.tab = 'party'; saveUI && saveUI(); render(); setTimeout(() => { const i = $('#ptychat-in'); if (i) i.focus(); }, 80); } }); };
+  let prev = null;
+  return L.map(m => { const me = ch.mine(m), w = ptyChatWho(m), same = prev && prev.c === m.c && !!prev.w === !!m.w && prev.to === m.to && m.at - prev.at < 5 * 60e3; prev = m;
+    const tag = m.w ? `<em class="ptyc-wh">${me ? 'whisper to ' + esc(m.toN || 'them') : 'whispers to you'}</em>` : '';
+    return `<div class="ptyc${me ? ' me' : ''}${m.w ? ' wh' : ''}${same ? ' cont' : ''}">${same ? '<span class="ptyc-ava sp"></span>' : ptyChatAva(w)}<div class="ptyc-b">${same ? '' : `<span class="ptyc-n">${esc(w.name)}${tag}<small>${new Date(m.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</small></span>`}<span class="ptyc-t">${esc(m.t)}</span></div></div>`; }).join(''); }
+// Who a name at the start of the text means: the longest party character name it starts with (or a first name).
+function ptyChatTarget(rest) { const low = rest.toLowerCase(), ms = ptyMembers().slice().sort((a, b) => String(b.name).length - String(a.name).length);
+  for (const m of ms) { const n = String(m.name || '').toLowerCase(); if (n && (low === n || low.startsWith(n + ' '))) return [m, rest.slice(n.length).trim()]; }
+  for (const m of ms) { const f = String(m.name || '').split(/\s+/)[0].toLowerCase(); if (f && (low === f || low.startsWith(f + ' '))) return [m, rest.slice(f.length).trim()]; }
+  return [null, rest]; }
+function ptyChatLastFrom() { const ch = PTYX().chat, L = ch.list(); for (let k = L.length - 1; k >= 0; k--) if (L[k].w && L[k].to === PTYX().self && L[k].c !== PTYX().self) return L[k];
+  for (let k = L.length - 1; k >= 0; k--) if (!ch.mine(L[k])) return L[k]; return null; }
+function ptyChatSubmit() {
+  const i = $('#ptychat-in'); let t = i.value.trim(); if (!t) return; let to = '';
+  const m = /^\/(\w+)\s*([\s\S]*)$/.exec(t);
+  if (m) { const cmd = m[1].toLowerCase();
+    if (PTY_WCMDS.includes(cmd)) { const [who, msg] = ptyChatTarget(m[2]); if (!who) { toast('Who to? Type a party character’s name after /' + cmd + '.', 'fumble'); return; } if (!msg) { toast('Type your message after the name.', 'fumble'); return; } to = who.id; t = msg; }
+    else if (PTY_RCMDS.includes(cmd)) { const last = ptyChatLastFrom(); if (!last) { toast('No one to reply to yet.', 'fumble'); return; } if (!m[2].trim()) { toast('Type your reply after /' + cmd + '.', 'fumble'); return; } to = last.c; t = m[2].trim(); }
+    else { toast(`Unknown command /${esc(cmd)}. Try /whisper, /msg, /dm or /reply.`, 'fumble'); return; } }
+  const keep = i.value; i.value = ''; ptyChatAC(); ptyChatBottom(); PTY_STICK = Date.now();
+  // after a whisper, keep the box ready for the next one to the same person
+  if (to) { const w = ptyMembers().find(x => x.id === to); if (w && m && PTY_WCMDS.includes(m[1].toLowerCase())) i.value = '/' + m[1].toLowerCase() + ' ' + w.name + ' '; }
+  PTYX().chat.send(t, to).catch(x => { i.value = keep; toast('Couldn’t send: ' + esc(x.message || x), 'fumble'); });
+}
+function ptyChatFill(v) { UI.tab = 'party'; if (typeof saveUI === 'function') saveUI(); if (!$('#ptychat-in')) render('party'); setTimeout(() => { const i = $('#ptychat-in'); if (!i) return; i.value = v; i.focus(); i.setSelectionRange(v.length, v.length); i.scrollIntoView({ block: 'center', behavior: 'smooth' }); ptyChatAC(); }, 60); }
+// Autocomplete under the box: commands after "/", then names after a whisper command.
+let PTY_AC = { items: [], k: 0 };
+function ptyChatAC() {
+  const i = $('#ptychat-in'), box = $('#ptychat-ac'); if (!i || !box) return; const v = i.value; let items = [];
+  const m1 = /^\/(\w*)$/.exec(v), m2 = /^\/(\w+)\s+([^]*)$/.exec(v);
+  if (m1) items = PTY_CMD_LIST.filter(([c]) => c.slice(1).startsWith(m1[1].toLowerCase())).map(([c, a, d]) => ({ fill: c + ' ', html: `<b>${c}</b> <span class="ac-a">${a}</span><small>${d}</small>` }));
+  else if (m2 && PTY_WCMDS.includes(m2[1].toLowerCase()) && !ptyChatTarget(m2[2])[0]) { const q = m2[2].toLowerCase(); items = ptyMembers().filter(x => String(x.name || '').toLowerCase().startsWith(q) || String(x.name || '').toLowerCase().split(/\s+/).some(w => w.startsWith(q))).map(x => ({ fill: '/' + m2[1].toLowerCase() + ' ' + x.name + ' ', html: `${ptyChatAva({ name: x.name, thumb: x.thumb, acc: x.acc })}<b>${esc(x.name)}</b>${x.player ? `<small>${esc(x.player)}</small>` : ''}` })); }
+  PTY_AC = { items, k: 0 };
+  if (!items.length) { box.hidden = true; box.innerHTML = ''; return; }
+  box.innerHTML = items.map((x, k) => `<button type="button" class="ac-i${k === 0 ? ' on' : ''}" data-k="${k}">${x.html}</button>`).join(''); box.hidden = false;
+}
+function ptyChatACPick(k) { const x = PTY_AC.items[k], i = $('#ptychat-in'); if (!x || !i) return; i.value = x.fill; i.focus(); ptyChatAC(); }
+function ptyChatWireAC() {
+  const i = $('#ptychat-in'), box = $('#ptychat-ac'); if (!i || !box) return;
+  i.addEventListener('input', ptyChatAC);
+  i.addEventListener('keydown', e => { if (box.hidden || !PTY_AC.items.length) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); PTY_AC.k = (PTY_AC.k + (e.key === 'ArrowDown' ? 1 : -1) + PTY_AC.items.length) % PTY_AC.items.length; box.querySelectorAll('.ac-i').forEach((b, k) => b.classList.toggle('on', k === PTY_AC.k)); }
+    else if (e.key === 'Tab' || (e.key === 'Enter' && PTY_AC.items[PTY_AC.k] && PTY_AC.items[PTY_AC.k].fill.trim() !== i.value.trim())) { e.preventDefault(); ptyChatACPick(PTY_AC.k); }
+    else if (e.key === 'Escape') { box.hidden = true; } });
+  box.addEventListener('mousedown', e => { const b = e.target.closest('.ac-i'); if (!b) return; e.preventDefault(); ptyChatACPick(N(b.dataset.k)); });
+  i.addEventListener('blur', () => setTimeout(() => { box.hidden = true; }, 120));
+}
+// Scrolled up in the chat: a "Jump to present" bar (like Discord's) brings you back to the newest messages; sending one
+// always does.
+let PTY_STICK = 0;
+const ptyChatAway = l => l.scrollHeight - l.scrollTop - l.clientHeight > 60;
+function ptyChatBottom() { const l = $('#ptychat-l'); if (!l) return; l.scrollTo({ top: l.scrollHeight, behavior: 'smooth' }); const j = $('#ptychat-jump'); if (j) { j.hidden = true; j.classList.remove('new'); } }
+function ptyChatJumpShow() { const l = $('#ptychat-l'), j = $('#ptychat-jump'); if (!l || !j) return; const away = ptyChatAway(l); j.hidden = !away; if (!away) j.classList.remove('new'); }
+window.onPartyChatList = () => { const l = $('#ptychat-l'); if (!l) { if (UI.tab === 'party') render('party'); return; } const end = !ptyChatAway(l), n0 = l.children.length; l.innerHTML = ptyChatList();
+  if (end || Date.now() - PTY_STICK < 4000) { PTY_STICK = 0; l.scrollTop = l.scrollHeight; ptyChatJumpShow(); }
+  else { const j = $('#ptychat-jump'); if (j && l.children.length > n0) { j.hidden = false; j.classList.add('new'); j.firstChild.textContent = 'New messages — jump to present '; } } };
+// New party chat messages: a note in the corner (unless the chat is on screen) and a count on the Party tab until it's opened.
+let PTY_UNREAD = 0;
+function ptyUnreadMark() { const t = document.querySelector('.tab[data-tab="party"]'); if (!t) return; if (UI.tab === 'party' && !document.hidden) PTY_UNREAD = 0; t.classList.toggle('unread', PTY_UNREAD > 0); if (PTY_UNREAD > 0) t.dataset.unread = PTY_UNREAD > 9 ? '9+' : PTY_UNREAD; else delete t.dataset.unread; }
+setInterval(ptyUnreadMark, 1500); document.addEventListener('visibilitychange', ptyUnreadMark);
+window.onPartyChat = m => { const here = UI.tab === 'party' && !document.hidden && $('#ptychat-l'); if (here) return; PTY_UNREAD++; ptyUnreadMark(); ptyChatPop(m); };
+// A party chat message gets its own card in the corner: who sent it (their picture, in their sheet's colour), the
+// message in a bubble, and a box to answer straight from there. Stays while you're hovering or typing; up to 3 stack.
+function ptyChatPop(m) {
+  let box = $('#pcpop'); if (!box) { box = document.createElement('div'); box.id = 'pcpop'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); }
+  const who = (window.PG_PARTY && window.PG_PARTY.members ? window.PG_PARTY.members() : []).find(x => x.id === m.c) || {}, nm = m.n || who.name || 'Someone';
+  const acc = /^#[0-9a-f]{6}$/i.test(who.acc || '') ? who.acc : '', ini = String(nm).split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+  const el = document.createElement('div'); el.className = 'pcp'; if (acc) el.style.setProperty('--pc', acc);
+  el.innerHTML = `<div class="pcp-top"><span class="pcp-ava">${who.thumb ? `<img src="${esc(who.thumb)}" alt="">` : esc(ini)}</span><span class="pcp-who"><b>${esc(nm)}</b><small>${m.w ? '🤫 Whispered to you' : '💬 Party chat'} · just now</small></span><button class="pcp-x" aria-label="Dismiss">✕</button></div>
+    <div class="pcp-msg">${esc(String(m.t || '').slice(0, 400))}</div>
+    <form class="pcp-rep"><input placeholder="${m.w ? 'Whisper back…' : 'Reply to the party…'}" maxlength="1000" aria-label="Reply"><button aria-label="Send">➤</button></form>`;
+  box.prepend(el); while (box.children.length > 3) box.lastChild.remove();
+  requestAnimationFrame(() => el.classList.add('in'));
+  let t = null; const gone = () => { el.classList.remove('in'); el.classList.add('out'); setTimeout(() => el.remove(), 260); };
+  const arm = () => { clearTimeout(t); t = setTimeout(() => { if (!el.matches(':hover') && !el.contains(document.activeElement)) gone(); else arm(); }, 14000); }; arm();
+  el.querySelector('.pcp-x').onclick = gone;
+  el.querySelector('.pcp-msg').onclick = () => { gone(); UI.tab = 'party'; if (typeof saveUI === 'function') saveUI(); render(); setTimeout(() => { const i = $('#ptychat-in'); if (i) i.focus(); }, 80); };
+  el.querySelector('form').onsubmit = e => { e.preventDefault(); const i = el.querySelector('input'), v = i.value.trim(); if (!v) return; i.disabled = true;
+    window.PG_PARTY.chat.send(v, m.w ? m.c : '').then(() => { el.querySelector('.pcp-rep').outerHTML = '<div class="pcp-sent">✓ Sent</div>'; setTimeout(gone, 1200); }, x => { i.disabled = false; toast(esc((x && x.message) || 'Couldn’t send it.'), 'fumble'); }); };
+}
 
 
 // ----- Dice roller: a little window like Roll20's — tap dice to build a roll, add a modifier, roll -----
@@ -10120,7 +10208,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && CL
 // For the GitHub Pages loader (new characters get their link once created).
 window.sheetState = () => S; window.sheetToast = toast;
 window.sheetSet = (k, v) => { S[k] = v; pendingLabel = null; save(); render('header'); };
-window.sheetSummary = () => ({ name: S.name || '', player: S.player || '', race: S.raceName || '', cls: S.created ? classLabel() : '', level: S.created ? lvl() : 0, portrait: S.portrait || '', hp: S.created ? N(S.hp && S.hp.cur) + '/' + maxHp() : '' });
+window.sheetSummary = () => ({ name: S.name || '', player: S.player || '', race: S.raceName || '', cls: S.created ? classLabel() : '', level: S.created ? lvl() : 0, portrait: S.portrait || '', acc: /^#[0-9a-f]{6}$/i.test((S.theme || {}).accent || '') ? S.theme.accent : '', hp: S.created ? N(S.hp && S.hp.cur) + '/' + maxHp() : '' });
 if (S.created) applySources(S.sources);
 // Spells from a Ring of Spell Storing made before stored spells existed: set them up as stored now.
 const staleStore = () => (S.spells || []).some(sp => { const it = sp.item && (S.inventory || []).find(x => x.id === sp.item); return it && itemStores(it) && !sp.usesOnly; });

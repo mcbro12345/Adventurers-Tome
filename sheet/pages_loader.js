@@ -884,21 +884,34 @@ function wireDie(root) {
       if (!d) return; let data = {}; try { data = JSON.parse(d.data || '{}'); } catch (e) {}
       PTY_Q.push({ kind: d.kind, data, from: d.from || '', fromName: d.fromName || '', by: d.by || '', at: d.at || Date.now(), p: d.p, ref: d.ref || ch.doc.id }); ptyDeliver(); }), () => { inboxOn = false; }); }
   // ----- the players' chat (the DM can't see it; never logged; cleared after 12 hours) -----
-  const CHAT_TTL = 12 * 3600e3; let CHAT = [], unChat = null, chatPid = '', chatFirst = true;
+  const CHAT_TTL = 12 * 3600e3; let CHAT = [], unChat = null, chatPid = '', chatFirst = true, WH = {}, unW = [];
+  // only the character's own player sees its party chat (editors and viewers get an empty panel saying so)
   const chatOK = pd => OWNER === EMAIL && (pd.people || []).includes(EMAIL) && pd.dm !== EMAIL && !(pd.mgrs || []).includes(EMAIL);
-  function chatStop() { if (unChat) unChat(); unChat = null; chatPid = ''; CHAT = []; }
+  function chatStop() { if (unChat) unChat(); unChat = null; unW.forEach(u => u()); unW = []; WH = {}; chatPid = ''; CHAT = []; }
   function chatStart(pid, pd) { if (!chatOK(pd)) { if (chatPid) { chatStop(); ptyChanged(); } return; } if (chatPid === pid) return; chatStop(); chatPid = pid; chatFirst = true;
     const cc = PCOL.doc(pid).collection('chat'), cut = Date.now() - CHAT_TTL;
     cc.where('at', '<', cut).limit(100).get().then(qs => qs.docs.forEach(d => d.ref.delete().catch(() => {})), () => {});
     unChat = cc.where('at', '>', cut).orderBy('at').limit(200).onSnapshot(qs => { CHAT = qs.docs.map(d => Object.assign({ id: d.id }, d.data()));
-      if (!chatFirst) qs.docChanges().forEach(ch => { if (ch.type === 'added' && ch.doc.data().c !== C && window.onPartyChat) { try { window.onPartyChat(ch.doc.data()); } catch (e) {} } });
-      chatFirst = false; if (window.onPartyChatList) { try { window.onPartyChatList(); } catch (e) {} } }, e => { CHAT = []; console.warn('party chat unavailable', e && e.code); unChat = null; chatPid = ''; ptyChanged(); }); }
+      if (!chatFirst) qs.docChanges().forEach(ch => { if (ch.type === 'added' && ch.doc.data().c !== C && OWNER === EMAIL && window.onPartyChat) { try { window.onPartyChat(ch.doc.data()); } catch (e) {} } });
+      chatFirst = false; if (window.onPartyChatList) { try { window.onPartyChatList(); } catch (e) {} } }, e => { CHAT = []; console.warn('party chat unavailable', e && e.code); unChat = null; chatPid = ''; ptyChanged(); });
+    // whispers to and from this account (only the two people in one can read it)
+    const wc = PCOL.doc(pid).collection('whisper'), wFirst = {};
+    const wOn = (field, val) => wc.where(field, '==', val).onSnapshot(qs => { const fresh = [], old = Date.now() - CHAT_TTL;
+      qs.docChanges().forEach(ch => { const d = Object.assign({ id: ch.doc.id, w: 1 }, ch.doc.data()); if (ch.type === 'removed') { delete WH[d.id]; return; } if (Number(d.at) < old) { if (d.by === EMAIL || d.toEm === EMAIL) ch.doc.ref.delete().catch(() => {}); return; } if (ch.type === 'added' && !WH[d.id]) fresh.push(d); WH[d.id] = d; });
+      if (wFirst[field]) fresh.forEach(d => { if (d.to === C && d.c !== C && OWNER === EMAIL && window.onPartyChat) { try { window.onPartyChat(d); } catch (e) {} } }); wFirst[field] = true;
+      if (window.onPartyChatList) { try { window.onPartyChatList(); } catch (e) {} } }, () => {});
+    unW = [wOn('toEm', EMAIL), wOn('by', EMAIL)]; }
   window.PG_PARTY = {
     // an initiative roll goes to the DM's turn order (picked up even when it isn't open)
     init: v => { if (!PTY || PTY.loading || PTY.seeded || role() === 'view') return Promise.resolve(); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} return PCOL.doc(PTY.id).collection('init').doc(C).set({ v: Number(v) || 0, at: Date.now(), n: String(nm).slice(0, 120) }).catch(() => {}); },
-    chat: { on: () => !!unChat, list: () => CHAT.filter(m => Number(m.at) > Date.now() - CHAT_TTL), mine: m => m.c === C,
-      send: t => { t = String(t || '').trim().slice(0, 1000); if (!t || !unChat) return Promise.reject(new Error('Not in the chat')); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {}
-        return PCOL.doc(chatPid).collection('chat').add({ at: Date.now(), by: EMAIL, c: C, n: String(nm || 'Someone').slice(0, 120), t }); } },
+    chat: { on: () => !!unChat, canSend: () => OWNER === EMAIL, list: () => CHAT.concat(Object.values(WH).filter(w => w.to === C || w.c === C)).filter(m => Number(m.at) > Date.now() - CHAT_TTL).sort((a, b) => Number(a.at) - Number(b.at)), mine: m => m.c === C,
+      // to: a character id in the party for a whisper (only you and that character's player see it)
+      send: (t, to) => { t = String(t || '').trim().slice(0, 1000); if (!t || !unChat) return Promise.reject(new Error('Not in the chat')); if (OWNER !== EMAIL) return Promise.reject(new Error('Only this character’s player can send messages from it.')); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {}
+        const base = { at: Date.now(), by: EMAIL, c: C, n: String(nm || 'Someone').slice(0, 120), t };
+        if (!to) return PCOL.doc(chatPid).collection('chat').add(base);
+        const card = PTY_CARDS[to] || {}, live = PTY_LIVE[to] || {}, toEm = card.owner || live.owner || '';
+        if (!toEm) return Promise.reject(new Error('Couldn’t find that character’s player.'));
+        return PCOL.doc(chatPid).collection('whisper').add(Object.assign(base, { to, toEm, toN: String(card.name || live.name || 'them').slice(0, 120) })); } },
     on: () => !!PTY, self: C, email: EMAIL, owner: () => OWNER, canAct: () => role() !== 'view',
     info: () => PTY ? { loading: !!PTY.loading, id: PTY.id, name: PTY.name || 'Party', dm: PTY.dm, dmName: PTY.dmName || PTY.dm, mgrs: PTY.mgrs || [], pic: /^(data:image\/|https:\/\/)/.test(String(PTY.pic || '')) ? PTY.pic : '', mgr: PTY.dm === EMAIL || (PTY.mgrs || []).includes(EMAIL), url: URLS.party(PTY.id, PTY.name) } : null,
     members: () => PTY ? (PTY.chars || []).filter(id => id !== C).map(id => { const c = PTY_CARDS[id] || {}, l = PTY_LIVE[id]; return Object.assign({ id, name: 'A character' }, !l ? c : Number(l.at) >= Number(c.at || 0) ? Object.assign({}, c, l) : Object.assign({}, l, c)); }) : [],
