@@ -649,7 +649,7 @@ function riderDo(src, ev) {
 // Shows what an add-on did on its own card (used by the "+ add-on" buttons and by abilities that roll separately).
 function riderCard(src, ev, res, base) {
   const h = src.hb, lbl = [res.dice ? res.dice + (res.type ? ' ' + res.type : '') : '', riderTrigText(h).toLowerCase(), ev.crit && res.dice ? 'crit: dice doubled' : ''].filter(Boolean).join(' · ');
-  toast(`${res.r ? `<b class="total">${res.total}</b>` : ''}<div class="rc-body"><div class="rc-name">${esc(src.name)}</div><div class="rc-lbl">${esc(lbl)}</div>${base != null && res.r ? `<div class="det">With the hit: <b>${base + res.total}</b> total damage</div>` : ''}${res.r ? `<div class="det dd">${esc(res.r.detail)}</div>` : ''}${res.lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, ev.crit ? 'crit' : '', 9000, [{ label: 'Undo', fn: () => undo(1) }]);
+  toast(`${res.r ? `<b class="total">${res.total}</b>` : ''}<div class="rc-body"><div class="rc-name">${esc(src.name)}</div><div class="rc-lbl">${esc(lbl)}</div>${base != null && res.r ? `<div class="rc-rider">With the hit: <b>${base + res.total}</b> damage in all</div>` : ''}${res.r ? `<div class="det dd">${esc(res.r.detail)}</div>` : ''}${res.lines.map(l => `<div class="rc-rider${/ left$/.test(l) ? ' sm' : ''}">${esc(l)}</div>`).join('')}</div>`, ev.crit ? 'crit' : '', 9000, [{ label: 'Undo', fn: () => undo(1) }]);
 }
 function riderUse(src, ev, base) {
   if (typeof base === 'function') base = base();

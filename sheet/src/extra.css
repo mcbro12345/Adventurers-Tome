@@ -3460,3 +3460,5 @@ html.mobile body.wizopen #modal.open, html.mobile body.wizopen #modal.closing { 
 .rider-chips.blk { display: flex; margin: 6px 0 0; }
 .hbb-rider { border: 1px dashed rgba(201,150,43,.55); }
 .opt-info.rider { font-size: .8rem; }
+.toast .rc-rider { display: block; font-size: .82rem; margin-top: 3px; line-height: 1.35; }
+.toast .rc-rider.sm { font-size: .74rem; color: var(--soft); }

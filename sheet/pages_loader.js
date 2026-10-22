@@ -1065,7 +1065,7 @@ function wireDie(root) {
   // The DM opening a player's sheet sees the party too, but only the character's own sheet (its owner, an editor or an
   // admin) keeps its card up to date and picks up what's sent to it.
   const PCOL = fs.collection('parties');
-  let PTY_HB = [], unPtyH = null; let PTY = null, PTY_ID = null, PTY_CARDS = {}, unPty = null, unPtyC = null, PTY_SET = 0, PTY_CK = '', ptyT = null, inboxOn = false;
+  let PTY_HB = [], unPtyH = null, unPtyT = null, PTY_TURN = null; let PTY = null, PTY_ID = null, PTY_CARDS = {}, unPty = null, unPtyC = null, PTY_SET = 0, PTY_CK = '', ptyT = null, inboxOn = false;
   const PTY_Q = [];
   const ptyChanged = () => { if (window.onPartyChange) { try { window.onPartyChange(); } catch (e) { console.warn(e); } } };
   // The party and everyone's cards are kept in this browser too, so a character in a party opens with its Party tab
@@ -1080,7 +1080,7 @@ function wireDie(root) {
   const ptySetLocal = pid => { PARTY = pid || ''; PTY_SET = Date.now(); ptyWatch(PARTY); };
   function ptyWatch(pid) {
     pid = pid || ''; if (pid === PTY_ID) return; PTY_ID = pid;
-    if (unPty) unPty(); if (unPtyC) unPtyC(); if (unPtyH) unPtyH(); unPty = unPtyC = unPtyH = null; PTY_HB = []; chatStop(); PTY = null; PTY_CARDS = {}; PTY_CK = ''; ptyLiveWatch([]);
+    if (unPty) unPty(); if (unPtyC) unPtyC(); if (unPtyH) unPtyH(); if (unPtyT) unPtyT(); unPty = unPtyC = unPtyH = unPtyT = null; PTY_HB = []; PTY_TURN = null; pgTurnPaint(); chatStop(); PTY = null; PTY_CARDS = {}; PTY_CK = ''; ptyLiveWatch([]);
     if (pid) ptySeed(pid); ptyChanged();
     if (!pid) return;
     unPty = PCOL.doc(pid).onSnapshot(d => { const pd = d.exists ? d.data() : null;
@@ -1091,6 +1091,8 @@ function wireDie(root) {
       PTY = Object.assign({ id: pid }, pd); ptyChanged(); ptyKeep(); inboxStart(); ptyCardSoon(); chatStart(pid, pd); chatSweep();
       if (OWNER === EMAIL && pd.dm && pd.dm !== EMAIL && !EDITORS.includes(pd.dm)) col.doc(C).get().then(sd => sd.exists && ptyShareDM(fs, C, pd.dm, sd.data())).then(ok => { if (ok) { if (!VIEWERS.includes(pd.dm)) VIEWERS = VIEWERS.concat([pd.dm]); if (!EDITORS.includes(pd.dm)) EDITORS = EDITORS.concat([pd.dm]); } }, () => {});
       // the party's own homebrew list (items the DM adds, e.g. from the DM's Desk): everyone can add them from Add an item → Homebrew
+      // the DM's turn order, while they have it open: shown here in its own window (players fill in their own initiative)
+      if (!unPtyT) unPtyT = PCOL.doc(pid).collection('turn').doc('now').onSnapshot(d => { PTY_TURN = d.exists ? d.data() : null; pgTurnPaint(); }, () => {});
       if (!unPtyH) unPtyH = PCOL.doc(pid).collection('hb').onSnapshot(qs => { PTY_HB = qs.docs.map(x => { let it = null; try { it = JSON.parse(x.data().item || 'null'); } catch (e) {} return it && it.name ? Object.assign(it, { _pid: x.id }) : null; }).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name)); ptyChanged(); }, () => {});
       if (!unPtyC) unPtyC = PCOL.doc(pid).collection('cards').onSnapshot(qs => { PTY_CARDS = {}; qs.docs.forEach(x => PTY_CARDS[x.id] = x.data()); ptyChanged(); ptyKeep(); }, () => {});
       ptyLiveWatch((pd.chars || []).filter(id => id !== C));
@@ -1140,6 +1142,32 @@ function wireDie(root) {
       if (wFirst[field]) fresh.forEach(d => { if (d.to === C && d.c !== C && OWNER === EMAIL && window.onPartyChat) { try { window.onPartyChat(d); } catch (e) {} } }); wFirst[field] = true;
       if (window.onPartyChatList) { try { window.onPartyChatList(); } catch (e) {} } }, () => {});
     unW = [wOn('toEm', EMAIL), wOn('by', EMAIL)]; }
+  // ----- The party's turn order on a player's sheet: opens when the DM opens theirs, follows every change, and closes
+  // when they close it. Your own character's initiative can be typed in (or comes in when you roll it); only the DM
+  // sorts and moves the turn on. -----
+  let TW_HIDE = '', TW_POS = (() => { try { return JSON.parse(localStorage.getItem('pg-tw-pos') || 'null'); } catch (e) { return null; } })();
+  const twIc = { x: '✕', min: '—' };
+  function pgTurnPaint() {
+    let w = document.getElementById('pgturn'); const t = PTY_TURN, on = !!(t && t.open && PTY && !PTY.loading && Array.isArray(t.rows) && t.rows.length && role() !== 'view' && !(PTY.dm === EMAIL));
+    if (!on || TW_HIDE === String(t && t.openedAt || t && t.by)) { if (w) { w.classList.add('closing'); w.id = ''; setTimeout(() => w.remove(), 200); } if (!on) TW_HIDE = ''; return; }
+    if (!w) { w = document.createElement('div'); w.id = 'pgturn'; w.className = 'towin pgturn'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Turn order');
+      w.innerHTML = `<div class="to-hd"><span class="to-tt">Turn Order</span><button class="to-min" data-tw="min" title="Shrink to the title bar" aria-label="Shrink">${twIc.min}</button><button class="to-c" data-tw="x" title="Hide" aria-label="Hide">${twIc.x}</button></div><div class="to-body"><div class="to-sub"><span class="to-cnt">Count: <b>0</b></span><span class="to-rnd">Round <b>1</b></span></div><ol class="to-list"></ol><p class="pgturn-ft">Your DM runs the turns. Type your initiative, or roll it on your sheet.</p></div>`;
+      document.body.appendChild(w); const vw = innerWidth, W = Math.min(260, vw - 16);
+      if (innerWidth > 640) { w.style.left = Math.max(8, Math.min(vw - W - 8, TW_POS ? TW_POS.x : vw - W - 24)) + 'px'; w.style.top = Math.max(8, Math.min(innerHeight - 120, TW_POS ? TW_POS.y : 110)) + 'px'; }
+      w.addEventListener('click', e => { const b = e.target.closest('[data-tw]'); if (!b) return; if (b.dataset.tw === 'x') { TW_HIDE = String(PTY_TURN && (PTY_TURN.openedAt || PTY_TURN.by)); pgTurnPaint(); } if (b.dataset.tw === 'min') w.classList.toggle('min'); });
+      const hd = w.querySelector('.to-hd'); hd.onpointerdown = e => { if (e.target.closest('button') || innerWidth <= 640) return; e.preventDefault(); const r = w.getBoundingClientRect(), ox = e.clientX - r.left, oy = e.clientY - r.top; hd.setPointerCapture(e.pointerId); w.classList.add('drag');
+        hd.onpointermove = m => { w.style.left = Math.max(0, Math.min(innerWidth - r.width, m.clientX - ox)) + 'px'; w.style.top = Math.max(0, Math.min(innerHeight - 40, m.clientY - oy)) + 'px'; };
+        hd.onpointerup = () => { hd.onpointermove = hd.onpointerup = null; w.classList.remove('drag'); TW_POS = { x: parseFloat(w.style.left), y: parseFloat(w.style.top) }; try { localStorage.setItem('pg-tw-pos', JSON.stringify(TW_POS)); } catch (e) {} }; }; }
+    const ae = document.activeElement; if (ae && ae.classList.contains('pgturn-v') && w.contains(ae)) return; // (not while you're typing)
+    const card = id => { const c = PTY_CARDS[id] || {}, l = PTY_LIVE[id]; return l && Number(l.at) >= Number(c.at || 0) ? Object.assign({}, c, l) : Object.assign({}, l || {}, c); };
+    w.querySelector('.to-list').innerHTML = t.rows.map((r, i) => { const mine = r.k === 'c' && r.id === C, c = r.k === 'c' ? card(r.id) : null, nm = r.k === 'c' ? (c.name || 'A character') : (r.name || 'Someone');
+      const pic = c && c.thumb ? `<img class="to-pic" src="${escH(c.thumb)}" alt=""${accStyle(c)}>` : `<span class="to-pic to-np"${c ? accStyle(c) : ''}>${escH(initials(nm))}</span>`;
+      const v = r.v === '' || r.v == null ? '' : String(r.v);
+      return `<li class="to-row${i === 0 ? ' cur' : ''}${mine ? ' mine' : ''}${r.down ? ' down' : ''}">${pic}<span class="to-who"><span class="to-nm" title="${escH(nm)}">${escH(nm)}${mine ? ' <span class="pgturn-you">You</span>' : ''}</span>${c && (Number(c.maxhp) || c.ac) ? `<span class="to-vit"><span class="to-hp${Number(c.hp) <= 0 ? ' out' : Number(c.hp) / (Number(c.maxhp) || 1) <= .25 ? ' low' : Number(c.hp) / (Number(c.maxhp) || 1) <= .5 ? ' mid' : ''}" title="Hit points">♥ <span>${Math.max(0, Number(c.hp) || 0)}<i>/${Number(c.maxhp) || 0}</i></span></span><span class="to-ac" title="Armor class">⛨ ${escH(String(c.ac || '—'))}</span></span>` : ''}</span>${mine ? `<input class="to-v pgturn-v" inputmode="numeric" placeholder="–" value="${escH(v)}" aria-label="Your initiative">` : `<span class="to-v pgturn-ro">${escH(v || '–')}</span>`}</li>`; }).join('');
+    w.querySelector('.to-cnt b').textContent = t.rows.length; w.querySelector('.to-rnd b').textContent = Number(t.round) || 1;
+    const inp = w.querySelector('.pgturn-v'); if (inp) { inp.onfocus = () => inp.select(); const go = () => { const n = Number(inp.value.trim()); if (inp.value.trim() !== '' && !isNaN(n) && window.PG_PARTY) window.PG_PARTY.init(n); };
+      inp.onchange = go; inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } }; }
+  }
   window.PG_PARTY = {
     // an initiative roll goes to the DM's turn order (picked up even when it isn't open)
     init: v => { if (!PTY || PTY.loading || PTY.seeded || role() === 'view') return Promise.resolve(); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} return PCOL.doc(PTY.id).collection('init').doc(C).set({ v: Number(v) || 0, at: Date.now(), n: String(nm).slice(0, 120) }).catch(() => {}); },
@@ -2998,7 +3026,15 @@ function partyModule(H) {
   let TO = null, unI = null, INIT = {};
   const toLoad = () => { let t = null; try { t = JSON.parse(localStorage.getItem(TKEY()) || 'null'); } catch (e) {} t = t && typeof t === 'object' ? t : {};
     return { rows: Array.isArray(t.rows) ? t.rows : [], round: Number(t.round) || 1, cut: Number(t.cut) || 0, x: t.x, y: t.y, h: t.h, open: !!t.open, min: !!t.min }; };
-  const toSave = () => { if (!TO) return; try { localStorage.setItem(TKEY(), JSON.stringify(TO)); } catch (e) {} };
+  // The players see the same turn order on their sheets while the DM has it open: the DM's copy is mirrored to the party
+  // (names and initiative only — a monster's HP and AC stay with the DM). Players fill in their own initiative.
+  let toSyncT = null, toLastSent = '';
+  const toMirror = () => { clearTimeout(toSyncT); toSyncT = setTimeout(() => { if (!TO || !PID || !P || !canRun(P)) return;
+    const num = v => v === '' || v == null || isNaN(Number(v)) ? '' : Number(v);
+    const rows = TO.rows.slice(0, 60).map(r => r.custom ? { k: 'x', id: String(r.id).slice(0, 40), name: String(r.name || '').slice(0, 60), v: num(r.v), down: !!(Number(r.maxhp) && r.hp !== '' && r.hp != null && Number(r.hp) <= 0) } : { k: 'c', id: String(r.id).slice(0, 40), v: num(r.v) });
+    const body = { open: !!TO.open, round: Number(TO.round) || 1, rows }, key = JSON.stringify(body); if (key === toLastSent) return; toLastSent = key;
+    PC.doc(PID).collection('turn').doc('now').set(Object.assign(body, { at: Date.now(), by: EMAIL })).catch(() => { toLastSent = ''; }); }, 250); };
+  const toSave = () => { if (!TO) return; try { localStorage.setItem(TKEY(), JSON.stringify(TO)); } catch (e) {} toMirror(); };
   // Brings the list in line with the party: new characters added (at the bottom), departed ones dropped; fills rolls.
   function toSync() {
     if (!TO || !P) return false; let ch = false; const ids = P.chars || [];

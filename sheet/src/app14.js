@@ -174,10 +174,10 @@ function hbbFeatBasic() {
   let h = bF('Name', bIn('name', { ph: 'e.g. Stormborn Fury', cls: 'hbb-name', label: 'Feature name' }));
   h += bF('Using it takes', bSeg('col', hbbUseCols('Nothing — it’s passive, or adds to something else'), { wrap: true }), !d.col && !hbbV('hb.on') ? 'It won’t get its own button in Combat. Pick an action type to use it from Combat, or make it add to another ability below (like Divine Smite).' : '');
   if (d.col && !HBB.adv) h += `<div class="hbb-card"><div class="hbb-ct">⚡ When you use it</div>` + bRow(bF('Roll', bIn('hb.roll', { ph: '2d6+wis' }), 'Dice or a formula'), bF('What the roll is', bIn('hb.rollNote', { ph: 'radiant damage' }))) + bRow(bF('Targets make a save', bSel('hb.saveAb', hbbAbOpts, { label: 'Save ability' })), hbbV('hb.saveAb') ? bF('Save DC', bIn('hb.dc', { ph: 'spell, or 8+prof+wis' })) : '') + `<p class="hint">More (healing, temp HP, effects, costs) under <b>Advanced</b>.</p></div>`;
-  h += hbbRiderFields('feat');
   h += `<div class="hbb-card"><div class="hbb-ct">↻ Uses</div>` + bF('How often can you use it?', bSeg('_limited', [['', 'As often as I like'], ['1', 'A limited number of times']]));
-  if (d._limited) h += bRow(bF('Times', bIn('max', { ph: '1, prof, 1+cha…', label: 'How many times' }), 'A number, or a formula like <code>prof</code> or <code>1+wis</code>'), bF('Comes back on', bSeg('reset', [['short', 'Short rest'], ['long', 'Long rest'], ['none', 'Never']])));
+  if (d._limited) h += bRow(bF('Times', bIn('max', { ph: '1, prof, 1+cha…', label: 'How many times' }), 'A number, or a formula like <code>prof</code> or <code>1+wis</code>'), bF('Comes back on', bSeg('reset', [['short', 'Short rest'], ['long', 'Long rest'], ['none', 'Never']], { wrap: true })));
   h += `</div>`;
+  h += hbbRiderFields('feat');
   h += bF('What it does', bTa('desc', { rows: 2, ph: 'Describe it — shown on its card and on the Combat tab' }));
   return h;
 }
