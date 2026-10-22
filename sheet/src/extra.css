@@ -1996,7 +1996,7 @@ html.mobile .advb { font-size: .8rem; padding: 6px 12px; }
 
 .tile.condtile { container-type: inline-size; }
 .advb .as { display: none; }
-@container (max-width: 420px) { .advb .al { display: none; } .advb .as { display: inline; } }
+@container (max-width: 372px) { .advb .al { display: none; } .advb .as { display: inline; } }
 
 .sarow { flex-wrap: nowrap !important; }
 .sadotw .hint { white-space: nowrap; display: inline-block; min-width: 7.2em; }
@@ -3408,3 +3408,6 @@ html:not(.mobile) #sec-header:has(> .ident.noid) .portrait-wrap { transition: no
 .scx-bar i { display: block; height: 100%; width: calc(var(--p, 0) * 100%); background: var(--gold); border-radius: inherit; transition: width .25s ease; }
 .scx-m.full .scx-bar i { background: #3c9d6b; }
 .scx-m.over .scx-bar i { background: var(--red); } .scx-m.over .scx-mr b { color: var(--red); }
+/* Rest buttons: the words' capitals sit on the same centre line as the icon */
+.btn.rest .rl { position: relative; top: 1px; }
+.btn.rest .ri { position: relative; top: 0; }

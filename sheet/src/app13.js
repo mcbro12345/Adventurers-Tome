@@ -334,7 +334,7 @@ function ptyEval(expr, ci, L, label, extra) {
   e = e.replace(/\bM\b/g, String(Math.max(0, N(ci && ci.mod)))).replace(/\bL\b/g, String(N(L)));
   e = fxRollExpr(ptyFormula(e, extra));
   if (/d\d/.test(e)) { const r = rollExpr(e, { need: true, label }); return r.skipped ? null : r.total; }
-  try { const v = Function('"use strict";return (' + e.replace(/[^\d+\-*/(). ]/g, '') + ')')(); return isFinite(v) ? Math.max(0, Math.floor(v)) : null; } catch (x) { return null; }
+  try { const v = safeCalc(e.replace(/[^\d+\-*/(). ]/g, '')); return isFinite(v) ? Math.max(0, Math.floor(v)) : null; } catch (x) { return null; }
 }
 // After a cast: send it to the party members it was cast on.
 let PTY_HITPRE = null, PTY_HIT_ACT = null;

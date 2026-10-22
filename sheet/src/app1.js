@@ -340,6 +340,27 @@ function maxSpellLevelFor(c) {
 }
 
 // ---------- Formulas ----------
+// Small arithmetic evaluator for formulas like "int+floor(artificer/2)" or "tier(level,1,2,5,3)". The site's
+// security policy doesn't allow building functions from text (new Function / eval), so formulas are worked out here.
+function safeCalc(src, F) {
+  F = F || {}; const re = /\s*(\d+(?:\.\d+)?|[A-Za-z_]+|<=|>=|==|!=|&&|\|\||[-+*/%()<>?:,!])/y, t = []; let m; re.lastIndex = 0;
+  const str = String(src); while (re.lastIndex < str.length) { const at = re.lastIndex; m = re.exec(str); if (!m) { if (/^\s*$/.test(str.slice(at))) break; throw Error('bad'); } t.push(m[1]); }
+  let i = 0; const pk = () => t[i], nx = () => t[i++], eat = x => { if (t[i] !== x) throw Error('expected ' + x); i++; };
+  const tern = () => { const c = or(); if (pk() === '?') { nx(); const a = tern(); eat(':'); const b = tern(); return c ? a : b; } return c; };
+  const or = () => { let v = and(); while (pk() === '||') { nx(); const r = and(); v = v || r; } return v; };
+  const and = () => { let v = cmp(); while (pk() === '&&') { nx(); const r = cmp(); v = v && r; } return v; };
+  const cmp = () => { let v = add(); while (['<', '>', '<=', '>=', '==', '!='].includes(pk())) { const o = nx(), r = add(); v = o === '<' ? v < r : o === '>' ? v > r : o === '<=' ? v <= r : o === '>=' ? v >= r : o === '==' ? v == r : v != r; v = v ? 1 : 0; } return v; };
+  const add = () => { let v = mul(); while (pk() === '+' || pk() === '-') { const o = nx(), r = mul(); v = o === '+' ? v + r : v - r; } return v; };
+  const mul = () => { let v = un(); while (pk() === '*' || pk() === '/' || pk() === '%') { const o = nx(), r = un(); v = o === '*' ? v * r : o === '/' ? v / r : v % r; } return v; };
+  const un = () => { if (pk() === '-') { nx(); return -un(); } if (pk() === '+') { nx(); return +un(); } if (pk() === '!') { nx(); return un() ? 0 : 1; } return prim(); };
+  const prim = () => { const k = nx(); if (k == null) throw Error('end');
+    if (k === '(') { const v = tern(); eat(')'); return v; }
+    if (/^\d/.test(k)) return parseFloat(k);
+    if (k === 'NaN') return NaN;
+    if (typeof F[k] === 'function') { eat('('); const a = []; if (pk() !== ')') { a.push(tern()); while (pk() === ',') { nx(); a.push(tern()); } } eat(')'); return F[k](...a); }
+    throw Error('unknown ' + k); };
+  const v = tern(); if (i < t.length) throw Error('extra'); return v;
+}
 function evalMax(expr, extra) {
   const e = String(expr ?? '').trim().toLowerCase();
   if (!e) return null;
@@ -350,7 +371,7 @@ function evalMax(expr, extra) {
   const fns = ['tier', 'max', 'min', 'floor', 'ceil'];
   const src = e.replace(/[a-z]+/g, w => (fns.includes(w) ? w : w in vars ? '(' + vars[w] + ')' : 'NaN'));
   const tier = (x, ...p) => { let v = 0; for (let i = 0; i < p.length; i += 2) if (x >= p[i]) v = p[i + 1]; return v; };
-  try { const v = Function('tier', 'max', 'min', 'floor', 'ceil', '"use strict";return (' + src + ')')(tier, Math.max, Math.min, Math.floor, Math.ceil); return isFinite(v) ? Math.max(0, Math.floor(v)) : null; } catch (x) { return null; }
+  try { const v = safeCalc(src, { tier, max: Math.max, min: Math.min, floor: Math.floor, ceil: Math.ceil }); return isFinite(v) ? Math.max(0, Math.floor(v)) : null; } catch (x) { return null; }
 }
 const featMax = f => evalMax(f.max);
 const resetOf = f => (f.shortAt && clsLv(f.cls || '') >= f.shortAt) ? 'short' : f.reset;

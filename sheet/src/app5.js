@@ -622,7 +622,7 @@ function wzSpellPlan() {
     const m = Math.floor((sc[cd.ab] - 10) / 2);
     const maxL = cd.type === 'pact' ? N(cd.pactLevel[L - 1]) : (FULL[cd.type === 'full' ? L : cd.type === 'third' ? (L >= 3 ? Math.ceil(L / 3) : 0) : Math.ceil(L / 2)] || []).length;
     let lim = null;
-    if (cd.prepared) { const e = String(cd.prepared).replace(/[a-z]+/g, w => AB.includes(w) ? '(' + Math.floor((sc[w] - 10) / 2) + ')' : CL[w] ? '(' + L + ')' : w); try { lim = Math.max(1, Math.floor(Function('floor', '"use strict";return ' + e)(Math.floor))); } catch (x) { lim = 1; } }
+    if (cd.prepared) { const e = String(cd.prepared).replace(/[a-z]+/g, w => AB.includes(w) ? '(' + Math.floor((sc[w] - 10) / 2) + ')' : CL[w] ? '(' + L + ')' : w); try { lim = Math.max(1, Math.floor(safeCalc(e, { floor: Math.floor }))); } catch (x) { lim = 1; } }
     else if (cd.known) lim = N(cd.known[L - 1]);
     const book = cd.book ? 6 + 2 * (L - 1) : 0;
     const exp = s && s.spellMode === 'expanded' && s.spells ? Object.keys(s.spells).filter(lv => L >= N(lv)).flatMap(lv => s.spells[lv]).map(n => n.toLowerCase()) : [];
