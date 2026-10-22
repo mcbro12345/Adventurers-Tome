@@ -40,7 +40,7 @@ function themeBtnHTML() { return `<button class="hub-theme" id="hub-theme" title
 // iMessage and the like. Drawn here when the DM makes or updates a link and kept (public) in invcard/<code>, where the
 // small Cloudflare worker that answers invite links reads it. -----
 async function pgInviteImage(p) {
-  const W = 1200, H = 630, c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+  const W = 1200, H = 630, Z = window.PG_INV_Z || 1, c = document.createElement('canvas'); c.width = W * Z; c.height = H * Z; const g = c.getContext('2d'); g.scale(Z, Z); g.imageSmoothingQuality = 'high';
   const n = (p.chars || []).length || Number(p.n) || 0, dm = p.dmName || p.dm || '';
   const rr = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
   // night sky
@@ -70,8 +70,7 @@ async function pgInviteImage(p) {
   const perks = ['See each other’s HP, AC and conditions, live', 'Hand over items and cast spells on each other', 'Share homebrew items with the whole party', 'Your DM can open every character sheet in the party'];
   g.textAlign = 'left'; g.font = '500 25px system-ui, -apple-system, "Segoe UI", sans-serif'; const px = sx - (Math.max(...perks.map(t => g.measureText(t).width)) + 26) / 2;
   perks.forEach((t, i) => { const y = cy + 430 + i * 40; g.beginPath(); g.arc(px, y - 8, 13, 0, 7); g.fillStyle = 'rgba(201,150,43,.22)'; g.fill(); g.strokeStyle = '#e7c46e'; g.lineWidth = 3; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath(); g.moveTo(px - 6, y - 8); g.lineTo(px - 1.5, y - 3.5); g.lineTo(px + 6.5, y - 13); g.stroke(); g.fillStyle = '#ddd6c6'; g.fillText(t, px + 26, y); });
-  let url = c.toDataURL('image/jpeg', .86); if (url.length > 700000) url = c.toDataURL('image/jpeg', .7);
-  return url;
+  return c.toDataURL('image/png');
 }
 window.pgInviteImage = pgInviteImage;
 // Scroll shadows on pick lists: a soft edge at the top / bottom while there's more to scroll to.
@@ -2711,13 +2710,16 @@ function partyModule(H) {
   const INVUSE = {}; const invUse = code => INVUSE[code] ? Promise.resolve(INVUSE[code]) : IC.doc(code).get().then(d => (INVUSE[code] = d.exists ? { max: Number(d.data().max) || 0, used: Number(d.data().used) || 0 } : { max: 0, used: 0 }), () => ({ max: 0, used: 0 }));
   const invMaxSel = (v) => `<select id="pt-lmax" class="pty-lmax" aria-label="How many players the link is for"><option value="0"${!v ? ' selected' : ''}>any number of players</option>${[1, 2, 3, 4, 5, 6, 7, 8].map(n => `<option value="${n}"${v === n ? ' selected' : ''}>${n} player${n > 1 ? 's' : ''}</option>`).join('')}</select>`;
   // the invite panel as a picture, for the link's preview card (redrawn when the party's name, picture or size changes)
-  const invCardKey = p => [p.name || '', (p.pic || '').length, (p.chars || []).length, p.dmName || ''].join('|');
+  const invCardKey = p => ['png', p.name || '', (p.pic || '').length, (p.chars || []).length, p.dmName || ''].join('|');
   const invCard = async (code, p) => { try { const k = invCardKey(p); let was = null; try { was = localStorage.getItem('pg-invcard:' + code); } catch (e) {} if (was === k) return; const img = await pgInviteImage(p);
-    await fs.collection('invcard').doc(code).set({ p: p.id, name: String(p.name || '').slice(0, 200), dmName: String(p.dmName || p.dm || '').slice(0, 200), n: (p.chars || []).length, img, at: Date.now() }); try { localStorage.setItem('pg-invcard:' + code, k); } catch (e) {} } catch (e) { console.warn('invite card', e); } };
+    // A sharp PNG is bigger than one Firestore document holds, so the rest of it goes in invcard/<code>/part/<i>.
+    const PART = 880000, bits = []; for (let i = 0; i < img.length; i += PART) bits.push(img.slice(i, i + PART)); const D = fs.collection('invcard').doc(code);
+    await D.set({ p: p.id, name: String(p.name || '').slice(0, 200), dmName: String(p.dmName || p.dm || '').slice(0, 200), n: (p.chars || []).length, img: bits[0], k: bits.length, at: Date.now() });
+    for (let i = 1; i < bits.length; i++) await D.collection('part').doc(String(i)).set({ img: bits[i] }); try { localStorage.setItem('pg-invcard:' + code, k); } catch (e) {} } catch (e) { console.warn('invite card', e); } };
   const invSync = p => { if (p && p.inv) { invPut(p.inv, p).catch(() => {}); invCard(p.inv, p); } };
   const invNew = async (p, max) => { const r = Array.from(crypto.getRandomValues(new Uint8Array(5)), b => 'abcdefghjkmnpqrstuvwxyz23456789'[b % 31]).join('');
     const code = (partySlug(p.name) || 'party').slice(0, 40) + '-' + r, old = p.inv; max = Math.max(0, Math.min(50, Math.floor(Number(max) || 0)));
-    await invPut(code, p, { max, used: 0 }); INVUSE[code] = { max, used: 0 }; invCard(code, p); await PC.doc(p.id).update({ inv: code, updatedAt: Date.now() }); if (old) { IC.doc(old).delete().catch(() => {}); fs.collection('invcard').doc(old).delete().catch(() => {}); } p.inv = code; return code; };
+    await invPut(code, p, { max, used: 0 }); INVUSE[code] = { max, used: 0 }; invCard(code, p); await PC.doc(p.id).update({ inv: code, updatedAt: Date.now() }); if (old) { IC.doc(old).delete().catch(() => {}); { const D = fs.collection('invcard').doc(old); Promise.all([1, 2, 3].map(i => D.collection('part').doc(String(i)).delete().catch(() => {}))).then(() => D.delete()).catch(() => {}); } } p.inv = code; return code; };
   const invLinkHTML = p => `<div class="pty-link${p.inv ? '' : ' off'}">
       <span class="pty-link-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></span>
       ${p.inv ? `<span class="pty-link-t"><b>Invite link</b><code title="${esc(URLS.join(p.inv))}">${esc(URLS.join(p.inv).replace(/^https?:\/\//, ''))}</code></span>

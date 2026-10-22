@@ -215,10 +215,18 @@ service cloud.firestore {
     match /invcard/{t} {
       allow get: if true;
       allow list: if false;
-      allow create, update: if signedIn() && request.resource.data.keys().hasOnly(['p', 'name', 'dmName', 'n', 'img', 'at'])
+      allow create, update: if signedIn() && request.resource.data.keys().hasOnly(['p', 'name', 'dmName', 'n', 'img', 'k', 'at'])
         && request.resource.data.img is string && request.resource.data.img.size() < 900000 && request.resource.data.name is string && request.resource.data.name.size() <= 200
         && partyMgr(partyOf(request.resource.data.p));
       allow delete: if signedIn() && partyMgr(partyOf(resource.data.p));
+      // the rest of a picture too big for one document
+      match /part/{i} {
+        allow get: if true;
+        allow list: if false;
+        allow create, update: if signedIn() && request.resource.data.keys().hasOnly(['img']) && request.resource.data.img is string
+          && request.resource.data.img.size() < 900000 && partyMgr(partyOf(get(/databases/$(db)/documents/invcard/$(t)).data.p));
+        allow delete: if signedIn() && partyMgr(partyOf(get(/databases/$(db)/documents/invcard/$(t)).data.p));
+      }
     }
     match /invites/{t} {
       allow get: if signedIn();
