@@ -1049,3 +1049,20 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 .dk .dk-hpr .dk-ringc input.dk-hpcur.dk-hpcur:not(.x):not(.y):not(.z) { font-size: 2.3rem !important; }
 @media (max-width: 420px) { .dk .dk-hpr .dk-ringc input.dk-hpcur.dk-hpcur:not(.x):not(.y):not(.z) { font-size: 2rem !important; } }
 .dk .dk-hpr .dk-ringc input.dk-hpmax.dk-hpmax:not(.x):not(.y):not(.z) { font-size: .95rem !important; width: 40px; }
+/* session cards: the party card look — HP ring with the number in it, AC/Speed boxes, icon buttons */
+.dk-ccbody { display: flex; align-items: center; gap: 14px; margin: 6px 0 4px; }
+.dk-ccring { position: relative; width: 72px; height: 72px; flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; }
+.dk-ccring .dk-ring circle { stroke-width: 11; }
+.dk-ccring b { font: 800 1.35rem/1 var(--serif); color: var(--ink); position: relative; }
+.dk-ccring b.low { color: #e0705c; }
+.dk-ccring small { font-size: .66rem; color: var(--soft); margin-top: 2px; position: relative; }
+.dk-ccring em { position: absolute; right: -8px; top: -2px; font: 800 .66rem/1 var(--sans); font-style: normal; color: #0b1a24; background: #5cc8ff; border-radius: 99px; padding: 2px 5px; }
+.dk-ccstats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); flex: 1; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.dk-ccst { display: flex; flex-direction: column; align-items: center; padding: 6px 4px; gap: 2px; }
+.dk-ccst + .dk-ccst { border-left: 1px solid var(--line); }
+.dk-ccst small { font: 800 .62rem/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--soft); }
+.dk-ccst b { font: 800 1.15rem/1.1 var(--serif); color: var(--ink); }
+.dk-ccst.ac small { color: var(--gold-ink, var(--gold)); }
+.dk-ccq { display: grid; grid-template-columns: minmax(0, 1fr) 44px 44px; gap: 6px; align-items: center; }
+.dk-hpi.sm { height: 40px; }
+.dk-hpi.sm svg:not(.dk-partyslot svg) { width: 19px; height: 19px; }
