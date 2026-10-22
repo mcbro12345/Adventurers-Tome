@@ -6,7 +6,9 @@
 //            (you get the dice to roll), and a roll the sheet needs for its automation (healing, temp HP, death saves…) asks you for your total.
 //   roll20 — every roll is sent to your Roll20 game's chat through the companion browser extension, and the result comes back into the sheet.
 // The last two work by replaying the action: when a roll is needed, the action is undone, the number is fetched, and the action runs again with it.
-const diceMode = () => ST('diceMode') || 'sheet';
+// A sheet saved as a file (exported) runs on its own: anything that needs the site (the Roll20 extension, the phone relay)
+// is off there, and its rolls simply happen on the sheet.
+const diceMode = () => { const m = ST('diceMode') || 'sheet'; return !window.SHEET_PAGES && (m === 'roll20' || m === 'remote') ? 'sheet' : m; };
 let ROLLQ = null, ROLL_LBL = '';
 const SKIPPED = [];
 function NeedRoll(req) { this.req = req; }
@@ -728,7 +730,7 @@ function atkDmgRows(a) {
 // ---------- Rolling on the sheet, shown in Roll20 too (Settings → Dice) ----------
 // The sheet rolls as usual; the result (not a new roll) is posted to your Roll20 game's chat through the extension.
 function postSheetRoll(t) {
-  if (diceMode() !== 'sheet' || !ST('sheetToR20') || !R20.ok) return;
+  if (diceMode() !== 'sheet' || !ST('sheetToR20') || !R20.ok || !window.SHEET_PAGES) return;
   const q = s => t.querySelector(s), txt = el => (el ? el.textContent.replace(/\s+/g, ' ').trim() : '');
   const total = txt(q('b.total')), name = txt(q('.rc-name')) || txt(q('b.total + div > div')) || 'Roll', lbl = txt(q('.rc-lbl'));
   const dmg = q('.rc-dmg') && !q('.rc-dmg.void') ? txt(q('.rc-dmg > b')) : '', dtype = q('.rc-dmg') ? txt(q('.rc-dmg > span')).replace(/^\d+\s*/, '') : '';

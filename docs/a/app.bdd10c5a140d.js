@@ -1214,7 +1214,9 @@ document.addEventListener('change', e => { const t = e.target; if (!t || !t.matc
 //            (you get the dice to roll), and a roll the sheet needs for its automation (healing, temp HP, death saves…) asks you for your total.
 //   roll20 — every roll is sent to your Roll20 game's chat through the companion browser extension, and the result comes back into the sheet.
 // The last two work by replaying the action: when a roll is needed, the action is undone, the number is fetched, and the action runs again with it.
-const diceMode = () => ST('diceMode') || 'sheet';
+// A sheet saved as a file (exported) runs on its own: anything that needs the site (the Roll20 extension, the phone relay)
+// is off there, and its rolls simply happen on the sheet.
+const diceMode = () => { const m = ST('diceMode') || 'sheet'; return !window.SHEET_PAGES && (m === 'roll20' || m === 'remote') ? 'sheet' : m; };
 let ROLLQ = null, ROLL_LBL = '';
 const SKIPPED = [];
 function NeedRoll(req) { this.req = req; }
@@ -1593,7 +1595,7 @@ function renderVitals() {
   const strip = `<button class="mstrip" data-act="gocore" aria-label="Hit points and armor class — open Core"><span class="ms-hp">♥ <b data-calc="mhp"></b></span><span>AC <b data-calc="acv"></b></span><span>Init <b data-calc="init"></b></span><span>Speed <b data-calc="speed"></b></span><span class="ms-go">Core ›</span></button>`;
   $('#sec-vitals').innerHTML = `${strip}
   <div class="tile hp" data-zi="hp">
-    <span class="lbl">${f ? esc(f.source || 'Form') + ': ' + esc(f.name) : '<span class="ciw">Hit Points' + ciBtn('hp', 'max HP') + '</span>'}</span>
+    <span class="lbl">${f ? esc(f.source || 'Form') + ': ' + esc(f.name) : '<span class="ciw">Hit Points' + ciBtn('hp', 'max HP') + '</span><button class="tmanage hpman hpman-in" data-act="hpmanage">Manage</button>'}</span>
     <div class="hp-wrap">
       <div class="hp-ring"><div class="ring-svg" data-calc-html="hpring"></div>
         <div class="hp-center">${f ? inp('form.hp', { num: 1, cls: 'cur', label: 'Form HP' }) + `<div class="hp-max">of ${N(f.maxhp)}</div>` : `<div class="curline">` + inp('hp.cur', { num: 1, cls: 'cur', label: 'Current HP' }) + `<span class="tmpbadge" data-calc="tmpb" title="Temporary hit points"></span></div><div class="hp-max">of <span class="maxv" data-calc="hpmaxv"></span></div>`}</div></div>
@@ -1604,7 +1606,7 @@ function renderVitals() {
         <div class="rest-actions"><button class="btn rest short" data-act="short" title="1 hour: spend Hit Dice, refresh short-rest features and Pact slots"><span class="ri">${ICON.hourglass}</span>Short Rest</button><button class="btn rest long" data-act="long" title="8 hours: full HP, all slots, features and Hit Dice"><span class="ri">${ICON.moon}</span>Long Rest</button></div>
       </div>
     </div>
-    ${f ? '' : '<button class="tmanage hpman" data-act="hpmanage">Manage</button>'}
+    
   </div>
   <div class="tile ac" data-zi="ac"><span class="lbl"><span class="ciw top">Armor Class${ciBtn('ac', 'your AC')}</span></span><button class="tmanage" data-act="acmanage">Manage</button><span class="big acv" data-calc="acv"></span><div class="ac-fx" data-calc-html="aceffects"></div></div>
   <div class="tile" data-zi="init"><span class="lbl"><span class="ciw top">Initiative${ciBtn('init', 'initiative')}</span></span>${rollBtn('init', 'Initiative', 'big')}</div>
@@ -1936,7 +1938,7 @@ function atkDmgRows(a) {
 // ---------- Rolling on the sheet, shown in Roll20 too (Settings → Dice) ----------
 // The sheet rolls as usual; the result (not a new roll) is posted to your Roll20 game's chat through the extension.
 function postSheetRoll(t) {
-  if (diceMode() !== 'sheet' || !ST('sheetToR20') || !R20.ok) return;
+  if (diceMode() !== 'sheet' || !ST('sheetToR20') || !R20.ok || !window.SHEET_PAGES) return;
   const q = s => t.querySelector(s), txt = el => (el ? el.textContent.replace(/\s+/g, ' ').trim() : '');
   const total = txt(q('b.total')), name = txt(q('.rc-name')) || txt(q('b.total + div > div')) || 'Roll', lbl = txt(q('.rc-lbl'));
   const dmg = q('.rc-dmg') && !q('.rc-dmg.void') ? txt(q('.rc-dmg > b')) : '', dtype = q('.rc-dmg') ? txt(q('.rc-dmg > span')).replace(/^\d+\s*/, '') : '';
@@ -3091,9 +3093,8 @@ function alignHpSide() {
   // Measure where the ring sits in the normal layout, pin it there, then slide only the controls down.
   wrap.style.alignItems = ''; ring.style.marginTop = ''; side.style.marginTop = '';
   const r0 = ring.getBoundingClientRect().top - wrap.getBoundingClientRect().top;
-  wrap.style.alignItems = 'flex-start'; ring.style.marginTop = r0 + 'px'; side.style.marginTop = '0px';
-  const c = cur.getBoundingClientRect(), a = amt.getBoundingClientRect(), d = (c.top + c.height / 2) - (a.top + a.height / 2);
-  side.style.marginTop = Math.max(0, d) + 'px';
+  // (kept compact now: the ring and the controls are simply centred on each other, nothing is pushed down)
+  void r0; wrap.style.alignItems = 'center';
 }
 addEventListener('resize', () => alignHpSide());
 
@@ -3156,9 +3157,10 @@ function mainClick(e) {
       applyTheme(); render('header'); break;
     }
     case 'menu': b.closest('.menu').classList.toggle('open'); break;
-    case 'portrait': $('#portraitFile').click(); break;
+    case 'portrait': if (S.portrait && window.pgRecrop && window.picChoice) { window.picChoice(S.portrait, () => window.pgRecrop('portrait:' + S.id, S.portrait, { shape: 'square', size: 560, title: 'Portrait' }).then(r => { if (!r) return; S.portrait = r.url; pendingLabel = 'Adjust portrait'; save(); render('header'); }), () => $('#portraitFile').click()); break; } $('#portraitFile').click(); break;
     case 'pic': PICPATH = b.dataset.path; closeModal(true); $('#picFile').click(); return;
-    case 'picview': { const v = getP(b.dataset.path); openModal(`<div class="picview"><img src="${esc(safeImg(v))}" alt=""></div><div class="actions"><button class="btn red" data-act="picdel" data-path="${esc(b.dataset.path)}">Remove</button><button class="btn" data-act="pic" data-path="${esc(b.dataset.path)}">Change</button><button class="btn gold" data-act="close">Close</button></div>`); return; }
+    case 'picview': { const v = getP(b.dataset.path); openModal(`<div class="picview"><img src="${esc(safeImg(v))}" alt=""></div><div class="actions"><button class="btn red" data-act="picdel" data-path="${esc(b.dataset.path)}">Remove</button>${window.pgRecrop ? `<button class="btn" data-act="picadj" data-path="${esc(b.dataset.path)}">Adjust</button>` : ''}<button class="btn" data-act="pic" data-path="${esc(b.dataset.path)}">Change</button><button class="btn gold" data-act="close">Close</button></div>`); return; }
+    case 'picadj': { const path = b.dataset.path, v = getP(path); closeModal(true); window.pgRecrop('pic:' + S.id + ':' + path, v, { shape: 'square', size: 320, title: 'Picture' }).then(r => { if (!r) return; setP(path, r.url); pendingLabel = 'Adjust picture'; save(); render(); }, e => toast(esc(e.message || 'Couldn’t open that picture.'), 'fumble')); return; }
     case 'picdel': setP(b.dataset.path, ''); pendingLabel = 'Remove picture'; closeModal(true); save(); render(); return;
     case 'dmg': case 'heal': case 'tmphp': hpAction(act); break;
     case 'skillprof': S.skills[i].prof = (N(S.skills[i].prof) + 1) % 3; b.className = 'profbtn p' + S.skills[i].prof; pendingLabel = S.skills[i].name + ': ' + ['not proficient', 'proficient', 'expertise'][S.skills[i].prof]; update(); { const r = b.closest('.skman-row'); if (r) { r.querySelector('.skman-lv').textContent = ['—', 'Proficient', 'Expertise'][S.skills[i].prof]; r.querySelector('.skman-v').textContent = fmt(skillVal(S.skills[i])); } } break;
@@ -4790,10 +4792,10 @@ $('#importFile').addEventListener('change', e => {
   r.readAsText(f); e.target.value = '';
 });
 let PICPATH = '';
-$('#picFile') && $('#picFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (!f || !PICPATH) return; const path = PICPATH; loadPortrait(f, url => { setP(path, url); pendingLabel = 'Add picture'; save(); render(); }, 320, 'Picture'); e.target.value = ''; });
-function loadPortrait(file, cb, size, title) {
+$('#picFile') && $('#picFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (!f || !PICPATH) return; const path = PICPATH; loadPortrait(f, url => { setP(path, url); pendingLabel = 'Add picture'; save(); render(); }, 320, 'Picture', 'pic:' + S.id + ':' + path); e.target.value = ''; });
+function loadPortrait(file, cb, size, title, keep) {
   // on the site: crop and zoom it first (the window every upload uses); the stand-alone file fits it to the square
-  if (window.pgCrop) { window.pgCrop(file, { shape: 'square', size: size || 560, title: title || (size ? 'Edit picture' : 'Portrait') }).then(r => { if (r) cb(r.url); }, e => toast(esc(e.message || 'That file isn’t an image.'), 'fumble')); return; }
+  if (window.pgCrop) { window.pgCrop(file, { shape: 'square', size: size || 560, title: title || (size ? 'Edit picture' : 'Portrait'), keep: keep || (size ? '' : 'portrait:' + (S.id || 'new')) }).then(r => { if (r) cb(r.url); }, e => toast(esc(e.message || 'That file isn’t an image.'), 'fumble')); return; }
   const img = new Image(), url = URL.createObjectURL(file);
   img.onload = () => {
     const s = size || 560, c = document.createElement('canvas'); c.width = c.height = s;
@@ -5065,12 +5067,12 @@ function openSettings(tab) {
       ${booksHTML()}
 `)}
     ${pane('dice', `
-      <div class="dicemodes">${[['sheet', 'The sheet rolls', 'Every roll happens here, fully automated.'], ['manual', 'I use my own rolls', 'Shows the dice to roll; asks for your total only when automation needs it (healing, temp HP, death saves…). Everything else is still tracked.'], ['roll20', 'Roll20 rolls for me', 'Rolls post to your Roll20 game’s chat and the results come back here (needs the companion extension).']].concat(isMobile() || diceMode() === 'remote' ? [['remote', 'Roll in Roll20 from my phone', 'Roll here and it posts in Roll20 through this character open on your computer (with “Roll20 rolls for me” on there). Play from anywhere in the house.']] : []).map(([v, t, d]) => `<label class="dmode${diceMode() === v ? ' on' : ''}"><input type="radio" name="dicemode" data-set="diceMode" value="${v}"${diceMode() === v ? ' checked' : ''}><span><b>${t}</b>${diceMode() === v ? `<small>${d}</small>` : ''}${v === 'sheet' && diceMode() === v && !isMobile() ? `<span class="dsub"><input type="checkbox" data-set="sheetToR20"${ST('sheetToR20') ? ' checked' : ''} aria-label="Also show my rolls in Roll20"><span>Also show my rolls in Roll20<small>Each result is posted to your Roll20 game’s chat too (needs the extension and your game open).</small></span></span>` : ''}</span></label>`).join('')}</div>
-      ${diceMode() === 'roll20' || (diceMode() === 'sheet' && ST('sheetToR20') && !isMobile()) ? '<div id="r20status" class="r20box"></div>' : ''}
+      <div class="dicemodes">${[['sheet', 'The sheet rolls', 'Every roll happens here, fully automated.'], ['manual', 'I use my own rolls', 'Shows the dice to roll; asks for your total only when automation needs it (healing, temp HP, death saves…). Everything else is still tracked.'], ['roll20', 'Roll20 rolls for me', 'Rolls post to your Roll20 game’s chat and the results come back here (needs the companion extension).']].filter(([v]) => v !== 'roll20' || window.SHEET_PAGES).concat(window.SHEET_PAGES && (isMobile() || diceMode() === 'remote') ? [['remote', 'Roll in Roll20 from my phone', 'Roll here and it posts in Roll20 through this character open on your computer (with “Roll20 rolls for me” on there). Play from anywhere in the house.']] : []).map(([v, t, d]) => `<label class="dmode${diceMode() === v ? ' on' : ''}"><input type="radio" name="dicemode" data-set="diceMode" value="${v}"${diceMode() === v ? ' checked' : ''}><span><b>${t}</b>${diceMode() === v ? `<small>${d}</small>` : ''}${v === 'sheet' && diceMode() === v && !isMobile() && window.SHEET_PAGES ? `<span class="dsub"><input type="checkbox" data-set="sheetToR20"${ST('sheetToR20') ? ' checked' : ''} aria-label="Also show my rolls in Roll20"><span>Also show my rolls in Roll20<small>Each result is posted to your Roll20 game’s chat too (needs the extension and your game open).</small></span></span>` : ''}</span></label>`).join('')}</div>
+      ${window.SHEET_PAGES && (diceMode() === 'roll20' || (diceMode() === 'sheet' && ST('sheetToR20') && !isMobile())) ? '<div id="r20status" class="r20box"></div>' : ''}
       ${diceMode() === 'remote' ? '<div id="relaystatus" class="r20box"><span class="rs-ic">…</span><div class="rs-t"><span>Checking for your computer…</span></div></div>' : ''}
       <button class="r20macros" data-act="macros" title="Copy Roll20 macros for everything rollable" aria-label="Roll20 macros"><img src="${R20_LOGO}" alt=""></button>
       <p class="hint" style="margin:4px 0 0">Copy macros for every attack, save, skill and spell.</p>
-      ${(() => { const ok = r20AuraOK(), why = !R20.ok ? 'Needs the Roll20 companion extension (and your game open in Roll20).' : !ok ? 'Download the extension again (button above) to get this — your copy is older.' : 'Your auras (like Aura of Protection) go on and off by themselves as party members’ tokens move in and out of range. Each person is still asked first, with how far apart you are. Tokens are matched to characters by name.';
+      ${!window.SHEET_PAGES ? '' : (() => { const ok = r20AuraOK(), why = !R20.ok ? 'Needs the Roll20 companion extension (and your game open in Roll20).' : !ok ? 'Download the extension again (button above) to get this — your copy is older.' : 'Your auras (like Aura of Protection) go on and off by themselves as party members’ tokens move in and out of range. Each person is still asked first, with how far apart you are. Tokens are matched to characters by name.';
         return `<label class="setrow r20aura${ok ? '' : ' dis'}"${ok ? '' : ` title="${esc(why)}"`}><input type="checkbox" data-set="r20auras"${ok && ST('r20auras') ? ' checked' : ''}${ok ? '' : ' disabled'}><span><b>Auras follow Roll20 tokens</b><small>${esc(why)}</small></span></label>`; })()}
     `)}
     ${pane('rules', `
@@ -7899,9 +7901,9 @@ function ptyCardHTML(m) {
   const more = [['coins', 'Give coins'], ['help', 'Help (advantage on their next roll)'], down && !m.dead && !m.stable ? ['stab', 'Stabilize (Medicine, DC 10)'] : null, ['note', 'Send a message']].filter(Boolean);
   const hp = max ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(cur, max, m.temp, f ? ' form' : '')}</div>
       <div class="chp-center"><div class="curline"><b class="ptym-cur">${cur}</b>${N(m.temp) ? `<span class="tmpbadge">+${N(m.temp)}</span>` : ''}</div><div class="hp-max">of ${max}</div></div></div>
-      ${act ? `<div class="chp-side"><input class="f" id="ptyq-${esc(id)}" inputmode="numeric" placeholder="Amount" aria-label="Amount for ${esc(m.name)}">
+      ${act ? `<div class="chp-side"><select class="f ptyqt" id="ptyqt-${esc(id)}" aria-label="Damage type for ${esc(m.name)}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="ptyq-${esc(id)}" inputmode="numeric" placeholder="Amount" aria-label="Amount for ${esc(m.name)}">
         <div class="chp-btns"><button class="btn hpi dmg" data-pa="qdmg" data-id="${esc(id)}" title="Damage ${esc(m.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-pa="qheal" data-id="${esc(id)}" title="Heal ${esc(m.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-pa="qtemp" data-id="${esc(id)}" title="Give ${esc(m.name)} temporary HP" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div>` : ''}</div>` : '';
-  return `<div class="panel comp2 ptym${down ? ' ' + down : ''}" data-mid="${esc(id)}"><div class="comp-h2">${m.thumb ? `<span class="picth"><img src="${esc(m.thumb)}" alt=""></span>` : `<span class="picadd">${esc(String(m.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''))}</span>`}
+  return `<div class="panel comp2 ptym${down ? ' ' + down : ''}" data-mid="${esc(id)}"><div class="comp-h2">${m.thumb ? `<span class="picth"${/^#[0-9a-f]{6}$/i.test(m.acc || '') ? ` style="border-color:${m.acc}"` : ''}><img src="${esc(m.thumb)}" alt=""></span>` : `<span class="picadd">${esc(String(m.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''))}</span>`}
       <div class="grow"><b class="cname${String(m.name || '').length > 26 ? ' n3' : String(m.name || '').length > 17 ? ' n2' : ''}" title="${esc(m.name || '')}">${esc(m.name || 'A character')}</b>${m.player ? `<div class="ptym-pl">${esc(m.player)}</div>` : ''}</div>
 </div>
     <div class="cstat2">${hp}<div class="csts"><span class="cst"><small>AC</small><b>${esc(m.ac || '—')}</b></span>${m.speed ? `<span class="cst"><small>Speed</small><b>${N(m.speed)}</b></span>` : ''}${m.level ? `<span class="cst"><small>Level</small><b>${N(m.level)}</b></span>` : ''}</div></div>
@@ -7915,7 +7917,7 @@ function renderParty() {
   if (!ptyOn()) { pg.innerHTML = ''; return; }
   const P = PTYX().info(), ms = ptyMembers(), act = ptyAct(), abil = act ? ptyAbilities() : [], auras = abil.filter(a => a.def.kind === 'aura');
   const n = ms.length + 1, dm = P.mgr ? 'You' : (P.dmName || 'the DM');
-  const head = `<div class="panel ptyhead"><div class="ptyh"><span class="ptyh-ic" aria-hidden="true">${TAB_ICON.party}</span><div class="ptyh-t"><b>${esc(P.name)}</b><span>DM ${esc(dm)} · ${n} character${n === 1 ? '' : 's'}${act ? '' : ' · you’re viewing this sheet'}</span></div>
+  const head = `<div class="panel ptyhead"><div class="ptyh"><span class="ptyh-ic${P.pic ? ' pic' : ''}" aria-hidden="true">${P.pic ? `<img src="${esc(P.pic)}" alt="">` : TAB_ICON.party}</span><div class="ptyh-t"><b>${esc(P.name)}</b><span>DM ${esc(dm)} · ${n} character${n === 1 ? '' : 's'}${act ? '' : ' · you’re viewing this sheet'}</span></div>
       <div class="ptyh-btns">${act && ms.length > 1 ? '<button class="btn sm" data-pa="cast" data-id="" title="Pick the spell, then everyone it reaches">Cast a spell on allies…</button><button class="btn sm" data-pa="ability" data-id="" title="Pick the ability, then everyone it reaches">Use an ability on allies…</button>' : ''}<a class="btn sm" href="${esc(P.url)}" target="_top">Party page</a></div></div>
       ${act && ms.length ? `<p class="hint ptyh-hint">${P.mgr ? 'As the DM, what you send lands on their sheet straight away (or the next time it’s opened).' : 'Healing, items, spells and abilities you send pop up on their sheet for them to accept.'}</p>` : ''}</div>`;
   const cards = P.loading ? `<div class="panel"><p class="hint" style="margin:0">Loading the party…</p></div>` : ms.length ? `<div class="ptym-grid">${ms.map(ptyCardHTML).join('')}</div>` : `<div class="panel"><p class="hint" style="margin:0">Nobody else has joined yet. Your DM can share the party’s invite link from the party page.</p></div>`;
@@ -7978,10 +7980,10 @@ function ptyPickDone() { const p = PTY_PICK; if (!p) return; const ids = $$('#mo
 // The amount box on a member's card (a number or a roll like 2d4+2), like a creature card's.
 function ptyQuick(kind, id) { const inp = $('#ptyq-' + CSS.escape(id)); const v = inp ? inp.value : ''; if (!String(v).trim()) { if (inp) inp.focus(); toast('Type an amount in the box first.'); return; }
   const r = ptyRollAmt(v, (kind === 'heal' ? 'Healing for ' : kind === 'temp' ? 'Temporary HP for ' : 'Damage to ') + ptyNm(id)); if (!r) { toast('Type a number or a roll like 2d6+3.'); return; } if (r.skipped || !(r.total > 0)) return;
-  if (inp) inp.value = ''; const w = S.name || 'an ally';
+  if (inp) inp.value = ''; const w = S.name || 'an ally', ts = $('#ptyqt-' + CSS.escape(id)), dt = kind === 'dmg' && ts ? ts.value : ''; if (ts) ts.value = '';
   if (kind === 'heal') ptySend([id], 'heal', { amt: r.total, why: w }, `Healed ${r.total} HP`);
   else if (kind === 'temp') ptySend([id], 'temp', { amt: r.total, why: w }, `${r.total} temporary HP`);
-  else ptySend([id], 'hit', { dmg: r.total, why: w }, `${r.total} damage`); }
+  else ptySend([id], 'hit', Object.assign({ dmg: r.total, why: w }, dt ? { type: dt } : {}), `${r.total}${dt ? ' ' + dt : ''} damage`); }
 // Heal / temp HP / damage by an amount (or a roll).
 let PTY_AMT = null;
 function ptyAmount(kind, ids) {
@@ -8550,8 +8552,30 @@ function ptyChatList() { const ch = PTYX() && PTYX().chat; const L = ch ? ch.lis
   if (!L.length) return '<p class="hint" style="margin:0">No messages yet.</p>';
   return L.map(m => `<div class="ptyc${ch.mine(m) ? ' me' : ''}"><span class="ptyc-n">${esc(ch.mine(m) ? 'You' : m.n || 'Someone')}<small>${new Date(m.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</small></span><span class="ptyc-t">${esc(m.t)}</span></div>`).join(''); }
 window.onPartyChatList = () => { const l = $('#ptychat-l'); if (!l) { if (UI.tab === 'party') render('party'); return; } const end = l.scrollHeight - l.scrollTop - l.clientHeight < 40; l.innerHTML = ptyChatList(); if (end) l.scrollTop = l.scrollHeight; };
-window.onPartyChat = m => { const here = UI.tab === 'party' && !document.hidden && $('#ptychat-l'); if (here) return;
-  toast(`<div><b>${esc(m.n || 'Someone')}</b> <span class="det" style="display:inline">· party chat</span><div class="det">${esc(String(m.t || '').slice(0, 200))}</div></div>`, '', 7000, { label: 'Reply', fn: () => { UI.tab = 'party'; saveUI && saveUI(); render(); setTimeout(() => { const i = $('#ptychat-in'); if (i) i.focus(); }, 80); } }); };
+// New party chat messages: a note in the corner (unless the chat is on screen) and a count on the Party tab until it's opened.
+let PTY_UNREAD = 0;
+function ptyUnreadMark() { const t = document.querySelector('.tab[data-tab="party"]'); if (!t) return; if (UI.tab === 'party' && !document.hidden) PTY_UNREAD = 0; t.classList.toggle('unread', PTY_UNREAD > 0); if (PTY_UNREAD > 0) t.dataset.unread = PTY_UNREAD > 9 ? '9+' : PTY_UNREAD; else delete t.dataset.unread; }
+setInterval(ptyUnreadMark, 1500); document.addEventListener('visibilitychange', ptyUnreadMark);
+window.onPartyChat = m => { const here = UI.tab === 'party' && !document.hidden && $('#ptychat-l'); if (here) return; PTY_UNREAD++; ptyUnreadMark(); ptyChatPop(m); };
+// A party chat message gets its own card in the corner: who sent it (their picture, in their sheet's colour), the
+// message in a bubble, and a box to answer straight from there. Stays while you're hovering or typing; up to 3 stack.
+function ptyChatPop(m) {
+  let box = $('#pcpop'); if (!box) { box = document.createElement('div'); box.id = 'pcpop'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); }
+  const who = (window.PG_PARTY && window.PG_PARTY.members ? window.PG_PARTY.members() : []).find(x => x.id === m.c) || {}, nm = m.n || who.name || 'Someone';
+  const acc = /^#[0-9a-f]{6}$/i.test(who.acc || '') ? who.acc : '', ini = String(nm).split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+  const el = document.createElement('div'); el.className = 'pcp'; if (acc) el.style.setProperty('--pc', acc);
+  el.innerHTML = `<div class="pcp-top"><span class="pcp-ava">${who.thumb ? `<img src="${esc(who.thumb)}" alt="">` : esc(ini)}</span><span class="pcp-who"><b>${esc(nm)}</b><small>💬 Party chat · just now</small></span><button class="pcp-x" aria-label="Dismiss">✕</button></div>
+    <div class="pcp-msg">${esc(String(m.t || '').slice(0, 400))}</div>
+    <form class="pcp-rep"><input placeholder="Reply to the party…" maxlength="1000" aria-label="Reply"><button aria-label="Send">➤</button></form>`;
+  box.prepend(el); while (box.children.length > 3) box.lastChild.remove();
+  requestAnimationFrame(() => el.classList.add('in'));
+  let t = null; const gone = () => { el.classList.remove('in'); el.classList.add('out'); setTimeout(() => el.remove(), 260); };
+  const arm = () => { clearTimeout(t); t = setTimeout(() => { if (!el.matches(':hover') && !el.contains(document.activeElement)) gone(); else arm(); }, 14000); }; arm();
+  el.querySelector('.pcp-x').onclick = gone;
+  el.querySelector('.pcp-msg').onclick = () => { gone(); UI.tab = 'party'; if (typeof saveUI === 'function') saveUI(); render(); setTimeout(() => { const i = $('#ptychat-in'); if (i) i.focus(); }, 80); };
+  el.querySelector('form').onsubmit = e => { e.preventDefault(); const i = el.querySelector('input'), v = i.value.trim(); if (!v) return; i.disabled = true;
+    window.PG_PARTY.chat.send(v).then(() => { el.querySelector('.pcp-rep').outerHTML = '<div class="pcp-sent">✓ Sent</div>'; setTimeout(gone, 1200); }, x => { i.disabled = false; toast(esc((x && x.message) || 'Couldn’t send it.'), 'fumble'); }); };
+}
 
 
 // ----- Dice roller: a little window like Roll20's — tap dice to build a roll, add a modifier, roll -----
@@ -8659,7 +8683,7 @@ function openHomebrew(kind, idx) {
     const h = d.hb, m = /(\d+)d(\d+)/.exec(h.dmg || '') || [], u = /(\d+)d(\d+)/.exec(h.up || '') || [];
     d._what = h.what || (h.heal ? 'heal' : h.dmg ? 'dmg' : 'other'); d._dn = m[1] || '1'; d._dd = m[2] || '8'; d._un = u[1] || ''; d._ud = u[2] || d._dd;
     const c = String(d.comps || ''); d._v = /\bV\b/.test(c); d._s = /\bS\b/.test(c); d._m = /\bM\b/.test(c); d._mat = (/\bM\s*\(([^)]*)\)/.exec(c) || [])[1] || '';
-    d._time = ['1 action', '1 bonus action', '1 reaction', '1 minute', '10 minutes', '1 hour'].includes(d.time) ? d.time : (d.time ? 'other' : '1 action'); d._timeX = d._time === 'other' ? d.time : '';
+    d._time = ['1 action', '1 bonus action', '1 reaction', '1 minute', '10 minutes', '1 hour', '8 hours'].includes(d.time) ? d.time : (d.time ? 'other' : '1 action'); d._timeX = d._time === 'other' ? d.time : '';
     d.level = String(N(d.level)); d._sum0 = d.summary || '';
   }
   HBB = { kind, idx: isNew ? -1 : idx, d, isNew, adv: !!(HBB_ADV_ON(kind, d)), sec: {} };
@@ -8830,7 +8854,9 @@ function hbbSpellBasic() {
   const d = HBB.d, w = d._what, rows = clsRows();
   let h = bF('Name', bIn('name', { ph: 'e.g. Tidal Lash', cls: 'hbb-name', label: 'Spell name' }));
   h += bF('Level', bSeg('level', [['0', 'Cantrip']].concat([1, 2, 3, 4, 5, 6, 7, 8, 9].map(L => [String(L), ORD[L - 1]])), { wrap: true }));
-  h += bF('Casting time', bSeg('_time', [['1 action', 'Action'], ['1 bonus action', 'Bonus action'], ['1 reaction', 'Reaction'], ['1 minute', '1 minute'], ['10 minutes', '10 minutes'], ['1 hour', '1 hour'], ['other', 'Other…']], { wrap: true }) + (d._time === 'other' ? bIn('_timeX', { ph: '8 hours', label: 'Casting time' }) : ''));
+  // A spell's casting time is one thing: it takes a turn's action, bonus action or reaction, or it takes longer
+  // (casting a 1-minute spell uses your action every turn until it's done). How long it lasts is Duration.
+  h += bF('Casting time', `<div class="hbb-ct2"><span class="hint">In one turn</span>${bSeg('_time', [['1 action', 'Action'], ['1 bonus action', 'Bonus action'], ['1 reaction', 'Reaction']], { wrap: true })}</div><div class="hbb-ct2"><span class="hint">Takes longer</span>${bSeg('_time', [['1 minute', '1 minute'], ['10 minutes', '10 minutes'], ['1 hour', '1 hour'], ['8 hours', '8 hours'], ['other', 'Other…']], { wrap: true })}</div>` + (d._time === 'other' ? bIn('_timeX', { ph: '12 hours', label: 'Casting time' }) : ''));
   h += bRow(bF('Range', bIn('range', { ph: '60 feet, Self, Touch' })), bF('Duration', bIn('duration', { ph: 'Instantaneous, 1 minute…' })));
   h += bRow(bChk('conc', 'Concentration'), bChk('ritual', 'Ritual'));
   h += bF('Components', `<div class="hbb-comps">${bChk('_v', 'V', 'Spoken')}${bChk('_s', 'S', 'Gestures')}${bChk('_m', 'M', 'A material')}</div>` + (d._m ? bIn('_mat', { ph: 'a pinch of sea salt', label: 'Material' }) : ''));
@@ -10118,7 +10144,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && CL
 // For the GitHub Pages loader (new characters get their link once created).
 window.sheetState = () => S; window.sheetToast = toast;
 window.sheetSet = (k, v) => { S[k] = v; pendingLabel = null; save(); render('header'); };
-window.sheetSummary = () => ({ name: S.name || '', player: S.player || '', race: S.raceName || '', cls: S.created ? classLabel() : '', level: S.created ? lvl() : 0, portrait: S.portrait || '', hp: S.created ? N(S.hp && S.hp.cur) + '/' + maxHp() : '' });
+window.sheetSummary = () => ({ name: S.name || '', player: S.player || '', race: S.raceName || '', cls: S.created ? classLabel() : '', level: S.created ? lvl() : 0, portrait: S.portrait || '', acc: /^#[0-9a-f]{6}$/i.test((S.theme || {}).accent || '') ? S.theme.accent : '', hp: S.created ? N(S.hp && S.hp.cur) + '/' + maxHp() : '' });
 if (S.created) applySources(S.sources);
 // Spells from a Ring of Spell Storing made before stored spells existed: set them up as stored now.
 const staleStore = () => (S.spells || []).some(sp => { const it = sp.item && (S.inventory || []).find(x => x.id === sp.item); return it && itemStores(it) && !sp.usesOnly; });
