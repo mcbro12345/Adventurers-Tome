@@ -72,6 +72,18 @@
     ],
     "rewrites": [
       {
+        "source": "/privacy",
+        "destination": "/privacy.html"
+      },
+      {
+        "source": "/terms",
+        "destination": "/terms.html"
+      },
+      {
+        "source": "/accessibility",
+        "destination": "/accessibility.html"
+      },
+      {
         "source": "/join/**",
         "destination": "/join.html"
       },

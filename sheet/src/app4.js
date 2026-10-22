@@ -1730,7 +1730,9 @@ function applyTheme() {
   ['--gold', '--gold-ink', '--gold-soft', '--navy', '--navy2'].forEach(v => st.removeProperty(v));
   const a = hexToRgb(th.accent);
   st.removeProperty('--on-gold');
-  if (a) { const lum = (0.299 * a[0] + 0.587 * a[1] + 0.114 * a[2]) / 255; st.setProperty('--on-gold', lum < 0.55 ? '#FFFFFF' : '#1D2536'); st.setProperty('--gold', rgbHex(a)); st.setProperty('--gold-ink', rgbHex(readableInk(a, dark))); st.setProperty('--gold-soft', rgbHex(dark ? mix(a, [20, 24, 32], 0.75) : mix(a, [255, 255, 255], 0.78))); }
+  if (a) { // text on the accent colour: white or dark navy, whichever is easier to read (WCAG contrast)
+    const rl = c => { const v = [0, 1, 2].map(i => { const x = c[i] / 255; return x <= .03928 ? x / 12.92 : Math.pow((x + .055) / 1.055, 2.4); }); return .2126 * v[0] + .7152 * v[1] + .0722 * v[2]; }, L = rl(a);
+    st.setProperty('--on-gold', 1.05 / (L + .05) >= (L + .05) / (rl([29, 37, 54]) + .05) ? '#FFFFFF' : '#1D2536'); st.setProperty('--gold', rgbHex(a)); st.setProperty('--gold-ink', rgbHex(readableInk(a, dark))); st.setProperty('--gold-soft', rgbHex(dark ? mix(a, [20, 24, 32], 0.75) : mix(a, [255, 255, 255], 0.78))); }
   const g = hexToRgb(th.bg);
   ['--bg', '--bg2'].forEach(v => st.removeProperty(v));
   if (g) { st.setProperty('--bg', rgbHex(dark ? mix(g, [8, 10, 16], 0.82) : g)); st.setProperty('--bg2', rgbHex(dark ? mix(g, [14, 18, 26], 0.75) : mix(g, [0, 0, 0], 0.06))); }

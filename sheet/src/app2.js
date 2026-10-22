@@ -361,9 +361,9 @@ function renderHeader() {
   const idf = [ST('showPlayer') ? (window.SHEET_PAGES ? `<div class="fld"><span class="lbl">Player</span><span class="identtxt" title="Comes from the player list on your party page">${esc(S.player || '—')}</span></div>` : fld('Player', inp('player', { fit: 8, ph: 'Player' }))) : '', ST('showRace') ? `<div class="fld"><span class="lbl">Race</span><span class="identtxt" title="Change your race in Settings">${esc(S.raceName || '—')}</span></div>` : '', ST('showBackground') ? `<div class="fld"><span class="lbl">Background</span><span class="identtxt" title="Change your background in Settings">${esc(S.backgroundName || '—')}</span></div>` : '',
     ST('showAlignment') ? fld('Alignment', sel('alignment', [['', '—']].concat(DND.alignments.map(a => [a, a])))) : '', ST('showFaith') ? fld('Faith', inp('faith', { ph: '—', fit: 8 })) : ''].join('');
   $('#sec-header').innerHTML = `
-  <div class="banner-row"><div class="portrait-wrap"><img id="portraitImg" src="${esc(pic)}" alt="Portrait">
+  <div class="banner-row"><div class="portrait-wrap"><img id="portraitImg" src="${esc(pic)}" alt="${esc((S.name || 'Character') + '’s portrait')}">
     <label class="portrait-edit" tabindex="0" data-act="portrait">Change portrait</label></div>${inspHTML()}</div>
-  <div class="ident">
+  <div class="ident"><h1 class="sr-only">${esc(S.name || 'Character sheet')}</h1>
     <div class="ident-top">
       <img class="mini-portrait" src="${esc(pic)}" alt="" data-act="portrait">
       <div class="namebox">${ST('showName') ? inp('name', { cls: 'name', label: 'Character name', ph: 'Character name', fit: 10 }) : ''}
@@ -630,10 +630,10 @@ function renderCore() {
     <div class="ab${swap ? ' swap' : ''}" data-zi="${a}"><span class="lbl"><span class="ciw top">${ABN[a]}${ciBtn('abil:' + a, ABN[a])}</span></span>
       <button class="modbtn" data-calc="mod:${a}" data-roll="mod:${a}" aria-label="Roll ${ABN[a]} check"></button>
       <span class="f score scoreview" title="${ABN[a]} score — change it with Manage">${esc(S.abilities[a] === '' ? '—' : S.abilities[a])}</span><span class="effscore" data-calc="eff:${a}"></span>
-      <div class="saverow"><span class="saveprof${S.saves[a] ? ' on' : ''}" title="${S.saves[a] ? 'Proficient in ' + ABN[a] + ' saves' : 'Not proficient'}" aria-label="${S.saves[a] ? 'Proficient' : 'Not proficient'}"></span> Save ${rollBtn('save:' + a, ABN[a] + ' save')}${ciBtn('save:' + a, ABN[a] + ' save')}</div>
+      <div class="saverow"><span class="saveprof${S.saves[a] ? ' on' : ''}" role="img" title="${S.saves[a] ? 'Proficient in ' + ABN[a] + ' saves' : 'Not proficient'}" aria-label="${S.saves[a] ? 'Proficient' : 'Not proficient'}"></span> Save ${rollBtn('save:' + a, ABN[a] + ' save')}${ciBtn('save:' + a, ABN[a] + ' save')}</div>
     </div>`).join('');
   const skills = S.skills.map((s, i) => `
-    <div class="sk"><span class="profbtn locked p${N(s.prof)}" title="${['Not proficient', 'Proficient', 'Expertise'][N(s.prof)]} — change it with Manage" aria-label="${esc(s.name)}: ${['not proficient', 'proficient', 'expertise'][N(s.prof)]}"></span>
+    <div class="sk"><span class="profbtn locked p${N(s.prof)}" role="img" title="${['Not proficient', 'Proficient', 'Expertise'][N(s.prof)]} — change it with Manage" aria-label="${esc(s.name)}: ${['not proficient', 'proficient', 'expertise'][N(s.prof)]}"></span>
       <span class="sk-hit" title="Roll ${esc(s.name)}">${rollBtn('skill:' + i, s.name)}<span class="skn"><span class="ciw">${esc(s.name)}${ciBtn('skill:' + i, s.name)}</span></span></span><span class="sktmp" data-calc="sktmp:${i}" title="Temporary change from Conditions"></span><span class="ab3">${s.ab}</span>
       ${s.note ? `<span class="sknote">${esc(s.note)}</span>` : ''}</div>`).join('');
   $('#page-core').innerHTML = `

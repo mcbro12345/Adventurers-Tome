@@ -148,3 +148,18 @@ if os.path.exists(os.path.join(D, 'icons', 'og-invite.png')):
     j = _re.sub(r'<meta name="description" content="[^"]*">', '<meta name="description" content="You’re invited to join a party on Adventurer’s Tome.">', j)
     open(os.path.join(OUT, 'join.html'), 'w').write(j)  # the picture shown when a link is pasted in Discord, Slack and the like
 print('pages built', VER, len(html))
+
+# The privacy policy and accessibility statement (legal/*.body.html), in the same look as the extension's privacy page.
+_tpl = os.path.join(OUT, 'extension', 'privacy.html')
+if os.path.exists(_tpl):
+    _t = open(_tpl).read(); _a = _t.index('<main><div class="card">') + len('<main><div class="card">'); _b = _t.index('</div></main>')
+    _extra = ('<style>a{color:#8a5f12}.hub-ctlink{color:#8a5f12}@media (prefers-color-scheme:dark){a,.hub-ctlink{color:#e7c46e}}'
+              'a:focus-visible,button:focus-visible{outline:2px solid currentColor;outline-offset:2px}ul{padding-left:1.2em}li{margin:4px 0}</style>')
+    for _n in ('privacy', 'terms', 'accessibility'):
+        _src = os.path.join(D, 'legal', _n + '.body.html')
+        if not os.path.exists(_src): continue
+        _body = open(_src).read(); _m = re.match(r'<!--title: (.*?)-->', _body); _title = _m.group(1) if _m else 'Adventurer’s Tome'
+        _page = _t[:_a] + _body + _t[_b:]
+        _page = re.sub(r'<title>.*?</title>', '<title>' + _title + '</title>', _page, count=1).replace('</head>', _extra + '</head>', 1)
+        _page = _page.replace("encodeURIComponent('Adventurer’s Tome Roll20 extension')", "encodeURIComponent('Adventurer’s Tome')")
+        open(os.path.join(OUT, _n + '.html'), 'w').write(_page)

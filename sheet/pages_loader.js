@@ -372,7 +372,7 @@ function pgContact() {
   m.innerHTML = `<div class="pg-out-card" role="dialog" aria-modal="true" aria-labelledby="pg-ct-h"><h2 id="pg-ct-h">Contact us</h2><p>Questions, ideas or something not working? Email us at</p>
     <div class="pg-ct-mail"><span>${CONTACT_EMAIL}</span><button class="pg-ct-copy">Copy</button></div>
     ${window.pgBugReport ? `<button class="pg-ct-bug">${BUG_SVG}<span>Report a bug</span></button>` : ''}
-    <div class="pg-out-row pg-ct-row"><a class="pg-ct-btn" target="_blank" rel="noopener" href="https://mail.google.com/mail/u/0/?view=cm&to=${encodeURIComponent(CONTACT_EMAIL)}&su=${su}">Open in Gmail</a><a class="pg-ct-btn" href="mailto:${CONTACT_EMAIL}?subject=${su}">Email app</a><button class="pg-out-no">Close</button></div></div>`;
+    <div class="pg-out-row pg-ct-row"><a class="pg-ct-btn" target="_blank" rel="noopener" href="https://mail.google.com/mail/u/0/?view=cm&to=${encodeURIComponent(CONTACT_EMAIL)}&su=${su}">Open in Gmail</a><a class="pg-ct-btn" href="mailto:${CONTACT_EMAIL}?subject=${su}">Email app</a><button class="pg-out-no">Close</button></div><p class="pg-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy policy</a><span aria-hidden="true"> · </span><a href="/terms" target="_blank" rel="noopener">Terms</a><span aria-hidden="true"> · </span><a href="/accessibility" target="_blank" rel="noopener">Accessibility</a></p></div>`;
   const close = () => { m.remove(); document.removeEventListener('keydown', key); }, key = e => { if (e.key === 'Escape') close(); };
   m.onclick = e => { if (e.target === m) close(); }; m.querySelector('.pg-out-no').onclick = close;
   { const bb = m.querySelector('.pg-ct-bug'); if (bb) bb.onclick = () => { close(); setTimeout(() => window.pgBugReport && window.pgBugReport(), 200); }; }
@@ -385,7 +385,8 @@ function pgContact() {
 document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[href="#contact"], [data-contact]'); if (a) { e.preventDefault(); pgContact(); } });
 const PG_SWATCH = ['#b4473a', '#d0743c', '#c9962b', '#7f9a35', '#2f8f62', '#24879a', '#3a6fb4', '#5a55b8', '#8a4cb0', '#b04c86', '#6b7280', '#2b3245'];
 const okColor = c => /^#[0-9a-f]{6}$/i.test(c || '') ? c : '';
-const inkOn = hex => { const n = parseInt(hex.slice(1), 16); return (.299 * (n >> 16 & 255) + .587 * (n >> 8 & 255) + .114 * (n & 255)) > 170 ? '#1b1406' : '#fff'; };
+// Text on a coloured circle: white or near-black, whichever reads better (WCAG contrast).
+const inkOn = hex => { const n = parseInt(hex.slice(1), 16), lin = x => { x /= 255; return x <= .03928 ? x / 12.92 : Math.pow((x + .055) / 1.055, 2.4); }, L = .2126 * lin(n >> 16 & 255) + .7152 * lin(n >> 8 & 255) + .0722 * lin(n & 255); return 1.05 / (L + .05) >= (L + .05) / .056 ? '#fff' : '#1b1406'; };
 // What someone's picture is: their Google account photo unless they've chosen something else (initials, a character, an upload).
 const picModeOf = u => (u && u.picMode) || (u && u.picChar ? 'char' : u && u.pic ? 'upload' : u && okColor(u.picColor) ? 'initials' : 'google');
 const avaOf = u => { const color = okColor(u && u.picColor), m = picModeOf(u);
@@ -1159,7 +1160,7 @@ function signIn(auth, say) {
     <div class="pg-or">or</div>
     <form id="si-f" class="who-f"><input id="si-e" type="email" placeholder="Your email address" autocomplete="email" required><button class="btn">Email me a link</button></form>
     <p class="hub-hint" id="si-msg">No Google account? We'll email you a sign-in link.</p>${kickedMsg ? `<p class="pg-kicked">${escH(kickedMsg)}</p>` : ''}
-    <p class="pg-contact">Trouble signing in? <a href="${CONTACT}">Contact us</a></p></div>${a2hsHTML()}`);
+    <p class="pg-contact">Trouble signing in? <a href="${CONTACT}">Contact us</a></p><p class="pg-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy policy</a><span aria-hidden="true"> · </span><a href="/terms" target="_blank" rel="noopener">Terms</a><span aria-hidden="true"> · </span><a href="/accessibility" target="_blank" rel="noopener">Accessibility</a></p></div>${a2hsHTML()}`);
   wireA2HS(document.getElementById('pg-load'));
   wireDie(document.getElementById('pg-load'));
   // Errors and the "check your email" note show in the box just above the bottom divider (where "You've been signed
@@ -1186,7 +1187,7 @@ function hub(fs, auth, G, ctx) {
   const ADMIN = page === 'admin';
   document.title = ADMIN ? 'Admin — Adventurer’s Tome' : 'Adventurer’s Tome';
   { const keep = document.getElementById('pg-load'); [...document.body.childNodes].forEach(n => { if (n !== keep) n.remove(); }); // the loading screen stays put (and keeps fading) while the page is swapped in under it
-    document.body.insertAdjacentHTML('afterbegin', '<div id="hub"></div><div id="hub-modal" class="hub-modal"></div><div id="hub-toast" class="hub-toast"></div>'); }
+    document.body.insertAdjacentHTML('afterbegin', '<div id="hub"></div><div id="hub-modal" class="hub-modal"></div><div id="hub-toast" class="hub-toast" role="status" aria-live="polite"></div>'); }
   document.body.className = 'hubbody' + (ADMIN ? ' adminbody' : '');
   const root = document.getElementById('hub'), modal = document.getElementById('hub-modal');
   if (TOUCH && !document.documentElement.classList.contains('pg-touch')) { document.documentElement.classList.add('pg-touch'); noHover(); }
@@ -1422,7 +1423,7 @@ function hub(fs, auth, G, ctx) {
   function pickPic(who) { const SELF = !who, EM = SELF ? EMAIL : who.em, R = SELF ? ME : (who.rec || {}), NM = SELF ? myName() : (who.name || who.em);
     const mine = (who ? who.list : chars.filter(isMine)).sort((a, b) => (a.createdAt || a.updatedAt || 0) - (b.createdAt || b.updatedAt || 0));
     const GP = (R && R.gpic) || '', st = { mode: picModeOf(R), color: okColor(R && R.picColor), char: (R && R.picChar) || '', img: R && !R.picChar ? (R.pic || '') : '', clear: !!(R && R.picClear) }; if (st.mode === 'google' && !GP) st.mode = 'initials';
-    const auto = `hsl(${hueOf(EM)}, 42%, 42%)`;
+    const auto = `hsl(${hueOf(EM)}, 42%, 32%)`;
     const ico = { google: '<svg viewBox="0 0 48 48" width="16" height="16"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.1 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.2 0-11.5-4.2-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>',
       initials: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19l4.5-12h1L14 19M5.8 15h6.4"/><path d="M15 12.5c.8-1 2-1.5 3-1.2 1.5.4 2 1.8 2 3.2V19M20 15.5c-2 0-4.5.2-4.5 2s2.2 1.8 4.5-.3"/></svg>',
       char: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>',
@@ -1614,8 +1615,8 @@ function hub(fs, auth, G, ctx) {
     root.innerHTML = `<div class="hub-head"><header class="hub-top">${logoHTML()}
       <div class="hub-side"><div class="hub-prof"><button class="hp-pic" id="me-pic" title="Choose your picture" aria-label="Choose your picture">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(myAva())}<span class="hp-edit" aria-hidden="true">✎</span></button>
         <div class="hp-txt"><span class="hp-name"><b>${esc(myName())}</b><button class="hp-rename" id="me-rename" title="Change your name" aria-label="Change your name"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></button></span><small>${esc(EMAIL)}</small><div class="hp-row"><button class="linkbtn" id="me-out">Sign out</button>${themeBtnHTML()}${IS_ADMIN ? '<button class="hub-admin hub-chip" id="hub-admin"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Admin</span></button>' : '<a class="hub-ctlink" href="#contact">Contact us</a>'}</div></div></div></div></header>
-      <div class="hub-views${TABS ? '' : ' no-seg'}">${seg}${a2hsHTML()}<button class="hub-new" id="hub-new"><span class="hn-plus" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="hn-txt"><b>Create character</b></span></button></div>
-      </div><div class="hub-list">${body}</div>`;
+      <nav class="hub-views${TABS ? '' : ' no-seg'}" aria-label="Your lists">${seg}${a2hsHTML()}<button class="hub-new" id="hub-new"><span class="hn-plus" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="hn-txt"><b>Create character</b></span></button></nav>
+      </div><main class="hub-list">${body}</main>`;
     if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
     PMx().wirePane();
     newBtn(); wireA2HS(root);
@@ -1657,8 +1658,14 @@ function hub(fs, auth, G, ctx) {
   let listsT = null; const keepLists = () => { clearTimeout(listsT); listsT = setTimeout(() => { try { let v = JSON.stringify({ mine: lists.mine || [], shared: lists.shared || [] }); if (v.length > 1500000) return; localStorage.setItem(LISTS_LS, v); } catch (e) {} }, 1000); };
   const readyNow = () => { if (window.pgReady && lists.mine && lists.shared && page !== 'party' && page !== 'join' && !ADMIN) window.pgReady(); };
   const merge = () => { const m = new Map(); Object.values(lists).forEach(l => l.forEach(c => m.set(c.id, c))); chars = [...m.values()]; if (!RD) draw();
+    accFix(chars.filter(c => isMine(c) && !('acc' in c)));
     if (IS_ADMIN) needNames(chars.filter(c => !isMine(c)).map(c => c.owner)).then(() => { if (!RD) draw(); });
     if (ME && ME.picChar) { const ch = chars.find(c => c.id === ME.picChar); if (ch && (ch.thumb || '') !== (ME.pic || '')) { ME.pic = ch.thumb || ''; usersCol.doc(EMAIL).update({ pic: ME.pic }).catch(() => {}); } } };
+  // Characters saved before picture frames took the sheet's colour have no colour on their list entry (so they show the
+  // default gold until the sheet is opened again): read it from the saved sheet once and fill it in.
+  const ACCFIX = new Set(); async function accFix(list) { for (const c of list) { if (ACCFIX.has(c.id)) continue; ACCFIX.add(c.id);
+    try { const { str } = await sheetText(c.id); const th = (JSON.parse(str) || {}).theme || {}; const acc = /^#[0-9a-f]{6}$/i.test(th.accent || '') ? th.accent : '';
+      await charsCol.doc(c.id).update({ acc }); } catch (e) {} } }
   const failed = e => { root.innerHTML = `<p class="hub-empty">Couldn't load the character list (${esc(e.code || e.message || e)}).<br><br>Signed in as ${esc(EMAIL)} · <button class="linkbtn" onclick="pgSignOut()">Sign out</button></p>`; console.error(e); };
   const watch = (k, q) => q.onSnapshot(qs => { lists[k] = qs.docs.map(d => Object.assign({ id: d.id }, d.data())); if (k === 'shared') SH_LOADED = true; merge(); keepLists(); readyNow(); }, e => { if (window.pgReady) window.pgReady(); failed(e); });
   if (lists.mine) { SH_LOADED = true; merge(); readyNow(); }
@@ -2154,8 +2161,8 @@ function hub(fs, auth, G, ctx) {
     const whoSeen = (all, text, who, not, note) => { who = who && who.filter(counted); not = not && not.filter(counted); const byId = Object.fromEntries(all.map(u => [u.id, u])); all.forEach(u => { if (!PICS[u.id]) PICS[u.id] = avaOf(u); }); // (their pictures)
       const list = ids => ids.map(id => byId[id] || { id }).sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id))).map(u => `<div class="nt-sl-row">${ava(u.name, u.id)}<span><b>${esc(u.name || u.id)}</b><small>${esc(u.id)}</small></span></div>`).join('');
       modal.innerHTML = `<div class="hub-card nt-sl"><h2>Who’s seen it</h2><p class="hub-hint">“${esc(String(text || '').slice(0, 120))}${String(text || '').length > 120 ? '…' : ''}”</p>
-        ${who ? `<h4 class="pw-h4">Seen (${who.length})</h4>${who.length ? `<div class="nt-sl-wrap"><div class="nt-sl-list">${list(who)}</div></div>` : '<p class="hub-hint">Nobody yet.</p>'}` : `<p class="hub-hint">${esc(note || '')}</p>`}
-        ${not ? `<h4 class="pw-h4">Not seen yet (${not.length})</h4>${not.length ? `<div class="nt-sl-wrap"><div class="nt-sl-list">${list(not)}</div></div>` : '<p class="hub-hint">Everyone’s seen it.</p>'}` : ''}
+        ${who ? `<h3 class="pw-h4">Seen (${who.length})</h3>${who.length ? `<div class="nt-sl-wrap"><div class="nt-sl-list">${list(who)}</div></div>` : '<p class="hub-hint">Nobody yet.</p>'}` : `<p class="hub-hint">${esc(note || '')}</p>`}
+        ${not ? `<h3 class="pw-h4">Not seen yet (${not.length})</h3>${not.length ? `<div class="nt-sl-wrap"><div class="nt-sl-list">${list(not)}</div></div>` : '<p class="hub-hint">Everyone’s seen it.</p>'}` : ''}
         <div class="row"><button class="btn gold" id="sl-x">Close</button></div></div>`;
       modal.classList.add('on'); modal.querySelector('#sl-x').onclick = close;
       // shadows at the top / bottom of a list while there's more to scroll that way
@@ -2486,14 +2493,14 @@ function partyModule(H) {
   // gold top edge, and the buttons along the bottom. Making a party and joining one go step by step; a party's own page
   // uses the same pills as sections.
   const headHTML = () => { const a = H.myAva(), nm = H.myName();
-    return `<div class="wzh"><header class="hub-top">${logoHTML()}<div class="hub-side"><div class="hub-prof"><span class="hp-pic wzh-pic">${avaHTML(nm, EMAIL, a.pic, '', '', a)}</span><div class="hp-txt"><b>${esc(nm)}</b><small>${esc(EMAIL)}</small><div class="hp-row"><button class="linkbtn" data-pw="out">Sign out</button><a class="hub-ctlink" href="${CONTACT}">Contact us</a></div></div></div></div></header><a class="adm-back wzh-back" href="${esc(URLS.parties(G))}">← Adventurer’s Tome</a></div>`; };
+    return `<div class="wzh"><header class="hub-top" role="none">${logoHTML()}<div class="hub-side"><div class="hub-prof"><span class="hp-pic wzh-pic">${avaHTML(nm, EMAIL, a.pic, '', '', a)}</span><div class="hp-txt"><b>${esc(nm)}</b><small>${esc(EMAIL)}</small><div class="hp-row"><button class="linkbtn" data-pw="out">Sign out</button><a class="hub-ctlink" href="${CONTACT}">Contact us</a></div></div></div></div></header><a class="adm-back wzh-back" href="${esc(URLS.parties(G))}">← Adventurer’s Tome</a></div>`; };
   // steps: [[key, label]]; seq = numbered steps you go through in order (later ones can't be clicked yet).
   function shell({ title, sub, steps, on, body, foot, seq, inBody, bare, noReady }) {
     const idx = Math.max(0, (steps || []).findIndex(s => s[0] === on));
     const pills = steps && steps.length > 1 ? `<div class="pw-steps" role="tablist">${steps.map(([k, t], i) => `<button class="pw-step${k === on ? ' on' : ''}${seq && i < idx ? ' done' : ''}" role="tab" aria-selected="${k === on}" data-pstep="${k}"${seq && i > idx ? ' disabled' : ''}>${seq ? (i + 1) + '. ' : ''}${esc(t)}</button>`).join('')}</div>` : '';
     // inBody: the title sits at the top of the card itself (a party's page)
     if (inBody) { body = `<div class="pw-intitle"><h2>${title}</h2>${sub ? `<p class="pw-sub">${sub}</p>` : ''}</div>${body}`; title = ''; sub = ''; }
-    root.innerHTML = `<div class="pw${seq ? ' seq' : ''}${inBody ? ' inbody' : ''}${bare ? ' bare' : ''}">${headHTML()}<div class="pw-head">${title ? `<h2>${title}</h2>` : ''}${sub ? `<p class="pw-sub">${sub}</p>` : ''}${pills}${seq && steps ? `<div class="pw-now">Step ${idx + 1} of ${steps.length}<b>${esc(steps[idx][1])}</b></div>` : ''}</div>
+    root.innerHTML = `<div role="main" class="pw${seq ? ' seq' : ''}${inBody ? ' inbody' : ''}${bare ? ' bare' : ''}">${headHTML()}<div class="pw-head">${title ? `<h2>${title}</h2>` : ''}${sub ? `<p class="pw-sub">${sub}</p>` : ''}${pills}${seq && steps ? `<div class="pw-now">Step ${idx + 1} of ${steps.length}<b>${esc(steps[idx][1])}</b></div>` : ''}</div>
       <div class="pw-body">${body}</div>${foot ? `<div class="pw-foot">${foot}</div>` : ''}</div>`;
     wireDie(root); if (window.pgReady && !noReady && !/Loading the party|Opening the invitation/.test(body)) window.pgReady();
     const out = root.querySelector('[data-pw="out"]'); if (out) out.onclick = () => H.signOut();
@@ -2585,6 +2592,13 @@ function partyModule(H) {
 
   // ----- a party's own page: Characters, then (for whoever runs it) Invite players and Who runs it -----
   let CLOADED = false, LEAVING = false, P = null, PLOADED = false, CARDS = {}, PID = '', unP = null, unC = null, SEC = 'chars', JOINING = false;
+  // Cards saved before picture frames took the sheet's colour have none: the DM (or the card's own player) fills it in
+  // once from the saved sheet, so every frame matches its sheet without waiting for that sheet to be opened.
+  const CACCFIX = new Set(); const cardAccFix = async pid => { const mgr = P && (P.dm === EMAIL || (P.mgrs || []).includes(EMAIL));
+    for (const [cid, c] of Object.entries(CARDS)) { if ('acc' in c || CACCFIX.has(cid) || !(mgr || c.owner === EMAIL)) continue; CACCFIX.add(cid);
+      try { const sh = fs.collection('sheets'), m = await sh.doc(cid).get(); if (!m.exists) continue; const d = m.data(); let str = d.data || '';
+        for (let k = 1; k < (Number(d.n) || 1); k++) { const pp = await sh.doc(cid + '_p' + k).get(); str += (pp.exists && pp.data().data) || ''; }
+        const th = (JSON.parse(str) || {}).theme || {}; await PC.doc(pid).collection('cards').doc(cid).set({ acc: /^#[0-9a-f]{6}$/i.test(th.accent || '') ? th.accent : '' }, { merge: true }); } catch (e) {} } };
   // /party/shattered-skies: the name in the address is matched against the parties you're in (or invited to); the
   // party's id works too (older links).
   async function resolveParty(x) {
@@ -2613,7 +2627,7 @@ function partyModule(H) {
         if (P) { document.title = (P.name || 'Party') + ' — Adventurer’s Tome'; if (PRETTY && location.pathname !== URLS.party(P.id, P.name)) history.replaceState(null, '', URLS.party(P.id, P.name)); }
         paint(); partyKeep(); },
       () => { PLOADED = true; P = null; try { localStorage.removeItem(PKEY(id)); } catch (e) {} if (LEAVING) return; shell({ title: 'Party', body: note('You’re not in this party', 'Only its players and DM can open it. If you were invited, the invitation is on your Parties tab.', goHub) }); });
-    unC = PC.doc(id).collection('cards').onSnapshot(qs => { CARDS = {}; qs.docs.forEach(d => CARDS[d.id] = d.data()); CLOADED = true; paint(); partyKeep(); }, () => { CLOADED = true; paint(); });
+    unC = PC.doc(id).collection('cards').onSnapshot(qs => { CARDS = {}; qs.docs.forEach(d => CARDS[d.id] = d.data()); CLOADED = true; paint(); partyKeep(); cardAccFix(id); }, () => { CLOADED = true; paint(); });
   }
   const statusOf = c => c.dead ? ['Dead', 'dead'] : c.stable ? ['Stable at 0 HP', 'down'] : (Number(c.maxhp) && Number(c.hp) <= 0) ? ['Down — death saves', 'down'] : null;
   // The same HP ring as on the sheet: gold for HP (red when low), blue after it for temp HP.
@@ -2678,7 +2692,7 @@ function partyModule(H) {
     const sub = `${IC_CROWN} DM <b>${esc(dmLabel(P))}</b> · ${plural(ids.length, 'character')}`;
     const title = `${partyPicHTML(P, run)}<span class="pw-tt">${esc(P.name || 'Unnamed party')}</span>${run ? ` <button class="hp-rename" id="pt-ren" title="Rename the party" aria-label="Rename the party"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></button>` : ''}`;
     const adminNote = '';
-    const invited = run && (P.invited || []).length ? `<h4 class="pw-h4">Invited</h4><div class="pl-list">${P.invited.map(em => `<div class="pl-row pty-invrow"><span class="pty-invwho"><b>${esc(H.nameOf(em))}</b><small>${H.nameOf(em) !== em ? esc(em) + ' · ' : ''}hasn’t answered yet</small></span><button class="linkbtn" data-uninv="${esc(em)}">Cancel</button></div>`).join('')}</div>` : '';
+    const invited = run && (P.invited || []).length ? `<h3 class="pw-h4">Invited</h3><div class="pl-list">${P.invited.map(em => `<div class="pl-row pty-invrow"><span class="pty-invwho"><b>${esc(H.nameOf(em))}</b><small>${H.nameOf(em) !== em ? esc(em) + ' · ' : ''}hasn’t answered yet</small></span><button class="linkbtn" data-uninv="${esc(em)}">Cancel</button></div>`).join('')}</div>` : '';
     const body = `${adminNote}
       ${ids.length ? `<div class="pm-grid">${ids.map(memberCard).join('')}</div>` : `<p class="pw-empty">No characters yet.${P.dm === EMAIL ? ' Use <b>Add characters</b> to bring some in.' : ''}</p>`}${invited}`;
     const foot = run ? `${P.dm === EMAIL ? '<button class="btn red" id="pt-del"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg><span class="pw-lg">Delete party…</span><span class="pw-sm">Delete</span></button>' : ''}<span class="grow"></span>${P.dm === EMAIL ? '<button class="btn" id="pt-add"><span class="pw-lg">Add characters</span><span class="pw-sm">Add</span></button>' : ''}${ids.length && actor() ? '<button class="btn" id="pt-turn" title="Initiative tracker"><span class="pw-lg">Turn order</span><span class="pw-sm">Turns</span></button>' : ''}${ids.length && actor() ? '<button class="btn gold" id="pt-all"><span class="pw-lg">Party actions…</span><span class="pw-sm">Actions</span></button>' : ''}`
@@ -2757,8 +2771,8 @@ function partyModule(H) {
     const list = H.chars().filter(c => !have(c)).sort((a, b) => (a.owner === EMAIL ? 0 : 1) - (b.owner === EMAIL ? 0 : 1) || String(a.name || '').localeCompare(String(b.name || '')));
     const row = c => `<button class="pl-row pty-prow" data-add="${esc(c.id)}" data-q="${esc((String(c.name || '') + ' ' + (c.owner !== EMAIL ? H.nameOf(c.owner) : '')).toLowerCase())}">${H.pic(c)}<span class="pty-ct"><b>${esc(c.name || 'Unnamed character')}</b><small>${esc([[c.race, c.cls].filter(Boolean).join(' · ') || 'New character', c.owner !== EMAIL ? H.nameOf(c.owner) : 'Yours'].filter(Boolean).join(' · '))}</small></span><span class="pty-go">Add</span></button>`;
     return `<p class="hub-hint">Add one of your characters or one that’s been shared with you, or invite players with the link or by email: they choose which character to bring (or make a new one) when they accept.</p>
-      <h4 class="pw-h4">Characters</h4>${list.length > 6 ? '<input id="pt-acq" class="ad-search pty-acq" type="search" placeholder="Search characters or players" autocomplete="off">' : ''}${list.length ? `<div class="pl-list pty-pick">${list.map(row).join('')}</div>` : '<p class="hub-hint">No characters to add yet: make one, or ask a player to share theirs with you.</p>'}
-      <h4 class="pw-h4">Invite players</h4><div class="pty-linkw">${invLinkHTML(p)}</div>
+      <h3 class="pw-h4">Characters</h3>${list.length > 6 ? '<input id="pt-acq" class="ad-search pty-acq" type="search" placeholder="Search characters or players" autocomplete="off">' : ''}${list.length ? `<div class="pl-list pty-pick">${list.map(row).join('')}</div>` : '<p class="hub-hint">No characters to add yet: make one, or ask a player to share theirs with you.</p>'}
+      <h3 class="pw-h4">Invite players</h3><div class="pty-linkw">${invLinkHTML(p)}</div>
       <form id="pt-inv-f" class="who-f pl-f sh-f pty-invf"><input id="pt-inv-e" type="email" placeholder="Or invite by email address" autocomplete="off" required><button class="btn gold">Invite</button></form>
       <div class="pty-invl">${(p.invited || []).map(em => `<span class="pty-invd">${esc(em)} <small>invited</small></span>`).join('')}</div>`;
   }
