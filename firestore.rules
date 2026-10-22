@@ -211,6 +211,15 @@ service cloud.firestore {
       }
     }
     // An invite link: /join/<code> says which party (anyone signed in who has the link can look it up).
+    // The picture shown when an invite link is pasted somewhere (read by the invite-link worker, so anyone can read it).
+    match /invcard/{t} {
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if signedIn() && request.resource.data.keys().hasOnly(['p', 'name', 'dmName', 'n', 'img', 'at'])
+        && request.resource.data.img is string && request.resource.data.img.size() < 900000 && request.resource.data.name is string && request.resource.data.name.size() <= 200
+        && partyMgr(partyOf(request.resource.data.p));
+      allow delete: if signedIn() && partyMgr(partyOf(resource.data.p));
+    }
     match /invites/{t} {
       allow get: if signedIn();
       allow list: if false;

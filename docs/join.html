@@ -2144,6 +2144,44 @@ const PG_SUN = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stro
 const PG_MOON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
 const themeLabel = () => pgDark() ? 'Switch to light mode' : 'Switch to dark mode';
 function themeBtnHTML() { return `<button class="hub-theme" id="hub-theme" title="${themeLabel()}" aria-label="${themeLabel()}">${pgDark() ? PG_SUN : PG_MOON}</button>`; }
+// ----- The invite panel as a picture (1200×630), for the preview card when an invite link is pasted in Discord,
+// iMessage and the like. Drawn here when the DM makes or updates a link and kept (public) in invcard/<code>, where the
+// small Cloudflare worker that answers invite links reads it. -----
+async function pgInviteImage(p) {
+  const W = 1200, H = 630, c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+  const n = (p.chars || []).length || Number(p.n) || 0, dm = p.dmName || p.dm || '';
+  const rr = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
+  // night sky
+  let bg = g.createRadialGradient(W / 2, H * .3, 40, W / 2, H * .45, W * .75); bg.addColorStop(0, '#26324b'); bg.addColorStop(.55, '#141b2b'); bg.addColorStop(1, '#0a0e17'); g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  [[.08, .2], [.9, .16], [.94, .72], [.05, .8], [.2, .92], [.78, .9], [.15, .45], [.86, .42]].forEach(([x, y], i) => { g.fillStyle = i % 2 ? 'rgba(255,255,255,.35)' : 'rgba(231,196,110,.5)'; g.beginPath(); g.arc(x * W, y * H, i % 3 ? 1.4 : 2, 0, 7); g.fill(); });
+  // the card
+  const cx = 150, cy = 22, cw = 900, ch = 586; g.save(); g.shadowColor = 'rgba(0,0,0,.55)'; g.shadowBlur = 50; g.shadowOffsetY = 18; rr(cx, cy, cw, ch, 30);
+  const cg = g.createLinearGradient(0, cy, 0, cy + ch); cg.addColorStop(0, '#1e2739'); cg.addColorStop(1, '#161d2c'); g.fillStyle = cg; g.fill(); g.restore();
+  g.save(); rr(cx, cy, cw, ch, 30); g.clip(); const gl = g.createRadialGradient(W / 2, cy + 40, 10, W / 2, cy + 40, 300); gl.addColorStop(0, 'rgba(231,176,72,.38)'); gl.addColorStop(1, 'rgba(231,176,72,0)'); g.fillStyle = gl; g.fillRect(cx, cy, cw, 340); g.restore();
+  rr(cx, cy, cw, ch, 30); g.lineWidth = 2.5; g.strokeStyle = '#c9962b'; g.stroke();
+  // the party's seal
+  const sx = W / 2, sy = cy + 104, sr = 74; g.save(); g.shadowColor = 'rgba(231,176,72,.55)'; g.shadowBlur = 30; g.beginPath(); g.arc(sx, sy, sr + 6, 0, 7); g.fillStyle = '#c9962b'; g.fill(); g.restore();
+  g.beginPath(); g.arc(sx, sy, sr, 0, 7); g.fillStyle = '#121826'; g.fill();
+  let drew = false; if (p.pic) { try { const im = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = p.pic; }); g.save(); g.beginPath(); g.arc(sx, sy, sr - 2, 0, 7); g.clip(); const k = Math.max((2 * sr) / im.width, (2 * sr) / im.height); g.drawImage(im, sx - im.width * k / 2, sy - im.height * k / 2, im.width * k, im.height * k); g.restore(); drew = true; } catch (e) {} }
+  if (!drew) { g.save(); g.translate(sx - 36, sy - 36); g.scale(3, 3); g.strokeStyle = '#e7c46e'; g.lineWidth = 1.6; g.lineCap = 'round'; g.beginPath(); g.arc(9, 8, 3.2, 0, 7); g.stroke(); g.beginPath(); g.arc(16.5, 9, 2.6, 0, 7); g.stroke(); g.beginPath(); g.moveTo(3.5, 19); g.quadraticCurveTo(5, 14, 9, 14); g.quadraticCurveTo(13, 14, 14.5, 19); g.stroke(); g.beginPath(); g.moveTo(14.5, 14.6); g.quadraticCurveTo(19.5, 13, 21, 18.5); g.stroke(); g.restore(); }
+  // words
+  const fit = (t, font, max) => { g.font = font; let s = t; while (g.measureText(s).width > max && s.length > 3) s = s.slice(0, -2); return s === t ? t : s.trim() + '…'; };
+  g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+  g.fillStyle = '#e7c46e'; g.font = '800 22px system-ui, -apple-system, "Segoe UI", sans-serif'; const kick = 'YOU’RE INVITED TO JOIN'; let x0 = sx - (g.measureText(kick).width + (kick.length - 1) * 5) / 2; g.textAlign = 'left'; for (const ch2 of kick) { g.fillText(ch2, x0, cy + 236); x0 += g.measureText(ch2).width + 5; } g.textAlign = 'center';
+  g.fillStyle = '#fff7e6'; g.fillText(fit(p.name || 'a party', '700 64px Georgia, "Times New Roman", serif', cw - 100), sx, cy + 306);
+  const meta = [dm ? 'Dungeon Master ' + dm : '', n ? n + ' adventurer' + (n === 1 ? '' : 's') + ' so far' : ''].filter(Boolean).join('   •   ');
+  g.fillStyle = '#c6bfae'; g.fillText(fit(meta, '500 26px system-ui, -apple-system, "Segoe UI", sans-serif', cw - 120), sx, cy + 350);
+  // divider
+  const dy = cy + 384; const ln = (a, b) => { const lg = g.createLinearGradient(a, 0, b, 0); lg.addColorStop(a < sx ? 0 : 1, 'rgba(201,150,43,0)'); lg.addColorStop(a < sx ? 1 : 0, 'rgba(201,150,43,.7)'); g.strokeStyle = lg; g.lineWidth = 1.5; g.beginPath(); g.moveTo(a, dy); g.lineTo(b, dy); g.stroke(); };
+  ln(sx - 220, sx - 24); ln(sx + 24, sx + 220); g.fillStyle = '#c9962b'; g.beginPath(); g.moveTo(sx, dy - 7); g.lineTo(sx + 7, dy); g.lineTo(sx, dy + 7); g.lineTo(sx - 7, dy); g.closePath(); g.fill();
+  // what being in a party means
+  const perks = ['See each other’s HP, AC and conditions, live', 'Hand over items and cast spells on each other', 'Share homebrew items with the whole party', 'Your DM can open every character sheet in the party'];
+  g.textAlign = 'left'; g.font = '500 25px system-ui, -apple-system, "Segoe UI", sans-serif'; const px = sx - (Math.max(...perks.map(t => g.measureText(t).width)) + 26) / 2;
+  perks.forEach((t, i) => { const y = cy + 430 + i * 40; g.beginPath(); g.arc(px, y - 8, 13, 0, 7); g.fillStyle = 'rgba(201,150,43,.22)'; g.fill(); g.strokeStyle = '#e7c46e'; g.lineWidth = 3; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath(); g.moveTo(px - 6, y - 8); g.lineTo(px - 1.5, y - 3.5); g.lineTo(px + 6.5, y - 13); g.stroke(); g.fillStyle = '#ddd6c6'; g.fillText(t, px + 26, y); });
+  let url = c.toDataURL('image/jpeg', .86); if (url.length > 700000) url = c.toDataURL('image/jpeg', .7);
+  return url;
+}
+window.pgInviteImage = pgInviteImage;
 // Scroll shadows on pick lists: a soft edge at the top / bottom while there's more to scroll to.
 // What someone did that brought them online, in plain words ("by opening Hiro's sheet").
 function pgOnlineWhy(back) { const p = location.pathname, q = location.search, t = String(document.title || '').replace(/\s*[—-]\s*Adventurer.s Tome\s*$/i, '').trim(), verb = back ? 'by coming back to ' : 'by opening ';
@@ -2331,7 +2369,8 @@ const URLS = {
   char: c => PRETTY ? (c.path ? pathURL(c.path) : '/c/' + c.id) : LEG + '?c=' + c.id,
   byId: id => PRETTY ? '/c/' + id : LEG + '?c=' + id,
   party: (id, name) => PRETTY ? '/party/' + (id === 'new' ? 'new' : partySlug(name) || id) : LEG + '?party=' + id,
-  join: t => (PRETTY ? location.origin + '/join/' + t : location.origin + LEG + '?join=' + t),
+  // invite links go through the invite worker when there is one (it gives the link its party's own preview card)
+  join: t => (FBCFG.inviteBase ? String(FBCFG.inviteBase).replace(/\/+$/, '') + '/' + t : PRETTY ? location.origin + '/join/' + t : location.origin + LEG + '?join=' + t),
   newChar: (G, o, p) => { try { if (o) sessionStorage.setItem('pg-newfor', JSON.stringify({ o, p: p || '' })); else sessionStorage.removeItem('pg-newfor'); } catch (e) {} return PRETTY ? '/create' : LEG + '?new=1&g=' + G; },
 };
 // Search keys for an account or character: every prefix of each word (and of the whole name / email), so the admin
@@ -2502,7 +2541,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261021214525', ASSETS = {"data": "a/data.48cfdb40bbe4.js", "app": "a/app.0daf72966d4d.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.580f4d58b7cf.html"}; window.PG_ASSETS = ASSETS;
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261021215806', ASSETS = {"data": "a/data.48cfdb40bbe4.js", "app": "a/app.0daf72966d4d.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.580f4d58b7cf.html"}; window.PG_ASSETS = ASSETS;
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -4741,6 +4780,7 @@ function partyModule(H) {
       : mineIn.length ? `<button class="btn" id="pt-leave">Leave the party</button><span class="grow"></span>` : inParty ? '<button class="btn" id="pt-off">Remove it from my list</button>' : '';
     const el = shell({ title, sub, body, foot, inBody: true, noReady: true });
     wirePage(el); if (window.pgReady && (CLOADED || ids.length === 0)) window.pgReady();
+    if (run && P.inv) invCard(P.inv, Object.assign({}, P, { id: PID })); // (keeps the link's preview card up to date)
   }
   // A party's picture (or its icon). The DM taps it to change it.
   const partyPicHTML = (p, edit) => `<${edit ? 'button' : 'span'} class="pw-ppic${p.pic ? '' : ' none'}"${edit ? ` id="pt-pic" title="${p.pic ? 'Change the party’s picture' : 'Add a picture for the party'}" aria-label="Party picture"` : ''}>${p.pic ? `<img src="${esc(p.pic)}" alt="">` : IC_PARTY}${edit ? '<span class="pw-pedit" aria-hidden="true">✎</span>' : ''}</${edit ? 'button' : 'span'}>`;
@@ -4778,10 +4818,14 @@ function partyModule(H) {
   // How many players an invite link is for (0 = anyone), and how many have joined with it.
   const INVUSE = {}; const invUse = code => INVUSE[code] ? Promise.resolve(INVUSE[code]) : IC.doc(code).get().then(d => (INVUSE[code] = d.exists ? { max: Number(d.data().max) || 0, used: Number(d.data().used) || 0 } : { max: 0, used: 0 }), () => ({ max: 0, used: 0 }));
   const invMaxSel = (v) => `<select id="pt-lmax" class="pty-lmax" aria-label="How many players the link is for"><option value="0"${!v ? ' selected' : ''}>any number of players</option>${[1, 2, 3, 4, 5, 6, 7, 8].map(n => `<option value="${n}"${v === n ? ' selected' : ''}>${n} player${n > 1 ? 's' : ''}</option>`).join('')}</select>`;
-  const invSync = p => { if (p && p.inv) invPut(p.inv, p).catch(() => {}); };
+  // the invite panel as a picture, for the link's preview card (redrawn when the party's name, picture or size changes)
+  const invCardKey = p => [p.name || '', (p.pic || '').length, (p.chars || []).length, p.dmName || ''].join('|');
+  const invCard = async (code, p) => { try { const k = invCardKey(p); let was = null; try { was = localStorage.getItem('pg-invcard:' + code); } catch (e) {} if (was === k) return; const img = await pgInviteImage(p);
+    await fs.collection('invcard').doc(code).set({ p: p.id, name: String(p.name || '').slice(0, 200), dmName: String(p.dmName || p.dm || '').slice(0, 200), n: (p.chars || []).length, img, at: Date.now() }); try { localStorage.setItem('pg-invcard:' + code, k); } catch (e) {} } catch (e) { console.warn('invite card', e); } };
+  const invSync = p => { if (p && p.inv) { invPut(p.inv, p).catch(() => {}); invCard(p.inv, p); } };
   const invNew = async (p, max) => { const r = Array.from(crypto.getRandomValues(new Uint8Array(5)), b => 'abcdefghjkmnpqrstuvwxyz23456789'[b % 31]).join('');
     const code = (partySlug(p.name) || 'party').slice(0, 40) + '-' + r, old = p.inv; max = Math.max(0, Math.min(50, Math.floor(Number(max) || 0)));
-    await invPut(code, p, { max, used: 0 }); INVUSE[code] = { max, used: 0 }; await PC.doc(p.id).update({ inv: code, updatedAt: Date.now() }); if (old) IC.doc(old).delete().catch(() => {}); p.inv = code; return code; };
+    await invPut(code, p, { max, used: 0 }); INVUSE[code] = { max, used: 0 }; invCard(code, p); await PC.doc(p.id).update({ inv: code, updatedAt: Date.now() }); if (old) { IC.doc(old).delete().catch(() => {}); fs.collection('invcard').doc(old).delete().catch(() => {}); } p.inv = code; return code; };
   const invLinkHTML = p => `<div class="pty-link${p.inv ? '' : ' off'}">
       <span class="pty-link-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></span>
       ${p.inv ? `<span class="pty-link-t"><b>Invite link</b><code title="${esc(URLS.join(p.inv))}">${esc(URLS.join(p.inv).replace(/^https?:\/\//, ''))}</code></span>
