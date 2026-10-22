@@ -324,6 +324,7 @@ function mainClick(e) {
     case 'settab': switchSetTab(b.dataset.k); break;
     case 'opensettings': openSettings(b.dataset.tab === 'class' ? 'char' : b.dataset.tab); pendingLabel = null; return;
     case 'diceroller': diceRoller(); return;
+    case 'chatwin': if ($('#pcwin')) ptyChatDock(); else ptyChatPopOut(); return;
     case 'rolllog': openRollLog(); break;
     case 'bugreport': if (window.pgBugReport) window.pgBugReport(); else { const a = document.createElement('a'); a.href = '#contact'; document.body.appendChild(a); a.click(); a.remove(); } break;
     case 'clearlog': if (UI.logTab === 'events') { EVLOG = []; saveEvLog(); } else { ROLLLOG = []; saveRollLog(); } openRollLog(); break;
