@@ -265,6 +265,27 @@ function openModal(html, onCancel, wide) {
   onModalCancel = onCancel || null; $('#modal-body').classList.remove('xwide'); $('#modal-body').classList.toggle('wide', !!wide); $('#modal-body').innerHTML = html; $('#modal').classList.add('open');
   const f = $('#modal-body [autofocus]'); if (f) f.focus();
 }
+// Desktop: every pop-up window can be moved by dragging its title (the heading at the top). It opens centred again
+// next time.
+(() => { if (window.__pgWinDrag) return; window.__pgWinDrag = 1; const WIN = '#modal-body, .hub-modal > .hub-card, .pg-out-card, #pg-msg .pgm-card, .wz-card, .wizard > .wz';
+  const HANDLE = 'h2, h3, .rl-head, .pw-head, .mhead, .wz-head, .pgm-head';
+  const desk = () => !document.documentElement.classList.contains('mobile') && innerWidth > 640 && matchMedia('(pointer: fine)').matches;
+  document.addEventListener('pointerdown', e => { if (!desk() || e.button !== 0 || !e.target.closest) return; const w = e.target.closest(WIN); if (!w) return;
+    const h = e.target.closest(HANDLE); if (!h || !w.contains(h) || e.target.closest('button, input, select, textarea, a, label, [contenteditable]')) return;
+    // only a heading near the top of the window counts as its title bar
+    if (h.getBoundingClientRect().top - w.getBoundingClientRect().top > 90) return;
+    e.preventDefault(); const m0 = (w.style.translate || '0px 0px').split(' ').map(parseFloat), x0 = e.clientX - (m0[0] || 0), y0 = e.clientY - (m0[1] || 0), r = w.getBoundingClientRect();
+    const minX = -(r.left - (m0[0] || 0)) - r.width + 80, maxX = innerWidth - (r.left - (m0[0] || 0)) - 80, minY = -(r.top - (m0[1] || 0)), maxY = innerHeight - (r.top - (m0[1] || 0)) - 48;
+    document.body.classList.add('win-dragging'); w.classList.add('win-moving');
+    const mv = ev => { const x = Math.max(minX, Math.min(maxX, ev.clientX - x0)), y = Math.max(minY, Math.min(maxY, ev.clientY - y0)); w.style.translate = `${Math.round(x)}px ${Math.round(y)}px`; };
+    const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); document.body.classList.remove('win-dragging'); w.classList.remove('win-moving');
+      // a click that ends a drag mustn't close the window
+      const eat = ev => { ev.stopPropagation(); ev.preventDefault(); }; addEventListener('click', eat, { capture: true, once: true }); setTimeout(() => removeEventListener('click', eat, true), 0); };
+    addEventListener('pointermove', mv); addEventListener('pointerup', up); });
+  // a window opening again starts back in the middle
+  new MutationObserver(ms => ms.forEach(m => { const t = m.target; if (t.classList && (t.classList.contains('open') || t.classList.contains('on'))) t.querySelectorAll(WIN).forEach(w => { w.style.translate = ''; }); else if (t.matches && t.matches(WIN) && m.type === 'childList') t.style.translate = ''; }))
+    .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], subtree: true });
+})();
 function closeModal(confirmed) {
   if (!$('#modal').classList.contains('open')) return;
   $('#modal').classList.remove('open');

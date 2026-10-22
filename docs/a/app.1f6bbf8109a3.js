@@ -217,7 +217,7 @@ const IOS_SAFARI = /iP(hone|od|ad)/.test(navigator.userAgent) && /Version\/[\d.]
 // The phone's bottom tab bar: on the home-screen app it sits a little above the home bar; in the browser it sits right on
 // the browser's own bar (you can still move it in Settings → Theme).
 const tabStandalone = () => { try { return navigator.standalone === true || matchMedia('(display-mode: standalone)').matches || document.documentElement.classList.contains('pg-standalone'); } catch (e) { return false; } };
-function tabLift() { let v = null; try { v = localStorage.getItem('dnd-tablift'); } catch (e) {} return v != null && v !== '' ? N(v) : tabStandalone() ? 24 : 0; }
+function tabLift() { let v = null; try { v = localStorage.getItem('dnd-tablift'); } catch (e) {} return v != null && v !== '' ? N(v) : 0; }
 function applyTabLift() { document.documentElement.style.setProperty('--tablift', tabLift() + 'px'); }
 function saveUI() { try { localStorage.setItem(UI_KEY, JSON.stringify(UI)); } catch (e) {} }
 // An actual phone always uses the phone layout (the desktop layout can't be switched on there).
@@ -1473,6 +1473,27 @@ function openModal(html, onCancel, wide) {
   onModalCancel = onCancel || null; $('#modal-body').classList.remove('xwide'); $('#modal-body').classList.toggle('wide', !!wide); $('#modal-body').innerHTML = html; $('#modal').classList.add('open');
   const f = $('#modal-body [autofocus]'); if (f) f.focus();
 }
+// Desktop: every pop-up window can be moved by dragging its title (the heading at the top). It opens centred again
+// next time.
+(() => { if (window.__pgWinDrag) return; window.__pgWinDrag = 1; const WIN = '#modal-body, .hub-modal > .hub-card, .pg-out-card, #pg-msg .pgm-card, .wz-card, .wizard > .wz';
+  const HANDLE = 'h2, h3, .rl-head, .pw-head, .mhead, .wz-head, .pgm-head';
+  const desk = () => !document.documentElement.classList.contains('mobile') && innerWidth > 640 && matchMedia('(pointer: fine)').matches;
+  document.addEventListener('pointerdown', e => { if (!desk() || e.button !== 0 || !e.target.closest) return; const w = e.target.closest(WIN); if (!w) return;
+    const h = e.target.closest(HANDLE); if (!h || !w.contains(h) || e.target.closest('button, input, select, textarea, a, label, [contenteditable]')) return;
+    // only a heading near the top of the window counts as its title bar
+    if (h.getBoundingClientRect().top - w.getBoundingClientRect().top > 90) return;
+    e.preventDefault(); const m0 = (w.style.translate || '0px 0px').split(' ').map(parseFloat), x0 = e.clientX - (m0[0] || 0), y0 = e.clientY - (m0[1] || 0), r = w.getBoundingClientRect();
+    const minX = -(r.left - (m0[0] || 0)) - r.width + 80, maxX = innerWidth - (r.left - (m0[0] || 0)) - 80, minY = -(r.top - (m0[1] || 0)), maxY = innerHeight - (r.top - (m0[1] || 0)) - 48;
+    document.body.classList.add('win-dragging'); w.classList.add('win-moving');
+    const mv = ev => { const x = Math.max(minX, Math.min(maxX, ev.clientX - x0)), y = Math.max(minY, Math.min(maxY, ev.clientY - y0)); w.style.translate = `${Math.round(x)}px ${Math.round(y)}px`; };
+    const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); document.body.classList.remove('win-dragging'); w.classList.remove('win-moving');
+      // a click that ends a drag mustn't close the window
+      const eat = ev => { ev.stopPropagation(); ev.preventDefault(); }; addEventListener('click', eat, { capture: true, once: true }); setTimeout(() => removeEventListener('click', eat, true), 0); };
+    addEventListener('pointermove', mv); addEventListener('pointerup', up); });
+  // a window opening again starts back in the middle
+  new MutationObserver(ms => ms.forEach(m => { const t = m.target; if (t.classList && (t.classList.contains('open') || t.classList.contains('on'))) t.querySelectorAll(WIN).forEach(w => { w.style.translate = ''; }); else if (t.matches && t.matches(WIN) && m.type === 'childList') t.style.translate = ''; }))
+    .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], subtree: true });
+})();
 function closeModal(confirmed) {
   if (!$('#modal').classList.contains('open')) return;
   $('#modal').classList.remove('open');
@@ -1681,7 +1702,7 @@ function mtabSync() {
 function mtabFill(m) { const ts = mtabTabs();
   m.querySelector('.mtab-grid').innerHTML = ts.map((t, i) => `<button class="mtab-t${t.on ? ' on' : ''}${t.unread ? ' unread' : ''}" role="menuitem" data-mt="${esc(t.k)}" style="--i:${i}"${t.on ? ' aria-current="page"' : ''}><span class="mtab-tic" aria-hidden="true">${t.ic}</span><span class="mtab-tl">${esc(t.label)}</span>${t.count ? `<span class="mtab-cnt">${esc(t.count)}</span>` : ''}</button>`).join(''); }
 function mtabGo(k) { const b = document.querySelector(`#tabs .tab[data-tab="${CSS.escape(k)}"]`); if (b && !b.classList.contains('on')) b.click(); }
-function mtabOpen() { if (document.getElementById('mtabmenu')) return mtabClose();
+function mtabOpen(kb) { if (document.getElementById('mtabmenu')) return mtabClose();
   const m = document.createElement('div'); m.id = 'mtabmenu'; m.className = 'mtab-menu';
   m.innerHTML = `<div class="mtab-back"></div><div class="mtab-card" role="menu" aria-label="Tabs"><div class="mtab-grid"></div></div>`; mtabFill(m); if (typeof winNoBleed === 'function') winNoBleed(m); document.body.appendChild(m);
   requestAnimationFrame(() => m.classList.add('in')); document.documentElement.classList.add('mtab-open');
@@ -1689,7 +1710,7 @@ function mtabOpen() { if (document.getElementById('mtabmenu')) return mtabClose(
   m.querySelector('.mtab-back').onclick = () => mtabClose();
   m.addEventListener('click', e => { const t = e.target.closest('[data-mt]'); if (!t) return; const k = t.dataset.mt; mtabClose(); setTimeout(() => mtabGo(k), 60); });
   m.addEventListener('keydown', e => { if (e.key === 'Escape') { mtabClose(); const bb = document.querySelector('.mtab-b'); if (bb) bb.focus(); } });
-  setTimeout(() => { const on = m.querySelector('.mtab-t.on') || m.querySelector('.mtab-t'); if (on) on.focus({ preventScroll: true }); }, 30);
+  if (kb) setTimeout(() => { const on = m.querySelector('.mtab-t.on') || m.querySelector('.mtab-t'); if (on) on.focus({ preventScroll: true }); }, 30);
   try { navigator.vibrate && navigator.vibrate(6); } catch (x) {} }
 function mtabClose(now) { const m = document.getElementById('mtabmenu'); document.documentElement.classList.remove('mtab-open'); const b = document.querySelector('.mtab-b'); if (b) b.setAttribute('aria-expanded', 'false'); if (!m) return;
   m.id = ''; if (now || matchMedia('(prefers-reduced-motion: reduce)').matches) return m.remove(); m.classList.remove('in'); m.classList.add('out'); setTimeout(() => m.remove(), 220); }
@@ -1715,7 +1736,7 @@ function mtabWire(el) { let st = null;
     if (e.type !== 'pointercancel') { if (s0.wasOpen) mtabClose(); else mtabOpen(); } };
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
   // keyboard (and screen readers): Enter / Space on the button opens the grid
-  el.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('.mtab-b')) { e.preventDefault(); mtabOpen(); } }); }
+  el.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('.mtab-b')) { e.preventDefault(); mtabOpen(true); } }); }
 addEventListener('resize', () => { clearTimeout(mtabSync.t); mtabSync.t = setTimeout(mtabSync, 150); });
 // The highlight under the selected tab slides from the previous tab to the new one.
 let _tabIndPrev = null;
@@ -7965,7 +7986,7 @@ function ptyCardHTML(m) {
 </div>
     <div class="cstat2">${hp}<div class="csts"><span class="cst"><small>AC</small><b>${esc(m.ac || '—')}</b></span>${m.speed ? `<span class="cst"><small>Speed</small><b>${N(m.speed)}</b></span>` : ''}${m.level ? `<span class="cst"><small>Level</small><b>${N(m.level)}</b></span>` : ''}</div></div>
     ${on.length ? `<div class="ctags">${on.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>` : ''}
-    ${act ? `<div class="ptym-act"><button class="btn sm gold" data-pa="cast" data-id="${esc(id)}" title="Cast a spell on them">Cast a spell</button><button class="btn sm" data-pa="ability" data-id="${esc(id)}" title="Use an ability on them">Ability</button><button class="btn sm" data-pa="give" data-id="${esc(id)}" title="Give them an item">Give item</button><div class="menu up"><button class="icon-btn" data-act="menu" aria-haspopup="true" aria-label="More for ${esc(m.name || 'them')}">⋯</button><div class="menu-list">${more.map(([k, t]) => `<button data-pa="${k}" data-id="${esc(id)}">${esc(t)}</button>`).join('')}</div></div></div>` : ''}
+    ${act ? `<div class="ptym-act"><button class="btn sm gold" data-pa="cast" data-id="${esc(id)}" title="Cast a spell on them"><span class="tl-lg">Cast a spell</span><span class="tl-sm">Cast</span></button><button class="btn sm" data-pa="ability" data-id="${esc(id)}" title="Use an ability on them">Ability</button><button class="btn sm" data-pa="give" data-id="${esc(id)}" title="Give them an item">Give item</button><div class="menu up"><button class="icon-btn" data-act="menu" aria-haspopup="true" aria-label="More for ${esc(m.name || 'them')}">⋯</button><div class="menu-list">${more.map(([k, t]) => `<button data-pa="${k}" data-id="${esc(id)}">${esc(t)}</button>`).join('')}</div></div></div>` : ''}
   </div>`;
 }
 function renderParty() {
@@ -8022,21 +8043,31 @@ function ptyChatWin() {
     hd.addEventListener('pointermove', mv); hd.addEventListener('pointerup', up); });
   w.addEventListener('click', e => { const b = e.target.closest('[data-pcw]'); if (b) ptyChatDock(); });
 }
+// Phones: tapping the chat box on the Party tab opens the chat as its own full window instead (it then fills the space
+// above the keyboard, like a messaging app). It all happens inside the tap, so the keyboard comes straight up.
+document.addEventListener('pointerdown', e => { if (isMobile() && e.target && e.target.id === 'ptychat-in' && !e.target.closest('#pcwin')) e.preventDefault(); }, true);
+document.addEventListener('click', e => { if (!isMobile() || !e.target || e.target.id !== 'ptychat-in' || e.target.closest('#pcwin')) return; e.preventDefault();
+  const v = e.target.value; UI.chatPop = true; if (typeof saveUI === 'function') saveUI(); render('party'); ptyChatWin();
+  const i = document.querySelector('#pcwin #ptychat-in'); if (i) { if (v) i.value = v; i.focus(); } }, true);
 function ptyChatPopOut() { try { const p = JSON.parse(localStorage.getItem('dnd-pcwin') || 'null'); if (p) localStorage.setItem('dnd-pcwin', JSON.stringify({ h: p.h, w: p.w })); } catch (e) {} UI.chatPop = true; if (typeof saveUI === 'function') saveUI(); render('party'); ptyChatWin(); setTimeout(() => { const i = $('#ptychat-in'); if (i) i.focus(); }, 60); }
 // Floating windows (dice roller, party chat) fade in when opened and out when closed. A closing window gives up its id
 // straight away, so opening it again at once makes a fresh one.
 // Phones: the on-screen keyboard covers the bottom of the page without resizing it, so bottom sheets (chat, dice
 // roller) are lifted by however much of the screen the keyboard takes, and kept short enough to fit above it.
 (() => { const vv = window.visualViewport; if (!vv) return; const de = document.documentElement;
-  const upd = () => { const kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)); de.style.setProperty('--kb', kb + 'px'); de.style.setProperty('--vvh', Math.round(vv.height) + 'px'); de.classList.toggle('kbup', kb > 80); };
-  vv.addEventListener('resize', upd); vv.addEventListener('scroll', upd); upd(); })();
+  const upd = () => { const kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)); de.style.setProperty('--kb', kb + 'px'); de.style.setProperty('--vvh', Math.round(vv.height) + 'px'); de.style.setProperty('--vvt', Math.round(vv.offsetTop) + 'px'); const ae = document.activeElement, typing = !!(ae && ae.matches && ae.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea') && ae.closest('#pcwin, #drwin')), up = isMobile() && (typing || innerHeight - vv.height > 120), was = de.classList.contains('kbup'); de.classList.toggle('kbup', up);
+    // when the keyboard comes up, the chat jumps to its newest message
+    if (up && !was) setTimeout(() => { const l = document.querySelector('#pcwin .ptychat-l'); if (l) l.scrollTop = l.scrollHeight; }, 60); };
+  vv.addEventListener('resize', upd); vv.addEventListener('scroll', upd); upd();
+  // the keyboard slides up over a moment after a box is tapped: check again as it settles
+  ['focusin', 'focusout'].forEach(t => document.addEventListener(t, () => { [0, 120, 350, 700].forEach(ms => setTimeout(upd, ms)); })); })();
 // Phones: a finger dragged on a window (or on a list inside it that's already at its end) mustn't scroll the page behind.
 function winNoBleed(w) { let y0 = 0; w.addEventListener('touchstart', e => { y0 = e.touches[0].clientY; }, { passive: true });
   w.addEventListener('touchmove', e => { if (e.touches.length > 1) return; const dy = e.touches[0].clientY - y0; let el = e.target;
     while (el && el !== w.parentNode) { const cs = getComputedStyle(el); if (/(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 1) { const top = el.scrollTop <= 0, bot = el.scrollTop + el.clientHeight >= el.scrollHeight - 1; if (!(dy > 0 && top) && !(dy < 0 && bot)) return; break; } if (el === w) break; el = el.parentElement; }
     if (e.cancelable) e.preventDefault(); }, { passive: false }); }
 function winClose(w) { if (!w || w.classList.contains('closing')) return; w.id = ''; w.classList.add('closing'); const go = () => w.remove();
-  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return go(); setTimeout(go, 190); }
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return go(); setTimeout(go, isMobile() ? 240 : 190); }
 function ptyChatDock() { UI.chatPop = false; if (typeof saveUI === 'function') saveUI(); const w = $('#pcwin'); if (w) winClose(w); render('party'); }
 document.addEventListener('change', e => { const t = e.target; if (!t.dataset || t.dataset.aura == null) return; ptyAura(t.dataset.aura, t.dataset.id, t.checked); });
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-pa]'); if (!b || e.target.closest('#wizard')) return; e.preventDefault();
@@ -10376,7 +10407,7 @@ window.addEventListener('resize', () => { if (!LAYOUT_NOW) { const was = isMobil
   const match = el => W.find(([sel]) => el.matches && el.matches(sel));
   new MutationObserver(ms => ms.forEach(m => { const el = m.target, w = match(el); if (!w) return; const cls = w[1], was = (' ' + (m.oldValue || '') + ' ').includes(' ' + cls + ' '), now = el.classList.contains(cls);
     if (now) { if (!was && el.classList.contains('closing')) { clearTimeout(el._fc); el.classList.remove('closing'); } return; }
-    if (was && !now && !(' ' + (m.oldValue || '') + ' ').includes(' closing ') && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => el.classList.remove('closing'), 190); } }))
+    if (was && !now && !(' ' + (m.oldValue || '') + ' ').includes(' closing ') && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => el.classList.remove('closing'), document.documentElement.classList.contains('mobile') ? 240 : 190); } }))
     .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], attributeOldValue: true, subtree: true });
 }
 

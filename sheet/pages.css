@@ -2029,3 +2029,7 @@ body.hubbody:not(.adminbody) .hub-pane { position: relative; }
   .towin { animation-duration: .32s !important; }
 }
 @media (prefers-reduced-motion: reduce) { body.hubbody .hub-modal.on > *, body.hubbody .hub-modal.closing > *, .pg-out .pg-out-card, .pg-out.closing .pg-out-card { animation: none !important; } }
+/* Desktop: pop-up windows can be dragged by their title */
+@media (pointer: fine) and (min-width: 641px) { html:not(.mobile) :is(#modal-body, .hub-modal > .hub-card, .pg-out-card, #pg-msg .pgm-card) :is(h2, h3, .rl-head, .pw-head):first-of-type { cursor: move; } }
+.win-moving { transition: none !important; box-shadow: 0 30px 70px rgba(0,0,0,.5) !important; }
+body.win-dragging, body.win-dragging * { user-select: none !important; cursor: move !important; }

@@ -3296,14 +3296,14 @@ html.mobile:not([data-theme="dark"]) .tabs { box-shadow: 0 -6px 16px rgba(60,45,
 @keyframes wFadeOut { from { opacity: 1; } to { opacity: 0; } }
 @keyframes wPopIn { from { opacity: 0; transform: translateY(6px) scale(.985); } to { opacity: 1; transform: none; } }
 @keyframes wPopOut { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(6px) scale(.985); } }
-@keyframes wSheetIn { from { opacity: .4; transform: translateY(24px); } to { opacity: 1; transform: none; } }
-@keyframes wSheetOut { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(24px); } }
+@keyframes wSheetIn { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes wSheetOut { from { transform: none; } to { transform: translateY(100%); } }
 .modal-bg.open { animation: wFadeIn .2s ease; }
 .modal-bg.open > .modal { animation: wPopIn .22s cubic-bezier(.22,.9,.24,1); }
 .modal-bg.closing { display: flex; pointer-events: none; animation: wFadeOut .18s ease forwards; }
 .modal-bg.closing > .modal { animation: wPopOut .18s ease forwards; }
-html.mobile .modal-bg.open > .modal { animation: wSheetIn .26s cubic-bezier(.22,.9,.24,1); }
-html.mobile .modal-bg.closing > .modal { animation: wSheetOut .18s ease forwards; }
+html.mobile .modal-bg.open > .modal { animation: wSheetIn .32s cubic-bezier(.2,.9,.3,1); }
+html.mobile .modal-bg.closing > .modal { animation: wSheetOut .22s cubic-bezier(.4,0,1,1) forwards; }
 .wizard.open { animation: wFadeIn .22s ease; }
 .wizard.closing { display: block; pointer-events: none; animation: wFadeOut .18s ease forwards; }
 html.mobile .wizard.closing { display: flex; flex-direction: column; overflow: hidden; z-index: 90; height: 100dvh; }
@@ -3959,10 +3959,9 @@ html.mobile.mtabs body:not(.wizopen):not(:has(#modal.open)):not(:has(#drwin)) .t
 /* the toast area itself never catches taps (only the toasts in it do) */
 .toasts { pointer-events: none; } .toasts > * { pointer-events: auto; }
 /* Phones: bottom sheets fill the width exactly and ride above the on-screen keyboard */
-html.mobile .pcwin, html.mobile .drwin { max-width: none; bottom: var(--kb, 0px) !important; }
-html.mobile.kbup .pcwin { height: min(70vh, calc(var(--vvh, 100vh) - 8px)) !important; top: auto !important; }
-html.mobile.kbup .pcwin .pcw-body { min-height: 0; }
-html.mobile.kbup .drwin { max-height: calc(var(--vvh, 100vh) - 8px); }
+/* Phones, keyboard up: the chat (or dice roller) fills exactly the part of the screen above the keyboard, like a messaging
+   app: title bar at the top, messages in the middle, the text box sitting right on the keyboard. */
+html.mobile.kbup .pcwin .ptychat-h { display: none; }
 html.mobile.kbup .mtab { display: none; }
 /* Scrolling inside a window never scrolls the page behind it */
 .pcwin, .drwin, .pcw-body, .ptychat-l, .mtab-menu, .mtab-card { overscroll-behavior: contain; }
@@ -3985,6 +3984,46 @@ html.mobile .tile.hp .btn.rest { white-space: nowrap; font-size: .86rem; padding
 html.mobile #modal .segmini { display: flex; max-width: 100%; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 html.mobile #modal .segmini::-webkit-scrollbar { display: none; }
 html.mobile #modal .segmini > button { flex: none; white-space: nowrap; }
+.tile.hp .btn.rest { white-space: nowrap; padding-left: 6px; padding-right: 6px; gap: 5px; justify-content: center; min-width: 0; } .tile.hp .btn.rest svg { width: 14px; height: 14px; flex: none; }
+/* when the two rest buttons are narrow, the hourglass and moon step aside so the words stay on one line */
+.tile.hp .rest-actions { container-type: inline-size; }
+@container (max-width: 200px) { .tile.hp .btn.rest .ri { display: none; } .tile.hp .btn.rest { font-size: .82rem; } }
+html.mobile.kbup .pcwin .ptychat-cmds { display: none; }
+/* Phones: "Initiative mode" and "Roll Initiative" sit side by side as one tidy row of equal-height buttons */
+html.mobile .oocbar .ooc-enter { grid-column: 1 / span 1; white-space: nowrap; border-radius: 10px; padding: 12px 8px; font-size: .9rem; align-self: stretch; }
+html.mobile .oocbar .ooc-enter + .btn.big { grid-column: 2 / -1; border-radius: 10px; align-self: stretch; }
+html.mobile .oocbar .ooc-enter, html.mobile .oocbar .ooc-enter + .btn.big { min-height: 50px; margin: 0; }
+
+/* Phones: party chat is a full-screen page (slides up from the bottom). The window itself never moves or changes size:
+   when the keyboard comes up only its inner padding changes, so the title bar, messages and text box always fill
+   exactly the part of the screen you can see, and nothing behind it ever shows through. */
+html.mobile .pcwin { top: 0 !important; bottom: 0 !important; left: 0 !important; right: 0 !important; width: auto !important; height: auto !important; max-width: none; max-height: none; border-radius: 0; border-width: 0;
+  padding-top: max(env(safe-area-inset-top), var(--vvt, 0px)); padding-bottom: max(env(safe-area-inset-bottom), var(--kb, 0px)); box-sizing: border-box; transition: padding .25s cubic-bezier(.2,.9,.3,1); }
+html.mobile.kbup .pcwin { padding-bottom: var(--kb, 0px); }
+html.mobile .pcwin .pcw-head { padding-top: 12px; }
+html.mobile .pcwin .pcw-body { padding-bottom: 10px; }
+html.mobile.kbup .pcwin .pcw-body { padding-bottom: 6px; }
+/* the dice roller stays a sheet at the bottom; while typing in it, it sits on top of the keyboard */
+html.mobile .drwin { max-width: none; bottom: var(--kb, 0px) !important; transition: bottom .25s cubic-bezier(.2,.9,.3,1); }
+html.mobile.kbup .drwin { max-height: calc(var(--vvh, 100vh) - 8px); }
+/* Phones, full-screen chat: messages run edge to edge, and the text box is a rounded message bar like a chat app's */
+html.mobile .pcwin .pcw-body { padding: 0; }
+html.mobile .pcwin .ptychat-l { border: 0; border-radius: 0; background: transparent; padding: 12px 12px 8px; }
+html.mobile .pcwin .ptychat-h, html.mobile .pcwin .ptychat-cmds { padding: 8px 14px 0; margin: 0; }
+html.mobile .pcwin .ptychat-f { margin: 0; padding: 8px 10px; border-top: 1px solid var(--line); background: var(--panel2); align-items: center; }
+html.mobile .pcwin .ptychat-f input { border-radius: 20px; padding: 9px 14px; min-height: 40px; box-sizing: border-box; }
+html.mobile .pcwin .ptychat-f button[type=submit], html.mobile .pcwin .ptychat-f .btn { border-radius: 20px; min-height: 40px; padding: 0 16px; }
+/* Phones: every window rises from the bottom of the screen and sinks back down when closed */
+html.mobile .drwin, html.mobile .pcwin { animation-duration: .32s; animation-timing-function: cubic-bezier(.2,.9,.3,1); }
+html.mobile .drwin.closing, html.mobile .pcwin.closing { animation-duration: .22s; animation-timing-function: cubic-bezier(.4,0,1,1); }
+/* Log window: a divider under the title row and above the Close button, with the list scrolling between them */
+#rolllogmodal .rl-head { padding-bottom: 12px; margin-bottom: 0; border-bottom: 1px solid var(--line); }
+#rolllogmodal .rl-list { padding-top: 10px; padding-bottom: 10px; }
+#rolllogmodal ~ .actions, .modal:has(#rolllogmodal) .actions { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 0; }
+/* Desktop: pop-up windows can be dragged by their title */
+@media (pointer: fine) and (min-width: 641px) { html:not(.mobile) :is(#modal-body, .hub-modal > .hub-card, .pg-out-card, #pg-msg .pgm-card) :is(h2, h3, .rl-head, .pw-head):first-of-type { cursor: move; } }
+.win-moving { transition: none !important; box-shadow: 0 30px 70px rgba(0,0,0,.5) !important; }
+body.win-dragging, body.win-dragging * { user-select: none !important; cursor: move !important; }
 
 </style>
 </head>
@@ -10577,7 +10616,7 @@ const IOS_SAFARI = /iP(hone|od|ad)/.test(navigator.userAgent) && /Version\/[\d.]
 // The phone's bottom tab bar: on the home-screen app it sits a little above the home bar; in the browser it sits right on
 // the browser's own bar (you can still move it in Settings → Theme).
 const tabStandalone = () => { try { return navigator.standalone === true || matchMedia('(display-mode: standalone)').matches || document.documentElement.classList.contains('pg-standalone'); } catch (e) { return false; } };
-function tabLift() { let v = null; try { v = localStorage.getItem('dnd-tablift'); } catch (e) {} return v != null && v !== '' ? N(v) : tabStandalone() ? 24 : 0; }
+function tabLift() { let v = null; try { v = localStorage.getItem('dnd-tablift'); } catch (e) {} return v != null && v !== '' ? N(v) : 0; }
 function applyTabLift() { document.documentElement.style.setProperty('--tablift', tabLift() + 'px'); }
 function saveUI() { try { localStorage.setItem(UI_KEY, JSON.stringify(UI)); } catch (e) {} }
 // An actual phone always uses the phone layout (the desktop layout can't be switched on there).
@@ -11833,6 +11872,27 @@ function openModal(html, onCancel, wide) {
   onModalCancel = onCancel || null; $('#modal-body').classList.remove('xwide'); $('#modal-body').classList.toggle('wide', !!wide); $('#modal-body').innerHTML = html; $('#modal').classList.add('open');
   const f = $('#modal-body [autofocus]'); if (f) f.focus();
 }
+// Desktop: every pop-up window can be moved by dragging its title (the heading at the top). It opens centred again
+// next time.
+(() => { if (window.__pgWinDrag) return; window.__pgWinDrag = 1; const WIN = '#modal-body, .hub-modal > .hub-card, .pg-out-card, #pg-msg .pgm-card, .wz-card, .wizard > .wz';
+  const HANDLE = 'h2, h3, .rl-head, .pw-head, .mhead, .wz-head, .pgm-head';
+  const desk = () => !document.documentElement.classList.contains('mobile') && innerWidth > 640 && matchMedia('(pointer: fine)').matches;
+  document.addEventListener('pointerdown', e => { if (!desk() || e.button !== 0 || !e.target.closest) return; const w = e.target.closest(WIN); if (!w) return;
+    const h = e.target.closest(HANDLE); if (!h || !w.contains(h) || e.target.closest('button, input, select, textarea, a, label, [contenteditable]')) return;
+    // only a heading near the top of the window counts as its title bar
+    if (h.getBoundingClientRect().top - w.getBoundingClientRect().top > 90) return;
+    e.preventDefault(); const m0 = (w.style.translate || '0px 0px').split(' ').map(parseFloat), x0 = e.clientX - (m0[0] || 0), y0 = e.clientY - (m0[1] || 0), r = w.getBoundingClientRect();
+    const minX = -(r.left - (m0[0] || 0)) - r.width + 80, maxX = innerWidth - (r.left - (m0[0] || 0)) - 80, minY = -(r.top - (m0[1] || 0)), maxY = innerHeight - (r.top - (m0[1] || 0)) - 48;
+    document.body.classList.add('win-dragging'); w.classList.add('win-moving');
+    const mv = ev => { const x = Math.max(minX, Math.min(maxX, ev.clientX - x0)), y = Math.max(minY, Math.min(maxY, ev.clientY - y0)); w.style.translate = `${Math.round(x)}px ${Math.round(y)}px`; };
+    const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); document.body.classList.remove('win-dragging'); w.classList.remove('win-moving');
+      // a click that ends a drag mustn't close the window
+      const eat = ev => { ev.stopPropagation(); ev.preventDefault(); }; addEventListener('click', eat, { capture: true, once: true }); setTimeout(() => removeEventListener('click', eat, true), 0); };
+    addEventListener('pointermove', mv); addEventListener('pointerup', up); });
+  // a window opening again starts back in the middle
+  new MutationObserver(ms => ms.forEach(m => { const t = m.target; if (t.classList && (t.classList.contains('open') || t.classList.contains('on'))) t.querySelectorAll(WIN).forEach(w => { w.style.translate = ''; }); else if (t.matches && t.matches(WIN) && m.type === 'childList') t.style.translate = ''; }))
+    .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], subtree: true });
+})();
 function closeModal(confirmed) {
   if (!$('#modal').classList.contains('open')) return;
   $('#modal').classList.remove('open');
@@ -12041,7 +12101,7 @@ function mtabSync() {
 function mtabFill(m) { const ts = mtabTabs();
   m.querySelector('.mtab-grid').innerHTML = ts.map((t, i) => `<button class="mtab-t${t.on ? ' on' : ''}${t.unread ? ' unread' : ''}" role="menuitem" data-mt="${esc(t.k)}" style="--i:${i}"${t.on ? ' aria-current="page"' : ''}><span class="mtab-tic" aria-hidden="true">${t.ic}</span><span class="mtab-tl">${esc(t.label)}</span>${t.count ? `<span class="mtab-cnt">${esc(t.count)}</span>` : ''}</button>`).join(''); }
 function mtabGo(k) { const b = document.querySelector(`#tabs .tab[data-tab="${CSS.escape(k)}"]`); if (b && !b.classList.contains('on')) b.click(); }
-function mtabOpen() { if (document.getElementById('mtabmenu')) return mtabClose();
+function mtabOpen(kb) { if (document.getElementById('mtabmenu')) return mtabClose();
   const m = document.createElement('div'); m.id = 'mtabmenu'; m.className = 'mtab-menu';
   m.innerHTML = `<div class="mtab-back"></div><div class="mtab-card" role="menu" aria-label="Tabs"><div class="mtab-grid"></div></div>`; mtabFill(m); if (typeof winNoBleed === 'function') winNoBleed(m); document.body.appendChild(m);
   requestAnimationFrame(() => m.classList.add('in')); document.documentElement.classList.add('mtab-open');
@@ -12049,7 +12109,7 @@ function mtabOpen() { if (document.getElementById('mtabmenu')) return mtabClose(
   m.querySelector('.mtab-back').onclick = () => mtabClose();
   m.addEventListener('click', e => { const t = e.target.closest('[data-mt]'); if (!t) return; const k = t.dataset.mt; mtabClose(); setTimeout(() => mtabGo(k), 60); });
   m.addEventListener('keydown', e => { if (e.key === 'Escape') { mtabClose(); const bb = document.querySelector('.mtab-b'); if (bb) bb.focus(); } });
-  setTimeout(() => { const on = m.querySelector('.mtab-t.on') || m.querySelector('.mtab-t'); if (on) on.focus({ preventScroll: true }); }, 30);
+  if (kb) setTimeout(() => { const on = m.querySelector('.mtab-t.on') || m.querySelector('.mtab-t'); if (on) on.focus({ preventScroll: true }); }, 30);
   try { navigator.vibrate && navigator.vibrate(6); } catch (x) {} }
 function mtabClose(now) { const m = document.getElementById('mtabmenu'); document.documentElement.classList.remove('mtab-open'); const b = document.querySelector('.mtab-b'); if (b) b.setAttribute('aria-expanded', 'false'); if (!m) return;
   m.id = ''; if (now || matchMedia('(prefers-reduced-motion: reduce)').matches) return m.remove(); m.classList.remove('in'); m.classList.add('out'); setTimeout(() => m.remove(), 220); }
@@ -12075,7 +12135,7 @@ function mtabWire(el) { let st = null;
     if (e.type !== 'pointercancel') { if (s0.wasOpen) mtabClose(); else mtabOpen(); } };
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
   // keyboard (and screen readers): Enter / Space on the button opens the grid
-  el.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('.mtab-b')) { e.preventDefault(); mtabOpen(); } }); }
+  el.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('.mtab-b')) { e.preventDefault(); mtabOpen(true); } }); }
 addEventListener('resize', () => { clearTimeout(mtabSync.t); mtabSync.t = setTimeout(mtabSync, 150); });
 // The highlight under the selected tab slides from the previous tab to the new one.
 let _tabIndPrev = null;
@@ -18382,21 +18442,31 @@ function ptyChatWin() {
     hd.addEventListener('pointermove', mv); hd.addEventListener('pointerup', up); });
   w.addEventListener('click', e => { const b = e.target.closest('[data-pcw]'); if (b) ptyChatDock(); });
 }
+// Phones: tapping the chat box on the Party tab opens the chat as its own full window instead (it then fills the space
+// above the keyboard, like a messaging app). It all happens inside the tap, so the keyboard comes straight up.
+document.addEventListener('pointerdown', e => { if (isMobile() && e.target && e.target.id === 'ptychat-in' && !e.target.closest('#pcwin')) e.preventDefault(); }, true);
+document.addEventListener('click', e => { if (!isMobile() || !e.target || e.target.id !== 'ptychat-in' || e.target.closest('#pcwin')) return; e.preventDefault();
+  const v = e.target.value; UI.chatPop = true; if (typeof saveUI === 'function') saveUI(); render('party'); ptyChatWin();
+  const i = document.querySelector('#pcwin #ptychat-in'); if (i) { if (v) i.value = v; i.focus(); } }, true);
 function ptyChatPopOut() { try { const p = JSON.parse(localStorage.getItem('dnd-pcwin') || 'null'); if (p) localStorage.setItem('dnd-pcwin', JSON.stringify({ h: p.h, w: p.w })); } catch (e) {} UI.chatPop = true; if (typeof saveUI === 'function') saveUI(); render('party'); ptyChatWin(); setTimeout(() => { const i = $('#ptychat-in'); if (i) i.focus(); }, 60); }
 // Floating windows (dice roller, party chat) fade in when opened and out when closed. A closing window gives up its id
 // straight away, so opening it again at once makes a fresh one.
 // Phones: the on-screen keyboard covers the bottom of the page without resizing it, so bottom sheets (chat, dice
 // roller) are lifted by however much of the screen the keyboard takes, and kept short enough to fit above it.
 (() => { const vv = window.visualViewport; if (!vv) return; const de = document.documentElement;
-  const upd = () => { const kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)); de.style.setProperty('--kb', kb + 'px'); de.style.setProperty('--vvh', Math.round(vv.height) + 'px'); de.classList.toggle('kbup', kb > 80); };
-  vv.addEventListener('resize', upd); vv.addEventListener('scroll', upd); upd(); })();
+  const upd = () => { const kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)); de.style.setProperty('--kb', kb + 'px'); de.style.setProperty('--vvh', Math.round(vv.height) + 'px'); de.style.setProperty('--vvt', Math.round(vv.offsetTop) + 'px'); const ae = document.activeElement, typing = !!(ae && ae.matches && ae.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea') && ae.closest('#pcwin, #drwin')), up = isMobile() && (typing || innerHeight - vv.height > 120), was = de.classList.contains('kbup'); de.classList.toggle('kbup', up);
+    // when the keyboard comes up, the chat jumps to its newest message
+    if (up && !was) setTimeout(() => { const l = document.querySelector('#pcwin .ptychat-l'); if (l) l.scrollTop = l.scrollHeight; }, 60); };
+  vv.addEventListener('resize', upd); vv.addEventListener('scroll', upd); upd();
+  // the keyboard slides up over a moment after a box is tapped: check again as it settles
+  ['focusin', 'focusout'].forEach(t => document.addEventListener(t, () => { [0, 120, 350, 700].forEach(ms => setTimeout(upd, ms)); })); })();
 // Phones: a finger dragged on a window (or on a list inside it that's already at its end) mustn't scroll the page behind.
 function winNoBleed(w) { let y0 = 0; w.addEventListener('touchstart', e => { y0 = e.touches[0].clientY; }, { passive: true });
   w.addEventListener('touchmove', e => { if (e.touches.length > 1) return; const dy = e.touches[0].clientY - y0; let el = e.target;
     while (el && el !== w.parentNode) { const cs = getComputedStyle(el); if (/(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 1) { const top = el.scrollTop <= 0, bot = el.scrollTop + el.clientHeight >= el.scrollHeight - 1; if (!(dy > 0 && top) && !(dy < 0 && bot)) return; break; } if (el === w) break; el = el.parentElement; }
     if (e.cancelable) e.preventDefault(); }, { passive: false }); }
 function winClose(w) { if (!w || w.classList.contains('closing')) return; w.id = ''; w.classList.add('closing'); const go = () => w.remove();
-  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return go(); setTimeout(go, 190); }
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return go(); setTimeout(go, isMobile() ? 240 : 190); }
 function ptyChatDock() { UI.chatPop = false; if (typeof saveUI === 'function') saveUI(); const w = $('#pcwin'); if (w) winClose(w); render('party'); }
 document.addEventListener('change', e => { const t = e.target; if (!t.dataset || t.dataset.aura == null) return; ptyAura(t.dataset.aura, t.dataset.id, t.checked); });
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-pa]'); if (!b || e.target.closest('#wizard')) return; e.preventDefault();
@@ -20736,7 +20806,7 @@ window.addEventListener('resize', () => { if (!LAYOUT_NOW) { const was = isMobil
   const match = el => W.find(([sel]) => el.matches && el.matches(sel));
   new MutationObserver(ms => ms.forEach(m => { const el = m.target, w = match(el); if (!w) return; const cls = w[1], was = (' ' + (m.oldValue || '') + ' ').includes(' ' + cls + ' '), now = el.classList.contains(cls);
     if (now) { if (!was && el.classList.contains('closing')) { clearTimeout(el._fc); el.classList.remove('closing'); } return; }
-    if (was && !now && !(' ' + (m.oldValue || '') + ' ').includes(' closing ') && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => el.classList.remove('closing'), 190); } }))
+    if (was && !now && !(' ' + (m.oldValue || '') + ' ').includes(' closing ') && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => el.classList.remove('closing'), document.documentElement.classList.contains('mobile') ? 240 : 190); } }))
     .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], attributeOldValue: true, subtree: true });
 }
 

@@ -3332,3 +3332,11 @@ html.mobile .pcwin .ptychat-f button[type=submit], html.mobile .pcwin .ptychat-f
 /* Phones: every window rises from the bottom of the screen and sinks back down when closed */
 html.mobile .drwin, html.mobile .pcwin { animation-duration: .32s; animation-timing-function: cubic-bezier(.2,.9,.3,1); }
 html.mobile .drwin.closing, html.mobile .pcwin.closing { animation-duration: .22s; animation-timing-function: cubic-bezier(.4,0,1,1); }
+/* Log window: a divider under the title row and above the Close button, with the list scrolling between them */
+#rolllogmodal .rl-head { padding-bottom: 12px; margin-bottom: 0; border-bottom: 1px solid var(--line); }
+#rolllogmodal .rl-list { padding-top: 10px; padding-bottom: 10px; }
+#rolllogmodal ~ .actions, .modal:has(#rolllogmodal) .actions { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 0; }
+/* Desktop: pop-up windows can be dragged by their title */
+@media (pointer: fine) and (min-width: 641px) { html:not(.mobile) :is(#modal-body, .hub-modal > .hub-card, .pg-out-card, #pg-msg .pgm-card) :is(h2, h3, .rl-head, .pw-head):first-of-type { cursor: move; } }
+.win-moving { transition: none !important; box-shadow: 0 30px 70px rgba(0,0,0,.5) !important; }
+body.win-dragging, body.win-dragging * { user-select: none !important; cursor: move !important; }
