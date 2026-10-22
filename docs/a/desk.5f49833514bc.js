@@ -329,6 +329,7 @@ const ICON = {
   heart: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-10-9.3C.4 8.4 2.3 4 6.4 4 9 4 10.6 5.6 12 7.4 13.4 5.6 15 4 17.6 4 21.7 4 23.6 8.4 22 11.7 19.5 16.4 12 21 12 21z"/></svg>',
   init: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M4 12h7M4 18h4"/><path d="M18 5v14M15 16l3 3 3-3"/></svg>',
   book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg>',
+  notes: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9 9h6M9 12.5h6M9 16h3.5"/></svg>',
   folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
   trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>',
   refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>',
@@ -1363,11 +1364,11 @@ function topHTML() {
   const b = CTX.back, p = CTX.party;
   return `${b ? `<a class="dk-backlink" href="${esc(b.href)}">${ICON.back}<span>${esc(b.label || 'Back')}</span></a>` : ''}
     <div class="dk-brand">${CTX.logo && typeof CTX.logo.html === 'function' ? `<span class="dk-logo">${CTX.logo.html()}</span>` : '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 2 36 11v18L20 38 4 29V11z" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M20 2v36M4 11l32 18M36 11 4 29" stroke="currentColor" stroke-width="1.2" opacity=".55"/></svg>'}<div><small>${p ? esc(p.name || 'Your party') : 'Adventurer’s Tome'}</small><h1>DM’s Desk</h1></div></div>
-    <nav class="dk-tabs" role="tablist">${CTX.partyHost ? `<button role="tab" data-act="tab" data-tab="party" aria-selected="${UI.tab === 'party'}" class="${UI.tab === 'party' ? 'on' : ''}">${ICO_PARTY}<span>Party</span></button>` : ''}<button role="tab" data-act="tab" data-tab="sessions" aria-selected="${UI.tab === 'sessions'}" class="${UI.tab === 'sessions' ? 'on' : ''}">${ICON.folder}<span>Sessions</span></button><button role="tab" data-act="tab" data-tab="notes" aria-selected="${UI.tab === 'notes'}" class="${UI.tab === 'notes' ? 'on' : ''}">${nIcon('lore', '')}<span>Notes</span></button><button role="tab" data-act="tab" data-tab="bestiary" aria-selected="${UI.tab === 'bestiary'}" class="${UI.tab === 'bestiary' ? 'on' : ''}">${ICON.book}<span>Bestiary</span></button><button role="tab" data-act="tab" data-tab="gen" aria-selected="${UI.tab === 'gen'}" class="${UI.tab === 'gen' ? 'on' : ''}">${ICON.dice}<span>Generate</span></button></nav>
+    <nav class="dk-tabs" role="tablist">${CTX.partyHost ? `<button role="tab" data-act="tab" data-tab="party" aria-selected="${UI.tab === 'party'}" class="${UI.tab === 'party' ? 'on' : ''}">${ICO_PARTY}<span>Party</span></button>` : ''}<button role="tab" data-act="tab" data-tab="sessions" aria-selected="${UI.tab === 'sessions'}" class="${UI.tab === 'sessions' ? 'on' : ''}">${ICON.folder}<span>Sessions</span></button><button role="tab" data-act="tab" data-tab="notes" aria-selected="${UI.tab === 'notes'}" class="${UI.tab === 'notes' ? 'on' : ''}">${ICON.notes}<span>Notes</span></button><button role="tab" data-act="tab" data-tab="bestiary" aria-selected="${UI.tab === 'bestiary'}" class="${UI.tab === 'bestiary' ? 'on' : ''}">${ICON.book}<span>Bestiary</span></button><button role="tab" data-act="tab" data-tab="gen" aria-selected="${UI.tab === 'gen'}" class="${UI.tab === 'gen' ? 'on' : ''}">${ICON.dice}<span>Generate</span></button></nav>
     <div class="dk-tools"><button class="dk-tb dk-dicebtn" data-act="settings" data-k="dice" title="Dice settings"><span class="dk-dot"></span><span class="dk-dicelbl">Desk rolls</span></button>
       ${p && typeof CTX.turnOrder === 'function' ? `<button class="dk-tb dk-tobtn" data-act="turnorder" title="Open the party’s Turn order">${ICON.init}<span class="dk-tl">Turn order</span></button>` : ''}<button class="dk-tb" data-act="diceroller" title="Dice roller" aria-pressed="${!!$('.drwin:not(.closing)')}">${ICON.dice}<span class="dk-tl">Roll</span></button>
       <button class="dk-tb" data-act="log" title="Roll log" aria-pressed="${UI.log}">${ICON.log}<span class="dk-tl">Log</span></button>
-      <button class="dk-tb" data-act="settings" title="Settings">${ICON.gear}</button>${CTX && CTX.bugReport ? `<button class="dk-tb" data-act="bugreport" title="Report a bug" aria-label="Report a bug">${ICON.bug}</button>` : ''}</div>
+      <button class="dk-tb" data-act="settings" title="Settings">${ICON.gear}</button>${CTX && CTX.bugReport ? `<button class="dk-tb" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` : ''}</div>
     <span class="dk-sync">${esc(syncMsg)}</span>`;
 }
 function paintDice() {
@@ -1396,7 +1397,7 @@ function paint0(pg) {
   $$('[data-keep]').forEach(el => { if (keep[el.dataset.keep]) el.scrollTop = keep[el.dataset.keep]; });
   if (fid) { const el = document.getElementById(fid); if (el && el !== document.activeElement) { el.focus({ preventScroll: true }); if (sel) try { el.setSelectionRange(sel[0], sel[1]); } catch (e) {} } }
   if (Math.abs(scrollY - y) > 2) scrollTo(scrollX, y);
-  ROOT.classList.toggle('dk-tree-open', !!UI.tree);
+  ROOT.classList.toggle('dk-tree-open', !!UI.tree); if (ROOT.dataset.tab !== (UI.tab || '') && UI.tab === 'notes' && innerWidth > 900) scrollTo(0, 0); ROOT.dataset.tab = UI.tab || '';
   try { pills(); animView(pg); } catch (e) {}
 }
 function flashHP(iid, k) { requestAnimationFrame(() => $$(`[data-hpflash="${iid}"]`).forEach(el => { el.classList.remove('hurt', 'heal'); void el.offsetWidth; el.classList.add(k); })); }
@@ -1449,14 +1450,31 @@ function overviewHTML(s) {
     ${g.list.length ? `<div class="dk-cards">${g.list.map(cardHTML).join('')}</div>` : '<p class="dk-hint dk-gnone">Empty. Add creatures with the box above.</p>'}</section>`;
   return sessHead(s) + s.groups.map(grp).join('') + cardsHTML(s);
 }
+// session cards: the same panel as a creature on the character sheet's Creatures tab
 function cardHTML(x) {
-  const c = instC(x), p = hpPct(x);
-  return `<article class="dk-ccard${x.down ? ' down' : ''}" data-iid="${x.iid}">
-    <button class="dk-ccmain" data-act="sel" data-iid="${x.iid}"><span class="dk-cchd">${tokenHTML(c, 38, 'dk-cctok')}<b>${esc(x.name)}</b>${c ? `<small>CR ${crLabel(N(c.cr))} ${esc(c.type || '')}</small>` : '<small class="bad">stat block missing</small>'}</span>
-      <span class="dk-ccbody" data-hpflash="${x.iid}"><span class="dk-ccring" title="${x.hp} of ${x.max} HP${N(x.temp) ? ' (+' + x.temp + ' temporary)' : ''}"><span class="dk-ring">${hpRing(x)}</span><b class="${p <= 35 ? 'low' : ''}">${x.hp}</b><small>of ${x.max}</small>${N(x.temp) ? `<em>+${x.temp}</em>` : ''}</span>
-        <span class="dk-ccstats"><span class="dk-ccst ac"><small>AC</small><b>${x.ac}</b></span><span class="dk-ccst"><small>Speed</small><b>${c ? speedFt(c) : '—'}</b></span></span></span>
-      <span class="dk-ccfoot">${x.down ? '<span class="dk-chip dead">Down</span>' : ''}${x.conc ? `<span class="dk-chip conc">${ICON.conc}${esc(x.conc)}</span>` : ''}${condChips(x)}${N(x.exh) ? `<span class="dk-chip cond">Exhaustion ${N(x.exh)}</span>` : ''}${econMini(x)}${CTX.party && inTurn(x.iid) ? '<span class="dk-chip to" title="In the Turn order">Turn order</span>' : ''}</span></button>
-    <div class="dk-ccq"><input class="dk-f dk-num" id="dk-q-${x.iid}" data-q="${x.iid}" type="text" autocomplete="off" enterkeyhint="done" maxlength="6" placeholder="Amount" title="Type 20 or -20 for damage, +20 to heal, then Enter" aria-label="Amount for ${esc(x.name)}"><button class="dk-hpi dmg sm" data-act="qdmg" data-iid="${x.iid}" title="Damage" aria-label="Damage ${esc(x.name)}">${ICON.hpDmg}</button><button class="dk-hpi heal sm" data-act="qheal" data-iid="${x.iid}" title="Heal" aria-label="Heal ${esc(x.name)}">${ICON.hpHeal}</button></div>
+  const c = instC(x), p = hpPct(x), sp = c ? String(c.speed || '').split(/,\s*/) : [];
+  const tags = c ? ['CR ' + crLabel(N(c.cr)), c.type || ''].filter(Boolean) : [];
+  const acts = c ? (c.actions || []).map((e, i) => {
+    const a = analyze(e), ek = entKey('actions', i), multi = /^multiattack/i.test(e.n), ml = multi ? parseMulti(c) : null;
+    if (multi && !ml) return '';
+    const k = multi ? 'multi' : a.hit != null ? 'attack' : a.save ? 'save' : a.dmg.length ? 'dmg' : '';
+    if (!k) return '';
+    const dm = parts => parts.map(q => esc(q.expr) + (q.type ? ' ' + esc(q.type) : '')).join(' + ');
+    const info = k === 'multi' ? esc(ml.map(z => baseName(c.actions[z.i].n) + (z.n > 1 ? ' ×' + z.n : '')).join(', '))
+      : k === 'attack' ? `<button class="dk-rl atk" data-act="atk" data-ek="${ek}" title="Attack roll and damage">${sg(a.hit)}</button> to hit${a.dmg.length ? ' · ' + dm(a.dmg) : ''}`
+      : k === 'save' ? `<b>DC ${a.save.dc} ${ABS[a.save.ab].toUpperCase()}</b>${a.sdmg.length ? ' · ' + dm(a.sdmg) : ''}` : dm(a.dmg);
+    const btn = k === 'multi' ? `<button class="dk-btn sm gold" data-act="multi">Roll all</button>` : k === 'attack' ? `<button class="dk-btn sm gold" data-act="atk" data-ek="${ek}">Attack</button>` : k === 'save' ? `<button class="dk-btn sm gold" data-act="save" data-ek="${ek}">${a.sdmg.length ? 'Damage' : 'Save'}</button>` : `<button class="dk-btn sm gold" data-act="dmg" data-ek="${ek}">Roll</button>`;
+    return `<div class="dk-cact k-${k}"><span class="dk-cact-i" aria-hidden="true">${k === 'attack' ? '⚔' : k === 'save' ? '⛨' : k === 'multi' ? '⚔⚔' : '🎲'}</span><div class="dk-cact-m"><b>${esc(baseName(e.n))}</b><div class="dk-cact-s">${info}</div></div><div class="dk-cact-b">${btn}</div></div>`;
+  }).join('') : '';
+  const chips = (x.down ? '<span class="dk-chip dead">Down</span>' : '') + (x.conc ? `<span class="dk-chip conc">${ICON.conc}${esc(x.conc)}</span>` : '') + condChips(x) + (N(x.exh) ? `<span class="dk-chip cond">Exhaustion ${N(x.exh)}</span>` : '');
+  return `<article class="dk-ccard dk-comp2${x.down ? ' down' : ''}" data-iid="${x.iid}">
+    <div class="dk-ch2"><button class="dk-chtok" data-act="sel" data-iid="${x.iid}" aria-label="Open ${esc(x.name)}">${tokenHTML(c, 46, 'dk-cctok')}</button><button class="dk-chname" data-act="sel" data-iid="${x.iid}"><b class="dk-cname">${esc(x.name)}</b><span class="dk-ctags">${c ? tags.map(t => `<span class="dk-tag">${esc(t)}</span>`).join('') : '<span class="dk-tag bad">stat block missing</span>'}${CTX.party && inTurn(x.iid) ? '<span class="dk-tag to">Turn order</span>' : ''}</span></button>${econMini(x)}</div>
+    <div class="dk-cstat2"><div class="dk-chp2" data-hpflash="${x.iid}"><div class="dk-chp-ring" title="${x.hp} of ${x.max} HP${N(x.temp) ? ' (+' + x.temp + ' temporary)' : ''}"><span class="dk-ring">${hpRing(x)}</span><span class="dk-chp-c"><b class="${p <= 35 ? 'low' : ''}">${x.hp}</b>${N(x.temp) ? `<em>+${x.temp}</em>` : ''}<small>of ${x.max}</small></span></div>
+      <div class="dk-chp-side"><input class="dk-f" id="dk-q-${x.iid}" data-q="${x.iid}" type="text" autocomplete="off" enterkeyhint="done" maxlength="6" placeholder="Amount" title="Type 20 or -20 for damage, +20 to heal, then Enter" aria-label="Amount for ${esc(x.name)}">
+        <div class="dk-chp-btns"><button class="dk-hpi dmg sm" data-act="qdmg" data-iid="${x.iid}" title="Damage" aria-label="Damage ${esc(x.name)}">${ICON.hpDmg}</button><button class="dk-hpi heal sm" data-act="qheal" data-iid="${x.iid}" title="Heal" aria-label="Heal ${esc(x.name)}">${ICON.hpHeal}</button><button class="dk-hpi tmp sm" data-act="qtemp" data-iid="${x.iid}" title="Temporary HP (they don’t stack — the higher stays)" aria-label="Temporary HP for ${esc(x.name)}">${ICON.hpTemp}</button></div></div></div>
+      <div class="dk-csts"><span class="dk-cst"><small>AC</small><b>${x.ac}</b></span><span class="dk-cst wide" title="${esc(c ? c.speed || '' : '')}"><small>Speed</small><b>${c ? speedFt(c) + ' ft' : '—'}</b>${sp.length > 1 ? `<i>${esc(sp.slice(1).map(z => z.replace(/\s*ft\.?/i, '')).join(' · '))}</i>` : ''}</span></div></div>
+    ${chips ? `<div class="dk-ccfoot">${chips}</div>` : ''}
+    ${acts ? `<div class="dk-cacts">${acts}</div>` : ''}
   </article>`;
 }
 // the same HP ring as the character sheet: gold arc (red when low), temp HP in blue after it
@@ -1878,7 +1896,7 @@ async function onClick(e) {
     case 'saveeff': { const g = curSession().groups.find(z => z.id === b.dataset.gid); openSaveDialog({ title: 'Saving throw', dc: 13, ab: 1, parts: [], half: true }); SV.rows.forEach(r => { r.on = !!g.list.find(z => z.iid === r.iid) && !findInst(r.iid).down; }); return paintSave(); }
     case 'addc': { const q = $('#dk-addq'), v = q.value.trim(); if (!v) { q.focus(); return; } const exact = allCreatures().find(c => c.name.toLowerCase() === v.toLowerCase()) || searchCreatures(v, 1)[0]; if (!exact) return toastInfo(`No creature called “${esc(v)}”. Try the bestiary, or paste its stat block there.`); return addPicked(exact.id); }
     case 'pickc': return addPicked(b.dataset.cid);
-    case 'qdmg': case 'qheal': { const inp = $(`[data-q="${iid}"]`), v = hpAmt(inp.value).n; if (!v) { inp.focus(); return; } if (act === 'qdmg') applyDamage(x, v, '', true); else heal(x, v); return; }
+    case 'qdmg': case 'qheal': case 'qtemp': { const inp = $(`[data-q="${iid}"]`), v = hpAmt(inp.value).n; if (!v) { inp.focus(); return; } if (act === 'qdmg') applyDamage(x, v, '', true); else if (act === 'qtemp') setTemp(x, v); else heal(x, v); return; }
     case 'dup': { const g = groupOf(iid); if (!g) return; const out = addToGroup(g.s, g.g, x.cid, 1); save(); paint(); return toastInfo(`Added <b>${esc(out[0].name)}</b>.`); }
     case 'rest': restInst(x); save(); paint(); return toastInfo(`${esc(x.name)} is fresh: full HP, conditions cleared, every use back.`);
     case 'movegrp': { const g = groupOf(iid), to = g.s.groups.find(z => z.id === b.dataset.gid); g.g.list = g.g.list.filter(z => z !== x); to.list.push(x); save(); paint(); return; }
@@ -2018,7 +2036,9 @@ function onDocDown(e) {
   if (!e.target.closest || !e.target.closest('.dk-picker')) $$('.dk-sugg').forEach(s => { s.hidden = true; });
   if (e.target.classList && e.target.classList.contains('dk-modal')) closeModal();
 }
-function onStorage(e) { if (e.key && e.key === toKey() && readTurnHP()) { save(); paint(); } }
+// the Turn order changed: HP that changed there comes back here, and "In Turn order" buttons follow who's on the list
+let TURN_SIG = null; const turnSig = () => { const t = toRead(); return t ? t.rows.map(r => r.desk || '').filter(Boolean).sort().join() : ''; };
+function onStorage(e) { if (!e.key || e.key !== toKey()) return; const hp = readTurnHP(), sig = turnSig(), moved = sig !== TURN_SIG; TURN_SIG = sig; if (hp) save(); if (hp || moved) paint(); }
 
 // ---------- mount ----------
 const LISTEN = [];
@@ -2045,10 +2065,10 @@ function mount(root, ctx) {
   if (CTX.partyHost) { const slot = document.createElement('div'); slot.className = 'dk-partyslot'; root.insertBefore(slot, root.querySelector('.dk-page').nextSibling); slot.appendChild(CTX.partyHost); }
   render();
   try { const top = root.querySelector('.dk-top'), setH = () => root.style.setProperty('--toph', Math.round(top.getBoundingClientRect().height) + 'px'); setH(); if (window.ResizeObserver) { const ro = new ResizeObserver(setH); ro.observe(top); LISTEN.push([{ removeEventListener: () => ro.disconnect() }, 'x', null]); } } catch (e) {}
-  on(root, 'click', onClick); on(root, 'pointerdown', e => { mwDrag(e); if (e.target.closest && e.target.closest('.drwin')) ROOT.classList.add('dk-rfront'); else if (e.target.closest && e.target.closest('.dk-mcard')) ROOT.classList.remove('dk-rfront'); }); on(window, 'resize', () => { if (ROOT) ROOT.classList.toggle('dk-mw', mwDesk()); }); on(root, 'change', onChange); on(root, 'input', onInput);
+  on(root, 'click', onClick); on(root, 'dblclick', e => { if (e.target.closest && e.target.closest('.dk-nsplit')) { UI.nrw = 0; saveUI(); nrSet(NRW0); } }); on(root, 'keydown', nrKey); on(root, 'pointerdown', e => { mwDrag(e); nrDrag(e); if (e.target.closest && e.target.closest('.drwin')) ROOT.classList.add('dk-rfront'); else if (e.target.closest && e.target.closest('.dk-mcard')) ROOT.classList.remove('dk-rfront'); }); on(window, 'resize', () => { if (ROOT) ROOT.classList.toggle('dk-mw', mwDesk()); }); on(root, 'change', onChange); on(root, 'input', onInput);
   on(root, 'mousedown', e => { const t = e.target.closest && e.target.closest('[data-ed],[data-auto]'); if (!t) return; e.preventDefault(); if (t.dataset.ed) edCmd(t.dataset.ed); else edAutoPick(N(t.dataset.auto)); });
   on(root, 'paste', e => { if (e.target.closest && e.target.closest('.dk-ed')) edPaste(e); });
-  on(root, 'dragstart', onDragStart); on(root, 'dragover', onDragOver); on(root, 'drop', onDrop); on(root, 'dragend', () => { DRAG = null; $$('.dragging').forEach(x => x.classList.remove('dragging')); });
+  on(root, 'dragstart', e => { onDragStart(e); if (DRAG) ROOT.classList.add('dk-dragon'); }); on(root, 'dragover', onDragOver); on(root, 'drop', e => { onDrop(e); ROOT.classList.remove('dk-dragon'); }); on(root, 'dragend', () => { DRAG = null; ROOT.classList.remove('dk-dragon'); $$('.dragging').forEach(x => x.classList.remove('dragging')); });
   on(root, 'mouseover', onNotesOver); on(window, 'beforeunload', () => { if (NCLOUD) flushNotes(); });
   on(document, 'keydown', onKey); on(document, 'mousedown', onDocDown); on(document, 'touchstart', onDocDown, { passive: true });
   on(window, 'message', onR20Msg); on(document, 'visibilitychange', onVis); on(window, 'storage', onStorage);
@@ -2684,7 +2704,8 @@ function notesFiltered() {
   L.sort(f === 'recent' || q ? (a, b) => (q ? (b.title.toLowerCase().includes(q) - a.title.toLowerCase().includes(q)) : 0) || N(b.edited) - N(a.edited) : (a, b) => a.title.localeCompare(b.title));
   return f === 'recent' ? L.slice(0, 30) : L;
 }
-function snippet(p, q) { const t = pageText(p); if (!q) return esc(t.slice(0, 110)); const i = t.toLowerCase().indexOf(q.toLowerCase()); if (i < 0) return esc(t.slice(0, 110)); const a = Math.max(0, i - 40); return (a ? '…' : '') + esc(t.slice(a, i)) + '<mark>' + esc(t.slice(i, i + q.length)) + '</mark>' + esc(t.slice(i + q.length, i + q.length + 70)); }
+const cut = (t, n) => t.length <= n ? t : t.slice(0, n).replace(/\s+\S*$/, '') + '…';
+function snippet(p, q) { const t = pageText(p); if (!q) return esc(cut(t, 160)); const i = t.toLowerCase().indexOf(q.toLowerCase()); if (i < 0) return esc(cut(t, 160)); const a = Math.max(0, i - 40); return (a ? '…' : '') + esc(t.slice(a, i)) + '<mark>' + esc(t.slice(i, i + q.length)) + '</mark>' + esc(t.slice(i + q.length, i + q.length + 70)); }
 function treeHTML(pid, depth) {
   return kids(pid).map(p => { const ks = kids(p.id), open = UI.nopen[p.id] || isAncestor(p.id, UI.np);
     return `<div class="dk-nt" data-nid="${p.id}"><div class="dk-ntrow${p.id === UI.np ? ' on' : ''}" draggable="true" data-drag="${p.id}" style="--d:${depth}">${ks.length ? `<button class="dk-caret${open ? ' open' : ''}" data-act="ntoggle" data-id="${p.id}" aria-label="${open ? 'Collapse' : 'Expand'}">${ICON.caret}</button>` : '<span class="dk-ntsp"></span>'}<button class="dk-ntn" data-act="nopen" data-id="${p.id}">${nIcon(p.type, '', p.color)}<span>${esc(p.title)}</span>${p.fav ? '<i class="dk-star">★</i>' : ''}</button></div>${ks.length && open ? treeHTML(p.id, depth + 1) : ''}</div>`; }).join('');
@@ -2700,7 +2721,7 @@ function notesRailHTML() {
 }
 function notesHTML() {
   const p = UI.nview === 'timeline' ? null : pageById(UI.np);
-  return `<div class="dk-sess dk-notesv"><div class="dk-scrim" data-act="tree"></div><nav class="dk-rail" aria-label="Notes">${notesRailHTML()}</nav>
+  return `<div class="dk-sess dk-notesv" style="--nrw:${nrW()}px"><div class="dk-scrim" data-act="tree"></div><nav class="dk-rail" aria-label="Notes">${notesRailHTML()}</nav><div class="dk-nsplit" role="separator" aria-orientation="vertical" aria-label="Page list width (drag, or use the arrow keys; double-click to reset)" tabindex="0" title="Drag to resize · double-click to reset"></div>
     <main class="dk-main"><div class="dk-pbar"><button class="dk-btn" data-act="tree">${ICON.menu}<span>${p ? esc(pathOf(p).map(x => x.title).join(' › ')) : UI.nview === 'timeline' ? 'Timeline' : 'All pages'}</span></button></div>
     ${UI.nview === 'timeline' ? timelineHTML() : p ? pageHTML(p) : notesHomeHTML()}</main></div>`;
 }
@@ -2861,6 +2882,18 @@ function movePage(id, parent, at) {
   sib.splice(idx, 0, p); sib.forEach((x, i) => { if (x.order !== i + 1) { x.order = i + 1; nSave(x); } });
   if (parent) UI.nopen[parent] = true; nSave(p); paint();
 }
+
+// the divider between the page list and the page: drag it (or arrow keys); the width is remembered on this device
+const NRW0 = 290, nrClamp = w => Math.round(Math.max(180, Math.min(w, Math.min(640, innerWidth - 420))));
+const nrW = () => nrClamp(N(UI.nrw) || NRW0);
+function nrSet(w, keep) { const v = $('.dk-notesv'); w = nrClamp(w); if (v) v.style.setProperty('--nrw', w + 'px'); if (keep) { UI.nrw = w; saveUI(); } return w; }
+function nrDrag(e) {
+  const sp = e.target.closest && e.target.closest('.dk-nsplit'); if (!sp || e.button > 0) return; e.preventDefault();
+  const v = $('.dk-notesv'), x0 = v.getBoundingClientRect().left; let w = nrW(); sp.classList.add('on'); document.body.style.cursor = 'col-resize'; ROOT.classList.add('dk-resizing');
+  const mv = ev => { w = nrSet(ev.clientX - x0); }, up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); sp.classList.remove('on'); document.body.style.cursor = ''; ROOT.classList.remove('dk-resizing'); nrSet(w, true); };
+  addEventListener('pointermove', mv); addEventListener('pointerup', up);
+}
+function nrKey(e) { const sp = e.target.closest && e.target.closest('.dk-nsplit'); if (!sp) return false; const d = e.key === 'ArrowLeft' ? -16 : e.key === 'ArrowRight' ? 16 : 0; if (!d) return false; e.preventDefault(); nrSet(nrW() + d, true); return true; }
 // ---------- Atlas: map pages with pins (pan, zoom, pins linking to pages; a pin to another map opens it) ----------
 const MAPV = {}; // pageId -> {s, x, y} view
 const PIN_COLORS = ['#c9962b', '#b6402d', '#2f8a57', '#2f6ca8', '#7a4fb8', '#1f2a44', '#d9732f', '#ffffff'];
