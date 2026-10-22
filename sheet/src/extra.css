@@ -3270,7 +3270,10 @@ html.mtab-open .mtab-chev { transform: rotate(180deg); }
 .mtab-t.on .mtab-tic { background: var(--gold); color: var(--on-gold, #1D2536); }
 .mtab-cnt { position: absolute; top: 7px; left: 9px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: color-mix(in srgb, var(--ink) 18%, transparent); font: 800 .66rem/18px system-ui, sans-serif; }
 @media (prefers-reduced-motion: reduce) { .mtab-card, .mtab-t, .mtab-back, .mtab-b, .mtab-chev { transition: none !important; } }
-html.mobile.mtabs .toasts, html.mobile.mtabs #tipbox { bottom: calc(80px + var(--tablift, 0px) + env(safe-area-inset-bottom)) !important; }
+html.mobile.mtabs #tipbox { bottom: calc(80px + var(--tablift, 0px) + env(safe-area-inset-bottom)) !important; }
+html.mobile.mtabs body:not(.wizopen):not(:has(#modal.open)):not(:has(#drwin)) .toasts { bottom: calc(80px + var(--tablift, 0px) + env(safe-area-inset-bottom)); }
+/* the toast area itself never catches taps (only the toasts in it do) */
+.toasts { pointer-events: none; } .toasts > * { pointer-events: auto; }
 /* Phones: bottom sheets fill the width exactly and ride above the on-screen keyboard */
 html.mobile .pcwin, html.mobile .drwin { max-width: none; bottom: var(--kb, 0px) !important; }
 html.mobile.kbup .pcwin { height: min(70vh, calc(var(--vvh, 100vh) - 8px)) !important; top: auto !important; }
