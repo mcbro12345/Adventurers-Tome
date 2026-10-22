@@ -3158,3 +3158,4 @@ html.mobile .pcw-body .ptychat-f input { font-size: 16px; }
 /* chat pictures: no borders */
 .ptyc-ava, .pcp-ava { border: 0 !important; }
 .ptyc-ava:not(:has(img)) { background: var(--line2); }
+.pcw-body .ptychat-h { display: none; }

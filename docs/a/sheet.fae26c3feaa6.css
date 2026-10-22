@@ -3792,4 +3792,40 @@ html.mobile .ptymain .ptychat .ptychat-l { max-height: 320px; }
 .ptychat-off .ptychat-lock { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; padding: 30px 16px; border: 1px dashed var(--line2); border-radius: 12px; background: var(--panel2); color: var(--soft); }
 .ptychat-off .ptychat-lock span { font-size: 1.6rem; }
 .ptychat-off .ptychat-lock p { margin: 0; font-size: .88rem; max-width: 260px; }
+/* Party tab cards: three across beside the chat (the HP box fills the card, a slightly smaller ring) */
+.ptymain .ptym-grid { grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: 12px; }
+.ptymain .ptym .chp.chp2 { flex: 1 1 100%; gap: 10px; padding: 8px 10px; }
+.ptymain .ptym .chp2 .chp-ring { width: 82px; height: 82px; }
+.ptymain .ptym .comp-h2 .cname { font-size: 1rem; }
+html.mobile .ptymain .ptym-grid { grid-template-columns: 1fr; }
+.ptychat-cmds code { font-size: .8em; padding: 1px 5px; border-radius: 5px; background: var(--panel2); border: 1px solid var(--line); color: var(--ink); }
+
+.ptychat-cmds { display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; align-items: center; margin: -2px 0 8px; font-size: .78rem; color: var(--soft); }
+.ptychat-cmds code { white-space: nowrap; justify-self: start; }
+/* Party chat pop-out window */
+.pcwin { position: fixed; z-index: 9100; width: 360px; height: 480px; min-height: 260px; max-height: calc(100vh - 12px); resize: vertical; overflow: hidden; display: flex; flex-direction: column; background: var(--panel); color: var(--ink); border: 1px solid var(--line2); border-radius: 14px; box-shadow: 0 20px 48px rgba(0,0,0,.45); }
+.pcwin.drag { opacity: .96; }
+.pcw-head { display: flex; align-items: center; gap: 6px; padding: 9px 10px 9px 14px; border-bottom: 1px solid var(--line); background: var(--panel2); cursor: move; touch-action: none; user-select: none; }
+.pcw-head b { flex: 1; font-size: .92rem; letter-spacing: .04em; }
+.pcw-b { width: 28px; height: 28px; border-radius: 7px; border: 0; background: transparent; color: var(--soft); cursor: pointer; font-size: .95rem; }
+@media (hover:hover){:where(html:not(.mobile)) .pcw-b:hover{ background: var(--panel); color: var(--ink); }}
+.pcw-body { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 10px 12px 12px; }
+.pcw-body .ptychat-lw { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.pcw-body .ptychat-l { flex: 1; max-height: none; min-height: 0; }
+.pcw-body .ptychat-h { font-size: .78rem; }
+.ptychat-popbtn { padding: 3px 9px; font-size: .74rem; letter-spacing: 0; text-transform: none; }
+.ptychat-popped .ptychat-lock { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; padding: 30px 16px; border: 1px dashed var(--line2); border-radius: 12px; background: var(--panel2); color: var(--soft); }
+.ptychat-popped .ptychat-lock span { font-size: 1.6rem; }
+.ptychat-popped .ptychat-lock p { margin: 0; font-size: .88rem; }
+.ptymain .ptychat.ptychat-popped { height: auto; }
+html.mobile .pcwin { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: 100%; height: 70vh !important; resize: none; border-radius: 16px 16px 0 0; border-width: 1px 0 0; padding-bottom: env(safe-area-inset-bottom); transition: transform .18s ease-out; z-index: 9500; }
+html.mobile .pcw-head { cursor: default; padding: 12px 12px 10px 16px; }
+html.mobile .pcw-b { width: 34px; height: 34px; font-size: 1.05rem; }
+html.mobile .pcw-body .ptychat-f input { font-size: 16px; }
+.ptyc-ava.clear, .pcp-ava.clear { border: 0; border-radius: 0; background: none; overflow: visible; }
+.ptyc-ava.clear img, .pcp-ava.clear img { object-fit: contain; }
+/* chat pictures: no borders */
+.ptyc-ava, .pcp-ava { border: 0 !important; }
+.ptyc-ava:not(:has(img)) { background: var(--line2); }
+.pcw-body .ptychat-h { display: none; }
 
