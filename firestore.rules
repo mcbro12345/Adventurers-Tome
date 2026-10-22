@@ -287,6 +287,13 @@ service cloud.firestore {
       allow get: if signedIn();
       allow create, update, delete: if admin();
     }
+    // DM's Desk: each person's own sessions and creatures, private to them.
+    match /desks/{em} {
+      allow read, write: if signedIn() && em == me();
+      match /{document=**} {
+        allow read, write: if signedIn() && em == me();
+      }
+    }
     match /groups/{g} {
       allow get: if signedIn();
       allow create, update: if admin();

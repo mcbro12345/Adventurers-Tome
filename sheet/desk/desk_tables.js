@@ -1,0 +1,186 @@
+// DM's Desk generator tables — all original writing for Adventurer's Tome.
+window.DESK_TABLES = (function () {
+  const ENVS = [['arctic', 'Arctic'], ['coast', 'Coast'], ['desert', 'Desert'], ['forest', 'Forest'], ['grassland', 'Grassland'], ['hill', 'Hills'], ['jungle', 'Jungle'], ['mountain', 'Mountains'], ['swamp', 'Swamp'], ['underdark', 'Underdark'], ['underwater', 'Underwater'], ['urban', 'Urban'], ['dungeon', 'Ruins & dungeons']];
+  // Which SRD creatures turn up where: [name pattern, environments]. First match wins; type defaults follow.
+  const ENV_RULES = [
+    [/^(adult|ancient|young) red dragon|red dragon wyrmling/i, 'mountain hill'], [/blue dragon/i, 'desert coast'], [/green dragon/i, 'forest jungle'], [/black dragon/i, 'swamp jungle'], [/white dragon/i, 'arctic mountain'],
+    [/brass dragon/i, 'desert'], [/bronze dragon/i, 'coast underwater'], [/copper dragon/i, 'hill mountain'], [/gold dragon/i, 'grassland forest mountain'], [/silver dragon/i, 'mountain urban arctic'],
+    [/dragon turtle/i, 'coast underwater'], [/kraken/i, 'underwater'], [/sahuagin|merrow|merfolk|sea hag|plesiosaurus|giant octopus|octopus|killer whale|reef shark|hunter shark|giant shark|quipper|swarm of quippers|giant crab|crab|water elemental|marid/i, 'coast underwater'],
+    [/aboleth|chuul/i, 'underdark underwater'], [/grimlock|kuo-toa|hook horror|dust mephit and/i, 'underdark'], [/gnoll|jackal/i, 'grassland desert hill'], [/pegasus|unicorn/i, 'forest grassland mountain'], [/drow|duergar|svirfneblin|deep gnome|gibbering|grick|hook horror|purple worm|roper|piercer|cloaker|darkmantle|umber hulk|xorn|mind flayer|otyugh|gray ooze|black pudding|ochre jelly|gelatinous cube|rust monster|spectator|carrion crawler|myconid|violet fungus|shrieker|troglodyte|quaggoth/i, 'underdark dungeon'],
+    [/beholder|death tyrant/i, 'underdark dungeon'], [/lich|mummy lord|vampire|death knight|dracolich|demilich/i, 'dungeon urban'], [/mummy/i, 'desert dungeon'],
+    [/skeleton|zombie|ghoul|ghast|wight|wraith|specter|ghost|shadow|banshee|poltergeist|will-o'?-wisp|crawling claw/i, 'dungeon swamp urban'],
+    [/winter wolf|yeti|abominable|remorhaz|frost giant|polar bear|mammoth|ice mephit|white|frost|ice devil|saber-toothed/i, 'arctic mountain'],
+    [/fire giant|salamander|fire elemental|magma|azer|efreeti|fire snake|hell hound|smoke mephit/i, 'mountain underdark'], [/cloud giant|storm giant|roc|air elemental|djinni/i, 'mountain coast'],
+    [/stone giant|hill giant|ettin|ogre|troll|cyclops|giant goat|giant eagle|griffon|hippogriff|wyvern|manticore|chimera|peryton|harpy|gargoyle|earth elemental|stone golem|goat|eagle|giant elk|bulette/i, 'hill mountain'],
+    [/lamia|androsphinx|gynosphinx|sphinx|camel|giant scorpion|scorpion|dust mephit|blue|jackalwere|giant vulture|vulture|giant lizard|hyena|giant hyena|giant constrictor/i, 'desert'],
+    [/couatl|giant ape|ape|baboon|jaguar|panther|tiger|giant poisonous snake|poisonous snake|flying snake|constrictor snake|swarm of poisonous snakes|swarm of insects|giant wasp|yuan|giant frog|frog|tyrannosaurus|triceratops|pteranodon|allosaurus|ankylosaurus|elephant|lion/i, 'jungle grassland'],
+    [/hydra|black|lizardfolk|bullywug|crocodile|giant crocodile|giant toad|toad|hag|swarm of rats|giant rat|rat|will|shambling mound|giant leech|stirge|mud mephit/i, 'swamp'],
+    [/dryad|treant|unicorn|pixie|sprite|satyr|blink dog|displacer beast|owlbear|green hag|wood elf|centaur|giant owl|owl|awakened tree|awakened shrub|twig blight|needle blight|vine blight|giant spider|spider|phase spider|ettercap|wolf|dire wolf|bear|black bear|brown bear|giant boar|boar|elk|deer|giant badger|badger|giant weasel|weasel|giant elk|werewolf|wereboar|werebear|weretiger|worg|goblin|hobgoblin|bugbear|gnoll|pegasus/i, 'forest hill grassland'],
+    [/horse|riding horse|draft horse|warhorse|pony|mule|giant hawk|hawk|axe beak|giant wolf spider|wolf spider|cockatrice|basilisk|wereboar|bandit|thug|scout|veteran|knight|tribal warrior|berserker|orc|kobold|ankheg|bulette|wyvern/i, 'grassland hill'],
+    [/guard|noble|commoner|spy|assassin|cult|acolyte|priest|mage|archmage|gladiator|wererat|rat|thug|bandit captain|imp|quasit|doppelganger|succubus|incubus|rakshasa|invisible stalker|animated armor|flying sword|rug of smothering|homunculus|clay golem|flesh golem|iron golem|shield guardian|mimic|cat|mastiff|raven|pseudodragon|faerie dragon/i, 'urban dungeon'],
+    [/demon|devil|balor|marilith|nalfeshnee|hezrou|glabrezu|vrock|dretch|pit fiend|horned|bone devil|barbed|chain devil|bearded|lemure|erinyes|planetar|solar|deva|nightmare|night hag/i, 'dungeon urban'],
+    [/ooze|pudding|jelly|cube|mimic|cloaker|basilisk|medusa|minotaur|chimera|gorgon|golem|lamia|naga|guardian naga|spirit naga|water weird|flameskull|helmed horror|minotaur skeleton/i, 'dungeon'],
+  ];
+  const TYPE_ENV = { aberration: 'underdark dungeon', beast: 'forest grassland hill', celestial: 'mountain urban', construct: 'dungeon urban', dragon: 'mountain', elemental: 'mountain desert', fey: 'forest', fiend: 'dungeon urban', giant: 'hill mountain', humanoid: 'urban grassland forest', monstrosity: 'forest hill dungeon', ooze: 'dungeon underdark', plant: 'forest swamp jungle', undead: 'dungeon swamp urban', swarm: 'swamp forest dungeon' };
+  // DMG XP thresholds per character level: easy, medium, hard, deadly.
+  const THRESH = [null, [25, 50, 75, 100], [50, 100, 150, 200], [75, 150, 225, 400], [125, 250, 375, 500], [250, 500, 750, 1100], [300, 600, 900, 1400], [350, 750, 1100, 1700], [450, 900, 1400, 2100], [550, 1100, 1600, 2400], [600, 1200, 1900, 2800], [800, 1600, 2400, 3600], [1000, 2000, 3000, 4500], [1100, 2200, 3400, 5100], [1250, 2500, 3800, 5700], [1400, 2800, 4300, 6400], [1600, 3200, 4800, 7200], [2000, 3900, 5900, 8800], [2100, 4200, 6300, 9500], [2400, 4900, 7300, 10900], [2800, 5700, 8500, 12700]];
+  // Non-combat encounters: [kind, text]. kinds: hazard, discovery, social, weather, trap
+  const SCENES = {
+    any: [
+      ['discovery', 'A cairn of flat stones, each painted with a different hand-sized sigil. One sigil matches a mark the party has seen before.'],
+      ['social', 'A lone messenger, lost and out of water, begs directions — and will pay in news from the road behind them.'],
+      ['discovery', 'An abandoned campsite: the fire is still warm, bedrolls for five, but only four sets of tracks lead away.'],
+      ['hazard', 'A swarm of biting flies descends at dusk. Unless the party moves on or makes smoke, everyone loses the benefit of a short rest.'],
+      ['social', 'Two traveling merchants argue over who owns a mule. Both have a bill of sale; one is forged.'],
+      ['discovery', 'A shrine to a forgotten god, freshly cleaned. Someone has left an offering of a silver coin and a child’s drawing.'],
+      ['trap', 'A snare line across the trail, set for game but strong enough to hoist a halfling (DC 13 Perception to spot, DC 12 Dex save or restrained and dangling).'],
+      ['weather', 'A sudden fog rolls in, cutting sight to 30 feet for the next hour. Something large moves just beyond it, then leaves.'],
+    ],
+    arctic: [
+      ['hazard', 'Thin ice over a hidden lake. The first creature heavier than 150 lb. to cross makes a DC 12 Dex save or breaks through into freezing water (DC 10 Con save each minute or 1 level of exhaustion).'],
+      ['weather', 'A whiteout blizzard: heavy obscurement past 15 feet, travel pace halved, and Survival checks to stay on course are made with disadvantage.'],
+      ['discovery', 'A mammoth frozen upright in a glacier wall, a spear of unfamiliar black metal still lodged in its side.'],
+      ['social', 'A family of ice-fishers offers shelter in their snow hut in exchange for help hauling a net that is far too heavy — something is caught in it.'],
+      ['trap', 'A ridge of overhanging snow. Loud noise or fire triggers a slide: DC 13 Dex save or 2d10 bludgeoning and buried.'],
+      ['discovery', 'Sled tracks end abruptly at a crevasse. Down below, a broken sled with a sealed chest and no driver.'],
+    ],
+    coast: [
+      ['hazard', 'The tide is coming in faster than it should. The sandbar path back to shore will be underwater in ten minutes.'],
+      ['discovery', 'A shipwreck’s figurehead washed ashore — a carved woman holding a key that turns, revealing a hollow with a waterlogged map.'],
+      ['social', 'A smuggler’s lookout mistakes the party for the crew they’re waiting for and starts reciting a password.'],
+      ['weather', 'A squall rolls off the sea: strong wind imposes disadvantage on ranged attacks, and open flames gutter out.'],
+      ['trap', 'A tide pool full of glittering coins is actually the lure of a giant clam (DC 12 Str save to pull free; it grapples the hand that reaches in).'],
+      ['discovery', 'A lighthouse whose lamp still burns every night, though the keeper died a year ago according to the villagers.'],
+    ],
+    desert: [
+      ['hazard', 'Midday heat: each creature without shade or a gallon of water makes a DC 12 Con save each hour or gains a level of exhaustion.'],
+      ['weather', 'A sandstorm boils over the dunes. Heavily obscured beyond 10 feet for 1d4 hours; unprotected eyes are blinded until washed.'],
+      ['discovery', 'The top of an obelisk pokes out of the sand, its inscriptions describing a city that should be directly below.'],
+      ['social', 'A caravan master offers water at an outrageous price — and drops it sharply if the party will scout the next oasis for her.'],
+      ['trap', 'A patch of sinking sand around a shining object. DC 12 Survival to notice; a creature that steps in is restrained and sinks 1 foot per round.'],
+      ['discovery', 'Bleached bones of a giant creature form a natural shelter, already claimed by a pair of exhausted pilgrims.'],
+    ],
+    forest: [
+      ['discovery', 'A ring of mushrooms with a perfectly preserved, tiny wooden door at its center. Knocking gets a reply in Sylvan.'],
+      ['hazard', 'A rotten oak, hollowed by beetles, groans and starts to topple across the path (DC 12 Dex save or 2d8 bludgeoning).'],
+      ['social', 'A woodcutter swears the trees moved last night. He wants someone to stand watch with him — he’ll pay in good boots.'],
+      ['weather', 'Rain drums on the canopy all day. The ground turns slick: difficult terrain off the trail, and tracks wash away.'],
+      ['trap', 'Poachers’ pit trap covered with leaves (DC 13 Perception; 10 ft. fall, 1d6 bludgeoning, stakes add 1d6 piercing).'],
+      ['discovery', 'Ribbons tied to every branch for a mile, each with a name written on it. One of the names belongs to a party member.'],
+    ],
+    grassland: [
+      ['hazard', 'A grass fire races downwind toward the party. They have 3 rounds to find a firebreak or outrun it.'],
+      ['social', 'A herder’s child has lost three goats and is afraid to go home. The goats wandered toward a ruined watchtower.'],
+      ['discovery', 'A ring of standing stones, each leaning outward as if something burst from the middle long ago.'],
+      ['weather', 'A thunderstorm with no cover in sight. Anyone in metal armor wants to be somewhere else.'],
+      ['trap', 'A hunter’s bolas trap strung between posts in tall grass (DC 12 Perception; DC 13 Dex save or knocked prone).'],
+      ['discovery', 'A wagon on its side, horses gone, the cargo of barrels untouched. Each barrel holds salt and one wrapped, ancient sword.'],
+    ],
+    hill: [
+      ['discovery', 'A cave mouth with fresh claw marks at shoulder height and, inside, a hoard of shiny but worthless trinkets.'],
+      ['hazard', 'A loose scree slope. Crossing it takes a DC 12 Athletics or Acrobatics check; failure means a 20-foot slide and 2d6 bludgeoning.'],
+      ['social', 'A shepherd tells of a giant who leaves sheep back every morning, unharmed, with braided wool collars.'],
+      ['weather', 'Hill mist settles into every valley. Visibility drops to 60 feet and sounds carry strangely.'],
+      ['trap', 'An old dwarven boundary marker that fires a dart at anyone without a token (+5 to hit, 1d4 piercing plus DC 11 Con save or poisoned for 1 hour).'],
+      ['discovery', 'A hillside carved into a giant face. Its mouth is a sealed door; its eyes follow the party.'],
+    ],
+    jungle: [
+      ['hazard', 'Leeches in a waist-deep stream. Each creature crossing loses 1d4 HP and has disadvantage on Con saves against disease for a day.'],
+      ['weather', 'A downpour so heavy that it’s lightly obscured everywhere and every Perception check relying on hearing has disadvantage.'],
+      ['discovery', 'A stepped pyramid swallowed by vines. Fresh fruit has been placed on the lowest step.'],
+      ['social', 'A guide who joined the party yesterday quietly asks to be paid early. She saw something on the trail she won’t talk about.'],
+      ['trap', 'A swinging log trap triggered by a tripwire (DC 13 Perception; DC 13 Dex save or 2d10 bludgeoning and pushed 10 feet).'],
+      ['discovery', 'Giant footprints, three-toed, each filled with rainwater and tiny swimming frogs.'],
+    ],
+    mountain: [
+      ['hazard', 'Thin air above the treeline: creatures not acclimated count each hour of travel as two for exhaustion purposes.'],
+      ['weather', 'Lightning strikes the peak above. A rockslide follows 1 minute later — enough time to run, if someone notices.'],
+      ['discovery', 'A frozen climber still roped to the cliff, clutching a journal that mentions a door “under the third waterfall.”'],
+      ['social', 'A hermit monk offers tea and a riddle. Answering earns directions through the pass; failing earns a second, harder riddle.'],
+      ['trap', 'A rope bridge with two planks sawn nearly through (DC 14 Perception; a creature that steps there makes a DC 13 Dex save or falls).'],
+      ['discovery', 'An eagle’s nest on a ledge holds a crown among the twigs.'],
+    ],
+    swamp: [
+      ['hazard', 'Swamp gas bubbles up. An open flame ignites it: 3d6 fire damage in a 15-foot radius (DC 12 Dex save for half).'],
+      ['discovery', 'A sunken house, only its roof above the water. Candles burn in the attic window.'],
+      ['social', 'A frog-folk ferryman offers passage for a story, a song or a secret — and remembers every one he’s ever been paid.'],
+      ['weather', 'Humid stillness, then a warm rain that never stops. Bowstrings slacken (−1 to ranged attack rolls until dried).'],
+      ['trap', 'Quagmire hidden under duckweed (DC 13 Survival to avoid; restrained until a DC 12 Str check frees you).'],
+      ['discovery', 'A ring of rotting totems, each hung with a lantern. Lighting one makes the others flicker to life.'],
+    ],
+    underdark: [
+      ['hazard', 'Spores drift from a glowing fungus forest. DC 12 Con save or poisoned and hallucinating for 1 hour.'],
+      ['discovery', 'A lake so still it reflects a cavern ceiling that isn’t there. Things move in the reflection.'],
+      ['social', 'A deep gnome trader with a mine cart full of odd stones will swap for anything that has been in sunlight.'],
+      ['weather', 'Faerzress — a pulse of strange magic. Teleportation and divination misfire until the party moves a mile away.'],
+      ['trap', 'A rope ladder down a shaft with a rusted spike trap halfway (DC 13 Perception; 2d6 piercing, DC 12 Dex save for half).'],
+      ['discovery', 'Carvings of surface trees and a sun on a tunnel wall, made by someone who had clearly never seen either.'],
+    ],
+    underwater: [
+      ['hazard', 'A strong current: each creature must make a DC 13 Athletics check or be pushed 30 feet toward a reef of sharp coral (1d6 slashing).'],
+      ['discovery', 'A ship standing upright on the seabed, sails still rigged. The cabin has an air pocket — and a sleeping occupant.'],
+      ['social', 'A curious seal follows the party and seems to understand Common. It wants them to follow it home.'],
+      ['weather', 'Silt cloud kicked up by something huge passing below. Heavily obscured for 1 minute.'],
+      ['trap', 'Fishing nets tangled in a wreck snag swimmers (DC 12 Dex save or restrained; DC 12 Str check or 5 slashing damage to the net to escape).'],
+      ['discovery', 'A stone arch covered in barnacles hums when touched. Swimming through it, the water tastes fresh.'],
+    ],
+    urban: [
+      ['social', 'A pickpocket brushes past a party member — and slips something INTO their pocket instead: a key with a tag reading “Midnight. Bring it.”'],
+      ['hazard', 'A runaway cart barrels down the street toward a crowd. Someone needs to stop it or clear the way.'],
+      ['discovery', 'A wanted poster with a perfect sketch of a party member, offering a reward for their safe return to a noble house.'],
+      ['social', 'A street preacher announces the end of the world tomorrow at noon. He’s right about the time, wrong about what happens.'],
+      ['weather', 'Festival night: streets are packed, masks are everywhere, and nobody can be found who doesn’t want to be.'],
+      ['trap', 'A rigged stair in a back alley shop that drops intruders into a cellar (DC 14 Perception; 10 ft. fall).'],
+    ],
+    dungeon: [
+      ['trap', 'A pressure plate that seals the room and starts filling it with sand from ceiling vents (DC 15 Perception; 4 rounds until full).'],
+      ['discovery', 'A mural showing this very room, with figures standing exactly where the party is standing — one of them holding a lever.'],
+      ['hazard', 'A collapsed floor over a lower level. Crossing the beams takes a DC 12 Acrobatics check or a 20-foot fall.'],
+      ['social', 'A trapped goblin offers to share everything it knows about the next three rooms in exchange for being set free.'],
+      ['discovery', 'A library with every book blank except one, which writes the party’s actions as they happen.'],
+      ['trap', 'A poison needle in a treasure chest’s lock (DC 14 Investigation; 1 piercing plus 2d10 poison, DC 13 Con save for half).'],
+    ],
+  };
+  const FLAVOR = {
+    arctic: ['on a wind-scoured ice shelf', 'in a valley of blue glacier ice', 'near a half-buried longhouse'],
+    coast: ['on a fog-bound beach', 'among tide pools at low water', 'beside a wrecked fishing boat'],
+    desert: ['in the shadow of a red mesa', 'around a dried-up oasis', 'among dunes that hiss in the wind'],
+    forest: ['in a moss-choked clearing', 'beneath ancient oaks', 'along a game trail by a stream'],
+    grassland: ['in grass taller than a horse', 'around a lone standing stone', 'beside a burned farmstead'],
+    hill: ['on a windy ridge', 'in a narrow sheep gully', 'near a ruined watchtower'],
+    jungle: ['under a dripping canopy', 'beside a vine-covered ziggurat', 'at a muddy river crossing'],
+    mountain: ['on a narrow switchback', 'in a high pass under snow', 'at the mouth of a mine'],
+    swamp: ['among leaning cypress trees', 'on a rotting boardwalk', 'in knee-deep black water'],
+    underdark: ['in a cavern of glowing fungus', 'on a ledge above a chasm', 'beside an underground river'],
+    underwater: ['around a sunken temple', 'in a kelp forest', 'beside a coral reef'],
+    urban: ['in a crowded market', 'down a rain-slick alley', 'on the rooftops at night'],
+    dungeon: ['in a pillared hall', 'at a collapsed crossroads', 'around a dry fountain'],
+  };
+  const TACTICS = ['They wait in ambush and strike when the party is strung out.', 'They want something the party carries, and will parley first.', 'They are fleeing something worse and fight only if cornered.', 'They are guarding a captive and fall back toward them.', 'They are hungry and reckless, ignoring cover.', 'They fight smart: focus the weakest-looking target, then retreat.', 'They are territorial and stop chasing at the edge of their ground.', 'Their leader fights; the rest scatter if it drops.'];
+  // ---- NPCs ----
+  const RACES = {
+    Human: { f: ['Al', 'Bran', 'Cor', 'Dav', 'Ed', 'Fen', 'Gar', 'Hal', 'Jor', 'Ken', 'Lor', 'Mar', 'Nor', 'Os', 'Per', 'Ros', 'Sel', 'Tam', 'Ul', 'Wil', 'Ada', 'Bri', 'Cel', 'Del', 'Ela', 'Fio', 'Gwen', 'Isa', 'Lia', 'Mae', 'Nell', 'Rhe', 'Sal', 'Tess'], m: ['', 'a', 'e', 'i', 'o', 'ri', 'ra', 'le', 'na'], e: ['ric', 'an', 'en', 'win', 'ton', 'mund', 'ard', 'ley', 'ny', 'th', 'ra', 'ssa', 'na', 'lyn', 'wen', 'beth', 'ia'], sur: ['Ash', 'Brook', 'Cart', 'Dun', 'Fair', 'Gray', 'Hollow', 'Iron', 'Kettle', 'Lang', 'Mill', 'North', 'Oak', 'Pen', 'Red', 'Stone', 'Thorn', 'Wade', 'West'], sur2: ['er', 'wood', 'ford', 'well', 'man', 'field', 'by', 'ley', 'smith', 'water', 'ridge', 'hill', 'wright'], age: [16, 80] },
+    Elf: { f: ['Ae', 'Ael', 'Ara', 'Cae', 'Ely', 'Fae', 'Ila', 'Lae', 'Mir', 'Nae', 'Rae', 'Sil', 'Tha', 'Vae', 'Yel', 'Ori', 'Eli'], m: ['', 'la', 'ri', 'the', 'va', 'li', 'ne', 'ra'], e: ['thir', 'dril', 'wyn', 'iel', 'lith', 'ion', 'sar', 'rien', 'nor', 'las', 'dra', 'eth'], sur: ['Silver', 'Star', 'Moon', 'Dawn', 'Ever', 'Mist', 'Willow', 'Night', 'Sun', 'Leaf'], sur2: ['leaf', 'whisper', 'brook', 'song', 'shade', 'glade', 'bough', 'fall', 'bloom', 'gleam'], age: [100, 700] },
+    Dwarf: { f: ['Bal', 'Bar', 'Dor', 'Dur', 'Gim', 'Gor', 'Har', 'Kil', 'Mor', 'Nor', 'Thor', 'Ul', 'Vond', 'Am', 'Dag', 'Ed', 'Gun', 'Hel', 'Ris', 'Tor'], m: ['', 'a', 'i', 'u', 'ra', 'ri'], e: ['in', 'ek', 'grim', 'dak', 'gar', 'rak', 'nar', 'dis', 'hild', 'wyn', 'ra', 'unn'], sur: ['Battle', 'Brawn', 'Copper', 'Deep', 'Fire', 'Gold', 'Granite', 'Iron', 'Rock', 'Stone', 'Thunder', 'Anvil'], sur2: ['hammer', 'beard', 'forge', 'delve', 'fist', 'shield', 'mantle', 'helm', 'vein', 'breaker'], age: [40, 350] },
+    Halfling: { f: ['Al', 'Bel', 'Cad', 'Cor', 'Eld', 'Gar', 'Lyle', 'Mil', 'Os', 'Per', 'Ros', 'Wel', 'Cal', 'Kith', 'Lav', 'Mer', 'Shae', 'Tri', 'Ver'], m: ['', 'a', 'i', 'o', 'li', 'ri'], e: ['ton', 'do', 'lo', 'bo', 'ric', 'en', 'mie', 'ra', 'na', 'ly', 'die', 'pa'], sur: ['Brush', 'Good', 'Green', 'High', 'Hill', 'Leaf', 'Tea', 'Thorn', 'Under', 'Apple', 'Honey', 'Quick'], sur2: ['gather', 'barrel', 'bottle', 'hill', 'leaf', 'topple', 'foot', 'kettle', 'brook', 'meadow'], age: [18, 150] },
+    Gnome: { f: ['Bim', 'Bod', 'Dim', 'Fen', 'Glim', 'Jeb', 'Kel', 'Nim', 'Orr', 'Pip', 'Tik', 'Zook', 'Car', 'Ella', 'Lil', 'Nis', 'Wren', 'Tana', 'Zan', 'Quill'], m: ['', 'bi', 'ble', 'ni', 'fi', 'zi', 'pi'], e: ['ston', 'dle', 'kin', 'ble', 'wick', 'nock', 'pip', 'na', 'wyn', 'ella', 'bee', 'ix'], sur: ['Cog', 'Whistle', 'Sprocket', 'Tinker', 'Copper', 'Button', 'Gear', 'Glitter', 'Puzzle', 'Fizz'], sur2: ['spinner', 'wick', 'fizzle', 'top', 'bottom', 'nose', 'pocket', 'twist'], age: [40, 400] },
+    'Half-Orc': { f: ['Gar', 'Mok', 'Thar', 'Uzg', 'Brog', 'Dush', 'Grak', 'Kor', 'Ruk', 'Varg', 'Azka', 'Bura', 'Ghana', 'Ishka', 'Mura', 'Oshra', 'Torva', 'Yaga'], m: ['', 'a', 'u'], e: ['', 'ash', 'ug', 'rak', 'tha', 'dar', 'ra'], sur: ['', '', 'Skull', 'Iron', 'Ash', 'Storm', 'Bone'], sur2: ['', 'jaw', 'hand', 'born', 'tusk', 'hide'], age: [14, 70] },
+    Tiefling: { f: ['Ak', 'Am', 'Bar', 'Dam', 'Ek', 'Ia', 'Kai', 'Leu', 'Mor', 'Pel', 'Ska', 'Ze', 'Kal', 'Mak', 'Nem', 'Ori', 'Rie', 'Bry'], m: ['', 'a', 'ro', 'ka', 'me', 'li'], e: ['meth', 'mon', 'ax', 'thos', 'kian', 'cius', 'ira', 'ekis', 'seis', 'via', 'ane'], virtue: ['Ashes', 'Candle', 'Ember', 'Gravel', 'Hollow', 'Lantern', 'Mercy', 'Riddle', 'Silence', 'Thistle', 'Vigil', 'Wander', 'Whisper', 'Yearning'], sur: [''], sur2: [''], age: [16, 100] },
+    Dragonborn: { f: ['Ar', 'Bal', 'Kor', 'Dra', 'Gha', 'Hes', 'Kri', 'Med', 'Nad', 'Pyr', 'Rho', 'Sha', 'Tor', 'Vex', 'Zar', 'Ira', 'Kava', 'Myr', 'Nala', 'Sora', 'Thav', 'Uda'], m: ['', 'a', 'i', 'ar'], e: ['jhan', 'zar', 'ash', 'thas', 'esh', 'rix', 'ar', 'rash', 'innis', 'vex', 'ra', 'thys'], sur: ['Kal', 'Vor', 'Thar', 'Esh', 'Dra', 'Myr', 'Xan', 'Zor', 'Ul', 'Rhyn'], sur2: ['ithar', 'oxis', 'anthys', 'eshkar', 'umbrin', 'ivaar', 'oth', 'akesh', 'endral'], age: [15, 80] },
+    'Half-Elf': { from: ['Human', 'Elf'], age: [20, 180] },
+    Goliath: { f: ['Aru', 'Bek', 'Dao', 'Gru', 'Kan', 'Lok', 'Mau', 'Nar', 'Pek', 'Tho', 'Uru', 'Vai', 'Kea', 'Ilu'], m: ['', 'a', 'o'], e: ['ak', 'lath', 'al', 'thak', 'kan', 'roth', 'la', 'ri'], sur: ['Stone', 'Sky', 'Cliff', 'Snow', 'Peak'], sur2: ['climber', 'caller', 'walker', 'breaker', 'watcher'], age: [16, 90] },
+  };
+  const NPC = {
+    occupations: ['blacksmith', 'innkeeper', 'cartographer', 'herbalist', 'retired soldier', 'temple acolyte', 'fence for stolen goods', 'street performer', 'tax collector', 'ferryman', 'apothecary', 'gravedigger', 'scribe', 'shipwright', 'stablehand', 'merchant of spices', 'bounty hunter', 'beekeeper', 'cooper', 'mapmaker’s apprentice', 'town guard', 'noble’s steward', 'fortune teller', 'butcher', 'baker', 'tanner', 'priest', 'hedge wizard', 'lamplighter', 'rat catcher', 'jeweler', 'mercenary captain', 'bard', 'fisher', 'miner', 'trapper', 'courier', 'smuggler', 'alchemist', 'librarian', 'executioner', 'dockworker', 'midwife', 'tinker', 'horse trader', 'cult recruiter in disguise', 'disgraced knight', 'sage', 'pit fighter', 'bookbinder'],
+    build: ['wiry', 'broad-shouldered', 'stooped', 'tall and gangly', 'short and stocky', 'heavyset', 'lean and weathered', 'soft-featured', 'muscular', 'slight'],
+    feature: ['a scar through one eyebrow', 'ink-stained fingers', 'a missing front tooth', 'mismatched eyes', 'an elaborate braid with beads', 'a nose broken more than once', 'freckles everywhere', 'a burn scar on one hand', 'a heavy silver earring', 'a perpetual squint', 'a crooked smile', 'tattoos of birds up both arms', 'a limp they hide badly', 'very clean, very expensive boots', 'a hat with a ridiculous feather', 'a cough that never quite goes away', 'calloused, enormous hands', 'a prayer bead bracelet they fidget with', 'one gold tooth', 'a faded military coat'],
+    hair: ['close-cropped gray hair', 'a wild red mane', 'a shaved head', 'long black hair tied back', 'thinning blond hair', 'silver-streaked curls', 'a neat beard and no mustache', 'hair dyed an unlikely blue', 'tangled brown hair', 'a single long braid'],
+    personality: ['cheerful to the point of suspicion', 'blunt and impatient', 'nervous and over-apologetic', 'proud and easily offended', 'warm but nosy', 'quietly calculating', 'gloomy, sure the worst will happen', 'boastful about past glories', 'kind, generous to a fault', 'dry-witted and sarcastic', 'pious and judgmental', 'curious about everything', 'greedy, but honest about it', 'paranoid, trusts no one', 'lazy unless money is involved', 'fiercely loyal to friends', 'flirtatious with everyone', 'serene and slow to speak', 'competitive about everything', 'forgetful and scattered'],
+    voice: ['speaks in a whisper, forcing people to lean in', 'laughs at their own jokes before finishing them', 'uses far too many big words, some of them wrongly', 'calls everyone “friend”', 'answers questions with questions', 'hums between sentences', 'has a booming voice that fills any room', 'never makes eye contact', 'taps the table to punctuate points', 'speaks very fast and loses the thread', 'slips into a heavy regional accent when upset', 'refers to themself in the third person', 'pauses a long time before answering', 'keeps a pipe in their mouth, lit or not', 'counts things under their breath', 'tells everything as if it were a ghost story'],
+    want: ['to pay off a debt before the collectors come', 'to find a missing sibling', 'to be taken seriously by the town council', 'to leave this town and never come back', 'revenge on a former business partner', 'a cure for a sick child', 'to recover a family heirloom', 'enough money to buy their own shop', 'to prove a rival is a fraud', 'to be forgiven for something years ago', 'to protect their neighborhood from a gang', 'to learn magic, any magic', 'to see the ocean once', 'to marry someone far above their station', 'to keep a secret buried', 'a quiet life, which adventurers keep ruining'],
+    secret: ['is an informant for the local thieves’ guild', 'is not who they claim — they took a dead friend’s name', 'owes money to a dangerous noble', 'witnessed a murder and told no one', 'is secretly a talented spellcaster', 'stole the founding charter of the town hall', 'is in love with someone in the party’s path', 'worships a forbidden god', 'has a map to something valuable sewn into their coat', 'poisoned someone once, and it worked', 'is the heir to a fallen house', 'is being blackmailed', 'deserted from an army that still hunts deserters', 'knows where a dragon sleeps', 'sold out a friend to save themself', 'is slowly turning into something else'],
+    hook: ['asks the party to deliver a sealed letter and not to open it', 'offers a reward for a stolen cart of cargo', 'needs bodyguards for a meeting at midnight', 'claims the party’s faces were in a dream last night', 'wants proof that a local hero is a fraud', 'begs for help finding someone who went into the old ruins', 'offers a discount if the party will scare off a rival', 'has a job that “isn’t technically illegal”', 'needs someone to retrieve a book from a haunted library', 'will trade information for a favor to be named later', 'mistakes a party member for an old enemy', 'has heard a rumor about the party’s current quest'],
+    statblocks: [['', 'No stat block'], ['srd:commoner', 'Commoner'], ['srd:guard', 'Guard'], ['srd:noble', 'Noble'], ['srd:acolyte', 'Acolyte'], ['srd:priest', 'Priest'], ['srd:bandit', 'Bandit'], ['srd:thug', 'Thug'], ['srd:scout', 'Scout'], ['srd:spy', 'Spy'], ['srd:veteran', 'Veteran'], ['srd:knight', 'Knight'], ['srd:mage', 'Mage'], ['srd:assassin', 'Assassin'], ['srd:gladiator', 'Gladiator']],
+  };
+  return { ENVS, ENV_RULES, TYPE_ENV, THRESH, SCENES, FLAVOR, TACTICS, RACES, NPC };
+})();

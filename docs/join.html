@@ -2594,7 +2594,7 @@ const LEG = location.pathname.replace(/[^/]*$/, '');
 // counts as "the app" and bring the browser's toolbar back.
 const STANDALONE = (() => { try { return navigator.standalone === true || matchMedia('(display-mode: standalone)').matches; } catch (e) { return false; } })();
 try { if (STANDALONE) document.documentElement.classList.add('pg-standalone'); } catch (e) {}
-const RESERVED = new Set(['party', 'join', 'parties', 'shared', 'login', 'new', 'create', 'character', 'admin', 'c', 'a', 'icons', 'icon', 'index', 'index-html', 'version-json', 'users', 'help', 'settings']);
+const RESERVED = new Set(['desk', 'party', 'join', 'parties', 'shared', 'login', 'new', 'create', 'character', 'admin', 'c', 'a', 'icons', 'icon', 'index', 'index-html', 'version-json', 'users', 'help', 'settings']);
 const slugify = s => String(s || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
 const enc = encodeURIComponent;
 // A party's address carries its name: /party/shattered-skies (its id still works too).
@@ -2821,7 +2821,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022112233', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.1838f1a5d0f0.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.ae0a4bbb17c1.html"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022115151', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.1838f1a5d0f0.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.ae0a4bbb17c1.html", "desk": "a/desk.dce508a2d4b3.js", "deskcss": "a/deskcss.13ce9cabbef1.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -2835,7 +2835,7 @@ function wireDie(root) {
   const NEWFOR = (() => { try { return JSON.parse(sessionStorage.getItem('pg-newfor') || 'null') || {}; } catch (e) { return {}; } })();
   const P = String(Q.get('p') || NEWFOR.p || '').slice(0, 60), O = String(Q.get('o') || NEWFOR.o || '').trim().toLowerCase().slice(0, 120);
   const LAST_G = 'dnd-hub-group';
-  let NEWQ = !!Q.get('new'), ADMINQ = !!Q.get('admin'), TABQ = clean(Q.get('tab')), VIEWQ = ['shared', 'parties'].includes(Q.get('view')) ? Q.get('view') : 'mine', LOGIN = false, SLUG = '', BAD = false, VIEWTOK = String(Q.get('pv') || '').replace(/[^\w-]/g, '').slice(0, 40);
+  let DESKQ = false; let NEWQ = !!Q.get('new'), ADMINQ = !!Q.get('admin'), TABQ = clean(Q.get('tab')), VIEWQ = ['shared', 'parties'].includes(Q.get('view')) ? Q.get('view') : 'mine', LOGIN = false, SLUG = '', BAD = false, VIEWTOK = String(Q.get('pv') || '').replace(/[^\w-]/g, '').slice(0, 40);
   // A party's page (/party/<id>) and an invite link (/join/<code>).
   let PARTYQ = clean(Q.get('party')), JOINQ = clean(Q.get('join'));
   if (PRETTY) {
@@ -2846,6 +2846,7 @@ function wireDie(root) {
     else if (parts.length === 1 && parts[0] === 'login') LOGIN = true;
     else if (parts.length === 1 && (parts[0] === 'create' || parts[0] === 'new')) NEWQ = true;
     else if (parts[0] === 'admin' && parts.length <= 2) { ADMINQ = true; TABQ = clean(parts[1] || ''); }
+    else if (parts.length === 1 && parts[0] === 'desk') DESKQ = true;
     else if (parts[0] === 'c' && parts.length === 2) C = clean(parts[1]);
     else if (parts[0] === 'party' && parts.length === 2) PARTYQ = clean(parts[1]);
     else if (parts[0] === 'join' && parts.length === 2) JOINQ = clean(parts[1]);
@@ -3160,6 +3161,21 @@ function wireDie(root) {
     setInterval(() => { if (NEWV && document.hidden) go(); }, 30000); };
   // …and you land back where you were: the same scroll position
   const restoreY = () => { try { const d = JSON.parse(sessionStorage.getItem('pg-y') || 'null'); sessionStorage.removeItem('pg-y'); if (d && d.p === location.pathname && Date.now() - d.at < 10 * 60000 && d.y > 0) setTimeout(() => scrollTo(0, d.y), 350); } catch (e) {} };
+  // The DM's Desk (/desk, or /desk?for=<party id> from a party page): its own app, fetched only when opened.
+  if (DESKQ && G) { lsSet(LAST_G, G); document.title = 'DM’s Desk — Adventurer’s Tome';
+    { const keep = document.getElementById('pg-load'); [...document.body.childNodes].forEach(n => { if (n !== keep) n.remove(); }); }
+    document.body.className = 'deskbody'; const root = document.createElement('div'); root.id = 'pg-desk'; document.body.prepend(root);
+    const fail = () => { root.innerHTML = '<p style="padding:40px;text-align:center;font:16px system-ui">Couldn’t load the DM’s Desk. Check your connection and reload.</p>'; if (load) fadeLoad(load); };
+    try {
+      await new Promise((res, rej) => { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = ASSETS.deskcss; l.onload = res; l.onerror = rej; document.head.appendChild(l); });
+      const js = await fetch(ASSETS.desk).then(r => { if (!r.ok) throw new Error('desk'); return r.text(); }); const sc = document.createElement('script'); sc.textContent = js; document.body.appendChild(sc);
+    } catch (e) { return fail(); }
+    const pid = clean(Q.get('for') || ''); let party = null;
+    if (pid) { try { const d = await fs.collection('parties').doc(pid).get(); if (d.exists) party = { id: pid, name: d.data().name || 'Party' }; } catch (e) {} }
+    try { window.pgDesk.mount(root, { fs, EMAIL, party, back: party ? { href: URLS.party(pid, party.name), label: party.name } : { href: URLS.hub(G), label: 'Adventurer’s Tome' },
+      makeNpc: party ? () => { try { sessionStorage.setItem('pg-join', JSON.stringify({ p: pid, t: '', name: party.name, at: Date.now(), npc: true })); } catch (e) {} pgGo(URLS.newChar(G)); } : null }); } catch (e) { console.error(e); return fail(); }
+    pgLog('desk_open', party ? { target: pid, tName: party.name } : {});
+    requestAnimationFrame(() => { if (load) fadeLoad(load); else document.documentElement.classList.remove('pg-loading'); }); verCheck(); return; }
   if (G && !C && !NEWQ) { lsSet(LAST_G, G); if (ADMINQ && !IS_ADMIN && PRETTY) history.replaceState(null, '', '/');
     // the loading screen stays up until the page has its content (characters, party, admin lists), so nothing pops in
     // after it fades; at most a few seconds on a slow connection
@@ -4381,8 +4397,8 @@ function hub(fs, auth, G, ctx) {
     const ACTS = { signin: 'Signed in', account: 'Created their account', signout: 'Signed out', open: 'Opened', create: 'Created', edit: 'Edited', delete: 'Deleted', give: 'Gave away', remove: 'Removed from the lists',
       share: 'Shared', unshare: 'Stopped sharing', access: 'Changed access to', leave: 'Gave up access to', picture: 'Changed their picture',
       rename_user: 'Renamed', admin_add: 'Made an admin:', admin_remove: 'Removed admin:', user_picture: 'Changed the picture of', user_signout: 'Signed out everywhere:', user_block: 'Blocked', user_unblock: 'Unblocked', user_delete: 'Deleted the account of', message: 'Sent a message to', notice: 'Sent a notice to', notice_revoke: 'Revoked the notice to', notice_edit: 'Edited the notice to', notice_resend: 'Re-sent the notice to', welcome: 'Saved the welcome message for', welcome_off: 'Turned off the welcome message for', welcome_reset: 'Reset the welcome message for', user_reload: 'Refreshed the pages of', online: 'Came online',
-      party_create: 'Created the party', party_delete: 'Deleted the party', party_chat_clear: 'Cleared the chat of', party_add: 'Added a character to', party_npc: 'Added an NPC to', party_join: 'Joined the party', party_leave: 'Left the party', party_remove: 'Took a character out of', party_invite: 'Invited someone to', party_send: 'Used party actions in', party_access: 'Changed their access to', party_dm: 'Handed over' };
-    const AGROUPS = [['Signing in', ['signin', 'online', 'account', 'signout']], ['Parties', ['party_create', 'party_delete', 'party_add', 'party_npc', 'party_join', 'party_leave', 'party_remove', 'party_invite', 'party_send', 'party_access', 'party_dm', 'party_chat_clear']], ['Characters', ['open', 'create', 'edit', 'delete', 'give', 'remove']], ['Sharing', ['share', 'unshare', 'access', 'leave']], ['Pictures', ['picture', 'user_picture']], ['Admin', ['rename_user', 'admin_add', 'admin_remove', 'user_signout', 'user_block', 'user_unblock', 'user_delete', 'message', 'notice', 'notice_resend', 'notice_revoke', 'notice_edit', 'welcome', 'welcome_off', 'welcome_reset', 'user_reload']]];
+      party_create: 'Created the party', party_delete: 'Deleted the party', party_chat_clear: 'Cleared the chat of', party_add: 'Added a character to', party_npc: 'Added an NPC to', desk_open: 'Opened the DM’s Desk', party_join: 'Joined the party', party_leave: 'Left the party', party_remove: 'Took a character out of', party_invite: 'Invited someone to', party_send: 'Used party actions in', party_access: 'Changed their access to', party_dm: 'Handed over' };
+    const AGROUPS = [['Signing in', ['signin', 'online', 'account', 'signout']], ['Parties', ['party_create', 'party_delete', 'party_add', 'party_npc', 'party_join', 'party_leave', 'party_remove', 'party_invite', 'party_send', 'party_access', 'party_dm', 'party_chat_clear', 'desk_open']], ['Characters', ['open', 'create', 'edit', 'delete', 'give', 'remove']], ['Sharing', ['share', 'unshare', 'access', 'leave']], ['Pictures', ['picture', 'user_picture']], ['Admin', ['rename_user', 'admin_add', 'admin_remove', 'user_signout', 'user_block', 'user_unblock', 'user_delete', 'message', 'notice', 'notice_resend', 'notice_revoke', 'notice_edit', 'welcome', 'welcome_off', 'welcome_reset', 'user_reload']]];
     const CHAR_ACTS = new Set(['open', 'create', 'edit', 'delete', 'give', 'remove', 'share', 'unshare', 'access', 'leave']);
     let AF = { who: [], act: [], q: '', from: '', to: '', range: '' }, AROWS, AOPEN = {} = [], ALAST = null, AFULL = false, APEOPLE = null;
     const auditCol = fs.collection('audit');
@@ -5102,7 +5118,7 @@ function partyModule(H) {
     const invited = run && (P.invited || []).length ? `<h3 class="pw-h4">Invited</h3><div class="pl-list">${P.invited.map(em => `<div class="pl-row pty-invrow"><span class="pty-invwho"><b>${esc(H.nameOf(em))}</b><small>${H.nameOf(em) !== em ? esc(em) + ' · ' : ''}hasn’t answered yet</small></span><button class="linkbtn" data-uninv="${esc(em)}">Cancel</button></div>`).join('')}</div>` : '';
     const body = `${adminNote}
       ${ids.length ? `<div class="pm-grid">${ids.map(memberCard).join('')}</div>` : `<p class="pw-empty">No characters yet.${P.dm === EMAIL ? ' Use <b>Add characters</b> to bring some in.' : ''}</p>`}${invited}`;
-    const foot = run ? `${P.dm === EMAIL ? '<button class="btn red" id="pt-del"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg><span class="pw-lg">Delete party…</span><span class="pw-sm">Delete</span></button>' : ''}<span class="grow"></span>${P.dm === EMAIL ? '<button class="btn" id="pt-add"><span class="pw-lg">Add characters</span><span class="pw-sm">Add</span></button>' : ''}${ids.length && actor() ? '<button class="btn" id="pt-turn" title="Initiative tracker"><span class="pw-lg">Turn order</span><span class="pw-sm">Turns</span></button>' : ''}${ids.length && actor() ? '<button class="btn gold" id="pt-all"><span class="pw-lg">Party actions…</span><span class="pw-sm">Actions</span></button>' : ''}`
+    const foot = run ? `${P.dm === EMAIL ? '<button class="btn red" id="pt-del"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg><span class="pw-lg">Delete party…</span><span class="pw-sm">Delete</span></button>' : ''}<span class="grow"></span>${P.dm === EMAIL ? '<button class="btn" id="pt-add"><span class="pw-lg">Add characters</span><span class="pw-sm">Add</span></button>' : ''}${run && PRETTY ? '<button class="btn" id="pt-desk" title="Open the DM’s Desk for this party (new tab)"><span class="pw-lg">DM’s Desk</span><span class="pw-sm">Desk</span></button>' : ''}${ids.length && actor() ? '<button class="btn" id="pt-turn" title="Initiative tracker"><span class="pw-lg">Turn order</span><span class="pw-sm">Turns</span></button>' : ''}${ids.length && actor() ? '<button class="btn gold" id="pt-all"><span class="pw-lg">Party actions…</span><span class="pw-sm">Actions</span></button>' : ''}`
       : mineIn.length ? `<button class="btn" id="pt-leave">Leave the party</button><span class="grow"></span>` : inParty ? '<button class="btn" id="pt-off">Remove it from my list</button>' : '';
     const el = shell({ title, sub, body, foot, inBody: true, noReady: true });
     wirePage(el); if (window.pgReady && (CLOADED || ids.length === 0)) window.pgReady();
@@ -5336,6 +5352,7 @@ function partyModule(H) {
     on('#pt-add', () => addDialog());
     on('#pt-all', () => sendDialog(null));
     on('#pt-turn', () => turnOrder(!document.getElementById('towin')));
+    on('#pt-desk', () => { window.open('/desk?for=' + encodeURIComponent(PID), '_blank'); });
     initWatch(); if (TO && document.getElementById('towin') && toSync()) { toSave(); toPaint(); }
     el.querySelectorAll('[data-uninv]').forEach(b => b.onclick = async () => { const em = b.dataset.uninv; try { await PC.doc(PID).update({ invited: FV.arrayRemove(em) }); } catch (x) { fail(x, 'cancel it'); } });
     on('#pt-leave', () => { const mine = (P.chars || []).filter(id => (CARDS[id] || {}).owner === EMAIL), pid = PID, pnm = P.name || ''; confirmBox(`Leave ${esc(pnm || 'the party')}?`, `${mine.length > 1 ? 'Your characters leave' : 'Your character leaves'} the party. The DM can invite you again.`, 'Leave', async () => { LEAVING = true; try { for (const id of mine) await ptyLeave(fs, EMAIL, pid, id, { owner: EMAIL }); } catch (x) { LEAVING = false; throw x; } try { localStorage.removeItem(PKEY(pid)); } catch (e) {} pgLog('party_leave', { target: pid, tName: pnm }); close(); toast('You left ' + (pnm || 'the party') + '.'); pgGo(URLS.parties(G)); }); });

@@ -38,6 +38,10 @@ AN = open(os.path.join(D, 'data', 'anim.js')).read() if os.path.exists(os.path.j
 if AN: assert DTXT.count(AN) == 1, 'anim not found in the data'
 DATA = asset('data', 'js', DTXT.replace(FT, '').replace(AN, '') + '\nDND.full = DND.full || {}; DND.fullSRD = DND.fullSRD || []; DND.anim = DND.anim || {};')
 FULL = asset('full', 'js', FT + '\n' + AN)
+# The DM's Desk: its own app (stat blocks, generators, planner), fetched only when /desk is opened.
+DK = os.path.join(D, 'desk')
+DESK = asset('desk', 'js', '\n;'.join(open(os.path.join(DK, f)).read() for f in ['desk_data.js', 'desk_tables.js', 'desk.js']))
+DESKCSS = asset('deskcss', 'css', open(os.path.join(DK, 'desk.css')).read())
 
 loader = ('''
 <script>document.documentElement.classList.add('pg-loading');try{var n=+sessionStorage.getItem('pg-nav');if(n&&Date.now()-n<8000){document.documentElement.classList.add('pg-instant');window.PG_NAV_T=n}sessionStorage.removeItem('pg-nav')}catch(e){}</script>
@@ -57,7 +61,7 @@ if(window.PG_NAV_T)pgDieRoll(s,0);else setTimeout(function(){pgDieRoll(s,0)},150
 <script>
 ''' + open(os.path.join(D, 'pages_loader.js')).read() + '''
 </script>
-''').replace('__CFG__', json.dumps(cfg)).replace('__VER__', VER).replace('__ASSETS__', json.dumps({'data': DATA, 'app': APP, 'full': FULL, 'blank': BLANK}))
+''').replace('__CFG__', json.dumps(cfg)).replace('__VER__', VER).replace('__ASSETS__', json.dumps({'data': DATA, 'app': APP, 'full': FULL, 'blank': BLANK, 'desk': DESK, 'deskcss': DESKCSS}))
 html = re.sub(r'<title>[^<]*</title>', '<title>Adventurer’s Tome</title>', html, count=1)
 # Files are referenced relative to the site root, so /chad-brooker/hiro still finds a/…, icons and version.json.
 # (The github.io copy lives in a sub-folder, so its root is that folder.)
