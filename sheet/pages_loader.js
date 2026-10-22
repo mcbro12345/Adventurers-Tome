@@ -40,7 +40,7 @@ function themeBtnHTML() { return `<button class="hub-theme" id="hub-theme" title
 // iMessage and the like. Drawn here when the DM makes or updates a link and kept (public) in invcard/<code>, where the
 // small Cloudflare worker that answers invite links reads it. -----
 async function pgInviteImage(p) {
-  const W = 1200, H = 630, Z = window.PG_INV_Z || 1, c = document.createElement('canvas'); c.width = W * Z; c.height = H * Z; const g = c.getContext('2d'); g.scale(Z, Z); g.imageSmoothingQuality = 'high';
+  const W = 1200, H = 630, Z = window.PG_INV_Z || 2, c = document.createElement('canvas'); c.width = W * Z; c.height = H * Z; const g = c.getContext('2d'); g.scale(Z, Z); g.imageSmoothingQuality = 'high';
   const n = (p.chars || []).length || Number(p.n) || 0, dm = p.dmName || p.dm || '';
   const rr = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
   // night sky
@@ -54,7 +54,16 @@ async function pgInviteImage(p) {
   // the party's seal
   const sx = W / 2, sy = cy + 104, sr = 74; g.save(); g.shadowColor = 'rgba(231,176,72,.55)'; g.shadowBlur = 30; g.beginPath(); g.arc(sx, sy, sr + 6, 0, 7); g.fillStyle = '#c9962b'; g.fill(); g.restore();
   g.beginPath(); g.arc(sx, sy, sr, 0, 7); g.fillStyle = '#121826'; g.fill();
-  let drew = false; if (p.pic) { try { const im = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = p.pic; }); g.save(); g.beginPath(); g.arc(sx, sy, sr - 2, 0, 7); g.clip(); const k = Math.max((2 * sr) / im.width, (2 * sr) / im.height); g.drawImage(im, sx - im.width * k / 2, sy - im.height * k / 2, im.width * k, im.height * k); g.restore(); drew = true; } catch (e) {} }
+  let drew = false; if (p.pic) { try { const load = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+    const im = await load(p.pic); let src = [im, 0, 0, im.width, im.height];
+    // The saved party picture is small (256px), so on this browser use the full-size original it was cropped from, if it's
+    // still kept here and still the same picture (another manager may have changed it since).
+    try { const rec = p.id && await pgKeepGet('party:' + p.id); if (rec && rec.blob) { const u = URL.createObjectURL(rec.blob), o = await load(u).finally(() => setTimeout(() => URL.revokeObjectURL(u), 1000));
+      const z = Math.max(1, Math.min(4, Number(rec.z) || 1)), m = Math.min(o.width, o.height), sw = m / z, ox = o.width / 2 - (.5 + (Number(rec.nx) || 0)) * m / z, oy = o.height / 2 - (.5 + (Number(rec.ny) || 0)) * m / z;
+      const px = (img, a, b, w, h) => { const t = document.createElement('canvas'); t.width = t.height = 12; const x = t.getContext('2d'); x.drawImage(img, a, b, w, h, 0, 0, 12, 12); return x.getImageData(0, 0, 12, 12).data; };
+      const A = px(o, ox, oy, sw, sw), B = px(im, 0, 0, im.width, im.height); let d = 0; for (let i = 0; i < A.length; i++) if (i % 4 !== 3) d += Math.abs(A[i] - B[i]);
+      if (d / (A.length * .75) < 18) src = [o, ox, oy, sw, sw]; } } catch (e) {}
+    g.save(); g.beginPath(); g.arc(sx, sy, sr - 2, 0, 7); g.clip(); g.imageSmoothingQuality = 'high'; const [I, a, b, w, h] = src, k = Math.max((2 * sr) / w, (2 * sr) / h); g.drawImage(I, a, b, w, h, sx - w * k / 2, sy - h * k / 2, w * k, h * k); g.restore(); drew = true; } catch (e) {} }
   if (!drew) { g.save(); g.translate(sx - 36, sy - 36); g.scale(3, 3); g.strokeStyle = '#e7c46e'; g.lineWidth = 1.6; g.lineCap = 'round'; g.beginPath(); g.arc(9, 8, 3.2, 0, 7); g.stroke(); g.beginPath(); g.arc(16.5, 9, 2.6, 0, 7); g.stroke(); g.beginPath(); g.moveTo(3.5, 19); g.quadraticCurveTo(5, 14, 9, 14); g.quadraticCurveTo(13, 14, 14.5, 19); g.stroke(); g.beginPath(); g.moveTo(14.5, 14.6); g.quadraticCurveTo(19.5, 13, 21, 18.5); g.stroke(); g.restore(); }
   // words
   const fit = (t, font, max) => { g.font = font; let s = t; while (g.measureText(s).width > max && s.length > 3) s = s.slice(0, -2); return s === t ? t : s.trim() + '…'; };
@@ -2710,7 +2719,7 @@ function partyModule(H) {
   const INVUSE = {}; const invUse = code => INVUSE[code] ? Promise.resolve(INVUSE[code]) : IC.doc(code).get().then(d => (INVUSE[code] = d.exists ? { max: Number(d.data().max) || 0, used: Number(d.data().used) || 0 } : { max: 0, used: 0 }), () => ({ max: 0, used: 0 }));
   const invMaxSel = (v) => `<select id="pt-lmax" class="pty-lmax" aria-label="How many players the link is for"><option value="0"${!v ? ' selected' : ''}>any number of players</option>${[1, 2, 3, 4, 5, 6, 7, 8].map(n => `<option value="${n}"${v === n ? ' selected' : ''}>${n} player${n > 1 ? 's' : ''}</option>`).join('')}</select>`;
   // the invite panel as a picture, for the link's preview card (redrawn when the party's name, picture or size changes)
-  const invCardKey = p => ['png', p.name || '', (p.pic || '').length, (p.chars || []).length, p.dmName || ''].join('|');
+  const invCardKey = p => ['png3', p.name || '', (p.pic || '').length, (p.chars || []).length, p.dmName || ''].join('|');
   const invCard = async (code, p) => { try { const k = invCardKey(p); let was = null; try { was = localStorage.getItem('pg-invcard:' + code); } catch (e) {} if (was === k) return; const img = await pgInviteImage(p);
     // A sharp PNG is bigger than one Firestore document holds, so the rest of it goes in invcard/<code>/part/<i>.
     const PART = 880000, bits = []; for (let i = 0; i < img.length; i += PART) bits.push(img.slice(i, i + PART)); const D = fs.collection('invcard').doc(code);
@@ -2719,7 +2728,7 @@ function partyModule(H) {
   const invSync = p => { if (p && p.inv) { invPut(p.inv, p).catch(() => {}); invCard(p.inv, p); } };
   const invNew = async (p, max) => { const r = Array.from(crypto.getRandomValues(new Uint8Array(5)), b => 'abcdefghjkmnpqrstuvwxyz23456789'[b % 31]).join('');
     const code = (partySlug(p.name) || 'party').slice(0, 40) + '-' + r, old = p.inv; max = Math.max(0, Math.min(50, Math.floor(Number(max) || 0)));
-    await invPut(code, p, { max, used: 0 }); INVUSE[code] = { max, used: 0 }; invCard(code, p); await PC.doc(p.id).update({ inv: code, updatedAt: Date.now() }); if (old) { IC.doc(old).delete().catch(() => {}); { const D = fs.collection('invcard').doc(old); Promise.all([1, 2, 3].map(i => D.collection('part').doc(String(i)).delete().catch(() => {}))).then(() => D.delete()).catch(() => {}); } } p.inv = code; return code; };
+    await invPut(code, p, { max, used: 0 }); INVUSE[code] = { max, used: 0 }; invCard(code, p); await PC.doc(p.id).update({ inv: code, updatedAt: Date.now() }); if (old) { IC.doc(old).delete().catch(() => {}); { const D = fs.collection('invcard').doc(old); Promise.all([1, 2, 3, 4, 5].map(i => D.collection('part').doc(String(i)).delete().catch(() => {}))).then(() => D.delete()).catch(() => {}); } } p.inv = code; return code; };
   const invLinkHTML = p => `<div class="pty-link${p.inv ? '' : ' off'}">
       <span class="pty-link-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></span>
       ${p.inv ? `<span class="pty-link-t"><b>Invite link</b><code title="${esc(URLS.join(p.inv))}">${esc(URLS.join(p.inv).replace(/^https?:\/\//, ''))}</code></span>

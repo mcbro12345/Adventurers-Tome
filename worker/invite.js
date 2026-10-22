@@ -35,7 +35,7 @@ export default {
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="${esc(desc)}">
 <meta property="og:type" content="website"><meta property="og:site_name" content="Adventurer’s Tome"><meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(desc)}"><meta property="og:url" content="${esc(url.origin + '/' + code)}"><meta property="og:image" content="${esc(img)}">
-<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image"><meta name="theme-color" content="#c9962b">
+<meta property="og:image:width" content="2400"><meta property="og:image:height" content="1260"><meta name="twitter:card" content="summary_large_image"><meta name="theme-color" content="#c9962b">
 <meta http-equiv="refresh" content="0;url=${esc(join)}"><script>location.replace(${JSON.stringify(join)})</script></head>
 <body style="background:#0f1420;color:#e9e3d3;font-family:system-ui,sans-serif;text-align:center;padding:40px">Opening your invitation… <a style="color:#e7c46e" href="${esc(join)}">Continue</a></body></html>`;
     return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=60' } });
