@@ -376,7 +376,10 @@ document.addEventListener('keydown', e => {
     if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); const lb = REDO.length && REDO[REDO.length - 1].label; if (redo(1)) toast('Redid: ' + esc(lb)); return; }
   }
   if (e.key === 'Enter' && e.target.classList && e.target.classList.contains('portrait-edit')) $('#portraitFile').click();
-  if (e.key === 'Enter' && e.target.id === 'hpAmt') hpAction(e.shiftKey ? 'heal' : 'dmg');
+  // HP boxes: "+20" heals, "-20" (or just "20") is damage
+  if (e.key === 'Enter' && e.target.id === 'hpAmt') hpAction(e.shiftKey || /^\s*\+/.test(e.target.value) ? 'heal' : 'dmg');
+  if (e.key === 'Enter' && /^chp\d+$/.test(e.target.id || '')) { e.preventDefault(); compHp(N(e.target.id.slice(3)), /^\s*\+/.test(e.target.value) ? 1 : -1); }
+  if (e.key === 'Enter' && /^ptyq-/.test(e.target.id || '')) { e.preventDefault(); ptyQuick(/^\s*\+/.test(e.target.value) ? 'heal' : 'dmg', e.target.id.slice(5)); }
 });
 
 // ---------- Rolling ----------
@@ -556,7 +559,7 @@ function deathSave() {
 
 // ---------- HP, concentration, time ----------
 function hpAction(kind) {
-  const raw = $('#hpAmt').value, amt = Math.abs(N(raw));
+  const raw = String($('#hpAmt').value).trim().replace(/[−–]/g, '-'), amt = Math.abs(N(raw.replace(/^\+/, '')));
   if (kind === 'tmphp' && raw !== '' && !amt) { $('#hpAmt').value = ''; if (N(S.hp.temp)) { S.hp.temp = 0; pendingLabel = 'Temp HP cleared'; update(); render('vitals'); toast('Temporary HP cleared.'); } return; }
   if (raw === '' || !amt) { $('#hpAmt').focus(); toast('Type an amount in the box first.'); return; }
   $('#hpAmt').value = '';
@@ -1297,7 +1300,7 @@ function addClassCompanion(n, viaFeature) {
   pendingLabel = 'Add ' + n; if (!viaFeature) closeModal(true); save(); render(); if (!viaFeature) toast(`${esc(n)} added.`);
 }
 function compHp(i, d) {
-  const c = S.companions[i], el = $('#chp' + i), amt = Math.abs(N(el && el.value));
+  const c = S.companions[i], el = $('#chp' + i), amt = Math.abs(N(el && String(el.value).trim().replace(/[−–]/g, '-').replace(/^\+/, '')));
   if (!amt) { if (el) el.focus(); toast('Type an amount first.'); return; }
   if (d === 0) { c.temp = Math.max(N(c.temp), amt); pendingLabel = `${c.name} gains ${amt} temp HP`; if (el) el.value = ''; save(); render(); refresh(); return; }
   if (d < 0 && N(c.temp)) { const t = Math.min(N(c.temp), amt); c.temp = N(c.temp) - t; c.hp = Math.max(0, N(c.hp) - (amt - t)); } else c.hp = Math.max(0, Math.min(N(c.maxhp), N(c.hp) + d * amt));

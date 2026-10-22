@@ -2864,7 +2864,7 @@ function partyModule(H) {
     // a player looking at the party: no controls — the HP ring with AC / speed / level / passive in a 2 × 2 grid beside it
     const grid = `<div class="pm-csts pm-quad">${[['AC', c.ac || '—'], ['Speed', c.speed || '—'], ['Level', c.level || '—'], ['Passive', c.pp || '—']].map(([k, v]) => `<span><small>${k}</small><b>${esc(String(v))}</b></span>`).join('')}</div>`;
     const hp = max ? `<div class="pm-hp"><span class="pty-ring" title="${cur} of ${max} HP${Number(c.temp) ? ' (+' + c.temp + ' temporary)' : ''}"><span class="ring-svg">${ring(c.hp, max, c.temp)}</span><b>${cur}</b><small>of ${max}</small>${Number(c.temp) ? `<em class="pm-tmp">+${Number(c.temp)}</em>` : ''}</span>
-        ${dmMe ? `<div class="pm-hpq"><select class="pm-qt" id="pmqt-${esc(id)}" aria-label="Damage type for ${esc(c.name || 'them')}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${PTY_DT.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="pm-q" id="pmq-${esc(id)}" inputmode="numeric" placeholder="Amount" aria-label="Amount for ${esc(c.name || 'them')}">
+        ${dmMe ? `<div class="pm-hpq"><select class="pm-qt" id="pmqt-${esc(id)}" aria-label="Damage type for ${esc(c.name || 'them')}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${PTY_DT.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="pm-q" id="pmq-${esc(id)}" autocomplete="off" placeholder="-dmg / +heal" aria-label="Amount for ${esc(c.name || 'them')}: -20 (or 20) for damage, +20 to heal, then Enter">
           <div class="pm-hpb"><button class="pm-hb dmg" data-q="dmg" data-id="${esc(id)}" title="Damage" aria-label="Damage">${PM_IC.dmg}</button><button class="pm-hb heal" data-q="heal" data-id="${esc(id)}" title="Heal" aria-label="Heal">${PM_IC.heal}</button><button class="pm-hb tmp" data-q="temp" data-id="${esc(id)}" title="Temporary HP" aria-label="Temporary HP">${PM_IC.temp}</button></div></div>` : grid}</div>` : '';
     const stats = [!max && c.hp != null ? ['HP', c.hp] : null, ['AC', c.ac || '—'], c.speed ? ['Speed', c.speed] : null, c.level ? ['Level', c.level] : null, c.pp ? ['Passive', c.pp] : null].filter(Boolean);
     return `<div class="pm${st ? ' ' + st[1] : ''}" data-cid="${esc(id)}">
@@ -2882,7 +2882,7 @@ function partyModule(H) {
   const sentMsg = (a, msg) => msg + ' — they’ll be asked to accept it.';
   // Quick damage / heal / temp HP on a card.
   async function quickHP(b) {
-    const id = b.dataset.id, k = b.dataset.q, inp = root.querySelector('#pmq-' + CSS.escape(id)), n = Math.max(0, Math.floor(Number(inp && inp.value) || 0));
+    const id = b.dataset.id, k = b.dataset.q, inp = root.querySelector('#pmq-' + CSS.escape(id)), n = Math.max(0, Math.floor(Math.abs(Number(String(inp && inp.value || '').trim().replace(/[−–]/g, '-').replace(/^\+/, ''))) || 0));
     if (!n) { toast('Type an amount first.'); if (inp) inp.focus(); return; }
     const a = actor(); if (!a) return; const nm = (CARDS[id] || {}).name || 'them';
     const tsel = root.querySelector('#pmqt-' + CSS.escape(id)), dt = k === 'dmg' && tsel ? tsel.value : '';
@@ -3186,7 +3186,7 @@ function partyModule(H) {
     on('#pt-del', () => deleteParty(P, () => pgGo(URLS.parties(G))));
     el.querySelectorAll('.hc-dots').forEach(b => b.onclick = e => { e.stopPropagation(); const w = b.parentElement, o = !w.classList.contains('on'); el.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')); w.classList.toggle('on', o); });
     el.querySelectorAll('[data-q]').forEach(b => b.onclick = () => quickHP(b));
-    el.querySelectorAll('.pm-q').forEach(x => x.onkeydown = e => { if (e.key === 'Enter') { const b = x.closest('.pm').querySelector('[data-q=dmg]'); if (b) quickHP(b); } });
+    el.querySelectorAll('.pm-q').forEach(x => x.onkeydown = e => { if (e.key === 'Enter') { const b = x.closest('.pm').querySelector(/^\s*\+/.test(x.value) ? '[data-q=heal]' : '[data-q=dmg]'); if (b) quickHP(b); } }); // ("+20" heals, "-20" or "20" is damage)
     el.querySelectorAll('[data-pm]').forEach(b => b.onclick = () => { const id = b.dataset.id, c = CARDS[id] || {}; const m = b.closest('.hc-menu'); if (m) m.classList.remove('on');
       if (b.dataset.pm === 'send') sendDialog(id);
       if (b.dataset.pm === 'open') pgGo(hrefOf(id, c));
