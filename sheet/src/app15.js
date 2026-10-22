@@ -241,13 +241,14 @@ const ANI = (() => {
     const xs = list.length === 1 ? [74] : list.length === 2 ? [68, 84] : list.length === 3 ? [64, 78, 90] : list.map((_, i) => 60 + i * (34 / Math.max(1, list.length - 1)));
     const targets = list.map((k, i) => { const isP = LOOKS[k] && !CREATURE[k]; const d = list.length > 1 ? (i % 2 ? .5 : 0) : 0;
       return { kind: isP ? 'person' : k, look: isP ? k : null, x: xs[i], y: GROUND - d * 6, s: (1 - d * .18) * (k === 'big' ? 1.3 : 1), f: -1, pose: 'idle', depth: d }; });
-    if (tg[1]) targets.forEach(t => { if (LOOKS[tg[1]]) t.look = tg[1]; });
+    tg.slice(1).forEach(a1 => targets.forEach(t => { if (LOOKS[a1]) t.look = a1; else if (col(a1)) t.col = col(a1)[0]; }));
     return { caster, targets };
   }
   function frame(x, S, tms) {
     const T = tms, ph = (tms % LOOP) / LOOP;
     const A = actorsFor(S); S.A = A; S.T = T; S.ph = ph; S.shake = 0; S.flash = 0; S.invert = 0; S.dark = 0; S.zoom = 1; S.zx = 50; S.zy = 60; S.hide = {};
     const w = S.setup.w; if (w) { A.caster.weapon = w.args[0]; A.caster.wcol = col(w.args[1]) || null; A.caster.drawWeapon = WEAPON_DRAW; }
+    S.thrown = S.acts.some(a => a.name === 'shoot' && a.args.some(z => /^(javelin|axe|hammer|knife|net|flask)$/.test(z)) && ph > a.t0 + (a.t1 - a.t0) * .22) ? 1 : 0;
     // which acts are active now: p = local progress (0..1), u = unclamped
     const live = [];
     // a 'cure' act ends conditions that started before it (they fade out as it lands)
@@ -256,6 +257,8 @@ const ANI = (() => {
       if (a.v.cond && a.t0 < cureAt && ph > cureAt) { const f = (ph - cureAt) / .08; if (f >= 1) continue; a._fade = 1 - f; } else a._fade = 1; if (!a.v.keep && !a.kv.keep && u > 1 + (a.v.tail != null ? a.v.tail : .6)) continue; live.push([a, clamp(u) * (a._fade == null ? 1 : a._fade), u]); }
     // 1) acts change actors (poses, knockback, tint...)
     live.forEach(([a, p, u]) => a.v.mod && a.v.mod(S, p, a, u));
+    // keep everyone on the stage
+    { const c = A.caster; if (c.x + (c.dx || 0) < 10) c.dx = 10 - c.x; A.targets.forEach(t => { if (t.x + (t.dx || 0) > 93) t.dx = 93 - t.x; if (t.x + (t.dx || 0) < 8) t.dx = 8 - t.x; }); }
     // global fade at the loop's end
     const fade = ph > .93 ? clamp((ph - .93) / .05) : ph < .02 ? 1 - ph / .02 : 0;
     x.save();
@@ -264,13 +267,16 @@ const ANI = (() => {
     if (S.zoom !== 1) { x.translate(S.zx, S.zy); x.scale(S.zoom, S.zoom); x.translate(-S.zx, -S.zy); }
     if (S.shake) { const r = rng(T / 30 | 0); x.translate((r() - .5) * S.shake * 2, (r() - .5) * S.shake * 2); }
     drawBg(x, S, T);
-    if (S.dark) { x.fillStyle = `rgba(4,4,12,${S.dark})`; x.fillRect(-10, -10, W + 20, H + 20); }
+    if (S.dark) { S.dark = Math.min(S.dark, .42); x.fillStyle = `rgba(4,4,12,${S.dark})`; x.fillRect(-10, -10, W + 20, H + 20); }
     live.forEach(([a, p, u]) => a.v.back && (x.save(), a.v.back(x, S, p, a, u, H_), x.restore()));
     // ground shadow + actors
     const draw = (act, who) => { if (S.hide[who]) return null; H_.glow(x, act.x + (act.dx || 0), act.y + (act.dy || 0) - 16 * (act.s || 1), 20 * (act.s || 1), '#c8d4ff', .09 * (act.alpha == null ? 1 : act.alpha)); H_.ell(x, act.x + (act.dx || 0) * .6, act.y + 1, 7 * (act.s || 1), 1.6, '#000000', .35 * (act.alpha == null ? 1 : act.alpha));
       return act.kind === 'person' ? figure(x, act, T) : creature(x, act.kind, act, T); };
     const tPts = A.targets.slice().sort((a, b) => b.depth - a.depth).map(t => [t, draw(t, 't' + A.targets.indexOf(t))]);
     A.targets.forEach(t => { const m = tPts.find(q => q[0] === t); t.pt = m && m[1]; });
+    if (S.thrown) A.caster.drawWeapon = null;
+    // a person on a mount: draw the mount, then the rider sitting on it
+    if (/^(horse|steed|mount)$/.test(A.caster.kind) && LOOKS[A.caster.look]) { const m = draw(A.caster, 'c'); const r = Object.assign({}, A.caster, { kind: 'person', pose: 'sit', blend: null, rot: 0, dy: (A.caster.dy || 0) - 15 * (A.caster.s || 1), dx: (A.caster.dx || 0) - 1, s: (A.caster.s || 1) * .88 }); const rp = figure(x, r, T); A.caster.pt = Object.assign({}, rp, { feet: m ? m.feet : rp.feet }); } else
     A.caster.pt = draw(A.caster, 'c');
     if (!A.caster.pt) A.caster.pt = { hand: [32, 64], hand2: [20, 64], chest: [24, 64], head: [24, 52], feet: [24, GROUND], s: 1 };
     A.targets.forEach(t => { if (!t.pt) t.pt = { hand: [t.x - 8, 64], chest: [t.x, 64], head: [t.x, 52], feet: [t.x, t.y], s: 1 }; });
@@ -278,13 +284,16 @@ const ANI = (() => {
     live.forEach(([a, p, u]) => a.v.over && (x.save(), a.v.over(x, S, p, a, u, H_), x.restore()));
     x.restore();
     { const g = x.createRadialGradient(50, 50, 34, 50, 50, 76); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.36)'); x.fillStyle = g; x.fillRect(0, 0, W, H); }
-    if (S.invert > 0) { x.save(); x.globalCompositeOperation = 'difference'; x.globalAlpha = clamp(S.invert); x.fillStyle = '#ffffff'; x.fillRect(0, 0, W, H); x.restore(); }
+    // impact frames and flashes stay brief and soft so a frame never turns fully white
+    if (S.invert > 0) S.flash = Math.max(S.flash, .32 * clamp(S.invert));
+    S.flash = Math.min(S.flash, .34);
     if (S.flash > 0) { x.fillStyle = `rgba(255,255,255,${clamp(S.flash)})`; x.fillRect(0, 0, W, H); }
     if (fade > 0) { x.fillStyle = `rgba(8,10,16,${fade})`; x.fillRect(0, 0, W, H); }
   }
   // Points helpers for verbs
+  const G_ = GROUND;
   const P_ = {
-    hand: S => S.A.caster.pt.hand, chest: S => S.A.caster.pt.chest, head: S => S.A.caster.pt.head,
+    hand: S => S.A.caster.pt ? S.A.caster.pt.hand : [S.A.caster.x + (S.A.caster.dx || 0) + 8, G_ - 18], chest: S => S.A.caster.pt ? S.A.caster.pt.chest : [S.A.caster.x + (S.A.caster.dx || 0), G_ - 18], head: S => S.A.caster.pt ? S.A.caster.pt.head : [S.A.caster.x + (S.A.caster.dx || 0), G_ - 30],
     tgt: (S, i = 0) => { const t = S.A.targets[i] || S.A.targets[0]; return t ? (t.pt ? t.pt.chest : [t.x + (t.dx || 0), t.y + (t.dy || 0) - 18 * (t.s || 1)]) : [74, 64]; },
     thead: (S, i = 0) => { const t = S.A.targets[i] || S.A.targets[0]; return t ? (t.pt ? t.pt.head : [t.x + (t.dx || 0), t.y + (t.dy || 0) - 30 * (t.s || 1)]) : [74, 52]; },
     tfeet: (S, i = 0) => { const t = S.A.targets[i] || S.A.targets[0]; return t ? [t.x + (t.dx || 0), t.y] : [74, GROUND]; },
