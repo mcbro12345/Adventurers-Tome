@@ -751,10 +751,14 @@ table.grid .roll { white-space: nowrap; }
 .idetail p { margin: 2px 0 6px; }
 html.mobile .idetail { grid-column: 1 / -1; grid-row: auto; }
 .tag.rar { text-transform: capitalize; }
-.tag.r-uncommon { color: #2F8F5B; border-color: #2F8F5B; }
-.tag.r-rare { color: #3A7BD5; border-color: #3A7BD5; }
-.tag.r-veryrare { color: #8A4FD1; border-color: #8A4FD1; }
-.tag.r-legendary { color: #C2762E; border-color: #C2762E; }
+.tag.r-uncommon { color: #23704a; border-color: #2F8F5B; }
+.tag.r-rare { color: #2a63b5; border-color: #3A7BD5; }
+.tag.r-veryrare { color: #7340b8; border-color: #8A4FD1; }
+.tag.r-legendary { color: #a85f1f; border-color: #C2762E; }
+:root[data-theme="dark"] .tag.r-uncommon, html.dark .tag.r-uncommon { color: #5cc68c; }
+:root[data-theme="dark"] .tag.r-rare, html.dark .tag.r-rare { color: #7aaaf0; }
+:root[data-theme="dark"] .tag.r-veryrare, html.dark .tag.r-veryrare { color: #b892f0; }
+:root[data-theme="dark"] .tag.r-legendary, html.dark .tag.r-legendary { color: #e8a060; }
 .tag.r-artifact { color: var(--red); border-color: var(--red); }
 .tag.att { cursor: pointer; background: transparent; }
 .tag.att.on { background: var(--gold-soft); color: var(--gold-ink); border-color: var(--gold); }
@@ -1714,7 +1718,7 @@ html:not(.mobile) .toolbar:not(.tb-compact) [data-zi="history"] .ti { display: n
 
 /* defenses with their sources */
 .pbadge.defb { display: inline-flex; align-items: baseline; gap: 5px; }
-.pbadge .dsrc { font-size: .68rem; font-weight: 500; opacity: .7; }
+.pbadge .dsrc { font-size: .68rem; font-weight: 500; opacity: .88; }
 .pbadge .dsrc::before { content: '· '; }
 /* d20 roll toggles: same size */
 .advtile .advopt { align-self: stretch; width: 100%; box-sizing: border-box; justify-content: flex-start; }
@@ -1913,7 +1917,7 @@ html.mobile .abed { grid-template-columns: repeat(3, 1fr); }
 
 /* Pictures on people, companions and items */
 .picth, .picadd { flex: none; width: 46px; height: 46px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel2); padding: 0; overflow: hidden; display: grid; place-items: center; color: var(--soft); font-size: 1.1rem; cursor: pointer; }
-.picadd { border-style: dashed; opacity: .7; } @media (hover:hover){:where(html:not(.mobile)) .picadd:hover{ opacity: 1; border-color: var(--gold); }}
+.picadd { border-style: dashed; opacity: .85; } @media (hover:hover){:where(html:not(.mobile)) .picadd:hover{ opacity: 1; border-color: var(--gold); }}
 .picth img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .comp-h .picth, .comp-h .picadd { width: 56px; height: 56px; }
 .idet-top { display: flex; gap: 10px; align-items: flex-start; } .idet-top .fld { flex: 1; } .idet-top .picth, .idet-top .picadd { width: 72px; height: 72px; margin-top: 18px; }
@@ -1943,7 +1947,8 @@ html.mobile .abed { grid-template-columns: repeat(3, 1fr); }
 .csp-tag { font-size: .6rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; border: 1px solid var(--line); border-radius: 999px; padding: 0 6px; color: var(--soft); }
 .csp-tag.free { border-color: var(--gold); color: var(--gold-ink); }
 .csp-sub { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-top: 2px; font-size: .75rem; color: var(--soft); }
-.csp-k { font-weight: 700; } .csp-k.hit, .csp-k.save { color: var(--ink); } .csp-k.dmg { color: #d9603b; } .csp-k.heal { color: #3c9d6b; }
+.csp-k { font-weight: 700; } .csp-k.hit, .csp-k.save { color: var(--ink); } .csp-k.dmg { color: #b8442a; } .csp-k.heal { color: #2a7a52; }
+:root[data-theme="dark"] .csp-k.dmg, html.dark .csp-k.dmg { color: #f07a5a; } :root[data-theme="dark"] .csp-k.heal, html.dark .csp-k.heal { color: #5fcf95; }
 
 .cspg.g-feat { --g: #c9962b; } .cspg.g-item { --g: #8a6d4f; } .cspg.g-std { --g: var(--line); }
 .cspg .opt { padding: 7px 2px; border-bottom: 1px dashed var(--line2); } .cspg .opt:last-child { border-bottom: 0; }
@@ -3504,6 +3509,7 @@ html.mobile .ptym-grid { grid-template-columns: 1fr; }
 .ptyh-t { flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: 2px; }
 .ptyh-t b { font-size: 1.25rem; line-height: 1.2; }
 .ptyh-t span { color: var(--slate); font-size: .85rem; }
+:root:not([data-theme="dark"]) .ptyh-t span { color: #55657a; }
 .ptyh-btns { display: flex; flex-wrap: wrap; gap: 6px; }
 .ptyh-btns a.btn { text-decoration: none; }
 .ptyh-hint { margin: 10px 0 0; }
@@ -3803,7 +3809,7 @@ html.mobile .ptymain .ptym-grid { grid-template-columns: 1fr; }
 .ptychat-cmds { display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; align-items: center; margin: -2px 0 8px; font-size: .78rem; color: var(--soft); }
 .ptychat-cmds code { white-space: nowrap; justify-self: start; }
 /* Party chat pop-out window */
-.pcwin { position: fixed; z-index: 9100; width: 360px; height: 480px; min-height: 260px; max-height: calc(100vh - 12px); resize: vertical; overflow: hidden; display: flex; flex-direction: column; background: var(--panel); color: var(--ink); border: 1px solid var(--line2); border-radius: 14px; box-shadow: 0 20px 48px rgba(0,0,0,.45); }
+.pcwin { position: fixed; z-index: 9100; width: 360px; height: 480px; min-height: 260px; min-width: 280px; max-width: calc(100vw - 12px); max-height: calc(100vh - 12px); resize: both; overflow: hidden; display: flex; flex-direction: column; background: var(--panel); color: var(--ink); border: 1px solid var(--line2); border-radius: 14px; box-shadow: 0 20px 48px rgba(0,0,0,.45); }
 .pcwin.drag { opacity: .96; }
 .pcw-head { display: flex; align-items: center; gap: 6px; padding: 9px 10px 9px 14px; border-bottom: 1px solid var(--line); background: var(--panel2); cursor: move; touch-action: none; user-select: none; }
 .pcw-head b { flex: 1; font-size: .92rem; letter-spacing: .04em; }
@@ -3813,7 +3819,6 @@ html.mobile .ptymain .ptym-grid { grid-template-columns: 1fr; }
 .pcw-body .ptychat-lw { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .pcw-body .ptychat-l { flex: 1; max-height: none; min-height: 0; }
 .pcw-body .ptychat-h { font-size: .78rem; }
-.ptychat-popbtn { padding: 3px 9px; font-size: .74rem; letter-spacing: 0; text-transform: none; }
 .ptychat-popped .ptychat-lock { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; padding: 30px 16px; border: 1px dashed var(--line2); border-radius: 12px; background: var(--panel2); color: var(--soft); }
 .ptychat-popped .ptychat-lock span { font-size: 1.6rem; }
 .ptychat-popped .ptychat-lock p { margin: 0; font-size: .88rem; }
@@ -3828,5 +3833,40 @@ html.mobile .pcw-body .ptychat-f input { font-size: 16px; }
 .ptyc-ava, .pcp-ava { border: 0 !important; }
 .ptyc-ava:not(:has(img)) { background: var(--line2); }
 .pcw-body .ptychat-h { display: none; }
-.ptychat-popbtn { font-size: 1rem !important; padding: 2px 8px !important; line-height: 1; }
+.ptychat-popbtn { width: 26px; height: 26px; padding: 0; display: inline-grid; place-items: center; }
+.ptychat-popbtn svg { width: 14px; height: 14px; }
+/* Phone: the chat button sits between Dice and Log in the corner (only in a party with chat); no pop-out button in the tab */
+html.mobile .ptychat-popbtn { display: none; }
+.devbtn.chatbtn { display: none; }
+html.mobile.pchat .devbtn.chatbtn { display: inline-grid; position: absolute; top: 10px; right: 84px; }
+html.mobile.pchat .devbtn.dicebtn { right: 120px; }
+html.mobile.pchat.realphone .devbtn.chatbtn, html.mobile.pchat.pg-inphone .devbtn.chatbtn { right: 48px; }
+html.mobile.pchat.realphone .devbtn.dicebtn, html.mobile.pchat.pg-inphone .devbtn.dicebtn { right: 84px; }
+html.mobile.pchat.hasbug .devbtn.chatbtn { right: 120px; }
+html.mobile.pchat.hasbug .devbtn.dicebtn { right: 156px; }
+html.mobile.pchat.hasbug.realphone .devbtn.chatbtn, html.mobile.pchat.hasbug.pg-inphone .devbtn.chatbtn { right: 84px; }
+html.mobile.pchat.hasbug.realphone .devbtn.dicebtn, html.mobile.pchat.hasbug.pg-inphone .devbtn.dicebtn { right: 120px; }
+html.mobile.pchat .namebox { padding-right: 148px; }
+html.mobile.pchat.hasbug .namebox { padding-right: 184px; }
+.devbtn.chatbtn.unread::after { content: attr(data-unread); position: absolute; top: -5px; right: -5px; min-width: 15px; height: 15px; padding: 0 3px; box-sizing: border-box; border-radius: 8px; background: #e04848; color: #fff; font: 800 9px/15px system-ui, sans-serif; text-align: center; }
+html:not(.mobile).pchat .devbtn.chatbtn { display: inline-grid; position: relative; }
+/* Computer toolbar: a little tighter so every button keeps its label (Edit layout too) */
+html:not(.mobile) .toolbar { column-gap: 4px; }
+html:not(.mobile) .toolbar > .tbtn, html:not(.mobile) .toolbar .savegrp > .tbtn { padding-left: 7px !important; padding-right: 7px !important; gap: 4px !important; }
+/* Hit Points: the amount controls sit snug above Short / Long Rest */
+.tile.hp .hp-side { row-gap: 6px !important; }
+.tile.hp .hp-side .rest-actions { margin-top: 0 !important; }
+
+/* Accessibility: text only screen readers hear, and a clear ring around whatever has keyboard focus. */
+.sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+:where(button, a[href], [tabindex], summary, select, input[type=checkbox], input[type=radio]):focus-visible { outline: 2px solid var(--gold, #c9962b); outline-offset: 2px; }
+/* Accessibility: keep accent-coloured text and selected chips readable on the dark theme, whatever the character's colours. */
+:root[data-theme="dark"] .opt-info, html.dark .opt-info { color: color-mix(in srgb, var(--accent, #2f6f7e) 45%, #fff); }
+:root[data-theme="dark"] .chip.on, html.dark .chip.on { background: color-mix(in srgb, var(--gold) 55%, #fff); border-color: color-mix(in srgb, var(--gold) 55%, #fff); color: #1D2536; }
+:root[data-theme="dark"] .cn .cl, html.dark .cn .cl { color: #b9c0cf; }
+/* Accessibility: the light theme's grey-blue text a shade darker, so small text stays readable on cream and gold backgrounds. */
+:root:not([data-theme="dark"]) { --slate: #56657A; }
+:root:not([data-theme="dark"]) .cn.gp .cl { color: #444e63; }
+/* A party's own picture shows without a frame. */
+.ptyh-ic.pic { border: 0; }
 

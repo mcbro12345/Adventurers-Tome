@@ -1947,3 +1947,10 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 :root[data-pgtheme="light"] body.hubbody .hub-ctlink { color: #7d5610; opacity: 1; } :root[data-pgtheme="light"] body.hubbody .adm-back { color: #6f4f12; }
 @media (prefers-color-scheme: light) { :root:not([data-pgtheme="dark"]) body.hubbody .pw .linkbtn { color: #7d5610; } :root:not([data-pgtheme="dark"]) body.hubbody .pty-invwho small { opacity: .9; } }
 :root[data-pgtheme="light"] body.hubbody .pw .linkbtn { color: #7d5610; } :root[data-pgtheme="light"] body.hubbody .pty-invwho small { opacity: .9; }
+/* A party's own picture shows without a frame (the frame is only for the placeholder icon). */
+:where(body.hubbody, #pg-load) img.pty-pic, :where(body.hubbody) img.pty-admic { border: 0; }
+:where(body.hubbody) .pw-ppic:not(.none) { border: 0; background: transparent; }
+:where(body.hubbody) .pj-seal.pic { border: 0; box-shadow: 0 10px 24px rgba(31,42,68,.3); background: transparent; }
+/* Party-action chips: the character's picture in its sheet colour. */
+:where(body.hubbody) .pa-who img { border: 2px solid #c9962b; }
+.to-pic:not(.to-np) { border: 2px solid #c9962b; }

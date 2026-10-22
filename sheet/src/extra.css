@@ -3198,3 +3198,5 @@ html:not(.mobile) .toolbar > .tbtn, html:not(.mobile) .toolbar .savegrp > .tbtn 
 /* Accessibility: the light theme's grey-blue text a shade darker, so small text stays readable on cream and gold backgrounds. */
 :root:not([data-theme="dark"]) { --slate: #56657A; }
 :root:not([data-theme="dark"]) .cn.gp .cl { color: #444e63; }
+/* A party's own picture shows without a frame. */
+.ptyh-ic.pic { border: 0; }

@@ -57,8 +57,10 @@ async function pgInviteImage(p) {
     let ix = bx + 14; try { const d = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = (window.PG_DICE_SRC || '/dice-clear.png'); }); g.imageSmoothingQuality = 'high'; g.drawImage(d, ix, by + 5, 44, 44); ix += 44 + 12; } catch (e) { ix += 10; }
     g.fillStyle = '#e7c46e'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(bt, ix, by + bh / 2 + 1); g.textBaseline = 'alphabetic'; }
   // the party's seal
-  const sx = W / 2, sy = cy + 114, sr = 72; g.save(); g.shadowColor = 'rgba(231,176,72,.55)'; g.shadowBlur = 30; g.beginPath(); g.arc(sx, sy, sr + 6, 0, 7); g.fillStyle = '#c9962b'; g.fill(); g.restore();
-  g.beginPath(); g.arc(sx, sy, sr, 0, 7); g.fillStyle = '#121826'; g.fill();
+  const sx = W / 2, sy = cy + 114, sr = 72;
+  // the gold ring is only for the placeholder icon; a party's own picture shows without a frame (just a soft glow)
+  const ring = () => { g.save(); g.shadowColor = 'rgba(231,176,72,.55)'; g.shadowBlur = 30; g.beginPath(); g.arc(sx, sy, sr + 6, 0, 7); g.fillStyle = '#c9962b'; g.fill(); g.restore(); g.beginPath(); g.arc(sx, sy, sr, 0, 7); g.fillStyle = '#121826'; g.fill(); };
+  if (!p.pic) ring(); else { g.save(); g.shadowColor = 'rgba(231,176,72,.4)'; g.shadowBlur = 34; g.beginPath(); g.arc(sx, sy, sr + 4, 0, 7); g.fillStyle = 'rgba(18,24,38,.9)'; g.fill(); g.restore(); }
   let drew = false; if (p.pic) { try { const load = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
     const im = await load(p.pic); let src = [im, 0, 0, im.width, im.height];
     // The saved party picture is small (256px), so on this browser use the full-size original it was cropped from, if it's
@@ -68,7 +70,8 @@ async function pgInviteImage(p) {
       const px = (img, a, b, w, h) => { const t = document.createElement('canvas'); t.width = t.height = 12; const x = t.getContext('2d'); x.drawImage(img, a, b, w, h, 0, 0, 12, 12); return x.getImageData(0, 0, 12, 12).data; };
       const A = px(o, ox, oy, sw, sw), B = px(im, 0, 0, im.width, im.height); let d = 0; for (let i = 0; i < A.length; i++) if (i % 4 !== 3) d += Math.abs(A[i] - B[i]);
       if (d / (A.length * .75) < 18) src = [o, ox, oy, sw, sw]; } } catch (e) {}
-    g.save(); g.beginPath(); g.arc(sx, sy, sr - 2, 0, 7); g.clip(); g.imageSmoothingQuality = 'high'; const [I, a, b, w, h] = src, k = Math.max((2 * sr) / w, (2 * sr) / h); g.drawImage(I, a, b, w, h, sx - w * k / 2, sy - h * k / 2, w * k, h * k); g.restore(); drew = true; } catch (e) {} }
+    g.save(); g.beginPath(); g.arc(sx, sy, sr + 4, 0, 7); g.clip(); g.imageSmoothingQuality = 'high'; const [I, a, b, w, h] = src, k = Math.max((2 * sr + 8) / w, (2 * sr + 8) / h); g.drawImage(I, a, b, w, h, sx - w * k / 2, sy - h * k / 2, w * k, h * k); g.restore(); drew = true; } catch (e) {} }
+  if (!drew && p.pic) ring();
   if (!drew) { g.save(); g.translate(sx - 36, sy - 36); g.scale(3, 3); g.strokeStyle = '#e7c46e'; g.lineWidth = 1.6; g.lineCap = 'round'; g.beginPath(); g.arc(9, 8, 3.2, 0, 7); g.stroke(); g.beginPath(); g.arc(16.5, 9, 2.6, 0, 7); g.stroke(); g.beginPath(); g.moveTo(3.5, 19); g.quadraticCurveTo(5, 14, 9, 14); g.quadraticCurveTo(13, 14, 14.5, 19); g.stroke(); g.beginPath(); g.moveTo(14.5, 14.6); g.quadraticCurveTo(19.5, 13, 21, 18.5); g.stroke(); g.restore(); }
   // words
   const fit = (t, font, max) => { g.font = font; let s = t; while (g.measureText(s).width > max && s.length > 3) s = s.slice(0, -2); return s === t ? t : s.trim() + '…'; };
@@ -1658,7 +1661,7 @@ function hub(fs, auth, G, ctx) {
   let listsT = null; const keepLists = () => { clearTimeout(listsT); listsT = setTimeout(() => { try { let v = JSON.stringify({ mine: lists.mine || [], shared: lists.shared || [] }); if (v.length > 1500000) return; localStorage.setItem(LISTS_LS, v); } catch (e) {} }, 1000); };
   const readyNow = () => { if (window.pgReady && lists.mine && lists.shared && page !== 'party' && page !== 'join' && !ADMIN) window.pgReady(); };
   const merge = () => { const m = new Map(); Object.values(lists).forEach(l => l.forEach(c => m.set(c.id, c))); chars = [...m.values()]; if (!RD) draw();
-    accFix(chars.filter(c => isMine(c) && !('acc' in c)));
+    accFix(chars.filter(c => (isMine(c) || IS_ADMIN || (c.editors || []).includes(EMAIL)) && !('acc' in c)));
     if (IS_ADMIN) needNames(chars.filter(c => !isMine(c)).map(c => c.owner)).then(() => { if (!RD) draw(); });
     if (ME && ME.picChar) { const ch = chars.find(c => c.id === ME.picChar); if (ch && (ch.thumb || '') !== (ME.pic || '')) { ME.pic = ch.thumb || ''; usersCol.doc(EMAIL).update({ pic: ME.pic }).catch(() => {}); } } };
   // Characters saved before picture frames took the sheet's colour have no colour on their list entry (so they show the
@@ -2561,7 +2564,7 @@ function partyModule(H) {
   const inviteCard = (p, already) => { const n = (p.chars || []).length || Number(p.n) || 0, dm = p.dmName || p.dm || '';
     const ck = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
     return `<div class="pj-card"><div class="pj-glow" aria-hidden="true"></div>
-      <div class="pj-seal">${p.pic ? `<img src="${esc(p.pic)}" alt="">` : IC_PARTY}</div>
+      <div class="pj-seal${p.pic ? ' pic' : ''}">${p.pic ? `<img src="${esc(p.pic)}" alt="">` : IC_PARTY}</div>
       <div class="pj-kicker">${already ? 'You’re already in' : 'You’re invited to join'}</div>
       <h2 class="pj-name">${esc(p.name || 'a party')}</h2>
       <div class="pj-meta">${dm ? `<span>Dungeon Master <b>${esc(dm)}</b></span>` : ''}${n ? `<span>${n} adventurer${n === 1 ? '' : 's'} so far</span>` : ''}</div>
@@ -2738,7 +2741,7 @@ function partyModule(H) {
   const INVUSE = {}; const invUse = code => INVUSE[code] ? Promise.resolve(INVUSE[code]) : IC.doc(code).get().then(d => (INVUSE[code] = d.exists ? { max: Number(d.data().max) || 0, used: Number(d.data().used) || 0 } : { max: 0, used: 0 }), () => ({ max: 0, used: 0 }));
   const invMaxSel = (v) => `<select id="pt-lmax" class="pty-lmax" aria-label="How many players the link is for"><option value="0"${!v ? ' selected' : ''}>any number of players</option>${[1, 2, 3, 4, 5, 6, 7, 8].map(n => `<option value="${n}"${v === n ? ' selected' : ''}>${n} player${n > 1 ? 's' : ''}</option>`).join('')}</select>`;
   // the invite panel as a picture, for the link's preview card (redrawn when the party's name, picture or size changes)
-  const invCardKey = p => ['png4', p.name || '', (p.pic || '').length, (p.chars || []).length, p.dmName || ''].join('|');
+  const invCardKey = p => ['png5', p.name || '', (p.pic || '').length, (p.chars || []).length, p.dmName || ''].join('|');
   const invCard = async (code, p, loud) => { try { const k = invCardKey(p); let was = null; try { was = localStorage.getItem('pg-invcard:' + code); } catch (e) {} if (was === k) return; const img = await pgInviteImage(p);
     // A sharp PNG is bigger than one Firestore document holds, so the rest of it goes in invcard/<code>/part/<i>.
     const PART = 880000, bits = []; for (let i = 0; i < img.length; i += PART) bits.push(img.slice(i, i + PART)); const D = fs.collection('invcard').doc(code);
@@ -2827,7 +2830,7 @@ function partyModule(H) {
       if (toSync()) { toSave(); toPaint(); if (got.length && !document.getElementById('towin')) { const d = got[0].doc.data(); toast(`${d.n || 'A player'} rolled ${Number(d.v)} for initiative. It’s in your Turn order.`); } } }, () => {});
   }
   const toRowHTML = (r, i) => { const c = r.custom ? { name: r.name } : cardFor(r.id), nm = c.name || 'Unnamed';
-    const pic = r.custom ? `<span class="to-pic to-np">${esc(initials(nm))}</span>` : c.thumb ? `<img class="to-pic" src="${esc(c.thumb)}" alt="">` : `<span class="to-pic to-np">${esc(initials(nm))}</span>`;
+    const pic = r.custom ? `<span class="to-pic to-np">${esc(initials(nm))}</span>` : c.thumb ? `<img class="to-pic" src="${esc(c.thumb)}" alt=""${accStyle(c)}>` : `<span class="to-pic to-np">${esc(initials(nm))}</span>`;
     return `<li class="to-row${i === 0 ? ' cur' : ''}${r.fresh && Date.now() - r.fresh < 4000 ? ' fresh' : ''}" data-i="${i}">${pic}<span class="to-nm" title="${esc(nm)}">${esc(nm)}</span><input class="to-v" data-i="${i}" inputmode="numeric" value="${esc(String(r.v ?? ''))}" aria-label="Initiative for ${esc(nm)}"><button class="to-x" data-x="${i}" title="Take off the list" aria-label="Remove ${esc(nm)}">×</button></li>`; };
   function toPaint() {
     const w = document.getElementById('towin'); if (!w || !TO) return;
@@ -2947,7 +2950,7 @@ function partyModule(H) {
     const nm = i => (CARDS[i] || {}).name || 'A character';
     const whoTxt = () => { const n = sel.size; return n === all.length && n > 1 ? 'everyone' : n === 1 ? nm([...sel][0]) : n + ' characters'; };
     const goTxt = () => { const n = Number(F.n) || 0, w = whoTxt(); return { dmg: n ? `Deal ${n} damage to ${w}` : `Damage ${w}`, heal: F.n === 'max' ? `Heal ${w} to full` : n ? `Heal ${w} ${n} HP` : `Heal ${w}`, temp: n ? `Give ${w} ${n} temp HP` : `Give ${w} temp HP`, cond: F.conds.length ? `${F.cmode === 'rm' ? 'Remove' : 'Add'} ${F.conds.length > 2 ? F.conds.length + ' conditions' : F.conds.join(' and ')}${F.exh !== '0' ? ' + exhaustion' : ''}` : F.exh !== '0' ? `Change ${w}’s exhaustion` : `${F.cmode === 'rm' ? 'Remove' : 'Add'} conditions`, save: `Ask ${w} for a ${F.save} save${Number(F.dc) ? ' (DC ' + Number(F.dc) + ')' : ''}`, loot: `Give ${w} ${F.item ? (Number(F.qty) > 1 ? F.qty + ' × ' : '') + F.item : 'an item'}`, coins: `Give ${w} coins`, insp: `Give ${w} Inspiration`, rest: `Ask ${w} for a ${F.rest} rest`, msg: `Send to ${w}` }[kind]; };
-    const chip = i => { const c = cardFor(i); return `<button class="pa-who${sel.has(i) ? ' on' : ''}" data-who="${esc(i)}" aria-pressed="${sel.has(i)}">${c.thumb ? `<img src="${esc(c.thumb)}" alt="">` : `<span class="pa-ini">${esc(initials(c.name || '?'))}</span>`}<span class="pa-wt"><b>${esc(c.name || 'A character')}</b>${Number(c.maxhp) ? `<small>${Number(c.hp) || 0}/${c.maxhp} HP</small>` : ''}</span></button>`; };
+    const chip = i => { const c = cardFor(i); return `<button class="pa-who${sel.has(i) ? ' on' : ''}" data-who="${esc(i)}" aria-pressed="${sel.has(i)}">${c.thumb ? `<img src="${esc(c.thumb)}" alt=""${accStyle(c)}>` : `<span class="pa-ini">${esc(initials(c.name || '?'))}</span>`}<span class="pa-wt"><b>${esc(c.name || 'A character')}</b>${Number(c.maxhp) ? `<small>${Number(c.hp) || 0}/${c.maxhp} HP</small>` : ''}</span></button>`; };
     const seg = (key, opts) => `<div class="pa-seg">${opts.map(([v, t]) => `<button class="${String(F[key]) === String(v) ? 'on' : ''}" data-f="${key}" data-v="${esc(v)}">${esc(t)}</button>`).join('')}</div>`;
     const field = (lbl, html, cls) => `<label class="pa-fld${cls ? ' ' + cls : ''}"><span>${lbl}</span>${html}</label>`;
     const inp = (key, o = {}) => `<input class="pa-in${o.num ? ' num' : ''}" data-in="${key}" value="${esc(F[key] === 'max' ? '' : F[key])}"${o.num ? ' type="number" min="0" inputmode="numeric"' : ''}${o.ph ? ` placeholder="${esc(o.ph)}"` : ''}${o.list ? ` list="${o.list}"` : ''}${o.max ? ` maxlength="${o.max}"` : ''}>`;
