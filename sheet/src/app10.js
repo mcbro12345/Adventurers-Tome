@@ -758,7 +758,7 @@ const maDie = () => '1' + (martialDie() || 'd4');
 const harmFeat = () => S.features.find(f => /^hand of harm$/i.test(String(f.name).trim()));
 function harmRowHTML() {
   if (!harmFeat()) return ''; const on = !!S.harmArm, used = S.inCombat && S.turn.harm;
-  return `<label class="smite-chk harm${on ? ' on' : ''}"><input type="checkbox" data-harmarm${on ? ' checked' : ''}${used ? ' disabled' : ''}><span><b>Hand of Harm on my next unarmed hit</b><small>${used ? 'Already used this turn' : `1 ki · ${maDie()} + WIS necrotic${hasFeature("Physician's Touch") ? ' · and the target is poisoned until the end of your next turn' : ''} · ${stunKiLeft()} ki left`}</small></span></label>`;
+  return `<label class="smite-chk harm${on ? ' on' : ''}"><input type="checkbox" data-harmarm${on ? ' checked' : ''}${used ? ' disabled' : ''}><span><b>Hand of Harm</b><small>${used ? 'Already used this turn' : `Next unarmed hit · +${maDie()} + WIS necrotic${hasFeature("Physician's Touch") ? ', target poisoned' : ''}`}</small></span><em class="sm-cost${stunKiLeft() < 1 ? ' none' : ''}" title="${stunKiLeft()} ki left">1 ki · ${stunKiLeft()} left</em></label>`;
 }
 document.addEventListener('change', e => { const t = e.target;
   if (t.matches && t.matches('[data-smitearm]')) { S.smiteArm = { on: t.checked, l: smiteSel() }; pendingLabel = t.checked ? 'Divine Smite ready' : 'Divine Smite off'; save(); refresh(); }

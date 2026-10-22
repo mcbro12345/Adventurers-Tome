@@ -2680,7 +2680,7 @@ html.mobile .advb { font-size: .8rem; padding: 6px 12px; }
 
 .tile.condtile { container-type: inline-size; }
 .advb .as { display: none; }
-@container (max-width: 420px) { .advb .al { display: none; } .advb .as { display: inline; } }
+@container (max-width: 372px) { .advb .al { display: none; } .advb .as { display: inline; } }
 
 .sarow { flex-wrap: nowrap !important; }
 .sadotw .hint { white-space: nowrap; display: inline-block; min-width: 7.2em; }
@@ -4068,6 +4068,50 @@ html:not(.mobile) .ident.noid .subtitle { margin-bottom: -4px; }
 .cchip > .ccn { position: relative; top: 1px; }
 /* Phones: the sheet's corner icons sit a little higher, clear of the name and subtitle */
 html.mobile #sec-header .devbtn { top: 3px !important; }
+/* Window titles: bigger, and tall enough that letters like g and y aren't clipped */
+html.mwin .mw-head b { font-size: 1.15rem !important; line-height: 1.4 !important; padding-bottom: 1px; }
+/* Header with the identity fields off: smaller portrait (sized in app2.js to the name block) and less space above */
+html:not(.mobile) .banner .wrap:has(.ident.noid) { padding-top: 10px; padding-bottom: 12px; }
+html:not(.mobile) #sec-header:has(> .ident.noid) .portrait-wrap { transition: none; }
+/* Spellcasting panel: one clean block per class (name, ability, button) with a meter for prepared spells and cantrips */
+.scx-panel .scx-list { gap: 0; }
+.scx { border: 0; border-radius: 0; background: transparent; padding: 4px 2px 12px; gap: 10px; }
+.scx + .scx { border-top: 1px solid var(--line); padding-top: 12px; }
+.scx-h { align-items: center; gap: 8px; min-height: 30px; }
+.scx-h b { font-size: 1.05rem; }
+.scx-h small { padding: 2px 7px; border-radius: 999px; background: var(--gold-soft); color: var(--gold-ink); font-size: .66rem; letter-spacing: .08em; }
+.scx-h .scx-b { margin-left: auto; display: flex; gap: 6px; flex-wrap: nowrap; }
+.scx-h .scx-b .btn { flex: none; padding: 5px 14px; }
+.scx-go { background: transparent; border: 1px solid var(--gold); color: var(--gold-ink); font-weight: 700; }
+@media (hover:hover){:where(html:not(.mobile)) .scx-go:hover{ background: var(--gold); color: var(--on-gold, #fff); }}
+.scx-m { display: flex; flex-direction: column; gap: 5px; }
+.scx-mr { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.scx-mr span { font-size: .72rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--soft); }
+.scx-mr b { font-size: 1rem; font-variant-numeric: tabular-nums; }
+.scx-bar { height: 6px; border-radius: 999px; background: var(--field); border: 1px solid var(--line); overflow: hidden; }
+.scx-bar i { display: block; height: 100%; width: calc(var(--p, 0) * 100%); background: var(--gold); border-radius: inherit; transition: width .25s ease; }
+.scx-m.full .scx-bar i { background: #3c9d6b; }
+.scx-m.over .scx-bar i { background: var(--red); } .scx-m.over .scx-mr b { color: var(--red); }
+/* Rest buttons: the words' capitals sit on the same centre line as the icon */
+.btn.rest .rl { position: relative; top: 1px; }
+.btn.rest .ri { position: relative; top: 0; }
+/* "On my next hit" options (Divine Smite, Hand of Harm): a tidy row with a switch instead of a big checkbox card */
+.smite-chk { gap: 10px; padding: 8px 10px; border-radius: 10px; background: transparent; border: 1px dashed var(--line2, var(--line)); transition: border-color .15s, background .15s; }
+@media (hover:hover){:where(html:not(.mobile)) .smite-chk:hover{ border-color: var(--gold); }}
+.smite-chk span { flex: 1; gap: 1px; }
+.smite-chk b { font-size: .86rem; font-weight: 700; }
+.smite-chk small { font-size: .72rem; line-height: 1.3; }
+.smite-chk input { order: 3; appearance: none; -webkit-appearance: none; width: 34px; height: 20px; border-radius: 999px; background: var(--field); border: 1px solid var(--line2, var(--line)); position: relative; cursor: pointer; transition: background .15s, border-color .15s; }
+.smite-chk input::before { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--soft); transition: transform .18s ease, background .15s; }
+.smite-chk input:checked { background: var(--gold); border-color: var(--gold); }
+.smite-chk input:checked::before { transform: translateX(14px); background: var(--on-gold, #fff); }
+.smite-chk input:disabled { opacity: .45; cursor: not-allowed; }
+.smite-chk input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.smite-chk.on { border-style: solid; border-color: var(--gold); background: var(--gold-soft); }
+.smite-chk .sm-cost { order: 2; flex: none; font-style: normal; font-size: .68rem; font-weight: 700; letter-spacing: .03em; padding: 2px 8px; border-radius: 999px; background: var(--field); color: var(--soft); white-space: nowrap; }
+.smite-chk .sm-cost.none { color: var(--red); }
+.smite-chk { border-style: solid; background: var(--panel2); }
+.smite-chk:has(input:checked) { border-color: var(--gold); background: var(--gold-soft); }
 
 </style>
 </head>
@@ -10783,6 +10827,27 @@ function maxSpellLevelFor(c) {
 }
 
 // ---------- Formulas ----------
+// Small arithmetic evaluator for formulas like "int+floor(artificer/2)" or "tier(level,1,2,5,3)". The site's
+// security policy doesn't allow building functions from text (new Function / eval), so formulas are worked out here.
+function safeCalc(src, F) {
+  F = F || {}; const re = /\s*(\d+(?:\.\d+)?|[A-Za-z_]+|<=|>=|==|!=|&&|\|\||[-+*/%()<>?:,!])/y, t = []; let m; re.lastIndex = 0;
+  const str = String(src); while (re.lastIndex < str.length) { const at = re.lastIndex; m = re.exec(str); if (!m) { if (/^\s*$/.test(str.slice(at))) break; throw Error('bad'); } t.push(m[1]); }
+  let i = 0; const pk = () => t[i], nx = () => t[i++], eat = x => { if (t[i] !== x) throw Error('expected ' + x); i++; };
+  const tern = () => { const c = or(); if (pk() === '?') { nx(); const a = tern(); eat(':'); const b = tern(); return c ? a : b; } return c; };
+  const or = () => { let v = and(); while (pk() === '||') { nx(); const r = and(); v = v || r; } return v; };
+  const and = () => { let v = cmp(); while (pk() === '&&') { nx(); const r = cmp(); v = v && r; } return v; };
+  const cmp = () => { let v = add(); while (['<', '>', '<=', '>=', '==', '!='].includes(pk())) { const o = nx(), r = add(); v = o === '<' ? v < r : o === '>' ? v > r : o === '<=' ? v <= r : o === '>=' ? v >= r : o === '==' ? v == r : v != r; v = v ? 1 : 0; } return v; };
+  const add = () => { let v = mul(); while (pk() === '+' || pk() === '-') { const o = nx(), r = mul(); v = o === '+' ? v + r : v - r; } return v; };
+  const mul = () => { let v = un(); while (pk() === '*' || pk() === '/' || pk() === '%') { const o = nx(), r = un(); v = o === '*' ? v * r : o === '/' ? v / r : v % r; } return v; };
+  const un = () => { if (pk() === '-') { nx(); return -un(); } if (pk() === '+') { nx(); return +un(); } if (pk() === '!') { nx(); return un() ? 0 : 1; } return prim(); };
+  const prim = () => { const k = nx(); if (k == null) throw Error('end');
+    if (k === '(') { const v = tern(); eat(')'); return v; }
+    if (/^\d/.test(k)) return parseFloat(k);
+    if (k === 'NaN') return NaN;
+    if (typeof F[k] === 'function') { eat('('); const a = []; if (pk() !== ')') { a.push(tern()); while (pk() === ',') { nx(); a.push(tern()); } } eat(')'); return F[k](...a); }
+    throw Error('unknown ' + k); };
+  const v = tern(); if (i < t.length) throw Error('extra'); return v;
+}
 function evalMax(expr, extra) {
   const e = String(expr ?? '').trim().toLowerCase();
   if (!e) return null;
@@ -10793,7 +10858,7 @@ function evalMax(expr, extra) {
   const fns = ['tier', 'max', 'min', 'floor', 'ceil'];
   const src = e.replace(/[a-z]+/g, w => (fns.includes(w) ? w : w in vars ? '(' + vars[w] + ')' : 'NaN'));
   const tier = (x, ...p) => { let v = 0; for (let i = 0; i < p.length; i += 2) if (x >= p[i]) v = p[i + 1]; return v; };
-  try { const v = Function('tier', 'max', 'min', 'floor', 'ceil', '"use strict";return (' + src + ')')(tier, Math.max, Math.min, Math.floor, Math.ceil); return isFinite(v) ? Math.max(0, Math.floor(v)) : null; } catch (x) { return null; }
+  try { const v = safeCalc(src, { tier, max: Math.max, min: Math.min, floor: Math.floor, ceil: Math.ceil }); return isFinite(v) ? Math.max(0, Math.floor(v)) : null; } catch (x) { return null; }
 }
 const featMax = f => evalMax(f.max);
 const resetOf = f => (f.shortAt && clsLv(f.cls || '') >= f.shortAt) ? 'short' : f.reset;
@@ -11915,7 +11980,9 @@ function toast(html, cls = '', ms = 4500, action) {
   setTimeout(() => t.remove(), ms);
 }
 let onModalCancel = null;
+let MODAL_BY = null, MODAL_SIG = null; // which button opened the window that's showing
 function openModal(html, onCancel, wide) {
+  MODAL_BY = MODAL_SIG;
   onModalCancel = onCancel || null; $('#modal-body').classList.remove('xwide'); $('#modal-body').classList.toggle('wide', !!wide); $('#modal-body').innerHTML = html; $('#modal').classList.add('open');
   const f = $('#modal-body [autofocus]'); if (f) f.focus();
 }
@@ -11942,7 +12009,7 @@ function openModal(html, onCancel, wide) {
 })();
 function closeModal(confirmed) {
   if (!$('#modal').classList.contains('open')) return;
-  $('#modal').classList.remove('open');
+  $('#modal').classList.remove('open'); MODAL_BY = null;
   const cb = onModalCancel; onModalCancel = null;
   if (!confirmed && cb) cb();
 }
@@ -12089,7 +12156,7 @@ function renderVitals() {
         ${f ? `<div class="formnote">Your HP: <b data-calc="truehp"></b> <button class="btn sm" data-act="endform">Revert</button></div>` : ''}
         <div class="hp-actions"><div class="hp-amtrow"><select class="f hptype" id="hpType" aria-label="Damage type (resistances and immunities apply)" title="Damage type: your resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="hpAmt" type="number" enterkeyhint="done" placeholder="Amount" aria-label="HP amount — press Enter to take damage, Shift+Enter to heal"></div>
           <button class="btn red hpi" data-act="dmg" title="Take damage" aria-label="Take damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="heal" title="Heal" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmpbtn" data-act="tmphp" title="Gain temporary HP (they don't stack — the higher stays). 0 clears them." aria-label="Gain temporary HP">${ICON.hpTemp}</button></div>
-        <div class="rest-actions"><button class="btn rest short" data-act="short" title="1 hour: spend Hit Dice, refresh short-rest features and Pact slots"><span class="ri">${ICON.hourglass}</span>Short Rest</button><button class="btn rest long" data-act="long" title="8 hours: full HP, all slots, features and Hit Dice"><span class="ri">${ICON.moon}</span>Long Rest</button></div>
+        <div class="rest-actions"><button class="btn rest short" data-act="short" title="1 hour: spend Hit Dice, refresh short-rest features and Pact slots"><span class="ri">${ICON.hourglass}</span><span class="rl">Short Rest</span></button><button class="btn rest long" data-act="long" title="8 hours: full HP, all slots, features and Hit Dice"><span class="ri">${ICON.moon}</span><span class="rl">Long Rest</span></button></div>
       </div>
     </div>
     
@@ -12505,6 +12572,27 @@ function postSheetRoll(t) {
   else if (total !== '') lines.push(`**${clean(lbl ? cap(lbl) : 'Result')}:** [[${N(total)}]]${dmg ? ` · **Damage:** [[${N(dmg)}]] ${clean(dtype)}` : ''}`);
   if (lines.length > 1) r20Post(lines).catch(() => {});
 }
+// Header with Player/Race/Background/Alignment/Faith all off (desktop): the portrait shrinks to the height of the
+// name and subtitle, so its top lines up with the top of the name and the header gets shorter.
+(() => {
+  let ro = null;
+  const fit = () => {
+    const h = document.getElementById('sec-header'); if (!h) return;
+    const pw = h.querySelector('.portrait-wrap'), id = h.querySelector('.ident.noid'), nb = id && id.querySelector('.namebox');
+    if (!pw) return;
+    if (!nb || document.documentElement.classList.contains('mobile')) { pw.style.width = pw.style.height = ''; return; }
+    const top = id.querySelector('.ident-top') || nb, fill = Math.round(Math.max(64, Math.min(148, top.getBoundingClientRect().height, h.querySelector('.ident').getBoundingClientRect().height)));
+    if (pw.style.width !== fill + 'px') pw.style.width = pw.style.height = fill + 'px';
+  };
+  const wire = () => {
+    const h = document.getElementById('sec-header'); if (!h) return setTimeout(wire, 300);
+    ro = new ResizeObserver(fit);
+    new MutationObserver(() => { ro.disconnect(); h.querySelectorAll('.namebox, .ident-top').forEach(e => ro.observe(e)); fit(); }).observe(h, { childList: true });
+    h.querySelectorAll('.namebox, .ident-top').forEach(e => ro.observe(e)); fit();
+    addEventListener('resize', fit);
+  };
+  wire();
+})();
 
 
 // ---------- Spell helpers ----------
@@ -12605,9 +12693,10 @@ function renderSpells() {
     mine.forEach(x => byL[N(x.level)] = (byL[N(x.level)] || 0) + 1);
     const lv = Object.keys(byL).map(Number).sort((a, b) => a - b);
     void lv; const short = ABN[c.ab].slice(0, 3).toUpperCase();
-    return `<div class="scx"><div class="scx-h"><b>${esc(c.name)}</b><small title="${ABN[c.ab]} · ${kind}">${short}${c.type === 'pact' ? ' · Pact' : ''}</small></div>
-      <div class="scx-st">${lim != null ? `<span class="prep-tile" data-prepfor="${c.key}"><b data-calc="prepct:${c.key}"></b><small>${c.prepared ? 'Prepared' : 'Known'}</small></span>` : ''}${cl ? `<span class="prep-tile" data-cantfor="${c.key}"><b data-calc="cantct:${c.key}"></b><small>Cantrips</small></span>` : ''}</div>
-      <div class="scx-b">${c.prepared ? `<button class="btn gold sm" data-act="prepare" data-cls="${c.key}">Prepare</button>` : ''}${!c.prepared || c.book ? `<button class="btn ghost sm" data-act="addspells" data-cls="${c.key}">+ ${c.book ? 'Spellbook' : 'Spells'}</button>` : ''}</div></div>`;
+    const meter = (attr, calc, label) => `<div class="scx-m prep-tile" ${attr}><div class="scx-mr"><span>${label}</span><b data-calc="${calc}"></b></div><div class="scx-bar"><i></i></div></div>`;
+    return `<div class="scx"><div class="scx-h"><b>${esc(c.name)}</b><small title="${ABN[c.ab]} · ${kind}">${short}${c.type === 'pact' ? ' · Pact' : ''}</small>
+        <span class="scx-b">${c.prepared ? `<button class="btn sm scx-go" data-act="prepare" data-cls="${c.key}">Prepare</button>` : ''}${!c.prepared || c.book ? `<button class="btn ghost sm" data-act="addspells" data-cls="${c.key}">+ ${c.book ? 'Spellbook' : 'Spells'}</button>` : ''}</span></div>
+      ${lim != null ? meter(`data-prepfor="${c.key}"`, 'prepct:' + c.key, c.prepared ? 'Prepared spells' : 'Spells known') : ''}${cl ? meter(`data-cantfor="${c.key}"`, 'cantct:' + c.key, 'Cantrips') : ''}</div>`;
   }).join('');
   const slotCards = [];
   for (let i = 0; i < 9; i++) {
@@ -13505,8 +13594,8 @@ function refresh() {
   const ca = canAttack();
   $$('.ammo[data-calc]').forEach(el => el.classList.toggle('out', /^0 /.test(el.textContent)));
   $$('#page-combat [data-act=attack]').forEach(b => { b.disabled = !ca; b.title = ca ? 'Roll to hit and damage; a crit doubles the damage dice' : 'No attacks left this turn (Next Turn / Reset Turn on the Combat tab)'; });
-  $$('[data-prepfor]').forEach(el => { const c = casterFor(el.dataset.prepfor); if (!c) return; const lim = spellLimit(c), n = c.prepared ? countPrep(c.key) : countKnown(c.key); el.classList.toggle('over', lim != null && n > lim); });
-  $$('[data-cantfor]').forEach(el => { const c = casterFor(el.dataset.cantfor); if (!c) return; el.classList.toggle('over', countCantrips(c.key) > cantripLimit(c)); });
+  $$('[data-prepfor]').forEach(el => { const c = casterFor(el.dataset.prepfor); if (!c) return; const lim = spellLimit(c), n = c.prepared ? countPrep(c.key) : countKnown(c.key); el.classList.toggle('over', lim != null && n > lim); el.classList.toggle('full', lim != null && n === lim); el.style.setProperty('--p', lim ? Math.min(1, n / lim) : 0); });
+  $$('[data-cantfor]').forEach(el => { const c = casterFor(el.dataset.cantfor); if (!c) return; const n = countCantrips(c.key), lim = cantripLimit(c); el.classList.toggle('over', n > lim); el.classList.toggle('full', n === lim); el.style.setProperty('--p', lim ? Math.min(1, n / lim) : 0); });
   const aci = $('#acTotal'); if (aci && aci !== document.activeElement && String(aci.value) !== String(acTotal())) aci.value = acTotal();
   const hmi = $('#hpMaxIn'); if (hmi && hmi !== document.activeElement && String(hmi.value) !== String(maxHp())) hmi.value = maxHp();
   $$('.tile.ac').forEach(el => el.classList.toggle('boosted', !S.form && fxActive().some(e => e.buff && (N(e.buff.ac) || e.buff.acMin || e.buff.acBase) && !e.ally)));
@@ -13674,6 +13763,10 @@ function mainClick(e) {
   const b = e.target.closest('[data-act]');
   if (!b) return;
   const act = b.dataset.act, i = N(b.dataset.i);
+  // the button that opened the window that's showing closes it again
+  { const sig = b.closest('#modal') ? null : act + '|' + JSON.stringify(b.dataset);
+    if (sig && MODAL_BY === sig && $('#modal').classList.contains('open') && !$('#modal').classList.contains('closing')) { closeModal(); return; }
+    MODAL_SIG = sig; setTimeout(() => { MODAL_SIG = null; }, 0); }
   pendingLabel = actLabel(act, b, i);
   const closeMenus = () => $$('.menu.open').forEach(m => m.classList.remove('open'));
   switch (act) {
@@ -17597,7 +17690,7 @@ const maDie = () => '1' + (martialDie() || 'd4');
 const harmFeat = () => S.features.find(f => /^hand of harm$/i.test(String(f.name).trim()));
 function harmRowHTML() {
   if (!harmFeat()) return ''; const on = !!S.harmArm, used = S.inCombat && S.turn.harm;
-  return `<label class="smite-chk harm${on ? ' on' : ''}"><input type="checkbox" data-harmarm${on ? ' checked' : ''}${used ? ' disabled' : ''}><span><b>Hand of Harm on my next unarmed hit</b><small>${used ? 'Already used this turn' : `1 ki · ${maDie()} + WIS necrotic${hasFeature("Physician's Touch") ? ' · and the target is poisoned until the end of your next turn' : ''} · ${stunKiLeft()} ki left`}</small></span></label>`;
+  return `<label class="smite-chk harm${on ? ' on' : ''}"><input type="checkbox" data-harmarm${on ? ' checked' : ''}${used ? ' disabled' : ''}><span><b>Hand of Harm</b><small>${used ? 'Already used this turn' : `Next unarmed hit · +${maDie()} + WIS necrotic${hasFeature("Physician's Touch") ? ', target poisoned' : ''}`}</small></span><em class="sm-cost${stunKiLeft() < 1 ? ' none' : ''}" title="${stunKiLeft()} ki left">1 ki · ${stunKiLeft()} left</em></label>`;
 }
 document.addEventListener('change', e => { const t = e.target;
   if (t.matches && t.matches('[data-smitearm]')) { S.smiteArm = { on: t.checked, l: smiteSel() }; pendingLabel = t.checked ? 'Divine Smite ready' : 'Divine Smite off'; save(); refresh(); }
@@ -18724,7 +18817,7 @@ function ptyEval(expr, ci, L, label, extra) {
   e = e.replace(/\bM\b/g, String(Math.max(0, N(ci && ci.mod)))).replace(/\bL\b/g, String(N(L)));
   e = fxRollExpr(ptyFormula(e, extra));
   if (/d\d/.test(e)) { const r = rollExpr(e, { need: true, label }); return r.skipped ? null : r.total; }
-  try { const v = Function('"use strict";return (' + e.replace(/[^\d+\-*/(). ]/g, '') + ')')(); return isFinite(v) ? Math.max(0, Math.floor(v)) : null; } catch (x) { return null; }
+  try { const v = safeCalc(e.replace(/[^\d+\-*/(). ]/g, '')); return isFinite(v) ? Math.max(0, Math.floor(v)) : null; } catch (x) { return null; }
 }
 // After a cast: send it to the party members it was cast on.
 let PTY_HITPRE = null, PTY_HIT_ACT = null;
@@ -20272,7 +20365,7 @@ function wzSpellPlan() {
     const m = Math.floor((sc[cd.ab] - 10) / 2);
     const maxL = cd.type === 'pact' ? N(cd.pactLevel[L - 1]) : (FULL[cd.type === 'full' ? L : cd.type === 'third' ? (L >= 3 ? Math.ceil(L / 3) : 0) : Math.ceil(L / 2)] || []).length;
     let lim = null;
-    if (cd.prepared) { const e = String(cd.prepared).replace(/[a-z]+/g, w => AB.includes(w) ? '(' + Math.floor((sc[w] - 10) / 2) + ')' : CL[w] ? '(' + L + ')' : w); try { lim = Math.max(1, Math.floor(Function('floor', '"use strict";return ' + e)(Math.floor))); } catch (x) { lim = 1; } }
+    if (cd.prepared) { const e = String(cd.prepared).replace(/[a-z]+/g, w => AB.includes(w) ? '(' + Math.floor((sc[w] - 10) / 2) + ')' : CL[w] ? '(' + L + ')' : w); try { lim = Math.max(1, Math.floor(safeCalc(e, { floor: Math.floor }))); } catch (x) { lim = 1; } }
     else if (cd.known) lim = N(cd.known[L - 1]);
     const book = cd.book ? 6 + 2 * (L - 1) : 0;
     const exp = s && s.spellMode === 'expanded' && s.spells ? Object.keys(s.spells).filter(lv => L >= N(lv)).flatMap(lv => s.spells[lv]).map(n => n.toLowerCase()) : [];
