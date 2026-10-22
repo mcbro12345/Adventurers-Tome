@@ -2438,13 +2438,13 @@ function notesRailHTML() {
     <div class="dk-nfilt">${[['all', 'All'], ['fav', '★ Pinned'], ['recent', 'Recent'], ['maps', 'Maps']].map(([k, n]) => `<button class="${f === k ? 'on' : ''}" data-act="nfilt" data-v="${k}">${n}</button>`).join('')}${tags.length ? `<select class="dk-f" id="dk-ntag" aria-label="Tag"><option value="">#tag</option>${tags.map(t => `<option${f === 'tag' && UI.ntag === t ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>` : ''}</div>
     <div class="dk-tree dk-ntree" data-keep="ntree">${res ? (res.length ? res.map(p => `<button class="dk-nres${p.id === UI.np ? ' on' : ''}" data-act="nopen" data-id="${p.id}">${nIcon(p.type)}<span><b>${esc(p.title)}</b><small>${q ? snippet(p, q) : relTime(p.edited)}</small></span></button>`).join('') : '<p class="dk-tnone">Nothing found.</p>')
       : (pagesList().length ? treeHTML('', 0) + '<div class="dk-ntdrop" data-dropend="1">Drop here to move to the top level</div>' : '<p class="dk-tnone">No pages yet</p>')}</div>
-    <div class="dk-nrailft"><button class="dk-btn sm ghost" data-act="ntimeline">${nIcon('event')} Timeline</button><button class="dk-btn sm ghost" data-act="nimport">Import</button><button class="dk-btn sm ghost" data-act="nexport">Export</button></div>`;
+    <div class="dk-nrailft"><button class="dk-btn sm ghost" data-act="nimport">Import</button><button class="dk-btn sm ghost" data-act="nexport">Export</button></div>`;
 }
 function notesHTML() {
-  const p = UI.nview === 'timeline' ? null : pageById(UI.np);
+  const p = pageById(UI.np);
   return `<div class="dk-sess dk-notesv" style="--nrw:${nrW()}px"><div class="dk-scrim" data-act="tree"></div><nav class="dk-rail" aria-label="Notes">${notesRailHTML()}</nav><div class="dk-nsplit" role="separator" aria-orientation="vertical" aria-label="Page list width (drag, or use the arrow keys; double-click to reset)" tabindex="0" title="Drag to resize · double-click to reset"></div>
-    <main class="dk-main"><div class="dk-pbar"><button class="dk-btn" data-act="tree">${ICON.menu}<span>${p ? esc(pathOf(p).map(x => x.title).join(' › ')) : UI.nview === 'timeline' ? 'Timeline' : 'All pages'}</span></button></div>
-    ${UI.nview === 'timeline' ? timelineHTML() : p ? pageHTML(p) : notesHomeHTML()}</main></div>`;
+    <main class="dk-main"><div class="dk-pbar"><button class="dk-btn" data-act="tree">${ICON.menu}<span>${p ? esc(pathOf(p).map(x => x.title).join(' › ')) : 'All pages'}</span></button></div>
+    ${p ? pageHTML(p) : notesHomeHTML()}</main></div>`;
 }
 function notesHomeHTML() {
   const recent = pagesList().sort((a, b) => N(b.edited) - N(a.edited)).slice(0, 8), favs = pagesList().filter(p => p.fav);
@@ -2482,12 +2482,6 @@ function pageHTML(p) {
     ${ks.length ? `<section class="dk-psub"><span class="dk-lbl">Pages inside</span><div class="dk-nhgrid sm">${ks.map(k => `<button class="dk-nhcard" data-act="nopen" data-id="${k.id}">${nIcon(k.type)}<b>${esc(k.title)}</b><span>${snippet(k)}</span></button>`).join('')}</div></section>` : ''}
     <section class="dk-back"><span class="dk-lbl">Mentioned in</span>${back.length ? back.map(o => `<button class="dk-chip wlc" data-act="nopen" data-id="${o.id}">${nIcon(o.type)} ${esc(o.title)}</button>`).join(' ') : '<span class="dk-hint">No other page links here yet.</span>'}</section></article>
     <div class="dk-pop" hidden></div>`;
-}
-function timelineHTML() {
-  const ev = pagesList().filter(p => p.type === 'event').sort((a, b) => N((a.props || {}).sort) - N((b.props || {}).sort) || N(a.created) - N(b.created));
-  return `<section class="dk-card dk-tline"><div class="dk-row" style="justify-content:space-between"><h2 class="dk-h2">Timeline</h2><button class="dk-btn sm gold" data-act="nnew" data-t="event">${ICON.plus} New event</button></div>
-    ${ev.length ? `<ol class="dk-tlist">${ev.map(p => { const links = [...String(p.html).matchAll(/data-page="(p[a-z0-9]+)"/g)].map(m => pageById(m[1])).filter(Boolean); return `<li><span class="dk-tldot"></span><div><small>${esc((p.props || {}).when || 'Undated')}</small><button class="dk-link" data-act="nopen" data-id="${p.id}">${esc(p.title)}</button><p>${snippet(p)}</p>${links.length ? `<div class="dk-row">${links.slice(0, 6).map(l => `<button class="dk-chip wlc" data-act="nopen" data-id="${l.id}">${nIcon(l.type)} ${esc(l.title)}</button>`).join('')}</div>` : ''}</div></li>`; }).join('')}</ol>`
-      : '<p class="dk-hint">Make Event pages with an in-world date (“3rd of Mirtul, 1492”) and a sort number, and they line up here.</p>'}</section>`;
 }
 // ----- after drawing: pictures, chips, map -----
 function notesAfterPaint() {
@@ -3003,7 +2997,6 @@ function onNotesAct(act, b, e) {
     case 'nimport': openImport(); return true;
     case 'nexport': openModal(`<h2>Export notes</h2><p class="dk-hint">Download all ${plural(pagesList().length, 'page')}.</p><div class="dk-row"><button class="dk-btn gold" id="dk-exMd">Markdown (.zip)</button><button class="dk-btn" id="dk-exJs">Backup (.json)</button></div><p class="dk-hint">Markdown opens in Obsidian and most note apps. The backup brings everything back into the desk, pictures included.</p><div class="dk-acts"><button class="dk-btn" data-act="close">Close</button></div>`, { focus: false });
       $('#dk-exMd').onclick = () => { closeModal(true); exportNotes('md').catch(x => toastInfo(esc(x.message))); }; $('#dk-exJs').onclick = () => { closeModal(true); exportNotes('json'); }; return true;
-    case 'ntimeline': UI.nview = 'timeline'; UI.tree = false; saveUI(); paint(); return true;
     case 'pinclose': { const pp = $('.dk-pinpop'); if (pp) pp.hidden = true; return true; }
   }
   if (!p) return false;
