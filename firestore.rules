@@ -141,11 +141,13 @@ service cloud.firestore {
     function lastChar() { return request.resource.data.chars[request.resource.data.chars.size() - 1]; }
     // Joining: one character of your own is added at the end, and you're added to the people who see the party.
     function joinOK() { let o = resource.data; let n = request.resource.data;
-      return n.diff(o).affectedKeys().hasOnly(['chars', 'people', 'invited', 'via', 'updatedAt'])
+      return n.diff(o).affectedKeys().hasOnly(['chars', 'people', 'invited', 'via', 'updatedAt', 'inv']) && (n.get('inv', '') == o.get('inv', '') || n.get('inv', '') == '')
         && n.chars.size() == o.chars.size() + 1 && n.chars == o.chars.concat([lastChar()]) && !(lastChar() in o.chars) && ownsSheet(lastChar())
         && n.people.removeAll(o.people).hasOnly([me()]) && o.people.removeAll(n.people).size() == 0
         && (n.invited == o.invited || n.invited == o.invited.removeAll([me()]))
-        && (me() in o.invited || partyMgr(o) || (n.via is string && n.via != '' && n.via == o.inv)); }
+        && (me() in o.invited || partyMgr(o) || (n.via is string && n.via != '' && n.via == o.inv && linkOK(o.inv))); }
+    // An invite link with a set number of players stops working once that many have joined with it.
+    function linkOK(code) { let iv = get(/databases/$(db)/documents/invites/$(code)).data; return iv.get('max', 0) == 0 || iv.get('used', 0) < iv.get('max', 0); }
     // Leaving: take one of your own characters out (n.gone says which), and optionally yourself off the list.
     function leaveOK() { let o = resource.data; let n = request.resource.data;
       return n.diff(o).affectedKeys().hasOnly(['chars', 'people', 'gone', 'updatedAt']) && n.gone is string && n.gone in o.chars && ownsSheet(n.gone)
@@ -212,7 +214,11 @@ service cloud.firestore {
     match /invites/{t} {
       allow get: if signedIn();
       allow list: if false;
-      allow create, update: if admin() || (signedIn() && request.resource.data.keys().hasOnly(['p', 'name', 'dm', 'dmName', 'at', 'n', 'pic'])
+      // someone who just joined with the link counts themselves (one at a time, never past its number of players)
+      allow update: if signedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used']) && request.resource.data.used == resource.data.get('used', 0) + 1
+        && resource.data.get('max', 0) > 0 && resource.data.get('used', 0) < resource.data.max && me() in partyOf(resource.data.p).people;
+      allow create, update: if admin() || (signedIn() && request.resource.data.keys().hasOnly(['p', 'name', 'dm', 'dmName', 'at', 'n', 'pic', 'max', 'used'])
+        && request.resource.data.get('max', 0) is int && request.resource.data.get('max', 0) >= 0 && request.resource.data.get('max', 0) <= 50
         && (!('pic' in request.resource.data) || (request.resource.data.pic is string && request.resource.data.pic.size() < 300000))
         && partyMgr(partyOf(request.resource.data.p)));
       allow delete: if admin() || (signedIn() && partyMgr(partyOf(resource.data.p)));

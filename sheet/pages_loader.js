@@ -2273,7 +2273,11 @@ async function ptyJoin(fs, EMAIL, pid, c, token, card) {
   const ref = fs.collection('parties').doc(pid), FV = firebase.firestore.FieldValue;
   const s0 = await fs.collection('sheets').doc(c).get(); const old = s0.exists ? s0.data().party || '' : '';
   if (old && old !== pid) await ptyLeave(fs, EMAIL, old, c).catch(() => {});
-  await ref.update({ chars: FV.arrayUnion(c), people: FV.arrayUnion(EMAIL), invited: FV.arrayRemove(EMAIL), via: token || '', updatedAt: Date.now() });
+  // joining with a link that's for a set number of players: count this one, and the last one turns the link off
+  let iv = null; if (token) { try { const d = await fs.collection('invites').doc(token).get(); iv = d.exists ? d.data() : null; } catch (e) {} }
+  const last = iv && Number(iv.max) > 0 && Number(iv.used || 0) + 1 >= Number(iv.max);
+  await ref.update(Object.assign({ chars: FV.arrayUnion(c), people: FV.arrayUnion(EMAIL), invited: FV.arrayRemove(EMAIL), via: token || '', updatedAt: Date.now() }, last ? { inv: '' } : {}));
+  if (iv && Number(iv.max) > 0) await fs.collection('invites').doc(token).update({ used: FV.increment(1) }).catch(() => {});
   await ptySetSheetParty(fs, c, pid);
   if (card) await ref.collection('cards').doc(c).set(Object.assign({ owner: EMAIL, at: Date.now() }, card), { merge: true }).catch(() => {});
   try { const pd = await ref.get(), sd = await fs.collection('sheets').doc(c).get(); if (pd.exists && sd.exists && sd.data().owner === EMAIL) await ptyShareDM(fs, c, pd.data().dm, sd.data()); } catch (e) {}
@@ -2491,6 +2495,7 @@ function partyModule(H) {
     let inv = null; try { const d = await IC.doc(token).get(); inv = d.exists ? d.data() : null; } catch (e) {}
     if (!inv) return shell({ title: 'Join a party', body: note('This invite link doesn’t work', 'It may have been replaced or turned off. Ask your DM for a new link.', goHub) });
     let p = null; try { const d = await PC.doc(inv.p).get(); p = d.exists ? Object.assign({ id: d.id }, d.data()) : null; } catch (e) {}
+    if (Number(inv.max) > 0 && Number(inv.used) >= Number(inv.max) && !(p && (p.people || []).includes(EMAIL))) return shell({ title: 'Join a party', body: note('This invite link has been used up', `It was for ${Number(inv.max)} player${Number(inv.max) > 1 ? 's' : ''}, and they’ve all joined. Ask your DM for a new link.`, goHub) });
     joinFlow(p || { id: inv.p, name: inv.name, dm: inv.dm, dmName: inv.dmName, chars: [], pic: inv.pic || '', n: Number(inv.n) || 0 }, token, p && (p.people || []).includes(EMAIL) && (p.chars || []).length > 0);
   }
   // The invitation itself: the party's crest, its name and DM, and what being in it means.
@@ -2660,24 +2665,30 @@ function partyModule(H) {
   // ----- The party's invite link: /join/shattered-skies-k3x9q. Anyone with it can bring a character in. -----
   // The invitation (invites/<code>) carries what the join page shows before you're in: name, DM, picture, how many.
   const invOf = p => ({ p: p.id, name: p.name || '', dm: p.dm || '', dmName: p.dmName || '', at: Date.now(), n: (p.chars || []).length, pic: p.pic || '' });
-  const invPut = async (code, p) => { const o = invOf(p); try { await IC.doc(code).set(o); } catch (x) { if (!(x && x.code === 'permission-denied')) throw x; delete o.n; delete o.pic; await IC.doc(code).set(o); } };
+  // (merged, so how many players a link is for, and how many have used it, stay put when the party's name or picture changes)
+  const invPut = async (code, p, extra) => { const o = Object.assign(invOf(p), extra || {}); try { await IC.doc(code).set(o, { merge: true }); } catch (x) { if (!(x && x.code === 'permission-denied')) throw x; delete o.n; delete o.pic; await IC.doc(code).set(o, { merge: true }); } };
+  // How many players an invite link is for (0 = anyone), and how many have joined with it.
+  const INVUSE = {}; const invUse = code => INVUSE[code] ? Promise.resolve(INVUSE[code]) : IC.doc(code).get().then(d => (INVUSE[code] = d.exists ? { max: Number(d.data().max) || 0, used: Number(d.data().used) || 0 } : { max: 0, used: 0 }), () => ({ max: 0, used: 0 }));
+  const invMaxSel = (v) => `<select id="pt-lmax" class="pty-lmax" aria-label="How many players the link is for"><option value="0"${!v ? ' selected' : ''}>any number of players</option>${[1, 2, 3, 4, 5, 6, 7, 8].map(n => `<option value="${n}"${v === n ? ' selected' : ''}>${n} player${n > 1 ? 's' : ''}</option>`).join('')}</select>`;
   const invSync = p => { if (p && p.inv) invPut(p.inv, p).catch(() => {}); };
-  const invNew = async p => { const r = Array.from(crypto.getRandomValues(new Uint8Array(5)), b => 'abcdefghjkmnpqrstuvwxyz23456789'[b % 31]).join('');
-    const code = (partySlug(p.name) || 'party').slice(0, 40) + '-' + r, old = p.inv;
-    await invPut(code, p); await PC.doc(p.id).update({ inv: code, updatedAt: Date.now() }); if (old) IC.doc(old).delete().catch(() => {}); p.inv = code; return code; };
+  const invNew = async (p, max) => { const r = Array.from(crypto.getRandomValues(new Uint8Array(5)), b => 'abcdefghjkmnpqrstuvwxyz23456789'[b % 31]).join('');
+    const code = (partySlug(p.name) || 'party').slice(0, 40) + '-' + r, old = p.inv; max = Math.max(0, Math.min(50, Math.floor(Number(max) || 0)));
+    await invPut(code, p, { max, used: 0 }); INVUSE[code] = { max, used: 0 }; await PC.doc(p.id).update({ inv: code, updatedAt: Date.now() }); if (old) IC.doc(old).delete().catch(() => {}); p.inv = code; return code; };
   const invLinkHTML = p => `<div class="pty-link${p.inv ? '' : ' off'}">
       <span class="pty-link-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></span>
       ${p.inv ? `<span class="pty-link-t"><b>Invite link</b><code title="${esc(URLS.join(p.inv))}">${esc(URLS.join(p.inv).replace(/^https?:\/\//, ''))}</code></span>
         <span class="pty-link-b">${navigator.share ? '<button class="btn" id="pt-lshare">Share…</button>' : ''}<button class="btn gold" id="pt-lcopy">Copy link</button></span>`
       : `<span class="pty-link-t"><b>Invite link</b><small>Anyone you send it to can pick a character (or make one) and join.</small></span><span class="pty-link-b"><button class="btn gold" id="pt-lmake">Create link</button></span>`}
-    </div>${p.inv ? '<p class="hub-hint pty-link-h">Anyone with the link can join. <button class="linkbtn" id="pt-lnew">Make a new link</button> to turn this one off.</p>' : ''}`;
+    </div><p class="hub-hint pty-link-h">${p.inv ? `<span id="pt-luse">${INVUSE[p.inv] ? invUseTxt(INVUSE[p.inv]) : 'Anyone with the link can join.'}</span> <button class="linkbtn" id="pt-lnew">Make a new link</button> for ${invMaxSel(0)} (this one stops working).` : `The link is for ${invMaxSel(0)}: once that many have joined with it, it stops working.`}</p>`;
+  const invUseTxt = u => !u.max ? 'Anyone with the link can join.' : u.used >= u.max ? `Used up: ${u.max} of ${u.max} joined.` : `For ${u.max} player${u.max > 1 ? 's' : ''}: ${u.used ? u.used + ' joined, ' : ''}${u.max - u.used} spot${u.max - u.used > 1 ? 's' : ''} left.`;
   function wireLink(box, p) {
     const redraw = () => { const w = box.querySelector('.pty-linkw'); if (w) { w.innerHTML = invLinkHTML(p); wireLink(box, p); } };
-    const mk = box.querySelector('#pt-lmake'); if (mk) mk.onclick = async () => { mk.disabled = true; mk.textContent = 'Creating…'; try { await invNew(p); redraw(); } catch (x) { mk.disabled = false; mk.textContent = 'Create link'; fail(x, 'make a link'); } };
+    const mk = box.querySelector('#pt-lmake'); if (mk) mk.onclick = async () => { mk.disabled = true; mk.textContent = 'Creating…'; try { await invNew(p, (box.querySelector('#pt-lmax') || {}).value); redraw(); } catch (x) { mk.disabled = false; mk.textContent = 'Create link'; fail(x, 'make a link'); } };
+    if (p.inv) invUse(p.inv).then(u => { const el = box.querySelector('#pt-luse'); if (el) el.textContent = invUseTxt(u); });
     const cp = box.querySelector('#pt-lcopy'); if (cp) cp.onclick = async () => { const u = URLS.join(p.inv); try { await navigator.clipboard.writeText(u); } catch (e) { const r = document.createRange(); r.selectNodeContents(box.querySelector('.pty-link code')); const sl = getSelection(); sl.removeAllRanges(); sl.addRange(r); }
       cp.textContent = 'Copied!'; cp.classList.add('ok'); setTimeout(() => { cp.textContent = 'Copy link'; cp.classList.remove('ok'); }, 1800); };
     const sh = box.querySelector('#pt-lshare'); if (sh) sh.onclick = () => navigator.share({ title: 'Join ' + (p.name || 'my party'), text: 'Join ' + (p.name || 'my party') + ' on Adventurer’s Tome', url: URLS.join(p.inv) }).catch(() => {});
-    const nw = box.querySelector('#pt-lnew'); if (nw) nw.onclick = () => confirmBox('Make a new invite link?', 'The current link stops working. Anyone who already joined stays in the party.', 'Make a new link', async () => { await invNew(p); toast('New link made. The old one no longer works.'); setTimeout(() => box === modal ? addDialog() : redraw(), 0); });
+    const nw = box.querySelector('#pt-lnew'); if (nw) nw.onclick = () => { const mx = (box.querySelector('#pt-lmax') || {}).value; confirmBox('Make a new invite link?', 'The current link stops working. Anyone who already joined stays in the party.', 'Make a new link', async () => { await invNew(p, mx); toast('New link made. The old one no longer works.'); setTimeout(() => box === modal ? addDialog() : redraw(), 0); }); };
   }
 
   // ----- Add characters: ones you can see (shared with you, or your own), or ask someone by email -----
