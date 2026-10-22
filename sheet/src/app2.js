@@ -381,9 +381,9 @@ function toolbarHTML() {
     ...({ chat: `<button class="devbtn chatbtn" data-zi="chat" data-act="chatwin" title="Party chat" aria-label="Party chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h8M8 13h5"/></svg></button>` }),
     rolllog: `<button class="devbtn logbtn" data-zi="rolllog" data-act="rolllog" title="Log — every roll, plus everything else that popped up" aria-label="Log">${ICON.log}</button>`,
     // (on a phone it sits next to Log; on a computer, after the layout switch)
-    ...(isMobile() && window.SHEET_PAGES ? { bug: `<button class="devbtn bugbtn" data-zi="bug" data-act="bugreport" title="Report a bug" aria-label="Report a bug">${ICON.bug}</button>` } : {}),
+    ...(isMobile() && window.SHEET_PAGES ? { bug: `<button class="devbtn bugbtn" data-zi="bug" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` } : {}),
     device: `<button class="devbtn" data-zi="device" data-act="layout" title="${isMobile() ? 'Switch to desktop layout' : 'Switch to phone layout'}" aria-label="${isMobile() ? 'Desktop layout' : 'Phone layout'}">${isMobile() ? ICON.desk : ICON.phone}</button>`,
-    ...(!isMobile() && window.SHEET_PAGES ? { bug: `<button class="devbtn bugbtn" data-zi="bug" data-act="bugreport" title="Report a bug" aria-label="Report a bug">${ICON.bug}</button>` } : {}),
+    ...(!isMobile() && window.SHEET_PAGES ? { bug: `<button class="devbtn bugbtn" data-zi="bug" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` } : {}),
     fullscreen: false ? `<button class="devbtn fsbtn" data-zi="fullscreen" data-act="fullscreen" title="${fsOn() ? 'Exit full screen' : 'Full screen'}" aria-label="${fsOn() ? 'Exit full screen' : 'Full screen'}">${fsOn() ? ICON.fsOut : ICON.fsIn}</button>` : '',
   };
   document.documentElement.classList.toggle('hasbug', !!items.bug); // (on a phone the corner buttons make room for it)

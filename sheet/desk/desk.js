@@ -1088,7 +1088,7 @@ function topHTML() {
     <div class="dk-tools"><button class="dk-tb dk-dicebtn" data-act="settings" data-k="dice" title="Dice settings"><span class="dk-dot"></span><span class="dk-dicelbl">Desk rolls</span></button>
       ${p && typeof CTX.turnOrder === 'function' ? `<button class="dk-tb dk-tobtn" data-act="turnorder" title="Open the party’s Turn order">${ICON.init}<span class="dk-tl">Turn order</span></button>` : ''}<button class="dk-tb" data-act="diceroller" title="Dice roller" aria-pressed="${!!$('.drwin:not(.closing)')}">${ICON.dice}<span class="dk-tl">Roll</span></button>
       <button class="dk-tb" data-act="log" title="Roll log" aria-pressed="${UI.log}">${ICON.log}<span class="dk-tl">Log</span></button>
-      <button class="dk-tb" data-act="settings" title="Settings">${ICON.gear}</button>${CTX && CTX.bugReport ? `<button class="dk-tb" data-act="bugreport" title="Report a bug" aria-label="Report a bug">${ICON.bug}</button>` : ''}</div>
+      <button class="dk-tb" data-act="settings" title="Settings">${ICON.gear}</button>${CTX && CTX.bugReport ? `<button class="dk-tb" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` : ''}</div>
     <span class="dk-sync">${esc(syncMsg)}</span>`;
 }
 function paintDice() {
@@ -1117,7 +1117,7 @@ function paint0(pg) {
   $$('[data-keep]').forEach(el => { if (keep[el.dataset.keep]) el.scrollTop = keep[el.dataset.keep]; });
   if (fid) { const el = document.getElementById(fid); if (el && el !== document.activeElement) { el.focus({ preventScroll: true }); if (sel) try { el.setSelectionRange(sel[0], sel[1]); } catch (e) {} } }
   if (Math.abs(scrollY - y) > 2) scrollTo(scrollX, y);
-  ROOT.classList.toggle('dk-tree-open', !!UI.tree);
+  ROOT.classList.toggle('dk-tree-open', !!UI.tree); if (ROOT.dataset.tab !== (UI.tab || '') && UI.tab === 'notes' && innerWidth > 900) scrollTo(0, 0); ROOT.dataset.tab = UI.tab || '';
   try { pills(); animView(pg); } catch (e) {}
 }
 function flashHP(iid, k) { requestAnimationFrame(() => $$(`[data-hpflash="${iid}"]`).forEach(el => { el.classList.remove('hurt', 'heal'); void el.offsetWidth; el.classList.add(k); })); }

@@ -2265,6 +2265,8 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 .towin .to-vit .to-eye svg { width: 18px; height: 18px; display: block; }
 .towin .to-vit .to-eye.on { color: #e0b04a; opacity: 1; }
 @media (hover: hover) { .towin .to-vit .to-eye:hover { background: rgba(127,127,127,.16); opacity: 1; } }
+.adm-body .bg-dec { background: rgba(182,64,45,.16); color: #e8826f; border-color: rgba(182,64,45,.5); }
+.adm-body .bg-reason { margin-top: 4px; font-size: .8rem; color: var(--adm-dim); white-space: pre-wrap; max-width: 260px; }
 </style>
 </head>
 <body>
@@ -2793,7 +2795,7 @@ function pgContact() {
   const su = encodeURIComponent('Adventurer’s Tome'), m = document.createElement('div'); m.className = 'pg-out'; pgOutFade(m);
   m.innerHTML = `<div class="pg-out-card" role="dialog" aria-modal="true" aria-labelledby="pg-ct-h"><h2 id="pg-ct-h">Contact us</h2><p>Questions, ideas or something not working? Email us at</p>
     <div class="pg-ct-mail"><span>${CONTACT_EMAIL}</span><button class="pg-ct-copy">Copy</button></div>
-    ${window.pgBugReport ? `<button class="pg-ct-bug">${BUG_SVG}<span>Report a bug</span></button>` : ''}
+    ${window.pgBugReport ? `<button class="pg-ct-bug">${BUG_SVG}<span>Bugs &amp; feedback</span></button>` : ''}
     <div class="pg-out-row pg-ct-row"><a class="pg-ct-btn" target="_blank" rel="noopener" href="https://mail.google.com/mail/u/0/?view=cm&to=${encodeURIComponent(CONTACT_EMAIL)}&su=${su}">Open in Gmail</a><a class="pg-ct-btn" href="mailto:${CONTACT_EMAIL}?subject=${su}">Email app</a><button class="pg-out-no">Close</button></div><p class="pg-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy policy</a><span aria-hidden="true"> · </span><a href="/terms" target="_blank" rel="noopener">Terms</a><span aria-hidden="true"> · </span><a href="/accessibility" target="_blank" rel="noopener">Accessibility</a></p></div>`;
   const close = () => { m.remove(); document.removeEventListener('keydown', key); }, key = e => { if (e.key === 'Escape') close(); };
   m.onclick = e => { if (e.target === m) close(); }; m.querySelector('.pg-out-no').onclick = close;
@@ -2870,7 +2872,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022175051', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.5a960d0a21fe.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.03a1734147d7.html", "desk": "a/desk.e8cbd9654df5.js", "deskcss": "a/deskcss.c6dd30d1ed68.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022180326', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.c2472754f168.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.0d554083bfda.html", "desk": "a/desk.14e94df5738c.js", "deskcss": "a/deskcss.016a79417eb5.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -3175,22 +3177,23 @@ function wireDie(root) {
   // the next time they open the site.
   const bugsCol = fs.collection('bugs');
   window.pgBugReport = () => { if (document.querySelector('.pg-out')) return; const m = document.createElement('div'); m.className = 'pg-out'; pgOutFade(m);
-    m.innerHTML = `<div class="pg-out-card pg-bug-card" role="dialog" aria-modal="true" aria-labelledby="pg-bug-h"><h2 id="pg-bug-h">Report a bug</h2><p>Something not working right? Tell us what happened and we’ll take a look. You’ll get a note when it’s fixed.</p>
-      <label class="pg-bug-l">Summary<input class="pg-bug-s" maxlength="120" placeholder="e.g. Spell slots don’t come back on a long rest" autocomplete="off"></label>
-      <label class="pg-bug-l">What happened<textarea class="pg-bug-d" rows="6" placeholder="What you did, what you expected, and what happened instead"></textarea></label>
+    m.innerHTML = `<div class="pg-out-card pg-bug-card" role="dialog" aria-modal="true" aria-labelledby="pg-bug-h"><h2 id="pg-bug-h">Bugs, ideas &amp; feedback</h2><p>Something not working right? Want a new feature? Or anything else you want to say about the site, good or bad? Tell us here. You’ll get a note when we get to it.</p>
+      <label class="pg-bug-l">Summary<input class="pg-bug-s" maxlength="120" placeholder="e.g. Spell slots don’t come back, or: add a map tool" autocomplete="off"></label>
+      <label class="pg-bug-l">Details<textarea class="pg-bug-d" rows="6" placeholder="For a bug: what you did, what you expected, and what happened instead. For an idea: what you’d like and why."></textarea></label>
       <div class="pg-out-row"><button class="pg-out-no">Cancel</button><button class="pg-out-yes" disabled>Send</button></div></div>`;
     const close = () => { m.remove(); document.removeEventListener('keydown', key); }, key = e => { if (e.key === 'Escape') close(); };
     const sm = m.querySelector('.pg-bug-s'), ds = m.querySelector('.pg-bug-d'), ok = m.querySelector('.pg-out-yes');
     sm.oninput = () => { ok.disabled = !sm.value.trim(); }; m.onclick = e => { if (e.target === m) close(); }; m.querySelector('.pg-out-no').onclick = close;
     ok.onclick = async () => { ok.disabled = true; ok.textContent = 'Sending…'; let ch = ''; try { ch = (window.sheetState && window.sheetState().name) || ''; } catch (e) {}
       try { await bugsCol.add({ sum: sm.value.trim().slice(0, 120), desc: ds.value.trim().slice(0, 20000), by: EMAIL, byName: String(NAME || '').slice(0, 60), at: Date.now(), where: location.pathname.slice(0, 200), ch: String(ch).slice(0, 80), ua: navigator.userAgent.slice(0, 300), status: 'open' });
-        close(); pgCorner('<b>Thanks, your bug report was sent.</b><div class="det">We’ll let you know when it’s fixed.</div>'); }
+        close(); pgCorner('<b>Thanks, it was sent.</b><div class="det">We’ll let you know when we get to it.</div>'); }
       catch (x) { ok.disabled = false; ok.textContent = 'Send'; pgCorner('<b>Couldn’t send it.</b><div class="det">' + escH(x && x.code === 'permission-denied' ? 'Try again in a little while.' : (x && x.message) || x) + '</div>'); } };
     document.addEventListener('keydown', key); document.body.appendChild(m); setTimeout(() => sm.focus(), 50); };
-  bugsCol.where('by', '==', EMAIL).onSnapshot(qs => qs.docs.forEach(x => { const b = x.data(); if (b.status !== 'fixed' || b.seen) return;
-    const k = 'pg-bugfix-' + x.id; let done = ''; try { done = localStorage.getItem(k) || ''; } catch (e) {} if (done === String(b.fixedAt)) return;
-    try { localStorage.setItem(k, String(b.fixedAt)); } catch (e) {} x.ref.update({ seen: true }).catch(() => {});
-    pgCorner(`<b>Bug fixed: ${escH(b.sum)}</b><div class="det">Thanks for reporting it!</div>`, 12000); }), () => {});
+  bugsCol.where('by', '==', EMAIL).onSnapshot(qs => qs.docs.forEach(x => { const b = x.data(); if (!/^(fixed|declined)$/.test(b.status) || b.seen) return; const t = b.status === 'fixed' ? b.fixedAt : b.declinedAt;
+    const k = 'pg-bugfix-' + x.id; let done = ''; try { done = localStorage.getItem(k) || ''; } catch (e) {} if (done === String(t)) return;
+    try { localStorage.setItem(k, String(t)); } catch (e) {} x.ref.update({ seen: true }).catch(() => {});
+    if (b.status === 'fixed') pgCorner(`<b>Done: ${escH(b.sum)}</b><div class="det">Thanks for sending it in!</div>`, 12000);
+    else pgCorner(`<b>Not this time: ${escH(b.sum)}</b><div class="det">${b.reason ? escH(b.reason) : 'Thanks for sending it in anyway!'}</div>`, 20000); }), () => {});
   window.pgPreview = (m, k) => { const ex = document.getElementById('pg-msg'); if (ex) ex.remove(); pgCard(Object.assign({ id: 'preview' }, m), k); document.getElementById('pg-msg').dataset.k = 'preview'; };
   const UCACHE = {}, userDoc = em => UCACHE[em] || (UCACHE[em] = fs.collection('users').doc(em).get().then(x => x.exists ? x.data() : null, () => null));
 
@@ -4228,7 +4231,7 @@ function hub(fs, auth, G, ctx) {
       parties: ['Parties', 'Every party on the site, most recently active first. Change who the DM is, choose which ones show in your own list, or open or delete any of them.'],
       admins: ['Admins', 'Admins can open and edit every character, manage users and see new accounts.'],
       new: ['New', 'Accounts and characters that appeared since you last marked this as read.'],
-      bugs: ['Bug reports', 'What people have reported with the bug button (on a sheet, or in Contact us), newest first; new ones show up the moment they’re sent. Mark one fixed and its sender gets a note in the corner of whatever page they have open — or the next time they open the site.'],
+      bugs: ['Bugs & feedback', 'Bug reports, feature requests and anything else people send with the bug button (on a sheet, the DM’s Desk, or in Contact us), newest first; new ones show up the moment they’re sent. Mark one fixed, or decline it with a reason, and its sender gets a note in the corner of whatever page they have open — or the next time they open the site.'],
       welcome: ['Welcome', 'What every new account sees the first time it signs in. If a notice is out, a Next button takes them on to it. Off until you turn it on.'],
       notice: ['Notice', 'A message to everyone: it pops up once for every account, from “Adventurer’s Tome” (nobody sees who sent it), right away if they have the site open, otherwise the next time they do.'],
       audit: ['Audit log', 'Everything people have done on the site: sign-ins, characters opened, created, edited, shared and deleted, and admin actions. Search, or filter by date, person or activity; tap an event for its details. Events are kept for 7 days.'] };
@@ -4301,7 +4304,7 @@ function hub(fs, auth, G, ctx) {
     function frame0() {
       const nav = (k, label) => `<button class="adm-ni${TAB === k ? ' on' : ''}" data-tab="${k}">${svg(k)}<span>${label}</span>${k === 'new' && NEWN ? `<b class="adm-badge">${NEWN}</b>` : k === 'bugs' && BUGN ? `<b class="adm-badge">${BUGN}</b>` : ''}</button>`;
       const [title, desc] = PAGES[TAB];
-      const navHTML = `<div class="adm-sec">Manage</div>${nav('users', 'Users')}${nav('chars', 'Characters')}${nav('parties', 'Parties')}<div class="adm-sec">Activity</div>${nav('audit', 'Audit log')}${nav('new', 'New')}${nav('bugs', 'Bug reports')}<div class="adm-sec">Announce</div>${nav('notice', 'Notice')}${nav('welcome', 'Welcome')}`;
+      const navHTML = `<div class="adm-sec">Manage</div>${nav('users', 'Users')}${nav('chars', 'Characters')}${nav('parties', 'Parties')}<div class="adm-sec">Activity</div>${nav('audit', 'Audit log')}${nav('new', 'New')}${nav('bugs', 'Bugs &amp; feedback')}<div class="adm-sec">Announce</div>${nav('notice', 'Notice')}${nav('welcome', 'Welcome')}`;
       // Switching tabs only swaps the page on the right: the sidebar (and where its tab strip is scrolled to on a phone) stays put.
       const nv0 = root.querySelector('.adm-nav');
       if (nv0) { const x = nv0.scrollLeft; nv0.innerHTML = navHTML; nv0.scrollLeft = x;
@@ -4453,6 +4456,13 @@ function hub(fs, auth, G, ctx) {
       modal.classList.add('on'); const ok = modal.querySelector('#ak-ok'), q = modal.querySelector('#ak-q');
       if (q) { q.oninput = () => { ok.disabled = q.value.trim().toLowerCase() !== confirmText.toLowerCase(); }; q.focus(); }
       modal.querySelector('#ak-x').onclick = () => { close(); res(null); }; ok.onclick = () => { const extra = {}; modal.querySelectorAll('input[type=checkbox]').forEach(c => { extra[c.id] = c.checked; }); close(); res(extra); }; });
+    // declining a bug report / request: an optional reason that its sender sees in their note
+    const askReason = x => new Promise(res => {
+      modal.innerHTML = `<div class="hub-card"><h2>Decline this?</h2><p class="hub-hint"><b>${esc(x.sum || '')}</b><br>${esc(x.byName || x.by || 'They')} will get a note saying it won’t be done. Add a reason if you want them to know why.</p>
+        <textarea id="ak-why" class="ad-search" rows="4" maxlength="500" placeholder="Reason (optional), e.g. That’s how the rules work in 2024"></textarea>
+        <div class="row"><button class="btn ghost" id="ak-x">Cancel</button><button class="btn red" id="ak-ok">Decline</button></div></div>`;
+      modal.classList.add('on'); const t = modal.querySelector('#ak-why'); setTimeout(() => t.focus(), 30);
+      modal.querySelector('#ak-x').onclick = () => { close(); res(null); }; modal.querySelector('#ak-ok').onclick = () => { const v = t.value.trim().slice(0, 500); close(); res(v); }; });
     const wipeChar = async c => { const s0 = await sheets.doc(c.id).get().catch(() => null); const n = Number(s0 && s0.exists && s0.data().n) || 1;
       for (const pth of new Set([c.path, ...(c.paths || [])])) if (pth && !pth.includes('/')) await fs.collection('slugs').doc(pth).delete().catch(() => {});
       for (let k = 1; k < n; k++) await sheets.doc(c.id + '_p' + k).delete().catch(() => {});
@@ -4757,22 +4767,23 @@ function hub(fs, auth, G, ctx) {
       Promise.all([...new Set(BROWS.map(b => b.by))].filter(em => em && !PICS[em]).map(picFor)).then(n => { if (n.length && TAB === 'bugs') paintBugs(); }); }, x => { const l = B() && B().querySelector('#bg-l'); if (l) l.innerHTML = failMsg(x); }); };
     const browserOf = ua => { ua = String(ua || ''); const b = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : ''; return [b, /iPhone|iPad|Android/.test(ua) ? 'phone' : ''].filter(Boolean).join(' · '); };
     function tabBugs() { const el = B(); HA().innerHTML = '';
-      el.innerHTML = `<div class="adm-filters"><div class="adm-fsels"><select class="adm-sel" id="bg-f" aria-label="Show"><option value="open">Open</option><option value="fixed">Fixed</option><option value="all">All</option></select></div></div><div id="bg-l"><div class="sk-auto" data-n="6"></div></div>`;
+      el.innerHTML = `<div class="adm-filters"><div class="adm-fsels"><select class="adm-sel" id="bg-f" aria-label="Show"><option value="open">Open</option><option value="fixed">Fixed</option><option value="declined">Declined</option><option value="all">All</option></select></div></div><div id="bg-l"><div class="sk-auto" data-n="6"></div></div>`;
       const f = el.querySelector('#bg-f'); f.value = BF; f.onchange = () => { BF = f.value; paintBugs(); }; bugsLive(); if (BROWS) paintBugs(); }
     function paintBugs() { const l = B() && B().querySelector('#bg-l'); if (!l || !BROWS) return;
       if (TAB === 'bugs') { HA().innerHTML = BUGN ? '<button class="adm-btn primary" id="bg-seen">Mark as read</button>' : ''; const sb = HA().querySelector('#bg-seen');
         if (sb) sb.onclick = async () => { const t = Date.now(); try { await UREF.update({ bugsCheckedAt: t }); BCHECKED = t; BUGN = 0; bugBadge(); paintBugs(); toast('Marked as read.'); } catch (x) { toast('Couldn\'t save that: ' + (x.message || x)); } }; }
-      const rows = BROWS.filter(b => BF === 'all' || (BF === 'fixed' ? b.status === 'fixed' : b.status !== 'fixed'));
-      l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t bg-t"><thead><tr><th>Reported</th><th>From</th><th>Bug</th><th>Where</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(b => `<tr>
+      const rows = BROWS.filter(b => BF === 'all' || (BF === 'open' ? !/^(fixed|declined)$/.test(b.status) : b.status === BF));
+      l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t bg-t"><thead><tr><th>Reported</th><th>From</th><th>Report</th><th>Where</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(b => `<tr>
           <td>${when(b.at)}</td><td><span class="adm-who">${ava(b.byName, b.by)}<span><b>${esc(b.byName || b.by)}</b><small class="adm-mail">${esc(b.by)}</small></span></span></td>
           <td class="bg-txt">${(b.at || 0) > BCHECKED ? '<span class="adm-tag bg-new">New</span> ' : ''}<b>${esc(b.sum)}</b>${b.desc ? `<div class="bg-desc">${esc(b.desc)}</div>` : ''}</td>
           <td class="bg-where">${b.ch ? `<b>${esc(b.ch)}</b><br>` : ''}${/^\/(?![\/\\])/.test(b.where || '/') ? `<a href="${esc(b.where || '/')}" target="_blank" rel="noopener">${esc(b.where || '/')}</a>` : esc(b.where)}${browserOf(b.ua) ? `<br><small class="adm-dim" title="${esc(b.ua)}">${esc(browserOf(b.ua))}</small>` : ''}</td>
-          <td>${b.status === 'fixed' ? `<span class="adm-tag r-own">Fixed</span><br><small class="adm-dim">${when(b.fixedAt)}${b.seen ? ' · they’ve seen it' : ''}</small>` : '<span class="adm-tag">Open</span>'}</td>
-          <td class="nt-acts">${b.status === 'fixed' ? `<button class="adm-btn sm" data-bg="open" data-id="${esc(b.id)}">Reopen</button>` : `<button class="adm-btn sm primary" data-bg="fixed" data-id="${esc(b.id)}">Mark fixed</button>`}<button class="adm-btn sm" data-bg="del" data-id="${esc(b.id)}">Delete</button></td></tr>`).join('')}</tbody></table></div>`
+          <td>${b.status === 'fixed' ? `<span class="adm-tag r-own">Fixed</span><br><small class="adm-dim">${when(b.fixedAt)}${b.seen ? ' · they’ve seen it' : ''}</small>` : b.status === 'declined' ? `<span class="adm-tag bg-dec">Declined</span><br><small class="adm-dim">${when(b.declinedAt)}${b.seen ? ' · they’ve seen it' : ''}</small>${b.reason ? `<div class="bg-reason">${esc(b.reason)}</div>` : ''}` : '<span class="adm-tag">Open</span>'}</td>
+          <td class="nt-acts">${/^(fixed|declined)$/.test(b.status) ? `<button class="adm-btn sm" data-bg="open" data-id="${esc(b.id)}">Reopen</button>` : `<button class="adm-btn sm primary" data-bg="fixed" data-id="${esc(b.id)}">Mark fixed</button><button class="adm-btn sm" data-bg="decline" data-id="${esc(b.id)}">Decline</button>`}<button class="adm-btn sm" data-bg="del" data-id="${esc(b.id)}">Delete</button></td></tr>`).join('')}</tbody></table></div>`
         : `<p class="adm-empty">${BF === 'fixed' ? 'Nothing marked fixed yet.' : BF === 'open' ? 'No open bug reports.' : 'No bug reports yet.'}</p>`;
       l.querySelectorAll('[data-bg]').forEach(b => b.onclick = async () => { const id = b.dataset.id, x = BROWS.find(y => y.id === id) || {}, act = b.dataset.bg; b.disabled = true;
         try { if (act === 'fixed') { await bugsAdm.doc(id).update({ status: 'fixed', fixedAt: Date.now(), fixedBy: EMAIL, seen: false }); toast('Marked fixed. ' + (x.byName || x.by || 'They') + ' will get a note.'); }
-          else if (act === 'open') { await bugsAdm.doc(id).update({ status: 'open', fixedAt: FV.delete(), fixedBy: FV.delete(), seen: FV.delete() }); toast('Reopened.'); }
+          else if (act === 'decline') { const why = await askReason(x); if (why === null) { b.disabled = false; return; } await bugsAdm.doc(id).update({ status: 'declined', declinedAt: Date.now(), declinedBy: EMAIL, reason: why, seen: false }); toast('Declined. ' + (x.byName || x.by || 'They') + ' will get a note' + (why ? ' with your reason.' : '.')); }
+          else if (act === 'open') { await bugsAdm.doc(id).update({ status: 'open', fixedAt: FV.delete(), fixedBy: FV.delete(), declinedAt: FV.delete(), declinedBy: FV.delete(), reason: FV.delete(), seen: FV.delete() }); toast('Reopened.'); }
           else { if (!await ask('Delete this bug report?', esc(x.sum || ''), 'Delete', true)) { b.disabled = false; return; } await bugsAdm.doc(id).delete(); toast('Bug report deleted.'); } }
         catch (y) { b.disabled = false; toast('Couldn’t do that: ' + ((y && (y.code === 'permission-denied' ? 'the new database rules need publishing' : y.message)) || y)); } });
     }

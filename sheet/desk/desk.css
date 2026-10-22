@@ -1179,4 +1179,23 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 .dk-ntdrop { display: none; user-select: none; }
 .dk-dragon .dk-ntdrop { display: block; color: var(--soft); border-color: var(--line); }
 .dk-dragon .dk-ntdrop.on { border-color: var(--blue); color: var(--blue); background: var(--blue-soft); }
-.dk-page { max-width: none !important; }
+.dk[data-tab=sessions] .dk-page, .dk[data-tab=notes] .dk-page, .dk[data-tab=party] .dk-page { max-width: none; }
+/* Notes, LegendKeeper-style: the page tree is pinned on the left with its own scroll, the page scrolls on its own, the window never scrolls */
+@media (min-width: 901px) {
+  .dk[data-tab=notes] .dk-page { padding: 0; }
+  .dk[data-tab=notes] .dk-notesv { position: fixed; top: var(--toph, 66px); left: 0; right: 0; bottom: 0; z-index: 2; display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 0; background: var(--bg); }
+  .dk[data-tab=notes] .dk-rail { position: relative; top: 0; max-height: none; height: 100%; border-radius: 0; border: 0; border-right: 1px solid var(--line); box-shadow: none; background: var(--card2); }
+  .dk[data-tab=notes] .dk-ntree { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 6px 12px; }
+  .dk[data-tab=notes] .dk-railhd { padding: 10px 10px 8px 14px; }
+  .dk[data-tab=notes] .dk-ntn { padding: 5px 6px; font-size: .86rem; gap: 7px; }
+  .dk[data-tab=notes] .dk-ntrow { border-radius: 7px; padding-left: calc(var(--d) * 16px); }
+  .dk[data-tab=notes] .dk-ntrow .dk-caret, .dk[data-tab=notes] .dk-ntsp { width: 20px; height: 28px; }
+  .dk[data-tab=notes] .dk-ntrow.on { box-shadow: none; background: var(--card); outline: 1px solid var(--line); }
+  .dk[data-tab=notes] .dk-main { height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 18px clamp(20px, 3vw, 44px) 60px; display: block; }
+  .dk[data-tab=notes] .dk-main > .dk-card { margin-bottom: 16px; }
+  /* the open page reads like a document, not a card */
+  .dk[data-tab=notes] .dk-page2 { background: none; border: 0; box-shadow: none; border-radius: 0; padding: 0; gap: 10px; }
+  .dk[data-tab=notes] .dk-page2 .dk-crumbs { font-size: .76rem; }
+  .dk[data-tab=notes] .dk-tools2 { position: sticky; top: -18px; z-index: 3; background: var(--bg); padding: 6px 0; border-bottom: 1px solid var(--line2); }
+  .dk[data-tab=notes] .dk-ed { font-size: 1rem; line-height: 1.7; min-height: 50vh; }
+}
