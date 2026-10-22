@@ -195,7 +195,7 @@ service cloud.firestore {
           && request.resource.data.at is number;
         allow delete: if chatter() && (resource.data.by == me() || resource.data.at < request.time.toMillis() - 43200000);
       }
-      // Whispers (/whisper, /msg, /dm, /reply): one player's character to another's. Only the two of them can read it.
+      // Whispers (/whisper or /w, and /r to reply): one player's character to another's. Only the two of them can read it.
       match /whisper/{m} {
         allow read: if signedIn() && (resource.data.by == me() || resource.data.toEm == me());
         allow create: if chatter() && request.resource.data.keys().hasOnly(['at', 'by', 'c', 'n', 't', 'to', 'toEm', 'toN'])

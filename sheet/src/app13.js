@@ -95,7 +95,7 @@ function renderParty() {
       return `<div class="ptya"><b>${esc(a.name)}</b><span class="hint">${esc(ptyFormula(a.def.label || '') || a.def.text || '')}</span><div class="ptya-who">${ms.map(m => `<label class="checkline"><input type="checkbox" data-aura="${esc(a.name)}" data-id="${esc(m.id)}"${on.includes(m.id) ? ' checked' : ''}> ${esc(m.name)}</label>`).join('')}</div></div>`; }).join('')}</div>` : '';
   const logP = `<div class="panel ptylogp"><h2>Party log</h2>${(S.ptyLog || []).length ? `<div class="ptylog">${S.ptyLog.slice(0, 30).map(l => `<div class="ptyl ${esc(l.dir)}"><span class="ptyl-d" aria-label="${l.dir === 'in' ? 'Received' : 'Sent'}">${l.dir === 'in' ? '↓' : '↑'}</span><span class="ptyl-t">${esc(l.text)}<small>${l.dir === 'in' ? 'from ' : 'to '}${esc(l.who)} · ${esc(ptyAgo(l.at))}</small></span></div>`).join('')}</div>` : '<p class="hint" style="margin:0">What you send and receive shows up here.</p>'}</div>`;
   const ch = PTYX().chat, chatP = ch && ch.on() ? `<div class="panel ptychat"><h2>Party chat</h2><p class="hint ptychat-h">Just the players: your DM can’t see this, and messages disappear after 12 hours.</p><div class="ptychat-lw"><div class="ptychat-l" id="ptychat-l">${ptyChatList()}</div><button type="button" class="ptychat-jump" id="ptychat-jump" hidden>Jump to present <span aria-hidden="true">↓</span></button></div>
-    ${ch.canSend() ? `<form class="ptychat-f" id="ptychat-f"><div class="ptychat-ac" id="ptychat-ac" hidden></div><input class="f" id="ptychat-in" maxlength="1000" placeholder="Message the party… (/w name to whisper, /r to reply)" autocomplete="off" aria-label="Message the party"><button class="btn gold">Send</button></form>` : `<p class="hint ptychat-ro">Only ${esc(S.player || 'this character’s player')} can send messages from this sheet.</p>`}</div>`
+    ${ch.canSend() ? `<form class="ptychat-f" id="ptychat-f"><div class="ptychat-ac" id="ptychat-ac" hidden></div><input class="f" id="ptychat-in" maxlength="1000" placeholder="Message the party…" title="/w name message to whisper · /r message to reply" autocomplete="off" aria-label="Message the party"><button class="btn gold">Send</button></form>` : `<p class="hint ptychat-ro">Only ${esc(S.player || 'this character’s player')} can send messages from this sheet.</p>`}</div>`
     : !P.loading ? `<div class="panel ptychat ptychat-off"><h2>Party chat</h2><div class="ptychat-lock"><span aria-hidden="true">🔒</span><p>${PTYX().owner() !== PTYX().email ? `Only ${esc(S.player || 'this character’s player')} can see and send this character’s party chat.` : 'Party chat is just for the players — as the DM, you can’t see it.'}</p></div></div>` : '';
   // Party chat sits to the right of everything else (below it on a phone).
   pg.innerHTML = `<div class="ptytab">${head}<div class="ptymain${chatP ? ' haschat' : ''}"><div class="ptyleft">${cards}<div class="ptyfoot${aurasP ? '' : ' one'}">${aurasP}${logP}</div></div>${chatP}</div></div>`;
@@ -721,10 +721,10 @@ function ptyMsgShow(who, text) { if (who != null) PTY_MSGQ.push({ who, text, at:
 
 // ----- party chat (players only; the DM can't see it) -----
 // ----- Party chat: pictures, whispers and commands -----
-// /whisper, /w, /msg, /dm <name> <message>: only you and that character's player see it. /r or /reply <message>: answer
-// the last whisper you got (or the last person who wrote). Typing / shows the commands; after one, the names.
-const PTY_WCMDS = ['whisper', 'w', 'msg', 'dm'], PTY_RCMDS = ['reply', 'r'];
-const PTY_CMD_LIST = [['/whisper', 'name message', 'Message one character privately'], ['/msg', 'name message', 'Same as /whisper'], ['/dm', 'name message', 'Same as /whisper'], ['/reply', 'message', 'Answer the last whisper (or the last message)'], ['/r', 'message', 'Same as /reply']];
+// /whisper or /w <name> <message>: only you and that character's player see it. /r <message>: answer
+// the last whisper you got (or the last person who wrote). After /whisper or /w, the party's names are suggested.
+const PTY_WCMDS = ['whisper', 'w'], PTY_RCMDS = ['r'];
+const PTY_CMD_LIST = [['/whisper', 'name message', 'Message one character privately'], ['/w', 'name message', 'Same as /whisper'], ['/r', 'message', 'Reply to the last whisper (or the last message)']];
 function ptyChatWho(m) { const ch = PTYX().chat; if (ch.mine(m)) return { name: S.name || m.n || 'You', thumb: S.portrait || '', acc: (S.theme || {}).accent || '' };
   const x = ptyMembers().find(y => y.id === m.c) || {}; return { name: m.n || x.name || 'Someone', thumb: x.thumb || '', acc: x.acc || '' }; }
 function ptyChatAva(w) { const ini = String(w.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join('');
@@ -748,7 +748,7 @@ function ptyChatSubmit() {
   if (m) { const cmd = m[1].toLowerCase();
     if (PTY_WCMDS.includes(cmd)) { const [who, msg] = ptyChatTarget(m[2]); if (!who) { toast('Who to? Type a party character’s name after /' + cmd + '.', 'fumble'); return; } if (!msg) { toast('Type your message after the name.', 'fumble'); return; } to = who.id; t = msg; }
     else if (PTY_RCMDS.includes(cmd)) { const last = ptyChatLastFrom(); if (!last) { toast('No one to reply to yet.', 'fumble'); return; } if (!m[2].trim()) { toast('Type your reply after /' + cmd + '.', 'fumble'); return; } to = last.c; t = m[2].trim(); }
-    else { toast(`Unknown command /${esc(cmd)}. Try /whisper, /msg, /dm or /reply.`, 'fumble'); return; } }
+    else { toast(`Unknown command /${esc(cmd)}. Try /whisper (or /w) and /r.`, 'fumble'); return; } }
   const keep = i.value; i.value = ''; ptyChatAC(); ptyChatBottom(); PTY_STICK = Date.now();
   // after a whisper, keep the box ready for the next one to the same person
   if (to) { const w = ptyMembers().find(x => x.id === to); if (w && m && PTY_WCMDS.includes(m[1].toLowerCase())) i.value = '/' + m[1].toLowerCase() + ' ' + w.name + ' '; }
@@ -760,8 +760,7 @@ let PTY_AC = { items: [], k: 0 };
 function ptyChatAC() {
   const i = $('#ptychat-in'), box = $('#ptychat-ac'); if (!i || !box) return; const v = i.value; let items = [];
   const m1 = /^\/(\w*)$/.exec(v), m2 = /^\/(\w+)\s+([^]*)$/.exec(v);
-  if (m1) items = PTY_CMD_LIST.filter(([c]) => c.slice(1).startsWith(m1[1].toLowerCase())).map(([c, a, d]) => ({ fill: c + ' ', html: `<b>${c}</b> <span class="ac-a">${a}</span><small>${d}</small>` }));
-  else if (m2 && PTY_WCMDS.includes(m2[1].toLowerCase()) && !ptyChatTarget(m2[2])[0]) { const q = m2[2].toLowerCase(); items = ptyMembers().filter(x => String(x.name || '').toLowerCase().startsWith(q) || String(x.name || '').toLowerCase().split(/\s+/).some(w => w.startsWith(q))).map(x => ({ fill: '/' + m2[1].toLowerCase() + ' ' + x.name + ' ', html: `${ptyChatAva({ name: x.name, thumb: x.thumb, acc: x.acc })}<b>${esc(x.name)}</b>${x.player ? `<small>${esc(x.player)}</small>` : ''}` })); }
+  void m1; if (m2 && PTY_WCMDS.includes(m2[1].toLowerCase()) && !ptyChatTarget(m2[2])[0]) { const q = m2[2].toLowerCase(); items = ptyMembers().filter(x => String(x.name || '').toLowerCase().startsWith(q) || String(x.name || '').toLowerCase().split(/\s+/).some(w => w.startsWith(q))).map(x => ({ fill: '/' + m2[1].toLowerCase() + ' ' + x.name + ' ', html: `${ptyChatAva({ name: x.name, thumb: x.thumb, acc: x.acc })}<b>${esc(x.name)}</b>${x.player ? `<small>${esc(x.player)}</small>` : ''}` })); }
   PTY_AC = { items, k: 0 };
   if (!items.length) { box.hidden = true; box.innerHTML = ''; return; }
   box.innerHTML = items.map((x, k) => `<button type="button" class="ac-i${k === 0 ? ' on' : ''}" data-k="${k}">${x.html}</button>`).join(''); box.hidden = false;
