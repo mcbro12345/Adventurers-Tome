@@ -1739,7 +1739,9 @@ function onDocDown(e) {
   if (!e.target.closest || !e.target.closest('.dk-picker')) $$('.dk-sugg').forEach(s => { s.hidden = true; });
   if (e.target.classList && e.target.classList.contains('dk-modal')) closeModal();
 }
-function onStorage(e) { if (e.key && e.key === toKey() && readTurnHP()) { save(); paint(); } }
+// the Turn order changed: HP that changed there comes back here, and "In Turn order" buttons follow who's on the list
+let TURN_SIG = null; const turnSig = () => { const t = toRead(); return t ? t.rows.map(r => r.desk || '').filter(Boolean).sort().join() : ''; };
+function onStorage(e) { if (!e.key || e.key !== toKey()) return; const hp = readTurnHP(), sig = turnSig(), moved = sig !== TURN_SIG; TURN_SIG = sig; if (hp) save(); if (hp || moved) paint(); }
 
 // ---------- mount ----------
 const LISTEN = [];
