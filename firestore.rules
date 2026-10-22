@@ -180,6 +180,13 @@ service cloud.firestore {
         allow write: if admin() || (signedIn() && c in partyOf(p).chars && (canEditSheet(c) || partyMgr(partyOf(p))));
         allow delete: if signedIn() && partyMgr(partyOf(p));
       }
+      // The party's own homebrew items (added by the DM, e.g. from the DM's Desk); everyone in the party can read them.
+      match /hb/{h} {
+        allow read: if admin() || (signedIn() && (me() in partyOf(p).people || partyMgr(partyOf(p))));
+        allow create, update: if admin() || (signedIn() && partyMgr(partyOf(p)) && request.resource.data.keys().hasOnly(['item', 'name', 'at', 'by'])
+          && request.resource.data.item is string && request.resource.data.item.size() <= 200000 && request.resource.data.name is string && request.resource.data.name.size() <= 120);
+        allow delete: if admin() || (signedIn() && partyMgr(partyOf(p)));
+      }
       // Each character's latest initiative roll, for the DM's turn order (written by the character's own sheet).
       match /init/{c} {
         allow read: if admin() || (signedIn() && (me() in partyOf(p).people || partyMgr(partyOf(p))));

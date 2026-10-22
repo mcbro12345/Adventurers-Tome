@@ -2833,7 +2833,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022120307', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.1838f1a5d0f0.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.ae0a4bbb17c1.html", "desk": "a/desk.8d9474bd7bba.js", "deskcss": "a/deskcss.680defe4fba9.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022121231', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.8fd28b3c1e2f.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.24e2046a8c88.html", "desk": "a/desk.8d9474bd7bba.js", "deskcss": "a/deskcss.680defe4fba9.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -3183,9 +3183,15 @@ function wireDie(root) {
       const js = await fetch(ASSETS.desk).then(r => { if (!r.ok) throw new Error('desk'); return r.text(); }); const sc = document.createElement('script'); sc.textContent = js; document.body.appendChild(sc);
     } catch (e) { return fail(); }
     const pid = clean(Q.get('for') || ''); let party = null;
-    if (pid) { try { const d = await fs.collection('parties').doc(pid).get(); if (d.exists) party = { id: pid, name: d.data().name || 'Party' }; } catch (e) {} }
+    if (pid) { try { const d = await fs.collection('parties').doc(pid).get(); if (d.exists) { const pd = d.data(); party = { id: pid, name: pd.name || 'Party', mgr: pd.dm === EMAIL || (pd.mgrs || []).includes(EMAIL) }; } } catch (e) {} }
+    // The party's homebrew list (the DM adds items here; everyone in the party can then add them from Add an item → Homebrew).
+    const hbCol = party && party.mgr ? fs.collection('parties').doc(pid).collection('hb') : null;
+    const partyHB = hbCol ? { list: () => hbCol.get().then(qs => qs.docs.map(d => { let it = null; try { it = JSON.parse(d.data().item || 'null'); } catch (e) {} return it && it.name ? Object.assign(it, { _pid: d.id }) : null; }).filter(Boolean)),
+      add: item => { const it = JSON.parse(JSON.stringify(item || {})); delete it._pid; const name = String(it.name || '').trim().slice(0, 120); if (!name) return Promise.reject(new Error('The item needs a name.')); it.name = name;
+        return hbCol.add({ item: JSON.stringify(it), name, at: Date.now(), by: EMAIL }).then(r => { pgLog('party_hb', { target: pid, tName: party.name, detail: name }); return r.id; }); },
+      remove: id => hbCol.doc(String(id)).delete() } : null;
     try { window.pgDesk.mount(root, { fs, EMAIL, party, back: party ? { href: URLS.party(pid, party.name), label: party.name } : { href: URLS.hub(G), label: 'Adventurer’s Tome' },
-      makeNpc: party ? () => { try { sessionStorage.setItem('pg-join', JSON.stringify({ p: pid, t: '', name: party.name, at: Date.now(), npc: true })); } catch (e) {} pgGo(URLS.newChar(G)); } : null }); } catch (e) { console.error(e); return fail(); }
+      logo: { html: () => logoHTML(), wire: el => wireDie(el) }, partyHB, makeNpc: party ? () => { try { sessionStorage.setItem('pg-join', JSON.stringify({ p: pid, t: '', name: party.name, at: Date.now(), npc: true })); } catch (e) {} pgGo(URLS.newChar(G)); } : null }); } catch (e) { console.error(e); return fail(); }
     if (!TOUCH && !FRAMED) sheetScrollbar(); // the slim gold scrollbar, like every other page (the browser's own one shifted everything when it came and went)
     pgLog('desk_open', party ? { target: pid, tName: party.name } : {});
     requestAnimationFrame(() => { if (load) fadeLoad(load); else document.documentElement.classList.remove('pg-loading'); }); verCheck(); return; }
@@ -3319,7 +3325,7 @@ function wireDie(root) {
   // The DM opening a player's sheet sees the party too, but only the character's own sheet (its owner, an editor or an
   // admin) keeps its card up to date and picks up what's sent to it.
   const PCOL = fs.collection('parties');
-  let PTY = null, PTY_ID = null, PTY_CARDS = {}, unPty = null, unPtyC = null, PTY_SET = 0, PTY_CK = '', ptyT = null, inboxOn = false;
+  let PTY_HB = [], unPtyH = null; let PTY = null, PTY_ID = null, PTY_CARDS = {}, unPty = null, unPtyC = null, PTY_SET = 0, PTY_CK = '', ptyT = null, inboxOn = false;
   const PTY_Q = [];
   const ptyChanged = () => { if (window.onPartyChange) { try { window.onPartyChange(); } catch (e) { console.warn(e); } } };
   // The party and everyone's cards are kept in this browser too, so a character in a party opens with its Party tab
@@ -3334,7 +3340,7 @@ function wireDie(root) {
   const ptySetLocal = pid => { PARTY = pid || ''; PTY_SET = Date.now(); ptyWatch(PARTY); };
   function ptyWatch(pid) {
     pid = pid || ''; if (pid === PTY_ID) return; PTY_ID = pid;
-    if (unPty) unPty(); if (unPtyC) unPtyC(); unPty = unPtyC = null; chatStop(); PTY = null; PTY_CARDS = {}; PTY_CK = ''; ptyLiveWatch([]);
+    if (unPty) unPty(); if (unPtyC) unPtyC(); if (unPtyH) unPtyH(); unPty = unPtyC = unPtyH = null; PTY_HB = []; chatStop(); PTY = null; PTY_CARDS = {}; PTY_CK = ''; ptyLiveWatch([]);
     if (pid) ptySeed(pid); ptyChanged();
     if (!pid) return;
     unPty = PCOL.doc(pid).onSnapshot(d => { const pd = d.exists ? d.data() : null;
@@ -3344,6 +3350,8 @@ function wireDie(root) {
         return; }
       PTY = Object.assign({ id: pid }, pd); ptyChanged(); ptyKeep(); inboxStart(); ptyCardSoon(); chatStart(pid, pd); chatSweep();
       if (OWNER === EMAIL && pd.dm && pd.dm !== EMAIL && !EDITORS.includes(pd.dm)) col.doc(C).get().then(sd => sd.exists && ptyShareDM(fs, C, pd.dm, sd.data())).then(ok => { if (ok) { if (!VIEWERS.includes(pd.dm)) VIEWERS = VIEWERS.concat([pd.dm]); if (!EDITORS.includes(pd.dm)) EDITORS = EDITORS.concat([pd.dm]); } }, () => {});
+      // the party's own homebrew list (items the DM adds, e.g. from the DM's Desk): everyone can add them from Add an item → Homebrew
+      if (!unPtyH) unPtyH = PCOL.doc(pid).collection('hb').onSnapshot(qs => { PTY_HB = qs.docs.map(x => { let it = null; try { it = JSON.parse(x.data().item || 'null'); } catch (e) {} return it && it.name ? Object.assign(it, { _pid: x.id }) : null; }).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name)); ptyChanged(); }, () => {});
       if (!unPtyC) unPtyC = PCOL.doc(pid).collection('cards').onSnapshot(qs => { PTY_CARDS = {}; qs.docs.forEach(x => PTY_CARDS[x.id] = x.data()); ptyChanged(); ptyKeep(); }, () => {});
       ptyLiveWatch((pd.chars || []).filter(id => id !== C));
     }, () => { PTY = null; PTY_CARDS = {}; ptyChanged(); });
@@ -3407,7 +3415,7 @@ function wireDie(root) {
     on: () => !!PTY, self: C, email: EMAIL, owner: () => OWNER, canAct: () => role() !== 'view',
     info: () => PTY ? { loading: !!PTY.loading, id: PTY.id, name: PTY.name || 'Party', dm: PTY.dm, dmName: PTY.dmName || PTY.dm, mgrs: PTY.mgrs || [], pic: /^(data:image\/|https:\/\/)/.test(String(PTY.pic || '')) ? PTY.pic : '', mgr: PTY.dm === EMAIL || (PTY.mgrs || []).includes(EMAIL), url: URLS.party(PTY.id, PTY.name) } : null,
     members: () => PTY ? (PTY.chars || []).filter(id => id !== C).map(id => { const c = PTY_CARDS[id] || {}, l = PTY_LIVE[id]; return Object.assign({ id, name: 'A character' }, !l ? c : Number(l.at) >= Number(c.at || 0) ? Object.assign({}, c, l) : Object.assign({}, l, c)); }) : [],
-    me: () => PTY_CARDS[C] || null,
+    me: () => PTY_CARDS[C] || null, hb: () => PTY_HB,
     send: (to, kind, data, ref) => { if (!PTY) return Promise.reject(new Error('Not in a party')); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} return ptySend(fs, EMAIL, PTY.id, to, kind, data, C, nm, ref); },
     recall: (to, ref) => { if (!PTY) return Promise.resolve(''); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} return ptyRecall(fs, EMAIL, PTY.id, to, ref, C, nm); },
     newRef: () => fs.collection('x').doc().id, snap: ptySnap, diff: ptyDiff, revert: ptyRevert,
@@ -4410,8 +4418,8 @@ function hub(fs, auth, G, ctx) {
     const ACTS = { signin: 'Signed in', account: 'Created their account', signout: 'Signed out', open: 'Opened', create: 'Created', edit: 'Edited', delete: 'Deleted', give: 'Gave away', remove: 'Removed from the lists',
       share: 'Shared', unshare: 'Stopped sharing', access: 'Changed access to', leave: 'Gave up access to', picture: 'Changed their picture',
       rename_user: 'Renamed', admin_add: 'Made an admin:', admin_remove: 'Removed admin:', user_picture: 'Changed the picture of', user_signout: 'Signed out everywhere:', user_block: 'Blocked', user_unblock: 'Unblocked', user_delete: 'Deleted the account of', message: 'Sent a message to', notice: 'Sent a notice to', notice_revoke: 'Revoked the notice to', notice_edit: 'Edited the notice to', notice_resend: 'Re-sent the notice to', welcome: 'Saved the welcome message for', welcome_off: 'Turned off the welcome message for', welcome_reset: 'Reset the welcome message for', user_reload: 'Refreshed the pages of', online: 'Came online',
-      party_create: 'Created the party', party_delete: 'Deleted the party', party_chat_clear: 'Cleared the chat of', party_add: 'Added a character to', party_npc: 'Added an NPC to', desk_open: 'Opened the DM’s Desk', party_join: 'Joined the party', party_leave: 'Left the party', party_remove: 'Took a character out of', party_invite: 'Invited someone to', party_send: 'Used party actions in', party_access: 'Changed their access to', party_dm: 'Handed over' };
-    const AGROUPS = [['Signing in', ['signin', 'online', 'account', 'signout']], ['Parties', ['party_create', 'party_delete', 'party_add', 'party_npc', 'party_join', 'party_leave', 'party_remove', 'party_invite', 'party_send', 'party_access', 'party_dm', 'party_chat_clear', 'desk_open']], ['Characters', ['open', 'create', 'edit', 'delete', 'give', 'remove']], ['Sharing', ['share', 'unshare', 'access', 'leave']], ['Pictures', ['picture', 'user_picture']], ['Admin', ['rename_user', 'admin_add', 'admin_remove', 'user_signout', 'user_block', 'user_unblock', 'user_delete', 'message', 'notice', 'notice_resend', 'notice_revoke', 'notice_edit', 'welcome', 'welcome_off', 'welcome_reset', 'user_reload']]];
+      party_create: 'Created the party', party_delete: 'Deleted the party', party_chat_clear: 'Cleared the chat of', party_add: 'Added a character to', party_npc: 'Added an NPC to', desk_open: 'Opened the DM’s Desk', party_hb: 'Added a homebrew item to', party_join: 'Joined the party', party_leave: 'Left the party', party_remove: 'Took a character out of', party_invite: 'Invited someone to', party_send: 'Used party actions in', party_access: 'Changed their access to', party_dm: 'Handed over' };
+    const AGROUPS = [['Signing in', ['signin', 'online', 'account', 'signout']], ['Parties', ['party_create', 'party_delete', 'party_add', 'party_npc', 'party_join', 'party_leave', 'party_remove', 'party_invite', 'party_send', 'party_access', 'party_dm', 'party_chat_clear', 'desk_open', 'party_hb']], ['Characters', ['open', 'create', 'edit', 'delete', 'give', 'remove']], ['Sharing', ['share', 'unshare', 'access', 'leave']], ['Pictures', ['picture', 'user_picture']], ['Admin', ['rename_user', 'admin_add', 'admin_remove', 'user_signout', 'user_block', 'user_unblock', 'user_delete', 'message', 'notice', 'notice_resend', 'notice_revoke', 'notice_edit', 'welcome', 'welcome_off', 'welcome_reset', 'user_reload']]];
     const CHAR_ACTS = new Set(['open', 'create', 'edit', 'delete', 'give', 'remove', 'share', 'unshare', 'access', 'leave']);
     let AF = { who: [], act: [], q: '', from: '', to: '', range: '' }, AROWS, AOPEN = {} = [], ALAST = null, AFULL = false, APEOPLE = null;
     const auditCol = fs.collection('audit');

@@ -1350,6 +1350,7 @@ function openCatalog(keep) {
   // Homebrew: this character's saved homebrew items, then the ones everyone else in the party has saved.
   const hbRow = (c, from, t, n, del) => [c.name, `<div class="crrow" data-q="${esc((c.name + ' custom homebrew ' + (from || '') + ' ' + (c.summary || '') + ' ' + (c.notes || '')).toLowerCase())}"><div><b>${esc(c.name)}</b>${kind('Homebrew')} ${cost(c.cost)}<div class="hint">${from ? `<span class="hbfrom">${esc(from)}’s</span> · ` : ''}${esc(customItemInfo(c))}</div></div><span class="crbtns">${del ? `<button class="btn sm" data-act="catcdel" data-n="${n}" title="Remove from your homebrew items" aria-label="Remove ${esc(c.name)} from your homebrew items">✕</button>` : ''}<button class="btn sm gold" data-act="catadd" data-t="${t}" data-n="${n}">Add</button></span></div>`];
   const C = () => { const own = (S.customItems || []), seen = new Set(own.map(c => c.name.toLowerCase())), out = own.map((c, n) => hbRow(c, '', 'c', n, true));
+    (typeof ptyOn === 'function' && ptyOn() && PTYX().hb ? PTYX().hb() : []).forEach((c, j) => { if (!c || !c.name || seen.has(c.name.toLowerCase())) return; seen.add(c.name.toLowerCase()); out.push(hbRow(c, 'Your party', 'ph', j, false)); });
     (typeof ptyOn === 'function' && ptyOn() ? ptyMembers() : []).forEach(m => (m.hb || []).forEach((c, j) => { if (!c || !c.name || seen.has(c.name.toLowerCase())) return; seen.add(c.name.toLowerCase()); out.push(hbRow(c, m.name || 'A party member', 'ch', esc(m.id) + ':' + j, false)); }));
     return out; };
   const list = tab === 'weapons' ? W() : tab === 'armor' ? A() : tab === 'gear' ? G() : tab === 'magic' ? M() : tab === 'custom' ? C()
@@ -1371,6 +1372,7 @@ function catalogAdd(t, n) {
   if (t === 'w') return addInventoryItem(makeWeaponItem(DND.weapons[n]));
   if (t === 'a') return addInventoryItem(makeArmorItem(DND.armor[n]));
   if (t === 'g') return addInventoryItem(makeGearItem(DND.gear[n]));
+  if (t === 'ph') { const c = (typeof PTYX === 'function' && PTYX() && PTYX().hb ? PTYX().hb() : [])[N(n)]; if (!c) return; const it = JSON.parse(JSON.stringify(c)); delete it._pid; it.id = uid(); it.qty = N(it.qty) || 1; it.equipped = false; return addInventoryItem(it); }
   if (t === 'ch') { const [mid, j] = String(n).split(':'), m = (typeof ptyMembers === 'function' ? ptyMembers() : []).find(x => x.id === mid), c = m && (m.hb || [])[N(j)]; if (!c) return; const it = JSON.parse(JSON.stringify(c)); it.id = uid(); it.qty = N(it.qty) || 1; it.equipped = false; return addInventoryItem(it); }
   if (t === 'c') { const c = (S.customItems || [])[n]; if (!c) return; const it = JSON.parse(JSON.stringify(c)); it.id = uid(); it.qty = N(it.qty) || 1; it.equipped = false; delete it.savedFrom; return addInventoryItem(it); }
   if (t === 'ws') { const it = makeWeaponItem(DND.weapons[n]); it.name = 'Silvered ' + it.name.toLowerCase(); it.silvered = true; it.cost = silverCost(it.cost, 1); return addInventoryItem(it); }
