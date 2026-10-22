@@ -365,14 +365,14 @@ function analyze(ent) {
   ACACHE.set(key, a); return a;
 }
 const entKey = (sec, i) => sec + ':' + i;
-const SECS = [['traits', ''], ['actions', 'Actions'], ['bonus', 'Bonus Actions'], ['reactions', 'Reactions'], ['legendary', 'Legendary Actions'], ['lair', 'Lair Actions']];
+const SECS = [['traits', ''], ['actions', 'Actions'], ['bonus', 'Bonus Actions'], ['reactions', 'Reactions'], ['legendary', 'Legendary Actions'], ['mythic', 'Mythic Actions'], ['lair', 'Lair Actions']];
 // "makes three attacks: one with its bite and two with its claws" → [{ent, n}]
 const WORDN = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, twice: 2 };
 function parseMulti(c) {
   const ma = (c.actions || []).find(e => /^multiattack/i.test(e.n)); if (!ma) return null;
   const atks = (c.actions || []).map((e, i) => ({ e, i, a: analyze(e), nm: e.n.replace(/\s*\(.*\)$/, '').toLowerCase() })).filter(x => x.a.hit != null);
   if (!atks.length) return null;
-  const d = ma.d.toLowerCase().replace(/[.;]/g, ' ,').split(/\bor\b/)[0];
+  const d = ma.d.toLowerCase().replace(/\([^)]*\)/g, ' ').replace(/[.;:]/g, ' ,').split(/\bor\b/)[0];
   const out = []; const used = new Set();
   const re = /\b(one|two|three|four|five|six|seven|eight)\b\s+(?:attacks?\s+)?(?:with\s+(?:its|his|her|their|a|an)\s+)?([a-z' -]+?)(?=\s*(?:attacks?\b|,|\band\b|$))/g; let m;
   while ((m = re.exec(d))) {
@@ -466,7 +466,7 @@ function parseStatBlock(raw) {
     const sm = /^((?:Tiny|Small|Medium|Large|Huge|Gargantuan)(?: or (?:Tiny|Small|Medium|Large|Huge|Gargantuan))?)\s+(.*)$/i.exec(left);
     if (sm) { c.size = cap(sm[1].split(' ')[0].toLowerCase()); c.type = sm[2].trim().toLowerCase(); }
   }
-  const H = {}; let cur = null, abBuf = [], body = [];
+  const H = {}, unparsed = []; let cur = null, abBuf = [], body = [];
   for (; i < lines.length; i++) {
     const l = lines[i];
     const h = HDR.find(x => x[1].test(l));
@@ -477,12 +477,12 @@ function parseStatBlock(raw) {
       continue;
     }
     if (SECT.test(l) || looksLikeName((/^([^.]+?)\.\s/.exec(l) || [])[1])) { break; }
-    if (cur && cur !== 'ab') H[cur] += ' ' + l; else if (cur === 'ab') abBuf.push(l);
+    if (cur && cur !== 'ab') H[cur] += ' ' + l; else if (cur === 'ab') abBuf.push(l); else unparsed.push(l);
   }
   body = lines.slice(i);
   // Header fields
   let m;
-  if (H.ac && (m = /(\d+)\s*(?:\(([^)]*)\))?/.exec(H.ac))) { c.ac = N(m[1]); c.acNote = m[2] || ''; }
+  if (H.ac && (m = /(\d+)\s*(?:\(([^)]*)\))?/.exec(H.ac))) { c.ac = N(m[1]); c.acNote = m[2] || H.ac.slice(m.index + m[0].length).replace(/^[\s,;]+/, '').replace(/\s*Initiative.*$/i, '').trim().slice(0, 120); }
   if (H.hp && (m = /(\d+)\s*(?:\(([^)]*)\))?/.exec(H.hp))) { c.hp = N(m[1]); c.hd = m[2] ? normExpr(m[2]) : ''; }
   if (H.speed) c.speed = H.speed.trim();
   if (H.init) { m = /([+-]\d+)/.exec(H.init); if (m) c.init = N(m[1]); }
@@ -494,19 +494,19 @@ function parseStatBlock(raw) {
   if (H.skills) H.skills.split(/,\s*/).forEach(p => { const q = /([A-Za-z ]+?)\s*([+-]\s?\d+)/.exec(p); if (q) { const nm = Object.keys(SKILLS).find(s => s.toLowerCase() === q[1].trim().toLowerCase()); if (nm) c.skills[nm] = N(q[2].replace(/\s/g, '')); } });
   ['vuln', 'res', 'imm', 'cimm'].forEach(k => { if (H[k]) c[k] = H[k].trim(); });
   if (H.imm && !H.cimm && /;/.test(H.imm)) { const [dmg, cond] = H.imm.split(';'); if (!DTYPES.some(t => cond.toLowerCase().includes(t))) { c.imm = dmg.trim(); c.cimm = cond.trim().toLowerCase(); } }
-  if (H.senses) { const pp = /passive Perception\s*(\d+)/i.exec(H.senses); c.pp = pp ? N(pp[1]) : ''; c.senses = H.senses.replace(/,?\s*passive Perception\s*\d+/i, '').trim().replace(/,$/, ''); }
+  if (H.senses) { const pp = /passive Perception\s*(\d+)/i.exec(H.senses); c.pp = pp ? N(pp[1]) : ''; c.senses = H.senses.replace(/[,;]?\s*passive Perception\s*\d+/i, '').trim().replace(/[,;]$/, ''); }
   if (H.langs) c.langs = H.langs.trim();
   if (H.cr) { m = /(\d+\/\d+|\d+)/.exec(H.cr); if (m) c.cr = crParse(m[1]); const xp = /([\d,]+)\s*XP|XP\s*([\d,]+)/i.exec(H.cr); c.xp = xp ? N((xp[1] || xp[2]).replace(/,/g, '')) : XP_CR[c.cr] || 0; }
-  c.pb = H.pb ? N(H.pb.replace(/\s/g, '')) : pbCR(c.cr);
+  { const pbm = H.cr && /PB\s*([+-]?\d+)|Proficiency Bonus\s*([+-]?\d+)/i.exec(H.cr); c.pb = H.pb ? N(H.pb.replace(/\s/g, '')) : pbm ? N(pbm[1] || pbm[2]) : pbCR(c.cr); }
   if (!c.pp) c.pp = 10 + cSkill(c, 'Perception');
   // Body: sections of "Name. Text" entries
-  let sec = 'traits', lastEnded = true; const into = { traits: [], actions: [], bonus: [], reactions: [], legendary: [], lair: [] }; const intro = {};
-  const SECMAP = { traits: 'traits', actions: 'actions', 'bonus actions': 'bonus', reactions: 'reactions', 'legendary actions': 'legendary', 'lair actions': 'lair', 'mythic actions': 'legendary', 'regional effects': 'lair' };
-  const SPELL_LINE = /^(Cantrips|At will|\d+(st|nd|rd|th) level|\d+\/day|Constant)/i;
+  let sec = 'traits', lastEnded = true; const into = { traits: [], actions: [], bonus: [], reactions: [], legendary: [], mythic: [], lair: [] }; const intro = {};
+  const SECMAP = { traits: 'traits', actions: 'actions', 'bonus actions': 'bonus', reactions: 'reactions', 'legendary actions': 'legendary', 'lair actions': 'lair', 'mythic actions': 'mythic', 'regional effects': 'lair' };
+  const SPELL_LINE = /^(Cantrips|At will|\d+(st|nd|rd|th)[- ]level|Level \d|\d+\/day|Constant)/i;
   body.forEach(l => {
     if (SECT.test(l)) { sec = SECMAP[l.toLowerCase()]; lastEnded = true; return; }
     const em = /^([^.]+?)\.\s+(.*)$/.exec(l) || /^([^.]+?)\.$/.exec(l);
-    if (em && lastEnded && looksLikeName(em[1]) && !SPELL_LINE.test(l)) { into[sec].push({ n: em[1].trim(), d: (em[2] || '').trim() }); }
+    if (em && (lastEnded || !into[sec].length) && looksLikeName(em[1]) && !SPELL_LINE.test(l)) { into[sec].push({ n: em[1].trim(), d: (em[2] || '').trim() }); }
     else {
       const arr = into[sec], last = arr[arr.length - 1];
       if (!last) intro[sec] = (intro[sec] ? intro[sec] + ' ' : '') + l;
@@ -515,17 +515,21 @@ function parseStatBlock(raw) {
     lastEnded = /[.:!?)]$/.test(l);
   });
   Object.assign(c, into);
-  if (intro.legendary) { c.legIntro = intro.legendary; const k = /can take (\d+) legendary actions/i.exec(intro.legendary); c.legCount = k ? N(k[1]) : 3; }
+  if (intro.legendary) { c.legIntro = intro.legendary; const k = /can take (\d+) legendary actions/i.exec(intro.legendary) || /Legendary Action Uses:\s*(\d+)/i.exec(intro.legendary); c.legCount = k ? N(k[1]) : 3; }
+  if (intro.mythic) c.mythIntro = intro.mythic;
   else if (c.legendary.length) c.legCount = 3;
   if (intro.lair) c.lairIntro = intro.lair;
-  if (intro.traits && !c.traits.length) c.traits.push({ n: 'Notes', d: intro.traits });
-  if (intro.actions && c.actions.length === 0) c.actions.push({ n: 'Action', d: intro.actions });
+  if (intro.traits && !c.traits.length) { c.traits.push({ n: 'Notes', d: intro.traits }); unparsed.push(intro.traits); }
+  else if (intro.traits) unparsed.push(intro.traits);
+  ['actions', 'bonus', 'reactions'].forEach(k => { if (intro[k] && !/^(?:the |it |if |when |as |each )|can (?:take|use)/i.test(intro[k])) unparsed.push(intro[k]); else if (intro[k] && !c[k].length) c[k].push({ n: '', d: intro[k] }); });
+  if (intro.actions && c.actions.length === 0 && !c.actions.length) c.actions.push({ n: 'Action', d: intro.actions });
+  Object.defineProperty(c, '_unparsed', { value: unparsed, enumerable: false, writable: true });
   return c;
 }
 function blankCreature() {
   return { id: '', name: 'New Creature', src: 'Custom', book: '', size: 'Medium', type: 'humanoid', align: 'unaligned', ac: 10, acNote: '', hp: 10, hd: '3d8', speed: '30 ft.',
     ab: [10, 10, 10, 10, 10, 10], saves: {}, skills: {}, vuln: '', res: '', imm: '', cimm: '', senses: '', pp: 10, langs: '—', cr: 0, xp: 10, pb: 2, init: '',
-    traits: [], actions: [], bonus: [], reactions: [], legendary: [], legCount: 0, legIntro: '', lair: [], lairIntro: '', notes: '', img: '' };
+    traits: [], actions: [], bonus: [], reactions: [], legendary: [], legCount: 0, legIntro: '', mythic: [], mythIntro: '', lair: [], lairIntro: '', notes: '', img: '' };
 }
 // Section text in the editor: one entry per paragraph, "Name. Description".
 const entriesToText = list => (list || []).map(e => (e.n ? e.n + '. ' : '') + e.d).join('\n\n');
@@ -533,6 +537,136 @@ function textToEntries(t) {
   return String(t || '').split(/\n\s*\n/).map(p => p.trim()).filter(Boolean).map(p => { const m = /^([^.\n]{1,70}?)\.\s+([\s\S]*)$/.exec(p); return m && looksLikeName(m[1]) ? { n: m[1].trim(), d: m[2].trim() } : { n: '', d: p }; });
 }
 
+// ---------- Pasting stat blocks: clean up text from PDFs / D&D Beyond / Homebrewery / Roll20, split a paste into
+// creatures, put jumbled (two-column PDF) blocks back in stat-block order, then read each with parseStatBlock. ----------
+const LIGS = { 'ﬀ': 'ff', 'ﬁ': 'fi', 'ﬂ': 'fl', 'ﬃ': 'ffi', 'ﬄ': 'ffl', 'ﬅ': 'st', 'ﬆ': 'st' };
+const SIZE_LINE = /^(?:Tiny|Small|Medium|Large|Huge|Gargantuan)\b(?:\s+or\s+\w+)?\s+(?:swarm of \w+ )?\(?(?:aberration|beast|celestial|construct|dragon|elemental|fey|fiend|giant|humanoid|monstrosity|ooze|plant|undead|swarm)/i;
+const HDR_WORDS = ['Armor Class', 'Hit Points', 'Speed', 'Saving Throws', 'Skills', 'Damage Vulnerabilities', 'Damage Resistances', 'Damage Immunities', 'Condition Immunities', 'Vulnerabilities', 'Resistances', 'Immunities', 'Gear', 'Senses', 'Languages', 'Challenge', 'Proficiency Bonus', 'Initiative', 'AC', 'HP', 'CR'];
+const HDR_START = new RegExp('^(?:' + HDR_WORDS.map(w => w.replace(/ /g, '\\s+')).join('|') + ')\\b(?!\\s*[.:]\\s*[A-Z][a-z]+\\.)', 'i');
+// mid-line header words only split a line that already starts with a header (so "its speed" in a trait is safe)
+const HDR_MID = /\s+(?=(?:Armor Class|Hit Points|Speed|Saving Throws|Skills|Damage (?:Vulnerabilities|Resistances|Immunities)|Condition Immunities|Senses|Languages|Challenge|Proficiency Bonus|Initiative|HP|CR|Immunities|Resistances|Vulnerabilities|Gear)\s+[\d+\-A-Za-z(])/g;
+function normPaste(raw) {
+  let t = String(raw || '').replace(/\r\n?/g, '\n');
+  t = t.replace(/[ﬀﬁﬂﬃﬄﬅﬆ]/g, m => LIGS[m]).replace(/[­​-‍⁠﻿]/g, '').replace(/[  -   　]/g, ' ')
+    .replace(/[‘’ʼ′]/g, "'").replace(/[“”″]/g, '"').replace(/[−‒–]/g, '-').replace(/\t/g, ' ').replace(/[•●▪◦]/g, '-');
+  const out = [];
+  for (let l of t.split('\n')) {
+    l = l.replace(/^\s*(?:>\s*)+/, '');                                     // Homebrewery / markdown block quotes
+    if (/^\s*(?:_{3,}|-{3,}|\*{3,}|:{3,}|\{\{.*|\}\}|<\/?div[^>]*>)\s*$/.test(l)) { out.push(''); continue; }   // rules, frames
+    if (/^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?\s*$/.test(l)) continue; // table separators
+    if (/^\s*\|.*\|\s*$/.test(l)) l = l.replace(/^\s*\||\|\s*$/g, '').split('|').map(x => x.trim()).join(' ');
+    l = l.replace(/^#{1,6}\s+/, '').replace(/^\s*-\s+(?=\*\*)/, '').replace(/\*\*\*|\*\*|__/g, '').replace(/(^|[\s(])[*_]([^*_]+?)[*_](?=[\s.,;:)]|$)/g, '$1$2').replace(/^\*\s*|\s*\*$/g, '');
+    l = l.replace(/\s+/g, ' ').trim();
+    if (/^(?:Page \d+|\d{1,3}|Chapter \d+.*|Appendix [A-Z]:.*)$/i.test(l)) continue;     // page furniture from PDFs
+    out.push(l);
+  }
+  // glue words split across lines with a hyphen: "attack-" + "ing"
+  for (let i = out.length - 2; i >= 0; i--) if (/[a-z]-$/.test(out[i]) && /^[a-z]/.test(out[i + 1] || '')) { out[i] = out[i].slice(0, -1) + out[i + 1]; out.splice(i + 1, 1); }
+  return out;
+}
+const isNameLine = l => !!l && looksLikeName(l.replace(/^[A-Z][A-Z' -]+$/, m => m.split(' ').map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' '))) && !HDR_START.test(l) && !SECT.test(l);
+// One paste → one array of line-lists, one per creature (a name line followed by a size/type line starts a creature)
+function splitStatBlocks(raw) {
+  const L = normPaste(raw), idx = [];
+  const nextText = i => { for (let j = i + 1; j < L.length; j++) if (L[j]) return j; return -1; };
+  for (let i = 0; i < L.length; i++) { if (!L[i]) continue; const j = nextText(i); if (j > 0 && isNameLine(L[i]) && SIZE_LINE.test(L[j])) idx.push(i); }
+  if (!idx.length) return [L.filter(Boolean)];
+  const blocks = idx.map((s, k) => L.slice(s, k + 1 < idx.length ? idx[k + 1] : L.length).filter(Boolean));
+  const pre = L.slice(0, idx[0]).filter(Boolean); if (pre.length) blocks[0].push(...pre.map(x => '\u0000' + x));   // stray text before the first creature
+  return blocks;
+}
+// Put a block's header lines, ability lines and body back in stat-block order (PDF columns can scramble them).
+function canonBlock(lines) {
+  const stray = lines.filter(l => l[0] === '\u0000').map(l => l.slice(1)); lines = lines.filter(l => l[0] !== '\u0000');
+  let i = 0; const top = [];
+  if (lines[i] && !HDR_START.test(lines[i]) && !SIZE_LINE.test(lines[i])) top.push(lines[i++]);
+  if (lines[i] && SIZE_LINE.test(lines[i])) top.push(lines[i++]);
+  const hdr = [], ab = [], body = []; let inHdr = null;
+  const abLine = l => /^(?:STR|DEX|CON|INT|WIS|CHA|MOD|SAVE)\b/i.test(l) && (/\d/.test(l) || /^(?:(?:STR|DEX|CON|INT|WIS|CHA|MOD|SAVE)\b\s*)+$/i.test(l));
+  const numLine = l => /^[\d\s()+\-]+$/.test(l) && /\d/.test(l);
+  for (; i < lines.length; i++) {
+    let l = lines[i];
+    if (HDR_START.test(l)) { l.split(HDR_MID).forEach(p => { p = p.trim(); if (p) hdr.push(p); }); inHdr = hdr.length - 1; continue; }
+    if (abLine(l) || (numLine(l) && (ab.length || inHdr != null && !body.length))) { ab.push(l); inHdr = null; continue; }
+    if (SECT.test(l.replace(/:$/, ''))) { body.push(l.replace(/:$/, '')); inHdr = null; continue; }
+    // a wrapped header value (languages, immunities…) continues on the next line
+    if (inHdr != null && !body.length && !/^[^.]{1,60}\.\s/.test(l) && (/[,;]$/.test(hdr[inHdr]) || /^[a-z(;,]/.test(l) && /^(?:Saving|Skills|Damage|Condition|Senses|Languages|Gear|Immunities|Resistances|Vulnerabilities)/i.test(hdr[inHdr]))) { hdr[inHdr] += ' ' + l; continue; }
+    inHdr = null; body.push(l);
+  }
+  // scores go right after Speed (or the last of AC / HP / Speed / Initiative), the way parseStatBlock reads them
+  const early = /^(?:Armor Class|AC|Hit Points|HP|Speed|Initiative)\b/i; let k = 0; while (k < hdr.length && early.test(hdr[k])) k++;
+  const hdr1 = hdr.slice(0, k), hdr2 = hdr.slice(k);
+  return { text: top.concat(hdr1, ab, hdr2, body).join('\n'), stray };
+}
+function crIssues(c, raw) {
+  const iss = []; const has = re => re.test(raw);
+  if (!c.name || /^New Creature$/i.test(c.name)) iss.push('no name');
+  if (!has(/\b(Armor Class|AC)\b/i)) iss.push('no AC'); if (!has(/\b(Hit Points|HP)\b/i)) iss.push('no hit points');
+  if (!has(/\b(STR|Str)\b/)) iss.push('no ability scores'); if (!has(/\b(Challenge|CR)\b/)) iss.push('no challenge rating');
+  if (!(c.actions || []).length && !(c.traits || []).length) iss.push('no traits or actions found');
+  if ((c._unparsed || []).length) iss.push((c._unparsed.length === 1 ? 'a line' : c._unparsed.length + ' lines') + ' not understood');
+  return iss;
+}
+// The whole pipeline: text in, creatures out (each with its source text and anything that needs a look)
+function parseStatBlocks(raw) {
+  return splitStatBlocks(raw).filter(b => b.length).map(b => {
+    const { text, stray } = canonBlock(b), c = parseStatBlock(text);
+    if (stray.length) c._unparsed = stray.concat(c._unparsed || []);
+    return { c, raw: text, issues: crIssues(c, text), sel: true };
+  });
+}
+// ---------- batch paste: one box, many creatures, a review list, save all ----------
+let PB = null;
+function openPaste(keep) {
+  openModal(`<h2>Paste stat blocks</h2><p class="dk-hint">Paste one creature or a whole batch — from a PDF (even two-column), D&amp;D Beyond, Homebrewery or Roll20. Each one starts at its name and size line. You’ll check them all before anything is saved.</p>
+    <textarea class="dk-f" id="dk-pasteIn" rows="14" placeholder="Goblin&#10;Small humanoid (goblinoid), neutral evil&#10;Armor Class 15 (leather armor, shield)&#10;Hit Points 7 (2d6)&#10;…&#10;&#10;Wolf&#10;Medium beast, unaligned&#10;…">${keep && PB ? esc(PB.text) : ''}</textarea>
+    <div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn gold" id="dk-pasteGo">Read stat blocks</button></div>`, { wide: true });
+  $('#dk-pasteGo').onclick = () => { const t = $('#dk-pasteIn').value; if (!t.trim()) return; PB = { text: t, items: parseStatBlocks(t), open: -1 }; if (!PB.items.length) return toastInfo('Nothing that looks like a stat block there.'); openBatchReview(); };
+}
+function pbSummary(c) {
+  const secs = SECS.filter(([k]) => (c[k] || []).length).map(([k, t]) => plural(c[k].length, (t || 'Traits').toLowerCase().replace(/s$/, '').replace(/actions$/, 'action')));
+  const atk = SECS.reduce((n, [k]) => n + (c[k] || []).filter(e => { const a = analyze(e); return a.hit != null || a.save; }).length, 0);
+  const sp = casterInfo(c);
+  return `${esc(c.size)} ${esc(c.type)} · AC ${N(c.ac)} · HP ${N(c.hp)}${c.hd ? ' (' + esc(c.hd) + ')' : ''} · CR ${crLabel(N(c.cr))}<br><small>${secs.join(' · ') || 'no entries'}${atk ? ` · ${plural(atk, 'roll button')}` : ''}${sp ? ` · spellcasting${sp.dc ? ' DC ' + sp.dc : ''}` : ''}</small>`;
+}
+function openBatchReview() {
+  const it = PB.items, ok = it.filter(x => !x.issues.length).length, sel = it.filter(x => x.sel).length;
+  openModal(`<h2>Check ${it.length === 1 ? 'the creature' : it.length + ' creatures'}</h2>
+    <p class="dk-hint">${ok} read cleanly${it.length - ok ? `, <b>${it.length - ok}</b> need a look` : ''}. Fix names and numbers here, or open one to edit everything. Lines the desk couldn’t place are shown in red.</p>
+    <div class="dk-pbl">${it.map((x, i) => { const c = x.c, bad = x.issues.length; return `<section class="dk-pbi${bad ? ' warn' : ''}${x.sel ? '' : ' off'}" data-i="${i}">
+      <header><input type="checkbox" class="dk-pbsel" data-i="${i}" ${x.sel ? 'checked' : ''} aria-label="Include ${esc(c.name)}"><input class="dk-f dk-pbname" data-pbf="name" data-i="${i}" value="${esc(c.name)}" aria-label="Name">
+        <span class="dk-chip ${bad ? 'bad' : 'ok'}">${bad ? 'Needs a look' : 'Read OK'}</span></header>
+      <div class="dk-pbrow"><label>AC<input class="dk-f dk-num" data-pbf="ac" data-i="${i}" value="${N(c.ac)}" inputmode="numeric"></label><label>HP<input class="dk-f dk-num" data-pbf="hp" data-i="${i}" value="${N(c.hp)}" inputmode="numeric"></label><label>CR<input class="dk-f dk-num" data-pbf="cr" data-i="${i}" value="${esc(crLabel(N(c.cr)))}"></label>
+        <span class="dk-pbsum">${pbSummary(c)}</span><button class="dk-btn sm" data-act="pbedit" data-i="${i}">Edit everything…</button></div>
+      ${bad ? `<p class="dk-pbiss">${esc(x.issues.join(' · '))}</p>` : ''}
+      ${(c._unparsed || []).length ? `<div class="dk-pbun">${c._unparsed.slice(0, 8).map(l => `<code>${esc(l.slice(0, 220))}</code>`).join('')}</div>` : ''}
+      <details><summary>Show what was read</summary><div class="dk-pbprev">${statBlock(c, null)}</div></details></section>`; }).join('')}</div>
+    <div class="dk-pbto"><label class="dk-chk"><input type="checkbox" id="dk-pbAdd" ${PB.add ? 'checked' : ''}> Also add them to</label>${sessPickHTML('dk-pbTo', 'A new group in the open session')}</div>
+    <div class="dk-acts"><button class="dk-btn" data-act="pbback">Back to the text</button><span class="dk-grow"></span><button class="dk-btn gold" data-act="pbsave" ${sel ? '' : 'disabled'}>Save ${sel === it.length && sel > 1 ? 'all ' + sel : sel === 1 ? '1 creature' : sel + ' creatures'}</button></div>`, { wide: true, cls: 'dk-pbwin' });
+}
+function pbField(el) {
+  const x = PB && PB.items[N(el.dataset.i)]; if (!x) return; const c = x.c, v = el.value.trim();
+  if (el.dataset.pbf === 'name') c.name = v || c.name; else if (el.dataset.pbf === 'ac') c.ac = N(v); else if (el.dataset.pbf === 'hp') c.hp = N(v) || 1;
+  else if (el.dataset.pbf === 'cr') { c.cr = crParse(v); c.xp = XP_CR[c.cr] || 0; c.pb = pbCR(c.cr); }
+  x.issues = x.issues.filter(s => !(el.dataset.pbf === 'name' && s === 'no name') && !(el.dataset.pbf === 'ac' && s === 'no AC') && !(el.dataset.pbf === 'hp' && s === 'no hit points') && !(el.dataset.pbf === 'cr' && s === 'no challenge rating'));
+}
+function onPasteAct(act, b) {
+  if (act === 'pbback') { openPaste(true); return true; }
+  if (act === 'pbedit') { const i = N(b.dataset.i); PB.open = i; openEditor(PB.items[i].c, true, 'batch'); return true; }
+  if (act === 'pbsave') {
+    const pick = $('#dk-pbAdd') && $('#dk-pbAdd').checked ? pickTarget($('#dk-pbTo'), 'Pasted creatures') : null; let n = 0;
+    PB.items.filter(x => x.sel).forEach(x => { const e = clone(x.c); e.id = 'c' + uid(); e.src = 'Pasted'; e.desc = ''; S.creatures[e.id] = e; if (pick) addToGroup(pick.s, pick.g, e.id, 1); n++; UI.best = e.id; });
+    closeModal(true); save(); PB = null; if (!pick) { UI.tab = 'bestiary'; UI.q = ''; } paint();
+    toastInfo(`Saved ${plural(n, 'creature')} to your creatures${pick ? ` and added ${n === 1 ? 'it' : 'them'} to <b>${esc(pick.s.title)}</b>` : ''}.`); return true;
+  }
+  return false;
+}
+function onPasteChange(el) {
+  if (el.classList.contains('dk-pbsel')) { const x = PB.items[N(el.dataset.i)]; x.sel = el.checked; el.closest('.dk-pbi').classList.toggle('off', !x.sel); const n = PB.items.filter(z => z.sel).length, bt = $('[data-act=pbsave]'); if (bt) { bt.disabled = !n; bt.textContent = n === PB.items.length && n > 1 ? `Save all ${n}` : n === 1 ? 'Save 1 creature' : `Save ${n} creatures`; } return true; }
+  if (el.dataset.pbf) { pbField(el); return true; }
+  if (el.id === 'dk-pbAdd') { PB.add = el.checked; return true; }
+  return false;
+}
 // ---------- doing things: attacks, damage, saves, spells, turns ----------
 const baseName = n => String(n || '').replace(/\s*\((?:Recharge|Costs|\d+\/Day|Recharges)[^)]*\)/gi, '').trim();
 const entOf = (c, ek) => { const [sec, i] = ek.split(':'); return sec === 'notes' ? { n: 'Notes', d: c.notes } : sec === 'spell' ? { n: '', d: '' } : (c[sec] || [])[N(i)] || { n: '', d: '' }; };
@@ -1024,6 +1158,7 @@ function statBlock(c, inst) {
     if (title) h += `<h3>${title}${sec === 'legendary' && inst && N(c.legCount) ? `<span class="dk-legpips">${pipRow(inst, 'L', N(c.legCount))}<button class="dk-btn sm" data-act="legreset" title="Regain legendary actions (start of its turn)">Regain</button></span>` : ''}</h3>`;
     if (sec === 'legendary') h += `<p class="dk-intro">${esc(c.legIntro || `${c.name} can take ${N(c.legCount) || 3} legendary actions, choosing from the options below. Only one option can be used at a time and only at the end of another creature’s turn. Spent legendary actions are regained at the start of its turn.`)}</p>`;
     if (sec === 'lair' && c.lairIntro) h += `<p class="dk-intro">${esc(c.lairIntro)}</p>`;
+    if (sec === 'mythic' && c.mythIntro) h += `<p class="dk-intro">${esc(c.mythIntro)}</p>`;
     list.forEach((e, i) => h += entryHTML(c, inst, sec, i, e));
   });
   if (c.notes) h += `<h3>DM notes</h3><div class="dk-desc">${linkText(c.notes, 'notes:0')}</div>`;
@@ -1122,8 +1257,8 @@ function openEditor(c, isNew, from) {
   const sk = Object.entries(e.skills || {}).map(([k, v]) => k + ' ' + sgE(N(v))).join(', ');
   const fld = (lbl, id, val, extra) => `<label><span class="dk-lbl">${lbl}</span><input class="dk-f" id="${id}" value="${esc(val == null ? '' : val)}" ${extra || ''}></label>`;
   const ta = (lbl, id, list, ph) => `<label class="dk-full"><span class="dk-lbl">${lbl}</span><textarea class="dk-f" id="${id}" rows="4" placeholder="${esc(ph || 'Name. What it does. One per paragraph, with a blank line between them.')}">${esc(entriesToText(list))}</textarea></label>`;
-  openModal(`<h2>${isNew ? (from === 'paste' ? 'Check what the desk read' : 'New creature') : 'Edit ' + esc(e.name)}</h2>
-    <p class="dk-hint">${from === 'paste' ? 'Fix anything that came through wrong, then save. Attacks, damage and saving throws in the text become roll buttons by themselves.' : 'Write entries the way the books do — <b>Bite.</b> <i>Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 7 (1d8 + 3) piercing damage.</i> — and to-hit bonuses, damage dice and save DCs become roll buttons.'}</p>
+  openModal(`<h2>${isNew ? (from === 'paste' || from === 'batch' ? 'Check what the desk read' : 'New creature') : 'Edit ' + esc(e.name)}</h2>
+    <p class="dk-hint">${from === 'paste' || from === 'batch' ? 'Fix anything that came through wrong, then save. Attacks, damage and saving throws in the text become roll buttons by themselves.' : 'Write entries the way the books do — <b>Bite.</b> <i>Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 7 (1d8 + 3) piercing damage.</i> — and to-hit bonuses, damage dice and save DCs become roll buttons.'}</p>
     <div class="dk-editor">
       <div class="dk-g4">${fld('Name', 'dk-edName', e.name)}${fld('Size', 'dk-edSize', e.size, 'list="dk-sizes"')}${fld('Type', 'dk-edType', e.type)}${fld('Alignment', 'dk-edAlign', e.align)}</div>
       <div class="dk-g4">${fld('Armor class', 'dk-edAC', e.ac, 'inputmode="numeric"')}${fld('AC note', 'dk-edACn', e.acNote, 'placeholder="natural armor"')}${fld('Hit points', 'dk-edHP', e.hp, 'inputmode="numeric"')}${fld('Hit dice', 'dk-edHD', e.hd, 'placeholder="9d10+18"')}</div>
@@ -1134,11 +1269,11 @@ function openEditor(c, isNew, from) {
       <div class="dk-g4">${fld('Senses', 'dk-edSenses', e.senses, 'placeholder="darkvision 60 ft."')}${fld('Passive Perception', 'dk-edPP', e.pp, 'inputmode="numeric"')}${fld('Languages', 'dk-edLangs', e.langs)}${fld('Book & page', 'dk-edBook', e.book || '', 'placeholder="Monster Manual p. 98"')}</div>
       ${ta('Traits', 'dk-edTraits', e.traits)}${ta('Actions', 'dk-edActions', e.actions)}${ta('Bonus actions', 'dk-edBonus', e.bonus)}${ta('Reactions', 'dk-edReact', e.reactions)}
       <div class="dk-g4">${fld('Legendary actions per round', 'dk-edLegN', e.legCount || '', 'inputmode="numeric" placeholder="3"')}</div>
-      ${ta('Legendary actions', 'dk-edLeg', e.legendary)}${ta('Lair actions', 'dk-edLair', e.lair)}
+      ${ta('Legendary actions', 'dk-edLeg', e.legendary)}${(e.mythic || []).length ? ta('Mythic actions', 'dk-edMyth', e.mythic) : ''}${ta('Lair actions', 'dk-edLair', e.lair)}
       <label class="dk-full"><span class="dk-lbl">DM notes</span><textarea class="dk-f" id="dk-edNotes" rows="2" placeholder="Tactics, reskins, where it shows up">${esc(e.notes || '')}</textarea></label>
       <div class="dk-row"><span class="dk-lbl" style="margin:0">Portrait</span>${e.img ? `<img src="${esc(e.img)}" alt="" class="dk-edimg">` : ''}<button class="dk-btn sm" data-act="edimg">${e.img ? 'Change' : 'Add a picture'}</button>${e.img ? '<button class="dk-btn sm red" data-act="edimgx">Remove</button>' : ''}</div>
     </div><datalist id="dk-sizes">${SIZES.map(s => `<option>${s}</option>`).join('')}</datalist>
-    <div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn gold" data-act="edsave">Save creature</button></div>`, { wide: true });
+    <div class="dk-acts"><button class="dk-btn" data-act="close">${from === 'batch' ? 'Back to the list' : 'Cancel'}</button><button class="dk-btn gold" data-act="edsave">${from === 'batch' ? 'Done' : 'Save creature'}</button></div>`, { wide: true, onClose: from === 'batch' ? () => setTimeout(openBatchReview, 0) : null });
 }
 function readEditor() {
   const e = ED.c, v = id => ($('#dk-' + id) || { value: '' }).value.trim();
@@ -1150,21 +1285,16 @@ function readEditor() {
   e.skills = {}; v('edSkills').split(/,\s*/).forEach(p => { const q = /([A-Za-z ]+?)\s*([+\-−]\s?\d+)/.exec(p); if (q) { const nm = Object.keys(SKILLS).find(s => s.toLowerCase() === q[1].trim().toLowerCase()); if (nm) e.skills[nm] = N(q[2].replace(/\s/g, '')); } });
   e.vuln = v('edVuln'); e.res = v('edRes'); e.imm = v('edImm'); e.cimm = v('edCimm'); e.senses = v('edSenses'); e.pp = v('edPP') === '' ? 10 + cSkill(e, 'Perception') : N(v('edPP')); e.langs = v('edLangs') || '—'; e.book = v('edBook');
   e.traits = textToEntries(v('edTraits')); e.actions = textToEntries(v('edActions')); e.bonus = textToEntries(v('edBonus')); e.reactions = textToEntries(v('edReact'));
-  e.legendary = textToEntries(v('edLeg')); e.legCount = e.legendary.length ? N(v('edLegN')) || 3 : 0; e.lair = textToEntries(v('edLair')); e.notes = v('edNotes');
+  e.legendary = textToEntries(v('edLeg')); e.legCount = e.legendary.length ? N(v('edLegN')) || 3 : 0; e.lair = textToEntries(v('edLair')); if ($('#dk-edMyth')) e.mythic = textToEntries(v('edMyth')); e.notes = v('edNotes');
   return e;
 }
 function saveEditor() {
   const e = readEditor();
+  if (ED.from === 'batch' && PB && PB.items[PB.open]) { const x = PB.items[PB.open]; x.c = e; x.issues = x.issues.filter(t => !/ not understood|^no /.test(t)); closeModal(true); return openBatchReview(); }
   if (!e.id || ED.isNew || e.src === 'SRD' || SRD[e.id]) e.id = 'c' + uid();
   if (e.src === 'SRD' || !e.src) e.src = 'Custom';
   e.desc = ''; S.creatures[e.id] = e; UI.best = e.id; UI.tab = 'bestiary'; UI.q = '';
   closeModal(true); save(); paint(); toastInfo(`Saved <b>${esc(e.name)}</b> to your creatures.`);
-}
-function openPaste() {
-  openModal(`<h2>Paste a stat block</h2><p class="dk-hint">Copy a stat block from your book’s PDF, D&amp;D Beyond or your notes and paste it here. The desk reads the name, AC, HP, scores, traits, actions, reactions and legendary actions, then lets you check it before saving. It stays private to your account.</p>
-    <textarea class="dk-f" id="dk-pasteIn" rows="14" placeholder="Goblin Boss&#10;Small humanoid (goblinoid), neutral evil&#10;Armor Class 17 (chain shirt, shield)&#10;Hit Points 21 (6d6)&#10;…"></textarea>
-    <div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn gold" id="dk-pasteGo">Read stat block</button></div>`, { wide: true });
-  $('#dk-pasteGo').onclick = () => { const t = $('#dk-pasteIn').value; if (!t.trim()) return; openEditor(parseStatBlock(t), true, 'paste'); };
 }
 function resizeImage(file, cb) {
   const r = new FileReader();
@@ -1388,7 +1518,7 @@ async function onClick(e) {
     case 'exportmine': return download('dm-desk-creatures-' + new Date().toISOString().slice(0, 10) + '.json', JSON.stringify({ app: 'dm-desk', v: 2, creatures: S.creatures }, null, 1));
     case 'import': { const f = $('.dk-impf'); f.onchange = () => { const file = f.files[0]; f.value = ''; if (file) doImport(file); }; return f.click(); }
     case 'r20check': r20Hello(); setTimeout(paintR20, 600); return;
-    default: if (onPlanAct(act, b)) return; if (/^hb/.test(act)) { onHBAct(act, b); return; } if (onNotesAct(act, b, e) === true) return; if (/^(nnew|nopen)$/.test(act)) return; break;
+    default: if (onPlanAct(act, b)) return; if (/^pb/.test(act) && onPasteAct(act, b)) return; if (/^hb/.test(act)) { onHBAct(act, b); return; } if (onNotesAct(act, b, e) === true) return; if (/^(nnew|nopen)$/.test(act)) return; break;
     case 'r20refresh': return r20Campaigns(false);
     case 'r20test': return roll({ who: 'DM’s Desk', label: 'Test roll', expr: '1d20' });
   }
@@ -1421,6 +1551,7 @@ function onChange(e) {
   const el = e.target; if (!ROOT.contains(el)) return;
   if (onNotesChange(el)) return;
   if (el.dataset && el.dataset.hbf) { hbReadForm(); return; }
+  if (PB && onPasteChange(el)) return;
   if (el.classList.contains('dk-notef')) { const files = Array.from(el.files || []); el.value = ''; const s = curSession(); if (files.length && s) addFiles(s, files); return; }
   if (el.dataset.set) { const k = el.dataset.set; S.settings[k] = el.type === 'checkbox' ? el.checked : el.value; save(); paintDice(); if (k === 'hpMode') return openSettings('creatures'); if (k === 'dice') { paintR20(); if (el.value === 'roll20') { r20Hello(); setTimeout(() => { paintR20(); if (R20.ok) r20Campaigns(true); }, 600); } } return; }
   if (el.id === 'dk-r20camp') { S.settings.r20campaign = el.value; save(); return; }
@@ -2819,7 +2950,7 @@ const SPELLN = () => DATA.spells.map(s => s.n);
 // The model's (or the form's) spec, checked field by field. Unknown keys are dropped and listed.
 function shapeHB(j) {
   if (!j || typeof j !== 'object') return null; const drop = [], o = {};
-  const known = ['name', 'type', 'rarity', 'attune', 'attuneBy', 'summary', 'notes', 'weapon', 'armor', 'bonuses', 'charges', 'spells', 'spellOnce', 'spellAtWill', 'spellAb', 'consumable', 'qty', 'use', 'passive', 'effect', 'attack', 'curse', 'carried', 'weight', 'cost'];
+  const known = ['onHit', 'name', 'type', 'rarity', 'attune', 'attuneBy', 'summary', 'notes', 'weapon', 'armor', 'bonuses', 'charges', 'spells', 'spellOnce', 'spellAtWill', 'spellAb', 'consumable', 'qty', 'use', 'passive', 'effect', 'attack', 'curse', 'carried', 'weight', 'cost'];
   Object.keys(j).forEach(k => { if (!known.includes(k)) drop.push(k); });
   o.name = vStr(j.name, 80); if (!o.name) return null;
   o.type = vEnum(j.type, HB_TYPES.map(t => t[0])) || 'wondrous'; o.rarity = vEnum(j.rarity, HB_RAR) || 'uncommon';
@@ -2846,38 +2977,12 @@ function shapeHB(j) {
   if (j.effect && typeof j.effect === 'object' && vStr(j.effect.name, 40)) { const e = j.effect; o.effect = { name: vStr(e.name, 40), rounds: vEnum(String(e.rounds || ''), HB_DURS.map(d => d[0])), fly: vInt(e.fly, 0, 120) || '', ac: vInt(e.ac, 0, 5) || '', speed: vInt(e.speed, 0, 120) || '', skillAdv: (Array.isArray(e.skillAdv) ? e.skillAdv : []).map(s => Object.keys(SKILLS).find(z => z.toLowerCase() === String(s).toLowerCase())).filter(Boolean), note: vStr(e.note, 160), conc: vBool(e.conc) }; }
   if (j.attack && typeof j.attack === 'object' && vStr(j.attack.name, 40) && vDice(j.attack.dice)) { const a = j.attack; o.attack = { name: vStr(a.name, 40), dice: vDice(a.dice), type: vEnum(a.type, HB_DT), ab: vEnum(a.ab, ['spell', 'str', 'dex', 'fin', 'con', 'int', 'wis', 'cha']) || 'spell', kind: vEnum(a.kind, ['melee', 'ranged']) || 'ranged', range: vInt(a.range, 0, 600) || '', addMod: vBool(a.addMod), note: vStr(a.note, 100) }; }
   if (j.curse && typeof j.curse === 'object') { const c = j.curse, x = { othersDis: vBool(c.othersDis), hurtSave: vEnum(c.hurtSave, HB_ABS), hurtDC: vInt(c.hurtDC, 5, 30), hurtText: vStr(c.hurtText, 200) }; if (x.othersDis || x.hurtSave) o.curse = x; }
+  if (j.onHit && typeof j.onHit === 'object') { const d = vDice(j.onHit.dice); if (d && o.type === 'weapon') o.onHit = { dice: d, type: vEnum(j.onHit.type, HB_DT), ask: vBool(j.onHit.ask) }; else drop.push('onHit'); }
   o.carried = vBool(j.carried) && o.type !== 'weapon' && o.type !== 'armor';
   o._dropped = drop.slice(0, 20); return o;
 }
-// spec -> the sheet's item object (what S.customItems holds and addInventoryItem accepts)
-function itemFromSpec(s) {
-  const W = T.WEAPONS || [], A = T.ARMOR || [], it = { name: s.name, qty: s.qty || 1, weight: s.weight || 0, cost: s.cost || '', equipped: false, notes: s.notes || '' }, hb = {}, mods = {};
-  if (s.summary) it.summary = s.summary;
-  it.magic = { rarity: s.rarity, type: s.type === 'armor' && s.armor && s.armor.base === 'Shield' ? 'shield' : s.type, src: 'Homebrew', name: s.name };
-  if (s.attune) { it.attune = true; it.attuneBy = s.attuneBy || ''; it.attuned = false; }
-  if (s.weapon) { const w = W.find(x => x[0] === s.weapon.base); if (w) { it.weapon = { cat: w[1], kind: w[2], dice: w[4], type: w[5], props: (w[7] || []).slice(), range: w[8] || '', base: w[0] }; if (!s.weight) it.weight = w[6]; if (s.weapon.magic) { mods.atk = s.weapon.magic; mods.dmg = s.weapon.magic; } } }
-  if (s.armor) { const a = A.find(x => x[0] === s.armor.base); if (a) { it.armor = { type: a[1], base: a[3], dexCap: a[4], strReq: a[5], stealthDis: a[6] }; if (!s.weight) it.weight = a[7]; if (s.armor.magic) mods.ac = s.armor.magic; } }
-  if (s.bonuses) { if (s.bonuses.ac) mods.ac = N(mods.ac) + s.bonuses.ac; if (s.bonuses.saves) mods.save = s.bonuses.saves; if (s.bonuses.spell) mods.spell = s.bonuses.spell; }
-  if (Object.keys(mods).length) it.mods = mods;
-  it.hbType = it.weapon ? 'weapon' : s.consumable ? 'consumable' : 'magic';
-  if (s.charges) it.charges = { max: s.charges.max, used: 0, reset: s.charges.reset };
-  if (s.spells && s.spells.length) { it.spells = s.spells.slice(); if (s.spellOnce) it.spellOnce = true; if (s.spellAtWill) it.spellAtWill = true; if (s.spellAb) hb.spellAb = s.spellAb; }
-  if (s.consumable) { hb.consume = true; if (s.type === 'potion' || s.type === 'scroll') it.consumable = true; }
-  const u = s.use || {}; if (u.col) hb.col = u.col; if (u.roll) hb.roll = u.roll; if (u.rollNote) hb.rollNote = u.rollNote; if (u.healRoll) hb.healRoll = true; if (u.selfDmg) hb.selfDmg = true;
-  if (u.heal) hb.heal = u.heal; if (u.temp) hb.temp = u.temp; if (u.saveAb) { hb.saveAb = u.saveAb; hb.dc = String(u.dc || 'spell'); } if (u.dash) hb.dash = true; if (u.text) hb.text = u.text;
-  const p = s.passive || {}; ['resist', 'immune', 'condImmune'].forEach(k => { if (p[k] && p[k].length) hb[k] = p[k].join(', '); });
-  ['speed', 'fly', 'swim', 'climb', 'sense', 'skillBonus', 'adv'].forEach(k => { if (p[k]) hb[k] = String(p[k]); }); if (p.init) hb.init = String(p.init); if (p.initAdv) hb.initAdv = true; if (p.maxHp) hb.maxHp = String(p.maxHp);
-  if (s.bonuses && s.bonuses.saves && !mods.save) hb.saveAll = String(s.bonuses.saves);
-  const e = s.effect; if (e) { hb.effName = e.name; if (e.rounds) hb.effRounds = e.rounds; if (e.fly) hb.effFly = String(e.fly); if (e.ac) hb.effAc = String(e.ac); if (e.speed) hb.effSpeed = String(e.speed); if (e.skillAdv && e.skillAdv.length) hb.effSkillAdv = e.skillAdv.join(', '); if (e.note) hb.effNote = e.note; if (e.conc) hb.effConc = true; if (!hb.col) hb.col = 'action'; }
-  const a = s.attack; if (a) { hb.atkName = a.name; hb.atkDice = a.dice; if (a.type) hb.atkType = a.type; hb.atkAb = a.ab; hb.atkKind = a.kind; if (a.range) hb.atkRange = String(a.range); if (a.addMod) hb.atkAddMod = true; if (a.note) hb.atkNote = a.note; }
-  const c = s.curse; if (c) { if (c.othersDis) hb.othersDis = true; if (c.hurtSave) { hb.hurtSave = c.hurtSave; hb.hurtDC = String(c.hurtDC || 10); if (c.hurtText) hb.hurtText = c.hurtText; } }
-  if (s.carried) it.carried = true;
-  if (it.weapon) it.noEquip = false;
-  // like the sheet's own builder: something usable shows its description when used
-  if (!it.weapon && (hb.col || it.charges || hb.consume) && !hb.text) { hb.text = String(s.summary || s.notes || '').slice(0, 400) || 'You use ' + s.name + '.'; hb.textAuto = 1; }
-  if (Object.keys(hb).length) it.hb = hb;
-  return it;
-}
+// spec -> the sheet's item object: shared with the character sheet (ItemParse.toItem, from ../src/app14.js)
+const itemFromSpec = sp => ItemParse.toItem(sp, { weapons: T.WEAPONS || [], armor: T.ARMOR || [] });
 // What it will do on a sheet, in plain words
 function hbPreview(s, it) {
   const L = [], W = T.WEAPONS || [], A = T.ARMOR || [], u = s.use || {}, p = s.passive || {};
@@ -2893,6 +2998,7 @@ function hbPreview(s, it) {
   ['speed', 'fly', 'swim', 'climb'].forEach(k => { if (p[k]) L.push(k === 'speed' ? `Speed +${p[k]} ft` : `${cap(k)} speed ${p[k] === 'walk' ? 'equal to walking' : p[k] + ' ft'}`); });
   if (p.sense) L.push(p.sense); if (p.skillBonus) L.push(p.skillBonus); if (p.init) L.push('Initiative ' + sg(p.init)); if (p.initAdv) L.push('Advantage on initiative'); if (p.maxHp) L.push('Max HP +' + (p.maxHp === 'level' ? 'your level' : p.maxHp)); if (p.adv) L.push('Advantage reminder: ' + p.adv);
   if (s.effect) { const e = s.effect, b = [e.ac ? '+' + e.ac + ' AC' : '', e.fly ? 'fly ' + e.fly + ' ft' : '', e.speed ? '+' + e.speed + ' ft speed' : '', e.skillAdv.length ? 'advantage on ' + e.skillAdv.join(', ') : '', e.note].filter(Boolean); L.push(`Starts “${e.name}”${e.rounds ? ' for ' + (HB_DURS.find(d => d[0] === e.rounds) || [, ''])[1] : ''}${e.conc ? ' (concentration)' : ''}${b.length ? ': ' + b.join(', ') : ''}`); }
+  if (s.onHit) L.push(`On a hit with it: +${s.onHit.dice}${s.onHit.type ? ' ' + s.onHit.type : ''} damage — ${s.onHit.ask ? 'a button on the attack, for when it applies' : 'added every hit'} (doubled on a crit)`);
   if (s.attack) { const a = s.attack; L.push(`Gives an attack: ${a.name} — ${a.dice}${a.type ? ' ' + a.type : ''}, ${a.ab === 'spell' ? 'spell attack' : a.ab.toUpperCase() + ' to hit'}, ${a.kind}${a.range ? ' ' + a.range + ' ft' : ''}${a.addMod ? ', adds the modifier to damage' : ''}`); }
   if (s.curse) { if (s.curse.othersDis) L.push('Curse: disadvantage on attacks with other weapons'); if (s.curse.hurtSave) L.push(`When you take damage: DC ${s.curse.hurtDC || 10} ${s.curse.hurtSave.toUpperCase()} save${s.curse.hurtText ? ' — ' + s.curse.hurtText : ''}`); }
   L.push(s.attune ? `Requires attunement${s.attuneBy ? ' by ' + s.attuneBy : ''} — works once attuned${s.carried ? '' : ' and equipped'}` : s.carried ? 'Works while carried' : it.weapon ? 'Attack shows on the Combat tab once it’s equipped' : 'Works while equipped');
@@ -2909,6 +3015,7 @@ const HB_SHAPE = `{"name": string, "type": one of ${HB_TYPES.map(t => t[0]).join
 "effect": {"name": string, "rounds": "1"|"10"|"100"|"600"|"4800", "fly": int, "ac": int, "speed": int, "skillAdv": [skills], "note": string, "conc": boolean} (a buff the item starts when used),
 "attack": {"name": string, "dice": dice, "type": damage type, "ab": "spell"|"str"|"dex"|"fin"|"con"|"int"|"wis"|"cha", "kind": "melee"|"ranged", "range": int, "addMod": boolean, "note": string} (an extra attack it gives),
 "curse": {"othersDis": boolean, "hurtSave": ability, "hurtDC": int, "hurtText": string},
+"onHit": {"dice": dice, "type": damage type, "ask": boolean} (weapons only: extra damage on a hit; ask=true when it only applies sometimes),
 "carried": boolean (works without being equipped)}`;
 async function hbAI(instr) {
   if (!aiReady()) return toastInfo('Add your AI key in Desk settings to generate items.', [{ label: 'Settings', fn: openSettings }]);
@@ -2917,7 +3024,7 @@ async function hbAI(instr) {
   const prompt = (camp ? `Campaign context (from the DM): ${camp}\n` : '') + base +
     `It must work automatically on a character sheet that only understands the fields below, so express every mechanic with them (bonuses, charges, attached spells by exact name, use rolls/saves/healing, resistances, speeds, effects, an extra attack, curses). Anything the fields can't express goes in "notes" as text.\nWEAPONS: ${(T.WEAPONS || []).map(w => w[0]).join(', ')}\nARMOR: ${(T.ARMOR || []).map(a => a[0]).join(', ')}\nDamage types: ${HB_DT.join(', ')}. Conditions: ${HB_CONDS.join(', ')}.\nReturn JSON in exactly this shape (leave out fields you don't use): ${HB_SHAPE}\nExample: {"name":"Ember Fang","type":"weapon","rarity":"rare","attune":true,"summary":"+1 shortsword that wreathes itself in flame","notes":"…","weapon":{"base":"Shortsword","magic":1},"charges":{"max":3,"reset":"long"},"spells":["Burning Hands"],"passive":{"resist":["fire"]}}`;
   HBM.busy = true; paint();
-  try { const sp = await aiJSON(prompt, shapeHB, { max: 2500 }); HBM.spec = sp; HBM.ai = true; HBM.raw = ''; }
+  try { const sp = await aiJSON(prompt, shapeHB, { max: 2500 }); HBM.read = null; HBM.spec = sp; HBM.ai = true; HBM.raw = ''; }
   catch (e) { toast({ title: 'Item generation didn’t work', det: esc(e.message), cls: 'bad' }); if (e.raw) HBM.raw = String(e.raw).slice(0, 3000); }
   HBM.busy = false; paint();
 }
@@ -2940,10 +3047,10 @@ function hbHTML() {
       <div class="dk-g2"><label><span class="dk-lbl">Attunement</span>${sel('dk-hbA', [['any', 'Either'], ['yes', 'Required'], ['no', 'Not required']], f.attune)}</label><label><span class="dk-lbl">Party level <small>(optional)</small></span><input class="dk-f" id="dk-hbL" type="number" min="1" max="20" inputmode="numeric" value="${esc(f.level)}"></label></div>
       <label><span class="dk-lbl">Campaign context</span><textarea class="dk-f" id="dk-camp" data-ch="camp" rows="2" maxlength="1500" placeholder="Optional">${esc(S.settings.campaign || '')}</textarea></label>
       <button class="dk-btn gold big wide" data-act="hbgen" ${HBM.busy ? 'disabled' : ''}>${HBM.busy ? 'Designing…' : '✦ Generate item'}</button>` : '<p class="dk-hint">Build an item with the sheet’s own automation — bonuses, charges, spells, resistances, attacks. (Turn on the AI helper in Desk settings to have items designed for you.)</p>'}
-      <button class="dk-btn wide" data-act="hbnew">Start from scratch</button></section>
+      <button class="dk-btn wide" data-act="hbpaste">${ICON.paste || '📋'} Paste item text</button><button class="dk-btn wide" data-act="hbnew">Start from scratch</button></section>
     <section class="dk-card dk-hbout">${s ? `<header class="dk-hbhd"><div><h2>${esc(s.name)}</h2><small>${esc(cap(s.rarity))} ${esc((HB_TYPES.find(t => t[0] === s.type) || [, s.type])[1].toLowerCase())}${s.attune ? ' · requires attunement' + (s.attuneBy ? ' by ' + esc(s.attuneBy) : '') : ''}</small></div><button class="dk-btn sm" data-act="hbedit">${HBM.edit ? 'Done editing' : 'Edit fields'}</button></header>
         ${s.summary ? `<p class="dk-intro">${esc(s.summary)}</p>` : ''}${HBM.edit ? hbFormHTML(s) : `<div class="dk-hbprev"><span class="dk-lbl">On a character sheet</span><ul>${hbPreview(s, it).map(l => `<li>${esc(l)}</li>`).join('')}</ul></div>${s.notes ? `<div class="dk-hbnotes"><span class="dk-lbl">Description</span><p>${esc(s.notes)}</p></div>` : ''}`}
-        ${s._dropped && s._dropped.length ? `<p class="dk-hint">Left out (the sheet can’t use it): ${esc(s._dropped.join(', '))}</p>` : ''}${HBM.ai ? '<p class="dk-hint">Designed by AI — check it before you hand it out.</p>' : ''}
+        ${HBM.read && !HBM.edit ? `<div class="dk-hbread"><span class="dk-lbl">Read from the text</span><ul>${HBM.read.done.map(l => `<li>✓ ${esc(l)}</li>`).join('')}</ul>${HBM.read.left.length ? `<ul class="dk-hbleft">${HBM.read.left.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}<p class="dk-hint">Anything else it does is in the description and isn’t automated.</p></div>` : ''}        ${s._dropped && s._dropped.length ? `<p class="dk-hint">Left out (the sheet can’t use it): ${esc(s._dropped.join(', '))}</p>` : ''}${HBM.ai ? '<p class="dk-hint">Designed by AI — check it before you hand it out.</p>' : ''}
         ${ai && s ? `<div class="dk-refine"><input class="dk-f" id="dk-hbRef" maxlength="500" placeholder="Ask for changes — e.g. “make it a ring and drop the curse”"><button class="dk-btn" data-act="hbref" ${HBM.busy ? 'disabled' : ''}>Refine</button></div>` : ''}
         <div class="dk-row dk-hbacts"><button class="dk-btn gold" data-act="hbsave">Save to my desk items</button>${CTX.partyHB ? `<button class="dk-btn gold" data-act="hbparty">Add to ${esc((CTX.party && CTX.party.name) || 'party')} homebrew</button>` : ''}<button class="dk-btn" data-act="hbcopy">Copy as JSON</button></div>`
       : HBM.raw ? `<details open><summary class="dk-hint">The AI’s reply couldn’t be turned into an item. Here it is as plain text:</summary><pre class="dk-raw">${esc(HBM.raw)}</pre></details>` : `<div class="dk-empty sm"><div class="dk-emblem">✦</div><h2>Items that work on the sheet</h2><p>Every bonus, charge, spell and power is built from the character sheet’s own automation, so it just works when a player adds it.</p></div>`}</section></div>
@@ -2959,7 +3066,8 @@ function hbFormHTML(s) {
     <div class="dk-g2">${I('name', s.name, { l: 'Name' })}${I('summary', s.summary, { l: 'One-line summary' })}</div>
     <div class="dk-g4">${S2('type', s.type, HB_TYPES, 'Type')}${S2('rarity', s.rarity, HB_RAR.map(r => [r, cap(r)]), 'Rarity')}${C('attune', s.attune, 'Requires attunement')}${I('attuneBy', s.attuneBy, { l: 'Attuned by', ph: 'a wizard' })}</div>
     <label><span class="dk-lbl">Description</span><textarea class="dk-f" data-hbf="notes" rows="3">${esc(s.notes || '')}</textarea></label>
-    <fieldset><legend>Weapon or armor</legend><div class="dk-g4">${S2('weapon.base', (s.weapon || {}).base, [['', '—']].concat((T.WEAPONS || []).map(w => [w[0], w[0]])), 'Weapon')}${S2('weapon.magic', (s.weapon || {}).magic || 0, [[0, 'No bonus'], [1, '+1'], [2, '+2'], [3, '+3']], 'Weapon bonus')}${S2('armor.base', (s.armor || {}).base, [['', '—']].concat((T.ARMOR || []).map(x => [x[0], x[0]])), 'Armor')}${S2('armor.magic', (s.armor || {}).magic || 0, [[0, 'No bonus'], [1, '+1'], [2, '+2'], [3, '+3']], 'Armor bonus')}</div></fieldset>
+    <fieldset><legend>Weapon or armor</legend><div class="dk-g4">${S2('weapon.base', (s.weapon || {}).base, [['', '—']].concat((T.WEAPONS || []).map(w => [w[0], w[0]])), 'Weapon')}${S2('weapon.magic', (s.weapon || {}).magic || 0, [[0, 'No bonus'], [1, '+1'], [2, '+2'], [3, '+3']], 'Weapon bonus')}${S2('armor.base', (s.armor || {}).base, [['', '—']].concat((T.ARMOR || []).map(x => [x[0], x[0]])), 'Armor')}${S2('armor.magic', (s.armor || {}).magic || 0, [[0, 'No bonus'], [1, '+1'], [2, '+2'], [3, '+3']], 'Armor bonus')}</div>
+      <div class="dk-g4">${I('onHit.dice', (s.onHit || {}).dice, { l: 'Extra damage on a hit', ph: '2d6' })}${S2('onHit.type', (s.onHit || {}).type || '', [['', '—']].concat(HB_DT.map(x => [x, x])), 'Its type')}${C('onHit.ask', (s.onHit || {}).ask, 'Only sometimes (a button)')}</div></fieldset>
     <fieldset><legend>Bonuses, charges & spells</legend><div class="dk-g4">${I('bonuses.ac', b.ac, { l: 'AC bonus' })}${I('bonuses.saves', b.saves, { l: 'Saves bonus' })}${I('bonuses.spell', b.spell, { l: 'Spell attack & DC bonus' })}${I('charges.max', (s.charges || {}).max, { l: 'Charges' })}</div>
       <div class="dk-g4">${S2('charges.reset', (s.charges || {}).reset || 'long', [['long', 'Long rest (dawn)'], ['short', 'Short rest'], ['none', 'Never']], 'Charges come back')}${I('spells', (s.spells || []).join(', '), { l: 'Spells it casts', list: 'dk-hbspl', ph: 'Burning Hands, …' })}${C('spellOnce', s.spellOnce, 'Leveled spells once per long rest')}${C('spellAtWill', s.spellAtWill, 'At will')}</div>
       <div class="dk-g4">${C('consumable', s.consumable, 'Using it uses one up')}${I('qty', s.qty, { l: 'How many' })}${C('carried', s.carried, 'Works while carried')}</div></fieldset>
@@ -2982,19 +3090,24 @@ function hbReadForm() {
   if (typeof raw.spells === 'string') raw.spells = raw.spells.split(/,\s*/).filter(Boolean);
   const P = raw.passive || {}; ['resist', 'immune', 'condImmune'].forEach(k => { if (typeof P[k] === 'string') P[k] = P[k].split(/,\s*/).filter(Boolean); });
   if (typeof P.skillBonus === 'string') { const sb = {}; P.skillBonus.split(/,\s*/).forEach(x => { const m = /^(.+?)\s*([+-]?\d+)$/.exec(x.trim()); if (m) sb[m[1]] = N(m[2]); }); P.skillBonus = sb; }
-  if (raw.weapon && !raw.weapon.base) delete raw.weapon; if (raw.armor && !raw.armor.base) delete raw.armor;
+  if (raw.weapon && !raw.weapon.base) delete raw.weapon; if (raw.armor && !raw.armor.base) delete raw.armor; if (raw.onHit && !String(raw.onHit.dice || '').trim()) delete raw.onHit;
   const v = shapeHB(raw); if (v) { v._dropped = []; HBM.spec = v; }
 }
 async function onHBAct(act, b) {
   switch (act) {
     case 'hbgen': hbReadInputs(); return hbAI(), true;
     case 'hbref': { const v = ($('#dk-hbRef') || {}).value || ''; if (!v.trim()) return true; hbAI(v); return true; }
-    case 'hbnew': HBM.spec = hbBlank(); HBM.ai = false; HBM.edit = true; paint(); return true;
+    case 'hbnew': HBM.read = null; HBM.spec = hbBlank(); HBM.ai = false; HBM.edit = true; paint(); return true;
+    case 'hbpaste': openModal(`<h2>Paste an item</h2><p class="dk-hint">Paste a magic item from a book, PDF or D&amp;D Beyond — name, the type line, then its text. Bonuses, charges, spells, extra damage, resistances and speeds become the sheet’s automation; the rest stays in the description.</p>
+      <textarea class="dk-f" id="dk-hbPaste" rows="10" placeholder="Flame Tongue&#10;Weapon (any sword), rare (requires attunement)&#10;You can use a bonus action to speak this magic sword’s command word…"></textarea>
+      <div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn gold" id="dk-hbPasteGo">Read item</button></div>`, { wide: true });
+      $('#dk-hbPasteGo').onclick = () => { const r = ItemParse.parse($('#dk-hbPaste').value, { weapons: T.WEAPONS || [], armor: T.ARMOR || [], spells: SPELLN() }); if (!r) return; const v = shapeHB(r.spec); if (!v) return toastInfo('That didn’t look like an item — the first line should be its name.');
+        v._dropped = (v._dropped || []).filter(x => !/^weapon$/.test(x)); HBM.spec = v; HBM.ai = false; HBM.edit = false; HBM.savedId = null; HBM.read = { done: r.done, left: r.left }; closeModal(true); paint(); }; return true;
     case 'hbedit': if (HBM.edit) hbReadForm(); HBM.edit = !HBM.edit; paint(); return true;
     case 'hbsave': { if (HBM.edit) hbReadForm(); const c = ITEMS(); if (!c || !HBM.spec) return true; const it = itemFromSpec(HBM.spec), id = HBM.savedId || 'h' + uid(); try { await withTimeout(c.doc(id).set({ savedAt: Date.now(), data: { spec: Object.assign({}, HBM.spec, { _dropped: [] }), item: it } })); } catch (e) { toast({ title: 'Couldn’t save the item', det: esc(e.message || ''), cls: 'bad' }); return true; } HBM.savedId = id; toastInfo(`Saved <b>${esc(it.name)}</b> to your desk items.`); hbLoadLists(); return true; }
     case 'hbparty': { if (HBM.edit) hbReadForm(); if (!CTX.partyHB || !HBM.spec) return true; const it = itemFromSpec(HBM.spec); try { await CTX.partyHB.add(JSON.parse(JSON.stringify(it))); toastInfo(`<b>${esc(it.name)}</b> is in your party’s homebrew — players can add it from Add an item → Homebrew.`); hbLoadLists(); } catch (e) { toast({ title: 'Couldn’t add it to the party', det: esc(e.message || ''), cls: 'bad' }); } return true; }
     case 'hbcopy': { if (HBM.edit) hbReadForm(); const t = JSON.stringify(itemFromSpec(HBM.spec), null, 1); try { await navigator.clipboard.writeText(t); toastInfo('Copied the item as JSON.'); } catch (e) { openModal(`<h2>Item JSON</h2><textarea class="dk-f" rows="14" readonly>${esc(t)}</textarea><div class="dk-acts"><button class="dk-btn" data-act="close">Close</button></div>`); } return true; }
-    case 'hbopen': { const d = (HBM.mine || []).find(x => x._id === b.dataset.id); if (d && d.data && d.data.spec) { const v = shapeHB(d.data.spec); if (v) { v._dropped = []; HBM.spec = v; HBM.savedId = d._id; HBM.ai = false; HBM.edit = false; paint(); scrollTo(0, 0); } } return true; }
+    case 'hbopen': { const d = (HBM.mine || []).find(x => x._id === b.dataset.id); if (d && d.data && d.data.spec) { const v = shapeHB(d.data.spec); if (v) { HBM.read = null; v._dropped = []; HBM.spec = v; HBM.savedId = d._id; HBM.ai = false; HBM.edit = false; paint(); scrollTo(0, 0); } } return true; }
     case 'hbdel': { const id = b.dataset.id; confirmBox('Delete this item from your desk?', 'Delete', async () => { const c = ITEMS(); if (!c) return; const keep = HBM.mine; HBM.mine = (HBM.mine || []).filter(x => x._id !== id); if (HBM.savedId === id) HBM.savedId = null; paint();
       try { await withTimeout(c.doc(id).delete(), 12000, 'Deleting'); toastInfo('Item deleted.'); } catch (e) { HBM.mine = keep; paint(); throw e; } hbLoadLists(); }, true); return true; }
     case 'hbpdel': { const id = b.dataset.id; confirmBox('Take this item out of your party’s homebrew? Characters who already have it keep theirs.', 'Remove', async () => { if (!CTX.partyHB) return; const keep = HBM.party; HBM.party = (HBM.party || []).filter(x => x._pid !== id); paint();
@@ -3079,5 +3192,129 @@ async function drRoll(ex, label, dc) { ex = String(ex || '').replace(/\s+/g, '')
   const r = await roll({ who: 'DM', label: 'Dice roller: ' + f + (ent.dc != null ? ' vs ' + ent.dc : ''), expr: ex }, ent.dc != null ? { noteFn: t => (t >= ent.dc ? 'Success' : 'Failure') } : {});
   if (r && typeof r.total === 'number') { ent.t = r.total; if (ent.dc != null) ent.ok = r.total >= ent.dc; } else DR.last = DR.last.filter(x => x !== ent);
   drKeep(); drPaint(); }
-window.pgDesk = { hostsParty: true, mount, unmount, _t: () => ({ NT, clean, mdToHtml, htmlToMd, pageByTitle, S, UI, LOG, R20, GEN, NPCG, PLANUI, findInst, analyze, parseStatBlock, toRead, encStats, shapePlan }) };
+// ==== ITEMPARSE START — shared with the DM's Desk (desk/build.sh copies this block into desk.js; edit it only here) ====
+// Magic item text (book, PDF, D&D Beyond, 2014 or 2024 wording) → a spec → a character-sheet item with it.hb automation.
+// ctx: { weapons: DND.weapons rows, armor: DND.armor rows, spells: [spell names] }. No globals used, so both apps can share it.
+const ItemParse = (() => {
+  const n = x => Number(x) || 0, low = s => String(s || '').toLowerCase();
+  const DT = ['acid', 'bludgeoning', 'cold', 'fire', 'force', 'lightning', 'necrotic', 'piercing', 'poison', 'psychic', 'radiant', 'slashing', 'thunder'];
+  const CONDS = ['Blinded', 'Charmed', 'Deafened', 'Frightened', 'Grappled', 'Incapacitated', 'Paralyzed', 'Petrified', 'Poisoned', 'Prone', 'Restrained', 'Stunned', 'Unconscious'];
+  const RAR = ['common', 'uncommon', 'rare', 'very rare', 'legendary', 'artifact'];
+  const WORDN = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, twelve: 12, twenty: 20, fifty: 50 };
+  const LIG = { 'ﬀ': 'ff', 'ﬁ': 'fi', 'ﬂ': 'fl', 'ﬃ': 'ffi', 'ﬄ': 'ffl' };
+  function norm(raw) {
+    let t = String(raw || '').replace(/\r\n?/g, '\n').replace(/[ﬀﬁﬂﬃﬄ]/g, m => LIG[m]).replace(/[­​-‍﻿]/g, '').replace(/[  -  ]/g, ' ')
+      .replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[−‒–]/g, '-').replace(/\t/g, ' ');
+    const L = t.split('\n').map(l => l.replace(/^\s*(?:>\s*)+/, '').replace(/^#{1,6}\s+/, '').replace(/\*\*\*|\*\*|__/g, '').replace(/(^|[\s(])[*_]([^*_]+?)[*_](?=[\s.,;:)]|$)/g, '$1$2').replace(/\s+/g, ' ').trim());
+    for (let i = L.length - 2; i >= 0; i--) if (/[a-z]-$/.test(L[i]) && /^[a-z]/.test(L[i + 1] || '')) { L[i] = L[i].slice(0, -1) + L[i + 1]; L.splice(i + 1, 1); }
+    return L;
+  }
+  const TYPE_RE = /^(weapon|armor|armour|shield|wondrous item|ring|potion|scroll|staff|wand|rod|ammunition)\b\s*(?:\(([^)]*)\))?\s*,?\s*(.*)$/i;
+  const num = s => /^\d+$/.test(s) ? n(s) : WORDN[low(s)] || 0;
+  const cap1 = s => s.charAt(0).toUpperCase() + s.slice(1);
+  function parse(raw, ctx) {
+    ctx = ctx || {}; const W = ctx.weapons || [], A = ctx.armor || [], SP = (ctx.spells || []).slice().sort((a, b) => b.length - a.length);
+    const L = norm(raw).filter(Boolean); if (!L.length) return null;
+    const s = { name: L[0].replace(/[.:]$/, ''), type: 'wondrous', rarity: 'uncommon', attune: false, attuneBy: '', summary: '', notes: '' }, done = [], left = [];
+    let i = 1; const tm = L[1] && TYPE_RE.exec(L[1]);
+    if (tm) {
+      i = 2; let ty = low(tm[1]).replace('armour', 'armor').replace('wondrous item', 'wondrous'); const base = low(tm[2] || ''), rest = low(tm[3] || '');
+      const rm = RAR.slice().reverse().find(r => rest.includes(r)) || (/varies/.test(rest) ? 'rare' : ''); if (rm) s.rarity = rm;
+      const at = /requires attunement(?: by ([^)]+))?/i.exec(L[1]); if (at) { s.attune = true; s.attuneBy = (at[1] || '').replace(/\)$/, '').trim(); }
+      if (ty === 'weapon' || ty === 'ammunition') {
+        const exact = W.find(w => low(w[0]) === base || low(w[0]) === base.replace(/s$/, '')) || W.find(w => base && base.split(/,|\bor\b/).some(b => low(w[0]) === b.trim()));
+        const pick = exact || (/sword/.test(base) ? W.find(w => w[0] === 'Longsword') : /axe/.test(base) ? W.find(w => w[0] === 'Battleaxe') : /bow/.test(base) ? W.find(w => w[0] === 'Longbow') : /ranged/.test(base) ? W.find(w => w[0] === 'Shortbow') : W.find(w => w[0] === 'Longsword'));
+        if (pick) { s.weapon = { base: pick[0], magic: 0 }; if (!exact) left.push(`Base weapon “${tm[2] || 'any'}” — set to ${pick[0]}; change it if you like.`); }
+        s.type = 'weapon';
+      } else if (ty === 'armor' || ty === 'shield') {
+        const exact = ty === 'shield' ? A.find(a => a[0] === 'Shield') : A.find(a => low(a[0]) === base || low(a[0]).replace(/ armor$/, '') === base || low(a[0]) === base + ' armor');
+        const pick = exact || A.find(a => /medium or heavy|heavy/.test(base) ? a[0] === 'Chain Mail' : /light/.test(base) ? a[0] === 'Studded Leather' : /medium/.test(base) ? a[0] === 'Breastplate' : a[0] === 'Chain Mail');
+        if (pick) { s.armor = { base: pick[0], magic: 0 }; if (!exact) left.push(`Base armor “${tm[2] || 'any'}” — set to ${pick[0]}; change it if you like.`); }
+        s.type = 'armor';
+      } else s.type = ty;
+      done.push(`${cap1(s.rarity)} ${s.type === 'wondrous' ? 'wondrous item' : s.type}${s.attune ? ', attunement' + (s.attuneBy ? ' by ' + s.attuneBy : '') : ''}`);
+    }
+    const body = L.slice(i).join(' '), sents = body.split(/(?<=[.!?])\s+(?=[A-Z])/), lb = body.toLowerCase();
+    s.notes = L.slice(i).join('\n');
+    let m;
+    if ((m = /\+(\d) bonus to attack (?:rolls )?and damage rolls/i.exec(body)) && s.weapon) { s.weapon.magic = n(m[1]); done.push(`+${m[1]} to attack and damage`); }
+    const acm = /\+(\d) bonus to (?:your )?(?:AC|Armor Class)( and (?:to )?saving throws)?/i.exec(body);
+    if (acm) { if (s.armor && !acm[2]) s.armor.magic = n(acm[1]); else { s.bonuses = s.bonuses || {}; s.bonuses.ac = n(acm[1]); } if (acm[2]) { s.bonuses = s.bonuses || {}; s.bonuses.saves = n(acm[1]); } done.push(`+${acm[1]} AC${acm[2] ? ' and saves' : ''}`); }
+    if (!acm || !acm[2]) { const sm = /\+(\d) bonus to (?:all )?saving throws/i.exec(body); if (sm) { s.bonuses = s.bonuses || {}; s.bonuses.saves = n(sm[1]); done.push(`+${sm[1]} to saves`); } }
+    if ((m = /\+(\d) bonus to spell attack rolls/i.exec(body))) { s.bonuses = s.bonuses || {}; s.bonuses.spell = n(m[1]); done.push(`+${m[1]} spell attack${/saving throw DCs?|save DC/i.test(body) ? ' and DC' : ''}`); }
+    if ((m = /has (\d+|[a-z]+) charges/i.exec(body)) && num(m[1])) {
+      const reset = /at dawn|each dawn|daily/i.test(body) ? 'long' : /short or long rest|short rest/i.test(body) ? 'short' : /long rest/i.test(body) ? 'long' : 'none';
+      s.charges = { max: num(m[1]), reset }; const rg = /regains? (all expended charges|\d+d\d+(?:\s*\+\s*\d+)?|\d+) (?:expended )?charges?/i.exec(body);
+      done.push(`${num(m[1])} charges${reset === 'none' ? '' : ', back ' + (reset === 'short' ? 'after a short rest' : 'at dawn')}${rg && !/all/i.test(rg[1]) ? ` (regains ${rg[1].replace(/\s+/g, '')} — the sheet refills all of them)` : ''}`);
+    }
+    // spells it casts (in sentences about casting), with their charge costs kept as a note
+    const spells = [], costs = [];
+    sents.filter(x => /\bcast\b|\bcasting\b/i.test(x)).forEach(x => { let rest = x;
+      for (const nm of SP) { const re = new RegExp('\\b' + nm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b(\\s*\\(([^)]*)\\))?', 'i'); const k = re.exec(rest); if (!k) continue;
+        if (/^(light|shield|fly|wish|command|sleep|bless|guidance|resistance|identify|message)$/i.test(nm) && !new RegExp('\\b' + nm + '\\b(?:\\s*spell|\\s*\\(|,|\\s+or\\b|\\s+and\\b|\\.)', 'i').test(rest.slice(k.index))) continue;
+        if (!spells.includes(nm)) spells.push(nm); if (k[2] && /charge/i.test(k[2])) costs.push(`${nm}: ${k[2]}`); rest = rest.slice(0, k.index) + ' ' + rest.slice(k.index + k[0].length); } });
+    spells.sort((a, b) => lb.indexOf(low(a)) - lb.indexOf(low(b))); costs.sort((a, b) => lb.indexOf(low(a.split(':')[0])) - lb.indexOf(low(b.split(':')[0])));
+    if (spells.length) { s.spells = spells.slice(0, 8); if (/can't (?:be used|do so) (?:this way )?again until the next dawn|once per (?:day|long rest)|1\/day/i.test(body) && !s.charges) s.spellOnce = true; done.push('Casts ' + s.spells.join(', ') + (costs.length ? ' (' + costs.join('; ') + ')' : '')); }
+    if (costs.length) s.notes += '\nCharge costs: ' + costs.join('; ') + '.';
+    // extra damage on a hit → an add-on to this weapon's attacks
+    if ((m = /(?:deals?|takes?) an extra (\d+d\d+(?:\s*\+\s*\d+)?)\s+([a-z]+) damage/i.exec(body)) && DT.includes(low(m[2]))) {
+      const sent = sents.find(x => x.includes(m[0])) || '', ask = /\b(while|if|when you hit (?:a|an) |against|whenever)\b/i.test(sent.slice(0, sent.indexOf(m[0]) + 1));
+      s.onHit = { dice: m[1].replace(/\s+/g, ''), type: low(m[2]), ask }; done.push(`On a hit: +${s.onHit.dice} ${s.onHit.type}${ask ? ' (a button — you choose when it applies)' : ''}`);
+    }
+    const P = {};
+    const typesIn = t => DT.filter(d => new RegExp('\\b' + d + '\\b').test(low(t)));
+    for (const k of body.matchAll(/resistance to ([a-z ,]+?) damage/gi)) { const ts = typesIn(k[1]); if (ts.length && !/all damage/i.test(k[0])) P.resist = (P.resist || []).concat(ts); }
+    for (const k of body.matchAll(/immun(?:e|ity) to ([a-z ,]+?) damage/gi)) { const ts = typesIn(k[1]); if (ts.length) P.immune = (P.immune || []).concat(ts); }
+    for (const k of body.matchAll(/(?:can't be|immune to being|immunity to being|immune to the) (charmed|frightened|poisoned|paralyzed|stunned|blinded|deafened|petrified|restrained|grappled)/gi)) P.condImmune = (P.condImmune || []).concat(cap1(low(k[1])));
+    if ((m = /flying speed (?:of (\d+) feet|equal to your walking speed)/i.exec(body))) P.fly = m[1] ? n(m[1]) : 'walk';
+    if ((m = /swimming speed (?:of (\d+) feet|equal to your walking speed)/i.exec(body))) P.swim = m[1] ? n(m[1]) : 'walk';
+    if ((m = /climbing speed (?:of (\d+) feet|equal to your walking speed)/i.exec(body))) P.climb = m[1] ? n(m[1]) : 'walk';
+    if ((m = /(?:walking )?speed increases by (\d+) feet/i.exec(body))) P.speed = n(m[1]);
+    if ((m = /darkvision (?:out )?to a range of (\d+) feet|darkvision (?:with a range of )?(\d+) feet/i.exec(body))) P.sense = 'Darkvision ' + (m[1] || m[2]) + ' ft';
+    const adv = sents.filter(x => /\byou have advantage on\b|\bgives? you advantage\b/i.test(x)).map(x => x.replace(/^.*?advantage on /i, '').replace(/[.,;]?\s*as the .*$|\.$/i, '').trim()).filter(Boolean);
+    if (adv.length) P.adv = adv.join('; ').slice(0, 200);
+    if (Object.keys(P).length) { Object.keys(P).forEach(k => { if (Array.isArray(P[k])) P[k] = Array.from(new Set(P[k])); }); s.passive = P;
+      done.push([P.resist && 'Resist ' + P.resist.join(', '), P.immune && 'Immune ' + P.immune.join(', '), P.condImmune && "Can't be " + P.condImmune.join(', ').toLowerCase(), P.fly && 'Fly ' + P.fly, P.swim && 'Swim ' + P.swim, P.climb && 'Climb ' + P.climb, P.speed && 'Speed +' + P.speed, P.sense, P.adv && 'Advantage: ' + P.adv].filter(Boolean).join(' · ')); }
+    // potions and scrolls are used up; healing potions heal
+    if (s.type === 'potion' || s.type === 'scroll') { s.consumable = true; s.qty = 1; }
+    if ((m = /regains? (\d+d\d+(?:\s*\+\s*\d+)?|\d+) hit points/i.exec(body)) && (s.consumable || /\bdrink\b/i.test(body))) { s.use = Object.assign(s.use || {}, { heal: m[1].replace(/\s+/g, ''), col: /bonus action/i.test(body) && !/action to (?:drink|administer)/i.test(body) ? 'bonus' : 'action' }); done.push('Heals ' + s.use.heal + ' when used'); }
+    else if (s.consumable) s.use = Object.assign(s.use || {}, { col: 'action' });
+    if (/\bcurse[ds]?\b/i.test(body)) { left.push('It’s cursed — the curse is in the description.'); if (/disadvantage on attack rolls (?:made )?with weapons other than/i.test(body)) s.curse = { othersDis: true }; }
+    if (/while (?:you're |you are )?(?:wearing|carrying|holding)|while it is on your person|while you carry/i.test(body) && !s.weapon && !s.armor && /carrying|on your person|carry/i.test(body)) s.carried = true;
+    s.summary = (sents[0] || '').slice(0, 200);
+    return { spec: s, done, left };
+  }
+  // spec → the sheet's item object (what S.inventory / S.customItems hold)
+  function toItem(s, ctx) {
+    ctx = ctx || {}; const W = ctx.weapons || [], A = ctx.armor || [], it = { name: s.name, qty: s.qty || 1, weight: s.weight || 0, cost: s.cost || '', equipped: false, notes: s.notes || '' }, hb = {}, mods = {};
+    if (s.summary) it.summary = s.summary;
+    it.magic = { rarity: s.rarity, type: s.type === 'armor' && s.armor && s.armor.base === 'Shield' ? 'shield' : s.type, src: 'Homebrew', name: s.name };
+    if (s.attune) { it.attune = true; it.attuneBy = s.attuneBy || ''; it.attuned = false; }
+    if (s.weapon) { const w = W.find(x => x[0] === s.weapon.base); if (w) { it.weapon = { cat: w[1], kind: w[2], dice: w[4], type: w[5], props: (w[7] || []).slice(), range: w[8] || '', base: w[0] }; if (!s.weight) it.weight = w[6]; if (s.weapon.magic) { mods.atk = s.weapon.magic; mods.dmg = s.weapon.magic; } } }
+    if (s.armor) { const a = A.find(x => x[0] === s.armor.base); if (a) { it.armor = { type: a[1], base: a[3], dexCap: a[4], strReq: a[5], stealthDis: a[6] }; if (!s.weight) it.weight = a[7]; if (s.armor.magic) mods.ac = s.armor.magic; } }
+    if (s.bonuses) { if (s.bonuses.ac) mods.ac = n(mods.ac) + s.bonuses.ac; if (s.bonuses.saves) mods.save = s.bonuses.saves; if (s.bonuses.spell) mods.spell = s.bonuses.spell; }
+    if (Object.keys(mods).length) it.mods = mods;
+    it.hbType = it.weapon ? 'weapon' : s.consumable ? 'consumable' : 'magic';
+    if (s.charges) it.charges = { max: s.charges.max, used: 0, reset: s.charges.reset };
+    if (s.spells && s.spells.length) { it.spells = s.spells.slice(); if (s.spellOnce) it.spellOnce = true; if (s.spellAtWill) it.spellAtWill = true; if (s.spellAb) hb.spellAb = s.spellAb; }
+    if (s.consumable) { hb.consume = true; if (s.type === 'potion' || s.type === 'scroll') it.consumable = true; }
+    const u = s.use || {}; if (u.col) hb.col = u.col; if (u.roll) hb.roll = u.roll; if (u.rollNote) hb.rollNote = u.rollNote; if (u.healRoll) hb.healRoll = true; if (u.selfDmg) hb.selfDmg = true;
+    if (u.heal) { hb.heal = u.heal; if (s.type === 'potion') it.heal = u.heal; } if (u.temp) hb.temp = u.temp; if (u.saveAb) { hb.saveAb = u.saveAb; hb.dc = String(u.dc || 'spell'); } if (u.dash) hb.dash = true; if (u.text) hb.text = u.text;
+    const p = s.passive || {}; ['resist', 'immune', 'condImmune'].forEach(k => { if (p[k] && p[k].length) hb[k] = p[k].join(', '); });
+    ['speed', 'fly', 'swim', 'climb', 'sense', 'skillBonus', 'adv'].forEach(k => { if (p[k]) hb[k] = String(p[k]); }); if (p.init) hb.init = String(p.init); if (p.initAdv) hb.initAdv = true; if (p.maxHp) hb.maxHp = String(p.maxHp);
+    const e = s.effect; if (e) { hb.effName = e.name; if (e.rounds) hb.effRounds = e.rounds; if (e.fly) hb.effFly = String(e.fly); if (e.ac) hb.effAc = String(e.ac); if (e.speed) hb.effSpeed = String(e.speed); if (e.skillAdv && e.skillAdv.length) hb.effSkillAdv = e.skillAdv.join(', '); if (e.note) hb.effNote = e.note; if (e.conc) hb.effConc = true; if (!hb.col) hb.col = 'action'; }
+    const a = s.attack; if (a) { hb.atkName = a.name; hb.atkDice = a.dice; if (a.type) hb.atkType = a.type; hb.atkAb = a.ab; hb.atkKind = a.kind; if (a.range) hb.atkRange = String(a.range); if (a.addMod) hb.atkAddMod = true; if (a.note) hb.atkNote = a.note; }
+    const c = s.curse; if (c) { if (c.othersDis) hb.othersDis = true; if (c.hurtSave) { hb.hurtSave = c.hurtSave; hb.hurtDC = String(c.hurtDC || 10); if (c.hurtText) hb.hurtText = c.hurtText; } }
+    // extra damage on a hit rides on this weapon's own attack (the sheet's add-ons)
+    const oh = s.onHit; if (oh && oh.dice) { hb.on = 'name:' + s.name; hb.onDmg = oh.dice; if (oh.type) hb.onType = oh.type; hb.onAsk = oh.ask ? '' : 'false'; hb.onCost = 'none'; }
+    if (s.carried) it.carried = true;
+    if (it.weapon) it.noEquip = false;
+    if (!it.weapon && (hb.col || it.charges || hb.consume) && !hb.text) { hb.text = String(s.summary || s.notes || '').slice(0, 400) || 'You use ' + s.name + '.'; hb.textAuto = 1; }
+    if (Object.keys(hb).length) it.hb = hb;
+    return it;
+  }
+  return { parse, toItem, norm, DT, CONDS };
+})();
+// ==== ITEMPARSE END ====
+window.pgDesk = { hostsParty: true, mount, unmount, _t: () => ({ NT, clean, mdToHtml, htmlToMd, pageByTitle, S, UI, LOG, R20, GEN, NPCG, PLANUI, findInst, analyze, parseStatBlock, parseStatBlocks, normPaste, parseMulti, casterInfo, toRead, encStats, shapePlan }) };
 })();

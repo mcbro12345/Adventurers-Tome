@@ -25,12 +25,12 @@ const hbbCount = (...ps) => ps.filter(p => { const v = hbbV(p); return v != null
 const hbbSum = (pairs) => pairs.filter(([p]) => { const v = hbbV(p); return v != null && v !== '' && v !== false; }).map(([p, t]) => t || String(hbbV(p))).join(' · ');
 
 // ----- Opening -----
-function openHomebrew(kind, idx) {
+function openHomebrew(kind, idx, preset, read) {
   const isNew = !(idx >= 0), list = kind === 'item' ? S.inventory : kind === 'feat' ? S.features : S.spells;
-  const src = isNew ? (kind === 'item' ? BLANK.inventory() : kind === 'feat' ? BLANK.features() : BLANK.spells()) : list[idx];
+  const src = preset || (isNew ? (kind === 'item' ? BLANK.inventory() : kind === 'feat' ? BLANK.features() : BLANK.spells()) : list[idx]);
   if (!src) return;
   const d = JSON.parse(JSON.stringify(src)); d.hb = d.hb || {};
-  if (isNew) d.name = '';
+  if (isNew && !preset) d.name = '';
   if (kind === 'item') {
     const w = d.weapon || {}, a = S.attacks.find(x => x.item === d.id) || {}, m = /(\d+)d(\d+)/.exec(w.dice || '') || [], rg = String(w.range || '').split('/');
     d._type = d.hbType || (d.weapon ? 'weapon' : d.hb.consume ? 'consumable' : 'magic');
@@ -40,7 +40,9 @@ function openHomebrew(kind, idx) {
     d._props = (w.props || []).filter(p => !/^ammunition|^loading$/.test(p)).join(', '); d._loading = (w.props || []).includes('loading'); d._cat = w.cat || 'martial';
     d._keep = !isNew && (S.customItems || []).some(x => x.name.toLowerCase() === String(d.name || '').toLowerCase());
   }
-  if (kind === 'item' && isNew) d.hb.col = 'action';
+  if (kind === 'item' && isNew && !preset) d.hb.col = 'action';
+  if (kind === 'item' && preset && d.mods && N(d.mods.atk)) d._mag = String(N(d.mods.atk));
+  if (kind === 'item' && preset && d.weapon && !d.hb.col) d.hb.col = 'action';
   if (kind === 'feat') { d._limited = String(d.max ?? '').trim() !== '' ? '1' : ''; d.col = d.col || ''; }
   if (kind === 'spell') {
     const h = d.hb, m = /(\d+)d(\d+)/.exec(h.dmg || '') || [], u = /(\d+)d(\d+)/.exec(h.up || '') || [];
@@ -49,7 +51,7 @@ function openHomebrew(kind, idx) {
     d._time = ['1 action', '1 bonus action', '1 reaction', '1 minute', '10 minutes', '1 hour', '8 hours'].includes(d.time) ? d.time : (d.time ? 'other' : '1 action'); d._timeX = d._time === 'other' ? d.time : '';
     d.level = String(N(d.level)); d._sum0 = d.summary || '';
   }
-  HBB = { kind, idx: isNew ? -1 : idx, d, isNew, adv: !!(HBB_ADV_ON(kind, d)), sec: {} };
+  HBB = { kind, idx: isNew ? -1 : idx, d, isNew, adv: !!(HBB_ADV_ON(kind, d)), sec: {}, read: read || null };
   spellDatalist();
   openModal('<div id="hbb"></div>', () => { HBB = null; }, true);
   hbbPaint();
@@ -66,6 +68,7 @@ function hbbPaint() {
   const basic = K === 'item' ? hbbItemBasic() : K === 'feat' ? hbbFeatBasic() : hbbSpellBasic();
   const adv = HBB.adv ? `<div class="hbb-adv">${K === 'item' ? hbbItemAdv() : K === 'feat' ? hbbFeatAdv() : hbbSpellAdv()}<p class="hint hbb-fhint">Numbers can be formulas: <code>prof</code>, <code>wis</code>, <code>level</code>, <code>1d6+prof</code>. Separate several entries with commas.</p></div>` : '';
   box.innerHTML = `<div class="hbb-head"><h3>${HBB.isNew ? 'New homebrew ' + title : 'Edit ' + esc(HBB.d.name || title)}</h3><label class="hbb-switch" title="Show every option the sheet can automate"><input type="checkbox" data-hbbadv${HBB.adv ? ' checked' : ''}><span class="tr"><i></i></span><span>Advanced</span></label></div>
+    ${HBB.read ? `<div class="hbb-read"><b>Read from the pasted text</b><ul>${HBB.read.done.map(l => `<li>✓ ${esc(l)}</li>`).join('')}${HBB.read.left.map(l => `<li class="warn">! ${esc(l)}</li>`).join('')}</ul><small class="hint">Check it below, then add it. Anything else it does stays in “What it does”.</small></div>` : ''}
     <div class="hbb-body">${basic}${adv}</div>
     <div class="actions hbb-acts">${K === 'item' ? `<label class="hbb-chk sm" title="So you (and your party) can add it again from Add an item → Homebrew"><input type="checkbox" data-hbb="_keep"${HBB.d._keep ? ' checked' : ''}><span><b>Also save to my homebrew items</b></span></label>` : ''}<span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-hbbsave>${HBB.isNew ? 'Create ' + title : 'Save'}</button></div>`;
   $('#modal-body').scrollTop = sc;
@@ -322,3 +325,139 @@ function hbbRiderFields(kind) {
   }
   return h + `</div>`;
 }
+
+// Paste an item's text from a book / PDF / D&D Beyond → the builder, filled in, to check and add.
+function openItemPaste() {
+  openModal(`<h3>Paste an item</h3><p class="hint">Paste a magic item — its name, the type line (“Weapon (longsword), rare (requires attunement)”), then its text. Bonuses, charges, spells, extra damage, resistances and speeds become automation you can check before adding it.</p>
+    <textarea class="f" id="ipaste" rows="10" aria-label="Item text" placeholder="Ring of Protection&#10;Ring, rare (requires attunement)&#10;You gain a +1 bonus to AC and saving throws while wearing this ring."></textarea>
+    <div class="actions"><span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn gold" id="ipasteGo">Read item</button></div>`, null, true);
+  setTimeout(() => { const t = $('#ipaste'); if (t) t.focus(); }, 30);
+  $('#ipasteGo').onclick = () => { const v = $('#ipaste').value; if (!v.trim()) return; const ctx = { weapons: DND.weapons, armor: DND.armor, spells: DND.spells.map(x => x.name) }, r = ItemParse.parse(v, ctx);
+    if (!r) { toast('That didn’t look like an item — the first line should be its name.', 'fumble'); return; }
+    const it = ItemParse.toItem(r.spec, ctx); it.id = uid(); closeModal(true); openHomebrew('item', -1, it, { done: r.done, left: r.left }); };
+}
+
+// ==== ITEMPARSE START — shared with the DM's Desk (desk/build.sh copies this block into desk.js; edit it only here) ====
+// Magic item text (book, PDF, D&D Beyond, 2014 or 2024 wording) → a spec → a character-sheet item with it.hb automation.
+// ctx: { weapons: DND.weapons rows, armor: DND.armor rows, spells: [spell names] }. No globals used, so both apps can share it.
+const ItemParse = (() => {
+  const n = x => Number(x) || 0, low = s => String(s || '').toLowerCase();
+  const DT = ['acid', 'bludgeoning', 'cold', 'fire', 'force', 'lightning', 'necrotic', 'piercing', 'poison', 'psychic', 'radiant', 'slashing', 'thunder'];
+  const CONDS = ['Blinded', 'Charmed', 'Deafened', 'Frightened', 'Grappled', 'Incapacitated', 'Paralyzed', 'Petrified', 'Poisoned', 'Prone', 'Restrained', 'Stunned', 'Unconscious'];
+  const RAR = ['common', 'uncommon', 'rare', 'very rare', 'legendary', 'artifact'];
+  const WORDN = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, twelve: 12, twenty: 20, fifty: 50 };
+  const LIG = { 'ﬀ': 'ff', 'ﬁ': 'fi', 'ﬂ': 'fl', 'ﬃ': 'ffi', 'ﬄ': 'ffl' };
+  function norm(raw) {
+    let t = String(raw || '').replace(/\r\n?/g, '\n').replace(/[ﬀﬁﬂﬃﬄ]/g, m => LIG[m]).replace(/[­​-‍﻿]/g, '').replace(/[  -  ]/g, ' ')
+      .replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[−‒–]/g, '-').replace(/\t/g, ' ');
+    const L = t.split('\n').map(l => l.replace(/^\s*(?:>\s*)+/, '').replace(/^#{1,6}\s+/, '').replace(/\*\*\*|\*\*|__/g, '').replace(/(^|[\s(])[*_]([^*_]+?)[*_](?=[\s.,;:)]|$)/g, '$1$2').replace(/\s+/g, ' ').trim());
+    for (let i = L.length - 2; i >= 0; i--) if (/[a-z]-$/.test(L[i]) && /^[a-z]/.test(L[i + 1] || '')) { L[i] = L[i].slice(0, -1) + L[i + 1]; L.splice(i + 1, 1); }
+    return L;
+  }
+  const TYPE_RE = /^(weapon|armor|armour|shield|wondrous item|ring|potion|scroll|staff|wand|rod|ammunition)\b\s*(?:\(([^)]*)\))?\s*,?\s*(.*)$/i;
+  const num = s => /^\d+$/.test(s) ? n(s) : WORDN[low(s)] || 0;
+  const cap1 = s => s.charAt(0).toUpperCase() + s.slice(1);
+  function parse(raw, ctx) {
+    ctx = ctx || {}; const W = ctx.weapons || [], A = ctx.armor || [], SP = (ctx.spells || []).slice().sort((a, b) => b.length - a.length);
+    const L = norm(raw).filter(Boolean); if (!L.length) return null;
+    const s = { name: L[0].replace(/[.:]$/, ''), type: 'wondrous', rarity: 'uncommon', attune: false, attuneBy: '', summary: '', notes: '' }, done = [], left = [];
+    let i = 1; const tm = L[1] && TYPE_RE.exec(L[1]);
+    if (tm) {
+      i = 2; let ty = low(tm[1]).replace('armour', 'armor').replace('wondrous item', 'wondrous'); const base = low(tm[2] || ''), rest = low(tm[3] || '');
+      const rm = RAR.slice().reverse().find(r => rest.includes(r)) || (/varies/.test(rest) ? 'rare' : ''); if (rm) s.rarity = rm;
+      const at = /requires attunement(?: by ([^)]+))?/i.exec(L[1]); if (at) { s.attune = true; s.attuneBy = (at[1] || '').replace(/\)$/, '').trim(); }
+      if (ty === 'weapon' || ty === 'ammunition') {
+        const exact = W.find(w => low(w[0]) === base || low(w[0]) === base.replace(/s$/, '')) || W.find(w => base && base.split(/,|\bor\b/).some(b => low(w[0]) === b.trim()));
+        const pick = exact || (/sword/.test(base) ? W.find(w => w[0] === 'Longsword') : /axe/.test(base) ? W.find(w => w[0] === 'Battleaxe') : /bow/.test(base) ? W.find(w => w[0] === 'Longbow') : /ranged/.test(base) ? W.find(w => w[0] === 'Shortbow') : W.find(w => w[0] === 'Longsword'));
+        if (pick) { s.weapon = { base: pick[0], magic: 0 }; if (!exact) left.push(`Base weapon “${tm[2] || 'any'}” — set to ${pick[0]}; change it if you like.`); }
+        s.type = 'weapon';
+      } else if (ty === 'armor' || ty === 'shield') {
+        const exact = ty === 'shield' ? A.find(a => a[0] === 'Shield') : A.find(a => low(a[0]) === base || low(a[0]).replace(/ armor$/, '') === base || low(a[0]) === base + ' armor');
+        const pick = exact || A.find(a => /medium or heavy|heavy/.test(base) ? a[0] === 'Chain Mail' : /light/.test(base) ? a[0] === 'Studded Leather' : /medium/.test(base) ? a[0] === 'Breastplate' : a[0] === 'Chain Mail');
+        if (pick) { s.armor = { base: pick[0], magic: 0 }; if (!exact) left.push(`Base armor “${tm[2] || 'any'}” — set to ${pick[0]}; change it if you like.`); }
+        s.type = 'armor';
+      } else s.type = ty;
+      done.push(`${cap1(s.rarity)} ${s.type === 'wondrous' ? 'wondrous item' : s.type}${s.attune ? ', attunement' + (s.attuneBy ? ' by ' + s.attuneBy : '') : ''}`);
+    }
+    const body = L.slice(i).join(' '), sents = body.split(/(?<=[.!?])\s+(?=[A-Z])/), lb = body.toLowerCase();
+    s.notes = L.slice(i).join('\n');
+    let m;
+    if ((m = /\+(\d) bonus to attack (?:rolls )?and damage rolls/i.exec(body)) && s.weapon) { s.weapon.magic = n(m[1]); done.push(`+${m[1]} to attack and damage`); }
+    const acm = /\+(\d) bonus to (?:your )?(?:AC|Armor Class)( and (?:to )?saving throws)?/i.exec(body);
+    if (acm) { if (s.armor && !acm[2]) s.armor.magic = n(acm[1]); else { s.bonuses = s.bonuses || {}; s.bonuses.ac = n(acm[1]); } if (acm[2]) { s.bonuses = s.bonuses || {}; s.bonuses.saves = n(acm[1]); } done.push(`+${acm[1]} AC${acm[2] ? ' and saves' : ''}`); }
+    if (!acm || !acm[2]) { const sm = /\+(\d) bonus to (?:all )?saving throws/i.exec(body); if (sm) { s.bonuses = s.bonuses || {}; s.bonuses.saves = n(sm[1]); done.push(`+${sm[1]} to saves`); } }
+    if ((m = /\+(\d) bonus to spell attack rolls/i.exec(body))) { s.bonuses = s.bonuses || {}; s.bonuses.spell = n(m[1]); done.push(`+${m[1]} spell attack${/saving throw DCs?|save DC/i.test(body) ? ' and DC' : ''}`); }
+    if ((m = /has (\d+|[a-z]+) charges/i.exec(body)) && num(m[1])) {
+      const reset = /at dawn|each dawn|daily/i.test(body) ? 'long' : /short or long rest|short rest/i.test(body) ? 'short' : /long rest/i.test(body) ? 'long' : 'none';
+      s.charges = { max: num(m[1]), reset }; const rg = /regains? (all expended charges|\d+d\d+(?:\s*\+\s*\d+)?|\d+) (?:expended )?charges?/i.exec(body);
+      done.push(`${num(m[1])} charges${reset === 'none' ? '' : ', back ' + (reset === 'short' ? 'after a short rest' : 'at dawn')}${rg && !/all/i.test(rg[1]) ? ` (regains ${rg[1].replace(/\s+/g, '')} — the sheet refills all of them)` : ''}`);
+    }
+    // spells it casts (in sentences about casting), with their charge costs kept as a note
+    const spells = [], costs = [];
+    sents.filter(x => /\bcast\b|\bcasting\b/i.test(x)).forEach(x => { let rest = x;
+      for (const nm of SP) { const re = new RegExp('\\b' + nm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b(\\s*\\(([^)]*)\\))?', 'i'); const k = re.exec(rest); if (!k) continue;
+        if (/^(light|shield|fly|wish|command|sleep|bless|guidance|resistance|identify|message)$/i.test(nm) && !new RegExp('\\b' + nm + '\\b(?:\\s*spell|\\s*\\(|,|\\s+or\\b|\\s+and\\b|\\.)', 'i').test(rest.slice(k.index))) continue;
+        if (!spells.includes(nm)) spells.push(nm); if (k[2] && /charge/i.test(k[2])) costs.push(`${nm}: ${k[2]}`); rest = rest.slice(0, k.index) + ' ' + rest.slice(k.index + k[0].length); } });
+    spells.sort((a, b) => lb.indexOf(low(a)) - lb.indexOf(low(b))); costs.sort((a, b) => lb.indexOf(low(a.split(':')[0])) - lb.indexOf(low(b.split(':')[0])));
+    if (spells.length) { s.spells = spells.slice(0, 8); if (/can't (?:be used|do so) (?:this way )?again until the next dawn|once per (?:day|long rest)|1\/day/i.test(body) && !s.charges) s.spellOnce = true; done.push('Casts ' + s.spells.join(', ') + (costs.length ? ' (' + costs.join('; ') + ')' : '')); }
+    if (costs.length) s.notes += '\nCharge costs: ' + costs.join('; ') + '.';
+    // extra damage on a hit → an add-on to this weapon's attacks
+    if ((m = /(?:deals?|takes?) an extra (\d+d\d+(?:\s*\+\s*\d+)?)\s+([a-z]+) damage/i.exec(body)) && DT.includes(low(m[2]))) {
+      const sent = sents.find(x => x.includes(m[0])) || '', ask = /\b(while|if|when you hit (?:a|an) |against|whenever)\b/i.test(sent.slice(0, sent.indexOf(m[0]) + 1));
+      s.onHit = { dice: m[1].replace(/\s+/g, ''), type: low(m[2]), ask }; done.push(`On a hit: +${s.onHit.dice} ${s.onHit.type}${ask ? ' (a button — you choose when it applies)' : ''}`);
+    }
+    const P = {};
+    const typesIn = t => DT.filter(d => new RegExp('\\b' + d + '\\b').test(low(t)));
+    for (const k of body.matchAll(/resistance to ([a-z ,]+?) damage/gi)) { const ts = typesIn(k[1]); if (ts.length && !/all damage/i.test(k[0])) P.resist = (P.resist || []).concat(ts); }
+    for (const k of body.matchAll(/immun(?:e|ity) to ([a-z ,]+?) damage/gi)) { const ts = typesIn(k[1]); if (ts.length) P.immune = (P.immune || []).concat(ts); }
+    for (const k of body.matchAll(/(?:can't be|immune to being|immunity to being|immune to the) (charmed|frightened|poisoned|paralyzed|stunned|blinded|deafened|petrified|restrained|grappled)/gi)) P.condImmune = (P.condImmune || []).concat(cap1(low(k[1])));
+    if ((m = /flying speed (?:of (\d+) feet|equal to your walking speed)/i.exec(body))) P.fly = m[1] ? n(m[1]) : 'walk';
+    if ((m = /swimming speed (?:of (\d+) feet|equal to your walking speed)/i.exec(body))) P.swim = m[1] ? n(m[1]) : 'walk';
+    if ((m = /climbing speed (?:of (\d+) feet|equal to your walking speed)/i.exec(body))) P.climb = m[1] ? n(m[1]) : 'walk';
+    if ((m = /(?:walking )?speed increases by (\d+) feet/i.exec(body))) P.speed = n(m[1]);
+    if ((m = /darkvision (?:out )?to a range of (\d+) feet|darkvision (?:with a range of )?(\d+) feet/i.exec(body))) P.sense = 'Darkvision ' + (m[1] || m[2]) + ' ft';
+    const adv = sents.filter(x => /\byou have advantage on\b|\bgives? you advantage\b/i.test(x)).map(x => x.replace(/^.*?advantage on /i, '').replace(/[.,;]?\s*as the .*$|\.$/i, '').trim()).filter(Boolean);
+    if (adv.length) P.adv = adv.join('; ').slice(0, 200);
+    if (Object.keys(P).length) { Object.keys(P).forEach(k => { if (Array.isArray(P[k])) P[k] = Array.from(new Set(P[k])); }); s.passive = P;
+      done.push([P.resist && 'Resist ' + P.resist.join(', '), P.immune && 'Immune ' + P.immune.join(', '), P.condImmune && "Can't be " + P.condImmune.join(', ').toLowerCase(), P.fly && 'Fly ' + P.fly, P.swim && 'Swim ' + P.swim, P.climb && 'Climb ' + P.climb, P.speed && 'Speed +' + P.speed, P.sense, P.adv && 'Advantage: ' + P.adv].filter(Boolean).join(' · ')); }
+    // potions and scrolls are used up; healing potions heal
+    if (s.type === 'potion' || s.type === 'scroll') { s.consumable = true; s.qty = 1; }
+    if ((m = /regains? (\d+d\d+(?:\s*\+\s*\d+)?|\d+) hit points/i.exec(body)) && (s.consumable || /\bdrink\b/i.test(body))) { s.use = Object.assign(s.use || {}, { heal: m[1].replace(/\s+/g, ''), col: /bonus action/i.test(body) && !/action to (?:drink|administer)/i.test(body) ? 'bonus' : 'action' }); done.push('Heals ' + s.use.heal + ' when used'); }
+    else if (s.consumable) s.use = Object.assign(s.use || {}, { col: 'action' });
+    if (/\bcurse[ds]?\b/i.test(body)) { left.push('It’s cursed — the curse is in the description.'); if (/disadvantage on attack rolls (?:made )?with weapons other than/i.test(body)) s.curse = { othersDis: true }; }
+    if (/while (?:you're |you are )?(?:wearing|carrying|holding)|while it is on your person|while you carry/i.test(body) && !s.weapon && !s.armor && /carrying|on your person|carry/i.test(body)) s.carried = true;
+    s.summary = (sents[0] || '').slice(0, 200);
+    return { spec: s, done, left };
+  }
+  // spec → the sheet's item object (what S.inventory / S.customItems hold)
+  function toItem(s, ctx) {
+    ctx = ctx || {}; const W = ctx.weapons || [], A = ctx.armor || [], it = { name: s.name, qty: s.qty || 1, weight: s.weight || 0, cost: s.cost || '', equipped: false, notes: s.notes || '' }, hb = {}, mods = {};
+    if (s.summary) it.summary = s.summary;
+    it.magic = { rarity: s.rarity, type: s.type === 'armor' && s.armor && s.armor.base === 'Shield' ? 'shield' : s.type, src: 'Homebrew', name: s.name };
+    if (s.attune) { it.attune = true; it.attuneBy = s.attuneBy || ''; it.attuned = false; }
+    if (s.weapon) { const w = W.find(x => x[0] === s.weapon.base); if (w) { it.weapon = { cat: w[1], kind: w[2], dice: w[4], type: w[5], props: (w[7] || []).slice(), range: w[8] || '', base: w[0] }; if (!s.weight) it.weight = w[6]; if (s.weapon.magic) { mods.atk = s.weapon.magic; mods.dmg = s.weapon.magic; } } }
+    if (s.armor) { const a = A.find(x => x[0] === s.armor.base); if (a) { it.armor = { type: a[1], base: a[3], dexCap: a[4], strReq: a[5], stealthDis: a[6] }; if (!s.weight) it.weight = a[7]; if (s.armor.magic) mods.ac = s.armor.magic; } }
+    if (s.bonuses) { if (s.bonuses.ac) mods.ac = n(mods.ac) + s.bonuses.ac; if (s.bonuses.saves) mods.save = s.bonuses.saves; if (s.bonuses.spell) mods.spell = s.bonuses.spell; }
+    if (Object.keys(mods).length) it.mods = mods;
+    it.hbType = it.weapon ? 'weapon' : s.consumable ? 'consumable' : 'magic';
+    if (s.charges) it.charges = { max: s.charges.max, used: 0, reset: s.charges.reset };
+    if (s.spells && s.spells.length) { it.spells = s.spells.slice(); if (s.spellOnce) it.spellOnce = true; if (s.spellAtWill) it.spellAtWill = true; if (s.spellAb) hb.spellAb = s.spellAb; }
+    if (s.consumable) { hb.consume = true; if (s.type === 'potion' || s.type === 'scroll') it.consumable = true; }
+    const u = s.use || {}; if (u.col) hb.col = u.col; if (u.roll) hb.roll = u.roll; if (u.rollNote) hb.rollNote = u.rollNote; if (u.healRoll) hb.healRoll = true; if (u.selfDmg) hb.selfDmg = true;
+    if (u.heal) { hb.heal = u.heal; if (s.type === 'potion') it.heal = u.heal; } if (u.temp) hb.temp = u.temp; if (u.saveAb) { hb.saveAb = u.saveAb; hb.dc = String(u.dc || 'spell'); } if (u.dash) hb.dash = true; if (u.text) hb.text = u.text;
+    const p = s.passive || {}; ['resist', 'immune', 'condImmune'].forEach(k => { if (p[k] && p[k].length) hb[k] = p[k].join(', '); });
+    ['speed', 'fly', 'swim', 'climb', 'sense', 'skillBonus', 'adv'].forEach(k => { if (p[k]) hb[k] = String(p[k]); }); if (p.init) hb.init = String(p.init); if (p.initAdv) hb.initAdv = true; if (p.maxHp) hb.maxHp = String(p.maxHp);
+    const e = s.effect; if (e) { hb.effName = e.name; if (e.rounds) hb.effRounds = e.rounds; if (e.fly) hb.effFly = String(e.fly); if (e.ac) hb.effAc = String(e.ac); if (e.speed) hb.effSpeed = String(e.speed); if (e.skillAdv && e.skillAdv.length) hb.effSkillAdv = e.skillAdv.join(', '); if (e.note) hb.effNote = e.note; if (e.conc) hb.effConc = true; if (!hb.col) hb.col = 'action'; }
+    const a = s.attack; if (a) { hb.atkName = a.name; hb.atkDice = a.dice; if (a.type) hb.atkType = a.type; hb.atkAb = a.ab; hb.atkKind = a.kind; if (a.range) hb.atkRange = String(a.range); if (a.addMod) hb.atkAddMod = true; if (a.note) hb.atkNote = a.note; }
+    const c = s.curse; if (c) { if (c.othersDis) hb.othersDis = true; if (c.hurtSave) { hb.hurtSave = c.hurtSave; hb.hurtDC = String(c.hurtDC || 10); if (c.hurtText) hb.hurtText = c.hurtText; } }
+    // extra damage on a hit rides on this weapon's own attack (the sheet's add-ons)
+    const oh = s.onHit; if (oh && oh.dice) { hb.on = 'name:' + s.name; hb.onDmg = oh.dice; if (oh.type) hb.onType = oh.type; hb.onAsk = oh.ask ? '' : 'false'; hb.onCost = 'none'; }
+    if (s.carried) it.carried = true;
+    if (it.weapon) it.noEquip = false;
+    if (!it.weapon && (hb.col || it.charges || hb.consume) && !hb.text) { hb.text = String(s.summary || s.notes || '').slice(0, 400) || 'You use ' + s.name + '.'; hb.textAuto = 1; }
+    if (Object.keys(hb).length) it.hb = hb;
+    return it;
+  }
+  return { parse, toItem, norm, DT, CONDS };
+})();
+// ==== ITEMPARSE END ====

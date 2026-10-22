@@ -1230,6 +1230,101 @@ const ringItems = () => S.inventory.map((it, ii) => [it, ii]).filter(([it]) => i
 document.addEventListener('change', e => { const t = e.target; if (!t || !t.matches || !t.matches('[data-offhand]')) return; const it = S.inventory[N(t.dataset.offhand)]; if (!it) return;
   it.offhand = t.checked; pendingLabel = `${it.name}: ${t.checked ? 'dual wield (off-hand)' : 'not dual wielded'}`; save(); render(); });
 
+// ---------- Add-ons ("riders"): a homebrew feature or item that adds something to another ability ----------
+// f.hb / it.hb: on ('meleehit' | 'hit' | 'cast' | 'spelldmg' | 'name:<ability>'), onDmg + onType (extra dice, doubled on a crit),
+// onHeal / onTemp (for you), onSave + onDC + onCond + onCondDur (on the target), onMsg, onCost ('use' | 'charge' | 'none'),
+// onAsk (true: you're asked each time; false: it always happens).
+const RIDER_GEN = [['meleehit', 'I hit with a melee weapon attack'], ['hit', 'I hit with any attack'], ['cast', 'I cast a spell'], ['spelldmg', 'I deal damage with a spell']];
+const riderKeyName = s => String(s || '').toLowerCase().replace(/\s*\(.*\)\s*$/, '').replace(/[^a-z0-9]+/g, ' ').trim();
+function riderSources() {
+  const out = [];
+  (S.features || []).forEach((f, i) => { const h = f && f.hb; if (!h || !h.on) return; const max = featMax(f), cost = h.onCost || (max != null ? 'use' : 'none');
+    out.push({ kind: 'feat', i, obj: f, name: f.name || 'Homebrew', hb: h, cost, max: cost === 'use' ? max : null,
+      left: () => cost === 'use' && max != null ? Math.max(0, max - N(f.used)) : null, spend: () => { if (cost === 'use' && max != null) f.used = N(f.used) + 1; }, refund: () => { if (cost === 'use' && max != null) f.used = Math.max(0, N(f.used) - 1); } }); });
+  (S.inventory || []).forEach((it, i) => { const h = it && it.hb; if (!h || !h.on || !hbItemOn(it)) return; const ch = it.charges && N(it.charges.max) > 0 ? it.charges : null, cost = h.onCost || (ch ? 'charge' : 'none');
+    out.push({ kind: 'item', i, obj: it, name: it.name || 'Item', hb: h, cost, max: cost === 'charge' && ch ? N(ch.max) : null,
+      left: () => cost === 'charge' && ch ? Math.max(0, N(ch.max) - N(ch.used)) : null, spend: () => { if (cost === 'charge' && ch) ch.used = N(ch.used) + 1; }, refund: () => { if (cost === 'charge' && ch) ch.used = Math.max(0, N(ch.used) - 1); } }); });
+  return out;
+}
+// What sets it off, in words ("adds to Divine Smite", "when you hit with a melee weapon")
+function riderTrigText(h) { const t = String((h && h.on) || ''); const g = RIDER_GEN.find(x => x[0] === t); return g ? 'When ' + g[1].replace(/^I /, 'you ') : t.startsWith('name:') ? 'Adds to ' + t.slice(5) : ''; }
+function riderWhat(h) {
+  const dc = riderDC(h), bits = [];
+  if (h.onDmg) bits.push('+' + String(h.onDmg).trim() + (h.onType ? ' ' + String(h.onType).toLowerCase() : '') + ' damage');
+  if (h.onHeal) bits.push('heals you ' + h.onHeal); if (h.onTemp) bits.push(h.onTemp + ' temp HP');
+  if (h.onSave) bits.push(`${dc ? 'DC ' + dc + ' ' : ''}${String(h.onSave).toUpperCase()} save${h.onCond ? ' or ' + h.onCond : ''}`);
+  else if (h.onCond) bits.push(h.onCond);
+  if (h.onMsg) bits.push(String(h.onMsg));
+  return bits.join(' · ');
+}
+function riderDC(h) { const d = String((h && h.onDC) || '').trim().toLowerCase(); if (!d) return h && h.onSave ? null : null; if (/^\d+$/.test(d)) return N(d); if (d === 'spell') { const c = (S.spells || []).find(s => s.cls) ; return c ? castInfo(c.cls).dc : null; } if (/^(str|dex|con|int|wis|cha)(\|(str|dex|con|int|wis|cha))*$/.test(d)) return dcVal(d); return evalMax(d); }
+// Does this add-on fire for this event? ev: { kind: 'atk'|'spell'|'feat', names: [...], melee, weapon, hit, dmg }
+function riderMatches(src, ev) {
+  const t = String(src.hb.on || ''); if (!t) return false;
+  if (src.kind === 'feat' && ev.self === src.obj) return false;
+  if (t === 'meleehit') return ev.kind === 'atk' && !!ev.melee && !!ev.weapon;
+  if (t === 'hit') return ev.kind === 'atk' || (ev.kind === 'spell' && !!ev.hit);
+  if (t === 'cast') return ev.kind === 'spell';
+  if (t === 'spelldmg') return ev.kind === 'spell' && !!ev.dmg;
+  if (t.startsWith('name:')) { const k = riderKeyName(t.slice(5)); return (ev.names || []).some(n => riderKeyName(n) === k); }
+  return false;
+}
+const ridersFor = ev => riderSources().filter(s => riderMatches(s, ev));
+// Spend it and do it. Returns { total, type, dice, lines } — the caller shows it (or adds it to its own card).
+function riderDo(src, ev) {
+  const h = src.hb, left = src.left();
+  if (left != null && left <= 0) return { none: true };
+  src.spend();
+  const lines = [], nm = src.name; let r = null, dice = '';
+  if (h.onDmg) { dice = fxRollExpr(String(h.onDmg)); if (ev.crit && /\d*d\d+/.test(dice)) dice = critDice(dice); r = rollExpr(dice, { label: nm + (ev.crit ? ' (crit)' : '') }); }
+  const u = {}; if (h.onHeal) u.heal = String(h.onHeal); if (h.onTemp) u.temp = String(h.onTemp); fxApplyUse(u, nm, lines);
+  if (h.onSave || h.onCond) { const dc = riderDC(h); lines.push(`Target: ${h.onSave ? `${dc ? 'DC ' + dc + ' ' : ''}${String(h.onSave).toUpperCase()} save` : ''}${h.onSave && h.onCond ? ' or ' : ''}${h.onCond ? h.onCond + (h.onCondDur ? ' ' + String(h.onCondDur) : '') : ''}`); }
+  if (h.onMsg) lines.push(fxText(String(h.onMsg)));
+  const l2 = src.left(); if (l2 != null) lines.push(`${l2} of ${src.max} left`);
+  pendingLabel = (src.kind === 'item' ? 'Use ' : 'Use ') + nm;
+  return { total: r ? r.total : 0, r, dice, type: String(h.onType || '').toLowerCase(), lines };
+}
+// Shows what an add-on did on its own card (used by the "+ add-on" buttons and by abilities that roll separately).
+function riderCard(src, ev, res, base) {
+  const h = src.hb, lbl = [res.dice ? res.dice + (res.type ? ' ' + res.type : '') : '', riderTrigText(h).toLowerCase(), ev.crit && res.dice ? 'crit: dice doubled' : ''].filter(Boolean).join(' · ');
+  toast(`${res.r ? `<b class="total">${res.total}</b>` : ''}<div class="rc-body"><div class="rc-name">${esc(src.name)}</div><div class="rc-lbl">${esc(lbl)}</div>${base != null && res.r ? `<div class="rc-rider">With the hit: <b>${base + res.total}</b> damage in all</div>` : ''}${res.r ? `<div class="det dd">${esc(res.r.detail)}</div>` : ''}${res.lines.map(l => `<div class="rc-rider${/ left$/.test(l) ? ' sm' : ''}">${esc(l)}</div>`).join('')}</div>`, ev.crit ? 'crit' : '', 9000, [{ label: 'Undo', fn: () => undo(1) }]);
+}
+function riderUse(src, ev, base) {
+  if (typeof base === 'function') base = base();
+  const res = riderDo(src, ev); if (res.none) { toast(`No uses of ${esc(src.name)} left.`, 'fumble'); return; }
+  update(); save(); render(); riderCard(src, ev, res, base);
+}
+// For an ability that just happened: "always" add-ons happen now (their results returned for the caller's card),
+// "ask me" ones become buttons on that card.
+function riderHook(ev, base) {
+  const always = [], acts = [];
+  ridersFor(ev).forEach(src => { const left = src.left(); if (left != null && left <= 0) return;
+    if (src.hb.onAsk === false || src.hb.onAsk === 'false') { const res = riderDo(src, ev); if (!res.none) always.push(Object.assign({ src }, res)); }
+    else acts.push({ label: `+ ${src.name}${src.hb.onDmg ? ' ' + String(src.hb.onDmg).trim() + (src.hb.onType ? ' ' + String(src.hb.onType).toLowerCase() : '') : ''}${left != null ? ` (${left} left)` : ''}`, fn: () => riderUse(src, ev, base) }); });
+  return { always, acts };
+}
+// Little chips on the abilities an add-on attaches to ("+ Radiant Wrath 2/2").
+function riderChips(ev) {
+  const rs = ridersFor(ev); if (!rs.length) return '';
+  return `<span class="rider-chips">${rs.map(s => { const l = s.left(); return `<span class="rider-chip${l === 0 ? ' out' : ''}" title="${esc(riderWhat(s.hb))}">+ ${esc(s.name)}${l != null ? ` <b>${l}/${s.max}</b>` : ''}</span>`; }).join('')}</span>`;
+}
+
+// Chips only for add-ons attached to these abilities by name (generic ones are listed once, not on every row).
+function riderChipsNamed(names) { const ks = [].concat(names).map(riderKeyName); const rs = riderSources().filter(x => String(x.hb.on || '').startsWith('name:') && ks.includes(riderKeyName(String(x.hb.on).slice(5))));
+  return rs.length ? `<span class="rider-chips">${rs.map(x => { const l = x.left(); return `<span class="rider-chip${l === 0 ? ' out' : ''}" title="${esc(riderWhat(x.hb))}">+ ${esc(x.name)}${l != null ? ` <b>${l}/${x.max}</b>` : ''}</span>`; }).join('')}</span>` : ''; }
+function riderChipsGen(keys, label) { const rs = riderSources().filter(x => keys.includes(String(x.hb.on || ''))); if (!rs.length) return '';
+  return `<div class="rider-chips blk"><span class="hint">${esc(label)}</span>${rs.map(x => { const l = x.left(); return `<span class="rider-chip${l === 0 ? ' out' : ''}" title="${esc(riderWhat(x.hb))}">+ ${esc(x.name)}${l != null ? ` <b>${l}/${x.max}</b>` : ''}</span>`; }).join('')}</div>`; }
+// The Add-ons list on the Combat tab: every add-on with its uses and a Use button (for when you'd rather spend it by hand),
+// plus your own homebrew features with limited uses that don't take an action (so they're never out of sight).
+function addonRows(ridersOnly) {
+  const rows = riderSources().map(src => { const l = src.left(), tip = src.kind === 'feat' ? `<button class="notetip" data-tip="${src.i}" data-tipkind="feat" aria-label="What ${esc(src.name)} does">ⓘ</button>` : `<button class="notetip" data-tip="${src.i}" aria-label="What ${esc(src.name)} does">ⓘ</button>`;
+    return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(src.name)}</span>${tip}${l != null ? `<span class="tag">${l}/${src.max}</span>` : ''}<button class="btn sm" data-act="useaddon" data-k="${src.kind}" data-i="${src.i}" ${l === 0 ? 'disabled' : ''}>Use</button></div>
+      <div class="opt-info rider">${esc(riderTrigText(src.hb))}${riderWhat(src.hb) ? ': ' + esc(riderWhat(src.hb)) : ''}${src.hb.onAsk === false || src.hb.onAsk === 'false' ? ' · happens by itself' : ' · you\u2019re asked each time'}</div></div>`; });
+  if (!ridersOnly) (S.features || []).forEach((f, i) => { if (!f || (f.hb && f.hb.on) || f.col || f.source !== 'Custom' || featMax(f) == null || f.pool) return; const max = featMax(f), l = Math.max(0, max - N(f.used));
+    rows.push(`<div class="opt"><div class="opt-head"><span class="opt-name">${esc(f.name)}</span><button class="notetip" data-tip="${i}" data-tipkind="feat" aria-label="What ${esc(f.name)} does">ⓘ</button><span class="pips" data-calc-html="featpips:${i}"></span><button class="btn sm" data-act="usefeat" data-i="${i}" data-col="" ${l ? '' : 'disabled'}>Use</button></div>${f.desc ? `<div class="opt-text">${esc(formulaDC(f.desc))}</div>` : ''}</div>`); });
+  return rows;
+}
+
 
 // ---------- Dice ----------
 // Three ways to roll (Settings → Dice):
@@ -1667,7 +1762,7 @@ function renderVitals() {
         <div class="hp-center">${f ? inp('form.hp', { num: 1, cls: 'cur', label: 'Form HP' }) + `<div class="hp-max">of ${N(f.maxhp)}</div>` : `<div class="curline">` + inp('hp.cur', { num: 1, cls: 'cur', label: 'Current HP' }) + `<span class="tmpbadge" data-calc="tmpb" title="Temporary hit points"></span></div><div class="hp-max">of <span class="maxv" data-calc="hpmaxv"></span></div>`}</div></div>
       <div class="hp-side">
         ${f ? `<div class="formnote">Your HP: <b data-calc="truehp"></b> <button class="btn sm" data-act="endform">Revert</button></div>` : ''}
-        <div class="hp-actions"><div class="hp-amtrow"><select class="f hptype" id="hpType" aria-label="Damage type (resistances and immunities apply)" title="Damage type: your resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="hpAmt" type="number" enterkeyhint="done" placeholder="Amount" aria-label="HP amount — press Enter to take damage, Shift+Enter to heal"></div>
+        <div class="hp-actions"><div class="hp-amtrow"><select class="f hptype" id="hpType" aria-label="Damage type (resistances and immunities apply)" title="Damage type: your resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="hpAmt" type="text" inputmode="text" autocomplete="off" enterkeyhint="done" placeholder="-dmg / +heal" aria-label="HP amount: type -20 (or 20) and press Enter for damage, +20 to heal"></div>
           <button class="btn red hpi" data-act="dmg" title="Take damage" aria-label="Take damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="heal" title="Heal" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmpbtn" data-act="tmphp" title="Gain temporary HP (they don't stack — the higher stays). 0 clears them." aria-label="Gain temporary HP">${ICON.hpTemp}</button></div>
         <div class="rest-actions"><button class="btn rest short" data-act="short" title="1 hour: spend Hit Dice, refresh short-rest features and Pact slots"><span class="ri">${ICON.hourglass}</span><span class="rl">Short Rest</span></button><button class="btn rest long" data-act="long" title="8 hours: full HP, all slots, features and Hit Dice"><span class="ri">${ICON.moon}</span><span class="rl">Long Rest</span></button></div>
       </div>
@@ -2393,7 +2488,7 @@ function renderFeatures() {
     const max = featMax(f), ed = UI.open['fedit:' + i], left = max != null ? Math.max(0, max - N(f.used)) : null;
     const sc = f.cls ? classScaling(f.cls).filter(([n]) => scalingMatches(f.name, n)) : [];
     const fx = fxOf(f), dcl = fxDCLine(fx, f);
-    const tags = [f.source, f.col ? (f.col === 'bonus' ? 'Bonus action' : f.col[0].toUpperCase() + f.col.slice(1)) : '', max != null ? `${max}× per ${resetOf(f) === 'short' ? 'short rest' : resetOf(f) === 'long' ? 'long rest' : 'never'}` : '', dcl, fx.cost ? 'Costs ' + fxCostText(fx.cost) : '', fx.onlyRaging ? 'While raging' : ''].filter(Boolean);
+    const tags = [f.source, f.hb && f.hb.on ? riderTrigText(f.hb) : '', f.col ? (f.col === 'bonus' ? 'Bonus action' : f.col[0].toUpperCase() + f.col.slice(1)) : '', max != null ? `${max}× per ${resetOf(f) === 'short' ? 'short rest' : resetOf(f) === 'long' ? 'long rest' : 'never'}` : '', dcl, fx.cost ? 'Costs ' + fxCostText(fx.cost) : '', fx.onlyRaging ? 'While raging' : ''].filter(Boolean);
     const canUse = !fxIsResource(f) && (fx.cost || fx.use || fx.target || fx.roll);
     return `<div class="fcard${f.auto ? '' : ' custom'}${ed ? ' editing' : ''}">
       <div class="fc-head"><b class="fc-name">${esc(f.name)}</b>${sc.map(([n, v]) => `<span class="fscale" title="${esc(n)}">${esc(v)}</span>`).join('')}<span class="grow"></span>
@@ -2781,7 +2876,7 @@ function combatSpellsHTML(col, spells) {
     const eff = a.darts ? `<span class="csp-k dmg">${mult}1d4+1 force</span>` : a.beams ? `<span class="csp-k dmg">${mult}1d10${ag ? sgn(ag) : ''} force</span>` : a.weapon ? `<span class="csp-k dmg">weapon${tier > 1 ? ' +' + (tier - 1) + 'd8 ' + (a.boom ? 'thunder' : 'fire') : ''}</span>` : a.rider && !sm.dice ? `<span class="csp-k dmg">on hit +${esc(String(a.rider).replace(/\s*\(.*$/, ''))}</span>` : sm.dice ? `<span class="csp-k dmg">${mult}${esc(sm.dice)} ${esc(String(sm.type || '').toLowerCase())}</span>` : sm.heal ? `<span class="csp-k heal">heal ${esc(sm.heal)}</span>` : sm.temp ? `<span class="csp-k heal">${esc(sm.temp)} temp HP</span>` : '';
     return `<div class="csp${ok ? '' : ' nocast'}"><span class="csp-lv${L ? '' : ' c0'}" title="${lvTag(L)}">${L || '∞'}</span>
       <div class="csp-main"><div class="csp-name"><span class="csp-nm">${sp.flavor && sp.flavor.trim() ? `${esc(sp.flavor.trim())}<button class="notetip" data-tip="${i}" data-tipkind="sp" aria-label="What ${esc(sp.name)} does">ⓘ</button> <span class="sp-real">${esc(sp.name)}</span>` : (() => { const w = String(sp.name).trim().split(/\s+/), l = w.pop(); return (w.length ? esc(w.join(' ')) + ' ' : '') + `<span class="nowrap">${esc(l)}<button class="notetip" data-tip="${i}" data-tipkind="sp" aria-label="What ${esc(sp.name)} does">ⓘ</button></span>`; })()}</span>${sp.conc ? '<span class="csp-tag">conc</span>' : ''}${sp.uses && N(sp.uses.max) ? `<span class="csp-tag free">${Math.max(0, (evalMax(sp.uses.max) || 0) - N(sp.uses.used))}${sp.usesOnly ? '/' + (evalMax(sp.uses.max) || 0) + ' stored' + (N(sp.uses.level) > N(sp.level) ? ' · ' + ORD[N(sp.uses.level) - 1] + ' lvl' : '') : ' free'}</span>` : ''}</div>
-        <div class="csp-sub">${hit}${eff}${sp.range ? `<span class="csp-r">${esc(sp.range)}</span>` : ''}</div></div>
+        <div class="csp-sub">${hit}${eff}${sp.range ? `<span class="csp-r">${esc(sp.range)}</span>` : ''}${riderChipsNamed(sp.name)}</div></div>
       <button class="btn gold sm" data-act="cast" data-i="${i}" data-col="${col}" ${ok ? '' : 'title="No spell slots left for this level"'}>Cast</button></div>`;
   };
   if (spCustom()) { spCatsEnsure(); return spCatsAll().map(c => { const list = spells.filter(x => spCatOf(x[0]) === c.id).sort((x, y) => spOrd(x[0], x[1]) - spOrd(y[0], y[1]));
@@ -2820,7 +2915,7 @@ const sneakDice = () => { const r = clsLv('rogue'); return r ? Math.ceil(r / 2) 
 // Out of combat: no turn tracker or action economy — just what you reach for between fights.
 function oocHTML(comps) {
   const spells = S.spells.map((sp, i) => [sp, i]).filter(([sp]) => spReady(sp));
-  const feats = S.features.map((f, i) => [f, i]).filter(([f]) => !fxHidden(f) && !isStunStrike(f) && (fxIsResource(f) ? featMax(f) != null || fxVisActs(f).length : (featMax(f) != null || f.col || fxOf(f).use || fxOf(f).roll || fxOf(f).target))).sort((a, b) => fxIsResource(b[0]) - fxIsResource(a[0]));
+  const feats = S.features.map((f, i) => [f, i]).filter(([f]) => !(f.hb && f.hb.on) && !fxHidden(f) && !isStunStrike(f) && (fxIsResource(f) ? featMax(f) != null || fxVisActs(f).length : (featMax(f) != null || f.col || fxOf(f).use || fxOf(f).roll || fxOf(f).target))).sort((a, b) => fxIsResource(b[0]) - fxIsResource(a[0]));
   const featRow = ([f, i]) => { const max = featMax(f), fx = fxOf(f), left = max != null ? Math.max(0, max - N(f.used)) : null;
     return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(f.name)}</span><button class="notetip" data-tip="${i}" data-tipkind="feat" aria-label="What ${esc(f.name)} does">ⓘ</button>${max != null ? `<span class="pips" data-calc-html="featpips:${i}"></span>` : ''}<span class="grow"></span>${fxIsResource(f) ? '' : `${f.col ? `<span class="itag">${f.col === 'bonus' ? 'Bonus' : esc(f.col[0].toUpperCase() + f.col.slice(1))}</span>` : ''}<button class="btn sm" data-act="usefeat" data-i="${i}" ${left === 0 && !fx.slotRestore ? 'disabled' : ''}>${fx.useLabel || (f.roll || fx.roll ? 'Use & roll' : 'Use')}</button>${typeof ptyFeatBtn === 'function' ? ptyFeatBtn(f, i) : ''}`}</div>${fxIsResource(f) && fxInfoLine(f) ? `<div class="opt-info">${esc(fxInfoLine(f))}</div>` : ''}${fxVisActs(f).length ? `<div class="fxacts">${fxActsHTML(f, i, null)}</div>` : ''}</div>`; };
   const skills = (S.skills || []).map((sk, i) => `<div class="ooc-sk" title="Roll ${esc(sk.name)}">${rollBtn('skill:' + i, sk.name)}<span>${esc(sk.name)}</span></div>`).join('');
@@ -2842,6 +2937,7 @@ function oocHTML(comps) {
       <div class="ooc-col">
         ${(() => { const r = combatCompanionRows(); return r.length ? `<div class="panel"><h2>Companions</h2>${r.join('')}</div>` : ''; })()}
         ${feats.length ? `<div class="panel"><h2>Features</h2>${feats.map(featRow).join('')}</div>` : ''}
+        ${(() => { const ad = addonRows(true); return ad.length ? `<div class="panel"><h2>Add-ons</h2>${ad.join('')}</div>` : ''; })()}
         <div class="panel"><h2>Quick checks</h2><div class="ooc-sks">${skills}</div></div>
       </div>
     </div>`;
@@ -2852,7 +2948,7 @@ function renderCombat() {
     const max = featMax(f), key = `fopt:${fi}`, open = !m || UI.open[key], fx = fxOf(f), own = f.col === col, info = own ? fxInfoLine(f) : '';
     const useBtn = !own || fxIsResource(f) || (max != null && f.pool && !fx.cost) ? '' : `<button class="btn sm${max != null || fx.cost || fx.roll ? '' : ' ghost'}" data-act="usefeat" data-i="${fi}" data-col="${col}">${f.roll || fx.roll ? 'Use & roll' : max != null || fx.cost || fx.use ? 'Use' : 'Take'}</button>`;
     return `<div class="opt"><div class="opt-head">${m ? `<button class="opt-name opt-tog" data-act="toggle" data-key="${key}" aria-expanded="${!!open}">${esc(f.name)} <span class="caret">${open ? '▴' : '▾'}</span></button>` : `<span class="opt-name">${esc(f.name)}</span>`}
-      <button class="notetip" data-tip="${fi}" data-tipkind="feat" aria-label="What ${esc(f.name)} does">ⓘ</button>${max != null ? `<span class="pips" data-calc-html="featpips:${fi}"></span>` : ''}${useBtn}${own && typeof ptyFeatBtn === 'function' ? ptyFeatBtn(f, fi) : ''}</div>
+      <button class="notetip" data-tip="${fi}" data-tipkind="feat" aria-label="What ${esc(f.name)} does">ⓘ</button>${max != null ? `<span class="pips" data-calc-html="featpips:${fi}"></span>` : ''}${useBtn}${own ? riderChipsNamed(f.name) : ''}${own && typeof ptyFeatBtn === 'function' ? ptyFeatBtn(f, fi) : ''}</div>
       ${info ? `<div class="opt-info">${esc(info)}</div>` : ''}${fx.acts ? `<div class="fxacts">${fxActsHTML(f, fi, col)}</div>` : ''}
       ${open && f.desc && own ? `<div class="opt-text">${esc(formulaDC(f.desc))}</div>` : ''}</div>`;
   };
@@ -2875,7 +2971,7 @@ function renderCombat() {
         ${stunRowHTML()}${harmRowHTML()}
         ${hasFeature('Divine Smite') ? `<div class="smite"><div class="sect" style="width:100%">Divine Smite <span class="grow"></span>
           <button class="toggle${UI.smiteUndead ? ' on' : ''}" data-act="smiteundead" aria-pressed="${!!UI.smiteUndead}" title="Undead and fiends take +1d8">Undead / Fiend +1d8</button></div>
-          <div class="smite-row" data-calc-html="smite"></div></div>` : ''}</div>`;
+          <div class="smite-row" data-calc-html="smite"></div>${riderChipsNamed('Divine Smite') ? `<div class="rider-chips blk"><span class="hint">With a smite:</span>${riderChipsNamed('Divine Smite')}</div>` : ''}</div>` : ''}${riderChipsGen(['meleehit', 'hit'], 'On a hit:')}${riderChipsNamed(S.attacks.map(x => x.name))}</div>`;
     }
     if (key === 'bonus') body += bonusAtkHTML();
     if (key === 'move') {
@@ -2898,8 +2994,9 @@ function renderCombat() {
     if (key === 'bonus' && clsLv('monk')) { const k = S.attacks.findIndex(a => /^unarmed strike$/i.test(String(a.name).trim()));
       if (k >= 0) body += `<div class="block"><div class="sect">Martial Arts strike<span class="grow"></span></div><table class="mini"><tr><td>Unarmed Strike</td><td>${rollBtn('atk:' + k, 'Unarmed Strike attack')}</td><td>${rollBtn('dmg:' + k, 'Unarmed Strike damage')}</td><td><button class="btn gold sm atkbtn" data-act="mabonus" title="One unarmed strike as your bonus action (after taking the Attack action)">⚔</button></td></tr></table><div class="hint">After you take the Attack action. Flurry of Blows (1 ki, under Ki) makes two strikes instead.</div>${stunRowHTML()}</div>`; }
     {
-      if (spells.length) body += combatSpellsHTML(key, spells);
+      if (spells.length) body += riderChipsGen(['cast', 'spelldmg'], 'When you cast:') + combatSpellsHTML(key, spells);
       if (feats.length) body += cGroup(key, 'feat', 'Features', '★', feats.length, feats.map(([f, i]) => featView(key, f, i)).join(''));
+      if (key === 'action') { const ad = addonRows(); if (ad.length) body += cGroup(key, 'addon', 'Add-ons', '✚', ad.length, ad.join('')); }
       if (key === 'action') { const comps = combatCompanionRows(); if (comps.length) body += cGroup(key, 'comp', 'Companions', '🐾', comps.length, comps.join('')); }
       if (key === 'bonus' && S.companions.length) body = `<div class="incol-comps">${S.companions.map((c, i) => compCard(c, i, false, true)).join('')}</div>` + body;
       { const ir = infCombatRows(key); if (ir.length) body += cGroup(key, 'inf', 'Infusions', '⚗', ir.length, ir.join('')); }
@@ -3356,6 +3453,7 @@ function mainClick(e) {
     case 'repeatfx': repeatEffect(N(b.dataset.j)); break;
     case 'stunstrike': stunningStrike(); break;
     case 'hasteact': hasteAct(b.dataset.k, b.dataset.i); break;
+    case 'useaddon': { const src = riderSources().find(x => x.kind === b.dataset.k && x.i === N(b.dataset.i)); if (src) riderUse(src, { kind: 'manual', crit: Date.now() < critUntil }, null); break; }
     case 'usefeat': if (isStunStrike(S.features[i])) { stunningStrike(); break; } if (/^martial arts$/i.test(String((S.features[i] || {}).name || '').trim()) && clsLv('monk')) { martialArtsBonus(false); break; } useFeature(i, b.dataset.col); break;
     case 'mabonus': martialArtsBonus(false); break;
     case 'slotrestgo': { const R = SLOTREST; if (!R) return; const k = b.dataset.k === 'pact' ? 'pact' : N(b.dataset.k); closeModal(true); useFeature(R.i, R.col, { slot: k }); return; }
@@ -3511,6 +3609,7 @@ function mainClick(e) {
     case 'useitem': useItem(i, b.dataset.col); break;
     case 'ispdel': { const it = S.inventory[i]; const n = it.spells.splice(N(b.dataset.j), 1)[0]; pendingLabel = `${it.name}: remove ${n}`; rebuildAuto(); save(); render(); break; }
     case 'hbnew': openHomebrew(b.dataset.k); return;
+    case 'itempaste': openItemPaste(); return;
     case 'hbbopen': openHomebrew(b.dataset.k, N(b.dataset.i)); return;
     case 'hbopen': UI.open['hb:' + b.dataset.key] = !UI.open['hb:' + b.dataset.key]; render(); break;
     case 'addspells': openSpellPicker(b.dataset.cls); pendingLabel = null; return;
@@ -3637,7 +3736,10 @@ document.addEventListener('keydown', e => {
     if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); const lb = REDO.length && REDO[REDO.length - 1].label; if (redo(1)) toast('Redid: ' + esc(lb)); return; }
   }
   if (e.key === 'Enter' && e.target.classList && e.target.classList.contains('portrait-edit')) $('#portraitFile').click();
-  if (e.key === 'Enter' && e.target.id === 'hpAmt') hpAction(e.shiftKey ? 'heal' : 'dmg');
+  // HP boxes: "+20" heals, "-20" (or just "20") is damage
+  if (e.key === 'Enter' && e.target.id === 'hpAmt') hpAction(e.shiftKey || /^\s*\+/.test(e.target.value) ? 'heal' : 'dmg');
+  if (e.key === 'Enter' && /^chp\d+$/.test(e.target.id || '')) { e.preventDefault(); compHp(N(e.target.id.slice(3)), /^\s*\+/.test(e.target.value) ? 1 : -1); }
+  if (e.key === 'Enter' && /^ptyq-/.test(e.target.id || '')) { e.preventDefault(); ptyQuick(/^\s*\+/.test(e.target.value) ? 'heal' : 'dmg', e.target.id.slice(5)); }
 });
 
 // ---------- Rolling ----------
@@ -3719,10 +3821,13 @@ function attackRoll(i, free, opt) {
   // Sneak Attack rolls itself when the attack has advantage with a finesse or ranged weapon (once per turn).
   const sa = sneakAuto(a, rm, nat1, isWeapon, opt.offTurn), sr = sa ? rollExpr(crit ? critDice(sa) : sa, { label: 'Sneak Attack (' + sa + ')' }) : null;
   if (sr && !opt.offTurn && S.inCombat) { S.turn.sneak = true; setTimeout(refresh, 0); }
-  const total = d.total + xr.reduce((t, x) => t + x.r.total, 0) + rr.reduce((t, x) => t + x.r.total, 0) + (sr ? sr.total : 0);
+  // Homebrew add-ons that ride on this hit (or on the smite that came with it): "always" ones roll in now, "ask me" ones become buttons.
+  let total = 0; const rev = { kind: 'atk', names: [a.name].concat(xr.filter(x => x.what).map(x => x.what)), melee: a.kind === 'melee', weapon: !!isWeapon, crit, hit: true };
+  const rh = nat1 ? { always: [], acts: [] } : riderHook(rev, () => total);
+  total = d.total + xr.reduce((t, x) => t + x.r.total, 0) + rr.reduce((t, x) => t + x.r.total, 0) + (sr ? sr.total : 0) + rh.always.reduce((t, x) => t + x.total, 0);
   // Damage by type (Booming Blade's thunder, Improved Divine Smite's radiant… aren't the weapon's type): resistances care.
   const mainT = a.type ? String(a.type).toLowerCase() : 'damage', byType = {}, addT = (t, v) => { if (!v) return; t = String(t || '').trim().toLowerCase() || mainT; byType[t] = (byType[t] || 0) + v; };
-  addT(mainT, d.total + (sr ? sr.total : 0)); xr.forEach(x => addT(String(x.label).replace(/^[\d+d\s-]+/, ''), x.r.total)); rr.forEach((x, k) => addT(String(riders[k].dice).replace(/^[\d+d\s-]+/, ''), x.r.total));
+  addT(mainT, d.total + (sr ? sr.total : 0)); rh.always.forEach(x => addT(x.type, x.total)); xr.forEach(x => addT(String(x.label).replace(/^[\d+d\s-]+/, ''), x.r.total)); rr.forEach((x, k) => addT(String(riders[k].dice).replace(/^[\d+d\s-]+/, ''), x.r.total));
   const types = Object.entries(byType);
   const n1 = nat1 ? nat1Roll() : null;
   if (crit) critUntil = Date.now() + 60000;
@@ -3733,6 +3838,7 @@ function attackRoll(i, free, opt) {
   xr.forEach(x => dmgSec.rows.push([x.label, String(x.r.total), diceOf(x.r)]));
   rr.forEach(x => dmgSec.rows.push([x.label, String(x.r.total), diceOf(x.r)]));
   if (sr) dmgSec.rows.push([`Sneak Attack (${crit ? critDice(sa) : sa})`, String(sr.total), diceOf(sr)]);
+  rh.always.filter(x => x.r).forEach(x => dmgSec.rows.push([`${x.src.name} (${x.dice}${x.type ? ' ' + x.type : ''})`, String(x.total), diceOf(x.r)]));
   dmgSec.total = total;
   const math = mathHTML([d20Math(h, dd20, atkHitRows(a), 'To hit'), nat1 ? null : dmgSec]);
   const note = [rm.mode !== 'normal' ? (rm.mode === 'adv' ? 'Advantage: ' : 'Disadvantage: ') + rm.why.join(', ') : '', bless ? 'Bless +1d4' : '', ex ? `Exhaustion −${ex}` : ''].filter(Boolean).join(' · ');
@@ -3740,10 +3846,12 @@ function attackRoll(i, free, opt) {
   const acts = keepR.length ? [{ label: 'Missed — keep riders', fn: () => { S.riders = (S.riders || []).concat(keepR); pendingLabel = 'Keep riders'; update(); toast('Riders saved for your next hit.'); } }] : [];
   if (!nat1 && a.kind === 'melee' && stunStrikeFeat() && stunKiLeft() > 0) acts.push({ label: 'Stunning Strike (1 ki)', fn: () => stunningStrike() });
   xr.filter(x => x.refund).forEach(x => acts.push({ label: `Missed — get ${x.what === 'Divine Smite' ? 'the slot' : 'the ki'} back`, fn: () => { x.refund(); pendingLabel = x.what + ' not used'; update(); render(); toast(`${x.what} is ready again for your next hit.`); } }));
+  rh.always.forEach(x => acts.push({ label: `Missed — get ${x.src.name} back`, fn: () => { x.src.refund(); pendingLabel = x.src.name + ' not used'; update(); render(); toast(`${esc(x.src.name)} is back.`); } }));
+  acts.push(...rh.acts);
   if (sr && !opt.offTurn) acts.push({ label: 'Missed — Sneak Attack not used', fn: () => { S.turn.sneak = false; pendingLabel = 'Sneak Attack not used'; update(); refresh(); toast('Sneak Attack is ready again this turn.'); } });
   // The card shows just the two numbers: to hit and damage. The full breakdown goes to the roll log.
   toast(`<b class="total">${h.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${crit ? 'CRITICAL HIT' : nat1 ? 'Natural 1 — miss' : 'to hit'}</div>
-    ${(opt.notes || []).map(x => `<div class="det">${x}</div>`).join('')}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}<div class="det dd">Hit: ${esc(h.detail)} · Dmg: ${esc(d.detail)}${sr ? ` · <b>Sneak Attack</b>: ${esc(sr.detail)}` : ''}${xr.map(x => ` · ${esc(x.label)}: ${x.r.total}`).join('')}${rr.map(x => ` · <b>${esc(x.label)}</b>: ${x.r.total}`).join('')}</div>
+    ${(opt.notes || []).map(x => `<div class="det">${x}</div>`).join('')}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}<div class="det dd">Hit: ${esc(h.detail)} · Dmg: ${esc(d.detail)}${sr ? ` · <b>Sneak Attack</b>: ${esc(sr.detail)}` : ''}${xr.map(x => ` · ${esc(x.label)}: ${x.r.total}`).join('')}${rr.map(x => ` · <b>${esc(x.label)}</b>: ${x.r.total}`).join('')}${rh.always.filter(x => x.r).map(x => ` · <b>${esc(x.src.name)}</b>: ${x.total}`).join('')}</div>${rh.always.map(x => x.lines.filter(l => !/ left$/.test(l)).map(l => `<div class="rc-rider"><b>${esc(x.src.name)}:</b> ${esc(l)}</div>`).join('')).join('')}
     ${note ? `<div class="det">${esc(note)}</div>` : ''}<div class="det">${[ammoNote, free ? '' : `Attack ${N(S.turn.attacks)} of ${attacksPerAction()} this turn`].filter(Boolean).join(' · ')}${crit && hasFeature('Divine Smite') ? ' · a smite now also doubles' : ''}</div>${math}</div>
     <div class="rc-dmg${nat1 ? ' void' : ''}"><b>${total}</b><span>${types.length > 1 ? `<span class="rc-types">${types.map(([t, v]) => `<i><b>${v}</b> ${esc(t)}</i>`).join('')}</span>` : esc(mainT)}${sr ? `<small>incl. ${sr.total} sneak</small>` : ''}</span></div>`, crit ? 'crit' : nat1 ? 'fumble' : '', crit ? 12000 : 9000, acts);
 }
@@ -3811,7 +3919,7 @@ function deathSave() {
 
 // ---------- HP, concentration, time ----------
 function hpAction(kind) {
-  const raw = $('#hpAmt').value, amt = Math.abs(N(raw));
+  const raw = String($('#hpAmt').value).trim().replace(/[−–]/g, '-'), amt = Math.abs(N(raw.replace(/^\+/, '')));
   if (kind === 'tmphp' && raw !== '' && !amt) { $('#hpAmt').value = ''; if (N(S.hp.temp)) { S.hp.temp = 0; pendingLabel = 'Temp HP cleared'; update(); render('vitals'); toast('Temporary HP cleared.'); } return; }
   if (raw === '' || !amt) { $('#hpAmt').focus(); toast('Type an amount in the box first.'); return; }
   $('#hpAmt').value = '';
@@ -4211,9 +4319,11 @@ function useFeature(i, col, opt) {
     else if (fx.healRoll || /regain|heal/i.test(f.desc || '')) healAct = { label: 'Heal me', fn: () => useAmt(r, f.name + ': healing', n => healSelf(n, `${f.name}: +${n} HP`)) };
   }
   const sc = []; clsRows().forEach(row => { const c = CL[row.key], s = subOf(row); (c.scaling || []).concat((s && s.scaling) || []).forEach(([n, t]) => { if (new RegExp('\\b' + n.split(' ')[0].replace(/[^a-z]/gi, '') + '\\b', 'i').test(f.name) && n !== 'Rage Damage') sc.push(n + ': ' + scaleVal(t, N(row.level))); }); });
+  const fRh = riderHook({ kind: 'feat', names: [f.name], self: f }, r ? r.total : null);
+  fRh.always.forEach(x => { lines.push(`${x.src.name}: ${x.r ? '+' + x.total + (x.type ? ' ' + x.type : '') + ' (' + x.r.detail + ')' : 'used'}`); x.lines.forEach(l => lines.push(x.src.name + ': ' + l)); });
   pendingLabel = 'Use ' + f.name; update(); render();
   const left = max != null && !f.pool ? `${Math.max(0, max - N(f.used))}/${max} left` : '';
-  toast(`${r ? `<b class="total">${r.total}</b>` : ''}<div><div><b>${esc(f.name)}</b>${left ? ' · ' + left : ''}</div>${r ? `<div class="det">${esc(r.detail)}${fx.rollNote ? ' ' + esc(fx.rollNote) : ''}</div>` : ''}${sc.length ? `<div class="det">${esc(sc.join(' · '))}</div>` : ''}${lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, '', 8000, [healAct, typeof ptyFeatAct === 'function' ? ptyFeatAct(f.name, r, f) : null, { label: 'Undo', fn: () => undo(1) }].filter(Boolean));
+  toast(`${r ? `<b class="total">${r.total}</b>` : ''}<div><div><b>${esc(f.name)}</b>${left ? ' · ' + left : ''}</div>${r ? `<div class="det">${esc(r.detail)}${fx.rollNote ? ' ' + esc(fx.rollNote) : ''}</div>` : ''}${sc.length ? `<div class="det">${esc(sc.join(' · '))}</div>` : ''}${lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, '', 8000, [healAct, typeof ptyFeatAct === 'function' ? ptyFeatAct(f.name, r, f) : null, { label: 'Undo', fn: () => undo(1) }].filter(Boolean).concat(fRh.acts));
 }
 function smite(l) {
   let L;
@@ -4222,7 +4332,14 @@ function smite(l) {
   let d = Math.min(6, Math.min(5, L + 2) + (UI.smiteUndead ? 1 : 0));
   const isCrit = Date.now() < critUntil; if (isCrit) { d *= 2; critUntil = 0; }
   pendingLabel = `Divine Smite (${ORD[L]} slot)`;
-  update(); roll(`Divine Smite (${ORD[L]} slot) radiant${isCrit ? ' · CRIT, dice doubled' : ''}`, d + 'd8');
+  update(); const sr = roll(`Divine Smite (${ORD[L]} slot) radiant${isCrit ? ' · CRIT, dice doubled' : ''}`, d + 'd8');
+  riderAfter({ kind: 'feat', names: ['Divine Smite'], crit: isCrit }, 'Divine Smite', sr && sr.total);
+}
+// An ability that rolled on its own card: its "always" add-ons get their own cards, "ask me" ones a small card of buttons.
+function riderAfter(ev, what, base) {
+  const rh = riderHook(ev, base == null ? null : base);
+  if (rh.always.length) { update(); save(); render(); rh.always.forEach(x => riderCard(x.src, ev, x, base)); }
+  if (rh.acts.length) toast(`<div><b>${esc(what)}</b>: add-ons you can use with it</div>`, '', 12000, rh.acts);
 }
 
 // ---------- Casting ----------
@@ -4439,7 +4556,12 @@ function executeCast(i, how, L, col, x) {
   const surgeShow = wildAfterCast(sp);
   save(); render();
   if (surgeShow) setTimeout(surgeShow, 350);
-  const acts = [healAct, backAct, typeof ptyHitAct === 'function' ? ptyHitAct() : null, { label: 'Undo', fn: () => undo(1) }].filter(Boolean);
+  // Homebrew add-ons that ride on casting (this spell by name, any spell, or a damaging one)
+  const spEv = { kind: 'spell', names: [sp.name], dmg: !!((sm && (sm.dice || sm.attack || sm.save) && !sm.heal) || card || beamRows.length), hit: !!((card && card.hit != null && !card.nat1) || beamRows.some(r => !r.nat1)), crit: !!((card && card.crit) || beamRows.some(r => r.crit)) };
+  const spRh = riderHook(spEv, mainTotal != null ? mainTotal : card && card.dmg != null ? card.dmg : null);
+  spRh.always.forEach(x => { lines.push(`<b>${esc(x.src.name)}</b>: ${x.r ? '+' + x.total + (x.type ? ' ' + esc(x.type) : '') + ' (' + esc(x.r.detail) + ')' : 'used'}`); x.lines.forEach(l => lines.push(`<b>${esc(x.src.name)}</b>: ${esc(l)}`)); });
+  if (spRh.always.length) save();
+  const acts = [healAct, backAct, typeof ptyHitAct === 'function' ? ptyHitAct() : null, { label: 'Undo', fn: () => undo(1) }].filter(Boolean).concat(spRh.acts);
   // Rolls go on the big card like weapon attacks: to hit and damage (one row per beam/ray); the details go to the roll log.
   const how2 = how === 'slot' ? `${ORD[L - 1]}-level slot` : how === 'pact' ? 'pact slot' : how === 'free' ? 'free use' : how === 'atwill' ? 'at will' : how === 'ritual' ? 'ritual' : '';
   const dets = out.map(o => `<div class="det">${o}</div>`).join('') + lines.map(l => `<div class="det">${l}</div>`).join('');
@@ -4454,7 +4576,7 @@ function executeCast(i, how, L, col, x) {
       : `<b class="total">${card.dmg}</b><div class="rc-body"><div class="rc-name">${esc(spLabel(sp))}</div><div class="rc-lbl">${esc(String(card.type || 'damage').toLowerCase())}${card.save ? ` · DC ${ci.dc} ${esc(card.save)} save${card.half ? ', half on success' : ''}` : ''}${how2 ? ' · ' + how2 : ''}</div>${dets}</div>`, cls, 12000, acts);
     return;
   }
-  if (doAtk != null) { attackRoll(doAtk, true, { label: sp.name + ' · ' + S.attacks[doAtk].name, notes: lines }); return; }
+  if (doAtk != null) { attackRoll(doAtk, true, { label: sp.name + ' · ' + S.attacks[doAtk].name, notes: lines }); if (spRh.acts.length) toast(`<div><b>${esc(sp.name)}</b>: add-ons you can use with it</div>`, '', 12000, spRh.acts); return; }
   if (mainTotal != null) { toast(`<b class="total">${mainTotal}</b><div class="rc-body"><div class="rc-name">${esc(spLabel(sp))}</div><div class="rc-lbl">${sm.heal ? 'healing' : 'total'}${how2 ? ' · ' + how2 : ''}</div>${dets}</div>`, cls, 12000, acts); return; }
   toast(`${mainTotal != null ? `<b class="total">${mainTotal}</b>` : ''}<div><div>Cast <b>${esc(spLabel(sp))}</b>${how === 'slot' ? ` · ${ORD[L - 1]}-level slot` : how === 'pact' ? ' · pact slot' : how === 'free' ? ' · free use' : how === 'ritual' ? ' · ritual' : ''}${sp.conc ? ' · concentrating' : ''}</div>${out.map(o => `<div class="det">${o}</div>`).join('')}${lines.map(l => `<div class="det">${l}</div>`).join('')}</div>`, cls, 12000, acts);
 }
@@ -4538,7 +4660,7 @@ function addClassCompanion(n, viaFeature) {
   pendingLabel = 'Add ' + n; if (!viaFeature) closeModal(true); save(); render(); if (!viaFeature) toast(`${esc(n)} added.`);
 }
 function compHp(i, d) {
-  const c = S.companions[i], el = $('#chp' + i), amt = Math.abs(N(el && el.value));
+  const c = S.companions[i], el = $('#chp' + i), amt = Math.abs(N(el && String(el.value).trim().replace(/[−–]/g, '-').replace(/^\+/, '')));
   if (!amt) { if (el) el.focus(); toast('Type an amount first.'); return; }
   if (d === 0) { c.temp = Math.max(N(c.temp), amt); pendingLabel = `${c.name} gains ${amt} temp HP`; if (el) el.value = ''; save(); render(); refresh(); return; }
   if (d < 0 && N(c.temp)) { const t = Math.min(N(c.temp), amt); c.temp = N(c.temp) - t; c.hp = Math.max(0, N(c.hp) - (amt - t)); } else c.hp = Math.max(0, Math.min(N(c.maxhp), N(c.hp) + d * amt));
@@ -4612,6 +4734,7 @@ function openCatalog(keep) {
   // Homebrew: this character's saved homebrew items, then the ones everyone else in the party has saved.
   const hbRow = (c, from, t, n, del) => [c.name, `<div class="crrow" data-q="${esc((c.name + ' custom homebrew ' + (from || '') + ' ' + (c.summary || '') + ' ' + (c.notes || '')).toLowerCase())}"><div><b>${esc(c.name)}</b>${kind('Homebrew')} ${cost(c.cost)}<div class="hint">${from ? `<span class="hbfrom">${esc(from)}’s</span> · ` : ''}${esc(customItemInfo(c))}</div></div><span class="crbtns">${del ? `<button class="btn sm" data-act="catcdel" data-n="${n}" title="Remove from your homebrew items" aria-label="Remove ${esc(c.name)} from your homebrew items">✕</button>` : ''}<button class="btn sm gold" data-act="catadd" data-t="${t}" data-n="${n}">Add</button></span></div>`];
   const C = () => { const own = (S.customItems || []), seen = new Set(own.map(c => c.name.toLowerCase())), out = own.map((c, n) => hbRow(c, '', 'c', n, true));
+    (typeof ptyOn === 'function' && ptyOn() && PTYX().hb ? PTYX().hb() : []).forEach((c, j) => { if (!c || !c.name || seen.has(c.name.toLowerCase())) return; seen.add(c.name.toLowerCase()); out.push(hbRow(c, 'Your party', 'ph', j, false)); });
     (typeof ptyOn === 'function' && ptyOn() ? ptyMembers() : []).forEach(m => (m.hb || []).forEach((c, j) => { if (!c || !c.name || seen.has(c.name.toLowerCase())) return; seen.add(c.name.toLowerCase()); out.push(hbRow(c, m.name || 'A party member', 'ch', esc(m.id) + ':' + j, false)); }));
     return out; };
   const list = tab === 'weapons' ? W() : tab === 'armor' ? A() : tab === 'gear' ? G() : tab === 'magic' ? M() : tab === 'custom' ? C()
@@ -4620,6 +4743,7 @@ function openCatalog(keep) {
   const html = `<h3>Add an item</h3>
     <div class="segmini" style="margin-bottom:8px">${[['all', 'All'], ['weapons', 'Weapons'], ['armor', 'Armor'], ['gear', 'Gear & tools'], ['magic', 'Magic items'], ['custom', 'Homebrew']].map(([k, t]) => `<button class="${tab === k ? 'on' : ''}" data-act="cattab" data-t="${k}">${t}</button>`).join('')}</div>
     <input class="f" id="catq" placeholder="Search…" value="${esc(q)}" aria-label="Search items" autofocus>
+    ${tab === 'custom' ? '<div class="catpaste"><button class="btn sm gold" data-act="itempaste">📋 Paste an item</button><span class="hint">From a book, PDF or D&amp;D Beyond — it becomes a homebrew item with its bonuses, charges and spells working.</span></div>' : ''}
     <div class="crlist">${rows || (tab === 'custom' ? '<p class="hint crempty">No homebrew items yet. Open an item in Inventory (✎), then ⚙ Homebrew automation → <b>Save to homebrew items</b>. Items others in your party save show up here too.</p>' : '')}</div>
     <div class="actions"><button class="btn" data-act="close">Done</button></div>`;
   if (keep && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html, null, true);
@@ -4633,6 +4757,7 @@ function catalogAdd(t, n) {
   if (t === 'w') return addInventoryItem(makeWeaponItem(DND.weapons[n]));
   if (t === 'a') return addInventoryItem(makeArmorItem(DND.armor[n]));
   if (t === 'g') return addInventoryItem(makeGearItem(DND.gear[n]));
+  if (t === 'ph') { const c = (typeof PTYX === 'function' && PTYX() && PTYX().hb ? PTYX().hb() : [])[N(n)]; if (!c) return; const it = JSON.parse(JSON.stringify(c)); delete it._pid; it.id = uid(); it.qty = N(it.qty) || 1; it.equipped = false; return addInventoryItem(it); }
   if (t === 'ch') { const [mid, j] = String(n).split(':'), m = (typeof ptyMembers === 'function' ? ptyMembers() : []).find(x => x.id === mid), c = m && (m.hb || [])[N(j)]; if (!c) return; const it = JSON.parse(JSON.stringify(c)); it.id = uid(); it.qty = N(it.qty) || 1; it.equipped = false; return addInventoryItem(it); }
   if (t === 'c') { const c = (S.customItems || [])[n]; if (!c) return; const it = JSON.parse(JSON.stringify(c)); it.id = uid(); it.qty = N(it.qty) || 1; it.equipped = false; delete it.savedFrom; return addInventoryItem(it); }
   if (t === 'ws') { const it = makeWeaponItem(DND.weapons[n]); it.name = 'Silvered ' + it.name.toLowerCase(); it.silvered = true; it.cost = silverCost(it.cost, 1); return addInventoryItem(it); }
@@ -6406,7 +6531,7 @@ function compCard(c, i, mini, inCol) {
   const hp = c.count > 1 ? `<div class="grpHp">${(c.hps || []).map((h, k) => `<label class="ghp"><span>#${k + 1}</span>${inp(`companions.${i}.hps.${k}`, { num: 1, cls: 'sm', label: c.name + ' ' + (k + 1) + ' HP' })}</label>`).join('')}<span class="hint">of ${N(c.maxhp)} each</span></div>`
     : c.maxhp ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(c.hp, c.maxhp, c.temp)}</div>
         <div class="chp-center"><div class="curline">${inp(`companions.${i}.hp`, { num: 1, cls: 'cur', label: c.name + ' current HP' })}${N(c.temp) ? `<span class="tmpbadge">+${N(c.temp)}</span>` : ''}</div><div class="hp-max">of ${N(c.maxhp)}</div></div></div>
-        <div class="chp-side"><input class="f" id="chp${i}" type="number" inputmode="numeric" placeholder="Amount" aria-label="${esc(c.name)} HP amount">
+        <div class="chp-side"><input class="f" id="chp${i}" type="text" autocomplete="off" placeholder="-dmg / +heal" aria-label="${esc(c.name)} HP: -20 (or 20) for damage, +20 to heal, then Enter">
           <div class="chp-btns"><button class="btn hpi dmg" data-act="comphp" data-i="${i}" data-d="-1" title="Damage ${esc(c.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="comphp" data-i="${i}" data-d="1" title="Heal ${esc(c.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-act="comphp" data-i="${i}" data-d="0" title="Give ${esc(c.name)} temporary HP (they don't stack — the higher stays)" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div></div>` : '';
   return `<div class="${mini ? 'cm-card' : inCol ? 'comp2 incol' : 'panel comp2'}"><div class="comp-h2">${picThumb(c.tmpl ? `compMods.${c.tmpl}.img` : `companions.${i}.img`, c.name)}<div class="grow"><b class="cname">${esc(c.name)}</b><div class="ctags">${(inCol ? [] : tags).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div></div>
       ${inCol ? compCmdBtn(c, i) : ''}<button class="icon-btn" data-act="compedit" data-i="${i}" title="Edit ${esc(c.name)}" aria-label="Edit">✎</button>${c.tmpl && COMP_RULES[c.tmpl] && COMP_RULES[c.tmpl].always ? '' : `<button class="btn sm ghost" data-act="dismiss" data-i="${i}">Dismiss</button>`}</div>
@@ -8852,7 +8977,7 @@ function ptyCardHTML(m) {
   const more = [['coins', 'Give coins'], ['help', 'Help (advantage on their next roll)'], down && !m.dead && !m.stable ? ['stab', 'Stabilize (Medicine, DC 10)'] : null, ['note', 'Send a message']].filter(Boolean);
   const hp = max ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(cur, max, m.temp, f ? ' form' : '')}</div>
       <div class="chp-center"><div class="curline"><b class="ptym-cur">${cur}</b>${N(m.temp) ? `<span class="tmpbadge">+${N(m.temp)}</span>` : ''}</div><div class="hp-max">of ${max}</div></div></div>
-      ${act ? `<div class="chp-side"><select class="f ptyqt" id="ptyqt-${esc(id)}" aria-label="Damage type for ${esc(m.name)}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="ptyq-${esc(id)}" inputmode="numeric" placeholder="Amount" aria-label="Amount for ${esc(m.name)}">
+      ${act ? `<div class="chp-side"><select class="f ptyqt" id="ptyqt-${esc(id)}" aria-label="Damage type for ${esc(m.name)}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="ptyq-${esc(id)}" autocomplete="off" placeholder="-dmg / +heal" aria-label="Amount for ${esc(m.name)}: -20 (or 20) for damage, +20 to heal, then Enter">
         <div class="chp-btns"><button class="btn hpi dmg" data-pa="qdmg" data-id="${esc(id)}" title="Damage ${esc(m.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-pa="qheal" data-id="${esc(id)}" title="Heal ${esc(m.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-pa="qtemp" data-id="${esc(id)}" title="Give ${esc(m.name)} temporary HP" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div>` : ''}</div>` : '';
   return `<div class="panel comp2 ptym${down ? ' ' + down : ''}" data-mid="${esc(id)}"><div class="comp-h2">${m.thumb ? `<span class="picth"${/^#[0-9a-f]{6}$/i.test(m.acc || '') ? ` style="border-color:${m.acc}"` : ''}><img src="${esc(m.thumb)}" alt=""></span>` : `<span class="picadd">${esc(String(m.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''))}</span>`}
       <div class="grow"><b class="cname${String(m.name || '').length > 26 ? ' n3' : String(m.name || '').length > 17 ? ' n2' : ''}" title="${esc(m.name || '')}">${esc(m.name || 'A character')}</b>${m.player ? `<div class="ptym-pl">${esc(m.player)}</div>` : ''}</div>
@@ -8992,7 +9117,7 @@ function ptyPickDone() { const p = PTY_PICK; if (!p) return; const ids = $$('#mo
   PTY_PICK = null; closeModal(true); p.done(ids); }
 
 // The amount box on a member's card (a number or a roll like 2d4+2), like a creature card's.
-function ptyQuick(kind, id) { const inp = $('#ptyq-' + CSS.escape(id)); const v = inp ? inp.value : ''; if (!String(v).trim()) { if (inp) inp.focus(); toast('Type an amount in the box first.'); return; }
+function ptyQuick(kind, id) { const inp = $('#ptyq-' + CSS.escape(id)); const v = (inp ? String(inp.value) : '').trim().replace(/^[+\-−–]\s*/, ''); if (!String(v).trim()) { if (inp) inp.focus(); toast('Type an amount in the box first.'); return; }
   const r = ptyRollAmt(v, (kind === 'heal' ? 'Healing for ' : kind === 'temp' ? 'Temporary HP for ' : 'Damage to ') + ptyNm(id)); if (!r) { toast('Type a number or a roll like 2d6+3.'); return; } if (r.skipped || !(r.total > 0)) return;
   if (inp) inp.value = ''; const w = S.name || 'an ally', ts = $('#ptyqt-' + CSS.escape(id)), dt = kind === 'dmg' && ts ? ts.value : ''; if (ts) ts.value = '';
   if (kind === 'heal') ptySend([id], 'heal', { amt: r.total, why: w }, `Healed ${r.total} HP`);
@@ -9771,12 +9896,12 @@ const hbbCount = (...ps) => ps.filter(p => { const v = hbbV(p); return v != null
 const hbbSum = (pairs) => pairs.filter(([p]) => { const v = hbbV(p); return v != null && v !== '' && v !== false; }).map(([p, t]) => t || String(hbbV(p))).join(' · ');
 
 // ----- Opening -----
-function openHomebrew(kind, idx) {
+function openHomebrew(kind, idx, preset, read) {
   const isNew = !(idx >= 0), list = kind === 'item' ? S.inventory : kind === 'feat' ? S.features : S.spells;
-  const src = isNew ? (kind === 'item' ? BLANK.inventory() : kind === 'feat' ? BLANK.features() : BLANK.spells()) : list[idx];
+  const src = preset || (isNew ? (kind === 'item' ? BLANK.inventory() : kind === 'feat' ? BLANK.features() : BLANK.spells()) : list[idx]);
   if (!src) return;
   const d = JSON.parse(JSON.stringify(src)); d.hb = d.hb || {};
-  if (isNew) d.name = '';
+  if (isNew && !preset) d.name = '';
   if (kind === 'item') {
     const w = d.weapon || {}, a = S.attacks.find(x => x.item === d.id) || {}, m = /(\d+)d(\d+)/.exec(w.dice || '') || [], rg = String(w.range || '').split('/');
     d._type = d.hbType || (d.weapon ? 'weapon' : d.hb.consume ? 'consumable' : 'magic');
@@ -9786,7 +9911,9 @@ function openHomebrew(kind, idx) {
     d._props = (w.props || []).filter(p => !/^ammunition|^loading$/.test(p)).join(', '); d._loading = (w.props || []).includes('loading'); d._cat = w.cat || 'martial';
     d._keep = !isNew && (S.customItems || []).some(x => x.name.toLowerCase() === String(d.name || '').toLowerCase());
   }
-  if (kind === 'item' && isNew) d.hb.col = 'action';
+  if (kind === 'item' && isNew && !preset) d.hb.col = 'action';
+  if (kind === 'item' && preset && d.mods && N(d.mods.atk)) d._mag = String(N(d.mods.atk));
+  if (kind === 'item' && preset && d.weapon && !d.hb.col) d.hb.col = 'action';
   if (kind === 'feat') { d._limited = String(d.max ?? '').trim() !== '' ? '1' : ''; d.col = d.col || ''; }
   if (kind === 'spell') {
     const h = d.hb, m = /(\d+)d(\d+)/.exec(h.dmg || '') || [], u = /(\d+)d(\d+)/.exec(h.up || '') || [];
@@ -9795,14 +9922,14 @@ function openHomebrew(kind, idx) {
     d._time = ['1 action', '1 bonus action', '1 reaction', '1 minute', '10 minutes', '1 hour', '8 hours'].includes(d.time) ? d.time : (d.time ? 'other' : '1 action'); d._timeX = d._time === 'other' ? d.time : '';
     d.level = String(N(d.level)); d._sum0 = d.summary || '';
   }
-  HBB = { kind, idx: isNew ? -1 : idx, d, isNew, adv: !!(HBB_ADV_ON(kind, d)), sec: {} };
+  HBB = { kind, idx: isNew ? -1 : idx, d, isNew, adv: !!(HBB_ADV_ON(kind, d)), sec: {}, read: read || null };
   spellDatalist();
   openModal('<div id="hbb"></div>', () => { HBB = null; }, true);
   hbbPaint();
 }
 // Advanced starts open when the thing already uses some of it.
 function HBB_ADV_ON(kind, d) {
-  const h = d.hb || {}, basic = { item: ['col', 'consume', 'text', 'textAuto'], feat: ['col'], spell: ['what', 'dmg', 'type', 'hit', 'save', 'half', 'up', 'heal', 'healMod', 'healUp'] }[kind];
+  const h = d.hb || {}, basic = { item: ['col', 'consume', 'text', 'textAuto'], feat: ['col', 'on', 'onDmg', 'onType', 'onSave', 'onDC', 'onCond', 'onCondDur', 'onHeal', 'onTemp', 'onMsg', 'onCost', 'onAsk'], spell: ['what', 'dmg', 'type', 'hit', 'save', 'half', 'up', 'heal', 'healMod', 'healUp'] }[kind];
   return Object.keys(h).some(k => !basic.includes(k) && h[k] !== '' && h[k] != null && h[k] !== false) || (kind === 'item' && (d.spells || []).length) || (kind === 'feat' && ((d.spells || []).length || d.pool || String(d.full || '').trim()));
 }
 function hbbPaint() {
@@ -9812,6 +9939,7 @@ function hbbPaint() {
   const basic = K === 'item' ? hbbItemBasic() : K === 'feat' ? hbbFeatBasic() : hbbSpellBasic();
   const adv = HBB.adv ? `<div class="hbb-adv">${K === 'item' ? hbbItemAdv() : K === 'feat' ? hbbFeatAdv() : hbbSpellAdv()}<p class="hint hbb-fhint">Numbers can be formulas: <code>prof</code>, <code>wis</code>, <code>level</code>, <code>1d6+prof</code>. Separate several entries with commas.</p></div>` : '';
   box.innerHTML = `<div class="hbb-head"><h3>${HBB.isNew ? 'New homebrew ' + title : 'Edit ' + esc(HBB.d.name || title)}</h3><label class="hbb-switch" title="Show every option the sheet can automate"><input type="checkbox" data-hbbadv${HBB.adv ? ' checked' : ''}><span class="tr"><i></i></span><span>Advanced</span></label></div>
+    ${HBB.read ? `<div class="hbb-read"><b>Read from the pasted text</b><ul>${HBB.read.done.map(l => `<li>✓ ${esc(l)}</li>`).join('')}${HBB.read.left.map(l => `<li class="warn">! ${esc(l)}</li>`).join('')}</ul><small class="hint">Check it below, then add it. Anything else it does stays in “What it does”.</small></div>` : ''}
     <div class="hbb-body">${basic}${adv}</div>
     <div class="actions hbb-acts">${K === 'item' ? `<label class="hbb-chk sm" title="So you (and your party) can add it again from Add an item → Homebrew"><input type="checkbox" data-hbb="_keep"${HBB.d._keep ? ' checked' : ''}><span><b>Also save to my homebrew items</b></span></label>` : ''}<span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-hbbsave>${HBB.isNew ? 'Create ' + title : 'Save'}</button></div>`;
   $('#modal-body').scrollTop = sc;
@@ -9867,6 +9995,7 @@ function hbbItemAdv() {
     bChk(P + 'othersDis', 'Cursed: disadvantage on attacks with other weapons') + bRow(bF('When you take damage, make a save', bSel(P + 'hurtSave', hbbAbOpts, { label: 'Save when hurt' })), bF('DC', bIn(P + 'hurtDC', { ph: '15' }))) + bF('If you fail', bIn(P + 'hurtText', { ph: 'What happens' })));
   h += bSec('misc', '⚙', 'Carrying, attunement & reminders', hbbSum([['attune', 'Attunement'], ['carried', 'Works while carried'], [P + 'triggerOn', 'Reminder']]) || 'Weight, cost, attunement',
     bRow(bF('Weight (lb)', bIn('weight', { num: 1 })), bF('Cost', bIn('cost', { ph: '50 gp' }))) + bRow(bChk('attune', 'Requires attunement'), bChk('carried', 'Works while carried', 'No need to equip it')) + bRow(bF('Remind me', bSel(P + 'triggerOn', [['', '—'], ['longRest', 'After a long rest'], ['shortRest', 'After a short rest'], ['initiative', 'When I roll initiative'], ['zero', 'When I drop to 0 HP']], { label: 'Remind me' })), bF('Only works while (effect)', bIn(P + 'onlyEffect', { ph: 'effect name' }))));
+  h += bSec('rider', '✚', 'Adds to another ability', hbbV('hb.on') ? riderTrigText(HBB.d.hb) : 'Like “my melee hits also deal 1d6 fire”', hbbRiderFields('item').replace(/^<div class="hbb-card hbb-rider"><div class="hbb-ct">[^<]*<\/div>/, '<div>'));
   return h;
 }
 const hbbEffFields = P => bRow(bF('Effect name', bIn(P + 'effName', { ph: 'Frost Aura' })), bF('Lasts', bSel(P + 'effRounds', hbbDurs, { label: 'Lasts' }))) +
@@ -9917,10 +10046,12 @@ function hbbSaveItem() {
 function hbbFeatBasic() {
   const d = HBB.d;
   let h = bF('Name', bIn('name', { ph: 'e.g. Stormborn Fury', cls: 'hbb-name', label: 'Feature name' }));
-  h += bF('Using it takes', bSeg('col', hbbUseCols('Nothing (always on)'), { wrap: true }));
+  h += bF('Using it takes', bSeg('col', hbbUseCols('Nothing — it’s passive, or adds to something else'), { wrap: true }), !d.col && !hbbV('hb.on') ? 'It won’t get its own button in Combat. Pick an action type to use it from Combat, or make it add to another ability below (like Divine Smite).' : '');
+  if (d.col && !HBB.adv) h += `<div class="hbb-card"><div class="hbb-ct">⚡ When you use it</div>` + bRow(bF('Roll', bIn('hb.roll', { ph: '2d6+wis' }), 'Dice or a formula'), bF('What the roll is', bIn('hb.rollNote', { ph: 'radiant damage' }))) + bRow(bF('Targets make a save', bSel('hb.saveAb', hbbAbOpts, { label: 'Save ability' })), hbbV('hb.saveAb') ? bF('Save DC', bIn('hb.dc', { ph: 'spell, or 8+prof+wis' })) : '') + `<p class="hint">More (healing, temp HP, effects, costs) under <b>Advanced</b>.</p></div>`;
   h += `<div class="hbb-card"><div class="hbb-ct">↻ Uses</div>` + bF('How often can you use it?', bSeg('_limited', [['', 'As often as I like'], ['1', 'A limited number of times']]));
-  if (d._limited) h += bRow(bF('Times', bIn('max', { ph: '1, prof, 1+cha…', label: 'How many times' }), 'A number, or a formula like <code>prof</code> or <code>1+wis</code>'), bF('Comes back on', bSeg('reset', [['short', 'Short rest'], ['long', 'Long rest'], ['none', 'Never']])));
+  if (d._limited) h += bRow(bF('Times', bIn('max', { ph: '1, prof, 1+cha…', label: 'How many times' }), 'A number, or a formula like <code>prof</code> or <code>1+wis</code>'), bF('Comes back on', bSeg('reset', [['short', 'Short rest'], ['long', 'Long rest'], ['none', 'Never']], { wrap: true })));
   h += `</div>`;
+  h += hbbRiderFields('feat');
   h += bF('What it does', bTa('desc', { rows: 2, ph: 'Describe it — shown on its card and on the Combat tab' }));
   return h;
 }
@@ -10038,6 +10169,169 @@ function hbbOpenRow(kind, idx, hb, it) {
   return `<div class="hbbrow"><span class="hbbrow-t"><b>✦ Homebrew</b><small>${sum.length ? esc(sum.join(' · ')) : kind === 'item' ? 'Make it a weapon, give it uses, resistances, spells…' : kind === 'feat' ? 'Give it uses, rolls, effects, resistances…' : 'Set its damage or healing, saves, upcasting…'}</small></span><button class="btn sm gold" data-act="hbbopen" data-k="${kind}" data-i="${idx}">Open builder</button></div>`;
 }
 function hbbSpellSum(sp) { const h = (sp && sp.hb) || {}, o = []; if (h.dmg) o.push(h.dmg + (h.type ? ' ' + h.type : '') + (h.hit === 'save' ? ' · ' + (h.save || 'DEX') + ' save' : h.hit === 'attack' ? ' · spell attack' : '')); if (h.heal) o.push('Heals ' + h.heal + (h.healMod ? ' + mod' : '')); if (h.up || h.healUp) o.push('+' + (h.up || h.healUp) + ' per level'); if (h.crit) o.push('Crits on ' + h.crit); if (h.backlash) o.push('Backlash'); return o; }
+
+// "Adds to another ability": what sets it off, then what it adds. Shared by features and items.
+function hbbRiderTrigs() {
+  const seen = new Set(), out = [['', 'Nothing — it doesn’t add to anything']].concat(RIDER_GEN.map(([k, t]) => [k, 'Whenever ' + t]));
+  const add = (n, kind) => { n = String(n || '').trim(); const k = riderKeyName(n); if (!n || seen.has(k)) return; seen.add(k); out.push(['name:' + n, n + ' (' + kind + ')']); };
+  if (hasFeature('Divine Smite') || S.spells.some(sp => /^divine smite$/i.test(sp.name))) add('Divine Smite', 'when you smite');
+  S.features.forEach((f, i) => { if (i !== HBB.idx && !(f.hb && f.hb.on)) add(f.dname || f.name, 'feature'); });
+  S.spells.forEach(sp => add(sp.name, 'spell'));
+  S.attacks.forEach(a => add(a.name, 'attack'));
+  const cur = hbbV('hb.on'); if (cur && !out.some(o => o[0] === cur)) out.push([cur, String(cur).replace(/^name:/, '')]);
+  return out;
+}
+function hbbRiderFields(kind) {
+  const on = hbbV('hb.on'), P = 'hb.';
+  let h = `<div class="hbb-card hbb-rider"><div class="hbb-ct">✚ Adds to another ability</div>` + bF('When', bSel(P + 'on', hbbRiderTrigs(), { label: 'What it adds to' }), on ? '' : 'For things like “when I smite, also…” or “my melee hits also…”');
+  if (on) {
+    h += bRow(bF('Extra damage', bIn(P + 'onDmg', { ph: '1d8' }), 'Doubled on a critical hit'), bF('Damage type', bSel(P + 'onType', [['', '—']].concat(hbbTypes()), { label: 'Damage type' })));
+    h += bRow(bF('Target makes a save', bSel(P + 'onSave', hbbAbOpts, { label: 'Save ability' })), hbbV(P + 'onSave') ? bF('Save DC', bIn(P + 'onDC', { ph: '8+prof+cha, spell or 15' })) : '');
+    h += bRow(bF(hbbV(P + 'onSave') ? 'On a failed save' : 'Target condition', bSel(P + 'onCond', [['', '—']].concat(HBB_CONDS.map(c => [c, c])), { label: 'Condition' })), hbbV(P + 'onCond') ? bF('For how long', bIn(P + 'onCondDur', { ph: 'until the end of its next turn' })) : '');
+    h += bRow(bF('Heals you', bIn(P + 'onHeal', { ph: '1d6+cha' })), bF('Temp HP for you', bIn(P + 'onTemp', { ph: 'prof' })));
+    h += bF('Message', bIn(P + 'onMsg', { ph: 'A reminder of what else happens' }));
+    h += bRow(bF('Each time it costs', bSel(P + 'onCost', kind === 'item' ? [['', 'A charge (if it has charges)'], ['charge', 'A charge'], ['none', 'Nothing']] : [['', 'One of its uses (if it has uses)'], ['use', 'One of its uses'], ['none', 'Nothing']], { label: 'Cost' })),
+      bF('When it happens', bSeg(P + 'onAsk', [['', 'Ask me each time'], ['false', 'Always']])));
+    h += `<p class="hint">It shows on that ability in Combat (“+ ${esc(HBB.d.name || 'this')}”). When the ability is used you get a button to add it${kind === 'feat' && String(HBB.d.max ?? '').trim() === '' ? ' — give it a number of uses above if it’s limited' : ''}.</p>`;
+  }
+  return h + `</div>`;
+}
+
+// Paste an item's text from a book / PDF / D&D Beyond → the builder, filled in, to check and add.
+function openItemPaste() {
+  openModal(`<h3>Paste an item</h3><p class="hint">Paste a magic item — its name, the type line (“Weapon (longsword), rare (requires attunement)”), then its text. Bonuses, charges, spells, extra damage, resistances and speeds become automation you can check before adding it.</p>
+    <textarea class="f" id="ipaste" rows="10" aria-label="Item text" placeholder="Ring of Protection&#10;Ring, rare (requires attunement)&#10;You gain a +1 bonus to AC and saving throws while wearing this ring."></textarea>
+    <div class="actions"><span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn gold" id="ipasteGo">Read item</button></div>`, null, true);
+  setTimeout(() => { const t = $('#ipaste'); if (t) t.focus(); }, 30);
+  $('#ipasteGo').onclick = () => { const v = $('#ipaste').value; if (!v.trim()) return; const ctx = { weapons: DND.weapons, armor: DND.armor, spells: DND.spells.map(x => x.name) }, r = ItemParse.parse(v, ctx);
+    if (!r) { toast('That didn’t look like an item — the first line should be its name.', 'fumble'); return; }
+    const it = ItemParse.toItem(r.spec, ctx); it.id = uid(); closeModal(true); openHomebrew('item', -1, it, { done: r.done, left: r.left }); };
+}
+
+// ==== ITEMPARSE START — shared with the DM's Desk (desk/build.sh copies this block into desk.js; edit it only here) ====
+// Magic item text (book, PDF, D&D Beyond, 2014 or 2024 wording) → a spec → a character-sheet item with it.hb automation.
+// ctx: { weapons: DND.weapons rows, armor: DND.armor rows, spells: [spell names] }. No globals used, so both apps can share it.
+const ItemParse = (() => {
+  const n = x => Number(x) || 0, low = s => String(s || '').toLowerCase();
+  const DT = ['acid', 'bludgeoning', 'cold', 'fire', 'force', 'lightning', 'necrotic', 'piercing', 'poison', 'psychic', 'radiant', 'slashing', 'thunder'];
+  const CONDS = ['Blinded', 'Charmed', 'Deafened', 'Frightened', 'Grappled', 'Incapacitated', 'Paralyzed', 'Petrified', 'Poisoned', 'Prone', 'Restrained', 'Stunned', 'Unconscious'];
+  const RAR = ['common', 'uncommon', 'rare', 'very rare', 'legendary', 'artifact'];
+  const WORDN = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, twelve: 12, twenty: 20, fifty: 50 };
+  const LIG = { 'ﬀ': 'ff', 'ﬁ': 'fi', 'ﬂ': 'fl', 'ﬃ': 'ffi', 'ﬄ': 'ffl' };
+  function norm(raw) {
+    let t = String(raw || '').replace(/\r\n?/g, '\n').replace(/[ﬀﬁﬂﬃﬄ]/g, m => LIG[m]).replace(/[­​-‍﻿]/g, '').replace(/[  -  ]/g, ' ')
+      .replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[−‒–]/g, '-').replace(/\t/g, ' ');
+    const L = t.split('\n').map(l => l.replace(/^\s*(?:>\s*)+/, '').replace(/^#{1,6}\s+/, '').replace(/\*\*\*|\*\*|__/g, '').replace(/(^|[\s(])[*_]([^*_]+?)[*_](?=[\s.,;:)]|$)/g, '$1$2').replace(/\s+/g, ' ').trim());
+    for (let i = L.length - 2; i >= 0; i--) if (/[a-z]-$/.test(L[i]) && /^[a-z]/.test(L[i + 1] || '')) { L[i] = L[i].slice(0, -1) + L[i + 1]; L.splice(i + 1, 1); }
+    return L;
+  }
+  const TYPE_RE = /^(weapon|armor|armour|shield|wondrous item|ring|potion|scroll|staff|wand|rod|ammunition)\b\s*(?:\(([^)]*)\))?\s*,?\s*(.*)$/i;
+  const num = s => /^\d+$/.test(s) ? n(s) : WORDN[low(s)] || 0;
+  const cap1 = s => s.charAt(0).toUpperCase() + s.slice(1);
+  function parse(raw, ctx) {
+    ctx = ctx || {}; const W = ctx.weapons || [], A = ctx.armor || [], SP = (ctx.spells || []).slice().sort((a, b) => b.length - a.length);
+    const L = norm(raw).filter(Boolean); if (!L.length) return null;
+    const s = { name: L[0].replace(/[.:]$/, ''), type: 'wondrous', rarity: 'uncommon', attune: false, attuneBy: '', summary: '', notes: '' }, done = [], left = [];
+    let i = 1; const tm = L[1] && TYPE_RE.exec(L[1]);
+    if (tm) {
+      i = 2; let ty = low(tm[1]).replace('armour', 'armor').replace('wondrous item', 'wondrous'); const base = low(tm[2] || ''), rest = low(tm[3] || '');
+      const rm = RAR.slice().reverse().find(r => rest.includes(r)) || (/varies/.test(rest) ? 'rare' : ''); if (rm) s.rarity = rm;
+      const at = /requires attunement(?: by ([^)]+))?/i.exec(L[1]); if (at) { s.attune = true; s.attuneBy = (at[1] || '').replace(/\)$/, '').trim(); }
+      if (ty === 'weapon' || ty === 'ammunition') {
+        const exact = W.find(w => low(w[0]) === base || low(w[0]) === base.replace(/s$/, '')) || W.find(w => base && base.split(/,|\bor\b/).some(b => low(w[0]) === b.trim()));
+        const pick = exact || (/sword/.test(base) ? W.find(w => w[0] === 'Longsword') : /axe/.test(base) ? W.find(w => w[0] === 'Battleaxe') : /bow/.test(base) ? W.find(w => w[0] === 'Longbow') : /ranged/.test(base) ? W.find(w => w[0] === 'Shortbow') : W.find(w => w[0] === 'Longsword'));
+        if (pick) { s.weapon = { base: pick[0], magic: 0 }; if (!exact) left.push(`Base weapon “${tm[2] || 'any'}” — set to ${pick[0]}; change it if you like.`); }
+        s.type = 'weapon';
+      } else if (ty === 'armor' || ty === 'shield') {
+        const exact = ty === 'shield' ? A.find(a => a[0] === 'Shield') : A.find(a => low(a[0]) === base || low(a[0]).replace(/ armor$/, '') === base || low(a[0]) === base + ' armor');
+        const pick = exact || A.find(a => /medium or heavy|heavy/.test(base) ? a[0] === 'Chain Mail' : /light/.test(base) ? a[0] === 'Studded Leather' : /medium/.test(base) ? a[0] === 'Breastplate' : a[0] === 'Chain Mail');
+        if (pick) { s.armor = { base: pick[0], magic: 0 }; if (!exact) left.push(`Base armor “${tm[2] || 'any'}” — set to ${pick[0]}; change it if you like.`); }
+        s.type = 'armor';
+      } else s.type = ty;
+      done.push(`${cap1(s.rarity)} ${s.type === 'wondrous' ? 'wondrous item' : s.type}${s.attune ? ', attunement' + (s.attuneBy ? ' by ' + s.attuneBy : '') : ''}`);
+    }
+    const body = L.slice(i).join(' '), sents = body.split(/(?<=[.!?])\s+(?=[A-Z])/), lb = body.toLowerCase();
+    s.notes = L.slice(i).join('\n');
+    let m;
+    if ((m = /\+(\d) bonus to attack (?:rolls )?and damage rolls/i.exec(body)) && s.weapon) { s.weapon.magic = n(m[1]); done.push(`+${m[1]} to attack and damage`); }
+    const acm = /\+(\d) bonus to (?:your )?(?:AC|Armor Class)( and (?:to )?saving throws)?/i.exec(body);
+    if (acm) { if (s.armor && !acm[2]) s.armor.magic = n(acm[1]); else { s.bonuses = s.bonuses || {}; s.bonuses.ac = n(acm[1]); } if (acm[2]) { s.bonuses = s.bonuses || {}; s.bonuses.saves = n(acm[1]); } done.push(`+${acm[1]} AC${acm[2] ? ' and saves' : ''}`); }
+    if (!acm || !acm[2]) { const sm = /\+(\d) bonus to (?:all )?saving throws/i.exec(body); if (sm) { s.bonuses = s.bonuses || {}; s.bonuses.saves = n(sm[1]); done.push(`+${sm[1]} to saves`); } }
+    if ((m = /\+(\d) bonus to spell attack rolls/i.exec(body))) { s.bonuses = s.bonuses || {}; s.bonuses.spell = n(m[1]); done.push(`+${m[1]} spell attack${/saving throw DCs?|save DC/i.test(body) ? ' and DC' : ''}`); }
+    if ((m = /has (\d+|[a-z]+) charges/i.exec(body)) && num(m[1])) {
+      const reset = /at dawn|each dawn|daily/i.test(body) ? 'long' : /short or long rest|short rest/i.test(body) ? 'short' : /long rest/i.test(body) ? 'long' : 'none';
+      s.charges = { max: num(m[1]), reset }; const rg = /regains? (all expended charges|\d+d\d+(?:\s*\+\s*\d+)?|\d+) (?:expended )?charges?/i.exec(body);
+      done.push(`${num(m[1])} charges${reset === 'none' ? '' : ', back ' + (reset === 'short' ? 'after a short rest' : 'at dawn')}${rg && !/all/i.test(rg[1]) ? ` (regains ${rg[1].replace(/\s+/g, '')} — the sheet refills all of them)` : ''}`);
+    }
+    // spells it casts (in sentences about casting), with their charge costs kept as a note
+    const spells = [], costs = [];
+    sents.filter(x => /\bcast\b|\bcasting\b/i.test(x)).forEach(x => { let rest = x;
+      for (const nm of SP) { const re = new RegExp('\\b' + nm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b(\\s*\\(([^)]*)\\))?', 'i'); const k = re.exec(rest); if (!k) continue;
+        if (/^(light|shield|fly|wish|command|sleep|bless|guidance|resistance|identify|message)$/i.test(nm) && !new RegExp('\\b' + nm + '\\b(?:\\s*spell|\\s*\\(|,|\\s+or\\b|\\s+and\\b|\\.)', 'i').test(rest.slice(k.index))) continue;
+        if (!spells.includes(nm)) spells.push(nm); if (k[2] && /charge/i.test(k[2])) costs.push(`${nm}: ${k[2]}`); rest = rest.slice(0, k.index) + ' ' + rest.slice(k.index + k[0].length); } });
+    spells.sort((a, b) => lb.indexOf(low(a)) - lb.indexOf(low(b))); costs.sort((a, b) => lb.indexOf(low(a.split(':')[0])) - lb.indexOf(low(b.split(':')[0])));
+    if (spells.length) { s.spells = spells.slice(0, 8); if (/can't (?:be used|do so) (?:this way )?again until the next dawn|once per (?:day|long rest)|1\/day/i.test(body) && !s.charges) s.spellOnce = true; done.push('Casts ' + s.spells.join(', ') + (costs.length ? ' (' + costs.join('; ') + ')' : '')); }
+    if (costs.length) s.notes += '\nCharge costs: ' + costs.join('; ') + '.';
+    // extra damage on a hit → an add-on to this weapon's attacks
+    if ((m = /(?:deals?|takes?) an extra (\d+d\d+(?:\s*\+\s*\d+)?)\s+([a-z]+) damage/i.exec(body)) && DT.includes(low(m[2]))) {
+      const sent = sents.find(x => x.includes(m[0])) || '', ask = /\b(while|if|when you hit (?:a|an) |against|whenever)\b/i.test(sent.slice(0, sent.indexOf(m[0]) + 1));
+      s.onHit = { dice: m[1].replace(/\s+/g, ''), type: low(m[2]), ask }; done.push(`On a hit: +${s.onHit.dice} ${s.onHit.type}${ask ? ' (a button — you choose when it applies)' : ''}`);
+    }
+    const P = {};
+    const typesIn = t => DT.filter(d => new RegExp('\\b' + d + '\\b').test(low(t)));
+    for (const k of body.matchAll(/resistance to ([a-z ,]+?) damage/gi)) { const ts = typesIn(k[1]); if (ts.length && !/all damage/i.test(k[0])) P.resist = (P.resist || []).concat(ts); }
+    for (const k of body.matchAll(/immun(?:e|ity) to ([a-z ,]+?) damage/gi)) { const ts = typesIn(k[1]); if (ts.length) P.immune = (P.immune || []).concat(ts); }
+    for (const k of body.matchAll(/(?:can't be|immune to being|immunity to being|immune to the) (charmed|frightened|poisoned|paralyzed|stunned|blinded|deafened|petrified|restrained|grappled)/gi)) P.condImmune = (P.condImmune || []).concat(cap1(low(k[1])));
+    if ((m = /flying speed (?:of (\d+) feet|equal to your walking speed)/i.exec(body))) P.fly = m[1] ? n(m[1]) : 'walk';
+    if ((m = /swimming speed (?:of (\d+) feet|equal to your walking speed)/i.exec(body))) P.swim = m[1] ? n(m[1]) : 'walk';
+    if ((m = /climbing speed (?:of (\d+) feet|equal to your walking speed)/i.exec(body))) P.climb = m[1] ? n(m[1]) : 'walk';
+    if ((m = /(?:walking )?speed increases by (\d+) feet/i.exec(body))) P.speed = n(m[1]);
+    if ((m = /darkvision (?:out )?to a range of (\d+) feet|darkvision (?:with a range of )?(\d+) feet/i.exec(body))) P.sense = 'Darkvision ' + (m[1] || m[2]) + ' ft';
+    const adv = sents.filter(x => /\byou have advantage on\b|\bgives? you advantage\b/i.test(x)).map(x => x.replace(/^.*?advantage on /i, '').replace(/[.,;]?\s*as the .*$|\.$/i, '').trim()).filter(Boolean);
+    if (adv.length) P.adv = adv.join('; ').slice(0, 200);
+    if (Object.keys(P).length) { Object.keys(P).forEach(k => { if (Array.isArray(P[k])) P[k] = Array.from(new Set(P[k])); }); s.passive = P;
+      done.push([P.resist && 'Resist ' + P.resist.join(', '), P.immune && 'Immune ' + P.immune.join(', '), P.condImmune && "Can't be " + P.condImmune.join(', ').toLowerCase(), P.fly && 'Fly ' + P.fly, P.swim && 'Swim ' + P.swim, P.climb && 'Climb ' + P.climb, P.speed && 'Speed +' + P.speed, P.sense, P.adv && 'Advantage: ' + P.adv].filter(Boolean).join(' · ')); }
+    // potions and scrolls are used up; healing potions heal
+    if (s.type === 'potion' || s.type === 'scroll') { s.consumable = true; s.qty = 1; }
+    if ((m = /regains? (\d+d\d+(?:\s*\+\s*\d+)?|\d+) hit points/i.exec(body)) && (s.consumable || /\bdrink\b/i.test(body))) { s.use = Object.assign(s.use || {}, { heal: m[1].replace(/\s+/g, ''), col: /bonus action/i.test(body) && !/action to (?:drink|administer)/i.test(body) ? 'bonus' : 'action' }); done.push('Heals ' + s.use.heal + ' when used'); }
+    else if (s.consumable) s.use = Object.assign(s.use || {}, { col: 'action' });
+    if (/\bcurse[ds]?\b/i.test(body)) { left.push('It’s cursed — the curse is in the description.'); if (/disadvantage on attack rolls (?:made )?with weapons other than/i.test(body)) s.curse = { othersDis: true }; }
+    if (/while (?:you're |you are )?(?:wearing|carrying|holding)|while it is on your person|while you carry/i.test(body) && !s.weapon && !s.armor && /carrying|on your person|carry/i.test(body)) s.carried = true;
+    s.summary = (sents[0] || '').slice(0, 200);
+    return { spec: s, done, left };
+  }
+  // spec → the sheet's item object (what S.inventory / S.customItems hold)
+  function toItem(s, ctx) {
+    ctx = ctx || {}; const W = ctx.weapons || [], A = ctx.armor || [], it = { name: s.name, qty: s.qty || 1, weight: s.weight || 0, cost: s.cost || '', equipped: false, notes: s.notes || '' }, hb = {}, mods = {};
+    if (s.summary) it.summary = s.summary;
+    it.magic = { rarity: s.rarity, type: s.type === 'armor' && s.armor && s.armor.base === 'Shield' ? 'shield' : s.type, src: 'Homebrew', name: s.name };
+    if (s.attune) { it.attune = true; it.attuneBy = s.attuneBy || ''; it.attuned = false; }
+    if (s.weapon) { const w = W.find(x => x[0] === s.weapon.base); if (w) { it.weapon = { cat: w[1], kind: w[2], dice: w[4], type: w[5], props: (w[7] || []).slice(), range: w[8] || '', base: w[0] }; if (!s.weight) it.weight = w[6]; if (s.weapon.magic) { mods.atk = s.weapon.magic; mods.dmg = s.weapon.magic; } } }
+    if (s.armor) { const a = A.find(x => x[0] === s.armor.base); if (a) { it.armor = { type: a[1], base: a[3], dexCap: a[4], strReq: a[5], stealthDis: a[6] }; if (!s.weight) it.weight = a[7]; if (s.armor.magic) mods.ac = s.armor.magic; } }
+    if (s.bonuses) { if (s.bonuses.ac) mods.ac = n(mods.ac) + s.bonuses.ac; if (s.bonuses.saves) mods.save = s.bonuses.saves; if (s.bonuses.spell) mods.spell = s.bonuses.spell; }
+    if (Object.keys(mods).length) it.mods = mods;
+    it.hbType = it.weapon ? 'weapon' : s.consumable ? 'consumable' : 'magic';
+    if (s.charges) it.charges = { max: s.charges.max, used: 0, reset: s.charges.reset };
+    if (s.spells && s.spells.length) { it.spells = s.spells.slice(); if (s.spellOnce) it.spellOnce = true; if (s.spellAtWill) it.spellAtWill = true; if (s.spellAb) hb.spellAb = s.spellAb; }
+    if (s.consumable) { hb.consume = true; if (s.type === 'potion' || s.type === 'scroll') it.consumable = true; }
+    const u = s.use || {}; if (u.col) hb.col = u.col; if (u.roll) hb.roll = u.roll; if (u.rollNote) hb.rollNote = u.rollNote; if (u.healRoll) hb.healRoll = true; if (u.selfDmg) hb.selfDmg = true;
+    if (u.heal) { hb.heal = u.heal; if (s.type === 'potion') it.heal = u.heal; } if (u.temp) hb.temp = u.temp; if (u.saveAb) { hb.saveAb = u.saveAb; hb.dc = String(u.dc || 'spell'); } if (u.dash) hb.dash = true; if (u.text) hb.text = u.text;
+    const p = s.passive || {}; ['resist', 'immune', 'condImmune'].forEach(k => { if (p[k] && p[k].length) hb[k] = p[k].join(', '); });
+    ['speed', 'fly', 'swim', 'climb', 'sense', 'skillBonus', 'adv'].forEach(k => { if (p[k]) hb[k] = String(p[k]); }); if (p.init) hb.init = String(p.init); if (p.initAdv) hb.initAdv = true; if (p.maxHp) hb.maxHp = String(p.maxHp);
+    const e = s.effect; if (e) { hb.effName = e.name; if (e.rounds) hb.effRounds = e.rounds; if (e.fly) hb.effFly = String(e.fly); if (e.ac) hb.effAc = String(e.ac); if (e.speed) hb.effSpeed = String(e.speed); if (e.skillAdv && e.skillAdv.length) hb.effSkillAdv = e.skillAdv.join(', '); if (e.note) hb.effNote = e.note; if (e.conc) hb.effConc = true; if (!hb.col) hb.col = 'action'; }
+    const a = s.attack; if (a) { hb.atkName = a.name; hb.atkDice = a.dice; if (a.type) hb.atkType = a.type; hb.atkAb = a.ab; hb.atkKind = a.kind; if (a.range) hb.atkRange = String(a.range); if (a.addMod) hb.atkAddMod = true; if (a.note) hb.atkNote = a.note; }
+    const c = s.curse; if (c) { if (c.othersDis) hb.othersDis = true; if (c.hurtSave) { hb.hurtSave = c.hurtSave; hb.hurtDC = String(c.hurtDC || 10); if (c.hurtText) hb.hurtText = c.hurtText; } }
+    // extra damage on a hit rides on this weapon's own attack (the sheet's add-ons)
+    const oh = s.onHit; if (oh && oh.dice) { hb.on = 'name:' + s.name; hb.onDmg = oh.dice; if (oh.type) hb.onType = oh.type; hb.onAsk = oh.ask ? '' : 'false'; hb.onCost = 'none'; }
+    if (s.carried) it.carried = true;
+    if (it.weapon) it.noEquip = false;
+    if (!it.weapon && (hb.col || it.charges || hb.consume) && !hb.text) { hb.text = String(s.summary || s.notes || '').slice(0, 400) || 'You use ' + s.name + '.'; hb.textAuto = 1; }
+    if (Object.keys(hb).length) it.hb = hb;
+    return it;
+  }
+  return { parse, toItem, norm, DT, CONDS };
+})();
+// ==== ITEMPARSE END ====
 
 
 // ---------- Spellcasting ability for a specific spell ----------
@@ -10693,6 +10987,7 @@ function renderWizard() {
   let body = '';
   if (st === 0) {
     body = `<div class="wz-intro"><p>Build any 5e (2014) character. Every choice can be changed later on the sheet.</p></div>
+      <div class="wz-ddb top"><div><b>Made your character on D&amp;D Beyond?</b><span class="hint">Bring it over: classes, scores, spells, equipment and notes.</span></div><button class="btn" data-wact="ddb">Import from D&amp;D Beyond</button></div>
       <div class="wz-grid">${fld('Character name', `<input class="f" data-wz="name" value="${esc(W.name)}" placeholder="Name" autofocus>`)}${window.SHEET_PAGES ? '' : fld('Player', `<input class="f" data-wz="player" value="${esc(W.player)}" placeholder="Your name">`)}
       ${fld('Alignment', `<select class="f" data-wz="alignment"><option value="">—</option>${DND.alignments.map(a => `<option${W.alignment === a ? ' selected' : ''}>${esc(a)}</option>`).join('')}</select>`)}</div>
       <div class="row" style="margin-top:12px"><img class="wz-portrait" src="${esc(W.portrait || PLACEHOLDER)}" alt=""><button class="btn" data-wact="portrait">${W.portrait ? 'Change portrait' : 'Add a portrait'}</button><span class="hint">Optional. The sheet's colors can match it.</span></div>
@@ -10854,6 +11149,7 @@ function wizClick(e) {
     case 'go': W.step = N(b.dataset.v); break;
     case 'portrait': $('#portraitFile').click(); return;
     case 'import': $('#importFile').click(); return;
+    case 'ddb': openDdbImport(); return;
     case 'addcls': W.classes.push({ key: '', level: 1, sub: '' }); break;
     case 'delcls': W.classes.splice(N(b.dataset.i), 1); break;
     case 'method': W.method = b.dataset.v; W.base = { str: '', dex: '', con: '', int: '', wis: '', cha: '' }; break;
@@ -10899,6 +11195,15 @@ function findGear(name) {
   const a = DND.armor.find(x => x[0].toLowerCase() === n); if (a) return makeArmorItem(a);
   const g = DND.gear.find(x => x[0].toLowerCase() === n); if (g) return makeGearItem(g);
   return { id: uid(), name, qty: 1, weight: 0, equipped: false, notes: '' };
+}
+// The standard actions every character has (and Cunning Action for a rogue).
+function defaultCombat() {
+  return {
+    action: [['Dash', 'Gain extra movement equal to your speed.'], ['Disengage', 'Your movement doesn\'t provoke opportunity attacks this turn.'], ['Dodge', 'Attacks against you have disadvantage; advantage on DEX saves until your next turn.'], ['Help', 'Give an ally advantage on a check or their next attack.'], ['Hide', 'Make a Stealth check to hide.'], ['Ready', 'Choose a trigger and a reaction to take.'], ['Search', 'Make a Perception or Investigation check.'], ['Use an Object', 'Interact with a second object or use an item.'], ['Grapple', 'Athletics vs the target\'s Athletics or Acrobatics; its speed becomes 0.'], ['Shove', 'Athletics contest to push 5 ft or knock prone.']].map(([name, text]) => ({ name, text })),
+    bonus: clsLv('rogue') >= 2 ? [{ name: 'Cunning Action', text: 'Dash, Disengage or Hide as a bonus action.' }] : [],
+    reaction: [{ name: 'Opportunity Attack', text: 'When a hostile creature you can see leaves your reach, make one melee attack.' }],
+    move: [['Stand up', 'Costs half your speed.'], ['Drop prone', 'Free.'], ['Interact', 'Draw a weapon, open a door, pick up an item — one free interaction.'], ['Climb / swim', 'Each foot costs 1 extra foot unless you have the speed.'], ['Jump', 'Long jump = STR score in feet with a 10 ft run.']].map(([name, text]) => ({ name, text }))
+  };
 }
 function buildCharacter() {
   const x = wzRace(), rows = wzClassRows();
@@ -10972,12 +11277,7 @@ function buildCharacter() {
   const arm = S.inventory.find(it => it.armor && it.armor.type !== 'shield' && (S.profs.armor || []).includes(it.armor.type)); if (arm) arm.equipped = true;
   const sh = S.inventory.find(it => it.armor && it.armor.type === 'shield' && (S.profs.armor || []).includes('shield')); if (sh) sh.equipped = true;
   const wpn = S.inventory.filter(it => it.weapon).slice(0, 2); wpn.forEach(it => it.equipped = true);
-  S.combat = {
-    action: [['Dash', 'Gain extra movement equal to your speed.'], ['Disengage', 'Your movement doesn\'t provoke opportunity attacks this turn.'], ['Dodge', 'Attacks against you have disadvantage; advantage on DEX saves until your next turn.'], ['Help', 'Give an ally advantage on a check or their next attack.'], ['Hide', 'Make a Stealth check to hide.'], ['Ready', 'Choose a trigger and a reaction to take.'], ['Search', 'Make a Perception or Investigation check.'], ['Use an Object', 'Interact with a second object or use an item.'], ['Grapple', 'Athletics vs the target\'s Athletics or Acrobatics; its speed becomes 0.'], ['Shove', 'Athletics contest to push 5 ft or knock prone.']].map(([name, text]) => ({ name, text })),
-    bonus: clsLv('rogue') >= 2 ? [{ name: 'Cunning Action', text: 'Dash, Disengage or Hide as a bonus action.' }] : [],
-    reaction: [{ name: 'Opportunity Attack', text: 'When a hostile creature you can see leaves your reach, make one melee attack.' }],
-    move: [['Stand up', 'Costs half your speed.'], ['Drop prone', 'Free.'], ['Interact', 'Draw a weapon, open a door, pick up an item — one free interaction.'], ['Climb / swim', 'Each foot costs 1 extra foot unless you have the speed.'], ['Jump', 'Long jump = STR score in feet with a 10 ft run.']].map(([name, text]) => ({ name, text }))
-  };
+  S.combat = defaultCombat();
   rebuildAuto();
   S.hp.cur = maxHp();
   S.created = true; S.notes = [{ date: new Date().toISOString().slice(0, 10), title: 'Character created', text: `${S.name}: ${S.raceName} ${classLabel()}${S.backgroundName ? ', ' + S.backgroundName : ''}.` }];
@@ -11276,6 +11576,285 @@ applyLayout(); applyTheme();
 if (S.created) { render(); setTimeout(afterUpdate, 50); }
 else openWizard();
 window.addEventListener('resize', () => { if (!LAYOUT_NOW) { const was = isMobile(); applyLayout(); if (was !== isMobile() && S.created) render(); } });
+// ---------- Import a character from D&D Beyond ----------
+// D&D Beyond keeps a public character's data at its character service. Browsers can't read it directly from this site,
+// so the site's small helper (the same one that makes party invite previews) fetches it; pasting the data works too.
+// What comes over is the player's own character: names, numbers and choices, matched to this sheet's rules data. No
+// rules text is copied from D&D Beyond: descriptions come from this sheet's own data.
+const DDB_PROXY = 'https://invite.adventurerstome.workers.dev/ddb/';
+const DDB_DIRECT = id => 'https://character-service.dndbeyond.com/character/v5/character/' + id;
+const ddbNorm = s => String(s || '').toLowerCase().replace(/[’']/g, '').replace(/&/g, 'and').replace(/[^a-z0-9+]+/g, '');
+const ddbId = t => { t = String(t || '').trim(); const m = /characters\/(\d{3,12})/.exec(t) || /character\/(\d{3,12})/.exec(t) || /^(\d{3,12})$/.exec(t); return m ? m[1] : ''; };
+const DDB_AB = { 1: 'str', 2: 'dex', 3: 'con', 4: 'int', 5: 'wis', 6: 'cha' };
+const DDB_ABNAME = { strength: 'str', dexterity: 'dex', constitution: 'con', intelligence: 'int', wisdom: 'wis', charisma: 'cha' };
+const DDB_ALIGN = { 1: 'Lawful Good', 2: 'Neutral Good', 3: 'Chaotic Good', 4: 'Lawful Neutral', 5: 'True Neutral', 6: 'Chaotic Neutral', 7: 'Lawful Evil', 8: 'Neutral Evil', 9: 'Chaotic Evil' };
+const DDB_COND = { 1: 'Blinded', 2: 'Charmed', 3: 'Deafened', 5: 'Frightened', 6: 'Grappled', 7: 'Incapacitated', 8: 'Invisible', 9: 'Paralyzed', 10: 'Petrified', 11: 'Poisoned', 12: 'Prone', 13: 'Restrained', 14: 'Stunned', 15: 'Unconscious' };
+// Accepts the character service's reply ({success, data}), the bare character, or a saved file of either.
+function ddbParse(txt) {
+  let j = null; try { j = typeof txt === 'string' ? JSON.parse(String(txt).trim().replace(/^﻿/, '')) : txt; } catch (e) { throw new Error('That isn’t D&D Beyond character data. Copy everything on the page (Ctrl+A, then Ctrl+C) and paste it here.'); }
+  const d = j && j.data && j.data.classes ? j.data : j && j.character && j.character.classes ? j.character : j;
+  if (!d || !Array.isArray(d.classes) || !Array.isArray(d.stats)) { if (j && j.success === false) throw new Error('D&D Beyond wouldn’t share that character. Make sure it’s set to Public (Character Settings → Privacy).'); throw new Error('That isn’t D&D Beyond character data.'); }
+  return d;
+}
+async function ddbFetch(id) {
+  let r; try { r = await fetch(DDB_PROXY + id, { credentials: 'omit' }); } catch (e) { throw new Error('Couldn’t reach D&D Beyond from here. Use “paste the data” below instead.'); }
+  if (r.status === 403 || r.status === 401) throw new Error('That character is private. On D&D Beyond open it → Character Settings → Privacy → Public, then try again.');
+  if (r.status === 404) throw new Error('D&D Beyond has no character with that number. Check the link.');
+  if (!r.ok) throw new Error('D&D Beyond didn’t answer (' + r.status + '). Try again, or paste the data below.');
+  return ddbParse(await r.text());
+}
+// All of a character's modifiers in one list, each tagged with where it came from.
+const ddbMods = d => Object.entries(d.modifiers || {}).flatMap(([src, list]) => (list || []).map(m => Object.assign({ _src: src }, m)));
+// Final ability scores the way D&D Beyond works them out. Item bonuses are left out (the sheet adds its items' own
+// effects); `withItems` includes them, for working out what D&D Beyond shows for hit points.
+function ddbScores(d, withItems) {
+  const o = {}, mods = ddbMods(d);
+  Object.entries(DDB_AB).forEach(([id, a]) => {
+    const base = (d.stats.find(s => s.id === +id) || {}).value, bonus = (d.bonusStats.find(s => s.id === +id) || {}).value, ov = (d.overrideStats.find(s => s.id === +id) || {}).value;
+    if (ov != null) { o[a] = N(ov); return; }
+    let v = N(base) + N(bonus), set = 0; const sub = Object.keys(DDB_ABNAME).find(k => DDB_ABNAME[k] === a) + '-score';
+    mods.filter(m => m.subType === sub && (withItems || m._src !== 'item')).forEach(m => { if (m.type === 'bonus') v += N(m.value != null ? m.value : m.fixedValue); if (m.type === 'set') set = Math.max(set, N(m.value != null ? m.value : m.fixedValue)); });
+    const cap = 20 + mods.filter(m => m.type === 'bonus' && m.subType === Object.keys(DDB_ABNAME).find(k => DDB_ABNAME[k] === a) + '-score-maximum' && (withItems || m._src !== 'item')).reduce((t, m) => t + N(m.value), 0);
+    o[a] = Math.max(set, Math.min(Math.max(cap, 20), v));
+  });
+  return o;
+}
+const ddbLevel = d => (d.classes || []).reduce((t, c) => t + N(c.level), 0);
+// What D&D Beyond shows as maximum hit points.
+function ddbMaxHp(d) {
+  if (d.overrideHitPoints != null) return N(d.overrideHitPoints);
+  const sc = ddbScores(d, true), lv = ddbLevel(d), mods = ddbMods(d);
+  const per = mods.filter(m => m.type === 'bonus' && m.subType === 'hit-points-per-level').reduce((t, m) => t + N(m.value), 0);
+  const flat = mods.filter(m => m.type === 'bonus' && m.subType === 'hit-points').reduce((t, m) => t + N(m.value), 0);
+  return N(d.baseHitPoints) + N(d.bonusHitPoints) + Math.floor((sc.con - 10) / 2) * lv + per * lv + flat;
+}
+// ----- matching D&D Beyond's names to this sheet's rules data -----
+function ddbFindClass(name) { const n = ddbNorm(name); const k = Object.keys(CL).find(k => ddbNorm(CL[k].name) === n && k !== 'rangertce') || Object.keys(CL).find(k => ddbNorm(CL[k].name) === n); return k || ''; }
+function ddbFindSub(ck, name) { if (!ck || !name) return ''; const c = CL[ck], n = ddbNorm(String(name).replace(/\((archived|legacy)\)/ig, '')); const e = Object.entries(c.subclasses || {});
+  const hit = e.find(([, s]) => ddbNorm(s.name) === n) || e.find(([, s]) => ddbNorm(s.name).replace(/^(circleofthe|circleof|pathofthe|pathof|wayofthe|wayof|collegeof|oathofthe|oathof|schoolof|the)/, '') === n.replace(/^(circleofthe|circleof|pathofthe|pathof|wayofthe|wayof|collegeof|oathofthe|oathof|schoolof|the)/, ''));
+  return hit ? hit[0] : ''; }
+function ddbFindRace(r) {
+  if (!r) return null; const full = ddbNorm(r.fullName), base = ddbNorm(r.baseRaceName || r.baseName), short = ddbNorm(r.subRaceShortName);
+  for (const [k, x] of Object.entries(DND.races)) {
+    const subs = Object.entries(x.subraces || {});
+    if (ddbNorm(x.name) === base || ddbNorm(x.name) === full) {
+      const s = subs.find(([, s]) => ddbNorm(s.name) === full) || subs.find(([, s]) => short && (ddbNorm(s.name) === short || ddbNorm(s.name) === short + base)) || subs.find(([, s]) => ddbNorm(s.name + ' ' + x.name) === full);
+      if (s || !subs.length || ddbNorm(x.name) === full) return { key: k, sub: s ? s[0] : '' };
+    }
+  }
+  // a lineage or variant listed under another name (e.g. a subrace that's a race of its own here)
+  for (const [k, x] of Object.entries(DND.races)) { const s = Object.entries(x.subraces || {}).find(([, s]) => ddbNorm(s.name) === full); if (s) return { key: k, sub: s[0] }; }
+  for (const [k, x] of Object.entries(DND.races)) if (ddbNorm(x.name) === base) return { key: k, sub: '' };
+  return null;
+}
+function ddbFindBg(name) { if (!name) return ''; const n = ddbNorm(String(name).split(/\s+[-–]\s+/)[0].replace(/\s*\(.*\)$/, '')); return Object.keys(DND.backgrounds).find(k => ddbNorm(DND.backgrounds[k].name) === n) || Object.keys(DND.backgrounds).find(k => String(DND.backgrounds[k].name).split(/\s*\/\s*|\s*\(/).some(p => ddbNorm(p) === n)) || ''; }
+const ddbFindFeat = name => { const n = ddbNorm(name), n2 = ddbNorm(String(name || '').replace(/\s*\(.*\)\s*$/, '')); const f = DND.feats.find(x => ddbNorm(x[0]) === n) || DND.feats.find(x => ddbNorm(x[0]) === n2) || DND.feats.find(x => ddbNorm(x[0]) === n.replace(/2024$|legacy$/, '')); return f ? f[0] : ''; };
+// Spells the free rules name without their wizard ("Hideous Laughter" is Tasha's Hideous Laughter here).
+const ddbSpell = nm => SPI(nm) || Object.values(DND.spellIndex).find(sp => /['’]s /.test(sp.name) && ddbNorm(sp.name.replace(/^[^ ]+['’]s /, '')) === ddbNorm(nm)) || null;
+const ddbSkill = sub => S.skills.find(s => ddbNorm(s.name) === ddbNorm(sub));
+const ddbTool = name => ALL_TOOLS().find(t => ddbNorm(t) === ddbNorm(name)) || ALL_TOOLS().find(t => ddbNorm(t).replace(/s$/, '') === ddbNorm(name).replace(/s$/, ''));
+const ddbWeapon = name => DND.weapons.find(w => ddbNorm(w[0]) === ddbNorm(name));
+const ddbArmor = name => DND.armor.find(a => ddbNorm(a[0]) === ddbNorm(name) || ddbNorm(a[0]) === ddbNorm(name) + 'armor' || ddbNorm(a[0]).replace(/armor$/, '') === ddbNorm(name).replace(/armor$/, ''));
+function ddbMagic(name, def) {
+  const n = ddbNorm(name), M = DND.magic, by = s => M.find(m => ddbNorm(m[0]) === ddbNorm(s));
+  let m = by(name); if (m) return m;
+  const plus = /,?\s*\+([123])$/.exec(name) || /^\+([123])\s/.exec(name);
+  if (plus) { const isShield = /shield/i.test(name) || /shield/i.test(def.baseArmorName || ''); return by((def.filterType === 'Weapon' ? 'Weapon' : def.filterType === 'Armor' ? (isShield ? 'Shield' : 'Armor') : 'Ammunition') + ' +' + plus[1]); }
+  const base = def.type && def.filterType === 'Weapon' ? def.type : def.baseArmorName || '';
+  if (base) { m = by(name.replace(new RegExp(',?\\s*' + base.replace(/[^\w ]/g, '.') + '$', 'i'), '')); if (m) return m; }
+  if (/^mithral\b/i.test(name)) return by('Mithral Armor'); if (/^adamantine\b/i.test(name)) return by('Adamantine Armor');
+  const par = /^(.*?)\s*\(([^)]+)\)$/.exec(name);
+  if (par) { m = by(par[1].replace(/^Potion of /i, 'Potion of ' + par[2] + ' ')) || by(par[2] + ' ' + par[1]) || by(par[1]); if (m) return m; }
+  return M.find(x => ddbNorm(x[0]).replace(/s$/, '') === n.replace(/s$/, '')) || null;
+}
+// One inventory entry → one of this sheet's items (unmatched ones come over by name, as plain items).
+function ddbItem(x, miss) {
+  const def = x.definition || {}, name = String(def.name || 'Item').trim();
+  let it = null, matched = true;
+  const baseW = def.filterType === 'Weapon' && (ddbWeapon(def.type) || ddbWeapon(name)), baseA = def.filterType === 'Armor' && (ddbArmor(def.baseArmorName) || ddbArmor(name) || (/shield/i.test(name) ? DND.armor.find(a => a[1] === 'shield') : null));
+  if (def.magic || /\+[123]/.test(name)) {
+    const m = ddbMagic(name, def);
+    if (m) { const base = (m[6] || {}).base; it = makeMagicItem(m, base === 'weapon' && baseW ? makeWeaponItem(baseW) : (base === 'armor' || base === 'shield') && baseA ? makeArmorItem(baseA) : undefined); if (it.name !== name && !/\+\d/.test(name)) it.name = name; }
+    else { matched = false; it = baseW ? makeWeaponItem(baseW) : baseA ? makeArmorItem(baseA) : { id: uid(), name, qty: 1, weight: N(def.weight), equipped: false, notes: '' }; it.name = name; it.magic = true; if (def.canAttune) it.attune = true; }
+  } else if (baseW) it = makeWeaponItem(baseW);
+  else if (baseA) it = makeArmorItem(baseA);
+  else { const tries = [name, name.replace(/^([^,]+),\s*(.+)$/, '$2 $1'), name.replace(/\s*\(.*\)$/, ''), name.replace(/^(block|stick|bottle|vial|flask|pouch|bag) of /i, '')].map(ddbNorm);
+    const g = DND.gear.find(g => tries.includes(ddbNorm(g[0]))), mm = !g && DND.magic.find(m => tries.includes(ddbNorm(m[0])));
+    if (mm) it = makeMagicItem(mm); else if (g) it = makeGearItem(g); else { matched = false; it = { id: uid(), name, qty: 1, weight: N(def.weight), cost: def.cost ? def.cost + ' gp' : '', equipped: false, notes: '' }; } }
+  if (!matched) miss.push('Item: ' + name);
+  it.id = uid(); it.qty = Math.max(1, N(x.quantity) || 1); it.equipped = !!x.equipped;
+  if (x.isAttuned) { it.attune = true; it.attuned = true; }
+  if (x.limitedUse && it.charges && x.limitedUse.numberUsed != null) it.charges.used = N(x.limitedUse.numberUsed);
+  return it;
+}
+// Build the whole character from D&D Beyond's data. Returns { state, report }; nothing is saved here.
+function ddbBuild(d, opt = {}) {
+  const ok = [], miss = [], notes = [];
+  const prevS = S;
+  S = migrate(Object.assign(blankState(), { dataRev: EMBED.dataRev || '', layout: (prevS && prevS.layout) || {} }));
+  S.sources = defaultSources(); const useSrc = s => { if (s && DND.sources[s] && !S.sources.includes(s)) S.sources.push(s); };
+  S.id = uid(); S.name = String(d.name || '').trim().slice(0, 80) || 'Unnamed Hero'; S.player = String(opt.player || '').slice(0, 80);
+  S.alignment = DDB_ALIGN[d.alignmentId] || ''; S.faith = String(d.faith || '').slice(0, 80); S.xp = d.currentXp ? String(d.currentXp) : '';
+  // race
+  const rf = ddbFindRace(d.race), rname = (d.race && d.race.fullName) || '';
+  if (rf) { S.race = { key: rf.key, sub: rf.sub, choices: {} }; const x = DND.races[rf.key], s = (x.subraces || {})[rf.sub] || {}; useSrc(x.src); const nm = s.name || x.name; S.raceName = nm.toLowerCase().includes(x.name.toLowerCase()) ? nm : nm.replace(/\s*\([A-Z][A-Za-z]{1,5}\)$/, '') + ' ' + x.name; ok.push('Race: ' + S.raceName); }
+  else { S.raceName = rname; if (rname) miss.push('Race: ' + rname + ' (kept as its name; its traits aren’t automated)'); }
+  // classes, starting class first
+  const cls = (d.classes || []).slice().sort((a, b) => (b.isStartingClass ? 1 : 0) - (a.isStartingClass ? 1 : 0));
+  S.classes = [];
+  cls.forEach(c => { const k = ddbFindClass(c.definition && c.definition.name); if (!k) { miss.push('Class: ' + (c.definition && c.definition.name) + ' ' + c.level); return; }
+    const sn = c.subclassDefinition && c.subclassDefinition.name, sk = ddbFindSub(k, sn); if (sn && !sk) miss.push('Subclass: ' + sn + ' (' + CL[k].name + ')');
+    if (sk) useSrc(CL[k].subclasses[sk].src);
+    S.classes.push({ key: k, level: Math.max(1, Math.min(20, N(c.level))), sub: sk && N(c.level) >= CL[k].sub.level ? sk : '' }); ok.push('Class: ' + CL[k].name + ' ' + c.level + (sk ? ' (' + CL[k].subclasses[sk].name + ')' : ''));
+    if (N(c.hitDiceUsed)) S.hdUsed[CL[k].hd] = N(S.hdUsed[CL[k].hd]) + N(c.hitDiceUsed); });
+  if (!S.classes.length) { S = prevS; throw new Error('None of this character’s classes are in this sheet’s rules, so it can’t be imported.'); }
+  const c0 = CL[S.classes[0].key];
+  // background
+  const bgd = d.background && (d.background.definition || d.background.customBackground), bgName = bgd && bgd.name, bk = ddbFindBg(bgName);
+  if (bk) { const b = DND.backgrounds[bk]; S.background = bk; S.backgroundName = b.name; useSrc(b.src); ok.push('Background: ' + b.name); }
+  else if (bgName) { S.backgroundName = String(bgName).slice(0, 80); notes.push('Background “' + bgName + '” isn’t in this sheet’s rules: its name is kept and its proficiencies come over.'); }
+  // proficiencies from the modifiers (only what's actually been chosen; open "choose a …" slots are skipped)
+  const mods = ddbMods(d);
+  S.profs = { armor: [], weapons: [], weaponNames: [] }; S.tools = []; S.langs = [];
+  mods.forEach(m => { const st = String(m.subType || ''), fr = m.friendlySubtypeName || st; if (/^choose-/.test(st)) return;
+    if (m.type === 'proficiency' || m.type === 'expertise') {
+      const sv = /^(\w+)-saving-throws$/.exec(st); if (sv && DDB_ABNAME[sv[1]]) { if (m.type === 'proficiency') S.saves[DDB_ABNAME[sv[1]]] = true; return; }
+      const sk = ddbSkill(st); if (sk) { sk.prof = Math.max(N(sk.prof), m.type === 'expertise' ? 2 : 1); return; }
+      const ar = { 'light-armor': 'light', 'medium-armor': 'medium', 'heavy-armor': 'heavy', 'shields': 'shield' }[st]; if (ar) { S.profs.armor.push(ar); return; }
+      const wc = { 'simple-weapons': 'simple', 'martial-weapons': 'martial' }[st]; if (wc) { S.profs.weapons.push(wc); return; }
+      const w = ddbWeapon(fr); if (w) { S.profs.weaponNames.push(w[0]); return; }
+      const t = ddbTool(fr); if (t || /tools|kit|supplies|instrument|vehicles|set$|gaming/i.test(fr) || DND.toolGroups && Object.values(DND.toolGroups).flat().some(x => ddbNorm(x) === ddbNorm(fr))) { addText('profTools', [t || fr]); if (m.type === 'expertise') { const tl = S.tools.find(x => ddbNorm(x.name) === ddbNorm(t || fr)); if (tl) tl.exp = true; } return; }
+      // musical instruments and the like
+      if (m.type === 'proficiency' && fr && !/ability checks|initiative/i.test(fr)) addText('profTools', [fr]);
+    } else if (m.type === 'language' && fr && !/^choose/i.test(fr)) addText('languages', [fr]); });
+  S.profs.armor = [...new Set(S.profs.armor)]; S.profs.weapons = [...new Set(S.profs.weapons)]; S.profs.weaponNames = [...new Set(S.profs.weaponNames)];
+  if (!AB.some(a => S.saves[a])) c0.saves.forEach(a => S.saves[a] = true);
+  S.profArmor = profArmorText(); S.profWeapons = profWeaponText();
+  // feats
+  (d.feats || []).forEach(f => { const nm = f.definition && f.definition.name, k = ddbFindFeat(nm); if (k) { if (!S.feats.includes(k)) S.feats.push(k); const ft = DND.feats.find(x => x[0] === k); if (ft) useSrc(ft[1]); ok.push('Feat: ' + k); } else if (nm && !/^(dark ?vision|ability score improvement|other spells|other)$/i.test(nm)) miss.push('Feat: ' + nm); });
+  // class options picked on D&D Beyond (fighting styles, invocations, metamagic, maneuvers…)
+  const picked = Object.values(d.options || {}).flat().map(o => o && o.definition && o.definition.name).filter(Boolean);
+  picked.forEach(nm => { const n = ddbNorm(nm); for (const [t, o] of Object.entries(DND.options || {})) { const e = (o.list || []).find(x => ddbNorm(x[0]) === n); if (e) { applyChoice({ type: t }, [e[0]]); ok.push((o.label || t) + ': ' + e[0]); return; } } });
+  // the sheet works out its own features, spells it grants and attacks
+  S.combat = defaultCombat();
+  rebuildAuto();
+  // ability scores last, so nothing above adds to them a second time
+  const sc = ddbScores(d, false); AB.forEach(a => S.abilities[a] = sc[a]);
+  // spells: each class's list (prepared as on D&D Beyond), plus race and feat spells the sheet didn't add itself
+  const classOf = id => { const c = (d.classes || []).find(c => c.id === id); return c ? ddbFindClass(c.definition && c.definition.name) : ''; };
+  if (opt.spells !== false) {
+    const add = (nm0, ck, o) => { const hit = ddbSpell(nm0), nm = hit ? hit.name : nm0, n = ddbNorm(nm); let sp = S.spells.find(s => ddbNorm(s.name) === n && (!ck || s.cls === ck || s.auto)); if (!hit) { miss.push('Spell: ' + nm0); }
+      if (!sp) { sp = spellEntry(nm, ck || 'race'); if (!ck) { sp.ab = o.ab || 'cha'; sp.always = true; sp.note = o.note || ''; } S.spells.push(sp); }
+      if (o.prepared && N(sp.level) > 0) sp.prepared = true; if (o.always) sp.always = true; };
+    (d.classSpells || []).forEach(g => { const ck = classOf(g.characterClassId); (g.spells || []).forEach(s => add(s.definition.name, ck, { prepared: s.prepared || s.alwaysPrepared, always: s.alwaysPrepared })); });
+    ['race', 'feat', 'class', 'background'].forEach(k => ((d.spells || {})[k] || []).forEach(s => { if (!s || !s.definition) return; const ab = DDB_AB[s.spellCastingAbilityId] || ''; add(s.definition.name, k === 'class' ? '' : '', { ab: ab || (k === 'race' ? 'cha' : 'int'), prepared: true, always: true, note: k === 'race' ? 'Racial' : k === 'feat' ? 'Feat' : '' }); }));
+  }
+  (d.spellSlots || []).forEach(s => { if (s.level >= 1 && s.level <= 9) S.slotsUsed[s.level - 1] = N(s.used); });
+  S.pactUsed = (d.pactMagic || []).reduce((t, s) => t + N(s.used), 0);
+  // inventory: containers become containers, the rest go in them or the pack
+  if (opt.items !== false) {
+    const inv = d.inventory || [], bagFor = {};
+    inv.filter(x => x.definition && x.definition.isContainer && x.containerEntityId === d.id).forEach(x => { const nm = x.definition.name, p = BAG_PRESETS.find(b => ddbNorm(b[0]) === ddbNorm(nm)) || [nm, 0, false, N(x.definition.weight)];
+      const b = { id: uid(), name: nm, cap: p[1] || '', weightless: !!p[2], weight: N(p[3]), notes: '' }; S.bags = (S.bags || []).concat([b]); bagFor[x.id] = b.id; });
+    inv.forEach(x => { if (!x.definition || bagFor[x.id]) return; const it = ddbItem(x, miss); const bag = x.containerEntityId !== d.id ? bagFor[x.containerEntityId] : ''; if (bag && !it.equipped) it.bag = bag; addInventoryItem(it, true); });
+    (d.customItems || []).forEach(x => { if (!x || !x.name) return; const it = { id: uid(), name: String(x.name).slice(0, 120), qty: Math.max(1, N(x.quantity) || 1), weight: N(x.weight), cost: x.cost ? x.cost + ' gp' : '', equipped: false, notes: String(x.description || x.notes || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 2000) }; addInventoryItem(it, true); });
+    const cur = d.currencies || {}; ['cp', 'sp', 'ep', 'gp', 'pp'].forEach(k => S.currency[k] = N(cur[k]));
+  }
+  rebuildAuto();
+  // hit points: match what D&D Beyond shows
+  const hd0 = c0.hd; let base = hd0; S.classes.forEach((r, i) => { const c = CL[r.key]; for (let l = i === 0 ? 1 : 0; l < r.level; l++) base += Math.floor(c.hd / 2) + 1; });
+  S.hp.base = N(d.baseHitPoints) || base; S.hp.adj = 0;
+  const want = ddbMaxHp(d), have = maxHp(); if (want > 0 && want !== have) S.hp.adj = want - have;
+  S.hp.cur = Math.max(0, maxHp() - N(d.removedHitPoints)); S.hp.temp = N(d.temporaryHitPoints);
+  // the rest of the character
+  const ds = d.deathSaves || {}; S.death = { s: N(ds.successCount), f: N(ds.failCount) };
+  S.conditions = (d.conditions || []).map(c => DDB_COND[c.id]).filter(Boolean); const ex = (d.conditions || []).find(c => c.id === 4); if (ex) S.exhaustion = N(ex.level);
+  if (d.inspiration) S.insp = 1;
+  const t = d.traits || {}, nt = d.notes || {}, txt = v => String(v || '').replace(/\r/g, '').trim().slice(0, 6000);
+  S.traits = { personality: txt(t.personalityTraits), ideals: txt(t.ideals), bonds: txt(t.bonds), flaws: txt(t.flaws) };
+  S.appearance = { age: txt(d.age), height: txt(d.height), weight: txt(d.weight), eyes: txt(d.eyes), skin: txt(d.skin), hair: txt(d.hair) };
+  S.backstory = txt(nt.backstory); S.allies = [txt(nt.allies), txt(nt.organizations)].filter(Boolean).join('\n\n');
+  const extra = [nt.personalPossessions && 'Possessions: ' + txt(nt.personalPossessions), nt.otherHoldings && 'Holdings: ' + txt(nt.otherHoldings), nt.otherNotes && txt(nt.otherNotes), t.appearance && 'Appearance: ' + txt(t.appearance)].filter(Boolean).join('\n\n');
+  S.notes = [{ date: new Date().toISOString().slice(0, 10), title: 'Imported from D&D Beyond', text: `${S.name}: ${S.raceName} ${classLabel()}${S.backgroundName ? ', ' + S.backgroundName : ''}.` + (extra ? '\n\n' + extra : '') }];
+  S.ddb = { id: N(d.id), at: Date.now() };
+  // carrying rules as the character used them on D&D Beyond (off there unless turned on)
+  const enc = { 1: 'standard', 2: 'off', 3: 'variant' }[N((d.preferences || {}).encumbranceType)];
+  if (enc) { S.settings = Object.assign({}, S.settings, { encumbrance: enc }); S.fixesDone = [...new Set((S.fixesDone || []).concat(['enc1', 'bullets1']))]; }
+  const state = S; S = prevS;
+  return { state, report: { ok, miss: [...new Set(miss)], notes, hp: want, avatar: (d.decorations || {}).avatarUrl || '' } };
+}
+// The portrait comes over through the same helper (so it can be drawn and kept), shrunk like any other portrait.
+async function ddbPortrait(url) {
+  if (!/^https:\/\/(www\.)?dndbeyond\.com\/avatars\//.test(String(url || ''))) return '';
+  try { const r = await fetch(DDB_PROXY + 'avatar?u=' + encodeURIComponent(url), { credentials: 'omit' }); if (!r.ok) return ''; const b = await r.blob(); if (!/^image\//.test(b.type)) return '';
+    const u = URL.createObjectURL(b); const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = u; });
+    const s = Math.min(1, 400 / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(u);
+    return c.toDataURL('image/jpeg', .86); } catch (e) { return ''; }
+}
+// ----- the import window: link or ID → (or paste / file) → review → create -----
+let DDB = null;
+function openDdbImport() { DDB = { step: 'get', id: '', err: '', busy: false, data: null, built: null, items: true, spells: true, portrait: true }; ddbPaint(); }
+function ddbPaint() {
+  if (!DDB) return; const D = DDB, b = D.built;
+  let h = '';
+  if (D.step === 'get') {
+    const link = D.id ? DDB_DIRECT(D.id) : '';
+    h = `<h3>Import from D&amp;D Beyond</h3>
+      <p class="hint">Bring over a character you made on D&amp;D Beyond: race, classes and subclasses, ability scores, hit points, proficiencies, feats, spells, equipment, money and notes. You’ll see what came over before it’s made.</p>
+      <label class="fld"><span class="lbl">Character link or number</span><input class="f" id="ddb-id" value="${esc(D.id)}" placeholder="https://www.dndbeyond.com/characters/12345678" autocomplete="off" inputmode="url"></label>
+      <p class="hint">The character has to be <b>Public</b> on D&amp;D Beyond: open it there → <b>Character Settings</b> → <b>Privacy</b> → <b>Public</b>.</p>
+      ${D.err ? `<p class="ddb-err">${esc(D.err)}</p>` : ''}
+      <div class="actions" style="justify-content:flex-start"><button class="btn gold" data-ddb="fetch"${D.busy ? ' disabled' : ''}>${D.busy ? 'Getting it…' : 'Get my character'}</button></div>
+      <details class="ddb-alt"${D.err ? ' open' : ''}><summary>Or paste the character data yourself</summary>
+        <ol class="ddb-steps"><li>${link ? `Open <a href="${esc(link)}" target="_blank" rel="noopener noreferrer">this page</a>` : 'Type the link or number above, then open the data page it gives'} in a new tab (the character still has to be Public).</li><li>Select everything on it (Ctrl+A / ⌘A) and copy it.</li><li>Paste it below.</li></ol>
+        <textarea class="f" id="ddb-paste" rows="5" placeholder='{"id":0,"success":true,"message":"Character successfully received.","data":{…}}'></textarea>
+        <div class="row"><button class="btn" data-ddb="paste">Use what I pasted</button><button class="btn" data-ddb="file">Open a saved file…</button><input type="file" id="ddb-file" accept=".json,application/json,text/plain" hidden></div></details>
+      <div class="actions"><button class="btn" data-ddb="close">Cancel</button></div>`;
+  } else if (D.step === 'review' && b) {
+    const st = b.state, r = b.report;
+    const scores = AB.map(a => `<span class="ddb-ab"><small>${AB3[a]}</small><b>${st.abilities[a]}</b></span>`).join('');
+    h = `<h3>Import ${esc(st.name)}</h3>
+      <div class="ddb-who">${D.portraitUrl ? `<img src="${esc(D.portraitUrl)}" alt="">` : ''}<div><b>${esc(st.name)}</b><span>${esc([st.raceName, st.classes.map(c => CL[c.key].name + ' ' + c.level).join(' / ')].filter(Boolean).join(' · '))}</span><span>${esc([st.backgroundName, st.alignment].filter(Boolean).join(' · '))}</span></div></div>
+      <div class="ddb-abs">${scores}</div>
+      <p class="hint">Hit points <b>${N(st.hp.cur)}</b> of <b>${r.hp}</b>${N(st.hp.temp) ? ` (+${st.hp.temp} temporary)` : ''} · ${st.spells.length} spells · ${st.inventory.length} items${st.feats.length ? ' · feats: ' + esc(st.feats.join(', ')) : ''}</p>
+      <div class="ddb-opts"><label class="checkline"><input type="checkbox" data-ddbo="items"${D.items ? ' checked' : ''}> Equipment and money</label><label class="checkline"><input type="checkbox" data-ddbo="spells"${D.spells ? ' checked' : ''}> Spells</label>${D.portraitUrl ? `<label class="checkline"><input type="checkbox" data-ddbo="portrait"${D.portrait ? ' checked' : ''}> Portrait</label>` : ''}</div>
+      ${r.miss.length ? `<details class="ddb-miss" open><summary>${r.miss.length} thing${r.miss.length === 1 ? '' : 's'} this sheet doesn’t have built in</summary><p class="hint">These come over by name only (or are left out), so their rules aren’t automated. You can fix them on the sheet afterwards.</p><ul>${r.miss.slice(0, 80).map(m => `<li>${esc(m)}</li>`).join('')}${r.miss.length > 80 ? `<li>…and ${r.miss.length - 80} more</li>` : ''}</ul></details>` : '<p class="ddb-allok">Everything was matched to this sheet’s rules.</p>'}
+      ${r.notes.length ? `<ul class="hint">${r.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
+      <p class="hint">Choices the sheet asks for that D&amp;D Beyond didn’t record show up as <b>Unfinished choices</b> on the sheet. Limited-use features start fresh.</p>
+      <div class="actions"><button class="btn" data-ddb="back">Back</button><button class="btn gold" data-ddb="make">Create ${esc(st.name)}</button></div>`;
+  }
+  openModal(`<div class="ddb">${h}</div>`, () => { DDB = null; }, true);
+  const inp = $('#ddb-id'); if (inp) { inp.oninput = () => { D.id = ddbId(inp.value) || ''; D.raw = inp.value; const a = $('.ddb-steps a'); }; inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); ddbAct('fetch'); } }; if (D.step === 'get' && !D.busy) setTimeout(() => inp.focus(), 30); }
+  $$('#modal-body [data-ddb]').forEach(x => x.onclick = () => ddbAct(x.dataset.ddb));
+  $$('#modal-body [data-ddbo]').forEach(x => x.onchange = () => { D[x.dataset.ddbo] = x.checked; if (x.dataset.ddbo !== 'portrait') ddbRebuild(); });
+  const f = $('#ddb-file'); if (f) f.onchange = () => { const file = f.files && f.files[0]; if (!file) return; file.text().then(t => ddbUse(t), () => { D.err = 'Couldn’t read that file.'; ddbPaint(); }); };
+}
+function ddbRebuild() { const D = DDB; if (!D || !D.data) return; try { D.built = ddbBuild(D.data, { items: D.items, spells: D.spells, player: window.SHEET_PAGES ? '' : (W && W.player) || '' }); } catch (e) { D.err = e.message; D.step = 'get'; } ddbPaint(); }
+function ddbUse(txt) { const D = DDB; if (!D) return; try { D.data = ddbParse(txt); } catch (e) { D.err = e.message; ddbPaint(); return; } D.err = ''; D.step = 'review'; D.portraitUrl = ''; ddbRebuild();
+  const av = D.built && D.built.report.avatar; if (av) ddbPortrait(av).then(u => { if (u && DDB === D) { D.portraitUrl = u; if (D.step === 'review') ddbPaint(); } }); }
+async function ddbAct(a) {
+  const D = DDB; if (!D) return;
+  if (a === 'close') { closeModal(); DDB = null; return; }
+  if (a === 'back') { D.step = 'get'; D.err = ''; return ddbPaint(); }
+  if (a === 'file') { const f = $('#ddb-file'); if (f) f.click(); return; }
+  if (a === 'paste') { const t = ($('#ddb-paste') || {}).value || ''; if (!t.trim()) { D.err = 'Paste the character data first.'; return ddbPaint(); } return ddbUse(t); }
+  if (a === 'fetch') { const v = ($('#ddb-id') || {}).value || ''; D.id = ddbId(v); if (!D.id) { D.err = 'Paste the character’s link from D&D Beyond (it ends in a number), or just the number.'; return ddbPaint(); }
+    D.busy = true; D.err = ''; ddbPaint();
+    try { const data = await ddbFetch(D.id); if (DDB !== D) return; D.busy = false; return ddbUse(data); } catch (e) { if (DDB !== D) return; D.busy = false; D.err = e.message; return ddbPaint(); } }
+  if (a === 'make') ddbCreate();
+}
+function ddbCreate() {
+  const D = DDB; if (!D || !D.built) return;
+  S = D.built.state; if (D.portrait && D.portraitUrl) S.portrait = D.portraitUrl;
+  closeModal(true); DDB = null; closeWizard();
+  S.created = true;
+  LAST = snapAll(); HIST = []; REDO = [];
+  pendingLabel = 'Import from D&D Beyond'; writeLocal(); save();
+  if (S.portrait) matchPortrait(false);
+  applyTheme(); applyLayout(); render();
+  toast(`<div><b>${esc(S.name)}</b> is here from D&amp;D Beyond!<div class="det">Check the Inventory and Spells tabs, and any <b>Unfinished choices</b>. Everything saves automatically.</div></div>`, 'crit', 12000);
+}
+
 })();
 // While typing on a phone the keyboard is up: hide the bottom tab bar (like a native app) instead of letting it ride up above the keyboard.
 {
@@ -11294,4 +11873,5 @@ window.addEventListener('resize', () => { if (!LAYOUT_NOW) { const was = isMobil
     if (was && !now && !(' ' + (m.oldValue || '') + ' ').includes(' closing ') && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => el.classList.remove('closing'), document.documentElement.classList.contains('mobile') ? 240 : 190); } }))
     .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], attributeOldValue: true, subtree: true });
 }
+
 

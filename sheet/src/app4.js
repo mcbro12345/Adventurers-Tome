@@ -250,6 +250,7 @@ function mainClick(e) {
     case 'useitem': useItem(i, b.dataset.col); break;
     case 'ispdel': { const it = S.inventory[i]; const n = it.spells.splice(N(b.dataset.j), 1)[0]; pendingLabel = `${it.name}: remove ${n}`; rebuildAuto(); save(); render(); break; }
     case 'hbnew': openHomebrew(b.dataset.k); return;
+    case 'itempaste': openItemPaste(); return;
     case 'hbbopen': openHomebrew(b.dataset.k, N(b.dataset.i)); return;
     case 'hbopen': UI.open['hb:' + b.dataset.key] = !UI.open['hb:' + b.dataset.key]; render(); break;
     case 'addspells': openSpellPicker(b.dataset.cls); pendingLabel = null; return;
@@ -1383,6 +1384,7 @@ function openCatalog(keep) {
   const html = `<h3>Add an item</h3>
     <div class="segmini" style="margin-bottom:8px">${[['all', 'All'], ['weapons', 'Weapons'], ['armor', 'Armor'], ['gear', 'Gear & tools'], ['magic', 'Magic items'], ['custom', 'Homebrew']].map(([k, t]) => `<button class="${tab === k ? 'on' : ''}" data-act="cattab" data-t="${k}">${t}</button>`).join('')}</div>
     <input class="f" id="catq" placeholder="Search…" value="${esc(q)}" aria-label="Search items" autofocus>
+    ${tab === 'custom' ? '<div class="catpaste"><button class="btn sm gold" data-act="itempaste">📋 Paste an item</button><span class="hint">From a book, PDF or D&amp;D Beyond — it becomes a homebrew item with its bonuses, charges and spells working.</span></div>' : ''}
     <div class="crlist">${rows || (tab === 'custom' ? '<p class="hint crempty">No homebrew items yet. Open an item in Inventory (✎), then ⚙ Homebrew automation → <b>Save to homebrew items</b>. Items others in your party save show up here too.</p>' : '')}</div>
     <div class="actions"><button class="btn" data-act="close">Done</button></div>`;
   if (keep && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html, null, true);
