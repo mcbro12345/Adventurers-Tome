@@ -139,14 +139,14 @@ function pgPill(tabsFn) { PG_PILL_FN = tabsFn; let el = document.getElementById(
 function pgPillFill(m) { const ts = PG_PILL_FN ? PG_PILL_FN() : [];
   m.querySelector('.pgp-grid').innerHTML = ts.map((t, i) => `<button class="pgp-t${t.on ? ' on' : ''}" role="menuitem" data-pt="${escH(t.k)}" style="--i:${i}"${t.on ? ' aria-current="page"' : ''}><span class="pgp-tic" aria-hidden="true">${t.ic}</span><span class="pgp-tl">${escH(t.label)}</span>${t.badge ? `<span class="pgp-cnt">${escH(t.badge)}</span>` : ''}</button>`).join(''); }
 function pgPillGo(k) { const t = (PG_PILL_FN ? PG_PILL_FN() : []).find(x => x.k === k); if (t && !t.on) t.b.click(); }
-function pgPillOpen() { if (document.getElementById('pgpmenu')) return pgPillClose();
+function pgPillOpen(kb) { if (document.getElementById('pgpmenu')) return pgPillClose();
   const m = document.createElement('div'); m.id = 'pgpmenu'; m.className = 'pgp-menu'; m.innerHTML = '<div class="pgp-back"></div><div class="pgp-card" role="menu" aria-label="Tabs"><div class="pgp-grid"></div></div>'; pgPillFill(m); document.body.appendChild(m);
   requestAnimationFrame(() => m.classList.add('in')); document.documentElement.classList.add('pgp-open'); const b = document.querySelector('.pgp-b'); if (b) b.setAttribute('aria-expanded', 'true');
   m.querySelector('.pgp-back').onclick = () => pgPillClose();
   m.addEventListener('touchmove', e => { if (!e.target.closest('.pgp-card') && e.cancelable) e.preventDefault(); }, { passive: false });
   m.addEventListener('click', e => { const t = e.target.closest('[data-pt]'); if (!t) return; const k = t.dataset.pt; pgPillClose(); setTimeout(() => pgPillGo(k), 60); });
   m.addEventListener('keydown', e => { if (e.key === 'Escape') { pgPillClose(); const bb = document.querySelector('.pgp-b'); if (bb) bb.focus(); } });
-  setTimeout(() => { const on = m.querySelector('.pgp-t.on') || m.querySelector('.pgp-t'); if (on) on.focus({ preventScroll: true }); }, 30);
+  if (kb) setTimeout(() => { const on = m.querySelector('.pgp-t.on') || m.querySelector('.pgp-t'); if (on) on.focus({ preventScroll: true }); }, 30);
   try { navigator.vibrate && navigator.vibrate(6); } catch (x) {} }
 function pgPillClose(now) { const m = document.getElementById('pgpmenu'); document.documentElement.classList.remove('pgp-open'); const b = document.querySelector('.pgp-b'); if (b) b.setAttribute('aria-expanded', 'false'); if (!m) return;
   m.id = ''; if (now || PG_CALM) return m.remove(); m.classList.remove('in'); m.classList.add('out'); setTimeout(() => m.remove(), 220); }
@@ -167,7 +167,7 @@ function pgPillWire(el) { let st = null;
     if (s0.mode === 'hold') { const t = e.type === 'pointercancel' ? null : tileAt(e.clientX, e.clientY); hover(null); if (t) { const k = t.dataset.pt; pgPillClose(); setTimeout(() => pgPillGo(k), 60); } return; }
     if (e.type !== 'pointercancel') { if (s0.wasOpen) pgPillClose(); else pgPillOpen(); } };
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
-  el.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('.pgp-b')) { e.preventDefault(); pgPillOpen(); } }); }
+  el.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('.pgp-b')) { e.preventDefault(); pgPillOpen(true); } }); }
 function pgPartyFrames() { document.querySelectorAll('img.pty-pic, img.pty-admic, .pw-ppic > img, .pj-seal > img, .ptyh-ic.pic > img').forEach(im => {
   const src = im.getAttribute('src') || '', key = src.length + ':' + src.slice(-40), el = im.matches('.pty-pic, .pty-admic') ? im : im.parentElement; if (!src || el.dataset.pacc === key) return; el.dataset.pacc = key;
   const put = col => { if (col) el.style.borderColor = col; };
@@ -1627,7 +1627,7 @@ function hub(fs, auth, G, ctx) {
     if (!slideMode()) { tr.style.transform = ''; return; }
     tr.style.transition = anim && !calm() ? 'transform .34s cubic-bezier(.22,.9,.24,1)' : 'none';
     tr.style.transform = `translate3d(calc(${-idx * 100}% + ${dx || 0}px), 0, 0)`;
-    if (dx == null) { clearTimeout(tr._t); const off = () => { let y = null; panes.forEach((p, k) => { if (k === idx && p._y != null) { y = p._y; p._y = null; } p.style.transform = ''; p.classList.toggle('hp-off', k !== idx); unclamp(p); }); if (y != null) scrollTo(0, y); };
+    if (dx == null) { clearTimeout(tr._t); const off = () => { let y = null; panes.forEach((p, k) => { if (k === idx && p._y != null) { y = p._y; p._y = null; } p.style.transform = ''; p.classList.toggle('hp-off', k !== idx); unclamp(p); paneReveal(p, k !== idx); }); if (y != null) scrollTo(0, y); };
       tr._off = off; if (anim && !calm()) tr._t = setTimeout(() => { tr._t = 0; tr._off = null; off(); }, 360); else { tr._off = null; off(); } }
   }
   // A new swipe or tap can arrive before the last slide has landed. Finish the old landing first, so its clean-up never
@@ -1641,7 +1641,13 @@ function hub(fs, auth, G, ctx) {
   // spot; when it lands the shift is swapped for the real scroll in the same frame, so nothing jumps or flashes.
   const VSCROLL = { mine: 0, parties: 0, shared: 0 };
   const padBot = () => parseFloat(getComputedStyle(root).paddingBottom) || 0;
-  function prepIn(p) { if (!p || p._y != null) return; p.classList.remove('hp-off'); unclamp(p);
+  // Phones: a list sliding in shows grey placeholders first, then its real rows fade in once it has landed.
+  function paneSkel(p) { if (!p || !slideMode() || calm() || p.querySelector(':scope > .hp-sk')) return; const n = Math.max(1, Math.min(6, p.querySelectorAll('.hc, .hr, .pty-row, .hub-folder').length || 3));
+    const sk = document.createElement('div'); sk.className = 'hp-sk'; sk.setAttribute('aria-hidden', 'true'); sk.innerHTML = SKEL.rows(n); p.prepend(sk); p.classList.add('hp-skel'); }
+  function paneReveal(p, now) { if (!p) return; const sk = p.querySelector(':scope > .hp-sk'); if (!sk) return; clearTimeout(p._skT);
+    const go = () => { p.classList.remove('hp-skel'); p.classList.add('hp-reveal'); sk.classList.add('out'); setTimeout(() => { sk.remove(); p.classList.remove('hp-reveal'); }, 260); };
+    if (now) { sk.remove(); p.classList.remove('hp-skel'); } else p._skT = setTimeout(go, 220); }
+  function prepIn(p) { if (!p || p._y != null) return; p.classList.remove('hp-off'); unclamp(p); paneSkel(p);
     const top = p.getBoundingClientRect().top + scrollY, max = Math.max(0, top + p.offsetHeight + padBot() - innerHeight);
     p._y = Math.min(VSCROLL[p.dataset.pane] || 0, max); p.style.transform = scrollY - p._y ? `translateY(${scrollY - p._y}px)` : ''; }
   addEventListener('scroll', () => { root.querySelectorAll('.hub-pane').forEach(p => { if (p._y != null) p.style.transform = scrollY - p._y ? `translateY(${scrollY - p._y}px)` : ''; }); }, { passive: true });
@@ -1671,7 +1677,7 @@ function hub(fs, auth, G, ctx) {
       if (!sw.raf) sw.raf = requestAnimationFrame(() => { if (!sw) return; sw.raf = 0; placeTrack(false, sw.dx); placeInd(false, Math.max(0, Math.min(VIEWS.length - 1, vi(view) - sw.dx / sw.w))); }); }, { passive: false });
     const end = () => { if (!sw) return; const s = sw; sw = null; if (s.raf) cancelAnimationFrame(s.raf); if (s.lock !== 'x') return;
       const v = Math.abs(s.dx) / Math.max(1, Date.now() - s.t), go = ((s.dx < 0 && vi(view) < VIEWS.length - 1) || (s.dx > 0 && vi(view) > 0)) && (Math.abs(s.dx) > s.w * .3 || v > .45);
-      if (go) switchView(VIEWS[vi(view) + (s.dx < 0 ? 1 : -1)]); else { placeInd(true); placeTrack(true); const tr = root.querySelector('.hub-track'); if (tr) tr.querySelectorAll('.hub-pane:not(.on)').forEach(p => { p._y = null; }); } };
+      if (go) switchView(VIEWS[vi(view) + (s.dx < 0 ? 1 : -1)]); else { placeInd(true); placeTrack(true); const tr = root.querySelector('.hub-track'); if (tr) tr.querySelectorAll('.hub-pane:not(.on)').forEach(p => { p._y = null; paneReveal(p, true); }); } };
     document.addEventListener('touchend', end); document.addEventListener('touchcancel', end); }
   function draw() {
     if (page === 'party' || page === 'join') { if (PM_) PM_.refresh(); return; }
@@ -1807,7 +1813,7 @@ function hub(fs, auth, G, ctx) {
     // that slides between tabs and can be dragged along the bar.
     const PHONE = matchMedia('(max-width: 860px)');
     let NAV_PREV = null, NAV_KEY = null;
-    try { const v = localStorage.getItem('dnd-tablift'); document.documentElement.style.setProperty('--tablift', (v != null && v !== '' ? Number(v) || 0 : STANDALONE ? 24 : 0) + 'px'); } catch (e) { document.documentElement.style.setProperty('--tablift', STANDALONE ? '24px' : '0px'); }
+    try { const v = localStorage.getItem('dnd-tablift'); document.documentElement.style.setProperty('--tablift', (v != null && v !== '' ? Number(v) || 0 : 0) + 'px'); } catch (e) { document.documentElement.style.setProperty('--tablift', STANDALONE ? '24px' : '0px'); }
     function navPost() {
       const nv = root.querySelector('.adm-nav'), side = root.querySelector('.adm-side'); if (!nv || !side) return;
       pgPill(PHONE.matches ? () => [...nv.querySelectorAll('.adm-ni')].map(b => ({ k: b.dataset.tab, b, on: b.classList.contains('on'), ic: (b.querySelector('svg') || {}).outerHTML || '', label: (b.querySelector('span') || {}).textContent || b.dataset.tab, badge: (b.querySelector('.adm-badge') || {}).textContent || '' })) : null);

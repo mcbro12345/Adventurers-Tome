@@ -2010,3 +2010,10 @@ html.pgp-open .pgp-b { box-shadow: 0 0 0 3px rgba(201,150,43,.35), 0 10px 30px r
 .pgp-t.hov { border-color: #c9962b; background: color-mix(in srgb, #c9962b 26%, var(--pp-bg2)); transform: scale(1.04) !important; }
 .pgp-cnt { position: absolute; top: 7px; right: 9px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: #e0563b; color: #fff; font: 800 .66rem/18px system-ui, sans-serif; }
 @media (prefers-reduced-motion: reduce) { .pgp-card, .pgp-t, .pgp-back, .pgp-b, .pgp-chev { transition: none !important; } }
+/* Phones: placeholders over a list while it slides in; the real rows fade in after it lands */
+body.hubbody:not(.adminbody) .hub-pane { position: relative; }
+.hub-pane > .hp-sk { position: absolute; left: 0; right: 0; top: 0; z-index: 1; padding: inherit; padding-top: 0; pointer-events: none; transition: opacity .22s ease; }
+.hub-pane > .hp-sk.out { opacity: 0; }
+.hub-pane.hp-skel > :not(.hp-sk) { opacity: 0; }
+.hub-pane.hp-reveal > :not(.hp-sk) { animation: hubFade .26s ease-out; }
+.hp-sk .sk-c { width: 56px; height: 56px; border-radius: 10px; } .hp-sk .sk-wrap .sk-row { min-height: 80px; box-sizing: border-box; }

@@ -217,7 +217,7 @@ const IOS_SAFARI = /iP(hone|od|ad)/.test(navigator.userAgent) && /Version\/[\d.]
 // The phone's bottom tab bar: on the home-screen app it sits a little above the home bar; in the browser it sits right on
 // the browser's own bar (you can still move it in Settings → Theme).
 const tabStandalone = () => { try { return navigator.standalone === true || matchMedia('(display-mode: standalone)').matches || document.documentElement.classList.contains('pg-standalone'); } catch (e) { return false; } };
-function tabLift() { let v = null; try { v = localStorage.getItem('dnd-tablift'); } catch (e) {} return v != null && v !== '' ? N(v) : tabStandalone() ? 24 : 0; }
+function tabLift() { let v = null; try { v = localStorage.getItem('dnd-tablift'); } catch (e) {} return v != null && v !== '' ? N(v) : 0; }
 function applyTabLift() { document.documentElement.style.setProperty('--tablift', tabLift() + 'px'); }
 function saveUI() { try { localStorage.setItem(UI_KEY, JSON.stringify(UI)); } catch (e) {} }
 // An actual phone always uses the phone layout (the desktop layout can't be switched on there).

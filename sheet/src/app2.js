@@ -473,7 +473,7 @@ function mtabSync() {
 function mtabFill(m) { const ts = mtabTabs();
   m.querySelector('.mtab-grid').innerHTML = ts.map((t, i) => `<button class="mtab-t${t.on ? ' on' : ''}${t.unread ? ' unread' : ''}" role="menuitem" data-mt="${esc(t.k)}" style="--i:${i}"${t.on ? ' aria-current="page"' : ''}><span class="mtab-tic" aria-hidden="true">${t.ic}</span><span class="mtab-tl">${esc(t.label)}</span>${t.count ? `<span class="mtab-cnt">${esc(t.count)}</span>` : ''}</button>`).join(''); }
 function mtabGo(k) { const b = document.querySelector(`#tabs .tab[data-tab="${CSS.escape(k)}"]`); if (b && !b.classList.contains('on')) b.click(); }
-function mtabOpen() { if (document.getElementById('mtabmenu')) return mtabClose();
+function mtabOpen(kb) { if (document.getElementById('mtabmenu')) return mtabClose();
   const m = document.createElement('div'); m.id = 'mtabmenu'; m.className = 'mtab-menu';
   m.innerHTML = `<div class="mtab-back"></div><div class="mtab-card" role="menu" aria-label="Tabs"><div class="mtab-grid"></div></div>`; mtabFill(m); if (typeof winNoBleed === 'function') winNoBleed(m); document.body.appendChild(m);
   requestAnimationFrame(() => m.classList.add('in')); document.documentElement.classList.add('mtab-open');
@@ -481,7 +481,7 @@ function mtabOpen() { if (document.getElementById('mtabmenu')) return mtabClose(
   m.querySelector('.mtab-back').onclick = () => mtabClose();
   m.addEventListener('click', e => { const t = e.target.closest('[data-mt]'); if (!t) return; const k = t.dataset.mt; mtabClose(); setTimeout(() => mtabGo(k), 60); });
   m.addEventListener('keydown', e => { if (e.key === 'Escape') { mtabClose(); const bb = document.querySelector('.mtab-b'); if (bb) bb.focus(); } });
-  setTimeout(() => { const on = m.querySelector('.mtab-t.on') || m.querySelector('.mtab-t'); if (on) on.focus({ preventScroll: true }); }, 30);
+  if (kb) setTimeout(() => { const on = m.querySelector('.mtab-t.on') || m.querySelector('.mtab-t'); if (on) on.focus({ preventScroll: true }); }, 30);
   try { navigator.vibrate && navigator.vibrate(6); } catch (x) {} }
 function mtabClose(now) { const m = document.getElementById('mtabmenu'); document.documentElement.classList.remove('mtab-open'); const b = document.querySelector('.mtab-b'); if (b) b.setAttribute('aria-expanded', 'false'); if (!m) return;
   m.id = ''; if (now || matchMedia('(prefers-reduced-motion: reduce)').matches) return m.remove(); m.classList.remove('in'); m.classList.add('out'); setTimeout(() => m.remove(), 220); }
@@ -507,7 +507,7 @@ function mtabWire(el) { let st = null;
     if (e.type !== 'pointercancel') { if (s0.wasOpen) mtabClose(); else mtabOpen(); } };
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
   // keyboard (and screen readers): Enter / Space on the button opens the grid
-  el.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('.mtab-b')) { e.preventDefault(); mtabOpen(); } }); }
+  el.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('.mtab-b')) { e.preventDefault(); mtabOpen(true); } }); }
 addEventListener('resize', () => { clearTimeout(mtabSync.t); mtabSync.t = setTimeout(mtabSync, 150); });
 // The highlight under the selected tab slides from the previous tab to the new one.
 let _tabIndPrev = null;
