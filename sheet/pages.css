@@ -2109,3 +2109,19 @@ body.dkhost #hub .pw { padding-top: 12px; margin-top: 0; margin-bottom: 0 !impor
 .to-eye { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: var(--to-soft); cursor: pointer; opacity: .75; }
 .to-eye.on { color: #c9962b; opacity: 1; }
 .to-eye:hover { background: rgba(127,127,127,.15); opacity: 1; }
+.to-pic.to-tok { border: 0; border-radius: 50%; object-fit: cover; background: transparent; }
+/* the eye (show the name to players) sits on the HP/AC line, clear of the remove button */
+.to-vit .to-eye { width: 22px; height: 22px; margin-left: 2px; border-radius: 6px; }
+.to-vit .to-eye svg { width: 14px; height: 14px; }
+.to-row:hover .to-vit .to-eye, html.mobile .to-vit .to-eye { margin-right: 0; }
+.towin .to-row .to-x { top: 8px; margin-top: 0; } @media (max-width: 640px) { .towin .to-row .to-x { top: 6px; margin-top: 0; } }
+/* Turn order: the picture is the remove button — a red ✕ appears over it on hover */
+.to-rm { position: relative; flex: none; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 9px; line-height: 0; }
+.to-rm .to-rmx { position: absolute; inset: 0; display: grid; place-items: center; border-radius: 8px; background: rgba(178,52,34,.82); color: #fff; font: 800 16px/1 system-ui, sans-serif; opacity: 0; transition: opacity .15s; }
+.to-rm .to-pic.to-tok + .to-rmx { border-radius: 50%; }
+@media (hover: hover) { .to-rm:hover .to-rmx { opacity: 1; } }
+.to-rm:focus-visible .to-rmx { opacity: 1; }
+html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px auto; width: 16px; height: 16px; border-radius: 50%; font-size: 9px; opacity: .9; }
+.towin .to-x { display: none !important; }
+.to-row:hover .to-nm, html.mobile .to-nm { padding-right: 0; } @media (max-width: 640px) { .to-row .to-nm { padding-right: 0; } }
+.to-vit .to-eye { margin-left: 2px; }

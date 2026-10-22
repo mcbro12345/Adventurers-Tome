@@ -134,7 +134,7 @@ function groupOf(iid) { for (const s of S.sessions) for (const g of s.groups) if
 function curSession() { let s = S.sessions.find(x => x.id === UI.session); if (!s && S.sessions[0]) { s = S.sessions[0]; UI.session = s.id; } return s || null; }
 const sessionInsts = s => { s = s || curSession(); return s ? [].concat(...s.groups.map(g => g.list)) : []; };
 function hpFor(c) { if (S.settings.hpMode === 'roll' && c.hd) return Math.max(1, rollLocal(c.hd).total); return N(c.hp) || 1; }
-function newInst(c, name) { const hp = hpFor(c); return { iid: 'i' + uid(), cid: c.id, name, hp, max: hp, temp: 0, ac: N(c.ac), ini: typeof cInit === 'function' ? cInit(c) : 0, conds: [], conc: '', used: {}, spent: {}, notes: '', tg: '' }; }
+function newInst(c, name) { const hp = hpFor(c); return { iid: 'i' + uid(), cid: c.id, name, hp, max: hp, temp: 0, ac: N(c.ac), ini: typeof cInit === 'function' ? cInit(c) : 0, conds: [], conc: '', used: {}, spent: {}, notes: '', tg: '', pic: typeof tokenURL === 'function' ? tokenURL(c) : '' }; }
 function addToGroup(s, g, cid, n) {
   const c = getC(cid); if (!c || !n) return [];
   const all = sessionInsts(s), same = all.filter(x => x.cid === cid);
@@ -953,6 +953,77 @@ function rechargeRoll(inst, ek) {
   addLog({ who: inst.name, label: baseName(e.n) + ' recharge', total: r, detail: ok ? 'recharged' : 'not yet' }); save(); paint();
 }
 function restInst(inst) { inst.turn = null; inst.used = {}; inst.spent = {}; inst.hp = inst.max; inst.temp = 0; inst.down = false; inst.conds = []; inst.conc = ''; }
+// ---------- Illustrated tokens: a round token per creature (game-icons.net art, CC BY 3.0, coloured by type, ring by CR),
+// or the DM's own picture. Used in lists, stat blocks, cards, the tracker, the generator, note mentions and the Turn order. ----------
+const TOKI = () => window.DESK_ICONS || { icons: {}, cre: {}, types: {} };
+const TOK_CREDIT = 'Creature tokens use icons by Lorc, Delapouite and contributors from game-icons.net (CC BY 3.0)';
+const TOK_TYPE_REP = { humanoid: 'srd:guard', beast: 'srd:wolf', monstrosity: 'srd:owlbear', undead: 'srd:skeleton', fiend: 'srd:imp', celestial: 'srd:deva', construct: 'srd:stone-golem', dragon: 'srd:adult-red-dragon',
+  elemental: 'srd:fire-elemental', fey: 'srd:sprite', giant: 'srd:hill-giant', ooze: 'srd:gray-ooze', plant: 'srd:treant', aberration: 'srd:aboleth', swarm: 'srd:swarm-of-rats' };
+const TOK_RING = ['#b08d57', '#c3ccd6', '#e2b44a', '#a77be0', '#e0533f'];
+const tokTier = cr => { cr = N(cr); return cr < 1 ? 0 : cr <= 4 ? 1 : cr <= 10 ? 2 : cr <= 16 ? 3 : 4; };
+const TOKMEMO = new Map();
+// which icon + colour a creature gets: its own (SRD), else a matching SRD creature by name, else an icon named like it, else its type's
+function tokArt(c) {
+  if (!c) return null; const I = TOKI(), key = c.id + '|' + c.name + '|' + c.type; if (TOKMEMO.has(key)) return TOKMEMO.get(key);
+  let r = I.cre[c.id] || null; const t = String(c.type || '').split(/[\s(]/)[0].toLowerCase();
+  if (!r) { const nm = String(c.name || '').toLowerCase(); let best = null;
+    for (const s of SRD_LIST()) { const sn = s.name.toLowerCase().replace(/,.*$/, ''); if (sn.length > 2 && new RegExp('\\b' + sn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b').test(nm) && (!best || sn.length > best.n.length)) best = { n: sn, id: s.id }; }
+    if (best && I.cre[best.id]) r = I.cre[best.id];
+    if (!r) { const words = nm.split(/[^a-z]+/).filter(w => w.length > 3); const k = Object.keys(I.icons).find(k => words.some(w => k.split('-').includes(w) || k.split('-').includes(w.replace(/s$/, '')))); if (k) r = [k, (I.types || {})[t] || '#555'] }
+    if (!r) r = I.cre[TOK_TYPE_REP[t] || 'srd:guard'] || null;
+    if (r && I.types && I.types[t]) r = [r[0], /dragon/.test(t) ? r[1] : I.types[t]];
+  }
+  TOKMEMO.set(key, r); return r;
+}
+let SRDL = null; const SRD_LIST = () => SRDL || (SRDL = Object.values(SRD).map(c => ({ id: c.id, name: c.name })));
+// the DM's own picture for a creature (custom: on the creature; SRD: in the desk's settings)
+const tokPic = c => !c ? '' : (c.src !== 'SRD' && !SRD[c.id] ? c.img || '' : ((S.settings.pics || {})[c.id] || ''));
+function tokSVG(c, xmlns) {
+  const a = tokArt(c), I = TOKI(), d = a ? I.icons[a[0]] || '' : '', bg = a ? a[1] : '#555', tier = tokTier(c && c.cr), ring = TOK_RING[tier];
+  const ticks = Array.from({ length: tier }, (_, i) => { const ang = (-90 + (i - (tier - 1) / 2) * 16) * Math.PI / 180; return `<circle cx="${(50 + 45.5 * Math.cos(ang)).toFixed(1)}" cy="${(50 + 45.5 * Math.sin(ang)).toFixed(1)}" r="2.6" fill="#fff" fill-opacity=".92"/>`; }).join('');
+  return `<svg${xmlns ? ' xmlns="http://www.w3.org/2000/svg"' : ''} viewBox="0 0 100 100"><circle cx="50" cy="50" r="49" fill="${ring}"/><circle cx="50" cy="50" r="49" fill="none" stroke="#000" stroke-opacity=".28" stroke-width="1.5"/><circle cx="50" cy="50" r="42.5" fill="${bg}"/><ellipse cx="50" cy="31" rx="33" ry="20" fill="#fff" fill-opacity=".13"/><circle cx="50" cy="50" r="42.5" fill="none" stroke="#000" stroke-opacity=".3" stroke-width="2.4"/>${d ? `<path transform="translate(21.5 21.5) scale(.111)" fill="#fbf2df" stroke="#000" stroke-opacity=".18" stroke-width="10" paint-order="stroke" d="${d}"/>` : ''}${ticks}</svg>`;
+}
+// inline token for the desk's own pages
+function tokenHTML(c, size, cls) {
+  if (!c) return ''; const px = size || 28, pic = tokPic(c), ring = TOK_RING[tokTier(c.cr)];
+  if (pic) return `<span class="dk-tok pic${cls ? ' ' + cls : ''}" style="--ts:${px}px;--tr:${ring}" aria-hidden="true"><img src="${esc(pic)}" alt=""></span>`;
+  return `<span class="dk-tok${cls ? ' ' + cls : ''}" style="--ts:${px}px" aria-hidden="true">${tokSVG(c)}</span>`;
+}
+// a small picture for other places (the Turn order rows, the party page): the DM's thumbnail or the token as an SVG data URL, ≤ 20 KB
+function tokenURL(c) {
+  if (!c) return ''; const pic = tokPic(c); if (pic && pic.length <= 20000) return pic;
+  const u = 'data:image/svg+xml;utf8,' + encodeURIComponent(tokSVG(c, true)).replace(/%20/g, ' ').replace(/%3D/g, '=').replace(/%3A/g, ':').replace(/%2F/g, '/').replace(/%22/g, "'");
+  return u.length <= 20000 ? u : '';
+}
+// 128px square thumbnail (centre crop), WebP or JPEG, squeezed under 20 KB
+function thumbImage(src) {
+  return new Promise((res, rej) => {
+    const go = url => { const im = new Image(); im.onload = () => { const cv = document.createElement('canvas'); cv.width = cv.height = 128; const g = cv.getContext('2d'), s = Math.min(im.width, im.height);
+      g.drawImage(im, (im.width - s) / 2, (im.height - s) / 2, s, s, 0, 0, 128, 128);
+      let out = ''; for (const type of ['image/webp', 'image/jpeg']) { for (const q of [.86, .74, .62, .5, .38]) { const u = cv.toDataURL(type, q); if (!u.startsWith('data:' + type)) break; out = u; if (u.length <= 20000) return res(u); } }
+      out && out.length <= 20000 ? res(out) : rej(new Error('That picture is too detailed to shrink — try another.')); }; im.onerror = () => rej(new Error('That file isn’t a picture the browser can read.')); im.src = url; };
+    if (typeof src === 'string') go(src); else { const r = new FileReader(); r.onload = () => go(r.result); r.onerror = () => rej(new Error('Couldn’t read that file.')); r.readAsDataURL(src); }
+  });
+}
+// set / clear the picture for a creature, and keep every copy of it in sessions (and the Turn order) in step
+function setTokPic(cid, url) {
+  const c = getC(cid); if (!c) return;
+  if (S.creatures[cid]) { S.creatures[cid].img = url || ''; }
+  else { const P = S.settings.pics = Object.assign({}, S.settings.pics || {}); if (url) { if (!P[cid] && Object.keys(P).length >= 40) return toastInfo('You can give up to 40 book creatures their own pictures — reset one first.'); P[cid] = url; } else delete P[cid]; }
+  TOKMEMO.clear(); refreshInstPics(cid); save(); syncTurnHP(); paint();
+}
+function refreshInstPics(cid) { S.sessions.forEach(s => s.groups.forEach(g => g.list.forEach(x => { if (!cid || x.cid === cid) { const c = instC(x); x.pic = c ? tokenURL(c) : ''; } }))); }
+function onTokAct(act, b) {
+  if (act === 'tokup') { const f = $('.dk-tokf'), cid = b.dataset.cid; f.onchange = async () => { const file = f.files[0]; f.value = ''; if (!file) return; try { setTokPic(cid, await thumbImage(file)); toastInfo('Picture saved — it shows everywhere this creature does, and in the Turn order.'); } catch (e) { toast({ title: 'Couldn’t use that picture', det: esc(e.message), cls: 'bad' }); } }; f.click(); return true; }
+  if (act === 'tokreset') { setTokPic(b.dataset.cid, ''); toastInfo('Back to its illustrated token.'); return true; }
+  return false;
+}
+// older custom creatures may carry a large portrait: shrink it once so it can travel with the Turn order
+async function tokShrinkOld() {
+  let ch = false; for (const c of Object.values(S.creatures)) { if (c.img && c.img.length > 20000) { try { c.img = await thumbImage(c.img); ch = true; } catch (e) {} } }
+  if (ch) { TOKMEMO.clear(); refreshInstPics(); save(); paint(); }
+  else if (S.sessions.some(s => s.groups.some(g => g.list.some(x => !x.pic && instC(x))))) { refreshInstPics(); save(); }
+}
 // ---------- the party page's Turn order (kept on this device in localStorage, per party) ----------
 // Rows the desk adds: {custom:true, id, name, v (initiative), at, hp, maxhp, ac, desk:<iid>, hpAt}
 // Whoever changed HP last wins: the desk stamps hpAt when it writes a row; the Turn order stamps hpAt when the DM edits HP there.
@@ -971,6 +1042,7 @@ function readTurnHP() {
 function syncTurnHP() {
   const t = toRead(); if (!t || !t.rows.some(r => r.desk)) return; let ch = false; const now = Date.now();
   t.rows.forEach(r => { if (!r.desk) return; const x = findInst(r.desk); if (!x) return;
+    const pic = x.pic || tokenURL(instC(x)); if (pic && r.pic !== pic) { r.pic = pic; ch = true; }
     if (N(r.hp) !== N(x.hp) || N(r.maxhp) !== N(x.max) || N(r.ac) !== N(x.ac) || r.name !== x.name) {
       if (N(r.hpAt) > N(x.hpAt)) return; // edited in the Turn order since; readTurnHP takes it
       r.hp = N(x.hp); r.maxhp = N(x.max); r.ac = N(x.ac); r.name = x.name; r.hpAt = now; x.hpAt = now; ch = true; } });
@@ -983,7 +1055,7 @@ async function sendToTurn(list, label) {
     const c = instC(x), b = cInit(c);
     const r = await getRoll({ who: x.name, whoBase: c.name, label: 'Initiative', expr: '1d20' + sgE(b) }); if (!r) return;
     addLog({ who: x.name, label: 'Initiative', total: r.total, detail: r.detail, src: r.src });
-    const row = t.rows.find(z => z.desk === x.iid), v = { custom: true, name: x.name, v: r.total, at: now, hp: N(x.hp), maxhp: N(x.max), ac: N(x.ac), desk: x.iid, hpAt: now };
+    const row = t.rows.find(z => z.desk === x.iid), v = { custom: true, name: x.name, v: r.total, at: now, hp: N(x.hp), maxhp: N(x.max), ac: N(x.ac), desk: x.iid, hpAt: now, pic: x.pic || tokenURL(c) };
     if (row) Object.assign(row, v); else t.rows.push(Object.assign({ id: 'd' + uid() }, v));
     x.hpAt = now; lines.push(`${x.name} ${r.total}`);
   }
@@ -1065,7 +1137,7 @@ function railHTML(cur) {
     const open = s === cur || UI.open[s.id], all = sessionInsts(s), multi = s.groups.length > 1;
     const kids = open ? `<div class="dk-tkids">${s.groups.map(g => `${multi || g.list.length === 0 ? `<div class="dk-tg"><span>${esc(g.name)}</span><small>${g.list.length}</small></div>` : ''}${g.list.map(x => {
       const p = hpPct(x);
-      return `<button class="dk-tc${x.iid === UI.sel ? ' on' : ''}${x.down ? ' down' : ''}" data-act="sel" data-sid="${s.id}" data-iid="${x.iid}"><span class="dk-tcn">${esc(x.name)}${x.conc ? `<i class="dk-cdot" title="Concentrating">${ICON.conc}</i>` : ''}${(x.conds || []).length ? `<i class="dk-cn" title="${esc(x.conds.map(c => c.n).join(', '))}">${x.conds.length}</i>` : ''}</span><span class="dk-tch">${x.hp}<small>/${x.max}</small></span><span class="dk-tbar"><i class="${hpCls(p)}" style="width:${p}%"></i></span></button>`; }).join('')}`).join('')}${all.length ? '' : '<p class="dk-tnone">No creatures yet</p>'}</div>` : '';
+      return `<button class="dk-tc${x.iid === UI.sel ? ' on' : ''}${x.down ? ' down' : ''}" data-act="sel" data-sid="${s.id}" data-iid="${x.iid}">${tokenHTML(instC(x), 22)}<span class="dk-tcn">${esc(x.name)}${x.conc ? `<i class="dk-cdot" title="Concentrating">${ICON.conc}</i>` : ''}${(x.conds || []).length ? `<i class="dk-cn" title="${esc(x.conds.map(c => c.n).join(', '))}">${x.conds.length}</i>` : ''}</span><span class="dk-tch">${x.hp}<small>/${x.max}</small></span><span class="dk-tbar"><i class="${hpCls(p)}" style="width:${p}%"></i></span></button>`; }).join('')}`).join('')}${all.length ? '' : '<p class="dk-tnone">No creatures yet</p>'}</div>` : '';
     return `<div class="dk-ts${s === cur ? ' cur' : ''}"><div class="dk-tsrow"><button class="dk-caret${open ? ' open' : ''}" data-act="toggle" data-sid="${s.id}" aria-label="${open ? 'Collapse' : 'Expand'} ${esc(s.title)}" ${s === cur ? 'disabled' : ''}>${ICON.caret}</button><button class="dk-tsn" data-act="opensess" data-sid="${s.id}"><b>${esc(s.title)}</b><small>${plural(all.length, 'creature')}${all.filter(x => x.down).length ? ' · ' + all.filter(x => x.down).length + ' down' : ''}</small></button></div>${kids}</div>`;
   }).join('');
   return `<div class="dk-railhd"><span>Sessions</span><button class="dk-btn sm gold" data-act="newsess">${ICON.plus} New</button><button class="dk-ix dk-railx" data-act="tree" aria-label="Close">${ICON.x}</button></div><div class="dk-tree" data-keep="tree">${tree || '<p class="dk-tnone">No sessions yet</p>'}</div>`;
@@ -1098,7 +1170,7 @@ function overviewHTML(s) {
 function cardHTML(x) {
   const c = instC(x), p = hpPct(x);
   return `<article class="dk-ccard${x.down ? ' down' : ''}" data-iid="${x.iid}">
-    <button class="dk-ccmain" data-act="sel" data-iid="${x.iid}"><span class="dk-cchd"><b>${esc(x.name)}</b>${c ? `<small>CR ${crLabel(N(c.cr))} ${esc(c.type || '')}</small>` : '<small class="bad">stat block missing</small>'}</span>
+    <button class="dk-ccmain" data-act="sel" data-iid="${x.iid}"><span class="dk-cchd">${tokenHTML(c, 38, 'dk-cctok')}<b>${esc(x.name)}</b>${c ? `<small>CR ${crLabel(N(c.cr))} ${esc(c.type || '')}</small>` : '<small class="bad">stat block missing</small>'}</span>
       <span class="dk-cchp" data-hpflash="${x.iid}"><span class="dk-ccnum ${hpCls(p)}">${x.hp}<small>/${x.max}</small>${N(x.temp) ? `<em>+${x.temp}</em>` : ''}</span><span class="dk-ccac" title="Armor class">${ICON.shield}<b>${x.ac}</b></span></span>${hpBar(x)}
       <span class="dk-ccfoot">${x.down ? '<span class="dk-chip dead">Down</span>' : ''}${x.conc ? `<span class="dk-chip conc">${ICON.conc}${esc(x.conc)}</span>` : ''}${condChips(x)}${econMini(x)}${CTX.party && inTurn(x.iid) ? '<span class="dk-chip to" title="In the Turn order">Turn order</span>' : ''}</span></button>
     <div class="dk-ccq"><input class="dk-f dk-num" id="dk-q-${x.iid}" data-q="${x.iid}" type="text" autocomplete="off" enterkeyhint="done" maxlength="6" placeholder="−dmg / +heal" title="Type 20 or −20 for damage, +20 to heal, then Enter" aria-label="Amount for ${esc(x.name)}"><button class="dk-btn sm red" data-act="qdmg" data-iid="${x.iid}" title="Damage">−</button><button class="dk-btn sm green" data-act="qheal" data-iid="${x.iid}" title="Heal">+</button></div>
@@ -1110,7 +1182,7 @@ function detailHTML(x, s) {
     <div class="dk-trhd"><button class="dk-btn ghost sm" data-act="unsel">${ICON.back}<span>All creatures</span></button><span class="dk-grow"></span>
       ${CTX.party ? `<button class="dk-btn sm${into ? ' on' : ''}" data-act="${into ? 'tooff' : 'toone'}" data-iid="${x.iid}" title="${into ? 'Take it off the Turn order' : 'Roll initiative and add it to the Turn order'}">${ICON.init}<span>${into ? 'In Turn order' : 'Turn order'}</span></button>` : ''}
       <div class="dk-menu"><button class="dk-btn icon sm" data-act="menu" aria-label="More" aria-haspopup="menu">${ICON.dots}</button><div class="dk-mlist" role="menu">${c ? `<button data-act="dup" data-iid="${x.iid}">Add another ${esc(c.name)}</button>` : ''}<button data-act="rest" data-iid="${x.iid}">Reset (full HP, uses back)</button>${s.groups.length > 1 ? s.groups.filter(g => !g.list.includes(x)).map(g => `<button data-act="movegrp" data-iid="${x.iid}" data-gid="${g.id}">Move to ${esc(g.name)}</button>`).join('') : ''}<button class="red" data-act="rm" data-iid="${x.iid}">Remove from session</button></div></div></div>
-    <input class="dk-title" id="dk-nm-${x.iid}" data-ch="name" data-iid="${x.iid}" value="${esc(x.name)}" aria-label="Name" maxlength="60">
+    <div class="dk-trname">${tokenHTML(c, 46)}<input class="dk-title" id="dk-nm-${x.iid}" data-ch="name" data-iid="${x.iid}" value="${esc(x.name)}" aria-label="Name" maxlength="60"></div>
     <div class="dk-sub">${c ? `${esc(c.size)} ${esc(c.type)} · CR ${crLabel(N(c.cr))} · ${XP_OF(c).toLocaleString()} XP` : 'This creature’s stat block was deleted from your bestiary.'}</div>
     <div class="dk-hp" data-hpflash="${x.iid}">
       <div class="dk-hpnum"><span class="dk-lbl">Hit points</span><div><input class="dk-hpcur ${hpCls(p)}" id="dk-hp-${x.iid}" data-ch="hp" data-iid="${x.iid}" value="${x.hp}" inputmode="numeric" aria-label="Current HP"><span>/</span><input class="dk-hpmax" id="dk-mx-${x.iid}" data-ch="max" data-iid="${x.iid}" value="${x.max}" inputmode="numeric" aria-label="Max HP"></div>${N(x.temp) ? `<span class="dk-temp" title="Temporary hit points">+${x.temp} temp</span>` : ''}</div>${hpBar(x, 'big')}
@@ -1141,8 +1213,9 @@ function statBlock(c, inst) {
   const saves = ABS.map((k, i) => c.saves && c.saves[k] != null ? `<button class="dk-rl" data-act="sv" data-ab="${i}">${cap(k)} ${sg(N(c.saves[k]))}</button>` : '').filter(Boolean).join(' ');
   const skills = Object.entries(c.skills || {}).map(([k, v]) => `<button class="dk-rl" data-act="skl" data-sk="${esc(k)}">${esc(k)} ${sg(N(v))}</button>`).join(' ');
   const prop = (k, v) => v ? `<div class="dk-prop"><b>${k}</b> ${v}</div>` : '';
-  let h = `<div class="dk-sb" ${ctx}>${c.img ? `<img class="dk-portrait" src="${esc(c.img)}" alt="">` : ''}<h2>${esc(c.name)}</h2>
-    <div class="dk-type">${esc(c.size)} ${esc(c.type)}${c.align ? ', ' + esc(c.align) : ''} ${c.src && c.src !== 'SRD' ? `<span class="dk-src mine">${esc(c.book || c.src)}</span>` : '<span class="dk-src">SRD</span>'}</div><div class="dk-rule"></div>
+  let h = `<div class="dk-sb" ${ctx}><div class="dk-sbhd">${tokenHTML(c, 64, 'dk-sbtok')}<div class="dk-sbt"><h2>${esc(c.name)}</h2>
+    <div class="dk-type">${esc(c.size)} ${esc(c.type)}${c.align ? ', ' + esc(c.align) : ''} ${c.src && c.src !== 'SRD' ? `<span class="dk-src mine">${esc(c.book || c.src)}</span>` : '<span class="dk-src">SRD</span>'}</div>
+    ${!inst && c.id ? `<div class="dk-tokbtns"><button class="dk-link" data-act="tokup" data-cid="${esc(c.id)}">${tokPic(c) ? 'Change picture' : 'Use my own picture'}</button>${tokPic(c) ? `<button class="dk-link" data-act="tokreset" data-cid="${esc(c.id)}">Back to the token</button>` : ''}</div>` : ''}</div></div><div class="dk-rule"></div>
     ${prop('Armor Class', esc(c.ac) + (c.acNote ? ' (' + esc(c.acNote) + ')' : ''))}
     ${prop('Hit Points', esc(c.hp) + (c.hd ? ` (<button class="dk-rl" data-act="dice" data-x="${esc(c.hd)}" data-lbl="Hit points">${esc(prettyExpr(c.hd))}</button>)` : ''))}
     ${prop('Speed', esc(c.speed))}
@@ -1205,11 +1278,11 @@ function bestiaryHTML() {
         <div class="dk-sort"><button class="${UI.sort === 'name' ? 'on' : ''}" data-act="bsort" data-v="name">A–Z</button><button class="${UI.sort === 'cr' ? 'on' : ''}" data-act="bsort" data-v="cr">CR</button></div>
       </div>
       <div class="dk-bcount">${L.length} shown${UI.q || UI.crMin !== '' || UI.crMax !== '' || UI.type || UI.size || UI.src ? ' · <button class="dk-link" data-act="bclear">clear filters</button>' : ''}</div>
-      <div class="dk-mlist2" data-keep="blist">${L.map(x => `<button class="dk-mrow${c && x.id === c.id ? ' on' : ''}" data-act="pickbest" data-cid="${esc(x.id)}"><span class="dk-mn">${esc(x.name)}${x.src !== 'SRD' ? ' <span class="dk-src mine">mine</span>' : ''}</span><span class="dk-mcr">CR ${crLabel(N(x.cr))}</span><span class="dk-mt">${esc(x.size)} ${esc(x.type)} · AC ${esc(x.ac)} · HP ${esc(x.hp)}</span></button>`).join('') || '<p class="dk-hint" style="padding:12px">Nothing matches. Clear a filter, or add your own creature.</p>'}</div>
+      <div class="dk-mlist2" data-keep="blist">${L.map(x => `<button class="dk-mrow${c && x.id === c.id ? ' on' : ''}" data-act="pickbest" data-cid="${esc(x.id)}">${tokenHTML(x, 30)}<span class="dk-mn">${esc(x.name)}${x.src !== 'SRD' ? ' <span class="dk-src mine">mine</span>' : ''}</span><span class="dk-mcr">CR ${crLabel(N(x.cr))}</span><span class="dk-mt">${esc(x.size)} ${esc(x.type)} · AC ${esc(x.ac)} · HP ${esc(x.hp)}</span></button>`).join('') || '<p class="dk-hint" style="padding:12px">Nothing matches. Clear a filter, or add your own creature.</p>'}</div>
     </section>
     <section class="dk-bview">${c ? `<div class="dk-card dk-badd"><div class="dk-row"><input class="dk-f dk-num" id="dk-bCount" type="number" min="1" max="30" value="1" aria-label="How many"><select class="dk-f" id="dk-bEnc" aria-label="Add to"><option value="__new">A new session</option>${grps.map(({ s, g }) => `<option value="${esc(s.id)}|${esc(g.id)}"${s.id + '|' + g.id === defG ? ' selected' : ''}>${esc(s.title)}${s.groups.length > 1 ? ' › ' + esc(g.name) : ''}</option>`).join('')}</select><button class="dk-btn gold" data-act="badd" data-cid="${esc(c.id)}">${ICON.plus} Add</button></div>
         <div class="dk-row"><button class="dk-btn sm" data-act="copyc" data-cid="${esc(c.id)}">Copy & edit</button>${c.src !== 'SRD' ? `<button class="dk-btn sm" data-act="editc" data-cid="${esc(c.id)}">Edit</button><button class="dk-btn sm red" data-act="delc" data-cid="${esc(c.id)}">Delete</button>` : ''}</div></div>
-      <div class="dk-card dk-sbcard">${statBlock(c)}</div>` : ''}</section></div>`;
+      <div class="dk-card dk-sbcard">${statBlock(c)}</div>` : ''}<p class="dk-credit">${esc(TOK_CREDIT)}.</p></section></div>`;
 }
 function paintLog() {
   const box = $('.dk-loglist'); if (!box) return;
@@ -1272,7 +1345,7 @@ function openEditor(c, isNew, from) {
       <div class="dk-g4">${fld('Legendary actions per round', 'dk-edLegN', e.legCount || '', 'inputmode="numeric" placeholder="3"')}</div>
       ${ta('Legendary actions', 'dk-edLeg', e.legendary)}${(e.mythic || []).length ? ta('Mythic actions', 'dk-edMyth', e.mythic) : ''}${ta('Lair actions', 'dk-edLair', e.lair)}
       <label class="dk-full"><span class="dk-lbl">DM notes</span><textarea class="dk-f" id="dk-edNotes" rows="2" placeholder="Tactics, reskins, where it shows up">${esc(e.notes || '')}</textarea></label>
-      <div class="dk-row"><span class="dk-lbl" style="margin:0">Portrait</span>${e.img ? `<img src="${esc(e.img)}" alt="" class="dk-edimg">` : ''}<button class="dk-btn sm" data-act="edimg">${e.img ? 'Change' : 'Add a picture'}</button>${e.img ? '<button class="dk-btn sm red" data-act="edimgx">Remove</button>' : ''}</div>
+      <div class="dk-row"><span class="dk-lbl" style="margin:0">Token</span>${tokenHTML(Object.assign({}, e, { src: 'Custom', id: e.id || 'new' }), 48)}<button class="dk-btn sm" data-act="edimg">${e.img ? 'Change picture' : 'Use my own picture'}</button>${e.img ? '<button class="dk-btn sm" data-act="edimgx">Back to the token</button>' : ''}<span class="dk-hint">Shown in lists, cards and the Turn order.</span></div>
     </div><datalist id="dk-sizes">${SIZES.map(s => `<option>${s}</option>`).join('')}</datalist>
     <div class="dk-acts"><button class="dk-btn" data-act="close">${from === 'batch' ? 'Back to the list' : 'Cancel'}</button><button class="dk-btn gold" data-act="edsave">${from === 'batch' ? 'Done' : 'Save creature'}</button></div>`, { wide: true, onClose: from === 'batch' ? () => setTimeout(openBatchReview, 0) : null });
 }
@@ -1324,7 +1397,8 @@ function openSettings(tab) {
     ${pane('data', `<p class="dk-hint">Sessions and creatures save privately to your Adventurer’s Tome account and follow you to any device. Keep a backup file now and then.</p>
       ${row('Backup', `<button class="dk-btn sm" data-act="exportall">Export</button>`, 'Sessions, creatures, notes on encounters and settings, as one file.')}
       ${row('My creatures', `<button class="dk-btn sm" data-act="exportmine">Export</button>`, 'Only the creatures you made or edited.')}
-      ${row('Import a file', `<button class="dk-btn sm" data-act="import">Import…</button>`, 'A desk backup or a creatures file.')}`)}
+      ${row('Import a file', `<button class="dk-btn sm" data-act="import">Import…</button>`, 'A desk backup or a creatures file.')}
+      ${row('About', '', `${esc(TOK_CREDIT)}. Creature stat blocks: SRD 5.1 (CC BY 4.0).`)}`)}
     ${pane('notes', `${row('Your notes', `<button class="dk-btn sm" data-act="tab" data-tab="notes" data-close="1">Open</button>`, plural(np, 'page') + ' in your wiki.')}
       ${row('Import notes', `<button class="dk-btn sm" data-act="nimport">Import…</button>`, 'LegendKeeper, Obsidian, Craft, Markdown or a notes backup.')}
       ${row('Export notes', `<button class="dk-btn sm" data-act="nexport">Export…</button>`, 'A Markdown zip or a JSON backup.')}`)}
@@ -1513,13 +1587,13 @@ async function onClick(e) {
     case 'editc': return openEditor(getC(b.dataset.cid), false);
     case 'delc': { const c = getC(b.dataset.cid), used = S.sessions.reduce((t, s) => t + sessionInsts(s).filter(z => z.cid === c.id).length, 0); return confirmBox(`Delete <b>${esc(c.name)}</b> from your creatures?${used ? ` ${plural(used, 'tracked copy')} in your sessions will lose their stat block.` : ''}`, 'Delete', () => { delete S.creatures[c.id]; UI.best = 'srd:goblin'; save(); paint(); }, true); }
     case 'edsave': return saveEditor();
-    case 'edimg': { const f = $('.dk-imgf'); f.onchange = () => { const file = f.files[0]; f.value = ''; if (!file) return; resizeImage(file, url => { readEditor(); ED.c.img = url; const keep = ED; openEditor(ED.c, keep.isNew, keep.from); ED.isNew = keep.isNew; }); }; return f.click(); }
+    case 'edimg': { const f = $('.dk-imgf'); f.onchange = () => { const file = f.files[0]; f.value = ''; if (!file) return; thumbImage(file).then(url => { readEditor(); ED.c.img = url; const keep = ED; openEditor(ED.c, keep.isNew, keep.from); ED.isNew = keep.isNew; }, e => toast({ title: 'Couldn’t use that picture', det: esc(e.message), cls: 'bad' })); }; return f.click(); }
     case 'edimgx': readEditor(); ED.c.img = ''; { const keep = ED; openEditor(ED.c, keep.isNew, keep.from); } return;
     case 'exportall': return download('dm-desk-backup-' + new Date().toISOString().slice(0, 10) + '.json', JSON.stringify({ app: 'dm-desk', v: 2, savedAt: S.savedAt, settings: S.settings, creatures: S.creatures, sessions: S.sessions }, null, 1));
     case 'exportmine': return download('dm-desk-creatures-' + new Date().toISOString().slice(0, 10) + '.json', JSON.stringify({ app: 'dm-desk', v: 2, creatures: S.creatures }, null, 1));
     case 'import': { const f = $('.dk-impf'); f.onchange = () => { const file = f.files[0]; f.value = ''; if (file) doImport(file); }; return f.click(); }
     case 'r20check': r20Hello(); setTimeout(paintR20, 600); return;
-    default: if (onPlanAct(act, b)) return; if (/^pb/.test(act) && onPasteAct(act, b)) return; if (/^hb/.test(act)) { onHBAct(act, b); return; } if (onNotesAct(act, b, e) === true) return; if (/^(nnew|nopen)$/.test(act)) return; break;
+    default: if (onPlanAct(act, b)) return; if (/^pb/.test(act) && onPasteAct(act, b)) return; if (/^tok/.test(act) && onTokAct(act, b)) return; if (/^hb/.test(act)) { onHBAct(act, b); return; } if (onNotesAct(act, b, e) === true) return; if (/^(nnew|nopen)$/.test(act)) return; break;
     case 'r20refresh': return r20Campaigns(false);
     case 'r20test': return roll({ who: 'DM’s Desk', label: 'Test roll', expr: '1d20' });
   }
@@ -1626,7 +1700,7 @@ function mount(root, ctx) {
   root.innerHTML = `<header class="dk-top"></header><div class="dk-page"></div>
     <aside class="dk-log" aria-label="Roll log"><div class="dk-loghd"><h2>Roll log</h2><button class="dk-btn sm" data-act="clearlog">Clear</button><button class="dk-ix" data-act="log" aria-label="Close">${ICON.x}</button></div><div class="dk-loglist"></div></aside>
     <div class="dk-modal" role="presentation"><div class="dk-mcard" role="dialog" aria-modal="true"></div></div>
-    <div class="dk-toasts" aria-live="polite"></div><input type="file" class="dk-impf" accept=".json,application/json" hidden><input type="file" class="dk-imgf" accept="image/*" hidden><input type="file" class="dk-nimgf" accept="image/*" hidden><input type="file" class="dk-mapf" accept="image/*" hidden><input type="file" class="dk-nimpf" accept=".lk,.md,.markdown,.txt,.html,.htm,.zip,.textpack,.json,image/*" multiple hidden><input type="file" class="dk-ndirf" webkitdirectory multiple hidden><div class="dk-auto" hidden></div><input type="file" class="dk-notef" accept=".pdf,.docx,.txt,.md,.markdown,text/plain,application/pdf" multiple hidden>`;
+    <div class="dk-toasts" aria-live="polite"></div><input type="file" class="dk-impf" accept=".json,application/json" hidden><input type="file" class="dk-imgf" accept="image/*" hidden><input type="file" class="dk-tokf" accept="image/*" hidden><input type="file" class="dk-nimgf" accept="image/*" hidden><input type="file" class="dk-mapf" accept="image/*" hidden><input type="file" class="dk-nimpf" accept=".lk,.md,.markdown,.txt,.html,.htm,.zip,.textpack,.json,image/*" multiple hidden><input type="file" class="dk-ndirf" webkitdirectory multiple hidden><div class="dk-auto" hidden></div><input type="file" class="dk-notef" accept=".pdf,.docx,.txt,.md,.markdown,text/plain,application/pdf" multiple hidden>`;
   const loc = lsGet(''); S = normalize(loc && loc.v ? loc : null);
   const u = lsGet('-ui'); if (u) UI = Object.assign(UI, u, { tree: false, log: false });
   UI.ptab = UI.ptab || {};
@@ -1649,7 +1723,7 @@ function mount(root, ctx) {
   on(document, 'keydown', onKey); on(document, 'mousedown', onDocDown); on(document, 'touchstart', onDocDown, { passive: true });
   on(window, 'message', onR20Msg); on(document, 'visibilitychange', onVis); on(window, 'storage', onStorage);
   setTimeout(r20Hello, 400);
-  cloudBoot(); notesBoot();
+  cloudBoot(); notesBoot(); setTimeout(() => { if (ROOT) tokShrinkOld(); }, 3000);
   return { unmount };
 }
 function unmount() { LISTEN.splice(0).forEach(([t, ev, fn, o]) => t.removeEventListener(ev, fn, o)); if (CTX && CTX.partyHost && CTX.partyHost.parentNode && CTX.partyHost.parentNode.classList.contains('dk-partyslot')) CTX.partyHost.parentNode.removeChild(CTX.partyHost); if (CLOUD) flush(); if (NCLOUD) flushNotes(); if (ROOT) { ROOT.innerHTML = ''; ROOT.classList.remove('dk'); } ROOT = null; CLOUD = false; }
@@ -1880,7 +1954,7 @@ function encGenHTML() {
       <button class="dk-btn gold big wide" data-act="genenc">${ICON.dice} ${GEN.lines.length ? 'Reroll' : 'Generate'} encounter</button></section>
     <section class="dk-card dk-genout">${GEN.lines.length ? `<div class="dk-budget"><div><span class="dk-lbl">Adjusted XP</span><b>${st.adj.toLocaleString()}</b><small>budget ${th[DIFFS.indexOf(g.diff)].toLocaleString()} (${esc(g.diff)})</small></div><div class="dk-rate ${st.rate}">${cap(st.rate)}</div>
         <div class="dk-meter"><i style="width:${pct}%"></i>${th.map((t, i) => `<em style="left:${Math.min(100, t / (th[3] * 1.25) * 100)}%" title="${cap(DIFFS[i])}"></em>`).join('')}</div><small class="dk-hint">${st.base.toLocaleString()} XP total · ${st.per.toLocaleString()} each for ${plural(genLevels().length, 'character')} · ×${multFor(st.count, genLevels().length)} for ${plural(st.count, 'creature')}</small></div>
-      <div class="dk-elines">${GEN.lines.map((l, i) => { const c = getC(l.cid); if (!c) return ''; return `<div class="dk-eline${l.locked ? ' locked' : ''}"><button class="dk-lockb" data-act="glock" data-i="${i}" aria-pressed="${!!l.locked}" title="${l.locked ? 'Unlock' : 'Keep this one when rerolling'}">${l.locked ? '🔒' : '🔓'}</button>
+      <div class="dk-elines">${GEN.lines.map((l, i) => { const c = getC(l.cid); if (!c) return ''; return `<div class="dk-eline${l.locked ? ' locked' : ''}"><button class="dk-lockb" data-act="glock" data-i="${i}" aria-pressed="${!!l.locked}" title="${l.locked ? 'Unlock' : 'Keep this one when rerolling'}">${l.locked ? '🔒' : '🔓'}</button>${tokenHTML(c, 34)}
         <div class="dk-eln"><button class="dk-link" data-act="gview" data-cid="${esc(c.id)}">${esc(c.name)}</button><small>CR ${crLabel(N(c.cr))} · ${XP_OF(c).toLocaleString()} XP · ${esc(c.type)}</small></div>
         <div class="dk-elc"><button class="dk-btn sm icon" data-act="gn" data-i="${i}" data-d="-1" aria-label="One fewer">−</button><b>${l.n}</b><button class="dk-btn sm icon" data-act="gn" data-i="${i}" data-d="1" aria-label="One more">+</button></div><button class="dk-btn sm" data-act="gswap" data-i="${i}">Swap</button></div>`; }).join('')}</div>
       <div class="dk-eflavor">${GEN.ai ? `<h3>${esc(GEN.ai.title || 'Encounter')}</h3>${GEN.ai.setup ? `<p>${esc(GEN.ai.setup)}</p>` : ''}${GEN.ai.tactics ? `<p><b>Tactics.</b> ${esc(GEN.ai.tactics)}</p>` : ''}${GEN.ai.twist ? `<p><b>Twist.</b> ${esc(GEN.ai.twist)}</p>` : ''}${GEN.ai.hook ? `<p><b>Hook.</b> ${esc(GEN.ai.hook)}</p>` : ''}<small class="dk-hint">Written by AI — check it before you use it.</small>` : `<p><b>Where.</b> ${esc(cap(GEN.place))}. <b>How they fight.</b> ${esc(GEN.tactic)}</p>`}
@@ -2347,6 +2421,7 @@ function timelineHTML() {
 function notesAfterPaint() {
   if (UI.tab !== 'notes') return;
   $$('.dk-page2 img[data-img], .dk-nhcard img[data-img]').forEach(im => { getImg(im.dataset.img).then(u => { if (u && im.isConnected) im.src = u; else if (!u) im.classList.add('missing'); }); });
+  $$('.dk-ed span.mn, .dk-pop span.mn').forEach(a => { const c = getC(a.dataset.cid); if (c) { const u = tokenURL(c); if (u) a.style.setProperty('--tok', `url("${u.replace(/"/g, '%22')}")`); } });
   $$('.dk-ed a.wl, .dk-ed span.mn').forEach(a => { a.setAttribute('contenteditable', 'false'); if (a.classList.contains('wl')) { const p = pageById(a.dataset.page) || pageByTitle(a.dataset.title); a.classList.toggle('broken', !p); if (p) a.textContent = a.textContent || p.title; } });
   const p = pageById(UI.np); if (p && p.type === 'map') mapInit(p);
 }

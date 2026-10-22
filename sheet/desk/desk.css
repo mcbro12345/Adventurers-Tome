@@ -987,3 +987,21 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 @media (max-width: 1100px) { .dk-logo .hl-d20 { width: 50px !important; height: 50px !important; } .dk-brand h1 { font-size: 1.5rem; } }
 @media (max-width: 640px) { .dk-logo .hl-d20 { width: 48px !important; height: 48px !important; } }
 .dk-logo .hl-20 { font-size: 21px; transform: translateY(2px); }
+
+/* ---------- illustrated tokens ---------- */
+.dk-tok { --ts: 28px; display: inline-grid; place-items: center; flex: none; width: var(--ts); height: var(--ts); border-radius: 50%; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.35)); vertical-align: middle; }
+.dk-tok svg { width: 100% !important; height: 100% !important; display: block; }
+.dk-tok.pic { overflow: hidden; border: max(2px, calc(var(--ts) * .07)) solid var(--tr, #c3ccd6); box-shadow: inset 0 0 0 1px rgba(0,0,0,.3); background: var(--card2); }
+.dk-tok.pic img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+.dk-mrow { display: flex; align-items: center; gap: 10px; }
+.dk-mrow .dk-tok { margin-left: -2px; }
+.dk-tc { display: flex; align-items: center; gap: 8px; }
+.dk-cchd { display: grid !important; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; align-items: center; }
+.dk-cchd .dk-cctok { grid-row: span 2; }
+.dk-trname { display: flex; align-items: center; gap: 10px; min-width: 0; } .dk-trname .dk-title { flex: 1; min-width: 0; }
+.dk-sbhd { display: flex; align-items: center; gap: 14px; min-width: 0; } .dk-sbt { min-width: 0; flex: 1; } .dk-sbt h2 { margin-top: 0; }
+.dk-tokbtns { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 2px; font-size: .82rem; }
+.dk-eline .dk-tok { margin-right: 2px; }
+.dk-credit { margin: 10px 4px 0; font-size: .74rem; color: var(--soft); }
+.dk-ed span.mn, .dk-pop span.mn { padding-left: 1.45em !important; background-image: var(--tok, none); background-repeat: no-repeat; background-size: 1.15em 1.15em; background-position: .18em 50%; }
+@media (max-width: 640px) { .dk-sbhd .dk-tok { --ts: 52px !important; } }

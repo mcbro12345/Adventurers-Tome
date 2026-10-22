@@ -2243,6 +2243,22 @@ body.dkhost #hub .pw { padding-top: 12px; margin-top: 0; margin-bottom: 0 !impor
 .to-eye { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: var(--to-soft); cursor: pointer; opacity: .75; }
 .to-eye.on { color: #c9962b; opacity: 1; }
 .to-eye:hover { background: rgba(127,127,127,.15); opacity: 1; }
+.to-pic.to-tok { border: 0; border-radius: 50%; object-fit: cover; background: transparent; }
+/* the eye (show the name to players) sits on the HP/AC line, clear of the remove button */
+.to-vit .to-eye { width: 22px; height: 22px; margin-left: 2px; border-radius: 6px; }
+.to-vit .to-eye svg { width: 14px; height: 14px; }
+.to-row:hover .to-vit .to-eye, html.mobile .to-vit .to-eye { margin-right: 0; }
+.towin .to-row .to-x { top: 8px; margin-top: 0; } @media (max-width: 640px) { .towin .to-row .to-x { top: 6px; margin-top: 0; } }
+/* Turn order: the picture is the remove button — a red ✕ appears over it on hover */
+.to-rm { position: relative; flex: none; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 9px; line-height: 0; }
+.to-rm .to-rmx { position: absolute; inset: 0; display: grid; place-items: center; border-radius: 8px; background: rgba(178,52,34,.82); color: #fff; font: 800 16px/1 system-ui, sans-serif; opacity: 0; transition: opacity .15s; }
+.to-rm .to-pic.to-tok + .to-rmx { border-radius: 50%; }
+@media (hover: hover) { .to-rm:hover .to-rmx { opacity: 1; } }
+.to-rm:focus-visible .to-rmx { opacity: 1; }
+html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px auto; width: 16px; height: 16px; border-radius: 50%; font-size: 9px; opacity: .9; }
+.towin .to-x { display: none !important; }
+.to-row:hover .to-nm, html.mobile .to-nm { padding-right: 0; } @media (max-width: 640px) { .to-row .to-nm { padding-right: 0; } }
+.to-vit .to-eye { margin-left: 2px; }
 </style>
 </head>
 <body>
@@ -2847,7 +2863,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022155101', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.06a986eb7f5c.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.8a862cb8a934.html", "desk": "a/desk.78eb532187e2.js", "deskcss": "a/deskcss.3099cef6684a.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022160227', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.06a986eb7f5c.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.8a862cb8a934.html", "desk": "a/desk.425025f74e1b.js", "deskcss": "a/deskcss.9d28a3aed57f.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -3450,7 +3466,8 @@ function wireDie(root) {
     const ae = document.activeElement; if (ae && ae.classList.contains('pgturn-v') && w.contains(ae)) return; // (not while you're typing)
     const card = id => { const c = PTY_CARDS[id] || {}, l = PTY_LIVE[id]; return l && Number(l.at) >= Number(c.at || 0) ? Object.assign({}, c, l) : Object.assign({}, l || {}, c); };
     w.querySelector('.to-list').innerHTML = t.rows.map((r, i) => { const mine = r.k === 'c' && r.id === C, c = r.k === 'c' ? card(r.id) : null, nm = r.k === 'c' ? (c.name || 'A character') : (r.name || 'Unknown creature');
-      const pic = c && c.thumb ? `<img class="to-pic" src="${escH(c.thumb)}" alt=""${accStyle(c)}>` : `<span class="to-pic to-np"${c ? accStyle(c) : ''}>${r.k === 'x' && !r.name ? '?' : escH(initials(nm))}</span>`;
+      const tp = r.k === 'x' && typeof r.pic === 'string' && r.pic.length <= 24000 && /^data:image\/(svg\+xml|png|jpe?g|webp)[;,]/.test(r.pic) ? r.pic : '';
+      const pic = tp ? `<img class="to-pic to-tok" src="${escH(tp)}" alt="">` : c && c.thumb ? `<img class="to-pic" src="${escH(c.thumb)}" alt=""${accStyle(c)}>` : `<span class="to-pic to-np"${c ? accStyle(c) : ''}>${r.k === 'x' && !r.name ? '?' : escH(initials(nm))}</span>`;
       const v = r.v === '' || r.v == null ? '' : String(r.v);
       return `<li class="to-row${i === 0 ? ' cur' : ''}${mine ? ' mine' : ''}${r.down ? ' down' : ''}">${pic}<span class="to-who"><span class="to-nm" title="${escH(nm)}">${escH(nm)}${mine ? ' <span class="pgturn-you">You</span>' : ''}</span>${c && (Number(c.maxhp) || c.ac) ? `<span class="to-vit"><span class="to-hp${Number(c.hp) <= 0 ? ' out' : Number(c.hp) / (Number(c.maxhp) || 1) <= .25 ? ' low' : Number(c.hp) / (Number(c.maxhp) || 1) <= .5 ? ' mid' : ''}" title="Hit points">♥ <span>${Math.max(0, Number(c.hp) || 0)}<i>/${Number(c.maxhp) || 0}</i></span></span><span class="to-ac" title="Armor class">⛨ ${escH(String(c.ac || '—'))}</span></span>` : ''}</span>${mine ? `<input class="to-v pgturn-v" inputmode="numeric" placeholder="–" value="${escH(v)}" aria-label="Your initiative">` : `<span class="to-v pgturn-ro">${escH(v || '–')}</span>`}</li>`; }).join('');
     w.querySelector('.to-cnt b').textContent = t.rows.length; w.querySelector('.to-rnd b').textContent = Number(t.round) || 1;
@@ -5320,7 +5337,7 @@ function partyModule(H) {
   let toSyncT = null, toLastSent = '';
   const toMirror = () => { clearTimeout(toSyncT); toSyncT = setTimeout(() => { if (!TO || !PID || !P || !canRun(P)) return;
     const num = v => v === '' || v == null || isNaN(Number(v)) ? '' : Number(v);
-    const rows = TO.rows.slice(0, 60).map(r => r.custom ? { k: 'x', id: String(r.id).slice(0, 40), name: r.reveal ? String(r.name || '').slice(0, 60) : '', v: num(r.v), down: !!(Number(r.maxhp) && r.hp !== '' && r.hp != null && Number(r.hp) <= 0) } : { k: 'c', id: String(r.id).slice(0, 40), v: num(r.v) });
+    const rows = TO.rows.slice(0, 60).map(r => r.custom ? { k: 'x', id: String(r.id).slice(0, 40), name: r.reveal ? String(r.name || '').slice(0, 60) : '', pic: okPic(r.pic) ? r.pic : '', v: num(r.v), down: !!(Number(r.maxhp) && r.hp !== '' && r.hp != null && Number(r.hp) <= 0) } : { k: 'c', id: String(r.id).slice(0, 40), v: num(r.v) });
     const body = { open: !!TO.open, round: Number(TO.round) || 1, rows }, key = JSON.stringify(body); if (key === toLastSent) return; toLastSent = key;
     PC.doc(PID).collection('turn').doc('now').set(Object.assign(body, { at: Date.now(), by: EMAIL })).catch(() => { toLastSent = ''; }); }, 250); };
   let TO_SELF = false; const toSave = () => { if (!TO) return; try { localStorage.setItem(TKEY(), JSON.stringify(TO)); } catch (e) {} toMirror(); TO_SELF = true; try { window.dispatchEvent(new StorageEvent('storage', { key: TKEY() })); } catch (e) {} TO_SELF = false; }; // (tells the DM's Desk in this same page)
@@ -5340,6 +5357,7 @@ function partyModule(H) {
   }
   // HP and AC under each name: a party member's come live from their sheet; someone added by hand (or sent from the
   // DM's Desk) keeps them here, and the DM can tap the HP to change it (−7 / +5 / a new number).
+  const okPic = u => typeof u === 'string' && u.length <= 24000 && /^data:image\/(svg\+xml|png|jpe?g|webp)[;,]/.test(u);
   const toVitals = (r, c) => { const hp = r.custom ? r.hp : c.hp, max = Number(r.custom ? r.maxhp : c.maxhp) || 0, tmp = r.custom ? 0 : Number(c.temp) || 0, ac = r.custom ? r.ac : c.ac;
     const has = v => v !== '' && v != null && !isNaN(Number(v)), pct = has(hp) && max ? Math.max(0, Math.min(1, Number(hp) / max)) : null;
     const tone = pct == null ? '' : Number(hp) <= 0 ? ' out' : pct <= .25 ? ' low' : pct <= .5 ? ' mid' : '';
@@ -5348,9 +5366,9 @@ function partyModule(H) {
     const acEl = r.custom ? `<button class="to-ac" data-ac="${esc(r.id)}" title="Change AC">${TO_ICON.shield}${has(ac) ? esc(String(ac)) : '—'}</button>` : `<span class="to-ac" title="Armor class">${TO_ICON.shield}${has(ac) ? esc(String(ac)) : '—'}</span>`;
     return `<span class="to-vit">${hpEl}${acEl}</span>`; };
   const toRowHTML = (r, i) => { const c = r.custom ? { name: r.name } : cardFor(r.id), nm = c.name || 'Unnamed';
-    const pic = r.custom ? `<span class="to-pic to-np">${esc(initials(nm))}</span>` : c.thumb ? `<img class="to-pic" src="${esc(c.thumb)}" alt=""${accStyle(c)}>` : `<span class="to-pic to-np"${accStyle(c)}>${esc(initials(nm))}</span>`;
+    const pic = r.custom && okPic(r.pic) ? `<img class="to-pic to-tok" src="${esc(r.pic)}" alt="">` : r.custom ? `<span class="to-pic to-np">${esc(initials(nm))}</span>` : c.thumb ? `<img class="to-pic" src="${esc(c.thumb)}" alt=""${accStyle(c)}>` : `<span class="to-pic to-np"${accStyle(c)}>${esc(initials(nm))}</span>`;
     const down = (r.custom ? r.hp !== '' && r.hp != null && Number(r.hp) <= 0 && Number(r.maxhp) : Number(c.maxhp) && Number(c.hp) <= 0);
-    return `<li class="to-row${i === 0 ? ' cur' : ''}${down ? ' down' : ''}${r.fresh && Date.now() - r.fresh < 4000 ? ' fresh' : ''}" data-i="${i}">${pic}<span class="to-who"><span class="to-nm" title="${esc(nm)}">${esc(nm)}</span>${toVitals(r, c)}</span>${r.custom ? `<button class="to-eye${r.reveal ? ' on' : ''}" data-eye="${esc(r.id)}" title="${r.reveal ? 'Players see its name — tap to hide it' : 'Players see “Unknown creature” — tap to show its name'}" aria-label="${r.reveal ? 'Hide its name from players' : 'Show its name to players'}" aria-pressed="${!!r.reveal}">${r.reveal ? TO_ICON.eye : TO_ICON.eyeOff}</button>` : ''}<button class="to-x" data-x="${i}" title="Take off the list" aria-label="Remove ${esc(nm)}">×</button><input class="to-v" data-i="${i}" inputmode="numeric" placeholder="–" value="${esc(String(r.v ?? ''))}" aria-label="Initiative for ${esc(nm)}"></li>`; };
+    return `<li class="to-row${i === 0 ? ' cur' : ''}${down ? ' down' : ''}${r.fresh && Date.now() - r.fresh < 4000 ? ' fresh' : ''}" data-i="${i}"><button class="to-rm" data-x="${i}" title="Take ${esc(nm)} off the list" aria-label="Remove ${esc(nm)} from the turn order">${pic}<span class="to-rmx" aria-hidden="true">✕</span></button><span class="to-who"><span class="to-nm" title="${esc(nm)}">${esc(nm)}</span>${toVitals(r, c).replace(/<\/span>$/, '') + (r.custom ? `<button class="to-eye${r.reveal ? ' on' : ''}" data-eye="${esc(r.id)}" title="${r.reveal ? 'Players see its name — tap to hide it' : 'Players see “Unknown creature” — tap to show its name'}" aria-label="${r.reveal ? 'Hide its name from players' : 'Show its name to players'}" aria-pressed="${!!r.reveal}">${r.reveal ? TO_ICON.eye : TO_ICON.eyeOff}</button>` : '') + '</span>'}</span><input class="to-v" data-i="${i}" inputmode="numeric" placeholder="–" value="${esc(String(r.v ?? ''))}" aria-label="Initiative for ${esc(nm)}"></li>`; };
   function toPaint() {
     const w = document.getElementById('towin'); if (!w || !TO) return;
     const ae = document.activeElement; if (ae && ae.classList.contains('to-v') && w.contains(ae)) { clearTimeout(toPaint.t); toPaint.t = setTimeout(toPaint, 700); return; }
@@ -5406,7 +5424,7 @@ function partyModule(H) {
       box.querySelectorAll('[data-k]').forEach(c => c.onchange = () => { if (c.checked) picked.set(c.dataset.k, items[+c.dataset.k]); else picked.delete(c.dataset.k); const ok = $m('#ta-ok'); ok.disabled = !picked.size; ok.textContent = picked.size > 1 ? `Add ${picked.size}` : 'Add'; });
     }, x => { if (box.isConnected) box.innerHTML = `<p class="hub-hint">${x && x.code === 'permission-denied' ? 'Your DM’s Desk can’t be read yet: the site’s database rules need the DM’s Desk update.' : 'Couldn’t load your DM’s Desk. Check your connection and try again.'}</p>`; });
     $m('#ta-ok').onclick = () => { if (!picked.size) return; const now = Date.now(), d20 = () => 1 + Math.floor(Math.random() * 20), got = [];
-      picked.forEach(it => { if (it.kind === 'c') { const x = it.x, v = d20() + n(x.ini); TO.rows.push({ custom: true, id: 'd' + now.toString(36) + Math.random().toString(36).slice(2, 6), name: x.name || 'Creature', v, at: now, hp: n(x.hp), maxhp: n(x.max), ac: n(x.ac) || '', desk: x.iid, hpAt: n(x.hpAt) || now }); got.push(`${x.name} ${v}`); }
+      picked.forEach(it => { if (it.kind === 'c') { const x = it.x, v = d20() + n(x.ini); TO.rows.push({ custom: true, id: 'd' + now.toString(36) + Math.random().toString(36).slice(2, 6), name: x.name || 'Creature', v, at: now, hp: n(x.hp), maxhp: n(x.max), ac: n(x.ac) || '', desk: x.iid, hpAt: n(x.hpAt) || now, pic: okPic(x.pic) ? x.pic : '' }); got.push(`${x.name} ${v}`); }
         else { const v = d20(); TO.rows.push({ custom: true, id: 'x' + now.toString(36) + Math.random().toString(36).slice(2, 6), name: it.c.npc.name, v, at: now, hp: '', maxhp: '', ac: '' }); got.push(`${it.c.npc.name} ${v}`); } });
       toSave(); toPaint(); close(); toast('Rolled initiative: ' + got.join(' · ')); };
   }
