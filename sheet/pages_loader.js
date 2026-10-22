@@ -1468,8 +1468,8 @@ function hub(fs, auth, G, ctx) {
         <label class="pp-c pp-cust" title="Pick any colour"><input type="color" value="${st.color || '#c9962b'}"><span>+</span></label></div></div>
       <div class="pp-pane" data-p="char">${mine.length ? `<div class="pp-grid">${mine.map(c => `<button class="pp-opt" data-pp="${esc(c.id)}"${c.thumb ? '' : ' disabled title="This character has no portrait yet"'}><span class="pp-img">${avaHTML(c.name, c.id, c.thumb)}</span><b>${esc(c.name || 'Unnamed')}</b><small>${esc(c.thumb ? (c.cls || '') : 'No portrait yet')}</small></button>`).join('')}</div>` : '<p class="hub-hint pp-empty">You don’t have any characters yet — make one and its portrait can be your picture.</p>'}</div>
       <div class="pp-pane" data-p="upload"><label class="pp-drop"><input type="file" accept="image/*" hidden><span class="pp-dz-i">${ico.upload}</span><b>Choose an image</b><small>or drag one here</small></label>
-        <button class="btn ghost pp-adj" type="button" hidden>Adjust crop</button><p class="pp-note">Tip: a PNG with a transparent background shows just the image — no circle or border around it.</p><p class="pp-err" hidden></p></div>
-      <div class="row pp-foot"><button class="btn ghost" id="pp-x">Cancel</button><button class="btn" id="pp-ok">Save</button></div></div>`;
+        <p class="pp-note">Tip: a PNG with a transparent background shows just the image — no circle or border around it.</p><p class="pp-err" hidden></p></div>
+      <div class="row pp-foot"><button class="btn pp-adj" type="button" hidden><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>Adjust crop</button><button class="btn ghost" id="pp-x">Cancel</button><button class="btn" id="pp-ok">Save</button></div></div>`;
     modal.classList.add('on');
     const $ = q => modal.querySelector(q), $$ = q => modal.querySelectorAll(q);
     const pick = () => st.mode === 'google' ? GP : st.mode === 'char' ? ((mine.find(c => c.id === st.char) || {}).thumb || '') : st.mode === 'upload' ? st.img : '';
@@ -1485,7 +1485,7 @@ function hub(fs, auth, G, ctx) {
       $$('.pp-c[data-c]').forEach(b => b.classList.toggle('on', b.dataset.c === st.color));
       const cu = $('.pp-cust'); cu.classList.toggle('on', !!st.color && !PG_SWATCH.includes(st.color)); if (cu.classList.contains('on')) cu.style.background = st.color; else cu.style.background = '';
       $$('[data-pp]').forEach(b => b.classList.toggle('on', st.mode === 'char' && b.dataset.pp === st.char));
-      $('.pp-adj').hidden = !st.img; const dz = $('.pp-drop'); dz.classList.toggle('has', !!st.img); dz.querySelector('b').textContent = st.img ? 'Choose a different image' : 'Choose an image';
+      $('.pp-adj').hidden = !(st.mode === 'upload' && st.img); const dz = $('.pp-drop'); dz.classList.toggle('has', !!st.img); dz.querySelector('b').textContent = st.img ? 'Choose a different image' : 'Choose an image';
       $('#pp-ok').disabled = (st.mode === 'char' && !pick()) || (st.mode === 'upload' && !st.img); };
     $$('.pp-tabs [data-m]').forEach(b => b.onclick = () => { st.mode = b.dataset.m; if (st.mode === 'char' && !st.char) { const f = mine.find(c => c.thumb); if (f) st.char = f.id; } paint(); });
     $$('.pp-c[data-c]').forEach(b => b.onclick = () => { st.color = b.dataset.c; paint(); });
@@ -2843,7 +2843,7 @@ function partyModule(H) {
   const TKEY = () => 'pg-turn:' + PID;
   let TO = null, unI = null, INIT = {};
   const toLoad = () => { let t = null; try { t = JSON.parse(localStorage.getItem(TKEY()) || 'null'); } catch (e) {} t = t && typeof t === 'object' ? t : {};
-    return { rows: Array.isArray(t.rows) ? t.rows : [], round: Number(t.round) || 1, cut: Number(t.cut) || 0, x: t.x, y: t.y, open: !!t.open }; };
+    return { rows: Array.isArray(t.rows) ? t.rows : [], round: Number(t.round) || 1, cut: Number(t.cut) || 0, x: t.x, y: t.y, h: t.h, open: !!t.open, min: !!t.min }; };
   const toSave = () => { if (!TO) return; try { localStorage.setItem(TKEY(), JSON.stringify(TO)); } catch (e) {} };
   // Brings the list in line with the party: new characters added (at the bottom), departed ones dropped; fills rolls.
   function toSync() {
@@ -2860,29 +2860,41 @@ function partyModule(H) {
       if (toSync()) { toSave(); toPaint(); if (got.length && !document.getElementById('towin')) { const d = got[0].doc.data(); toast(`${d.n || 'A player'} rolled ${Number(d.v)} for initiative. It’s in your Turn order.`); } } }, () => {});
   }
   const toRowHTML = (r, i) => { const c = r.custom ? { name: r.name } : cardFor(r.id), nm = c.name || 'Unnamed';
-    const pic = r.custom ? `<span class="to-pic to-np">${esc(initials(nm))}</span>` : c.thumb ? `<img class="to-pic" src="${esc(c.thumb)}" alt=""${accStyle(c)}>` : `<span class="to-pic to-np">${esc(initials(nm))}</span>`;
-    return `<li class="to-row${i === 0 ? ' cur' : ''}${r.fresh && Date.now() - r.fresh < 4000 ? ' fresh' : ''}" data-i="${i}">${pic}<span class="to-nm" title="${esc(nm)}">${esc(nm)}</span><input class="to-v" data-i="${i}" inputmode="numeric" value="${esc(String(r.v ?? ''))}" aria-label="Initiative for ${esc(nm)}"><button class="to-x" data-x="${i}" title="Take off the list" aria-label="Remove ${esc(nm)}">×</button></li>`; };
+    const pic = r.custom ? `<span class="to-pic to-np">${esc(initials(nm))}</span>` : c.thumb ? `<img class="to-pic" src="${esc(c.thumb)}" alt=""${accStyle(c)}>` : `<span class="to-pic to-np"${accStyle(c)}>${esc(initials(nm))}</span>`;
+    return `<li class="to-row${i === 0 ? ' cur' : ''}${r.fresh && Date.now() - r.fresh < 4000 ? ' fresh' : ''}" data-i="${i}">${pic}<span class="to-nm" title="${esc(nm)}">${esc(nm)}</span><button class="to-x" data-x="${i}" title="Take off the list" aria-label="Remove ${esc(nm)}">×</button><input class="to-v" data-i="${i}" inputmode="numeric" placeholder="–" value="${esc(String(r.v ?? ''))}" aria-label="Initiative for ${esc(nm)}"></li>`; };
   function toPaint() {
     const w = document.getElementById('towin'); if (!w || !TO) return;
     const ae = document.activeElement; if (ae && ae.classList.contains('to-v') && w.contains(ae)) { clearTimeout(toPaint.t); toPaint.t = setTimeout(toPaint, 700); return; }
     w.querySelector('.to-list').innerHTML = TO.rows.length ? TO.rows.map(toRowHTML).join('') : '<li class="to-empty">No one yet.</li>';
-    w.querySelector('.to-rnd b').textContent = TO.round;
+    w.querySelector('.to-cnt b').textContent = TO.rows.length; w.querySelector('.to-rnd b').textContent = TO.round; w.classList.toggle('min', !!TO.min);
+    const mb = w.querySelector('.to-min'); mb.title = TO.min ? 'Show the list' : 'Shrink to the title bar'; mb.setAttribute('aria-label', mb.title); mb.setAttribute('aria-expanded', String(!TO.min));
     w.querySelectorAll('.to-v').forEach(x => { x.onchange = () => { const r = TO.rows[+x.dataset.i]; if (!r) return; const t = x.value.trim(); r.v = t === '' ? '' : (isNaN(Number(t)) ? t : Number(t)); r.at = Date.now(); toSave(); };
+      x.onfocus = () => x.select();
       x.onkeydown = e => { if (e.key === 'Enter') { x.blur(); const n = w.querySelector(`.to-v[data-i="${+x.dataset.i + 1}"]`); if (n) n.focus(); } }; });
     w.querySelectorAll('[data-x]').forEach(b => b.onclick = () => { TO.rows.splice(+b.dataset.x, 1); toSave(); toPaint(); });
   }
+  const TO_ICON = { sort: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M4 12h7M4 18h4"/><path d="M18 5v14M15 16l3 3 3-3"/></svg>',
+    gear: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+    left: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>',
+    right: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>' };
   function turnOrder(show) {
     if (!actor()) return; if (!TO) TO = toLoad(); toSync();
     let w = document.getElementById('towin'); if (w) { if (!show) { w.remove(); TO.open = false; toSave(); } return; }
     w = document.createElement('div'); w.id = 'towin'; w.className = 'towin'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Turn order');
-    w.innerHTML = `<div class="to-hd"><span class="to-tt">Turn Order</span><button class="to-c" title="Close" aria-label="Close">×</button></div>
+    w.innerHTML = `<div class="to-hd"><span class="to-tt">Turn Order</span><button class="to-min" data-to="min">—</button><button class="to-c" title="Close" aria-label="Close">✕</button></div>
+      <div class="to-body"><div class="to-sub"><span class="to-cnt">Count: <b>0</b></span><span class="to-rnd">Round <b>1</b></span><button class="to-ib" data-to="sort" title="Sort highest first" aria-label="Sort highest first">${TO_ICON.sort}</button></div>
       <ol class="to-list"></ol>
-      <div class="to-ft"><button class="to-b" data-to="sort" title="Sort highest first">Sort</button><button class="to-b" data-to="add" title="Add someone who isn’t in the party (a monster, an NPC)">+ Add</button><button class="to-b" data-to="clear" title="Start a new fight: clears the numbers">Clear</button>
-        <span class="grow"></span><span class="to-rnd">Round <b>1</b></span><button class="to-b to-arr" data-to="prev" title="Previous turn" aria-label="Previous turn">‹</button><button class="to-b to-arr to-next" data-to="next" title="Next turn" aria-label="Next turn">›</button></div>`;
+      <div class="to-ft"><button class="to-nav" data-to="prev" title="Previous turn" aria-label="Previous turn">${TO_ICON.left}</button>
+        <span class="to-gw"><button class="to-ib to-gear" data-to="menu" title="More" aria-label="More" aria-haspopup="menu" aria-expanded="false">${TO_ICON.gear}</button>
+          <span class="to-menu" role="menu" hidden><button role="menuitem" data-to="add">Add someone…</button><button role="menuitem" data-to="sort">Sort highest first</button><button role="menuitem" data-to="clear">Start a new fight</button></span></span>
+        <button class="to-nav to-next" data-to="next" title="Next turn" aria-label="Next turn">${TO_ICON.right}</button></div></div>`;
     document.body.appendChild(w);
-    const vw = innerWidth, vh = innerHeight, W = Math.min(300, vw - 16);
+    const vw = innerWidth, vh = innerHeight, W = Math.min(260, vw - 16);
+    if (TO.h && innerWidth > 640) w.style.height = Math.max(240, Math.min(vh - 16, TO.h)) + 'px';
     w.style.left = Math.max(8, Math.min(vw - W - 8, TO.x != null ? TO.x : vw - W - 24)) + 'px'; w.style.top = Math.max(8, Math.min(vh - 120, TO.y != null ? TO.y : 90)) + 'px';
     TO.open = true; toSave(); toPaint();
+    // remembers its height after you drag the corner to resize it
+    if (window.ResizeObserver) { let rt = null; new ResizeObserver(() => { if (TO.min || innerWidth <= 640 || !w.isConnected) return; clearTimeout(rt); rt = setTimeout(() => { const h = w.getBoundingClientRect().height; if (h > 100) { TO.h = Math.round(h); toSave(); } }, 300); }).observe(w); }
     // drag by the title bar
     const hd = w.querySelector('.to-hd'); hd.onpointerdown = e => { if (e.target.closest('button')) return; e.preventDefault();
       if (innerWidth <= 640) { const y0 = e.clientY; hd.setPointerCapture(e.pointerId); hd.onpointermove = m => { w.style.transform = `translateY(${Math.max(0, m.clientY - y0)}px)`; };
@@ -2891,7 +2903,13 @@ function partyModule(H) {
       hd.onpointermove = m => { const x = Math.max(0, Math.min(innerWidth - r.width, m.clientX - ox)), y = Math.max(0, Math.min(innerHeight - 40, m.clientY - oy)); w.style.left = x + 'px'; w.style.top = y + 'px'; };
       hd.onpointerup = () => { hd.onpointermove = hd.onpointerup = null; w.classList.remove('drag'); TO.x = parseFloat(w.style.left); TO.y = parseFloat(w.style.top); toSave(); }; };
     w.querySelector('.to-c').onclick = () => turnOrder(false);
+    const menu = w.querySelector('.to-menu'), gear = w.querySelector('.to-gear'), menuOpen = o => { menu.hidden = !o; gear.setAttribute('aria-expanded', String(o)); };
+    document.addEventListener('pointerdown', e => { if (!menu.hidden && !e.target.closest('.to-gw')) menuOpen(false); });
+    w.addEventListener('keydown', e => { if (e.key === 'Escape' && !menu.hidden) { menuOpen(false); gear.focus(); } });
     w.querySelectorAll('[data-to]').forEach(b => b.onclick = () => { const a = b.dataset.to; document.activeElement && document.activeElement.blur && document.activeElement.blur();
+      if (a === 'menu') return menuOpen(menu.hidden);
+      menuOpen(false);
+      if (a === 'min') { TO.min = !TO.min; if (!TO.min && TO.h && innerWidth > 640) w.style.height = TO.h + 'px'; else if (TO.min) w.style.height = ''; toSave(); return toPaint(); }
       // the round goes up each time the turn comes back round to whoever was on top after sorting
       const num = r => r.v === '' || isNaN(Number(r.v)) ? -Infinity : Number(r.v);
       if (a === 'sort') { TO.rows.sort((x, y) => num(y) - num(x)); TO.rows.forEach((r, i) => r.first = i === 0); }

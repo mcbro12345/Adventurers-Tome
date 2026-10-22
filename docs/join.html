@@ -13,7 +13,7 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.8469bbdee8c7.css">
+<link rel="stylesheet" href="a/sheet.26c54a64e263.css">
 <link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="You’re invited to join a party on Adventurer’s Tome."><meta property="og:type" content="website"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="You’re invited to join a party"><meta property="og:description" content="Pick a character, or make a new one, and join your DM’s game on Adventurer’s Tome."><meta property="og:url" content="https://adventurers-tome.web.app/join/"><meta property="og:image" content="https://adventurers-tome.web.app/og-invite.png?v=2"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="2400"><meta property="og:image:height" content="1260"><meta property="og:image:alt" content="A party invitation on Adventurer’s Tome"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-roll.gif?v=3"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest"><script>try{var t=localStorage.getItem("pg-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-pgtheme",t)}catch(e){}</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
@@ -1966,50 +1966,64 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 :where(body.hubbody, .wzh) .pa-cchip:hover { border-color: #c9962b; }
 :where(body.hubbody, .wzh) .pa-cchip.on { background: #c9962b; border-color: #c9962b; color: #1b1406; }
 :where(body.hubbody, .wzh) .pa-cchip.on .ci { border-color: transparent; background: rgba(255,255,255,.3); }
-/* Turn order (the DM's initiative tracker), styled after Roll20's */
-.towin { position: fixed; z-index: 9000; width: min(300px, calc(100vw - 16px)); background: #2b2b2e; color: #eee; border: 1px solid #47474d; border-radius: 10px; box-shadow: 0 18px 44px rgba(0,0,0,.5); font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; user-select: none; overflow: hidden; }
+/* Turn order (the DM's initiative tracker): laid out like Roll20's, in the site's navy and gold */
+.towin { --to-bg: #1a2131; --to-bg2: #141a27; --to-line: #2c3548; --to-ink: #e9e3d3; --to-soft: #a9a294; --to-row: #222a3a; --to-cur: rgba(201,150,43,.24);
+  position: fixed; z-index: 9000; width: min(260px, calc(100vw - 16px)); height: auto; min-height: 220px; max-height: calc(100vh - 16px); resize: vertical; display: flex; flex-direction: column;
+  background: var(--to-bg); color: var(--to-ink); border: 1px solid var(--to-line); border-top: 3px solid #c9962b; border-radius: 12px; box-shadow: 0 18px 44px rgba(0,0,0,.5); font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; user-select: none; overflow: hidden; }
+@media (prefers-color-scheme: light) { html:where(:not([data-pgtheme])):not([data-pgtheme="dark"]) .towin { --to-bg: #fffaf0; --to-bg2: #f3ead7; --to-line: #e3d6b8; --to-ink: #2b2418; --to-soft: #6b5f4a; --to-row: #f7f0e1; --to-cur: rgba(201,150,43,.28); } }
+ html:where([data-pgtheme="light"]):not([data-pgtheme="dark"]) .towin { --to-bg: #fffaf0; --to-bg2: #f3ead7; --to-line: #e3d6b8; --to-ink: #2b2418; --to-soft: #6b5f4a; --to-row: #f7f0e1; --to-cur: rgba(201,150,43,.28); } 
+:root[data-pgtheme="light"] .towin { --to-bg: #fffaf0; --to-bg2: #f3ead7; --to-line: #e3d6b8; --to-ink: #2b2418; --to-soft: #6b5f4a; --to-row: #f7f0e1; --to-cur: rgba(201,150,43,.28); }
 .towin.drag { opacity: .95; }
-.to-hd { display: flex; align-items: center; padding: 8px 10px 8px 14px; background: #1f1f22; border-bottom: 1px solid #3c3c42; cursor: move; touch-action: none; }
-.to-tt { flex: 1; font-weight: 700; font-size: 14px; letter-spacing: .02em; }
-.to-c { background: none; border: 0; color: #aaa; font-size: 20px; line-height: 1; cursor: pointer; padding: 0 4px; }
-.to-c:hover { color: #fff; }
-.to-list { list-style: none; margin: 0; padding: 6px; max-height: min(52vh, 420px); overflow-y: auto; }
-.to-row { display: flex; align-items: center; gap: 9px; padding: 5px 6px; border-radius: 7px; border: 1px solid transparent; transition: background .3s; }
+.towin.min { height: auto !important; min-height: 0; resize: none; }
+.towin.min .to-body { display: none; }
+.to-hd { flex: none; display: flex; align-items: center; gap: 2px; padding: 8px 8px 8px 14px; background: var(--to-bg2); border-bottom: 1px solid var(--to-line); cursor: move; touch-action: none; }
+.towin.min .to-hd { border-bottom: 0; }
+.to-tt { flex: 1; font: 700 15px Georgia, 'Times New Roman', serif; letter-spacing: .02em; }
+.to-c, .to-min { width: 28px; height: 28px; border-radius: 7px; border: 0; background: transparent; color: var(--to-soft); cursor: pointer; font-size: 15px; line-height: 1; display: inline-grid; place-items: center; }
+.to-c:hover, .to-min:hover, .to-c:focus-visible, .to-min:focus-visible { background: color-mix(in srgb, var(--to-ink) 16%, transparent); color: var(--to-ink); }
+.to-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.to-sub { flex: none; display: flex; align-items: center; gap: 10px; padding: 7px 8px 7px 14px; font: 700 12px system-ui, sans-serif; color: var(--to-soft); }
+.to-sub b { color: var(--to-ink); }
+.to-cnt { flex: 1; }
+.to-ib { width: 30px; height: 30px; border-radius: 7px; border: 0; background: transparent; color: var(--to-soft); cursor: pointer; display: inline-grid; place-items: center; }
+.to-ib:hover, .to-ib[aria-expanded="true"] { background: color-mix(in srgb, var(--to-ink) 14%, transparent); color: var(--to-ink); }
+.to-list { flex: 1; min-height: 60px; list-style: none; margin: 0; padding: 0 6px 6px; overflow-y: auto; }
+.to-row { position: relative; display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 8px; background: var(--to-row); transition: background .3s; }
 .to-row + .to-row { margin-top: 3px; }
-.to-row.cur { background: #3a2a40; border-color: #e0359b; box-shadow: inset 3px 0 0 #e0359b; }
+.to-row.cur { background: var(--to-cur); box-shadow: inset 4px 0 0 #c9962b; }
 .to-row.fresh .to-v { animation: toFresh 1.6s ease-out; }
-@keyframes toFresh { 0% { background: #e0359b; color: #fff; } 100% { } }
-.to-pic { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex: none; border: 1px solid #555; }
-.to-np { display: grid; place-items: center; background: #444; font-size: 12px; font-weight: 700; color: #ddd; }
-.to-nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
-.to-v { width: 46px; text-align: center; background: #1b1b1e; color: #fff; border: 1px solid #4a4a50; border-radius: 6px; padding: 5px 2px; font: 600 15px system-ui, sans-serif; user-select: text; }
-.to-v:focus { outline: none; border-color: #e0359b; }
-.to-x { background: none; border: 0; color: #777; font-size: 17px; cursor: pointer; padding: 0 2px; opacity: 0; }
-.to-row:hover .to-x, html.mobile .to-x { opacity: 1; }
-.to-x:hover { color: #ff6b6b; }
-.to-empty { padding: 14px; text-align: center; color: #999; font-size: 13px; }
-.to-ft { display: flex; align-items: center; gap: 5px; padding: 8px; border-top: 1px solid #3c3c42; background: #252528; }
-.to-ft .grow { flex: 1; }
-.to-b { white-space: nowrap; background: #3a3a40; color: #eee; border: 1px solid #4c4c53; border-radius: 6px; padding: 5px 8px; font: 600 12px system-ui, sans-serif; cursor: pointer; }
-.to-b:hover { background: #46464d; }
-.to-arr { font-size: 17px; line-height: 1; padding: 3px 9px; }
-.to-next { background: #c42a85; border-color: #e0359b; }
-.to-next:hover { background: #d8339a; }
-.to-rnd { font-size: 12px; color: #bbb; margin-right: 2px; white-space: nowrap; }
-.to-rnd b { color: #fff; }
-
+.to-pic { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; flex: none; border: 2px solid #c9962b; box-sizing: border-box; }
+.to-np { display: grid; place-items: center; background: #2b3245; font-size: 12px; font-weight: 700; color: #f1d58a; }
+.to-nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 15px system-ui, sans-serif; }
+.to-v { width: 46px; flex: none; text-align: right; background: transparent; color: var(--to-ink); border: 1px solid transparent; border-radius: 6px; padding: 2px 4px; font: 800 22px/1.1 system-ui, sans-serif; user-select: text; }
+.to-v::placeholder { color: var(--to-soft); opacity: .6; }
+.to-v:hover { border-color: var(--to-line); }
+.to-v:focus { outline: none; border-color: #c9962b; background: var(--to-bg); }
+.to-x { position: absolute; right: 60px; top: 50%; margin-top: -11px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: transparent; color: var(--to-soft); font-size: 16px; line-height: 1; cursor: pointer; padding: 0; opacity: 0; }
+.to-row:hover .to-x, .to-x:focus-visible, html.mobile .to-x { opacity: 1; }
+.to-x:hover { color: #f07a5a; background: color-mix(in srgb, var(--to-ink) 12%, transparent); }
+.to-empty { padding: 18px 14px; text-align: center; color: var(--to-soft); font-size: 13px; }
+.to-ft { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--to-line); background: var(--to-bg2); }
+.to-nav { width: 64px; height: 34px; border-radius: 8px; border: 1px solid var(--to-line); background: var(--to-row); color: var(--to-ink); cursor: pointer; display: inline-grid; place-items: center; }
+.to-nav:hover { border-color: #c9962b; }
+.to-next { background: #c9962b; border-color: #c9962b; color: #1b1406; }
+.to-next:hover { background: #d9a93f; }
+.to-gw { position: relative; }
+.to-menu { position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); z-index: 2; min-width: 170px; display: flex; flex-direction: column; padding: 5px; border-radius: 10px; border: 1px solid var(--to-line); background: var(--to-bg); box-shadow: 0 12px 30px rgba(0,0,0,.4); }
+.to-menu[hidden] { display: none; }
+.to-menu button { text-align: left; padding: 8px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--to-ink); font: 600 13px system-ui, sans-serif; cursor: pointer; white-space: nowrap; }
+.to-menu button:hover, .to-menu button:focus-visible { background: color-mix(in srgb, #c9962b 20%, transparent); }
 /* Phone: the DM's turn order is a sheet along the bottom (swipe its bar down to close) */
 @media (max-width: 640px) {
   .towin { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: 100% !important; border-radius: 16px 16px 0 0; border-width: 1px 0 0; padding-bottom: env(safe-area-inset-bottom); transition: transform .18s ease-out; z-index: 9500; }
   .to-hd { position: relative; padding: 12px 12px 10px 16px; cursor: default; }
-  .to-c { font-size: 24px; padding: 0 6px; }
-  .to-list { max-height: 46vh; }
-  .to-row { padding: 7px 6px; }
-  .to-v { width: 54px; font-size: 16px; padding: 8px 2px; }
-  .to-x { opacity: 1; font-size: 20px; padding: 0 6px; }
-  .to-ft { flex-wrap: wrap; gap: 6px; padding: 10px; }
-  .to-b { padding: 9px 12px; font-size: 13px; }
-  .to-arr { padding: 6px 16px; font-size: 20px; }
+  .to-c, .to-min { width: 36px; height: 36px; font-size: 18px; }
+  .towin { height: auto !important; max-height: 78vh; resize: none; }
+  .to-list { max-height: 50vh; }
+  .to-row { padding: 9px 8px; }
+  .to-v { width: 54px; font-size: 22px; }
+  .to-x { width: 30px; height: 30px; font-size: 20px; }
+  .to-nav { width: 88px; height: 42px; }
   :where(body.hubbody, .wzh) .pw-foot .btn { min-width: 0; padding: 0 8px; font-size: .95rem; }
   :where(body.hubbody, .wzh) .pw-foot .btn.gold { flex: 1.4; }
   :where(body.hubbody, .wzh) .pw-foot #pt-del { flex: 0 0 50px; }
@@ -2081,8 +2095,9 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 :root[data-pgtheme="light"] body.hubbody .pw .linkbtn { color: #7d5610; } :root[data-pgtheme="light"] body.hubbody .pty-invwho small { opacity: .9; }
 /* Party-action chips: the character's picture in its sheet colour. */
 :where(body.hubbody, .wzh) .pa-who img { border: 2px solid #c9962b; }
-.to-pic:not(.to-np) { border: 2px solid #c9962b; }
-:where(body.hubbody, .wzh) .pp-adj { display: block; margin: 10px auto 0; } :where(body.hubbody, .wzh) .pp-adj[hidden] { display: none; }
+:where(body.hubbody, .wzh) .pp-adj { margin-right: auto; display: inline-flex; align-items: center; gap: 6px; } :where(body.hubbody, .wzh) .pp-adj[hidden] { display: none; }
+@keyframes toFresh { 0% { background: rgba(201,150,43,.55); color: #1b1406; } 100% { background: transparent; } }
+.to-row:hover .to-nm, html.mobile .to-nm { padding-right: 24px; } @media (max-width: 640px) { .to-x { right: 66px; margin-top: -15px; } .to-row .to-nm { padding-right: 32px; } }
 </style>
 </head>
 <body>
@@ -2600,7 +2615,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261021234701', ASSETS = {"data": "a/data.48cfdb40bbe4.js", "app": "a/app.ac7874737c3f.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.cae8c45e598f.html"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261021235415', ASSETS = {"data": "a/data.48cfdb40bbe4.js", "app": "a/app.c3f40a128ddb.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.6397f7a27477.html"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -3597,8 +3612,8 @@ function hub(fs, auth, G, ctx) {
         <label class="pp-c pp-cust" title="Pick any colour"><input type="color" value="${st.color || '#c9962b'}"><span>+</span></label></div></div>
       <div class="pp-pane" data-p="char">${mine.length ? `<div class="pp-grid">${mine.map(c => `<button class="pp-opt" data-pp="${esc(c.id)}"${c.thumb ? '' : ' disabled title="This character has no portrait yet"'}><span class="pp-img">${avaHTML(c.name, c.id, c.thumb)}</span><b>${esc(c.name || 'Unnamed')}</b><small>${esc(c.thumb ? (c.cls || '') : 'No portrait yet')}</small></button>`).join('')}</div>` : '<p class="hub-hint pp-empty">You don’t have any characters yet — make one and its portrait can be your picture.</p>'}</div>
       <div class="pp-pane" data-p="upload"><label class="pp-drop"><input type="file" accept="image/*" hidden><span class="pp-dz-i">${ico.upload}</span><b>Choose an image</b><small>or drag one here</small></label>
-        <button class="btn ghost pp-adj" type="button" hidden>Adjust crop</button><p class="pp-note">Tip: a PNG with a transparent background shows just the image — no circle or border around it.</p><p class="pp-err" hidden></p></div>
-      <div class="row pp-foot"><button class="btn ghost" id="pp-x">Cancel</button><button class="btn" id="pp-ok">Save</button></div></div>`;
+        <p class="pp-note">Tip: a PNG with a transparent background shows just the image — no circle or border around it.</p><p class="pp-err" hidden></p></div>
+      <div class="row pp-foot"><button class="btn pp-adj" type="button" hidden><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>Adjust crop</button><button class="btn ghost" id="pp-x">Cancel</button><button class="btn" id="pp-ok">Save</button></div></div>`;
     modal.classList.add('on');
     const $ = q => modal.querySelector(q), $$ = q => modal.querySelectorAll(q);
     const pick = () => st.mode === 'google' ? GP : st.mode === 'char' ? ((mine.find(c => c.id === st.char) || {}).thumb || '') : st.mode === 'upload' ? st.img : '';
@@ -3614,7 +3629,7 @@ function hub(fs, auth, G, ctx) {
       $$('.pp-c[data-c]').forEach(b => b.classList.toggle('on', b.dataset.c === st.color));
       const cu = $('.pp-cust'); cu.classList.toggle('on', !!st.color && !PG_SWATCH.includes(st.color)); if (cu.classList.contains('on')) cu.style.background = st.color; else cu.style.background = '';
       $$('[data-pp]').forEach(b => b.classList.toggle('on', st.mode === 'char' && b.dataset.pp === st.char));
-      $('.pp-adj').hidden = !st.img; const dz = $('.pp-drop'); dz.classList.toggle('has', !!st.img); dz.querySelector('b').textContent = st.img ? 'Choose a different image' : 'Choose an image';
+      $('.pp-adj').hidden = !(st.mode === 'upload' && st.img); const dz = $('.pp-drop'); dz.classList.toggle('has', !!st.img); dz.querySelector('b').textContent = st.img ? 'Choose a different image' : 'Choose an image';
       $('#pp-ok').disabled = (st.mode === 'char' && !pick()) || (st.mode === 'upload' && !st.img); };
     $$('.pp-tabs [data-m]').forEach(b => b.onclick = () => { st.mode = b.dataset.m; if (st.mode === 'char' && !st.char) { const f = mine.find(c => c.thumb); if (f) st.char = f.id; } paint(); });
     $$('.pp-c[data-c]').forEach(b => b.onclick = () => { st.color = b.dataset.c; paint(); });
@@ -4972,7 +4987,7 @@ function partyModule(H) {
   const TKEY = () => 'pg-turn:' + PID;
   let TO = null, unI = null, INIT = {};
   const toLoad = () => { let t = null; try { t = JSON.parse(localStorage.getItem(TKEY()) || 'null'); } catch (e) {} t = t && typeof t === 'object' ? t : {};
-    return { rows: Array.isArray(t.rows) ? t.rows : [], round: Number(t.round) || 1, cut: Number(t.cut) || 0, x: t.x, y: t.y, open: !!t.open }; };
+    return { rows: Array.isArray(t.rows) ? t.rows : [], round: Number(t.round) || 1, cut: Number(t.cut) || 0, x: t.x, y: t.y, h: t.h, open: !!t.open, min: !!t.min }; };
   const toSave = () => { if (!TO) return; try { localStorage.setItem(TKEY(), JSON.stringify(TO)); } catch (e) {} };
   // Brings the list in line with the party: new characters added (at the bottom), departed ones dropped; fills rolls.
   function toSync() {
@@ -4989,29 +5004,41 @@ function partyModule(H) {
       if (toSync()) { toSave(); toPaint(); if (got.length && !document.getElementById('towin')) { const d = got[0].doc.data(); toast(`${d.n || 'A player'} rolled ${Number(d.v)} for initiative. It’s in your Turn order.`); } } }, () => {});
   }
   const toRowHTML = (r, i) => { const c = r.custom ? { name: r.name } : cardFor(r.id), nm = c.name || 'Unnamed';
-    const pic = r.custom ? `<span class="to-pic to-np">${esc(initials(nm))}</span>` : c.thumb ? `<img class="to-pic" src="${esc(c.thumb)}" alt=""${accStyle(c)}>` : `<span class="to-pic to-np">${esc(initials(nm))}</span>`;
-    return `<li class="to-row${i === 0 ? ' cur' : ''}${r.fresh && Date.now() - r.fresh < 4000 ? ' fresh' : ''}" data-i="${i}">${pic}<span class="to-nm" title="${esc(nm)}">${esc(nm)}</span><input class="to-v" data-i="${i}" inputmode="numeric" value="${esc(String(r.v ?? ''))}" aria-label="Initiative for ${esc(nm)}"><button class="to-x" data-x="${i}" title="Take off the list" aria-label="Remove ${esc(nm)}">×</button></li>`; };
+    const pic = r.custom ? `<span class="to-pic to-np">${esc(initials(nm))}</span>` : c.thumb ? `<img class="to-pic" src="${esc(c.thumb)}" alt=""${accStyle(c)}>` : `<span class="to-pic to-np"${accStyle(c)}>${esc(initials(nm))}</span>`;
+    return `<li class="to-row${i === 0 ? ' cur' : ''}${r.fresh && Date.now() - r.fresh < 4000 ? ' fresh' : ''}" data-i="${i}">${pic}<span class="to-nm" title="${esc(nm)}">${esc(nm)}</span><button class="to-x" data-x="${i}" title="Take off the list" aria-label="Remove ${esc(nm)}">×</button><input class="to-v" data-i="${i}" inputmode="numeric" placeholder="–" value="${esc(String(r.v ?? ''))}" aria-label="Initiative for ${esc(nm)}"></li>`; };
   function toPaint() {
     const w = document.getElementById('towin'); if (!w || !TO) return;
     const ae = document.activeElement; if (ae && ae.classList.contains('to-v') && w.contains(ae)) { clearTimeout(toPaint.t); toPaint.t = setTimeout(toPaint, 700); return; }
     w.querySelector('.to-list').innerHTML = TO.rows.length ? TO.rows.map(toRowHTML).join('') : '<li class="to-empty">No one yet.</li>';
-    w.querySelector('.to-rnd b').textContent = TO.round;
+    w.querySelector('.to-cnt b').textContent = TO.rows.length; w.querySelector('.to-rnd b').textContent = TO.round; w.classList.toggle('min', !!TO.min);
+    const mb = w.querySelector('.to-min'); mb.title = TO.min ? 'Show the list' : 'Shrink to the title bar'; mb.setAttribute('aria-label', mb.title); mb.setAttribute('aria-expanded', String(!TO.min));
     w.querySelectorAll('.to-v').forEach(x => { x.onchange = () => { const r = TO.rows[+x.dataset.i]; if (!r) return; const t = x.value.trim(); r.v = t === '' ? '' : (isNaN(Number(t)) ? t : Number(t)); r.at = Date.now(); toSave(); };
+      x.onfocus = () => x.select();
       x.onkeydown = e => { if (e.key === 'Enter') { x.blur(); const n = w.querySelector(`.to-v[data-i="${+x.dataset.i + 1}"]`); if (n) n.focus(); } }; });
     w.querySelectorAll('[data-x]').forEach(b => b.onclick = () => { TO.rows.splice(+b.dataset.x, 1); toSave(); toPaint(); });
   }
+  const TO_ICON = { sort: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M4 12h7M4 18h4"/><path d="M18 5v14M15 16l3 3 3-3"/></svg>',
+    gear: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+    left: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>',
+    right: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>' };
   function turnOrder(show) {
     if (!actor()) return; if (!TO) TO = toLoad(); toSync();
     let w = document.getElementById('towin'); if (w) { if (!show) { w.remove(); TO.open = false; toSave(); } return; }
     w = document.createElement('div'); w.id = 'towin'; w.className = 'towin'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Turn order');
-    w.innerHTML = `<div class="to-hd"><span class="to-tt">Turn Order</span><button class="to-c" title="Close" aria-label="Close">×</button></div>
+    w.innerHTML = `<div class="to-hd"><span class="to-tt">Turn Order</span><button class="to-min" data-to="min">—</button><button class="to-c" title="Close" aria-label="Close">✕</button></div>
+      <div class="to-body"><div class="to-sub"><span class="to-cnt">Count: <b>0</b></span><span class="to-rnd">Round <b>1</b></span><button class="to-ib" data-to="sort" title="Sort highest first" aria-label="Sort highest first">${TO_ICON.sort}</button></div>
       <ol class="to-list"></ol>
-      <div class="to-ft"><button class="to-b" data-to="sort" title="Sort highest first">Sort</button><button class="to-b" data-to="add" title="Add someone who isn’t in the party (a monster, an NPC)">+ Add</button><button class="to-b" data-to="clear" title="Start a new fight: clears the numbers">Clear</button>
-        <span class="grow"></span><span class="to-rnd">Round <b>1</b></span><button class="to-b to-arr" data-to="prev" title="Previous turn" aria-label="Previous turn">‹</button><button class="to-b to-arr to-next" data-to="next" title="Next turn" aria-label="Next turn">›</button></div>`;
+      <div class="to-ft"><button class="to-nav" data-to="prev" title="Previous turn" aria-label="Previous turn">${TO_ICON.left}</button>
+        <span class="to-gw"><button class="to-ib to-gear" data-to="menu" title="More" aria-label="More" aria-haspopup="menu" aria-expanded="false">${TO_ICON.gear}</button>
+          <span class="to-menu" role="menu" hidden><button role="menuitem" data-to="add">Add someone…</button><button role="menuitem" data-to="sort">Sort highest first</button><button role="menuitem" data-to="clear">Start a new fight</button></span></span>
+        <button class="to-nav to-next" data-to="next" title="Next turn" aria-label="Next turn">${TO_ICON.right}</button></div></div>`;
     document.body.appendChild(w);
-    const vw = innerWidth, vh = innerHeight, W = Math.min(300, vw - 16);
+    const vw = innerWidth, vh = innerHeight, W = Math.min(260, vw - 16);
+    if (TO.h && innerWidth > 640) w.style.height = Math.max(240, Math.min(vh - 16, TO.h)) + 'px';
     w.style.left = Math.max(8, Math.min(vw - W - 8, TO.x != null ? TO.x : vw - W - 24)) + 'px'; w.style.top = Math.max(8, Math.min(vh - 120, TO.y != null ? TO.y : 90)) + 'px';
     TO.open = true; toSave(); toPaint();
+    // remembers its height after you drag the corner to resize it
+    if (window.ResizeObserver) { let rt = null; new ResizeObserver(() => { if (TO.min || innerWidth <= 640 || !w.isConnected) return; clearTimeout(rt); rt = setTimeout(() => { const h = w.getBoundingClientRect().height; if (h > 100) { TO.h = Math.round(h); toSave(); } }, 300); }).observe(w); }
     // drag by the title bar
     const hd = w.querySelector('.to-hd'); hd.onpointerdown = e => { if (e.target.closest('button')) return; e.preventDefault();
       if (innerWidth <= 640) { const y0 = e.clientY; hd.setPointerCapture(e.pointerId); hd.onpointermove = m => { w.style.transform = `translateY(${Math.max(0, m.clientY - y0)}px)`; };
@@ -5020,7 +5047,13 @@ function partyModule(H) {
       hd.onpointermove = m => { const x = Math.max(0, Math.min(innerWidth - r.width, m.clientX - ox)), y = Math.max(0, Math.min(innerHeight - 40, m.clientY - oy)); w.style.left = x + 'px'; w.style.top = y + 'px'; };
       hd.onpointerup = () => { hd.onpointermove = hd.onpointerup = null; w.classList.remove('drag'); TO.x = parseFloat(w.style.left); TO.y = parseFloat(w.style.top); toSave(); }; };
     w.querySelector('.to-c').onclick = () => turnOrder(false);
+    const menu = w.querySelector('.to-menu'), gear = w.querySelector('.to-gear'), menuOpen = o => { menu.hidden = !o; gear.setAttribute('aria-expanded', String(o)); };
+    document.addEventListener('pointerdown', e => { if (!menu.hidden && !e.target.closest('.to-gw')) menuOpen(false); });
+    w.addEventListener('keydown', e => { if (e.key === 'Escape' && !menu.hidden) { menuOpen(false); gear.focus(); } });
     w.querySelectorAll('[data-to]').forEach(b => b.onclick = () => { const a = b.dataset.to; document.activeElement && document.activeElement.blur && document.activeElement.blur();
+      if (a === 'menu') return menuOpen(menu.hidden);
+      menuOpen(false);
+      if (a === 'min') { TO.min = !TO.min; if (!TO.min && TO.h && innerWidth > 640) w.style.height = TO.h + 'px'; else if (TO.min) w.style.height = ''; toSave(); return toPaint(); }
       // the round goes up each time the turn comes back round to whoever was on top after sorting
       const num = r => r.v === '' || isNaN(Number(r.v)) ? -Infinity : Number(r.v);
       if (a === 'sort') { TO.rows.sort((x, y) => num(y) - num(x)); TO.rows.forEach((r, i) => r.first = i === 0); }
