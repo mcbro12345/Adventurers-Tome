@@ -979,3 +979,11 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 .dk-pbto { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 12px; } .dk-pbto .dk-f { width: auto; min-width: 220px; max-width: 100%; }
 @media (max-width: 640px) { .dk-pbrow .dk-f { width: 64px; } .dk-pbsum { flex-basis: 100%; } .dk-pbto .dk-f { flex: 1 1 100%; min-width: 0; } }
 .dk-hbread { border: 1px dashed var(--line); border-radius: 12px; padding: 8px 14px; } .dk-hbread ul { margin: 6px 0; padding-left: 4px; list-style: none; display: grid; gap: 3px; font-size: .9rem; } .dk-hbleft li { color: var(--gold-ink); } .dk-hbleft li::before { content: '! '; font-weight: 800; }
+/* bigger logo: the die's number is readable */
+.dk-logo .hl-d20 { width: 58px !important; height: 58px !important; }
+.dk-brand { gap: 12px; }
+.dk-brand h1 { font-size: 1.8rem; }
+.dk-brand small { font-size: .74rem; }
+@media (max-width: 1100px) { .dk-logo .hl-d20 { width: 50px !important; height: 50px !important; } .dk-brand h1 { font-size: 1.5rem; } }
+@media (max-width: 640px) { .dk-logo .hl-d20 { width: 48px !important; height: 48px !important; } }
+.dk-logo .hl-20 { font-size: 21px; transform: translateY(2px); }

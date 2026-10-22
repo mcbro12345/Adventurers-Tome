@@ -309,6 +309,7 @@ const SPI = {}; DATA.spells.forEach(s => { SPI[s.n.toLowerCase()] = s; });
 const SRD = {}; DATA.monsters.forEach(m => { SRD[m.id] = m; });
 const ordinal = n => n + (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th');
 const ICON = {
+  bug: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 7.5V6a3 3 0 0 1 6 0v1.5"/><rect x="7" y="7.5" width="10" height="12.5" rx="5"/><path d="M12 11v9M3.5 13H7M17 13h3.5M4.5 8l2.6 1.8M19.5 8l-2.6 1.8M4.5 19.5l2.8-2M19.5 19.5l-2.8-2"/></svg>',
   dice: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 21 7v10l-9 5-9-5V7z"/><path d="M12 2v20M3 7l18 10M21 7 3 17"/></svg>',
   log: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>',
   gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
@@ -541,21 +542,59 @@ function toast(o) {
 }
 const toastInfo = (msg, actions, key) => toast({ det: msg, actions, key });
 let MODAL_CLOSE = null;
-function openModal(html, o) {
-  o = o || {}; const m = $('.dk-modal'), c = $('.dk-mcard');
-  if (MODAL_CLOSE && m.classList.contains('open')) { const f = MODAL_CLOSE; MODAL_CLOSE = null; f(); }
-  c.className = 'dk-mcard' + (o.wide ? ' wide' : '') + (o.cls ? ' ' + o.cls : ''); m.classList.toggle('dk-msheet', !!o.sheet); c.innerHTML = html; m.classList.add('open'); m.scrollTop = 0; MODAL_CLOSE = o.onClose || null;
-  const f = c.querySelector('input:not([type=checkbox]),textarea,select'); if (f && innerWidth > 700 && o.focus !== false) setTimeout(() => f.focus(), 30);
+// Desktop: pop-ups are floating windows like the character sheet's — a title bar to drag, ✕ to close, the page behind
+// stays usable, they fade in and out and remember where you put them. Phones keep bottom sheets.
+const mwDesk = () => innerWidth > 640;
+let MODAL_BY = null, LAST_OPENER = null, LAST_OPENER_T = 0;
+const WINPOS = (() => { try { return JSON.parse(localStorage.getItem('pg-desk-win') || '{}') || {}; } catch (e) { return {}; } })();
+const winKeep = () => { try { localStorage.setItem('pg-desk-win', JSON.stringify(WINPOS)); } catch (e) {} };
+const openerSig = b => b ? (b.dataset.act || '') + '|' + JSON.stringify(Object.assign({}, b.dataset)) : '';
+function mwDress(c) {
+  ROOT.classList.toggle('dk-mw', mwDesk()); c.querySelectorAll(':scope > .dk-mwhead').forEach(x => x.remove()); if (!mwDesk()) return;
+  const h = c.querySelector(':scope > h2, :scope > .dk-sethead > h2, :scope > header > h2'); const t = h ? h.textContent.trim() : 'Window';
+  if (h) { h.classList.add('dk-mwhid'); const row = h.parentElement; if (row !== c) { [...row.children].forEach(x => { if (x !== h && x.matches('button') && /^(done|close)$/i.test(x.textContent.trim())) x.classList.add('dk-mwhid'); }); if (![...row.children].some(x => !x.classList.contains('dk-mwhid'))) row.classList.add('dk-mwhid'); } }
+  c.querySelectorAll('[data-act="close"]').forEach(x => { if (/^(done|close)$/i.test(x.textContent.trim())) x.classList.add('dk-mwhid'); });
+  c.querySelectorAll('.dk-acts').forEach(r => { if (![...r.children].some(x => !x.classList.contains('dk-mwhid') && !x.classList.contains('dk-grow'))) r.classList.add('dk-mwhid'); });
+  const bar = document.createElement('div'); bar.className = 'dk-mwhead'; bar.innerHTML = `<b>${esc(t)}</b><button class="dk-mwx" type="button" data-act="close" title="Close" aria-label="Close">✕</button>`; c.prepend(bar);
+  const key = c.dataset.win = (c.className.match(/dk-setwin/) ? 'settings' : t).slice(0, 60), pos = WINPOS[key];
+  c.style.translate = pos ? `${pos[0]}px ${pos[1]}px` : '';
+  if (pos) requestAnimationFrame(() => { const r = c.getBoundingClientRect(); if (r.right < 80 || r.left > innerWidth - 80 || r.top < 0 || r.top > innerHeight - 48) { c.style.translate = ''; delete WINPOS[key]; } });
 }
-function closeModal(silent) { const m = $('.dk-modal'); if (!m) return; m.classList.remove('open'); $('.dk-mcard').innerHTML = ''; const f = MODAL_CLOSE; MODAL_CLOSE = null; SV = null; if (f && !silent) f(); }
+function mwDrag(e) {
+  const bar = e.target.closest && e.target.closest('.dk-mwhead'); if (!bar || e.button !== 0 || e.target.closest('button') || !mwDesk()) return;
+  const c = bar.parentElement; e.preventDefault(); const m0 = (c.style.translate || '0px 0px').split(' ').map(parseFloat), x0 = e.clientX - (m0[0] || 0), y0 = e.clientY - (m0[1] || 0), r = c.getBoundingClientRect();
+  const bx = r.left - (m0[0] || 0), by = r.top - (m0[1] || 0); c.classList.add('dk-moving');
+  const mv = ev => { const x = Math.max(-bx - r.width + 100, Math.min(innerWidth - bx - 100, ev.clientX - x0)), y = Math.max(-by, Math.min(innerHeight - by - 48, ev.clientY - y0)); c.style.translate = `${Math.round(x)}px ${Math.round(y)}px`; };
+  const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); c.classList.remove('dk-moving'); const t = (c.style.translate || '0px 0px').split(' ').map(parseFloat); WINPOS[c.dataset.win || 'w'] = [t[0] || 0, t[1] || 0]; winKeep(); };
+  addEventListener('pointermove', mv); addEventListener('pointerup', up);
+}
+function openModal(html, o) {
+  o = o || {}; const m = $('.dk-modal'), c = $('.dk-mcard'), wasOpen = m.classList.contains('open'), prevBy = MODAL_BY, prevPos = c.style.translate;
+  if (MODAL_CLOSE && m.classList.contains('open')) { const f = MODAL_CLOSE; MODAL_CLOSE = null; f(); }
+  c.className = 'dk-mcard' + (o.wide ? ' wide' : '') + (o.cls ? ' ' + o.cls : ''); m.classList.toggle('dk-msheet', !!o.sheet); c.innerHTML = html; m.classList.add('open'); m.scrollTop = 0; c.scrollTop = 0; MODAL_CLOSE = o.onClose || null;
+  const fresh = LAST_OPENER && Date.now() - LAST_OPENER_T < 600; MODAL_BY = fresh ? LAST_OPENER : wasOpen ? prevBy : null; LAST_OPENER = null;
+  mwDress(c); if (wasOpen && !fresh && prevPos && !WINPOS[c.dataset.win]) c.style.translate = prevPos; c.style.animation = wasOpen ? 'none' : ''; ROOT.classList.remove('dk-rfront');
+  const f = c.querySelector('input:not([type=checkbox]):not(.dk-swi),textarea,select'); if (f && innerWidth > 700 && o.focus !== false) setTimeout(() => f.focus(), 30);
+}
+function closeModal(silent) {
+  const m = $('.dk-modal'); if (!m) return; const c = $('.dk-mcard');
+  // the window fades out as a copy while the real one is free for the next pop-up straight away
+  if (m.classList.contains('open') && mwDesk() && !calm() && c.innerHTML) { const g = c.cloneNode(true), r = c.getBoundingClientRect(); g.classList.add('dk-mghost'); g.removeAttribute('id'); g.querySelectorAll('[id]').forEach(x => x.removeAttribute('id'));
+    Object.assign(g.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', translate: 'none' }); ROOT.appendChild(g); setTimeout(() => g.remove(), 200); }
+  m.classList.remove('open'); c.innerHTML = ''; c.style.translate = ''; MODAL_BY = null; const f = MODAL_CLOSE; MODAL_CLOSE = null; SV = null; if (f && !silent) f(); }
+// runs a confirm/ask callback; a failure (e.g. the save was refused or timed out) is shown instead of vanishing
+function runOk(fn, ...a) { const bad = e => { console.warn(e); toast({ title: 'That didn’t work', det: esc((e && e.message) || 'Try again in a moment.'), cls: 'bad' }); };
+  try { const r = fn(...a); if (r && typeof r.then === 'function') r.then(null, bad); } catch (e) { bad(e); } }
+// a cloud write that can't hang forever without telling anyone
+const withTimeout = (pr, ms, what) => Promise.race([pr, new Promise((_, rej) => setTimeout(() => rej(new Error((what || 'Saving') + ' is taking too long — check your connection and try again.')), ms || 12000))]);
 function confirmBox(msg, okLabel, ok, danger) {
-  openModal(`<h2>Are you sure?</h2><p>${msg}</p><div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn ${danger ? 'red' : 'gold'}" id="dk-cbOk">${esc(okLabel)}</button></div>`);
-  $('#dk-cbOk').onclick = () => { closeModal(true); ok(); };
+  openModal(`<h2>Are you sure?</h2><p>${msg}</p><div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn ${danger ? 'red' : 'gold'}" id="dk-cbOk">${esc(okLabel)}</button></div>`, { cls: 'dk-small' });
+  $('#dk-cbOk').onclick = () => { closeModal(true); runOk(ok); };
 }
 function askText(title, val, ok, o) {
   o = o || {};
-  openModal(`<h2>${esc(title)}</h2>${o.hint ? `<p class="dk-hint">${o.hint}</p>` : ''}<input class="dk-f" id="dk-atIn" value="${esc(val || '')}" maxlength="${o.max || 80}" placeholder="${esc(o.ph || '')}"><div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn gold" id="dk-atOk">${esc(o.okLabel || 'Save')}</button></div>`);
-  const inp = $('#dk-atIn'), go = () => { const v = inp.value.trim(); if (!v && !o.allowEmpty) return inp.focus(); closeModal(true); ok(v); };
+  openModal(`<h2>${esc(title)}</h2>${o.hint ? `<p class="dk-hint">${o.hint}</p>` : ''}<input class="dk-f" id="dk-atIn" value="${esc(val || '')}" maxlength="${o.max || 80}" placeholder="${esc(o.ph || '')}"><div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn gold" id="dk-atOk">${esc(o.okLabel || 'Save')}</button></div>`, { cls: 'dk-small' });
+  const inp = $('#dk-atIn'), go = () => { const v = inp.value.trim(); if (!v && !o.allowEmpty) return inp.focus(); closeModal(true); runOk(ok, v); };
   setTimeout(() => { inp.focus(); inp.select(); }, 30); $('#dk-atOk').onclick = go; inp.onkeydown = e => { if (e.key === 'Enter') go(); };
 }
 // ---------- reading stat blocks (attacks, damage, saves, spells, pasted text) ----------
@@ -602,14 +641,14 @@ function analyze(ent) {
   ACACHE.set(key, a); return a;
 }
 const entKey = (sec, i) => sec + ':' + i;
-const SECS = [['traits', ''], ['actions', 'Actions'], ['bonus', 'Bonus Actions'], ['reactions', 'Reactions'], ['legendary', 'Legendary Actions'], ['lair', 'Lair Actions']];
+const SECS = [['traits', ''], ['actions', 'Actions'], ['bonus', 'Bonus Actions'], ['reactions', 'Reactions'], ['legendary', 'Legendary Actions'], ['mythic', 'Mythic Actions'], ['lair', 'Lair Actions']];
 // "makes three attacks: one with its bite and two with its claws" → [{ent, n}]
 const WORDN = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, twice: 2 };
 function parseMulti(c) {
   const ma = (c.actions || []).find(e => /^multiattack/i.test(e.n)); if (!ma) return null;
   const atks = (c.actions || []).map((e, i) => ({ e, i, a: analyze(e), nm: e.n.replace(/\s*\(.*\)$/, '').toLowerCase() })).filter(x => x.a.hit != null);
   if (!atks.length) return null;
-  const d = ma.d.toLowerCase().replace(/[.;]/g, ' ,').split(/\bor\b/)[0];
+  const d = ma.d.toLowerCase().replace(/\([^)]*\)/g, ' ').replace(/[.;:]/g, ' ,').split(/\bor\b/)[0];
   const out = []; const used = new Set();
   const re = /\b(one|two|three|four|five|six|seven|eight)\b\s+(?:attacks?\s+)?(?:with\s+(?:its|his|her|their|a|an)\s+)?([a-z' -]+?)(?=\s*(?:attacks?\b|,|\band\b|$))/g; let m;
   while ((m = re.exec(d))) {
@@ -703,7 +742,7 @@ function parseStatBlock(raw) {
     const sm = /^((?:Tiny|Small|Medium|Large|Huge|Gargantuan)(?: or (?:Tiny|Small|Medium|Large|Huge|Gargantuan))?)\s+(.*)$/i.exec(left);
     if (sm) { c.size = cap(sm[1].split(' ')[0].toLowerCase()); c.type = sm[2].trim().toLowerCase(); }
   }
-  const H = {}; let cur = null, abBuf = [], body = [];
+  const H = {}, unparsed = []; let cur = null, abBuf = [], body = [];
   for (; i < lines.length; i++) {
     const l = lines[i];
     const h = HDR.find(x => x[1].test(l));
@@ -714,12 +753,12 @@ function parseStatBlock(raw) {
       continue;
     }
     if (SECT.test(l) || looksLikeName((/^([^.]+?)\.\s/.exec(l) || [])[1])) { break; }
-    if (cur && cur !== 'ab') H[cur] += ' ' + l; else if (cur === 'ab') abBuf.push(l);
+    if (cur && cur !== 'ab') H[cur] += ' ' + l; else if (cur === 'ab') abBuf.push(l); else unparsed.push(l);
   }
   body = lines.slice(i);
   // Header fields
   let m;
-  if (H.ac && (m = /(\d+)\s*(?:\(([^)]*)\))?/.exec(H.ac))) { c.ac = N(m[1]); c.acNote = m[2] || ''; }
+  if (H.ac && (m = /(\d+)\s*(?:\(([^)]*)\))?/.exec(H.ac))) { c.ac = N(m[1]); c.acNote = m[2] || H.ac.slice(m.index + m[0].length).replace(/^[\s,;]+/, '').replace(/\s*Initiative.*$/i, '').trim().slice(0, 120); }
   if (H.hp && (m = /(\d+)\s*(?:\(([^)]*)\))?/.exec(H.hp))) { c.hp = N(m[1]); c.hd = m[2] ? normExpr(m[2]) : ''; }
   if (H.speed) c.speed = H.speed.trim();
   if (H.init) { m = /([+-]\d+)/.exec(H.init); if (m) c.init = N(m[1]); }
@@ -731,19 +770,19 @@ function parseStatBlock(raw) {
   if (H.skills) H.skills.split(/,\s*/).forEach(p => { const q = /([A-Za-z ]+?)\s*([+-]\s?\d+)/.exec(p); if (q) { const nm = Object.keys(SKILLS).find(s => s.toLowerCase() === q[1].trim().toLowerCase()); if (nm) c.skills[nm] = N(q[2].replace(/\s/g, '')); } });
   ['vuln', 'res', 'imm', 'cimm'].forEach(k => { if (H[k]) c[k] = H[k].trim(); });
   if (H.imm && !H.cimm && /;/.test(H.imm)) { const [dmg, cond] = H.imm.split(';'); if (!DTYPES.some(t => cond.toLowerCase().includes(t))) { c.imm = dmg.trim(); c.cimm = cond.trim().toLowerCase(); } }
-  if (H.senses) { const pp = /passive Perception\s*(\d+)/i.exec(H.senses); c.pp = pp ? N(pp[1]) : ''; c.senses = H.senses.replace(/,?\s*passive Perception\s*\d+/i, '').trim().replace(/,$/, ''); }
+  if (H.senses) { const pp = /passive Perception\s*(\d+)/i.exec(H.senses); c.pp = pp ? N(pp[1]) : ''; c.senses = H.senses.replace(/[,;]?\s*passive Perception\s*\d+/i, '').trim().replace(/[,;]$/, ''); }
   if (H.langs) c.langs = H.langs.trim();
   if (H.cr) { m = /(\d+\/\d+|\d+)/.exec(H.cr); if (m) c.cr = crParse(m[1]); const xp = /([\d,]+)\s*XP|XP\s*([\d,]+)/i.exec(H.cr); c.xp = xp ? N((xp[1] || xp[2]).replace(/,/g, '')) : XP_CR[c.cr] || 0; }
-  c.pb = H.pb ? N(H.pb.replace(/\s/g, '')) : pbCR(c.cr);
+  { const pbm = H.cr && /PB\s*([+-]?\d+)|Proficiency Bonus\s*([+-]?\d+)/i.exec(H.cr); c.pb = H.pb ? N(H.pb.replace(/\s/g, '')) : pbm ? N(pbm[1] || pbm[2]) : pbCR(c.cr); }
   if (!c.pp) c.pp = 10 + cSkill(c, 'Perception');
   // Body: sections of "Name. Text" entries
-  let sec = 'traits', lastEnded = true; const into = { traits: [], actions: [], bonus: [], reactions: [], legendary: [], lair: [] }; const intro = {};
-  const SECMAP = { traits: 'traits', actions: 'actions', 'bonus actions': 'bonus', reactions: 'reactions', 'legendary actions': 'legendary', 'lair actions': 'lair', 'mythic actions': 'legendary', 'regional effects': 'lair' };
-  const SPELL_LINE = /^(Cantrips|At will|\d+(st|nd|rd|th) level|\d+\/day|Constant)/i;
+  let sec = 'traits', lastEnded = true; const into = { traits: [], actions: [], bonus: [], reactions: [], legendary: [], mythic: [], lair: [] }; const intro = {};
+  const SECMAP = { traits: 'traits', actions: 'actions', 'bonus actions': 'bonus', reactions: 'reactions', 'legendary actions': 'legendary', 'lair actions': 'lair', 'mythic actions': 'mythic', 'regional effects': 'lair' };
+  const SPELL_LINE = /^(Cantrips|At will|\d+(st|nd|rd|th)[- ]level|Level \d|\d+\/day|Constant)/i;
   body.forEach(l => {
     if (SECT.test(l)) { sec = SECMAP[l.toLowerCase()]; lastEnded = true; return; }
     const em = /^([^.]+?)\.\s+(.*)$/.exec(l) || /^([^.]+?)\.$/.exec(l);
-    if (em && lastEnded && looksLikeName(em[1]) && !SPELL_LINE.test(l)) { into[sec].push({ n: em[1].trim(), d: (em[2] || '').trim() }); }
+    if (em && (lastEnded || !into[sec].length) && looksLikeName(em[1]) && !SPELL_LINE.test(l)) { into[sec].push({ n: em[1].trim(), d: (em[2] || '').trim() }); }
     else {
       const arr = into[sec], last = arr[arr.length - 1];
       if (!last) intro[sec] = (intro[sec] ? intro[sec] + ' ' : '') + l;
@@ -752,17 +791,21 @@ function parseStatBlock(raw) {
     lastEnded = /[.:!?)]$/.test(l);
   });
   Object.assign(c, into);
-  if (intro.legendary) { c.legIntro = intro.legendary; const k = /can take (\d+) legendary actions/i.exec(intro.legendary); c.legCount = k ? N(k[1]) : 3; }
+  if (intro.legendary) { c.legIntro = intro.legendary; const k = /can take (\d+) legendary actions/i.exec(intro.legendary) || /Legendary Action Uses:\s*(\d+)/i.exec(intro.legendary); c.legCount = k ? N(k[1]) : 3; }
+  if (intro.mythic) c.mythIntro = intro.mythic;
   else if (c.legendary.length) c.legCount = 3;
   if (intro.lair) c.lairIntro = intro.lair;
-  if (intro.traits && !c.traits.length) c.traits.push({ n: 'Notes', d: intro.traits });
-  if (intro.actions && c.actions.length === 0) c.actions.push({ n: 'Action', d: intro.actions });
+  if (intro.traits && !c.traits.length) { c.traits.push({ n: 'Notes', d: intro.traits }); unparsed.push(intro.traits); }
+  else if (intro.traits) unparsed.push(intro.traits);
+  ['actions', 'bonus', 'reactions'].forEach(k => { if (intro[k] && !/^(?:the |it |if |when |as |each )|can (?:take|use)/i.test(intro[k])) unparsed.push(intro[k]); else if (intro[k] && !c[k].length) c[k].push({ n: '', d: intro[k] }); });
+  if (intro.actions && c.actions.length === 0 && !c.actions.length) c.actions.push({ n: 'Action', d: intro.actions });
+  Object.defineProperty(c, '_unparsed', { value: unparsed, enumerable: false, writable: true });
   return c;
 }
 function blankCreature() {
   return { id: '', name: 'New Creature', src: 'Custom', book: '', size: 'Medium', type: 'humanoid', align: 'unaligned', ac: 10, acNote: '', hp: 10, hd: '3d8', speed: '30 ft.',
     ab: [10, 10, 10, 10, 10, 10], saves: {}, skills: {}, vuln: '', res: '', imm: '', cimm: '', senses: '', pp: 10, langs: '—', cr: 0, xp: 10, pb: 2, init: '',
-    traits: [], actions: [], bonus: [], reactions: [], legendary: [], legCount: 0, legIntro: '', lair: [], lairIntro: '', notes: '', img: '' };
+    traits: [], actions: [], bonus: [], reactions: [], legendary: [], legCount: 0, legIntro: '', mythic: [], mythIntro: '', lair: [], lairIntro: '', notes: '', img: '' };
 }
 // Section text in the editor: one entry per paragraph, "Name. Description".
 const entriesToText = list => (list || []).map(e => (e.n ? e.n + '. ' : '') + e.d).join('\n\n');
@@ -770,6 +813,136 @@ function textToEntries(t) {
   return String(t || '').split(/\n\s*\n/).map(p => p.trim()).filter(Boolean).map(p => { const m = /^([^.\n]{1,70}?)\.\s+([\s\S]*)$/.exec(p); return m && looksLikeName(m[1]) ? { n: m[1].trim(), d: m[2].trim() } : { n: '', d: p }; });
 }
 
+// ---------- Pasting stat blocks: clean up text from PDFs / D&D Beyond / Homebrewery / Roll20, split a paste into
+// creatures, put jumbled (two-column PDF) blocks back in stat-block order, then read each with parseStatBlock. ----------
+const LIGS = { 'ﬀ': 'ff', 'ﬁ': 'fi', 'ﬂ': 'fl', 'ﬃ': 'ffi', 'ﬄ': 'ffl', 'ﬅ': 'st', 'ﬆ': 'st' };
+const SIZE_LINE = /^(?:Tiny|Small|Medium|Large|Huge|Gargantuan)\b(?:\s+or\s+\w+)?\s+(?:swarm of \w+ )?\(?(?:aberration|beast|celestial|construct|dragon|elemental|fey|fiend|giant|humanoid|monstrosity|ooze|plant|undead|swarm)/i;
+const HDR_WORDS = ['Armor Class', 'Hit Points', 'Speed', 'Saving Throws', 'Skills', 'Damage Vulnerabilities', 'Damage Resistances', 'Damage Immunities', 'Condition Immunities', 'Vulnerabilities', 'Resistances', 'Immunities', 'Gear', 'Senses', 'Languages', 'Challenge', 'Proficiency Bonus', 'Initiative', 'AC', 'HP', 'CR'];
+const HDR_START = new RegExp('^(?:' + HDR_WORDS.map(w => w.replace(/ /g, '\\s+')).join('|') + ')\\b(?!\\s*[.:]\\s*[A-Z][a-z]+\\.)', 'i');
+// mid-line header words only split a line that already starts with a header (so "its speed" in a trait is safe)
+const HDR_MID = /\s+(?=(?:Armor Class|Hit Points|Speed|Saving Throws|Skills|Damage (?:Vulnerabilities|Resistances|Immunities)|Condition Immunities|Senses|Languages|Challenge|Proficiency Bonus|Initiative|HP|CR|Immunities|Resistances|Vulnerabilities|Gear)\s+[\d+\-A-Za-z(])/g;
+function normPaste(raw) {
+  let t = String(raw || '').replace(/\r\n?/g, '\n');
+  t = t.replace(/[ﬀﬁﬂﬃﬄﬅﬆ]/g, m => LIGS[m]).replace(/[­​-‍⁠﻿]/g, '').replace(/[  -   　]/g, ' ')
+    .replace(/[‘’ʼ′]/g, "'").replace(/[“”″]/g, '"').replace(/[−‒–]/g, '-').replace(/\t/g, ' ').replace(/[•●▪◦]/g, '-');
+  const out = [];
+  for (let l of t.split('\n')) {
+    l = l.replace(/^\s*(?:>\s*)+/, '');                                     // Homebrewery / markdown block quotes
+    if (/^\s*(?:_{3,}|-{3,}|\*{3,}|:{3,}|\{\{.*|\}\}|<\/?div[^>]*>)\s*$/.test(l)) { out.push(''); continue; }   // rules, frames
+    if (/^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?\s*$/.test(l)) continue; // table separators
+    if (/^\s*\|.*\|\s*$/.test(l)) l = l.replace(/^\s*\||\|\s*$/g, '').split('|').map(x => x.trim()).join(' ');
+    l = l.replace(/^#{1,6}\s+/, '').replace(/^\s*-\s+(?=\*\*)/, '').replace(/\*\*\*|\*\*|__/g, '').replace(/(^|[\s(])[*_]([^*_]+?)[*_](?=[\s.,;:)]|$)/g, '$1$2').replace(/^\*\s*|\s*\*$/g, '');
+    l = l.replace(/\s+/g, ' ').trim();
+    if (/^(?:Page \d+|\d{1,3}|Chapter \d+.*|Appendix [A-Z]:.*)$/i.test(l)) continue;     // page furniture from PDFs
+    out.push(l);
+  }
+  // glue words split across lines with a hyphen: "attack-" + "ing"
+  for (let i = out.length - 2; i >= 0; i--) if (/[a-z]-$/.test(out[i]) && /^[a-z]/.test(out[i + 1] || '')) { out[i] = out[i].slice(0, -1) + out[i + 1]; out.splice(i + 1, 1); }
+  return out;
+}
+const isNameLine = l => !!l && looksLikeName(l.replace(/^[A-Z][A-Z' -]+$/, m => m.split(' ').map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' '))) && !HDR_START.test(l) && !SECT.test(l);
+// One paste → one array of line-lists, one per creature (a name line followed by a size/type line starts a creature)
+function splitStatBlocks(raw) {
+  const L = normPaste(raw), idx = [];
+  const nextText = i => { for (let j = i + 1; j < L.length; j++) if (L[j]) return j; return -1; };
+  for (let i = 0; i < L.length; i++) { if (!L[i]) continue; const j = nextText(i); if (j > 0 && isNameLine(L[i]) && SIZE_LINE.test(L[j])) idx.push(i); }
+  if (!idx.length) return [L.filter(Boolean)];
+  const blocks = idx.map((s, k) => L.slice(s, k + 1 < idx.length ? idx[k + 1] : L.length).filter(Boolean));
+  const pre = L.slice(0, idx[0]).filter(Boolean); if (pre.length) blocks[0].push(...pre.map(x => '\u0000' + x));   // stray text before the first creature
+  return blocks;
+}
+// Put a block's header lines, ability lines and body back in stat-block order (PDF columns can scramble them).
+function canonBlock(lines) {
+  const stray = lines.filter(l => l[0] === '\u0000').map(l => l.slice(1)); lines = lines.filter(l => l[0] !== '\u0000');
+  let i = 0; const top = [];
+  if (lines[i] && !HDR_START.test(lines[i]) && !SIZE_LINE.test(lines[i])) top.push(lines[i++]);
+  if (lines[i] && SIZE_LINE.test(lines[i])) top.push(lines[i++]);
+  const hdr = [], ab = [], body = []; let inHdr = null;
+  const abLine = l => /^(?:STR|DEX|CON|INT|WIS|CHA|MOD|SAVE)\b/i.test(l) && (/\d/.test(l) || /^(?:(?:STR|DEX|CON|INT|WIS|CHA|MOD|SAVE)\b\s*)+$/i.test(l));
+  const numLine = l => /^[\d\s()+\-]+$/.test(l) && /\d/.test(l);
+  for (; i < lines.length; i++) {
+    let l = lines[i];
+    if (HDR_START.test(l)) { l.split(HDR_MID).forEach(p => { p = p.trim(); if (p) hdr.push(p); }); inHdr = hdr.length - 1; continue; }
+    if (abLine(l) || (numLine(l) && (ab.length || inHdr != null && !body.length))) { ab.push(l); inHdr = null; continue; }
+    if (SECT.test(l.replace(/:$/, ''))) { body.push(l.replace(/:$/, '')); inHdr = null; continue; }
+    // a wrapped header value (languages, immunities…) continues on the next line
+    if (inHdr != null && !body.length && !/^[^.]{1,60}\.\s/.test(l) && (/[,;]$/.test(hdr[inHdr]) || /^[a-z(;,]/.test(l) && /^(?:Saving|Skills|Damage|Condition|Senses|Languages|Gear|Immunities|Resistances|Vulnerabilities)/i.test(hdr[inHdr]))) { hdr[inHdr] += ' ' + l; continue; }
+    inHdr = null; body.push(l);
+  }
+  // scores go right after Speed (or the last of AC / HP / Speed / Initiative), the way parseStatBlock reads them
+  const early = /^(?:Armor Class|AC|Hit Points|HP|Speed|Initiative)\b/i; let k = 0; while (k < hdr.length && early.test(hdr[k])) k++;
+  const hdr1 = hdr.slice(0, k), hdr2 = hdr.slice(k);
+  return { text: top.concat(hdr1, ab, hdr2, body).join('\n'), stray };
+}
+function crIssues(c, raw) {
+  const iss = []; const has = re => re.test(raw);
+  if (!c.name || /^New Creature$/i.test(c.name)) iss.push('no name');
+  if (!has(/\b(Armor Class|AC)\b/i)) iss.push('no AC'); if (!has(/\b(Hit Points|HP)\b/i)) iss.push('no hit points');
+  if (!has(/\b(STR|Str)\b/)) iss.push('no ability scores'); if (!has(/\b(Challenge|CR)\b/)) iss.push('no challenge rating');
+  if (!(c.actions || []).length && !(c.traits || []).length) iss.push('no traits or actions found');
+  if ((c._unparsed || []).length) iss.push((c._unparsed.length === 1 ? 'a line' : c._unparsed.length + ' lines') + ' not understood');
+  return iss;
+}
+// The whole pipeline: text in, creatures out (each with its source text and anything that needs a look)
+function parseStatBlocks(raw) {
+  return splitStatBlocks(raw).filter(b => b.length).map(b => {
+    const { text, stray } = canonBlock(b), c = parseStatBlock(text);
+    if (stray.length) c._unparsed = stray.concat(c._unparsed || []);
+    return { c, raw: text, issues: crIssues(c, text), sel: true };
+  });
+}
+// ---------- batch paste: one box, many creatures, a review list, save all ----------
+let PB = null;
+function openPaste(keep) {
+  openModal(`<h2>Paste stat blocks</h2><p class="dk-hint">Paste one creature or a whole batch — from a PDF (even two-column), D&amp;D Beyond, Homebrewery or Roll20. Each one starts at its name and size line. You’ll check them all before anything is saved.</p>
+    <textarea class="dk-f" id="dk-pasteIn" rows="14" placeholder="Goblin&#10;Small humanoid (goblinoid), neutral evil&#10;Armor Class 15 (leather armor, shield)&#10;Hit Points 7 (2d6)&#10;…&#10;&#10;Wolf&#10;Medium beast, unaligned&#10;…">${keep && PB ? esc(PB.text) : ''}</textarea>
+    <div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn gold" id="dk-pasteGo">Read stat blocks</button></div>`, { wide: true });
+  $('#dk-pasteGo').onclick = () => { const t = $('#dk-pasteIn').value; if (!t.trim()) return; PB = { text: t, items: parseStatBlocks(t), open: -1 }; if (!PB.items.length) return toastInfo('Nothing that looks like a stat block there.'); openBatchReview(); };
+}
+function pbSummary(c) {
+  const secs = SECS.filter(([k]) => (c[k] || []).length).map(([k, t]) => plural(c[k].length, (t || 'Traits').toLowerCase().replace(/s$/, '').replace(/actions$/, 'action')));
+  const atk = SECS.reduce((n, [k]) => n + (c[k] || []).filter(e => { const a = analyze(e); return a.hit != null || a.save; }).length, 0);
+  const sp = casterInfo(c);
+  return `${esc(c.size)} ${esc(c.type)} · AC ${N(c.ac)} · HP ${N(c.hp)}${c.hd ? ' (' + esc(c.hd) + ')' : ''} · CR ${crLabel(N(c.cr))}<br><small>${secs.join(' · ') || 'no entries'}${atk ? ` · ${plural(atk, 'roll button')}` : ''}${sp ? ` · spellcasting${sp.dc ? ' DC ' + sp.dc : ''}` : ''}</small>`;
+}
+function openBatchReview() {
+  const it = PB.items, ok = it.filter(x => !x.issues.length).length, sel = it.filter(x => x.sel).length;
+  openModal(`<h2>Check ${it.length === 1 ? 'the creature' : it.length + ' creatures'}</h2>
+    <p class="dk-hint">${ok} read cleanly${it.length - ok ? `, <b>${it.length - ok}</b> need a look` : ''}. Fix names and numbers here, or open one to edit everything. Lines the desk couldn’t place are shown in red.</p>
+    <div class="dk-pbl">${it.map((x, i) => { const c = x.c, bad = x.issues.length; return `<section class="dk-pbi${bad ? ' warn' : ''}${x.sel ? '' : ' off'}" data-i="${i}">
+      <header><input type="checkbox" class="dk-pbsel" data-i="${i}" ${x.sel ? 'checked' : ''} aria-label="Include ${esc(c.name)}"><input class="dk-f dk-pbname" data-pbf="name" data-i="${i}" value="${esc(c.name)}" aria-label="Name">
+        <span class="dk-chip ${bad ? 'bad' : 'ok'}">${bad ? 'Needs a look' : 'Read OK'}</span></header>
+      <div class="dk-pbrow"><label>AC<input class="dk-f dk-num" data-pbf="ac" data-i="${i}" value="${N(c.ac)}" inputmode="numeric"></label><label>HP<input class="dk-f dk-num" data-pbf="hp" data-i="${i}" value="${N(c.hp)}" inputmode="numeric"></label><label>CR<input class="dk-f dk-num" data-pbf="cr" data-i="${i}" value="${esc(crLabel(N(c.cr)))}"></label>
+        <span class="dk-pbsum">${pbSummary(c)}</span><button class="dk-btn sm" data-act="pbedit" data-i="${i}">Edit everything…</button></div>
+      ${bad ? `<p class="dk-pbiss">${esc(x.issues.join(' · '))}</p>` : ''}
+      ${(c._unparsed || []).length ? `<div class="dk-pbun">${c._unparsed.slice(0, 8).map(l => `<code>${esc(l.slice(0, 220))}</code>`).join('')}</div>` : ''}
+      <details><summary>Show what was read</summary><div class="dk-pbprev">${statBlock(c, null)}</div></details></section>`; }).join('')}</div>
+    <div class="dk-pbto"><label class="dk-chk"><input type="checkbox" id="dk-pbAdd" ${PB.add ? 'checked' : ''}> Also add them to</label>${sessPickHTML('dk-pbTo', 'A new group in the open session')}</div>
+    <div class="dk-acts"><button class="dk-btn" data-act="pbback">Back to the text</button><span class="dk-grow"></span><button class="dk-btn gold" data-act="pbsave" ${sel ? '' : 'disabled'}>Save ${sel === it.length && sel > 1 ? 'all ' + sel : sel === 1 ? '1 creature' : sel + ' creatures'}</button></div>`, { wide: true, cls: 'dk-pbwin' });
+}
+function pbField(el) {
+  const x = PB && PB.items[N(el.dataset.i)]; if (!x) return; const c = x.c, v = el.value.trim();
+  if (el.dataset.pbf === 'name') c.name = v || c.name; else if (el.dataset.pbf === 'ac') c.ac = N(v); else if (el.dataset.pbf === 'hp') c.hp = N(v) || 1;
+  else if (el.dataset.pbf === 'cr') { c.cr = crParse(v); c.xp = XP_CR[c.cr] || 0; c.pb = pbCR(c.cr); }
+  x.issues = x.issues.filter(s => !(el.dataset.pbf === 'name' && s === 'no name') && !(el.dataset.pbf === 'ac' && s === 'no AC') && !(el.dataset.pbf === 'hp' && s === 'no hit points') && !(el.dataset.pbf === 'cr' && s === 'no challenge rating'));
+}
+function onPasteAct(act, b) {
+  if (act === 'pbback') { openPaste(true); return true; }
+  if (act === 'pbedit') { const i = N(b.dataset.i); PB.open = i; openEditor(PB.items[i].c, true, 'batch'); return true; }
+  if (act === 'pbsave') {
+    const pick = $('#dk-pbAdd') && $('#dk-pbAdd').checked ? pickTarget($('#dk-pbTo'), 'Pasted creatures') : null; let n = 0;
+    PB.items.filter(x => x.sel).forEach(x => { const e = clone(x.c); e.id = 'c' + uid(); e.src = 'Pasted'; e.desc = ''; S.creatures[e.id] = e; if (pick) addToGroup(pick.s, pick.g, e.id, 1); n++; UI.best = e.id; });
+    closeModal(true); save(); PB = null; if (!pick) { UI.tab = 'bestiary'; UI.q = ''; } paint();
+    toastInfo(`Saved ${plural(n, 'creature')} to your creatures${pick ? ` and added ${n === 1 ? 'it' : 'them'} to <b>${esc(pick.s.title)}</b>` : ''}.`); return true;
+  }
+  return false;
+}
+function onPasteChange(el) {
+  if (el.classList.contains('dk-pbsel')) { const x = PB.items[N(el.dataset.i)]; x.sel = el.checked; el.closest('.dk-pbi').classList.toggle('off', !x.sel); const n = PB.items.filter(z => z.sel).length, bt = $('[data-act=pbsave]'); if (bt) { bt.disabled = !n; bt.textContent = n === PB.items.length && n > 1 ? `Save all ${n}` : n === 1 ? 'Save 1 creature' : `Save ${n} creatures`; } return true; }
+  if (el.dataset.pbf) { pbField(el); return true; }
+  if (el.id === 'dk-pbAdd') { PB.add = el.checked; return true; }
+  return false;
+}
 // ---------- doing things: attacks, damage, saves, spells, turns ----------
 const baseName = n => String(n || '').replace(/\s*\((?:Recharge|Costs|\d+\/Day|Recharges)[^)]*\)/gi, '').trim();
 const entOf = (c, ek) => { const [sec, i] = ek.split(':'); return sec === 'notes' ? { n: 'Notes', d: c.notes } : sec === 'spell' ? { n: '', d: '' } : (c[sec] || [])[N(i)] || { n: '', d: '' }; };
@@ -1061,7 +1234,8 @@ function restInst(inst) { inst.turn = null; inst.used = {}; inst.spent = {}; ins
 // Whoever changed HP last wins: the desk stamps hpAt when it writes a row; the Turn order stamps hpAt when the DM edits HP there.
 const toKey = () => CTX && CTX.party && CTX.party.id ? 'pg-turn:' + CTX.party.id : '';
 function toRead() { const k = toKey(); if (!k) return null; let t = null; try { t = JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) {} t = t && typeof t === 'object' ? t : {}; if (!Array.isArray(t.rows)) t.rows = []; if (!t.round) t.round = 1; return t; }
-function toWrite(t) { const k = toKey(); if (!k) return; try { localStorage.setItem(k, JSON.stringify(t)); } catch (e) {} }
+// (the party page's Turn order can be in this same page — the desk's Party tab — where real storage events don't fire, so it's told directly)
+function toWrite(t) { const k = toKey(); if (!k) return; try { localStorage.setItem(k, JSON.stringify(t)); } catch (e) {} try { window.dispatchEvent(new StorageEvent('storage', { key: k })); } catch (e) {} }
 const inTurn = iid => { const t = toRead(); return !!(t && t.rows.some(r => r.desk === iid)); };
 function readTurnHP() {
   const t = toRead(); if (!t) return false; let ch = false;
@@ -1115,7 +1289,7 @@ function topHTML() {
     <div class="dk-tools"><button class="dk-tb dk-dicebtn" data-act="settings" data-k="dice" title="Dice settings"><span class="dk-dot"></span><span class="dk-dicelbl">Desk rolls</span></button>
       ${p && typeof CTX.turnOrder === 'function' ? `<button class="dk-tb dk-tobtn" data-act="turnorder" title="Open the party’s Turn order">${ICON.init}<span class="dk-tl">Turn order</span></button>` : ''}<button class="dk-tb" data-act="diceroller" title="Dice roller" aria-pressed="${!!$('.drwin:not(.closing)')}">${ICON.dice}<span class="dk-tl">Roll</span></button>
       <button class="dk-tb" data-act="log" title="Roll log" aria-pressed="${UI.log}">${ICON.log}<span class="dk-tl">Log</span></button>
-      <button class="dk-tb" data-act="settings" title="Settings">${ICON.gear}</button></div>
+      <button class="dk-tb" data-act="settings" title="Settings">${ICON.gear}</button>${CTX && CTX.bugReport ? `<button class="dk-tb" data-act="bugreport" title="Report a bug" aria-label="Report a bug">${ICON.bug}</button>` : ''}</div>
     <span class="dk-sync">${esc(syncMsg)}</span>`;
 }
 function paintDice() {
@@ -1203,7 +1377,7 @@ function cardHTML(x) {
     <button class="dk-ccmain" data-act="sel" data-iid="${x.iid}"><span class="dk-cchd"><b>${esc(x.name)}</b>${c ? `<small>CR ${crLabel(N(c.cr))} ${esc(c.type || '')}</small>` : '<small class="bad">stat block missing</small>'}</span>
       <span class="dk-cchp" data-hpflash="${x.iid}"><span class="dk-ccnum ${hpCls(p)}">${x.hp}<small>/${x.max}</small>${N(x.temp) ? `<em>+${x.temp}</em>` : ''}</span><span class="dk-ccac" title="Armor class">${ICON.shield}<b>${x.ac}</b></span></span>${hpBar(x)}
       <span class="dk-ccfoot">${x.down ? '<span class="dk-chip dead">Down</span>' : ''}${x.conc ? `<span class="dk-chip conc">${ICON.conc}${esc(x.conc)}</span>` : ''}${condChips(x)}${econMini(x)}${CTX.party && inTurn(x.iid) ? '<span class="dk-chip to" title="In the Turn order">Turn order</span>' : ''}</span></button>
-    <div class="dk-ccq"><input class="dk-f dk-num" id="dk-q-${x.iid}" data-q="${x.iid}" type="number" inputmode="numeric" placeholder="HP ±" aria-label="Amount for ${esc(x.name)}"><button class="dk-btn sm red" data-act="qdmg" data-iid="${x.iid}" title="Damage">−</button><button class="dk-btn sm green" data-act="qheal" data-iid="${x.iid}" title="Heal">+</button></div>
+    <div class="dk-ccq"><input class="dk-f dk-num" id="dk-q-${x.iid}" data-q="${x.iid}" type="text" autocomplete="off" enterkeyhint="done" maxlength="6" placeholder="−dmg / +heal" title="Type 20 or −20 for damage, +20 to heal, then Enter" aria-label="Amount for ${esc(x.name)}"><button class="dk-btn sm red" data-act="qdmg" data-iid="${x.iid}" title="Damage">−</button><button class="dk-btn sm green" data-act="qheal" data-iid="${x.iid}" title="Heal">+</button></div>
   </article>`;
 }
 function detailHTML(x, s) {
@@ -1216,7 +1390,7 @@ function detailHTML(x, s) {
     <div class="dk-sub">${c ? `${esc(c.size)} ${esc(c.type)} · CR ${crLabel(N(c.cr))} · ${XP_OF(c).toLocaleString()} XP` : 'This creature’s stat block was deleted from your bestiary.'}</div>
     <div class="dk-hp" data-hpflash="${x.iid}">
       <div class="dk-hpnum"><span class="dk-lbl">Hit points</span><div><input class="dk-hpcur ${hpCls(p)}" id="dk-hp-${x.iid}" data-ch="hp" data-iid="${x.iid}" value="${x.hp}" inputmode="numeric" aria-label="Current HP"><span>/</span><input class="dk-hpmax" id="dk-mx-${x.iid}" data-ch="max" data-iid="${x.iid}" value="${x.max}" inputmode="numeric" aria-label="Max HP"></div>${N(x.temp) ? `<span class="dk-temp" title="Temporary hit points">+${x.temp} temp</span>` : ''}</div>${hpBar(x, 'big')}
-      <div class="dk-hpctl"><input class="dk-f dk-num" id="dk-hpAmt" type="number" inputmode="numeric" placeholder="HP" aria-label="Amount">
+      <div class="dk-hpctl"><input class="dk-f dk-num" id="dk-hpAmt" type="text" autocomplete="off" enterkeyhint="done" maxlength="6" placeholder="−dmg / +heal" title="Type 20 or −20 for damage, +20 to heal, then Enter" aria-label="Amount">
         <div class="dk-hpbtns"><button class="dk-btn red" data-act="hpdmg" data-iid="${x.iid}">Damage</button><button class="dk-btn green" data-act="hpheal" data-iid="${x.iid}">Heal</button><button class="dk-btn" data-act="hptemp" data-iid="${x.iid}">Temp</button></div>
         <div class="dk-hptype"><select class="dk-f" id="dk-hpType" aria-label="Damage type"><option value="">any damage type</option>${DTYPES.map(d => `<option>${d}</option>`).join('')}</select><label class="dk-chk"><input type="checkbox" id="dk-hpMagic"> magical</label></div></div>
       </div>
@@ -1261,6 +1435,7 @@ function statBlock(c, inst) {
     if (title) h += `<h3>${title}${sec === 'legendary' && inst && N(c.legCount) ? `<span class="dk-legpips">${pipRow(inst, 'L', N(c.legCount))}<button class="dk-btn sm" data-act="legreset" title="Regain legendary actions (start of its turn)">Regain</button></span>` : ''}</h3>`;
     if (sec === 'legendary') h += `<p class="dk-intro">${esc(c.legIntro || `${c.name} can take ${N(c.legCount) || 3} legendary actions, choosing from the options below. Only one option can be used at a time and only at the end of another creature’s turn. Spent legendary actions are regained at the start of its turn.`)}</p>`;
     if (sec === 'lair' && c.lairIntro) h += `<p class="dk-intro">${esc(c.lairIntro)}</p>`;
+    if (sec === 'mythic' && c.mythIntro) h += `<p class="dk-intro">${esc(c.mythIntro)}</p>`;
     list.forEach((e, i) => h += entryHTML(c, inst, sec, i, e));
   });
   if (c.notes) h += `<h3>DM notes</h3><div class="dk-desc">${linkText(c.notes, 'notes:0')}</div>`;
@@ -1359,8 +1534,8 @@ function openEditor(c, isNew, from) {
   const sk = Object.entries(e.skills || {}).map(([k, v]) => k + ' ' + sgE(N(v))).join(', ');
   const fld = (lbl, id, val, extra) => `<label><span class="dk-lbl">${lbl}</span><input class="dk-f" id="${id}" value="${esc(val == null ? '' : val)}" ${extra || ''}></label>`;
   const ta = (lbl, id, list, ph) => `<label class="dk-full"><span class="dk-lbl">${lbl}</span><textarea class="dk-f" id="${id}" rows="4" placeholder="${esc(ph || 'Name. What it does. One per paragraph, with a blank line between them.')}">${esc(entriesToText(list))}</textarea></label>`;
-  openModal(`<h2>${isNew ? (from === 'paste' ? 'Check what the desk read' : 'New creature') : 'Edit ' + esc(e.name)}</h2>
-    <p class="dk-hint">${from === 'paste' ? 'Fix anything that came through wrong, then save. Attacks, damage and saving throws in the text become roll buttons by themselves.' : 'Write entries the way the books do — <b>Bite.</b> <i>Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 7 (1d8 + 3) piercing damage.</i> — and to-hit bonuses, damage dice and save DCs become roll buttons.'}</p>
+  openModal(`<h2>${isNew ? (from === 'paste' || from === 'batch' ? 'Check what the desk read' : 'New creature') : 'Edit ' + esc(e.name)}</h2>
+    <p class="dk-hint">${from === 'paste' || from === 'batch' ? 'Fix anything that came through wrong, then save. Attacks, damage and saving throws in the text become roll buttons by themselves.' : 'Write entries the way the books do — <b>Bite.</b> <i>Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 7 (1d8 + 3) piercing damage.</i> — and to-hit bonuses, damage dice and save DCs become roll buttons.'}</p>
     <div class="dk-editor">
       <div class="dk-g4">${fld('Name', 'dk-edName', e.name)}${fld('Size', 'dk-edSize', e.size, 'list="dk-sizes"')}${fld('Type', 'dk-edType', e.type)}${fld('Alignment', 'dk-edAlign', e.align)}</div>
       <div class="dk-g4">${fld('Armor class', 'dk-edAC', e.ac, 'inputmode="numeric"')}${fld('AC note', 'dk-edACn', e.acNote, 'placeholder="natural armor"')}${fld('Hit points', 'dk-edHP', e.hp, 'inputmode="numeric"')}${fld('Hit dice', 'dk-edHD', e.hd, 'placeholder="9d10+18"')}</div>
@@ -1371,11 +1546,11 @@ function openEditor(c, isNew, from) {
       <div class="dk-g4">${fld('Senses', 'dk-edSenses', e.senses, 'placeholder="darkvision 60 ft."')}${fld('Passive Perception', 'dk-edPP', e.pp, 'inputmode="numeric"')}${fld('Languages', 'dk-edLangs', e.langs)}${fld('Book & page', 'dk-edBook', e.book || '', 'placeholder="Monster Manual p. 98"')}</div>
       ${ta('Traits', 'dk-edTraits', e.traits)}${ta('Actions', 'dk-edActions', e.actions)}${ta('Bonus actions', 'dk-edBonus', e.bonus)}${ta('Reactions', 'dk-edReact', e.reactions)}
       <div class="dk-g4">${fld('Legendary actions per round', 'dk-edLegN', e.legCount || '', 'inputmode="numeric" placeholder="3"')}</div>
-      ${ta('Legendary actions', 'dk-edLeg', e.legendary)}${ta('Lair actions', 'dk-edLair', e.lair)}
+      ${ta('Legendary actions', 'dk-edLeg', e.legendary)}${(e.mythic || []).length ? ta('Mythic actions', 'dk-edMyth', e.mythic) : ''}${ta('Lair actions', 'dk-edLair', e.lair)}
       <label class="dk-full"><span class="dk-lbl">DM notes</span><textarea class="dk-f" id="dk-edNotes" rows="2" placeholder="Tactics, reskins, where it shows up">${esc(e.notes || '')}</textarea></label>
       <div class="dk-row"><span class="dk-lbl" style="margin:0">Portrait</span>${e.img ? `<img src="${esc(e.img)}" alt="" class="dk-edimg">` : ''}<button class="dk-btn sm" data-act="edimg">${e.img ? 'Change' : 'Add a picture'}</button>${e.img ? '<button class="dk-btn sm red" data-act="edimgx">Remove</button>' : ''}</div>
     </div><datalist id="dk-sizes">${SIZES.map(s => `<option>${s}</option>`).join('')}</datalist>
-    <div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn gold" data-act="edsave">Save creature</button></div>`, { wide: true });
+    <div class="dk-acts"><button class="dk-btn" data-act="close">${from === 'batch' ? 'Back to the list' : 'Cancel'}</button><button class="dk-btn gold" data-act="edsave">${from === 'batch' ? 'Done' : 'Save creature'}</button></div>`, { wide: true, onClose: from === 'batch' ? () => setTimeout(openBatchReview, 0) : null });
 }
 function readEditor() {
   const e = ED.c, v = id => ($('#dk-' + id) || { value: '' }).value.trim();
@@ -1387,21 +1562,16 @@ function readEditor() {
   e.skills = {}; v('edSkills').split(/,\s*/).forEach(p => { const q = /([A-Za-z ]+?)\s*([+\-−]\s?\d+)/.exec(p); if (q) { const nm = Object.keys(SKILLS).find(s => s.toLowerCase() === q[1].trim().toLowerCase()); if (nm) e.skills[nm] = N(q[2].replace(/\s/g, '')); } });
   e.vuln = v('edVuln'); e.res = v('edRes'); e.imm = v('edImm'); e.cimm = v('edCimm'); e.senses = v('edSenses'); e.pp = v('edPP') === '' ? 10 + cSkill(e, 'Perception') : N(v('edPP')); e.langs = v('edLangs') || '—'; e.book = v('edBook');
   e.traits = textToEntries(v('edTraits')); e.actions = textToEntries(v('edActions')); e.bonus = textToEntries(v('edBonus')); e.reactions = textToEntries(v('edReact'));
-  e.legendary = textToEntries(v('edLeg')); e.legCount = e.legendary.length ? N(v('edLegN')) || 3 : 0; e.lair = textToEntries(v('edLair')); e.notes = v('edNotes');
+  e.legendary = textToEntries(v('edLeg')); e.legCount = e.legendary.length ? N(v('edLegN')) || 3 : 0; e.lair = textToEntries(v('edLair')); if ($('#dk-edMyth')) e.mythic = textToEntries(v('edMyth')); e.notes = v('edNotes');
   return e;
 }
 function saveEditor() {
   const e = readEditor();
+  if (ED.from === 'batch' && PB && PB.items[PB.open]) { const x = PB.items[PB.open]; x.c = e; x.issues = x.issues.filter(t => !/ not understood|^no /.test(t)); closeModal(true); return openBatchReview(); }
   if (!e.id || ED.isNew || e.src === 'SRD' || SRD[e.id]) e.id = 'c' + uid();
   if (e.src === 'SRD' || !e.src) e.src = 'Custom';
   e.desc = ''; S.creatures[e.id] = e; UI.best = e.id; UI.tab = 'bestiary'; UI.q = '';
   closeModal(true); save(); paint(); toastInfo(`Saved <b>${esc(e.name)}</b> to your creatures.`);
-}
-function openPaste() {
-  openModal(`<h2>Paste a stat block</h2><p class="dk-hint">Copy a stat block from your book’s PDF, D&amp;D Beyond or your notes and paste it here. The desk reads the name, AC, HP, scores, traits, actions, reactions and legendary actions, then lets you check it before saving. It stays private to your account.</p>
-    <textarea class="dk-f" id="dk-pasteIn" rows="14" placeholder="Goblin Boss&#10;Small humanoid (goblinoid), neutral evil&#10;Armor Class 17 (chain shirt, shield)&#10;Hit Points 21 (6d6)&#10;…"></textarea>
-    <div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn gold" id="dk-pasteGo">Read stat block</button></div>`, { wide: true });
-  $('#dk-pasteGo').onclick = () => { const t = $('#dk-pasteIn').value; if (!t.trim()) return; openEditor(parseStatBlock(t), true, 'paste'); };
 }
 function resizeImage(file, cb) {
   const r = new FileReader();
@@ -1414,7 +1584,7 @@ function openSettings(tab) {
   const TABS = [['dice', 'Dice'], ['creatures', 'Creatures'], ['ai', 'AI helper'], ['data', 'Data'], ['notes', 'Notes']];
   if (!TABS.some(t => t[0] === SETTAB)) SETTAB = 'dice';
   const row = (t, ctl, sub, cls) => `<div class="dk-setrow${cls ? ' ' + cls : ''}"><span class="dk-setl"><b>${t}</b>${sub ? `<small>${sub}</small>` : ''}</span><span class="dk-setc">${ctl}</span></div>`;
-  const tog = (k, t, sub) => `<label class="dk-setrow dk-settog"><span class="dk-setl"><b>${t}</b>${sub ? `<small>${sub}</small>` : ''}</span><span class="dk-setc"><input type="checkbox" class="dk-switch" data-set="${k}" ${st[k] ? 'checked' : ''}></span></label>`;
+  const tog = (k, t, sub) => `<label class="dk-setrow dk-settog"><span class="dk-setl"><b>${t}</b>${sub ? `<small>${sub}</small>` : ''}</span><span class="dk-setc"><input type="checkbox" class="dk-swi" role="switch" data-set="${k}" ${st[k] ? 'checked' : ''}><span class="dk-switch" aria-hidden="true"></span></span></label>`;
   const mode = (name, val, lbl, hint) => `<label class="dk-radio"><input type="radio" name="dk-${name}" data-set="${name}" value="${val}" ${String(st[name]) === String(val) ? 'checked' : ''}><span><b>${lbl}</b>${hint ? `<small>${hint}</small>` : ''}</span></label>`;
   const pane = (k, h) => `<section class="dk-stpane${SETTAB === k ? ' on' : ''}" data-pane="${k}" role="tabpanel" aria-label="${k}">${h}</section>`;
   const np = (typeof pagesList === 'function' ? pagesList() : []).length;
@@ -1509,11 +1679,15 @@ function onAISet(act) {
     aiCall('Reply with {"ok": true}.', { max: 50 }).then(t => { if (st) st.textContent = /ok/i.test(t) ? '✓ The key works.' : '✓ Connected.'; }).catch(e => { if (st) st.textContent = '✗ ' + e.message; });
   }
 }
+// one box for HP: "-20" or "20" is damage, "+20" heals
+const hpAmt = v => { const m = /^\s*([+\-\u2212])?\s*(\d{1,4})\s*$/.exec(String(v || '')); return m ? { n: N(m[2]), heal: m[1] === '+' } : { n: 0, heal: false }; };
 // ---------- clicks, typing ----------
 const sessFor = iid => (groupOf(iid) || {}).s;
 async function onClick(e) {
   if (onNotesClick(e)) return;
   const b = e.target.closest('[data-act],[data-sv]'); if (!b || !ROOT.contains(b) || b.disabled) return;
+  // pressing the button that opened a window again closes it
+  if (!b.closest('.dk-mcard')) { const sig = openerSig(b); if (MODAL_BY && sig === MODAL_BY && $('.dk-modal.open')) { closeModal(); return; } LAST_OPENER = sig; LAST_OPENER_T = Date.now(); }
   if (b.dataset.sv && SV) return onSaveClick(b);
   const act = b.dataset.act, iid = b.dataset.iid, x = iid ? findInst(iid) : null;
   if (act !== 'menu') closeMenus();
@@ -1555,6 +1729,7 @@ async function onClick(e) {
     }
     case 'npcnotes': { const n = {}; NPC_FIELDS.forEach(([k, , mx]) => { n[k] = vStr(NPCG.npc[k], mx); }); if (!n.name) return; const pg = npcToNotes(n, NPCG.stat || ''); return toastInfo(`Made a Notes page for <b>${esc(pg.title)}</b>.`, [{ label: 'Open', fn: () => { UI.tab = 'notes'; openPage(pg.id); render(); } }]); }
     case 'rmcard': { const s = curSession(); s.cards = (s.cards || []).filter(c => c.id !== b.dataset.id); save(); return paint(); }
+    case 'bugreport': try { CTX.bugReport(); } catch (e) {} return;
     case 'tab': if (b.dataset.close) closeModal(true); UI.tab = b.dataset.tab; UI.tree = false; if (CTX.partyHost && CTX.party && CTX.party.id) UI.ptab[CTX.party.id] = UI.tab; saveUI(); paint(); try { pills(); } catch (e2) {} scrollTo(0, 0); return;
     case 'settings': return openSettings(b.dataset.k);
     case 'quickroll': case 'diceroller': return diceRoller();
@@ -1582,12 +1757,12 @@ async function onClick(e) {
     case 'saveeff': { const g = curSession().groups.find(z => z.id === b.dataset.gid); openSaveDialog({ title: 'Saving throw', dc: 13, ab: 1, parts: [], half: true }); SV.rows.forEach(r => { r.on = !!g.list.find(z => z.iid === r.iid) && !findInst(r.iid).down; }); return paintSave(); }
     case 'addc': { const q = $('#dk-addq'), v = q.value.trim(); if (!v) { q.focus(); return; } const exact = allCreatures().find(c => c.name.toLowerCase() === v.toLowerCase()) || searchCreatures(v, 1)[0]; if (!exact) return toastInfo(`No creature called “${esc(v)}”. Try the bestiary, or paste its stat block there.`); return addPicked(exact.id); }
     case 'pickc': return addPicked(b.dataset.cid);
-    case 'qdmg': case 'qheal': { const inp = $(`[data-q="${iid}"]`), v = N(inp.value); if (!v) { inp.focus(); return; } if (act === 'qdmg') applyDamage(x, v, '', true); else heal(x, v); return; }
+    case 'qdmg': case 'qheal': { const inp = $(`[data-q="${iid}"]`), v = hpAmt(inp.value).n; if (!v) { inp.focus(); return; } if (act === 'qdmg') applyDamage(x, v, '', true); else heal(x, v); return; }
     case 'dup': { const g = groupOf(iid); if (!g) return; const out = addToGroup(g.s, g.g, x.cid, 1); save(); paint(); return toastInfo(`Added <b>${esc(out[0].name)}</b>.`); }
     case 'rest': restInst(x); save(); paint(); return toastInfo(`${esc(x.name)} is fresh: full HP, conditions cleared, every use back.`);
     case 'movegrp': { const g = groupOf(iid), to = g.s.groups.find(z => z.id === b.dataset.gid); g.g.list = g.g.list.filter(z => z !== x); to.list.push(x); save(); paint(); return; }
     case 'rm': return confirmBox(`Remove <b>${esc(x.name)}</b> from this session?`, 'Remove', () => { const g = groupOf(iid); g.g.list = g.g.list.filter(z => z !== x); sessionInsts(g.s).forEach(z => { if (z.tg === iid) z.tg = ''; }); if (CTX.party && inTurn(iid)) { const t = toRead(); t.rows = t.rows.filter(r => r.desk !== iid); toWrite(t); } UI.sel = ''; save(); paint(); }, true);
-    case 'hpdmg': case 'hpheal': case 'hptemp': { const amt = N($('#dk-hpAmt').value); if (!amt) { $('#dk-hpAmt').focus(); return; } if (act === 'hpdmg') { const t = $('#dk-hpType').value; if (t) applyParts(x, [{ total: amt, type: t }], $('#dk-hpMagic').checked); else applyDamage(x, amt); } else if (act === 'hpheal') heal(x, amt); else setTemp(x, amt); return; }
+    case 'hpdmg': case 'hpheal': case 'hptemp': { const amt = hpAmt($('#dk-hpAmt').value).n; if (!amt) { $('#dk-hpAmt').focus(); return; } if (act === 'hpdmg') { const t = $('#dk-hpType').value; if (t) applyParts(x, [{ total: amt, type: t }], $('#dk-hpMagic').checked); else applyDamage(x, amt); } else if (act === 'hpheal') heal(x, amt); else setTemp(x, amt); return; }
     case 'econ': { const t = turnOf(x), k = b.dataset.k; t[k] = t[k] ? 0 : 1; save(); return paint(); }
     case 'move': { const t = turnOf(x); t.mv = Math.min(moveMax(x), N(t.mv) + N(b.dataset.f)); save(); return paint(); }
     case 'dash': { const t = turnOf(x); if (!t.dash) { t.dash = 1; useEcon(x, 'a', 'Dash'); } else t.dash = 0; save(); return paint(); }
@@ -1620,7 +1795,7 @@ async function onClick(e) {
     case 'exportmine': return download('dm-desk-creatures-' + new Date().toISOString().slice(0, 10) + '.json', JSON.stringify({ app: 'dm-desk', v: 2, creatures: S.creatures }, null, 1));
     case 'import': { const f = $('.dk-impf'); f.onchange = () => { const file = f.files[0]; f.value = ''; if (file) doImport(file); }; return f.click(); }
     case 'r20check': r20Hello(); setTimeout(paintR20, 600); return;
-    default: if (onPlanAct(act, b)) return; if (/^hb/.test(act)) { onHBAct(act, b); return; } if (onNotesAct(act, b, e) === true) return; if (/^(nnew|nopen)$/.test(act)) return; break;
+    default: if (onPlanAct(act, b)) return; if (/^pb/.test(act) && onPasteAct(act, b)) return; if (/^hb/.test(act)) { onHBAct(act, b); return; } if (onNotesAct(act, b, e) === true) return; if (/^(nnew|nopen)$/.test(act)) return; break;
     case 'r20refresh': return r20Campaigns(false);
     case 'r20test': return roll({ who: 'DM’s Desk', label: 'Test roll', expr: '1d20' });
   }
@@ -1653,6 +1828,7 @@ function onChange(e) {
   const el = e.target; if (!ROOT.contains(el)) return;
   if (onNotesChange(el)) return;
   if (el.dataset && el.dataset.hbf) { hbReadForm(); return; }
+  if (PB && onPasteChange(el)) return;
   if (el.classList.contains('dk-notef')) { const files = Array.from(el.files || []); el.value = ''; const s = curSession(); if (files.length && s) addFiles(s, files); return; }
   if (el.dataset.set) { const k = el.dataset.set; S.settings[k] = el.type === 'checkbox' ? el.checked : el.value; save(); paintDice(); if (k === 'hpMode') return openSettings('creatures'); if (k === 'dice') { paintR20(); if (el.value === 'roll20') { r20Hello(); setTimeout(() => { paintR20(); if (R20.ok) r20Campaigns(true); }, 600); } } return; }
   if (el.id === 'dk-r20camp') { S.settings.r20campaign = el.value; save(); return; }
@@ -1703,8 +1879,8 @@ function onKey(e) {
     if (e.key === 'Enter') { e.preventDefault(); const hi = items[SUGI]; if (hi && !box.hidden) { box.hidden = true; addPicked(hi.dataset.cid); } else onClick({ target: $('[data-act="addc"]') }); return; }
     if (e.key === 'Escape') { box.hidden = true; return; }
   }
-  if (el && el.dataset && el.dataset.q && e.key === 'Enter') { e.preventDefault(); onClick({ target: $(`[data-act="${e.shiftKey ? 'qheal' : 'qdmg'}"][data-iid="${el.dataset.q}"]`) }); return; }
-  if (el && el.id === 'dk-hpAmt' && e.key === 'Enter') { e.preventDefault(); onClick({ target: $('[data-act="hpdmg"]') }); return; }
+  if (el && el.dataset && el.dataset.q && e.key === 'Enter') { e.preventDefault(); onClick({ target: $(`[data-act="${e.shiftKey || hpAmt(el.value).heal ? 'qheal' : 'qdmg'}"][data-iid="${el.dataset.q}"]`) }); return; }
+  if (el && el.id === 'dk-hpAmt' && e.key === 'Enter') { e.preventDefault(); onClick({ target: $(`[data-act="${hpAmt(el.value).heal ? 'hpheal' : 'hpdmg'}"]`) }); return; }
   if (el && el.matches && el.matches('input.dk-title, input.dk-gname, .dk-hp input, .dk-tin') && e.key === 'Enter') { el.blur(); return; }
   if (e.key === 'Escape') { if ($('.dk-modal.open')) return closeModal(); if ($('.dk-menu.open')) return closeMenus(); if (UI.tree) { UI.tree = false; ROOT.classList.remove('dk-tree-open'); return; } if (UI.log) { UI.log = false; ROOT.classList.remove('dk-log-open'); } }
 }
@@ -1726,7 +1902,7 @@ function mount(root, ctx) {
   root.innerHTML = `<header class="dk-top"></header><div class="dk-page"></div>
     <aside class="dk-log" aria-label="Roll log"><div class="dk-loghd"><h2>Roll log</h2><button class="dk-btn sm" data-act="clearlog">Clear</button><button class="dk-ix" data-act="log" aria-label="Close">${ICON.x}</button></div><div class="dk-loglist"></div></aside>
     <div class="dk-modal" role="presentation"><div class="dk-mcard" role="dialog" aria-modal="true"></div></div>
-    <div class="dk-toasts" aria-live="polite"></div><input type="file" class="dk-impf" accept=".json,application/json" hidden><input type="file" class="dk-imgf" accept="image/*" hidden><input type="file" class="dk-nimgf" accept="image/*" hidden><input type="file" class="dk-mapf" accept="image/*" hidden><input type="file" class="dk-nimpf" accept=".md,.markdown,.txt,.html,.htm,.zip,.textpack,.json,image/*" multiple hidden><input type="file" class="dk-ndirf" webkitdirectory multiple hidden><div class="dk-auto" hidden></div><input type="file" class="dk-notef" accept=".pdf,.docx,.txt,.md,.markdown,text/plain,application/pdf" multiple hidden>`;
+    <div class="dk-toasts" aria-live="polite"></div><input type="file" class="dk-impf" accept=".json,application/json" hidden><input type="file" class="dk-imgf" accept="image/*" hidden><input type="file" class="dk-nimgf" accept="image/*" hidden><input type="file" class="dk-mapf" accept="image/*" hidden><input type="file" class="dk-nimpf" accept=".lk,.md,.markdown,.txt,.html,.htm,.zip,.textpack,.json,image/*" multiple hidden><input type="file" class="dk-ndirf" webkitdirectory multiple hidden><div class="dk-auto" hidden></div><input type="file" class="dk-notef" accept=".pdf,.docx,.txt,.md,.markdown,text/plain,application/pdf" multiple hidden>`;
   const loc = lsGet(''); S = normalize(loc && loc.v ? loc : null);
   const u = lsGet('-ui'); if (u) UI = Object.assign(UI, u, { tree: false, log: false });
   UI.ptab = UI.ptab || {};
@@ -1741,7 +1917,7 @@ function mount(root, ctx) {
   if (CTX.partyHost) { const slot = document.createElement('div'); slot.className = 'dk-partyslot'; root.insertBefore(slot, root.querySelector('.dk-page').nextSibling); slot.appendChild(CTX.partyHost); }
   render();
   try { const top = root.querySelector('.dk-top'), setH = () => root.style.setProperty('--toph', Math.round(top.getBoundingClientRect().height) + 'px'); setH(); if (window.ResizeObserver) { const ro = new ResizeObserver(setH); ro.observe(top); LISTEN.push([{ removeEventListener: () => ro.disconnect() }, 'x', null]); } } catch (e) {}
-  on(root, 'click', onClick); on(root, 'change', onChange); on(root, 'input', onInput);
+  on(root, 'click', onClick); on(root, 'pointerdown', e => { mwDrag(e); if (e.target.closest && e.target.closest('.drwin')) ROOT.classList.add('dk-rfront'); else if (e.target.closest && e.target.closest('.dk-mcard')) ROOT.classList.remove('dk-rfront'); }); on(window, 'resize', () => { if (ROOT) ROOT.classList.toggle('dk-mw', mwDesk()); }); on(root, 'change', onChange); on(root, 'input', onInput);
   on(root, 'mousedown', e => { const t = e.target.closest && e.target.closest('[data-ed],[data-auto]'); if (!t) return; e.preventDefault(); if (t.dataset.ed) edCmd(t.dataset.ed); else edAutoPick(N(t.dataset.auto)); });
   on(root, 'paste', e => { if (e.target.closest && e.target.closest('.dk-ed')) edPaste(e); });
   on(root, 'dragstart', onDragStart); on(root, 'dragover', onDragOver); on(root, 'drop', onDrop); on(root, 'dragend', () => { DRAG = null; $$('.dragging').forEach(x => x.classList.remove('dragging')); });
@@ -1986,10 +2162,10 @@ function encGenHTML() {
       <div class="dk-eflavor">${GEN.ai ? `<h3>${esc(GEN.ai.title || 'Encounter')}</h3>${GEN.ai.setup ? `<p>${esc(GEN.ai.setup)}</p>` : ''}${GEN.ai.tactics ? `<p><b>Tactics.</b> ${esc(GEN.ai.tactics)}</p>` : ''}${GEN.ai.twist ? `<p><b>Twist.</b> ${esc(GEN.ai.twist)}</p>` : ''}${GEN.ai.hook ? `<p><b>Hook.</b> ${esc(GEN.ai.hook)}</p>` : ''}<small class="dk-hint">Written by AI — check it before you use it.</small>` : `<p><b>Where.</b> ${esc(cap(GEN.place))}. <b>How they fight.</b> ${esc(GEN.tactic)}</p>`}
         ${UI.genAI && aiReady() ? `<button class="dk-btn sm" data-act="aienc" ${GEN.busy ? 'disabled' : ''}>${GEN.busy ? 'Writing…' : GEN.ai ? 'Rewrite with AI' : 'Write it up with AI'}</button>` : ''}${GEN.raw && !GEN.ai ? `<details><summary class="dk-hint">What the AI sent</summary><pre class="dk-raw">${esc(GEN.raw)}</pre></details>` : ''}</div>
       <div class="dk-eadd"><span class="dk-lbl">Add to</span><div class="dk-row">${sessPickHTML('dk-gTo', 'A new group in the open session')}<button class="dk-btn gold" data-act="genadd">${ICON.plus} Add to session</button></div></div>`
-    : `<div class="dk-empty sm"><div class="dk-emblem">${ICON.sword}</div><h2>Balanced fights in one click</h2><p>Set your party and difficulty, pick where they are, and the desk builds a fight from the bestiary using the DMG’s XP budgets. Lock the creatures you like and reroll the rest.</p></div>`}</section>
+    : `<div class="dk-empty sm"><div class="dk-emblem">${ICON.sword}</div><h2>Balanced fights in one click</h2><p>Set your party and difficulty, pick where they are, and the desk builds a fight from the bestiary using the DMG’s XP budgets. Lock the creatures you like and reroll the rest.</p></div>`}</section></div>
     <section class="dk-card dk-scenes"><div class="dk-row" style="justify-content:space-between"><h2>Not every encounter is a fight</h2><button class="dk-btn sm gold" data-act="gscene">${ICON.dice} Roll one</button></div>
       <div class="dk-chips">${['hazard', 'discovery', 'social', 'weather', 'trap'].map(k => `<button class="dk-btn sm" data-act="gscene" data-k="${k}">${cap(k)}</button>`).join('')}</div>
-      ${GEN.scenes.length ? `<div class="dk-slist">${GEN.scenes.map((s, i) => `<div class="dk-scene"><span class="dk-chip ${s[0]}">${esc(cap(s[0]))}</span><p>${esc(s[1])}</p><button class="dk-btn sm" data-act="gsnote" data-i="${i}" title="Save it as a note in the open session">Save to session</button></div>`).join('')}</div>` : `<p class="dk-hint">Hazards, discoveries, run-ins, weather and traps for ${esc(ENVN[UI.genP.env] || 'any terrain')}.</p>`}</section></div>`;
+      ${GEN.scenes.length ? `<div class="dk-slist">${GEN.scenes.map((s, i) => `<div class="dk-scene"><span class="dk-chip ${s[0]}">${esc(cap(s[0]))}</span><p>${esc(s[1])}</p><button class="dk-btn sm" data-act="gsnote" data-i="${i}" title="Save it as a note in the open session">Save to session</button></div>`).join('')}</div>` : `<p class="dk-hint">Hazards, discoveries, run-ins, weather and traps for ${esc(ENVN[UI.genP.env] || 'any terrain')}.</p>`}</section>`;
 }
 function npcGenHTML() {
   const n = NPCG.npc, L = NPCG.locks, has = !!n.name;
@@ -2159,7 +2335,7 @@ const NICON = {
   lore: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/>', quest: '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>',
   session: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/>', event: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>', map: '<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/>',
 };
-const nIcon = (t, cls) => `<svg class="${cls || 'dk-nic'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:${(NTYPES[t] || NTYPES.blank).c}" aria-hidden="true">${NICON[t] || NICON.blank}</svg>`;
+const nIcon = (t, cls, col) => `<svg class="${cls || 'dk-nic'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:${/^#[0-9a-f]{3,8}$/i.test(col || '') ? col : (NTYPES[t] || NTYPES.blank).c}" aria-hidden="true">${NICON[t] || NICON.blank}</svg>`;
 let NT = { pages: {}, syncedAt: 0, del: [] };
 const NSYNC = new Map(); let NBASE = null, IBASE = null, NCLOUD = false, nT = 0, nFlushing = false, nAgain = false;
 const IMGC = {}; // image id -> dataURL
@@ -2383,7 +2559,7 @@ function notesFiltered() {
 function snippet(p, q) { const t = pageText(p); if (!q) return esc(t.slice(0, 110)); const i = t.toLowerCase().indexOf(q.toLowerCase()); if (i < 0) return esc(t.slice(0, 110)); const a = Math.max(0, i - 40); return (a ? '…' : '') + esc(t.slice(a, i)) + '<mark>' + esc(t.slice(i, i + q.length)) + '</mark>' + esc(t.slice(i + q.length, i + q.length + 70)); }
 function treeHTML(pid, depth) {
   return kids(pid).map(p => { const ks = kids(p.id), open = UI.nopen[p.id] || isAncestor(p.id, UI.np);
-    return `<div class="dk-nt" data-nid="${p.id}"><div class="dk-ntrow${p.id === UI.np ? ' on' : ''}" draggable="true" data-drag="${p.id}" style="--d:${depth}">${ks.length ? `<button class="dk-caret${open ? ' open' : ''}" data-act="ntoggle" data-id="${p.id}" aria-label="${open ? 'Collapse' : 'Expand'}">${ICON.caret}</button>` : '<span class="dk-ntsp"></span>'}<button class="dk-ntn" data-act="nopen" data-id="${p.id}">${nIcon(p.type)}<span>${esc(p.title)}</span>${p.fav ? '<i class="dk-star">★</i>' : ''}</button></div>${ks.length && open ? treeHTML(p.id, depth + 1) : ''}</div>`; }).join('');
+    return `<div class="dk-nt" data-nid="${p.id}"><div class="dk-ntrow${p.id === UI.np ? ' on' : ''}" draggable="true" data-drag="${p.id}" style="--d:${depth}">${ks.length ? `<button class="dk-caret${open ? ' open' : ''}" data-act="ntoggle" data-id="${p.id}" aria-label="${open ? 'Collapse' : 'Expand'}">${ICON.caret}</button>` : '<span class="dk-ntsp"></span>'}<button class="dk-ntn" data-act="nopen" data-id="${p.id}">${nIcon(p.type, '', p.color)}<span>${esc(p.title)}</span>${p.fav ? '<i class="dk-star">★</i>' : ''}</button></div>${ks.length && open ? treeHTML(p.id, depth + 1) : ''}</div>`; }).join('');
 }
 function notesRailHTML() {
   const res = notesFiltered(), f = UI.nf || 'all', tags = allTags(), q = String(UI.nq || '').trim();
@@ -2409,8 +2585,10 @@ function notesHomeHTML() {
     <section class="dk-card"><h2 class="dk-h2">Start something</h2><div class="dk-row">${Object.entries(NTYPES).map(([k, t]) => `<button class="dk-btn sm" data-act="nnew" data-t="${k}">${nIcon(k)} ${esc(t.n)}</button>`).join('')}</div></section>`;
 }
 function propsHTML(p) {
-  const T = NTYPES[p.type] || NTYPES.blank; if (!T.props.length) return '';
-  return `<div class="dk-nprops">${T.props.map(([k, lb, kind, opts]) => {
+  const T = NTYPES[p.type] || NTYPES.blank, X = Array.isArray(p.xprops) ? p.xprops : [];
+  const xs = X.map((x, i) => `<label class="dk-npx"><span class="dk-lbl">${esc(x.t)}</span>${String(x.v).length > 60 || /\n/.test(x.v) ? `<textarea class="dk-f" data-npx="${i}" rows="2" maxlength="2000">${esc(x.v)}</textarea>` : `<input class="dk-f" data-npx="${i}" value="${esc(x.v)}" maxlength="2000">`}</label>`).join('');
+  if (!T.props.length) return xs ? `<div class="dk-nprops">${xs}</div>` : '';
+  return `<div class="dk-nprops">${xs}${T.props.map(([k, lb, kind, opts]) => {
     const v = (p.props || {})[k] || '';
     if (kind === 'sel') return `<label><span class="dk-lbl">${lb}</span><select class="dk-f" data-np="${k}"><option value=""></option>${opts.map(o => `<option${o === v ? ' selected' : ''}>${o}</option>`).join('')}</select></label>`;
     if (kind === 'page') { const locs = pagesList().filter(x => x.id !== p.id && (x.type === 'location' || x.type === 'map')).sort((a, b) => a.title.localeCompare(b.title)); return `<label><span class="dk-lbl">${lb}</span><div class="dk-row nowrap"><select class="dk-f" data-np="${k}"><option value="">—</option>${locs.map(o => `<option value="${o.id}"${o.id === v ? ' selected' : ''}>${esc(o.title)}</option>`).join('')}</select>${v && pageById(v) ? `<button class="dk-btn sm icon" data-act="nopen" data-id="${esc(v)}" aria-label="Open">${ICON.caret}</button>` : ''}</div></label>`; }
@@ -2559,7 +2737,7 @@ const MAPV = {}; // pageId -> {s, x, y} view
 const PIN_COLORS = ['#c9962b', '#b6402d', '#2f8a57', '#2f6ca8', '#7a4fb8', '#1f2a44', '#d9732f', '#ffffff'];
 function mapHTML(p) {
   const m = p.map || {};
-  if (!m.img) return `<div class="dk-mapempty"><div class="dk-emblem">${nIcon('map', '')}</div><p>Upload a map picture — a region, a city, a dungeon — then drop pins that link to your pages.</p><button class="dk-btn gold" data-act="mapimg">Upload a map</button></div>`;
+  if (!m.img) return `<div class="dk-mapempty"><div class="dk-emblem">${nIcon('map', '')}</div><p>${(m.pins || []).length ? `${plural(m.pins.length, 'pin')} from LegendKeeper ${m.pins.length === 1 ? 'is' : 'are'} ready — upload this map’s picture and they’ll appear in place.` : 'Upload a map picture — a region, a city, a dungeon — then drop pins that link to your pages.'}</p><button class="dk-btn gold" data-act="mapimg">Upload a map</button></div>`;
   return `<div class="dk-mapbox${UI.pinMode ? ' pinning' : ''}"><div class="dk-map" data-map="${p.id}"><div class="dk-mapin" style="width:${m.w}px;height:${m.h}px"><img data-img="${esc(m.img)}" alt="" draggable="false">
       ${(m.pins || []).map(pin => { const lp = pageById(pin.page); return `<button class="dk-pin${lp && lp.type === 'map' ? ' sub' : ''}" data-pin="${pin.id}" style="left:${pin.x * 100}%;top:${pin.y * 100}%;--pc:${esc(pin.color || '#c9962b')}" title="${esc(pin.label || (lp && lp.title) || 'Pin')}"><span>${lp ? nIcon(lp.type, 'dk-pinic') : ''}</span><em>${esc(pin.label || (lp && lp.title) || '')}</em></button>`; }).join('')}</div></div>
     <div class="dk-mapctl"><button class="dk-btn sm icon" data-act="mapzoom" data-d="1" aria-label="Zoom in">+</button><button class="dk-btn sm icon" data-act="mapzoom" data-d="-1" aria-label="Zoom out">−</button><button class="dk-btn sm" data-act="mapfit">Fit</button><button class="dk-btn sm${UI.pinMode ? ' on' : ''}" data-act="pinmode">${UI.pinMode ? 'Tap the map…' : '📍 Add pin'}</button><button class="dk-btn sm ghost" data-act="mapimg">Change picture</button></div>
@@ -2704,15 +2882,16 @@ function findImg(src, dir, images, byBase) {
 }
 function importPreview(plan, label) {
   const n = plan.pages.length, P = {}; plan.pages.forEach(p => { (P[p.parentKey || ''] = P[p.parentKey || ''] || []).push(p); });
-  const tree = (k, d) => (P[k] || []).slice(0, 60).map(p => `<div class="dk-ipt" style="--d:${d}">${nIcon(p.type || 'blank')} ${esc(p.title)}${p.tags && p.tags.length ? ` <small>#${esc(p.tags.slice(0, 3).join(' #'))}</small>` : ''}</div>${d < 6 ? tree(p.key, d + 1) : ''}`).join('');
+  const tree = (k, d) => (P[k] || []).slice(0, 60).map(p => `<div class="dk-ipt" style="--d:${d}">${nIcon(p.type || 'blank', '', p.color)} ${esc(p.title)}${p.tags && p.tags.length ? ` <small>#${esc(p.tags.slice(0, 3).join(' #'))}</small>` : ''}</div>${d < 6 ? tree(p.key, d + 1) : ''}`).join('');
   openModal(`<h2>Import ${esc(label)}</h2>
-    <div class="dk-istats"><span><b>${n}</b> pages</span><span><b>${plan.found}</b> pictures</span>${plan.missing.length ? `<span class="bad"><b>${plan.missing.length}</b> pictures not in the upload</span>` : ''}<span><b>${plan.unresolved.length}</b> links to pages that don’t exist</span></div>
+    <div class="dk-istats"><span><b>${n}</b> pages</span>${plan.lk ? `${plan.stats.maps ? `<span><b>${plan.stats.maps}</b> maps · <b>${plan.stats.pins}</b> pins</span>` : ''}${plan.stats.props ? `<span><b>${plan.stats.props}</b> properties</span>` : ''}${plan.stats.hiddenDocs ? `<span><b>${plan.stats.hiddenDocs}</b> hidden tabs → secret blocks</span>` : ''}` : ''}${plan.lk ? '' : `<span><b>${plan.found}</b> pictures</span>`}${plan.missing.length ? `<span class="bad"><b>${plan.missing.length}</b> pictures not in the upload</span>` : ''}<span><b>${plan.unresolved.length}</b> links to pages that don’t exist</span></div>
     <div class="dk-itree">${plan.backup ? plan.pages.slice(0, 80).map(p => `<div class="dk-ipt">${esc(p.title)}</div>`).join('') : tree('', 0)}</div>
     ${plan.unresolved.length ? `<details><summary class="dk-hint">Links that don’t point to a page yet (they stay as links; clicking one makes the page)</summary><p class="dk-hint">${esc(plan.unresolved.slice(0, 40).join(', '))}${plan.unresolved.length > 40 ? '…' : ''}</p></details>` : ''}
     ${plan.missing.length ? `<details><summary class="dk-hint">Pictures that weren’t in the upload</summary><p class="dk-hint">${esc(plan.missing.slice(0, 30).join(', '))}</p></details>` : ''}
+    ${plan.lk ? `<p class="dk-hint">Names, aliases, tags, icon colours, the page tree and its order come across exactly. ${plan.stats.maps ? 'Map pictures aren’t inside a .lk file — open each map page and upload its picture; the pins are already placed. ' : ''}${plan.stats.media ? 'Pictures in pages stay as links to LegendKeeper. ' : ''}</p>` : ''}
     <p class="dk-hint">Imports add pages — nothing you already have is changed. Pages with a name you already use get a number added.</p>
     <div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn gold" id="dk-impGo">Import ${plural(n, 'page')}</button></div>`, { wide: true, focus: false });
-  $('#dk-impGo').onclick = () => { $('#dk-impGo').disabled = true; $('#dk-impGo').textContent = 'Importing…'; commitImport(plan).catch(e => { toast({ title: 'Import stopped', det: esc(e.message), cls: 'bad' }); closeModal(true); }); };
+  $('#dk-impGo').onclick = () => { $('#dk-impGo').disabled = true; $('#dk-impGo').textContent = 'Importing…'; (plan.lk ? commitLk(plan) : commitImport(plan)).catch(e => { toast({ title: 'Import stopped', det: esc(e.message), cls: 'bad' }); closeModal(true); }); };
 }
 async function commitImport(plan) {
   const idOf = new Map(), made = [];
@@ -2742,6 +2921,7 @@ async function commitImport(plan) {
 async function runImport(files) {
   files = Array.from(files || []); if (!files.length) return;
   const label = files.length === 1 ? files[0].name : (files[0].webkitRelativePath || '').split('/')[0] || plural(files.length, 'file');
+  if (files.length === 1 && /\.(lk|json)$/i.test(files[0].name)) { try { const root = await readLkFile(files[0]); if (root) return importPreview(planLk(root, files[0].name), files[0].name); } catch (e) { if (/\.lk$/i.test(files[0].name)) return toast({ title: 'Couldn’t open that .lk file', det: esc(e.message || ''), cls: 'bad' }); } }
   toastInfo('Reading your files…', null, 'nimp');
   try { const entries = await collectEntries(files); if (!entries.some(e => e.text != null)) return toastInfo('No Markdown, HTML or backup files were found in that upload.'); const plan = await planImport(entries, label); if (!plan.pages.length) return toastInfo('Nothing to import there.'); importPreview(plan, label); }
   catch (e) { toast({ title: 'Couldn’t read that', det: esc(e.message), cls: 'bad' }); }
@@ -2749,6 +2929,7 @@ async function runImport(files) {
 function openImport() {
   openModal(`<h2>Import notes</h2><p class="dk-hint">Bring in a wiki from another app. You’ll see what will be imported before anything is added.</p>
     <div class="dk-impgrid">
+      <button class="dk-impopt" data-imp="files"><b>LegendKeeper project</b><small>The .lk file (Project settings → Export) — keeps names and order exactly</small></button>
       <button class="dk-impopt" data-imp="zip"><b>LegendKeeper</b><small>Its export .zip (Markdown or HTML)</small></button>
       <button class="dk-impopt" data-imp="zip"><b>Obsidian</b><small>Your vault as a .zip, or pick the vault folder below</small></button>
       <button class="dk-impopt" data-imp="zip"><b>Craft</b><small>Space or document export: .zip of Markdown or HTML, .textbundle or .textpack</small></button>
@@ -2768,6 +2949,161 @@ async function exportNotes(kind) {
   await walk('', '');
   for (const p of pagesList()) for (const m of String(p.html).matchAll(/data-img="(i[a-z0-9]+)"/g)) { const u = await getImg(m[1]); if (u) zip.file('images/' + m[1] + '.jpg', u.split(',')[1], { base64: true }); }
   const blob = await zip.generateAsync({ type: 'blob' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'dm-desk-notes-' + new Date().toISOString().slice(0, 10) + '.zip'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+// ---------- LegendKeeper project file (.lk) import: gzip JSON with every resource, its tabs (documents), properties,
+// aliases, tags, icon colour, the tree (parentId) and the sibling order (pos, a fractional index compared as plain strings). ----------
+const isLkJson = j => j && typeof j === 'object' && Array.isArray(j.resources) && (j.exportId != null || j.resourceCount != null || j.hash != null);
+LIBS.pako = 'https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js';
+async function gunzipBytes(buf) {
+  if (typeof DecompressionStream === 'function') { const s = new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip')); return await new Response(s).text(); }
+  await loadScript(LIBS.pako); return window.pako.ungzip(new Uint8Array(buf), { to: 'string' });
+}
+// Reads a .lk (gzip) or an already-unpacked .json; returns the root object or null.
+async function readLkFile(file) {
+  const buf = await file.arrayBuffer(), b = new Uint8Array(buf.slice(0, 2));
+  let text; if (b[0] === 0x1f && b[1] === 0x8b) text = await gunzipBytes(buf); else text = new TextDecoder().decode(buf);
+  let j = null; try { j = JSON.parse(text); } catch (e) { return null; }
+  return isLkJson(j) ? j : null;
+}
+const lkCmp = (a, b) => { const x = String(a.pos == null ? '' : a.pos), y = String(b.pos == null ? '' : b.pos); return x < y ? -1 : x > y ? 1 : 0; };
+const lkStr = (v, n) => String(v == null ? '' : v).slice(0, n || 500);
+const lkColor = c => /^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? String(c) : '';
+const lkHref = u => /^https?:\/\//i.test(String(u || '')) ? String(u) : '';
+const LK_PANEL = { info: 'info', note: 'note', tip: 'tip', success: 'success', warning: 'warning', error: 'danger', danger: 'danger', quote: 'quote', example: 'example', question: 'question' };
+// ProseMirror / ADF-like JSON -> our HTML (always sanitized again by clean() on commit)
+function lkHtml(node, ctx) {
+  if (!node || typeof node !== 'object') return '';
+  const kids = () => (Array.isArray(node.content) ? node.content : []).map(c => lkHtml(c, ctx)).join(''), a = node.attrs || {};
+  switch (node.type) {
+    case 'doc': return kids();
+    case 'paragraph': return `<p>${kids() || '<br>'}</p>`;
+    case 'heading': { const l = Math.min(3, Math.max(1, N(a.level) || 2)); return `<h${l}>${kids()}</h${l}>`; }
+    case 'text': {
+      let t = esc(node.text || ''); for (const m of (node.marks || [])) {
+        if (m.type === 'strong') t = `<strong>${t}</strong>`; else if (m.type === 'em') t = `<em>${t}</em>`; else if (m.type === 'underline') t = `<u>${t}</u>`;
+        else if (m.type === 'strike') t = `<s>${t}</s>`; else if (m.type === 'code') t = `<code>${t}</code>`;
+        else if (m.type === 'link') { const h = lkHref((m.attrs || {}).href); const rid = lkResId((m.attrs || {}).href, ctx); if (rid) t = `<a class="wl" data-lkid="${esc(rid)}">${t}</a>`; else if (h) t = `<a href="${esc(h)}" rel="noopener" target="_blank">${t}</a>`; }
+      } return t; }
+    case 'hardBreak': return '<br>';
+    case 'bulletList': return `<ul>${kids()}</ul>`;
+    case 'orderedList': return `<ol>${kids()}</ol>`;
+    case 'listItem': return `<li>${kids()}</li>`;
+    case 'taskList': return `<ul class="checks">${kids()}</ul>`;
+    case 'taskItem': return `<li${String(a.state).toUpperCase() === 'DONE' ? ' data-done="1"' : ''}>${kids()}</li>`;
+    case 'blockquote': return `<blockquote>${kids()}</blockquote>`;
+    case 'codeBlock': return `<pre><code>${esc((node.content || []).map(c => c.text || '').join(''))}</code></pre>`;
+    case 'rule': return '<hr>';
+    case 'table': return `<table><tbody>${kids()}</tbody></table>`;
+    case 'tableRow': return `<tr>${kids()}</tr>`;
+    case 'tableHeader': case 'tableCell': { const tg = node.type === 'tableHeader' ? 'th' : 'td', cs = N(a.colspan) > 1 ? ` colspan="${N(a.colspan)}"` : '', rs = N(a.rowspan) > 1 ? ` rowspan="${N(a.rowspan)}"` : ''; return `<${tg}${cs}${rs}>${kids()}</${tg}>`; }
+    case 'mention': { const id = lkStr(a.id, 80), txt = lkStr(a.text, 200).replace(/^@/, '') || (ctx.byId.get(id) || {}).name || 'link'; if (!ctx.byId.has(id)) ctx.unresolved.add(txt); return ctx.byId.has(id) ? `<a class="wl" data-lkid="${esc(id)}">${esc(txt)}</a>` : `<a class="wl" data-title="${esc(txt)}">${esc(txt)}</a>`; }
+    case 'mediaSingle': case 'mediaGroup': return kids();
+    case 'media': case 'image': { const u = lkHref(a.url || a.src); ctx.media++; return u ? `<p>🖼 Picture from LegendKeeper: <a href="${esc(u)}" rel="noopener" target="_blank">${esc(u.split('/').pop().split('?')[0] || 'open')}</a></p>` : '<p>🖼 (a picture that wasn’t in the export)</p>'; }
+    case 'layoutSection': case 'layoutColumn': return kids();
+    case 'panel': { const k = String(a.panelType || 'info').toLowerCase(); if (/secret|hidden|gm|dm/.test(k)) return `<div class="secret">${kids()}</div>`; return `<div class="callout" data-kind="${LK_PANEL[k] || 'note'}">${kids()}</div>`; }
+    case 'expand': case 'nestedExpand': return `<details><summary>${esc(lkStr(a.title, 200) || 'Details')}</summary>${kids()}</details>`;
+    case 'extension': return a.text ? `<p><em>${esc(lkStr(a.text))}</em></p>` : '';
+    case 'bodiedExtension': return kids();
+    case 'emoji': return esc(lkStr(a.text || a.shortName, 20));
+    case 'status': return a.text ? `<code>${esc(lkStr(a.text, 60))}</code>` : '';
+    case 'date': return a.timestamp ? esc(new Date(N(a.timestamp)).toISOString().slice(0, 10)) : '';
+    case 'inlineCard': case 'blockCard': { const rid = lkResId(a.url, ctx); if (rid) return `<a class="wl" data-lkid="${esc(rid)}">${esc((ctx.byId.get(rid) || {}).name || 'link')}</a>`; const u = lkHref(a.url); return u ? `<a href="${esc(u)}" rel="noopener" target="_blank">${esc(u)}</a>` : ''; }
+    default: return kids();
+  }
+}
+// a LegendKeeper link/uri that points at a resource in this export
+function lkResId(u, ctx) { const s = String(u || ''); if (!s) return ''; if (ctx.byId.has(s)) return s; for (const m of s.matchAll(/[A-Za-z0-9_-]{6,}/g)) if (ctx.byId.has(m[0])) return m[0]; return ''; }
+// plain text out of any property value (strings, lists, rich text, resource refs)
+function lkText(v, ctx, depth) {
+  depth = depth || 0; if (v == null || depth > 6) return '';
+  if (typeof v === 'string') return ctx.byId.has(v) ? ctx.byId.get(v).name : v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (Array.isArray(v)) return v.map(x => lkText(x, ctx, depth + 1)).filter(Boolean).join(', ');
+  if (v.type && (v.content || v.text != null)) return v.type === 'text' ? String(v.text || '') : (v.content || []).map(x => lkText(x, ctx, depth + 1)).join(v.type === 'doc' ? '\n' : '');
+  for (const k of ['resourceId', 'id', 'value', 'text', 'name', 'title', 'url', 'values', 'items', 'resources', 'content']) if (v[k] != null) { const t = lkText(v[k], ctx, depth + 1); if (t) return t; }
+  return '';
+}
+const LK_TYPE = [[/npc|character|person|people|creature|monster|deity|god/i, 'npc'], [/location|place|city|town|region|country|dungeon|area|realm|world|continent|kingdom|planet/i, 'location'], [/faction|guild|organi[sz]ation|group|order|house|clan/i, 'faction'], [/item|artifact|weapon|relic|object/i, 'item'], [/quest|mission|plot|adventure/i, 'quest'], [/session|log|journal/i, 'session'], [/lore|history|myth|religion|legend|culture/i, 'lore'], [/event|battle|war/i, 'event']];
+function lkPageType(r) { const words = [].concat(r.tags || [], r.iconGlyph || ''); for (const w of words) for (const [re, t] of LK_TYPE) if (re.test(String(w))) return t; return 'blank'; }
+// Turns the export into the same plan the other importers produce (pages in tree + sibling order)
+function planLk(root, label) {
+  const res = (root.resources || []).filter(r => r && r.id && typeof r.name === 'string');
+  const ctx = { byId: new Map(res.map(r => [String(r.id), r])), unresolved: new Set(), media: 0 };
+  const byParent = new Map(); res.forEach(r => { const pk = r.parentId && ctx.byId.has(String(r.parentId)) ? String(r.parentId) : ''; if (!byParent.has(pk)) byParent.set(pk, []); byParent.get(pk).push(r); });
+  byParent.forEach(l => l.sort(lkCmp));
+  const pages = [], pins = []; let maps = 0, hiddenDocs = 0, props = 0;
+  const calName = id => ((root.calendars || []).find(c => c.id === id) || {}).name || '';
+  const visit = (pk, parentKey, seen) => (byParent.get(pk) || []).forEach((r, i) => {
+    if (seen.has(r.id)) return; seen.add(r.id);
+    const docs = (r.documents || []).filter(d => d && typeof d === 'object').slice().sort((a, b) => (b.isFirst === true) - (a.isFirst === true) || lkCmp(a, b));
+    const first = docs.find(d => d.type === 'page') || null, firstAny = docs[0] || null;
+    const after = []; const page = { key: 'lk:' + r.id, lkid: r.id, lkpos: String(r.pos || ''), title: lkStr(r.name, 200) || 'Untitled', parentKey, rank: i + 1, type: lkPageType(r), html: '', tags: (r.tags || []).map(t => lkStr(t, 60)).filter(Boolean).slice(0, 40), aliases: (r.aliases || []).map(t => lkStr(t, 120)).filter(Boolean).slice(0, 20), props: {}, xprops: [], color: lkColor(r.iconColor), imgs: [] };
+    let html = '';
+    const wrapHidden = (d, h) => { if (d.isHidden) { hiddenDocs++; return `<div class="secret">${h}</div>`; } return h; };
+    for (const d of docs) {
+      const isBody = d === first && (firstAny === first || firstAny.type !== 'map');
+      if (d.type === 'page' || (!d.type && d.content && d.content.type === 'doc')) {
+        let h = d.content && d.content.type ? lkHtml(d.content, ctx) : '';
+        if (!isBody) h = `<h2>${esc(lkStr(d.name, 120) || 'Notes')}</h2>` + (h || '<p></p>');
+        html += wrapHidden(d, h);
+      } else if (d.type === 'map') {
+        maps++; const m = d.map || {}, c = d.content || {}, mx = N(m.minX), Mx = N(m.maxX), my = N(m.minY), My = N(m.maxY), w = Mx - mx || 1, hgt = My - my || 1;
+        const mp = (c.pins || []).filter(p => p && Array.isArray(p.pos) && !p.polygon && !p.polyline).map(p => ({ id: 'n' + uid(), x: Math.max(0, Math.min(1, (N(p.pos[0]) - mx) / w)), y: Math.max(0, Math.min(1, (N(p.pos[1]) - my) / hgt)), label: lkStr(p.name, 60), lkuri: lkResId(p.uri, ctx), color: lkColor(p.iconColor) || '#c9962b' }));
+        pins.push(...mp);
+        const mapPage = { pins: mp, bounds: [mx, Mx, my, My] };
+        if (d === firstAny) { page.type = 'map'; page.map = mapPage; }
+        else { const mk = 'lkmap:' + r.id + ':' + d.id; after.push({ key: mk, title: (lkStr(d.name, 120) && d.name !== 'Map' ? lkStr(d.name, 120) : page.title + ' — map'), parentKey: page.key, rank: -1, type: 'map', html: '<p></p>', tags: [], aliases: [], props: {}, xprops: [], imgs: [], map: mapPage, lkchild: true }); }
+      } else if (d.type === 'time') {
+        const c = d.content || {}, lanes = new Map((c.lanes || []).map(l => [l.id, l.name])), ev = (c.events || []).slice().sort((a, b) => N(a.start) - N(b.start) || lkCmp(a, b));
+        let h = `<h2>${esc(lkStr(d.name, 120) || 'Timeline')}</h2>${calName(d.calendarId) ? `<p><em>Calendar: ${esc(calName(d.calendarId))}</em></p>` : ''}`;
+        h += ev.length ? `<ul>${ev.map(e => `<li><strong>${esc(lkStr(e.name, 200))}</strong>${lanes.get(e.laneId) ? ` · ${esc(lanes.get(e.laneId))}` : ''} <code>${esc(String(e.start))}${e.end != null ? '–' + esc(String(e.end)) : ''}</code></li>`).join('')}</ul>` : '<p>No events.</p>';
+        html += wrapHidden(d, h);
+      } else if (d.type === 'board') {
+        const c = d.content || {}, recs = (c.shapesV2 || []).map(x => x && x.val).concat(c.shapes || []).filter(Boolean);
+        const texts = recs.map(v => lkStr((v.props && (v.props.text || v.props.name || v.props.title)) || v.text || v.name || '', 300).trim()).filter(Boolean);
+        html += wrapHidden(d, `<h2>${esc(lkStr(d.name, 120) || 'Board')}</h2>${texts.length ? `<ul>${texts.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : '<p>(a board — its cards had no text)</p>'}`);
+      } else if (d.content && d.content.type === 'doc') html += wrapHidden(d, `<h2>${esc(lkStr(d.name, 120))}</h2>` + lkHtml(d.content, ctx));
+    }
+    if (r.isHidden) html = `<div class="secret">${html || '<p></p>'}</div>`;
+    page.html = html || '<p></p>';
+    (r.properties || []).slice().sort(lkCmp).forEach(pr => { if (!pr || pr.type === 'TAGS') return; const t = lkStr(pr.title, 80) || lkStr(pr.type, 40); const v = lkText(pr.data, ctx).slice(0, 2000); page.xprops.push({ t, v }); props++; });
+    pages.push(page, ...after); visit(r.id, page.key, seen);
+  });
+  visit('', '', new Set());
+  // orphans (a parent missing from the export) were put at the top by byParent; mentions are checked against the export
+  return { lk: true, pages, rootKey: null, images: new Map(), imgByBase: new Map(), unresolved: [...ctx.unresolved], missing: [], found: 0, stats: { maps, pins: pins.length, hiddenDocs, props, media: ctx.media, cals: (root.calendars || []).length }, label };
+}
+async function commitLk(plan) {
+  const idOf = new Map(), made = [], before = new Set(pagesList().map(p => p.title.toLowerCase()));
+  const uniq = t => { let s = t, n = 2; while (before.has(s.toLowerCase())) s = `${t} (${n++})`; return s; };
+  const topBase = Math.max(0, ...kids('').map(p => N(p.order))) + 1;
+  let n = 0; const total = plan.pages.length, stamp = () => { const b = $('#dk-impGo'); if (b) b.textContent = `Importing… ${n}/${total}`; };
+  // pages arrive parents-first and already in sibling order
+  const ranks = new Map();
+  for (const p of plan.pages) {
+    const parent = p.parentKey ? idOf.get(p.parentKey) || '' : ''; const k = parent || '__top'; const r = (ranks.get(k) || 0) + 1; ranks.set(k, r);
+    const np = newPage({ title: uniq(p.title), type: p.type || 'blank', parent, order: parent ? r : topBase + r, tags: p.tags || [], aliases: p.aliases || [], props: p.props || {}, html: '<p></p>' });
+    if (p.xprops && p.xprops.length) np.xprops = p.xprops; if (p.color) np.color = p.color; if (p.lkid) np.lk = { id: p.lkid, pos: p.lkpos };
+    if (p.map) np.map = { pins: p.map.pins, w: 0, h: 0, img: '', lkBounds: p.map.bounds };
+    idOf.set(p.key, np.id); made.push(np); n++; if (n % 25 === 0) { stamp(); await new Promise(r2 => setTimeout(r2, 0)); }
+  }
+  const byLk = new Map(plan.pages.filter(p => p.lkid).map(p => [p.lkid, idOf.get(p.key)]));
+  for (const p of plan.pages) {
+    const np = pageById(idOf.get(p.key)); let h = p.html.replace(/<a class="wl" data-lkid="([^"]+)">/g, (m, id) => byLk.get(id) ? `<a class="wl" data-page="${byLk.get(id)}">` : '<a class="wl">');
+    h = h.replace(/<a class="wl" data-title="([^"]+)">/g, (m, t) => { const x = pageByTitle(t.replace(/&amp;/g, '&')); return x ? `<a class="wl" data-page="${x.id}">` : m; });
+    np.html = clean(h) || '<p></p>';
+    if (np.map) np.map.pins.forEach(pin => { if (pin.lkuri && byLk.get(pin.lkuri)) pin.page = byLk.get(pin.lkuri); delete pin.lkuri; });
+  }
+  made.forEach(p => nSave(p)); const first = made.find(p => !p.parent); if (first) { UI.np = first.id; }
+  UI.nq = ''; UI.nf = 'all'; closeModal(true); paint(); toastInfo(`Imported ${plural(made.length, 'page')} from LegendKeeper${plan.stats.maps ? ` — ${plural(plan.stats.maps, 'map')} need their pictures uploaded` : ''}.`, null, 'nimp');
+}
+async function runLkImport(file) {
+  toastInfo('Reading your LegendKeeper project…', null, 'nimp');
+  let root; try { root = await readLkFile(file); } catch (e) { return toast({ title: 'Couldn’t open that .lk file', det: esc(e.message || ''), cls: 'bad' }); }
+  if (!root) return toast({ title: 'That isn’t a LegendKeeper project file', det: 'In LegendKeeper: Project settings → Export → Download .lk file.', cls: 'bad' });
+  const plan = planLk(root, file.name.replace(/\.(lk|json)$/i, ''));
+  if (!plan.pages.length) return toastInfo('That project has no pages.', null, 'nimp');
+  importPreview(plan, file.name);
 }
 // ---------- Notes: clicks, typing, files ----------
 function openPage(id) { const p = pageById(id); if (!p) return; UI.np = id; UI.nview = ''; UI.tree = false; pathOf(p).forEach(x => { if (x.id !== id) UI.nopen[x.id] = true; }); saveUI(); paint(); scrollTo(0, 0); }
@@ -2830,6 +3166,7 @@ function onNotesChange(el) {
   if (el.id === 'dk-ntag') { UI.nf = el.value ? 'tag' : 'all'; UI.ntag = el.value; saveUI(); paint(); return true; }
   if (!p) return false;
   if (el.dataset.nt === 'title') { const v = el.value.trim() || 'Untitled'; if (v !== p.title) { p.title = v; nSave(p); } paint(); return true; }
+  if (el.dataset.npx != null && p && Array.isArray(p.xprops) && p.xprops[N(el.dataset.npx)]) { p.xprops[N(el.dataset.npx)].v = String(el.value).slice(0, 2000); nSave(p); return true; }
   if (el.dataset.np) { p.props = p.props || {}; p.props[el.dataset.np] = String(el.value).slice(0, 200); nSave(p); paint(); return true; }
   if (el.dataset.npstat) { const v = el.value.trim().toLowerCase(), c = allCreatures().find(z => z.name.toLowerCase() === v); p.props = p.props || {}; p.props.stat = c ? c.id : ''; if (v && !c) toastInfo('No creature with that name in your bestiary.'); nSave(p); paint(); return true; }
   if (el.id === 'dk-tag-' + p.id) { addTags(p, el.value); return true; }
@@ -2890,7 +3227,7 @@ const SPELLN = () => DATA.spells.map(s => s.n);
 // The model's (or the form's) spec, checked field by field. Unknown keys are dropped and listed.
 function shapeHB(j) {
   if (!j || typeof j !== 'object') return null; const drop = [], o = {};
-  const known = ['name', 'type', 'rarity', 'attune', 'attuneBy', 'summary', 'notes', 'weapon', 'armor', 'bonuses', 'charges', 'spells', 'spellOnce', 'spellAtWill', 'spellAb', 'consumable', 'qty', 'use', 'passive', 'effect', 'attack', 'curse', 'carried', 'weight', 'cost'];
+  const known = ['onHit', 'name', 'type', 'rarity', 'attune', 'attuneBy', 'summary', 'notes', 'weapon', 'armor', 'bonuses', 'charges', 'spells', 'spellOnce', 'spellAtWill', 'spellAb', 'consumable', 'qty', 'use', 'passive', 'effect', 'attack', 'curse', 'carried', 'weight', 'cost'];
   Object.keys(j).forEach(k => { if (!known.includes(k)) drop.push(k); });
   o.name = vStr(j.name, 80); if (!o.name) return null;
   o.type = vEnum(j.type, HB_TYPES.map(t => t[0])) || 'wondrous'; o.rarity = vEnum(j.rarity, HB_RAR) || 'uncommon';
@@ -2917,38 +3254,12 @@ function shapeHB(j) {
   if (j.effect && typeof j.effect === 'object' && vStr(j.effect.name, 40)) { const e = j.effect; o.effect = { name: vStr(e.name, 40), rounds: vEnum(String(e.rounds || ''), HB_DURS.map(d => d[0])), fly: vInt(e.fly, 0, 120) || '', ac: vInt(e.ac, 0, 5) || '', speed: vInt(e.speed, 0, 120) || '', skillAdv: (Array.isArray(e.skillAdv) ? e.skillAdv : []).map(s => Object.keys(SKILLS).find(z => z.toLowerCase() === String(s).toLowerCase())).filter(Boolean), note: vStr(e.note, 160), conc: vBool(e.conc) }; }
   if (j.attack && typeof j.attack === 'object' && vStr(j.attack.name, 40) && vDice(j.attack.dice)) { const a = j.attack; o.attack = { name: vStr(a.name, 40), dice: vDice(a.dice), type: vEnum(a.type, HB_DT), ab: vEnum(a.ab, ['spell', 'str', 'dex', 'fin', 'con', 'int', 'wis', 'cha']) || 'spell', kind: vEnum(a.kind, ['melee', 'ranged']) || 'ranged', range: vInt(a.range, 0, 600) || '', addMod: vBool(a.addMod), note: vStr(a.note, 100) }; }
   if (j.curse && typeof j.curse === 'object') { const c = j.curse, x = { othersDis: vBool(c.othersDis), hurtSave: vEnum(c.hurtSave, HB_ABS), hurtDC: vInt(c.hurtDC, 5, 30), hurtText: vStr(c.hurtText, 200) }; if (x.othersDis || x.hurtSave) o.curse = x; }
+  if (j.onHit && typeof j.onHit === 'object') { const d = vDice(j.onHit.dice); if (d && o.type === 'weapon') o.onHit = { dice: d, type: vEnum(j.onHit.type, HB_DT), ask: vBool(j.onHit.ask) }; else drop.push('onHit'); }
   o.carried = vBool(j.carried) && o.type !== 'weapon' && o.type !== 'armor';
   o._dropped = drop.slice(0, 20); return o;
 }
-// spec -> the sheet's item object (what S.customItems holds and addInventoryItem accepts)
-function itemFromSpec(s) {
-  const W = T.WEAPONS || [], A = T.ARMOR || [], it = { name: s.name, qty: s.qty || 1, weight: s.weight || 0, cost: s.cost || '', equipped: false, notes: s.notes || '' }, hb = {}, mods = {};
-  if (s.summary) it.summary = s.summary;
-  it.magic = { rarity: s.rarity, type: s.type === 'armor' && s.armor && s.armor.base === 'Shield' ? 'shield' : s.type, src: 'Homebrew', name: s.name };
-  if (s.attune) { it.attune = true; it.attuneBy = s.attuneBy || ''; it.attuned = false; }
-  if (s.weapon) { const w = W.find(x => x[0] === s.weapon.base); if (w) { it.weapon = { cat: w[1], kind: w[2], dice: w[4], type: w[5], props: (w[7] || []).slice(), range: w[8] || '', base: w[0] }; if (!s.weight) it.weight = w[6]; if (s.weapon.magic) { mods.atk = s.weapon.magic; mods.dmg = s.weapon.magic; } } }
-  if (s.armor) { const a = A.find(x => x[0] === s.armor.base); if (a) { it.armor = { type: a[1], base: a[3], dexCap: a[4], strReq: a[5], stealthDis: a[6] }; if (!s.weight) it.weight = a[7]; if (s.armor.magic) mods.ac = s.armor.magic; } }
-  if (s.bonuses) { if (s.bonuses.ac) mods.ac = N(mods.ac) + s.bonuses.ac; if (s.bonuses.saves) mods.save = s.bonuses.saves; if (s.bonuses.spell) mods.spell = s.bonuses.spell; }
-  if (Object.keys(mods).length) it.mods = mods;
-  it.hbType = it.weapon ? 'weapon' : s.consumable ? 'consumable' : 'magic';
-  if (s.charges) it.charges = { max: s.charges.max, used: 0, reset: s.charges.reset };
-  if (s.spells && s.spells.length) { it.spells = s.spells.slice(); if (s.spellOnce) it.spellOnce = true; if (s.spellAtWill) it.spellAtWill = true; if (s.spellAb) hb.spellAb = s.spellAb; }
-  if (s.consumable) { hb.consume = true; if (s.type === 'potion' || s.type === 'scroll') it.consumable = true; }
-  const u = s.use || {}; if (u.col) hb.col = u.col; if (u.roll) hb.roll = u.roll; if (u.rollNote) hb.rollNote = u.rollNote; if (u.healRoll) hb.healRoll = true; if (u.selfDmg) hb.selfDmg = true;
-  if (u.heal) hb.heal = u.heal; if (u.temp) hb.temp = u.temp; if (u.saveAb) { hb.saveAb = u.saveAb; hb.dc = String(u.dc || 'spell'); } if (u.dash) hb.dash = true; if (u.text) hb.text = u.text;
-  const p = s.passive || {}; ['resist', 'immune', 'condImmune'].forEach(k => { if (p[k] && p[k].length) hb[k] = p[k].join(', '); });
-  ['speed', 'fly', 'swim', 'climb', 'sense', 'skillBonus', 'adv'].forEach(k => { if (p[k]) hb[k] = String(p[k]); }); if (p.init) hb.init = String(p.init); if (p.initAdv) hb.initAdv = true; if (p.maxHp) hb.maxHp = String(p.maxHp);
-  if (s.bonuses && s.bonuses.saves && !mods.save) hb.saveAll = String(s.bonuses.saves);
-  const e = s.effect; if (e) { hb.effName = e.name; if (e.rounds) hb.effRounds = e.rounds; if (e.fly) hb.effFly = String(e.fly); if (e.ac) hb.effAc = String(e.ac); if (e.speed) hb.effSpeed = String(e.speed); if (e.skillAdv && e.skillAdv.length) hb.effSkillAdv = e.skillAdv.join(', '); if (e.note) hb.effNote = e.note; if (e.conc) hb.effConc = true; if (!hb.col) hb.col = 'action'; }
-  const a = s.attack; if (a) { hb.atkName = a.name; hb.atkDice = a.dice; if (a.type) hb.atkType = a.type; hb.atkAb = a.ab; hb.atkKind = a.kind; if (a.range) hb.atkRange = String(a.range); if (a.addMod) hb.atkAddMod = true; if (a.note) hb.atkNote = a.note; }
-  const c = s.curse; if (c) { if (c.othersDis) hb.othersDis = true; if (c.hurtSave) { hb.hurtSave = c.hurtSave; hb.hurtDC = String(c.hurtDC || 10); if (c.hurtText) hb.hurtText = c.hurtText; } }
-  if (s.carried) it.carried = true;
-  if (it.weapon) it.noEquip = false;
-  // like the sheet's own builder: something usable shows its description when used
-  if (!it.weapon && (hb.col || it.charges || hb.consume) && !hb.text) { hb.text = String(s.summary || s.notes || '').slice(0, 400) || 'You use ' + s.name + '.'; hb.textAuto = 1; }
-  if (Object.keys(hb).length) it.hb = hb;
-  return it;
-}
+// spec -> the sheet's item object: shared with the character sheet (ItemParse.toItem, from ../src/app14.js)
+const itemFromSpec = sp => ItemParse.toItem(sp, { weapons: T.WEAPONS || [], armor: T.ARMOR || [] });
 // What it will do on a sheet, in plain words
 function hbPreview(s, it) {
   const L = [], W = T.WEAPONS || [], A = T.ARMOR || [], u = s.use || {}, p = s.passive || {};
@@ -2964,6 +3275,7 @@ function hbPreview(s, it) {
   ['speed', 'fly', 'swim', 'climb'].forEach(k => { if (p[k]) L.push(k === 'speed' ? `Speed +${p[k]} ft` : `${cap(k)} speed ${p[k] === 'walk' ? 'equal to walking' : p[k] + ' ft'}`); });
   if (p.sense) L.push(p.sense); if (p.skillBonus) L.push(p.skillBonus); if (p.init) L.push('Initiative ' + sg(p.init)); if (p.initAdv) L.push('Advantage on initiative'); if (p.maxHp) L.push('Max HP +' + (p.maxHp === 'level' ? 'your level' : p.maxHp)); if (p.adv) L.push('Advantage reminder: ' + p.adv);
   if (s.effect) { const e = s.effect, b = [e.ac ? '+' + e.ac + ' AC' : '', e.fly ? 'fly ' + e.fly + ' ft' : '', e.speed ? '+' + e.speed + ' ft speed' : '', e.skillAdv.length ? 'advantage on ' + e.skillAdv.join(', ') : '', e.note].filter(Boolean); L.push(`Starts “${e.name}”${e.rounds ? ' for ' + (HB_DURS.find(d => d[0] === e.rounds) || [, ''])[1] : ''}${e.conc ? ' (concentration)' : ''}${b.length ? ': ' + b.join(', ') : ''}`); }
+  if (s.onHit) L.push(`On a hit with it: +${s.onHit.dice}${s.onHit.type ? ' ' + s.onHit.type : ''} damage — ${s.onHit.ask ? 'a button on the attack, for when it applies' : 'added every hit'} (doubled on a crit)`);
   if (s.attack) { const a = s.attack; L.push(`Gives an attack: ${a.name} — ${a.dice}${a.type ? ' ' + a.type : ''}, ${a.ab === 'spell' ? 'spell attack' : a.ab.toUpperCase() + ' to hit'}, ${a.kind}${a.range ? ' ' + a.range + ' ft' : ''}${a.addMod ? ', adds the modifier to damage' : ''}`); }
   if (s.curse) { if (s.curse.othersDis) L.push('Curse: disadvantage on attacks with other weapons'); if (s.curse.hurtSave) L.push(`When you take damage: DC ${s.curse.hurtDC || 10} ${s.curse.hurtSave.toUpperCase()} save${s.curse.hurtText ? ' — ' + s.curse.hurtText : ''}`); }
   L.push(s.attune ? `Requires attunement${s.attuneBy ? ' by ' + s.attuneBy : ''} — works once attuned${s.carried ? '' : ' and equipped'}` : s.carried ? 'Works while carried' : it.weapon ? 'Attack shows on the Combat tab once it’s equipped' : 'Works while equipped');
@@ -2980,6 +3292,7 @@ const HB_SHAPE = `{"name": string, "type": one of ${HB_TYPES.map(t => t[0]).join
 "effect": {"name": string, "rounds": "1"|"10"|"100"|"600"|"4800", "fly": int, "ac": int, "speed": int, "skillAdv": [skills], "note": string, "conc": boolean} (a buff the item starts when used),
 "attack": {"name": string, "dice": dice, "type": damage type, "ab": "spell"|"str"|"dex"|"fin"|"con"|"int"|"wis"|"cha", "kind": "melee"|"ranged", "range": int, "addMod": boolean, "note": string} (an extra attack it gives),
 "curse": {"othersDis": boolean, "hurtSave": ability, "hurtDC": int, "hurtText": string},
+"onHit": {"dice": dice, "type": damage type, "ask": boolean} (weapons only: extra damage on a hit; ask=true when it only applies sometimes),
 "carried": boolean (works without being equipped)}`;
 async function hbAI(instr) {
   if (!aiReady()) return toastInfo('Add your AI key in Desk settings to generate items.', [{ label: 'Settings', fn: openSettings }]);
@@ -2988,7 +3301,7 @@ async function hbAI(instr) {
   const prompt = (camp ? `Campaign context (from the DM): ${camp}\n` : '') + base +
     `It must work automatically on a character sheet that only understands the fields below, so express every mechanic with them (bonuses, charges, attached spells by exact name, use rolls/saves/healing, resistances, speeds, effects, an extra attack, curses). Anything the fields can't express goes in "notes" as text.\nWEAPONS: ${(T.WEAPONS || []).map(w => w[0]).join(', ')}\nARMOR: ${(T.ARMOR || []).map(a => a[0]).join(', ')}\nDamage types: ${HB_DT.join(', ')}. Conditions: ${HB_CONDS.join(', ')}.\nReturn JSON in exactly this shape (leave out fields you don't use): ${HB_SHAPE}\nExample: {"name":"Ember Fang","type":"weapon","rarity":"rare","attune":true,"summary":"+1 shortsword that wreathes itself in flame","notes":"…","weapon":{"base":"Shortsword","magic":1},"charges":{"max":3,"reset":"long"},"spells":["Burning Hands"],"passive":{"resist":["fire"]}}`;
   HBM.busy = true; paint();
-  try { const sp = await aiJSON(prompt, shapeHB, { max: 2500 }); HBM.spec = sp; HBM.ai = true; HBM.raw = ''; }
+  try { const sp = await aiJSON(prompt, shapeHB, { max: 2500 }); HBM.read = null; HBM.spec = sp; HBM.ai = true; HBM.raw = ''; }
   catch (e) { toast({ title: 'Item generation didn’t work', det: esc(e.message), cls: 'bad' }); if (e.raw) HBM.raw = String(e.raw).slice(0, 3000); }
   HBM.busy = false; paint();
 }
@@ -3011,15 +3324,15 @@ function hbHTML() {
       <div class="dk-g2"><label><span class="dk-lbl">Attunement</span>${sel('dk-hbA', [['any', 'Either'], ['yes', 'Required'], ['no', 'Not required']], f.attune)}</label><label><span class="dk-lbl">Party level <small>(optional)</small></span><input class="dk-f" id="dk-hbL" type="number" min="1" max="20" inputmode="numeric" value="${esc(f.level)}"></label></div>
       <label><span class="dk-lbl">Campaign context</span><textarea class="dk-f" id="dk-camp" data-ch="camp" rows="2" maxlength="1500" placeholder="Optional">${esc(S.settings.campaign || '')}</textarea></label>
       <button class="dk-btn gold big wide" data-act="hbgen" ${HBM.busy ? 'disabled' : ''}>${HBM.busy ? 'Designing…' : '✦ Generate item'}</button>` : '<p class="dk-hint">Build an item with the sheet’s own automation — bonuses, charges, spells, resistances, attacks. (Turn on the AI helper in Desk settings to have items designed for you.)</p>'}
-      <button class="dk-btn wide" data-act="hbnew">Start from scratch</button></section>
+      <button class="dk-btn wide" data-act="hbpaste">${ICON.paste || '📋'} Paste item text</button><button class="dk-btn wide" data-act="hbnew">Start from scratch</button></section>
     <section class="dk-card dk-hbout">${s ? `<header class="dk-hbhd"><div><h2>${esc(s.name)}</h2><small>${esc(cap(s.rarity))} ${esc((HB_TYPES.find(t => t[0] === s.type) || [, s.type])[1].toLowerCase())}${s.attune ? ' · requires attunement' + (s.attuneBy ? ' by ' + esc(s.attuneBy) : '') : ''}</small></div><button class="dk-btn sm" data-act="hbedit">${HBM.edit ? 'Done editing' : 'Edit fields'}</button></header>
         ${s.summary ? `<p class="dk-intro">${esc(s.summary)}</p>` : ''}${HBM.edit ? hbFormHTML(s) : `<div class="dk-hbprev"><span class="dk-lbl">On a character sheet</span><ul>${hbPreview(s, it).map(l => `<li>${esc(l)}</li>`).join('')}</ul></div>${s.notes ? `<div class="dk-hbnotes"><span class="dk-lbl">Description</span><p>${esc(s.notes)}</p></div>` : ''}`}
-        ${s._dropped && s._dropped.length ? `<p class="dk-hint">Left out (the sheet can’t use it): ${esc(s._dropped.join(', '))}</p>` : ''}${HBM.ai ? '<p class="dk-hint">Designed by AI — check it before you hand it out.</p>' : ''}
+        ${HBM.read && !HBM.edit ? `<div class="dk-hbread"><span class="dk-lbl">Read from the text</span><ul>${HBM.read.done.map(l => `<li>✓ ${esc(l)}</li>`).join('')}</ul>${HBM.read.left.length ? `<ul class="dk-hbleft">${HBM.read.left.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}<p class="dk-hint">Anything else it does is in the description and isn’t automated.</p></div>` : ''}        ${s._dropped && s._dropped.length ? `<p class="dk-hint">Left out (the sheet can’t use it): ${esc(s._dropped.join(', '))}</p>` : ''}${HBM.ai ? '<p class="dk-hint">Designed by AI — check it before you hand it out.</p>' : ''}
         ${ai && s ? `<div class="dk-refine"><input class="dk-f" id="dk-hbRef" maxlength="500" placeholder="Ask for changes — e.g. “make it a ring and drop the curse”"><button class="dk-btn" data-act="hbref" ${HBM.busy ? 'disabled' : ''}>Refine</button></div>` : ''}
         <div class="dk-row dk-hbacts"><button class="dk-btn gold" data-act="hbsave">Save to my desk items</button>${CTX.partyHB ? `<button class="dk-btn gold" data-act="hbparty">Add to ${esc((CTX.party && CTX.party.name) || 'party')} homebrew</button>` : ''}<button class="dk-btn" data-act="hbcopy">Copy as JSON</button></div>`
-      : HBM.raw ? `<details open><summary class="dk-hint">The AI’s reply couldn’t be turned into an item. Here it is as plain text:</summary><pre class="dk-raw">${esc(HBM.raw)}</pre></details>` : `<div class="dk-empty sm"><div class="dk-emblem">✦</div><h2>Items that work on the sheet</h2><p>Every bonus, charge, spell and power is built from the character sheet’s own automation, so it just works when a player adds it.</p></div>`}</section>
+      : HBM.raw ? `<details open><summary class="dk-hint">The AI’s reply couldn’t be turned into an item. Here it is as plain text:</summary><pre class="dk-raw">${esc(HBM.raw)}</pre></details>` : `<div class="dk-empty sm"><div class="dk-emblem">✦</div><h2>Items that work on the sheet</h2><p>Every bonus, charge, spell and power is built from the character sheet’s own automation, so it just works when a player adds it.</p></div>`}</section></div>
     <section class="dk-card dk-hblists"><div class="dk-hbcol"><h2>My desk items</h2>${HBM.mine == null ? '<p class="dk-hint">Loading…</p>' : HBM.mine.length ? HBM.mine.map(d => `<div class="dk-hbrow"><b>${esc((d.data && d.data.spec && d.data.spec.name) || 'Item')}</b><small>${esc(cap(((d.data || {}).spec || {}).rarity || ''))}</small><span class="dk-grow"></span><button class="dk-btn sm" data-act="hbopen" data-id="${esc(d._id)}">Open</button><button class="dk-ix" data-act="hbdel" data-id="${esc(d._id)}" aria-label="Delete">${ICON.trash}</button></div>`).join('') : '<p class="dk-hint">Items you save show up here.</p>'}</div>
-      ${CTX.partyHB ? `<div class="dk-hbcol"><h2>${esc((CTX.party && CTX.party.name) || 'Party')} homebrew</h2><p class="dk-hint">Players see these under Add an item → Homebrew.</p>${HBM.party == null ? '<p class="dk-hint">Loading…</p>' : HBM.party.length ? HBM.party.map(x => `<div class="dk-hbrow"><b>${esc(x.name || 'Item')}</b><small>${esc(cap((x.magic || {}).rarity || ''))}</small><span class="dk-grow"></span><button class="dk-ix" data-act="hbpdel" data-id="${esc(x._pid)}" aria-label="Remove from party">${ICON.trash}</button></div>`).join('') : '<p class="dk-hint">Nothing yet.</p>'}</div>` : ''}</section></div>`;
+      ${CTX.partyHB ? `<div class="dk-hbcol"><h2>${esc((CTX.party && CTX.party.name) || 'Party')} homebrew</h2><p class="dk-hint">Players see these under Add an item → Homebrew.</p>${HBM.party == null ? '<p class="dk-hint">Loading…</p>' : HBM.party.length ? HBM.party.map(x => `<div class="dk-hbrow"><b>${esc(x.name || 'Item')}</b><small>${esc(cap((x.magic || {}).rarity || ''))}</small><span class="dk-grow"></span><button class="dk-ix" data-act="hbpdel" data-id="${esc(x._pid)}" aria-label="Remove from party">${ICON.trash}</button></div>`).join('') : '<p class="dk-hint">Nothing yet.</p>'}</div>` : ''}</section>`;
 }
 function hbFormHTML(s) {
   const I = (k, v, o) => `<label><span class="dk-lbl">${o.l}</span><input class="dk-f" data-hbf="${k}" value="${esc(v == null ? '' : v)}"${o.ph ? ` placeholder="${esc(o.ph)}"` : ''}${o.list ? ` list="${o.list}"` : ''}></label>`;
@@ -3030,7 +3343,8 @@ function hbFormHTML(s) {
     <div class="dk-g2">${I('name', s.name, { l: 'Name' })}${I('summary', s.summary, { l: 'One-line summary' })}</div>
     <div class="dk-g4">${S2('type', s.type, HB_TYPES, 'Type')}${S2('rarity', s.rarity, HB_RAR.map(r => [r, cap(r)]), 'Rarity')}${C('attune', s.attune, 'Requires attunement')}${I('attuneBy', s.attuneBy, { l: 'Attuned by', ph: 'a wizard' })}</div>
     <label><span class="dk-lbl">Description</span><textarea class="dk-f" data-hbf="notes" rows="3">${esc(s.notes || '')}</textarea></label>
-    <fieldset><legend>Weapon or armor</legend><div class="dk-g4">${S2('weapon.base', (s.weapon || {}).base, [['', '—']].concat((T.WEAPONS || []).map(w => [w[0], w[0]])), 'Weapon')}${S2('weapon.magic', (s.weapon || {}).magic || 0, [[0, 'No bonus'], [1, '+1'], [2, '+2'], [3, '+3']], 'Weapon bonus')}${S2('armor.base', (s.armor || {}).base, [['', '—']].concat((T.ARMOR || []).map(x => [x[0], x[0]])), 'Armor')}${S2('armor.magic', (s.armor || {}).magic || 0, [[0, 'No bonus'], [1, '+1'], [2, '+2'], [3, '+3']], 'Armor bonus')}</div></fieldset>
+    <fieldset><legend>Weapon or armor</legend><div class="dk-g4">${S2('weapon.base', (s.weapon || {}).base, [['', '—']].concat((T.WEAPONS || []).map(w => [w[0], w[0]])), 'Weapon')}${S2('weapon.magic', (s.weapon || {}).magic || 0, [[0, 'No bonus'], [1, '+1'], [2, '+2'], [3, '+3']], 'Weapon bonus')}${S2('armor.base', (s.armor || {}).base, [['', '—']].concat((T.ARMOR || []).map(x => [x[0], x[0]])), 'Armor')}${S2('armor.magic', (s.armor || {}).magic || 0, [[0, 'No bonus'], [1, '+1'], [2, '+2'], [3, '+3']], 'Armor bonus')}</div>
+      <div class="dk-g4">${I('onHit.dice', (s.onHit || {}).dice, { l: 'Extra damage on a hit', ph: '2d6' })}${S2('onHit.type', (s.onHit || {}).type || '', [['', '—']].concat(HB_DT.map(x => [x, x])), 'Its type')}${C('onHit.ask', (s.onHit || {}).ask, 'Only sometimes (a button)')}</div></fieldset>
     <fieldset><legend>Bonuses, charges & spells</legend><div class="dk-g4">${I('bonuses.ac', b.ac, { l: 'AC bonus' })}${I('bonuses.saves', b.saves, { l: 'Saves bonus' })}${I('bonuses.spell', b.spell, { l: 'Spell attack & DC bonus' })}${I('charges.max', (s.charges || {}).max, { l: 'Charges' })}</div>
       <div class="dk-g4">${S2('charges.reset', (s.charges || {}).reset || 'long', [['long', 'Long rest (dawn)'], ['short', 'Short rest'], ['none', 'Never']], 'Charges come back')}${I('spells', (s.spells || []).join(', '), { l: 'Spells it casts', list: 'dk-hbspl', ph: 'Burning Hands, …' })}${C('spellOnce', s.spellOnce, 'Leveled spells once per long rest')}${C('spellAtWill', s.spellAtWill, 'At will')}</div>
       <div class="dk-g4">${C('consumable', s.consumable, 'Using it uses one up')}${I('qty', s.qty, { l: 'How many' })}${C('carried', s.carried, 'Works while carried')}</div></fieldset>
@@ -3053,21 +3367,28 @@ function hbReadForm() {
   if (typeof raw.spells === 'string') raw.spells = raw.spells.split(/,\s*/).filter(Boolean);
   const P = raw.passive || {}; ['resist', 'immune', 'condImmune'].forEach(k => { if (typeof P[k] === 'string') P[k] = P[k].split(/,\s*/).filter(Boolean); });
   if (typeof P.skillBonus === 'string') { const sb = {}; P.skillBonus.split(/,\s*/).forEach(x => { const m = /^(.+?)\s*([+-]?\d+)$/.exec(x.trim()); if (m) sb[m[1]] = N(m[2]); }); P.skillBonus = sb; }
-  if (raw.weapon && !raw.weapon.base) delete raw.weapon; if (raw.armor && !raw.armor.base) delete raw.armor;
+  if (raw.weapon && !raw.weapon.base) delete raw.weapon; if (raw.armor && !raw.armor.base) delete raw.armor; if (raw.onHit && !String(raw.onHit.dice || '').trim()) delete raw.onHit;
   const v = shapeHB(raw); if (v) { v._dropped = []; HBM.spec = v; }
 }
 async function onHBAct(act, b) {
   switch (act) {
     case 'hbgen': hbReadInputs(); return hbAI(), true;
     case 'hbref': { const v = ($('#dk-hbRef') || {}).value || ''; if (!v.trim()) return true; hbAI(v); return true; }
-    case 'hbnew': HBM.spec = hbBlank(); HBM.ai = false; HBM.edit = true; paint(); return true;
+    case 'hbnew': HBM.read = null; HBM.spec = hbBlank(); HBM.ai = false; HBM.edit = true; paint(); return true;
+    case 'hbpaste': openModal(`<h2>Paste an item</h2><p class="dk-hint">Paste a magic item from a book, PDF or D&amp;D Beyond — name, the type line, then its text. Bonuses, charges, spells, extra damage, resistances and speeds become the sheet’s automation; the rest stays in the description.</p>
+      <textarea class="dk-f" id="dk-hbPaste" rows="10" placeholder="Flame Tongue&#10;Weapon (any sword), rare (requires attunement)&#10;You can use a bonus action to speak this magic sword’s command word…"></textarea>
+      <div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn gold" id="dk-hbPasteGo">Read item</button></div>`, { wide: true });
+      $('#dk-hbPasteGo').onclick = () => { const r = ItemParse.parse($('#dk-hbPaste').value, { weapons: T.WEAPONS || [], armor: T.ARMOR || [], spells: SPELLN() }); if (!r) return; const v = shapeHB(r.spec); if (!v) return toastInfo('That didn’t look like an item — the first line should be its name.');
+        v._dropped = (v._dropped || []).filter(x => !/^weapon$/.test(x)); HBM.spec = v; HBM.ai = false; HBM.edit = false; HBM.savedId = null; HBM.read = { done: r.done, left: r.left }; closeModal(true); paint(); }; return true;
     case 'hbedit': if (HBM.edit) hbReadForm(); HBM.edit = !HBM.edit; paint(); return true;
-    case 'hbsave': { if (HBM.edit) hbReadForm(); const c = ITEMS(); if (!c || !HBM.spec) return true; const it = itemFromSpec(HBM.spec), id = HBM.savedId || 'h' + uid(); await c.doc(id).set({ savedAt: Date.now(), data: { spec: Object.assign({}, HBM.spec, { _dropped: [] }), item: it } }); HBM.savedId = id; toastInfo(`Saved <b>${esc(it.name)}</b> to your desk items.`); hbLoadLists(); return true; }
+    case 'hbsave': { if (HBM.edit) hbReadForm(); const c = ITEMS(); if (!c || !HBM.spec) return true; const it = itemFromSpec(HBM.spec), id = HBM.savedId || 'h' + uid(); try { await withTimeout(c.doc(id).set({ savedAt: Date.now(), data: { spec: Object.assign({}, HBM.spec, { _dropped: [] }), item: it } })); } catch (e) { toast({ title: 'Couldn’t save the item', det: esc(e.message || ''), cls: 'bad' }); return true; } HBM.savedId = id; toastInfo(`Saved <b>${esc(it.name)}</b> to your desk items.`); hbLoadLists(); return true; }
     case 'hbparty': { if (HBM.edit) hbReadForm(); if (!CTX.partyHB || !HBM.spec) return true; const it = itemFromSpec(HBM.spec); try { await CTX.partyHB.add(JSON.parse(JSON.stringify(it))); toastInfo(`<b>${esc(it.name)}</b> is in your party’s homebrew — players can add it from Add an item → Homebrew.`); hbLoadLists(); } catch (e) { toast({ title: 'Couldn’t add it to the party', det: esc(e.message || ''), cls: 'bad' }); } return true; }
     case 'hbcopy': { if (HBM.edit) hbReadForm(); const t = JSON.stringify(itemFromSpec(HBM.spec), null, 1); try { await navigator.clipboard.writeText(t); toastInfo('Copied the item as JSON.'); } catch (e) { openModal(`<h2>Item JSON</h2><textarea class="dk-f" rows="14" readonly>${esc(t)}</textarea><div class="dk-acts"><button class="dk-btn" data-act="close">Close</button></div>`); } return true; }
-    case 'hbopen': { const d = (HBM.mine || []).find(x => x._id === b.dataset.id); if (d && d.data && d.data.spec) { const v = shapeHB(d.data.spec); if (v) { v._dropped = []; HBM.spec = v; HBM.savedId = d._id; HBM.ai = false; HBM.edit = false; paint(); scrollTo(0, 0); } } return true; }
-    case 'hbdel': confirmBox('Delete this item from your desk?', 'Delete', async () => { const c = ITEMS(); if (c) await c.doc(b.dataset.id).delete(); if (HBM.savedId === b.dataset.id) HBM.savedId = null; hbLoadLists(); }, true); return true;
-    case 'hbpdel': confirmBox('Take this item out of your party’s homebrew? Characters who already have it keep theirs.', 'Remove', async () => { try { await CTX.partyHB.remove(b.dataset.id); } catch (e) {} hbLoadLists(); }, true); return true;
+    case 'hbopen': { const d = (HBM.mine || []).find(x => x._id === b.dataset.id); if (d && d.data && d.data.spec) { const v = shapeHB(d.data.spec); if (v) { HBM.read = null; v._dropped = []; HBM.spec = v; HBM.savedId = d._id; HBM.ai = false; HBM.edit = false; paint(); scrollTo(0, 0); } } return true; }
+    case 'hbdel': { const id = b.dataset.id; confirmBox('Delete this item from your desk?', 'Delete', async () => { const c = ITEMS(); if (!c) return; const keep = HBM.mine; HBM.mine = (HBM.mine || []).filter(x => x._id !== id); if (HBM.savedId === id) HBM.savedId = null; paint();
+      try { await withTimeout(c.doc(id).delete(), 12000, 'Deleting'); toastInfo('Item deleted.'); } catch (e) { HBM.mine = keep; paint(); throw e; } hbLoadLists(); }, true); return true; }
+    case 'hbpdel': { const id = b.dataset.id; confirmBox('Take this item out of your party’s homebrew? Characters who already have it keep theirs.', 'Remove', async () => { if (!CTX.partyHB) return; const keep = HBM.party; HBM.party = (HBM.party || []).filter(x => x._pid !== id); paint();
+      try { await withTimeout(Promise.resolve(CTX.partyHB.remove(id)), 12000, 'Removing'); toastInfo('Removed from your party’s homebrew.'); } catch (e) { HBM.party = keep; paint(); throw e; } hbLoadLists(); }, true); return true; }
   }
   return false;
 }
@@ -3148,5 +3469,129 @@ async function drRoll(ex, label, dc) { ex = String(ex || '').replace(/\s+/g, '')
   const r = await roll({ who: 'DM', label: 'Dice roller: ' + f + (ent.dc != null ? ' vs ' + ent.dc : ''), expr: ex }, ent.dc != null ? { noteFn: t => (t >= ent.dc ? 'Success' : 'Failure') } : {});
   if (r && typeof r.total === 'number') { ent.t = r.total; if (ent.dc != null) ent.ok = r.total >= ent.dc; } else DR.last = DR.last.filter(x => x !== ent);
   drKeep(); drPaint(); }
-window.pgDesk = { hostsParty: true, mount, unmount, _t: () => ({ NT, clean, mdToHtml, htmlToMd, pageByTitle, S, UI, LOG, R20, GEN, NPCG, PLANUI, findInst, analyze, parseStatBlock, toRead, encStats, shapePlan }) };
+// ==== ITEMPARSE START — shared with the DM's Desk (desk/build.sh copies this block into desk.js; edit it only here) ====
+// Magic item text (book, PDF, D&D Beyond, 2014 or 2024 wording) → a spec → a character-sheet item with it.hb automation.
+// ctx: { weapons: DND.weapons rows, armor: DND.armor rows, spells: [spell names] }. No globals used, so both apps can share it.
+const ItemParse = (() => {
+  const n = x => Number(x) || 0, low = s => String(s || '').toLowerCase();
+  const DT = ['acid', 'bludgeoning', 'cold', 'fire', 'force', 'lightning', 'necrotic', 'piercing', 'poison', 'psychic', 'radiant', 'slashing', 'thunder'];
+  const CONDS = ['Blinded', 'Charmed', 'Deafened', 'Frightened', 'Grappled', 'Incapacitated', 'Paralyzed', 'Petrified', 'Poisoned', 'Prone', 'Restrained', 'Stunned', 'Unconscious'];
+  const RAR = ['common', 'uncommon', 'rare', 'very rare', 'legendary', 'artifact'];
+  const WORDN = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, twelve: 12, twenty: 20, fifty: 50 };
+  const LIG = { 'ﬀ': 'ff', 'ﬁ': 'fi', 'ﬂ': 'fl', 'ﬃ': 'ffi', 'ﬄ': 'ffl' };
+  function norm(raw) {
+    let t = String(raw || '').replace(/\r\n?/g, '\n').replace(/[ﬀﬁﬂﬃﬄ]/g, m => LIG[m]).replace(/[­​-‍﻿]/g, '').replace(/[  -  ]/g, ' ')
+      .replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[−‒–]/g, '-').replace(/\t/g, ' ');
+    const L = t.split('\n').map(l => l.replace(/^\s*(?:>\s*)+/, '').replace(/^#{1,6}\s+/, '').replace(/\*\*\*|\*\*|__/g, '').replace(/(^|[\s(])[*_]([^*_]+?)[*_](?=[\s.,;:)]|$)/g, '$1$2').replace(/\s+/g, ' ').trim());
+    for (let i = L.length - 2; i >= 0; i--) if (/[a-z]-$/.test(L[i]) && /^[a-z]/.test(L[i + 1] || '')) { L[i] = L[i].slice(0, -1) + L[i + 1]; L.splice(i + 1, 1); }
+    return L;
+  }
+  const TYPE_RE = /^(weapon|armor|armour|shield|wondrous item|ring|potion|scroll|staff|wand|rod|ammunition)\b\s*(?:\(([^)]*)\))?\s*,?\s*(.*)$/i;
+  const num = s => /^\d+$/.test(s) ? n(s) : WORDN[low(s)] || 0;
+  const cap1 = s => s.charAt(0).toUpperCase() + s.slice(1);
+  function parse(raw, ctx) {
+    ctx = ctx || {}; const W = ctx.weapons || [], A = ctx.armor || [], SP = (ctx.spells || []).slice().sort((a, b) => b.length - a.length);
+    const L = norm(raw).filter(Boolean); if (!L.length) return null;
+    const s = { name: L[0].replace(/[.:]$/, ''), type: 'wondrous', rarity: 'uncommon', attune: false, attuneBy: '', summary: '', notes: '' }, done = [], left = [];
+    let i = 1; const tm = L[1] && TYPE_RE.exec(L[1]);
+    if (tm) {
+      i = 2; let ty = low(tm[1]).replace('armour', 'armor').replace('wondrous item', 'wondrous'); const base = low(tm[2] || ''), rest = low(tm[3] || '');
+      const rm = RAR.slice().reverse().find(r => rest.includes(r)) || (/varies/.test(rest) ? 'rare' : ''); if (rm) s.rarity = rm;
+      const at = /requires attunement(?: by ([^)]+))?/i.exec(L[1]); if (at) { s.attune = true; s.attuneBy = (at[1] || '').replace(/\)$/, '').trim(); }
+      if (ty === 'weapon' || ty === 'ammunition') {
+        const exact = W.find(w => low(w[0]) === base || low(w[0]) === base.replace(/s$/, '')) || W.find(w => base && base.split(/,|\bor\b/).some(b => low(w[0]) === b.trim()));
+        const pick = exact || (/sword/.test(base) ? W.find(w => w[0] === 'Longsword') : /axe/.test(base) ? W.find(w => w[0] === 'Battleaxe') : /bow/.test(base) ? W.find(w => w[0] === 'Longbow') : /ranged/.test(base) ? W.find(w => w[0] === 'Shortbow') : W.find(w => w[0] === 'Longsword'));
+        if (pick) { s.weapon = { base: pick[0], magic: 0 }; if (!exact) left.push(`Base weapon “${tm[2] || 'any'}” — set to ${pick[0]}; change it if you like.`); }
+        s.type = 'weapon';
+      } else if (ty === 'armor' || ty === 'shield') {
+        const exact = ty === 'shield' ? A.find(a => a[0] === 'Shield') : A.find(a => low(a[0]) === base || low(a[0]).replace(/ armor$/, '') === base || low(a[0]) === base + ' armor');
+        const pick = exact || A.find(a => /medium or heavy|heavy/.test(base) ? a[0] === 'Chain Mail' : /light/.test(base) ? a[0] === 'Studded Leather' : /medium/.test(base) ? a[0] === 'Breastplate' : a[0] === 'Chain Mail');
+        if (pick) { s.armor = { base: pick[0], magic: 0 }; if (!exact) left.push(`Base armor “${tm[2] || 'any'}” — set to ${pick[0]}; change it if you like.`); }
+        s.type = 'armor';
+      } else s.type = ty;
+      done.push(`${cap1(s.rarity)} ${s.type === 'wondrous' ? 'wondrous item' : s.type}${s.attune ? ', attunement' + (s.attuneBy ? ' by ' + s.attuneBy : '') : ''}`);
+    }
+    const body = L.slice(i).join(' '), sents = body.split(/(?<=[.!?])\s+(?=[A-Z])/), lb = body.toLowerCase();
+    s.notes = L.slice(i).join('\n');
+    let m;
+    if ((m = /\+(\d) bonus to attack (?:rolls )?and damage rolls/i.exec(body)) && s.weapon) { s.weapon.magic = n(m[1]); done.push(`+${m[1]} to attack and damage`); }
+    const acm = /\+(\d) bonus to (?:your )?(?:AC|Armor Class)( and (?:to )?saving throws)?/i.exec(body);
+    if (acm) { if (s.armor && !acm[2]) s.armor.magic = n(acm[1]); else { s.bonuses = s.bonuses || {}; s.bonuses.ac = n(acm[1]); } if (acm[2]) { s.bonuses = s.bonuses || {}; s.bonuses.saves = n(acm[1]); } done.push(`+${acm[1]} AC${acm[2] ? ' and saves' : ''}`); }
+    if (!acm || !acm[2]) { const sm = /\+(\d) bonus to (?:all )?saving throws/i.exec(body); if (sm) { s.bonuses = s.bonuses || {}; s.bonuses.saves = n(sm[1]); done.push(`+${sm[1]} to saves`); } }
+    if ((m = /\+(\d) bonus to spell attack rolls/i.exec(body))) { s.bonuses = s.bonuses || {}; s.bonuses.spell = n(m[1]); done.push(`+${m[1]} spell attack${/saving throw DCs?|save DC/i.test(body) ? ' and DC' : ''}`); }
+    if ((m = /has (\d+|[a-z]+) charges/i.exec(body)) && num(m[1])) {
+      const reset = /at dawn|each dawn|daily/i.test(body) ? 'long' : /short or long rest|short rest/i.test(body) ? 'short' : /long rest/i.test(body) ? 'long' : 'none';
+      s.charges = { max: num(m[1]), reset }; const rg = /regains? (all expended charges|\d+d\d+(?:\s*\+\s*\d+)?|\d+) (?:expended )?charges?/i.exec(body);
+      done.push(`${num(m[1])} charges${reset === 'none' ? '' : ', back ' + (reset === 'short' ? 'after a short rest' : 'at dawn')}${rg && !/all/i.test(rg[1]) ? ` (regains ${rg[1].replace(/\s+/g, '')} — the sheet refills all of them)` : ''}`);
+    }
+    // spells it casts (in sentences about casting), with their charge costs kept as a note
+    const spells = [], costs = [];
+    sents.filter(x => /\bcast\b|\bcasting\b/i.test(x)).forEach(x => { let rest = x;
+      for (const nm of SP) { const re = new RegExp('\\b' + nm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b(\\s*\\(([^)]*)\\))?', 'i'); const k = re.exec(rest); if (!k) continue;
+        if (/^(light|shield|fly|wish|command|sleep|bless|guidance|resistance|identify|message)$/i.test(nm) && !new RegExp('\\b' + nm + '\\b(?:\\s*spell|\\s*\\(|,|\\s+or\\b|\\s+and\\b|\\.)', 'i').test(rest.slice(k.index))) continue;
+        if (!spells.includes(nm)) spells.push(nm); if (k[2] && /charge/i.test(k[2])) costs.push(`${nm}: ${k[2]}`); rest = rest.slice(0, k.index) + ' ' + rest.slice(k.index + k[0].length); } });
+    spells.sort((a, b) => lb.indexOf(low(a)) - lb.indexOf(low(b))); costs.sort((a, b) => lb.indexOf(low(a.split(':')[0])) - lb.indexOf(low(b.split(':')[0])));
+    if (spells.length) { s.spells = spells.slice(0, 8); if (/can't (?:be used|do so) (?:this way )?again until the next dawn|once per (?:day|long rest)|1\/day/i.test(body) && !s.charges) s.spellOnce = true; done.push('Casts ' + s.spells.join(', ') + (costs.length ? ' (' + costs.join('; ') + ')' : '')); }
+    if (costs.length) s.notes += '\nCharge costs: ' + costs.join('; ') + '.';
+    // extra damage on a hit → an add-on to this weapon's attacks
+    if ((m = /(?:deals?|takes?) an extra (\d+d\d+(?:\s*\+\s*\d+)?)\s+([a-z]+) damage/i.exec(body)) && DT.includes(low(m[2]))) {
+      const sent = sents.find(x => x.includes(m[0])) || '', ask = /\b(while|if|when you hit (?:a|an) |against|whenever)\b/i.test(sent.slice(0, sent.indexOf(m[0]) + 1));
+      s.onHit = { dice: m[1].replace(/\s+/g, ''), type: low(m[2]), ask }; done.push(`On a hit: +${s.onHit.dice} ${s.onHit.type}${ask ? ' (a button — you choose when it applies)' : ''}`);
+    }
+    const P = {};
+    const typesIn = t => DT.filter(d => new RegExp('\\b' + d + '\\b').test(low(t)));
+    for (const k of body.matchAll(/resistance to ([a-z ,]+?) damage/gi)) { const ts = typesIn(k[1]); if (ts.length && !/all damage/i.test(k[0])) P.resist = (P.resist || []).concat(ts); }
+    for (const k of body.matchAll(/immun(?:e|ity) to ([a-z ,]+?) damage/gi)) { const ts = typesIn(k[1]); if (ts.length) P.immune = (P.immune || []).concat(ts); }
+    for (const k of body.matchAll(/(?:can't be|immune to being|immunity to being|immune to the) (charmed|frightened|poisoned|paralyzed|stunned|blinded|deafened|petrified|restrained|grappled)/gi)) P.condImmune = (P.condImmune || []).concat(cap1(low(k[1])));
+    if ((m = /flying speed (?:of (\d+) feet|equal to your walking speed)/i.exec(body))) P.fly = m[1] ? n(m[1]) : 'walk';
+    if ((m = /swimming speed (?:of (\d+) feet|equal to your walking speed)/i.exec(body))) P.swim = m[1] ? n(m[1]) : 'walk';
+    if ((m = /climbing speed (?:of (\d+) feet|equal to your walking speed)/i.exec(body))) P.climb = m[1] ? n(m[1]) : 'walk';
+    if ((m = /(?:walking )?speed increases by (\d+) feet/i.exec(body))) P.speed = n(m[1]);
+    if ((m = /darkvision (?:out )?to a range of (\d+) feet|darkvision (?:with a range of )?(\d+) feet/i.exec(body))) P.sense = 'Darkvision ' + (m[1] || m[2]) + ' ft';
+    const adv = sents.filter(x => /\byou have advantage on\b|\bgives? you advantage\b/i.test(x)).map(x => x.replace(/^.*?advantage on /i, '').replace(/[.,;]?\s*as the .*$|\.$/i, '').trim()).filter(Boolean);
+    if (adv.length) P.adv = adv.join('; ').slice(0, 200);
+    if (Object.keys(P).length) { Object.keys(P).forEach(k => { if (Array.isArray(P[k])) P[k] = Array.from(new Set(P[k])); }); s.passive = P;
+      done.push([P.resist && 'Resist ' + P.resist.join(', '), P.immune && 'Immune ' + P.immune.join(', '), P.condImmune && "Can't be " + P.condImmune.join(', ').toLowerCase(), P.fly && 'Fly ' + P.fly, P.swim && 'Swim ' + P.swim, P.climb && 'Climb ' + P.climb, P.speed && 'Speed +' + P.speed, P.sense, P.adv && 'Advantage: ' + P.adv].filter(Boolean).join(' · ')); }
+    // potions and scrolls are used up; healing potions heal
+    if (s.type === 'potion' || s.type === 'scroll') { s.consumable = true; s.qty = 1; }
+    if ((m = /regains? (\d+d\d+(?:\s*\+\s*\d+)?|\d+) hit points/i.exec(body)) && (s.consumable || /\bdrink\b/i.test(body))) { s.use = Object.assign(s.use || {}, { heal: m[1].replace(/\s+/g, ''), col: /bonus action/i.test(body) && !/action to (?:drink|administer)/i.test(body) ? 'bonus' : 'action' }); done.push('Heals ' + s.use.heal + ' when used'); }
+    else if (s.consumable) s.use = Object.assign(s.use || {}, { col: 'action' });
+    if (/\bcurse[ds]?\b/i.test(body)) { left.push('It’s cursed — the curse is in the description.'); if (/disadvantage on attack rolls (?:made )?with weapons other than/i.test(body)) s.curse = { othersDis: true }; }
+    if (/while (?:you're |you are )?(?:wearing|carrying|holding)|while it is on your person|while you carry/i.test(body) && !s.weapon && !s.armor && /carrying|on your person|carry/i.test(body)) s.carried = true;
+    s.summary = (sents[0] || '').slice(0, 200);
+    return { spec: s, done, left };
+  }
+  // spec → the sheet's item object (what S.inventory / S.customItems hold)
+  function toItem(s, ctx) {
+    ctx = ctx || {}; const W = ctx.weapons || [], A = ctx.armor || [], it = { name: s.name, qty: s.qty || 1, weight: s.weight || 0, cost: s.cost || '', equipped: false, notes: s.notes || '' }, hb = {}, mods = {};
+    if (s.summary) it.summary = s.summary;
+    it.magic = { rarity: s.rarity, type: s.type === 'armor' && s.armor && s.armor.base === 'Shield' ? 'shield' : s.type, src: 'Homebrew', name: s.name };
+    if (s.attune) { it.attune = true; it.attuneBy = s.attuneBy || ''; it.attuned = false; }
+    if (s.weapon) { const w = W.find(x => x[0] === s.weapon.base); if (w) { it.weapon = { cat: w[1], kind: w[2], dice: w[4], type: w[5], props: (w[7] || []).slice(), range: w[8] || '', base: w[0] }; if (!s.weight) it.weight = w[6]; if (s.weapon.magic) { mods.atk = s.weapon.magic; mods.dmg = s.weapon.magic; } } }
+    if (s.armor) { const a = A.find(x => x[0] === s.armor.base); if (a) { it.armor = { type: a[1], base: a[3], dexCap: a[4], strReq: a[5], stealthDis: a[6] }; if (!s.weight) it.weight = a[7]; if (s.armor.magic) mods.ac = s.armor.magic; } }
+    if (s.bonuses) { if (s.bonuses.ac) mods.ac = n(mods.ac) + s.bonuses.ac; if (s.bonuses.saves) mods.save = s.bonuses.saves; if (s.bonuses.spell) mods.spell = s.bonuses.spell; }
+    if (Object.keys(mods).length) it.mods = mods;
+    it.hbType = it.weapon ? 'weapon' : s.consumable ? 'consumable' : 'magic';
+    if (s.charges) it.charges = { max: s.charges.max, used: 0, reset: s.charges.reset };
+    if (s.spells && s.spells.length) { it.spells = s.spells.slice(); if (s.spellOnce) it.spellOnce = true; if (s.spellAtWill) it.spellAtWill = true; if (s.spellAb) hb.spellAb = s.spellAb; }
+    if (s.consumable) { hb.consume = true; if (s.type === 'potion' || s.type === 'scroll') it.consumable = true; }
+    const u = s.use || {}; if (u.col) hb.col = u.col; if (u.roll) hb.roll = u.roll; if (u.rollNote) hb.rollNote = u.rollNote; if (u.healRoll) hb.healRoll = true; if (u.selfDmg) hb.selfDmg = true;
+    if (u.heal) { hb.heal = u.heal; if (s.type === 'potion') it.heal = u.heal; } if (u.temp) hb.temp = u.temp; if (u.saveAb) { hb.saveAb = u.saveAb; hb.dc = String(u.dc || 'spell'); } if (u.dash) hb.dash = true; if (u.text) hb.text = u.text;
+    const p = s.passive || {}; ['resist', 'immune', 'condImmune'].forEach(k => { if (p[k] && p[k].length) hb[k] = p[k].join(', '); });
+    ['speed', 'fly', 'swim', 'climb', 'sense', 'skillBonus', 'adv'].forEach(k => { if (p[k]) hb[k] = String(p[k]); }); if (p.init) hb.init = String(p.init); if (p.initAdv) hb.initAdv = true; if (p.maxHp) hb.maxHp = String(p.maxHp);
+    const e = s.effect; if (e) { hb.effName = e.name; if (e.rounds) hb.effRounds = e.rounds; if (e.fly) hb.effFly = String(e.fly); if (e.ac) hb.effAc = String(e.ac); if (e.speed) hb.effSpeed = String(e.speed); if (e.skillAdv && e.skillAdv.length) hb.effSkillAdv = e.skillAdv.join(', '); if (e.note) hb.effNote = e.note; if (e.conc) hb.effConc = true; if (!hb.col) hb.col = 'action'; }
+    const a = s.attack; if (a) { hb.atkName = a.name; hb.atkDice = a.dice; if (a.type) hb.atkType = a.type; hb.atkAb = a.ab; hb.atkKind = a.kind; if (a.range) hb.atkRange = String(a.range); if (a.addMod) hb.atkAddMod = true; if (a.note) hb.atkNote = a.note; }
+    const c = s.curse; if (c) { if (c.othersDis) hb.othersDis = true; if (c.hurtSave) { hb.hurtSave = c.hurtSave; hb.hurtDC = String(c.hurtDC || 10); if (c.hurtText) hb.hurtText = c.hurtText; } }
+    // extra damage on a hit rides on this weapon's own attack (the sheet's add-ons)
+    const oh = s.onHit; if (oh && oh.dice) { hb.on = 'name:' + s.name; hb.onDmg = oh.dice; if (oh.type) hb.onType = oh.type; hb.onAsk = oh.ask ? '' : 'false'; hb.onCost = 'none'; }
+    if (s.carried) it.carried = true;
+    if (it.weapon) it.noEquip = false;
+    if (!it.weapon && (hb.col || it.charges || hb.consume) && !hb.text) { hb.text = String(s.summary || s.notes || '').slice(0, 400) || 'You use ' + s.name + '.'; hb.textAuto = 1; }
+    if (Object.keys(hb).length) it.hb = hb;
+    return it;
+  }
+  return { parse, toItem, norm, DT, CONDS };
+})();
+// ==== ITEMPARSE END ====
+window.pgDesk = { hostsParty: true, mount, unmount, _t: () => ({ NT, clean, mdToHtml, htmlToMd, pageByTitle, S, UI, LOG, R20, GEN, NPCG, PLANUI, findInst, analyze, parseStatBlock, parseStatBlocks, normPaste, parseMulti, casterInfo, toRead, encStats, shapePlan }) };
 })();

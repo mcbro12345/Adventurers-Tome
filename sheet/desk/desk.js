@@ -958,7 +958,8 @@ function restInst(inst) { inst.turn = null; inst.used = {}; inst.spent = {}; ins
 // Whoever changed HP last wins: the desk stamps hpAt when it writes a row; the Turn order stamps hpAt when the DM edits HP there.
 const toKey = () => CTX && CTX.party && CTX.party.id ? 'pg-turn:' + CTX.party.id : '';
 function toRead() { const k = toKey(); if (!k) return null; let t = null; try { t = JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) {} t = t && typeof t === 'object' ? t : {}; if (!Array.isArray(t.rows)) t.rows = []; if (!t.round) t.round = 1; return t; }
-function toWrite(t) { const k = toKey(); if (!k) return; try { localStorage.setItem(k, JSON.stringify(t)); } catch (e) {} }
+// (the party page's Turn order can be in this same page — the desk's Party tab — where real storage events don't fire, so it's told directly)
+function toWrite(t) { const k = toKey(); if (!k) return; try { localStorage.setItem(k, JSON.stringify(t)); } catch (e) {} try { window.dispatchEvent(new StorageEvent('storage', { key: k })); } catch (e) {} }
 const inTurn = iid => { const t = toRead(); return !!(t && t.rows.some(r => r.desk === iid)); };
 function readTurnHP() {
   const t = toRead(); if (!t) return false; let ch = false;
