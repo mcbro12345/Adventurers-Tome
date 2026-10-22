@@ -851,3 +851,24 @@ function postSheetRoll(t) {
   else if (total !== '') lines.push(`**${clean(lbl ? cap(lbl) : 'Result')}:** [[${N(total)}]]${dmg ? ` · **Damage:** [[${N(dmg)}]] ${clean(dtype)}` : ''}`);
   if (lines.length > 1) r20Post(lines).catch(() => {});
 }
+// Header with Player/Race/Background/Alignment/Faith all off (desktop): the portrait shrinks to the height of the
+// name and subtitle, so its top lines up with the top of the name and the header gets shorter.
+(() => {
+  let ro = null;
+  const fit = () => {
+    const h = document.getElementById('sec-header'); if (!h) return;
+    const pw = h.querySelector('.portrait-wrap'), id = h.querySelector('.ident.noid'), nb = id && id.querySelector('.namebox');
+    if (!pw) return;
+    if (!nb || document.documentElement.classList.contains('mobile')) { pw.style.width = pw.style.height = ''; return; }
+    const s = Math.round(Math.max(64, Math.min(148, nb.getBoundingClientRect().height)));
+    if (pw.style.width !== s + 'px') pw.style.width = pw.style.height = s + 'px';
+  };
+  const wire = () => {
+    const h = document.getElementById('sec-header'); if (!h) return setTimeout(wire, 300);
+    ro = new ResizeObserver(fit);
+    new MutationObserver(() => { ro.disconnect(); const nb = h.querySelector('.namebox'); if (nb) ro.observe(nb); fit(); }).observe(h, { childList: true });
+    const nb = h.querySelector('.namebox'); if (nb) ro.observe(nb); fit();
+    addEventListener('resize', fit);
+  };
+  wire();
+})();

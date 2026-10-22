@@ -2055,3 +2055,4 @@ html.mobile .pg-out.closing .pg-out-card { animation: pgSink .22s cubic-bezier(.
 /* Phones: bottom sheets carry on a little past the bottom edge, so no sliver of the page shows under them (scaled phone view, rounding) */
 html.mobile :is(.pg-out, .modal-bg, body.hubbody .hub-modal) { bottom: -6px !important; }
 html.mobile :is(.pg-out .pg-out-card, .modal-bg > .modal, body.hubbody .hub-modal > *) { margin-bottom: 0 !important; }
+html.pgmw .mw-head b { font-size: 1.15rem !important; line-height: 1.4 !important; padding-bottom: 1px; }
