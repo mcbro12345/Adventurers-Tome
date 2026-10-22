@@ -3282,3 +3282,8 @@ html.mobile.kbup .drwin { max-height: calc(var(--vvh, 100vh) - 8px); }
 html.mobile.kbup .mtab { display: none; }
 /* Scrolling inside a window never scrolls the page behind it */
 .pcwin, .drwin, .pcw-body, .ptychat-l, .mtab-menu, .mtab-card { overscroll-behavior: contain; }
+.mtab, .mtab-b, .mtab-menu { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.mtab-b { touch-action: none; }
+.mtab-b.held { transform: scale(.97); }
+.mtab-t.hov { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 26%, var(--panel2)); transform: scale(1.04) !important; }
+html.mobile .pip { position: relative; } html.mobile .pip::after { content: ""; position: absolute; inset: -5px; }

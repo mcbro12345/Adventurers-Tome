@@ -485,13 +485,29 @@ function mtabOpen() { if (document.getElementById('mtabmenu')) return mtabClose(
   try { navigator.vibrate && navigator.vibrate(6); } catch (x) {} }
 function mtabClose(now) { const m = document.getElementById('mtabmenu'); document.documentElement.classList.remove('mtab-open'); const b = document.querySelector('.mtab-b'); if (b) b.setAttribute('aria-expanded', 'false'); if (!m) return;
   m.id = ''; if (now || matchMedia('(prefers-reduced-motion: reduce)').matches) return m.remove(); m.classList.remove('in'); m.classList.add('out'); setTimeout(() => m.remove(), 220); }
-function mtabWire(el) { let sx = null, sy = 0, moved = false;
-  el.addEventListener('pointerdown', e => { if (!e.isPrimary) return; sx = e.clientX; sy = e.clientY; moved = false; });
-  el.addEventListener('pointermove', e => { if (sx == null) return; const dx = e.clientX - sx; if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(e.clientY - sy)) { moved = true; el.querySelector('.mtab-b').style.transform = `translateX(${Math.max(-40, Math.min(40, dx / 2))}px)`; } });
-  const end = e => { if (sx == null) return; const dx = e.clientX - sx; sx = null; const b = el.querySelector('.mtab-b'); if (b) b.style.transform = '';
-    if (moved && Math.abs(dx) > 50) { const ts = mtabTabs(), i = ts.findIndex(t => t.on), n = ts[i + (dx < 0 ? 1 : -1)]; if (n) { try { navigator.vibrate && navigator.vibrate(4); } catch (x) {} mtabGo(n.k); } } };
+// Tap: open the tab grid. Swipe sideways: next / previous tab. Press and hold: the grid opens under your finger; slide
+// onto a tab and let go to switch to it (let go anywhere else to keep it open).
+function mtabWire(el) { let st = null;
+  const tileAt = (x, y) => { const t = document.elementFromPoint(x, y); return t && t.closest ? t.closest('#mtabmenu .mtab-t') : null; };
+  const hover = t => { document.querySelectorAll('.mtab-t.hov').forEach(x => { if (x !== t) x.classList.remove('hov'); }); if (t && !t.classList.contains('hov')) { t.classList.add('hov'); try { navigator.vibrate && navigator.vibrate(4); } catch (x) {} } };
+  el.addEventListener('contextmenu', e => e.preventDefault());
+  el.addEventListener('pointerdown', e => { if (!e.isPrimary || !e.target.closest('.mtab-b')) return; const b = e.target.closest('.mtab-b');
+    st = { id: e.pointerId, x: e.clientX, y: e.clientY, mode: '', b, wasOpen: !!document.getElementById('mtabmenu') };
+    try { b.setPointerCapture(e.pointerId); } catch (x) {}
+    st.t = setTimeout(() => { if (!st || st.mode) return; st.mode = 'hold'; if (!document.getElementById('mtabmenu')) mtabOpen(); b.classList.add('held'); }, 320); });
+  el.addEventListener('pointermove', e => { if (!st || e.pointerId !== st.id) return; const dx = e.clientX - st.x, dy = e.clientY - st.y;
+    if (!st.mode && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) { st.mode = 'swipe'; clearTimeout(st.t); }
+    if (!st.mode && dy < -18) { st.mode = 'hold'; clearTimeout(st.t); if (!document.getElementById('mtabmenu')) mtabOpen(); st.b.classList.add('held'); }
+    if (st.mode === 'swipe') st.b.style.transform = `translateX(${Math.max(-40, Math.min(40, dx / 2))}px)`;
+    if (st.mode === 'hold') hover(tileAt(e.clientX, e.clientY)); });
+  const end = e => { if (!st || e.pointerId !== st.id) return; const s0 = st; st = null; clearTimeout(s0.t); s0.b.style.transform = ''; s0.b.classList.remove('held');
+    const dx = e.clientX - s0.x;
+    if (s0.mode === 'swipe') { if (e.type !== 'pointercancel' && Math.abs(dx) > 50) { const ts = mtabTabs(), i = ts.findIndex(t => t.on), n = ts[i + (dx < 0 ? 1 : -1)]; if (n) { try { navigator.vibrate && navigator.vibrate(4); } catch (x) {} mtabGo(n.k); } } return; }
+    if (s0.mode === 'hold') { const t = e.type === 'pointercancel' ? null : tileAt(e.clientX, e.clientY); hover(null); if (t) { const k = t.dataset.mt; mtabClose(); setTimeout(() => mtabGo(k), 60); } return; }
+    if (e.type !== 'pointercancel') { if (s0.wasOpen) mtabClose(); else mtabOpen(); } };
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
-  el.addEventListener('click', e => { if (moved) { moved = false; e.preventDefault(); return; } if (e.target.closest('.mtab-b')) mtabOpen(); }); }
+  // keyboard (and screen readers): Enter / Space on the button opens the grid
+  el.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('.mtab-b')) { e.preventDefault(); mtabOpen(); } }); }
 addEventListener('resize', () => { clearTimeout(mtabSync.t); mtabSync.t = setTimeout(mtabSync, 150); });
 // The highlight under the selected tab slides from the previous tab to the new one.
 let _tabIndPrev = null;

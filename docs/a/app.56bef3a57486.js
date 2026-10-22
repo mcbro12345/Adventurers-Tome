@@ -1662,8 +1662,61 @@ function renderTabs() {
   }).join('') + '<span class="tab-ind" aria-hidden="true"></span>';
   tabOrder().forEach(([k]) => { const pg = $('#page-' + k); if (pg) pg.classList.toggle('on', UI.tab === k); });
   if (UI.tab !== 'party' && $('#page-party')) $('#page-party').classList.remove('on');
-  slideTabInd();
+  slideTabInd(); mtabSync();
 }
+// Phones: instead of a strip of nine squeezed tabs, one roomy button at the bottom shows the tab you're on. Tap it and
+// the other tabs open upward as a grid of big tiles; tap one to go there (or tap outside to close). Swiping sideways on
+// the button steps to the next or previous tab. The real tab bar stays underneath, so everything else works as before.
+const MTAB_CHEV = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>';
+function mtabTabs() { return [...document.querySelectorAll('#tabs .tab')].map(b => ({ k: b.dataset.tab, b, on: b.classList.contains('on'), unread: b.classList.contains('unread'), ic: (b.querySelector('.ticon') || {}).innerHTML || '', label: (b.querySelector('.tlabel') || {}).textContent || b.dataset.tab, count: (b.querySelector('.tabcount') || {}).textContent || '' })); }
+function mtabSync() {
+  let el = document.getElementById('mtab');
+  if (!isMobile() || UI.editLayout) { if (el) el.remove(); mtabClose(true); document.documentElement.classList.remove('mtabs'); return; }
+  document.documentElement.classList.add('mtabs');
+  if (!el) { el = document.createElement('div'); el.id = 'mtab'; el.className = 'mtab'; document.body.appendChild(el); mtabWire(el); }
+  const ts = mtabTabs(), cur = ts.find(t => t.on) || ts[0]; if (!cur) return; const i = ts.indexOf(cur), other = ts.some(t => t.unread && !t.on);
+  el.innerHTML = `<button class="mtab-b${other ? ' unread' : ''}" aria-haspopup="menu" aria-expanded="${!!document.getElementById('mtabmenu')}" aria-label="${esc(cur.label)} — ${i + 1} of ${ts.length}. Choose a tab"><span class="mtab-ic" aria-hidden="true">${cur.ic}</span><span class="mtab-l">${esc(cur.label)}</span><span class="mtab-dots" aria-hidden="true">${ts.map(t => `<i${t.on ? ' class="on"' : ''}></i>`).join('')}</span><span class="mtab-chev">${MTAB_CHEV}</span></button>`;
+  const m = document.getElementById('mtabmenu'); if (m) mtabFill(m);
+}
+function mtabFill(m) { const ts = mtabTabs();
+  m.querySelector('.mtab-grid').innerHTML = ts.map((t, i) => `<button class="mtab-t${t.on ? ' on' : ''}${t.unread ? ' unread' : ''}" role="menuitem" data-mt="${esc(t.k)}" style="--i:${i}"${t.on ? ' aria-current="page"' : ''}><span class="mtab-tic" aria-hidden="true">${t.ic}</span><span class="mtab-tl">${esc(t.label)}</span>${t.count ? `<span class="mtab-cnt">${esc(t.count)}</span>` : ''}</button>`).join(''); }
+function mtabGo(k) { const b = document.querySelector(`#tabs .tab[data-tab="${CSS.escape(k)}"]`); if (b && !b.classList.contains('on')) b.click(); }
+function mtabOpen() { if (document.getElementById('mtabmenu')) return mtabClose();
+  const m = document.createElement('div'); m.id = 'mtabmenu'; m.className = 'mtab-menu';
+  m.innerHTML = `<div class="mtab-back"></div><div class="mtab-card" role="menu" aria-label="Tabs"><div class="mtab-grid"></div></div>`; mtabFill(m); if (typeof winNoBleed === 'function') winNoBleed(m); document.body.appendChild(m);
+  requestAnimationFrame(() => m.classList.add('in')); document.documentElement.classList.add('mtab-open');
+  const b = document.querySelector('.mtab-b'); if (b) b.setAttribute('aria-expanded', 'true');
+  m.querySelector('.mtab-back').onclick = () => mtabClose();
+  m.addEventListener('click', e => { const t = e.target.closest('[data-mt]'); if (!t) return; const k = t.dataset.mt; mtabClose(); setTimeout(() => mtabGo(k), 60); });
+  m.addEventListener('keydown', e => { if (e.key === 'Escape') { mtabClose(); const bb = document.querySelector('.mtab-b'); if (bb) bb.focus(); } });
+  setTimeout(() => { const on = m.querySelector('.mtab-t.on') || m.querySelector('.mtab-t'); if (on) on.focus({ preventScroll: true }); }, 30);
+  try { navigator.vibrate && navigator.vibrate(6); } catch (x) {} }
+function mtabClose(now) { const m = document.getElementById('mtabmenu'); document.documentElement.classList.remove('mtab-open'); const b = document.querySelector('.mtab-b'); if (b) b.setAttribute('aria-expanded', 'false'); if (!m) return;
+  m.id = ''; if (now || matchMedia('(prefers-reduced-motion: reduce)').matches) return m.remove(); m.classList.remove('in'); m.classList.add('out'); setTimeout(() => m.remove(), 220); }
+// Tap: open the tab grid. Swipe sideways: next / previous tab. Press and hold: the grid opens under your finger; slide
+// onto a tab and let go to switch to it (let go anywhere else to keep it open).
+function mtabWire(el) { let st = null;
+  const tileAt = (x, y) => { const t = document.elementFromPoint(x, y); return t && t.closest ? t.closest('#mtabmenu .mtab-t') : null; };
+  const hover = t => { document.querySelectorAll('.mtab-t.hov').forEach(x => { if (x !== t) x.classList.remove('hov'); }); if (t && !t.classList.contains('hov')) { t.classList.add('hov'); try { navigator.vibrate && navigator.vibrate(4); } catch (x) {} } };
+  el.addEventListener('contextmenu', e => e.preventDefault());
+  el.addEventListener('pointerdown', e => { if (!e.isPrimary || !e.target.closest('.mtab-b')) return; const b = e.target.closest('.mtab-b');
+    st = { id: e.pointerId, x: e.clientX, y: e.clientY, mode: '', b, wasOpen: !!document.getElementById('mtabmenu') };
+    try { b.setPointerCapture(e.pointerId); } catch (x) {}
+    st.t = setTimeout(() => { if (!st || st.mode) return; st.mode = 'hold'; if (!document.getElementById('mtabmenu')) mtabOpen(); b.classList.add('held'); }, 320); });
+  el.addEventListener('pointermove', e => { if (!st || e.pointerId !== st.id) return; const dx = e.clientX - st.x, dy = e.clientY - st.y;
+    if (!st.mode && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) { st.mode = 'swipe'; clearTimeout(st.t); }
+    if (!st.mode && dy < -18) { st.mode = 'hold'; clearTimeout(st.t); if (!document.getElementById('mtabmenu')) mtabOpen(); st.b.classList.add('held'); }
+    if (st.mode === 'swipe') st.b.style.transform = `translateX(${Math.max(-40, Math.min(40, dx / 2))}px)`;
+    if (st.mode === 'hold') hover(tileAt(e.clientX, e.clientY)); });
+  const end = e => { if (!st || e.pointerId !== st.id) return; const s0 = st; st = null; clearTimeout(s0.t); s0.b.style.transform = ''; s0.b.classList.remove('held');
+    const dx = e.clientX - s0.x;
+    if (s0.mode === 'swipe') { if (e.type !== 'pointercancel' && Math.abs(dx) > 50) { const ts = mtabTabs(), i = ts.findIndex(t => t.on), n = ts[i + (dx < 0 ? 1 : -1)]; if (n) { try { navigator.vibrate && navigator.vibrate(4); } catch (x) {} mtabGo(n.k); } } return; }
+    if (s0.mode === 'hold') { const t = e.type === 'pointercancel' ? null : tileAt(e.clientX, e.clientY); hover(null); if (t) { const k = t.dataset.mt; mtabClose(); setTimeout(() => mtabGo(k), 60); } return; }
+    if (e.type !== 'pointercancel') { if (s0.wasOpen) mtabClose(); else mtabOpen(); } };
+  el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+  // keyboard (and screen readers): Enter / Space on the button opens the grid
+  el.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('.mtab-b')) { e.preventDefault(); mtabOpen(); } }); }
+addEventListener('resize', () => { clearTimeout(mtabSync.t); mtabSync.t = setTimeout(mtabSync, 150); });
 // The highlight under the selected tab slides from the previous tab to the new one.
 let _tabIndPrev = null;
 function slideTabInd() {
@@ -7946,10 +7999,11 @@ function ptyChatWire() {
 // bottom). It stays open on every tab until it's closed or brought back.
 function ptyChatWin() {
   const ch = PTYX() && PTYX().chat; let w = $('#pcwin');
-  if (!UI.chatPop || !ch || !ch.on()) { if (w) w.remove(); return; }
+  if (!UI.chatPop || !ch || !ch.on()) { if (w) winClose(w); return; }
   if (w) return;
+  if (isMobile()) { const d = $('#drwin'); if (d) winClose(d); }
   let pos = null; try { pos = JSON.parse(localStorage.getItem('dnd-pcwin') || 'null'); } catch (e) {}
-  w = document.createElement('div'); w.id = 'pcwin'; w.className = 'pcwin'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Party chat');
+  w = document.createElement('div'); w.id = 'pcwin'; w.className = 'pcwin'; winNoBleed(w); w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Party chat');
   w.innerHTML = `<div class="pcw-head"><b>Party chat</b><button class="pcw-b" data-pcw="x" title="Close" aria-label="Close">✕</button></div><div class="pcw-body">${ptyChatInner()}</div>`;
   document.body.appendChild(w);
   const W = innerWidth, H = innerHeight; if (pos && pos.h) w.style.height = Math.max(260, Math.min(H - 20, pos.h)) + 'px'; if (pos && pos.w) w.style.width = Math.max(280, Math.min(W - 12, pos.w)) + 'px'; const r = w.getBoundingClientRect();
@@ -7969,7 +8023,21 @@ function ptyChatWin() {
   w.addEventListener('click', e => { const b = e.target.closest('[data-pcw]'); if (b) ptyChatDock(); });
 }
 function ptyChatPopOut() { try { const p = JSON.parse(localStorage.getItem('dnd-pcwin') || 'null'); if (p) localStorage.setItem('dnd-pcwin', JSON.stringify({ h: p.h, w: p.w })); } catch (e) {} UI.chatPop = true; if (typeof saveUI === 'function') saveUI(); render('party'); ptyChatWin(); setTimeout(() => { const i = $('#ptychat-in'); if (i) i.focus(); }, 60); }
-function ptyChatDock() { UI.chatPop = false; if (typeof saveUI === 'function') saveUI(); const w = $('#pcwin'); if (w) w.remove(); render('party'); }
+// Floating windows (dice roller, party chat) fade in when opened and out when closed. A closing window gives up its id
+// straight away, so opening it again at once makes a fresh one.
+// Phones: the on-screen keyboard covers the bottom of the page without resizing it, so bottom sheets (chat, dice
+// roller) are lifted by however much of the screen the keyboard takes, and kept short enough to fit above it.
+(() => { const vv = window.visualViewport; if (!vv) return; const de = document.documentElement;
+  const upd = () => { const kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)); de.style.setProperty('--kb', kb + 'px'); de.style.setProperty('--vvh', Math.round(vv.height) + 'px'); de.classList.toggle('kbup', kb > 80); };
+  vv.addEventListener('resize', upd); vv.addEventListener('scroll', upd); upd(); })();
+// Phones: a finger dragged on a window (or on a list inside it that's already at its end) mustn't scroll the page behind.
+function winNoBleed(w) { let y0 = 0; w.addEventListener('touchstart', e => { y0 = e.touches[0].clientY; }, { passive: true });
+  w.addEventListener('touchmove', e => { if (e.touches.length > 1) return; const dy = e.touches[0].clientY - y0; let el = e.target;
+    while (el && el !== w.parentNode) { const cs = getComputedStyle(el); if (/(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 1) { const top = el.scrollTop <= 0, bot = el.scrollTop + el.clientHeight >= el.scrollHeight - 1; if (!(dy > 0 && top) && !(dy < 0 && bot)) return; break; } if (el === w) break; el = el.parentElement; }
+    if (e.cancelable) e.preventDefault(); }, { passive: false }); }
+function winClose(w) { if (!w || w.classList.contains('closing')) return; w.id = ''; w.classList.add('closing'); const go = () => w.remove();
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return go(); setTimeout(go, 190); }
+function ptyChatDock() { UI.chatPop = false; if (typeof saveUI === 'function') saveUI(); const w = $('#pcwin'); if (w) winClose(w); render('party'); }
 document.addEventListener('change', e => { const t = e.target; if (!t.dataset || t.dataset.aura == null) return; ptyAura(t.dataset.aura, t.dataset.id, t.checked); });
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-pa]'); if (!b || e.target.closest('#wizard')) return; e.preventDefault();
   const m = b.closest('.menu'); if (m) m.classList.remove('open');
@@ -8675,7 +8743,7 @@ let PTY_UNREAD = 0;
 const PCHAT_KEY = () => 'pg-pchat:' + (S && S.id || '');
 try { if (localStorage.getItem(PCHAT_KEY()) === '1') document.documentElement.classList.add('pchat'); } catch (e) {}
 const PCHAT_T0 = Date.now();
-function ptyUnreadMark() { const P0 = PTYX(), on = !!(P0 && ptyOn() && P0.chat && P0.chat.on());
+function ptyUnreadMark() { setTimeout(() => { if (typeof mtabSync === 'function') mtabSync(); }, 0); const P0 = PTYX(), on = !!(P0 && ptyOn() && P0.chat && P0.chat.on());
   // shown the moment chat is there; only hidden once the page has had a few seconds to connect
   if (on || Date.now() - PCHAT_T0 > 6000) { document.documentElement.classList.toggle('pchat', on); try { localStorage.setItem(PCHAT_KEY(), on ? '1' : '0'); } catch (e) {} }
   { const cb = document.querySelector('.devbtn.chatbtn'); if (cb) { const n = $('#pcwin') ? 0 : PTY_UNREAD; cb.classList.toggle('unread', n > 0); if (n > 0) cb.dataset.unread = n > 9 ? '9+' : n; else delete cb.dataset.unread; } }
@@ -8703,62 +8771,74 @@ function ptyChatPop(m) {
 }
 
 
-// ----- Dice roller: a little window like Roll20's — tap dice to build a roll, add a modifier, roll -----
-// Rolls go through the sheet's dice (so with "Roll20 rolls for me" they're rolled in your game) and land in the Log.
+// ----- Dice roller: a little window like Roll20's — tap a die to roll it, or build a roll (how many, which die, a modifier,
+// and an optional target number). d20 rolls use the sheet's own Advantage / Disadvantage switch. Rolls go through the
+// sheet's dice (so with "Roll20 rolls for me" they're rolled in your game) and land in the Log. -----
 const DR_DICE = [4, 6, 8, 10, 12, 20, 100];
 let DR = null;
-function drExpr() { const parts = DR_DICE.filter(d => DR.pool[d]).map(d => d === 20 && DR.adv !== 'n' && DR.pool[d] === 1 ? `2d20${DR.adv === 'a' ? 'kh1' : 'kl1'}` : `${DR.pool[d]}d${d}`);
-  const m = N(DR.mod); return parts.length ? parts.join('+') + (m ? (m > 0 ? '+' : '') + m : '') : ''; }
+function drLoad() { let o = null; try { o = JSON.parse(localStorage.getItem('dnd-dr') || 'null'); } catch (e) {} o = o && typeof o === 'object' ? o : {};
+  const last = (Array.isArray(o.last) ? o.last : []).map(l => typeof l === 'string' ? { ex: l } : l).filter(l => l && typeof l.ex === 'string').slice(0, 10);
+  return { n: Math.max(1, Math.min(99, N(o.n) || 1)), die: DR_DICE.includes(N(o.die)) ? N(o.die) : 20, mod: N(o.mod), tn: !!o.tn, dc: N(o.dc) || 10, x: o.x, y: o.y, last }; }
+function drKeep() { try { localStorage.setItem('dnd-dr', JSON.stringify({ n: DR.n, die: DR.die, mod: DR.mod, tn: DR.tn, dc: DR.dc, x: DR.x, y: DR.y, last: DR.last })); } catch (e) {} }
+// one d20 rolled on its own takes the sheet's Advantage / Disadvantage
+const drAdv = () => S.rollAdv === 'adv' ? 'a' : S.rollAdv === 'dis' ? 'd' : '';
+function drBuild(n, die, mod) { const a = die === 20 && n === 1 ? drAdv() : ''; const m = N(mod);
+  return (a ? `2d20${a === 'a' ? 'kh1' : 'kl1'}` : `${n}d${die}`) + (m ? (m > 0 ? '+' : '') + m : ''); }
 function diceRoller() {
-  let w = $('#drwin'); if (w) { w.remove(); return; }
-  DR = DR || (() => { let o = null; try { o = JSON.parse(localStorage.getItem('dnd-dr') || 'null'); } catch (e) {} return { pool: {}, mod: 0, adv: 'n', x: o && o.x, y: o && o.y, last: (o && o.last) || [] }; })();
-  w = document.createElement('div'); w.id = 'drwin'; w.className = 'drwin'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Dice roller');
+  let w = $('#drwin'); if (w) { winClose(w); return; }
+  if (isMobile() && $('#pcwin')) { UI.chatPop = false; if (typeof saveUI === 'function') saveUI(); winClose($('#pcwin')); }
+  DR = DR || drLoad();
+  w = document.createElement('div'); w.id = 'drwin'; w.className = 'drwin'; winNoBleed(w); w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Dice roller');
   document.body.appendChild(w); drPaint();
   const W = innerWidth, H = innerHeight, r = w.getBoundingClientRect();
   const x = DR.x != null ? Math.min(Math.max(6, DR.x), W - r.width - 6) : W - r.width - 24, y = DR.y != null ? Math.min(Math.max(6, DR.y), H - 60) : Math.max(70, H - r.height - 90);
   w.style.left = x + 'px'; w.style.top = y + 'px';
-  // drag by the title bar
-  // on a phone it's a sheet along the bottom: swipe its top bar down to close it
+  // drag by the title bar; on a phone it's a sheet along the bottom: swipe its top bar down to close it
   w.addEventListener('pointerdown', e => { const hd = e.target.closest('.dr-head'); if (!hd || e.target.closest('button')) return; e.preventDefault();
     if (isMobile()) { const y0 = e.clientY; hd.setPointerCapture(e.pointerId); const mv = ev => { w.style.transform = `translateY(${Math.max(0, ev.clientY - y0)}px)`; };
-      const up = ev => { hd.removeEventListener('pointermove', mv); hd.removeEventListener('pointerup', up); if (ev.clientY - y0 > 70) w.remove(); else w.style.transform = ''; };
+      const up = ev => { hd.removeEventListener('pointermove', mv); hd.removeEventListener('pointerup', up); if (ev.clientY - y0 > 70) winClose(w); else w.style.transform = ''; };
       hd.addEventListener('pointermove', mv); hd.addEventListener('pointerup', up); return; }
     const b = w.getBoundingClientRect(), dx = e.clientX - b.left, dy = e.clientY - b.top; hd.setPointerCapture(e.pointerId); w.classList.add('drag');
     const mv = ev => { const nx = Math.min(Math.max(0, ev.clientX - dx), innerWidth - b.width), ny = Math.min(Math.max(0, ev.clientY - dy), innerHeight - 40); w.style.left = nx + 'px'; w.style.top = ny + 'px'; };
     const up = () => { w.classList.remove('drag'); hd.removeEventListener('pointermove', mv); hd.removeEventListener('pointerup', up); const bb = w.getBoundingClientRect(); DR.x = bb.left; DR.y = bb.top; drKeep(); };
     hd.addEventListener('pointermove', mv); hd.addEventListener('pointerup', up); });
   w.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const k = b.dataset.dr;
-    if (k === 'x') return w.remove();
-    if (k === 'die') { const d = N(b.dataset.d); DR.pool[d] = Math.min(99, N(DR.pool[d]) + 1); }
-    if (k === 'mod') DR.mod = N(DR.mod) + N(b.dataset.v);
-    if (k === 'adv') DR.adv = b.dataset.v;
-    if (k === 'clear') { DR.pool = {}; DR.mod = 0; DR.adv = 'n'; }
-    if (k === 'again') { const L = DR.last[N(b.dataset.i)]; if (L) return drRoll(L); }
-    if (k === 'roll') { const ex = ($('#dr-f') || {}).value || drExpr(); return drRoll(ex); }
-    drPaint(); });
-  // right-click (or long-press) a die to take one away
-  // press and hold a die (phones) to take one away
-  let holdT = null, held = false; w.addEventListener('pointerdown', e => { const b = e.target.closest('[data-dr=die]'); if (!b || e.pointerType === 'mouse') return; held = false; clearTimeout(holdT);
-    holdT = setTimeout(() => { held = true; const d = N(b.dataset.d); DR.pool[d] = Math.max(0, N(DR.pool[d]) - 1); if (!DR.pool[d]) delete DR.pool[d]; if (navigator.vibrate) navigator.vibrate(15); drPaint(); }, 450); });
-  ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => w.addEventListener(t, () => clearTimeout(holdT)));
-  w.addEventListener('click', e => { if (held && e.target.closest('[data-dr=die]')) { held = false; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
-  w.addEventListener('contextmenu', e => { const b = e.target.closest('[data-dr=die]'); if (!b) return; e.preventDefault(); const d = N(b.dataset.d); DR.pool[d] = Math.max(0, N(DR.pool[d]) - 1); if (!DR.pool[d]) delete DR.pool[d]; drPaint(); });
-  w.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'dr-f') { e.preventDefault(); drRoll(e.target.value); } if (e.key === 'Escape') w.remove(); });
+    if (k === 'x') return winClose(w);
+    if (k === 'die') return drRoll(drBuild(1, N(b.dataset.d), 0), 'd' + b.dataset.d);
+    if (k === 'n') DR.n = Math.max(1, Math.min(99, DR.n + N(b.dataset.v)));
+    if (k === 'mod') DR.mod = Math.max(-99, Math.min(99, N(DR.mod) + N(b.dataset.v)));
+    if (k === 'tn') DR.tn = !DR.tn;
+    if (k === 'roll') return drRoll(drBuild(DR.n, DR.die, DR.mod), `${DR.n}d${DR.die}${DR.mod ? (DR.mod > 0 ? '+' : '') + DR.mod : ''}`, DR.tn ? DR.dc : null);
+    if (k === 'again') { const L = DR.last[N(b.dataset.i)]; if (L) return drRoll(L.ex, L.f || L.ex, L.dc != null ? L.dc : null); }
+    if (k === 'clearlog') DR.last = [];
+    drKeep(); drPaint(); });
+  w.addEventListener('change', e => { const t = e.target;
+    if (t.id === 'dr-n') DR.n = Math.max(1, Math.min(99, N(t.value) || 1));
+    if (t.id === 'dr-die') DR.die = N(t.value) || 20;
+    if (t.id === 'dr-mod') DR.mod = Math.max(-99, Math.min(99, N(t.value)));
+    if (t.id === 'dr-dc') DR.dc = N(t.value);
+    drKeep(); drPaint(); });
+  w.addEventListener('keydown', e => { if (e.key === 'Escape') winClose(w); if (e.key === 'Enter' && e.target.matches('.dr-num input, #dr-dc')) { e.preventDefault(); e.target.blur(); const rb = w.querySelector('[data-dr=roll]'); if (rb) rb.click(); } });
 }
 const DR_SHAPE = { 4: 'M12 3l9 16H3z', 6: 'M5 5h14v14H5z', 8: 'M12 2l9 10-9 10-9-10z', 10: 'M12 2l9 7-3 12H6L3 9z', 12: 'M12 2l9 6.5-3.4 10.5H6.4L3 8.5z', 20: 'M12 2l8.7 5v10L12 22l-8.7-5V7z', 100: 'M12 2l9 7-3 12H6L3 9z' };
-function drPaint() { const w = $('#drwin'); if (!w) return; const ex = drExpr();
-  w.innerHTML = `<div class="dr-head"><b>Dice Roller</b><button class="dr-x" data-dr="x" aria-label="Close">✕</button></div>
-    <div class="dr-dice">${DR_DICE.map(d => `<button class="dr-die${DR.pool[d] ? ' on' : ''}" data-dr="die" data-d="${d}" title="Add a d${d} (right-click to take one away)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${DR_SHAPE[d]}"/></svg><span>d${d}</span>${DR.pool[d] ? `<em>${DR.pool[d]}</em>` : ''}</button>`).join('')}</div>
-    <div class="dr-row"><div class="dr-mod"><button data-dr="mod" data-v="-1" aria-label="Modifier −1">−</button><b>${N(DR.mod) >= 0 ? '+' : ''}${N(DR.mod)}</b><button data-dr="mod" data-v="1" aria-label="Modifier +1">+</button></div>
-      <div class="dr-adv">${[['d', 'Dis'], ['n', 'Normal'], ['a', 'Adv']].map(([v, t]) => `<button class="${DR.adv === v ? 'on' : ''}" data-dr="adv" data-v="${v}"${DR.pool[20] === 1 ? '' : ' disabled title="Advantage works on a single d20"'}>${t}</button>`).join('')}</div></div>
-    <input class="dr-f" id="dr-f" value="${esc(ex)}" placeholder="e.g. 2d6+3" aria-label="Roll formula" spellcheck="false">
-    <div class="dr-act"><button class="dr-clear" data-dr="clear">Clear</button><button class="dr-roll" data-dr="roll">Roll</button></div>
-    ${DR.last.length ? `<div class="dr-last">${DR.last.map((l, i) => `<button data-dr="again" data-i="${i}" title="Roll ${esc(l)} again">${esc(l)}</button>`).join('')}</div>` : ''}`; }
-function drKeep() { try { localStorage.setItem('dnd-dr', JSON.stringify({ x: DR.x, y: DR.y, last: DR.last })); } catch (e) {} }
-function drRoll(ex) { ex = String(ex || '').replace(/\s+/g, '').toLowerCase(); if (!/^[\dd+\-khl]+$/.test(ex) || !/\d*d\d+/.test(ex)) { toast('Type a roll like 2d6+3.', 'fumble'); return; }
-  DR.last = [ex].concat(DR.last.filter(x => x !== ex)).slice(0, 5); drKeep();
-  rollGate(() => { const r = rollExpr(ex, { label: 'Dice roller: ' + ex }); toast(`<b class="total">${r.total}</b><div><div>Rolled ${esc(ex)}</div><div class="det dd">${esc(r.detail || '')}</div></div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '', 8000); });
-  drPaint(); }
+const DR_INNER = { 4: 'M12 3v16M3 19l9-7 9 7', 6: 'M5 5l4-2h12l-2 2M19 5v14l2-2V3', 8: 'M3 12h18M12 2v20', 10: 'M3 9l9 4 9-4M12 13v9', 12: 'M7.5 9.5L12 6l4.5 3.5-1.7 5.3H9.2z', 20: 'M12 7l-5 9h10z M12 2v5M3.3 7L7 16M20.7 7L17 16M3.3 17L7 16M20.7 17L17 16M12 22v-6', 100: 'M3 9l9 4 9-4M12 13v9' };
+const drStep = (id, v, k, lab, min, max) => `<span class="dr-num"><input id="${id}" type="number" inputmode="numeric" value="${v}" min="${min}" max="${max}" aria-label="${lab}"><span class="dr-sp"><button data-dr="${k}" data-v="1" aria-label="${lab}: one more" tabindex="-1">▴</button><button data-dr="${k}" data-v="-1" aria-label="${lab}: one less" tabindex="-1">▾</button></span></span>`;
+function drPaint() { const w = $('#drwin'); if (!w) return; const a = drAdv(), advNote = a && DR.die === 20 && DR.n === 1;
+  w.innerHTML = `<div class="dr-head"><b>Dice Roller</b><button class="dr-x" data-dr="x" aria-label="Close" title="Close">✕</button></div>
+    <div class="dr-quick">${DR_DICE.map(d => `<button class="dr-die" data-dr="die" data-d="${d}" title="Roll a d${d}${d === 20 && a ? (a === 'a' ? ' with advantage' : ' with disadvantage') : ''}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${DR_SHAPE[d]}"/><path class="in" d="${DR_INNER[d]}"/></svg><span>D${d}</span></button>`).join('')}</div>
+    <div class="dr-sec"><h4>Roll</h4>
+      <div class="dr-adv-row">${drStep('dr-n', DR.n, 'n', 'How many dice', 1, 99)}<select id="dr-die" class="dr-sel" aria-label="Which die">${DR_DICE.map(d => `<option value="${d}"${d === DR.die ? ' selected' : ''}>D${d}</option>`).join('')}</select><span class="dr-plus" aria-hidden="true">+</span>${drStep('dr-mod', N(DR.mod), 'mod', 'Modifier', -99, 99)}</div>
+      ${advNote ? `<p class="dr-note ${a === 'a' ? 'adv' : 'dis'}">${a === 'a' ? 'Advantage' : 'Disadvantage'} is on for this sheet: the d20 is rolled twice.</p>` : ''}
+      <div class="dr-tn"><button class="dr-sw${DR.tn ? ' on' : ''}" data-dr="tn" role="switch" aria-checked="${DR.tn}" aria-label="Target number"><span></span></button><span class="dr-tnl">Target number?</span>${DR.tn ? `<input id="dr-dc" class="dr-dc" type="number" inputmode="numeric" value="${N(DR.dc)}" aria-label="Target number">` : ''}</div>
+      <button class="dr-roll" data-dr="roll">Roll</button></div>
+    <div class="dr-sec dr-log"><div class="dr-logh"><h4>Last 10 Rolls</h4>${DR.last.length ? '<button class="dr-clr" data-dr="clearlog">Clear</button>' : ''}</div>
+      <div class="dr-tbl" role="table" aria-label="Last 10 rolls"><div class="dr-tr dr-th" role="row"><span role="columnheader">Formula</span><span role="columnheader">Result</span><span role="columnheader">Re-roll</span></div>
+      ${DR.last.length ? DR.last.map((l, i) => `<div class="dr-tr" role="row"><span role="cell" class="dr-f">${esc(l.f || l.ex)}${l.dc != null ? ` <small>vs ${N(l.dc)}</small>` : ''}</span><span role="cell" class="dr-res${l.ok === true ? ' ok' : l.ok === false ? ' no' : ''}">${l.t != null ? esc(String(l.t)) : '—'}</span><span role="cell"><button class="dr-again" data-dr="again" data-i="${i}" title="Roll ${esc(l.f || l.ex)} again" aria-label="Roll ${esc(l.f || l.ex)} again">↻</button></span></div>`).join('') : '<div class="dr-none">No rolls yet</div>'}</div></div>`; }
+function drRoll(ex, label, dc) { ex = String(ex || '').replace(/\s+/g, '').toLowerCase(); if (!/^[\dd+\-khl]+$/.test(ex) || !/\d*d\d+/.test(ex)) { toast('Type a roll like 2d6+3.', 'fumble'); return; }
+  const f = label || ex, ent = { ex, f, dc: dc != null ? N(dc) : null }; DR.last = [ent].concat(DR.last).slice(0, 10); drKeep(); drPaint();
+  rollGate(() => { const r = rollExpr(ex, { label: 'Dice roller: ' + f }) || {}; ent.t = r.total; if (ent.dc != null && typeof r.total === 'number') ent.ok = r.total >= ent.dc; drKeep(); drPaint();
+    toast(`<b class="total">${r.total}</b><div><div>Rolled ${esc(f)}${ent.dc != null ? ` against ${ent.dc}: <b>${ent.ok ? 'Success' : 'Failure'}</b>` : ''}</div><div class="det dd">${esc(r.detail || '')}</div></div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '', 8000); });
+  }
 
 // ---------- Homebrew builder ----------
 // One friendly window for making (or changing) your own items, features and spells. The basics are a few big choices;
