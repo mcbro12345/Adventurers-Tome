@@ -2133,3 +2133,7 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 @media (hover: hover) { .towin .to-vit .to-eye:hover { background: rgba(127,127,127,.16); opacity: 1; } }
 .adm-body .bg-dec { background: rgba(182,64,45,.16); color: #e8826f; border-color: rgba(182,64,45,.5); }
 .adm-body .bg-reason { margin-top: 4px; font-size: .8rem; color: var(--adm-dim); white-space: pre-wrap; max-width: 260px; }
+/* the dot lines up with the middle of the word, whatever the weight or font */
+.adm-online b { font: inherit; text-box: trim-both cap alphabetic; }
+.adm-online.bg { font-weight: 700; }
+.adm-online i { flex: none; }
