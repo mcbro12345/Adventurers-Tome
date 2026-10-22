@@ -116,7 +116,7 @@ function ptyChatWin() {
   if (w) return;
   let pos = null; try { pos = JSON.parse(localStorage.getItem('dnd-pcwin') || 'null'); } catch (e) {}
   w = document.createElement('div'); w.id = 'pcwin'; w.className = 'pcwin'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Party chat');
-  w.innerHTML = `<div class="pcw-head"><b>Party chat</b><button class="pcw-b" data-pcw="dock" title="Put it back in the Party tab" aria-label="Put it back in the Party tab">⇲</button><button class="pcw-b" data-pcw="x" title="Close" aria-label="Close">✕</button></div><div class="pcw-body">${ptyChatInner()}</div>`;
+  w.innerHTML = `<div class="pcw-head"><b>Party chat</b><button class="pcw-b" data-pcw="x" title="Close" aria-label="Close">✕</button></div><div class="pcw-body">${ptyChatInner()}</div>`;
   document.body.appendChild(w);
   const W = innerWidth, H = innerHeight; if (pos && pos.h) w.style.height = Math.max(260, Math.min(H - 20, pos.h)) + 'px'; if (pos && pos.w) w.style.width = Math.max(280, Math.min(W - 12, pos.w)) + 'px'; const r = w.getBoundingClientRect();
   // opens in the bottom-right corner; after you've moved it, it stays where you put it

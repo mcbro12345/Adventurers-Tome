@@ -3175,3 +3175,6 @@ html.mobile.pchat .namebox { padding-right: 148px; }
 html.mobile.pchat.hasbug .namebox { padding-right: 184px; }
 .devbtn.chatbtn.unread::after { content: attr(data-unread); position: absolute; top: -5px; right: -5px; min-width: 15px; height: 15px; padding: 0 3px; box-sizing: border-box; border-radius: 8px; background: #e04848; color: #fff; font: 800 9px/15px system-ui, sans-serif; text-align: center; }
 html:not(.mobile).pchat .devbtn.chatbtn { display: inline-grid; position: relative; }
+/* Computer toolbar: a little tighter so every button keeps its label (Edit layout too) */
+html:not(.mobile) .toolbar { column-gap: 4px; }
+html:not(.mobile) .toolbar > .tbtn, html:not(.mobile) .toolbar .savegrp > .tbtn { padding-left: 7px !important; padding-right: 7px !important; gap: 4px !important; }
