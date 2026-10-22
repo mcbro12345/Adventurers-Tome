@@ -652,12 +652,12 @@ function renderWizard() {
   let body = '';
   if (st === 0) {
     body = `<div class="wz-intro"><p>Build any 5e (2014) character. Every choice can be changed later on the sheet.</p></div>
-      <div class="wz-ddb top"><div><b>Made your character on D&amp;D Beyond?</b><span class="hint">Bring it over: classes, scores, spells, equipment and notes.</span></div><button class="btn" data-wact="ddb">Import from D&amp;D Beyond</button></div>
       <div class="wz-grid">${fld('Character name', `<input class="f" data-wz="name" value="${esc(W.name)}" placeholder="Name" autofocus>`)}${window.SHEET_PAGES ? '' : fld('Player', `<input class="f" data-wz="player" value="${esc(W.player)}" placeholder="Your name">`)}
       ${fld('Alignment', `<select class="f" data-wz="alignment"><option value="">—</option>${DND.alignments.map(a => `<option${W.alignment === a ? ' selected' : ''}>${esc(a)}</option>`).join('')}</select>`)}</div>
       <div class="row" style="margin-top:12px"><img class="wz-portrait" src="${esc(W.portrait || PLACEHOLDER)}" alt=""><button class="btn" data-wact="portrait">${W.portrait ? 'Change portrait' : 'Add a portrait'}</button><span class="hint">Optional. The sheet's colors can match it.</span></div>
       <div class="wz-src"><h4>Books for this character</h4><p class="hint">Only content from the books you tick will be offered. You can change this later in Settings → Books.</p>${sourcesHTML(W.sources)}</div>
-      <p class="hint" style="margin-top:16px">Already have a character exported from this sheet? <button class="linkbtn" data-wact="import">Import it</button></p>`;
+      <p class="hint" style="margin-top:16px">Already have a character exported from this sheet? <button class="linkbtn" data-wact="import">Import it</button></p>
+      <div class="wz-ddb bottom"><div><b>Made your character on D&amp;D Beyond?</b><span class="hint">Bring it over: classes, scores, spells, equipment and notes.</span></div><button class="btn" data-wact="ddb">Import from D&amp;D Beyond</button></div>`;
   } else if (st === 1) {
     const x = wzRace();
     body = `<div class="wz-grid">${fld('Race', `<select class="f" data-wz="race"><option value="">— choose a race —</option>${DND.raceGroups.map(([g, ks]) => `<optgroup label="${esc(g)}">${ks.filter(k => DND.races[k]).sort((a, b) => abc(DND.races[a].name, DND.races[b].name)).map(k => `<option value="${k}"${W.race === k ? ' selected' : ''}>${esc(DND.races[k].name)}${DND.races[k].src && DND.races[k].src !== 'PHB' ? ' (' + DND.races[k].src + ')' : ''}</option>`).join('')}</optgroup>`).join('')}</select>`)}

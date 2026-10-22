@@ -3477,3 +3477,4 @@ html.mobile body.wizopen #modal.open, html.mobile body.wizopen #modal.closing { 
 @keyframes ptycIn { from { opacity: 0; transform: translateY(4px) scale(.96); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .ptyc-dots i, .ptyc-typing { animation: none; } }
 .ptyc-rr { align-self: flex-start; font-size: .68rem; font-weight: 600; color: var(--soft); margin: -3px 0 2px 42px; }
+.wz-ddb.bottom { margin: 16px 0 4px; }
