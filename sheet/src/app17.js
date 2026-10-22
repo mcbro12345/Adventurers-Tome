@@ -379,10 +379,10 @@
 (() => {
   const { def, H, C2, E, clamp } = ANI, P = Math.PI, G = ANI.GROUND;
   def('magehand', { w: .7, keep: 1, front(x, S, p, a) {
-    const [c1, c2] = C2(S, a), ph = (S.T % 3000) / 3000, k = E.back(clamp(p * 1.6)), Sz = 34 * k, bx = +(a.kv.x || 58), by = +(a.kv.y || 70);
-    const hx = bx + Math.sin(ph * 2 * P) * 12, hy = by + Math.sin(ph * 4 * P) * 3.5, tilt = Math.sin(ph * 2 * P) * .18;
-    if (p < 1) for (let i = 0; i < 8; i++) { const an = i / 8 * P * 2 + p * 3; H.star4(x, bx + Math.cos(an) * 16 * (1 - p), by - 12 + Math.sin(an) * 12 * (1 - p), 2, c2, 1 - p); }
-    for (let i = 0; i < 6; i++) { const life = (ph * 2 + i / 6) % 1; H.dot(x, hx - Math.cos(ph * 2 * P) * 14 * life + Math.sin(i * 7) * 6, hy - Sz * .25 + life * 8, 1.2, c2, (1 - life) * .7 * k); }
+    const [c1, c2] = C2(S, a), ph = (S.T % 3000) / 3000, k = E.back(clamp(p * 1.6)), Sz = 17 * k, bx = +(a.kv.x || 56), by = +(a.kv.y || 66);
+    const hx = bx + Math.sin(ph * 2 * P) * 8, hy = by + Math.sin(ph * 4 * P) * 2.5, tilt = Math.sin(ph * 2 * P) * .18;
+    if (p < 1) for (let i = 0; i < 8; i++) { const an = i / 8 * P * 2 + p * 3; H.star4(x, bx + Math.cos(an) * 10 * (1 - p), by - 7 + Math.sin(an) * 8 * (1 - p), 2, c2, 1 - p); }
+    for (let i = 0; i < 6; i++) { const life = (ph * 2 + i / 6) % 1; H.dot(x, hx - Math.cos(ph * 2 * P) * 9 * life + Math.sin(i * 7) * 4, hy - Sz * .25 + life * 5, 1.2, c2, (1 - life) * .7 * k); }
     if (Sz < 1) return; H.glow(x, hx, hy - Sz * .45, Sz * .75, c1, .45);
     x.save(); x.translate(hx, hy); x.rotate(tilt); x.scale(Sz, Sz);
     const F = [[-.17, -.56, -.16, .34, .1], [-.055, -.6, -.04, .4, .105], [.06, -.58, .07, .37, .1], [.16, -.52, .2, .28, .085]];
