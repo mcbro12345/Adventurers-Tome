@@ -726,8 +726,26 @@ window.onPartyChatList = () => { const l = $('#ptychat-l'); if (!l) { if (UI.tab
 let PTY_UNREAD = 0;
 function ptyUnreadMark() { const t = document.querySelector('.tab[data-tab="party"]'); if (!t) return; if (UI.tab === 'party' && !document.hidden) PTY_UNREAD = 0; t.classList.toggle('unread', PTY_UNREAD > 0); if (PTY_UNREAD > 0) t.dataset.unread = PTY_UNREAD > 9 ? '9+' : PTY_UNREAD; else delete t.dataset.unread; }
 setInterval(ptyUnreadMark, 1500); document.addEventListener('visibilitychange', ptyUnreadMark);
-window.onPartyChat = m => { const here = UI.tab === 'party' && !document.hidden && $('#ptychat-l'); if (here) return; PTY_UNREAD++; ptyUnreadMark();
-  toast(`<div><b>${esc(m.n || 'Someone')}</b> <span class="det" style="display:inline">· party chat</span><div class="det">${esc(String(m.t || '').slice(0, 200))}</div></div>`, '', 7000, { label: 'Reply', fn: () => { UI.tab = 'party'; saveUI && saveUI(); render(); setTimeout(() => { const i = $('#ptychat-in'); if (i) i.focus(); }, 80); } }); };
+window.onPartyChat = m => { const here = UI.tab === 'party' && !document.hidden && $('#ptychat-l'); if (here) return; PTY_UNREAD++; ptyUnreadMark(); ptyChatPop(m); };
+// A party chat message gets its own card in the corner: who sent it (their picture, in their sheet's colour), the
+// message in a bubble, and a box to answer straight from there. Stays while you're hovering or typing; up to 3 stack.
+function ptyChatPop(m) {
+  let box = $('#pcpop'); if (!box) { box = document.createElement('div'); box.id = 'pcpop'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); }
+  const who = (window.PG_PARTY && window.PG_PARTY.members ? window.PG_PARTY.members() : []).find(x => x.id === m.c) || {}, nm = m.n || who.name || 'Someone';
+  const acc = /^#[0-9a-f]{6}$/i.test(who.acc || '') ? who.acc : '', ini = String(nm).split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+  const el = document.createElement('div'); el.className = 'pcp'; if (acc) el.style.setProperty('--pc', acc);
+  el.innerHTML = `<div class="pcp-top"><span class="pcp-ava">${who.thumb ? `<img src="${esc(who.thumb)}" alt="">` : esc(ini)}</span><span class="pcp-who"><b>${esc(nm)}</b><small>💬 Party chat · just now</small></span><button class="pcp-x" aria-label="Dismiss">✕</button></div>
+    <div class="pcp-msg">${esc(String(m.t || '').slice(0, 400))}</div>
+    <form class="pcp-rep"><input placeholder="Reply to the party…" maxlength="1000" aria-label="Reply"><button aria-label="Send">➤</button></form>`;
+  box.prepend(el); while (box.children.length > 3) box.lastChild.remove();
+  requestAnimationFrame(() => el.classList.add('in'));
+  let t = null; const gone = () => { el.classList.remove('in'); el.classList.add('out'); setTimeout(() => el.remove(), 260); };
+  const arm = () => { clearTimeout(t); t = setTimeout(() => { if (!el.matches(':hover') && !el.contains(document.activeElement)) gone(); else arm(); }, 14000); }; arm();
+  el.querySelector('.pcp-x').onclick = gone;
+  el.querySelector('.pcp-msg').onclick = () => { gone(); UI.tab = 'party'; if (typeof saveUI === 'function') saveUI(); render(); setTimeout(() => { const i = $('#ptychat-in'); if (i) i.focus(); }, 80); };
+  el.querySelector('form').onsubmit = e => { e.preventDefault(); const i = el.querySelector('input'), v = i.value.trim(); if (!v) return; i.disabled = true;
+    window.PG_PARTY.chat.send(v).then(() => { el.querySelector('.pcp-rep').outerHTML = '<div class="pcp-sent">✓ Sent</div>'; setTimeout(gone, 1200); }, x => { i.disabled = false; toast(esc((x && x.message) || 'Couldn’t send it.'), 'fumble'); }); };
+}
 
 
 // ----- Dice roller: a little window like Roll20's — tap dice to build a roll, add a modifier, roll -----

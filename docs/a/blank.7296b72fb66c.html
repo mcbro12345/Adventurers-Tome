@@ -3712,7 +3712,7 @@ html.mobile.hasbug.realphone .devbtn.dicebtn, html.mobile.hasbug.pg-inphone .dev
 /* Inspiration: "Use" is a tab tucked behind the right end of the badge (only while you have some) */
 .insp-grp { position: absolute; left: 50%; bottom: -24px; transform: translateX(-50%); z-index: 6; }
 .insp-grp > .insp { position: relative; left: auto; bottom: auto; transform: none; }
-.insp-use { position: absolute; left: 100%; top: 50%; transform: translateY(-50%); margin-left: -14px; z-index: -1; padding: 4px 10px 4px 20px; border-radius: 0 999px 999px 0; border: 1.5px solid var(--gold); border-left: 0; background: var(--panel); color: var(--gold-ink); font-weight: 800; font-size: .6rem; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,.22); white-space: nowrap; }
+.insp-use { position: absolute; left: 100%; top: 50%; transform: translateY(-50%); margin-left: -14px; z-index: -1; display: flex; align-items: center; height: 26px; box-sizing: border-box; line-height: 1; padding: 1px 11px 0 22px; border-radius: 0 999px 999px 0; border: 1.5px solid var(--gold); border-left: 0; background: var(--panel); color: var(--gold-ink); font-weight: 800; font-size: .6rem; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,.22); white-space: nowrap; }
 @media (hover:hover){:where(html:not(.mobile)) .insp-use:hover{ background: var(--gold-soft); }}
 .insp-grp.mini { display: none; }
 html.mobile .banner-row .insp-grp { display: none; }
@@ -3737,6 +3737,40 @@ html.mobile .insp-grp.mini > .insp.mini { margin-left: 0; }
 html.mobile .cstrip.three { grid-template-columns: 1fr; }
 .hbb-ct2 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .hbb-ct2 > .hint { width: 82px; flex: none; font-size: 11px; }
+/* Vitals kept short: Hit Points' Manage sits in the panel's top-right corner, so no empty strip along the bottom */
+html .tile.hp { padding-bottom: 9px !important; }
+html .tile.hp .tmanage.hpman.hpman-in { position: static !important; margin-left: auto; }
+.tile.hp > .lbl:has(.hpman-in), .tile.hp .lbl:has(> .hpman-in) { display: flex; align-items: center; width: 100%; }
+html.mobile .tile.hp { padding-bottom: 9px !important; }
+.chp2 .chp-side select.ptyqt { width: 100%; height: 28px; padding: 0 8px; font-size: .82rem; border: 1px solid var(--line); background: var(--field); color: var(--ink); border-radius: 8px; margin-bottom: -4px; }
+.ptyh-ic.pic { padding: 0; overflow: hidden; background: none; }
+.ptyh-ic.pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tab[data-tab="party"].unread { position: relative; }
+.tab[data-tab="party"].unread::after { content: attr(data-unread); position: absolute; top: 4px; right: calc(50% - 22px); min-width: 17px; height: 17px; padding: 0 4px; box-sizing: border-box; border-radius: 9px; background: #e04848; color: #fff; font: 800 10px/17px system-ui, sans-serif; text-align: center; box-shadow: 0 0 0 2px var(--panel); }
+/* Party chat pop-ups: their own card, bottom right (top on phones) */
+#pcpop { position: fixed; right: 18px; bottom: 18px; z-index: 9800; display: flex; flex-direction: column; gap: 10px; width: min(360px, calc(100vw - 24px)); pointer-events: none; }
+.pcp { --pc: var(--gold); pointer-events: auto; position: relative; background: var(--panel); color: var(--ink); border: 1.5px solid var(--pc); border-radius: 16px; box-shadow: 0 18px 40px rgba(0,0,0,.4), 0 0 0 4px color-mix(in srgb, var(--pc) 18%, transparent); padding: 12px 12px 10px; transform: translateX(30px) scale(.96); opacity: 0; transition: transform .25s cubic-bezier(.2,.9,.3,1.2), opacity .2s; overflow: hidden; }
+.pcp::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--pc); }
+.pcp.in { transform: none; opacity: 1; }
+.pcp.out { transform: translateX(40px); opacity: 0; }
+.pcp-top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding-left: 4px; }
+.pcp-ava { width: 40px; height: 40px; border-radius: 50%; flex: none; display: grid; place-items: center; overflow: hidden; border: 2px solid var(--pc); background: var(--panel2); font-weight: 800; font-size: .9rem; }
+.pcp-ava img { width: 100%; height: 100%; object-fit: cover; }
+.pcp-who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pcp-who b { font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pcp-who small { color: var(--soft); font-size: .75rem; font-weight: 600; }
+.pcp-x { background: none; border: 0; color: var(--soft); font-size: 1rem; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
+@media (hover:hover){:where(html:not(.mobile)) .pcp-x:hover{ background: var(--panel2); color: var(--ink); }}
+.pcp-msg { position: relative; margin: 0 0 10px 4px; padding: 10px 13px; border-radius: 4px 14px 14px 14px; background: color-mix(in srgb, var(--pc) 16%, var(--panel2)); font-size: 1.02rem; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; cursor: pointer; max-height: 9.5em; overflow-y: auto; }
+.pcp-rep { display: flex; gap: 6px; margin-left: 4px; }
+.pcp-rep input { flex: 1; min-width: 0; padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--field); color: var(--ink); font: inherit; font-size: .92rem; }
+.pcp-rep input:focus { outline: none; border-color: var(--pc); }
+.pcp-rep button { width: 38px; height: 38px; border-radius: 50%; border: 0; background: var(--pc); color: #fff; cursor: pointer; font-size: .95rem; flex: none; }
+.pcp-sent { margin-left: 4px; color: var(--green, #2e8b57); font-weight: 700; font-size: .9rem; }
+html.mobile #pcpop { top: calc(10px + env(safe-area-inset-top)); bottom: auto; right: 12px; left: 12px; width: auto; }
+html.mobile .pcp { transform: translateY(-20px); }
+html.mobile .pcp.in { transform: none; }
+html.mobile .pcp-rep input { font-size: 16px; }
 
 </style>
 </head>
@@ -11705,7 +11739,7 @@ function renderVitals() {
   const strip = `<button class="mstrip" data-act="gocore" aria-label="Hit points and armor class — open Core"><span class="ms-hp">♥ <b data-calc="mhp"></b></span><span>AC <b data-calc="acv"></b></span><span>Init <b data-calc="init"></b></span><span>Speed <b data-calc="speed"></b></span><span class="ms-go">Core ›</span></button>`;
   $('#sec-vitals').innerHTML = `${strip}
   <div class="tile hp" data-zi="hp">
-    <span class="lbl">${f ? esc(f.source || 'Form') + ': ' + esc(f.name) : '<span class="ciw">Hit Points' + ciBtn('hp', 'max HP') + '</span>'}</span>
+    <span class="lbl">${f ? esc(f.source || 'Form') + ': ' + esc(f.name) : '<span class="ciw">Hit Points' + ciBtn('hp', 'max HP') + '</span><button class="tmanage hpman hpman-in" data-act="hpmanage">Manage</button>'}</span>
     <div class="hp-wrap">
       <div class="hp-ring"><div class="ring-svg" data-calc-html="hpring"></div>
         <div class="hp-center">${f ? inp('form.hp', { num: 1, cls: 'cur', label: 'Form HP' }) + `<div class="hp-max">of ${N(f.maxhp)}</div>` : `<div class="curline">` + inp('hp.cur', { num: 1, cls: 'cur', label: 'Current HP' }) + `<span class="tmpbadge" data-calc="tmpb" title="Temporary hit points"></span></div><div class="hp-max">of <span class="maxv" data-calc="hpmaxv"></span></div>`}</div></div>
@@ -11716,7 +11750,7 @@ function renderVitals() {
         <div class="rest-actions"><button class="btn rest short" data-act="short" title="1 hour: spend Hit Dice, refresh short-rest features and Pact slots"><span class="ri">${ICON.hourglass}</span>Short Rest</button><button class="btn rest long" data-act="long" title="8 hours: full HP, all slots, features and Hit Dice"><span class="ri">${ICON.moon}</span>Long Rest</button></div>
       </div>
     </div>
-    ${f ? '' : '<button class="tmanage hpman" data-act="hpmanage">Manage</button>'}
+    
   </div>
   <div class="tile ac" data-zi="ac"><span class="lbl"><span class="ciw top">Armor Class${ciBtn('ac', 'your AC')}</span></span><button class="tmanage" data-act="acmanage">Manage</button><span class="big acv" data-calc="acv"></span><div class="ac-fx" data-calc-html="aceffects"></div></div>
   <div class="tile" data-zi="init"><span class="lbl"><span class="ciw top">Initiative${ciBtn('init', 'initiative')}</span></span>${rollBtn('init', 'Initiative', 'big')}</div>
@@ -13203,9 +13237,8 @@ function alignHpSide() {
   // Measure where the ring sits in the normal layout, pin it there, then slide only the controls down.
   wrap.style.alignItems = ''; ring.style.marginTop = ''; side.style.marginTop = '';
   const r0 = ring.getBoundingClientRect().top - wrap.getBoundingClientRect().top;
-  wrap.style.alignItems = 'flex-start'; ring.style.marginTop = r0 + 'px'; side.style.marginTop = '0px';
-  const c = cur.getBoundingClientRect(), a = amt.getBoundingClientRect(), d = (c.top + c.height / 2) - (a.top + a.height / 2);
-  side.style.marginTop = Math.max(0, d) + 'px';
+  // (kept compact now: the ring and the controls are simply centred on each other, nothing is pushed down)
+  void r0; wrap.style.alignItems = 'center';
 }
 addEventListener('resize', () => alignHpSide());
 
@@ -18012,9 +18045,9 @@ function ptyCardHTML(m) {
   const more = [['coins', 'Give coins'], ['help', 'Help (advantage on their next roll)'], down && !m.dead && !m.stable ? ['stab', 'Stabilize (Medicine, DC 10)'] : null, ['note', 'Send a message']].filter(Boolean);
   const hp = max ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(cur, max, m.temp, f ? ' form' : '')}</div>
       <div class="chp-center"><div class="curline"><b class="ptym-cur">${cur}</b>${N(m.temp) ? `<span class="tmpbadge">+${N(m.temp)}</span>` : ''}</div><div class="hp-max">of ${max}</div></div></div>
-      ${act ? `<div class="chp-side"><input class="f" id="ptyq-${esc(id)}" inputmode="numeric" placeholder="Amount" aria-label="Amount for ${esc(m.name)}">
+      ${act ? `<div class="chp-side"><select class="f ptyqt" id="ptyqt-${esc(id)}" aria-label="Damage type for ${esc(m.name)}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="ptyq-${esc(id)}" inputmode="numeric" placeholder="Amount" aria-label="Amount for ${esc(m.name)}">
         <div class="chp-btns"><button class="btn hpi dmg" data-pa="qdmg" data-id="${esc(id)}" title="Damage ${esc(m.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-pa="qheal" data-id="${esc(id)}" title="Heal ${esc(m.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-pa="qtemp" data-id="${esc(id)}" title="Give ${esc(m.name)} temporary HP" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div>` : ''}</div>` : '';
-  return `<div class="panel comp2 ptym${down ? ' ' + down : ''}" data-mid="${esc(id)}"><div class="comp-h2">${m.thumb ? `<span class="picth"><img src="${esc(m.thumb)}" alt=""></span>` : `<span class="picadd">${esc(String(m.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''))}</span>`}
+  return `<div class="panel comp2 ptym${down ? ' ' + down : ''}" data-mid="${esc(id)}"><div class="comp-h2">${m.thumb ? `<span class="picth"${/^#[0-9a-f]{6}$/i.test(m.acc || '') ? ` style="border-color:${m.acc}"` : ''}><img src="${esc(m.thumb)}" alt=""></span>` : `<span class="picadd">${esc(String(m.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''))}</span>`}
       <div class="grow"><b class="cname${String(m.name || '').length > 26 ? ' n3' : String(m.name || '').length > 17 ? ' n2' : ''}" title="${esc(m.name || '')}">${esc(m.name || 'A character')}</b>${m.player ? `<div class="ptym-pl">${esc(m.player)}</div>` : ''}</div>
 </div>
     <div class="cstat2">${hp}<div class="csts"><span class="cst"><small>AC</small><b>${esc(m.ac || '—')}</b></span>${m.speed ? `<span class="cst"><small>Speed</small><b>${N(m.speed)}</b></span>` : ''}${m.level ? `<span class="cst"><small>Level</small><b>${N(m.level)}</b></span>` : ''}</div></div>
@@ -18028,7 +18061,7 @@ function renderParty() {
   if (!ptyOn()) { pg.innerHTML = ''; return; }
   const P = PTYX().info(), ms = ptyMembers(), act = ptyAct(), abil = act ? ptyAbilities() : [], auras = abil.filter(a => a.def.kind === 'aura');
   const n = ms.length + 1, dm = P.mgr ? 'You' : (P.dmName || 'the DM');
-  const head = `<div class="panel ptyhead"><div class="ptyh"><span class="ptyh-ic" aria-hidden="true">${TAB_ICON.party}</span><div class="ptyh-t"><b>${esc(P.name)}</b><span>DM ${esc(dm)} · ${n} character${n === 1 ? '' : 's'}${act ? '' : ' · you’re viewing this sheet'}</span></div>
+  const head = `<div class="panel ptyhead"><div class="ptyh"><span class="ptyh-ic${P.pic ? ' pic' : ''}" aria-hidden="true">${P.pic ? `<img src="${esc(P.pic)}" alt="">` : TAB_ICON.party}</span><div class="ptyh-t"><b>${esc(P.name)}</b><span>DM ${esc(dm)} · ${n} character${n === 1 ? '' : 's'}${act ? '' : ' · you’re viewing this sheet'}</span></div>
       <div class="ptyh-btns">${act && ms.length > 1 ? '<button class="btn sm" data-pa="cast" data-id="" title="Pick the spell, then everyone it reaches">Cast a spell on allies…</button><button class="btn sm" data-pa="ability" data-id="" title="Pick the ability, then everyone it reaches">Use an ability on allies…</button>' : ''}<a class="btn sm" href="${esc(P.url)}" target="_top">Party page</a></div></div>
       ${act && ms.length ? `<p class="hint ptyh-hint">${P.mgr ? 'As the DM, what you send lands on their sheet straight away (or the next time it’s opened).' : 'Healing, items, spells and abilities you send pop up on their sheet for them to accept.'}</p>` : ''}</div>`;
   const cards = P.loading ? `<div class="panel"><p class="hint" style="margin:0">Loading the party…</p></div>` : ms.length ? `<div class="ptym-grid">${ms.map(ptyCardHTML).join('')}</div>` : `<div class="panel"><p class="hint" style="margin:0">Nobody else has joined yet. Your DM can share the party’s invite link from the party page.</p></div>`;
@@ -18091,10 +18124,10 @@ function ptyPickDone() { const p = PTY_PICK; if (!p) return; const ids = $$('#mo
 // The amount box on a member's card (a number or a roll like 2d4+2), like a creature card's.
 function ptyQuick(kind, id) { const inp = $('#ptyq-' + CSS.escape(id)); const v = inp ? inp.value : ''; if (!String(v).trim()) { if (inp) inp.focus(); toast('Type an amount in the box first.'); return; }
   const r = ptyRollAmt(v, (kind === 'heal' ? 'Healing for ' : kind === 'temp' ? 'Temporary HP for ' : 'Damage to ') + ptyNm(id)); if (!r) { toast('Type a number or a roll like 2d6+3.'); return; } if (r.skipped || !(r.total > 0)) return;
-  if (inp) inp.value = ''; const w = S.name || 'an ally';
+  if (inp) inp.value = ''; const w = S.name || 'an ally', ts = $('#ptyqt-' + CSS.escape(id)), dt = kind === 'dmg' && ts ? ts.value : ''; if (ts) ts.value = '';
   if (kind === 'heal') ptySend([id], 'heal', { amt: r.total, why: w }, `Healed ${r.total} HP`);
   else if (kind === 'temp') ptySend([id], 'temp', { amt: r.total, why: w }, `${r.total} temporary HP`);
-  else ptySend([id], 'hit', { dmg: r.total, why: w }, `${r.total} damage`); }
+  else ptySend([id], 'hit', Object.assign({ dmg: r.total, why: w }, dt ? { type: dt } : {}), `${r.total}${dt ? ' ' + dt : ''} damage`); }
 // Heal / temp HP / damage by an amount (or a roll).
 let PTY_AMT = null;
 function ptyAmount(kind, ids) {
@@ -18663,8 +18696,30 @@ function ptyChatList() { const ch = PTYX() && PTYX().chat; const L = ch ? ch.lis
   if (!L.length) return '<p class="hint" style="margin:0">No messages yet.</p>';
   return L.map(m => `<div class="ptyc${ch.mine(m) ? ' me' : ''}"><span class="ptyc-n">${esc(ch.mine(m) ? 'You' : m.n || 'Someone')}<small>${new Date(m.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</small></span><span class="ptyc-t">${esc(m.t)}</span></div>`).join(''); }
 window.onPartyChatList = () => { const l = $('#ptychat-l'); if (!l) { if (UI.tab === 'party') render('party'); return; } const end = l.scrollHeight - l.scrollTop - l.clientHeight < 40; l.innerHTML = ptyChatList(); if (end) l.scrollTop = l.scrollHeight; };
-window.onPartyChat = m => { const here = UI.tab === 'party' && !document.hidden && $('#ptychat-l'); if (here) return;
-  toast(`<div><b>${esc(m.n || 'Someone')}</b> <span class="det" style="display:inline">· party chat</span><div class="det">${esc(String(m.t || '').slice(0, 200))}</div></div>`, '', 7000, { label: 'Reply', fn: () => { UI.tab = 'party'; saveUI && saveUI(); render(); setTimeout(() => { const i = $('#ptychat-in'); if (i) i.focus(); }, 80); } }); };
+// New party chat messages: a note in the corner (unless the chat is on screen) and a count on the Party tab until it's opened.
+let PTY_UNREAD = 0;
+function ptyUnreadMark() { const t = document.querySelector('.tab[data-tab="party"]'); if (!t) return; if (UI.tab === 'party' && !document.hidden) PTY_UNREAD = 0; t.classList.toggle('unread', PTY_UNREAD > 0); if (PTY_UNREAD > 0) t.dataset.unread = PTY_UNREAD > 9 ? '9+' : PTY_UNREAD; else delete t.dataset.unread; }
+setInterval(ptyUnreadMark, 1500); document.addEventListener('visibilitychange', ptyUnreadMark);
+window.onPartyChat = m => { const here = UI.tab === 'party' && !document.hidden && $('#ptychat-l'); if (here) return; PTY_UNREAD++; ptyUnreadMark(); ptyChatPop(m); };
+// A party chat message gets its own card in the corner: who sent it (their picture, in their sheet's colour), the
+// message in a bubble, and a box to answer straight from there. Stays while you're hovering or typing; up to 3 stack.
+function ptyChatPop(m) {
+  let box = $('#pcpop'); if (!box) { box = document.createElement('div'); box.id = 'pcpop'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); }
+  const who = (window.PG_PARTY && window.PG_PARTY.members ? window.PG_PARTY.members() : []).find(x => x.id === m.c) || {}, nm = m.n || who.name || 'Someone';
+  const acc = /^#[0-9a-f]{6}$/i.test(who.acc || '') ? who.acc : '', ini = String(nm).split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+  const el = document.createElement('div'); el.className = 'pcp'; if (acc) el.style.setProperty('--pc', acc);
+  el.innerHTML = `<div class="pcp-top"><span class="pcp-ava">${who.thumb ? `<img src="${esc(who.thumb)}" alt="">` : esc(ini)}</span><span class="pcp-who"><b>${esc(nm)}</b><small>💬 Party chat · just now</small></span><button class="pcp-x" aria-label="Dismiss">✕</button></div>
+    <div class="pcp-msg">${esc(String(m.t || '').slice(0, 400))}</div>
+    <form class="pcp-rep"><input placeholder="Reply to the party…" maxlength="1000" aria-label="Reply"><button aria-label="Send">➤</button></form>`;
+  box.prepend(el); while (box.children.length > 3) box.lastChild.remove();
+  requestAnimationFrame(() => el.classList.add('in'));
+  let t = null; const gone = () => { el.classList.remove('in'); el.classList.add('out'); setTimeout(() => el.remove(), 260); };
+  const arm = () => { clearTimeout(t); t = setTimeout(() => { if (!el.matches(':hover') && !el.contains(document.activeElement)) gone(); else arm(); }, 14000); }; arm();
+  el.querySelector('.pcp-x').onclick = gone;
+  el.querySelector('.pcp-msg').onclick = () => { gone(); UI.tab = 'party'; if (typeof saveUI === 'function') saveUI(); render(); setTimeout(() => { const i = $('#ptychat-in'); if (i) i.focus(); }, 80); };
+  el.querySelector('form').onsubmit = e => { e.preventDefault(); const i = el.querySelector('input'), v = i.value.trim(); if (!v) return; i.disabled = true;
+    window.PG_PARTY.chat.send(v).then(() => { el.querySelector('.pcp-rep').outerHTML = '<div class="pcp-sent">✓ Sent</div>'; setTimeout(gone, 1200); }, x => { i.disabled = false; toast(esc((x && x.message) || 'Couldn’t send it.'), 'fumble'); }); };
+}
 
 
 // ----- Dice roller: a little window like Roll20's — tap dice to build a roll, add a modifier, roll -----
@@ -20233,7 +20288,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && CL
 // For the GitHub Pages loader (new characters get their link once created).
 window.sheetState = () => S; window.sheetToast = toast;
 window.sheetSet = (k, v) => { S[k] = v; pendingLabel = null; save(); render('header'); };
-window.sheetSummary = () => ({ name: S.name || '', player: S.player || '', race: S.raceName || '', cls: S.created ? classLabel() : '', level: S.created ? lvl() : 0, portrait: S.portrait || '', hp: S.created ? N(S.hp && S.hp.cur) + '/' + maxHp() : '' });
+window.sheetSummary = () => ({ name: S.name || '', player: S.player || '', race: S.raceName || '', cls: S.created ? classLabel() : '', level: S.created ? lvl() : 0, portrait: S.portrait || '', acc: /^#[0-9a-f]{6}$/i.test((S.theme || {}).accent || '') ? S.theme.accent : '', hp: S.created ? N(S.hp && S.hp.cur) + '/' + maxHp() : '' });
 if (S.created) applySources(S.sources);
 // Spells from a Ring of Spell Storing made before stored spells existed: set them up as stored now.
 const staleStore = () => (S.spells || []).some(sp => { const it = sp.item && (S.inventory || []).find(x => x.id === sp.item); return it && itemStores(it) && !sp.usesOnly; });
