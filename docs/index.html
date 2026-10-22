@@ -2192,6 +2192,31 @@ html.mobile .pg-out.closing .pg-out-card { animation: pgSink .22s cubic-bezier(.
 html.mobile :is(.pg-out, .modal-bg, body.hubbody .hub-modal) { bottom: -6px !important; }
 html.mobile :is(.pg-out .pg-out-card, .modal-bg > .modal, body.hubbody .hub-modal > *) { margin-bottom: 0 !important; }
 html.pgmw .mw-head b { font-size: 1.15rem !important; line-height: 1.4 !important; padding-bottom: 1px; }
+/* Turn order: HP and AC under each name */
+.to-who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.to-who .to-nm { flex: none; }
+.to-vit { display: flex; gap: 6px; align-items: center; min-height: 18px; }
+.to-hp, .to-ac { display: inline-flex; align-items: center; gap: 3px; font: 700 12px/1 system-ui, sans-serif; color: var(--to-soft); background: none; border: 1px solid transparent; border-radius: 5px; padding: 2px 4px; margin-left: -4px; font-variant-numeric: tabular-nums; }
+.to-hp + .to-ac { margin-left: 0; }
+.to-hp svg { color: #4fb57a; } .to-ac svg { color: #8ea4c4; }
+.to-hp i { font-style: normal; font-weight: 600; opacity: .7; }
+.to-hp em { font-style: normal; color: #4fb4e8; margin-left: 2px; }
+.to-hp.mid svg { color: #d6ae45; } .to-hp.low svg, .to-hp.out svg { color: #e0705c; } .to-hp.out { color: #e0705c; }
+button.to-hp, button.to-ac { cursor: pointer; }
+button.to-hp:hover, button.to-ac:hover { border-color: var(--to-line); color: var(--to-ink); }
+.to-row.down .to-pic, .to-row.down .to-nm { opacity: .5; }
+.to-ed { width: 96px; font: 700 12px system-ui, sans-serif; padding: 2px 5px; border-radius: 5px; border: 1px solid #c9962b; background: var(--to-bg); color: var(--to-ink); }
+.who-f.to-addf { display: grid; gap: 10px; margin: 6px 0 4px; }
+.to-arow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.to-af { display: grid; gap: 4px; font-size: 13px; font-weight: 600; }
+.to-af input { width: 100%; box-sizing: border-box; }
+/* Party NPCs */
+.pm-npc { display: inline-block; font: 800 10.5px/1 system-ui, sans-serif; letter-spacing: .12em; color: #c9962b; border: 1px solid rgba(201,150,43,.55); background: rgba(201,150,43,.12); border-radius: 999px; padding: 3px 8px 2px; }
+.pty-npc { display: flex; align-items: center; gap: 12px; margin: 14px 0 4px; padding: 12px 14px; border: 1px dashed rgba(201,150,43,.55); border-radius: 12px; background: rgba(201,150,43,.06); }
+.pty-npc > div { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.pty-npc small { color: var(--pg-soft, #8f8778); font-size: 13px; line-height: 1.35; }
+.pty-npc-ic { color: #c9962b; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 10px; background: rgba(201,150,43,.14); flex: none; }
+@media (max-width: 560px) { .pty-npc { flex-wrap: wrap; } .pty-npc .btn { width: 100%; } }
 </style>
 </head>
 <body>
@@ -2796,7 +2821,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022111104', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.1838f1a5d0f0.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.ae0a4bbb17c1.html"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022112233', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.1838f1a5d0f0.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.ae0a4bbb17c1.html"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -3303,7 +3328,7 @@ function wireDie(root) {
   }
   const ptyCardSoon = () => { clearTimeout(ptyT); ptyT = setTimeout(ptyCard, 700); };
   const ptyCard = async () => { if (!PTY || PTY.seeded || PTY.loading || role() === 'view' || !window.partyCard || !window.sheetSummary) return; let c; try { c = window.partyCard(); } catch (e) { return; } if (!c) return;
-    const s = window.sheetSummary(); c = Object.assign(c, { owner: OWNER, player: (typeof playerName === 'function' && playerName()) || s.player || '', thumb: await thumb(s.portrait), acc: s.acc || '', path: PATHVAL || '' });
+    const s = window.sheetSummary(); let npc = false; try { npc = !!(NPC || NPCJ); } catch (e) {} c = Object.assign(c, npc ? { npc: true } : {}, { owner: OWNER, player: npc ? 'NPC' : (typeof playerName === 'function' && playerName()) || s.player || '', thumb: await thumb(s.portrait), acc: s.acc || '', path: PATHVAL || '' });
     const key = JSON.stringify(c); if (key === PTY_CK) return; PTY_CK = key;
     try { await PCOL.doc(PTY.id).collection('cards').doc(C).set(Object.assign({ at: Date.now() }, c)); } catch (e) { PTY_CK = ''; } };
   // Things sent to this character wait in its inbox; the first open copy of the sheet claims each one and applies it.
@@ -3396,8 +3421,11 @@ function wireDie(root) {
   run();
   // The Player field isn't typed in on the site: it's the owner's name from the player list.
   const playerName = () => OWNER_NAME || P || (OWNER === EMAIL ? (ME && ME.name) || user.displayName || '' : '');
-  const syncPlayer = () => { try { const st = window.sheetState && window.sheetState(), want = playerName(); if (st && st.created && want && st.player !== want && role() !== 'view') window.sheetSet('player', want); } catch (e) {} };
-  if (NEW && playerName()) { try { const st = window.sheetState(); if (st && !st.player) st.player = playerName(); } catch (e) {} }
+  // A party NPC (made by the DM from the party page) keeps "NPC" as its player instead of the DM's name.
+  let NPC = false; const NPCJ = NEW ? (() => { try { const j = JSON.parse(sessionStorage.getItem('pg-join') || 'null'); return j && j.npc ? j : null; } catch (e) { return null; } })() : null;
+  if (!NEW && hubCol) hubCol.doc(C).get().then(d => { NPC = !!(d.exists && d.data().npc); }, () => {});
+  const syncPlayer = () => { try { const st = window.sheetState && window.sheetState(), want = NPC || NPCJ ? 'NPC' : playerName(); if (st && st.created && want && st.player !== want && role() !== 'view') window.sheetSet('player', want); } catch (e) {} };
+  if (NEW && (NPCJ || playerName())) { try { const st = window.sheetState(); if (st && !st.player) st.player = NPCJ ? 'NPC' : playerName(); } catch (e) {} }
   try { const st0 = window.sheetState(); if (st0 && st0.created) LASTD = digest(st0); } catch (e) {}
   if (!NEW && hubCol) setTimeout(() => { syncPlayer(); hubUpdate(false); }, 2500);
   // Its summary (HP, AC… for party cards) is brought up to date when it's opened, even if nothing gets changed.
@@ -3433,8 +3461,9 @@ function wireDie(root) {
       if (J && J.p && Date.now() - (J.at || 0) < 6 * 3600000 && OWNER === EMAIL) { ptySetLocal(clean(J.p)); let tries = 0;
         const tryJoin = async () => { tries++; const ok = await col.doc(C).get().then(x => x.exists, () => false); if (!ok) { if (tries < 30) setTimeout(tryJoin, 2000); return; }
           let s = {}; try { s = window.sheetSummary(); } catch (e) {}
-          try { await ptyJoin(fs, EMAIL, clean(J.p), C, J.t || '', { name: s.name || '', race: s.race || '', cls: s.cls || '', level: s.level || 0, player: playerName() || '' }); PTY_SET = Date.now(); ptyWatch(''); ptyWatch(clean(J.p)); pgLog('party_join', { target: J.p, tName: J.name || '', detail: s.name || '' });
-            setTimeout(() => window.sheetToast(`<div><b>Joined ${escH(J.name || 'the party')}</b><div class="det">Your party is in the Party tab: hand items over and cast spells on each other from there.</div></div>`, '', 9000), 2500); }
+          try { await ptyJoin(fs, EMAIL, clean(J.p), C, J.t || '', { name: s.name || '', race: s.race || '', cls: s.cls || '', level: s.level || 0, player: J.npc ? 'NPC' : playerName() || '' }); PTY_SET = Date.now(); ptyWatch(''); ptyWatch(clean(J.p)); pgLog(J.npc ? 'party_npc' : 'party_join', { target: J.p, tName: J.name || '', detail: s.name || '' });
+            if (J.npc) { NPC = true; await Promise.all([hubCol ? hubCol.doc(C).set({ npc: clean(J.p) }, { merge: true }) : null, fs.collection('parties').doc(clean(J.p)).collection('cards').doc(C).set({ npc: true, player: 'NPC' }, { merge: true })].map(x => x && x.catch(() => {}))); }
+            setTimeout(() => window.sheetToast(J.npc ? `<div><b>NPC added to ${escH(J.name || 'the party')}</b><div class="det">It shows on the party page for everyone in the party, but not in anyone’s character list. Open it from the party page.</div></div>` : `<div><b>Joined ${escH(J.name || 'the party')}</b><div class="det">Your party is in the Party tab: hand items over and cast spells on each other from there.</div></div>`, '', 9000), 2500); }
           catch (e) { PARTY = ''; ptyWatch(''); window.sheetToast(`<div><b>Couldn’t join ${escH(J.name || 'the party')}</b><div class="det">${escH(e && e.code === 'permission-denied' ? 'The invite link may have been turned off — ask your DM for a new one.' : (e && e.message) || String(e))}</div></div>`, 'fumble', 12000); } };
         setTimeout(tryJoin, 1500); } }
     setTimeout(() => window.sheetToast(`<div><b>Your character is saved</b><div class="det">${G ? 'It\'s on your party page. ' : ''}Open it on any device you're signed in on — it stays in sync. ${IS_ADMIN && OWNER !== EMAIL ? 'It belongs to ' + escH(OWNER) + '.' : 'Only you and the people you share it with can open it.'}</div></div>`, '', 12000), 600);
@@ -4034,7 +4063,7 @@ function hub(fs, auth, G, ctx) {
   const lists = (() => { try { const c = JSON.parse(localStorage.getItem(LISTS_LS) || 'null'); return c && c.mine ? c : {}; } catch (e) { return {}; } })();
   let listsT = null; const keepLists = () => { clearTimeout(listsT); listsT = setTimeout(() => { try { let v = JSON.stringify({ mine: lists.mine || [], shared: lists.shared || [] }); if (v.length > 1500000) return; localStorage.setItem(LISTS_LS, v); } catch (e) {} }, 1000); };
   const readyNow = () => { if (window.pgReady && lists.mine && lists.shared && page !== 'party' && page !== 'join' && !ADMIN) window.pgReady(); };
-  const merge = () => { const m = new Map(); Object.values(lists).forEach(l => l.forEach(c => m.set(c.id, c))); chars = [...m.values()]; if (!RD) draw();
+  const merge = () => { const m = new Map(); Object.values(lists).forEach(l => l.forEach(c => { if (!c.npc) m.set(c.id, c); })); chars = [...m.values()]; /* party NPCs live on their party page only */ if (!RD) draw();
     accFix(chars.filter(c => (isMine(c) || IS_ADMIN || (c.editors || []).includes(EMAIL)) && !('acc' in c)));
     if (IS_ADMIN) needNames(chars.filter(c => !isMine(c)).map(c => c.owner)).then(() => { if (!RD) draw(); });
     if (ME && ME.picChar) { const ch = chars.find(c => c.id === ME.picChar); if (ch && (ch.thumb || '') !== (ME.pic || '')) { ME.pic = ch.thumb || ''; usersCol.doc(EMAIL).update({ pic: ME.pic }).catch(() => {}); } } };
@@ -4352,8 +4381,8 @@ function hub(fs, auth, G, ctx) {
     const ACTS = { signin: 'Signed in', account: 'Created their account', signout: 'Signed out', open: 'Opened', create: 'Created', edit: 'Edited', delete: 'Deleted', give: 'Gave away', remove: 'Removed from the lists',
       share: 'Shared', unshare: 'Stopped sharing', access: 'Changed access to', leave: 'Gave up access to', picture: 'Changed their picture',
       rename_user: 'Renamed', admin_add: 'Made an admin:', admin_remove: 'Removed admin:', user_picture: 'Changed the picture of', user_signout: 'Signed out everywhere:', user_block: 'Blocked', user_unblock: 'Unblocked', user_delete: 'Deleted the account of', message: 'Sent a message to', notice: 'Sent a notice to', notice_revoke: 'Revoked the notice to', notice_edit: 'Edited the notice to', notice_resend: 'Re-sent the notice to', welcome: 'Saved the welcome message for', welcome_off: 'Turned off the welcome message for', welcome_reset: 'Reset the welcome message for', user_reload: 'Refreshed the pages of', online: 'Came online',
-      party_create: 'Created the party', party_delete: 'Deleted the party', party_chat_clear: 'Cleared the chat of', party_add: 'Added a character to', party_join: 'Joined the party', party_leave: 'Left the party', party_remove: 'Took a character out of', party_invite: 'Invited someone to', party_send: 'Used party actions in', party_access: 'Changed their access to', party_dm: 'Handed over' };
-    const AGROUPS = [['Signing in', ['signin', 'online', 'account', 'signout']], ['Parties', ['party_create', 'party_delete', 'party_add', 'party_join', 'party_leave', 'party_remove', 'party_invite', 'party_send', 'party_access', 'party_dm', 'party_chat_clear']], ['Characters', ['open', 'create', 'edit', 'delete', 'give', 'remove']], ['Sharing', ['share', 'unshare', 'access', 'leave']], ['Pictures', ['picture', 'user_picture']], ['Admin', ['rename_user', 'admin_add', 'admin_remove', 'user_signout', 'user_block', 'user_unblock', 'user_delete', 'message', 'notice', 'notice_resend', 'notice_revoke', 'notice_edit', 'welcome', 'welcome_off', 'welcome_reset', 'user_reload']]];
+      party_create: 'Created the party', party_delete: 'Deleted the party', party_chat_clear: 'Cleared the chat of', party_add: 'Added a character to', party_npc: 'Added an NPC to', party_join: 'Joined the party', party_leave: 'Left the party', party_remove: 'Took a character out of', party_invite: 'Invited someone to', party_send: 'Used party actions in', party_access: 'Changed their access to', party_dm: 'Handed over' };
+    const AGROUPS = [['Signing in', ['signin', 'online', 'account', 'signout']], ['Parties', ['party_create', 'party_delete', 'party_add', 'party_npc', 'party_join', 'party_leave', 'party_remove', 'party_invite', 'party_send', 'party_access', 'party_dm', 'party_chat_clear']], ['Characters', ['open', 'create', 'edit', 'delete', 'give', 'remove']], ['Sharing', ['share', 'unshare', 'access', 'leave']], ['Pictures', ['picture', 'user_picture']], ['Admin', ['rename_user', 'admin_add', 'admin_remove', 'user_signout', 'user_block', 'user_unblock', 'user_delete', 'message', 'notice', 'notice_resend', 'notice_revoke', 'notice_edit', 'welcome', 'welcome_off', 'welcome_reset', 'user_reload']]];
     const CHAR_ACTS = new Set(['open', 'create', 'edit', 'delete', 'give', 'remove', 'share', 'unshare', 'access', 'leave']);
     let AF = { who: [], act: [], q: '', from: '', to: '', range: '' }, AROWS, AOPEN = {} = [], ALAST = null, AFULL = false, APEOPLE = null;
     const auditCol = fs.collection('audit');
@@ -5026,7 +5055,7 @@ function partyModule(H) {
     const menu = [dmMe ? ['send', 'Damage, heal or give…'] : null, open ? ['open', 'Open sheet'] : null, run || mine ? ['rm', mine && !run ? 'Leave the party' : 'Remove from the party'] : null].filter(Boolean);
     const dots = (cls) => `<div class="hc-menu ${cls}"><button class="hc-dots" aria-label="More for ${esc(c.name || 'this character')}">⋯</button><div class="hc-list">${menu.map(([a, t]) => `<button data-pm="${a}" data-id="${esc(id)}"${a === 'rm' ? ' class="hc-del"' : ''}>${t}</button>`).join('')}</div></div>`;
     const pic = c.thumb ? `<img class="pm-pic" src="${esc(c.thumb)}" alt=""${accStyle(c)}>` : `<span class="pm-pic pm-nopic"${accStyle(c)}>${esc(initials(c.name || '?'))}</span>`;
-    const nl = String(c.name || '').length, who = `<span class="pm-txt"><b class="${nl > 26 ? 'n3' : nl > 17 ? 'n2' : ''}" title="${esc(c.name || '')}">${esc(c.name || 'A character')}</b>${c.player || c.owner ? `<small>${esc(c.player || H.nameOf(c.owner))}${mine ? ' (you)' : ''}</small>` : ''}</span>`;
+    const nl = String(c.name || '').length, who = `<span class="pm-txt"><b class="${nl > 26 ? 'n3' : nl > 17 ? 'n2' : ''}" title="${esc(c.name || '')}">${esc(c.name || 'A character')}</b>${c.npc ? `<small><span class="pm-npc">NPC</span></small>` : c.player || c.owner ? `<small>${esc(c.player || H.nameOf(c.owner))}${mine ? ' (you)' : ''}</small>` : ''}</span>`;
     // a player looking at the party: no controls — the HP ring with AC / speed / level / passive in a 2 × 2 grid beside it
     const grid = `<div class="pm-csts pm-quad">${[['AC', c.ac || '—'], ['Speed', c.speed || '—'], ['Level', c.level || '—'], ['Passive', c.pp || '—']].map(([k, v]) => `<span><small>${k}</small><b>${esc(String(v))}</b></span>`).join('')}</div>`;
     const hp = max ? `<div class="pm-hp"><span class="pty-ring" title="${cur} of ${max} HP${Number(c.temp) ? ' (+' + c.temp + ' temporary)' : ''}"><span class="ring-svg">${ring(c.hp, max, c.temp)}</span><b>${cur}</b><small>of ${max}</small>${Number(c.temp) ? `<em class="pm-tmp">+${Number(c.temp)}</em>` : ''}</span>
@@ -5055,7 +5084,7 @@ function partyModule(H) {
     const [kind, data, msg] = k === 'dmg' ? ['hit', Object.assign({ dmg: n, why: a.why, ask: true }, dt ? { type: dt } : {}), `${n}${dt ? ' ' + dt : ''} damage to ${nm}`] : k === 'heal' ? ['heal', { amt: n, why: a.why, ask: true }, `Healed ${nm} ${n} HP`] : ['temp', { amt: n, why: a.why, ask: true }, `Gave ${nm} ${n} temp HP`];
     b.disabled = true; try { await ptySend(fs, EMAIL, PID, id, kind, data, a.from, a.name); if (inp) inp.value = ''; if (tsel) tsel.value = ''; toast(sentMsg(a, msg)); pgLog('party_send', { target: PID, tName: P.name, detail: kind + ' → ' + nm }); } catch (x) { fail(x, 'send it'); } finally { b.disabled = false; }
   }
-  function paint() {
+  function paint() { if (typeof toPaint === 'function') setTimeout(toPaint, 0);
     if (!PLOADED || JOINING || LEAVING) return;
     // not while the DM is typing an amount on a card (it'd be wiped); it catches up a moment later
     { const ae = document.activeElement; if (ae && ae.classList && (ae.classList.contains('pm-q') && ae.value || ae.classList.contains('pm-qt'))) { clearTimeout(paint.t); paint.t = setTimeout(paint, 900); return; } }
@@ -5166,9 +5195,11 @@ function partyModule(H) {
     box.querySelectorAll('[data-add]').forEach(b => b.onclick = async () => { const c = H.chars().find(x => x.id === b.dataset.add); if (!c) return; b.disabled = true; const g = b.querySelector('.pty-go'); g.textContent = 'Adding…';
       try { await addChar(c, p); p.chars = (p.chars || []).concat([c.id]); g.textContent = 'Added'; } catch (x) { b.disabled = false; g.textContent = 'Add'; fail(x, 'add it'); } });
   }
+  const IC_NPC = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/><path d="M17 3l1.2 2.4L21 6l-2 1.8.5 2.7L17 9.2l-2.5 1.3.5-2.7L13 6l2.8-.6z" fill="currentColor" stroke="none"/></svg>';
   function addDialog() {
-    modal.innerHTML = `<div class="hub-card wide pty-keep pty-addc"><h2>Add characters</h2>${addHTML(P)}<div class="row"><button class="btn gold" id="ac-x">Done</button></div></div>`;
+    modal.innerHTML = `<div class="hub-card wide pty-keep pty-addc"><h2>Add characters</h2>${addHTML(P)}<div class="pty-npc"><span class="pty-npc-ic" aria-hidden="true">${IC_NPC}</span><div><b>Make an NPC</b><small>Built like any character, but it lives on this party page only: everyone in the party sees its card, it isn’t in anyone’s character list, and only you can open it.</small></div><button class="btn" id="ac-npc">Make an NPC</button></div><div class="row"><button class="btn gold" id="ac-x">Done</button></div></div>`;
     modal.classList.add('on'); wireAdd(modal, P);
+    modal.querySelector('#ac-npc').onclick = () => { try { sessionStorage.setItem('pg-join', JSON.stringify({ p: PID, t: '', name: P.name || '', at: Date.now(), npc: true })); } catch (e) {} pgGo(URLS.newChar(G)); };
     modal.querySelector('#ac-x').onclick = () => { close(); paint(); };
   }
   // Bring a character in: your own joins straight away; someone else's is added by the DM, and its sheet learns which
@@ -5204,9 +5235,19 @@ function partyModule(H) {
       if (!TO) TO = toLoad(); const got = qs.docChanges().filter(x => x.type !== 'removed' && Number(x.doc.data().at) > TO.cut && (!was[x.doc.id] || was[x.doc.id].at !== x.doc.data().at));
       if (toSync()) { toSave(); toPaint(); if (got.length && !document.getElementById('towin')) { const d = got[0].doc.data(); toast(`${d.n || 'A player'} rolled ${Number(d.v)} for initiative. It’s in your Turn order.`); } } }, () => {});
   }
+  // HP and AC under each name: a party member's come live from their sheet; someone added by hand (or sent from the
+  // DM's Desk) keeps them here, and the DM can tap the HP to change it (−7 / +5 / a new number).
+  const toVitals = (r, c) => { const hp = r.custom ? r.hp : c.hp, max = Number(r.custom ? r.maxhp : c.maxhp) || 0, tmp = r.custom ? 0 : Number(c.temp) || 0, ac = r.custom ? r.ac : c.ac;
+    const has = v => v !== '' && v != null && !isNaN(Number(v)), pct = has(hp) && max ? Math.max(0, Math.min(1, Number(hp) / max)) : null;
+    const tone = pct == null ? '' : Number(hp) <= 0 ? ' out' : pct <= .25 ? ' low' : pct <= .5 ? ' mid' : '';
+    const hpTxt = `<span>${has(hp) ? `${Math.max(Number(hp), 0)}${max ? `<i>/${max}</i>` : ''}${tmp ? `<em>+${tmp}</em>` : ''}` : '—'}</span>`;
+    const hpEl = r.custom ? `<button class="to-hp${tone}" data-hp="${esc(r.id)}" title="Change HP">${TO_ICON.heart}${hpTxt}</button>` : `<span class="to-hp${tone}" title="Hit points">${TO_ICON.heart}${hpTxt}</span>`;
+    const acEl = r.custom ? `<button class="to-ac" data-ac="${esc(r.id)}" title="Change AC">${TO_ICON.shield}${has(ac) ? esc(String(ac)) : '—'}</button>` : `<span class="to-ac" title="Armor class">${TO_ICON.shield}${has(ac) ? esc(String(ac)) : '—'}</span>`;
+    return `<span class="to-vit">${hpEl}${acEl}</span>`; };
   const toRowHTML = (r, i) => { const c = r.custom ? { name: r.name } : cardFor(r.id), nm = c.name || 'Unnamed';
     const pic = r.custom ? `<span class="to-pic to-np">${esc(initials(nm))}</span>` : c.thumb ? `<img class="to-pic" src="${esc(c.thumb)}" alt=""${accStyle(c)}>` : `<span class="to-pic to-np"${accStyle(c)}>${esc(initials(nm))}</span>`;
-    return `<li class="to-row${i === 0 ? ' cur' : ''}${r.fresh && Date.now() - r.fresh < 4000 ? ' fresh' : ''}" data-i="${i}">${pic}<span class="to-nm" title="${esc(nm)}">${esc(nm)}</span><button class="to-x" data-x="${i}" title="Take off the list" aria-label="Remove ${esc(nm)}">×</button><input class="to-v" data-i="${i}" inputmode="numeric" placeholder="–" value="${esc(String(r.v ?? ''))}" aria-label="Initiative for ${esc(nm)}"></li>`; };
+    const down = (r.custom ? r.hp !== '' && r.hp != null && Number(r.hp) <= 0 && Number(r.maxhp) : Number(c.maxhp) && Number(c.hp) <= 0);
+    return `<li class="to-row${i === 0 ? ' cur' : ''}${down ? ' down' : ''}${r.fresh && Date.now() - r.fresh < 4000 ? ' fresh' : ''}" data-i="${i}">${pic}<span class="to-who"><span class="to-nm" title="${esc(nm)}">${esc(nm)}</span>${toVitals(r, c)}</span><button class="to-x" data-x="${i}" title="Take off the list" aria-label="Remove ${esc(nm)}">×</button><input class="to-v" data-i="${i}" inputmode="numeric" placeholder="–" value="${esc(String(r.v ?? ''))}" aria-label="Initiative for ${esc(nm)}"></li>`; };
   function toPaint() {
     const w = document.getElementById('towin'); if (!w || !TO) return;
     const ae = document.activeElement; if (ae && ae.classList.contains('to-v') && w.contains(ae)) { clearTimeout(toPaint.t); toPaint.t = setTimeout(toPaint, 700); return; }
@@ -5217,8 +5258,30 @@ function partyModule(H) {
       x.onfocus = () => x.select();
       x.onkeydown = e => { if (e.key === 'Enter') { x.blur(); const n = w.querySelector(`.to-v[data-i="${+x.dataset.i + 1}"]`); if (n) n.focus(); } }; });
     w.querySelectorAll('[data-x]').forEach(b => b.onclick = () => { TO.rows.splice(+b.dataset.x, 1); toSave(); toPaint(); });
+    w.querySelectorAll('[data-hp]').forEach(b => b.onclick = () => { const r = TO.rows.find(x => x.id === b.dataset.hp); if (r) toEditNum(r, 'hp', b); });
+    w.querySelectorAll('[data-ac]').forEach(b => b.onclick = () => { const r = TO.rows.find(x => x.id === b.dataset.ac); if (r) toEditNum(r, 'ac', b); });
   }
-  const TO_ICON = { sort: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M4 12h7M4 18h4"/><path d="M18 5v14M15 16l3 3 3-3"/></svg>',
+  // Tapping a hand-added row's HP or AC turns it into a little box: "-7" takes damage, "+5" heals, a plain number sets it.
+  function toEditNum(r, k, btn) {
+    const inp = document.createElement('input'); inp.className = 'to-ed'; inp.inputMode = 'text'; inp.value = ''; inp.placeholder = k === 'hp' ? (r.hp !== '' && r.hp != null ? `${r.hp} → −7 / +5` : 'HP') : String(r.ac ?? 'AC');
+    inp.setAttribute('aria-label', k === 'hp' ? 'Damage (−7), healing (+5) or new HP' : 'New AC'); btn.replaceWith(inp); inp.focus();
+    let done = false; const fin = ok => { if (done) return; done = true; const t = inp.value.trim().replace(/[−–]/g, '-');
+      if (ok && t) { const n = Number(t.replace(/^\+/, '')); if (!isNaN(n)) { if (k === 'hp') { const cur = Number(r.hp) || 0, max = Number(r.maxhp) || 0; let v = /^[+-]/.test(t) ? cur + n : n; v = Math.max(0, max && /^\+/.test(t) ? Math.min(max, v) : v); r.hp = v; if (!max || v > max) r.maxhp = Math.max(max, v); } else r.ac = n; r.hpAt = Date.now(); toSave(); } }
+      toPaint(); };
+    inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); fin(true); } if (e.key === 'Escape') { e.stopPropagation(); fin(false); } }; inp.onblur = () => fin(true);
+  }
+  function toAddDialog() {
+    const fld = (id, lbl, ph, num) => `<label class="to-af"><span>${lbl}</span><input id="${id}" ${num ? 'inputmode="numeric"' : ''} placeholder="${ph}" maxlength="${num ? 4 : 60}" autocomplete="off"></label>`;
+    modal.innerHTML = `<div class="hub-card"><h2>Add to the turn order</h2><form id="ta-f" class="who-f to-addf">${fld('ta-n', 'Name', 'e.g. Goblin boss')}<div class="to-arow">${fld('ta-i', 'Initiative', '–', 1)}${fld('ta-h', 'HP', '–', 1)}${fld('ta-a', 'AC', '–', 1)}</div><p class="hub-hint">Only the name is needed. Tap HP or AC in the list later to change them.</p><button type="submit" hidden></button></form><div class="row"><button class="btn ghost" id="ta-x">Cancel</button><button class="btn gold" id="ta-ok">Add</button></div></div>`;
+    modal.classList.add('on'); const $m = s => modal.querySelector(s); setTimeout(() => $m('#ta-n').focus(), 30);
+    const num = s => { const t = $m(s).value.trim(); return t === '' || isNaN(Number(t)) ? '' : Number(t); };
+    const go = () => { const name = $m('#ta-n').value.replace(/\s+/g, ' ').trim().slice(0, 60); if (!name) return $m('#ta-n').focus(); const hp = num('#ta-h');
+      TO.rows.push({ custom: true, id: 'x' + Date.now().toString(36), name, v: num('#ta-i'), at: Date.now(), hp, maxhp: hp, ac: num('#ta-a') }); toSave(); toPaint(); close(); };
+    $m('#ta-f').onsubmit = e => { e.preventDefault(); go(); }; $m('#ta-ok').onclick = go; $m('#ta-x').onclick = close;
+  }
+  // The DM's Desk (another tab) adds and updates rows in the same saved list.
+  window.addEventListener('storage', e => { if (!PID || e.key !== TKEY() || !TO) return; const keep = { x: TO.x, y: TO.y, h: TO.h, open: TO.open, min: TO.min }; TO = Object.assign(toLoad(), keep); toSync(); toPaint(); });
+  const TO_ICON = { heart: '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.7 4.5c2.1 0 3.6 1.2 5.3 3.1 1.7-1.9 3.2-3.1 5.3-3.1 3.7 0 5.8 3.9 4.3 7.3C19.5 16.4 12 21 12 21z"/></svg>', shield: '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3z"/></svg>', sort: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M4 12h7M4 18h4"/><path d="M18 5v14M15 16l3 3 3-3"/></svg>',
     gear: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
     left: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>',
     right: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>' };
@@ -5261,7 +5324,7 @@ function partyModule(H) {
       if ((a === 'next' || a === 'prev') && TO.rows.length && !TO.rows.some(r => r.first)) TO.rows[0].first = true;
       if (a === 'next' && TO.rows.length > 1) { TO.rows.push(TO.rows.shift()); if (TO.rows[0].first) TO.round++; }
       if (a === 'prev' && TO.rows.length > 1) { if (TO.rows[0].first) TO.round = Math.max(1, TO.round - 1); TO.rows.unshift(TO.rows.pop()); }
-      if (a === 'add') return askText('Add to the turn order', '', 60, v => { TO.rows.push({ custom: true, id: 'x' + Date.now().toString(36), name: v, v: '', at: Date.now() }); toSave(); toPaint(); });
+      if (a === 'add') return toAddDialog();
       if (a === 'clear') { TO.rows = TO.rows.filter(r => !r.custom).map(r => ({ id: r.id, v: '', at: 0 })); TO.round = 1; TO.cut = Date.now(); Object.keys(INIT).forEach(id => PC.doc(PID).collection('init').doc(id).delete().catch(() => {})); }
       toSave(); toPaint(); });
   }
@@ -5286,7 +5349,7 @@ function partyModule(H) {
       if (b.dataset.pm === 'open') pgGo(hrefOf(id, c));
       if (b.dataset.pm === 'rm') { const self = c.owner === EMAIL && !canRun(P), pid = PID, pnm = P.name || '', lastMine = self && (P.chars || []).filter(x => (CARDS[x] || {}).owner === EMAIL).length <= 1;
         confirmBox(self ? `Leave ${esc(pnm || 'the party')}?` : `Remove ${esc(c.name || 'this character')}?`, 'It leaves the party: the others no longer see it, and nothing more can be sent to it. The character isn’t deleted.', self ? 'Leave' : 'Remove',
-        async () => { if (lastMine) LEAVING = true; try { await ptyLeave(fs, EMAIL, pid, id, { owner: c.owner, asMgr: c.owner !== EMAIL }); } catch (x) { LEAVING = false; throw x; } pgLog('party_remove', { target: pid, tName: pnm, detail: c.name || id }); close(); toast((c.name || 'The character') + ' left the party.'); if (lastMine) { try { localStorage.removeItem(PKEY(pid)); } catch (e) {} pgGo(URLS.parties(G)); } }); } });
+        async () => { if (lastMine) LEAVING = true; try { await ptyLeave(fs, EMAIL, pid, id, { owner: c.owner, asMgr: c.owner !== EMAIL }); } catch (x) { LEAVING = false; throw x; } pgLog('party_remove', { target: pid, tName: pnm, detail: c.name || id }); if (c.npc && G) fs.collection('groups/' + G + '/chars').doc(id).set({ npc: FV.delete() }, { merge: true }).catch(() => {}); close(); toast((c.name || 'The character') + ' left the party.'); if (lastMine) { try { localStorage.removeItem(PKEY(pid)); } catch (e) {} pgGo(URLS.parties(G)); } }); } });
   }
   function askText(title, val, max, save) {
     modal.innerHTML = `<div class="hub-card"><h2>${esc(title)}</h2><form id="at-f" class="who-f"><input id="at-n" maxlength="${max}" value="${esc(val)}" required></form><div class="row"><button class="btn ghost" id="at-x">Cancel</button><button class="btn gold" id="at-ok">Save</button></div></div>`;
