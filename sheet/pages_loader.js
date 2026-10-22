@@ -1015,7 +1015,7 @@ function wireDie(root) {
     hubChanged = true; hubSoon();
   }, 500); }
   // Back to the hub (desktop and phone).
-  if (G) { const a = document.createElement('a'); a.href = URLS.hub(G); a.className = 'pg-hublink'; a.title = 'All characters'; if (FRAMED) a.target = '_top'; a.textContent = '⌂ Adventurer’s Tome'; document.body.appendChild(a);
+  if (G) { const a = document.createElement('a'); a.href = URLS.hub(G); a.className = 'pg-hublink'; a.title = 'All characters'; if (FRAMED) a.target = '_top'; a.innerHTML = '<img class="pg-hl-ic" src="/icon-32.png" alt="" aria-hidden="true">Adventurer’s Tome'; document.body.appendChild(a);
     // On a computer it sits above the toolbar, level with the top of the header, and the toolbar drops so its bottom
     // lines up with the bottom of the level box.
     const de = document.documentElement, align = () => {

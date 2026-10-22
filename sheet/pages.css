@@ -1912,3 +1912,4 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 .pg-picch .pg-out-row button { font: 700 .9rem system-ui, sans-serif; }
 :where(body.hubbody) .pm-qt { width: 100%; box-sizing: border-box; padding: 4px 8px; height: 28px; border-radius: 8px; border: 1px solid #d9cbaa; background: #fff; color: inherit; font: inherit; font-size: .85rem; margin-bottom: -5px; }
 @media (prefers-color-scheme: dark) { body.hubbody .pm-qt { background: #0f1420; border-color: #3a4560; } }
+.pg-hublink .pg-hl-ic { width: 16px; height: 16px; vertical-align: -3px; margin-right: 5px; }

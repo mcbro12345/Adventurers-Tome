@@ -3178,3 +3178,6 @@ html:not(.mobile).pchat .devbtn.chatbtn { display: inline-grid; position: relati
 /* Computer toolbar: a little tighter so every button keeps its label (Edit layout too) */
 html:not(.mobile) .toolbar { column-gap: 4px; }
 html:not(.mobile) .toolbar > .tbtn, html:not(.mobile) .toolbar .savegrp > .tbtn { padding-left: 7px !important; padding-right: 7px !important; gap: 4px !important; }
+/* Hit Points: the amount controls sit snug above Short / Long Rest */
+.tile.hp .hp-side { row-gap: 6px !important; }
+.tile.hp .hp-side .rest-actions { margin-top: 0 !important; }
