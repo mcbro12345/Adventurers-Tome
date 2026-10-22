@@ -58,9 +58,9 @@ async function pgInviteImage(p) {
     g.fillStyle = '#e7c46e'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(bt, ix, by + bh / 2 + 1); g.textBaseline = 'alphabetic'; }
   // the party's seal
   const sx = W / 2, sy = cy + 114, sr = 72;
-  // the gold ring is only for the placeholder icon; a party's own picture shows without a frame (just a soft glow)
-  const ring = () => { g.save(); g.shadowColor = 'rgba(231,176,72,.55)'; g.shadowBlur = 30; g.beginPath(); g.arc(sx, sy, sr + 6, 0, 7); g.fillStyle = '#c9962b'; g.fill(); g.restore(); g.beginPath(); g.arc(sx, sy, sr, 0, 7); g.fillStyle = '#121826'; g.fill(); };
-  if (!p.pic) ring(); else { g.save(); g.shadowColor = 'rgba(231,176,72,.4)'; g.shadowBlur = 34; g.beginPath(); g.arc(sx, sy, sr + 4, 0, 7); g.fillStyle = 'rgba(18,24,38,.9)'; g.fill(); g.restore(); }
+  // the ring around a party's own picture takes the picture's colour (gold around the placeholder icon)
+  const ring = (col = '#c9962b') => { g.save(); g.shadowColor = col + '8c'; g.shadowBlur = 30; g.beginPath(); g.arc(sx, sy, sr + 6, 0, 7); g.fillStyle = col; g.fill(); g.restore(); g.beginPath(); g.arc(sx, sy, sr, 0, 7); g.fillStyle = '#121826'; g.fill(); };
+  if (!p.pic) ring();
   let drew = false; if (p.pic) { try { const load = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
     const im = await load(p.pic); let src = [im, 0, 0, im.width, im.height];
     // The saved party picture is small (256px), so on this browser use the full-size original it was cropped from, if it's
@@ -70,7 +70,7 @@ async function pgInviteImage(p) {
       const px = (img, a, b, w, h) => { const t = document.createElement('canvas'); t.width = t.height = 12; const x = t.getContext('2d'); x.drawImage(img, a, b, w, h, 0, 0, 12, 12); return x.getImageData(0, 0, 12, 12).data; };
       const A = px(o, ox, oy, sw, sw), B = px(im, 0, 0, im.width, im.height); let d = 0; for (let i = 0; i < A.length; i++) if (i % 4 !== 3) d += Math.abs(A[i] - B[i]);
       if (d / (A.length * .75) < 18) src = [o, ox, oy, sw, sw]; } } catch (e) {}
-    g.save(); g.beginPath(); g.arc(sx, sy, sr + 4, 0, 7); g.clip(); g.imageSmoothingQuality = 'high'; const [I, a, b, w, h] = src, k = Math.max((2 * sr + 8) / w, (2 * sr + 8) / h); g.drawImage(I, a, b, w, h, sx - w * k / 2, sy - h * k / 2, w * k, h * k); g.restore(); drew = true; } catch (e) {} }
+    ring(pgPicAccentOf(im) || '#c9962b'); g.save(); g.beginPath(); g.arc(sx, sy, sr - 2, 0, 7); g.clip(); g.imageSmoothingQuality = 'high'; const [I, a, b, w, h] = src, k = Math.max((2 * sr) / w, (2 * sr) / h); g.drawImage(I, a, b, w, h, sx - w * k / 2, sy - h * k / 2, w * k, h * k); g.restore(); drew = true; } catch (e) {} }
   if (!drew && p.pic) ring();
   if (!drew) { g.save(); g.translate(sx - 36, sy - 36); g.scale(3, 3); g.strokeStyle = '#e7c46e'; g.lineWidth = 1.6; g.lineCap = 'round'; g.beginPath(); g.arc(9, 8, 3.2, 0, 7); g.stroke(); g.beginPath(); g.arc(16.5, 9, 2.6, 0, 7); g.stroke(); g.beginPath(); g.moveTo(3.5, 19); g.quadraticCurveTo(5, 14, 9, 14); g.quadraticCurveTo(13, 14, 14.5, 19); g.stroke(); g.beginPath(); g.moveTo(14.5, 14.6); g.quadraticCurveTo(19.5, 13, 21, 18.5); g.stroke(); g.restore(); }
   // words
@@ -108,7 +108,28 @@ window.PG_SKEL = SKEL;
 function pgSkelFill() { document.querySelectorAll('.sk-auto:empty').forEach(el => { el.innerHTML = (SKEL[el.dataset.k] || SKEL.rows)(Number(el.dataset.n) || 5); }); }
 function pgScrollFx() { document.querySelectorAll('.pty-pick').forEach(el => { const t = el.scrollTop > 2, b = el.scrollTop + el.clientHeight < el.scrollHeight - 2; el.classList.toggle('sc-top', t); el.classList.toggle('sc-bot', b); }); }
 document.addEventListener('scroll', e => { if (e.target && e.target.classList && e.target.classList.contains('pty-pick')) pgScrollFx(); }, true);
-new MutationObserver(() => { pgSkelFill(); cancelAnimationFrame(pgScrollFx.r); pgScrollFx.r = requestAnimationFrame(pgScrollFx); }).observe(document.documentElement, { childList: true, subtree: true });
+// A party's picture is framed in a colour taken from the picture itself (its strongest colour, brightened or darkened
+// enough to show up), the way a character's picture is framed in its sheet's colour. Worked out once per picture.
+const PG_PACC = new Map();
+function pgPicAccentOf(im) { try { const n = 24, c = document.createElement('canvas'); c.width = c.height = n; const g = c.getContext('2d'); g.drawImage(im, 0, 0, n, n);
+  const d = g.getImageData(0, 0, n, n).data, bins = Array.from({ length: 12 }, () => ({ w: 0, r: 0, g: 0, b: 0 })); let ar = 0, ag = 0, ab = 0, aw = 0;
+  for (let i = 0; i < d.length; i += 4) { const a = d[i + 3] / 255; if (a < .5) continue; const r = d[i], gg = d[i + 1], b = d[i + 2], mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), l = (mx + mn) / 510, sat = mx === mn ? 0 : (mx - mn) / (255 - Math.abs(mx + mn - 255));
+    ar += r; ag += gg; ab += b; aw++; if (sat < .25 || l < .12 || l > .92) continue;
+    let h = mx === r ? ((gg - b) / (mx - mn)) % 6 : mx === gg ? (b - r) / (mx - mn) + 2 : (r - gg) / (mx - mn) + 4; h = (h * 60 + 360) % 360;
+    const bin = bins[Math.floor(h / 30) % 12], w = sat * a * (1 - Math.abs(l - .5)); bin.w += w; bin.r += r * w; bin.g += gg * w; bin.b += b * w; }
+  const best = bins.reduce((m, x) => x.w > m.w ? x : m, { w: 0 });
+  let [r, gg, b] = best.w > aw * .04 ? [best.r / best.w, best.g / best.w, best.b / best.w] : aw ? [ar / aw, ag / aw, ab / aw] : [201, 150, 43];
+  // keep it in a middle lightness so the frame shows on both light and dark pages
+  const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), l = (mx + mn) / 510, want = Math.min(.62, Math.max(.45, l)), k = l > 0 ? want / l : 1;
+  const mix = v => Math.round(Math.max(0, Math.min(255, k <= 1 ? v * k : v + (255 - v) * (1 - 1 / k))));
+  return '#' + [r, gg, b].map(v => mix(v).toString(16).padStart(2, '0')).join(''); } catch (e) { return ''; } }
+window.pgPicAccentOf = pgPicAccentOf;
+function pgPartyFrames() { document.querySelectorAll('img.pty-pic, img.pty-admic, .pw-ppic > img, .pj-seal > img, .ptyh-ic.pic > img').forEach(im => {
+  const src = im.getAttribute('src') || '', key = src.length + ':' + src.slice(-40), el = im.matches('.pty-pic, .pty-admic') ? im : im.parentElement; if (!src || el.dataset.pacc === key) return; el.dataset.pacc = key;
+  const put = col => { if (col) el.style.borderColor = col; };
+  if (PG_PACC.has(key)) return put(PG_PACC.get(key));
+  const go = () => { const col = pgPicAccentOf(im); PG_PACC.set(key, col); put(col); }; if (im.complete && im.naturalWidth) go(); else im.addEventListener('load', go, { once: true }); }); }
+new MutationObserver(() => { pgSkelFill(); pgPartyFrames(); cancelAnimationFrame(pgScrollFx.r); pgScrollFx.r = requestAnimationFrame(pgScrollFx); }).observe(document.documentElement, { childList: true, subtree: true });
 function wireThemeBtn(root) { const b = root.querySelector('#hub-theme'); if (!b) return;
   // The sun's thin rays look lopsided when the button lands between two screen pixels (it does in some header rows,
   // like an admin's): nudge it onto whole pixels.
@@ -932,7 +953,7 @@ function wireDie(root) {
         // taken out of the party (or it was deleted): this character forgets it
         if (role() === 'owner' && PARTY === pid && Date.now() - PTY_SET > 15000) { PARTY = ''; ptySetSheetParty(fs, C, '').catch(() => {}); ptyWatch(''); }
         return; }
-      PTY = Object.assign({ id: pid }, pd); ptyChanged(); ptyKeep(); inboxStart(); ptyCardSoon(); chatStart(pid, pd);
+      PTY = Object.assign({ id: pid }, pd); ptyChanged(); ptyKeep(); inboxStart(); ptyCardSoon(); chatStart(pid, pd); chatSweep();
       if (OWNER === EMAIL && pd.dm && pd.dm !== EMAIL && !EDITORS.includes(pd.dm)) col.doc(C).get().then(sd => sd.exists && ptyShareDM(fs, C, pd.dm, sd.data())).then(ok => { if (ok) { if (!VIEWERS.includes(pd.dm)) VIEWERS = VIEWERS.concat([pd.dm]); if (!EDITORS.includes(pd.dm)) EDITORS = EDITORS.concat([pd.dm]); } }, () => {});
       if (!unPtyC) unPtyC = PCOL.doc(pid).collection('cards').onSnapshot(qs => { PTY_CARDS = {}; qs.docs.forEach(x => PTY_CARDS[x.id] = x.data()); ptyChanged(); ptyKeep(); }, () => {});
       ptyLiveWatch((pd.chars || []).filter(id => id !== C));
@@ -961,13 +982,20 @@ function wireDie(root) {
   const CHAT_TTL = 12 * 3600e3; let CHAT = [], unChat = null, chatPid = '', chatFirst = true, WH = {}, unW = [];
   // only the character's own player sees its party chat (editors and viewers get an empty panel saying so)
   const chatOK = pd => OWNER === EMAIL && (pd.people || []).includes(EMAIL) && pd.dm !== EMAIL && !(pd.mgrs || []).includes(EMAIL);
+  // An admin can clear a party's chat (parties/<id>.chatClear = when): messages from before then disappear here, and the
+  // players' own sheets delete them (the admin never reads them).
+  const chatCut = () => Math.max(Date.now() - CHAT_TTL, Number(PTY && PTY.chatClear) || 0);
+  function chatSweep() { const cl = Number(PTY && PTY.chatClear) || 0; if (!cl || !chatPid) return; const pc = PCOL.doc(chatPid);
+    CHAT.filter(m => Number(m.at) <= cl).forEach(m => pc.collection('chat').doc(m.id).delete().catch(() => {}));
+    Object.values(WH).filter(w => Number(w.at) <= cl && (w.by === EMAIL || w.toEm === EMAIL)).forEach(w => pc.collection('whisper').doc(w.id).delete().catch(() => {}));
+    if (window.onPartyChatList) { try { window.onPartyChatList(); } catch (e) {} } }
   function chatStop() { if (unChat) unChat(); unChat = null; unW.forEach(u => u()); unW = []; WH = {}; chatPid = ''; CHAT = []; }
   function chatStart(pid, pd) { if (!chatOK(pd)) { if (chatPid) { chatStop(); ptyChanged(); } return; } if (chatPid === pid) return; chatStop(); chatPid = pid; chatFirst = true;
     const cc = PCOL.doc(pid).collection('chat'), cut = Date.now() - CHAT_TTL;
     cc.where('at', '<', cut).limit(100).get().then(qs => qs.docs.forEach(d => d.ref.delete().catch(() => {})), () => {});
     unChat = cc.where('at', '>', cut).orderBy('at').limit(200).onSnapshot(qs => { CHAT = qs.docs.map(d => Object.assign({ id: d.id }, d.data()));
       if (!chatFirst) qs.docChanges().forEach(ch => { if (ch.type === 'added' && ch.doc.data().c !== C && OWNER === EMAIL && window.onPartyChat) { try { window.onPartyChat(ch.doc.data()); } catch (e) {} } });
-      chatFirst = false; if (window.onPartyChatList) { try { window.onPartyChatList(); } catch (e) {} } }, e => { CHAT = []; console.warn('party chat unavailable', e && e.code); unChat = null; chatPid = ''; ptyChanged(); });
+      chatFirst = false; if (CHAT.some(m => Number(m.at) <= (Number(PTY && PTY.chatClear) || 0))) chatSweep(); if (window.onPartyChatList) { try { window.onPartyChatList(); } catch (e) {} } }, e => { CHAT = []; console.warn('party chat unavailable', e && e.code); unChat = null; chatPid = ''; ptyChanged(); });
     // whispers to and from this account (only the two people in one can read it)
     const wc = PCOL.doc(pid).collection('whisper'), wFirst = {};
     const wOn = (field, val) => wc.where(field, '==', val).onSnapshot(qs => { const fresh = [], old = Date.now() - CHAT_TTL;
@@ -978,7 +1006,7 @@ function wireDie(root) {
   window.PG_PARTY = {
     // an initiative roll goes to the DM's turn order (picked up even when it isn't open)
     init: v => { if (!PTY || PTY.loading || PTY.seeded || role() === 'view') return Promise.resolve(); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} return PCOL.doc(PTY.id).collection('init').doc(C).set({ v: Number(v) || 0, at: Date.now(), n: String(nm).slice(0, 120) }).catch(() => {}); },
-    chat: { on: () => !!unChat, canSend: () => OWNER === EMAIL, me: () => { const a = avaOf(ME); return { name: NAME, pic: String(a.pic || ''), color: String(a.color || ''), clear: !!a.clear }; }, list: () => CHAT.concat(Object.values(WH).filter(w => w.to === C || w.c === C)).filter(m => Number(m.at) > Date.now() - CHAT_TTL).sort((a, b) => Number(a.at) - Number(b.at)), mine: m => m.c === C,
+    chat: { on: () => !!unChat, canSend: () => OWNER === EMAIL, me: () => { const a = avaOf(ME); return { name: NAME, pic: String(a.pic || ''), color: String(a.color || ''), clear: !!a.clear }; }, list: () => CHAT.concat(Object.values(WH).filter(w => w.to === C || w.c === C)).filter(m => Number(m.at) > chatCut()).sort((a, b) => Number(a.at) - Number(b.at)), mine: m => m.c === C,
       // to: a character id in the party for a whisper (only you and that character's player see it)
       send: (t, to) => { t = String(t || '').trim().slice(0, 1000); if (!t || !unChat) return Promise.reject(new Error('Not in the chat')); if (OWNER !== EMAIL) return Promise.reject(new Error('Only this character’s player can send messages from it.')); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {}
         // the chat shows people as themselves: their name and account picture go with each message
@@ -1979,8 +2007,8 @@ function hub(fs, auth, G, ctx) {
     const ACTS = { signin: 'Signed in', account: 'Created their account', signout: 'Signed out', open: 'Opened', create: 'Created', edit: 'Edited', delete: 'Deleted', give: 'Gave away', remove: 'Removed from the lists',
       share: 'Shared', unshare: 'Stopped sharing', access: 'Changed access to', leave: 'Gave up access to', picture: 'Changed their picture',
       rename_user: 'Renamed', admin_add: 'Made an admin:', admin_remove: 'Removed admin:', user_picture: 'Changed the picture of', user_signout: 'Signed out everywhere:', user_block: 'Blocked', user_unblock: 'Unblocked', user_delete: 'Deleted the account of', message: 'Sent a message to', notice: 'Sent a notice to', notice_revoke: 'Revoked the notice to', notice_edit: 'Edited the notice to', notice_resend: 'Re-sent the notice to', welcome: 'Saved the welcome message for', welcome_off: 'Turned off the welcome message for', welcome_reset: 'Reset the welcome message for', user_reload: 'Refreshed the pages of', online: 'Came online',
-      party_create: 'Created the party', party_delete: 'Deleted the party', party_add: 'Added a character to', party_join: 'Joined the party', party_leave: 'Left the party', party_remove: 'Took a character out of', party_invite: 'Invited someone to', party_send: 'Used party actions in', party_access: 'Changed their access to', party_dm: 'Handed over' };
-    const AGROUPS = [['Signing in', ['signin', 'online', 'account', 'signout']], ['Parties', ['party_create', 'party_delete', 'party_add', 'party_join', 'party_leave', 'party_remove', 'party_invite', 'party_send', 'party_access', 'party_dm']], ['Characters', ['open', 'create', 'edit', 'delete', 'give', 'remove']], ['Sharing', ['share', 'unshare', 'access', 'leave']], ['Pictures', ['picture', 'user_picture']], ['Admin', ['rename_user', 'admin_add', 'admin_remove', 'user_signout', 'user_block', 'user_unblock', 'user_delete', 'message', 'notice', 'notice_resend', 'notice_revoke', 'notice_edit', 'welcome', 'welcome_off', 'welcome_reset', 'user_reload']]];
+      party_create: 'Created the party', party_delete: 'Deleted the party', party_chat_clear: 'Cleared the chat of', party_add: 'Added a character to', party_join: 'Joined the party', party_leave: 'Left the party', party_remove: 'Took a character out of', party_invite: 'Invited someone to', party_send: 'Used party actions in', party_access: 'Changed their access to', party_dm: 'Handed over' };
+    const AGROUPS = [['Signing in', ['signin', 'online', 'account', 'signout']], ['Parties', ['party_create', 'party_delete', 'party_add', 'party_join', 'party_leave', 'party_remove', 'party_invite', 'party_send', 'party_access', 'party_dm', 'party_chat_clear']], ['Characters', ['open', 'create', 'edit', 'delete', 'give', 'remove']], ['Sharing', ['share', 'unshare', 'access', 'leave']], ['Pictures', ['picture', 'user_picture']], ['Admin', ['rename_user', 'admin_add', 'admin_remove', 'user_signout', 'user_block', 'user_unblock', 'user_delete', 'message', 'notice', 'notice_resend', 'notice_revoke', 'notice_edit', 'welcome', 'welcome_off', 'welcome_reset', 'user_reload']]];
     const CHAR_ACTS = new Set(['open', 'create', 'edit', 'delete', 'give', 'remove', 'share', 'unshare', 'access', 'leave']);
     let AF = { who: [], act: [], q: '', from: '', to: '', range: '' }, AROWS, AOPEN = {} = [], ALAST = null, AFULL = false, APEOPLE = null;
     const auditCol = fs.collection('audit');
@@ -2743,7 +2771,7 @@ function partyModule(H) {
   const INVUSE = {}; const invUse = code => INVUSE[code] ? Promise.resolve(INVUSE[code]) : IC.doc(code).get().then(d => (INVUSE[code] = d.exists ? { max: Number(d.data().max) || 0, used: Number(d.data().used) || 0 } : { max: 0, used: 0 }), () => ({ max: 0, used: 0 }));
   const invMaxSel = (v) => `<select id="pt-lmax" class="pty-lmax" aria-label="How many players the link is for"><option value="0"${!v ? ' selected' : ''}>any number of players</option>${[1, 2, 3, 4, 5, 6, 7, 8].map(n => `<option value="${n}"${v === n ? ' selected' : ''}>${n} player${n > 1 ? 's' : ''}</option>`).join('')}</select>`;
   // the invite panel as a picture, for the link's preview card (redrawn when the party's name, picture or size changes)
-  const invCardKey = p => ['png5', p.name || '', (p.pic || '').length, (p.chars || []).length, p.dmName || ''].join('|');
+  const invCardKey = p => ['png6', p.name || '', (p.pic || '').length, (p.chars || []).length, p.dmName || ''].join('|');
   const invCard = async (code, p, loud) => { try { const k = invCardKey(p); let was = null; try { was = localStorage.getItem('pg-invcard:' + code); } catch (e) {} if (was === k) return; const img = await pgInviteImage(p);
     // A sharp PNG is bigger than one Firestore document holds, so the rest of it goes in invcard/<code>/part/<i>.
     const PART = 880000, bits = []; for (let i = 0; i < img.length; i += PART) bits.push(img.slice(i, i + PART)); const D = fs.collection('invcard').doc(code);
@@ -2920,6 +2948,9 @@ function partyModule(H) {
         invSync(Object.assign({}, p, { dm: em, dmName: nm }));
         pgLog('party_dm', { target: p.id, tName: p.name, detail: 'DM is now ' + em }); close(); toast((nm || em) + ' is now the DM of ' + (p.name || 'the party') + '.'); } catch (x) { fail(x, 'change the DM'); } };
   }
+  // Clear a party's chat and whispers: the players' sheets delete everything sent before now (nobody here reads it).
+  function clearPartyChat(p) { confirmBox('Clear ' + (p.name || 'this party') + '’s chat?', 'Every chat message and whisper sent so far disappears for all of its players. It can’t be undone.', 'Clear chat', async () => {
+    try { await fs.collection('parties').doc(p.id).update({ chatClear: Date.now() }); pgLog('party_chat_clear', { target: p.id, tName: p.name }); toast((p.name || 'The party') + '’s chat was cleared.'); } catch (x) { toast('Couldn’t clear the chat: ' + ((x && (x.code || x.message)) || x)); } }); }
   function deleteParty(p, after) {
     confirmBox(`Delete ${esc(p.name || 'this party')}?`, 'The party is gone for everyone in it. The characters aren’t deleted — they just aren’t in a party anymore.', 'Delete party', async () => {
       const ref = PC.doc(p.id), cs = await ref.collection('cards').get().catch(() => null);
@@ -3076,13 +3107,13 @@ function partyModule(H) {
       return `<tr><td><a class="adm-char" href="${esc(URLS.party(p.id, p.name))}">${p.pic ? `<img class="hc-pic pty-admic" src="${esc(p.pic)}" alt="">` : `<span class="hc-pic hc-nopic pty-admic">${IC_PARTY}</span>`}<span><b>${esc(p.name || 'Unnamed party')}</b><small>${(p.invited || []).length ? plural(p.invited.length, 'invitation') + ' open' : plural((p.people || []).length, 'person').replace('persons', 'people')}</small></span></a></td>
         <td><button class="adm-who adm-dmbtn" data-pdm="${esc(p.id)}" title="Change the DM">${A.ava(H.nameOf(p.dm || ''), p.dm)}<span>${esc(p.dmName || H.nameOf(p.dm || '') || '—')}</span></button></td><td>${(p.chars || []).length}</td>
         <td>${a === 'dm' ? '<span class="adm-tag r-own">You’re the DM</span>' : `<select class="adm-sel" data-pacc="${esc(p.id)}" aria-label="My access"><option value="">None</option><option value="view"${a === 'view' ? ' selected' : ''}>In my list</option><option value="codm"${a === 'codm' ? ' selected' : ''}>Co-DM</option></select>`}</td>
-        <td>${A.when(p.updatedAt)}</td><td>${A.when(p.createdAt)}</td><td class="adm-act">${A.kebab([['open', 'Open', p.id], ['add', 'Add a character…', p.id], ['dm', 'Change DM…', p.id], ['del', 'Delete party…', p.id, 'danger']])}</td></tr>`; }).join('')}</tbody></table></div>` : `<p class="adm-empty">${AROWS.length ? 'No parties match.' : 'No parties yet.'}</p>`;
+        <td>${A.when(p.updatedAt)}</td><td>${A.when(p.createdAt)}</td><td class="adm-act">${A.kebab([['open', 'Open', p.id], ['add', 'Add a character…', p.id], ['dm', 'Change DM…', p.id], ['chatclear', 'Clear party chat…', p.id], ['del', 'Delete party…', p.id, 'danger']])}</td></tr>`; }).join('')}</tbody></table></div>` : `<p class="adm-empty">${AROWS.length ? 'No parties match.' : 'No parties yet.'}</p>`;
     l.querySelectorAll('[data-pacc]').forEach(sl => sl.onchange = async () => { const v = sl.value, ref = PC.doc(sl.dataset.pacc), p = AROWS.find(x => x.id === sl.dataset.pacc);
       try { await ref.update(v === 'codm' ? { people: FV.arrayUnion(EMAIL), mgrs: FV.arrayUnion(EMAIL) } : v ? { people: FV.arrayUnion(EMAIL), mgrs: FV.arrayRemove(EMAIL) } : { people: FV.arrayRemove(EMAIL), mgrs: FV.arrayRemove(EMAIL) });
         toast(v === 'codm' ? 'You’re now a co-DM of ' + (p.name || 'the party') + '.' : (p.name || 'The party') + (v ? ' is in your list.' : ' is out of your list.')); pgLog('party_access', { target: p.id, tName: p.name, detail: v === 'codm' ? 'made themselves co-DM' : v ? 'added it to their list' : 'took it off their list' }); }
       catch (x) { fail(x, 'change it'); sl.value = accessOf(p) === 'dm' ? '' : accessOf(p); } });
     l.querySelectorAll('[data-pdm]').forEach(b => b.onclick = () => { const p = AROWS.find(x => x.id === b.dataset.pdm); if (p) changeDM(p); });
-    l.querySelectorAll('[data-mi]').forEach(b => b.onclick = () => { const p = AROWS.find(x => x.id === b.dataset.id); A.closeMenus(); if (!p) return; if (b.dataset.mi === 'open') pgGo(URLS.party(p.id, p.name)); if (b.dataset.mi === 'dm') changeDM(p); if (b.dataset.mi === 'add') adminAddChar(p); if (b.dataset.mi === 'del') deleteParty(p, () => adminPaint(B, A)); });
+    l.querySelectorAll('[data-mi]').forEach(b => b.onclick = () => { const p = AROWS.find(x => x.id === b.dataset.id); A.closeMenus(); if (!p) return; if (b.dataset.mi === 'open') pgGo(URLS.party(p.id, p.name)); if (b.dataset.mi === 'dm') changeDM(p); if (b.dataset.mi === 'add') adminAddChar(p); if (b.dataset.mi === 'chatclear') clearPartyChat(p); if (b.dataset.mi === 'del') deleteParty(p, () => adminPaint(B, A)); });
   }
 
   listen();

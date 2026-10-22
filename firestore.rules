@@ -195,7 +195,7 @@ service cloud.firestore {
           && request.resource.data.by == me() && request.resource.data.t is string && request.resource.data.t.size() > 0 && request.resource.data.t.size() <= 1000
           && request.resource.data.n is string && request.resource.data.n.size() <= 120 && request.resource.data.c in partyOf(p).chars && ownsSheet(request.resource.data.c)
           && request.resource.data.at is number;
-        allow delete: if chatter() && (resource.data.by == me() || resource.data.at < request.time.toMillis() - 43200000);
+        allow delete: if chatter() && (resource.data.by == me() || resource.data.at < request.time.toMillis() - 43200000 || resource.data.at <= partyOf(p).get('chatClear', 0));
       }
       // Whispers (/whisper or /w, and /r to reply): one player's character to another's. Only the two of them can read it.
       match /whisper/{m} {
