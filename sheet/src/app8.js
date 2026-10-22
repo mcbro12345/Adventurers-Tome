@@ -591,3 +591,98 @@ const ringItems = () => S.inventory.map((it, ii) => [it, ii]).filter(([it]) => i
 // Inventory: set a weapon up to be dual wielded (it shows as an off-hand bonus attack on the Combat tab).
 document.addEventListener('change', e => { const t = e.target; if (!t || !t.matches || !t.matches('[data-offhand]')) return; const it = S.inventory[N(t.dataset.offhand)]; if (!it) return;
   it.offhand = t.checked; pendingLabel = `${it.name}: ${t.checked ? 'dual wield (off-hand)' : 'not dual wielded'}`; save(); render(); });
+
+// ---------- Add-ons ("riders"): a homebrew feature or item that adds something to another ability ----------
+// f.hb / it.hb: on ('meleehit' | 'hit' | 'cast' | 'spelldmg' | 'name:<ability>'), onDmg + onType (extra dice, doubled on a crit),
+// onHeal / onTemp (for you), onSave + onDC + onCond + onCondDur (on the target), onMsg, onCost ('use' | 'charge' | 'none'),
+// onAsk (true: you're asked each time; false: it always happens).
+const RIDER_GEN = [['meleehit', 'I hit with a melee weapon attack'], ['hit', 'I hit with any attack'], ['cast', 'I cast a spell'], ['spelldmg', 'I deal damage with a spell']];
+const riderKeyName = s => String(s || '').toLowerCase().replace(/\s*\(.*\)\s*$/, '').replace(/[^a-z0-9]+/g, ' ').trim();
+function riderSources() {
+  const out = [];
+  (S.features || []).forEach((f, i) => { const h = f && f.hb; if (!h || !h.on) return; const max = featMax(f), cost = h.onCost || (max != null ? 'use' : 'none');
+    out.push({ kind: 'feat', i, obj: f, name: f.name || 'Homebrew', hb: h, cost, max: cost === 'use' ? max : null,
+      left: () => cost === 'use' && max != null ? Math.max(0, max - N(f.used)) : null, spend: () => { if (cost === 'use' && max != null) f.used = N(f.used) + 1; }, refund: () => { if (cost === 'use' && max != null) f.used = Math.max(0, N(f.used) - 1); } }); });
+  (S.inventory || []).forEach((it, i) => { const h = it && it.hb; if (!h || !h.on || !hbItemOn(it)) return; const ch = it.charges && N(it.charges.max) > 0 ? it.charges : null, cost = h.onCost || (ch ? 'charge' : 'none');
+    out.push({ kind: 'item', i, obj: it, name: it.name || 'Item', hb: h, cost, max: cost === 'charge' && ch ? N(ch.max) : null,
+      left: () => cost === 'charge' && ch ? Math.max(0, N(ch.max) - N(ch.used)) : null, spend: () => { if (cost === 'charge' && ch) ch.used = N(ch.used) + 1; }, refund: () => { if (cost === 'charge' && ch) ch.used = Math.max(0, N(ch.used) - 1); } }); });
+  return out;
+}
+// What sets it off, in words ("adds to Divine Smite", "when you hit with a melee weapon")
+function riderTrigText(h) { const t = String((h && h.on) || ''); const g = RIDER_GEN.find(x => x[0] === t); return g ? 'When ' + g[1].replace(/^I /, 'you ') : t.startsWith('name:') ? 'Adds to ' + t.slice(5) : ''; }
+function riderWhat(h) {
+  const dc = riderDC(h), bits = [];
+  if (h.onDmg) bits.push('+' + String(h.onDmg).trim() + (h.onType ? ' ' + String(h.onType).toLowerCase() : '') + ' damage');
+  if (h.onHeal) bits.push('heals you ' + h.onHeal); if (h.onTemp) bits.push(h.onTemp + ' temp HP');
+  if (h.onSave) bits.push(`${dc ? 'DC ' + dc + ' ' : ''}${String(h.onSave).toUpperCase()} save${h.onCond ? ' or ' + h.onCond : ''}`);
+  else if (h.onCond) bits.push(h.onCond);
+  if (h.onMsg) bits.push(String(h.onMsg));
+  return bits.join(' · ');
+}
+function riderDC(h) { const d = String((h && h.onDC) || '').trim().toLowerCase(); if (!d) return h && h.onSave ? null : null; if (/^\d+$/.test(d)) return N(d); if (d === 'spell') { const c = (S.spells || []).find(s => s.cls) ; return c ? castInfo(c.cls).dc : null; } if (/^(str|dex|con|int|wis|cha)(\|(str|dex|con|int|wis|cha))*$/.test(d)) return dcVal(d); return evalMax(d); }
+// Does this add-on fire for this event? ev: { kind: 'atk'|'spell'|'feat', names: [...], melee, weapon, hit, dmg }
+function riderMatches(src, ev) {
+  const t = String(src.hb.on || ''); if (!t) return false;
+  if (src.kind === 'feat' && ev.self === src.obj) return false;
+  if (t === 'meleehit') return ev.kind === 'atk' && !!ev.melee && !!ev.weapon;
+  if (t === 'hit') return ev.kind === 'atk' || (ev.kind === 'spell' && !!ev.hit);
+  if (t === 'cast') return ev.kind === 'spell';
+  if (t === 'spelldmg') return ev.kind === 'spell' && !!ev.dmg;
+  if (t.startsWith('name:')) { const k = riderKeyName(t.slice(5)); return (ev.names || []).some(n => riderKeyName(n) === k); }
+  return false;
+}
+const ridersFor = ev => riderSources().filter(s => riderMatches(s, ev));
+// Spend it and do it. Returns { total, type, dice, lines } — the caller shows it (or adds it to its own card).
+function riderDo(src, ev) {
+  const h = src.hb, left = src.left();
+  if (left != null && left <= 0) return { none: true };
+  src.spend();
+  const lines = [], nm = src.name; let r = null, dice = '';
+  if (h.onDmg) { dice = fxRollExpr(String(h.onDmg)); if (ev.crit && /\d*d\d+/.test(dice)) dice = critDice(dice); r = rollExpr(dice, { label: nm + (ev.crit ? ' (crit)' : '') }); }
+  const u = {}; if (h.onHeal) u.heal = String(h.onHeal); if (h.onTemp) u.temp = String(h.onTemp); fxApplyUse(u, nm, lines);
+  if (h.onSave || h.onCond) { const dc = riderDC(h); lines.push(`Target: ${h.onSave ? `${dc ? 'DC ' + dc + ' ' : ''}${String(h.onSave).toUpperCase()} save` : ''}${h.onSave && h.onCond ? ' or ' : ''}${h.onCond ? h.onCond + (h.onCondDur ? ' ' + String(h.onCondDur) : '') : ''}`); }
+  if (h.onMsg) lines.push(fxText(String(h.onMsg)));
+  const l2 = src.left(); if (l2 != null) lines.push(`${l2} of ${src.max} left`);
+  pendingLabel = (src.kind === 'item' ? 'Use ' : 'Use ') + nm;
+  return { total: r ? r.total : 0, r, dice, type: String(h.onType || '').toLowerCase(), lines };
+}
+// Shows what an add-on did on its own card (used by the "+ add-on" buttons and by abilities that roll separately).
+function riderCard(src, ev, res, base) {
+  const h = src.hb, lbl = [res.dice ? res.dice + (res.type ? ' ' + res.type : '') : '', riderTrigText(h).toLowerCase(), ev.crit && res.dice ? 'crit: dice doubled' : ''].filter(Boolean).join(' · ');
+  toast(`${res.r ? `<b class="total">${res.total}</b>` : ''}<div class="rc-body"><div class="rc-name">${esc(src.name)}</div><div class="rc-lbl">${esc(lbl)}</div>${base != null && res.r ? `<div class="det">With the hit: <b>${base + res.total}</b> total damage</div>` : ''}${res.r ? `<div class="det dd">${esc(res.r.detail)}</div>` : ''}${res.lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, ev.crit ? 'crit' : '', 9000, [{ label: 'Undo', fn: () => undo(1) }]);
+}
+function riderUse(src, ev, base) {
+  if (typeof base === 'function') base = base();
+  const res = riderDo(src, ev); if (res.none) { toast(`No uses of ${esc(src.name)} left.`, 'fumble'); return; }
+  update(); save(); render(); riderCard(src, ev, res, base);
+}
+// For an ability that just happened: "always" add-ons happen now (their results returned for the caller's card),
+// "ask me" ones become buttons on that card.
+function riderHook(ev, base) {
+  const always = [], acts = [];
+  ridersFor(ev).forEach(src => { const left = src.left(); if (left != null && left <= 0) return;
+    if (src.hb.onAsk === false || src.hb.onAsk === 'false') { const res = riderDo(src, ev); if (!res.none) always.push(Object.assign({ src }, res)); }
+    else acts.push({ label: `+ ${src.name}${src.hb.onDmg ? ' ' + String(src.hb.onDmg).trim() + (src.hb.onType ? ' ' + String(src.hb.onType).toLowerCase() : '') : ''}${left != null ? ` (${left} left)` : ''}`, fn: () => riderUse(src, ev, base) }); });
+  return { always, acts };
+}
+// Little chips on the abilities an add-on attaches to ("+ Radiant Wrath 2/2").
+function riderChips(ev) {
+  const rs = ridersFor(ev); if (!rs.length) return '';
+  return `<span class="rider-chips">${rs.map(s => { const l = s.left(); return `<span class="rider-chip${l === 0 ? ' out' : ''}" title="${esc(riderWhat(s.hb))}">+ ${esc(s.name)}${l != null ? ` <b>${l}/${s.max}</b>` : ''}</span>`; }).join('')}</span>`;
+}
+
+// Chips only for add-ons attached to these abilities by name (generic ones are listed once, not on every row).
+function riderChipsNamed(names) { const ks = [].concat(names).map(riderKeyName); const rs = riderSources().filter(x => String(x.hb.on || '').startsWith('name:') && ks.includes(riderKeyName(String(x.hb.on).slice(5))));
+  return rs.length ? `<span class="rider-chips">${rs.map(x => { const l = x.left(); return `<span class="rider-chip${l === 0 ? ' out' : ''}" title="${esc(riderWhat(x.hb))}">+ ${esc(x.name)}${l != null ? ` <b>${l}/${x.max}</b>` : ''}</span>`; }).join('')}</span>` : ''; }
+function riderChipsGen(keys, label) { const rs = riderSources().filter(x => keys.includes(String(x.hb.on || ''))); if (!rs.length) return '';
+  return `<div class="rider-chips blk"><span class="hint">${esc(label)}</span>${rs.map(x => { const l = x.left(); return `<span class="rider-chip${l === 0 ? ' out' : ''}" title="${esc(riderWhat(x.hb))}">+ ${esc(x.name)}${l != null ? ` <b>${l}/${x.max}</b>` : ''}</span>`; }).join('')}</div>`; }
+// The Add-ons list on the Combat tab: every add-on with its uses and a Use button (for when you'd rather spend it by hand),
+// plus your own homebrew features with limited uses that don't take an action (so they're never out of sight).
+function addonRows(ridersOnly) {
+  const rows = riderSources().map(src => { const l = src.left(), tip = src.kind === 'feat' ? `<button class="notetip" data-tip="${src.i}" data-tipkind="feat" aria-label="What ${esc(src.name)} does">ⓘ</button>` : `<button class="notetip" data-tip="${src.i}" aria-label="What ${esc(src.name)} does">ⓘ</button>`;
+    return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(src.name)}</span>${tip}${l != null ? `<span class="tag">${l}/${src.max}</span>` : ''}<button class="btn sm" data-act="useaddon" data-k="${src.kind}" data-i="${src.i}" ${l === 0 ? 'disabled' : ''}>Use</button></div>
+      <div class="opt-info rider">${esc(riderTrigText(src.hb))}${riderWhat(src.hb) ? ': ' + esc(riderWhat(src.hb)) : ''}${src.hb.onAsk === false || src.hb.onAsk === 'false' ? ' · happens by itself' : ' · you\u2019re asked each time'}</div></div>`; });
+  if (!ridersOnly) (S.features || []).forEach((f, i) => { if (!f || (f.hb && f.hb.on) || f.col || f.source !== 'Custom' || featMax(f) == null || f.pool) return; const max = featMax(f), l = Math.max(0, max - N(f.used));
+    rows.push(`<div class="opt"><div class="opt-head"><span class="opt-name">${esc(f.name)}</span><button class="notetip" data-tip="${i}" data-tipkind="feat" aria-label="What ${esc(f.name)} does">ⓘ</button><span class="pips" data-calc-html="featpips:${i}"></span><button class="btn sm" data-act="usefeat" data-i="${i}" data-col="" ${l ? '' : 'disabled'}>Use</button></div>${f.desc ? `<div class="opt-text">${esc(formulaDC(f.desc))}</div>` : ''}</div>`); });
+  return rows;
+}

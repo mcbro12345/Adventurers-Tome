@@ -94,6 +94,7 @@ function mainClick(e) {
     case 'repeatfx': repeatEffect(N(b.dataset.j)); break;
     case 'stunstrike': stunningStrike(); break;
     case 'hasteact': hasteAct(b.dataset.k, b.dataset.i); break;
+    case 'useaddon': { const src = riderSources().find(x => x.kind === b.dataset.k && x.i === N(b.dataset.i)); if (src) riderUse(src, { kind: 'manual', crit: Date.now() < critUntil }, null); break; }
     case 'usefeat': if (isStunStrike(S.features[i])) { stunningStrike(); break; } if (/^martial arts$/i.test(String((S.features[i] || {}).name || '').trim()) && clsLv('monk')) { martialArtsBonus(false); break; } useFeature(i, b.dataset.col); break;
     case 'mabonus': martialArtsBonus(false); break;
     case 'slotrestgo': { const R = SLOTREST; if (!R) return; const k = b.dataset.k === 'pact' ? 'pact' : N(b.dataset.k); closeModal(true); useFeature(R.i, R.col, { slot: k }); return; }
@@ -457,10 +458,13 @@ function attackRoll(i, free, opt) {
   // Sneak Attack rolls itself when the attack has advantage with a finesse or ranged weapon (once per turn).
   const sa = sneakAuto(a, rm, nat1, isWeapon, opt.offTurn), sr = sa ? rollExpr(crit ? critDice(sa) : sa, { label: 'Sneak Attack (' + sa + ')' }) : null;
   if (sr && !opt.offTurn && S.inCombat) { S.turn.sneak = true; setTimeout(refresh, 0); }
-  const total = d.total + xr.reduce((t, x) => t + x.r.total, 0) + rr.reduce((t, x) => t + x.r.total, 0) + (sr ? sr.total : 0);
+  // Homebrew add-ons that ride on this hit (or on the smite that came with it): "always" ones roll in now, "ask me" ones become buttons.
+  let total = 0; const rev = { kind: 'atk', names: [a.name].concat(xr.filter(x => x.what).map(x => x.what)), melee: a.kind === 'melee', weapon: !!isWeapon, crit, hit: true };
+  const rh = nat1 ? { always: [], acts: [] } : riderHook(rev, () => total);
+  total = d.total + xr.reduce((t, x) => t + x.r.total, 0) + rr.reduce((t, x) => t + x.r.total, 0) + (sr ? sr.total : 0) + rh.always.reduce((t, x) => t + x.total, 0);
   // Damage by type (Booming Blade's thunder, Improved Divine Smite's radiant… aren't the weapon's type): resistances care.
   const mainT = a.type ? String(a.type).toLowerCase() : 'damage', byType = {}, addT = (t, v) => { if (!v) return; t = String(t || '').trim().toLowerCase() || mainT; byType[t] = (byType[t] || 0) + v; };
-  addT(mainT, d.total + (sr ? sr.total : 0)); xr.forEach(x => addT(String(x.label).replace(/^[\d+d\s-]+/, ''), x.r.total)); rr.forEach((x, k) => addT(String(riders[k].dice).replace(/^[\d+d\s-]+/, ''), x.r.total));
+  addT(mainT, d.total + (sr ? sr.total : 0)); rh.always.forEach(x => addT(x.type, x.total)); xr.forEach(x => addT(String(x.label).replace(/^[\d+d\s-]+/, ''), x.r.total)); rr.forEach((x, k) => addT(String(riders[k].dice).replace(/^[\d+d\s-]+/, ''), x.r.total));
   const types = Object.entries(byType);
   const n1 = nat1 ? nat1Roll() : null;
   if (crit) critUntil = Date.now() + 60000;
@@ -471,6 +475,7 @@ function attackRoll(i, free, opt) {
   xr.forEach(x => dmgSec.rows.push([x.label, String(x.r.total), diceOf(x.r)]));
   rr.forEach(x => dmgSec.rows.push([x.label, String(x.r.total), diceOf(x.r)]));
   if (sr) dmgSec.rows.push([`Sneak Attack (${crit ? critDice(sa) : sa})`, String(sr.total), diceOf(sr)]);
+  rh.always.filter(x => x.r).forEach(x => dmgSec.rows.push([`${x.src.name} (${x.dice}${x.type ? ' ' + x.type : ''})`, String(x.total), diceOf(x.r)]));
   dmgSec.total = total;
   const math = mathHTML([d20Math(h, dd20, atkHitRows(a), 'To hit'), nat1 ? null : dmgSec]);
   const note = [rm.mode !== 'normal' ? (rm.mode === 'adv' ? 'Advantage: ' : 'Disadvantage: ') + rm.why.join(', ') : '', bless ? 'Bless +1d4' : '', ex ? `Exhaustion −${ex}` : ''].filter(Boolean).join(' · ');
@@ -478,10 +483,12 @@ function attackRoll(i, free, opt) {
   const acts = keepR.length ? [{ label: 'Missed — keep riders', fn: () => { S.riders = (S.riders || []).concat(keepR); pendingLabel = 'Keep riders'; update(); toast('Riders saved for your next hit.'); } }] : [];
   if (!nat1 && a.kind === 'melee' && stunStrikeFeat() && stunKiLeft() > 0) acts.push({ label: 'Stunning Strike (1 ki)', fn: () => stunningStrike() });
   xr.filter(x => x.refund).forEach(x => acts.push({ label: `Missed — get ${x.what === 'Divine Smite' ? 'the slot' : 'the ki'} back`, fn: () => { x.refund(); pendingLabel = x.what + ' not used'; update(); render(); toast(`${x.what} is ready again for your next hit.`); } }));
+  rh.always.forEach(x => acts.push({ label: `Missed — get ${x.src.name} back`, fn: () => { x.src.refund(); pendingLabel = x.src.name + ' not used'; update(); render(); toast(`${esc(x.src.name)} is back.`); } }));
+  acts.push(...rh.acts);
   if (sr && !opt.offTurn) acts.push({ label: 'Missed — Sneak Attack not used', fn: () => { S.turn.sneak = false; pendingLabel = 'Sneak Attack not used'; update(); refresh(); toast('Sneak Attack is ready again this turn.'); } });
   // The card shows just the two numbers: to hit and damage. The full breakdown goes to the roll log.
   toast(`<b class="total">${h.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${crit ? 'CRITICAL HIT' : nat1 ? 'Natural 1 — miss' : 'to hit'}</div>
-    ${(opt.notes || []).map(x => `<div class="det">${x}</div>`).join('')}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}<div class="det dd">Hit: ${esc(h.detail)} · Dmg: ${esc(d.detail)}${sr ? ` · <b>Sneak Attack</b>: ${esc(sr.detail)}` : ''}${xr.map(x => ` · ${esc(x.label)}: ${x.r.total}`).join('')}${rr.map(x => ` · <b>${esc(x.label)}</b>: ${x.r.total}`).join('')}</div>
+    ${(opt.notes || []).map(x => `<div class="det">${x}</div>`).join('')}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}<div class="det dd">Hit: ${esc(h.detail)} · Dmg: ${esc(d.detail)}${sr ? ` · <b>Sneak Attack</b>: ${esc(sr.detail)}` : ''}${xr.map(x => ` · ${esc(x.label)}: ${x.r.total}`).join('')}${rr.map(x => ` · <b>${esc(x.label)}</b>: ${x.r.total}`).join('')}${rh.always.filter(x => x.r).map(x => ` · <b>${esc(x.src.name)}</b>: ${x.total}`).join('')}</div>${rh.always.map(x => x.lines.filter(l => !/ left$/.test(l)).map(l => `<div class="det"><b>${esc(x.src.name)}:</b> ${esc(l)}</div>`).join('')).join('')}
     ${note ? `<div class="det">${esc(note)}</div>` : ''}<div class="det">${[ammoNote, free ? '' : `Attack ${N(S.turn.attacks)} of ${attacksPerAction()} this turn`].filter(Boolean).join(' · ')}${crit && hasFeature('Divine Smite') ? ' · a smite now also doubles' : ''}</div>${math}</div>
     <div class="rc-dmg${nat1 ? ' void' : ''}"><b>${total}</b><span>${types.length > 1 ? `<span class="rc-types">${types.map(([t, v]) => `<i><b>${v}</b> ${esc(t)}</i>`).join('')}</span>` : esc(mainT)}${sr ? `<small>incl. ${sr.total} sneak</small>` : ''}</span></div>`, crit ? 'crit' : nat1 ? 'fumble' : '', crit ? 12000 : 9000, acts);
 }
@@ -949,9 +956,11 @@ function useFeature(i, col, opt) {
     else if (fx.healRoll || /regain|heal/i.test(f.desc || '')) healAct = { label: 'Heal me', fn: () => useAmt(r, f.name + ': healing', n => healSelf(n, `${f.name}: +${n} HP`)) };
   }
   const sc = []; clsRows().forEach(row => { const c = CL[row.key], s = subOf(row); (c.scaling || []).concat((s && s.scaling) || []).forEach(([n, t]) => { if (new RegExp('\\b' + n.split(' ')[0].replace(/[^a-z]/gi, '') + '\\b', 'i').test(f.name) && n !== 'Rage Damage') sc.push(n + ': ' + scaleVal(t, N(row.level))); }); });
+  const fRh = riderHook({ kind: 'feat', names: [f.name], self: f }, r ? r.total : null);
+  fRh.always.forEach(x => { lines.push(`${x.src.name}: ${x.r ? '+' + x.total + (x.type ? ' ' + x.type : '') + ' (' + x.r.detail + ')' : 'used'}`); x.lines.forEach(l => lines.push(x.src.name + ': ' + l)); });
   pendingLabel = 'Use ' + f.name; update(); render();
   const left = max != null && !f.pool ? `${Math.max(0, max - N(f.used))}/${max} left` : '';
-  toast(`${r ? `<b class="total">${r.total}</b>` : ''}<div><div><b>${esc(f.name)}</b>${left ? ' · ' + left : ''}</div>${r ? `<div class="det">${esc(r.detail)}${fx.rollNote ? ' ' + esc(fx.rollNote) : ''}</div>` : ''}${sc.length ? `<div class="det">${esc(sc.join(' · '))}</div>` : ''}${lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, '', 8000, [healAct, typeof ptyFeatAct === 'function' ? ptyFeatAct(f.name, r, f) : null, { label: 'Undo', fn: () => undo(1) }].filter(Boolean));
+  toast(`${r ? `<b class="total">${r.total}</b>` : ''}<div><div><b>${esc(f.name)}</b>${left ? ' · ' + left : ''}</div>${r ? `<div class="det">${esc(r.detail)}${fx.rollNote ? ' ' + esc(fx.rollNote) : ''}</div>` : ''}${sc.length ? `<div class="det">${esc(sc.join(' · '))}</div>` : ''}${lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, '', 8000, [healAct, typeof ptyFeatAct === 'function' ? ptyFeatAct(f.name, r, f) : null, { label: 'Undo', fn: () => undo(1) }].filter(Boolean).concat(fRh.acts));
 }
 function smite(l) {
   let L;
@@ -960,7 +969,14 @@ function smite(l) {
   let d = Math.min(6, Math.min(5, L + 2) + (UI.smiteUndead ? 1 : 0));
   const isCrit = Date.now() < critUntil; if (isCrit) { d *= 2; critUntil = 0; }
   pendingLabel = `Divine Smite (${ORD[L]} slot)`;
-  update(); roll(`Divine Smite (${ORD[L]} slot) radiant${isCrit ? ' · CRIT, dice doubled' : ''}`, d + 'd8');
+  update(); const sr = roll(`Divine Smite (${ORD[L]} slot) radiant${isCrit ? ' · CRIT, dice doubled' : ''}`, d + 'd8');
+  riderAfter({ kind: 'feat', names: ['Divine Smite'], crit: isCrit }, 'Divine Smite', sr && sr.total);
+}
+// An ability that rolled on its own card: its "always" add-ons get their own cards, "ask me" ones a small card of buttons.
+function riderAfter(ev, what, base) {
+  const rh = riderHook(ev, base == null ? null : base);
+  if (rh.always.length) { update(); save(); render(); rh.always.forEach(x => riderCard(x.src, ev, x, base)); }
+  if (rh.acts.length) toast(`<div><b>${esc(what)}</b>: add-ons you can use with it</div>`, '', 12000, rh.acts);
 }
 
 // ---------- Casting ----------
@@ -1177,7 +1193,12 @@ function executeCast(i, how, L, col, x) {
   const surgeShow = wildAfterCast(sp);
   save(); render();
   if (surgeShow) setTimeout(surgeShow, 350);
-  const acts = [healAct, backAct, typeof ptyHitAct === 'function' ? ptyHitAct() : null, { label: 'Undo', fn: () => undo(1) }].filter(Boolean);
+  // Homebrew add-ons that ride on casting (this spell by name, any spell, or a damaging one)
+  const spEv = { kind: 'spell', names: [sp.name], dmg: !!((sm && (sm.dice || sm.attack || sm.save) && !sm.heal) || card || beamRows.length), hit: !!((card && card.hit != null && !card.nat1) || beamRows.some(r => !r.nat1)), crit: !!((card && card.crit) || beamRows.some(r => r.crit)) };
+  const spRh = riderHook(spEv, mainTotal != null ? mainTotal : card && card.dmg != null ? card.dmg : null);
+  spRh.always.forEach(x => { lines.push(`<b>${esc(x.src.name)}</b>: ${x.r ? '+' + x.total + (x.type ? ' ' + esc(x.type) : '') + ' (' + esc(x.r.detail) + ')' : 'used'}`); x.lines.forEach(l => lines.push(`<b>${esc(x.src.name)}</b>: ${esc(l)}`)); });
+  if (spRh.always.length) save();
+  const acts = [healAct, backAct, typeof ptyHitAct === 'function' ? ptyHitAct() : null, { label: 'Undo', fn: () => undo(1) }].filter(Boolean).concat(spRh.acts);
   // Rolls go on the big card like weapon attacks: to hit and damage (one row per beam/ray); the details go to the roll log.
   const how2 = how === 'slot' ? `${ORD[L - 1]}-level slot` : how === 'pact' ? 'pact slot' : how === 'free' ? 'free use' : how === 'atwill' ? 'at will' : how === 'ritual' ? 'ritual' : '';
   const dets = out.map(o => `<div class="det">${o}</div>`).join('') + lines.map(l => `<div class="det">${l}</div>`).join('');
@@ -1192,7 +1213,7 @@ function executeCast(i, how, L, col, x) {
       : `<b class="total">${card.dmg}</b><div class="rc-body"><div class="rc-name">${esc(spLabel(sp))}</div><div class="rc-lbl">${esc(String(card.type || 'damage').toLowerCase())}${card.save ? ` · DC ${ci.dc} ${esc(card.save)} save${card.half ? ', half on success' : ''}` : ''}${how2 ? ' · ' + how2 : ''}</div>${dets}</div>`, cls, 12000, acts);
     return;
   }
-  if (doAtk != null) { attackRoll(doAtk, true, { label: sp.name + ' · ' + S.attacks[doAtk].name, notes: lines }); return; }
+  if (doAtk != null) { attackRoll(doAtk, true, { label: sp.name + ' · ' + S.attacks[doAtk].name, notes: lines }); if (spRh.acts.length) toast(`<div><b>${esc(sp.name)}</b>: add-ons you can use with it</div>`, '', 12000, spRh.acts); return; }
   if (mainTotal != null) { toast(`<b class="total">${mainTotal}</b><div class="rc-body"><div class="rc-name">${esc(spLabel(sp))}</div><div class="rc-lbl">${sm.heal ? 'healing' : 'total'}${how2 ? ' · ' + how2 : ''}</div>${dets}</div>`, cls, 12000, acts); return; }
   toast(`${mainTotal != null ? `<b class="total">${mainTotal}</b>` : ''}<div><div>Cast <b>${esc(spLabel(sp))}</b>${how === 'slot' ? ` · ${ORD[L - 1]}-level slot` : how === 'pact' ? ' · pact slot' : how === 'free' ? ' · free use' : how === 'ritual' ? ' · ritual' : ''}${sp.conc ? ' · concentrating' : ''}</div>${out.map(o => `<div class="det">${o}</div>`).join('')}${lines.map(l => `<div class="det">${l}</div>`).join('')}</div>`, cls, 12000, acts);
 }

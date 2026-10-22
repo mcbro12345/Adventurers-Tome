@@ -284,7 +284,7 @@ function renderFeatures() {
     const max = featMax(f), ed = UI.open['fedit:' + i], left = max != null ? Math.max(0, max - N(f.used)) : null;
     const sc = f.cls ? classScaling(f.cls).filter(([n]) => scalingMatches(f.name, n)) : [];
     const fx = fxOf(f), dcl = fxDCLine(fx, f);
-    const tags = [f.source, f.col ? (f.col === 'bonus' ? 'Bonus action' : f.col[0].toUpperCase() + f.col.slice(1)) : '', max != null ? `${max}× per ${resetOf(f) === 'short' ? 'short rest' : resetOf(f) === 'long' ? 'long rest' : 'never'}` : '', dcl, fx.cost ? 'Costs ' + fxCostText(fx.cost) : '', fx.onlyRaging ? 'While raging' : ''].filter(Boolean);
+    const tags = [f.source, f.hb && f.hb.on ? riderTrigText(f.hb) : '', f.col ? (f.col === 'bonus' ? 'Bonus action' : f.col[0].toUpperCase() + f.col.slice(1)) : '', max != null ? `${max}× per ${resetOf(f) === 'short' ? 'short rest' : resetOf(f) === 'long' ? 'long rest' : 'never'}` : '', dcl, fx.cost ? 'Costs ' + fxCostText(fx.cost) : '', fx.onlyRaging ? 'While raging' : ''].filter(Boolean);
     const canUse = !fxIsResource(f) && (fx.cost || fx.use || fx.target || fx.roll);
     return `<div class="fcard${f.auto ? '' : ' custom'}${ed ? ' editing' : ''}">
       <div class="fc-head"><b class="fc-name">${esc(f.name)}</b>${sc.map(([n, v]) => `<span class="fscale" title="${esc(n)}">${esc(v)}</span>`).join('')}<span class="grow"></span>
@@ -672,7 +672,7 @@ function combatSpellsHTML(col, spells) {
     const eff = a.darts ? `<span class="csp-k dmg">${mult}1d4+1 force</span>` : a.beams ? `<span class="csp-k dmg">${mult}1d10${ag ? sgn(ag) : ''} force</span>` : a.weapon ? `<span class="csp-k dmg">weapon${tier > 1 ? ' +' + (tier - 1) + 'd8 ' + (a.boom ? 'thunder' : 'fire') : ''}</span>` : a.rider && !sm.dice ? `<span class="csp-k dmg">on hit +${esc(String(a.rider).replace(/\s*\(.*$/, ''))}</span>` : sm.dice ? `<span class="csp-k dmg">${mult}${esc(sm.dice)} ${esc(String(sm.type || '').toLowerCase())}</span>` : sm.heal ? `<span class="csp-k heal">heal ${esc(sm.heal)}</span>` : sm.temp ? `<span class="csp-k heal">${esc(sm.temp)} temp HP</span>` : '';
     return `<div class="csp${ok ? '' : ' nocast'}"><span class="csp-lv${L ? '' : ' c0'}" title="${lvTag(L)}">${L || '∞'}</span>
       <div class="csp-main"><div class="csp-name"><span class="csp-nm">${sp.flavor && sp.flavor.trim() ? `${esc(sp.flavor.trim())}<button class="notetip" data-tip="${i}" data-tipkind="sp" aria-label="What ${esc(sp.name)} does">ⓘ</button> <span class="sp-real">${esc(sp.name)}</span>` : (() => { const w = String(sp.name).trim().split(/\s+/), l = w.pop(); return (w.length ? esc(w.join(' ')) + ' ' : '') + `<span class="nowrap">${esc(l)}<button class="notetip" data-tip="${i}" data-tipkind="sp" aria-label="What ${esc(sp.name)} does">ⓘ</button></span>`; })()}</span>${sp.conc ? '<span class="csp-tag">conc</span>' : ''}${sp.uses && N(sp.uses.max) ? `<span class="csp-tag free">${Math.max(0, (evalMax(sp.uses.max) || 0) - N(sp.uses.used))}${sp.usesOnly ? '/' + (evalMax(sp.uses.max) || 0) + ' stored' + (N(sp.uses.level) > N(sp.level) ? ' · ' + ORD[N(sp.uses.level) - 1] + ' lvl' : '') : ' free'}</span>` : ''}</div>
-        <div class="csp-sub">${hit}${eff}${sp.range ? `<span class="csp-r">${esc(sp.range)}</span>` : ''}</div></div>
+        <div class="csp-sub">${hit}${eff}${sp.range ? `<span class="csp-r">${esc(sp.range)}</span>` : ''}${riderChipsNamed(sp.name)}</div></div>
       <button class="btn gold sm" data-act="cast" data-i="${i}" data-col="${col}" ${ok ? '' : 'title="No spell slots left for this level"'}>Cast</button></div>`;
   };
   if (spCustom()) { spCatsEnsure(); return spCatsAll().map(c => { const list = spells.filter(x => spCatOf(x[0]) === c.id).sort((x, y) => spOrd(x[0], x[1]) - spOrd(y[0], y[1]));
@@ -711,7 +711,7 @@ const sneakDice = () => { const r = clsLv('rogue'); return r ? Math.ceil(r / 2) 
 // Out of combat: no turn tracker or action economy — just what you reach for between fights.
 function oocHTML(comps) {
   const spells = S.spells.map((sp, i) => [sp, i]).filter(([sp]) => spReady(sp));
-  const feats = S.features.map((f, i) => [f, i]).filter(([f]) => !fxHidden(f) && !isStunStrike(f) && (fxIsResource(f) ? featMax(f) != null || fxVisActs(f).length : (featMax(f) != null || f.col || fxOf(f).use || fxOf(f).roll || fxOf(f).target))).sort((a, b) => fxIsResource(b[0]) - fxIsResource(a[0]));
+  const feats = S.features.map((f, i) => [f, i]).filter(([f]) => !(f.hb && f.hb.on) && !fxHidden(f) && !isStunStrike(f) && (fxIsResource(f) ? featMax(f) != null || fxVisActs(f).length : (featMax(f) != null || f.col || fxOf(f).use || fxOf(f).roll || fxOf(f).target))).sort((a, b) => fxIsResource(b[0]) - fxIsResource(a[0]));
   const featRow = ([f, i]) => { const max = featMax(f), fx = fxOf(f), left = max != null ? Math.max(0, max - N(f.used)) : null;
     return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(f.name)}</span><button class="notetip" data-tip="${i}" data-tipkind="feat" aria-label="What ${esc(f.name)} does">ⓘ</button>${max != null ? `<span class="pips" data-calc-html="featpips:${i}"></span>` : ''}<span class="grow"></span>${fxIsResource(f) ? '' : `${f.col ? `<span class="itag">${f.col === 'bonus' ? 'Bonus' : esc(f.col[0].toUpperCase() + f.col.slice(1))}</span>` : ''}<button class="btn sm" data-act="usefeat" data-i="${i}" ${left === 0 && !fx.slotRestore ? 'disabled' : ''}>${fx.useLabel || (f.roll || fx.roll ? 'Use & roll' : 'Use')}</button>${typeof ptyFeatBtn === 'function' ? ptyFeatBtn(f, i) : ''}`}</div>${fxIsResource(f) && fxInfoLine(f) ? `<div class="opt-info">${esc(fxInfoLine(f))}</div>` : ''}${fxVisActs(f).length ? `<div class="fxacts">${fxActsHTML(f, i, null)}</div>` : ''}</div>`; };
   const skills = (S.skills || []).map((sk, i) => `<div class="ooc-sk" title="Roll ${esc(sk.name)}">${rollBtn('skill:' + i, sk.name)}<span>${esc(sk.name)}</span></div>`).join('');
@@ -733,6 +733,7 @@ function oocHTML(comps) {
       <div class="ooc-col">
         ${(() => { const r = combatCompanionRows(); return r.length ? `<div class="panel"><h2>Companions</h2>${r.join('')}</div>` : ''; })()}
         ${feats.length ? `<div class="panel"><h2>Features</h2>${feats.map(featRow).join('')}</div>` : ''}
+        ${(() => { const ad = addonRows(true); return ad.length ? `<div class="panel"><h2>Add-ons</h2>${ad.join('')}</div>` : ''; })()}
         <div class="panel"><h2>Quick checks</h2><div class="ooc-sks">${skills}</div></div>
       </div>
     </div>`;
@@ -743,7 +744,7 @@ function renderCombat() {
     const max = featMax(f), key = `fopt:${fi}`, open = !m || UI.open[key], fx = fxOf(f), own = f.col === col, info = own ? fxInfoLine(f) : '';
     const useBtn = !own || fxIsResource(f) || (max != null && f.pool && !fx.cost) ? '' : `<button class="btn sm${max != null || fx.cost || fx.roll ? '' : ' ghost'}" data-act="usefeat" data-i="${fi}" data-col="${col}">${f.roll || fx.roll ? 'Use & roll' : max != null || fx.cost || fx.use ? 'Use' : 'Take'}</button>`;
     return `<div class="opt"><div class="opt-head">${m ? `<button class="opt-name opt-tog" data-act="toggle" data-key="${key}" aria-expanded="${!!open}">${esc(f.name)} <span class="caret">${open ? '▴' : '▾'}</span></button>` : `<span class="opt-name">${esc(f.name)}</span>`}
-      <button class="notetip" data-tip="${fi}" data-tipkind="feat" aria-label="What ${esc(f.name)} does">ⓘ</button>${max != null ? `<span class="pips" data-calc-html="featpips:${fi}"></span>` : ''}${useBtn}${own && typeof ptyFeatBtn === 'function' ? ptyFeatBtn(f, fi) : ''}</div>
+      <button class="notetip" data-tip="${fi}" data-tipkind="feat" aria-label="What ${esc(f.name)} does">ⓘ</button>${max != null ? `<span class="pips" data-calc-html="featpips:${fi}"></span>` : ''}${useBtn}${own ? riderChipsNamed(f.name) : ''}${own && typeof ptyFeatBtn === 'function' ? ptyFeatBtn(f, fi) : ''}</div>
       ${info ? `<div class="opt-info">${esc(info)}</div>` : ''}${fx.acts ? `<div class="fxacts">${fxActsHTML(f, fi, col)}</div>` : ''}
       ${open && f.desc && own ? `<div class="opt-text">${esc(formulaDC(f.desc))}</div>` : ''}</div>`;
   };
@@ -766,7 +767,7 @@ function renderCombat() {
         ${stunRowHTML()}${harmRowHTML()}
         ${hasFeature('Divine Smite') ? `<div class="smite"><div class="sect" style="width:100%">Divine Smite <span class="grow"></span>
           <button class="toggle${UI.smiteUndead ? ' on' : ''}" data-act="smiteundead" aria-pressed="${!!UI.smiteUndead}" title="Undead and fiends take +1d8">Undead / Fiend +1d8</button></div>
-          <div class="smite-row" data-calc-html="smite"></div></div>` : ''}</div>`;
+          <div class="smite-row" data-calc-html="smite"></div>${riderChipsNamed('Divine Smite') ? `<div class="rider-chips blk"><span class="hint">With a smite:</span>${riderChipsNamed('Divine Smite')}</div>` : ''}</div>` : ''}${riderChipsGen(['meleehit', 'hit'], 'On a hit:')}${riderChipsNamed(S.attacks.map(x => x.name))}</div>`;
     }
     if (key === 'bonus') body += bonusAtkHTML();
     if (key === 'move') {
@@ -789,8 +790,9 @@ function renderCombat() {
     if (key === 'bonus' && clsLv('monk')) { const k = S.attacks.findIndex(a => /^unarmed strike$/i.test(String(a.name).trim()));
       if (k >= 0) body += `<div class="block"><div class="sect">Martial Arts strike<span class="grow"></span></div><table class="mini"><tr><td>Unarmed Strike</td><td>${rollBtn('atk:' + k, 'Unarmed Strike attack')}</td><td>${rollBtn('dmg:' + k, 'Unarmed Strike damage')}</td><td><button class="btn gold sm atkbtn" data-act="mabonus" title="One unarmed strike as your bonus action (after taking the Attack action)">⚔</button></td></tr></table><div class="hint">After you take the Attack action. Flurry of Blows (1 ki, under Ki) makes two strikes instead.</div>${stunRowHTML()}</div>`; }
     {
-      if (spells.length) body += combatSpellsHTML(key, spells);
+      if (spells.length) body += riderChipsGen(['cast', 'spelldmg'], 'When you cast:') + combatSpellsHTML(key, spells);
       if (feats.length) body += cGroup(key, 'feat', 'Features', '★', feats.length, feats.map(([f, i]) => featView(key, f, i)).join(''));
+      if (key === 'action') { const ad = addonRows(); if (ad.length) body += cGroup(key, 'addon', 'Add-ons', '✚', ad.length, ad.join('')); }
       if (key === 'action') { const comps = combatCompanionRows(); if (comps.length) body += cGroup(key, 'comp', 'Companions', '🐾', comps.length, comps.join('')); }
       if (key === 'bonus' && S.companions.length) body = `<div class="incol-comps">${S.companions.map((c, i) => compCard(c, i, false, true)).join('')}</div>` + body;
       { const ir = infCombatRows(key); if (ir.length) body += cGroup(key, 'inf', 'Infusions', '⚗', ir.length, ir.join('')); }

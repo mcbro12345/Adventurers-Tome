@@ -2432,9 +2432,9 @@ function findImg(src, dir, images, byBase) {
 }
 function importPreview(plan, label) {
   const n = plan.pages.length, P = {}; plan.pages.forEach(p => { (P[p.parentKey || ''] = P[p.parentKey || ''] || []).push(p); });
-  const tree = (k, d) => (P[k] || []).slice(0, 60).map(p => `<div class="dk-ipt" style="--d:${d}">${nIcon(p.type || 'blank')} ${esc(p.title)}${p.tags && p.tags.length ? ` <small>#${esc(p.tags.slice(0, 3).join(' #'))}</small>` : ''}</div>${d < 6 ? tree(p.key, d + 1) : ''}`).join('');
+  const tree = (k, d) => (P[k] || []).slice(0, 60).map(p => `<div class="dk-ipt" style="--d:${d}">${nIcon(p.type || 'blank', '', p.color)} ${esc(p.title)}${p.tags && p.tags.length ? ` <small>#${esc(p.tags.slice(0, 3).join(' #'))}</small>` : ''}</div>${d < 6 ? tree(p.key, d + 1) : ''}`).join('');
   openModal(`<h2>Import ${esc(label)}</h2>
-    <div class="dk-istats"><span><b>${n}</b> pages</span>${plan.lk ? `${plan.stats.maps ? `<span><b>${plan.stats.maps}</b> maps · <b>${plan.stats.pins}</b> pins</span>` : ''}${plan.stats.props ? `<span><b>${plan.stats.props}</b> properties</span>` : ''}${plan.stats.hiddenDocs ? `<span><b>${plan.stats.hiddenDocs}</b> hidden tabs → secret blocks</span>` : ''}` : ''}<span><b>${plan.found}</b> pictures</span>${plan.missing.length ? `<span class="bad"><b>${plan.missing.length}</b> pictures not in the upload</span>` : ''}<span><b>${plan.unresolved.length}</b> links to pages that don’t exist</span></div>
+    <div class="dk-istats"><span><b>${n}</b> pages</span>${plan.lk ? `${plan.stats.maps ? `<span><b>${plan.stats.maps}</b> maps · <b>${plan.stats.pins}</b> pins</span>` : ''}${plan.stats.props ? `<span><b>${plan.stats.props}</b> properties</span>` : ''}${plan.stats.hiddenDocs ? `<span><b>${plan.stats.hiddenDocs}</b> hidden tabs → secret blocks</span>` : ''}` : ''}${plan.lk ? '' : `<span><b>${plan.found}</b> pictures</span>`}${plan.missing.length ? `<span class="bad"><b>${plan.missing.length}</b> pictures not in the upload</span>` : ''}<span><b>${plan.unresolved.length}</b> links to pages that don’t exist</span></div>
     <div class="dk-itree">${plan.backup ? plan.pages.slice(0, 80).map(p => `<div class="dk-ipt">${esc(p.title)}</div>`).join('') : tree('', 0)}</div>
     ${plan.unresolved.length ? `<details><summary class="dk-hint">Links that don’t point to a page yet (they stay as links; clicking one makes the page)</summary><p class="dk-hint">${esc(plan.unresolved.slice(0, 40).join(', '))}${plan.unresolved.length > 40 ? '…' : ''}</p></details>` : ''}
     ${plan.missing.length ? `<details><summary class="dk-hint">Pictures that weren’t in the upload</summary><p class="dk-hint">${esc(plan.missing.slice(0, 30).join(', '))}</p></details>` : ''}
@@ -2626,7 +2626,7 @@ function planLk(root, label) {
 async function commitLk(plan) {
   const idOf = new Map(), made = [], before = new Set(pagesList().map(p => p.title.toLowerCase()));
   const uniq = t => { let s = t, n = 2; while (before.has(s.toLowerCase())) s = `${t} (${n++})`; return s; };
-  const topBase = Math.max(0, ...kids('').map(p => N(p.order) < 1e9 ? N(p.order) : 0)) + 1;
+  const topBase = Math.max(0, ...kids('').map(p => N(p.order))) + 1;
   let n = 0; const total = plan.pages.length, stamp = () => { const b = $('#dk-impGo'); if (b) b.textContent = `Importing… ${n}/${total}`; };
   // pages arrive parents-first and already in sibling order
   const ranks = new Map();

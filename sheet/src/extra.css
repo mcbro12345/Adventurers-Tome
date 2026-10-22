@@ -3452,3 +3452,11 @@ html:not(.mobile) #sec-header:has(> .ident.noid) .portrait-wrap { transition: no
 .ddb-allok { color: var(--green, #3d7653); font-weight: 600; }
 @media (max-width: 480px) { .ddb-abs { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 html.mobile body.wizopen #modal.open, html.mobile body.wizopen #modal.closing { z-index: 95; } /* windows opened from character creation (e.g. D&D Beyond import) sit above it on a phone */
+/* add-ons ("riders") */
+.rider-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: 6px; vertical-align: middle; }
+.rider-chip { display: inline-flex; align-items: center; gap: 4px; font-size: .72rem; font-weight: 700; padding: 1px 8px; border-radius: 99px; background: var(--gold-soft, #f6e7bf); color: var(--gold-ink, #8f620e); border: 1px solid rgba(201,150,43,.45); white-space: nowrap; }
+.rider-chip b { font-weight: 800; }
+.rider-chip.out { opacity: .5; text-decoration: line-through; }
+.rider-chips.blk { display: flex; margin: 6px 0 0; }
+.hbb-rider { border: 1px dashed rgba(201,150,43,.55); }
+.opt-info.rider { font-size: .8rem; }

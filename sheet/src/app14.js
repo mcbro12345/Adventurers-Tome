@@ -56,7 +56,7 @@ function openHomebrew(kind, idx) {
 }
 // Advanced starts open when the thing already uses some of it.
 function HBB_ADV_ON(kind, d) {
-  const h = d.hb || {}, basic = { item: ['col', 'consume', 'text', 'textAuto'], feat: ['col'], spell: ['what', 'dmg', 'type', 'hit', 'save', 'half', 'up', 'heal', 'healMod', 'healUp'] }[kind];
+  const h = d.hb || {}, basic = { item: ['col', 'consume', 'text', 'textAuto'], feat: ['col', 'on', 'onDmg', 'onType', 'onSave', 'onDC', 'onCond', 'onCondDur', 'onHeal', 'onTemp', 'onMsg', 'onCost', 'onAsk'], spell: ['what', 'dmg', 'type', 'hit', 'save', 'half', 'up', 'heal', 'healMod', 'healUp'] }[kind];
   return Object.keys(h).some(k => !basic.includes(k) && h[k] !== '' && h[k] != null && h[k] !== false) || (kind === 'item' && (d.spells || []).length) || (kind === 'feat' && ((d.spells || []).length || d.pool || String(d.full || '').trim()));
 }
 function hbbPaint() {
@@ -121,6 +121,7 @@ function hbbItemAdv() {
     bChk(P + 'othersDis', 'Cursed: disadvantage on attacks with other weapons') + bRow(bF('When you take damage, make a save', bSel(P + 'hurtSave', hbbAbOpts, { label: 'Save when hurt' })), bF('DC', bIn(P + 'hurtDC', { ph: '15' }))) + bF('If you fail', bIn(P + 'hurtText', { ph: 'What happens' })));
   h += bSec('misc', '⚙', 'Carrying, attunement & reminders', hbbSum([['attune', 'Attunement'], ['carried', 'Works while carried'], [P + 'triggerOn', 'Reminder']]) || 'Weight, cost, attunement',
     bRow(bF('Weight (lb)', bIn('weight', { num: 1 })), bF('Cost', bIn('cost', { ph: '50 gp' }))) + bRow(bChk('attune', 'Requires attunement'), bChk('carried', 'Works while carried', 'No need to equip it')) + bRow(bF('Remind me', bSel(P + 'triggerOn', [['', '—'], ['longRest', 'After a long rest'], ['shortRest', 'After a short rest'], ['initiative', 'When I roll initiative'], ['zero', 'When I drop to 0 HP']], { label: 'Remind me' })), bF('Only works while (effect)', bIn(P + 'onlyEffect', { ph: 'effect name' }))));
+  h += bSec('rider', '✚', 'Adds to another ability', hbbV('hb.on') ? riderTrigText(HBB.d.hb) : 'Like “my melee hits also deal 1d6 fire”', hbbRiderFields('item').replace(/^<div class="hbb-card hbb-rider"><div class="hbb-ct">[^<]*<\/div>/, '<div>'));
   return h;
 }
 const hbbEffFields = P => bRow(bF('Effect name', bIn(P + 'effName', { ph: 'Frost Aura' })), bF('Lasts', bSel(P + 'effRounds', hbbDurs, { label: 'Lasts' }))) +
@@ -171,7 +172,9 @@ function hbbSaveItem() {
 function hbbFeatBasic() {
   const d = HBB.d;
   let h = bF('Name', bIn('name', { ph: 'e.g. Stormborn Fury', cls: 'hbb-name', label: 'Feature name' }));
-  h += bF('Using it takes', bSeg('col', hbbUseCols('Nothing (always on)'), { wrap: true }));
+  h += bF('Using it takes', bSeg('col', hbbUseCols('Nothing — it’s passive, or adds to something else'), { wrap: true }), !d.col && !hbbV('hb.on') ? 'It won’t get its own button in Combat. Pick an action type to use it from Combat, or make it add to another ability below (like Divine Smite).' : '');
+  if (d.col && !HBB.adv) h += `<div class="hbb-card"><div class="hbb-ct">⚡ When you use it</div>` + bRow(bF('Roll', bIn('hb.roll', { ph: '2d6+wis' }), 'Dice or a formula'), bF('What the roll is', bIn('hb.rollNote', { ph: 'radiant damage' }))) + bRow(bF('Targets make a save', bSel('hb.saveAb', hbbAbOpts, { label: 'Save ability' })), hbbV('hb.saveAb') ? bF('Save DC', bIn('hb.dc', { ph: 'spell, or 8+prof+wis' })) : '') + `<p class="hint">More (healing, temp HP, effects, costs) under <b>Advanced</b>.</p></div>`;
+  h += hbbRiderFields('feat');
   h += `<div class="hbb-card"><div class="hbb-ct">↻ Uses</div>` + bF('How often can you use it?', bSeg('_limited', [['', 'As often as I like'], ['1', 'A limited number of times']]));
   if (d._limited) h += bRow(bF('Times', bIn('max', { ph: '1, prof, 1+cha…', label: 'How many times' }), 'A number, or a formula like <code>prof</code> or <code>1+wis</code>'), bF('Comes back on', bSeg('reset', [['short', 'Short rest'], ['long', 'Long rest'], ['none', 'Never']])));
   h += `</div>`;
@@ -292,3 +295,30 @@ function hbbOpenRow(kind, idx, hb, it) {
   return `<div class="hbbrow"><span class="hbbrow-t"><b>✦ Homebrew</b><small>${sum.length ? esc(sum.join(' · ')) : kind === 'item' ? 'Make it a weapon, give it uses, resistances, spells…' : kind === 'feat' ? 'Give it uses, rolls, effects, resistances…' : 'Set its damage or healing, saves, upcasting…'}</small></span><button class="btn sm gold" data-act="hbbopen" data-k="${kind}" data-i="${idx}">Open builder</button></div>`;
 }
 function hbbSpellSum(sp) { const h = (sp && sp.hb) || {}, o = []; if (h.dmg) o.push(h.dmg + (h.type ? ' ' + h.type : '') + (h.hit === 'save' ? ' · ' + (h.save || 'DEX') + ' save' : h.hit === 'attack' ? ' · spell attack' : '')); if (h.heal) o.push('Heals ' + h.heal + (h.healMod ? ' + mod' : '')); if (h.up || h.healUp) o.push('+' + (h.up || h.healUp) + ' per level'); if (h.crit) o.push('Crits on ' + h.crit); if (h.backlash) o.push('Backlash'); return o; }
+
+// "Adds to another ability": what sets it off, then what it adds. Shared by features and items.
+function hbbRiderTrigs() {
+  const seen = new Set(), out = [['', 'Nothing — it doesn’t add to anything']].concat(RIDER_GEN.map(([k, t]) => [k, 'Whenever ' + t]));
+  const add = (n, kind) => { n = String(n || '').trim(); const k = riderKeyName(n); if (!n || seen.has(k)) return; seen.add(k); out.push(['name:' + n, n + ' (' + kind + ')']); };
+  if (hasFeature('Divine Smite') || S.spells.some(sp => /^divine smite$/i.test(sp.name))) add('Divine Smite', 'when you smite');
+  S.features.forEach((f, i) => { if (i !== HBB.idx && !(f.hb && f.hb.on)) add(f.dname || f.name, 'feature'); });
+  S.spells.forEach(sp => add(sp.name, 'spell'));
+  S.attacks.forEach(a => add(a.name, 'attack'));
+  const cur = hbbV('hb.on'); if (cur && !out.some(o => o[0] === cur)) out.push([cur, String(cur).replace(/^name:/, '')]);
+  return out;
+}
+function hbbRiderFields(kind) {
+  const on = hbbV('hb.on'), P = 'hb.';
+  let h = `<div class="hbb-card hbb-rider"><div class="hbb-ct">✚ Adds to another ability</div>` + bF('When', bSel(P + 'on', hbbRiderTrigs(), { label: 'What it adds to' }), on ? '' : 'For things like “when I smite, also…” or “my melee hits also…”');
+  if (on) {
+    h += bRow(bF('Extra damage', bIn(P + 'onDmg', { ph: '1d8' }), 'Doubled on a critical hit'), bF('Damage type', bSel(P + 'onType', [['', '—']].concat(hbbTypes()), { label: 'Damage type' })));
+    h += bRow(bF('Target makes a save', bSel(P + 'onSave', hbbAbOpts, { label: 'Save ability' })), hbbV(P + 'onSave') ? bF('Save DC', bIn(P + 'onDC', { ph: '8+prof+cha, spell or 15' })) : '');
+    h += bRow(bF(hbbV(P + 'onSave') ? 'On a failed save' : 'Target condition', bSel(P + 'onCond', [['', '—']].concat(HBB_CONDS.map(c => [c, c])), { label: 'Condition' })), hbbV(P + 'onCond') ? bF('For how long', bIn(P + 'onCondDur', { ph: 'until the end of its next turn' })) : '');
+    h += bRow(bF('Heals you', bIn(P + 'onHeal', { ph: '1d6+cha' })), bF('Temp HP for you', bIn(P + 'onTemp', { ph: 'prof' })));
+    h += bF('Message', bIn(P + 'onMsg', { ph: 'A reminder of what else happens' }));
+    h += bRow(bF('Each time it costs', bSel(P + 'onCost', kind === 'item' ? [['', 'A charge (if it has charges)'], ['charge', 'A charge'], ['none', 'Nothing']] : [['', 'One of its uses (if it has uses)'], ['use', 'One of its uses'], ['none', 'Nothing']], { label: 'Cost' })),
+      bF('When it happens', bSeg(P + 'onAsk', [['', 'Ask me each time'], ['false', 'Always']])));
+    h += `<p class="hint">It shows on that ability in Combat (“+ ${esc(HBB.d.name || 'this')}”). When the ability is used you get a button to add it${kind === 'feat' && String(HBB.d.max ?? '').trim() === '' ? ' — give it a number of uses above if it’s limited' : ''}.</p>`;
+  }
+  return h + `</div>`;
+}
