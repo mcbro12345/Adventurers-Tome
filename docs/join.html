@@ -2836,7 +2836,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022132505', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.75ba6b2cce8b.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.ca0eafbad24f.html", "desk": "a/desk.3d7076de8b5d.js", "deskcss": "a/deskcss.afb0a4288bb0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022133614', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.75ba6b2cce8b.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.ca0eafbad24f.html", "desk": "a/desk.fc8fcb53766c.js", "deskcss": "a/deskcss.afb0a4288bb0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -3189,7 +3189,7 @@ function wireDie(root) {
         return hbCol.add({ item: JSON.stringify(it), name, at: Date.now(), by: EMAIL }).then(r => { pgLog('party_hb', { target: pid, tName: party.name, detail: name }); return r.id; }); },
       remove: id => hbCol.doc(String(id)).delete() } : null;
     return Object.assign({ fs, EMAIL, party, back: { href: URLS.parties(G), label: 'Parties' },
-      logo: { html: () => logoHTML(), wire: el => wireDie(el) }, partyHB, makeNpc: party ? () => { try { sessionStorage.setItem('pg-join', JSON.stringify({ p: pid, t: '', name: party.name, at: Date.now(), npc: true })); } catch (e) {} pgGo(URLS.newChar(G)); } : null }, extra || {}); };
+      logo: { html: () => logoHTML(), wire: el => wireDie(el) }, bugReport: () => window.pgBugReport && window.pgBugReport(), partyHB, makeNpc: party ? () => { try { sessionStorage.setItem('pg-join', JSON.stringify({ p: pid, t: '', name: party.name, at: Date.now(), npc: true })); } catch (e) {} pgGo(URLS.newChar(G)); } : null }, extra || {}); };
   if (DESKQ && G) { lsSet(LAST_G, G);
     const pid = clean(Q.get('for') || '');
     document.title = 'DM’s Desk — Adventurer’s Tome';
