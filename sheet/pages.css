@@ -1954,3 +1954,4 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 /* Party-action chips: the character's picture in its sheet colour. */
 :where(body.hubbody) .pa-who img { border: 2px solid #c9962b; }
 .to-pic:not(.to-np) { border: 2px solid #c9962b; }
+:where(body.hubbody) .pp-adj { display: block; margin: 10px auto 0; } :where(body.hubbody) .pp-adj[hidden] { display: none; }

@@ -1412,7 +1412,7 @@ function hub(fs, auth, G, ctx) {
   const myAva = () => { const a = avaOf(ME), ch = picModeOf(ME) === 'char' && ME.picChar && chars.find(c => c.id === ME.picChar && isMine(c)); if (ch && ch.thumb) a.pic = ch.thumb; return a; };
   // An uploaded image is shrunk to a small square here before saving. A transparent background is kept (as PNG) and the
   // whole image fits inside; otherwise it's cropped to fill the circle.
-  const prepPic = file => pgCrop(file, { shape: 'circle', size: 192, title: 'Edit picture' }).then(r => { if (!r) throw Object.assign(new Error(''), { cancel: true }); return { img: r.url, clear: r.clear }; });
+  const prepPic = (file, keep, re) => (re ? pgRecrop(keep, file, { shape: 'circle', size: 192, title: 'Adjust picture' }) : pgCrop(file, { shape: 'circle', size: 192, title: 'Edit picture', keep })).then(r => { if (!r) throw Object.assign(new Error(''), { cancel: true }); return { img: r.url, clear: r.clear }; });
   const prepPic0 = file => new Promise((res, rej) => { const url = URL.createObjectURL(file), im = new Image();
     im.onerror = () => { URL.revokeObjectURL(url); rej(new Error('That file isn’t an image this browser can open.')); };
     im.onload = () => { URL.revokeObjectURL(url); const w = im.naturalWidth || im.width, h = im.naturalHeight || im.height; if (!w || !h) return rej(new Error('That image looks empty.'));
@@ -1426,7 +1426,7 @@ function hub(fs, auth, G, ctx) {
   function pickPic(who) { const SELF = !who, EM = SELF ? EMAIL : who.em, R = SELF ? ME : (who.rec || {}), NM = SELF ? myName() : (who.name || who.em);
     const mine = (who ? who.list : chars.filter(isMine)).sort((a, b) => (a.createdAt || a.updatedAt || 0) - (b.createdAt || b.updatedAt || 0));
     const GP = (R && R.gpic) || '', st = { mode: picModeOf(R), color: okColor(R && R.picColor), char: (R && R.picChar) || '', img: R && !R.picChar ? (R.pic || '') : '', clear: !!(R && R.picClear) }; if (st.mode === 'google' && !GP) st.mode = 'initials';
-    const auto = `hsl(${hueOf(EM)}, 42%, 32%)`;
+    const auto = `hsl(${hueOf(EM)}, 42%, 32%)`; const KEEP = 'avatar:' + EM;
     const ico = { google: '<svg viewBox="0 0 48 48" width="16" height="16"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.1 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.2 0-11.5-4.2-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>',
       initials: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19l4.5-12h1L14 19M5.8 15h6.4"/><path d="M15 12.5c.8-1 2-1.5 3-1.2 1.5.4 2 1.8 2 3.2V19M20 15.5c-2 0-4.5.2-4.5 2s2.2 1.8 4.5-.3"/></svg>',
       char: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>',
@@ -1440,7 +1440,7 @@ function hub(fs, auth, G, ctx) {
         <label class="pp-c pp-cust" title="Pick any colour"><input type="color" value="${st.color || '#c9962b'}"><span>+</span></label></div></div>
       <div class="pp-pane" data-p="char">${mine.length ? `<div class="pp-grid">${mine.map(c => `<button class="pp-opt" data-pp="${esc(c.id)}"${c.thumb ? '' : ' disabled title="This character has no portrait yet"'}><span class="pp-img">${avaHTML(c.name, c.id, c.thumb)}</span><b>${esc(c.name || 'Unnamed')}</b><small>${esc(c.thumb ? (c.cls || '') : 'No portrait yet')}</small></button>`).join('')}</div>` : '<p class="hub-hint pp-empty">You don’t have any characters yet — make one and its portrait can be your picture.</p>'}</div>
       <div class="pp-pane" data-p="upload"><label class="pp-drop"><input type="file" accept="image/*" hidden><span class="pp-dz-i">${ico.upload}</span><b>Choose an image</b><small>or drag one here</small></label>
-        <p class="pp-note">Tip: a PNG with a transparent background shows just the image — no circle or border around it.</p><p class="pp-err" hidden></p></div>
+        <button class="btn ghost pp-adj" type="button" hidden>Adjust crop</button><p class="pp-note">Tip: a PNG with a transparent background shows just the image — no circle or border around it.</p><p class="pp-err" hidden></p></div>
       <div class="row pp-foot"><button class="btn ghost" id="pp-x">Cancel</button><button class="btn" id="pp-ok">Save</button></div></div>`;
     modal.classList.add('on');
     const $ = q => modal.querySelector(q), $$ = q => modal.querySelectorAll(q);
@@ -1457,7 +1457,7 @@ function hub(fs, auth, G, ctx) {
       $$('.pp-c[data-c]').forEach(b => b.classList.toggle('on', b.dataset.c === st.color));
       const cu = $('.pp-cust'); cu.classList.toggle('on', !!st.color && !PG_SWATCH.includes(st.color)); if (cu.classList.contains('on')) cu.style.background = st.color; else cu.style.background = '';
       $$('[data-pp]').forEach(b => b.classList.toggle('on', st.mode === 'char' && b.dataset.pp === st.char));
-      const dz = $('.pp-drop'); dz.classList.toggle('has', !!st.img); dz.querySelector('b').textContent = st.img ? 'Choose a different image' : 'Choose an image';
+      $('.pp-adj').hidden = !st.img; const dz = $('.pp-drop'); dz.classList.toggle('has', !!st.img); dz.querySelector('b').textContent = st.img ? 'Choose a different image' : 'Choose an image';
       $('#pp-ok').disabled = (st.mode === 'char' && !pick()) || (st.mode === 'upload' && !st.img); };
     $$('.pp-tabs [data-m]').forEach(b => b.onclick = () => { st.mode = b.dataset.m; if (st.mode === 'char' && !st.char) { const f = mine.find(c => c.thumb); if (f) st.char = f.id; } paint(); });
     $$('.pp-c[data-c]').forEach(b => b.onclick = () => { st.color = b.dataset.c; paint(); });
@@ -1465,8 +1465,10 @@ function hub(fs, auth, G, ctx) {
     $$('[data-pp]').forEach(b => b.onclick = () => { st.char = b.dataset.pp; paint(); });
     const err = $('.pp-err'), take = async f => { err.hidden = true; if (!f) return; if (!/^image\//.test(f.type || 'image/')) { err.textContent = 'That isn’t an image file.'; err.hidden = false; return; }
       if (f.size > 15e6) { err.textContent = 'That image is too big (over 15 MB).'; err.hidden = false; return; }
-      try { const r = await prepPic(f); st.img = r.img; st.clear = r.clear; paint(); } catch (x) { if (x && x.cancel) return; err.textContent = x.message || String(x); err.hidden = false; } };
+      try { const r = await prepPic(f, KEEP); st.img = r.img; st.clear = r.clear; paint(); } catch (x) { if (x && x.cancel) return; err.textContent = x.message || String(x); err.hidden = false; } };
     const fi = $('.pp-drop input'); fi.onchange = () => { take(fi.files[0]); fi.value = ''; };
+    // Adjust crop: re-open the cropper on the original image (kept on this device when it was uploaded), or on the picture itself.
+    $('.pp-adj').onclick = async () => { err.hidden = true; try { const r = await prepPic(st.img, KEEP, true); st.img = r.img; st.clear = r.clear; paint(); } catch (x) { if (x && x.cancel) return; err.textContent = x.message || String(x); err.hidden = false; } };
     const dz = $('.pp-drop'); ['dragenter', 'dragover'].forEach(t => dz.addEventListener(t, e => { e.preventDefault(); dz.classList.add('over'); }));
     ['dragleave', 'drop'].forEach(t => dz.addEventListener(t, () => dz.classList.remove('over'))); dz.addEventListener('drop', e => { e.preventDefault(); take(e.dataTransfer.files[0]); });
     $('#pp-x').onclick = close;
