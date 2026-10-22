@@ -127,5 +127,22 @@ open(os.path.join(OUT, 'manifest.webmanifest'), 'w').write(json.dumps({'name': '
   'display': 'standalone', 'background_color': '#0f1420', 'theme_color': '#0f1420', 'description': 'D&D 5e character sheets that do the math, track your resources and roll your dice.',
   'icons': [{'src': 'icon-192.png', 'sizes': '192x192', 'type': 'image/png'}, {'src': 'icon-512.png', 'sizes': '512x512', 'type': 'image/png'}],
   'related_applications': [{'platform': 'webapp', 'url': 'https://adventurers-tome.web.app/manifest.webmanifest'}]}, ensure_ascii=False, indent=1))
-shutil.copy(os.path.join(D, 'icons', 'og-roll.gif'), os.path.join(OUT, 'og-roll.gif'))  # the picture shown when a link is pasted in Discord, Slack and the like
+shutil.copy(os.path.join(D, 'icons', 'og-roll.gif'), os.path.join(OUT, 'og-roll.gif'))
+# Party invite links (/join/<code>) get their own preview card in Discord, iMessage and the like: the same page with
+# invite wording and a picture of the invite panel (Firebase Hosting serves join.html for /join/…).
+if os.path.exists(os.path.join(D, 'icons', 'og-invite.png')):
+    shutil.copy(os.path.join(D, 'icons', 'og-invite.png'), os.path.join(OUT, 'og-invite.png'))
+    import re as _re
+    j = html
+    def _og(prop, val):
+        global j
+        j = _re.sub(r'<meta property="og:%s" content="[^"]*">' % _re.escape(prop), '<meta property="og:%s" content="%s">' % (prop, val), j)
+    _og('title', 'You’re invited to join a party')
+    _og('description', 'Pick a character, or make a new one, and join your DM’s game on Adventurer’s Tome.')
+    _og('url', 'https://adventurers-tome.web.app/join/')
+    _og('image', 'https://adventurers-tome.web.app/og-invite.png?v=1')
+    _og('image:type', 'image/png'); _og('image:width', '1200'); _og('image:height', '630'); _og('image:alt', 'A party invitation on Adventurer’s Tome')
+    j = _re.sub(r'<meta name="twitter:card" content="[^"]*">', '<meta name="twitter:card" content="summary_large_image">', j)
+    j = _re.sub(r'<meta name="description" content="[^"]*">', '<meta name="description" content="You’re invited to join a party on Adventurer’s Tome.">', j)
+    open(os.path.join(OUT, 'join.html'), 'w').write(j)  # the picture shown when a link is pasted in Discord, Slack and the like
 print('pages built', VER, len(html))
