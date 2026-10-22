@@ -117,7 +117,7 @@ body.hubbody { margin: 0; background: #f4eee1; color: #1f2a44; font: 15px/1.4 sy
 /* ---- Title, tabs, sharing ---- */
 :where(body.hubbody, #pg-load) .hub-top { align-items: center; }
 :where(body.hubbody, #pg-load) .hub-title { margin: 0; font: 800 1.15rem/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #c9962b; }
-:where(body.hubbody, #pg-load) .hub-views button span { opacity: .65; font-weight: 600; margin-left: 4px; }
+:where(body.hubbody, #pg-load) .hub-views button span.hv-n { opacity: .65; font-weight: 600; margin-left: 4px; }
 :where(body.hubbody, #pg-load) .hc-txt .hc-acc { align-self: flex-start; margin-top: 4px; font-size: .64rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; opacity: .55; border: 0; border-radius: 999px; padding: 0; }
 :where(body.hubbody, #pg-load) .hc-txt .hc-acc.edit { background: none; color: #c9962b; opacity: .8; }
 :where(body.hubbody, #pg-load) .hr-share { margin-right: -6px; }
@@ -916,12 +916,12 @@ body.hubbody .hub-seg .hv-ind { position: absolute; left: 0; top: 3px; bottom: 3
 body.hubbody .hub-views .hub-seg > button[data-view] { position: relative; z-index: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px; margin: 0; padding: 8px 16px; border: 0 !important; border-radius: 9px;
   background: transparent !important; color: rgba(233,227,211,.72); font: 700 .86rem system-ui, sans-serif; letter-spacing: .01em; cursor: pointer; transition: color .25s; box-shadow: none !important; }
 body.hubbody .hub-views .hub-seg > button[data-view].on { color: #1b1406; }
-body.hubbody .hub-views .hub-seg > button[data-view] span { opacity: 1; margin: 0; min-width: 20px; height: 20px; padding: 0 6px; box-sizing: border-box; display: inline-grid; place-items: center; border-radius: 10px; font-size: .72rem; font-weight: 800; background: rgba(255,255,255,.08); color: inherit; transition: background .25s; }
-body.hubbody .hub-views .hub-seg > button[data-view].on span { background: rgba(27,20,6,.16); }
+body.hubbody .hub-views .hub-seg > button[data-view] span.hv-n { opacity: 1; margin: 0; min-width: 20px; height: 20px; padding: 0 6px; box-sizing: border-box; display: inline-grid; place-items: center; border-radius: 10px; font-size: .72rem; font-weight: 800; background: rgba(255,255,255,.08); color: inherit; transition: background .25s; }
+body.hubbody .hub-views .hub-seg > button[data-view].on span.hv-n { background: rgba(27,20,6,.16); }
 @media (prefers-color-scheme: light) {
   body.hubbody .hub-seg { background: rgba(31,42,68,.06); border-color: rgba(138,100,32,.3); box-shadow: inset 0 1px 2px rgba(60,45,20,.12); }
   body.hubbody .hub-views .hub-seg > button[data-view] { color: rgba(31,42,68,.7); }
-  body.hubbody .hub-views .hub-seg > button[data-view] span { background: rgba(31,42,68,.08); }
+  body.hubbody .hub-views .hub-seg > button[data-view] span.hv-n { background: rgba(31,42,68,.08); }
 }
 body.hubbody .hub-views.no-seg { justify-content: flex-end; }
 html.pg-touch body.hubbody .hub-seg button { touch-action: manipulation; }
@@ -1975,3 +1975,7 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 @keyframes toDown { to { transform: translateY(100%); } }
 @media (prefers-reduced-motion: reduce) { .towin, .towin.closing { animation: none; } }
 .towin, .to-list { overscroll-behavior: contain; }
+/* Small phones: the lobby's list tabs use short names so each fits on one line */
+:where(body.hubbody, #pg-load) .hub-views button .tl-lg, :where(body.hubbody, #pg-load) .hub-views button .tl-sm { opacity: 1; margin: 0; font-weight: inherit; }
+.tl-sm { display: none; }
+@media (max-width: 420px) { .tl-lg { display: none; } .tl-sm { display: inline; } }

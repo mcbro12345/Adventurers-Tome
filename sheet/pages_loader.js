@@ -1641,9 +1641,9 @@ function hub(fs, auth, G, ctx) {
         : !SH_LOADED && noList('shared') ? SKEL.rows(3) : `<p class="hub-empty">Nothing has been shared with you yet. When another player shares a character with ${esc(EMAIL)}, it shows up here.</p>`;
     const mineHTML = noList('mine') && !mine.length ? SKEL.rows(4) : mine.length ? `<div class="hl">${mine.sort(ord).map(row).join('')}</div>` : `<p class="hub-empty">You don’t have any characters yet — create one, or ask whoever has yours to give it to you.</p>`;
     const TABS = true;
-    const idx = vi(view), pane = (k, html) => `<div class="hub-pane${idx === vi(k) ? ' on' : ' hp-off'}" data-pane="${k}">${html}</div>`, tab = (k, t, n) => `<button role="tab" class="${idx === vi(k) ? 'on' : ''}" data-view="${k}">${t} <span>${n}</span></button>`;
+    const idx = vi(view), pane = (k, html) => `<div class="hub-pane${idx === vi(k) ? ' on' : ' hp-off'}" data-pane="${k}">${html}</div>`, tab = (k, t, n) => `<button role="tab" class="${idx === vi(k) ? 'on' : ''}" data-view="${k}">${t} <span class="hv-n">${n}</span></button>`;
     const body = TABS ? `<div class="hub-track">${pane('mine', mineHTML)}${pane('parties', PMx().paneHTML())}${pane('shared', sharedHTML)}</div>` : mineHTML;
-    const seg = TABS ? `<div class="hub-seg" role="tablist"><span class="hv-ind" aria-hidden="true"></span>${tab('mine', 'My characters', mine.length)}${tab('parties', 'Parties', PMx().count())}${tab('shared', 'Shared with me', shared.length)}</div>` : '';
+    const seg = TABS ? `<div class="hub-seg" role="tablist"><span class="hv-ind" aria-hidden="true"></span>${tab('mine', '<span class="tl-lg">My characters</span><span class="tl-sm">Mine</span>', mine.length)}${tab('parties', 'Parties', PMx().count())}${tab('shared', '<span class="tl-lg">Shared with me</span><span class="tl-sm">Shared</span>', shared.length)}</div>` : '';
     const keepLogo = root.querySelector('.hub-logo');
     root.innerHTML = `<div class="hub-head"><header class="hub-top">${logoHTML()}
       <div class="hub-side"><div class="hub-prof"><button class="hp-pic" id="me-pic" title="Choose your picture" aria-label="Choose your picture">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(myAva())}<span class="hp-edit" aria-hidden="true">✎</span></button>
