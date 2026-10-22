@@ -831,12 +831,19 @@ let PTY_STICK = 0;
 const ptyChatAway = l => l.scrollHeight - l.scrollTop - l.clientHeight > 60;
 function ptyChatBottom() { const l = $('#ptychat-l'); if (!l) return; l.scrollTo({ top: l.scrollHeight, behavior: 'smooth' }); const j = $('#ptychat-jump'); if (j) { j.hidden = true; j.classList.remove('new'); } }
 function ptyChatJumpShow() { const l = $('#ptychat-l'), j = $('#ptychat-jump'); if (!l || !j) return; const away = ptyChatAway(l); j.hidden = !away; if (!away) j.classList.remove('new'); }
-window.onPartyChatList = () => { if (UI.chatPop && !$('#pcwin')) ptyChatWin(); const l = $('#ptychat-l'); if (!l) { if (UI.tab === 'party') render('party'); return; } const end = !ptyChatAway(l), n0 = l.children.length; l.innerHTML = ptyChatList();
+window.onPartyChatList = () => { ptyUnreadMark(); if (UI.chatPop && !$('#pcwin')) ptyChatWin(); const l = $('#ptychat-l'); if (!l) { if (UI.tab === 'party') render('party'); return; } const end = !ptyChatAway(l), n0 = l.children.length; l.innerHTML = ptyChatList();
   if (end || Date.now() - PTY_STICK < 4000) { PTY_STICK = 0; l.scrollTop = l.scrollHeight; ptyChatJumpShow(); }
   else { const j = $('#ptychat-jump'); if (j && l.children.length > n0) { j.hidden = false; j.classList.add('new'); j.firstChild.textContent = 'New messages — jump to present '; } } };
 // New party chat messages: a note in the corner (unless the chat is on screen) and a count on the Party tab until it's opened.
 let PTY_UNREAD = 0;
-function ptyUnreadMark() { document.documentElement.classList.toggle('pchat', !!(ptyOn() && PTYX().chat && PTYX().chat.on()));
+// The chat button shows straight away on reload: whether this sheet had chat last time is remembered on this device
+// (and corrected as soon as the party has loaded).
+const PCHAT_KEY = () => 'pg-pchat:' + (S && S.id || '');
+try { if (localStorage.getItem(PCHAT_KEY()) === '1') document.documentElement.classList.add('pchat'); } catch (e) {}
+const PCHAT_T0 = Date.now();
+function ptyUnreadMark() { const P0 = PTYX(), on = !!(P0 && ptyOn() && P0.chat && P0.chat.on());
+  // shown the moment chat is there; only hidden once the page has had a few seconds to connect
+  if (on || Date.now() - PCHAT_T0 > 6000) { document.documentElement.classList.toggle('pchat', on); try { localStorage.setItem(PCHAT_KEY(), on ? '1' : '0'); } catch (e) {} }
   { const cb = document.querySelector('.devbtn.chatbtn'); if (cb) { const n = $('#pcwin') ? 0 : PTY_UNREAD; cb.classList.toggle('unread', n > 0); if (n > 0) cb.dataset.unread = n > 9 ? '9+' : n; else delete cb.dataset.unread; } }
   const t = document.querySelector('.tab[data-tab="party"]'); if (!t) return; if ((UI.tab === 'party' || $('#pcwin')) && !document.hidden) PTY_UNREAD = 0; t.classList.toggle('unread', PTY_UNREAD > 0); if (PTY_UNREAD > 0) t.dataset.unread = PTY_UNREAD > 9 ? '9+' : PTY_UNREAD; else delete t.dataset.unread; }
 setInterval(ptyUnreadMark, 1500); document.addEventListener('visibilitychange', ptyUnreadMark);
