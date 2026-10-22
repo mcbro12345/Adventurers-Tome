@@ -770,7 +770,7 @@ function diceRoller() {
 }
 const DR_SHAPE = { 4: 'M12 3l9 16H3z', 6: 'M5 5h14v14H5z', 8: 'M12 2l9 10-9 10-9-10z', 10: 'M12 2l9 7-3 12H6L3 9z', 12: 'M12 2l9 6.5-3.4 10.5H6.4L3 8.5z', 20: 'M12 2l8.7 5v10L12 22l-8.7-5V7z', 100: 'M12 2l9 7-3 12H6L3 9z' };
 function drPaint() { const w = $('#drwin'); if (!w) return; const ex = drExpr();
-  w.innerHTML = `<div class="dr-head"><span class="dr-grip" aria-hidden="true">⠿</span><b>Dice Roller</b><button class="dr-x" data-dr="x" aria-label="Close">✕</button></div>
+  w.innerHTML = `<div class="dr-head"><b>Dice Roller</b><button class="dr-x" data-dr="x" aria-label="Close">✕</button></div>
     <div class="dr-dice">${DR_DICE.map(d => `<button class="dr-die${DR.pool[d] ? ' on' : ''}" data-dr="die" data-d="${d}" title="Add a d${d} (right-click to take one away)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${DR_SHAPE[d]}"/></svg><span>d${d}</span>${DR.pool[d] ? `<em>${DR.pool[d]}</em>` : ''}</button>`).join('')}</div>
     <div class="dr-row"><div class="dr-mod"><button data-dr="mod" data-v="-1" aria-label="Modifier −1">−</button><b>${N(DR.mod) >= 0 ? '+' : ''}${N(DR.mod)}</b><button data-dr="mod" data-v="1" aria-label="Modifier +1">+</button></div>
       <div class="dr-adv">${[['d', 'Dis'], ['n', 'Normal'], ['a', 'Adv']].map(([v, t]) => `<button class="${DR.adv === v ? 'on' : ''}" data-dr="adv" data-v="${v}"${DR.pool[20] === 1 ? '' : ' disabled title="Advantage works on a single d20"'}>${t}</button>`).join('')}</div></div>

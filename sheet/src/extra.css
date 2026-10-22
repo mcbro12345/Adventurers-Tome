@@ -2898,7 +2898,7 @@ html.mobile.hasbug.realphone .devbtn.logbtn, html.mobile.hasbug.pg-inphone .devb
 /* Dice roller window (in the style of Roll20's) */
 .drwin { position: fixed; z-index: 9000; width: 300px; background: #2b2b2e; color: #eee; border: 1px solid #47474d; border-radius: 10px; box-shadow: 0 18px 44px rgba(0,0,0,.5); font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; user-select: none; }
 .drwin.drag { opacity: .95; }
-.dr-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #1f1f22; border-bottom: 1px solid #47474d; border-radius: 10px 10px 0 0; cursor: grab; touch-action: none; }
+.dr-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px 8px 12px; background: #1f1f22; border-bottom: 1px solid #47474d; border-radius: 10px 10px 0 0; cursor: move; touch-action: none; }
 .dr-head b { flex: 1; font-size: .9rem; letter-spacing: .02em; }
 .dr-grip { color: #8a8a93; }
 .dr-x { width: 26px; height: 26px; border-radius: 6px; border: 0; background: transparent; color: #bbb; cursor: pointer; font-size: .9rem; }
@@ -2927,8 +2927,7 @@ html.mobile.hasbug.realphone .devbtn.logbtn, html.mobile.hasbug.pg-inphone .devb
 .dr-last button { padding: 3px 8px; border-radius: 6px; border: 1px solid #47474d; background: #34343a; color: #ddd; cursor: pointer; font: 600 .74rem ui-monospace, Menlo, monospace; }
 /* Phone: a sheet along the bottom of the screen (swipe its bar down to close) */
 html.mobile .drwin { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: 100%; border-radius: 16px 16px 0 0; border-width: 1px 0 0; padding-bottom: env(safe-area-inset-bottom); transition: transform .18s ease-out; max-height: 80vh; overflow-y: auto; z-index: 9500; }
-html.mobile .drwin .dr-head { position: relative; border-radius: 16px 16px 0 0; padding: 14px 12px 8px; cursor: default; }
-html.mobile .drwin .dr-head::before { content: ''; position: absolute; top: 5px; left: 50%; width: 38px; height: 4px; margin-left: -19px; border-radius: 2px; background: #5a5a62; }
+html.mobile .drwin .dr-head { position: relative; border-radius: 16px 16px 0 0; padding: 10px 12px 8px; cursor: default; }
 html.mobile .drwin .dr-grip { display: none; }
 html.mobile .drwin .dr-x { width: 34px; height: 34px; font-size: 1rem; }
 html.mobile .drwin .dr-dice { grid-template-columns: repeat(7, 1fr); gap: 5px; padding: 10px 10px 8px; }
@@ -3021,10 +3020,10 @@ html.mobile.hasbug.realphone .devbtn.dicebtn, html.mobile.hasbug.pg-inphone .dev
 .smite-lv { display: flex; flex-wrap: wrap; gap: 6px; }
 .smite-btn.sel { outline: 1.5px solid var(--line2); }
 .smite-btn.on { outline: 2px solid var(--gold); background: var(--gold-soft); }
-/* HP box: the damage type picker sits beside the amount (resets to Any after each hit) */
-.hp-actions .hp-amtrow { grid-column: 1 / -1; display: flex; gap: 6px; min-width: 0; }
-.hp-actions .hp-amtrow input { flex: 1 1 auto; min-width: 0; width: auto !important; }
-.hp-actions .hp-amtrow .hptype { flex: 0 0 auto; width: 96px; min-width: 0; padding: 0 6px; font-size: .85rem; border: 1px solid var(--line); background: var(--field); color: var(--ink); border-radius: 8px; }
+/* HP box: the damage type picker sits above the amount (resets to Any after each hit) */
+.hp-actions .hp-amtrow { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.hp-actions .hp-amtrow input { flex: 0 0 auto; min-width: 0; width: 100% !important; }
+.hp-actions .hp-amtrow .hptype { flex: 0 0 auto; width: 100%; min-width: 0; height: 30px; padding: 0 8px; font-size: .85rem; border: 1px solid var(--line); background: var(--field); color: var(--ink); border-radius: 8px; }
 .hp-actions .hp-amtrow .hptype:not([value=""]) { font-weight: 600; }
 /* Inspiration: "Use" sits under the star (only while you have some) */
 .insp-use { position: absolute; left: 50%; bottom: -50px; transform: translateX(-50%); z-index: 6; padding: 2px 12px; border-radius: 999px; border: 1.5px solid var(--gold); background: var(--gold); color: var(--gold-ink); font-weight: 800; font-size: .7rem; letter-spacing: .04em; cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,.25); }
