@@ -2043,3 +2043,5 @@ html.pgmw .mw-x { width: 28px; height: 28px; border-radius: 7px; border: 0; back
 html.pgmw .mw-x:hover, html.pgmw .mw-x:focus-visible { opacity: 1; background: rgba(127,127,127,.2); }
 html.pgmw .mw-hid { display: none !important; }
 html:not(.pgmw) .mw-head { display: none; }
+/* Desktop: a closing pop-up fades out on its own; the page behind never flashes dark */
+html.pgmw body.hubbody .hub-modal.closing { background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; animation: none !important; pointer-events: none; }

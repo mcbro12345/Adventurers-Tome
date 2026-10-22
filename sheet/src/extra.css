@@ -3366,3 +3366,9 @@ html:not(.mobile) #sec-header:has(> .ident.noid) { align-items: flex-end; }
 html:not(.mobile) .ident.noid { align-self: flex-end; }
 /* every Manage button looks like the small one on the Hit Points panel */
 .tmanage.tmanage-in { position: static; margin-left: auto; flex: none; align-self: center; }
+/* the ⓘ on a condition chip sits dead centre on the line */
+.cchip .notetip.ci { width: 16px; height: 16px; place-items: center; vertical-align: middle; align-self: center; margin-top: 0; margin-bottom: 0; line-height: 1; }
+.cchip .notetip.ci svg { width: 14px; height: 14px; display: block; margin: 0; }
+/* Desktop: the Skills manager lays its skills out in two columns, so it isn't taller than the screen */
+html.mwin .modal:has(.skman) { max-width: min(860px, 96vw) !important; }
+html.mwin .skman { display: grid; grid-template-columns: 1fr 1fr; column-gap: 22px; }
