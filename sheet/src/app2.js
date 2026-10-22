@@ -454,8 +454,45 @@ function renderTabs() {
   }).join('') + '<span class="tab-ind" aria-hidden="true"></span>';
   tabOrder().forEach(([k]) => { const pg = $('#page-' + k); if (pg) pg.classList.toggle('on', UI.tab === k); });
   if (UI.tab !== 'party' && $('#page-party')) $('#page-party').classList.remove('on');
-  slideTabInd();
+  slideTabInd(); mtabSync();
 }
+// Phones: instead of a strip of nine squeezed tabs, one roomy button at the bottom shows the tab you're on. Tap it and
+// the other tabs open upward as a grid of big tiles; tap one to go there (or tap outside to close). Swiping sideways on
+// the button steps to the next or previous tab. The real tab bar stays underneath, so everything else works as before.
+const MTAB_CHEV = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>';
+function mtabTabs() { return [...document.querySelectorAll('#tabs .tab')].map(b => ({ k: b.dataset.tab, b, on: b.classList.contains('on'), unread: b.classList.contains('unread'), ic: (b.querySelector('.ticon') || {}).innerHTML || '', label: (b.querySelector('.tlabel') || {}).textContent || b.dataset.tab, count: (b.querySelector('.tabcount') || {}).textContent || '' })); }
+function mtabSync() {
+  let el = document.getElementById('mtab');
+  if (!isMobile() || UI.editLayout) { if (el) el.remove(); mtabClose(true); document.documentElement.classList.remove('mtabs'); return; }
+  document.documentElement.classList.add('mtabs');
+  if (!el) { el = document.createElement('div'); el.id = 'mtab'; el.className = 'mtab'; document.body.appendChild(el); mtabWire(el); }
+  const ts = mtabTabs(), cur = ts.find(t => t.on) || ts[0]; if (!cur) return; const i = ts.indexOf(cur), other = ts.some(t => t.unread && !t.on);
+  el.innerHTML = `<button class="mtab-b${other ? ' unread' : ''}" aria-haspopup="menu" aria-expanded="${!!document.getElementById('mtabmenu')}" aria-label="${esc(cur.label)} — ${i + 1} of ${ts.length}. Choose a tab"><span class="mtab-ic" aria-hidden="true">${cur.ic}</span><span class="mtab-l">${esc(cur.label)}</span><span class="mtab-dots" aria-hidden="true">${ts.map(t => `<i${t.on ? ' class="on"' : ''}></i>`).join('')}</span><span class="mtab-chev">${MTAB_CHEV}</span></button>`;
+  const m = document.getElementById('mtabmenu'); if (m) mtabFill(m);
+}
+function mtabFill(m) { const ts = mtabTabs();
+  m.querySelector('.mtab-grid').innerHTML = ts.map((t, i) => `<button class="mtab-t${t.on ? ' on' : ''}${t.unread ? ' unread' : ''}" role="menuitem" data-mt="${esc(t.k)}" style="--i:${i}"${t.on ? ' aria-current="page"' : ''}><span class="mtab-tic" aria-hidden="true">${t.ic}</span><span class="mtab-tl">${esc(t.label)}</span>${t.count ? `<span class="mtab-cnt">${esc(t.count)}</span>` : ''}</button>`).join(''); }
+function mtabGo(k) { const b = document.querySelector(`#tabs .tab[data-tab="${CSS.escape(k)}"]`); if (b && !b.classList.contains('on')) b.click(); }
+function mtabOpen() { if (document.getElementById('mtabmenu')) return mtabClose();
+  const m = document.createElement('div'); m.id = 'mtabmenu'; m.className = 'mtab-menu';
+  m.innerHTML = `<div class="mtab-back"></div><div class="mtab-card" role="menu" aria-label="Tabs"><div class="mtab-grid"></div></div>`; mtabFill(m); document.body.appendChild(m);
+  requestAnimationFrame(() => m.classList.add('in')); document.documentElement.classList.add('mtab-open');
+  const b = document.querySelector('.mtab-b'); if (b) b.setAttribute('aria-expanded', 'true');
+  m.querySelector('.mtab-back').onclick = () => mtabClose();
+  m.addEventListener('click', e => { const t = e.target.closest('[data-mt]'); if (!t) return; const k = t.dataset.mt; mtabClose(); setTimeout(() => mtabGo(k), 60); });
+  m.addEventListener('keydown', e => { if (e.key === 'Escape') { mtabClose(); const bb = document.querySelector('.mtab-b'); if (bb) bb.focus(); } });
+  setTimeout(() => { const on = m.querySelector('.mtab-t.on') || m.querySelector('.mtab-t'); if (on) on.focus({ preventScroll: true }); }, 30);
+  try { navigator.vibrate && navigator.vibrate(6); } catch (x) {} }
+function mtabClose(now) { const m = document.getElementById('mtabmenu'); document.documentElement.classList.remove('mtab-open'); const b = document.querySelector('.mtab-b'); if (b) b.setAttribute('aria-expanded', 'false'); if (!m) return;
+  m.id = ''; if (now || matchMedia('(prefers-reduced-motion: reduce)').matches) return m.remove(); m.classList.remove('in'); m.classList.add('out'); setTimeout(() => m.remove(), 220); }
+function mtabWire(el) { let sx = null, sy = 0, moved = false;
+  el.addEventListener('pointerdown', e => { if (!e.isPrimary) return; sx = e.clientX; sy = e.clientY; moved = false; });
+  el.addEventListener('pointermove', e => { if (sx == null) return; const dx = e.clientX - sx; if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(e.clientY - sy)) { moved = true; el.querySelector('.mtab-b').style.transform = `translateX(${Math.max(-40, Math.min(40, dx / 2))}px)`; } });
+  const end = e => { if (sx == null) return; const dx = e.clientX - sx; sx = null; const b = el.querySelector('.mtab-b'); if (b) b.style.transform = '';
+    if (moved && Math.abs(dx) > 50) { const ts = mtabTabs(), i = ts.findIndex(t => t.on), n = ts[i + (dx < 0 ? 1 : -1)]; if (n) { try { navigator.vibrate && navigator.vibrate(4); } catch (x) {} mtabGo(n.k); } } };
+  el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+  el.addEventListener('click', e => { if (moved) { moved = false; e.preventDefault(); return; } if (e.target.closest('.mtab-b')) mtabOpen(); }); }
+addEventListener('resize', () => { clearTimeout(mtabSync.t); mtabSync.t = setTimeout(mtabSync, 150); });
 // The highlight under the selected tab slides from the previous tab to the new one.
 let _tabIndPrev = null;
 function slideTabInd() {

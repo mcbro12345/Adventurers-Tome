@@ -845,7 +845,7 @@ let PTY_UNREAD = 0;
 const PCHAT_KEY = () => 'pg-pchat:' + (S && S.id || '');
 try { if (localStorage.getItem(PCHAT_KEY()) === '1') document.documentElement.classList.add('pchat'); } catch (e) {}
 const PCHAT_T0 = Date.now();
-function ptyUnreadMark() { const P0 = PTYX(), on = !!(P0 && ptyOn() && P0.chat && P0.chat.on());
+function ptyUnreadMark() { setTimeout(() => { if (typeof mtabSync === 'function') mtabSync(); }, 0); const P0 = PTYX(), on = !!(P0 && ptyOn() && P0.chat && P0.chat.on());
   // shown the moment chat is there; only hidden once the page has had a few seconds to connect
   if (on || Date.now() - PCHAT_T0 > 6000) { document.documentElement.classList.toggle('pchat', on); try { localStorage.setItem(PCHAT_KEY(), on ? '1' : '0'); } catch (e) {} }
   { const cb = document.querySelector('.devbtn.chatbtn'); if (cb) { const n = $('#pcwin') ? 0 : PTY_UNREAD; cb.classList.toggle('unread', n > 0); if (n > 0) cb.dataset.unread = n > 9 ? '9+' : n; else delete cb.dataset.unread; } }
