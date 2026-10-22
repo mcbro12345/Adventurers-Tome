@@ -147,10 +147,12 @@ function ptyChatPopOut() { try { const p = JSON.parse(localStorage.getItem('dnd-
 // Phones: the on-screen keyboard covers the bottom of the page without resizing it, so bottom sheets (chat, dice
 // roller) are lifted by however much of the screen the keyboard takes, and kept short enough to fit above it.
 (() => { const vv = window.visualViewport; if (!vv) return; const de = document.documentElement;
-  const upd = () => { const kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)); de.style.setProperty('--kb', kb + 'px'); de.style.setProperty('--vvh', Math.round(vv.height) + 'px'); de.style.setProperty('--vvt', Math.round(vv.offsetTop) + 'px'); const up = kb > 80, was = de.classList.contains('kbup'); de.classList.toggle('kbup', up);
+  const upd = () => { const kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)); de.style.setProperty('--kb', kb + 'px'); de.style.setProperty('--vvh', Math.round(vv.height) + 'px'); de.style.setProperty('--vvt', Math.round(vv.offsetTop) + 'px'); const ae = document.activeElement, typing = !!(ae && ae.matches && ae.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea') && ae.closest('#pcwin, #drwin')), up = isMobile() && (typing || innerHeight - vv.height > 120), was = de.classList.contains('kbup'); de.classList.toggle('kbup', up);
     // when the keyboard comes up, the chat jumps to its newest message
     if (up && !was) setTimeout(() => { const l = document.querySelector('#pcwin .ptychat-l'); if (l) l.scrollTop = l.scrollHeight; }, 60); };
-  vv.addEventListener('resize', upd); vv.addEventListener('scroll', upd); upd(); })();
+  vv.addEventListener('resize', upd); vv.addEventListener('scroll', upd); upd();
+  // the keyboard slides up over a moment after a box is tapped: check again as it settles
+  ['focusin', 'focusout'].forEach(t => document.addEventListener(t, () => { [0, 120, 350, 700].forEach(ms => setTimeout(upd, ms)); })); })();
 // Phones: a finger dragged on a window (or on a list inside it that's already at its end) mustn't scroll the page behind.
 function winNoBleed(w) { let y0 = 0; w.addEventListener('touchstart', e => { y0 = e.touches[0].clientY; }, { passive: true });
   w.addEventListener('touchmove', e => { if (e.touches.length > 1) return; const dy = e.touches[0].clientY - y0; let el = e.target;
