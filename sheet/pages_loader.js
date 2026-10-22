@@ -825,7 +825,7 @@ function wireDie(root) {
   const ptySetLocal = pid => { PARTY = pid || ''; PTY_SET = Date.now(); ptyWatch(PARTY); };
   function ptyWatch(pid) {
     pid = pid || ''; if (pid === PTY_ID) return; PTY_ID = pid;
-    if (unPty) unPty(); if (unPtyC) unPtyC(); unPty = unPtyC = null; PTY = null; PTY_CARDS = {}; PTY_CK = ''; ptyLiveWatch([]);
+    if (unPty) unPty(); if (unPtyC) unPtyC(); unPty = unPtyC = null; chatStop(); PTY = null; PTY_CARDS = {}; PTY_CK = ''; ptyLiveWatch([]);
     if (pid) ptySeed(pid); ptyChanged();
     if (!pid) return;
     unPty = PCOL.doc(pid).onSnapshot(d => { const pd = d.exists ? d.data() : null;
@@ -833,7 +833,7 @@ function wireDie(root) {
         // taken out of the party (or it was deleted): this character forgets it
         if (role() === 'owner' && PARTY === pid && Date.now() - PTY_SET > 15000) { PARTY = ''; ptySetSheetParty(fs, C, '').catch(() => {}); ptyWatch(''); }
         return; }
-      PTY = Object.assign({ id: pid }, pd); ptyChanged(); ptyKeep(); inboxStart(); ptyCardSoon();
+      PTY = Object.assign({ id: pid }, pd); ptyChanged(); ptyKeep(); inboxStart(); ptyCardSoon(); chatStart(pid, pd);
       if (OWNER === EMAIL && pd.dm && pd.dm !== EMAIL && !EDITORS.includes(pd.dm)) col.doc(C).get().then(sd => sd.exists && ptyShareDM(fs, C, pd.dm, sd.data())).then(ok => { if (ok) { if (!VIEWERS.includes(pd.dm)) VIEWERS = VIEWERS.concat([pd.dm]); if (!EDITORS.includes(pd.dm)) EDITORS = EDITORS.concat([pd.dm]); } }, () => {});
       if (!unPtyC) unPtyC = PCOL.doc(pid).collection('cards').onSnapshot(qs => { PTY_CARDS = {}; qs.docs.forEach(x => PTY_CARDS[x.id] = x.data()); ptyChanged(); ptyKeep(); }, () => {});
       ptyLiveWatch((pd.chars || []).filter(id => id !== C));
@@ -858,7 +858,20 @@ function wireDie(root) {
       let d = null; try { d = await fs.runTransaction(async tx => { const cur = await tx.get(ch.doc.ref); if (!cur.exists) return null; tx.delete(ch.doc.ref); return cur.data(); }); } catch (e) { return; }
       if (!d) return; let data = {}; try { data = JSON.parse(d.data || '{}'); } catch (e) {}
       PTY_Q.push({ kind: d.kind, data, from: d.from || '', fromName: d.fromName || '', by: d.by || '', at: d.at || Date.now(), p: d.p, ref: d.ref || ch.doc.id }); ptyDeliver(); }), () => { inboxOn = false; }); }
+  // ----- the players' chat (the DM can't see it; never logged; cleared after 12 hours) -----
+  const CHAT_TTL = 12 * 3600e3; let CHAT = [], unChat = null, chatPid = '', chatFirst = true;
+  const chatOK = pd => role() !== 'view' && (pd.people || []).includes(EMAIL) && pd.dm !== EMAIL && !(pd.mgrs || []).includes(EMAIL);
+  function chatStop() { if (unChat) unChat(); unChat = null; chatPid = ''; CHAT = []; }
+  function chatStart(pid, pd) { if (!chatOK(pd)) { if (chatPid) { chatStop(); ptyChanged(); } return; } if (chatPid === pid) return; chatStop(); chatPid = pid; chatFirst = true;
+    const cc = PCOL.doc(pid).collection('chat'), cut = Date.now() - CHAT_TTL;
+    cc.where('at', '<', cut).limit(100).get().then(qs => qs.docs.forEach(d => d.ref.delete().catch(() => {})), () => {});
+    unChat = cc.where('at', '>', cut).orderBy('at').limit(200).onSnapshot(qs => { CHAT = qs.docs.map(d => Object.assign({ id: d.id }, d.data()));
+      if (!chatFirst) qs.docChanges().forEach(ch => { if (ch.type === 'added' && ch.doc.data().by !== EMAIL && window.onPartyChat) { try { window.onPartyChat(ch.doc.data()); } catch (e) {} } });
+      chatFirst = false; if (window.onPartyChatList) { try { window.onPartyChatList(); } catch (e) {} } }, () => { CHAT = []; }); }
   window.PG_PARTY = {
+    chat: { on: () => !!unChat, list: () => CHAT.filter(m => Number(m.at) > Date.now() - CHAT_TTL), mine: m => m.by === EMAIL,
+      send: t => { t = String(t || '').trim().slice(0, 1000); if (!t || !unChat) return Promise.reject(new Error('Not in the chat')); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {}
+        return PCOL.doc(chatPid).collection('chat').add({ at: Date.now(), by: EMAIL, c: C, n: String(nm || 'Someone').slice(0, 120), t }); } },
     on: () => !!PTY, self: C, email: EMAIL, owner: () => OWNER, canAct: () => role() !== 'view',
     info: () => PTY ? { loading: !!PTY.loading, id: PTY.id, name: PTY.name || 'Party', dm: PTY.dm, dmName: PTY.dmName || PTY.dm, mgrs: PTY.mgrs || [], mgr: PTY.dm === EMAIL || (PTY.mgrs || []).includes(EMAIL), url: URLS.party(PTY.id, PTY.name) } : null,
     members: () => PTY ? (PTY.chars || []).filter(id => id !== C).map(id => { const c = PTY_CARDS[id] || {}, l = PTY_LIVE[id]; return Object.assign({ id, name: 'A character' }, !l ? c : Number(l.at) >= Number(c.at || 0) ? Object.assign({}, c, l) : Object.assign({}, l, c)); }) : [],
@@ -2141,6 +2154,7 @@ function hub(fs, auth, G, ctx) {
 // see each other's HP and conditions, and hand items over or cast spells on each other from their sheets. The DM (and
 // any co-DMs) can open every sheet in the party and send damage, healing, loot and conditions to anyone in it.
 const PTY_CONDS = ['Blinded', 'Charmed', 'Deafened', 'Frightened', 'Grappled', 'Incapacitated', 'Invisible', 'Paralyzed', 'Petrified', 'Poisoned', 'Prone', 'Restrained', 'Stunned', 'Unconscious'];
+const PTY_CI = { Blinded: '◌', Charmed: '♥', Deafened: '◎', Frightened: '!', Grappled: '✊', Incapacitated: '✕', Invisible: '◇', Paralyzed: '❚❚', Petrified: '▣', Poisoned: '☠', Prone: '↧', Restrained: '⛓', Stunned: '✶', Unconscious: 'z' };
 const PTY_DMG = ['acid', 'bludgeoning', 'cold', 'fire', 'force', 'lightning', 'necrotic', 'piercing', 'poison', 'psychic', 'radiant', 'slashing', 'thunder'];
 const ptyCode = () => { const a = new Uint8Array(12); crypto.getRandomValues(a); return btoa(String.fromCharCode(...a)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
 // Every document of a character (big ones are split in parts) says which party it's in, so the DM can open all of it.
@@ -2686,6 +2700,7 @@ function partyModule(H) {
     ['dmg', 'Damage', SI('<path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6M16 16l4 4M19 21l2-2"/>')],
     ['heal', 'Heal', SI('<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/><path d="M12 9v6M9 12h6"/>')],
     ['temp', 'Temp HP', SI('<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M12 9v6M9 12h6"/>')],
+    ['save', 'Saving throw', SI('<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>')],
     ['cond', 'Condition', SI('<circle cx="12" cy="12" r="9"/><path d="M8 15s1.5-2 4-2 4 2 4 2M9 9h.01M15 9h.01"/>')],
     ['loot', 'Give item', SI('<path d="M20 12v9H4v-9M2 7h20v5H2zM12 21V7M12 7H7.5a2.5 2.5 0 1 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 1 0 0-5C13 2 12 7 12 7z"/>')],
     ['coins', 'Give coins', SI('<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>')],
@@ -2694,23 +2709,28 @@ function partyModule(H) {
     ['msg', 'Message', SI('<path d="M4 5h16v11H8l-4 4z"/>')]];
   function sendDialog(id) {
     const all = (P.chars || []).slice(); let sel = new Set(id ? [id] : all), kind = 'dmg';
-    const F = { n: '', type: '', save: '', dc: '', half: true, why: '', cond: 'Poisoned', cmode: 'add', rounds: '', item: '', qty: 1, note: '', coins: {}, split: true, rest: 'short', msg: '' };
+    const F = { n: '', type: '', save: 'DEX', dc: '', half: true, sdmg: '', why: '', conds: [], exh: '0', cmode: 'add', rounds: '', item: '', qty: 1, note: '', coins: {}, split: true, rest: 'short', msg: '' };
     const nm = i => (CARDS[i] || {}).name || 'A character';
     const whoTxt = () => { const n = sel.size; return n === all.length && n > 1 ? 'everyone' : n === 1 ? nm([...sel][0]) : n + ' characters'; };
-    const goTxt = () => { const n = Number(F.n) || 0, w = whoTxt(); return { dmg: n ? `Deal ${n} damage to ${w}` : `Damage ${w}`, heal: F.n === 'max' ? `Heal ${w} to full` : n ? `Heal ${w} ${n} HP` : `Heal ${w}`, temp: n ? `Give ${w} ${n} temp HP` : `Give ${w} temp HP`, cond: F.cond.startsWith('__') ? `Change ${w}’s exhaustion` : `${F.cmode === 'rm' ? 'Remove' : 'Add'} ${F.cond}`, loot: `Give ${w} ${F.item ? (Number(F.qty) > 1 ? F.qty + ' × ' : '') + F.item : 'an item'}`, coins: `Give ${w} coins`, insp: `Give ${w} Inspiration`, rest: `Ask ${w} for a ${F.rest} rest`, msg: `Send to ${w}` }[kind]; };
+    const goTxt = () => { const n = Number(F.n) || 0, w = whoTxt(); return { dmg: n ? `Deal ${n} damage to ${w}` : `Damage ${w}`, heal: F.n === 'max' ? `Heal ${w} to full` : n ? `Heal ${w} ${n} HP` : `Heal ${w}`, temp: n ? `Give ${w} ${n} temp HP` : `Give ${w} temp HP`, cond: F.conds.length ? `${F.cmode === 'rm' ? 'Remove' : 'Add'} ${F.conds.length > 2 ? F.conds.length + ' conditions' : F.conds.join(' and ')}${F.exh !== '0' ? ' + exhaustion' : ''}` : F.exh !== '0' ? `Change ${w}’s exhaustion` : `${F.cmode === 'rm' ? 'Remove' : 'Add'} conditions`, save: `Ask ${w} for a ${F.save} save${Number(F.dc) ? ' (DC ' + Number(F.dc) + ')' : ''}`, loot: `Give ${w} ${F.item ? (Number(F.qty) > 1 ? F.qty + ' × ' : '') + F.item : 'an item'}`, coins: `Give ${w} coins`, insp: `Give ${w} Inspiration`, rest: `Ask ${w} for a ${F.rest} rest`, msg: `Send to ${w}` }[kind]; };
     const chip = i => { const c = cardFor(i); return `<button class="pa-who${sel.has(i) ? ' on' : ''}" data-who="${esc(i)}" aria-pressed="${sel.has(i)}">${c.thumb ? `<img src="${esc(c.thumb)}" alt="">` : `<span class="pa-ini">${esc(initials(c.name || '?'))}</span>`}<span class="pa-wt"><b>${esc(c.name || 'A character')}</b>${Number(c.maxhp) ? `<small>${Number(c.hp) || 0}/${c.maxhp} HP</small>` : ''}</span></button>`; };
     const seg = (key, opts) => `<div class="pa-seg">${opts.map(([v, t]) => `<button class="${String(F[key]) === String(v) ? 'on' : ''}" data-f="${key}" data-v="${esc(v)}">${esc(t)}</button>`).join('')}</div>`;
     const field = (lbl, html, cls) => `<label class="pa-fld${cls ? ' ' + cls : ''}"><span>${lbl}</span>${html}</label>`;
     const inp = (key, o = {}) => `<input class="pa-in${o.num ? ' num' : ''}" data-in="${key}" value="${esc(F[key] === 'max' ? '' : F[key])}"${o.num ? ' type="number" min="0" inputmode="numeric"' : ''}${o.ph ? ` placeholder="${esc(o.ph)}"` : ''}${o.list ? ` list="${o.list}"` : ''}${o.max ? ` maxlength="${o.max}"` : ''}>`;
     const form = () => {
       if (kind === 'dmg') return `<div class="pa-row">${field('Amount', inp('n', { num: 1, ph: '0' }), 'sm')}${field('Damage type', `<select class="pa-in" data-in="type"><option value="">Any</option>${PTY_DMG.map(t => `<option${F.type === t ? ' selected' : ''}>${t}</option>`).join('')}</select>`)}</div>
-        ${field('Saving throw', seg('save', [['', 'None'], ['STR', 'STR'], ['DEX', 'DEX'], ['CON', 'CON'], ['INT', 'INT'], ['WIS', 'WIS'], ['CHA', 'CHA']]))}
-        ${F.save ? `<div class="pa-row">${field('DC', inp('dc', { num: 1, ph: '15' }), 'sm')}<label class="pa-chk"><input type="checkbox" data-in="half"${F.half ? ' checked' : ''}> Half damage on a success</label></div>` : ''}
         ${field('What hit them <em>(they see this)</em>', inp('why', { ph: 'e.g. Falling rocks', max: 80 }))}<p class="pa-note">${F.save ? 'Each player rolls the save on their sheet; the damage lands once they have.' : 'It’s taken off their HP straight away (after temp HP, resistances and immunities).'}</p>`;
       if (kind === 'heal') return `<div class="pa-row">${field('Amount', inp('n', { num: 1, ph: '0' }), 'sm')}<button class="btn${F.n === 'max' ? ' gold' : ''} pa-full" data-f="n" data-v="max">To full HP</button></div>${field('From what <em>(optional)</em>', inp('why', { ph: 'e.g. A night at the temple', max: 80 }))}`;
       if (kind === 'temp') return `${field('Temporary HP', inp('n', { num: 1, ph: '0' }), 'sm')}${field('From what <em>(optional)</em>', inp('why', { ph: 'e.g. Inspiring speech', max: 80 }))}<p class="pa-note">Temporary HP don’t stack: anyone who already has more keeps theirs.</p>`;
-      if (kind === 'cond') return `${field('Add or remove', seg('cmode', [['add', 'Add'], ['rm', 'Remove']]))}<div class="pa-conds">${PTY_CONDS.concat(['__exh', '__exhm']).map(c => `<button class="${F.cond === c ? 'on' : ''}" data-f="cond" data-v="${c}">${c === '__exh' ? 'Exhaustion +1' : c === '__exhm' ? 'Exhaustion −1' : c}</button>`).join('')}</div>
-        ${F.cmode === 'add' && !F.cond.startsWith('__') ? `<div class="pa-row">${field('For how many rounds <em>(optional)</em>', inp('rounds', { num: 1, ph: 'until removed' }), 'sm')}${field('Why <em>(optional)</em>', inp('why', { ph: 'e.g. Spider bite', max: 80 }))}</div>` : ''}`;
+      if (kind === 'save') return `${field('Ability', seg('save', [['STR', 'STR'], ['DEX', 'DEX'], ['CON', 'CON'], ['INT', 'INT'], ['WIS', 'WIS'], ['CHA', 'CHA']]))}
+        <div class="pa-row">${field('DC', inp('dc', { num: 1, ph: '15' }), 'sm')}${field('What it’s for <em>(they see this)</em>', inp('why', { ph: 'e.g. Collapsing bridge', max: 80 }))}</div>
+        <div class="pa-row">${field('Damage if they fail <em>(optional)</em>', inp('sdmg', { num: 1, ph: '0' }), 'sm')}${Number(F.sdmg) ? field('Damage type', `<select class="pa-in" data-in="type"><option value="">Any</option>${PTY_DMG.map(t => `<option${F.type === t ? ' selected' : ''}>${t}</option>`).join('')}</select>`) : ''}</div>
+        ${Number(F.sdmg) ? `<label class="pa-chk"><input type="checkbox" data-in="half"${F.half ? ' checked' : ''}> Half damage on a success</label>` : ''}
+        <p class="pa-note">Each player rolls on their sheet and is told straight away whether they made it.</p>`;
+      if (kind === 'cond') return `${field('Add or remove', seg('cmode', [['add', 'Add'], ['rm', 'Remove']]))}
+        <div class="pa-cchips">${PTY_CONDS.map(c => `<button class="pa-cchip${F.conds.includes(c) ? ' on' : ''}" data-cc="${c}" aria-pressed="${F.conds.includes(c)}"><span class="ci">${PTY_CI[c] || '•'}</span>${c}</button>`).join('')}</div>
+        ${field('Exhaustion', seg('exh', [['0', 'No change'], ['1', '+1 level'], ['-1', '−1 level']]))}
+        ${F.cmode === 'add' && F.conds.length ? `<div class="pa-row">${field('For how many rounds <em>(optional)</em>', inp('rounds', { num: 1, ph: 'until removed' }), 'sm')}${field('Why <em>(optional)</em>', inp('why', { ph: 'e.g. Spider bite', max: 80 }))}</div>` : ''}`;
       if (kind === 'loot') return `${field('Item', inp('item', { ph: 'Search the item lists, or type your own', list: 'pa-ql', max: 120 }))}<datalist id="pa-ql"></datalist>
         <div class="pa-row">${field('How many', inp('qty', { num: 1 }), 'sm')}${field('Notes <em>(optional)</em>', inp('note', { ph: 'e.g. Engraved with a raven', max: 300 }))}</div><p class="pa-note">Items from the lists arrive with their stats (weapons, armor, magic items); anything else arrives as a custom item. ${sel.size > 1 ? 'Each of them gets this many.' : ''}</p>`;
       if (kind === 'coins') return `<div class="pa-coins">${['pp', 'gp', 'ep', 'sp', 'cp'].map(c => `<label class="pa-fld"><span>${c.toUpperCase()}</span><input class="pa-in num" data-coin="${c}" type="number" min="0" inputmode="numeric" placeholder="0" value="${esc(F.coins[c] || '')}"></label>`).join('')}</div>
@@ -2732,6 +2752,7 @@ function partyModule(H) {
         card.addEventListener('click', e => { const b = e.target.closest('button'); if (!b || !card.contains(b)) return;
           if (b.dataset.who) { const w = b.dataset.who; if (w === '*') sel = sel.size === all.length ? new Set() : new Set(all); else sel.has(w) ? sel.delete(w) : sel.add(w); paintD(); }
           else if (b.dataset.kind) { kind = b.dataset.kind; if (kind !== 'heal' && F.n === 'max') F.n = ''; paintD(); }
+          else if (b.dataset.cc) { const c = b.dataset.cc; F.conds = F.conds.includes(c) ? F.conds.filter(x => x !== c) : F.conds.concat([c]); paintD(); }
           else if (b.dataset.f) { const k = b.dataset.f, v = b.dataset.v; F[k] = v === 'true' ? true : v === 'false' ? false : v; paintD(); } });
         card.addEventListener('input', e => { const x = e.target;
           if (x.dataset.in) { F[x.dataset.in] = x.type === 'checkbox' ? x.checked : x.value; goBtn(); }
@@ -2752,10 +2773,12 @@ function partyModule(H) {
     const goBtn = () => { const g = modal.querySelector('#sd-go'); if (g && !g.dataset.busy) { g.textContent = goTxt(); g.disabled = !sel.size; } };
     const go = () => { const ids = all.filter(i => sel.has(i)); if (!ids.length) return toast('Choose who it’s for.');
       const n = Math.max(0, Math.floor(Number(F.n) || 0)), why = String(F.why || '').trim(), by = why || (actor() || {}).why || 'The DM';
-      if (kind === 'dmg') { if (!n) return toast('Type how much damage.'); if (F.save && !Number(F.dc)) return toast('Type the DC.'); return send(ids, ['hit', { dmg: n, type: F.type, why: by, save: F.save, dc: F.save ? Number(F.dc) : 0, half: !!F.half }]); }
+      if (kind === 'dmg') { if (!n) return toast('Type how much damage.'); return send(ids, ['hit', { dmg: n, type: F.type, why: by }]); }
+      if (kind === 'save') { const dc = Math.floor(Number(F.dc) || 0), dmg = Math.max(0, Math.floor(Number(F.sdmg) || 0)); if (!dc) return toast('Type the DC.'); return send(ids, ['hit', { dmg, type: dmg ? F.type : '', why: by, save: F.save, dc, half: dmg ? !!F.half : false, saveOnly: !dmg }]); }
       if (kind === 'heal') return F.n === 'max' ? send(ids, ['heal', { amt: 'max', why: by }]) : n ? send(ids, ['heal', { amt: n, why: by }]) : toast('Type how much to heal, or choose To full HP.');
       if (kind === 'temp') return n ? send(ids, ['temp', { amt: n, why: by }]) : toast('Type how many temporary HP.');
-      if (kind === 'cond') { const c = F.cond; if (c === '__exh' || c === '__exhm') return send(ids, ['cure', { exh: c === '__exh' ? 1 : -1, why: by }]); return send(ids, F.cmode === 'rm' ? ['cure', { conds: [c], why: by }] : ['cond', { cond: c, rounds: Number(F.rounds) || 0, why: by }]); }
+      if (kind === 'cond') { const ex = Number(F.exh) || 0; if (!F.conds.length && !ex) return toast('Pick a condition (or an exhaustion change).');
+        return send(ids, F.cmode === 'rm' || !F.conds.length ? ['cure', { conds: F.cmode === 'rm' ? F.conds.slice() : [], exh: ex, why: by }] : ['cond', { conds: F.conds.slice(), cond: F.conds[0], exh: ex, rounds: Number(F.rounds) || 0, why: by }]); }
       if (kind === 'loot') { const it = String(F.item || '').trim().slice(0, 120); if (!it) return toast('Pick or type an item.'); return send(ids, ['loot', { name: it, qty: Math.max(1, Math.floor(Number(F.qty) || 1)), notes: String(F.note || '').trim() }]); }
       if (kind === 'coins') { const c = {}; Object.keys(F.coins).forEach(k => { const x = Math.max(0, Math.floor(Number(F.coins[k]) || 0)); if (x) c[k] = x; }); if (!Object.keys(c).length) return toast('Type some coins.'); return send(ids, ['coins', c], ids.length > 1 && F.split); }
       if (kind === 'insp') return send(ids, ['inspire', {}]);
@@ -2767,7 +2790,7 @@ function partyModule(H) {
         if (split) { d = {}; Object.keys(data).forEach(c => { const each = Math.floor(data[c] / ids.length), rest = data[c] - each * ids.length, x = each + (j === 0 ? rest : 0); if (x) d[c] = x; }); if (!Object.keys(d).length) continue; }
         const a = actor(); if (!a) break; try { await ptySend(fs, EMAIL, PID, ids[j], k, Object.assign({}, d, { ask: true }), a.from, a.name); ok++; } catch (x) { console.warn(x); } }
       if (b) { delete b.dataset.busy; goBtn(); }
-      if (ok) { toast(sentMsg(actor(), `Sent to ${ok === 1 ? nm(ids[0]) : plural(ok, 'character')}`)); pgLog('party_send', { target: PID, tName: P.name, detail: k + ' → ' + whoTxt() }); } else toast('Couldn’t send it — check your connection.');
+      if (ok) { close(); paint(); toast(sentMsg(actor(), `Sent to ${ok === 1 ? nm(ids[0]) : plural(ok, 'character')}`)); pgLog('party_send', { target: PID, tName: P.name, detail: k + ' → ' + whoTxt() }); } else toast('Couldn’t send it — check your connection.');
     };
     paintD();
   }

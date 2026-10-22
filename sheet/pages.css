@@ -1832,3 +1832,11 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 /* dragging a row in the lobby: the row keeps its place (invisible) and a copy follows the finger */
 :where(body.hubbody) .hr.hr-hold { visibility: hidden; }
 :where(body.hubbody) .hr.hr-ghost { box-sizing: border-box; }
+
+/* Party actions → Condition: the same chips as the sheet's Conditions window */
+:where(body.hubbody) .pa-cchips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+:where(body.hubbody) .pa-cchip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px 6px 7px; border-radius: 999px; border: 1px solid rgba(127,127,127,.35); background: transparent; color: inherit; font: 700 .82rem system-ui, sans-serif; cursor: pointer; }
+:where(body.hubbody) .pa-cchip .ci { width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center; font-size: .72rem; border: 1px solid rgba(127,127,127,.35); }
+:where(body.hubbody) .pa-cchip:hover { border-color: #c9962b; }
+:where(body.hubbody) .pa-cchip.on { background: #c9962b; border-color: #c9962b; color: #1b1406; }
+:where(body.hubbody) .pa-cchip.on .ci { border-color: transparent; background: rgba(255,255,255,.3); }

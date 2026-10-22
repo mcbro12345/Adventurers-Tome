@@ -1334,6 +1334,7 @@ function r20Send(msg, ms) {
   });
 }
 window.addEventListener('message', e => {
+  if (e.source !== window) return; // only the extension's bridge in this same page, never another window or frame
   const d = e.data; if (!d || !d.__dnd20 || d.dir !== 'toSheet') return;
   if (d.__dnd20 === 'hi') { if (R20.counting) R20.hiN = (R20.hiN || 0) + 1; R20.ok = true; R20.ver = d.version || ''; R20.caps = Array.isArray(d.caps) ? d.caps : []; if (!R20.warned && R20.ver && R20.ver !== 'mock' && R20.ver.split('.').map(Number).reduce((t, v, i) => t + v * [10000, 100, 1][i], 0) < 10400) { R20.warned = true; setTimeout(() => toast('A newer Roll20 extension is out (auras can follow your tokens on the map). See Settings → Dice.', '', 9000, { label: 'Settings', fn: () => openSettings() }), 1500); } if ($('#r20status')) renderR20Box(); return; }
   if (d.id && R20.wait[d.id]) R20.wait[d.id](d);
@@ -4757,8 +4758,10 @@ $('#importFile').addEventListener('change', e => {
   r.readAsText(f); e.target.value = '';
 });
 let PICPATH = '';
-$('#picFile') && $('#picFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (!f || !PICPATH) return; const path = PICPATH; loadPortrait(f, url => { setP(path, url); pendingLabel = 'Add picture'; save(); render(); }, 320); e.target.value = ''; });
-function loadPortrait(file, cb, size) {
+$('#picFile') && $('#picFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (!f || !PICPATH) return; const path = PICPATH; loadPortrait(f, url => { setP(path, url); pendingLabel = 'Add picture'; save(); render(); }, 320, 'Picture'); e.target.value = ''; });
+function loadPortrait(file, cb, size, title) {
+  // on the site: crop and zoom it first (the window every upload uses); the stand-alone file fits it to the square
+  if (window.pgCrop) { window.pgCrop(file, { shape: 'square', size: size || 560, title: title || (size ? 'Edit picture' : 'Portrait') }).then(r => { if (r) cb(r.url); }, e => toast(esc(e.message || 'That file isn’t an image.'), 'fumble')); return; }
   const img = new Image(), url = URL.createObjectURL(file);
   img.onload = () => {
     const s = size || 560, c = document.createElement('canvas'); c.width = c.height = s;
@@ -7848,7 +7851,11 @@ function renderParty() {
   const aurasP = auras.length ? `<div class="panel ptyauras"><h2>Your auras</h2>${r20AuraOn() ? `<p class="hint r20aura-st">${esc(R20A.status || 'Watching your Roll20 tokens…')}</p>` : ''}<p class="hint">Tick who’s close enough to get it. They keep it until you untick them, or you drop to 0 HP.</p>${auras.map(a => { const on = (S.ptyAuras || {})[a.name] || [];
       return `<div class="ptya"><b>${esc(a.name)}</b><span class="hint">${esc(ptyFormula(a.def.label || '') || a.def.text || '')}</span><div class="ptya-who">${ms.map(m => `<label class="checkline"><input type="checkbox" data-aura="${esc(a.name)}" data-id="${esc(m.id)}"${on.includes(m.id) ? ' checked' : ''}> ${esc(m.name)}</label>`).join('')}</div></div>`; }).join('')}</div>` : '';
   const logP = `<div class="panel ptylogp"><h2>Party log</h2>${(S.ptyLog || []).length ? `<div class="ptylog">${S.ptyLog.slice(0, 30).map(l => `<div class="ptyl ${esc(l.dir)}"><span class="ptyl-d" aria-label="${l.dir === 'in' ? 'Received' : 'Sent'}">${l.dir === 'in' ? '↓' : '↑'}</span><span class="ptyl-t">${esc(l.text)}<small>${l.dir === 'in' ? 'from ' : 'to '}${esc(l.who)} · ${esc(ptyAgo(l.at))}</small></span></div>`).join('')}</div>` : '<p class="hint" style="margin:0">What you send and receive shows up here.</p>'}</div>`;
-  pg.innerHTML = `<div class="ptytab">${head}${cards}<div class="ptyfoot${aurasP ? '' : ' one'}">${aurasP}${logP}</div></div>`;
+  const ch = PTYX().chat, chatP = ch && ch.on() ? `<div class="panel ptychat"><h2>Party chat</h2><p class="hint ptychat-h">Just the players: your DM can’t see this, and messages disappear after 12 hours.</p><div class="ptychat-l" id="ptychat-l">${ptyChatList()}</div>
+    <form class="ptychat-f" id="ptychat-f"><input class="f" id="ptychat-in" maxlength="1000" placeholder="Message the party…" autocomplete="off" aria-label="Message the party"><button class="btn gold">Send</button></form></div>` : '';
+  pg.innerHTML = `<div class="ptytab">${head}${cards}${chatP}<div class="ptyfoot${aurasP ? '' : ' one'}">${aurasP}${logP}</div></div>`;
+  const cf = $('#ptychat-f'); if (cf) cf.onsubmit = e => { e.preventDefault(); const i = $('#ptychat-in'), t = i.value.trim(); if (!t) return; i.value = ''; PTYX().chat.send(t).catch(x => { i.value = t; toast('Couldn’t send: ' + esc(x.message || x), 'fumble'); }); };
+  const cl = $('#ptychat-l'); if (cl) cl.scrollTop = cl.scrollHeight;
 }
 document.addEventListener('change', e => { const t = e.target; if (!t.dataset || t.dataset.aura == null) return; ptyAura(t.dataset.aura, t.dataset.id, t.checked); });
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-pa]'); if (!b || e.target.closest('#wizard')) return; e.preventDefault();
@@ -8226,8 +8233,9 @@ function ptyBusy() { const a = document.activeElement; return $('#wizard').class
 // changes, your own characters', messages, and a spell ending that someone had cast on you go straight through.
 const ptyFreeKind = k => ['note', 'end', 'reply'].includes(k);
 function ptyTrusted(m) { const P = PTYX(), I = P && P.info(); if (ptyFreeKind(m.kind) && !(m.data && m.data.reason)) return true; if (!m.by) return false;
+  if (m.data && m.data.ask) return false; // sent from the party page: always asked, even from the DM
   // only the DM, or this character's own player (their own characters) — not whoever happens to have the sheet open
-  return !!I && (m.by === I.dm || m.by === (P.owner && P.owner())); }
+  return !!I && (m.by === I.dm || (I.mgrs || []).includes(m.by) || m.by === (P.owner && P.owner())); }
 function ptyInFlush() { const I = PTYX() && PTYX().info(); if (!S.created || ptyBusy() || !I || I.loading) { clearTimeout(ptyInFlush._t); ptyInFlush._t = setTimeout(ptyInFlush, 800); return; }
   let changed = false, asked = false; while (PTY_IN.length) { const m = PTY_IN.shift(); try {
     // taken back before you answered: it just goes away
@@ -8241,10 +8249,11 @@ function ptyDesc(m) { const d = m.data || {}, why = d.why && d.why !== m.fromNam
     case 'heal': return (d.amt === 'max' ? 'Heal you to full HP' : `Heal you ${N(d.amt)} HP`) + why;
     case 'temp': return `Give you ${N(d.amt)} temporary HP` + why;
     case 'damage': return `Deal you ${N(d.amt)}${d.type ? ' ' + d.type : ''} damage` + why;
-    case 'hit': { const bits = [d.dmg ? N(d.dmg) + (d.type ? ' ' + d.type : '') + ' damage' : '', [].concat(d.cond || []).join(', '), d.save ? `${d.save} save, DC ${N(d.dc)}` : d.hit != null ? 'attack roll ' + N(d.hit) : ''].filter(Boolean); if (!d.spell) return `Deal you ${d.dmg ? N(d.dmg) + (d.type ? ' ' + d.type : '') + ' damage' : 'damage'}${bits.filter(x => !/damage$/.test(x)).length ? ' (' + bits.filter(x => !/damage$/.test(x)).join(', ') + ')' : ''}${why}`; return `Hit you with ${d.spell}${bits.length ? ' (' + bits.join(', ') + ')' : ''}`; }
+    case 'hit': if (d.saveOnly) return `Ask you to make a ${String(d.save).toUpperCase()} saving throw (DC ${N(d.dc)})${d.why && d.why !== m.fromName && d.why !== 'The DM' ? ' — ' + d.why : ''}`;
+    { const bits = [d.dmg ? N(d.dmg) + (d.type ? ' ' + d.type : '') + ' damage' : '', [].concat(d.cond || []).join(', '), d.save ? `${d.save} save, DC ${N(d.dc)}` : d.hit != null ? 'attack roll ' + N(d.hit) : ''].filter(Boolean); if (!d.spell) return `Deal you ${d.dmg ? N(d.dmg) + (d.type ? ' ' + d.type : '') + ' damage' : 'damage'}${bits.filter(x => !/damage$/.test(x)).length ? ' (' + bits.filter(x => !/damage$/.test(x)).join(', ') + ')' : ''}${why}`; return `Hit you with ${d.spell}${bits.length ? ' (' + bits.join(', ') + ')' : ''}`; }
     case 'effect': { const fx = d.fx || {}; if (fx.src && fx.src.aura) return `Give you ${fx.src.n}${d.label ? ' (' + d.label + ')' : ''}`; const t = typeof fxTip === 'function' ? fxTip(fx) : ''; return `Give you ${fx.name || 'an effect'}${t || fx.rounds ? ' (' + [t, fx.rounds ? 'for ' + fmtRounds(fx.rounds) : ''].filter(Boolean).join(', ') + ')' : ''}`; }
     case 'cure': return 'End ' + [].concat(d.conds || [], d.fx || [], d.exh ? [(N(d.exh) > 0 ? 'add' : 'remove') + ' a level of exhaustion'] : [], d.curse ? ['curses'] : []).join(', ') + why;
-    case 'cond': return `Give you the ${d.cond} condition${N(d.rounds) ? ' for ' + N(d.rounds) + ' rounds' : ''}` + why;
+    case 'cond': { const cs = [].concat(d.conds || (d.cond ? [d.cond] : [])), ex = N(d.exh); return [cs.length ? `give you the ${cs.length > 1 ? cs.slice(0, -1).join(', ') + ' and ' + cs[cs.length - 1] + ' conditions' : cs[0] + ' condition'}${N(d.rounds) ? ' for ' + N(d.rounds) + ' rounds' : ''}` : '', ex ? (ex > 0 ? 'add' : 'remove') + ' a level of exhaustion' : ''].filter(Boolean).join(' and ').replace(/^./, x => x.toUpperCase()) + why; }
     case 'revive': return 'Bring you back' + why; case 'stabilize': return 'Stabilize you' + why;
     case 'rest': return `Ask you to take a ${d.kind === 'long' ? 'long' : 'short'} rest`;
     case 'form': return `Turn you into a ${d.cr}${d.name ? ' (' + d.name + ')' : ''}`;
@@ -8260,20 +8269,20 @@ function ptyDesc(m) { const d = m.data || {}, why = d.why && d.why !== m.fromNam
 // who, and what they're doing to you. Yes or No.
 function ptyAskShow() {
   const A = S.ptyAsk || []; let ov = $('#ptyask-ov');
-  if (!A.length || !S.created) { if (ov) ov.remove(); return; }
+  if (!A.length || !S.created) { if (ov) ov.remove(); setTimeout(() => ptyMsgShow(), 50); return; }
   if (!ov) { ov = document.createElement('div'); ov.id = 'ptyask-ov'; ov.className = 'ptyask-bg'; document.body.appendChild(ov); }
   const a = A[0], d = ptyDesc(a.m), what = d.charAt(0).toLowerCase() + d.slice(1);
   ov.innerHTML = `<div class="ptyask-m" role="alertdialog" aria-modal="true" aria-labelledby="ptyask-q">
     ${A.length > 1 ? `<div class="ptyask-n">1 of ${A.length}</div>` : ''}
     <p class="ptyask-q" id="ptyask-q"><b>${esc(a.m.fromName || 'Someone')}</b> wants to ${esc(what)}.</p>${a.m.data && a.m.data.reason ? `<p class="ptyask-why">${esc(a.m.data.reason)}</p>` : ''}
-    <div class="ptyask-b"><button class="btn" data-pa="askno" data-ref="${esc(a.ref)}">No</button><button class="btn gold" data-pa="askok" data-ref="${esc(a.ref)}">Yes</button></div></div>`;
+    <div class="ptyask-b"><button class="btn" data-pa="askno" data-ref="${esc(a.ref)}">No</button><button class="btn gold" data-pa="askok" data-ref="${esc(a.ref)}">${a.m.kind === 'hit' && a.m.data && a.m.data.save && !a.m.data.dmg && !(a.m.data.cond || []).length ? 'Roll the save' : a.m.kind === 'hit' && a.m.data && a.m.data.save ? 'Yes, roll the save' : 'Yes'}</button></div></div>`;
   const y = ov.querySelector('[data-pa=askok]'); if (y && !matchMedia('(pointer:coarse)').matches) setTimeout(() => y.focus(), 30);
 }
 function ptyAnswer(ref, ok) {
   const all = S.ptyAsk || [], pick = all.filter(a => a.ref === ref); if (!pick.length) return ptyAskShow();
   S.ptyAsk = all.filter(a => !pick.includes(a));
   pick.forEach(a => { const m = a.m, text = ptyDesc(m);
-    if (ok) { try { m.agreed = true; const b = PTYX().snap(S); if (ptyApply(m)) ptyGot(m, b); } catch (e) { console.warn('party message', e); } }
+    if (ok) { try { m.agreed = true; const b = PTYX().snap(S); if (ptyApply(m)) ptyGot(m, b); } catch (e) { if (e instanceof NeedRoll) throw e; console.warn('party message', e); } } // (a roll it needs is fetched, then this runs again)
     else ptyLog('in', m.fromName || '', 'Said no: ' + text);
     if (m.from && PTYX()) PTYX().send(m.from, 'reply', { ok, text, n: S.name || '' }).catch(() => {}); });
   if (!pendingLabel) pendingLabel = ok ? 'Accepted a party change' : 'Turned down a party change';
@@ -8331,8 +8340,10 @@ function ptyApply(m) {
       // a harmful spell whose conditions are all gone is over for you
       S.effects = (S.effects || []).filter(e => !(e.conds && e.conds.length && !e.conds.some(c => S.conditions.includes(c))));
       if (!done.length) return false; pendingLabel = `${why}: ${done.join(', ')}`; note(`Ended ${done.join(', ')} (${why})`); toast(`<div><b>${esc(why)}</b><div class="det">Ended: ${esc(done.join(', '))}</div></div>`, 'crit', 7000); return true; }
-    case 'cond': { const c = d.cond; if (!c) return false; if (!S.conditions.includes(c)) S.conditions.push(c); if (N(d.rounds)) { S.condTurns = S.condTurns || {}; S.condTurns[c] = N(d.rounds); }
-      pendingLabel = `${c} (${why})`; note(`${c}${N(d.rounds) ? ' for ' + N(d.rounds) + ' rounds' : ''} — ${why}`); toast(`<div><b>${esc(c)}</b><div class="det">${esc(why)}${N(d.rounds) ? ' · ' + N(d.rounds) + ' rounds' : ''}</div></div>`, 'fumble', 8000); return true; }
+    case 'cond': { const cs = [].concat(d.conds || (d.cond ? [d.cond] : [])); if (!cs.length && !N(d.exh)) return false;
+      cs.forEach(c => { if (!S.conditions.includes(c)) S.conditions.push(c); if (N(d.rounds)) { S.condTurns = S.condTurns || {}; S.condTurns[c] = N(d.rounds); } });
+      const done = cs.slice(); if (N(d.exh)) { const b = N(S.exhaustion); S.exhaustion = Math.max(0, Math.min(6, b + N(d.exh))); if (b !== S.exhaustion) done.push('exhaustion ' + b + ' → ' + S.exhaustion); }
+      pendingLabel = `${done.join(', ')} (${why})`; note(`${done.join(', ')}${N(d.rounds) ? ' for ' + N(d.rounds) + ' rounds' : ''} — ${why}`); toast(`<div><b>${esc(done.join(', '))}</b><div class="det">${esc(why)}${N(d.rounds) ? ' · ' + N(d.rounds) + ' rounds' : ''}</div></div>`, 'fumble', 8000); return true; }
     case 'revive': { const hp = d.hp === 'max' ? maxHp() : Math.max(1, N(d.hp)); S.hp.cur = Math.max(N(S.hp.cur), hp); S.death = { s: 0, f: 0 }; S.conditions = S.conditions.filter(c => c !== 'Unconscious');
       pendingLabel = `${why}: back on your feet`; note(`Brought back with ${S.hp.cur} HP (${why})`); toast(`<div><b>${esc(why)}</b><div class="det">You’re back — ${S.hp.cur} HP.</div></div>`, 'crit', 9000); return true; }
     case 'stabilize': { if (N(S.hp.cur) > 0) return false; S.death = { s: 3, f: Math.min(2, N(S.death.f)) }; pendingLabel = 'Stabilized'; note(`Stabilized (${why})`); toast(`<div><b>Stabilized</b><div class="det">${esc(why)} — no more death saves; you wake with 1 HP after 1d4 hours.</div></div>`, 'crit', 8000); return true; }
@@ -8349,7 +8360,7 @@ function ptyApply(m) {
     case 'inspire': { S.insp = Math.min(inspMax(), Math.max(0, N(S.insp)) + 1); pendingLabel = 'Inspiration from ' + who; note('Inspiration'); toast(`<div><b>Inspiration!</b><div class="det">From ${esc(who)}${ST('inspiration') ? '' : ' (turn on Inspiration in Settings → Rules to see it on the sheet)'}</div></div>`, 'crit', 8000); return true; }
     case 'reply': { if (!d.ok && m.from && S.ptyAuras) Object.keys(S.ptyAuras).forEach(n => { if (String(d.text || '').includes(n)) { S.ptyAuras[n] = (S.ptyAuras[n] || []).filter(x => x !== m.from); R20A.no[n + '|' + m.from] = true; } });
       note(`${d.ok ? 'They said yes' : 'They said no'}: ${d.text || ''}`); toast(`<div><b>${esc(d.n || who)}</b> ${d.ok ? 'said yes' : 'said no'}<div class="det">${esc(d.text || '')}</div></div>`, d.ok ? '' : 'alert', 6000); return true; }
-    case 'note': { note(String(d.text || '')); toast(`<div><b>${esc(who)}</b><div class="det">${esc(d.text || '')}</div></div>`, 'alert', 30000); return true; }
+    case 'note': { note(String(d.text || '')); ptyMsgShow(who, String(d.text || '')); return true; }
     case 'undo': { const g = (S.ptyGot || []).find(x => x.ref === d.ref); if (!g) { PTY_CANCEL.add(d.ref); return false; }
       PTYX().revert(S, g.rev); S.ptyGot = S.ptyGot.filter(x => x !== g); S.hp.cur = Math.min(N(S.hp.cur), maxHp()); pendingLabel = `${who} took back: ${g.text}`; note(`Took back: ${g.text}`);
       toast(`<div><b>${esc(who)}</b> took back what they sent<div class="det">${esc(g.text)}</div></div>`, 'alert', 7000); return true; }
@@ -8374,21 +8385,26 @@ function ptyLootItem(name, notes) {
 // A harmful spell or the DM's damage: the save or attack is settled here, on the sheet that's hit.
 function ptyHitPrompt(m) {
   const d = m.data || {}, who = m.fromName || 'Someone', why = d.why || who, ab = String(d.save || '').toLowerCase().slice(0, 3);
-  const land = (full, saved) => { if (m.ref && PTY_CANCEL.has(m.ref)) { toast(`${esc(who)} took that back.`); return; } const before = PTYX().snap(S); let n = full ? N(d.dmg) : 0; if (saved && d.half) n = Math.floor(N(d.dmg) / 2); else if (saved) n = 0;
+  const land = (full, saved, tot) => { if (m.ref && PTY_CANCEL.has(m.ref)) { toast(`${esc(who)} took that back.`); return; } const before = PTYX().snap(S); let n = full ? N(d.dmg) : 0; if (saved && d.half) n = Math.floor(N(d.dmg) / 2); else if (saved) n = 0;
     const [dmg, r] = ptyResist(n, d.type), done = [];
     if (dmg > 0) { takeDamage(dmg); done.push(`${dmg}${d.type ? ' ' + d.type : ''} damage${r ? ' (' + r + ')' : ''}`); }
     if (!saved && full) { [].concat(d.cond || []).forEach(c => { if (!S.conditions.includes(c)) S.conditions.push(c); if (N(d.rounds)) { S.condTurns = S.condTurns || {}; S.condTurns[c] = Math.min(N(d.rounds), 10); } done.push(c); });
       if (d.buff) { const nm = d.fxName || d.spell || 'Curse'; S.effects = (S.effects || []).filter(e => e.name !== nm).concat([{ name: nm, rounds: N(d.rounds) || 10, buff: d.buff, from: 'enemy', src: d.src }]); done.push(nm); }
       if (d.src && (d.cond || []).length) { const e = { name: d.spell, rounds: N(d.rounds) || 10, buff: {}, from: who, src: d.src, conds: [].concat(d.cond) }; S.effects = (S.effects || []).filter(x => x.name !== e.name).concat([e]); } }
     pendingLabel = why + (done.length ? ': ' + done.join(', ') : '');
-    ptyLog('in', who, `${why}: ${done.length ? done.join(', ') : saved ? 'saved, no effect' : 'missed'}`); ptyGot(m, before, `${why}: ${done.join(', ')}`); save(); render();
+    if (!d.saveOnly) ptyLog('in', who, `${why}: ${done.length ? done.join(', ') : saved ? 'saved, no effect' : 'missed'}`); ptyGot(m, before, `${why}: ${done.join(', ')}`); save(); render();
+    if (d.saveOnly) { const ok = !!saved; ptyLog('in', who, `${String(d.save).toUpperCase()} save DC ${N(d.dc)}: ${ok ? 'made it' : 'failed'}${tot != null ? ' (' + tot + ')' : ''}`);
+      return toast(`${tot != null ? `<b class="total">${tot}</b>` : ''}<div><b>${ok ? 'You made it!' : 'You failed the save.'}</b><div class="det">${String(d.save).toUpperCase()} save, DC ${N(d.dc)}${why && why !== 'The DM' ? ' — ' + esc(why) : ''}</div></div>`, ok ? 'crit' : 'fumble', 9000); }
     toast(`<div><b>${esc(why)}</b><div class="det">${done.length ? esc(done.join(' · ')) : saved ? 'You saved — no effect.' : 'No effect.'}</div></div>`, done.length ? 'fumble' : 'crit', 7000); };
   const desc = `${N(d.dmg) ? `${N(d.dmg)}${d.type ? ' ' + esc(d.type) : ''} damage` : ''}${(d.cond || []).length ? (N(d.dmg) ? ' and ' : '') + esc([].concat(d.cond).join(', ')) : ''}${d.buff ? (N(d.dmg) || (d.cond || []).length ? ' and ' : '') + esc(d.fxName || d.spell || 'a curse') : ''}${d.note ? ' — ' + esc(d.note) : ''}`;
   let acts, head;
+  // already said yes in the window: an attack lands or misses by your AC, a save is rolled straight away
+  if (m.agreed && d.hit != null) { const ac = acTotal(); return land(!!(d.crit || N(d.hit) >= ac), false); }
+  if (m.agreed && ab && AB.includes(ab)) { const r = d20(`${why}: DC ${N(d.dc)} ${ab.toUpperCase()} save`, saveVal(ab), 'save', ab); if (r && !r.skipped) return land(true, r.total >= N(d.dc), r.total); }
   if (d.hit != null) { const ac = acTotal(), hits = d.crit || N(d.hit) >= ac; head = `${d.crit ? 'Critical hit' : 'Attack ' + N(d.hit)} vs your AC ${ac}${hits ? ' — it hits' : ' — it misses'}`;
     acts = [{ label: hits ? 'Take it' : 'It hits anyway', fn: () => land(true, false) }, { label: hits ? 'It missed' : 'OK', fn: () => land(false, false) }]; }
   else if (ab && AB.includes(ab)) { head = `DC ${N(d.dc)} ${ab.toUpperCase()} save${d.half ? ' (half on a success)' : ''}`;
-    acts = [{ label: `Roll ${ab.toUpperCase()} save`, fn: () => { const r = d20(`${why}: DC ${N(d.dc)} ${ab.toUpperCase()} save`, saveVal(ab), 'save', ab); if (!r || r.skipped) { setTimeout(() => ptyHitPrompt(m), 50); return; } land(true, r.total >= N(d.dc)); } },
+    acts = [{ label: `Roll ${ab.toUpperCase()} save`, fn: () => { const r = d20(`${why}: DC ${N(d.dc)} ${ab.toUpperCase()} save`, saveVal(ab), 'save', ab); if (!r || r.skipped) { setTimeout(() => ptyHitPrompt(m), 50); return; } land(true, r.total >= N(d.dc), r.total); } },
       { label: 'I failed', fn: () => land(true, false) }, { label: 'I saved', fn: () => land(true, true) }]; }
   else { if (m.agreed) return land(true, false); // you already said yes to it
     head = 'No save'; acts = [{ label: 'Take it', fn: () => land(true, false) }, { label: 'Ignore', fn: () => land(false, false) }]; }
@@ -8445,6 +8461,26 @@ async function r20AuraTick() {
   if (was !== R20A.status && UI.tab === 'party') render('party');
 }
 setInterval(r20AuraTick, 3000);
+
+
+// ----- messages from the DM or another player: their own window, bigger than a question, like a note handed over -----
+const PTY_MSGQ = [];
+function ptyMsgShow(who, text) { if (who != null) PTY_MSGQ.push({ who, text, at: Date.now() });
+  if (!PTY_MSGQ.length || $('#ptymsg-ov') || $('#ptyask-ov')) return; // after any question that's waiting
+  const m = PTY_MSGQ[0], ov = document.createElement('div'); ov.id = 'ptymsg-ov'; ov.className = 'ptyask-bg ptymsg-bg';
+  ov.innerHTML = `<div class="ptymsg-m" role="alertdialog" aria-modal="true" aria-labelledby="ptymsg-h"><div class="ptymsg-top"><span class="ptymsg-ic" aria-hidden="true">✉</span><div><small>Message from</small><b id="ptymsg-h">${esc(m.who)}</b></div>${PTY_MSGQ.length > 1 ? `<span class="ptymsg-n">1 of ${PTY_MSGQ.length}</span>` : ''}</div>
+    <div class="ptymsg-t">${esc(m.text).replace(/\n/g, '<br>')}</div><div class="ptymsg-b"><button class="btn gold" id="ptymsg-ok">${PTY_MSGQ.length > 1 ? 'Next' : 'OK'}</button></div></div>`;
+  document.body.appendChild(ov); const ok = ov.querySelector('#ptymsg-ok'); ok.onclick = () => { PTY_MSGQ.shift(); ov.remove(); ptyMsgShow(); };
+  if (!matchMedia('(pointer:coarse)').matches) setTimeout(() => ok.focus(), 30); }
+
+
+// ----- party chat (players only; the DM can't see it) -----
+function ptyChatList() { const ch = PTYX() && PTYX().chat; const L = ch ? ch.list().slice(-80) : [];
+  if (!L.length) return '<p class="hint" style="margin:0">No messages yet.</p>';
+  return L.map(m => `<div class="ptyc${ch.mine(m) ? ' me' : ''}"><span class="ptyc-n">${esc(ch.mine(m) ? 'You' : m.n || 'Someone')}<small>${new Date(m.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</small></span><span class="ptyc-t">${esc(m.t)}</span></div>`).join(''); }
+window.onPartyChatList = () => { const l = $('#ptychat-l'); if (!l) { if (UI.tab === 'party') render('party'); return; } const end = l.scrollHeight - l.scrollTop - l.clientHeight < 40; l.innerHTML = ptyChatList(); if (end) l.scrollTop = l.scrollHeight; };
+window.onPartyChat = m => { const here = UI.tab === 'party' && !document.hidden && $('#ptychat-l'); if (here) return;
+  toast(`<div><b>${esc(m.n || 'Someone')}</b> <span class="det" style="display:inline">· party chat</span><div class="det">${esc(String(m.t || '').slice(0, 200))}</div></div>`, '', 7000, { label: 'Reply', fn: () => { UI.tab = 'party'; saveUI && saveUI(); render(); setTimeout(() => { const i = $('#ptychat-in'); if (i) i.focus(); }, 80); } }); };
 
 
 // ---------- Spellcasting ability for a specific spell ----------
