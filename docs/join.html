@@ -2277,6 +2277,9 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 .pg-pw > i { position: absolute; right: -1px; bottom: -1px; width: 8px; height: 8px; border-radius: 50%; background: #4cd27a; box-shadow: 0 0 0 2px rgba(15,22,38,.95), 0 0 6px rgba(76,210,122,.7); }
 .pg-pw.bg > i { background: #d6ae45; box-shadow: 0 0 0 2px rgba(15,22,38,.95); }
 .pg-pres .pg-pw + .pg-pw { margin-left: 0; }
+.pg-pw > i { right: 0; bottom: 0; width: 7px; height: 7px; box-shadow: 0 0 0 1.5px rgba(15,22,38,.95); }
+.pg-pw.bg > i { box-shadow: 0 0 0 1.5px rgba(15,22,38,.95); }
+.pg-pres { padding: 2px !important; }
 </style>
 </head>
 <body>
@@ -2900,7 +2903,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022183759', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.b015e89faf9e.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.aabc84386482.html", "desk": "a/desk.1dfc6c020af7.js", "deskcss": "a/deskcss.a22ed732de5c.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022184058', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.b015e89faf9e.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.aabc84386482.html", "desk": "a/desk.1dfc6c020af7.js", "deskcss": "a/deskcss.a22ed732de5c.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
