@@ -3311,3 +3311,7 @@ html.mobile #modal .segmini > button { flex: none; white-space: nowrap; }
 .tile.hp .rest-actions { container-type: inline-size; }
 @container (max-width: 200px) { .tile.hp .btn.rest .ri { display: none; } .tile.hp .btn.rest { font-size: .82rem; } }
 html.mobile.kbup .pcwin .ptychat-cmds { display: none; }
+/* Phones: "Initiative mode" and "Roll Initiative" sit side by side as one tidy row of equal-height buttons */
+html.mobile .oocbar .ooc-enter { grid-column: 1 / span 1; white-space: nowrap; border-radius: 10px; padding: 12px 8px; font-size: .9rem; align-self: stretch; }
+html.mobile .oocbar .ooc-enter + .btn.big { grid-column: 2 / -1; border-radius: 10px; align-self: stretch; }
+html.mobile .oocbar .ooc-enter, html.mobile .oocbar .ooc-enter + .btn.big { min-height: 50px; margin: 0; }
