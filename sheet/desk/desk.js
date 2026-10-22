@@ -252,7 +252,7 @@ const note = t => addLog({ note: t });
 const TOASTFN = {};
 function toast(o) {
   const box = $('.dk-toasts'); if (!box) return; const el = document.createElement('div'), id = uid();
-  const sig = (o.big == null ? '' : o.big) + '|' + (o.title || '') + '|' + (o.det || ''); [...box.children].forEach(c => { if (c.dataset.sig === sig) c.remove(); }); el.dataset.sig = sig;
+  const sig = (o.big == null ? '' : o.big) + '|' + (o.title || '') + '|' + (o.det || ''); [...box.children].forEach(c => { if (c.dataset.sig === sig || (o.key && c.dataset.key === o.key)) c.remove(); }); el.dataset.sig = sig; if (o.key) el.dataset.key = o.key;
   el.className = 'dk-toast ' + (o.cls || '') + (o.big == null ? ' info' : '');
   (o.actions || []).forEach((a, i) => { TOASTFN[id + i] = a.fn; });
   el.innerHTML = (o.big != null ? `<div class="dk-tot">${esc(o.big)}</div>` : '') + `<div class="dk-tbody">${o.title ? `<b>${esc(o.title)}</b>` : ''}${o.det ? `<div class="dk-det">${o.det}</div>` : ''}${o.actions && o.actions.length ? `<div class="dk-ta">${o.actions.map((a, i) => `<button class="dk-btn sm${i ? '' : ' gold'}" data-tfn="${id + i}">${esc(a.label)}</button>`).join('')}</div>` : ''}</div><button class="dk-ix" aria-label="Dismiss" data-tclose>${ICON.x}</button>`;
@@ -263,12 +263,12 @@ function toast(o) {
   el.addEventListener('mouseenter', () => clearTimeout(t)); el.addEventListener('mouseleave', () => { t = setTimeout(gone, 3500); });
   el.addEventListener('click', e => { const b = e.target.closest('[data-tfn]'); if (b) { const f = TOASTFN[b.dataset.tfn]; gone(); if (f) f(); } else if (e.target.closest('[data-tclose]')) gone(); });
 }
-const toastInfo = (msg, actions) => toast({ det: msg, actions });
+const toastInfo = (msg, actions, key) => toast({ det: msg, actions, key });
 let MODAL_CLOSE = null;
 function openModal(html, o) {
   o = o || {}; const m = $('.dk-modal'), c = $('.dk-mcard');
   if (MODAL_CLOSE && m.classList.contains('open')) { const f = MODAL_CLOSE; MODAL_CLOSE = null; f(); }
-  c.className = 'dk-mcard' + (o.wide ? ' wide' : ''); c.innerHTML = html; m.classList.add('open'); m.scrollTop = 0; MODAL_CLOSE = o.onClose || null;
+  c.className = 'dk-mcard' + (o.wide ? ' wide' : '') + (o.cls ? ' ' + o.cls : ''); m.classList.toggle('dk-msheet', !!o.sheet); c.innerHTML = html; m.classList.add('open'); m.scrollTop = 0; MODAL_CLOSE = o.onClose || null;
   const f = c.querySelector('input:not([type=checkbox]),textarea,select'); if (f && innerWidth > 700 && o.focus !== false) setTimeout(() => f.focus(), 30);
 }
 function closeModal(silent) { const m = $('.dk-modal'); if (!m) return; m.classList.remove('open'); $('.dk-mcard').innerHTML = ''; const f = MODAL_CLOSE; MODAL_CLOSE = null; SV = null; if (f && !silent) f(); }
@@ -836,7 +836,7 @@ function topHTML() {
   return `${b ? `<a class="dk-backlink" href="${esc(b.href)}">${ICON.back}<span>${esc(b.label || 'Back')}</span></a>` : ''}
     <div class="dk-brand">${CTX.logo && typeof CTX.logo.html === 'function' ? `<span class="dk-logo">${CTX.logo.html()}</span>` : '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 2 36 11v18L20 38 4 29V11z" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M20 2v36M4 11l32 18M36 11 4 29" stroke="currentColor" stroke-width="1.2" opacity=".55"/></svg>'}<div><small>${p ? esc(p.name || 'Your party') : 'Adventurer’s Tome'}</small><h1>DM’s Desk</h1></div></div>
     <nav class="dk-tabs" role="tablist">${CTX.partyHost ? `<button role="tab" data-act="tab" data-tab="party" aria-selected="${UI.tab === 'party'}" class="${UI.tab === 'party' ? 'on' : ''}">${ICO_PARTY}<span>Party</span></button>` : ''}<button role="tab" data-act="tab" data-tab="sessions" aria-selected="${UI.tab === 'sessions'}" class="${UI.tab === 'sessions' ? 'on' : ''}">${ICON.folder}<span>Sessions</span></button><button role="tab" data-act="tab" data-tab="notes" aria-selected="${UI.tab === 'notes'}" class="${UI.tab === 'notes' ? 'on' : ''}">${nIcon('lore', '')}<span>Notes</span></button><button role="tab" data-act="tab" data-tab="bestiary" aria-selected="${UI.tab === 'bestiary'}" class="${UI.tab === 'bestiary' ? 'on' : ''}">${ICON.book}<span>Bestiary</span></button><button role="tab" data-act="tab" data-tab="gen" aria-selected="${UI.tab === 'gen'}" class="${UI.tab === 'gen' ? 'on' : ''}">${ICON.dice}<span>Generate</span></button></nav>
-    <div class="dk-tools"><button class="dk-tb dk-dicebtn" data-act="settings" title="Dice settings"><span class="dk-dot"></span><span class="dk-dicelbl">Desk rolls</span></button>
+    <div class="dk-tools"><button class="dk-tb dk-dicebtn" data-act="settings" data-k="dice" title="Dice settings"><span class="dk-dot"></span><span class="dk-dicelbl">Desk rolls</span></button>
       ${p && typeof CTX.turnOrder === 'function' ? `<button class="dk-tb dk-tobtn" data-act="turnorder" title="Open the party’s Turn order">${ICON.init}<span class="dk-tl">Turn order</span></button>` : ''}<button class="dk-tb" data-act="diceroller" title="Dice roller" aria-pressed="${!!$('.drwin:not(.closing)')}">${ICON.dice}<span class="dk-tl">Roll</span></button>
       <button class="dk-tb" data-act="log" title="Roll log" aria-pressed="${UI.log}">${ICON.log}<span class="dk-tl">Log</span></button>
       <button class="dk-tb" data-act="settings" title="Settings">${ICON.gear}</button></div>
@@ -1132,17 +1132,33 @@ function resizeImage(file, cb) {
   r.onload = () => { const img = new Image(); img.onload = () => { const s = Math.min(1, 256 / Math.max(img.width, img.height)); const cv = document.createElement('canvas'); cv.width = Math.round(img.width * s); cv.height = Math.round(img.height * s); cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height); cb(cv.toDataURL('image/jpeg', 0.82)); }; img.src = r.result; };
   r.readAsDataURL(file);
 }
-function openSettings() {
-  const st = S.settings, rb = (name, val, lbl, hint) => `<label class="dk-radio"><input type="radio" name="dk-${name}" data-set="${name}" value="${val}" ${String(st[name]) === String(val) ? 'checked' : ''}><span><b>${lbl}</b>${hint ? `<small>${hint}</small>` : ''}</span></label>`;
-  openModal(`<h2>Desk settings</h2><div class="dk-setgrid">
-    <section><h3>Dice</h3>${rb('dice', 'desk', 'The desk rolls', 'Fast. Results show here and in the log.')}${rb('dice', 'roll20', 'Roll20 rolls for me', 'Rolls post publicly in your Roll20 game chat through the same extension your character sheets use, and the results come back here.')}${rb('dice', 'manual', 'I roll my own dice', 'The desk asks you to type each total.')}
-      <div class="dk-r20" ${st.dice === 'roll20' ? '' : 'hidden'}></div></section>
-    <section><h3>Creatures</h3><span class="dk-lbl">Hit points for new creatures</span>${rb('hpMode', 'avg', 'Average', 'The number in the stat block.')}${rb('hpMode', 'roll', 'Roll their hit dice', 'Every copy gets its own HP.')}
-      <label class="dk-chk" style="margin-top:8px"><input type="checkbox" data-set="autoDmg" ${st.autoDmg ? 'checked' : ''}> Roll damage by itself when an attack hits</label></section>
-    ${aiSettingsHTML()}
-    <section><h3>Your data</h3><p class="dk-hint">Sessions and creatures save privately to your Adventurer’s Tome account and follow you to any device. Keep a backup file now and then.</p>
-      <div class="dk-row"><button class="dk-btn sm" data-act="exportall">Export backup</button><button class="dk-btn sm" data-act="exportmine">Export my creatures</button><button class="dk-btn sm" data-act="import">Import a file</button></div></section></div>
-    <div class="dk-acts"><button class="dk-btn gold" data-act="close">Done</button></div>`, { wide: true, focus: false });
+let SETTAB = 'dice';
+function openSettings(tab) {
+  if (typeof tab === 'string') SETTAB = tab; const st = S.settings;
+  const TABS = [['dice', 'Dice'], ['creatures', 'Creatures'], ['ai', 'AI helper'], ['data', 'Data'], ['notes', 'Notes']];
+  if (!TABS.some(t => t[0] === SETTAB)) SETTAB = 'dice';
+  const row = (t, ctl, sub, cls) => `<div class="dk-setrow${cls ? ' ' + cls : ''}"><span class="dk-setl"><b>${t}</b>${sub ? `<small>${sub}</small>` : ''}</span><span class="dk-setc">${ctl}</span></div>`;
+  const tog = (k, t, sub) => `<label class="dk-setrow dk-settog"><span class="dk-setl"><b>${t}</b>${sub ? `<small>${sub}</small>` : ''}</span><span class="dk-setc"><input type="checkbox" class="dk-switch" data-set="${k}" ${st[k] ? 'checked' : ''}></span></label>`;
+  const mode = (name, val, lbl, hint) => `<label class="dk-radio"><input type="radio" name="dk-${name}" data-set="${name}" value="${val}" ${String(st[name]) === String(val) ? 'checked' : ''}><span><b>${lbl}</b>${hint ? `<small>${hint}</small>` : ''}</span></label>`;
+  const pane = (k, h) => `<section class="dk-stpane${SETTAB === k ? ' on' : ''}" data-pane="${k}" role="tabpanel" aria-label="${k}">${h}</section>`;
+  const np = (typeof pagesList === 'function' ? pagesList() : []).length;
+  openModal(`<div class="dk-sethead"><h2>Desk settings</h2><button class="dk-btn sm gold" data-act="close">Done</button></div>
+    <div class="dk-stabs" role="tablist">${TABS.map(([k, t]) => `<button class="dk-stab${SETTAB === k ? ' on' : ''}" data-act="settab" data-k="${k}" role="tab" aria-selected="${SETTAB === k}">${t}</button>`).join('')}</div>
+    <div class="dk-setx">
+    ${pane('dice', `<div class="dk-setsub">Who rolls the dice</div><div class="dk-dmodes">${mode('dice', 'desk', 'The desk rolls', 'Fast. Results show here and in the log.')}${mode('dice', 'roll20', 'Roll20 rolls for me', 'Rolls post publicly in your Roll20 game chat through the same extension your character sheets use, and the results come back here.')}${mode('dice', 'manual', 'I roll my own dice', 'The desk asks you to type each total.')}</div>
+      <div class="dk-r20" ${st.dice === 'roll20' ? '' : 'hidden'}></div>
+      ${row('Dice roller', `<button class="dk-btn sm" data-act="diceroller">Open</button>`, 'Tap a die, or build a roll with a modifier and a target number.')}`)}
+    ${pane('creatures', `${row('Hit points for new creatures', `<select class="dk-f" data-set="hpMode"><option value="avg"${st.hpMode !== 'roll' ? ' selected' : ''}>Average</option><option value="roll"${st.hpMode === 'roll' ? ' selected' : ''}>Roll their hit dice</option></select>`, st.hpMode === 'roll' ? 'Every copy gets its own HP.' : 'The number in the stat block.')}
+      ${tog('autoDmg', 'Roll damage when an attack hits', 'Attack rolls that beat the target’s AC roll their damage by themselves.')}`)}
+    ${pane('ai', aiSettingsHTML())}
+    ${pane('data', `<p class="dk-hint">Sessions and creatures save privately to your Adventurer’s Tome account and follow you to any device. Keep a backup file now and then.</p>
+      ${row('Backup', `<button class="dk-btn sm" data-act="exportall">Export</button>`, 'Sessions, creatures, notes on encounters and settings, as one file.')}
+      ${row('My creatures', `<button class="dk-btn sm" data-act="exportmine">Export</button>`, 'Only the creatures you made or edited.')}
+      ${row('Import a file', `<button class="dk-btn sm" data-act="import">Import…</button>`, 'A desk backup or a creatures file.')}`)}
+    ${pane('notes', `${row('Your notes', `<button class="dk-btn sm" data-act="tab" data-tab="notes" data-close="1">Open</button>`, plural(np, 'page') + ' in your wiki.')}
+      ${row('Import notes', `<button class="dk-btn sm" data-act="nimport">Import…</button>`, 'LegendKeeper, Obsidian, Craft, Markdown or a notes backup.')}
+      ${row('Export notes', `<button class="dk-btn sm" data-act="nexport">Export…</button>`, 'A Markdown zip or a JSON backup.')}`)}
+    </div>`, { wide: true, focus: false, cls: 'dk-setwin', sheet: true });
   paintR20();
 }
 function paintR20() {
@@ -1229,6 +1245,9 @@ async function onClick(e) {
   switch (act) {
     case 'close': return closeModal();
     case 'aisave': case 'aitest': case 'aiforget': return onAISet(act);
+    case 'settab': { const k = b.dataset.k, old = SETTAB; SETTAB = k; $$('.dk-stab').forEach(t => { const on = t.dataset.k === k; t.classList.toggle('on', on); t.setAttribute('aria-selected', on); }); $$('.dk-stpane').forEach(p => p.classList.toggle('on', p.dataset.pane === k)); const pn = $(`.dk-stpane[data-pane="${k}"]`), ord = ['dice', 'creatures', 'ai', 'data', 'notes']; if (pn && !calm()) glide(pn, ord.indexOf(k) > ord.indexOf(old) ? 22 : -22, 0, 240); b.scrollIntoView({ block: 'nearest', inline: 'nearest' }); return; }
+    case 'aiprov': { const v = b.dataset.v; if (!AI_PROV[v]) return; aiSetCfg({ provider: v, model: AI_PROV[v].def }); openSettings('ai'); return; }
+    case 'aikeyshow': { const k = $('#dk-aiKey'); if (!k) return; const sh = k.type === 'password'; k.type = sh ? 'text' : 'password'; b.textContent = sh ? 'Hide' : 'Show'; b.setAttribute('aria-pressed', sh); b.setAttribute('aria-label', sh ? 'Hide key' : 'Show key'); return; }
     case 'sview': UI.sv = b.dataset.v; UI.sel = ''; saveUI(); return paint();
     case 'gensub': UI.gen = b.dataset.v; saveUI(); return paint();
     case 'gdiff': UI.genP.diff = b.dataset.v; saveUI(); return paint();
@@ -1260,8 +1279,8 @@ async function onClick(e) {
     }
     case 'npcnotes': { const n = {}; NPC_FIELDS.forEach(([k, , mx]) => { n[k] = vStr(NPCG.npc[k], mx); }); if (!n.name) return; const pg = npcToNotes(n, NPCG.stat || ''); return toastInfo(`Made a Notes page for <b>${esc(pg.title)}</b>.`, [{ label: 'Open', fn: () => { UI.tab = 'notes'; openPage(pg.id); render(); } }]); }
     case 'rmcard': { const s = curSession(); s.cards = (s.cards || []).filter(c => c.id !== b.dataset.id); save(); return paint(); }
-    case 'tab': UI.tab = b.dataset.tab; UI.tree = false; if (CTX.partyHost && CTX.party && CTX.party.id) UI.ptab[CTX.party.id] = UI.tab; saveUI(); paint(); try { pills(); } catch (e2) {} scrollTo(0, 0); return;
-    case 'settings': return openSettings();
+    case 'tab': if (b.dataset.close) closeModal(true); UI.tab = b.dataset.tab; UI.tree = false; if (CTX.partyHost && CTX.party && CTX.party.id) UI.ptab[CTX.party.id] = UI.tab; saveUI(); paint(); try { pills(); } catch (e2) {} scrollTo(0, 0); return;
+    case 'settings': return openSettings(b.dataset.k);
     case 'quickroll': case 'diceroller': return diceRoller();
     case 'turnorder': if (typeof CTX.turnOrder === 'function') try { CTX.turnOrder(); } catch (e2) {} return;
     case 'qr': return roll({ who: 'DM', label: prettyExpr(b.dataset.x), expr: b.dataset.x });
@@ -1359,7 +1378,7 @@ function onChange(e) {
   if (onNotesChange(el)) return;
   if (el.dataset && el.dataset.hbf) { hbReadForm(); return; }
   if (el.classList.contains('dk-notef')) { const files = Array.from(el.files || []); el.value = ''; const s = curSession(); if (files.length && s) addFiles(s, files); return; }
-  if (el.dataset.set) { const k = el.dataset.set; S.settings[k] = el.type === 'checkbox' ? el.checked : el.value; save(); paintDice(); if (k === 'dice') { paintR20(); if (el.value === 'roll20') { r20Hello(); setTimeout(() => { paintR20(); if (R20.ok) r20Campaigns(true); }, 600); } } return; }
+  if (el.dataset.set) { const k = el.dataset.set; S.settings[k] = el.type === 'checkbox' ? el.checked : el.value; save(); paintDice(); if (k === 'hpMode') return openSettings('creatures'); if (k === 'dice') { paintR20(); if (el.value === 'roll20') { r20Hello(); setTimeout(() => { paintR20(); if (R20.ok) r20Campaigns(true); }, 600); } } return; }
   if (el.id === 'dk-r20camp') { S.settings.r20campaign = el.value; save(); return; }
   if (el.id === 'dk-aiProv') { aiSetCfg({ provider: el.value, model: AI_PROV[el.value].def }); const k = $('#dk-aiKey'); openSettings(); return; }
   if (el.dataset.gai) { UI.genAI = el.checked; saveUI(); return paint(); }
@@ -1445,6 +1464,7 @@ function mount(root, ctx) {
   setSync(CTX.fs ? 'Loading…' : 'Saved on this device');
   if (CTX.partyHost) { const slot = document.createElement('div'); slot.className = 'dk-partyslot'; root.insertBefore(slot, root.querySelector('.dk-page').nextSibling); slot.appendChild(CTX.partyHost); }
   render();
+  try { const top = root.querySelector('.dk-top'), setH = () => root.style.setProperty('--toph', Math.round(top.getBoundingClientRect().height) + 'px'); setH(); if (window.ResizeObserver) { const ro = new ResizeObserver(setH); ro.observe(top); LISTEN.push([{ removeEventListener: () => ro.disconnect() }, 'x', null]); } } catch (e) {}
   on(root, 'click', onClick); on(root, 'change', onChange); on(root, 'input', onInput);
   on(root, 'mousedown', e => { const t = e.target.closest && e.target.closest('[data-ed],[data-auto]'); if (!t) return; e.preventDefault(); if (t.dataset.ed) edCmd(t.dataset.ed); else edAutoPick(N(t.dataset.auto)); });
   on(root, 'paste', e => { if (e.target.closest && e.target.closest('.dk-ed')) edPaste(e); });
@@ -1536,12 +1556,14 @@ function shapeEncAI(j) { if (!j || typeof j !== 'object') return null; const o =
 // Settings section
 function aiSettingsHTML() {
   const c = aiCfg(), P = AI_PROV[c.provider], key = aiKey(c.provider);
-  return `<section class="dk-aiset"><h3>AI helper <small>optional</small></h3><p class="dk-hint">Plans sessions from your notes and adds flavor to generated encounters and NPCs. Bring your own key from a provider.</p>
-    <div class="dk-row"><label><span class="dk-lbl">Provider</span><select class="dk-f" id="dk-aiProv">${Object.entries(AI_PROV).map(([k, v]) => `<option value="${k}"${k === c.provider ? ' selected' : ''}>${esc(v.name)}</option>`).join('')}</select></label>
-      <label style="flex:1;min-width:160px"><span class="dk-lbl">Model</span><input class="dk-f" id="dk-aiModel" value="${esc(c.model)}" list="dk-aiModels" autocomplete="off"><datalist id="dk-aiModels">${P.models.map(m => `<option>${esc(m)}</option>`).join('')}</datalist></label></div>
-    <label><span class="dk-lbl">API key</span><input class="dk-f" id="dk-aiKey" type="password" value="${esc(key)}" placeholder="${esc(P.keyHint)}" autocomplete="off" spellcheck="false"></label>
-    <p class="dk-hint dk-lock">Stored only on this device, in this browser — never in your account or anywhere else — and sent only to ${esc(P.name)}. Get one at ${esc(P.where)}. Usage is billed to your key.</p>
-    <div class="dk-row"><button class="dk-btn sm" data-act="aisave">Save key</button><button class="dk-btn sm" data-act="aitest">Test key</button>${key ? '<button class="dk-btn sm red" data-act="aiforget">Forget key</button>' : ''}<span class="dk-aistat dk-hint"></span></div></section>`;
+  const row = (t, ctl, sub, cls) => `<div class="dk-setrow${cls ? ' ' + cls : ''}"><span class="dk-setl"><b>${t}</b>${sub ? `<small>${sub}</small>` : ''}</span><span class="dk-setc">${ctl}</span></div>`;
+  return `<div class="dk-aiset"><p class="dk-hint">Optional. Plans sessions from your notes, designs homebrew items and adds flavor to generated encounters and NPCs. Bring your own key from a provider.</p>
+    <input type="hidden" id="dk-aiProv" value="${esc(c.provider)}">
+    ${row('Provider', `<span class="dk-seg dk-aiseg" role="radiogroup" aria-label="Provider">${Object.entries(AI_PROV).map(([k, v]) => `<button role="radio" aria-checked="${k === c.provider}" class="${k === c.provider ? 'on' : ''}" data-act="aiprov" data-v="${k}">${esc(v.name)}</button>`).join('')}</span>`, '', 'dk-setwide')}
+    ${row('Model', `<input class="dk-f" id="dk-aiModel" value="${esc(c.model)}" list="dk-aiModels" autocomplete="off" spellcheck="false"><datalist id="dk-aiModels">${P.models.map(m => `<option>${esc(m)}</option>`).join('')}</datalist>`, 'Pick one or type any model name.')}
+    ${row('API key', `<span class="dk-keybox"><input class="dk-f" id="dk-aiKey" type="password" value="${esc(key)}" placeholder="${esc(P.keyHint)}" autocomplete="off" spellcheck="false"><button class="dk-btn sm" data-act="aikeyshow" aria-pressed="false" aria-label="Show key">Show</button></span>`, `Get one at ${esc(P.where)}.`)}
+    <div class="dk-setrow dk-setacts"><span class="dk-aistat dk-hint" aria-live="polite">${key ? 'A key is saved on this device.' : ''}</span><span class="dk-setc">${key ? '<button class="dk-btn sm red" data-act="aiforget">Forget key</button>' : ''}<button class="dk-btn sm" data-act="aitest">Test</button><button class="dk-btn sm gold" data-act="aisave">Save</button></span></div>
+    <p class="dk-hint dk-lock">🔒 Your key is stored only in this browser on this device — never in your account — and sent only to ${esc(P.name)}. The AI only writes text into previews here: it can’t change sheets, your party or anything saved until you press a button. Usage is billed to your key.</p></div>`;
 }
 // ---------- generators: encounters and NPCs ----------
 const T = window.DESK_TABLES || { ENVS: [], ENV_RULES: [], TYPE_ENV: {}, THRESH: [], SCENES: { any: [] }, FLAVOR: {}, TACTICS: [], RACES: {}, NPC: {} };
@@ -2439,12 +2461,12 @@ async function commitImport(plan) {
     }
   }
   made.forEach(p => nSave(p)); const root = made.find(p => !p.parent); if (root) { UI.np = root.id; UI.nopen[root.id] = true; }
-  UI.nq = ''; UI.nf = 'all'; closeModal(true); paint(); toastInfo(`Imported ${plural(made.length, 'page')}.`);
+  UI.nq = ''; UI.nf = 'all'; closeModal(true); paint(); toastInfo(`Imported ${plural(made.length, 'page')}.`, null, 'nimp');
 }
 async function runImport(files) {
   files = Array.from(files || []); if (!files.length) return;
   const label = files.length === 1 ? files[0].name : (files[0].webkitRelativePath || '').split('/')[0] || plural(files.length, 'file');
-  toastInfo('Reading your files…');
+  toastInfo('Reading your files…', null, 'nimp');
   try { const entries = await collectEntries(files); if (!entries.some(e => e.text != null)) return toastInfo('No Markdown, HTML or backup files were found in that upload.'); const plan = await planImport(entries, label); if (!plan.pages.length) return toastInfo('Nothing to import there.'); importPreview(plan, label); }
   catch (e) { toast({ title: 'Couldn’t read that', det: esc(e.message), cls: 'bad' }); }
 }
@@ -2504,7 +2526,7 @@ function onNotesAct(act, b, e) {
     case 'nrmtag': p.tags = (p.tags || []).filter(t => t !== b.dataset.tag); nSave(p); paint(); return true;
     case 'nstat': { const c = getC(b.dataset.cid); if (c) openModal(`<div class="dk-sbmodal">${statBlock(c)}</div><div class="dk-acts"><button class="dk-btn" data-act="close">Close</button></div>`, { wide: true, focus: false }); return true; }
     case 'ntosess': { const c = getC((p.props || {}).stat); if (!c) return true; const s = curSession() || newSession(); const x = newInst(c, p.title); x.notes = [p.props.role, p.props.race].filter(Boolean).join(', '); s.groups[0].list.push(x); save(); toastInfo(`Added <b>${esc(p.title)}</b> to ${esc(s.title)}.`, [{ label: 'Go to session', fn: () => { UI.tab = 'sessions'; UI.session = s.id; UI.sv = 'creatures'; UI.sel = x.iid; saveUI(); render(); scrollTo(0, 0); } }]); return true; }
-    case 'mapimg': { const f = $('.dk-mapf'); f.onchange = async () => { const file = f.files[0]; f.value = ''; if (!file) return; toastInfo('Uploading the map…'); try { const im = await storeImage(file, 3000); p.map = Object.assign(p.map || { pins: [] }, { img: im.id, w: im.w, h: im.h }); delete MAPV[p.id]; nSave(p); paint(); } catch (x) { toast({ title: 'Couldn’t use that picture', det: esc(x.message), cls: 'bad' }); } }; f.click(); return true; }
+    case 'mapimg': { const f = $('.dk-mapf'); f.onchange = async () => { const file = f.files[0]; f.value = ''; if (!file) return; toastInfo('Uploading the map…', null, 'mapup'); try { const im = await storeImage(file, 3000); p.map = Object.assign(p.map || { pins: [] }, { img: im.id, w: im.w, h: im.h }); delete MAPV[p.id]; nSave(p); paint(); $$('.dk-toast[data-key=mapup]').forEach(x => x.remove()); } catch (x) { $$('.dk-toast[data-key=mapup]').forEach(x => x.remove()); toast({ title: 'Couldn’t use that picture', det: esc(x.message), cls: 'bad' }); } }; f.click(); return true; }
     case 'mapzoom': { const m = $('.dk-map'); if (m && m._zoom) m._zoom(N(b.dataset.d)); return true; }
     case 'mapfit': { const m = $('.dk-map'); if (m && m._fit) m._fit(); return true; }
     case 'pinmode': UI.pinMode = !UI.pinMode; paint(); if (UI.pinMode) toastInfo('Tap the map where the pin goes.'); return true;
@@ -2798,6 +2820,8 @@ function diceRoller() {
   DR = DR || drLoad();
   w = document.createElement('div'); w.className = 'drwin' + (drPhone() ? ' phone' : ''); w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Dice roller');
   ROOT.appendChild(w); ROOT.classList.add('dk-dropen'); drPaint(); setTop();
+  // on a phone, toasts sit just above the sheet so they never cover it or the header
+  if (window.ResizeObserver) { const ro = new ResizeObserver(() => { if (!w.isConnected) return ro.disconnect(); ROOT.style.setProperty('--drh', (w.classList.contains('phone') ? Math.round(w.getBoundingClientRect().height) : 0) + 'px'); }); ro.observe(w); }
   if (!drPhone()) { const W = innerWidth, H = innerHeight, r = w.getBoundingClientRect();
     const x = DR.x != null ? Math.min(Math.max(6, DR.x), W - r.width - 6) : W - r.width - 24, y = DR.y != null ? Math.min(Math.max(6, DR.y), H - 60) : Math.max(70, H - r.height - 90);
     w.style.left = x + 'px'; w.style.top = y + 'px'; }
