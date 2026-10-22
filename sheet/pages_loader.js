@@ -191,7 +191,7 @@ function wireThemeBtn(root) { const b = root.querySelector('#hub-theme'); if (!b
 // iPhones only show the pressed look (:active) on pages that listen for touches.
 document.addEventListener('touchstart', () => {}, { passive: true });
 function pgOutFade(m) { m.remove = () => { if (m._closing) return; m._closing = true;
-  if (PG_CALM || !m.isConnected) return Element.prototype.remove.call(m); m.classList.add('closing'); setTimeout(() => Element.prototype.remove.call(m), 170); }; }
+  if (PG_CALM || !m.isConnected) return Element.prototype.remove.call(m); m.classList.add('closing'); setTimeout(() => Element.prototype.remove.call(m), innerWidth <= 640 ? 240 : 170); }; }
 // While the mouse is over a pop-up window, scrolling only moves what's inside it: once a list reaches its end the
 // page behind doesn't take over and scroll instead.
 const PG_WINS = '.hub-modal.on, #pg-msg, .pg-out, .modal-bg.open';
@@ -260,7 +260,7 @@ function sheetScrollbar() {
   const match = el => W.find(([sel]) => el.matches && el.matches(sel));
   new MutationObserver(ms => ms.forEach(m => { const el = m.target, w = match(el); if (!w) return; const cls = w[1], was = (' ' + (m.oldValue || '') + ' ').includes(' ' + cls + ' '), now = el.classList.contains(cls);
     if (now) { if (!was && el.classList.contains('closing')) { clearTimeout(el._fc); el.classList.remove('closing'); } return; }
-    if (was && !now && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => el.classList.remove('closing'), 190); } }))
+    if (was && !now && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => el.classList.remove('closing'), innerWidth <= 640 ? 240 : 190); } }))
     .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], attributeOldValue: true, subtree: true });
 }
 // No coloured browser bar anywhere: the page itself shows at the very top (behind the clock on phones) and scrolls under it.
@@ -2933,7 +2933,7 @@ function partyModule(H) {
     right: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>' };
   function turnOrder(show) {
     if (!actor()) return; if (!TO) TO = toLoad(); toSync();
-    let w = document.getElementById('towin'); if (w) { if (!show) { w.id = ''; w.classList.add('closing'); setTimeout(() => w.remove(), PG_CALM ? 0 : 190); TO.open = false; toSave(); } return; }
+    let w = document.getElementById('towin'); if (w) { if (!show) { w.id = ''; w.classList.add('closing'); setTimeout(() => w.remove(), PG_CALM ? 0 : 240); TO.open = false; toSave(); } return; }
     w = document.createElement('div'); w.id = 'towin'; w.className = 'towin'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Turn order');
     w.innerHTML = `<div class="to-hd"><span class="to-tt">Turn Order</span><button class="to-min" data-to="min">—</button><button class="to-c" title="Close" aria-label="Close">✕</button></div>
       <div class="to-body"><div class="to-sub"><span class="to-cnt">Count: <b>0</b></span><span class="to-rnd">Round <b>1</b></span><button class="to-ib" data-to="sort" title="Sort highest first" aria-label="Sort highest first">${TO_ICON.sort}</button></div>

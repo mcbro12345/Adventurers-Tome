@@ -2017,3 +2017,15 @@ body.hubbody:not(.adminbody) .hub-pane { position: relative; }
 .hub-pane.hp-skel > :not(.hp-sk) { opacity: 0; }
 .hub-pane.hp-reveal > :not(.hp-sk) { animation: hubFade .26s ease-out; }
 .hp-sk .sk-c { width: 56px; height: 56px; border-radius: 10px; } .hp-sk .sk-wrap .sk-row { min-height: 80px; box-sizing: border-box; }
+/* Phones: every pop-up on the site pages (lobby, party page, admin) rises from the bottom and sinks back down */
+@keyframes pgRise { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes pgSink { from { transform: none; } to { transform: translateY(100%); } }
+@media (max-width: 640px) {
+  body.hubbody .hub-modal.on > * { animation: pgRise .32s cubic-bezier(.2,.9,.3,1); }
+  body.hubbody .hub-modal.closing > * { animation: pgSink .22s cubic-bezier(.4,0,1,1) forwards; }
+  .pg-out { align-items: flex-end !important; padding: 0 !important; }
+  .pg-out .pg-out-card { max-width: none; width: 100%; border-radius: 20px 20px 0 0; padding-bottom: calc(18px + env(safe-area-inset-bottom)); animation: pgRise .32s cubic-bezier(.2,.9,.3,1); }
+  .pg-out.closing .pg-out-card { animation: pgSink .22s cubic-bezier(.4,0,1,1) forwards; }
+  .towin { animation-duration: .32s !important; }
+}
+@media (prefers-reduced-motion: reduce) { body.hubbody .hub-modal.on > *, body.hubbody .hub-modal.closing > *, .pg-out .pg-out-card, .pg-out.closing .pg-out-card { animation: none !important; } }
