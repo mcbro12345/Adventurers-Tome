@@ -92,13 +92,13 @@ async function pgInviteImage(p) {
 window.pgInviteImage = pgInviteImage;
 // Scroll shadows on pick lists: a soft edge at the top / bottom while there's more to scroll to.
 // What someone did that brought them online, in plain words ("by opening Hiro's sheet").
-function pgOnlineWhy(back) { const p = location.pathname, q = location.search, t = String(document.title || '').replace(/\s*[—-]\s*Adventurer.s Tome\s*$/i, '').trim(), verb = back ? 'by coming back to ' : 'by opening ';
-  if (/^\/(c|character)\/|[?&]c=/.test(p + q)) return verb + (t && !/adventurer/i.test(t) ? t + '’s sheet' : 'a character sheet');
-  if (/^\/party\/|[?&]party=/.test(p + q)) return verb + (t && t !== 'Party' ? 'the ' + t + ' party page' : 'a party page');
-  if (/^\/join\//.test(p)) return 'by opening a party invite link';
-  if (/admin/.test(p + q)) return verb + 'the admin page';
-  if (/^\/view\/|[?&]pv=/.test(p + q)) return verb + 'a shared view-only sheet';
-  return verb + 'the lobby'; }
+function pgOnlineWhy(back, bg) { const p = location.pathname, q = location.search, t = String(document.title || '').replace(/\s*[—-]\s*Adventurer.s Tome\s*$/i, '').trim();
+  const what = /^\/(c|character)\/|[?&]c=/.test(p + q) ? (t && !/adventurer/i.test(t) ? t + '’s sheet' : 'a character sheet')
+    : /^\/party\/|[?&]party=/.test(p + q) ? (t && t !== 'Party' ? 'the ' + t + ' party page' : 'a party page')
+    : /^\/join\//.test(p) ? 'a party invite link' : /admin/.test(p + q) ? 'the admin page' : /^\/view\/|[?&]pv=/.test(p + q) ? 'a shared view-only sheet' : 'the lobby';
+  // A tab that's open but not on screen (another tab or app in front, or the window minimised) still counts as online
+  if (bg) return 'with ' + what + ' open in a background tab (not on screen)';
+  return (back ? 'by coming back to ' : 'by opening ') + what; }
 // Skeleton loaders: grey shapes where things are about to appear (instead of the word "Loading…"). Any empty
 // <div class="sk-auto" data-k="rows|cards" data-n="5"> on the page is filled in by itself.
 const SKEL = {
@@ -760,13 +760,12 @@ function wireDie(root) {
     if (!ME) { NEWACCT = true; const nm = (user.displayName || EMAIL.split('@')[0]).slice(0, 60); ME = { email: EMAIL, name: nm, nameLower: nm.toLowerCase(), keys: searchKeys(nm, EMAIL.split('@')[0], EMAIL), createdAt: Date.now(), seenAt: Date.now() }; if (user.photoURL) ME.gpic = user.photoURL; await UREF.set(ME); }
     // "Last seen" doubles as "on the site right now": refreshed every couple of minutes while a page is showing.
     else { WASOFF = !ME.seenAt || Date.now() - ME.seenAt > 4 * 60000; }
-    // One rule for "came online", whatever the page or device: a page that's actually showing finds their last
-    // heartbeat (on any device) 4+ minutes old. A tab that loads or reloads in the background (an automatic update,
-    // a link opened in a new tab) doesn't count until it's looked at, so nobody shows as online without a log entry saying why.
+    // One rule for "came online", whatever the page or device: an open page finds their last heartbeat (on any
+    // device) 4+ minutes old. Background tabs count too (browsers may slow or freeze them), and the log says so.
     { window.pgSeenAt = (ME && ME.seenAt) || 0; let firstBeat = true;
-    window.pgBeat = (force) => { if (document.hidden || !ME) return; const now = Date.now(), last = window.pgSeenAt || 0; if (!force && now - last < 100000) return;
+    window.pgBeat = (force) => { if (!ME) return; const now = Date.now(), last = window.pgSeenAt || 0; if (!force && now - last < 100000) return;
       const away = !last || now - last > 4 * 60000, first = firstBeat; firstBeat = false; window.pgSeenAt = now; UREF.update({ seenAt: now }).catch(() => {});
-      if (away && !NEWACCT && window.pgLog) setTimeout(() => pgLog('online', { detail: first && window.pgSignedIn ? 'by signing in' : pgOnlineWhy(!first) }), first ? 400 : 0); };
+      if (away && !NEWACCT && window.pgLog) setTimeout(() => pgLog('online', { detail: first && window.pgSignedIn ? 'by signing in' : pgOnlineWhy(!first, document.hidden) }), first ? 400 : 0); };
     setInterval(() => window.pgBeat(), 30000); document.addEventListener('visibilitychange', () => window.pgBeat()); }
     if (IS_OWNER && ME && ME.owner !== true) UREF.update({ owner: true }).catch(() => {}); // (lets the admin page show who the owner is)
     ACCT_OK = true;
