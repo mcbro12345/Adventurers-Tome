@@ -2125,3 +2125,9 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 .towin .to-x { display: none !important; }
 .to-row:hover .to-nm, html.mobile .to-nm { padding-right: 0; } @media (max-width: 640px) { .to-row .to-nm { padding-right: 0; } }
 .to-vit .to-eye { margin-left: 2px; }
+/* the eye: a clear icon sitting on the HP/AC line */
+.towin .to-vit { align-items: center; min-height: 24px; }
+.towin .to-vit .to-eye { width: 28px; height: 24px; margin: 0 0 0 4px; padding: 0; display: inline-grid; place-items: center; background: none; border: 0; border-radius: 6px; color: var(--to-soft); opacity: .85; }
+.towin .to-vit .to-eye svg { width: 18px; height: 18px; display: block; }
+.towin .to-vit .to-eye.on { color: #e0b04a; opacity: 1; }
+@media (hover: hover) { .towin .to-vit .to-eye:hover { background: rgba(127,127,127,.16); opacity: 1; } }
