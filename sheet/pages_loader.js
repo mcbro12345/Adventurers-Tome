@@ -2879,7 +2879,7 @@ function partyModule(H) {
     right: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>' };
   function turnOrder(show) {
     if (!actor()) return; if (!TO) TO = toLoad(); toSync();
-    let w = document.getElementById('towin'); if (w) { if (!show) { w.remove(); TO.open = false; toSave(); } return; }
+    let w = document.getElementById('towin'); if (w) { if (!show) { w.id = ''; w.classList.add('closing'); setTimeout(() => w.remove(), PG_CALM ? 0 : 190); TO.open = false; toSave(); } return; }
     w = document.createElement('div'); w.id = 'towin'; w.className = 'towin'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Turn order');
     w.innerHTML = `<div class="to-hd"><span class="to-tt">Turn Order</span><button class="to-min" data-to="min">—</button><button class="to-c" title="Close" aria-label="Close">✕</button></div>
       <div class="to-body"><div class="to-sub"><span class="to-cnt">Count: <b>0</b></span><span class="to-rnd">Round <b>1</b></span><button class="to-ib" data-to="sort" title="Sort highest first" aria-label="Sort highest first">${TO_ICON.sort}</button></div>

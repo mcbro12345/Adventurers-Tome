@@ -1965,3 +1965,12 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 :where(body.hubbody) .pp-adj { margin-right: auto; display: inline-flex; align-items: center; gap: 6px; } :where(body.hubbody) .pp-adj[hidden] { display: none; }
 @keyframes toFresh { 0% { background: rgba(201,150,43,.55); color: #1b1406; } 100% { background: transparent; } }
 .to-row:hover .to-nm, html.mobile .to-nm { padding-right: 24px; } @media (max-width: 640px) { .to-x { right: 66px; margin-top: -15px; } .to-row .to-nm { padding-right: 32px; } }
+/* The turn order fades in and out (slides up and down on a phone) */
+.towin { animation: toIn .18s cubic-bezier(.2,.9,.3,1); }
+.towin.closing { animation: toOut .18s ease forwards; pointer-events: none; }
+@keyframes toIn { from { opacity: 0; transform: translateY(8px) scale(.97); } }
+@keyframes toOut { to { opacity: 0; transform: translateY(8px) scale(.97); } }
+@media (max-width: 640px) { .towin { animation-name: toUp; } .towin.closing { animation-name: toDown; } }
+@keyframes toUp { from { transform: translateY(100%); } }
+@keyframes toDown { to { transform: translateY(100%); } }
+@media (prefers-reduced-motion: reduce) { .towin, .towin.closing { animation: none; } }

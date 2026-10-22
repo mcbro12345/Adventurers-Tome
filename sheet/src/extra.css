@@ -3219,3 +3219,13 @@ html:not(.mobile) .toolbar > .tbtn, html:not(.mobile) .toolbar .savegrp > .tbtn 
 /* Accessibility: the light theme's grey-blue text a shade darker, so small text stays readable on cream and gold backgrounds. */
 :root:not([data-theme="dark"]) { --slate: #56657A; }
 :root:not([data-theme="dark"]) .cn.gp .cl { color: #444e63; }
+/* Floating windows fade in and out (on a phone they slide up from the bottom and back down) */
+.drwin, .pcwin { animation: winIn .18s cubic-bezier(.2,.9,.3,1); }
+.drwin.closing, .pcwin.closing { animation: winOut .18s ease forwards; pointer-events: none; }
+html.mobile .drwin, html.mobile .pcwin { animation-name: winUp; }
+html.mobile .drwin.closing, html.mobile .pcwin.closing { animation-name: winDown; }
+@keyframes winIn { from { opacity: 0; transform: translateY(8px) scale(.97); } }
+@keyframes winOut { to { opacity: 0; transform: translateY(8px) scale(.97); } }
+@keyframes winUp { from { transform: translateY(100%); } }
+@keyframes winDown { to { transform: translateY(100%); } }
+@media (prefers-reduced-motion: reduce) { .drwin, .pcwin, .drwin.closing, .pcwin.closing { animation: none; } }

@@ -112,7 +112,7 @@ function ptyChatWire() {
 // bottom). It stays open on every tab until it's closed or brought back.
 function ptyChatWin() {
   const ch = PTYX() && PTYX().chat; let w = $('#pcwin');
-  if (!UI.chatPop || !ch || !ch.on()) { if (w) w.remove(); return; }
+  if (!UI.chatPop || !ch || !ch.on()) { if (w) winClose(w); return; }
   if (w) return;
   let pos = null; try { pos = JSON.parse(localStorage.getItem('dnd-pcwin') || 'null'); } catch (e) {}
   w = document.createElement('div'); w.id = 'pcwin'; w.className = 'pcwin'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Party chat');
@@ -135,7 +135,11 @@ function ptyChatWin() {
   w.addEventListener('click', e => { const b = e.target.closest('[data-pcw]'); if (b) ptyChatDock(); });
 }
 function ptyChatPopOut() { try { const p = JSON.parse(localStorage.getItem('dnd-pcwin') || 'null'); if (p) localStorage.setItem('dnd-pcwin', JSON.stringify({ h: p.h, w: p.w })); } catch (e) {} UI.chatPop = true; if (typeof saveUI === 'function') saveUI(); render('party'); ptyChatWin(); setTimeout(() => { const i = $('#ptychat-in'); if (i) i.focus(); }, 60); }
-function ptyChatDock() { UI.chatPop = false; if (typeof saveUI === 'function') saveUI(); const w = $('#pcwin'); if (w) w.remove(); render('party'); }
+// Floating windows (dice roller, party chat) fade in when opened and out when closed. A closing window gives up its id
+// straight away, so opening it again at once makes a fresh one.
+function winClose(w) { if (!w || w.classList.contains('closing')) return; w.id = ''; w.classList.add('closing'); const go = () => w.remove();
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return go(); setTimeout(go, 190); }
+function ptyChatDock() { UI.chatPop = false; if (typeof saveUI === 'function') saveUI(); const w = $('#pcwin'); if (w) winClose(w); render('party'); }
 document.addEventListener('change', e => { const t = e.target; if (!t.dataset || t.dataset.aura == null) return; ptyAura(t.dataset.aura, t.dataset.id, t.checked); });
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-pa]'); if (!b || e.target.closest('#wizard')) return; e.preventDefault();
   const m = b.closest('.menu'); if (m) m.classList.remove('open');
@@ -883,7 +887,7 @@ const drAdv = () => S.rollAdv === 'adv' ? 'a' : S.rollAdv === 'dis' ? 'd' : '';
 function drBuild(n, die, mod) { const a = die === 20 && n === 1 ? drAdv() : ''; const m = N(mod);
   return (a ? `2d20${a === 'a' ? 'kh1' : 'kl1'}` : `${n}d${die}`) + (m ? (m > 0 ? '+' : '') + m : ''); }
 function diceRoller() {
-  let w = $('#drwin'); if (w) { w.remove(); return; }
+  let w = $('#drwin'); if (w) { winClose(w); return; }
   DR = DR || drLoad();
   w = document.createElement('div'); w.id = 'drwin'; w.className = 'drwin'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Dice roller');
   document.body.appendChild(w); drPaint();
@@ -893,14 +897,14 @@ function diceRoller() {
   // drag by the title bar; on a phone it's a sheet along the bottom: swipe its top bar down to close it
   w.addEventListener('pointerdown', e => { const hd = e.target.closest('.dr-head'); if (!hd || e.target.closest('button')) return; e.preventDefault();
     if (isMobile()) { const y0 = e.clientY; hd.setPointerCapture(e.pointerId); const mv = ev => { w.style.transform = `translateY(${Math.max(0, ev.clientY - y0)}px)`; };
-      const up = ev => { hd.removeEventListener('pointermove', mv); hd.removeEventListener('pointerup', up); if (ev.clientY - y0 > 70) w.remove(); else w.style.transform = ''; };
+      const up = ev => { hd.removeEventListener('pointermove', mv); hd.removeEventListener('pointerup', up); if (ev.clientY - y0 > 70) winClose(w); else w.style.transform = ''; };
       hd.addEventListener('pointermove', mv); hd.addEventListener('pointerup', up); return; }
     const b = w.getBoundingClientRect(), dx = e.clientX - b.left, dy = e.clientY - b.top; hd.setPointerCapture(e.pointerId); w.classList.add('drag');
     const mv = ev => { const nx = Math.min(Math.max(0, ev.clientX - dx), innerWidth - b.width), ny = Math.min(Math.max(0, ev.clientY - dy), innerHeight - 40); w.style.left = nx + 'px'; w.style.top = ny + 'px'; };
     const up = () => { w.classList.remove('drag'); hd.removeEventListener('pointermove', mv); hd.removeEventListener('pointerup', up); const bb = w.getBoundingClientRect(); DR.x = bb.left; DR.y = bb.top; drKeep(); };
     hd.addEventListener('pointermove', mv); hd.addEventListener('pointerup', up); });
   w.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const k = b.dataset.dr;
-    if (k === 'x') return w.remove();
+    if (k === 'x') return winClose(w);
     if (k === 'die') return drRoll(drBuild(1, N(b.dataset.d), 0), 'd' + b.dataset.d);
     if (k === 'n') DR.n = Math.max(1, Math.min(99, DR.n + N(b.dataset.v)));
     if (k === 'mod') DR.mod = Math.max(-99, Math.min(99, N(DR.mod) + N(b.dataset.v)));
@@ -915,7 +919,7 @@ function diceRoller() {
     if (t.id === 'dr-mod') DR.mod = Math.max(-99, Math.min(99, N(t.value)));
     if (t.id === 'dr-dc') DR.dc = N(t.value);
     drKeep(); drPaint(); });
-  w.addEventListener('keydown', e => { if (e.key === 'Escape') w.remove(); if (e.key === 'Enter' && e.target.matches('.dr-num input, #dr-dc')) { e.preventDefault(); e.target.blur(); const rb = w.querySelector('[data-dr=roll]'); if (rb) rb.click(); } });
+  w.addEventListener('keydown', e => { if (e.key === 'Escape') winClose(w); if (e.key === 'Enter' && e.target.matches('.dr-num input, #dr-dc')) { e.preventDefault(); e.target.blur(); const rb = w.querySelector('[data-dr=roll]'); if (rb) rb.click(); } });
 }
 const DR_SHAPE = { 4: 'M12 3l9 16H3z', 6: 'M5 5h14v14H5z', 8: 'M12 2l9 10-9 10-9-10z', 10: 'M12 2l9 7-3 12H6L3 9z', 12: 'M12 2l9 6.5-3.4 10.5H6.4L3 8.5z', 20: 'M12 2l8.7 5v10L12 22l-8.7-5V7z', 100: 'M12 2l9 7-3 12H6L3 9z' };
 const DR_INNER = { 4: 'M12 3v16M3 19l9-7 9 7', 6: 'M5 5l4-2h12l-2 2M19 5v14l2-2V3', 8: 'M3 12h18M12 2v20', 10: 'M3 9l9 4 9-4M12 13v9', 12: 'M7.5 9.5L12 6l4.5 3.5-1.7 5.3H9.2z', 20: 'M12 7l-5 9h10z M12 2v5M3.3 7L7 16M20.7 7L17 16M3.3 17L7 16M20.7 17L17 16M12 22v-6', 100: 'M3 9l9 4 9-4M12 13v9' };
