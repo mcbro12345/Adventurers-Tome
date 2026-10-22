@@ -3389,3 +3389,22 @@ html.mwin .mw-head b { font-size: 1.15rem !important; line-height: 1.4 !importan
 /* Header with the identity fields off: smaller portrait (sized in app2.js to the name block) and less space above */
 html:not(.mobile) .banner .wrap:has(.ident.noid) { padding-top: 10px; padding-bottom: 12px; }
 html:not(.mobile) #sec-header:has(> .ident.noid) .portrait-wrap { transition: none; }
+/* Spellcasting panel: one clean block per class (name, ability, button) with a meter for prepared spells and cantrips */
+.scx-panel .scx-list { gap: 0; }
+.scx { border: 0; border-radius: 0; background: transparent; padding: 4px 2px 12px; gap: 10px; }
+.scx + .scx { border-top: 1px solid var(--line); padding-top: 12px; }
+.scx-h { align-items: center; gap: 8px; min-height: 30px; }
+.scx-h b { font-size: 1.05rem; }
+.scx-h small { padding: 2px 7px; border-radius: 999px; background: var(--gold-soft); color: var(--gold-ink); font-size: .66rem; letter-spacing: .08em; }
+.scx-h .scx-b { margin-left: auto; display: flex; gap: 6px; flex-wrap: nowrap; }
+.scx-h .scx-b .btn { flex: none; padding: 5px 14px; }
+.scx-go { background: transparent; border: 1px solid var(--gold); color: var(--gold-ink); font-weight: 700; }
+.scx-go:hover { background: var(--gold); color: var(--on-gold, #fff); }
+.scx-m { display: flex; flex-direction: column; gap: 5px; }
+.scx-mr { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.scx-mr span { font-size: .72rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--soft); }
+.scx-mr b { font-size: 1rem; font-variant-numeric: tabular-nums; }
+.scx-bar { height: 6px; border-radius: 999px; background: var(--field); border: 1px solid var(--line); overflow: hidden; }
+.scx-bar i { display: block; height: 100%; width: calc(var(--p, 0) * 100%); background: var(--gold); border-radius: inherit; transition: width .25s ease; }
+.scx-m.full .scx-bar i { background: #3c9d6b; }
+.scx-m.over .scx-bar i { background: var(--red); } .scx-m.over .scx-mr b { color: var(--red); }

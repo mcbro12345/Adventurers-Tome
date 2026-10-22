@@ -96,6 +96,7 @@ function keepPrefs(into, from) { if (!into || !from || (into.id && from.id && in
 })();
 let UI = { tab: 'core', open: {} };
 try { UI = Object.assign(UI, JSON.parse(localStorage.getItem(UI_KEY) || '{}')); } catch (e) {}
+UI.chatPop = false; // windows always start closed when a sheet opens
 UI.open = UI.open || {};
 // One-off corrections shipped with a sheet update (EMBED.fixes). Each runs once per character, whichever copy is
 // loaded (this browser's, the cloud's or the file's), so a fix isn't lost to a newer saved copy.
@@ -1471,7 +1472,9 @@ function toast(html, cls = '', ms = 4500, action) {
   setTimeout(() => t.remove(), ms);
 }
 let onModalCancel = null;
+let MODAL_BY = null, MODAL_SIG = null; // which button opened the window that's showing
 function openModal(html, onCancel, wide) {
+  MODAL_BY = MODAL_SIG;
   onModalCancel = onCancel || null; $('#modal-body').classList.remove('xwide'); $('#modal-body').classList.toggle('wide', !!wide); $('#modal-body').innerHTML = html; $('#modal').classList.add('open');
   const f = $('#modal-body [autofocus]'); if (f) f.focus();
 }
@@ -1498,7 +1501,7 @@ function openModal(html, onCancel, wide) {
 })();
 function closeModal(confirmed) {
   if (!$('#modal').classList.contains('open')) return;
-  $('#modal').classList.remove('open');
+  $('#modal').classList.remove('open'); MODAL_BY = null;
   const cb = onModalCancel; onModalCancel = null;
   if (!confirmed && cb) cb();
 }
@@ -2061,6 +2064,27 @@ function postSheetRoll(t) {
   else if (total !== '') lines.push(`**${clean(lbl ? cap(lbl) : 'Result')}:** [[${N(total)}]]${dmg ? ` · **Damage:** [[${N(dmg)}]] ${clean(dtype)}` : ''}`);
   if (lines.length > 1) r20Post(lines).catch(() => {});
 }
+// Header with Player/Race/Background/Alignment/Faith all off (desktop): the portrait shrinks to the height of the
+// name and subtitle, so its top lines up with the top of the name and the header gets shorter.
+(() => {
+  let ro = null;
+  const fit = () => {
+    const h = document.getElementById('sec-header'); if (!h) return;
+    const pw = h.querySelector('.portrait-wrap'), id = h.querySelector('.ident.noid'), nb = id && id.querySelector('.namebox');
+    if (!pw) return;
+    if (!nb || document.documentElement.classList.contains('mobile')) { pw.style.width = pw.style.height = ''; return; }
+    const top = id.querySelector('.ident-top') || nb, fill = Math.round(Math.max(64, Math.min(148, top.getBoundingClientRect().height, h.querySelector('.ident').getBoundingClientRect().height)));
+    if (pw.style.width !== fill + 'px') pw.style.width = pw.style.height = fill + 'px';
+  };
+  const wire = () => {
+    const h = document.getElementById('sec-header'); if (!h) return setTimeout(wire, 300);
+    ro = new ResizeObserver(fit);
+    new MutationObserver(() => { ro.disconnect(); h.querySelectorAll('.namebox, .ident-top').forEach(e => ro.observe(e)); fit(); }).observe(h, { childList: true });
+    h.querySelectorAll('.namebox, .ident-top').forEach(e => ro.observe(e)); fit();
+    addEventListener('resize', fit);
+  };
+  wire();
+})();
 
 
 // ---------- Spell helpers ----------
@@ -2161,9 +2185,10 @@ function renderSpells() {
     mine.forEach(x => byL[N(x.level)] = (byL[N(x.level)] || 0) + 1);
     const lv = Object.keys(byL).map(Number).sort((a, b) => a - b);
     void lv; const short = ABN[c.ab].slice(0, 3).toUpperCase();
-    return `<div class="scx"><div class="scx-h"><b>${esc(c.name)}</b><small title="${ABN[c.ab]} · ${kind}">${short}${c.type === 'pact' ? ' · Pact' : ''}</small></div>
-      <div class="scx-st">${lim != null ? `<span class="prep-tile" data-prepfor="${c.key}"><b data-calc="prepct:${c.key}"></b><small>${c.prepared ? 'Prepared' : 'Known'}</small></span>` : ''}${cl ? `<span class="prep-tile" data-cantfor="${c.key}"><b data-calc="cantct:${c.key}"></b><small>Cantrips</small></span>` : ''}</div>
-      <div class="scx-b">${c.prepared ? `<button class="btn gold sm" data-act="prepare" data-cls="${c.key}">Prepare</button>` : ''}${!c.prepared || c.book ? `<button class="btn ghost sm" data-act="addspells" data-cls="${c.key}">+ ${c.book ? 'Spellbook' : 'Spells'}</button>` : ''}</div></div>`;
+    const meter = (attr, calc, label) => `<div class="scx-m prep-tile" ${attr}><div class="scx-mr"><span>${label}</span><b data-calc="${calc}"></b></div><div class="scx-bar"><i></i></div></div>`;
+    return `<div class="scx"><div class="scx-h"><b>${esc(c.name)}</b><small title="${ABN[c.ab]} · ${kind}">${short}${c.type === 'pact' ? ' · Pact' : ''}</small>
+        <span class="scx-b">${c.prepared ? `<button class="btn sm scx-go" data-act="prepare" data-cls="${c.key}">Prepare</button>` : ''}${!c.prepared || c.book ? `<button class="btn ghost sm" data-act="addspells" data-cls="${c.key}">+ ${c.book ? 'Spellbook' : 'Spells'}</button>` : ''}</span></div>
+      ${lim != null ? meter(`data-prepfor="${c.key}"`, 'prepct:' + c.key, c.prepared ? 'Prepared spells' : 'Spells known') : ''}${cl ? meter(`data-cantfor="${c.key}"`, 'cantct:' + c.key, 'Cantrips') : ''}</div>`;
   }).join('');
   const slotCards = [];
   for (let i = 0; i < 9; i++) {
@@ -3022,10 +3047,10 @@ function calcHTML(key) {
     case 'movebar': return `<i style="width:${Math.max(0, 100 - Math.max(0, N(S.turn.moved)) / Math.max(1, moveBudget()) * 100)}%"></i>`;
     case 'conds': {
       const ex = N(S.exhaustion);
-      return (S.rollAdv ? `<span class="cchip ${S.rollAdv === 'adv' ? 'advc' : 'disc'}">${S.rollAdv === 'adv' ? 'Advantage' : 'Disadvantage'} <small class="cturns">all d20 rolls</small><button data-act="rolladv" data-v="${S.rollAdv}" aria-label="Turn off">✕</button></span>` : '') + S.conditions.map((c, k) => `<span class="cchip">${esc(c)}<button class="notetip" data-tip="${k}" data-tipkind="cond" aria-label="What ${esc(c)} does">ⓘ</button>${(S.condTurns || {})[c] ? ` <small class="cturns">${durShort(N(S.condTurns[c]))}</small>` : ''}<button data-act="dropcond" data-c="${esc(c)}" aria-label="Remove ${esc(c)}">✕</button></span>`).join('') +
-        Object.keys(S.tmpMods || {}).map(k => `<span class="cchip abt${tmv(k) > 0 ? ' pos' : ''}">${tmName(k)} ${fmt(tmv(k))}${tmr(k) > 0 ? ` <small class="hint">${tmr(k)} rd</small>` : ''}<button data-act="tmpmodclear" data-k="${k}" aria-label="End ${tmName(k)} change">✕</button></span>`).join('') +
-        Object.keys(S.abTemp || {}).map(a => { const r = N(S.abTempR); return `<span class="cchip abt">${a.toUpperCase()} ${baseScore(a)}→${score(a)}<button class="notetip" data-tip="ab:${a}" data-tipkind="cond" aria-label="About this ${ABN[a]} change">ⓘ</button>${r ? ` <small class="cturns">${durShort(r)}</small>` : ''}<button data-act="abtempclear" data-a="${a}" aria-label="End ${ABN[a]} change">✕</button></span>`; }).join('') +
-        (ex ? `<span class="cchip exh">Exhaustion ${ex}<button class="notetip" data-tip="exh" data-tipkind="cond" aria-label="What exhaustion does">ⓘ</button><button data-act="exh" data-d="-1" aria-label="Less exhaustion">−</button><button data-act="exh" data-d="1" aria-label="More exhaustion">+</button></span>` : '') +
+      return (S.rollAdv ? `<span class="cchip ${S.rollAdv === 'adv' ? 'advc' : 'disc'}"><span class="ccn">${S.rollAdv === 'adv' ? 'Advantage' : 'Disadvantage'} <small class="cturns">all d20 rolls</small></span><button data-act="rolladv" data-v="${S.rollAdv}" aria-label="Turn off">✕</button></span>` : '') + S.conditions.map((c, k) => `<span class="cchip"><span class="ccn">${esc(c)}</span><button class="notetip" data-tip="${k}" data-tipkind="cond" aria-label="What ${esc(c)} does">ⓘ</button>${(S.condTurns || {})[c] ? ` <small class="cturns">${durShort(N(S.condTurns[c]))}</small>` : ''}<button data-act="dropcond" data-c="${esc(c)}" aria-label="Remove ${esc(c)}">✕</button></span>`).join('') +
+        Object.keys(S.tmpMods || {}).map(k => `<span class="cchip abt${tmv(k) > 0 ? ' pos' : ''}"><span class="ccn">${tmName(k)} ${fmt(tmv(k))}</span>${tmr(k) > 0 ? ` <small class="hint">${tmr(k)} rd</small>` : ''}<button data-act="tmpmodclear" data-k="${k}" aria-label="End ${tmName(k)} change">✕</button></span>`).join('') +
+        Object.keys(S.abTemp || {}).map(a => { const r = N(S.abTempR); return `<span class="cchip abt"><span class="ccn">${a.toUpperCase()} ${baseScore(a)}→${score(a)}</span><button class="notetip" data-tip="ab:${a}" data-tipkind="cond" aria-label="About this ${ABN[a]} change">ⓘ</button>${r ? ` <small class="cturns">${durShort(r)}</small>` : ''}<button data-act="abtempclear" data-a="${a}" aria-label="End ${ABN[a]} change">✕</button></span>`; }).join('') +
+        (ex ? `<span class="cchip exh"><span class="ccn">Exhaustion ${ex}</span><button class="notetip" data-tip="exh" data-tipkind="cond" aria-label="What exhaustion does">ⓘ</button><button data-act="exh" data-d="-1" aria-label="Less exhaustion">−</button><button data-act="exh" data-d="1" aria-label="More exhaustion">+</button></span>` : '') +
         (S.conditions.length || ex || S.rollAdv || Object.keys(S.abTemp || {}).length || Object.keys(S.tmpMods || {}).length ? '' : '<span class="hint">None</span>');
     }
   }
@@ -3061,8 +3086,8 @@ function refresh() {
   const ca = canAttack();
   $$('.ammo[data-calc]').forEach(el => el.classList.toggle('out', /^0 /.test(el.textContent)));
   $$('#page-combat [data-act=attack]').forEach(b => { b.disabled = !ca; b.title = ca ? 'Roll to hit and damage; a crit doubles the damage dice' : 'No attacks left this turn (Next Turn / Reset Turn on the Combat tab)'; });
-  $$('[data-prepfor]').forEach(el => { const c = casterFor(el.dataset.prepfor); if (!c) return; const lim = spellLimit(c), n = c.prepared ? countPrep(c.key) : countKnown(c.key); el.classList.toggle('over', lim != null && n > lim); });
-  $$('[data-cantfor]').forEach(el => { const c = casterFor(el.dataset.cantfor); if (!c) return; el.classList.toggle('over', countCantrips(c.key) > cantripLimit(c)); });
+  $$('[data-prepfor]').forEach(el => { const c = casterFor(el.dataset.prepfor); if (!c) return; const lim = spellLimit(c), n = c.prepared ? countPrep(c.key) : countKnown(c.key); el.classList.toggle('over', lim != null && n > lim); el.classList.toggle('full', lim != null && n === lim); el.style.setProperty('--p', lim ? Math.min(1, n / lim) : 0); });
+  $$('[data-cantfor]').forEach(el => { const c = casterFor(el.dataset.cantfor); if (!c) return; const n = countCantrips(c.key), lim = cantripLimit(c); el.classList.toggle('over', n > lim); el.classList.toggle('full', n === lim); el.style.setProperty('--p', lim ? Math.min(1, n / lim) : 0); });
   const aci = $('#acTotal'); if (aci && aci !== document.activeElement && String(aci.value) !== String(acTotal())) aci.value = acTotal();
   const hmi = $('#hpMaxIn'); if (hmi && hmi !== document.activeElement && String(hmi.value) !== String(maxHp())) hmi.value = maxHp();
   $$('.tile.ac').forEach(el => el.classList.toggle('boosted', !S.form && fxActive().some(e => e.buff && (N(e.buff.ac) || e.buff.acMin || e.buff.acBase) && !e.ally)));
@@ -3230,6 +3255,10 @@ function mainClick(e) {
   const b = e.target.closest('[data-act]');
   if (!b) return;
   const act = b.dataset.act, i = N(b.dataset.i);
+  // the button that opened the window that's showing closes it again
+  { const sig = b.closest('#modal') ? null : act + '|' + JSON.stringify(b.dataset);
+    if (sig && MODAL_BY === sig && $('#modal').classList.contains('open') && !$('#modal').classList.contains('closing')) { closeModal(); return; }
+    MODAL_SIG = sig; setTimeout(() => { MODAL_SIG = null; }, 0); }
   pendingLabel = actLabel(act, b, i);
   const closeMenus = () => $$('.menu.open').forEach(m => m.classList.remove('open'));
   switch (act) {
