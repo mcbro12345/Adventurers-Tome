@@ -262,7 +262,7 @@ const URLS = {
   byId: id => PRETTY ? '/c/' + id : LEG + '?c=' + id,
   party: (id, name) => PRETTY ? '/party/' + (id === 'new' ? 'new' : partySlug(name) || id) : LEG + '?party=' + id,
   // invite links go through the invite worker when there is one (it gives the link its party's own preview card)
-  join: t => (FBCFG.inviteBase ? String(FBCFG.inviteBase).replace(/\/+$/, '') + '/' + t : PRETTY ? location.origin + '/join/' + t : location.origin + LEG + '?join=' + t),
+  join: t => (window.PG_INVITE_BASE ? String(window.PG_INVITE_BASE).replace(/\/+$/, '') + '/' + t : PRETTY ? location.origin + '/join/' + t : location.origin + LEG + '?join=' + t),
   newChar: (G, o, p) => { try { if (o) sessionStorage.setItem('pg-newfor', JSON.stringify({ o, p: p || '' })); else sessionStorage.removeItem('pg-newfor'); } catch (e) {} return PRETTY ? '/create' : LEG + '?new=1&g=' + G; },
 };
 // Search keys for an account or character: every prefix of each word (and of the whole name / email), so the admin
@@ -433,7 +433,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = __CFG__, VER = '__VER__', ASSETS = __ASSETS__; window.PG_ASSETS = ASSETS;
+  const CFG = __CFG__, VER = '__VER__', ASSETS = __ASSETS__; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -491,7 +491,7 @@ function wireDie(root) {
   if (location.hostname === 'adventurers-tome.web.app') CFG.authDomain = location.hostname;
   // App Check (optional): once a reCAPTCHA v3 site key is in pages_config.json ("appCheckKey"), every request carries
   // proof it came from this site, so Firebase can turn away scripts and bots that call the database directly.
-  const { appCheckKey, ...FBCFG } = CFG;
+  const { appCheckKey, inviteBase: _inviteBase, ...FBCFG } = CFG;
   if (appCheckKey) await new Promise(res => { const sc = document.createElement('script'); sc.src = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check-compat.js'; sc.onload = sc.onerror = res; document.head.appendChild(sc); });
   try { firebase.initializeApp(FBCFG); if (appCheckKey && firebase.appCheck) firebase.appCheck().activate(new firebase.appCheck.ReCaptchaV3Provider(appCheckKey), true);
     fs = firebase.firestore(); auth = firebase.auth(); } catch (e) { console.error(e); }
