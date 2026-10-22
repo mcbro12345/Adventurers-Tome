@@ -3123,15 +3123,10 @@ html.mobile .ptymain .ptychat .ptychat-l { max-height: 320px; }
 .ptychat-off .ptychat-lock { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; padding: 30px 16px; border: 1px dashed var(--line2); border-radius: 12px; background: var(--panel2); color: var(--soft); }
 .ptychat-off .ptychat-lock span { font-size: 1.6rem; }
 .ptychat-off .ptychat-lock p { margin: 0; font-size: .88rem; max-width: 260px; }
-/* your own messages sit on the right, picture on the outside */
-.ptyc.me { flex-direction: row-reverse; align-self: flex-end; }
-.ptyc.me .ptyc-b { border-radius: 12px 4px 12px 12px; align-items: flex-end; text-align: right; }
-.ptyc.me .ptyc-n { flex-direction: row-reverse; }
 /* Party tab cards: three across beside the chat (the HP box fills the card, a slightly smaller ring) */
 .ptymain .ptym-grid { grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: 12px; }
 .ptymain .ptym .chp.chp2 { flex: 1 1 100%; gap: 10px; padding: 8px 10px; }
 .ptymain .ptym .chp2 .chp-ring { width: 82px; height: 82px; }
 .ptymain .ptym .comp-h2 .cname { font-size: 1rem; }
 html.mobile .ptymain .ptym-grid { grid-template-columns: 1fr; }
-.ptyc.me .ptyc-t { text-align: left; align-self: stretch; }
 .ptychat-h code { font-size: .8em; padding: 1px 5px; border-radius: 5px; background: var(--panel2); border: 1px solid var(--line); color: var(--ink); }
