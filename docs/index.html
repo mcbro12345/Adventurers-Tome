@@ -2785,7 +2785,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022091704', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.020da477e0a8.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.074a890779f2.html"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022094408', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.020da477e0a8.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.074a890779f2.html"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -2995,9 +2995,15 @@ function wireDie(root) {
   try { const us = await UREF.get(); ME = us.exists ? us.data() : null;
     if (!ME) { NEWACCT = true; const nm = (user.displayName || EMAIL.split('@')[0]).slice(0, 60); ME = { email: EMAIL, name: nm, nameLower: nm.toLowerCase(), keys: searchKeys(nm, EMAIL.split('@')[0], EMAIL), createdAt: Date.now(), seenAt: Date.now() }; if (user.photoURL) ME.gpic = user.photoURL; await UREF.set(ME); }
     // "Last seen" doubles as "on the site right now": refreshed every couple of minutes while a page is showing.
-    else { WASOFF = !ME.seenAt || Date.now() - ME.seenAt > 4 * 60000; if (!ME.seenAt || Date.now() - ME.seenAt > 60000) UREF.update({ seenAt: Date.now() }).catch(() => {}); }
-    { let lastBeat = Date.now(); const beat = () => { if (document.hidden || Date.now() - lastBeat < 100000) return; const away = Date.now() - lastBeat > 4 * 60000; lastBeat = Date.now(); UREF.update({ seenAt: lastBeat }).catch(() => {}); if (away && window.pgLog) setTimeout(() => pgLog('online', { detail: pgOnlineWhy(true) }), 300); };
-      setInterval(beat, 120000); document.addEventListener('visibilitychange', beat); }
+    else { WASOFF = !ME.seenAt || Date.now() - ME.seenAt > 4 * 60000; }
+    // One rule for "came online", whatever the page or device: a page that's actually showing finds their last
+    // heartbeat (on any device) 4+ minutes old. A tab that loads or reloads in the background (an automatic update,
+    // a link opened in a new tab) doesn't count until it's looked at, so nobody shows as online without a log entry saying why.
+    { window.pgSeenAt = (ME && ME.seenAt) || 0; let firstBeat = true;
+    window.pgBeat = (force) => { if (document.hidden || !ME) return; const now = Date.now(), last = window.pgSeenAt || 0; if (!force && now - last < 100000) return;
+      const away = !last || now - last > 4 * 60000, first = firstBeat; firstBeat = false; window.pgSeenAt = now; UREF.update({ seenAt: now }).catch(() => {});
+      if (away && !NEWACCT && window.pgLog) setTimeout(() => pgLog('online', { detail: first && window.pgSignedIn ? 'by signing in' : pgOnlineWhy(!first) }), first ? 400 : 0); };
+    setInterval(() => window.pgBeat(), 30000); document.addEventListener('visibilitychange', () => window.pgBeat()); }
     if (IS_OWNER && ME && ME.owner !== true) UREF.update({ owner: true }).catch(() => {}); // (lets the admin page show who the owner is)
     ACCT_OK = true;
     // keep their Google account photo on file (it's their picture until they choose another)
@@ -3009,7 +3015,7 @@ function wireDie(root) {
   // A fresh sign-in (not just a remembered session) and a brand-new account are logged once.
   let SIGNEDIN = false; try { const ls0 = Date.parse(user.metadata.lastSignInTime || '') || 0, mark = 'pg-signin-logged'; if (Date.now() - ls0 < 180000 && lsGet(mark) !== String(ls0)) { lsSet(mark, String(ls0)); SIGNEDIN = true; pgLog(NEWACCT ? 'account' : 'signin'); } } catch (e) {}
   // Coming online (nothing from them for 4+ minutes): logged with what brought them back, once the page knows its title.
-  if (WASOFF && !NEWACCT) setTimeout(() => pgLog('online', { detail: SIGNEDIN ? 'by signing in' : pgOnlineWhy(false) }), 2500);
+  window.pgSignedIn = SIGNEDIN; if (!NEWACCT) window.pgBeat(true);
   // An admin can sign someone out of every device, or block them. Checked now and whenever their account record changes.
   let AUTHAT = 0; try { AUTHAT = Date.parse((await user.getIdTokenResult()).authTime) || 0; } catch (e) {}
   const kicked = d => d && (d.banned === true ? 'This account has been blocked. If you think this is a mistake, contact adventurerstome@googlegroups.com.' : (Number(d.revokedAt) || 0) > AUTHAT ? 'You’ve been signed out.' : '');
@@ -3017,7 +3023,7 @@ function wireDie(root) {
   // (when the database refuses even their own account record, an admin has signed them out or blocked them)
   const LOCKED = 'You’ve been signed out.';
   { const k0 = kicked(ME) || (ACCT_ERR === 'permission-denied' ? LOCKED : ''); if (k0) { kick(k0); return; } }
-  UREF.onSnapshot(d => { const k = kicked(d.exists ? d.data() : null); if (k) kick(k); else { const u = d.exists ? d.data() : null, ra = Number(u && u.reloadAt) || 0; if (PG_RA === null) PG_RA = ra; else if (ra && ra !== PG_RA) { PG_RA = ra; location.reload(); return; } pgMsg(u); } }, e => { if (e && e.code === 'permission-denied') kick(LOCKED); });
+  UREF.onSnapshot(d => { { const sa = d.exists && Number(d.data().seenAt); if (sa > (window.pgSeenAt || 0)) window.pgSeenAt = sa; } const k = kicked(d.exists ? d.data() : null); if (k) kick(k); else { const u = d.exists ? d.data() : null, ra = Number(u && u.reloadAt) || 0; if (PG_RA === null) PG_RA = ra; else if (ra && ra !== PG_RA) { PG_RA = ra; location.reload(); return; } pgMsg(u); } }, e => { if (e && e.code === 'permission-denied') kick(LOCKED); });
   // A message from the site's admin: pops up once (on whichever device sees it first), on any page.
   // Web addresses in a message become links (opened in a new tab). Runs on already-escaped text.
   function linkify(h) { return h.replace(/\b(?:https?:\/\/|www\.)[^\s<]+/gi, u => { const tail = (u.match(/[.,;:!?)\]'"]+$/) || [''])[0], url = tail ? u.slice(0, -tail.length) : u;
