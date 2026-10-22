@@ -39,9 +39,9 @@ export default {
     }
     if (c && c.img) ctx.waitUntil(picture(code, c, ctx).catch(() => {})); // get the picture ready before the preview asks for it
     const title = c && c.name ? `You’re invited to join ${c.name}` : 'You’re invited to join a party';
-    // One fact per line (Discord keeps the line breaks), then what to do.
-    const facts = c ? [c.dm ? 'Dungeon Master: ' + c.dm : '', c.n ? 'Adventurers so far: ' + c.n : ''].filter(Boolean) : [];
-    const desc = (facts.length ? facts.join('\n') + '\n\n' : '') + 'Pick a character or make a new one to join the game.';
+    // One line, punctuated so it still reads right where line breaks are dropped (Slack, iMessage).
+    const facts = c ? [c.dm ? 'Dungeon Master: ' + c.dm : '', c.n ? c.n + (c.n === 1 ? ' adventurer' : ' adventurers') + ' so far' : ''].filter(Boolean) : [];
+    const desc = (facts.length ? facts.join(' · ') + '. ' : '') + 'Pick a character or make a new one to join the game.';
     const img = c && c.img ? `${url.origin}/${encodeURIComponent(code)}.${/^data:image\/png/.test(c.img) ? 'png' : 'jpg'}?v=${encodeURIComponent(String(c.at || ''))}` : SITE + '/og-invite.png';
     const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="${esc(desc)}">
