@@ -3028,7 +3028,7 @@ html.mobile.hasbug.realphone .devbtn.dicebtn, html.mobile.hasbug.pg-inphone .dev
 /* Inspiration: "Use" is a tab tucked behind the right end of the badge (only while you have some) */
 .insp-grp { position: absolute; left: 50%; bottom: -24px; transform: translateX(-50%); z-index: 6; }
 .insp-grp > .insp { position: relative; left: auto; bottom: auto; transform: none; }
-.insp-use { position: absolute; left: 100%; top: 50%; transform: translateY(-50%); margin-left: -14px; z-index: -1; padding: 4px 10px 4px 20px; border-radius: 0 999px 999px 0; border: 1.5px solid var(--gold); border-left: 0; background: var(--panel); color: var(--gold-ink); font-weight: 800; font-size: .6rem; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,.22); white-space: nowrap; }
+.insp-use { position: absolute; left: 100%; top: 50%; transform: translateY(-50%); margin-left: -14px; z-index: -1; display: flex; align-items: center; height: 26px; box-sizing: border-box; line-height: 1; padding: 1px 11px 0 22px; border-radius: 0 999px 999px 0; border: 1.5px solid var(--gold); border-left: 0; background: var(--panel); color: var(--gold-ink); font-weight: 800; font-size: .6rem; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,.22); white-space: nowrap; }
 .insp-use:hover { background: var(--gold-soft); }
 .insp-grp.mini { display: none; }
 html.mobile .banner-row .insp-grp { display: none; }
