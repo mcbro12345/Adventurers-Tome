@@ -3271,3 +3271,11 @@ html.mtab-open .mtab-chev { transform: rotate(180deg); }
 .mtab-cnt { position: absolute; top: 7px; left: 9px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: color-mix(in srgb, var(--ink) 18%, transparent); font: 800 .66rem/18px system-ui, sans-serif; }
 @media (prefers-reduced-motion: reduce) { .mtab-card, .mtab-t, .mtab-back, .mtab-b, .mtab-chev { transition: none !important; } }
 html.mobile.mtabs .toasts, html.mobile.mtabs #tipbox { bottom: calc(80px + var(--tablift, 0px) + env(safe-area-inset-bottom)) !important; }
+/* Phones: bottom sheets fill the width exactly and ride above the on-screen keyboard */
+html.mobile .pcwin, html.mobile .drwin { max-width: none; bottom: var(--kb, 0px) !important; }
+html.mobile.kbup .pcwin { height: min(70vh, calc(var(--vvh, 100vh) - 8px)) !important; top: auto !important; }
+html.mobile.kbup .pcwin .pcw-body { min-height: 0; }
+html.mobile.kbup .drwin { max-height: calc(var(--vvh, 100vh) - 8px); }
+html.mobile.kbup .mtab { display: none; }
+/* Scrolling inside a window never scrolls the page behind it */
+.pcwin, .drwin, .pcw-body, .ptychat-l, .mtab-menu, .mtab-card { overscroll-behavior: contain; }

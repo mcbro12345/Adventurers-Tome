@@ -1974,3 +1974,4 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 @keyframes toUp { from { transform: translateY(100%); } }
 @keyframes toDown { to { transform: translateY(100%); } }
 @media (prefers-reduced-motion: reduce) { .towin, .towin.closing { animation: none; } }
+.towin, .to-list { overscroll-behavior: contain; }

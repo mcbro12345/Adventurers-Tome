@@ -475,7 +475,7 @@ function mtabFill(m) { const ts = mtabTabs();
 function mtabGo(k) { const b = document.querySelector(`#tabs .tab[data-tab="${CSS.escape(k)}"]`); if (b && !b.classList.contains('on')) b.click(); }
 function mtabOpen() { if (document.getElementById('mtabmenu')) return mtabClose();
   const m = document.createElement('div'); m.id = 'mtabmenu'; m.className = 'mtab-menu';
-  m.innerHTML = `<div class="mtab-back"></div><div class="mtab-card" role="menu" aria-label="Tabs"><div class="mtab-grid"></div></div>`; mtabFill(m); document.body.appendChild(m);
+  m.innerHTML = `<div class="mtab-back"></div><div class="mtab-card" role="menu" aria-label="Tabs"><div class="mtab-grid"></div></div>`; mtabFill(m); if (typeof winNoBleed === 'function') winNoBleed(m); document.body.appendChild(m);
   requestAnimationFrame(() => m.classList.add('in')); document.documentElement.classList.add('mtab-open');
   const b = document.querySelector('.mtab-b'); if (b) b.setAttribute('aria-expanded', 'true');
   m.querySelector('.mtab-back').onclick = () => mtabClose();

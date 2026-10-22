@@ -114,8 +114,9 @@ function ptyChatWin() {
   const ch = PTYX() && PTYX().chat; let w = $('#pcwin');
   if (!UI.chatPop || !ch || !ch.on()) { if (w) winClose(w); return; }
   if (w) return;
+  if (isMobile()) { const d = $('#drwin'); if (d) winClose(d); }
   let pos = null; try { pos = JSON.parse(localStorage.getItem('dnd-pcwin') || 'null'); } catch (e) {}
-  w = document.createElement('div'); w.id = 'pcwin'; w.className = 'pcwin'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Party chat');
+  w = document.createElement('div'); w.id = 'pcwin'; w.className = 'pcwin'; winNoBleed(w); w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Party chat');
   w.innerHTML = `<div class="pcw-head"><b>Party chat</b><button class="pcw-b" data-pcw="x" title="Close" aria-label="Close">✕</button></div><div class="pcw-body">${ptyChatInner()}</div>`;
   document.body.appendChild(w);
   const W = innerWidth, H = innerHeight; if (pos && pos.h) w.style.height = Math.max(260, Math.min(H - 20, pos.h)) + 'px'; if (pos && pos.w) w.style.width = Math.max(280, Math.min(W - 12, pos.w)) + 'px'; const r = w.getBoundingClientRect();
@@ -137,6 +138,16 @@ function ptyChatWin() {
 function ptyChatPopOut() { try { const p = JSON.parse(localStorage.getItem('dnd-pcwin') || 'null'); if (p) localStorage.setItem('dnd-pcwin', JSON.stringify({ h: p.h, w: p.w })); } catch (e) {} UI.chatPop = true; if (typeof saveUI === 'function') saveUI(); render('party'); ptyChatWin(); setTimeout(() => { const i = $('#ptychat-in'); if (i) i.focus(); }, 60); }
 // Floating windows (dice roller, party chat) fade in when opened and out when closed. A closing window gives up its id
 // straight away, so opening it again at once makes a fresh one.
+// Phones: the on-screen keyboard covers the bottom of the page without resizing it, so bottom sheets (chat, dice
+// roller) are lifted by however much of the screen the keyboard takes, and kept short enough to fit above it.
+(() => { const vv = window.visualViewport; if (!vv) return; const de = document.documentElement;
+  const upd = () => { const kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)); de.style.setProperty('--kb', kb + 'px'); de.style.setProperty('--vvh', Math.round(vv.height) + 'px'); de.classList.toggle('kbup', kb > 80); };
+  vv.addEventListener('resize', upd); vv.addEventListener('scroll', upd); upd(); })();
+// Phones: a finger dragged on a window (or on a list inside it that's already at its end) mustn't scroll the page behind.
+function winNoBleed(w) { let y0 = 0; w.addEventListener('touchstart', e => { y0 = e.touches[0].clientY; }, { passive: true });
+  w.addEventListener('touchmove', e => { if (e.touches.length > 1) return; const dy = e.touches[0].clientY - y0; let el = e.target;
+    while (el && el !== w.parentNode) { const cs = getComputedStyle(el); if (/(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 1) { const top = el.scrollTop <= 0, bot = el.scrollTop + el.clientHeight >= el.scrollHeight - 1; if (!(dy > 0 && top) && !(dy < 0 && bot)) return; break; } if (el === w) break; el = el.parentElement; }
+    if (e.cancelable) e.preventDefault(); }, { passive: false }); }
 function winClose(w) { if (!w || w.classList.contains('closing')) return; w.id = ''; w.classList.add('closing'); const go = () => w.remove();
   if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return go(); setTimeout(go, 190); }
 function ptyChatDock() { UI.chatPop = false; if (typeof saveUI === 'function') saveUI(); const w = $('#pcwin'); if (w) winClose(w); render('party'); }
@@ -888,8 +899,9 @@ function drBuild(n, die, mod) { const a = die === 20 && n === 1 ? drAdv() : ''; 
   return (a ? `2d20${a === 'a' ? 'kh1' : 'kl1'}` : `${n}d${die}`) + (m ? (m > 0 ? '+' : '') + m : ''); }
 function diceRoller() {
   let w = $('#drwin'); if (w) { winClose(w); return; }
+  if (isMobile() && $('#pcwin')) { UI.chatPop = false; if (typeof saveUI === 'function') saveUI(); winClose($('#pcwin')); }
   DR = DR || drLoad();
-  w = document.createElement('div'); w.id = 'drwin'; w.className = 'drwin'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Dice roller');
+  w = document.createElement('div'); w.id = 'drwin'; w.className = 'drwin'; winNoBleed(w); w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Dice roller');
   document.body.appendChild(w); drPaint();
   const W = innerWidth, H = innerHeight, r = w.getBoundingClientRect();
   const x = DR.x != null ? Math.min(Math.max(6, DR.x), W - r.width - 6) : W - r.width - 24, y = DR.y != null ? Math.min(Math.max(6, DR.y), H - 60) : Math.max(70, H - r.height - 90);
