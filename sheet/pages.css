@@ -513,10 +513,7 @@ html.pg-phonehost, html.pg-phonehost body { margin: 0; height: 100%; background:
 .pgph-back { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; border: 1px solid rgba(201,150,43,.55); background: rgba(15,22,38,.8); color: #f3e7c6; font: 700 .85rem system-ui, sans-serif; cursor: pointer; }
 .pgph-back:hover { background: #c9962b; color: #1b1406; }
 .pgph-dev { flex: none; width: 390px; height: 844px; transform-origin: top center; border-radius: 46px; padding: 12px; background: #05070c; box-shadow: 0 0 0 2px #2b3245, 0 30px 80px rgba(0,0,0,.6); box-sizing: content-box; position: relative; }
-.pgph-dev::before { content: ''; position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 96px; height: 26px; border-radius: 14px; background: #05070c; z-index: 2; pointer-events: none; }
 .pgph-f { width: 100%; height: 100%; border: 0; border-radius: 34px; background: #0f1420; display: block; }
-html.pg-inphone .banner { padding-top: 84px !important; }
-html.pg-inphone .pg-hublink, html.pg-inphone .pg-shared { top: 48px; }
 
 /* the update pill: centred without transforms (the sheet's tap effect would otherwise knock it sideways) */
 #pg-upd, #pg-upd:hover, #pg-upd:active, #pg-upd:focus { transform: none !important; }
@@ -2048,3 +2045,13 @@ html.pgmw body.hubbody .hub-modal.closing { background: transparent !important; 
 
 /* When a loading screen comes up (leaving a page), every open window fades out behind it instead of staying on top */
 :is(html.pg-leaving, html:has(#pg-load.pg-leave)) :is(.drwin, .pcwin, .towin, #pcpop, .pg-out, .hub-modal, #modal, .ptyask-bg, #pg-corner, #pg-msg, .hub-toast, #toasts):not(#pg-load *) { opacity: 0 !important; transition: opacity .22s ease !important; pointer-events: none !important; }
+/* Window stacking (desktop): the window you last clicked is on top */
+html.wpop-front :is(.drwin, .pcwin, .towin) { z-index: 49 !important; }
+html.wfloat-front .pg-out { z-index: 8990 !important; }
+/* The phone layout on a bigger screen (the phone preview) uses the same bottom sheets as a real phone, flush to the edges */
+html.mobile .pg-out { align-items: flex-end !important; padding: 0 !important; }
+html.mobile .pg-out .pg-out-card { max-width: none !important; width: 100% !important; margin: 0 !important; border-radius: 20px 20px 0 0 !important; padding-bottom: calc(18px + env(safe-area-inset-bottom)); animation: pgRise .32s cubic-bezier(.2,.9,.3,1); }
+html.mobile .pg-out.closing .pg-out-card { animation: pgSink .22s cubic-bezier(.4,0,1,1) forwards; }
+/* Phones: bottom sheets carry on a little past the bottom edge, so no sliver of the page shows under them (scaled phone view, rounding) */
+html.mobile :is(.pg-out, .modal-bg, body.hubbody .hub-modal) { bottom: -6px !important; }
+html.mobile :is(.pg-out .pg-out-card, .modal-bg > .modal, body.hubbody .hub-modal > *) { margin-bottom: 0 !important; }

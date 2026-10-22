@@ -1996,7 +1996,7 @@ html.mobile .advb { font-size: .8rem; padding: 6px 12px; }
 
 .tile.condtile { container-type: inline-size; }
 .advb .as { display: none; }
-@container (max-width: 330px) { .advb .al { display: none; } .advb .as { display: inline; } }
+@container (max-width: 420px) { .advb .al { display: none; } .advb .as { display: inline; } }
 
 .sarow { flex-wrap: nowrap !important; }
 .sadotw .hint { white-space: nowrap; display: inline-block; min-width: 7.2em; }
@@ -3380,3 +3380,7 @@ html:not(.mobile) .ident.noid .namebox { align-self: flex-end; }
 html:not(.mobile) .ident.noid .subtitle { margin-bottom: -4px; }
 /* The info button on condition chips sits dead centre on the chip */
 .cchip .notetip { display: inline-flex !important; align-items: center; justify-content: center; align-self: center; width: 16px; height: 16px; padding: 0; margin: 0 0 0 3px; line-height: 16px; vertical-align: middle; }
+/* Condition chips: the word sits on the chip's centre line (capital letters centred), with the icons kept centred too */
+.cchip > .ccn { position: relative; top: 1px; }
+/* Phones: the sheet's corner icons sit a little higher, clear of the name and subtitle */
+html.mobile #sec-header .devbtn { top: 3px !important; }

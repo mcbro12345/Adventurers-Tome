@@ -3225,3 +3225,29 @@ function partyModule(H) {
   listen();
   return { saveOrder, paneHTML, count, wirePane, partyPage, joinPage, adminTab, refresh: () => paint(), newParty: () => pgGo(URLS.party('new')) };
 }
+// ================= Window stacking =================
+// Desktop: whichever window you click or tab into comes to the front. Floating windows (dice roller, party chat,
+// turn order) trade places with pop-up windows (the sheet's windows and the lobby's) without lifting those pop-ups
+// over their own menus and tips.
+(() => {
+  const FLOAT = '.drwin, .pcwin, .towin', POP = '#modal.open, .modal-bg.open, .hub-modal.open, .pg-out', H = document.documentElement;
+  const front = w => {
+    if (!w || H.classList.contains('mobile') || matchMedia('(max-width: 640px)').matches) return;
+    if (w.matches(FLOAT)) {
+      const fl = [...document.querySelectorAll(FLOAT)].filter(x => x !== w).sort((a, b) => (+a.style.zIndex || 0) - (+b.style.zIndex || 0));
+      fl.push(w); fl.forEach((x, i) => { x.style.zIndex = String(9001 + i); });
+      H.classList.add('wfloat-front'); H.classList.remove('wpop-front');
+    } else { H.classList.add('wpop-front'); H.classList.remove('wfloat-front'); }
+  };
+  const winOf = t => t && t.closest ? t.closest(FLOAT + ', ' + POP) : null;
+  addEventListener('pointerdown', e => front(winOf(e.target)), true);
+  addEventListener('focusin', e => front(winOf(e.target)), true);
+  // a window that has just opened starts in front
+  const seen = new WeakSet();
+  new MutationObserver(ms => { for (const m of ms) {
+    if (m.type === 'childList') m.addedNodes.forEach(n => { if (n.nodeType === 1 && n.matches(FLOAT + ', .pg-out')) front(n); });
+    else { const t = m.target; if (t.matches && t.matches('.modal-bg.open, .hub-modal.open')) { if (!seen.has(t)) { seen.add(t); front(t); } } else if (t.classList) seen.delete(t); }
+  }
+    if (H.classList.contains('wpop-front') && !document.querySelector('.modal-bg.open:not(.closing), .hub-modal.open:not(.closing), .pg-out:not(.closing)')) H.classList.remove('wpop-front');
+  }).observe(document.body || document.documentElement, { childList: true, attributes: true, attributeFilter: ['class'], subtree: true });
+})();

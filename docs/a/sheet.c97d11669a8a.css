@@ -2665,7 +2665,7 @@ html.mobile .advb { font-size: .8rem; padding: 6px 12px; }
 
 .tile.condtile { container-type: inline-size; }
 .advb .as { display: none; }
-@container (max-width: 330px) { .advb .al { display: none; } .advb .as { display: inline; } }
+@container (max-width: 420px) { .advb .al { display: none; } .advb .as { display: inline; } }
 
 .sarow { flex-wrap: nowrap !important; }
 .sadotw .hint { white-space: nowrap; display: inline-block; min-width: 7.2em; }
@@ -3972,7 +3972,7 @@ html.mobile #modal .segmini > button { flex: none; white-space: nowrap; }
 .tile.hp .btn.rest { white-space: nowrap; padding-left: 6px; padding-right: 6px; gap: 5px; justify-content: center; min-width: 0; } .tile.hp .btn.rest svg { width: 14px; height: 14px; flex: none; }
 /* when the two rest buttons are narrow, the hourglass and moon step aside so the words stay on one line */
 .tile.hp .rest-actions { container-type: inline-size; }
-@container (max-width: 200px) { .tile.hp .btn.rest .ri { display: none; } .tile.hp .btn.rest { font-size: .82rem; } }
+@container (max-width: 200px) { .tile.hp .btn.rest { flex-direction: row; gap: 3px; padding-left: 3px; padding-right: 3px; font-size: .78rem; line-height: 1.1; } .tile.hp .btn.rest .ri { display: inline-flex; } .tile.hp .btn.rest .ri svg { width: 12px; height: 12px; } }
 html.mobile.kbup .pcwin .ptychat-cmds { display: none; }
 /* Phones: "Initiative mode" and "Roll Initiative" sit side by side as one tidy row of equal-height buttons */
 html.mobile .oocbar .ooc-enter { grid-column: 1 / span 1; white-space: nowrap; border-radius: 10px; padding: 12px 8px; font-size: .9rem; align-self: stretch; }
@@ -4023,7 +4023,34 @@ html.mwin .rl-head:has(> .mw-hid) { padding-top: 0; }
 html:not(.mwin) .mw-head { display: none; }
 html.mwin .modal-bg > .modal { overflow-x: hidden; }
 /* Desktop: Settings is tall enough that no tab needs a scrollbar */
-html.mwin .modal:has(.setx) { height: min(calc(100vh - 40px), 840px); }
+html.mwin .modal:has(.setx) { height: min(calc(100vh - 40px), 640px); }
 /* windows turn slightly see-through while dragged, like the dice roller */
 .win-moving { opacity: .95; }
+.defrow { display: grid; grid-template-columns: 82px 1fr; gap: 8px; align-items: start; margin-top: 6px; }
+.defrow > b { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--soft); padding-top: 6px; }
+.pchip.given { opacity: .9; border-style: dashed; } .pchip.given small { margin-left: 6px; color: var(--soft); font-size: .72rem; font-weight: 500; }
+/* When the header shows only the name (no Player / Race / Background… fields), the name block sits centred beside the portrait */
+.ident.noid .ident-grid { display: none; }
+html:not(.mobile) #sec-header:has(> .ident.noid) { align-items: flex-end; }
+html:not(.mobile) .ident.noid { align-self: flex-end; }
+/* every Manage button looks like the small one on the Hit Points panel */
+.tmanage.tmanage-in { position: static; margin-left: auto; flex: none; align-self: center; }
+/* the ⓘ on a condition chip sits dead centre on the line */
+.cchip .notetip.ci { width: 16px; height: 16px; place-items: center; vertical-align: middle; align-self: center; margin-top: 0; margin-bottom: 0; line-height: 1; }
+.cchip .notetip.ci svg { width: 14px; height: 14px; display: block; margin: 0; }
+/* Desktop: the Skills manager lays its skills out in two columns, so it isn't taller than the screen */
+html.mwin .modal:has(.skman) { max-width: min(860px, 96vw) !important; }
+html.mwin .skman { display: grid; grid-template-columns: 1fr 1fr; column-gap: 22px; }
+
+/* Header with Player/Race/Background/Alignment/Faith all off: the whole row drops so its bottom lines up with the portrait's bottom */
+html:not(.mobile) .ident.noid { padding-bottom: 0 !important; margin-bottom: 0 !important; }
+html:not(.mobile) .ident.noid .ident-top { align-items: flex-end !important; padding-bottom: 0 !important; margin-bottom: 0 !important; }
+html:not(.mobile) .ident.noid .namebox { align-self: flex-end; }
+html:not(.mobile) .ident.noid .subtitle { margin-bottom: -4px; }
+/* The info button on condition chips sits dead centre on the chip */
+.cchip .notetip { display: inline-flex !important; align-items: center; justify-content: center; align-self: center; width: 16px; height: 16px; padding: 0; margin: 0 0 0 3px; line-height: 16px; vertical-align: middle; }
+/* Condition chips: the word sits on the chip's centre line (capital letters centred), with the icons kept centred too */
+.cchip > .ccn { position: relative; top: 1px; }
+/* Phones: the sheet's corner icons sit a little higher, clear of the name and subtitle */
+html.mobile #sec-header .devbtn { top: 3px !important; }
 
