@@ -1642,11 +1642,14 @@ function hub(fs, auth, G, ctx) {
   const VSCROLL = { mine: 0, parties: 0, shared: 0 };
   const padBot = () => parseFloat(getComputedStyle(root).paddingBottom) || 0;
   // Phones: a list sliding in shows grey placeholders first, then its real rows fade in once it has landed.
-  function paneSkel(p) { if (!p || !slideMode() || calm() || p.querySelector(':scope > .hp-sk')) return; const n = Math.max(1, Math.min(6, p.querySelectorAll('.hc, .hr, .pty-row, .hub-folder').length || 3));
+  // (the list can be redrawn mid-slide when new data arrives, so how long its placeholders stay up is kept by name and put back after a redraw)
+  const SKU = {};
+  function paneSkel(p, keep) { if (!p || !slideMode() || calm()) return; if (!keep) SKU[p.dataset.pane] = Date.now() + 620; if (p.querySelector(':scope > .hp-sk')) return; const n = Math.max(1, Math.min(6, p.querySelectorAll('.hc, .hr, .pty-row, .hub-folder').length || 3));
     const sk = document.createElement('div'); sk.className = 'hp-sk'; sk.setAttribute('aria-hidden', 'true'); sk.innerHTML = SKEL.rows(n); p.prepend(sk); p.classList.add('hp-skel'); }
   function paneReveal(p, now) { if (!p) return; const sk = p.querySelector(':scope > .hp-sk'); if (!sk) return; clearTimeout(p._skT);
     const go = () => { p.classList.remove('hp-skel'); p.classList.add('hp-reveal'); sk.classList.add('out'); setTimeout(() => { sk.remove(); p.classList.remove('hp-reveal'); }, 260); };
-    if (now) { sk.remove(); p.classList.remove('hp-skel'); } else p._skT = setTimeout(go, 220); }
+    if (now) { delete SKU[p.dataset.pane]; sk.remove(); p.classList.remove('hp-skel'); } else p._skT = setTimeout(() => { delete SKU[p.dataset.pane]; go(); }, Math.max(220, (SKU[p.dataset.pane] || 0) - Date.now())); }
+  function skelRestore() { const tr = root.querySelector('.hub-track'); if (!tr) return; tr.querySelectorAll('.hub-pane').forEach(p => { if ((SKU[p.dataset.pane] || 0) > Date.now() && p.classList.contains('on')) { paneSkel(p, true); paneReveal(p); } }); }
   function prepIn(p) { if (!p || p._y != null) return; p.classList.remove('hp-off'); unclamp(p); paneSkel(p);
     const top = p.getBoundingClientRect().top + scrollY, max = Math.max(0, top + p.offsetHeight + padBot() - innerHeight);
     p._y = Math.min(VSCROLL[p.dataset.pane] || 0, max); p.style.transform = scrollY - p._y ? `translateY(${scrollY - p._y}px)` : ''; }
@@ -1659,7 +1662,7 @@ function hub(fs, auth, G, ctx) {
     const inP = tr.querySelector(`.hub-pane[data-pane="${v}"]`);
     if (!slideMode()) { tr.querySelectorAll('.hub-pane').forEach(p => { p.classList.remove('hp-off'); p.style.transform = ''; p._y = null; }); placeInd(true); placeTrack(false); scrollTo(0, VSCROLL[v] || 0); dispatchEvent(new Event('hub-view'));
       if (inP && !calm()) { inP.classList.remove('fadein'); void inP.offsetWidth; inP.classList.add('fadein'); } return; }
-    prepIn(inP); clampPane(out0);
+    prepIn(inP); paneSkel(inP); clampPane(out0);
     placeInd(true); placeTrack(true); dispatchEvent(new Event('hub-view'));
   }
   addEventListener('resize', () => { placeInd(false); placeTrack(false); });
@@ -1709,7 +1712,7 @@ function hub(fs, auth, G, ctx) {
     const ab = root.querySelector('#hub-admin'); if (ab) ab.onclick = () => { pgGo(ADMIN_URL); };
     root.querySelector('#me-pic').onclick = () => pickPic();
     root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => switchView(b.dataset.view));
-    placeInd(false); placeTrack(false);
+    placeInd(false); placeTrack(false); skelRestore();
     root.querySelectorAll('details.hub-folder').forEach(d => d.addEventListener('toggle', () => { open[d.dataset.k] = d.open; ls.set(OPEN, JSON.stringify(open)); }));
     root.querySelectorAll('.hc-dots').forEach(b => b.onclick = e => { e.stopPropagation(); const w = b.parentElement, on = !w.classList.contains('on'); root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')); w.classList.toggle('on', on); });
     root.querySelectorAll('.hc-list [data-a]').forEach(b => b.onclick = () => { const c = chars.find(x => x.id === b.dataset.id); b.closest('.hc-menu').classList.remove('on'); if (!c) return;
