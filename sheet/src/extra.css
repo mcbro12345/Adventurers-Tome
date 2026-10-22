@@ -3303,7 +3303,7 @@ html.mobile #modal .segmini > button { flex: none; white-space: nowrap; }
 .tile.hp .btn.rest { white-space: nowrap; padding-left: 6px; padding-right: 6px; gap: 5px; justify-content: center; min-width: 0; } .tile.hp .btn.rest svg { width: 14px; height: 14px; flex: none; }
 /* when the two rest buttons are narrow, the hourglass and moon step aside so the words stay on one line */
 .tile.hp .rest-actions { container-type: inline-size; }
-@container (max-width: 200px) { .tile.hp .btn.rest .ri { display: none; } .tile.hp .btn.rest { font-size: .82rem; } }
+@container (max-width: 200px) { .tile.hp .btn.rest { flex-direction: column; gap: 3px; padding-top: 6px; padding-bottom: 6px; font-size: .8rem; line-height: 1.1; } .tile.hp .btn.rest .ri { display: inline-flex; } }
 html.mobile.kbup .pcwin .ptychat-cmds { display: none; }
 /* Phones: "Initiative mode" and "Roll Initiative" sit side by side as one tidy row of equal-height buttons */
 html.mobile .oocbar .ooc-enter { grid-column: 1 / span 1; white-space: nowrap; border-radius: 10px; padding: 12px 8px; font-size: .9rem; align-self: stretch; }
