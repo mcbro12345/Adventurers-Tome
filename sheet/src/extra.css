@@ -3129,4 +3129,7 @@ html.mobile .ptymain .ptychat .ptychat-l { max-height: 320px; }
 .ptymain .ptym .chp2 .chp-ring { width: 82px; height: 82px; }
 .ptymain .ptym .comp-h2 .cname { font-size: 1rem; }
 html.mobile .ptymain .ptym-grid { grid-template-columns: 1fr; }
-.ptychat-h code { font-size: .8em; padding: 1px 5px; border-radius: 5px; background: var(--panel2); border: 1px solid var(--line); color: var(--ink); }
+.ptychat-cmds code { font-size: .8em; padding: 1px 5px; border-radius: 5px; background: var(--panel2); border: 1px solid var(--line); color: var(--ink); }
+
+.ptychat-cmds { display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; align-items: center; margin: -2px 0 8px; font-size: .78rem; color: var(--soft); }
+.ptychat-cmds code { white-space: nowrap; justify-self: start; }
