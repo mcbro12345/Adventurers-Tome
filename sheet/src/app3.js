@@ -190,7 +190,13 @@ function classScaling(key) {
   return (c.scaling || []).concat((s && s.scaling) || []).map(([n, t]) => [n, formulaDC(scaleVal(t, L))]).filter(x => x[1]);
 }
 const scaleWords = n => String(n).toLowerCase().split(/[^a-z]+/).filter(w => w.length > 3);
-function scalingMatches(fname, sname) { const f = String(fname).toLowerCase(), s = String(sname).toLowerCase(); return s.startsWith(f) || f.startsWith(s) || scaleWords(s).some(w => scaleWords(f).includes(w)); }
+// A scaling column belongs to a feature when one name starts with the other, or every telling word of one is in the other
+// ("Channel Divinity uses" ↔ "Channel Divinity: Turn Undead"), not merely one shared word ("Unarmored Movement" isn't
+// "Unarmored Defense").
+const SCALE_GENERIC = ['uses', 'dice', 'points', 'damage', 'bonus', 'known', 'level', 'per', 'rest'];
+function scalingMatches(fname, sname) { const f = String(fname).toLowerCase(), s = String(sname).toLowerCase(); if (s.startsWith(f) || f.startsWith(s)) return true;
+  const fw = scaleWords(f), sw = scaleWords(s).filter(w => !SCALE_GENERIC.includes(w)), fw2 = fw.filter(w => !SCALE_GENERIC.includes(w));
+  return (sw.length > 0 && sw.every(w => fw.includes(w))) || (fw2.length > 0 && fw2.every(w => scaleWords(s).includes(w))); }
 // Spells a feature gives: a class option's choices (e.g. Book of Shadows cantrips) or spells you attached yourself.
 function featSpellsHTML(f, i, ed) {
   let h = '';

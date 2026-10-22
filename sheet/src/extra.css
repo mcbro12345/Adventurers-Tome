@@ -2925,7 +2925,22 @@ html.mobile.hasbug.realphone .devbtn.logbtn, html.mobile.hasbug.pg-inphone .devb
 .dr-roll:hover { background: #ff1a9a; }
 .dr-last { display: flex; flex-wrap: wrap; gap: 5px; padding: 8px 10px 10px; border-top: 1px solid #47474d; }
 .dr-last button { padding: 3px 8px; border-radius: 6px; border: 1px solid #47474d; background: #34343a; color: #ddd; cursor: pointer; font: 600 .74rem ui-monospace, Menlo, monospace; }
-html.mobile .drwin { width: min(320px, calc(100vw - 16px)); }
+/* Phone: a sheet along the bottom of the screen (swipe its bar down to close) */
+html.mobile .drwin { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: 100%; border-radius: 16px 16px 0 0; border-width: 1px 0 0; padding-bottom: env(safe-area-inset-bottom); transition: transform .18s ease-out; max-height: 80vh; overflow-y: auto; z-index: 9500; }
+html.mobile .drwin .dr-head { position: relative; border-radius: 16px 16px 0 0; padding: 14px 12px 8px; cursor: default; }
+html.mobile .drwin .dr-head::before { content: ''; position: absolute; top: 5px; left: 50%; width: 38px; height: 4px; margin-left: -19px; border-radius: 2px; background: #5a5a62; }
+html.mobile .drwin .dr-grip { display: none; }
+html.mobile .drwin .dr-x { width: 34px; height: 34px; font-size: 1rem; }
+html.mobile .drwin .dr-dice { grid-template-columns: repeat(7, 1fr); gap: 5px; padding: 10px 10px 8px; }
+html.mobile .drwin .dr-die { padding: 7px 0 5px; font-size: .72rem; }
+html.mobile .drwin .dr-die svg { width: 22px; height: 22px; }
+html.mobile .drwin .dr-mod button, html.mobile .drwin .dr-adv button { height: 38px; }
+html.mobile .drwin .dr-mod button { width: 38px; }
+html.mobile .drwin .dr-f { font-size: 16px; padding: 10px 12px; }
+html.mobile .drwin .dr-roll, html.mobile .drwin .dr-clear { padding: 12px 14px; font-size: 1rem; }
+html.mobile body:has(#drwin) .toasts { bottom: auto; top: 12px; }
+html.mobile .namebox { padding-right: 112px; }
+html.mobile.hasbug .namebox { padding-right: 148px; }
 /* ---------- Homebrew builder (compact) ---------- */
 #hbb { display: flex; flex-direction: column; }
 .hbb-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
@@ -2991,3 +3006,8 @@ html.mobile .drwin { width: min(320px, calc(100vw - 16px)); }
 .modal.wide:has(#hbb) { max-width: min(640px, 96vw); }
 html.mobile .hbb-seg:not(.pills) { width: 100%; }
 html.mobile .hbb-seg:not(.pills) button { flex: 1; justify-content: center; padding: 5px 4px; }
+/* Phone: the dice roller button sits just left of the Log button (whose spot depends on the other corner buttons) */
+html.mobile .devbtn.dicebtn { position: absolute; top: 10px; right: 84px; }
+html.mobile.realphone .devbtn.dicebtn, html.mobile.pg-inphone .devbtn.dicebtn { right: 48px; }
+html.mobile.hasbug .devbtn.dicebtn { right: 120px; }
+html.mobile.hasbug.realphone .devbtn.dicebtn, html.mobile.hasbug.pg-inphone .devbtn.dicebtn { right: 84px; }

@@ -741,7 +741,11 @@ function diceRoller() {
   const x = DR.x != null ? Math.min(Math.max(6, DR.x), W - r.width - 6) : W - r.width - 24, y = DR.y != null ? Math.min(Math.max(6, DR.y), H - 60) : Math.max(70, H - r.height - 90);
   w.style.left = x + 'px'; w.style.top = y + 'px';
   // drag by the title bar
+  // on a phone it's a sheet along the bottom: swipe its top bar down to close it
   w.addEventListener('pointerdown', e => { const hd = e.target.closest('.dr-head'); if (!hd || e.target.closest('button')) return; e.preventDefault();
+    if (isMobile()) { const y0 = e.clientY; hd.setPointerCapture(e.pointerId); const mv = ev => { w.style.transform = `translateY(${Math.max(0, ev.clientY - y0)}px)`; };
+      const up = ev => { hd.removeEventListener('pointermove', mv); hd.removeEventListener('pointerup', up); if (ev.clientY - y0 > 70) w.remove(); else w.style.transform = ''; };
+      hd.addEventListener('pointermove', mv); hd.addEventListener('pointerup', up); return; }
     const b = w.getBoundingClientRect(), dx = e.clientX - b.left, dy = e.clientY - b.top; hd.setPointerCapture(e.pointerId); w.classList.add('drag');
     const mv = ev => { const nx = Math.min(Math.max(0, ev.clientX - dx), innerWidth - b.width), ny = Math.min(Math.max(0, ev.clientY - dy), innerHeight - 40); w.style.left = nx + 'px'; w.style.top = ny + 'px'; };
     const up = () => { w.classList.remove('drag'); hd.removeEventListener('pointermove', mv); hd.removeEventListener('pointerup', up); const bb = w.getBoundingClientRect(); DR.x = bb.left; DR.y = bb.top; drKeep(); };
@@ -756,6 +760,11 @@ function diceRoller() {
     if (k === 'roll') { const ex = ($('#dr-f') || {}).value || drExpr(); return drRoll(ex); }
     drPaint(); });
   // right-click (or long-press) a die to take one away
+  // press and hold a die (phones) to take one away
+  let holdT = null, held = false; w.addEventListener('pointerdown', e => { const b = e.target.closest('[data-dr=die]'); if (!b || e.pointerType === 'mouse') return; held = false; clearTimeout(holdT);
+    holdT = setTimeout(() => { held = true; const d = N(b.dataset.d); DR.pool[d] = Math.max(0, N(DR.pool[d]) - 1); if (!DR.pool[d]) delete DR.pool[d]; if (navigator.vibrate) navigator.vibrate(15); drPaint(); }, 450); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => w.addEventListener(t, () => clearTimeout(holdT)));
+  w.addEventListener('click', e => { if (held && e.target.closest('[data-dr=die]')) { held = false; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
   w.addEventListener('contextmenu', e => { const b = e.target.closest('[data-dr=die]'); if (!b) return; e.preventDefault(); const d = N(b.dataset.d); DR.pool[d] = Math.max(0, N(DR.pool[d]) - 1); if (!DR.pool[d]) delete DR.pool[d]; drPaint(); });
   w.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'dr-f') { e.preventDefault(); drRoll(e.target.value); } if (e.key === 'Escape') w.remove(); });
 }

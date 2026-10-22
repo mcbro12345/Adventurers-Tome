@@ -156,7 +156,7 @@ function fxSource(from, cls) {
   if (i < 0) i = S.features.findIndex(f => String(f.dname || f.name).toLowerCase() === lc);
   return i;
 }
-function fxLeft(i) { const f = S.features[i]; if (!f) return 0; const m = featMax(f); return m == null ? 99 : Math.max(0, m - N(f.used)); }
+function fxLeft(i) { const f = S.features[i]; if (!f) return 0; let m = featMax(f); if (m == null && /^font of magic$/i.test(String(f.dname || f.name || ''))) m = clsLv('sorcerer'); return m == null ? 99 : Math.max(0, m - N(f.used)); }
 function fxCostText(c) { return c ? `${c.n || 1} ${c.from === 'Font of Magic' ? 'sorcery point' + ((c.n || 1) > 1 ? 's' : '') : c.from === 'Combat Superiority' ? 'superiority ' + ((c.n || 1) > 1 ? 'dice' : 'die') : c.from}` : ''; }
 // Spend a resource; returns an error message or ''.
 function fxSpend(c, cls) {

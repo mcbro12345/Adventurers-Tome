@@ -185,8 +185,11 @@ const MM = {
   'Twinned Spell': { cost: 'level', d: 'A spell that targets only one creature also targets a second one. Costs the spell’s level (1 for a cantrip).' }
 };
 const mmKnown = () => (S.picks && S.picks.metamagic || []).filter(n => MM[n]);
-const spFi = () => fxSource('Font of Magic');
-const spLeft = () => { const i = spFi(); return i < 0 ? 0 : fxLeft(i); };
+// Sorcery points: Font of Magic, or the two from the Metamagic Adept feat. A pool whose maximum can't be worked out
+// counts your sorcerer level (2 for the feat) instead of "unlimited".
+const spFi = () => { let i = fxSource('Font of Magic'); if (i < 0) i = S.features.findIndex(f => /metamagic adept|sorcery points/i.test(String(f.dname || f.name || '') + ' ' + String(f.key || ''))); return i; };
+const spMax = () => { const i = spFi(); if (i < 0) return 0; const f = S.features[i], m = featMax(f); return m != null && m < 99 ? m : /metamagic adept/i.test(String(f.key || f.name)) ? 2 : clsLv('sorcerer'); };
+const spLeft = () => { const i = spFi(); return i < 0 ? 0 : Math.max(0, spMax() - N(S.features[i].used)); };
 const mmText = n => MM[n].d.replace('{cha}', Math.max(1, mod('cha')));
 const mmCostTxt = n => MM[n].cost === 'level' ? 'spell level' : MM[n].cost + ' SP';
 const mmArmed = () => (S.mmArmed || []).filter(n => mmKnown().includes(n));
@@ -208,7 +211,7 @@ function mmApply(sp, L, lines) {
   armed.forEach(n => {
     if (n === 'Quickened Spell' && castCol(sp.time) !== 'action') { lines.push(`Quickened Spell skipped — ${esc(sp.name)} doesn’t take 1 action`); return; }
     const c = MM[n].cost === 'level' ? Math.max(1, N(L)) : MM[n].cost;
-    if (fi < 0 || fxLeft(fi) < c) { lines.push(`${n} skipped — not enough sorcery points`); return; }
+    if (fi < 0 || spLeft() < c) { lines.push(`${n} skipped — not enough sorcery points`); return; }
     S.features[fi].used = N(S.features[fi].used) + c; used.push(n);
     if (n === 'Extended Spell') out.extend = true;
     if (n === 'Empowered Spell') EMPOWER = Math.max(1, mod('cha'));
@@ -223,7 +226,7 @@ function mmApply(sp, L, lines) {
 }
 // Seeking Spell: reroll a missed spell attack's d20 right away.
 function mmSeek() {
-  const fi = spFi(); if (fi < 0 || fxLeft(fi) < 2) { toast('Not enough sorcery points for Seeking Spell (2).', 'fumble'); return; }
+  const fi = spFi(); if (fi < 0 || spLeft() < 2) { toast('Not enough sorcery points for Seeking Spell (2).', 'fumble'); return; }
   S.features[fi].used = N(S.features[fi].used) + 2; pendingLabel = 'Seeking Spell';
   d20('Seeking Spell: spell attack reroll', castInfo('sorcerer').atk, 'attack'); update(); render();
 }
@@ -232,7 +235,7 @@ const FOM_COST = [2, 3, 5, 6, 7], FOM_MIN = [2, 3, 5, 7, 9];
 function fomCreate(k) {
   const fi = spFi(); if (fi < 0) return;
   if (clsLv('sorcerer') < FOM_MIN[k]) return;
-  if (fxLeft(fi) < FOM_COST[k]) { toast(`Not enough sorcery points (${FOM_COST[k]} needed).`, 'fumble'); return; }
+  if (spLeft() < FOM_COST[k]) { toast(`Not enough sorcery points (${FOM_COST[k]} needed).`, 'fumble'); return; }
   if (!(N(S.slotsUsed[k]) > 0)) { toast(`All your ${ORD[k]}-level slots are already full.`, 'fumble'); return; }
   S.features[fi].used = N(S.features[fi].used) + FOM_COST[k]; S.slotsUsed[k] = N(S.slotsUsed[k]) - 1;
   if (S.inCombat) S.turn.used.bonus = true;
@@ -249,11 +252,11 @@ function fomConvert(k) {
   pendingLabel = `${ORD[k]}-level slot → ${gain} SP`; save(); render();
   toast(`<b>Font of Magic</b>: a ${ORD[k]}-level slot → ${gain} sorcery point${gain > 1 ? 's' : ''}.`, '', 4000, { label: 'Undo', fn: () => undo(1) });
 }
-function spAdj(d) { const fi = spFi(); if (fi < 0) return; const f = S.features[fi], mx = featMax(f); f.used = Math.max(0, Math.min(mx, N(f.used) - d)); pendingLabel = 'Sorcery points'; save(); render(); }
+function spAdj(d) { const fi = spFi(); if (fi < 0) return; const f = S.features[fi], mx = spMax(); f.used = Math.max(0, Math.min(mx, N(f.used) - d)); pendingLabel = 'Sorcery points'; save(); render(); }
 
 function mmPanelHTML(pid) {
   const fi = spFi(); if (fi < 0) return '';
-  const f = S.features[fi], mx = featMax(f) || 0, left = fxLeft(fi), lv = clsLv('sorcerer'), armed = mmArmed();
+  const f = S.features[fi], mx = spMax(), left = spLeft(), lv = clsLv('sorcerer'), armed = mmArmed();
   const pips = Array.from({ length: mx }, (_, k) => `<span class="sppip${k < left ? ' on' : ''}"></span>`).join('');
   const opts = mmKnown().map(n => { const on = armed.includes(n), c = MM[n].cost === 'level' ? 1 : MM[n].cost, cant = !on && left < c;
     return `<div class="mmopt${on ? ' on' : ''}"><div class="mmhead"><b>${esc(n.replace(' Spell', ''))}</b><span class="mmcost">${mmCostTxt(n)}</span></div><div class="mmdesc">${esc(mmText(n))}</div>

@@ -13,7 +13,7 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.f63aee4172cd.css">
+<link rel="stylesheet" href="a/sheet.cfc4aff1b69c.css">
 <link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:type" content="website"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="Adventurer’s Tome"><meta property="og:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:url" content="https://adventurers-tome.web.app/"><meta property="og:image" content="https://adventurers-tome.web.app/og-roll.gif?v=3"><meta property="og:image:type" content="image/gif"><meta property="og:image:width" content="800"><meta property="og:image:height" content="420"><meta property="og:image:alt" content="Adventurer’s Tome — a gold d20 rolling a natural 20"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-roll.gif?v=3"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest"><script>try{var t=localStorage.getItem("pg-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-pgtheme",t)}catch(e){}</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
@@ -1997,6 +1997,26 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 .to-next:hover { background: #d8339a; }
 .to-rnd { font-size: 12px; color: #bbb; margin-right: 2px; white-space: nowrap; }
 .to-rnd b { color: #fff; }
+
+/* Phone: the DM's turn order is a sheet along the bottom (swipe its bar down to close) */
+@media (max-width: 640px) {
+  .towin { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: 100% !important; border-radius: 16px 16px 0 0; border-width: 1px 0 0; padding-bottom: env(safe-area-inset-bottom); transition: transform .18s ease-out; z-index: 9500; }
+  .to-hd { position: relative; padding: 16px 12px 10px 16px; cursor: default; }
+  .to-hd::before { content: ''; position: absolute; top: 6px; left: 50%; width: 38px; height: 4px; margin-left: -19px; border-radius: 2px; background: #5a5a62; }
+  .to-c { font-size: 24px; padding: 0 6px; }
+  .to-list { max-height: 46vh; }
+  .to-row { padding: 7px 6px; }
+  .to-v { width: 54px; font-size: 16px; padding: 8px 2px; }
+  .to-x { opacity: 1; font-size: 20px; padding: 0 6px; }
+  .to-ft { flex-wrap: wrap; gap: 6px; padding: 10px; }
+  .to-b { padding: 9px 12px; font-size: 13px; }
+  .to-arr { padding: 6px 16px; font-size: 20px; }
+  :where(body.hubbody, .wzh) .pw-foot .btn { min-width: 0; padding: 0 8px; font-size: .95rem; }
+  :where(body.hubbody, .wzh) .pw-foot .btn.gold { flex: 1.4; }
+  :where(body.hubbody, .wzh) .pw-foot #pt-del { flex: 0 0 50px; }
+  :where(body.hubbody, .wzh) .pw-foot #pt-del .pw-sm, :where(body.hubbody, .wzh) .pw-foot #pt-del .pw-lg { display: none; }
+  :where(body.hubbody, .wzh) .pw-foot #pt-del svg { margin: 0 !important; width: 19px; height: 19px; }
+}
 </style>
 </head>
 <body>
@@ -2397,7 +2417,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261021200128', ASSETS = {"data": "a/data.48cfdb40bbe4.js", "app": "a/app.f7d14d46e5d4.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.b2c5d38bf2f7.html"}; window.PG_ASSETS = ASSETS;
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261021200731', ASSETS = {"data": "a/data.48cfdb40bbe4.js", "app": "a/app.18a599cd83bc.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.c3698860763b.html"}; window.PG_ASSETS = ASSETS;
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -4730,7 +4750,10 @@ function partyModule(H) {
     w.style.left = Math.max(8, Math.min(vw - W - 8, TO.x != null ? TO.x : vw - W - 24)) + 'px'; w.style.top = Math.max(8, Math.min(vh - 120, TO.y != null ? TO.y : 90)) + 'px';
     TO.open = true; toSave(); toPaint();
     // drag by the title bar
-    const hd = w.querySelector('.to-hd'); hd.onpointerdown = e => { if (e.target.closest('button')) return; e.preventDefault(); const r = w.getBoundingClientRect(), ox = e.clientX - r.left, oy = e.clientY - r.top; hd.setPointerCapture(e.pointerId); w.classList.add('drag');
+    const hd = w.querySelector('.to-hd'); hd.onpointerdown = e => { if (e.target.closest('button')) return; e.preventDefault();
+      if (innerWidth <= 640) { const y0 = e.clientY; hd.setPointerCapture(e.pointerId); hd.onpointermove = m => { w.style.transform = `translateY(${Math.max(0, m.clientY - y0)}px)`; };
+        hd.onpointerup = m => { hd.onpointermove = hd.onpointerup = null; if (m.clientY - y0 > 70) turnOrder(false); else w.style.transform = ''; }; return; }
+      const r = w.getBoundingClientRect(), ox = e.clientX - r.left, oy = e.clientY - r.top; hd.setPointerCapture(e.pointerId); w.classList.add('drag');
       hd.onpointermove = m => { const x = Math.max(0, Math.min(innerWidth - r.width, m.clientX - ox)), y = Math.max(0, Math.min(innerHeight - 40, m.clientY - oy)); w.style.left = x + 'px'; w.style.top = y + 'px'; };
       hd.onpointerup = () => { hd.onpointermove = hd.onpointerup = null; w.classList.remove('drag'); TO.x = parseFloat(w.style.left); TO.y = parseFloat(w.style.top); toSave(); }; };
     w.querySelector('.to-c').onclick = () => turnOrder(false);
