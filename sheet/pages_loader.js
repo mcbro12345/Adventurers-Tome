@@ -904,11 +904,11 @@ function wireDie(root) {
   window.PG_PARTY = {
     // an initiative roll goes to the DM's turn order (picked up even when it isn't open)
     init: v => { if (!PTY || PTY.loading || PTY.seeded || role() === 'view') return Promise.resolve(); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} return PCOL.doc(PTY.id).collection('init').doc(C).set({ v: Number(v) || 0, at: Date.now(), n: String(nm).slice(0, 120) }).catch(() => {}); },
-    chat: { on: () => !!unChat, canSend: () => OWNER === EMAIL, list: () => CHAT.concat(Object.values(WH).filter(w => w.to === C || w.c === C)).filter(m => Number(m.at) > Date.now() - CHAT_TTL).sort((a, b) => Number(a.at) - Number(b.at)), mine: m => m.c === C,
+    chat: { on: () => !!unChat, canSend: () => OWNER === EMAIL, me: () => { const a = avaOf(ME); return { name: NAME, pic: String(a.pic || ''), color: String(a.color || ''), clear: !!a.clear }; }, list: () => CHAT.concat(Object.values(WH).filter(w => w.to === C || w.c === C)).filter(m => Number(m.at) > Date.now() - CHAT_TTL).sort((a, b) => Number(a.at) - Number(b.at)), mine: m => m.c === C,
       // to: a character id in the party for a whisper (only you and that character's player see it)
       send: (t, to) => { t = String(t || '').trim().slice(0, 1000); if (!t || !unChat) return Promise.reject(new Error('Not in the chat')); if (OWNER !== EMAIL) return Promise.reject(new Error('Only this character’s player can send messages from it.')); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {}
         // the chat shows people as themselves: their name and account picture go with each message
-        const av = avaOf(ME), pp = String(av.pic || ''), base = { at: Date.now(), by: EMAIL, c: C, n: String(nm || 'Someone').slice(0, 120), t, pn: String(NAME || '').slice(0, 60), pp: pp.length <= 60000 ? pp : '', pc: String(av.color || '').slice(0, 20) };
+        const av = avaOf(ME), pp = String(av.pic || ''), base = { at: Date.now(), by: EMAIL, c: C, n: String(nm || 'Someone').slice(0, 120), t, pn: String(NAME || '').slice(0, 60), pp: pp.length <= 60000 ? pp : '', pc: String(av.color || '').slice(0, 20), pk: !!av.clear };
         if (!to) return PCOL.doc(chatPid).collection('chat').add(base);
         const card = PTY_CARDS[to] || {}, live = PTY_LIVE[to] || {}, toEm = card.owner || live.owner || '';
         if (!toEm) return Promise.reject(new Error('Couldn’t find that character’s player.'));
