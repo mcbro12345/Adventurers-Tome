@@ -78,6 +78,10 @@ function gridApply(by) {
   if (grid.spells) { const need = ['spslots', 'spfx'].filter(id => by[id] && !placed.has(id) && !removed.has(id));
     if (need.length) { const sc = grid.spells.find(i => i.id === 'spellcasting'), y0 = sc ? sc.y : 0, ws = Math.round(GCOLS / 3); grid.spells.forEach(i => { if (i.y >= y0) i.y += 1; });
       need.forEach(id => { grid.spells.push(id === 'spslots' ? { id, x: 0, y: y0, w: ws, h: 1 } : { id, x: need.length === 2 ? ws : 0, y: y0, w: need.length === 2 ? GCOLS - ws : GCOLS, h: 1 }); placed.add(id); }); } }
+  // Spellcasting (now a small panel) moves once between Spell Slots and Active Spells when they share a row.
+  if (grid.spells && !L.scMid) { L.scMid = 1; const g = grid.spells, sl = g.find(i => i.id === 'spslots'), fx = g.find(i => i.id === 'spfx'), sc = g.find(i => i.id === 'spellcasting');
+    if (sl && fx && sc && sl.y === fx.y && sc.w >= GCOLS - 1) { const y0 = sl.y, h = Math.max(sl.h, fx.h); g.forEach(i => { if (i !== sc && i.y > sc.y) i.y -= sc.h; });
+      Object.assign(sl, { x: 0, w: 4 }); Object.assign(sc, { x: 4, y: y0, w: 3, h }); Object.assign(fx, { x: 7, w: 5 }); } }
   Object.keys(by).forEach(id => { if (placed.has(id) || removed.has(id)) return; const home = by[id][0].dataset.home, pg = grid[home] ? home : null; if (!pg) return;
     grid[pg].push({ id, x: 0, y: grid[pg].reduce((m, i) => Math.max(m, i.y + i.h), 0), w: GCOLS, h: 1 }); placed.add(id); });
   const mob = isMobile(), ed = !!UI.editLayout;

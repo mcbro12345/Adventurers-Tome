@@ -3025,10 +3025,29 @@ html.mobile.hasbug.realphone .devbtn.dicebtn, html.mobile.hasbug.pg-inphone .dev
 .hp-actions .hp-amtrow input { flex: 0 0 auto; min-width: 0; width: 100% !important; }
 .hp-actions .hp-amtrow .hptype { flex: 0 0 auto; width: 100%; min-width: 0; height: 30px; padding: 0 8px; font-size: .85rem; border: 1px solid var(--line); background: var(--field); color: var(--ink); border-radius: 8px; }
 .hp-actions .hp-amtrow .hptype:not([value=""]) { font-weight: 600; }
-/* Inspiration: "Use" sits under the star (only while you have some) */
-.insp-use { position: absolute; left: 50%; bottom: -43px; transform: translateX(-50%); z-index: 5; padding: 5px 14px 2px; border-radius: 0 0 10px 10px; border: 1.5px solid var(--gold); border-top: 0; background: var(--panel); color: var(--gold-ink); font-weight: 800; font-size: .58rem; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,.22); }
+/* Inspiration: "Use" is a tab tucked behind the right end of the badge (only while you have some) */
+.insp-grp { position: absolute; left: 50%; bottom: -24px; transform: translateX(-50%); z-index: 6; }
+.insp-grp > .insp { position: relative; left: auto; bottom: auto; transform: none; }
+.insp-use { position: absolute; left: 100%; top: 50%; transform: translateY(-50%); margin-left: -14px; z-index: -1; padding: 4px 10px 4px 20px; border-radius: 0 999px 999px 0; border: 1.5px solid var(--gold); border-left: 0; background: var(--panel); color: var(--gold-ink); font-weight: 800; font-size: .6rem; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,.22); white-space: nowrap; }
 .insp-use:hover { background: var(--gold-soft); }
-.insp-use.mini { display: none; }
-html.mobile .insp-use:not(.mini) { display: none; }
-html.mobile .insp-use.mini { display: inline-block; position: static; transform: none; margin-left: 6px; align-self: center; box-shadow: none; padding: 4px 10px; }
+.insp-grp.mini { display: none; }
+html.mobile .banner-row .insp-grp { display: none; }
+html.mobile .insp-grp.mini { display: flex; position: relative; left: auto; bottom: auto; transform: none; margin-left: auto; align-self: center; flex: none; margin-right: 34px; }
+html.mobile .insp-grp.mini > .insp.mini { margin-left: 0; }
 .insp-opts { grid-template-columns: 1fr; }
+/* Spellcasting: a small panel (one compact row per spellcasting class) */
+.scx-panel .scx-list { display: flex; flex-direction: column; gap: 8px; }
+.scx { border: 1px solid var(--line); border-radius: 10px; background: var(--panel2); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.scx-h { display: flex; align-items: baseline; gap: 6px; }
+.scx-h b { font-size: .95rem; }
+.scx-h small { color: var(--soft); font-size: .7rem; font-weight: 700; letter-spacing: .06em; }
+.scx-st { display: flex; gap: 6px; }
+.scx-st > span { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 4px 2px; border-radius: 8px; background: var(--field); border: 1px solid var(--line); min-width: 0; }
+.scx-st b { font-size: 1.05rem; line-height: 1.15; }
+.scx-st small { font-size: .6rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--soft); }
+.scx-b { display: flex; gap: 6px; flex-wrap: wrap; }
+.scx-b .btn { flex: 1; justify-content: center; }
+.cstrip.three { grid-template-columns: minmax(250px, 4fr) minmax(190px, 3fr) 5fr; }
+.cstrip.three:has(> .cs-slots.phid) { grid-template-columns: minmax(190px, 3fr) 5fr !important; }
+@media (max-width: 1100px) { html:not(.mobile) .cstrip.three { grid-template-columns: 1fr 1fr; } html:not(.mobile) .cstrip.three > .cs-fx { grid-column: 1 / -1; } }
+html.mobile .cstrip.three { grid-template-columns: 1fr; }

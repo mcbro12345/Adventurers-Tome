@@ -36,6 +36,10 @@ const PG_SUN = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stro
 const PG_MOON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
 const themeLabel = () => pgDark() ? 'Switch to light mode' : 'Switch to dark mode';
 function themeBtnHTML() { return `<button class="hub-theme" id="hub-theme" title="${themeLabel()}" aria-label="${themeLabel()}">${pgDark() ? PG_SUN : PG_MOON}</button>`; }
+// Scroll shadows on pick lists: a soft edge at the top / bottom while there's more to scroll to.
+function pgScrollFx() { document.querySelectorAll('.pty-pick').forEach(el => { const t = el.scrollTop > 2, b = el.scrollTop + el.clientHeight < el.scrollHeight - 2; el.classList.toggle('sc-top', t); el.classList.toggle('sc-bot', b); }); }
+document.addEventListener('scroll', e => { if (e.target && e.target.classList && e.target.classList.contains('pty-pick')) pgScrollFx(); }, true);
+new MutationObserver(() => { cancelAnimationFrame(pgScrollFx.r); pgScrollFx.r = requestAnimationFrame(pgScrollFx); }).observe(document.documentElement, { childList: true, subtree: true });
 function wireThemeBtn(root) { const b = root.querySelector('#hub-theme'); if (!b) return;
   // The sun's thin rays look lopsided when the button lands between two screen pixels (it does in some header rows,
   // like an admin's): nudge it onto whole pixels.

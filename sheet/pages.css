@@ -1890,3 +1890,16 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
   :where(body.hubbody) .pw-foot #pt-del .pw-sm, :where(body.hubbody) .pw-foot #pt-del .pw-lg { display: none; }
   :where(body.hubbody) .pw-foot #pt-del svg { margin: 0 !important; width: 19px; height: 19px; }
 }
+/* Scrolling pick lists (Add characters, choose a character…): one box with dividers between rows, and a soft shadow at
+   the top / bottom edge whenever there's more to scroll to. */
+:where(body.hubbody) .pl-list.pty-pick { gap: 0 !important; border: 1px solid #e8dcc1; border-radius: 12px; padding: 0; position: relative; }
+:where(body.hubbody) .pty-pick > .pty-prow { border: 0 !important; border-radius: 0 !important; margin: 0 !important; padding: 10px 12px; }
+:where(body.hubbody) .pty-pick > .pty-prow + .pty-prow { border-top: 1px solid #ece2cc !important; }
+:where(body.hubbody) .pty-pick > .pty-prow:first-child { border-radius: 11px 11px 0 0 !important; }
+:where(body.hubbody) .pty-pick > .pty-prow:last-child { border-radius: 0 0 11px 11px !important; }
+:where(body.hubbody) .pty-pick::before, :where(body.hubbody) .pty-pick::after { content: ''; display: block; position: sticky; z-index: 2; height: 0; pointer-events: none; transition: box-shadow .15s; }
+:where(body.hubbody) .pty-pick::before { top: 0; }
+:where(body.hubbody) .pty-pick::after { bottom: 0; }
+:where(body.hubbody) .pty-pick.sc-top::before { box-shadow: 0 0 9px 5px rgba(60,40,10,.22); }
+:where(body.hubbody) .pty-pick.sc-bot::after { box-shadow: 0 0 9px 5px rgba(60,40,10,.22); }
+@media (prefers-color-scheme: dark) { body.hubbody .pl-list.pty-pick { border-color: #2c3548; } body.hubbody .pty-pick > .pty-prow + .pty-prow { border-top-color: #2c3548 !important; } body.hubbody .pty-pick.sc-top::before, body.hubbody .pty-pick.sc-bot::after { box-shadow: 0 0 10px 6px rgba(0,0,0,.55); } }

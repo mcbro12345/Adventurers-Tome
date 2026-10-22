@@ -13,7 +13,7 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.537d6c57daaf.css">
+<link rel="stylesheet" href="a/sheet.28240c4fcf58.css">
 <link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:type" content="website"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="Adventurer’s Tome"><meta property="og:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:url" content="https://adventurers-tome.web.app/"><meta property="og:image" content="https://adventurers-tome.web.app/og-roll.gif?v=3"><meta property="og:image:type" content="image/gif"><meta property="og:image:width" content="800"><meta property="og:image:height" content="420"><meta property="og:image:alt" content="Adventurer’s Tome — a gold d20 rolling a natural 20"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-roll.gif?v=3"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest"><script>try{var t=localStorage.getItem("pg-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-pgtheme",t)}catch(e){}</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
@@ -2016,6 +2016,20 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
   :where(body.hubbody, .wzh) .pw-foot #pt-del .pw-sm, :where(body.hubbody, .wzh) .pw-foot #pt-del .pw-lg { display: none; }
   :where(body.hubbody, .wzh) .pw-foot #pt-del svg { margin: 0 !important; width: 19px; height: 19px; }
 }
+/* Scrolling pick lists (Add characters, choose a character…): one box with dividers between rows, and a soft shadow at
+   the top / bottom edge whenever there's more to scroll to. */
+:where(body.hubbody, .wzh) .pl-list.pty-pick { gap: 0 !important; border: 1px solid #e8dcc1; border-radius: 12px; padding: 0; position: relative; }
+:where(body.hubbody, .wzh) .pty-pick > .pty-prow { border: 0 !important; border-radius: 0 !important; margin: 0 !important; padding: 10px 12px; }
+:where(body.hubbody, .wzh) .pty-pick > .pty-prow + .pty-prow { border-top: 1px solid #ece2cc !important; }
+:where(body.hubbody, .wzh) .pty-pick > .pty-prow:first-child { border-radius: 11px 11px 0 0 !important; }
+:where(body.hubbody, .wzh) .pty-pick > .pty-prow:last-child { border-radius: 0 0 11px 11px !important; }
+:where(body.hubbody, .wzh) .pty-pick::before, :where(body.hubbody, .wzh) .pty-pick::after { content: ''; display: block; position: sticky; z-index: 2; height: 0; pointer-events: none; transition: box-shadow .15s; }
+:where(body.hubbody, .wzh) .pty-pick::before { top: 0; }
+:where(body.hubbody, .wzh) .pty-pick::after { bottom: 0; }
+:where(body.hubbody, .wzh) .pty-pick.sc-top::before { box-shadow: 0 0 9px 5px rgba(60,40,10,.22); }
+:where(body.hubbody, .wzh) .pty-pick.sc-bot::after { box-shadow: 0 0 9px 5px rgba(60,40,10,.22); }
+@media (prefers-color-scheme: dark) { :where(html:not([data-pgtheme])) body.hubbody .pl-list.pty-pick { border-color: #2c3548; } :where(html:not([data-pgtheme])) body.hubbody .pty-pick > .pty-prow + .pty-prow { border-top-color: #2c3548 !important; } :where(html:not([data-pgtheme])) body.hubbody .pty-pick.sc-top::before, :where(html:not([data-pgtheme])) body.hubbody .pty-pick.sc-bot::after { box-shadow: 0 0 10px 6px rgba(0,0,0,.55); } }
+ :where(html[data-pgtheme="dark"]) body.hubbody .pl-list.pty-pick { border-color: #2c3548; } :where(html[data-pgtheme="dark"]) body.hubbody .pty-pick > .pty-prow + .pty-prow { border-top-color: #2c3548 !important; } :where(html[data-pgtheme="dark"]) body.hubbody .pty-pick.sc-top::before, :where(html[data-pgtheme="dark"]) body.hubbody .pty-pick.sc-bot::after { box-shadow: 0 0 10px 6px rgba(0,0,0,.55); } 
 </style>
 </head>
 <body>
@@ -2098,6 +2112,10 @@ const PG_SUN = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stro
 const PG_MOON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
 const themeLabel = () => pgDark() ? 'Switch to light mode' : 'Switch to dark mode';
 function themeBtnHTML() { return `<button class="hub-theme" id="hub-theme" title="${themeLabel()}" aria-label="${themeLabel()}">${pgDark() ? PG_SUN : PG_MOON}</button>`; }
+// Scroll shadows on pick lists: a soft edge at the top / bottom while there's more to scroll to.
+function pgScrollFx() { document.querySelectorAll('.pty-pick').forEach(el => { const t = el.scrollTop > 2, b = el.scrollTop + el.clientHeight < el.scrollHeight - 2; el.classList.toggle('sc-top', t); el.classList.toggle('sc-bot', b); }); }
+document.addEventListener('scroll', e => { if (e.target && e.target.classList && e.target.classList.contains('pty-pick')) pgScrollFx(); }, true);
+new MutationObserver(() => { cancelAnimationFrame(pgScrollFx.r); pgScrollFx.r = requestAnimationFrame(pgScrollFx); }).observe(document.documentElement, { childList: true, subtree: true });
 function wireThemeBtn(root) { const b = root.querySelector('#hub-theme'); if (!b) return;
   // The sun's thin rays look lopsided when the button lands between two screen pixels (it does in some header rows,
   // like an admin's): nudge it onto whole pixels.
@@ -2416,7 +2434,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261021202102', ASSETS = {"data": "a/data.48cfdb40bbe4.js", "app": "a/app.66767e7d43f0.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.c4e38aceda23.html"}; window.PG_ASSETS = ASSETS;
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877"}, VER = '20261021202621', ASSETS = {"data": "a/data.48cfdb40bbe4.js", "app": "a/app.44c422237f9c.js", "full": "a/full.08c5d2dee3d4.js", "blank": "a/blank.8281729ad3b5.html"}; window.PG_ASSETS = ASSETS;
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }

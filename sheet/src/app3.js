@@ -96,13 +96,10 @@ function renderSpells() {
     const mine = S.spells.filter(x => x.cls === c.key && !x.stored && spReady(x)), byL = {};
     mine.forEach(x => byL[N(x.level)] = (byL[N(x.level)] || 0) + 1);
     const lv = Object.keys(byL).map(Number).sort((a, b) => a - b);
-    return `<div class="sc-slotpanel sc-clspanel"><h3 class="sc-slottitle">${esc(c.name)} <span class="sc-sub">${ABN[c.ab]} · ${kind}</span></h3>
-      <div class="cs-scstats"><div class="cs-scrow">
-        ${lim != null ? `<span class="cs-sc prep-tile" data-prepfor="${c.key}"><small>${c.prepared ? 'Prepared' : 'Known'}</small><b class="big" data-calc="prepct:${c.key}"></b></span>` : ''}
-        ${cl ? `<span class="cs-sc prep-tile" data-cantfor="${c.key}"><small>Cantrips</small><b class="big" data-calc="cantct:${c.key}"></b></span>` : ''}</div></div>
-      ${lv.length ? `<div class="sc-bylv"><span class="sc-bylv-h">Ready to cast</span>${lv.map(L => `<span class="sc-lvchip"><b>${byL[L]}</b> ${L ? ORD[L - 1] : 'cantrip' + (byL[L] > 1 ? 's' : '')}</span>`).join('')}</div>` : ''}
-      <div class="sc-clsbtns">${c.prepared ? `<button class="btn gold" data-act="prepare" data-cls="${c.key}">Prepare spells</button>` : ''}${!c.prepared || c.book ? `<button class="btn ghost" data-act="addspells" data-cls="${c.key}">+ ${esc(c.name)} ${c.book ? 'spellbook' : 'spells'}</button>` : ''}</div>
-    </div>`;
+    void lv; const short = ABN[c.ab].slice(0, 3).toUpperCase();
+    return `<div class="scx"><div class="scx-h"><b>${esc(c.name)}</b><small title="${ABN[c.ab]} · ${kind}">${short}${c.type === 'pact' ? ' · Pact' : ''}</small></div>
+      <div class="scx-st">${lim != null ? `<span class="prep-tile" data-prepfor="${c.key}"><b data-calc="prepct:${c.key}"></b><small>${c.prepared ? 'Prepared' : 'Known'}</small></span>` : ''}${cl ? `<span class="prep-tile" data-cantfor="${c.key}"><b data-calc="cantct:${c.key}"></b><small>Cantrips</small></span>` : ''}</div>
+      <div class="scx-b">${c.prepared ? `<button class="btn gold sm" data-act="prepare" data-cls="${c.key}">Prepare</button>` : ''}${!c.prepared || c.book ? `<button class="btn ghost sm" data-act="addspells" data-cls="${c.key}">+ ${c.book ? 'Spellbook' : 'Spells'}</button>` : ''}</div></div>`;
   }).join('');
   const slotCards = [];
   for (let i = 0; i < 9; i++) {
@@ -151,13 +148,13 @@ function renderSpells() {
   const lvls = [...new Set(S.spells.map(s => N(s.level)))].sort((a, b) => a - b);
   const filt = [['all', 'All'], ['ready', 'Ready to cast']].concat(cs.length > 1 ? cs.map(c => ['c:' + c.key, c.name]) : []).concat(lvls.map(l => [String(l), l === 0 ? 'Cantrips' : ORD[l - 1]]));
   $('#page-spells').innerHTML = `
-  ${noSlots() ? `<div class="panel cs-fx" ${PID('spellcasting')}>${activeFxInner(false)}</div>` : `<div class="cstrip">
+  ${noSlots() ? `<div class="panel cs-fx" ${PID('spellcasting')}>${activeFxInner(false)}</div>` : `<div class="cstrip${cs.length ? ' three' : ''}">
     <div class="panel cs-slots" ${PID('spslots')}><h2><span class="grow">${realSlots() ? 'Spell Slots' : 'Stored spells'}</span>${realSlots() ? `<button class="btn ghost sm" data-act="toggle" data-key="slotcfg">${UI.open.slotcfg ? 'Done' : 'Customize'}</button>` : ''}</h2>${slotsPanelInner()}
       ${UI.open.slotcfg && realSlots() ? `<div style="margin-top:10px"><p class="hint">Slots follow the multiclass spellcaster table (caster level ${casterLevel()}). Type a number to override a level; blank = automatic.</p>
       <div class="slots">${ORD.map((o, i) => fld(o + ' max', inp('slotsOverride.' + i, { num: 1, ph: String(FULL[Math.min(20, casterLevel())][i] || 0) }))).join('')}</div></div>` : ''}${p ? '<p class="hint" style="margin:6px 0 0">Pact slots return on a short rest.</p>' : ''}</div>
+    ${cs.length ? `<div class="panel scx-panel" ${PID('spellcasting')}><h2>Spellcasting</h2><div class="scx-list">${tiles}</div></div>` : ''}
     <div class="panel cs-fx" ${PID('spfx')}>${activeFxInner(false)}</div>
-  </div>
-  ${cs.length ? `<div class="panel" ${PID('spellcasting')}><h2>Spellcasting</h2><div class="sc-cards">${tiles}</div></div>` : ''}`}
+  </div>`}
   ${mmPanelHTML('mmspells')}
   <div class="panel" ${PID('spelllist')}><h2><span class="grow">Spells</span><button class="btn gold" data-act="addspells" data-cls="">+ Add spells</button><button class="btn" data-act="hbnew" data-k="spell">+ Homebrew spell</button></h2>
     <div class="spsortbar"><span class="lbl">Group spells by</span><div class="segmini">${[['level', 'Level'], ['purpose', 'Purpose'], ['custom', 'My categories']].map(([k, t]) => `<button class="${ST('combatSpellSort') === k ? 'on' : ''}" data-act="spsort" data-k="${k}">${t}</button>`).join('')}</div>${cust ? '<button class="btn sm" data-act="spcatadd">+ Category</button><span class="hint">Drag spells to reorder them or move them between categories. ' + (m ? '' : 'Drag a category by its ⠿ to rearrange. ') + 'The Combat tab uses the same groups and order.</span>' : '<span class="hint">' + (m ? '' : 'Drag a group by its ⠿ to rearrange. ') + 'The Combat tab uses the same groups and order.</span>'}</div>
@@ -394,7 +391,7 @@ function renderInventory() {
   };
   $('#page-inventory').innerHTML = `
   <div class="panel inv-panel" ${PID('inventory')}>
-    <h2><span class="grow">Inventory</span><button class="btn gold" data-act="catalog">+ Add item</button><button class="btn" data-act="hbnew" data-k="item">+ Homebrew item</button><button class="btn" data-act="addbag" title="Add a bag of holding, backpack or other container">+ Container</button></h2>
+    <h2><span class="grow">Inventory</span><button class="btn gold" data-act="catalog">+ Add item</button><button class="btn" data-act="add" data-list="inventory">+ Custom item</button><button class="btn" data-act="addbag" title="Add a bag of holding, backpack or other container">+ Container</button></h2>
     <div class="purse">${purse}<span class="worth pworth" data-calc="worth" title="Total value of your coins in gold"></span></div>
     <div class="invsearch"><input class="f invq" type="search" data-scope="all" placeholder="Search your inventory…" aria-label="Search inventory" value="${esc(UI.invQ || '')}"></div>
     <div class="invstats"><span>Attuned <b data-calc="attune"></b></span>${ST('encumbrance') === 'off' ? '' : '<span>Carrying <b data-calc="weight"></b> / <span data-calc="carry"></span> lb</span><span class="hint" data-calc="encnote"></span>'}</div>

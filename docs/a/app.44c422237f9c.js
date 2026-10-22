@@ -103,6 +103,9 @@ var HADLOCAL; // set by load(): this browser already had its own copy of this ch
 var FIXED; // no initializer: load() runs (and may set it) before this line is reached
 function applyFixes(s) {
   const done = new Set(s.fixesDone || []); let changed = false;
+  // Built in (every sheet): encumbrance on for everyone who had it off; Istalyn's sling bullets become bullets for her pistol.
+  if (!done.has('enc1')) { if (s.settings && s.settings.encumbrance === 'off') s.settings.encumbrance = 'standard'; done.add('enc1'); changed = true; }
+  if (!done.has('bullets1')) { if (/^istalyn\b/i.test(String(s.name || ''))) (s.inventory || []).forEach(it => { if (it && /^sling bullets$/i.test(String(it.name || '').trim())) { it.name = 'Bullets'; it.weight = 0.2; } }); done.add('bullets1'); changed = true; }
   (EMBED.fixes || []).forEach(f => {
     if (done.has(f.id) || (f.who && s.id !== f.who)) return;
     if (f.type === 'spellstore' && !(s.spells || []).some(x => x.stored)) { const it = (s.inventory || []).find(x => x.name === f.item), d = DND.spellIndex[String(f.spell).toLowerCase()];
@@ -136,7 +139,6 @@ function migrate(s) {
   s.profs = Object.assign({ armor: [], weapons: [], weaponNames: [] }, s.profs || {});
   s.turn = Object.assign({ round: 1, used: {}, moved: 0, attacks: 0 }, s.turn || {}); s.turn.used = s.turn.used || {};
   if (!Array.isArray(s.conditions)) s.conditions = [];
-  ['action', 'bonus', 'reaction', 'move'].forEach(k => { if (!s.combat[k]) s.combat[k] = []; });
   return s;
 }
 function getP(path) { return path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), S); }
@@ -770,7 +772,7 @@ function fxSource(from, cls) {
   if (i < 0) i = S.features.findIndex(f => String(f.dname || f.name).toLowerCase() === lc);
   return i;
 }
-function fxLeft(i) { const f = S.features[i]; if (!f) return 0; const m = featMax(f); return m == null ? 99 : Math.max(0, m - N(f.used)); }
+function fxLeft(i) { const f = S.features[i]; if (!f) return 0; let m = featMax(f); if (m == null && /^font of magic$/i.test(String(f.dname || f.name || ''))) m = clsLv('sorcerer'); return m == null ? 99 : Math.max(0, m - N(f.used)); }
 function fxCostText(c) { return c ? `${c.n || 1} ${c.from === 'Font of Magic' ? 'sorcery point' + ((c.n || 1) > 1 ? 's' : '') : c.from === 'Combat Superiority' ? 'superiority ' + ((c.n || 1) > 1 ? 'dice' : 'die') : c.from}` : ''; }
 // Spend a resource; returns an error message or ''.
 function fxSpend(c, cls) {
@@ -1105,7 +1107,7 @@ function useItem(i, col) {
 // Items with something to do in a fight show up in the Combat columns.
 const hbItemActs = col => S.inventory.map((it, i) => [it, i]).filter(([it]) => it.hb && hbUsable(hbFx(it.hb)) && (it.hb.col || '') === col && hbItemOn(it));
 // Custom spells: extra rules a player can give a homebrew spell (crit range, half damage on a miss, upcast dice, backlash).
-const spAuto = sp => Object.assign({}, AUTO(sp.name), sp && sp.hb ? Object.fromEntries(Object.entries({ up: sp.hb.up, crit: N(sp.hb.crit) || null, missHalf: !!sp.hb.missHalf, backlash: sp.hb.backlash, backlashType: sp.hb.backlashType }).filter(([, v]) => v != null && v !== '' && v !== false)) : {});
+const spAuto = sp => Object.assign({}, AUTO(sp.name), sp && sp.hb ? Object.fromEntries(Object.entries({ dmg: sp.hb.dmg, type: sp.hb.type, attack: sp.hb.hit === 'attack' || null, heal: sp.hb.heal ? sp.hb.heal + (sp.hb.healMod ? '+M' : '') : null, healUp: sp.hb.healUp, up: sp.hb.up, crit: N(sp.hb.crit) || null, missHalf: !!sp.hb.missHalf, backlash: sp.hb.backlash, backlashType: sp.hb.backlashType }).filter(([, v]) => v != null && v !== '' && v !== false)) : {});
 const spItem = sp => sp && sp.item ? S.inventory.find(it => it.id === sp.item) : null;
 
 // Uncanny Dodge and the like: ask how much damage the attack did, then take half.
@@ -1424,6 +1426,7 @@ function d20(label, bonus, kind, ab, rows) {
   const math = mathHTML([d20Math(r, dx, rows || ROLL_ROWS, 'Roll', floorUp ? [`d20 counts as ${fl}`, floorUp] : null)]);
   const note = [rm.mode !== 'normal' ? (rm.mode === 'adv' ? 'Advantage: ' : 'Disadvantage: ') + rm.why.join(', ') : '', bless ? 'Bless +1d4' : '', ex ? `Exhaustion −${ex}` : '', rm.auto ? 'Automatic failure (condition)' : ''].filter(Boolean).join(' · ');
   const n1 = kind === 'attack' && r.d20 === 1 ? nat1Roll() : null;
+  if (['attack', 'save', 'check'].includes(kind)) LAST_D20 = { t: Date.now(), label, bonus, kind, ab, rows, total: r.skipped ? null : r.total };
   toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det dd">${esc(r.detail)}</div>${note ? `<div class="det">${esc(note)}</div>` : ''}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}${math}</div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '');
   return r;
 }
@@ -1497,7 +1500,7 @@ const isMobile = () => document.documentElement.classList.contains('mobile');
 const who = () => S.name || 'Your character';
 
 // ---------- Settings ----------
-const SETDEF = { combatSpellSort: 'level', protectorScales: false, advancement: 'milestone', abilityStyle: 'mod', showName: true, showRace: true, showBackground: true, showPlayer: true, showAlignment: false, showFaith: false, showRoll20: true, encumbrance: 'off', exhaustionRule: '2014', exhaustionDC: false, concPrompt: true, durationAlerts: true, autoSpend: true, critRule: 'double', density: 'comfortable', fontScale: 100, hpLevelUp: 'avg', confirmDelete: false, showCastHints: true, inspiration: false, inspMany: false, electrum: false };
+const SETDEF = { combatSpellSort: 'level', protectorScales: false, advancement: 'milestone', abilityStyle: 'mod', showName: true, showRace: true, showBackground: true, showPlayer: true, showAlignment: false, showFaith: false, showRoll20: true, encumbrance: 'standard', exhaustionRule: '2014', exhaustionDC: false, concPrompt: true, durationAlerts: true, autoSpend: true, critRule: 'double', density: 'comfortable', fontScale: 100, hpLevelUp: 'avg', confirmDelete: false, showCastHints: true, inspiration: false, inspMany: false, electrum: false };
 let GEN = 0, RENDERING = '';
 const PID = id => `data-pid="${id}" data-gen="${GEN}" data-home="${RENDERING}"`;
 const ST = k => (S.settings && S.settings[k] !== undefined ? S.settings[k] : SETDEF[k]);
@@ -1596,7 +1599,7 @@ function renderVitals() {
         <div class="hp-center">${f ? inp('form.hp', { num: 1, cls: 'cur', label: 'Form HP' }) + `<div class="hp-max">of ${N(f.maxhp)}</div>` : `<div class="curline">` + inp('hp.cur', { num: 1, cls: 'cur', label: 'Current HP' }) + `<span class="tmpbadge" data-calc="tmpb" title="Temporary hit points"></span></div><div class="hp-max">of <span class="maxv" data-calc="hpmaxv"></span></div>`}</div></div>
       <div class="hp-side">
         ${f ? `<div class="formnote">Your HP: <b data-calc="truehp"></b> <button class="btn sm" data-act="endform">Revert</button></div>` : ''}
-        <div class="hp-actions"><input class="f" id="hpAmt" type="number" enterkeyhint="done" placeholder="Amount" aria-label="HP amount — press Enter to take damage, Shift+Enter to heal">
+        <div class="hp-actions"><div class="hp-amtrow"><select class="f hptype" id="hpType" aria-label="Damage type (resistances and immunities apply)" title="Damage type: your resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="hpAmt" type="number" enterkeyhint="done" placeholder="Amount" aria-label="HP amount — press Enter to take damage, Shift+Enter to heal"></div>
           <button class="btn red hpi" data-act="dmg" title="Take damage" aria-label="Take damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="heal" title="Heal" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmpbtn" data-act="tmphp" title="Gain temporary HP (they don't stack — the higher stays). 0 clears them." aria-label="Gain temporary HP">${ICON.hpTemp}</button></div>
         <div class="rest-actions"><button class="btn rest short" data-act="short" title="1 hour: spend Hit Dice, refresh short-rest features and Pact slots"><span class="ri">${ICON.hourglass}</span>Short Rest</button><button class="btn rest long" data-act="long" title="8 hours: full HP, all slots, features and Hit Dice"><span class="ri">${ICON.moon}</span>Long Rest</button></div>
       </div>
@@ -1734,7 +1737,7 @@ function formAttacksHTML() {
   return `<div class="formatk"><div class="sect">${esc(S.form.name)} attacks</div>${(S.form.attacks || []).map((a, j) => `<div class="fa-row"><b>${esc(a[0])}</b><button class="roll" data-act="crroll" data-who="form" data-j="${j}" data-what="hit">${a[1] === '' ? 'save' : fmt(N(a[1]))}</button><button class="roll" data-act="crroll" data-who="form" data-j="${j}" data-what="dmg">${esc(a[2] || '—')}</button><span class="muted">${esc(a[3] || '')}</span></div>`).join('')}</div>`;
 }
 // Attacks from inventory weapons only show while that weapon is equipped.
-const atkShown = a => { if (!a.item) return true; const it = S.inventory.find(x => x.id === a.item); return !it || !!it.equipped; };
+const atkShown = a => { if (!a.item) return true; const it = S.inventory.find(x => x.id === a.item); return !it || !!it.equipped || !!it.noEquip; };
 const ammoItem = a => a && a.ammo ? S.inventory.find(it => it.id === a.ammo) : null;
 // Compact attack rows: name, hit, damage and the attack button; tap the name to edit everything else.
 function attacksHTML() {
@@ -1983,8 +1986,9 @@ function spellMath(sp, L) {
   const sv = sum.match(/\b(STR|DEX|CON|INT|WIS|CHA)\b save/i); if (sv) o.save = sv[1].toUpperCase();
   o.attack = !!a.attack || /spell attack/i.test(sum) || !!a.beams;
   o.half = /half/i.test(sum);
+  if (sp.hb && sp.hb.dmg) { o.save = sp.hb.hit === 'save' ? String(sp.hb.save || 'DEX').toUpperCase() : ''; o.half = !!sp.hb.half; if (sp.hb.hit === 'auto') o.attack = false; }
   if (o.dice && a.up && L > base) { const m = String(a.up).match(/(\d+)d(\d+)/); if (m) o.dice = addDice(o.dice, (N(m[1]) * (L - base)) + 'd' + m[2]); }
-  if (base === 0 && DND.cantripScale.includes(sp.name) && o.dice) o.dice = diceTimes(o.dice, cantripTier());
+  if (base === 0 && (DND.cantripScale.includes(sp.name) || (sp.hb && sp.hb.scale)) && o.dice) o.dice = diceTimes(o.dice, cantripTier());
   if (a.heal) {
     const ci = spellCI(sp), M = ci.mod != null ? ci.mod : 0;
     let h = String(a.heal).replace('+M', M ? sgn(M) : '');
@@ -2043,13 +2047,10 @@ function renderSpells() {
     const mine = S.spells.filter(x => x.cls === c.key && !x.stored && spReady(x)), byL = {};
     mine.forEach(x => byL[N(x.level)] = (byL[N(x.level)] || 0) + 1);
     const lv = Object.keys(byL).map(Number).sort((a, b) => a - b);
-    return `<div class="sc-slotpanel sc-clspanel"><h3 class="sc-slottitle">${esc(c.name)} <span class="sc-sub">${ABN[c.ab]} · ${kind}</span></h3>
-      <div class="cs-scstats"><div class="cs-scrow">
-        ${lim != null ? `<span class="cs-sc prep-tile" data-prepfor="${c.key}"><small>${c.prepared ? 'Prepared' : 'Known'}</small><b class="big" data-calc="prepct:${c.key}"></b></span>` : ''}
-        ${cl ? `<span class="cs-sc prep-tile" data-cantfor="${c.key}"><small>Cantrips</small><b class="big" data-calc="cantct:${c.key}"></b></span>` : ''}</div></div>
-      ${lv.length ? `<div class="sc-bylv"><span class="sc-bylv-h">Ready to cast</span>${lv.map(L => `<span class="sc-lvchip"><b>${byL[L]}</b> ${L ? ORD[L - 1] : 'cantrip' + (byL[L] > 1 ? 's' : '')}</span>`).join('')}</div>` : ''}
-      <div class="sc-clsbtns">${c.prepared ? `<button class="btn gold" data-act="prepare" data-cls="${c.key}">Prepare spells</button>` : ''}${!c.prepared || c.book ? `<button class="btn ghost" data-act="addspells" data-cls="${c.key}">+ ${esc(c.name)} ${c.book ? 'spellbook' : 'spells'}</button>` : ''}</div>
-    </div>`;
+    void lv; const short = ABN[c.ab].slice(0, 3).toUpperCase();
+    return `<div class="scx"><div class="scx-h"><b>${esc(c.name)}</b><small title="${ABN[c.ab]} · ${kind}">${short}${c.type === 'pact' ? ' · Pact' : ''}</small></div>
+      <div class="scx-st">${lim != null ? `<span class="prep-tile" data-prepfor="${c.key}"><b data-calc="prepct:${c.key}"></b><small>${c.prepared ? 'Prepared' : 'Known'}</small></span>` : ''}${cl ? `<span class="prep-tile" data-cantfor="${c.key}"><b data-calc="cantct:${c.key}"></b><small>Cantrips</small></span>` : ''}</div>
+      <div class="scx-b">${c.prepared ? `<button class="btn gold sm" data-act="prepare" data-cls="${c.key}">Prepare</button>` : ''}${!c.prepared || c.book ? `<button class="btn ghost sm" data-act="addspells" data-cls="${c.key}">+ ${c.book ? 'Spellbook' : 'Spells'}</button>` : ''}</div></div>`;
   }).join('');
   const slotCards = [];
   for (let i = 0; i < 9; i++) {
@@ -2070,7 +2071,7 @@ function renderSpells() {
       ${fld('Class', sel(`spells.${i}.cls`, clsRows().map(r => [r.key, clsName(r.key)]).concat([['race', 'Racial'], ['feat', 'Feat'], ['item', 'Item'], ['other', 'Other']])))}
       <label class="checkline">${chk(`spells.${i}.conc`)} Concentration</label><label class="checkline">${chk(`spells.${i}.ritual`)} Ritual</label><label class="checkline">${chk(`spells.${i}.always`)} Always prepared</label>
       ${fld('Needs item', sel(`spells.${i}.item`, [['', '— none —']].concat(S.inventory.map(it => [it.id, it.name]))), '')}
-      ${s.auto ? '' : `${fld('Upcast dice', inp(`spells.${i}.hb.up`, { ph: 'e.g. 2d4 per level' }))}${fld('Crits on', inp(`spells.${i}.hb.crit`, { ph: '20', num: 1 }))}<label class="checkline">${chk(`spells.${i}.hb.missHalf`)} Half damage on a miss</label>${fld('Backlash after 1st cast', inp(`spells.${i}.hb.backlash`, { ph: 'e.g. 1d10+slot' }))}${fld('Backlash type', inp(`spells.${i}.hb.backlashType`, { ph: 'fire' }))}`}
+      ${s.auto ? '' : `<div class="span-all">${hbbOpenRow('spell', i, s.hb, s)}</div>`}
       ${s.src ? `<span class="hint">Source: ${esc(DND.sources[s.src] || s.src)}</span>` : ''}
       ${m ? `<div style="text-align:right"><button class="btn red" data-act="del" data-list="spells" data-i="${i}">Remove spell</button></div>` : ''}</div>
       ${fullOfSpell(s) ? `<div class="fullbox">${fullHTML(fullOfSpell(s))}${isSRDKey('sp:' + s.name) && !String(s.full || '').trim() ? '<div class="hint srdnote">Text: SRD 5.1, CC-BY-4.0</div>' : ''}</div>` : ''}
@@ -2098,15 +2099,15 @@ function renderSpells() {
   const lvls = [...new Set(S.spells.map(s => N(s.level)))].sort((a, b) => a - b);
   const filt = [['all', 'All'], ['ready', 'Ready to cast']].concat(cs.length > 1 ? cs.map(c => ['c:' + c.key, c.name]) : []).concat(lvls.map(l => [String(l), l === 0 ? 'Cantrips' : ORD[l - 1]]));
   $('#page-spells').innerHTML = `
-  ${noSlots() ? `<div class="panel cs-fx" ${PID('spellcasting')}>${activeFxInner(false)}</div>` : `<div class="cstrip">
+  ${noSlots() ? `<div class="panel cs-fx" ${PID('spellcasting')}>${activeFxInner(false)}</div>` : `<div class="cstrip${cs.length ? ' three' : ''}">
     <div class="panel cs-slots" ${PID('spslots')}><h2><span class="grow">${realSlots() ? 'Spell Slots' : 'Stored spells'}</span>${realSlots() ? `<button class="btn ghost sm" data-act="toggle" data-key="slotcfg">${UI.open.slotcfg ? 'Done' : 'Customize'}</button>` : ''}</h2>${slotsPanelInner()}
       ${UI.open.slotcfg && realSlots() ? `<div style="margin-top:10px"><p class="hint">Slots follow the multiclass spellcaster table (caster level ${casterLevel()}). Type a number to override a level; blank = automatic.</p>
       <div class="slots">${ORD.map((o, i) => fld(o + ' max', inp('slotsOverride.' + i, { num: 1, ph: String(FULL[Math.min(20, casterLevel())][i] || 0) }))).join('')}</div></div>` : ''}${p ? '<p class="hint" style="margin:6px 0 0">Pact slots return on a short rest.</p>' : ''}</div>
+    ${cs.length ? `<div class="panel scx-panel" ${PID('spellcasting')}><h2>Spellcasting</h2><div class="scx-list">${tiles}</div></div>` : ''}
     <div class="panel cs-fx" ${PID('spfx')}>${activeFxInner(false)}</div>
-  </div>
-  ${cs.length ? `<div class="panel" ${PID('spellcasting')}><h2>Spellcasting</h2><div class="sc-cards">${tiles}</div></div>` : ''}`}
+  </div>`}
   ${mmPanelHTML('mmspells')}
-  <div class="panel" ${PID('spelllist')}><h2><span class="grow">Spells</span><button class="btn gold" data-act="addspells" data-cls="">+ Add spells</button><button class="btn" data-act="add" data-list="spells">+ Custom spell</button></h2>
+  <div class="panel" ${PID('spelllist')}><h2><span class="grow">Spells</span><button class="btn gold" data-act="addspells" data-cls="">+ Add spells</button><button class="btn" data-act="hbnew" data-k="spell">+ Homebrew spell</button></h2>
     <div class="spsortbar"><span class="lbl">Group spells by</span><div class="segmini">${[['level', 'Level'], ['purpose', 'Purpose'], ['custom', 'My categories']].map(([k, t]) => `<button class="${ST('combatSpellSort') === k ? 'on' : ''}" data-act="spsort" data-k="${k}">${t}</button>`).join('')}</div>${cust ? '<button class="btn sm" data-act="spcatadd">+ Category</button><span class="hint">Drag spells to reorder them or move them between categories. ' + (m ? '' : 'Drag a category by its ⠿ to rearrange. ') + 'The Combat tab uses the same groups and order.</span>' : '<span class="hint">' + (m ? '' : 'Drag a group by its ⠿ to rearrange. ') + 'The Combat tab uses the same groups and order.</span>'}</div>
     <div class="filters">${filt.map(([k, t]) => `<button class="chip${f === k ? ' on' : ''}" data-act="filter" data-f="${k}">${esc(t)}</button>`).join('')}</div>
     ${!S.spells.length ? '<p class="hint">No spells yet. Use <b>Add spells</b> to pick from every spell in the allowed books.</p>' : m ? `<div class="sp-list spg-list">${list || '<p class="hint">No spells match this filter.</p>'}</div>` : `<div class="scrollx"><div class="spg-wrap"><table class="grid spells spg-th">
@@ -2137,7 +2138,13 @@ function classScaling(key) {
   return (c.scaling || []).concat((s && s.scaling) || []).map(([n, t]) => [n, formulaDC(scaleVal(t, L))]).filter(x => x[1]);
 }
 const scaleWords = n => String(n).toLowerCase().split(/[^a-z]+/).filter(w => w.length > 3);
-function scalingMatches(fname, sname) { const f = String(fname).toLowerCase(), s = String(sname).toLowerCase(); return s.startsWith(f) || f.startsWith(s) || scaleWords(s).some(w => scaleWords(f).includes(w)); }
+// A scaling column belongs to a feature when one name starts with the other, or every telling word of one is in the other
+// ("Channel Divinity uses" ↔ "Channel Divinity: Turn Undead"), not merely one shared word ("Unarmored Movement" isn't
+// "Unarmored Defense").
+const SCALE_GENERIC = ['uses', 'dice', 'points', 'damage', 'bonus', 'known', 'level', 'per', 'rest'];
+function scalingMatches(fname, sname) { const f = String(fname).toLowerCase(), s = String(sname).toLowerCase(); if (s.startsWith(f) || f.startsWith(s)) return true;
+  const fw = scaleWords(f), sw = scaleWords(s).filter(w => !SCALE_GENERIC.includes(w)), fw2 = fw.filter(w => !SCALE_GENERIC.includes(w));
+  return (sw.length > 0 && sw.every(w => fw.includes(w))) || (fw2.length > 0 && fw2.every(w => scaleWords(s).includes(w))); }
 // Spells a feature gives: a class option's choices (e.g. Book of Shadows cantrips) or spells you attached yourself.
 function featSpellsHTML(f, i, ed) {
   let h = '';
@@ -2241,7 +2248,7 @@ function renderFeatures() {
           ${fld('Used as', sel(`features.${i}.col`, [['', '—'], ['action', 'Action'], ['bonus', 'Bonus action'], ['reaction', 'Reaction']]))}<label class="checkline">${chk(`features.${i}.pool`)} Points pool</label></div>
           ${fld('Short summary (shown on the Combat tab)', ta(`features.${i}.desc`, { rows: 3, label: 'Description' }))}
           ${fld('Your own wording (replaces the full description when filled in)', ta(`features.${i}.full`, { rows: 5, label: 'Your own wording', ph: fullDefaultFeat(f) ? 'Optional — leave blank to use the built-in description' : 'Optional — the full description' }))}
-          ${hbBox(`features.${i}`, f.hb, 'feat', 'f' + i)}
+          ${hbbOpenRow('feat', i, f.hb, f)}
           <div class="row"><span class="hint">Uses accept formulas like <code>1+cha</code>, <code>prof</code> or <code>5*level</code>.</span><span class="grow"></span>${f.kind === 'feat' ? `<button class="btn sm red" data-act="delfeatn" data-n="${esc(String(f.key).slice(5))}">Remove feat</button>` : ''}${f.auto ? `<button class="btn sm ghost" data-act="featreset" data-i="${i}">Restore original</button>` : `<button class="btn sm red" data-act="del" data-list="features" data-i="${i}">Delete</button>`}</div></div>`
         : (fullOfFeat(f).length > 280 ? `<div class="fc-desc fc-full${UI.open['ffull:' + i] ? ' open' : ''}" data-act="toggle" data-key="ffull:${i}" title="Click to ${UI.open['ffull:' + i] ? 'collapse' : 'read all'}">${fullHTML(fullOfFeat(f))}</div>` : `<div class="fc-desc">${fullHTML(fullOfFeat(f))}</div>`)}${fx.acts && !ed ? `<div class="fxacts">${fxActsHTML(f, i)}</div>` : ''}
       ${featSpellsHTML(f, i, ed)}
@@ -2270,7 +2277,7 @@ function renderFeatures() {
   const sections = [...new Set(order.concat(groups))].filter(g => groups.includes(g) && (shown.some(([f]) => featGroup(f) === g) || (g === 'feat' && ff === 'all' && !q))).map(g => `<section class="fgroup"><h3 class="subh fghead"><span class="sh-dot"></span><span class="fgname">${esc(gname(g))}</span>${head(g)}</h3>
     <div class="fgrid">${shown.filter(([f]) => featGroup(f) === g).map(([f, i]) => card(f, i)).join('') || (g === 'feat' ? '<p class="hint">No feats yet. Feats from level-ups are added automatically.</p>' : '')}</div></section>`).join('');
   $('#page-features').innerHTML = `
-  <div class="panel" ${PID('featlist')}><h2><span class="grow">Features &amp; Traits</span><span class="hint lvhint" style="text-transform:none;letter-spacing:0">Total level ${totalLevel()} · proficiency ${fmt(PB())}</span><button class="btn sm" data-act="add" data-list="features">+ Custom feature</button></h2>
+  <div class="panel" ${PID('featlist')}><h2><span class="grow">Features &amp; Traits</span><span class="hint lvhint" style="text-transform:none;letter-spacing:0">Total level ${totalLevel()} · proficiency ${fmt(PB())}</span><button class="btn sm" data-act="hbnew" data-k="feat">+ Homebrew feature</button></h2>
     <div class="filters" style="margin-top:0"><input class="f featq" id="featQ" placeholder="Search features…" value="${esc(UI.featQ || '')}" aria-label="Search features"><button class="chip${ff === 'all' ? ' on' : ''}" data-act="featfilter" data-f="all">All</button>${groups.filter(g => g !== 'feat' || S.features.some(f => featGroup(f) === 'feat')).map(g => `<button class="chip${ff === g ? ' on' : ''}" data-act="featfilter" data-f="${g}">${esc(gname(g))}</button>`).join('')}</div>
     ${sections || '<p class="hint">No features match.</p>'}
     <p class="hint">Features from your class, race, background and feats are added and updated automatically as you level. Tap ✎ on a card to change it.</p></div>`;
@@ -2330,7 +2337,7 @@ function renderInventory() {
 </div>
       ${open ? `<div class="idetail"><div class="idet-top">${picThumb(`inventory.${i}.img`, it.name)}${fld('Notes', ta(`inventory.${i}.notes`, { rows: 2, cls: 'inotefull', label: 'Notes', ph: 'Add a note…' }))}</div>${it.summary ? `<p>${esc(it.summary)}</p>` : ''}${it.armor ? `<p class="hint">${esc(it.armor.type)} armor · AC ${it.armor.base}${it.armor.type === 'shield' ? '' : it.armor.dexCap === 0 ? '' : it.armor.dexCap ? ' + DEX (max ' + it.armor.dexCap + ')' : ' + DEX'}${it.armor.strReq ? ' · STR ' + it.armor.strReq : ''}${it.armor.stealthDis ? ' · Stealth disadvantage' : ''}</p>` : ''}${it.weapon ? `<p class="hint">${esc(it.weapon.cat)} ${esc(it.weapon.kind)} · ${esc(it.weapon.dice)} ${esc(it.weapon.type)}${it.weapon.props && it.weapon.props.length ? ' · ' + esc(it.weapon.props.join(', ')) : ''}${it.weapon.range ? ' · ' + esc(it.weapon.range) + ' ft' : ''}</p>` : ''}
         <div class="row">${fld('Weight (lb)', inp(`inventory.${i}.weight`, { num: 1 }))}${fld('Cost', inp(`inventory.${i}.cost`))}<label class="checkline">${chk(`inventory.${i}.attune`, 'Requires attunement')} Requires attunement</label></div>
-        ${hbBox(`inventory.${i}`, it.hb, 'item', 'i' + it.id, it, i)}</div>` : ''}
+        ${hbbOpenRow('item', i, it.hb, it)}</div>` : ''}
     </div>`;
   };
   $('#page-inventory').innerHTML = `
@@ -2640,16 +2647,15 @@ function spellsFor(col) {
   return S.spells.map((sp, i) => [sp, i]).filter(([sp]) => spReady(sp) && castCol(sp.time) === col)
     .sort((x, y) => N(x[0].level) - N(y[0].level) || String(x[0].name).localeCompare(y[0].name));
 }
+// Divine Smite: tick the box (and pick a slot) and your next melee weapon hit smites: the slot is spent and the radiant
+// dice are rolled with the attack's damage (doubled on a crit). Missed? The attack card gives the slot back.
+const smiteSlots = () => { const out = []; for (let i = 0; i < 9; i++) if (slotMax(i)) out.push([String(i), Math.min(5, i + 2), ORD[i] + ' slot', slotsLeft(i)]); const p = pact(); if (p) out.push(['pact', Math.min(5, p.level + 1), 'Pact slot', pactLeft()]); return out; };
+const smiteSel = () => { const A = S.smiteArm || {}, sl = smiteSlots(); return sl.some(x => x[0] === String(A.l) && x[3] > 0) ? String(A.l) : ((sl.find(x => x[3] > 0) || [])[0] ?? ''); };
 function smiteHTML() {
-  let h = '';
-  const p = pact();
-  for (let i = 0; i < 9; i++) {
-    const m = slotMax(i); if (!m) continue;
-    const left = slotsLeft(i), dice = Math.min(5, i + 2) + (UI.smiteUndead ? 1 : 0);
-    h += `<button class="smite-btn" data-act="smite" data-l="${i}" ${left ? '' : 'disabled'} title="Spend a ${ORD[i]}-level slot (${left} left)"><b>${Math.min(6, dice)}d8</b><span>${ORD[i]} slot</span></button>`;
-  }
-  if (p) { const dice = Math.min(5, p.level + 1) + (UI.smiteUndead ? 1 : 0); h += `<button class="smite-btn" data-act="smite" data-l="pact" ${pactLeft() ? '' : 'disabled'}><b>${Math.min(6, dice)}d8</b><span>Pact slot</span></button>`; }
-  return h || '<span class="hint">No slots</span>';
+  const sl = smiteSlots(); if (!sl.length) return '<span class="hint">No slots</span>';
+  const on = !!(S.smiteArm && S.smiteArm.on), cur = smiteSel();
+  return `<label class="smite-chk${on ? ' on' : ''}"><input type="checkbox" data-smitearm${on ? ' checked' : ''}${cur === '' ? ' disabled' : ''}><span><b>Smite on my next hit</b><small>${on ? 'Your next melee weapon hit spends the slot below' : 'Tick it, pick a slot, then attack'}</small></span></label>
+    <div class="smite-lv">${sl.map(([k, d, nm, left]) => `<button class="smite-btn${k === cur ? ' sel' : ''}${k === cur && on ? ' on' : ''}" data-act="smitelv" data-l="${k}" ${left ? '' : 'disabled'} title="${left} left"><b>${Math.min(6, d + (UI.smiteUndead ? 1 : 0))}d8</b><span>${nm}</span></button>`).join('')}</div>`;
 }
 const sneakDice = () => { const r = clsLv('rogue'); return r ? Math.ceil(r / 2) + 'd6' : ''; };
 // Out of combat: no turn tracker or action economy — just what you reach for between fights.
@@ -2707,7 +2713,7 @@ function renderCombat() {
         <table class="mini">${S.attacks.map((at, i) => { if (!atkShown(at) || at.bonus) return ''; const wi = at.item && S.inventory.find(x => x.id === at.item), tip = String(at.notes || '').trim() || (wi && (String(wi.notes || '').trim() || wi.hb)); const nmw = String(at.name).trim().split(/\s+/), lastW = nmw.pop(); return `<tr><td>${nmw.length ? esc(nmw.join(' ')) + ' ' : ''}<span class="nowrap">${esc(lastW)}${tip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(at.name)}">ⓘ</button>` : ''}</span></td><td>${rollBtn('atk:' + i, at.name + ' attack')}</td><td>${rollBtn('dmg:' + i, at.name + ' damage')}</td><td>${atkBtn(i, true)}</td></tr>`; }).join('') || '<tr><td class="hint">No attacks — add weapons in Inventory.</td></tr>'}</table>
         <div class="hint" data-calc="ridersnote"></div>
         ${clsLv('rogue') ? `<div class="row sarow" style="margin-top:6px"><button class="btn sm gold" data-act="sneak">Sneak Attack ${sneakDice()}</button><span class="sadotw" data-calc-html="sneakdot"></span></div>` : ''}
-        ${stunRowHTML()}
+        ${stunRowHTML()}${harmRowHTML()}
         ${hasFeature('Divine Smite') ? `<div class="smite"><div class="sect" style="width:100%">Divine Smite <span class="grow"></span>
           <button class="toggle${UI.smiteUndead ? ' on' : ''}" data-act="smiteundead" aria-pressed="${!!UI.smiteUndead}" title="Undead and fiends take +1d8">Undead / Fiend +1d8</button></div>
           <div class="smite-row" data-calc-html="smite"></div></div>` : ''}</div>`;
@@ -3220,6 +3226,8 @@ function mainClick(e) {
     case 'spstep': spStep(i, N(b.dataset.d)); return;
     case 'spto': spMoveTo(i, b.dataset.k, null); $$('.menu.open').forEach(m => m.classList.remove('open')); return;
     case 'insp': inspAdj(N(b.dataset.d)); return;
+    case 'inspuse': inspUse(); return;
+    case 'inspgo': inspGo(b.dataset.k); return;
     case 'invstep': invStep(i, N(b.dataset.d)); return;
     case 'surgeok': surgeApply(); return;
     case 'surgepick': surgePick(b.dataset.k); return;
@@ -3257,6 +3265,7 @@ function mainClick(e) {
     case 'readyfire': readyFire(); break;
     case 'readydrop': { const r = S.turn.readied; S.turn.readied = null; pendingLabel = 'Drop readied action'; update(); render('combat'); if (r) readyLost(r, 'You let it go'); break; }
     case 'smite': smite(b.dataset.l); break;
+    case 'smitelv': { const was = S.smiteArm || {}, same = !!was.on && String(was.l) === b.dataset.l; S.smiteArm = { on: !same, l: b.dataset.l }; pendingLabel = S.smiteArm.on ? 'Divine Smite ready' : 'Divine Smite off'; save(); refresh(); return; }
     case 'sneaktog': S.turn.sneak = !S.turn.sneak; pendingLabel = S.turn.sneak ? 'Sneak Attack used' : 'Sneak Attack ready'; update(); return;
     case 'sneak': { const d = sneakDice(); const c = Date.now() < critUntil; if (S.inCombat && S.turn.sneak) toast('Sneak Attack was already used this turn (once per turn) — rolling anyway.', '', 4000); if (S.inCombat) S.turn.sneak = true; pendingLabel = 'Sneak Attack'; save(); refresh(); roll(`Sneak Attack${c ? ' · CRIT, dice doubled' : ''}`, c ? doubleDice(d) : d); return; }
     case 'smiteundead': UI.smiteUndead = !UI.smiteUndead; saveUI(); b.classList.toggle('on', UI.smiteUndead); b.setAttribute('aria-pressed', UI.smiteUndead); refresh(); pendingLabel = null; return;
@@ -3337,6 +3346,8 @@ function mainClick(e) {
     case 'drink': drink(i); break;
     case 'useitem': useItem(i, b.dataset.col); break;
     case 'ispdel': { const it = S.inventory[i]; const n = it.spells.splice(N(b.dataset.j), 1)[0]; pendingLabel = `${it.name}: remove ${n}`; rebuildAuto(); save(); render(); break; }
+    case 'hbnew': openHomebrew(b.dataset.k); return;
+    case 'hbbopen': openHomebrew(b.dataset.k, N(b.dataset.i)); return;
     case 'hbopen': UI.open['hb:' + b.dataset.key] = !UI.open['hb:' + b.dataset.key]; render(); break;
     case 'addspells': openSpellPicker(b.dataset.cls); pendingLabel = null; return;
     case 'spfilt': PICK.lvl = b.dataset.l; renderPicker(); pendingLabel = null; return;
@@ -3517,6 +3528,7 @@ function attackRoll(i, free, opt) {
   const nm = opt.label || a.name;
   const h = rollExpr(expr, { label: nm + ' attack' });
   const crit = h.d20 >= critRange(), nat1 = h.d20 === 1;
+  LAST_D20 = { t: Date.now(), label: nm, attack: i, total: h.skipped ? null : h.total };
   let dice = atkDice(a) || '0';
   const isWeapon = !a.effect || a.weaponLike;
   const extras = isWeapon ? extraDice(a) : [];
@@ -3527,6 +3539,16 @@ function attackRoll(i, free, opt) {
   const dexp = (crit ? critDice(dice) : dice) + (brutal && /\d*d\d+/.test(dice) ? '+' + diceTimes(dice.match(/\d*d\d+/)[0].replace(/^\d*/, '1'), brutal) : '') + (m ? sgn(m) : '');
   const d = rollExpr(dexp, { label: nm + ' damage' });
   const xr = extras.map(x => { const dd = (x.match(/\d*d\d+/) || [''])[0]; const r = rollExpr(crit ? doubleDice(dd) : dd, { label: nm + ' damage (' + String(x).replace(/^\S+\s*/, '') + ')' }); return { label: x, r }; });
+  // Divine Smite / Hand of Harm armed from the Combat tab: the hit spends the slot (or ki) and adds the dice.
+  if (!nat1 && isWeapon && a.kind === 'melee' && S.smiteArm && S.smiteArm.on && hasFeature('Divine Smite')) { const l = smiteSel(); if (l !== '') {
+    let L; if (l === 'pact') { S.pactUsed = N(S.pactUsed) + 1; L = pact().level - 1; } else { L = N(l); S.slotsUsed[L] = N(S.slotsUsed[L]) + 1; }
+    const n = Math.min(6, Math.min(5, L + 2) + (UI.smiteUndead ? 1 : 0)) * (crit ? 2 : 1); S.smiteArm = { on: false, l };
+    xr.push({ label: n + 'd8 radiant', r: rollExpr(n + 'd8', { label: 'Divine Smite (' + (l === 'pact' ? 'pact slot' : ORD[L] + ' slot') + ')' }), refund: () => { if (l === 'pact') S.pactUsed = Math.max(0, N(S.pactUsed) - 1); else S.slotsUsed[L] = Math.max(0, N(S.slotsUsed[L]) - 1); S.smiteArm = { on: true, l }; }, what: 'Divine Smite' }); } }
+  if (!nat1 && S.harmArm && /unarmed strike/i.test(a.name) && harmFeat() && !(S.inCombat && S.turn.harm)) { const k = stunKi();
+    if (k && stunKiLeft() > 0) { k.used = N(k.used) + 1; S.harmArm = false; if (S.inCombat) S.turn.harm = true;
+      const ma = maDie(), w = mod('wis'), n = crit ? doubleDice(ma) : ma;
+      xr.push({ label: ma + ' necrotic', r: rollExpr(n + (w ? sgn(w) : ''), { label: 'Hand of Harm' }), refund: () => { k.used = Math.max(0, N(k.used) - 1); S.harmArm = true; if (S.inCombat) S.turn.harm = false; }, what: 'Hand of Harm' }); }
+    else toast('No ki left for Hand of Harm.', 'fumble'); }
   const rr = riders.map(x => { const dd = String(x.dice).match(/\d*d\d+(?:\+\d*d\d+)*/); const r = dd ? rollExpr(crit ? doubleDice(dd[0]) : dd[0]) : { total: 0, detail: '' }; return { label: x.name + ' ' + x.dice, r }; });
   // Sneak Attack rolls itself when the attack has advantage with a finesse or ranged weapon (once per turn).
   const sa = sneakAuto(a, rm, nat1, isWeapon, opt.offTurn), sr = sa ? rollExpr(crit ? critDice(sa) : sa, { label: 'Sneak Attack (' + sa + ')' }) : null;
@@ -3551,6 +3573,7 @@ function attackRoll(i, free, opt) {
   const keepR = riders.filter(x => !x.once);
   const acts = keepR.length ? [{ label: 'Missed — keep riders', fn: () => { S.riders = (S.riders || []).concat(keepR); pendingLabel = 'Keep riders'; update(); toast('Riders saved for your next hit.'); } }] : [];
   if (!nat1 && a.kind === 'melee' && stunStrikeFeat() && stunKiLeft() > 0) acts.push({ label: 'Stunning Strike (1 ki)', fn: () => stunningStrike() });
+  xr.filter(x => x.refund).forEach(x => acts.push({ label: `Missed — get ${x.what === 'Divine Smite' ? 'the slot' : 'the ki'} back`, fn: () => { x.refund(); pendingLabel = x.what + ' not used'; update(); render(); toast(`${x.what} is ready again for your next hit.`); } }));
   if (sr && !opt.offTurn) acts.push({ label: 'Missed — Sneak Attack not used', fn: () => { S.turn.sneak = false; pendingLabel = 'Sneak Attack not used'; update(); refresh(); toast('Sneak Attack is ready again this turn.'); } });
   // The card shows just the two numbers: to hit and damage. The full breakdown goes to the roll log.
   toast(`<b class="total">${h.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${crit ? 'CRITICAL HIT' : nat1 ? 'Natural 1 — miss' : 'to hit'}</div>
@@ -3627,7 +3650,11 @@ function hpAction(kind) {
   if (raw === '' || !amt) { $('#hpAmt').focus(); toast('Type an amount in the box first.'); return; }
   $('#hpAmt').value = '';
   if (kind === 'tmphp') { const cur = N(S.hp.temp); if (amt <= cur) { toast(`You keep your <b>${cur}</b> temporary HP — they don't stack, the higher one stays.`, '', 6000); return; } S.hp.temp = amt; pendingLabel = `Temp HP ${amt}`; update(); render('vitals'); toast(`<b>${amt}</b> temporary HP${cur ? ` (replaces ${cur})` : ''}.`); return; }
-  if (kind === 'dmg') takeDamage(amt); else healSelf(amt);
+  if (kind === 'dmg') { const sel = $('#hpType'), type = sel ? sel.value : ''; if (sel) sel.value = '';
+    if (type) { const D = defensesDetail(), vul = (D.vuln || []).some(x => x.k.includes(type)); let [n, how] = ptyResist(amt, type); if (vul && how !== 'immune') { n = how === 'resistant' ? amt : amt * 2; how = how === 'resistant' ? 'resistant and vulnerable' : 'vulnerable'; }
+      if (how) setTimeout(() => toast(how === 'immune' ? `You're <b>immune</b> to ${esc(type)} damage — no damage taken.` : `${esc(type[0].toUpperCase() + type.slice(1))} damage, you're ${how}: ${amt} → <b>${n}</b>.`, '', 6000), 60);
+      if (!n) { pendingLabel = null; return; } return takeDamage(n); }
+    takeDamage(amt); } else healSelf(amt);
 }
 function takeDamage(amt) {
   { const raw = amt, adj = surgeDamageAdj(amt); if (adj !== raw) { setTimeout(() => toast(adj < raw ? `Resistance to all damage: ${raw} → <b>${adj}</b>.` : `Vulnerable to all damage: ${raw} → <b>${adj}</b>.`, '', 5000), 60); amt = adj; } }
@@ -6435,8 +6462,11 @@ const MM = {
   'Twinned Spell': { cost: 'level', d: 'A spell that targets only one creature also targets a second one. Costs the spell’s level (1 for a cantrip).' }
 };
 const mmKnown = () => (S.picks && S.picks.metamagic || []).filter(n => MM[n]);
-const spFi = () => fxSource('Font of Magic');
-const spLeft = () => { const i = spFi(); return i < 0 ? 0 : fxLeft(i); };
+// Sorcery points: Font of Magic, or the two from the Metamagic Adept feat. A pool whose maximum can't be worked out
+// counts your sorcerer level (2 for the feat) instead of "unlimited".
+const spFi = () => { let i = fxSource('Font of Magic'); if (i < 0) i = S.features.findIndex(f => /metamagic adept|sorcery points/i.test(String(f.dname || f.name || '') + ' ' + String(f.key || ''))); return i; };
+const spMax = () => { const i = spFi(); if (i < 0) return 0; const f = S.features[i], m = featMax(f); return m != null && m < 99 ? m : /metamagic adept/i.test(String(f.key || f.name)) ? 2 : clsLv('sorcerer'); };
+const spLeft = () => { const i = spFi(); return i < 0 ? 0 : Math.max(0, spMax() - N(S.features[i].used)); };
 const mmText = n => MM[n].d.replace('{cha}', Math.max(1, mod('cha')));
 const mmCostTxt = n => MM[n].cost === 'level' ? 'spell level' : MM[n].cost + ' SP';
 const mmArmed = () => (S.mmArmed || []).filter(n => mmKnown().includes(n));
@@ -6458,7 +6488,7 @@ function mmApply(sp, L, lines) {
   armed.forEach(n => {
     if (n === 'Quickened Spell' && castCol(sp.time) !== 'action') { lines.push(`Quickened Spell skipped — ${esc(sp.name)} doesn’t take 1 action`); return; }
     const c = MM[n].cost === 'level' ? Math.max(1, N(L)) : MM[n].cost;
-    if (fi < 0 || fxLeft(fi) < c) { lines.push(`${n} skipped — not enough sorcery points`); return; }
+    if (fi < 0 || spLeft() < c) { lines.push(`${n} skipped — not enough sorcery points`); return; }
     S.features[fi].used = N(S.features[fi].used) + c; used.push(n);
     if (n === 'Extended Spell') out.extend = true;
     if (n === 'Empowered Spell') EMPOWER = Math.max(1, mod('cha'));
@@ -6473,7 +6503,7 @@ function mmApply(sp, L, lines) {
 }
 // Seeking Spell: reroll a missed spell attack's d20 right away.
 function mmSeek() {
-  const fi = spFi(); if (fi < 0 || fxLeft(fi) < 2) { toast('Not enough sorcery points for Seeking Spell (2).', 'fumble'); return; }
+  const fi = spFi(); if (fi < 0 || spLeft() < 2) { toast('Not enough sorcery points for Seeking Spell (2).', 'fumble'); return; }
   S.features[fi].used = N(S.features[fi].used) + 2; pendingLabel = 'Seeking Spell';
   d20('Seeking Spell: spell attack reroll', castInfo('sorcerer').atk, 'attack'); update(); render();
 }
@@ -6482,7 +6512,7 @@ const FOM_COST = [2, 3, 5, 6, 7], FOM_MIN = [2, 3, 5, 7, 9];
 function fomCreate(k) {
   const fi = spFi(); if (fi < 0) return;
   if (clsLv('sorcerer') < FOM_MIN[k]) return;
-  if (fxLeft(fi) < FOM_COST[k]) { toast(`Not enough sorcery points (${FOM_COST[k]} needed).`, 'fumble'); return; }
+  if (spLeft() < FOM_COST[k]) { toast(`Not enough sorcery points (${FOM_COST[k]} needed).`, 'fumble'); return; }
   if (!(N(S.slotsUsed[k]) > 0)) { toast(`All your ${ORD[k]}-level slots are already full.`, 'fumble'); return; }
   S.features[fi].used = N(S.features[fi].used) + FOM_COST[k]; S.slotsUsed[k] = N(S.slotsUsed[k]) - 1;
   if (S.inCombat) S.turn.used.bonus = true;
@@ -6499,11 +6529,11 @@ function fomConvert(k) {
   pendingLabel = `${ORD[k]}-level slot → ${gain} SP`; save(); render();
   toast(`<b>Font of Magic</b>: a ${ORD[k]}-level slot → ${gain} sorcery point${gain > 1 ? 's' : ''}.`, '', 4000, { label: 'Undo', fn: () => undo(1) });
 }
-function spAdj(d) { const fi = spFi(); if (fi < 0) return; const f = S.features[fi], mx = featMax(f); f.used = Math.max(0, Math.min(mx, N(f.used) - d)); pendingLabel = 'Sorcery points'; save(); render(); }
+function spAdj(d) { const fi = spFi(); if (fi < 0) return; const f = S.features[fi], mx = spMax(); f.used = Math.max(0, Math.min(mx, N(f.used) - d)); pendingLabel = 'Sorcery points'; save(); render(); }
 
 function mmPanelHTML(pid) {
   const fi = spFi(); if (fi < 0) return '';
-  const f = S.features[fi], mx = featMax(f) || 0, left = fxLeft(fi), lv = clsLv('sorcerer'), armed = mmArmed();
+  const f = S.features[fi], mx = spMax(), left = spLeft(), lv = clsLv('sorcerer'), armed = mmArmed();
   const pips = Array.from({ length: mx }, (_, k) => `<span class="sppip${k < left ? ' on' : ''}"></span>`).join('');
   const opts = mmKnown().map(n => { const on = armed.includes(n), c = MM[n].cost === 'level' ? 1 : MM[n].cost, cant = !on && left < c;
     return `<div class="mmopt${on ? ' on' : ''}"><div class="mmhead"><b>${esc(n.replace(' Spell', ''))}</b><span class="mmcost">${mmCostTxt(n)}</span></div><div class="mmdesc">${esc(mmText(n))}</div>
@@ -6604,12 +6634,33 @@ function inspHTML(mini) {
   if (!ST('inspiration')) return '';
   const n = Math.max(0, N(S.insp)), mx = inspMax();
   // One at a time: the badge itself is the switch — tap the star to fill it, tap again to spend it.
+  const use = n ? `<button class="insp-use${mini ? ' mini' : ''}" data-act="inspuse" title="Reroll your last attack, check or save, or have advantage on the next one">Use</button>` : '';
   if (mx === 1) return `<button class="insp one${mini ? ' mini' : ''}${n ? ' on' : ''}" data-act="insp" data-d="${n ? -1 : 1}" aria-pressed="${!!n}" title="${n ? 'Inspired — tap to spend it' : 'Tap when you gain Inspiration'}">
-    <span class="insp-c"><b class="insp-n">${n ? '★' : '☆'}</b><span class="insp-l">Inspiration</span></span></button>`;
+    <span class="insp-c"><b class="insp-n">${n ? '★' : '☆'}</b><span class="insp-l">Inspiration</span></span></button>`.replace(/^/, use ? `<div class="insp-grp${mini ? ' mini' : ''}">` : '') + (use ? use + '</div>' : '');
   return `<div class="insp${mini ? ' mini' : ''}${n ? ' on' : ''}" title="Inspiration${mx === 1 ? ' (one at a time)' : ''}">
     <button class="insp-b" data-act="insp" data-d="-1" ${n ? '' : 'disabled'} aria-label="Spend Inspiration">−</button>
     <span class="insp-c"><b class="insp-n">${mx === 1 ? (n ? '★' : '☆') : n}</b><span class="insp-l">Inspiration</span></span>
-    <button class="insp-b" data-act="insp" data-d="1" ${n >= mx ? 'disabled' : ''} aria-label="Gain Inspiration">+</button></div>`;
+    <button class="insp-b" data-act="insp" data-d="1" ${n >= mx ? 'disabled' : ''} aria-label="Gain Inspiration">+</button></div>`.replace(/^/, use ? `<div class="insp-grp${mini ? ' mini' : ''}">` : '') + (use ? use + '</div>' : '');
+}
+// Use Inspiration: reroll the last attack / check / save, or keep it as advantage on the next one (shown with your
+// active effects until that roll uses it up).
+let LAST_D20 = null;
+function inspUse() {
+  if (!(N(S.insp) > 0)) return;
+  const L = LAST_D20 && Date.now() - LAST_D20.t < 10 * 60000 ? LAST_D20 : null;
+  openModal(`<h3>Use Inspiration</h3><p class="hint" style="margin:0 0 10px">It’s used up either way.</p><div class="castopts insp-opts">
+    <button class="castopt" data-act="inspgo" data-k="reroll" ${L ? '' : 'disabled'}><b>Reroll the last roll</b><span>${L ? esc(L.label) + (L.total != null ? ' — was ' + L.total : '') : 'No recent attack, check or save'}</span></button>
+    <button class="castopt" data-act="inspgo" data-k="next"><b>Advantage on my next roll</b><span>Your next attack, ability check or saving throw</span></button></div>
+    <div class="actions"><button class="btn" data-act="close">Cancel</button></div>`);
+}
+function inspGo(k) {
+  closeModal(true); if (!(N(S.insp) > 0)) return;
+  S.insp = Math.max(0, N(S.insp) - 1);
+  if (k === 'next') { S.effects = (S.effects || []).filter(x => x.name !== 'Inspiration').concat([{ name: 'Inspiration', rounds: null, conc: false, buff: { d20AdvNext: 'Inspiration', note: 'Advantage on your next attack roll, ability check or saving throw' } }]);
+    pendingLabel = 'Inspiration: advantage on the next roll'; save(); render(); toast('<b>Inspiration</b> — your next attack, check or save has advantage.', '', 5000, { label: 'Undo', fn: () => undo(1) }); return; }
+  const L = LAST_D20; pendingLabel = 'Inspiration: reroll'; save(); render('header');
+  if (L.attack != null) attackRoll(L.attack, true, { label: L.label.replace(/ \(Inspiration reroll\)$/, '') + ' (Inspiration reroll)' });
+  else d20(L.label.replace(/ \(Inspiration reroll\)$/, '') + ' (Inspiration reroll)', L.bonus, L.kind, L.ab, L.rows);
 }
 function inspAdj(d) {
   const was = Math.max(0, N(S.insp)), n = Math.max(0, Math.min(inspMax(), was + d)); if (n === was) return;
@@ -6978,6 +7029,17 @@ function stunRowHTML() {
   if (!stunStrikeFeat()) return '';
   return `<div class="row stunrow"><button class="btn sm" data-act="stunstrike" title="Use right after a melee hit — not an action">Stunning Strike <small>1 ki</small></button><span class="hint">After a melee hit (unarmed counts): DC ${stunDC()} CON save or stunned until the end of your next turn. Once per hit.</span></div>`;
 }
+// Hand of Harm (Way of Mercy): like a smite for unarmed strikes. Tick it and your next unarmed hit spends 1 ki and adds
+// a Martial Arts die + WIS necrotic, once per turn (free during Flurry of Blows from 11th level: untick "costs ki").
+const maDie = () => '1' + (martialDie() || 'd4');
+const harmFeat = () => S.features.find(f => /^hand of harm$/i.test(String(f.name).trim()));
+function harmRowHTML() {
+  if (!harmFeat()) return ''; const on = !!S.harmArm, used = S.inCombat && S.turn.harm;
+  return `<label class="smite-chk harm${on ? ' on' : ''}"><input type="checkbox" data-harmarm${on ? ' checked' : ''}${used ? ' disabled' : ''}><span><b>Hand of Harm on my next unarmed hit</b><small>${used ? 'Already used this turn' : `1 ki · ${maDie()} + WIS necrotic${hasFeature("Physician's Touch") ? ' · and the target is poisoned until the end of your next turn' : ''} · ${stunKiLeft()} ki left`}</small></span></label>`;
+}
+document.addEventListener('change', e => { const t = e.target;
+  if (t.matches && t.matches('[data-smitearm]')) { S.smiteArm = { on: t.checked, l: smiteSel() }; pendingLabel = t.checked ? 'Divine Smite ready' : 'Divine Smite off'; save(); refresh(); }
+  if (t.matches && t.matches('[data-harmarm]')) { S.harmArm = t.checked; pendingLabel = t.checked ? 'Hand of Harm ready' : 'Hand of Harm off'; save(); refresh(); } });
 function stunningStrike() {
   const f = stunStrikeFeat(); if (!f) return;
   const err = fxSpend({ from: (stunKi() || {}).name || 'Ki', n: 1 }, 'monk'); if (err) { toast(esc(err), 'fumble'); return; }
@@ -7095,6 +7157,10 @@ function gridApply(by) {
   if (grid.spells) { const need = ['spslots', 'spfx'].filter(id => by[id] && !placed.has(id) && !removed.has(id));
     if (need.length) { const sc = grid.spells.find(i => i.id === 'spellcasting'), y0 = sc ? sc.y : 0, ws = Math.round(GCOLS / 3); grid.spells.forEach(i => { if (i.y >= y0) i.y += 1; });
       need.forEach(id => { grid.spells.push(id === 'spslots' ? { id, x: 0, y: y0, w: ws, h: 1 } : { id, x: need.length === 2 ? ws : 0, y: y0, w: need.length === 2 ? GCOLS - ws : GCOLS, h: 1 }); placed.add(id); }); } }
+  // Spellcasting (now a small panel) moves once between Spell Slots and Active Spells when they share a row.
+  if (grid.spells && !L.scMid) { L.scMid = 1; const g = grid.spells, sl = g.find(i => i.id === 'spslots'), fx = g.find(i => i.id === 'spfx'), sc = g.find(i => i.id === 'spellcasting');
+    if (sl && fx && sc && sl.y === fx.y && sc.w >= GCOLS - 1) { const y0 = sl.y, h = Math.max(sl.h, fx.h); g.forEach(i => { if (i !== sc && i.y > sc.y) i.y -= sc.h; });
+      Object.assign(sl, { x: 0, w: 4 }); Object.assign(sc, { x: 4, y: y0, w: 3, h }); Object.assign(fx, { x: 7, w: 5 }); } }
   Object.keys(by).forEach(id => { if (placed.has(id) || removed.has(id)) return; const home = by[id][0].dataset.home, pg = grid[home] ? home : null; if (!pg) return;
     grid[pg].push({ id, x: 0, y: grid[pg].reduce((m, i) => Math.max(m, i.y + i.h), 0), w: GCOLS, h: 1 }); placed.add(id); });
   const mob = isMobile(), ed = !!UI.editLayout;
@@ -8503,7 +8569,11 @@ function diceRoller() {
   const x = DR.x != null ? Math.min(Math.max(6, DR.x), W - r.width - 6) : W - r.width - 24, y = DR.y != null ? Math.min(Math.max(6, DR.y), H - 60) : Math.max(70, H - r.height - 90);
   w.style.left = x + 'px'; w.style.top = y + 'px';
   // drag by the title bar
+  // on a phone it's a sheet along the bottom: swipe its top bar down to close it
   w.addEventListener('pointerdown', e => { const hd = e.target.closest('.dr-head'); if (!hd || e.target.closest('button')) return; e.preventDefault();
+    if (isMobile()) { const y0 = e.clientY; hd.setPointerCapture(e.pointerId); const mv = ev => { w.style.transform = `translateY(${Math.max(0, ev.clientY - y0)}px)`; };
+      const up = ev => { hd.removeEventListener('pointermove', mv); hd.removeEventListener('pointerup', up); if (ev.clientY - y0 > 70) w.remove(); else w.style.transform = ''; };
+      hd.addEventListener('pointermove', mv); hd.addEventListener('pointerup', up); return; }
     const b = w.getBoundingClientRect(), dx = e.clientX - b.left, dy = e.clientY - b.top; hd.setPointerCapture(e.pointerId); w.classList.add('drag');
     const mv = ev => { const nx = Math.min(Math.max(0, ev.clientX - dx), innerWidth - b.width), ny = Math.min(Math.max(0, ev.clientY - dy), innerHeight - 40); w.style.left = nx + 'px'; w.style.top = ny + 'px'; };
     const up = () => { w.classList.remove('drag'); hd.removeEventListener('pointermove', mv); hd.removeEventListener('pointerup', up); const bb = w.getBoundingClientRect(); DR.x = bb.left; DR.y = bb.top; drKeep(); };
@@ -8518,12 +8588,17 @@ function diceRoller() {
     if (k === 'roll') { const ex = ($('#dr-f') || {}).value || drExpr(); return drRoll(ex); }
     drPaint(); });
   // right-click (or long-press) a die to take one away
+  // press and hold a die (phones) to take one away
+  let holdT = null, held = false; w.addEventListener('pointerdown', e => { const b = e.target.closest('[data-dr=die]'); if (!b || e.pointerType === 'mouse') return; held = false; clearTimeout(holdT);
+    holdT = setTimeout(() => { held = true; const d = N(b.dataset.d); DR.pool[d] = Math.max(0, N(DR.pool[d]) - 1); if (!DR.pool[d]) delete DR.pool[d]; if (navigator.vibrate) navigator.vibrate(15); drPaint(); }, 450); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => w.addEventListener(t, () => clearTimeout(holdT)));
+  w.addEventListener('click', e => { if (held && e.target.closest('[data-dr=die]')) { held = false; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
   w.addEventListener('contextmenu', e => { const b = e.target.closest('[data-dr=die]'); if (!b) return; e.preventDefault(); const d = N(b.dataset.d); DR.pool[d] = Math.max(0, N(DR.pool[d]) - 1); if (!DR.pool[d]) delete DR.pool[d]; drPaint(); });
   w.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'dr-f') { e.preventDefault(); drRoll(e.target.value); } if (e.key === 'Escape') w.remove(); });
 }
 const DR_SHAPE = { 4: 'M12 3l9 16H3z', 6: 'M5 5h14v14H5z', 8: 'M12 2l9 10-9 10-9-10z', 10: 'M12 2l9 7-3 12H6L3 9z', 12: 'M12 2l9 6.5-3.4 10.5H6.4L3 8.5z', 20: 'M12 2l8.7 5v10L12 22l-8.7-5V7z', 100: 'M12 2l9 7-3 12H6L3 9z' };
 function drPaint() { const w = $('#drwin'); if (!w) return; const ex = drExpr();
-  w.innerHTML = `<div class="dr-head"><span class="dr-grip" aria-hidden="true">⠿</span><b>Dice Roller</b><button class="dr-x" data-dr="x" aria-label="Close">✕</button></div>
+  w.innerHTML = `<div class="dr-head"><b>Dice Roller</b><button class="dr-x" data-dr="x" aria-label="Close">✕</button></div>
     <div class="dr-dice">${DR_DICE.map(d => `<button class="dr-die${DR.pool[d] ? ' on' : ''}" data-dr="die" data-d="${d}" title="Add a d${d} (right-click to take one away)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${DR_SHAPE[d]}"/></svg><span>d${d}</span>${DR.pool[d] ? `<em>${DR.pool[d]}</em>` : ''}</button>`).join('')}</div>
     <div class="dr-row"><div class="dr-mod"><button data-dr="mod" data-v="-1" aria-label="Modifier −1">−</button><b>${N(DR.mod) >= 0 ? '+' : ''}${N(DR.mod)}</b><button data-dr="mod" data-v="1" aria-label="Modifier +1">+</button></div>
       <div class="dr-adv">${[['d', 'Dis'], ['n', 'Normal'], ['a', 'Adv']].map(([v, t]) => `<button class="${DR.adv === v ? 'on' : ''}" data-dr="adv" data-v="${v}"${DR.pool[20] === 1 ? '' : ' disabled title="Advantage works on a single d20"'}>${t}</button>`).join('')}</div></div>
@@ -8535,6 +8610,299 @@ function drRoll(ex) { ex = String(ex || '').replace(/\s+/g, '').toLowerCase(); i
   DR.last = [ex].concat(DR.last.filter(x => x !== ex)).slice(0, 5); drKeep();
   rollGate(() => { const r = rollExpr(ex, { label: 'Dice roller: ' + ex }); toast(`<b class="total">${r.total}</b><div><div>Rolled ${esc(ex)}</div><div class="det dd">${esc(r.detail || '')}</div></div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '', 8000); });
   drPaint(); }
+
+// ---------- Homebrew builder ----------
+// One friendly window for making (or changing) your own items, features and spells. The basics are a few big choices;
+// "Advanced" opens tidy sections for everything else the sheet can automate. Works on a copy: nothing changes until Save.
+let HBB = null; // { kind: 'item'|'feat'|'spell', idx, d (the copy), isNew, adv, sec: {open sections} }
+const hbbGet = (o, p) => p.split('.').reduce((x, k) => (x == null ? undefined : x[k]), o);
+const hbbSet = (o, p, v) => { const ks = p.split('.'); let x = o; ks.slice(0, -1).forEach(k => { if (x[k] == null || typeof x[k] !== 'object') x[k] = {}; x = x[k]; }); x[ks[ks.length - 1]] = v; };
+const hbbV = p => hbbGet(HBB.d, p);
+const bIn = (p, o = {}) => `<input class="f ${o.cls || ''}" data-hbb="${p}"${o.num ? ' type="number" inputmode="decimal"' : ''} value="${esc(hbbV(p) ?? '')}" placeholder="${esc(o.ph || '')}" aria-label="${esc(o.label || o.ph || p)}"${o.list ? ` list="${o.list}"` : ''}${o.af ? ' autofocus' : ''}>`;
+const bTa = (p, o = {}) => `<textarea class="f" data-hbb="${p}" rows="${o.rows || 3}" placeholder="${esc(o.ph || '')}" aria-label="${esc(o.label || o.ph || p)}">${esc(hbbV(p) || '')}</textarea>`;
+const bSel = (p, opts, o = {}) => `<select class="f" data-hbb="${p}" aria-label="${esc(o.label || p)}">${opts.map(([v, t]) => `<option value="${esc(v)}"${String(hbbV(p) ?? '') === String(v) ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
+const bChk = (p, label, hint) => `<label class="hbb-chk"${hint ? ` title="${esc(hint)}"` : ''}><input type="checkbox" data-hbb="${p}"${hbbV(p) ? ' checked' : ''}><span><b>${label}</b></span></label>`;
+const bSeg = (p, opts, o = {}) => `<div class="hbb-seg${o.big ? ' big' : ''}${o.wrap ? ' pills' : ''}" role="radiogroup">${opts.map(([v, t, ic, sub]) => `<button type="button" role="radio" aria-checked="${String(hbbV(p) ?? '') === String(v)}" class="${String(hbbV(p) ?? '') === String(v) ? 'on' : ''}" data-hbbseg="${p}" data-v="${esc(v)}"${sub ? ` title="${esc(sub)}"` : ''}>${ic ? `<span class="ic">${ic}</span>` : ''}<span class="t">${t}</span></button>`).join('')}</div>`;
+const bChips = (p, list) => { const have = hbCSV(hbbV(p) || '').map(x => x.toLowerCase()); return `<div class="hbb-chips">${list.map(t => `<button type="button" class="hbb-chip${have.includes(t.toLowerCase()) ? ' on' : ''}" data-hbbchip="${p}" data-v="${esc(t)}">${esc(t)}</button>`).join('')}</div>`; };
+const bF = (label, inner, hint, cls = '') => `<div class="hbb-f ${cls}"><span class="lbl">${label}</span>${inner}${hint ? `<small class="hint">${hint}</small>` : ''}</div>`;
+const bRow = (...a) => `<div class="hbb-row">${a.join('')}</div>`;
+const bSec = (id, icon, title, sum, body) => { const open = !!HBB.sec[id]; return `<section class="hbb-sec${open ? ' open' : ''}"><button type="button" class="hbb-sh" data-hbbsec="${id}" aria-expanded="${open}"><span class="ic" aria-hidden="true">${icon}</span><span class="t"><b>${title}</b><small>${esc(sum || '')}</small></span><span class="caret">${open ? '▴' : '▾'}</span></button>${open ? `<div class="hbb-sb">${body}</div>` : ''}</section>`; };
+const HBB_CONDS = ['Blinded', 'Charmed', 'Deafened', 'Frightened', 'Grappled', 'Incapacitated', 'Paralyzed', 'Petrified', 'Poisoned', 'Prone', 'Restrained', 'Stunned', 'Unconscious'];
+const HBB_DICE = ['4', '6', '8', '10', '12', '20'];
+const hbbDice = (np, dp) => `<div class="hbb-dice">${bIn(np, { num: 1, cls: 'hbb-dn', ph: '1', label: 'How many dice' })}${bSeg(dp, HBB_DICE.map(x => [x, 'd' + x]))}</div>`;
+const hbbTypes = () => DMGTYPES.map(t => [t, t[0].toUpperCase() + t.slice(1)]);
+const hbbUseCols = (none) => [['action', 'Action'], ['bonus', 'Bonus action'], ['reaction', 'Reaction'], ['move', 'Movement'], ['', none || 'Nothing']];
+const hbbAbOpts = [['', '—']].concat(AB.map(a => [a, ABN[a]]));
+const hbbDurs = [['', 'Until ended'], ['1', '1 round'], ['10', '1 minute'], ['100', '10 minutes'], ['600', '1 hour'], ['4800', '8 hours']];
+const hbbCount = (...ps) => ps.filter(p => { const v = hbbV(p); return v != null && v !== '' && v !== false && !(Array.isArray(v) && !v.length); }).length;
+const hbbSum = (pairs) => pairs.filter(([p]) => { const v = hbbV(p); return v != null && v !== '' && v !== false; }).map(([p, t]) => t || String(hbbV(p))).join(' · ');
+
+// ----- Opening -----
+function openHomebrew(kind, idx) {
+  const isNew = !(idx >= 0), list = kind === 'item' ? S.inventory : kind === 'feat' ? S.features : S.spells;
+  const src = isNew ? (kind === 'item' ? BLANK.inventory() : kind === 'feat' ? BLANK.features() : BLANK.spells()) : list[idx];
+  if (!src) return;
+  const d = JSON.parse(JSON.stringify(src)); d.hb = d.hb || {};
+  if (isNew) d.name = '';
+  if (kind === 'item') {
+    const w = d.weapon || {}, a = S.attacks.find(x => x.item === d.id) || {}, m = /(\d+)d(\d+)/.exec(w.dice || '') || [], rg = String(w.range || '').split('/');
+    d._type = d.hbType || (d.weapon ? 'weapon' : d.hb.consume ? 'consumable' : 'magic');
+    d._kind = w.kind || 'melee'; d._dn = m[1] || (isNew ? '1' : ''); d._dd = m[2] || '6'; d._dt = w.type || ''; d._rn = rg[0] || ''; d._rl = rg[1] || '';
+    d._ab = a.ab || ((w.props || []).includes('finesse') ? 'fin' : w.kind === 'ranged' ? 'dex' : 'str'); d._mag = a.magic ? String(a.magic) : ''; d._ammo = a.ammo || '';
+    d._eqOnly = !d.noEquip; d._uses = d.charges && N(d.charges.max) ? String(d.charges.max) : ''; d._reset = (d.charges && d.charges.reset) || 'long';
+    d._props = (w.props || []).filter(p => !/^ammunition|^loading$/.test(p)).join(', '); d._loading = (w.props || []).includes('loading'); d._cat = w.cat || 'martial';
+    d._keep = !isNew && (S.customItems || []).some(x => x.name.toLowerCase() === String(d.name || '').toLowerCase());
+  }
+  if (kind === 'item' && isNew) d.hb.col = 'action';
+  if (kind === 'feat') { d._limited = String(d.max ?? '').trim() !== '' ? '1' : ''; d.col = d.col || ''; }
+  if (kind === 'spell') {
+    const h = d.hb, m = /(\d+)d(\d+)/.exec(h.dmg || '') || [], u = /(\d+)d(\d+)/.exec(h.up || '') || [];
+    d._what = h.what || (h.heal ? 'heal' : h.dmg ? 'dmg' : 'other'); d._dn = m[1] || '1'; d._dd = m[2] || '8'; d._un = u[1] || ''; d._ud = u[2] || d._dd;
+    const c = String(d.comps || ''); d._v = /\bV\b/.test(c); d._s = /\bS\b/.test(c); d._m = /\bM\b/.test(c); d._mat = (/\bM\s*\(([^)]*)\)/.exec(c) || [])[1] || '';
+    d._time = ['1 action', '1 bonus action', '1 reaction', '1 minute', '10 minutes', '1 hour'].includes(d.time) ? d.time : (d.time ? 'other' : '1 action'); d._timeX = d._time === 'other' ? d.time : '';
+    d.level = String(N(d.level)); d._sum0 = d.summary || '';
+  }
+  HBB = { kind, idx: isNew ? -1 : idx, d, isNew, adv: !!(HBB_ADV_ON(kind, d)), sec: {} };
+  spellDatalist();
+  openModal('<div id="hbb"></div>', () => { HBB = null; }, true);
+  hbbPaint();
+}
+// Advanced starts open when the thing already uses some of it.
+function HBB_ADV_ON(kind, d) {
+  const h = d.hb || {}, basic = { item: ['col', 'consume', 'text', 'textAuto'], feat: ['col'], spell: ['what', 'dmg', 'type', 'hit', 'save', 'half', 'up', 'heal', 'healMod', 'healUp'] }[kind];
+  return Object.keys(h).some(k => !basic.includes(k) && h[k] !== '' && h[k] != null && h[k] !== false) || (kind === 'item' && (d.spells || []).length) || (kind === 'feat' && ((d.spells || []).length || d.pool || String(d.full || '').trim()));
+}
+function hbbPaint() {
+  const box = $('#hbb'); if (!box || !HBB) return;
+  const sc = $('#modal-body').scrollTop;
+  const K = HBB.kind, title = { item: 'item', feat: 'feature', spell: 'spell' }[K];
+  const basic = K === 'item' ? hbbItemBasic() : K === 'feat' ? hbbFeatBasic() : hbbSpellBasic();
+  const adv = HBB.adv ? `<div class="hbb-adv">${K === 'item' ? hbbItemAdv() : K === 'feat' ? hbbFeatAdv() : hbbSpellAdv()}<p class="hint hbb-fhint">Numbers can be formulas: <code>prof</code>, <code>wis</code>, <code>level</code>, <code>1d6+prof</code>. Separate several entries with commas.</p></div>` : '';
+  box.innerHTML = `<div class="hbb-head"><h3>${HBB.isNew ? 'New homebrew ' + title : 'Edit ' + esc(HBB.d.name || title)}</h3><label class="hbb-switch" title="Show every option the sheet can automate"><input type="checkbox" data-hbbadv${HBB.adv ? ' checked' : ''}><span class="tr"><i></i></span><span>Advanced</span></label></div>
+    <div class="hbb-body">${basic}${adv}</div>
+    <div class="actions hbb-acts">${K === 'item' ? `<label class="hbb-chk sm" title="So you (and your party) can add it again from Add an item → Homebrew"><input type="checkbox" data-hbb="_keep"${HBB.d._keep ? ' checked' : ''}><span><b>Also save to my homebrew items</b></span></label>` : ''}<span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-hbbsave>${HBB.isNew ? 'Create ' + title : 'Save'}</button></div>`;
+  $('#modal-body').scrollTop = sc;
+  const f = HBB.isNew && !HBB.painted && box.querySelector('[data-hbb="name"]'); if (f) setTimeout(() => f.focus(), 30);
+  HBB.painted = true;
+}
+
+// ----- Items -----
+function hbbItemBasic() {
+  const d = HBB.d, t = d._type, inv = S.inventory.filter(x => x.id !== d.id && !x.weapon);
+  let h = bF('Name', bIn('name', { ph: t === 'weapon' ? 'e.g. Stormcaller Pistol' : t === 'consumable' ? 'e.g. Potion of Frost Breath' : 'e.g. Amulet of the Tides', cls: 'hbb-name', label: 'Item name' }));
+  h += bF('What is it?', bSeg('_type', [['weapon', 'Weapon', '⚔', 'You attack with it'], ['magic', 'Magic item', '✦', 'Gear, uses or a power'], ['consumable', 'Consumable', '🧪', 'Using it uses one up']], { big: true }));
+  h += bF(t === 'weapon' ? 'Attacking with it takes' : 'Using it takes', bSeg('hb.col', hbbUseCols(t === 'weapon' ? 'Nothing' : 'Nothing (passive)'), { wrap: true }));
+  if (t === 'weapon') {
+    h += `<div class="hbb-card"><div class="hbb-ct">⚔ Weapon</div>`;
+    h += bRow(bF('Kind', bSeg('_kind', [['melee', 'Melee'], ['ranged', 'Ranged']])), d._kind === 'ranged' ? bF('Range (ft)', `<div class="hbb-range">${bIn('_rn', { num: 1, ph: '80', label: 'Normal range' })}<span>/</span>${bIn('_rl', { num: 1, ph: '320', label: 'Long range' })}</div>`) : '');
+    h += bF('Roll to hit with', bSeg('_ab', [['str', 'Strength'], ['dex', 'Dexterity'], ['fin', 'Best of the two'], ['spell', 'Spellcasting']], { wrap: true }));
+    h += bRow(bF('Damage dice', hbbDice('_dn', '_dd')), bF('Damage type', bSel('_dt', [['', 'Choose…']].concat(hbbTypes()), { label: 'Damage type' })));
+    if (d._kind === 'ranged') h += bF('Ammunition', bSel('_ammo', [['', 'None — it doesn’t use ammo']].concat(inv.map(x => [x.id, `${x.name} (${N(x.qty)})`])), { label: 'Ammunition' }), inv.length ? '' : 'Add the ammo to your inventory first, then pick it here.');
+    h += bChk('_eqOnly', 'Must be equipped to attack with it', 'Its attack shows on the Combat tab only while it’s equipped');
+    h += `</div>`;
+  }
+  if (t !== 'weapon') {
+    h += `<div class="hbb-card"><div class="hbb-ct">${t === 'consumable' ? '🧪 Consumable' : '✦ Magic item'}</div>`;
+    h += bRow(t === 'consumable' ? bF('How many', bIn('qty', { num: 1, ph: '1', label: 'Quantity' })) : '', bF('Uses', bIn('_uses', { num: 1, ph: t === 'consumable' ? '—' : 'Unlimited', label: 'Uses' }), ), N(d._uses) ? bF('Recharges', bSeg('_reset', [['long', 'Long rest'], ['short', 'Short rest'], ['none', 'Never']])) : '');
+    h += `</div>`;
+  }
+  h += bF(t === 'weapon' ? 'Notes' : 'What it does', bTa('notes', { rows: 2, ph: t === 'weapon' ? 'Anything special about it' : 'Describe it — this is shown when you use it' }));
+  return h;
+}
+function hbbItemAdv() {
+  const d = HBB.d, t = d._type, P = 'hb.', comps = typeof COMP_RULES === 'object' ? Object.keys(COMP_RULES) : [];
+  const res = S.features.filter(f => featMax(f) != null).map(f => [f.dname || f.name, f.dname || f.name]);
+  let h = '';
+  if (t === 'weapon') h += bSec('wpn', '⚔', 'Weapon details', hbbSum([['_mag', d._mag ? '+' + d._mag + ' magic' : ''], ['_props', d._props], ['_loading', 'loading']]),
+    bF('Magic bonus (to hit and damage)', bSeg('_mag', [['', 'None'], ['1', '+1'], ['2', '+2'], ['3', '+3']])) + bF('Properties', bChips('_props', ['Finesse', 'Light', 'Heavy', 'Two-handed', 'Thrown', 'Reach', 'Versatile', 'Special'])) + bRow(bF('Category', bSeg('_cat', [['simple', 'Simple'], ['martial', 'Martial']])), d._kind === 'ranged' ? bChk('_loading', 'Loading', 'Only one shot per action, bonus action or reaction') : ''));
+  h += bSec('prot', '🛡', 'Protection', hbbSum([[P + 'resist', 'Resist ' + (hbbV(P + 'resist') || '')], [P + 'immune', 'Immune ' + (hbbV(P + 'immune') || '')], [P + 'condImmune'], [P + 'ac', 'AC +' + hbbV(P + 'ac')], [P + 'saveAll', 'Saves +' + hbbV(P + 'saveAll')]]) || 'Resistances, immunities, AC',
+    bF('Resistant to', bChips(P + 'resist', DND.damageTypes)) + bF('Immune to', bChips(P + 'immune', DND.damageTypes)) + bF('Can’t be', bChips(P + 'condImmune', HBB_CONDS)) + bRow(bF('AC bonus', bIn(P + 'ac', { ph: '1' })), bF('Bonus to all saves', bIn(P + 'saveAll', { ph: '1' }))));
+  h += bSec('move', '🪽', 'Movement & senses', hbbSum([[P + 'speed', '+' + hbbV(P + 'speed') + ' ft'], [P + 'fly', 'Fly'], [P + 'swim', 'Swim'], [P + 'climb', 'Climb'], [P + 'sense']]) || 'Speed, flying, darkvision',
+    bRow(bF('Extra speed (ft)', bIn(P + 'speed', { ph: '10' })), bF('Fly (ft)', bIn(P + 'fly', { ph: '30 or walk' })), bF('Swim (ft)', bIn(P + 'swim', { ph: 'walk' })), bF('Climb (ft)', bIn(P + 'climb', { ph: 'walk' }))) + bF('Senses', bIn(P + 'sense', { ph: 'Darkvision 60 ft' })));
+  h += bSec('bon', '✚', 'Bonuses', hbbSum([[P + 'skillBonus'], [P + 'init', 'Initiative +' + hbbV(P + 'init')], [P + 'initAdv', 'Adv. on initiative'], [P + 'maxHp', 'Max HP +' + hbbV(P + 'maxHp')], [P + 'adv', 'Advantage notes']]) || 'Skills, initiative, max HP',
+    bF('Skill bonuses', bIn(P + 'skillBonus', { ph: 'Stealth +2, Perception +1' })) + bRow(bF('Initiative bonus', bIn(P + 'init', { ph: '2 or wis' })), bF('Max HP bonus', bIn(P + 'maxHp', { ph: 'level' }))) + bChk(P + 'initAdv', 'Advantage on initiative') + bF('Advantage on (a reminder)', bIn(P + 'adv', { ph: 'Saves against being frightened; …' })));
+  h += bSec('use', '⚡', 'When you use it', hbbSum([[P + 'roll', 'Rolls ' + hbbV(P + 'roll')], [P + 'heal', 'Heals ' + hbbV(P + 'heal')], [P + 'temp', 'Temp HP'], [P + 'saveAb', 'Save'], [P + 'dash', 'Dash'], [P + 'refuel', 'Recovers a slot'], [P + 'costFrom', 'Costs']]) || 'Rolls, healing, saves',
+    bRow(bF('Roll', bIn(P + 'roll', { ph: '2d6+wis' })), bF('What the roll is', bIn(P + 'rollNote', { ph: 'fire damage' }))) + bRow(bChk(P + 'healRoll', 'The roll heals me'), bChk(P + 'selfDmg', 'The roll hurts me')) +
+    bRow(bF('Targets make a save', bSel(P + 'saveAb', hbbAbOpts, { label: 'Save ability' })), bF('Save DC', bIn(P + 'dc', { ph: '15, or spell' }))) +
+    bRow(bF('Heal yourself', bIn(P + 'heal', { ph: '2d4+2' })), bF('Temp HP', bIn(P + 'temp', { ph: '1d10' }))) +
+    bRow(bF('Spends', bSel(P + 'costFrom', [['', 'Nothing']].concat(res), { label: 'Spends' })), hbbV(P + 'costFrom') ? bF('How many', bIn(P + 'costN', { num: 1, ph: '1' })) : '', bF('Recovers a spell slot up to', bIn(P + 'refuel', { num: 1, ph: 'level' }))) + bChk(P + 'dash', 'Lets you Dash', 'Adds your speed to this turn’s movement'));
+  h += bSec('eff', '✨', 'Starts an effect', hbbV(P + 'effName') ? hbbV(P + 'effName') : 'A buff that lasts a while', hbbEffFields(P));
+  if (comps.length) h += bSec('sum', '🐾', 'Summons a creature', hbbV(P + 'summon') || 'A companion', bF('Summons', bSel(P + 'summon', [['', '—']].concat(comps.map(c => [c, c])), { label: 'Summons' })));
+  h += bSec('sp', '📜', 'Spells it lets you cast', (d.spells || []).join(', ') || 'None', hbbSpellList() + bRow(bChk('spellOnce', 'Leveled spells once per long rest'), bChk('spellAtWill', 'At will (no slot)')) + bF('Cast with', bSel(P + 'spellAb', [['', 'Your spellcasting'], ...AB.map(a => [a, ABN[a]])], { label: 'Cast with' })));
+  if (t !== 'weapon') h += bSec('atk', '🗡', 'Gives you an attack', hbbV(P + 'atkName') || 'A special attack', hbbAtkFields(P));
+  h += bSec('curse', '☠', 'Drawbacks', hbbSum([[P + 'othersDis', 'Cursed'], [P + 'hurtSave', 'Save when hurt']]) || 'Curses and side effects',
+    bChk(P + 'othersDis', 'Cursed: disadvantage on attacks with other weapons') + bRow(bF('When you take damage, make a save', bSel(P + 'hurtSave', hbbAbOpts, { label: 'Save when hurt' })), bF('DC', bIn(P + 'hurtDC', { ph: '15' }))) + bF('If you fail', bIn(P + 'hurtText', { ph: 'What happens' })));
+  h += bSec('misc', '⚙', 'Carrying, attunement & reminders', hbbSum([['attune', 'Attunement'], ['carried', 'Works while carried'], [P + 'triggerOn', 'Reminder']]) || 'Weight, cost, attunement',
+    bRow(bF('Weight (lb)', bIn('weight', { num: 1 })), bF('Cost', bIn('cost', { ph: '50 gp' }))) + bRow(bChk('attune', 'Requires attunement'), bChk('carried', 'Works while carried', 'No need to equip it')) + bRow(bF('Remind me', bSel(P + 'triggerOn', [['', '—'], ['longRest', 'After a long rest'], ['shortRest', 'After a short rest'], ['initiative', 'When I roll initiative'], ['zero', 'When I drop to 0 HP']], { label: 'Remind me' })), bF('Only works while (effect)', bIn(P + 'onlyEffect', { ph: 'effect name' }))));
+  return h;
+}
+const hbbEffFields = P => bRow(bF('Effect name', bIn(P + 'effName', { ph: 'Frost Aura' })), bF('Lasts', bSel(P + 'effRounds', hbbDurs, { label: 'Lasts' }))) +
+  bRow(bF('Fly speed', bIn(P + 'effFly', { ph: '30' })), bF('AC bonus', bIn(P + 'effAc', { ph: '2' })), bF('Extra speed', bIn(P + 'effSpeed', { ph: '10' }))) +
+  bF('Advantage on (skills)', bIn(P + 'effSkillAdv', { ph: 'Perception, Stealth' })) + bF('Note shown on the effect', bIn(P + 'effNote', { ph: 'What it does' })) + bChk(P + 'effConc', 'Needs concentration');
+const hbbAtkFields = P => bRow(bF('Attack name', bIn(P + 'atkName', { ph: 'Frost Lance' })), bF('Damage', bIn(P + 'atkDice', { ph: '1d8+prof' })), bF('Type', bSel(P + 'atkType', [['', '—']].concat(hbbTypes()), { label: 'Attack damage type' }))) +
+  bF('Roll to hit with', bSeg(P + 'atkAb', [['spell', 'Spellcasting'], ['str', 'STR'], ['dex', 'DEX'], ['fin', 'Best of STR/DEX'], ['con', 'CON'], ['int', 'INT'], ['wis', 'WIS'], ['cha', 'CHA']], { wrap: true })) +
+  bRow(bF('Kind', bSeg(P + 'atkKind', [['melee', 'Melee'], ['ranged', 'Ranged']])), bF('Range (ft)', bIn(P + 'atkRange', { ph: '60' }))) + bChk(P + 'atkAddMod', 'Add the ability modifier to damage') + bF('Note', bIn(P + 'atkNote', { ph: 'only while…' }));
+function hbbSpellList() {
+  const sp = HBB.d.spells || [];
+  return `<div class="hbb-spl">${sp.map((n, j) => `<span class="pchip">${esc(n)}<button type="button" data-hbbspdel="${j}" aria-label="Remove ${esc(n)}">✕</button></span>`).join('') || '<span class="hint">None yet</span>'}</div><input class="f" list="allspells" data-hbbspadd placeholder="+ Add a spell…" aria-label="Add a spell">`;
+}
+function hbbSaveItem() {
+  const d = HBB.d, t = d._type; d.name = String(d.name || '').trim() || (t === 'weapon' ? 'Homebrew weapon' : 'Homebrew item');
+  d.hbType = t; const h = d.hb;
+  let ammo = '';
+  if (t === 'weapon') {
+    const props = hbCSV(d._props).map(x => x.toLowerCase()); if (d._kind === 'ranged' && d._ammo) props.push('ammunition'); if (d._kind === 'ranged' && d._loading) props.push('loading');
+    const rng = d._kind === 'ranged' ? [d._rn, d._rl].filter(x => N(x)).join('/') : props.includes('thrown') ? ((d.weapon || {}).range || '20/60') : '';
+    d.weapon = Object.assign({}, d.weapon, { cat: d._cat || 'martial', kind: d._kind, dice: Math.max(1, N(d._dn) || 1) + 'd' + (d._dd || '6'), type: d._dt || '', props, range: rng });
+    if (!d.weapon.base) d.weapon.base = d.name;
+    d.noEquip = !d._eqOnly; h.consume = false; ammo = d._kind === 'ranged' ? d._ammo : '';
+  } else { delete d.weapon; delete d.noEquip; h.consume = t === 'consumable'; }
+  if (t !== 'weapon' && N(d._uses) > 0) d.charges = { max: N(d._uses), used: Math.min(N((d.charges || {}).used), N(d._uses)), reset: d._reset || 'long' }; else if (t !== 'weapon') delete d.charges;
+  if (t === 'consumable') d.qty = Math.max(0, N(d.qty) || (HBB.isNew ? 1 : 0));
+  // A usable item needs something to show when used: its description (kept in step with it unless you write your own reminder).
+  if (t !== 'weapon' && (h.col || d.charges || h.consume) && (!String(h.text || '').trim() || h.textAuto)) { h.text = String(d.notes || '').trim().slice(0, 400) || 'You use ' + d.name + '.'; h.textAuto = 1; }
+  if (t === 'weapon' && h.textAuto) { delete h.text; delete h.textAuto; }
+  const keep = d._keep, ab = d._ab, mag = N(d._mag);
+  Object.keys(d).filter(k => k[0] === '_').forEach(k => delete d[k]);
+  Object.keys(h).forEach(k => { if (h[k] === '' || h[k] == null || h[k] === false) delete h[k]; }); if (!Object.keys(h).length) delete d.hb;
+  let i = HBB.idx;
+  if (HBB.isNew) { d.id = d.id || uid(); S.inventory.push(d); i = S.inventory.length - 1; } else S.inventory[i] = d;
+  // its attack row
+  const at = S.attacks.findIndex(a => a.item === d.id);
+  if (t === 'weapon') {
+    const w = d.weapon, base = attackFromItem(d); Object.assign(base, { ab, magic: mag, prof: true, ammo, notes: [base.notes, d.hb && d.hb.col && d.hb.col !== 'action' ? ({ bonus: 'bonus action', reaction: 'reaction', move: 'uses movement', '': 'no action' })[d.hb.col] : ''].filter(Boolean).join(' · ') });
+    if (at >= 0) S.attacks[at] = Object.assign({}, S.attacks[at], base); else S.attacks.push(base);
+    void w;
+  } else if (at >= 0) S.attacks = S.attacks.filter(a => a.item !== d.id);
+  const made = HBB.isNew; pendingLabel = (made ? 'Create homebrew item: ' : 'Edit homebrew item: ') + d.name;
+  HBB = null; closeModal(true); rebuildAuto(); save();
+  if (keep) saveCustomItem(i); else render();
+  if (!keep && made) toast(`<b>${esc(d.name)}</b> added to your inventory${t === 'weapon' && !d.noEquip ? ' — equip it to attack with it' : ''}.`);
+}
+
+// ----- Features -----
+function hbbFeatBasic() {
+  const d = HBB.d;
+  let h = bF('Name', bIn('name', { ph: 'e.g. Stormborn Fury', cls: 'hbb-name', label: 'Feature name' }));
+  h += bF('Using it takes', bSeg('col', hbbUseCols('Nothing (always on)'), { wrap: true }));
+  h += `<div class="hbb-card"><div class="hbb-ct">↻ Uses</div>` + bF('How often can you use it?', bSeg('_limited', [['', 'As often as I like'], ['1', 'A limited number of times']]));
+  if (d._limited) h += bRow(bF('Times', bIn('max', { ph: '1, prof, 1+cha…', label: 'How many times' }), 'A number, or a formula like <code>prof</code> or <code>1+wis</code>'), bF('Comes back on', bSeg('reset', [['short', 'Short rest'], ['long', 'Long rest'], ['none', 'Never']])));
+  h += `</div>`;
+  h += bF('What it does', bTa('desc', { rows: 2, ph: 'Describe it — shown on its card and on the Combat tab' }));
+  return h;
+}
+function hbbFeatAdv() {
+  const d = HBB.d, P = 'hb.', comps = typeof COMP_RULES === 'object' ? Object.keys(COMP_RULES) : [];
+  const res = S.features.filter(f => f !== S.features[HBB.idx] && featMax(f) != null).map(f => [f.dname || f.name, f.dname || f.name]);
+  let h = '';
+  h += bSec('use', '⚡', 'When you use it', hbbSum([[P + 'roll', 'Rolls ' + hbbV(P + 'roll')], [P + 'heal', 'Heals'], [P + 'temp', 'Temp HP'], [P + 'saveAb', 'Save'], [P + 'dash', 'Dash'], [P + 'costFrom', 'Costs']]) || 'Rolls, healing, saves, costs',
+    bRow(bF('Roll', bIn(P + 'roll', { ph: '2d6+wis' })), bF('What the roll is', bIn(P + 'rollNote', { ph: 'radiant damage' }))) + bRow(bChk(P + 'healRoll', 'The roll heals me'), bChk(P + 'selfDmg', 'The roll hurts me')) +
+    bRow(bF('Targets make a save', bSel(P + 'saveAb', hbbAbOpts, { label: 'Save ability' })), bF('Save DC', bIn(P + 'dc', { ph: 'spell, or 8+prof+wis' }))) +
+    bRow(bF('Heal yourself', bIn(P + 'heal', { ph: '1d8+level' })), bF('Temp HP', bIn(P + 'temp', { ph: 'cha+level' }))) +
+    bRow(bF('Also spends', bSel(P + 'costFrom', [['', 'Nothing']].concat(res), { label: 'Also spends' })), hbbV(P + 'costFrom') ? bF('How many', bIn(P + 'costN', { num: 1, ph: '1' })) : '') + bChk(P + 'dash', 'Lets you Dash') + bF('Message when used', bIn(P + 'text', { ph: 'A reminder of what happens' })));
+  h += bSec('eff', '✨', 'Starts an effect', hbbV(P + 'effName') || 'A buff that lasts a while', hbbEffFields(P));
+  h += bSec('always', '🛡', 'Always on', hbbSum([[P + 'resist', 'Resist ' + (hbbV(P + 'resist') || '')], [P + 'immune', 'Immune'], [P + 'ac', 'AC'], [P + 'speed', 'Speed'], [P + 'fly', 'Fly'], [P + 'sense'], [P + 'skillBonus'], [P + 'maxHp', 'Max HP']]) || 'Resistances, speeds, bonuses',
+    bF('Resistant to', bChips(P + 'resist', DND.damageTypes)) + bF('Immune to', bChips(P + 'immune', DND.damageTypes)) + bF('Can’t be', bChips(P + 'condImmune', HBB_CONDS)) +
+    bRow(bF('AC bonus', bIn(P + 'ac', { ph: '1' })), bF('Extra speed', bIn(P + 'speed', { ph: '10' })), bF('Fly', bIn(P + 'fly', { ph: 'walk' })), bF('Swim', bIn(P + 'swim', { ph: 'walk' })), bF('Climb', bIn(P + 'climb', { ph: 'walk' }))) +
+    bRow(bF('Senses', bIn(P + 'sense', { ph: 'Darkvision 60 ft' })), bF('Skill bonuses', bIn(P + 'skillBonus', { ph: 'Insight +2' }))) + bRow(bF('Saves bonus', bIn(P + 'saveAll', { ph: '1' })), bF('Initiative bonus', bIn(P + 'init', { ph: 'wis' })), bF('Max HP bonus', bIn(P + 'maxHp', { ph: 'level' }))) +
+    bRow(bChk(P + 'initAdv', 'Advantage on initiative'), bF('Only while (effect)', bIn(P + 'whileEffect', { ph: 'Rage' }))) + bF('Advantage on (a reminder)', bIn(P + 'adv', { ph: 'Saves against poison; …' })));
+  h += bSec('atk', '🗡', 'Gives you an attack', hbbV(P + 'atkName') || 'A special attack', hbbAtkFields(P));
+  if (comps.length) h += bSec('sum', '🐾', 'Summons a creature', hbbV(P + 'summon') || 'A companion', bF('Summons', bSel(P + 'summon', [['', '—']].concat(comps.map(c => [c, c])), { label: 'Summons' })));
+  h += bSec('sp', '📜', 'Spells it gives you', (d.spells || []).join(', ') || 'None', hbbSpellList() + bRow(bChk('spellOnce', 'Once per long rest each'), bChk('spellAtWill', 'At will (no slot)')));
+  h += bSec('more', '⚙', 'More', hbbSum([['pool', 'Points pool'], [P + 'triggerOn', 'Reminder'], [P + 'onlyEffect', 'Only while ' + hbbV(P + 'onlyEffect')], ['full', 'Own wording']]) || 'Points pool, reminders, full wording',
+    bRow(bChk('pool', 'It’s a pool of points', 'Spend any number at a time, like Lay on Hands'), bF('Remind me', bSel(P + 'triggerOn', [['', '—'], ['longRest', 'After a long rest'], ['shortRest', 'After a short rest'], ['initiative', 'When I roll initiative'], ['zero', 'When I drop to 0 HP']], { label: 'Remind me' }))) +
+    bF('Only works while (effect)', bIn(P + 'onlyEffect', { ph: 'effect name' })) + bF('Full wording (replaces the description when you read it)', bTa('full', { rows: 4, ph: 'Optional' })));
+  return h;
+}
+function hbbSaveFeat() {
+  const d = HBB.d; d.name = String(d.name || '').trim() || 'Homebrew feature';
+  if (!d._limited) { d.max = ''; d.pool = false; }
+  if (!d.reset) d.reset = 'long';
+  const h = d.hb; Object.keys(h).forEach(k => { if (h[k] === '' || h[k] == null || h[k] === false) delete h[k]; }); if (!Object.keys(h).length) delete d.hb;
+  Object.keys(d).filter(k => k[0] === '_').forEach(k => delete d[k]);
+  if (HBB.isNew) { d.source = d.source || 'Custom'; S.features.push(d); UI.featFilter = 'all'; } else S.features[HBB.idx] = d;
+  pendingLabel = (HBB.isNew ? 'Create feature: ' : 'Edit feature: ') + d.name;
+  HBB = null; closeModal(true); rebuildAuto(); save(); render();
+}
+
+// ----- Spells -----
+function hbbSpellBasic() {
+  const d = HBB.d, w = d._what, rows = clsRows();
+  let h = bF('Name', bIn('name', { ph: 'e.g. Tidal Lash', cls: 'hbb-name', label: 'Spell name' }));
+  h += bF('Level', bSeg('level', [['0', 'Cantrip']].concat([1, 2, 3, 4, 5, 6, 7, 8, 9].map(L => [String(L), ORD[L - 1]])), { wrap: true }));
+  h += bF('Casting time', bSeg('_time', [['1 action', 'Action'], ['1 bonus action', 'Bonus action'], ['1 reaction', 'Reaction'], ['1 minute', '1 minute'], ['10 minutes', '10 minutes'], ['1 hour', '1 hour'], ['other', 'Other…']], { wrap: true }) + (d._time === 'other' ? bIn('_timeX', { ph: '8 hours', label: 'Casting time' }) : ''));
+  h += bRow(bF('Range', bIn('range', { ph: '60 feet, Self, Touch' })), bF('Duration', bIn('duration', { ph: 'Instantaneous, 1 minute…' })));
+  h += bRow(bChk('conc', 'Concentration'), bChk('ritual', 'Ritual'));
+  h += bF('Components', `<div class="hbb-comps">${bChk('_v', 'V', 'Spoken')}${bChk('_s', 'S', 'Gestures')}${bChk('_m', 'M', 'A material')}</div>` + (d._m ? bIn('_mat', { ph: 'a pinch of sea salt', label: 'Material' }) : ''));
+  h += bF('What does it do?', bSeg('_what', [['dmg', 'Damage', '💥'], ['heal', 'Healing', '❤'], ['other', 'Something else', '✦']], { big: true }));
+  if (w === 'dmg') {
+    h += `<div class="hbb-card"><div class="hbb-ct">💥 Damage</div>` + bRow(bF('Damage dice', hbbDice('_dn', '_dd')), bF('Damage type', bSel('hb.type', [['', 'Choose…']].concat(hbbTypes()), { label: 'Damage type' })));
+    h += bF('How it hits', bSeg('hb.hit', [['attack', 'Spell attack roll'], ['save', 'Saving throw'], ['auto', 'It just hits']]));
+    if (hbbV('hb.hit') === 'save') h += bRow(bF('Save', bSeg('hb.save', AB.map(a => [a.toUpperCase(), a.toUpperCase()]))), bChk('hb.half', 'Half damage on a success'));
+    h += N(d.level) > 0 ? bF('Cast with a higher slot: extra dice per level', hbbDice('_un', '_ud'), 'Leave blank if it doesn’t get stronger') : bChk('hb.scale', 'Gets stronger as you level', 'More dice at levels 5, 11 and 17, like Fire Bolt');
+    h += `</div>`;
+  }
+  if (w === 'heal') {
+    h += `<div class="hbb-card"><div class="hbb-ct">❤ Healing</div>` + bRow(bF('Healing dice', hbbDice('_dn', '_dd')), bChk('hb.healMod', 'Add my spellcasting modifier'));
+    if (N(d.level) > 0) h += bF('Cast with a higher slot: extra dice per level', hbbDice('_un', '_ud'), 'Leave blank if it doesn’t get stronger');
+    h += `</div>`;
+  }
+  h += bF('Cast as', bSel('cls', rows.map(r => [r.key, clsName(r.key)]).concat([['race', 'Racial'], ['feat', 'Feat'], ['item', 'Item'], ['other', 'Other']]), { label: 'Class' }));
+  h += bF('What it does', bTa('summary', { rows: 2, ph: 'Describe the spell — shown on its card and on the Combat tab' }));
+  return h;
+}
+function hbbSpellAdv() {
+  const P = 'hb.';
+  let h = bSec('roll', '🎲', 'Rolls', hbbSum([[P + 'crit', 'Crits on ' + hbbV(P + 'crit')], [P + 'missHalf', 'Half on a miss'], [P + 'backlash', 'Backlash']]) || 'Crits, misses, backlash',
+    bRow(bF('Crits on', bIn(P + 'crit', { num: 1, ph: '20' })), bChk(P + 'missHalf', 'Half damage on a miss'))
+    + bRow(bF('Backlash after the first cast', bIn(P + 'backlash', { ph: '1d10+slot' })), bF('Backlash type', bSel(P + 'backlashType', [['', '—']].concat(hbbTypes()), { label: 'Backlash type' }))));
+  h += bSec('more', '⚙', 'More', hbbSum([['school'], ['always', 'Always prepared'], ['item', 'Needs an item'], ['full', 'Own wording']]) || 'School, item, full wording',
+    bRow(bF('School', bSel('school', [['', '—'], ...['Abjuration', 'Conjuration', 'Divination', 'Enchantment', 'Evocation', 'Illusion', 'Necromancy', 'Transmutation'].map(x => [x, x])], { label: 'School' })), bChk('always', 'Always prepared')) +
+    bF('Needs an item to cast', bSel('item', [['', '— none —']].concat(S.inventory.map(it => [it.id, it.name])), { label: 'Needs item' })) + bF('Full wording', bTa('full', { rows: 4, ph: 'Optional — the complete description' })));
+  return h;
+}
+function hbbSaveSpell() {
+  const d = HBB.d, h = d.hb; d.name = String(d.name || '').trim() || 'Homebrew spell';
+  d.level = Math.max(0, Math.min(9, N(d.level)));
+  d.time = d._time === 'other' ? (String(d._timeX || '').trim() || '1 action') : d._time;
+  d.comps = [d._v ? 'V' : '', d._s ? 'S' : '', d._m ? 'M' + (String(d._mat || '').trim() ? ' (' + String(d._mat).trim() + ')' : '') : ''].filter(Boolean).join(', ');
+  h.what = d._what;
+  const dice = Math.max(1, N(d._dn) || 1) + 'd' + (d._dd || '8'), up = N(d._un) > 0 ? N(d._un) + 'd' + (d._ud || d._dd) : '';
+  if (d._what === 'dmg') { h.dmg = dice; h.hit = h.hit || 'attack'; delete h.heal; delete h.healMod; delete h.healUp; if (d.level > 0) h.up = up; else delete h.up; if (h.hit !== 'save') { delete h.save; delete h.half; } else h.save = h.save || 'DEX'; }
+  else if (d._what === 'heal') { h.heal = dice; h.healUp = d.level > 0 ? up : ''; ['dmg', 'type', 'hit', 'save', 'half', 'up', 'scale'].forEach(k => delete h[k]); }
+  else ['dmg', 'type', 'hit', 'save', 'half', 'up', 'scale', 'heal', 'healMod', 'healUp'].forEach(k => delete h[k]);
+  // No description written: a short one from what it does (also what the spell list shows as its effect).
+  if (!String(d.summary || '').trim() || (d.sumAuto && d.summary === d._sum0)) { d.summary = h.dmg ? `${h.hit === 'attack' ? 'Spell attack' : h.hit === 'save' ? h.save + ' save' + (h.half ? ' (half on a success)' : '') : 'Hits automatically'}, ${h.dmg}${h.type ? ' ' + h.type : ''}${h.up ? '; +' + h.up + ' per slot level above ' + ORD[d.level - 1] : ''}` : h.heal ? `Heals ${h.heal}${h.healMod ? ' + your spellcasting modifier' : ''}${h.healUp ? '; +' + h.healUp + ' per slot level above ' + ORD[d.level - 1] : ''}` : ''; d.sumAuto = !!d.summary; } else d.sumAuto = false;
+  Object.keys(h).forEach(k => { if (h[k] === '' || h[k] == null || h[k] === false) delete h[k]; });
+  Object.keys(d).filter(k => k[0] === '_').forEach(k => delete d[k]);
+  if (HBB.isNew) { S.spells.push(d); S.spellFilter = 'all'; } else S.spells[HBB.idx] = d;
+  pendingLabel = (HBB.isNew ? 'Create spell: ' : 'Edit spell: ') + d.name;
+  HBB = null; closeModal(true); rebuildAuto(); save(); render();
+}
+
+// ----- Wiring -----
+document.addEventListener('input', e => { const t = e.target; if (!HBB || !t.closest || !t.closest('#hbb')) return;
+  if (t.dataset.hbb != null && t.type !== 'checkbox' && t.tagName !== 'SELECT') hbbSet(HBB.d, t.dataset.hbb, t.value); });
+document.addEventListener('change', e => { const t = e.target; if (!HBB || !t.closest || !t.closest('#hbb')) return;
+  if (t.matches('[data-hbbadv]')) { HBB.adv = t.checked; return hbbPaint(); }
+  if (t.matches('[data-hbbspadd]')) { const v = t.value.trim(), sp = v && DND.spells.find(x => x.name.toLowerCase() === v.toLowerCase()); if (!sp) { if (v) toast('Pick a spell from the list.'); return; } HBB.d.spells = (HBB.d.spells || []).filter(n => n !== sp.name).concat([sp.name]); return hbbPaint(); }
+  if (t.dataset.hbb == null) return;
+  hbbSet(HBB.d, t.dataset.hbb, t.type === 'checkbox' ? t.checked : t.value);
+  if (t.tagName === 'SELECT' || t.type === 'checkbox' || /^_uses$|^hb\.costFrom$/.test(t.dataset.hbb)) hbbPaint(); });
+document.addEventListener('click', e => { if (!HBB) return; const b = e.target.closest && e.target.closest('#hbb [data-hbbseg], #hbb [data-hbbchip], #hbb [data-hbbsec], #hbb [data-hbbspdel], #hbb [data-hbbsave]'); if (!b) return;
+  e.preventDefault();
+  if (b.dataset.hbbseg) { hbbSet(HBB.d, b.dataset.hbbseg, b.dataset.v); if (b.dataset.hbbseg === '_dd' && !HBB.d._un) HBB.d._ud = b.dataset.v; return hbbPaint(); }
+  if (b.dataset.hbbchip) { const p = b.dataset.hbbchip, v = b.dataset.v, have = hbCSV(hbbV(p) || ''), on = have.some(x => x.toLowerCase() === v.toLowerCase()); hbbSet(HBB.d, p, (on ? have.filter(x => x.toLowerCase() !== v.toLowerCase()) : have.concat([v.toLowerCase()])).join(', ')); return hbbPaint(); }
+  if (b.dataset.hbbsec) { HBB.sec[b.dataset.hbbsec] = !HBB.sec[b.dataset.hbbsec]; return hbbPaint(); }
+  if (b.dataset.hbbspdel != null) { (HBB.d.spells || []).splice(N(b.dataset.hbbspdel), 1); return hbbPaint(); }
+  if (b.hasAttribute('data-hbbsave')) { const k = HBB.kind; if (k === 'item') hbbSaveItem(); else if (k === 'feat') hbbSaveFeat(); else hbbSaveSpell(); }
+});
+// The homebrew line on an item / feature / spell's edit area: what it does, and the button that opens the builder.
+function hbbOpenRow(kind, idx, hb, it) {
+  const sum = kind === 'spell' ? hbbSpellSum(it) : hbSummary(hb, it);
+  return `<div class="hbbrow"><span class="hbbrow-t"><b>✦ Homebrew</b><small>${sum.length ? esc(sum.join(' · ')) : kind === 'item' ? 'Make it a weapon, give it uses, resistances, spells…' : kind === 'feat' ? 'Give it uses, rolls, effects, resistances…' : 'Set its damage or healing, saves, upcasting…'}</small></span><button class="btn sm gold" data-act="hbbopen" data-k="${kind}" data-i="${idx}">Open builder</button></div>`;
+}
+function hbbSpellSum(sp) { const h = (sp && sp.hb) || {}, o = []; if (h.dmg) o.push(h.dmg + (h.type ? ' ' + h.type : '') + (h.hit === 'save' ? ' · ' + (h.save || 'DEX') + ' save' : h.hit === 'attack' ? ' · spell attack' : '')); if (h.heal) o.push('Heals ' + h.heal + (h.healMod ? ' + mod' : '')); if (h.up || h.healUp) o.push('+' + (h.up || h.healUp) + ' per level'); if (h.crit) o.push('Crits on ' + h.crit); if (h.backlash) o.push('Backlash'); return o; }
 
 
 // ---------- Spellcasting ability for a specific spell ----------

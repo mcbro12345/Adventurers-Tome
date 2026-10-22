@@ -359,11 +359,11 @@ function inspHTML(mini) {
   // One at a time: the badge itself is the switch — tap the star to fill it, tap again to spend it.
   const use = n ? `<button class="insp-use${mini ? ' mini' : ''}" data-act="inspuse" title="Reroll your last attack, check or save, or have advantage on the next one">Use</button>` : '';
   if (mx === 1) return `<button class="insp one${mini ? ' mini' : ''}${n ? ' on' : ''}" data-act="insp" data-d="${n ? -1 : 1}" aria-pressed="${!!n}" title="${n ? 'Inspired — tap to spend it' : 'Tap when you gain Inspiration'}">
-    <span class="insp-c"><b class="insp-n">${n ? '★' : '☆'}</b><span class="insp-l">Inspiration</span></span></button>${use}`;
+    <span class="insp-c"><b class="insp-n">${n ? '★' : '☆'}</b><span class="insp-l">Inspiration</span></span></button>`.replace(/^/, use ? `<div class="insp-grp${mini ? ' mini' : ''}">` : '') + (use ? use + '</div>' : '');
   return `<div class="insp${mini ? ' mini' : ''}${n ? ' on' : ''}" title="Inspiration${mx === 1 ? ' (one at a time)' : ''}">
     <button class="insp-b" data-act="insp" data-d="-1" ${n ? '' : 'disabled'} aria-label="Spend Inspiration">−</button>
     <span class="insp-c"><b class="insp-n">${mx === 1 ? (n ? '★' : '☆') : n}</b><span class="insp-l">Inspiration</span></span>
-    <button class="insp-b" data-act="insp" data-d="1" ${n >= mx ? 'disabled' : ''} aria-label="Gain Inspiration">+</button></div>${use}`;
+    <button class="insp-b" data-act="insp" data-d="1" ${n >= mx ? 'disabled' : ''} aria-label="Gain Inspiration">+</button></div>`.replace(/^/, use ? `<div class="insp-grp${mini ? ' mini' : ''}">` : '') + (use ? use + '</div>' : '');
 }
 // Use Inspiration: reroll the last attack / check / save, or keep it as advantage on the next one (shown with your
 // active effects until that roll uses it up).
