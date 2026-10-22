@@ -402,7 +402,7 @@ function renderHeader() {
   $('#sec-header').innerHTML = `
   <div class="banner-row"><div class="portrait-wrap"><img id="portraitImg" src="${esc(pic)}" alt="${esc((S.name || 'Character') + '’s portrait')}">
     <label class="portrait-edit" tabindex="0" data-act="portrait">Change portrait</label></div>${inspHTML()}</div>
-  <div class="ident"><h1 class="sr-only">${esc(S.name || 'Character sheet')}</h1>
+  <div class="ident${idf ? '' : ' noid'}"><h1 class="sr-only">${esc(S.name || 'Character sheet')}</h1>
     <div class="ident-top">
       <img class="mini-portrait" src="${esc(pic)}" alt="" data-act="portrait">
       <div class="namebox">${ST('showName') ? inp('name', { cls: 'name', label: 'Character name', ph: 'Character name', fit: 10 }) : ''}
@@ -684,6 +684,21 @@ function profsHTML() {
     ${bad.length ? `<p class="warn sm">Wearing ${esc(bad.join(', '))} without proficiency: disadvantage on STR/DEX checks, saves and attacks, and no spellcasting.</p>` : ''}</div>`;
 }
 // The detailed editor shown in the Manage window.
+// Resistances and immunities you add yourself (a boon, a curse, a DM ruling) — alongside the ones your race, features,
+// items and spells already give, which are listed here with where they come from.
+const DEF_DMG = ['Acid', 'Bludgeoning', 'Cold', 'Fire', 'Force', 'Lightning', 'Necrotic', 'Piercing', 'Poison', 'Psychic', 'Radiant', 'Slashing', 'Thunder', 'Nonmagical bludgeoning, piercing and slashing'];
+const DEF_COND = ['Blinded', 'Charmed', 'Deafened', 'Disease', 'Exhaustion', 'Frightened', 'Grappled', 'Incapacitated', 'Paralyzed', 'Petrified', 'Poisoned', 'Prone', 'Restrained', 'Stunned', 'Unconscious', 'Magical sleep'];
+function defManageHTML() {
+  const md = S.manualDef || { resist: [], immune: [] }, d = defensesDetail();
+  const given = (arr, kind) => arr.filter(e => !(e.src.length === 1 && e.src[0] === 'Added by you')).map(e => `<span class="pchip given" title="From ${esc(e.src.filter(x => x !== 'Added by you').join(', ') || 'your sheet')}">${esc(e.t)}<small>${esc(e.src.filter(x => x !== 'Added by you').join(', '))}</small></span>`).join('');
+  const mine = (list, kind) => list.map((t, i) => `<span class="pchip">${esc(t)}<button data-act="defdel" data-kind="${kind}" data-i="${i}" aria-label="Remove ${esc(t)}">✕</button></span>`).join('');
+  const sel = (id, label, opts, have) => `<select class="f addsel" id="${id}" aria-label="${esc(label)}"><option value="">+ ${esc(label)}…</option>${opts.filter(o => !have.some(h => h.toLowerCase() === o.toLowerCase())).map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select>`;
+  return `<section class="pmsec"><h4>Resistances &amp; immunities</h4><p class="hint">Ones from your race, features, items and spells are added automatically (shown with where they come from). Add any others here — a boon, a curse, something your DM gave you. Damage you take uses all of them.</p>
+      <div class="defrow"><b>Resistant</b><div class="ptogs">${given(d.resist) || ''}${mine(md.resist || [], 'resist') || ''}${!d.resist.length && !(md.resist || []).length ? '<span class="hint">None</span>' : ''}</div></div>
+      <div class="ptogs" style="margin:6px 0 10px">${sel('addResist', 'Add a resistance', DEF_DMG, md.resist || [])}</div>
+      <div class="defrow"><b>Immune</b><div class="ptogs">${given(d.immune) || ''}${mine(md.immune || [], 'immune') || ''}${!d.immune.length && !(md.immune || []).length ? '<span class="hint">None</span>' : ''}</div></div>
+      <div class="ptogs" style="margin-top:6px">${sel('addImmune', 'Add an immunity', DEF_DMG.concat(DEF_COND), md.immune || [])}</div></section>`;
+}
 function profsManageInner() {
   const P = S.profs, bad = armorNonProf();
   const tog = (act, v, on, label, sub) => `<button class="ptog big${on ? ' on' : ''}" data-act="${act}" data-v="${v}" aria-pressed="${on}"><span class="pt-check">${on ? '✓' : ''}</span><span><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</span></button>`;
@@ -707,6 +722,7 @@ function profsManageInner() {
     <section class="pmsec"><h4>Tools</h4><p class="hint">Choose the ability each tool rolls with. Expertise doubles your proficiency bonus.</p>
       <div class="tools">${tools || '<span class="hint">No tool proficiencies.</span>'}</div>
       <div class="ptogs" style="margin-top:8px">${addSel('addTool', 'Add a tool', ALL_TOOLS().filter(n => !(S.tools || []).some(t => t.name === n)))}${other('tool', 'Other tool…')}</div></section>
+    ${defManageHTML()}
     <section class="pmsec"><h4>Languages</h4>
       <div class="ptogs">${langs || '<span class="hint">None</span>'}</div>
       <div class="ptogs" style="margin-top:8px">${addSel('addLang', 'Add a language', ALL_LANGS().filter(n => !(S.langs || []).includes(n)))}${other('lang', 'Other language…')}</div></section>
@@ -730,12 +746,12 @@ function renderCore() {
       ${s.note ? `<span class="sknote">${esc(s.note)}</span>` : ''}</div>`).join('');
   $('#page-core').innerHTML = `
   <div class="core">
-    <div class="panel" ${PID('abilities')}><h2><span class="grow">Abilities &amp; Saves</span><button class="btn sm" data-act="manageabil">Manage</button></h2><div class="abilities" data-zone="abil">${abil}</div>
+    <div class="panel" ${PID('abilities')}><h2><span class="grow">Abilities &amp; Saves</span><button class="tmanage tmanage-in" data-act="manageabil">Manage</button></h2><div class="abilities" data-zone="abil">${abil}</div>
       <p class="hint" style="margin:10px 0 0">Tap any bonus to roll it. Conditions like poisoned or exhaustion apply to your rolls automatically.${auraBonus() ? ' Saves include your Aura of Protection.' : ''}</p></div>
-    <div class="panel" ${PID('skills')}><h2><span class="grow">Skills</span><button class="btn sm" data-act="manageskills">Manage</button></h2><div class="skills">${skills}</div>
+    <div class="panel" ${PID('skills')}><h2><span class="grow">Skills</span><button class="tmanage tmanage-in" data-act="manageskills">Manage</button></h2><div class="skills">${skills}</div>
       <div class="passive"><span><span class="ciw">Passive Perception${ciBtn('passive', 'passive Perception')}</span></span><span data-calc="passive"></span></div></div>
     <div class="stack col3">
-      <div class="panel" ${PID('profs')}><h2><span class="grow">Proficiencies &amp; Languages</span><button class="btn sm" data-act="manageprofs">Manage</button></h2>${profsHTML()}</div>
+      <div class="panel" ${PID('profs')}><h2><span class="grow">Proficiencies &amp; Languages</span><button class="tmanage tmanage-in" data-act="manageprofs">Manage</button></h2>${profsHTML()}</div>
     </div>
   </div>`;
 }

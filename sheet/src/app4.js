@@ -289,6 +289,7 @@ function mainClick(e) {
     case 'pwdel': { const n = S.profs.weaponNames.splice(i, 1)[0]; pendingLabel = 'Remove proficiency: ' + n; save(); render(); break; }
     case 'toolexp': S.tools[i].exp = !S.tools[i].exp; pendingLabel = (S.tools[i].exp ? 'Expertise: ' : 'Proficient: ') + S.tools[i].name; save(); render(); break;
     case 'tooldel': { const n = S.tools.splice(i, 1)[0]; pendingLabel = 'Remove tool: ' + n.name; save(); render(); toast(`Removed ${esc(n.name)}.`, '', 5000, { label: 'Undo', fn: () => undo(1) }); break; }
+    case 'defdel': { const k = b.dataset.kind === 'immune' ? 'immune' : 'resist'; const md = S.manualDef || {}; const n = (md[k] || []).splice(i, 1)[0]; if (n == null) break; pendingLabel = (k === 'resist' ? 'Remove resistance: ' : 'Remove immunity: ') + n; save(); openProfs(); render('core'); break; }
     case 'langdel': { const n = S.langs.splice(i, 1)[0]; pendingLabel = 'Remove language: ' + n; save(); render(); toast(`Removed ${esc(n)}.`, '', 5000, { label: 'Undo', fn: () => undo(1) }); break; }
     case 'manageprofs': openProfs(); break;
     case 'booksedit': UI.open.booksedit = !UI.open.booksedit; saveUI(); reopenSettings(); break;

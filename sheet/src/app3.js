@@ -1078,6 +1078,7 @@ function onField(e) {
     pendingLabel = 'Edit: Armor class'; save(); refresh(); return;
   }
   if (t.dataset.hpmax !== undefined) { if (t.value === '') return; const extra = maxHp() - baseMaxHp(); S.hp.adj = N(t.value) - extra - hpMaxCalc(); pendingLabel = 'Edit: Max HP'; save(); refresh(); return; }
+  if (t.id === 'addResist' || t.id === 'addImmune') { const v = t.value; t.value = ''; if (!v) return; const k = t.id === 'addResist' ? 'resist' : 'immune'; S.manualDef = S.manualDef || { resist: [], immune: [] }; S.manualDef[k] = (S.manualDef[k] || []).concat([v]); pendingLabel = (k === 'resist' ? 'Add resistance: ' : 'Add immunity: ') + v; save(); openProfs(); render('core'); return; }
   if (['addWeapon', 'addTool', 'addLang'].includes(t.id)) { const v = t.value; t.value = ''; if (!v) return; const kind = { addWeapon: 'weapon', addTool: 'tool', addLang: 'lang' }[t.id]; if (v === '__other') { openModal(`<h3>Add ${kind === 'lang' ? 'a language' : kind === 'tool' ? 'a tool' : 'a weapon'}</h3>${fld('Name', '<input class="f" id="otherIn" autofocus>')}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="otherok" data-k="${kind}">Add</button></div>`); return; } addProf(kind, v); return; }
   if (t.id === 'featQ') { UI.featQ = t.value; clearTimeout(window._fq); window._fq = setTimeout(() => { render('features'); const e = $('#featQ'); if (e) { e.focus(); e.setSelectionRange(e.value.length, e.value.length); } }, 250); return; }
   if (t.dataset.set !== undefined) return setSetting(t);

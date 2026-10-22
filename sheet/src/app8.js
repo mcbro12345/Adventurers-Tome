@@ -107,7 +107,7 @@ function fxRollExpr(expr) {
 let _fxpKey = '', _fxp = [];
 function fxPassives() {
   const key = JSON.stringify(S.inventory.filter(it => it.resPick).map(it => [hbItemOn(it), it.resPick])) + '|' + JSON.stringify(S.inventory.filter(it => it.infusion).map(it => [hbItemOn(it), it.attuned, it.infusion.name, it.infusion.choice])) + '|' + JSON.stringify(S.features.map(f => f.hb || 0)) + '|' + JSON.stringify(S.inventory.filter(it => it.hb).map(it => [hbItemOn(it), it.hb])) + '|' + S.features.length + '|' + S.conditions.join() + '|' + (S.effects || []).map(e => e.name).join() + '|' + S.concentration + '|' + totalLevel() + '|' + JSON.stringify(S.picks || {}) + '|' + S.features.map(f => f.name).join();
-  if (key === _fxpKey) return _fxp;
+  const mdKey = JSON.stringify(S.manualDef || null); if (key + mdKey === _fxpKey) return _fxp;
   const out = [], raging = S.conditions.includes('Raging');
   S.features.forEach(f => {
     const fx = fxOf(f), own = f.cls ? clsLv(f.cls) : lvl();
@@ -125,7 +125,9 @@ function fxPassives() {
   // Homebrew item effects (resistances, speeds, AC…) while the item is in use
   infPassives().forEach(p => out.push(p));
   S.inventory.forEach(it => { if (!hbItemOn(it)) return; const fx = hbFx(it.hb); if (fx && fx.passive) [].concat(fx.passive).forEach(x => { if (x.effect && !fxActive().some(e => e.name === x.effect)) return; out.push(Object.assign({ src: it.name, item: it.id }, x)); }); });
-  _fxpKey = key; _fxp = out; return out;
+  { const md = S.manualDef || {}, cn = DEF_COND.map(c => c.toLowerCase()), im = md.immune || [];
+    if ((md.resist || []).length || im.length) out.push({ src: 'Added by you', resist: (md.resist || []).map(t => t.toLowerCase()), immune: im.filter(t => !cn.includes(t.toLowerCase())).map(t => t.toLowerCase()), condImmune: im.filter(t => cn.includes(t.toLowerCase())) }); }
+  _fxpKey = key + mdKey; _fxp = out; return out;
 }
 const fxSkillBonus = name => fxPassives().filter(p => p.skillBonus && p.skillBonus[name]).map(p => [p.src, N(p.skillBonus[name])]);
 const fxSum = (k, filter) => fxPassives().filter(p => p[k] != null && (!filter || filter(p))).reduce((t, p) => t + (typeof p[k] === 'number' ? p[k] : p[k] === 'attuned' ? attunedCount() : N(evalMax(p[k]))), 0);

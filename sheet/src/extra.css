@@ -3357,3 +3357,12 @@ html.mwin .modal-bg > .modal { overflow-x: hidden; }
 html.mwin .modal:has(.setx) { height: min(calc(100vh - 40px), 840px); }
 /* windows turn slightly see-through while dragged, like the dice roller */
 .win-moving { opacity: .95; }
+.defrow { display: grid; grid-template-columns: 82px 1fr; gap: 8px; align-items: start; margin-top: 6px; }
+.defrow > b { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--soft); padding-top: 6px; }
+.pchip.given { opacity: .9; border-style: dashed; } .pchip.given small { margin-left: 6px; color: var(--soft); font-size: .72rem; font-weight: 500; }
+/* When the header shows only the name (no Player / Race / Background… fields), the name block sits centred beside the portrait */
+.ident.noid .ident-grid { display: none; }
+html:not(.mobile) #sec-header:has(> .ident.noid) { align-items: center; }
+html:not(.mobile) .ident.noid { align-self: center; }
+/* every Manage button looks like the small one on the Hit Points panel */
+.tmanage.tmanage-in { position: static; margin-left: auto; flex: none; align-self: center; }
