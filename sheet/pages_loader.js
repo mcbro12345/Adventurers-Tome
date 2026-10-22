@@ -2427,7 +2427,7 @@ function hub(fs, auth, G, ctx) {
       const live = log.find(n => !n.endedAt) || null;
       const ppl = all.filter(u => counted(u.id)), seenWho = n => ppl.filter(u => u.noticeSeen === n.id).map(u => u.id), seenOf = n => seenWho(n).length,
         // how many it went to, not counting you or the Claude account (older notices counted everyone; they're adjusted)
-        sentOf = n => n.counted ? (n.sent || 0) : Math.max(0, (n.sent || 0) - (all.length - ppl.length)), seenPast = n => n.seenBy ? n.seenBy.filter(counted).length : (n.seen || 0), gotOf = n => all.filter(u => u.notice && u.notice.id === n.id);
+        sentOf = n => !n.endedAt ? ppl.length /* the live notice reaches everyone, including accounts made after it went out */ : n.counted ? (n.sent || 0) : Math.max(0, (n.sent || 0) - (all.length - ppl.length)), seenPast = n => n.seenBy ? n.seenBy.filter(counted).length : (n.seen || 0), gotOf = n => all.filter(u => u.notice && u.notice.id === n.id);
       const stat = n => n.endedAt ? n.ended === 'revoked' ? 'Revoked' : 'Replaced' : 'Live';
       const row = n => `<tr><td>${when(n.at)}</td><td class="nt-txt">${esc(String(n.text || '').slice(0, 240))}${String(n.text || '').length > 240 ? '…' : ''}</td><td>${esc(n.byName || n.by || '')}</td><td><button class="linkbtn nt-seen" data-ntseen="${esc(n.id)}" title="Who’s seen it">${n.endedAt ? seenPast(n) : seenOf(n)} / ${sentOf(n)}</button></td><td><span class="adm-tag">${stat(n)}</span>${n.endedAt ? `<small class="adm-dim"> ${when(n.endedAt)}</small>` : ''}</td><td class="nt-acts"><button class="adm-btn sm" data-ntpv="${esc(n.id)}">Preview</button><button class="adm-btn sm" data-ntcp="${esc(n.id)}">Copy</button></td></tr>`;
       el.innerHTML = `<div class="adm-stats"><div class="adm-stat"><small>Goes to</small><b>${ppl.length}</b></div>${live ? `<button class="adm-stat nt-seenstat" data-ntseen="${esc(live.id)}" title="Who’s seen it"><small>Current notice seen by</small><b>${seenOf(live)} / ${sentOf(live)}</b></button>` : ''}</div>
@@ -2463,7 +2463,7 @@ function hub(fs, auth, G, ctx) {
       // Who's seen a notice (and, while it's out, who hasn't yet)
       el.querySelectorAll('[data-ntseen]').forEach(b => b.onclick = () => { const n = log.find(x => x.id === b.dataset.ntseen); if (!n) return;
         const who = n.endedAt ? n.seenBy : seenWho(n);
-        whoSeen(all, n.text, who, n.endedAt ? null : gotOf(n).map(u => u.id).filter(id => !(who || []).includes(id) && id !== EMAIL), who ? '' : 'This notice ended before the list of who saw it was kept: ' + seenPast(n) + ' people saw it.'); });
+        whoSeen(all, n.text, who, n.endedAt ? null : ppl.map(u => u.id).filter(id => !(who || []).includes(id)), who ? '' : 'This notice ended before the list of who saw it was kept: ' + seenPast(n) + ' people saw it.'); });
       const rv = el.querySelector('#nt-rv');
       if (rv) rv.onclick = async () => { if (!await ask('Revoke this notice?', 'It disappears for everyone who hasn’t seen it yet (and closes if it’s on their screen). It stays in the log.', 'Revoke', true)) return;
         rv.disabled = true; try { await end(live, 'revoked'); pgLog('notice_revoke', { target: 'everyone', tName: 'everyone', detail: live.text }); toast('Notice revoked.'); } catch (x) { toast('Couldn’t revoke it: ' + ((x && (x.code === 'permission-denied' ? 'the new database rules need publishing' : x.message)) || x)); } if (TAB === 'notice') tabNotice(); };
