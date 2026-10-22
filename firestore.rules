@@ -210,6 +210,14 @@ service cloud.firestore {
           && request.resource.data.at is number;
         allow delete: if chatter() && (resource.data.by == me() || resource.data.at < request.time.toMillis() - 43200000 || resource.data.at <= partyOf(p).get('chatClear', 0));
       }
+      // Typing and read receipts: one doc per character, written only by that character's player; players read them.
+      match /typing/{c} {
+        allow read: if chatter();
+        allow create, update: if chatter() && c in partyOf(p).chars && ownsSheet(c) && request.resource.data.by == me() && request.resource.data.c == c
+          && request.resource.data.keys().hasOnly(['by', 'c', 'n', 'pp', 'pc', 'pk', 't', 'r']) && request.resource.data.t is number && request.resource.data.r is number
+          && request.resource.data.n is string && request.resource.data.n.size() <= 60 && request.resource.data.get('pp', '').size() <= 60000 && request.resource.data.get('pc', '').size() <= 20;
+        allow delete: if chatter();
+      }
       // Whispers (/whisper or /w, and /r to reply): one player's character to another's. Only the two of them can read it.
       match /whisper/{m} {
         allow read: if signedIn() && (resource.data.by == me() || resource.data.toEm == me());

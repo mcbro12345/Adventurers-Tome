@@ -3468,3 +3468,12 @@ html.mobile body.wizopen #modal.open, html.mobile body.wizopen #modal.closing { 
 .hbb-read { border: 1px dashed var(--line); border-radius: 10px; padding: 8px 12px; margin: 0 0 12px; background: var(--panel2); }
 .hbb-read ul { margin: 6px 0 4px; padding: 0; list-style: none; display: grid; gap: 3px; font-size: .88rem; }
 .hbb-read li.warn { color: var(--gold-ink); }
+/* party chat: iMessage-style typing bubble and read receipts */
+.ptyc-typing { align-items: center; animation: ptycIn .18s ease-out; }
+.ptyc-dots { display: inline-flex; gap: 4px; align-items: center; padding: 9px 12px; border-radius: 16px 16px 16px 4px; background: var(--panel); border: 1px solid var(--line); }
+.ptyc-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--soft); opacity: .45; animation: ptycDot 1.2s infinite ease-in-out; }
+.ptyc-dots i:nth-child(2) { animation-delay: .18s; } .ptyc-dots i:nth-child(3) { animation-delay: .36s; }
+@keyframes ptycDot { 0%, 60%, 100% { transform: translateY(0); opacity: .45; } 30% { transform: translateY(-4px); opacity: 1; } }
+@keyframes ptycIn { from { opacity: 0; transform: translateY(4px) scale(.96); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ptyc-dots i, .ptyc-typing { animation: none; } }
+.ptyc-rr { align-self: flex-start; font-size: .68rem; font-weight: 600; color: var(--soft); margin: -3px 0 2px 42px; }

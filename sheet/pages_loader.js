@@ -189,6 +189,24 @@ function pgPillWire(el) { let st = null;
   new MutationObserver(ms => ms.forEach(m => { const t = m.target; if (t.classList && (t.classList.contains('open') || t.classList.contains('on'))) t.querySelectorAll(WIN).forEach(w => { w.style.translate = ''; }); else if (t.matches && t.matches(WIN) && m.type === 'childList') t.style.translate = ''; }))
     .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], subtree: true });
 })();
+// Windows always stay fully on screen: when the browser window shrinks (or a window grows, or one is dropped past an
+// edge) it's pushed back in, keeping as much of where you put it as fits. Phones use their own full-width sheets.
+(() => { if (window.__pgKeep) return; window.__pgKeep = 1;
+  const WINS = '#modal.open #modal-body, .hub-modal.on > .hub-card, .pg-out-card, #pg-msg .pgm-card, .wizard.open .wz-card, #pcwin, #drwin, #towin, #pgturn, .dk .drwin, .dk-modal.open .dk-mcard';
+  const M = 6, moving = el => el.matches('.win-moving, .dk-moving, .moving, .dragging, .closing') || document.body.classList.contains('win-dragging');
+  const keep = el => { if (!el.offsetParent && getComputedStyle(el).position !== 'fixed') return; const r = el.getBoundingClientRect(); if (!r.width || !r.height || moving(el)) return;
+    const W = innerWidth, H = innerHeight; let dx = 0, dy = 0;
+    // (one too big for the screen that way is left alone in that direction: it scrolls instead)
+    if (r.width <= W - 2 * M) { if (r.right > W - M) dx = W - M - r.right; if (r.left + dx < M) dx = M - r.left; }
+    if (r.height <= H - 2 * M) { if (r.bottom > H - M) dy = H - M - r.bottom; if (r.top + dy < M) dy = M - r.top; }
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+    const cs = getComputedStyle(el);
+    if (cs.position === 'fixed' && el.style.left && el.style.top && !el.style.translate) { el.style.left = Math.round(parseFloat(cs.left) + dx) + 'px'; el.style.top = Math.round(parseFloat(cs.top) + dy) + 'px'; }
+    else { const t = (el.style.translate || '0px 0px').split(' ').map(parseFloat); el.style.translate = `${Math.round((t[0] || 0) + dx)}px ${Math.round((t[1] || 0) + dy)}px`; } };
+  const all = () => { if (innerWidth <= 640 || document.documentElement.classList.contains('mobile')) return; document.querySelectorAll(WINS).forEach(el => { try { keep(el); } catch (e) {} }); };
+  let raf = 0; const soon = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(all); };
+  addEventListener('resize', soon); addEventListener('pointerup', () => setTimeout(all, 30), true); setInterval(all, 700);
+  window.pgKeepWindows = all; })();
 // Desktop: the site's pop-ups (lobby, party page, admin) are floating windows like the dice roller and chat: a title bar
 // to drag and a ✕, with the page behind still usable.
 const pgMwDesk = () => innerWidth > 640 && !document.documentElement.classList.contains('mobile');
@@ -1130,7 +1148,13 @@ function wireDie(root) {
     CHAT.filter(m => Number(m.at) <= cl).forEach(m => pc.collection('chat').doc(m.id).delete().catch(() => {}));
     Object.values(WH).filter(w => Number(w.at) <= cl && (w.by === EMAIL || w.toEm === EMAIL)).forEach(w => pc.collection('whisper').doc(w.id).delete().catch(() => {}));
     if (window.onPartyChatList) { try { window.onPartyChatList(); } catch (e) {} } }
-  function chatStop() { if (unChat) unChat(); unChat = null; unW.forEach(u => u()); unW = []; WH = {}; chatPid = ''; CHAT = []; }
+  // typing and read receipts: one small doc per character (parties/<id>/typing/<char>) with when they last typed (t) and
+  // the newest message they've seen (r). Readable by the players only, like the chat; nothing about it is logged.
+  let TYP = {}, unTyp = null, myTyp = { t: 0, r: 0, sentT: 0 };
+  const typRef = () => chatPid && C ? PCOL.doc(chatPid).collection('typing').doc(C) : null;
+  const typWrite = patch => { const ref = typRef(); if (!ref || OWNER !== EMAIL) return; const av = avaOf(ME), pp = String(av.pic || '');
+    ref.set(Object.assign({ by: EMAIL, c: C, n: String(NAME || 'Someone').slice(0, 60), pp: pp.length <= 60000 ? pp : '', pc: String(av.color || '').slice(0, 20), pk: !!av.clear, t: myTyp.t, r: myTyp.r }, patch), { merge: true }).catch(() => {}); };
+  function chatStop() { if (unChat) unChat(); unChat = null; if (unTyp) unTyp(); unTyp = null; TYP = {}; myTyp = { t: 0, r: 0, sentT: 0 }; unW.forEach(u => u()); unW = []; WH = {}; chatPid = ''; CHAT = []; }
   function chatStart(pid, pd) { if (!chatOK(pd)) { if (chatPid) { chatStop(); ptyChanged(); } return; } if (chatPid === pid) return; chatStop(); chatPid = pid; chatFirst = true;
     const cc = PCOL.doc(pid).collection('chat'), cut = Date.now() - CHAT_TTL;
     cc.where('at', '<', cut).limit(100).get().then(qs => qs.docs.forEach(d => d.ref.delete().catch(() => {})), () => {});
@@ -1143,7 +1167,9 @@ function wireDie(root) {
       qs.docChanges().forEach(ch => { const d = Object.assign({ id: ch.doc.id, w: 1 }, ch.doc.data()); if (ch.type === 'removed') { delete WH[d.id]; return; } if (Number(d.at) < old) { if (d.by === EMAIL || d.toEm === EMAIL) ch.doc.ref.delete().catch(() => {}); return; } if (ch.type === 'added' && !WH[d.id]) fresh.push(d); WH[d.id] = d; });
       if (wFirst[field]) fresh.forEach(d => { if (d.to === C && d.c !== C && OWNER === EMAIL && window.onPartyChat) { try { window.onPartyChat(d); } catch (e) {} } }); wFirst[field] = true;
       if (window.onPartyChatList) { try { window.onPartyChatList(); } catch (e) {} } }, () => {});
-    unW = [wOn('toEm', EMAIL), wOn('by', EMAIL)]; }
+    unW = [wOn('toEm', EMAIL), wOn('by', EMAIL)];
+    unTyp = PCOL.doc(pid).collection('typing').onSnapshot(qs => { TYP = {}; qs.docs.forEach(d => { TYP[d.id] = d.data(); }); if (TYP[C] && TYP[C].by === EMAIL) myTyp.r = Math.max(myTyp.r, Number(TYP[C].r) || 0);
+      if (window.onPartyChatTyping) { try { window.onPartyChatTyping(); } catch (e) {} } }, () => {}); }
   // ----- The party's turn order on a player's sheet: opens when the DM opens theirs, follows every change, and closes
   // when they close it. Your own character's initiative can be typed in (or comes in when you roll it); only the DM
   // sorts and moves the turn on. -----
@@ -1174,7 +1200,13 @@ function wireDie(root) {
   window.PG_PARTY = {
     // an initiative roll goes to the DM's turn order (picked up even when it isn't open)
     init: v => { if (!PTY || PTY.loading || PTY.seeded || role() === 'view') return Promise.resolve(); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} return PCOL.doc(PTY.id).collection('init').doc(C).set({ v: Number(v) || 0, at: Date.now(), n: String(nm).slice(0, 120) }).catch(() => {}); },
-    chat: { on: () => !!unChat, canSend: () => OWNER === EMAIL, me: () => { const a = avaOf(ME); return { name: NAME, pic: String(a.pic || ''), color: String(a.color || ''), clear: !!a.clear }; }, list: () => CHAT.concat(Object.values(WH).filter(w => w.to === C || w.c === C)).filter(m => Number(m.at) > chatCut()).sort((a, b) => Number(a.at) - Number(b.at)), mine: m => m.c === C,
+    chat: { on: () => !!unChat, canSend: () => OWNER === EMAIL,
+      // typing(true) while there's text in the box (refreshed every few seconds), typing(false) when it's sent or cleared
+      typing: on => { if (!unChat || OWNER !== EMAIL) return; const now = Date.now(); if (on) { if (now - myTyp.sentT < 3000) return; myTyp.t = now; myTyp.sentT = now; typWrite({ t: now }); } else if (myTyp.t) { myTyp.t = 0; myTyp.sentT = 0; typWrite({ t: 0 }); } },
+      // read(at): you've seen everything up to that message
+      read: at => { at = Number(at) || 0; if (!unChat || OWNER !== EMAIL || at <= myTyp.r) return; myTyp.r = at; clearTimeout(myTyp.rt); myTyp.rt = setTimeout(() => typWrite({ r: myTyp.r }), 600); },
+      // everyone else in the chat: who's typing right now, and how far each has read
+      others: () => Object.values(TYP).filter(x => x && x.c !== C && x.by !== EMAIL && (PTY && (PTY.chars || []).includes(x.c))), me: () => { const a = avaOf(ME); return { name: NAME, pic: String(a.pic || ''), color: String(a.color || ''), clear: !!a.clear }; }, list: () => CHAT.concat(Object.values(WH).filter(w => w.to === C || w.c === C)).filter(m => Number(m.at) > chatCut()).sort((a, b) => Number(a.at) - Number(b.at)), mine: m => m.c === C,
       // to: a character id in the party for a whisper (only you and that character's player see it)
       send: (t, to) => { t = String(t || '').trim().slice(0, 1000); if (!t || !unChat) return Promise.reject(new Error('Not in the chat')); if (OWNER !== EMAIL) return Promise.reject(new Error('Only this character’s player can send messages from it.')); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {}
         // the chat shows people as themselves: their name and account picture go with each message

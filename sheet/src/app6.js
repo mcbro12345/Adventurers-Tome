@@ -452,7 +452,8 @@ function fitSettingsHeight() {
   const m = $('#modal-body'), sx = $('.setx'); if (!m || !sx) return;
   m.style.removeProperty('--seth');
   const panes = $$('.setx .stpane'); let tallest = 0;
-  panes.forEach(p => { const was = p.style.cssText; p.style.cssText = 'display:block;position:absolute;visibility:hidden;left:0;right:0;top:0'; tallest = Math.max(tallest, p.scrollHeight); p.style.cssText = was; });
+  const pw = sx.clientWidth - (parseFloat(getComputedStyle(sx).paddingLeft) || 0) - (parseFloat(getComputedStyle(sx).paddingRight) || 0); // measured at the width it really shows at, so wrapped lines count
+  panes.forEach(p => { const was = p.style.cssText; p.style.cssText = `display:block;position:absolute;visibility:hidden;left:0;top:0;width:${pw}px;box-sizing:border-box`; tallest = Math.max(tallest, p.getBoundingClientRect().height, p.scrollHeight); p.style.cssText = was; });
   const chrome = m.getBoundingClientRect().height - sx.getBoundingClientRect().height;  // header, tabs and padding
   const cap = isMobile() ? 0.88 * innerHeight : innerHeight - 32;
   m.style.setProperty('--seth', Math.ceil(Math.min(cap, chrome + tallest + 4)) + 'px');

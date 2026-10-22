@@ -795,12 +795,22 @@ function ptyChatWho(m) { const x = ptyMembers().find(y => y.id === m.c) || {}, o
 function ptyChatAva(w) { const ini = String(w.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join('');
   // a see-through picture shows as-is, with no circle or border (like in the lobby)
   const st = w.clear && w.thumb ? '' : /^#[0-9a-f]{3,8}$/i.test(w.acc || '') ? ` style="border-color:${w.acc}${w.bg && !w.thumb ? ';background:' + w.bg + ';color:#fff' : ''}"` : ''; return `<span class="ptyc-ava${w.clear && w.thumb ? ' clear' : ''}"${st}>${w.thumb ? `<img src="${esc(w.thumb)}" alt="">` : esc(ini)}</span>`; }
+// iMessage-style extras: "Read by …" under your newest message, and a bubble with bouncing dots while someone's typing.
+const PTY_TYPING_MS = 7000;
+function ptyChatTypers() { const ch = PTYX() && PTYX().chat; if (!ch || !ch.others) return []; const now = Date.now(); return ch.others().filter(o => Number(o.t) && now - Number(o.t) < PTY_TYPING_MS).slice(0, 3); }
+function ptyChatReceipt(L) { const ch = PTYX().chat; if (!ch.others) return ''; let k = L.length - 1; while (k >= 0 && !ch.mine(L[k])) k--; if (k < 0) return ''; const m = L[k];
+  const t = x => new Date(Number(x)).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const oth = ch.others();
+  if (m.w) { const o = oth.find(x => x.c === m.to); return { k, html: o && Number(o.r) >= Number(m.at) ? `Read ${t(o.r)}` : 'Delivered' }; }
+  const rd = oth.filter(x => Number(x.r) >= Number(m.at)), nm = rd.map(x => esc(String(x.n || 'Someone').split(/\s+/)[0]));
+  return { k, html: !rd.length ? 'Delivered' : rd.length === 1 ? `Read by ${nm[0]} ${t(rd[0].r)}` : rd.length === oth.length && oth.length > 2 ? 'Read by everyone' : 'Read by ' + (nm.length === 2 ? nm.join(' and ') : nm.slice(0, -1).join(', ') + ' and ' + nm[nm.length - 1]) }; }
+function ptyChatTypingHTML() { return ptyChatTypers().map(o => `<div class="ptyc ptyc-typing" aria-live="polite">${ptyChatAva({ name: o.n, thumb: /^(data:image\/|https:\/\/)/.test(o.pp || '') ? o.pp : '', acc: /^#[0-9a-f]{3,8}$/i.test(o.pc || '') ? o.pc : '', bg: /^#[0-9a-f]{3,8}$/i.test(o.pc || '') ? o.pc : '', clear: !!o.pk })}<div class="ptyc-dots" title="${esc(o.n || 'Someone')} is typing" aria-label="${esc(o.n || 'Someone')} is typing"><i></i><i></i><i></i></div></div>`).join(''); }
 function ptyChatList() { const ch = PTYX() && PTYX().chat; const L = ch ? ch.list().slice(-80) : [];
-  if (!L.length) return '<p class="hint" style="margin:0">No messages yet.</p>';
-  let prev = null;
-  return L.map(m => { const me = ch.mine(m), w = ptyChatWho(m), same = prev && prev.c === m.c && !!prev.w === !!m.w && prev.to === m.to && m.at - prev.at < 5 * 60e3; prev = m;
+  if (!L.length) return '<p class="hint" style="margin:0">No messages yet.</p>' + ptyChatTypingHTML();
+  let prev = null; const rc = ptyChatReceipt(L);
+  return L.map((m, idx) => { const me = ch.mine(m), w = ptyChatWho(m), same = prev && prev.c === m.c && !!prev.w === !!m.w && prev.to === m.to && m.at - prev.at < 5 * 60e3; prev = m;
     const tag = m.w ? `<em class="ptyc-wh">${me ? 'whisper to ' + esc(m.toN || 'them') : 'whispers to you'}</em>` : '';
-    return `<div class="ptyc${me ? ' me' : ''}${m.w ? ' wh' : ''}${same ? ' cont' : ''}">${same ? '<span class="ptyc-ava sp"></span>' : ptyChatAva(w)}<div class="ptyc-b">${same ? '' : `<span class="ptyc-n">${esc(w.name)}${tag}<small>${new Date(m.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</small></span>`}<span class="ptyc-t">${esc(m.t)}</span></div></div>`; }).join(''); }
+    return `<div class="ptyc${me ? ' me' : ''}${m.w ? ' wh' : ''}${same ? ' cont' : ''}">${same ? '<span class="ptyc-ava sp"></span>' : ptyChatAva(w)}<div class="ptyc-b">${same ? '' : `<span class="ptyc-n">${esc(w.name)}${tag}<small>${new Date(m.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</small></span>`}<span class="ptyc-t">${esc(m.t)}</span></div></div>${rc && rc.k === idx ? `<div class="ptyc-rr">${rc.html}</div>` : ''}`; }).join('') + ptyChatTypingHTML(); }
 // Who a name at the start of the text means: the longest party character name it starts with (or a first name).
 // Who a name at the start of the text means: a party player's name (or their character's), longest match first, then a first name.
 // Two players with the same name (or one player with two characters) are told apart as "Name (Character)": the list fills
@@ -822,7 +832,7 @@ function ptyChatSubmit() {
     if (PTY_WCMDS.includes(cmd)) { const [who, msg] = ptyChatTarget(m[2]); if (who === 'dup') { toast('More than one player goes by that name — pick them from the list (it adds their character’s name).', 'fumble'); i.value = '/' + cmd + ' '; i.focus(); ptyChatAC(); return; } if (!who) { toast('Who to? Type a party character’s name after /' + cmd + '.', 'fumble'); return; } if (!msg) { toast('Type your message after the name.', 'fumble'); return; } to = who.id; t = msg; }
     else if (PTY_RCMDS.includes(cmd)) { const last = ptyChatLastFrom(); if (!last) { toast('No one to reply to yet.', 'fumble'); return; } if (!m[2].trim()) { toast('Type your reply after /' + cmd + '.', 'fumble'); return; } to = last.c; t = m[2].trim(); }
     else { toast(`Unknown command /${esc(cmd)}. Try /whisper (or /w) and /r.`, 'fumble'); return; } }
-  const keep = i.value; i.value = ''; ptyChatAC(); ptyChatBottom(); PTY_STICK = Date.now();
+  const keep = i.value; i.value = ''; ptyChatAC(); ptyChatBottom(); PTY_STICK = Date.now(); if (PTYX().chat.typing) PTYX().chat.typing(false);
   // after a whisper, keep the box ready for the next one to the same person
   if (to) { const w = ptyMembers().find(x => x.id === to); if (w && m && PTY_WCMDS.includes(m[1].toLowerCase())) i.value = '/' + m[1].toLowerCase() + ' ' + ptyWName(w) + ' '; }
   PTYX().chat.send(t, to).catch(x => { i.value = keep; toast('Couldn’t send: ' + esc(x.message || x), 'fumble'); });
@@ -843,6 +853,9 @@ function ptyChatACPick(k) { const x = PTY_AC.items[k], i = $('#ptychat-in'); if 
 function ptyChatWireAC() {
   const i = $('#ptychat-in'), box = $('#ptychat-ac'); if (!i || !box) return;
   i.addEventListener('input', ptyChatAC);
+  // typing indicator: only for the party chat (not commands or whispers), refreshed while you keep typing
+  const typ = () => { const ch = PTYX() && PTYX().chat; if (!ch || !ch.typing) return; const v = i.value.trim(); ch.typing(!!v && !v.startsWith('/')); };
+  i.addEventListener('input', typ); i.addEventListener('blur', () => { const ch = PTYX() && PTYX().chat; if (ch && ch.typing) ch.typing(false); }); i.addEventListener('focus', typ);
   i.addEventListener('keydown', e => { if (box.hidden || !PTY_AC.items.length) return;
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); PTY_AC.k = (PTY_AC.k + (e.key === 'ArrowDown' ? 1 : -1) + PTY_AC.items.length) % PTY_AC.items.length; box.querySelectorAll('.ac-i').forEach((b, k) => b.classList.toggle('on', k === PTY_AC.k)); }
     else if (e.key === 'Tab' || (e.key === 'Enter' && PTY_AC.items[PTY_AC.k] && PTY_AC.items[PTY_AC.k].fill.trim() !== i.value.trim())) { e.preventDefault(); ptyChatACPick(PTY_AC.k); }
@@ -870,7 +883,13 @@ function ptyUnreadMark() { setTimeout(() => { if (typeof mtabSync === 'function'
   // shown the moment chat is there; only hidden once the page has had a few seconds to connect
   if (on || Date.now() - PCHAT_T0 > 6000) { document.documentElement.classList.toggle('pchat', on); try { localStorage.setItem(PCHAT_KEY(), on ? '1' : '0'); } catch (e) {} }
   { const cb = document.querySelector('.devbtn.chatbtn'); if (cb) { const n = $('#pcwin') ? 0 : PTY_UNREAD; cb.classList.toggle('unread', n > 0); if (n > 0) cb.dataset.unread = n > 9 ? '9+' : n; else delete cb.dataset.unread; } }
+  ptyChatSeen();
   const t = document.querySelector('.tab[data-tab="party"]'); if (!t) return; if ((UI.tab === 'party' || $('#pcwin')) && !document.hidden) PTY_UNREAD = 0; t.classList.toggle('unread', PTY_UNREAD > 0); if (PTY_UNREAD > 0) t.dataset.unread = PTY_UNREAD > 9 ? '9+' : PTY_UNREAD; else delete t.dataset.unread; }
+// read receipts: the chat on screen (Party tab or its window, page in front) counts as having read the newest message
+function ptyChatSeen() { const ch = PTYX() && PTYX().chat; if (!ch || !ch.read || !ch.on() || document.hidden || !$('#ptychat-l') || !(UI.tab === 'party' || $('#pcwin'))) return; const L = ch.list(); for (let k = L.length - 1; k >= 0; k--) if (!ch.mine(L[k])) { ch.read(L[k].at); break; } }
+// someone started or stopped typing, or read something: redraw the list (staying at the bottom if you were there)
+window.onPartyChatTyping = () => { const l = $('#ptychat-l'); if (!l) return; const end = !ptyChatAway(l), h = ptyChatList(); if (l._h === h) return; l._h = h; l.innerHTML = h; if (end) l.scrollTop = l.scrollHeight; };
+setInterval(() => { const l = $('#ptychat-l'); if (l && l.querySelector('.ptyc-typing')) window.onPartyChatTyping(); }, 2000); // a typing bubble goes away if they stop without sending
 setInterval(ptyUnreadMark, 1500); document.addEventListener('visibilitychange', ptyUnreadMark);
 window.onPartyChat = m => { const here = !document.hidden && $('#ptychat-l') && (UI.tab === 'party' || $('#pcwin')); if (here) return; PTY_UNREAD++; ptyUnreadMark(); ptyChatPop(m); };
 // A party chat message gets its own card in the corner: who sent it (their picture, in their sheet's colour), the
