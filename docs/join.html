@@ -2903,7 +2903,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022185350', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.b728c39fa383.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.dbf844d106ce.html", "desk": "a/desk.1dfc6c020af7.js", "deskcss": "a/deskcss.a22ed732de5c.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022185706', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.b728c39fa383.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.dbf844d106ce.html", "desk": "a/desk.1dfc6c020af7.js", "deskcss": "a/deskcss.a22ed732de5c.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -3082,7 +3082,7 @@ function wireDie(root) {
   const EMAIL = (user.email || '').toLowerCase(), IS_OWNER = user.uid === OWNER_UID;
   let IS_ADMIN = IS_OWNER, ADMINS = [];
   try { const a = await fs.collection('config').doc('admins').get(); ADMINS = ((a.exists && a.data().emails) || []).map(x => String(x).toLowerCase()); if (ADMINS.includes(EMAIL)) IS_ADMIN = true; } catch (e) {}
-  const doSignOut = () => Promise.resolve(window.pgLog && pgLog('signout')).then(() => auth.signOut()).then(() => pgGo(PRETTY ? '/login' : location.href, true));
+  const doSignOut = () => Promise.resolve(window.pgLog && (lsSet('pg-off:' + EMAIL, JSON.stringify({ at: Date.now(), why: 'signout', last: window.pgSeenAt || 0 })), pgLog('signout'))).then(() => auth.signOut()).then(() => pgGo(PRETTY ? '/login' : location.href, true));
   // Signing out always asks first.
   const signOut = () => {
     if (document.querySelector('.pg-out')) return;
@@ -3121,10 +3121,15 @@ function wireDie(root) {
     // seenFg: the last heartbeat from a page that was on screen (the admin Users list shows "background tab" when only hidden tabs are beating).
     // Written separately, so seenAt keeps working even before the database rules allow seenFg.
     window.pgFgAt = (ME && ME.seenFg) || 0;
-    window.pgBeat = (force) => { if (!ME) return; const now = Date.now(), last = window.pgSeenAt || 0, fg = !document.hidden;
+    window.pgBeat = (force) => { if (!ME) return; const now = Date.now(), last = window.pgSeenAt || 0, fg = !document.hidden, fgPrev = window.pgFgAt || 0;
       if (fg && (force || now - (window.pgFgAt || 0) >= 100000)) { window.pgFgAt = now; UREF.update({ seenFg: now }).catch(() => {}); }
       if (!force && now - last < 100000) return;
       const away = !last || now - last > 4 * 60000, first = firstBeat; firstBeat = false; window.pgSeenAt = now; UREF.update({ seenAt: now }).catch(() => {});
+      // …and the time before, when they went offline: logged now if nothing logged it then (a computer that went to sleep
+      // or lost its connection can't say so). How: a close this device noticed, else what their last heartbeat looked like.
+      if (away && !NEWACCT && last && window.pgLogOff) { let mk = null; try { mk = JSON.parse(lsGet('pg-off:' + EMAIL) || 'null'); } catch (e) {}
+        const near = mk && Number(mk.last) === last;
+        if (!(near && mk.why === 'signout')) pgLogOff(near ? Number(mk.at) || last : last, near ? 'by closing the site' : last - fgPrev > 3 * 60000 ? 'when their background tab stopped checking in (browser closed, computer asleep, or the tab was frozen)' : 'without closing the site (lost connection, computer went to sleep, or the browser was shut suddenly)', last); }
       if (away && !NEWACCT && window.pgLog) setTimeout(() => pgLog('online', { detail: first && window.pgSignedIn ? 'by signing in' : pgOnlineWhy(!first, document.hidden) }), first ? 400 : 0); };
     setInterval(() => window.pgBeat(), 30000); document.addEventListener('visibilitychange', () => window.pgBeat()); }
     if (IS_OWNER && ME && ME.owner !== true) UREF.update({ owner: true }).catch(() => {}); // (lets the admin page show who the owner is)
@@ -3135,6 +3140,16 @@ function wireDie(root) {
   // Activity log (admins can read it): who did what, when.
   window.pgLog = (act, f = {}) => { try { const e = { at: Date.now(), by: EMAIL, byName: NAME, act };
     ['target', 'tName', 'detail'].forEach(k => { if (f[k] != null && f[k] !== '') e[k] = String(f[k]).slice(0, 1500); }); return fs.collection('audit').add(e).catch(() => {}); } catch (e) { return Promise.resolve(); } };
+  // Going offline: closing the last tab of the site on this device logs it right away (when the browser lets the write
+  // through); otherwise it's logged when they next come online, at the time of their last heartbeat. One entry per time
+  // offline (its id is made from that heartbeat), whichever writes it first.
+  { const TAB = 'pg-tab:' + Math.random().toString(36).slice(2, 10), tabBeat = () => lsSet(TAB, String(Date.now())); tabBeat(); setInterval(tabBeat, 15000);
+    const others = () => { let n = 0; try { for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (!k || !k.startsWith('pg-tab:') || k === TAB) continue; if (Date.now() - Number(localStorage.getItem(k)) < 45000) n++; else localStorage.removeItem(k); } } catch (e) {} return n; };
+    const offId = last => 'off_' + EMAIL.replace(/[^a-z0-9]/gi, '_').slice(0, 80) + '_' + last;
+    window.pgLogOff = (at, why, last) => fs.collection('audit').doc(offId(last)).set({ at: Number(at) || Date.now(), by: EMAIL, byName: NAME, act: 'offline', detail: String(why).slice(0, 1500) }).catch(() => {});
+    addEventListener('pagehide', () => { try { localStorage.removeItem(TAB); } catch (e) {} if (others() || !ME) return; let mk = null; try { mk = JSON.parse(lsGet('pg-off:' + EMAIL) || 'null'); } catch (e) {}
+      const now = Date.now(), last = window.pgSeenAt || 0; if (mk && mk.why === 'signout' && now - Number(mk.at) < 10000) return;
+      lsSet('pg-off:' + EMAIL, JSON.stringify({ at: now, why: 'closed', last })); if (last) pgLogOff(now, 'by closing the site', last); }); }
   // A fresh sign-in (not just a remembered session) and a brand-new account are logged once.
   let SIGNEDIN = false; try { const ls0 = Date.parse(user.metadata.lastSignInTime || '') || 0, mark = 'pg-signin-logged'; if (Date.now() - ls0 < 180000 && lsGet(mark) !== String(ls0)) { lsSet(mark, String(ls0)); SIGNEDIN = true; pgLog(NEWACCT ? 'account' : 'signin'); } } catch (e) {}
   // Coming online (nothing from them for 4+ minutes): logged with what brought them back, once the page knows its title.
@@ -4553,9 +4568,9 @@ function hub(fs, auth, G, ctx) {
     // --- Audit log ---
     const ACTS = { signin: 'Signed in', account: 'Created their account', signout: 'Signed out', open: 'Opened', create: 'Created', edit: 'Edited', delete: 'Deleted', give: 'Gave away', remove: 'Removed from the lists',
       share: 'Shared', unshare: 'Stopped sharing', access: 'Changed access to', leave: 'Gave up access to', picture: 'Changed their picture',
-      rename_user: 'Renamed', admin_add: 'Made an admin:', admin_remove: 'Removed admin:', user_picture: 'Changed the picture of', user_signout: 'Signed out everywhere:', user_block: 'Blocked', user_unblock: 'Unblocked', user_delete: 'Deleted the account of', message: 'Sent a message to', notice: 'Sent a notice to', notice_revoke: 'Revoked the notice to', notice_edit: 'Edited the notice to', notice_resend: 'Re-sent the notice to', welcome: 'Saved the welcome message for', welcome_off: 'Turned off the welcome message for', welcome_reset: 'Reset the welcome message for', user_reload: 'Refreshed the pages of', online: 'Came online',
+      rename_user: 'Renamed', admin_add: 'Made an admin:', admin_remove: 'Removed admin:', user_picture: 'Changed the picture of', user_signout: 'Signed out everywhere:', user_block: 'Blocked', user_unblock: 'Unblocked', user_delete: 'Deleted the account of', message: 'Sent a message to', notice: 'Sent a notice to', notice_revoke: 'Revoked the notice to', notice_edit: 'Edited the notice to', notice_resend: 'Re-sent the notice to', welcome: 'Saved the welcome message for', welcome_off: 'Turned off the welcome message for', welcome_reset: 'Reset the welcome message for', user_reload: 'Refreshed the pages of', online: 'Came online', offline: 'Went offline',
       party_create: 'Created the party', party_delete: 'Deleted the party', party_chat_clear: 'Cleared the chat of', party_add: 'Added a character to', party_npc: 'Added an NPC to', desk_open: 'Opened the DM’s Desk', party_hb: 'Added a homebrew item to', party_join: 'Joined the party', party_leave: 'Left the party', party_remove: 'Took a character out of', party_invite: 'Invited someone to', party_send: 'Used party actions in', party_access: 'Changed their access to', party_dm: 'Handed over' };
-    const AGROUPS = [['Signing in', ['signin', 'online', 'account', 'signout']], ['Parties', ['party_create', 'party_delete', 'party_add', 'party_npc', 'party_join', 'party_leave', 'party_remove', 'party_invite', 'party_send', 'party_access', 'party_dm', 'party_chat_clear', 'desk_open', 'party_hb']], ['Characters', ['open', 'create', 'edit', 'delete', 'give', 'remove']], ['Sharing', ['share', 'unshare', 'access', 'leave']], ['Pictures', ['picture', 'user_picture']], ['Admin', ['rename_user', 'admin_add', 'admin_remove', 'user_signout', 'user_block', 'user_unblock', 'user_delete', 'message', 'notice', 'notice_resend', 'notice_revoke', 'notice_edit', 'welcome', 'welcome_off', 'welcome_reset', 'user_reload']]];
+    const AGROUPS = [['Signing in', ['signin', 'online', 'offline', 'account', 'signout']], ['Parties', ['party_create', 'party_delete', 'party_add', 'party_npc', 'party_join', 'party_leave', 'party_remove', 'party_invite', 'party_send', 'party_access', 'party_dm', 'party_chat_clear', 'desk_open', 'party_hb']], ['Characters', ['open', 'create', 'edit', 'delete', 'give', 'remove']], ['Sharing', ['share', 'unshare', 'access', 'leave']], ['Pictures', ['picture', 'user_picture']], ['Admin', ['rename_user', 'admin_add', 'admin_remove', 'user_signout', 'user_block', 'user_unblock', 'user_delete', 'message', 'notice', 'notice_resend', 'notice_revoke', 'notice_edit', 'welcome', 'welcome_off', 'welcome_reset', 'user_reload']]];
     const CHAR_ACTS = new Set(['open', 'create', 'edit', 'delete', 'give', 'remove', 'share', 'unshare', 'access', 'leave']);
     let AF = { who: [], act: [], q: '', from: '', to: '', range: '' }, AROWS, AOPEN = {} = [], ALAST = null, AFULL = false, APEOPLE = null;
     const auditCol = fs.collection('audit');
