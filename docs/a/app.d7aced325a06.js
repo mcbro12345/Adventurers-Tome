@@ -1426,6 +1426,7 @@ function d20(label, bonus, kind, ab, rows) {
   const math = mathHTML([d20Math(r, dx, rows || ROLL_ROWS, 'Roll', floorUp ? [`d20 counts as ${fl}`, floorUp] : null)]);
   const note = [rm.mode !== 'normal' ? (rm.mode === 'adv' ? 'Advantage: ' : 'Disadvantage: ') + rm.why.join(', ') : '', bless ? 'Bless +1d4' : '', ex ? `Exhaustion −${ex}` : '', rm.auto ? 'Automatic failure (condition)' : ''].filter(Boolean).join(' · ');
   const n1 = kind === 'attack' && r.d20 === 1 ? nat1Roll() : null;
+  if (['attack', 'save', 'check'].includes(kind)) LAST_D20 = { t: Date.now(), label, bonus, kind, ab, rows, total: r.skipped ? null : r.total };
   toast(`<b class="total">${r.total}</b><div><div>${esc(label)}</div><div class="det dd">${esc(r.detail)}</div>${note ? `<div class="det">${esc(note)}</div>` : ''}${n1 ? `<div class="rc-n1"><b>Nat 1 Roll:</b> ${n1.total}</div>` : ''}${math}</div>`, r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'fumble' : '');
   return r;
 }
@@ -1592,18 +1593,18 @@ function renderVitals() {
   const strip = `<button class="mstrip" data-act="gocore" aria-label="Hit points and armor class — open Core"><span class="ms-hp">♥ <b data-calc="mhp"></b></span><span>AC <b data-calc="acv"></b></span><span>Init <b data-calc="init"></b></span><span>Speed <b data-calc="speed"></b></span><span class="ms-go">Core ›</span></button>`;
   $('#sec-vitals').innerHTML = `${strip}
   <div class="tile hp" data-zi="hp">
-    <span class="lbl">${f ? esc(f.source || 'Form') + ': ' + esc(f.name) : '<span class="ciw">Hit Points' + ciBtn('hp', 'max HP') + '</span>'}</span>
+    <span class="lbl">${f ? esc(f.source || 'Form') + ': ' + esc(f.name) : '<span class="ciw">Hit Points' + ciBtn('hp', 'max HP') + '</span><button class="tmanage hpman hpman-in" data-act="hpmanage">Manage</button>'}</span>
     <div class="hp-wrap">
       <div class="hp-ring"><div class="ring-svg" data-calc-html="hpring"></div>
         <div class="hp-center">${f ? inp('form.hp', { num: 1, cls: 'cur', label: 'Form HP' }) + `<div class="hp-max">of ${N(f.maxhp)}</div>` : `<div class="curline">` + inp('hp.cur', { num: 1, cls: 'cur', label: 'Current HP' }) + `<span class="tmpbadge" data-calc="tmpb" title="Temporary hit points"></span></div><div class="hp-max">of <span class="maxv" data-calc="hpmaxv"></span></div>`}</div></div>
       <div class="hp-side">
         ${f ? `<div class="formnote">Your HP: <b data-calc="truehp"></b> <button class="btn sm" data-act="endform">Revert</button></div>` : ''}
-        <div class="hp-actions"><input class="f" id="hpAmt" type="number" enterkeyhint="done" placeholder="Amount" aria-label="HP amount — press Enter to take damage, Shift+Enter to heal">
+        <div class="hp-actions"><div class="hp-amtrow"><select class="f hptype" id="hpType" aria-label="Damage type (resistances and immunities apply)" title="Damage type: your resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="hpAmt" type="number" enterkeyhint="done" placeholder="Amount" aria-label="HP amount — press Enter to take damage, Shift+Enter to heal"></div>
           <button class="btn red hpi" data-act="dmg" title="Take damage" aria-label="Take damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="heal" title="Heal" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmpbtn" data-act="tmphp" title="Gain temporary HP (they don't stack — the higher stays). 0 clears them." aria-label="Gain temporary HP">${ICON.hpTemp}</button></div>
         <div class="rest-actions"><button class="btn rest short" data-act="short" title="1 hour: spend Hit Dice, refresh short-rest features and Pact slots"><span class="ri">${ICON.hourglass}</span>Short Rest</button><button class="btn rest long" data-act="long" title="8 hours: full HP, all slots, features and Hit Dice"><span class="ri">${ICON.moon}</span>Long Rest</button></div>
       </div>
     </div>
-    ${f ? '' : '<button class="tmanage hpman" data-act="hpmanage">Manage</button>'}
+    
   </div>
   <div class="tile ac" data-zi="ac"><span class="lbl"><span class="ciw top">Armor Class${ciBtn('ac', 'your AC')}</span></span><button class="tmanage" data-act="acmanage">Manage</button><span class="big acv" data-calc="acv"></span><div class="ac-fx" data-calc-html="aceffects"></div></div>
   <div class="tile" data-zi="init"><span class="lbl"><span class="ciw top">Initiative${ciBtn('init', 'initiative')}</span></span>${rollBtn('init', 'Initiative', 'big')}</div>
@@ -2046,13 +2047,10 @@ function renderSpells() {
     const mine = S.spells.filter(x => x.cls === c.key && !x.stored && spReady(x)), byL = {};
     mine.forEach(x => byL[N(x.level)] = (byL[N(x.level)] || 0) + 1);
     const lv = Object.keys(byL).map(Number).sort((a, b) => a - b);
-    return `<div class="sc-slotpanel sc-clspanel"><h3 class="sc-slottitle">${esc(c.name)} <span class="sc-sub">${ABN[c.ab]} · ${kind}</span></h3>
-      <div class="cs-scstats"><div class="cs-scrow">
-        ${lim != null ? `<span class="cs-sc prep-tile" data-prepfor="${c.key}"><small>${c.prepared ? 'Prepared' : 'Known'}</small><b class="big" data-calc="prepct:${c.key}"></b></span>` : ''}
-        ${cl ? `<span class="cs-sc prep-tile" data-cantfor="${c.key}"><small>Cantrips</small><b class="big" data-calc="cantct:${c.key}"></b></span>` : ''}</div></div>
-      ${lv.length ? `<div class="sc-bylv"><span class="sc-bylv-h">Ready to cast</span>${lv.map(L => `<span class="sc-lvchip"><b>${byL[L]}</b> ${L ? ORD[L - 1] : 'cantrip' + (byL[L] > 1 ? 's' : '')}</span>`).join('')}</div>` : ''}
-      <div class="sc-clsbtns">${c.prepared ? `<button class="btn gold" data-act="prepare" data-cls="${c.key}">Prepare spells</button>` : ''}${!c.prepared || c.book ? `<button class="btn ghost" data-act="addspells" data-cls="${c.key}">+ ${esc(c.name)} ${c.book ? 'spellbook' : 'spells'}</button>` : ''}</div>
-    </div>`;
+    void lv; const short = ABN[c.ab].slice(0, 3).toUpperCase();
+    return `<div class="scx"><div class="scx-h"><b>${esc(c.name)}</b><small title="${ABN[c.ab]} · ${kind}">${short}${c.type === 'pact' ? ' · Pact' : ''}</small></div>
+      <div class="scx-st">${lim != null ? `<span class="prep-tile" data-prepfor="${c.key}"><b data-calc="prepct:${c.key}"></b><small>${c.prepared ? 'Prepared' : 'Known'}</small></span>` : ''}${cl ? `<span class="prep-tile" data-cantfor="${c.key}"><b data-calc="cantct:${c.key}"></b><small>Cantrips</small></span>` : ''}</div>
+      <div class="scx-b">${c.prepared ? `<button class="btn gold sm" data-act="prepare" data-cls="${c.key}">Prepare</button>` : ''}${!c.prepared || c.book ? `<button class="btn ghost sm" data-act="addspells" data-cls="${c.key}">+ ${c.book ? 'Spellbook' : 'Spells'}</button>` : ''}</div></div>`;
   }).join('');
   const slotCards = [];
   for (let i = 0; i < 9; i++) {
@@ -2101,13 +2099,13 @@ function renderSpells() {
   const lvls = [...new Set(S.spells.map(s => N(s.level)))].sort((a, b) => a - b);
   const filt = [['all', 'All'], ['ready', 'Ready to cast']].concat(cs.length > 1 ? cs.map(c => ['c:' + c.key, c.name]) : []).concat(lvls.map(l => [String(l), l === 0 ? 'Cantrips' : ORD[l - 1]]));
   $('#page-spells').innerHTML = `
-  ${noSlots() ? `<div class="panel cs-fx" ${PID('spellcasting')}>${activeFxInner(false)}</div>` : `<div class="cstrip">
+  ${noSlots() ? `<div class="panel cs-fx" ${PID('spellcasting')}>${activeFxInner(false)}</div>` : `<div class="cstrip${cs.length ? ' three' : ''}">
     <div class="panel cs-slots" ${PID('spslots')}><h2><span class="grow">${realSlots() ? 'Spell Slots' : 'Stored spells'}</span>${realSlots() ? `<button class="btn ghost sm" data-act="toggle" data-key="slotcfg">${UI.open.slotcfg ? 'Done' : 'Customize'}</button>` : ''}</h2>${slotsPanelInner()}
       ${UI.open.slotcfg && realSlots() ? `<div style="margin-top:10px"><p class="hint">Slots follow the multiclass spellcaster table (caster level ${casterLevel()}). Type a number to override a level; blank = automatic.</p>
       <div class="slots">${ORD.map((o, i) => fld(o + ' max', inp('slotsOverride.' + i, { num: 1, ph: String(FULL[Math.min(20, casterLevel())][i] || 0) }))).join('')}</div></div>` : ''}${p ? '<p class="hint" style="margin:6px 0 0">Pact slots return on a short rest.</p>' : ''}</div>
+    ${cs.length ? `<div class="panel scx-panel" ${PID('spellcasting')}><h2>Spellcasting</h2><div class="scx-list">${tiles}</div></div>` : ''}
     <div class="panel cs-fx" ${PID('spfx')}>${activeFxInner(false)}</div>
-  </div>
-  ${cs.length ? `<div class="panel" ${PID('spellcasting')}><h2>Spellcasting</h2><div class="sc-cards">${tiles}</div></div>` : ''}`}
+  </div>`}
   ${mmPanelHTML('mmspells')}
   <div class="panel" ${PID('spelllist')}><h2><span class="grow">Spells</span><button class="btn gold" data-act="addspells" data-cls="">+ Add spells</button><button class="btn" data-act="hbnew" data-k="spell">+ Homebrew spell</button></h2>
     <div class="spsortbar"><span class="lbl">Group spells by</span><div class="segmini">${[['level', 'Level'], ['purpose', 'Purpose'], ['custom', 'My categories']].map(([k, t]) => `<button class="${ST('combatSpellSort') === k ? 'on' : ''}" data-act="spsort" data-k="${k}">${t}</button>`).join('')}</div>${cust ? '<button class="btn sm" data-act="spcatadd">+ Category</button><span class="hint">Drag spells to reorder them or move them between categories. ' + (m ? '' : 'Drag a category by its ⠿ to rearrange. ') + 'The Combat tab uses the same groups and order.</span>' : '<span class="hint">' + (m ? '' : 'Drag a group by its ⠿ to rearrange. ') + 'The Combat tab uses the same groups and order.</span>'}</div>
@@ -2344,7 +2342,7 @@ function renderInventory() {
   };
   $('#page-inventory').innerHTML = `
   <div class="panel inv-panel" ${PID('inventory')}>
-    <h2><span class="grow">Inventory</span><button class="btn gold" data-act="catalog">+ Add item</button><button class="btn" data-act="hbnew" data-k="item">+ Homebrew item</button><button class="btn" data-act="addbag" title="Add a bag of holding, backpack or other container">+ Container</button></h2>
+    <h2><span class="grow">Inventory</span><button class="btn gold" data-act="catalog">+ Add item</button><button class="btn" data-act="add" data-list="inventory">+ Custom item</button><button class="btn" data-act="addbag" title="Add a bag of holding, backpack or other container">+ Container</button></h2>
     <div class="purse">${purse}<span class="worth pworth" data-calc="worth" title="Total value of your coins in gold"></span></div>
     <div class="invsearch"><input class="f invq" type="search" data-scope="all" placeholder="Search your inventory…" aria-label="Search inventory" value="${esc(UI.invQ || '')}"></div>
     <div class="invstats"><span>Attuned <b data-calc="attune"></b></span>${ST('encumbrance') === 'off' ? '' : '<span>Carrying <b data-calc="weight"></b> / <span data-calc="carry"></span> lb</span><span class="hint" data-calc="encnote"></span>'}</div>
@@ -2649,16 +2647,15 @@ function spellsFor(col) {
   return S.spells.map((sp, i) => [sp, i]).filter(([sp]) => spReady(sp) && castCol(sp.time) === col)
     .sort((x, y) => N(x[0].level) - N(y[0].level) || String(x[0].name).localeCompare(y[0].name));
 }
+// Divine Smite: tick the box (and pick a slot) and your next melee weapon hit smites: the slot is spent and the radiant
+// dice are rolled with the attack's damage (doubled on a crit). Missed? The attack card gives the slot back.
+const smiteSlots = () => { const out = []; for (let i = 0; i < 9; i++) if (slotMax(i)) out.push([String(i), Math.min(5, i + 2), ORD[i] + ' slot', slotsLeft(i)]); const p = pact(); if (p) out.push(['pact', Math.min(5, p.level + 1), 'Pact slot', pactLeft()]); return out; };
+const smiteSel = () => { const A = S.smiteArm || {}, sl = smiteSlots(); return sl.some(x => x[0] === String(A.l) && x[3] > 0) ? String(A.l) : ((sl.find(x => x[3] > 0) || [])[0] ?? ''); };
 function smiteHTML() {
-  let h = '';
-  const p = pact();
-  for (let i = 0; i < 9; i++) {
-    const m = slotMax(i); if (!m) continue;
-    const left = slotsLeft(i), dice = Math.min(5, i + 2) + (UI.smiteUndead ? 1 : 0);
-    h += `<button class="smite-btn" data-act="smite" data-l="${i}" ${left ? '' : 'disabled'} title="Spend a ${ORD[i]}-level slot (${left} left)"><b>${Math.min(6, dice)}d8</b><span>${ORD[i]} slot</span></button>`;
-  }
-  if (p) { const dice = Math.min(5, p.level + 1) + (UI.smiteUndead ? 1 : 0); h += `<button class="smite-btn" data-act="smite" data-l="pact" ${pactLeft() ? '' : 'disabled'}><b>${Math.min(6, dice)}d8</b><span>Pact slot</span></button>`; }
-  return h || '<span class="hint">No slots</span>';
+  const sl = smiteSlots(); if (!sl.length) return '<span class="hint">No slots</span>';
+  const on = !!(S.smiteArm && S.smiteArm.on), cur = smiteSel();
+  return `<label class="smite-chk${on ? ' on' : ''}"><input type="checkbox" data-smitearm${on ? ' checked' : ''}${cur === '' ? ' disabled' : ''}><span><b>Smite on my next hit</b><small>${on ? 'Your next melee weapon hit spends the slot below' : 'Tick it, pick a slot, then attack'}</small></span></label>
+    <div class="smite-lv">${sl.map(([k, d, nm, left]) => `<button class="smite-btn${k === cur ? ' sel' : ''}${k === cur && on ? ' on' : ''}" data-act="smitelv" data-l="${k}" ${left ? '' : 'disabled'} title="${left} left"><b>${Math.min(6, d + (UI.smiteUndead ? 1 : 0))}d8</b><span>${nm}</span></button>`).join('')}</div>`;
 }
 const sneakDice = () => { const r = clsLv('rogue'); return r ? Math.ceil(r / 2) + 'd6' : ''; };
 // Out of combat: no turn tracker or action economy — just what you reach for between fights.
@@ -2716,7 +2713,7 @@ function renderCombat() {
         <table class="mini">${S.attacks.map((at, i) => { if (!atkShown(at) || at.bonus) return ''; const wi = at.item && S.inventory.find(x => x.id === at.item), tip = String(at.notes || '').trim() || (wi && (String(wi.notes || '').trim() || wi.hb)); const nmw = String(at.name).trim().split(/\s+/), lastW = nmw.pop(); return `<tr><td>${nmw.length ? esc(nmw.join(' ')) + ' ' : ''}<span class="nowrap">${esc(lastW)}${tip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(at.name)}">ⓘ</button>` : ''}</span></td><td>${rollBtn('atk:' + i, at.name + ' attack')}</td><td>${rollBtn('dmg:' + i, at.name + ' damage')}</td><td>${atkBtn(i, true)}</td></tr>`; }).join('') || '<tr><td class="hint">No attacks — add weapons in Inventory.</td></tr>'}</table>
         <div class="hint" data-calc="ridersnote"></div>
         ${clsLv('rogue') ? `<div class="row sarow" style="margin-top:6px"><button class="btn sm gold" data-act="sneak">Sneak Attack ${sneakDice()}</button><span class="sadotw" data-calc-html="sneakdot"></span></div>` : ''}
-        ${stunRowHTML()}
+        ${stunRowHTML()}${harmRowHTML()}
         ${hasFeature('Divine Smite') ? `<div class="smite"><div class="sect" style="width:100%">Divine Smite <span class="grow"></span>
           <button class="toggle${UI.smiteUndead ? ' on' : ''}" data-act="smiteundead" aria-pressed="${!!UI.smiteUndead}" title="Undead and fiends take +1d8">Undead / Fiend +1d8</button></div>
           <div class="smite-row" data-calc-html="smite"></div></div>` : ''}</div>`;
@@ -3094,9 +3091,8 @@ function alignHpSide() {
   // Measure where the ring sits in the normal layout, pin it there, then slide only the controls down.
   wrap.style.alignItems = ''; ring.style.marginTop = ''; side.style.marginTop = '';
   const r0 = ring.getBoundingClientRect().top - wrap.getBoundingClientRect().top;
-  wrap.style.alignItems = 'flex-start'; ring.style.marginTop = r0 + 'px'; side.style.marginTop = '0px';
-  const c = cur.getBoundingClientRect(), a = amt.getBoundingClientRect(), d = (c.top + c.height / 2) - (a.top + a.height / 2);
-  side.style.marginTop = Math.max(0, d) + 'px';
+  // (kept compact now: the ring and the controls are simply centred on each other, nothing is pushed down)
+  void r0; wrap.style.alignItems = 'center';
 }
 addEventListener('resize', () => alignHpSide());
 
@@ -3159,9 +3155,10 @@ function mainClick(e) {
       applyTheme(); render('header'); break;
     }
     case 'menu': b.closest('.menu').classList.toggle('open'); break;
-    case 'portrait': $('#portraitFile').click(); break;
+    case 'portrait': if (S.portrait && window.pgRecrop && window.picChoice) { window.picChoice(S.portrait, () => window.pgRecrop('portrait:' + S.id, S.portrait, { shape: 'square', size: 560, title: 'Portrait' }).then(r => { if (!r) return; S.portrait = r.url; pendingLabel = 'Adjust portrait'; save(); render('header'); }), () => $('#portraitFile').click()); break; } $('#portraitFile').click(); break;
     case 'pic': PICPATH = b.dataset.path; closeModal(true); $('#picFile').click(); return;
-    case 'picview': { const v = getP(b.dataset.path); openModal(`<div class="picview"><img src="${esc(safeImg(v))}" alt=""></div><div class="actions"><button class="btn red" data-act="picdel" data-path="${esc(b.dataset.path)}">Remove</button><button class="btn" data-act="pic" data-path="${esc(b.dataset.path)}">Change</button><button class="btn gold" data-act="close">Close</button></div>`); return; }
+    case 'picview': { const v = getP(b.dataset.path); openModal(`<div class="picview"><img src="${esc(safeImg(v))}" alt=""></div><div class="actions"><button class="btn red" data-act="picdel" data-path="${esc(b.dataset.path)}">Remove</button>${window.pgRecrop ? `<button class="btn" data-act="picadj" data-path="${esc(b.dataset.path)}">Adjust</button>` : ''}<button class="btn" data-act="pic" data-path="${esc(b.dataset.path)}">Change</button><button class="btn gold" data-act="close">Close</button></div>`); return; }
+    case 'picadj': { const path = b.dataset.path, v = getP(path); closeModal(true); window.pgRecrop('pic:' + S.id + ':' + path, v, { shape: 'square', size: 320, title: 'Picture' }).then(r => { if (!r) return; setP(path, r.url); pendingLabel = 'Adjust picture'; save(); render(); }, e => toast(esc(e.message || 'Couldn’t open that picture.'), 'fumble')); return; }
     case 'picdel': setP(b.dataset.path, ''); pendingLabel = 'Remove picture'; closeModal(true); save(); render(); return;
     case 'dmg': case 'heal': case 'tmphp': hpAction(act); break;
     case 'skillprof': S.skills[i].prof = (N(S.skills[i].prof) + 1) % 3; b.className = 'profbtn p' + S.skills[i].prof; pendingLabel = S.skills[i].name + ': ' + ['not proficient', 'proficient', 'expertise'][S.skills[i].prof]; update(); { const r = b.closest('.skman-row'); if (r) { r.querySelector('.skman-lv').textContent = ['—', 'Proficient', 'Expertise'][S.skills[i].prof]; r.querySelector('.skman-v').textContent = fmt(skillVal(S.skills[i])); } } break;
@@ -3229,6 +3226,8 @@ function mainClick(e) {
     case 'spstep': spStep(i, N(b.dataset.d)); return;
     case 'spto': spMoveTo(i, b.dataset.k, null); $$('.menu.open').forEach(m => m.classList.remove('open')); return;
     case 'insp': inspAdj(N(b.dataset.d)); return;
+    case 'inspuse': inspUse(); return;
+    case 'inspgo': inspGo(b.dataset.k); return;
     case 'invstep': invStep(i, N(b.dataset.d)); return;
     case 'surgeok': surgeApply(); return;
     case 'surgepick': surgePick(b.dataset.k); return;
@@ -3266,6 +3265,7 @@ function mainClick(e) {
     case 'readyfire': readyFire(); break;
     case 'readydrop': { const r = S.turn.readied; S.turn.readied = null; pendingLabel = 'Drop readied action'; update(); render('combat'); if (r) readyLost(r, 'You let it go'); break; }
     case 'smite': smite(b.dataset.l); break;
+    case 'smitelv': { const was = S.smiteArm || {}, same = !!was.on && String(was.l) === b.dataset.l; S.smiteArm = { on: !same, l: b.dataset.l }; pendingLabel = S.smiteArm.on ? 'Divine Smite ready' : 'Divine Smite off'; save(); refresh(); return; }
     case 'sneaktog': S.turn.sneak = !S.turn.sneak; pendingLabel = S.turn.sneak ? 'Sneak Attack used' : 'Sneak Attack ready'; update(); return;
     case 'sneak': { const d = sneakDice(); const c = Date.now() < critUntil; if (S.inCombat && S.turn.sneak) toast('Sneak Attack was already used this turn (once per turn) — rolling anyway.', '', 4000); if (S.inCombat) S.turn.sneak = true; pendingLabel = 'Sneak Attack'; save(); refresh(); roll(`Sneak Attack${c ? ' · CRIT, dice doubled' : ''}`, c ? doubleDice(d) : d); return; }
     case 'smiteundead': UI.smiteUndead = !UI.smiteUndead; saveUI(); b.classList.toggle('on', UI.smiteUndead); b.setAttribute('aria-pressed', UI.smiteUndead); refresh(); pendingLabel = null; return;
@@ -3528,6 +3528,7 @@ function attackRoll(i, free, opt) {
   const nm = opt.label || a.name;
   const h = rollExpr(expr, { label: nm + ' attack' });
   const crit = h.d20 >= critRange(), nat1 = h.d20 === 1;
+  LAST_D20 = { t: Date.now(), label: nm, attack: i, total: h.skipped ? null : h.total };
   let dice = atkDice(a) || '0';
   const isWeapon = !a.effect || a.weaponLike;
   const extras = isWeapon ? extraDice(a) : [];
@@ -3538,6 +3539,16 @@ function attackRoll(i, free, opt) {
   const dexp = (crit ? critDice(dice) : dice) + (brutal && /\d*d\d+/.test(dice) ? '+' + diceTimes(dice.match(/\d*d\d+/)[0].replace(/^\d*/, '1'), brutal) : '') + (m ? sgn(m) : '');
   const d = rollExpr(dexp, { label: nm + ' damage' });
   const xr = extras.map(x => { const dd = (x.match(/\d*d\d+/) || [''])[0]; const r = rollExpr(crit ? doubleDice(dd) : dd, { label: nm + ' damage (' + String(x).replace(/^\S+\s*/, '') + ')' }); return { label: x, r }; });
+  // Divine Smite / Hand of Harm armed from the Combat tab: the hit spends the slot (or ki) and adds the dice.
+  if (!nat1 && isWeapon && a.kind === 'melee' && S.smiteArm && S.smiteArm.on && hasFeature('Divine Smite')) { const l = smiteSel(); if (l !== '') {
+    let L; if (l === 'pact') { S.pactUsed = N(S.pactUsed) + 1; L = pact().level - 1; } else { L = N(l); S.slotsUsed[L] = N(S.slotsUsed[L]) + 1; }
+    const n = Math.min(6, Math.min(5, L + 2) + (UI.smiteUndead ? 1 : 0)) * (crit ? 2 : 1); S.smiteArm = { on: false, l };
+    xr.push({ label: n + 'd8 radiant', r: rollExpr(n + 'd8', { label: 'Divine Smite (' + (l === 'pact' ? 'pact slot' : ORD[L] + ' slot') + ')' }), refund: () => { if (l === 'pact') S.pactUsed = Math.max(0, N(S.pactUsed) - 1); else S.slotsUsed[L] = Math.max(0, N(S.slotsUsed[L]) - 1); S.smiteArm = { on: true, l }; }, what: 'Divine Smite' }); } }
+  if (!nat1 && S.harmArm && /unarmed strike/i.test(a.name) && harmFeat() && !(S.inCombat && S.turn.harm)) { const k = stunKi();
+    if (k && stunKiLeft() > 0) { k.used = N(k.used) + 1; S.harmArm = false; if (S.inCombat) S.turn.harm = true;
+      const ma = maDie(), w = mod('wis'), n = crit ? doubleDice(ma) : ma;
+      xr.push({ label: ma + ' necrotic', r: rollExpr(n + (w ? sgn(w) : ''), { label: 'Hand of Harm' }), refund: () => { k.used = Math.max(0, N(k.used) - 1); S.harmArm = true; if (S.inCombat) S.turn.harm = false; }, what: 'Hand of Harm' }); }
+    else toast('No ki left for Hand of Harm.', 'fumble'); }
   const rr = riders.map(x => { const dd = String(x.dice).match(/\d*d\d+(?:\+\d*d\d+)*/); const r = dd ? rollExpr(crit ? doubleDice(dd[0]) : dd[0]) : { total: 0, detail: '' }; return { label: x.name + ' ' + x.dice, r }; });
   // Sneak Attack rolls itself when the attack has advantage with a finesse or ranged weapon (once per turn).
   const sa = sneakAuto(a, rm, nat1, isWeapon, opt.offTurn), sr = sa ? rollExpr(crit ? critDice(sa) : sa, { label: 'Sneak Attack (' + sa + ')' }) : null;
@@ -3562,6 +3573,7 @@ function attackRoll(i, free, opt) {
   const keepR = riders.filter(x => !x.once);
   const acts = keepR.length ? [{ label: 'Missed — keep riders', fn: () => { S.riders = (S.riders || []).concat(keepR); pendingLabel = 'Keep riders'; update(); toast('Riders saved for your next hit.'); } }] : [];
   if (!nat1 && a.kind === 'melee' && stunStrikeFeat() && stunKiLeft() > 0) acts.push({ label: 'Stunning Strike (1 ki)', fn: () => stunningStrike() });
+  xr.filter(x => x.refund).forEach(x => acts.push({ label: `Missed — get ${x.what === 'Divine Smite' ? 'the slot' : 'the ki'} back`, fn: () => { x.refund(); pendingLabel = x.what + ' not used'; update(); render(); toast(`${x.what} is ready again for your next hit.`); } }));
   if (sr && !opt.offTurn) acts.push({ label: 'Missed — Sneak Attack not used', fn: () => { S.turn.sneak = false; pendingLabel = 'Sneak Attack not used'; update(); refresh(); toast('Sneak Attack is ready again this turn.'); } });
   // The card shows just the two numbers: to hit and damage. The full breakdown goes to the roll log.
   toast(`<b class="total">${h.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${crit ? 'CRITICAL HIT' : nat1 ? 'Natural 1 — miss' : 'to hit'}</div>
@@ -3638,7 +3650,11 @@ function hpAction(kind) {
   if (raw === '' || !amt) { $('#hpAmt').focus(); toast('Type an amount in the box first.'); return; }
   $('#hpAmt').value = '';
   if (kind === 'tmphp') { const cur = N(S.hp.temp); if (amt <= cur) { toast(`You keep your <b>${cur}</b> temporary HP — they don't stack, the higher one stays.`, '', 6000); return; } S.hp.temp = amt; pendingLabel = `Temp HP ${amt}`; update(); render('vitals'); toast(`<b>${amt}</b> temporary HP${cur ? ` (replaces ${cur})` : ''}.`); return; }
-  if (kind === 'dmg') takeDamage(amt); else healSelf(amt);
+  if (kind === 'dmg') { const sel = $('#hpType'), type = sel ? sel.value : ''; if (sel) sel.value = '';
+    if (type) { const D = defensesDetail(), vul = (D.vuln || []).some(x => x.k.includes(type)); let [n, how] = ptyResist(amt, type); if (vul && how !== 'immune') { n = how === 'resistant' ? amt : amt * 2; how = how === 'resistant' ? 'resistant and vulnerable' : 'vulnerable'; }
+      if (how) setTimeout(() => toast(how === 'immune' ? `You're <b>immune</b> to ${esc(type)} damage — no damage taken.` : `${esc(type[0].toUpperCase() + type.slice(1))} damage, you're ${how}: ${amt} → <b>${n}</b>.`, '', 6000), 60);
+      if (!n) { pendingLabel = null; return; } return takeDamage(n); }
+    takeDamage(amt); } else healSelf(amt);
 }
 function takeDamage(amt) {
   { const raw = amt, adj = surgeDamageAdj(amt); if (adj !== raw) { setTimeout(() => toast(adj < raw ? `Resistance to all damage: ${raw} → <b>${adj}</b>.` : `Vulnerable to all damage: ${raw} → <b>${adj}</b>.`, '', 5000), 60); amt = adj; } }
@@ -4774,10 +4790,10 @@ $('#importFile').addEventListener('change', e => {
   r.readAsText(f); e.target.value = '';
 });
 let PICPATH = '';
-$('#picFile') && $('#picFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (!f || !PICPATH) return; const path = PICPATH; loadPortrait(f, url => { setP(path, url); pendingLabel = 'Add picture'; save(); render(); }, 320, 'Picture'); e.target.value = ''; });
-function loadPortrait(file, cb, size, title) {
+$('#picFile') && $('#picFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (!f || !PICPATH) return; const path = PICPATH; loadPortrait(f, url => { setP(path, url); pendingLabel = 'Add picture'; save(); render(); }, 320, 'Picture', 'pic:' + S.id + ':' + path); e.target.value = ''; });
+function loadPortrait(file, cb, size, title, keep) {
   // on the site: crop and zoom it first (the window every upload uses); the stand-alone file fits it to the square
-  if (window.pgCrop) { window.pgCrop(file, { shape: 'square', size: size || 560, title: title || (size ? 'Edit picture' : 'Portrait') }).then(r => { if (r) cb(r.url); }, e => toast(esc(e.message || 'That file isn’t an image.'), 'fumble')); return; }
+  if (window.pgCrop) { window.pgCrop(file, { shape: 'square', size: size || 560, title: title || (size ? 'Edit picture' : 'Portrait'), keep: keep || (size ? '' : 'portrait:' + (S.id || 'new')) }).then(r => { if (r) cb(r.url); }, e => toast(esc(e.message || 'That file isn’t an image.'), 'fumble')); return; }
   const img = new Image(), url = URL.createObjectURL(file);
   img.onload = () => {
     const s = size || 560, c = document.createElement('canvas'); c.width = c.height = s;
@@ -6618,12 +6634,33 @@ function inspHTML(mini) {
   if (!ST('inspiration')) return '';
   const n = Math.max(0, N(S.insp)), mx = inspMax();
   // One at a time: the badge itself is the switch — tap the star to fill it, tap again to spend it.
+  const use = n ? `<button class="insp-use${mini ? ' mini' : ''}" data-act="inspuse" title="Reroll your last attack, check or save, or have advantage on the next one">Use</button>` : '';
   if (mx === 1) return `<button class="insp one${mini ? ' mini' : ''}${n ? ' on' : ''}" data-act="insp" data-d="${n ? -1 : 1}" aria-pressed="${!!n}" title="${n ? 'Inspired — tap to spend it' : 'Tap when you gain Inspiration'}">
-    <span class="insp-c"><b class="insp-n">${n ? '★' : '☆'}</b><span class="insp-l">Inspiration</span></span></button>`;
+    <span class="insp-c"><b class="insp-n">${n ? '★' : '☆'}</b><span class="insp-l">Inspiration</span></span></button>`.replace(/^/, use ? `<div class="insp-grp${mini ? ' mini' : ''}">` : '') + (use ? use + '</div>' : '');
   return `<div class="insp${mini ? ' mini' : ''}${n ? ' on' : ''}" title="Inspiration${mx === 1 ? ' (one at a time)' : ''}">
     <button class="insp-b" data-act="insp" data-d="-1" ${n ? '' : 'disabled'} aria-label="Spend Inspiration">−</button>
     <span class="insp-c"><b class="insp-n">${mx === 1 ? (n ? '★' : '☆') : n}</b><span class="insp-l">Inspiration</span></span>
-    <button class="insp-b" data-act="insp" data-d="1" ${n >= mx ? 'disabled' : ''} aria-label="Gain Inspiration">+</button></div>`;
+    <button class="insp-b" data-act="insp" data-d="1" ${n >= mx ? 'disabled' : ''} aria-label="Gain Inspiration">+</button></div>`.replace(/^/, use ? `<div class="insp-grp${mini ? ' mini' : ''}">` : '') + (use ? use + '</div>' : '');
+}
+// Use Inspiration: reroll the last attack / check / save, or keep it as advantage on the next one (shown with your
+// active effects until that roll uses it up).
+let LAST_D20 = null;
+function inspUse() {
+  if (!(N(S.insp) > 0)) return;
+  const L = LAST_D20 && Date.now() - LAST_D20.t < 10 * 60000 ? LAST_D20 : null;
+  openModal(`<h3>Use Inspiration</h3><p class="hint" style="margin:0 0 10px">It’s used up either way.</p><div class="castopts insp-opts">
+    <button class="castopt" data-act="inspgo" data-k="reroll" ${L ? '' : 'disabled'}><b>Reroll the last roll</b><span>${L ? esc(L.label) + (L.total != null ? ' — was ' + L.total : '') : 'No recent attack, check or save'}</span></button>
+    <button class="castopt" data-act="inspgo" data-k="next"><b>Advantage on my next roll</b><span>Your next attack, ability check or saving throw</span></button></div>
+    <div class="actions"><button class="btn" data-act="close">Cancel</button></div>`);
+}
+function inspGo(k) {
+  closeModal(true); if (!(N(S.insp) > 0)) return;
+  S.insp = Math.max(0, N(S.insp) - 1);
+  if (k === 'next') { S.effects = (S.effects || []).filter(x => x.name !== 'Inspiration').concat([{ name: 'Inspiration', rounds: null, conc: false, buff: { d20AdvNext: 'Inspiration', note: 'Advantage on your next attack roll, ability check or saving throw' } }]);
+    pendingLabel = 'Inspiration: advantage on the next roll'; save(); render(); toast('<b>Inspiration</b> — your next attack, check or save has advantage.', '', 5000, { label: 'Undo', fn: () => undo(1) }); return; }
+  const L = LAST_D20; pendingLabel = 'Inspiration: reroll'; save(); render('header');
+  if (L.attack != null) attackRoll(L.attack, true, { label: L.label.replace(/ \(Inspiration reroll\)$/, '') + ' (Inspiration reroll)' });
+  else d20(L.label.replace(/ \(Inspiration reroll\)$/, '') + ' (Inspiration reroll)', L.bonus, L.kind, L.ab, L.rows);
 }
 function inspAdj(d) {
   const was = Math.max(0, N(S.insp)), n = Math.max(0, Math.min(inspMax(), was + d)); if (n === was) return;
@@ -6992,6 +7029,17 @@ function stunRowHTML() {
   if (!stunStrikeFeat()) return '';
   return `<div class="row stunrow"><button class="btn sm" data-act="stunstrike" title="Use right after a melee hit — not an action">Stunning Strike <small>1 ki</small></button><span class="hint">After a melee hit (unarmed counts): DC ${stunDC()} CON save or stunned until the end of your next turn. Once per hit.</span></div>`;
 }
+// Hand of Harm (Way of Mercy): like a smite for unarmed strikes. Tick it and your next unarmed hit spends 1 ki and adds
+// a Martial Arts die + WIS necrotic, once per turn (free during Flurry of Blows from 11th level: untick "costs ki").
+const maDie = () => '1' + (martialDie() || 'd4');
+const harmFeat = () => S.features.find(f => /^hand of harm$/i.test(String(f.name).trim()));
+function harmRowHTML() {
+  if (!harmFeat()) return ''; const on = !!S.harmArm, used = S.inCombat && S.turn.harm;
+  return `<label class="smite-chk harm${on ? ' on' : ''}"><input type="checkbox" data-harmarm${on ? ' checked' : ''}${used ? ' disabled' : ''}><span><b>Hand of Harm on my next unarmed hit</b><small>${used ? 'Already used this turn' : `1 ki · ${maDie()} + WIS necrotic${hasFeature("Physician's Touch") ? ' · and the target is poisoned until the end of your next turn' : ''} · ${stunKiLeft()} ki left`}</small></span></label>`;
+}
+document.addEventListener('change', e => { const t = e.target;
+  if (t.matches && t.matches('[data-smitearm]')) { S.smiteArm = { on: t.checked, l: smiteSel() }; pendingLabel = t.checked ? 'Divine Smite ready' : 'Divine Smite off'; save(); refresh(); }
+  if (t.matches && t.matches('[data-harmarm]')) { S.harmArm = t.checked; pendingLabel = t.checked ? 'Hand of Harm ready' : 'Hand of Harm off'; save(); refresh(); } });
 function stunningStrike() {
   const f = stunStrikeFeat(); if (!f) return;
   const err = fxSpend({ from: (stunKi() || {}).name || 'Ki', n: 1 }, 'monk'); if (err) { toast(esc(err), 'fumble'); return; }
@@ -7109,6 +7157,10 @@ function gridApply(by) {
   if (grid.spells) { const need = ['spslots', 'spfx'].filter(id => by[id] && !placed.has(id) && !removed.has(id));
     if (need.length) { const sc = grid.spells.find(i => i.id === 'spellcasting'), y0 = sc ? sc.y : 0, ws = Math.round(GCOLS / 3); grid.spells.forEach(i => { if (i.y >= y0) i.y += 1; });
       need.forEach(id => { grid.spells.push(id === 'spslots' ? { id, x: 0, y: y0, w: ws, h: 1 } : { id, x: need.length === 2 ? ws : 0, y: y0, w: need.length === 2 ? GCOLS - ws : GCOLS, h: 1 }); placed.add(id); }); } }
+  // Spellcasting (now a small panel) moves once between Spell Slots and Active Spells when they share a row.
+  if (grid.spells && !L.scMid) { L.scMid = 1; const g = grid.spells, sl = g.find(i => i.id === 'spslots'), fx = g.find(i => i.id === 'spfx'), sc = g.find(i => i.id === 'spellcasting');
+    if (sl && fx && sc && sl.y === fx.y && sc.w >= GCOLS - 1) { const y0 = sl.y, h = Math.max(sl.h, fx.h); g.forEach(i => { if (i !== sc && i.y > sc.y) i.y -= sc.h; });
+      Object.assign(sl, { x: 0, w: 4 }); Object.assign(sc, { x: 4, y: y0, w: 3, h }); Object.assign(fx, { x: 7, w: 5 }); } }
   Object.keys(by).forEach(id => { if (placed.has(id) || removed.has(id)) return; const home = by[id][0].dataset.home, pg = grid[home] ? home : null; if (!pg) return;
     grid[pg].push({ id, x: 0, y: grid[pg].reduce((m, i) => Math.max(m, i.y + i.h), 0), w: GCOLS, h: 1 }); placed.add(id); });
   const mob = isMobile(), ed = !!UI.editLayout;
@@ -7847,7 +7899,7 @@ function ptyCardHTML(m) {
   const more = [['coins', 'Give coins'], ['help', 'Help (advantage on their next roll)'], down && !m.dead && !m.stable ? ['stab', 'Stabilize (Medicine, DC 10)'] : null, ['note', 'Send a message']].filter(Boolean);
   const hp = max ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(cur, max, m.temp, f ? ' form' : '')}</div>
       <div class="chp-center"><div class="curline"><b class="ptym-cur">${cur}</b>${N(m.temp) ? `<span class="tmpbadge">+${N(m.temp)}</span>` : ''}</div><div class="hp-max">of ${max}</div></div></div>
-      ${act ? `<div class="chp-side"><input class="f" id="ptyq-${esc(id)}" inputmode="numeric" placeholder="Amount" aria-label="Amount for ${esc(m.name)}">
+      ${act ? `<div class="chp-side"><select class="f ptyqt" id="ptyqt-${esc(id)}" aria-label="Damage type for ${esc(m.name)}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="ptyq-${esc(id)}" inputmode="numeric" placeholder="Amount" aria-label="Amount for ${esc(m.name)}">
         <div class="chp-btns"><button class="btn hpi dmg" data-pa="qdmg" data-id="${esc(id)}" title="Damage ${esc(m.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-pa="qheal" data-id="${esc(id)}" title="Heal ${esc(m.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-pa="qtemp" data-id="${esc(id)}" title="Give ${esc(m.name)} temporary HP" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div>` : ''}</div>` : '';
   return `<div class="panel comp2 ptym${down ? ' ' + down : ''}" data-mid="${esc(id)}"><div class="comp-h2">${m.thumb ? `<span class="picth"><img src="${esc(m.thumb)}" alt=""></span>` : `<span class="picadd">${esc(String(m.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''))}</span>`}
       <div class="grow"><b class="cname${String(m.name || '').length > 26 ? ' n3' : String(m.name || '').length > 17 ? ' n2' : ''}" title="${esc(m.name || '')}">${esc(m.name || 'A character')}</b>${m.player ? `<div class="ptym-pl">${esc(m.player)}</div>` : ''}</div>
@@ -7863,7 +7915,7 @@ function renderParty() {
   if (!ptyOn()) { pg.innerHTML = ''; return; }
   const P = PTYX().info(), ms = ptyMembers(), act = ptyAct(), abil = act ? ptyAbilities() : [], auras = abil.filter(a => a.def.kind === 'aura');
   const n = ms.length + 1, dm = P.mgr ? 'You' : (P.dmName || 'the DM');
-  const head = `<div class="panel ptyhead"><div class="ptyh"><span class="ptyh-ic" aria-hidden="true">${TAB_ICON.party}</span><div class="ptyh-t"><b>${esc(P.name)}</b><span>DM ${esc(dm)} · ${n} character${n === 1 ? '' : 's'}${act ? '' : ' · you’re viewing this sheet'}</span></div>
+  const head = `<div class="panel ptyhead"><div class="ptyh"><span class="ptyh-ic${P.pic ? ' pic' : ''}" aria-hidden="true">${P.pic ? `<img src="${esc(P.pic)}" alt="">` : TAB_ICON.party}</span><div class="ptyh-t"><b>${esc(P.name)}</b><span>DM ${esc(dm)} · ${n} character${n === 1 ? '' : 's'}${act ? '' : ' · you’re viewing this sheet'}</span></div>
       <div class="ptyh-btns">${act && ms.length > 1 ? '<button class="btn sm" data-pa="cast" data-id="" title="Pick the spell, then everyone it reaches">Cast a spell on allies…</button><button class="btn sm" data-pa="ability" data-id="" title="Pick the ability, then everyone it reaches">Use an ability on allies…</button>' : ''}<a class="btn sm" href="${esc(P.url)}" target="_top">Party page</a></div></div>
       ${act && ms.length ? `<p class="hint ptyh-hint">${P.mgr ? 'As the DM, what you send lands on their sheet straight away (or the next time it’s opened).' : 'Healing, items, spells and abilities you send pop up on their sheet for them to accept.'}</p>` : ''}</div>`;
   const cards = P.loading ? `<div class="panel"><p class="hint" style="margin:0">Loading the party…</p></div>` : ms.length ? `<div class="ptym-grid">${ms.map(ptyCardHTML).join('')}</div>` : `<div class="panel"><p class="hint" style="margin:0">Nobody else has joined yet. Your DM can share the party’s invite link from the party page.</p></div>`;
@@ -7926,10 +7978,10 @@ function ptyPickDone() { const p = PTY_PICK; if (!p) return; const ids = $$('#mo
 // The amount box on a member's card (a number or a roll like 2d4+2), like a creature card's.
 function ptyQuick(kind, id) { const inp = $('#ptyq-' + CSS.escape(id)); const v = inp ? inp.value : ''; if (!String(v).trim()) { if (inp) inp.focus(); toast('Type an amount in the box first.'); return; }
   const r = ptyRollAmt(v, (kind === 'heal' ? 'Healing for ' : kind === 'temp' ? 'Temporary HP for ' : 'Damage to ') + ptyNm(id)); if (!r) { toast('Type a number or a roll like 2d6+3.'); return; } if (r.skipped || !(r.total > 0)) return;
-  if (inp) inp.value = ''; const w = S.name || 'an ally';
+  if (inp) inp.value = ''; const w = S.name || 'an ally', ts = $('#ptyqt-' + CSS.escape(id)), dt = kind === 'dmg' && ts ? ts.value : ''; if (ts) ts.value = '';
   if (kind === 'heal') ptySend([id], 'heal', { amt: r.total, why: w }, `Healed ${r.total} HP`);
   else if (kind === 'temp') ptySend([id], 'temp', { amt: r.total, why: w }, `${r.total} temporary HP`);
-  else ptySend([id], 'hit', { dmg: r.total, why: w }, `${r.total} damage`); }
+  else ptySend([id], 'hit', Object.assign({ dmg: r.total, why: w }, dt ? { type: dt } : {}), `${r.total}${dt ? ' ' + dt : ''} damage`); }
 // Heal / temp HP / damage by an amount (or a roll).
 let PTY_AMT = null;
 function ptyAmount(kind, ids) {
@@ -8498,7 +8550,11 @@ function ptyChatList() { const ch = PTYX() && PTYX().chat; const L = ch ? ch.lis
   if (!L.length) return '<p class="hint" style="margin:0">No messages yet.</p>';
   return L.map(m => `<div class="ptyc${ch.mine(m) ? ' me' : ''}"><span class="ptyc-n">${esc(ch.mine(m) ? 'You' : m.n || 'Someone')}<small>${new Date(m.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</small></span><span class="ptyc-t">${esc(m.t)}</span></div>`).join(''); }
 window.onPartyChatList = () => { const l = $('#ptychat-l'); if (!l) { if (UI.tab === 'party') render('party'); return; } const end = l.scrollHeight - l.scrollTop - l.clientHeight < 40; l.innerHTML = ptyChatList(); if (end) l.scrollTop = l.scrollHeight; };
-window.onPartyChat = m => { const here = UI.tab === 'party' && !document.hidden && $('#ptychat-l'); if (here) return;
+// New party chat messages: a note in the corner (unless the chat is on screen) and a count on the Party tab until it's opened.
+let PTY_UNREAD = 0;
+function ptyUnreadMark() { const t = document.querySelector('.tab[data-tab="party"]'); if (!t) return; if (UI.tab === 'party' && !document.hidden) PTY_UNREAD = 0; t.classList.toggle('unread', PTY_UNREAD > 0); if (PTY_UNREAD > 0) t.dataset.unread = PTY_UNREAD > 9 ? '9+' : PTY_UNREAD; else delete t.dataset.unread; }
+setInterval(ptyUnreadMark, 1500); document.addEventListener('visibilitychange', ptyUnreadMark);
+window.onPartyChat = m => { const here = UI.tab === 'party' && !document.hidden && $('#ptychat-l'); if (here) return; PTY_UNREAD++; ptyUnreadMark();
   toast(`<div><b>${esc(m.n || 'Someone')}</b> <span class="det" style="display:inline">· party chat</span><div class="det">${esc(String(m.t || '').slice(0, 200))}</div></div>`, '', 7000, { label: 'Reply', fn: () => { UI.tab = 'party'; saveUI && saveUI(); render(); setTimeout(() => { const i = $('#ptychat-in'); if (i) i.focus(); }, 80); } }); };
 
 
@@ -8546,7 +8602,7 @@ function diceRoller() {
 }
 const DR_SHAPE = { 4: 'M12 3l9 16H3z', 6: 'M5 5h14v14H5z', 8: 'M12 2l9 10-9 10-9-10z', 10: 'M12 2l9 7-3 12H6L3 9z', 12: 'M12 2l9 6.5-3.4 10.5H6.4L3 8.5z', 20: 'M12 2l8.7 5v10L12 22l-8.7-5V7z', 100: 'M12 2l9 7-3 12H6L3 9z' };
 function drPaint() { const w = $('#drwin'); if (!w) return; const ex = drExpr();
-  w.innerHTML = `<div class="dr-head"><span class="dr-grip" aria-hidden="true">⠿</span><b>Dice Roller</b><button class="dr-x" data-dr="x" aria-label="Close">✕</button></div>
+  w.innerHTML = `<div class="dr-head"><b>Dice Roller</b><button class="dr-x" data-dr="x" aria-label="Close">✕</button></div>
     <div class="dr-dice">${DR_DICE.map(d => `<button class="dr-die${DR.pool[d] ? ' on' : ''}" data-dr="die" data-d="${d}" title="Add a d${d} (right-click to take one away)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${DR_SHAPE[d]}"/></svg><span>d${d}</span>${DR.pool[d] ? `<em>${DR.pool[d]}</em>` : ''}</button>`).join('')}</div>
     <div class="dr-row"><div class="dr-mod"><button data-dr="mod" data-v="-1" aria-label="Modifier −1">−</button><b>${N(DR.mod) >= 0 ? '+' : ''}${N(DR.mod)}</b><button data-dr="mod" data-v="1" aria-label="Modifier +1">+</button></div>
       <div class="dr-adv">${[['d', 'Dis'], ['n', 'Normal'], ['a', 'Adv']].map(([v, t]) => `<button class="${DR.adv === v ? 'on' : ''}" data-dr="adv" data-v="${v}"${DR.pool[20] === 1 ? '' : ' disabled title="Advantage works on a single d20"'}>${t}</button>`).join('')}</div></div>
@@ -8607,7 +8663,7 @@ function openHomebrew(kind, idx) {
     const h = d.hb, m = /(\d+)d(\d+)/.exec(h.dmg || '') || [], u = /(\d+)d(\d+)/.exec(h.up || '') || [];
     d._what = h.what || (h.heal ? 'heal' : h.dmg ? 'dmg' : 'other'); d._dn = m[1] || '1'; d._dd = m[2] || '8'; d._un = u[1] || ''; d._ud = u[2] || d._dd;
     const c = String(d.comps || ''); d._v = /\bV\b/.test(c); d._s = /\bS\b/.test(c); d._m = /\bM\b/.test(c); d._mat = (/\bM\s*\(([^)]*)\)/.exec(c) || [])[1] || '';
-    d._time = ['1 action', '1 bonus action', '1 reaction', '1 minute', '10 minutes', '1 hour'].includes(d.time) ? d.time : (d.time ? 'other' : '1 action'); d._timeX = d._time === 'other' ? d.time : '';
+    d._time = ['1 action', '1 bonus action', '1 reaction', '1 minute', '10 minutes', '1 hour', '8 hours'].includes(d.time) ? d.time : (d.time ? 'other' : '1 action'); d._timeX = d._time === 'other' ? d.time : '';
     d.level = String(N(d.level)); d._sum0 = d.summary || '';
   }
   HBB = { kind, idx: isNew ? -1 : idx, d, isNew, adv: !!(HBB_ADV_ON(kind, d)), sec: {} };
@@ -8778,7 +8834,9 @@ function hbbSpellBasic() {
   const d = HBB.d, w = d._what, rows = clsRows();
   let h = bF('Name', bIn('name', { ph: 'e.g. Tidal Lash', cls: 'hbb-name', label: 'Spell name' }));
   h += bF('Level', bSeg('level', [['0', 'Cantrip']].concat([1, 2, 3, 4, 5, 6, 7, 8, 9].map(L => [String(L), ORD[L - 1]])), { wrap: true }));
-  h += bF('Casting time', bSeg('_time', [['1 action', 'Action'], ['1 bonus action', 'Bonus action'], ['1 reaction', 'Reaction'], ['1 minute', '1 minute'], ['10 minutes', '10 minutes'], ['1 hour', '1 hour'], ['other', 'Other…']], { wrap: true }) + (d._time === 'other' ? bIn('_timeX', { ph: '8 hours', label: 'Casting time' }) : ''));
+  // A spell's casting time is one thing: it takes a turn's action, bonus action or reaction, or it takes longer
+  // (casting a 1-minute spell uses your action every turn until it's done). How long it lasts is Duration.
+  h += bF('Casting time', `<div class="hbb-ct2"><span class="hint">In one turn</span>${bSeg('_time', [['1 action', 'Action'], ['1 bonus action', 'Bonus action'], ['1 reaction', 'Reaction']], { wrap: true })}</div><div class="hbb-ct2"><span class="hint">Takes longer</span>${bSeg('_time', [['1 minute', '1 minute'], ['10 minutes', '10 minutes'], ['1 hour', '1 hour'], ['8 hours', '8 hours'], ['other', 'Other…']], { wrap: true })}</div>` + (d._time === 'other' ? bIn('_timeX', { ph: '12 hours', label: 'Casting time' }) : ''));
   h += bRow(bF('Range', bIn('range', { ph: '60 feet, Self, Touch' })), bF('Duration', bIn('duration', { ph: 'Instantaneous, 1 minute…' })));
   h += bRow(bChk('conc', 'Concentration'), bChk('ritual', 'Ritual'));
   h += bF('Components', `<div class="hbb-comps">${bChk('_v', 'V', 'Spoken')}${bChk('_s', 'S', 'Gestures')}${bChk('_m', 'M', 'A material')}</div>` + (d._m ? bIn('_mat', { ph: 'a pinch of sea salt', label: 'Material' }) : ''));

@@ -889,12 +889,12 @@ function wireDie(root) {
     const cc = PCOL.doc(pid).collection('chat'), cut = Date.now() - CHAT_TTL;
     cc.where('at', '<', cut).limit(100).get().then(qs => qs.docs.forEach(d => d.ref.delete().catch(() => {})), () => {});
     unChat = cc.where('at', '>', cut).orderBy('at').limit(200).onSnapshot(qs => { CHAT = qs.docs.map(d => Object.assign({ id: d.id }, d.data()));
-      if (!chatFirst) qs.docChanges().forEach(ch => { if (ch.type === 'added' && ch.doc.data().by !== EMAIL && window.onPartyChat) { try { window.onPartyChat(ch.doc.data()); } catch (e) {} } });
-      chatFirst = false; if (window.onPartyChatList) { try { window.onPartyChatList(); } catch (e) {} } }, () => { CHAT = []; }); }
+      if (!chatFirst) qs.docChanges().forEach(ch => { if (ch.type === 'added' && ch.doc.data().c !== C && window.onPartyChat) { try { window.onPartyChat(ch.doc.data()); } catch (e) {} } });
+      chatFirst = false; if (window.onPartyChatList) { try { window.onPartyChatList(); } catch (e) {} } }, e => { CHAT = []; console.warn('party chat unavailable', e && e.code); unChat = null; chatPid = ''; ptyChanged(); }); }
   window.PG_PARTY = {
     // an initiative roll goes to the DM's turn order (picked up even when it isn't open)
     init: v => { if (!PTY || PTY.loading || PTY.seeded || role() === 'view') return Promise.resolve(); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} return PCOL.doc(PTY.id).collection('init').doc(C).set({ v: Number(v) || 0, at: Date.now(), n: String(nm).slice(0, 120) }).catch(() => {}); },
-    chat: { on: () => !!unChat, list: () => CHAT.filter(m => Number(m.at) > Date.now() - CHAT_TTL), mine: m => m.by === EMAIL,
+    chat: { on: () => !!unChat, list: () => CHAT.filter(m => Number(m.at) > Date.now() - CHAT_TTL), mine: m => m.c === C,
       send: t => { t = String(t || '').trim().slice(0, 1000); if (!t || !unChat) return Promise.reject(new Error('Not in the chat')); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {}
         return PCOL.doc(chatPid).collection('chat').add({ at: Date.now(), by: EMAIL, c: C, n: String(nm || 'Someone').slice(0, 120), t }); } },
     on: () => !!PTY, self: C, email: EMAIL, owner: () => OWNER, canAct: () => role() !== 'view',
