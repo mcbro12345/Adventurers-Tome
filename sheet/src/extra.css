@@ -3134,3 +3134,4 @@ html.mobile .ptymain .ptychat .ptychat-l { max-height: 320px; }
 .ptymain .ptym .comp-h2 .cname { font-size: 1rem; }
 html.mobile .ptymain .ptym-grid { grid-template-columns: 1fr; }
 .ptyc.me .ptyc-t { text-align: left; align-self: stretch; }
+.ptychat-h code { font-size: .8em; padding: 1px 5px; border-radius: 5px; background: var(--panel2); border: 1px solid var(--line); color: var(--ink); }
