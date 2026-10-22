@@ -898,33 +898,48 @@ function wireDie(root) {
     setInterval(() => { if (NEWV && document.hidden) go(); }, 30000); };
   // …and you land back where you were: the same scroll position
   const restoreY = () => { try { const d = JSON.parse(sessionStorage.getItem('pg-y') || 'null'); sessionStorage.removeItem('pg-y'); if (d && d.p === location.pathname && Date.now() - d.at < 10 * 60000 && d.y > 0) setTimeout(() => scrollTo(0, d.y), 350); } catch (e) {} };
-  // The DM's Desk (/desk, or /desk?for=<party id> from a party page): its own app, fetched only when opened.
-  if (DESKQ && G) { lsSet(LAST_G, G); document.title = 'DM’s Desk — Adventurer’s Tome';
-    { const keep = document.getElementById('pg-load'); [...document.body.childNodes].forEach(n => { if (n !== keep) n.remove(); }); }
-    document.body.className = 'deskbody'; const root = document.createElement('div'); root.id = 'pg-desk'; document.body.prepend(root);
-    const fail = () => { root.innerHTML = '<p style="padding:40px;text-align:center;font:16px system-ui">Couldn’t load the DM’s Desk. Check your connection and reload.</p>'; if (load) fadeLoad(load); };
-    try {
-      await new Promise((res, rej) => { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = ASSETS.deskcss; l.onload = res; l.onerror = rej; document.head.appendChild(l); });
-      const js = await fetch(ASSETS.desk).then(r => { if (!r.ok) throw new Error('desk'); return r.text(); }); const sc = document.createElement('script'); sc.textContent = js; document.body.appendChild(sc);
-    } catch (e) { return fail(); }
-    const pid = clean(Q.get('for') || ''); let party = null;
-    if (pid) { try { const d = await fs.collection('parties').doc(pid).get(); if (d.exists) { const pd = d.data(); party = { id: pid, name: pd.name || 'Party', mgr: pd.dm === EMAIL || (pd.mgrs || []).includes(EMAIL) }; } } catch (e) {} }
+  // The DM's Desk: its own app, fetched only when it's needed. A DM opening their party's page gets the desk, with the
+  // party page itself as its Party tab; /desk on its own is the desk without a party.
+  let DESK_P = null; const loadDesk = () => DESK_P || (DESK_P = (async () => {
+    await new Promise((res, rej) => { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = ASSETS.deskcss; l.onload = res; l.onerror = rej; document.head.appendChild(l); });
+    const js = await fetch(ASSETS.desk).then(r => { if (!r.ok) throw new Error('desk'); return r.text(); }); const sc = document.createElement('script'); sc.textContent = js; document.body.appendChild(sc); })());
+  const deskCtx = (party, extra) => { const pid = party && party.id;
     // The party's homebrew list (the DM adds items here; everyone in the party can then add them from Add an item → Homebrew).
     const hbCol = party && party.mgr ? fs.collection('parties').doc(pid).collection('hb') : null;
     const partyHB = hbCol ? { list: () => hbCol.get().then(qs => qs.docs.map(d => { let it = null; try { it = JSON.parse(d.data().item || 'null'); } catch (e) {} return it && it.name ? Object.assign(it, { _pid: d.id }) : null; }).filter(Boolean)),
       add: item => { const it = JSON.parse(JSON.stringify(item || {})); delete it._pid; const name = String(it.name || '').trim().slice(0, 120); if (!name) return Promise.reject(new Error('The item needs a name.')); it.name = name;
         return hbCol.add({ item: JSON.stringify(it), name, at: Date.now(), by: EMAIL }).then(r => { pgLog('party_hb', { target: pid, tName: party.name, detail: name }); return r.id; }); },
       remove: id => hbCol.doc(String(id)).delete() } : null;
-    try { window.pgDesk.mount(root, { fs, EMAIL, party, back: party ? { href: URLS.party(pid, party.name), label: party.name } : { href: URLS.hub(G), label: 'Adventurer’s Tome' },
-      logo: { html: () => logoHTML(), wire: el => wireDie(el) }, partyHB, makeNpc: party ? () => { try { sessionStorage.setItem('pg-join', JSON.stringify({ p: pid, t: '', name: party.name, at: Date.now(), npc: true })); } catch (e) {} pgGo(URLS.newChar(G)); } : null }); } catch (e) { console.error(e); return fail(); }
+    return Object.assign({ fs, EMAIL, party, back: { href: URLS.parties(G), label: 'Parties' },
+      logo: { html: () => logoHTML(), wire: el => wireDie(el) }, partyHB, makeNpc: party ? () => { try { sessionStorage.setItem('pg-join', JSON.stringify({ p: pid, t: '', name: party.name, at: Date.now(), npc: true })); } catch (e) {} pgGo(URLS.newChar(G)); } : null }, extra || {}); };
+  if (DESKQ && G) { lsSet(LAST_G, G);
+    const pid = clean(Q.get('for') || '');
+    document.title = 'DM’s Desk — Adventurer’s Tome';
+    { const keep = document.getElementById('pg-load'); [...document.body.childNodes].forEach(n => { if (n !== keep) n.remove(); }); }
+    document.body.className = 'deskbody'; const root = document.createElement('div'); root.id = 'pg-desk'; document.body.prepend(root);
+    const fail = () => { root.innerHTML = '<p style="padding:40px;text-align:center;font:16px system-ui">Couldn’t load the DM’s Desk. Check your connection and reload.</p>'; if (load) fadeLoad(load); };
+    try { await loadDesk();
+      if (pid && window.pgDesk.hostsParty) { location.replace('/party/' + encodeURIComponent(pid)); return; } // a party's desk is its party page now
+      let party = null; if (pid) { try { const d = await fs.collection('parties').doc(pid).get(); if (d.exists) { const pd = d.data(); party = { id: pid, name: pd.name || 'Party', mgr: pd.dm === EMAIL || (pd.mgrs || []).includes(EMAIL) }; } } catch (e) {} }
+      window.pgDesk.mount(root, deskCtx(party, party ? { back: { href: URLS.party(pid, party.name), label: party.name } } : { back: { href: URLS.hub(G), label: 'Adventurer’s Tome' } })); } catch (e) { console.error(e); return fail(); }
     if (!TOUCH && !FRAMED) sheetScrollbar(); // the slim gold scrollbar, like every other page (the browser's own one shifted everything when it came and went)
-    pgLog('desk_open', party ? { target: pid, tName: party.name } : {});
+    pgLog('desk_open', {});
     requestAnimationFrame(() => { if (load) fadeLoad(load); else document.documentElement.classList.remove('pg-loading'); }); verCheck(); return; }
   if (G && !C && !NEWQ) { lsSet(LAST_G, G); if (ADMINQ && !IS_ADMIN && PRETTY) history.replaceState(null, '', '/');
     // the loading screen stays up until the page has its content (characters, party, admin lists), so nothing pops in
     // after it fades; at most a few seconds on a slow connection
     window.PG_READY = false; window.pgReady = () => { window.PG_READY = true; };
     { const t0 = Date.now(), wait = () => { if (window.PG_READY || Date.now() - t0 > 4500) { requestAnimationFrame(() => { if (load) fadeLoad(load); else document.documentElement.classList.remove('pg-loading'); }); } else setTimeout(wait, 40); }; setTimeout(wait, 0); }
+    // A DM's party page opens as the DM's Desk: the party page becomes its Party tab (the loading screen waits for it).
+    if (PARTYQ && PARTYQ !== 'new' && !ADMINQ) { const ready0 = window.pgReady; window.pgReady = () => { if (!window.PG_DESK_WAIT) ready0(); };
+      if (lsGet('pg-dmparty:' + PARTYQ)) loadDesk().catch(() => {}); // (a party you run: start fetching the desk straight away)
+      window.pgDeskHost = async P => { if (window.PG_DESKED) return; window.PG_DESKED = true; window.PG_DESK_WAIT = true; lsSet('pg-dmparty:' + PARTYQ, '1');
+        try { await loadDesk(); if (!window.pgDesk || !window.pgDesk.hostsParty) throw new Error('no party tab in this desk'); const host = document.getElementById('hub'); document.body.classList.add('dkhost');
+          const root = document.createElement('div'); root.id = 'pg-desk'; document.body.prepend(root);
+          window.pgDesk.mount(root, deskCtx({ id: P.id, name: P.name || 'Party', mgr: true }, { partyHost: host, initialTab: 'party', turnOrder: show => window.pgTurnOrder && window.pgTurnOrder(show) }));
+          if (!TOUCH && !FRAMED && !document.querySelector('.pg-sb')) sheetScrollbar(); pgLog('desk_open', { target: P.id, tName: P.name || '' });
+        } catch (e) { console.warn('desk', e); document.body.classList.remove('dkhost'); }
+        window.PG_DESK_WAIT = false; ready0(); }; }
     hub(fs, auth, G, { EMAIL, IS_ADMIN, IS_OWNER, ADMINS, user, signOut, ME, page: ADMINQ && IS_ADMIN ? 'admin' : PARTYQ ? 'party' : JOINQ ? 'join' : 'hub', view: VIEWQ, tab: TABQ, party: PARTYQ, join: JOINQ }); verCheck(); restoreY();
     // quietly warm the cache so opening a sheet from here is quick
     // (not on a very slow or data-saving connection, and only once the page has settled, so it never slows the list down)
@@ -2847,6 +2862,7 @@ function partyModule(H) {
     b.disabled = true; try { await ptySend(fs, EMAIL, PID, id, kind, data, a.from, a.name); if (inp) inp.value = ''; if (tsel) tsel.value = ''; toast(sentMsg(a, msg)); pgLog('party_send', { target: PID, tName: P.name, detail: kind + ' → ' + nm }); } catch (x) { fail(x, 'send it'); } finally { b.disabled = false; }
   }
   function paint() { if (typeof toPaint === 'function') setTimeout(toPaint, 0);
+    if (P && PLOADED && canRun(P) && window.pgDeskHost && !window.PG_DESKED) window.pgDeskHost(P); // a party you run opens as your DM's Desk
     if (!PLOADED || JOINING || LEAVING) return;
     // not while the DM is typing an amount on a card (it'd be wiped); it catches up a moment later
     { const ae = document.activeElement; if (ae && ae.classList && (ae.classList.contains('pm-q') && ae.value || ae.classList.contains('pm-qt'))) { clearTimeout(paint.t); paint.t = setTimeout(paint, 900); return; } }
@@ -3074,6 +3090,7 @@ function partyModule(H) {
     gear: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
     left: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>',
     right: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>' };
+  window.pgTurnOrder = show => turnOrder(show == null ? !document.getElementById('towin') : !!show);
   function turnOrder(show) {
     if (!actor()) return; if (!TO) TO = toLoad(); toSync();
     let w = document.getElementById('towin'); if (w) { if (!show) { w.id = ''; w.classList.add('closing'); setTimeout(() => w.remove(), PG_CALM ? 0 : 240); TO.open = false; toSave(); } return; }

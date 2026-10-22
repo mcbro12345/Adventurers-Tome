@@ -652,6 +652,7 @@ function renderWizard() {
   let body = '';
   if (st === 0) {
     body = `<div class="wz-intro"><p>Build any 5e (2014) character. Every choice can be changed later on the sheet.</p></div>
+      <div class="wz-ddb top"><div><b>Made your character on D&amp;D Beyond?</b><span class="hint">Bring it over: classes, scores, spells, equipment and notes.</span></div><button class="btn" data-wact="ddb">Import from D&amp;D Beyond</button></div>
       <div class="wz-grid">${fld('Character name', `<input class="f" data-wz="name" value="${esc(W.name)}" placeholder="Name" autofocus>`)}${window.SHEET_PAGES ? '' : fld('Player', `<input class="f" data-wz="player" value="${esc(W.player)}" placeholder="Your name">`)}
       ${fld('Alignment', `<select class="f" data-wz="alignment"><option value="">—</option>${DND.alignments.map(a => `<option${W.alignment === a ? ' selected' : ''}>${esc(a)}</option>`).join('')}</select>`)}</div>
       <div class="row" style="margin-top:12px"><img class="wz-portrait" src="${esc(W.portrait || PLACEHOLDER)}" alt=""><button class="btn" data-wact="portrait">${W.portrait ? 'Change portrait' : 'Add a portrait'}</button><span class="hint">Optional. The sheet's colors can match it.</span></div>
@@ -813,6 +814,7 @@ function wizClick(e) {
     case 'go': W.step = N(b.dataset.v); break;
     case 'portrait': $('#portraitFile').click(); return;
     case 'import': $('#importFile').click(); return;
+    case 'ddb': openDdbImport(); return;
     case 'addcls': W.classes.push({ key: '', level: 1, sub: '' }); break;
     case 'delcls': W.classes.splice(N(b.dataset.i), 1); break;
     case 'method': W.method = b.dataset.v; W.base = { str: '', dex: '', con: '', int: '', wis: '', cha: '' }; break;
@@ -858,6 +860,15 @@ function findGear(name) {
   const a = DND.armor.find(x => x[0].toLowerCase() === n); if (a) return makeArmorItem(a);
   const g = DND.gear.find(x => x[0].toLowerCase() === n); if (g) return makeGearItem(g);
   return { id: uid(), name, qty: 1, weight: 0, equipped: false, notes: '' };
+}
+// The standard actions every character has (and Cunning Action for a rogue).
+function defaultCombat() {
+  return {
+    action: [['Dash', 'Gain extra movement equal to your speed.'], ['Disengage', 'Your movement doesn\'t provoke opportunity attacks this turn.'], ['Dodge', 'Attacks against you have disadvantage; advantage on DEX saves until your next turn.'], ['Help', 'Give an ally advantage on a check or their next attack.'], ['Hide', 'Make a Stealth check to hide.'], ['Ready', 'Choose a trigger and a reaction to take.'], ['Search', 'Make a Perception or Investigation check.'], ['Use an Object', 'Interact with a second object or use an item.'], ['Grapple', 'Athletics vs the target\'s Athletics or Acrobatics; its speed becomes 0.'], ['Shove', 'Athletics contest to push 5 ft or knock prone.']].map(([name, text]) => ({ name, text })),
+    bonus: clsLv('rogue') >= 2 ? [{ name: 'Cunning Action', text: 'Dash, Disengage or Hide as a bonus action.' }] : [],
+    reaction: [{ name: 'Opportunity Attack', text: 'When a hostile creature you can see leaves your reach, make one melee attack.' }],
+    move: [['Stand up', 'Costs half your speed.'], ['Drop prone', 'Free.'], ['Interact', 'Draw a weapon, open a door, pick up an item — one free interaction.'], ['Climb / swim', 'Each foot costs 1 extra foot unless you have the speed.'], ['Jump', 'Long jump = STR score in feet with a 10 ft run.']].map(([name, text]) => ({ name, text }))
+  };
 }
 function buildCharacter() {
   const x = wzRace(), rows = wzClassRows();
@@ -931,12 +942,7 @@ function buildCharacter() {
   const arm = S.inventory.find(it => it.armor && it.armor.type !== 'shield' && (S.profs.armor || []).includes(it.armor.type)); if (arm) arm.equipped = true;
   const sh = S.inventory.find(it => it.armor && it.armor.type === 'shield' && (S.profs.armor || []).includes('shield')); if (sh) sh.equipped = true;
   const wpn = S.inventory.filter(it => it.weapon).slice(0, 2); wpn.forEach(it => it.equipped = true);
-  S.combat = {
-    action: [['Dash', 'Gain extra movement equal to your speed.'], ['Disengage', 'Your movement doesn\'t provoke opportunity attacks this turn.'], ['Dodge', 'Attacks against you have disadvantage; advantage on DEX saves until your next turn.'], ['Help', 'Give an ally advantage on a check or their next attack.'], ['Hide', 'Make a Stealth check to hide.'], ['Ready', 'Choose a trigger and a reaction to take.'], ['Search', 'Make a Perception or Investigation check.'], ['Use an Object', 'Interact with a second object or use an item.'], ['Grapple', 'Athletics vs the target\'s Athletics or Acrobatics; its speed becomes 0.'], ['Shove', 'Athletics contest to push 5 ft or knock prone.']].map(([name, text]) => ({ name, text })),
-    bonus: clsLv('rogue') >= 2 ? [{ name: 'Cunning Action', text: 'Dash, Disengage or Hide as a bonus action.' }] : [],
-    reaction: [{ name: 'Opportunity Attack', text: 'When a hostile creature you can see leaves your reach, make one melee attack.' }],
-    move: [['Stand up', 'Costs half your speed.'], ['Drop prone', 'Free.'], ['Interact', 'Draw a weapon, open a door, pick up an item — one free interaction.'], ['Climb / swim', 'Each foot costs 1 extra foot unless you have the speed.'], ['Jump', 'Long jump = STR score in feet with a 10 ft run.']].map(([name, text]) => ({ name, text }))
-  };
+  S.combat = defaultCombat();
   rebuildAuto();
   S.hp.cur = maxHp();
   S.created = true; S.notes = [{ date: new Date().toISOString().slice(0, 10), title: 'Character created', text: `${S.name}: ${S.raceName} ${classLabel()}${S.backgroundName ? ', ' + S.backgroundName : ''}.` }];
@@ -1235,6 +1241,285 @@ applyLayout(); applyTheme();
 if (S.created) { render(); setTimeout(afterUpdate, 50); }
 else openWizard();
 window.addEventListener('resize', () => { if (!LAYOUT_NOW) { const was = isMobile(); applyLayout(); if (was !== isMobile() && S.created) render(); } });
+// ---------- Import a character from D&D Beyond ----------
+// D&D Beyond keeps a public character's data at its character service. Browsers can't read it directly from this site,
+// so the site's small helper (the same one that makes party invite previews) fetches it; pasting the data works too.
+// What comes over is the player's own character: names, numbers and choices, matched to this sheet's rules data. No
+// rules text is copied from D&D Beyond: descriptions come from this sheet's own data.
+const DDB_PROXY = 'https://invite.adventurerstome.workers.dev/ddb/';
+const DDB_DIRECT = id => 'https://character-service.dndbeyond.com/character/v5/character/' + id;
+const ddbNorm = s => String(s || '').toLowerCase().replace(/[’']/g, '').replace(/&/g, 'and').replace(/[^a-z0-9+]+/g, '');
+const ddbId = t => { t = String(t || '').trim(); const m = /characters\/(\d{3,12})/.exec(t) || /character\/(\d{3,12})/.exec(t) || /^(\d{3,12})$/.exec(t); return m ? m[1] : ''; };
+const DDB_AB = { 1: 'str', 2: 'dex', 3: 'con', 4: 'int', 5: 'wis', 6: 'cha' };
+const DDB_ABNAME = { strength: 'str', dexterity: 'dex', constitution: 'con', intelligence: 'int', wisdom: 'wis', charisma: 'cha' };
+const DDB_ALIGN = { 1: 'Lawful Good', 2: 'Neutral Good', 3: 'Chaotic Good', 4: 'Lawful Neutral', 5: 'True Neutral', 6: 'Chaotic Neutral', 7: 'Lawful Evil', 8: 'Neutral Evil', 9: 'Chaotic Evil' };
+const DDB_COND = { 1: 'Blinded', 2: 'Charmed', 3: 'Deafened', 5: 'Frightened', 6: 'Grappled', 7: 'Incapacitated', 8: 'Invisible', 9: 'Paralyzed', 10: 'Petrified', 11: 'Poisoned', 12: 'Prone', 13: 'Restrained', 14: 'Stunned', 15: 'Unconscious' };
+// Accepts the character service's reply ({success, data}), the bare character, or a saved file of either.
+function ddbParse(txt) {
+  let j = null; try { j = typeof txt === 'string' ? JSON.parse(String(txt).trim().replace(/^﻿/, '')) : txt; } catch (e) { throw new Error('That isn’t D&D Beyond character data. Copy everything on the page (Ctrl+A, then Ctrl+C) and paste it here.'); }
+  const d = j && j.data && j.data.classes ? j.data : j && j.character && j.character.classes ? j.character : j;
+  if (!d || !Array.isArray(d.classes) || !Array.isArray(d.stats)) { if (j && j.success === false) throw new Error('D&D Beyond wouldn’t share that character. Make sure it’s set to Public (Character Settings → Privacy).'); throw new Error('That isn’t D&D Beyond character data.'); }
+  return d;
+}
+async function ddbFetch(id) {
+  let r; try { r = await fetch(DDB_PROXY + id, { credentials: 'omit' }); } catch (e) { throw new Error('Couldn’t reach D&D Beyond from here. Use “paste the data” below instead.'); }
+  if (r.status === 403 || r.status === 401) throw new Error('That character is private. On D&D Beyond open it → Character Settings → Privacy → Public, then try again.');
+  if (r.status === 404) throw new Error('D&D Beyond has no character with that number. Check the link.');
+  if (!r.ok) throw new Error('D&D Beyond didn’t answer (' + r.status + '). Try again, or paste the data below.');
+  return ddbParse(await r.text());
+}
+// All of a character's modifiers in one list, each tagged with where it came from.
+const ddbMods = d => Object.entries(d.modifiers || {}).flatMap(([src, list]) => (list || []).map(m => Object.assign({ _src: src }, m)));
+// Final ability scores the way D&D Beyond works them out. Item bonuses are left out (the sheet adds its items' own
+// effects); `withItems` includes them, for working out what D&D Beyond shows for hit points.
+function ddbScores(d, withItems) {
+  const o = {}, mods = ddbMods(d);
+  Object.entries(DDB_AB).forEach(([id, a]) => {
+    const base = (d.stats.find(s => s.id === +id) || {}).value, bonus = (d.bonusStats.find(s => s.id === +id) || {}).value, ov = (d.overrideStats.find(s => s.id === +id) || {}).value;
+    if (ov != null) { o[a] = N(ov); return; }
+    let v = N(base) + N(bonus), set = 0; const sub = Object.keys(DDB_ABNAME).find(k => DDB_ABNAME[k] === a) + '-score';
+    mods.filter(m => m.subType === sub && (withItems || m._src !== 'item')).forEach(m => { if (m.type === 'bonus') v += N(m.value != null ? m.value : m.fixedValue); if (m.type === 'set') set = Math.max(set, N(m.value != null ? m.value : m.fixedValue)); });
+    const cap = 20 + mods.filter(m => m.type === 'bonus' && m.subType === Object.keys(DDB_ABNAME).find(k => DDB_ABNAME[k] === a) + '-score-maximum' && (withItems || m._src !== 'item')).reduce((t, m) => t + N(m.value), 0);
+    o[a] = Math.max(set, Math.min(Math.max(cap, 20), v));
+  });
+  return o;
+}
+const ddbLevel = d => (d.classes || []).reduce((t, c) => t + N(c.level), 0);
+// What D&D Beyond shows as maximum hit points.
+function ddbMaxHp(d) {
+  if (d.overrideHitPoints != null) return N(d.overrideHitPoints);
+  const sc = ddbScores(d, true), lv = ddbLevel(d), mods = ddbMods(d);
+  const per = mods.filter(m => m.type === 'bonus' && m.subType === 'hit-points-per-level').reduce((t, m) => t + N(m.value), 0);
+  const flat = mods.filter(m => m.type === 'bonus' && m.subType === 'hit-points').reduce((t, m) => t + N(m.value), 0);
+  return N(d.baseHitPoints) + N(d.bonusHitPoints) + Math.floor((sc.con - 10) / 2) * lv + per * lv + flat;
+}
+// ----- matching D&D Beyond's names to this sheet's rules data -----
+function ddbFindClass(name) { const n = ddbNorm(name); const k = Object.keys(CL).find(k => ddbNorm(CL[k].name) === n && k !== 'rangertce') || Object.keys(CL).find(k => ddbNorm(CL[k].name) === n); return k || ''; }
+function ddbFindSub(ck, name) { if (!ck || !name) return ''; const c = CL[ck], n = ddbNorm(String(name).replace(/\((archived|legacy)\)/ig, '')); const e = Object.entries(c.subclasses || {});
+  const hit = e.find(([, s]) => ddbNorm(s.name) === n) || e.find(([, s]) => ddbNorm(s.name).replace(/^(circleofthe|circleof|pathofthe|pathof|wayofthe|wayof|collegeof|oathofthe|oathof|schoolof|the)/, '') === n.replace(/^(circleofthe|circleof|pathofthe|pathof|wayofthe|wayof|collegeof|oathofthe|oathof|schoolof|the)/, ''));
+  return hit ? hit[0] : ''; }
+function ddbFindRace(r) {
+  if (!r) return null; const full = ddbNorm(r.fullName), base = ddbNorm(r.baseRaceName || r.baseName), short = ddbNorm(r.subRaceShortName);
+  for (const [k, x] of Object.entries(DND.races)) {
+    const subs = Object.entries(x.subraces || {});
+    if (ddbNorm(x.name) === base || ddbNorm(x.name) === full) {
+      const s = subs.find(([, s]) => ddbNorm(s.name) === full) || subs.find(([, s]) => short && (ddbNorm(s.name) === short || ddbNorm(s.name) === short + base)) || subs.find(([, s]) => ddbNorm(s.name + ' ' + x.name) === full);
+      if (s || !subs.length || ddbNorm(x.name) === full) return { key: k, sub: s ? s[0] : '' };
+    }
+  }
+  // a lineage or variant listed under another name (e.g. a subrace that's a race of its own here)
+  for (const [k, x] of Object.entries(DND.races)) { const s = Object.entries(x.subraces || {}).find(([, s]) => ddbNorm(s.name) === full); if (s) return { key: k, sub: s[0] }; }
+  for (const [k, x] of Object.entries(DND.races)) if (ddbNorm(x.name) === base) return { key: k, sub: '' };
+  return null;
+}
+function ddbFindBg(name) { if (!name) return ''; const n = ddbNorm(String(name).split(/\s+[-–]\s+/)[0].replace(/\s*\(.*\)$/, '')); return Object.keys(DND.backgrounds).find(k => ddbNorm(DND.backgrounds[k].name) === n) || Object.keys(DND.backgrounds).find(k => String(DND.backgrounds[k].name).split(/\s*\/\s*|\s*\(/).some(p => ddbNorm(p) === n)) || ''; }
+const ddbFindFeat = name => { const n = ddbNorm(name), n2 = ddbNorm(String(name || '').replace(/\s*\(.*\)\s*$/, '')); const f = DND.feats.find(x => ddbNorm(x[0]) === n) || DND.feats.find(x => ddbNorm(x[0]) === n2) || DND.feats.find(x => ddbNorm(x[0]) === n.replace(/2024$|legacy$/, '')); return f ? f[0] : ''; };
+// Spells the free rules name without their wizard ("Hideous Laughter" is Tasha's Hideous Laughter here).
+const ddbSpell = nm => SPI(nm) || Object.values(DND.spellIndex).find(sp => /['’]s /.test(sp.name) && ddbNorm(sp.name.replace(/^[^ ]+['’]s /, '')) === ddbNorm(nm)) || null;
+const ddbSkill = sub => S.skills.find(s => ddbNorm(s.name) === ddbNorm(sub));
+const ddbTool = name => ALL_TOOLS().find(t => ddbNorm(t) === ddbNorm(name)) || ALL_TOOLS().find(t => ddbNorm(t).replace(/s$/, '') === ddbNorm(name).replace(/s$/, ''));
+const ddbWeapon = name => DND.weapons.find(w => ddbNorm(w[0]) === ddbNorm(name));
+const ddbArmor = name => DND.armor.find(a => ddbNorm(a[0]) === ddbNorm(name) || ddbNorm(a[0]) === ddbNorm(name) + 'armor' || ddbNorm(a[0]).replace(/armor$/, '') === ddbNorm(name).replace(/armor$/, ''));
+function ddbMagic(name, def) {
+  const n = ddbNorm(name), M = DND.magic, by = s => M.find(m => ddbNorm(m[0]) === ddbNorm(s));
+  let m = by(name); if (m) return m;
+  const plus = /,?\s*\+([123])$/.exec(name) || /^\+([123])\s/.exec(name);
+  if (plus) { const isShield = /shield/i.test(name) || /shield/i.test(def.baseArmorName || ''); return by((def.filterType === 'Weapon' ? 'Weapon' : def.filterType === 'Armor' ? (isShield ? 'Shield' : 'Armor') : 'Ammunition') + ' +' + plus[1]); }
+  const base = def.type && def.filterType === 'Weapon' ? def.type : def.baseArmorName || '';
+  if (base) { m = by(name.replace(new RegExp(',?\\s*' + base.replace(/[^\w ]/g, '.') + '$', 'i'), '')); if (m) return m; }
+  if (/^mithral\b/i.test(name)) return by('Mithral Armor'); if (/^adamantine\b/i.test(name)) return by('Adamantine Armor');
+  const par = /^(.*?)\s*\(([^)]+)\)$/.exec(name);
+  if (par) { m = by(par[1].replace(/^Potion of /i, 'Potion of ' + par[2] + ' ')) || by(par[2] + ' ' + par[1]) || by(par[1]); if (m) return m; }
+  return M.find(x => ddbNorm(x[0]).replace(/s$/, '') === n.replace(/s$/, '')) || null;
+}
+// One inventory entry → one of this sheet's items (unmatched ones come over by name, as plain items).
+function ddbItem(x, miss) {
+  const def = x.definition || {}, name = String(def.name || 'Item').trim();
+  let it = null, matched = true;
+  const baseW = def.filterType === 'Weapon' && (ddbWeapon(def.type) || ddbWeapon(name)), baseA = def.filterType === 'Armor' && (ddbArmor(def.baseArmorName) || ddbArmor(name) || (/shield/i.test(name) ? DND.armor.find(a => a[1] === 'shield') : null));
+  if (def.magic || /\+[123]/.test(name)) {
+    const m = ddbMagic(name, def);
+    if (m) { const base = (m[6] || {}).base; it = makeMagicItem(m, base === 'weapon' && baseW ? makeWeaponItem(baseW) : (base === 'armor' || base === 'shield') && baseA ? makeArmorItem(baseA) : undefined); if (it.name !== name && !/\+\d/.test(name)) it.name = name; }
+    else { matched = false; it = baseW ? makeWeaponItem(baseW) : baseA ? makeArmorItem(baseA) : { id: uid(), name, qty: 1, weight: N(def.weight), equipped: false, notes: '' }; it.name = name; it.magic = true; if (def.canAttune) it.attune = true; }
+  } else if (baseW) it = makeWeaponItem(baseW);
+  else if (baseA) it = makeArmorItem(baseA);
+  else { const tries = [name, name.replace(/^([^,]+),\s*(.+)$/, '$2 $1'), name.replace(/\s*\(.*\)$/, ''), name.replace(/^(block|stick|bottle|vial|flask|pouch|bag) of /i, '')].map(ddbNorm);
+    const g = DND.gear.find(g => tries.includes(ddbNorm(g[0]))), mm = !g && DND.magic.find(m => tries.includes(ddbNorm(m[0])));
+    if (mm) it = makeMagicItem(mm); else if (g) it = makeGearItem(g); else { matched = false; it = { id: uid(), name, qty: 1, weight: N(def.weight), cost: def.cost ? def.cost + ' gp' : '', equipped: false, notes: '' }; } }
+  if (!matched) miss.push('Item: ' + name);
+  it.id = uid(); it.qty = Math.max(1, N(x.quantity) || 1); it.equipped = !!x.equipped;
+  if (x.isAttuned) { it.attune = true; it.attuned = true; }
+  if (x.limitedUse && it.charges && x.limitedUse.numberUsed != null) it.charges.used = N(x.limitedUse.numberUsed);
+  return it;
+}
+// Build the whole character from D&D Beyond's data. Returns { state, report }; nothing is saved here.
+function ddbBuild(d, opt = {}) {
+  const ok = [], miss = [], notes = [];
+  const prevS = S;
+  S = migrate(Object.assign(blankState(), { dataRev: EMBED.dataRev || '', layout: (prevS && prevS.layout) || {} }));
+  S.sources = defaultSources(); const useSrc = s => { if (s && DND.sources[s] && !S.sources.includes(s)) S.sources.push(s); };
+  S.id = uid(); S.name = String(d.name || '').trim().slice(0, 80) || 'Unnamed Hero'; S.player = String(opt.player || '').slice(0, 80);
+  S.alignment = DDB_ALIGN[d.alignmentId] || ''; S.faith = String(d.faith || '').slice(0, 80); S.xp = d.currentXp ? String(d.currentXp) : '';
+  // race
+  const rf = ddbFindRace(d.race), rname = (d.race && d.race.fullName) || '';
+  if (rf) { S.race = { key: rf.key, sub: rf.sub, choices: {} }; const x = DND.races[rf.key], s = (x.subraces || {})[rf.sub] || {}; useSrc(x.src); const nm = s.name || x.name; S.raceName = nm.toLowerCase().includes(x.name.toLowerCase()) ? nm : nm.replace(/\s*\([A-Z][A-Za-z]{1,5}\)$/, '') + ' ' + x.name; ok.push('Race: ' + S.raceName); }
+  else { S.raceName = rname; if (rname) miss.push('Race: ' + rname + ' (kept as its name; its traits aren’t automated)'); }
+  // classes, starting class first
+  const cls = (d.classes || []).slice().sort((a, b) => (b.isStartingClass ? 1 : 0) - (a.isStartingClass ? 1 : 0));
+  S.classes = [];
+  cls.forEach(c => { const k = ddbFindClass(c.definition && c.definition.name); if (!k) { miss.push('Class: ' + (c.definition && c.definition.name) + ' ' + c.level); return; }
+    const sn = c.subclassDefinition && c.subclassDefinition.name, sk = ddbFindSub(k, sn); if (sn && !sk) miss.push('Subclass: ' + sn + ' (' + CL[k].name + ')');
+    if (sk) useSrc(CL[k].subclasses[sk].src);
+    S.classes.push({ key: k, level: Math.max(1, Math.min(20, N(c.level))), sub: sk && N(c.level) >= CL[k].sub.level ? sk : '' }); ok.push('Class: ' + CL[k].name + ' ' + c.level + (sk ? ' (' + CL[k].subclasses[sk].name + ')' : ''));
+    if (N(c.hitDiceUsed)) S.hdUsed[CL[k].hd] = N(S.hdUsed[CL[k].hd]) + N(c.hitDiceUsed); });
+  if (!S.classes.length) { S = prevS; throw new Error('None of this character’s classes are in this sheet’s rules, so it can’t be imported.'); }
+  const c0 = CL[S.classes[0].key];
+  // background
+  const bgd = d.background && (d.background.definition || d.background.customBackground), bgName = bgd && bgd.name, bk = ddbFindBg(bgName);
+  if (bk) { const b = DND.backgrounds[bk]; S.background = bk; S.backgroundName = b.name; useSrc(b.src); ok.push('Background: ' + b.name); }
+  else if (bgName) { S.backgroundName = String(bgName).slice(0, 80); notes.push('Background “' + bgName + '” isn’t in this sheet’s rules: its name is kept and its proficiencies come over.'); }
+  // proficiencies from the modifiers (only what's actually been chosen; open "choose a …" slots are skipped)
+  const mods = ddbMods(d);
+  S.profs = { armor: [], weapons: [], weaponNames: [] }; S.tools = []; S.langs = [];
+  mods.forEach(m => { const st = String(m.subType || ''), fr = m.friendlySubtypeName || st; if (/^choose-/.test(st)) return;
+    if (m.type === 'proficiency' || m.type === 'expertise') {
+      const sv = /^(\w+)-saving-throws$/.exec(st); if (sv && DDB_ABNAME[sv[1]]) { if (m.type === 'proficiency') S.saves[DDB_ABNAME[sv[1]]] = true; return; }
+      const sk = ddbSkill(st); if (sk) { sk.prof = Math.max(N(sk.prof), m.type === 'expertise' ? 2 : 1); return; }
+      const ar = { 'light-armor': 'light', 'medium-armor': 'medium', 'heavy-armor': 'heavy', 'shields': 'shield' }[st]; if (ar) { S.profs.armor.push(ar); return; }
+      const wc = { 'simple-weapons': 'simple', 'martial-weapons': 'martial' }[st]; if (wc) { S.profs.weapons.push(wc); return; }
+      const w = ddbWeapon(fr); if (w) { S.profs.weaponNames.push(w[0]); return; }
+      const t = ddbTool(fr); if (t || /tools|kit|supplies|instrument|vehicles|set$|gaming/i.test(fr) || DND.toolGroups && Object.values(DND.toolGroups).flat().some(x => ddbNorm(x) === ddbNorm(fr))) { addText('profTools', [t || fr]); if (m.type === 'expertise') { const tl = S.tools.find(x => ddbNorm(x.name) === ddbNorm(t || fr)); if (tl) tl.exp = true; } return; }
+      // musical instruments and the like
+      if (m.type === 'proficiency' && fr && !/ability checks|initiative/i.test(fr)) addText('profTools', [fr]);
+    } else if (m.type === 'language' && fr && !/^choose/i.test(fr)) addText('languages', [fr]); });
+  S.profs.armor = [...new Set(S.profs.armor)]; S.profs.weapons = [...new Set(S.profs.weapons)]; S.profs.weaponNames = [...new Set(S.profs.weaponNames)];
+  if (!AB.some(a => S.saves[a])) c0.saves.forEach(a => S.saves[a] = true);
+  S.profArmor = profArmorText(); S.profWeapons = profWeaponText();
+  // feats
+  (d.feats || []).forEach(f => { const nm = f.definition && f.definition.name, k = ddbFindFeat(nm); if (k) { if (!S.feats.includes(k)) S.feats.push(k); const ft = DND.feats.find(x => x[0] === k); if (ft) useSrc(ft[1]); ok.push('Feat: ' + k); } else if (nm && !/^(dark ?vision|ability score improvement|other spells|other)$/i.test(nm)) miss.push('Feat: ' + nm); });
+  // class options picked on D&D Beyond (fighting styles, invocations, metamagic, maneuvers…)
+  const picked = Object.values(d.options || {}).flat().map(o => o && o.definition && o.definition.name).filter(Boolean);
+  picked.forEach(nm => { const n = ddbNorm(nm); for (const [t, o] of Object.entries(DND.options || {})) { const e = (o.list || []).find(x => ddbNorm(x[0]) === n); if (e) { applyChoice({ type: t }, [e[0]]); ok.push((o.label || t) + ': ' + e[0]); return; } } });
+  // the sheet works out its own features, spells it grants and attacks
+  S.combat = defaultCombat();
+  rebuildAuto();
+  // ability scores last, so nothing above adds to them a second time
+  const sc = ddbScores(d, false); AB.forEach(a => S.abilities[a] = sc[a]);
+  // spells: each class's list (prepared as on D&D Beyond), plus race and feat spells the sheet didn't add itself
+  const classOf = id => { const c = (d.classes || []).find(c => c.id === id); return c ? ddbFindClass(c.definition && c.definition.name) : ''; };
+  if (opt.spells !== false) {
+    const add = (nm0, ck, o) => { const hit = ddbSpell(nm0), nm = hit ? hit.name : nm0, n = ddbNorm(nm); let sp = S.spells.find(s => ddbNorm(s.name) === n && (!ck || s.cls === ck || s.auto)); if (!hit) { miss.push('Spell: ' + nm0); }
+      if (!sp) { sp = spellEntry(nm, ck || 'race'); if (!ck) { sp.ab = o.ab || 'cha'; sp.always = true; sp.note = o.note || ''; } S.spells.push(sp); }
+      if (o.prepared && N(sp.level) > 0) sp.prepared = true; if (o.always) sp.always = true; };
+    (d.classSpells || []).forEach(g => { const ck = classOf(g.characterClassId); (g.spells || []).forEach(s => add(s.definition.name, ck, { prepared: s.prepared || s.alwaysPrepared, always: s.alwaysPrepared })); });
+    ['race', 'feat', 'class', 'background'].forEach(k => ((d.spells || {})[k] || []).forEach(s => { if (!s || !s.definition) return; const ab = DDB_AB[s.spellCastingAbilityId] || ''; add(s.definition.name, k === 'class' ? '' : '', { ab: ab || (k === 'race' ? 'cha' : 'int'), prepared: true, always: true, note: k === 'race' ? 'Racial' : k === 'feat' ? 'Feat' : '' }); }));
+  }
+  (d.spellSlots || []).forEach(s => { if (s.level >= 1 && s.level <= 9) S.slotsUsed[s.level - 1] = N(s.used); });
+  S.pactUsed = (d.pactMagic || []).reduce((t, s) => t + N(s.used), 0);
+  // inventory: containers become containers, the rest go in them or the pack
+  if (opt.items !== false) {
+    const inv = d.inventory || [], bagFor = {};
+    inv.filter(x => x.definition && x.definition.isContainer && x.containerEntityId === d.id).forEach(x => { const nm = x.definition.name, p = BAG_PRESETS.find(b => ddbNorm(b[0]) === ddbNorm(nm)) || [nm, 0, false, N(x.definition.weight)];
+      const b = { id: uid(), name: nm, cap: p[1] || '', weightless: !!p[2], weight: N(p[3]), notes: '' }; S.bags = (S.bags || []).concat([b]); bagFor[x.id] = b.id; });
+    inv.forEach(x => { if (!x.definition || bagFor[x.id]) return; const it = ddbItem(x, miss); const bag = x.containerEntityId !== d.id ? bagFor[x.containerEntityId] : ''; if (bag && !it.equipped) it.bag = bag; addInventoryItem(it, true); });
+    (d.customItems || []).forEach(x => { if (!x || !x.name) return; const it = { id: uid(), name: String(x.name).slice(0, 120), qty: Math.max(1, N(x.quantity) || 1), weight: N(x.weight), cost: x.cost ? x.cost + ' gp' : '', equipped: false, notes: String(x.description || x.notes || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 2000) }; addInventoryItem(it, true); });
+    const cur = d.currencies || {}; ['cp', 'sp', 'ep', 'gp', 'pp'].forEach(k => S.currency[k] = N(cur[k]));
+  }
+  rebuildAuto();
+  // hit points: match what D&D Beyond shows
+  const hd0 = c0.hd; let base = hd0; S.classes.forEach((r, i) => { const c = CL[r.key]; for (let l = i === 0 ? 1 : 0; l < r.level; l++) base += Math.floor(c.hd / 2) + 1; });
+  S.hp.base = N(d.baseHitPoints) || base; S.hp.adj = 0;
+  const want = ddbMaxHp(d), have = maxHp(); if (want > 0 && want !== have) S.hp.adj = want - have;
+  S.hp.cur = Math.max(0, maxHp() - N(d.removedHitPoints)); S.hp.temp = N(d.temporaryHitPoints);
+  // the rest of the character
+  const ds = d.deathSaves || {}; S.death = { s: N(ds.successCount), f: N(ds.failCount) };
+  S.conditions = (d.conditions || []).map(c => DDB_COND[c.id]).filter(Boolean); const ex = (d.conditions || []).find(c => c.id === 4); if (ex) S.exhaustion = N(ex.level);
+  if (d.inspiration) S.insp = 1;
+  const t = d.traits || {}, nt = d.notes || {}, txt = v => String(v || '').replace(/\r/g, '').trim().slice(0, 6000);
+  S.traits = { personality: txt(t.personalityTraits), ideals: txt(t.ideals), bonds: txt(t.bonds), flaws: txt(t.flaws) };
+  S.appearance = { age: txt(d.age), height: txt(d.height), weight: txt(d.weight), eyes: txt(d.eyes), skin: txt(d.skin), hair: txt(d.hair) };
+  S.backstory = txt(nt.backstory); S.allies = [txt(nt.allies), txt(nt.organizations)].filter(Boolean).join('\n\n');
+  const extra = [nt.personalPossessions && 'Possessions: ' + txt(nt.personalPossessions), nt.otherHoldings && 'Holdings: ' + txt(nt.otherHoldings), nt.otherNotes && txt(nt.otherNotes), t.appearance && 'Appearance: ' + txt(t.appearance)].filter(Boolean).join('\n\n');
+  S.notes = [{ date: new Date().toISOString().slice(0, 10), title: 'Imported from D&D Beyond', text: `${S.name}: ${S.raceName} ${classLabel()}${S.backgroundName ? ', ' + S.backgroundName : ''}.` + (extra ? '\n\n' + extra : '') }];
+  S.ddb = { id: N(d.id), at: Date.now() };
+  // carrying rules as the character used them on D&D Beyond (off there unless turned on)
+  const enc = { 1: 'standard', 2: 'off', 3: 'variant' }[N((d.preferences || {}).encumbranceType)];
+  if (enc) { S.settings = Object.assign({}, S.settings, { encumbrance: enc }); S.fixesDone = [...new Set((S.fixesDone || []).concat(['enc1', 'bullets1']))]; }
+  const state = S; S = prevS;
+  return { state, report: { ok, miss: [...new Set(miss)], notes, hp: want, avatar: (d.decorations || {}).avatarUrl || '' } };
+}
+// The portrait comes over through the same helper (so it can be drawn and kept), shrunk like any other portrait.
+async function ddbPortrait(url) {
+  if (!/^https:\/\/(www\.)?dndbeyond\.com\/avatars\//.test(String(url || ''))) return '';
+  try { const r = await fetch(DDB_PROXY + 'avatar?u=' + encodeURIComponent(url), { credentials: 'omit' }); if (!r.ok) return ''; const b = await r.blob(); if (!/^image\//.test(b.type)) return '';
+    const u = URL.createObjectURL(b); const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = u; });
+    const s = Math.min(1, 400 / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(u);
+    return c.toDataURL('image/jpeg', .86); } catch (e) { return ''; }
+}
+// ----- the import window: link or ID → (or paste / file) → review → create -----
+let DDB = null;
+function openDdbImport() { DDB = { step: 'get', id: '', err: '', busy: false, data: null, built: null, items: true, spells: true, portrait: true }; ddbPaint(); }
+function ddbPaint() {
+  if (!DDB) return; const D = DDB, b = D.built;
+  let h = '';
+  if (D.step === 'get') {
+    const link = D.id ? DDB_DIRECT(D.id) : '';
+    h = `<h3>Import from D&amp;D Beyond</h3>
+      <p class="hint">Bring over a character you made on D&amp;D Beyond: race, classes and subclasses, ability scores, hit points, proficiencies, feats, spells, equipment, money and notes. You’ll see what came over before it’s made.</p>
+      <label class="fld"><span class="lbl">Character link or number</span><input class="f" id="ddb-id" value="${esc(D.id)}" placeholder="https://www.dndbeyond.com/characters/12345678" autocomplete="off" inputmode="url"></label>
+      <p class="hint">The character has to be <b>Public</b> on D&amp;D Beyond: open it there → <b>Character Settings</b> → <b>Privacy</b> → <b>Public</b>.</p>
+      ${D.err ? `<p class="ddb-err">${esc(D.err)}</p>` : ''}
+      <div class="actions" style="justify-content:flex-start"><button class="btn gold" data-ddb="fetch"${D.busy ? ' disabled' : ''}>${D.busy ? 'Getting it…' : 'Get my character'}</button></div>
+      <details class="ddb-alt"${D.err ? ' open' : ''}><summary>Or paste the character data yourself</summary>
+        <ol class="ddb-steps"><li>${link ? `Open <a href="${esc(link)}" target="_blank" rel="noopener noreferrer">this page</a>` : 'Type the link or number above, then open the data page it gives'} in a new tab (the character still has to be Public).</li><li>Select everything on it (Ctrl+A / ⌘A) and copy it.</li><li>Paste it below.</li></ol>
+        <textarea class="f" id="ddb-paste" rows="5" placeholder='{"id":0,"success":true,"message":"Character successfully received.","data":{…}}'></textarea>
+        <div class="row"><button class="btn" data-ddb="paste">Use what I pasted</button><button class="btn" data-ddb="file">Open a saved file…</button><input type="file" id="ddb-file" accept=".json,application/json,text/plain" hidden></div></details>
+      <div class="actions"><button class="btn" data-ddb="close">Cancel</button></div>`;
+  } else if (D.step === 'review' && b) {
+    const st = b.state, r = b.report;
+    const scores = AB.map(a => `<span class="ddb-ab"><small>${AB3[a]}</small><b>${st.abilities[a]}</b></span>`).join('');
+    h = `<h3>Import ${esc(st.name)}</h3>
+      <div class="ddb-who">${D.portraitUrl ? `<img src="${esc(D.portraitUrl)}" alt="">` : ''}<div><b>${esc(st.name)}</b><span>${esc([st.raceName, st.classes.map(c => CL[c.key].name + ' ' + c.level).join(' / ')].filter(Boolean).join(' · '))}</span><span>${esc([st.backgroundName, st.alignment].filter(Boolean).join(' · '))}</span></div></div>
+      <div class="ddb-abs">${scores}</div>
+      <p class="hint">Hit points <b>${N(st.hp.cur)}</b> of <b>${r.hp}</b>${N(st.hp.temp) ? ` (+${st.hp.temp} temporary)` : ''} · ${st.spells.length} spells · ${st.inventory.length} items${st.feats.length ? ' · feats: ' + esc(st.feats.join(', ')) : ''}</p>
+      <div class="ddb-opts"><label class="checkline"><input type="checkbox" data-ddbo="items"${D.items ? ' checked' : ''}> Equipment and money</label><label class="checkline"><input type="checkbox" data-ddbo="spells"${D.spells ? ' checked' : ''}> Spells</label>${D.portraitUrl ? `<label class="checkline"><input type="checkbox" data-ddbo="portrait"${D.portrait ? ' checked' : ''}> Portrait</label>` : ''}</div>
+      ${r.miss.length ? `<details class="ddb-miss" open><summary>${r.miss.length} thing${r.miss.length === 1 ? '' : 's'} this sheet doesn’t have built in</summary><p class="hint">These come over by name only (or are left out), so their rules aren’t automated. You can fix them on the sheet afterwards.</p><ul>${r.miss.slice(0, 80).map(m => `<li>${esc(m)}</li>`).join('')}${r.miss.length > 80 ? `<li>…and ${r.miss.length - 80} more</li>` : ''}</ul></details>` : '<p class="ddb-allok">Everything was matched to this sheet’s rules.</p>'}
+      ${r.notes.length ? `<ul class="hint">${r.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
+      <p class="hint">Choices the sheet asks for that D&amp;D Beyond didn’t record show up as <b>Unfinished choices</b> on the sheet. Limited-use features start fresh.</p>
+      <div class="actions"><button class="btn" data-ddb="back">Back</button><button class="btn gold" data-ddb="make">Create ${esc(st.name)}</button></div>`;
+  }
+  openModal(`<div class="ddb">${h}</div>`, () => { DDB = null; }, true);
+  const inp = $('#ddb-id'); if (inp) { inp.oninput = () => { D.id = ddbId(inp.value) || ''; D.raw = inp.value; const a = $('.ddb-steps a'); }; inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); ddbAct('fetch'); } }; if (D.step === 'get' && !D.busy) setTimeout(() => inp.focus(), 30); }
+  $$('#modal-body [data-ddb]').forEach(x => x.onclick = () => ddbAct(x.dataset.ddb));
+  $$('#modal-body [data-ddbo]').forEach(x => x.onchange = () => { D[x.dataset.ddbo] = x.checked; if (x.dataset.ddbo !== 'portrait') ddbRebuild(); });
+  const f = $('#ddb-file'); if (f) f.onchange = () => { const file = f.files && f.files[0]; if (!file) return; file.text().then(t => ddbUse(t), () => { D.err = 'Couldn’t read that file.'; ddbPaint(); }); };
+}
+function ddbRebuild() { const D = DDB; if (!D || !D.data) return; try { D.built = ddbBuild(D.data, { items: D.items, spells: D.spells, player: window.SHEET_PAGES ? '' : (W && W.player) || '' }); } catch (e) { D.err = e.message; D.step = 'get'; } ddbPaint(); }
+function ddbUse(txt) { const D = DDB; if (!D) return; try { D.data = ddbParse(txt); } catch (e) { D.err = e.message; ddbPaint(); return; } D.err = ''; D.step = 'review'; D.portraitUrl = ''; ddbRebuild();
+  const av = D.built && D.built.report.avatar; if (av) ddbPortrait(av).then(u => { if (u && DDB === D) { D.portraitUrl = u; if (D.step === 'review') ddbPaint(); } }); }
+async function ddbAct(a) {
+  const D = DDB; if (!D) return;
+  if (a === 'close') { closeModal(); DDB = null; return; }
+  if (a === 'back') { D.step = 'get'; D.err = ''; return ddbPaint(); }
+  if (a === 'file') { const f = $('#ddb-file'); if (f) f.click(); return; }
+  if (a === 'paste') { const t = ($('#ddb-paste') || {}).value || ''; if (!t.trim()) { D.err = 'Paste the character data first.'; return ddbPaint(); } return ddbUse(t); }
+  if (a === 'fetch') { const v = ($('#ddb-id') || {}).value || ''; D.id = ddbId(v); if (!D.id) { D.err = 'Paste the character’s link from D&D Beyond (it ends in a number), or just the number.'; return ddbPaint(); }
+    D.busy = true; D.err = ''; ddbPaint();
+    try { const data = await ddbFetch(D.id); if (DDB !== D) return; D.busy = false; return ddbUse(data); } catch (e) { if (DDB !== D) return; D.busy = false; D.err = e.message; return ddbPaint(); } }
+  if (a === 'make') ddbCreate();
+}
+function ddbCreate() {
+  const D = DDB; if (!D || !D.built) return;
+  S = D.built.state; if (D.portrait && D.portraitUrl) S.portrait = D.portraitUrl;
+  closeModal(true); DDB = null; closeWizard();
+  S.created = true;
+  LAST = snapAll(); HIST = []; REDO = [];
+  pendingLabel = 'Import from D&D Beyond'; writeLocal(); save();
+  if (S.portrait) matchPortrait(false);
+  applyTheme(); applyLayout(); render();
+  toast(`<div><b>${esc(S.name)}</b> is here from D&amp;D Beyond!<div class="det">Check the Inventory and Spells tabs, and any <b>Unfinished choices</b>. Everything saves automatically.</div></div>`, 'crit', 12000);
+}
+
 })();
 // While typing on a phone the keyboard is up: hide the bottom tab bar (like a native app) instead of letting it ride up above the keyboard.
 {
@@ -1253,3 +1538,4 @@ window.addEventListener('resize', () => { if (!LAYOUT_NOW) { const was = isMobil
     if (was && !now && !(' ' + (m.oldValue || '') + ' ').includes(' closing ') && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => el.classList.remove('closing'), document.documentElement.classList.contains('mobile') ? 240 : 190); } }))
     .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], attributeOldValue: true, subtree: true });
 }
+

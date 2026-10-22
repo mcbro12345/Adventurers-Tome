@@ -2095,3 +2095,6 @@ button.to-hp:hover, button.to-ac:hover { border-color: var(--to-line); color: va
 .to-dkr.in { opacity: .55; cursor: default; }
 .to-dkr input { width: 18px; height: 18px; accent-color: #c9962b; flex: none; }
 .to-dkn { display: grid; gap: 1px; min-width: 0; } .to-dkn b { font-weight: 700; } .to-dkn small { opacity: .7; font-size: 12.5px; }
+/* A DM's party page lives inside the DM's Desk (its Party tab): no site header or duplicate buttons there */
+body.dkhost #hub .wzh, body.dkhost #hub #pt-desk, body.dkhost #hub #pt-turn { display: none !important; }
+body.dkhost #hub .pw { padding-top: 0; margin-top: 0; }

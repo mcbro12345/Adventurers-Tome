@@ -3839,6 +3839,10 @@ function takeDamage(amt) {
     toast(`${esc(nm)} drops to 0 HP — you revert${d ? ` and take the remaining ${d}` : ''}.`, 'alert', 8000);
   }
   const before = N(hp.cur);
+  // Massive damage (PHB): damage left over after dropping to 0 that equals or beats your HP maximum kills outright.
+  if (d > 0 && d - Math.max(0, before) >= maxHp() && maxHp() > 0) { if (before > 0 && typeof ptyDeathWard === 'function' && ptyDeathWard()) { hp.cur = 1; update(); return; } hp.cur = 0; S.death.f = 3; if (!S.conditions.includes('Unconscious')) S.conditions.push('Unconscious'); update(); fxTrigger('zero');
+    toast(`<div><b>Massive damage</b><div class="det">${d - Math.max(0, before)} damage left over after 0 HP is at least ${esc(who())}'s HP maximum (${maxHp()}) — instant death. If your DM rules otherwise, clear the death save failures.</div></div>`, 'fumble', 12000);
+    if (conc) breakConc('died'); return; }
   if (before <= 0 && d > 0) { S.death.f = Math.min(3, N(S.death.f) + 1); update(); toast('Damage while at 0 HP — one death save failure (two on a crit).', 'fumble', 7000); return; }
   hp.cur = Math.max(0, before - d);
   if (hp.cur === 0 && before > 0 && typeof ptyDeathWard === 'function' && ptyDeathWard()) hp.cur = 1;
@@ -4608,6 +4612,7 @@ function openCatalog(keep) {
   // Homebrew: this character's saved homebrew items, then the ones everyone else in the party has saved.
   const hbRow = (c, from, t, n, del) => [c.name, `<div class="crrow" data-q="${esc((c.name + ' custom homebrew ' + (from || '') + ' ' + (c.summary || '') + ' ' + (c.notes || '')).toLowerCase())}"><div><b>${esc(c.name)}</b>${kind('Homebrew')} ${cost(c.cost)}<div class="hint">${from ? `<span class="hbfrom">${esc(from)}’s</span> · ` : ''}${esc(customItemInfo(c))}</div></div><span class="crbtns">${del ? `<button class="btn sm" data-act="catcdel" data-n="${n}" title="Remove from your homebrew items" aria-label="Remove ${esc(c.name)} from your homebrew items">✕</button>` : ''}<button class="btn sm gold" data-act="catadd" data-t="${t}" data-n="${n}">Add</button></span></div>`];
   const C = () => { const own = (S.customItems || []), seen = new Set(own.map(c => c.name.toLowerCase())), out = own.map((c, n) => hbRow(c, '', 'c', n, true));
+    (typeof ptyOn === 'function' && ptyOn() && PTYX().hb ? PTYX().hb() : []).forEach((c, j) => { if (!c || !c.name || seen.has(c.name.toLowerCase())) return; seen.add(c.name.toLowerCase()); out.push(hbRow(c, 'Your party', 'ph', j, false)); });
     (typeof ptyOn === 'function' && ptyOn() ? ptyMembers() : []).forEach(m => (m.hb || []).forEach((c, j) => { if (!c || !c.name || seen.has(c.name.toLowerCase())) return; seen.add(c.name.toLowerCase()); out.push(hbRow(c, m.name || 'A party member', 'ch', esc(m.id) + ':' + j, false)); }));
     return out; };
   const list = tab === 'weapons' ? W() : tab === 'armor' ? A() : tab === 'gear' ? G() : tab === 'magic' ? M() : tab === 'custom' ? C()
@@ -4629,6 +4634,7 @@ function catalogAdd(t, n) {
   if (t === 'w') return addInventoryItem(makeWeaponItem(DND.weapons[n]));
   if (t === 'a') return addInventoryItem(makeArmorItem(DND.armor[n]));
   if (t === 'g') return addInventoryItem(makeGearItem(DND.gear[n]));
+  if (t === 'ph') { const c = (typeof PTYX === 'function' && PTYX() && PTYX().hb ? PTYX().hb() : [])[N(n)]; if (!c) return; const it = JSON.parse(JSON.stringify(c)); delete it._pid; it.id = uid(); it.qty = N(it.qty) || 1; it.equipped = false; return addInventoryItem(it); }
   if (t === 'ch') { const [mid, j] = String(n).split(':'), m = (typeof ptyMembers === 'function' ? ptyMembers() : []).find(x => x.id === mid), c = m && (m.hb || [])[N(j)]; if (!c) return; const it = JSON.parse(JSON.stringify(c)); it.id = uid(); it.qty = N(it.qty) || 1; it.equipped = false; return addInventoryItem(it); }
   if (t === 'c') { const c = (S.customItems || [])[n]; if (!c) return; const it = JSON.parse(JSON.stringify(c)); it.id = uid(); it.qty = N(it.qty) || 1; it.equipped = false; delete it.savedFrom; return addInventoryItem(it); }
   if (t === 'ws') { const it = makeWeaponItem(DND.weapons[n]); it.name = 'Silvered ' + it.name.toLowerCase(); it.silvered = true; it.cost = silverCost(it.cost, 1); return addInventoryItem(it); }
@@ -4852,7 +4858,7 @@ function shortRestChanges() {
 }
 function srListHTML() {
   const L = shortRestChanges(), spent = Object.keys(hdPools()).some(d => hdLeftOf(d) < (hdPools()[d] || 0));
-  return L.length ? `<p class="hint" style="margin:10px 0 6px">Finishing the rest will also change:</p><ul class="lrlist">${L.map(x => `<li>${x}</li>`).join('')}</ul>` : `<p class="hint" style="margin:10px 0 6px">Nothing else changes when you finish${spent ? '' : ' — no short-rest uses are spent'}.</p>`;
+  return L.length ? `<p class="hint" style="margin:10px 0 6px">Finishing the rest will also change:</p><ul class="lrlist">${L.map(x => `<li>${x}</li>`).join('')}</ul>` : `<p class="hint" style="margin:10px 0 6px">Nothing else changes when you finish${spent ? '' : ' — nothing you’ve used recharges on a short rest'}.</p>`;
 }
 // Exactly what finishLong() is about to change, worked out from the sheet as it is right now.
 function longRestChanges() {
@@ -4994,12 +5000,13 @@ function applyMode() {
 function applyTheme() {
   applyMode();
   const st = document.documentElement.style, th = S.theme || {}, dark = document.documentElement.getAttribute('data-theme') === 'dark';
-  ['--gold', '--gold-ink', '--gold-soft', '--navy', '--navy2'].forEach(v => st.removeProperty(v));
+  ['--gold', '--gold-ink', '--gold-soft', '--gold-banner', '--navy', '--navy2'].forEach(v => st.removeProperty(v));
   const a = hexToRgb(th.accent);
   st.removeProperty('--on-gold');
   if (a) { // text on the accent colour: white or dark navy, whichever is easier to read (WCAG contrast)
     const rl = c => { const v = [0, 1, 2].map(i => { const x = c[i] / 255; return x <= .03928 ? x / 12.92 : Math.pow((x + .055) / 1.055, 2.4); }); return .2126 * v[0] + .7152 * v[1] + .0722 * v[2]; }, L = rl(a);
-    st.setProperty('--on-gold', 1.05 / (L + .05) >= (L + .05) / (rl([29, 37, 54]) + .05) ? '#FFFFFF' : '#1D2536'); st.setProperty('--gold', rgbHex(a)); st.setProperty('--gold-ink', rgbHex(readableInk(a, dark))); st.setProperty('--gold-soft', rgbHex(dark ? mix(a, [20, 24, 32], 0.75) : mix(a, [255, 255, 255], 0.78))); }
+    st.setProperty('--on-gold', 1.05 / (L + .05) >= (L + .05) / (rl([29, 37, 54]) + .05) ? '#FFFFFF' : '#1D2536'); st.setProperty('--gold', rgbHex(a)); st.setProperty('--gold-ink', rgbHex(readableInk(a, dark))); st.setProperty('--gold-soft', rgbHex(dark ? mix(a, [20, 24, 32], 0.75) : mix(a, [255, 255, 255], 0.78)));
+    { let c = a; for (let k = 0; k < 10 && lumOf(c) < 0.45; k++) c = mix(c, [255, 255, 255], 0.2); st.setProperty('--gold-banner', rgbHex(c)); } } // labels on the dark banner stay readable with a dark accent
   const g = hexToRgb(th.bg);
   ['--bg', '--bg2'].forEach(v => st.removeProperty(v));
   if (g) { st.setProperty('--bg', rgbHex(dark ? mix(g, [8, 10, 16], 0.82) : g)); st.setProperty('--bg2', rgbHex(dark ? mix(g, [14, 18, 26], 0.75) : mix(g, [0, 0, 0], 0.06))); }
@@ -5566,7 +5573,7 @@ function raceChangeOK() {
     S.raceName = S.race.custom.name;
   } else {
     const bonus = wzRacialBonus();
-    S.race = { key: W.race, sub: W.sub, choices: {} }; S.raceName = x.name.toLowerCase().includes(x.r.name.toLowerCase()) ? x.name : x.name + ' ' + x.r.name;
+    S.race = { key: W.race, sub: W.sub, choices: {} }; S.raceName = x.name.toLowerCase().includes(x.r.name.toLowerCase()) ? x.name : x.name.replace(/\s*\([A-Z][A-Za-z]{1,5}\)$/, '') + ' ' + x.r.name;
     AB.forEach(a => { if (bonus[a]) S.abilities[a] = Math.min(30, N(S.abilities[a]) + bonus[a]); });
     const nw = raceFixed(W.race, W.sub);
     addText('languages', nw.langs); nw.skills.forEach(n => setSkill(n, 1)); addText('profTools', nw.tools);
@@ -7918,13 +7925,14 @@ const ANI = (() => {
     const xs = list.length === 1 ? [74] : list.length === 2 ? [68, 84] : list.length === 3 ? [64, 78, 90] : list.map((_, i) => 60 + i * (34 / Math.max(1, list.length - 1)));
     const targets = list.map((k, i) => { const isP = LOOKS[k] && !CREATURE[k]; const d = list.length > 1 ? (i % 2 ? .5 : 0) : 0;
       return { kind: isP ? 'person' : k, look: isP ? k : null, x: xs[i], y: GROUND - d * 6, s: (1 - d * .18) * (k === 'big' ? 1.3 : 1), f: -1, pose: 'idle', depth: d }; });
-    if (tg[1]) targets.forEach(t => { if (LOOKS[tg[1]]) t.look = tg[1]; });
+    tg.slice(1).forEach(a1 => targets.forEach(t => { if (LOOKS[a1]) t.look = a1; else if (col(a1)) t.col = col(a1)[0]; }));
     return { caster, targets };
   }
   function frame(x, S, tms) {
     const T = tms, ph = (tms % LOOP) / LOOP;
     const A = actorsFor(S); S.A = A; S.T = T; S.ph = ph; S.shake = 0; S.flash = 0; S.invert = 0; S.dark = 0; S.zoom = 1; S.zx = 50; S.zy = 60; S.hide = {};
     const w = S.setup.w; if (w) { A.caster.weapon = w.args[0]; A.caster.wcol = col(w.args[1]) || null; A.caster.drawWeapon = WEAPON_DRAW; }
+    S.thrown = S.acts.some(a => a.name === 'shoot' && a.args.some(z => /^(javelin|axe|hammer|knife|net|flask)$/.test(z)) && ph > a.t0 + (a.t1 - a.t0) * .22) ? 1 : 0;
     // which acts are active now: p = local progress (0..1), u = unclamped
     const live = [];
     // a 'cure' act ends conditions that started before it (they fade out as it lands)
@@ -7933,6 +7941,8 @@ const ANI = (() => {
       if (a.v.cond && a.t0 < cureAt && ph > cureAt) { const f = (ph - cureAt) / .08; if (f >= 1) continue; a._fade = 1 - f; } else a._fade = 1; if (!a.v.keep && !a.kv.keep && u > 1 + (a.v.tail != null ? a.v.tail : .6)) continue; live.push([a, clamp(u) * (a._fade == null ? 1 : a._fade), u]); }
     // 1) acts change actors (poses, knockback, tint...)
     live.forEach(([a, p, u]) => a.v.mod && a.v.mod(S, p, a, u));
+    // keep everyone on the stage
+    { const c = A.caster; if (c.x + (c.dx || 0) < 10) c.dx = 10 - c.x; A.targets.forEach(t => { if (t.x + (t.dx || 0) > 93) t.dx = 93 - t.x; if (t.x + (t.dx || 0) < 8) t.dx = 8 - t.x; }); }
     // global fade at the loop's end
     const fade = ph > .93 ? clamp((ph - .93) / .05) : ph < .02 ? 1 - ph / .02 : 0;
     x.save();
@@ -7941,13 +7951,16 @@ const ANI = (() => {
     if (S.zoom !== 1) { x.translate(S.zx, S.zy); x.scale(S.zoom, S.zoom); x.translate(-S.zx, -S.zy); }
     if (S.shake) { const r = rng(T / 30 | 0); x.translate((r() - .5) * S.shake * 2, (r() - .5) * S.shake * 2); }
     drawBg(x, S, T);
-    if (S.dark) { x.fillStyle = `rgba(4,4,12,${S.dark})`; x.fillRect(-10, -10, W + 20, H + 20); }
+    if (S.dark) { S.dark = Math.min(S.dark, .42); x.fillStyle = `rgba(4,4,12,${S.dark})`; x.fillRect(-10, -10, W + 20, H + 20); }
     live.forEach(([a, p, u]) => a.v.back && (x.save(), a.v.back(x, S, p, a, u, H_), x.restore()));
     // ground shadow + actors
     const draw = (act, who) => { if (S.hide[who]) return null; H_.glow(x, act.x + (act.dx || 0), act.y + (act.dy || 0) - 16 * (act.s || 1), 20 * (act.s || 1), '#c8d4ff', .09 * (act.alpha == null ? 1 : act.alpha)); H_.ell(x, act.x + (act.dx || 0) * .6, act.y + 1, 7 * (act.s || 1), 1.6, '#000000', .35 * (act.alpha == null ? 1 : act.alpha));
       return act.kind === 'person' ? figure(x, act, T) : creature(x, act.kind, act, T); };
     const tPts = A.targets.slice().sort((a, b) => b.depth - a.depth).map(t => [t, draw(t, 't' + A.targets.indexOf(t))]);
     A.targets.forEach(t => { const m = tPts.find(q => q[0] === t); t.pt = m && m[1]; });
+    if (S.thrown) A.caster.drawWeapon = null;
+    // a person on a mount: draw the mount, then the rider sitting on it
+    if (/^(horse|steed|mount)$/.test(A.caster.kind) && LOOKS[A.caster.look]) { const m = draw(A.caster, 'c'); const r = Object.assign({}, A.caster, { kind: 'person', pose: 'sit', blend: null, rot: 0, dy: (A.caster.dy || 0) - 15 * (A.caster.s || 1), dx: (A.caster.dx || 0) - 1, s: (A.caster.s || 1) * .88 }); const rp = figure(x, r, T); A.caster.pt = Object.assign({}, rp, { feet: m ? m.feet : rp.feet }); } else
     A.caster.pt = draw(A.caster, 'c');
     if (!A.caster.pt) A.caster.pt = { hand: [32, 64], hand2: [20, 64], chest: [24, 64], head: [24, 52], feet: [24, GROUND], s: 1 };
     A.targets.forEach(t => { if (!t.pt) t.pt = { hand: [t.x - 8, 64], chest: [t.x, 64], head: [t.x, 52], feet: [t.x, t.y], s: 1 }; });
@@ -7955,13 +7968,16 @@ const ANI = (() => {
     live.forEach(([a, p, u]) => a.v.over && (x.save(), a.v.over(x, S, p, a, u, H_), x.restore()));
     x.restore();
     { const g = x.createRadialGradient(50, 50, 34, 50, 50, 76); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.36)'); x.fillStyle = g; x.fillRect(0, 0, W, H); }
-    if (S.invert > 0) { x.save(); x.globalCompositeOperation = 'difference'; x.globalAlpha = clamp(S.invert); x.fillStyle = '#ffffff'; x.fillRect(0, 0, W, H); x.restore(); }
+    // impact frames and flashes stay brief and soft so a frame never turns fully white
+    if (S.invert > 0) S.flash = Math.max(S.flash, .32 * clamp(S.invert));
+    S.flash = Math.min(S.flash, .34);
     if (S.flash > 0) { x.fillStyle = `rgba(255,255,255,${clamp(S.flash)})`; x.fillRect(0, 0, W, H); }
     if (fade > 0) { x.fillStyle = `rgba(8,10,16,${fade})`; x.fillRect(0, 0, W, H); }
   }
   // Points helpers for verbs
+  const G_ = GROUND;
   const P_ = {
-    hand: S => S.A.caster.pt.hand, chest: S => S.A.caster.pt.chest, head: S => S.A.caster.pt.head,
+    hand: S => S.A.caster.pt ? S.A.caster.pt.hand : [S.A.caster.x + (S.A.caster.dx || 0) + 8, G_ - 18], chest: S => S.A.caster.pt ? S.A.caster.pt.chest : [S.A.caster.x + (S.A.caster.dx || 0), G_ - 18], head: S => S.A.caster.pt ? S.A.caster.pt.head : [S.A.caster.x + (S.A.caster.dx || 0), G_ - 30],
     tgt: (S, i = 0) => { const t = S.A.targets[i] || S.A.targets[0]; return t ? (t.pt ? t.pt.chest : [t.x + (t.dx || 0), t.y + (t.dy || 0) - 18 * (t.s || 1)]) : [74, 64]; },
     thead: (S, i = 0) => { const t = S.A.targets[i] || S.A.targets[0]; return t ? (t.pt ? t.pt.head : [t.x + (t.dx || 0), t.y + (t.dy || 0) - 30 * (t.s || 1)]) : [74, 52]; },
     tfeet: (S, i = 0) => { const t = S.A.targets[i] || S.A.targets[0]; return t ? [t.x + (t.dx || 0), t.y] : [74, GROUND]; },
@@ -7994,7 +8010,7 @@ const ANI = (() => {
   const floor = (x, c, c2) => { const g = x.createLinearGradient(0, G - 2, 0, 100); g.addColorStop(0, c); g.addColorStop(1, c2 || mix(c, '#000000', .5)); x.fillStyle = g; x.fillRect(-10, G - 1, 120, 30); x.fillStyle = 'rgba(255,255,255,.08)'; x.fillRect(-10, G - 1, 120, .7); };
   const stars = (x, r, n, T, a = 1) => { for (let i = 0; i < n; i++) { const px = r() * 100, py = r() * 60, tw = .5 + .5 * Math.sin(T / 400 + i * 1.7); H.dot(x, px, py, .35 + r() * .45, '#ffffff', a * (.3 + .7 * tw)); } };
   BG.dusk = (x, S, T, r) => { sky(x, '#1b2240', '#3b2a4a'); H.glow(x, 70, 70, 60, '#ff8a5a', .18); floor(x, '#232a3a'); };
-  BG.plain = (x) => { sky(x, '#1a2030', '#121722'); floor(x, '#20283a'); };
+  BG.plain = (x) => { sky(x, '#3a4660', '#5a6680'); floor(x, '#4a5468'); };
   BG.night = (x, S, T, r) => { sky(x, '#121a38', '#2a3466'); stars(x, r, 30, T); H.dot(x, 80, 16, 6, '#f4f0d8'); H.dot(x, 82.4, 14.6, 5.2, '#141a36'); floor(x, '#222a44'); };
   BG.forest = (x, S, T, r) => { sky(x, '#12261e', '#2a4a2e'); for (let i = 0; i < 9; i++) { const px = i * 13 - 4 + r() * 6, h = 30 + r() * 26, c = i % 2 ? '#1a3a24' : '#143020'; x.fillStyle = c; x.beginPath(); x.moveTo(px - 9, G); x.lineTo(px, G - h); x.lineTo(px + 9, G); x.fill(); }
     for (let i = 0; i < 6; i++) H.glow(x, r() * 100, 20 + r() * 50, 2.5, '#d8ff8a', .5 + .5 * Math.sin(T / 300 + i)); floor(x, '#1f3a22'); };
@@ -8022,7 +8038,7 @@ const ANI = (() => {
   BG.tavern = (x, S, T, r) => { sky(x, '#2a1a10', '#4a2e1a'); x.fillStyle = '#3a2414'; for (let i = 0; i < 5; i++) x.fillRect(i * 22, 0, 3, G); H.glow(x, 50, 30, 30, '#ffb04a', .3); x.fillStyle = '#5a3a20'; x.fillRect(0, 56, 100, 3); floor(x, '#4a3020'); };
   BG.ship = (x, S, T, r) => { BG.sea(x, S, T, r); x.fillStyle = '#6a4424'; x.fillRect(-10, G - 2, 120, 30); x.fillStyle = '#4a2e18'; for (let i = 0; i < 10; i++) x.fillRect(i * 11, G - 2, .6, 20); x.fillStyle = '#5a3a20'; x.fillRect(48, 0, 3, G); };
   BG.ruins = (x, S, T, r) => { sky(x, '#3a3046', '#8a7a6a'); [[14, 40], [36, 26], [80, 34]].forEach(([px, h]) => { x.fillStyle = '#6a6070'; x.fillRect(px - 4, G - h, 8, h); x.fillRect(px - 5, G - h - 2, 10 - (px % 3), 3); }); floor(x, '#4a4a3a'); };
-  BG.light = (x, S, T, r) => { sky(x, '#fff4d8', '#ffd98a'); for (let i = 0; i < 8; i++) { x.save(); x.translate(50, -10); x.rotate(-.6 + i * .17 + Math.sin(T / 2000) * .05); x.fillStyle = 'rgba(255,255,255,.35)'; x.fillRect(-2, 0, 4, 120); x.restore(); } floor(x, '#e8d4a0'); };
+  BG.light = (x, S, T, r) => { sky(x, '#e8d6a8', '#c9a660'); for (let i = 0; i < 8; i++) { x.save(); x.translate(50, -10); x.rotate(-.6 + i * .17 + Math.sin(T / 2000) * .05); x.fillStyle = 'rgba(255,255,255,.35)'; x.fillRect(-2, 0, 4, 120); x.restore(); } floor(x, '#b89a5a'); };
   BG.dark = (x) => { sky(x, '#14141f', '#22222f'); floor(x, '#24243a'); };
   BG.lab = (x, S, T, r) => { sky(x, '#1e2a2a', '#2e3e3a'); x.fillStyle = '#3a2a1e'; x.fillRect(0, 52, 100, 3); [[10, '#3affa0'], [22, '#ff5a8a'], [80, '#5ab0ff'], [90, '#ffd23a']].forEach(([px, c]) => { x.fillStyle = rgba(c, .7); x.beginPath(); x.arc(px, 48, 3.2, 0, TAU); x.fill(); x.fillRect(px - 1, 40, 2, 6); H.glow(x, px, 48, 6, c, .4); }); floor(x, '#2a3430'); };
   BG.space = (x, S, T, r) => { sky(x, '#02030a', '#0a0c1e'); stars(x, r, 50, T); H.dot(x, 78, 22, 10, '#c86a3a'); H.dot(x, 75, 19, 10, 'rgba(255,255,255,.1)'); floor(x, '#1a1a24'); };
@@ -8037,7 +8053,14 @@ const ANI = (() => {
   CREATURE.bird = CREATURE.owl;
   CREATURE.eagle = (x, st, T) => { const fl = Math.sin(T / 110) * 8; x.translate(0, -30 + Math.sin(T / 300) * 2); sil(x, st.col || '#5a3a24', 0, () => { x.moveTo(-8, 0); x.lineTo(-2, -2 - fl); x.lineTo(-14, -6 - fl * 1.2); x.lineTo(2, -3); x.lineTo(14, -6 - fl * 1.2); x.lineTo(4, 0); x.lineTo(9, 1); x.lineTo(4, 2); x.lineTo(-6, 3); x.closePath(); }); H.dot(x, 8, .4, 1.2, '#ffffff'); H.dot(x, 10, 1, .7, '#ffd23a'); return { h: 32 }; };
   CREATURE.cat = (x, st, T) => { sil(x, st.col || '#3a3a46', 0, () => { x.moveTo(-8, 0); x.lineTo(-8, -6); x.quadraticCurveTo(0, -9, 5, -7); x.lineTo(5, -11); x.lineTo(7, -9); x.lineTo(9, -11); x.lineTo(9, -6); x.quadraticCurveTo(9, -3, 6, -3); x.lineTo(6, 0); x.lineTo(3, 0); x.lineTo(3, -3); x.lineTo(-5, -3); x.lineTo(-5, 0); x.closePath(); }); x.strokeStyle = st.col || '#3a3a46'; x.lineWidth = 1.4; x.beginPath(); x.moveTo(-8, -5); x.quadraticCurveTo(-14, -8 + Math.sin(T / 200) * 2, -12, -14); x.stroke(); eye(x, 7.6, -7.6, '#a8ff6a', .6); return { h: 11, hx: 7 }; };
-  CREATURE.horse = (x, st, T) => { const c = st.col || '#8a6a4a', g = Math.sin(T / 120) * 6; sil(x, c, 0, () => { x.moveTo(-14, -12); x.lineTo(8, -14); x.lineTo(12, -24); x.lineTo(18, -22); x.lineTo(14, -18); x.lineTo(12, -11); x.lineTo(12 + g * .3, 0); x.lineTo(9, 0); x.lineTo(8, -8); x.lineTo(-10, -8); x.lineTo(-11 - g * .3, 0); x.lineTo(-14, 0); x.closePath(); }); x.fillStyle = '#2a1a10'; x.beginPath(); x.moveTo(10, -24); x.lineTo(4, -14); x.lineTo(8, -14); x.fill(); x.strokeStyle = '#2a1a10'; x.lineWidth = 2; x.beginPath(); x.moveTo(-14, -11); x.lineTo(-18, -4); x.stroke(); return { h: 24, hx: 14 }; };
+  CREATURE.horse = (x, st, T) => { const c = st.col || '#9a6a3e', d = mix(c, '#000000', .35), g = st.still ? 0 : Math.sin(T / 110), mane = '#3a2414';
+    const leg = (hx, hy, ph, back) => { const a = Math.sin(T / 110 + ph) * (st.still ? 0 : .35); x.save(); x.translate(hx, hy); x.rotate(a); x.strokeStyle = OL; x.lineWidth = 3.4; x.beginPath(); x.moveTo(0, 0); x.lineTo(0, 7); x.lineTo(back ? -1 : 1, 13); x.stroke(); x.strokeStyle = back ? d : c; x.lineWidth = 2.2; x.beginPath(); x.moveTo(0, 0); x.lineTo(0, 7); x.lineTo(back ? -1 : 1, 13); x.stroke(); x.fillStyle = '#1a1210'; x.fillRect((back ? -1 : 1) - 1.4, 12, 2.8, 1.6); x.restore(); };
+    leg(-9, -13, 0, 1); leg(7, -13, P, 1);
+    x.strokeStyle = mane; x.lineWidth = 2.4; x.lineCap = 'round'; x.beginPath(); x.moveTo(-13, -19); x.quadraticCurveTo(-19, -16 + g, -18, -8); x.stroke();
+    sil(x, c, 0, () => { x.moveTo(-13, -20); x.quadraticCurveTo(-14, -12, -10, -11); x.lineTo(9, -11); x.quadraticCurveTo(13, -12, 12, -18); x.lineTo(15, -26); x.quadraticCurveTo(17, -30, 21, -28); x.lineTo(23, -24); x.quadraticCurveTo(22, -22, 19, -23); x.lineTo(15, -17); x.quadraticCurveTo(12, -21, 2, -21); x.closePath(); });
+    x.fillStyle = mane; x.beginPath(); x.moveTo(15, -27); x.quadraticCurveTo(10, -24, 9, -19); x.lineTo(12, -19); x.quadraticCurveTo(13, -24, 16, -25); x.fill();
+    x.fillStyle = c; x.beginPath(); x.moveTo(17, -29); x.lineTo(18, -32); x.lineTo(19, -29); x.fill(); x.stroke();
+    H.dot(x, 19, -26.6, .7, '#0d1018'); leg(-7, -13, P * .5, 0); leg(9, -13, P * 1.5, 0); return { h: 30, hx: 19 }; };
   CREATURE.steed = CREATURE.horse;
   CREATURE.snake = (x, st, T) => { x.strokeStyle = OL; x.lineWidth = 4; x.lineCap = 'round'; const path = () => { x.beginPath(); for (let i = 0; i <= 20; i++) { const t = i / 20; x.lineTo(-14 + t * 22, -2 - Math.sin(t * 9 + T / 150) * 2 * (1 - t) - (t > .8 ? (t - .8) * 50 : 0)); } }; path(); x.stroke(); x.strokeStyle = st.col || '#4a8a3a'; x.lineWidth = 2.6; path(); x.stroke(); eye(x, 8.4, -11.6, '#ffd23a', .6); return { h: 12, hx: 8 }; };
   CREATURE.spider = (x, st, T) => { x.translate(0, -5); x.strokeStyle = '#1a1420'; x.lineWidth = 1.1; for (let i = 0; i < 4; i++) { const w = Math.sin(T / 90 + i) * 1.4; [-1, 1].forEach(s => { x.beginPath(); x.moveTo(0, 0); x.lineTo(s * (5 + i), -4 + w); x.lineTo(s * (8 + i * 1.6), 5); x.stroke(); }); } sil(x, st.col || '#2a2030', 0, () => { x.ellipse(-2, 0, 5, 4, 0, 0, TAU); x.moveTo(6, 0); x.arc(4, 0, 2.6, 0, TAU); }); eye(x, 5, -.6, '#ff3a3a', .5); eye(x, 3.6, -.8, '#ff3a3a', .5); return { h: 10 }; };
@@ -8155,7 +8178,7 @@ const ANI = (() => {
   I.ring = (x, c) => { H.ring(x, 0, 2, 6.4, c ? c[0] : '#e0b04a', 2.6); H.ring(x, 0, 2, 6.4, OL, .4); fill(x, c ? c[1] : '#7fd6ff', () => { x.moveTo(0, -9); x.lineTo(3.4, -5.4); x.lineTo(0, -2.6); x.lineTo(-3.4, -5.4); x.closePath(); }); };
   I.amulet = (x, c) => { x.strokeStyle = '#e0b04a'; x.lineWidth = .8; x.beginPath(); x.moveTo(-7, -9); x.quadraticCurveTo(0, 2, 7, -9); x.stroke(); fill(x, c ? c[0] : '#e0453a', () => { x.arc(0, 2, 4.6, 0, TAU); }); H.dot(x, -1.4, .6, 1.2, '#ffffff', .7); };
   I.crown = (x, c) => { fill(x, c ? c[0] : '#e0b04a', () => { x.moveTo(-9, 6); x.lineTo(-9, -5); x.lineTo(-4.5, 0); x.lineTo(0, -8); x.lineTo(4.5, 0); x.lineTo(9, -5); x.lineTo(9, 6); x.closePath(); }); [[-4.5, 3], [0, 3], [4.5, 3]].forEach(([a, b], i) => H.dot(x, a, b, 1.2, ['#e0453a', '#3a8aff', '#3ae08a'][i])); };
-  I.cloak = (x, c) => { fill(x, c ? c[0] : '#5a3a8a', () => { x.moveTo(-3, -9); x.lineTo(3, -9); x.quadraticCurveTo(9, 0, 9, 9); x.lineTo(-9, 9); x.quadraticCurveTo(-9, 0, -3, -9); }); H.dot(x, 0, -7.4, 1.4, '#e0b04a'); };
+  I.cloak = (x, c) => { const k = c ? c[0] : '#5a3a8a'; fill(x, mix(k, '#000000', .35), () => { x.moveTo(-4, -6); x.quadraticCurveTo(0, -3, 4, -6); x.lineTo(5, 9); x.lineTo(-5, 9); x.closePath(); }); fill(x, k, () => { x.moveTo(-4, -10); x.quadraticCurveTo(0, -13, 4, -10); x.quadraticCurveTo(6, -7, 4, -5); x.quadraticCurveTo(8, 2, 10, 10); x.quadraticCurveTo(6, 8, 4, 10); x.lineTo(4, -2); x.quadraticCurveTo(0, 0, -4, -2); x.lineTo(-4, 10); x.quadraticCurveTo(-6, 8, -10, 10); x.quadraticCurveTo(-8, 2, -4, -5); x.quadraticCurveTo(-6, -7, -4, -10); }); H.dot(x, 0, -4, 1.2, '#e0b04a'); };
   I.belt = (x, c) => { fill(x, c ? c[0] : '#6a4424', () => { x.rect(-10, -2.4, 20, 4.8); }); fill(x, '#e0b04a', () => { x.rect(-3, -4, 6, 8); }); x.fillStyle = OL; x.fillRect(-1.4, -2.2, 2.8, 4.4); };
   I.gem = (x, c) => { fill(x, c ? c[0] : '#3ae0a8', () => { x.moveTo(-8, -3); x.lineTo(-4, -8); x.lineTo(4, -8); x.lineTo(8, -3); x.lineTo(0, 9); x.closePath(); }); x.strokeStyle = 'rgba(255,255,255,.6)'; x.lineWidth = .6; x.beginPath(); x.moveTo(-8, -3); x.lineTo(8, -3); x.moveTo(-4, -8); x.lineTo(-2, -3); x.lineTo(0, 9); x.moveTo(4, -8); x.lineTo(2, -3); x.lineTo(0, 9); x.stroke(); };
   I.coin = (x, c) => { fill(x, c ? c[0] : '#e0b04a', () => { x.arc(0, 0, 7, 0, TAU); }); H.ring(x, 0, 0, 5, 'rgba(0,0,0,.25)', .8); x.fillStyle = 'rgba(0,0,0,.3)'; x.font = 'bold 8px serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('$'.replace('$', '◆'), 0, .4); };
@@ -8262,7 +8285,7 @@ const ANI = (() => {
   I.holy = (x, c) => { H.glow(x, 0, 0, 12, c ? c[0] : '#ffe08a', .5); fill(x, c ? c[0] : '#ffe08a', () => { x.rect(-1.6, -10, 3.2, 20); x.rect(-7, -4, 14, 3.2); }); };
   I.potionblue = (x) => I.potion(x, ['#3a8aff']);
   I.scales = (x) => { H.line(x, 0, -9, 0, 9, '#e0b04a', 1.4); H.line(x, -9, -6, 9, -6, '#e0b04a', 1.4); [-7, 7].forEach(s => { H.line(x, s, -6, s - 3, 1, '#e0b04a', .6); H.line(x, s, -6, s + 3, 1, '#e0b04a', .6); fill(x, '#e0b04a', () => { x.arc(s, 1, 3, 0, P); }); }); x.fillStyle = '#e0b04a'; x.fillRect(-5, 8, 10, 2); };
-  I.feet = (x, c) => { [-4, 4].forEach((s, i) => fill(x, c ? c[0] : '#e8c29a', () => { x.ellipse(s, i ? -2 : 3, 3, 5.4, 0, 0, TAU); })); };
+  I.feet = (x, c) => { [-4, 4].forEach((s, i) => { const y = i ? -3 : 3; fill(x, c ? c[0] : '#5a4030', () => { x.ellipse(s, y + 1.6, 2.6, 4, 0, 0, TAU); }); [-1.6, 0, 1.6].forEach(o => H.dot(x, s + o, y - 3.6, .9, c ? c[0] : '#5a4030')); }); };
   I.cross = (x, c) => { x.strokeStyle = c ? c[0] : '#ff3a3a'; x.lineWidth = 3; x.beginPath(); x.moveTo(-8, -8); x.lineTo(8, 8); x.moveTo(8, -8); x.lineTo(-8, 8); x.stroke(); };
   I.check = (x, c) => { x.strokeStyle = c ? c[0] : '#3ae08a'; x.lineWidth = 3; x.lineCap = 'round'; x.beginPath(); x.moveTo(-8, 0); x.lineTo(-2, 6); x.lineTo(8, -7); x.stroke(); };
   I.plus = (x, c) => { fill(x, c ? c[0] : '#33d677', () => { x.rect(-2.6, -9, 5.2, 18); x.rect(-9, -2.6, 18, 5.2); }); };
@@ -8281,7 +8304,7 @@ const ANI = (() => {
   I.crosshair = (x, c) => { H.ring(x, 0, 0, 7, c ? c[0] : '#ff3a3a', 1.4); H.line(x, -11, 0, -4, 0, c ? c[0] : '#ff3a3a', 1.4); H.line(x, 4, 0, 11, 0, c ? c[0] : '#ff3a3a', 1.4); H.line(x, 0, -11, 0, -4, c ? c[0] : '#ff3a3a', 1.4); H.line(x, 0, 4, 0, 11, c ? c[0] : '#ff3a3a', 1.4); };
   I.chalice = I.cup; I.goblet = I.trophy;
   I.hat = (x, c) => { fill(x, c ? c[0] : '#4a3a8a', () => { x.moveTo(-11, 6); x.lineTo(11, 6); x.lineTo(3, 3); x.lineTo(-1, -11); x.lineTo(-4, 3); x.closePath(); }); x.fillStyle = '#e0b04a'; x.fillRect(-4, 2, 7.4, 1.6); };
-  I.boots = I.boot; I.gauntlet = I.glove; I.cape = I.cloak; I.robe = (x, c) => { fill(x, c ? c[0] : '#4a3a8a', () => { x.moveTo(-4, -10); x.lineTo(4, -10); x.lineTo(6, -6); x.lineTo(9, 10); x.lineTo(-9, 10); x.lineTo(-6, -6); x.closePath(); }); x.strokeStyle = '#e0b04a'; x.beginPath(); x.moveTo(0, -9); x.lineTo(0, 10); x.stroke(); };
+  I.boots = I.boot; I.gauntlet = I.glove; I.cape = I.cloak; I.robe = (x, c) => { const k = c ? c[0] : '#4a3a8a'; fill(x, k, () => { x.moveTo(-3, -10); x.lineTo(3, -10); x.lineTo(5, -8); x.lineTo(10, -4); x.lineTo(8, -1); x.lineTo(5, -3); x.lineTo(7, 10); x.lineTo(-7, 10); x.lineTo(-5, -3); x.lineTo(-8, -1); x.lineTo(-10, -4); x.lineTo(-5, -8); x.closePath(); }); x.strokeStyle = '#e0b04a'; x.lineWidth = 1; x.beginPath(); x.moveTo(-3, -10); x.lineTo(0, -6); x.lineTo(3, -10); x.moveTo(0, -6); x.lineTo(0, 10); x.stroke(); x.fillStyle = '#e0b04a'; x.fillRect(-5.4, 1, 10.8, 1.4); };
   I.necklace = I.amulet; I.bracer = (x, c) => { fill(x, c ? c[0] : '#a8743a', () => { x.moveTo(-6, -9); x.lineTo(6, -9); x.lineTo(7, 9); x.lineTo(-7, 9); x.closePath(); }); x.fillStyle = '#e0b04a'; x.fillRect(-6.4, -4, 13, 1.6); x.fillRect(-6.8, 3, 13.6, 1.6); };
   I.goggles = (x, c) => { H.line(x, -11, 0, 11, 0, '#5a3a20', 1.6); [-5, 5].forEach(s => { fill(x, '#a8743a', () => { x.arc(s, 0, 4.6, 0, TAU); }); fill(x, c ? c[0] : '#7fd6ff', () => { x.arc(s, 0, 3.2, 0, TAU); }, 0); }); };
   I.figurine = (x, c) => { fill(x, c ? c[0] : '#3a3a46', () => { x.moveTo(-7, 9); x.lineTo(-6, 0); x.quadraticCurveTo(-4, -6, 2, -6); x.lineTo(4, -10); x.lineTo(5, -6); x.quadraticCurveTo(8, -4, 7, 0); x.lineTo(6, 9); x.closePath(); }); fill(x, '#a8743a', () => { x.rect(-9, 8, 18, 3); }); };
@@ -8311,7 +8334,7 @@ const ANI = (() => {
   I.wheel = (x, c, T) => { x.rotate((T || 0) / 500); H.ring(x, 0, 0, 8, '#7a5232', 2); for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; H.line(x, 0, 0, Math.cos(a) * 8, Math.sin(a) * 8, '#7a5232', 1); } };
   I.idol = I.figurine; I.totem = (x, c) => { fill(x, '#8a5a2a', () => { x.rect(-5, -10, 10, 20); }); [-6, 1].forEach(y => { H.dot(x, -2, y, 1.2, OL); H.dot(x, 2, y, 1.2, OL); x.fillStyle = OL; x.fillRect(-2, y + 2.4, 4, 1); }); };
   I.cards = (x, c) => { x.save(); x.rotate(-.3); I.card(x, ['#3a3a46']); x.restore(); x.save(); x.rotate(.3); x.translate(3, 0); I.card(x, c); x.restore(); };
-  I.banner = I.flag; I.badge = (x, c) => { I.star(x, c || ['#e0b04a']); };
+  I.banner = I.flag; I.badge = (x, c) => { fill(x, '#c0303a', () => { x.moveTo(-5, -10); x.lineTo(-1, -2); x.lineTo(1, -2); x.lineTo(5, -10); x.lineTo(2, -10); x.lineTo(0, -5); x.lineTo(-2, -10); x.closePath(); }); fill(x, c ? c[0] : '#e0b04a', () => { x.arc(0, 3, 6, 0, TAU); }); H.ring(x, 0, 3, 4, 'rgba(0,0,0,.3)', .8); };
   I.ship = I.boat; I.mirror2 = I.mirror;
 })();
 // a few aliases for props people naturally reach for
@@ -8329,7 +8352,7 @@ const ANI = (() => {
   const yes = v => v != null && v !== '0' && v !== 'false';
   // Impact: white star burst, ring and spark lines (anime hit spark)
   const impact = (x, px, py, c, k, r0 = 1, R) => { if (k < 0 || k > 1) return; const e = E.out(k), r = R || rng(px * 7 + py | 0);
-    H.glow(x, px, py, (10 + 16 * e) * r0, c[0], .7 * (1 - k)); H.star4(x, px, py, (4 + 14 * (1 - Math.abs(k - .25) * 2)) * r0, W, 1 - k, .3); H.ring(x, px, py, (3 + 18 * e) * r0, c[1], 2.2 * (1 - k), 1 - k);
+    r0 = Math.min(r0, 1.25); H.glow(x, px, py, (8 + 12 * e) * r0, c[0], .5 * (1 - k)); H.star4(x, px, py, (3 + 9 * Math.max(0, 1 - Math.abs(k - .2) * 2.5)) * r0, W, .85 * (1 - k), .3); H.ring(x, px, py, (3 + 18 * e) * r0, c[1], 2.2 * (1 - k), 1 - k);
     for (let i = 0; i < 8; i++) { const an = r() * TAU, d1 = (4 + 12 * e) * r0, d2 = d1 + (5 + r() * 8) * (1 - k) * r0; H.line(x, px + Math.cos(an) * d1, py + Math.sin(an) * d1, px + Math.cos(an) * d2, py + Math.sin(an) * d2, i % 2 ? c[1] : W, 1.2, 1 - k); } };
   ANI.impact = impact;
   const flinch = (S, t, u, amt = 3) => { if (u > 1 && u < 1.4) { const k = (u - 1) / .4; t.dx = (t.dx || 0) + amt * Math.sin(k * P) * (t.f > 0 ? -1 : 1); t.tint = W; t.tintA = Math.max(t.tintA || 0, .7 * (1 - k)); } };
@@ -8358,7 +8381,7 @@ const ANI = (() => {
   def('teleport', { w: .7, mod(S, p, a, u) { const c = caster(S), to = +(a.kv.x || 60) - c.x; if (p < .5) { c.alpha = 1 - p * 2; c.s = 1 + Math.sin(p * 2 * P) * .1; } else { c.dx = (c.dx || 0) + to; c.alpha = (p - .5) * 2; } if (u > 1) { c.dx = to; c.alpha = 1; } },
     back(x, S, p, a) { const c = C2(S, a), to = +(a.kv.x || 60); const k = p < .5 ? p * 2 : (1 - p) * 2; H.circle(x, 24, G, 12 * clamp(p * 3), c, 1 - p, S.T / 300); H.circle(x, to, G, 12 * clamp((p - .3) * 3), c, clamp((p - .3) * 2), -S.T / 300);
       x.globalAlpha = k * .8; const g = x.createLinearGradient(0, 30, 0, G); g.addColorStop(0, rgba(c[1], 0)); g.addColorStop(1, rgba(c[0], .9)); x.fillStyle = g; if (p < .5) x.fillRect(18, 30, 12, G - 30); else x.fillRect(to - 6, 30, 12, G - 30); }, tail: .3 });
-  def('vanish', { w: .5, keep: 1, mod(S, p, a) { each(S, a, t => { t.alpha = 1 - E.out(p) * .88; }, 'self'); },
+  def('vanish', { w: .5, keep: 1, mod(S, p, a) { const back = (a.kv.at || 'self') === 'self' && S.acts.some(b => b.t0 > a.t0 && S.ph >= b.t0 && ['blink', 'teleport', 'dash', 'leapat', 'slash', 'stab', 'punch', 'crit', 'smash'].includes(b.name)); if (back) return; each(S, a, t => { t.alpha = 1 - E.out(p) * .88; }, 'self'); },
     front(x, S, p, a) { each(S, a, t => { const c = C2(S, a); particles(x, 10, a.rnd, r => { const k = (S.T / 900 + r()) % 1; H.dot(x, t.x + (r() - .5) * 14, G - 4 - k * 30, .7, c[1], p * (1 - k) * .8); }); for (let i = 0; i < 3; i++) H.line(x, t.x - 8, G - 30 + i * 9 + Math.sin(S.T / 200 + i) * 2, t.x + 8, G - 30 + i * 9 + Math.sin(S.T / 200 + i) * 2, c[1], .5, p * .35); }, 'self'); } });
   def('grow', { w: .6, keep: 1, mod(S, p, a, u) { const m = +(a.kv.m || 1.45); each(S, a, t => { t.s = (t.s || 1) * lerp(1, m, E.back(p)); if (p < 1) t.dx = (t.dx || 0) + Math.sin(p * 30) * .5; }, 'self'); if (p > .3 && p < .8) S.shake += .8; },
     back(x, S, p, a) { const c = C2(S, a); each(S, a, t => { H.ring(x, t.x, G, 6 + 16 * p, c[0], 1.6, 1 - p); for (let i = 0; i < 4; i++) icon(x, 'arrowup', t.x + (i - 1.5) * 9, G - 20 - p * 24 + (i % 2) * 4, 5, c, S.T, 0, (1 - p) * .9); }, 'self'); } });
@@ -8366,7 +8389,7 @@ const ANI = (() => {
     back(x, S, p, a) { const c = C2(S, a); each(S, a, t => { for (let i = 0; i < 4; i++) { const an = i / 4 * TAU + p * 2; H.streak(x, t.x + Math.cos(an) * (24 - 16 * p), G - 14 + Math.sin(an) * (20 - 14 * p), t.x + Math.cos(an) * (16 - 12 * p), G - 14 + Math.sin(an) * (14 - 10 * p), c[0], 1.4, 1 - p); } }); } });
   def('spin', { w: .7, mod(S, p, a) { const c = caster(S); c.f = Math.cos(p * TAU * 3) > 0 ? 1 : -1; setPose(c, 'spin', p, false); },
     front(x, S, p, a) { const c = C2(S, a), cx = S.A.caster.x + (S.A.caster.dx || 0); for (let i = 0; i < 3; i++) H.ell(x, cx, G - 16 + i * 4, 16 + i * 4, 4 + i, i % 2 ? c[1] : c[0], .6 * Math.sin(p * P), 1.6); H.hlines(x, .3 * Math.sin(p * P), 1, W, rng(a.rnd), 8, 50, 80); } });
-  def('run', { w: .6, mod(S, p, a, u) { const c = caster(S), d = +(a.kv.d2 || 30); c.dx = (c.dx || 0) + (yes(a.kv.away) ? -d : d) * E.io(p); c.pose = 'run'; c.f = yes(a.kv.away) ? -1 : 1; c.dy = (c.dy || 0) - Math.abs(Math.sin(p * P * 6)) * 2; },
+  def('run', { w: .6, mod(S, p, a, u) { const c = caster(S), d = Math.min(+(a.kv.d2 || 30), yes(a.kv.away) ? 14 : 56); c.dx = (c.dx || 0) + (yes(a.kv.away) ? -d : d) * E.io(p); c.pose = 'run'; c.f = yes(a.kv.away) ? -1 : 1; c.dy = (c.dy || 0) - Math.abs(Math.sin(p * P * 6)) * 2; },
     back(x, S, p, a) { H.hlines(x, .4 * Math.sin(p * P), yes(a.kv.away) ? -1 : 1, W, rng(a.rnd), 10, 55, 82); for (let i = 0; i < 4; i++) H.puff(x, 24 + 30 * E.io(clamp(p - i * .1)) * (yes(a.kv.away) ? -1 : 1), G, 2 + i * .4, '#c8ccd8', .4 * (1 - i / 4) * Math.sin(p * P)); } });
   // Afterimages behind whoever is acted on (speed, haste)
   def('speed', { w: .5, keep: 1, mod(S, p, a) { each(S, a, t => { t.dx = (t.dx || 0) + Math.sin(S.T / 70) * 1.2 * p; }, 'self'); },
@@ -8404,8 +8427,9 @@ const ANI = (() => {
   def('cleave', { w: .8, mod(S, p, a, u) { arm(S, 'axe'); const c = caster(S); c.armF = [lerp(150, 30, E.snap(clamp((p - .3) / .3))), 0]; c.pose = p > .3 ? 'swing1' : 'swing0'; c.dx = (c.dx || 0) + 22 * clamp(p * 3) * (u > 1 ? Math.max(0, 1 - (u - 1) * 3) : 1); S.A.targets.forEach((t, i) => { if (p > .45 + i * .08) { t.dx = (t.dx || 0) + 4; t.rot = .2; t.tint = W; t.tintA = .5 * (1 - p); } }); },
     front(x, S, p, a) { if (p < .3 || p > .95) return; const c = C2(S, a), k = E.snap(clamp((p - .3) / .3)); x.save(); x.strokeStyle = c[1]; x.lineWidth = 4; x.globalAlpha = 1 - clamp((p - .6) / .35); x.beginPath(); x.ellipse(60, 60, 42, 10, -.1, P * .9, P * .9 + k * P * 1.1); x.stroke(); x.strokeStyle = W; x.lineWidth = 1.4; x.stroke(); x.restore(); S.A.targets.forEach((t, i) => { if (p > .45 + i * .08) impact(x, t.pt.chest[0], t.pt.chest[1], c, (p - .45 - i * .08) / .4, .6, rng(a.rnd + i)); }); } });
   // Ranged weapon shot: arrow/bolt/bullet/stone/dart/knife/star/javelin/axe (n= count, arc=)
-  def('shoot', { w: .6, mod(S, p, a, u) { const k = a.args[0] || 'arrow', c = caster(S); setPose(c, /arrow|bolt/.test(k) && !a.kv.throw ? 'bow' : 'throw2', clamp(p * 3), true); each(S, a, t => flinch(S, t, u, 3)); if (/bullet/.test(k) && p < .1) S.shake += 2; },
-    front(x, S, p, a, u) { const k = a.args[0] || 'arrow', c = C2(S, a), n = +(a.kv.n || 1); for (let i = 0; i < n; i++) { const q = clamp(p * (1 + (n - 1) * .25) - i * .25); if (q <= 0 || q >= 1) continue; const pp = path(S, a, q, +(a.kv.arc || (k === 'stone' || k === 'javelin' ? 10 : 2)));
+  const SHOTS = ['arrow', 'bolt', 'bullet', 'stone', 'dart', 'knife', 'star', 'javelin', 'axe', 'hammer', 'net', 'flask'], SHOTK = a => a.args.find(z => SHOTS.includes(z)) || 'arrow', THROWN = /javelin|axe|hammer|knife|net|flask/;
+  def('shoot', { w: .6, mod(S, p, a, u) { const k = SHOTK(a), c = caster(S); if (THROWN.test(k) && p > .22) S.thrown = 1; setPose(c, /arrow|bolt/.test(k) && !a.kv.throw ? 'bow' : 'throw2', clamp(p * 3), true); each(S, a, t => flinch(S, t, u, 3)); if (/bullet/.test(k) && p < .1) S.shake += 2; },
+    front(x, S, p, a, u) { const k = SHOTK(a), c = C2(S, a), n = +(a.kv.n || 1); for (let i = 0; i < n; i++) { const q = clamp(p * (1 + (n - 1) * .25) - i * .25); if (q <= 0 || q >= 1) continue; const pp = path(S, a, q, +(a.kv.arc || (k === 'stone' || k === 'javelin' ? 10 : 2)));
         x.save(); x.translate(pp.px, pp.py + (i - (n - 1) / 2) * 3); x.rotate(pp.ang + (/axe|knife|star|hammer/.test(k) ? S.T / 40 : 0)); H.streak(x, -22, 0, 0, 0, c[0], 2, .55);
         if (k === 'bullet') H.dot(x, 0, 0, 1.4, '#ffd23a'); else if (k === 'stone') H.dot(x, 0, 0, 2, '#8a8490'); else if (k === 'star') H.star4(x, 0, 0, 4, '#c3ccda'); else if (k === 'knife') { x.translate(-6, 0); ANI.weaponShape(x, 'dagger', 11); } else if (k === 'axe') { x.translate(-8, 0); ANI.weaponShape(x, 'axe', 12); } else if (k === 'hammer') { x.translate(-8, 0); ANI.weaponShape(x, 'hammer', 12); } else if (k === 'javelin') { x.translate(-18, 0); ANI.weaponShape(x, 'javelin', 20); } else if (k === 'net') { x.rotate(-pp.ang); icon(x, 'web', 0, 0, 8 + q * 4); } else if (k === 'flask') { x.rotate(-pp.ang); icon(x, 'potion', 0, 0, 7, c, S.T, S.T / 80); } else { H.line(x, -10, 0, 2, 0, '#a8743a', 1); x.fillStyle = '#c3ccda'; x.beginPath(); x.moveTo(4, 0); x.lineTo(0, -1.6); x.lineTo(0, 1.6); x.fill(); x.fillStyle = c[1]; x.fillRect(-11, -1.4, 3, 2.8); }
         x.restore(); }
@@ -8509,11 +8533,11 @@ const ANI = (() => {
   def('snowfall', { w: .6, keep: 1, over(x, S, p, a) { const c = C2(S, a), k = clamp(p * 2); particles(x, 28, a.rnd, r => { const q = (S.T / 2200 + r()) % 1, px = (r() * 100 + Math.sin(S.T / 500 + r() * 6) * 4); H.dot(x, px, q * 100, .9, c[1], k); }); } });
   def('blizzard', { w: .7, keep: 1, mod(S, p, a) { S.A.targets.forEach(t => { t.tint = '#cfefff'; t.tintA = .4 * p; t.dx = (t.dx || 0) - 1 * p; }); }, over(x, S, p, a) { const c = C2(S, a), k = clamp(p * 2); particles(x, 40, a.rnd, r => { const q = (S.T / 700 + r()) % 1, py = r() * 100; H.line(x, 110 - q * 130, py, 104 - q * 130, py + 1.4, c[1], 1, k * .8); }); x.fillStyle = rgba(c[1], .12 * k); x.fillRect(0, 0, 100, 100); } });
   def('darkness', { w: .6, keep: 1, mod(S, p) { S.dark = Math.max(S.dark, .55 * clamp(p * 2)); },
-    front(x, S, p, a) { const ar = a.kv.at === 'self' ? [S.A.caster.x, G - 16] : [ANI.P.area(S)[0], G - 16], R = 30 * E.out(clamp(p * 1.4)); const g = x.createRadialGradient(ar[0], ar[1], R * .2, ar[0], ar[1], R); g.addColorStop(0, 'rgba(0,0,0,.95)'); g.addColorStop(.75, 'rgba(0,0,0,.85)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.beginPath(); x.arc(ar[0], ar[1], R, 0, TAU); x.fill(); particles(x, 8, a.rnd, r => { const an = r() * TAU + S.T / 900; H.dot(x, ar[0] + Math.cos(an) * R * .9, ar[1] + Math.sin(an) * R * .9, .8, '#5a4a7a', .7); }); } });
+    front(x, S, p, a) { const ar = a.kv.at === 'self' ? [S.A.caster.x, G - 16] : [ANI.P.area(S)[0], G - 16], R = 30 * E.out(clamp(p * 1.4)); const g = x.createRadialGradient(ar[0], ar[1], R * .2, ar[0], ar[1], R); g.addColorStop(0, 'rgba(0,0,0,.72)'); g.addColorStop(.75, 'rgba(0,0,0,.6)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.beginPath(); x.arc(ar[0], ar[1], R, 0, TAU); x.fill(); particles(x, 8, a.rnd, r => { const an = r() * TAU + S.T / 900; H.dot(x, ar[0] + Math.cos(an) * R * .9, ar[1] + Math.sin(an) * R * .9, .8, '#5a4a7a', .7); }); } });
   def('radiance', { w: .6, keep: 1, mod(S, p) { S.A.targets.forEach(t => { if (t.look === 'undead' || t.look === 'foe') { t.tint = '#ffffff'; t.tintA = .3 * p; } }); },
     back(x, S, p, a) { const c = C2(S, a), cx = a.kv.at === 'tgt' ? ANI.P.area(S)[0] : S.A.caster.x, k = clamp(p * 1.5); x.save(); x.translate(cx, G - 18); x.rotate(S.T / 3000); for (let i = 0; i < 12; i++) { x.rotate(TAU / 12); x.fillStyle = rgba(c[1], .18 * k); x.beginPath(); x.moveTo(0, 0); x.lineTo(-4, -80); x.lineTo(4, -80); x.fill(); } x.restore(); H.glow(x, cx, G - 18, 34 * k, c[0], .5); } });
   def('swarm', { w: .7, keep: 1, mod(S, p, a) { S.A.targets.forEach(t => { t.dx = (t.dx || 0) + Math.sin(S.T / 50) * .8 * p; t.tint = '#5a4a2a'; t.tintA = .25 * p; }); },
-    front(x, S, p, a) { const c = C2(S, a), k = clamp(p * 1.5); S.A.targets.forEach((t, j) => particles(x, 22, a.rnd + j, r => { const an = r() * TAU + S.T / (180 + r() * 200), d = 3 + r() * 10, from = S.A.caster.pt.hand, tx = lerp(from[0], t.pt.chest[0], k), ty = lerp(from[1], t.pt.chest[1], k); H.dot(x, tx + Math.cos(an) * d, ty + Math.sin(an) * d * .8, .8, c[0] === PAL.gold[0] ? '#2a2a1a' : c[0]); })); } });
+    front(x, S, p, a) { const c = C2(S, a), k = clamp(p * 1.5); (S.A.targets.length ? S.A.targets : [S.A.caster]).forEach((t, j) => particles(x, 22, a.rnd + j, r => { const an = r() * TAU + S.T / (180 + r() * 200), d = 3 + r() * 10, from = S.A.caster.pt.hand, tx = lerp(from[0], t.pt.chest[0], k), ty = lerp(from[1], t.pt.chest[1], k); H.dot(x, tx + Math.cos(an) * d, ty + Math.sin(an) * d * .8, .8, c[0] === PAL.gold[0] ? '#2a2a1a' : c[0]); })); } });
   def('blades', { w: .7, keep: 1, mod(S, p) { S.A.targets.forEach(t => { if (p > .3 && (S.T % 300) < 80) { t.tint = W; t.tintA = .5; } }); },
     front(x, S, p, a) { const c = C2(S, a), ar = a.kv.at === 'self' ? [S.A.caster.x, G - 16] : [ANI.P.area(S)[0], G - 16], k = clamp(p * 2); for (let i = 0; i < 8; i++) { const an = S.T / 160 + i / 8 * TAU, px = ar[0] + Math.cos(an) * 20 * k, py = ar[1] + Math.sin(an) * 10 * k; x.save(); x.translate(px, py); x.rotate(an * 3); x.fillStyle = c[1]; x.beginPath(); x.moveTo(-4, 0); x.lineTo(0, -1.2); x.lineTo(4, 0); x.lineTo(0, 1.2); x.fill(); x.restore(); H.dot(x, px, py, 2, c[0], .3); } } });
   def('grasp', { w: .7, keep: 1, mod(S, p, a) { each(S, a, t => { if (p > .5) { t.dx = (t.dx || 0) + Math.sin(S.T / 60) * .6; t.dy = (t.dy || 0) + 1; } }); },
@@ -8535,7 +8559,7 @@ const ANI = (() => {
     front(x, S, p, a) { const c = a.args.length ? C2(S, a) : PAL.wind; particles(x, 12, a.rnd, (r, i) => { const yy = 40 + r() * 42, q = (p * 1.4 + r() * .3) % 1, px = lerp(30, 110, q); x.strokeStyle = rgba(c[1], .8 * Math.sin(p * P)); x.lineWidth = .9; x.beginPath(); x.moveTo(px - 18, yy); x.quadraticCurveTo(px - 6, yy - 3, px, yy); if (i % 3 === 0) x.arc(px, yy - 2.4, 2.4, P / 2, P * 2.2, true); x.stroke(); }); } });
 
   // ===== Effects on targets (states) =====
-  def('hit', { w: .4, mod(S, p, a) { if (p < .3) { S.invert = p < .12 ? 1 : 0; S.shake += 4 * (1 - p / .3); } each(S, a, t => { t.dx = (t.dx || 0) + (+(a.kv.k || 6)) * E.out(clamp(p * 3)) * (1 - clamp((p - .6) * 2.5)); t.rot = .25 * Math.sin(clamp(p * 2) * P); t.tint = W; t.tintA = .8 * (1 - p); }); },
+  def('hit', { w: .4, mod(S, p, a) { if (p < .3) { S.invert = p < .12 ? 1 : 0; S.shake += 4 * (1 - p / .3); } each(S, a, t => { t.dx = (t.dx || 0) + (+(a.kv.k || 6)) * E.out(clamp(p * 3)) * (1 - clamp((p - .6) * 2.5)); t.rot = .25 * Math.sin(clamp(p * 2) * P); t.tint = W; t.tintA = .5 * (1 - p); }); },
     front(x, S, p, a) { each(S, a, t => impact(x, t.pt.chest[0], t.pt.chest[1], C2(S, a), p, 1.1, rng(a.rnd))); }, over(x, S, p, a) { if (p < .4) H.speed(x, P_t(S)[0], P_t(S)[1], .8 * (1 - p / .4), W, 28, rng(a.rnd), 16); } });
   def('crit', { w: .5, mod(S, p, a) { if (p < .35) { S.invert = p < .07 ? 1 : 0; S.shake += 5; S.zoom = 1 + .15 * Math.sin(p / .35 * P); S.zx = P_t(S)[0]; S.zy = P_t(S)[1]; } each(S, a, t => { t.dx = (t.dx || 0) + 10 * E.out(clamp(p * 2)) * (1 - clamp((p - .7) * 3)); t.rot = .5 * Math.sin(clamp(p * 1.5) * P); t.tint = W; t.tintA = 1 - p; }); },
     front(x, S, p, a) { const c = C2(S, a), e = P_t(S); impact(x, e[0], e[1], c, p, 1.8, rng(a.rnd)); if (p > .1 && p < .9) icon(x, 'exclaim', e[0] + 8, e[1] - 20 - p * 6, 9, [c[1]], S.T, 0, 1 - p); }, over(x, S, p, a) { if (p < .5) H.speed(x, P_t(S)[0], P_t(S)[1], 1 - p * 2, W, 36, rng(a.rnd), 12); } });
@@ -8557,7 +8581,7 @@ const ANI = (() => {
   def('silence', { cond: 1, w: .4, keep: 1, front(x, S, p, a) { each(S, a, t => { const h = t.pt.head; x.save(); x.globalAlpha = p; x.strokeStyle = '#ff3a3a'; x.lineWidth = 1.2; x.beginPath(); x.moveTo(h[0] - 1, h[1] + 1); x.lineTo(h[0] + 4, h[1] + 4); x.moveTo(h[0] + 4, h[1] + 1); x.lineTo(h[0] - 1, h[1] + 4); x.stroke(); x.restore(); icon(x, 'note', h[0] + 8, h[1] - 8, 4, ['#cfd6ff'], S.T, 0, p * .6); icon(x, 'cross', h[0] + 8, h[1] - 8, 4, ['#ff3a3a'], S.T, 0, p); }, a.kv.at || 'tgt'); } });
   def('slow', { cond: 1, w: .5, keep: 1, mod(S, p, a) { each(S, a, t => { t.tint = '#6a8ad8'; t.tintA = .25 * p; }); }, back(x, S, p, a) { each(S, a, t => { for (let i = 1; i <= 2; i++) { x.save(); x.globalAlpha = .25 * p / i; if (t.kind === 'person') ANI.figure(x, Object.assign({}, t, { dx: (t.dx || 0) + i * 4, tint: '#6a8ad8', tintA: .7 }), S.T - i * 300); x.restore(); } }); }, front(x, S, p, a) { each(S, a, t => icon(x, 'hourglass', t.pt.head[0] + 8, t.pt.head[1] - 10, 5, null, S.T, Math.sin(S.T / 400) * .2, p)); } });
   def('haste', { w: .5, keep: 1, mod: (S, p, a) => V.speed.mod(S, p, a), back: (x, S, p, a) => V.speed.back(x, S, p, Object.assign({}, a, { kv: Object.assign({ at: 'tgt' }, a.kv) })) });
-  def('prone', { cond: 1, w: .5, keep: 1, mod(S, p, a) { each(S, a, t => { t.rot = -1.35 * E.out(clamp(p * 1.6)) * (t.f > 0 ? -1 : 1) * -1; t.dy = (t.dy || 0) - 3 * Math.sin(clamp(p * 1.6) * P) + 4 * clamp(p * 1.6); }); if (p > .55 && p < .65) S.shake += 2; }, back(x, S, p) { if (p > .55) H.puff(x, P_t(S)[0], G, 6 * (1 - p), '#c8ccd8', .6); } });
+  def('prone', { cond: 1, w: .5, keep: 1, mod(S, p, a) { each(S, a, t => { t.rot = 1.35 * E.out(clamp(p * 1.6)) * (t.f || 1); t.dy = (t.dy || 0) - 3 * Math.sin(clamp(p * 1.6) * P) + 4 * clamp(p * 1.6); }); if (p > .55 && p < .65) S.shake += 2; }, back(x, S, p) { if (p > .55) H.puff(x, P_t(S)[0], G, 6 * (1 - p), '#c8ccd8', .6); } });
   def('push', { w: .5, keep: 1, mod(S, p, a) { each(S, a, t => { t.dx = (t.dx || 0) + (+(a.kv.d2 || 16)) * E.out(p); }); }, back(x, S, p, a) { each(S, a, t => { if (p < 1) for (let i = 0; i < 3; i++) H.line(x, t.x + (t.dx || 0) - 10 - i * 4, t.y - 10 - i * 8, t.x + (t.dx || 0) - 22 - i * 4, t.y - 10 - i * 8, '#ffffff', .7, .6 * (1 - p)); H.puff(x, t.x + (t.dx || 0) - 6, G, 3, '#c8ccd8', .5 * (1 - p)); }); } });
   def('pull', { w: .5, keep: 1, mod(S, p, a) { each(S, a, t => { t.dx = (t.dx || 0) - (+(a.kv.d2 || 18)) * E.io(p); }); }, front(x, S, p, a) { const c = C2(S, a); each(S, a, t => { if (p < 1) { const h = S.A.caster.pt.hand; x.save(); x.strokeStyle = c[1]; x.globalAlpha = (1 - p) * .9; x.lineWidth = 1; x.setLineDash([3, 2]); x.lineDashOffset = S.T / 20; x.beginPath(); x.moveTo(h[0], h[1]); x.lineTo(t.pt.chest[0], t.pt.chest[1]); x.stroke(); x.restore(); } }); } });
   def('lift', { w: .5, keep: 1, mod(S, p, a) { each(S, a, t => { t.dy = (t.dy || 0) - (+(a.kv.h || 18)) * E.io(p) - Math.sin(S.T / 300) * 1.5 * p; t.rot = Math.sin(S.T / 500) * .15 * p; }); }, back(x, S, p, a) { const c = C2(S, a); each(S, a, t => { H.ell(x, t.x, G, 8, 2, c[0], .4 * p); H.glow(x, t.x, t.y - 10 - (+(a.kv.h || 18)) * E.io(p), 14, c[0], .3 * p); }); } });
@@ -8581,12 +8605,14 @@ const ANI = (() => {
   // ===== Buffs, protection, healing =====
   def('glow', { w: .5, keep: 1, mod(S, p, a) { each(S, a, t => { t.tint = C2(S, a)[1]; t.tintA = Math.max(t.tintA || 0, .25 * p * (.7 + .3 * Math.sin(S.T / 200))); }, 'self'); }, back(x, S, p, a) { const c = C2(S, a); each(S, a, t => { H.glow(x, t.x + (t.dx || 0), t.y - 16 + (t.dy || 0), 22 * (t.s || 1), c[0], .45 * p * (.8 + .2 * Math.sin(S.T / 200))); }, 'self'); } });
   def('aura', { w: .6, keep: 1, back(x, S, p, a) { const c = C2(S, a); each(S, a, t => { const k = clamp(p * 1.5), cx = t.x + (t.dx || 0), pu = (S.T % 1200) / 1200; H.ell(x, cx, G, 22 * k, 5.5 * k, c[0], .7, 1.8); H.ell(x, cx, G, 18 * k, 4.4 * k, c[1], .45, 1); H.ell(x, cx, G, 22 * k + pu * 16, (5.5 + pu * 4) * k, c[0], (1 - pu) * .6, 1.2); for (let i = 0; i < 6; i++) { const q = (S.T / 900 + i / 6) % 1, an = i / 6 * TAU; H.line(x, cx + Math.cos(an) * 12 * k, G - q * 30, cx + Math.cos(an) * 12 * k, G - q * 30 - 4, c[1], 1, k * (1 - q)); } x.save(); const g = x.createLinearGradient(0, G - 40, 0, G); g.addColorStop(0, rgba(c[0], 0)); g.addColorStop(1, rgba(c[0], .3 * k)); x.fillStyle = g; x.beginPath(); x.ellipse(cx, G - 18, 13, 22, 0, 0, TAU); x.fill(); x.restore(); }, 'self'); } });
-  def('shield', { w: .5, keep: 1, mod(S, p, a, u) { if (a.args.includes('block') && p > .5 && p < .6) S.shake += 2; }, front(x, S, p, a) { const c = a.args.length ? C2(S, a) : PAL.abj; each(S, a, t => { const cx = t.x + (t.dx || 0) + (t.f || 1) * 4, cy = t.y - 17 * (t.s || 1) + (t.dy || 0), R = 15 * (t.s || 1) * E.back(clamp(p * 1.6)); x.save(); x.globalAlpha = .9; x.strokeStyle = c[1]; x.lineWidth = .7; for (let i = 0; i < 6; i++) { const an = i / 6 * TAU + S.T / 2000; x.beginPath(); for (let k = 0; k <= 6; k++) { const b = k / 6 * TAU; x.lineTo(cx + Math.cos(an) * R * .55 + Math.cos(b) * R * .3, cy + Math.sin(an) * R * .55 + Math.sin(b) * R * .3); } x.stroke(); } const g = x.createRadialGradient(cx, cy, R * .5, cx, cy, R); g.addColorStop(0, rgba(c[0], .05)); g.addColorStop(1, rgba(c[0], .45)); x.fillStyle = g; x.beginPath(); x.arc(cx, cy, R, 0, TAU); x.fill(); x.strokeStyle = c[1]; x.lineWidth = 1.2; x.stroke(); x.restore(); H.star4(x, cx - R * .5, cy - R * .5, 3, W, .5 + .5 * Math.sin(S.T / 200)); }, 'self'); } });
+  def('shield', { w: .5, keep: 1, mod(S, p, a, u) { if (a.args.includes('block') && p > .5 && p < .6) S.shake += 2; }, front(x, S, p, a) { const c = a.args.length ? C2(S, a) : PAL.abj; each(S, a, t => { const cx = t.x + (t.dx || 0) + (t.f || 1) * 4, cy = t.y - 17 * (t.s || 1) + (t.dy || 0), R = 15 * (t.s || 1) * E.back(clamp(p * 1.6)); x.save(); x.globalAlpha = .35; x.strokeStyle = c[1]; x.lineWidth = .6; for (let i = 0; i < 6; i++) { const an = i / 6 * TAU + S.T / 2000; x.beginPath(); for (let k = 0; k <= 6; k++) { const b = k / 6 * TAU; x.lineTo(cx + Math.cos(an) * R * .55 + Math.cos(b) * R * .3, cy + Math.sin(an) * R * .55 + Math.sin(b) * R * .3); } x.stroke(); } x.globalAlpha = .9; const g = x.createRadialGradient(cx, cy, R * .5, cx, cy, R); g.addColorStop(0, rgba(c[0], .02)); g.addColorStop(1, rgba(c[0], .28)); x.fillStyle = g; x.beginPath(); x.arc(cx, cy, R, 0, TAU); x.fill(); x.strokeStyle = c[1]; x.lineWidth = 1.2; x.stroke(); x.restore(); H.star4(x, cx - R * .5, cy - R * .5, 3, W, .5 + .5 * Math.sin(S.T / 200)); }, 'self'); } });
   // A projectile bounces off the shield (deflect / block)
   def('deflect', { w: .6, mod(S, p) { setPose(caster(S), 'block', clamp(p * 3), true); if (p > .45 && p < .55) S.shake += 2; }, front(x, S, p, a) { const c = C2(S, a), cx = S.A.caster.pt.hand[0] + 4, cy = S.A.caster.pt.hand[1]; const what = a.args.find(z => ['arrow', 'bolt', 'orb', 'rock', 'blade'].includes(z)) || 'arrow';
       const pos = p < .5 ? [lerp(100, cx, p * 2), lerp(cy - 10, cy, p * 2)] : [lerp(cx, cx + 26, (p - .5) * 2), cy - Math.sin((p - .5) * 2 * P) * 20 - (p - .5) * 30]; x.save(); x.translate(pos[0], pos[1]); x.rotate(p < .5 ? P : -P / 3 + p * 8);
       if (what === 'orb') { H.glow(x, 0, 0, 6, c[0], .8); H.dot(x, 0, 0, 2, c[1]); } else if (what === 'rock') icon(x, 'rock', 0, 0, 5); else { H.line(x, -8, 0, 3, 0, '#a8743a', 1); x.fillStyle = '#c3ccda'; x.beginPath(); x.moveTo(5, 0); x.lineTo(1, -1.6); x.lineTo(1, 1.6); x.fill(); } x.restore(); if (p > .45 && p < .8) impact(x, cx, cy, c, (p - .45) / .35, .7, rng(a.rnd)); } });
-  def('armor', { w: .6, keep: 1, mod(S, p, a) { each(S, a, t => { if (p > .7) { t.tint = '#aab4c4'; t.tintA = .3; } }, 'self'); }, front(x, S, p, a) { const c = C2(S, a); each(S, a, t => { const cx = t.x + (t.dx || 0), cy = t.y - 20 + (t.dy || 0); for (let i = 0; i < 5; i++) { const k = E.out(clamp(p * 1.6 - i * .12)), an = i / 5 * TAU, from = [cx + Math.cos(an) * 28, cy + Math.sin(an) * 20], to = [cx + (i - 2) * 2.6, cy - 4 + i * 3]; const px = lerp(from[0], to[0], k), py = lerp(from[1], to[1], k); x.save(); x.translate(px, py); x.globalAlpha = k < 1 ? .9 : .7; x.fillStyle = c === PAL.gold ? '#aab4c4' : c[0]; x.strokeStyle = '#0d1018'; x.lineWidth = .5; x.beginPath(); x.moveTo(-4, -1.6); x.lineTo(4, -1.6); x.lineTo(3, 1.6); x.lineTo(-3, 1.6); x.closePath(); x.fill(); x.stroke(); x.restore(); if (k >= 1 && k < 1.1) impact(x, px, py, c, .5, .3); } if (p > .8) H.star4(x, cx + 4, cy - 6, 3, W, Math.sin(S.T / 150) * .5 + .5); }, 'self'); } });
+  def('armor', { w: .6, keep: 1, mod(S, p, a) { each(S, a, t => { if (p > .6) { t.tint = '#c3ccda'; t.tintA = .35 * clamp((p - .6) * 4) * (.8 + .2 * Math.sin(S.T / 300)); } }, 'self'); },
+    front(x, S, p, a) { const c = C2(S, a); each(S, a, t => { const cx = t.x + (t.dx || 0), cy = t.y - 18 * (t.s || 1) + (t.dy || 0); if (p < .7) for (let i = 0; i < 5; i++) { const k = E.in(clamp(p / .7 * 1.2 - i * .08)), an = i / 5 * TAU + .4, px = lerp(cx + Math.cos(an) * 30, cx, k), py = lerp(cy + Math.sin(an) * 22, cy, k); x.save(); x.translate(px, py); x.rotate(an + k * 2); x.globalAlpha = 1 - k * .6; x.fillStyle = c === PAL.gold ? '#aab4c4' : c[0]; x.strokeStyle = '#0d1018'; x.lineWidth = .5; x.beginPath(); x.moveTo(-3.6, -1.4); x.lineTo(3.6, -1.4); x.lineTo(2.8, 1.6); x.lineTo(-2.8, 1.6); x.closePath(); x.fill(); x.stroke(); x.restore(); }
+      if (p >= .62 && p < .9) ANI.impact(x, cx, cy, [c === PAL.gold ? '#aab4c4' : c[0], '#ffffff'], (p - .62) / .28, .5, rng(a.rnd)); if (p >= .8) H.star4(x, cx + 5, cy - 7, 3, W, .5 + .5 * Math.sin(S.T / 160)); }, 'self'); } });
   def('wings', { w: .5, keep: 1, mod(S, p, a) { each(S, a, t => { t.dy = (t.dy || 0) - 10 * E.io(clamp(p * 1.5)) - Math.sin(S.T / 200) * 1.6 * p; if (t.kind === 'person') t.pose = 'float'; }, 'self'); }, back(x, S, p, a) { const c = a.args.length ? C2(S, a) : ['#ffffff', '#ffe8a6']; const kind = a.args.find(z => ['bat', 'fire', 'insect', 'angel', 'shadow'].includes(z)); each(S, a, t => { const cx = t.x + (t.dx || 0), cy = t.y - 24 + (t.dy || 0), k = E.back(clamp(p * 1.4)), fl = Math.sin(S.T / 90) * 6; [-1, 1].forEach(s => { x.save(); x.translate(cx, cy); x.scale(s * k, k); x.globalAlpha = .9;
         if (kind === 'bat' || kind === 'shadow') { x.fillStyle = kind === 'shadow' ? '#2a2238' : '#3a2030'; x.beginPath(); x.moveTo(0, 0); x.lineTo(14, -10 - fl); x.lineTo(18, 2 - fl); x.lineTo(13, 0); x.lineTo(10, 4); x.lineTo(6, 2); x.closePath(); x.fill(); }
         else if (kind === 'insect') { x.fillStyle = 'rgba(200,255,240,.6)'; x.beginPath(); x.ellipse(8, -4 - fl * .3, 9, 3.2, -.5, 0, TAU); x.ellipse(7, 2, 6, 2.4, .3, 0, TAU); x.fill(); }
@@ -8597,7 +8623,7 @@ const ANI = (() => {
     front(x, S, p, a) { const c = a.args.length ? C2(S, a) : PAL.heal; each(S, a, t => particles(x, 8, a.rnd, r => { const q = (S.T / 1300 + r()) % 1; icon(x, 'plus', t.x + (r() - .5) * 18, t.y - 6 - q * 34, 2.6 + r() * 1.6, [r() > .5 ? c[0] : c[1]], S.T, 0, (1 - q) * clamp(p * 3) * (p < 1 ? 1 : .6)); }), 'tgt'); } });
   def('revive', { w: .8, keep: 1, mod(S, p, a) { each(S, a, t => { t.rot = (-1.35 * (1 - E.io(clamp((p - .3) * 1.6)))) * (t.f > 0 ? 1 : -1) * -1; t.dy = (t.dy || 0) + 4 * (1 - E.io(clamp((p - .3) * 1.6))); t.alpha = .5 + .5 * clamp((p - .3) * 2); t.tint = '#ffffff'; t.tintA = .5 * Math.sin(clamp(p) * P); }, 'tgt'); },
     back(x, S, p, a) { const c = a.args.length ? C2(S, a) : PAL.celestial; each(S, a, t => { const k = clamp(p * 2); x.save(); const g = x.createLinearGradient(t.x - 12, 0, t.x + 12, 0); g.addColorStop(0, rgba(c[0], 0)); g.addColorStop(.5, rgba(c[1], .7 * k * (p < .9 ? 1 : (1 - p) * 10))); g.addColorStop(1, rgba(c[0], 0)); x.fillStyle = g; x.fillRect(t.x - 12, -10, 24, G + 10); x.restore(); for (let i = 0; i < 6; i++) { const q = (S.T / 1000 + i / 6) % 1; icon(x, 'feather', t.x + Math.sin(q * 6 + i) * 8, q * 70, 3, ['#ffffff'], S.T, Math.sin(q * 6 + i), k * .8); } }, 'tgt'); } });
-  def('bless', { w: .5, keep: 1, front(x, S, p, a) { const c = a.args.length ? C2(S, a) : PAL.celestial; each(S, a, t => { const h = t.pt.head, k = E.back(clamp(p * 1.6)); H.ell(x, h[0], h[1] - 6, 5 * k, 1.4 * k, c[0], .95, 1.3); H.glow(x, h[0], h[1] - 6, 8 * k, c[1], .4); particles(x, 4, a.rnd, r => { const q = (S.T / 1500 + r()) % 1; H.star4(x, t.x + (r() - .5) * 18, t.y - 4 - q * 36, 1.6, c[1], (1 - q) * p); }); }, a.kv.at || 'all'); } });
+  def('bless', { w: .5, keep: 1, front(x, S, p, a) { const c = a.args.length ? C2(S, a) : PAL.celestial; each(S, a, t => { const h = t.pt.head, k = E.back(clamp(p * 1.6)); H.ell(x, h[0], h[1] - 6, 5 * k, 1.4 * k, c[0], .95, 1.3); H.glow(x, h[0], h[1] - 6, 8 * k, c[1], .4); particles(x, 4, a.rnd, r => { const q = (S.T / 1500 + r()) % 1; H.star4(x, t.x + (r() - .5) * 18, t.y - 4 - q * 36, 1.6, c[1], (1 - q) * p); }); }, a.kv.at || (S.A.targets.length && S.A.targets.every(t => t.look === 'ally') ? 'all' : 'self')); } });
   def('inspire', { w: .5, keep: 1, mod(S, p, a) { each(S, a, t => { t.dy = (t.dy || 0) - Math.abs(Math.sin(S.T / 300)) * 1.2 * p; }, 'tgt'); }, front(x, S, p, a) { const c = a.args.length ? C2(S, a) : PAL.gold; each(S, a, t => { for (let i = 0; i < 2; i++) { const q = (S.T / 1300 + i / 2) % 1; icon(x, 'note', t.pt.head[0] - 6 + i * 12 + Math.sin(q * 6) * 2, t.pt.head[1] - 6 - q * 14, 4, c, S.T, 0, (1 - q) * p); } H.glow(x, t.pt.chest[0], t.pt.chest[1], 12, c[0], .25 * p); }, a.kv.at || 'tgt'); } });
   def('regen', { w: .5, keep: 1, front(x, S, p, a) { const c = a.args.length ? C2(S, a) : PAL.heal; each(S, a, t => { for (let i = 0; i < 3; i++) { const an = S.T / 500 + i / 3 * TAU; H.dot(x, t.x + Math.cos(an) * 10, t.y - 16 + Math.sin(an) * 4, 1.4, c[1], p); icon(x, 'plus', t.x + Math.cos(an + 1) * 10, t.y - 16 + Math.sin(an + 1) * 4, 2.2, c, S.T, 0, p * .8); } }, 'self'); } });
   def('stoneskin', { w: .5, keep: 1, mod(S, p, a) { each(S, a, t => { t.tint = '#8a7a6a'; t.tintA = .55 * p; }, 'self'); }, front(x, S, p, a) { each(S, a, t => { if (p < 1) particles(x, 10, a.rnd, r => { const an = r() * TAU, k = E.in(p); H.dot(x, t.x + Math.cos(an) * 24 * (1 - k), t.y - 16 + Math.sin(an) * 20 * (1 - k), 1.4, '#8a8070', 1 - p * .5); }); if (p > .8) { x.save(); x.strokeStyle = 'rgba(40,30,20,.5)'; x.lineWidth = .5; x.beginPath(); x.moveTo(t.x - 3, t.y - 26); x.lineTo(t.x, t.y - 20); x.lineTo(t.x - 2, t.y - 15); x.stroke(); x.restore(); } }, 'self'); } });
@@ -8607,12 +8633,14 @@ const ANI = (() => {
   def('see', { w: .45, keep: 1, front(x, S, p, a) { const c = a.args.length ? C2(S, a) : PAL.div; each(S, a, t => { const h = t.pt.head, f = t.f || 1; H.glow(x, h[0] + 1.6 * f, h[1], 4, c[1], p); x.save(); x.globalAlpha = .35 * p; const g = x.createLinearGradient(h[0], 0, h[0] + 60 * f, 0); g.addColorStop(0, rgba(c[1], .8)); g.addColorStop(1, rgba(c[0], 0)); x.fillStyle = g; x.beginPath(); x.moveTo(h[0] + 2 * f, h[1]); x.lineTo(h[0] + 70 * f, h[1] - 18); x.lineTo(h[0] + 70 * f, h[1] + 18); x.closePath(); x.fill(); x.restore(); }, 'self'); } });
 
   // ===== Summons and props =====
+  // Where a summon appears: in the open space beside the caster, never on top of the caster, a target or off the edge
+  const SUMX = (S, a) => { let px = +(a.kv.x || (S.A.targets.length ? 47 : 56)); px = Math.max(38, Math.min(88, px)); for (const t of S.A.targets) if (Math.abs(t.x - px) < 12) px = t.x - 15; return Math.max(38, px); };
   def('summon', { w: .8, keep: 1, mod(S, p, a) { setPose(caster(S), 'raise', clamp(p * 3), true); },
-    back(x, S, p, a) { const c = C2(S, a), px = +(a.kv.x || 52); H.circle(x, px, G, 16 * E.back(clamp(p * 2)), c, clamp(p * 3) * (p > .8 ? 1 - (p - .8) * 2 : 1), S.T / 400); if (p > .3 && p < .8) { x.save(); const g = x.createLinearGradient(0, G - 50, 0, G); g.addColorStop(0, rgba(c[1], 0)); g.addColorStop(1, rgba(c[0], .6)); x.fillStyle = g; x.fillRect(px - 12, G - 50, 24, 50); x.restore(); } },
-    front(x, S, p, a) { const c = C2(S, a), kind = a.args.find(z => CREATURE[z]) || 'spirit', px = +(a.kv.x || 52), k = clamp((p - .35) / .45); if (k <= 0) return; x.save(); const ek = a.args.find(z => ['fire', 'water', 'earth', 'air'].includes(z)) || 'fire'; const st = { x: px, y: G + (1 - E.out(k)) * 14, s: (+(a.kv.s || 1)) * (.6 + .4 * E.back(k)), f: 1, alpha: k, ec: ek === 'air' ? PAL.wind : ek === 'water' ? PAL.water : PAL[ek] || c, ek, col: a.kv.col ? col(a.kv.col)[0] : (/^(dragon|drake)$/.test(kind) && a.args.some(z => col(z)) ? c[0] : null), tint: k < 1 ? c[1] : null, tintA: 1 - k };
+    back(x, S, p, a) { const c = C2(S, a), px = SUMX(S, a); H.circle(x, px, G, 16 * E.back(clamp(p * 2)), c, clamp(p * 3) * (p > .8 ? 1 - (p - .8) * 2 : 1), S.T / 400); if (p > .3 && p < .8) { x.save(); const g = x.createLinearGradient(0, G - 50, 0, G); g.addColorStop(0, rgba(c[1], 0)); g.addColorStop(1, rgba(c[0], .6)); x.fillStyle = g; x.fillRect(px - 12, G - 50, 24, 50); x.restore(); } },
+    front(x, S, p, a) { const c = C2(S, a), kind = a.args.find(z => CREATURE[z]) || 'spirit', px = SUMX(S, a), k = clamp((p - .35) / .45); if (k <= 0) return; x.save(); const ek = a.args.find(z => ['fire', 'water', 'earth', 'air'].includes(z)) || 'fire'; const st = { x: px, y: G + (1 - E.out(k)) * 14, s: (+(a.kv.s || 1)) * (.6 + .4 * E.back(k)), f: 1, alpha: k, ec: ek === 'air' ? PAL.wind : ek === 'water' ? PAL.water : PAL[ek] || c, ek, col: a.kv.col ? col(a.kv.col)[0] : (/^(dragon|drake)$/.test(kind) && a.args.some(z => col(z)) ? c[0] : null), tint: k < 1 ? c[1] : null, tintA: 1 - k };
       x.beginPath(); x.rect(0, 0, 100, G + 1); x.clip(); ANI.creature(x, kind, st, S.T); x.restore(); if (k < 1) particles(x, 8, a.rnd, r => H.star4(x, px + (r() - .5) * 26, G - r() * 40, 2, c[1], 1 - k)); } });
   // A prop/icon appears: icon:<name>:<colour> at=self|tgt|mid|sky|hand ; anim=pop|spin|float|drop|open|shake|grow
-  def('icon', { w: .5, keep: 1, front(x, S, p, a) { const name = a.args.find(z => ICON[z] && !(PAL[z] && !['fire', 'moon', 'star', 'sun', 'ice'].includes(z))) || 'star', c = a.args.map(col).find(Boolean) || S.c, at = a.kv.at || 'mid', s = +(a.kv.s || 9), anim = a.kv.anim || 'pop';
+  def('icon', { w: .5, keep: 1, front(x, S, p, a) { const name = a.args.find(z => ICON[z]) || 'star', c = a.args.filter(z => z !== name).map(col).find(Boolean) || S.c, at = a.kv.at || 'mid', s = +(a.kv.s || (['self', 'hand', 'tgt'].includes(a.kv.at) ? 6 : 9)), anim = a.kv.anim || 'pop';
       let pos = at === 'self' ? [S.A.caster.pt.head[0], S.A.caster.pt.head[1] - 12] : at === 'hand' ? S.A.caster.pt.hand : at === 'tgt' ? [P_t(S)[0], ANI.P.thead(S)[1] - 12] : at === 'sky' ? [50, 22] : at === 'ground' ? [ANI.P.area(S)[0], G - 6] : [+(a.kv.x || 50), +(a.kv.y || 44)];
       let sc = s, rot = 0, al = 1; if (anim === 'pop') sc = s * E.back(clamp(p * 1.6)); else if (anim === 'spin') { sc = s * E.out(clamp(p * 2)); rot = (1 - E.out(p)) * TAU * 2; } else if (anim === 'float') { sc = s; pos = [pos[0], pos[1] + 10 * (1 - E.out(p)) + Math.sin(S.T / 400) * 1.6]; al = clamp(p * 2); } else if (anim === 'drop') { pos = [pos[0], lerp(-10, pos[1], E.el(clamp(p * 1.2)))]; } else if (anim === 'grow') sc = s * E.io(p); else if (anim === 'shake') { sc = s * E.back(clamp(p * 2)); rot = Math.sin(S.T / 50) * .2 * (p < 1 ? 1 : .3); }
       if (a.kv.glow !== '0') H.glow(x, pos[0], pos[1], sc * 1.6, c[0], .45 * clamp(p * 2)); icon(x, name, pos[0], pos[1], sc, c, S.T, rot, al); if (p < .5 && anim !== 'float') particles(x, 6, a.rnd, r => { const an = r() * TAU, d = sc * (1 + p * 3); H.star4(x, pos[0] + Math.cos(an) * d, pos[1] + Math.sin(an) * d, 1.6, c[1], 1 - p * 2); }); } });
@@ -8620,7 +8648,7 @@ const ANI = (() => {
   def('give', { w: .6, front(x, S, p, a) { const name = a.args.find(z => ICON[z]) || 'potion', c = a.args.map(col).find(Boolean) || S.c, s = S.A.caster.pt.hand, e = aim(S, a), k = E.io(p); const px = lerp(s[0], e[0], k), py = lerp(s[1], e[1], k) - Math.sin(k * P) * 16; icon(x, name, px, py, 6, c, S.T, Math.sin(S.T / 100) * .3); H.glow(x, px, py, 8, c[0], .3); }, mod(S, p) { setPose(caster(S), 'throw2', clamp(p * 3), false); } });
   // Floating glyph circle on the ground (glyph/ward/trap)
   def('glyph', { w: .5, keep: 1, back(x, S, p, a) { const c = C2(S, a), px = a.kv.at === 'self' ? S.A.caster.x : a.kv.at === 'mid' ? 50 : ANI.P.area(S)[0]; H.circle(x, px, G, (+(a.kv.r || 16)) * E.back(clamp(p * 1.6)), c, clamp(p * 2) * (.7 + .3 * Math.sin(S.T / 300)), S.T / 900); } });
-  def('sigil', { w: .5, keep: 1, front(x, S, p, a) { const c = C2(S, a), at = a.kv.at || 'hand', pos = at === 'hand' ? [S.A.caster.pt.hand[0] + 6, S.A.caster.pt.hand[1]] : at === 'tgt' ? P_t(S) : at === 'self' ? [S.A.caster.pt.chest[0], S.A.caster.pt.chest[1] - 22] : [50, 40]; H.circle(x, pos[0], pos[1], (+(a.kv.r || 10)) * E.back(clamp(p * 1.6)), c, clamp(p * 2), S.T / 500, a.kv.flat ? .38 : 1); H.glow(x, pos[0], pos[1], 14, c[0], .25 * p); } });
+  def('sigil', { w: .5, keep: 1, front(x, S, p, a) { const c = C2(S, a), at = a.kv.at || 'hand', pos = at === 'hand' ? [S.A.caster.pt.hand[0] + 6, S.A.caster.pt.hand[1]] : at === 'tgt' ? P_t(S) : at === 'self' ? [S.A.caster.pt.chest[0], S.A.caster.pt.chest[1] - 22] : [50, 40]; H.circle(x, pos[0], pos[1], (+(a.kv.r || (at === 'tgt' || at === 'self' ? 7 : 8))) * E.back(clamp(p * 1.6)), c, clamp(p * 2), S.T / 500, a.kv.flat ? .38 : 1); H.glow(x, pos[0], pos[1], 14, c[0], .25 * p); } });
   def('portal', { w: .6, keep: 1, back(x, S, p, a) { const c = C2(S, a), px = +(a.kv.x || 52), k = E.back(clamp(p * 1.5)); x.save(); x.translate(px, G - 20); const g = x.createRadialGradient(0, 0, 2, 0, 0, 14 * k); g.addColorStop(0, '#0a0418'); g.addColorStop(.7, rgba(c[0], .9)); g.addColorStop(1, rgba(c[1], 0)); x.fillStyle = g; x.beginPath(); x.ellipse(0, 0, 10 * k, 20 * k, 0, 0, TAU); x.fill(); x.rotate(S.T / 400); for (let i = 0; i < 3; i++) H.ell(x, 0, 0, (11 - i * 2.4) * k, (21 - i * 5) * k, i % 2 ? c[1] : c[0], .7, 1); x.restore(); particles(x, 8, a.rnd, r => { const an = r() * TAU + S.T / 500; H.dot(x, px + Math.cos(an) * 12 * k, G - 20 + Math.sin(an) * 22 * k, .8, c[1], k); }); } });
   def('book', { w: .6, keep: 1, mod(S, p) { setPose(caster(S), 'read', clamp(p * 3), true); }, front(x, S, p, a) { const c = C2(S, a), h = S.A.caster.pt.hand; icon(x, a.args.includes('scroll') ? 'scroll' : 'book', h[0] + 2, h[1] - 3, 6, c, S.T); for (let i = 0; i < 5; i++) { const q = (S.T / 1400 + i / 5) % 1; x.save(); x.globalAlpha = (1 - q) * clamp(p * 2); x.fillStyle = c[1]; x.font = 'bold 4px serif'; x.fillText('ᚠᚢᚦᚨᚱ'[i], h[0] + Math.sin(q * 5 + i) * 6, h[1] - 8 - q * 26); x.restore(); } H.glow(x, h[0] + 2, h[1] - 4, 10, c[0], .3); } });
   def('speak', { w: .5, keep: 1, mod(S, p) { setPose(caster(S), a_pose(p), 1, false); }, front(x, S, p, a) { const c = C2(S, a), h = a.kv.at === 'tgt' ? ANI.P.thead(S) : S.A.caster.pt.head, f = a.kv.at === 'tgt' ? -1 : 1, k = E.back(clamp(p * 1.6)), sym = a.args.find(z => ICON[z]); x.save(); x.translate(h[0] + 10 * f, h[1] - 12); x.scale(k * .55 * f, k * .55); ICON.speech(x, c, S.T); if (sym) { x.scale(f, 1); x.translate(0, -2); x.scale(.55, .55); ICON[sym](x, c, S.T); } x.restore(); } });
@@ -8672,20 +8700,85 @@ const ANI = (() => {
 
 (() => {
   const { def, H, aim, each, C2, E, ICON, rgba, lerp, clamp, rng } = ANI, P = Math.PI, TAU = P * 2, G = ANI.GROUND;
+  // a defence is up on the caster (shield, ward, armour, resistance...) so an incoming attack glances off
+  const DEF = S => S.acts.some(b => ['shield', 'resist', 'dome', 'armor', 'stoneskin', 'deflect', 'parry', 'wall', 'reflect', 'absorb'].includes(b.name) && S.ph >= b.t0 && (b.kv.at || 'self') === 'self');
   // The target attacks the caster: foeatk:<slash|shoot|orb|claw|bite|breath|spell|punch>[:col][:miss=1]
   def('foeatk', { w: .7, mod(S, p, a, u) { const k = a.args.find(z => ['slash', 'shoot', 'orb', 'claw', 'bite', 'breath', 'spell', 'punch'].includes(z)) || 'slash', t = S.A.targets[0], c = S.A.caster; if (!t) return;
       const melee = ['slash', 'claw', 'bite', 'punch'].includes(k); if (melee) t.dx = (t.dx || 0) - (t.x - c.x - 20) * Math.sin(clamp(p * 1.1) * P); if (t.kind === 'person') t.pose = p < .4 ? (melee ? 'swing0' : 'cast') : (melee ? 'swing1' : 'point');
-      const hitAt = melee ? .5 : .62; if (p > hitAt && p < hitAt + .3) { if (a.kv.miss && a.kv.miss !== '0') { c.pose = 'dodge'; c.dx = (c.dx || 0) - 6 * Math.sin((p - hitAt) / .3 * P); } else { c.dx = (c.dx || 0) - 4 * Math.sin((p - hitAt) / .3 * P); c.tint = '#ffffff'; c.tintA = .6 * (1 - (p - hitAt) / .3); S.shake += 2; } } },
+      const hitAt = melee ? .5 : .62; const blocked = DEF(S); if (p > hitAt && p < hitAt + .3) { if (blocked) { S.shake += 1; } else if (a.kv.miss && a.kv.miss !== '0') { c.pose = 'dodge'; c.dx = (c.dx || 0) - 6 * Math.sin((p - hitAt) / .3 * P); } else { c.dx = (c.dx || 0) - 4 * Math.sin((p - hitAt) / .3 * P); c.tint = '#ffffff'; c.tintA = .6 * (1 - (p - hitAt) / .3); S.shake += 2; } } },
     front(x, S, p, a) { const k = a.args.find(z => ['slash', 'shoot', 'orb', 'claw', 'bite', 'breath', 'spell', 'punch'].includes(z)) || 'slash', c = C2(S, a), t = S.A.targets[0]; if (!t) return; const from = t.pt.hand, to = S.A.caster.pt.chest;
       if (k === 'shoot' || k === 'orb' || k === 'spell') { if (p > .3 && p < .62) { const q = (p - .3) / .32, px = lerp(from[0], to[0], E.in(q)), py = lerp(from[1], to[1], q); if (k === 'shoot') { H.streak(x, px + 14, py, px, py, '#e8e0c8', 1.4, .9); } else { H.glow(x, px, py, 7, c[0], .9); H.dot(x, px, py, 2.4, c[1]); H.streak(x, px + 16, py, px, py, c[0], 4, .5); } } }
       else if (k === 'breath') { if (p > .3 && p < .8) { const k2 = clamp((p - .3) * 3); x.save(); x.translate(t.pt.head[0], t.pt.head[1]); const g = x.createLinearGradient(0, 0, -60 * k2, 0); g.addColorStop(0, rgba(c[1], .9)); g.addColorStop(1, rgba(c[0], 0)); x.fillStyle = g; x.beginPath(); x.moveTo(0, 0); x.arc(0, 0, 60 * k2, P - .35, P + .35); x.closePath(); x.fill(); x.restore(); } }
       else if (p > .45 && p < .75) { const q = (p - .45) / .3; x.save(); x.strokeStyle = k === 'bite' ? '#ffffff' : c[1]; x.lineWidth = 2; x.globalAlpha = 1 - q; for (let i = -1; i <= 1; i++) { x.beginPath(); x.moveTo(to[0] + 8 + i * 3, to[1] - 8); x.lineTo(to[0] - 4 + i * 3, to[1] + 8); x.stroke(); } x.restore(); }
-      const hitAt = ['slash', 'claw', 'bite', 'punch'].includes(k) ? .5 : .62; if (!(a.kv.miss && a.kv.miss !== '0') && p > hitAt && p < hitAt + .35) ANI.impact(x, to[0], to[1], c, (p - hitAt) / .35, .8, rng(a.rnd)); } });
+      const hitAt = ['slash', 'claw', 'bite', 'punch'].includes(k) ? .5 : .62; if (!(a.kv.miss && a.kv.miss !== '0') && p > hitAt && p < hitAt + .35) { if (DEF(S)) ANI.impact(x, to[0] + 9, to[1], ['#cfd6e4', '#ffffff'], (p - hitAt) / .35, .45, rng(a.rnd)); else ANI.impact(x, to[0], to[1], c, (p - hitAt) / .35, .8, rng(a.rnd)); } } });
   // Caster and target swap places
   def('swap', { w: .7, mod(S, p, a) { const c = S.A.caster, t = S.A.targets[0]; if (!t) return; const d = t.x - c.x, k = E.io(clamp((p - .3) / .4)); c.dx = (c.dx || 0) + d * k; t.dx = (t.dx || 0) - d * k; c.alpha = t.alpha = p > .3 && p < .7 ? .3 : 1; if (k > .5) { c.f = -1; t.f = 1; } },
     front(x, S, p, a) { const c = C2(S, a), t = S.A.targets[0]; if (!t) return; [24, t.x].forEach(px => { if (p > .25 && p < .75) H.puff(x, px, G - 16, 10 * Math.sin((p - .25) / .5 * P), '#e8e0f0', .7); }); if (p > .3 && p < .7) { x.save(); x.strokeStyle = c[1]; x.lineWidth = 1.2; x.globalAlpha = .8; x.beginPath(); x.moveTo(30, G - 30); x.quadraticCurveTo(50, G - 46, t.x - 6, G - 30); x.moveTo(t.x - 6, G - 10); x.quadraticCurveTo(50, G + 4, 30, G - 10); x.stroke(); x.restore(); } } });
   // Ends conditions shown earlier in the loop (they fade away) with a cleansing sparkle
   def('cure', { w: .6, front(x, S, p, a) { const c = a.args.length ? C2(S, a) : ANI.PAL.heal; each(S, a, t => { const k = E.out(p); H.ring(x, t.x, t.y - 16, 4 + k * 20, c[1], 2 * (1 - p), 1 - p); for (let i = 0; i < 6; i++) { const an = i / 6 * TAU + p * 2; H.star4(x, t.x + Math.cos(an) * 14 * k, t.y - 16 + Math.sin(an) * 14 * k, 2.4, c[1], 1 - p); } if (p > .5) ICON.check && ANI.icon(x, 'check', t.pt.head[0], t.pt.head[1] - 10, 5, c, S.T, 0, (1 - p) * 2); }); } });
+})();
+// The classic spectral Mage Hand: one glowing open hand that drifts in a lazy figure-eight, flexing its fingers
+(() => {
+  const { def, H, C2, E, clamp } = ANI, P = Math.PI, G = ANI.GROUND;
+  def('magehand', { w: .7, keep: 1, front(x, S, p, a) {
+    const [c1, c2] = C2(S, a), ph = (S.T % 3000) / 3000, k = E.back(clamp(p * 1.6)), Sz = 17 * k, bx = +(a.kv.x || 56), by = +(a.kv.y || 66);
+    const hx = bx + Math.sin(ph * 2 * P) * 8, hy = by + Math.sin(ph * 4 * P) * 2.5, tilt = Math.sin(ph * 2 * P) * .18;
+    if (p < 1) for (let i = 0; i < 8; i++) { const an = i / 8 * P * 2 + p * 3; H.star4(x, bx + Math.cos(an) * 10 * (1 - p), by - 7 + Math.sin(an) * 8 * (1 - p), 2, c2, 1 - p); }
+    for (let i = 0; i < 6; i++) { const life = (ph * 2 + i / 6) % 1; H.dot(x, hx - Math.cos(ph * 2 * P) * 9 * life + Math.sin(i * 7) * 4, hy - Sz * .25 + life * 5, 1.2, c2, (1 - life) * .7 * k); }
+    if (Sz < 1) return; H.glow(x, hx, hy - Sz * .45, Sz * .75, c1, .45);
+    x.save(); x.translate(hx, hy); x.rotate(tilt); x.scale(Sz, Sz);
+    const F = [[-.17, -.56, -.16, .34, .1], [-.055, -.6, -.04, .4, .105], [.06, -.58, .07, .37, .1], [.16, -.52, .2, .28, .085]];
+    const curl = .5 * Math.max(0, Math.sin(ph * 4 * P - 1)) ** 2;
+    x.beginPath(); x.moveTo(.18, 0); x.quadraticCurveTo(.25, -.25, .22, -.45);
+    F.slice().reverse().forEach(([bx2, by2, an, len, w], i) => { const A = an + curl * .4, L2 = len * (1 - curl * .35), ux = Math.sin(A), uy = -Math.cos(A), nx = -uy, ny = ux, tx = bx2 + ux * L2, ty = by2 + uy * L2;
+      x.lineTo(bx2 + nx * w / 2, by2 + ny * w / 2); x.lineTo(tx + nx * w / 2, ty + ny * w / 2); x.arc(tx, ty, w / 2, Math.atan2(ny, nx), Math.atan2(-ny, -nx), true); x.lineTo(bx2 - nx * w / 2, by2 - ny * w / 2);
+      if (i < 3) { const nb = F[2 - i]; x.quadraticCurveTo((bx2 + nb[0]) / 2, by2 + .05, nb[0] + Math.cos(nb[2]) * nb[4] / 2, nb[1] + Math.sin(nb[2]) * nb[4] / 2); } });
+    const ta = -.85 + curl * .55, tw = .13, tl = .3 - curl * .06, Bx = -.17, By = -.3, ux = Math.sin(ta), uy = -Math.cos(ta), nx = Math.cos(ta), ny = Math.sin(ta), tx = Bx + ux * tl, ty = By + uy * tl;
+    x.quadraticCurveTo(-.2, -.42, Bx + nx * tw / 2, By + ny * tw / 2); x.lineTo(tx + nx * tw / 2, ty + ny * tw / 2); x.arc(tx, ty, tw / 2, Math.atan2(ny, nx), Math.atan2(-ny, -nx), true); x.lineTo(Bx - nx * tw / 2 + .02, By - ny * tw / 2 + .04);
+    x.quadraticCurveTo(-.22, -.1, -.17, 0); x.closePath();
+    const g = x.createLinearGradient(0, -1, 0, 0); g.addColorStop(0, c2); g.addColorStop(1, c1); x.fillStyle = g; x.globalAlpha = .82 * clamp(p * 3); x.shadowColor = c1; x.shadowBlur = 10; x.fill(); x.shadowBlur = 0;
+    x.globalAlpha = .9 * clamp(p * 3); x.strokeStyle = c2; x.lineWidth = 1.2 / Sz; x.stroke();
+    x.globalAlpha = .35; x.strokeStyle = '#ffffff'; x.lineWidth = 1 / Sz; x.beginPath(); x.moveTo(-.15, -.3); x.quadraticCurveTo(0, -.38, .19, -.33); x.moveTo(-.18, -.2); x.quadraticCurveTo(-.05, -.18, .02, -.3); x.stroke();
+    F.forEach(([bx2, by2, an, len]) => { const A = an + curl * .4, L2 = len * (1 - curl * .35), mx = bx2 + Math.sin(A) * L2 * .5, my = by2 - Math.cos(A) * L2 * .5; x.beginPath(); x.moveTo(mx - .03, my); x.lineTo(mx + .03, my); x.stroke(); });
+    x.restore();
+  } });
+})();
+// Readability fixes: thunder shockwave, grease slick, time-skip, fabricate (materials -> product)
+(() => {
+  const { def, H, C2, E, ICON, rgba, lerp, clamp, rng } = ANI, P = Math.PI, TAU = P * 2, G = ANI.GROUND;
+  const icon = ANI.icon, impact = ANI.impact;
+  // a booming ))) wave that bursts out from the caster and hurls everyone in front back
+  def('shockwave', { w: .7, mod(S, p, a) { const c = S.A.caster; c.pose = 'idle'; c.blend = [ANI.POSE.point, E.out(clamp(p * 5)) * (1 - clamp((p - .7) * 3.3))]; if (p > .12 && p < .4) S.shake += 3;
+      S.A.targets.forEach(t => { const hit = clamp((p - .12) * 1.6 - (t.x - c.x) / 120); if (hit > 0) { t.dx = (t.dx || 0) + 9 * E.out(hit); t.dy = (t.dy || 0) - 5 * Math.sin(clamp(hit * 1.4) * P); t.rot = (t.rot || 0) + .35 * Math.sin(clamp(hit * 1.4) * P); if (hit < .4) { t.tint = '#ffffff'; t.tintA = .7 * (1 - hit / .4); } } }); },
+    front(x, S, p, a) { const [c1, c2] = C2(S, a), h = S.A.caster.pt.hand, k = clamp((p - .1) * 1.4);
+      if (p < .14) H.glow(x, h[0], h[1], 10 * p / .14, c2, .8);
+      for (let i = 0; i < 4; i++) { const q = clamp(k * 1.3 - i * .12); if (q <= 0 || q >= 1) continue; const r = 6 + q * 78; x.save(); x.globalAlpha = (1 - q) * .95; x.strokeStyle = i % 2 ? c1 : c2; x.lineWidth = 4 * (1 - q) + 1; x.shadowColor = c1; x.shadowBlur = 6; x.beginPath(); x.arc(h[0], h[1], r, -.95, .95); x.stroke(); x.restore(); }
+      if (k > 0 && k < .7) { const r = rng(S.T / 60 | 0); for (let i = 0; i < 3; i++) { const an = (r() - .5) * 1.6, d = 10 + k * 70; H.bolt(x, h[0] + Math.cos(an) * d * .6, h[1] + Math.sin(an) * d * .6, h[0] + Math.cos(an) * d, h[1] + Math.sin(an) * d, [c1, c2], .8, 3, r, 1); } }
+      if (k > 0 && k < 1) for (let i = 0; i < 10; i++) { const q = clamp(k * 1.2 - i * .03); H.dot(x, h[0] + q * (40 + i * 5), G - Math.sin(q * P) * (4 + i % 3 * 3), 1, '#b8ad96', (1 - q) * .8); } } });
+  // a glossy puddle of grease spreads across the floor under the foes; they wobble, slip and fall
+  def('slick', { w: .8, keep: 1, mod(S, p, a) { S.A.targets.forEach((t, i) => { const q = clamp((p - .25 - i * .08) * 2.5); if (q > 0 && q < 1) { t.rot = (t.rot || 0) + Math.sin(q * P * 3) * .35 * (1 - q * .3); t.dx = (t.dx || 0) + Math.sin(q * P * 2) * 3; } }); },
+    back(x, S, p, a) { const [c1, c2] = C2(S, a), ar = ANI.P.area(S), k = E.out(clamp(p * 2.2)), w = 30 * k;
+      x.save(); x.globalAlpha = .85; x.fillStyle = rgba(c1, .75); x.beginPath(); for (let i = 0; i <= 24; i++) { const an = i / 24 * TAU, rr = 1 + Math.sin(an * 3 + 1) * .12 + Math.sin(an * 5) * .06; x.lineTo(ar[0] + Math.cos(an) * w * rr, G + 1 + Math.sin(an) * w * .2 * rr); } x.closePath(); x.fill();
+      x.globalAlpha = .55; x.fillStyle = c2; x.beginPath(); x.ellipse(ar[0] - w * .3, G - w * .04, w * .28, w * .05, -.05, 0, TAU); x.fill();
+      x.globalAlpha = .9; x.fillStyle = '#ffffff'; const sh = (S.T / 1400) % 1; x.beginPath(); x.ellipse(ar[0] - w * .6 + sh * w * 1.2, G - w * .03, w * .07, w * .018, 0, 0, TAU); x.fill(); x.restore();
+      if (p < .5) for (let i = 0; i < 5; i++) { const q = clamp(p * 3 - i * .1); H.dot(x, ar[0] + (i - 2) * 9, lerp(G - 40, G, E.in(q)), 1.6, c1, q < 1 ? .9 : 0); } } });
+  // the target blinks out of the present: a clock spins through the missing moment, then it pops back unaware
+  def('timeskip', { w: 1, keep: 1, mod(S, p, a) { const out = clamp((p - .12) / .16), back = clamp((p - .78) / .08); S.A.targets.forEach(t => { t.alpha = (t.alpha == null ? 1 : t.alpha) * (1 - out + back); t.s = (t.s || 1) * (1 - .25 * (out - back)); if (p > .86 && p < .95) { t.tint = '#ffffff'; t.tintA = .6 * (1 - (p - .86) / .09); } }); },
+    front(x, S, p, a) { const [c1, c2] = C2(S, a); S.A.targets.forEach(t => { const cx = t.x, cy = t.y - 20, vis = Math.sin(clamp((p - .12) / .72) * P), sp = p < .78 ? (p - .12) * 30 : 0;
+      if (p > .1 && p < .3) { for (let i = 0; i < 10; i++) { const an = i / 10 * TAU + p * 6, d = 4 + (p - .1) * 90; H.dot(x, cx + Math.cos(an) * d, cy + Math.sin(an) * d * 1.3, 1.2, c2, 1 - (p - .1) * 5); } }
+      if (vis > 0) { x.save(); x.globalAlpha = vis * .9; x.translate(cx, cy); x.strokeStyle = c2; x.lineWidth = 1.4; x.shadowColor = c1; x.shadowBlur = 8; x.beginPath(); x.arc(0, 0, 14, 0, TAU); x.stroke(); x.shadowBlur = 0;
+        for (let i = 0; i < 12; i++) { const an = i / 12 * TAU; x.beginPath(); x.moveTo(Math.cos(an) * 11.5, Math.sin(an) * 11.5); x.lineTo(Math.cos(an) * 13.5, Math.sin(an) * 13.5); x.stroke(); }
+        x.lineWidth = 1.8; x.beginPath(); x.moveTo(0, 0); x.lineTo(Math.sin(sp) * 11, -Math.cos(sp) * 11); x.moveTo(0, 0); x.lineTo(Math.sin(sp / 12) * 7, -Math.cos(sp / 12) * 7); x.stroke();
+        x.setLineDash([2, 3]); x.globalAlpha = vis * .5; x.beginPath(); x.ellipse(0, 20, 9, 2.5, 0, 0, TAU); x.stroke(); x.restore(); }
+      if (p > .78 && p < .95) impact(x, cx, cy, [c1, c2], (p - .78) / .17, .6); }); } });
+  // raw materials float up, swirl together into a ball of light and become a finished object (last icon arg)
+  def('fabricate', { w: 1, keep: 1, mod(S, p) { const c = S.A.caster; c.pose = 'idle'; c.blend = [ANI.POSE.cast || ANI.POSE.raise, E.out(clamp(p * 4))]; },
+    front(x, S, p, a) { const c = C2(S, a), ics = a.args.filter(z => ICON[z]), prod = ics.pop(), mats = ics.length ? ics : ['rock'], cx = 58, cy = 56;
+      mats.forEach((m, i) => { const home = [cx - 16 + i * 32 / Math.max(1, mats.length - 1 || 1), G - 6], q = E.in(clamp((p - .1) / .4)), an = q * P * 2 + i * TAU / mats.length, rr = 18 * (1 - q);
+        const px = lerp(home[0], cx + Math.cos(an) * rr, clamp(p / .15)), py = lerp(home[1], cy + Math.sin(an) * rr * .6, clamp(p / .15)); if (q < 1) icon(x, m, px, py, 6.5 * (1 - q * .7), null, S.T, q * 3); });
+      if (p > .35 && p < .6) { const k = (p - .35) / .25; H.glow(x, cx, cy, 6 + k * 10, c[0], .8); for (let i = 0; i < 8; i++) { const an = i / 8 * TAU + S.T / 120; H.dot(x, cx + Math.cos(an) * (14 - k * 10), cy + Math.sin(an) * (9 - k * 6), 1, c[1], 1); } }
+      if (p > .5 && p < .7) impact(x, cx, cy, c, (p - .5) / .2, .7);
+      if (p > .52 && prod) { const k = E.back(clamp((p - .52) * 4)); H.glow(x, cx, cy, 14, c[0], .35); icon(x, prod, cx, cy + Math.sin(S.T / 400) * 1.2, 11 * k, null, S.T); } } });
 })();
 
 // ---------- Party (on the website) ----------
@@ -10089,7 +10182,7 @@ function pactsChosen(ctx) {
 function choiceOptions(def, ctx) {
   const skills = DND.skills.map(s => s[0]);
   switch (def.type) {
-    case 'skill': return (def.from === 'any' || !def.from ? skills : def.from).map(x => [x, x]);
+    case 'skill': { const k = knownSkills(); return (def.from === 'any' || !def.from ? skills : def.from).map(x => [x, x, k.has(x.toLowerCase()) ? '(you already have it)' : '']); }
     case 'expertise': return (Array.isArray(def.from) ? def.from : skills.concat(["Thieves' tools"])).map(x => [x, x]);
     case 'element': return ['acid', 'cold', 'fire', 'lightning', 'thunder'].map(x => [x, x[0].toUpperCase() + x.slice(1)]);
     case 'language': { const k = knownLangs(); return ALL_LANGS().map(x => [x, x, k.has(x.toLowerCase()) ? '(you already speak it)' : '']); }
@@ -10121,7 +10214,7 @@ function choiceUI(CH, id, def, ctx) {
   const langNames = new Set(ALL_LANGS());
   const langOthers = k => Object.entries(CH).filter(([kk]) => kk !== id).flatMap(([, v]) => [].concat(v || [])).concat(cur.filter((x, j) => j !== k)).map(x => String(x || '').replace(/^Language: /, '')).filter(x => langNames.has(x));
   const isLang = def.type === 'language' || def.orLang;
-  for (let k = 0; k < n; k++) h += `<select class="f" data-ch="${id}" data-k="${k}"><option value="">— choose —</option>${opts.map(([v, t, no]) => { const lv = isLang && String(v).replace(/^Language: /, ''); const dup = DND.options[def.type] ? others(k).includes(v) : isLang && langNames.has(lv) && langOthers(k).includes(lv); if (cur[k] === v && no) bad.push(`${v} ${no}`); return `<option value="${esc(v)}"${cur[k] === v ? ' selected' : ''}${(no || dup) && cur[k] !== v ? ' disabled' : ''}>${esc(t)}${no ? ' — ' + esc(no) : dup ? ' — already taken' : ''}</option>`; }).join('')}</select>`;
+  for (let k = 0; k < n; k++) h += `<select class="f" data-ch="${id}" data-k="${k}"><option value="">— choose —</option>${opts.map(([v, t, no]) => { const lv = isLang && String(v).replace(/^Language: /, ''); const dup = DND.options[def.type] ? others(k).includes(v) : def.type === 'skill' ? Object.entries(CH).filter(([kk]) => kk !== id && /skill$/.test(kk)).flatMap(([, x]) => [].concat(x || [])).concat(cur.filter((x, j) => j !== k)).includes(v) : isLang && langNames.has(lv) && langOthers(k).includes(lv); if (cur[k] === v && no) bad.push(`${v} ${no}`); return `<option value="${esc(v)}"${cur[k] === v ? ' selected' : ''}${(no || dup) && cur[k] !== v ? ' disabled' : ''}>${esc(t)}${no ? ' — ' + esc(no) : dup ? ' — already taken' : ''}</option>`; }).join('')}</select>`;
   h += '</div>' + (bad.length ? `<p class="warn sm">${esc(bad.join('; '))}.</p>` : '');
   if (def.type === 'feat') for (let k = 0; k < n; k++) if (cur[k]) h += featSubUI(CH, id + '.f' + k, cur[k]);
   if (DND.options[def.type]) for (let k = 0; k < n; k++) { const e = cur[k] && DND.options[def.type].list.find(x => x[0] === cur[k]); const g = e && e[3] && e[3].grant; if (g) h += `<div class="featsub">${g.map((gd, j) => choiceUI(CH, `${id}.g${k}.${j}`, gd, ctx)).join('')}</div>`; }
@@ -10524,6 +10617,10 @@ function wzUnanswered() {
     if (d.def.type === 'asiOrFeat') { if (!asiDone(W.ans, d.id)) out.push({ label: `${CL[d.cls].name} level ${d.lvl}: Ability Score Improvement or feat`, step: 5 }); return; }
     if (ansList(W.ans, d.id).length < (d.def.n || 1)) out.push({ label: d.def.label || choiceLabel(d.def), step: 5 });
   });
+  // Spells: fewer cantrips or spells than the class gets
+  try { wzSpellPlan().forEach(p => { const ch = W.spells[p.key] || [], nC = ch.filter(n => (SPI(n) || {}).level === 0).length, nS = ch.length - nC, target = p.book ? p.book : p.lim;
+    if (p.cant && nC < p.cant) out.push({ label: `${p.name} cantrips (${nC} of ${p.cant})`, step: 6 });
+    if (target && p.maxL && nS < target) out.push({ label: `${p.name} ${p.book ? 'spellbook spells' : p.cd.prepared ? 'prepared spells' : 'spells known'} (${nS} of ${target})`, step: 6 }); }); } catch (e) {}
   return out;
 }
 // Scores after ASIs and half-feats picked in the wizard.
@@ -10533,6 +10630,13 @@ function wzFinalScores(sc) {
     if (c[0] === 'one') bump(c[1], 2); else if (c[0] === 'two') { bump(c[1], 1); bump(c[2], 1); }
     else if (c[0] === 'feat') { const n = ansList(W.ans, d.id + '.feat')[0], ft = n && DND.feats.find(x => x[0] === n), e = (ft && ft[4]) || {}; if (e.asiFixed) Object.entries(e.asiFixed).forEach(([a, v]) => bump(a, v)); featSubDefs(n || '').forEach((sd, k) => { if (sd.type === 'asi') ansList(W.ans, d.id + '.feat.f0.' + k).forEach(a => bump(a, 1)); }); } });
   return o;
+}
+// Skills you already have: on the sheet, or (in creation) the fixed ones from your race and background.
+function knownSkills() {
+  const out = new Set();
+  try { if (W && $('#wizard').classList.contains('open')) { const x = wzRace(); if (x) (x.r.skills || []).concat(x.s.skills || []).forEach(n => out.add(String(n).toLowerCase())); const b = DND.backgrounds[W.bg]; if (b) (b.skills || []).forEach(n => out.add(String(n).toLowerCase())); }
+    else (S.skills || []).forEach(s => { if (N(s.prof) >= 1) out.add(String(s.name).toLowerCase()); }); } catch (e) {}
+  return out;
 }
 // Languages you already have: on the sheet, or (in creation) from your race and class.
 function wzRaceLangs() { const x = wzRace(); if (!x) return []; return [...new Set((x.r.languages || []).concat(x.s.languages || []))]; }
@@ -10591,6 +10695,7 @@ function renderWizard() {
   let body = '';
   if (st === 0) {
     body = `<div class="wz-intro"><p>Build any 5e (2014) character. Every choice can be changed later on the sheet.</p></div>
+      <div class="wz-ddb top"><div><b>Made your character on D&amp;D Beyond?</b><span class="hint">Bring it over: classes, scores, spells, equipment and notes.</span></div><button class="btn" data-wact="ddb">Import from D&amp;D Beyond</button></div>
       <div class="wz-grid">${fld('Character name', `<input class="f" data-wz="name" value="${esc(W.name)}" placeholder="Name" autofocus>`)}${window.SHEET_PAGES ? '' : fld('Player', `<input class="f" data-wz="player" value="${esc(W.player)}" placeholder="Your name">`)}
       ${fld('Alignment', `<select class="f" data-wz="alignment"><option value="">—</option>${DND.alignments.map(a => `<option${W.alignment === a ? ' selected' : ''}>${esc(a)}</option>`).join('')}</select>`)}</div>
       <div class="row" style="margin-top:12px"><img class="wz-portrait" src="${esc(W.portrait || PLACEHOLDER)}" alt=""><button class="btn" data-wact="portrait">${W.portrait ? 'Change portrait' : 'Add a portrait'}</button><span class="hint">Optional. The sheet's colors can match it.</span></div>
@@ -10695,8 +10800,8 @@ function renderWizard() {
     wzClassChoiceDefs().forEach(d => { const op = DND.options[d.def.type]; if (!op) return; const r = W.classes.find(x => x.key === d.cls) || {}; (W.ans[d.id] || []).forEach(v => { const e = op.list.find(x => x[0] === v); const no = e && optPrereq(e[2], { CH: W.ans, cls: d.cls, level: N(r.level), sub: r.sub }); if (no) probs.push(`${v} ${no}`); }); });
     body = `<div class="wz-review"><p><b>${esc(W.name || 'Unnamed hero')}</b> — ${esc(x ? x.name : '?')} ${esc(wzClassRows().map(r => CL[r.key].name + ' ' + r.level + (r.sub ? ' (' + CL[r.key].subclasses[r.sub].name + ')' : '')).join(' / '))}${b ? ' · ' + esc(b.name) : ''}</p>
       <div class="abrow">${(() => { const fin = wzFinalScores(sc); return AB.map(a => `<span><span class="lbl">${AB3[a]}</span><b>${fin[a]}</b> ${fmt(Math.floor((fin[a] - 10) / 2))}${fin[a] !== sc[a] ? `<small class="hint"> (${sc[a]} +${fin[a] - sc[a]})</small>` : ''}</span>`).join(''); })()}</div>
-      ${todo.length ? `<div class="wz-todo"><b>Still to choose:</b><ul>${todo.map(t => `<li>${esc(t.label)} <button class="linkbtn" data-wact="go" data-v="${t.step}">Choose</button></li>`).join('')}</ul><span class="hint">You can create now and finish these later from <b>Settings → Unfinished choices</b>.</span></div>` : ''}
-      ${probs.length ? `<p class="warn">${probs.map(esc).join(' · ')}</p>` : '<p>Everything is set. You can change anything later — scores, skills, spells and items are all editable on the sheet.</p>'}
+      ${todo.length ? `<div class="wz-todo"><b>Still to choose:</b><ul>${todo.map(t => `<li>${esc(t.label)} <button class="linkbtn" data-wact="go" data-v="${t.step}">Choose</button></li>`).join('')}</ul><span class="hint">You can create now and finish these later ${todo.every(t => t.step === 6) ? 'from the <b>Spells</b> tab' : todo.some(t => t.step === 6) ? 'from the <b>Spells</b> tab and <b>Settings → Unfinished choices</b>' : 'from <b>Settings → Unfinished choices</b>'}.</span></div>` : ''}
+      ${probs.length ? `<p class="warn">${probs.map(esc).join(' · ')}</p>` : todo.length ? '' : '<p>Everything is set. You can change anything later — scores, skills, spells and items are all editable on the sheet.</p>'}
       <p class="hint">Scores include racial bonuses, Ability Score Improvements and half-feats.</p></div>`;
   }
   $('#wizard').innerHTML = `<div class="wz-box">${typeof window.wzHeader === 'function' ? window.wzHeader() : ''}<div class="wz-head"><h2>Create your character</h2><div class="wz-steps">${WSTEPS.map((t, i) => `<button class="wz-step${i === st ? ' on' : ''}${i < st ? ' done' : ''}" data-wact="go" data-v="${i}" aria-label="Step ${i + 1}: ${t}">${i + 1}. ${t}</button>`).join('')}</div><div class="wz-now">Step ${st + 1} of ${WSTEPS.length}<b>${WSTEPS[st]}</b></div></div>
@@ -10752,6 +10857,7 @@ function wizClick(e) {
     case 'go': W.step = N(b.dataset.v); break;
     case 'portrait': $('#portraitFile').click(); return;
     case 'import': $('#importFile').click(); return;
+    case 'ddb': openDdbImport(); return;
     case 'addcls': W.classes.push({ key: '', level: 1, sub: '' }); break;
     case 'delcls': W.classes.splice(N(b.dataset.i), 1); break;
     case 'method': W.method = b.dataset.v; W.base = { str: '', dex: '', con: '', int: '', wis: '', cha: '' }; break;
@@ -10798,6 +10904,15 @@ function findGear(name) {
   const g = DND.gear.find(x => x[0].toLowerCase() === n); if (g) return makeGearItem(g);
   return { id: uid(), name, qty: 1, weight: 0, equipped: false, notes: '' };
 }
+// The standard actions every character has (and Cunning Action for a rogue).
+function defaultCombat() {
+  return {
+    action: [['Dash', 'Gain extra movement equal to your speed.'], ['Disengage', 'Your movement doesn\'t provoke opportunity attacks this turn.'], ['Dodge', 'Attacks against you have disadvantage; advantage on DEX saves until your next turn.'], ['Help', 'Give an ally advantage on a check or their next attack.'], ['Hide', 'Make a Stealth check to hide.'], ['Ready', 'Choose a trigger and a reaction to take.'], ['Search', 'Make a Perception or Investigation check.'], ['Use an Object', 'Interact with a second object or use an item.'], ['Grapple', 'Athletics vs the target\'s Athletics or Acrobatics; its speed becomes 0.'], ['Shove', 'Athletics contest to push 5 ft or knock prone.']].map(([name, text]) => ({ name, text })),
+    bonus: clsLv('rogue') >= 2 ? [{ name: 'Cunning Action', text: 'Dash, Disengage or Hide as a bonus action.' }] : [],
+    reaction: [{ name: 'Opportunity Attack', text: 'When a hostile creature you can see leaves your reach, make one melee attack.' }],
+    move: [['Stand up', 'Costs half your speed.'], ['Drop prone', 'Free.'], ['Interact', 'Draw a weapon, open a door, pick up an item — one free interaction.'], ['Climb / swim', 'Each foot costs 1 extra foot unless you have the speed.'], ['Jump', 'Long jump = STR score in feet with a 10 ft run.']].map(([name, text]) => ({ name, text }))
+  };
+}
 function buildCharacter() {
   const x = wzRace(), rows = wzClassRows();
   if (!x || !rows.length) { toast('Choose at least a race and a class.', 'fumble'); W.step = !x ? 1 : 2; renderWizard(); return; }
@@ -10806,7 +10921,7 @@ function buildCharacter() {
   S = migrate(Object.assign(blankState(), { dataRev: EMBED.dataRev || '', layout: S.layout || {} }));
   S.sources = W.sources.slice();
   S.id = uid(); S.name = W.name.trim() || 'Unnamed Hero'; S.player = W.player; S.alignment = W.alignment; S.portrait = W.portrait;
-  S.race = { key: W.race, sub: W.sub, choices: {} }; S.raceName = x.name.toLowerCase().includes(x.r.name.toLowerCase()) ? x.name : x.name + ' ' + x.r.name;
+  S.race = { key: W.race, sub: W.sub, choices: {} }; S.raceName = x.name.toLowerCase().includes(x.r.name.toLowerCase()) ? x.name : x.name.replace(/\s*\([A-Z][A-Za-z]{1,5}\)$/, '') + ' ' + x.r.name;
   S.classes = rows.map(r => ({ key: r.key, level: N(r.level), sub: N(r.level) >= CL[r.key].sub.level ? r.sub : '' }));
   AB.forEach(a => S.abilities[a] = sc[a]);
   const c0 = CL[rows[0].key];
@@ -10870,12 +10985,7 @@ function buildCharacter() {
   const arm = S.inventory.find(it => it.armor && it.armor.type !== 'shield' && (S.profs.armor || []).includes(it.armor.type)); if (arm) arm.equipped = true;
   const sh = S.inventory.find(it => it.armor && it.armor.type === 'shield' && (S.profs.armor || []).includes('shield')); if (sh) sh.equipped = true;
   const wpn = S.inventory.filter(it => it.weapon).slice(0, 2); wpn.forEach(it => it.equipped = true);
-  S.combat = {
-    action: [['Dash', 'Gain extra movement equal to your speed.'], ['Disengage', 'Your movement doesn\'t provoke opportunity attacks this turn.'], ['Dodge', 'Attacks against you have disadvantage; advantage on DEX saves until your next turn.'], ['Help', 'Give an ally advantage on a check or their next attack.'], ['Hide', 'Make a Stealth check to hide.'], ['Ready', 'Choose a trigger and a reaction to take.'], ['Search', 'Make a Perception or Investigation check.'], ['Use an Object', 'Interact with a second object or use an item.'], ['Grapple', 'Athletics vs the target\'s Athletics or Acrobatics; its speed becomes 0.'], ['Shove', 'Athletics contest to push 5 ft or knock prone.']].map(([name, text]) => ({ name, text })),
-    bonus: clsLv('rogue') >= 2 ? [{ name: 'Cunning Action', text: 'Dash, Disengage or Hide as a bonus action.' }] : [],
-    reaction: [{ name: 'Opportunity Attack', text: 'When a hostile creature you can see leaves your reach, make one melee attack.' }],
-    move: [['Stand up', 'Costs half your speed.'], ['Drop prone', 'Free.'], ['Interact', 'Draw a weapon, open a door, pick up an item — one free interaction.'], ['Climb / swim', 'Each foot costs 1 extra foot unless you have the speed.'], ['Jump', 'Long jump = STR score in feet with a 10 ft run.']].map(([name, text]) => ({ name, text }))
-  };
+  S.combat = defaultCombat();
   rebuildAuto();
   S.hp.cur = maxHp();
   S.created = true; S.notes = [{ date: new Date().toISOString().slice(0, 10), title: 'Character created', text: `${S.name}: ${S.raceName} ${classLabel()}${S.backgroundName ? ', ' + S.backgroundName : ''}.` }];
@@ -11174,6 +11284,285 @@ applyLayout(); applyTheme();
 if (S.created) { render(); setTimeout(afterUpdate, 50); }
 else openWizard();
 window.addEventListener('resize', () => { if (!LAYOUT_NOW) { const was = isMobile(); applyLayout(); if (was !== isMobile() && S.created) render(); } });
+// ---------- Import a character from D&D Beyond ----------
+// D&D Beyond keeps a public character's data at its character service. Browsers can't read it directly from this site,
+// so the site's small helper (the same one that makes party invite previews) fetches it; pasting the data works too.
+// What comes over is the player's own character: names, numbers and choices, matched to this sheet's rules data. No
+// rules text is copied from D&D Beyond: descriptions come from this sheet's own data.
+const DDB_PROXY = 'https://invite.adventurerstome.workers.dev/ddb/';
+const DDB_DIRECT = id => 'https://character-service.dndbeyond.com/character/v5/character/' + id;
+const ddbNorm = s => String(s || '').toLowerCase().replace(/[’']/g, '').replace(/&/g, 'and').replace(/[^a-z0-9+]+/g, '');
+const ddbId = t => { t = String(t || '').trim(); const m = /characters\/(\d{3,12})/.exec(t) || /character\/(\d{3,12})/.exec(t) || /^(\d{3,12})$/.exec(t); return m ? m[1] : ''; };
+const DDB_AB = { 1: 'str', 2: 'dex', 3: 'con', 4: 'int', 5: 'wis', 6: 'cha' };
+const DDB_ABNAME = { strength: 'str', dexterity: 'dex', constitution: 'con', intelligence: 'int', wisdom: 'wis', charisma: 'cha' };
+const DDB_ALIGN = { 1: 'Lawful Good', 2: 'Neutral Good', 3: 'Chaotic Good', 4: 'Lawful Neutral', 5: 'True Neutral', 6: 'Chaotic Neutral', 7: 'Lawful Evil', 8: 'Neutral Evil', 9: 'Chaotic Evil' };
+const DDB_COND = { 1: 'Blinded', 2: 'Charmed', 3: 'Deafened', 5: 'Frightened', 6: 'Grappled', 7: 'Incapacitated', 8: 'Invisible', 9: 'Paralyzed', 10: 'Petrified', 11: 'Poisoned', 12: 'Prone', 13: 'Restrained', 14: 'Stunned', 15: 'Unconscious' };
+// Accepts the character service's reply ({success, data}), the bare character, or a saved file of either.
+function ddbParse(txt) {
+  let j = null; try { j = typeof txt === 'string' ? JSON.parse(String(txt).trim().replace(/^﻿/, '')) : txt; } catch (e) { throw new Error('That isn’t D&D Beyond character data. Copy everything on the page (Ctrl+A, then Ctrl+C) and paste it here.'); }
+  const d = j && j.data && j.data.classes ? j.data : j && j.character && j.character.classes ? j.character : j;
+  if (!d || !Array.isArray(d.classes) || !Array.isArray(d.stats)) { if (j && j.success === false) throw new Error('D&D Beyond wouldn’t share that character. Make sure it’s set to Public (Character Settings → Privacy).'); throw new Error('That isn’t D&D Beyond character data.'); }
+  return d;
+}
+async function ddbFetch(id) {
+  let r; try { r = await fetch(DDB_PROXY + id, { credentials: 'omit' }); } catch (e) { throw new Error('Couldn’t reach D&D Beyond from here. Use “paste the data” below instead.'); }
+  if (r.status === 403 || r.status === 401) throw new Error('That character is private. On D&D Beyond open it → Character Settings → Privacy → Public, then try again.');
+  if (r.status === 404) throw new Error('D&D Beyond has no character with that number. Check the link.');
+  if (!r.ok) throw new Error('D&D Beyond didn’t answer (' + r.status + '). Try again, or paste the data below.');
+  return ddbParse(await r.text());
+}
+// All of a character's modifiers in one list, each tagged with where it came from.
+const ddbMods = d => Object.entries(d.modifiers || {}).flatMap(([src, list]) => (list || []).map(m => Object.assign({ _src: src }, m)));
+// Final ability scores the way D&D Beyond works them out. Item bonuses are left out (the sheet adds its items' own
+// effects); `withItems` includes them, for working out what D&D Beyond shows for hit points.
+function ddbScores(d, withItems) {
+  const o = {}, mods = ddbMods(d);
+  Object.entries(DDB_AB).forEach(([id, a]) => {
+    const base = (d.stats.find(s => s.id === +id) || {}).value, bonus = (d.bonusStats.find(s => s.id === +id) || {}).value, ov = (d.overrideStats.find(s => s.id === +id) || {}).value;
+    if (ov != null) { o[a] = N(ov); return; }
+    let v = N(base) + N(bonus), set = 0; const sub = Object.keys(DDB_ABNAME).find(k => DDB_ABNAME[k] === a) + '-score';
+    mods.filter(m => m.subType === sub && (withItems || m._src !== 'item')).forEach(m => { if (m.type === 'bonus') v += N(m.value != null ? m.value : m.fixedValue); if (m.type === 'set') set = Math.max(set, N(m.value != null ? m.value : m.fixedValue)); });
+    const cap = 20 + mods.filter(m => m.type === 'bonus' && m.subType === Object.keys(DDB_ABNAME).find(k => DDB_ABNAME[k] === a) + '-score-maximum' && (withItems || m._src !== 'item')).reduce((t, m) => t + N(m.value), 0);
+    o[a] = Math.max(set, Math.min(Math.max(cap, 20), v));
+  });
+  return o;
+}
+const ddbLevel = d => (d.classes || []).reduce((t, c) => t + N(c.level), 0);
+// What D&D Beyond shows as maximum hit points.
+function ddbMaxHp(d) {
+  if (d.overrideHitPoints != null) return N(d.overrideHitPoints);
+  const sc = ddbScores(d, true), lv = ddbLevel(d), mods = ddbMods(d);
+  const per = mods.filter(m => m.type === 'bonus' && m.subType === 'hit-points-per-level').reduce((t, m) => t + N(m.value), 0);
+  const flat = mods.filter(m => m.type === 'bonus' && m.subType === 'hit-points').reduce((t, m) => t + N(m.value), 0);
+  return N(d.baseHitPoints) + N(d.bonusHitPoints) + Math.floor((sc.con - 10) / 2) * lv + per * lv + flat;
+}
+// ----- matching D&D Beyond's names to this sheet's rules data -----
+function ddbFindClass(name) { const n = ddbNorm(name); const k = Object.keys(CL).find(k => ddbNorm(CL[k].name) === n && k !== 'rangertce') || Object.keys(CL).find(k => ddbNorm(CL[k].name) === n); return k || ''; }
+function ddbFindSub(ck, name) { if (!ck || !name) return ''; const c = CL[ck], n = ddbNorm(String(name).replace(/\((archived|legacy)\)/ig, '')); const e = Object.entries(c.subclasses || {});
+  const hit = e.find(([, s]) => ddbNorm(s.name) === n) || e.find(([, s]) => ddbNorm(s.name).replace(/^(circleofthe|circleof|pathofthe|pathof|wayofthe|wayof|collegeof|oathofthe|oathof|schoolof|the)/, '') === n.replace(/^(circleofthe|circleof|pathofthe|pathof|wayofthe|wayof|collegeof|oathofthe|oathof|schoolof|the)/, ''));
+  return hit ? hit[0] : ''; }
+function ddbFindRace(r) {
+  if (!r) return null; const full = ddbNorm(r.fullName), base = ddbNorm(r.baseRaceName || r.baseName), short = ddbNorm(r.subRaceShortName);
+  for (const [k, x] of Object.entries(DND.races)) {
+    const subs = Object.entries(x.subraces || {});
+    if (ddbNorm(x.name) === base || ddbNorm(x.name) === full) {
+      const s = subs.find(([, s]) => ddbNorm(s.name) === full) || subs.find(([, s]) => short && (ddbNorm(s.name) === short || ddbNorm(s.name) === short + base)) || subs.find(([, s]) => ddbNorm(s.name + ' ' + x.name) === full);
+      if (s || !subs.length || ddbNorm(x.name) === full) return { key: k, sub: s ? s[0] : '' };
+    }
+  }
+  // a lineage or variant listed under another name (e.g. a subrace that's a race of its own here)
+  for (const [k, x] of Object.entries(DND.races)) { const s = Object.entries(x.subraces || {}).find(([, s]) => ddbNorm(s.name) === full); if (s) return { key: k, sub: s[0] }; }
+  for (const [k, x] of Object.entries(DND.races)) if (ddbNorm(x.name) === base) return { key: k, sub: '' };
+  return null;
+}
+function ddbFindBg(name) { if (!name) return ''; const n = ddbNorm(String(name).split(/\s+[-–]\s+/)[0].replace(/\s*\(.*\)$/, '')); return Object.keys(DND.backgrounds).find(k => ddbNorm(DND.backgrounds[k].name) === n) || Object.keys(DND.backgrounds).find(k => String(DND.backgrounds[k].name).split(/\s*\/\s*|\s*\(/).some(p => ddbNorm(p) === n)) || ''; }
+const ddbFindFeat = name => { const n = ddbNorm(name), n2 = ddbNorm(String(name || '').replace(/\s*\(.*\)\s*$/, '')); const f = DND.feats.find(x => ddbNorm(x[0]) === n) || DND.feats.find(x => ddbNorm(x[0]) === n2) || DND.feats.find(x => ddbNorm(x[0]) === n.replace(/2024$|legacy$/, '')); return f ? f[0] : ''; };
+// Spells the free rules name without their wizard ("Hideous Laughter" is Tasha's Hideous Laughter here).
+const ddbSpell = nm => SPI(nm) || Object.values(DND.spellIndex).find(sp => /['’]s /.test(sp.name) && ddbNorm(sp.name.replace(/^[^ ]+['’]s /, '')) === ddbNorm(nm)) || null;
+const ddbSkill = sub => S.skills.find(s => ddbNorm(s.name) === ddbNorm(sub));
+const ddbTool = name => ALL_TOOLS().find(t => ddbNorm(t) === ddbNorm(name)) || ALL_TOOLS().find(t => ddbNorm(t).replace(/s$/, '') === ddbNorm(name).replace(/s$/, ''));
+const ddbWeapon = name => DND.weapons.find(w => ddbNorm(w[0]) === ddbNorm(name));
+const ddbArmor = name => DND.armor.find(a => ddbNorm(a[0]) === ddbNorm(name) || ddbNorm(a[0]) === ddbNorm(name) + 'armor' || ddbNorm(a[0]).replace(/armor$/, '') === ddbNorm(name).replace(/armor$/, ''));
+function ddbMagic(name, def) {
+  const n = ddbNorm(name), M = DND.magic, by = s => M.find(m => ddbNorm(m[0]) === ddbNorm(s));
+  let m = by(name); if (m) return m;
+  const plus = /,?\s*\+([123])$/.exec(name) || /^\+([123])\s/.exec(name);
+  if (plus) { const isShield = /shield/i.test(name) || /shield/i.test(def.baseArmorName || ''); return by((def.filterType === 'Weapon' ? 'Weapon' : def.filterType === 'Armor' ? (isShield ? 'Shield' : 'Armor') : 'Ammunition') + ' +' + plus[1]); }
+  const base = def.type && def.filterType === 'Weapon' ? def.type : def.baseArmorName || '';
+  if (base) { m = by(name.replace(new RegExp(',?\\s*' + base.replace(/[^\w ]/g, '.') + '$', 'i'), '')); if (m) return m; }
+  if (/^mithral\b/i.test(name)) return by('Mithral Armor'); if (/^adamantine\b/i.test(name)) return by('Adamantine Armor');
+  const par = /^(.*?)\s*\(([^)]+)\)$/.exec(name);
+  if (par) { m = by(par[1].replace(/^Potion of /i, 'Potion of ' + par[2] + ' ')) || by(par[2] + ' ' + par[1]) || by(par[1]); if (m) return m; }
+  return M.find(x => ddbNorm(x[0]).replace(/s$/, '') === n.replace(/s$/, '')) || null;
+}
+// One inventory entry → one of this sheet's items (unmatched ones come over by name, as plain items).
+function ddbItem(x, miss) {
+  const def = x.definition || {}, name = String(def.name || 'Item').trim();
+  let it = null, matched = true;
+  const baseW = def.filterType === 'Weapon' && (ddbWeapon(def.type) || ddbWeapon(name)), baseA = def.filterType === 'Armor' && (ddbArmor(def.baseArmorName) || ddbArmor(name) || (/shield/i.test(name) ? DND.armor.find(a => a[1] === 'shield') : null));
+  if (def.magic || /\+[123]/.test(name)) {
+    const m = ddbMagic(name, def);
+    if (m) { const base = (m[6] || {}).base; it = makeMagicItem(m, base === 'weapon' && baseW ? makeWeaponItem(baseW) : (base === 'armor' || base === 'shield') && baseA ? makeArmorItem(baseA) : undefined); if (it.name !== name && !/\+\d/.test(name)) it.name = name; }
+    else { matched = false; it = baseW ? makeWeaponItem(baseW) : baseA ? makeArmorItem(baseA) : { id: uid(), name, qty: 1, weight: N(def.weight), equipped: false, notes: '' }; it.name = name; it.magic = true; if (def.canAttune) it.attune = true; }
+  } else if (baseW) it = makeWeaponItem(baseW);
+  else if (baseA) it = makeArmorItem(baseA);
+  else { const tries = [name, name.replace(/^([^,]+),\s*(.+)$/, '$2 $1'), name.replace(/\s*\(.*\)$/, ''), name.replace(/^(block|stick|bottle|vial|flask|pouch|bag) of /i, '')].map(ddbNorm);
+    const g = DND.gear.find(g => tries.includes(ddbNorm(g[0]))), mm = !g && DND.magic.find(m => tries.includes(ddbNorm(m[0])));
+    if (mm) it = makeMagicItem(mm); else if (g) it = makeGearItem(g); else { matched = false; it = { id: uid(), name, qty: 1, weight: N(def.weight), cost: def.cost ? def.cost + ' gp' : '', equipped: false, notes: '' }; } }
+  if (!matched) miss.push('Item: ' + name);
+  it.id = uid(); it.qty = Math.max(1, N(x.quantity) || 1); it.equipped = !!x.equipped;
+  if (x.isAttuned) { it.attune = true; it.attuned = true; }
+  if (x.limitedUse && it.charges && x.limitedUse.numberUsed != null) it.charges.used = N(x.limitedUse.numberUsed);
+  return it;
+}
+// Build the whole character from D&D Beyond's data. Returns { state, report }; nothing is saved here.
+function ddbBuild(d, opt = {}) {
+  const ok = [], miss = [], notes = [];
+  const prevS = S;
+  S = migrate(Object.assign(blankState(), { dataRev: EMBED.dataRev || '', layout: (prevS && prevS.layout) || {} }));
+  S.sources = defaultSources(); const useSrc = s => { if (s && DND.sources[s] && !S.sources.includes(s)) S.sources.push(s); };
+  S.id = uid(); S.name = String(d.name || '').trim().slice(0, 80) || 'Unnamed Hero'; S.player = String(opt.player || '').slice(0, 80);
+  S.alignment = DDB_ALIGN[d.alignmentId] || ''; S.faith = String(d.faith || '').slice(0, 80); S.xp = d.currentXp ? String(d.currentXp) : '';
+  // race
+  const rf = ddbFindRace(d.race), rname = (d.race && d.race.fullName) || '';
+  if (rf) { S.race = { key: rf.key, sub: rf.sub, choices: {} }; const x = DND.races[rf.key], s = (x.subraces || {})[rf.sub] || {}; useSrc(x.src); const nm = s.name || x.name; S.raceName = nm.toLowerCase().includes(x.name.toLowerCase()) ? nm : nm.replace(/\s*\([A-Z][A-Za-z]{1,5}\)$/, '') + ' ' + x.name; ok.push('Race: ' + S.raceName); }
+  else { S.raceName = rname; if (rname) miss.push('Race: ' + rname + ' (kept as its name; its traits aren’t automated)'); }
+  // classes, starting class first
+  const cls = (d.classes || []).slice().sort((a, b) => (b.isStartingClass ? 1 : 0) - (a.isStartingClass ? 1 : 0));
+  S.classes = [];
+  cls.forEach(c => { const k = ddbFindClass(c.definition && c.definition.name); if (!k) { miss.push('Class: ' + (c.definition && c.definition.name) + ' ' + c.level); return; }
+    const sn = c.subclassDefinition && c.subclassDefinition.name, sk = ddbFindSub(k, sn); if (sn && !sk) miss.push('Subclass: ' + sn + ' (' + CL[k].name + ')');
+    if (sk) useSrc(CL[k].subclasses[sk].src);
+    S.classes.push({ key: k, level: Math.max(1, Math.min(20, N(c.level))), sub: sk && N(c.level) >= CL[k].sub.level ? sk : '' }); ok.push('Class: ' + CL[k].name + ' ' + c.level + (sk ? ' (' + CL[k].subclasses[sk].name + ')' : ''));
+    if (N(c.hitDiceUsed)) S.hdUsed[CL[k].hd] = N(S.hdUsed[CL[k].hd]) + N(c.hitDiceUsed); });
+  if (!S.classes.length) { S = prevS; throw new Error('None of this character’s classes are in this sheet’s rules, so it can’t be imported.'); }
+  const c0 = CL[S.classes[0].key];
+  // background
+  const bgd = d.background && (d.background.definition || d.background.customBackground), bgName = bgd && bgd.name, bk = ddbFindBg(bgName);
+  if (bk) { const b = DND.backgrounds[bk]; S.background = bk; S.backgroundName = b.name; useSrc(b.src); ok.push('Background: ' + b.name); }
+  else if (bgName) { S.backgroundName = String(bgName).slice(0, 80); notes.push('Background “' + bgName + '” isn’t in this sheet’s rules: its name is kept and its proficiencies come over.'); }
+  // proficiencies from the modifiers (only what's actually been chosen; open "choose a …" slots are skipped)
+  const mods = ddbMods(d);
+  S.profs = { armor: [], weapons: [], weaponNames: [] }; S.tools = []; S.langs = [];
+  mods.forEach(m => { const st = String(m.subType || ''), fr = m.friendlySubtypeName || st; if (/^choose-/.test(st)) return;
+    if (m.type === 'proficiency' || m.type === 'expertise') {
+      const sv = /^(\w+)-saving-throws$/.exec(st); if (sv && DDB_ABNAME[sv[1]]) { if (m.type === 'proficiency') S.saves[DDB_ABNAME[sv[1]]] = true; return; }
+      const sk = ddbSkill(st); if (sk) { sk.prof = Math.max(N(sk.prof), m.type === 'expertise' ? 2 : 1); return; }
+      const ar = { 'light-armor': 'light', 'medium-armor': 'medium', 'heavy-armor': 'heavy', 'shields': 'shield' }[st]; if (ar) { S.profs.armor.push(ar); return; }
+      const wc = { 'simple-weapons': 'simple', 'martial-weapons': 'martial' }[st]; if (wc) { S.profs.weapons.push(wc); return; }
+      const w = ddbWeapon(fr); if (w) { S.profs.weaponNames.push(w[0]); return; }
+      const t = ddbTool(fr); if (t || /tools|kit|supplies|instrument|vehicles|set$|gaming/i.test(fr) || DND.toolGroups && Object.values(DND.toolGroups).flat().some(x => ddbNorm(x) === ddbNorm(fr))) { addText('profTools', [t || fr]); if (m.type === 'expertise') { const tl = S.tools.find(x => ddbNorm(x.name) === ddbNorm(t || fr)); if (tl) tl.exp = true; } return; }
+      // musical instruments and the like
+      if (m.type === 'proficiency' && fr && !/ability checks|initiative/i.test(fr)) addText('profTools', [fr]);
+    } else if (m.type === 'language' && fr && !/^choose/i.test(fr)) addText('languages', [fr]); });
+  S.profs.armor = [...new Set(S.profs.armor)]; S.profs.weapons = [...new Set(S.profs.weapons)]; S.profs.weaponNames = [...new Set(S.profs.weaponNames)];
+  if (!AB.some(a => S.saves[a])) c0.saves.forEach(a => S.saves[a] = true);
+  S.profArmor = profArmorText(); S.profWeapons = profWeaponText();
+  // feats
+  (d.feats || []).forEach(f => { const nm = f.definition && f.definition.name, k = ddbFindFeat(nm); if (k) { if (!S.feats.includes(k)) S.feats.push(k); const ft = DND.feats.find(x => x[0] === k); if (ft) useSrc(ft[1]); ok.push('Feat: ' + k); } else if (nm && !/^(dark ?vision|ability score improvement|other spells|other)$/i.test(nm)) miss.push('Feat: ' + nm); });
+  // class options picked on D&D Beyond (fighting styles, invocations, metamagic, maneuvers…)
+  const picked = Object.values(d.options || {}).flat().map(o => o && o.definition && o.definition.name).filter(Boolean);
+  picked.forEach(nm => { const n = ddbNorm(nm); for (const [t, o] of Object.entries(DND.options || {})) { const e = (o.list || []).find(x => ddbNorm(x[0]) === n); if (e) { applyChoice({ type: t }, [e[0]]); ok.push((o.label || t) + ': ' + e[0]); return; } } });
+  // the sheet works out its own features, spells it grants and attacks
+  S.combat = defaultCombat();
+  rebuildAuto();
+  // ability scores last, so nothing above adds to them a second time
+  const sc = ddbScores(d, false); AB.forEach(a => S.abilities[a] = sc[a]);
+  // spells: each class's list (prepared as on D&D Beyond), plus race and feat spells the sheet didn't add itself
+  const classOf = id => { const c = (d.classes || []).find(c => c.id === id); return c ? ddbFindClass(c.definition && c.definition.name) : ''; };
+  if (opt.spells !== false) {
+    const add = (nm0, ck, o) => { const hit = ddbSpell(nm0), nm = hit ? hit.name : nm0, n = ddbNorm(nm); let sp = S.spells.find(s => ddbNorm(s.name) === n && (!ck || s.cls === ck || s.auto)); if (!hit) { miss.push('Spell: ' + nm0); }
+      if (!sp) { sp = spellEntry(nm, ck || 'race'); if (!ck) { sp.ab = o.ab || 'cha'; sp.always = true; sp.note = o.note || ''; } S.spells.push(sp); }
+      if (o.prepared && N(sp.level) > 0) sp.prepared = true; if (o.always) sp.always = true; };
+    (d.classSpells || []).forEach(g => { const ck = classOf(g.characterClassId); (g.spells || []).forEach(s => add(s.definition.name, ck, { prepared: s.prepared || s.alwaysPrepared, always: s.alwaysPrepared })); });
+    ['race', 'feat', 'class', 'background'].forEach(k => ((d.spells || {})[k] || []).forEach(s => { if (!s || !s.definition) return; const ab = DDB_AB[s.spellCastingAbilityId] || ''; add(s.definition.name, k === 'class' ? '' : '', { ab: ab || (k === 'race' ? 'cha' : 'int'), prepared: true, always: true, note: k === 'race' ? 'Racial' : k === 'feat' ? 'Feat' : '' }); }));
+  }
+  (d.spellSlots || []).forEach(s => { if (s.level >= 1 && s.level <= 9) S.slotsUsed[s.level - 1] = N(s.used); });
+  S.pactUsed = (d.pactMagic || []).reduce((t, s) => t + N(s.used), 0);
+  // inventory: containers become containers, the rest go in them or the pack
+  if (opt.items !== false) {
+    const inv = d.inventory || [], bagFor = {};
+    inv.filter(x => x.definition && x.definition.isContainer && x.containerEntityId === d.id).forEach(x => { const nm = x.definition.name, p = BAG_PRESETS.find(b => ddbNorm(b[0]) === ddbNorm(nm)) || [nm, 0, false, N(x.definition.weight)];
+      const b = { id: uid(), name: nm, cap: p[1] || '', weightless: !!p[2], weight: N(p[3]), notes: '' }; S.bags = (S.bags || []).concat([b]); bagFor[x.id] = b.id; });
+    inv.forEach(x => { if (!x.definition || bagFor[x.id]) return; const it = ddbItem(x, miss); const bag = x.containerEntityId !== d.id ? bagFor[x.containerEntityId] : ''; if (bag && !it.equipped) it.bag = bag; addInventoryItem(it, true); });
+    (d.customItems || []).forEach(x => { if (!x || !x.name) return; const it = { id: uid(), name: String(x.name).slice(0, 120), qty: Math.max(1, N(x.quantity) || 1), weight: N(x.weight), cost: x.cost ? x.cost + ' gp' : '', equipped: false, notes: String(x.description || x.notes || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 2000) }; addInventoryItem(it, true); });
+    const cur = d.currencies || {}; ['cp', 'sp', 'ep', 'gp', 'pp'].forEach(k => S.currency[k] = N(cur[k]));
+  }
+  rebuildAuto();
+  // hit points: match what D&D Beyond shows
+  const hd0 = c0.hd; let base = hd0; S.classes.forEach((r, i) => { const c = CL[r.key]; for (let l = i === 0 ? 1 : 0; l < r.level; l++) base += Math.floor(c.hd / 2) + 1; });
+  S.hp.base = N(d.baseHitPoints) || base; S.hp.adj = 0;
+  const want = ddbMaxHp(d), have = maxHp(); if (want > 0 && want !== have) S.hp.adj = want - have;
+  S.hp.cur = Math.max(0, maxHp() - N(d.removedHitPoints)); S.hp.temp = N(d.temporaryHitPoints);
+  // the rest of the character
+  const ds = d.deathSaves || {}; S.death = { s: N(ds.successCount), f: N(ds.failCount) };
+  S.conditions = (d.conditions || []).map(c => DDB_COND[c.id]).filter(Boolean); const ex = (d.conditions || []).find(c => c.id === 4); if (ex) S.exhaustion = N(ex.level);
+  if (d.inspiration) S.insp = 1;
+  const t = d.traits || {}, nt = d.notes || {}, txt = v => String(v || '').replace(/\r/g, '').trim().slice(0, 6000);
+  S.traits = { personality: txt(t.personalityTraits), ideals: txt(t.ideals), bonds: txt(t.bonds), flaws: txt(t.flaws) };
+  S.appearance = { age: txt(d.age), height: txt(d.height), weight: txt(d.weight), eyes: txt(d.eyes), skin: txt(d.skin), hair: txt(d.hair) };
+  S.backstory = txt(nt.backstory); S.allies = [txt(nt.allies), txt(nt.organizations)].filter(Boolean).join('\n\n');
+  const extra = [nt.personalPossessions && 'Possessions: ' + txt(nt.personalPossessions), nt.otherHoldings && 'Holdings: ' + txt(nt.otherHoldings), nt.otherNotes && txt(nt.otherNotes), t.appearance && 'Appearance: ' + txt(t.appearance)].filter(Boolean).join('\n\n');
+  S.notes = [{ date: new Date().toISOString().slice(0, 10), title: 'Imported from D&D Beyond', text: `${S.name}: ${S.raceName} ${classLabel()}${S.backgroundName ? ', ' + S.backgroundName : ''}.` + (extra ? '\n\n' + extra : '') }];
+  S.ddb = { id: N(d.id), at: Date.now() };
+  // carrying rules as the character used them on D&D Beyond (off there unless turned on)
+  const enc = { 1: 'standard', 2: 'off', 3: 'variant' }[N((d.preferences || {}).encumbranceType)];
+  if (enc) { S.settings = Object.assign({}, S.settings, { encumbrance: enc }); S.fixesDone = [...new Set((S.fixesDone || []).concat(['enc1', 'bullets1']))]; }
+  const state = S; S = prevS;
+  return { state, report: { ok, miss: [...new Set(miss)], notes, hp: want, avatar: (d.decorations || {}).avatarUrl || '' } };
+}
+// The portrait comes over through the same helper (so it can be drawn and kept), shrunk like any other portrait.
+async function ddbPortrait(url) {
+  if (!/^https:\/\/(www\.)?dndbeyond\.com\/avatars\//.test(String(url || ''))) return '';
+  try { const r = await fetch(DDB_PROXY + 'avatar?u=' + encodeURIComponent(url), { credentials: 'omit' }); if (!r.ok) return ''; const b = await r.blob(); if (!/^image\//.test(b.type)) return '';
+    const u = URL.createObjectURL(b); const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = u; });
+    const s = Math.min(1, 400 / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(u);
+    return c.toDataURL('image/jpeg', .86); } catch (e) { return ''; }
+}
+// ----- the import window: link or ID → (or paste / file) → review → create -----
+let DDB = null;
+function openDdbImport() { DDB = { step: 'get', id: '', err: '', busy: false, data: null, built: null, items: true, spells: true, portrait: true }; ddbPaint(); }
+function ddbPaint() {
+  if (!DDB) return; const D = DDB, b = D.built;
+  let h = '';
+  if (D.step === 'get') {
+    const link = D.id ? DDB_DIRECT(D.id) : '';
+    h = `<h3>Import from D&amp;D Beyond</h3>
+      <p class="hint">Bring over a character you made on D&amp;D Beyond: race, classes and subclasses, ability scores, hit points, proficiencies, feats, spells, equipment, money and notes. You’ll see what came over before it’s made.</p>
+      <label class="fld"><span class="lbl">Character link or number</span><input class="f" id="ddb-id" value="${esc(D.id)}" placeholder="https://www.dndbeyond.com/characters/12345678" autocomplete="off" inputmode="url"></label>
+      <p class="hint">The character has to be <b>Public</b> on D&amp;D Beyond: open it there → <b>Character Settings</b> → <b>Privacy</b> → <b>Public</b>.</p>
+      ${D.err ? `<p class="ddb-err">${esc(D.err)}</p>` : ''}
+      <div class="actions" style="justify-content:flex-start"><button class="btn gold" data-ddb="fetch"${D.busy ? ' disabled' : ''}>${D.busy ? 'Getting it…' : 'Get my character'}</button></div>
+      <details class="ddb-alt"${D.err ? ' open' : ''}><summary>Or paste the character data yourself</summary>
+        <ol class="ddb-steps"><li>${link ? `Open <a href="${esc(link)}" target="_blank" rel="noopener noreferrer">this page</a>` : 'Type the link or number above, then open the data page it gives'} in a new tab (the character still has to be Public).</li><li>Select everything on it (Ctrl+A / ⌘A) and copy it.</li><li>Paste it below.</li></ol>
+        <textarea class="f" id="ddb-paste" rows="5" placeholder='{"id":0,"success":true,"message":"Character successfully received.","data":{…}}'></textarea>
+        <div class="row"><button class="btn" data-ddb="paste">Use what I pasted</button><button class="btn" data-ddb="file">Open a saved file…</button><input type="file" id="ddb-file" accept=".json,application/json,text/plain" hidden></div></details>
+      <div class="actions"><button class="btn" data-ddb="close">Cancel</button></div>`;
+  } else if (D.step === 'review' && b) {
+    const st = b.state, r = b.report;
+    const scores = AB.map(a => `<span class="ddb-ab"><small>${AB3[a]}</small><b>${st.abilities[a]}</b></span>`).join('');
+    h = `<h3>Import ${esc(st.name)}</h3>
+      <div class="ddb-who">${D.portraitUrl ? `<img src="${esc(D.portraitUrl)}" alt="">` : ''}<div><b>${esc(st.name)}</b><span>${esc([st.raceName, st.classes.map(c => CL[c.key].name + ' ' + c.level).join(' / ')].filter(Boolean).join(' · '))}</span><span>${esc([st.backgroundName, st.alignment].filter(Boolean).join(' · '))}</span></div></div>
+      <div class="ddb-abs">${scores}</div>
+      <p class="hint">Hit points <b>${N(st.hp.cur)}</b> of <b>${r.hp}</b>${N(st.hp.temp) ? ` (+${st.hp.temp} temporary)` : ''} · ${st.spells.length} spells · ${st.inventory.length} items${st.feats.length ? ' · feats: ' + esc(st.feats.join(', ')) : ''}</p>
+      <div class="ddb-opts"><label class="checkline"><input type="checkbox" data-ddbo="items"${D.items ? ' checked' : ''}> Equipment and money</label><label class="checkline"><input type="checkbox" data-ddbo="spells"${D.spells ? ' checked' : ''}> Spells</label>${D.portraitUrl ? `<label class="checkline"><input type="checkbox" data-ddbo="portrait"${D.portrait ? ' checked' : ''}> Portrait</label>` : ''}</div>
+      ${r.miss.length ? `<details class="ddb-miss" open><summary>${r.miss.length} thing${r.miss.length === 1 ? '' : 's'} this sheet doesn’t have built in</summary><p class="hint">These come over by name only (or are left out), so their rules aren’t automated. You can fix them on the sheet afterwards.</p><ul>${r.miss.slice(0, 80).map(m => `<li>${esc(m)}</li>`).join('')}${r.miss.length > 80 ? `<li>…and ${r.miss.length - 80} more</li>` : ''}</ul></details>` : '<p class="ddb-allok">Everything was matched to this sheet’s rules.</p>'}
+      ${r.notes.length ? `<ul class="hint">${r.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
+      <p class="hint">Choices the sheet asks for that D&amp;D Beyond didn’t record show up as <b>Unfinished choices</b> on the sheet. Limited-use features start fresh.</p>
+      <div class="actions"><button class="btn" data-ddb="back">Back</button><button class="btn gold" data-ddb="make">Create ${esc(st.name)}</button></div>`;
+  }
+  openModal(`<div class="ddb">${h}</div>`, () => { DDB = null; }, true);
+  const inp = $('#ddb-id'); if (inp) { inp.oninput = () => { D.id = ddbId(inp.value) || ''; D.raw = inp.value; const a = $('.ddb-steps a'); }; inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); ddbAct('fetch'); } }; if (D.step === 'get' && !D.busy) setTimeout(() => inp.focus(), 30); }
+  $$('#modal-body [data-ddb]').forEach(x => x.onclick = () => ddbAct(x.dataset.ddb));
+  $$('#modal-body [data-ddbo]').forEach(x => x.onchange = () => { D[x.dataset.ddbo] = x.checked; if (x.dataset.ddbo !== 'portrait') ddbRebuild(); });
+  const f = $('#ddb-file'); if (f) f.onchange = () => { const file = f.files && f.files[0]; if (!file) return; file.text().then(t => ddbUse(t), () => { D.err = 'Couldn’t read that file.'; ddbPaint(); }); };
+}
+function ddbRebuild() { const D = DDB; if (!D || !D.data) return; try { D.built = ddbBuild(D.data, { items: D.items, spells: D.spells, player: window.SHEET_PAGES ? '' : (W && W.player) || '' }); } catch (e) { D.err = e.message; D.step = 'get'; } ddbPaint(); }
+function ddbUse(txt) { const D = DDB; if (!D) return; try { D.data = ddbParse(txt); } catch (e) { D.err = e.message; ddbPaint(); return; } D.err = ''; D.step = 'review'; D.portraitUrl = ''; ddbRebuild();
+  const av = D.built && D.built.report.avatar; if (av) ddbPortrait(av).then(u => { if (u && DDB === D) { D.portraitUrl = u; if (D.step === 'review') ddbPaint(); } }); }
+async function ddbAct(a) {
+  const D = DDB; if (!D) return;
+  if (a === 'close') { closeModal(); DDB = null; return; }
+  if (a === 'back') { D.step = 'get'; D.err = ''; return ddbPaint(); }
+  if (a === 'file') { const f = $('#ddb-file'); if (f) f.click(); return; }
+  if (a === 'paste') { const t = ($('#ddb-paste') || {}).value || ''; if (!t.trim()) { D.err = 'Paste the character data first.'; return ddbPaint(); } return ddbUse(t); }
+  if (a === 'fetch') { const v = ($('#ddb-id') || {}).value || ''; D.id = ddbId(v); if (!D.id) { D.err = 'Paste the character’s link from D&D Beyond (it ends in a number), or just the number.'; return ddbPaint(); }
+    D.busy = true; D.err = ''; ddbPaint();
+    try { const data = await ddbFetch(D.id); if (DDB !== D) return; D.busy = false; return ddbUse(data); } catch (e) { if (DDB !== D) return; D.busy = false; D.err = e.message; return ddbPaint(); } }
+  if (a === 'make') ddbCreate();
+}
+function ddbCreate() {
+  const D = DDB; if (!D || !D.built) return;
+  S = D.built.state; if (D.portrait && D.portraitUrl) S.portrait = D.portraitUrl;
+  closeModal(true); DDB = null; closeWizard();
+  S.created = true;
+  LAST = snapAll(); HIST = []; REDO = [];
+  pendingLabel = 'Import from D&D Beyond'; writeLocal(); save();
+  if (S.portrait) matchPortrait(false);
+  applyTheme(); applyLayout(); render();
+  toast(`<div><b>${esc(S.name)}</b> is here from D&amp;D Beyond!<div class="det">Check the Inventory and Spells tabs, and any <b>Unfinished choices</b>. Everything saves automatically.</div></div>`, 'crit', 12000);
+}
+
 })();
 // While typing on a phone the keyboard is up: hide the bottom tab bar (like a native app) instead of letting it ride up above the keyboard.
 {
@@ -11192,4 +11581,5 @@ window.addEventListener('resize', () => { if (!LAYOUT_NOW) { const was = isMobil
     if (was && !now && !(' ' + (m.oldValue || '') + ' ').includes(' closing ') && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => el.classList.remove('closing'), document.documentElement.classList.contains('mobile') ? 240 : 190); } }))
     .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], attributeOldValue: true, subtree: true });
 }
+
 

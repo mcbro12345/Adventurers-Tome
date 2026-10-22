@@ -25,10 +25,32 @@ async function picture(code, c, ctx) {
   ctx.waitUntil(cache.put(key, new Response(body, { headers: { 'Content-Type': type, 'Cache-Control': 'public, max-age=86400' } })));
   return { body, type };
 }
+// D&D Beyond import: the sheet's "Import from D&D Beyond" reads a PUBLIC character's data (and its portrait) through
+// here, because D&D Beyond only lets its own pages read them from a browser. Only those two things, only GET, only for
+// the site's own pages; nothing is stored.
+const DDB_ORIGINS = /^https:\/\/(adventurers-tome\.web\.app|adventurers-tome\.firebaseapp\.com|dnd-character-sheets-b30c7\.(web\.app|firebaseapp\.com)|mcbro12345\.github\.io)$/;
+async function ddb(req, path, url) {
+  const origin = req.headers.get('Origin') || '', allow = DDB_ORIGINS.test(origin) ? origin : 'https://adventurers-tome.web.app';
+  const cors = { 'Access-Control-Allow-Origin': allow, 'Vary': 'Origin', 'Access-Control-Allow-Methods': 'GET, OPTIONS', 'X-Content-Type-Options': 'nosniff' };
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+  if (req.method !== 'GET') return new Response('', { status: 405, headers: cors });
+  if (path === 'ddb/avatar') {
+    const u = url.searchParams.get('u') || '';
+    if (!/^https:\/\/(www\.)?dndbeyond\.com\/avatars\/[\w\/.-]+\.(jpe?g|png|gif|webp)(\?[\w=&%.-]*)?$/i.test(u)) return new Response('', { status: 400, headers: cors });
+    const r = await fetch(u, { cf: { cacheTtl: 86400 } }); const type = r.headers.get('Content-Type') || '';
+    if (!r.ok || !/^image\//.test(type)) return new Response('', { status: 404, headers: cors });
+    return new Response(r.body, { headers: Object.assign({ 'Content-Type': type, 'Cache-Control': 'public, max-age=86400' }, cors) });
+  }
+  const m = /^ddb\/(\d{3,12})$/.exec(path); if (!m) return new Response('', { status: 404, headers: cors });
+  const r = await fetch('https://character-service.dndbeyond.com/character/v5/character/' + m[1], { headers: { Accept: 'application/json' } });
+  const body = await r.text();
+  return new Response(body, { status: r.status, headers: Object.assign({ 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }, cors) });
+}
 export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url), path = decodeURIComponent(url.pathname.replace(/^\/+/, ''));
     if (!path) return Response.redirect(SITE + '/', 302);
+    if (path === 'ddb' || path.startsWith('ddb/')) return ddb(req, path, url);
     const m = /^([A-Za-z0-9-]{3,80})(\.(?:jpg|png))?$/.exec(path); if (!m) return Response.redirect(SITE + '/', 302);
     const code = m[1], join = SITE + '/join/' + encodeURIComponent(code);
     const c = await card(code, ctx);
