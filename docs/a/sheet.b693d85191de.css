@@ -3898,4 +3898,76 @@ html.mobile .drwin.closing, html.mobile .pcwin.closing { animation-name: winDown
 @keyframes winUp { from { transform: translateY(100%); } }
 @keyframes winDown { to { transform: translateY(100%); } }
 @media (prefers-reduced-motion: reduce) { .drwin, .pcwin, .drwin.closing, .pcwin.closing { animation: none; } }
+/* Phones: one tab button at the bottom that opens the other tabs upward (the old strip stays hidden underneath) */
+html.mobile.mtabs #tabs { position: fixed !important; left: -9999px !important; right: auto !important; width: 100vw; opacity: 0; pointer-events: none; }
+html.mobile.mtabs body { padding-bottom: calc(84px + var(--tablift, 0px) + env(safe-area-inset-bottom)); }
+html.mobile.kbopen .mtab { display: none; }
+.mtab { position: fixed; left: 0; right: 0; bottom: calc(12px + var(--tablift, 0px) + env(safe-area-inset-bottom)); z-index: 46; display: flex; justify-content: center; pointer-events: none; }
+.mtab-b { pointer-events: auto; position: relative; display: inline-flex; align-items: center; gap: 10px; min-width: 200px; max-width: calc(100vw - 32px); height: 54px; padding: 0 16px 0 14px; border-radius: 27px;
+  border: 1px solid color-mix(in srgb, var(--gold) 55%, var(--line)); background: color-mix(in srgb, var(--panel) 88%, transparent); -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3);
+  color: var(--ink); box-shadow: 0 10px 30px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.04) inset; cursor: pointer; touch-action: pan-y; transition: transform .2s cubic-bezier(.2,.9,.3,1), box-shadow .2s; -webkit-tap-highlight-color: transparent; }
+.mtab-b:active { transform: scale(.97); }
+html.mtab-open .mtab-b { box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 35%, transparent), 0 10px 30px rgba(0,0,0,.35); }
+.mtab-ic { width: 34px; height: 34px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--gold); color: var(--on-gold, #1D2536); }
+.mtab-ic svg { width: 19px; height: 19px; }
+.mtab-ic .cticon { font-size: 1rem; }
+.mtab-l { flex: 1; text-align: left; font: 800 1.02rem system-ui, sans-serif; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mtab-dots { display: flex; gap: 3px; }
+.mtab-dots i { width: 5px; height: 5px; border-radius: 50%; background: color-mix(in srgb, var(--ink) 25%, transparent); transition: background .2s, width .2s; }
+.mtab-dots i.on { width: 12px; border-radius: 3px; background: var(--gold); }
+.mtab-chev { display: grid; place-items: center; color: var(--soft); transition: transform .25s cubic-bezier(.2,.9,.3,1); }
+html.mtab-open .mtab-chev { transform: rotate(180deg); }
+.mtab-b.unread::after, .mtab-t.unread::after { content: ''; position: absolute; top: 6px; right: 10px; width: 9px; height: 9px; border-radius: 50%; background: #e0563b; box-shadow: 0 0 0 2px var(--panel); }
+.mtab-menu { position: fixed; inset: 0; z-index: 45; }
+.mtab-back { position: absolute; inset: 0; background: rgba(6,9,16,.45); opacity: 0; transition: opacity .2s ease; -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
+.mtab-menu.in .mtab-back { opacity: 1; }
+.mtab-card { position: absolute; left: 12px; right: 12px; bottom: calc(76px + var(--tablift, 0px) + env(safe-area-inset-bottom)); max-width: 440px; margin: 0 auto; padding: 10px; border-radius: 22px;
+  border: 1px solid var(--line); border-top: 3px solid var(--gold); background: var(--panel); box-shadow: 0 -10px 40px rgba(0,0,0,.35); transform-origin: 50% 100%;
+  opacity: 0; transform: translateY(16px) scale(.94); transition: opacity .2s ease, transform .26s cubic-bezier(.2,.9,.3,1.1); }
+.mtab-menu.in .mtab-card { opacity: 1; transform: none; }
+.mtab-menu.out .mtab-card { opacity: 0; transform: translateY(12px) scale(.96); transition-duration: .18s; }
+.mtab-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.mtab-t { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; min-height: 82px; padding: 12px 6px 10px; border-radius: 16px; border: 1px solid var(--line); background: var(--panel2); color: var(--ink); cursor: pointer;
+  opacity: 0; transform: translateY(10px); transition: opacity .22s ease, transform .3s cubic-bezier(.2,.9,.3,1.15), background .15s, border-color .15s; transition-delay: calc(var(--i) * 18ms); -webkit-tap-highlight-color: transparent; }
+.mtab-menu.in .mtab-t { opacity: 1; transform: none; }
+.mtab-menu.out .mtab-t { transition-delay: 0s; }
+.mtab-t:active { transform: scale(.95); }
+.mtab-tic { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: var(--gold-soft); color: var(--gold-ink); }
+.mtab-tic svg { width: 21px; height: 21px; }
+.mtab-tl { font: 700 .84rem system-ui, sans-serif; text-align: center; line-height: 1.15; }
+.mtab-t.on { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 16%, var(--panel2)); }
+.mtab-t.on .mtab-tic { background: var(--gold); color: var(--on-gold, #1D2536); }
+.mtab-cnt { position: absolute; top: 7px; left: 9px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: color-mix(in srgb, var(--ink) 18%, transparent); font: 800 .66rem/18px system-ui, sans-serif; }
+@media (prefers-reduced-motion: reduce) { .mtab-card, .mtab-t, .mtab-back, .mtab-b, .mtab-chev { transition: none !important; } }
+html.mobile.mtabs #tipbox { bottom: calc(80px + var(--tablift, 0px) + env(safe-area-inset-bottom)) !important; }
+html.mobile.mtabs body:not(.wizopen):not(:has(#modal.open)):not(:has(#drwin)) .toasts { bottom: calc(80px + var(--tablift, 0px) + env(safe-area-inset-bottom)); }
+/* the toast area itself never catches taps (only the toasts in it do) */
+.toasts { pointer-events: none; } .toasts > * { pointer-events: auto; }
+/* Phones: bottom sheets fill the width exactly and ride above the on-screen keyboard */
+html.mobile .pcwin, html.mobile .drwin { max-width: none; bottom: var(--kb, 0px) !important; }
+html.mobile.kbup .pcwin { height: min(70vh, calc(var(--vvh, 100vh) - 8px)) !important; top: auto !important; }
+html.mobile.kbup .pcwin .pcw-body { min-height: 0; }
+html.mobile.kbup .drwin { max-height: calc(var(--vvh, 100vh) - 8px); }
+html.mobile.kbup .mtab { display: none; }
+/* Scrolling inside a window never scrolls the page behind it */
+.pcwin, .drwin, .pcw-body, .ptychat-l, .mtab-menu, .mtab-card { overscroll-behavior: contain; }
+.mtab, .mtab-b, .mtab-menu { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.mtab-b { touch-action: none; }
+.mtab-b.held { transform: scale(.97); }
+.mtab-t.hov { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 26%, var(--panel2)); transform: scale(1.04) !important; }
+html.mobile .pip { position: relative; } html.mobile .pip::after { content: ""; position: absolute; inset: -5px; }
+/* Phones: the round buttons at the top right only share the line with the character's name; the race / class line
+   underneath runs the full width instead of being squeezed into a narrow column. */
+html.mobile .namebox { --nbpad: 112px; padding-right: 0 !important; }
+html.mobile.hasbug .namebox, html.mobile.pchat .namebox { --nbpad: 148px; }
+html.mobile.hasbug.pchat .namebox { --nbpad: 184px; }
+html.mobile .namebox > :first-child { margin-right: var(--nbpad); max-width: calc(100% - var(--nbpad)); box-sizing: border-box; }
+html.mobile .namebox .subtitle { margin-top: 8px; max-width: none; }
+.ptym-act .tl-sm { display: none; } @media (max-width: 420px) { .ptym-act .tl-lg { display: none; } .ptym-act .tl-sm { display: inline; } }
+html.mobile .tile.hp .btn.rest { white-space: nowrap; font-size: .86rem; padding-left: 6px; padding-right: 6px; gap: 5px; } html.mobile .tile.hp .btn.rest svg { width: 14px; height: 14px; flex: none; }
+@media (max-width: 370px) { html.mobile .tile.hp .btn.rest { font-size: .78rem; gap: 3px; } html.mobile .tile.hp .btn.rest svg { display: none; } }
+/* Phones: a row of filter buttons that doesn't fit scrolls sideways instead of squashing its labels */
+html.mobile #modal .segmini { display: flex; max-width: 100%; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+html.mobile #modal .segmini::-webkit-scrollbar { display: none; }
+html.mobile #modal .segmini > button { flex: none; white-space: nowrap; }
 

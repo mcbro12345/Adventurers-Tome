@@ -124,12 +124,56 @@ function pgPicAccentOf(im) { try { const n = 24, c = document.createElement('can
   const mix = v => Math.round(Math.max(0, Math.min(255, k <= 1 ? v * k : v + (255 - v) * (1 - 1 / k))));
   return '#' + [r, gg, b].map(v => mix(v).toString(16).padStart(2, '0')).join(''); } catch (e) { return ''; } }
 window.pgPicAccentOf = pgPicAccentOf;
+// Phones: one roomy tab button at the bottom (like the character sheet's) that opens every tab upward as big tiles.
+// Tap: open; swipe sideways: next / previous; press and hold: slide onto a tile and let go. tabsFn() lists the tabs
+// ({ k, b: the real tab button, on, ic, label, badge }); passing null takes the button away.
+const PG_PILL_CHEV = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>';
+let PG_PILL_FN = null;
+function pgPill(tabsFn) { PG_PILL_FN = tabsFn; let el = document.getElementById('pgpill');
+  if (!tabsFn) { if (el) el.remove(); pgPillClose(true); document.documentElement.classList.remove('pgpill-on'); return; }
+  document.documentElement.classList.add('pgpill-on');
+  if (!el) { el = document.createElement('div'); el.id = 'pgpill'; el.className = 'pgp'; document.body.appendChild(el); pgPillWire(el); }
+  const ts = tabsFn(), cur = ts.find(t => t.on) || ts[0]; if (!cur) return; const i = ts.indexOf(cur), other = ts.some(t => t.badge && !t.on);
+  el.innerHTML = `<button class="pgp-b${other ? ' unread' : ''}" aria-haspopup="menu" aria-expanded="${!!document.getElementById('pgpmenu')}" aria-label="${escH(cur.label)} — ${i + 1} of ${ts.length}. Choose a tab"><span class="pgp-ic" aria-hidden="true">${cur.ic}</span><span class="pgp-l">${escH(cur.label)}</span><span class="pgp-dots" aria-hidden="true">${ts.map(t => `<i${t.on ? ' class="on"' : ''}></i>`).join('')}</span><span class="pgp-chev">${PG_PILL_CHEV}</span></button>`;
+  const m = document.getElementById('pgpmenu'); if (m) pgPillFill(m); }
+function pgPillFill(m) { const ts = PG_PILL_FN ? PG_PILL_FN() : [];
+  m.querySelector('.pgp-grid').innerHTML = ts.map((t, i) => `<button class="pgp-t${t.on ? ' on' : ''}" role="menuitem" data-pt="${escH(t.k)}" style="--i:${i}"${t.on ? ' aria-current="page"' : ''}><span class="pgp-tic" aria-hidden="true">${t.ic}</span><span class="pgp-tl">${escH(t.label)}</span>${t.badge ? `<span class="pgp-cnt">${escH(t.badge)}</span>` : ''}</button>`).join(''); }
+function pgPillGo(k) { const t = (PG_PILL_FN ? PG_PILL_FN() : []).find(x => x.k === k); if (t && !t.on) t.b.click(); }
+function pgPillOpen() { if (document.getElementById('pgpmenu')) return pgPillClose();
+  const m = document.createElement('div'); m.id = 'pgpmenu'; m.className = 'pgp-menu'; m.innerHTML = '<div class="pgp-back"></div><div class="pgp-card" role="menu" aria-label="Tabs"><div class="pgp-grid"></div></div>'; pgPillFill(m); document.body.appendChild(m);
+  requestAnimationFrame(() => m.classList.add('in')); document.documentElement.classList.add('pgp-open'); const b = document.querySelector('.pgp-b'); if (b) b.setAttribute('aria-expanded', 'true');
+  m.querySelector('.pgp-back').onclick = () => pgPillClose();
+  m.addEventListener('touchmove', e => { if (!e.target.closest('.pgp-card') && e.cancelable) e.preventDefault(); }, { passive: false });
+  m.addEventListener('click', e => { const t = e.target.closest('[data-pt]'); if (!t) return; const k = t.dataset.pt; pgPillClose(); setTimeout(() => pgPillGo(k), 60); });
+  m.addEventListener('keydown', e => { if (e.key === 'Escape') { pgPillClose(); const bb = document.querySelector('.pgp-b'); if (bb) bb.focus(); } });
+  setTimeout(() => { const on = m.querySelector('.pgp-t.on') || m.querySelector('.pgp-t'); if (on) on.focus({ preventScroll: true }); }, 30);
+  try { navigator.vibrate && navigator.vibrate(6); } catch (x) {} }
+function pgPillClose(now) { const m = document.getElementById('pgpmenu'); document.documentElement.classList.remove('pgp-open'); const b = document.querySelector('.pgp-b'); if (b) b.setAttribute('aria-expanded', 'false'); if (!m) return;
+  m.id = ''; if (now || PG_CALM) return m.remove(); m.classList.remove('in'); m.classList.add('out'); setTimeout(() => m.remove(), 220); }
+function pgPillWire(el) { let st = null;
+  const tileAt = (x, y) => { const t = document.elementFromPoint(x, y); return t && t.closest ? t.closest('#pgpmenu .pgp-t') : null; };
+  const hover = t => { document.querySelectorAll('.pgp-t.hov').forEach(x => { if (x !== t) x.classList.remove('hov'); }); if (t && !t.classList.contains('hov')) { t.classList.add('hov'); try { navigator.vibrate && navigator.vibrate(4); } catch (x) {} } };
+  el.addEventListener('contextmenu', e => e.preventDefault());
+  el.addEventListener('pointerdown', e => { if (!e.isPrimary || !e.target.closest('.pgp-b')) return; const b = e.target.closest('.pgp-b');
+    st = { id: e.pointerId, x: e.clientX, y: e.clientY, mode: '', b, wasOpen: !!document.getElementById('pgpmenu') }; try { b.setPointerCapture(e.pointerId); } catch (x) {}
+    st.t = setTimeout(() => { if (!st || st.mode) return; st.mode = 'hold'; if (!document.getElementById('pgpmenu')) pgPillOpen(); b.classList.add('held'); }, 320); });
+  el.addEventListener('pointermove', e => { if (!st || e.pointerId !== st.id) return; const dx = e.clientX - st.x, dy = e.clientY - st.y;
+    if (!st.mode && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) { st.mode = 'swipe'; clearTimeout(st.t); }
+    if (!st.mode && dy < -18) { st.mode = 'hold'; clearTimeout(st.t); if (!document.getElementById('pgpmenu')) pgPillOpen(); st.b.classList.add('held'); }
+    if (st.mode === 'swipe') st.b.style.transform = `translateX(${Math.max(-40, Math.min(40, dx / 2))}px)`;
+    if (st.mode === 'hold') hover(tileAt(e.clientX, e.clientY)); });
+  const end = e => { if (!st || e.pointerId !== st.id) return; const s0 = st; st = null; clearTimeout(s0.t); s0.b.style.transform = ''; s0.b.classList.remove('held'); const dx = e.clientX - s0.x;
+    if (s0.mode === 'swipe') { if (e.type !== 'pointercancel' && Math.abs(dx) > 50) { const ts = PG_PILL_FN ? PG_PILL_FN() : [], i = ts.findIndex(t => t.on), n = ts[i + (dx < 0 ? 1 : -1)]; if (n) pgPillGo(n.k); } return; }
+    if (s0.mode === 'hold') { const t = e.type === 'pointercancel' ? null : tileAt(e.clientX, e.clientY); hover(null); if (t) { const k = t.dataset.pt; pgPillClose(); setTimeout(() => pgPillGo(k), 60); } return; }
+    if (e.type !== 'pointercancel') { if (s0.wasOpen) pgPillClose(); else pgPillOpen(); } };
+  el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+  el.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('.pgp-b')) { e.preventDefault(); pgPillOpen(); } }); }
 function pgPartyFrames() { document.querySelectorAll('img.pty-pic, img.pty-admic, .pw-ppic > img, .pj-seal > img, .ptyh-ic.pic > img').forEach(im => {
   const src = im.getAttribute('src') || '', key = src.length + ':' + src.slice(-40), el = im.matches('.pty-pic, .pty-admic') ? im : im.parentElement; if (!src || el.dataset.pacc === key) return; el.dataset.pacc = key;
   const put = col => { if (col) el.style.borderColor = col; };
   if (PG_PACC.has(key)) return put(PG_PACC.get(key));
   const go = () => { const col = pgPicAccentOf(im); PG_PACC.set(key, col); put(col); }; if (im.complete && im.naturalWidth) go(); else im.addEventListener('load', go, { once: true }); }); }
-new MutationObserver(() => { pgSkelFill(); pgPartyFrames(); cancelAnimationFrame(pgScrollFx.r); pgScrollFx.r = requestAnimationFrame(pgScrollFx); }).observe(document.documentElement, { childList: true, subtree: true });
+new MutationObserver(() => { pgSkelFill(); pgPartyFrames(); if (PG_PILL_FN && !document.body.classList.contains('adminbody')) pgPill(null); cancelAnimationFrame(pgScrollFx.r); pgScrollFx.r = requestAnimationFrame(pgScrollFx); }).observe(document.documentElement, { childList: true, subtree: true });
 function wireThemeBtn(root) { const b = root.querySelector('#hub-theme'); if (!b) return;
   // The sun's thin rays look lopsided when the button lands between two screen pixels (it does in some header rows,
   // like an admin's): nudge it onto whole pixels.
@@ -1766,6 +1810,7 @@ function hub(fs, auth, G, ctx) {
     try { const v = localStorage.getItem('dnd-tablift'); document.documentElement.style.setProperty('--tablift', (v != null && v !== '' ? Number(v) || 0 : STANDALONE ? 24 : 0) + 'px'); } catch (e) { document.documentElement.style.setProperty('--tablift', STANDALONE ? '24px' : '0px'); }
     function navPost() {
       const nv = root.querySelector('.adm-nav'), side = root.querySelector('.adm-side'); if (!nv || !side) return;
+      pgPill(PHONE.matches ? () => [...nv.querySelectorAll('.adm-ni')].map(b => ({ k: b.dataset.tab, b, on: b.classList.contains('on'), ic: (b.querySelector('svg') || {}).outerHTML || '', label: (b.querySelector('span') || {}).textContent || b.dataset.tab, badge: (b.querySelector('.adm-badge') || {}).textContent || '' })) : null);
       if (PHONE.matches) { if (nv.parentElement !== root) root.appendChild(nv); }
       else if (nv.parentElement !== side) side.insertBefore(nv, side.querySelector('.adm-foot'));
       let ind = nv.querySelector('.adm-ind'); if (!ind) { ind = document.createElement('span'); ind.className = 'adm-ind'; ind.setAttribute('aria-hidden', 'true'); nv.prepend(ind); }

@@ -3297,3 +3297,7 @@ html.mobile .namebox .subtitle { margin-top: 8px; max-width: none; }
 .ptym-act .tl-sm { display: none; } @media (max-width: 420px) { .ptym-act .tl-lg { display: none; } .ptym-act .tl-sm { display: inline; } }
 html.mobile .tile.hp .btn.rest { white-space: nowrap; font-size: .86rem; padding-left: 6px; padding-right: 6px; gap: 5px; } html.mobile .tile.hp .btn.rest svg { width: 14px; height: 14px; flex: none; }
 @media (max-width: 370px) { html.mobile .tile.hp .btn.rest { font-size: .78rem; gap: 3px; } html.mobile .tile.hp .btn.rest svg { display: none; } }
+/* Phones: a row of filter buttons that doesn't fit scrolls sideways instead of squashing its labels */
+html.mobile #modal .segmini { display: flex; max-width: 100%; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+html.mobile #modal .segmini::-webkit-scrollbar { display: none; }
+html.mobile #modal .segmini > button { flex: none; white-space: nowrap; }
