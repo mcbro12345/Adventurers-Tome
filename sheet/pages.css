@@ -1802,3 +1802,33 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 .pg-crop .pgc-zoom input { flex: 1; accent-color: #c9962b; }
 .pg-crop .pg-out-row .grow { flex: 1; }
 .pg-crop .pgc-reset { border-color: transparent !important; opacity: .8; }
+
+/* the invitation step: just the invitation card, its buttons right under it */
+:where(body.hubbody) .pw.bare .pw-body { background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 8px 0 24px; }
+:where(body.hubbody) .pj-btns { display: flex; justify-content: center; gap: 12px; max-width: 520px; margin: 16px auto 0; }
+:where(body.hubbody) .pj-btns .btn { flex: 1; justify-content: center; padding: 12px 16px; font-size: 1rem; text-decoration: none; text-align: center; }
+/* Parties tab: the Invitation tag sits at the right end of the row */
+:where(body.hubbody) .pty-inviterow .hr-main { width: 100%; }
+:where(body.hubbody) .pty-inviterow .pty-invtag { margin-left: auto; }
+
+/* party page: compact cards, six fit on a laptop screen without scrolling */
+:where(body.hubbody) .pm-grid { gap: 10px; margin-top: 8px; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); }
+:where(body.hubbody) .pm { gap: 8px; padding: 10px; }
+:where(body.hubbody) .pm-pic { width: 42px; height: 42px; border-radius: 9px; }
+:where(body.hubbody) .pm-top { min-height: 42px; }
+:where(body.hubbody) .pm-hp { gap: 12px; padding: 8px 10px; }
+:where(body.hubbody) .pm .pty-ring { width: 74px; height: 74px; }
+:where(body.hubbody) .pm .pty-ring b { font-size: 1.3rem; }
+:where(body.hubbody) .pm-q { padding: 6px 9px; }
+:where(body.hubbody) .pm-hb { height: 32px; }
+:where(body.hubbody) .pm-csts span { padding: 4px 11px; }
+:where(body.hubbody) .pm-csts b { font-size: 1rem; }
+:where(body.hubbody) .pm-on span { font-size: .72rem; padding: 1px 7px; }
+:where(body.hubbody) .pm-foot .btn.sm { padding: 5px 10px; }
+:where(body.hubbody) .pm-top .hc-menu.pm-tr { position: relative; margin-left: auto; align-self: flex-start; }
+:where(body.hubbody) .pm-top .hc-menu.pm-tr .hc-list { top: 30px; right: 0; }
+:where(body.hubbody) .pw.inbody .pw-intitle { padding-bottom: 8px; margin-bottom: 8px; }
+
+/* dragging a row in the lobby: the row keeps its place (invisible) and a copy follows the finger */
+:where(body.hubbody) .hr.hr-hold { visibility: hidden; }
+:where(body.hubbody) .hr.hr-ghost { box-sizing: border-box; }

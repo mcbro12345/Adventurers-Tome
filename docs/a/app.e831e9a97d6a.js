@@ -4758,8 +4758,10 @@ $('#importFile').addEventListener('change', e => {
   r.readAsText(f); e.target.value = '';
 });
 let PICPATH = '';
-$('#picFile') && $('#picFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (!f || !PICPATH) return; const path = PICPATH; loadPortrait(f, url => { setP(path, url); pendingLabel = 'Add picture'; save(); render(); }, 320); e.target.value = ''; });
-function loadPortrait(file, cb, size) {
+$('#picFile') && $('#picFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (!f || !PICPATH) return; const path = PICPATH; loadPortrait(f, url => { setP(path, url); pendingLabel = 'Add picture'; save(); render(); }, 320, 'Picture'); e.target.value = ''; });
+function loadPortrait(file, cb, size, title) {
+  // on the site: crop and zoom it first (the window every upload uses); the stand-alone file fits it to the square
+  if (window.pgCrop) { window.pgCrop(file, { shape: 'square', size: size || 560, title: title || (size ? 'Edit picture' : 'Portrait') }).then(r => { if (r) cb(r.url); }, e => toast(esc(e.message || 'That file isn’t an image.'), 'fumble')); return; }
   const img = new Image(), url = URL.createObjectURL(file);
   img.onload = () => {
     const s = size || 560, c = document.createElement('canvas'); c.width = c.height = s;
@@ -8227,8 +8229,9 @@ function ptyBusy() { const a = document.activeElement; return $('#wizard').class
 // changes, your own characters', messages, and a spell ending that someone had cast on you go straight through.
 const ptyFreeKind = k => ['note', 'end', 'reply'].includes(k);
 function ptyTrusted(m) { const P = PTYX(), I = P && P.info(); if (ptyFreeKind(m.kind) && !(m.data && m.data.reason)) return true; if (!m.by) return false;
+  if (m.data && m.data.ask) return false; // sent from the party page: always asked, even from the DM
   // only the DM, or this character's own player (their own characters) — not whoever happens to have the sheet open
-  return !!I && (m.by === I.dm || m.by === (P.owner && P.owner())); }
+  return !!I && (m.by === I.dm || (I.mgrs || []).includes(m.by) || m.by === (P.owner && P.owner())); }
 function ptyInFlush() { const I = PTYX() && PTYX().info(); if (!S.created || ptyBusy() || !I || I.loading) { clearTimeout(ptyInFlush._t); ptyInFlush._t = setTimeout(ptyInFlush, 800); return; }
   let changed = false, asked = false; while (PTY_IN.length) { const m = PTY_IN.shift(); try {
     // taken back before you answered: it just goes away
@@ -8267,7 +8270,7 @@ function ptyAskShow() {
   ov.innerHTML = `<div class="ptyask-m" role="alertdialog" aria-modal="true" aria-labelledby="ptyask-q">
     ${A.length > 1 ? `<div class="ptyask-n">1 of ${A.length}</div>` : ''}
     <p class="ptyask-q" id="ptyask-q"><b>${esc(a.m.fromName || 'Someone')}</b> wants to ${esc(what)}.</p>${a.m.data && a.m.data.reason ? `<p class="ptyask-why">${esc(a.m.data.reason)}</p>` : ''}
-    <div class="ptyask-b"><button class="btn" data-pa="askno" data-ref="${esc(a.ref)}">No</button><button class="btn gold" data-pa="askok" data-ref="${esc(a.ref)}">Yes</button></div></div>`;
+    <div class="ptyask-b"><button class="btn" data-pa="askno" data-ref="${esc(a.ref)}">No</button><button class="btn gold" data-pa="askok" data-ref="${esc(a.ref)}">${a.m.kind === 'hit' && a.m.data && a.m.data.save && !a.m.data.dmg && !(a.m.data.cond || []).length ? 'Roll the save' : a.m.kind === 'hit' && a.m.data && a.m.data.save ? 'Yes, roll the save' : 'Yes'}</button></div></div>`;
   const y = ov.querySelector('[data-pa=askok]'); if (y && !matchMedia('(pointer:coarse)').matches) setTimeout(() => y.focus(), 30);
 }
 function ptyAnswer(ref, ok) {
@@ -8386,6 +8389,9 @@ function ptyHitPrompt(m) {
     toast(`<div><b>${esc(why)}</b><div class="det">${done.length ? esc(done.join(' · ')) : saved ? 'You saved — no effect.' : 'No effect.'}</div></div>`, done.length ? 'fumble' : 'crit', 7000); };
   const desc = `${N(d.dmg) ? `${N(d.dmg)}${d.type ? ' ' + esc(d.type) : ''} damage` : ''}${(d.cond || []).length ? (N(d.dmg) ? ' and ' : '') + esc([].concat(d.cond).join(', ')) : ''}${d.buff ? (N(d.dmg) || (d.cond || []).length ? ' and ' : '') + esc(d.fxName || d.spell || 'a curse') : ''}${d.note ? ' — ' + esc(d.note) : ''}`;
   let acts, head;
+  // already said yes in the window: an attack lands or misses by your AC, a save is rolled straight away
+  if (m.agreed && d.hit != null) { const ac = acTotal(); return land(!!(d.crit || N(d.hit) >= ac), false); }
+  if (m.agreed && ab && AB.includes(ab)) { const r = d20(`${why}: DC ${N(d.dc)} ${ab.toUpperCase()} save`, saveVal(ab), 'save', ab); if (r && !r.skipped) return land(true, r.total >= N(d.dc)); }
   if (d.hit != null) { const ac = acTotal(), hits = d.crit || N(d.hit) >= ac; head = `${d.crit ? 'Critical hit' : 'Attack ' + N(d.hit)} vs your AC ${ac}${hits ? ' — it hits' : ' — it misses'}`;
     acts = [{ label: hits ? 'Take it' : 'It hits anyway', fn: () => land(true, false) }, { label: hits ? 'It missed' : 'OK', fn: () => land(false, false) }]; }
   else if (ab && AB.includes(ab)) { head = `DC ${N(d.dc)} ${ab.toUpperCase()} save${d.half ? ' (half on a success)' : ''}`;

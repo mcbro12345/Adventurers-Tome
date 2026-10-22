@@ -37,6 +37,11 @@ const PG_MOON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" str
 const themeLabel = () => pgDark() ? 'Switch to light mode' : 'Switch to dark mode';
 function themeBtnHTML() { return `<button class="hub-theme" id="hub-theme" title="${themeLabel()}" aria-label="${themeLabel()}">${pgDark() ? PG_SUN : PG_MOON}</button>`; }
 function wireThemeBtn(root) { const b = root.querySelector('#hub-theme'); if (!b) return;
+  // The sun's thin rays look lopsided when the button lands between two screen pixels (it does in some header rows,
+  // like an admin's): nudge it onto whole pixels.
+  const snap = () => { if (!b.isConnected) return; b.style.translate = ''; const dpr = window.devicePixelRatio || 1, r = b.getBoundingClientRect(), fx = (r.left * dpr) % 1, fy = (r.top * dpr) % 1;
+    if (fx || fy) b.style.translate = `${-(fx > .5 ? fx - 1 : fx) / dpr}px ${-(fy > .5 ? fy - 1 : fy) / dpr}px`; };
+  requestAnimationFrame(snap); setTimeout(snap, 400); addEventListener('resize', snap);
   b.onclick = () => { const next = pgDark() ? 'light' : 'dark', de = document.documentElement;
     // The whole page cross-fades from one look to the other (where the browser can), so nothing changes colour unevenly.
     const flip = () => { de.setAttribute('data-pgtheme', next); try { localStorage.setItem('pg-theme', next); } catch (e) {}
@@ -174,7 +179,14 @@ function pcardCompute(str) {
     }, () => res(null));
   });
 }
+const LIVE_LS = id => 'pg-live:' + id;
 async function sheetLive(fs, id, d) {
+  try { const c = JSON.parse(localStorage.getItem(LIVE_LS(id)) || 'null'); if (c && c.s === Number(d.savedAt) && c.pc) return c.pc; } catch (e) {}
+  const pc0 = await sheetLive0(fs, id, d);
+  if (pc0) { try { const x = Object.assign({}, pc0); delete x.hb; localStorage.setItem(LIVE_LS(id), JSON.stringify({ s: Number(d.savedAt), pc: x })); } catch (e) {} }
+  return pc0;
+}
+async function sheetLive0(fs, id, d) {
   let pc = {}; try { pc = d.pcard ? JSON.parse(d.pcard) : {}; } catch (e) {}
   let txt = d.data || ''; const n = Number(d.n) || 1;
   for (let k = 1; k < n && txt != null; k++) { try { const p = await fs.collection('sheets').doc(id + '_p' + k).get(); const pd = p.exists ? p.data() : null; txt = pd && Number(pd.savedAt) === Number(d.savedAt) ? txt + (pd.data || '') : null; } catch (e) { txt = null; } }
@@ -669,7 +681,11 @@ function wireDie(root) {
   // …and you land back where you were: the same scroll position
   const restoreY = () => { try { const d = JSON.parse(sessionStorage.getItem('pg-y') || 'null'); sessionStorage.removeItem('pg-y'); if (d && d.p === location.pathname && Date.now() - d.at < 10 * 60000 && d.y > 0) setTimeout(() => scrollTo(0, d.y), 350); } catch (e) {} };
   if (G && !C && !NEWQ) { lsSet(LAST_G, G); if (ADMINQ && !IS_ADMIN && PRETTY) history.replaceState(null, '', '/');
-    if (load) fadeLoad(load); else document.documentElement.classList.remove('pg-loading'); hub(fs, auth, G, { EMAIL, IS_ADMIN, IS_OWNER, ADMINS, user, signOut, ME, page: ADMINQ && IS_ADMIN ? 'admin' : PARTYQ ? 'party' : JOINQ ? 'join' : 'hub', view: VIEWQ, tab: TABQ, party: PARTYQ, join: JOINQ }); verCheck(); restoreY();
+    // the loading screen stays up until the page has its content (characters, party, admin lists), so nothing pops in
+    // after it fades; at most a few seconds on a slow connection
+    window.PG_READY = false; window.pgReady = () => { window.PG_READY = true; };
+    { const t0 = Date.now(), wait = () => { if (window.PG_READY || Date.now() - t0 > 4500) { requestAnimationFrame(() => { if (load) fadeLoad(load); else document.documentElement.classList.remove('pg-loading'); }); } else setTimeout(wait, 40); }; setTimeout(wait, 0); }
+    hub(fs, auth, G, { EMAIL, IS_ADMIN, IS_OWNER, ADMINS, user, signOut, ME, page: ADMINQ && IS_ADMIN ? 'admin' : PARTYQ ? 'party' : JOINQ ? 'join' : 'hub', view: VIEWQ, tab: TABQ, party: PARTYQ, join: JOINQ }); verCheck(); restoreY();
     // quietly warm the cache so opening a sheet from here is quick
     // (not on a very slow or data-saving connection, and only once the page has settled, so it never slows the list down)
     const cn = navigator.connection || {}, slowNet = cn.saveData || /(^|-)2g$/.test(cn.effectiveType || '');
@@ -818,6 +834,7 @@ function wireDie(root) {
         if (role() === 'owner' && PARTY === pid && Date.now() - PTY_SET > 15000) { PARTY = ''; ptySetSheetParty(fs, C, '').catch(() => {}); ptyWatch(''); }
         return; }
       PTY = Object.assign({ id: pid }, pd); ptyChanged(); ptyKeep(); inboxStart(); ptyCardSoon();
+      if (OWNER === EMAIL && pd.dm && pd.dm !== EMAIL && !EDITORS.includes(pd.dm)) col.doc(C).get().then(sd => sd.exists && ptyShareDM(fs, C, pd.dm, sd.data())).then(ok => { if (ok) { if (!VIEWERS.includes(pd.dm)) VIEWERS = VIEWERS.concat([pd.dm]); if (!EDITORS.includes(pd.dm)) EDITORS = EDITORS.concat([pd.dm]); } }, () => {});
       if (!unPtyC) unPtyC = PCOL.doc(pid).collection('cards').onSnapshot(qs => { PTY_CARDS = {}; qs.docs.forEach(x => PTY_CARDS[x.id] = x.data()); ptyChanged(); ptyKeep(); }, () => {});
       ptyLiveWatch((pd.chars || []).filter(id => id !== C));
     }, () => { PTY = null; PTY_CARDS = {}; ptyChanged(); });
@@ -843,7 +860,7 @@ function wireDie(root) {
       PTY_Q.push({ kind: d.kind, data, from: d.from || '', fromName: d.fromName || '', by: d.by || '', at: d.at || Date.now(), p: d.p, ref: d.ref || ch.doc.id }); ptyDeliver(); }), () => { inboxOn = false; }); }
   window.PG_PARTY = {
     on: () => !!PTY, self: C, email: EMAIL, owner: () => OWNER, canAct: () => role() !== 'view',
-    info: () => PTY ? { loading: !!PTY.loading, id: PTY.id, name: PTY.name || 'Party', dm: PTY.dm, dmName: PTY.dmName || PTY.dm, mgr: PTY.dm === EMAIL, url: URLS.party(PTY.id, PTY.name) } : null,
+    info: () => PTY ? { loading: !!PTY.loading, id: PTY.id, name: PTY.name || 'Party', dm: PTY.dm, dmName: PTY.dmName || PTY.dm, mgrs: PTY.mgrs || [], mgr: PTY.dm === EMAIL || (PTY.mgrs || []).includes(EMAIL), url: URLS.party(PTY.id, PTY.name) } : null,
     members: () => PTY ? (PTY.chars || []).filter(id => id !== C).map(id => { const c = PTY_CARDS[id] || {}, l = PTY_LIVE[id]; return Object.assign({ id, name: 'A character' }, !l ? c : Number(l.at) >= Number(c.at || 0) ? Object.assign({}, c, l) : Object.assign({}, l, c)); }) : [],
     me: () => PTY_CARDS[C] || null,
     send: (to, kind, data, ref) => { if (!PTY) return Promise.reject(new Error('Not in a party')); let nm = ''; try { nm = window.sheetSummary().name; } catch (e) {} return ptySend(fs, EMAIL, PTY.id, to, kind, data, C, nm, ref); },
@@ -1366,23 +1383,24 @@ function hub(fs, auth, G, ctx) {
   let RD = null;
   const slide = (rows, mutate) => { const before = new Map(rows.map(x => [x, x.getBoundingClientRect().top])); mutate();
     rows.forEach(x => { const d = before.get(x) - x.getBoundingClientRect().top; if (!d) return; x.style.transition = 'none'; x.style.transform = `translateY(${d}px)`; requestAnimationFrame(() => { x.style.transition = 'transform .18s ease'; x.style.transform = ''; }); }); };
+  // The row itself stays in the list (invisible, holding its place) while a copy of it follows the finger on top of the
+  // page. The copy lives outside the sliding lists, so scrolling or the lists' own movement can't make it jump.
   document.addEventListener('pointerdown', e => { const g = e.target.closest && e.target.closest('.hr-grip'); if (!g || e.button > 0) return; const r = g.closest('.hr'); e.preventDefault();
-    const b = r.getBoundingClientRect(), ph = document.createElement('div'); ph.className = 'hr-ph'; ph.style.height = b.height + 'px'; r.after(ph);
-    Object.assign(r.style, { position: 'fixed', left: b.left + 'px', top: b.top + 'px', width: b.width + 'px', margin: 0, zIndex: 40, transition: 'none' });
-    // The lists sit in a sliding track, which shifts where "fixed" is measured from: correct for that offset.
-    const nb = r.getBoundingClientRect(), ox = nb.left - b.left, oy = nb.top - b.top; if (ox || oy) { r.style.left = (b.left - ox) + 'px'; r.style.top = (b.top - oy) + 'px'; }
-    RD = { r, ph, pin: r.dataset.pin, list: ph.parentElement, dy: e.clientY - b.top, oy }; r.classList.add('drag'); document.body.classList.add('hdragging'); });
-  document.addEventListener('pointermove', e => { if (!RD) return; e.preventDefault(); RD.r.style.top = (e.clientY - RD.dy - RD.oy) + 'px';
-    const rows = [...RD.list.querySelectorAll(':scope > .hr')].filter(x => x !== RD.r), peers = rows.filter(x => x.dataset.pin === RD.pin);
-    if (!peers.length) return;
-    const tgt = peers.find(x => { const bb = x.getBoundingClientRect(); return e.clientY < bb.top + bb.height / 2; });
-    const want = tgt ? tgt : peers[peers.length - 1];
-    if (tgt ? RD.ph.nextElementSibling !== tgt : RD.ph.previousElementSibling !== want) slide(rows, () => tgt ? tgt.before(RD.ph) : want.after(RD.ph));
-    const sc = RD.list.closest('.hub-scroll'), sr = sc ? sc.getBoundingClientRect() : { top: 0, bottom: innerHeight }, edge = 60, by = y => sc ? sc.scrollBy(0, y) : scrollBy(0, y);
-    if (e.clientY < sr.top + edge) by(-10); else if (e.clientY > sr.bottom - edge) by(10); }, { passive: false });
-  const endDrag = () => { if (!RD) return; const d = RD; RD = null; const pb = d.ph.getBoundingClientRect();
-    d.r.style.transition = 'top .16s ease, box-shadow .16s'; d.r.style.top = (pb.top - d.oy) + 'px'; d.r.classList.remove('drag');
-    setTimeout(() => { d.ph.replaceWith(d.r); d.r.removeAttribute('style'); document.body.classList.remove('hdragging');
+    const b = r.getBoundingClientRect(), gh = r.cloneNode(true); gh.classList.add('hr-ghost', 'drag'); gh.removeAttribute('data-id');
+    Object.assign(gh.style, { position: 'fixed', left: b.left + 'px', top: b.top + 'px', width: b.width + 'px', height: b.height + 'px', margin: 0, zIndex: 60, pointerEvents: 'none', transition: 'none', willChange: 'top' });
+    document.body.appendChild(gh); r.classList.add('hr-hold');
+    RD = { r, gh, pin: r.dataset.pin, list: r.parentElement, dy: e.clientY - b.top, y: e.clientY, raf: 0 }; document.body.classList.add('hdragging'); try { g.setPointerCapture(e.pointerId); } catch (x) {} });
+  const dragStep = () => { const d = RD; if (!d) return; d.raf = 0; d.gh.style.top = (d.y - d.dy) + 'px';
+    const rows = [...d.list.querySelectorAll(':scope > .hr')], peers = rows.filter(x => x !== d.r && x.dataset.pin === d.pin);
+    if (peers.length) { const mid = d.y - d.dy + d.gh.offsetHeight / 2, tgt = peers.find(x => { const bb = x.getBoundingClientRect(); return mid < bb.top + bb.height / 2; });
+      const last = peers[peers.length - 1];
+      if (tgt ? d.r.nextElementSibling !== tgt : last.nextElementSibling !== d.r) slide(rows.filter(x => x !== d.r), () => tgt ? tgt.before(d.r) : last.after(d.r)); }
+    const sc = d.list.closest('.hub-scroll'), sr = sc ? sc.getBoundingClientRect() : { top: 0, bottom: innerHeight }, edge = 70, by = y => sc ? sc.scrollBy(0, y) : scrollBy(0, y);
+    if (d.y < sr.top + edge) { by(-8); d.raf = requestAnimationFrame(dragStep); } else if (d.y > sr.bottom - edge) { by(8); d.raf = requestAnimationFrame(dragStep); } };
+  document.addEventListener('pointermove', e => { if (!RD) return; e.preventDefault(); RD.y = e.clientY; if (!RD.raf) RD.raf = requestAnimationFrame(dragStep); }, { passive: false });
+  const endDrag = () => { if (!RD) return; const d = RD; RD = null; if (d.raf) cancelAnimationFrame(d.raf); const pb = d.r.getBoundingClientRect();
+    d.gh.style.transition = 'top .16s ease, box-shadow .16s, transform .16s'; d.gh.style.top = pb.top + 'px'; d.gh.classList.remove('drag');
+    setTimeout(() => { d.gh.remove(); d.r.classList.remove('hr-hold'); document.body.classList.remove('hdragging');
       const all = [...d.list.querySelectorAll(':scope > .hr')]; if (d.r.dataset.party) return PMx().saveOrder(all.filter(x => x.dataset.party).map(x => x.dataset.id)); saveOrder(all.filter(x => x.dataset.pin === '1').map(x => x.dataset.id)).then(() => saveOrder(all.filter(x => x.dataset.pin !== '1').map(x => x.dataset.id))); }, 170); };
   document.addEventListener('pointerup', endDrag); document.addEventListener('pointercancel', endDrag);
 
@@ -1509,16 +1527,22 @@ function hub(fs, auth, G, ctx) {
   })();
   if (page === 'party') PMx().partyPage(ctx.party); else if (page === 'join') PMx().joinPage(ctx.join); else draw();
   // Everyone — admins too — sees their own characters plus the ones shared with them. Admins find the rest in Admin.
-  const lists = {}, merge = () => { const m = new Map(); Object.values(lists).forEach(l => l.forEach(c => m.set(c.id, c))); chars = [...m.values()]; if (!RD) draw();
+  const LISTS_LS = 'pg-hublists:' + EMAIL;
+  const lists = (() => { try { const c = JSON.parse(localStorage.getItem(LISTS_LS) || 'null'); return c && c.mine ? c : {}; } catch (e) { return {}; } })();
+  let listsT = null; const keepLists = () => { clearTimeout(listsT); listsT = setTimeout(() => { try { let v = JSON.stringify({ mine: lists.mine || [], shared: lists.shared || [] }); if (v.length > 1500000) return; localStorage.setItem(LISTS_LS, v); } catch (e) {} }, 1000); };
+  const readyNow = () => { if (window.pgReady && lists.mine && lists.shared && page !== 'party' && page !== 'join' && !ADMIN) window.pgReady(); };
+  const merge = () => { const m = new Map(); Object.values(lists).forEach(l => l.forEach(c => m.set(c.id, c))); chars = [...m.values()]; if (!RD) draw();
     if (IS_ADMIN) needNames(chars.filter(c => !isMine(c)).map(c => c.owner)).then(() => { if (!RD) draw(); });
     if (ME && ME.picChar) { const ch = chars.find(c => c.id === ME.picChar); if (ch && (ch.thumb || '') !== (ME.pic || '')) { ME.pic = ch.thumb || ''; usersCol.doc(EMAIL).update({ pic: ME.pic }).catch(() => {}); } } };
   const failed = e => { root.innerHTML = `<p class="hub-empty">Couldn't load the character list (${esc(e.code || e.message || e)}).<br><br>Signed in as ${esc(EMAIL)} · <button class="linkbtn" onclick="pgSignOut()">Sign out</button></p>`; console.error(e); };
-  const watch = (k, q) => q.onSnapshot(qs => { lists[k] = qs.docs.map(d => Object.assign({ id: d.id }, d.data())); if (k === 'shared') SH_LOADED = true; merge(); }, failed);
+  const watch = (k, q) => q.onSnapshot(qs => { lists[k] = qs.docs.map(d => Object.assign({ id: d.id }, d.data())); if (k === 'shared') SH_LOADED = true; merge(); keepLists(); readyNow(); }, e => { if (window.pgReady) window.pgReady(); failed(e); });
+  if (lists.mine) { SH_LOADED = true; merge(); readyNow(); }
   watch('mine', charsCol.where('owner', '==', EMAIL)); watch('shared', charsCol.where('viewers', 'array-contains', EMAIL));
   setInterval(() => { if (!RD) draw(); }, 60000);
 
   // ================= Admin section (its own page: ?g=…&admin=1) =================
   function adminSection() {
+    setTimeout(() => { if (window.pgReady) window.pgReady(); }, 1500); // at the latest
     if (!window.PG_NF) { window.PG_NF = 1; document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-newfor]'); if (b) pgGo(URLS.newChar(G, b.dataset.newfor, nameOf(b.dataset.newfor))); }); }
     const UREF = usersCol.doc(EMAIL); let CHECKED = Number(ME && ME.checkedAt) || 0;
     // Who the owner is (their record says so) and who's left out of notice numbers (config/quiet) — both from the database.
@@ -1731,7 +1755,7 @@ function hub(fs, auth, G, ctx) {
     }
     setInterval(() => { if (TAB === 'users' && !document.hidden) paintUsers(); }, 30000); // "Online now" comes and goes with time too
     const roleKey = u => u.banned ? 'blocked' : ownerEm(u.id) ? 'owner' : ADMINS.includes(u.id) ? 'admin' : 'member';
-    function paintUsers() {
+    function paintUsers() { if (window.pgReady && (typeof UROWS === 'undefined' || UROWS.length || AROWS.length)) setTimeout(window.pgReady, 60);
       const l = B() && B().querySelector('#ad-ul'); if (!l) return; if (MENU || document.querySelector('.hub-modal.on')) return whenMenusClosed(paintUsers);
       const q = UQ.trim().toLowerCase(), now = Date.now(), dayN = n => now - n * 864e5;
       const rows = UROWS.filter(u => (!q || (String(u.name || '') + ' ' + u.id).toLowerCase().includes(q))
@@ -1901,7 +1925,7 @@ function hub(fs, auth, G, ctx) {
       return AROWS.filter(e => (!AF.act.length || AF.act.includes(e.act)) && (!AF.who.length || AF.who.includes(e.by)) && (!from || e.at >= from) && (!to || e.at <= to)
         && (!qq || [e.byName, e.by, e.tName, e.target, e.detail, ACTS[e.act]].some(x => String(x || '').toLowerCase().includes(qq))));
     }
-    function paintAudit() {
+    function paintAudit() { if (window.pgReady && (typeof UROWS === 'undefined' || UROWS.length || AROWS.length)) setTimeout(window.pgReady, 60);
       const l = B() && B().querySelector('#au-l'); if (!l || !AROWS) return;
       const rows = auFiltered();
       const what = e => { const lab = esc(ACTS[e.act] || e.act); if (!e.target) return lab;
@@ -2143,6 +2167,15 @@ async function ptyLeave(fs, EMAIL, pid, c, opts = {}) {
 }
 // Bring a character into a party: with the party's link (token), an email invitation, or as its DM. A character is in
 // one party at a time, so joining another moves it.
+// A character in a party is shared with its DM (can edit), as if its owner had shared it. Done by the owner's own
+// browser: when the character joins, and whenever its sheet is opened (a new DM gets it then).
+async function ptyShareDM(fs, c, dm, d) {
+  if (!dm || !d || d.owner === dm || ((d.editors || []).includes(dm) && (d.viewers || []).includes(dm))) return false;
+  const FV = firebase.firestore.FieldValue, acc = { viewers: FV.arrayUnion(dm), editors: FV.arrayUnion(dm) }, sh = fs.collection('sheets'), n = Number(d.n) || 1;
+  await sh.doc(c).update(acc); for (let k = 1; k < n; k++) await sh.doc(c + '_p' + k).update(acc).catch(() => {});
+  if (d.g) await fs.collection('groups/' + d.g + '/chars').doc(c).set(acc, { merge: true }).catch(() => {});
+  return true;
+}
 async function ptyJoin(fs, EMAIL, pid, c, token, card) {
   const ref = fs.collection('parties').doc(pid), FV = firebase.firestore.FieldValue;
   const s0 = await fs.collection('sheets').doc(c).get(); const old = s0.exists ? s0.data().party || '' : '';
@@ -2150,6 +2183,7 @@ async function ptyJoin(fs, EMAIL, pid, c, token, card) {
   await ref.update({ chars: FV.arrayUnion(c), people: FV.arrayUnion(EMAIL), invited: FV.arrayRemove(EMAIL), via: token || '', updatedAt: Date.now() });
   await ptySetSheetParty(fs, c, pid);
   if (card) await ref.collection('cards').doc(c).set(Object.assign({ owner: EMAIL, at: Date.now() }, card), { merge: true }).catch(() => {});
+  try { const pd = await ref.get(), sd = await fs.collection('sheets').doc(c).get(); if (pd.exists && sd.exists && sd.data().owner === EMAIL) await ptyShareDM(fs, c, pd.data().dm, sd.data()); } catch (e) {}
 }
 // ----- What's sent between party members -----
 // Each thing sent has its own id (ref). The character's open sheet picks it up and applies it; when nobody has that sheet
@@ -2221,7 +2255,7 @@ function ptyApplyState(st, m, card) {
 async function ptyDeliverClosed(fs, pid, to, ref, EMAIL, kind) {
   const sh = fs.collection('sheets'), ib = sh.doc(to).collection('inbox').doc(ref);
   // only the DM's changes are applied to a closed sheet; anything from another player waits for them to accept it
-  if (!['note', 'end'].includes(kind)) { try { const pd = await fs.collection('parties').doc(pid).get(); if (!pd.exists || pd.data().dm !== EMAIL) return; } catch (e) { return; } }
+  if (!['note', 'end'].includes(kind)) { try { const pd = await fs.collection('parties').doc(pid).get(); if (!pd.exists || (pd.data().dm !== EMAIL && !(pd.data().mgrs || []).includes(EMAIL))) return; } catch (e) { return; } }
   let card = null; try { const c = await fs.collection('parties').doc(pid).collection('cards').doc(to).get(); card = c.exists ? c.data() : null; } catch (e) {}
   let after = null, mDelta = 0; const fxMax = st => (st.effects || []).reduce((t, e) => t + (e.ally || e.self === false ? 0 : Number(e.maxHp) || 0), 0);
   try { await fs.runTransaction(async tx => { const m0 = await tx.get(ib); if (!m0.exists) return; const m = m0.data(); let data = {}; try { data = JSON.parse(m.data || '{}'); } catch (e) {}
@@ -2257,8 +2291,10 @@ function partyModule(H) {
   const { fs, EMAIL, IS_ADMIN, modal, toast, esc, close, root, G } = H;
   const FV = firebase.firestore.FieldValue, PC = fs.collection('parties'), IC = fs.collection('invites');
   // Whoever makes a party is its DM (an admin can hand it to someone else from the admin panel).
-  const isMgr = p => !!p && p.dm === EMAIL;
-  const canRun = p => IS_ADMIN || isMgr(p);
+  // Who runs a party: its DM and any co-DM. An admin is treated like everyone else here (admins add characters and
+  // co-DMs from the admin panel).
+  const isMgr = p => !!p && (p.dm === EMAIL || (p.mgrs || []).includes(EMAIL));
+  const canRun = p => isMgr(p);
   const myChars = () => H.chars().filter(c => (c.owner || '') === EMAIL);
   const dmLabel = p => p.dm === EMAIL ? 'You' : (p.dmName || H.nameOf(p.dm) || p.dm);
   const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
@@ -2302,14 +2338,14 @@ function partyModule(H) {
   const headHTML = () => { const a = H.myAva(), nm = H.myName();
     return `<div class="wzh"><header class="hub-top">${logoHTML()}<div class="hub-side"><div class="hub-prof"><span class="hp-pic wzh-pic">${avaHTML(nm, EMAIL, a.pic, '', '', a)}</span><div class="hp-txt"><b>${esc(nm)}</b><small>${esc(EMAIL)}</small><div class="hp-row"><button class="linkbtn" data-pw="out">Sign out</button><a class="hub-ctlink" href="${CONTACT}">Contact us</a></div></div></div></div></header><a class="adm-back wzh-back" href="${esc(URLS.parties(G))}">← Adventurer’s Tome</a></div>`; };
   // steps: [[key, label]]; seq = numbered steps you go through in order (later ones can't be clicked yet).
-  function shell({ title, sub, steps, on, body, foot, seq, inBody }) {
+  function shell({ title, sub, steps, on, body, foot, seq, inBody, bare, noReady }) {
     const idx = Math.max(0, (steps || []).findIndex(s => s[0] === on));
     const pills = steps && steps.length > 1 ? `<div class="pw-steps" role="tablist">${steps.map(([k, t], i) => `<button class="pw-step${k === on ? ' on' : ''}${seq && i < idx ? ' done' : ''}" role="tab" aria-selected="${k === on}" data-pstep="${k}"${seq && i > idx ? ' disabled' : ''}>${seq ? (i + 1) + '. ' : ''}${esc(t)}</button>`).join('')}</div>` : '';
     // inBody: the title sits at the top of the card itself (a party's page)
     if (inBody) { body = `<div class="pw-intitle"><h2>${title}</h2>${sub ? `<p class="pw-sub">${sub}</p>` : ''}</div>${body}`; title = ''; sub = ''; }
-    root.innerHTML = `<div class="pw${seq ? ' seq' : ''}${inBody ? ' inbody' : ''}">${headHTML()}<div class="pw-head">${title ? `<h2>${title}</h2>` : ''}${sub ? `<p class="pw-sub">${sub}</p>` : ''}${pills}${seq && steps ? `<div class="pw-now">Step ${idx + 1} of ${steps.length}<b>${esc(steps[idx][1])}</b></div>` : ''}</div>
+    root.innerHTML = `<div class="pw${seq ? ' seq' : ''}${inBody ? ' inbody' : ''}${bare ? ' bare' : ''}">${headHTML()}<div class="pw-head">${title ? `<h2>${title}</h2>` : ''}${sub ? `<p class="pw-sub">${sub}</p>` : ''}${pills}${seq && steps ? `<div class="pw-now">Step ${idx + 1} of ${steps.length}<b>${esc(steps[idx][1])}</b></div>` : ''}</div>
       <div class="pw-body">${body}</div>${foot ? `<div class="pw-foot">${foot}</div>` : ''}</div>`;
-    wireDie(root);
+    wireDie(root); if (window.pgReady && !noReady && !/Loading the party|Opening the invitation/.test(body)) window.pgReady();
     const out = root.querySelector('[data-pw="out"]'); if (out) out.onclick = () => H.signOut();
     const back = root.querySelector('.wzh-back'); if (back) back.onclick = e => { e.preventDefault(); pgGo(URLS.parties(G)); };
     return root.querySelector('.pw-body');
@@ -2376,9 +2412,9 @@ function partyModule(H) {
     </div>`; };
   function joinFlow(p, token, already) {
     const steps = [['inv', 'Invitation'], ['char', 'Choose a character']], nm = esc(p.name || 'a party');
-    const step1 = () => { shell({ title: 'Join ' + nm, steps, on: 'inv', seq: true,
-        body: inviteCard(p, already),
-        foot: `${already ? `<a class="btn" href="${esc(URLS.party(p.id, p.name))}">Open the party</a>` : `<button class="btn" id="pj-no">${token ? 'Not now' : 'Decline'}</button>`}<span class="grow"></span><button class="btn gold" id="pj-next">${already ? 'Bring another character' : 'Accept invitation'}</button>` });
+    // the invitation on its own (no card behind it), with its two buttons right under it
+    const step1 = () => { shell({ title: 'Join ' + nm, steps, on: 'inv', seq: true, bare: true,
+        body: `${inviteCard(p, already)}<div class="pj-btns">${already ? `<a class="btn" href="${esc(URLS.party(p.id, p.name))}">Open the party</a>` : `<button class="btn" id="pj-no">${token ? 'Not now' : 'Decline'}</button>`}<button class="btn gold" id="pj-next">${already ? 'Bring another character' : 'Accept invitation'}</button></div>` });
       const no = root.querySelector('#pj-no'); if (no) no.onclick = async () => { if (!token) { no.disabled = true; try { await PC.doc(p.id).update({ invited: FV.arrayRemove(EMAIL) }); toast('Invitation declined.'); } catch (x) { no.disabled = false; return fail(x, 'decline it'); } } pgGo(URLS.parties(G)); };
       root.querySelector('#pj-next').onclick = step2; };
     const step2 = () => {
@@ -2397,7 +2433,7 @@ function partyModule(H) {
   }
 
   // ----- a party's own page: Characters, then (for whoever runs it) Invite players and Who runs it -----
-  let P = null, PLOADED = false, CARDS = {}, PID = '', unP = null, unC = null, SEC = 'chars', JOINING = false;
+  let CLOADED = false, LEAVING = false, P = null, PLOADED = false, CARDS = {}, PID = '', unP = null, unC = null, SEC = 'chars', JOINING = false;
   // /party/shattered-skies: the name in the address is matched against the parties you're in (or invited to); the
   // party's id works too (older links).
   async function resolveParty(x) {
@@ -2406,18 +2442,27 @@ function partyModule(H) {
     for (const q of [PC.where('people', 'array-contains', EMAIL), PC.where('invited', 'array-contains', EMAIL)].concat(IS_ADMIN ? [PC] : [])) { try { const r = match((await q.get()).docs); if (r) return r; } catch (e) {} }
     return '';
   }
+  // The party, its cards and each character's live summary are kept in this browser too, so the page opens filled in
+  // instead of drawing empty and catching up.
+  const PKEY = id => 'pg-party:' + EMAIL + ':' + id, SLUGKEY = 'pg-pslug:' + EMAIL;
+  const pcGet = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
+  let pkT = null; const partyKeep = () => { clearTimeout(pkT); pkT = setTimeout(() => { if (!P || !PID) return; const live = {}; Object.keys(LIVE).forEach(k => { const x = Object.assign({}, LIVE[k]); delete x.hb; live[k] = x; });
+    const cards = {}; Object.keys(CARDS).forEach(k => { const x = Object.assign({}, CARDS[k]); delete x.hb; cards[k] = x; });
+    let v = JSON.stringify({ P, cards, live }); if (v.length > 400000) v = JSON.stringify({ P, cards: {}, live: {} }); try { localStorage.setItem(PKEY(PID), v); const sl = pcGet(SLUGKEY) || {}; sl[partySlug(P.name)] = PID; localStorage.setItem(SLUGKEY, JSON.stringify(sl)); } catch (e) {} }, 800); };
   async function partyPage(pid) {
     if (pid === 'new') return newPage();
     document.title = 'Party — Adventurer’s Tome';
-    shell({ title: 'Party', body: '<p class="hub-hint">Loading the party…</p>' });
-    const id = await resolveParty(pid);
+    const known = (pcGet(SLUGKEY) || {})[pid] || pid, cached = pcGet(PKEY(known));
+    if (cached && cached.P) { PID = known; P = cached.P; CARDS = cached.cards || {}; Object.assign(LIVE, cached.live || {}); PLOADED = true; CLOADED = true; paint(); }
+    else shell({ title: 'Party', body: '<p class="hub-hint">Loading the party…</p>' });
+    const id = cached && cached.P ? known : await resolveParty(pid);
     if (!id) return shell({ title: 'Party', body: note('You’re not in this party', 'Only its players and DM can open it. If you were invited, the invitation is on your Parties tab.', goHub) });
     PID = id;
     unP = PC.doc(id).onSnapshot(d => { PLOADED = true; P = d.exists ? Object.assign({ id: d.id }, d.data()) : null;
         if (P) { document.title = (P.name || 'Party') + ' — Adventurer’s Tome'; if (PRETTY && location.pathname !== URLS.party(P.id, P.name)) history.replaceState(null, '', URLS.party(P.id, P.name)); }
-        paint(); },
-      () => { PLOADED = true; P = null; shell({ title: 'Party', body: note('You’re not in this party', 'Only its players and DM can open it. If you were invited, the invitation is on your Parties tab.', goHub) }); });
-    unC = PC.doc(id).collection('cards').onSnapshot(qs => { CARDS = {}; qs.docs.forEach(d => CARDS[d.id] = d.data()); paint(); }, () => {});
+        paint(); partyKeep(); },
+      () => { PLOADED = true; P = null; try { localStorage.removeItem(PKEY(id)); } catch (e) {} if (LEAVING) return; shell({ title: 'Party', body: note('You’re not in this party', 'Only its players and DM can open it. If you were invited, the invitation is on your Parties tab.', goHub) }); });
+    unC = PC.doc(id).collection('cards').onSnapshot(qs => { CARDS = {}; qs.docs.forEach(d => CARDS[d.id] = d.data()); CLOADED = true; paint(); partyKeep(); }, () => { CLOADED = true; paint(); });
   }
   const statusOf = c => c.dead ? ['Dead', 'dead'] : c.stable ? ['Stable at 0 HP', 'down'] : (Number(c.maxhp) && Number(c.hp) <= 0) ? ['Down — death saves', 'down'] : null;
   // The same HP ring as on the sheet: gold for HP (red when low), blue after it for temp HP.
@@ -2433,9 +2478,10 @@ function partyModule(H) {
   // AC/speed/level, what's on them, and its actions along the bottom.
   function memberCard(id) {
     // open: yours, one you run the party for, or one that's been shared with you
-    const c = cardFor(id), mine = c.owner === EMAIL, run = canRun(P), dmMe = !!actor(), st = statusOf(c), open = mine || run || H.chars().some(x => x.id === id), max = Number(c.maxhp) || 0, cur = Number(c.hp) || 0;
+    const c = cardFor(id), mine = c.owner === EMAIL, run = canRun(P), dmMe = !!actor(), st = statusOf(c), open = mine || run || H.chars().some(x => x.id === id && (x.owner === EMAIL || (x.viewers || []).includes(EMAIL) || (x.editors || []).includes(EMAIL))), max = Number(c.maxhp) || 0, cur = Number(c.hp) || 0;
     const on = [].concat(st ? [st[0]] : [], c.conds || [], Number(c.exh) ? ['Exhaustion ' + Number(c.exh)] : [], c.conc ? ['Concentrating: ' + c.conc] : [], c.fx || []);
     const menu = [dmMe ? ['send', 'Damage, heal or give…'] : null, open ? ['open', 'Open sheet'] : null, run || mine ? ['rm', mine && !run ? 'Leave the party' : 'Remove from the party'] : null].filter(Boolean);
+    const dots = (cls) => `<div class="hc-menu ${cls}"><button class="hc-dots" aria-label="More for ${esc(c.name || 'this character')}">⋯</button><div class="hc-list">${menu.map(([a, t]) => `<button data-pm="${a}" data-id="${esc(id)}"${a === 'rm' ? ' class="hc-del"' : ''}>${t}</button>`).join('')}</div></div>`;
     const pic = c.thumb ? `<img class="pm-pic" src="${esc(c.thumb)}" alt="">` : `<span class="pm-pic pm-nopic">${esc(initials(c.name || '?'))}</span>`;
     const nl = String(c.name || '').length, who = `<span class="pm-txt"><b class="${nl > 26 ? 'n3' : nl > 17 ? 'n2' : ''}" title="${esc(c.name || '')}">${esc(c.name || 'A character')}</b>${c.player || c.owner ? `<small>${esc(c.player || H.nameOf(c.owner))}${mine ? ' (you)' : ''}</small>` : ''}</span>`;
     // a player looking at the party: no controls — the HP ring with AC / speed / level / passive in a 2 × 2 grid beside it
@@ -2445,18 +2491,17 @@ function partyModule(H) {
           <div class="pm-hpb"><button class="pm-hb dmg" data-q="dmg" data-id="${esc(id)}" title="Damage" aria-label="Damage">${PM_IC.dmg}</button><button class="pm-hb heal" data-q="heal" data-id="${esc(id)}" title="Heal" aria-label="Heal">${PM_IC.heal}</button><button class="pm-hb tmp" data-q="temp" data-id="${esc(id)}" title="Temporary HP" aria-label="Temporary HP">${PM_IC.temp}</button></div></div>` : grid}</div>` : '';
     const stats = [!max && c.hp != null ? ['HP', c.hp] : null, ['AC', c.ac || '—'], c.speed ? ['Speed', c.speed] : null, c.level ? ['Level', c.level] : null, c.pp ? ['Passive', c.pp] : null].filter(Boolean);
     return `<div class="pm${st ? ' ' + st[1] : ''}" data-cid="${esc(id)}">
-      <div class="pm-top">${open ? `<a class="pm-main" href="${esc(hrefOf(id, c))}">${pic}${who}</a>` : `<span class="pm-main">${pic}${who}</span>`}</div>
+      <div class="pm-top">${open ? `<a class="pm-main" href="${esc(hrefOf(id, c))}">${pic}${who}</a>` : `<span class="pm-main">${pic}${who}</span>`}${!run && open && menu.length ? dots('pm-tr') : ''}</div>
       ${hp}${dmMe || !max ? `<div class="pm-csts">${stats.map(([k, v]) => `<span><small>${k}</small><b>${esc(String(v))}</b></span>`).join('')}</div>` : ''}
       ${on.length ? `<div class="pm-on">${on.map(t => `<span>${esc(t)}</span>`).join('')}</div>` : ''}
-      ${open || menu.length ? `<div class="pm-foot">${dmMe ? `<button class="btn gold sm" data-pm="send" data-id="${esc(id)}">Actions…</button>` : ''}${open ? `<a class="btn sm" href="${esc(hrefOf(id, c))}">Open sheet</a>` : ''}<span class="grow"></span>
-        ${menu.length ? `<div class="hc-menu up"><button class="hc-dots" aria-label="More for ${esc(c.name || 'this character')}">⋯</button><div class="hc-list">${menu.map(([a, t]) => `<button data-pm="${a}" data-id="${esc(id)}"${a === 'rm' ? ' class="hc-del"' : ''}>${t}</button>`).join('')}</div></div>` : ''}</div>` : ''}</div>`;
+      ${run ? `<div class="pm-foot">${dmMe ? `<button class="btn gold sm" data-pm="send" data-id="${esc(id)}">Actions…</button>` : ''}${open ? `<a class="btn sm" href="${esc(hrefOf(id, c))}">Open sheet</a>` : ''}<span class="grow"></span>${menu.length ? dots('up') : ''}</div>` : ''}</div>`;
   }
   // Who can do things to characters from this page, and how it's sent: the DM (straight onto the sheet) or an admin;
   // anyone else with a character in the party asks — it pops up on that player's sheet for them to say yes or no.
   // Only whoever runs the party (the DM, a co-DM, an admin) acts from here; players do things from their own sheets.
   // Everything sent from this page asks first, like a change from another player does.
   const actor = () => { if (!P) return null; if (P.dm === EMAIL) return { from: '', name: H.myName() + ' (DM)', why: 'The DM', dm: true };
-    if (isMgr(P)) return { from: '', name: H.myName() + ' (co-DM)', why: H.myName(), dm: true }; if (IS_ADMIN) return { from: '', name: H.myName(), why: H.myName() }; return null; };
+    if (isMgr(P)) return { from: '', name: H.myName() + ' (co-DM)', why: H.myName(), dm: true }; return null; };
   const sentMsg = (a, msg) => msg + ' — they’ll be asked to accept it.';
   // Quick damage / heal / temp HP on a card.
   async function quickHP(b) {
@@ -2467,7 +2512,7 @@ function partyModule(H) {
     b.disabled = true; try { await ptySend(fs, EMAIL, PID, id, kind, data, a.from, a.name); if (inp) inp.value = ''; toast(sentMsg(a, msg)); pgLog('party_send', { target: PID, tName: P.name, detail: kind + ' → ' + nm }); } catch (x) { fail(x, 'send it'); } finally { b.disabled = false; }
   }
   function paint() {
-    if (!PLOADED || JOINING) return;
+    if (!PLOADED || JOINING || LEAVING) return;
     // not while the DM is typing an amount on a card (it'd be wiped); it catches up a moment later
     { const ae = document.activeElement; if (ae && ae.classList && ae.classList.contains('pm-q') && ae.value) { clearTimeout(paint.t); paint.t = setTimeout(paint, 900); return; } }
     if (!P) return shell({ title: 'Party', body: note('This party doesn’t exist anymore', 'Its DM may have deleted it.', goHub) });
@@ -2475,18 +2520,19 @@ function partyModule(H) {
     const run = canRun(P), ids = (P.chars || []).slice(), inParty = (P.people || []).includes(EMAIL);
     // Invited by email and not in it yet: the invitation, step by step.
     if (!inParty && !run && (P.invited || []).includes(EMAIL)) { JOINING = true; return joinFlow(P, '', false); }
+    if (!inParty && !run) return shell({ title: 'Party', body: note('You’re not in this party', IS_ADMIN ? 'Only its players and DM can open it. As an admin you can add characters or make yourself a co-DM from the admin panel’s Parties tab.' : 'Only its players and DM can open it. If you were invited, the invitation is on your Parties tab.', goHub) });
     repairCards(ids); watchSheets(ids);
     const mineIn = ids.filter(id => (CARDS[id] || {}).owner === EMAIL);
     const sub = `${IC_CROWN} DM <b>${esc(dmLabel(P))}</b> · ${plural(ids.length, 'character')}`;
     const title = `${partyPicHTML(P, run)}<span class="pw-tt">${esc(P.name || 'Unnamed party')}</span>${run ? ` <button class="hp-rename" id="pt-ren" title="Rename the party" aria-label="Rename the party"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></button>` : ''}`;
-    const adminNote = IS_ADMIN && P.dm !== EMAIL && !inParty ? '<p class="pty-admin">You’re seeing this party as an admin. It isn’t in your own list, but you can change anything here.</p>' : '';
+    const adminNote = '';
     const invited = run && (P.invited || []).length ? `<h4 class="pw-h4">Invited</h4><div class="pl-list">${P.invited.map(em => `<div class="pl-row pty-invrow"><span class="pty-invwho"><b>${esc(H.nameOf(em))}</b><small>${H.nameOf(em) !== em ? esc(em) + ' · ' : ''}hasn’t answered yet</small></span><button class="linkbtn" data-uninv="${esc(em)}">Cancel</button></div>`).join('')}</div>` : '';
     const body = `${adminNote}
       ${ids.length ? `<div class="pm-grid">${ids.map(memberCard).join('')}</div>` : `<p class="pw-empty">No characters yet.${P.dm === EMAIL ? ' Use <b>Add characters</b> to bring some in.' : ''}</p>`}${invited}`;
     const foot = run ? `${P.dm === EMAIL ? '<button class="btn red" id="pt-del"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg><span class="pw-lg">Delete party…</span><span class="pw-sm">Delete</span></button>' : ''}<span class="grow"></span>${P.dm === EMAIL ? '<button class="btn" id="pt-add"><span class="pw-lg">Add characters</span><span class="pw-sm">Add</span></button>' : ''}${ids.length && actor() ? '<button class="btn gold" id="pt-all"><span class="pw-lg">Party actions…</span><span class="pw-sm">Actions</span></button>' : ''}`
       : mineIn.length ? `<button class="btn" id="pt-leave">Leave the party</button><span class="grow"></span>` : inParty ? '<button class="btn" id="pt-off">Remove it from my list</button>' : '';
-    const el = shell({ title, sub, body, foot, inBody: true });
-    wirePage(el);
+    const el = shell({ title, sub, body, foot, inBody: true, noReady: true });
+    wirePage(el); if (window.pgReady && (CLOADED || ids.length === 0)) window.pgReady();
   }
   // A party's picture (or its icon). The DM taps it to change it.
   const partyPicHTML = (p, edit) => `<${edit ? 'button' : 'span'} class="pw-ppic${p.pic ? '' : ' none'}"${edit ? ` id="pt-pic" title="${p.pic ? 'Change the party’s picture' : 'Add a picture for the party'}" aria-label="Party picture"` : ''}>${p.pic ? `<img src="${esc(p.pic)}" alt="">` : IC_PARTY}${edit ? '<span class="pw-pedit" aria-hidden="true">✎</span>' : ''}</${edit ? 'button' : 'span'}>`;
@@ -2500,7 +2546,7 @@ function partyModule(H) {
   const LIVE = {}, unS = {}; let liveT = null;
   function watchSheets(ids) {
     ids.forEach(id => { if (unS[id]) return; unS[id] = fs.collection('sheets').doc(id).onSnapshot(async sn => { const d = sn.exists ? sn.data() : null, l = d && await sheetLive(fs, id, d); if (!l) return;
-      const same = JSON.stringify(LIVE[id]) === JSON.stringify(l); LIVE[id] = l; if (!same) { clearTimeout(liveT); liveT = setTimeout(paint, 150); } }, () => {}); });
+      const same = JSON.stringify(LIVE[id]) === JSON.stringify(l); LIVE[id] = l; if (!same) { clearTimeout(liveT); liveT = setTimeout(paint, 150); partyKeep(); } }, () => {}); });
     Object.keys(unS).forEach(id => { if (!ids.includes(id)) { unS[id](); delete unS[id]; delete LIVE[id]; } });
   }
   const cardFor = id => { const c = CARDS[id] || {}, l = LIVE[id]; if (!l) return c; return Number(l.at) >= Number(c.at || 0) ? Object.assign({}, c, l) : Object.assign({}, l, c); };
@@ -2585,7 +2631,7 @@ function partyModule(H) {
     on('#pt-add', () => addDialog());
     on('#pt-all', () => sendDialog(null));
     el.querySelectorAll('[data-uninv]').forEach(b => b.onclick = async () => { const em = b.dataset.uninv; try { await PC.doc(PID).update({ invited: FV.arrayRemove(em) }); } catch (x) { fail(x, 'cancel it'); } });
-    on('#pt-leave', () => { const mine = (P.chars || []).filter(id => (CARDS[id] || {}).owner === EMAIL); confirmBox(`Leave ${esc(P.name || 'the party')}?`, `${mine.length > 1 ? 'Your characters leave' : 'Your character leaves'} the party. The DM can invite you again.`, 'Leave', async () => { for (const id of mine) await ptyLeave(fs, EMAIL, PID, id, { owner: EMAIL }); pgLog('party_leave', { target: PID, tName: P.name }); pgGo(URLS.parties(G)); }); });
+    on('#pt-leave', () => { const mine = (P.chars || []).filter(id => (CARDS[id] || {}).owner === EMAIL), pid = PID, pnm = P.name || ''; confirmBox(`Leave ${esc(pnm || 'the party')}?`, `${mine.length > 1 ? 'Your characters leave' : 'Your character leaves'} the party. The DM can invite you again.`, 'Leave', async () => { LEAVING = true; try { for (const id of mine) await ptyLeave(fs, EMAIL, pid, id, { owner: EMAIL }); } catch (x) { LEAVING = false; throw x; } try { localStorage.removeItem(PKEY(pid)); } catch (e) {} pgLog('party_leave', { target: pid, tName: pnm }); close(); toast('You left ' + (pnm || 'the party') + '.'); pgGo(URLS.parties(G)); }); });
     on('#pt-off', async () => { try { await PC.doc(PID).update({ people: FV.arrayRemove(EMAIL), invited: FV.arrayRemove(EMAIL), updatedAt: Date.now() }); pgGo(URLS.parties(G)); } catch (x) { fail(x, 'do that'); } });
     on('#pt-del', () => deleteParty(P, () => pgGo(URLS.parties(G))));
     el.querySelectorAll('.hc-dots').forEach(b => b.onclick = e => { e.stopPropagation(); const w = b.parentElement, o = !w.classList.contains('on'); el.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')); w.classList.toggle('on', o); });
@@ -2594,8 +2640,9 @@ function partyModule(H) {
     el.querySelectorAll('[data-pm]').forEach(b => b.onclick = () => { const id = b.dataset.id, c = CARDS[id] || {}; const m = b.closest('.hc-menu'); if (m) m.classList.remove('on');
       if (b.dataset.pm === 'send') sendDialog(id);
       if (b.dataset.pm === 'open') pgGo(hrefOf(id, c));
-      if (b.dataset.pm === 'rm') { const self = c.owner === EMAIL && !canRun(P); confirmBox(self ? `Leave ${esc(P.name || 'the party')}?` : `Remove ${esc(c.name || 'this character')}?`, 'It leaves the party: the others no longer see it, and nothing more can be sent to it. The character isn’t deleted.', self ? 'Leave' : 'Remove',
-        async () => { await ptyLeave(fs, EMAIL, PID, id, { owner: c.owner, asMgr: c.owner !== EMAIL, admin: IS_ADMIN }); pgLog('party_remove', { target: PID, tName: P.name, detail: c.name || id }); toast((c.name || 'The character') + ' left the party.'); }); } });
+      if (b.dataset.pm === 'rm') { const self = c.owner === EMAIL && !canRun(P), pid = PID, pnm = P.name || '', lastMine = self && (P.chars || []).filter(x => (CARDS[x] || {}).owner === EMAIL).length <= 1;
+        confirmBox(self ? `Leave ${esc(pnm || 'the party')}?` : `Remove ${esc(c.name || 'this character')}?`, 'It leaves the party: the others no longer see it, and nothing more can be sent to it. The character isn’t deleted.', self ? 'Leave' : 'Remove',
+        async () => { if (lastMine) LEAVING = true; try { await ptyLeave(fs, EMAIL, pid, id, { owner: c.owner, asMgr: c.owner !== EMAIL }); } catch (x) { LEAVING = false; throw x; } pgLog('party_remove', { target: pid, tName: pnm, detail: c.name || id }); close(); toast((c.name || 'The character') + ' left the party.'); if (lastMine) { try { localStorage.removeItem(PKEY(pid)); } catch (e) {} pgGo(URLS.parties(G)); } }); } });
   }
   function askText(title, val, max, save) {
     modal.innerHTML = `<div class="hub-card"><h2>${esc(title)}</h2><form id="at-f" class="who-f"><input id="at-n" maxlength="${max}" value="${esc(val)}" required></form><div class="row"><button class="btn ghost" id="at-x">Cancel</button><button class="btn gold" id="at-ok">Save</button></div></div>`;
@@ -2727,6 +2774,29 @@ function partyModule(H) {
 
   // ----- admin: every party, and whether it's in your own list -----
   let AROWS = [], ALIVE = null;
+  // Admins: put any character on the site in a party (it moves out of any party it's in now). Its owner is added to
+  // the party, the character is shared with the DM, and its sheet learns which party it's in.
+  function adminAddChar(p) {
+    const lib = fs.collection('groups/' + G + '/chars');
+    modal.innerHTML = `<div class="hub-card wide pty-keep"><h2>Add a character to ${esc(p.name || 'the party')}</h2><p class="hub-hint">Any character on the site. It moves here from any party it’s in now.</p><input id="aa-q" class="ad-search" placeholder="Search by character name" autocomplete="off"><div class="pl-list pty-pick" id="aa-l"></div><div class="row"><button class="btn gold" id="aa-x">Done</button></div></div>`;
+    modal.classList.add('on'); const q = modal.querySelector('#aa-q'), l = modal.querySelector('#aa-l'); let t = null;
+    const show = async () => { const v = q.value.trim().toLowerCase().slice(0, 24);
+      try { const r = await (v ? lib.where('keys', 'array-contains', v).limit(30) : lib.orderBy('updatedAt', 'desc').limit(30)).get();
+        const rows = r.docs.map(d => Object.assign({ id: d.id }, d.data())).filter(c => !(p.chars || []).includes(c.id)); await H.needNames(rows.map(c => c.owner));
+        l.innerHTML = rows.map(c => `<button class="pl-row pty-prow" data-aa="${esc(c.id)}">${H.pic(c)}<span class="pty-ct"><b>${esc(c.name || 'Unnamed character')}</b><small>${esc([[c.race, c.cls].filter(Boolean).join(' · '), H.nameOf(c.owner || '')].filter(Boolean).join(' · '))}</small></span><span class="pty-go">Add</span></button>`).join('') || '<p class="hub-hint">Nothing matches.</p>';
+        l.querySelectorAll('[data-aa]').forEach(b => b.onclick = async () => { const c = rows.find(x => x.id === b.dataset.aa); if (!c) return; b.disabled = true; const g = b.querySelector('.pty-go'); g.textContent = 'Adding…';
+          try { const sh = await fs.collection('sheets').doc(c.id).get(), sd = sh.exists ? sh.data() : {}; const old = sd.party || '';
+            if (old && old !== p.id) await ptyLeave(fs, EMAIL, old, c.id, { owner: c.owner, asMgr: true }).catch(() => {});
+            let pc = null; try { pc = sd.pcard ? JSON.parse(sd.pcard) : null; } catch (e) {}
+            await PC.doc(p.id).update({ chars: FV.arrayUnion(c.id), people: FV.arrayUnion(c.owner), invited: FV.arrayRemove(c.owner), updatedAt: Date.now() });
+            await PC.doc(p.id).collection('cards').doc(c.id).set(Object.assign({ owner: c.owner, name: c.name || '', race: c.race || '', cls: c.cls || '', level: c.level || 0, thumb: c.thumb || '', player: H.nameOf(c.owner || ''), path: c.path || '' }, pc || {}, { at: Date.now() }), { merge: true }).catch(() => {});
+            await ptySetSheetParty(fs, c.id, p.id).catch(() => {});
+            await ptyShareDM(fs, c.id, p.dm, Object.assign({ g: G }, sd)).catch(() => {});
+            p.chars = (p.chars || []).concat([c.id]); g.textContent = 'Added'; pgLog('party_add', { target: p.id, tName: p.name, detail: c.name || c.id }); }
+          catch (x) { b.disabled = false; g.textContent = 'Add'; fail(x, 'add it'); } }); } catch (x) { l.innerHTML = '<p class="hub-hint">Couldn’t search: ' + esc(x.message || x) + '</p>'; } };
+    q.oninput = () => { clearTimeout(t); t = setTimeout(show, 200); }; show(); setTimeout(() => q.focus(), 30);
+    modal.querySelector('#aa-x').onclick = close;
+  }
   function adminTab(B, A) {
     const el = B(); A.HA().innerHTML = '';
     el.innerHTML = `<div class="adm-filters">${A.toolbar('ad-pq', 'Search by party, DM or character', A.PQ.v)}</div><div id="ad-pl"><p class="adm-dim">Loading…</p></div>`;
@@ -2734,23 +2804,23 @@ function partyModule(H) {
     if (!ALIVE) ALIVE = PC.limit(1000).onSnapshot(async qs => { AROWS = qs.docs.map(d => Object.assign({ id: d.id }, d.data())); await H.needNames(AROWS.map(p => p.dm)); if (A.isTab()) adminPaint(B, A); }, x => { const l = B().querySelector('#ad-pl'); if (l) l.innerHTML = A.failMsg(x); });
     else adminPaint(B, A);
   }
-  const accessOf = p => p.dm === EMAIL ? 'dm' : (p.people || []).includes(EMAIL) ? 'view' : '';
+  const accessOf = p => p.dm === EMAIL ? 'dm' : (p.mgrs || []).includes(EMAIL) ? 'codm' : (p.people || []).includes(EMAIL) ? 'view' : '';
   function adminPaint(B, A) {
     const l = B() && B().querySelector('#ad-pl'); if (!l) return; if (A.busy()) return A.later(() => adminPaint(B, A));
     const qv = String(A.PQ.v || '').trim().toLowerCase();
     const rows = AROWS.filter(p => !qv || [p.name, p.dmName, H.nameOf(p.dm), p.dm].some(x => String(x || '').toLowerCase().includes(qv))).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
     const cnt = B().querySelector('#ad-pq-n'); if (cnt) cnt.textContent = rows.length + ' of ' + plural(AROWS.length, 'party').replace('partys', 'parties');
-    l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t"><thead><tr><th>Party</th><th>DM</th><th>Characters</th><th>In my list</th><th>Updated</th><th>Created</th><th></th></tr></thead><tbody>${rows.map(p => { const a = accessOf(p);
+    l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t"><thead><tr><th>Party</th><th>DM</th><th>Characters</th><th>My access</th><th>Updated</th><th>Created</th><th></th></tr></thead><tbody>${rows.map(p => { const a = accessOf(p);
       return `<tr><td><a class="adm-char" href="${esc(URLS.party(p.id, p.name))}">${p.pic ? `<img class="hc-pic pty-admic" src="${esc(p.pic)}" alt="">` : `<span class="hc-pic hc-nopic pty-admic">${IC_PARTY}</span>`}<span><b>${esc(p.name || 'Unnamed party')}</b><small>${(p.invited || []).length ? plural(p.invited.length, 'invitation') + ' open' : plural((p.people || []).length, 'person').replace('persons', 'people')}</small></span></a></td>
         <td><button class="adm-who adm-dmbtn" data-pdm="${esc(p.id)}" title="Change the DM">${A.ava(H.nameOf(p.dm || ''), p.dm)}<span>${esc(p.dmName || H.nameOf(p.dm || '') || '—')}</span></button></td><td>${(p.chars || []).length}</td>
-        <td>${a === 'dm' ? '<span class="adm-tag r-own">You’re the DM</span>' : `<select class="adm-sel" data-pacc="${esc(p.id)}" aria-label="In my list"><option value="">No</option><option value="view"${a ? ' selected' : ''}>Yes</option></select>`}</td>
-        <td>${A.when(p.updatedAt)}</td><td>${A.when(p.createdAt)}</td><td class="adm-act">${A.kebab([['open', 'Open', p.id], ['dm', 'Change DM…', p.id], ['del', 'Delete party…', p.id, 'danger']])}</td></tr>`; }).join('')}</tbody></table></div>` : `<p class="adm-empty">${AROWS.length ? 'No parties match.' : 'No parties yet.'}</p>`;
+        <td>${a === 'dm' ? '<span class="adm-tag r-own">You’re the DM</span>' : `<select class="adm-sel" data-pacc="${esc(p.id)}" aria-label="My access"><option value="">None</option><option value="view"${a === 'view' ? ' selected' : ''}>In my list</option><option value="codm"${a === 'codm' ? ' selected' : ''}>Co-DM</option></select>`}</td>
+        <td>${A.when(p.updatedAt)}</td><td>${A.when(p.createdAt)}</td><td class="adm-act">${A.kebab([['open', 'Open', p.id], ['add', 'Add a character…', p.id], ['dm', 'Change DM…', p.id], ['del', 'Delete party…', p.id, 'danger']])}</td></tr>`; }).join('')}</tbody></table></div>` : `<p class="adm-empty">${AROWS.length ? 'No parties match.' : 'No parties yet.'}</p>`;
     l.querySelectorAll('[data-pacc]').forEach(sl => sl.onchange = async () => { const v = sl.value, ref = PC.doc(sl.dataset.pacc), p = AROWS.find(x => x.id === sl.dataset.pacc);
-      try { await ref.update(v ? { people: FV.arrayUnion(EMAIL) } : { people: FV.arrayRemove(EMAIL), mgrs: FV.arrayRemove(EMAIL) });
-        toast((p.name || 'The party') + (v ? ' is in your list.' : ' is out of your list.')); pgLog('party_access', { target: p.id, tName: p.name, detail: v ? 'in list' : 'not in list' }); }
-      catch (x) { fail(x, 'change it'); sl.value = accessOf(p) ? 'view' : ''; } });
+      try { await ref.update(v === 'codm' ? { people: FV.arrayUnion(EMAIL), mgrs: FV.arrayUnion(EMAIL) } : v ? { people: FV.arrayUnion(EMAIL), mgrs: FV.arrayRemove(EMAIL) } : { people: FV.arrayRemove(EMAIL), mgrs: FV.arrayRemove(EMAIL) });
+        toast(v === 'codm' ? 'You’re now a co-DM of ' + (p.name || 'the party') + '.' : (p.name || 'The party') + (v ? ' is in your list.' : ' is out of your list.')); pgLog('party_access', { target: p.id, tName: p.name, detail: v === 'codm' ? 'made themselves co-DM' : v ? 'added it to their list' : 'took it off their list' }); }
+      catch (x) { fail(x, 'change it'); sl.value = accessOf(p) === 'dm' ? '' : accessOf(p); } });
     l.querySelectorAll('[data-pdm]').forEach(b => b.onclick = () => { const p = AROWS.find(x => x.id === b.dataset.pdm); if (p) changeDM(p); });
-    l.querySelectorAll('[data-mi]').forEach(b => b.onclick = () => { const p = AROWS.find(x => x.id === b.dataset.id); A.closeMenus(); if (!p) return; if (b.dataset.mi === 'open') pgGo(URLS.party(p.id, p.name)); if (b.dataset.mi === 'dm') changeDM(p); if (b.dataset.mi === 'del') deleteParty(p, () => adminPaint(B, A)); });
+    l.querySelectorAll('[data-mi]').forEach(b => b.onclick = () => { const p = AROWS.find(x => x.id === b.dataset.id); A.closeMenus(); if (!p) return; if (b.dataset.mi === 'open') pgGo(URLS.party(p.id, p.name)); if (b.dataset.mi === 'dm') changeDM(p); if (b.dataset.mi === 'add') adminAddChar(p); if (b.dataset.mi === 'del') deleteParty(p, () => adminPaint(B, A)); });
   }
 
   listen();
