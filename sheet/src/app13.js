@@ -923,7 +923,7 @@ const drStep = (id, v, k, lab, min, max) => `<span class="dr-num"><input id="${i
 function drPaint() { const w = $('#drwin'); if (!w) return; const a = drAdv(), advNote = a && DR.die === 20 && DR.n === 1;
   w.innerHTML = `<div class="dr-head"><b>Dice Roller</b><button class="dr-x" data-dr="x" aria-label="Close" title="Close">✕</button></div>
     <div class="dr-quick">${DR_DICE.map(d => `<button class="dr-die" data-dr="die" data-d="${d}" title="Roll a d${d}${d === 20 && a ? (a === 'a' ? ' with advantage' : ' with disadvantage') : ''}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${DR_SHAPE[d]}"/><path class="in" d="${DR_INNER[d]}"/></svg><span>D${d}</span></button>`).join('')}</div>
-    <div class="dr-sec"><h4>Advanced Roll</h4>
+    <div class="dr-sec"><h4>Roll</h4>
       <div class="dr-adv-row">${drStep('dr-n', DR.n, 'n', 'How many dice', 1, 99)}<select id="dr-die" class="dr-sel" aria-label="Which die">${DR_DICE.map(d => `<option value="${d}"${d === DR.die ? ' selected' : ''}>D${d}</option>`).join('')}</select><span class="dr-plus" aria-hidden="true">+</span>${drStep('dr-mod', N(DR.mod), 'mod', 'Modifier', -99, 99)}</div>
       ${advNote ? `<p class="dr-note ${a === 'a' ? 'adv' : 'dis'}">${a === 'a' ? 'Advantage' : 'Disadvantage'} is on for this sheet: the d20 is rolled twice.</p>` : ''}
       <div class="dr-tn"><button class="dr-sw${DR.tn ? ' on' : ''}" data-dr="tn" role="switch" aria-checked="${DR.tn}" aria-label="Target number"><span></span></button><span class="dr-tnl">Target number?</span>${DR.tn ? `<input id="dr-dc" class="dr-dc" type="number" inputmode="numeric" value="${N(DR.dc)}" aria-label="Target number">` : ''}</div>
