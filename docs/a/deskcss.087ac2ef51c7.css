@@ -1168,7 +1168,7 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 .dk-cact-s .dk-rl { padding: 0 6px; font-size: .76rem; }
 .dk-cact-b { display: flex; gap: 4px; }
 /* no sideways scrolling anywhere on the desk: things wrap or shrink instead */
-.dk, .dk-tree, .dk-track, .dk-mlist2, .dk-loglist, .dk-modal, .dk-mcard, .dk-genin, .dk-auto, .dk-itree, .dk .drwin, .dk-setwin .dk-setx, .dk-raw, .dk-pbprev, .dk-sugg, .dk-cacts { overflow-x: hidden !important; }
+.dk-tree, .dk-track, .dk-mlist2, .dk-loglist, .dk-modal, .dk-mcard, .dk-genin, .dk-auto, .dk-itree, .dk .drwin, .dk-setwin .dk-setx, .dk-raw, .dk-pbprev, .dk-sugg, .dk-cacts { overflow-x: hidden !important; }
 .dk .dk-tools2 { flex-wrap: wrap !important; overflow-x: visible !important; }
 .dk .dk-stabs { flex-wrap: wrap; overflow-x: visible !important; }
 .dk-ed table { display: table !important; table-layout: fixed; overflow-x: visible !important; } .dk-ed td, .dk-ed th { overflow-wrap: anywhere; }
@@ -1223,3 +1223,67 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 .dk-mlist button { display: flex !important; align-items: center; gap: 8px; }
 .dk-mlist button > svg { flex: none; display: block; }
 .dk-mlist button > span { line-height: 1; text-box: trim-both cap alphabetic; }
+.dk-nrailft .dk-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.dk-nrailft .dk-btn > svg { flex: none; display: block; width: 15px; height: 15px; }
+.dk-nrailft .dk-btn > span { line-height: 1; text-box: trim-both cap alphabetic; }
+/* Sessions and Bestiary work like Notes on a computer: the list is pinned on the left with its own scroll, the rest scrolls
+   on its own, and the window itself never scrolls */
+@media (min-width: 901px) {
+  .dk[data-tab=sessions] .dk-page, .dk[data-tab=bestiary] .dk-page { padding: 0; max-width: none; }
+  .dk[data-tab=sessions] .dk-sess { position: fixed; top: var(--toph, 66px); left: 0; right: 0; bottom: 0; z-index: 2; display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 0; background: var(--bg); }
+  .dk[data-tab=sessions] .dk-rail { position: relative; top: 0; max-height: none; height: 100%; border-radius: 0; border: 0; border-right: 1px solid var(--line); box-shadow: none; background: var(--card2); }
+  .dk[data-tab=sessions] .dk-rail .dk-tree { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .dk[data-tab=sessions] .dk-main { height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 18px clamp(16px, 2vw, 28px) 40px; align-content: start; }
+  .dk[data-tab=sessions] .dk-track { top: 0; max-height: calc(100dvh - var(--toph, 66px) - 40px); }
+  .dk[data-tab=bestiary] .dk-best { position: fixed; top: var(--toph, 66px); left: 0; right: 0; bottom: 0; z-index: 2; display: grid; grid-template-columns: 400px minmax(0, 1fr); gap: 0; align-items: stretch; background: var(--bg); }
+  .dk[data-tab=bestiary] .dk-blist { position: relative; top: 0; height: 100%; min-height: 0; display: flex; flex-direction: column; gap: 10px; border-radius: 0; border: 0; border-right: 1px solid var(--line); box-shadow: none; background: var(--card2); box-sizing: border-box; }
+  .dk[data-tab=bestiary] .dk-blist .dk-mlist2 { flex: 1; min-height: 0; max-height: none; overscroll-behavior: contain; }
+  .dk[data-tab=bestiary] .dk-bview { height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 18px clamp(16px, 2vw, 28px) 40px; align-content: start; box-sizing: border-box; }
+}
+/* ===== Sessions list, redone: the open session is a card; creatures are clean rows with their token, name, HP and a thin HP line ===== */
+.dk-rail .dk-tree { padding: 8px 8px 14px; gap: 6px; }
+.dk-rail .dk-ts { border: 1px solid transparent; border-radius: 12px; transition: background .15s, border-color .15s; }
+.dk-rail .dk-ts.cur { background: var(--card); border-color: var(--line); box-shadow: 0 2px 10px rgba(0,0,0,.18); padding: 2px 0 8px; }
+.dk-rail .dk-tsrow { align-items: center; }
+.dk-rail .dk-tsn { padding: 9px 10px 9px 2px; gap: 2px; }
+.dk-rail .dk-tsn b { font: 700 .95rem/1.25 var(--sans); }
+.dk-rail .dk-tsn small { font-size: .72rem; }
+.dk-rail .dk-tkids { margin: 2px 8px 0 10px; padding: 0; border-left: 0; gap: 1px; }
+.dk-rail .dk-tg { margin: 8px 2px 3px; padding: 0 6px 5px; border-bottom: 1px solid var(--line2); font-size: .62rem; }
+.dk .dk-rail .dk-tc { display: grid !important; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 9px; align-items: center; position: relative; background: none; border: 0; border-radius: 8px; padding: 7px 8px 9px; min-height: 0; }
+@media (hover: hover) { .dk .dk-rail .dk-tc:hover { background: var(--card2); } }
+.dk .dk-rail .dk-tc.on { background: var(--gold-soft); box-shadow: inset 3px 0 0 var(--gold); }
+.dk-rail .dk-tc > .dk-tok { grid-column: 1; margin: 0; }
+.dk-rail .dk-tcn { font-size: .85rem; font-weight: 650; }
+.dk-rail .dk-tc.on .dk-tcn { color: var(--gold-ink); font-weight: 800; }
+.dk-rail .dk-tch { font-size: .76rem; color: var(--ink); }
+.dk-rail .dk-tbar { position: absolute; left: 41px; right: 8px; bottom: 3px; height: 2px; border-radius: 2px; background: var(--line2); }
+.dk-rail .dk-tc.down { opacity: .55; } .dk-rail .dk-tc.down .dk-tcn { text-decoration: line-through; }
+/* Sessions rail v3: flat rows; the whole row lights up, the open session gets a gold edge instead of a box */
+.dk-rail .dk-tree { gap: 2px; padding: 10px 8px 14px; }
+.dk-rail .dk-ts, .dk-rail .dk-ts.cur { background: none; border: 0; box-shadow: none; padding: 0; border-radius: 0; }
+.dk-rail .dk-tsrow { position: relative; border-radius: 10px; transition: background .15s; }
+@media (hover: hover) { .dk-rail .dk-tsrow:hover { background: var(--card2); } .dk-rail .dk-tsn:hover { background: none; } }
+.dk-rail .dk-ts.cur .dk-tsrow { background: linear-gradient(90deg, var(--gold-soft), transparent 92%); }
+.dk-rail .dk-ts.cur .dk-tsrow::before { content: ''; position: absolute; left: 0; top: 7px; bottom: 7px; width: 3px; border-radius: 3px; background: var(--gold); }
+.dk-rail .dk-caret { width: 28px; align-self: stretch; color: var(--soft); border-radius: 10px 0 0 10px; }
+.dk-rail .dk-ts.cur .dk-caret, .dk-rail .dk-caret.open { color: var(--gold-ink); }
+.dk-rail .dk-tsn { padding: 8px 10px 8px 0; border-radius: 0 10px 10px 0; }
+.dk-rail .dk-ts:not(.cur) .dk-tsn b { font-weight: 650; }
+.dk-rail .dk-tkids { margin: 3px 4px 8px 14px; padding-left: 8px; border-left: 1px solid var(--line); gap: 1px; }
+.dk-rail .dk-tkids:empty, .dk-rail .dk-tnone { color: var(--soft); }
+/* ===== Scroll edges: a divider with a soft shadow shows where a list carries on above or below ===== */
+.dk-shade::before, .dk-shade::after { content: ''; display: block; position: sticky; z-index: 3; height: 0; pointer-events: none; opacity: 0; transition: opacity .15s; grid-column: 1 / -1; }
+.dk-shade::before { top: 0; border-top: 1px solid var(--line); box-shadow: 0 2px 12px 4px rgba(0,0,0,.45); }
+.dk-shade::after { bottom: 0; border-bottom: 1px solid var(--line); box-shadow: 0 -2px 12px 4px rgba(0,0,0,.45); }
+.dk-shade.sc-t::before, .dk-shade.sc-b::after { opacity: 1; }
+@media (prefers-color-scheme: light) { :root:not([data-pgtheme="dark"]) .dk-shade::before, :root:not([data-pgtheme="dark"]) .dk-shade::after { box-shadow: 0 0 10px 3px rgba(60,40,10,.14); } }
+
+/* the page itself never scrolls sideways, without becoming a scroll box (so the top bar stays stuck to the top) */
+.dk { overflow-x: clip !important; }
+/* Generate scrolls inside its own area under the top bar (its scrollbar never runs up past the top bar) */
+@media (min-width: 901px) {
+  .dk[data-tab=gen] .dk-page { position: fixed; top: var(--toph, 66px); left: 0; right: 0; bottom: 0; z-index: 2; max-width: none; margin: 0; overflow-y: auto; overscroll-behavior: contain;
+    padding: 18px max(16px, calc((100% - 1680px) / 2 + 16px)) 60px; box-sizing: border-box; background: var(--bg); }
+  .dk[data-tab=gen] .dk-genin { top: 0; max-height: calc(100dvh - var(--toph, 66px) - 36px); }
+}

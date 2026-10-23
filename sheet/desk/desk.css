@@ -1259,6 +1259,19 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 .dk-rail .dk-tch { font-size: .76rem; color: var(--ink); }
 .dk-rail .dk-tbar { position: absolute; left: 41px; right: 8px; bottom: 3px; height: 2px; border-radius: 2px; background: var(--line2); }
 .dk-rail .dk-tc.down { opacity: .55; } .dk-rail .dk-tc.down .dk-tcn { text-decoration: line-through; }
+/* Sessions rail v3: flat rows; the whole row lights up, the open session gets a gold edge instead of a box */
+.dk-rail .dk-tree { gap: 2px; padding: 10px 8px 14px; }
+.dk-rail .dk-ts, .dk-rail .dk-ts.cur { background: none; border: 0; box-shadow: none; padding: 0; border-radius: 0; }
+.dk-rail .dk-tsrow { position: relative; border-radius: 10px; transition: background .15s; }
+@media (hover: hover) { .dk-rail .dk-tsrow:hover { background: var(--card2); } .dk-rail .dk-tsn:hover { background: none; } }
+.dk-rail .dk-ts.cur .dk-tsrow { background: linear-gradient(90deg, var(--gold-soft), transparent 92%); }
+.dk-rail .dk-ts.cur .dk-tsrow::before { content: ''; position: absolute; left: 0; top: 7px; bottom: 7px; width: 3px; border-radius: 3px; background: var(--gold); }
+.dk-rail .dk-caret { width: 28px; align-self: stretch; color: var(--soft); border-radius: 10px 0 0 10px; }
+.dk-rail .dk-ts.cur .dk-caret, .dk-rail .dk-caret.open { color: var(--gold-ink); }
+.dk-rail .dk-tsn { padding: 8px 10px 8px 0; border-radius: 0 10px 10px 0; }
+.dk-rail .dk-ts:not(.cur) .dk-tsn b { font-weight: 650; }
+.dk-rail .dk-tkids { margin: 3px 4px 8px 14px; padding-left: 8px; border-left: 1px solid var(--line); gap: 1px; }
+.dk-rail .dk-tkids:empty, .dk-rail .dk-tnone { color: var(--soft); }
 /* ===== Scroll edges: a divider with a soft shadow shows where a list carries on above or below ===== */
 .dk-shade::before, .dk-shade::after { content: ''; display: block; position: sticky; z-index: 3; height: 0; pointer-events: none; opacity: 0; transition: opacity .15s; grid-column: 1 / -1; }
 .dk-shade::before { top: 0; border-top: 1px solid var(--line); box-shadow: 0 2px 12px 4px rgba(0,0,0,.45); }
