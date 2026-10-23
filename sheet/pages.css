@@ -2183,3 +2183,18 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 /* admin filter pills: each one only as wide as what's picked (not its longest choice), so search, count and filters share a row like on Users */
 .adm-fsel select { field-sizing: content; }
 .adm-filters .adm-tool { flex: 1 1 240px; }
+/* admin skeletons: shaped like the real search row, stat boxes and table cells */
+.sk-filters .sk-search { flex: 1 1 240px; height: 40px; border-radius: 10px; max-width: 460px; }
+.sk-filters .sk-count { width: 110px; height: 13px; }
+.sk-pills { display: flex; gap: 8px; flex-wrap: wrap; } .sk-pill { width: 128px; height: 34px; border-radius: 999px; }
+.sk-tw .adm-t td { height: 50px; box-sizing: border-box; }
+.sk-who { display: flex; align-items: center; gap: 10px; min-width: 150px; }
+.sk-who > .sk-l1 { flex: 1; max-width: 160px; }
+.sk-c.sm { width: 32px; height: 32px; } .sk-sq.sm { width: 36px; height: 36px; border-radius: 8px; flex: none; }
+.sk-tw .sk-lines { min-width: 90px; }
+.sk-date { width: 92px; } .sk-date.sm { width: 60px; }
+.sk-btn1 { display: inline-block; width: 92px; height: 30px; border-radius: 8px; vertical-align: middle; } .sk-btn1 + .sk-btn1 { margin-left: 6px; } .sk-btn1.ghost { width: 70px; opacity: .7; }
+.sk-sel { width: 112px; height: 32px; border-radius: 8px; } .sk-dots { width: 22px; height: 6px; border-radius: 3px; margin-left: auto; } .sk-num { width: 20px; height: 13px; }
+.sk-tw td.adm-mail .sk-l1 { width: 170px !important; }
+.sk-stats .adm-stat { display: flex; flex-direction: column; gap: 10px; } .sk-big { width: 64px; height: 30px; border-radius: 8px; }
+.sk-h3 { width: 160px; height: 16px; margin: 18px 0 10px; } .sk-para { display: flex; flex-direction: column; gap: 9px; margin: 10px 0 14px; } .sk-area { display: block; width: 100%; border-radius: 12px; margin-bottom: 14px; }

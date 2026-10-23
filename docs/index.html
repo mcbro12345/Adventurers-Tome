@@ -2317,6 +2317,21 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 /* admin filter pills: each one only as wide as what's picked (not its longest choice), so search, count and filters share a row like on Users */
 .adm-fsel select { field-sizing: content; }
 .adm-filters .adm-tool { flex: 1 1 240px; }
+/* admin skeletons: shaped like the real search row, stat boxes and table cells */
+.sk-filters .sk-search { flex: 1 1 240px; height: 40px; border-radius: 10px; max-width: 460px; }
+.sk-filters .sk-count { width: 110px; height: 13px; }
+.sk-pills { display: flex; gap: 8px; flex-wrap: wrap; } .sk-pill { width: 128px; height: 34px; border-radius: 999px; }
+.sk-tw .adm-t td { height: 50px; box-sizing: border-box; }
+.sk-who { display: flex; align-items: center; gap: 10px; min-width: 150px; }
+.sk-who > .sk-l1 { flex: 1; max-width: 160px; }
+.sk-c.sm { width: 32px; height: 32px; } .sk-sq.sm { width: 36px; height: 36px; border-radius: 8px; flex: none; }
+.sk-tw .sk-lines { min-width: 90px; }
+.sk-date { width: 92px; } .sk-date.sm { width: 60px; }
+.sk-btn1 { display: inline-block; width: 92px; height: 30px; border-radius: 8px; vertical-align: middle; } .sk-btn1 + .sk-btn1 { margin-left: 6px; } .sk-btn1.ghost { width: 70px; opacity: .7; }
+.sk-sel { width: 112px; height: 32px; border-radius: 8px; } .sk-dots { width: 22px; height: 6px; border-radius: 3px; margin-left: auto; } .sk-num { width: 20px; height: 13px; }
+.sk-tw td.adm-mail .sk-l1 { width: 170px !important; }
+.sk-stats .adm-stat { display: flex; flex-direction: column; gap: 10px; } .sk-big { width: 64px; height: 30px; border-radius: 8px; }
+.sk-h3 { width: 160px; height: 16px; margin: 18px 0 10px; } .sk-para { display: flex; flex-direction: column; gap: 9px; margin: 10px 0 14px; } .sk-area { display: block; width: 100%; border-radius: 12px; margin-bottom: 14px; }
 </style>
 </head>
 <body>
@@ -2465,10 +2480,45 @@ function pgOnlineWhy(back, bg) { const p = location.pathname, q = location.searc
 // Skeleton loaders: grey shapes where things are about to appear (instead of the word "Loading…"). Any empty
 // <div class="sk-auto" data-k="rows|cards" data-n="5"> on the page is filled in by itself.
 const SKEL = {
-  rows: n => `<div class="sk-wrap" aria-busy="true" aria-label="Loading">${Array.from({ length: n }, (_, i) => `<div class="sk-row"><span class="skl sk-c"></span><span class="sk-lines"><span class="skl sk-l1" style="width:${[52, 38, 60, 44, 56, 41][i % 6]}%"></span><span class="skl sk-l2" style="width:${[30, 24, 36, 28, 33, 22][i % 6]}%"></span></span><span class="skl sk-tag"></span></div>`).join('')}</div>`,
-  cards: n => `<div class="sk-cards" aria-busy="true" aria-label="Loading">${Array.from({ length: n }, () => `<div class="sk-card"><div class="sk-row"><span class="skl sk-sq"></span><span class="sk-lines"><span class="skl sk-l1" style="width:55%"></span><span class="skl sk-l2" style="width:35%"></span></span></div><div class="sk-hp"><span class="skl sk-ring"></span><span class="sk-lines"><span class="skl sk-bar"></span><span class="skl sk-bar"></span><span class="skl sk-bar short"></span></span></div><div class="sk-btns"><span class="skl sk-btn"></span><span class="skl sk-btn"></span><span class="skl sk-btn"></span></div></div>`).join('')}</div>` };
+  rows: n => `<div class="sk-wrap" aria-busy="true" aria-label="Loading">${Array.from({ length: n || 5 }, (_, i) => `<div class="sk-row"><span class="skl sk-c"></span><span class="sk-lines"><span class="skl sk-l1" style="width:${[52, 38, 60, 44, 56, 41][i % 6]}%"></span><span class="skl sk-l2" style="width:${[30, 24, 36, 28, 33, 22][i % 6]}%"></span></span><span class="skl sk-tag"></span></div>`).join('')}</div>`,
+  cards: n => `<div class="sk-cards" aria-busy="true" aria-label="Loading">${Array.from({ length: n || 5 }, () => `<div class="sk-card"><div class="sk-row"><span class="skl sk-sq"></span><span class="sk-lines"><span class="skl sk-l1" style="width:55%"></span><span class="skl sk-l2" style="width:35%"></span></span></div><div class="sk-hp"><span class="skl sk-ring"></span><span class="sk-lines"><span class="skl sk-bar"></span><span class="skl sk-bar"></span><span class="skl sk-bar short"></span></span></div><div class="sk-btns"><span class="skl sk-btn"></span><span class="skl sk-btn"></span><span class="skl sk-btn"></span></div></div>`).join('')}</div>` };
+// Admin skeletons: the real table (same columns, same headers, same narrow-screen rules) with grey shapes in its cells,
+// plus the search and filter row above it, so nothing jumps when the data arrives.
+{ const W = [52, 38, 60, 44, 56, 41, 48, 35], w = (i, k) => W[(i + k) % W.length];
+  const cell = (t, i) => ({
+    who: `<span class="sk-who"><span class="skl sk-c sm"></span><span class="sk-lines"><span class="skl sk-l1" style="width:${w(i, 0) + 30}%"></span><span class="skl sk-l2" style="width:${w(i, 3) + 25}%"></span></span></span>`,
+    who1: `<span class="sk-who"><span class="skl sk-c sm"></span><span class="skl sk-l1" style="width:${w(i, 1) + 20}%"></span></span>`,
+    ch: `<span class="sk-who"><span class="skl sk-sq sm"></span><span class="sk-lines"><span class="skl sk-l1" style="width:${w(i, 2) + 25}%"></span><span class="skl sk-l2" style="width:${w(i, 4) + 10}%"></span></span></span>`,
+    txt: `<span class="skl sk-l1" style="width:${w(i, 5) + 30}%"></span>`,
+    txt2: `<span class="sk-lines"><span class="skl sk-l1" style="width:${w(i, 6) + 25}%"></span><span class="skl sk-l2" style="width:${w(i, 2) + 15}%"></span></span>`,
+    date: `<span class="skl sk-l1 sk-date"></span>`, date2: `<span class="sk-lines"><span class="skl sk-l1 sk-date"></span><span class="skl sk-l2 sk-date sm"></span></span>`,
+    tag: '<span class="skl sk-tag"></span>', btn: '<span class="skl sk-btn1"></span>', btn2: '<span class="skl sk-btn1"></span><span class="skl sk-btn1 ghost"></span>',
+    sel: '<span class="skl sk-sel"></span>', dots: '<span class="skl sk-dots"></span>', num: '<span class="skl sk-num"></span>' })[t] || '';
+  const table = (cls, cols, n) => `<div class="adm-tw sk-tw" aria-busy="true" aria-label="Loading"><table class="adm-t ${cls}"><thead><tr>${cols.map(c => `<th>${c[0]}</th>`).join('')}</tr></thead><tbody>${Array.from({ length: n }, (_, i) => `<tr>${cols.map(c => `<td${c[2] ? ` class="${c[2]}"` : ''}>${cell(c[1], i)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  const filters = pills => `<div class="adm-filters sk-filters"><span class="skl sk-search"></span><span class="skl sk-count"></span>${pills ? `<span class="sk-pills">${'<span class="skl sk-pill"></span>'.repeat(pills)}</span>` : ''}</div>`;
+  const stats = n => `<div class="adm-stats sk-stats">${'<div class="adm-stat"><span class="skl sk-l2" style="width:55%"></span><span class="skl sk-big"></span></div>'.repeat(n)}</div>`;
+  const T = {
+    users: n => table('us-t', [['Name', 'who'], ['Email', 'txt', 'adm-mail'], ['Role', 'tag'], ['Joined', 'date'], ['Last active', 'date'], ['', 'btn'], ['', 'dots']], n || 8),
+    chars: n => table('ch-t', [['Character', 'ch'], ['Owner', 'who1'], ['Shared with you', 'sel'], ['Updated', 'date'], ['Created', 'date'], ['', 'dots']], n || 8),
+    parties: n => table('pt-t', [['Party', 'ch'], ['DM', 'who1'], ['Characters', 'num'], ['My access', 'sel'], ['Updated', 'date'], ['Created', 'date'], ['', 'dots']], n || 6),
+    audit: n => table('au-t2', [['Date', 'date2'], ['Actor', 'who1'], ['Activity', 'txt2'], ['Category', 'tag'], ['', 'btn', 'au-c-x']], n || 9),
+    bugs: n => table('bg-t', [['Reported', 'date'], ['From', 'who'], ['Report', 'txt2'], ['Where', 'txt', 'bg-where'], ['Status', 'tag'], ['', 'btn2', 'nt-acts']], n || 5),
+    newu: n => table('', [['Name', 'who1'], ['Email', 'txt'], ['Joined', 'date'], ['Characters', 'num']], n || 5),
+    notices: n => table('nt-t', [['Sent', 'date'], ['Notice', 'txt2'], ['By', 'who1'], ['Seen', 'num'], ['Status', 'tag'], ['', 'btn2', 'nt-acts']], 4) };
+  const lines = n => `<div class="sk-lines sk-para">${Array.from({ length: n }, (_, i) => `<span class="skl sk-l2" style="width:${[92, 86, 64, 78][i % 4]}%"></span>`).join('')}</div>`;
+  const box = h => `<span class="skl sk-area" style="height:${h}px"></span>`;
+  Object.assign(SKEL, {
+    'adm-users': () => filters(3) + T.users(), 'adm-users-t': n => T.users(n),
+    'adm-chars': () => filters(3) + T.chars(), 'adm-chars-t': n => T.chars(n),
+    'adm-parties': () => filters(0) + T.parties(), 'adm-parties-t': n => T.parties(n),
+    'adm-audit': () => filters(3) + T.audit(), 'adm-audit-t': n => T.audit(n),
+    'adm-bugs': () => `<div class="adm-filters sk-filters"><span class="skl sk-pill"></span></div>` + T.bugs(), 'adm-bugs-t': n => T.bugs(n),
+    'adm-new': () => stats(2) + '<span class="skl sk-h3"></span>' + T.newu() + '<span class="skl sk-h3"></span>' + T.chars(),
+    'adm-notice': () => stats(2) + lines(3) + box(150) + '<span class="skl sk-h3"></span>' + T.notices(),
+    'adm-welcome': () => stats(2) + lines(2) + box(260) });
+  window.pgAdmSkel = tab => SKEL['adm-' + tab] ? 'adm-' + tab : 'rows'; }
 window.PG_SKEL = SKEL;
-function pgSkelFill() { document.querySelectorAll('.sk-auto:empty').forEach(el => { el.innerHTML = (SKEL[el.dataset.k] || SKEL.rows)(Number(el.dataset.n) || 5); }); }
+function pgSkelFill() { document.querySelectorAll('.sk-auto:empty').forEach(el => { el.innerHTML = (SKEL[el.dataset.k] || SKEL.rows)(Number(el.dataset.n) || 0); }); }
 function pgScrollFx() { document.querySelectorAll('.pty-pick').forEach(el => { const t = el.scrollTop > 2, b = el.scrollTop + el.clientHeight < el.scrollHeight - 2; el.classList.toggle('sc-top', t); el.classList.toggle('sc-bot', b); }); }
 document.addEventListener('scroll', e => { if (e.target && e.target.classList && e.target.classList.contains('pty-pick')) pgScrollFx(); }, true);
 // A party's picture is framed in a colour taken from the picture itself (its strongest colour, brightened or darkened
@@ -2940,7 +2990,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022212137', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.3ea29f5746c2.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.d993df07733c.html", "desk": "a/desk.aa11453429fa.js", "deskcss": "a/deskcss.a22ed732de5c.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022212548', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.3ea29f5746c2.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.d993df07733c.html", "desk": "a/desk.aa11453429fa.js", "deskcss": "a/deskcss.a22ed732de5c.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -4420,7 +4470,7 @@ function hub(fs, auth, G, ctx) {
         if (kept) { curB.replaceWith(kept.b); curH.replaceWith(kept.h); PREV_TAB = TAB; nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab)); scrollTo(0, 0);
           // …and quietly brings it up to date behind the scenes
           ({ new: () => tabNew(), users: () => paintUsers(), chars: () => paintChars(), parties: () => tabParties(), audit: () => paintAudit(), notice: () => tabNotice(), welcome: () => tabWelcome(), bugs: () => paintBugs() })[TAB](); return; }
-        const nb = document.createElement('section'); nb.id = 'ad-body'; nb.className = 'adm-body'; nb.innerHTML = '<div class="sk-auto" data-n="6"></div>';
+        const nb = document.createElement('section'); nb.id = 'ad-body'; nb.className = 'adm-body'; nb.innerHTML = `<div class="sk-auto" data-k="${pgAdmSkel(TAB)}" data-n="6"></div>`;
         const nh = document.createElement('div'); nh.id = 'adm-hact'; nh.className = 'adm-hact';
         if (again) { curB.replaceWith(nb); curH.replaceWith(nh); } else { curB.replaceWith(nb); curH.replaceWith(nh); } delete PANES[TAB]; PREV_TAB = TAB;
         nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
@@ -4433,7 +4483,7 @@ function hub(fs, auth, G, ctx) {
           <nav class="adm-nav">${navHTML}</nav>
           <div class="adm-foot adm-me">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(avaOf(ME))}<div class="adm-me-t"><b>${esc(myName())}</b><small>${esc(EMAIL)}</small><button class="linkbtn" id="adm-out">Sign out</button></div></div></aside>
         <main class="adm-main"><header class="adm-head"><div><h1>${esc(title)}</h1><p>${esc(desc)}</p></div><div class="adm-hact" id="adm-hact"></div></header>
-          <section id="ad-body" class="adm-body"><div class="sk-auto" data-n="6"></div></section></main></div>`;
+          <section id="ad-body" class="adm-body"><div class="sk-auto" data-k="${pgAdmSkel(TAB)}" data-n="6"></div></section></main></div>`;
       if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
       PREV_TAB = TAB;
       root.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
@@ -4514,7 +4564,7 @@ function hub(fs, auth, G, ctx) {
       el.innerHTML = `<div class="adm-filters">${toolbar('ad-uq', 'Search by name or email', UQ)}<div class="adm-fsels">
           ${fsel('uf-role', 'Role', [['', 'Anyone'], ['owner', 'Owner'], ['admin', 'Admins'], ['member', 'Members'], ['blocked', 'Blocked']], UF.role)}
           ${fsel('uf-act', 'Active', [['', 'Any time'], ['on', 'Online'], ['1', 'Today'], ['7', 'This week'], ['30', 'This month'], ['old', 'Not in 30+ days']], UF.act)}
-          ${fsel('uf-join', 'Joined', [['', 'Any time'], ['7', 'Past week'], ['30', 'Past month']], UF.joined)}</div></div><div id="ad-ul"><div class="sk-auto" data-n="6"></div></div>`;
+          ${fsel('uf-join', 'Joined', [['', 'Any time'], ['7', 'Past week'], ['30', 'Past month']], UF.joined)}</div></div><div id="ad-ul"><div class="sk-auto" data-k="adm-users-t"></div></div>`;
       const q = el.querySelector('#ad-uq'); let t = null; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { UQ = q.value; paintUsers(); }, 150); }; if (!UQ && !TOUCH) q.focus();
       [['uf-role', 'role'], ['uf-act', 'act'], ['uf-join', 'joined']].forEach(([id, k]) => { const sl = el.querySelector('#' + id); sl.onchange = () => { UF[k] = sl.value; sl.parentElement.classList.toggle('on', !!sl.value); paintUsers(); }; });
       if (!ULIVE) ULIVE = usersCol.limit(1000).onSnapshot(qs => { UROWS = docs(qs); UROWS.forEach(u => { US[u.id] = u; remember(u.id, u); }); if (APEOPLE) APEOPLE = UROWS.slice().sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
@@ -4541,7 +4591,7 @@ function hub(fs, auth, G, ctx) {
             <tr class="adm-subrow" data-sub="${esc(u.id)}"${open ? '' : ' hidden'}><td colspan="7"></td></tr>`; }).join('')}</tbody></table></div>`
         : `<p class="adm-empty">${UROWS.length ? 'Nobody matches these filters.' : 'No accounts yet.'}</p>`;
       const fill = async (em, cell, fresh) => { const show = cs => { cell.innerHTML = ctable(cs, false) + `<button class="adm-btn sm" data-newfor="${esc(em)}">＋ New character for ${esc(nameOf(em))}</button>`; wire(cell, () => fill(em, cell, true)); };
-        if (UCH[em] && !fresh) return show(UCH[em]); cell.innerHTML = '<div class="sk-auto" data-n="6"></div>';
+        if (UCH[em] && !fresh) return show(UCH[em]); cell.innerHTML = '<div class="sk-auto" data-k="adm-chars-t" data-n="2"></div>';
         try { UCH[em] = docs(await charsCol.where('owner', '==', em).limit(100).get()).sort((x, y) => (y.updatedAt || 0) - (x.updatedAt || 0)); if (cell.isConnected) show(UCH[em]); } catch (x) { cell.innerHTML = failMsg(x); } };
       l.querySelectorAll('tr.adm-subrow:not([hidden])').forEach(sub => fill(sub.dataset.sub, sub.firstElementChild));
       l.querySelectorAll('[data-uc]').forEach(b => b.onclick = () => { const em = b.dataset.uc, sub = l.querySelector(`[data-sub="${CSS.escape(em)}"]`); if (!sub) return;
@@ -4636,7 +4686,7 @@ function hub(fs, auth, G, ctx) {
     async function tabAudit() {
       const el = B(); HA().innerHTML = '';
       if (!APEOPLE) { try { APEOPLE = docs(await usersCol.limit(500).get()).sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id)); APEOPLE.forEach(u => remember(u.id, u)); } catch (e) { APEOPLE = []; } }
-      el.innerHTML = `<div class="adm-filters">${toolbar('au-q', 'Search activity, people or characters', AF.q)}<div class="adm-fsels" id="au-sels"></div></div><div id="au-l"><div class="sk-auto" data-n="6"></div></div>`;
+      el.innerHTML = `<div class="adm-filters">${toolbar('au-q', 'Search activity, people or characters', AF.q)}<div class="adm-fsels" id="au-sels"></div></div><div id="au-l"><div class="sk-auto" data-k="adm-audit-t"></div></div>`;
       paintAuSels();
       let t = null; const q = el.querySelector('#au-q');
       q.oninput = () => { clearTimeout(t); t = setTimeout(() => { AF.q = q.value; paintAudit(); }, 150); };
@@ -4757,7 +4807,7 @@ function hub(fs, auth, G, ctx) {
     let CQ = '', CROWS = [], CLIVE = null; const CF = { owner: '', share: '', upd: '' };
     async function tabChars() {
       const el = B(); HA().innerHTML = '';
-      el.innerHTML = `<div class="adm-filters">${toolbar('ad-cq', 'Search by character, race, class or player', CQ)}<div class="adm-fsels" id="cf-sels"></div></div><div id="ad-cl"><div class="sk-auto" data-n="6"></div></div>`;
+      el.innerHTML = `<div class="adm-filters">${toolbar('ad-cq', 'Search by character, race, class or player', CQ)}<div class="adm-fsels" id="cf-sels"></div></div><div id="ad-cl"><div class="sk-auto" data-k="adm-chars-t"></div></div>`;
       const q = el.querySelector('#ad-cq'); let t = null; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { CQ = q.value; paintChars(); }, 150); };
       if (!CLIVE) CLIVE = charsCol.limit(2000).onSnapshot(async qs => { CROWS = docs(qs); await needNames(CROWS.map(c => c.owner)); if (TAB === 'chars') paintChars(); if (TAB === 'new' && qs.docChanges().some(ch => ch.type !== 'modified')) newSoon(); },
         x => { const l = B().querySelector('#ad-cl'); if (l) l.innerHTML = failMsg(x); });
@@ -4872,7 +4922,7 @@ function hub(fs, auth, G, ctx) {
       Promise.all([...new Set(BROWS.map(b => b.by))].filter(em => em && !PICS[em]).map(picFor)).then(n => { if (n.length && TAB === 'bugs') paintBugs(); }); }, x => { const l = B() && B().querySelector('#bg-l'); if (l) l.innerHTML = failMsg(x); }); };
     const browserOf = ua => { ua = String(ua || ''); const b = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : ''; return [b, /iPhone|iPad|Android/.test(ua) ? 'phone' : ''].filter(Boolean).join(' · '); };
     function tabBugs() { const el = B(); HA().innerHTML = '';
-      el.innerHTML = `<div class="adm-filters"><div class="adm-fsels"><select class="adm-sel" id="bg-f" aria-label="Show"><option value="open">Open</option><option value="fixed">Fixed</option><option value="declined">Declined</option><option value="all">All</option></select></div></div><div id="bg-l"><div class="sk-auto" data-n="6"></div></div>`;
+      el.innerHTML = `<div class="adm-filters"><div class="adm-fsels"><select class="adm-sel" id="bg-f" aria-label="Show"><option value="open">Open</option><option value="fixed">Fixed</option><option value="declined">Declined</option><option value="all">All</option></select></div></div><div id="bg-l"><div class="sk-auto" data-k="adm-bugs-t"></div></div>`;
       const f = el.querySelector('#bg-f'); f.value = BF; f.onchange = () => { BF = f.value; paintBugs(); }; bugsLive(); if (BROWS) paintBugs(); }
     function paintBugs() { const l = B() && B().querySelector('#bg-l'); if (!l || !BROWS) return;
       if (TAB === 'bugs') { HA().innerHTML = BUGN ? '<button class="adm-btn primary" id="bg-seen">Mark as read</button>' : ''; const sb = HA().querySelector('#bg-seen');
@@ -5795,7 +5845,7 @@ function partyModule(H) {
   }
   function adminTab(B, A) {
     const el = B(); A.HA().innerHTML = '';
-    el.innerHTML = `<div class="adm-filters">${A.toolbar('ad-pq', 'Search by party, DM or character', A.PQ.v)}</div><div id="ad-pl"><div class="sk-auto" data-n="6"></div></div>`;
+    el.innerHTML = `<div class="adm-filters">${A.toolbar('ad-pq', 'Search by party, DM or character', A.PQ.v)}</div><div id="ad-pl"><div class="sk-auto" data-k="adm-parties-t"></div></div>`;
     const q = el.querySelector('#ad-pq'); let t = null; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { A.PQ.v = q.value; adminPaint(B, A); }, 150); };
     if (!ALIVE) ALIVE = PC.limit(1000).onSnapshot(async qs => { AROWS = qs.docs.map(d => Object.assign({ id: d.id }, d.data())); await H.needNames(AROWS.map(p => p.dm)); if (A.isTab()) adminPaint(B, A); }, x => { const l = B().querySelector('#ad-pl'); if (l) l.innerHTML = A.failMsg(x); });
     else adminPaint(B, A);
