@@ -1781,7 +1781,7 @@ function mount(root, ctx) {
   ROOT = root; CTX = Object.assign({ party: null, back: null }, ctx || {});
   root.classList.add('dk');
   // Phones: only a party's page is available (see LITE below); the Desk on its own isn't
-  if (!CTX.partyHost && innerWidth <= 640) { const b = CTX.back; root.innerHTML = `<div class="dk-nophone"><div class="dk-emblem">${ICON.folder}</div><h2>Not available on a phone</h2><p><em>Not all of the DM’s Desk is available on a phone. Open a party you run to manage it from here, or use a computer or tablet for everything else.</em></p>${b ? `<a class="dk-btn gold" href="${esc(b.href)}">${ICON.back}<span>${esc(b.label || 'Back')}</span></a>` : ''}</div>`; return { unmount: () => { root.innerHTML = ''; ROOT = null; } }; }
+  if (!CTX.partyHost && mobileDev()) { const b = CTX.back; root.innerHTML = `<div class="dk-nophone"><div class="dk-emblem">${ICON.folder}</div><h2>Not available on mobile devices</h2><p><em>Not all of the DM’s Desk is available on mobile devices. Open a party you run to manage it from here, or use a computer for everything else.</em></p>${b ? `<a class="dk-btn gold" href="${esc(b.href)}">${ICON.back}<span>${esc(b.label || 'Back')}</span></a>` : ''}</div>`; return { unmount: () => { root.innerHTML = ''; ROOT = null; } }; }
   root.innerHTML = `<header class="dk-top"></header><div class="dk-page"></div>
     <aside class="dk-log" aria-label="Roll log"><div class="dk-loghd"><h2>Roll log</h2><button class="dk-btn sm" data-act="clearlog">Clear</button><button class="dk-ix" data-act="log" aria-label="Close">${ICON.x}</button></div><div class="dk-loglist"></div></aside>
     <div class="dk-modal" role="presentation"><div class="dk-mcard" role="dialog" aria-modal="true"></div></div>
@@ -1798,7 +1798,7 @@ function mount(root, ctx) {
   if (readTurnHP()) S.savedAt = Date.now();
   setSync(CTX.fs ? 'Loading…' : 'Saved on this device');
   // Phones: a party you run opens on its party page only (roller, turn order, and a button to open the full Desk)
-  LITE = !!(CTX.partyHost && innerWidth <= 640); ROOT.classList.toggle('dk-lite', LITE); if (LITE) UI.tab = 'party';
+  LITE = !!(CTX.partyHost && mobileDev()); ROOT.classList.toggle('dk-lite', LITE); if (LITE) UI.tab = 'party';
   if (CTX.partyHost) { const slot = document.createElement('div'); slot.className = 'dk-partyslot'; root.insertBefore(slot, root.querySelector('.dk-page').nextSibling); slot.appendChild(CTX.partyHost); }
   render();
   try { const top = root.querySelector('.dk-top'), setH = () => root.style.setProperty('--toph', Math.round(top.getBoundingClientRect().height) + 'px'); setH(); if (window.ResizeObserver) { const ro = new ResizeObserver(setH); ro.observe(top); LISTEN.push([{ removeEventListener: () => ro.disconnect() }, 'x', null]); } } catch (e) {}
@@ -1815,11 +1815,14 @@ function mount(root, ctx) {
   return { unmount };
 }
 let LITE = false;
+// any phone or tablet (an iPad reports itself as a Mac, so it's told apart by its touch screen)
+function mobileDev() { try { const ua = navigator.userAgent || '';
+  return /Android|iPhone|iPad|iPod|Mobile|Silk|Kindle|Tablet/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) || (matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches); } catch (e) { return false; } }
 // Phones: a heads-up when a party you run opens, until "Don't show this again" is ticked
 function phoneWarn() {
   if (!ROOT || !LITE) return; try { if (localStorage.getItem('pg-party-phone-ok') === '1') return; } catch (e) {}
   if ($('.dk-modal.open')) return;
-  openModal(`<h2>Party page only</h2><p>Not all of the DM’s Desk is available on a phone. Here you have the party page, the dice roller and turn order; open this party on a computer or tablet for sessions, notes, the bestiary and the generators.</p><label class="dk-chk"><input type="checkbox" id="dk-pwNo"> Don’t show this again</label><div class="dk-acts"><button class="dk-btn gold" id="dk-pwOk">Got it</button></div>`, { cls: 'dk-small', focus: false });
+  openModal(`<h2>Party page only</h2><p>Not all of the DM’s Desk is available on mobile devices. Here you have the party page, the dice roller and turn order; open this party on a computer for sessions, notes, the bestiary and the generators.</p><label class="dk-chk"><input type="checkbox" id="dk-pwNo"> Don’t show this again</label><div class="dk-acts"><button class="dk-btn gold" id="dk-pwOk">Got it</button></div>`, { cls: 'dk-small', focus: false });
   const keep = () => { try { const c = $('#dk-pwNo'); if (c) { if (c.checked) localStorage.setItem('pg-party-phone-ok', '1'); else localStorage.removeItem('pg-party-phone-ok'); } } catch (e) {} };
   $('#dk-pwNo').onchange = keep; $('#dk-pwOk').onclick = () => { keep(); closeModal(true); };
 }
