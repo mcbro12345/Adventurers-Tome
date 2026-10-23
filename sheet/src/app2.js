@@ -772,15 +772,33 @@ function statKindOf(label, d20) { const l = String(label || '');
   return /heal|hit points|temporary hp|hit die/i.test(l) ? 'heal' : /^dice roller/i.test(l) ? '' : 'dmg'; }
 function statNote(r, expr, opts) { if (!r || r.skipped || !/\d*d\d+/i.test(String(expr))) return; const label = (opts && opts.label) || ''; const k = statKindOf(label, r.d20); if (!k) return;
   STAT_PEND.push({ label, d20: r.d20 != null ? N(r.d20) : null, total: N(r.total), kind: k, t: Date.now() }); }
-function statFlush() { const L = STAT_PEND.splice(0); STAT_KIND = ''; if (!L.length || !S || !S.created) return;
-  const ds = S.diceStats = S.diceStats || {}; if (!ds.since) ds.since = Date.now(); ds.dist = ds.dist || Array(21).fill(0); ds.by = ds.by || {}; ds.days = ds.days || {};
+function statFlush() { const L = STAT_PEND.splice(0); STAT_KIND = ''; if (!L.length || !S || !S.created) return; statBackfill(true); if (!(S.diceStats || {}).live) (S.diceStats = S.diceStats || {}).live = Date.now(); statAdd(L); save(); if ($('#rolllogmodal') && $('#modal').classList.contains('open') && UI.logTab === 'stats') openRollLog(); }
+function statAdd(L) {
+  const ds = S.diceStats = S.diceStats || {}; L.forEach(x => { if (!ds.since || x.t < ds.since) ds.since = x.t; }); ds.dist = ds.dist || Array(21).fill(0); ds.by = ds.by || {}; ds.days = ds.days || {};
   L.forEach(x => { const day = ds.days[statDay(x.t)] = ds.days[statDay(x.t)] || { n: 0, sum: 0, c20: 0, c1: 0, dmg: 0 };
     if (x.d20 != null && x.d20 >= 1 && x.d20 <= 20) { const b = ds.by[x.kind] = ds.by[x.kind] || { n: 0, sum: 0, c20: 0, c1: 0 }; b.n++; b.sum += x.d20; if (x.d20 === 20) b.c20++; if (x.d20 === 1) b.c1++; ds.dist[x.d20]++;
       day.n++; day.sum += x.d20; if (x.d20 === 20) day.c20++; if (x.d20 === 1) day.c1++;
       if (!ds.top || x.total > ds.top.v) ds.top = { v: x.total, l: String(x.label).slice(0, 80), t: x.t }; }
     else if (x.kind === 'dmg' || x.kind === 'heal') { const b = ds[x.kind] = ds[x.kind] || { n: 0, sum: 0 }; b.n++; b.sum += x.total; if (x.kind === 'dmg') { day.dmg += x.total; if (!b.best || x.total > b.best.v) b.best = { v: x.total, l: String(x.label).slice(0, 80), t: x.t }; } } });
-  const keys = Object.keys(ds.days).sort(); while (keys.length > 120) delete ds.days[keys.shift()]; // the last 120 days played
-  save(); if ($('#rolllogmodal') && $('#modal').classList.contains('open') && UI.logTab === 'stats') openRollLog(); }
+  const keys = Object.keys(ds.days).sort(); while (keys.length > 120) delete ds.days[keys.shift()]; } // (the last 120 days played)
+// The rolls already in this browser's Log (from before the stats were counted) are read back once, so the stats start
+// with your history. Each browser adds its own Log once; rolls counted live are never added twice.
+const statBfKey = () => 'dnd-dsbf:' + (S && S.id || '');
+function statFromCard(r) { const box = document.createElement('div'); box.innerHTML = r.html; const out = [], txt = el => (el ? el.textContent.replace(/\s+/g, ' ').trim() : '');
+  const name = txt(box.querySelector('.rc-name')) || txt(box.querySelector('b.total + div > div')) || '', lbl = txt(box.querySelector('.rc-lbl')), dets = [...box.querySelectorAll('.det.dd, .rc-multi .det')].map(txt).join(' · ');
+  const d20s = []; dets.replace(/(\d*)d20(kh1|kl1)?\s*\[([^\]]+)\]/gi, (m, n, k, v) => { const xs = v.split(/,\s*/).map(z => N(String(z).replace(/\D.*$/, ''))).filter(z => z >= 1 && z <= 20); if (xs.length) d20s.push(k === 'kh1' ? Math.max(...xs) : k === 'kl1' ? Math.min(...xs) : xs[0]); return m; });
+  const total = N(txt(box.querySelector('b.total')) || txt(box.querySelector('.rc-hit'))), atk = /to hit|^hit:/i.test(lbl) || /\bHit:/.test(dets) || /attack/i.test(name);
+  d20s.forEach((d, i) => out.push({ label: name + (atk ? ' attack' : ''), d20: d, total: i === 0 ? total : 0, kind: atk ? 'attack' : statKindOf(name, d), t: r.t }));
+  const dm = box.querySelector('.rc-dmg:not(.void) > b'); if (dm && N(txt(dm))) out.push({ label: name + ' damage', d20: null, total: N(txt(dm)), kind: 'dmg', t: r.t });
+  if (!d20s.length && !dm && /\d*d\d+\s*\[/.test(dets) && total) { const k = statKindOf(name, null); if (k) out.push({ label: name, d20: null, total, kind: k, t: r.t }); }
+  return out; }
+function statBackfill(quiet) { if (!S || !S.created) return; let done = ''; try { done = localStorage.getItem(statBfKey()) || ''; } catch (e) {} if (done) return;
+  if (!ROLLLOG.length) loadRollLog(); const ds0 = S.diceStats; if (ds0 && ds0.since && !ds0.live) ds0.live = ds0.since; // (stats counted before this existed began at 'since')
+  const live = (S.diceStats || {}).live || Date.now(), L = [];
+  ROLLLOG.filter(r => r && r.t < live && r.cls !== 'manual').forEach(r => { try { L.push(...statFromCard(r)); } catch (e) {} });
+  try { localStorage.setItem(statBfKey(), String(Date.now())); } catch (e) {}
+  if (!L.length) return; statAdd(L.sort((a, b) => a.t - b.t)); if (!quiet) save(); }
+setTimeout(() => { try { statBackfill(); } catch (e) {} }, 4000);
 function diceStatsHTML() { const ds = S.diceStats || {}, dist = ds.dist || Array(21).fill(0), all = dist.reduce((a, b) => a + b, 0);
   if (!all && !(ds.dmg && ds.dmg.n)) return '<p class="hint">No rolls counted yet. From now on, every roll this character makes is counted here, for good.</p>';
   const sum = dist.reduce((a, c, i) => a + c * i, 0), avg = all ? sum / all : 0, pct = n => all ? Math.round(n / all * 1000) / 10 + '%' : '—', f1 = v => (Math.round(v * 10) / 10).toFixed(1);
@@ -812,7 +830,7 @@ function loadEvLog() { EVLOADED = true; try { EVLOG = JSON.parse(localStorage.ge
 function saveEvLog() { try { localStorage.setItem(evLogKey(), JSON.stringify(EVLOG.slice(0, 300))); } catch (e) {} }
 function logEvent(html, cls) { if (!EVLOADED) loadEvLog(); const clean = String(html).replace(/<button[^>]*>.*?<\/button>/g, ''); if (!clean.replace(/<[^>]*>/g, '').trim()) return; EVLOG.unshift({ t: Date.now(), html: clean, cls: cls || '' }); EVLOG = EVLOG.slice(0, 300); saveEvLog(); if ($('#rolllogmodal') && $('#modal').classList.contains('open')) openRollLog(); }
 function openRollLog() {
-  if (!ROLLLOG.length) loadRollLog(); if (!EVLOADED) loadEvLog();
+  if (!ROLLLOG.length) loadRollLog(); if (!EVLOADED) loadEvLog(); try { statBackfill(); } catch (e) {}
   const tab = UI.logTab === 'events' ? 'events' : UI.logTab === 'stats' ? 'stats' : 'rolls', LIST = tab === 'events' ? EVLOG : tab === 'stats' ? [] : ROLLLOG;
   const day = t => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' }), tm = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   let last = '';

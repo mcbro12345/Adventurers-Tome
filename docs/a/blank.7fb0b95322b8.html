@@ -4038,7 +4038,7 @@ html.mwin .rl-head:has(> .mw-hid) { padding-top: 0; }
 html:not(.mwin) .mw-head { display: none; }
 html.mwin .modal-bg > .modal { overflow-x: hidden; }
 /* Desktop: Settings is tall enough that no tab needs a scrollbar */
-html.mwin .modal:has(.setx) { height: min(calc(100vh - 40px), 640px); }
+html.mwin .modal:has(.setx) { height: min(calc(100vh - 32px), var(--seth, 640px)); max-height: calc(100vh - 32px); }
 /* windows turn slightly see-through while dragged, like the dice roller */
 .win-moving { opacity: .95; }
 .defrow { display: grid; grid-template-columns: 82px 1fr; gap: 8px; align-items: start; margin-top: 6px; }
@@ -4152,6 +4152,45 @@ html.mobile body.wizopen #modal.open, html.mobile body.wizopen #modal.closing { 
 .hbb-read { border: 1px dashed var(--line); border-radius: 10px; padding: 8px 12px; margin: 0 0 12px; background: var(--panel2); }
 .hbb-read ul { margin: 6px 0 4px; padding: 0; list-style: none; display: grid; gap: 3px; font-size: .88rem; }
 .hbb-read li.warn { color: var(--gold-ink); }
+/* party chat: iMessage-style typing bubble and read receipts */
+.ptyc-typing { align-items: center; animation: ptycIn .18s ease-out; }
+.ptyc-dots { display: inline-flex; gap: 4px; align-items: center; padding: 9px 12px; border-radius: 16px 16px 16px 4px; background: var(--panel); border: 1px solid var(--line); }
+.ptyc-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--soft); opacity: .45; animation: ptycDot 1.2s infinite ease-in-out; }
+.ptyc-dots i:nth-child(2) { animation-delay: .18s; } .ptyc-dots i:nth-child(3) { animation-delay: .36s; }
+@keyframes ptycDot { 0%, 60%, 100% { transform: translateY(0); opacity: .45; } 30% { transform: translateY(-4px); opacity: 1; } }
+@keyframes ptycIn { from { opacity: 0; transform: translateY(4px) scale(.96); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ptyc-dots i, .ptyc-typing { animation: none; } }
+.ptyc-rr { align-self: flex-start; font-size: .68rem; font-weight: 600; color: var(--soft); margin: -3px 0 2px 42px; }
+.wz-ddb.bottom { margin: 16px 0 4px; }
+.scx-m:not(.anim) .scx-bar i { transition: none !important; } /* no filling up when the page loads */
+.rl-card { align-items: stretch; } .rl-card > b.total { align-self: center; } .rl-card .rc-dmg { align-self: stretch; justify-content: center; } /* the line between to-hit and damage runs the whole height of the card */
+/* Log → Dice stats */
+.ds { display: flex; flex-direction: column; gap: 10px; }
+.ds-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+.ds-tile { border: 1px solid var(--line2); border-radius: 12px; background: var(--panel2); padding: 9px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ds-tile small { font-size: .62rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--soft); }
+.ds-tile b { font-size: 1.6rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.ds-tile span { font-size: .74rem; color: var(--soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-tile.g b { color: #3c9d6b; } .ds-tile.r b { color: var(--red); }
+.ds-luck { margin: 0; font-weight: 700; font-size: .9rem; }
+.ds-h { font-size: .68rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--gold-ink); margin-top: 6px; }
+.ds-bars { position: relative; display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 3px; height: 150px; align-items: end; padding: 4px 2px 0; border-bottom: 1px solid var(--line2); }
+.ds-bar { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 3px; min-width: 0; }
+.ds-bar i { display: block; width: 100%; max-width: 22px; height: 0; background: var(--gold); border-radius: 4px 4px 0 0; opacity: .85; }
+.ds-bar span { font-size: .62rem; color: var(--soft); font-variant-numeric: tabular-nums; height: 14px; line-height: 14px; }
+.ds-bar.g i { background: #3c9d6b; opacity: 1; } .ds-bar.r i { background: var(--red); opacity: 1; }
+.ds-bars i { max-height: calc(100% - 18px); }
+.ds-fair { position: absolute; left: 0; right: 0; border-top: 1.5px dashed var(--soft); opacity: .6; pointer-events: none; }
+.ds-note { margin: 0; font-size: .74rem; }
+.ds-t { width: 100%; border-collapse: collapse; font-size: .86rem; font-variant-numeric: tabular-nums; }
+.ds-t th { text-align: right; font-size: .62rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--soft); padding: 4px 6px; }
+.ds-t td { text-align: right; padding: 6px; border-top: 1px solid var(--line2); }
+.ds-t td:first-child, .ds-t th:first-child { text-align: left; font-weight: 700; }
+.ds-t td.g { color: #3c9d6b; font-weight: 700; } .ds-t td.r { color: var(--red); font-weight: 700; }
+.ds-tag { font-size: .6rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; border-radius: 999px; padding: 1px 6px; margin-left: 4px; }
+.ds-tag.g { background: rgba(60,157,107,.16); color: #3c9d6b; } .ds-tag.r { background: var(--red-soft); color: var(--red); }
+.ds-bw { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; min-height: 0; }
+.ds-bars i { max-height: none; }
 
 </style>
 </head>
@@ -11893,7 +11932,9 @@ function rollLocal(expr, opts, forced) {
 }
 const prettyExpr = e => String(e).replace(/\s+/g, '').replace(/2d20kh1/g, '2d20 (keep highest)').replace(/2d20kl1/g, '2d20 (keep lowest)').replace(/\+-/g, '−').replace(/-/g, '−').replace(/\+/g, ' + ').replace(/−/g, ' − ').replace(/^ \+ /, '');
 // opts.min2: treat 1s on damage dice as 2s (Elemental Adept). opts.need: the sheet uses the result (healing, temp HP, death saves…).
-function rollExpr(expr, opts) {
+// Every roll that actually happens is noted for the Log's Dice stats (rolls undone by a retry are dropped again).
+function rollExpr(expr, opts) { const r = rollExpr0(expr, opts); try { statNote(r, expr, opts); } catch (e) {} return r; }
+function rollExpr0(expr, opts) {
   opts = opts || {};
   // A fixed number (Armor of Agathys' 5 temp HP) isn't a roll: never ask for it or send it to Roll20.
   if (!/\d*d\d+/i.test(String(expr))) return rollLocal(expr, opts);
@@ -11926,7 +11967,7 @@ function rollGate(fn, given) {
   try { const v = fn(); ROLLQ = null; return v; }
   catch (e) {
     ROLLQ = null; ROLL_LBL = '';
-    if (!(e instanceof NeedRoll)) throw e;
+    STAT_PEND.length = 0; if (!(e instanceof NeedRoll)) throw e;
     S = JSON.parse(snap); HIST.length = h; REDO.length = Math.min(REDO.length, rd); LAST = last; pendingLabel = pl;
     e.req.first = !(given && given.length);
     getRoll(e.req).then(r => { if (r) rollGate(fn, (given || []).concat([r])); else { render(); toast('Roll cancelled — nothing changed.'); } });
@@ -12071,7 +12112,7 @@ function d20Expr(bonus, kind, ab) {
 function nat1Roll() { return ST('nat1Roll') ? rollExpr('1d4', { label: 'Nat 1 Roll' }) : null; }
 function d20(label, bonus, kind, ab, rows) {
   const dx = d20Expr(bonus, kind, ab), { expr, rm, bless, ex } = dx;
-  const r = rollExpr(expr, { label });
+  STAT_KIND = ({ attack: 'attack', save: 'save' })[kind] || ''; let r; try { r = rollExpr(expr, { label }); } finally { STAT_KIND = ''; }
   const fl = typeof fxD20Floor === 'function' ? fxD20Floor(kind, ab) : null;
   let floorUp = 0; if (fl && r.d20 != null && r.d20 < fl) { floorUp = fl - r.d20; r.total += floorUp; r.detail += ` (d20 ${r.d20} counts as ${fl})`; r.d20 = fl; }
   const math = mathHTML([d20Math(r, dx, rows || ROLL_ROWS, 'Roll', floorUp ? [`d20 counts as ${fl}`, floorUp] : null)]);
@@ -12104,6 +12145,7 @@ function toast(html, cls = '', ms = 4500, action) {
   const isRoll = /^\s*<(b class="total"|div class="rc-multi")/.test(html);
   let box = $('#toasts');
   if (isRoll || cls === 'manual') logRoll(t.innerHTML, cls); else logEvent(t.innerHTML, cls);
+  if (isRoll && cls !== 'manual') statFlush();
   if (isRoll && cls !== 'manual') postSheetRoll(t);
   if (isRoll) { box = $('#rolls'); if (!box) { box = document.createElement('div'); box.id = 'rolls'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); } t.classList.add('rollcard'); ms = Math.max(ms, 6500); }
   if (isRoll) box.prepend(t); else box.appendChild(t);
@@ -12615,6 +12657,61 @@ function renderCore() {
   </div>`;
 }
 
+// ---------- Dice stats ----------
+// Kept for good on the character (never cleared, not even by clearing the Log): every d20 by what it was for, how the
+// naturals fall, damage and healing rolled, and each night you played.
+const STAT_PEND = []; let STAT_KIND = '';
+const statDay = t => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+function statKindOf(label, d20) { const l = String(label || '');
+  if (d20 != null) return STAT_KIND || (/death save/i.test(l) ? 'death' : /initiative/i.test(l) ? 'init' : /\bsave\b|saving throw/i.test(l) ? 'save' : /attack|to hit/i.test(l) ? 'attack' : /^dice roller/i.test(l) ? 'roller' : /wild magic|surge/i.test(l) ? 'other' : 'check');
+  if (/d100|wild magic/i.test(l)) return '';
+  return /heal|hit points|temporary hp|hit die/i.test(l) ? 'heal' : /^dice roller/i.test(l) ? '' : 'dmg'; }
+function statNote(r, expr, opts) { if (!r || r.skipped || !/\d*d\d+/i.test(String(expr))) return; const label = (opts && opts.label) || ''; const k = statKindOf(label, r.d20); if (!k) return;
+  STAT_PEND.push({ label, d20: r.d20 != null ? N(r.d20) : null, total: N(r.total), kind: k, t: Date.now() }); }
+function statFlush() { const L = STAT_PEND.splice(0); STAT_KIND = ''; if (!L.length || !S || !S.created) return; statBackfill(true); if (!(S.diceStats || {}).live) (S.diceStats = S.diceStats || {}).live = Date.now(); statAdd(L); save(); if ($('#rolllogmodal') && $('#modal').classList.contains('open') && UI.logTab === 'stats') openRollLog(); }
+function statAdd(L) {
+  const ds = S.diceStats = S.diceStats || {}; L.forEach(x => { if (!ds.since || x.t < ds.since) ds.since = x.t; }); ds.dist = ds.dist || Array(21).fill(0); ds.by = ds.by || {}; ds.days = ds.days || {};
+  L.forEach(x => { const day = ds.days[statDay(x.t)] = ds.days[statDay(x.t)] || { n: 0, sum: 0, c20: 0, c1: 0, dmg: 0 };
+    if (x.d20 != null && x.d20 >= 1 && x.d20 <= 20) { const b = ds.by[x.kind] = ds.by[x.kind] || { n: 0, sum: 0, c20: 0, c1: 0 }; b.n++; b.sum += x.d20; if (x.d20 === 20) b.c20++; if (x.d20 === 1) b.c1++; ds.dist[x.d20]++;
+      day.n++; day.sum += x.d20; if (x.d20 === 20) day.c20++; if (x.d20 === 1) day.c1++;
+      if (!ds.top || x.total > ds.top.v) ds.top = { v: x.total, l: String(x.label).slice(0, 80), t: x.t }; }
+    else if (x.kind === 'dmg' || x.kind === 'heal') { const b = ds[x.kind] = ds[x.kind] || { n: 0, sum: 0 }; b.n++; b.sum += x.total; if (x.kind === 'dmg') { day.dmg += x.total; if (!b.best || x.total > b.best.v) b.best = { v: x.total, l: String(x.label).slice(0, 80), t: x.t }; } } });
+  const keys = Object.keys(ds.days).sort(); while (keys.length > 120) delete ds.days[keys.shift()]; } // (the last 120 days played)
+// The rolls already in this browser's Log (from before the stats were counted) are read back once, so the stats start
+// with your history. Each browser adds its own Log once; rolls counted live are never added twice.
+const statBfKey = () => 'dnd-dsbf:' + (S && S.id || '');
+function statFromCard(r) { const box = document.createElement('div'); box.innerHTML = r.html; const out = [], txt = el => (el ? el.textContent.replace(/\s+/g, ' ').trim() : '');
+  const name = txt(box.querySelector('.rc-name')) || txt(box.querySelector('b.total + div > div')) || '', lbl = txt(box.querySelector('.rc-lbl')), dets = [...box.querySelectorAll('.det.dd, .rc-multi .det')].map(txt).join(' · ');
+  const d20s = []; dets.replace(/(\d*)d20(kh1|kl1)?\s*\[([^\]]+)\]/gi, (m, n, k, v) => { const xs = v.split(/,\s*/).map(z => N(String(z).replace(/\D.*$/, ''))).filter(z => z >= 1 && z <= 20); if (xs.length) d20s.push(k === 'kh1' ? Math.max(...xs) : k === 'kl1' ? Math.min(...xs) : xs[0]); return m; });
+  const total = N(txt(box.querySelector('b.total')) || txt(box.querySelector('.rc-hit'))), atk = /to hit|^hit:/i.test(lbl) || /\bHit:/.test(dets) || /attack/i.test(name);
+  d20s.forEach((d, i) => out.push({ label: name + (atk ? ' attack' : ''), d20: d, total: i === 0 ? total : 0, kind: atk ? 'attack' : statKindOf(name, d), t: r.t }));
+  const dm = box.querySelector('.rc-dmg:not(.void) > b'); if (dm && N(txt(dm))) out.push({ label: name + ' damage', d20: null, total: N(txt(dm)), kind: 'dmg', t: r.t });
+  if (!d20s.length && !dm && /\d*d\d+\s*\[/.test(dets) && total) { const k = statKindOf(name, null); if (k) out.push({ label: name, d20: null, total, kind: k, t: r.t }); }
+  return out; }
+function statBackfill(quiet) { if (!S || !S.created) return; let done = ''; try { done = localStorage.getItem(statBfKey()) || ''; } catch (e) {} if (done) return;
+  if (!ROLLLOG.length) loadRollLog(); const ds0 = S.diceStats; if (ds0 && ds0.since && !ds0.live) ds0.live = ds0.since; // (stats counted before this existed began at 'since')
+  const live = (S.diceStats || {}).live || Date.now(), L = [];
+  ROLLLOG.filter(r => r && r.t < live && r.cls !== 'manual').forEach(r => { try { L.push(...statFromCard(r)); } catch (e) {} });
+  try { localStorage.setItem(statBfKey(), String(Date.now())); } catch (e) {}
+  if (!L.length) return; statAdd(L.sort((a, b) => a.t - b.t)); if (!quiet) save(); }
+setTimeout(() => { try { statBackfill(); } catch (e) {} }, 4000);
+function diceStatsHTML() { const ds = S.diceStats || {}, dist = ds.dist || Array(21).fill(0), all = dist.reduce((a, b) => a + b, 0);
+  if (!all && !(ds.dmg && ds.dmg.n)) return '<p class="hint">No rolls counted yet. From now on, every roll this character makes is counted here, for good.</p>';
+  const sum = dist.reduce((a, c, i) => a + c * i, 0), avg = all ? sum / all : 0, pct = n => all ? Math.round(n / all * 1000) / 10 + '%' : '—', f1 = v => (Math.round(v * 10) / 10).toFixed(1);
+  const mx = Math.max(1, ...dist.slice(1)), when = t => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric', year: new Date(t).getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+  const luck = !all ? '' : all < 20 ? 'Not enough rolls to tell yet.' : avg >= 11.5 ? 'Hot dice — well above the 10.5 a fair d20 averages.' : avg >= 10.9 ? 'A little luckier than average.' : avg > 10.1 ? 'Right about average (a fair d20 averages 10.5).' : avg > 9.5 ? 'A little unlucky.' : 'Cursed dice — well below the 10.5 a fair d20 averages.';
+  const tiles = `<div class="ds-tiles"><div class="ds-tile"><small>d20 rolls</small><b>${all}</b></div><div class="ds-tile"><small>Average d20</small><b>${all ? f1(avg) : '—'}</b></div><div class="ds-tile g"><small>Natural 20s</small><b>${dist[20]}</b><span>${pct(dist[20])}</span></div><div class="ds-tile r"><small>Natural 1s</small><b>${dist[1]}</b><span>${pct(dist[1])}</span></div></div>${luck ? `<p class="ds-luck">${luck}</p>` : ''}`;
+  const bars = all ? `<div class="ds-h">How your d20s land</div><div class="ds-bars" role="img" aria-label="How many times each number came up on the d20">${dist.slice(1).map((c, i) => `<div class="ds-bar${i === 19 ? ' g' : i === 0 ? ' r' : ''}" title="${i + 1}: ${c} time${c === 1 ? '' : 's'} (${pct(c)})"><div class="ds-bw"><i style="height:${Math.max(c ? 3 : 0, c / mx * 100)}%"></i></div><span>${i + 1}</span></div>`).join('')}<div class="ds-fair" style="bottom:calc(17px + (100% - 21px) * ${Math.min(1, all / 20 / mx).toFixed(3)})" title="What a fair die would give: ${f1(all / 20)} each"></div></div><p class="hint ds-note">The dashed line is what a perfectly fair die would give for this many rolls.</p>` : '';
+  const KN = [['attack', 'Attacks'], ['save', 'Saving throws'], ['check', 'Checks'], ['init', 'Initiative'], ['death', 'Death saves'], ['roller', 'Dice roller'], ['other', 'Other d20s']];
+  const by = ds.by || {}, rows = KN.filter(([k]) => by[k] && by[k].n).map(([k, n]) => { const b = by[k]; return `<tr><td>${n}</td><td>${b.n}</td><td>${f1(b.sum / b.n)}</td><td class="g">${b.c20}</td><td class="r">${b.c1}</td></tr>`; }).join('');
+  const table = rows ? `<div class="ds-h">By roll</div><table class="ds-t"><thead><tr><th></th><th>Rolls</th><th>Avg</th><th>20s</th><th>1s</th></tr></thead><tbody>${rows}</tbody></table>` : '';
+  const dm = ds.dmg, hl = ds.heal, dmgH = dm && dm.n ? `<div class="ds-h">Damage &amp; healing</div><div class="ds-tiles"><div class="ds-tile"><small>Damage rolled</small><b>${dm.sum}</b><span>${dm.n} roll${dm.n === 1 ? '' : 's'} · avg ${f1(dm.sum / dm.n)}</span></div>${dm.best ? `<div class="ds-tile"><small>Biggest damage roll</small><b>${dm.best.v}</b><span>${esc(dm.best.l)} · ${when(dm.best.t)}</span></div>` : ''}${hl && hl.n ? `<div class="ds-tile g"><small>Healing rolled</small><b>${hl.sum}</b><span>${hl.n} roll${hl.n === 1 ? '' : 's'}</span></div>` : ''}${ds.top ? `<div class="ds-tile"><small>Highest d20 total</small><b>${ds.top.v}</b><span>${esc(ds.top.l)} · ${when(ds.top.t)}</span></div>` : ''}</div>` : '';
+  const days = Object.entries(ds.days || {}).filter(([, d]) => d.n >= 5).sort(([a], [b]) => b.localeCompare(a));
+  let nights = ''; if (days.length) { const sc = d => d.sum / d.n, best = days.reduce((a, b) => sc(b[1]) > sc(a[1]) ? b : a), worst = days.reduce((a, b) => sc(b[1]) < sc(a[1]) ? b : a);
+    const nm = k => new Date(k + 'T12:00').toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+    nights = `<div class="ds-h">Nights you played</div><table class="ds-t ds-n"><thead><tr><th></th><th>d20s</th><th>Avg</th><th>20s</th><th>1s</th><th>Damage</th></tr></thead><tbody>${days.slice(0, 12).map(([k, d]) => `<tr><td>${nm(k)}${days.length > 1 && k === best[0] ? ' <span class="ds-tag g">best</span>' : ''}${days.length > 1 && k === worst[0] && worst[0] !== best[0] ? ' <span class="ds-tag r">worst</span>' : ''}</td><td>${d.n}</td><td>${f1(sc(d))}</td><td class="g">${d.c20}</td><td class="r">${d.c1}</td><td>${d.dmg || 0}</td></tr>`).join('')}</tbody></table>`; }
+  return `<div class="ds">${tiles}${bars}${table}${dmgH}${nights}<p class="hint ds-note">Counting since ${when(ds.since || Date.now())}. These stay with the character for good.</p></div>`; }
+
 // ---------- Roll log ----------
 // Every roll card is also written here with its full breakdown (kept per character in this browser, newest first).
 let ROLLLOG = [];
@@ -12629,14 +12726,14 @@ function loadEvLog() { EVLOADED = true; try { EVLOG = JSON.parse(localStorage.ge
 function saveEvLog() { try { localStorage.setItem(evLogKey(), JSON.stringify(EVLOG.slice(0, 300))); } catch (e) {} }
 function logEvent(html, cls) { if (!EVLOADED) loadEvLog(); const clean = String(html).replace(/<button[^>]*>.*?<\/button>/g, ''); if (!clean.replace(/<[^>]*>/g, '').trim()) return; EVLOG.unshift({ t: Date.now(), html: clean, cls: cls || '' }); EVLOG = EVLOG.slice(0, 300); saveEvLog(); if ($('#rolllogmodal') && $('#modal').classList.contains('open')) openRollLog(); }
 function openRollLog() {
-  if (!ROLLLOG.length) loadRollLog(); if (!EVLOADED) loadEvLog();
-  const tab = UI.logTab === 'events' ? 'events' : 'rolls', LIST = tab === 'events' ? EVLOG : ROLLLOG;
+  if (!ROLLLOG.length) loadRollLog(); if (!EVLOADED) loadEvLog(); try { statBackfill(); } catch (e) {}
+  const tab = UI.logTab === 'events' ? 'events' : UI.logTab === 'stats' ? 'stats' : 'rolls', LIST = tab === 'events' ? EVLOG : tab === 'stats' ? [] : ROLLLOG;
   const day = t => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' }), tm = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   let last = '';
   const rows = LIST.map(r => { const d = day(r.t), h = d !== last ? `<div class="rl-day">${d}</div>` : ''; last = d; return h + `<div class="rl-row ${esc(r.cls)}"><span class="rl-time">${tm(r.t)}</span><div class="rl-card">${r.html.replace(/<button[^>]*>.*?<\/button>/g, '')}</div></div>`; }).join('');
   const tb = (k, l, n) => `<button class="rl-tab${tab === k ? ' on' : ''}" data-act="logtab" data-v="${k}" aria-pressed="${tab === k}">${l} <span>${n}</span></button>`;
-  const html = `<div id="rolllogmodal"><div class="rl-head"><h3>Log</h3><div class="rl-tabs">${tb('rolls', 'Rolls', ROLLLOG.length)}${tb('events', 'Everything else', EVLOG.length)}</div>${LIST.length ? '<button class="btn sm ghost" data-act="clearlog">Clear</button>' : ''}</div>
-    <div class="rl-list">${rows || (tab === 'events' ? '<p class="hint">Nothing yet. Messages that pop up — spells cast, turns, rests, warnings — are kept here.</p>' : '<p class="hint">No rolls yet. Every roll you make shows up here with its full breakdown.</p>')}</div>
+  const html = `<div id="rolllogmodal"><div class="rl-head"><h3>Log</h3><div class="rl-tabs">${tb('rolls', 'Rolls', ROLLLOG.length)}${tb('events', 'Everything else', EVLOG.length)}<button class="rl-tab${tab === 'stats' ? ' on' : ''}" data-act="logtab" data-v="stats" aria-pressed="${tab === 'stats'}">Dice stats</button></div>${LIST.length ? '<button class="btn sm ghost" data-act="clearlog">Clear</button>' : ''}</div>
+    <div class="rl-list">${tab === 'stats' ? diceStatsHTML() : rows || (tab === 'events' ? '<p class="hint">Nothing yet. Messages that pop up — spells cast, turns, rests, warnings — are kept here.</p>' : '<p class="hint">No rolls yet. Every roll you make shows up here with its full breakdown.</p>')}</div>
     <div class="actions"><button class="btn" data-act="close">Close</button></div></div>`;
   if ($('#rolllogmodal') && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html, null, true);
 }
@@ -13734,8 +13831,8 @@ function refresh() {
   const ca = canAttack();
   $$('.ammo[data-calc]').forEach(el => el.classList.toggle('out', /^0 /.test(el.textContent)));
   $$('#page-combat [data-act=attack]').forEach(b => { b.disabled = !ca; b.title = ca ? 'Roll to hit and damage; a crit doubles the damage dice' : 'No attacks left this turn (Next Turn / Reset Turn on the Combat tab)'; });
-  $$('[data-prepfor]').forEach(el => { const c = casterFor(el.dataset.prepfor); if (!c) return; const lim = spellLimit(c), n = c.prepared ? countPrep(c.key) : countKnown(c.key); el.classList.toggle('over', lim != null && n > lim); el.classList.toggle('full', lim != null && n === lim); el.style.setProperty('--p', lim ? Math.min(1, n / lim) : 0); });
-  $$('[data-cantfor]').forEach(el => { const c = casterFor(el.dataset.cantfor); if (!c) return; const n = countCantrips(c.key), lim = cantripLimit(c); el.classList.toggle('over', n > lim); el.classList.toggle('full', n === lim); el.style.setProperty('--p', lim ? Math.min(1, n / lim) : 0); });
+  $$('[data-prepfor]').forEach(el => { const c = casterFor(el.dataset.prepfor); if (!c) return; const lim = spellLimit(c), n = c.prepared ? countPrep(c.key) : countKnown(c.key); el.classList.toggle('over', lim != null && n > lim); el.classList.toggle('full', lim != null && n === lim); el.style.setProperty('--p', lim ? Math.min(1, n / lim) : 0); }); 
+  $$('[data-cantfor]').forEach(el => { const c = casterFor(el.dataset.cantfor); if (!c) return; const n = countCantrips(c.key), lim = cantripLimit(c); el.classList.toggle('over', n > lim); el.classList.toggle('full', n === lim); el.style.setProperty('--p', lim ? Math.min(1, n / lim) : 0); }); $$('[data-prepfor], [data-cantfor]').forEach(el => { if (!el.classList.contains('anim')) requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('anim'))); }); // bars start at their value; only later changes slide
   const aci = $('#acTotal'); if (aci && aci !== document.activeElement && String(aci.value) !== String(acTotal())) aci.value = acTotal();
   const hmi = $('#hpMaxIn'); if (hmi && hmi !== document.activeElement && String(hmi.value) !== String(maxHp())) hmi.value = maxHp();
   $$('.tile.ac').forEach(el => el.classList.toggle('boosted', !S.form && fxActive().some(e => e.buff && (N(e.buff.ac) || e.buff.acMin || e.buff.acBase) && !e.ally)));
@@ -16301,10 +16398,15 @@ function fitSettingsHeight() {
   const m = $('#modal-body'), sx = $('.setx'); if (!m || !sx) return;
   m.style.removeProperty('--seth');
   const panes = $$('.setx .stpane'); let tallest = 0;
-  panes.forEach(p => { const was = p.style.cssText; p.style.cssText = 'display:block;position:absolute;visibility:hidden;left:0;right:0;top:0'; tallest = Math.max(tallest, p.scrollHeight); p.style.cssText = was; });
+  const pw = sx.clientWidth - (parseFloat(getComputedStyle(sx).paddingLeft) || 0) - (parseFloat(getComputedStyle(sx).paddingRight) || 0); // measured at the width it really shows at, so wrapped lines count
+  panes.forEach(p => { const was = p.style.cssText; p.style.cssText = `display:block;position:absolute;visibility:hidden;left:0;top:0;width:${pw}px;box-sizing:border-box`; tallest = Math.max(tallest, p.getBoundingClientRect().height, p.scrollHeight); p.style.cssText = was; });
   const chrome = m.getBoundingClientRect().height - sx.getBoundingClientRect().height;  // header, tabs and padding
   const cap = isMobile() ? 0.88 * innerHeight : innerHeight - 32;
   m.style.setProperty('--seth', Math.ceil(Math.min(cap, chrome + tallest + 4)) + 'px');
+  // a row appearing or going (e.g. the 2024 exhaustion rule adds one) re-fits the window
+  if (typeof ResizeObserver === 'function') { if (!m._setRO) m._setRO = new ResizeObserver(() => { clearTimeout(m._setRT); m._setRT = setTimeout(() => { if (settingsOpen()) fitSettingsHeight(); }, 80); }); m._setRO.disconnect(); $$('.setx .stpane').forEach(p => m._setRO.observe(p)); }
+  // whatever the measuring missed (padding, margins) shows up as scroll on the open tab: add it on
+  requestAnimationFrame(() => { const x = $('.setx'); if (!x || !m.isConnected) return; const more = x.scrollHeight - x.clientHeight; if (more > 0) m.style.setProperty('--seth', Math.ceil(Math.min(cap, m.getBoundingClientRect().height + more + 2)) + 'px'); });
 }
 addEventListener('resize', () => { if (typeof settingsOpen === 'function' && settingsOpen()) fitSettingsHeight(); });
 function settingsOpen() { return $('#modal').classList.contains('open') && !!$('.setx'); }
@@ -20231,12 +20333,22 @@ function ptyChatWho(m) { const x = ptyMembers().find(y => y.id === m.c) || {}, o
 function ptyChatAva(w) { const ini = String(w.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join('');
   // a see-through picture shows as-is, with no circle or border (like in the lobby)
   const st = w.clear && w.thumb ? '' : /^#[0-9a-f]{3,8}$/i.test(w.acc || '') ? ` style="border-color:${w.acc}${w.bg && !w.thumb ? ';background:' + w.bg + ';color:#fff' : ''}"` : ''; return `<span class="ptyc-ava${w.clear && w.thumb ? ' clear' : ''}"${st}>${w.thumb ? `<img src="${esc(w.thumb)}" alt="">` : esc(ini)}</span>`; }
+// iMessage-style extras: "Read by …" under your newest message, and a bubble with bouncing dots while someone's typing.
+const PTY_TYPING_MS = 7000;
+function ptyChatTypers() { const ch = PTYX() && PTYX().chat; if (!ch || !ch.others) return []; const now = Date.now(); return ch.others().filter(o => Number(o.t) && now - Number(o.t) < PTY_TYPING_MS).slice(0, 3); }
+function ptyChatReceipt(L) { const ch = PTYX().chat; if (!ch.others) return ''; let k = L.length - 1; while (k >= 0 && !ch.mine(L[k])) k--; if (k < 0) return ''; const m = L[k];
+  const t = x => new Date(Number(x)).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const oth = ch.others();
+  if (m.w) { const o = oth.find(x => x.c === m.to); return { k, html: o && Number(o.r) >= Number(m.at) ? `Read ${t(o.r)}` : 'Delivered' }; }
+  const rd = oth.filter(x => Number(x.r) >= Number(m.at)), nm = rd.map(x => esc(String(x.n || 'Someone').split(/\s+/)[0]));
+  return { k, html: !rd.length ? 'Delivered' : rd.length === 1 ? `Read by ${nm[0]} ${t(rd[0].r)}` : rd.length === oth.length && oth.length > 2 ? 'Read by everyone' : 'Read by ' + (nm.length === 2 ? nm.join(' and ') : nm.slice(0, -1).join(', ') + ' and ' + nm[nm.length - 1]) }; }
+function ptyChatTypingHTML() { return ptyChatTypers().map(o => `<div class="ptyc ptyc-typing" aria-live="polite">${ptyChatAva({ name: o.n, thumb: /^(data:image\/|https:\/\/)/.test(o.pp || '') ? o.pp : '', acc: /^#[0-9a-f]{3,8}$/i.test(o.pc || '') ? o.pc : '', bg: /^#[0-9a-f]{3,8}$/i.test(o.pc || '') ? o.pc : '', clear: !!o.pk })}<div class="ptyc-dots" title="${esc(o.n || 'Someone')} is typing" aria-label="${esc(o.n || 'Someone')} is typing"><i></i><i></i><i></i></div></div>`).join(''); }
 function ptyChatList() { const ch = PTYX() && PTYX().chat; const L = ch ? ch.list().slice(-80) : [];
-  if (!L.length) return '<p class="hint" style="margin:0">No messages yet.</p>';
-  let prev = null;
-  return L.map(m => { const me = ch.mine(m), w = ptyChatWho(m), same = prev && prev.c === m.c && !!prev.w === !!m.w && prev.to === m.to && m.at - prev.at < 5 * 60e3; prev = m;
+  if (!L.length) return '<p class="hint" style="margin:0">No messages yet.</p>' + ptyChatTypingHTML();
+  let prev = null; const rc = ptyChatReceipt(L);
+  return L.map((m, idx) => { const me = ch.mine(m), w = ptyChatWho(m), same = prev && prev.c === m.c && !!prev.w === !!m.w && prev.to === m.to && m.at - prev.at < 5 * 60e3; prev = m;
     const tag = m.w ? `<em class="ptyc-wh">${me ? 'whisper to ' + esc(m.toN || 'them') : 'whispers to you'}</em>` : '';
-    return `<div class="ptyc${me ? ' me' : ''}${m.w ? ' wh' : ''}${same ? ' cont' : ''}">${same ? '<span class="ptyc-ava sp"></span>' : ptyChatAva(w)}<div class="ptyc-b">${same ? '' : `<span class="ptyc-n">${esc(w.name)}${tag}<small>${new Date(m.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</small></span>`}<span class="ptyc-t">${esc(m.t)}</span></div></div>`; }).join(''); }
+    return `<div class="ptyc${me ? ' me' : ''}${m.w ? ' wh' : ''}${same ? ' cont' : ''}">${same ? '<span class="ptyc-ava sp"></span>' : ptyChatAva(w)}<div class="ptyc-b">${same ? '' : `<span class="ptyc-n">${esc(w.name)}${tag}<small>${new Date(m.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</small></span>`}<span class="ptyc-t">${esc(m.t)}</span></div></div>${rc && rc.k === idx ? `<div class="ptyc-rr">${rc.html}</div>` : ''}`; }).join('') + ptyChatTypingHTML(); }
 // Who a name at the start of the text means: the longest party character name it starts with (or a first name).
 // Who a name at the start of the text means: a party player's name (or their character's), longest match first, then a first name.
 // Two players with the same name (or one player with two characters) are told apart as "Name (Character)": the list fills
@@ -20258,7 +20370,7 @@ function ptyChatSubmit() {
     if (PTY_WCMDS.includes(cmd)) { const [who, msg] = ptyChatTarget(m[2]); if (who === 'dup') { toast('More than one player goes by that name — pick them from the list (it adds their character’s name).', 'fumble'); i.value = '/' + cmd + ' '; i.focus(); ptyChatAC(); return; } if (!who) { toast('Who to? Type a party character’s name after /' + cmd + '.', 'fumble'); return; } if (!msg) { toast('Type your message after the name.', 'fumble'); return; } to = who.id; t = msg; }
     else if (PTY_RCMDS.includes(cmd)) { const last = ptyChatLastFrom(); if (!last) { toast('No one to reply to yet.', 'fumble'); return; } if (!m[2].trim()) { toast('Type your reply after /' + cmd + '.', 'fumble'); return; } to = last.c; t = m[2].trim(); }
     else { toast(`Unknown command /${esc(cmd)}. Try /whisper (or /w) and /r.`, 'fumble'); return; } }
-  const keep = i.value; i.value = ''; ptyChatAC(); ptyChatBottom(); PTY_STICK = Date.now();
+  const keep = i.value; i.value = ''; ptyChatAC(); ptyChatBottom(); PTY_STICK = Date.now(); if (PTYX().chat.typing) PTYX().chat.typing(false);
   // after a whisper, keep the box ready for the next one to the same person
   if (to) { const w = ptyMembers().find(x => x.id === to); if (w && m && PTY_WCMDS.includes(m[1].toLowerCase())) i.value = '/' + m[1].toLowerCase() + ' ' + ptyWName(w) + ' '; }
   PTYX().chat.send(t, to).catch(x => { i.value = keep; toast('Couldn’t send: ' + esc(x.message || x), 'fumble'); });
@@ -20279,6 +20391,9 @@ function ptyChatACPick(k) { const x = PTY_AC.items[k], i = $('#ptychat-in'); if 
 function ptyChatWireAC() {
   const i = $('#ptychat-in'), box = $('#ptychat-ac'); if (!i || !box) return;
   i.addEventListener('input', ptyChatAC);
+  // typing indicator: only for the party chat (not commands or whispers), refreshed while you keep typing
+  const typ = () => { const ch = PTYX() && PTYX().chat; if (!ch || !ch.typing) return; const v = i.value.trim(); ch.typing(!!v && !v.startsWith('/')); };
+  i.addEventListener('input', typ); i.addEventListener('blur', () => { const ch = PTYX() && PTYX().chat; if (ch && ch.typing) ch.typing(false); }); i.addEventListener('focus', typ);
   i.addEventListener('keydown', e => { if (box.hidden || !PTY_AC.items.length) return;
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); PTY_AC.k = (PTY_AC.k + (e.key === 'ArrowDown' ? 1 : -1) + PTY_AC.items.length) % PTY_AC.items.length; box.querySelectorAll('.ac-i').forEach((b, k) => b.classList.toggle('on', k === PTY_AC.k)); }
     else if (e.key === 'Tab' || (e.key === 'Enter' && PTY_AC.items[PTY_AC.k] && PTY_AC.items[PTY_AC.k].fill.trim() !== i.value.trim())) { e.preventDefault(); ptyChatACPick(PTY_AC.k); }
@@ -20306,7 +20421,13 @@ function ptyUnreadMark() { setTimeout(() => { if (typeof mtabSync === 'function'
   // shown the moment chat is there; only hidden once the page has had a few seconds to connect
   if (on || Date.now() - PCHAT_T0 > 6000) { document.documentElement.classList.toggle('pchat', on); try { localStorage.setItem(PCHAT_KEY(), on ? '1' : '0'); } catch (e) {} }
   { const cb = document.querySelector('.devbtn.chatbtn'); if (cb) { const n = $('#pcwin') ? 0 : PTY_UNREAD; cb.classList.toggle('unread', n > 0); if (n > 0) cb.dataset.unread = n > 9 ? '9+' : n; else delete cb.dataset.unread; } }
+  ptyChatSeen();
   const t = document.querySelector('.tab[data-tab="party"]'); if (!t) return; if ((UI.tab === 'party' || $('#pcwin')) && !document.hidden) PTY_UNREAD = 0; t.classList.toggle('unread', PTY_UNREAD > 0); if (PTY_UNREAD > 0) t.dataset.unread = PTY_UNREAD > 9 ? '9+' : PTY_UNREAD; else delete t.dataset.unread; }
+// read receipts: the chat on screen (Party tab or its window, page in front) counts as having read the newest message
+function ptyChatSeen() { const ch = PTYX() && PTYX().chat; if (!ch || !ch.read || !ch.on() || document.hidden || !$('#ptychat-l') || !(UI.tab === 'party' || $('#pcwin'))) return; const L = ch.list(); for (let k = L.length - 1; k >= 0; k--) if (!ch.mine(L[k])) { ch.read(L[k].at); break; } }
+// someone started or stopped typing, or read something: redraw the list (staying at the bottom if you were there)
+window.onPartyChatTyping = () => { const l = $('#ptychat-l'); if (!l) return; const end = !ptyChatAway(l), h = ptyChatList(); if (l._h === h) return; l._h = h; l.innerHTML = h; if (end) l.scrollTop = l.scrollHeight; };
+setInterval(() => { const l = $('#ptychat-l'); if (l && l.querySelector('.ptyc-typing')) window.onPartyChatTyping(); }, 2000); // a typing bubble goes away if they stop without sending
 setInterval(ptyUnreadMark, 1500); document.addEventListener('visibilitychange', ptyUnreadMark);
 window.onPartyChat = m => { const here = !document.hidden && $('#ptychat-l') && (UI.tab === 'party' || $('#pcwin')); if (here) return; PTY_UNREAD++; ptyUnreadMark(); ptyChatPop(m); };
 // A party chat message gets its own card in the corner: who sent it (their picture, in their sheet's colour), the
@@ -21517,12 +21638,12 @@ function renderWizard() {
   let body = '';
   if (st === 0) {
     body = `<div class="wz-intro"><p>Build any 5e (2014) character. Every choice can be changed later on the sheet.</p></div>
-      <div class="wz-ddb top"><div><b>Made your character on D&amp;D Beyond?</b><span class="hint">Bring it over: classes, scores, spells, equipment and notes.</span></div><button class="btn" data-wact="ddb">Import from D&amp;D Beyond</button></div>
       <div class="wz-grid">${fld('Character name', `<input class="f" data-wz="name" value="${esc(W.name)}" placeholder="Name" autofocus>`)}${window.SHEET_PAGES ? '' : fld('Player', `<input class="f" data-wz="player" value="${esc(W.player)}" placeholder="Your name">`)}
       ${fld('Alignment', `<select class="f" data-wz="alignment"><option value="">—</option>${DND.alignments.map(a => `<option${W.alignment === a ? ' selected' : ''}>${esc(a)}</option>`).join('')}</select>`)}</div>
       <div class="row" style="margin-top:12px"><img class="wz-portrait" src="${esc(W.portrait || PLACEHOLDER)}" alt=""><button class="btn" data-wact="portrait">${W.portrait ? 'Change portrait' : 'Add a portrait'}</button><span class="hint">Optional. The sheet's colors can match it.</span></div>
       <div class="wz-src"><h4>Books for this character</h4><p class="hint">Only content from the books you tick will be offered. You can change this later in Settings → Books.</p>${sourcesHTML(W.sources)}</div>
-      <p class="hint" style="margin-top:16px">Already have a character exported from this sheet? <button class="linkbtn" data-wact="import">Import it</button></p>`;
+      <p class="hint" style="margin-top:16px">Already have a character exported from this sheet? <button class="linkbtn" data-wact="import">Import it</button></p>
+      <div class="wz-ddb bottom"><div><b>Made your character on D&amp;D Beyond?</b><span class="hint">Bring it over: classes, scores, spells, equipment and notes.</span></div><button class="btn" data-wact="ddb">Import from D&amp;D Beyond</button></div>`;
   } else if (st === 1) {
     const x = wzRace();
     body = `<div class="wz-grid">${fld('Race', `<select class="f" data-wz="race"><option value="">— choose a race —</option>${DND.raceGroups.map(([g, ks]) => `<optgroup label="${esc(g)}">${ks.filter(k => DND.races[k]).sort((a, b) => abc(DND.races[a].name, DND.races[b].name)).map(k => `<option value="${k}"${W.race === k ? ' selected' : ''}>${esc(DND.races[k].name)}${DND.races[k].src && DND.races[k].src !== 'PHB' ? ' (' + DND.races[k].src + ')' : ''}</option>`).join('')}</optgroup>`).join('')}</select>`)}
