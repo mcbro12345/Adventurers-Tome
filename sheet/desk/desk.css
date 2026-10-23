@@ -1346,3 +1346,7 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 .dk.dk-lite { padding-bottom: 24px !important; }
 .dk-nophone { min-height: 100dvh; display: grid; place-content: center; justify-items: center; gap: 10px; padding: 24px; text-align: center; box-sizing: border-box; }
 .dk-nophone h2 { margin: 0; font: 800 1.4rem var(--serif); } .dk-nophone p { margin: 0; max-width: 34ch; color: var(--soft); line-height: 1.45; } .dk-nophone .dk-btn { gap: 6px; text-decoration: none; }
+/* Creature cards: damage type and amount sit snug together, like the sheet's HP panel */
+.dk .dk-chp-side .dk-qtype { height: 30px; min-height: 30px !important; padding: 0 8px; font-size: .85rem; border-radius: 8px; margin-bottom: -4px; }
+.dk .dk-chp-side input.dk-f { height: 30px; min-height: 30px !important; padding: 0 8px; border-radius: 8px; }
+.dk .dk-chp-btns .dk-hpi { height: 36px; min-height: 36px; }
