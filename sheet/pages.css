@@ -1981,6 +1981,13 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 /* Phones: the admin panel's single tab button and its pop-up grid of tabs (same as the character sheet's) */
 html.pgpill-on body.adminbody .adm-nav:not(.adm-side .adm-nav) { display: none !important; }
 html.pgpill-on body.adminbody { padding-bottom: calc(84px + env(safe-area-inset-bottom)) !important; }
+html.pgpill-on .dk .dk-tabs { display: none !important; }
+html.pgpill-on .dk { padding-bottom: calc(84px + env(safe-area-inset-bottom)) !important; }
+html.pgpill-on body.hubbody .pw-foot { padding-bottom: calc(78px + env(safe-area-inset-bottom)); }
+html.pgpill-on body.hubbody .dk:has(.pw-foot) { padding-bottom: 0 !important; }
+html.pgpill-on .dk-toasts { bottom: calc(84px + env(safe-area-inset-bottom)) !important; }
+@media (pointer: coarse) { html.dk-kb.pgpill-on .pgp { display: none; } }
+html.pgpill-on:has(.dk .dk-modal.open, .dk.dk-log-open, .dk .drwin, .dk.dk-tree-open) .pgp { display: none; }
 .pgp { --pp-bg: #1a2131; --pp-bg2: #222a3a; --pp-line: #2c3548; --pp-ink: #e9e3d3; --pp-soft: #a9a294; position: fixed; left: 0; right: 0; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 60; display: flex; justify-content: center; pointer-events: none; }
 .pgp-menu { --pp-bg: #1a2131; --pp-bg2: #222a3a; --pp-line: #2c3548; --pp-ink: #e9e3d3; --pp-soft: #a9a294; position: fixed; inset: 0; z-index: 59; }
 @media (prefers-color-scheme: light) { :root:not([data-pgtheme="dark"]) :is(.pgp, .pgp-menu) { --pp-bg: #fffaf0; --pp-bg2: #f6eedd; --pp-line: #e3d6b8; --pp-ink: #2b2418; --pp-soft: #6b5f4a; } }

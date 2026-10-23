@@ -163,14 +163,15 @@ window.pgPicAccentOf = pgPicAccentOf;
 // Tap: open; swipe sideways: next / previous; press and hold: slide onto a tile and let go. tabsFn() lists the tabs
 // ({ k, b: the real tab button, on, ic, label, badge }); passing null takes the button away.
 const PG_PILL_CHEV = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>';
-let PG_PILL_FN = null;
-function pgPill(tabsFn) { PG_PILL_FN = tabsFn; let el = document.getElementById('pgpill');
+let PG_PILL_FN = null, PG_PILL_OWN = '';
+function pgPill(tabsFn, own) { PG_PILL_FN = tabsFn; PG_PILL_OWN = tabsFn ? own || 'admin' : ''; let el = document.getElementById('pgpill');
   if (!tabsFn) { if (el) el.remove(); pgPillClose(true); document.documentElement.classList.remove('pgpill-on'); return; }
   document.documentElement.classList.add('pgpill-on');
   if (!el) { el = document.createElement('div'); el.id = 'pgpill'; el.className = 'pgp'; document.body.appendChild(el); pgPillWire(el); }
   const ts = tabsFn(), cur = ts.find(t => t.on) || ts[0]; if (!cur) return; const i = ts.indexOf(cur), other = ts.some(t => t.badge && !t.on);
   el.innerHTML = `<button class="pgp-b${other ? ' unread' : ''}" aria-haspopup="menu" aria-expanded="${!!document.getElementById('pgpmenu')}" aria-label="${escH(cur.label)} — ${i + 1} of ${ts.length}. Choose a tab"><span class="pgp-ic" aria-hidden="true">${cur.ic}</span><span class="pgp-l">${escH(cur.label)}</span><span class="pgp-dots" aria-hidden="true">${ts.map(t => `<i${t.on ? ' class="on"' : ''}></i>`).join('')}</span><span class="pgp-chev">${PG_PILL_CHEV}</span></button>`;
   const m = document.getElementById('pgpmenu'); if (m) pgPillFill(m); }
+window.pgPillOwner = () => PG_PILL_OWN;
 function pgPillFill(m) { const ts = PG_PILL_FN ? PG_PILL_FN() : [];
   m.querySelector('.pgp-grid').innerHTML = ts.map((t, i) => `<button class="pgp-t${t.on ? ' on' : ''}" role="menuitem" data-pt="${escH(t.k)}" style="--i:${i}"${t.on ? ' aria-current="page"' : ''}><span class="pgp-tic" aria-hidden="true">${t.ic}</span><span class="pgp-tl">${escH(t.label)}</span>${t.badge ? `<span class="pgp-cnt">${escH(t.badge)}</span>` : ''}</button>`).join(''); }
 function pgPillGo(k) { const t = (PG_PILL_FN ? PG_PILL_FN() : []).find(x => x.k === k); if (t && !t.on) t.b.click(); }
@@ -277,7 +278,7 @@ function pgPartyFrames() { document.querySelectorAll('img.pty-pic, img.pty-admic
   const put = col => { if (col) el.style.borderColor = col; };
   if (PG_PACC.has(key)) return put(PG_PACC.get(key));
   const go = () => { const col = pgPicAccentOf(im); PG_PACC.set(key, col); put(col); }; if (im.complete && im.naturalWidth) go(); else im.addEventListener('load', go, { once: true }); }); }
-new MutationObserver(() => { pgSkelFill(); pgPartyFrames(); if (PG_PILL_FN && !document.body.classList.contains('adminbody')) pgPill(null); cancelAnimationFrame(pgScrollFx.r); pgScrollFx.r = requestAnimationFrame(pgScrollFx); }).observe(document.documentElement, { childList: true, subtree: true });
+new MutationObserver(() => { pgSkelFill(); pgPartyFrames(); if (PG_PILL_FN && !(PG_PILL_OWN === 'desk' ? document.querySelector('.dk') : document.body.classList.contains('adminbody'))) pgPill(null); cancelAnimationFrame(pgScrollFx.r); pgScrollFx.r = requestAnimationFrame(pgScrollFx); }).observe(document.documentElement, { childList: true, subtree: true });
 function wireThemeBtn(root) { const b = root.querySelector('#hub-theme'); if (!b) return;
   // The sun's thin rays look lopsided when the button lands between two screen pixels (it does in some header rows,
   // like an admin's): nudge it onto whole pixels.
