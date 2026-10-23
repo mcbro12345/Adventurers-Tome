@@ -1142,11 +1142,11 @@ function emptyHTML() {
 }
 function railHTML(cur) {
   const tree = S.sessions.map(s => {
-    const open = s === cur || UI.open[s.id], all = sessionInsts(s), multi = s.groups.length > 1;
+    const open = s === cur ? UI.open[s.id] !== false : !!UI.open[s.id], all = sessionInsts(s), multi = s.groups.length > 1;
     const kids = open ? `<div class="dk-tkids">${s.groups.map(g => `${multi || g.list.length === 0 ? `<div class="dk-tg"><span>${esc(g.name)}</span><small>${g.list.length}</small></div>` : ''}${g.list.map(x => {
       const p = hpPct(x);
       return `<button class="dk-tc${x.iid === UI.sel ? ' on' : ''}${x.down ? ' down' : ''}" data-act="sel" data-sid="${s.id}" data-iid="${x.iid}">${tokenHTML(instC(x), 22)}<span class="dk-tcn">${esc(x.name)}${x.conc ? `<i class="dk-cdot" title="Concentrating">${ICON.conc}</i>` : ''}${(x.conds || []).length ? `<i class="dk-cn" title="${esc(x.conds.map(c => c.n).join(', '))}">${x.conds.length}</i>` : ''}</span><span class="dk-tch">${x.hp}<small>/${x.max}</small></span><span class="dk-tbar"><i class="${hpCls(p)}" style="width:${p}%"></i></span></button>`; }).join('')}`).join('')}${all.length ? '' : '<p class="dk-tnone">No creatures yet</p>'}</div>` : '';
-    return `<div class="dk-ts${s === cur ? ' cur' : ''}"><div class="dk-tsrow"><button class="dk-caret${open ? ' open' : ''}" data-act="toggle" data-sid="${s.id}" aria-label="${open ? 'Collapse' : 'Expand'} ${esc(s.title)}" ${s === cur ? 'disabled' : ''}>${ICON.caret}</button><button class="dk-tsn" data-act="opensess" data-sid="${s.id}"><b>${esc(s.title)}</b><small>${plural(all.length, 'creature')}${all.filter(x => x.down).length ? ' · ' + all.filter(x => x.down).length + ' down' : ''}</small></button></div>${kids}</div>`;
+    return `<div class="dk-ts${s === cur ? ' cur' : ''}"><div class="dk-tsrow"><button class="dk-caret${open ? ' open' : ''}" data-act="toggle" data-sid="${s.id}" aria-label="${open ? 'Collapse' : 'Expand'} ${esc(s.title)}">${ICON.caret}</button><button class="dk-tsn" data-act="opensess" data-sid="${s.id}"><b>${esc(s.title)}</b><small>${plural(all.length, 'creature')}${all.filter(x => x.down).length ? ' · ' + all.filter(x => x.down).length + ' down' : ''}</small></button></div>${kids}</div>`;
   }).join('');
   return `<div class="dk-railhd"><span>Sessions</span><button class="dk-btn sm gold" data-act="newsess">${ICON.plus} New</button><button class="dk-ix dk-railx" data-act="tree" aria-label="Close">${ICON.x}</button></div><div class="dk-tree" data-keep="tree">${tree || '<p class="dk-tnone">No sessions yet</p>'}</div>`;
 }
@@ -1604,7 +1604,7 @@ async function onClick(e) {
     case 'menu': { const m = b.closest('.dk-menu'), was = m.classList.contains('open'); closeMenus(); if (!was) m.classList.add('open'); return; }
     case 'tree': UI.tree = !UI.tree; ROOT.classList.toggle('dk-tree-open', UI.tree); return;
     case 'newsess': return askText('New session', 'Session ' + (S.sessions.length + 1), v => { newSession(v); UI.tab = 'sessions'; UI.tree = false; save(); paint(); setTimeout(() => { const q = $('#dk-addq'); if (q) q.focus(); }, 50); }, { okLabel: 'Create', hint: 'Name it after the night you’ll play, or the adventure.' });
-    case 'toggle': UI.open[b.dataset.sid] = !UI.open[b.dataset.sid]; saveUI(); return paint();
+    case 'toggle': { const sid = b.dataset.sid, cur = (curSession() || {}).id === sid; UI.open[sid] = !(cur ? UI.open[sid] !== false : !!UI.open[sid]); } saveUI(); return paint();
     case 'opensess': UI.session = b.dataset.sid; UI.sel = ''; UI.open[UI.session] = true; UI.tab = 'sessions'; UI.tree = false; saveUI(); paint(); scrollTo(0, 0); return;
     case 'sel': if (b.dataset.sid) UI.session = b.dataset.sid; else { const s = sessFor(iid); if (s) UI.session = s.id; } UI.sel = iid; UI.tree = false; saveUI(); paint(); if (innerWidth < 1100) scrollTo(0, 0); return;
     case 'unsel': UI.sel = ''; saveUI(); return paint();
