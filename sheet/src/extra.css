@@ -3516,3 +3516,18 @@ html.mobile body.wizopen #modal.open, html.mobile body.wizopen #modal.closing { 
 .ds-plot .ds-fair { position: absolute; left: 0; right: 0; height: 0; border-top: 1.5px dashed var(--soft); opacity: .6; pointer-events: none; }
 .ds-axis { display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 3px; margin-top: 4px; }
 .ds-axis span { text-align: center; font-size: .62rem; color: var(--soft); font-variant-numeric: tabular-nums; }
+/* Log tabs: a sliding highlight, and the list slides in from the side you're heading */
+.rl-tabs.inked { position: relative; }
+.rl-tabs.inked .rl-tab { position: relative; z-index: 1; transition: color .2s; }
+.rl-tabs.inked .rl-tab.on { background: transparent; box-shadow: none; }
+.rl-ink { position: absolute; left: 0; top: 3px; bottom: 3px; width: 0; border-radius: 8px; background: var(--panel); box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: transform .28s cubic-bezier(.3,.7,.2,1), width .28s cubic-bezier(.3,.7,.2,1); }
+#rolllogmodal .rl-list.in-r { animation: rlIn-r .26s cubic-bezier(.3,.7,.2,1); }
+#rolllogmodal .rl-list.in-l { animation: rlIn-l .26s cubic-bezier(.3,.7,.2,1); }
+@keyframes rlIn-r { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
+@keyframes rlIn-l { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: none; } }
+/* Dice stats: bars grow up from the axis, one after another */
+.ds-chart.anim .ds-col i { transform-origin: bottom; animation: dsGrow .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--k, 0) * 22ms + 80ms); }
+.ds-chart.anim .ds-fair { animation: dsFade .4s ease both; animation-delay: .6s; }
+@keyframes dsGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes dsFade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .rl-ink { transition: none; } #rolllogmodal .rl-list.in-r, #rolllogmodal .rl-list.in-l, .ds-chart.anim .ds-col i, .ds-chart.anim .ds-fair { animation: none; } }

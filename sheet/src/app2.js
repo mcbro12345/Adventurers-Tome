@@ -805,7 +805,7 @@ function diceStatsHTML() { const ds = S.diceStats || {}, dist = ds.dist || Array
   const mx = Math.max(1, ...dist.slice(1)), when = t => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric', year: new Date(t).getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
   const luck = !all ? '' : all < 20 ? 'Not enough rolls to tell yet.' : avg >= 11.5 ? 'Hot dice — well above the 10.5 a fair d20 averages.' : avg >= 10.9 ? 'A little luckier than average.' : avg > 10.1 ? 'Right about average (a fair d20 averages 10.5).' : avg > 9.5 ? 'A little unlucky.' : 'Cursed dice — well below the 10.5 a fair d20 averages.';
   const tiles = `<div class="ds-tiles"><div class="ds-tile"><small>d20 rolls</small><b>${all}</b></div><div class="ds-tile"><small>Average d20</small><b>${all ? f1(avg) : '—'}</b></div><div class="ds-tile g"><small>Natural 20s</small><b>${dist[20]}</b><span>${pct(dist[20])}</span></div><div class="ds-tile r"><small>Natural 1s</small><b>${dist[1]}</b><span>${pct(dist[1])}</span></div></div>${luck ? `<p class="ds-luck">${luck}</p>` : ''}`;
-  const bars = all ? `<div class="ds-h">How your d20s land</div><div class="ds-chart" role="img" aria-label="How many times each number came up on the d20"><div class="ds-plot">${dist.slice(1).map((c, i) => `<div class="ds-col${i === 19 ? ' g' : i === 0 ? ' r' : ''}" title="${i + 1}: ${c} time${c === 1 ? '' : 's'} (${pct(c)})"><i style="height:${c ? Math.max(3, c / mx * 100) : 0}%"></i></div>`).join('')}<div class="ds-fair" style="bottom:${(Math.min(1, all / 20 / mx) * 100).toFixed(2)}%" title="What a fair die would give: ${f1(all / 20)} each"></div></div><div class="ds-axis">${dist.slice(1).map((c, i) => `<span>${i + 1}</span>`).join('')}</div></div><p class="hint ds-note">The dashed line is what a perfectly fair die would give for this many rolls.</p>` : '';
+  const bars = all ? `<div class="ds-h">How your d20s land</div><div class="ds-chart${DS_ANIM ? ' anim' : ''}" role="img" aria-label="How many times each number came up on the d20"><div class="ds-plot">${dist.slice(1).map((c, i) => `<div class="ds-col${i === 19 ? ' g' : i === 0 ? ' r' : ''}" style="--k:${i}" title="${i + 1}: ${c} time${c === 1 ? '' : 's'} (${pct(c)})"><i style="height:${c ? Math.max(3, c / mx * 100) : 0}%"></i></div>`).join('')}<div class="ds-fair" style="bottom:${(Math.min(1, all / 20 / mx) * 100).toFixed(2)}%" title="What a fair die would give: ${f1(all / 20)} each"></div></div><div class="ds-axis">${dist.slice(1).map((c, i) => `<span>${i + 1}</span>`).join('')}</div></div><p class="hint ds-note">The dashed line is what a perfectly fair die would give for this many rolls.</p>` : '';
   const KN = [['attack', 'Attacks'], ['save', 'Saving throws'], ['check', 'Checks'], ['init', 'Initiative'], ['death', 'Death saves'], ['roller', 'Dice roller'], ['other', 'Other d20s']];
   const by = ds.by || {}, rows = KN.filter(([k]) => by[k] && by[k].n).map(([k, n]) => { const b = by[k]; return `<tr><td>${n}</td><td>${b.n}</td><td>${f1(b.sum / b.n)}</td><td class="g">${b.c20}</td><td class="r">${b.c1}</td></tr>`; }).join('');
   const table = rows ? `<div class="ds-h">By roll</div><table class="ds-t"><thead><tr><th></th><th>Rolls</th><th>Avg</th><th>20s</th><th>1s</th></tr></thead><tbody>${rows}</tbody></table>` : '';
@@ -829,6 +829,9 @@ const evLogKey = () => 'dnd-evlog:' + (S && S.id || 'blank');
 function loadEvLog() { EVLOADED = true; try { EVLOG = JSON.parse(localStorage.getItem(evLogKey()) || '[]'); } catch (e) { EVLOG = []; } }
 function saveEvLog() { try { localStorage.setItem(evLogKey(), JSON.stringify(EVLOG.slice(0, 300))); } catch (e) {} }
 function logEvent(html, cls) { if (!EVLOADED) loadEvLog(); const clean = String(html).replace(/<button[^>]*>.*?<\/button>/g, ''); if (!clean.replace(/<[^>]*>/g, '').trim()) return; EVLOG.unshift({ t: Date.now(), html: clean, cls: cls || '' }); EVLOG = EVLOG.slice(0, 300); saveEvLog(); if ($('#rolllogmodal') && $('#modal').classList.contains('open')) openRollLog(); }
+// Tabs slide (their highlight moves across, the list comes in from the side you're heading); opening Dice stats fills its bars.
+let LOG_TAB_SHOWN = '', DS_ANIM = false, LOG_INK = null;
+const LOG_TABS = ['rolls', 'events', 'stats'];
 function openRollLog() {
   if (!ROLLLOG.length) loadRollLog(); if (!EVLOADED) loadEvLog(); try { statBackfill(); } catch (e) {}
   const tab = UI.logTab === 'events' ? 'events' : UI.logTab === 'stats' ? 'stats' : 'rolls', LIST = tab === 'events' ? EVLOG : tab === 'stats' ? [] : ROLLLOG;
@@ -839,7 +842,22 @@ function openRollLog() {
   const html = `<div id="rolllogmodal"><div class="rl-head"><h3>Log</h3><div class="rl-tabs">${tb('rolls', 'Rolls', ROLLLOG.length)}${tb('events', 'Everything else', EVLOG.length)}<button class="rl-tab${tab === 'stats' ? ' on' : ''}" data-act="logtab" data-v="stats" aria-pressed="${tab === 'stats'}">Dice stats</button></div>${LIST.length ? '<button class="btn sm ghost" data-act="clearlog">Clear</button>' : ''}</div>
     <div class="rl-list">${tab === 'stats' ? diceStatsHTML() : rows || (tab === 'events' ? '<p class="hint">Nothing yet. Messages that pop up — spells cast, turns, rests, warnings — are kept here.</p>' : '<p class="hint">No rolls yet. Every roll you make shows up here with its full breakdown.</p>')}</div>
     <div class="actions"><button class="btn" data-act="close">Close</button></div></div>`;
-  if ($('#rolllogmodal') && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html, null, true);
+  const was = $('#rolllogmodal') && $('#modal').classList.contains('open'), prev = was ? LOG_TAB_SHOWN : '', moved = prev && prev !== tab;
+  const oldInk = was && $('#rolllogmodal .rl-tab.on') ? (() => { const b = $('#rolllogmodal .rl-tab.on'); return { l: b.offsetLeft, w: b.offsetWidth }; })() : null;
+  DS_ANIM = false; // (set just for the render below)
+  LOG_TAB_SHOWN = tab;
+  if (was) $('#modal-body').innerHTML = html; else openModal(html, null, true);
+  // the highlight under the tabs: slides from the old tab to the new one
+  const bar = $('#rolllogmodal .rl-tabs'), on = $('#rolllogmodal .rl-tab.on');
+  if (bar && on) { bar.classList.add('inked'); const ink = document.createElement('i'); ink.className = 'rl-ink'; bar.prepend(ink);
+    const put = (l, w) => { ink.style.transform = `translateX(${l}px)`; ink.style.width = w + 'px'; };
+    if (moved && oldInk) { ink.style.transition = 'none'; put(oldInk.l, oldInk.w); void ink.offsetWidth; ink.style.transition = ''; }
+    else ink.style.transition = 'none';
+    requestAnimationFrame(() => { put(on.offsetLeft, on.offsetWidth); if (!moved) requestAnimationFrame(() => { ink.style.transition = ''; }); }); }
+  const list = $('#rolllogmodal .rl-list');
+  if (list && moved) list.classList.add(LOG_TABS.indexOf(tab) > LOG_TABS.indexOf(prev) ? 'in-r' : 'in-l');
+  // bars fill up when you come to Dice stats (not when a new roll updates it while you're looking)
+  if (tab === 'stats' && (moved || !was)) { const ch = $('#rolllogmodal .ds-chart'); if (ch) ch.classList.add('anim'); }
 }
 
 // ---------- Mobile full screen ----------
