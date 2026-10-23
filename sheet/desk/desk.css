@@ -1223,3 +1223,6 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 .dk-mlist button { display: flex !important; align-items: center; gap: 8px; }
 .dk-mlist button > svg { flex: none; display: block; }
 .dk-mlist button > span { line-height: 1; text-box: trim-both cap alphabetic; }
+.dk-nrailft .dk-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.dk-nrailft .dk-btn > svg { flex: none; display: block; width: 15px; height: 15px; }
+.dk-nrailft .dk-btn > span { line-height: 1; text-box: trim-both cap alphabetic; }
