@@ -4023,7 +4023,7 @@ html.mwin .rl-head:has(> .mw-hid) { padding-top: 0; }
 html:not(.mwin) .mw-head { display: none; }
 html.mwin .modal-bg > .modal { overflow-x: hidden; }
 /* Desktop: Settings is tall enough that no tab needs a scrollbar */
-html.mwin .modal:has(.setx) { height: min(calc(100vh - 40px), 640px); }
+html.mwin .modal:has(.setx) { height: min(calc(100vh - 32px), var(--seth, 640px)); max-height: calc(100vh - 32px); }
 /* windows turn slightly see-through while dragged, like the dice roller */
 .win-moving { opacity: .95; }
 .defrow { display: grid; grid-template-columns: 82px 1fr; gap: 8px; align-items: start; margin-top: 6px; }
@@ -4131,4 +4131,49 @@ html.mobile body.wizopen #modal.open, html.mobile body.wizopen #modal.closing { 
 .opt-info.rider { font-size: .8rem; }
 .toast .rc-rider { display: block; font-size: .82rem; margin-top: 3px; line-height: 1.35; }
 .toast .rc-rider.sm { font-size: .74rem; color: var(--soft); }
+/* Paste an item → builder */
+.catpaste { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 2px 0 10px; }
+.catpaste .hint { flex: 1; min-width: 180px; }
+.hbb-read { border: 1px dashed var(--line); border-radius: 10px; padding: 8px 12px; margin: 0 0 12px; background: var(--panel2); }
+.hbb-read ul { margin: 6px 0 4px; padding: 0; list-style: none; display: grid; gap: 3px; font-size: .88rem; }
+.hbb-read li.warn { color: var(--gold-ink); }
+/* party chat: iMessage-style typing bubble and read receipts */
+.ptyc-typing { align-items: center; animation: ptycIn .18s ease-out; }
+.ptyc-dots { display: inline-flex; gap: 4px; align-items: center; padding: 9px 12px; border-radius: 16px 16px 16px 4px; background: var(--panel); border: 1px solid var(--line); }
+.ptyc-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--soft); opacity: .45; animation: ptycDot 1.2s infinite ease-in-out; }
+.ptyc-dots i:nth-child(2) { animation-delay: .18s; } .ptyc-dots i:nth-child(3) { animation-delay: .36s; }
+@keyframes ptycDot { 0%, 60%, 100% { transform: translateY(0); opacity: .45; } 30% { transform: translateY(-4px); opacity: 1; } }
+@keyframes ptycIn { from { opacity: 0; transform: translateY(4px) scale(.96); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ptyc-dots i, .ptyc-typing { animation: none; } }
+.ptyc-rr { align-self: flex-start; font-size: .68rem; font-weight: 600; color: var(--soft); margin: -3px 0 2px 42px; }
+.wz-ddb.bottom { margin: 16px 0 4px; }
+.scx-m:not(.anim) .scx-bar i { transition: none !important; } /* no filling up when the page loads */
+.rl-card { align-items: stretch; } .rl-card > b.total { align-self: center; } .rl-card .rc-dmg { align-self: stretch; justify-content: center; } /* the line between to-hit and damage runs the whole height of the card */
+/* Log → Dice stats */
+.ds { display: flex; flex-direction: column; gap: 10px; }
+.ds-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+.ds-tile { border: 1px solid var(--line2); border-radius: 12px; background: var(--panel2); padding: 9px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ds-tile small { font-size: .62rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--soft); }
+.ds-tile b { font-size: 1.6rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.ds-tile span { font-size: .74rem; color: var(--soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-tile.g b { color: #3c9d6b; } .ds-tile.r b { color: var(--red); }
+.ds-luck { margin: 0; font-weight: 700; font-size: .9rem; }
+.ds-h { font-size: .68rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--gold-ink); margin-top: 6px; }
+.ds-bars { position: relative; display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 3px; height: 150px; align-items: end; padding: 4px 2px 0; border-bottom: 1px solid var(--line2); }
+.ds-bar { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 3px; min-width: 0; }
+.ds-bar i { display: block; width: 100%; max-width: 22px; height: 0; background: var(--gold); border-radius: 4px 4px 0 0; opacity: .85; }
+.ds-bar span { font-size: .62rem; color: var(--soft); font-variant-numeric: tabular-nums; height: 14px; line-height: 14px; }
+.ds-bar.g i { background: #3c9d6b; opacity: 1; } .ds-bar.r i { background: var(--red); opacity: 1; }
+.ds-bars i { max-height: calc(100% - 18px); }
+.ds-fair { position: absolute; left: 0; right: 0; border-top: 1.5px dashed var(--soft); opacity: .6; pointer-events: none; }
+.ds-note { margin: 0; font-size: .74rem; }
+.ds-t { width: 100%; border-collapse: collapse; font-size: .86rem; font-variant-numeric: tabular-nums; }
+.ds-t th { text-align: right; font-size: .62rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--soft); padding: 4px 6px; }
+.ds-t td { text-align: right; padding: 6px; border-top: 1px solid var(--line2); }
+.ds-t td:first-child, .ds-t th:first-child { text-align: left; font-weight: 700; }
+.ds-t td.g { color: #3c9d6b; font-weight: 700; } .ds-t td.r { color: var(--red); font-weight: 700; }
+.ds-tag { font-size: .6rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; border-radius: 999px; padding: 1px 6px; margin-left: 4px; }
+.ds-tag.g { background: rgba(60,157,107,.16); color: #3c9d6b; } .ds-tag.r { background: var(--red-soft); color: var(--red); }
+.ds-bw { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; min-height: 0; }
+.ds-bars i { max-height: none; }
 

@@ -36,7 +36,9 @@ function rollLocal(expr, opts, forced) {
 }
 const prettyExpr = e => String(e).replace(/\s+/g, '').replace(/2d20kh1/g, '2d20 (keep highest)').replace(/2d20kl1/g, '2d20 (keep lowest)').replace(/\+-/g, '−').replace(/-/g, '−').replace(/\+/g, ' + ').replace(/−/g, ' − ').replace(/^ \+ /, '');
 // opts.min2: treat 1s on damage dice as 2s (Elemental Adept). opts.need: the sheet uses the result (healing, temp HP, death saves…).
-function rollExpr(expr, opts) {
+// Every roll that actually happens is noted for the Log's Dice stats (rolls undone by a retry are dropped again).
+function rollExpr(expr, opts) { const r = rollExpr0(expr, opts); try { statNote(r, expr, opts); } catch (e) {} return r; }
+function rollExpr0(expr, opts) {
   opts = opts || {};
   // A fixed number (Armor of Agathys' 5 temp HP) isn't a roll: never ask for it or send it to Roll20.
   if (!/\d*d\d+/i.test(String(expr))) return rollLocal(expr, opts);
@@ -69,7 +71,7 @@ function rollGate(fn, given) {
   try { const v = fn(); ROLLQ = null; return v; }
   catch (e) {
     ROLLQ = null; ROLL_LBL = '';
-    if (!(e instanceof NeedRoll)) throw e;
+    STAT_PEND.length = 0; if (!(e instanceof NeedRoll)) throw e;
     S = JSON.parse(snap); HIST.length = h; REDO.length = Math.min(REDO.length, rd); LAST = last; pendingLabel = pl;
     e.req.first = !(given && given.length);
     getRoll(e.req).then(r => { if (r) rollGate(fn, (given || []).concat([r])); else { render(); toast('Roll cancelled — nothing changed.'); } });
@@ -214,7 +216,7 @@ function d20Expr(bonus, kind, ab) {
 function nat1Roll() { return ST('nat1Roll') ? rollExpr('1d4', { label: 'Nat 1 Roll' }) : null; }
 function d20(label, bonus, kind, ab, rows) {
   const dx = d20Expr(bonus, kind, ab), { expr, rm, bless, ex } = dx;
-  const r = rollExpr(expr, { label });
+  STAT_KIND = ({ attack: 'attack', save: 'save' })[kind] || ''; let r; try { r = rollExpr(expr, { label }); } finally { STAT_KIND = ''; }
   const fl = typeof fxD20Floor === 'function' ? fxD20Floor(kind, ab) : null;
   let floorUp = 0; if (fl && r.d20 != null && r.d20 < fl) { floorUp = fl - r.d20; r.total += floorUp; r.detail += ` (d20 ${r.d20} counts as ${fl})`; r.d20 = fl; }
   const math = mathHTML([d20Math(r, dx, rows || ROLL_ROWS, 'Roll', floorUp ? [`d20 counts as ${fl}`, floorUp] : null)]);
@@ -247,6 +249,7 @@ function toast(html, cls = '', ms = 4500, action) {
   const isRoll = /^\s*<(b class="total"|div class="rc-multi")/.test(html);
   let box = $('#toasts');
   if (isRoll || cls === 'manual') logRoll(t.innerHTML, cls); else logEvent(t.innerHTML, cls);
+  if (isRoll && cls !== 'manual') statFlush();
   if (isRoll && cls !== 'manual') postSheetRoll(t);
   if (isRoll) { box = $('#rolls'); if (!box) { box = document.createElement('div'); box.id = 'rolls'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); } t.classList.add('rollcard'); ms = Math.max(ms, 6500); }
   if (isRoll) box.prepend(t); else box.appendChild(t);
@@ -758,6 +761,43 @@ function renderCore() {
   </div>`;
 }
 
+// ---------- Dice stats ----------
+// Kept for good on the character (never cleared, not even by clearing the Log): every d20 by what it was for, how the
+// naturals fall, damage and healing rolled, and each night you played.
+const STAT_PEND = []; let STAT_KIND = '';
+const statDay = t => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+function statKindOf(label, d20) { const l = String(label || '');
+  if (d20 != null) return STAT_KIND || (/death save/i.test(l) ? 'death' : /initiative/i.test(l) ? 'init' : /\bsave\b|saving throw/i.test(l) ? 'save' : /attack|to hit/i.test(l) ? 'attack' : /^dice roller/i.test(l) ? 'roller' : /wild magic|surge/i.test(l) ? 'other' : 'check');
+  if (/d100|wild magic/i.test(l)) return '';
+  return /heal|hit points|temporary hp|hit die/i.test(l) ? 'heal' : /^dice roller/i.test(l) ? '' : 'dmg'; }
+function statNote(r, expr, opts) { if (!r || r.skipped || !/\d*d\d+/i.test(String(expr))) return; const label = (opts && opts.label) || ''; const k = statKindOf(label, r.d20); if (!k) return;
+  STAT_PEND.push({ label, d20: r.d20 != null ? N(r.d20) : null, total: N(r.total), kind: k, t: Date.now() }); }
+function statFlush() { const L = STAT_PEND.splice(0); STAT_KIND = ''; if (!L.length || !S || !S.created) return;
+  const ds = S.diceStats = S.diceStats || {}; if (!ds.since) ds.since = Date.now(); ds.dist = ds.dist || Array(21).fill(0); ds.by = ds.by || {}; ds.days = ds.days || {};
+  L.forEach(x => { const day = ds.days[statDay(x.t)] = ds.days[statDay(x.t)] || { n: 0, sum: 0, c20: 0, c1: 0, dmg: 0 };
+    if (x.d20 != null && x.d20 >= 1 && x.d20 <= 20) { const b = ds.by[x.kind] = ds.by[x.kind] || { n: 0, sum: 0, c20: 0, c1: 0 }; b.n++; b.sum += x.d20; if (x.d20 === 20) b.c20++; if (x.d20 === 1) b.c1++; ds.dist[x.d20]++;
+      day.n++; day.sum += x.d20; if (x.d20 === 20) day.c20++; if (x.d20 === 1) day.c1++;
+      if (!ds.top || x.total > ds.top.v) ds.top = { v: x.total, l: String(x.label).slice(0, 80), t: x.t }; }
+    else if (x.kind === 'dmg' || x.kind === 'heal') { const b = ds[x.kind] = ds[x.kind] || { n: 0, sum: 0 }; b.n++; b.sum += x.total; if (x.kind === 'dmg') { day.dmg += x.total; if (!b.best || x.total > b.best.v) b.best = { v: x.total, l: String(x.label).slice(0, 80), t: x.t }; } } });
+  const keys = Object.keys(ds.days).sort(); while (keys.length > 120) delete ds.days[keys.shift()]; // the last 120 days played
+  save(); if ($('#rolllogmodal') && $('#modal').classList.contains('open') && UI.logTab === 'stats') openRollLog(); }
+function diceStatsHTML() { const ds = S.diceStats || {}, dist = ds.dist || Array(21).fill(0), all = dist.reduce((a, b) => a + b, 0);
+  if (!all && !(ds.dmg && ds.dmg.n)) return '<p class="hint">No rolls counted yet. From now on, every roll this character makes is counted here, for good.</p>';
+  const sum = dist.reduce((a, c, i) => a + c * i, 0), avg = all ? sum / all : 0, pct = n => all ? Math.round(n / all * 1000) / 10 + '%' : '—', f1 = v => (Math.round(v * 10) / 10).toFixed(1);
+  const mx = Math.max(1, ...dist.slice(1)), when = t => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric', year: new Date(t).getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+  const luck = !all ? '' : all < 20 ? 'Not enough rolls to tell yet.' : avg >= 11.5 ? 'Hot dice — well above the 10.5 a fair d20 averages.' : avg >= 10.9 ? 'A little luckier than average.' : avg > 10.1 ? 'Right about average (a fair d20 averages 10.5).' : avg > 9.5 ? 'A little unlucky.' : 'Cursed dice — well below the 10.5 a fair d20 averages.';
+  const tiles = `<div class="ds-tiles"><div class="ds-tile"><small>d20 rolls</small><b>${all}</b></div><div class="ds-tile"><small>Average d20</small><b>${all ? f1(avg) : '—'}</b></div><div class="ds-tile g"><small>Natural 20s</small><b>${dist[20]}</b><span>${pct(dist[20])}</span></div><div class="ds-tile r"><small>Natural 1s</small><b>${dist[1]}</b><span>${pct(dist[1])}</span></div></div>${luck ? `<p class="ds-luck">${luck}</p>` : ''}`;
+  const bars = all ? `<div class="ds-h">How your d20s land</div><div class="ds-bars" role="img" aria-label="How many times each number came up on the d20">${dist.slice(1).map((c, i) => `<div class="ds-bar${i === 19 ? ' g' : i === 0 ? ' r' : ''}" title="${i + 1}: ${c} time${c === 1 ? '' : 's'} (${pct(c)})"><div class="ds-bw"><i style="height:${Math.max(c ? 3 : 0, c / mx * 100)}%"></i></div><span>${i + 1}</span></div>`).join('')}<div class="ds-fair" style="bottom:calc(17px + (100% - 21px) * ${Math.min(1, all / 20 / mx).toFixed(3)})" title="What a fair die would give: ${f1(all / 20)} each"></div></div><p class="hint ds-note">The dashed line is what a perfectly fair die would give for this many rolls.</p>` : '';
+  const KN = [['attack', 'Attacks'], ['save', 'Saving throws'], ['check', 'Checks'], ['init', 'Initiative'], ['death', 'Death saves'], ['roller', 'Dice roller'], ['other', 'Other d20s']];
+  const by = ds.by || {}, rows = KN.filter(([k]) => by[k] && by[k].n).map(([k, n]) => { const b = by[k]; return `<tr><td>${n}</td><td>${b.n}</td><td>${f1(b.sum / b.n)}</td><td class="g">${b.c20}</td><td class="r">${b.c1}</td></tr>`; }).join('');
+  const table = rows ? `<div class="ds-h">By roll</div><table class="ds-t"><thead><tr><th></th><th>Rolls</th><th>Avg</th><th>20s</th><th>1s</th></tr></thead><tbody>${rows}</tbody></table>` : '';
+  const dm = ds.dmg, hl = ds.heal, dmgH = dm && dm.n ? `<div class="ds-h">Damage &amp; healing</div><div class="ds-tiles"><div class="ds-tile"><small>Damage rolled</small><b>${dm.sum}</b><span>${dm.n} roll${dm.n === 1 ? '' : 's'} · avg ${f1(dm.sum / dm.n)}</span></div>${dm.best ? `<div class="ds-tile"><small>Biggest damage roll</small><b>${dm.best.v}</b><span>${esc(dm.best.l)} · ${when(dm.best.t)}</span></div>` : ''}${hl && hl.n ? `<div class="ds-tile g"><small>Healing rolled</small><b>${hl.sum}</b><span>${hl.n} roll${hl.n === 1 ? '' : 's'}</span></div>` : ''}${ds.top ? `<div class="ds-tile"><small>Highest d20 total</small><b>${ds.top.v}</b><span>${esc(ds.top.l)} · ${when(ds.top.t)}</span></div>` : ''}</div>` : '';
+  const days = Object.entries(ds.days || {}).filter(([, d]) => d.n >= 5).sort(([a], [b]) => b.localeCompare(a));
+  let nights = ''; if (days.length) { const sc = d => d.sum / d.n, best = days.reduce((a, b) => sc(b[1]) > sc(a[1]) ? b : a), worst = days.reduce((a, b) => sc(b[1]) < sc(a[1]) ? b : a);
+    const nm = k => new Date(k + 'T12:00').toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+    nights = `<div class="ds-h">Nights you played</div><table class="ds-t ds-n"><thead><tr><th></th><th>d20s</th><th>Avg</th><th>20s</th><th>1s</th><th>Damage</th></tr></thead><tbody>${days.slice(0, 12).map(([k, d]) => `<tr><td>${nm(k)}${days.length > 1 && k === best[0] ? ' <span class="ds-tag g">best</span>' : ''}${days.length > 1 && k === worst[0] && worst[0] !== best[0] ? ' <span class="ds-tag r">worst</span>' : ''}</td><td>${d.n}</td><td>${f1(sc(d))}</td><td class="g">${d.c20}</td><td class="r">${d.c1}</td><td>${d.dmg || 0}</td></tr>`).join('')}</tbody></table>`; }
+  return `<div class="ds">${tiles}${bars}${table}${dmgH}${nights}<p class="hint ds-note">Counting since ${when(ds.since || Date.now())}. These stay with the character for good.</p></div>`; }
+
 // ---------- Roll log ----------
 // Every roll card is also written here with its full breakdown (kept per character in this browser, newest first).
 let ROLLLOG = [];
@@ -773,13 +813,13 @@ function saveEvLog() { try { localStorage.setItem(evLogKey(), JSON.stringify(EVL
 function logEvent(html, cls) { if (!EVLOADED) loadEvLog(); const clean = String(html).replace(/<button[^>]*>.*?<\/button>/g, ''); if (!clean.replace(/<[^>]*>/g, '').trim()) return; EVLOG.unshift({ t: Date.now(), html: clean, cls: cls || '' }); EVLOG = EVLOG.slice(0, 300); saveEvLog(); if ($('#rolllogmodal') && $('#modal').classList.contains('open')) openRollLog(); }
 function openRollLog() {
   if (!ROLLLOG.length) loadRollLog(); if (!EVLOADED) loadEvLog();
-  const tab = UI.logTab === 'events' ? 'events' : 'rolls', LIST = tab === 'events' ? EVLOG : ROLLLOG;
+  const tab = UI.logTab === 'events' ? 'events' : UI.logTab === 'stats' ? 'stats' : 'rolls', LIST = tab === 'events' ? EVLOG : tab === 'stats' ? [] : ROLLLOG;
   const day = t => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' }), tm = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   let last = '';
   const rows = LIST.map(r => { const d = day(r.t), h = d !== last ? `<div class="rl-day">${d}</div>` : ''; last = d; return h + `<div class="rl-row ${esc(r.cls)}"><span class="rl-time">${tm(r.t)}</span><div class="rl-card">${r.html.replace(/<button[^>]*>.*?<\/button>/g, '')}</div></div>`; }).join('');
   const tb = (k, l, n) => `<button class="rl-tab${tab === k ? ' on' : ''}" data-act="logtab" data-v="${k}" aria-pressed="${tab === k}">${l} <span>${n}</span></button>`;
-  const html = `<div id="rolllogmodal"><div class="rl-head"><h3>Log</h3><div class="rl-tabs">${tb('rolls', 'Rolls', ROLLLOG.length)}${tb('events', 'Everything else', EVLOG.length)}</div>${LIST.length ? '<button class="btn sm ghost" data-act="clearlog">Clear</button>' : ''}</div>
-    <div class="rl-list">${rows || (tab === 'events' ? '<p class="hint">Nothing yet. Messages that pop up — spells cast, turns, rests, warnings — are kept here.</p>' : '<p class="hint">No rolls yet. Every roll you make shows up here with its full breakdown.</p>')}</div>
+  const html = `<div id="rolllogmodal"><div class="rl-head"><h3>Log</h3><div class="rl-tabs">${tb('rolls', 'Rolls', ROLLLOG.length)}${tb('events', 'Everything else', EVLOG.length)}<button class="rl-tab${tab === 'stats' ? ' on' : ''}" data-act="logtab" data-v="stats" aria-pressed="${tab === 'stats'}">Dice stats</button></div>${LIST.length ? '<button class="btn sm ghost" data-act="clearlog">Clear</button>' : ''}</div>
+    <div class="rl-list">${tab === 'stats' ? diceStatsHTML() : rows || (tab === 'events' ? '<p class="hint">Nothing yet. Messages that pop up — spells cast, turns, rests, warnings — are kept here.</p>' : '<p class="hint">No rolls yet. Every roll you make shows up here with its full breakdown.</p>')}</div>
     <div class="actions"><button class="btn" data-act="close">Close</button></div></div>`;
   if ($('#rolllogmodal') && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = html; else openModal(html, null, true);
 }
