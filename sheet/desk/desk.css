@@ -1168,7 +1168,7 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 .dk-cact-s .dk-rl { padding: 0 6px; font-size: .76rem; }
 .dk-cact-b { display: flex; gap: 4px; }
 /* no sideways scrolling anywhere on the desk: things wrap or shrink instead */
-.dk, .dk-tree, .dk-track, .dk-mlist2, .dk-loglist, .dk-modal, .dk-mcard, .dk-genin, .dk-auto, .dk-itree, .dk .drwin, .dk-setwin .dk-setx, .dk-raw, .dk-pbprev, .dk-sugg, .dk-cacts { overflow-x: hidden !important; }
+.dk-tree, .dk-track, .dk-mlist2, .dk-loglist, .dk-modal, .dk-mcard, .dk-genin, .dk-auto, .dk-itree, .dk .drwin, .dk-setwin .dk-setx, .dk-raw, .dk-pbprev, .dk-sugg, .dk-cacts { overflow-x: hidden !important; }
 .dk .dk-tools2 { flex-wrap: wrap !important; overflow-x: visible !important; }
 .dk .dk-stabs { flex-wrap: wrap; overflow-x: visible !important; }
 .dk-ed table { display: table !important; table-layout: fixed; overflow-x: visible !important; } .dk-ed td, .dk-ed th { overflow-wrap: anywhere; }
@@ -1265,3 +1265,6 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 .dk-shade::after { bottom: 0; border-bottom: 1px solid var(--line); box-shadow: 0 -2px 12px 4px rgba(0,0,0,.45); }
 .dk-shade.sc-t::before, .dk-shade.sc-b::after { opacity: 1; }
 @media (prefers-color-scheme: light) { :root:not([data-pgtheme="dark"]) .dk-shade::before, :root:not([data-pgtheme="dark"]) .dk-shade::after { box-shadow: 0 0 10px 3px rgba(60,40,10,.14); } }
+
+/* the page itself never scrolls sideways, without becoming a scroll box (so the top bar stays stuck to the top) */
+.dk { overflow-x: clip !important; }
