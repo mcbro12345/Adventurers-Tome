@@ -1990,7 +1990,7 @@ function hub(fs, auth, G, ctx) {
       t.querySelectorAll('tbody > tr').forEach(tr => [...tr.children].forEach((td, i) => { if (hs[i] && !td.dataset.l) td.dataset.l = hs[i]; })); });
     new MutationObserver(() => { fillPics(); labelCells(); }).observe(root, { childList: true, subtree: true });
     const roleOf = em => ownerEm(em) ? ['Owner', 'r-own'] : ADMINS.includes(em) ? ['Admin', 'r-adm'] : ['Member', 'r-mem'];
-    const when = t => t ? `<span title="${esc(new Date(t).toLocaleString())}">${esc(day(t))}</span>` : '<span class="adm-dim">—</span>';
+    const when = t => t ? `<span class="adm-when" title="${esc(new Date(t).toLocaleString())}">${esc(day(t))}</span>` : '<span class="adm-dim">—</span>';
     const kebab = items => `<div class="adm-mwrap"><button class="adm-kebab" aria-label="More actions">⋯</button><div class="adm-mlist">${items.map(([k, t, id, cls]) => `<button data-mi="${k}" data-id="${esc(id)}"${cls ? ` class="${cls}"` : ''}>${t}</button>`).join('')}</div></div>`;
 
     const PANES = {}; let PREV_TAB = '';
@@ -2096,7 +2096,7 @@ function hub(fs, auth, G, ctx) {
 
     // ----- characters as table rows -----
     const myAccess = c => isMine(c) ? 'own' : (c.editors || []).includes(EMAIL) ? 'edit' : (c.viewers || []).includes(EMAIL) ? 'view' : '';
-    const ctable = (list, showOwner = true, empty = 'No characters yet.') => list.length ? `<div class="adm-tw"><table class="adm-t"><thead><tr><th>Character</th>${showOwner ? '<th>Owner</th>' : ''}<th>Shared with you</th><th>Updated</th><th>Created</th><th></th></tr></thead><tbody>${list.map(c => crow(c, showOwner)).join('')}</tbody></table></div>` : `<p class="adm-empty">${empty}</p>`;
+    const ctable = (list, showOwner = true, empty = 'No characters yet.') => list.length ? `<div class="adm-tw"><table class="adm-t ch-t"><thead><tr><th>Character</th>${showOwner ? '<th>Owner</th>' : ''}<th>Shared with you</th><th>Updated</th><th>Created</th><th></th></tr></thead><tbody>${list.map(c => crow(c, showOwner)).join('')}</tbody></table></div>` : `<p class="adm-empty">${empty}</p>`;
     function crow(c, showOwner) { CH[c.id] = c; const a = myAccess(c);
       return `<tr><td><a class="adm-char" href="${esc(URLS.char(c))}">${pic(c)}<span><b>${esc(c.name || 'Unnamed character')}</b><small>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</small></span></a></td>
         ${showOwner ? `<td><span class="adm-who">${ava(nameOf(c.owner || ''), c.owner)}<span>${esc(nameOf(c.owner || '') || '—')}</span></span></td>` : ''}
@@ -2457,7 +2457,7 @@ function hub(fs, auth, G, ctx) {
         ${live ? `<div id="nt-cur"><p class="adm-note"><b>Current notice</b> (sent ${esc(new Date(live.at).toLocaleString())}${live.editedAt ? ', edited ' + esc(new Date(live.editedAt).toLocaleString()) : ''}):<br>“${esc(String(live.text).slice(0, 400))}${String(live.text).length > 400 ? '…' : ''}”</p><div class="row"><button class="adm-btn" id="nt-ed">Edit</button><button class="adm-btn" id="nt-rv">Revoke it</button></div></div>` : '<p class="adm-note">No notice is out right now.</p>'}
         <h3 class="nt-h">New notice</h3><textarea id="nt-t" class="ad-search pm-t" rows="7" placeholder="Your notice"></textarea>${NT_FMT}
         ${live ? '<p class="adm-note">Sending it replaces the current notice for anyone who hasn’t seen it yet.</p>' : ''}<div class="row"><label class="nt-wl">Window width ${ntWSel('nt-w')}</label><button class="adm-btn" id="nt-pv" disabled>Preview</button><button class="adm-btn primary" id="nt-ok" disabled>Send to everyone</button></div>
-        <h3 class="nt-h">Past notices</h3>${log.length ? `<div class="adm-tw"><table class="adm-t"><thead><tr><th>Sent</th><th>Notice</th><th>By</th><th>Seen</th><th>Status</th><th></th></tr></thead><tbody>${log.map(row).join('')}</tbody></table></div>` : '<p class="adm-dim">None yet.</p>'}`;
+        <h3 class="nt-h">Past notices</h3>${log.length ? `<div class="adm-tw"><table class="adm-t nt-t"><thead><tr><th>Sent</th><th>Notice</th><th>By</th><th>Seen</th><th>Status</th><th></th></tr></thead><tbody>${log.map(row).join('')}</tbody></table></div>` : '<p class="adm-dim">None yet.</p>'}`;
       // ends the live notice: takes it off everyone who still holds it, and keeps how many saw it
       const end = async (n, how) => { const hold = gotOf(n);
         for (let i = 0; i < hold.length; i += 400) { const bt = fs.batch(); hold.slice(i, i + 400).forEach(u => bt.update(usersCol.doc(u.id), { notice: FV.delete() })); await bt.commit(); }
@@ -3443,7 +3443,7 @@ function partyModule(H) {
     const qv = String(A.PQ.v || '').trim().toLowerCase();
     const rows = AROWS.filter(p => !qv || [p.name, p.dmName, H.nameOf(p.dm), p.dm].some(x => String(x || '').toLowerCase().includes(qv))).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
     const cnt = B().querySelector('#ad-pq-n'); if (cnt) cnt.textContent = rows.length + ' of ' + plural(AROWS.length, 'party').replace('partys', 'parties');
-    l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t"><thead><tr><th>Party</th><th>DM</th><th>Characters</th><th>My access</th><th>Updated</th><th>Created</th><th></th></tr></thead><tbody>${rows.map(p => { const a = accessOf(p);
+    l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t pt-t"><thead><tr><th>Party</th><th>DM</th><th>Characters</th><th>My access</th><th>Updated</th><th>Created</th><th></th></tr></thead><tbody>${rows.map(p => { const a = accessOf(p);
       return `<tr><td><a class="adm-char" href="${esc(URLS.party(p.id, p.name))}">${p.pic ? `<img class="hc-pic pty-admic" src="${esc(p.pic)}" alt="">` : `<span class="hc-pic hc-nopic pty-admic">${IC_PARTY}</span>`}<span><b>${esc(p.name || 'Unnamed party')}</b><small>${(p.invited || []).length ? plural(p.invited.length, 'invitation') + ' open' : plural((p.people || []).length, 'person').replace('persons', 'people')}</small></span></a></td>
         <td><button class="adm-who adm-dmbtn" data-pdm="${esc(p.id)}" title="Change the DM">${A.ava(H.nameOf(p.dm || ''), p.dm)}<span>${esc(p.dmName || H.nameOf(p.dm || '') || '—')}</span></button></td><td>${(p.chars || []).length}</td>
         <td>${a === 'dm' ? '<span class="adm-tag r-own">You’re the DM</span>' : `<select class="adm-sel" data-pacc="${esc(p.id)}" aria-label="My access"><option value="">None</option><option value="view"${a === 'view' ? ' selected' : ''}>In my list</option><option value="codm"${a === 'codm' ? ' selected' : ''}>Co-DM</option></select>`}</td>

@@ -2159,3 +2159,24 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 .us-t .us-em { display: none; color: var(--adm-dim); font-size: .76rem; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; }
 @container (max-width: 1060px) { .us-t th:nth-child(2), .us-t td.adm-mail { display: none; } .us-t .us-em { display: block; } }
 @container (max-width: 880px) { .us-t th:nth-child(4), .us-t tbody > tr:not(.adm-subrow) > td:nth-child(4) { display: none; } }
+/* ===== Admin tables at any width: dates, names and buttons stay on one line; less important columns step aside when it's narrow ===== */
+.adm-tw { container-type: inline-size; }
+.adm-when, .adm-t td.adm-act, .adm-t td.nt-acts, .bg-t td.bg-where { white-space: nowrap; }
+.adm-t .adm-who b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+.adm-t .adm-who > span { min-width: 0; }
+.adm-t .adm-who small.adm-mail { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 210px; }
+@container (max-width: 1000px) {
+  .ch-t th:nth-child(5), .ch-t tbody > tr:not(.adm-subrow) > td:nth-child(5),
+  .pt-t th:nth-child(6), .pt-t tbody > tr:not(.adm-subrow) > td:nth-child(6),
+  .bg-t th:nth-child(4), .bg-t td.bg-where,
+  .nt-t th:nth-child(3), .nt-t tbody > tr:not(.adm-subrow) > td:nth-child(3) { display: none; }
+  .bg-t td.nt-acts .adm-btn, .nt-t td.nt-acts .adm-btn { display: flex; justify-content: center; width: 100%; margin: 0 0 6px; }
+}
+@container (max-width: 720px) {
+  .pt-t th:nth-child(5), .pt-t tbody > tr:not(.adm-subrow) > td:nth-child(5),
+  .ch-t th:nth-child(4), .ch-t tbody > tr:not(.adm-subrow) > td:nth-child(4) { display: none; }
+}
+@container (max-width: 1000px) {
+  .bg-t .adm-who small.adm-mail { display: none; }
+  .bg-t td.nt-acts .adm-btn, .nt-t td.nt-acts .adm-btn { display: flex !important; width: 100% !important; margin: 0 0 6px !important; }
+}
