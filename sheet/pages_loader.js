@@ -2278,12 +2278,12 @@ function hub(fs, auth, G, ctx) {
       let t = null; const q = el.querySelector('#au-q');
       q.oninput = () => { clearTimeout(t); t = setTimeout(() => { AF.q = q.value; paintAudit(); }, 150); };
       // The log is live: new events slide in as they happen (it only keeps the past week, so all of it is here).
-      if (!ALIVE) ALIVE = auditCol.orderBy('at', 'desc').limit(1500).onSnapshot(qs => { AROWS = docs(qs); AFULL = false; if (TAB === 'audit') paintAudit(); }, x => { const l = B().querySelector('#au-l'); if (l) l.innerHTML = failMsg(x); });
+      if (!ALIVE) ALIVE = auditCol.orderBy('at', 'desc').limit(1500).onSnapshot(qs => { AROWS = docs(qs); AFULL = false; if (TAB === 'audit') paintAudit(); needNames(AROWS.map(e => e.by)).then(() => { if (TAB === 'audit') paintAudit(); }, () => {}); }, x => { const l = B().querySelector('#au-l'); if (l) l.innerHTML = failMsg(x); });
       else paintAudit();
     }
     function paintAuSels() { const box = B() && B().querySelector('#au-sels'); if (!box) return;
       const seen = new Set((AROWS || []).map(e => e.by)), people = (APEOPLE || []).filter(u => seen.has(u.id) || AF.who.includes(u.id));
-      (AROWS || []).forEach(e => { if (!people.some(u => u.id === e.by)) people.push({ id: e.by, name: e.byName }); });
+      (AROWS || []).forEach(e => { if (!people.some(u => u.id === e.by)) people.push({ id: e.by, name: actorName(e) }); });
       people.sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
       const actOpts = [['', 'All']].concat(AGROUPS.flatMap(([g, ks]) => [['g:' + esc(g), esc(g)]].concat(ks.map(a => [a, ' ' + esc(actLabel(a))]))));
       box.innerHTML = fsel('au-range', 'Date', AU_RANGES.filter(r => r[0] !== 'custom').map(([v, t]) => [v, esc(t)]), AF.range === 'custom' ? '' : AF.range)
@@ -2342,8 +2342,9 @@ function hub(fs, auth, G, ctx) {
     function auFiltered() {
       const [from, to] = auRange(), qq = AF.q.trim().toLowerCase();
       return AROWS.filter(e => (!AF.act.length || AF.act.includes(e.act)) && (!AF.who.length || AF.who.includes(e.by)) && (!from || e.at >= from) && (!to || e.at <= to)
-        && (!qq || [e.byName, e.by, e.tName, e.target, e.detail, ACTS[e.act]].some(x => String(x || '').toLowerCase().includes(qq))));
+        && (!qq || [actorName(e), e.byName, e.by, e.tName, e.target, e.detail, ACTS[e.act]].some(x => String(x || '').toLowerCase().includes(qq))));
     }
+    function actorName(e) { return (US[e.by] && US[e.by].name) || NAMES[e.by] || e.byName || e.by; } // (their name now: a rename shows on older entries too)
     function paintAudit() { if (window.pgReady && (typeof UROWS === 'undefined' || UROWS.length || AROWS.length)) setTimeout(window.pgReady, 60);
       const l = B() && B().querySelector('#au-l'); if (!l || !AROWS) return;
       const rows = auFiltered();
@@ -2361,14 +2362,14 @@ function hub(fs, auth, G, ctx) {
         if (e.act === 'picture' || e.act === 'user_picture') d = 'Now using ' + (PICM[d] || d);
         if (e.act === 'party_dm') d = d.replace(/^DM is now /, 'New DM: ');
         d = d.replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, em => NAMES[em] || em); return d[0].toUpperCase() + d.slice(1); };
-      const det = e => `<dl class="au-dl"><dt>Date</dt><dd>${esc(new Date(e.at).toLocaleString())}</dd><dt>Actor</dt><dd>${esc(e.byName || '—')} <span class="adm-dim">${esc(e.by)}</span></dd>
+      const det = e => `<dl class="au-dl"><dt>Date</dt><dd>${esc(new Date(e.at).toLocaleString())}</dd><dt>Actor</dt><dd>${esc(actorName(e) || '—')} <span class="adm-dim">${esc(e.by)}</span></dd>
           <dt>Activity</dt><dd>${esc(ACTS[e.act] || e.act)} <span class="au-cat">${esc(grpOf(e.act))}</span></dd>${e.target ? `<dt>${CHAR_ACTS.has(e.act) ? 'Character' : 'Target'}</dt><dd>${CHAR_ACTS.has(e.act) && e.act !== 'delete' && e.act !== 'remove' ? `<a href="${esc(URLS.byId(e.target))}">${esc(e.tName || e.target)}</a>` : esc(e.tName || e.target)}</dd>` : ''}
           ${e.detail ? `<dt>Details</dt><dd class="au-dd">${esc(nice(e))}</dd>` : ''}<dt>Event ID</dt><dd class="adm-dim au-id">${esc(e.id)}</dd></dl>`;
       const cnt = B().querySelector('#au-q-n'); if (cnt) cnt.textContent = rows.length + ' of ' + AROWS.length + ' event' + (AROWS.length === 1 ? '' : 's');
       if (!B().querySelector('#au-sels select:focus')) paintAuSels();
       l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t au-t2"><thead><tr><th>Date</th><th>Actor</th><th>Activity</th><th>Category</th><th></th></tr></thead><tbody>${rows.map(e => `<tr class="au-r${AOPEN[e.id] ? ' open' : ''}" data-id="${esc(e.id)}" tabindex="0" aria-expanded="${!!AOPEN[e.id]}">
           <td class="au-c-d"><span title="${esc(new Date(e.at).toLocaleString())}">${esc(ago(e.at))}</span><small>${esc(dt(e.at))}</small></td>
-          <td><span class="adm-who">${ava(e.byName || NAMES[e.by], e.by)}<b>${esc(e.byName || e.by)}</b></span></td>
+          <td><span class="adm-who">${ava(actorName(e), e.by)}<b>${esc(actorName(e))}</b></span></td>
           <td class="au-c-w"><div class="au-what">${what(e)}</div>${e.detail ? `<div class="au-sub">${esc(nice(e))}</div>` : ''}</td>
           <td><span class="adm-tag au-cat">${esc(grpOf(e.act))}</span></td>
           <td class="au-c-x"><button class="adm-btn sm" tabindex="-1">Details ${AOPEN[e.id] ? '▾' : '▸'}</button></td></tr>
@@ -2612,8 +2613,10 @@ async function ptyJoin(fs, EMAIL, pid, c, token, card) {
   // joining with a link that's for a set number of players: count this one, and the last one turns the link off
   let iv = null; if (token) { try { const d = await fs.collection('invites').doc(token).get(); iv = d.exists ? d.data() : null; } catch (e) {} }
   const last = iv && Number(iv.max) > 0 && Number(iv.used || 0) + 1 >= Number(iv.max);
-  await ref.update(Object.assign({ chars: FV.arrayUnion(c), people: FV.arrayUnion(EMAIL), invited: FV.arrayRemove(EMAIL), via: token || '', updatedAt: Date.now() }, last ? { inv: '' } : {}));
-  if (iv && Number(iv.max) > 0) await fs.collection('invites').doc(token).update({ used: FV.increment(1) }).catch(() => {});
+  // (a link for a set number of players counts this one in the same write, so it can't be skipped)
+  const jv = Object.assign({ chars: FV.arrayUnion(c), people: FV.arrayUnion(EMAIL), invited: FV.arrayRemove(EMAIL), via: token || '', updatedAt: Date.now() }, last ? { inv: '' } : {});
+  if (iv && Number(iv.max) > 0) { const bt = fs.batch(); bt.update(ref, jv); bt.update(fs.collection('invites').doc(token), { used: FV.increment(1) }); await bt.commit(); }
+  else await ref.update(jv);
   await ptySetSheetParty(fs, c, pid);
   if (card) await ref.collection('cards').doc(c).set(Object.assign({ owner: EMAIL, at: Date.now() }, card), { merge: true }).catch(() => {});
   try { const pd = await ref.get(), sd = await fs.collection('sheets').doc(c).get(); if (pd.exists && sd.exists && sd.data().owner === EMAIL) await ptyShareDM(fs, c, pd.data().dm, sd.data()); } catch (e) {}

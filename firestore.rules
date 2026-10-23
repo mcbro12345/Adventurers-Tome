@@ -145,13 +145,16 @@ service cloud.firestore {
     function lastChar() { return request.resource.data.chars[request.resource.data.chars.size() - 1]; }
     // Joining: one character of your own is added at the end, and you're added to the people who see the party.
     function joinOK() { let o = resource.data; let n = request.resource.data;
-      return n.diff(o).affectedKeys().hasOnly(['chars', 'people', 'invited', 'via', 'updatedAt', 'inv']) && (n.get('inv', '') == o.get('inv', '') || n.get('inv', '') == '')
+      return n.diff(o).affectedKeys().hasOnly(['chars', 'people', 'invited', 'via', 'updatedAt', 'inv'])
+        && (n.get('inv', '') == o.get('inv', '') || (n.get('inv', '') == '' && n.get('via', '') == o.get('inv', '') && o.get('inv', '') != '' && get(invAt(o.inv)).data.get('max', 0) > 0 && getAfter(invAt(o.inv)).data.get('used', 0) >= get(invAt(o.inv)).data.get('max', 0)))
         && n.chars.size() == o.chars.size() + 1 && n.chars == o.chars.concat([lastChar()]) && !(lastChar() in o.chars) && ownsSheet(lastChar())
         && n.people.removeAll(o.people).hasOnly([me()]) && o.people.removeAll(n.people).size() == 0
         && (n.invited == o.invited || n.invited == o.invited.removeAll([me()]))
         && (me() in o.invited || partyMgr(o) || (n.via is string && n.via != '' && n.via == o.inv && linkOK(o.inv))); }
-    // An invite link with a set number of players stops working once that many have joined with it.
-    function linkOK(code) { let iv = get(/databases/$(db)/documents/invites/$(code)).data; return iv.get('max', 0) == 0 || iv.get('used', 0) < iv.get('max', 0); }
+    function invAt(code) { return /databases/$(db)/documents/invites/$(code); }
+    // An invite link with a set number of players stops working once that many have joined with it: joining with it counts
+    // the player in the same write (and only the last one to join may turn the link off).
+    function linkOK(code) { let iv = get(/databases/$(db)/documents/invites/$(code)).data; return iv.get('max', 0) == 0 || (iv.get('used', 0) < iv.get('max', 0) && getAfter(/databases/$(db)/documents/invites/$(code)).data.get('used', 0) == iv.get('used', 0) + 1); }
     // Leaving: take one of your own characters out (n.gone says which), and optionally yourself off the list.
     function leaveOK() { let o = resource.data; let n = request.resource.data;
       return n.diff(o).affectedKeys().hasOnly(['chars', 'people', 'gone', 'updatedAt']) && n.gone is string && n.gone in o.chars && ownsSheet(n.gone)
@@ -166,9 +169,13 @@ service cloud.firestore {
     // party to a new DM.
     // The DM can also add a character that's been shared with them (one at a time); its player then sees the party.
     function seesSheet(c) { let d = get(/databases/$(db)/documents/sheets/$(c)).data; return d.owner == me() || me() in d.get('viewers', []); }
-    function mgrOK() { let o = resource.data; let n = request.resource.data; let add = n.chars.removeAll(o.chars);
+    // Who the DM can put on the list (it decides who reads the players' chat): the player of a character being added, or a
+    // new co-DM (co-DMs never read the chat). A co-DM who's taken off comes off the list too.
+    function mgrOK() { let o = resource.data; let n = request.resource.data; let add = n.chars.removeAll(o.chars); let addP = n.people.removeAll(o.people);
       return partyMgr(o) && n.by == o.by && n.dm == o.dm && (me() == o.dm || n.mgrs == o.mgrs)
-        && (add.size() == 0 || (add.size() == 1 && seesSheet(add[0]))); }
+        && (add.size() == 0 || (add.size() == 1 && seesSheet(add[0])))
+        && (addP.size() == 0 || (add.size() == 1 && addP.hasOnly([get(/databases/$(db)/documents/sheets/$(add[0])).data.owner])) || addP.hasOnly(n.get('mgrs', []).removeAll(o.get('mgrs', []))))
+        && !n.people.hasAny(o.get('mgrs', []).removeAll(n.get('mgrs', []))); }
     match /parties/{p} {
       allow get: if admin() || (signedIn() && (me() in resource.data.people || me() in resource.data.invited || partyMgr(resource.data)));
       allow list: if admin() || (signedIn() && (me() in resource.data.people || me() in resource.data.invited));
@@ -259,7 +266,9 @@ service cloud.firestore {
       allow list: if false;
       // someone who just joined with the link counts themselves (one at a time, never past its number of players)
       allow update: if signedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used']) && request.resource.data.used == resource.data.get('used', 0) + 1
-        && resource.data.get('max', 0) > 0 && resource.data.get('used', 0) < resource.data.max && me() in partyOf(resource.data.p).people;
+        && resource.data.get('max', 0) > 0 && resource.data.get('used', 0) < resource.data.max
+        && getAfter(/databases/$(db)/documents/parties/$(resource.data.p)).data.get('via', '') == t && me() in getAfter(/databases/$(db)/documents/parties/$(resource.data.p)).data.people
+        && getAfter(/databases/$(db)/documents/parties/$(resource.data.p)).data.chars.size() == partyOf(resource.data.p).chars.size() + 1;
       allow create, update: if admin() || (signedIn() && request.resource.data.keys().hasOnly(['p', 'name', 'dm', 'dmName', 'at', 'n', 'pic', 'max', 'used'])
         && request.resource.data.get('max', 0) is int && request.resource.data.get('max', 0) >= 0 && request.resource.data.get('max', 0) <= 50
         && (!('pic' in request.resource.data) || (request.resource.data.pic is string && request.resource.data.pic.size() < 300000))
