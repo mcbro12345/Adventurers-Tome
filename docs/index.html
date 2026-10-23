@@ -2285,6 +2285,14 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 .au-t2 .au-c-w { min-width: 150px; }
 @container (max-width: 1040px) { .au-t2 td.au-c-x, .au-t2 thead th:last-child { display: none; } }
 @container (max-width: 760px) { .au-t2 thead th:nth-child(4), .au-t2 td:has(> .au-cat) { display: none; } }
+/* Users list: dates and buttons stay on one line; when it's narrow the email moves under the name */
+.adm-tw:has(.us-t) { container-type: inline-size; }
+.us-t td:nth-child(4), .us-t td:nth-child(5), .us-t .adm-btn { white-space: nowrap; }
+.us-t td.adm-mail { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.us-t .us-nm { display: flex; flex-direction: column; min-width: 0; }
+.us-t .us-em { display: none; color: var(--adm-dim); font-size: .76rem; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; }
+@container (max-width: 1060px) { .us-t th:nth-child(2), .us-t td.adm-mail { display: none; } .us-t .us-em { display: block; } }
+@container (max-width: 880px) { .us-t th:nth-child(4), .us-t tbody > tr:not(.adm-subrow) > td:nth-child(4) { display: none; } }
 </style>
 </head>
 <body>
@@ -2908,7 +2916,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022210153', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.3ea29f5746c2.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.d993df07733c.html", "desk": "a/desk.aa11453429fa.js", "deskcss": "a/deskcss.a22ed732de5c.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022210714', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.3ea29f5746c2.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.d993df07733c.html", "desk": "a/desk.aa11453429fa.js", "deskcss": "a/deskcss.a22ed732de5c.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -4503,8 +4511,8 @@ function hub(fs, auth, G, ctx) {
         .sort((a, b) => (isOn(b) - isOn(a)) || (isOn(a) ? onRank(a) - onRank(b) : ((b.seenAt || 0) - (a.seenAt || 0))) || String(a.name || a.id).localeCompare(String(b.name || b.id)));
       const cnt = B().querySelector('#ad-uq-n'); if (cnt) cnt.textContent = rows.length + ' of ' + UROWS.length + ' user' + (UROWS.length === 1 ? '' : 's') + (UROWS.filter(isOn).length ? ' · ' + UROWS.filter(isOn).length + ' online' : '');
       const seen = u => isOn(u) ? (u.seenFg && Date.now() - u.seenFg > ONLINE ? '<span class="adm-online bg" title="Has Adventurer’s Tome open in a tab, but not on screen (another tab or app is in front, or the window is minimised)"><i></i><b>Online</b></span>' : '<span class="adm-online" title="Has Adventurer’s Tome open and on screen right now"><i></i><b>Online</b></span>') : u.seenAt ? esc(ago(u.seenAt)) : '<span class="adm-dim">—</span>';
-      l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Last active</th><th></th><th></th></tr></thead><tbody>${rows.map(u => { const [rl, rc] = u.banned ? ['Blocked', 'r-blk'] : roleOf(u.id), open = UOPEN.has(u.id);
-          return `<tr data-u="${esc(u.id)}"><td><span class="adm-who">${ava(u.name, u.id)}<b>${esc(u.name || '—')}</b></span></td><td class="adm-mail">${esc(u.id)}</td><td><span class="adm-tag ${rc}">${rl}</span></td><td>${when(u.createdAt)}</td><td>${seen(u)}</td>
+      l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t us-t"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Last active</th><th></th><th></th></tr></thead><tbody>${rows.map(u => { const [rl, rc] = u.banned ? ['Blocked', 'r-blk'] : roleOf(u.id), open = UOPEN.has(u.id);
+          return `<tr data-u="${esc(u.id)}"><td><span class="adm-who">${ava(u.name, u.id)}<span class="us-nm"><b>${esc(u.name || '—')}</b><small class="us-em">${esc(u.id)}</small></span></span></td><td class="adm-mail" title="${esc(u.id)}">${esc(u.id)}</td><td><span class="adm-tag ${rc}">${rl}</span></td><td>${when(u.createdAt)}</td><td>${seen(u)}</td>
             <td><button class="adm-btn sm" data-uc="${esc(u.id)}">Characters ${open ? '▾' : '▸'}</button></td><td class="adm-act">${kebab([['msg', 'Send a message…', u.id], ['welcome', 'Show welcome message again', u.id], ['renotice', 'Show the notice again', u.id], ['quiet', QUIET.has(u.id) ? 'Count in notice numbers' : 'Leave out of notice numbers', u.id], ['reload', 'Refresh their page', u.id], ['rename', 'Rename…', u.id], ['pic', 'Change picture…', u.id], ['newfor', 'New character for them', u.id]].concat(IS_OWNER && !ownerEm(u.id) ? [ADMINS.includes(u.id) ? ['unadmin', 'Remove admin', u.id] : ['mkadmin', 'Make admin', u.id]] : [], ownerEm(u.id) || u.id === EMAIL ? [] : [['signout', 'Sign out everywhere', u.id]].concat(u.banned ? [['unblock', 'Unblock', u.id]] : [], [['delacct', 'Delete account…', u.id, 'danger']])))}</td></tr>
             <tr class="adm-subrow" data-sub="${esc(u.id)}"${open ? '' : ' hidden'}><td colspan="7"></td></tr>`; }).join('')}</tbody></table></div>`
         : `<p class="adm-empty">${UROWS.length ? 'Nobody matches these filters.' : 'No accounts yet.'}</p>`;
