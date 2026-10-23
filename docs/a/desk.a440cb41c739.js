@@ -329,6 +329,8 @@ const ICON = {
   heart: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-10-9.3C.4 8.4 2.3 4 6.4 4 9 4 10.6 5.6 12 7.4 13.4 5.6 15 4 17.6 4 21.7 4 23.6 8.4 22 11.7 19.5 16.4 12 21 12 21z"/></svg>',
   init: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M4 12h7M4 18h4"/><path d="M18 5v14M15 16l3 3 3-3"/></svg>',
   book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg>',
+  notes: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9 9h6M9 12.5h6M9 16h3.5"/></svg>',
+  importIc: '<svg class="dk-nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2"/></svg>',
   folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
   trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>',
   refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>',
@@ -1354,7 +1356,7 @@ const condChips = (x, rm) => (x.conds || []).map(cd => `<span class="dk-chip con
 function econMini(x) { const t = turnOf(x), left = Math.max(0, moveMax(x) - N(t.mv)); return `<span class="dk-emini" title="This turn: action, bonus action, reaction, movement left">${ECON.map(([k, n]) => `<i class="${t[k] ? 'used' : ''}">${n[0]}</i>`).join('')}<i class="mv${left ? '' : ' used'}">${left}</i></span>`; }
 
 function render() {
-  if (!ROOT) return;
+  if (!ROOT) return; try { edFlush(); } catch (e) {}
   ROOT.querySelector('.dk-top').innerHTML = topHTML();
   { const lg = ROOT.querySelector('.dk-logo'); if (lg && CTX.logo && typeof CTX.logo.wire === 'function') try { CTX.logo.wire(lg); } catch (e) {} }
   paint(); paintDice(); try { pills(); } catch (e) {}
@@ -1363,9 +1365,9 @@ function topHTML() {
   const b = CTX.back, p = CTX.party;
   return `${b ? `<a class="dk-backlink" href="${esc(b.href)}">${ICON.back}<span>${esc(b.label || 'Back')}</span></a>` : ''}
     <div class="dk-brand">${CTX.logo && typeof CTX.logo.html === 'function' ? `<span class="dk-logo">${CTX.logo.html()}</span>` : '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 2 36 11v18L20 38 4 29V11z" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M20 2v36M4 11l32 18M36 11 4 29" stroke="currentColor" stroke-width="1.2" opacity=".55"/></svg>'}<div><small>${p ? esc(p.name || 'Your party') : 'Adventurer’s Tome'}</small><h1>DM’s Desk</h1></div></div>
-    <nav class="dk-tabs" role="tablist">${CTX.partyHost ? `<button role="tab" data-act="tab" data-tab="party" aria-selected="${UI.tab === 'party'}" class="${UI.tab === 'party' ? 'on' : ''}">${ICO_PARTY}<span>Party</span></button>` : ''}<button role="tab" data-act="tab" data-tab="sessions" aria-selected="${UI.tab === 'sessions'}" class="${UI.tab === 'sessions' ? 'on' : ''}">${ICON.folder}<span>Sessions</span></button><button role="tab" data-act="tab" data-tab="notes" aria-selected="${UI.tab === 'notes'}" class="${UI.tab === 'notes' ? 'on' : ''}">${nIcon('lore', '')}<span>Notes</span></button><button role="tab" data-act="tab" data-tab="bestiary" aria-selected="${UI.tab === 'bestiary'}" class="${UI.tab === 'bestiary' ? 'on' : ''}">${ICON.book}<span>Bestiary</span></button><button role="tab" data-act="tab" data-tab="gen" aria-selected="${UI.tab === 'gen'}" class="${UI.tab === 'gen' ? 'on' : ''}">${ICON.dice}<span>Generate</span></button></nav>
+    <nav class="dk-tabs" role="tablist">${CTX.partyHost ? `<button role="tab" data-act="tab" data-tab="party" aria-selected="${UI.tab === 'party'}" class="${UI.tab === 'party' ? 'on' : ''}">${ICO_PARTY}<span>Party</span></button>` : ''}<button role="tab" data-act="tab" data-tab="sessions" aria-selected="${UI.tab === 'sessions'}" class="${UI.tab === 'sessions' ? 'on' : ''}">${ICON.folder}<span>Sessions</span></button><button role="tab" data-act="tab" data-tab="notes" aria-selected="${UI.tab === 'notes'}" class="${UI.tab === 'notes' ? 'on' : ''}">${ICON.notes}<span>Notes</span></button><button role="tab" data-act="tab" data-tab="bestiary" aria-selected="${UI.tab === 'bestiary'}" class="${UI.tab === 'bestiary' ? 'on' : ''}">${ICON.book}<span>Bestiary</span></button><button role="tab" data-act="tab" data-tab="gen" aria-selected="${UI.tab === 'gen'}" class="${UI.tab === 'gen' ? 'on' : ''}">${ICON.dice}<span>Generate</span></button></nav>
     <div class="dk-tools"><button class="dk-tb dk-dicebtn" data-act="settings" data-k="dice" title="Dice settings"><span class="dk-dot"></span><span class="dk-dicelbl">Desk rolls</span></button>
-      ${p && typeof CTX.turnOrder === 'function' ? `<button class="dk-tb dk-tobtn" data-act="turnorder" title="Open the party’s Turn order">${ICON.init}<span class="dk-tl">Turn order</span></button>` : ''}<button class="dk-tb" data-act="diceroller" title="Dice roller" aria-pressed="${!!$('.drwin:not(.closing)')}">${ICON.dice}<span class="dk-tl">Roll</span></button>
+      ${p && typeof CTX.turnOrder === 'function' ? `<button class="dk-tb dk-tobtn" data-act="turnorder" title="Turn order" aria-label="Turn order">${ICON.init}</button>` : ''}<button class="dk-tb" data-act="diceroller" title="Dice roller" aria-pressed="${!!$('.drwin:not(.closing)')}">${ICON.dice}<span class="dk-tl">Roll</span></button>
       <button class="dk-tb" data-act="log" title="Roll log" aria-pressed="${UI.log}">${ICON.log}<span class="dk-tl">Log</span></button>
       <button class="dk-tb" data-act="settings" title="Settings">${ICON.gear}</button>${CTX && CTX.bugReport ? `<button class="dk-tb" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` : ''}</div>
     <span class="dk-sync">${esc(syncMsg)}</span>`;
@@ -1378,6 +1380,7 @@ function paintDice() {
 // Repaints the open page, keeping scroll positions and the field being typed in.
 let PAINTING = false, PAINT_AGAIN = false;
 function paint() {
+  try { edFlush(); } catch (e) {}
   if (!ROOT) return; const pg = $('.dk-page'); if (!pg) return;
   if (PAINTING) { if (!PAINT_AGAIN) { PAINT_AGAIN = true; setTimeout(() => { PAINT_AGAIN = false; paint(); }, 0); } return; }
   PAINTING = true; try { paint0(pg); } finally { PAINTING = false; }
@@ -2064,7 +2067,7 @@ function mount(root, ctx) {
   if (CTX.partyHost) { const slot = document.createElement('div'); slot.className = 'dk-partyslot'; root.insertBefore(slot, root.querySelector('.dk-page').nextSibling); slot.appendChild(CTX.partyHost); }
   render();
   try { const top = root.querySelector('.dk-top'), setH = () => root.style.setProperty('--toph', Math.round(top.getBoundingClientRect().height) + 'px'); setH(); if (window.ResizeObserver) { const ro = new ResizeObserver(setH); ro.observe(top); LISTEN.push([{ removeEventListener: () => ro.disconnect() }, 'x', null]); } } catch (e) {}
-  on(root, 'click', onClick); on(root, 'pointerdown', e => { mwDrag(e); if (e.target.closest && e.target.closest('.drwin')) ROOT.classList.add('dk-rfront'); else if (e.target.closest && e.target.closest('.dk-mcard')) ROOT.classList.remove('dk-rfront'); }); on(window, 'resize', () => { if (ROOT) ROOT.classList.toggle('dk-mw', mwDesk()); }); on(root, 'change', onChange); on(root, 'input', onInput);
+  on(root, 'click', onClick); on(root, 'dblclick', e => { if (e.target.closest && e.target.closest('.dk-nsplit')) { UI.nrw = 0; saveUI(); nrSet(NRW0); } }); on(root, 'keydown', nrKey); on(root, 'pointerdown', e => { mwDrag(e); nrDrag(e); if (e.target.closest && e.target.closest('.drwin')) ROOT.classList.add('dk-rfront'); else if (e.target.closest && e.target.closest('.dk-mcard')) ROOT.classList.remove('dk-rfront'); }); on(window, 'resize', () => { if (ROOT) ROOT.classList.toggle('dk-mw', mwDesk()); }); on(root, 'change', onChange); on(root, 'input', onInput);
   on(root, 'mousedown', e => { const t = e.target.closest && e.target.closest('[data-ed],[data-auto]'); if (!t) return; e.preventDefault(); if (t.dataset.ed) edCmd(t.dataset.ed); else edAutoPick(N(t.dataset.auto)); });
   on(root, 'paste', e => { if (e.target.closest && e.target.closest('.dk-ed')) edPaste(e); });
   on(root, 'dragstart', e => { onDragStart(e); if (DRAG) ROOT.classList.add('dk-dragon'); }); on(root, 'dragover', onDragOver); on(root, 'drop', e => { onDrop(e); ROOT.classList.remove('dk-dragon'); }); on(root, 'dragend', () => { DRAG = null; ROOT.classList.remove('dk-dragon'); $$('.dragging').forEach(x => x.classList.remove('dragging')); });
@@ -2703,25 +2706,26 @@ function notesFiltered() {
   L.sort(f === 'recent' || q ? (a, b) => (q ? (b.title.toLowerCase().includes(q) - a.title.toLowerCase().includes(q)) : 0) || N(b.edited) - N(a.edited) : (a, b) => a.title.localeCompare(b.title));
   return f === 'recent' ? L.slice(0, 30) : L;
 }
-function snippet(p, q) { const t = pageText(p); if (!q) return esc(t.slice(0, 110)); const i = t.toLowerCase().indexOf(q.toLowerCase()); if (i < 0) return esc(t.slice(0, 110)); const a = Math.max(0, i - 40); return (a ? '…' : '') + esc(t.slice(a, i)) + '<mark>' + esc(t.slice(i, i + q.length)) + '</mark>' + esc(t.slice(i + q.length, i + q.length + 70)); }
+const cut = (t, n) => t.length <= n ? t : t.slice(0, n).replace(/\s+\S*$/, '') + '…';
+function snippet(p, q) { const t = pageText(p); if (!q) return esc(cut(t, 160)); const i = t.toLowerCase().indexOf(q.toLowerCase()); if (i < 0) return esc(cut(t, 160)); const a = Math.max(0, i - 40); return (a ? '…' : '') + esc(t.slice(a, i)) + '<mark>' + esc(t.slice(i, i + q.length)) + '</mark>' + esc(t.slice(i + q.length, i + q.length + 70)); }
 function treeHTML(pid, depth) {
   return kids(pid).map(p => { const ks = kids(p.id), open = UI.nopen[p.id] || isAncestor(p.id, UI.np);
     return `<div class="dk-nt" data-nid="${p.id}"><div class="dk-ntrow${p.id === UI.np ? ' on' : ''}" draggable="true" data-drag="${p.id}" style="--d:${depth}">${ks.length ? `<button class="dk-caret${open ? ' open' : ''}" data-act="ntoggle" data-id="${p.id}" aria-label="${open ? 'Collapse' : 'Expand'}">${ICON.caret}</button>` : '<span class="dk-ntsp"></span>'}<button class="dk-ntn" data-act="nopen" data-id="${p.id}">${nIcon(p.type, '', p.color)}<span>${esc(p.title)}</span>${p.fav ? '<i class="dk-star">★</i>' : ''}</button></div>${ks.length && open ? treeHTML(p.id, depth + 1) : ''}</div>`; }).join('');
 }
 function notesRailHTML() {
   const res = notesFiltered(), f = UI.nf || 'all', tags = allTags(), q = String(UI.nq || '').trim();
-  return `<div class="dk-railhd"><span>Notes</span><div class="dk-menu"><button class="dk-btn sm gold" data-act="menu" aria-haspopup="menu">${ICON.plus} New</button><div class="dk-mlist" role="menu">${Object.entries(NTYPES).map(([k, t]) => `<button data-act="nnew" data-t="${k}">${nIcon(k)} ${esc(t.n)}</button>`).join('')}<button data-act="nimport">Import…</button></div></div><button class="dk-ix dk-railx" data-act="tree" aria-label="Close">${ICON.x}</button></div>
+  return `<div class="dk-railhd"><span>Notes</span><div class="dk-menu"><button class="dk-btn sm gold" data-act="menu" aria-haspopup="menu">${ICON.plus} New</button><div class="dk-mlist" role="menu">${Object.entries(NTYPES).map(([k, t]) => `<button data-act="nnew" data-t="${k}">${nIcon(k)}<span>${esc(t.n)}</span></button>`).join('')}<button data-act="nimport">${ICON.importIc}<span>Import…</span></button></div></div><button class="dk-ix dk-railx" data-act="tree" aria-label="Close">${ICON.x}</button></div>
     <div class="dk-nsearch"><input class="dk-f" id="dk-nq" type="search" value="${esc(UI.nq || '')}" placeholder="Search ${plural(pagesList().length, 'page')}" aria-label="Search notes" autocomplete="off"></div>
     <div class="dk-nfilt">${[['all', 'All'], ['fav', '★ Pinned'], ['recent', 'Recent'], ['maps', 'Maps']].map(([k, n]) => `<button class="${f === k ? 'on' : ''}" data-act="nfilt" data-v="${k}">${n}</button>`).join('')}${tags.length ? `<select class="dk-f" id="dk-ntag" aria-label="Tag"><option value="">#tag</option>${tags.map(t => `<option${f === 'tag' && UI.ntag === t ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>` : ''}</div>
     <div class="dk-tree dk-ntree" data-keep="ntree">${res ? (res.length ? res.map(p => `<button class="dk-nres${p.id === UI.np ? ' on' : ''}" data-act="nopen" data-id="${p.id}">${nIcon(p.type)}<span><b>${esc(p.title)}</b><small>${q ? snippet(p, q) : relTime(p.edited)}</small></span></button>`).join('') : '<p class="dk-tnone">Nothing found.</p>')
       : (pagesList().length ? treeHTML('', 0) + '<div class="dk-ntdrop" data-dropend="1">Drop here to move to the top level</div>' : '<p class="dk-tnone">No pages yet</p>')}</div>
-    <div class="dk-nrailft"><button class="dk-btn sm ghost" data-act="ntimeline">${nIcon('event')} Timeline</button><button class="dk-btn sm ghost" data-act="nimport">Import</button><button class="dk-btn sm ghost" data-act="nexport">Export</button></div>`;
+    <div class="dk-nrailft"><button class="dk-btn sm ghost" data-act="nimport">Import</button><button class="dk-btn sm ghost" data-act="nexport">Export</button></div>`;
 }
 function notesHTML() {
-  const p = UI.nview === 'timeline' ? null : pageById(UI.np);
-  return `<div class="dk-sess dk-notesv"><div class="dk-scrim" data-act="tree"></div><nav class="dk-rail" aria-label="Notes">${notesRailHTML()}</nav>
-    <main class="dk-main"><div class="dk-pbar"><button class="dk-btn" data-act="tree">${ICON.menu}<span>${p ? esc(pathOf(p).map(x => x.title).join(' › ')) : UI.nview === 'timeline' ? 'Timeline' : 'All pages'}</span></button></div>
-    ${UI.nview === 'timeline' ? timelineHTML() : p ? pageHTML(p) : notesHomeHTML()}</main></div>`;
+  const p = pageById(UI.np);
+  return `<div class="dk-sess dk-notesv" style="--nrw:${nrW()}px"><div class="dk-scrim" data-act="tree"></div><nav class="dk-rail" aria-label="Notes">${notesRailHTML()}</nav><div class="dk-nsplit" role="separator" aria-orientation="vertical" aria-label="Page list width (drag, or use the arrow keys; double-click to reset)" tabindex="0" title="Drag to resize · double-click to reset"></div>
+    <main class="dk-main"><div class="dk-pbar"><button class="dk-btn" data-act="tree">${ICON.menu}<span>${p ? esc(pathOf(p).map(x => x.title).join(' › ')) : 'All pages'}</span></button></div>
+    ${p ? pageHTML(p) : notesHomeHTML()}</main></div>`;
 }
 function notesHomeHTML() {
   const recent = pagesList().sort((a, b) => N(b.edited) - N(a.edited)).slice(0, 8), favs = pagesList().filter(p => p.fav);
@@ -2760,12 +2764,6 @@ function pageHTML(p) {
     <section class="dk-back"><span class="dk-lbl">Mentioned in</span>${back.length ? back.map(o => `<button class="dk-chip wlc" data-act="nopen" data-id="${o.id}">${nIcon(o.type)} ${esc(o.title)}</button>`).join(' ') : '<span class="dk-hint">No other page links here yet.</span>'}</section></article>
     <div class="dk-pop" hidden></div>`;
 }
-function timelineHTML() {
-  const ev = pagesList().filter(p => p.type === 'event').sort((a, b) => N((a.props || {}).sort) - N((b.props || {}).sort) || N(a.created) - N(b.created));
-  return `<section class="dk-card dk-tline"><div class="dk-row" style="justify-content:space-between"><h2 class="dk-h2">Timeline</h2><button class="dk-btn sm gold" data-act="nnew" data-t="event">${ICON.plus} New event</button></div>
-    ${ev.length ? `<ol class="dk-tlist">${ev.map(p => { const links = [...String(p.html).matchAll(/data-page="(p[a-z0-9]+)"/g)].map(m => pageById(m[1])).filter(Boolean); return `<li><span class="dk-tldot"></span><div><small>${esc((p.props || {}).when || 'Undated')}</small><button class="dk-link" data-act="nopen" data-id="${p.id}">${esc(p.title)}</button><p>${snippet(p)}</p>${links.length ? `<div class="dk-row">${links.slice(0, 6).map(l => `<button class="dk-chip wlc" data-act="nopen" data-id="${l.id}">${nIcon(l.type)} ${esc(l.title)}</button>`).join('')}</div>` : ''}</div></li>`; }).join('')}</ol>`
-      : '<p class="dk-hint">Make Event pages with an in-world date (“3rd of Mirtul, 1492”) and a sort number, and they line up here.</p>'}</section>`;
-}
 // ----- after drawing: pictures, chips, map -----
 function notesAfterPaint() {
   if (UI.tab !== 'notes') return;
@@ -2778,11 +2776,14 @@ function notesAfterPaint() {
 let EDT = 0;
 const edFix = h => { h = String(h || '').replace(/<(p|li|h[123]|td|th)><\/\1>/g, '<$1><br></$1>'); return h.trim() ? h : '<p><br></p>'; };
 function edEl() { return $('.dk-ed'); }
+let ED_PENDING = false;
 function edSave(now) {
   const ed = edEl(), p = pageById(UI.np); if (!ed || !p) return;
-  clearTimeout(EDT); const go = () => { const h = clean(ed.innerHTML); if (h !== p.html) { p.html = h; nSave(p); } };
-  if (now) go(); else EDT = setTimeout(go, 500);
+  clearTimeout(EDT); const go = () => { ED_PENDING = false; const h = clean(ed.innerHTML); if (h !== p.html) { p.html = h; nSave(p); } };
+  if (now) go(); else { ED_PENDING = true; EDT = setTimeout(go, 500); }
 }
+// anything that redraws the page first keeps what was just typed (or a link/mention just picked) in the editor
+function edFlush() { if (ED_PENDING) edSave(true); }
 const selRange = () => { const s = getSelection(); return s && s.rangeCount ? s.getRangeAt(0) : null; };
 function blockOf(node) { const ed = edEl(); let n = node && node.nodeType === 3 ? node.parentNode : node; while (n && n !== ed && !/^(P|H1|H2|H3|LI|BLOCKQUOTE|DIV|PRE|TD|TH|SUMMARY)$/.test(n.tagName)) n = n.parentNode; return n && n !== ed ? n : null; }
 function edCmd(k) {
@@ -2880,6 +2881,18 @@ function movePage(id, parent, at) {
   sib.splice(idx, 0, p); sib.forEach((x, i) => { if (x.order !== i + 1) { x.order = i + 1; nSave(x); } });
   if (parent) UI.nopen[parent] = true; nSave(p); paint();
 }
+
+// the divider between the page list and the page: drag it (or arrow keys); the width is remembered on this device
+const NRW0 = 290, nrClamp = w => Math.round(Math.max(180, Math.min(w, Math.min(640, innerWidth - 420))));
+const nrW = () => nrClamp(N(UI.nrw) || NRW0);
+function nrSet(w, keep) { const v = $('.dk-notesv'); w = nrClamp(w); if (v) v.style.setProperty('--nrw', w + 'px'); if (keep) { UI.nrw = w; saveUI(); } return w; }
+function nrDrag(e) {
+  const sp = e.target.closest && e.target.closest('.dk-nsplit'); if (!sp || e.button > 0) return; e.preventDefault();
+  const v = $('.dk-notesv'), x0 = v.getBoundingClientRect().left; let w = nrW(); sp.classList.add('on'); document.body.style.cursor = 'col-resize'; ROOT.classList.add('dk-resizing');
+  const mv = ev => { w = nrSet(ev.clientX - x0); }, up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); sp.classList.remove('on'); document.body.style.cursor = ''; ROOT.classList.remove('dk-resizing'); nrSet(w, true); };
+  addEventListener('pointermove', mv); addEventListener('pointerup', up);
+}
+function nrKey(e) { const sp = e.target.closest && e.target.closest('.dk-nsplit'); if (!sp) return false; const d = e.key === 'ArrowLeft' ? -16 : e.key === 'ArrowRight' ? 16 : 0; if (!d) return false; e.preventDefault(); nrSet(nrW() + d, true); return true; }
 // ---------- Atlas: map pages with pins (pan, zoom, pins linking to pages; a pin to another map opens it) ----------
 const MAPV = {}; // pageId -> {s, x, y} view
 const PIN_COLORS = ['#c9962b', '#b6402d', '#2f8a57', '#2f6ca8', '#7a4fb8', '#1f2a44', '#d9732f', '#ffffff'];
@@ -3268,7 +3281,6 @@ function onNotesAct(act, b, e) {
     case 'nimport': openImport(); return true;
     case 'nexport': openModal(`<h2>Export notes</h2><p class="dk-hint">Download all ${plural(pagesList().length, 'page')}.</p><div class="dk-row"><button class="dk-btn gold" id="dk-exMd">Markdown (.zip)</button><button class="dk-btn" id="dk-exJs">Backup (.json)</button></div><p class="dk-hint">Markdown opens in Obsidian and most note apps. The backup brings everything back into the desk, pictures included.</p><div class="dk-acts"><button class="dk-btn" data-act="close">Close</button></div>`, { focus: false });
       $('#dk-exMd').onclick = () => { closeModal(true); exportNotes('md').catch(x => toastInfo(esc(x.message))); }; $('#dk-exJs').onclick = () => { closeModal(true); exportNotes('json'); }; return true;
-    case 'ntimeline': UI.nview = 'timeline'; UI.tree = false; saveUI(); paint(); return true;
     case 'pinclose': { const pp = $('.dk-pinpop'); if (pp) pp.hidden = true; return true; }
   }
   if (!p) return false;

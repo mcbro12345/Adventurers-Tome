@@ -1219,3 +1219,7 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 .dk-tabs button:not(.on) svg { color: inherit !important; stroke: currentColor; }
 .dk-tabs button:not(.on) svg [stroke]:not([stroke=none]) { stroke: currentColor; }
 @supports (text-box: trim-both cap alphabetic) { @media (min-width: 641px) { .dk-tabs button { padding-top: 10px; padding-bottom: 10px; } } }
+/* menus: each icon sits on the middle of its label */
+.dk-mlist button { display: flex !important; align-items: center; gap: 8px; }
+.dk-mlist button > svg { flex: none; display: block; }
+.dk-mlist button > span { line-height: 1; text-box: trim-both cap alphabetic; }
