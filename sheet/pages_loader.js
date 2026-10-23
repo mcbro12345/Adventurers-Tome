@@ -242,6 +242,14 @@ function pgPillWire(el) { let st = null;
   let raf = 0; const soon = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(all); };
   addEventListener('resize', soon); addEventListener('pointerup', () => setTimeout(all, 30), true); setInterval(all, 700);
   window.pgKeepWindows = all; })();
+// Lists that scroll inside a panel or window (the Log, Settings, the turn order, party chat and lists, admin menus) show
+// a divider with a soft shadow at an edge when there's more past it.
+(() => { if (window.__pgShade) return; window.__pgShade = 1;
+  const SEL = '.rl-list, .setx, .to-list, .to-dkl, .ptylog, .ptygive, .ptycast, .ptychat-l, .adm-nav, .pa-body, .au-opts, #tipbox';
+  const one = el => { const t = el.scrollTop > 2, b = el.scrollTop + el.clientHeight < el.scrollHeight - 2; el.classList.add('pg-shade'); el.classList.toggle('sc-t', t); el.classList.toggle('sc-b', b); };
+  const all = () => document.querySelectorAll(SEL).forEach(one);
+  document.addEventListener('scroll', e => { const el = e.target; if (el && el.matches && el.matches(SEL)) one(el); }, true);
+  addEventListener('resize', () => requestAnimationFrame(all)); setInterval(all, 900); })();
 // Desktop: the site's pop-ups (lobby, party page, admin) are floating windows like the dice roller and chat: a title bar
 // to drag and a ✕, with the page behind still usable.
 const pgMwDesk = () => innerWidth > 640 && !document.documentElement.classList.contains('mobile');

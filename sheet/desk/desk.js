@@ -1123,6 +1123,7 @@ function paint0(pg) {
   if (Math.abs(scrollY - y) > 2) scrollTo(scrollX, y);
   ROOT.classList.toggle('dk-tree-open', !!UI.tree); if (ROOT.dataset.tab !== (UI.tab || '') && ['notes', 'sessions', 'bestiary'].includes(UI.tab) && innerWidth > 900) scrollTo(0, 0); ROOT.dataset.tab = UI.tab || '';
   try { pills(); animView(pg); } catch (e) {}
+  try { requestAnimationFrame(shadeAll); } catch (e) {}
 }
 function flashHP(iid, k) { requestAnimationFrame(() => $$(`[data-hpflash="${iid}"]`).forEach(el => { el.classList.remove('hurt', 'heal'); void el.offsetWidth; el.classList.add(k); })); }
 
@@ -1801,6 +1802,13 @@ function mount(root, ctx) {
   return { unmount };
 }
 function unmount() { LISTEN.splice(0).forEach(([t, ev, fn, o]) => t.removeEventListener(ev, fn, o)); if (CTX && CTX.partyHost && CTX.partyHost.parentNode && CTX.partyHost.parentNode.classList.contains('dk-partyslot')) CTX.partyHost.parentNode.removeChild(CTX.partyHost); if (CLOUD) flush(); if (NCLOUD) flushNotes(); if (ROOT) { ROOT.innerHTML = ''; ROOT.classList.remove('dk'); } ROOT = null; CLOUD = false; }
+// Lists that scroll inside a panel show a divider with a soft shadow at an edge when there's more past it.
+const SHADE_SEL = '.dk-tree, .dk-mlist2, .dk-auto, .dk-itree, .dk-setwin .dk-setx, .dk-loglist';
+function shadeOne(el) { const t = el.scrollTop > 2, b = el.scrollTop + el.clientHeight < el.scrollHeight - 2; el.classList.add('dk-shade'); el.classList.toggle('sc-t', t); el.classList.toggle('sc-b', b); }
+function shadeAll() { if (!ROOT) return; $$(SHADE_SEL).forEach(shadeOne); }
+document.addEventListener('scroll', e => { const el = e.target; if (el && el.matches && ROOT && ROOT.contains(el) && el.matches(SHADE_SEL)) shadeOne(el); }, true);
+addEventListener('resize', () => requestAnimationFrame(shadeAll));
+setInterval(shadeAll, 1000);
 // ---------- AI (bring your own key) ----------
 // Safety: the model gets no tools and its output is inert data. Replies are parsed as JSON, checked field by field against a
 // fixed shape (unknown keys dropped, types coerced, lengths and counts capped) and only ever shown escaped as text. Nothing
