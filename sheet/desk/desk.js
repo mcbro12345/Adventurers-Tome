@@ -1121,7 +1121,7 @@ function paint0(pg) {
   $$('[data-keep]').forEach(el => { if (keep[el.dataset.keep]) el.scrollTop = keep[el.dataset.keep]; });
   if (fid) { const el = document.getElementById(fid); if (el && el !== document.activeElement) { el.focus({ preventScroll: true }); if (sel) try { el.setSelectionRange(sel[0], sel[1]); } catch (e) {} } }
   if (Math.abs(scrollY - y) > 2) scrollTo(scrollX, y);
-  ROOT.classList.toggle('dk-tree-open', !!UI.tree); if (ROOT.dataset.tab !== (UI.tab || '') && UI.tab === 'notes' && innerWidth > 900) scrollTo(0, 0); ROOT.dataset.tab = UI.tab || '';
+  ROOT.classList.toggle('dk-tree-open', !!UI.tree); if (ROOT.dataset.tab !== (UI.tab || '') && ['notes', 'sessions', 'bestiary'].includes(UI.tab) && innerWidth > 900) scrollTo(0, 0); ROOT.dataset.tab = UI.tab || '';
   try { pills(); animView(pg); } catch (e) {}
 }
 function flashHP(iid, k) { requestAnimationFrame(() => $$(`[data-hpflash="${iid}"]`).forEach(el => { el.classList.remove('hurt', 'heal'); void el.offsetWidth; el.classList.add(k); })); }
@@ -1134,7 +1134,7 @@ function sessionsHTML() {
   return `<div class="dk-sess">
     <div class="dk-scrim" data-act="tree"></div>
     <nav class="dk-rail" aria-label="Sessions">${railHTML(s)}</nav>
-    <main class="dk-main">${s ? `${phoneBar(s, sel)}${sel ? detailHTML(sel, s) : UI.sv === 'plan' ? sessHead(s, true) + planHTML(s) : overviewHTML(s)}` : emptyHTML()}</main></div>`;
+    <main class="dk-main" data-keep="smain-${s ? s.id : ''}-${UI.sel || ''}-${UI.sv || ''}">${s ? `${phoneBar(s, sel)}${sel ? detailHTML(sel, s) : UI.sv === 'plan' ? sessHead(s, true) + planHTML(s) : overviewHTML(s)}` : emptyHTML()}</main></div>`;
 }
 function emptyHTML() {
   return `<div class="dk-empty"><div class="dk-emblem">${ICON.folder}</div><h2>Your first session</h2><p>A session is a folder of the creatures you’ll run: tracked HP, conditions and turns, with every attack, save and spell one click away.</p><button class="dk-btn gold big" data-act="newsess">${ICON.plus} New session</button></div>`;
@@ -1206,7 +1206,7 @@ function hpRing(x) { const max = Math.max(1, N(x.max)), cur = Math.max(0, Math.m
   return `<svg viewBox="0 0 120 120" aria-hidden="true"><circle class="rt" cx="60" cy="60" r="${r}"/><circle class="rf${cur / max <= .35 ? ' low' : ''}" cx="60" cy="60" r="${r}" stroke-dasharray="${a.toFixed(1)} ${C.toFixed(1)}"/>${tmp ? `<circle class="rtmp" cx="60" cy="60" r="${r}" stroke-dasharray="${b.toFixed(1)} ${C.toFixed(1)}" stroke-dashoffset="${(-a).toFixed(1)}"/>` : ''}</svg>`; }
 function detailHTML(x, s) {
   const c = instC(x), others = sessionInsts(s).filter(y => y.iid !== x.iid), t = turnOf(x), mm = moveMax(x), left = Math.max(0, mm - N(t.mv)), p = hpPct(x), into = CTX.party && inTurn(x.iid);
-  const tracker = `<section class="dk-card dk-track" data-iid="${x.iid}">
+  const tracker = `<section class="dk-card dk-track" data-iid="${x.iid}" data-keep="track-${x.iid}">
     <div class="dk-trhd"><button class="dk-btn ghost sm" data-act="unsel">${ICON.back}<span>All creatures</span></button><span class="dk-grow"></span>
       ${CTX.party ? `<button class="dk-btn sm${into ? ' on' : ''}" data-act="${into ? 'tooff' : 'toone'}" data-iid="${x.iid}" title="${into ? 'Take it off the Turn order' : 'Roll initiative and add it to the Turn order'}">${ICON.init}<span>${into ? 'In Turn order' : 'Turn order'}</span></button>` : ''}
       <div class="dk-menu"><button class="dk-btn icon sm" data-act="menu" aria-label="More" aria-haspopup="menu">${ICON.dots}</button><div class="dk-mlist" role="menu">${c ? `<button data-act="dup" data-iid="${x.iid}">Add another ${esc(c.name)}</button>` : ''}<button data-act="rest" data-iid="${x.iid}">Reset (full HP, uses back)</button>${s.groups.length > 1 ? s.groups.filter(g => !g.list.includes(x)).map(g => `<button data-act="movegrp" data-iid="${x.iid}" data-gid="${g.id}">Move to ${esc(g.name)}</button>`).join('') : ''}<button class="red" data-act="rm" data-iid="${x.iid}">Remove from session</button></div></div></div>
@@ -1308,7 +1308,7 @@ function bestiaryHTML() {
       <div class="dk-bcount">${L.length} shown${UI.q || UI.crMin !== '' || UI.crMax !== '' || UI.type || UI.size || UI.src ? ' · <button class="dk-link" data-act="bclear">clear filters</button>' : ''}</div>
       <div class="dk-mlist2" data-keep="blist">${L.map(x => `<button class="dk-mrow${c && x.id === c.id ? ' on' : ''}" data-act="pickbest" data-cid="${esc(x.id)}">${tokenHTML(x, 30)}<span class="dk-mn">${esc(x.name)}${x.src !== 'SRD' ? ' <span class="dk-src mine">mine</span>' : ''}</span><span class="dk-mcr">CR ${crLabel(N(x.cr))}</span><span class="dk-mt">${esc(x.size)} ${esc(x.type)} · AC ${esc(x.ac)} · HP ${esc(x.hp)}</span></button>`).join('') || '<p class="dk-hint" style="padding:12px">Nothing matches. Clear a filter, or add your own creature.</p>'}</div>
     </section>
-    <section class="dk-bview">${c ? `<div class="dk-card dk-badd"><div class="dk-row"><input class="dk-f dk-num" id="dk-bCount" type="number" min="1" max="30" value="1" aria-label="How many"><select class="dk-f" id="dk-bEnc" aria-label="Add to"><option value="__new">A new session</option>${grps.map(({ s, g }) => `<option value="${esc(s.id)}|${esc(g.id)}"${s.id + '|' + g.id === defG ? ' selected' : ''}>${esc(s.title)}${s.groups.length > 1 ? ' › ' + esc(g.name) : ''}</option>`).join('')}</select><button class="dk-btn gold" data-act="badd" data-cid="${esc(c.id)}">${ICON.plus} Add</button></div>
+    <section class="dk-bview" data-keep="bview-${esc(c ? c.id : '')}">${c ? `<div class="dk-card dk-badd"><div class="dk-row"><input class="dk-f dk-num" id="dk-bCount" type="number" min="1" max="30" value="1" aria-label="How many"><select class="dk-f" id="dk-bEnc" aria-label="Add to"><option value="__new">A new session</option>${grps.map(({ s, g }) => `<option value="${esc(s.id)}|${esc(g.id)}"${s.id + '|' + g.id === defG ? ' selected' : ''}>${esc(s.title)}${s.groups.length > 1 ? ' › ' + esc(g.name) : ''}</option>`).join('')}</select><button class="dk-btn gold" data-act="badd" data-cid="${esc(c.id)}">${ICON.plus} Add</button></div>
         <div class="dk-row"><button class="dk-btn sm" data-act="copyc" data-cid="${esc(c.id)}">Copy & edit</button>${c.src !== 'SRD' ? `<button class="dk-btn sm" data-act="editc" data-cid="${esc(c.id)}">Edit</button><button class="dk-btn sm red" data-act="delc" data-cid="${esc(c.id)}">Delete</button>` : ''}</div></div>
       <div class="dk-card dk-sbcard">${statBlock(c)}</div>` : ''}<p class="dk-credit">${esc(TOK_CREDIT)}.</p></section></div>`;
 }
@@ -2446,7 +2446,7 @@ function notesRailHTML() {
 function notesHTML() {
   const p = pageById(UI.np);
   return `<div class="dk-sess dk-notesv" style="--nrw:${nrW()}px"><div class="dk-scrim" data-act="tree"></div><nav class="dk-rail" aria-label="Notes">${notesRailHTML()}</nav><div class="dk-nsplit" role="separator" aria-orientation="vertical" aria-label="Page list width (drag, or use the arrow keys; double-click to reset)" tabindex="0" title="Drag to resize · double-click to reset"></div>
-    <main class="dk-main"><div class="dk-pbar"><button class="dk-btn" data-act="tree">${ICON.menu}<span>${p ? esc(pathOf(p).map(x => x.title).join(' › ')) : 'All pages'}</span></button></div>
+    <main class="dk-main" data-keep="nmain-${UI.np || ''}"><div class="dk-pbar"><button class="dk-btn" data-act="tree">${ICON.menu}<span>${p ? esc(pathOf(p).map(x => x.title).join(' › ')) : 'All pages'}</span></button></div>
     ${p ? pageHTML(p) : notesHomeHTML()}</main></div>`;
 }
 function notesHomeHTML() {
