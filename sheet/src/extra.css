@@ -3507,3 +3507,12 @@ html.mobile body.wizopen #modal.open, html.mobile body.wizopen #modal.closing { 
 .ds-tag.g { background: rgba(60,157,107,.16); color: #3c9d6b; } .ds-tag.r { background: var(--red-soft); color: var(--red); }
 .ds-bw { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; min-height: 0; }
 .ds-bars i { max-height: none; }
+/* the chart: bars stand on the axis line; the "fair die" line is measured against the bars' own area */
+.ds-chart { display: flex; flex-direction: column; }
+.ds-plot { position: relative; height: 130px; display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 3px; align-items: end; border-bottom: 1px solid var(--line); }
+.ds-col { height: 100%; display: flex; align-items: flex-end; justify-content: center; min-width: 0; }
+.ds-col i { display: block; width: 100%; max-width: 22px; background: var(--gold); border-radius: 4px 4px 0 0; opacity: .85; }
+.ds-col.g i { background: #3c9d6b; opacity: 1; } .ds-col.r i { background: var(--red); opacity: 1; }
+.ds-plot .ds-fair { position: absolute; left: 0; right: 0; height: 0; border-top: 1.5px dashed var(--soft); opacity: .6; pointer-events: none; }
+.ds-axis { display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 3px; margin-top: 4px; }
+.ds-axis span { text-align: center; font-size: .62rem; color: var(--soft); font-variant-numeric: tabular-nums; }
