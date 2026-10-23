@@ -4215,6 +4215,13 @@ html.mobile body.wizopen #modal.open, html.mobile body.wizopen #modal.closing { 
 @keyframes dsGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 @keyframes dsFade { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .rl-ink { transition: none; } #rolllogmodal .rl-list.in-r, #rolllogmodal .rl-list.in-l, .ds-chart.anim .ds-col i, .ds-chart.anim .ds-fair { animation: none; } }
+/* the Log window keeps one size on every tab (the Dice stats height) */
+#rolllogmodal .rl-list { height: min(62vh, 640px); max-height: none; }
+html.mobile #rolllogmodal .rl-list { height: auto; max-height: min(62vh, 640px); }
+.cact-i { color: var(--k, var(--gold)); } .cact-i svg { width: 15px; height: 15px; display: block; }
+/* The "show the math" dice button gets its own space on the right of a roll card, so it never sits on top of the damage label */
+.toast.rollcard:has(> .rc-dice) { padding-right: 46px; }
+.toast.rollcard > .rc-dice { top: 50%; bottom: auto; right: 8px; transform: translateY(-50%); }
 
 </style>
 </head>
@@ -12729,7 +12736,7 @@ function diceStatsHTML() { const ds = S.diceStats || {}, dist = ds.dist || Array
   const KN = [['attack', 'Attacks'], ['save', 'Saving throws'], ['check', 'Checks'], ['init', 'Initiative'], ['death', 'Death saves'], ['roller', 'Dice roller'], ['other', 'Other d20s']];
   const by = ds.by || {}, rows = KN.filter(([k]) => by[k] && by[k].n).map(([k, n]) => { const b = by[k]; return `<tr><td>${n}</td><td>${b.n}</td><td>${f1(b.sum / b.n)}</td><td class="g">${b.c20}</td><td class="r">${b.c1}</td></tr>`; }).join('');
   const table = rows ? `<div class="ds-h">By roll</div><table class="ds-t"><thead><tr><th></th><th>Rolls</th><th>Avg</th><th>20s</th><th>1s</th></tr></thead><tbody>${rows}</tbody></table>` : '';
-  const dm = ds.dmg, hl = ds.heal, dmgH = dm && dm.n ? `<div class="ds-h">Damage &amp; healing</div><div class="ds-tiles"><div class="ds-tile"><small>Damage rolled</small><b>${dm.sum}</b><span>${dm.n} roll${dm.n === 1 ? '' : 's'} · avg ${f1(dm.sum / dm.n)}</span></div>${dm.best ? `<div class="ds-tile"><small>Biggest damage roll</small><b>${dm.best.v}</b><span>${esc(dm.best.l)} · ${when(dm.best.t)}</span></div>` : ''}${hl && hl.n ? `<div class="ds-tile g"><small>Healing rolled</small><b>${hl.sum}</b><span>${hl.n} roll${hl.n === 1 ? '' : 's'}</span></div>` : ''}${ds.top ? `<div class="ds-tile"><small>Highest d20 total</small><b>${ds.top.v}</b><span>${esc(ds.top.l)} · ${when(ds.top.t)}</span></div>` : ''}</div>` : '';
+  const dm = ds.dmg, hl = ds.heal, dmgH = dm && dm.n ? `<div class="ds-h">Damage</div><div class="ds-tiles"><div class="ds-tile"><small>Damage rolled</small><b>${dm.sum}</b><span>${dm.n} roll${dm.n === 1 ? '' : 's'} · avg ${f1(dm.sum / dm.n)}</span></div>${dm.best ? `<div class="ds-tile"><small>Biggest damage roll</small><b>${dm.best.v}</b><span>${esc(dm.best.l)} · ${when(dm.best.t)}</span></div>` : ''}${hl && hl.n ? `<div class="ds-tile g"><small>Healing rolled</small><b>${hl.sum}</b><span>${hl.n} roll${hl.n === 1 ? '' : 's'}</span></div>` : ''}${ds.top ? `<div class="ds-tile"><small>Highest d20 total</small><b>${ds.top.v}</b><span>${esc(ds.top.l)} · ${when(ds.top.t)}</span></div>` : ''}</div>` : '';
   const days = Object.entries(ds.days || {}).filter(([, d]) => d.n >= 5).sort(([a], [b]) => b.localeCompare(a));
   let nights = ''; if (days.length) { const sc = d => d.sum / d.n, best = days.reduce((a, b) => sc(b[1]) > sc(a[1]) ? b : a), worst = days.reduce((a, b) => sc(b[1]) < sc(a[1]) ? b : a);
     const nm = k => new Date(k + 'T12:00').toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
@@ -14257,7 +14264,7 @@ function mainClick(e) {
     case 'addclasscomp': openClassCompanions(); break;
     case 'addcc': addClassCompanion(b.dataset.n); break;
     case 'dismiss': { const c = S.companions[i]; S.companions.splice(i, 1); if (c.tmpl && COMP_RULES[c.tmpl] && COMP_RULES[c.tmpl].perm) S.compOff = Object.assign({}, S.compOff, { [c.tmpl]: true }); pendingLabel = 'Dismiss ' + c.name; if (c.effect && !S.companions.some(x => x.effect === c.effect) && AUTO(c.effect).summon) { S.effects = S.effects.filter(x => x.name !== c.effect); if (S.concentration === c.effect) S.concentration = ''; } save(); render(); toast(`${esc(c.name)} dismissed.`, '', 5000, { label: 'Undo', fn: () => undo(1) }); break; }
-    case 'comphp': compHp(i, N(b.dataset.d)); break;
+    case 'comphp': compHp(i, N(b.dataset.d), b); break;
     case 'bagmove': $$('.menu.open').forEach(m => m.classList.remove('open')); bagMoveTo(b.dataset.id, b.dataset.to); pendingLabel = null; return;
     case 'invsrch': { const k = b.dataset.k, open = invQOpen(k); UI.open['invsrch:' + k] = !open; if (open) UI.invQs = Object.assign({}, UI.invQs, { [k]: '' }); pendingLabel = null; render('inventory');
       if (!open) { const e = document.querySelector(`#page-inventory .invq[data-scope="${CSS.escape(k)}"]`); if (e) e.focus(); } return; }
@@ -14407,7 +14414,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.classList && e.target.classList.contains('portrait-edit')) $('#portraitFile').click();
   // HP boxes: "+20" heals, "-20" (or just "20") is damage
   if (e.key === 'Enter' && e.target.id === 'hpAmt') hpAction(e.shiftKey || /^\s*\+/.test(e.target.value) ? 'heal' : 'dmg');
-  if (e.key === 'Enter' && /^chp\d+$/.test(e.target.id || '')) { e.preventDefault(); compHp(N(e.target.id.slice(3)), /^\s*\+/.test(e.target.value) ? 1 : -1); }
+  if (e.key === 'Enter' && /^chp\d+$/.test(e.target.id || '')) { e.preventDefault(); compHp(N(e.target.id.slice(3)), /^\s*\+/.test(e.target.value) ? 1 : -1, e.target); }
   if (e.key === 'Enter' && /^ptyq-/.test(e.target.id || '')) { e.preventDefault(); ptyQuick(/^\s*\+/.test(e.target.value) ? 'heal' : 'dmg', e.target.id.slice(5)); }
 });
 
@@ -14989,7 +14996,7 @@ function useFeature(i, col, opt) {
   }
   const sc = []; clsRows().forEach(row => { const c = CL[row.key], s = subOf(row); (c.scaling || []).concat((s && s.scaling) || []).forEach(([n, t]) => { if (new RegExp('\\b' + n.split(' ')[0].replace(/[^a-z]/gi, '') + '\\b', 'i').test(f.name) && n !== 'Rage Damage') sc.push(n + ': ' + scaleVal(t, N(row.level))); }); });
   const fRh = riderHook({ kind: 'feat', names: [f.name], self: f }, r ? r.total : null);
-  fRh.always.forEach(x => { lines.push(`${x.src.name}: ${x.r ? '+' + x.total + (x.type ? ' ' + x.type : '') + ' (' + x.r.detail + ')' : 'used'}`); x.lines.forEach(l => lines.push(x.src.name + ': ' + l)); });
+  fRh.always.forEach(x => { lines.push(`${esc(x.src.name)}: ${x.r ? '+' + x.total + (x.type ? ' ' + x.type : '') + ' (' + x.r.detail + ')' : 'used'}`); x.lines.forEach(l => lines.push(esc(x.src.name) + ': ' + l)); });
   pendingLabel = 'Use ' + f.name; update(); render();
   const left = max != null && !f.pool ? `${Math.max(0, max - N(f.used))}/${max} left` : '';
   toast(`${r ? `<b class="total">${r.total}</b>` : ''}<div><div><b>${esc(f.name)}</b>${left ? ' · ' + left : ''}</div>${r ? `<div class="det">${esc(r.detail)}${fx.rollNote ? ' ' + esc(fx.rollNote) : ''}</div>` : ''}${sc.length ? `<div class="det">${esc(sc.join(' · '))}</div>` : ''}${lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, '', 8000, [healAct, typeof ptyFeatAct === 'function' ? ptyFeatAct(f.name, r, f) : null, { label: 'Undo', fn: () => undo(1) }].filter(Boolean).concat(fRh.acts));
@@ -15207,7 +15214,7 @@ function executeCast(i, how, L, col, x) {
       healAct = { label: 'Heal me', fn: () => useAmt(r, sp.name + ': healing you got', n => healSelf(n, `${sp.name}: +${n} HP`)) };
     }
   }
-  if (sm.note) lines.push(sm.note);
+  if (sm.note) lines.push(esc(sm.note));
   if (rounds && needEffect) lines.push('Lasts ' + fmtRounds(rounds));
   // Homebrew backlash: casting it again before a short rest hurts you
   let backAct = null;
@@ -15328,12 +15335,13 @@ function addClassCompanion(n, viaFeature) {
   S.companions.push(makeClassComp(n, extra));
   pendingLabel = 'Add ' + n; if (!viaFeature) closeModal(true); save(); render(); if (!viaFeature) toast(`${esc(n)} added.`);
 }
-function compHp(i, d) {
-  const c = S.companions[i], el = $('#chp' + i), amt = Math.abs(N(el && String(el.value).trim().replace(/[−–]/g, '-').replace(/^\+/, '')));
+function compHp(i, d, btn) {
+  const side = btn && btn.closest('.chp-side'), c = S.companions[i], el = (side && side.querySelector('input')) || $('#chp' + i), amt = Math.abs(N(el && String(el.value).trim().replace(/[−–]/g, '-').replace(/^\+/, '')));
   if (!amt) { if (el) el.focus(); toast('Type an amount first.'); return; }
   if (d === 0) { c.temp = Math.max(N(c.temp), amt); pendingLabel = `${c.name} gains ${amt} temp HP`; if (el) el.value = ''; save(); render(); refresh(); return; }
   if (d < 0 && N(c.temp)) { const t = Math.min(N(c.temp), amt); c.temp = N(c.temp) - t; c.hp = Math.max(0, N(c.hp) - (amt - t)); } else c.hp = Math.max(0, Math.min(N(c.maxhp), N(c.hp) + d * amt));
-  pendingLabel = `${c.name} ${d < 0 ? 'takes ' + amt + ' damage' : 'heals ' + amt}`; if (el) el.value = '';
+  const tsel = (side && side.querySelector('select')) || $('#chpt' + i), dt = d < 0 && tsel ? tsel.value : '';
+  pendingLabel = `${c.name} ${d < 0 ? 'takes ' + amt + (dt ? ' ' + dt : '') + ' damage' : 'heals ' + amt}`; if (el) el.value = '';
   save(); render(); refresh();
   if (c.hp === 0) toast(`${esc(c.name)} drops to 0 HP.`, 'fumble', 7000, [{ label: 'Dismiss it', fn: () => { const k = S.companions.indexOf(c); if (k >= 0) { S.companions.splice(k, 1); pendingLabel = 'Dismiss ' + c.name; save(); render(); } } }]);
 }
@@ -16950,6 +16958,7 @@ function wizSetSource(code, on) {
   renderWizard();
 }
 
+const CACT_IC = {"attack": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M14.5 17.5 3 6V3h3l11.5 11.5\"/><path d=\"m13 19 6-6\"/><path d=\"m16 16 4 4\"/><path d=\"m19 21 2-2\"/></svg>", "multi": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M14.5 17.5 3 6V3h3l11.5 11.5\"/><path d=\"m13 19 6-6\"/><path d=\"m16 16 4 4\"/><path d=\"m19 21 2-2\"/><path d=\"M14.5 6.5 18 3h3v3l-3.5 3.5\"/><path d=\"m5 14 4 4\"/><path d=\"m7 17-3 3\"/><path d=\"m3 19 2 2\"/></svg>", "save": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z\"/></svg>", "temp": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z\"/><path d=\"M12 9v6M9 12h6\"/></svg>", "heal": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 5v14M5 12h14\"/></svg>", "roll": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"3\"/><circle cx=\"9\" cy=\"9\" r=\"1\" fill=\"currentColor\"/><circle cx=\"15\" cy=\"15\" r=\"1\" fill=\"currentColor\"/><circle cx=\"15\" cy=\"9\" r=\"1\" fill=\"currentColor\"/><circle cx=\"9\" cy=\"15\" r=\"1\" fill=\"currentColor\"/></svg>"};
 // ---------- Artificer infusions (their own tab) ----------
 // Known infusions live in S.picks.infusion (one entry per infusion). Replicate Magic Item can be learned many
 // times; the items it can make are S.infReplicas (each one counts as a known infusion). An infused inventory item
@@ -17199,13 +17208,13 @@ function compCard(c, i, mini, inCol) {
     const lim = N(a[8]), left = lim ? Math.max(0, lim - N((c.used || {})[a[0]])) : 0;
     const mainB = lim && !left ? main.replace('<button ', '<button disabled ') : main;
     const extra = lim ? `<span class="tag" title="Uses left today">${left}/${lim}</span>` : '';
-    return `<div class="cact k-${k}"><span class="cact-i" aria-hidden="true">${k === 'attack' ? '⚔' : k === 'save' ? '⛨' : k === 'temp' ? '🛡' : k === 'heal' ? '✚' : '🎲'}</span><div class="cact-m"><b>${esc(actName(a))}</b><div class="cact-s">${info}${actNote(a) && !mini ? ' · <span class="muted">' + esc(actNote(a)) + '</span>' : ''}</div></div><div class="cact-b">${extra}${mainB}</div></div>`;
+    return `<div class="cact k-${k}"><span class="cact-i" aria-hidden="true">${CACT_IC[k] || CACT_IC.roll}</span><div class="cact-m"><b>${esc(actName(a))}</b><div class="cact-s">${info}${actNote(a) && !mini ? ' · <span class="muted">' + esc(actNote(a)) + '</span>' : ''}</div></div><div class="cact-b">${extra}${mainB}</div></div>`;
   }).join('');
   const tags = [c.tmpl ? (COMP_RULES[c.tmpl] && COMP_RULES[c.tmpl].always ? 'Always with you' : 'Class · scales with level') : c.kind || 'Companion', c.count > 1 ? '×' + c.count : '', c.effect || ''].filter(Boolean);
   const hp = c.count > 1 ? `<div class="grpHp">${(c.hps || []).map((h, k) => `<label class="ghp"><span>#${k + 1}</span>${inp(`companions.${i}.hps.${k}`, { num: 1, cls: 'sm', label: c.name + ' ' + (k + 1) + ' HP' })}</label>`).join('')}<span class="hint">of ${N(c.maxhp)} each</span></div>`
     : c.maxhp ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(c.hp, c.maxhp, c.temp)}</div>
         <div class="chp-center"><div class="curline">${inp(`companions.${i}.hp`, { num: 1, cls: 'cur', label: c.name + ' current HP' })}${N(c.temp) ? `<span class="tmpbadge">+${N(c.temp)}</span>` : ''}</div><div class="hp-max">of ${N(c.maxhp)}</div></div></div>
-        <div class="chp-side"><input class="f" id="chp${i}" type="text" autocomplete="off" placeholder="Amount" aria-label="${esc(c.name)} HP: -20 (or 20) for damage, +20 to heal, then Enter">
+        <div class="chp-side"><select class="f ptyqt" id="chpt${i}" aria-label="Damage type for ${esc(c.name)}" title="Damage type"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="chp${i}" type="text" autocomplete="off" placeholder="Amount" aria-label="${esc(c.name)} HP: -20 (or 20) for damage, +20 to heal, then Enter">
           <div class="chp-btns"><button class="btn hpi dmg" data-act="comphp" data-i="${i}" data-d="-1" title="Damage ${esc(c.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="comphp" data-i="${i}" data-d="1" title="Heal ${esc(c.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-act="comphp" data-i="${i}" data-d="0" title="Give ${esc(c.name)} temporary HP (they don't stack — the higher stays)" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div></div>` : '';
   return `<div class="${mini ? 'cm-card' : inCol ? 'comp2 incol' : 'panel comp2'}"><div class="comp-h2">${picThumb(c.tmpl ? `compMods.${c.tmpl}.img` : `companions.${i}.img`, c.name)}<div class="grow"><b class="cname">${esc(c.name)}</b><div class="ctags">${(inCol ? [] : tags).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div></div>
       ${inCol ? compCmdBtn(c, i) : ''}<button class="icon-btn" data-act="compedit" data-i="${i}" title="Edit ${esc(c.name)}" aria-label="Edit">✎</button>${c.tmpl && COMP_RULES[c.tmpl] && COMP_RULES[c.tmpl].always ? '' : `<button class="btn sm ghost" data-act="dismiss" data-i="${i}">Dismiss</button>`}</div>
@@ -19941,7 +19950,7 @@ function ptyAfterCast(sp, a, L, x, c) {
   let ids = x.tgts || (PTY_PRESET && Date.now() - PTY_PRESET.at < 120000 ? PTY_PRESET.ids : []) || []; PTY_PRESET = null;
   const selfOn = d.self !== false && x.self !== false && (x.tgts != null || !ids.length);
   const cap = d.n === 'any' ? 999 : (N(d.n) || 1) + N(d.up) * Math.max(0, L - base);
-  if (ids.length + (selfOn ? 1 : 0) > cap) { const keep = Math.max(0, cap - (selfOn ? 1 : 0)); lines.push(`${sp.name} can target ${cap} — sent to the first ${keep}`); ids = ids.slice(0, keep); }
+  if (ids.length + (selfOn ? 1 : 0) > cap) { const keep = Math.max(0, cap - (selfOn ? 1 : 0)); lines.push(`${esc(sp.name)} can target ${cap} — sent to the first ${keep}`); ids = ids.slice(0, keep); }
   if (!selfOn && c.eff) { c.eff.ally = true; delete c.eff.item; if (c.eff.maxHp) { S.hp.cur = Math.max(0, N(S.hp.cur) - N(c.eff.maxHp)); delete c.eff.maxHp; } }
   if (!ids.length) return { lines, noSelfHeal: !!d.heal && !selfOn };
   const me = PTYX().self, who = S.name || 'An ally', ci = c.ci || {};
