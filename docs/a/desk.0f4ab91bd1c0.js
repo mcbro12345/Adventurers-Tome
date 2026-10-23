@@ -1348,6 +1348,7 @@ async function sendToTurn(list, label) {
   toast({ title: `Sent ${label || plural(list.length, 'creature')} to the Turn order`, det: esc(lines.join(' · ')) + `<br>Open ${esc(CTX.party.name || 'the party')}’s Turn order to run the fight; HP changes here show up there.`, cls: 'crit' });
 }
 function takeFromTurn(x) { const t = toRead(); if (!t) return; t.rows = t.rows.filter(r => r.desk !== x.iid); toWrite(t); paint(); toastInfo(`${esc(x.name)} is off the Turn order.`); }
+const QTYPE = {}; // damage type picked on each creature card (kept across repaints)
 const ICO_PARTY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.2c3 .1 5.5 2.6 5.5 5.8"/></svg>';
 // ---------- drawing ----------
 const hpPct = x => { const m = N(x.max) || 1; return Math.max(0, Math.min(100, N(x.hp) / m * 100)); };
@@ -1361,6 +1362,12 @@ function render() {
   ROOT.querySelector('.dk-top').innerHTML = topHTML();
   { const lg = ROOT.querySelector('.dk-logo'); if (lg && CTX.logo && typeof CTX.logo.wire === 'function') try { CTX.logo.wire(lg); } catch (e) {} }
   paint(); paintDice(); try { pills(); } catch (e) {}
+}
+// Phones on the site: the tabs become the site's single tab button that opens a grid of tabs (same as the admin panel)
+function deskPill() {
+  const P = window.pgPill; if (typeof P !== 'function' || !ROOT) return;
+  if (innerWidth > 640 || LITE) { if (window.pgPillOwner && window.pgPillOwner() === 'desk') P(null); return; }
+  P(() => [...ROOT.querySelectorAll('.dk-tabs > button[data-tab]')].map(b => ({ k: b.dataset.tab, b, on: b.classList.contains('on'), ic: (b.querySelector('svg') || {}).outerHTML || '', label: (b.querySelector('span') || {}).textContent || b.dataset.tab, badge: '' })), 'desk');
 }
 function topHTML() {
   const b = CTX.back, p = CTX.party;
@@ -1424,8 +1431,8 @@ function railHTML(cur) {
     const open = s === cur ? UI.open[s.id] !== false : !!UI.open[s.id], all = sessionInsts(s), multi = s.groups.length > 1;
     const kids = open ? `<div class="dk-tkids">${s.groups.map(g => `${multi || g.list.length === 0 ? `<div class="dk-tg"><span>${esc(g.name)}</span><small>${g.list.length}</small></div>` : ''}${g.list.map(x => {
       const p = hpPct(x);
-      return `<button class="dk-tc${x.iid === UI.sel ? ' on' : ''}${x.down ? ' down' : ''}" data-act="sel" data-sid="${s.id}" data-iid="${x.iid}">${tokenHTML(instC(x), 22)}<span class="dk-tcn">${esc(x.name)}${x.conc ? `<i class="dk-cdot" title="Concentrating">${ICON.conc}</i>` : ''}${(x.conds || []).length ? `<i class="dk-cn" title="${esc(x.conds.map(c => c.n).join(', '))}">${x.conds.length}</i>` : ''}</span><span class="dk-tch">${x.hp}<small>/${x.max}</small></span><span class="dk-tbar"><i class="${hpCls(p)}" style="width:${p}%"></i></span></button>`; }).join('')}`).join('')}${all.length ? '' : '<p class="dk-tnone">No creatures yet</p>'}</div>` : '';
-    return `<div class="dk-ts${s === cur ? ' cur' : ''}"><div class="dk-tsrow"><button class="dk-caret${open ? ' open' : ''}" data-act="toggle" data-sid="${s.id}" aria-label="${open ? 'Collapse' : 'Expand'} ${esc(s.title)}">${ICON.caret}</button><button class="dk-tsn" data-act="opensess" data-sid="${s.id}"><b>${esc(s.title)}</b><small>${plural(all.length, 'creature')}${all.filter(x => x.down).length ? ' · ' + all.filter(x => x.down).length + ' down' : ''}</small></button></div>${kids}</div>`;
+      return `<button class="dk-tc${x.iid === UI.sel ? ' on' : ''}${x.down ? ' down' : ''}" data-act="sel" data-sid="${s.id}" data-iid="${x.iid}">${tokenHTML(instC(x), 22)}<span class="dk-tcn">${esc(x.name)}${x.conc ? `<i class="dk-cdot" title="Concentrating">${ICON.conc}</i>` : ''}${(x.conds || []).length ? `<i class="dk-cn" title="${esc(x.conds.map(c => c.n).join(', '))}">${x.conds.length}</i>` : ''}</span><span class="dk-tch"><span>${x.hp}<small>/${x.max}</small></span><span class="dk-tbar"><i class="${hpCls(p)}" style="width:${p}%"></i></span></span></button>`; }).join('')}`).join('')}${all.length ? '' : '<p class="dk-tnone">No creatures yet</p>'}</div>` : '';
+    return `<div class="dk-ts${s === cur ? ' cur' : ''}"><div class="dk-tsrow"><button class="dk-caret${open ? ' open' : ''}" data-act="toggle" data-sid="${s.id}" aria-label="${open ? 'Collapse' : 'Expand'} ${esc(s.title)}">${ICON.caret}</button><button class="dk-tsn" data-act="opensess" data-sid="${s.id}" title="${esc(plural(all.length, 'creature'))}"><b>${esc(s.title)}</b>${all.filter(x => x.down).length ? `<i class="dk-tsdn" title="${all.filter(x => x.down).length} down">${all.filter(x => x.down).length} down</i>` : ''}<i class="dk-tscnt" aria-label="${esc(plural(all.length, 'creature'))}">${all.length}</i></button></div>${kids}</div>`;
   }).join('');
   return `<div class="dk-railhd"><span>Sessions</span><button class="dk-btn sm gold" data-act="newsess">${ICON.plus} New</button><button class="dk-ix dk-railx" data-act="tree" aria-label="Close">${ICON.x}</button></div><div class="dk-tree" data-keep="tree">${tree || '<p class="dk-tnone">No sessions yet</p>'}</div>`;
 }
@@ -1442,7 +1449,7 @@ function sessHead(s, plan) {
     <div class="dk-svtabs"><div class="dk-seg2"><button class="${plan ? '' : 'on'}" data-act="sview" data-v="creatures">Creatures</button><button class="${plan ? 'on' : ''}" data-act="sview" data-v="plan">Plan & notes${s.plan && s.plan.flow ? ' ✓' : ''}</button></div>
     <div class="dk-meta"><span>${plural(all.length, 'creature')}</span>${xp ? `<span>${xp.toLocaleString()} XP</span>` : ''}${down ? `<span class="bad">${down} down</span>` : ''}</div></div>
     ${plan ? '' : `<details class="dk-notes"${s.notes ? ' open' : ''}><summary>Session notes</summary><textarea class="dk-f" id="dk-snotes" data-ch="snotes" rows="2" placeholder="Hooks, places, names, what happened last time…">${esc(s.notes || '')}</textarea></details>
-    <div class="dk-add"><div class="dk-picker"><input class="dk-f" id="dk-addq" placeholder="Add a creature — type a name (e.g. goblin)" autocomplete="off" aria-label="Creature to add"><div class="dk-sugg" hidden></div></div>
+    <div class="dk-add"><div class="dk-picker"><input class="dk-f" id="dk-addq" placeholder="${innerWidth <= 640 ? 'Add a creature (e.g. goblin)' : 'Add a creature — type a name (e.g. goblin)'}" autocomplete="off" aria-label="Creature to add"><div class="dk-sugg" hidden></div></div>
       <input class="dk-f dk-num" id="dk-addn" type="number" min="1" max="30" value="1" aria-label="How many">
       ${s.groups.length > 1 ? `<select class="dk-f" id="dk-addg" aria-label="Group">${s.groups.map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join('')}</select>` : ''}
       <button class="dk-btn gold" data-act="addc">${ICON.plus}<span>Add</span></button><button class="dk-btn ghost" data-act="tab" data-tab="bestiary">Browse bestiary</button></div>`}
@@ -1474,7 +1481,7 @@ function cardHTML(x) {
   return `<article class="dk-ccard dk-comp2${x.down ? ' down' : ''}" data-iid="${x.iid}">
     <div class="dk-ch2"><button class="dk-chtok" data-act="sel" data-iid="${x.iid}" aria-label="Open ${esc(x.name)}">${tokenHTML(c, 46, 'dk-cctok')}</button><button class="dk-chname" data-act="sel" data-iid="${x.iid}"><b class="dk-cname">${esc(x.name)}</b><span class="dk-ctags">${c ? tags.map(t => `<span class="dk-tag">${esc(t)}</span>`).join('') : '<span class="dk-tag bad">stat block missing</span>'}${CTX.party && inTurn(x.iid) ? '<span class="dk-tag to">Turn order</span>' : ''}</span></button>${econMini(x)}</div>
     <div class="dk-cstat2"><div class="dk-chp2" data-hpflash="${x.iid}"><div class="dk-chp-ring" title="${x.hp} of ${x.max} HP${N(x.temp) ? ' (+' + x.temp + ' temporary)' : ''}"><span class="dk-ring">${hpRing(x)}</span><span class="dk-chp-c"><b class="${p <= 35 ? 'low' : ''}">${x.hp}</b>${N(x.temp) ? `<em>+${x.temp}</em>` : ''}<small>of ${x.max}</small></span></div>
-      <div class="dk-chp-side"><input class="dk-f" id="dk-q-${x.iid}" data-q="${x.iid}" type="text" autocomplete="off" enterkeyhint="done" maxlength="6" placeholder="Amount" title="Type 20 or -20 for damage, +20 to heal, then Enter" aria-label="Amount for ${esc(x.name)}">
+      <div class="dk-chp-side"><select class="dk-f dk-qtype" data-qt="${x.iid}" aria-label="Damage type for ${esc(x.name)} (resistances and immunities apply)" title="Damage type: its resistances and immunities apply"><option value="">Any</option>${DTYPES.map(d => `<option value="${d}"${QTYPE[x.iid] === d ? ' selected' : ''}>${d[0].toUpperCase() + d.slice(1)}</option>`).join('')}</select><input class="dk-f" id="dk-q-${x.iid}" data-q="${x.iid}" type="text" autocomplete="off" enterkeyhint="done" maxlength="6" placeholder="Amount" title="Type 20 or -20 for damage, +20 to heal, then Enter" aria-label="Amount for ${esc(x.name)}">
         <div class="dk-chp-btns"><button class="dk-hpi dmg sm" data-act="qdmg" data-iid="${x.iid}" title="Damage" aria-label="Damage ${esc(x.name)}">${ICON.hpDmg}</button><button class="dk-hpi heal sm" data-act="qheal" data-iid="${x.iid}" title="Heal" aria-label="Heal ${esc(x.name)}">${ICON.hpHeal}</button><button class="dk-hpi tmp sm" data-act="qtemp" data-iid="${x.iid}" title="Temporary HP (they don’t stack — the higher stays)" aria-label="Temporary HP for ${esc(x.name)}">${ICON.hpTemp}</button></div></div></div>
       <div class="dk-csts"><span class="dk-cst"><small>AC</small><b>${x.ac}</b></span><span class="dk-cst wide" title="${esc(c ? c.speed || '' : '')}"><small>Speed</small><b>${c ? speedFt(c) + ' ft' : '—'}</b>${sp.length > 1 ? `<i>${esc(sp.slice(1).map(z => z.replace(/\s*ft\.?/i, '')).join(' · '))}</i>` : ''}</span></div></div>
     ${chips ? `<div class="dk-ccfoot">${chips}</div>` : ''}
@@ -1573,7 +1580,7 @@ function bestiaryHTML() {
   const L = filteredCreatures(), c = getC(UI.best) || L[0], mine = Object.keys(S.creatures).length;
   const grps = []; S.sessions.forEach(s => s.groups.forEach(g => grps.push({ s, g })));
   const cur = curSession(), defG = cur ? cur.id + '|' + cur.groups[0].id : '';
-  return `<div class="dk-best">
+  return `<div class="dk-best${UI.bopen && c ? ' bopen' : ''}">
     <section class="dk-card dk-blist">
       <div class="dk-row dk-bbtns"><button class="dk-btn gold sm" data-act="newc">${ICON.plus} New creature</button><button class="dk-btn sm" data-act="paste">Paste stat block</button><button class="dk-btn sm" data-act="backup">Backup</button></div>
       <input class="dk-f dk-search" id="dk-bq" value="${esc(UI.q)}" placeholder="Search ${allCreatures().length} creatures" aria-label="Search creatures">
@@ -1588,7 +1595,7 @@ function bestiaryHTML() {
       <div class="dk-bcount">${L.length} shown${UI.q || UI.crMin !== '' || UI.crMax !== '' || UI.type || UI.size || UI.src ? ' · <button class="dk-link" data-act="bclear">clear filters</button>' : ''}</div>
       <div class="dk-mlist2" data-keep="blist">${L.map(x => `<button class="dk-mrow${c && x.id === c.id ? ' on' : ''}" data-act="pickbest" data-cid="${esc(x.id)}">${tokenHTML(x, 30)}<span class="dk-mn">${esc(x.name)}${x.src !== 'SRD' ? ' <span class="dk-src mine">mine</span>' : ''}</span><span class="dk-mcr">CR ${crLabel(N(x.cr))}</span><span class="dk-mt">${esc(x.size)} ${esc(x.type)} · AC ${esc(x.ac)} · HP ${esc(x.hp)}</span></button>`).join('') || '<p class="dk-hint" style="padding:12px">Nothing matches. Clear a filter, or add your own creature.</p>'}</div>
     </section>
-    <section class="dk-bview" data-keep="bview-${esc(c ? c.id : '')}">${c ? `<div class="dk-card dk-badd"><div class="dk-row"><input class="dk-f dk-num" id="dk-bCount" type="number" min="1" max="30" value="1" aria-label="How many"><select class="dk-f" id="dk-bEnc" aria-label="Add to"><option value="__new">A new session</option>${grps.map(({ s, g }) => `<option value="${esc(s.id)}|${esc(g.id)}"${s.id + '|' + g.id === defG ? ' selected' : ''}>${esc(s.title)}${s.groups.length > 1 ? ' › ' + esc(g.name) : ''}</option>`).join('')}</select><button class="dk-btn gold" data-act="badd" data-cid="${esc(c.id)}">${ICON.plus} Add</button></div>
+    <section class="dk-bview" data-keep="bview-${esc(c ? c.id : '')}">${c ? `<button class="dk-btn ghost dk-bback" data-act="bback">${ICON.back || '‹'} All creatures</button><div class="dk-card dk-badd"><div class="dk-row"><input class="dk-f dk-num" id="dk-bCount" type="number" min="1" max="30" value="1" aria-label="How many"><select class="dk-f" id="dk-bEnc" aria-label="Add to"><option value="__new">A new session</option>${grps.map(({ s, g }) => `<option value="${esc(s.id)}|${esc(g.id)}"${s.id + '|' + g.id === defG ? ' selected' : ''}>${esc(s.title)}${s.groups.length > 1 ? ' › ' + esc(g.name) : ''}</option>`).join('')}</select><button class="dk-btn gold" data-act="badd" data-cid="${esc(c.id)}">${ICON.plus} Add</button></div>
         <div class="dk-row"><button class="dk-btn sm" data-act="copyc" data-cid="${esc(c.id)}">Copy & edit</button>${c.src !== 'SRD' ? `<button class="dk-btn sm" data-act="editc" data-cid="${esc(c.id)}">Edit</button><button class="dk-btn sm red" data-act="delc" data-cid="${esc(c.id)}">Delete</button>` : ''}</div></div>
       <div class="dk-card dk-sbcard">${statBlock(c)}</div>` : ''}<p class="dk-credit">${esc(TOK_CREDIT)}.</p></section></div>`;
 }
@@ -1601,6 +1608,7 @@ const PILL = {}, TABORD = ['party', 'sessions', 'notes', 'bestiary', 'gen'];
 let LASTV = null;
 const calm = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
 function pills() {
+  try { deskPill(); } catch (e) {}
   $$('.dk-tabs, .dk-seg2').forEach(g => {
     const key = g.classList.contains('dk-tabs') ? 'tabs' : g.closest('.dk-gen') ? 'gen' : 'sv', on = g.querySelector(':scope > button.on');
     let p = g.querySelector(':scope > .dk-pill'); const fresh = !p;
@@ -1900,7 +1908,7 @@ async function onClick(e) {
     case 'saveeff': { const g = curSession().groups.find(z => z.id === b.dataset.gid); openSaveDialog({ title: 'Saving throw', dc: 13, ab: 1, parts: [], half: true }); SV.rows.forEach(r => { r.on = !!g.list.find(z => z.iid === r.iid) && !findInst(r.iid).down; }); return paintSave(); }
     case 'addc': { const q = $('#dk-addq'), v = q.value.trim(); if (!v) { q.focus(); return; } const exact = allCreatures().find(c => c.name.toLowerCase() === v.toLowerCase()) || searchCreatures(v, 1)[0]; if (!exact) return toastInfo(`No creature called “${esc(v)}”. Try the bestiary, or paste its stat block there.`); return addPicked(exact.id); }
     case 'pickc': return addPicked(b.dataset.cid);
-    case 'qdmg': case 'qheal': case 'qtemp': { const inp = $(`[data-q="${iid}"]`), v = hpAmt(inp.value).n; if (!v) { inp.focus(); return; } if (act === 'qdmg') applyDamage(x, v, '', true); else if (act === 'qtemp') setTemp(x, v); else heal(x, v); return; }
+    case 'qdmg': case 'qheal': case 'qtemp': { const inp = $(`[data-q="${iid}"]`), v = hpAmt(inp.value).n; if (!v) { inp.focus(); return; } if (act === 'qdmg') { const t = QTYPE[iid] || ''; if (t) applyParts(x, [{ total: v, type: t }], false, dmgMult(instC(x), t, false) === 1); else applyDamage(x, v, '', true); } else if (act === 'qtemp') setTemp(x, v); else heal(x, v); return; }
     case 'dup': { const g = groupOf(iid); if (!g) return; const out = addToGroup(g.s, g.g, x.cid, 1); save(); paint(); return toastInfo(`Added <b>${esc(out[0].name)}</b>.`); }
     case 'rest': restInst(x); save(); paint(); return toastInfo(`${esc(x.name)} is fresh: full HP, conditions cleared, every use back.`);
     case 'movegrp': { const g = groupOf(iid), to = g.s.groups.find(z => z.id === b.dataset.gid); g.g.list = g.g.list.filter(z => z !== x); to.list.push(x); save(); paint(); return; }
@@ -1928,7 +1936,8 @@ async function onClick(e) {
     case 'backup': return openBackup();
     case 'bsort': UI.sort = b.dataset.v; saveUI(); return paint();
     case 'bclear': Object.assign(UI, { q: '', crMin: '', crMax: '', type: '', size: '', src: '' }); saveUI(); return paint();
-    case 'pickbest': UI.best = b.dataset.cid; saveUI(); paint(); if (innerWidth < 900) { const v = $('.dk-bview'); if (v) v.scrollIntoView({ behavior: 'smooth', block: 'start' }); } return;
+    case 'bback': UI.bopen = false; saveUI(); paint(); scrollTo(0, UI.bscroll || 0); return;
+    case 'pickbest': UI.best = b.dataset.cid; if (innerWidth <= 640) { UI.bscroll = scrollY; UI.bopen = true; saveUI(); paint(); scrollTo(0, 0); return; } saveUI(); paint(); if (innerWidth < 900) { const v = $('.dk-bview'); if (v) v.scrollIntoView({ behavior: 'smooth', block: 'start' }); } return;
     case 'badd': {
       const c = getC(b.dataset.cid), n = Math.max(1, Math.min(30, N($('#dk-bCount').value) || 1)), v = $('#dk-bEnc').value;
       let s, g; if (v === '__new' || !v) { s = newSession(); g = s.groups[0]; } else { const [sid, gid] = v.split('|'); s = S.sessions.find(z => z.id === sid); g = s && s.groups.find(z => z.id === gid); }
@@ -1977,6 +1986,7 @@ function closeMenus() { $$('.dk-menu.open').forEach(m => m.classList.remove('ope
 function onChange(e) {
   const el = e.target; if (!ROOT.contains(el)) return;
   if (onNotesChange(el)) return;
+  if (el.dataset && el.dataset.qt) { QTYPE[el.dataset.qt] = el.value; return; }
   if (el.dataset && el.dataset.hbf) { hbReadForm(); return; }
   if (PB && onPasteChange(el)) return;
   if (el.classList.contains('dk-notef')) { const files = Array.from(el.files || []); el.value = ''; const s = curSession(); if (files.length && s) addFiles(s, files); return; }
@@ -2051,6 +2061,8 @@ function mount(root, ctx) {
   if (ROOT) unmount();
   ROOT = root; CTX = Object.assign({ party: null, back: null }, ctx || {});
   root.classList.add('dk');
+  // Phones: only a party's page is available (see LITE below); the Desk on its own isn't
+  if (!CTX.partyHost && mobileDev()) { const b = CTX.back; root.innerHTML = `<div class="dk-nophone"><div class="dk-emblem">${ICON.folder}</div><h2>Not available on mobile devices</h2><p><em>Not all of the DM’s Desk is available on mobile devices. Open a party you run to manage it from here, or use a computer for everything else.</em></p>${b ? `<a class="dk-btn gold" href="${esc(b.href)}">${ICON.back}<span>${esc(b.label || 'Back')}</span></a>` : ''}</div>`; return { unmount: () => { root.innerHTML = ''; ROOT = null; } }; }
   root.innerHTML = `<header class="dk-top"></header><div class="dk-page"></div>
     <aside class="dk-log" aria-label="Roll log"><div class="dk-loghd"><h2>Roll log</h2><button class="dk-btn sm" data-act="clearlog">Clear</button><button class="dk-ix" data-act="log" aria-label="Close">${ICON.x}</button></div><div class="dk-loglist"></div></aside>
     <div class="dk-modal" role="presentation"><div class="dk-mcard" role="dialog" aria-modal="true"></div></div>
@@ -2066,6 +2078,8 @@ function mount(root, ctx) {
   if (CTX.party && CTX.party.id) { const ps = S.sessions.find(s => s.party === CTX.party.id); if (ps && !UI.session) UI.session = ps.id; }
   if (readTurnHP()) S.savedAt = Date.now();
   setSync(CTX.fs ? 'Loading…' : 'Saved on this device');
+  // Phones: a party you run opens on its party page only (roller, turn order, and a button to open the full Desk)
+  LITE = !!(CTX.partyHost && mobileDev()); ROOT.classList.toggle('dk-lite', LITE); if (LITE) UI.tab = 'party';
   if (CTX.partyHost) { const slot = document.createElement('div'); slot.className = 'dk-partyslot'; root.insertBefore(slot, root.querySelector('.dk-page').nextSibling); slot.appendChild(CTX.partyHost); }
   render();
   try { const top = root.querySelector('.dk-top'), setH = () => root.style.setProperty('--toph', Math.round(top.getBoundingClientRect().height) + 'px'); setH(); if (window.ResizeObserver) { const ro = new ResizeObserver(setH); ro.observe(top); LISTEN.push([{ removeEventListener: () => ro.disconnect() }, 'x', null]); } } catch (e) {}
@@ -2078,7 +2092,20 @@ function mount(root, ctx) {
   on(window, 'message', onR20Msg); on(document, 'visibilitychange', onVis); on(window, 'storage', onStorage);
   setTimeout(r20Hello, 400);
   cloudBoot(); notesBoot(); setTimeout(() => { if (ROOT) tokShrinkOld(); }, 3000);
+  if (LITE) setTimeout(phoneWarn, 700);
   return { unmount };
+}
+let LITE = false;
+// any phone or tablet (an iPad reports itself as a Mac, so it's told apart by its touch screen)
+function mobileDev() { try { const ua = navigator.userAgent || '';
+  return /Android|iPhone|iPad|iPod|Mobile|Silk|Kindle|Tablet/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) || (matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches); } catch (e) { return false; } }
+// Phones: a heads-up when a party you run opens, until "Don't show this again" is ticked
+function phoneWarn() {
+  if (!ROOT || !LITE) return; try { if (localStorage.getItem('pg-party-phone-ok') === '1') return; } catch (e) {}
+  if ($('.dk-modal.open')) return;
+  openModal(`<h2>Party page only</h2><p>Not all of the DM’s Desk is available on mobile devices. Here you have the party page, the dice roller and turn order; open this party on a computer for sessions, notes, the bestiary and the generators.</p><label class="dk-chk"><input type="checkbox" id="dk-pwNo"> Don’t show this again</label><div class="dk-acts"><button class="dk-btn gold" id="dk-pwOk">Got it</button></div>`, { cls: 'dk-small', focus: false });
+  const keep = () => { try { const c = $('#dk-pwNo'); if (c) { if (c.checked) localStorage.setItem('pg-party-phone-ok', '1'); else localStorage.removeItem('pg-party-phone-ok'); } } catch (e) {} };
+  $('#dk-pwNo').onchange = keep; $('#dk-pwOk').onclick = () => { keep(); closeModal(true); };
 }
 function unmount() { LISTEN.splice(0).forEach(([t, ev, fn, o]) => t.removeEventListener(ev, fn, o)); if (CTX && CTX.partyHost && CTX.partyHost.parentNode && CTX.partyHost.parentNode.classList.contains('dk-partyslot')) CTX.partyHost.parentNode.removeChild(CTX.partyHost); if (CLOUD) flush(); if (NCLOUD) flushNotes(); if (ROOT) { ROOT.innerHTML = ''; ROOT.classList.remove('dk'); } ROOT = null; CLOUD = false; }
 // Lists that scroll inside a panel show a divider with a soft shadow at an edge when there's more past it.
@@ -2088,6 +2115,13 @@ function shadeAll() { if (!ROOT) return; $$(SHADE_SEL).forEach(shadeOne); }
 document.addEventListener('scroll', e => { const el = e.target; if (el && el.matches && ROOT && ROOT.contains(el) && el.matches(SHADE_SEL)) shadeOne(el); }, true);
 addEventListener('resize', () => requestAnimationFrame(shadeAll));
 setInterval(shadeAll, 1000);
+// Phones: while typing, the keyboard is up, so the bottom tab bar steps aside instead of riding up above the keyboard (as on the sheet)
+if (!window.__dkKb) { window.__dkKb = 1;
+  const typing = el => !!el && (el.isContentEditable || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || (el.tagName === 'INPUT' && !/^(button|checkbox|radio|range|color|file|submit|reset|image)$/i.test(el.type || '')));
+  let kbT = 0;
+  document.addEventListener('focusin', e => { clearTimeout(kbT); if (typing(e.target)) document.documentElement.classList.add('dk-kb'); });
+  document.addEventListener('focusout', () => { clearTimeout(kbT); kbT = setTimeout(() => { if (!typing(document.activeElement)) document.documentElement.classList.remove('dk-kb'); }, 120); });
+}
 // ---------- AI (bring your own key) ----------
 // Safety: the model gets no tools and its output is inert data. Replies are parsed as JSON, checked field by field against a
 // fixed shape (unknown keys dropped, types coerced, lengths and counts capped) and only ever shown escaped as text. Nothing

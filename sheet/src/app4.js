@@ -229,7 +229,7 @@ function mainClick(e) {
     case 'addclasscomp': openClassCompanions(); break;
     case 'addcc': addClassCompanion(b.dataset.n); break;
     case 'dismiss': { const c = S.companions[i]; S.companions.splice(i, 1); if (c.tmpl && COMP_RULES[c.tmpl] && COMP_RULES[c.tmpl].perm) S.compOff = Object.assign({}, S.compOff, { [c.tmpl]: true }); pendingLabel = 'Dismiss ' + c.name; if (c.effect && !S.companions.some(x => x.effect === c.effect) && AUTO(c.effect).summon) { S.effects = S.effects.filter(x => x.name !== c.effect); if (S.concentration === c.effect) S.concentration = ''; } save(); render(); toast(`${esc(c.name)} dismissed.`, '', 5000, { label: 'Undo', fn: () => undo(1) }); break; }
-    case 'comphp': compHp(i, N(b.dataset.d)); break;
+    case 'comphp': compHp(i, N(b.dataset.d), b); break;
     case 'bagmove': $$('.menu.open').forEach(m => m.classList.remove('open')); bagMoveTo(b.dataset.id, b.dataset.to); pendingLabel = null; return;
     case 'invsrch': { const k = b.dataset.k, open = invQOpen(k); UI.open['invsrch:' + k] = !open; if (open) UI.invQs = Object.assign({}, UI.invQs, { [k]: '' }); pendingLabel = null; render('inventory');
       if (!open) { const e = document.querySelector(`#page-inventory .invq[data-scope="${CSS.escape(k)}"]`); if (e) e.focus(); } return; }
@@ -379,7 +379,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.classList && e.target.classList.contains('portrait-edit')) $('#portraitFile').click();
   // HP boxes: "+20" heals, "-20" (or just "20") is damage
   if (e.key === 'Enter' && e.target.id === 'hpAmt') hpAction(e.shiftKey || /^\s*\+/.test(e.target.value) ? 'heal' : 'dmg');
-  if (e.key === 'Enter' && /^chp\d+$/.test(e.target.id || '')) { e.preventDefault(); compHp(N(e.target.id.slice(3)), /^\s*\+/.test(e.target.value) ? 1 : -1); }
+  if (e.key === 'Enter' && /^chp\d+$/.test(e.target.id || '')) { e.preventDefault(); compHp(N(e.target.id.slice(3)), /^\s*\+/.test(e.target.value) ? 1 : -1, e.target); }
   if (e.key === 'Enter' && /^ptyq-/.test(e.target.id || '')) { e.preventDefault(); ptyQuick(/^\s*\+/.test(e.target.value) ? 'heal' : 'dmg', e.target.id.slice(5)); }
 });
 
@@ -1300,12 +1300,13 @@ function addClassCompanion(n, viaFeature) {
   S.companions.push(makeClassComp(n, extra));
   pendingLabel = 'Add ' + n; if (!viaFeature) closeModal(true); save(); render(); if (!viaFeature) toast(`${esc(n)} added.`);
 }
-function compHp(i, d) {
-  const c = S.companions[i], el = $('#chp' + i), amt = Math.abs(N(el && String(el.value).trim().replace(/[−–]/g, '-').replace(/^\+/, '')));
+function compHp(i, d, btn) {
+  const side = btn && btn.closest('.chp-side'), c = S.companions[i], el = (side && side.querySelector('input')) || $('#chp' + i), amt = Math.abs(N(el && String(el.value).trim().replace(/[−–]/g, '-').replace(/^\+/, '')));
   if (!amt) { if (el) el.focus(); toast('Type an amount first.'); return; }
   if (d === 0) { c.temp = Math.max(N(c.temp), amt); pendingLabel = `${c.name} gains ${amt} temp HP`; if (el) el.value = ''; save(); render(); refresh(); return; }
   if (d < 0 && N(c.temp)) { const t = Math.min(N(c.temp), amt); c.temp = N(c.temp) - t; c.hp = Math.max(0, N(c.hp) - (amt - t)); } else c.hp = Math.max(0, Math.min(N(c.maxhp), N(c.hp) + d * amt));
-  pendingLabel = `${c.name} ${d < 0 ? 'takes ' + amt + ' damage' : 'heals ' + amt}`; if (el) el.value = '';
+  const tsel = (side && side.querySelector('select')) || $('#chpt' + i), dt = d < 0 && tsel ? tsel.value : '';
+  pendingLabel = `${c.name} ${d < 0 ? 'takes ' + amt + (dt ? ' ' + dt : '') + ' damage' : 'heals ' + amt}`; if (el) el.value = '';
   save(); render(); refresh();
   if (c.hp === 0) toast(`${esc(c.name)} drops to 0 HP.`, 'fumble', 7000, [{ label: 'Dismiss it', fn: () => { const k = S.companions.indexOf(c); if (k >= 0) { S.companions.splice(k, 1); pendingLabel = 'Dismiss ' + c.name; save(); render(); } } }]);
 }

@@ -1069,6 +1069,7 @@ async function sendToTurn(list, label) {
   toast({ title: `Sent ${label || plural(list.length, 'creature')} to the Turn order`, det: esc(lines.join(' · ')) + `<br>Open ${esc(CTX.party.name || 'the party')}’s Turn order to run the fight; HP changes here show up there.`, cls: 'crit' });
 }
 function takeFromTurn(x) { const t = toRead(); if (!t) return; t.rows = t.rows.filter(r => r.desk !== x.iid); toWrite(t); paint(); toastInfo(`${esc(x.name)} is off the Turn order.`); }
+const QTYPE = {}; // damage type picked on each creature card (kept across repaints)
 const ICO_PARTY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.2c3 .1 5.5 2.6 5.5 5.8"/></svg>';
 // ---------- drawing ----------
 const hpPct = x => { const m = N(x.max) || 1; return Math.max(0, Math.min(100, N(x.hp) / m * 100)); };
@@ -1201,7 +1202,7 @@ function cardHTML(x) {
   return `<article class="dk-ccard dk-comp2${x.down ? ' down' : ''}" data-iid="${x.iid}">
     <div class="dk-ch2"><button class="dk-chtok" data-act="sel" data-iid="${x.iid}" aria-label="Open ${esc(x.name)}">${tokenHTML(c, 46, 'dk-cctok')}</button><button class="dk-chname" data-act="sel" data-iid="${x.iid}"><b class="dk-cname">${esc(x.name)}</b><span class="dk-ctags">${c ? tags.map(t => `<span class="dk-tag">${esc(t)}</span>`).join('') : '<span class="dk-tag bad">stat block missing</span>'}${CTX.party && inTurn(x.iid) ? '<span class="dk-tag to">Turn order</span>' : ''}</span></button>${econMini(x)}</div>
     <div class="dk-cstat2"><div class="dk-chp2" data-hpflash="${x.iid}"><div class="dk-chp-ring" title="${x.hp} of ${x.max} HP${N(x.temp) ? ' (+' + x.temp + ' temporary)' : ''}"><span class="dk-ring">${hpRing(x)}</span><span class="dk-chp-c"><b class="${p <= 35 ? 'low' : ''}">${x.hp}</b>${N(x.temp) ? `<em>+${x.temp}</em>` : ''}<small>of ${x.max}</small></span></div>
-      <div class="dk-chp-side"><input class="dk-f" id="dk-q-${x.iid}" data-q="${x.iid}" type="text" autocomplete="off" enterkeyhint="done" maxlength="6" placeholder="Amount" title="Type 20 or -20 for damage, +20 to heal, then Enter" aria-label="Amount for ${esc(x.name)}">
+      <div class="dk-chp-side"><select class="dk-f dk-qtype" data-qt="${x.iid}" aria-label="Damage type for ${esc(x.name)} (resistances and immunities apply)" title="Damage type: its resistances and immunities apply"><option value="">Any</option>${DTYPES.map(d => `<option value="${d}"${QTYPE[x.iid] === d ? ' selected' : ''}>${d[0].toUpperCase() + d.slice(1)}</option>`).join('')}</select><input class="dk-f" id="dk-q-${x.iid}" data-q="${x.iid}" type="text" autocomplete="off" enterkeyhint="done" maxlength="6" placeholder="Amount" title="Type 20 or -20 for damage, +20 to heal, then Enter" aria-label="Amount for ${esc(x.name)}">
         <div class="dk-chp-btns"><button class="dk-hpi dmg sm" data-act="qdmg" data-iid="${x.iid}" title="Damage" aria-label="Damage ${esc(x.name)}">${ICON.hpDmg}</button><button class="dk-hpi heal sm" data-act="qheal" data-iid="${x.iid}" title="Heal" aria-label="Heal ${esc(x.name)}">${ICON.hpHeal}</button><button class="dk-hpi tmp sm" data-act="qtemp" data-iid="${x.iid}" title="Temporary HP (they don’t stack — the higher stays)" aria-label="Temporary HP for ${esc(x.name)}">${ICON.hpTemp}</button></div></div></div>
       <div class="dk-csts"><span class="dk-cst"><small>AC</small><b>${x.ac}</b></span><span class="dk-cst wide" title="${esc(c ? c.speed || '' : '')}"><small>Speed</small><b>${c ? speedFt(c) + ' ft' : '—'}</b>${sp.length > 1 ? `<i>${esc(sp.slice(1).map(z => z.replace(/\s*ft\.?/i, '')).join(' · '))}</i>` : ''}</span></div></div>
     ${chips ? `<div class="dk-ccfoot">${chips}</div>` : ''}
@@ -1628,7 +1629,7 @@ async function onClick(e) {
     case 'saveeff': { const g = curSession().groups.find(z => z.id === b.dataset.gid); openSaveDialog({ title: 'Saving throw', dc: 13, ab: 1, parts: [], half: true }); SV.rows.forEach(r => { r.on = !!g.list.find(z => z.iid === r.iid) && !findInst(r.iid).down; }); return paintSave(); }
     case 'addc': { const q = $('#dk-addq'), v = q.value.trim(); if (!v) { q.focus(); return; } const exact = allCreatures().find(c => c.name.toLowerCase() === v.toLowerCase()) || searchCreatures(v, 1)[0]; if (!exact) return toastInfo(`No creature called “${esc(v)}”. Try the bestiary, or paste its stat block there.`); return addPicked(exact.id); }
     case 'pickc': return addPicked(b.dataset.cid);
-    case 'qdmg': case 'qheal': case 'qtemp': { const inp = $(`[data-q="${iid}"]`), v = hpAmt(inp.value).n; if (!v) { inp.focus(); return; } if (act === 'qdmg') applyDamage(x, v, '', true); else if (act === 'qtemp') setTemp(x, v); else heal(x, v); return; }
+    case 'qdmg': case 'qheal': case 'qtemp': { const inp = $(`[data-q="${iid}"]`), v = hpAmt(inp.value).n; if (!v) { inp.focus(); return; } if (act === 'qdmg') { const t = QTYPE[iid] || ''; if (t) applyParts(x, [{ total: v, type: t }], false, dmgMult(instC(x), t, false) === 1); else applyDamage(x, v, '', true); } else if (act === 'qtemp') setTemp(x, v); else heal(x, v); return; }
     case 'dup': { const g = groupOf(iid); if (!g) return; const out = addToGroup(g.s, g.g, x.cid, 1); save(); paint(); return toastInfo(`Added <b>${esc(out[0].name)}</b>.`); }
     case 'rest': restInst(x); save(); paint(); return toastInfo(`${esc(x.name)} is fresh: full HP, conditions cleared, every use back.`);
     case 'movegrp': { const g = groupOf(iid), to = g.s.groups.find(z => z.id === b.dataset.gid); g.g.list = g.g.list.filter(z => z !== x); to.list.push(x); save(); paint(); return; }
@@ -1706,6 +1707,7 @@ function closeMenus() { $$('.dk-menu.open').forEach(m => m.classList.remove('ope
 function onChange(e) {
   const el = e.target; if (!ROOT.contains(el)) return;
   if (onNotesChange(el)) return;
+  if (el.dataset && el.dataset.qt) { QTYPE[el.dataset.qt] = el.value; return; }
   if (el.dataset && el.dataset.hbf) { hbReadForm(); return; }
   if (PB && onPasteChange(el)) return;
   if (el.classList.contains('dk-notef')) { const files = Array.from(el.files || []); el.value = ''; const s = curSession(); if (files.length && s) addFiles(s, files); return; }
