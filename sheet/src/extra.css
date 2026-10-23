@@ -3534,3 +3534,4 @@ html.mobile body.wizopen #modal.open, html.mobile body.wizopen #modal.closing { 
 /* the Log window keeps one size on every tab (the Dice stats height) */
 #rolllogmodal .rl-list { height: min(62vh, 640px); max-height: none; }
 html.mobile #rolllogmodal .rl-list { height: auto; max-height: min(62vh, 640px); }
+.cact-i { color: var(--k, var(--gold)); } .cact-i svg { width: 15px; height: 15px; display: block; }

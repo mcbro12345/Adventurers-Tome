@@ -1350,3 +1350,4 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 .dk .dk-chp-side .dk-qtype { height: 30px; min-height: 30px !important; padding: 0 8px; font-size: .85rem; border-radius: 8px; margin-bottom: -4px; }
 .dk .dk-chp-side input.dk-f { height: 30px; min-height: 30px !important; padding: 0 8px; border-radius: 8px; }
 .dk .dk-chp-btns .dk-hpi { height: 36px; min-height: 36px; }
+.dk .dk-cact-i { color: var(--k, var(--gold-ink)); letter-spacing: 0; } .dk .dk-cact-i svg { width: 15px !important; height: 15px !important; display: block; }
