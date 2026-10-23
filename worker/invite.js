@@ -34,10 +34,12 @@ async function ddb(req, path, url) {
   const cors = { 'Access-Control-Allow-Origin': allow, 'Vary': 'Origin', 'Access-Control-Allow-Methods': 'GET, OPTIONS', 'X-Content-Type-Options': 'nosniff' };
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
   if (req.method !== 'GET') return new Response('', { status: 405, headers: cors });
+  // only for the site's own pages (a browser always sends Origin on these cross-site requests): not a proxy for anyone else
+  if (!DDB_ORIGINS.test(origin)) return new Response('', { status: 403, headers: cors });
   if (path === 'ddb/avatar') {
     const u = url.searchParams.get('u') || '';
-    if (!/^https:\/\/(www\.)?dndbeyond\.com\/avatars\/[\w\/.-]+\.(jpe?g|png|gif|webp)(\?[\w=&%.-]*)?$/i.test(u)) return new Response('', { status: 400, headers: cors });
-    const r = await fetch(u, { cf: { cacheTtl: 86400 } }); const type = r.headers.get('Content-Type') || '';
+    if (!/^https:\/\/(www\.)?dndbeyond\.com\/avatars\/[\w\/.-]+\.(jpe?g|png|gif|webp)(\?[\w=&%.-]*)?$/i.test(u) || /\.\.|%2e/i.test(u)) return new Response('', { status: 400, headers: cors });
+    const r = await fetch(u, { cf: { cacheTtl: 86400 }, redirect: 'manual' }); const type = r.headers.get('Content-Type') || '';
     if (!r.ok || !/^image\//.test(type)) return new Response('', { status: 404, headers: cors });
     return new Response(r.body, { headers: Object.assign({ 'Content-Type': type, 'Cache-Control': 'public, max-age=86400' }, cors) });
   }

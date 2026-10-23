@@ -361,7 +361,7 @@ function ptyAfterCast(sp, a, L, x, c) {
   let ids = x.tgts || (PTY_PRESET && Date.now() - PTY_PRESET.at < 120000 ? PTY_PRESET.ids : []) || []; PTY_PRESET = null;
   const selfOn = d.self !== false && x.self !== false && (x.tgts != null || !ids.length);
   const cap = d.n === 'any' ? 999 : (N(d.n) || 1) + N(d.up) * Math.max(0, L - base);
-  if (ids.length + (selfOn ? 1 : 0) > cap) { const keep = Math.max(0, cap - (selfOn ? 1 : 0)); lines.push(`${sp.name} can target ${cap} — sent to the first ${keep}`); ids = ids.slice(0, keep); }
+  if (ids.length + (selfOn ? 1 : 0) > cap) { const keep = Math.max(0, cap - (selfOn ? 1 : 0)); lines.push(`${esc(sp.name)} can target ${cap} — sent to the first ${keep}`); ids = ids.slice(0, keep); }
   if (!selfOn && c.eff) { c.eff.ally = true; delete c.eff.item; if (c.eff.maxHp) { S.hp.cur = Math.max(0, N(S.hp.cur) - N(c.eff.maxHp)); delete c.eff.maxHp; } }
   if (!ids.length) return { lines, noSelfHeal: !!d.heal && !selfOn };
   const me = PTYX().self, who = S.name || 'An ally', ci = c.ci || {};

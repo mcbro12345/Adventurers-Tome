@@ -2146,3 +2146,8 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 .pg-pw > i { right: 0; bottom: 0; width: 7px; height: 7px; box-shadow: 0 0 0 1.5px rgba(15,22,38,.95); }
 .pg-pw.bg > i { box-shadow: 0 0 0 1.5px rgba(15,22,38,.95); }
 .pg-pres { padding: 2px !important; }
+/* Audit log: when the table runs out of room, the Details button column goes (tapping a row opens it anyway), so nothing is cut off */
+.adm-tw:has(.au-t2) { container-type: inline-size; }
+.au-t2 .au-c-w { min-width: 150px; }
+@container (max-width: 1040px) { .au-t2 td.au-c-x, .au-t2 thead th:last-child { display: none; } }
+@container (max-width: 760px) { .au-t2 thead th:nth-child(4), .au-t2 td:has(> .au-cat) { display: none; } }

@@ -961,7 +961,7 @@ function useFeature(i, col, opt) {
   }
   const sc = []; clsRows().forEach(row => { const c = CL[row.key], s = subOf(row); (c.scaling || []).concat((s && s.scaling) || []).forEach(([n, t]) => { if (new RegExp('\\b' + n.split(' ')[0].replace(/[^a-z]/gi, '') + '\\b', 'i').test(f.name) && n !== 'Rage Damage') sc.push(n + ': ' + scaleVal(t, N(row.level))); }); });
   const fRh = riderHook({ kind: 'feat', names: [f.name], self: f }, r ? r.total : null);
-  fRh.always.forEach(x => { lines.push(`${x.src.name}: ${x.r ? '+' + x.total + (x.type ? ' ' + x.type : '') + ' (' + x.r.detail + ')' : 'used'}`); x.lines.forEach(l => lines.push(x.src.name + ': ' + l)); });
+  fRh.always.forEach(x => { lines.push(`${esc(x.src.name)}: ${x.r ? '+' + x.total + (x.type ? ' ' + x.type : '') + ' (' + x.r.detail + ')' : 'used'}`); x.lines.forEach(l => lines.push(esc(x.src.name) + ': ' + l)); });
   pendingLabel = 'Use ' + f.name; update(); render();
   const left = max != null && !f.pool ? `${Math.max(0, max - N(f.used))}/${max} left` : '';
   toast(`${r ? `<b class="total">${r.total}</b>` : ''}<div><div><b>${esc(f.name)}</b>${left ? ' · ' + left : ''}</div>${r ? `<div class="det">${esc(r.detail)}${fx.rollNote ? ' ' + esc(fx.rollNote) : ''}</div>` : ''}${sc.length ? `<div class="det">${esc(sc.join(' · '))}</div>` : ''}${lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, '', 8000, [healAct, typeof ptyFeatAct === 'function' ? ptyFeatAct(f.name, r, f) : null, { label: 'Undo', fn: () => undo(1) }].filter(Boolean).concat(fRh.acts));
@@ -1179,7 +1179,7 @@ function executeCast(i, how, L, col, x) {
       healAct = { label: 'Heal me', fn: () => useAmt(r, sp.name + ': healing you got', n => healSelf(n, `${sp.name}: +${n} HP`)) };
     }
   }
-  if (sm.note) lines.push(sm.note);
+  if (sm.note) lines.push(esc(sm.note));
   if (rounds && needEffect) lines.push('Lasts ' + fmtRounds(rounds));
   // Homebrew backlash: casting it again before a short rest hurts you
   let backAct = null;

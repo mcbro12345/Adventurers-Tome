@@ -16,7 +16,7 @@ const pgViewId = async em => { const h = new Uint8Array(await crypto.subtle.dige
   return 'u-' + [...h].map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 24); };
 // A place on this site to go to, or '' if it isn't one (a ?next= or a saved "come back here" can't send anyone elsewhere).
 function pgSafePath(v) { try { const u = new URL(String(v || ''), location.origin); return u.origin === location.origin && /^https?:$/.test(u.protocol) ? u.pathname + u.search + u.hash : ''; } catch (e) { return ''; } }
-function pgGo(url, replace) { const go = () => { if (url == null) location.reload(); else if (replace) location.replace(url); else location.href = url; };
+function pgGo(url, replace) { try { sessionStorage.setItem('pg-nav', String(Date.now())); } catch (e) {} /* (moving to another page of the site isn't going offline) */ const go = () => { if (url == null) location.reload(); else if (replace) location.replace(url); else location.href = url; };
   if (PG_CALM) return go(); try { sessionStorage.setItem('pg-nav', String(Date.now())); } catch (e) {}
   // Already on a loading screen (e.g. finishing a sign-in link): keep it up and go straight on, so it doesn't fade out
   // and back in. The sign-in card counts as a page: the loading screen fades in over it, like leaving any page.
@@ -394,13 +394,13 @@ async function sheetLive0(fs, id, d) {
   return Object.keys(pc).length ? Object.assign(pc, { at: Number(d.savedAt) || 0 }) : null;
 }
 // A character's address: /character/zeebo (older /player/character addresses stay as they were).
-const pathURL = pth => pth.includes('/') ? '/' + pth : '/character/' + pth;
+const pathURL = pth => !/^[\w-]+(\/[\w-]+)?$/.test(String(pth || '')) ? '' : pth.includes('/') ? '/' + pth : '/character/' + pth; // (only a plain address on this site: a path is written by the character's owner)
 const URLS = {
   hub: G => PRETTY ? '/' : LEG + '?g=' + G,
   shared: G => PRETTY ? '/shared' : LEG + '?g=' + G + '&view=shared',
   parties: G => PRETTY ? '/parties' : LEG + '?g=' + G + '&view=parties',
   admin: (G, tab) => PRETTY ? '/admin' + (tab ? '/' + tab : '') : LEG + '?g=' + G + '&admin=1' + (tab ? '&tab=' + tab : ''),
-  char: c => PRETTY ? (c.path ? pathURL(c.path) : '/c/' + c.id) : LEG + '?c=' + c.id,
+  char: c => PRETTY ? ((c.path && pathURL(c.path)) || '/c/' + c.id) : LEG + '?c=' + c.id,
   byId: id => PRETTY ? '/c/' + id : LEG + '?c=' + id,
   party: (id, name) => PRETTY ? '/party/' + (id === 'new' ? 'new' : partySlug(name) || id) : LEG + '?party=' + id,
   // invite links go through the invite worker when there is one (it gives the link its party's own preview card)
@@ -821,9 +821,15 @@ function wireDie(root) {
     const others = () => { let n = 0; try { for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (!k || !k.startsWith('pg-tab:') || k === TAB) continue; if (Date.now() - Number(localStorage.getItem(k)) < 45000) n++; else localStorage.removeItem(k); } } catch (e) {} return n; };
     const offId = last => 'off_' + EMAIL.replace(/[^a-z0-9]/gi, '_').slice(0, 80) + '_' + last;
     window.pgLogOff = (at, why, last) => fs.collection('audit').doc(offId(last)).set({ at: Number(at) || Date.now(), by: EMAIL, byName: NAME, act: 'offline', detail: String(why).slice(0, 1500) }).catch(() => {});
-    addEventListener('pagehide', () => { try { localStorage.removeItem(TAB); } catch (e) {} if (others() || !ME) return; let mk = null; try { mk = JSON.parse(lsGet('pg-off:' + EMAIL) || 'null'); } catch (e) {}
+    // following a link to another page of the site (same tab) isn't leaving it
+    document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[href]'); if (!a || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || (a.target && a.target !== '_self') || a.hasAttribute('download')) return;
+      try { const u = new URL(a.href, location.href); if (u.origin === location.origin) sessionStorage.setItem('pg-nav', String(Date.now())); } catch (x) {} }, true);
+    addEventListener('keydown', e => { if (e.key === 'F5' || ((e.ctrlKey || e.metaKey) && /^r$/i.test(e.key))) try { sessionStorage.setItem('pg-nav', String(Date.now())); } catch (x) {} }, true);
+    // a page that comes straight back after logging "went offline" (a reload with the browser's button) says so
+    { let mk = null; try { mk = JSON.parse(lsGet('pg-off:' + EMAIL) || 'null'); } catch (e) {} if (mk && mk.why === 'closed' && mk.logged && Date.now() - Number(mk.at) < 30000) { lsSet('pg-off:' + EMAIL, JSON.stringify(Object.assign(mk, { logged: false }))); setTimeout(() => window.pgLog && pgLog('online', { detail: 'again right away (the page was reloaded)' }), 500); } }
+    addEventListener('pagehide', () => { try { localStorage.removeItem(TAB); } catch (e) {} if (others() || !ME) return; let nav = 0; try { nav = Number(sessionStorage.getItem('pg-nav')) || 0; } catch (e) {} if (Date.now() - nav < 6000) return; let mk = null; try { mk = JSON.parse(lsGet('pg-off:' + EMAIL) || 'null'); } catch (e) {}
       const now = Date.now(), last = window.pgSeenAt || 0; if (mk && mk.why === 'signout' && now - Number(mk.at) < 10000) return;
-      lsSet('pg-off:' + EMAIL, JSON.stringify({ at: now, why: 'closed', last })); if (last) pgLogOff(now, 'by closing the site', last); }); }
+      lsSet('pg-off:' + EMAIL, JSON.stringify({ at: now, why: 'closed', last, logged: !!last })); if (last) pgLogOff(now, 'by closing the site (or reloading it, or going to another website)', last); }); }
   // A fresh sign-in (not just a remembered session) and a brand-new account are logged once.
   let SIGNEDIN = false; try { const ls0 = Date.parse(user.metadata.lastSignInTime || '') || 0, mark = 'pg-signin-logged'; if (Date.now() - ls0 < 180000 && lsGet(mark) !== String(ls0)) { lsSet(mark, String(ls0)); SIGNEDIN = true; pgLog(NEWACCT ? 'account' : 'signin'); } } catch (e) {}
   // Coming online (nothing from them for 4+ minutes): logged with what brought them back, once the page knows its title.
@@ -835,7 +841,7 @@ function wireDie(root) {
   // (when the database refuses even their own account record, an admin has signed them out or blocked them)
   const LOCKED = 'You’ve been signed out.';
   { const k0 = kicked(ME) || (ACCT_ERR === 'permission-denied' ? LOCKED : ''); if (k0) { kick(k0); return; } }
-  UREF.onSnapshot(d => { { const sa = d.exists && Number(d.data().seenAt), sf = d.exists && Number(d.data().seenFg); if (sa > (window.pgSeenAt || 0)) window.pgSeenAt = sa; if (sf > (window.pgFgAt || 0)) window.pgFgAt = sf; } const k = kicked(d.exists ? d.data() : null); if (k) kick(k); else { const u = d.exists ? d.data() : null, ra = Number(u && u.reloadAt) || 0; if (PG_RA === null) PG_RA = ra; else if (ra && ra !== PG_RA) { PG_RA = ra; location.reload(); return; } pgMsg(u); } }, e => { if (e && e.code === 'permission-denied') kick(LOCKED); });
+  UREF.onSnapshot(d => { { const nm = d.exists && String(d.data().name || ''); if (nm && nm !== NAME) { const old = NAME; NAME = nm; if (ME) ME.name = nm; try { window.dispatchEvent(new CustomEvent('pg-myname', { detail: { name: nm, old } })); } catch (e) {} } } /* renamed (by an admin, or on another device): every open page picks it up straight away */ { const sa = d.exists && Number(d.data().seenAt), sf = d.exists && Number(d.data().seenFg); if (sa > (window.pgSeenAt || 0)) window.pgSeenAt = sa; if (sf > (window.pgFgAt || 0)) window.pgFgAt = sf; } const k = kicked(d.exists ? d.data() : null); if (k) kick(k); else { const u = d.exists ? d.data() : null, ra = Number(u && u.reloadAt) || 0; if (PG_RA === null) PG_RA = ra; else if (ra && ra !== PG_RA) { PG_RA = ra; location.reload(); return; } pgMsg(u); } }, e => { if (e && e.code === 'permission-denied') kick(LOCKED); });
   // A message from the site's admin: pops up once (on whichever device sees it first), on any page.
   // Web addresses in a message become links (opened in a new tab). Runs on already-escaped text.
   function linkify(h) { return h.replace(/\b(?:https?:\/\/|www\.)[^\s<]+/gi, u => { const tail = (u.match(/[.,;:!?)\]'"]+$/) || [''])[0], url = tail ? u.slice(0, -tail.length) : u;
@@ -1458,6 +1464,7 @@ function hub(fs, auth, G, ctx) {
   const needNames = ems => Promise.all([...new Set(ems.filter(Boolean))].map(userDoc));
   if (ME) remember(EMAIL, ME);
   const myName = () => NAMES[EMAIL] || user.displayName || EMAIL.split('@')[0];
+  addEventListener('pg-myname', e => { const nm = e.detail.name; NAMES[EMAIL] = nm; remember(EMAIL, Object.assign({}, ME || {}, { name: nm })); if (typeof chars !== 'undefined') chars.filter(isMine).forEach(c => { if (c.player === nm) return; c.player = nm; charsCol.doc(c.id).set({ player: nm }, { merge: true }).catch(() => {}); }); try { draw(); } catch (x) {} });
   const isMine = c => (c.owner || '') === EMAIL;
   // Your name (shown on your characters as the player, and to the people you share with): the pencil beside it.
   function renameMe() {
@@ -3279,7 +3286,7 @@ function partyModule(H) {
         pgLog('party_dm', { target: p.id, tName: p.name, detail: 'DM is now ' + em }); close(); toast((nm || em) + ' is now the DM of ' + (p.name || 'the party') + '.'); } catch (x) { fail(x, 'change the DM'); } };
   }
   // Clear a party's chat and whispers: the players' sheets delete everything sent before now (nobody here reads it).
-  function clearPartyChat(p) { confirmBox('Clear ' + (p.name || 'this party') + '’s chat?', 'Every chat message and whisper sent so far disappears for all of its players. It can’t be undone.', 'Clear chat', async () => {
+  function clearPartyChat(p) { confirmBox('Clear ' + esc(p.name || 'this party') + '’s chat?', 'Every chat message and whisper sent so far disappears for all of its players. It can’t be undone.', 'Clear chat', async () => {
     try { await fs.collection('parties').doc(p.id).update({ chatClear: Date.now() }); pgLog('party_chat_clear', { target: p.id, tName: p.name }); toast((p.name || 'The party') + '’s chat was cleared.'); } catch (x) { toast('Couldn’t clear the chat: ' + ((x && (x.code || x.message)) || x)); } }); }
   function deleteParty(p, after) {
     confirmBox(`Delete ${esc(p.name || 'this party')}?`, 'The party is gone for everyone in it. The characters aren’t deleted — they just aren’t in a party anymore.', 'Delete party', async () => {

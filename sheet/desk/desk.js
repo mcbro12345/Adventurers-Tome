@@ -1076,7 +1076,7 @@ const condChips = (x, rm) => (x.conds || []).map(cd => `<span class="dk-chip con
 function econMini(x) { const t = turnOf(x), left = Math.max(0, moveMax(x) - N(t.mv)); return `<span class="dk-emini" title="This turn: action, bonus action, reaction, movement left">${ECON.map(([k, n]) => `<i class="${t[k] ? 'used' : ''}">${n[0]}</i>`).join('')}<i class="mv${left ? '' : ' used'}">${left}</i></span>`; }
 
 function render() {
-  if (!ROOT) return;
+  if (!ROOT) return; try { edFlush(); } catch (e) {}
   ROOT.querySelector('.dk-top').innerHTML = topHTML();
   { const lg = ROOT.querySelector('.dk-logo'); if (lg && CTX.logo && typeof CTX.logo.wire === 'function') try { CTX.logo.wire(lg); } catch (e) {} }
   paint(); paintDice(); try { pills(); } catch (e) {}
@@ -1100,6 +1100,7 @@ function paintDice() {
 // Repaints the open page, keeping scroll positions and the field being typed in.
 let PAINTING = false, PAINT_AGAIN = false;
 function paint() {
+  try { edFlush(); } catch (e) {}
   if (!ROOT) return; const pg = $('.dk-page'); if (!pg) return;
   if (PAINTING) { if (!PAINT_AGAIN) { PAINT_AGAIN = true; setTimeout(() => { PAINT_AGAIN = false; paint(); }, 0); } return; }
   PAINTING = true; try { paint0(pg); } finally { PAINTING = false; }
@@ -2495,11 +2496,14 @@ function notesAfterPaint() {
 let EDT = 0;
 const edFix = h => { h = String(h || '').replace(/<(p|li|h[123]|td|th)><\/\1>/g, '<$1><br></$1>'); return h.trim() ? h : '<p><br></p>'; };
 function edEl() { return $('.dk-ed'); }
+let ED_PENDING = false;
 function edSave(now) {
   const ed = edEl(), p = pageById(UI.np); if (!ed || !p) return;
-  clearTimeout(EDT); const go = () => { const h = clean(ed.innerHTML); if (h !== p.html) { p.html = h; nSave(p); } };
-  if (now) go(); else EDT = setTimeout(go, 500);
+  clearTimeout(EDT); const go = () => { ED_PENDING = false; const h = clean(ed.innerHTML); if (h !== p.html) { p.html = h; nSave(p); } };
+  if (now) go(); else { ED_PENDING = true; EDT = setTimeout(go, 500); }
 }
+// anything that redraws the page first keeps what was just typed (or a link/mention just picked) in the editor
+function edFlush() { if (ED_PENDING) edSave(true); }
 const selRange = () => { const s = getSelection(); return s && s.rangeCount ? s.getRangeAt(0) : null; };
 function blockOf(node) { const ed = edEl(); let n = node && node.nodeType === 3 ? node.parentNode : node; while (n && n !== ed && !/^(P|H1|H2|H3|LI|BLOCKQUOTE|DIV|PRE|TD|TH|SUMMARY)$/.test(n.tagName)) n = n.parentNode; return n && n !== ed ? n : null; }
 function edCmd(k) {

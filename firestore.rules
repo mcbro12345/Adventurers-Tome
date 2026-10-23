@@ -27,19 +27,19 @@ service cloud.firestore {
       && request.resource.data.viewers == resource.data.viewers.removeAll([me()])
       && request.resource.data.get('editors', []) == resource.data.get('editors', []).removeAll([me()]); }
     // A new character is always your own. The one exception: an editor saving a big character adds its extra pieces
-    // (<id>_p1, _p2…), which belong to the same owner as the main one.
+    // (<id>_p1, _p2...), which belong to the same owner as the main one.
     function mainOf(id) { return get(/databases/$(db)/documents/sheets/$(id.replace('_p[0-9]+$', ''))).data; }
-    function createOK(id) { return request.resource.data.owner == me()
+    function createOK(id) { return (request.resource.data.owner == me() && (!id.matches('.+_p[0-9]+') || !exists(/databases/$(db)/documents/sheets/$(id.replace('_p[0-9]+$', ''))) || mainOf(id).owner == me()))
       || (id.matches('.+_p[0-9]+') && me() in mainOf(id).get('editors', []) && request.resource.data.owner == mainOf(id).owner); }
     // Character ids are plain letters, digits, - and _ (they end up in addresses and on the page).
     function idOK(id) { return id.matches('[A-Za-z0-9_-]{1,80}'); }
-    // A party's DM (and anyone the DM made a co-DM) can look at — not change — the characters in their party.
+    // A party's DM (and anyone the DM made a co-DM) can look at - not change - the characters in their party.
     // The character says which party it's in; the party has to list it too.
     function partyView(id, d) { return d.get('party', '') is string && d.get('party', '') != '' && partyMgr(get(/databases/$(db)/documents/parties/$(d.party)).data)
       && (id in get(/databases/$(db)/documents/parties/$(d.party)).data.chars || id.replace('_p[0-9]+$', '') in get(/databases/$(db)/documents/parties/$(d.party)).data.chars); }
-    // The party's DM applying what they sent to a character nobody has open (healing, an item, a spell…); other
+    // The party's DM applying what they sent to a character nobody has open (healing, an item, a spell...); other
     // players' changes wait in the inbox for the character's player to accept:
-    // only the character's saved data changes — never who owns it, who it's shared with, or which party it's in.
+    // only the character's saved data changes - never who owns it, who it's shared with, or which party it's in.
     function partyWrite(id) { let d = resource.data; return d.get('party', '') is string && d.get('party', '') != ''
       && partyMgr(get(/databases/$(db)/documents/parties/$(d.party)).data)
       && (id in get(/databases/$(db)/documents/parties/$(d.party)).data.chars || id.replace('_p[0-9]+$', '') in get(/databases/$(db)/documents/parties/$(d.party)).data.chars)
@@ -51,7 +51,7 @@ service cloud.firestore {
       allow get: if admin() || (signedIn() && (resource == null || canSee(resource.data) || partyView(id, resource.data) || partyRead(id, resource.data)));
       allow create: if admin() || (signedIn() && idOK(id) && createOK(id));
       allow update: if admin() || (signedIn() && (ownerWrite() || editorWrite() || leaveWrite() || partyWrite(id)));
-      // only the owner (or an admin) can delete a character — never someone it's merely shared with
+      // only the owner (or an admin) can delete a character - never someone it's merely shared with
       allow delete: if admin() || (signedIn() && resource.data.owner == me());
       allow list: if false;
     }
@@ -62,7 +62,8 @@ service cloud.firestore {
     }
     // Rolling from a phone through the same character open on a computer: requests and answers, and the computer that's ready.
     match /sheets/{id}/relay/{r} {
-      allow read, update, delete: if signedIn() && canEditSheet(id);
+      allow read, delete: if signedIn() && canEditSheet(id);
+      allow update: if signedIn() && canEditSheet(id) && request.resource.data.get('by', '') == resource.data.get('by', '');
       // a roll request (or the "computer ready" note) is always signed with who sent it
       allow create: if signedIn() && canEditSheet(id) && request.resource.data.by == me();
     }
@@ -82,7 +83,7 @@ service cloud.firestore {
     match /notices/{n} {
       allow read, write: if admin();
     }
-    // The address book: /zeebo → which character. Anyone signed in can look an address up (it only says which character —
+    // The address book: /zeebo -> which character. Anyone signed in can look an address up (it only says which character -
     // opening it still needs access). Only the character's owner (or an admin) can claim, keep or free its addresses.
     function ownsSheet(c) { return exists(/databases/$(db)/documents/sheets/$(c)) && get(/databases/$(db)/documents/sheets/$(c)).data.owner == me(); }
     match /slugs/{s} {
@@ -96,6 +97,8 @@ service cloud.firestore {
     match /audit/{id} {
       allow create: if signedIn() && request.resource.data.by == me()
         && request.resource.data.keys().hasOnly(['at', 'by', 'byName', 'act', 'target', 'tName', 'detail'])
+        && request.resource.data.at is number && request.resource.data.at <= request.time.toMillis() + 3600000 && request.resource.data.at >= request.time.toMillis() - 31536000000
+        && request.resource.data.get('byName', '') is string && request.resource.data.get('byName', '').size() <= 120
         && request.resource.data.act is string && request.resource.data.act.matches('[a-z_]{1,40}')
         && request.resource.data.get('target', '') is string && request.resource.data.get('target', '').size() <= 200
         && request.resource.data.get('tName', '') is string && request.resource.data.get('tName', '').size() <= 200
@@ -104,7 +107,7 @@ service cloud.firestore {
       allow update: if false;
       allow delete: if admin() && resource.data.at is number && resource.data.at < request.time.toMillis() - 604800000;
     }
-    // View-only links: a public copy of a sheet at pub/<random link id> (big sheets split as <id>_p1, _p2…). Anyone can open
+    // View-only links: a public copy of a sheet at pub/<random link id> (big sheets split as <id>_p1, _p2...). Anyone can open
     // one if they have the link; only someone who can edit the character can write or remove it. Links can't be listed.
     function canEditSheet(c) { let sh = get(/databases/$(db)/documents/sheets/$(c)).data;
       return admin() || (signedIn() && (sh.owner == me() || me() in sh.get('editors', []))); }
@@ -128,7 +131,8 @@ service cloud.firestore {
         && ((request.resource.data.keys().hasOnly(['anon', 'at']) && request.resource.data.anon == true && v.matches('anon-[a-z0-9]{6,16}'))
           || (signedIn() && v == viewId() && request.resource.data.anon == false
             && request.resource.data.keys().hasOnly(['anon', 'at', 'name', 'pic', 'color', 'clear'])
-            && request.resource.data.get('name', '') is string && request.resource.data.get('name', '').size() <= 60));
+            && request.resource.data.get('name', '') is string && request.resource.data.get('name', '').size() <= 60
+            && request.resource.data.get('pic', '') is string && request.resource.data.get('pic', '').size() <= 60000 && request.resource.data.get('color', '') is string && request.resource.data.get('color', '').size() <= 20 && request.resource.data.get('clear', false) is bool));
       allow delete: if v.matches('anon-[a-z0-9]{6,16}') || (signedIn() && v == viewId());
     }
     // ================= Parties =================
@@ -154,7 +158,7 @@ service cloud.firestore {
         && n.chars == o.chars.removeAll([n.gone]) && (n.people == o.people || n.people == o.people.removeAll([me()])); }
     // Taking yourself off the list (a co-DM stepping down), or turning an invitation down.
     function selfOffOK() { let o = resource.data; let n = request.resource.data;
-      return me() != o.dm && n.diff(o).affectedKeys().hasOnly(['people', 'mgrs', 'invited', 'updatedAt'])
+      return me() != o.dm && (me() in o.people || me() in o.get('mgrs', []) || me() in o.invited) && n.diff(o).affectedKeys().hasOnly(['people', 'mgrs', 'invited', 'updatedAt'])
         && n.people == o.people.removeAll([me()]) && n.mgrs == o.mgrs.removeAll([me()]) && n.invited == o.invited.removeAll([me()]); }
     function declineOK() { let o = resource.data; let n = request.resource.data;
       return me() in o.invited && n.diff(o).affectedKeys().hasOnly(['invited']) && n.invited == o.invited.removeAll([me()]); }
@@ -163,7 +167,7 @@ service cloud.firestore {
     // The DM can also add a character that's been shared with them (one at a time); its player then sees the party.
     function seesSheet(c) { let d = get(/databases/$(db)/documents/sheets/$(c)).data; return d.owner == me() || me() in d.get('viewers', []); }
     function mgrOK() { let o = resource.data; let n = request.resource.data; let add = n.chars.removeAll(o.chars);
-      return partyMgr(o) && n.by == o.by && (me() == o.dm || (n.dm == o.dm && n.mgrs == o.mgrs))
+      return partyMgr(o) && n.by == o.by && n.dm == o.dm && (me() == o.dm || n.mgrs == o.mgrs)
         && (add.size() == 0 || (add.size() == 1 && seesSheet(add[0]))); }
     match /parties/{p} {
       allow get: if admin() || (signedIn() && (me() in resource.data.people || me() in resource.data.invited || partyMgr(resource.data)));
@@ -171,6 +175,7 @@ service cloud.firestore {
       allow create: if signedIn() && request.resource.data.dm == me() && request.resource.data.by == me() && request.resource.data.chars.size() == 0
         && me() in request.resource.data.people && request.resource.data.name is string && request.resource.data.name.size() <= 80;
       allow update: if admin() || (signedIn() && request.resource.data.name is string && request.resource.data.name.size() <= 80
+        && request.resource.data.get('updatedAt', 0) is number && request.resource.data.get('via', '') is string && request.resource.data.get('via', '').size() <= 80
         && (mgrOK() || joinOK() || leaveOK() || selfOffOK() || declineOK()));
       allow delete: if admin() || (signedIn() && me() == resource.data.dm);
       // Each character's card (name, picture, HP, AC, conditions), kept up to date by the character's own sheet.
@@ -207,7 +212,7 @@ service cloud.firestore {
         allow create: if chatter() && request.resource.data.keys().hasOnly(['at', 'by', 'c', 'n', 't', 'pn', 'pp', 'pc', 'pk']) && request.resource.data.get('pp', '').size() <= 60000 && request.resource.data.get('pn', '').size() <= 60
           && request.resource.data.by == me() && request.resource.data.t is string && request.resource.data.t.size() > 0 && request.resource.data.t.size() <= 1000
           && request.resource.data.n is string && request.resource.data.n.size() <= 120 && request.resource.data.c in partyOf(p).chars && ownsSheet(request.resource.data.c)
-          && request.resource.data.at is number;
+          && request.resource.data.at is number && request.resource.data.at <= request.time.toMillis() + 3600000 && request.resource.data.get('pc', '') is string && request.resource.data.get('pc', '').size() <= 20 && request.resource.data.get('pk', false) is bool;
         allow delete: if chatter() && (resource.data.by == me() || resource.data.at < request.time.toMillis() - 43200000 || resource.data.at <= partyOf(p).get('chatClear', 0));
       }
       // Typing and read receipts: one doc per character, written only by that character's player; players read them.
@@ -215,7 +220,7 @@ service cloud.firestore {
         allow read: if chatter();
         allow create, update: if chatter() && c in partyOf(p).chars && ownsSheet(c) && request.resource.data.by == me() && request.resource.data.c == c
           && request.resource.data.keys().hasOnly(['by', 'c', 'n', 'pp', 'pc', 'pk', 't', 'r']) && request.resource.data.t is number && request.resource.data.r is number
-          && request.resource.data.n is string && request.resource.data.n.size() <= 60 && request.resource.data.get('pp', '').size() <= 60000 && request.resource.data.get('pc', '').size() <= 20;
+          && request.resource.data.n is string && request.resource.data.n.size() <= 60 && request.resource.data.get('pp', '').size() <= 60000 && request.resource.data.get('pc', '').size() <= 20 && request.resource.data.get('pk', false) is bool;
         allow delete: if chatter();
       }
       // Whispers (/whisper or /w, and /r to reply): one player's character to another's. Only the two of them can read it.
@@ -227,7 +232,7 @@ service cloud.firestore {
           && request.resource.data.c in partyOf(p).chars && ownsSheet(request.resource.data.c)
           && request.resource.data.to in partyOf(p).chars && request.resource.data.to != request.resource.data.c
           && get(/databases/$(db)/documents/sheets/$(request.resource.data.to)).data.owner == request.resource.data.toEm
-          && request.resource.data.at is number;
+          && request.resource.data.at is number && request.resource.data.at <= request.time.toMillis() + 3600000 && request.resource.data.get('pc', '') is string && request.resource.data.get('pc', '').size() <= 20 && request.resource.data.get('pk', false) is bool;
         allow delete: if signedIn() && (resource.data.by == me() || resource.data.toEm == me() || resource.data.at < request.time.toMillis() - 43200000);
       }
     }
@@ -238,7 +243,7 @@ service cloud.firestore {
       allow list: if false;
       allow create, update: if signedIn() && request.resource.data.keys().hasOnly(['p', 'name', 'dmName', 'n', 'img', 'k', 'at'])
         && request.resource.data.img is string && request.resource.data.img.size() < 900000 && request.resource.data.name is string && request.resource.data.name.size() <= 200
-        && partyMgr(partyOf(request.resource.data.p));
+        && partyMgr(partyOf(request.resource.data.p)) && (resource == null || (resource.data.p == request.resource.data.p && partyMgr(partyOf(resource.data.p))));
       allow delete: if signedIn() && partyMgr(partyOf(resource.data.p));
       // the rest of a picture too big for one document
       match /part/{i} {
@@ -258,12 +263,14 @@ service cloud.firestore {
       allow create, update: if admin() || (signedIn() && request.resource.data.keys().hasOnly(['p', 'name', 'dm', 'dmName', 'at', 'n', 'pic', 'max', 'used'])
         && request.resource.data.get('max', 0) is int && request.resource.data.get('max', 0) >= 0 && request.resource.data.get('max', 0) <= 50
         && (!('pic' in request.resource.data) || (request.resource.data.pic is string && request.resource.data.pic.size() < 300000))
-        && partyMgr(partyOf(request.resource.data.p)));
+        && request.resource.data.get('used', 0) is int && request.resource.data.get('used', 0) >= 0
+        && request.resource.data.get('dm', '') == partyOf(request.resource.data.p).dm
+        && partyMgr(partyOf(request.resource.data.p)) && (resource == null || (resource.data.p == request.resource.data.p && partyMgr(partyOf(resource.data.p)))));
       allow delete: if admin() || (signedIn() && partyMgr(partyOf(resource.data.p)));
     }
-    // Things party members send each other (an item handed over, healing, a spell cast on them…). They wait here until
-    // the character's own sheet picks them up and applies them. Only someone in the same party can send one — the DM, a
-    // co-DM, or a player sending from a character in that party they can edit — and only that character's sheet reads them.
+    // Things party members send each other (an item handed over, healing, a spell cast on them...). They wait here until
+    // the character's own sheet picks them up and applies them. Only someone in the same party can send one - the DM, a
+    // co-DM, or a player sending from a character in that party they can edit - and only that character's sheet reads them.
     // "from" can't be faked: it's empty (the DM themselves) or a character the sender can edit.
     function partySend(id) { let d = request.resource.data; let pd = partyOf(d.p);
       return id in pd.chars && (admin() || (d.from == '' && partyMgr(pd)) || (d.from is string && d.from in pd.chars && canEditSheet(d.from))); }
@@ -279,7 +286,7 @@ service cloud.firestore {
       allow get: if admin();
       allow create, update, delete: if owner0();
     }
-    // Accounts left out of the notice / welcome numbers (admin page, Users ⋯ menu).
+    // Accounts left out of the notice / welcome numbers (admin page, Users ... menu).
     match /config/quiet {
       allow get, create, update, delete: if admin();
     }
