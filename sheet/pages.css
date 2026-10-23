@@ -2180,3 +2180,6 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
   .bg-t .adm-who small.adm-mail { display: none; }
   .bg-t td.nt-acts .adm-btn, .nt-t td.nt-acts .adm-btn { display: flex !important; width: 100% !important; margin: 0 0 6px !important; }
 }
+/* admin filter pills: each one only as wide as what's picked (not its longest choice), so search, count and filters share a row like on Users */
+.adm-fsel select { field-sizing: content; }
+.adm-filters .adm-tool { flex: 1 1 240px; }
