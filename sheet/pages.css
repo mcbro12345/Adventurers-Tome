@@ -2211,3 +2211,10 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 .pg-shade::after { bottom: 0; border-bottom: 1px solid rgba(127,127,127,.32); box-shadow: 0 -2px 12px 4px rgba(0,0,0,.4); }
 .pg-shade.sc-t::before, .pg-shade.sc-b::after { opacity: 1; }
 @media (prefers-color-scheme: light) { .pg-shade::before, .pg-shade::after { box-shadow: 0 0 12px 4px rgba(60,40,10,.14); } }
+
+/* Phones: the party page's AC / Speed / Level / Passive strip runs the full width of the card */
+@media (max-width: 640px) {
+  body.hubbody .pm > .pm-csts, body.hubbody .pm-csts.pm-quad { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); grid-template-columns: none; align-self: stretch; width: 100%; box-sizing: border-box; }
+  body.hubbody .pm > .pm-csts span, body.hubbody .pm-csts.pm-quad span { padding: 6px 4px; border-top: 0 !important; }
+  body.hubbody .pm > .pm-csts span + span, body.hubbody .pm-csts.pm-quad span + span { border-left: 1px solid rgba(127,127,127,.22) !important; }
+}

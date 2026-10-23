@@ -1086,7 +1086,7 @@ function render() {
 // Phones on the site: the tabs become the site's single tab button that opens a grid of tabs (same as the admin panel)
 function deskPill() {
   const P = window.pgPill; if (typeof P !== 'function' || !ROOT) return;
-  if (innerWidth > 640) { if (window.pgPillOwner && window.pgPillOwner() === 'desk') P(null); return; }
+  if (innerWidth > 640 || LITE) { if (window.pgPillOwner && window.pgPillOwner() === 'desk') P(null); return; }
   P(() => [...ROOT.querySelectorAll('.dk-tabs > button[data-tab]')].map(b => ({ k: b.dataset.tab, b, on: b.classList.contains('on'), ic: (b.querySelector('svg') || {}).outerHTML || '', label: (b.querySelector('span') || {}).textContent || b.dataset.tab, badge: '' })), 'desk');
 }
 function topHTML() {
@@ -1780,6 +1780,8 @@ function mount(root, ctx) {
   if (ROOT) unmount();
   ROOT = root; CTX = Object.assign({ party: null, back: null }, ctx || {});
   root.classList.add('dk');
+  // Phones: only a party's page is available (see LITE below); the Desk on its own isn't
+  if (!CTX.partyHost && innerWidth <= 640) { const b = CTX.back; root.innerHTML = `<div class="dk-nophone"><div class="dk-emblem">${ICON.folder}</div><h2>Not available on a phone</h2><p><em>Not all of the DM’s Desk is available on a phone. Open a party you run to manage it from here, or use a computer or tablet for everything else.</em></p>${b ? `<a class="dk-btn gold" href="${esc(b.href)}">${ICON.back}<span>${esc(b.label || 'Back')}</span></a>` : ''}</div>`; return { unmount: () => { root.innerHTML = ''; ROOT = null; } }; }
   root.innerHTML = `<header class="dk-top"></header><div class="dk-page"></div>
     <aside class="dk-log" aria-label="Roll log"><div class="dk-loghd"><h2>Roll log</h2><button class="dk-btn sm" data-act="clearlog">Clear</button><button class="dk-ix" data-act="log" aria-label="Close">${ICON.x}</button></div><div class="dk-loglist"></div></aside>
     <div class="dk-modal" role="presentation"><div class="dk-mcard" role="dialog" aria-modal="true"></div></div>
@@ -1795,7 +1797,11 @@ function mount(root, ctx) {
   if (CTX.party && CTX.party.id) { const ps = S.sessions.find(s => s.party === CTX.party.id); if (ps && !UI.session) UI.session = ps.id; }
   if (readTurnHP()) S.savedAt = Date.now();
   setSync(CTX.fs ? 'Loading…' : 'Saved on this device');
+  // Phones: a party you run opens on its party page only (roller, turn order, and a button to open the full Desk)
+  LITE = !!(CTX.partyHost && innerWidth <= 640); ROOT.classList.toggle('dk-lite', LITE); if (LITE) UI.tab = 'party';
+  if (CTX.partyHost) { const lb = document.createElement('div'); lb.className = 'dk-litebar'; lb.innerHTML = `<em>Not all of the DM’s Desk is available on a phone. Open this party on a computer or tablet for sessions, notes, the bestiary and the generators.</em>`; root.insertBefore(lb, root.querySelector('.dk-page').nextSibling); root._lb = lb; }
   if (CTX.partyHost) { const slot = document.createElement('div'); slot.className = 'dk-partyslot'; root.insertBefore(slot, root.querySelector('.dk-page').nextSibling); slot.appendChild(CTX.partyHost); }
+  if (root._lb) { const sl = root.querySelector('.dk-partyslot'); if (sl) root.insertBefore(root._lb, sl); }
   render();
   try { const top = root.querySelector('.dk-top'), setH = () => root.style.setProperty('--toph', Math.round(top.getBoundingClientRect().height) + 'px'); setH(); if (window.ResizeObserver) { const ro = new ResizeObserver(setH); ro.observe(top); LISTEN.push([{ removeEventListener: () => ro.disconnect() }, 'x', null]); } } catch (e) {}
   on(root, 'click', onClick); on(root, 'dblclick', e => { if (e.target.closest && e.target.closest('.dk-nsplit')) { UI.nrw = 0; saveUI(); nrSet(NRW0); } }); on(root, 'keydown', nrKey); on(root, 'pointerdown', e => { mwDrag(e); nrDrag(e); if (e.target.closest && e.target.closest('.drwin')) ROOT.classList.add('dk-rfront'); else if (e.target.closest && e.target.closest('.dk-mcard')) ROOT.classList.remove('dk-rfront'); }); on(window, 'resize', () => { if (ROOT) ROOT.classList.toggle('dk-mw', mwDesk()); }); on(root, 'change', onChange); on(root, 'input', onInput);
@@ -1807,17 +1813,9 @@ function mount(root, ctx) {
   on(window, 'message', onR20Msg); on(document, 'visibilitychange', onVis); on(window, 'storage', onStorage);
   setTimeout(r20Hello, 400);
   cloudBoot(); notesBoot(); setTimeout(() => { if (ROOT) tokShrinkOld(); }, 3000);
-  setTimeout(phoneWarn, 700);
   return { unmount };
 }
-// Phones: a heads-up each time the Desk opens, until "Don't show this again" is ticked
-function phoneWarn() {
-  if (!ROOT || innerWidth > 640) return; try { if (localStorage.getItem('pg-desk-phone-ok') === '1') return; } catch (e) {}
-  if ($('.dk-modal.open')) return;
-  openModal(`<h2>Best on a bigger screen</h2><p>The DM’s Desk isn’t recommended on phones. It’s built for running a game on a computer or tablet, so some things will feel cramped here.</p><label class="dk-chk"><input type="checkbox" id="dk-pwNo"> Don’t show this again</label><div class="dk-acts"><button class="dk-btn gold" id="dk-pwOk">Got it</button></div>`, { cls: 'dk-small', focus: false });
-  const done = () => { try { const c = $('#dk-pwNo'); if (c) { if (c.checked) localStorage.setItem('pg-desk-phone-ok', '1'); else localStorage.removeItem('pg-desk-phone-ok'); } } catch (e) {} };
-  $('#dk-pwNo').onchange = done; $('#dk-pwOk').onclick = () => { done(); closeModal(true); };
-}
+let LITE = false;
 function unmount() { LISTEN.splice(0).forEach(([t, ev, fn, o]) => t.removeEventListener(ev, fn, o)); if (CTX && CTX.partyHost && CTX.partyHost.parentNode && CTX.partyHost.parentNode.classList.contains('dk-partyslot')) CTX.partyHost.parentNode.removeChild(CTX.partyHost); if (CLOUD) flush(); if (NCLOUD) flushNotes(); if (ROOT) { ROOT.innerHTML = ''; ROOT.classList.remove('dk'); } ROOT = null; CLOUD = false; }
 // Lists that scroll inside a panel show a divider with a soft shadow at an edge when there's more past it.
 const SHADE_SEL = '.dk-tree, .dk-mlist2, .dk-auto, .dk-itree, .dk-setwin .dk-setx, .dk-loglist';

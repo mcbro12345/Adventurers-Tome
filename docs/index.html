@@ -2346,6 +2346,13 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 .pg-shade.sc-t::before, .pg-shade.sc-b::after { opacity: 1; }
 @media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) .pg-shade::before, :where(html:not([data-pgtheme])) .pg-shade::after { box-shadow: 0 0 12px 4px rgba(60,40,10,.14); } }
  :where(html[data-pgtheme="light"]) .pg-shade::before, :where(html[data-pgtheme="light"]) .pg-shade::after { box-shadow: 0 0 12px 4px rgba(60,40,10,.14); } 
+
+/* Phones: the party page's AC / Speed / Level / Passive strip runs the full width of the card */
+@media (max-width: 640px) {
+  body.hubbody .pm > .pm-csts, body.hubbody .pm-csts.pm-quad { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); grid-template-columns: none; align-self: stretch; width: 100%; box-sizing: border-box; }
+  body.hubbody .pm > .pm-csts span, body.hubbody .pm-csts.pm-quad span { padding: 6px 4px; border-top: 0 !important; }
+  body.hubbody .pm > .pm-csts span + span, body.hubbody .pm-csts.pm-quad span + span { border-left: 1px solid rgba(127,127,127,.22) !important; }
+}
 </style>
 </head>
 <body>
@@ -3013,7 +3020,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022224427', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.3ea29f5746c2.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.d993df07733c.html", "desk": "a/desk.892b6fdf8bdb.js", "deskcss": "a/deskcss.debc3b1da01a.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261022225441', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.3ea29f5746c2.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.d993df07733c.html", "desk": "a/desk.be444f72ffa7.js", "deskcss": "a/deskcss.a2b506a296fa.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }

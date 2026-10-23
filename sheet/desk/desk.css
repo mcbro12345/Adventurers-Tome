@@ -1341,3 +1341,11 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
   .dk .dk-tools > button, .dk .dk-tools > a { min-width: 40px; width: 40px; height: 40px; min-height: 40px; padding: 0; display: grid; place-items: center; }
   .dk .dk-tools .dk-tl { display: none; }
 }
+/* Phones, a party you run: just the party page, the roller and turn order, and a way into the full Desk */
+.dk-litebar { display: none; }
+.dk.dk-lite .dk-litebar { display: grid; gap: 6px; justify-items: center; text-align: center; margin: 12px 12px 0; padding: 12px; border: 1px dashed var(--line); border-radius: 14px; background: var(--card); }
+.dk.dk-lite .dk-litebar em { font-size: .8rem; color: var(--soft); line-height: 1.35; }
+.dk.dk-lite .dk-tabs, .dk.dk-lite .dk-tools [data-act=log], .dk.dk-lite .dk-tools [data-act=settings], .dk.dk-lite .dk-tools [data-act=bugreport] { display: none !important; }
+.dk.dk-lite { padding-bottom: 24px !important; }
+.dk-nophone { min-height: 100dvh; display: grid; place-content: center; justify-items: center; gap: 10px; padding: 24px; text-align: center; box-sizing: border-box; }
+.dk-nophone h2 { margin: 0; font: 800 1.4rem var(--serif); } .dk-nophone p { margin: 0; max-width: 34ch; color: var(--soft); line-height: 1.45; } .dk-nophone .dk-btn { gap: 6px; text-decoration: none; }
