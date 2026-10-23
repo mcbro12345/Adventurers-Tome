@@ -3531,3 +3531,6 @@ html.mobile body.wizopen #modal.open, html.mobile body.wizopen #modal.closing { 
 @keyframes dsGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 @keyframes dsFade { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .rl-ink { transition: none; } #rolllogmodal .rl-list.in-r, #rolllogmodal .rl-list.in-l, .ds-chart.anim .ds-col i, .ds-chart.anim .ds-fair { animation: none; } }
+/* the Log window keeps one size on every tab (the Dice stats height) */
+#rolllogmodal .rl-list { height: min(62vh, 640px); max-height: none; }
+html.mobile #rolllogmodal .rl-list { height: auto; max-height: min(62vh, 640px); }
