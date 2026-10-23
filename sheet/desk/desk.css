@@ -1287,3 +1287,38 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
     padding: 18px max(16px, calc((100% - 1680px) / 2 + 16px)) 60px; box-sizing: border-box; background: var(--bg); }
   .dk[data-tab=gen] .dk-genin { top: 0; max-height: calc(100dvh - var(--toph, 66px) - 36px); }
 }
+/* ===== Phones: the tabs live in a bottom bar like the sheet's (same height setting, --tablift) ===== */
+@media (max-width: 640px) {
+  .dk { padding-bottom: calc(68px + var(--tablift, 0px) + env(safe-area-inset-bottom)); }
+  .dk .dk-tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 44; order: 0; margin: 0; border: 0; border-radius: 0; display: flex; gap: 2px;
+    padding: 4px max(4px, env(safe-area-inset-left)) calc(4px + var(--tablift, 0px) + env(safe-area-inset-bottom)) max(4px, env(safe-area-inset-right));
+    background: var(--card); box-shadow: 0 -1px 0 var(--line), 0 -6px 18px rgba(0,0,0,.14); }
+  .dk .dk-tabs button { flex: 1 1 0; min-width: 0; flex-direction: column; justify-content: center; gap: 4px; min-height: 54px; padding: 7px 2px 6px !important; border-radius: 12px; color: var(--soft); }
+  .dk .dk-tabs button svg { width: 22px; height: 22px; }
+  .dk .dk-tabs button span { font-size: .64rem !important; font-weight: 750; letter-spacing: .01em; line-height: 1.15; text-box: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; padding-bottom: 1px; }
+  .dk .dk-tabs button.on { color: var(--gold-ink); background: none; box-shadow: none; }
+  .dk .dk-tabs .dk-pill { background: var(--gold-soft); box-shadow: none; border-radius: 12px; }
+  .dk-toasts { bottom: calc(76px + var(--tablift, 0px) + env(safe-area-inset-bottom)); }
+}
+/* Phones: Bestiary is list-then-creature (like Sessions), with a way back to the list */
+.dk-bback { display: none; }
+@media (max-width: 640px) {
+  .dk-best.bopen .dk-blist, .dk-best:not(.bopen) .dk-bview { display: none !important; }
+  .dk-best.bopen .dk-bback { display: flex; width: max-content; justify-self: start; gap: 4px; margin: 0 0 8px; padding-left: 6px; }
+  .dk-bback svg { width: 18px; height: 18px; }
+  /* finger-sized hit areas on the small inline roll chips and the HP buttons, without changing how they look */
+  .dk .dk-rl { position: relative; }
+  .dk .dk-rl::after { content: ''; position: absolute; inset: -9px -4px; }
+  .dk .dk-hpi, .dk .dk-chp-btns .dk-hpi { min-height: 42px; }
+  .dk .dk-tin { font-size: max(16px, 1.3rem); }
+  .dk .dk-hpr .dk-ringc input.dk-hpmax.dk-hpmax:not(.x):not(.y):not(.z) { font-size: 16px !important; width: 44px; }
+  .dk .dk-addc { position: relative; } .dk .dk-addc::after { content: ''; position: absolute; inset: -8px -2px; }
+  .dk .dk-mvb .dk-btn { min-height: 40px; }
+  /* settings tabs fit on one line */
+  .dk-setwin .dk-stabs { flex-wrap: nowrap; gap: 0; }
+  .dk-setwin .dk-stab { flex: 1 1 auto; min-width: 0; padding: 10px 4px 8px; font-size: .84rem; text-align: center; }
+  /* dice roller: bigger dice */
+  .dk .drwin .dr-die svg { width: 28px !important; height: 28px !important; }
+  .dk .drwin .dr-die { font-size: .74rem; min-height: 56px; }
+}
+@media (max-width: 640px) and (pointer: coarse) { html.dk-kb .dk .dk-tabs { display: none; } html.dk-kb .dk { padding-bottom: 16px; } }

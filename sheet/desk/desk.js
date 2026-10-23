@@ -1163,7 +1163,7 @@ function sessHead(s, plan) {
     <div class="dk-svtabs"><div class="dk-seg2"><button class="${plan ? '' : 'on'}" data-act="sview" data-v="creatures">Creatures</button><button class="${plan ? 'on' : ''}" data-act="sview" data-v="plan">Plan & notes${s.plan && s.plan.flow ? ' ✓' : ''}</button></div>
     <div class="dk-meta"><span>${plural(all.length, 'creature')}</span>${xp ? `<span>${xp.toLocaleString()} XP</span>` : ''}${down ? `<span class="bad">${down} down</span>` : ''}</div></div>
     ${plan ? '' : `<details class="dk-notes"${s.notes ? ' open' : ''}><summary>Session notes</summary><textarea class="dk-f" id="dk-snotes" data-ch="snotes" rows="2" placeholder="Hooks, places, names, what happened last time…">${esc(s.notes || '')}</textarea></details>
-    <div class="dk-add"><div class="dk-picker"><input class="dk-f" id="dk-addq" placeholder="Add a creature — type a name (e.g. goblin)" autocomplete="off" aria-label="Creature to add"><div class="dk-sugg" hidden></div></div>
+    <div class="dk-add"><div class="dk-picker"><input class="dk-f" id="dk-addq" placeholder="${innerWidth <= 640 ? 'Add a creature (e.g. goblin)' : 'Add a creature — type a name (e.g. goblin)'}" autocomplete="off" aria-label="Creature to add"><div class="dk-sugg" hidden></div></div>
       <input class="dk-f dk-num" id="dk-addn" type="number" min="1" max="30" value="1" aria-label="How many">
       ${s.groups.length > 1 ? `<select class="dk-f" id="dk-addg" aria-label="Group">${s.groups.map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join('')}</select>` : ''}
       <button class="dk-btn gold" data-act="addc">${ICON.plus}<span>Add</span></button><button class="dk-btn ghost" data-act="tab" data-tab="bestiary">Browse bestiary</button></div>`}
@@ -1294,7 +1294,7 @@ function bestiaryHTML() {
   const L = filteredCreatures(), c = getC(UI.best) || L[0], mine = Object.keys(S.creatures).length;
   const grps = []; S.sessions.forEach(s => s.groups.forEach(g => grps.push({ s, g })));
   const cur = curSession(), defG = cur ? cur.id + '|' + cur.groups[0].id : '';
-  return `<div class="dk-best">
+  return `<div class="dk-best${UI.bopen && c ? ' bopen' : ''}">
     <section class="dk-card dk-blist">
       <div class="dk-row dk-bbtns"><button class="dk-btn gold sm" data-act="newc">${ICON.plus} New creature</button><button class="dk-btn sm" data-act="paste">Paste stat block</button><button class="dk-btn sm" data-act="backup">Backup</button></div>
       <input class="dk-f dk-search" id="dk-bq" value="${esc(UI.q)}" placeholder="Search ${allCreatures().length} creatures" aria-label="Search creatures">
@@ -1309,7 +1309,7 @@ function bestiaryHTML() {
       <div class="dk-bcount">${L.length} shown${UI.q || UI.crMin !== '' || UI.crMax !== '' || UI.type || UI.size || UI.src ? ' · <button class="dk-link" data-act="bclear">clear filters</button>' : ''}</div>
       <div class="dk-mlist2" data-keep="blist">${L.map(x => `<button class="dk-mrow${c && x.id === c.id ? ' on' : ''}" data-act="pickbest" data-cid="${esc(x.id)}">${tokenHTML(x, 30)}<span class="dk-mn">${esc(x.name)}${x.src !== 'SRD' ? ' <span class="dk-src mine">mine</span>' : ''}</span><span class="dk-mcr">CR ${crLabel(N(x.cr))}</span><span class="dk-mt">${esc(x.size)} ${esc(x.type)} · AC ${esc(x.ac)} · HP ${esc(x.hp)}</span></button>`).join('') || '<p class="dk-hint" style="padding:12px">Nothing matches. Clear a filter, or add your own creature.</p>'}</div>
     </section>
-    <section class="dk-bview" data-keep="bview-${esc(c ? c.id : '')}">${c ? `<div class="dk-card dk-badd"><div class="dk-row"><input class="dk-f dk-num" id="dk-bCount" type="number" min="1" max="30" value="1" aria-label="How many"><select class="dk-f" id="dk-bEnc" aria-label="Add to"><option value="__new">A new session</option>${grps.map(({ s, g }) => `<option value="${esc(s.id)}|${esc(g.id)}"${s.id + '|' + g.id === defG ? ' selected' : ''}>${esc(s.title)}${s.groups.length > 1 ? ' › ' + esc(g.name) : ''}</option>`).join('')}</select><button class="dk-btn gold" data-act="badd" data-cid="${esc(c.id)}">${ICON.plus} Add</button></div>
+    <section class="dk-bview" data-keep="bview-${esc(c ? c.id : '')}">${c ? `<button class="dk-btn ghost dk-bback" data-act="bback">${ICON.back || '‹'} All creatures</button><div class="dk-card dk-badd"><div class="dk-row"><input class="dk-f dk-num" id="dk-bCount" type="number" min="1" max="30" value="1" aria-label="How many"><select class="dk-f" id="dk-bEnc" aria-label="Add to"><option value="__new">A new session</option>${grps.map(({ s, g }) => `<option value="${esc(s.id)}|${esc(g.id)}"${s.id + '|' + g.id === defG ? ' selected' : ''}>${esc(s.title)}${s.groups.length > 1 ? ' › ' + esc(g.name) : ''}</option>`).join('')}</select><button class="dk-btn gold" data-act="badd" data-cid="${esc(c.id)}">${ICON.plus} Add</button></div>
         <div class="dk-row"><button class="dk-btn sm" data-act="copyc" data-cid="${esc(c.id)}">Copy & edit</button>${c.src !== 'SRD' ? `<button class="dk-btn sm" data-act="editc" data-cid="${esc(c.id)}">Edit</button><button class="dk-btn sm red" data-act="delc" data-cid="${esc(c.id)}">Delete</button>` : ''}</div></div>
       <div class="dk-card dk-sbcard">${statBlock(c)}</div>` : ''}<p class="dk-credit">${esc(TOK_CREDIT)}.</p></section></div>`;
 }
@@ -1649,7 +1649,8 @@ async function onClick(e) {
     case 'backup': return openBackup();
     case 'bsort': UI.sort = b.dataset.v; saveUI(); return paint();
     case 'bclear': Object.assign(UI, { q: '', crMin: '', crMax: '', type: '', size: '', src: '' }); saveUI(); return paint();
-    case 'pickbest': UI.best = b.dataset.cid; saveUI(); paint(); if (innerWidth < 900) { const v = $('.dk-bview'); if (v) v.scrollIntoView({ behavior: 'smooth', block: 'start' }); } return;
+    case 'bback': UI.bopen = false; saveUI(); paint(); scrollTo(0, UI.bscroll || 0); return;
+    case 'pickbest': UI.best = b.dataset.cid; if (innerWidth <= 640) { UI.bscroll = scrollY; UI.bopen = true; saveUI(); paint(); scrollTo(0, 0); return; } saveUI(); paint(); if (innerWidth < 900) { const v = $('.dk-bview'); if (v) v.scrollIntoView({ behavior: 'smooth', block: 'start' }); } return;
     case 'badd': {
       const c = getC(b.dataset.cid), n = Math.max(1, Math.min(30, N($('#dk-bCount').value) || 1)), v = $('#dk-bEnc').value;
       let s, g; if (v === '__new' || !v) { s = newSession(); g = s.groups[0]; } else { const [sid, gid] = v.split('|'); s = S.sessions.find(z => z.id === sid); g = s && s.groups.find(z => z.id === gid); }
@@ -1809,6 +1810,13 @@ function shadeAll() { if (!ROOT) return; $$(SHADE_SEL).forEach(shadeOne); }
 document.addEventListener('scroll', e => { const el = e.target; if (el && el.matches && ROOT && ROOT.contains(el) && el.matches(SHADE_SEL)) shadeOne(el); }, true);
 addEventListener('resize', () => requestAnimationFrame(shadeAll));
 setInterval(shadeAll, 1000);
+// Phones: while typing, the keyboard is up, so the bottom tab bar steps aside instead of riding up above the keyboard (as on the sheet)
+if (!window.__dkKb) { window.__dkKb = 1;
+  const typing = el => !!el && (el.isContentEditable || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || (el.tagName === 'INPUT' && !/^(button|checkbox|radio|range|color|file|submit|reset|image)$/i.test(el.type || '')));
+  let kbT = 0;
+  document.addEventListener('focusin', e => { clearTimeout(kbT); if (typing(e.target)) document.documentElement.classList.add('dk-kb'); });
+  document.addEventListener('focusout', () => { clearTimeout(kbT); kbT = setTimeout(() => { if (!typing(document.activeElement)) document.documentElement.classList.remove('dk-kb'); }, 120); });
+}
 // ---------- AI (bring your own key) ----------
 // Safety: the model gets no tools and its output is inert data. Replies are parsed as JSON, checked field by field against a
 // fixed shape (unknown keys dropped, types coerced, lengths and counts capped) and only ever shown escaped as text. Nothing
