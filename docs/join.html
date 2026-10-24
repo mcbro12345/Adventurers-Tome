@@ -2406,6 +2406,26 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 .pg-si2 .pg-signin .hl-t { font-size: 5.7rem; line-height: .95; }
 .pg-si2 .pg-signin .pg-sdiv { margin-top: 20px; }
 @media (max-width: 480px) { .pg-si2 .pg-signin .hub-logo { gap: 12px; } .pg-si2 .pg-signin .hl-d20 { width: 104px; height: 104px; } .pg-si2 .pg-signin .hl-a { font-size: 1rem; letter-spacing: .26em; } .pg-si2 .pg-signin .hl-t { font-size: 4.3rem; } }
+/* everything fits on one screen on a computer: the video sizes itself to the window's height, and the sign-in card
+   runs the full height of the column beside it */
+@media (min-width: 921px) {
+  #pg-load:has(.pg-si2) { padding-top: 22px; padding-bottom: 18px; }
+  .pg-si2 { --lw: min(calc(100vw - 32px - 460px - 30px), max(520px, calc((100dvh - 380px) * 16 / 9))); align-items: stretch; row-gap: 18px; width: auto; max-width: 100%; grid-template-columns: var(--lw) 460px; justify-content: center; }
+  .si2-left { gap: 16px; }
+  .si2-chars { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; gap: 8px; }
+  #pg-load .pg-msg a.si2-char { padding: 12px 6px 10px; }
+  .si2-tx small { font-size: .72rem; }
+  .si2-try p { margin-bottom: 10px; }
+  .pg-si2 .pg-signin { display: flex; flex-direction: column; justify-content: center; }
+  .pg-si2 .pg-signin .hub-logo { margin-bottom: 14px; }
+  .pg-si2 .pg-signin .pg-sdiv { margin-top: 26px; }
+  .pg-si2 .pg-signin h2 { margin: 26px 0 18px; }
+  .pg-si2 .pg-signin .pg-contact { margin-top: 26px; }
+  .si2-feats { padding-top: 14px; }
+}
+
+/* a sample character saves nowhere: no sync status beside Settings */
+html.pg-try #saveState { display: none !important; }
 </style>
 </head>
 <body>
@@ -3029,8 +3049,8 @@ const firstThumb = list => { const cs = list.filter(c => c.thumb).sort((a, b) =>
 // it tumbles, the face flickers, and it lands on a random number. It also rolls once by itself when the page loads.
 const PG_DIE = { n: 20, rolled: false, rolling: false, over: true };
 // Sample characters anyone can open from the sign-in page (try/<slug>.json): the full sheet, nothing saved.
-const TRIALS = [['laezel', 'Lae’zel', 'High Elf', 'Fighter 5', 'Psi Warrior', '#1E9AA0'], ['shadowheart', 'Shadowheart', 'High Elf', 'Druid 13', 'Circle of Wildfire', '#c08457'],
-  ['astarion', 'Astarion', 'Human', 'Rogue 8', 'Swashbuckler', '#b5654a'], ['gale', 'Gale of Waterdeep', 'Human', 'Sorcerer 4', 'Wild Magic', '#8f74e0'], ['karlach', 'Karlach', 'Dragonborn', 'Monk 5', 'Ascendant Dragon', '#e8c577']];
+const TRIALS = [['laezel', 'Lae’zel', 'Githyanki', 'Fighter 1', 'Soldier', '#1E9AA0'], ['shadowheart', 'Shadowheart', 'Half-Elf', 'Cleric 1', 'Acolyte', '#8a6fd1'],
+  ['astarion', 'Astarion', 'High Elf', 'Rogue 1', 'Courtesan', '#b5654a'], ['gale', 'Gale', 'Human', 'Wizard 1', 'Sage', '#5b8fe0'], ['karlach', 'Karlach', 'Tiefling', 'Barbarian 1', 'Soldier', '#e0643a'], ['wyll', 'Wyll', 'Human', 'Warlock 1', 'Folk Hero', '#d9a441']];
 const SIGNIN_VIDEO = 'uilS5NDWiGk';
 function logoHTML() { return `<h1 class="hub-logo" aria-label="Adventurer’s Tome"><svg class="hl-d20${PG_DIE.rolled && PG_DIE.n === 20 ? ' crit' : PG_DIE.rolled && PG_DIE.n === 1 ? ' fumble' : ''}" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="hlg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f1d58a"/><stop offset=".55" stop-color="#c9962b"/><stop offset="1" stop-color="#8a6420"/></linearGradient></defs><polygon points="50,4 91,27 91,73 50,96 9,73 9,27" fill="rgba(201,150,43,.14)" stroke="url(#hlg)" stroke-width="4" stroke-linejoin="round"/><g fill="none" stroke="url(#hlg)" stroke-width="2.6" stroke-linejoin="round"><polygon points="50,24 73,63 27,63"/><path d="M50 4 L50 24 M91 27 L73 63 M91 73 L73 63 M50 96 L73 63 M50 96 L27 63 M9 73 L27 63 M9 27 L27 63 M9 27 L50 24 M91 27 L50 24"/></g><text x="50" y="55" text-anchor="middle" font-family="Georgia,serif" font-weight="800" font-size="15" class="hl-20">${PG_DIE.rolled ? PG_DIE.n : ''}</text></svg><span class="hl-txt"><span class="hl-a">Adventurer’s</span><span class="hl-t">Tome</span></span></h1>`; }
 function rollDie(root) {
@@ -3077,7 +3097,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261023223655', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.37fe24a2cbc3.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.2cc75bf5d0b7.html", "desk": "a/desk.076fb7d99e24.js", "deskcss": "a/deskcss.68b7d62e339e.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261023225454', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.37fe24a2cbc3.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.2cc75bf5d0b7.html", "desk": "a/desk.076fb7d99e24.js", "deskcss": "a/deskcss.68b7d62e339e.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -3168,11 +3188,12 @@ function wireDie(root) {
       if (str) { JSON.parse(str); txt = str; } } } catch (e) { console.warn('view link', e); }
     if (!txt) { say(`${TRYQ ? 'That sample character couldn’t be opened. Check your connection and reload.' : 'This view-only link isn’t working — it may have been turned off.'}<br><br><a href="${PRETTY ? '/' : location.pathname}">Go to Adventurer’s Tome</a>`); return; }
     data.textContent = txt; window.SHEET_PAGES = true; window.SHEET_CHAR = 'pub_' + t; window.PG_PUBLIC = true;
-    document.documentElement.classList.add('pg-sheetpage', 'pg-public');
+    document.documentElement.classList.add('pg-sheetpage', 'pg-public'); if (TRYQ) document.documentElement.classList.add('pg-try');
     const ref = p => { const m = /^sheets\/(main|part(\d+))$/.exec(p); return m ? pc.doc(m[2] ? t + '_p' + m[2] : t) : null; };
     const none = { get: async () => ({ exists: false, data: () => null }), set: async () => { throw { code: 'unsupported' }; }, delete: async () => {}, onSnapshot: () => () => {} };
     const SNAP = { exists: true, id: t, metadata: { fromCache: false, hasPendingWrites: false }, data: () => ({ v: 2, n: 1, tab: 'x', savedAt: JSON.parse(txt).savedAt, data: txt }) };
-    const trialDoc = { get: async () => SNAP, set: () => Promise.reject({ code: 'permission-denied' }), delete: async () => {}, onSnapshot: cb => { setTimeout(() => cb(SNAP), 0); return () => {}; } };
+    const trialDoc = { get: async () => SNAP, set: async () => {},   // changes are accepted and dropped, so the sheet doesn't call itself view-only
+      delete: async () => {}, onSnapshot: cb => { setTimeout(() => cb(SNAP), 0); return () => {}; } };
     const db = { doc: p => { if (TRYQ) return p === 'sheets/main' ? trialDoc : none; const r = ref(p); if (!r) return none; return { get: () => r.get(), set: () => Promise.reject({ code: 'permission-denied' }), delete: async () => {}, onSnapshot: (cb, err) => r.onSnapshot(cb, err) }; } };
     window.claude = { use: async n => n === 'db' ? db : n === 'user' ? { id: async () => null, isOwner: async () => false, can: async () => false } : null };
     let src; try { src = await Promise.all([ASSETS.data, ASSETS.app].map(u => fetch(u).then(r => { if (!r.ok) throw new Error(u); return r.text(); }))); } catch (e) { say('Couldn\'t load the sheet. Check your connection and reload.'); return; }
@@ -3930,7 +3951,7 @@ function signIn(auth, say) {
   const base = PRETTY ? '/' : location.pathname, tryURL = k => PRETTY ? '/try/' + k : location.pathname + '?try=' + k;
   const vid = `<div class="si2-vid"><iframe src="https://www.youtube-nocookie.com/embed/${SIGNIN_VIDEO}?rel=0" title="Adventurer’s Tome in two minutes" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`;
   const tries = `<section class="si2-try"><h3>Try a character</h3><p>No account needed. Open a real sheet and roll, cast and level up — nothing is saved.</p>
-    <div class="si2-chars">${TRIALS.map(([k, n, r, c, sub, col]) => `<a class="si2-char" href="${tryURL(k)}" style="--c:${col}"><span class="si2-ini">${escH(n.replace(/[’']/g, '').split(/\s+/).filter(w => !/^(of|the)$/i.test(w)).slice(0, 2).map(w => w[0]).join(''))}</span><span class="si2-tx"><b>${escH(n)}</b><small>${escH(r)} · ${escH(c)}</small><small class="si2-sub">${escH(sub)}</small></span><span class="si2-go" aria-hidden="true">→</span></a>`).join('')}</div></section>`;
+    <div class="si2-chars">${TRIALS.map(([k, n, r, c, sub, col]) => `<a class="si2-char" href="${tryURL(k)}" style="--c:${col}"><span class="si2-ini">${escH(n.replace(/[’']/g, '').split(/\s+/).filter(w => !/^(of|the)$/i.test(w)).slice(0, 2).map(w => w[0]).join(''))}</span><span class="si2-tx"><b>${escH(n)}</b><small>${escH(c)}</small><small class="si2-sub">${escH(r)} · ${escH(sub)}</small></span><span class="si2-go" aria-hidden="true">→</span></a>`).join('')}</div></section>`;
   const FEAT = [['<path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M12 7l4.5 7.5h-9z"/>', 'Sheets that do the math', 'Every bonus, slot and resource worked out and tracked as you play.'],
     ['<circle cx="9" cy="8" r="3.2"/><path d="M3 19c.6-3.3 3-5 6-5s5.4 1.7 6 5"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.2c2.6-.3 4.8 1.2 5.5 4.3"/>', 'Parties', 'See the whole table’s HP and conditions, send damage and healing.'],
     ['<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4M7 9h4M7 12h6"/>', 'The DM’s Desk', 'Turn order, dice, monsters, encounters and campaign notes.'],

@@ -2269,3 +2269,23 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 .pg-si2 .pg-signin .hl-t { font-size: 5.7rem; line-height: .95; }
 .pg-si2 .pg-signin .pg-sdiv { margin-top: 20px; }
 @media (max-width: 480px) { .pg-si2 .pg-signin .hub-logo { gap: 12px; } .pg-si2 .pg-signin .hl-d20 { width: 104px; height: 104px; } .pg-si2 .pg-signin .hl-a { font-size: 1rem; letter-spacing: .26em; } .pg-si2 .pg-signin .hl-t { font-size: 4.3rem; } }
+/* everything fits on one screen on a computer: the video sizes itself to the window's height, and the sign-in card
+   runs the full height of the column beside it */
+@media (min-width: 921px) {
+  #pg-load:has(.pg-si2) { padding-top: 22px; padding-bottom: 18px; }
+  .pg-si2 { --lw: min(calc(100vw - 32px - 460px - 30px), max(520px, calc((100dvh - 380px) * 16 / 9))); align-items: stretch; row-gap: 18px; width: auto; max-width: 100%; grid-template-columns: var(--lw) 460px; justify-content: center; }
+  .si2-left { gap: 16px; }
+  .si2-chars { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; gap: 8px; }
+  #pg-load .pg-msg a.si2-char { padding: 12px 6px 10px; }
+  .si2-tx small { font-size: .72rem; }
+  .si2-try p { margin-bottom: 10px; }
+  .pg-si2 .pg-signin { display: flex; flex-direction: column; justify-content: center; }
+  .pg-si2 .pg-signin .hub-logo { margin-bottom: 14px; }
+  .pg-si2 .pg-signin .pg-sdiv { margin-top: 26px; }
+  .pg-si2 .pg-signin h2 { margin: 26px 0 18px; }
+  .pg-si2 .pg-signin .pg-contact { margin-top: 26px; }
+  .si2-feats { padding-top: 14px; }
+}
+
+/* a sample character saves nowhere: no sync status beside Settings */
+html.pg-try #saveState { display: none !important; }
