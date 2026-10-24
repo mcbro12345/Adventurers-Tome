@@ -2227,7 +2227,7 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 /* ===== Sign-in page: the tour video and sample characters beside the sign-in card ===== */
 #pg-load:has(.pg-si2) { overflow-y: auto; overscroll-behavior: contain; place-items: safe center; padding: max(28px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom)); box-sizing: border-box; }
 #pg-load .pg-msg:has(.pg-si2) { max-width: none; width: 100%; padding: 0; }
-.pg-si2 { display: grid; grid-template-columns: minmax(0, 1fr) 440px; gap: 28px; align-items: center; width: min(1180px, 100%); margin: 0 auto; text-align: left; }
+.pg-si2 { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 26px 30px; align-items: center; width: min(1560px, 100%); margin: 0 auto; text-align: left; }
 .pg-si2 .pg-signin { width: auto !important; }
 .si2-left { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
 .si2-vid { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: #000; box-shadow: 0 0 0 1px rgba(201,150,43,.45), 0 20px 50px rgba(0,0,0,.35); }
@@ -2239,14 +2239,34 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 .si2-char:hover, .si2-char:focus-visible { border-color: var(--c); background: color-mix(in srgb, var(--c) 10%, transparent); transform: translateY(-1px); }
 .si2-ini { flex: none; width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; font: 800 1rem Georgia, serif; color: var(--c); border: 2px solid var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); }
 .si2-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
-.si2-tx b { font: 700 .95rem system-ui, sans-serif; overflow-wrap: anywhere; }
+.si2-tx b { font: 700 .95rem system-ui, sans-serif; overflow-wrap: break-word; }
 .si2-tx small { font-size: .76rem; font-weight: 500; opacity: .72; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .si2-tx .si2-sub { opacity: .55; }
 .si2-go { flex: none; color: var(--c); font-weight: 800; opacity: .7; }
 @media (prefers-color-scheme: light) { #pg-load .pg-msg a.si2-char, .si2-char { background: rgba(255,255,255,.6); border-color: #e3d6b8; color: #1f2a44; } .si2-try h3 { color: #8a6420; } .si2-ini, .si2-go { color: color-mix(in srgb, var(--c) 72%, #000); border-color: color-mix(in srgb, var(--c) 80%, #000); } }
 @media (prefers-reduced-motion: reduce) { .si2-char { transition: none; } .si2-char:hover { transform: none; } }
+/* side by side with sign-in: the characters stand as small tiles, all five in a row when there's room */
+@media (min-width: 921px) { .si2-chars { grid-template-columns: repeat(auto-fit, minmax(138px, 1fr)); } .si2-go { display: none; }
+  #pg-load .pg-msg a.si2-char, .si2-char { flex-direction: column; text-align: center; gap: 8px; padding: 14px 8px 12px; }
+  .si2-tx { align-items: center; } .si2-tx small { white-space: normal; } }
+/* what it does, in a strip across the bottom */
+.si2-feats { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; padding-top: 18px; border-top: 1px solid rgba(201,150,43,.22); }
+.si2-feat { display: flex; gap: 10px; align-items: flex-start; min-width: 0; }
+.si2-feat svg { flex: none; width: 26px; height: 26px; fill: none; stroke: #c9962b; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; margin-top: 1px; }
+.si2-feat b { display: block; font: 700 .9rem system-ui, sans-serif; margin-bottom: 2px; }
+.si2-feat small { display: block; font-size: .78rem; font-weight: 500; line-height: 1.35; opacity: .7; }
+@media (prefers-color-scheme: light) { .si2-feat svg { stroke: #8a6420; } }
+@media (max-width: 1300px) { .si2-feats { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 16px; } }
 /* phones and narrow windows: sign in first, then the video and the characters */
-@media (max-width: 920px) { .pg-si2 { grid-template-columns: minmax(0, 1fr); max-width: 560px; gap: 22px; } .pg-si2 .pg-signin { order: -1; } }
-@media (max-width: 480px) { .si2-chars { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 920px) { .pg-si2 { grid-template-columns: minmax(0, 1fr); max-width: 560px; gap: 22px; } .pg-si2 .pg-signin { order: -1; } .si2-feats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .si2-chars { grid-template-columns: minmax(0, 1fr); } .si2-feats { grid-template-columns: minmax(0, 1fr); } }
 /* the blurb uses the card's full width, so it sits in fewer lines */
 :where(#pg-load) .pg-signin p.pg-about { max-width: none; text-wrap: pretty; }
+/* the sign-in card next to the video: the big stacked logo (die on top, as in the video) instead of the blurb */
+.pg-si2 .pg-signin .hub-logo { flex-direction: column; gap: 8px; margin: 4px 0 6px; }
+.pg-si2 .pg-signin .hl-d20 { width: 168px; height: 168px; }
+.pg-si2 .pg-signin .hl-txt { align-items: center; }
+.pg-si2 .pg-signin .hl-a { font-size: 1.45rem; letter-spacing: .4em; margin: 4px 0 2px .4em; }
+.pg-si2 .pg-signin .hl-t { font-size: 6.6rem; line-height: .95; padding: 0 8px; }
+.pg-si2 .pg-signin .pg-sdiv { margin-top: 18px; }
+@media (max-width: 480px) { .pg-si2 .pg-signin .hl-d20 { width: 120px; height: 120px; } .pg-si2 .pg-signin .hl-a { font-size: 1.05rem; } .pg-si2 .pg-signin .hl-t { font-size: 4.8rem; } }

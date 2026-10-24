@@ -2362,7 +2362,7 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 /* ===== Sign-in page: the tour video and sample characters beside the sign-in card ===== */
 #pg-load:has(.pg-si2) { overflow-y: auto; overscroll-behavior: contain; place-items: safe center; padding: max(28px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom)); box-sizing: border-box; }
 #pg-load .pg-msg:has(.pg-si2) { max-width: none; width: 100%; padding: 0; }
-.pg-si2 { display: grid; grid-template-columns: minmax(0, 1fr) 440px; gap: 28px; align-items: center; width: min(1180px, 100%); margin: 0 auto; text-align: left; }
+.pg-si2 { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 26px 30px; align-items: center; width: min(1560px, 100%); margin: 0 auto; text-align: left; }
 .pg-si2 .pg-signin { width: auto !important; }
 .si2-left { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
 .si2-vid { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: #000; box-shadow: 0 0 0 1px rgba(201,150,43,.45), 0 20px 50px rgba(0,0,0,.35); }
@@ -2374,18 +2374,39 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 .si2-char:hover, .si2-char:focus-visible { border-color: var(--c); background: color-mix(in srgb, var(--c) 10%, transparent); transform: translateY(-1px); }
 .si2-ini { flex: none; width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; font: 800 1rem Georgia, serif; color: var(--c); border: 2px solid var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); }
 .si2-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
-.si2-tx b { font: 700 .95rem system-ui, sans-serif; overflow-wrap: anywhere; }
+.si2-tx b { font: 700 .95rem system-ui, sans-serif; overflow-wrap: break-word; }
 .si2-tx small { font-size: .76rem; font-weight: 500; opacity: .72; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .si2-tx .si2-sub { opacity: .55; }
 .si2-go { flex: none; color: var(--c); font-weight: 800; opacity: .7; }
 @media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) #pg-load .pg-msg a.si2-char, :where(html:not([data-pgtheme])) .si2-char { background: rgba(255,255,255,.6); border-color: #e3d6b8; color: #1f2a44; } :where(html:not([data-pgtheme])) .si2-try h3 { color: #8a6420; } :where(html:not([data-pgtheme])) .si2-ini, :where(html:not([data-pgtheme])) .si2-go { color: color-mix(in srgb, var(--c) 72%, #000); border-color: color-mix(in srgb, var(--c) 80%, #000); } }
  :where(html[data-pgtheme="light"]) #pg-load .pg-msg a.si2-char, :where(html[data-pgtheme="light"]) .si2-char { background: rgba(255,255,255,.6); border-color: #e3d6b8; color: #1f2a44; } :where(html[data-pgtheme="light"]) .si2-try h3 { color: #8a6420; } :where(html[data-pgtheme="light"]) .si2-ini, :where(html[data-pgtheme="light"]) .si2-go { color: color-mix(in srgb, var(--c) 72%, #000); border-color: color-mix(in srgb, var(--c) 80%, #000); } 
 @media (prefers-reduced-motion: reduce) { .si2-char { transition: none; } .si2-char:hover { transform: none; } }
+/* side by side with sign-in: the characters stand as small tiles, all five in a row when there's room */
+@media (min-width: 921px) { .si2-chars { grid-template-columns: repeat(auto-fit, minmax(138px, 1fr)); } .si2-go { display: none; }
+  #pg-load .pg-msg a.si2-char, .si2-char { flex-direction: column; text-align: center; gap: 8px; padding: 14px 8px 12px; }
+  .si2-tx { align-items: center; } .si2-tx small { white-space: normal; } }
+/* what it does, in a strip across the bottom */
+.si2-feats { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; padding-top: 18px; border-top: 1px solid rgba(201,150,43,.22); }
+.si2-feat { display: flex; gap: 10px; align-items: flex-start; min-width: 0; }
+.si2-feat svg { flex: none; width: 26px; height: 26px; fill: none; stroke: #c9962b; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; margin-top: 1px; }
+.si2-feat b { display: block; font: 700 .9rem system-ui, sans-serif; margin-bottom: 2px; }
+.si2-feat small { display: block; font-size: .78rem; font-weight: 500; line-height: 1.35; opacity: .7; }
+@media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) .si2-feat svg { stroke: #8a6420; } }
+ :where(html[data-pgtheme="light"]) .si2-feat svg { stroke: #8a6420; } 
+@media (max-width: 1300px) { .si2-feats { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 16px; } }
 /* phones and narrow windows: sign in first, then the video and the characters */
-@media (max-width: 920px) { .pg-si2 { grid-template-columns: minmax(0, 1fr); max-width: 560px; gap: 22px; } .pg-si2 .pg-signin { order: -1; } }
-@media (max-width: 480px) { .si2-chars { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 920px) { .pg-si2 { grid-template-columns: minmax(0, 1fr); max-width: 560px; gap: 22px; } .pg-si2 .pg-signin { order: -1; } .si2-feats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .si2-chars { grid-template-columns: minmax(0, 1fr); } .si2-feats { grid-template-columns: minmax(0, 1fr); } }
 /* the blurb uses the card's full width, so it sits in fewer lines */
 :where(#pg-load) .pg-signin p.pg-about { max-width: none; text-wrap: pretty; }
+/* the sign-in card next to the video: the big stacked logo (die on top, as in the video) instead of the blurb */
+.pg-si2 .pg-signin .hub-logo { flex-direction: column; gap: 8px; margin: 4px 0 6px; }
+.pg-si2 .pg-signin .hl-d20 { width: 168px; height: 168px; }
+.pg-si2 .pg-signin .hl-txt { align-items: center; }
+.pg-si2 .pg-signin .hl-a { font-size: 1.45rem; letter-spacing: .4em; margin: 4px 0 2px .4em; }
+.pg-si2 .pg-signin .hl-t { font-size: 6.6rem; line-height: .95; padding: 0 8px; }
+.pg-si2 .pg-signin .pg-sdiv { margin-top: 18px; }
+@media (max-width: 480px) { .pg-si2 .pg-signin .hl-d20 { width: 120px; height: 120px; } .pg-si2 .pg-signin .hl-a { font-size: 1.05rem; } .pg-si2 .pg-signin .hl-t { font-size: 4.8rem; } }
 </style>
 </head>
 <body>
@@ -3057,7 +3078,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261023222819', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.37fe24a2cbc3.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.2cc75bf5d0b7.html", "desk": "a/desk.076fb7d99e24.js", "deskcss": "a/deskcss.68b7d62e339e.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261023223412', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.37fe24a2cbc3.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.2cc75bf5d0b7.html", "desk": "a/desk.076fb7d99e24.js", "deskcss": "a/deskcss.68b7d62e339e.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -3911,12 +3932,19 @@ function signIn(auth, say) {
   const vid = `<div class="si2-vid"><iframe src="https://www.youtube-nocookie.com/embed/${SIGNIN_VIDEO}?rel=0" title="Adventurer’s Tome in two minutes" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`;
   const tries = `<section class="si2-try"><h3>Try a character</h3><p>No account needed. Open a real sheet and roll, cast and level up — nothing is saved.</p>
     <div class="si2-chars">${TRIALS.map(([k, n, r, c, sub, col]) => `<a class="si2-char" href="${tryURL(k)}" style="--c:${col}"><span class="si2-ini">${escH(n.replace(/[’']/g, '').split(/\s+/).filter(w => !/^(of|the)$/i.test(w)).slice(0, 2).map(w => w[0]).join(''))}</span><span class="si2-tx"><b>${escH(n)}</b><small>${escH(r)} · ${escH(c)}</small><small class="si2-sub">${escH(sub)}</small></span><span class="si2-go" aria-hidden="true">→</span></a>`).join('')}</div></section>`;
-  say(`<div class="pg-si2"><div class="si2-left">${vid}${tries}</div><div class="pg-signin">${logoHTML()}<p class="pg-about">D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game.</p><div class="pg-sdiv"></div><h2>Sign in</h2>
+  const FEAT = [['<path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M12 7l4.5 7.5h-9z"/>', 'Sheets that do the math', 'Every bonus, slot and resource worked out and tracked as you play.'],
+    ['<circle cx="9" cy="8" r="3.2"/><path d="M3 19c.6-3.3 3-5 6-5s5.4 1.7 6 5"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.2c2.6-.3 4.8 1.2 5.5 4.3"/>', 'Parties', 'See the whole table’s HP and conditions, send damage and healing.'],
+    ['<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4M7 9h4M7 12h6"/>', 'The DM’s Desk', 'Turn order, dice, monsters, encounters and campaign notes.'],
+    ['<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v3h16v-3"/>', 'Import from D&amp;D Beyond', 'Paste a character link and bring it over.'],
+    ['<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>', 'Rolls in Roll20', 'With the companion extension, rolls land in your game.'],
+    ['<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>', 'On your phone', 'Add it to your home screen and it opens like an app.']];
+  const feats = `<section class="si2-feats">${FEAT.map(([ic, t, d]) => `<div class="si2-feat"><svg viewBox="0 0 24 24" aria-hidden="true">${ic}</svg><div><b>${t}</b><small>${d}</small></div></div>`).join('')}</section>`;
+  say(`<div class="pg-si2"><div class="si2-left">${vid}${tries}</div><div class="pg-signin">${logoHTML()}<div class="pg-sdiv"></div><h2>Sign in</h2>
     <button class="btn gold big" id="si-g"><svg viewBox="0 0 48 48" width="18" height="18" style="vertical-align:-3px;margin-right:8px"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>Sign in with Google</button>
     <div class="pg-or">or</div>
     <form id="si-f" class="who-f"><input id="si-e" type="email" placeholder="Your email address" autocomplete="email" required><button class="btn">Email me a link</button></form>
     <p class="hub-hint" id="si-msg">No Google account? We'll email you a sign-in link.</p>${kickedMsg ? `<p class="pg-kicked">${escH(kickedMsg)}</p>` : ''}
-    <p class="pg-contact">Trouble signing in? <a href="${CONTACT}">Contact us</a></p><p class="pg-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy policy</a><span aria-hidden="true"> · </span><a href="/terms" target="_blank" rel="noopener">Terms</a><span aria-hidden="true"> · </span><a href="/accessibility" target="_blank" rel="noopener">Accessibility</a></p></div></div>${a2hsHTML()}`);
+    <p class="pg-contact">Trouble signing in? <a href="${CONTACT}">Contact us</a></p><p class="pg-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy policy</a><span aria-hidden="true"> · </span><a href="/terms" target="_blank" rel="noopener">Terms</a><span aria-hidden="true"> · </span><a href="/accessibility" target="_blank" rel="noopener">Accessibility</a></p></div>${feats}</div>${a2hsHTML()}`);
   wireA2HS(document.getElementById('pg-load'));
   wireDie(document.getElementById('pg-load'));
   // Errors and the "check your email" note show in the box just above the bottom divider (where "You've been signed
