@@ -29,6 +29,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
     internal readonly FontSwap Swap = new();
     internal readonly Dalamud.Interface.ImGuiFileDialog.FileDialogManager Dialog = new();
     private bool swapPending;
+    private double swapAfter = 5;
 
     private const string Cmd = "/smoothtags";
     private const int Count = 50;
@@ -108,12 +109,17 @@ public sealed unsafe class Plugin : IDalamudPlugin
     {
         Swap.Disable();
         Swap.FreeRetired();
-        if (!swapPending) return;
+        // on load, wait a few seconds, so a reload doesn't meet the previous copy of the plugin still letting go
+        if (!swapPending || clock.Elapsed.TotalSeconds < swapAfter) return;
         swapPending = false;
         ApplyCustomFont();
     }
 
-    internal void RequestCustomFont() => swapPending = true;
+    internal void RequestCustomFont()
+    {
+        swapPending = true;
+        swapAfter = 0;
+    }
 
     private void SwapIn(AddonEvent type, AddonArgs args) => Swap.Enable();
     private void SwapOut(AddonEvent type, AddonArgs args) => Swap.Disable();

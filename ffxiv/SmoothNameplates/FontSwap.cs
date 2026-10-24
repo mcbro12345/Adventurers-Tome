@@ -42,6 +42,8 @@ internal sealed unsafe class FontSwap
     // Game thread only. Releases textures retired more than half a minute ago (or all of them, when unloading).
     public void FreeRetired(bool all = false)
     {
+        return; // see Restore: kept until the game closes
+#pragma warning disable CS0162
         if (retired.Count == 0) return;
         var now = Environment.TickCount64;
         retired.RemoveAll(r =>
@@ -50,6 +52,7 @@ internal sealed unsafe class FontSwap
             ((Texture*)r.Texture)->DecRef();
             return true;
         });
+#pragma warning restore CS0162
     }
 
     // Our letters are only in the glyph table while the name tags are being updated and drawn (Enable ... Disable);
@@ -132,6 +135,18 @@ internal sealed unsafe class FontSwap
                 seen.Add(file.Length > 0 ? Path.GetFileNameWithoutExtension(file) : "?");
                 if (font->Glyphs == null || font->GlyphCount == 0 || !("/" + file).Contains(prefix, StringComparison.OrdinalIgnoreCase)) continue;
 
+                // the slots the game's own letters use; ours only go into slots that are both past those and empty
+                var used = 0;
+                for (var g = 0; g < font->GlyphCount; g++) used = Math.Max(used, font->Glyphs[g].TextureIndex + 1);
+                for (var t = 0; t < used && t < AtkFontManager.Font.MaxTextures; t++)
+                    if (font->Textures[t].Value == null)
+                        throw new InvalidOperationException("the game's font is already in an unusual state (perhaps left by an earlier copy of this plugin). Restart the game, then apply again.");
+                if (used > font->TextureCount)
+                    throw new InvalidOperationException($"the game's {Path.GetFileNameWithoutExtension(file)} uses more textures than it says. Restart the game, then apply again.");
+                var free = new List<int>();
+                for (var t = Math.Max(used, (int)font->TextureCount); t < AtkFontManager.Font.MaxTextures; t++)
+                    if (font->Textures[t].Value == null) free.Add(t);
+
                 var s = new Saved
                 {
                     Font = font,
@@ -150,17 +165,15 @@ internal sealed unsafe class FontSwap
                 var target = new FontBaker.Target(font->LineHeight, font->Ascent, font->Size, capH, capBase);
                 var baked = FontBaker.Bake(bytes, s.Glyphs.Select(g => g.Utf8Value), target, (FontBaker.Sizing)sizing, scale, bold, pageW, pageH);
                 details.Add($"{Path.GetFileNameWithoutExtension(file)}: size {font->Size:0.#}, line {font->LineHeight}, ascent {font->Ascent}, game H {capH}px (bottom {capBase}) -> your H {baked.CapHeight:0.#}px (baseline {baked.Baseline:0})");
-                var freeSlots = AtkFontManager.Font.MaxTextures - font->TextureCount;
-                var pages = Math.Min(baked.Pages.Count, freeSlots);
-                var firstSlot = font->TextureCount;
+                var pages = Math.Min(baked.Pages.Count, free.Count);
                 for (var p = 0; p < pages; p++)
                 {
                     var wrap = textures.CreateFromRaw(RawImageSpecification.Bgra32(pageW, pageH), baked.Pages[p], "SmoothNameplates font");
                     var kernel = textures.ConvertToKernelTexture(wrap);
                     s.Ours.Add(kernel);
-                    font->Textures[firstSlot + p] = (Texture*)kernel;
+                    font->Textures[free[p]] = (Texture*)kernel;
                 }
-                font->TextureCount = (ushort)(firstSlot + pages);
+                if (pages > 0) font->TextureCount = (ushort)Math.Max(font->TextureCount, free[pages - 1] + 1);
 
                 var index = new Dictionary<uint, int>(s.Glyphs.Length);
                 for (var g = 0; g < s.Glyphs.Length; g++) index.TryAdd(s.Glyphs[g].Utf8Value, g);
@@ -169,7 +182,7 @@ internal sealed unsafe class FontSwap
                     if (!index.TryGetValue(b.Utf8Value, out var g)) continue;
                     if (b.Width > 0 && b.Page >= pages) { skipped++; continue; } // no texture slot left for its page
                     var entry = s.Glyphs[g];
-                    if (b.Width > 0) entry.Packed = (b.X, b.Y, 0, firstSlot + b.Page);
+                    if (b.Width > 0) entry.Packed = (b.X, b.Y, 0, free[b.Page]);
                     entry.Width = b.Width;
                     entry.Height = b.Height;
                     entry.OffsetX = b.NextOffsetX;
@@ -203,7 +216,8 @@ internal sealed unsafe class FontSwap
             for (var t = 0; t < AtkFontManager.Font.MaxTextures; t++) font->Textures[t] = (Texture*)s.Textures[t];
             font->TextureCount = s.TextureCount;
             font->KerningCount = s.KerningCount;
-            // text the game already prepared can still point at them for a moment: let them go a little later
+            // never released while the game runs: text the game already prepared may still point at them, and a released
+            // texture draws as white blocks. A few megabytes until the game closes is the safer trade.
             foreach (var k in s.Ours) retired.Add((k, Environment.TickCount64));
         }
         if (saved.Count > 0) Status = "Back to the game's own font.";
