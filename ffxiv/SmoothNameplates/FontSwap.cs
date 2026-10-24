@@ -37,6 +37,20 @@ internal sealed unsafe class FontSwap
     }
 
     private bool enabled;
+    private readonly List<(nint Texture, long Since)> retired = new();
+
+    // Game thread only. Releases textures retired more than half a minute ago (or all of them, when unloading).
+    public void FreeRetired(bool all = false)
+    {
+        if (retired.Count == 0) return;
+        var now = Environment.TickCount64;
+        retired.RemoveAll(r =>
+        {
+            if (!all && now - r.Since < 30_000) return false;
+            ((Texture*)r.Texture)->DecRef();
+            return true;
+        });
+    }
 
     // Our letters are only in the glyph table while the name tags are being updated and drawn (Enable ... Disable);
     // the rest of the game's interface only ever sees its own font. The textures stay in their slots throughout.
@@ -189,7 +203,8 @@ internal sealed unsafe class FontSwap
             for (var t = 0; t < AtkFontManager.Font.MaxTextures; t++) font->Textures[t] = (Texture*)s.Textures[t];
             font->TextureCount = s.TextureCount;
             font->KerningCount = s.KerningCount;
-            foreach (var k in s.Ours) ((Texture*)k)->DecRef();
+            // text the game already prepared can still point at them for a moment: let them go a little later
+            foreach (var k in s.Ours) retired.Add((k, Environment.TickCount64));
         }
         if (saved.Count > 0) Status = "Back to the game's own font.";
         saved.Clear();

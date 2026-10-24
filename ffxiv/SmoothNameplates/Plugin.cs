@@ -95,6 +95,10 @@ public sealed unsafe class Plugin : IDalamudPlugin
         Lifecycle.RegisterListener(AddonEvent.PostRequestedUpdate, "NamePlate", SwapOut);
         Lifecycle.RegisterListener(AddonEvent.PostUpdate, "NamePlate", SwapOut);
         Lifecycle.RegisterListener(AddonEvent.PostDraw, "NamePlate", SwapOut);
+        // and never anywhere else: whatever happened before, every other window starts with the game's own letters
+        Lifecycle.RegisterListener(AddonEvent.PreRequestedUpdate, Guard);
+        Lifecycle.RegisterListener(AddonEvent.PreUpdate, Guard);
+        Lifecycle.RegisterListener(AddonEvent.PreDraw, Guard);
         Framework.Update += OnFrameworkUpdate;
         swapPending = Cfg.CustomFont.Length > 0;
     }
@@ -102,6 +106,8 @@ public sealed unsafe class Plugin : IDalamudPlugin
     // The custom font goes in on the game thread, once the game's fonts are loaded.
     private void OnFrameworkUpdate(IFramework framework)
     {
+        Swap.Disable();
+        Swap.FreeRetired();
         if (!swapPending) return;
         swapPending = false;
         ApplyCustomFont();
@@ -111,6 +117,11 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
     private void SwapIn(AddonEvent type, AddonArgs args) => Swap.Enable();
     private void SwapOut(AddonEvent type, AddonArgs args) => Swap.Disable();
+
+    private void Guard(AddonEvent type, AddonArgs args)
+    {
+        if (args.AddonName != "NamePlate") Swap.Disable();
+    }
 
     // Imports the chosen file into the plugin's own folder, so the original can be moved or deleted afterwards.
     private void ImportCustomFont()
@@ -153,6 +164,9 @@ public sealed unsafe class Plugin : IDalamudPlugin
         Lifecycle.UnregisterListener(AddonEvent.PostRequestedUpdate, "NamePlate", SwapOut);
         Lifecycle.UnregisterListener(AddonEvent.PostUpdate, "NamePlate", SwapOut);
         Lifecycle.UnregisterListener(AddonEvent.PostDraw, "NamePlate", SwapOut);
+        Lifecycle.UnregisterListener(AddonEvent.PreRequestedUpdate, Guard);
+        Lifecycle.UnregisterListener(AddonEvent.PreUpdate, Guard);
+        Lifecycle.UnregisterListener(AddonEvent.PreDraw, Guard);
         Commands.RemoveHandler(Cmd);
         Pi.UiBuilder.Draw -= windows.Draw;
         Pi.UiBuilder.Draw -= Dialog.Draw;
@@ -161,11 +175,9 @@ public sealed unsafe class Plugin : IDalamudPlugin
         windows.RemoveAllWindows();
         RestoreLooks();
         Framework.Update -= OnFrameworkUpdate;
-        if (Swap.Active)
-        {
-            if (Framework.IsInFrameworkUpdateThread) Swap.Restore();
-            else Framework.RunOnFrameworkThread(Swap.Restore).Wait();
-        }
+        void Unload() { Swap.Restore(); Swap.FreeRetired(all: true); }
+        if (Framework.IsInFrameworkUpdateThread) Unload();
+        else Framework.RunOnFrameworkThread(Unload).Wait();
     }
 
     internal void Save() => Pi.SavePluginConfig(Cfg);
