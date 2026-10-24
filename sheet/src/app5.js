@@ -1460,6 +1460,8 @@ function ddbBuild0(d, opt = {}) {
   const extra = [nt.personalPossessions && 'Possessions: ' + txt(nt.personalPossessions), nt.otherHoldings && 'Holdings: ' + txt(nt.otherHoldings), nt.otherNotes && txt(nt.otherNotes), t.appearance && 'Appearance: ' + txt(t.appearance)].filter(Boolean).join('\n\n');
   S.notes = [{ date: new Date().toISOString().slice(0, 10), title: 'Imported from D&D Beyond', text: `${S.name}: ${S.raceName} ${classLabel()}${S.backgroundName ? ', ' + S.backgroundName : ''}.` + (extra ? '\n\n' + extra : '') }];
   S.ddb = { id: N(d.id), at: Date.now() };
+  // Ability Score Improvements were already spent on D&D Beyond (the scores and feats above include them), so they aren't asked for again
+  S.dismissed = Object.assign({}, S.dismissed); S.classes.forEach(r => (CL[r.key].asi || []).filter(l => l <= N(r.level)).forEach(l => { S.dismissed[`asi.${r.key}.${l}`] = true; }));
   // carrying rules as the character used them on D&D Beyond (off there unless turned on)
   const enc = { 1: 'standard', 2: 'off', 3: 'variant' }[N((d.preferences || {}).encumbranceType)];
   if (enc) { S.settings = Object.assign({}, S.settings, { encumbrance: enc }); S.fixesDone = [...new Set((S.fixesDone || []).concat(['enc1', 'bullets1']))]; }
