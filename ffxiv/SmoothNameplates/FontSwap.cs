@@ -95,7 +95,9 @@ internal sealed unsafe class FontSwap
     }
 
     // Game thread only.
-    public void Apply(string path, int family, float scale, int bold, ITextureProvider textures)
+    public string Details { get; private set; } = "";
+
+    public void Apply(string path, int family, float scale, int bold, int sizing, ITextureProvider textures)
     {
         Restore();
         path = path.Trim().Trim('"');
@@ -106,6 +108,7 @@ internal sealed unsafe class FontSwap
         var bytes = File.ReadAllBytes(path);
         int fonts = 0, glyphs = 0, skipped = 0;
         var seen = new List<string>();
+        var details = new List<string>();
         try
         {
             for (var i = 0; i < fm->FontCount; i++)
@@ -130,7 +133,9 @@ internal sealed unsafe class FontSwap
                 int capH = 0, capBase = 0;
                 foreach (var g in s.Glyphs)
                     if (g.Utf8Value == 'H') { capH = g.Height; capBase = g.OffsetY + g.Height; break; }
-                var baked = FontBaker.Bake(bytes, s.Glyphs.Select(g => g.Utf8Value), font->LineHeight, font->Ascent, scale, bold, pageW, pageH, capH, capBase);
+                var target = new FontBaker.Target(font->LineHeight, font->Ascent, font->Size, capH, capBase);
+                var baked = FontBaker.Bake(bytes, s.Glyphs.Select(g => g.Utf8Value), target, (FontBaker.Sizing)sizing, scale, bold, pageW, pageH);
+                details.Add($"{Path.GetFileNameWithoutExtension(file)}: size {font->Size:0.#}, line {font->LineHeight}, ascent {font->Ascent}, game H {capH}px (bottom {capBase}) -> your H {baked.CapHeight:0.#}px (baseline {baked.Baseline:0})");
                 var freeSlots = AtkFontManager.Font.MaxTextures - font->TextureCount;
                 var pages = Math.Min(baked.Pages.Count, freeSlots);
                 var firstSlot = font->TextureCount;
@@ -167,6 +172,7 @@ internal sealed unsafe class FontSwap
             Status = "Couldn't use that font: " + e.Message;
             return;
         }
+        Details = string.Join("\n", details);
         Status = fonts == 0
             ? $"No loaded {Families[family].Label} fonts found. The game's {fm->FontCount} fonts: {string.Join(", ", seen)}"
             : $"Using {Path.GetFileName(path)} for {Families[family].Label}: {fonts} sizes, {glyphs} letters" + (skipped > 0 ? $" ({skipped} didn't fit)" : "");

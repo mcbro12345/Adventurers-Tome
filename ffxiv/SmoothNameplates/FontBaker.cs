@@ -21,6 +21,7 @@ internal sealed class BakedFont
     public readonly List<BakedGlyph> Glyphs = new();
     public readonly List<byte[]> Pages = new(); // BGRA, the same coverage in every channel
     public int PageWidth, PageHeight;
+    public float Scale, Baseline, CapHeight; // for the settings window
 }
 
 // Renders a TrueType/OpenType font with StbTrueType into texture pages shaped like the game's font textures.
@@ -28,11 +29,14 @@ internal static unsafe class FontBaker
 {
     private const int Pad = 2; // empty texels around each glyph, so the game's outline has room
 
-    // capHeight/baseline: the height of the game's own "H" at this size and where its bottom sits below the top of
-    // the line. Matching those keeps every size of the game's font (it switches sizes as tags shrink with distance) in
-    // the same proportion. Without them, the font's whole line is fitted to lineHeight.
-    public static BakedFont Bake(byte[] fontFile, IEnumerable<uint> utf8Values, int lineHeight, int ascent,
-                                 float size, int bold, int pageWidth, int pageHeight, int capHeight = 0, int capBaseline = 0)
+    // How the user's font is sized against each size of the game's font (the game switches between sizes as tags shrink
+    // with distance, so the sizing has to stay in proportion across them).
+    public enum Sizing { FontSize = 0, FitLine = 1, MatchCapitals = 2 }
+
+    public readonly record struct Target(int LineHeight, int Ascent, float PointSize, int CapHeight, int CapBaseline);
+
+    public static BakedFont Bake(byte[] fontFile, IEnumerable<uint> utf8Values, Target target, Sizing sizing,
+                                 float size, int bold, int pageWidth, int pageHeight)
     {
         var result = new BakedFont { PageWidth = pageWidth, PageHeight = pageHeight };
         fixed (byte* data = fontFile)
@@ -42,21 +46,31 @@ internal static unsafe class FontBaker
             int fontAscent, fontDescent, lineGap;
             stbtt_GetFontVMetrics(info, &fontAscent, &fontDescent, &lineGap);
             float scale, baseline;
-            int hx0, hy0, hx1, hy1;
+            int hx0 = 0, hy0 = 0, hx1 = 0, hy1 = 0;
             var capGlyph = stbtt_FindGlyphIndex(info, 'H');
-            if (capHeight > 0 && capGlyph != 0 && stbtt_GetGlyphBox(info, capGlyph, &hx0, &hy0, &hx1, &hy1) != 0 && hy1 > 0)
+            var hasCap = capGlyph != 0 && stbtt_GetGlyphBox(info, capGlyph, &hx0, &hy0, &hx1, &hy1) != 0 && hy1 > 0;
+            if (sizing == Sizing.FontSize && target.PointSize > 0)
+            {
+                // the game font's nominal size (points, at 96 dpi) as our em, on the game's baseline
+                scale = stbtt_ScaleForMappingEmToPixels(info, target.PointSize * 4 / 3 * size);
+                baseline = target.Ascent;
+            }
+            else if (sizing == Sizing.MatchCapitals && target.CapHeight > 0 && hasCap)
             {
                 // our "H" as tall as the game's, standing on the same baseline
-                scale = capHeight * size / hy1;
-                baseline = capBaseline;
+                scale = target.CapHeight * size / hy1;
+                baseline = target.CapBaseline;
             }
             else
             {
                 // the font's whole line (ascender to descender) fills the game font's line height; our line box starts at
                 // the top of the game's line
-                scale = stbtt_ScaleForPixelHeight(info, lineHeight * size);
+                scale = stbtt_ScaleForPixelHeight(info, target.LineHeight * size);
                 baseline = MathF.Round(fontAscent * scale);
             }
+            result.Scale = scale;
+            result.Baseline = baseline;
+            result.CapHeight = hasCap ? hy1 * scale : 0;
 
             byte[]? page = null;
             int penX = Pad, penY = Pad, rowH = 0;

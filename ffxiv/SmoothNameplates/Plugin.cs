@@ -110,7 +110,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
         if (Cfg.CustomFont.Trim().Length == 0) Swap.Restore();
         else
         {
-            Swap.Apply(Cfg.CustomFont, Math.Clamp(Cfg.CustomFamily, 0, FontSwap.Families.Length - 1), Cfg.CustomScale, Cfg.Bold, Textures);
+            Swap.Apply(Cfg.CustomFont, Math.Clamp(Cfg.CustomFamily, 0, FontSwap.Families.Length - 1), Cfg.CustomScale, Cfg.Bold, Cfg.Sizing, Textures);
             // the tags use the family that now carries your font
             if (Swap.Active) Cfg.Font = FontSwap.Families[Math.Clamp(Cfg.CustomFamily, 0, FontSwap.Families.Length - 1)].Type;
         }
@@ -304,12 +304,21 @@ internal sealed class ConfigWindow : Window
         ImGui.SetNextItemWidth(200);
         ImGui.Combo("In place of", ref c.CustomFamily, families, families.Length);
         ImGui.TextDisabled("  Only the name tags use it; the rest of the UI keeps the game's fonts.");
+        var sizings = new[] { "Font size", "Fit line", "Match capitals" };
+        ImGui.SetNextItemWidth(200);
+        ImGui.Combo("Sizing", ref c.Sizing, sizings, sizings.Length);
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("How your font is sized against each size of the game's font. Press Apply font after changing it.");
         ImGui.SliderFloat("Letter size", ref c.CustomScale, 0.6f, 1.4f, "%.2f");
         ImGui.SliderInt("Bold", ref c.Bold, 0, 3, c.Bold == 0 ? "off" : "%d px");
         if (ImGui.Button("Apply font")) plugin.RequestCustomFont();
         ImGui.SameLine();
         if (ImGui.Button("Back to the game's font")) { c.CustomFont = ""; plugin.RequestCustomFont(); }
         if (plugin.Swap.Status.Length > 0) ImGui.TextWrapped(plugin.Swap.Status);
+        if (plugin.Swap.Details.Length > 0 && ImGui.TreeNode("Font sizes"))
+        {
+            ImGui.TextDisabled(plugin.Swap.Details);
+            ImGui.TreePop();
+        }
         if (ImGui.Button("Reset to defaults")) { plugin.Reset(); plugin.LookChanged(); }
         ImGui.Separator();
         ImGui.TextDisabled($"{plugin.FramesPerSec} frames/s   {plugin.RebakesPerSec} re-renders/s");
