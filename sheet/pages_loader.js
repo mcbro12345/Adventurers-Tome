@@ -3081,7 +3081,8 @@ function partyModule(H) {
     b.disabled = true; try { await ptySend(fs, EMAIL, PID, id, kind, data, a.from, a.name); if (inp) inp.value = ''; if (tsel) tsel.value = ''; toast(sentMsg(a, msg)); pgLog('party_send', { target: PID, tName: P.name, detail: kind + ' → ' + nm }); } catch (x) { fail(x, 'send it'); } finally { b.disabled = false; }
   }
   function paint() { if (typeof toPaint === 'function') setTimeout(toPaint, 0);
-    if (P && PLOADED && canRun(P) && window.pgDeskHost && !window.PG_DESKED) window.pgDeskHost(P); // a party you run opens as your DM's Desk
+    // a party you're the DM of opens as your DM's Desk (its sessions and notes are yours); a co-DM or a player gets the party page
+    if (P && PLOADED && P.dm === EMAIL && window.pgDeskHost && !window.PG_DESKED) window.pgDeskHost(P);
     if (!PLOADED || JOINING || LEAVING) return;
     // not while the DM is typing an amount on a card (it'd be wiped); it catches up a moment later
     { const ae = document.activeElement; if (ae && ae.classList && (ae.classList.contains('pm-q') && ae.value || ae.classList.contains('pm-qt'))) { clearTimeout(paint.t); paint.t = setTimeout(paint, 900); return; } }

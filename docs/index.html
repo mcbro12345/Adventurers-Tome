@@ -3129,7 +3129,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024000819', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.37fe24a2cbc3.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.98e0e73db7ba.html", "desk": "a/desk.076fb7d99e24.js", "deskcss": "a/deskcss.68b7d62e339e.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024010105', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.37fe24a2cbc3.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.98e0e73db7ba.html", "desk": "a/desk.076fb7d99e24.js", "deskcss": "a/deskcss.68b7d62e339e.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -5585,7 +5585,8 @@ function partyModule(H) {
     b.disabled = true; try { await ptySend(fs, EMAIL, PID, id, kind, data, a.from, a.name); if (inp) inp.value = ''; if (tsel) tsel.value = ''; toast(sentMsg(a, msg)); pgLog('party_send', { target: PID, tName: P.name, detail: kind + ' → ' + nm }); } catch (x) { fail(x, 'send it'); } finally { b.disabled = false; }
   }
   function paint() { if (typeof toPaint === 'function') setTimeout(toPaint, 0);
-    if (P && PLOADED && canRun(P) && window.pgDeskHost && !window.PG_DESKED) window.pgDeskHost(P); // a party you run opens as your DM's Desk
+    // a party you're the DM of opens as your DM's Desk (its sessions and notes are yours); a co-DM or a player gets the party page
+    if (P && PLOADED && P.dm === EMAIL && window.pgDeskHost && !window.PG_DESKED) window.pgDeskHost(P);
     if (!PLOADED || JOINING || LEAVING) return;
     // not while the DM is typing an amount on a card (it'd be wiped); it catches up a moment later
     { const ae = document.activeElement; if (ae && ae.classList && (ae.classList.contains('pm-q') && ae.value || ae.classList.contains('pm-qt'))) { clearTimeout(paint.t); paint.t = setTimeout(paint, 900); return; } }
