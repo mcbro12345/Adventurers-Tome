@@ -42,6 +42,8 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
     internal int FramesPerSec, RebakesPerSec;
     internal string Resets = "";
+    internal int GameFont = -1;          // the font the game picks for its tags
+    internal string SharpState = "";
     private int resetFont, resetSize, resetSpacing, resetDirect;
     private bool sharpSet;
     private int frameCount, rebakes;
@@ -138,6 +140,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
                 look.GameSpacing = spacing;
             }
 
+            if (obj.RootComponentNode != null && ((AtkResNode*)obj.RootComponentNode)->IsVisible()) GameFont = look.GameFont;
             var wantFont = Cfg.Font is >= 0 and <= 5 ? (byte)Cfg.Font : look.GameFont;
             var wantSize = (byte)Math.Clamp(MathF.Round(look.GameSize * Cfg.Size), 6, 64);
             var wantSpacing = (byte)Math.Clamp(look.GameSpacing + Cfg.LineSpacing, 0, 100);
@@ -204,7 +207,11 @@ public sealed unsafe class Plugin : IDalamudPlugin
             Resets = $"game reset per second: font {resetFont}, size {resetSize}, line spacing {resetSpacing}, direct text {resetDirect}";
             frameCount = rebakes = resetFont = resetSize = resetSpacing = resetDirect = 0; statT = t;
         }
-        ApplyLooks((AddonNamePlate*)args.Addon.Address); // a plugin that changed a tag after the update gets our look again
+        var addon = (AddonNamePlate*)args.Addon.Address;
+        var na = NamePlateNumberArray.Instance();
+        if (addon != null && na != null)
+            SharpState = $"Sharp: nameplate data {(na->DisableFixedFontResolution ? "on" : "off")}, tag renderer {(addon->BakePlate.DisableFixedFontResolution != 0 ? "on" : "off")}";
+        ApplyLooks(addon); // a plugin that changed a tag after the update gets our look again
     }
 }
 
@@ -234,5 +241,7 @@ internal sealed class ConfigWindow : Window
         ImGui.Separator();
         ImGui.TextDisabled($"{plugin.FramesPerSec} frames/s   {plugin.RebakesPerSec} re-renders/s");
         ImGui.TextDisabled(plugin.Resets);
+        ImGui.TextDisabled(plugin.GameFont >= 0 ? $"The game's own font for these tags: {(plugin.GameFont <= 5 ? Fonts[plugin.GameFont + 1] : $"type {plugin.GameFont}")}" : "");
+        ImGui.TextDisabled(plugin.SharpState);
     }
 }
