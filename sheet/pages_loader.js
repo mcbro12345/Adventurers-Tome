@@ -1503,7 +1503,17 @@ function signIn(auth, say) {
     if (!m) { m = document.createElement('p'); m.className = 'pg-kicked'; const ctl = card.querySelector('.si2-ctl') || card; ctl.appendChild(m); }
     m.classList.toggle('ok', !!ok); m.innerHTML = t; if (m.animate && !PG_CALM) m.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'ease-out' }); };
   document.getElementById('si-g').onclick = async () => { const pr = new firebase.auth.GoogleAuthProvider(); pr.setCustomParameters({ prompt: 'select_account' });
-    try { await auth.signInWithPopup(pr); pgGo(null); } catch (e) { if (e && /popup/.test(e.code || '')) { auth.signInWithRedirect(pr); return; } msg('Couldn\'t sign in: ' + escH((e && e.message) || e)); } };
+    // Google's window opens centred on this browser window (Firebase centres it on the screen, which on a second monitor or a
+    // scaled display can land it off to one side)
+    const wo = window.open; window.open = function (u, n, f) { try { f = String(f || ''); const w = Number((/width=(\d+)/.exec(f) || [])[1]) || 500, h = Number((/height=(\d+)/.exec(f) || [])[1]) || 600;
+        const l = Math.round(window.screenX + Math.max(0, (window.outerWidth - w) / 2)), t = Math.round(window.screenY + Math.max(0, (window.outerHeight - h) / 2));
+        f = f.replace(/left=-?\d+/, 'left=' + l).replace(/top=-?\d+/, 'top=' + t); if (!/left=/.test(f)) f += ',left=' + l + ',top=' + t; } catch (x) {} return wo.call(window, u, n, f); };
+    setTimeout(() => { window.open = wo; }, 1500);
+    try { await auth.signInWithPopup(pr); pgGo(null); } catch (e) { window.open = wo; const c = (e && e.code) || '';
+      // closing Google's window (or opening it twice) just leaves you here; only a browser that blocks the window goes over to Google's page instead
+      if (/popup-closed-by-user|cancelled-popup-request|user-cancelled/.test(c)) return;
+      if (/popup-blocked|operation-not-supported/.test(c)) { auth.signInWithRedirect(pr); return; }
+      msg('Couldn\'t sign in: ' + escH((e && e.message) || e)); } };
   document.getElementById('si-f').onsubmit = async e => { e.preventDefault(); const em = document.getElementById('si-e').value.trim().toLowerCase(); if (!em) return;
     try { await auth.sendSignInLinkToEmail(em, { url: location.origin + location.pathname, handleCodeInApp: true }); try { localStorage.setItem('dnd-signin-email', em); localStorage.setItem('dnd-signin-back', location.href); } catch (x) {}
       msg(`<b>Check your email</b> (${escH(em)}) for a sign-in link and open it on this device. If it isn't there in a minute, look in Spam.`, true); } catch (x) { msg('Couldn\'t send the link: ' + escH((x && x.message) || x)); } };
