@@ -1,0 +1,8 @@
+{
+  "Author": "me",
+  "Name": "Smooth Nameplates",
+  "Punchline": "Nameplates that glide instead of jitter, and are easier to read.",
+  "Description": "Sub-pixel, filtered nameplate positions snapped to half pixels; sharper text and darker outlines.",
+  "ApplicableVersion": "any",
+  "Tags": ["nameplate", "ui"]
+}
