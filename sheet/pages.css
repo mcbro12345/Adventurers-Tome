@@ -2248,3 +2248,5 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 /* phones and narrow windows: sign in first, then the video and the characters */
 @media (max-width: 920px) { .pg-si2 { grid-template-columns: minmax(0, 1fr); max-width: 560px; gap: 22px; } .pg-si2 .pg-signin { order: -1; } }
 @media (max-width: 480px) { .si2-chars { grid-template-columns: minmax(0, 1fr); } }
+/* the blurb uses the card's full width, so it sits in fewer lines */
+:where(#pg-load) .pg-signin p.pg-about { max-width: none; text-wrap: pretty; }
