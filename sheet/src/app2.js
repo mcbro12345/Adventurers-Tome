@@ -267,7 +267,9 @@ let onModalCancel = null;
 let MODAL_BY = null, MODAL_SIG = null; // which button opened the window that's showing
 function openModal(html, onCancel, wide) {
   MODAL_BY = MODAL_SIG;
-  onModalCancel = onCancel || null; $('#modal-body').classList.remove('xwide'); $('#modal-body').classList.toggle('wide', !!wide); $('#modal-body').innerHTML = html; $('#modal').classList.add('open');
+  onModalCancel = onCancel || null; $('#modal-body').classList.remove('xwide'); $('#modal-body').classList.toggle('wide', !!wide); $('#modal-body').innerHTML = html;
+  // a window opening fresh holds its fade for two frames, so the work of building and sizing it doesn't eat the start of the animation
+  const mo = $('#modal'); if (!mo.classList.contains('open')) { mo.classList.add('pre', 'open'); requestAnimationFrame(() => requestAnimationFrame(() => mo.classList.remove('pre'))); }
   const f = $('#modal-body [autofocus]'); if (f) f.focus();
 }
 // Desktop: every pop-up window can be moved by dragging its title (the heading at the top). It opens centred again
@@ -288,7 +290,7 @@ function openModal(html, onCancel, wide) {
       const eat = ev => { ev.stopPropagation(); ev.preventDefault(); }; addEventListener('click', eat, { capture: true, once: true }); setTimeout(() => removeEventListener('click', eat, true), 0); };
     addEventListener('pointermove', mv); addEventListener('pointerup', up); });
   // a window opening again starts back in the middle
-  new MutationObserver(ms => ms.forEach(m => { const t = m.target; if (t.classList && (t.classList.contains('open') || t.classList.contains('on'))) t.querySelectorAll(WIN).forEach(w => { w.style.translate = ''; }); else if (t.matches && t.matches(WIN) && m.type === 'childList') t.style.translate = ''; }))
+  new MutationObserver(ms => ms.forEach(m => { const t = m.target; if (t.classList && (t.classList.contains('open') || t.classList.contains('on'))) t.querySelectorAll(WIN).forEach(w => { if (!w.dataset.keepPos) w.style.translate = ''; }); else if (t.matches && t.matches(WIN) && m.type === 'childList' && !t.dataset.keepPos) t.style.translate = ''; }))
     .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], subtree: true });
 })();
 function closeModal(confirmed) {

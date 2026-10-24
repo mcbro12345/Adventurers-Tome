@@ -447,7 +447,8 @@ function booksHTML() {
     : `<div class="bk-chips">${keys.filter(k => on.has(k)).map(k => `<span class="bk-chip${k === 'UA' ? ' ua' : ''}" title="${esc(DND.sources[k])}">${esc(k)}</span>`).join('')}</div>`}</div>`;
 }
 
-function reopenSettings() { const sx = $('.setx'), sc = sx ? sx.scrollTop : 0; openSettings(SETTAB); const nx = $('.setx'); if (nx) nx.scrollTop = sc; }
+// redrawn in place: same spot on screen (if it was dragged) and same scroll
+function reopenSettings() { const sx = $('.setx'), sc = sx ? sx.scrollTop : 0, mb = $('#modal-body'); if (mb) mb.dataset.keepPos = '1'; openSettings(SETTAB); const nx = $('.setx'); if (nx) nx.scrollTop = sc; setTimeout(() => { if (mb) delete mb.dataset.keepPos; }, 0); }
 function fitSettingsHeight() {
   const m = $('#modal-body'), sx = $('.setx'); if (!m || !sx) return;
   m.style.removeProperty('--seth');
