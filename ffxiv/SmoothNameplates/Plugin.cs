@@ -28,6 +28,7 @@ public sealed class Config : IPluginConfiguration
     public bool HalfPixel = true;
     public bool SharpText = false;   // bake the text at the real size instead of the fixed resolution
     public float EdgeDarken = 0.45f; // 0 = game's outline, 1 = black outline
+    public int ForceLag = -1;        // -1 = work it out
 }
 
 public sealed unsafe class Plugin : IDalamudPlugin
@@ -41,20 +42,35 @@ public sealed unsafe class Plugin : IDalamudPlugin
     private const string Cmd = "/smoothtags";
     private const int Count = 50;
 
-    // The game hands the addon whole-pixel X/Y, so a plate steps a pixel at a time and flickers ±1px against the
-    // character. At draw time (same camera as the frame on screen) we project the plate's own world anchor as a float
-    // and add a heavily filtered offset between that projection and the game's spot; only the offset is filtered, so
-    // the plate stays glued to the character with no lag.
-    private struct Plate
+    // The game hands the addon whole-pixel X/Y worked out with an older camera, so while the camera turns a plate
+    // trails its character by a frame or so (up to 10+ px) and steps a pixel at a time. At draw time (the camera of the
+    // frame on screen) we project the plate's own world anchor as a float and add the offset between the game's spot and
+    // our projection from the frame the game actually used. That offset is only the plate's layout, so it can be
+    // filtered hard without adding lag.
+    private const int Lags = 3; // candidate delays, in updates
+    private sealed class Plate
     {
         public ulong Id;
         public bool Live;
         public Vector3 Anchor;
-        public float GameX, GameY;    // the game's whole-pixel spot this update
-        public OneEuro Ox, Oy;        // game spot minus our projection
+        public float GameX, GameY;                     // the game's whole-pixel spot this update
+        public readonly Vector2[] S = new Vector2[Lags]; // our projections, newest first
+        public int History;                            // how many of S are valid
+        public readonly OneEuro[] Ox = new OneEuro[Lags], Oy = new OneEuro[Lags];
+        public readonly Vector2[] LastRaw = new Vector2[Lags];
+
+        public void Reset(ulong id)
+        {
+            Id = id; History = 0;
+            Array.Clear(Ox); Array.Clear(Oy);
+        }
     }
 
-    private readonly Plate[] plates = new Plate[Count];
+    private readonly Plate[] plates = CreatePlates();
+    private static Plate[] CreatePlates() { var a = new Plate[Count]; for (var i = 0; i < Count; i++) a[i] = new Plate(); return a; }
+    // how much each candidate delay's offset wobbles; the real delay is the one that leaves a steady offset
+    private readonly float[] lagWobble = new float[Lags];
+    internal int Lag = 1;
     private readonly uint[] edgeOurs = new uint[Count];
     private readonly Stopwatch clock = Stopwatch.StartNew();
     private readonly WindowSystem windows = new("SmoothNameplates");
@@ -163,29 +179,55 @@ public sealed unsafe class Plugin : IDalamudPlugin
         var ui3d = uiModule != null ? uiModule->GetUI3DModule() : null;
 
         Span<bool> seen = stackalloc bool[Count];
+        Span<float> wobble = stackalloc float[Lags];
+        Span<int> seenK = stackalloc int[Lags];
         foreach (var h in handlers)
         {
             var i = h.NamePlateIndex;
             if ((uint)i >= Count || (uint)h.ArrayIndex >= Count) continue;
-            ref var p = ref plates[i];
+            var p = plates[i];
             seen[i] = true;
-            if (!p.Live || p.Id != h.GameObjectId) { p = default; p.Id = h.GameObjectId; }
+            if (!p.Live || p.Id != h.GameObjectId) p.Reset(h.GameObjectId);
             p.Live = true;
 
             var d = Data(na, h.ArrayIndex);
             p.GameX = d->X;
             p.GameY = d->Y;
-            if (!Anchor(ui3d, h, out p.Anchor) || !GameGui.WorldToScreen(p.Anchor, out var s)) { p.Ox = default; p.Oy = default; continue; }
+            if (!Anchor(ui3d, h, out p.Anchor) || !GameGui.WorldToScreen(p.Anchor, out var s)) { p.Reset(p.Id); continue; }
 
-            var ox = p.GameX - s.X;
-            var oy = p.GameY - s.Y;
-            // a big jump is a real change (plate reused, size change): take it at once
-            if (p.Ox.Ready && (MathF.Abs(ox - p.Ox.X) > 24 || MathF.Abs(oy - p.Oy.X) > 24)) { p.Ox = default; p.Oy = default; }
-            p.Ox.Step(ox, dt, Cfg.MinCutoff, Cfg.Beta);
-            p.Oy.Step(oy, dt, Cfg.MinCutoff, Cfg.Beta);
+            for (var k = Lags - 1; k > 0; k--) p.S[k] = p.S[k - 1];
+            p.S[0] = s;
+            p.History = Math.Min(p.History + 1, Lags);
+
+            for (var k = 0; k < p.History; k++)
+            {
+                var ox = p.GameX - p.S[k].X;
+                var oy = p.GameY - p.S[k].Y;
+                if (p.Ox[k].Ready)
+                {
+                    var w = MathF.Abs(ox - p.LastRaw[k].X) + MathF.Abs(oy - p.LastRaw[k].Y);
+                    wobble[k] += MathF.Min(w, 20); seenK[k]++;
+                    // a big jump is a real change (plate reused, size change): take it at once
+                    if (MathF.Abs(ox - p.Ox[k].X) > 24 || MathF.Abs(oy - p.Oy[k].X) > 24) { p.Ox[k] = default; p.Oy[k] = default; }
+                }
+                p.LastRaw[k] = new Vector2(ox, oy);
+                p.Ox[k].Step(ox, dt, Cfg.MinCutoff, Cfg.Beta);
+                p.Oy[k].Step(oy, dt, Cfg.MinCutoff, Cfg.Beta);
+            }
         }
         for (var i = 0; i < Count; i++)
             if (!seen[i]) plates[i].Live = false;
+
+        // only learn while things move; standing still every delay looks equally good
+        float total = 0;
+        for (var k = 0; k < Lags; k++) total += seenK[k] > 0 ? wobble[k] / seenK[k] : 0;
+        if (total > 0.5f)
+            for (var k = 0; k < Lags; k++)
+                if (seenK[k] > 0) lagWobble[k] += 0.05f * (wobble[k] / seenK[k] - lagWobble[k]);
+        var best = Lag;
+        for (var k = 0; k < Lags; k++)
+            if (lagWobble[k] < lagWobble[best] * 0.8f) best = k;
+        Lag = Cfg.ForceLag >= 0 ? Math.Min(Cfg.ForceLag, Lags - 1) : best;
     }
 
     // Right before the plates are drawn: project with this frame's camera and place the nodes.
@@ -200,18 +242,20 @@ public sealed unsafe class Plugin : IDalamudPlugin
         int live = 0, ready = 0, moved = 0;
         for (var i = 0; i < Count; i++)
         {
-            ref var p = ref plates[i];
+            var p = plates[i];
             if (!p.Live) continue;
             live++;
             var root = addon->NamePlateObjectArray[i].RootComponentNode;
             if (root == null) continue;
-            if (p.Ox.Ready) ready++;
+            var k = Math.Min(Lag, p.History - 1);
+            var ok = k >= 0 && p.Ox[k].Ready;
+            if (ok) ready++;
 
             float dx = 0, dy = 0;
-            if (Cfg.Smooth && p.Ox.Ready && GameGui.WorldToScreen(p.Anchor, out var s))
+            if (Cfg.Smooth && ok && GameGui.WorldToScreen(p.Anchor, out var s))
             {
-                var wantX = s.X + p.Ox.X;
-                var wantY = s.Y + p.Oy.X;
+                var wantX = s.X + p.Ox[k].X;
+                var wantY = s.Y + p.Oy[k].X;
                 if (Cfg.HalfPixel)
                 {
                     wantX = MathF.Round(wantX * 2) / 2;
@@ -325,6 +369,8 @@ internal sealed class ConfigWindow : Window
         ImGui.Separator();
         ImGui.TextDisabled($"Nameplate updates/s: {plugin.UpdatesPerSec}   draws/s: {plugin.DrawsPerSec}");
         ImGui.TextDisabled($"Plates: {plugin.LivePlates} seen, {plugin.ReadyPlates} tracked, {plugin.MovedPlates} moved; biggest shift {plugin.MaxShiftShown:0.00}px");
+        ImGui.TextDisabled($"Game is {plugin.Lag} frame(s) behind" + (c.ForceLag < 0 ? " (auto)" : ""));
+        changed |= ImGui.SliderInt("Frames behind (-1 = auto)", ref c.ForceLag, -1, 2);
         ImGui.Checkbox("Test: push every tag 30px right", ref plugin.TestPush);
     }
 }
