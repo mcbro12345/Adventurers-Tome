@@ -82,7 +82,7 @@ function openSettings(tab) {
       ${row('Update this sheet', `<button class="btn sm" data-act="updatesheet">Update…</button>`, `Version ${APP_VERSION} · move into a newer sheet file`)}
       ${row('Start over', `<button class="btn sm red" data-act="newchar">New character…</button>`, 'Clears this sheet — download it first to keep it')}`)}
     </div>`, null, true);
-  setTabInk(false); fitSettingsHeight();
+  setTabInk(false); mwDress(); fitSettingsHeight(!REOPEN);   // the title bar goes on first, so the height counts it
   if ($('#r20status')) { renderR20Box(); r20Hello(); }
 }
 function setSetting(t) {
@@ -448,22 +448,26 @@ function booksHTML() {
 }
 
 // redrawn in place: same spot on screen (if it was dragged) and same scroll
-function reopenSettings() { const sx = $('.setx'), sc = sx ? sx.scrollTop : 0, mb = $('#modal-body'); if (mb) mb.dataset.keepPos = '1'; openSettings(SETTAB); const nx = $('.setx'); if (nx) nx.scrollTop = sc; setTimeout(() => { if (mb) delete mb.dataset.keepPos; }, 0); }
-function fitSettingsHeight() {
+function reopenSettings() { const sx = $('.setx'), sc = sx ? sx.scrollTop : 0, mb = $('#modal-body'); if (mb) { mb.dataset.keepPos = '1'; REOPEN = true; } try { openSettings(SETTAB); } finally { REOPEN = false; } const nx = $('.setx'); if (nx) nx.scrollTop = sc; setTimeout(() => { if (mb) delete mb.dataset.keepPos; }, 0); }
+let REOPEN = false;
+function fitSettingsHeight(fresh) {
   const m = $('#modal-body'), sx = $('.setx'); if (!m || !sx) return;
+  // redrawn in place (a theme picked, a setting toggled): the window never shrinks under the pointer; a fresh open sizes from scratch
+  if (fresh) m._sethMin = 0;
   m.style.removeProperty('--seth');
   const panes = $$('.setx .stpane'); let tallest = 0;
   const pw = sx.clientWidth - (parseFloat(getComputedStyle(sx).paddingLeft) || 0) - (parseFloat(getComputedStyle(sx).paddingRight) || 0); // measured at the width it really shows at, so wrapped lines count
   panes.forEach(p => { const was = p.style.cssText; p.style.cssText = `display:block;position:absolute;visibility:hidden;left:0;top:0;width:${pw}px;box-sizing:border-box`; tallest = Math.max(tallest, p.getBoundingClientRect().height, p.scrollHeight); p.style.cssText = was; });
   const chrome = m.getBoundingClientRect().height - sx.getBoundingClientRect().height;  // header, tabs and padding
   const cap = isMobile() ? 0.88 * innerHeight : innerHeight - 32;
-  m.style.setProperty('--seth', Math.ceil(Math.min(cap, chrome + tallest + 4)) + 'px');
+  let h = Math.ceil(Math.min(cap, Math.max(chrome + tallest + 4, m._sethMin || 0))); if (!fresh && m._sethMin && Math.abs(h - m._sethMin) <= 3) h = m._sethMin;   // a pixel or two of re-measuring isn't worth a nudge
+  m.style.setProperty('--seth', h + 'px'); m._sethMin = h;
   // a row appearing or going (e.g. the 2024 exhaustion rule adds one) re-fits the window
   if (typeof ResizeObserver === 'function') { if (!m._setRO) m._setRO = new ResizeObserver(() => { clearTimeout(m._setRT); m._setRT = setTimeout(() => { if (settingsOpen()) fitSettingsHeight(); }, 80); }); m._setRO.disconnect(); $$('.setx .stpane').forEach(p => m._setRO.observe(p)); }
   // whatever the measuring missed (padding, margins) shows up as scroll on the open tab: add it on
-  requestAnimationFrame(() => { const x = $('.setx'); if (!x || !m.isConnected) return; const more = x.scrollHeight - x.clientHeight; if (more > 0) m.style.setProperty('--seth', Math.ceil(Math.min(cap, m.getBoundingClientRect().height + more + 2)) + 'px'); });
+  requestAnimationFrame(() => { const x = $('.setx'); if (!x || !m.isConnected) return; const more = x.scrollHeight - x.clientHeight; if (more > 3 || (more > 0 && fresh)) { const h2 = Math.ceil(Math.min(cap, m.getBoundingClientRect().height + more + 2)); m.style.setProperty('--seth', h2 + 'px'); m._sethMin = Math.max(m._sethMin || 0, h2); } });
 }
-addEventListener('resize', () => { if (typeof settingsOpen === 'function' && settingsOpen()) fitSettingsHeight(); });
+addEventListener('resize', () => { if (typeof settingsOpen === 'function' && settingsOpen()) fitSettingsHeight(true); });
 function settingsOpen() { return $('#modal').classList.contains('open') && !!$('.setx'); }
 function setTabInk(anim) { const on = $('.stabs .stab.on'), ink = $('.stabs .stab-ink'); if (!on || !ink) return; ink.style.transition = anim ? '' : 'none'; ink.style.width = on.offsetWidth + 'px'; ink.style.transform = `translateX(${on.offsetLeft}px)`; if (anim) { const bar = on.parentElement; if (bar && bar.scrollWidth > bar.clientWidth) bar.scrollTo({ left: on.offsetLeft - (bar.clientWidth - on.offsetWidth) / 2, behavior: 'smooth' }); } const mb = $('#modal-body'); if (mb && mb.scrollLeft) mb.scrollLeft = 0; }
 function switchSetTab(k) {
