@@ -14,6 +14,7 @@ public sealed class Config : IPluginConfiguration
     public float Size = 1.0f;        // times the game's size
     public float NpcSize = 1.0f;     // times that again, for every tag that isn't a player's
     public int LineSpacing = 0;      // pixels added to the game's space between the name, title and free company lines
+    public int NpcLineSpacing = 0;   // the same, for every tag that isn't a player's
 
     // your own font, put into one of the game's font families (see FontSwap)
     public string CustomFont = "";   // path to a .ttf/.otf; empty = off

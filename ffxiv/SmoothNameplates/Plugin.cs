@@ -194,9 +194,10 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
             if (obj.RootComponentNode != null && ((AtkResNode*)obj.RootComponentNode)->IsVisible()) GameFont = look.GameFont;
             var wantFont = Cfg.Font is >= 0 and <= 5 ? (byte)Cfg.Font : look.GameFont;
-            var kindSize = obj.NamePlateKind == FFXIVClientStructs.FFXIV.Client.UI.UIObjectKind.PlayerCharacter ? 1f : Cfg.NpcSize;
+            var player = obj.NamePlateKind == FFXIVClientStructs.FFXIV.Client.UI.UIObjectKind.PlayerCharacter;
+            var kindSize = player ? 1f : Cfg.NpcSize;
             var wantSize = (byte)Math.Clamp(MathF.Round(look.GameSize * Cfg.Size * kindSize), 6, 64);
-            var wantSpacing = (byte)Math.Clamp(look.GameSpacing + Cfg.LineSpacing, 0, 100);
+            var wantSpacing = (byte)Math.Clamp(look.GameSpacing + (player ? Cfg.LineSpacing : Cfg.NpcLineSpacing), 0, 100);
 
             if (font != wantFont || size != wantSize || spacing != wantSpacing)
             {
@@ -277,6 +278,8 @@ internal sealed class ConfigWindow : Window
         look |= ImGui.SliderFloat("Size", ref c.Size, 0.6f, 2f, "%.2fx");
         look |= ImGui.SliderFloat("NPC size", ref c.NpcSize, 0.5f, 1.5f, "%.2fx");
         if (ImGui.IsItemHovered()) ImGui.SetTooltip("On top of Size, for everything that isn't a player. The game makes NPC tags bigger than player tags.");
+        look |= ImGui.SliderInt("NPC line spacing", ref c.NpcLineSpacing, -10, 30, "%+d px");
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Used instead of Line spacing for everything that isn't a player.");
         look |= ImGui.SliderInt("Line spacing", ref c.LineSpacing, -10, 30, "%+d px");
         if (look) plugin.LookChanged();
 
