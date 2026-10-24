@@ -187,9 +187,38 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
     private void OnPostUpdate(AddonEvent type, AddonArgs args) => ApplyLooks((AddonNamePlate*)args.Addon.Address);
 
+    // The size and spacing most tags started with. The game never resets a tag's size itself, so a tag still carrying
+    // an enlarged size from before (an earlier session of the plugin) would otherwise be taken as "the game's" and get
+    // enlarged again, and again. What most tags agree on is the game's own.
+    private static byte Mode(Dictionary<byte, int> counts, byte fallback)
+    {
+        byte best = fallback;
+        var n = 0;
+        foreach (var (v, c) in counts)
+            if (c > n || (c == n && v < best)) { best = v; n = c; }
+        return best;
+    }
+
     private void ApplyLooks(AddonNamePlate* addon)
     {
         if (addon == null || addon->NamePlateObjectArray == null) return;
+        var sizes = new Dictionary<byte, int>();
+        var spacings = new Dictionary<byte, int>();
+        var samples = 0;
+        for (var i = 0; i < Count; i++)
+        {
+            var t = addon->NamePlateObjectArray[i].NameText;
+            if (t == null) continue;
+            var seen = looks.TryGetValue((nint)t, out var l);
+            var size = seen && t->FontSize == l.OurSize ? l.GameSize : t->FontSize;
+            var spacing = seen && t->LineSpacing == l.OurSpacing ? l.GameSpacing : t->LineSpacing;
+            sizes[size] = sizes.GetValueOrDefault(size) + 1;
+            spacings[spacing] = spacings.GetValueOrDefault(spacing) + 1;
+            samples++;
+        }
+        var commonSize = Mode(sizes, 0);
+        var commonSpacing = Mode(spacings, 0);
+
         for (var i = 0; i < Count; i++)
         {
             ref var obj = ref addon->NamePlateObjectArray[i];
@@ -213,6 +242,11 @@ public sealed unsafe class Plugin : IDalamudPlugin
                 look.GameFont = font;
                 look.GameSize = size;
                 look.GameSpacing = spacing;
+            }
+            if (samples >= 3)
+            {
+                look.GameSize = commonSize;
+                look.GameSpacing = commonSpacing;
             }
 
             if (obj.RootComponentNode != null && ((AtkResNode*)obj.RootComponentNode)->IsVisible()) GameFont = look.GameFont;
