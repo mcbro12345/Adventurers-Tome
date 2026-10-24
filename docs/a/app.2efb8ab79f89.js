@@ -760,11 +760,13 @@ function fxPassives() {
   });
   // Items that resist a damage type of your choice (Ring of Resistance…), while worn and attuned
   S.inventory.forEach(it => { if (it.resPick && resPickItem(it) && hbItemOn(it)) out.push({ src: it.name, item: it.id, resist: [it.resPick] }); });
+  // Magic items that always give one resistance while worn (and attuned)
+  S.inventory.forEach(it => { const t = ITEM_RESIST[String(it.name || '').toLowerCase()]; if (t && !it.hb && hbItemOn(it)) out.push({ src: it.name, item: it.id, resist: [t] }); });
   // Homebrew item effects (resistances, speeds, AC…) while the item is in use
   infPassives().forEach(p => out.push(p));
   S.inventory.forEach(it => { if (!hbItemOn(it)) return; const fx = hbFx(it.hb); if (fx && fx.passive) [].concat(fx.passive).forEach(x => { if (x.effect && !fxActive().some(e => e.name === x.effect)) return; out.push(Object.assign({ src: it.name, item: it.id }, x)); }); });
   { const md = S.manualDef || {}, cn = DEF_COND.map(c => c.toLowerCase()), im = md.immune || [];
-    if ((md.resist || []).length || im.length) out.push({ src: 'Added by you', resist: (md.resist || []).map(t => t.toLowerCase()), immune: im.filter(t => !cn.includes(t.toLowerCase())).map(t => t.toLowerCase()), condImmune: im.filter(t => cn.includes(t.toLowerCase())) }); }
+    if ((md.resist || []).length || im.length || (md.vuln || []).length) out.push({ src: 'Added by you', resist: (md.resist || []).map(t => t.toLowerCase()), vuln: (md.vuln || []).map(t => t.toLowerCase()), immune: im.filter(t => !cn.includes(t.toLowerCase())).map(t => t.toLowerCase()), condImmune: im.filter(t => cn.includes(t.toLowerCase())) }); }
   _fxpKey = key + mdKey; _fxp = out; return out;
 }
 const fxSkillBonus = name => fxPassives().filter(p => p.skillBonus && p.skillBonus[name]).map(p => [p.src, N(p.skillBonus[name])]);
@@ -772,22 +774,24 @@ const fxSum = (k, filter) => fxPassives().filter(p => p[k] != null && (!filter |
 const fxList = k => [...new Set(fxPassives().flatMap(p => [].concat(p[k] || [])))];
 const fxSaveProf = ab => fxPassives().some(p => p.saveProf === 'all' || [].concat(p.saveProf || []).includes(ab));
 // Resistances, immunities and advantages with where each one comes from (merged when several sources give the same thing).
+const ITEM_RESIST = { 'boots of the winterlands': 'cold', 'ring of warmth': 'cold', 'cloak of arachnida': 'poison', 'frost brand': 'fire' };
 function defensesDetail() {
-  const out = { resist: [], immune: [], adv: [] };
+  const out = { resist: [], immune: [], vuln: [], adv: [] };
   const cap = t => { t = String(t).trim(); if (/^diseased$/i.test(t)) t = 'disease'; return t.charAt(0).toUpperCase() + t.slice(1); };
   const add = (arr, t, src) => { if (!t) return; const tt = cap(t), k = tt.toLowerCase(); let e = arr.find(x => x.k === k); if (!e) arr.push(e = { k, t: tt, src: [] }); if (src && !e.src.includes(src) && !k.startsWith(String(src).toLowerCase())) e.src.push(src); };
   fxActive().forEach(e => { const b = e.buff; if (!b || e.ally || e.self === false) return; [].concat(b.resist || []).forEach(t => add(out.resist, t, e.name)); [].concat(b.immune || []).forEach(t => add(out.immune, t, e.name)); [].concat(b.condImmune || []).forEach(t => add(out.immune, t, e.name)); });
   fxPassives().forEach(p => {
     [].concat(p.resist || []).forEach(t => add(out.resist, t, p.src));
     [].concat(p.immune || []).forEach(t => add(out.immune, t, p.src));
+    [].concat(p.vuln || []).forEach(t => add(out.vuln, t, p.src));
     [].concat(p.condImmune || []).forEach(t => add(out.immune, /^(diseased|disease)$/i.test(t) ? 'disease' : String(t).toLowerCase() === t ? t : t, p.src));
     [].concat(p.advNote || []).forEach(t => add(out.adv, t, p.src));
   });
   return out;
 }
 function defensesText() {
-  const r = fxList('resist'), im = fxList('immune'), ci = fxList('condImmune'), adv = fxList('advNote');
-  return { resist: r, immune: im, condImmune: ci, adv };
+  const r = fxList('resist'), im = fxList('immune'), ci = fxList('condImmune'), adv = fxList('advNote'), vu = fxList('vuln');
+  return { resist: r, immune: im, condImmune: ci, vuln: vu, adv };
 }
 // ---------- Using features ----------
 function fxSource(from, cls) {
@@ -1017,6 +1021,7 @@ function hbFx(hb) {
   const o = {}, p = {}, has = k => hb[k] != null && String(hb[k]).trim() !== '' && hb[k] !== false;
   if (has('resist')) p.resist = hbCSV(hb.resist);
   if (has('immune')) p.immune = hbCSV(hb.immune);
+  if (has('vuln')) p.vuln = hbCSV(hb.vuln);
   if (has('condImmune')) p.condImmune = hbCSV(hb.condImmune).map(c => c[0].toUpperCase() + c.slice(1).toLowerCase());
   if (has('adv')) p.advNote = String(hb.adv).split(/\s*[;\n]\s*/).filter(Boolean);
   if (has('sense')) p.sense = String(hb.sense).trim();
@@ -1594,7 +1599,9 @@ let onModalCancel = null;
 let MODAL_BY = null, MODAL_SIG = null; // which button opened the window that's showing
 function openModal(html, onCancel, wide) {
   MODAL_BY = MODAL_SIG;
-  onModalCancel = onCancel || null; $('#modal-body').classList.remove('xwide'); $('#modal-body').classList.toggle('wide', !!wide); $('#modal-body').innerHTML = html; $('#modal').classList.add('open');
+  onModalCancel = onCancel || null; $('#modal-body').classList.remove('xwide'); $('#modal-body').classList.toggle('wide', !!wide); $('#modal-body').innerHTML = html;
+  // a window opening fresh holds its fade for two frames, so the work of building and sizing it doesn't eat the start of the animation
+  const mo = $('#modal'); if (!mo.classList.contains('open')) { mo.classList.add('pre', 'open'); requestAnimationFrame(() => requestAnimationFrame(() => mo.classList.remove('pre'))); }
   const f = $('#modal-body [autofocus]'); if (f) f.focus();
 }
 // Desktop: every pop-up window can be moved by dragging its title (the heading at the top). It opens centred again
@@ -1615,7 +1622,7 @@ function openModal(html, onCancel, wide) {
       const eat = ev => { ev.stopPropagation(); ev.preventDefault(); }; addEventListener('click', eat, { capture: true, once: true }); setTimeout(() => removeEventListener('click', eat, true), 0); };
     addEventListener('pointermove', mv); addEventListener('pointerup', up); });
   // a window opening again starts back in the middle
-  new MutationObserver(ms => ms.forEach(m => { const t = m.target; if (t.classList && (t.classList.contains('open') || t.classList.contains('on'))) t.querySelectorAll(WIN).forEach(w => { w.style.translate = ''; }); else if (t.matches && t.matches(WIN) && m.type === 'childList') t.style.translate = ''; }))
+  new MutationObserver(ms => ms.forEach(m => { const t = m.target; if (t.classList && (t.classList.contains('open') || t.classList.contains('on'))) t.querySelectorAll(WIN).forEach(w => { if (!w.dataset.keepPos) w.style.translate = ''; }); else if (t.matches && t.matches(WIN) && m.type === 'childList' && !t.dataset.keepPos) t.style.translate = ''; }))
     .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], subtree: true });
 })();
 function closeModal(confirmed) {
@@ -1779,7 +1786,7 @@ function renderVitals() {
   <div class="tile" data-zi="passive"><span class="lbl"><span class="ciw top">Passive<br>Perception${ciBtn('passive', 'passive Perception')}</span></span><span class="big" data-calc="passive"></span><span class="sub senses" data-calc="senses"></span>${ravenHas() ? ravenChk(true) : ''}</div>
   <div class="tile" data-zi="hd"><span class="lbl"><span class="ciw top">Hit Dice${ciBtn('hd', 'hit dice')}</span></span><span class="big" data-calc="hd"></span><span class="sub" data-calc="hdpools"></span></div>
   <div class="tile deathtile" data-zi="death"><span class="lbl">Death Saves</span><div class="death" data-calc-html="death"></div></div>
-  <div class="tile condtile" data-zi="conds"><div class="tilehead"><span class="lbl">Conditions</span><button class="addc" data-act="conditions">+ Add</button><span class="advbtns" role="group" aria-label="All d20 rolls"><button class="advb adv${S.rollAdv === 'adv' ? ' on' : ''}" data-act="rolladv" data-v="adv" aria-pressed="${S.rollAdv === 'adv'}" title="Advantage on every attack, check and save"><span class="al">Advantage</span><span class="as">Adv</span></button><button class="advb dis${S.rollAdv === 'dis' ? ' on' : ''}" data-act="rolladv" data-v="dis" aria-pressed="${S.rollAdv === 'dis'}" title="Disadvantage on every attack, check and save"><span class="al">Disadvantage</span><span class="as">Dis</span></button></span></div><div class="condchips" data-calc-html="conds"></div></div>
+  <div class="tile condtile" data-zi="conds"><div class="tilehead"><span class="lbl">Conditions</span><button class="addc" data-act="conditions">+ Add</button><span class="advbtns" role="group" aria-label="All d20 rolls"><button class="advb adv${S.rollAdv === 'adv' ? ' on' : ''}" data-act="rolladv" data-v="adv" aria-pressed="${S.rollAdv === 'adv'}" title="Advantage on every attack, check and save"><span class="al">Advantage</span></button><button class="advb dis${S.rollAdv === 'dis' ? ' on' : ''}" data-act="rolladv" data-v="dis" aria-pressed="${S.rollAdv === 'dis'}" title="Disadvantage on every attack, check and save"><span class="al">Disadvantage</span></button></span></div><div class="condchips" data-calc-html="conds"></div></div>
   <div class="tile fxtile" data-zi="effects"><div class="tilehead"><span class="lbl">Active spells &amp; effects</span><button class="addc" data-act="addeffects" title="Spells and effects someone else put on you">+ Add</button><span class="hint" data-calc="concnote"></span></div><div class="fxchips" data-calc-html="fxchips"></div></div>
 `;
 }
@@ -2011,7 +2018,7 @@ function profsHTML() {
     <div class="pvrow"><span class="pvl">Weapons</span><div class="pvv">${weap || none}</div></div>
     <div class="pvrow"><span class="pvl">Tools</span><div class="pvv pvtools">${tools || none}</div></div>
     <div class="pvrow"><span class="pvl">Languages</span><div class="pvv">${langs || none}</div></div>
-    ${(() => { const d = defensesDetail(), rows = [['Resistant', d.resist], ['Immune', d.immune]].filter(x => x[1].length); return rows.map(([l, v]) => `<div class="pvrow"><span class="pvl">${l}</span><div class="pvv">${v.map(x => `<span class="pbadge defb${l === 'Advantage' ? ' alt' : ''}" title="${esc(x.t + (x.src.length ? ' — from ' + x.src.join(', ') : ''))}">${esc(x.t)}${x.src.length ? `<small class="dsrc">${esc(x.src.join(', '))}</small>` : ''}</span>`).join('')}</div></div>`).join(''); })()}
+    ${(() => { const d = defensesDetail(), rows = [['Resistant', d.resist], ['Immune', d.immune], ['Vulnerable', d.vuln]].filter(x => x[1].length); return rows.map(([l, v]) => `<div class="pvrow"><span class="pvl">${l}</span><div class="pvv">${v.map(x => `<span class="pbadge defb${l === 'Advantage' ? ' alt' : l === 'Vulnerable' ? ' vul' : ''}" title="${esc(x.t + (x.src.length ? ' — from ' + x.src.join(', ') : ''))}">${esc(x.t)}${x.src.length ? `<small class="dsrc">${esc(x.src.join(', '))}</small>` : ''}</span>`).join('')}</div></div>`).join(''); })()}
     ${perksHTML(defensesDetail().adv)}
     ${bad.length ? `<p class="warn sm">Wearing ${esc(bad.join(', '))} without proficiency: disadvantage on STR/DEX checks, saves and attacks, and no spellcasting.</p>` : ''}</div>`;
 }
@@ -2025,11 +2032,13 @@ function defManageHTML() {
   const given = (arr, kind) => arr.filter(e => !(e.src.length === 1 && e.src[0] === 'Added by you')).map(e => `<span class="pchip given" title="From ${esc(e.src.filter(x => x !== 'Added by you').join(', ') || 'your sheet')}">${esc(e.t)}<small>${esc(e.src.filter(x => x !== 'Added by you').join(', '))}</small></span>`).join('');
   const mine = (list, kind) => list.map((t, i) => `<span class="pchip">${esc(t)}<button data-act="defdel" data-kind="${kind}" data-i="${i}" aria-label="Remove ${esc(t)}">✕</button></span>`).join('');
   const sel = (id, label, opts, have) => `<select class="f addsel" id="${id}" aria-label="${esc(label)}"><option value="">+ ${esc(label)}…</option>${opts.filter(o => !have.some(h => h.toLowerCase() === o.toLowerCase())).map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select>`;
-  return `<section class="pmsec"><h4>Resistances &amp; immunities</h4><p class="hint">Ones from your race, features, items and spells are added automatically (shown with where they come from). Add any others here — a boon, a curse, something your DM gave you. Damage you take uses all of them.</p>
+  return `<section class="pmsec"><h4>Resistances, immunities &amp; vulnerabilities</h4><p class="hint">Ones from your race, features, items and spells are added automatically (shown with where they come from). Add any others here — a boon, a curse, something your DM gave you. Damage you take uses all of them.</p>
       <div class="defrow"><b>Resistant</b><div class="ptogs">${given(d.resist) || ''}${mine(md.resist || [], 'resist') || ''}${!d.resist.length && !(md.resist || []).length ? '<span class="hint">None</span>' : ''}</div></div>
       <div class="ptogs" style="margin:6px 0 10px">${sel('addResist', 'Add a resistance', DEF_DMG, md.resist || [])}</div>
       <div class="defrow"><b>Immune</b><div class="ptogs">${given(d.immune) || ''}${mine(md.immune || [], 'immune') || ''}${!d.immune.length && !(md.immune || []).length ? '<span class="hint">None</span>' : ''}</div></div>
-      <div class="ptogs" style="margin-top:6px">${sel('addImmune', 'Add an immunity', DEF_DMG.concat(DEF_COND), md.immune || [])}</div></section>`;
+      <div class="ptogs" style="margin:6px 0 10px">${sel('addImmune', 'Add an immunity', DEF_DMG.concat(DEF_COND), md.immune || [])}</div>
+      <div class="defrow"><b>Vulnerable</b><div class="ptogs">${given(d.vuln) || ''}${mine(md.vuln || [], 'vuln') || ''}${!d.vuln.length && !(md.vuln || []).length ? '<span class="hint">None</span>' : ''}</div></div>
+      <div class="ptogs" style="margin-top:6px">${sel('addVuln', 'Add a vulnerability', DEF_DMG, md.vuln || [])}</div></section>`;
 }
 function profsManageInner() {
   const P = S.profs, bad = armorNonProf();
@@ -2506,7 +2515,7 @@ function hpRingSVG(cur, max, tmp, cls) {
 }
 function hbSummary(hb, it) {
   const fx = hbFx(hb) || {}, p = fx.passive || {}, u = fx.use || {}, b = [];
-  if (p.resist) b.push('Resist ' + p.resist.join(', ')); if (p.immune) b.push('Immune ' + p.immune.join(', ')); if (p.condImmune) b.push("Can't be " + p.condImmune.join(', ').toLowerCase());
+  if (p.resist) b.push('Resist ' + p.resist.join(', ')); if (p.immune) b.push('Immune ' + p.immune.join(', ')); if (p.vuln) b.push('Vulnerable ' + p.vuln.join(', ')); if (p.condImmune) b.push("Can't be " + p.condImmune.join(', ').toLowerCase());
   if (p.advNote) b.push('Advantage notes'); if (p.sense) b.push(p.sense); ['fly', 'swim', 'climb'].forEach(k => { if (p[k]) b.push(k + ' ' + (p[k] === 'walk' ? '= walk' : p[k] + ' ft')); });
   if (p.ac) b.push('AC ' + sgn(N(p.ac))); if (p.skillBonus) Object.entries(p.skillBonus).forEach(([k, v]) => b.push(k + ' ' + sgn(v))); if (p.saveAll) b.push('Saves +' + p.saveAll); if (p.init) b.push('Init +' + p.init); if (p.speed) b.push('Speed +' + p.speed);
   if (fx.roll) b.push('Rolls ' + fx.roll); if (fx.save) b.push(fx.save + ' save'); if (fx.cost) b.push('Costs ' + fxCostText(fx.cost)); if (u.effect) b.push('Starts ' + u.effect.name + (u.effect.buff && (u.effect.buff.skillAdv || []).length ? ' (advantage on ' + u.effect.buff.skillAdv.join(', ') + ')' : '')); if (u.temp) b.push('Temp HP'); if (u.heal) b.push('Heals'); if (fx.dash) b.push('Dash'); if (u.companion) b.push('Summons ' + u.companion);
@@ -2531,7 +2540,7 @@ function hbBox(path, hb, kind, key, it, ii) {
   const comps = typeof COMP_RULES === 'object' ? Object.keys(COMP_RULES) : [];
   const durs = [['', 'Until ended'], ['1', '1 round'], ['10', '1 minute'], ['100', '10 minutes'], ['600', '1 hour'], ['4800', '8 hours']];
   const always = `<div class="hbsec"><div class="hbt">${kind === 'item' ? 'While you use it' : 'Always on'}</div>
-    <div class="hbgrid">${fld('Resistances', I('resist', { ph: 'cold, fire' }))}${fld('Immunities', I('immune', { ph: 'poison' }))}${fld("Can't be (conditions)", I('condImmune', { ph: 'charmed, frightened' }))}
+    <div class="hbgrid">${fld('Resistances', I('resist', { ph: 'cold, fire' }))}${fld('Immunities', I('immune', { ph: 'poison' }))}${fld('Vulnerabilities', I('vuln', { ph: 'cold' }))}${fld("Can't be (conditions)", I('condImmune', { ph: 'charmed, frightened' }))}
     ${fld('Advantage on', I('adv', { ph: 'Saves vs dragon breath; …' }))}${fld('Senses', I('sense', { ph: 'Darkvision 60 ft' }))}${fld('Speed bonus', I('speed', { ph: '10' }))}
     ${fld('Fly', I('fly', { ph: '30 or walk' }))}${fld('Swim', I('swim', { ph: '' }))}${fld('Climb', I('climb', { ph: '' }))}
     ${fld('AC bonus', I('ac', { ph: '1' }))}${fld('Skill bonuses', I('skillBonus', { ph: 'Nature +1, Stealth +2' }))}${fld('Saves bonus', I('saveAll', { ph: '1' }))}${fld('Initiative bonus', I('init', { ph: 'wis' }))}${fld('Max HP bonus', I('maxHp', { ph: 'level' }))}
@@ -3361,7 +3370,7 @@ function onField(e) {
     pendingLabel = 'Edit: Armor class'; save(); refresh(); return;
   }
   if (t.dataset.hpmax !== undefined) { if (t.value === '') return; const extra = maxHp() - baseMaxHp(); S.hp.adj = N(t.value) - extra - hpMaxCalc(); pendingLabel = 'Edit: Max HP'; save(); refresh(); return; }
-  if (t.id === 'addResist' || t.id === 'addImmune') { const v = t.value; t.value = ''; if (!v) return; const k = t.id === 'addResist' ? 'resist' : 'immune'; S.manualDef = S.manualDef || { resist: [], immune: [] }; S.manualDef[k] = (S.manualDef[k] || []).concat([v]); pendingLabel = (k === 'resist' ? 'Add resistance: ' : 'Add immunity: ') + v; save(); openProfs(); render('core'); return; }
+  if (t.id === 'addResist' || t.id === 'addImmune' || t.id === 'addVuln') { const v = t.value; t.value = ''; if (!v) return; const k = { addResist: 'resist', addImmune: 'immune', addVuln: 'vuln' }[t.id]; S.manualDef = S.manualDef || { resist: [], immune: [] }; S.manualDef[k] = (S.manualDef[k] || []).concat([v]); pendingLabel = ({ resist: 'Add resistance: ', immune: 'Add immunity: ', vuln: 'Add vulnerability: ' })[k] + v; save(); openProfs(); render('core'); return; }
   if (['addWeapon', 'addTool', 'addLang'].includes(t.id)) { const v = t.value; t.value = ''; if (!v) return; const kind = { addWeapon: 'weapon', addTool: 'tool', addLang: 'lang' }[t.id]; if (v === '__other') { openModal(`<h3>Add ${kind === 'lang' ? 'a language' : kind === 'tool' ? 'a tool' : 'a weapon'}</h3>${fld('Name', '<input class="f" id="otherIn" autofocus>')}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="otherok" data-k="${kind}">Add</button></div>`); return; } addProf(kind, v); return; }
   if (t.id === 'featQ') { UI.featQ = t.value; clearTimeout(window._fq); window._fq = setTimeout(() => { render('features'); const e = $('#featQ'); if (e) { e.focus(); e.setSelectionRange(e.value.length, e.value.length); } }, 250); return; }
   if (t.dataset.set !== undefined) return setSetting(t);
@@ -3730,7 +3739,7 @@ function mainClick(e) {
     case 'pwdel': { const n = S.profs.weaponNames.splice(i, 1)[0]; pendingLabel = 'Remove proficiency: ' + n; save(); render(); break; }
     case 'toolexp': S.tools[i].exp = !S.tools[i].exp; pendingLabel = (S.tools[i].exp ? 'Expertise: ' : 'Proficient: ') + S.tools[i].name; save(); render(); break;
     case 'tooldel': { const n = S.tools.splice(i, 1)[0]; pendingLabel = 'Remove tool: ' + n.name; save(); render(); toast(`Removed ${esc(n.name)}.`, '', 5000, { label: 'Undo', fn: () => undo(1) }); break; }
-    case 'defdel': { const k = b.dataset.kind === 'immune' ? 'immune' : 'resist'; const md = S.manualDef || {}; const n = (md[k] || []).splice(i, 1)[0]; if (n == null) break; pendingLabel = (k === 'resist' ? 'Remove resistance: ' : 'Remove immunity: ') + n; save(); openProfs(); render('core'); break; }
+    case 'defdel': { const k = ['immune', 'vuln'].includes(b.dataset.kind) ? b.dataset.kind : 'resist'; const md = S.manualDef || {}; const n = (md[k] || []).splice(i, 1)[0]; if (n == null) break; pendingLabel = ({ resist: 'Remove resistance: ', immune: 'Remove immunity: ', vuln: 'Remove vulnerability: ' })[k] + n; save(); openProfs(); render('core'); break; }
     case 'langdel': { const n = S.langs.splice(i, 1)[0]; pendingLabel = 'Remove language: ' + n; save(); render(); toast(`Removed ${esc(n)}.`, '', 5000, { label: 'Undo', fn: () => undo(1) }); break; }
     case 'manageprofs': openProfs(); break;
     case 'booksedit': UI.open.booksedit = !UI.open.booksedit; saveUI(); reopenSettings(); break;
@@ -4001,7 +4010,7 @@ function hpAction(kind) {
   $('#hpAmt').value = '';
   if (kind === 'tmphp') { const cur = N(S.hp.temp); if (amt <= cur) { toast(`You keep your <b>${cur}</b> temporary HP — they don't stack, the higher one stays.`, '', 6000); return; } S.hp.temp = amt; pendingLabel = `Temp HP ${amt}`; update(); render('vitals'); toast(`<b>${amt}</b> temporary HP${cur ? ` (replaces ${cur})` : ''}.`); return; }
   if (kind === 'dmg') { const sel = $('#hpType'), type = sel ? sel.value : ''; if (sel) sel.value = '';
-    if (type) { const D = defensesDetail(), vul = (D.vuln || []).some(x => x.k.includes(type)); let [n, how] = ptyResist(amt, type); if (vul && how !== 'immune') { n = how === 'resistant' ? amt : amt * 2; how = how === 'resistant' ? 'resistant and vulnerable' : 'vulnerable'; }
+    if (type) { const [n, how] = ptyResist(amt, type);
       if (how) setTimeout(() => toast(how === 'immune' ? `You're <b>immune</b> to ${esc(type)} damage — no damage taken.` : `${esc(type[0].toUpperCase() + type.slice(1))} damage, you're ${how}: ${amt} → <b>${n}</b>.`, '', 6000), 60);
       if (!n) { pendingLabel = null; return; } return takeDamage(n); }
     takeDamage(amt); } else healSelf(amt);
@@ -5478,7 +5487,7 @@ function openSettings(tab) {
       ${row('Update this sheet', `<button class="btn sm" data-act="updatesheet">Update…</button>`, `Version ${APP_VERSION} · move into a newer sheet file`)}
       ${row('Start over', `<button class="btn sm red" data-act="newchar">New character…</button>`, 'Clears this sheet — download it first to keep it')}`)}
     </div>`, null, true);
-  setTabInk(false); fitSettingsHeight();
+  setTabInk(false); mwDress(); fitSettingsHeight(!REOPEN);   // the title bar goes on first, so the height counts it
   if ($('#r20status')) { renderR20Box(); r20Hello(); }
 }
 function setSetting(t) {
@@ -5843,22 +5852,27 @@ function booksHTML() {
     : `<div class="bk-chips">${keys.filter(k => on.has(k)).map(k => `<span class="bk-chip${k === 'UA' ? ' ua' : ''}" title="${esc(DND.sources[k])}">${esc(k)}</span>`).join('')}</div>`}</div>`;
 }
 
-function reopenSettings() { const sx = $('.setx'), sc = sx ? sx.scrollTop : 0; openSettings(SETTAB); const nx = $('.setx'); if (nx) nx.scrollTop = sc; }
-function fitSettingsHeight() {
+// redrawn in place: same spot on screen (if it was dragged) and same scroll
+function reopenSettings() { const sx = $('.setx'), sc = sx ? sx.scrollTop : 0, mb = $('#modal-body'); if (mb) { mb.dataset.keepPos = '1'; REOPEN = true; } try { openSettings(SETTAB); } finally { REOPEN = false; } const nx = $('.setx'); if (nx) nx.scrollTop = sc; setTimeout(() => { if (mb) delete mb.dataset.keepPos; }, 0); }
+let REOPEN = false;
+function fitSettingsHeight(fresh) {
   const m = $('#modal-body'), sx = $('.setx'); if (!m || !sx) return;
+  // redrawn in place (a theme picked, a setting toggled): the window never shrinks under the pointer; a fresh open sizes from scratch
+  if (fresh) m._sethMin = 0;
   m.style.removeProperty('--seth');
   const panes = $$('.setx .stpane'); let tallest = 0;
   const pw = sx.clientWidth - (parseFloat(getComputedStyle(sx).paddingLeft) || 0) - (parseFloat(getComputedStyle(sx).paddingRight) || 0); // measured at the width it really shows at, so wrapped lines count
   panes.forEach(p => { const was = p.style.cssText; p.style.cssText = `display:block;position:absolute;visibility:hidden;left:0;top:0;width:${pw}px;box-sizing:border-box`; tallest = Math.max(tallest, p.getBoundingClientRect().height, p.scrollHeight); p.style.cssText = was; });
   const chrome = m.getBoundingClientRect().height - sx.getBoundingClientRect().height;  // header, tabs and padding
   const cap = isMobile() ? 0.88 * innerHeight : innerHeight - 32;
-  m.style.setProperty('--seth', Math.ceil(Math.min(cap, chrome + tallest + 4)) + 'px');
+  let h = Math.ceil(Math.min(cap, Math.max(chrome + tallest + 4, m._sethMin || 0))); if (!fresh && m._sethMin && Math.abs(h - m._sethMin) <= 3) h = m._sethMin;   // a pixel or two of re-measuring isn't worth a nudge
+  m.style.setProperty('--seth', h + 'px'); m._sethMin = h;
   // a row appearing or going (e.g. the 2024 exhaustion rule adds one) re-fits the window
   if (typeof ResizeObserver === 'function') { if (!m._setRO) m._setRO = new ResizeObserver(() => { clearTimeout(m._setRT); m._setRT = setTimeout(() => { if (settingsOpen()) fitSettingsHeight(); }, 80); }); m._setRO.disconnect(); $$('.setx .stpane').forEach(p => m._setRO.observe(p)); }
   // whatever the measuring missed (padding, margins) shows up as scroll on the open tab: add it on
-  requestAnimationFrame(() => { const x = $('.setx'); if (!x || !m.isConnected) return; const more = x.scrollHeight - x.clientHeight; if (more > 0) m.style.setProperty('--seth', Math.ceil(Math.min(cap, m.getBoundingClientRect().height + more + 2)) + 'px'); });
+  requestAnimationFrame(() => { const x = $('.setx'); if (!x || !m.isConnected) return; const more = x.scrollHeight - x.clientHeight; if (more > 3 || (more > 0 && fresh)) { const h2 = Math.ceil(Math.min(cap, m.getBoundingClientRect().height + more + 2)); m.style.setProperty('--seth', h2 + 'px'); m._sethMin = Math.max(m._sethMin || 0, h2); } });
 }
-addEventListener('resize', () => { if (typeof settingsOpen === 'function' && settingsOpen()) fitSettingsHeight(); });
+addEventListener('resize', () => { if (typeof settingsOpen === 'function' && settingsOpen()) fitSettingsHeight(true); });
 function settingsOpen() { return $('#modal').classList.contains('open') && !!$('.setx'); }
 function setTabInk(anim) { const on = $('.stabs .stab.on'), ink = $('.stabs .stab-ink'); if (!on || !ink) return; ink.style.transition = anim ? '' : 'none'; ink.style.width = on.offsetWidth + 'px'; ink.style.transform = `translateX(${on.offsetLeft}px)`; if (anim) { const bar = on.parentElement; if (bar && bar.scrollWidth > bar.clientWidth) bar.scrollTo({ left: on.offsetLeft - (bar.clientWidth - on.offsetWidth) / 2, behavior: 'smooth' }); } const mb = $('#modal-body'); if (mb && mb.scrollLeft) mb.scrollLeft = 0; }
 function switchSetTab(k) {
@@ -6276,7 +6290,9 @@ document.addEventListener('click', e => { const d = e.target.closest && e.target
 // is pruned to those books; anything the character already uses stays available until the player removes it.
 // Function declarations only: migrate() calls defaultSources() while the script is still starting up.
 function coreSources() { return ['PHB', 'SRD']; }
-function defaultSources() { return Object.keys(DND.sources).filter(k => k !== 'UA'); }
+// Books that stay off until someone turns them on (playtest material, and settings most tables don't use).
+function offSources() { return ['UA', 'AAG']; }
+function defaultSources() { return Object.keys(DND.sources).filter(k => !offSources().includes(k)); }
 function srcCodes(s) { return (String(s || '').match(/[A-Za-z]+/g) || []).filter(c => DND.sources[c]); }
 // An entry is allowed when any book it appears in is on (e.g. "SCAG/EEPC"). Untagged entries follow their parent.
 function srcOK(src, set, parentOK) { const c = srcCodes(src); return c.length ? c.some(x => set.has(x)) : parentOK !== false; }
@@ -6358,6 +6374,7 @@ function wizSetSource(code, on) {
   renderWizard();
 }
 
+const CACT_IC = {"attack": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M14.5 17.5 3 6V3h3l11.5 11.5\"/><path d=\"m13 19 6-6\"/><path d=\"m16 16 4 4\"/><path d=\"m19 21 2-2\"/></svg>", "multi": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M14.5 17.5 3 6V3h3l11.5 11.5\"/><path d=\"m13 19 6-6\"/><path d=\"m16 16 4 4\"/><path d=\"m19 21 2-2\"/><path d=\"M14.5 6.5 18 3h3v3l-3.5 3.5\"/><path d=\"m5 14 4 4\"/><path d=\"m7 17-3 3\"/><path d=\"m3 19 2 2\"/></svg>", "save": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z\"/></svg>", "temp": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z\"/><path d=\"M12 9v6M9 12h6\"/></svg>", "heal": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 5v14M5 12h14\"/></svg>", "roll": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"3\"/><circle cx=\"9\" cy=\"9\" r=\"1\" fill=\"currentColor\"/><circle cx=\"15\" cy=\"15\" r=\"1\" fill=\"currentColor\"/><circle cx=\"15\" cy=\"9\" r=\"1\" fill=\"currentColor\"/><circle cx=\"9\" cy=\"15\" r=\"1\" fill=\"currentColor\"/></svg>"};
 // ---------- Artificer infusions (their own tab) ----------
 // Known infusions live in S.picks.infusion (one entry per infusion). Replicate Magic Item can be learned many
 // times; the items it can make are S.infReplicas (each one counts as a known infusion). An infused inventory item
@@ -6607,7 +6624,7 @@ function compCard(c, i, mini, inCol) {
     const lim = N(a[8]), left = lim ? Math.max(0, lim - N((c.used || {})[a[0]])) : 0;
     const mainB = lim && !left ? main.replace('<button ', '<button disabled ') : main;
     const extra = lim ? `<span class="tag" title="Uses left today">${left}/${lim}</span>` : '';
-    return `<div class="cact k-${k}"><span class="cact-i" aria-hidden="true">${k === 'attack' ? '⚔' : k === 'save' ? '⛨' : k === 'temp' ? '🛡' : k === 'heal' ? '✚' : '🎲'}</span><div class="cact-m"><b>${esc(actName(a))}</b><div class="cact-s">${info}${actNote(a) && !mini ? ' · <span class="muted">' + esc(actNote(a)) + '</span>' : ''}</div></div><div class="cact-b">${extra}${mainB}</div></div>`;
+    return `<div class="cact k-${k}"><span class="cact-i" aria-hidden="true">${CACT_IC[k] || CACT_IC.roll}</span><div class="cact-m"><b>${esc(actName(a))}</b><div class="cact-s">${info}${actNote(a) && !mini ? ' · <span class="muted">' + esc(actNote(a)) + '</span>' : ''}</div></div><div class="cact-b">${extra}${mainB}</div></div>`;
   }).join('');
   const tags = [c.tmpl ? (COMP_RULES[c.tmpl] && COMP_RULES[c.tmpl].always ? 'Always with you' : 'Class · scales with level') : c.kind || 'Companion', c.count > 1 ? '×' + c.count : '', c.effect || ''].filter(Boolean);
   const hp = c.count > 1 ? `<div class="grpHp">${(c.hps || []).map((h, k) => `<label class="ghp"><span>#${k + 1}</span>${inp(`companions.${i}.hps.${k}`, { num: 1, cls: 'sm', label: c.name + ' ' + (k + 1) + ' HP' })}</label>`).join('')}<span class="hint">of ${N(c.maxhp)} each</span></div>`
@@ -9601,7 +9618,8 @@ function ptyCatchUp() {
 setTimeout(ptyCatchUp, 2500); setInterval(ptyCatchUp, 20000);
 // Damage after resistances and immunities this sheet knows about.
 function ptyResist(n, type) { type = String(type || '').toLowerCase(); if (!type) return [n, '']; const D = defensesDetail(), has = arr => arr.some(x => x.k.includes(type) || /^all damage/.test(x.k));
-  if (has(D.immune)) return [0, 'immune']; if (has(D.resist)) return [Math.floor(n / 2), 'resistant']; return [n, '']; }
+  const vul = (D.vuln || []).some(x => x.k.includes(type));
+  if (has(D.immune)) return [0, 'immune']; if (has(D.resist)) return vul ? [n, 'resistant and vulnerable'] : [Math.floor(n / 2), 'resistant']; if (vul) return [n * 2, 'vulnerable']; return [n, '']; }
 function ptyApply(m) {
   const d = cleanData(m.data || {}), who = m.fromName || 'Someone', why = d.why || who;
   const note = t => { ptyLog('in', who, t); };
@@ -10077,8 +10095,8 @@ function hbbItemAdv() {
   let h = '';
   if (t === 'weapon') h += bSec('wpn', '⚔', 'Weapon details', hbbSum([['_mag', d._mag ? '+' + d._mag + ' magic' : ''], ['_props', d._props], ['_loading', 'loading']]),
     bF('Magic bonus (to hit and damage)', bSeg('_mag', [['', 'None'], ['1', '+1'], ['2', '+2'], ['3', '+3']])) + bF('Properties', bChips('_props', ['Finesse', 'Light', 'Heavy', 'Two-handed', 'Thrown', 'Reach', 'Versatile', 'Special'])) + bRow(bF('Category', bSeg('_cat', [['simple', 'Simple'], ['martial', 'Martial']])), d._kind === 'ranged' ? bChk('_loading', 'Loading', 'Only one shot per action, bonus action or reaction') : ''));
-  h += bSec('prot', '🛡', 'Protection', hbbSum([[P + 'resist', 'Resist ' + (hbbV(P + 'resist') || '')], [P + 'immune', 'Immune ' + (hbbV(P + 'immune') || '')], [P + 'condImmune'], [P + 'ac', 'AC +' + hbbV(P + 'ac')], [P + 'saveAll', 'Saves +' + hbbV(P + 'saveAll')]]) || 'Resistances, immunities, AC',
-    bF('Resistant to', bChips(P + 'resist', DND.damageTypes)) + bF('Immune to', bChips(P + 'immune', DND.damageTypes)) + bF('Can’t be', bChips(P + 'condImmune', HBB_CONDS)) + bRow(bF('AC bonus', bIn(P + 'ac', { ph: '1' })), bF('Bonus to all saves', bIn(P + 'saveAll', { ph: '1' }))));
+  h += bSec('prot', '🛡', 'Protection', hbbSum([[P + 'resist', 'Resist ' + (hbbV(P + 'resist') || '')], [P + 'immune', 'Immune ' + (hbbV(P + 'immune') || '')], [P + 'vuln', 'Vulnerable ' + (hbbV(P + 'vuln') || '')], [P + 'condImmune'], [P + 'ac', 'AC +' + hbbV(P + 'ac')], [P + 'saveAll', 'Saves +' + hbbV(P + 'saveAll')]]) || 'Resistances, immunities, AC',
+    bF('Resistant to', bChips(P + 'resist', DND.damageTypes)) + bF('Immune to', bChips(P + 'immune', DND.damageTypes)) + bF('Vulnerable to', bChips(P + 'vuln', DND.damageTypes)) + bF('Can’t be', bChips(P + 'condImmune', HBB_CONDS)) + bRow(bF('AC bonus', bIn(P + 'ac', { ph: '1' })), bF('Bonus to all saves', bIn(P + 'saveAll', { ph: '1' }))));
   h += bSec('move', '🪽', 'Movement & senses', hbbSum([[P + 'speed', '+' + hbbV(P + 'speed') + ' ft'], [P + 'fly', 'Fly'], [P + 'swim', 'Swim'], [P + 'climb', 'Climb'], [P + 'sense']]) || 'Speed, flying, darkvision',
     bRow(bF('Extra speed (ft)', bIn(P + 'speed', { ph: '10' })), bF('Fly (ft)', bIn(P + 'fly', { ph: '30 or walk' })), bF('Swim (ft)', bIn(P + 'swim', { ph: 'walk' })), bF('Climb (ft)', bIn(P + 'climb', { ph: 'walk' }))) + bF('Senses', bIn(P + 'sense', { ph: 'Darkvision 60 ft' })));
   h += bSec('bon', '✚', 'Bonuses', hbbSum([[P + 'skillBonus'], [P + 'init', 'Initiative +' + hbbV(P + 'init')], [P + 'initAdv', 'Adv. on initiative'], [P + 'maxHp', 'Max HP +' + hbbV(P + 'maxHp')], [P + 'adv', 'Advantage notes']]) || 'Skills, initiative, max HP',
@@ -10167,7 +10185,7 @@ function hbbFeatAdv() {
     bRow(bF('Also spends', bSel(P + 'costFrom', [['', 'Nothing']].concat(res), { label: 'Also spends' })), hbbV(P + 'costFrom') ? bF('How many', bIn(P + 'costN', { num: 1, ph: '1' })) : '') + bChk(P + 'dash', 'Lets you Dash') + bF('Message when used', bIn(P + 'text', { ph: 'A reminder of what happens' })));
   h += bSec('eff', '✨', 'Starts an effect', hbbV(P + 'effName') || 'A buff that lasts a while', hbbEffFields(P));
   h += bSec('always', '🛡', 'Always on', hbbSum([[P + 'resist', 'Resist ' + (hbbV(P + 'resist') || '')], [P + 'immune', 'Immune'], [P + 'ac', 'AC'], [P + 'speed', 'Speed'], [P + 'fly', 'Fly'], [P + 'sense'], [P + 'skillBonus'], [P + 'maxHp', 'Max HP']]) || 'Resistances, speeds, bonuses',
-    bF('Resistant to', bChips(P + 'resist', DND.damageTypes)) + bF('Immune to', bChips(P + 'immune', DND.damageTypes)) + bF('Can’t be', bChips(P + 'condImmune', HBB_CONDS)) +
+    bF('Resistant to', bChips(P + 'resist', DND.damageTypes)) + bF('Immune to', bChips(P + 'immune', DND.damageTypes)) + bF('Vulnerable to', bChips(P + 'vuln', DND.damageTypes)) + bF('Can’t be', bChips(P + 'condImmune', HBB_CONDS)) +
     bRow(bF('AC bonus', bIn(P + 'ac', { ph: '1' })), bF('Extra speed', bIn(P + 'speed', { ph: '10' })), bF('Fly', bIn(P + 'fly', { ph: 'walk' })), bF('Swim', bIn(P + 'swim', { ph: 'walk' })), bF('Climb', bIn(P + 'climb', { ph: 'walk' }))) +
     bRow(bF('Senses', bIn(P + 'sense', { ph: 'Darkvision 60 ft' })), bF('Skill bonuses', bIn(P + 'skillBonus', { ph: 'Insight +2' }))) + bRow(bF('Saves bonus', bIn(P + 'saveAll', { ph: '1' })), bF('Initiative bonus', bIn(P + 'init', { ph: 'wis' })), bF('Max HP bonus', bIn(P + 'maxHp', { ph: 'level' }))) +
     bRow(bChk(P + 'initAdv', 'Advantage on initiative'), bF('Only while (effect)', bIn(P + 'whileEffect', { ph: 'Rage' }))) + bF('Advantage on (a reminder)', bIn(P + 'adv', { ph: 'Saves against poison; …' })));
@@ -10582,7 +10600,8 @@ function choiceOptions(def, ctx) {
     case 'tool': { const t = toolsFrom(def.from), k = def.orLang ? knownLangs() : null; return t.map(x => [x, x]).concat(def.orLang ? ALL_LANGS().map(l => ['Language: ' + l, 'Language: ' + l, k.has(l.toLowerCase()) ? '(you already speak it)' : '']) : []); }
     case 'asi': return AB.filter(a => !(def.exclude || []).includes(a) && (!def.from || def.from.includes(a))).map(a => [a, `${ABN[a]} +${def.amount || 1}`]);
     case 'feat': return bookSort(DND.feats, f => f[1], f => f[0]).map(f => [f[0], f[0] + (f[2] ? ` (${f[2]})` : '') + (f[1] !== 'PHB' ? ` · ${f[1]}` : '')]);
-    case 'cantrip': return DND.spells.filter(s => s.level === 0 && s.classes.includes(def.list)).sort((a, b) => abc(a.name, b.name)).map(s => [s.name, s.name]);
+    case 'cantrip': if (Array.isArray(def.list)) return def.list.map(n => [n, n]);
+      return DND.spells.filter(s => s.level === 0 && s.classes.includes(def.list)).sort((a, b) => abc(a.name, b.name)).map(s => [s.name, s.name]);
     case 'spellpick': return DND.spells.filter(s => s.level === def.level && (!def.ritual || s.ritual) && (def.list === 'any' || s.classes.includes(def.list))).sort((a, b) => abc(a.name, b.name)).map(s => [s.name, `${s.name} — ${s.summary}`]);
     case 'option': return def.options.map(([n, d]) => [n, `${n} — ${d}`]);
     case 'weapon': return DND.weapons.filter(w => !def.from || w[1] === def.from).map(w => [w[0], w[0]]);
@@ -11689,6 +11708,9 @@ const ddbId = t => { t = String(t || '').trim(); const m = /characters\/(\d{3,12
 const DDB_AB = { 1: 'str', 2: 'dex', 3: 'con', 4: 'int', 5: 'wis', 6: 'cha' };
 const DDB_ABNAME = { strength: 'str', dexterity: 'dex', constitution: 'con', intelligence: 'int', wisdom: 'wis', charisma: 'cha' };
 const DDB_ALIGN = { 1: 'Lawful Good', 2: 'Neutral Good', 3: 'Chaotic Good', 4: 'Lawful Neutral', 5: 'True Neutral', 6: 'Chaotic Neutral', 7: 'Lawful Evil', 8: 'Neutral Evil', 9: 'Chaotic Evil' };
+// D&D Beyond's ids for damage resistances (1-12, 47), immunities (17-28, 48) and vulnerabilities (33-44, 49).
+const DDB_DADJ = (() => { const t = ['Bludgeoning', 'Piercing', 'Slashing', 'Lightning', 'Thunder', 'Poison', 'Cold', 'Radiant', 'Fire', 'Necrotic', 'Acid', 'Psychic'], o = {};
+  t.forEach((n, i) => { o[i + 1] = ['resist', n]; o[i + 17] = ['immune', n]; o[i + 33] = ['vuln', n]; }); o[47] = ['resist', 'Force']; o[48] = ['immune', 'Force']; o[49] = ['vuln', 'Force']; return o; })();
 const DDB_COND = { 1: 'Blinded', 2: 'Charmed', 3: 'Deafened', 5: 'Frightened', 6: 'Grappled', 7: 'Incapacitated', 8: 'Invisible', 9: 'Paralyzed', 10: 'Petrified', 11: 'Poisoned', 12: 'Prone', 13: 'Restrained', 14: 'Stunned', 15: 'Unconscious' };
 // Accepts the character service's reply ({success, data}), the bare character, or a saved file of either.
 function ddbParse(txt) {
@@ -11789,7 +11811,14 @@ function ddbItem(x, miss) {
   return it;
 }
 // Build the whole character from D&D Beyond's data. Returns { state, report }; nothing is saved here.
+// Every book is searched while matching (a Spelljammer race, say); the character then keeps only the books it uses.
 function ddbBuild(d, opt = {}) {
+  const prev = S, all = Object.keys(DND.sources);
+  applySources(all);
+  try { return ddbBuild0(d, opt); }
+  finally { const keep = S; S = prev; applySources(typeof W !== 'undefined' && W ? W.sources : prev && prev.created ? prev.sources : undefined); S = keep; }
+}
+function ddbBuild0(d, opt = {}) {
   const ok = [], miss = [], notes = [];
   const prevS = S;
   S = migrate(Object.assign(blankState(), { dataRev: EMBED.dataRev || '', layout: (prevS && prevS.layout) || {} }));
@@ -11871,6 +11900,13 @@ function ddbBuild(d, opt = {}) {
   const ds = d.deathSaves || {}; S.death = { s: N(ds.successCount), f: N(ds.failCount) };
   S.conditions = (d.conditions || []).map(c => DDB_COND[c.id]).filter(Boolean); const ex = (d.conditions || []).find(c => c.id === 4); if (ex) S.exhaustion = N(ex.level);
   if (d.inspiration) S.insp = 1;
+  // resistances, immunities and vulnerabilities added by hand on D&D Beyond (Manage Defenses)
+  { const md = { resist: [], immune: [], vuln: [] }, cap = t => t[0].toUpperCase() + t.slice(1);
+    (d.customDefenseAdjustments || []).forEach(a => { const id = N(a && a.adjustmentId);
+      if (N(a.type) === 2) { const e = DDB_DADJ[id]; if (e) md[e[0]].push(e[1]); else notes.push('A custom defense from D&D Beyond (#' + id + ') isn’t one this sheet knows; add it in Core → Proficiencies.'); }
+      else if (N(a.type) === 1) { const c = ({ 4: 'Exhaustion', 16: 'Disease' })[id] || DDB_COND[id]; if (c) md.immune.push(c); } });
+    ['resist', 'immune', 'vuln'].forEach(k => md[k] = [...new Set(md[k])]);
+    if (md.resist.length || md.immune.length || md.vuln.length) { S.manualDef = md; ok.push('Defenses: ' + [md.resist.length && 'resist ' + md.resist.join(', '), md.immune.length && 'immune ' + md.immune.join(', '), md.vuln.length && 'vulnerable ' + md.vuln.join(', ')].filter(Boolean).join('; ')); } }
   const t = d.traits || {}, nt = d.notes || {}, txt = v => String(v || '').replace(/\r/g, '').trim().slice(0, 6000);
   S.traits = { personality: txt(t.personalityTraits), ideals: txt(t.ideals), bonds: txt(t.bonds), flaws: txt(t.flaws) };
   S.appearance = { age: txt(d.age), height: txt(d.height), weight: txt(d.weight), eyes: txt(d.eyes), skin: txt(d.skin), hair: txt(d.hair) };
@@ -11878,6 +11914,8 @@ function ddbBuild(d, opt = {}) {
   const extra = [nt.personalPossessions && 'Possessions: ' + txt(nt.personalPossessions), nt.otherHoldings && 'Holdings: ' + txt(nt.otherHoldings), nt.otherNotes && txt(nt.otherNotes), t.appearance && 'Appearance: ' + txt(t.appearance)].filter(Boolean).join('\n\n');
   S.notes = [{ date: new Date().toISOString().slice(0, 10), title: 'Imported from D&D Beyond', text: `${S.name}: ${S.raceName} ${classLabel()}${S.backgroundName ? ', ' + S.backgroundName : ''}.` + (extra ? '\n\n' + extra : '') }];
   S.ddb = { id: N(d.id), at: Date.now() };
+  // Ability Score Improvements were already spent on D&D Beyond (the scores and feats above include them), so they aren't asked for again
+  S.dismissed = Object.assign({}, S.dismissed); S.classes.forEach(r => (CL[r.key].asi || []).filter(l => l <= N(r.level)).forEach(l => { S.dismissed[`asi.${r.key}.${l}`] = true; }));
   // carrying rules as the character used them on D&D Beyond (off there unless turned on)
   const enc = { 1: 'standard', 2: 'off', 3: 'variant' }[N((d.preferences || {}).encumbranceType)];
   if (enc) { S.settings = Object.assign({}, S.settings, { encumbrance: enc }); S.fixesDone = [...new Set((S.fixesDone || []).concat(['enc1', 'bullets1']))]; }

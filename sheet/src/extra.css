@@ -1024,7 +1024,6 @@ html:not(.mobile) .toolbar.tb-compact.tb-wrap { flex-wrap: wrap; }
 .toolbar .tbtn { white-space: nowrap; }
 .advtile { container-type: inline-size; }
 .advtile .as { display: none; }
-@container (max-width: 104px) { .advtile .al { display: none; } .advtile .as { display: inline; } }
 @media (min-width: 761px) and (max-width: 1000px) { html:not(.mobile) .vitals .tile > .lbl { font-size: .6rem; letter-spacing: .04em; } }
 html:not(.mobile) .toolbar:not(.tb-compact) [data-zi="history"] .ti { display: none; }
 /* Roll cards: 🎲 shows every die (and the DC / extra lines) */
@@ -1121,7 +1120,6 @@ html.mobile .settabs, html.mobile .modal.xwide .settabs { column-count: 1; displ
 .advtile .advopt { display: grid; grid-template-columns: 16px minmax(0, 1fr); align-items: center; gap: 6px; height: 30px; padding: 0 8px; font-size: .78rem; }
 .advtile .advopt input { width: 16px !important; height: 16px !important; min-width: 16px; flex: none; margin: 0; }
 .advtile .advopt .al, .advtile .advopt .as { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-@container (max-width: 150px) { .advtile .al { display: none; } .advtile .as { display: inline; } }
 html.mobile .advtile .advopt { height: 40px; font-size: .9rem; }
 .r20steps li { margin: 6px 0; line-height: 1.45; } .r20steps .btn { margin-top: 4px; }
 /* d20 tile: whole pill is the toggle, full words always */
@@ -1996,7 +1994,6 @@ html.mobile .advb { font-size: .8rem; padding: 6px 12px; }
 
 .tile.condtile { container-type: inline-size; }
 .advb .as { display: none; }
-@container (max-width: 372px) { .advb .al { display: none; } .advb .as { display: inline; } }
 
 .sarow { flex-wrap: nowrap !important; }
 .sadotw .hint { white-space: nowrap; display: inline-block; min-width: 7.2em; }

@@ -1353,7 +1353,7 @@ function wireDie(root) {
   // A party NPC (made by the DM from the party page) keeps "NPC" as its player instead of the DM's name.
   let NPC = false; const NPCJ = NEW ? (() => { try { const j = JSON.parse(sessionStorage.getItem('pg-join') || 'null'); return j && j.npc ? j : null; } catch (e) { return null; } })() : null;
   if (!NEW && hubCol) hubCol.doc(C).get().then(d => { NPC = !!(d.exists && d.data().npc); }, () => {});
-  const syncPlayer = () => { try { const st = window.sheetState && window.sheetState(), want = NPC || NPCJ ? 'NPC' : playerName(); if (st && st.created && want && st.player !== want && role() !== 'view') window.sheetSet('player', want); } catch (e) {} };
+  const syncPlayer = () => { try { const st = window.sheetState && window.sheetState(), want = NPC || NPCJ ? 'NPC' : OWNER === NOBODY ? '' : playerName(); if (st && st.created && (want || OWNER === NOBODY) && (st.player || '') !== want && role() !== 'view') window.sheetSet('player', want); } catch (e) {} };
   if (NEW && (NPCJ || playerName())) { try { const st = window.sheetState(); if (st && !st.player) st.player = NPCJ ? 'NPC' : playerName(); } catch (e) {} }
   try { const st0 = window.sheetState(); if (st0 && st0.created) LASTD = digest(st0); } catch (e) {}
   if (!NEW && hubCol) setTimeout(() => { syncPlayer(); hubUpdate(false); }, 2500);
