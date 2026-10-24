@@ -79,8 +79,24 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
     internal void RequestCustomFont() => swapPending = true;
 
+    // Imports the chosen file into the plugin's own folder, so the original can be moved or deleted afterwards.
+    private void ImportCustomFont()
+    {
+        var path = Cfg.CustomFont.Trim().Trim('"');
+        if (path.Length == 0 || !System.IO.File.Exists(path)) return;
+        var dir = System.IO.Path.Combine(Pi.GetPluginConfigDirectory(), "fonts");
+        var full = System.IO.Path.GetFullPath(path);
+        if (full.StartsWith(System.IO.Path.GetFullPath(dir), StringComparison.OrdinalIgnoreCase)) return;
+        System.IO.Directory.CreateDirectory(dir);
+        var copy = System.IO.Path.Combine(dir, System.IO.Path.GetFileName(full));
+        System.IO.File.Copy(full, copy, true);
+        Cfg.CustomFont = copy;
+    }
+
     private void ApplyCustomFont()
     {
+        try { ImportCustomFont(); }
+        catch (Exception e) { Swap.Status = $"Couldn't import that font: {e.Message}"; return; }
         if (Cfg.CustomFont.Trim().Length == 0) Swap.Restore();
         else
         {

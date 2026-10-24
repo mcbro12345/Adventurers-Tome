@@ -35,7 +35,7 @@ internal sealed unsafe class FontSwap
     }
 
     private readonly List<Saved> saved = new();
-    public string Status { get; private set; } = "";
+    public string Status { get; set; } = "";
     public bool Active => saved.Count > 0;
 
     private static AtkFontManager* Manager()
