@@ -21,12 +21,12 @@ namespace SmoothNameplates;
 [Serializable]
 public sealed class Config : IPluginConfiguration
 {
-    public int Version { get; set; } = 1;
+    public int Version { get; set; } = 2;
     public bool Smooth = true;
-    public float MinCutoff = 1.5f;   // Hz: lower = steadier when standing still
-    public float Beta = 0.05f;       // how fast it catches up while moving
+    public float MinCutoff = 1.0f;   // Hz: lower = steadier
+    public float Beta = 0.05f;       // how fast the offset catches up when it really changes (zooming)
     public bool HalfPixel = true;
-    public bool SharpText = true;    // bake the text at the real size instead of the fixed resolution
+    public bool SharpText = false;   // bake the text at the real size instead of the fixed resolution
     public float EdgeDarken = 0.45f; // 0 = game's outline, 1 = black outline
 }
 
@@ -39,33 +39,44 @@ public sealed unsafe class Plugin : IDalamudPlugin
     [PluginService] internal static ICommandManager Commands { get; private set; } = null!;
 
     private const string Cmd = "/smoothtags";
+    private const int Count = 50;
 
-    // The game hands the addon whole-pixel X/Y every frame, so a plate steps a pixel at a time out of step with the
-    // character and flickers ±1px from rounding and head bob. We project the plate's own world anchor ourselves (a float),
-    // keep a filtered offset between that and the game's spot, and place the node there instead.
+    // The game hands the addon whole-pixel X/Y, so a plate steps a pixel at a time and flickers ±1px against the
+    // character. At draw time (same camera as the frame on screen) we project the plate's own world anchor as a float
+    // and add a heavily filtered offset between that projection and the game's spot; only the offset is filtered, so
+    // the plate stays glued to the character with no lag.
     private struct Plate
     {
         public ulong Id;
-        public long Frame;
-        public OneEuro Fx, Fy;
-        public float Dx, Dy;          // node-space shift from where the game put it
-        public float BaseX, BaseY;    // where the game put it
+        public bool Live;
+        public Vector3 Anchor;
+        public float GameX, GameY;    // the game's whole-pixel spot this update
+        public OneEuro Ox, Oy;        // game spot minus our projection
+        public float BaseX, BaseY;    // where the game put the node
         public float WroteX, WroteY;  // where we put it
+        public bool Placed;
     }
 
-    private readonly Plate[] plates = new Plate[AddonNamePlate.NumNamePlateObjects];
-    private readonly uint[] edgeWritten = new uint[AddonNamePlate.NumNamePlateObjects];
+    private readonly Plate[] plates = new Plate[Count];
+    private readonly uint[] edgeOurs = new uint[Count];
     private readonly Stopwatch clock = Stopwatch.StartNew();
     private readonly WindowSystem windows = new("SmoothNameplates");
     private readonly ConfigWindow window;
     internal readonly Config Cfg;
-    private long frame;
-    private double lastT;
+    private double lastUpdateT;
     private bool sharpApplied;
+    private int sharpFights;
+    internal bool SharpGaveUp;
+
+    // shown in the settings window, per second
+    internal int UpdatesPerSec, DrawsPerSec;
+    private int updates, draws;
+    private double statT;
 
     public Plugin()
     {
         Cfg = Pi.GetPluginConfig() as Config ?? new Config();
+        if (Cfg.Version < 2) { Cfg.Version = 2; Cfg.SharpText = false; Cfg.MinCutoff = 1.0f; }
         window = new ConfigWindow(this);
         windows.AddWindow(window);
         Pi.UiBuilder.Draw += windows.Draw;
@@ -99,119 +110,118 @@ public sealed unsafe class Plugin : IDalamudPlugin
     internal void Save()
     {
         Pi.SavePluginConfig(Cfg);
-        Array.Clear(edgeWritten);
+        Array.Clear(edgeOurs);
+        SharpGaveUp = false;
+        sharpFights = 0;
         NamePlates.RequestRedraw();
     }
 
-    // Before the addon reads the data: readability tweaks.
+    private static NamePlateNumberArray.NamePlateObjectIntArrayData* Data(NamePlateNumberArray* na, int arrayIndex) =>
+        (NamePlateNumberArray.NamePlateObjectIntArrayData*)((int*)na + 6) + arrayIndex; // the 50 blocks follow 6 header ints
+
+    // Before the addon reads the data: readability tweaks. Nothing here may force a rebake every frame.
     private void OnDataUpdate(INamePlateUpdateContext ctx, IReadOnlyList<INamePlateUpdateHandler> handlers)
     {
         var na = (NamePlateNumberArray*)ctx.NumberArrayDataEntryAddress;
-        if (na != null)
+        if (na == null) return;
+
+        var wantSharp = Cfg.SharpText && !SharpGaveUp;
+        if (wantSharp && !na->DisableFixedFontResolution)
         {
-            if (Cfg.SharpText) na->DisableFixedFontResolution = true;
-            if (Cfg.SharpText != sharpApplied)
-            {
-                if (!Cfg.SharpText) na->DisableFixedFontResolution = false;
-                na->ForceNamePlateRebake = true;
-                sharpApplied = Cfg.SharpText;
-            }
+            // the game setting it back every frame would mean a rebake every frame; stop fighting it
+            if (sharpApplied && ++sharpFights > 3) { SharpGaveUp = true; wantSharp = false; }
+            else { na->DisableFixedFontResolution = true; na->ForceNamePlateRebake = true; }
         }
+        if (!wantSharp && sharpApplied) { na->DisableFixedFontResolution = false; na->ForceNamePlateRebake = true; }
+        sharpApplied = wantSharp;
 
         if (Cfg.EdgeDarken <= 0) return;
         foreach (var h in handlers)
         {
-            var i = h.NamePlateIndex;
-            if ((uint)i >= edgeWritten.Length) continue;
-            var c = h.EdgeColor;
-            if (c == edgeWritten[i] && c != 0) continue; // already ours; don't darken twice
-            h.EdgeColor = edgeWritten[i] = Darken(c, Cfg.EdgeDarken);
+            var ai = h.ArrayIndex;
+            if ((uint)ai >= Count) continue;
+            // written straight into the data without raising the update flag: the addon picks it up whenever the game
+            // itself says the colours changed, instead of us asking for a redraw every frame
+            var d = Data(na, ai);
+            var c = d->NameEdgeColor;
+            if (c == edgeOurs[ai]) continue;
+            d->NameEdgeColor = edgeOurs[ai] = Darken(c, Cfg.EdgeDarken);
         }
     }
 
-    // After the addon placed its nodes: move them to the smooth position.
+    // After the addon placed its nodes: note where the game wants each plate and learn the offset.
     private void OnPostDataUpdate(INamePlateUpdateContext ctx, IReadOnlyList<INamePlateUpdateHandler> handlers)
     {
-        frame++;
+        updates++;
         var t = clock.Elapsed.TotalSeconds;
-        var dt = (float)Math.Clamp(t - lastT, 1e-4, 0.25);
-        lastT = t;
-        if (!Cfg.Smooth && !Cfg.HalfPixel) return;
+        var dt = (float)Math.Clamp(t - lastUpdateT, 1e-4, 0.25);
+        lastUpdateT = t;
 
-        var addon = (AddonNamePlate*)ctx.AddonAddress;
         var na = (NamePlateNumberArray*)ctx.NumberArrayDataEntryAddress;
+        if (na == null) return;
         var uiModule = UIModule.Instance();
         var ui3d = uiModule != null ? uiModule->GetUI3DModule() : null;
-        if (addon == null || na == null || addon->NamePlateObjectArray == null) return;
-        var scale = addon->Scale > 0 ? addon->Scale : 1f;
-        // the 50 per-plate blocks start after the 6 header ints
-        var data = (NamePlateNumberArray.NamePlateObjectIntArrayData*)((int*)na + 6);
 
+        Span<bool> seen = stackalloc bool[Count];
         foreach (var h in handlers)
         {
             var i = h.NamePlateIndex;
-            if ((uint)i >= plates.Length || (uint)h.ArrayIndex >= 50) continue;
-            var node = (AtkResNode*)addon->NamePlateObjectArray[i].RootComponentNode;
-            if (node == null) continue;
+            if ((uint)i >= Count || (uint)h.ArrayIndex >= Count) continue;
             ref var p = ref plates[i];
-            var d = data + h.ArrayIndex;
+            seen[i] = true;
+            if (!p.Live || p.Id != h.GameObjectId) { p = default; p.Id = h.GameObjectId; }
+            p.Live = true;
 
-            if (p.Id != h.GameObjectId || p.Frame != frame - 1) { p = default; p.Id = h.GameObjectId; }
-            p.Frame = frame;
+            var d = Data(na, h.ArrayIndex);
+            p.GameX = d->X;
+            p.GameY = d->Y;
+            if (!Anchor(ui3d, h, out p.Anchor) || !GameGui.WorldToScreen(p.Anchor, out var s)) { p.Ox = default; p.Oy = default; continue; }
 
-            var gameX = (float)d->X;
-            var gameY = (float)d->Y;
-            var wantX = gameX;
-            var wantY = gameY;
+            var ox = p.GameX - s.X;
+            var oy = p.GameY - s.Y;
+            // a big jump is a real change (plate reused, size change): take it at once
+            if (p.Ox.Ready && (MathF.Abs(ox - p.Ox.X) > 24 || MathF.Abs(oy - p.Oy.X) > 24)) { p.Ox = default; p.Oy = default; }
+            p.Ox.Step(ox, dt, Cfg.MinCutoff, Cfg.Beta);
+            p.Oy.Step(oy, dt, Cfg.MinCutoff, Cfg.Beta);
+        }
+        for (var i = 0; i < Count; i++)
+            if (!seen[i]) plates[i].Live = false;
+    }
 
-            if (Cfg.Smooth && Anchor(ui3d, h, out var world) && GameGui.WorldToScreen(world, out var s))
-            {
-                var ox = gameX - s.X;
-                var oy = gameY - s.Y;
-                // a big jump is a real move (new target, teleport, plate reused): follow it at once
-                if (p.Fx.Ready && (MathF.Abs(ox - p.Fx.X) > 40 || MathF.Abs(oy - p.Fy.X) > 40)) { p.Fx = default; p.Fy = default; }
-                wantX = s.X + p.Fx.Step(ox, dt, Cfg.MinCutoff, Cfg.Beta);
-                wantY = s.Y + p.Fy.Step(oy, dt, Cfg.MinCutoff, Cfg.Beta);
-            }
+    // Right before the plates are drawn: project with this frame's camera and place the nodes.
+    private void OnPreDraw(AddonEvent type, AddonArgs args)
+    {
+        draws++;
+        var t = clock.Elapsed.TotalSeconds;
+        if (t - statT >= 1) { UpdatesPerSec = updates; DrawsPerSec = draws; updates = draws = 0; statT = t; }
 
+        if (!Cfg.Smooth) return;
+        var addon = (AddonNamePlate*)args.Addon.Address;
+        if (addon == null || addon->NamePlateObjectArray == null) return;
+        var scale = addon->Scale > 0 ? addon->Scale : 1f;
+
+        for (var i = 0; i < Count; i++)
+        {
+            ref var p = ref plates[i];
+            if (!p.Live || !p.Ox.Ready) continue;
+            var node = (AtkResNode*)addon->NamePlateObjectArray[i].RootComponentNode;
+            if (node == null || !GameGui.WorldToScreen(p.Anchor, out var s)) continue;
+
+            var wantX = s.X + p.Ox.X;
+            var wantY = s.Y + p.Oy.X;
             if (Cfg.HalfPixel)
             {
                 wantX = MathF.Round(wantX * 2) / 2;
                 wantY = MathF.Round(wantY * 2) / 2;
             }
 
-            p.Dx = (wantX - gameX) / scale;
-            p.Dy = (wantY - gameY) / scale;
-            Place(node, ref p);
+            // if the node still sits where we left it, the game didn't move it since
+            if (!p.Placed || node->X != p.WroteX || node->Y != p.WroteY) { p.BaseX = node->X; p.BaseY = node->Y; }
+            p.WroteX = p.BaseX + (wantX - p.GameX) / scale;
+            p.WroteY = p.BaseY + (wantY - p.GameY) / scale;
+            p.Placed = true;
+            node->SetPositionFloat(p.WroteX, p.WroteY);
         }
-    }
-
-    // Anything that moved a node after our update (the addon's own per-frame update) gets the same shift reapplied.
-    private void OnPreDraw(AddonEvent type, AddonArgs args)
-    {
-        if (!Cfg.Smooth && !Cfg.HalfPixel) return;
-        var addon = (AddonNamePlate*)args.Addon.Address;
-        if (addon == null || addon->NamePlateObjectArray == null) return;
-        for (var i = 0; i < plates.Length; i++)
-        {
-            ref var p = ref plates[i];
-            if (p.Frame != frame || p.Frame == 0) continue;
-            var node = (AtkResNode*)addon->NamePlateObjectArray[i].RootComponentNode;
-            if (node != null && (node->X != p.WroteX || node->Y != p.WroteY)) Place(node, ref p);
-        }
-    }
-
-    private static void Place(AtkResNode* node, ref Plate p)
-    {
-        // if the node still sits where we left it, the game didn't move it this time
-        if (node->X != p.WroteX || node->Y != p.WroteY || p.WroteX == 0 && p.WroteY == 0)
-        {
-            p.BaseX = node->X;
-            p.BaseY = node->Y;
-        }
-        p.WroteX = p.BaseX + p.Dx;
-        p.WroteY = p.BaseY + p.Dy;
-        node->SetPositionFloat(p.WroteX, p.WroteY);
     }
 
     // The world point the game itself projects for this plate (above the head), else the object's position.
@@ -243,7 +253,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
     }
 }
 
-// One Euro filter: heavy smoothing while still, little lag while moving.
+// One Euro filter: heavy smoothing while steady, quick catch-up when the value really moves.
 internal struct OneEuro
 {
     public bool Ready;
@@ -276,12 +286,15 @@ internal sealed class ConfigWindow : Window
         changed |= ImGui.Checkbox("Smooth movement", ref c.Smooth);
         if (c.Smooth)
         {
-            changed |= ImGui.SliderFloat("Steadiness (Hz, lower = steadier)", ref c.MinCutoff, 0.3f, 8f, "%.2f");
-            changed |= ImGui.SliderFloat("Catch-up while moving", ref c.Beta, 0f, 0.3f, "%.3f");
+            changed |= ImGui.SliderFloat("Steadiness (Hz, lower = steadier)", ref c.MinCutoff, 0.2f, 5f, "%.2f");
+            changed |= ImGui.SliderFloat("Catch-up when zooming", ref c.Beta, 0f, 0.3f, "%.3f");
+            changed |= ImGui.Checkbox("Snap to half pixels", ref c.HalfPixel);
         }
-        changed |= ImGui.Checkbox("Snap to half pixels", ref c.HalfPixel);
         changed |= ImGui.Checkbox("Sharp text (no fixed font resolution)", ref c.SharpText);
+        if (c.SharpText && plugin.SharpGaveUp) ImGui.TextDisabled("  The game keeps turning this back off, so it's paused.");
         changed |= ImGui.SliderFloat("Darker outline", ref c.EdgeDarken, 0f, 1f, "%.2f");
         if (changed) plugin.Save();
+        ImGui.Separator();
+        ImGui.TextDisabled($"Nameplate updates/s: {plugin.UpdatesPerSec}   draws/s: {plugin.DrawsPerSec}");
     }
 }
