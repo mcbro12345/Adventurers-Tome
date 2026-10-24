@@ -26,7 +26,7 @@ namespace SmoothNameplates;
 [Serializable]
 public sealed class Config : IPluginConfiguration
 {
-    public int Version { get; set; } = 3;
+    public int Version { get; set; } = 4;
 
     // WoW-style text: the game's (and other plugins') text and colours, drawn as smooth vector-like text
     public bool WowText = true;
@@ -57,7 +57,8 @@ public sealed class Config : IPluginConfiguration
     public bool SteadyAnchor = true;       // hang the name on a steady point, not the bobbing head
     public bool NoTaaJitter = true;        // project without the anti-aliasing's per-frame sub-pixel camera shake
     public bool HalfPixel = false;
-    public int ForceLag = -1;              // -1 = work it out
+    public int DrawDelay = 0;              // draw with the camera from this many plate frames back
+    public int ForceLag = 0;               // frames the game's spot is behind our captured camera; -1 = guess
 
     // game-side readability
     public bool SharpText = false;         // bake the game's text at the real size instead of the fixed resolution
@@ -130,7 +131,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
     public Plugin()
     {
         Cfg = Pi.GetPluginConfig() as Config ?? new Config();
-        if (Cfg.Version < 3) Cfg = new Config();
+        if (Cfg.Version < 4) Cfg = new Config();
         window = new ConfigWindow(this);
         windows.AddWindow(window);
         Pi.UiBuilder.Draw += windows.Draw;
@@ -242,7 +243,8 @@ public sealed unsafe class Plugin : IDalamudPlugin
         Vector3? cam = null;
         var cm = FFXIVClientStructs.FFXIV.Client.Game.Control.CameraManager.Instance();
         if (cm != null && cm->Camera != null) cam = cm->Camera->CameraBase.SceneCamera.Object.Position;
-        var dAlpha = 1 - MathF.Exp(-dt / 0.4f); // the head offset settles over ~0.4 s: steadier than any walk bob
+        var dAlpha = 1 - MathF.Exp(-dt / 0.4f);
+        var view = CaptureView(); // the head offset settles over ~0.4 s: steadier than any walk bob
 
         foreach (var h in handlers)
         {
@@ -276,7 +278,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
                 else p.D += (raw - p.D) * dAlpha;
             }
 
-            if (!Project(p.GameAnchor, out var s)) { p.Reset(p.Id); continue; }
+            if (!Project(view, p.GameAnchor, out var s)) { p.Reset(p.Id); continue; }
             for (var k = Lags - 1; k > 0; k--) p.S[k] = p.S[k - 1];
             p.S[0] = s;
             p.History = Math.Min(p.History + 1, Lags);
@@ -318,42 +320,68 @@ public sealed unsafe class Plugin : IDalamudPlugin
     // project with those zeroed: the same camera, minus the shake.
     internal float JitterX, JitterY, Jitter2X, Jitter2Y; // the shake seen this frame, in pixels, for the settings window
 
-    private bool Project(Vector3 world, out Vector2 screen)
+    // The camera as it was when the game laid the plates out for a frame. The overlay draws later, when the game may
+    // already have moved the camera for the next frame; projecting with the live camera then put names a frame ahead of
+    // the picture (they led the scene on every camera turn). So each frame's camera is captured with its plates and the
+    // overlay projects with that.
+    private struct View
     {
-        var cm = FFXIVClientStructs.FFXIV.Client.Game.Control.CameraManager.Instance();
-        var device = FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Device.Instance();
-        if (Cfg.NoTaaJitter && cm != null && cm->Camera != null && device != null)
-        {
-            var sc = &cm->Camera->CameraBase.SceneCamera;
-            if (sc->RenderCamera != null)
-            {
-                float w = device->Width, h = device->Height;
-                Matrix4x4 view = sc->ViewMatrix;
-                Matrix4x4 proj = sc->RenderCamera->ProjectionMatrix;
-                JitterX = proj.M31 * w / 2;
-                JitterY = proj.M32 * h / 2;
-                Jitter2X = sc->RenderCamera->ProjectionMatrix2.M31 * w / 2;
-                Jitter2Y = sc->RenderCamera->ProjectionMatrix2.M32 * h / 2;
-                proj.M31 = 0;
-                proj.M32 = 0;
-                var c = Vector4.Transform(new Vector4(world, 1), view * proj);
-                if (c.W <= float.Epsilon) { screen = default; return false; }
-                var origin = ImGui.GetMainViewport().Pos;
-                screen = new Vector2((c.X / c.W + 1) * w / 2 + origin.X, (1 - c.Y / c.W) * h / 2 + origin.Y);
-                return true;
-            }
-        }
-        return GameGui.WorldToScreen(world, out screen);
+        public Matrix4x4 VP;
+        public float W, H;
+        public bool Ok;
     }
 
-    // Where the game's spot for this plate should be right now: project(steady point) + layout offset.
-    private bool Spot(Plate p, out Vector2 spot)
+    private Vector2 viewportOrigin; // updated from the overlay, where ImGui may be touched
+
+    private View CaptureView()
+    {
+        var v = new View();
+        var device = FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Device.Instance();
+        if (device == null) return v;
+        v.W = device->Width;
+        v.H = device->Height;
+        var cm = FFXIVClientStructs.FFXIV.Client.Game.Control.CameraManager.Instance();
+        if (Cfg.NoTaaJitter && cm != null && cm->Camera != null && cm->Camera->CameraBase.SceneCamera.RenderCamera != null)
+        {
+            var sc = &cm->Camera->CameraBase.SceneCamera;
+            Matrix4x4 view = sc->ViewMatrix;
+            Matrix4x4 proj = sc->RenderCamera->ProjectionMatrix;
+            JitterX = proj.M31 * v.W / 2;
+            JitterY = proj.M32 * v.H / 2;
+            Jitter2X = sc->RenderCamera->ProjectionMatrix2.M31 * v.W / 2;
+            Jitter2Y = sc->RenderCamera->ProjectionMatrix2.M32 * v.H / 2;
+            proj.M31 = 0;
+            proj.M32 = 0;
+            v.VP = view * proj;
+        }
+        else
+        {
+            var control = FFXIVClientStructs.FFXIV.Client.Game.Control.Control.Instance();
+            if (control == null) return v;
+            v.VP = control->ViewProjectionMatrix;
+        }
+        v.Ok = true;
+        return v;
+    }
+
+    private bool Project(in View v, Vector3 world, out Vector2 screen)
+    {
+        screen = default;
+        if (!v.Ok) return false;
+        var c = Vector4.Transform(new Vector4(world, 1), v.VP);
+        if (c.W <= float.Epsilon) return false;
+        screen = new Vector2((c.X / c.W + 1) * v.W / 2 + viewportOrigin.X, (1 - c.Y / c.W) * v.H / 2 + viewportOrigin.Y);
+        return true;
+    }
+
+    // Where the game's spot for this plate goes with the given camera: project(steady point) + layout offset.
+    private bool Spot(Plate p, in View v, out Vector2 spot)
     {
         spot = default;
         var k = Math.Min(Lag, p.History - 1);
         if (!p.Live || k < 0 || !p.Ox[k].Ready) return false;
         var world = Cfg.SteadyAnchor && p.HasPosition && p.DReady ? p.Position + p.D : p.GameAnchor;
-        if (!Project(world, out var s)) return false;
+        if (!Project(v, world, out var s)) return false;
         spot = new Vector2(s.X + p.Ox[k].X, s.Y + p.Oy[k].X);
         if (Cfg.HalfPixel) spot = new Vector2(MathF.Round(spot.X * 2) / 2, MathF.Round(spot.Y * 2) / 2);
         return true;
@@ -374,7 +402,8 @@ public sealed unsafe class Plugin : IDalamudPlugin
         var addon = (AddonNamePlate*)args.Addon.Address;
         if (addon == null || addon->NamePlateObjectArray == null) return;
 
-        CollectNames(addon); // reads the nodes where the game (and other plugins) put them
+        var view = CaptureView();
+        CollectNames(addon, view); // reads the nodes where the game (and other plugins) put them
 
         for (var i = 0; i < Count; i++)
         {
@@ -383,7 +412,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
             if (root == null) continue;
             var p = plates[i];
             float dx = 0, dy = 0;
-            if (Spot(p, out var spot)) { dx = spot.X - p.GameX; dy = spot.Y - p.GameY; }
+            if (Spot(p, view, out var spot)) { dx = spot.X - p.GameX; dy = spot.Y - p.GameY; }
             if (dx == 0 && dy == 0 && p.IconDx == 0 && p.MarkerDy == 0 && !shifts.ContainsKey((nint)root)) continue;
 
             // The game already turned X/Y into screen positions for this frame, so shift those finished positions.
@@ -441,9 +470,26 @@ public sealed unsafe class Plugin : IDalamudPlugin
     // The game prepares frames and Dalamud draws its overlay on their own schedules, which needn't take strict turns;
     // so the overlay always draws the newest finished list instead of waiting for a "new" one (skipping a frame would
     // show it without names, since the game's text is already hidden).
-    private volatile List<NameDraw> shown = new();
+    private sealed class Snapshot
+    {
+        public List<NameDraw> Names = new();
+        public View View;
+    }
+
+    private volatile Snapshot shown = new();
+    private readonly Snapshot[] history = { new(), new(), new() }; // newest first, for DrawDelay
+    private void Publish(Snapshot s)
+    {
+        lock (history)
+        {
+            history[2] = history[1];
+            history[1] = history[0];
+            history[0] = s;
+        }
+        shown = s;
+    }
     private double collectedT, lastDrawT = -1;
-    private List<NameDraw>? lastDrawnList;
+    private Snapshot? lastDrawnList;
     private int repeats, collectsWithoutDraw, collectsSinceDraw;
     internal int RepeatsPerSec, MissedPerSec;
     private readonly List<nint> hidden = new();
@@ -510,7 +556,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
         return false;
     }
 
-    private void CollectNames(AddonNamePlate* addon)
+    private void CollectNames(AddonNamePlate* addon, in View view)
     {
         var pending = new List<NameDraw>();
         RestoreHidden();
@@ -520,7 +566,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
         // our overlay hasn't drawn for a while (plugin UI hidden): leave the game's text alone then
         if (!Cfg.WowText || font is not { Available: true } || !addon->IsVisible || now - lastDrawT > 0.25)
         {
-            shown = pending;
+            Publish(new Snapshot { Names = pending, View = view });
             return;
         }
         CollectWindows();
@@ -602,7 +648,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
             });
         }
         collectedT = now;
-        shown = pending;
+        Publish(new Snapshot { Names = pending, View = view });
     }
 
     private float WowScale(float d)
@@ -640,9 +686,12 @@ public sealed unsafe class Plugin : IDalamudPlugin
         // rebuild once the typed path is empty or names a real file, not on every keystroke
         var want = Cfg.FontPath.Trim().Trim('"');
         if (builtFontPath != Cfg.FontPath && (want.Length == 0 || File.Exists(want))) BuildFont();
-        var pending = shown;
-        if (ReferenceEquals(pending, lastDrawnList)) repeats++;
-        lastDrawnList = pending;
+        viewportOrigin = ImGui.GetMainViewport().Pos;
+        Snapshot snap;
+        lock (history) snap = history[Math.Clamp(Cfg.DrawDelay, 0, 2)];
+        var pending = snap.Names;
+        if (ReferenceEquals(snap, lastDrawnList)) repeats++;
+        lastDrawnList = snap;
         NamesDrawn = 0;
         // plates stopped drawing (UI hidden, loading): don't leave old names on screen
         if (now - collectedT > 0.25 || pending.Count == 0 || font is not { Available: true }) return;
@@ -656,8 +705,8 @@ public sealed unsafe class Plugin : IDalamudPlugin
         foreach (var d in pending)
         {
             var p = plates[d.Plate];
-            // projected now, with the camera of the frame being shown
-            var spot = Spot(p, out var s) ? s : new Vector2(p.GameX, p.GameY);
+            // projected with the camera this frame's plates were laid out with
+            var spot = Spot(p, snap.View, out var s) ? s : new Vector2(p.GameX, p.GameY);
             var point = spot + d.Rel;
 
             var sc = d.Px / BakePx;
@@ -770,6 +819,7 @@ internal sealed class ConfigWindow : Window
         changed |= ImGui.Checkbox("Sharp game text (no fixed font resolution)", ref c.SharpText);
         if (c.SharpText && plugin.SharpGaveUp) ImGui.TextDisabled("  The game keeps turning this back off, so it's paused.");
         changed |= ImGui.SliderFloat("Darker outline", ref c.EdgeDarken, 0f, 1f, "%.2f");
+        changed |= ImGui.SliderInt("Overlay frame delay", ref c.DrawDelay, 0, 2);
         changed |= ImGui.SliderInt("Frames behind (-1 = auto)", ref c.ForceLag, -1, 2);
         if (ImGui.Button("Reset to WoW defaults")) plugin.ResetToWow();
         ImGui.Checkbox("Show debug numbers under names", ref plugin.DebugLabels);
