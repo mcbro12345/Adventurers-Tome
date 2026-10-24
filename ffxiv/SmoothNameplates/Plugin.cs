@@ -49,6 +49,29 @@ public sealed unsafe class Plugin : IDalamudPlugin
     internal int FramesPerSec, RebakesPerSec;
     internal string Resets = "";
     internal int GameFont = -1;          // the font the game picks for its tags
+    internal string TagDetails = "";     // the visible tags, for the settings window
+    private double tagsT;
+
+    private void ListTags(AddonNamePlate* addon)
+    {
+        var lines = new List<string>();
+        for (var i = 0; i < Count; i++)
+        {
+            ref var obj = ref addon->NamePlateObjectArray[i];
+            var t = obj.NameText;
+            var root = (AtkResNode*)obj.RootComponentNode;
+            if (t == null || root == null || !root->IsVisible()) continue;
+            float scale = 1;
+            for (var n = (AtkResNode*)t; n != null; n = n->ParentNode) scale *= n->ScaleX;
+            string name;
+            try { name = Dalamud.Game.Text.SeStringHandling.SeString.Parse(t->NodeText.AsSpan()).TextValue.Replace("\r", " / ").Replace("\n", " / "); }
+            catch { name = "?"; }
+            if (name.Length > 28) name = name[..28] + "...";
+            lines.Add($"{name}: font size {t->FontSize}, font {t->AlignmentFontType >> 4}, scale {scale:0.00}, kind {obj.NamePlateKind}, " +
+                      $"{(obj.BakeData.IsBaked ? "pre-rendered" : "not pre-rendered")}{(obj.DrawOriginalText ? ", drawn directly" : "")}, box {t->Width}x{t->Height}");
+        }
+        TagDetails = string.Join("\n", lines);
+    }
     private int resetFont, resetSize, resetSpacing;
     private int frameCount, rebakes;
     private double statT;
@@ -254,6 +277,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
             frameCount = rebakes = resetFont = resetSize = resetSpacing = 0; statT = t;
         }
         var addon = (AddonNamePlate*)args.Addon.Address;
+        if (addon != null && addon->NamePlateObjectArray != null && t - tagsT > 0.5) { tagsT = t; ListTags(addon); }
         ApplyLooks(addon); // a plugin that changed a tag after the update gets our look again
     }
 }
@@ -323,6 +347,11 @@ internal sealed class ConfigWindow : Window
         ImGui.Separator();
         ImGui.TextDisabled($"{plugin.FramesPerSec} frames/s   {plugin.RebakesPerSec} re-renders/s");
         ImGui.TextDisabled(plugin.Resets);
+        if (plugin.TagDetails.Length > 0 && ImGui.TreeNode("Tags on screen"))
+        {
+            ImGui.TextDisabled(plugin.TagDetails);
+            ImGui.TreePop();
+        }
         ImGui.TextDisabled(plugin.GameFont >= 0 ? $"The game's own font for these tags: {(plugin.GameFont <= 5 ? Fonts[plugin.GameFont + 1] : $"type {plugin.GameFont}")}" : "");
     }
 }
