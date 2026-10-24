@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
@@ -67,6 +69,36 @@ public sealed unsafe class Plugin : IDalamudPlugin
     private double lastT;
 
     internal int FramesPerSec, RebakesPerSec, Moved;
+    internal string Resets = "";
+    private int resetFont, resetSize, resetFlags;
+    private bool sharpSet;
+
+    // recorder: a few seconds of what the game and we do with every tag, every frame, for diagnosis
+    private StreamWriter? record;
+    private double recordUntil;
+    private long recordFrame;
+    internal string RecordStatus = "";
+
+    internal void StartRecording()
+    {
+        record?.Dispose();
+        var dir = Pi.GetPluginConfigDirectory();
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, $"record-{DateTime.Now:yyyyMMdd-HHmmss}.csv");
+        record = new StreamWriter(path);
+        record.WriteLine("frame,t,smooth,tag,object,headX,headY,steadyX,steadyY,gameX,gameY,drawnX,drawnY,relX,relY,still,camX,camY,camZ");
+        recordUntil = clock.Elapsed.TotalSeconds + 6;
+        recordFrame = 0;
+        RecordStatus = $"Recording 6 s to {path}";
+    }
+
+    private void StopRecording()
+    {
+        if (record == null) return;
+        record.Dispose();
+        record = null;
+        RecordStatus = RecordStatus.Replace("Recording 6 s to", "Saved") + "  (send me this file)";
+    }
     private int frameCount, rebakes;
     private double statT;
 
@@ -80,13 +112,17 @@ public sealed unsafe class Plugin : IDalamudPlugin
         Pi.UiBuilder.OpenConfigUi += window.Toggle;
         Pi.UiBuilder.OpenMainUi += window.Toggle;
         Commands.AddHandler(Cmd, new CommandInfo((_, _) => window.Toggle()) { HelpMessage = "Smooth Nameplates settings." });
+        Lifecycle.RegisterListener(AddonEvent.PreRequestedUpdate, "NamePlate", OnPreUpdate);
         Lifecycle.RegisterListener(AddonEvent.PostRequestedUpdate, "NamePlate", OnPostUpdate);
         Lifecycle.RegisterListener(AddonEvent.PreDraw, "NamePlate", OnPreDraw);
     }
 
     public void Dispose()
     {
+        Lifecycle.UnregisterListener(AddonEvent.PreRequestedUpdate, "NamePlate", OnPreUpdate);
         Lifecycle.UnregisterListener(AddonEvent.PostRequestedUpdate, "NamePlate", OnPostUpdate);
+        var na = NamePlateNumberArray.Instance();
+        if (sharpSet && na != null) { na->DisableFixedFontResolution = false; na->ForceNamePlateRebake = true; }
         Lifecycle.UnregisterListener(AddonEvent.PreDraw, "NamePlate", OnPreDraw);
         Commands.RemoveHandler(Cmd);
         Pi.UiBuilder.Draw -= windows.Draw;
@@ -95,6 +131,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
         Pi.UiBuilder.OpenMainUi -= window.Toggle;
         windows.RemoveAllWindows();
         RestoreLooks();
+        record?.Dispose();
     }
 
     internal void Save() => Pi.SavePluginConfig(Cfg);
@@ -116,6 +153,20 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
     // ---- look ----
 
+    // "Sharp" is the game's own setting in its nameplate data (it copies it onto the text every update, so setting it on
+    // the text would be undone every frame and re-render the tag every frame). Set it where the game reads it.
+    private void OnPreUpdate(AddonEvent type, AddonArgs args)
+    {
+        var na = NamePlateNumberArray.Instance();
+        if (na == null) return;
+        if (na->DisableFixedFontResolution != Cfg.Sharp && (Cfg.Sharp || sharpSet))
+        {
+            na->DisableFixedFontResolution = Cfg.Sharp;
+            if (!sharpSet || !Cfg.Sharp) na->ForceNamePlateRebake = true;
+            sharpSet = Cfg.Sharp;
+        }
+    }
+
     private void OnPostUpdate(AddonEvent type, AddonArgs args) => ApplyLooks((AddonNamePlate*)args.Addon.Address);
 
     private void ApplyLooks(AddonNamePlate* addon)
@@ -133,6 +184,12 @@ public sealed unsafe class Plugin : IDalamudPlugin
             // anything that isn't what we set is the game's (or another plugin's) own choice: start from that
             looks.TryGetValue((nint)t, out var look);
             var known = looks.ContainsKey((nint)t);
+            if (known)
+            {
+                if (font != look.OurFont) resetFont++;
+                if (size != look.OurSize) resetSize++;
+                if ((flags ^ look.OurFlags) != 0) resetFlags++;
+            }
             if (!known || font != look.OurFont || size != look.OurSize || flags != look.OurFlags)
             {
                 look.GameFont = font;
@@ -146,7 +203,6 @@ public sealed unsafe class Plugin : IDalamudPlugin
             wantFlags = Cfg.Bold ? wantFlags | TextFlags.Bold : wantFlags & ~TextFlags.Bold;
             wantFlags = Cfg.Outline ? wantFlags | TextFlags.Edge : wantFlags & ~TextFlags.Edge;
             wantFlags = Cfg.Glow ? wantFlags | TextFlags.Glare : wantFlags & ~TextFlags.Glare;
-            if (Cfg.Sharp) wantFlags &= ~TextFlags.FixedFontResolution;
 
             if (font != wantFont || size != wantSize || flags != wantFlags)
             {
@@ -193,12 +249,19 @@ public sealed unsafe class Plugin : IDalamudPlugin
         var dt = (float)Math.Clamp(t - lastT, 1e-4, 0.25);
         lastT = t;
         frameCount++;
-        if (t - statT >= 1) { FramesPerSec = frameCount; RebakesPerSec = rebakes; frameCount = rebakes = 0; statT = t; }
+        if (t - statT >= 1)
+        {
+            FramesPerSec = frameCount; RebakesPerSec = rebakes;
+            Resets = $"game reset per second: font {resetFont}, size {resetSize}, bold/outline/glow {resetFlags}";
+            frameCount = rebakes = resetFont = resetSize = resetFlags = 0; statT = t;
+        }
 
         var addon = (AddonNamePlate*)args.Addon.Address;
         ApplyLooks(addon); // a plugin that changed a tag after the update gets our look on top again
         Moved = 0;
-        if (!Cfg.Smooth || addon == null || addon->NamePlateObjectArray == null) return;
+        if (record != null && t > recordUntil) StopRecording();
+        recordFrame++;
+        if (addon == null || addon->NamePlateObjectArray == null) return;
         var ui = UIModule.Instance();
         var ui3d = ui != null ? ui->GetUI3DModule() : null;
         var numbers = NamePlateNumberArray.Instance();
@@ -244,7 +307,10 @@ public sealed unsafe class Plugin : IDalamudPlugin
             if (!p.RelReady || jump > 80 || (still && jump > 24)) { p.Rel = rel; p.RelReady = true; }
             else if (still) p.Rel += (rel - p.Rel) * (1 - MathF.Exp(-dt / 0.3f));
             var want = steadyOnScreen + p.Rel;
-            var delta = want - native;
+            // with smoothing off the tags go back to (and stay at) the game's own spots
+            var delta = Cfg.Smooth ? want - native : Vector2.Zero;
+            record?.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                $"{recordFrame},{t:0.0000},{(Cfg.Smooth ? 1 : 0)},{i},{(ulong)info->GameObject:X},{headOnScreen.X:0.00},{headOnScreen.Y:0.00},{steadyOnScreen.X:0.00},{steadyOnScreen.Y:0.00},{native.X:0.00},{native.Y:0.00},{native.X + delta.X:0.00},{native.Y + delta.Y:0.00},{p.Rel.X:0.00},{p.Rel.Y:0.00},{(still ? 1 : 0)},{view.Position.X:0.000},{view.Position.Y:0.000},{view.Position.Z:0.000}"));
 
             Shift(root, delta);
             var comp = ((AtkComponentNode*)root)->Component;
@@ -300,5 +366,12 @@ internal sealed class ConfigWindow : Window
         if (ImGui.Button("Reset to defaults")) { plugin.Reset(); plugin.LookChanged(); }
         ImGui.Separator();
         ImGui.TextDisabled($"{plugin.FramesPerSec} frames/s   {plugin.Moved} tags moved   {plugin.RebakesPerSec} re-renders/s");
+        ImGui.TextDisabled(plugin.Resets);
+        if (ImGui.Button("Record 6 seconds")) plugin.StartRecording();
+        if (plugin.RecordStatus.Length > 0)
+        {
+            ImGui.TextWrapped(plugin.RecordStatus);
+            if (ImGui.Button("Copy path")) ImGui.SetClipboardText(plugin.RecordStatus.Split(" to ").Last().Split("  (")[0].Replace("Saved ", ""));
+        }
     }
 }
