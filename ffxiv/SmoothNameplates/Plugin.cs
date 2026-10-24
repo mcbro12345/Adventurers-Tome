@@ -27,6 +27,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
     [PluginService] internal static ITextureProvider Textures { get; private set; } = null!;
 
     internal readonly FontSwap Swap = new();
+    internal readonly Dalamud.Interface.ImGuiFileDialog.FileDialogManager Dialog = new();
     private bool swapPending;
 
     private const string Cmd = "/smoothtags";
@@ -58,6 +59,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
         window = new ConfigWindow(this);
         windows.AddWindow(window);
         Pi.UiBuilder.Draw += windows.Draw;
+        Pi.UiBuilder.Draw += Dialog.Draw;
         Pi.UiBuilder.OpenConfigUi += window.Toggle;
         Pi.UiBuilder.OpenMainUi += window.Toggle;
         Commands.AddHandler(Cmd, new CommandInfo((_, _) => window.Toggle()) { HelpMessage = "Smooth Nameplates settings." });
@@ -98,6 +100,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
         Lifecycle.UnregisterListener(AddonEvent.PreDraw, "NamePlate", OnPreDraw);
         Commands.RemoveHandler(Cmd);
         Pi.UiBuilder.Draw -= windows.Draw;
+        Pi.UiBuilder.Draw -= Dialog.Draw;
         Pi.UiBuilder.OpenConfigUi -= window.Toggle;
         Pi.UiBuilder.OpenMainUi -= window.Toggle;
         windows.RemoveAllWindows();
@@ -245,7 +248,20 @@ internal sealed class ConfigWindow : Window
         ImGui.Separator();
         ImGui.TextUnformatted("Your own font (experimental)");
         ImGui.SetNextItemWidth(300);
-        ImGui.InputText("Font file (.ttf/.otf)", ref c.CustomFont, 512);
+        ImGui.InputText("##fontfile", ref c.CustomFont, 512);
+        ImGui.SameLine();
+        if (ImGui.Button("Choose font file..."))
+        {
+            var start = System.IO.Path.GetDirectoryName(c.CustomFont.Trim().Trim('"'));
+            if (string.IsNullOrEmpty(start) || !System.IO.Directory.Exists(start))
+                start = System.IO.Directory.Exists(@"C:\Windows\Fonts") ? @"C:\Windows\Fonts" : null;
+            plugin.Dialog.OpenFileDialog("Choose a font", "Font files{.ttf,.otf,.ttc}", (ok, files) =>
+            {
+                if (!ok || files.Count == 0) return;
+                c.CustomFont = files[0];
+                plugin.RequestCustomFont();
+            }, 1, start);
+        }
         var families = FontSwap.Families.Select(f => f.Label).ToArray();
         ImGui.SetNextItemWidth(200);
         ImGui.Combo("Replaces the game's", ref c.CustomFamily, families, families.Length);
