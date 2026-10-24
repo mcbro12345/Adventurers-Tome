@@ -131,12 +131,14 @@ internal static unsafe class TextRenderer
 
     // Draws one run starting at the float position `pen` (left edge, top of the line box) and returns the pen after it.
     public static Vector2 DrawRun(ImDrawListPtr dl, ImFontPtr font, Vector2 pen, string s, float scale, uint color,
-                                  uint edge, float outline, Vector2 shadow, uint shadowColor, int pass)
+                                  uint edge, float outline, Vector2 shadow, uint shadowColor, int pass,
+                                  List<(Vector2 Min, Vector2 Max)>? covered = null)
     {
         foreach (var r in s.EnumerateRunes())
         {
             ref var g = ref Glyph(font, r);
-            if (g.Visible)
+            if (g.Visible && !Covered(pen + new Vector2(g.X0, g.Y0) * scale - new Vector2(outline),
+                                      pen + new Vector2(g.X1, g.Y1) * scale + new Vector2(outline), covered))
             {
                 var tex = font.ContainerAtlas.Textures.Ref<ImFontAtlasTexture>(g.TextureIndex).TexID;
                 var a = pen + new Vector2(g.X0, g.Y0) * scale;
@@ -165,6 +167,14 @@ internal static unsafe class TextRenderer
             pen.X += g.AdvanceX * scale;
         }
         return pen;
+    }
+
+    private static bool Covered(Vector2 a, Vector2 b, List<(Vector2 Min, Vector2 Max)>? covered)
+    {
+        if (covered == null) return false;
+        foreach (var (min, max) in covered)
+            if (a.X < max.X && b.X > min.X && a.Y < max.Y && b.Y > min.Y) return true;
+        return false;
     }
 
     public static uint WithAlpha(uint c, float a) =>

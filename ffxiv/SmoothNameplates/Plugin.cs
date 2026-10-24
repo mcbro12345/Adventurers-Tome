@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Numerics;
 using Dalamud;
 using Dalamud.Bindings.ImGui;
@@ -474,6 +475,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
     {
         public List<NameDraw> Names = new();
         public View View;
+        public List<(Vector2 Min, Vector2 Max)> Hud = new();
     }
 
     private volatile Snapshot shown = new();
@@ -546,6 +548,58 @@ public sealed unsafe class Plugin : IDalamudPlugin
             var min = new Vector2(u->X, u->Y);
             var size = new Vector2(u->RootNode->Width, u->RootNode->Height) * sc;
             if (size.X > 1 && size.Y > 1) openWindows.Add((min, min + size));
+        }
+    }
+
+    // The game draws name tags under all of its HUD; our overlay draws on top of everything. So note where the HUD
+    // actually has something drawn (text, images, frames), and leave those spots out of the names.
+    private static List<(Vector2 Min, Vector2 Max)> CollectHud()
+    {
+        var rects = new List<(Vector2, Vector2)>();
+        var stage = AtkStage.Instance();
+        if (stage == null || stage->RaptureAtkUnitManager == null) return rects;
+        var dev = FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Device.Instance();
+        var screenArea = dev != null ? (float)dev->Width * dev->Height : 1920f * 1080f;
+        ref var list = ref stage->RaptureAtkUnitManager->AtkUnitManager.AllLoadedUnitsList;
+        for (var i = 0; i < list.Count; i++)
+        {
+            var u = list.Entries[i].Value;
+            if (u == null || !u->IsVisible || u->RootNode == null || u->NameString == "NamePlate") continue;
+            AddNodes(&u->UldManager, rects, screenArea, 0);
+        }
+        return rects;
+    }
+
+    private static void AddNodes(AtkUldManager* uld, List<(Vector2, Vector2)> rects, float screenArea, int depth)
+    {
+        if (uld == null || uld->NodeList == null || depth > 4) return;
+        for (var n = 0; n < uld->NodeListCount; n++)
+        {
+            var node = uld->NodeList[n];
+            if (node == null || !node->IsVisible()) continue;
+            var type = (int)node->Type;
+            if (type >= 1000)
+            {
+                var comp = ((AtkComponentNode*)node)->Component;
+                if (comp != null) AddNodes(&comp->UldManager, rects, screenArea, depth + 1);
+                continue;
+            }
+            // image, text, nine-grid, counter
+            if (type is not (2 or 3 or 4 or 5)) continue;
+            float alpha = 1, scale = 1;
+            var shown = true;
+            for (var a = node; a != null; a = a->ParentNode)
+            {
+                if (!a->IsVisible()) { shown = false; break; }
+                alpha *= a->Color.A / 255f;
+                scale *= a->ScaleX;
+            }
+            if (!shown || alpha < 0.05f) continue;
+            var min = new Vector2(node->ScreenX, node->ScreenY);
+            var size = new Vector2(node->Width, node->Height) * scale;
+            // empty boxes and screen-wide layers (fades, backdrops) don't count
+            if (size.X < 1 || size.Y < 1 || size.X * size.Y > screenArea * 0.25f) continue;
+            rects.Add((min, min + size));
         }
     }
 
@@ -648,7 +702,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
             });
         }
         collectedT = now;
-        Publish(new Snapshot { Names = pending, View = view });
+        Publish(new Snapshot { Names = pending, View = view, Hud = CollectHud() });
     }
 
     private float WowScale(float d)
@@ -677,6 +731,8 @@ public sealed unsafe class Plugin : IDalamudPlugin
     }
 
     private static uint Rgba(ByteColor c) => (uint)(c.R | (c.G << 8) | (c.B << 16) | (c.A << 24));
+
+    private readonly List<(Vector2 Min, Vector2 Max)> hits = new();
 
     private void DrawNames()
     {
@@ -717,6 +773,13 @@ public sealed unsafe class Plugin : IDalamudPlugin
             // WoW clamps plates inside the top and bottom insets
             y = Math.Clamp(y, screen.Y * Cfg.TopInset, MathF.Max(screen.Y * Cfg.TopInset, screen.Y * (1 - Cfg.BottomInset) - totalH));
 
+            // HUD bits this name crosses; letters there are left out, as the HUD would cover them in the game
+            var nameMin = new Vector2(point.X - d.Widths.Max() - 4, y - 4);
+            var nameMax = new Vector2(point.X + d.Widths.Max() + 4, y + totalH + 4);
+            hits.Clear();
+            foreach (var (a, b) in snap.Hud)
+                if (a.X < nameMax.X && b.X > nameMin.X && a.Y < nameMax.Y && b.Y > nameMin.Y) hits.Add((a, b));
+
             // shadow, then outline, then fill, so no letter's outline covers its neighbour's fill
             for (var pass = 0; pass < 3; pass++)
                 for (var l = 0; l < d.Lines.Count; l++)
@@ -727,7 +790,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
                     foreach (var r in d.Lines[l].Runs)
                         pen = TextRenderer.DrawRun(dl, f, pen, r.Text, sc,
                             TextRenderer.WithAlpha(r.Color, d.Alpha), TextRenderer.WithAlpha(r.Edge, d.Alpha),
-                            outline, shadow, TextRenderer.WithAlpha(0xFF000000, d.Alpha * 0.8f), pass);
+                            outline, shadow, TextRenderer.WithAlpha(0xFF000000, d.Alpha * 0.8f), pass, hits);
                 }
             NamesDrawn++;
             if (DebugLabels)
