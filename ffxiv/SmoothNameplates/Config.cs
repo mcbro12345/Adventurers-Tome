@@ -6,7 +6,7 @@ namespace SmoothNameplates;
 [Serializable]
 public sealed class Config : IPluginConfiguration
 {
-    public const int Current = 8;
+    public const int Current = 9;
     public int Version { get; set; } = Current;
 
     // the look of the game's own name text
@@ -18,7 +18,7 @@ public sealed class Config : IPluginConfiguration
 
     // your own font, put into one of the game's font families (see FontSwap)
     public string CustomFont = "";   // path to a .ttf/.otf; empty = off
-    public int CustomFamily = 0;     // index into FontSwap.Families (default: Axis, the tags' own)
+    public int CustomFamily = 4;     // index into FontSwap.Families (default: Jupiter; Axis is the whole UI's font)
     public float CustomScale = 1.0f; // how much of the game font's line the letters fill
     public int Sizing = 0;           // FontBaker.Sizing: 0 font size, 1 fit line, 2 match capitals
     public int Bold = 0;             // faux bold: pixels the letters are thickened by

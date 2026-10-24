@@ -28,6 +28,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
     internal readonly FontSwap Swap = new();
     internal readonly Dalamud.Interface.ImGuiFileDialog.FileDialogManager Dialog = new();
+    private const string AppliedMarker = "SMOOTHNAMEPLATES_FONT_APPLIED";
     private bool swapPending;
     private double swapAfter = 5;
 
@@ -79,7 +80,8 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
     public Plugin()
     {
-        Cfg = Pi.GetPluginConfig() as Config is { Version: Config.Current } c ? c : new Config();
+        Cfg = Pi.GetPluginConfig() as Config ?? new Config();
+        if (Cfg.Version < 9) { Cfg.CustomFamily = 4; Cfg.Version = Config.Current; } // Jupiter rather than Axis
         window = new ConfigWindow(this);
         windows.AddWindow(window);
         Pi.UiBuilder.Draw += windows.Draw;
@@ -89,17 +91,6 @@ public sealed unsafe class Plugin : IDalamudPlugin
         Commands.AddHandler(Cmd, new CommandInfo((_, _) => window.Toggle()) { HelpMessage = "Smooth Nameplates settings." });
         Lifecycle.RegisterListener(AddonEvent.PostRequestedUpdate, "NamePlate", OnPostUpdate);
         Lifecycle.RegisterListener(AddonEvent.PreDraw, "NamePlate", OnPreDraw);
-        // the custom font is only in place while the name tags lay out and draw
-        Lifecycle.RegisterListener(AddonEvent.PreRequestedUpdate, "NamePlate", SwapIn);
-        Lifecycle.RegisterListener(AddonEvent.PreUpdate, "NamePlate", SwapIn);
-        Lifecycle.RegisterListener(AddonEvent.PreDraw, "NamePlate", SwapIn);
-        Lifecycle.RegisterListener(AddonEvent.PostRequestedUpdate, "NamePlate", SwapOut);
-        Lifecycle.RegisterListener(AddonEvent.PostUpdate, "NamePlate", SwapOut);
-        Lifecycle.RegisterListener(AddonEvent.PostDraw, "NamePlate", SwapOut);
-        // and never anywhere else: whatever happened before, every other window starts with the game's own letters
-        Lifecycle.RegisterListener(AddonEvent.PreRequestedUpdate, Guard);
-        Lifecycle.RegisterListener(AddonEvent.PreUpdate, Guard);
-        Lifecycle.RegisterListener(AddonEvent.PreDraw, Guard);
         Framework.Update += OnFrameworkUpdate;
         swapPending = Cfg.CustomFont.Length > 0;
     }
@@ -107,8 +98,6 @@ public sealed unsafe class Plugin : IDalamudPlugin
     // The custom font goes in on the game thread, once the game's fonts are loaded.
     private void OnFrameworkUpdate(IFramework framework)
     {
-        Swap.Disable();
-        Swap.FreeRetired();
         // on load, wait a few seconds, so a reload doesn't meet the previous copy of the plugin still letting go
         if (!swapPending || clock.Elapsed.TotalSeconds < swapAfter) return;
         swapPending = false;
@@ -121,13 +110,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
         swapAfter = 0;
     }
 
-    private void SwapIn(AddonEvent type, AddonArgs args) => Swap.Enable();
-    private void SwapOut(AddonEvent type, AddonArgs args) => Swap.Disable();
 
-    private void Guard(AddonEvent type, AddonArgs args)
-    {
-        if (args.AddonName != "NamePlate") Swap.Disable();
-    }
 
     // Imports the chosen file into the plugin's own folder, so the original can be moved or deleted afterwards.
     private void ImportCustomFont()
@@ -147,12 +130,29 @@ public sealed unsafe class Plugin : IDalamudPlugin
     {
         try { ImportCustomFont(); }
         catch (Exception e) { Swap.Status = $"Couldn't import that font: {e.Message}"; return; }
-        if (Cfg.CustomFont.Trim().Length == 0) Swap.Restore();
-        else
+        var family = Math.Clamp(Cfg.CustomFamily, 0, FontSwap.Families.Length - 1);
+        // The game caches text it has laid out, pointing at the letters it saw. Changing a font's letters a second time
+        // in one game session (or swapping them in and out) leaves those caches pointing at the wrong letters: garbled
+        // text and white blocks. So the game's fonts are changed at most once per game session, process-wide, so a
+        // reloaded or updated copy of this plugin doesn't do it again either.
+        var already = Environment.GetEnvironmentVariable(AppliedMarker);
+        if (already != null)
         {
-            Swap.Apply(Cfg.CustomFont, Math.Clamp(Cfg.CustomFamily, 0, FontSwap.Families.Length - 1), Cfg.CustomScale, Cfg.Bold, Cfg.Sizing, Textures);
-            // the tags use the family that now carries your font
-            if (Swap.Active) Cfg.Font = FontSwap.Families[Math.Clamp(Cfg.CustomFamily, 0, FontSwap.Families.Length - 1)].Type;
+            Swap.Status = Cfg.CustomFont.Trim().Length == 0
+                ? "Restart the game to go back to its own font."
+                : $"Your font is in for this game session ({already}). Restart the game for a different font or settings.";
+            if (Cfg.CustomFont.Trim().Length > 0) Cfg.Font = FontSwap.Families[family].Type;
+        }
+        else if (Cfg.CustomFont.Trim().Length > 0)
+        {
+            Swap.Apply(Cfg.CustomFont, family, Cfg.CustomScale, Cfg.Bold, Cfg.Sizing, Textures);
+            if (Swap.Active)
+            {
+                Swap.Enable(); // for good, until the game closes
+                Environment.SetEnvironmentVariable(AppliedMarker, System.IO.Path.GetFileName(Cfg.CustomFont));
+                // the tags use the family that now carries your font
+                Cfg.Font = FontSwap.Families[family].Type;
+            }
         }
         var na = FFXIVClientStructs.FFXIV.Client.UI.Arrays.NamePlateNumberArray.Instance();
         if (na != null) na->ForceNamePlateRebake = true;
@@ -164,15 +164,6 @@ public sealed unsafe class Plugin : IDalamudPlugin
     {
         Lifecycle.UnregisterListener(AddonEvent.PostRequestedUpdate, "NamePlate", OnPostUpdate);
         Lifecycle.UnregisterListener(AddonEvent.PreDraw, "NamePlate", OnPreDraw);
-        Lifecycle.UnregisterListener(AddonEvent.PreRequestedUpdate, "NamePlate", SwapIn);
-        Lifecycle.UnregisterListener(AddonEvent.PreUpdate, "NamePlate", SwapIn);
-        Lifecycle.UnregisterListener(AddonEvent.PreDraw, "NamePlate", SwapIn);
-        Lifecycle.UnregisterListener(AddonEvent.PostRequestedUpdate, "NamePlate", SwapOut);
-        Lifecycle.UnregisterListener(AddonEvent.PostUpdate, "NamePlate", SwapOut);
-        Lifecycle.UnregisterListener(AddonEvent.PostDraw, "NamePlate", SwapOut);
-        Lifecycle.UnregisterListener(AddonEvent.PreRequestedUpdate, Guard);
-        Lifecycle.UnregisterListener(AddonEvent.PreUpdate, Guard);
-        Lifecycle.UnregisterListener(AddonEvent.PreDraw, Guard);
         Commands.RemoveHandler(Cmd);
         Pi.UiBuilder.Draw -= windows.Draw;
         Pi.UiBuilder.Draw -= Dialog.Draw;
@@ -181,9 +172,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
         windows.RemoveAllWindows();
         RestoreLooks();
         Framework.Update -= OnFrameworkUpdate;
-        void Unload() { Swap.Restore(); Swap.FreeRetired(all: true); }
-        if (Framework.IsInFrameworkUpdateThread) Unload();
-        else Framework.RunOnFrameworkThread(Unload).Wait();
+        // the custom font stays in until the game closes (see ApplyCustomFont); its textures stay alive with it
     }
 
     internal void Save() => Pi.SavePluginConfig(Cfg);
@@ -379,7 +368,10 @@ internal sealed class ConfigWindow : Window
         var families = FontSwap.Families.Select(f => f.Label).ToArray();
         ImGui.SetNextItemWidth(200);
         ImGui.Combo("In place of", ref c.CustomFamily, families, families.Length);
-        ImGui.TextDisabled("  Only the name tags use it; the rest of the UI keeps the game's fonts.");
+        ImGui.TextDisabled(c.CustomFamily == 0
+            ? "  Axis is the game's main UI font: chat, windows and the rest change too."
+            : "  Everything the game draws in that font changes (Jupiter: name tags and damage numbers).");
+        ImGui.TextDisabled("  Applied once per game session; to change it again, restart the game.");
         var sizings = new[] { "Font size", "Fit line", "Match capitals" };
         ImGui.SetNextItemWidth(200);
         ImGui.Combo("Sizing", ref c.Sizing, sizings, sizings.Length);
@@ -388,7 +380,7 @@ internal sealed class ConfigWindow : Window
         ImGui.SliderInt("Bold", ref c.Bold, 0, 3, c.Bold == 0 ? "off" : "%d px");
         if (ImGui.Button("Apply font")) plugin.RequestCustomFont();
         ImGui.SameLine();
-        if (ImGui.Button("Back to the game's font")) { c.CustomFont = ""; plugin.RequestCustomFont(); }
+        if (ImGui.Button("Back to the game's font")) { c.CustomFont = ""; plugin.Save(); plugin.RequestCustomFont(); }
         if (plugin.Swap.Status.Length > 0) ImGui.TextWrapped(plugin.Swap.Status);
         if (plugin.Swap.Details.Length > 0 && ImGui.TreeNode("Font sizes"))
         {
