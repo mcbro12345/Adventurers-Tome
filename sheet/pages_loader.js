@@ -383,6 +383,8 @@ document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.remove()); 
 let PG_RA = null; // the last "refresh their page" request seen; a new one while this page is open reloads it
 // The site owner, by their sign-in account id (not their email, so no personal info is in the code).
 const OWNER_UID = 'Ns3qDtOrAcNcJkZKHemhBedz9oA2';
+// A character with no owner: it belongs to nobody, so it's in no one's lobby; only admins see it (Admin → Characters).
+const NOBODY = 'unowned';
 // Every character lives in one library; the hub shows each person their own and the ones shared with them.
 const DEFAULT_G = 'WLdUj_I3XrA_9VIP';
 // Clean addresses everywhere except the github.io backup (which can't serve made-up paths).
@@ -1130,7 +1132,7 @@ function wireDie(root) {
   // Older copies didn't record an owner: take it from the party list.
   if (!OWNER && hubCol) { try { const h = await hubCol.doc(C).get(); OWNER = ((h.exists && h.data().owner) || '').toLowerCase(); } catch (e) {} }
   if (!OWNER) OWNER = EMAIL;
-  let OWNER_NAME = ''; (OWNER === EMAIL || IS_ADMIN ? userDoc(OWNER) : Promise.resolve(null)).then(u => { OWNER_NAME = (u && u.name) || ''; if (OWNER_NAME) setTimeout(() => { try { syncPlayer(); } catch (e) {} }, 0); });
+  let OWNER_NAME = ''; (OWNER !== NOBODY && (OWNER === EMAIL || IS_ADMIN) ? userDoc(OWNER) : Promise.resolve(null)).then(u => { OWNER_NAME = (u && u.name) || ''; if (OWNER_NAME) setTimeout(() => { try { syncPlayer(); } catch (e) {} }, 0); });
   // What this person may do here: their own (or the DM) edits; someone it's shared with can edit or only look.
   const role = () => (IS_ADMIN || OWNER === EMAIL) ? 'owner' : EDITORS.includes(EMAIL) ? 'edit' : 'view';
 
@@ -1393,7 +1395,7 @@ function wireDie(root) {
             setTimeout(() => window.sheetToast(J.npc ? `<div><b>NPC added to ${escH(J.name || 'the party')}</b><div class="det">It shows on the party page for everyone in the party, but not in anyone’s character list. Open it from the party page.</div></div>` : `<div><b>Joined ${escH(J.name || 'the party')}</b><div class="det">Your party is in the Party tab: hand items over and cast spells on each other from there.</div></div>`, '', 9000), 2500); }
           catch (e) { PARTY = ''; ptyWatch(''); window.sheetToast(`<div><b>Couldn’t join ${escH(J.name || 'the party')}</b><div class="det">${escH(e && e.code === 'permission-denied' ? 'The invite link may have been turned off — ask your DM for a new one.' : (e && e.message) || String(e))}</div></div>`, 'fumble', 12000); } };
         setTimeout(tryJoin, 1500); } }
-    setTimeout(() => window.sheetToast(`<div><b>Your character is saved</b><div class="det">${G ? 'It\'s on your party page. ' : ''}Open it on any device you're signed in on — it stays in sync. ${IS_ADMIN && OWNER !== EMAIL ? 'It belongs to ' + escH(OWNER) + '.' : 'Only you and the people you share it with can open it.'}</div></div>`, '', 12000), 600);
+    setTimeout(() => window.sheetToast(`<div><b>Your character is saved</b><div class="det">${G ? 'It\'s on your party page. ' : ''}Open it on any device you're signed in on — it stays in sync. ${OWNER === NOBODY ? 'It has no owner, so only admins can see it (Admin → Characters).' : IS_ADMIN && OWNER !== EMAIL ? 'It belongs to ' + escH(OWNER) + '.' : 'Only you and the people you share it with can open it.'}</div></div>`, '', 12000), 600);
     hubChanged = true; hubSoon();
   }, 500); }
   // Back to the hub (desktop and phone).
@@ -1548,7 +1550,7 @@ function hub(fs, auth, G, ctx) {
   const UC = {}, NAMES = {};
   const remember = (em, u) => { UC[em] = Promise.resolve(u); if (u && u.name) NAMES[em] = u.name; };
   const userDoc = em => UC[em] || (UC[em] = usersCol.doc(em).get().then(x => { const d = x.exists ? x.data() : null; if (d && d.name) NAMES[em] = d.name; return d; }, () => null));
-  const nameOf = em => NAMES[em] || em;
+  const nameOf = em => em === NOBODY ? 'No owner' : NAMES[em] || em;
   const needNames = ems => Promise.all([...new Set(ems.filter(Boolean))].map(userDoc));
   if (ME) remember(EMAIL, ME);
   const myName = () => NAMES[EMAIL] || user.displayName || EMAIL.split('@')[0];
@@ -1643,9 +1645,16 @@ function hub(fs, auth, G, ctx) {
     acc.viewers.filter(x => V0.includes(x) && E0.includes(x) !== acc.editors.includes(x)).forEach(x => pgLog('access', { target: c.id, tName: nm, detail: x + (acc.editors.includes(x) ? ' can now edit' : ' is now view only') }));
     Object.assign(c, acc);
   }
+  // Take a character off its owner: it leaves their lobby and only admins see it (they can give it to someone again).
+  function unownChar(c, after) {
+    modal.innerHTML = `<div class="hub-card"><h2>Remove ${esc(c.name || 'this character')}’s owner?</h2><p class="hub-hint">${esc(nameOf(c.owner || '') || 'Its owner')} won’t see it anymore unless it’s shared with them. It stays in Admin → Characters, where you can give it to someone again.</p>
+      <div class="row"><button class="btn ghost" id="uo-x">Cancel</button><button class="btn red" id="uo-ok">Remove owner</button></div></div>`;
+    modal.classList.add('on'); modal.querySelector('#uo-x').onclick = close;
+    modal.querySelector('#uo-ok').onclick = async e => { e.target.disabled = true; if (await giveTo(c, NOBODY)) { close(); if (after) after(); } else e.target.disabled = false; };
+  }
   async function giveTo(c, o) {
-    try { await userDoc(o); const s = await sheets.doc(c.id).get(); const n = Number(s.exists && s.data().n) || 1; await sheets.doc(c.id).update({ owner: o }); for (let k = 1; k < n; k++) await sheets.doc(c.id + '_p' + k).update({ owner: o }).catch(() => {});
-      await charsCol.doc(c.id).set({ owner: o, player: nameOf(o), playerSet: Date.now() }, { merge: true }); c.owner = o; c.player = nameOf(o); toast('Moved to ' + nameOf(o) + '.'); pgLog('give', { target: c.id, tName: c.name, detail: 'to ' + o }); return true; } catch (x) { toast('Couldn\'t move it: ' + (x.message || x)); return false; } }
+    try { if (o !== NOBODY) await userDoc(o); const s = await sheets.doc(c.id).get(); const n = Number(s.exists && s.data().n) || 1; await sheets.doc(c.id).update({ owner: o }); for (let k = 1; k < n; k++) await sheets.doc(c.id + '_p' + k).update({ owner: o }).catch(() => {});
+      const pl = o === NOBODY ? '' : nameOf(o); await charsCol.doc(c.id).set({ owner: o, player: pl, playerSet: Date.now() }, { merge: true }); c.owner = o; c.player = pl; toast(o === NOBODY ? (c.name || 'It') + ' has no owner now.' : 'Moved to ' + nameOf(o) + '.'); pgLog('give', { target: c.id, tName: c.name, detail: o === NOBODY ? 'removed its owner' : 'to ' + o }); return true; } catch (x) { toast('Couldn\'t move it: ' + (x.message || x)); return false; } }
   function shareChar(c, back) {
     let V = [...(c.viewers || [])], E = [...(c.editors || [])], PUB = '', pubBusy = false;
     // The view-only link section updates in place (the rest of the window isn't redrawn, so nothing flashes).
@@ -2187,17 +2196,17 @@ function hub(fs, auth, G, ctx) {
     const ctable = (list, showOwner = true, empty = 'No characters yet.') => list.length ? `<div class="adm-tw"><table class="adm-t ch-t"><thead><tr><th>Character</th>${showOwner ? '<th>Owner</th>' : ''}<th>Shared with you</th><th>Updated</th><th>Created</th><th></th></tr></thead><tbody>${list.map(c => crow(c, showOwner)).join('')}</tbody></table></div>` : `<p class="adm-empty">${empty}</p>`;
     function crow(c, showOwner) { CH[c.id] = c; const a = myAccess(c);
       return `<tr><td><a class="adm-char" href="${esc(URLS.char(c))}">${pic(c)}<span><b>${esc(c.name || 'Unnamed character')}</b><small>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</small></span></a></td>
-        ${showOwner ? `<td><span class="adm-who">${ava(nameOf(c.owner || ''), c.owner)}<span>${esc(nameOf(c.owner || '') || '—')}</span></span></td>` : ''}
+        ${showOwner ? `<td>${c.owner === NOBODY ? '<span class="adm-tag">No owner</span>' : `<span class="adm-who">${ava(nameOf(c.owner || ''), c.owner)}<span>${esc(nameOf(c.owner || '') || '—')}</span></span>`}</td>` : ''}
         <td>${a === 'own' ? '<span class="adm-tag r-own">Yours</span>' : `<select class="adm-sel" data-me="${esc(c.id)}" aria-label="Shared with you"><option value="">Not shared</option><option value="view"${a === 'view' ? ' selected' : ''}>Can view</option><option value="edit"${a === 'edit' ? ' selected' : ''}>Can edit</option></select>`}</td>
         <td>${when(c.updatedAt)}</td><td>${when(c.createdAt)}</td>
-        <td class="adm-act">${kebab([['open', 'Open', c.id], ['share', 'Share…', c.id], ['give', 'Give to another player…', c.id], ['del', 'Delete character…', c.id, 'danger']])}</td></tr>`; }
+        <td class="adm-act">${kebab([['open', 'Open', c.id], ['share', 'Share…', c.id], ['give', c.owner === NOBODY ? 'Give to a player…' : 'Give to another player…', c.id]].concat(c.owner === NOBODY ? [] : [['unown', 'Remove its owner…', c.id]], [['del', 'Delete character…', c.id, 'danger']]))}</td></tr>`; }
     function wire(el, redo) {
       el.querySelectorAll('[data-me]').forEach(sl => sl.onchange = async () => { const c = CH[sl.dataset.me]; if (!c) return; const v = sl.value;
         const V = (c.viewers || []).filter(x => x !== EMAIL), E = (c.editors || []).filter(x => x !== EMAIL);
         try { await setAccess(c, v ? [...V, EMAIL] : V, v === 'edit' ? [...E, EMAIL] : E); toast(v ? (c.name || 'It') + ' is shared with you (' + (v === 'edit' ? 'can edit' : 'view only') + ').' : 'Stopped sharing ' + (c.name || 'it') + ' with you.'); }
         catch (x) { toast('Couldn\'t change it: ' + (x.message || x)); sl.value = myAccess(c) === 'own' ? '' : myAccess(c); } });
       el.querySelectorAll('[data-mi]').forEach(b => b.onclick = () => { const c = CH[b.dataset.id]; closeAdmMenus(); if (!c) return;
-        ({ open: () => { pgGo(URLS.char(c)); }, share: () => shareChar(c, Object.assign(() => {}, { refresh: redo })), give: () => moveChar(c, redo), del: () => deleteChar(c, redo, true) })[b.dataset.mi](); });
+        ({ open: () => { pgGo(URLS.char(c)); }, share: () => shareChar(c, Object.assign(() => {}, { refresh: redo })), give: () => moveChar(c, redo), unown: () => unownChar(c, redo), del: () => deleteChar(c, redo, true) })[b.dataset.mi](); });
     }
     const docs = r => r.docs.map(d => Object.assign({ id: d.id }, d.data()));
     const failMsg = x => `<p class="adm-empty">Couldn't load this (${esc((x && (x.code || x.message)) || x)}).</p>`;
@@ -2485,7 +2494,8 @@ function hub(fs, auth, G, ctx) {
     // --- Characters: every character, live, with filters ---
     let CQ = '', CROWS = [], CLIVE = null; const CF = { owner: '', share: '', upd: '' };
     async function tabChars() {
-      const el = B(); HA().innerHTML = '';
+      const el = B(); HA().innerHTML = '<button class="adm-btn primary" id="ad-newc" title="A character with no owner: only admins see it">Create character</button>';
+      HA().querySelector('#ad-newc').onclick = () => pgGo(URLS.newChar(G, NOBODY, ''));
       el.innerHTML = `<div class="adm-filters">${toolbar('ad-cq', 'Search by character, race, class or player', CQ)}<div class="adm-fsels" id="cf-sels"></div></div><div id="ad-cl"><div class="sk-auto" data-k="adm-chars-t"></div></div>`;
       const q = el.querySelector('#ad-cq'); let t = null; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { CQ = q.value; paintChars(); }, 150); };
       if (!CLIVE) CLIVE = charsCol.limit(2000).onSnapshot(async qs => { CROWS = docs(qs); await needNames(CROWS.map(c => c.owner)); if (TAB === 'chars') paintChars(); if (TAB === 'new' && qs.docChanges().some(ch => ch.type !== 'modified')) newSoon(); },
