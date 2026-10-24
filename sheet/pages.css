@@ -2233,7 +2233,8 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 .si2-vid { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: #000; box-shadow: 0 0 0 1px rgba(201,150,43,.45), 0 20px 50px rgba(0,0,0,.35); }
 .si2-vid iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
 .si2-try h3 { margin: 0; font: 700 1.15rem Georgia, serif; color: #c9962b; letter-spacing: .01em; }
-.si2-try p { margin: 4px 0 12px; font-size: .88rem; font-weight: 500; opacity: .75; }
+.si2-try { container-type: inline-size; }
+.si2-try p { margin: 4px 0 12px; font-size: min(.88rem, 2.3cqi); font-weight: 500; opacity: .75; white-space: nowrap; }
 .si2-chars { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
 #pg-load .pg-msg a.si2-char, .si2-char { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 12px; text-decoration: none; color: #e9e3d3; background: rgba(255,255,255,.04); border: 1px solid rgba(201,150,43,.22); transition: border-color .15s ease, background .15s ease, transform .15s ease; min-width: 0; }
 .si2-char:hover, .si2-char:focus-visible { border-color: var(--c); background: color-mix(in srgb, var(--c) 10%, transparent); transform: translateY(-1px); }
@@ -2273,7 +2274,7 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
    the video sizes itself to the window's height so the page fits on one screen */
 @media (min-width: 921px) {
   #pg-load:has(.pg-si2) { padding-top: 18px; padding-bottom: 16px; }
-  .pg-si2 { --lw: min(calc(min(1600px, var(--VW, 100vw) - 32px) - 380px - 24px), max(520px, calc((var(--VH, 100dvh) - 330px) * 16 / 9)));
+  .pg-si2 { --lw: min(calc(min(1600px, var(--VW, 100vw) - 32px) - 600px - 24px), max(520px, calc((var(--VH, 100dvh) - 330px) * 16 / 9)));
     grid-template-columns: var(--lw) minmax(380px, 1fr); grid-template-areas: 'sign sign' 'vid try' 'feat feat'; gap: 18px 24px; align-items: stretch; width: min(1600px, 100%); }
   .pg-si2 .pg-signin { grid-area: sign; order: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0 30px; padding: 16px 26px; text-align: left; }
   .pg-si2 .pg-signin .hub-logo { margin: 0; gap: 12px; }

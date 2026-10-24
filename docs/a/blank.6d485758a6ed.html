@@ -9,7 +9,7 @@
     try { var u = JSON.parse(localStorage.getItem('dnd-sheet-ui') || '{}'); var m = u.layout ? u.layout === 'mobile' : window.innerWidth < 640; if (m) document.documentElement.classList.add('mobile'); } catch (e) {}
     var t = null;
     try { t = localStorage.getItem('dnd-sheet-theme'); } catch (e) {}
-    if (!t) t = (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+    if (t !== 'light') t = 'dark';
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
@@ -1708,7 +1708,6 @@ html:not(.mobile) .toolbar.tb-compact.tb-wrap { flex-wrap: wrap; }
 .toolbar .tbtn { white-space: nowrap; }
 .advtile { container-type: inline-size; }
 .advtile .as { display: none; }
-@container (max-width: 104px) { .advtile .al { display: none; } .advtile .as { display: inline; } }
 @media (min-width: 761px) and (max-width: 1000px) { html:not(.mobile) .vitals .tile > .lbl { font-size: .6rem; letter-spacing: .04em; } }
 html:not(.mobile) .toolbar:not(.tb-compact) [data-zi="history"] .ti { display: none; }
 /* Roll cards: 🎲 shows every die (and the DC / extra lines) */
@@ -1805,7 +1804,6 @@ html.mobile .settabs, html.mobile .modal.xwide .settabs { column-count: 1; displ
 .advtile .advopt { display: grid; grid-template-columns: 16px minmax(0, 1fr); align-items: center; gap: 6px; height: 30px; padding: 0 8px; font-size: .78rem; }
 .advtile .advopt input { width: 16px !important; height: 16px !important; min-width: 16px; flex: none; margin: 0; }
 .advtile .advopt .al, .advtile .advopt .as { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-@container (max-width: 150px) { .advtile .al { display: none; } .advtile .as { display: inline; } }
 html.mobile .advtile .advopt { height: 40px; font-size: .9rem; }
 .r20steps li { margin: 6px 0; line-height: 1.45; } .r20steps .btn { margin-top: 4px; }
 /* d20 tile: whole pill is the toggle, full words always */
@@ -2680,7 +2678,6 @@ html.mobile .advb { font-size: .8rem; padding: 6px 12px; }
 
 .tile.condtile { container-type: inline-size; }
 .advb .as { display: none; }
-@container (max-width: 372px) { .advb .al { display: none; } .advb .as { display: inline; } }
 
 .sarow { flex-wrap: nowrap !important; }
 .sadotw .hint { white-space: nowrap; display: inline-block; min-width: 7.2em; }
@@ -3300,6 +3297,7 @@ html.mobile:not([data-theme="dark"]) .tabs { box-shadow: 0 -6px 16px rgba(60,45,
 @keyframes wSheetOut { from { transform: none; } to { transform: translateY(100%); } }
 .modal-bg.open { animation: wFadeIn .2s ease; }
 .modal-bg.open > .modal { animation: wPopIn .28s ease; }
+.modal-bg.pre, .modal-bg.pre > .modal { animation-play-state: paused !important; }
 .modal-bg.closing { display: flex; pointer-events: none; animation: wFadeOut .18s ease forwards; }
 .modal-bg.closing > .modal { animation: wPopOut .18s ease forwards; }
 html.mobile .modal-bg.open > .modal { animation: wSheetIn .32s cubic-bezier(.2,.9,.3,1); }
@@ -4223,6 +4221,11 @@ html.mobile #rolllogmodal .rl-list { height: auto; max-height: min(62vh, 640px);
 .toast.rollcard:has(> .rc-dice) { padding-right: 46px; }
 .toast.rollcard > .rc-dice { top: 50%; bottom: auto; right: 8px; transform: translateY(-50%); }
 .pbadge.defb.vul { border-color: color-mix(in srgb, #c0392b 55%, transparent); color: color-mix(in srgb, #c0392b 70%, var(--ink, currentColor)); }
+/* Add an item: one fixed size for every tab; only the list inside scrolls */
+#modal-body:has(#catq) { width: min(820px, 96vw); height: min(calc(100dvh - 40px), 760px); max-height: none; display: flex; flex-direction: column; overflow: hidden; }
+#modal-body:has(#catq) > * { flex: none; }
+#modal-body:has(#catq) > .crlist { flex: 1 1 auto; min-height: 0; max-height: none; }
+html.mobile #modal-body:has(#catq) { width: 100%; height: min(calc(100dvh - 24px - env(safe-area-inset-top)), 760px); }
 
 </style>
 </head>
@@ -12240,7 +12243,9 @@ let onModalCancel = null;
 let MODAL_BY = null, MODAL_SIG = null; // which button opened the window that's showing
 function openModal(html, onCancel, wide) {
   MODAL_BY = MODAL_SIG;
-  onModalCancel = onCancel || null; $('#modal-body').classList.remove('xwide'); $('#modal-body').classList.toggle('wide', !!wide); $('#modal-body').innerHTML = html; $('#modal').classList.add('open');
+  onModalCancel = onCancel || null; $('#modal-body').classList.remove('xwide'); $('#modal-body').classList.toggle('wide', !!wide); $('#modal-body').innerHTML = html;
+  // a window opening fresh holds its fade for two frames, so the work of building and sizing it doesn't eat the start of the animation
+  const mo = $('#modal'); if (!mo.classList.contains('open')) { mo.classList.add('pre', 'open'); requestAnimationFrame(() => requestAnimationFrame(() => mo.classList.remove('pre'))); }
   const f = $('#modal-body [autofocus]'); if (f) f.focus();
 }
 // Desktop: every pop-up window can be moved by dragging its title (the heading at the top). It opens centred again
@@ -12261,7 +12266,7 @@ function openModal(html, onCancel, wide) {
       const eat = ev => { ev.stopPropagation(); ev.preventDefault(); }; addEventListener('click', eat, { capture: true, once: true }); setTimeout(() => removeEventListener('click', eat, true), 0); };
     addEventListener('pointermove', mv); addEventListener('pointerup', up); });
   // a window opening again starts back in the middle
-  new MutationObserver(ms => ms.forEach(m => { const t = m.target; if (t.classList && (t.classList.contains('open') || t.classList.contains('on'))) t.querySelectorAll(WIN).forEach(w => { w.style.translate = ''; }); else if (t.matches && t.matches(WIN) && m.type === 'childList') t.style.translate = ''; }))
+  new MutationObserver(ms => ms.forEach(m => { const t = m.target; if (t.classList && (t.classList.contains('open') || t.classList.contains('on'))) t.querySelectorAll(WIN).forEach(w => { if (!w.dataset.keepPos) w.style.translate = ''; }); else if (t.matches && t.matches(WIN) && m.type === 'childList' && !t.dataset.keepPos) t.style.translate = ''; }))
     .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], subtree: true });
 })();
 function closeModal(confirmed) {
@@ -12425,7 +12430,7 @@ function renderVitals() {
   <div class="tile" data-zi="passive"><span class="lbl"><span class="ciw top">Passive<br>Perception${ciBtn('passive', 'passive Perception')}</span></span><span class="big" data-calc="passive"></span><span class="sub senses" data-calc="senses"></span>${ravenHas() ? ravenChk(true) : ''}</div>
   <div class="tile" data-zi="hd"><span class="lbl"><span class="ciw top">Hit Dice${ciBtn('hd', 'hit dice')}</span></span><span class="big" data-calc="hd"></span><span class="sub" data-calc="hdpools"></span></div>
   <div class="tile deathtile" data-zi="death"><span class="lbl">Death Saves</span><div class="death" data-calc-html="death"></div></div>
-  <div class="tile condtile" data-zi="conds"><div class="tilehead"><span class="lbl">Conditions</span><button class="addc" data-act="conditions">+ Add</button><span class="advbtns" role="group" aria-label="All d20 rolls"><button class="advb adv${S.rollAdv === 'adv' ? ' on' : ''}" data-act="rolladv" data-v="adv" aria-pressed="${S.rollAdv === 'adv'}" title="Advantage on every attack, check and save"><span class="al">Advantage</span><span class="as">Adv</span></button><button class="advb dis${S.rollAdv === 'dis' ? ' on' : ''}" data-act="rolladv" data-v="dis" aria-pressed="${S.rollAdv === 'dis'}" title="Disadvantage on every attack, check and save"><span class="al">Disadvantage</span><span class="as">Dis</span></button></span></div><div class="condchips" data-calc-html="conds"></div></div>
+  <div class="tile condtile" data-zi="conds"><div class="tilehead"><span class="lbl">Conditions</span><button class="addc" data-act="conditions">+ Add</button><span class="advbtns" role="group" aria-label="All d20 rolls"><button class="advb adv${S.rollAdv === 'adv' ? ' on' : ''}" data-act="rolladv" data-v="adv" aria-pressed="${S.rollAdv === 'adv'}" title="Advantage on every attack, check and save"><span class="al">Advantage</span></button><button class="advb dis${S.rollAdv === 'dis' ? ' on' : ''}" data-act="rolladv" data-v="dis" aria-pressed="${S.rollAdv === 'dis'}" title="Disadvantage on every attack, check and save"><span class="al">Disadvantage</span></button></span></div><div class="condchips" data-calc-html="conds"></div></div>
   <div class="tile fxtile" data-zi="effects"><div class="tilehead"><span class="lbl">Active spells &amp; effects</span><button class="addc" data-act="addeffects" title="Spells and effects someone else put on you">+ Add</button><span class="hint" data-calc="concnote"></span></div><div class="fxchips" data-calc-html="fxchips"></div></div>
 `;
 }
@@ -15841,7 +15846,7 @@ function readableInk(a, dark) { let c = dark ? mix(a, [255, 255, 255], 0.25) : m
 // Light/dark is kept with the character too (not only in this browser's storage), so a fresh copy of the sheet opens in the right mode.
 function applyMode() {
   const set = S.settings || (S.settings = {}); let ls = null; try { ls = localStorage.getItem('dnd-sheet-theme'); } catch (e) {}
-  if (set.colorMode !== 'dark' && set.colorMode !== 'light') { if (!PER_SHEET && (ls === 'dark' || ls === 'light')) set.colorMode = ls; else { if (PER_SHEET) { let pg = null; try { pg = localStorage.getItem('pg-theme'); } catch (e) {} document.documentElement.setAttribute('data-theme', pg === 'dark' || pg === 'light' ? pg : window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); } return; } }
+  if (set.colorMode !== 'dark' && set.colorMode !== 'light') { if (!PER_SHEET && (ls === 'dark' || ls === 'light')) set.colorMode = ls; else { if (PER_SHEET) { let pg = null; try { pg = localStorage.getItem('pg-theme'); } catch (e) {} document.documentElement.setAttribute('data-theme', pg === 'light' ? 'light' : 'dark'); } return; } }
   if (document.documentElement.getAttribute('data-theme') !== set.colorMode) document.documentElement.setAttribute('data-theme', set.colorMode);
   if (ls !== set.colorMode) try { localStorage.setItem('dnd-sheet-theme', set.colorMode); } catch (e) {}
 }
@@ -16126,7 +16131,7 @@ function openSettings(tab) {
       ${row('Update this sheet', `<button class="btn sm" data-act="updatesheet">Update…</button>`, `Version ${APP_VERSION} · move into a newer sheet file`)}
       ${row('Start over', `<button class="btn sm red" data-act="newchar">New character…</button>`, 'Clears this sheet — download it first to keep it')}`)}
     </div>`, null, true);
-  setTabInk(false); fitSettingsHeight();
+  setTabInk(false); mwDress(); fitSettingsHeight(!REOPEN);   // the title bar goes on first, so the height counts it
   if ($('#r20status')) { renderR20Box(); r20Hello(); }
 }
 function setSetting(t) {
@@ -16491,22 +16496,27 @@ function booksHTML() {
     : `<div class="bk-chips">${keys.filter(k => on.has(k)).map(k => `<span class="bk-chip${k === 'UA' ? ' ua' : ''}" title="${esc(DND.sources[k])}">${esc(k)}</span>`).join('')}</div>`}</div>`;
 }
 
-function reopenSettings() { const sx = $('.setx'), sc = sx ? sx.scrollTop : 0; openSettings(SETTAB); const nx = $('.setx'); if (nx) nx.scrollTop = sc; }
-function fitSettingsHeight() {
+// redrawn in place: same spot on screen (if it was dragged) and same scroll
+function reopenSettings() { const sx = $('.setx'), sc = sx ? sx.scrollTop : 0, mb = $('#modal-body'); if (mb) { mb.dataset.keepPos = '1'; REOPEN = true; } try { openSettings(SETTAB); } finally { REOPEN = false; } const nx = $('.setx'); if (nx) nx.scrollTop = sc; setTimeout(() => { if (mb) delete mb.dataset.keepPos; }, 0); }
+let REOPEN = false;
+function fitSettingsHeight(fresh) {
   const m = $('#modal-body'), sx = $('.setx'); if (!m || !sx) return;
+  // redrawn in place (a theme picked, a setting toggled): the window never shrinks under the pointer; a fresh open sizes from scratch
+  if (fresh) m._sethMin = 0;
   m.style.removeProperty('--seth');
   const panes = $$('.setx .stpane'); let tallest = 0;
   const pw = sx.clientWidth - (parseFloat(getComputedStyle(sx).paddingLeft) || 0) - (parseFloat(getComputedStyle(sx).paddingRight) || 0); // measured at the width it really shows at, so wrapped lines count
   panes.forEach(p => { const was = p.style.cssText; p.style.cssText = `display:block;position:absolute;visibility:hidden;left:0;top:0;width:${pw}px;box-sizing:border-box`; tallest = Math.max(tallest, p.getBoundingClientRect().height, p.scrollHeight); p.style.cssText = was; });
   const chrome = m.getBoundingClientRect().height - sx.getBoundingClientRect().height;  // header, tabs and padding
   const cap = isMobile() ? 0.88 * innerHeight : innerHeight - 32;
-  m.style.setProperty('--seth', Math.ceil(Math.min(cap, chrome + tallest + 4)) + 'px');
+  let h = Math.ceil(Math.min(cap, Math.max(chrome + tallest + 4, m._sethMin || 0))); if (!fresh && m._sethMin && Math.abs(h - m._sethMin) <= 3) h = m._sethMin;   // a pixel or two of re-measuring isn't worth a nudge
+  m.style.setProperty('--seth', h + 'px'); m._sethMin = h;
   // a row appearing or going (e.g. the 2024 exhaustion rule adds one) re-fits the window
   if (typeof ResizeObserver === 'function') { if (!m._setRO) m._setRO = new ResizeObserver(() => { clearTimeout(m._setRT); m._setRT = setTimeout(() => { if (settingsOpen()) fitSettingsHeight(); }, 80); }); m._setRO.disconnect(); $$('.setx .stpane').forEach(p => m._setRO.observe(p)); }
   // whatever the measuring missed (padding, margins) shows up as scroll on the open tab: add it on
-  requestAnimationFrame(() => { const x = $('.setx'); if (!x || !m.isConnected) return; const more = x.scrollHeight - x.clientHeight; if (more > 0) m.style.setProperty('--seth', Math.ceil(Math.min(cap, m.getBoundingClientRect().height + more + 2)) + 'px'); });
+  requestAnimationFrame(() => { const x = $('.setx'); if (!x || !m.isConnected) return; const more = x.scrollHeight - x.clientHeight; if (more > 3 || (more > 0 && fresh)) { const h2 = Math.ceil(Math.min(cap, m.getBoundingClientRect().height + more + 2)); m.style.setProperty('--seth', h2 + 'px'); m._sethMin = Math.max(m._sethMin || 0, h2); } });
 }
-addEventListener('resize', () => { if (typeof settingsOpen === 'function' && settingsOpen()) fitSettingsHeight(); });
+addEventListener('resize', () => { if (typeof settingsOpen === 'function' && settingsOpen()) fitSettingsHeight(true); });
 function settingsOpen() { return $('#modal').classList.contains('open') && !!$('.setx'); }
 function setTabInk(anim) { const on = $('.stabs .stab.on'), ink = $('.stabs .stab-ink'); if (!on || !ink) return; ink.style.transition = anim ? '' : 'none'; ink.style.width = on.offsetWidth + 'px'; ink.style.transform = `translateX(${on.offsetLeft}px)`; if (anim) { const bar = on.parentElement; if (bar && bar.scrollWidth > bar.clientWidth) bar.scrollTo({ left: on.offsetLeft - (bar.clientWidth - on.offsetWidth) / 2, behavior: 'smooth' }); } const mb = $('#modal-body'); if (mb && mb.scrollLeft) mb.scrollLeft = 0; }
 function switchSetTab(k) {
@@ -22548,6 +22558,8 @@ function ddbBuild0(d, opt = {}) {
   const extra = [nt.personalPossessions && 'Possessions: ' + txt(nt.personalPossessions), nt.otherHoldings && 'Holdings: ' + txt(nt.otherHoldings), nt.otherNotes && txt(nt.otherNotes), t.appearance && 'Appearance: ' + txt(t.appearance)].filter(Boolean).join('\n\n');
   S.notes = [{ date: new Date().toISOString().slice(0, 10), title: 'Imported from D&D Beyond', text: `${S.name}: ${S.raceName} ${classLabel()}${S.backgroundName ? ', ' + S.backgroundName : ''}.` + (extra ? '\n\n' + extra : '') }];
   S.ddb = { id: N(d.id), at: Date.now() };
+  // Ability Score Improvements were already spent on D&D Beyond (the scores and feats above include them), so they aren't asked for again
+  S.dismissed = Object.assign({}, S.dismissed); S.classes.forEach(r => (CL[r.key].asi || []).filter(l => l <= N(r.level)).forEach(l => { S.dismissed[`asi.${r.key}.${l}`] = true; }));
   // carrying rules as the character used them on D&D Beyond (off there unless turned on)
   const enc = { 1: 'standard', 2: 'off', 3: 'variant' }[N((d.preferences || {}).encumbranceType)];
   if (enc) { S.settings = Object.assign({}, S.settings, { encumbrance: enc }); S.fixesDone = [...new Set((S.fixesDone || []).concat(['enc1', 'bullets1']))]; }

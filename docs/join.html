@@ -9,13 +9,13 @@
     try { var u = JSON.parse(localStorage.getItem('dnd-sheet-ui') || '{}'); var m = u.layout ? u.layout === 'mobile' : window.innerWidth < 640; if (m) document.documentElement.classList.add('mobile'); } catch (e) {}
     var t = null;
     try { t = localStorage.getItem('dnd-sheet-theme'); } catch (e) {}
-    if (!t) t = (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+    if (t !== 'light') t = 'dark';
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
 <link rel="stylesheet" href="a/sheet.57b625b5e2a2.css">
 <link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="You’re invited to join a party on Adventurer’s Tome."><meta property="og:type" content="website"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="You’re invited to join a party"><meta property="og:description" content="Pick a character, or make a new one, and join your DM’s game on Adventurer’s Tome."><meta property="og:url" content="https://adventurers-tome.web.app/join/"><meta property="og:image" content="https://adventurers-tome.web.app/og-invite.png?v=2"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="2400"><meta property="og:image:height" content="1260"><meta property="og:image:alt" content="A party invitation on Adventurer’s Tome"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-tour.png?v=3"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
-<link rel="manifest" href="manifest.webmanifest"><script>try{var t=localStorage.getItem("pg-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-pgtheme",t)}catch(e){}</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
+<link rel="manifest" href="manifest.webmanifest"><script>var t="dark";try{if(localStorage.getItem("pg-theme")==="light")t="light"}catch(e){}document.documentElement.setAttribute("data-pgtheme",t)</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
 #pg-load { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 40%, #1d2638 0%, #0f1420 70%); color: #e9e3d3; font: 600 15px system-ui, sans-serif; z-index: 9999; }
 #pg-load .pg-spin { display: flex; flex-direction: column; align-items: center; gap: 10px; animation: pg-fade .4s ease both .15s; }
@@ -2368,7 +2368,8 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 .si2-vid { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: #000; box-shadow: 0 0 0 1px rgba(201,150,43,.45), 0 20px 50px rgba(0,0,0,.35); }
 .si2-vid iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
 .si2-try h3 { margin: 0; font: 700 1.15rem Georgia, serif; color: #c9962b; letter-spacing: .01em; }
-.si2-try p { margin: 4px 0 12px; font-size: .88rem; font-weight: 500; opacity: .75; }
+.si2-try { container-type: inline-size; }
+.si2-try p { margin: 4px 0 12px; font-size: min(.88rem, 2.3cqi); font-weight: 500; opacity: .75; white-space: nowrap; }
 .si2-chars { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
 #pg-load .pg-msg a.si2-char, .si2-char { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 12px; text-decoration: none; color: #e9e3d3; background: rgba(255,255,255,.04); border: 1px solid rgba(201,150,43,.22); transition: border-color .15s ease, background .15s ease, transform .15s ease; min-width: 0; }
 .si2-char:hover, .si2-char:focus-visible { border-color: var(--c); background: color-mix(in srgb, var(--c) 10%, transparent); transform: translateY(-1px); }
@@ -2410,7 +2411,7 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
    the video sizes itself to the window's height so the page fits on one screen */
 @media (min-width: 921px) {
   #pg-load:has(.pg-si2) { padding-top: 18px; padding-bottom: 16px; }
-  .pg-si2 { --lw: min(calc(min(1600px, var(--VW, 100vw) - 32px) - 380px - 24px), max(520px, calc((var(--VH, 100dvh) - 330px) * 16 / 9)));
+  .pg-si2 { --lw: min(calc(min(1600px, var(--VW, 100vw) - 32px) - 600px - 24px), max(520px, calc((var(--VH, 100dvh) - 330px) * 16 / 9)));
     grid-template-columns: var(--lw) minmax(380px, 1fr); grid-template-areas: 'sign sign' 'vid try' 'feat feat'; gap: 18px 24px; align-items: stretch; width: min(1600px, 100%); }
   .pg-si2 .pg-signin { grid-area: sign; order: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0 30px; padding: 16px 26px; text-align: left; }
   .pg-si2 .pg-signin .hub-logo { margin: 0; gap: 12px; }
@@ -2539,7 +2540,7 @@ addEventListener('pageshow', e => { if (e.persisted) document.querySelectorAll('
 window.pgGo = pgGo;
 // ================= Light / dark =================
 // Follows the device until someone picks one with the sun/moon button in the lobby; the pick is kept on this device.
-const pgDark = () => { const t = document.documentElement.getAttribute('data-pgtheme'); if (t) return t === 'dark'; try { return matchMedia('(prefers-color-scheme: dark)').matches; } catch (e) { return false; } };
+const pgDark = () => { const t = document.documentElement.getAttribute('data-pgtheme'); if (t) return t === 'dark'; return true; };
 const PG_SUN = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>';
 const PG_MOON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
 const themeLabel = () => pgDark() ? 'Switch to light mode' : 'Switch to dark mode';
@@ -3135,7 +3136,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024184419', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.2efb8ab79f89.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.86f23f071310.html", "desk": "a/desk.0cb91ca90853.js", "deskcss": "a/deskcss.77a5595d7caa.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024185118', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.9bf6d2d63d11.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.6d485758a6ed.html", "desk": "a/desk.0cb91ca90853.js", "deskcss": "a/deskcss.77a5595d7caa.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -3405,7 +3406,7 @@ function wireDie(root) {
   const kick = msg => { lsSet('pg-kicked', msg); auth.signOut().then(() => pgGo(PRETTY ? '/login' : location.href, true)); };
   // (when the database refuses even their own account record, an admin has signed them out or blocked them)
   const LOCKED = 'You’ve been signed out.';
-  { const k0 = kicked(ME) || (ACCT_ERR === 'permission-denied' ? LOCKED : ''); if (k0) { kick(k0); return; } }
+  { const k0 = kicked(ME); if (k0) { kick(k0); return; } if (ACCT_ERR === 'permission-denied') { kick(''); return; } }  // only an admin's sign-out or a block says why
   UREF.onSnapshot(d => { { const nm = d.exists && String(d.data().name || ''); if (nm && nm !== NAME) { const old = NAME; NAME = nm; if (ME) ME.name = nm; try { window.dispatchEvent(new CustomEvent('pg-myname', { detail: { name: nm, old } })); } catch (e) {} } } /* renamed (by an admin, or on another device): every open page picks it up straight away */ { const sa = d.exists && Number(d.data().seenAt), sf = d.exists && Number(d.data().seenFg); if (sa > (window.pgSeenAt || 0)) window.pgSeenAt = sa; if (sf > (window.pgFgAt || 0)) window.pgFgAt = sf; } const k = kicked(d.exists ? d.data() : null); if (k) kick(k); else { const u = d.exists ? d.data() : null, ra = Number(u && u.reloadAt) || 0; if (PG_RA === null) PG_RA = ra; else if (ra && ra !== PG_RA) { PG_RA = ra; location.reload(); return; } pgMsg(u); } }, e => { if (e && e.code === 'permission-denied') kick(LOCKED); });
   // A message from the site's admin: pops up once (on whichever device sees it first), on any page.
   // Web addresses in a message become links (opened in a new tab). Runs on already-escaped text.
@@ -4010,8 +4011,12 @@ function signIn(auth, say) {
   // Big screens (or a low display scale): the whole sign-in page is scaled up as one piece, so it fills the screen the
   // same way it does on a 1080p monitor instead of leaving empty space around it.
   const siFit = () => { const el = document.querySelector('.pg-si2'); if (!el) { removeEventListener('resize', siFit); return; }
-    const W = innerWidth, H = innerHeight, z = W > 920 ? Math.max(1, Math.min(W / 1900, H / 930)) : 1, z2 = z < 1.03 ? 1 : Math.round(z * 100) / 100;
-    el.style.zoom = z2 === 1 ? '' : z2; el.style.setProperty('--VW', (W / z2) + 'px'); el.style.setProperty('--VH', (H / z2) + 'px'); };
+    // The browser's own zoom (Ctrl + / −) still works on top: it's read from how the window's size compares with the page's
+    // and left out of the fit, so zooming in still makes things bigger. (outerWidth is in screen pixels, innerWidth in page pixels.)
+    const r = outerWidth && innerWidth ? outerWidth / innerWidth : 1, steps = [.25, .33, .5, .67, .75, .8, .9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5],
+      bz = steps.find(v => Math.abs(r - v) / v < .025) || 1;
+    const W = innerWidth * bz, H = innerHeight * bz, z = innerWidth > 920 && W > 920 ? Math.max(1, Math.min(W / 1900, H / 930)) : 1, z2 = z < 1.03 ? 1 : Math.round(z * 100) / 100;
+    el.style.zoom = z2 === 1 ? '' : z2; el.style.setProperty('--VW', (innerWidth / z2) + 'px'); el.style.setProperty('--VH', (innerHeight / z2) + 'px'); };
   siFit(); addEventListener('resize', siFit);
   // Errors and the "check your email" note show in the box just above the bottom divider (where "You've been signed
   // out" appears), replacing it; the hint line under the email field stays as it is.

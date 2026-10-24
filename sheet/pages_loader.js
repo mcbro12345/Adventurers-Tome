@@ -31,7 +31,7 @@ addEventListener('pageshow', e => { if (e.persisted) document.querySelectorAll('
 window.pgGo = pgGo;
 // ================= Light / dark =================
 // Follows the device until someone picks one with the sun/moon button in the lobby; the pick is kept on this device.
-const pgDark = () => { const t = document.documentElement.getAttribute('data-pgtheme'); if (t) return t === 'dark'; try { return matchMedia('(prefers-color-scheme: dark)').matches; } catch (e) { return false; } };
+const pgDark = () => { const t = document.documentElement.getAttribute('data-pgtheme'); if (t) return t === 'dark'; return true; };
 const PG_SUN = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>';
 const PG_MOON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
 const themeLabel = () => pgDark() ? 'Switch to light mode' : 'Switch to dark mode';
@@ -897,7 +897,7 @@ function wireDie(root) {
   const kick = msg => { lsSet('pg-kicked', msg); auth.signOut().then(() => pgGo(PRETTY ? '/login' : location.href, true)); };
   // (when the database refuses even their own account record, an admin has signed them out or blocked them)
   const LOCKED = 'You’ve been signed out.';
-  { const k0 = kicked(ME) || (ACCT_ERR === 'permission-denied' ? LOCKED : ''); if (k0) { kick(k0); return; } }
+  { const k0 = kicked(ME); if (k0) { kick(k0); return; } if (ACCT_ERR === 'permission-denied') { kick(''); return; } }  // only an admin's sign-out or a block says why
   UREF.onSnapshot(d => { { const nm = d.exists && String(d.data().name || ''); if (nm && nm !== NAME) { const old = NAME; NAME = nm; if (ME) ME.name = nm; try { window.dispatchEvent(new CustomEvent('pg-myname', { detail: { name: nm, old } })); } catch (e) {} } } /* renamed (by an admin, or on another device): every open page picks it up straight away */ { const sa = d.exists && Number(d.data().seenAt), sf = d.exists && Number(d.data().seenFg); if (sa > (window.pgSeenAt || 0)) window.pgSeenAt = sa; if (sf > (window.pgFgAt || 0)) window.pgFgAt = sf; } const k = kicked(d.exists ? d.data() : null); if (k) kick(k); else { const u = d.exists ? d.data() : null, ra = Number(u && u.reloadAt) || 0; if (PG_RA === null) PG_RA = ra; else if (ra && ra !== PG_RA) { PG_RA = ra; location.reload(); return; } pgMsg(u); } }, e => { if (e && e.code === 'permission-denied') kick(LOCKED); });
   // A message from the site's admin: pops up once (on whichever device sees it first), on any page.
   // Web addresses in a message become links (opened in a new tab). Runs on already-escaped text.
@@ -1502,8 +1502,12 @@ function signIn(auth, say) {
   // Big screens (or a low display scale): the whole sign-in page is scaled up as one piece, so it fills the screen the
   // same way it does on a 1080p monitor instead of leaving empty space around it.
   const siFit = () => { const el = document.querySelector('.pg-si2'); if (!el) { removeEventListener('resize', siFit); return; }
-    const W = innerWidth, H = innerHeight, z = W > 920 ? Math.max(1, Math.min(W / 1900, H / 930)) : 1, z2 = z < 1.03 ? 1 : Math.round(z * 100) / 100;
-    el.style.zoom = z2 === 1 ? '' : z2; el.style.setProperty('--VW', (W / z2) + 'px'); el.style.setProperty('--VH', (H / z2) + 'px'); };
+    // The browser's own zoom (Ctrl + / −) still works on top: it's read from how the window's size compares with the page's
+    // and left out of the fit, so zooming in still makes things bigger. (outerWidth is in screen pixels, innerWidth in page pixels.)
+    const r = outerWidth && innerWidth ? outerWidth / innerWidth : 1, steps = [.25, .33, .5, .67, .75, .8, .9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5],
+      bz = steps.find(v => Math.abs(r - v) / v < .025) || 1;
+    const W = innerWidth * bz, H = innerHeight * bz, z = innerWidth > 920 && W > 920 ? Math.max(1, Math.min(W / 1900, H / 930)) : 1, z2 = z < 1.03 ? 1 : Math.round(z * 100) / 100;
+    el.style.zoom = z2 === 1 ? '' : z2; el.style.setProperty('--VW', (innerWidth / z2) + 'px'); el.style.setProperty('--VH', (innerHeight / z2) + 'px'); };
   siFit(); addEventListener('resize', siFit);
   // Errors and the "check your email" note show in the box just above the bottom divider (where "You've been signed
   // out" appears), replacing it; the hint line under the email field stays as it is.

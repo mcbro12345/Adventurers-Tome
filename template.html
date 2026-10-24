@@ -9,7 +9,7 @@
     try { var u = JSON.parse(localStorage.getItem('dnd-sheet-ui') || '{}'); var m = u.layout ? u.layout === 'mobile' : window.innerWidth < 640; if (m) document.documentElement.classList.add('mobile'); } catch (e) {}
     var t = null;
     try { t = localStorage.getItem('dnd-sheet-theme'); } catch (e) {}
-    if (!t) t = (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+    if (t !== 'light') t = 'dark';
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
