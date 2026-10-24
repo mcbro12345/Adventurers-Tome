@@ -2353,6 +2353,12 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
   body.hubbody .pm > .pm-csts span, body.hubbody .pm-csts.pm-quad span { padding: 6px 4px; border-top: 0 !important; }
   body.hubbody .pm > .pm-csts span + span, body.hubbody .pm-csts.pm-quad span + span { border-left: 1px solid rgba(127,127,127,.22) !important; }
 }
+
+/* Videos in notices and welcome messages (a YouTube or Vimeo link on its own line) */
+#pg-msg .pgm-t .pgm-vid, .pgm-vid { position: relative; width: 100%; aspect-ratio: 16 / 9; margin: 8px 0 10px; border-radius: 12px; overflow: hidden; background: #000; box-shadow: 0 6px 20px rgba(0,0,0,.35); }
+.pgm-vid iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+.av-pv { margin-top: 12px; }
+.nt-vrow { margin-top: 2px; }
 </style>
 </head>
 <body>
@@ -3020,7 +3026,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261023115702', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.037cb048c9ce.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.57bad5d648bb.html", "desk": "a/desk.076fb7d99e24.js", "deskcss": "a/deskcss.a0fd53e34abe.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261023195042', ASSETS = {"data": "a/data.54b8a6ce2c1d.js", "app": "a/app.037cb048c9ce.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.57bad5d648bb.html", "desk": "a/desk.076fb7d99e24.js", "deskcss": "a/deskcss.a0fd53e34abe.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -3290,11 +3296,20 @@ function wireDie(root) {
   function linkify(h) { return h.replace(/\b(?:https?:\/\/|www\.)[^\s<]+/gi, u => { const tail = (u.match(/[.,;:!?)\]'"]+$/) || [''])[0], url = tail ? u.slice(0, -tail.length) : u;
     return `<a href="${/^www\./i.test(url) ? 'https://' + url : url}" target="_blank" rel="noopener noreferrer">${url}</a>${tail}`; }); }
   // Light formatting in messages and notices: **bold**, *italic*, "# " heading lines and "- " list lines.
+  // A YouTube or Vimeo link on a line by itself plays right in the message (privacy-enhanced YouTube player).
+  function pgVideo(line) { const u = String(line).trim().replace(/&amp;/g, '&'); if (!/^https?:\/\/\S+$/i.test(u)) return '';
+    let m, src = '';
+    if ((m = /^https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})(?:[?&#].*)?$/i.exec(u))) {
+      const t = /[?&#]t=(\d+)s?/.exec(u) || /[?&]start=(\d+)/.exec(u); src = 'https://www.youtube-nocookie.com/embed/' + m[1] + '?rel=0' + (t ? '&start=' + Number(t[1]) : ''); }
+    else if ((m = /^https?:\/\/(?:www\.)?vimeo\.com\/(?:video\/)?(\d{5,12})(?:\/([0-9a-f]{6,20}))?(?:[?#].*)?$/i.exec(u)) || (m = /^https?:\/\/player\.vimeo\.com\/video\/(\d{5,12})(?:\?(?:.*&)?h=([0-9a-f]{6,20}))?/i.exec(u))) src = 'https://player.vimeo.com/video/' + m[1] + (m[2] ? '?h=' + m[2] : '');
+    return src ? `<div class="pgm-vid"><iframe src="${src}" title="Video" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>` : ''; }
+  window.pgVideoHTML = l => pgVideo(escH(l));
   function pgMark(t) { const inl = h => linkify(h.replace(/\*\*(?=\S)([^*]+?)\*\*/g, '<b>$1</b>').replace(/(^|[^*\w])\*(?=\S)([^*]+?)\*(?!\w)/g, '$1<i>$2</i>'));
     let out = '', ul = false;
     escH(String(t || '')).split('\n').forEach(l => { const li = /^\s*[-•]\s+(.*)$/.exec(l), hd = /^\s*#{1,3}\s+(.*)$/.exec(l);
       if (li) { out += (ul ? '' : '<ul>') + '<li>' + inl(li[1]) + '</li>'; ul = true; return; }
       if (ul) { out += '</ul>'; ul = false; }
+      const vid = !hd && pgVideo(l); if (vid) { out += vid; return; }
       out += hd ? '<b class="pgm-hd">' + inl(hd[1]) + '</b>' : inl(l) + '<br>'; });
     return (ul ? out + '</ul>' : out).replace(/(<br>)+$/, ''); }
   // A notice (to everyone) has its own slot beside the personal message, so neither replaces the other; they show one after the other.
@@ -4869,7 +4884,23 @@ function hub(fs, auth, G, ctx) {
     // a new one replaces it for anyone who hasn't seen it yet, and Revoke takes it back. Every notice is kept in the log.
     const noticesCol = fs.collection('notices'), FV = firebase.firestore.FieldValue;
     const NT_W = [[480, 'Narrow'], [720, 'Normal'], [960, 'Wide'], [1200, 'Extra wide']], ntWSel = (id, cur) => `<select class="adm-sel" id="${id}">${NT_W.map(([v, l]) => `<option value="${v}"${v === (Number(cur) || 720) ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
-    const NT_FMT = '<p class="adm-note nt-fmt">**bold** · *italic* · <code># Heading</code> on its own line · <code>- </code> for a list · web addresses become links</p>';
+    const NT_FMT = '<p class="adm-note nt-fmt">**bold** · *italic* · <code># Heading</code> on its own line · <code>- </code> for a list · web addresses become links · a YouTube or Vimeo link on its own line plays as a video</p>';
+    const NT_VID = id => `<button class="adm-btn" type="button" data-addvid="${id}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px;margin-right:5px"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z" fill="currentColor"/></svg>Add video</button>`;
+    // Add video: paste a YouTube or Vimeo link; it goes in on its own line where the cursor is
+    const wireVid = root => root.querySelectorAll('[data-addvid]').forEach(b => b.onclick = () => { const ta = root.querySelector('#' + b.dataset.addvid); if (!ta) return; const at = ta.selectionStart, end = ta.selectionEnd;
+      const back = modal.innerHTML, wasOn = modal.classList.contains('on');
+      modal.innerHTML = `<div class="hub-card"><h2>Add a video</h2><p class="hub-hint">Paste a YouTube or Vimeo link. It plays right inside the message.</p>
+        <input id="av-u" class="ad-search" type="url" placeholder="https://www.youtube.com/watch?v=…" autocomplete="off"><p class="adm-note" id="av-e" hidden>That isn’t a YouTube or Vimeo video link.</p>
+        <div class="pgm-vid av-pv" id="av-pv" hidden></div>
+        <div class="row"><button class="btn ghost" id="av-x">Cancel</button><button class="btn gold" id="av-ok" disabled>Add video</button></div></div>`;
+      modal.classList.add('on'); const u = modal.querySelector('#av-u'), ok = modal.querySelector('#av-ok'), er = modal.querySelector('#av-e'), pv = modal.querySelector('#av-pv'); setTimeout(() => u.focus(), 30);
+      const shut = () => { if (wasOn) modal.innerHTML = back; else close(); };
+      u.oninput = () => { const v = u.value.trim(), h = v && window.pgVideoHTML(v); ok.disabled = !h; er.hidden = !v || !!h; pv.hidden = !h; if (h && pv.dataset.u !== v) { pv.dataset.u = v; pv.innerHTML = h.replace(/^<div class="pgm-vid">|<\/div>$/g, ''); } };
+      u.onkeydown = e => { if (e.key === 'Enter' && !ok.disabled) ok.click(); };
+      modal.querySelector('#av-x').onclick = shut;
+      ok.onclick = () => { const v = u.value.trim(), t = ta.value, pre = t.slice(0, at), post = t.slice(end);
+        const ins = (pre && !pre.endsWith('\n') ? '\n' : '') + v + (post.startsWith('\n') ? '' : '\n');
+        ta.value = pre + ins + post; shut(); ta.focus(); const c = (pre + ins).length; ta.setSelectionRange(c, c); ta.dispatchEvent(new Event('input', { bubbles: true })); }; });
     // the welcome message new accounts start with until one is saved
     const WELCOME0 = 'Hey, glad you\'re here!\n\nThis is where your D&D characters live. Make a character, keep everything on one sheet, and play from your computer or your phone.\n\n# What you can do\n- **Make a character** step by step. It walks you through everything\n- **Roll from your sheet.** Tap any attack, skill or save to roll it\n- **Spells, items and HP** are all tracked for you, rests and level ups too\n- **Share your character** with friends or your DM so they can look at it or help edit it\n- **Join a party** with your group. Heal each other, cast spells on each other and hand over loot\n- **Use Roll20?** Get the Roll20 extension in Settings → Dice and your rolls go straight into your game\n\n# Getting started\nHit **Create character** in the lobby and you\'re off. If your DM sent you a party invite link, open it and pick your character to join.\n\nHave fun!';
     const copyText = async (t, b) => { try { await navigator.clipboard.writeText(t); } catch (e) { const x = document.createElement('textarea'); x.value = t; x.style.position = 'fixed'; x.style.opacity = '0'; document.body.appendChild(x); x.select(); try { document.execCommand('copy'); } catch (e2) {} x.remove(); }
@@ -4898,14 +4929,14 @@ function hub(fs, auth, G, ctx) {
       const row = n => `<tr><td>${when(n.at)}</td><td class="nt-txt">${esc(String(n.text || '').slice(0, 240))}${String(n.text || '').length > 240 ? '…' : ''}</td><td>${esc(n.byName || n.by || '')}</td><td><button class="linkbtn nt-seen" data-ntseen="${esc(n.id)}" title="Who’s seen it">${n.endedAt ? seenPast(n) : seenOf(n)} / ${sentOf(n)}</button></td><td><span class="adm-tag">${stat(n)}</span>${n.endedAt ? `<small class="adm-dim"> ${when(n.endedAt)}</small>` : ''}</td><td class="nt-acts"><button class="adm-btn sm" data-ntpv="${esc(n.id)}">Preview</button><button class="adm-btn sm" data-ntcp="${esc(n.id)}">Copy</button></td></tr>`;
       el.innerHTML = `<div class="adm-stats"><div class="adm-stat"><small>Goes to</small><b>${ppl.length}</b></div>${live ? `<button class="adm-stat nt-seenstat" data-ntseen="${esc(live.id)}" title="Who’s seen it"><small>Current notice seen by</small><b>${seenOf(live)} / ${sentOf(live)}</b></button>` : ''}</div>
         ${live ? `<div id="nt-cur"><p class="adm-note"><b>Current notice</b> (sent ${esc(new Date(live.at).toLocaleString())}${live.editedAt ? ', edited ' + esc(new Date(live.editedAt).toLocaleString()) : ''}):<br>“${esc(String(live.text).slice(0, 400))}${String(live.text).length > 400 ? '…' : ''}”</p><div class="row"><button class="adm-btn" id="nt-ed">Edit</button><button class="adm-btn" id="nt-rv">Revoke it</button></div></div>` : '<p class="adm-note">No notice is out right now.</p>'}
-        <h3 class="nt-h">New notice</h3><textarea id="nt-t" class="ad-search pm-t" rows="7" placeholder="Your notice"></textarea>${NT_FMT}
+        <h3 class="nt-h">New notice</h3><textarea id="nt-t" class="ad-search pm-t" rows="7" placeholder="Your notice"></textarea>${NT_FMT}<div class="row nt-vrow">${NT_VID('nt-t')}</div>
         ${live ? '<p class="adm-note">Sending it replaces the current notice for anyone who hasn’t seen it yet.</p>' : ''}<div class="row"><label class="nt-wl">Window width ${ntWSel('nt-w')}</label><button class="adm-btn" id="nt-pv" disabled>Preview</button><button class="adm-btn primary" id="nt-ok" disabled>Send to everyone</button></div>
         <h3 class="nt-h">Past notices</h3>${log.length ? `<div class="adm-tw"><table class="adm-t nt-t"><thead><tr><th>Sent</th><th>Notice</th><th>By</th><th>Seen</th><th>Status</th><th></th></tr></thead><tbody>${log.map(row).join('')}</tbody></table></div>` : '<p class="adm-dim">None yet.</p>'}`;
       // ends the live notice: takes it off everyone who still holds it, and keeps how many saw it
       const end = async (n, how) => { const hold = gotOf(n);
         for (let i = 0; i < hold.length; i += 400) { const bt = fs.batch(); hold.slice(i, i + 400).forEach(u => bt.update(usersCol.doc(u.id), { notice: FV.delete() })); await bt.commit(); }
         await noticesCol.doc(n.id).update({ endedAt: Date.now(), ended: how, seen: seenOf(n), seenBy: seenWho(n) }); if (how === 'revoked') await cfgCol.doc('notice').delete(); };
-      const ta = el.querySelector('#nt-t'), ok = el.querySelector('#nt-ok'), pv = el.querySelector('#nt-pv'); ta.oninput = () => { ok.disabled = pv.disabled = !ta.value.trim(); };
+      const ta = el.querySelector('#nt-t'), ok = el.querySelector('#nt-ok'), pv = el.querySelector('#nt-pv'); ta.oninput = () => { ok.disabled = pv.disabled = !ta.value.trim(); }; wireVid(el);
       pv.onclick = () => { const text = ta.value.trim().slice(0, 200000); if (text) window.pgPreview({ text, at: Date.now(), anon: true, w: Number(el.querySelector('#nt-w').value) }, 'notice'); };
       el.querySelectorAll('[data-ntpv]').forEach(b => b.onclick = () => { const n = log.find(x => x.id === b.dataset.ntpv); if (n) window.pgPreview({ text: n.text, at: n.at, anon: true, w: n.w }, 'notice'); });
       // Copy: the notice exactly as it was typed (formatting marks and all), ready to paste back in or anywhere else
@@ -4914,9 +4945,9 @@ function hub(fs, auth, G, ctx) {
       const ed = el.querySelector('#nt-ed');
       if (ed) ed.onclick = () => { const box = el.querySelector('#nt-cur');
         box.innerHTML = `<p class="adm-note"><b>Edit the current notice.</b> People who’ve already seen it won’t see it again; everyone who hasn’t gets this version.</p>
-          <textarea id="ne-t" class="ad-search pm-t" rows="9">${esc(live.text || '')}</textarea>${NT_FMT}
+          <textarea id="ne-t" class="ad-search pm-t" rows="9">${esc(live.text || '')}</textarea>${NT_FMT}<div class="row nt-vrow">${NT_VID('ne-t')}</div>
           <div class="row"><label class="nt-wl">Window width ${ntWSel('ne-w', live.w)}</label><button class="adm-btn" id="ne-x">Cancel</button><button class="adm-btn" id="ne-pv">Preview</button><button class="adm-btn primary" id="ne-ok">Save changes</button></div>`;
-        const et = box.querySelector('#ne-t'), ev = () => ({ text: et.value.trim().slice(0, 200000), w: Number(box.querySelector('#ne-w').value) || 720 }); et.focus();
+        wireVid(box); const et = box.querySelector('#ne-t'), ev = () => ({ text: et.value.trim().slice(0, 200000), w: Number(box.querySelector('#ne-w').value) || 720 }); et.focus();
         box.querySelector('#ne-x').onclick = () => tabNotice();
         box.querySelector('#ne-pv').onclick = () => { const v = ev(); if (v.text) window.pgPreview({ text: v.text, at: live.at, anon: true, w: v.w }, 'notice'); };
         box.querySelector('#ne-ok').onclick = async e => { const v = ev(), b = e.currentTarget; if (!v.text) return toast('The notice can’t be empty.'); b.disabled = true;
@@ -4979,10 +5010,10 @@ function hub(fs, auth, G, ctx) {
       try { [all, wel, live] = await Promise.all([usersCol.limit(2000).get().then(docs), cfgCol.doc('welcome').get().then(d => d.exists ? d.data() : null, () => null), cfgCol.doc('notice').get().then(d => d.exists ? d.data() : null, () => null)]); } catch (x) { el.innerHTML = failMsg(x); return; } await quietP; seeOwners(all);
       el.innerHTML = `<div class="adm-stats"><div class="adm-stat"><small>Status</small><b>${wel && wel.on ? 'On' : 'Off'}</b></div><button class="adm-stat nt-seenstat" id="wl-seen" title="Who’s seen it"><small>Seen by</small><b>${all.filter(u => u.welcomeSeen && counted(u.id)).length}</b></button></div>
         <p class="adm-note">${wel && wel.on ? `New accounts see this the first time they sign in${live ? ', then the current notice (with a Next button)' : ''}.` : 'Nothing is shown yet. Edit the message below, check it with Preview, then <b>Save and turn on</b>.'}</p>
-        <textarea id="wl-t" class="ad-search pm-t" rows="12" placeholder="Welcome message">${esc((wel && wel.text) || WELCOME0)}</textarea>${NT_FMT}
+        <textarea id="wl-t" class="ad-search pm-t" rows="12" placeholder="Welcome message">${esc((wel && wel.text) || WELCOME0)}</textarea>${NT_FMT}<div class="row nt-vrow">${NT_VID('wl-t')}</div>
         <div class="row"><label class="nt-wl">Window width ${ntWSel('wl-w', wel && wel.w)}</label><button class="adm-btn" id="wl-pv">Preview</button><button class="adm-btn" id="wl-cp">Copy</button>${wel && wel.on ? '<button class="adm-btn" id="wl-off">Turn off</button>' : ''}<button class="adm-btn primary" id="wl-ok">${wel && wel.on ? 'Save changes' : 'Save and turn on'}</button></div>`;
       // the first-time welcome: one shared message (config/welcome) that every new account reads on its first sign-in
-      const wt = el.querySelector('#wl-t'), wv = () => ({ text: wt.value.trim().slice(0, 200000), w: Number(el.querySelector('#wl-w').value) || 720 }), fail = x => toast('Couldn’t save it: ' + ((x && (x.code === 'permission-denied' ? 'the new database rules need publishing' : x.message)) || x));
+      wireVid(el); const wt = el.querySelector('#wl-t'), wv = () => ({ text: wt.value.trim().slice(0, 200000), w: Number(el.querySelector('#wl-w').value) || 720 }), fail = x => toast('Couldn’t save it: ' + ((x && (x.code === 'permission-denied' ? 'the new database rules need publishing' : x.message)) || x));
       el.querySelector('#wl-pv').onclick = () => { const v = wv(); if (v.text) window.pgPreviewWelcome(Object.assign({ at: Date.now(), anon: true }, v), live ? { text: live.text, at: live.at, anon: true, w: live.w } : null); };
       el.querySelector('#wl-cp').onclick = e => copyText(wt.value, e.currentTarget);
       // seen: everyone marked seen; not yet: accounts it's waiting for (made since it was turned on, or shown again to them)
