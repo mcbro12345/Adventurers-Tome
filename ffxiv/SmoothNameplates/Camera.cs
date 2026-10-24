@@ -25,9 +25,12 @@ internal unsafe struct View
 
         Matrix4x4 view = scene->ViewMatrix;
         Matrix4x4 proj = scene->RenderCamera->ProjectionMatrix;
-        if (!Matrix4x4.Invert(view, out var inverse)) return v;
         v.ViewProj = view * proj;
-        v.Position = inverse.Translation;
+        // the camera's position is the inverse view's translation; the game may leave the view matrix's last column
+        // unset, so invert it as the affine matrix it is
+        var affine = view;
+        affine.M14 = 0; affine.M24 = 0; affine.M34 = 0; affine.M44 = 1;
+        v.Position = Matrix4x4.Invert(affine, out var inverse) ? inverse.Translation : (Vector3)scene->Object.Position;
         v.Width = device->Width;
         v.Height = device->Height;
         v.Ok = true;
