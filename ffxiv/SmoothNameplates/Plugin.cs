@@ -52,9 +52,6 @@ public sealed unsafe class Plugin : IDalamudPlugin
         public Vector3 Anchor;
         public float GameX, GameY;    // the game's whole-pixel spot this update
         public OneEuro Ox, Oy;        // game spot minus our projection
-        public float BaseX, BaseY;    // where the game put the node
-        public float WroteX, WroteY;  // where we put it
-        public bool Placed;
     }
 
     private readonly Plate[] plates = new Plate[Count];
@@ -198,14 +195,12 @@ public sealed unsafe class Plugin : IDalamudPlugin
         if (!Cfg.Smooth) return;
         var addon = (AddonNamePlate*)args.Addon.Address;
         if (addon == null || addon->NamePlateObjectArray == null) return;
-        var scale = addon->Scale > 0 ? addon->Scale : 1f;
-
         for (var i = 0; i < Count; i++)
         {
             ref var p = ref plates[i];
             if (!p.Live || !p.Ox.Ready) continue;
-            var node = (AtkResNode*)addon->NamePlateObjectArray[i].RootComponentNode;
-            if (node == null || !GameGui.WorldToScreen(p.Anchor, out var s)) continue;
+            var root = addon->NamePlateObjectArray[i].RootComponentNode;
+            if (root == null || !GameGui.WorldToScreen(p.Anchor, out var s)) continue;
 
             var wantX = s.X + p.Ox.X;
             var wantY = s.Y + p.Oy.X;
@@ -215,13 +210,32 @@ public sealed unsafe class Plugin : IDalamudPlugin
                 wantY = MathF.Round(wantY * 2) / 2;
             }
 
-            // if the node still sits where we left it, the game didn't move it since
-            if (!p.Placed || node->X != p.WroteX || node->Y != p.WroteY) { p.BaseX = node->X; p.BaseY = node->Y; }
-            p.WroteX = p.BaseX + (wantX - p.GameX) / scale;
-            p.WroteY = p.BaseY + (wantY - p.GameY) / scale;
-            p.Placed = true;
-            node->SetPositionFloat(p.WroteX, p.WroteY);
+            // The game already turned X/Y into screen positions for this frame, so moving X/Y now would only show up
+            // after the next update overwrote it. Shift the finished screen positions of the plate's nodes instead.
+            var dx = wantX - p.GameX;
+            var dy = wantY - p.GameY;
+            Shift((AtkResNode*)root, dx, dy);
+            var comp = root->Component;
+            if (comp == null) continue;
+            var list = comp->UldManager.NodeList;
+            for (var n = 0; list != null && n < comp->UldManager.NodeListCount; n++)
+                if (list[n] != null) Shift(list[n], dx, dy);
         }
+    }
+
+    private struct NodeShift { public float WroteX, WroteY, Dx, Dy; }
+    private readonly Dictionary<nint, NodeShift> shifts = new();
+
+    private void Shift(AtkResNode* node, float dx, float dy)
+    {
+        var x = node->ScreenX;
+        var y = node->ScreenY;
+        // a node the game didn't recompute since last frame still carries our previous shift: take it off first
+        if (shifts.TryGetValue((nint)node, out var old) && x == old.WroteX && y == old.WroteY) { x -= old.Dx; y -= old.Dy; }
+        var n = new NodeShift { WroteX = x + dx, WroteY = y + dy, Dx = dx, Dy = dy };
+        node->ScreenX = n.WroteX;
+        node->ScreenY = n.WroteY;
+        shifts[(nint)node] = n;
     }
 
     // The world point the game itself projects for this plate (above the head), else the object's position.
