@@ -2273,7 +2273,7 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
    the video sizes itself to the window's height so the page fits on one screen */
 @media (min-width: 921px) {
   #pg-load:has(.pg-si2) { padding-top: 18px; padding-bottom: 16px; }
-  .pg-si2 { --lw: min(calc(min(1600px, 100vw - 32px) - 380px - 24px), max(520px, calc((100dvh - 330px) * 16 / 9)));
+  .pg-si2 { --lw: min(calc(min(1600px, var(--VW, 100vw) - 32px) - 380px - 24px), max(520px, calc((var(--VH, 100dvh) - 330px) * 16 / 9)));
     grid-template-columns: var(--lw) minmax(380px, 1fr); grid-template-areas: 'sign sign' 'vid try' 'feat feat'; gap: 18px 24px; align-items: stretch; width: min(1600px, 100%); }
   .pg-si2 .pg-signin { grid-area: sign; order: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0 30px; padding: 16px 26px; text-align: left; }
   .pg-si2 .pg-signin .hub-logo { margin: 0; gap: 12px; }

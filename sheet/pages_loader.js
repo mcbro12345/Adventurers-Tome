@@ -1499,6 +1499,12 @@ function signIn(auth, say) {
     <div class="si2-help"><p class="pg-contact">Trouble signing in? <a href="${CONTACT}">Contact</a></p><p class="pg-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy policy</a><span aria-hidden="true"> · </span><a href="/terms" target="_blank" rel="noopener">Terms</a><span aria-hidden="true"> · </span><a href="/accessibility" target="_blank" rel="noopener">Accessibility</a></p></div></div><div class="si2-vbox">${vid}</div>${tries}${feats}</div>${a2hsHTML()}`);
   wireA2HS(document.getElementById('pg-load'));
   wireDie(document.getElementById('pg-load'));
+  // Big screens (or a low display scale): the whole sign-in page is scaled up as one piece, so it fills the screen the
+  // same way it does on a 1080p monitor instead of leaving empty space around it.
+  const siFit = () => { const el = document.querySelector('.pg-si2'); if (!el) { removeEventListener('resize', siFit); return; }
+    const W = innerWidth, H = innerHeight, z = W > 920 ? Math.max(1, Math.min(W / 1900, H / 930)) : 1, z2 = z < 1.03 ? 1 : Math.round(z * 100) / 100;
+    el.style.zoom = z2 === 1 ? '' : z2; el.style.setProperty('--VW', (W / z2) + 'px'); el.style.setProperty('--VH', (H / z2) + 'px'); };
+  siFit(); addEventListener('resize', siFit);
   // Errors and the "check your email" note show in the box just above the bottom divider (where "You've been signed
   // out" appears), replacing it; the hint line under the email field stays as it is.
   const msg = (t, ok) => { const card = document.querySelector('.pg-signin'); if (!card) return; let m = card.querySelector('.pg-kicked');
