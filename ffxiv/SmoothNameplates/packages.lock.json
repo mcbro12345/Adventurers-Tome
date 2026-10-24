@@ -13,6 +13,12 @@
         "requested": "[1.2.39, )",
         "resolved": "1.2.39",
         "contentHash": "fcFN01tDTIQqDuTwr1jUQK/geofiwjG5DycJQOnC72i1SsLAk1ELe+apBOuZ11UMQG8YKFZG1FgvjZPbqHyatg=="
+      },
+      "StbTrueTypeSharp": {
+        "type": "Direct",
+        "requested": "[1.26.13, )",
+        "resolved": "1.26.13",
+        "contentHash": "vfl9hIROP2CeDSqPTVxfXrH/ZaFN6o6h0EsoG9aSzErrXUTwp8bZ4NpycVMSKtdmPGBI4eyvTIg1yzGs1jthMw=="
       }
     }
   }

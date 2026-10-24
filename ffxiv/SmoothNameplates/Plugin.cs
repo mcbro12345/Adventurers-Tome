@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
@@ -22,6 +23,11 @@ public sealed unsafe class Plugin : IDalamudPlugin
     [PluginService] internal static IDalamudPluginInterface Pi { get; private set; } = null!;
     [PluginService] internal static IAddonLifecycle Lifecycle { get; private set; } = null!;
     [PluginService] internal static ICommandManager Commands { get; private set; } = null!;
+    [PluginService] internal static IFramework Framework { get; private set; } = null!;
+    [PluginService] internal static ITextureProvider Textures { get; private set; } = null!;
+
+    internal readonly FontSwap Swap = new();
+    private bool swapPending;
 
     private const string Cmd = "/smoothtags";
     private const int Count = 50;
@@ -57,6 +63,33 @@ public sealed unsafe class Plugin : IDalamudPlugin
         Commands.AddHandler(Cmd, new CommandInfo((_, _) => window.Toggle()) { HelpMessage = "Smooth Nameplates settings." });
         Lifecycle.RegisterListener(AddonEvent.PostRequestedUpdate, "NamePlate", OnPostUpdate);
         Lifecycle.RegisterListener(AddonEvent.PreDraw, "NamePlate", OnPreDraw);
+        Framework.Update += OnFrameworkUpdate;
+        swapPending = Cfg.CustomFont.Length > 0;
+    }
+
+    // The custom font goes in on the game thread, once the game's fonts are loaded.
+    private void OnFrameworkUpdate(IFramework framework)
+    {
+        if (!swapPending) return;
+        swapPending = false;
+        ApplyCustomFont();
+    }
+
+    internal void RequestCustomFont() => swapPending = true;
+
+    private void ApplyCustomFont()
+    {
+        if (Cfg.CustomFont.Trim().Length == 0) Swap.Restore();
+        else
+        {
+            Swap.Apply(Cfg.CustomFont, Math.Clamp(Cfg.CustomFamily, 0, FontSwap.Families.Length - 1), Cfg.CustomScale, Cfg.Bold, Textures);
+            // the tags use the family that now carries your font
+            if (Swap.Active) Cfg.Font = FontSwap.Families[Math.Clamp(Cfg.CustomFamily, 0, FontSwap.Families.Length - 1)].Type;
+        }
+        var na = FFXIVClientStructs.FFXIV.Client.UI.Arrays.NamePlateNumberArray.Instance();
+        if (na != null) na->ForceNamePlateRebake = true;
+        Save();
+        ApplyLooks(Addon());
     }
 
     public void Dispose()
@@ -69,6 +102,12 @@ public sealed unsafe class Plugin : IDalamudPlugin
         Pi.UiBuilder.OpenMainUi -= window.Toggle;
         windows.RemoveAllWindows();
         RestoreLooks();
+        Framework.Update -= OnFrameworkUpdate;
+        if (Swap.Active)
+        {
+            if (Framework.IsInFrameworkUpdateThread) Swap.Restore();
+            else Framework.RunOnFrameworkThread(Swap.Restore).Wait();
+        }
     }
 
     internal void Save() => Pi.SavePluginConfig(Cfg);
@@ -202,6 +241,21 @@ internal sealed class ConfigWindow : Window
         look |= ImGui.SliderFloat("Size", ref c.Size, 0.6f, 2f, "%.2fx");
         look |= ImGui.SliderInt("Line spacing", ref c.LineSpacing, -10, 30, "%+d px");
         if (look) plugin.LookChanged();
+
+        ImGui.Separator();
+        ImGui.TextUnformatted("Your own font (experimental)");
+        ImGui.SetNextItemWidth(300);
+        ImGui.InputText("Font file (.ttf/.otf)", ref c.CustomFont, 512);
+        var families = FontSwap.Families.Select(f => f.Label).ToArray();
+        ImGui.SetNextItemWidth(200);
+        ImGui.Combo("Replaces the game's", ref c.CustomFamily, families, families.Length);
+        ImGui.TextDisabled("  Other UI using that font family shows your font too.");
+        ImGui.SliderFloat("Letter size", ref c.CustomScale, 0.6f, 1.4f, "%.2f");
+        ImGui.SliderInt("Bold", ref c.Bold, 0, 3, c.Bold == 0 ? "off" : "%d px");
+        if (ImGui.Button("Apply font")) plugin.RequestCustomFont();
+        ImGui.SameLine();
+        if (ImGui.Button("Back to the game's font")) { c.CustomFont = ""; plugin.RequestCustomFont(); }
+        if (plugin.Swap.Status.Length > 0) ImGui.TextWrapped(plugin.Swap.Status);
         if (ImGui.Button("Reset to defaults")) { plugin.Reset(); plugin.LookChanged(); }
         ImGui.Separator();
         ImGui.TextDisabled($"{plugin.FramesPerSec} frames/s   {plugin.RebakesPerSec} re-renders/s");
