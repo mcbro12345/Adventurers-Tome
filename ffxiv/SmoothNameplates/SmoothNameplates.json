@@ -1,8 +1,8 @@
 {
   "Author": "me",
   "Name": "Smooth Nameplates",
-  "Punchline": "WoW-style name tags: smooth, steady, readable.",
-  "Description": "Draws the game's name text (and other plugins' changes to it) WoW-style: float-positioned vector-like glyphs, steady overhead anchor, no anti-aliasing shake, WoW's distance scale and fade.",
+  "Punchline": "FFXIV's own name tags, in the font you pick, gliding instead of jittering.",
+  "Description": "Changes the game's own name text (font, size, bold, outline, glow, sharpness) and places each tag from the camera's clean projection on a steady point.",
   "ApplicableVersion": "any",
   "Tags": ["nameplate", "ui"]
 }
