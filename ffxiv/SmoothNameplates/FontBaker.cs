@@ -28,20 +28,35 @@ internal static unsafe class FontBaker
 {
     private const int Pad = 2; // empty texels around each glyph, so the game's outline has room
 
+    // capHeight/baseline: the height of the game's own "H" at this size and where its bottom sits below the top of
+    // the line. Matching those keeps every size of the game's font (it switches sizes as tags shrink with distance) in
+    // the same proportion. Without them, the font's whole line is fitted to lineHeight.
     public static BakedFont Bake(byte[] fontFile, IEnumerable<uint> utf8Values, int lineHeight, int ascent,
-                                 float size, int bold, int pageWidth, int pageHeight)
+                                 float size, int bold, int pageWidth, int pageHeight, int capHeight = 0, int capBaseline = 0)
     {
         var result = new BakedFont { PageWidth = pageWidth, PageHeight = pageHeight };
         fixed (byte* data = fontFile)
         {
             var info = new stbtt_fontinfo();
             if (stbtt_InitFont(info, data, 0) == 0) throw new InvalidOperationException("That file isn't a font StbTrueType can read.");
-            // the font's whole line (ascender to descender) fills the game font's line height, times the size setting
-            var scale = stbtt_ScaleForPixelHeight(info, lineHeight * size);
             int fontAscent, fontDescent, lineGap;
             stbtt_GetFontVMetrics(info, &fontAscent, &fontDescent, &lineGap);
-            // our line box starts at the top of the game's line, so at size 1 it fills it exactly
-            var baseline = MathF.Round(fontAscent * scale);
+            float scale, baseline;
+            int hx0, hy0, hx1, hy1;
+            var capGlyph = stbtt_FindGlyphIndex(info, 'H');
+            if (capHeight > 0 && capGlyph != 0 && stbtt_GetGlyphBox(info, capGlyph, &hx0, &hy0, &hx1, &hy1) != 0 && hy1 > 0)
+            {
+                // our "H" as tall as the game's, standing on the same baseline
+                scale = capHeight * size / hy1;
+                baseline = capBaseline;
+            }
+            else
+            {
+                // the font's whole line (ascender to descender) fills the game font's line height; our line box starts at
+                // the top of the game's line
+                scale = stbtt_ScaleForPixelHeight(info, lineHeight * size);
+                baseline = MathF.Round(fontAscent * scale);
+            }
 
             byte[]? page = null;
             int penX = Pad, penY = Pad, rowH = 0;

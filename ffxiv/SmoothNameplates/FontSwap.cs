@@ -126,7 +126,11 @@ internal sealed unsafe class FontSwap
                 saved.Add(s);
 
                 int pageW = font->TextureWidth > 0 ? font->TextureWidth : 1024, pageH = font->TextureHeight > 0 ? font->TextureHeight : 1024;
-                var baked = FontBaker.Bake(bytes, s.Glyphs.Select(g => g.Utf8Value), font->LineHeight, font->Ascent, scale, bold, pageW, pageH);
+                // the game's own "H" at this size: how tall its capitals are and where its baseline is
+                int capH = 0, capBase = 0;
+                foreach (var g in s.Glyphs)
+                    if (g.Utf8Value == 'H') { capH = g.Height; capBase = g.OffsetY + g.Height; break; }
+                var baked = FontBaker.Bake(bytes, s.Glyphs.Select(g => g.Utf8Value), font->LineHeight, font->Ascent, scale, bold, pageW, pageH, capH, capBase);
                 var freeSlots = AtkFontManager.Font.MaxTextures - font->TextureCount;
                 var pages = Math.Min(baked.Pages.Count, freeSlots);
                 var firstSlot = font->TextureCount;
