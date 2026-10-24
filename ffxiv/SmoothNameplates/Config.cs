@@ -16,7 +16,7 @@ public sealed class Config : IPluginConfiguration
 
     // your own font, put into one of the game's font families (see FontSwap)
     public string CustomFont = "";   // path to a .ttf/.otf; empty = off
-    public int CustomFamily = 4;     // index into FontSwap.Families (default: Jupiter)
+    public int CustomFamily = 0;     // index into FontSwap.Families (default: Axis, the tags' own)
     public float CustomScale = 1.0f; // how much of the game font's line the letters fill
     public int Bold = 0;             // faux bold: pixels the letters are thickened by
 }

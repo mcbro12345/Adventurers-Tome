@@ -10,9 +10,10 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 namespace SmoothNameplates;
 
 // Puts the user's own font into one of the game's font families, in memory: for every loaded font file of that family
-// (one per size), the user's font is rendered at that size into new textures added to the font, and each glyph's entry
-// in the game's glyph table is pointed at the new image and given the new spacing. The game then draws "its" font
-// with the user's letters. Everything is put back as it was on Restore.
+// (one per size), the user's font is rendered at that size into new textures added to the font, and our versions of
+// the glyph table entries are prepared (pointing at the new images, with the new spacing). Enable swaps them in and
+// Disable swaps the game's back, so only what draws in between (the name tags) uses the user's letters. Restore puts
+// everything back as it was.
 internal sealed unsafe class FontSwap
 {
     public static readonly (string Label, string File, byte Type)[] Families =
@@ -32,6 +33,33 @@ internal sealed unsafe class FontSwap
         public ushort TextureCount;
         public uint KerningCount;
         public readonly List<nint> Ours = new();
+        public readonly List<(int Index, AtkFontManager.Glyph Glyph)> Swapped = new(); // our versions of the letters we replace
+    }
+
+    private bool enabled;
+
+    // Our letters are only in the glyph table while the name tags are being updated and drawn (Enable ... Disable);
+    // the rest of the game's interface only ever sees its own font. The textures stay in their slots throughout.
+    public void Enable()
+    {
+        if (enabled || saved.Count == 0) return;
+        foreach (var s in saved)
+        {
+            foreach (var (i, g) in s.Swapped) s.Font->Glyphs[i] = g;
+            s.Font->KerningCount = 0; // the game's kerning pairs belong to its own letters
+        }
+        enabled = true;
+    }
+
+    public void Disable()
+    {
+        if (!enabled) return;
+        foreach (var s in saved)
+        {
+            foreach (var (i, _) in s.Swapped) s.Font->Glyphs[i] = s.Glyphs[i];
+            s.Font->KerningCount = s.KerningCount;
+        }
+        enabled = false;
     }
 
     private readonly List<Saved> saved = new();
@@ -117,16 +145,15 @@ internal sealed unsafe class FontSwap
                 {
                     if (!index.TryGetValue(b.Utf8Value, out var g)) continue;
                     if (b.Width > 0 && b.Page >= pages) { skipped++; continue; } // no texture slot left for its page
-                    ref var entry = ref font->Glyphs[g];
+                    var entry = s.Glyphs[g];
                     if (b.Width > 0) entry.Packed = (b.X, b.Y, 0, firstSlot + b.Page);
                     entry.Width = b.Width;
                     entry.Height = b.Height;
                     entry.OffsetX = b.NextOffsetX;
                     entry.OffsetY = b.OffsetY;
+                    s.Swapped.Add((g, entry));
                     glyphs++;
                 }
-                // the game's kerning pairs belong to its own letters
-                font->KerningCount = 0;
                 fonts++;
             }
         }
@@ -144,6 +171,7 @@ internal sealed unsafe class FontSwap
     // Game thread only.
     public void Restore()
     {
+        Disable();
         foreach (var s in saved)
         {
             var font = s.Font;

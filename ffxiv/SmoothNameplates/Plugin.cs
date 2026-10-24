@@ -65,6 +65,13 @@ public sealed unsafe class Plugin : IDalamudPlugin
         Commands.AddHandler(Cmd, new CommandInfo((_, _) => window.Toggle()) { HelpMessage = "Smooth Nameplates settings." });
         Lifecycle.RegisterListener(AddonEvent.PostRequestedUpdate, "NamePlate", OnPostUpdate);
         Lifecycle.RegisterListener(AddonEvent.PreDraw, "NamePlate", OnPreDraw);
+        // the custom font is only in place while the name tags lay out and draw
+        Lifecycle.RegisterListener(AddonEvent.PreRequestedUpdate, "NamePlate", SwapIn);
+        Lifecycle.RegisterListener(AddonEvent.PreUpdate, "NamePlate", SwapIn);
+        Lifecycle.RegisterListener(AddonEvent.PreDraw, "NamePlate", SwapIn);
+        Lifecycle.RegisterListener(AddonEvent.PostRequestedUpdate, "NamePlate", SwapOut);
+        Lifecycle.RegisterListener(AddonEvent.PostUpdate, "NamePlate", SwapOut);
+        Lifecycle.RegisterListener(AddonEvent.PostDraw, "NamePlate", SwapOut);
         Framework.Update += OnFrameworkUpdate;
         swapPending = Cfg.CustomFont.Length > 0;
     }
@@ -78,6 +85,9 @@ public sealed unsafe class Plugin : IDalamudPlugin
     }
 
     internal void RequestCustomFont() => swapPending = true;
+
+    private void SwapIn(AddonEvent type, AddonArgs args) => Swap.Enable();
+    private void SwapOut(AddonEvent type, AddonArgs args) => Swap.Disable();
 
     // Imports the chosen file into the plugin's own folder, so the original can be moved or deleted afterwards.
     private void ImportCustomFont()
@@ -114,6 +124,12 @@ public sealed unsafe class Plugin : IDalamudPlugin
     {
         Lifecycle.UnregisterListener(AddonEvent.PostRequestedUpdate, "NamePlate", OnPostUpdate);
         Lifecycle.UnregisterListener(AddonEvent.PreDraw, "NamePlate", OnPreDraw);
+        Lifecycle.UnregisterListener(AddonEvent.PreRequestedUpdate, "NamePlate", SwapIn);
+        Lifecycle.UnregisterListener(AddonEvent.PreUpdate, "NamePlate", SwapIn);
+        Lifecycle.UnregisterListener(AddonEvent.PreDraw, "NamePlate", SwapIn);
+        Lifecycle.UnregisterListener(AddonEvent.PostRequestedUpdate, "NamePlate", SwapOut);
+        Lifecycle.UnregisterListener(AddonEvent.PostUpdate, "NamePlate", SwapOut);
+        Lifecycle.UnregisterListener(AddonEvent.PostDraw, "NamePlate", SwapOut);
         Commands.RemoveHandler(Cmd);
         Pi.UiBuilder.Draw -= windows.Draw;
         Pi.UiBuilder.Draw -= Dialog.Draw;
@@ -280,8 +296,8 @@ internal sealed class ConfigWindow : Window
         }
         var families = FontSwap.Families.Select(f => f.Label).ToArray();
         ImGui.SetNextItemWidth(200);
-        ImGui.Combo("Replaces the game's", ref c.CustomFamily, families, families.Length);
-        ImGui.TextDisabled("  Other UI using that font family shows your font too.");
+        ImGui.Combo("In place of", ref c.CustomFamily, families, families.Length);
+        ImGui.TextDisabled("  Only the name tags use it; the rest of the UI keeps the game's fonts.");
         ImGui.SliderFloat("Letter size", ref c.CustomScale, 0.6f, 1.4f, "%.2f");
         ImGui.SliderInt("Bold", ref c.Bold, 0, 3, c.Bold == 0 ? "off" : "%d px");
         if (ImGui.Button("Apply font")) plugin.RequestCustomFont();
