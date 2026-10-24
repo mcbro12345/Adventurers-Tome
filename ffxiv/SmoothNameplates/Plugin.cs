@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Configuration;
@@ -8,13 +9,17 @@ using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Game.Command;
 using Dalamud.Game.Gui.NamePlate;
+using Dalamud.Interface.ManagedFontAtlas;
 using Dalamud.Interface.Windowing;
+using Dalamud;
 using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Arrays;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using Lumina.Excel.Sheets;
+using FFXIVClientStructs.FFXIV.Client.Graphics;
 
 namespace SmoothNameplates;
 
@@ -29,6 +34,14 @@ public sealed class Config : IPluginConfiguration
     public bool SharpText = false;   // bake the text at the real size instead of the fixed resolution
     public float EdgeDarken = 0.45f; // 0 = game's outline, 1 = black outline
     public int ForceLag = -1;        // -1 = work it out
+
+    // WoW-style text: the game's (and other plugins') text and colours, drawn as smooth vector-like text
+    public bool WowText = true;
+    public string FontPath = "";     // e.g. your own FRIZQT__.TTF; empty = Dalamud's Noto Sans
+    public float TextScale = 1.0f;
+    public bool Outline = true;      // WoW's "NORMAL" outline (SystemFont_NamePlate_Outlined)
+    public float OutlinePx = 1.0f;
+    public bool Shadow = false;
 }
 
 public sealed unsafe class Plugin : IDalamudPlugin
@@ -38,6 +51,8 @@ public sealed unsafe class Plugin : IDalamudPlugin
     [PluginService] internal static IAddonLifecycle Lifecycle { get; private set; } = null!;
     [PluginService] internal static IGameGui GameGui { get; private set; } = null!;
     [PluginService] internal static ICommandManager Commands { get; private set; } = null!;
+    [PluginService] internal static IDataManager DataManager { get; private set; } = null!;
+    [PluginService] internal static IPluginLog Log { get; private set; } = null!;
 
     private const string Cmd = "/smoothtags";
     private const int Count = 50;
@@ -102,12 +117,20 @@ public sealed unsafe class Plugin : IDalamudPlugin
         NamePlates.OnDataUpdate += OnDataUpdate;
         NamePlates.OnPostDataUpdate += OnPostDataUpdate;
         Lifecycle.RegisterListener(AddonEvent.PreDraw, "NamePlate", OnPreDraw);
+        Lifecycle.RegisterListener(AddonEvent.PostDraw, "NamePlate", OnPostDraw);
+        Pi.UiBuilder.Draw += DrawNames;
+        uiColors = LoadUiColors();
+        BuildFont();
         NamePlates.RequestRedraw();
     }
 
     public void Dispose()
     {
         Lifecycle.UnregisterListener(AddonEvent.PreDraw, "NamePlate", OnPreDraw);
+        Lifecycle.UnregisterListener(AddonEvent.PostDraw, "NamePlate", OnPostDraw);
+        Pi.UiBuilder.Draw -= DrawNames;
+        RestoreHidden();
+        font?.Dispose();
         NamePlates.OnDataUpdate -= OnDataUpdate;
         NamePlates.OnPostDataUpdate -= OnPostDataUpdate;
         Commands.RemoveHandler(Cmd);
@@ -279,6 +302,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
                 if (list[n] != null) Shift(list[n], dx, dy);
         }
         LivePlates = live; ReadyPlates = ready; MovedPlates = moved;
+        CollectNames(addon);
     }
 
     private struct NodeShift { public float WroteX, WroteY, Dx, Dy; }
@@ -294,6 +318,214 @@ public sealed unsafe class Plugin : IDalamudPlugin
         node->ScreenX = n.WroteX;
         node->ScreenY = n.WroteY;
         shifts[(nint)node] = n;
+    }
+
+    // ---- WoW-style text ----
+    // After the game and every other plugin have laid the plates out for this frame, read each name's final text,
+    // colours, size, alignment, fade and position, hide only the game's text for this frame, and draw the same text
+    // ourselves at float positions. Icons, gauges and everything else stay the game's own nodes.
+
+    private const float BakePx = 36; // glyphs are baked this big and drawn smaller, so scaling stays smooth
+    private IFontHandle? font;
+    private string builtFontPath = "";
+    private readonly uint[]? uiColors;
+
+    private sealed class NameDraw
+    {
+        public List<Line> Lines = null!;
+        public Vector2 BoxMin, BoxMax;
+        public int Align;
+        public float Px, Alpha, Scale;
+    }
+
+    private readonly List<NameDraw> pending = new();
+    private bool fresh;          // pending was collected this frame and not drawn yet
+    private bool drawRan;        // DrawNames ran since the last collect
+    private int missedDraws;     // our draw keeps not running (plugin UI hidden): then leave the game's text alone
+    private readonly List<nint> hidden = new();
+    private readonly List<(Vector2 Min, Vector2 Max)> windowsOnTop = new();
+
+    private static uint[]? LoadUiColors()
+    {
+        try
+        {
+            var sheet = DataManager.GetExcelSheet<UIColor>();
+            uint max = 0;
+            foreach (var r in sheet) max = Math.Max(max, r.RowId);
+            var a = new uint[max + 1];
+            // sheet colours are 0xRRGGBBAA; ImGui wants 0xAABBGGRR
+            foreach (var r in sheet) a[r.RowId] = System.Buffers.Binary.BinaryPrimitives.ReverseEndianness(r.Dark);
+            return a;
+        }
+        catch (Exception e) { Log.Warning(e, "UIColor sheet unavailable"); return null; }
+    }
+
+    internal void BuildFont()
+    {
+        font?.Dispose();
+        builtFontPath = Cfg.FontPath;
+        var path = Cfg.FontPath.Trim().Trim('"');
+        font = Pi.UiBuilder.FontAtlas.NewDelegateFontHandle(e => e.OnPreBuild(tk =>
+        {
+            var cfg = new SafeFontConfig
+            {
+                SizePx = BakePx, OversampleH = 3, OversampleV = 2, PixelSnapH = false,
+                GlyphRanges = [0x0020, 0x024F, 0x2000, 0x206F, 0x2190, 0x21FF, 0x2460, 0x24FF, 0x25A0, 0x26FF, 0],
+            };
+            ImFontPtr f;
+            if (path.Length > 0 && File.Exists(path)) f = tk.AddFontFromFile(path, cfg);
+            else f = tk.AddDalamudAssetFont(DalamudAsset.NotoSansCjkMedium, cfg);
+            // the game's private-use symbols (cross-world mark etc.) and Japanese
+            tk.AddGameSymbol(new SafeFontConfig { SizePx = BakePx, OversampleH = 3, OversampleV = 2, PixelSnapH = false, MergeFont = f });
+            tk.AttachExtraGlyphsForDalamudLanguage(new SafeFontConfig { SizePx = BakePx, OversampleH = 2, PixelSnapH = false, MergeFont = f });
+        }));
+    }
+
+    private void CollectWindows()
+    {
+        windowsOnTop.Clear();
+        var stage = AtkStage.Instance();
+        if (stage == null || stage->RaptureAtkUnitManager == null) return;
+        var screen = ImGui.GetMainViewport().Size;
+        ref var list = ref stage->RaptureAtkUnitManager->AtkUnitManager.AllLoadedUnitsList;
+        for (var i = 0; i < list.Count; i++)
+        {
+            var u = list.Entries[i].Value;
+            if (u == null || !u->IsVisible || u->RootNode == null) continue;
+            var name = u->NameString;
+            if (name == "NamePlate") continue;
+            var sc = u->Scale > 0 ? u->Scale : 1;
+            var min = new Vector2(u->X, u->Y);
+            var size = new Vector2(u->RootNode->Width, u->RootNode->Height) * sc;
+            if (size.X <= 1 || size.Y <= 1) continue;
+            // full-screen layers (screen text, fades, ...) aren't windows
+            if (size.X * size.Y > screen.X * screen.Y * 0.4f) continue;
+            windowsOnTop.Add((min, min + size));
+        }
+    }
+
+    private bool UnderWindow(Vector2 min, Vector2 max)
+    {
+        foreach (var (a, b) in windowsOnTop)
+            if (min.X < b.X && max.X > a.X && min.Y < b.Y && max.Y > a.Y) return true;
+        return false;
+    }
+
+    private void CollectNames(AddonNamePlate* addon)
+    {
+        pending.Clear();
+        RestoreHidden();
+        missedDraws = drawRan ? 0 : missedDraws + 1;
+        drawRan = false;
+        fresh = false;
+        if (!Cfg.WowText || font is not { Available: true } || !addon->IsVisible || missedDraws > 1) return;
+        fresh = true;
+        CollectWindows();
+
+        for (var i = 0; i < Count; i++)
+        {
+            ref var obj = ref addon->NamePlateObjectArray[i];
+            var text = obj.NameText;
+            if (text == null || obj.RootComponentNode == null) continue;
+
+            // visibility and fade come from the whole chain, so the game's (and plugins') fades keep working
+            float alpha = 1, scale = 1;
+            var visible = true;
+            for (var n = (AtkResNode*)text; n != null; n = n->ParentNode)
+            {
+                if (!n->IsVisible()) { visible = false; break; }
+                alpha *= n->Color.A / 255f;
+                scale *= n->ScaleX;
+            }
+            if (!visible || alpha <= 0.01f) continue;
+            if (addon->Scale > 0) scale *= addon->Scale;
+
+            var bytes = text->NodeText.AsSpan();
+            if (bytes.Length == 0) continue;
+            var baseColor = Rgba(text->TextColor);
+            var baseEdge = Rgba(text->EdgeColor);
+            var lines = TextRenderer.Parse(bytes, baseColor, baseEdge, uiColors);
+            if (lines.Count == 0) continue;
+
+            var min = new Vector2(text->ScreenX, text->ScreenY);
+            var max = min + new Vector2(text->Width, text->Height) * scale;
+            // behind a game window the plate belongs under it: leave that one to the game
+            if (UnderWindow(min, max)) continue;
+
+            pending.Add(new NameDraw
+            {
+                Lines = lines, BoxMin = min, BoxMax = max, Align = text->AlignmentFontType & 0xF,
+                Px = MathF.Max(4, text->FontSize * scale * Cfg.TextScale), Alpha = alpha, Scale = scale,
+            });
+            text->NodeFlags &= ~NodeFlags.Visible;
+            hidden.Add((nint)text);
+        }
+    }
+
+    // The game's text nodes are only hidden while the plates draw, so the next update (and other plugins) see them as usual.
+    private void OnPostDraw(AddonEvent type, AddonArgs args) => RestoreHidden();
+
+    private void RestoreHidden()
+    {
+        foreach (var n in hidden) ((AtkResNode*)n)->NodeFlags |= NodeFlags.Visible;
+        hidden.Clear();
+    }
+
+    private static uint Rgba(ByteColor c) => (uint)(c.R | (c.G << 8) | (c.B << 16) | (c.A << 24));
+
+    private void DrawNames()
+    {
+        drawRan = true;
+        // rebuild once the typed path is empty or names a real file, not on every keystroke
+        var want = Cfg.FontPath.Trim().Trim('"');
+        if (builtFontPath != Cfg.FontPath && (want.Length == 0 || File.Exists(want))) BuildFont();
+        // nothing new since the last frame (UI hidden, plates not drawn): draw nothing rather than stale names
+        if (!fresh) return;
+        fresh = false;
+        if (pending.Count == 0 || font is not { Available: true }) return;
+        using var locked = font.Lock();
+        var f = locked.ImFont;
+        var dl = ImGui.GetBackgroundDrawList();
+        var outline = Cfg.Outline ? Cfg.OutlinePx : 0;
+        var shadow = Cfg.Shadow ? new Vector2(1, 1) : Vector2.Zero;
+
+        foreach (var d in pending)
+        {
+            var sc = d.Px / BakePx;
+            var lineH = d.Px * 1.15f;
+            var totalH = lineH * d.Lines.Count;
+            // AlignmentType: 0..8 = top/middle/bottom rows of left/centre/right
+            var col = d.Align % 3;
+            var row = d.Align / 3;
+            var y = row switch
+            {
+                0 => d.BoxMin.Y,
+                1 => (d.BoxMin.Y + d.BoxMax.Y - totalH) / 2,
+                _ => d.BoxMax.Y - totalH,
+            };
+            var starts = new float[d.Lines.Count];
+            for (var l = 0; l < d.Lines.Count; l++)
+            {
+                float w = 0;
+                foreach (var r in d.Lines[l].Runs) w += TextRenderer.Measure(f, r.Text, sc);
+                starts[l] = col switch
+                {
+                    0 => d.BoxMin.X,
+                    1 => (d.BoxMin.X + d.BoxMax.X - w) / 2,
+                    _ => d.BoxMax.X - w,
+                };
+            }
+            // shadow, then outline, then fill, so no letter's outline covers its neighbour's fill
+            for (var pass = 0; pass < 3; pass++)
+                for (var l = 0; l < d.Lines.Count; l++)
+                {
+                    var pen = new Vector2(starts[l], y + l * lineH + (lineH - d.Px) / 2);
+                    foreach (var r in d.Lines[l].Runs)
+                        pen = TextRenderer.DrawRun(dl, f, pen, r.Text, sc,
+                            TextRenderer.WithAlpha(r.Color, d.Alpha), TextRenderer.WithAlpha(r.Edge, d.Alpha),
+                            outline, shadow, TextRenderer.WithAlpha(0xFF000000, d.Alpha * 0.8f), pass);
+                }
+        }
     }
 
     // The world point the game itself projects for this plate (above the head), else the object's position.
@@ -355,6 +587,18 @@ internal sealed class ConfigWindow : Window
     {
         var c = plugin.Cfg;
         var changed = false;
+        changed |= ImGui.Checkbox("WoW-style text", ref c.WowText);
+        if (c.WowText)
+        {
+            ImGui.SetNextItemWidth(260);
+            if (ImGui.InputText("Font file (.ttf/.otf)", ref c.FontPath, 512)) changed = true;
+            ImGui.TextDisabled("  e.g. your own copy of WoW's FRIZQT__.TTF; empty uses Noto Sans");
+            changed |= ImGui.SliderFloat("Text size", ref c.TextScale, 0.6f, 2f, "%.2f");
+            changed |= ImGui.Checkbox("Outline", ref c.Outline);
+            if (c.Outline) changed |= ImGui.SliderFloat("Outline width", ref c.OutlinePx, 0.5f, 2.5f, "%.2f px");
+            changed |= ImGui.Checkbox("Drop shadow", ref c.Shadow);
+            ImGui.Separator();
+        }
         changed |= ImGui.Checkbox("Smooth movement", ref c.Smooth);
         if (c.Smooth)
         {
