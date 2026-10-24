@@ -237,6 +237,10 @@ public sealed unsafe class Plugin : IDalamudPlugin
         Span<bool> seen = stackalloc bool[Count];
         Span<float> wobble = stackalloc float[Lags];
         Span<int> seenK = stackalloc int[Lags];
+        // WoW's distances are from the camera; measure them from the camera's real position
+        Vector3? cam = null;
+        var cm = FFXIVClientStructs.FFXIV.Client.Game.Control.CameraManager.Instance();
+        if (cm != null && cm->Camera != null) cam = cm->Camera->CameraBase.SceneCamera.Object.Position;
         var dAlpha = 1 - MathF.Exp(-dt / 0.4f); // the head offset settles over ~0.4 s: steadier than any walk bob
 
         foreach (var h in handlers)
@@ -256,10 +260,11 @@ public sealed unsafe class Plugin : IDalamudPlugin
             if (ui3d != null && h.ArrayIndex < ui3d->NamePlateObjectInfoCount)
                 info = ui3d->NamePlateObjectInfoPointers[h.ArrayIndex].Value;
             var go = h.GameObject;
-            if (info != null) { p.GameAnchor = info->NamePlatePos; p.CameraDistance = info->DistanceFromCamera; }
+            if (info != null) p.GameAnchor = info->NamePlatePos;
             else if (go != null) p.GameAnchor = go.Position;
             else { p.Reset(p.Id); continue; }
 
+            p.CameraDistance = cam is { } c ? Vector3.Distance(c, p.GameAnchor) : info != null ? info->DistanceFromCamera : 0;
             p.HasPosition = go != null;
             if (go != null)
             {
@@ -325,7 +330,11 @@ public sealed unsafe class Plugin : IDalamudPlugin
     {
         draws++;
         var t = clock.Elapsed.TotalSeconds;
-        if (t - statT >= 1) { UpdatesPerSec = updates; DrawsPerSec = draws; updates = draws = 0; statT = t; }
+        if (t - statT >= 1)
+        {
+            UpdatesPerSec = updates; DrawsPerSec = draws; RepeatsPerSec = repeats; MissedPerSec = collectsWithoutDraw;
+            updates = draws = repeats = collectsWithoutDraw = 0; statT = t;
+        }
 
         var addon = (AddonNamePlate*)args.Addon.Address;
         if (addon == null || addon->NamePlateObjectArray == null) return;
@@ -389,13 +398,19 @@ public sealed unsafe class Plugin : IDalamudPlugin
         public float[] Widths = null!;
         public Vector2 Rel;   // the text's alignment point relative to the game's spot
         public int Align;
-        public float Px, Alpha;
+        public float Px, Alpha, GameAlpha, Distance;
     }
 
-    private readonly List<NameDraw> pending = new();
-    private bool fresh;
-    private bool drawRan;
-    private int missedDraws;
+    internal bool DebugLabels;
+
+    // The game prepares frames and Dalamud draws its overlay on their own schedules, which needn't take strict turns;
+    // so the overlay always draws the newest finished list instead of waiting for a "new" one (skipping a frame would
+    // show it without names, since the game's text is already hidden).
+    private volatile List<NameDraw> shown = new();
+    private double collectedT, lastDrawT = -1;
+    private List<NameDraw>? lastDrawnList;
+    private int repeats, collectsWithoutDraw, collectsSinceDraw;
+    internal int RepeatsPerSec, MissedPerSec;
     private readonly List<nint> hidden = new();
     private readonly List<(Vector2 Min, Vector2 Max)> openWindows = new();
 
@@ -462,15 +477,17 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
     private void CollectNames(AddonNamePlate* addon)
     {
-        pending.Clear();
+        var pending = new List<NameDraw>();
         RestoreHidden();
         foreach (var p in plates) { p.IconDx = 0; p.MarkerDy = 0; }
-        // our draw keeps not running (plugin UI hidden): leave the game's text alone then
-        missedDraws = drawRan ? 0 : missedDraws + 1;
-        drawRan = false;
-        fresh = false;
-        if (!Cfg.WowText || font is not { Available: true } || !addon->IsVisible || missedDraws > 1) return;
-        fresh = true;
+        var now = clock.Elapsed.TotalSeconds;
+        if (collectsSinceDraw++ > 0) collectsWithoutDraw++;
+        // our overlay hasn't drawn for a while (plugin UI hidden): leave the game's text alone then
+        if (!Cfg.WowText || font is not { Available: true } || !addon->IsVisible || now - lastDrawT > 0.25)
+        {
+            shown = pending;
+            return;
+        }
         CollectWindows();
         using var locked = font.Lock();
         var f = locked.ImFont;
@@ -493,6 +510,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
                 scale *= n->ScaleX;
             }
             if (!visible || alpha <= 0.01f) continue;
+            var gameAlpha = alpha;
             var uiScale = addon->Scale > 0 ? addon->Scale : 1;
             scale *= uiScale;
 
@@ -545,9 +563,11 @@ public sealed unsafe class Plugin : IDalamudPlugin
             pending.Add(new NameDraw
             {
                 Plate = i, Lines = lines, Widths = widths, Rel = point - new Vector2(p.GameX, p.GameY), Align = align,
-                Px = px, Alpha = Math.Clamp(alpha, 0, 1),
+                Px = px, Alpha = Math.Clamp(alpha, 0, 1), GameAlpha = gameAlpha, Distance = p.CameraDistance,
             });
         }
+        collectedT = now;
+        shown = pending;
     }
 
     private float WowScale(float d)
@@ -579,15 +599,18 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
     private void DrawNames()
     {
-        drawRan = true;
+        var now = clock.Elapsed.TotalSeconds;
+        lastDrawT = now;
+        collectsSinceDraw = 0;
         // rebuild once the typed path is empty or names a real file, not on every keystroke
         var want = Cfg.FontPath.Trim().Trim('"');
         if (builtFontPath != Cfg.FontPath && (want.Length == 0 || File.Exists(want))) BuildFont();
-        // nothing new since the last frame (UI hidden, plates not drawn): draw nothing rather than stale names
-        if (!fresh) return;
-        fresh = false;
+        var pending = shown;
+        if (ReferenceEquals(pending, lastDrawnList)) repeats++;
+        lastDrawnList = pending;
         NamesDrawn = 0;
-        if (pending.Count == 0 || font is not { Available: true }) return;
+        // plates stopped drawing (UI hidden, loading): don't leave old names on screen
+        if (now - collectedT > 0.25 || pending.Count == 0 || font is not { Available: true }) return;
         using var locked = font.Lock();
         var f = locked.ImFont;
         var dl = ImGui.GetBackgroundDrawList();
@@ -623,6 +646,9 @@ public sealed unsafe class Plugin : IDalamudPlugin
                             outline, shadow, TextRenderer.WithAlpha(0xFF000000, d.Alpha * 0.8f), pass);
                 }
             NamesDrawn++;
+            if (DebugLabels)
+                dl.AddText(new Vector2(point.X - 40, point.Y + 2), 0xFF00FFFF,
+                    $"cam {d.Distance:0.0}  alpha {d.Alpha:0.00} (game {d.GameAlpha:0.00})");
         }
     }
 
@@ -710,9 +736,11 @@ internal sealed class ConfigWindow : Window
         changed |= ImGui.SliderFloat("Darker outline", ref c.EdgeDarken, 0f, 1f, "%.2f");
         changed |= ImGui.SliderInt("Frames behind (-1 = auto)", ref c.ForceLag, -1, 2);
         if (ImGui.Button("Reset to WoW defaults")) plugin.ResetToWow();
+        ImGui.Checkbox("Show debug numbers under names", ref plugin.DebugLabels);
         if (changed) plugin.Save();
         ImGui.Separator();
         ImGui.TextDisabled($"Nameplate updates/s: {plugin.UpdatesPerSec}   draws/s: {plugin.DrawsPerSec}   names drawn: {plugin.NamesDrawn}");
         ImGui.TextDisabled($"Game is {plugin.Lag} frame(s) behind" + (c.ForceLag < 0 ? " (auto)" : ""));
+        ImGui.TextDisabled($"Overlay drew the same names twice: {plugin.RepeatsPerSec}/s   names collected but never drawn: {plugin.MissedPerSec}/s");
     }
 }
