@@ -1821,7 +1821,7 @@ function mount(root, ctx) {
   root.innerHTML = `<header class="dk-top"></header><div class="dk-page"></div>
     <aside class="dk-log" aria-label="Roll log"><div class="dk-loghd"><h2>Roll log</h2><button class="dk-btn sm" data-act="clearlog">Clear</button><button class="dk-ix" data-act="log" aria-label="Close">${ICON.x}</button></div><div class="dk-loglist"></div></aside>
     <div class="dk-modal" role="presentation"><div class="dk-mcard" role="dialog" aria-modal="true"></div></div>
-    <div class="dk-toasts" aria-live="polite"></div><input type="file" class="dk-impf" accept=".json,application/json" hidden><input type="file" class="dk-imgf" accept="image/*" hidden><input type="file" class="dk-tokf" accept="image/*" hidden><input type="file" class="dk-nimgf" accept="image/*" hidden><input type="file" class="dk-mapf" accept="image/*" hidden><input type="file" class="dk-nimpf" accept=".lk,.md,.markdown,.txt,.html,.htm,.zip,.textpack,.json,image/*" multiple hidden><input type="file" class="dk-ndirf" webkitdirectory multiple hidden><div class="dk-auto" hidden></div><input type="file" class="dk-notef" accept=".pdf,.docx,.txt,.md,.markdown,text/plain,application/pdf" multiple hidden>`;
+    <div class="dk-toasts" aria-live="polite"></div><input type="file" class="dk-impf" accept=".json,application/json" hidden><input type="file" class="dk-imgf" accept="image/*" hidden><input type="file" class="dk-tokf" accept="image/*" hidden><input type="file" class="dk-nimgf" accept="image/*" hidden><input type="file" class="dk-mapf" accept="image/*" hidden><input type="file" class="dk-nimpf" accept=".docx,.lk,.md,.markdown,.txt,.html,.htm,.zip,.textpack,.json,image/*" multiple hidden><input type="file" class="dk-ndirf" webkitdirectory multiple hidden><div class="dk-auto" hidden></div><input type="file" class="dk-notef" accept=".pdf,.docx,.txt,.md,.markdown,text/plain,application/pdf" multiple hidden>`;
   const loc = lsGet(''); S = normalize(loc && loc.v ? loc : null);
   const u = lsGet('-ui'); if (u) UI = Object.assign(UI, u, { tree: false, log: false });
   UI.ptab = UI.ptab || {};
@@ -2882,6 +2882,7 @@ async function commitImport(plan) {
 async function runImport(files) {
   files = Array.from(files || []); if (!files.length) return;
   const label = files.length === 1 ? files[0].name : (files[0].webkitRelativePath || '').split('/')[0] || plural(files.length, 'file');
+  if (files.length === 1 && /\.docx$/i.test(files[0].name)) return importDocx(files[0]);
   if (files.length === 1 && /\.(lk|json)$/i.test(files[0].name)) { try { const root = await readLkFile(files[0]); if (root) return importPreview(planLk(root, files[0].name), files[0].name); } catch (e) { if (/\.lk$/i.test(files[0].name)) return toast({ title: 'Couldn’t open that .lk file', det: esc(e.message || ''), cls: 'bad' }); } }
   toastInfo('Reading your files…', null, 'nimp');
   try { const entries = await collectEntries(files); if (!entries.some(e => e.text != null)) return toastInfo('No Markdown, HTML or backup files were found in that upload.'); const plan = await planImport(entries, label); if (!plan.pages.length) return toastInfo('Nothing to import there.'); importPreview(plan, label); }
@@ -2890,6 +2891,7 @@ async function runImport(files) {
 function openImport() {
   openModal(`<h2>Import notes</h2><p class="dk-hint">Bring in a wiki from another app. You’ll see what will be imported before anything is added.</p>
     <div class="dk-impgrid">
+      <button class="dk-impopt" data-imp="files"><b>Google Docs or Word</b><small>One document: each tab (or heading) becomes a page. In Google Docs: File → Download → Microsoft Word, with All tabs</small></button>
       <button class="dk-impopt" data-imp="files"><b>LegendKeeper project</b><small>The .lk file (Project settings → Export) — keeps names and order exactly</small></button>
       <button class="dk-impopt" data-imp="zip"><b>LegendKeeper</b><small>Its export .zip (Markdown or HTML)</small></button>
       <button class="dk-impopt" data-imp="zip"><b>Obsidian</b><small>Your vault as a .zip, or pick the vault folder below</small></button>
@@ -3065,6 +3067,87 @@ async function runLkImport(file) {
   const plan = planLk(root, file.name.replace(/\.(lk|json)$/i, ''));
   if (!plan.pages.length) return toastInfo('That project has no pages.', null, 'nimp');
   importPreview(plan, file.name);
+}
+// ---------- Google Docs / Word import: one document becomes a wiki, a page per tab (or per heading) ----------
+// Google Docs downloads every tab into one Word file; each tab starts on a new page. Here that file is split back into
+// pages, sessions are gathered into their own folder, and names of other pages are linked where they're mentioned.
+const DOCX_STYLES = ["br[type='page'] => hr.dk-pgbrk", "p[style-name='Title'] => h1.dk-ttl:fresh", "p[style-name='Subtitle'] => h2:fresh"];
+async function readDocx(f) {
+  await loadScript(LIBS.docx);
+  const r = await window.mammoth.convertToHtml({ arrayBuffer: await f.arrayBuffer() }, { styleMap: DOCX_STYLES });
+  return new DOMParser().parseFromString('<body>' + (r.value || '') + '</body>', 'text/html').body;
+}
+// the ways one document can be cut into pages, with how many pages each gives
+function docxSplits(body) {
+  const kids = [...body.children], n = s => kids.filter(k => k.matches(s)).length;
+  const brk = kids.filter(k => k.matches('hr.dk-pgbrk') || k.querySelector('hr.dk-pgbrk')).length;
+  return [['page', 'Tabs (each starts a new page)', brk ? brk + 1 : 0], ['title', 'Title-style lines', n('h1.dk-ttl')], ['h1', 'Heading 1', n('h1')], ['h2', 'Heading 2', n('h2')]].filter(o => o[2] >= 2);
+}
+function docxSections(body, how) {
+  const secs = []; let cur = null; const start = (title, head) => { cur = { title, nodes: [] }; secs.push(cur); if (head) cur.head = true; };
+  // a page break inside a list or table is moved to just after it so it can start a page
+  body.querySelectorAll('hr.dk-pgbrk').forEach(hr => { const p = hr.parentElement.closest('body > *'); if (p) p.after(hr); });
+  const isCut = k => how === 'page' ? k.matches('hr.dk-pgbrk') : how === 'title' ? k.matches('h1.dk-ttl') : k.matches(how);
+  start('', false);
+  for (const k of [...body.children]) {
+    if (isCut(k)) { if (how === 'page') start('', false); else { start(k.textContent.trim(), true); continue; } continue; }
+    cur.nodes.push(k);
+  }
+  return secs.map(s => {
+    let nodes = s.nodes.filter(k => !(k.matches('hr.dk-pgbrk')));
+    // a tab with no heading of its own: its first line names it
+    if (!s.title) { const i = nodes.findIndex(k => k.textContent.trim()); if (i >= 0 && nodes[i].textContent.trim().length <= 80) { s.title = nodes[i].textContent.trim(); nodes.splice(0, i + 1); } }
+    return { title: s.title.replace(/\s+/g, ' ').slice(0, 120), html: nodes.map(k => k.outerHTML).join('') };
+  }).filter(s => s.title || htmlText(s.html).trim() || /<img/i.test(s.html));
+}
+const SESS_RE = /^(session|sess\.?|episode|ep\.?|game|chapter|part|week)\s*#?\s*\d+/i;
+// first mention of another page's name becomes a link to it (headings and existing links are left alone)
+function autoLink(html, titles, self) {
+  const d = new DOMParser().parseFromString('<body>' + html + '</body>', 'text/html'), used = new Set([self.toLowerCase()]);
+  const list = titles.filter(t => t.length >= 3 && !SESS_RE.test(t) && t.toLowerCase() !== self.toLowerCase()).sort((a, b) => b.length - a.length);
+  if (!list.length) return html;
+  const walker = d.createTreeWalker(d.body, NodeFilter.SHOW_TEXT), texts = []; let t; while ((t = walker.nextNode())) if (!t.parentElement.closest('a,h1,h2,h3,h4,h5,h6')) texts.push(t);
+  for (const name of list) {
+    if (used.has(name.toLowerCase())) continue;
+    const re = new RegExp('(^|[^\\p{L}\\p{N}])(' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')(?![\\p{L}\\p{N}])', 'iu');
+    for (let i = 0; i < texts.length; i++) { const node = texts[i], m = re.exec(node.data); if (!m) continue;
+      const at = m.index + m[1].length, mid = node.splitText(at), rest = mid.splitText(m[2].length), a = d.createElement('a');
+      a.className = 'wl'; a.setAttribute('data-title', name); a.textContent = mid.data; mid.replaceWith(a); texts.splice(i + 1, 0, rest); used.add(name.toLowerCase()); break; }
+  }
+  return d.body.innerHTML;
+}
+function planDocx(body0, name, how, link) {
+  const body = body0.cloneNode(true), secs = docxSections(body, how), rootKey = '__root';
+  const root = { key: rootKey, title: name.replace(/\.docx$/i, '').replace(/_/g, ' ').trim(), parentKey: '', type: 'blank', html: '<p></p>', tags: [], props: {}, aliases: [], imgs: [] };
+  const pages = [root], seen = new Map();
+  // anything before the first tab or heading stays on the document's own page
+  if (secs.length && !secs[0].title) root.html = secs.shift().html || '<p></p>';
+  const sess = secs.filter(s => SESS_RE.test(s.title)); let sessKey = rootKey;
+  if (sess.length >= 2) { const w = SESS_RE.exec(sess[0].title)[1].replace(/\.$/, ''); const f = { key: 'f:sessions', title: (/^(sess|ep)$/i.test(w) ? (w.toLowerCase() === 'ep' ? 'Episode' : 'Session') : w[0].toUpperCase() + w.slice(1).toLowerCase()) + 's', parentKey: rootKey, type: 'blank', html: '<p></p>', tags: [], props: {}, aliases: [], imgs: [] }; pages.push(f); sessKey = f.key; }
+  const titles = secs.map(s => s.title).filter(Boolean);
+  secs.forEach((s, i) => { let t = s.title || 'Untitled'; const k = t.toLowerCase(); if (seen.has(k)) { seen.set(k, seen.get(k) + 1); t += ' (' + seen.get(k) + ')'; } else seen.set(k, 1);
+    const typ = typeFrom(t.split(/[\s:–—-]+/)[0]);
+    pages.push({ key: 'x:' + i, title: t, parentKey: sess.length >= 2 && SESS_RE.test(s.title) ? sessKey : rootKey, type: typ || 'blank', html: prepHtml(link ? autoLink(s.html, titles, t) : s.html, '').html || '<p></p>', tags: [], props: {}, aliases: [], imgs: [] }); });
+  root.html = prepHtml(root.html, '').html || '<p></p>';
+  let found = 0; pages.forEach(p => p.html.replace(/data-inline="data:image\//g, m => { found++; return m; }));
+  return { pages, rootKey, images: new Map(), imgByBase: new Map(), unresolved: [], missing: [], found, docx: { how, link } };
+}
+async function importDocx(f) {
+  toastInfo('Reading ' + f.name + '…', null, 'nimp');
+  let body; try { body = await readDocx(f); } catch (e) { return toast({ title: 'Couldn’t read that document', det: esc(e.message || String(e)), cls: 'bad' }); }
+  const splits = docxSplits(body); let how = splits.length ? splits[0][0] : '', link = true;
+  const show = () => {
+    const plan = how ? planDocx(body, f.name, how, link) : planDocx(body, f.name, 'none', false);
+    importPreview(plan, f.name);
+    const tree = $('.dk-itree'); if (!tree) return;
+    const box = document.createElement('div'); box.className = 'dk-dxopts';
+    box.innerHTML = (splits.length ? `<label>New page at <select id="dk-dxhow">${splits.map(([k, l, n]) => `<option value="${k}"${k === how ? ' selected' : ''}>${esc(l)} — ${plural(n, 'page')}</option>`).join('')}</select></label>` : '<span class="dk-hint">No tabs or headings found, so it comes in as one page.</span>')
+      + `<label class="dk-dxlink"><input type="checkbox" id="dk-dxlink"${link ? ' checked' : ''}> Link page names where they’re mentioned</label>`;
+    tree.before(box);
+    const s = $('#dk-dxhow'); if (s) s.onchange = () => { how = s.value; show(); };
+    $('#dk-dxlink').onchange = e => { link = e.target.checked; show(); };
+  };
+  show();
 }
 // ---------- Notes: clicks, typing, files ----------
 function openPage(id) { const p = pageById(id); if (!p) return; UI.np = id; UI.nview = ''; UI.tree = false; pathOf(p).forEach(x => { if (x.id !== id) UI.nopen[x.id] = true; }); saveUI(); paint(); scrollTo(0, 0); }
