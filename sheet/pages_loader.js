@@ -3297,7 +3297,7 @@ function partyModule(H) {
     }
     const box = $m('#ta-dk'), picked = new Map(); let items = [];
     const n = v => Number(v) || 0, sg = v => (v >= 0 ? '+' : '') + v;
-    fs.collection('desks').doc(EMAIL).collection('sessions').get().then(qs => {
+    fs.collection('desks').doc(EMAIL).collection('party').doc(PID).collection('sessions').get().then(qs => { // (this party's own DM's Desk)
       if (!box.isConnected) return;
       const ses = qs.docs.map(d => d.data() && d.data().data).filter(x => x && x.id).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
       items = []; const html = ses.map(se => { const rows = [];

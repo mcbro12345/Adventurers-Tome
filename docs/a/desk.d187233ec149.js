@@ -344,7 +344,9 @@ const DEF = () => ({ v: 2, savedAt: 0, settings: { dice: 'desk', hpMode: 'avg', 
 let S = DEF();
 let UI = { tab: 'sessions', session: '', sel: '', best: 'srd:goblin', q: '', crMin: '', crMax: '', type: '', size: '', src: '', sort: 'name', open: {}, tree: false, log: false, sv: 'creatures', gen: 'enc', genAI: false, genP: { size: 4, level: 3, levels: '', diff: 'medium', env: 'forest', type: '', mine: false } };
 let LOG = [];
-const lsKey = k => 'pg-desk' + k + ':' + (CTX ? CTX.EMAIL : '');
+// Each party has its own desk (sessions, notes, settings); creatures you make or import are shared by all your desks.
+const DESK_PID = () => (CTX && CTX.party && CTX.party.id) || '';
+const lsKey = k => 'pg-desk' + k + ':' + (CTX ? CTX.EMAIL : '') + (DESK_PID() ? '@' + DESK_PID() : '');
 const lsGet = k => { try { return JSON.parse(localStorage.getItem(lsKey(k)) || 'null'); } catch (e) { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(lsKey(k), JSON.stringify(v)); } catch (e) {} };
 let lsT = 0;
@@ -358,7 +360,13 @@ function normalize(d) {
 function save() { S.savedAt = Date.now(); writeLocal(); cloudSoon(); syncTurnHP(); }
 const saveUI = () => writeLocal();
 
-// ---------- account storage: desks/{email} {v, savedAt, settings}; /sessions/{id} and /creatures/{id} {savedAt, data} ----------
+// ---------- account storage ----------
+// desks/{email}/creatures/{id}: your creatures, shared by every desk. A party's desk: desks/{email}/party/{partyId} {v, savedAt,
+// settings} with /sessions/{id} and /notes/{id}. The desk opened without a party (and every desk before they were split) uses
+// desks/{email} itself. Pictures in notes stay in desks/{email}/imgs.
+let CRE = null;
+const userBase = () => CTX.fs.collection('desks').doc(CTX.EMAIL);
+const deskBase = () => DESK_PID() ? userBase().collection('party').doc(DESK_PID()) : userBase();
 let BASE = null, CLOUD = false, cloudT = 0, flushing = false, again = false, syncMsg = '';
 const SYNCED = { main: '', cre: new Map(), ses: new Map() };
 const mainBody = () => ({ v: S.v, savedAt: S.savedAt, settings: S.settings });
@@ -369,8 +377,8 @@ async function flush() {
   try {
     const coll = n => BASE.collection(n), m = JSON.stringify(mainBody()), w = [];
     if (m !== SYNCED.main) w.push(BASE.set(JSON.parse(m)).then(() => { SYNCED.main = m; }));
-    for (const [id, c] of Object.entries(S.creatures)) { const j = JSON.stringify(c); if (SYNCED.cre.get(id) !== j) w.push(coll('creatures').doc(id).set({ savedAt: S.savedAt, data: JSON.parse(j) }).then(() => SYNCED.cre.set(id, j))); }
-    for (const id of Array.from(SYNCED.cre.keys())) if (!S.creatures[id]) w.push(coll('creatures').doc(id).delete().then(() => SYNCED.cre.delete(id)));
+    for (const [id, c] of Object.entries(S.creatures)) { const j = JSON.stringify(c); if (SYNCED.cre.get(id) !== j) w.push(CRE.doc(id).set({ savedAt: S.savedAt, data: JSON.parse(j) }).then(() => SYNCED.cre.set(id, j))); }
+    for (const id of Array.from(SYNCED.cre.keys())) if (!S.creatures[id]) w.push(CRE.doc(id).delete().then(() => SYNCED.cre.delete(id)));
     const sids = new Set();
     for (const s of S.sessions) { sids.add(s.id); const j = JSON.stringify(s); if (SYNCED.ses.get(s.id) !== j) w.push(coll('sessions').doc(s.id).set({ savedAt: S.savedAt, data: JSON.parse(j) }).then(() => SYNCED.ses.set(s.id, j))); }
     for (const id of Array.from(SYNCED.ses.keys())) if (!sids.has(id)) w.push(coll('sessions').doc(id).delete().then(() => SYNCED.ses.delete(id)));
@@ -381,7 +389,7 @@ async function flush() {
 }
 async function pullAll() {
   const coll = n => BASE.collection(n);
-  const [m, cr, ss] = await Promise.all([BASE.get(), coll('creatures').get(), coll('sessions').get()]);
+  const [m, cr, ss] = await Promise.all([BASE.get(), CRE.get(), coll('sessions').get()]);
   if (!m.exists) return false;
   const d = m.data(), next = normalize({ v: d.v, savedAt: d.savedAt, settings: d.settings });
   SYNCED.cre.clear(); cr.docs.forEach(x => { const c = x.data().data; if (c) { next.creatures[x.id] = c; SYNCED.cre.set(x.id, JSON.stringify(c)); } });
@@ -393,13 +401,38 @@ async function pullAll() {
 }
 async function cloudBoot() {
   if (!CTX.fs || !CTX.EMAIL) { setSync('Saved on this device'); return; }
-  BASE = CTX.fs.collection('desks').doc(CTX.EMAIL);
+  BASE = deskBase(); CRE = userBase().collection('creatures');
   try {
-    const snap = await BASE.get(), d = snap.exists ? snap.data() : null;
+    let snap = await BASE.get(), d = snap.exists ? snap.data() : null;
+    if (DESK_PID() && !(d && d.askedOld)) { if (await offerOldDesk(d)) { snap = await BASE.get(); d = snap.exists ? snap.data() : null; S.savedAt = 0; } }
     if (d && N(d.savedAt) >= N(S.savedAt)) { await pullAll(); render(); }
+    else { // a desk that's new (or newer here): it still gets every creature you've made
+      const cr = await CRE.get(); cr.docs.forEach(x => { const c = x.data().data; if (!c) return; if (!S.creatures[x.id]) S.creatures[x.id] = c; SYNCED.cre.set(x.id, JSON.stringify(c)); }); render(); }
     CLOUD = true;
     if (!d || N(d.savedAt) < N(S.savedAt)) { if (!S.savedAt) S.savedAt = Date.now(); await flush(); } else setSync('Saved to your account');
   } catch (e) { console.warn('desk load', e); setSync('Offline — saved on this device'); }
+}
+// Before desks were split by party, everything was one desk. The first time a party's desk opens, that earlier desk (if it has
+// anything in it and hasn't gone to a party yet) can be moved in. Asked once per party; the old copy is kept, not deleted.
+async function offerOldDesk(d) {
+  const old = userBase(), pid = DESK_PID();
+  let o, ses, notes; try { [o, ses, notes] = await Promise.all([old.get(), old.collection('sessions').get(), old.collection('notes').get()]); } catch (e) { return false; }
+  const od = o.exists ? o.data() : null;
+  if (!od || od.movedTo || (!ses.size && !notes.size)) { await BASE.set({ askedOld: true }, { merge: true }).catch(() => {}); return false; }
+  const nm = esc((CTX.party && CTX.party.name) || 'this party');
+  const yes = await new Promise(res => {
+    openModal(`<h2>Bring your DM’s Desk here?</h2><p>Each party now has its own DM’s Desk. Your desk from before has ${ses.size} session${ses.size === 1 ? '' : 's'} and ${notes.size} notes page${notes.size === 1 ? '' : 's'}. Move them into <b>${nm}</b>’s desk?</p><p class="dk-hint">Your creatures are shared by all your desks either way. If these belong to another party, choose “Not this party” and open that party’s desk instead.</p><div class="dk-acts"><button class="dk-btn" id="dk-oldNo">Not this party</button><button class="dk-btn gold" id="dk-oldYes">Move them here</button></div>`, { cls: 'dk-small', onClose: () => res(null) });
+    $('#dk-oldYes').onclick = () => { closeModal(true); res(true); }; $('#dk-oldNo').onclick = () => { closeModal(true); res(false); }; });
+  if (yes === null) return false; // closed without choosing: ask again next time
+  if (!yes) { await BASE.set({ askedOld: true }, { merge: true }).catch(() => {}); return false; }
+  setSync('Moving your desk…');
+  try { const w = [BASE.set(Object.assign({ v: od.v || 2, savedAt: Date.now(), settings: od.settings || {} }, { askedOld: true }))];
+    ses.docs.forEach(x => w.push(BASE.collection('sessions').doc(x.id).set(x.data())));
+    notes.docs.forEach(x => w.push(BASE.collection('notes').doc(x.id).set(x.data())));
+    await Promise.all(w); await old.set({ movedTo: pid, movedAt: Date.now() }, { merge: true });
+    try { const l = localStorage.getItem('pg-desk-notes:' + CTX.EMAIL); if (l) localStorage.setItem(lsKey('-notes'), l); } catch (e) {}
+    toastInfo(`Moved ${ses.size} session${ses.size === 1 ? '' : 's'} and ${notes.size} notes page${notes.size === 1 ? '' : 's'} into ${nm}’s desk.`); return true; }
+  catch (e) { console.warn('desk move', e); toastInfo('Couldn’t move your old desk just now. It’ll ask again next time.'); return false; }
 }
 function onVis() {
   if (document.hidden || !CLOUD || flushing || cloudT && syncMsg === 'Saving…' || !ROOT || !ROOT.isConnected) return;
@@ -1348,6 +1381,8 @@ async function sendToTurn(list, label) {
   toast({ title: `Sent ${label || plural(list.length, 'creature')} to the Turn order`, det: esc(lines.join(' · ')) + `<br>Open ${esc(CTX.party.name || 'the party')}’s Turn order to run the fight; HP changes here show up there.`, cls: 'crit' });
 }
 function takeFromTurn(x) { const t = toRead(); if (!t) return; t.rows = t.rows.filter(r => r.desk !== x.iid); toWrite(t); paint(); toastInfo(`${esc(x.name)} is off the Turn order.`); }
+const CACT_IC = {"attack": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M14.5 17.5 3 6V3h3l11.5 11.5\"/><path d=\"m13 19 6-6\"/><path d=\"m16 16 4 4\"/><path d=\"m19 21 2-2\"/></svg>", "multi": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M14.5 17.5 3 6V3h3l11.5 11.5\"/><path d=\"m13 19 6-6\"/><path d=\"m16 16 4 4\"/><path d=\"m19 21 2-2\"/><path d=\"M14.5 6.5 18 3h3v3l-3.5 3.5\"/><path d=\"m5 14 4 4\"/><path d=\"m7 17-3 3\"/><path d=\"m3 19 2 2\"/></svg>", "save": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z\"/></svg>", "temp": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z\"/><path d=\"M12 9v6M9 12h6\"/></svg>", "heal": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 5v14M5 12h14\"/></svg>", "roll": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"3\"/><circle cx=\"9\" cy=\"9\" r=\"1\" fill=\"currentColor\"/><circle cx=\"15\" cy=\"15\" r=\"1\" fill=\"currentColor\"/><circle cx=\"15\" cy=\"9\" r=\"1\" fill=\"currentColor\"/><circle cx=\"9\" cy=\"15\" r=\"1\" fill=\"currentColor\"/></svg>"};
+const QTYPE = {}; // damage type picked on each creature card (kept across repaints)
 const ICO_PARTY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.2c3 .1 5.5 2.6 5.5 5.8"/></svg>';
 // ---------- drawing ----------
 const hpPct = x => { const m = N(x.max) || 1; return Math.max(0, Math.min(100, N(x.hp) / m * 100)); };
@@ -1365,7 +1400,7 @@ function render() {
 // Phones on the site: the tabs become the site's single tab button that opens a grid of tabs (same as the admin panel)
 function deskPill() {
   const P = window.pgPill; if (typeof P !== 'function' || !ROOT) return;
-  if (innerWidth > 640) { if (window.pgPillOwner && window.pgPillOwner() === 'desk') P(null); return; }
+  if (innerWidth > 640 || LITE) { if (window.pgPillOwner && window.pgPillOwner() === 'desk') P(null); return; }
   P(() => [...ROOT.querySelectorAll('.dk-tabs > button[data-tab]')].map(b => ({ k: b.dataset.tab, b, on: b.classList.contains('on'), ic: (b.querySelector('svg') || {}).outerHTML || '', label: (b.querySelector('span') || {}).textContent || b.dataset.tab, badge: '' })), 'desk');
 }
 function topHTML() {
@@ -1474,13 +1509,13 @@ function cardHTML(x) {
       : k === 'attack' ? `<button class="dk-rl atk" data-act="atk" data-ek="${ek}" title="Attack roll and damage">${sg(a.hit)}</button> to hit${a.dmg.length ? ' · ' + dm(a.dmg) : ''}`
       : k === 'save' ? `<b>DC ${a.save.dc} ${ABS[a.save.ab].toUpperCase()}</b>${a.sdmg.length ? ' · ' + dm(a.sdmg) : ''}` : dm(a.dmg);
     const btn = k === 'multi' ? `<button class="dk-btn sm gold" data-act="multi">Roll all</button>` : k === 'attack' ? `<button class="dk-btn sm gold" data-act="atk" data-ek="${ek}">Attack</button>` : k === 'save' ? `<button class="dk-btn sm gold" data-act="save" data-ek="${ek}">${a.sdmg.length ? 'Damage' : 'Save'}</button>` : `<button class="dk-btn sm gold" data-act="dmg" data-ek="${ek}">Roll</button>`;
-    return `<div class="dk-cact k-${k}"><span class="dk-cact-i" aria-hidden="true">${k === 'attack' ? '⚔' : k === 'save' ? '⛨' : k === 'multi' ? '⚔⚔' : '🎲'}</span><div class="dk-cact-m"><b>${esc(baseName(e.n))}</b><div class="dk-cact-s">${info}</div></div><div class="dk-cact-b">${btn}</div></div>`;
+    return `<div class="dk-cact k-${k}"><span class="dk-cact-i" aria-hidden="true">${CACT_IC[k] || CACT_IC.roll}</span><div class="dk-cact-m"><b>${esc(baseName(e.n))}</b><div class="dk-cact-s">${info}</div></div><div class="dk-cact-b">${btn}</div></div>`;
   }).join('') : '';
   const chips = (x.down ? '<span class="dk-chip dead">Down</span>' : '') + (x.conc ? `<span class="dk-chip conc">${ICON.conc}${esc(x.conc)}</span>` : '') + condChips(x) + (N(x.exh) ? `<span class="dk-chip cond">Exhaustion ${N(x.exh)}</span>` : '');
   return `<article class="dk-ccard dk-comp2${x.down ? ' down' : ''}" data-iid="${x.iid}">
     <div class="dk-ch2"><button class="dk-chtok" data-act="sel" data-iid="${x.iid}" aria-label="Open ${esc(x.name)}">${tokenHTML(c, 46, 'dk-cctok')}</button><button class="dk-chname" data-act="sel" data-iid="${x.iid}"><b class="dk-cname">${esc(x.name)}</b><span class="dk-ctags">${c ? tags.map(t => `<span class="dk-tag">${esc(t)}</span>`).join('') : '<span class="dk-tag bad">stat block missing</span>'}${CTX.party && inTurn(x.iid) ? '<span class="dk-tag to">Turn order</span>' : ''}</span></button>${econMini(x)}</div>
     <div class="dk-cstat2"><div class="dk-chp2" data-hpflash="${x.iid}"><div class="dk-chp-ring" title="${x.hp} of ${x.max} HP${N(x.temp) ? ' (+' + x.temp + ' temporary)' : ''}"><span class="dk-ring">${hpRing(x)}</span><span class="dk-chp-c"><b class="${p <= 35 ? 'low' : ''}">${x.hp}</b>${N(x.temp) ? `<em>+${x.temp}</em>` : ''}<small>of ${x.max}</small></span></div>
-      <div class="dk-chp-side"><input class="dk-f" id="dk-q-${x.iid}" data-q="${x.iid}" type="text" autocomplete="off" enterkeyhint="done" maxlength="6" placeholder="Amount" title="Type 20 or -20 for damage, +20 to heal, then Enter" aria-label="Amount for ${esc(x.name)}">
+      <div class="dk-chp-side"><select class="dk-f dk-qtype" data-qt="${x.iid}" aria-label="Damage type for ${esc(x.name)} (resistances and immunities apply)" title="Damage type: its resistances and immunities apply"><option value="">Any</option>${DTYPES.map(d => `<option value="${d}"${QTYPE[x.iid] === d ? ' selected' : ''}>${d[0].toUpperCase() + d.slice(1)}</option>`).join('')}</select><input class="dk-f" id="dk-q-${x.iid}" data-q="${x.iid}" type="text" autocomplete="off" enterkeyhint="done" maxlength="6" placeholder="Amount" title="Type 20 or -20 for damage, +20 to heal, then Enter" aria-label="Amount for ${esc(x.name)}">
         <div class="dk-chp-btns"><button class="dk-hpi dmg sm" data-act="qdmg" data-iid="${x.iid}" title="Damage" aria-label="Damage ${esc(x.name)}">${ICON.hpDmg}</button><button class="dk-hpi heal sm" data-act="qheal" data-iid="${x.iid}" title="Heal" aria-label="Heal ${esc(x.name)}">${ICON.hpHeal}</button><button class="dk-hpi tmp sm" data-act="qtemp" data-iid="${x.iid}" title="Temporary HP (they don’t stack — the higher stays)" aria-label="Temporary HP for ${esc(x.name)}">${ICON.hpTemp}</button></div></div></div>
       <div class="dk-csts"><span class="dk-cst"><small>AC</small><b>${x.ac}</b></span><span class="dk-cst wide" title="${esc(c ? c.speed || '' : '')}"><small>Speed</small><b>${c ? speedFt(c) + ' ft' : '—'}</b>${sp.length > 1 ? `<i>${esc(sp.slice(1).map(z => z.replace(/\s*ft\.?/i, '')).join(' · '))}</i>` : ''}</span></div></div>
     ${chips ? `<div class="dk-ccfoot">${chips}</div>` : ''}
@@ -1907,7 +1942,7 @@ async function onClick(e) {
     case 'saveeff': { const g = curSession().groups.find(z => z.id === b.dataset.gid); openSaveDialog({ title: 'Saving throw', dc: 13, ab: 1, parts: [], half: true }); SV.rows.forEach(r => { r.on = !!g.list.find(z => z.iid === r.iid) && !findInst(r.iid).down; }); return paintSave(); }
     case 'addc': { const q = $('#dk-addq'), v = q.value.trim(); if (!v) { q.focus(); return; } const exact = allCreatures().find(c => c.name.toLowerCase() === v.toLowerCase()) || searchCreatures(v, 1)[0]; if (!exact) return toastInfo(`No creature called “${esc(v)}”. Try the bestiary, or paste its stat block there.`); return addPicked(exact.id); }
     case 'pickc': return addPicked(b.dataset.cid);
-    case 'qdmg': case 'qheal': case 'qtemp': { const inp = $(`[data-q="${iid}"]`), v = hpAmt(inp.value).n; if (!v) { inp.focus(); return; } if (act === 'qdmg') applyDamage(x, v, '', true); else if (act === 'qtemp') setTemp(x, v); else heal(x, v); return; }
+    case 'qdmg': case 'qheal': case 'qtemp': { const inp = $(`[data-q="${iid}"]`), v = hpAmt(inp.value).n; if (!v) { inp.focus(); return; } if (act === 'qdmg') { const t = QTYPE[iid] || ''; if (t) applyParts(x, [{ total: v, type: t }], false, dmgMult(instC(x), t, false) === 1); else applyDamage(x, v, '', true); } else if (act === 'qtemp') setTemp(x, v); else heal(x, v); return; }
     case 'dup': { const g = groupOf(iid); if (!g) return; const out = addToGroup(g.s, g.g, x.cid, 1); save(); paint(); return toastInfo(`Added <b>${esc(out[0].name)}</b>.`); }
     case 'rest': restInst(x); save(); paint(); return toastInfo(`${esc(x.name)} is fresh: full HP, conditions cleared, every use back.`);
     case 'movegrp': { const g = groupOf(iid), to = g.s.groups.find(z => z.id === b.dataset.gid); g.g.list = g.g.list.filter(z => z !== x); to.list.push(x); save(); paint(); return; }
@@ -1985,6 +2020,7 @@ function closeMenus() { $$('.dk-menu.open').forEach(m => m.classList.remove('ope
 function onChange(e) {
   const el = e.target; if (!ROOT.contains(el)) return;
   if (onNotesChange(el)) return;
+  if (el.dataset && el.dataset.qt) { QTYPE[el.dataset.qt] = el.value; return; }
   if (el.dataset && el.dataset.hbf) { hbReadForm(); return; }
   if (PB && onPasteChange(el)) return;
   if (el.classList.contains('dk-notef')) { const files = Array.from(el.files || []); el.value = ''; const s = curSession(); if (files.length && s) addFiles(s, files); return; }
@@ -2059,6 +2095,8 @@ function mount(root, ctx) {
   if (ROOT) unmount();
   ROOT = root; CTX = Object.assign({ party: null, back: null }, ctx || {});
   root.classList.add('dk');
+  // Phones: only a party's page is available (see LITE below); the Desk on its own isn't
+  if (!CTX.partyHost && mobileDev()) { const b = CTX.back; root.innerHTML = `<div class="dk-nophone"><div class="dk-emblem">${ICON.folder}</div><h2>Not available on mobile devices</h2><p><em>Not all of the DM’s Desk is available on mobile devices. Open a party you run to manage it from here, or use a computer for everything else.</em></p>${b ? `<a class="dk-btn gold" href="${esc(b.href)}">${ICON.back}<span>${esc(b.label || 'Back')}</span></a>` : ''}</div>`; return { unmount: () => { root.innerHTML = ''; ROOT = null; } }; }
   root.innerHTML = `<header class="dk-top"></header><div class="dk-page"></div>
     <aside class="dk-log" aria-label="Roll log"><div class="dk-loghd"><h2>Roll log</h2><button class="dk-btn sm" data-act="clearlog">Clear</button><button class="dk-ix" data-act="log" aria-label="Close">${ICON.x}</button></div><div class="dk-loglist"></div></aside>
     <div class="dk-modal" role="presentation"><div class="dk-mcard" role="dialog" aria-modal="true"></div></div>
@@ -2074,6 +2112,8 @@ function mount(root, ctx) {
   if (CTX.party && CTX.party.id) { const ps = S.sessions.find(s => s.party === CTX.party.id); if (ps && !UI.session) UI.session = ps.id; }
   if (readTurnHP()) S.savedAt = Date.now();
   setSync(CTX.fs ? 'Loading…' : 'Saved on this device');
+  // Phones: a party you run opens on its party page only (roller, turn order, and a button to open the full Desk)
+  LITE = !!(CTX.partyHost && mobileDev()); ROOT.classList.toggle('dk-lite', LITE); if (LITE) UI.tab = 'party';
   if (CTX.partyHost) { const slot = document.createElement('div'); slot.className = 'dk-partyslot'; root.insertBefore(slot, root.querySelector('.dk-page').nextSibling); slot.appendChild(CTX.partyHost); }
   render();
   try { const top = root.querySelector('.dk-top'), setH = () => root.style.setProperty('--toph', Math.round(top.getBoundingClientRect().height) + 'px'); setH(); if (window.ResizeObserver) { const ro = new ResizeObserver(setH); ro.observe(top); LISTEN.push([{ removeEventListener: () => ro.disconnect() }, 'x', null]); } } catch (e) {}
@@ -2086,16 +2126,20 @@ function mount(root, ctx) {
   on(window, 'message', onR20Msg); on(document, 'visibilitychange', onVis); on(window, 'storage', onStorage);
   setTimeout(r20Hello, 400);
   cloudBoot(); notesBoot(); setTimeout(() => { if (ROOT) tokShrinkOld(); }, 3000);
-  setTimeout(phoneWarn, 700);
+  if (LITE) setTimeout(phoneWarn, 700);
   return { unmount };
 }
-// Phones: a heads-up each time the Desk opens, until "Don't show this again" is ticked
+let LITE = false;
+// any phone or tablet (an iPad reports itself as a Mac, so it's told apart by its touch screen)
+function mobileDev() { try { const ua = navigator.userAgent || '';
+  return /Android|iPhone|iPad|iPod|Mobile|Silk|Kindle|Tablet/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) || (matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches); } catch (e) { return false; } }
+// Phones: a heads-up when a party you run opens, until "Don't show this again" is ticked
 function phoneWarn() {
-  if (!ROOT || innerWidth > 640) return; try { if (localStorage.getItem('pg-desk-phone-ok') === '1') return; } catch (e) {}
+  if (!ROOT || !LITE) return; try { if (localStorage.getItem('pg-party-phone-ok') === '1') return; } catch (e) {}
   if ($('.dk-modal.open')) return;
-  openModal(`<h2>Best on a bigger screen</h2><p>The DM’s Desk isn’t recommended on phones. It’s built for running a game on a computer or tablet, so some things will feel cramped here.</p><label class="dk-chk"><input type="checkbox" id="dk-pwNo"> Don’t show this again</label><div class="dk-acts"><button class="dk-btn gold" id="dk-pwOk">Got it</button></div>`, { cls: 'dk-small', focus: false });
-  const done = () => { try { const c = $('#dk-pwNo'); if (c) { if (c.checked) localStorage.setItem('pg-desk-phone-ok', '1'); else localStorage.removeItem('pg-desk-phone-ok'); } } catch (e) {} };
-  $('#dk-pwNo').onchange = done; $('#dk-pwOk').onclick = () => { done(); closeModal(true); };
+  openModal(`<h2>Party page only</h2><p>Not all of the DM’s Desk is available on mobile devices. Here you have the party page, the dice roller and turn order; open this party on a computer for sessions, notes, the bestiary and the generators.</p><label class="dk-chk"><input type="checkbox" id="dk-pwNo"> Don’t show this again</label><div class="dk-acts"><button class="dk-btn gold" id="dk-pwOk">Got it</button></div>`, { cls: 'dk-small', focus: false });
+  const keep = () => { try { const c = $('#dk-pwNo'); if (c) { if (c.checked) localStorage.setItem('pg-party-phone-ok', '1'); else localStorage.removeItem('pg-party-phone-ok'); } } catch (e) {} };
+  $('#dk-pwNo').onchange = keep; $('#dk-pwOk').onclick = () => { keep(); closeModal(true); };
 }
 function unmount() { LISTEN.splice(0).forEach(([t, ev, fn, o]) => t.removeEventListener(ev, fn, o)); if (CTX && CTX.partyHost && CTX.partyHost.parentNode && CTX.partyHost.parentNode.classList.contains('dk-partyslot')) CTX.partyHost.parentNode.removeChild(CTX.partyHost); if (CLOUD) flush(); if (NCLOUD) flushNotes(); if (ROOT) { ROOT.innerHTML = ''; ROOT.classList.remove('dk'); } ROOT = null; CLOUD = false; }
 // Lists that scroll inside a panel show a divider with a soft shadow at an edge when there's more past it.
@@ -2548,7 +2592,9 @@ async function flushNotes() {
 async function notesBoot() {
   try { const l = JSON.parse(localStorage.getItem(lsKey('-notes')) || 'null'); if (l && l.pages) NT = { pages: l.pages, syncedAt: N(l.syncedAt), del: l.del || [] }; } catch (e) {}
   if (!CTX.fs || !CTX.EMAIL) return;
-  const base = CTX.fs.collection('desks').doc(CTX.EMAIL); NBASE = base.collection('notes'); IBASE = base.collection('imgs');
+  // (a party's desk keeps its own notes; pictures stay in one place for all your desks)
+  while (!BASE && ROOT) await new Promise(r => setTimeout(r, 50)); NBASE = deskBase().collection('notes'); IBASE = userBase().collection('imgs');
+  while (!CLOUD && ROOT && syncMsg !== 'Offline — saved on this device') await new Promise(r => setTimeout(r, 80)); // (after any move of an old desk)
   try {
     const qs = await NBASE.get(), cloud = {}; qs.docs.forEach(d => { const p = d.data().data; if (p && p.id) cloud[p.id] = p; });
     const merged = {};
