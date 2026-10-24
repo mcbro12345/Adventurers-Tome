@@ -56,7 +56,9 @@ public sealed unsafe class Plugin : IDalamudPlugin
         public double SeenT;
         public Vector3 D;       // head point minus position, averaged
         public bool DReady;
-        public OneEuro Rx, Ry;  // the game's tag spot minus its projected head point
+        public Vector2 Rel;     // the tag's layout: the game's tag spot minus its projected head point
+        public bool RelReady;
+        public Vector2 LastHead; // projected steady point last frame, to tell when it's moving
     }
 
     private readonly Plate[] plates = Enumerable.Range(0, Count).Select(_ => new Plate()).ToArray();
@@ -219,8 +221,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
             {
                 p.Object = (nint)info->GameObject;
                 p.DReady = false;
-                p.Rx = default;
-                p.Ry = default;
+                p.RelReady = false;
             }
             p.SeenT = t;
 
@@ -234,8 +235,15 @@ public sealed unsafe class Plugin : IDalamudPlugin
                 !view.Project(position + p.D, viewportOrigin, out var steadyOnScreen)) continue;
             var native = Native(root);
             var rel = native - headOnScreen;
-            if (p.Rx.Ready && (MathF.Abs(rel.X - p.Rx.X) > 30 || MathF.Abs(rel.Y - p.Ry.X) > 30)) { p.Rx = default; p.Ry = default; }
-            var want = steadyOnScreen + new Vector2(p.Rx.Step(rel.X, dt, 0.5f, 0.02f), p.Ry.Step(rel.Y, dt, 0.5f, 0.02f));
+            // The game's spot comes from an older camera, so while anything moves it trails; learning the layout then
+            // would bring that trail back. So the layout is learnt while the tag's point holds still on screen (where
+            // the game's spot is right), and held while it moves. A big change (new layout, size) is taken at once.
+            var still = Vector2.Distance(steadyOnScreen, p.LastHead) < 0.3f;
+            p.LastHead = steadyOnScreen;
+            var jump = Vector2.Distance(rel, p.Rel);
+            if (!p.RelReady || jump > 80 || (still && jump > 24)) { p.Rel = rel; p.RelReady = true; }
+            else if (still) p.Rel += (rel - p.Rel) * (1 - MathF.Exp(-dt / 0.3f));
+            var want = steadyOnScreen + p.Rel;
             var delta = want - native;
 
             Shift(root, delta);
