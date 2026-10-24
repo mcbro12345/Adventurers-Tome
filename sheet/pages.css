@@ -2321,3 +2321,7 @@ html.pg-try #saveState { display: none !important; }
 .nt-sl .nt-sl-row > span:has(> b) { flex: 1; }
 .nt-sl .nt-sl-act { flex: none; margin-left: auto; }
 .nt-sl .nt-sl-note { margin: -4px 0 6px; }
+/* Sign-in page on phones: scrolls straight up and down only — no rubber-band bounce, no sideways drift */
+html:has(.pg-si2), html:has(.pg-si2) body { overscroll-behavior: none; overflow-x: hidden; }
+#pg-load:has(.pg-si2) { overscroll-behavior: none; overflow-x: hidden; touch-action: pan-y; }
+#pg-load:has(.pg-si2) .si2-vbox iframe { touch-action: auto; }
