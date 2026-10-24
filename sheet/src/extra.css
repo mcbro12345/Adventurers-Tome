@@ -2615,7 +2615,7 @@ html.mobile:not([data-theme="dark"]) .tabs { box-shadow: 0 -6px 16px rgba(60,45,
 @keyframes wSheetIn { from { transform: translateY(100%); } to { transform: none; } }
 @keyframes wSheetOut { from { transform: none; } to { transform: translateY(100%); } }
 .modal-bg.open { animation: wFadeIn .2s ease; }
-.modal-bg.open > .modal { animation: wPopIn .22s cubic-bezier(.22,.9,.24,1); }
+.modal-bg.open > .modal { animation: wPopIn .28s ease; }
 .modal-bg.closing { display: flex; pointer-events: none; animation: wFadeOut .18s ease forwards; }
 .modal-bg.closing > .modal { animation: wPopOut .18s ease forwards; }
 html.mobile .modal-bg.open > .modal { animation: wSheetIn .32s cubic-bezier(.2,.9,.3,1); }
@@ -3220,7 +3220,7 @@ html:not(.mobile) .toolbar > .tbtn, html:not(.mobile) .toolbar .savegrp > .tbtn 
 :root:not([data-theme="dark"]) { --slate: #56657A; }
 :root:not([data-theme="dark"]) .cn.gp .cl { color: #444e63; }
 /* Floating windows fade in and out (on a phone they slide up from the bottom and back down) */
-.drwin, .pcwin { animation: winIn .18s cubic-bezier(.2,.9,.3,1); }
+.drwin, .pcwin { animation: winIn .26s ease; }
 .drwin.closing, .pcwin.closing { animation: winOut .18s ease forwards; pointer-events: none; }
 html.mobile .drwin, html.mobile .pcwin { animation-name: winUp; }
 html.mobile .drwin.closing, html.mobile .pcwin.closing { animation-name: winDown; }

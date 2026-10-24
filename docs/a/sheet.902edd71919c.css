@@ -3284,7 +3284,7 @@ html.mobile:not([data-theme="dark"]) .tabs { box-shadow: 0 -6px 16px rgba(60,45,
 @keyframes wSheetIn { from { transform: translateY(100%); } to { transform: none; } }
 @keyframes wSheetOut { from { transform: none; } to { transform: translateY(100%); } }
 .modal-bg.open { animation: wFadeIn .2s ease; }
-.modal-bg.open > .modal { animation: wPopIn .22s cubic-bezier(.22,.9,.24,1); }
+.modal-bg.open > .modal { animation: wPopIn .28s ease; }
 .modal-bg.closing { display: flex; pointer-events: none; animation: wFadeOut .18s ease forwards; }
 .modal-bg.closing > .modal { animation: wPopOut .18s ease forwards; }
 html.mobile .modal-bg.open > .modal { animation: wSheetIn .32s cubic-bezier(.2,.9,.3,1); }
@@ -3889,7 +3889,7 @@ html:not(.mobile) .toolbar > .tbtn, html:not(.mobile) .toolbar .savegrp > .tbtn 
 :root:not([data-theme="dark"]) { --slate: #56657A; }
 :root:not([data-theme="dark"]) .cn.gp .cl { color: #444e63; }
 /* Floating windows fade in and out (on a phone they slide up from the bottom and back down) */
-.drwin, .pcwin { animation: winIn .18s cubic-bezier(.2,.9,.3,1); }
+.drwin, .pcwin { animation: winIn .26s ease; }
 .drwin.closing, .pcwin.closing { animation: winOut .18s ease forwards; pointer-events: none; }
 html.mobile .drwin, html.mobile .pcwin { animation-name: winUp; }
 html.mobile .drwin.closing, html.mobile .pcwin.closing { animation-name: winDown; }
@@ -4185,4 +4185,27 @@ html.mobile body.wizopen #modal.open, html.mobile body.wizopen #modal.closing { 
 .ds-plot .ds-fair { position: absolute; left: 0; right: 0; height: 0; border-top: 1.5px dashed var(--soft); opacity: .6; pointer-events: none; }
 .ds-axis { display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 3px; margin-top: 4px; }
 .ds-axis span { text-align: center; font-size: .62rem; color: var(--soft); font-variant-numeric: tabular-nums; }
+/* Log tabs: a sliding highlight, and the list slides in from the side you're heading */
+.rl-tabs.inked { position: relative; }
+.rl-tabs.inked .rl-tab { position: relative; z-index: 1; transition: color .2s; }
+.rl-tabs.inked .rl-tab.on { background: transparent; box-shadow: none; }
+.rl-ink { position: absolute; left: 0; top: 3px; bottom: 3px; width: 0; border-radius: 8px; background: var(--panel); box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: transform .28s cubic-bezier(.3,.7,.2,1), width .28s cubic-bezier(.3,.7,.2,1); }
+#rolllogmodal .rl-list.in-r { animation: rlIn-r .26s cubic-bezier(.3,.7,.2,1); }
+#rolllogmodal .rl-list.in-l { animation: rlIn-l .26s cubic-bezier(.3,.7,.2,1); }
+@keyframes rlIn-r { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
+@keyframes rlIn-l { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: none; } }
+/* Dice stats: bars grow up from the axis, one after another */
+.ds-chart.anim .ds-col i { transform-origin: bottom; animation: dsGrow .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--k, 0) * 22ms + 80ms); }
+.ds-chart.anim .ds-fair { animation: dsFade .4s ease both; animation-delay: .6s; }
+@keyframes dsGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes dsFade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .rl-ink { transition: none; } #rolllogmodal .rl-list.in-r, #rolllogmodal .rl-list.in-l, .ds-chart.anim .ds-col i, .ds-chart.anim .ds-fair { animation: none; } }
+/* the Log window keeps one size on every tab (the Dice stats height) */
+#rolllogmodal .rl-list { height: min(62vh, 640px); max-height: none; }
+html.mobile #rolllogmodal .rl-list { height: auto; max-height: min(62vh, 640px); }
+.cact-i { color: var(--k, var(--gold)); } .cact-i svg { width: 15px; height: 15px; display: block; }
+/* The "show the math" dice button gets its own space on the right of a roll card, so it never sits on top of the damage label */
+.toast.rollcard:has(> .rc-dice) { padding-right: 46px; }
+.toast.rollcard > .rc-dice { top: 50%; bottom: auto; right: 8px; transform: translateY(-50%); }
+.pbadge.defb.vul { border-color: color-mix(in srgb, #c0392b 55%, transparent); color: color-mix(in srgb, #c0392b 70%, var(--ink, currentColor)); }
 

@@ -330,7 +330,7 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 
 /* ---------- modal ---------- */
 .dk-modal { position: fixed; inset: 0; z-index: 60; display: none; align-items: flex-start; justify-content: center; padding: calc(28px + env(safe-area-inset-top)) 14px 28px; background: rgba(10,14,24,.58); backdrop-filter: blur(2px); overflow-y: auto; }
-.dk-modal.open { display: flex; animation: dkFade .15s ease; }
+.dk-modal.open { display: flex; animation: dkFade .24s ease; }
 @keyframes dkFade { from { opacity: 0; } }
 .dk-mcard { width: min(560px, 100%); background: var(--card); color: var(--ink); border: 1px solid var(--line); border-top: 4px solid var(--gold); border-radius: 18px; box-shadow: var(--shadow2); padding: 20px 22px; animation: dkPop .18s ease; }
 .dk-mcard.wide { width: min(920px, 100%); }
@@ -744,7 +744,7 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 @media (max-width: 420px) { .dk-hbform .dk-g4, .dk-hbform .dk-g2 { grid-template-columns: minmax(0, 1fr); } .dk-hbacts .dk-btn { flex: 1 1 100%; } }
 
 /* ---------- dice roller (the sheet's own roller window) ---------- */
-.dk .drwin { position: fixed; z-index: 60; width: 320px; max-height: calc(100vh - 16px); overflow-y: auto; overscroll-behavior: contain; background: var(--card); color: var(--ink); border: 1px solid var(--line); border-top: 3px solid var(--gold); border-radius: 12px; box-shadow: 0 18px 44px rgba(0,0,0,.45); font-family: var(--sans); animation: drIn .18s cubic-bezier(.2,.9,.3,1); }
+.dk .drwin { position: fixed; z-index: 60; width: 320px; max-height: calc(100vh - 16px); overflow-y: auto; overscroll-behavior: contain; background: var(--card); color: var(--ink); border: 1px solid var(--line); border-top: 3px solid var(--gold); border-radius: 12px; box-shadow: 0 18px 44px rgba(0,0,0,.45); font-family: var(--sans); animation: drIn .26s ease; }
 .dk .drwin.closing { animation: drOut .18s ease forwards; pointer-events: none; }
 .dk .drwin.drag { opacity: .95; }
 @keyframes drIn { from { opacity: 0; transform: translateY(8px) scale(.97); } }
@@ -892,7 +892,8 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 @media (max-width: 640px) {
   .dk-top { gap: 6px 8px; padding-top: calc(6px + env(safe-area-inset-top)); padding-bottom: 6px; }
   .dk-backlink { min-height: 32px; font-size: .84rem; }
-  .dk-brand > div { display: none; }
+  .dk-brand { min-width: 0; } .dk-brand > div { min-width: 0; } .dk-brand small { display: none; }
+  .dk-brand h1 { font-size: 1.2rem !important; overflow: hidden; text-overflow: ellipsis; }
   .dk-brand { margin-right: auto; }
   .dk-tools { gap: 6px; }
   .dk-sync { display: none; }
@@ -940,7 +941,7 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 @media (min-width: 641px) {
   .dk.dk-mw .dk-modal { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; pointer-events: none; align-items: center; overflow: visible; padding: 24px; animation: none; }
   .dk.dk-mw .dk-mcard { pointer-events: auto; position: relative; padding: 0 20px 18px; border: 1px solid var(--line); border-top: 3px solid var(--gold); border-radius: 12px; box-shadow: 0 18px 50px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.18);
-    max-height: calc(100vh - 48px); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; animation: dkWinIn .18s cubic-bezier(.2,.9,.3,1); }
+    max-height: calc(100vh - 48px); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; animation: dkWinIn .26s ease; }
   .dk.dk-mw .dk-mcard.dk-moving { opacity: .96; transition: none; }
   .dk.dk-mw .dk-mcard.dk-setwin { height: min(calc(100vh - 48px), 600px); }
   .dk.dk-mw.dk-rfront .drwin { z-index: 61; }
@@ -1259,19 +1260,27 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 .dk-rail .dk-tch { font-size: .76rem; color: var(--ink); }
 .dk-rail .dk-tbar { position: absolute; left: 41px; right: 8px; bottom: 3px; height: 2px; border-radius: 2px; background: var(--line2); }
 .dk-rail .dk-tc.down { opacity: .55; } .dk-rail .dk-tc.down .dk-tcn { text-decoration: line-through; }
-/* Sessions rail v3: flat rows; the whole row lights up, the open session gets a gold edge instead of a box */
+/* Sessions rail v4: one-line session rows with a count badge; the open session's creatures sit in an inset tray */
 .dk-rail .dk-tree { gap: 2px; padding: 10px 8px 14px; }
 .dk-rail .dk-ts, .dk-rail .dk-ts.cur { background: none; border: 0; box-shadow: none; padding: 0; border-radius: 0; }
-.dk-rail .dk-tsrow { position: relative; border-radius: 10px; transition: background .15s; }
+.dk-rail .dk-tsrow { position: relative; align-items: center; border-radius: 10px; min-height: 40px; transition: background .15s; }
 @media (hover: hover) { .dk-rail .dk-tsrow:hover { background: var(--card2); } .dk-rail .dk-tsn:hover { background: none; } }
-.dk-rail .dk-ts.cur .dk-tsrow { background: linear-gradient(90deg, var(--gold-soft), transparent 92%); }
-.dk-rail .dk-ts.cur .dk-tsrow::before { content: ''; position: absolute; left: 0; top: 7px; bottom: 7px; width: 3px; border-radius: 3px; background: var(--gold); }
-.dk-rail .dk-caret { width: 28px; align-self: stretch; color: var(--soft); border-radius: 10px 0 0 10px; }
-.dk-rail .dk-ts.cur .dk-caret, .dk-rail .dk-caret.open { color: var(--gold-ink); }
-.dk-rail .dk-tsn { padding: 8px 10px 8px 0; border-radius: 0 10px 10px 0; }
-.dk-rail .dk-ts:not(.cur) .dk-tsn b { font-weight: 650; }
-.dk-rail .dk-tkids { margin: 3px 4px 8px 14px; padding-left: 8px; border-left: 1px solid var(--line); gap: 1px; }
-.dk-rail .dk-tkids:empty, .dk-rail .dk-tnone { color: var(--soft); }
+.dk-rail .dk-caret { width: 26px; align-self: stretch; color: var(--soft); border-radius: 10px 0 0 10px; }
+.dk-rail .dk-caret.open { color: var(--ink); }
+.dk-rail .dk-tsn { display: flex; align-items: center; gap: 8px; padding: 9px 10px 9px 0; border-radius: 0 10px 10px 0; }
+.dk-rail .dk-tsn b { flex: 1; min-width: 0; font: 650 .93rem/1.2 var(--sans); }
+.dk-rail .dk-ts.cur .dk-tsn b { color: var(--gold-ink); font-weight: 800; }
+.dk-tscnt { flex: none; font-style: normal; min-width: 22px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 10px; background: var(--card2); border: 1px solid var(--line); color: var(--soft); font: 750 .7rem/18px var(--sans); text-align: center; font-variant-numeric: tabular-nums; }
+.dk-rail .dk-ts.cur .dk-tscnt { background: var(--gold-soft); border-color: color-mix(in srgb, var(--gold) 45%, transparent); color: var(--gold-ink); }
+.dk-tsdn { flex: none; font-style: normal; font: 700 .66rem/1 var(--sans); color: #d0644f; text-transform: uppercase; letter-spacing: .04em; }
+.dk-rail .dk-tkids { margin: 2px 0 8px 0; padding: 4px; border: 0; border-radius: 12px; background: color-mix(in srgb, var(--bg) 45%, var(--card)); border: 1px solid var(--line2); gap: 2px; }
+.dk-rail .dk-tg { margin: 6px 6px 2px; padding: 0 2px 4px; }
+.dk .dk-rail .dk-tc { grid-template-columns: 24px minmax(0, 1fr) auto; gap: 10px; padding: 6px 8px; border-radius: 9px; }
+.dk-rail .dk-tcn { font-size: .86rem; font-weight: 600; }
+.dk .dk-rail .dk-tc.on { background: var(--card); box-shadow: 0 1px 4px rgba(0,0,0,.18), inset 0 0 0 1px color-mix(in srgb, var(--gold) 55%, transparent); }
+.dk-rail .dk-tch { display: grid; justify-items: end; gap: 3px; font-size: .74rem; line-height: 1; }
+.dk-rail .dk-tch .dk-tbar { position: static; width: 38px; height: 3px; border-radius: 3px; background: var(--line); }
+.dk-rail .dk-tnone { color: var(--soft); padding: 8px 10px; margin: 0; font-size: .82rem; }
 /* ===== Scroll edges: a divider with a soft shadow shows where a list carries on above or below ===== */
 .dk-shade::before, .dk-shade::after { content: ''; display: block; position: sticky; z-index: 3; height: 0; pointer-events: none; opacity: 0; transition: opacity .15s; grid-column: 1 / -1; }
 .dk-shade::before { top: 0; border-top: 1px solid var(--line); box-shadow: 0 2px 12px 4px rgba(0,0,0,.45); }
@@ -1322,3 +1331,23 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
   .dk .drwin .dr-die { font-size: .74rem; min-height: 56px; }
 }
 @media (max-width: 640px) and (pointer: coarse) { html.dk-kb .dk .dk-tabs { display: none; } html.dk-kb .dk { padding-bottom: 16px; } }
+/* Phones: name and tools share one row under the back link */
+@media (max-width: 640px) {
+  .dk .dk-top { flex-wrap: wrap; row-gap: 2px; }
+  .dk .dk-brand { flex: 1 1 0; min-width: 0; gap: 8px; }
+  .dk .dk-logo .hl-d20, .dk .dk-brand > svg { width: 36px !important; height: 36px !important; flex: none; }
+  .dk .dk-brand h1 { font-size: 1.12rem !important; }
+  .dk .dk-tools { flex: none; gap: 4px; flex-wrap: nowrap; }
+  .dk .dk-tools > button, .dk .dk-tools > a { min-width: 40px; width: 40px; height: 40px; min-height: 40px; padding: 0; display: grid; place-items: center; }
+  .dk .dk-tools .dk-tl { display: none; }
+}
+/* Phones, a party you run: just the party page, the roller and turn order, and a way into the full Desk */
+.dk.dk-lite .dk-tabs, .dk.dk-lite .dk-tools [data-act=log], .dk.dk-lite .dk-tools [data-act=settings], .dk.dk-lite .dk-tools [data-act=bugreport] { display: none !important; }
+.dk.dk-lite { padding-bottom: 24px !important; }
+.dk-nophone { min-height: 100dvh; display: grid; place-content: center; justify-items: center; gap: 10px; padding: 24px; text-align: center; box-sizing: border-box; }
+.dk-nophone h2 { margin: 0; font: 800 1.4rem var(--serif); } .dk-nophone p { margin: 0; max-width: 34ch; color: var(--soft); line-height: 1.45; } .dk-nophone .dk-btn { gap: 6px; text-decoration: none; }
+/* Creature cards: damage type and amount sit snug together, like the sheet's HP panel */
+.dk .dk-chp-side .dk-qtype { height: 30px; min-height: 30px !important; padding: 0 8px; font-size: .85rem; border-radius: 8px; margin-bottom: -4px; }
+.dk .dk-chp-side input.dk-f { height: 30px; min-height: 30px !important; padding: 0 8px; border-radius: 8px; }
+.dk .dk-chp-btns .dk-hpi { height: 36px; min-height: 36px; }
+.dk .dk-cact-i { color: var(--k, var(--gold-ink)); letter-spacing: 0; } .dk .dk-cact-i svg { width: 15px !important; height: 15px !important; display: block; }

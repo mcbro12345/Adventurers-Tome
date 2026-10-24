@@ -975,7 +975,7 @@ html.pg-loading body > :not(#pg-load):not(.pg-out) { visibility: hidden !importa
 @keyframes hPopIn { from { opacity: 0; transform: translateY(6px) scale(.985); } to { opacity: 1; transform: none; } }
 @keyframes hPopOut { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(6px) scale(.985); } }
 body.hubbody .hub-modal.on { animation: hFadeIn .2s ease; }
-body.hubbody .hub-modal.on > * { animation: hPopIn .22s cubic-bezier(.22,.9,.24,1); }
+body.hubbody .hub-modal.on > * { animation: hPopIn .28s ease; }
 body.hubbody .hub-modal.closing { display: flex; pointer-events: none; animation: hFadeOut .18s ease forwards; }
 body.hubbody .hub-modal.closing > * { animation: hPopOut .18s ease forwards; }
 body.hubbody .hc-menu.on .hc-list, body.hubbody .adm-mwrap.on .adm-mlist { animation: hPopIn .14s ease; }

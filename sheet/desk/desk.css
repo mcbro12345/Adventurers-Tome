@@ -330,7 +330,7 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 
 /* ---------- modal ---------- */
 .dk-modal { position: fixed; inset: 0; z-index: 60; display: none; align-items: flex-start; justify-content: center; padding: calc(28px + env(safe-area-inset-top)) 14px 28px; background: rgba(10,14,24,.58); backdrop-filter: blur(2px); overflow-y: auto; }
-.dk-modal.open { display: flex; animation: dkFade .15s ease; }
+.dk-modal.open { display: flex; animation: dkFade .24s ease; }
 @keyframes dkFade { from { opacity: 0; } }
 .dk-mcard { width: min(560px, 100%); background: var(--card); color: var(--ink); border: 1px solid var(--line); border-top: 4px solid var(--gold); border-radius: 18px; box-shadow: var(--shadow2); padding: 20px 22px; animation: dkPop .18s ease; }
 .dk-mcard.wide { width: min(920px, 100%); }
@@ -744,7 +744,7 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 @media (max-width: 420px) { .dk-hbform .dk-g4, .dk-hbform .dk-g2 { grid-template-columns: minmax(0, 1fr); } .dk-hbacts .dk-btn { flex: 1 1 100%; } }
 
 /* ---------- dice roller (the sheet's own roller window) ---------- */
-.dk .drwin { position: fixed; z-index: 60; width: 320px; max-height: calc(100vh - 16px); overflow-y: auto; overscroll-behavior: contain; background: var(--card); color: var(--ink); border: 1px solid var(--line); border-top: 3px solid var(--gold); border-radius: 12px; box-shadow: 0 18px 44px rgba(0,0,0,.45); font-family: var(--sans); animation: drIn .18s cubic-bezier(.2,.9,.3,1); }
+.dk .drwin { position: fixed; z-index: 60; width: 320px; max-height: calc(100vh - 16px); overflow-y: auto; overscroll-behavior: contain; background: var(--card); color: var(--ink); border: 1px solid var(--line); border-top: 3px solid var(--gold); border-radius: 12px; box-shadow: 0 18px 44px rgba(0,0,0,.45); font-family: var(--sans); animation: drIn .26s ease; }
 .dk .drwin.closing { animation: drOut .18s ease forwards; pointer-events: none; }
 .dk .drwin.drag { opacity: .95; }
 @keyframes drIn { from { opacity: 0; transform: translateY(8px) scale(.97); } }
@@ -941,7 +941,7 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 @media (min-width: 641px) {
   .dk.dk-mw .dk-modal { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; pointer-events: none; align-items: center; overflow: visible; padding: 24px; animation: none; }
   .dk.dk-mw .dk-mcard { pointer-events: auto; position: relative; padding: 0 20px 18px; border: 1px solid var(--line); border-top: 3px solid var(--gold); border-radius: 12px; box-shadow: 0 18px 50px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.18);
-    max-height: calc(100vh - 48px); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; animation: dkWinIn .18s cubic-bezier(.2,.9,.3,1); }
+    max-height: calc(100vh - 48px); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; animation: dkWinIn .26s ease; }
   .dk.dk-mw .dk-mcard.dk-moving { opacity: .96; transition: none; }
   .dk.dk-mw .dk-mcard.dk-setwin { height: min(calc(100vh - 48px), 600px); }
   .dk.dk-mw.dk-rfront .drwin { z-index: 61; }
