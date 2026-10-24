@@ -55,6 +55,7 @@ public sealed class Config : IPluginConfiguration
 
     // placement
     public bool SteadyAnchor = true;       // hang the name on a steady point, not the bobbing head
+    public bool NoTaaJitter = true;        // project without the anti-aliasing's per-frame sub-pixel camera shake
     public bool HalfPixel = false;
     public int ForceLag = -1;              // -1 = work it out
 
@@ -275,7 +276,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
                 else p.D += (raw - p.D) * dAlpha;
             }
 
-            if (!GameGui.WorldToScreen(p.GameAnchor, out var s)) { p.Reset(p.Id); continue; }
+            if (!Project(p.GameAnchor, out var s)) { p.Reset(p.Id); continue; }
             for (var k = Lags - 1; k > 0; k--) p.S[k] = p.S[k - 1];
             p.S[0] = s;
             p.History = Math.Min(p.History + 1, Lags);
@@ -311,6 +312,40 @@ public sealed unsafe class Plugin : IDalamudPlugin
         Lag = Cfg.ForceLag >= 0 ? Math.Min(Cfg.ForceLag, Lags - 1) : best;
     }
 
+    // TAA/DLSS/FSR shift the projection by a sub-pixel amount every frame (a repeating sequence) and blend the frames so
+    // the scene holds still; the game's own world-to-screen keeps that shake, which made every name wobble by ~0.25 px in
+    // the same pattern. The shift lives in the projection's M31/M32, which are 0 for an ordinary symmetric camera, so we
+    // project with those zeroed: the same camera, minus the shake.
+    internal float JitterX, JitterY, Jitter2X, Jitter2Y; // the shake seen this frame, in pixels, for the settings window
+
+    private bool Project(Vector3 world, out Vector2 screen)
+    {
+        var cm = FFXIVClientStructs.FFXIV.Client.Game.Control.CameraManager.Instance();
+        var device = FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Device.Instance();
+        if (Cfg.NoTaaJitter && cm != null && cm->Camera != null && device != null)
+        {
+            var sc = &cm->Camera->CameraBase.SceneCamera;
+            if (sc->RenderCamera != null)
+            {
+                float w = device->Width, h = device->Height;
+                Matrix4x4 view = sc->ViewMatrix;
+                Matrix4x4 proj = sc->RenderCamera->ProjectionMatrix;
+                JitterX = proj.M31 * w / 2;
+                JitterY = proj.M32 * h / 2;
+                Jitter2X = sc->RenderCamera->ProjectionMatrix2.M31 * w / 2;
+                Jitter2Y = sc->RenderCamera->ProjectionMatrix2.M32 * h / 2;
+                proj.M31 = 0;
+                proj.M32 = 0;
+                var c = Vector4.Transform(new Vector4(world, 1), view * proj);
+                if (c.W <= float.Epsilon) { screen = default; return false; }
+                var origin = ImGui.GetMainViewport().Pos;
+                screen = new Vector2((c.X / c.W + 1) * w / 2 + origin.X, (1 - c.Y / c.W) * h / 2 + origin.Y);
+                return true;
+            }
+        }
+        return GameGui.WorldToScreen(world, out screen);
+    }
+
     // Where the game's spot for this plate should be right now: project(steady point) + layout offset.
     private bool Spot(Plate p, out Vector2 spot)
     {
@@ -318,7 +353,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
         var k = Math.Min(Lag, p.History - 1);
         if (!p.Live || k < 0 || !p.Ox[k].Ready) return false;
         var world = Cfg.SteadyAnchor && p.HasPosition && p.DReady ? p.Position + p.D : p.GameAnchor;
-        if (!GameGui.WorldToScreen(world, out var s)) return false;
+        if (!Project(world, out var s)) return false;
         spot = new Vector2(s.X + p.Ox[k].X, s.Y + p.Oy[k].X);
         if (Cfg.HalfPixel) spot = new Vector2(MathF.Round(spot.X * 2) / 2, MathF.Round(spot.Y * 2) / 2);
         return true;
@@ -730,6 +765,7 @@ internal sealed class ConfigWindow : Window
             ImGui.Separator();
         }
         changed |= ImGui.Checkbox("Steady anchor (no head bob)", ref c.SteadyAnchor);
+        changed |= ImGui.Checkbox("Remove anti-aliasing camera shake", ref c.NoTaaJitter);
         changed |= ImGui.Checkbox("Snap to half pixels", ref c.HalfPixel);
         changed |= ImGui.Checkbox("Sharp game text (no fixed font resolution)", ref c.SharpText);
         if (c.SharpText && plugin.SharpGaveUp) ImGui.TextDisabled("  The game keeps turning this back off, so it's paused.");
@@ -740,7 +776,7 @@ internal sealed class ConfigWindow : Window
         if (changed) plugin.Save();
         ImGui.Separator();
         ImGui.TextDisabled($"Nameplate updates/s: {plugin.UpdatesPerSec}   draws/s: {plugin.DrawsPerSec}   names drawn: {plugin.NamesDrawn}");
-        ImGui.TextDisabled($"Game is {plugin.Lag} frame(s) behind" + (c.ForceLag < 0 ? " (auto)" : ""));
+        ImGui.TextDisabled($"Game is {plugin.Lag} frame(s) behind" + (c.ForceLag < 0 ? " (auto)" : "") + $"   anti-aliasing shake: {plugin.JitterX:0.00}, {plugin.JitterY:0.00} px ({plugin.Jitter2X:0.00}, {plugin.Jitter2Y:0.00})");
         ImGui.TextDisabled($"Overlay drew the same names twice: {plugin.RepeatsPerSec}/s   names collected but never drawn: {plugin.MissedPerSec}/s");
     }
 }
