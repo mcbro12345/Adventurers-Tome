@@ -240,12 +240,10 @@ public sealed unsafe class Plugin : IDalamudPlugin
         Span<bool> seen = stackalloc bool[Count];
         Span<float> wobble = stackalloc float[Lags];
         Span<int> seenK = stackalloc int[Lags];
-        // WoW's distances are from the camera; measure them from the camera's real position
-        Vector3? cam = null;
-        var cm = FFXIVClientStructs.FFXIV.Client.Game.Control.CameraManager.Instance();
-        if (cm != null && cm->Camera != null) cam = cm->Camera->CameraBase.SceneCamera.Object.Position;
         var dAlpha = 1 - MathF.Exp(-dt / 0.4f);
-        var view = CaptureView(); // the head offset settles over ~0.4 s: steadier than any walk bob
+        var view = CaptureView();
+        // WoW's distances are from the camera
+        Vector3? cam = view.HasCamPos ? view.CamPos : null; // the head offset settles over ~0.4 s: steadier than any walk bob
 
         foreach (var h in handlers)
         {
@@ -328,6 +326,8 @@ public sealed unsafe class Plugin : IDalamudPlugin
     private struct View
     {
         public Matrix4x4 VP;
+        public Vector3 CamPos;  // where the camera is, from the inverse of its view matrix
+        public bool HasCamPos;
         public float W, H;
         public bool Ok;
     }
@@ -346,6 +346,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
         {
             var sc = &cm->Camera->CameraBase.SceneCamera;
             Matrix4x4 view = sc->ViewMatrix;
+            if (Matrix4x4.Invert(view, out var inv)) { v.CamPos = inv.Translation; v.HasCamPos = true; }
             Matrix4x4 proj = sc->RenderCamera->ProjectionMatrix;
             JitterX = proj.M31 * v.W / 2;
             JitterY = proj.M32 * v.H / 2;
@@ -467,6 +468,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
     }
 
     internal bool DebugLabels;
+    internal bool AlignmentTest; // leave the game's own text showing under ours
 
     // The game prepares frames and Dalamud draws its overlay on their own schedules, which needn't take strict turns;
     // so the overlay always draws the newest finished list instead of waiting for a "new" one (skipping a frame would
@@ -674,8 +676,11 @@ public sealed unsafe class Plugin : IDalamudPlugin
             else px = text->FontSize * scale;
             px = MathF.Max(4, px * Cfg.TextScale);
 
-            hidden.Add((nint)text);
-            text->NodeFlags &= ~NodeFlags.Visible;
+            if (!AlignmentTest)
+            {
+                hidden.Add((nint)text);
+                text->NodeFlags &= ~NodeFlags.Visible;
+            }
             // under an open window the game would have drawn it beneath that window: draw nothing there
             if (UnderWindow(min, min + size)) continue;
 
@@ -886,6 +891,9 @@ internal sealed class ConfigWindow : Window
         changed |= ImGui.SliderInt("Frames behind (-1 = auto)", ref c.ForceLag, -1, 2);
         if (ImGui.Button("Reset to WoW defaults")) plugin.ResetToWow();
         ImGui.Checkbox("Show debug numbers under names", ref plugin.DebugLabels);
+        ImGui.Checkbox("Alignment test: also show the game's own names", ref plugin.AlignmentTest);
+        if (plugin.AlignmentTest)
+            ImGui.TextDisabled("  Turn the camera: the right 'Overlay frame delay' keeps both copies together.");
         if (changed) plugin.Save();
         ImGui.Separator();
         ImGui.TextDisabled($"Nameplate updates/s: {plugin.UpdatesPerSec}   draws/s: {plugin.DrawsPerSec}   names drawn: {plugin.NamesDrawn}");
