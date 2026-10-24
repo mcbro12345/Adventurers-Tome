@@ -1,8 +1,8 @@
 {
   "Author": "me",
   "Name": "Smooth Nameplates",
-  "Punchline": "FFXIV's own name tags, in the font you pick, gliding instead of jittering.",
-  "Description": "Changes the game's own name text (font, size, bold, outline, glow, sharpness) and places each tag from the camera's clean projection on a steady point.",
+  "Punchline": "Pick the font and size of FFXIV's own name tags.",
+  "Description": "Changes the game's own name text: font, size and fixed font resolution.",
   "ApplicableVersion": "any",
   "Tags": ["nameplate", "ui"]
 }
