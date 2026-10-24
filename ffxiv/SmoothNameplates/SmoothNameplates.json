@@ -1,8 +1,8 @@
 {
   "Author": "me",
   "Name": "Smooth Nameplates",
-  "Punchline": "Nameplates that glide instead of jitter, and are easier to read.",
-  "Description": "Sub-pixel, filtered nameplate positions snapped to half pixels; sharper text and darker outlines.",
+  "Punchline": "WoW-style name tags: smooth, steady, readable.",
+  "Description": "Draws the game's name text (and other plugins' changes to it) WoW-style: float-positioned vector-like glyphs, steady overhead anchor, no anti-aliasing shake, WoW's distance scale and fade.",
   "ApplicableVersion": "any",
   "Tags": ["nameplate", "ui"]
 }
