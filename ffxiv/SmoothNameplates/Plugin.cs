@@ -70,7 +70,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
     internal int FramesPerSec, RebakesPerSec, Moved;
     internal string Resets = "";
-    private int resetFont, resetSize, resetFlags;
+    private int resetFont, resetSize, resetDirect;
     private bool sharpSet;
 
     // recorder: a few seconds of what the game and we do with every tag, every frame, for diagnosis
@@ -188,9 +188,9 @@ public sealed unsafe class Plugin : IDalamudPlugin
             {
                 if (font != look.OurFont) resetFont++;
                 if (size != look.OurSize) resetSize++;
-                if ((flags ^ look.OurFlags) != 0) resetFlags++;
+                if (Cfg.Direct && !obj.DrawOriginalText) resetDirect++;
             }
-            if (!known || font != look.OurFont || size != look.OurSize || flags != look.OurFlags)
+            if (!known || font != look.OurFont || size != look.OurSize)
             {
                 look.GameFont = font;
                 look.GameSize = size;
@@ -199,16 +199,18 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
             var wantFont = Cfg.Font is >= 0 and <= 5 ? (byte)Cfg.Font : look.GameFont;
             var wantSize = (byte)Math.Clamp(MathF.Round(look.GameSize * Cfg.Size), 6, 64);
-            var wantFlags = look.GameFlags;
-            wantFlags = Cfg.Bold ? wantFlags | TextFlags.Bold : wantFlags & ~TextFlags.Bold;
-            wantFlags = Cfg.Outline ? wantFlags | TextFlags.Edge : wantFlags & ~TextFlags.Edge;
-            wantFlags = Cfg.Glow ? wantFlags | TextFlags.Glare : wantFlags & ~TextFlags.Glare;
+            // bold/outline/glow stay the game's: it rewrites them on every update, so changing them meant re-rendering
+            // tags every frame (and the tags hopping as they re-rendered)
+            var wantFlags = flags;
 
-            if (font != wantFont || size != wantSize || flags != wantFlags)
+            // the game normally draws a pre-rendered image of the name ("bake"), which keeps its own font; drawing the
+            // text itself is what lets the chosen font show
+            if (Cfg.Direct) obj.DrawOriginalText = true;
+            else if (directWas) { obj.DrawOriginalText = false; obj.NeedsToBeBaked = true; }
+            if (font != wantFont || size != wantSize)
             {
                 if (font != wantFont) t->SetFont((FontType)wantFont);
                 t->FontSize = wantSize;
-                t->TextFlags = wantFlags;
                 obj.NeedsToBeBaked = true;
                 rebakes++;
             }
@@ -217,7 +219,10 @@ public sealed unsafe class Plugin : IDalamudPlugin
             look.OurFlags = wantFlags;
             looks[(nint)t] = look;
         }
+        directWas = Cfg.Direct;
     }
+
+    private bool directWas;
 
     private void RestoreLooks()
     {
@@ -230,7 +235,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
             if (t == null || !looks.TryGetValue((nint)t, out var look)) continue;
             t->SetFont((FontType)look.GameFont);
             t->FontSize = look.GameSize;
-            t->TextFlags = look.GameFlags;
+            if (Cfg.Direct) obj.DrawOriginalText = false;
             obj.NeedsToBeBaked = true;
         }
     }
@@ -252,8 +257,8 @@ public sealed unsafe class Plugin : IDalamudPlugin
         if (t - statT >= 1)
         {
             FramesPerSec = frameCount; RebakesPerSec = rebakes;
-            Resets = $"game reset per second: font {resetFont}, size {resetSize}, bold/outline/glow {resetFlags}";
-            frameCount = rebakes = resetFont = resetSize = resetFlags = 0; statT = t;
+            Resets = $"game reset per second: font {resetFont}, size {resetSize}, direct text {resetDirect}";
+            frameCount = rebakes = resetFont = resetSize = resetDirect = 0; statT = t;
         }
 
         var addon = (AddonNamePlate*)args.Addon.Address;
@@ -357,9 +362,7 @@ internal sealed class ConfigWindow : Window
         ImGui.SetNextItemWidth(200);
         if (ImGui.Combo("Font", ref font, Fonts, Fonts.Length)) { c.Font = font - 1; look = true; }
         look |= ImGui.SliderFloat("Size", ref c.Size, 0.6f, 2f, "%.2fx");
-        look |= ImGui.Checkbox("Bold", ref c.Bold);
-        look |= ImGui.Checkbox("Outline", ref c.Outline);
-        look |= ImGui.Checkbox("Glow", ref c.Glow);
+        look |= ImGui.Checkbox("Draw the text itself (lets the font change)", ref c.Direct);
         look |= ImGui.Checkbox("Sharp (no fixed font resolution)", ref c.Sharp);
         if (look) plugin.LookChanged();
         if (ImGui.Checkbox("Smooth movement", ref c.Smooth)) plugin.Save();
