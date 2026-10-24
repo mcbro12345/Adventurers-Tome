@@ -135,6 +135,10 @@ open(os.path.join(OUT, 'manifest.webmanifest'), 'w').write(json.dumps({'name': '
   'icons': [{'src': 'icon-192.png', 'sizes': '192x192', 'type': 'image/png'}, {'src': 'icon-512.png', 'sizes': '512x512', 'type': 'image/png'}],
   'related_applications': [{'platform': 'webapp', 'url': 'https://adventurers-tome.web.app/manifest.webmanifest'}]}, ensure_ascii=False, indent=1))
 shutil.copy(os.path.join(D, 'icons', 'og-roll.gif'), os.path.join(OUT, 'og-roll.gif'))
+# sample characters for the sign-in page (opened at /try/<name>, nothing saved)
+os.makedirs(os.path.join(OUT, 'try'), exist_ok=True)
+for fn in os.listdir(os.path.join(D, 'try')):
+    if fn.endswith('.json'): shutil.copy(os.path.join(D, 'try', fn), os.path.join(OUT, 'try', fn))
 # the gold die on a clear background (drawn on the party invite picture)
 shutil.copy(os.path.join(D, 'icons', 'dice-clear-master.png'), os.path.join(OUT, 'dice-clear.png'))
 # Party invite links (/join/<code>) get their own preview card in Discord, iMessage and the like: the same page with

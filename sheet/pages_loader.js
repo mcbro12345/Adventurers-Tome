@@ -576,6 +576,10 @@ const firstThumb = list => { const cs = list.filter(c => c.thumb).sort((a, b) =>
 // A gold d20 crest beside "Adventurer's" in spaced small caps over a large serif "Tome". Hovering the die rolls it:
 // it tumbles, the face flickers, and it lands on a random number. It also rolls once by itself when the page loads.
 const PG_DIE = { n: 20, rolled: false, rolling: false, over: true };
+// Sample characters anyone can open from the sign-in page (try/<slug>.json): the full sheet, nothing saved.
+const TRIALS = [['laezel', 'Lae’zel', 'High Elf', 'Fighter 5', 'Psi Warrior', '#1E9AA0'], ['shadowheart', 'Shadowheart', 'High Elf', 'Druid 13', 'Circle of Wildfire', '#c08457'],
+  ['astarion', 'Astarion', 'Human', 'Rogue 8', 'Swashbuckler', '#b5654a'], ['gale', 'Gale of Waterdeep', 'Human', 'Sorcerer 4', 'Wild Magic', '#8f74e0'], ['karlach', 'Karlach', 'Dragonborn', 'Monk 5', 'Ascendant Dragon', '#e8c577']];
+const SIGNIN_VIDEO = 'uilS5NDWiGk';
 function logoHTML() { return `<h1 class="hub-logo" aria-label="Adventurer’s Tome"><svg class="hl-d20${PG_DIE.rolled && PG_DIE.n === 20 ? ' crit' : PG_DIE.rolled && PG_DIE.n === 1 ? ' fumble' : ''}" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="hlg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f1d58a"/><stop offset=".55" stop-color="#c9962b"/><stop offset="1" stop-color="#8a6420"/></linearGradient></defs><polygon points="50,4 91,27 91,73 50,96 9,73 9,27" fill="rgba(201,150,43,.14)" stroke="url(#hlg)" stroke-width="4" stroke-linejoin="round"/><g fill="none" stroke="url(#hlg)" stroke-width="2.6" stroke-linejoin="round"><polygon points="50,24 73,63 27,63"/><path d="M50 4 L50 24 M91 27 L73 63 M91 73 L73 63 M50 96 L73 63 M50 96 L27 63 M9 73 L27 63 M9 27 L27 63 M9 27 L50 24 M91 27 L50 24"/></g><text x="50" y="55" text-anchor="middle" font-family="Georgia,serif" font-weight="800" font-size="15" class="hl-20">${PG_DIE.rolled ? PG_DIE.n : ''}</text></svg><span class="hl-txt"><span class="hl-a">Adventurer’s</span><span class="hl-t">Tome</span></span></h1>`; }
 function rollDie(root) {
   const d = root.querySelector('.hl-d20'); if (!d || PG_DIE.rolling) return;
@@ -635,7 +639,7 @@ function wireDie(root) {
   const NEWFOR = (() => { try { return JSON.parse(sessionStorage.getItem('pg-newfor') || 'null') || {}; } catch (e) { return {}; } })();
   const P = String(Q.get('p') || NEWFOR.p || '').slice(0, 60), O = String(Q.get('o') || NEWFOR.o || '').trim().toLowerCase().slice(0, 120);
   const LAST_G = 'dnd-hub-group';
-  let DESKQ = false; let NEWQ = !!Q.get('new'), ADMINQ = !!Q.get('admin'), TABQ = clean(Q.get('tab')), VIEWQ = ['shared', 'parties'].includes(Q.get('view')) ? Q.get('view') : 'mine', LOGIN = false, SLUG = '', BAD = false, VIEWTOK = String(Q.get('pv') || '').replace(/[^\w-]/g, '').slice(0, 40);
+  let DESKQ = false; let NEWQ = !!Q.get('new'), ADMINQ = !!Q.get('admin'), TABQ = clean(Q.get('tab')), VIEWQ = ['shared', 'parties'].includes(Q.get('view')) ? Q.get('view') : 'mine', LOGIN = false, SLUG = '', BAD = false, VIEWTOK = String(Q.get('pv') || '').replace(/[^\w-]/g, '').slice(0, 40), TRYQ = String(Q.get('try') || '').replace(/[^a-z]/g, '').slice(0, 20);
   // A party's page (/party/<id>) and an invite link (/join/<code>).
   let PARTYQ = clean(Q.get('party')), JOINQ = clean(Q.get('join'));
   if (PRETTY) {
@@ -650,6 +654,7 @@ function wireDie(root) {
     else if (parts[0] === 'c' && parts.length === 2) C = clean(parts[1]);
     else if (parts[0] === 'party' && parts.length === 2) PARTYQ = clean(parts[1]);
     else if (parts[0] === 'join' && parts.length === 2) JOINQ = clean(parts[1]);
+    else if (parts[0] === 'try' && parts.length === 2) TRYQ = slugify(parts[1]); // a sample character, no sign-in
     else if (parts[0] === 'view' && parts.length === 2) VIEWTOK = String(parts[1]).replace(/[^\w-]/g, '').slice(0, 40); // view-only link, no sign-in
     else if (parts[0] === 'character' && parts.length === 2 && slugify(parts[1])) SLUG = slugify(parts[1]); // /character/zeebo
     else if (parts.length === 2) SLUG = slugify(parts[0]) + '/' + slugify(parts[1]); // older /player/character addresses
@@ -702,16 +707,21 @@ function wireDie(root) {
     return;
   }
   // A view-only link: the sheet's public copy, for anyone, signed in or not. Nothing typed here is saved.
-  if (VIEWTOK) { const t = VIEWTOK, pc = fs.collection('pub'); let txt = null;
-    let pubC = ''; try { const d = await pc.doc(t).get(); if (d.exists) { const x = d.data(); pubC = String(x.c || ''); let str = x.data || ''; const n = Number(x.n) || 1;
+  if (TRYQ && !TRIALS.some(x => x[0] === TRYQ)) TRYQ = '';
+  if (VIEWTOK || TRYQ) { const t = VIEWTOK || 'try_' + TRYQ, pc = fs.collection('pub'); let txt = null;
+    // a sample character comes with the site, fresh every time it's opened (nothing from an earlier visit is kept)
+    if (TRYQ) { try { const r = await fetch('try/' + TRYQ + '.json', { cache: 'no-cache' }); if (r.ok) { const o = JSON.parse(await r.text()); o.savedAt = Date.now(); txt = JSON.stringify(o); try { localStorage.removeItem('dnd-sheet:' + o.id); localStorage.removeItem('dnd-sheet-ui:pub_' + t); } catch (e) {} } } catch (e) { txt = null; } }
+    let pubC = ''; if (!TRYQ) try { const d = await pc.doc(t).get(); if (d.exists) { const x = d.data(); pubC = String(x.c || ''); let str = x.data || ''; const n = Number(x.n) || 1;
       for (let k = 1; k < n; k++) { const q = await pc.doc(t + '_p' + k).get(); if (!q.exists || Number(q.data().savedAt) !== Number(x.savedAt)) { str = null; break; } str += q.data().data || ''; }
       if (str) { JSON.parse(str); txt = str; } } } catch (e) { console.warn('view link', e); }
-    if (!txt) { say(`This view-only link isn’t working — it may have been turned off.<br><br><a href="${PRETTY ? '/' : location.pathname}">Go to Adventurer’s Tome</a>`); return; }
+    if (!txt) { say(`${TRYQ ? 'That sample character couldn’t be opened. Check your connection and reload.' : 'This view-only link isn’t working — it may have been turned off.'}<br><br><a href="${PRETTY ? '/' : location.pathname}">Go to Adventurer’s Tome</a>`); return; }
     data.textContent = txt; window.SHEET_PAGES = true; window.SHEET_CHAR = 'pub_' + t; window.PG_PUBLIC = true;
     document.documentElement.classList.add('pg-sheetpage', 'pg-public');
     const ref = p => { const m = /^sheets\/(main|part(\d+))$/.exec(p); return m ? pc.doc(m[2] ? t + '_p' + m[2] : t) : null; };
     const none = { get: async () => ({ exists: false, data: () => null }), set: async () => { throw { code: 'unsupported' }; }, delete: async () => {}, onSnapshot: () => () => {} };
-    const db = { doc: p => { const r = ref(p); if (!r) return none; return { get: () => r.get(), set: () => Promise.reject({ code: 'permission-denied' }), delete: async () => {}, onSnapshot: (cb, err) => r.onSnapshot(cb, err) }; } };
+    const SNAP = { exists: true, id: t, metadata: { fromCache: false, hasPendingWrites: false }, data: () => ({ v: 2, n: 1, tab: 'x', savedAt: JSON.parse(txt).savedAt, data: txt }) };
+    const trialDoc = { get: async () => SNAP, set: () => Promise.reject({ code: 'permission-denied' }), delete: async () => {}, onSnapshot: cb => { setTimeout(() => cb(SNAP), 0); return () => {}; } };
+    const db = { doc: p => { if (TRYQ) return p === 'sheets/main' ? trialDoc : none; const r = ref(p); if (!r) return none; return { get: () => r.get(), set: () => Promise.reject({ code: 'permission-denied' }), delete: async () => {}, onSnapshot: (cb, err) => r.onSnapshot(cb, err) }; } };
     window.claude = { use: async n => n === 'db' ? db : n === 'user' ? { id: async () => null, isOwner: async () => false, can: async () => false } : null };
     let src; try { src = await Promise.all([ASSETS.data, ASSETS.app].map(u => fetch(u).then(r => { if (!r.ok) throw new Error(u); return r.text(); }))); } catch (e) { say('Couldn\'t load the sheet. Check your connection and reload.'); return; }
     if (!load) document.documentElement.classList.remove('pg-loading');
@@ -719,7 +729,7 @@ function wireDie(root) {
     if (!TOUCH && !FRAMED) sheetScrollbar();
     if (load) { if (!load.isConnected) document.body.appendChild(load); const go = () => fadeLoad(load); if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 600 }); else setTimeout(go, 150); }
     if (ASSETS.full) fetch(ASSETS.full).then(r => r.ok ? r.text() : '').then(x => { if (!x) return; const sc = document.createElement('script'); sc.textContent = x; document.body.appendChild(sc); try { if (typeof render === 'function') render(); } catch (e) {} }, () => {});
-    const tag = document.createElement('div'); tag.className = 'pg-shared view pg-pubtag'; tag.innerHTML = 'View only<span class="pt-sub"> (changes are not saved)</span>'; document.body.appendChild(tag);
+    const tag = document.createElement('div'); tag.className = 'pg-shared view pg-pubtag'; tag.innerHTML = TRYQ ? `Sample character<span class="pt-sub"> (nothing is saved) · <a href="${PRETTY ? '/' : location.pathname}">Make your own</a></span>` : 'View only<span class="pt-sub"> (changes are not saved)</span>'; document.body.appendChild(tag);
     // Who's viewing: everyone on this link counts as an anonymous viewer, and signed-in people looking at the character show
     // with their picture. (Only works while the link is on — the list closes with it.)
     const pbox = document.createElement('div'); pbox.className = 'pg-pres pg-pubpres'; pbox.id = 'pg-pubpres'; pbox.hidden = true; document.body.appendChild(pbox);
@@ -1464,12 +1474,17 @@ function wireDie(root) {
 function signIn(auth, say) {
   if (PG_BC) PG_BC.addEventListener('message', e => { if (e.data && e.data.t === 'signed-in' && document.querySelector('.pg-signin')) { PG_BC.postMessage({ t: 'ack' }); try { window.focus(); } catch (x) {} pgGo(null); } });
   const kickedMsg = (() => { try { const m = localStorage.getItem('pg-kicked'); localStorage.removeItem('pg-kicked'); return m || ''; } catch (e) { return ''; } })();
-  say(`<div class="pg-signin">${logoHTML()}<p class="pg-about">D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game.</p><div class="pg-sdiv"></div><h2>Sign in</h2>
+  // Beside the sign-in card: the tour video, and sample characters to try without an account.
+  const base = PRETTY ? '/' : location.pathname, tryURL = k => PRETTY ? '/try/' + k : location.pathname + '?try=' + k;
+  const vid = `<div class="si2-vid"><iframe src="https://www.youtube-nocookie.com/embed/${SIGNIN_VIDEO}?rel=0" title="Adventurer’s Tome in two minutes" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`;
+  const tries = `<section class="si2-try"><h3>Try a character</h3><p>No account needed. Open a real sheet and roll, cast and level up — nothing is saved.</p>
+    <div class="si2-chars">${TRIALS.map(([k, n, r, c, sub, col]) => `<a class="si2-char" href="${tryURL(k)}" style="--c:${col}"><span class="si2-ini">${escH(n.replace(/[’']/g, '').split(/\s+/).filter(w => !/^(of|the)$/i.test(w)).slice(0, 2).map(w => w[0]).join(''))}</span><span class="si2-tx"><b>${escH(n)}</b><small>${escH(r)} · ${escH(c)}</small><small class="si2-sub">${escH(sub)}</small></span><span class="si2-go" aria-hidden="true">→</span></a>`).join('')}</div></section>`;
+  say(`<div class="pg-si2"><div class="si2-left">${vid}${tries}</div><div class="pg-signin">${logoHTML()}<p class="pg-about">D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game.</p><div class="pg-sdiv"></div><h2>Sign in</h2>
     <button class="btn gold big" id="si-g"><svg viewBox="0 0 48 48" width="18" height="18" style="vertical-align:-3px;margin-right:8px"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>Sign in with Google</button>
     <div class="pg-or">or</div>
     <form id="si-f" class="who-f"><input id="si-e" type="email" placeholder="Your email address" autocomplete="email" required><button class="btn">Email me a link</button></form>
     <p class="hub-hint" id="si-msg">No Google account? We'll email you a sign-in link.</p>${kickedMsg ? `<p class="pg-kicked">${escH(kickedMsg)}</p>` : ''}
-    <p class="pg-contact">Trouble signing in? <a href="${CONTACT}">Contact us</a></p><p class="pg-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy policy</a><span aria-hidden="true"> · </span><a href="/terms" target="_blank" rel="noopener">Terms</a><span aria-hidden="true"> · </span><a href="/accessibility" target="_blank" rel="noopener">Accessibility</a></p></div>${a2hsHTML()}`);
+    <p class="pg-contact">Trouble signing in? <a href="${CONTACT}">Contact us</a></p><p class="pg-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy policy</a><span aria-hidden="true"> · </span><a href="/terms" target="_blank" rel="noopener">Terms</a><span aria-hidden="true"> · </span><a href="/accessibility" target="_blank" rel="noopener">Accessibility</a></p></div></div>${a2hsHTML()}`);
   wireA2HS(document.getElementById('pg-load'));
   wireDie(document.getElementById('pg-load'));
   // Errors and the "check your email" note show in the box just above the bottom divider (where "You've been signed
