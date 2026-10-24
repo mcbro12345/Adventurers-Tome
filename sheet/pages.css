@@ -2317,3 +2317,7 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 
 /* a sample character saves nowhere: no sync status beside Settings */
 html.pg-try #saveState { display: none !important; }
+/* Who's seen it: Revoke / Undo beside a person */
+.nt-sl .nt-sl-row > span:has(> b) { flex: 1; }
+.nt-sl .nt-sl-act { flex: none; margin-left: auto; }
+.nt-sl .nt-sl-note { margin: -4px 0 6px; }
