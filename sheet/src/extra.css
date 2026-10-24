@@ -3540,3 +3540,8 @@ html.mobile #rolllogmodal .rl-list { height: auto; max-height: min(62vh, 640px);
 .toast.rollcard:has(> .rc-dice) { padding-right: 46px; }
 .toast.rollcard > .rc-dice { top: 50%; bottom: auto; right: 8px; transform: translateY(-50%); }
 .pbadge.defb.vul { border-color: color-mix(in srgb, #c0392b 55%, transparent); color: color-mix(in srgb, #c0392b 70%, var(--ink, currentColor)); }
+/* Add an item: one fixed size for every tab; only the list inside scrolls */
+#modal-body:has(#catq) { width: min(820px, 96vw); height: min(calc(100dvh - 40px), 760px); max-height: none; display: flex; flex-direction: column; overflow: hidden; }
+#modal-body:has(#catq) > * { flex: none; }
+#modal-body:has(#catq) > .crlist { flex: 1 1 auto; min-height: 0; max-height: none; }
+html.mobile #modal-body:has(#catq) { width: 100%; height: min(calc(100dvh - 24px - env(safe-area-inset-top)), 760px); }

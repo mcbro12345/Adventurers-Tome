@@ -3284,7 +3284,8 @@ html.mobile:not([data-theme="dark"]) .tabs { box-shadow: 0 -6px 16px rgba(60,45,
 @keyframes wSheetIn { from { transform: translateY(100%); } to { transform: none; } }
 @keyframes wSheetOut { from { transform: none; } to { transform: translateY(100%); } }
 .modal-bg.open { animation: wFadeIn .2s ease; }
-.modal-bg.open > .modal { animation: wPopIn .22s cubic-bezier(.22,.9,.24,1); }
+.modal-bg.open > .modal { animation: wPopIn .28s ease; }
+.modal-bg.pre, .modal-bg.pre > .modal { animation-play-state: paused !important; }
 .modal-bg.closing { display: flex; pointer-events: none; animation: wFadeOut .18s ease forwards; }
 .modal-bg.closing > .modal { animation: wPopOut .18s ease forwards; }
 html.mobile .modal-bg.open > .modal { animation: wSheetIn .32s cubic-bezier(.2,.9,.3,1); }
@@ -3889,7 +3890,7 @@ html:not(.mobile) .toolbar > .tbtn, html:not(.mobile) .toolbar .savegrp > .tbtn 
 :root:not([data-theme="dark"]) { --slate: #56657A; }
 :root:not([data-theme="dark"]) .cn.gp .cl { color: #444e63; }
 /* Floating windows fade in and out (on a phone they slide up from the bottom and back down) */
-.drwin, .pcwin { animation: winIn .18s cubic-bezier(.2,.9,.3,1); }
+.drwin, .pcwin { animation: winIn .26s ease; }
 .drwin.closing, .pcwin.closing { animation: winOut .18s ease forwards; pointer-events: none; }
 html.mobile .drwin, html.mobile .pcwin { animation-name: winUp; }
 html.mobile .drwin.closing, html.mobile .pcwin.closing { animation-name: winDown; }
@@ -4203,4 +4204,14 @@ html.mobile body.wizopen #modal.open, html.mobile body.wizopen #modal.closing { 
 /* the Log window keeps one size on every tab (the Dice stats height) */
 #rolllogmodal .rl-list { height: min(62vh, 640px); max-height: none; }
 html.mobile #rolllogmodal .rl-list { height: auto; max-height: min(62vh, 640px); }
+.cact-i { color: var(--k, var(--gold)); } .cact-i svg { width: 15px; height: 15px; display: block; }
+/* The "show the math" dice button gets its own space on the right of a roll card, so it never sits on top of the damage label */
+.toast.rollcard:has(> .rc-dice) { padding-right: 46px; }
+.toast.rollcard > .rc-dice { top: 50%; bottom: auto; right: 8px; transform: translateY(-50%); }
+.pbadge.defb.vul { border-color: color-mix(in srgb, #c0392b 55%, transparent); color: color-mix(in srgb, #c0392b 70%, var(--ink, currentColor)); }
+/* Add an item: one fixed size for every tab; only the list inside scrolls */
+#modal-body:has(#catq) { width: min(820px, 96vw); height: min(calc(100dvh - 40px), 760px); max-height: none; display: flex; flex-direction: column; overflow: hidden; }
+#modal-body:has(#catq) > * { flex: none; }
+#modal-body:has(#catq) > .crlist { flex: 1 1 auto; min-height: 0; max-height: none; }
+html.mobile #modal-body:has(#catq) { width: 100%; height: min(calc(100dvh - 24px - env(safe-area-inset-top)), 760px); }
 
