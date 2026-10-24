@@ -176,7 +176,7 @@ _tpl = os.path.join(OUT, 'extension', 'privacy.html')
 if os.path.exists(_tpl):
     _t = open(_tpl).read(); _a = _t.index('<main><div class="card">') + len('<main><div class="card">'); _b = _t.index('</div></main>')
     _extra = ('<style>a{color:#8a5f12}.hub-ctlink{color:#8a5f12}@media (prefers-color-scheme:dark){a,.hub-ctlink{color:#e7c46e}}'
-              'a:focus-visible,button:focus-visible{outline:2px solid currentColor;outline-offset:2px}ul{padding-left:1.2em}li{margin:4px 0}</style>')
+              'a:focus-visible,button:focus-visible{outline:2px solid currentColor;outline-offset:2px}ul{padding-left:1.2em}li{margin:4px 0}main{max-width:1120px}</style>')
     for _n in ('privacy', 'terms', 'accessibility'):
         _src = os.path.join(D, 'legal', _n + '.body.html')
         if not os.path.exists(_src): continue
