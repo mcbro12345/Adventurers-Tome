@@ -2269,22 +2269,45 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 .pg-si2 .pg-signin .hl-t { font-size: 5.7rem; line-height: .95; }
 .pg-si2 .pg-signin .pg-sdiv { margin-top: 20px; }
 @media (max-width: 480px) { .pg-si2 .pg-signin .hub-logo { gap: 12px; } .pg-si2 .pg-signin .hl-d20 { width: 104px; height: 104px; } .pg-si2 .pg-signin .hl-a { font-size: 1rem; letter-spacing: .26em; } .pg-si2 .pg-signin .hl-t { font-size: 4.3rem; } }
-/* everything fits on one screen on a computer: the video sizes itself to the window's height, and the sign-in card
-   runs the full height of the column beside it */
+/* computers: sign-in runs as a bar across the top; the video and the sample characters share the row under it, and
+   the video sizes itself to the window's height so the page fits on one screen */
 @media (min-width: 921px) {
-  #pg-load:has(.pg-si2) { padding-top: 22px; padding-bottom: 18px; }
-  .pg-si2 { --lw: min(calc(100vw - 32px - 460px - 30px), max(520px, calc((100dvh - 380px) * 16 / 9))); align-items: stretch; row-gap: 18px; width: auto; max-width: 100%; grid-template-columns: var(--lw) 460px; justify-content: center; }
-  .si2-left { gap: 16px; }
-  .si2-chars { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; gap: 8px; }
-  #pg-load .pg-msg a.si2-char { padding: 12px 6px 10px; }
-  .si2-tx small { font-size: .72rem; }
-  .si2-try p { margin-bottom: 10px; }
-  .pg-si2 .pg-signin { display: flex; flex-direction: column; justify-content: center; }
-  .pg-si2 .pg-signin .hub-logo { margin-bottom: 14px; }
-  .pg-si2 .pg-signin .pg-sdiv { margin-top: 26px; }
-  .pg-si2 .pg-signin h2 { margin: 26px 0 18px; }
-  .pg-si2 .pg-signin .pg-contact { margin-top: 26px; }
-  .si2-feats { padding-top: 14px; }
+  #pg-load:has(.pg-si2) { padding-top: 18px; padding-bottom: 16px; }
+  .pg-si2 { --lw: min(calc(100vw - 32px - 380px - 24px), max(520px, calc((100dvh - 330px) * 16 / 9)));
+    grid-template-columns: var(--lw) minmax(380px, 1fr); grid-template-areas: 'sign sign' 'vid try' 'feat feat'; gap: 18px 24px; align-items: stretch; width: min(1600px, 100%); }
+  .pg-si2 .pg-signin { grid-area: sign; order: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0 30px; padding: 16px 26px; text-align: left; }
+  .pg-si2 .pg-signin .hub-logo { margin: 0; gap: 12px; }
+  .pg-si2 .pg-signin .hl-d20 { width: 78px; height: 78px; }
+  .pg-si2 .pg-signin .hl-a { font-size: .95rem; letter-spacing: .3em; }
+  .pg-si2 .pg-signin .hl-t { font-size: 3.6rem; }
+  .pg-si2 .pg-signin .pg-sdiv { display: none; }
+  .si2-ctl { display: grid; grid-template-columns: auto auto minmax(250px, 1fr); align-items: center; gap: 6px 14px; padding: 0 30px; border-left: 1px solid rgba(201,150,43,.25); border-right: 1px solid rgba(201,150,43,.25); }
+  .si2-ctl h2 { grid-column: 1 / -1; margin: 0 0 2px !important; font-size: 1.05rem !important; }
+  .si2-ctl #si-g { grid-column: 1; white-space: nowrap; padding-left: 22px; padding-right: 22px; }
+  .si2-ctl .pg-or { grid-column: 2; margin: 0 !important; }
+  .si2-ctl .who-f { grid-column: 3; margin: 0 !important; }
+  .si2-ctl .hub-hint, .si2-ctl .pg-kicked { grid-column: 1 / -1; margin: 4px 0 0 !important; text-align: center; }
+  .si2-help { text-align: right; }
+  .si2-help .pg-contact { margin: 0 0 6px !important; padding: 0 !important; border: 0 !important; }
+  .si2-help p { margin: 0; }
+  .si2-vbox { grid-area: vid; }
+  .pg-si2 .si2-try { grid-area: try; display: flex; flex-direction: column; min-height: 0; }
+  .si2-try .si2-chars { flex: 1; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)) !important; grid-auto-rows: 1fr; gap: 10px; }
+  #pg-load .pg-msg a.si2-char { flex-direction: column; justify-content: center; text-align: center; gap: 6px; padding: 10px 8px; }
+  .si2-tx { align-items: center; } .si2-tx small { white-space: normal; } .si2-go { display: none; }
+  .pg-si2 .si2-chars .si2-tx { flex: none; }
+  .pg-si2 .si2-chars .si2-ini { width: 48px; height: 48px; font-size: 1.15rem; }
+  .pg-si2 .si2-chars .si2-tx b { font-size: 1.02rem; }
+  .pg-si2 .si2-feats { grid-area: feat; padding-top: 14px; }
+}
+/* narrower computers: the help links tuck under the sign-in controls */
+@media (min-width: 921px) and (max-width: 1500px) {
+  .pg-si2 .pg-signin { grid-template-columns: auto minmax(0, 1fr); row-gap: 8px; }
+  .si2-ctl { border-right: 0; padding-right: 0; }
+  .si2-help { grid-column: 2; display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; padding-left: 30px; font-size: .82rem; }
+  .si2-help .pg-contact { margin: 0 !important; }
+  .pg-si2 .pg-signin .hl-d20 { width: 66px; height: 66px; } .pg-si2 .pg-signin .hl-t { font-size: 3rem; } .pg-si2 .pg-signin .hl-a { font-size: .82rem; }
+}
 }
 
 /* a sample character saves nowhere: no sync status beside Settings */
