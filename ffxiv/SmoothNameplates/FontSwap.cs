@@ -44,8 +44,27 @@ internal sealed unsafe class FontSwap
         return stage != null ? stage->AtkFontManager : null;
     }
 
-    private static string FileOf(AtkFontManager.Font* font) =>
-        font->FontdataResourceHandle != null ? font->FontdataResourceHandle->FileName.ToString() : "";
+    // A font's file name: from its loaded resource if the game still holds it, else from the game's own font table (whose
+    // entries are in the same order as the loaded fonts).
+    private static string FileOf(AtkFontManager.Font* font, int index)
+    {
+        try
+        {
+            if (font->FontdataResourceHandle != null)
+            {
+                var name = font->FontdataResourceHandle->FileName.ToString();
+                if (name.Length > 0) return name;
+            }
+        }
+        catch { }
+        try
+        {
+            var table = AtkFontManager.GameFontTable();
+            if (table != null && index < AtkFontManager.FontTableEntry.Count) return table[index].FdtName.ToString() ?? "";
+        }
+        catch { }
+        return "";
+    }
 
     // Game thread only.
     public void Apply(string path, int family, float scale, int bold, ITextureProvider textures)
@@ -58,12 +77,15 @@ internal sealed unsafe class FontSwap
         var prefix = "/" + Families[family].File;
         var bytes = File.ReadAllBytes(path);
         int fonts = 0, glyphs = 0, skipped = 0;
+        var seen = new List<string>();
         try
         {
             for (var i = 0; i < fm->FontCount; i++)
             {
                 var font = fm->Fonts + i;
-                if (font->Glyphs == null || font->GlyphCount == 0 || !FileOf(font).Contains(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+                var file = FileOf(font, i).Replace('\\', '/');
+                seen.Add(file.Length > 0 ? Path.GetFileNameWithoutExtension(file) : "?");
+                if (font->Glyphs == null || font->GlyphCount == 0 || !("/" + file).Contains(prefix, StringComparison.OrdinalIgnoreCase)) continue;
 
                 var s = new Saved
                 {
@@ -115,7 +137,7 @@ internal sealed unsafe class FontSwap
             return;
         }
         Status = fonts == 0
-            ? $"No loaded {Families[family].Label} fonts found."
+            ? $"No loaded {Families[family].Label} fonts found. The game's {fm->FontCount} fonts: {string.Join(", ", seen)}"
             : $"Using {Path.GetFileName(path)} for {Families[family].Label}: {fonts} sizes, {glyphs} letters" + (skipped > 0 ? $" ({skipped} didn't fit)" : "");
     }
 
