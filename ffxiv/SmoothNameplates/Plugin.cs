@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Numerics;
+using Dalamud;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Configuration;
 using Dalamud.Game.Addon.Lifecycle;
@@ -11,29 +12,21 @@ using Dalamud.Game.Command;
 using Dalamud.Game.Gui.NamePlate;
 using Dalamud.Interface.ManagedFontAtlas;
 using Dalamud.Interface.Windowing;
-using Dalamud;
 using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
+using FFXIVClientStructs.FFXIV.Client.Graphics;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Arrays;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel.Sheets;
-using FFXIVClientStructs.FFXIV.Client.Graphics;
 
 namespace SmoothNameplates;
 
 [Serializable]
 public sealed class Config : IPluginConfiguration
 {
-    public int Version { get; set; } = 2;
-    public bool Smooth = true;
-    public float MinCutoff = 1.0f;   // Hz: lower = steadier
-    public float Beta = 0.05f;       // how fast the offset catches up when it really changes (zooming)
-    public bool HalfPixel = true;
-    public bool SharpText = false;   // bake the text at the real size instead of the fixed resolution
-    public float EdgeDarken = 0.45f; // 0 = game's outline, 1 = black outline
-    public int ForceLag = -1;        // -1 = work it out
+    public int Version { get; set; } = 3;
 
     // WoW-style text: the game's (and other plugins') text and colours, drawn as smooth vector-like text
     public bool WowText = true;
@@ -42,6 +35,32 @@ public sealed class Config : IPluginConfiguration
     public bool Outline = true;      // WoW's "NORMAL" outline (SystemFont_NamePlate_Outlined)
     public float OutlinePx = 1.0f;
     public bool Shadow = false;
+
+    // WoW's nameplate CVars, at their client defaults (Ketho/BlizzardInterfaceResources, Resources/CVars.lua)
+    public bool WowDistance = true;
+    public float MaxDistance = 60f;        // nameplateMaxDistance
+    public float MaxScale = 1.0f;          // nameplateMaxScale
+    public float MaxScaleDistance = 10f;   // nameplateMaxScaleDistance (from the camera)
+    public float MinScale = 0.8f;          // nameplateMinScale
+    public float MinScaleDistance = 10f;   // nameplateMinScaleDistance (back from the max distance)
+    public float SelectedScale = 1.2f;     // nameplateSelectedScale
+    public float MaxAlpha = 1.0f;          // nameplateMaxAlpha
+    public float MaxAlphaDistance = 40f;   // nameplateMaxAlphaDistance
+    public float MinAlpha = 0.6f;          // nameplateMinAlpha
+    public float MinAlphaDistance = 10f;   // nameplateMinAlphaDistance
+    public float SelectedAlpha = 1.0f;     // nameplateSelectedAlpha
+    public float NotSelectedAlpha = -1f;   // nameplateNotSelectedAlpha (negative = unused)
+    public float TopInset = 0.08f;         // nameplateTopInset
+    public float BottomInset = 0.10f;      // nameplateBottomInset
+
+    // placement
+    public bool SteadyAnchor = true;       // hang the name on a steady point, not the bobbing head
+    public bool HalfPixel = false;
+    public int ForceLag = -1;              // -1 = work it out
+
+    // game-side readability
+    public bool SharpText = false;         // bake the game's text at the real size instead of the fixed resolution
+    public float EdgeDarken = 0.45f;       // 0 = game's outline, 1 = black outline
 }
 
 public sealed unsafe class Plugin : IDalamudPlugin
@@ -52,38 +71,44 @@ public sealed unsafe class Plugin : IDalamudPlugin
     [PluginService] internal static IGameGui GameGui { get; private set; } = null!;
     [PluginService] internal static ICommandManager Commands { get; private set; } = null!;
     [PluginService] internal static IDataManager DataManager { get; private set; } = null!;
+    [PluginService] internal static ITargetManager Targets { get; private set; } = null!;
     [PluginService] internal static IPluginLog Log { get; private set; } = null!;
 
     private const string Cmd = "/smoothtags";
     private const int Count = 50;
 
-    // The game hands the addon whole-pixel X/Y worked out with an older camera, so while the camera turns a plate
-    // trails its character by a frame or so (up to 10+ px) and steps a pixel at a time. At draw time (the camera of the
-    // frame on screen) we project the plate's own world anchor as a float and add the offset between the game's spot and
-    // our projection from the frame the game actually used. That offset is only the plate's layout, so it can be
-    // filtered hard without adding lag.
+    // WoW (nameplateMotion 0) places every plate exactly where its overhead point projects, every frame, with the
+    // frame's own camera. FFXIV instead hands the addon whole-pixel X/Y worked out from an older camera and a point that
+    // bobs with the head. So we keep, per plate:
+    //  - O: the game's spot minus our projection of the game's own anchor, from the frame the game actually used. That's
+    //    only the plate's layout, so it filters hard without lag.
+    //  - D: the game anchor's offset from the character's position, averaged slowly in world space, so the point we
+    //    project is steady instead of bobbing.
+    // and at draw time put the plate at project(position + D) + O.
     private const int Lags = 3; // candidate delays, in updates
     private sealed class Plate
     {
         public ulong Id;
         public bool Live;
-        public Vector3 Anchor;
-        public float GameX, GameY;                     // the game's whole-pixel spot this update
-        public readonly Vector2[] S = new Vector2[Lags]; // our projections, newest first
-        public int History;                            // how many of S are valid
+        public Vector3 GameAnchor, Position, D;
+        public bool HasPosition, DReady;
+        public float CameraDistance;
+        public float GameX, GameY;                       // the game's whole-pixel spot this update
+        public readonly Vector2[] S = new Vector2[Lags]; // projections of the game anchor, newest first
+        public int History;
         public readonly OneEuro[] Ox = new OneEuro[Lags], Oy = new OneEuro[Lags];
         public readonly Vector2[] LastRaw = new Vector2[Lags];
+        public float IconDx, MarkerDy;                   // keep the name icon and the marker above clear of our text
 
         public void Reset(ulong id)
         {
-            Id = id; History = 0;
+            Id = id; History = 0; DReady = false;
             Array.Clear(Ox); Array.Clear(Oy);
         }
     }
 
     private readonly Plate[] plates = CreatePlates();
     private static Plate[] CreatePlates() { var a = new Plate[Count]; for (var i = 0; i < Count; i++) a[i] = new Plate(); return a; }
-    // how much each candidate delay's offset wobbles; the real delay is the one that leaves a steady offset
     private readonly float[] lagWobble = new float[Lags];
     internal int Lag = 1;
     private readonly uint[] edgeOurs = new uint[Count];
@@ -96,18 +121,15 @@ public sealed unsafe class Plugin : IDalamudPlugin
     private int sharpFights;
     internal bool SharpGaveUp;
 
-    // shown in the settings window, per second
-    internal int UpdatesPerSec, DrawsPerSec;
-    internal int LivePlates, ReadyPlates, MovedPlates;
-    internal float MaxShift, MaxShiftShown;
-    internal bool TestPush; // shove every plate 30px right, to see whether moving them works at all
+    // shown in the settings window
+    internal int UpdatesPerSec, DrawsPerSec, NamesDrawn;
     private int updates, draws;
     private double statT;
 
     public Plugin()
     {
         Cfg = Pi.GetPluginConfig() as Config ?? new Config();
-        if (Cfg.Version < 2) { Cfg.Version = 2; Cfg.SharpText = false; Cfg.MinCutoff = 1.0f; }
+        if (Cfg.Version < 3) Cfg = new Config();
         window = new ConfigWindow(this);
         windows.AddWindow(window);
         Pi.UiBuilder.Draw += windows.Draw;
@@ -155,10 +177,20 @@ public sealed unsafe class Plugin : IDalamudPlugin
         NamePlates.RequestRedraw();
     }
 
+    internal void ResetToWow()
+    {
+        var keep = (Cfg.FontPath, Cfg.TextScale);
+        var d = new Config();
+        foreach (var f in typeof(Config).GetFields()) f.SetValue(Cfg, f.GetValue(d));
+        (Cfg.FontPath, Cfg.TextScale) = keep;
+        Save();
+    }
+
     private static NamePlateNumberArray.NamePlateObjectIntArrayData* Data(NamePlateNumberArray* na, int arrayIndex) =>
         (NamePlateNumberArray.NamePlateObjectIntArrayData*)((int*)na + 6) + arrayIndex; // the 50 blocks follow 6 header ints
 
-    // Before the addon reads the data: readability tweaks. Nothing here may force a rebake every frame.
+    // ---- game-side tweaks, before the addon reads the data; nothing here may force a rebake every frame ----
+
     private void OnDataUpdate(INamePlateUpdateContext ctx, IReadOnlyList<INamePlateUpdateHandler> handlers)
     {
         var na = (NamePlateNumberArray*)ctx.NumberArrayDataEntryAddress;
@@ -179,8 +211,8 @@ public sealed unsafe class Plugin : IDalamudPlugin
         {
             var ai = h.ArrayIndex;
             if ((uint)ai >= Count) continue;
-            // written straight into the data without raising the update flag: the addon picks it up whenever the game
-            // itself says the colours changed, instead of us asking for a redraw every frame
+            // written into the data without raising the update flag: the addon picks it up whenever the game itself
+            // says the colours changed, instead of us asking for a redraw every frame
             var d = Data(na, ai);
             var c = d->NameEdgeColor;
             if (c == edgeOurs[ai]) continue;
@@ -188,7 +220,8 @@ public sealed unsafe class Plugin : IDalamudPlugin
         }
     }
 
-    // After the addon placed its nodes: note where the game wants each plate and learn the offset.
+    // ---- tracking, after the addon placed its nodes ----
+
     private void OnPostDataUpdate(INamePlateUpdateContext ctx, IReadOnlyList<INamePlateUpdateHandler> handlers)
     {
         updates++;
@@ -204,6 +237,8 @@ public sealed unsafe class Plugin : IDalamudPlugin
         Span<bool> seen = stackalloc bool[Count];
         Span<float> wobble = stackalloc float[Lags];
         Span<int> seenK = stackalloc int[Lags];
+        var dAlpha = 1 - MathF.Exp(-dt / 0.4f); // the head offset settles over ~0.4 s: steadier than any walk bob
+
         foreach (var h in handlers)
         {
             var i = h.NamePlateIndex;
@@ -216,8 +251,26 @@ public sealed unsafe class Plugin : IDalamudPlugin
             var d = Data(na, h.ArrayIndex);
             p.GameX = d->X;
             p.GameY = d->Y;
-            if (!Anchor(ui3d, h, out p.Anchor) || !GameGui.WorldToScreen(p.Anchor, out var s)) { p.Reset(p.Id); continue; }
 
+            UI3DModule.ObjectInfo* info = null;
+            if (ui3d != null && h.ArrayIndex < ui3d->NamePlateObjectInfoCount)
+                info = ui3d->NamePlateObjectInfoPointers[h.ArrayIndex].Value;
+            var go = h.GameObject;
+            if (info != null) { p.GameAnchor = info->NamePlatePos; p.CameraDistance = info->DistanceFromCamera; }
+            else if (go != null) p.GameAnchor = go.Position;
+            else { p.Reset(p.Id); continue; }
+
+            p.HasPosition = go != null;
+            if (go != null)
+            {
+                p.Position = go.Position;
+                var raw = p.GameAnchor - p.Position;
+                // a real change (mounting, sitting, a different model) is taken at once
+                if (!p.DReady || Vector3.Distance(raw, p.D) > 0.6f) { p.D = raw; p.DReady = true; }
+                else p.D += (raw - p.D) * dAlpha;
+            }
+
+            if (!GameGui.WorldToScreen(p.GameAnchor, out var s)) { p.Reset(p.Id); continue; }
             for (var k = Lags - 1; k > 0; k--) p.S[k] = p.S[k - 1];
             p.S[0] = s;
             p.History = Math.Min(p.History + 1, Lags);
@@ -234,14 +287,14 @@ public sealed unsafe class Plugin : IDalamudPlugin
                     if (MathF.Abs(ox - p.Ox[k].X) > 24 || MathF.Abs(oy - p.Oy[k].X) > 24) { p.Ox[k] = default; p.Oy[k] = default; }
                 }
                 p.LastRaw[k] = new Vector2(ox, oy);
-                p.Ox[k].Step(ox, dt, Cfg.MinCutoff, Cfg.Beta);
-                p.Oy[k].Step(oy, dt, Cfg.MinCutoff, Cfg.Beta);
+                p.Ox[k].Step(ox, dt, 1.0f, 0.05f);
+                p.Oy[k].Step(oy, dt, 1.0f, 0.05f);
             }
         }
         for (var i = 0; i < Count; i++)
             if (!seen[i]) plates[i].Live = false;
 
-        // only learn while things move; standing still every delay looks equally good
+        // which delay leaves the steadiest offset; only learnt while things move, when standing still they all look alike
         float total = 0;
         for (var k = 0; k < Lags; k++) total += seenK[k] > 0 ? wobble[k] / seenK[k] : 0;
         if (total > 0.5f)
@@ -253,56 +306,56 @@ public sealed unsafe class Plugin : IDalamudPlugin
         Lag = Cfg.ForceLag >= 0 ? Math.Min(Cfg.ForceLag, Lags - 1) : best;
     }
 
-    // Right before the plates are drawn: project with this frame's camera and place the nodes.
+    // Where the game's spot for this plate should be right now: project(steady point) + layout offset.
+    private bool Spot(Plate p, out Vector2 spot)
+    {
+        spot = default;
+        var k = Math.Min(Lag, p.History - 1);
+        if (!p.Live || k < 0 || !p.Ox[k].Ready) return false;
+        var world = Cfg.SteadyAnchor && p.HasPosition && p.DReady ? p.Position + p.D : p.GameAnchor;
+        if (!GameGui.WorldToScreen(world, out var s)) return false;
+        spot = new Vector2(s.X + p.Ox[k].X, s.Y + p.Oy[k].X);
+        if (Cfg.HalfPixel) spot = new Vector2(MathF.Round(spot.X * 2) / 2, MathF.Round(spot.Y * 2) / 2);
+        return true;
+    }
+
+    // ---- right before the plates draw: read the names, then move the game's remaining parts (icons, gauges) ----
+
     private void OnPreDraw(AddonEvent type, AddonArgs args)
     {
         draws++;
         var t = clock.Elapsed.TotalSeconds;
-        if (t - statT >= 1) { UpdatesPerSec = updates; DrawsPerSec = draws; updates = draws = 0; statT = t; MaxShiftShown = MaxShift; MaxShift = 0; }
+        if (t - statT >= 1) { UpdatesPerSec = updates; DrawsPerSec = draws; updates = draws = 0; statT = t; }
 
         var addon = (AddonNamePlate*)args.Addon.Address;
         if (addon == null || addon->NamePlateObjectArray == null) return;
-        int live = 0, ready = 0, moved = 0;
+
+        CollectNames(addon); // reads the nodes where the game (and other plugins) put them
+
         for (var i = 0; i < Count; i++)
         {
-            var p = plates[i];
-            if (!p.Live) continue;
-            live++;
-            var root = addon->NamePlateObjectArray[i].RootComponentNode;
+            ref var obj = ref addon->NamePlateObjectArray[i];
+            var root = obj.RootComponentNode;
             if (root == null) continue;
-            var k = Math.Min(Lag, p.History - 1);
-            var ok = k >= 0 && p.Ox[k].Ready;
-            if (ok) ready++;
-
+            var p = plates[i];
             float dx = 0, dy = 0;
-            if (Cfg.Smooth && ok && GameGui.WorldToScreen(p.Anchor, out var s))
-            {
-                var wantX = s.X + p.Ox[k].X;
-                var wantY = s.Y + p.Oy[k].X;
-                if (Cfg.HalfPixel)
-                {
-                    wantX = MathF.Round(wantX * 2) / 2;
-                    wantY = MathF.Round(wantY * 2) / 2;
-                }
-                dx = wantX - p.GameX;
-                dy = wantY - p.GameY;
-                MaxShift = MathF.Max(MaxShift, MathF.Max(MathF.Abs(dx), MathF.Abs(dy)));
-            }
-            if (TestPush) dx += 30;
-            if (dx == 0 && dy == 0 && !shifts.ContainsKey((nint)root)) continue;
-            moved++;
+            if (Spot(p, out var spot)) { dx = spot.X - p.GameX; dy = spot.Y - p.GameY; }
+            if (dx == 0 && dy == 0 && p.IconDx == 0 && p.MarkerDy == 0 && !shifts.ContainsKey((nint)root)) continue;
 
-            // The game already turned X/Y into screen positions for this frame, so moving X/Y now would only show up
-            // after the next update overwrote it. Shift the finished screen positions of the plate's nodes instead.
+            // The game already turned X/Y into screen positions for this frame, so shift those finished positions.
             Shift((AtkResNode*)root, dx, dy);
             var comp = root->Component;
             if (comp == null) continue;
             var list = comp->UldManager.NodeList;
+            var icon = (AtkResNode*)obj.NameIcon;
+            var marker = (AtkResNode*)obj.MarkerIcon;
             for (var n = 0; list != null && n < comp->UldManager.NodeListCount; n++)
-                if (list[n] != null) Shift(list[n], dx, dy);
+            {
+                var node = list[n];
+                if (node == null) continue;
+                Shift(node, node == icon ? dx + p.IconDx : dx, node == marker ? dy + p.MarkerDy : dy);
+            }
         }
-        LivePlates = live; ReadyPlates = ready; MovedPlates = moved;
-        CollectNames(addon);
     }
 
     private struct NodeShift { public float WroteX, WroteY, Dx, Dy; }
@@ -321,9 +374,8 @@ public sealed unsafe class Plugin : IDalamudPlugin
     }
 
     // ---- WoW-style text ----
-    // After the game and every other plugin have laid the plates out for this frame, read each name's final text,
-    // colours, size, alignment, fade and position, hide only the game's text for this frame, and draw the same text
-    // ourselves at float positions. Icons, gauges and everything else stay the game's own nodes.
+    // Read each name's final text, colours, size, alignment and fade (whatever the game and other plugins made of it),
+    // hide only the game's text node while the plates draw, and draw the same text ourselves.
 
     private const float BakePx = 36; // glyphs are baked this big and drawn smaller, so scaling stays smooth
     private IFontHandle? font;
@@ -332,18 +384,20 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
     private sealed class NameDraw
     {
+        public int Plate;
         public List<Line> Lines = null!;
-        public Vector2 BoxMin, BoxMax;
+        public float[] Widths = null!;
+        public Vector2 Rel;   // the text's alignment point relative to the game's spot
         public int Align;
-        public float Px, Alpha, Scale;
+        public float Px, Alpha;
     }
 
     private readonly List<NameDraw> pending = new();
-    private bool fresh;          // pending was collected this frame and not drawn yet
-    private bool drawRan;        // DrawNames ran since the last collect
-    private int missedDraws;     // our draw keeps not running (plugin UI hidden): then leave the game's text alone
+    private bool fresh;
+    private bool drawRan;
+    private int missedDraws;
     private readonly List<nint> hidden = new();
-    private readonly List<(Vector2 Min, Vector2 Max)> windowsOnTop = new();
+    private readonly List<(Vector2 Min, Vector2 Max)> openWindows = new();
 
     private static uint[]? LoadUiColors()
     {
@@ -381,32 +435,27 @@ public sealed unsafe class Plugin : IDalamudPlugin
         }));
     }
 
+    // Open, focusable windows (inventory, character, ...) cover the plates; HUD layers don't count.
     private void CollectWindows()
     {
-        windowsOnTop.Clear();
+        openWindows.Clear();
         var stage = AtkStage.Instance();
         if (stage == null || stage->RaptureAtkUnitManager == null) return;
-        var screen = ImGui.GetMainViewport().Size;
-        ref var list = ref stage->RaptureAtkUnitManager->AtkUnitManager.AllLoadedUnitsList;
+        ref var list = ref stage->RaptureAtkUnitManager->AtkUnitManager.FocusedUnitsList;
         for (var i = 0; i < list.Count; i++)
         {
             var u = list.Entries[i].Value;
             if (u == null || !u->IsVisible || u->RootNode == null) continue;
-            var name = u->NameString;
-            if (name == "NamePlate") continue;
             var sc = u->Scale > 0 ? u->Scale : 1;
             var min = new Vector2(u->X, u->Y);
             var size = new Vector2(u->RootNode->Width, u->RootNode->Height) * sc;
-            if (size.X <= 1 || size.Y <= 1) continue;
-            // full-screen layers (screen text, fades, ...) aren't windows
-            if (size.X * size.Y > screen.X * screen.Y * 0.4f) continue;
-            windowsOnTop.Add((min, min + size));
+            if (size.X > 1 && size.Y > 1) openWindows.Add((min, min + size));
         }
     }
 
     private bool UnderWindow(Vector2 min, Vector2 max)
     {
-        foreach (var (a, b) in windowsOnTop)
+        foreach (var (a, b) in openWindows)
             if (min.X < b.X && max.X > a.X && min.Y < b.Y && max.Y > a.Y) return true;
         return false;
     }
@@ -415,18 +464,24 @@ public sealed unsafe class Plugin : IDalamudPlugin
     {
         pending.Clear();
         RestoreHidden();
+        foreach (var p in plates) { p.IconDx = 0; p.MarkerDy = 0; }
+        // our draw keeps not running (plugin UI hidden): leave the game's text alone then
         missedDraws = drawRan ? 0 : missedDraws + 1;
         drawRan = false;
         fresh = false;
         if (!Cfg.WowText || font is not { Available: true } || !addon->IsVisible || missedDraws > 1) return;
         fresh = true;
         CollectWindows();
+        using var locked = font.Lock();
+        var f = locked.ImFont;
 
+        var targetId = Targets.Target?.GameObjectId;
         for (var i = 0; i < Count; i++)
         {
             ref var obj = ref addon->NamePlateObjectArray[i];
             var text = obj.NameText;
-            if (text == null || obj.RootComponentNode == null) continue;
+            var p = plates[i];
+            if (text == null || obj.RootComponentNode == null || !p.Live) continue;
 
             // visibility and fade come from the whole chain, so the game's (and plugins') fades keep working
             float alpha = 1, scale = 1;
@@ -438,28 +493,77 @@ public sealed unsafe class Plugin : IDalamudPlugin
                 scale *= n->ScaleX;
             }
             if (!visible || alpha <= 0.01f) continue;
-            if (addon->Scale > 0) scale *= addon->Scale;
+            var uiScale = addon->Scale > 0 ? addon->Scale : 1;
+            scale *= uiScale;
 
             var bytes = text->NodeText.AsSpan();
             if (bytes.Length == 0) continue;
-            var baseColor = Rgba(text->TextColor);
-            var baseEdge = Rgba(text->EdgeColor);
-            var lines = TextRenderer.Parse(bytes, baseColor, baseEdge, uiColors);
+            var lines = TextRenderer.Parse(bytes, Rgba(text->TextColor), Rgba(text->EdgeColor), uiColors);
             if (lines.Count == 0) continue;
 
             var min = new Vector2(text->ScreenX, text->ScreenY);
-            var max = min + new Vector2(text->Width, text->Height) * scale;
-            // behind a game window the plate belongs under it: leave that one to the game
-            if (UnderWindow(min, max)) continue;
+            var size = new Vector2(text->Width, text->Height) * scale;
+            var align = text->AlignmentFontType & 0xF;
+            var point = new Vector2(
+                (align % 3) switch { 0 => min.X, 1 => min.X + size.X / 2, _ => min.X + size.X },
+                (align / 3) switch { 0 => min.Y, 1 => min.Y + size.Y / 2, _ => min.Y + size.Y });
+
+            float px;
+            if (Cfg.WowDistance)
+            {
+                // WoW sizes and fades by distance from the camera instead of the game's own shrinking
+                var selected = targetId == p.Id;
+                px = text->FontSize * uiScale * (selected ? Cfg.SelectedScale : WowScale(p.CameraDistance));
+                alpha *= selected ? Cfg.SelectedAlpha
+                       : targetId != null && Cfg.NotSelectedAlpha >= 0 ? Cfg.NotSelectedAlpha
+                       : WowAlpha(p.CameraDistance);
+            }
+            else px = text->FontSize * scale;
+            px = MathF.Max(4, px * Cfg.TextScale);
+
+            hidden.Add((nint)text);
+            text->NodeFlags &= ~NodeFlags.Visible;
+            // under an open window the game would have drawn it beneath that window: draw nothing there
+            if (UnderWindow(min, min + size)) continue;
+
+            var sc = px / BakePx;
+            var widths = new float[lines.Count];
+            float ours = 0;
+            for (var l = 0; l < lines.Count; l++)
+            {
+                foreach (var r in lines[l].Runs) widths[l] += TextRenderer.Measure(f, r.Text, sc);
+                ours = MathF.Max(ours, widths[l]);
+            }
+            // the game put its name icon beside its own text width; keep it beside ours instead
+            var theirs = obj.TextW > 0 ? obj.TextW * scale : size.X;
+            var grow = ours - theirs;
+            p.IconDx = (align % 3) switch { 0 => 0, 1 => -grow / 2, _ => -grow };
+            // text that grows upwards (bottom-aligned, the usual) pushes the marker above it up as much
+            var growH = px * 1.15f * lines.Count - size.Y;
+            if (align / 3 == 2 && growH > 0) p.MarkerDy = -growH;
 
             pending.Add(new NameDraw
             {
-                Lines = lines, BoxMin = min, BoxMax = max, Align = text->AlignmentFontType & 0xF,
-                Px = MathF.Max(4, text->FontSize * scale * Cfg.TextScale), Alpha = alpha, Scale = scale,
+                Plate = i, Lines = lines, Widths = widths, Rel = point - new Vector2(p.GameX, p.GameY), Align = align,
+                Px = px, Alpha = Math.Clamp(alpha, 0, 1),
             });
-            text->NodeFlags &= ~NodeFlags.Visible;
-            hidden.Add((nint)text);
         }
+    }
+
+    private float WowScale(float d)
+    {
+        var far = Cfg.MaxDistance - Cfg.MinScaleDistance;
+        if (d <= Cfg.MaxScaleDistance) return Cfg.MaxScale;
+        if (d >= far) return Cfg.MinScale;
+        return Cfg.MaxScale + (Cfg.MinScale - Cfg.MaxScale) * (d - Cfg.MaxScaleDistance) / MathF.Max(1, far - Cfg.MaxScaleDistance);
+    }
+
+    private float WowAlpha(float d)
+    {
+        var far = Cfg.MaxDistance - Cfg.MinAlphaDistance;
+        if (d <= Cfg.MaxAlphaDistance) return Cfg.MaxAlpha;
+        if (d >= far) return Cfg.MinAlpha;
+        return Cfg.MaxAlpha + (Cfg.MinAlpha - Cfg.MaxAlpha) * (d - Cfg.MaxAlphaDistance) / MathF.Max(1, far - Cfg.MaxAlphaDistance);
     }
 
     // The game's text nodes are only hidden while the plates draw, so the next update (and other plugins) see them as usual.
@@ -482,63 +586,44 @@ public sealed unsafe class Plugin : IDalamudPlugin
         // nothing new since the last frame (UI hidden, plates not drawn): draw nothing rather than stale names
         if (!fresh) return;
         fresh = false;
+        NamesDrawn = 0;
         if (pending.Count == 0 || font is not { Available: true }) return;
         using var locked = font.Lock();
         var f = locked.ImFont;
         var dl = ImGui.GetBackgroundDrawList();
+        var screen = ImGui.GetMainViewport().Size;
         var outline = Cfg.Outline ? Cfg.OutlinePx : 0;
         var shadow = Cfg.Shadow ? new Vector2(1, 1) : Vector2.Zero;
 
         foreach (var d in pending)
         {
+            var p = plates[d.Plate];
+            // projected now, with the camera of the frame being shown
+            var spot = Spot(p, out var s) ? s : new Vector2(p.GameX, p.GameY);
+            var point = spot + d.Rel;
+
             var sc = d.Px / BakePx;
             var lineH = d.Px * 1.15f;
             var totalH = lineH * d.Lines.Count;
-            // AlignmentType: 0..8 = top/middle/bottom rows of left/centre/right
             var col = d.Align % 3;
-            var row = d.Align / 3;
-            var y = row switch
-            {
-                0 => d.BoxMin.Y,
-                1 => (d.BoxMin.Y + d.BoxMax.Y - totalH) / 2,
-                _ => d.BoxMax.Y - totalH,
-            };
-            var starts = new float[d.Lines.Count];
-            for (var l = 0; l < d.Lines.Count; l++)
-            {
-                float w = 0;
-                foreach (var r in d.Lines[l].Runs) w += TextRenderer.Measure(f, r.Text, sc);
-                starts[l] = col switch
-                {
-                    0 => d.BoxMin.X,
-                    1 => (d.BoxMin.X + d.BoxMax.X - w) / 2,
-                    _ => d.BoxMax.X - w,
-                };
-            }
+            var y = (d.Align / 3) switch { 0 => point.Y, 1 => point.Y - totalH / 2, _ => point.Y - totalH };
+            // WoW clamps plates inside the top and bottom insets
+            y = Math.Clamp(y, screen.Y * Cfg.TopInset, MathF.Max(screen.Y * Cfg.TopInset, screen.Y * (1 - Cfg.BottomInset) - totalH));
+
             // shadow, then outline, then fill, so no letter's outline covers its neighbour's fill
             for (var pass = 0; pass < 3; pass++)
                 for (var l = 0; l < d.Lines.Count; l++)
                 {
-                    var pen = new Vector2(starts[l], y + l * lineH + (lineH - d.Px) / 2);
+                    var w = d.Widths[l];
+                    var x = col switch { 0 => point.X, 1 => point.X - w / 2, _ => point.X - w };
+                    var pen = new Vector2(x, y + l * lineH + (lineH - d.Px) / 2);
                     foreach (var r in d.Lines[l].Runs)
                         pen = TextRenderer.DrawRun(dl, f, pen, r.Text, sc,
                             TextRenderer.WithAlpha(r.Color, d.Alpha), TextRenderer.WithAlpha(r.Edge, d.Alpha),
                             outline, shadow, TextRenderer.WithAlpha(0xFF000000, d.Alpha * 0.8f), pass);
                 }
+            NamesDrawn++;
         }
-    }
-
-    // The world point the game itself projects for this plate (above the head), else the object's position.
-    private static bool Anchor(UI3DModule* ui3d, INamePlateUpdateHandler h, out Vector3 world)
-    {
-        world = default;
-        if (ui3d != null && h.ArrayIndex < ui3d->NamePlateObjectInfoCount)
-        {
-            var info = ui3d->NamePlateObjectInfoPointers[h.ArrayIndex].Value;
-            if (info != null) { world = info->NamePlatePos; return true; }
-        }
-        if (h.GameObject is { } go) { world = go.Position; return true; }
-        return false;
     }
 
     // Scales the colour bytes toward black and leaves the alpha byte alone (it's the end byte that reads 0xFF).
@@ -597,24 +682,37 @@ internal sealed class ConfigWindow : Window
             changed |= ImGui.Checkbox("Outline", ref c.Outline);
             if (c.Outline) changed |= ImGui.SliderFloat("Outline width", ref c.OutlinePx, 0.5f, 2.5f, "%.2f px");
             changed |= ImGui.Checkbox("Drop shadow", ref c.Shadow);
+            changed |= ImGui.Checkbox("WoW distance scale and fade", ref c.WowDistance);
+            if (c.WowDistance && ImGui.TreeNode("WoW nameplate settings"))
+            {
+                changed |= ImGui.SliderFloat("nameplateMaxDistance", ref c.MaxDistance, 10, 100, "%.0f");
+                changed |= ImGui.SliderFloat("nameplateMaxScale", ref c.MaxScale, 0.3f, 2, "%.2f");
+                changed |= ImGui.SliderFloat("nameplateMaxScaleDistance", ref c.MaxScaleDistance, 0, 60, "%.0f");
+                changed |= ImGui.SliderFloat("nameplateMinScale", ref c.MinScale, 0.3f, 2, "%.2f");
+                changed |= ImGui.SliderFloat("nameplateMinScaleDistance", ref c.MinScaleDistance, 0, 60, "%.0f");
+                changed |= ImGui.SliderFloat("nameplateSelectedScale", ref c.SelectedScale, 0.5f, 2, "%.2f");
+                changed |= ImGui.SliderFloat("nameplateMaxAlpha", ref c.MaxAlpha, 0, 1, "%.2f");
+                changed |= ImGui.SliderFloat("nameplateMaxAlphaDistance", ref c.MaxAlphaDistance, 0, 100, "%.0f");
+                changed |= ImGui.SliderFloat("nameplateMinAlpha", ref c.MinAlpha, 0, 1, "%.2f");
+                changed |= ImGui.SliderFloat("nameplateMinAlphaDistance", ref c.MinAlphaDistance, 0, 60, "%.0f");
+                changed |= ImGui.SliderFloat("nameplateSelectedAlpha", ref c.SelectedAlpha, 0, 1, "%.2f");
+                changed |= ImGui.SliderFloat("nameplateNotSelectedAlpha", ref c.NotSelectedAlpha, -1, 1, "%.2f");
+                changed |= ImGui.SliderFloat("nameplateTopInset", ref c.TopInset, 0, 0.5f, "%.2f");
+                changed |= ImGui.SliderFloat("nameplateBottomInset", ref c.BottomInset, 0, 0.5f, "%.2f");
+                ImGui.TreePop();
+            }
             ImGui.Separator();
         }
-        changed |= ImGui.Checkbox("Smooth movement", ref c.Smooth);
-        if (c.Smooth)
-        {
-            changed |= ImGui.SliderFloat("Steadiness (Hz, lower = steadier)", ref c.MinCutoff, 0.2f, 5f, "%.2f");
-            changed |= ImGui.SliderFloat("Catch-up when zooming", ref c.Beta, 0f, 0.3f, "%.3f");
-            changed |= ImGui.Checkbox("Snap to half pixels", ref c.HalfPixel);
-        }
-        changed |= ImGui.Checkbox("Sharp text (no fixed font resolution)", ref c.SharpText);
+        changed |= ImGui.Checkbox("Steady anchor (no head bob)", ref c.SteadyAnchor);
+        changed |= ImGui.Checkbox("Snap to half pixels", ref c.HalfPixel);
+        changed |= ImGui.Checkbox("Sharp game text (no fixed font resolution)", ref c.SharpText);
         if (c.SharpText && plugin.SharpGaveUp) ImGui.TextDisabled("  The game keeps turning this back off, so it's paused.");
         changed |= ImGui.SliderFloat("Darker outline", ref c.EdgeDarken, 0f, 1f, "%.2f");
+        changed |= ImGui.SliderInt("Frames behind (-1 = auto)", ref c.ForceLag, -1, 2);
+        if (ImGui.Button("Reset to WoW defaults")) plugin.ResetToWow();
         if (changed) plugin.Save();
         ImGui.Separator();
-        ImGui.TextDisabled($"Nameplate updates/s: {plugin.UpdatesPerSec}   draws/s: {plugin.DrawsPerSec}");
-        ImGui.TextDisabled($"Plates: {plugin.LivePlates} seen, {plugin.ReadyPlates} tracked, {plugin.MovedPlates} moved; biggest shift {plugin.MaxShiftShown:0.00}px");
+        ImGui.TextDisabled($"Nameplate updates/s: {plugin.UpdatesPerSec}   draws/s: {plugin.DrawsPerSec}   names drawn: {plugin.NamesDrawn}");
         ImGui.TextDisabled($"Game is {plugin.Lag} frame(s) behind" + (c.ForceLag < 0 ? " (auto)" : ""));
-        changed |= ImGui.SliderInt("Frames behind (-1 = auto)", ref c.ForceLag, -1, 2);
-        ImGui.Checkbox("Test: push every tag 30px right", ref plugin.TestPush);
     }
 }
