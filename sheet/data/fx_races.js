@@ -8,6 +8,30 @@
   const NONE = { none: true };
   const charm = 'Saves vs being charmed';
   Object.assign(DND.featFx, {
+    // ---------- Spelljammer ----------
+    'race:Astral Fire': NONE,
+    'race:Starlight Step': { resource: true, acts: [{ name: 'Starlight Step', col: 'bonus', cost: true, text: 'Teleport up to 30 ft to an unoccupied space you can see.' }] },
+    'race:Astral Trance': { trigger: 'longRest', triggerLabel: 'Noted', triggerText: 'Astral Trance: choose one skill and one weapon or tool to be proficient with until your next long rest.' },
+    'race:Armored Casing': NONE,
+    'race:Built for Success': { resource: true, acts: [{ name: 'Built for Success', cost: true, roll: '1d4', rollNote: 'added to the attack roll, check or save' }] },
+    'race:Healing Machine': { text: 'Mending cast on you: spend a Hit Die and heal its roll + CON. Cure Wounds, Healing Word, Mass Cure Wounds, Mass Healing Word and Spare the Dying work on you.' },
+    'race:Mechanical Nature': { passive: { resist: ['poison'], immune: ['disease'], advNote: 'Saves vs being paralyzed or poisoned' } },
+    "race:Sentry's Rest": NONE,
+    'race:Specialized Design': NONE,
+    'race:Astral Spark': { resource: true, acts: [{ name: 'Astral Spark', cost: true, roll: '{prof}', rollNote: 'extra force damage on a weapon hit (once per turn)' }] },
+    'race:Firearms Mastery': { text: 'Proficient with all firearms; ignore the loading property; no disadvantage at long range with them.' },
+    'race:Hippo Build': { passive: { advNote: 'Strength checks and Strength saves' } },
+    'race:Dexterous Feet': { col: 'bonus', text: 'Use an Object with your feet.' },
+    'race:Glide': { col: 'reaction', text: 'When you fall 10 ft or more: glide sideways up to your walking speed and take no falling damage.' },
+    'race:Hadozee Dodge': { resource: true, acts: [{ name: 'Hadozee Dodge', col: 'reaction', cost: true, roll: '1d6+{prof}', rollNote: 'damage reduced' }] },
+    'race:Amorphous': { passive: { advNote: 'Checks to start or escape a grapple' } },
+    'race:Natural Resilience': { passive: { resist: ['acid', 'poison'], advNote: 'Saves vs being poisoned' } },
+    'race:Shape Self': { col: 'action', text: 'Action: take a rough humanoid shape or return to a blob. Bonus action: extend or retract a 10 ft pseudopod for handling objects (no attacks or magic items, 10 lb max).' },
+    'race:Chameleon Carapace': { col: 'action', text: 'Change color to match your surroundings: advantage on Stealth checks to hide in them.' },
+    'race:Secondary Arms': NONE,
+    'race:Sleepless': NONE,
+    'race:Thri-kreen Telepathy': { passive: { sense: 'Telepathy 120 ft (one creature you can see)' } },
+
     // ---------- Dwarf / Duergar ----------
     'race:Dwarven Resilience': { passive: { resist: ['poison'], advNote: 'Saves vs poison' } },
     'race:Dwarven Combat Training': NONE,

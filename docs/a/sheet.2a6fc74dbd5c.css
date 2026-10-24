@@ -4176,4 +4176,36 @@ html.mobile body.wizopen #modal.open, html.mobile body.wizopen #modal.closing { 
 .ds-tag.g { background: rgba(60,157,107,.16); color: #3c9d6b; } .ds-tag.r { background: var(--red-soft); color: var(--red); }
 .ds-bw { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; min-height: 0; }
 .ds-bars i { max-height: none; }
+/* the chart: bars stand on the axis line; the "fair die" line is measured against the bars' own area */
+.ds-chart { display: flex; flex-direction: column; }
+.ds-plot { position: relative; height: 130px; display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 3px; align-items: end; border-bottom: 1px solid var(--line); }
+.ds-col { height: 100%; display: flex; align-items: flex-end; justify-content: center; min-width: 0; }
+.ds-col i { display: block; width: 100%; max-width: 22px; background: var(--gold); border-radius: 4px 4px 0 0; opacity: .85; }
+.ds-col.g i { background: #3c9d6b; opacity: 1; } .ds-col.r i { background: var(--red); opacity: 1; }
+.ds-plot .ds-fair { position: absolute; left: 0; right: 0; height: 0; border-top: 1.5px dashed var(--soft); opacity: .6; pointer-events: none; }
+.ds-axis { display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 3px; margin-top: 4px; }
+.ds-axis span { text-align: center; font-size: .62rem; color: var(--soft); font-variant-numeric: tabular-nums; }
+/* Log tabs: a sliding highlight, and the list slides in from the side you're heading */
+.rl-tabs.inked { position: relative; }
+.rl-tabs.inked .rl-tab { position: relative; z-index: 1; transition: color .2s; }
+.rl-tabs.inked .rl-tab.on { background: transparent; box-shadow: none; }
+.rl-ink { position: absolute; left: 0; top: 3px; bottom: 3px; width: 0; border-radius: 8px; background: var(--panel); box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: transform .28s cubic-bezier(.3,.7,.2,1), width .28s cubic-bezier(.3,.7,.2,1); }
+#rolllogmodal .rl-list.in-r { animation: rlIn-r .26s cubic-bezier(.3,.7,.2,1); }
+#rolllogmodal .rl-list.in-l { animation: rlIn-l .26s cubic-bezier(.3,.7,.2,1); }
+@keyframes rlIn-r { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
+@keyframes rlIn-l { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: none; } }
+/* Dice stats: bars grow up from the axis, one after another */
+.ds-chart.anim .ds-col i { transform-origin: bottom; animation: dsGrow .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--k, 0) * 22ms + 80ms); }
+.ds-chart.anim .ds-fair { animation: dsFade .4s ease both; animation-delay: .6s; }
+@keyframes dsGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes dsFade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .rl-ink { transition: none; } #rolllogmodal .rl-list.in-r, #rolllogmodal .rl-list.in-l, .ds-chart.anim .ds-col i, .ds-chart.anim .ds-fair { animation: none; } }
+/* the Log window keeps one size on every tab (the Dice stats height) */
+#rolllogmodal .rl-list { height: min(62vh, 640px); max-height: none; }
+html.mobile #rolllogmodal .rl-list { height: auto; max-height: min(62vh, 640px); }
+.cact-i { color: var(--k, var(--gold)); } .cact-i svg { width: 15px; height: 15px; display: block; }
+/* The "show the math" dice button gets its own space on the right of a roll card, so it never sits on top of the damage label */
+.toast.rollcard:has(> .rc-dice) { padding-right: 46px; }
+.toast.rollcard > .rc-dice { top: 50%; bottom: auto; right: 8px; transform: translateY(-50%); }
+.pbadge.defb.vul { border-color: color-mix(in srgb, #c0392b 55%, transparent); color: color-mix(in srgb, #c0392b 70%, var(--ink, currentColor)); }
 

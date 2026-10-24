@@ -146,7 +146,8 @@ function choiceOptions(def, ctx) {
     case 'tool': { const t = toolsFrom(def.from), k = def.orLang ? knownLangs() : null; return t.map(x => [x, x]).concat(def.orLang ? ALL_LANGS().map(l => ['Language: ' + l, 'Language: ' + l, k.has(l.toLowerCase()) ? '(you already speak it)' : '']) : []); }
     case 'asi': return AB.filter(a => !(def.exclude || []).includes(a) && (!def.from || def.from.includes(a))).map(a => [a, `${ABN[a]} +${def.amount || 1}`]);
     case 'feat': return bookSort(DND.feats, f => f[1], f => f[0]).map(f => [f[0], f[0] + (f[2] ? ` (${f[2]})` : '') + (f[1] !== 'PHB' ? ` · ${f[1]}` : '')]);
-    case 'cantrip': return DND.spells.filter(s => s.level === 0 && s.classes.includes(def.list)).sort((a, b) => abc(a.name, b.name)).map(s => [s.name, s.name]);
+    case 'cantrip': if (Array.isArray(def.list)) return def.list.map(n => [n, n]);
+      return DND.spells.filter(s => s.level === 0 && s.classes.includes(def.list)).sort((a, b) => abc(a.name, b.name)).map(s => [s.name, s.name]);
     case 'spellpick': return DND.spells.filter(s => s.level === def.level && (!def.ritual || s.ritual) && (def.list === 'any' || s.classes.includes(def.list))).sort((a, b) => abc(a.name, b.name)).map(s => [s.name, `${s.name} — ${s.summary}`]);
     case 'option': return def.options.map(([n, d]) => [n, `${n} — ${d}`]);
     case 'weapon': return DND.weapons.filter(w => !def.from || w[1] === def.from).map(w => [w[0], w[0]]);
@@ -1253,6 +1254,9 @@ const ddbId = t => { t = String(t || '').trim(); const m = /characters\/(\d{3,12
 const DDB_AB = { 1: 'str', 2: 'dex', 3: 'con', 4: 'int', 5: 'wis', 6: 'cha' };
 const DDB_ABNAME = { strength: 'str', dexterity: 'dex', constitution: 'con', intelligence: 'int', wisdom: 'wis', charisma: 'cha' };
 const DDB_ALIGN = { 1: 'Lawful Good', 2: 'Neutral Good', 3: 'Chaotic Good', 4: 'Lawful Neutral', 5: 'True Neutral', 6: 'Chaotic Neutral', 7: 'Lawful Evil', 8: 'Neutral Evil', 9: 'Chaotic Evil' };
+// D&D Beyond's ids for damage resistances (1-12, 47), immunities (17-28, 48) and vulnerabilities (33-44, 49).
+const DDB_DADJ = (() => { const t = ['Bludgeoning', 'Piercing', 'Slashing', 'Lightning', 'Thunder', 'Poison', 'Cold', 'Radiant', 'Fire', 'Necrotic', 'Acid', 'Psychic'], o = {};
+  t.forEach((n, i) => { o[i + 1] = ['resist', n]; o[i + 17] = ['immune', n]; o[i + 33] = ['vuln', n]; }); o[47] = ['resist', 'Force']; o[48] = ['immune', 'Force']; o[49] = ['vuln', 'Force']; return o; })();
 const DDB_COND = { 1: 'Blinded', 2: 'Charmed', 3: 'Deafened', 5: 'Frightened', 6: 'Grappled', 7: 'Incapacitated', 8: 'Invisible', 9: 'Paralyzed', 10: 'Petrified', 11: 'Poisoned', 12: 'Prone', 13: 'Restrained', 14: 'Stunned', 15: 'Unconscious' };
 // Accepts the character service's reply ({success, data}), the bare character, or a saved file of either.
 function ddbParse(txt) {
@@ -1353,7 +1357,14 @@ function ddbItem(x, miss) {
   return it;
 }
 // Build the whole character from D&D Beyond's data. Returns { state, report }; nothing is saved here.
+// Every book is searched while matching (a Spelljammer race, say); the character then keeps only the books it uses.
 function ddbBuild(d, opt = {}) {
+  const prev = S, all = Object.keys(DND.sources);
+  applySources(all);
+  try { return ddbBuild0(d, opt); }
+  finally { const keep = S; S = prev; applySources(typeof W !== 'undefined' && W ? W.sources : prev && prev.created ? prev.sources : undefined); S = keep; }
+}
+function ddbBuild0(d, opt = {}) {
   const ok = [], miss = [], notes = [];
   const prevS = S;
   S = migrate(Object.assign(blankState(), { dataRev: EMBED.dataRev || '', layout: (prevS && prevS.layout) || {} }));
@@ -1435,6 +1446,13 @@ function ddbBuild(d, opt = {}) {
   const ds = d.deathSaves || {}; S.death = { s: N(ds.successCount), f: N(ds.failCount) };
   S.conditions = (d.conditions || []).map(c => DDB_COND[c.id]).filter(Boolean); const ex = (d.conditions || []).find(c => c.id === 4); if (ex) S.exhaustion = N(ex.level);
   if (d.inspiration) S.insp = 1;
+  // resistances, immunities and vulnerabilities added by hand on D&D Beyond (Manage Defenses)
+  { const md = { resist: [], immune: [], vuln: [] }, cap = t => t[0].toUpperCase() + t.slice(1);
+    (d.customDefenseAdjustments || []).forEach(a => { const id = N(a && a.adjustmentId);
+      if (N(a.type) === 2) { const e = DDB_DADJ[id]; if (e) md[e[0]].push(e[1]); else notes.push('A custom defense from D&D Beyond (#' + id + ') isn’t one this sheet knows; add it in Core → Proficiencies.'); }
+      else if (N(a.type) === 1) { const c = ({ 4: 'Exhaustion', 16: 'Disease' })[id] || DDB_COND[id]; if (c) md.immune.push(c); } });
+    ['resist', 'immune', 'vuln'].forEach(k => md[k] = [...new Set(md[k])]);
+    if (md.resist.length || md.immune.length || md.vuln.length) { S.manualDef = md; ok.push('Defenses: ' + [md.resist.length && 'resist ' + md.resist.join(', '), md.immune.length && 'immune ' + md.immune.join(', '), md.vuln.length && 'vulnerable ' + md.vuln.join(', ')].filter(Boolean).join('; ')); } }
   const t = d.traits || {}, nt = d.notes || {}, txt = v => String(v || '').replace(/\r/g, '').trim().slice(0, 6000);
   S.traits = { personality: txt(t.personalityTraits), ideals: txt(t.ideals), bonds: txt(t.bonds), flaws: txt(t.flaws) };
   S.appearance = { age: txt(d.age), height: txt(d.height), weight: txt(d.weight), eyes: txt(d.eyes), skin: txt(d.skin), hair: txt(d.hair) };

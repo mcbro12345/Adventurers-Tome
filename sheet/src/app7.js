@@ -4,7 +4,9 @@
 // is pruned to those books; anything the character already uses stays available until the player removes it.
 // Function declarations only: migrate() calls defaultSources() while the script is still starting up.
 function coreSources() { return ['PHB', 'SRD']; }
-function defaultSources() { return Object.keys(DND.sources).filter(k => k !== 'UA'); }
+// Books that stay off until someone turns them on (playtest material, and settings most tables don't use).
+function offSources() { return ['UA', 'AAG']; }
+function defaultSources() { return Object.keys(DND.sources).filter(k => !offSources().includes(k)); }
 function srcCodes(s) { return (String(s || '').match(/[A-Za-z]+/g) || []).filter(c => DND.sources[c]); }
 // An entry is allowed when any book it appears in is on (e.g. "SCAG/EEPC"). Untagged entries follow their parent.
 function srcOK(src, set, parentOK) { const c = srcCodes(src); return c.length ? c.some(x => set.has(x)) : parentOK !== false; }

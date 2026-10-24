@@ -226,7 +226,7 @@ function hpRingSVG(cur, max, tmp, cls) {
 }
 function hbSummary(hb, it) {
   const fx = hbFx(hb) || {}, p = fx.passive || {}, u = fx.use || {}, b = [];
-  if (p.resist) b.push('Resist ' + p.resist.join(', ')); if (p.immune) b.push('Immune ' + p.immune.join(', ')); if (p.condImmune) b.push("Can't be " + p.condImmune.join(', ').toLowerCase());
+  if (p.resist) b.push('Resist ' + p.resist.join(', ')); if (p.immune) b.push('Immune ' + p.immune.join(', ')); if (p.vuln) b.push('Vulnerable ' + p.vuln.join(', ')); if (p.condImmune) b.push("Can't be " + p.condImmune.join(', ').toLowerCase());
   if (p.advNote) b.push('Advantage notes'); if (p.sense) b.push(p.sense); ['fly', 'swim', 'climb'].forEach(k => { if (p[k]) b.push(k + ' ' + (p[k] === 'walk' ? '= walk' : p[k] + ' ft')); });
   if (p.ac) b.push('AC ' + sgn(N(p.ac))); if (p.skillBonus) Object.entries(p.skillBonus).forEach(([k, v]) => b.push(k + ' ' + sgn(v))); if (p.saveAll) b.push('Saves +' + p.saveAll); if (p.init) b.push('Init +' + p.init); if (p.speed) b.push('Speed +' + p.speed);
   if (fx.roll) b.push('Rolls ' + fx.roll); if (fx.save) b.push(fx.save + ' save'); if (fx.cost) b.push('Costs ' + fxCostText(fx.cost)); if (u.effect) b.push('Starts ' + u.effect.name + (u.effect.buff && (u.effect.buff.skillAdv || []).length ? ' (advantage on ' + u.effect.buff.skillAdv.join(', ') + ')' : '')); if (u.temp) b.push('Temp HP'); if (u.heal) b.push('Heals'); if (fx.dash) b.push('Dash'); if (u.companion) b.push('Summons ' + u.companion);
@@ -251,7 +251,7 @@ function hbBox(path, hb, kind, key, it, ii) {
   const comps = typeof COMP_RULES === 'object' ? Object.keys(COMP_RULES) : [];
   const durs = [['', 'Until ended'], ['1', '1 round'], ['10', '1 minute'], ['100', '10 minutes'], ['600', '1 hour'], ['4800', '8 hours']];
   const always = `<div class="hbsec"><div class="hbt">${kind === 'item' ? 'While you use it' : 'Always on'}</div>
-    <div class="hbgrid">${fld('Resistances', I('resist', { ph: 'cold, fire' }))}${fld('Immunities', I('immune', { ph: 'poison' }))}${fld("Can't be (conditions)", I('condImmune', { ph: 'charmed, frightened' }))}
+    <div class="hbgrid">${fld('Resistances', I('resist', { ph: 'cold, fire' }))}${fld('Immunities', I('immune', { ph: 'poison' }))}${fld('Vulnerabilities', I('vuln', { ph: 'cold' }))}${fld("Can't be (conditions)", I('condImmune', { ph: 'charmed, frightened' }))}
     ${fld('Advantage on', I('adv', { ph: 'Saves vs dragon breath; …' }))}${fld('Senses', I('sense', { ph: 'Darkvision 60 ft' }))}${fld('Speed bonus', I('speed', { ph: '10' }))}
     ${fld('Fly', I('fly', { ph: '30 or walk' }))}${fld('Swim', I('swim', { ph: '' }))}${fld('Climb', I('climb', { ph: '' }))}
     ${fld('AC bonus', I('ac', { ph: '1' }))}${fld('Skill bonuses', I('skillBonus', { ph: 'Nature +1, Stealth +2' }))}${fld('Saves bonus', I('saveAll', { ph: '1' }))}${fld('Initiative bonus', I('init', { ph: 'wis' }))}${fld('Max HP bonus', I('maxHp', { ph: 'level' }))}
@@ -1081,7 +1081,7 @@ function onField(e) {
     pendingLabel = 'Edit: Armor class'; save(); refresh(); return;
   }
   if (t.dataset.hpmax !== undefined) { if (t.value === '') return; const extra = maxHp() - baseMaxHp(); S.hp.adj = N(t.value) - extra - hpMaxCalc(); pendingLabel = 'Edit: Max HP'; save(); refresh(); return; }
-  if (t.id === 'addResist' || t.id === 'addImmune') { const v = t.value; t.value = ''; if (!v) return; const k = t.id === 'addResist' ? 'resist' : 'immune'; S.manualDef = S.manualDef || { resist: [], immune: [] }; S.manualDef[k] = (S.manualDef[k] || []).concat([v]); pendingLabel = (k === 'resist' ? 'Add resistance: ' : 'Add immunity: ') + v; save(); openProfs(); render('core'); return; }
+  if (t.id === 'addResist' || t.id === 'addImmune' || t.id === 'addVuln') { const v = t.value; t.value = ''; if (!v) return; const k = { addResist: 'resist', addImmune: 'immune', addVuln: 'vuln' }[t.id]; S.manualDef = S.manualDef || { resist: [], immune: [] }; S.manualDef[k] = (S.manualDef[k] || []).concat([v]); pendingLabel = ({ resist: 'Add resistance: ', immune: 'Add immunity: ', vuln: 'Add vulnerability: ' })[k] + v; save(); openProfs(); render('core'); return; }
   if (['addWeapon', 'addTool', 'addLang'].includes(t.id)) { const v = t.value; t.value = ''; if (!v) return; const kind = { addWeapon: 'weapon', addTool: 'tool', addLang: 'lang' }[t.id]; if (v === '__other') { openModal(`<h3>Add ${kind === 'lang' ? 'a language' : kind === 'tool' ? 'a tool' : 'a weapon'}</h3>${fld('Name', '<input class="f" id="otherIn" autofocus>')}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="otherok" data-k="${kind}">Add</button></div>`); return; } addProf(kind, v); return; }
   if (t.id === 'featQ') { UI.featQ = t.value; clearTimeout(window._fq); window._fq = setTimeout(() => { render('features'); const e = $('#featQ'); if (e) { e.focus(); e.setSelectionRange(e.value.length, e.value.length); } }, 250); return; }
   if (t.dataset.set !== undefined) return setSetting(t);

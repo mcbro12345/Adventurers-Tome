@@ -295,7 +295,7 @@ function mainClick(e) {
     case 'pwdel': { const n = S.profs.weaponNames.splice(i, 1)[0]; pendingLabel = 'Remove proficiency: ' + n; save(); render(); break; }
     case 'toolexp': S.tools[i].exp = !S.tools[i].exp; pendingLabel = (S.tools[i].exp ? 'Expertise: ' : 'Proficient: ') + S.tools[i].name; save(); render(); break;
     case 'tooldel': { const n = S.tools.splice(i, 1)[0]; pendingLabel = 'Remove tool: ' + n.name; save(); render(); toast(`Removed ${esc(n.name)}.`, '', 5000, { label: 'Undo', fn: () => undo(1) }); break; }
-    case 'defdel': { const k = b.dataset.kind === 'immune' ? 'immune' : 'resist'; const md = S.manualDef || {}; const n = (md[k] || []).splice(i, 1)[0]; if (n == null) break; pendingLabel = (k === 'resist' ? 'Remove resistance: ' : 'Remove immunity: ') + n; save(); openProfs(); render('core'); break; }
+    case 'defdel': { const k = ['immune', 'vuln'].includes(b.dataset.kind) ? b.dataset.kind : 'resist'; const md = S.manualDef || {}; const n = (md[k] || []).splice(i, 1)[0]; if (n == null) break; pendingLabel = ({ resist: 'Remove resistance: ', immune: 'Remove immunity: ', vuln: 'Remove vulnerability: ' })[k] + n; save(); openProfs(); render('core'); break; }
     case 'langdel': { const n = S.langs.splice(i, 1)[0]; pendingLabel = 'Remove language: ' + n; save(); render(); toast(`Removed ${esc(n)}.`, '', 5000, { label: 'Undo', fn: () => undo(1) }); break; }
     case 'manageprofs': openProfs(); break;
     case 'booksedit': UI.open.booksedit = !UI.open.booksedit; saveUI(); reopenSettings(); break;
@@ -566,7 +566,7 @@ function hpAction(kind) {
   $('#hpAmt').value = '';
   if (kind === 'tmphp') { const cur = N(S.hp.temp); if (amt <= cur) { toast(`You keep your <b>${cur}</b> temporary HP — they don't stack, the higher one stays.`, '', 6000); return; } S.hp.temp = amt; pendingLabel = `Temp HP ${amt}`; update(); render('vitals'); toast(`<b>${amt}</b> temporary HP${cur ? ` (replaces ${cur})` : ''}.`); return; }
   if (kind === 'dmg') { const sel = $('#hpType'), type = sel ? sel.value : ''; if (sel) sel.value = '';
-    if (type) { const D = defensesDetail(), vul = (D.vuln || []).some(x => x.k.includes(type)); let [n, how] = ptyResist(amt, type); if (vul && how !== 'immune') { n = how === 'resistant' ? amt : amt * 2; how = how === 'resistant' ? 'resistant and vulnerable' : 'vulnerable'; }
+    if (type) { const [n, how] = ptyResist(amt, type);
       if (how) setTimeout(() => toast(how === 'immune' ? `You're <b>immune</b> to ${esc(type)} damage — no damage taken.` : `${esc(type[0].toUpperCase() + type.slice(1))} damage, you're ${how}: ${amt} → <b>${n}</b>.`, '', 6000), 60);
       if (!n) { pendingLabel = null; return; } return takeDamage(n); }
     takeDamage(amt); } else healSelf(amt);

@@ -122,11 +122,13 @@ function fxPassives() {
   });
   // Items that resist a damage type of your choice (Ring of Resistance…), while worn and attuned
   S.inventory.forEach(it => { if (it.resPick && resPickItem(it) && hbItemOn(it)) out.push({ src: it.name, item: it.id, resist: [it.resPick] }); });
+  // Magic items that always give one resistance while worn (and attuned)
+  S.inventory.forEach(it => { const t = ITEM_RESIST[String(it.name || '').toLowerCase()]; if (t && !it.hb && hbItemOn(it)) out.push({ src: it.name, item: it.id, resist: [t] }); });
   // Homebrew item effects (resistances, speeds, AC…) while the item is in use
   infPassives().forEach(p => out.push(p));
   S.inventory.forEach(it => { if (!hbItemOn(it)) return; const fx = hbFx(it.hb); if (fx && fx.passive) [].concat(fx.passive).forEach(x => { if (x.effect && !fxActive().some(e => e.name === x.effect)) return; out.push(Object.assign({ src: it.name, item: it.id }, x)); }); });
   { const md = S.manualDef || {}, cn = DEF_COND.map(c => c.toLowerCase()), im = md.immune || [];
-    if ((md.resist || []).length || im.length) out.push({ src: 'Added by you', resist: (md.resist || []).map(t => t.toLowerCase()), immune: im.filter(t => !cn.includes(t.toLowerCase())).map(t => t.toLowerCase()), condImmune: im.filter(t => cn.includes(t.toLowerCase())) }); }
+    if ((md.resist || []).length || im.length || (md.vuln || []).length) out.push({ src: 'Added by you', resist: (md.resist || []).map(t => t.toLowerCase()), vuln: (md.vuln || []).map(t => t.toLowerCase()), immune: im.filter(t => !cn.includes(t.toLowerCase())).map(t => t.toLowerCase()), condImmune: im.filter(t => cn.includes(t.toLowerCase())) }); }
   _fxpKey = key + mdKey; _fxp = out; return out;
 }
 const fxSkillBonus = name => fxPassives().filter(p => p.skillBonus && p.skillBonus[name]).map(p => [p.src, N(p.skillBonus[name])]);
@@ -134,22 +136,24 @@ const fxSum = (k, filter) => fxPassives().filter(p => p[k] != null && (!filter |
 const fxList = k => [...new Set(fxPassives().flatMap(p => [].concat(p[k] || [])))];
 const fxSaveProf = ab => fxPassives().some(p => p.saveProf === 'all' || [].concat(p.saveProf || []).includes(ab));
 // Resistances, immunities and advantages with where each one comes from (merged when several sources give the same thing).
+const ITEM_RESIST = { 'boots of the winterlands': 'cold', 'ring of warmth': 'cold', 'cloak of arachnida': 'poison', 'frost brand': 'fire' };
 function defensesDetail() {
-  const out = { resist: [], immune: [], adv: [] };
+  const out = { resist: [], immune: [], vuln: [], adv: [] };
   const cap = t => { t = String(t).trim(); if (/^diseased$/i.test(t)) t = 'disease'; return t.charAt(0).toUpperCase() + t.slice(1); };
   const add = (arr, t, src) => { if (!t) return; const tt = cap(t), k = tt.toLowerCase(); let e = arr.find(x => x.k === k); if (!e) arr.push(e = { k, t: tt, src: [] }); if (src && !e.src.includes(src) && !k.startsWith(String(src).toLowerCase())) e.src.push(src); };
   fxActive().forEach(e => { const b = e.buff; if (!b || e.ally || e.self === false) return; [].concat(b.resist || []).forEach(t => add(out.resist, t, e.name)); [].concat(b.immune || []).forEach(t => add(out.immune, t, e.name)); [].concat(b.condImmune || []).forEach(t => add(out.immune, t, e.name)); });
   fxPassives().forEach(p => {
     [].concat(p.resist || []).forEach(t => add(out.resist, t, p.src));
     [].concat(p.immune || []).forEach(t => add(out.immune, t, p.src));
+    [].concat(p.vuln || []).forEach(t => add(out.vuln, t, p.src));
     [].concat(p.condImmune || []).forEach(t => add(out.immune, /^(diseased|disease)$/i.test(t) ? 'disease' : String(t).toLowerCase() === t ? t : t, p.src));
     [].concat(p.advNote || []).forEach(t => add(out.adv, t, p.src));
   });
   return out;
 }
 function defensesText() {
-  const r = fxList('resist'), im = fxList('immune'), ci = fxList('condImmune'), adv = fxList('advNote');
-  return { resist: r, immune: im, condImmune: ci, adv };
+  const r = fxList('resist'), im = fxList('immune'), ci = fxList('condImmune'), adv = fxList('advNote'), vu = fxList('vuln');
+  return { resist: r, immune: im, condImmune: ci, vuln: vu, adv };
 }
 // ---------- Using features ----------
 function fxSource(from, cls) {
@@ -379,6 +383,7 @@ function hbFx(hb) {
   const o = {}, p = {}, has = k => hb[k] != null && String(hb[k]).trim() !== '' && hb[k] !== false;
   if (has('resist')) p.resist = hbCSV(hb.resist);
   if (has('immune')) p.immune = hbCSV(hb.immune);
+  if (has('vuln')) p.vuln = hbCSV(hb.vuln);
   if (has('condImmune')) p.condImmune = hbCSV(hb.condImmune).map(c => c[0].toUpperCase() + c.slice(1).toLowerCase());
   if (has('adv')) p.advNote = String(hb.adv).split(/\s*[;\n]\s*/).filter(Boolean);
   if (has('sense')) p.sense = String(hb.sense).trim();

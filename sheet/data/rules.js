@@ -25,7 +25,7 @@ DND.conditions = [
   ['Dodging', 'Attacks against you have disadvantage; advantage on DEX saves.']
 ];
 DND.exhaustion = ['None', 'Disadvantage on ability checks', 'Speed halved', 'Disadvantage on attack rolls and saving throws', 'Hit point maximum halved', 'Speed reduced to 0', 'Death'];
-DND.sources = { PHB: "Player's Handbook", SRD: 'System Reference Document', XGE: "Xanathar's Guide to Everything", TCE: "Tasha's Cauldron of Everything", SCAG: "Sword Coast Adventurer's Guide", VGM: "Volo's Guide to Monsters", MPMM: 'Monsters of the Multiverse', FTD: "Fizban's Treasury of Dragons", VRGR: "Van Richten's Guide to Ravenloft", WGtE: "Wayfinder's Guide to Eberron", BGG: 'Bigby Presents: Glory of the Giants', EEPC: "Elemental Evil Player's Companion", DMG: "Dungeon Master's Guide", UA: 'Unearthed Arcana' };
+DND.sources = { PHB: "Player's Handbook", SRD: 'System Reference Document', XGE: "Xanathar's Guide to Everything", TCE: "Tasha's Cauldron of Everything", SCAG: "Sword Coast Adventurer's Guide", VGM: "Volo's Guide to Monsters", MPMM: 'Monsters of the Multiverse', FTD: "Fizban's Treasury of Dragons", VRGR: "Van Richten's Guide to Ravenloft", WGtE: "Wayfinder's Guide to Eberron", BGG: 'Bigby Presents: Glory of the Giants', AAG: 'Spelljammer: Adventures in Space', EEPC: "Elemental Evil Player's Companion", DMG: "Dungeon Master's Guide", UA: 'Unearthed Arcana' };
 DND.pointBuy = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 };
 DND.standardArray = [15, 14, 13, 12, 10, 8];
 DND.alignments = ['Lawful Good', 'Neutral Good', 'Chaotic Good', 'Lawful Neutral', 'True Neutral', 'Chaotic Neutral', 'Lawful Evil', 'Neutral Evil', 'Chaotic Evil', 'Unaligned'];

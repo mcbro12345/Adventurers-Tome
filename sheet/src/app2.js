@@ -684,7 +684,7 @@ function profsHTML() {
     <div class="pvrow"><span class="pvl">Weapons</span><div class="pvv">${weap || none}</div></div>
     <div class="pvrow"><span class="pvl">Tools</span><div class="pvv pvtools">${tools || none}</div></div>
     <div class="pvrow"><span class="pvl">Languages</span><div class="pvv">${langs || none}</div></div>
-    ${(() => { const d = defensesDetail(), rows = [['Resistant', d.resist], ['Immune', d.immune]].filter(x => x[1].length); return rows.map(([l, v]) => `<div class="pvrow"><span class="pvl">${l}</span><div class="pvv">${v.map(x => `<span class="pbadge defb${l === 'Advantage' ? ' alt' : ''}" title="${esc(x.t + (x.src.length ? ' — from ' + x.src.join(', ') : ''))}">${esc(x.t)}${x.src.length ? `<small class="dsrc">${esc(x.src.join(', '))}</small>` : ''}</span>`).join('')}</div></div>`).join(''); })()}
+    ${(() => { const d = defensesDetail(), rows = [['Resistant', d.resist], ['Immune', d.immune], ['Vulnerable', d.vuln]].filter(x => x[1].length); return rows.map(([l, v]) => `<div class="pvrow"><span class="pvl">${l}</span><div class="pvv">${v.map(x => `<span class="pbadge defb${l === 'Advantage' ? ' alt' : l === 'Vulnerable' ? ' vul' : ''}" title="${esc(x.t + (x.src.length ? ' — from ' + x.src.join(', ') : ''))}">${esc(x.t)}${x.src.length ? `<small class="dsrc">${esc(x.src.join(', '))}</small>` : ''}</span>`).join('')}</div></div>`).join(''); })()}
     ${perksHTML(defensesDetail().adv)}
     ${bad.length ? `<p class="warn sm">Wearing ${esc(bad.join(', '))} without proficiency: disadvantage on STR/DEX checks, saves and attacks, and no spellcasting.</p>` : ''}</div>`;
 }
@@ -698,11 +698,13 @@ function defManageHTML() {
   const given = (arr, kind) => arr.filter(e => !(e.src.length === 1 && e.src[0] === 'Added by you')).map(e => `<span class="pchip given" title="From ${esc(e.src.filter(x => x !== 'Added by you').join(', ') || 'your sheet')}">${esc(e.t)}<small>${esc(e.src.filter(x => x !== 'Added by you').join(', '))}</small></span>`).join('');
   const mine = (list, kind) => list.map((t, i) => `<span class="pchip">${esc(t)}<button data-act="defdel" data-kind="${kind}" data-i="${i}" aria-label="Remove ${esc(t)}">✕</button></span>`).join('');
   const sel = (id, label, opts, have) => `<select class="f addsel" id="${id}" aria-label="${esc(label)}"><option value="">+ ${esc(label)}…</option>${opts.filter(o => !have.some(h => h.toLowerCase() === o.toLowerCase())).map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select>`;
-  return `<section class="pmsec"><h4>Resistances &amp; immunities</h4><p class="hint">Ones from your race, features, items and spells are added automatically (shown with where they come from). Add any others here — a boon, a curse, something your DM gave you. Damage you take uses all of them.</p>
+  return `<section class="pmsec"><h4>Resistances, immunities &amp; vulnerabilities</h4><p class="hint">Ones from your race, features, items and spells are added automatically (shown with where they come from). Add any others here — a boon, a curse, something your DM gave you. Damage you take uses all of them.</p>
       <div class="defrow"><b>Resistant</b><div class="ptogs">${given(d.resist) || ''}${mine(md.resist || [], 'resist') || ''}${!d.resist.length && !(md.resist || []).length ? '<span class="hint">None</span>' : ''}</div></div>
       <div class="ptogs" style="margin:6px 0 10px">${sel('addResist', 'Add a resistance', DEF_DMG, md.resist || [])}</div>
       <div class="defrow"><b>Immune</b><div class="ptogs">${given(d.immune) || ''}${mine(md.immune || [], 'immune') || ''}${!d.immune.length && !(md.immune || []).length ? '<span class="hint">None</span>' : ''}</div></div>
-      <div class="ptogs" style="margin-top:6px">${sel('addImmune', 'Add an immunity', DEF_DMG.concat(DEF_COND), md.immune || [])}</div></section>`;
+      <div class="ptogs" style="margin:6px 0 10px">${sel('addImmune', 'Add an immunity', DEF_DMG.concat(DEF_COND), md.immune || [])}</div>
+      <div class="defrow"><b>Vulnerable</b><div class="ptogs">${given(d.vuln) || ''}${mine(md.vuln || [], 'vuln') || ''}${!d.vuln.length && !(md.vuln || []).length ? '<span class="hint">None</span>' : ''}</div></div>
+      <div class="ptogs" style="margin-top:6px">${sel('addVuln', 'Add a vulnerability', DEF_DMG, md.vuln || [])}</div></section>`;
 }
 function profsManageInner() {
   const P = S.profs, bad = armorNonProf();

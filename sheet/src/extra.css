@@ -3538,3 +3538,4 @@ html.mobile #rolllogmodal .rl-list { height: auto; max-height: min(62vh, 640px);
 /* The "show the math" dice button gets its own space on the right of a roll card, so it never sits on top of the damage label */
 .toast.rollcard:has(> .rc-dice) { padding-right: 46px; }
 .toast.rollcard > .rc-dice { top: 50%; bottom: auto; right: 8px; transform: translateY(-50%); }
+.pbadge.defb.vul { border-color: color-mix(in srgb, #c0392b 55%, transparent); color: color-mix(in srgb, #c0392b 70%, var(--ink, currentColor)); }
