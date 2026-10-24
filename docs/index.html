@@ -2341,8 +2341,8 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 .sk-h3 { width: 160px; height: 16px; margin: 18px 0 10px; } .sk-para { display: flex; flex-direction: column; gap: 9px; margin: 10px 0 14px; } .sk-area { display: block; width: 100%; border-radius: 12px; margin-bottom: 14px; }
 /* scroll edges (site and sheet): a divider with a soft shadow where a list carries on above or below */
 .pg-shade::before, .pg-shade::after { content: ''; display: block; position: sticky; z-index: 3; height: 0; flex: none; pointer-events: none; opacity: 0; transition: opacity .15s; grid-column: 1 / -1; }
-.pg-shade::before { top: 0; border-top: 1px solid rgba(127,127,127,.32); box-shadow: 0 2px 12px 4px rgba(0,0,0,.4); }
-.pg-shade::after { bottom: 0; border-bottom: 1px solid rgba(127,127,127,.32); box-shadow: 0 -2px 12px 4px rgba(0,0,0,.4); }
+.pg-shade::before { top: 0; margin-bottom: -1px; border-top: 1px solid rgba(127,127,127,.32); box-shadow: 0 2px 12px 4px rgba(0,0,0,.4); }
+.pg-shade::after { bottom: 0; margin-top: -1px; border-bottom: 1px solid rgba(127,127,127,.32); box-shadow: 0 -2px 12px 4px rgba(0,0,0,.4); }
 .pg-shade.sc-t::before, .pg-shade.sc-b::after { opacity: 1; }
 @media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) .pg-shade::before, :where(html:not([data-pgtheme])) .pg-shade::after { box-shadow: 0 0 12px 4px rgba(60,40,10,.14); } }
  :where(html[data-pgtheme="light"]) .pg-shade::before, :where(html[data-pgtheme="light"]) .pg-shade::after { box-shadow: 0 0 12px 4px rgba(60,40,10,.14); } 
@@ -3131,7 +3131,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024012958', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.2efb8ab79f89.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.86f23f071310.html", "desk": "a/desk.d187233ec149.js", "deskcss": "a/deskcss.68b7d62e339e.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024014130', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.2efb8ab79f89.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.86f23f071310.html", "desk": "a/desk.d187233ec149.js", "deskcss": "a/deskcss.68b7d62e339e.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
