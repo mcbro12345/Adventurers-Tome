@@ -67,6 +67,9 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
     // shown in the settings window, per second
     internal int UpdatesPerSec, DrawsPerSec;
+    internal int LivePlates, ReadyPlates, MovedPlates;
+    internal float MaxShift, MaxShiftShown;
+    internal bool TestPush; // shove every plate 30px right, to see whether moving them works at all
     private int updates, draws;
     private double statT;
 
@@ -190,30 +193,40 @@ public sealed unsafe class Plugin : IDalamudPlugin
     {
         draws++;
         var t = clock.Elapsed.TotalSeconds;
-        if (t - statT >= 1) { UpdatesPerSec = updates; DrawsPerSec = draws; updates = draws = 0; statT = t; }
+        if (t - statT >= 1) { UpdatesPerSec = updates; DrawsPerSec = draws; updates = draws = 0; statT = t; MaxShiftShown = MaxShift; MaxShift = 0; }
 
-        if (!Cfg.Smooth) return;
         var addon = (AddonNamePlate*)args.Addon.Address;
         if (addon == null || addon->NamePlateObjectArray == null) return;
+        int live = 0, ready = 0, moved = 0;
         for (var i = 0; i < Count; i++)
         {
             ref var p = ref plates[i];
-            if (!p.Live || !p.Ox.Ready) continue;
+            if (!p.Live) continue;
+            live++;
             var root = addon->NamePlateObjectArray[i].RootComponentNode;
-            if (root == null || !GameGui.WorldToScreen(p.Anchor, out var s)) continue;
+            if (root == null) continue;
+            if (p.Ox.Ready) ready++;
 
-            var wantX = s.X + p.Ox.X;
-            var wantY = s.Y + p.Oy.X;
-            if (Cfg.HalfPixel)
+            float dx = 0, dy = 0;
+            if (Cfg.Smooth && p.Ox.Ready && GameGui.WorldToScreen(p.Anchor, out var s))
             {
-                wantX = MathF.Round(wantX * 2) / 2;
-                wantY = MathF.Round(wantY * 2) / 2;
+                var wantX = s.X + p.Ox.X;
+                var wantY = s.Y + p.Oy.X;
+                if (Cfg.HalfPixel)
+                {
+                    wantX = MathF.Round(wantX * 2) / 2;
+                    wantY = MathF.Round(wantY * 2) / 2;
+                }
+                dx = wantX - p.GameX;
+                dy = wantY - p.GameY;
+                MaxShift = MathF.Max(MaxShift, MathF.Max(MathF.Abs(dx), MathF.Abs(dy)));
             }
+            if (TestPush) dx += 30;
+            if (dx == 0 && dy == 0 && !shifts.ContainsKey((nint)root)) continue;
+            moved++;
 
             // The game already turned X/Y into screen positions for this frame, so moving X/Y now would only show up
             // after the next update overwrote it. Shift the finished screen positions of the plate's nodes instead.
-            var dx = wantX - p.GameX;
-            var dy = wantY - p.GameY;
             Shift((AtkResNode*)root, dx, dy);
             var comp = root->Component;
             if (comp == null) continue;
@@ -221,6 +234,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
             for (var n = 0; list != null && n < comp->UldManager.NodeListCount; n++)
                 if (list[n] != null) Shift(list[n], dx, dy);
         }
+        LivePlates = live; ReadyPlates = ready; MovedPlates = moved;
     }
 
     private struct NodeShift { public float WroteX, WroteY, Dx, Dy; }
@@ -310,5 +324,7 @@ internal sealed class ConfigWindow : Window
         if (changed) plugin.Save();
         ImGui.Separator();
         ImGui.TextDisabled($"Nameplate updates/s: {plugin.UpdatesPerSec}   draws/s: {plugin.DrawsPerSec}");
+        ImGui.TextDisabled($"Plates: {plugin.LivePlates} seen, {plugin.ReadyPlates} tracked, {plugin.MovedPlates} moved; biggest shift {plugin.MaxShiftShown:0.00}px");
+        ImGui.Checkbox("Test: push every tag 30px right", ref plugin.TestPush);
     }
 }
