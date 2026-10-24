@@ -2362,7 +2362,7 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 /* ===== Sign-in page: the tour video and sample characters beside the sign-in card ===== */
 #pg-load:has(.pg-si2) { overflow-y: auto; overscroll-behavior: contain; place-items: safe center; padding: max(28px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom)); box-sizing: border-box; }
 #pg-load .pg-msg:has(.pg-si2) { max-width: none; width: 100%; padding: 0; }
-.pg-si2 { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 26px 30px; align-items: center; width: min(1560px, 100%); margin: 0 auto; text-align: left; }
+.pg-si2 { display: grid; grid-template-columns: minmax(0, 1fr) 460px; gap: 26px 30px; align-items: center; width: min(1560px, 100%); margin: 0 auto; text-align: left; }
 .pg-si2 .pg-signin { width: auto !important; }
 .si2-left { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
 .si2-vid { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: #000; box-shadow: 0 0 0 1px rgba(201,150,43,.45), 0 20px 50px rgba(0,0,0,.35); }
@@ -2399,14 +2399,13 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 @media (max-width: 480px) { .si2-chars { grid-template-columns: minmax(0, 1fr); } .si2-feats { grid-template-columns: minmax(0, 1fr); } }
 /* the blurb uses the card's full width, so it sits in fewer lines */
 :where(#pg-load) .pg-signin p.pg-about { max-width: none; text-wrap: pretty; }
-/* the sign-in card next to the video: the big stacked logo (die on top, as in the video) instead of the blurb */
-.pg-si2 .pg-signin .hub-logo { flex-direction: column; gap: 8px; margin: 4px 0 6px; }
-.pg-si2 .pg-signin .hl-d20 { width: 168px; height: 168px; }
-.pg-si2 .pg-signin .hl-txt { align-items: center; }
-.pg-si2 .pg-signin .hl-a { font-size: 1.45rem; letter-spacing: .4em; margin: 4px 0 2px .4em; }
-.pg-si2 .pg-signin .hl-t { font-size: 6.6rem; line-height: .95; padding: 0 8px; }
-.pg-si2 .pg-signin .pg-sdiv { margin-top: 18px; }
-@media (max-width: 480px) { .pg-si2 .pg-signin .hl-d20 { width: 120px; height: 120px; } .pg-si2 .pg-signin .hl-a { font-size: 1.05rem; } .pg-si2 .pg-signin .hl-t { font-size: 4.8rem; } }
+/* the sign-in card next to the video: a bigger logo (die beside the words) in place of the blurb */
+.pg-si2 .pg-signin .hub-logo { gap: 16px; margin: 6px 0 4px; }
+.pg-si2 .pg-signin .hl-d20 { width: 136px; height: 136px; }
+.pg-si2 .pg-signin .hl-a { font-size: 1.3rem; letter-spacing: .28em; }
+.pg-si2 .pg-signin .hl-t { font-size: 5.7rem; line-height: .95; }
+.pg-si2 .pg-signin .pg-sdiv { margin-top: 20px; }
+@media (max-width: 480px) { .pg-si2 .pg-signin .hub-logo { gap: 12px; } .pg-si2 .pg-signin .hl-d20 { width: 104px; height: 104px; } .pg-si2 .pg-signin .hl-a { font-size: 1rem; letter-spacing: .26em; } .pg-si2 .pg-signin .hl-t { font-size: 4.3rem; } }
 </style>
 </head>
 <body>
@@ -3078,7 +3077,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261023223412', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.37fe24a2cbc3.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.2cc75bf5d0b7.html", "desk": "a/desk.076fb7d99e24.js", "deskcss": "a/deskcss.68b7d62e339e.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261023223655', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.37fe24a2cbc3.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.2cc75bf5d0b7.html", "desk": "a/desk.076fb7d99e24.js", "deskcss": "a/deskcss.68b7d62e339e.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
