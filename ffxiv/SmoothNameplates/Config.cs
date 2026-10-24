@@ -12,6 +12,7 @@ public sealed class Config : IPluginConfiguration
     // the look of the game's own name text
     public int Font = -1;            // -1 = the game's choice, else FontType: 0 Axis, 1 Miedinger Med, 2 Miedinger, 3 Trump Gothic, 4 Jupiter, 5 Jupiter Large
     public float Size = 1.0f;        // times the game's size
+    public float NpcSize = 1.0f;     // times that again, for every tag that isn't a player's
     public int LineSpacing = 0;      // pixels added to the game's space between the name, title and free company lines
 
     // your own font, put into one of the game's font families (see FontSwap)
