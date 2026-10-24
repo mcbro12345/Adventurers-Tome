@@ -16,6 +16,7 @@ using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Graphics;
 using FFXIVClientStructs.FFXIV.Client.UI;
+using FFXIVClientStructs.FFXIV.Client.UI.Arrays;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel.Sheets;
 
@@ -95,6 +96,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
     internal bool AlignmentTest, DebugLabels;
     internal int FramesPerSec, NamesDrawn;
+    internal string Funnel = ""; // where names drop out, for the settings window
     private int frameCount;
     private double statT;
 
@@ -158,23 +160,33 @@ public sealed unsafe class Plugin : IDalamudPlugin
         var view = View.Capture();
         // our overlay hasn't drawn lately (it can't, for some reason): leave the game's text alone
         var overlayAlive = t - lastDrawT < 0.25;
-        if (addon == null || addon->NamePlateObjectArray == null || ui3d == null || !view.Ok || !addon->IsVisible
+        var numbers = NamePlateNumberArray.Instance();
+        if (addon == null || addon->NamePlateObjectArray == null || ui3d == null || numbers == null || !view.Ok || !addon->IsVisible
             || font is not { Available: true } || !overlayAlive)
         {
+            Funnel = $"waiting: addon {(addon != null && addon->IsVisible ? "ok" : "hidden")}, 3D {(ui3d != null ? "ok" : "none")}, " +
+                     $"data {(numbers != null ? "ok" : "none")}, camera {(view.Ok ? "ok" : "none")}, " +
+                     $"font {(font is { Available: true } ? "ok" : "loading")}, overlay {(overlayAlive ? "ok" : "not drawing")}";
             Publish(frame);
             return;
         }
+        int active = 0, withObject = 0, shown = 0;
 
         using var locked = font.Lock();
         var f = locked.ImFont;
         var targetAddress = Targets.Target?.Address ?? 0;
         var uiScale = addon->Scale > 0 ? addon->Scale : 1;
 
-        for (var k = 0; k < ui3d->NamePlateObjectInfoCount && k < Count; k++)
+        // entry k of the nameplate data goes with the 3D module's entry k; the data says which tag (0-49) it fills
+        var data = (NamePlateNumberArray.NamePlateObjectIntArrayData*)((int*)numbers + 6); // 50 blocks after 6 header ints
+        var activeCount = Math.Min(Math.Min(numbers->ActiveNamePlateCount, ui3d->NamePlateObjectInfoCount), Count);
+        for (var k = 0; k < activeCount; k++)
         {
+            active++;
             var info = ui3d->NamePlateObjectInfoPointers[k].Value;
-            if (info == null || info->GameObject == null || info->NamePlateIndex >= Count) continue;
-            var i = info->NamePlateIndex;
+            var i = data[k].NamePlateObjectIndex;
+            if (info == null || info->GameObject == null || (uint)i >= Count) continue;
+            withObject++;
             ref var obj = ref addon->NamePlateObjectArray[i];
             var text = obj.NameText;
             var root = obj.RootComponentNode;
@@ -190,6 +202,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
                 scale *= n->ScaleX;
             }
             if (!visible || alpha <= 0.01f) continue;
+            shown++;
             var bytes = text->NodeText.AsSpan();
             if (bytes.Length == 0) continue;
             var lines = TextRenderer.Parse(bytes, Rgba(text->TextColor), Rgba(text->EdgeColor), uiColors);
@@ -281,6 +294,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
             }
         }
 
+        Funnel = $"tags {active}, with a character {withObject}, visible {shown}, ours {frame.Names.Count}";
         frame.Hud = CollectHud(view.Width * view.Height);
         Publish(frame);
     }
@@ -519,5 +533,6 @@ internal sealed class ConfigWindow : Window
         if (ImGui.Button("Reset to defaults")) plugin.Reset();
         if (changed) plugin.Save();
         ImGui.TextDisabled($"{plugin.FramesPerSec} frames/s   {plugin.NamesDrawn} names drawn");
+        ImGui.TextDisabled(plugin.Funnel);
     }
 }
