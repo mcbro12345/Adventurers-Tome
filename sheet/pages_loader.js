@@ -138,9 +138,45 @@ const SKEL = {
     'adm-new': () => stats(2) + '<span class="skl sk-h3"></span>' + T.newu() + '<span class="skl sk-h3"></span>' + T.chars(),
     'adm-notice': () => stats(2) + lines(3) + box(150) + '<span class="skl sk-h3"></span>' + T.notices(),
     'adm-welcome': () => stats(2) + lines(2) + box(260) });
-  window.pgAdmSkel = tab => SKEL['adm-' + tab] ? 'adm-' + tab : 'rows'; }
+  window.pgAdmSkel = tab => 'adm-' + tab; }
 window.PG_SKEL = SKEL;
-function pgSkelFill() { document.querySelectorAll('.sk-auto:empty').forEach(el => { el.innerHTML = (SKEL[el.dataset.k] || SKEL.rows)(Number(el.dataset.n) || 0); }); }
+// Admin pages remember their own shape: once a page has really loaded, a copy of its layout with every word and
+// picture swapped for a grey shape of the same size is kept on this device, and shown the next time it loads, so the
+// skeleton always looks exactly like the page. (No names or text are kept, only sizes.) The first time, or at a very
+// different window width, the drawn skeletons above are used.
+const SKSNAP = {
+  key: k => 'pg-sksnap2-' + k,
+  get(k, w) { try { const o = JSON.parse(localStorage.getItem(SKSNAP.key(k)) || 'null'); return o && Math.abs(o.w - w) < 60 ? o.h : ''; } catch (e) { return ''; } },
+  build(live) {
+    const out = live.cloneNode(false); out.removeAttribute('id');
+    const KEEP_TXT = 'th, h1, h2, h3, .adm-h2, .nt-h, .adm-stat > :first-child';
+    const box = (el, cls) => { const r = el.getBoundingClientRect(), cs = getComputedStyle(el), sp = document.createElement('span'); sp.className = 'skl ' + (cls || '');
+      Object.assign(sp.style, { display: cs.display === 'block' || cs.display === 'flex' || cs.display === 'grid' ? 'block' : 'inline-block', width: Math.round(r.width) + 'px', height: Math.round(r.height) + 'px', borderRadius: cs.borderRadius, verticalAlign: 'middle', margin: cs.margin, flex: 'none' }); return sp; };
+    const walk = (src, dst, keep) => {
+      for (const n of src.childNodes) {
+        if (n.nodeType === 3) { if (!n.textContent.trim()) { dst.appendChild(document.createTextNode(' ')); continue; }
+          if (keep) { dst.appendChild(document.createTextNode(n.textContent)); continue; }
+          const rg = document.createRange(); rg.selectNodeContents(n); const rs = [...rg.getClientRects()].filter(r => r.width > 1);
+          const lh = parseFloat(getComputedStyle(src).fontSize) || 14;
+          rs.forEach((r, i) => { const sp = document.createElement('span'); sp.className = 'skl skt'; Object.assign(sp.style, { width: Math.round(r.width) + 'px', height: Math.round(lh * .72) + 'px' }); if (i) dst.appendChild(document.createElement('br')); dst.appendChild(sp); }); continue; }
+        if (n.nodeType !== 1) continue; const el = n, tag = el.tagName;
+        if (!el.getClientRects().length || /^(SCRIPT|STYLE|TEMPLATE)$/.test(tag) || el.matches('.adm-mlist, .hc-menu, [hidden]')) continue;
+        if (/^(IMG|SVG|CANVAS|VIDEO|IFRAME|INPUT|SELECT|TEXTAREA|BUTTON|PROGRESS)$/i.test(tag) || el.matches('.pg-ava, .adm-tag, .hc-pic, .adm-kebab, .sw, .nw-sw')) { dst.appendChild(box(el, /^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(tag) ? 'skc' : '')); continue; }
+        { const r = el.getBoundingClientRect(), cs = getComputedStyle(el); if (!el.children.length && r.width <= 80 && r.height <= 80 && (cs.backgroundImage !== 'none' || !/rgba\(0, 0, 0, 0\)|transparent/.test(cs.backgroundColor))) { dst.appendChild(box(el)); continue; } }
+        const c = el.cloneNode(false); c.removeAttribute('id'); c.removeAttribute('href'); c.removeAttribute('title'); c.removeAttribute('draggable'); [...c.attributes].forEach(a => { if (/^(data-|aria-|on)/.test(a.name)) c.removeAttribute(a.name); });
+        if (tag === 'TBODY') { walk({ childNodes: [...el.children].slice(0, 12) }, c, keep); dst.appendChild(c); continue; }
+        walk(el, c, keep || el.matches(KEEP_TXT)); dst.appendChild(c);
+      } };
+    walk(live, out, false); return out.innerHTML;
+  },
+  watch(k, host) { if (!/^adm-/.test(k) || !host) return; let t = 0; const mo = new MutationObserver(() => { clearTimeout(t); t = setTimeout(take, 700); });
+    const take = () => { if (!host.isConnected) return mo.disconnect(); if (host.querySelector('.sk-auto, .sk-wrap, .sk-tw, .sk-snap, .sk-filters')) return;
+      mo.disconnect(); try { const h = SKSNAP.build(host); if (h.length < 300000) localStorage.setItem(SKSNAP.key(k), JSON.stringify({ w: Math.round(host.clientWidth), h })); } catch (e) {} };
+    mo.observe(host, { childList: true, subtree: true }); setTimeout(() => mo.disconnect(), 20000); }
+};
+try { Object.keys(localStorage).forEach(k => { if (k.startsWith('pg-sksnap-')) localStorage.removeItem(k); }); } catch (e) {}
+function pgSkelFill() { document.querySelectorAll('.sk-auto:empty').forEach(el => { const k = el.dataset.k, host = el.parentElement, snap = /^adm-/.test(k) && host ? SKSNAP.get(k, host.clientWidth) : '';
+  el.innerHTML = snap ? `<div class="sk-snap" aria-busy="true" aria-label="Loading">${snap}</div>` : (SKEL[k] || SKEL.rows)(Number(el.dataset.n) || 0); SKSNAP.watch(k, host); }); }
 function pgScrollFx() { document.querySelectorAll('.pty-pick').forEach(el => { const t = el.scrollTop > 2, b = el.scrollTop + el.clientHeight < el.scrollHeight - 2; el.classList.toggle('sc-top', t); el.classList.toggle('sc-bot', b); }); }
 document.addEventListener('scroll', e => { if (e.target && e.target.classList && e.target.classList.contains('pty-pick')) pgScrollFx(); }, true);
 // A party's picture is framed in a colour taken from the picture itself (its strongest colour, brightened or darkened
@@ -2292,7 +2328,7 @@ function hub(fs, auth, G, ctx) {
     new MutationObserver(() => { fillPics(); labelCells(); }).observe(root, { childList: true, subtree: true });
     const roleOf = em => ownerEm(em) ? ['Owner', 'r-own'] : ADMINS.includes(em) ? ['Admin', 'r-adm'] : ['Member', 'r-mem'];
     const when = t => t ? `<span class="adm-when" title="${esc(new Date(t).toLocaleString())}">${esc(day(t))}</span>` : '<span class="adm-dim">—</span>';
-    const kebab = items => `<div class="adm-mwrap"><button class="adm-kebab" aria-label="More actions">⋯</button><div class="adm-mlist">${items.map(([k, t, id, cls]) => `<button data-mi="${k}" data-id="${esc(id)}"${cls ? ` class="${cls}"` : ''}>${t}</button>`).join('')}</div></div>`;
+    const kebab = items => `<div class="adm-mwrap"><button class="adm-kebab" aria-label="More actions">⋯</button><div class="adm-mlist">${items.map(([k, t, id, cls, href]) => `<button data-mi="${k}" data-id="${esc(id)}"${href ? ` data-href="${esc(href)}"` : ''}${cls ? ` class="${cls}"` : ''}>${t}</button>`).join('')}</div></div>`;
 
     const PANES = {}; let PREV_TAB = '';
     // Phones: the tabs sit at the bottom of the screen like the sheet's tab bar (same height setting), with a highlight
@@ -2360,7 +2396,7 @@ function hub(fs, auth, G, ctx) {
           ({ new: () => tabNew(), users: () => paintUsers(), chars: () => paintChars(), parties: () => tabParties(), audit: () => paintAudit(), notice: () => tabNotice(), welcome: () => tabWelcome(), news: () => tabNews(), bugs: () => paintBugs() })[TAB](); return; }
         const nb = document.createElement('section'); nb.id = 'ad-body'; nb.className = 'adm-body'; nb.innerHTML = `<div class="sk-auto" data-k="${pgAdmSkel(TAB)}" data-n="6"></div>`;
         const nh = document.createElement('div'); nh.id = 'adm-hact'; nh.className = 'adm-hact';
-        if (again) { curB.replaceWith(nb); curH.replaceWith(nh); } else { curB.replaceWith(nb); curH.replaceWith(nh); } delete PANES[TAB]; PREV_TAB = TAB;
+        curB.replaceWith(nb); curH.replaceWith(nh); pgSkelFill(); delete PANES[TAB]; PREV_TAB = TAB;
         nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
         const on = nv0.querySelector('.adm-ni.on'); if (on && on.scrollIntoView) { const r = on.getBoundingClientRect(), nr = nv0.getBoundingClientRect(); if (r.left < nr.left || r.right > nr.right) nv0.scrollBy({ left: r.left < nr.left ? r.left - nr.left - 12 : r.right - nr.right + 12, behavior: 'smooth' }); }
         ({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit, notice: tabNotice, welcome: tabWelcome, news: tabNews, bugs: tabBugs })[TAB](); return; }
@@ -2372,7 +2408,7 @@ function hub(fs, auth, G, ctx) {
         <main class="adm-main"><header class="adm-head"><div><h1>${esc(title)}</h1><p>${esc(desc)}</p></div><div class="adm-hact" id="adm-hact"></div></header>
           <section id="ad-body" class="adm-body"><div class="sk-auto" data-k="${pgAdmSkel(TAB)}" data-n="6"></div></section></main></div>`;
       if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
-      PREV_TAB = TAB;
+      PREV_TAB = TAB; pgSkelFill();
       root.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
       { const o = root.querySelector('#adm-acct'); if (o) o.onclick = e => { e.stopPropagation(); acctMenu(o, matchMedia('(min-width: 861px)').matches); }; }
       ({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit, notice: tabNotice, welcome: tabWelcome, news: tabNews, bugs: tabBugs })[TAB]();
@@ -2380,17 +2416,35 @@ function hub(fs, auth, G, ctx) {
     const B = () => root.querySelector('#ad-body'), HA = () => root.querySelector('#adm-hact');
     // ⋯ menus float above everything (moved to the top of the page while open), so a table never grows a scrollbar for them.
     let MENU = null;
+    // (each ⋯ keeps hold of its own list, so opening it again while it's still fading out just brings it back)
     const closeAdmMenus = () => { const m = MENU; if (!m) return; MENU = null; m.w.classList.remove('on'); const l = m.l; l.classList.add('closing'); l.classList.remove('on');
-      setTimeout(() => { l.classList.remove('closing', 'portal'); l.style.left = l.style.top = ''; if (m.w.isConnected) m.w.appendChild(l); else l.remove(); if (MENU_PENDING) { const f = MENU_PENDING; MENU_PENDING = null; f(); } }, PG_CALM ? 0 : 130); };
-    let MENU_PENDING = null, WIN_WAIT = 0; const whenMenusClosed = f => { if (MENU) MENU_PENDING = f; else if (document.querySelector('.hub-modal.on')) { clearTimeout(WIN_WAIT); WIN_WAIT = setTimeout(() => whenMenusClosed(f), 400); } else f(); }; // a window is open: redraw once it closes
-    document.addEventListener('click', e => { const k = e.target.closest && e.target.closest('.adm-kebab');
-      if (MENU && (!k || k.parentElement !== MENU.w) && !(e.target.closest && e.target.closest('.adm-mlist.portal') && !e.target.closest('[data-mi]'))) closeAdmMenus();
-      if (!k || (MENU && MENU.w === k.parentElement)) { if (k) closeAdmMenus(); return; }
-      const w = k.parentElement, l = w.querySelector('.adm-mlist'); if (!l) return;
+      clearTimeout(l._ct); l._ct = setTimeout(() => { l._ct = 0; l.classList.remove('closing', 'portal'); l.style.left = l.style.top = ''; l.querySelectorAll('.adm-ctxonly').forEach(x => x.remove()); if (m.w.isConnected) m.w.appendChild(l); else l.remove(); if (MENU_PENDING) { const f = MENU_PENDING; MENU_PENDING = null; f(); } }, PG_CALM ? 0 : 130); };
+    // opens a row's ⋯ menu under its button, or at the pointer (right-click)
+    const openAdmMenu = (w, at) => { const k = w.querySelector('.adm-kebab'), l = w._l || w.querySelector('.adm-mlist'); if (!k || !l) return; w._l = l;
+      if (MENU) { const m = MENU; closeAdmMenus(); if (m.w === w) { clearTimeout(l._ct); l._ct = 0; } }
+      clearTimeout(l._ct); l._ct = 0; l.classList.remove('closing'); l.querySelectorAll('.adm-ctxonly').forEach(x => x.remove());
+      if (at && at.href) { const o = document.createElement('button'); o.className = 'adm-ctxonly'; o.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px;margin-right:8px"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>Open in a new tab'; o.onclick = () => { closeAdmMenus(); window.open(at.href, '_blank', 'noopener'); }; l.prepend(o); }
       document.body.appendChild(l); l.classList.add('portal', 'on'); w.classList.add('on'); MENU = { w, l };
-      const r = k.getBoundingClientRect(), mw = l.offsetWidth, mh = l.offsetHeight;
+      const mw = l.offsetWidth, mh = l.offsetHeight;
+      if (at) { l.style.left = Math.max(8, Math.min(at.x, innerWidth - mw - 8)) + 'px'; l.style.top = Math.max(8, at.y + mh > innerHeight - 8 ? at.y - mh : at.y) + 'px'; return; }
+      const r = k.getBoundingClientRect();
       l.style.left = Math.max(8, Math.min(r.right - mw, innerWidth - mw - 8)) + 'px';
-      l.style.top = (r.bottom + 4 + mh > innerHeight - 8 && r.top - 4 - mh > 8 ? r.top - 4 - mh : Math.min(r.bottom + 4, innerHeight - mh - 8)) + 'px'; });
+      l.style.top = (r.bottom + 4 + mh > innerHeight - 8 && r.top - 4 - mh > 8 ? r.top - 4 - mh : Math.min(r.bottom + 4, innerHeight - mh - 8)) + 'px'; };
+    // the page a row stands for (characters and parties), for middle-click and "Open in a new tab"
+    const rowHref = tr => { const w = tr && tr.querySelector(':scope > td .adm-mwrap'), l = w && (w._l || w.querySelector('.adm-mlist')), o = l && l.querySelector('[data-mi="open"][data-href]'); return o ? o.dataset.href : ''; };
+    let MENU_PENDING = null, WIN_WAIT = 0; const whenMenusClosed = f => { if (MENU) MENU_PENDING = f; else if (document.querySelector('.hub-modal.on')) { clearTimeout(WIN_WAIT); WIN_WAIT = setTimeout(() => whenMenusClosed(f), 400); } else f(); }; // a window is open: redraw once it closes
+    document.addEventListener('click', e => { if (!document.body.classList.contains('adminbody')) return; const k = e.target.closest && e.target.closest('.adm-kebab');
+      if (!k) { if (MENU && !(e.target.closest && e.target.closest('.adm-mlist.portal') && !e.target.closest('[data-mi], .adm-ctxonly'))) closeAdmMenus(); return; }
+      const w = k.parentElement; if (MENU && MENU.w === w && !MENU.at) return closeAdmMenus(); openAdmMenu(w); });
+    // right-click a row for its menu (not in text boxes, where the usual copy and paste menu is more use)
+    document.addEventListener('contextmenu', e => { if (!document.body.classList.contains('adminbody') || !e.target.closest) return;
+      if (e.target.closest('.adm-mlist.portal')) return e.preventDefault();
+      const tr = e.target.closest('.adm-t tbody tr'); if (!tr || e.target.closest('input, textarea, select, [contenteditable]')) return; const w = tr.querySelector(':scope > td .adm-mwrap'); if (!w) return;
+      e.preventDefault(); openAdmMenu(w, { x: e.clientX, y: e.clientY, href: rowHref(tr) }); if (MENU) MENU.at = true; });
+    // middle-click a character or party row (or its name) to open it in a new tab
+    document.addEventListener('mousedown', e => { if (e.button === 1 && document.body.classList.contains('adminbody') && e.target.closest && e.target.closest('.adm-t tbody tr') && !e.target.closest('a[href]')) e.preventDefault(); });
+    document.addEventListener('auxclick', e => { if (e.button !== 1 || !document.body.classList.contains('adminbody') || !e.target.closest || e.target.closest('a[href], .adm-mlist')) return;
+      const tr = e.target.closest('.adm-t tbody tr'), h = rowHref(tr); if (!h) return; e.preventDefault(); window.open(h, '_blank', 'noopener'); });
     addEventListener('scroll', () => { if (MENU) closeAdmMenus(); }, { passive: true, capture: true }); addEventListener('resize', () => { if (MENU) closeAdmMenus(); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && MENU) closeAdmMenus(); });
 
@@ -2402,7 +2456,7 @@ function hub(fs, auth, G, ctx) {
         ${showOwner ? `<td>${c.owner === NOBODY ? '<span class="adm-tag">No owner</span>' : `<span class="adm-who">${ava(nameOf(c.owner || ''), c.owner)}<span>${esc(nameOf(c.owner || '') || '—')}</span></span>`}</td>` : ''}
         <td>${a === 'own' ? '<span class="adm-tag r-own">Yours</span>' : `<select class="adm-sel" data-me="${esc(c.id)}" aria-label="Shared with you"><option value="">Not shared</option><option value="view"${a === 'view' ? ' selected' : ''}>Can view</option><option value="edit"${a === 'edit' ? ' selected' : ''}>Can edit</option></select>`}</td>
         <td>${when(c.updatedAt)}</td><td>${when(c.createdAt)}</td>
-        <td class="adm-act">${kebab([['open', 'Open', c.id], ['share', 'Share…', c.id], ['give', c.owner === NOBODY ? 'Give to a player…' : 'Give to another player…', c.id]].concat(c.owner === NOBODY ? [] : [['unown', 'Remove its owner…', c.id]], [['del', 'Delete character…', c.id, 'danger']]))}</td></tr>`; }
+        <td class="adm-act">${kebab([['open', 'Open', c.id, '', URLS.char(c)], ['share', 'Share…', c.id], ['give', c.owner === NOBODY ? 'Give to a player…' : 'Give to another player…', c.id]].concat(c.owner === NOBODY ? [] : [['unown', 'Remove its owner…', c.id]], [['del', 'Delete character…', c.id, 'danger']]))}</td></tr>`; }
     function wire(el, redo) {
       el.querySelectorAll('[data-me]').forEach(sl => sl.onchange = async () => { const c = CH[sl.dataset.me]; if (!c) return; const v = sl.value;
         const V = (c.viewers || []).filter(x => x !== EMAIL), E = (c.editors || []).filter(x => x !== EMAIL);
@@ -2792,7 +2846,6 @@ function hub(fs, auth, G, ctx) {
       el.innerHTML = `<h3 class="nt-h">How it looks in the lobby right now</h3>
         <div class="nwp"><div class="nwp-d"><div class="nwp-cap">On a computer, in the top bar</div><div class="nwp-scale"><div class="nwp-bar"><span class="nwp-logo"></span><div class="hd2-wn" id="nwp-bar"></div><span class="nwp-me">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(avaOf(ME))}<span><b>${esc(myName())}</b><small>${esc(EMAIL)}</small></span></span></div></div></div>
           <div class="nwp-m"><div class="nwp-cap">On a phone</div><div id="nwp-card"></div></div></div>
-        <p class="adm-note" id="nw-next">${nextLine()}</p>
         <h3 class="nt-h">New update</h3>${form(null, 'nw-new')}
         <h3 class="nt-h">Posted</h3>
         <div class="nw-rotbar"><b>${rot().length} in rotation</b><label>Change every <select class="adm-sel" id="nw-every">${secs.map(s => `<option value="${s}"${s === every ? ' selected' : ''}>${s} seconds</option>`).join('')}</select></label><span class="adm-dim">The lobby pauses while someone points at it; the arrows, dots or a swipe still flip through by hand. “See all updates” lists every one, in or out of the rotation.</span></div>
@@ -2800,8 +2853,8 @@ function hub(fs, auth, G, ctx) {
       { const lg = root.querySelector('.adm-brand .hub-logo'), s = el.querySelector('.nwp-logo'); if (lg && s) s.appendChild(lg.cloneNode(true)); }
       const src = () => ({ items: rot(), every, all: items });
       if (tabNews.pv) tabNews.pv.forEach(p => p && p.stop()); tabNews.pv = [newsMount(el.querySelector('#nwp-bar'), 'bar', src), newsMount(el.querySelector('#nwp-card'), 'card', src)];
-      { const sc = el.querySelector('.nwp-scale'), bar = sc && sc.querySelector('.nwp-bar'); if (sc && bar) { const fitPv = () => { const k = Math.min(1, sc.clientWidth / 1500); bar.style.transform = `scale(${k})`; sc.style.height = Math.ceil(bar.offsetHeight * k) + 'px'; }; fitPv(); new ResizeObserver(fitPv).observe(sc); new ResizeObserver(fitPv).observe(bar); } }
-      const repaint = () => { tabNews.pv.forEach(p => p && p.paint()); el.querySelector('#nw-next').innerHTML = nextLine(); el.querySelector('.nw-rotbar b').textContent = rot().length + ' in rotation'; };
+      { const sc = el.querySelector('.nwp-scale'), bar = sc && sc.querySelector('.nwp-bar'); if (sc && bar) { const fitPv = () => { const w = sc.clientWidth, base = Math.max(w, 1000), k = w / base; bar.style.width = base + 'px'; bar.style.transform = k < 1 ? `scale(${k})` : ''; sc.style.height = Math.ceil(bar.offsetHeight * k) + 'px'; }; fitPv(); new ResizeObserver(fitPv).observe(sc); new ResizeObserver(fitPv).observe(bar); } }
+      const repaint = () => { tabNews.pv.forEach(p => p && p.paint()); el.querySelector('.nw-rotbar b').textContent = rot().length + ' in rotation'; };
       // posting
       const nb = el.querySelector('#nw-new'), ok = nb.querySelector('[data-f="ok"]'); const chk = () => { ok.disabled = !nb.querySelector('[data-f="t"]').value.trim(); }; nb.querySelector('[data-f="t"]').oninput = chk;
       ok.onclick = async () => { const v = read(nb); if (!v.t) return; if (v.badLink) return toast('The link needs to start with https://'); ok.disabled = true;
@@ -2860,7 +2913,7 @@ function hub(fs, auth, G, ctx) {
       const row = n => `<tr><td>${when(n.at)}</td><td class="nt-txt">${esc(String(n.text || '').slice(0, 240))}${String(n.text || '').length > 240 ? '…' : ''}</td><td>${esc(n.byName || n.by || '')}</td><td><button class="linkbtn nt-seen" data-ntseen="${esc(n.id)}" title="Who’s seen it">${n.endedAt ? seenPast(n) : seenOf(n)} / ${sentOf(n)}</button></td><td><span class="adm-tag">${stat(n)}</span>${n.endedAt ? `<small class="adm-dim"> ${when(n.endedAt)}</small>` : ''}</td><td class="nt-acts"><button class="adm-btn sm" data-ntpv="${esc(n.id)}">Preview</button><button class="adm-btn sm" data-ntcp="${esc(n.id)}">Copy</button></td></tr>`;
       el.innerHTML = `<div class="adm-stats"><div class="adm-stat"><small>Goes to</small><b>${ppl.length}</b></div>${live ? `<button class="adm-stat nt-seenstat" data-ntseen="${esc(live.id)}" title="Who’s seen it"><small>Current notice seen by</small><b>${seenOf(live)} / ${sentOf(live)}</b></button>` : ''}</div>
         ${live ? `<div id="nt-cur"><p class="adm-note"><b>Current notice</b> (sent ${esc(new Date(live.at).toLocaleString())}${live.editedAt ? ', edited ' + esc(new Date(live.editedAt).toLocaleString()) : ''}):<br>“${esc(String(live.text).slice(0, 400))}${String(live.text).length > 400 ? '…' : ''}”</p><div class="row"><button class="adm-btn" id="nt-ed">Edit</button><button class="adm-btn" id="nt-rv">Revoke it</button></div></div>` : '<p class="adm-note">No notice is out right now.</p>'}
-        <h3 class="nt-h">New notice</h3><textarea id="nt-t" class="ad-search pm-t" rows="7" placeholder="Your notice"></textarea>${NT_FMT}<div class="row nt-vrow">${NT_VID('nt-t')}</div>
+        <h3 class="nt-h">New notice</h3><textarea id="nt-t" class="ad-search pm-t" rows="7" placeholder="Your notice"></textarea>${NT_FMT}
         ${live ? '<p class="adm-note">Sending it replaces the current notice for anyone who hasn’t seen it yet.</p>' : ''}<div class="row"><label class="nt-wl">Window width ${ntWSel('nt-w')}</label><button class="adm-btn" id="nt-pv" disabled>Preview</button><button class="adm-btn primary" id="nt-ok" disabled>Send to everyone</button></div>
         <h3 class="nt-h">Past notices</h3>${log.length ? `<div class="adm-tw"><table class="adm-t nt-t"><thead><tr><th>Sent</th><th>Notice</th><th>By</th><th>Seen</th><th>Status</th><th></th></tr></thead><tbody>${log.map(row).join('')}</tbody></table></div>` : '<p class="adm-dim">None yet.</p>'}`;
       // ends the live notice: takes it off everyone who still holds it, and keeps how many saw it
@@ -2876,7 +2929,7 @@ function hub(fs, auth, G, ctx) {
       const ed = el.querySelector('#nt-ed');
       if (ed) ed.onclick = () => { const box = el.querySelector('#nt-cur');
         box.innerHTML = `<p class="adm-note"><b>Edit the current notice.</b> People who’ve already seen it won’t see it again; everyone who hasn’t gets this version.</p>
-          <textarea id="ne-t" class="ad-search pm-t" rows="9">${esc(live.text || '')}</textarea>${NT_FMT}<div class="row nt-vrow">${NT_VID('ne-t')}</div>
+          <textarea id="ne-t" class="ad-search pm-t" rows="9">${esc(live.text || '')}</textarea>${NT_FMT}
           <div class="row"><label class="nt-wl">Window width ${ntWSel('ne-w', live.w)}</label><button class="adm-btn" id="ne-x">Cancel</button><button class="adm-btn" id="ne-pv">Preview</button><button class="adm-btn primary" id="ne-ok">Save changes</button></div>`;
         wireVid(box); const et = box.querySelector('#ne-t'), ev = () => ({ text: et.value.trim().slice(0, 200000), w: Number(box.querySelector('#ne-w').value) || 720 }); et.focus();
         box.querySelector('#ne-x').onclick = () => tabNotice();
@@ -2945,7 +2998,7 @@ function hub(fs, auth, G, ctx) {
       try { [all, wel, live] = await Promise.all([usersCol.limit(2000).get().then(docs), cfgCol.doc('welcome').get().then(d => d.exists ? d.data() : null, () => null), cfgCol.doc('notice').get().then(d => d.exists ? d.data() : null, () => null)]); } catch (x) { el.innerHTML = failMsg(x); return; } await quietP; seeOwners(all);
       el.innerHTML = `<div class="adm-stats"><div class="adm-stat"><small>Status</small><b>${wel && wel.on ? 'On' : 'Off'}</b></div><button class="adm-stat nt-seenstat" id="wl-seen" title="Who’s seen it"><small>Seen by</small><b>${all.filter(u => u.welcomeSeen && counted(u.id)).length}</b></button></div>
         <p class="adm-note">${wel && wel.on ? `New accounts see this the first time they sign in${live ? ', then the current notice (with a Next button)' : ''}.` : 'Nothing is shown yet. Edit the message below, check it with Preview, then <b>Save and turn on</b>.'}</p>
-        <textarea id="wl-t" class="ad-search pm-t" rows="12" placeholder="Welcome message">${esc((wel && wel.text) || WELCOME0)}</textarea>${NT_FMT}<div class="row nt-vrow">${NT_VID('wl-t')}</div>
+        <textarea id="wl-t" class="ad-search pm-t" rows="12" placeholder="Welcome message">${esc((wel && wel.text) || WELCOME0)}</textarea>${NT_FMT}
         <div class="row"><label class="nt-wl">Window width ${ntWSel('wl-w', wel && wel.w)}</label><button class="adm-btn" id="wl-pv">Preview</button><button class="adm-btn" id="wl-cp">Copy</button>${wel && wel.on ? '<button class="adm-btn" id="wl-off">Turn off</button>' : ''}<button class="adm-btn primary" id="wl-ok">${wel && wel.on ? 'Save changes' : 'Save and turn on'}</button></div>`;
       // the first-time welcome: one shared message (config/welcome) that every new account reads on its first sign-in
       wireVid(el); const wt = el.querySelector('#wl-t'), wv = () => ({ text: wt.value.trim().slice(0, 200000), w: Number(el.querySelector('#wl-w').value) || 720 }), fail = x => toast('Couldn’t save it: ' + ((x && (x.code === 'permission-denied' ? 'the new database rules need publishing' : x.message)) || x));
@@ -3885,7 +3938,7 @@ function partyModule(H) {
       return `<tr><td><a class="adm-char" href="${esc(URLS.party(p.id, p.name))}">${p.pic ? `<img class="hc-pic pty-admic" src="${esc(p.pic)}" alt="">` : `<span class="hc-pic hc-nopic pty-admic">${IC_PARTY}</span>`}<span><b>${esc(p.name || 'Unnamed party')}</b><small>${(p.invited || []).length ? plural(p.invited.length, 'invitation') + ' open' : plural((p.people || []).length, 'person').replace('persons', 'people')}</small></span></a></td>
         <td><button class="adm-who adm-dmbtn" data-pdm="${esc(p.id)}" title="Change the DM">${A.ava(H.nameOf(p.dm || ''), p.dm)}<span>${esc(p.dmName || H.nameOf(p.dm || '') || '—')}</span></button></td><td>${(p.chars || []).length}</td>
         <td>${a === 'dm' ? '<span class="adm-tag r-own">You’re the DM</span>' : `<select class="adm-sel" data-pacc="${esc(p.id)}" aria-label="My access"><option value="">None</option><option value="view"${a === 'view' ? ' selected' : ''}>In my list</option><option value="codm"${a === 'codm' ? ' selected' : ''}>Co-DM</option></select>`}</td>
-        <td>${A.when(p.updatedAt)}</td><td>${A.when(p.createdAt)}</td><td class="adm-act">${A.kebab([['open', 'Open', p.id], ['add', 'Add a character…', p.id], ['dm', 'Change DM…', p.id], ['chatclear', 'Clear party chat…', p.id], ['del', 'Delete party…', p.id, 'danger']])}</td></tr>`; }).join('')}</tbody></table></div>` : `<p class="adm-empty">${AROWS.length ? 'No parties match.' : 'No parties yet.'}</p>`;
+        <td>${A.when(p.updatedAt)}</td><td>${A.when(p.createdAt)}</td><td class="adm-act">${A.kebab([['open', 'Open', p.id, '', URLS.party(p.id, p.name)], ['add', 'Add a character…', p.id], ['dm', 'Change DM…', p.id], ['chatclear', 'Clear party chat…', p.id], ['del', 'Delete party…', p.id, 'danger']])}</td></tr>`; }).join('')}</tbody></table></div>` : `<p class="adm-empty">${AROWS.length ? 'No parties match.' : 'No parties yet.'}</p>`;
     l.querySelectorAll('[data-pacc]').forEach(sl => sl.onchange = async () => { const v = sl.value, ref = PC.doc(sl.dataset.pacc), p = AROWS.find(x => x.id === sl.dataset.pacc);
       try { await ref.update(v === 'codm' ? { people: FV.arrayUnion(EMAIL), mgrs: FV.arrayUnion(EMAIL) } : v ? { people: FV.arrayUnion(EMAIL), mgrs: FV.arrayRemove(EMAIL) } : { people: FV.arrayRemove(EMAIL), mgrs: FV.arrayRemove(EMAIL) });
         toast(v === 'codm' ? 'You’re now a co-DM of ' + (p.name || 'the party') + '.' : (p.name || 'The party') + (v ? ' is in your list.' : ' is out of your list.')); pgLog('party_access', { target: p.id, tName: p.name, detail: v === 'codm' ? 'made themselves co-DM' : v ? 'added it to their list' : 'took it off their list' }); }
@@ -3965,4 +4018,15 @@ function partyModule(H) {
   // the ⋯ button (or anything that closes the menu) puts it back in its usual spot
   document.addEventListener('pointerdown', e => { const d = e.target.closest && e.target.closest('.hc-dots'); document.querySelectorAll('.hc-menu.pt').forEach(m => { if (d && m.contains(d)) { m.classList.remove('pt'); m.querySelectorAll('.hc-ctxonly').forEach(x => x.remove()); } else if (!m.contains(e.target)) { m.classList.remove('on', 'pt'); m.querySelectorAll('.hc-ctxonly').forEach(x => x.remove()); } }); }, true);
   addEventListener('scroll', () => document.querySelectorAll('.hc-menu.pt').forEach(m => m.classList.remove('on', 'pt')), true);
+})();
+// Password managers (Proton Pass, 1Password, Bitwarden, LastPass, Dashlane…) shouldn't offer to fill search boxes and
+// other fields on the site: only the sign-in email box and real password boxes are left to them.
+(function () {
+  const keep = el => el.id === 'si-e' || el.type === 'password' || el.closest('#si-f, form.who-f');
+  const tag = el => { if (el.dataset.pmx || keep(el)) return; el.dataset.pmx = '1';
+    if (!el.hasAttribute('autocomplete')) el.setAttribute('autocomplete', 'off');
+    el.setAttribute('data-protonpass-ignore', 'true'); el.setAttribute('data-1p-ignore', ''); el.setAttribute('data-lpignore', 'true'); el.setAttribute('data-bwignore', 'true'); el.setAttribute('data-form-type', 'other'); };
+  const scan = n => { if (!n || n.nodeType !== 1) return; if (n.matches('input, textarea')) tag(n); n.querySelectorAll && n.querySelectorAll('input:not([data-pmx]), textarea:not([data-pmx])').forEach(tag); };
+  const go = () => { scan(document.body); new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(scan))).observe(document.body, { childList: true, subtree: true }); };
+  if (document.body) go(); else document.addEventListener('DOMContentLoaded', go);
 })();

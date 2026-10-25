@@ -382,7 +382,7 @@ body.adminbody .adm-brand .hl-20 { fill: #f6e7bd; }
 .adm-brand .hl-t { font-size: 2.55rem; }
 .adm-tagline { margin: 10px 0 0 78px; font-size: .66rem; }
 .adm-brand .hl-txt, .adm-brand .hl-txt * { cursor: pointer; }
-.adm-brand .hl-txt:hover .hl-t { filter: brightness(1.12); }
+
 @media (max-width: 860px) { .adm { grid-template-columns: minmax(0, 1fr); } .adm-brand .hl-d20 { width: 52px; height: 52px; } .adm-brand .hl-t { font-size: 2.1rem; } .adm-tagline { margin: 0; } }
 /* ===== little portraits (profile card, picker, who's viewing a sheet) ===== */
 .pg-ava { width: 30px; height: 30px; border-radius: 50%; flex: none; display: inline-grid; place-items: center; overflow: hidden; font: 800 .74rem system-ui, sans-serif; color: #fff; background: hsl(var(--h), 42%, 32%); box-sizing: border-box; }
@@ -2193,8 +2193,8 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 /* admin skeletons: shaped like the real search row, stat boxes and table cells */
 .sk-filters .sk-search { flex: 1 1 240px; height: 40px; border-radius: 10px; max-width: 460px; }
 .sk-filters .sk-count { width: 110px; height: 13px; }
-.sk-pills { display: flex; gap: 8px; flex-wrap: wrap; } .sk-pill { width: 128px; height: 34px; border-radius: 999px; }
-.sk-tw .adm-t td { height: 50px; box-sizing: border-box; }
+.sk-pills { display: flex; gap: 8px; flex-wrap: wrap; } .sk-pill { width: 150px; height: 34px; border-radius: 999px; }
+.sk-tw .adm-t td { height: 58px; box-sizing: border-box; }
 .sk-who { display: flex; align-items: center; gap: 10px; min-width: 150px; }
 .sk-who > .sk-l1 { flex: 1; max-width: 160px; }
 .sk-c.sm { width: 32px; height: 32px; } .sk-sq.sm { width: 36px; height: 36px; border-radius: 8px; flex: none; }
@@ -2646,7 +2646,7 @@ body.hubbody:not(.adminbody) .hub-head.hd2-head { container: hd2head / inline-si
 @container hd2head (max-width: 760px) { .hd2-head .wn-bar { flex-wrap: wrap; gap: 8px; } .hd2-head .wn-lab { display: flex; align-items: baseline; gap: 14px; } .hd2-head .wn-strip { flex-basis: 100%; } }
 /* admin: the computer preview is drawn at a real window's width and scaled to fit */
 .nwp-scale { position: relative; overflow: hidden; }
-.nwp-scale > .nwp-bar { width: 1500px; transform-origin: 0 0; position: absolute; left: 0; top: 0; }
+.nwp-scale > .nwp-bar { transform-origin: 0 0; position: absolute; left: 0; top: 0; box-sizing: border-box; }
 /* creation: small segmented choices (point buy / array…, equipment / gold), the to-do box, warnings */
 #wizard .wz-box:has(> .wzh2) .segmini { display: inline-flex; gap: 4px; padding: 4px; border-radius: 12px; background: var(--wc-tile); border: 1px solid var(--wc-edge2); }
 #wizard .wz-box:has(> .wzh2) .segmini > button { min-height: 36px; padding: 0 14px; border: 0; border-radius: 9px; background: none; color: var(--wc-dim); font-family: inherit; font-size: .88rem; font-weight: 700; cursor: pointer; }
@@ -3126,3 +3126,21 @@ body.adminbody .nw-ghost { background: #1d2434; }
   .nw-acts { flex: 1 1 100%; justify-content: flex-start; padding-left: 26px; }
   .nw-grip { margin-bottom: 0; align-self: flex-start; padding-bottom: 14px; }
 }
+/* What's new previews at real size: the top bar across the full width, the phone card at a phone's width */
+.nwp { grid-template-columns: minmax(0, 1fr); }
+.nwp-m { justify-self: start; width: 100%; max-width: 420px; box-sizing: border-box; }
+html:not(.mobile) .adm-brand :is(.hl-txt, .hl-t, .hl-k, .hl-d):hover, html:not(.mobile) .adm-brand .hl-txt:hover * { filter: none !important; }
+/* admin skeletons copied from the page's own last layout */
+.sk-snap { pointer-events: none; user-select: none; }
+.sk-snap .skt { display: inline-block; vertical-align: middle; border-radius: 5px; max-width: 100%; }
+.sk-snap .skc { opacity: .8; }
+.sk-snap :is(a, b, small, span, td, div, p) { color: transparent; }
+.sk-snap th, .sk-snap :is(h1, h2, h3) { color: inherit; }
+.sk-snap *::before, .sk-snap *::after { color: transparent !important; -webkit-text-fill-color: transparent !important; background-image: none !important; }
+.sk-snap * { -webkit-text-fill-color: transparent; } .sk-snap th, .sk-snap :is(h1, h2, h3) { -webkit-text-fill-color: currentColor; }
+/* admin: less empty space between the side panel and the page */
+@media (min-width: 861px) { body.adminbody .adm-main { padding-left: 16px; padding-right: 20px; } }
+/* admin ⋯ and right-click menus: solid, so the table under them doesn't show through */
+body.adminbody .adm-mlist, .adm-mlist.portal { background: #1a2131; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: 0 16px 36px rgba(0,0,0,.5); }
+@media (prefers-color-scheme: light) { body.adminbody .adm-mlist, .adm-mlist.portal { background: #fffdf8; box-shadow: 0 14px 30px rgba(0,0,0,.18); } }
+.adm-mlist .adm-ctxonly { border-bottom: 1px solid var(--adm-line) !important; border-radius: 6px 6px 0 0 !important; margin-bottom: 4px; }
