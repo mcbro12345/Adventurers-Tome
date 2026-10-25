@@ -2834,3 +2834,9 @@ body.hubbody .hd2-main .hf-body { padding: 0 !important; margin: 0 !important; b
   body.hubbody .hd2-main .hub-folder > summary::after { background: #e3d6b8; }
   body.hubbody .hd2-main .hf-caret, body.hubbody .hd2-main .hf-n { background: rgba(0,0,0,.05); color: #5c6478; }
 }
+
+/* the account menu opened from the DM's Desk sits under its button */
+.dk-tools > .ha-menu.ha-drop { top: calc(100% + 12px); right: 0; }
+/* creation: the card is only as tall as what's in it */
+html:not(.mobile) #wizard .wz-box:has(> .wzh2) > .wz-body { flex: none; }
+.ha-menu [data-ha] { font-weight: 600 !important; font-size: .94rem !important; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif !important; }
