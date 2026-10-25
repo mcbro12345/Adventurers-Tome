@@ -3257,10 +3257,10 @@ html.mobile #wizard .wz3 .wz3-rvab { grid-template-columns: repeat(3, minmax(0, 
   body.adminbody .adm-side { position: relative !important; top: auto; margin-top: calc(12px + env(safe-area-inset-top)) !important; padding-top: 0 !important; box-shadow: 0 8px 22px rgba(0,0,0,.22) !important; }
   body.adminbody .adm-side::after { display: none; }
   body.adminbody .adm-brand { padding-top: 12px !important; }
-  body.adminbody .adm::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top); z-index: 60; background: rgba(15,20,32,.9); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); pointer-events: none; }
+  body.adminbody .adm::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: calc(env(safe-area-inset-top) + 14px); z-index: 60; background: linear-gradient(to bottom, rgb(14,19,30) 0, rgb(14,19,30) env(safe-area-inset-top), rgba(14,19,30,0) 100%); pointer-events: none; }
 }
-@media (max-width: 860px) and (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.adminbody .adm::before { background: rgba(241,233,216,.9); } }
-@media (max-width: 860px) { :where(html[data-pgtheme="light"]) body.adminbody .adm::before { background: rgba(241,233,216,.9); } }
+@media (max-width: 860px) and (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.adminbody .adm::before { background: linear-gradient(to bottom, #f1e9d8 0, #f1e9d8 env(safe-area-inset-top), rgba(241,233,216,0) 100%); } }
+@media (max-width: 860px) { :where(html[data-pgtheme="light"]) body.adminbody .adm::before { background: linear-gradient(to bottom, #f1e9d8 0, #f1e9d8 env(safe-area-inset-top), rgba(241,233,216,0) 100%); } }
 /* the tab menu's way back: a slim bar across the bottom, under the tabs */
 .pgp-lobby { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 42px; margin-top: 8px; padding: 0 12px; box-sizing: border-box; border-radius: 14px; border: 1px solid rgba(201,150,43,.55); background: transparent; color: #e0aa3a; font: 700 .95rem system-ui, sans-serif; text-decoration: none; -webkit-tap-highlight-color: transparent; transition: background .15s, transform .12s; }
 .pgp-lobby:active { transform: scale(.98); background: rgba(201,150,43,.14); }
@@ -3269,6 +3269,12 @@ html.mobile #wizard .wz3 .wz3-rvab { grid-template-columns: repeat(3, minmax(0, 
  :where(html[data-pgtheme="light"]) .pgp-lobby { color: #8a6420; } 
 /* phones: What's new (or whatever comes first) sits right under the logo panel, with the same small gap as the rest */
 @media (max-width: 860px) { body.hubbody:not(.adminbody) .hub-head > .hub-views { margin-top: 6px !important; } }
+/* phones: a pop-up sheet (What's new, and the rest) scrolls firmly: no rubber-band bounce at its ends, and the page
+   behind it never moves */
+@media (max-width: 640px) {
+  :where(body.hubbody, .wzh) .hub-modal.on { overscroll-behavior: none; touch-action: none; }
+  :where(body.hubbody, .wzh) .hub-modal > .hub-card { overscroll-behavior: none !important; touch-action: pan-y; }
+}
 </style>
 </head>
 <body>
@@ -3943,7 +3949,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261025085356', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.0873ba4e5685.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.baefa62c8977.html", "desk": "a/desk.9db34bf9f5aa.js", "deskcss": "a/deskcss.50200dbbabc8.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261025085742', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.0873ba4e5685.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.baefa62c8977.html", "desk": "a/desk.9db34bf9f5aa.js", "deskcss": "a/deskcss.50200dbbabc8.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
