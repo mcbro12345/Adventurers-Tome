@@ -3108,3 +3108,7 @@ html.mobile #wizard .wz3 .wz3-rvab { grid-template-columns: repeat(3, minmax(0, 
 :where(body.hubbody) :is(.hr, .hc, .pm):has(> .hc-menu.on, .pm-top > .hc-menu.on) { z-index: 60 !important; position: relative; }
 :where(body.hubbody) .hc-menu.on { z-index: 61; }
 :where(body.hubbody) .hc-menu.on .hc-list { opacity: 1 !important; }
+/* the "Try a character" tiles light up under the mouse like the lobby's tiles */
+#pg-load .pg-msg a.si2-char, .si2-char { transition: border-color .15s, background .15s, transform .15s, box-shadow .15s; }
+#pg-load .pg-msg a.si2-char:hover, #pg-load .pg-msg a.si2-char:focus-visible, a.si2-char:hover, a.si2-char:focus-visible { border-color: rgba(224,170,58,.55); background: rgba(255,255,255,.06); }
+@media (prefers-color-scheme: light) { #pg-load .pg-msg a.si2-char:hover, a.si2-char:hover { border-color: #c9962b; background: rgba(255,255,255,.85); } }
