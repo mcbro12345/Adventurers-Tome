@@ -846,11 +846,12 @@ function wz3FeatLists() {
   if (!window.wzHeader) return;
   $$('#wizard select[data-kind="feat"]').forEach(sel => {
     if (sel.dataset.wz3) return; sel.dataset.wz3 = 1; sel.classList.add('wz3-hid');
-    const opts = [...sel.options].filter(o => o.value);
+    const opts = [...sel.options].filter(o => o.value && (o.value === sel.value || wzFeatOK((DND.feats.find(x => x[0] === o.value) || [])[2])));
+    const hidden = [...sel.options].filter(o => o.value).length - opts.length;
     const row = o => { const f = DND.feats.find(x => x[0] === o.value) || [], on = sel.value === o.value;
       return `<label class="crrow sel${on ? ' on' : ''}${o.disabled ? ' dim' : ''}" data-q="${esc((o.value + ' ' + (f[3] || '') + ' ' + (f[2] || '')).toLowerCase())}"><input type="radio" name="wz3f-${esc(sel.dataset.ch)}-${sel.dataset.k}" value="${esc(o.value)}"${on ? ' checked' : ''}${o.disabled ? ' disabled' : ''}><div><b>${esc(o.value)}</b> <span class="hint">${esc(f[1] && f[1] !== 'PHB' ? (DND.sources[f[1]] || f[1]) : '')}${f[2] ? ` · needs ${esc(f[2])}` : ''}</span>${f[3] ? `<div class="hint">${esc(f[3])}</div>` : ''}</div></label>`; };
     const box = document.createElement('div'); box.className = 'wz3-pick wz3-featpick';
-    box.innerHTML = `<input class="f wz3-q" data-wz3q placeholder="Search ${opts.length} feats" autocomplete="off" aria-label="Search feats"><div class="crlist wz3-list${sel.value ? ' has' : ''}">${opts.map(row).join('')}</div>`;
+    box.innerHTML = `<input class="f wz3-q" data-wz3q placeholder="Search ${opts.length} feats you qualify for" autocomplete="off" aria-label="Search feats">${hidden ? `<p class="hint wz3-fnote">${hidden} feat${hidden === 1 ? '' : 's'} you don’t meet the requirements for ${hidden === 1 ? 'is' : 'are'} hidden.</p>` : ''}<div class="crlist wz3-list${sel.value ? ' has' : ''}">${opts.map(row).join('')}</div>`;
     sel.after(box);
     box.addEventListener('change', e => { const r = e.target.closest('input[type=radio]'); if (!r) return; sel.value = r.value; sel.dispatchEvent(new Event('change', { bubbles: true })); });
   });
@@ -899,7 +900,7 @@ function wz3Steps() {
   const L = [{ st: 0, label: 'Start' }, { st: 1, part: 'pick', label: 'Race' }];
   // (until the race or class is picked, the steps it might need stay in the list, marked as maybe, so the count only ever goes down)
   if (ro) L.push({ st: 1, part: 'opts', label: 'Race options', maybe: !x });
-  L.push({ st: 2, label: 'Class' }); L.push({ st: 9, label: 'Features' }); L.push({ st: 3, label: 'Abilities' }, { st: 4, label: 'Background' });
+  L.push({ st: 2, label: 'Class' }, { st: 3, label: 'Abilities' }, { st: 9, label: 'Features' }, { st: 4, label: 'Background' });
   if (co) L.push({ st: 5, label: 'Class options', maybe: noCls }); if (sp) L.push({ st: 6, label: 'Spells', maybe: noCls });
   L.push({ st: 7, label: 'Equipment' }, { st: 8, label: 'Review' });
   return L;
@@ -921,6 +922,29 @@ function wz3Features() {
   const fq = x ? wzRaceChoices().map((q, k) => q.type === 'feat' ? choiceUI(W.ans, 'race.' + k, q) : '').join('') : '';
   if (fq) h = `<section class="wz3-fs wz3-feats"><header>${WZI.feats}<div><b>Feat</b><span>From your race: pick one</span></div></header>${fq}</section>` + h;
   return h || '<p class="hint">Pick a race and a class first.</p>';
+}
+// Does the character being made meet a feat's requirement? (scores, race, armor, weapons, spellcasting)
+function wzFeatOK(pre) {
+  pre = String(pre || '').trim(); if (!pre) return true; const P = pre.toLowerCase();
+  let sc = null; try { sc = wzFinalScores(wzScores()); } catch (e) {}
+  const x = wzRace(), race = x ? (x.r.name + ' ' + (x.s.name || '')).toLowerCase() : '', size = x ? String(x.s.size || x.r.size || 'Medium').toLowerCase() : '';
+  const row = W.classes && W.classes[0], c = row && CL[row.key], arm = c ? String(c.armor || '').toLowerCase() : '', wep = c ? String(c.weapons || '').toLowerCase() : '';
+  const traits = x ? ((x.r.traits || []).concat(x.s.traits || [])).map(t => t.join(' ')).join(' ').toLowerCase() : '';
+  const bg = W.bg && DND.backgrounds[W.bg] ? DND.backgrounds[W.bg].name.toLowerCase() : '';
+  const m = /^((?:str|dex|con|int|wis|cha)(?:\s+or\s+(?:str|dex|con|int|wis|cha))*)\s+(\d+)/.exec(P);
+  if (m) return !sc || m[1].split(/\s+or\s+/).some(a => N(sc[a]) >= N(m[2]));
+  if (/spellcasting|pact magic/.test(P)) { try { return wzSpellPlan().length > 0 || (x && ((x.r.spells || []).length || (x.s.spells || []).length) > 0); } catch (e) { return true; } }
+  const armorOK = t => arm.includes('all armor') || arm.includes(t) || traits.includes(t + ' armor');
+  if (/light armor/.test(P)) return armorOK('light') || armorOK('medium') || armorOK('heavy');
+  if (/medium armor/.test(P)) return armorOK('medium') || armorOK('heavy');
+  if (/heavy armor/.test(P)) return armorOK('heavy');
+  if (/martial weapon/.test(P)) return wep.includes('martial');
+  if (/no other dragonmark/.test(P)) return true;
+  if (/giant foundling|rune shaper/.test(P)) return /giant foundling|rune shaper/.test(bg);
+  // a list of races ("Elf or half-elf", "Dwarf or Small race")
+  return P.split(/,\s*|\s+or\s+/).some(r => { r = r.trim(); if (r === 'small race') return size === 'small'; if (!r) return false;
+    if (r === 'elf') return /\belf\b/.test(race.replace(/half-elf/g, '')) || /\b(drow|eladrin|sea elf|shadar)/.test(race);
+    return race.includes(r); });
 }
 function asiModeClick(b) {
   const inWz = !!b.closest('#wizard'), inP = !!b.closest('#pendm') && PEND, CH = inWz ? W.ans : inP ? PEND.ans : LV ? LV.ans : null; if (!CH) return;

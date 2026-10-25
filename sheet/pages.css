@@ -3033,3 +3033,4 @@ html.mobile #wizard .wz3 .wz-step.maybe::after { opacity: .35; background-image:
 #wizard .wz3 .wz3-fl { list-style: none; margin: 0; padding: 0; } #wizard .wz3 .wz3-fl li { display: grid; gap: 2px; padding: 10px 2px; border-top: 1px solid var(--wc-edge2); }
 #wizard .wz3 .wz3-fl li b { font-size: .95rem; } #wizard .wz3 .wz3-fl li span { color: var(--wc-dim); font-size: .86rem; line-height: 1.45; }
 html.mobile #wizard .wz3 .wz3-fs { padding: 14px; } html.mobile #wizard .wz3 .wz3-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#wizard .wz3 .wz3-fnote { margin: -4px 0 10px; }
