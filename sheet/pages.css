@@ -2522,3 +2522,18 @@ body.hubbody .hd2-main .hr { height: 186px; }
 .wn-sk .wn-strip { min-height: 96px; box-sizing: border-box; padding: 14px 44px; flex-direction: column; align-items: stretch; justify-content: center; gap: 9px; }
 .wn-sk .skl { height: 15px; } .wn-sk .skl + .skl { height: 11px; }
 .wn-card.wn-sk .wn-it { display: flex; flex-direction: column; gap: 9px; min-height: 116px; }
+
+/* tiles: the Updated line a touch smaller and a little higher */
+.hd2-main .hc-txt > small { font-size: .7rem !important; margin-bottom: 5px; }
+/* phone What's new: a compact card; each update is its headline and two lines (tap it for the whole thing) */
+.wn-card { padding: 9px 12px 10px !important; border-radius: 14px !important; }
+.wn-card .wn-ch { margin-bottom: 5px; } .wn-card .wn-ch b { font-size: .9rem; } .wn-card .wn-ch .wn-all { font-size: .78rem; }
+.wn-card .wn-it { padding-left: 10px; cursor: pointer; touch-action: pan-y; }
+.wn-card .wn-stk { min-height: 0 !important; overflow: hidden; }
+.wn-card .wn-one { align-self: start; will-change: transform; }
+.wn-card .wn-t { font-size: .86rem !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wn-card .wn-new { font-size: .62rem; padding: 0 5px; }
+.wn-card .wn-d { font-size: .78rem !important; line-height: 1.4; margin-top: 2px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.wn-card .wn-d p, .wn-card .wn-d ul, .wn-card .wn-d ol { display: inline; margin: 0; padding: 0; } .wn-card .wn-d li { display: inline; }
+.wn-card .wn-link { display: none; }
+.wn-card.wn-sk .wn-it { min-height: 0; gap: 7px; } .wn-card.wn-sk .skl { height: 12px; } .wn-card.wn-sk .skl:nth-child(3) { display: none; }

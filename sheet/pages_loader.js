@@ -1877,12 +1877,32 @@ function hub(fs, auth, G, ctx) {
       }
       fit(); clearTimeout(seenT); if (!src) seenT = setTimeout(() => newsSee(n.id), 4000); };
     // the box keeps one size; an update with a lot to say gets a smaller paragraph (never a smaller headline) so it still fits
-    const fit = () => { const stk = el.querySelector('.wn-stk'); if (!stk || !stk.offsetParent) return; const H = parseFloat(getComputedStyle(stk).minHeight) || 0; if (!H) return;
+    const fit = () => { const stk = el.querySelector('.wn-stk'); if (kind === 'card' || !stk || !stk.offsetParent) return; const H = parseFloat(getComputedStyle(stk).minHeight) || 0; if (!H) return;
       stk.querySelectorAll('.wn-one').forEach(o => { const d = o.querySelector('.wn-d'); if (!d) return; d.style.fontSize = ''; let fs = parseFloat(getComputedStyle(d).fontSize);
         while (o.offsetHeight > H + 0.5 && fs > 11) { fs = Math.max(11, fs - 0.5); d.style.fontSize = fs + 'px'; } }); };
     let fitW = 0; new ResizeObserver(() => { const w = el.clientWidth; if (w && w !== fitW) { fitW = w; fit(); } }).observe(el);
     const fade = f => { const it = el.querySelector('.wn-stk'); if (!it || PG_CALM) { f(); return; } it.classList.add('wn-out'); setTimeout(() => { f(); it.classList.remove('wn-out'); }, 260); };
-    const go = d => { const L = get().items; if (L.length < 2) return; i += d; const k = ((i % L.length) + L.length) % L.length; el.querySelectorAll('.wn-dots button').forEach((b, j) => b.classList.toggle('on', j === k)); fade(() => paintItem()); tick(); };
+    const dotsTo = k => el.querySelectorAll('.wn-dots button').forEach((b, j) => b.classList.toggle('on', j === k));
+    const go = d => { const L = get().items; if (L.length < 2 || !d) return; if (kind === 'card') { slide(d); tick(); return; } i += d; dotsTo(((i % L.length) + L.length) % L.length); fade(() => paintItem()); tick(); };
+    // Phone card: updates slide sideways like a carousel; a swipe drags the current one with your finger and the next one comes in beside it
+    let sliding = false;
+    const parts = () => { const stk = el.querySelector('.wn-stk'); return stk ? { stk, ones: [...stk.children], W: stk.clientWidth + 16 } : null; };
+    const place = (o, x, anim) => { o.style.transition = anim ? 'transform .3s cubic-bezier(.22,.8,.3,1)' : 'none'; o.style.transform = `translateX(${x}px)`; o.style.visibility = 'visible'; };
+    const clear = ones => ones.forEach(o => { o.style.transition = ''; o.style.transform = ''; o.style.visibility = ''; });
+    const finish = (P, d) => { setTimeout(() => { clear(P.ones); if (d) { i += d; paintItem(); } sliding = false; }, 310); };
+    const slide = d => { const P = parts(), L = get().items; if (!P || sliding) return; const n = L.length, cur = P.ones[i], nb = P.ones[(((i + d) % n) + n) % n]; if (!cur || !nb || cur === nb) return;
+      if (PG_CALM) { i += d; paintItem(); return; } sliding = true; dotsTo((((i + d) % n) + n) % n);
+      place(cur, 0); place(nb, d * P.W); void nb.offsetWidth; place(cur, -d * P.W, true); place(nb, 0, true); finish(P, d); };
+    let drag = null, swiped = false;
+    const dragStart = e => { if (kind !== 'card' || sliding || get().items.length < 2) return; const t = e.touches[0]; drag = { x: t.clientX, y: t.clientY, dx: 0, on: false, nb: null }; paused = true; };
+    const dragMove = e => { if (!drag) return; const t = e.touches[0], dx = t.clientX - drag.x, dy = t.clientY - drag.y;
+      if (!drag.on) { if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { drag = null; return; } if (Math.abs(dx) < 8) return; drag.on = true; }
+      if (e.cancelable) e.preventDefault(); const P = parts(), n = get().items.length; if (!P) return; const d = dx < 0 ? 1 : -1, nb = P.ones[(((i + d) % n) + n) % n];
+      if (drag.nb && drag.nb !== nb && drag.nb !== P.ones[i]) clear([drag.nb]); drag.nb = nb; drag.d = d; drag.dx = dx; place(P.ones[i], dx); if (nb !== P.ones[i]) place(nb, dx + d * P.W); };
+    const dragEnd = () => { paused = false; if (!drag) return; const g = drag; drag = null; if (!g.on) return; swiped = true; setTimeout(() => { swiped = false; }, 60);
+      const P = parts(), n = get().items.length; if (!P) return; const cur = P.ones[i], nb = g.nb, go_ = Math.abs(g.dx) > Math.min(60, P.W * .2);
+      sliding = true; if (go_) { dotsTo((((i + g.d) % n) + n) % n); place(cur, -g.d * P.W, true); place(nb, 0, true); finish(P, g.d); tick(); }
+      else { place(cur, 0, true); if (nb && nb !== cur) place(nb, g.d * P.W, true); finish(P, 0); } };
     const tick = () => { clearTimeout(T); const g = get(); if (g.items.length < 2) return; T = setTimeout(() => { if (!paused && !document.hidden && el.isConnected) go(1); else tick(); }, g.every * 1000); };
     const paint = () => { const g = get(), L = g.items; const k = JSON.stringify([L.map(n => [n.id, n.t, n.d, n.badge, n.link]), g.every]);
       if (!src && !NEWS.loaded) { if (el.querySelector('.wn-sk')) return; el.hidden = false; key = '';
@@ -1897,8 +1917,10 @@ function hub(fs, auth, G, ctx) {
       el.querySelector('.wn-all').onclick = () => newsAll(g.all || L);
       const box = el.querySelector('.wn'); box.addEventListener('mouseenter', () => { paused = true; }); box.addEventListener('mouseleave', () => { paused = false; });
       box.addEventListener('focusin', () => { paused = true; }); box.addEventListener('focusout', () => { paused = false; });
-      if (kind === 'card') { let sx = null, sy = 0; box.addEventListener('touchstart', e => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; paused = true; }, { passive: true });
-        box.addEventListener('touchend', e => { paused = false; if (sx == null) return; const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy; sx = null; if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) go(dx < 0 ? 1 : -1); }, { passive: true }); }
+      if (kind === 'card') { const it = box.querySelector('.wn-it'); it.addEventListener('touchstart', dragStart, { passive: true }); it.addEventListener('touchmove', dragMove, { passive: false });
+        it.addEventListener('touchend', dragEnd); it.addEventListener('touchcancel', dragEnd);
+        // tapping the update (not a link in it) opens it in full
+        it.addEventListener('click', e => { if (swiped || e.target.closest('a, button')) return; newsAll(g.all || L); }); }
       paintItem(); tick(); };
     S.paint = paint; S.stop = () => { clearTimeout(T); clearTimeout(seenT); NEWS.subs.delete(paint); };
     if (!src) { newsStart(); NEWS.subs.add(paint); } paint(); return S; }
