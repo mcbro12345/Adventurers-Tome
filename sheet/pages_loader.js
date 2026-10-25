@@ -1846,7 +1846,7 @@ function hub(fs, auth, G, ctx) {
   const NEWS = { items: [], every: 8, on: false, subs: new Set() };
   const newsSort = (a, b) => ((a.ord != null ? a.ord : 1e9) - (b.ord != null ? b.ord : 1e9)) || ((b.at || 0) - (a.at || 0));
   function newsStart() { if (NEWS.on) return; NEWS.on = true; const tell = () => NEWS.subs.forEach(f => { try { f(); } catch (e) {} });
-    fs.collection('news').onSnapshot(qs => { NEWS.items = qs.docs.map(d => Object.assign({ id: d.id }, d.data())).sort(newsSort); tell(); }, () => {});
+    fs.collection('news').onSnapshot(qs => { NEWS.items = qs.docs.map(d => Object.assign({ id: d.id }, d.data())).sort(newsSort); NEWS.loaded = true; tell(); }, () => { NEWS.loaded = true; tell(); });
     fs.collection('config').doc('news').onSnapshot(d => { NEWS.every = Math.max(4, Math.min(60, Number(d.exists && d.data().every) || 8)); tell(); }, () => {}); }
   const NSEEN_LS = 'pg-newsseen';
   const newsSeen = () => { try { return new Set(JSON.parse(localStorage.getItem(NSEEN_LS) || '[]')); } catch (e) { return new Set(); } };
@@ -1885,6 +1885,10 @@ function hub(fs, auth, G, ctx) {
     const go = d => { const L = get().items; if (L.length < 2) return; i += d; const k = ((i % L.length) + L.length) % L.length; el.querySelectorAll('.wn-dots button').forEach((b, j) => b.classList.toggle('on', j === k)); fade(() => paintItem()); tick(); };
     const tick = () => { clearTimeout(T); const g = get(); if (g.items.length < 2) return; T = setTimeout(() => { if (!paused && !document.hidden && el.isConnected) go(1); else tick(); }, g.every * 1000); };
     const paint = () => { const g = get(), L = g.items; const k = JSON.stringify([L.map(n => [n.id, n.t, n.d, n.badge, n.link]), g.every]);
+      if (!src && !NEWS.loaded) { if (el.querySelector('.wn-sk')) return; el.hidden = false; key = '';
+        const ln = '<span class="skl" style="width:34%"></span><span class="skl" style="width:78%"></span><span class="skl" style="width:56%"></span>';
+        el.innerHTML = kind === 'bar' ? `<div class="wn wn-bar wn-sk" aria-busy="true"><div class="wn-lab"><b>What’s new</b><span class="wn-all" style="visibility:hidden">See all updates</span></div><div class="wn-strip">${ln}</div></div>`
+          : `<div class="wn wn-card wn-sk" aria-busy="true"><div class="wn-ch"><b>What’s new</b></div><div class="wn-it">${ln}</div></div>`; return; }
       if (!L.length) { el.innerHTML = ''; el.hidden = true; key = k; clearTimeout(T); return; } el.hidden = false; if (k === key && el.querySelector('.wn-it')) return; key = k;
       const allB = `<button type="button" class="wn-all">${kind === 'bar' ? 'See all updates' : 'See all'}</button>`;
       el.innerHTML = kind === 'bar' ? `<div class="wn wn-bar"><div class="wn-lab"><b>What’s new</b>${allB}</div><div class="wn-strip"><button type="button" class="wn-ar" data-d="-1" aria-label="Previous update"${L.length < 2 ? ' hidden' : ''}>‹</button><div class="wn-it" aria-live="polite"></div><button type="button" class="wn-ar" data-d="1" aria-label="Next update"${L.length < 2 ? ' hidden' : ''}>›</button></div></div>`
@@ -2057,9 +2061,9 @@ function hub(fs, auth, G, ctx) {
     const plusI = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
     const foldB = k => `<button type="button" class="hd-fold" data-fold="${k}" aria-expanded="${FOLD[k] ? 'false' : 'true'}" aria-label="${FOLD[k] ? 'Show' : 'Hide'} this list"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>`;
     const sec = (k, title, n, act, body, foot) => `<section class="hd-sec${FOLD[k] ? ' folded' : ''}" data-sec="${k}"><div class="hd-h"><h2>${title}</h2><span class="hd-n">${n}</span><span class="hd-acts">${act || ''}${foldB(k)}</span></div><div class="hd-body">${pane(k, body)}${foot || ''}</div></section>`;
-    const body = D ? sec('mine', 'Your characters', mine.length, `<button type="button" class="hd-act gold" id="hd-newc">${plusI}Create character</button>`, mineHTML, `<div class="hd-foot"><button type="button" class="hd-more" data-more="mine" hidden></button>${mine.length > 1 ? '<small class="hd-hint">Drag a character to change the order.</small>' : ''}</div>`)
-        + sec('parties', 'Parties', PMx().count(), `<button type="button" class="hd-act" id="hd-newp">${plusI}New party</button>`, PMx().paneHTML(), '<p class="hd-join">Got an invite link? <button type="button" class="hd-joinb" id="hd-join">Paste it to join a party</button></p>')
-        + sec('shared', 'Shared with me', shared.length, '', sharedHTML)
+    const body = D ? sec('mine', 'Your characters', noList('mine') && !mine.length ? '' : mine.length, `<button type="button" class="hd-act gold" id="hd-newc">${plusI}Create character</button>`, mineHTML, `<div class="hd-foot"><button type="button" class="hd-more" data-more="mine" hidden></button>${mine.length > 1 ? '<small class="hd-hint">Drag a character to change the order.</small>' : noList('mine') ? '<small class="hd-hint" style="visibility:hidden">Drag a character to change the order.</small>' : ''}</div>`)
+        + sec('parties', 'Parties', PMx().loaded && !PMx().loaded() && !PMx().count() ? '' : PMx().count(), `<button type="button" class="hd-act" id="hd-newp">${plusI}New party</button>`, PMx().paneHTML(), '<p class="hd-join">Got an invite link? <button type="button" class="hd-joinb" id="hd-join">Paste it to join a party</button></p>')
+        + sec('shared', 'Shared with me', !SH_LOADED && noList('shared') && !shared.length ? '' : shared.length, '', sharedHTML)
       : `<div class="hub-track">${pane('mine', mineHTML)}${pane('parties', PMx().paneHTML())}${pane('shared', sharedHTML)}</div>`;
     const ava = (a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(myAva());
     const acct = `<button type="button" class="hub-acct" id="me-acct" aria-haspopup="menu" aria-expanded="false" title="Your account">${ava}${D ? `<span class="ha-txt"><b>${esc(myName())}</b><small>${esc(EMAIL)}</small></span><svg class="ha-chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>` : ''}</button>`;
@@ -3091,7 +3095,7 @@ function partyModule(H) {
   }
   const count = () => MINE.length + INVS.filter(p => !MINE.some(m => m.id === p.id)).length;
   function paintStrip() { const el = root.querySelector('#hub-parties'); if (!el) return; if (document.body.classList.contains('hdragging')) { clearTimeout(paintStrip.t); paintStrip.t = setTimeout(paintStrip, 400); return; } el.outerHTML = paneHTML(); wirePane();
-    const n = root.querySelector('.hub-seg [data-view="parties"] span'); if (n) n.textContent = count(); }
+    const n = root.querySelector('.hub-seg [data-view="parties"] span'); if (n) n.textContent = count(); const hn = root.querySelector('[data-sec=parties] .hd-n'); if (hn) hn.textContent = count(); }
   function wirePane() { const el = root.querySelector('#hub-parties'); if (!el) return;
   }
 
@@ -3785,7 +3789,7 @@ function partyModule(H) {
   }
 
   listen();
-  return { saveOrder, paneHTML, count, wirePane, partyPage, joinPage, adminTab, refresh: () => paint(), newParty: () => pgGo(URLS.party('new')) };
+  return { saveOrder, paneHTML, count, loaded: () => LOADED, wirePane, partyPage, joinPage, adminTab, refresh: () => paint(), newParty: () => pgGo(URLS.party('new')) };
 }
 // ================= Window stacking =================
 // Desktop: whichever window you click or tab into comes to the front. Floating windows (dice roller, party chat,
