@@ -2127,10 +2127,10 @@ function hub(fs, auth, G, ctx) {
   if (!TOUCH && page !== 'admin') (() => {
     const sb = document.createElement('div'); sb.className = 'hub-sb'; sb.hidden = true; sb.innerHTML = '<div class="pgph-th"></div>'; document.body.appendChild(sb); const th = sb.firstElementChild;
     const paint = () => { if (document.body.classList.contains('adminbody')) { sb.hidden = true; return; }
-      const de = document.documentElement, max = de.scrollHeight - innerHeight, head = document.querySelector('.hub-head'), col = document.querySelector('.hub-head > .hub-views') || document.querySelector('.hd2-main');
+      const de = document.documentElement, max = de.scrollHeight - innerHeight, head = document.querySelector('.hub-head'), col = document.querySelector('.hub-head > .hub-views') || document.querySelector('.hd2-head > .hub-top'), snug = col && col.matches('.hd2-head > .hub-top');
       if (max < 2 || !head || !col) { sb.hidden = true; return; } sb.hidden = false;
-      const top = head.getBoundingClientRect().bottom + 14, bot = 16, H = Math.max(40, innerHeight - top - bot);
-      sb.style.top = top + 'px'; sb.style.height = H + 'px'; sb.style.left = Math.min(innerWidth - 14, col.getBoundingClientRect().right + 14) + 'px';
+      const top = (snug ? col : head).getBoundingClientRect().bottom + 14, bot = 16, H = Math.max(40, innerHeight - top - bot);
+      sb.style.top = top + 'px'; sb.style.height = H + 'px'; sb.style.left = Math.min(innerWidth - 14, col.getBoundingClientRect().right + (snug ? 8 : 14)) + 'px';
       const h = Math.max(28, H * innerHeight / de.scrollHeight); th.style.height = h + 'px'; th.style.top = ((H - h) * (scrollY / max)) + 'px'; };
     addEventListener('scroll', paint, { passive: true }); addEventListener('resize', paint); new MutationObserver(() => requestAnimationFrame(paint)).observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'open'] }); setTimeout(paint, 50);
     addEventListener('hub-view', () => { paint(); setTimeout(paint, 380); });

@@ -2633,12 +2633,15 @@ body.hubbody #hub:not(.hd2) .hub-list .hr, body.hubbody #hub:not(.hd2) .hub-list
 @media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) .nw-it { background: rgba(255,255,255,.65); border-color: #e3d6b8; } :where(html:not([data-pgtheme])) .nw-rotbar { background: rgba(0,0,0,.03); } }
  :where(html[data-pgtheme="light"]) .nw-it { background: rgba(255,255,255,.65); border-color: #e3d6b8; } :where(html[data-pgtheme="light"]) .nw-rotbar { background: rgba(0,0,0,.03); } 
 /* computer lobby: the top panel stays put while the page scrolls; only the panel itself casts a shadow */
-body.hubbody:not(.adminbody) .hub-head.hd2-head { position: sticky; top: 0; z-index: 30; padding-bottom: 16px; background: linear-gradient(to bottom, #0f1420 calc(100% - 16px), rgba(15,20,32,0)); }
+body.hubbody:not(.adminbody) .hub-head.hd2-head { position: sticky; top: 0; z-index: 30; padding-bottom: 30px; background: none; isolation: isolate; }
+/* behind the panel: the same backdrop as the page (fixed to the window), so the strip reads as page, fading out at the bottom */
+body.hubbody:not(.adminbody) .hub-head.hd2-head::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(ellipse at 50% 40%, #1d2638 0%, #0f1420 70%) fixed; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 30px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 30px), transparent); }
+body.hubbody:not(.adminbody) .hd2-head + .hub-list.hd2-main { margin-top: 12px; }
 body.hubbody:not(.adminbody) .hub-head.hd2-head::after { display: none; }
 body.hubbody:not(.adminbody) .hd2-head > .hub-top { box-shadow: 0 12px 30px rgba(0,0,0,.38); }
 body.hubbody:not(.adminbody) .hub-list.hd2-main { margin-top: 10px; }
-@media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.hubbody:not(.adminbody) .hub-head.hd2-head { background: linear-gradient(to bottom, #f1e9d8 calc(100% - 16px), rgba(241,233,216,0)); } :where(html:not([data-pgtheme])) body.hubbody:not(.adminbody) .hd2-head > .hub-top { box-shadow: 0 10px 26px rgba(60,45,20,.14); } }
- :where(html[data-pgtheme="light"]) body.hubbody:not(.adminbody) .hub-head.hd2-head { background: linear-gradient(to bottom, #f1e9d8 calc(100% - 16px), rgba(241,233,216,0)); } :where(html[data-pgtheme="light"]) body.hubbody:not(.adminbody) .hd2-head > .hub-top { box-shadow: 0 10px 26px rgba(60,45,20,.14); } 
+@media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.hubbody:not(.adminbody) .hub-head.hd2-head::before { background: radial-gradient(ellipse at 50% 40%, #fbf6ea 0%, #f1e9d8 70%) fixed; } :where(html:not([data-pgtheme])) body.hubbody:not(.adminbody) .hd2-head > .hub-top { box-shadow: 0 10px 26px rgba(60,45,20,.14); } }
+ :where(html[data-pgtheme="light"]) body.hubbody:not(.adminbody) .hub-head.hd2-head::before { background: radial-gradient(ellipse at 50% 40%, #fbf6ea 0%, #f1e9d8 70%) fixed; } :where(html[data-pgtheme="light"]) body.hubbody:not(.adminbody) .hd2-head > .hub-top { box-shadow: 0 10px 26px rgba(60,45,20,.14); } 
 .hd2-ghostwrap { position: fixed; left: 0; top: 0; width: 0; height: 0; margin: 0; padding: 0; z-index: 60; pointer-events: none; }
 body.hubbody .hd2-ghostwrap .hr { background: #222b3e; border-color: rgba(224,170,58,.6); transform: rotate(1.5deg); }
 @media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.hubbody .hd2-ghostwrap .hr { background: #fffaf0; } }
@@ -3322,7 +3325,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024203301', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.9bf6d2d63d11.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.6d485758a6ed.html", "desk": "a/desk.0cb91ca90853.js", "deskcss": "a/deskcss.77a5595d7caa.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024203903', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.9bf6d2d63d11.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.6d485758a6ed.html", "desk": "a/desk.0cb91ca90853.js", "deskcss": "a/deskcss.77a5595d7caa.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -4822,10 +4825,10 @@ function hub(fs, auth, G, ctx) {
   if (!TOUCH && page !== 'admin') (() => {
     const sb = document.createElement('div'); sb.className = 'hub-sb'; sb.hidden = true; sb.innerHTML = '<div class="pgph-th"></div>'; document.body.appendChild(sb); const th = sb.firstElementChild;
     const paint = () => { if (document.body.classList.contains('adminbody')) { sb.hidden = true; return; }
-      const de = document.documentElement, max = de.scrollHeight - innerHeight, head = document.querySelector('.hub-head'), col = document.querySelector('.hub-head > .hub-views') || document.querySelector('.hd2-main');
+      const de = document.documentElement, max = de.scrollHeight - innerHeight, head = document.querySelector('.hub-head'), col = document.querySelector('.hub-head > .hub-views') || document.querySelector('.hd2-head > .hub-top'), snug = col && col.matches('.hd2-head > .hub-top');
       if (max < 2 || !head || !col) { sb.hidden = true; return; } sb.hidden = false;
-      const top = head.getBoundingClientRect().bottom + 14, bot = 16, H = Math.max(40, innerHeight - top - bot);
-      sb.style.top = top + 'px'; sb.style.height = H + 'px'; sb.style.left = Math.min(innerWidth - 14, col.getBoundingClientRect().right + 14) + 'px';
+      const top = (snug ? col : head).getBoundingClientRect().bottom + 14, bot = 16, H = Math.max(40, innerHeight - top - bot);
+      sb.style.top = top + 'px'; sb.style.height = H + 'px'; sb.style.left = Math.min(innerWidth - 14, col.getBoundingClientRect().right + (snug ? 8 : 14)) + 'px';
       const h = Math.max(28, H * innerHeight / de.scrollHeight); th.style.height = h + 'px'; th.style.top = ((H - h) * (scrollY / max)) + 'px'; };
     addEventListener('scroll', paint, { passive: true }); addEventListener('resize', paint); new MutationObserver(() => requestAnimationFrame(paint)).observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'open'] }); setTimeout(paint, 50);
     addEventListener('hub-view', () => { paint(); setTimeout(paint, 380); });

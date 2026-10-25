@@ -2483,11 +2483,14 @@ body.hubbody #hub:not(.hd2) .hub-list .hr, body.hubbody #hub:not(.hd2) .hub-list
 @media (max-width: 1100px) { .nwp { grid-template-columns: 1fr; } .nwp-bar { flex-wrap: wrap; } }
 @media (prefers-color-scheme: light) { .nw-it { background: rgba(255,255,255,.65); border-color: #e3d6b8; } .nw-rotbar { background: rgba(0,0,0,.03); } }
 /* computer lobby: the top panel stays put while the page scrolls; only the panel itself casts a shadow */
-body.hubbody:not(.adminbody) .hub-head.hd2-head { position: sticky; top: 0; z-index: 30; padding-bottom: 16px; background: linear-gradient(to bottom, #0f1420 calc(100% - 16px), rgba(15,20,32,0)); }
+body.hubbody:not(.adminbody) .hub-head.hd2-head { position: sticky; top: 0; z-index: 30; padding-bottom: 30px; background: none; isolation: isolate; }
+/* behind the panel: the same backdrop as the page (fixed to the window), so the strip reads as page, fading out at the bottom */
+body.hubbody:not(.adminbody) .hub-head.hd2-head::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(ellipse at 50% 40%, #1d2638 0%, #0f1420 70%) fixed; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 30px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 30px), transparent); }
+body.hubbody:not(.adminbody) .hd2-head + .hub-list.hd2-main { margin-top: 12px; }
 body.hubbody:not(.adminbody) .hub-head.hd2-head::after { display: none; }
 body.hubbody:not(.adminbody) .hd2-head > .hub-top { box-shadow: 0 12px 30px rgba(0,0,0,.38); }
 body.hubbody:not(.adminbody) .hub-list.hd2-main { margin-top: 10px; }
-@media (prefers-color-scheme: light) { body.hubbody:not(.adminbody) .hub-head.hd2-head { background: linear-gradient(to bottom, #f1e9d8 calc(100% - 16px), rgba(241,233,216,0)); } body.hubbody:not(.adminbody) .hd2-head > .hub-top { box-shadow: 0 10px 26px rgba(60,45,20,.14); } }
+@media (prefers-color-scheme: light) { body.hubbody:not(.adminbody) .hub-head.hd2-head::before { background: radial-gradient(ellipse at 50% 40%, #fbf6ea 0%, #f1e9d8 70%) fixed; } body.hubbody:not(.adminbody) .hd2-head > .hub-top { box-shadow: 0 10px 26px rgba(60,45,20,.14); } }
 .hd2-ghostwrap { position: fixed; left: 0; top: 0; width: 0; height: 0; margin: 0; padding: 0; z-index: 60; pointer-events: none; }
 body.hubbody .hd2-ghostwrap .hr { background: #222b3e; border-color: rgba(224,170,58,.6); transform: rotate(1.5deg); }
 @media (prefers-color-scheme: light) { body.hubbody .hd2-ghostwrap .hr { background: #fffaf0; } }
