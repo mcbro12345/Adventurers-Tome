@@ -2752,7 +2752,7 @@ function hub(fs, auth, G, ctx) {
       const read = box => { const v = k => box.querySelector(`[data-f="${k}"]`); const link = v('link').value.trim();
         return { t: v('t').value.replace(/\s+/g, ' ').trim().slice(0, 200), d: v('d').value.trim().slice(0, 4000), link: /^https?:\/\/\S+$/i.test(link) ? link : '', badLink: !!link && !/^https?:\/\/\S+$/i.test(link), badge: v('badge').checked, rot: v('rot') ? v('rot').checked : undefined }; };
       el.innerHTML = `<h3 class="nt-h">How it looks in the lobby right now</h3>
-        <div class="nwp"><div class="nwp-d"><div class="nwp-cap">On a computer, in the top bar</div><div class="nwp-bar"><span class="nwp-logo"></span><div class="hd2-wn" id="nwp-bar"></div><span class="nwp-me">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(avaOf(ME))}<span><b>${esc(myName())}</b><small>${esc(EMAIL)}</small></span></span></div></div>
+        <div class="nwp"><div class="nwp-d"><div class="nwp-cap">On a computer, in the top bar</div><div class="nwp-scale"><div class="nwp-bar"><span class="nwp-logo"></span><div class="hd2-wn" id="nwp-bar"></div><span class="nwp-me">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(avaOf(ME))}<span><b>${esc(myName())}</b><small>${esc(EMAIL)}</small></span></span></div></div></div>
           <div class="nwp-m"><div class="nwp-cap">On a phone</div><div id="nwp-card"></div></div></div>
         <p class="adm-note" id="nw-next">${nextLine()}</p>
         <h3 class="nt-h">New update</h3>${form(null, 'nw-new')}
@@ -2762,6 +2762,7 @@ function hub(fs, auth, G, ctx) {
       { const lg = root.querySelector('.adm-brand .hub-logo'), s = el.querySelector('.nwp-logo'); if (lg && s) s.appendChild(lg.cloneNode(true)); }
       const src = () => ({ items: rot(), every, all: items });
       if (tabNews.pv) tabNews.pv.forEach(p => p && p.stop()); tabNews.pv = [newsMount(el.querySelector('#nwp-bar'), 'bar', src), newsMount(el.querySelector('#nwp-card'), 'card', src)];
+      { const sc = el.querySelector('.nwp-scale'), bar = sc && sc.querySelector('.nwp-bar'); if (sc && bar) { const fitPv = () => { const k = Math.min(1, sc.clientWidth / 1500); bar.style.transform = `scale(${k})`; sc.style.height = Math.ceil(bar.offsetHeight * k) + 'px'; }; fitPv(); new ResizeObserver(fitPv).observe(sc); new ResizeObserver(fitPv).observe(bar); } }
       const repaint = () => { tabNews.pv.forEach(p => p && p.paint()); el.querySelector('#nw-next').innerHTML = nextLine(); el.querySelector('.nw-rotbar b').textContent = rot().length + ' in rotation'; };
       // posting
       const nb = el.querySelector('#nw-new'), ok = nb.querySelector('[data-f="ok"]'); const chk = () => { ok.disabled = !nb.querySelector('[data-f="t"]').value.trim(); }; nb.querySelector('[data-f="t"]').oninput = chk;

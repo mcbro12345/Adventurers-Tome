@@ -2487,7 +2487,7 @@ body.hubbody #hub:not(.hd2) .hub-list .hr, body.hubbody #hub:not(.hd2) .hub-list
 .nw-rot .nw-sw { position: relative; flex: none; box-sizing: border-box; display: block; width: 34px; height: 20px; margin: 0; padding: 0; border: 0; border-radius: 99px; background: #2c3548; box-shadow: none; transition: background .15s; }
 .nw-rot .nw-sw::after { content: ''; position: absolute; left: 3px; top: 3px; box-sizing: border-box; width: 14px; height: 14px; margin: 0; border: 0; border-radius: 50%; background: #8a93a6; transition: transform .2s cubic-bezier(.34,1.56,.64,1), background .15s; }
 .nw-rot.on { color: #e3c27a; } .nw-rot.on .nw-sw { background: #e0aa3a; } .nw-rot.on .nw-sw::after { transform: translateX(14px); background: #1b1406; }
-@media (max-width: 1100px) { .nwp { grid-template-columns: 1fr; } .nwp-bar { flex-wrap: wrap; } }
+@media (max-width: 1100px) { .nwp { grid-template-columns: 1fr; } }
 @media (prefers-color-scheme: light) { .nw-it { background: rgba(255,255,255,.65); border-color: #e3d6b8; } .nw-rotbar { background: rgba(0,0,0,.03); } }
 /* computer lobby: the top panel stays put while the page scrolls; only the panel itself casts a shadow */
 body.hubbody:not(.adminbody) .hub-head.hd2-head { position: sticky; top: 0; z-index: 30; padding-bottom: 30px; background: none; isolation: isolate; }
@@ -2537,3 +2537,16 @@ body.hubbody .hd2-main .hr { height: 186px; }
 .wn-card .wn-d p, .wn-card .wn-d ul, .wn-card .wn-d ol { display: inline; margin: 0; padding: 0; } .wn-card .wn-d li { display: inline; }
 .wn-card .wn-link { display: none; }
 .wn-card.wn-sk .wn-it { min-height: 0; gap: 7px; } .wn-card.wn-sk .skl { height: 12px; } .wn-card.wn-sk .skl:nth-child(3) { display: none; }
+
+/* the lobby's top panel on a narrower window: What's new drops to its own full-width row under the logo and account, so
+   its text never squeezes into a sliver */
+body.hubbody:not(.adminbody) .hub-head.hd2-head { container: hd2head / inline-size; }
+@container hd2head (max-width: 1380px) {
+  .hd2-head > .hub-top { flex-wrap: wrap !important; row-gap: 14px !important; }
+  .hd2-head .hub-logo { order: 1; } .hd2-head .hub-side { order: 2; margin-left: auto; }
+  .hd2-head .hd2-wn { order: 3; flex: 1 1 100%; padding: 14px 0 0; border-left: 0; border-top: 1px solid rgba(201,150,43,.22); }
+}
+@container hd2head (max-width: 760px) { .hd2-head .wn-bar { flex-wrap: wrap; gap: 8px; } .hd2-head .wn-lab { display: flex; align-items: baseline; gap: 14px; } .hd2-head .wn-strip { flex-basis: 100%; } }
+/* admin: the computer preview is drawn at a real window's width and scaled to fit */
+.nwp-scale { position: relative; overflow: hidden; }
+.nwp-scale > .nwp-bar { width: 1500px; transform-origin: 0 0; position: absolute; left: 0; top: 0; }

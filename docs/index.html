@@ -2636,7 +2636,7 @@ body.hubbody #hub:not(.hd2) .hub-list .hr, body.hubbody #hub:not(.hd2) .hub-list
 .nw-rot .nw-sw { position: relative; flex: none; box-sizing: border-box; display: block; width: 34px; height: 20px; margin: 0; padding: 0; border: 0; border-radius: 99px; background: #2c3548; box-shadow: none; transition: background .15s; }
 .nw-rot .nw-sw::after { content: ''; position: absolute; left: 3px; top: 3px; box-sizing: border-box; width: 14px; height: 14px; margin: 0; border: 0; border-radius: 50%; background: #8a93a6; transition: transform .2s cubic-bezier(.34,1.56,.64,1), background .15s; }
 .nw-rot.on { color: #e3c27a; } .nw-rot.on .nw-sw { background: #e0aa3a; } .nw-rot.on .nw-sw::after { transform: translateX(14px); background: #1b1406; }
-@media (max-width: 1100px) { .nwp { grid-template-columns: 1fr; } .nwp-bar { flex-wrap: wrap; } }
+@media (max-width: 1100px) { .nwp { grid-template-columns: 1fr; } }
 @media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) .nw-it { background: rgba(255,255,255,.65); border-color: #e3d6b8; } :where(html:not([data-pgtheme])) .nw-rotbar { background: rgba(0,0,0,.03); } }
  :where(html[data-pgtheme="light"]) .nw-it { background: rgba(255,255,255,.65); border-color: #e3d6b8; } :where(html[data-pgtheme="light"]) .nw-rotbar { background: rgba(0,0,0,.03); } 
 /* computer lobby: the top panel stays put while the page scrolls; only the panel itself casts a shadow */
@@ -2689,6 +2689,19 @@ body.hubbody .hd2-main .hr { height: 186px; }
 .wn-card .wn-d p, .wn-card .wn-d ul, .wn-card .wn-d ol { display: inline; margin: 0; padding: 0; } .wn-card .wn-d li { display: inline; }
 .wn-card .wn-link { display: none; }
 .wn-card.wn-sk .wn-it { min-height: 0; gap: 7px; } .wn-card.wn-sk .skl { height: 12px; } .wn-card.wn-sk .skl:nth-child(3) { display: none; }
+
+/* the lobby's top panel on a narrower window: What's new drops to its own full-width row under the logo and account, so
+   its text never squeezes into a sliver */
+body.hubbody:not(.adminbody) .hub-head.hd2-head { container: hd2head / inline-size; }
+@container hd2head (max-width: 1380px) {
+  .hd2-head > .hub-top { flex-wrap: wrap !important; row-gap: 14px !important; }
+  .hd2-head .hub-logo { order: 1; } .hd2-head .hub-side { order: 2; margin-left: auto; }
+  .hd2-head .hd2-wn { order: 3; flex: 1 1 100%; padding: 14px 0 0; border-left: 0; border-top: 1px solid rgba(201,150,43,.22); }
+}
+@container hd2head (max-width: 760px) { .hd2-head .wn-bar { flex-wrap: wrap; gap: 8px; } .hd2-head .wn-lab { display: flex; align-items: baseline; gap: 14px; } .hd2-head .wn-strip { flex-basis: 100%; } }
+/* admin: the computer preview is drawn at a real window's width and scaled to fit */
+.nwp-scale { position: relative; overflow: hidden; }
+.nwp-scale > .nwp-bar { width: 1500px; transform-origin: 0 0; position: absolute; left: 0; top: 0; }
 </style>
 </head>
 <body>
@@ -3362,7 +3375,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024215717', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.9bf6d2d63d11.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.6d485758a6ed.html", "desk": "a/desk.85c973541242.js", "deskcss": "a/deskcss.687926a74527.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024220557', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.9bf6d2d63d11.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.6d485758a6ed.html", "desk": "a/desk.85c973541242.js", "deskcss": "a/deskcss.687926a74527.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -5487,7 +5500,7 @@ function hub(fs, auth, G, ctx) {
       const read = box => { const v = k => box.querySelector(`[data-f="${k}"]`); const link = v('link').value.trim();
         return { t: v('t').value.replace(/\s+/g, ' ').trim().slice(0, 200), d: v('d').value.trim().slice(0, 4000), link: /^https?:\/\/\S+$/i.test(link) ? link : '', badLink: !!link && !/^https?:\/\/\S+$/i.test(link), badge: v('badge').checked, rot: v('rot') ? v('rot').checked : undefined }; };
       el.innerHTML = `<h3 class="nt-h">How it looks in the lobby right now</h3>
-        <div class="nwp"><div class="nwp-d"><div class="nwp-cap">On a computer, in the top bar</div><div class="nwp-bar"><span class="nwp-logo"></span><div class="hd2-wn" id="nwp-bar"></div><span class="nwp-me">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(avaOf(ME))}<span><b>${esc(myName())}</b><small>${esc(EMAIL)}</small></span></span></div></div>
+        <div class="nwp"><div class="nwp-d"><div class="nwp-cap">On a computer, in the top bar</div><div class="nwp-scale"><div class="nwp-bar"><span class="nwp-logo"></span><div class="hd2-wn" id="nwp-bar"></div><span class="nwp-me">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(avaOf(ME))}<span><b>${esc(myName())}</b><small>${esc(EMAIL)}</small></span></span></div></div></div>
           <div class="nwp-m"><div class="nwp-cap">On a phone</div><div id="nwp-card"></div></div></div>
         <p class="adm-note" id="nw-next">${nextLine()}</p>
         <h3 class="nt-h">New update</h3>${form(null, 'nw-new')}
@@ -5497,6 +5510,7 @@ function hub(fs, auth, G, ctx) {
       { const lg = root.querySelector('.adm-brand .hub-logo'), s = el.querySelector('.nwp-logo'); if (lg && s) s.appendChild(lg.cloneNode(true)); }
       const src = () => ({ items: rot(), every, all: items });
       if (tabNews.pv) tabNews.pv.forEach(p => p && p.stop()); tabNews.pv = [newsMount(el.querySelector('#nwp-bar'), 'bar', src), newsMount(el.querySelector('#nwp-card'), 'card', src)];
+      { const sc = el.querySelector('.nwp-scale'), bar = sc && sc.querySelector('.nwp-bar'); if (sc && bar) { const fitPv = () => { const k = Math.min(1, sc.clientWidth / 1500); bar.style.transform = `scale(${k})`; sc.style.height = Math.ceil(bar.offsetHeight * k) + 'px'; }; fitPv(); new ResizeObserver(fitPv).observe(sc); new ResizeObserver(fitPv).observe(bar); } }
       const repaint = () => { tabNews.pv.forEach(p => p && p.paint()); el.querySelector('#nw-next').innerHTML = nextLine(); el.querySelector('.nw-rotbar b').textContent = rot().length + ' in rotation'; };
       // posting
       const nb = el.querySelector('#nw-new'), ok = nb.querySelector('[data-f="ok"]'); const chk = () => { ok.disabled = !nb.querySelector('[data-f="t"]').value.trim(); }; nb.querySelector('[data-f="t"]').oninput = chk;
