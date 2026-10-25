@@ -2286,7 +2286,10 @@ const NICON = {
   lore: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/>', quest: '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>',
   session: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/>', event: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>', map: '<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/>',
 };
-const nIcon = (t, cls, col) => `<svg class="${cls || 'dk-nic'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:${/^#[0-9a-f]{3,8}$/i.test(col || '') ? col : (NTYPES[t] || NTYPES.blank).c}" aria-hidden="true">${NICON[t] || NICON.blank}</svg>`;
+// Pages are just pages (or maps): the older page types still sit in saved data but no longer show
+const NKIND = t => t === 'map' ? 'map' : 'blank';
+const nIcon = (t, cls, col) => { t = NKIND(t); return nIcon0(t, cls, col); };
+const nIcon0 = (t, cls, col) => `<svg class="${cls || 'dk-nic'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:${/^#[0-9a-f]{3,8}$/i.test(col || '') ? col : (NTYPES[t] || NTYPES.blank).c}" aria-hidden="true">${NICON[t] || NICON.blank}</svg>`;
 let NT = { pages: {}, syncedAt: 0, del: [] };
 const NSYNC = new Map(); let NBASE = null, IBASE = null, NCLOUD = false, nT = 0, nFlushing = false, nAgain = false;
 const IMGC = {}; // image id -> dataURL
@@ -2543,7 +2546,7 @@ function treeHTML(pid, depth) {
 }
 function notesRailHTML() {
   const res = notesFiltered(), f = UI.nf || 'all', tags = allTags(), q = String(UI.nq || '').trim();
-  return `<div class="dk-railhd"><span>Notes</span><div class="dk-menu"><button class="dk-btn sm gold" data-act="menu" aria-haspopup="menu">${ICON.plus} New</button><div class="dk-mlist" role="menu">${Object.entries(NTYPES).map(([k, t]) => `<button data-act="nnew" data-t="${k}">${nIcon(k)}<span>${esc(t.n)}</span></button>`).join('')}<button data-act="nimport">${ICON.importIc}<span>Import…</span></button></div></div><button class="dk-ix dk-railx" data-act="tree" aria-label="Close">${ICON.x}</button></div>
+  return `<div class="dk-railhd"><span>Notes</span><div class="dk-menu"><button class="dk-btn sm gold" data-act="menu" aria-haspopup="menu">${ICON.plus} New</button><div class="dk-mlist" role="menu">${Object.entries(NTYPES).filter(([k]) => k === 'blank' || k === 'map').map(([k, t]) => `<button data-act="nnew" data-t="${k}">${nIcon(k)}<span>${esc(t.n)}</span></button>`).join('')}<button data-act="nimport">${ICON.importIc}<span>Import…</span></button></div></div><button class="dk-ix dk-railx" data-act="tree" aria-label="Close">${ICON.x}</button></div>
     <div class="dk-nsearch"><input class="dk-f" id="dk-nq" type="search" value="${esc(UI.nq || '')}" placeholder="Search ${plural(pagesList().length, 'page')}" aria-label="Search notes" autocomplete="off"></div>
     <div class="dk-nfilt">${[['all', 'All'], ['fav', '★ Pinned'], ['recent', 'Recent'], ['maps', 'Maps']].map(([k, n]) => `<button class="${f === k ? 'on' : ''}" data-act="nfilt" data-v="${k}">${n}</button>`).join('')}${tags.length ? `<select class="dk-f" id="dk-ntag" aria-label="Tag"><option value="">#tag</option>${tags.map(t => `<option${f === 'tag' && UI.ntag === t ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>` : ''}</div>
     <div class="dk-tree dk-ntree" data-keep="ntree">${res ? (res.length ? res.map(p => `<button class="dk-nres${p.id === UI.np ? ' on' : ''}" data-act="nopen" data-id="${p.id}">${nIcon(p.type)}<span><b>${esc(p.title)}</b><small>${q ? snippet(p, q) : relTime(p.edited)}</small></span></button>`).join('') : '<p class="dk-tnone">Nothing found.</p>')
@@ -2559,13 +2562,13 @@ function notesHTML() {
 function notesHomeHTML() {
   const recent = pagesList().sort((a, b) => N(b.edited) - N(a.edited)).slice(0, 8), favs = pagesList().filter(p => p.fav);
   if (!pagesList().length) return `<div class="dk-empty"><div class="dk-emblem">${ICON.book}</div><h2>Your campaign wiki</h2><p>Places, people, factions, quests and session logs — linked to each other with [[wiki links]], with maps you can pin. Import from LegendKeeper, Obsidian or Craft, or start fresh.</p><div class="dk-row" style="justify-content:center"><button class="dk-btn gold big" data-act="nnew" data-t="blank">${ICON.plus} New page</button><button class="dk-btn big" data-act="nimport">Import notes</button></div></div>`;
-  const card = p => `<button class="dk-nhcard" data-act="nopen" data-id="${p.id}">${nIcon(p.type)}<b>${esc(p.title)}</b><small>${esc((NTYPES[p.type] || NTYPES.blank).n)} · ${relTime(p.edited)}</small><span>${snippet(p)}</span></button>`;
+  const card = p => `<button class="dk-nhcard" data-act="nopen" data-id="${p.id}">${nIcon(p.type)}<b>${esc(p.title)}</b><small>${esc(NTYPES[NKIND(p.type)].n)} · ${relTime(p.edited)}</small><span>${snippet(p)}</span></button>`;
   return `<section class="dk-card"><h2 class="dk-h2">Pinned</h2>${favs.length ? `<div class="dk-nhgrid">${favs.map(card).join('')}</div>` : '<p class="dk-hint">Pin pages with ★ to keep them here.</p>'}</section>
     <section class="dk-card"><h2 class="dk-h2">Recently edited</h2><div class="dk-nhgrid">${recent.map(card).join('')}</div></section>
-    <section class="dk-card"><h2 class="dk-h2">Start something</h2><div class="dk-row">${Object.entries(NTYPES).map(([k, t]) => `<button class="dk-btn sm" data-act="nnew" data-t="${k}">${nIcon(k)} ${esc(t.n)}</button>`).join('')}</div></section>`;
+    <section class="dk-card"><h2 class="dk-h2">Start something</h2><div class="dk-row">${Object.entries(NTYPES).filter(([k]) => k === 'blank' || k === 'map').map(([k, t]) => `<button class="dk-btn sm" data-act="nnew" data-t="${k}">${nIcon(k)} ${esc(t.n)}</button>`).join('')}</div></section>`;
 }
 function propsHTML(p) {
-  const T = NTYPES[p.type] || NTYPES.blank, X = Array.isArray(p.xprops) ? p.xprops : [];
+  const T = NTYPES.blank, X = Array.isArray(p.xprops) ? p.xprops : [];
   const xs = X.map((x, i) => `<label class="dk-npx"><span class="dk-lbl">${esc(x.t)}</span>${String(x.v).length > 60 || /\n/.test(x.v) ? `<textarea class="dk-f" data-npx="${i}" rows="2" maxlength="2000">${esc(x.v)}</textarea>` : `<input class="dk-f" data-npx="${i}" value="${esc(x.v)}" maxlength="2000">`}</label>`).join('');
   if (!T.props.length) return xs ? `<div class="dk-nprops">${xs}</div>` : '';
   return `<div class="dk-nprops">${xs}${T.props.map(([k, lb, kind, opts]) => {
@@ -2578,13 +2581,13 @@ function propsHTML(p) {
 }
 const TOOLS = [['b', 'Bold', '<b>B</b>'], ['i', 'Italic', '<i>I</i>'], ['u', 'Underline', '<u>U</u>'], ['s', 'Strikethrough', '<s>S</s>'], ['|'], ['h1', 'Heading 1', 'H1'], ['h2', 'Heading 2', 'H2'], ['h3', 'Heading 3', 'H3'], ['p', 'Normal text', '¶'], ['|'], ['ul', 'Bulleted list', '•'], ['ol', 'Numbered list', '1.'], ['check', 'Checklist', '☑'], ['quote', 'Quote', '❝'], ['callout', 'Callout', 'ⓘ'], ['secret', 'Secret (DM only)', '🔒'], ['|'], ['table', 'Table', '▦'], ['hr', 'Divider', '—'], ['img', 'Picture', '🖼'], ['link', 'Web link', '🔗'], ['wiki', 'Link a page  [[', '[[ ]]'], ['mention', 'Mention a creature  @', '@']];
 function pageHTML(p) {
-  const T = NTYPES[p.type] || NTYPES.blank, path = pathOf(p), back = backlinks(p), ks = kids(p.id);
+  const T = NTYPES[NKIND(p.type)], path = pathOf(p), back = backlinks(p), ks = kids(p.id);
   return `<article class="dk-card dk-page2" data-pid="${p.id}" style="--tc:${T.c}">
-    <nav class="dk-crumbs">${path.slice(0, -1).map(x => `<button class="dk-link" data-act="nopen" data-id="${x.id}">${esc(x.title)}</button><span>›</span>`).join('')}<span class="dk-muted">${esc(T.n)}</span></nav>
+    <nav class="dk-crumbs">${path.slice(0, -1).map(x => `<button class="dk-link" data-act="nopen" data-id="${x.id}">${esc(x.title)}</button><span>›</span>`).join('')}</nav>
     <header class="dk-phead">${nIcon(p.type, 'dk-nic big')}<input class="dk-title" id="dk-pt-${p.id}" data-nt="title" value="${esc(p.title)}" maxlength="120" aria-label="Page title">
       <button class="dk-ix dk-fav${p.fav ? ' on' : ''}" data-act="nfav" title="${p.fav ? 'Unpin' : 'Pin'}" aria-pressed="${!!p.fav}">★</button>
-      <div class="dk-menu"><button class="dk-btn icon sm" data-act="menu" aria-label="Page menu" aria-haspopup="menu">${ICON.dots}</button><div class="dk-mlist" role="menu"><button data-act="nsub">Add a subpage</button><button data-act="ntype">Change type…</button><button data-act="nmove">Move to…</button><button data-act="nalias">Other names…</button><button data-act="nmd">Export as Markdown</button><button class="red" data-act="ndel">Delete page</button></div></div></header>
-    <div class="dk-pmeta"><span class="dk-chip" style="color:${T.c}">${esc(T.n)}</span>${(p.tags || []).map(t => `<span class="dk-chip tag">#${esc(t)}<button data-act="nrmtag" data-tag="${esc(t)}" aria-label="Remove tag ${esc(t)}">${ICON.x}</button></span>`).join('')}<input class="dk-tagin" id="dk-tag-${p.id}" placeholder="+ tag" maxlength="40" aria-label="Add a tag"><span class="dk-grow"></span><small class="dk-hint">Edited ${relTime(p.edited)}</small></div>
+      <div class="dk-menu"><button class="dk-btn icon sm" data-act="menu" aria-label="Page menu" aria-haspopup="menu">${ICON.dots}</button><div class="dk-mlist" role="menu"><button data-act="nsub">Add a subpage</button><button data-act="nmove">Move to…</button><button data-act="nalias">Other names…</button><button data-act="nmd">Export as Markdown</button><button class="red" data-act="ndel">Delete page</button></div></div></header>
+    <div class="dk-pmeta">${(p.tags || []).map(t => `<span class="dk-chip tag">#${esc(t)}<button data-act="nrmtag" data-tag="${esc(t)}" aria-label="Remove tag ${esc(t)}">${ICON.x}</button></span>`).join('')}<input class="dk-tagin" id="dk-tag-${p.id}" placeholder="+ tag" maxlength="40" aria-label="Add a tag"><span class="dk-grow"></span><small class="dk-hint">Edited ${relTime(p.edited)}</small></div>
     ${propsHTML(p)}
     ${p.type === 'map' ? mapHTML(p) : ''}
     <div class="dk-tools2" role="toolbar" aria-label="Formatting">${TOOLS.map(t => t[0] === '|' ? '<i></i>' : `<button data-ed="${t[0]}" title="${esc(t[1])}" aria-label="${esc(t[1])}" tabindex="-1">${t[2]}</button>`).join('')}</div>
@@ -2699,7 +2702,7 @@ function edPaste(e) {
 }
 function showPreview(a) {
   const pop = $('.dk-pop'); if (!pop) return; const p = pageById(a.dataset.page) || pageByTitle(a.dataset.title); if (!p) { pop.hidden = true; return; }
-  const T = NTYPES[p.type] || NTYPES.blank, r = a.getBoundingClientRect();
+  const T = NTYPES[NKIND(p.type)], r = a.getBoundingClientRect();
   pop.innerHTML = `<header>${nIcon(p.type)}<b>${esc(p.title)}</b><small style="color:${T.c}">${esc(T.n)}</small></header>${T.props.length ? `<dl>${T.props.filter(([k, , kind]) => (p.props || {})[k] && kind !== 'stat').slice(0, 3).map(([k, lb, kind]) => `<dt>${lb}</dt><dd>${esc(kind === 'page' ? (pageById(p.props[k]) || {}).title || '' : p.props[k])}</dd>`).join('')}</dl>` : ''}<p>${esc(pageText(p).slice(0, 220))}${pageText(p).length > 220 ? '…' : ''}</p>`;
   pop.hidden = false; const w = Math.min(300, innerWidth - 24); pop.style.width = w + 'px'; pop.style.left = Math.max(12, Math.min(innerWidth - w - 12, r.left)) + 'px'; pop.style.top = (r.bottom + 8 > innerHeight - 200 ? r.top - 8 - pop.offsetHeight : r.bottom + 8) + 'px';
 }
