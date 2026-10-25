@@ -137,8 +137,6 @@ open(os.path.join(OUT, 'manifest.webmanifest'), 'w').write(json.dumps({'name': '
   'related_applications': [{'platform': 'webapp', 'url': 'https://adventurers-tome.web.app/manifest.webmanifest'}]}, ensure_ascii=False, indent=1))
 shutil.copy(os.path.join(D, 'icons', 'og-roll.gif'), os.path.join(OUT, 'og-roll.gif'))
 # the link preview: the tour video, played from YouTube (Discord shows YouTube's player), with the thumbnail as its picture
-# (og-tour.mp4 stays on the site as a plain copy of the video)
-shutil.copy(os.path.join(D, 'icons', 'og-tour.mp4'), os.path.join(OUT, 'og-tour.mp4'))
 shutil.copy(os.path.join(D, 'icons', 'og-tour.png'), os.path.join(OUT, 'og-tour.png'))
 # Discord leaves the description off a video preview, so the blurb also goes in through oEmbed: the small grey line above the
 # title (it holds at most 256 characters, so the blurb is a touch shorter there)
