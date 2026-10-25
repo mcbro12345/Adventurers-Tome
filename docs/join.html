@@ -2867,6 +2867,12 @@ body.adminbody .adm-side .adm-nav .adm-ind::before { display: none; }
 .ha-drop.ha-up { right: auto; width: 300px; }
 @media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.adminbody { --adm-side-ink: #1f2a44; } :where(html:not([data-pgtheme])) body.adminbody .adm-side { color: #1f2a44; } :where(html:not([data-pgtheme])) body.adminbody .adm-ni:hover { background: rgba(0,0,0,.05); } :where(html:not([data-pgtheme])) body.adminbody .adm-acct:hover, :where(html:not([data-pgtheme])) body.adminbody .adm-acct.open { background: rgba(0,0,0,.05); } :where(html:not([data-pgtheme])) body.adminbody .adm-back { color: #8a6420; } }
  :where(html[data-pgtheme="light"]) body.adminbody { --adm-side-ink: #1f2a44; } :where(html[data-pgtheme="light"]) body.adminbody .adm-side { color: #1f2a44; } :where(html[data-pgtheme="light"]) body.adminbody .adm-ni:hover { background: rgba(0,0,0,.05); } :where(html[data-pgtheme="light"]) body.adminbody .adm-acct:hover, :where(html[data-pgtheme="light"]) body.adminbody .adm-acct.open { background: rgba(0,0,0,.05); } :where(html[data-pgtheme="light"]) body.adminbody .adm-back { color: #8a6420; } 
+/* admin: the way back, compact, and it lights up on hover like the one in character creation */
+body.adminbody .adm-backrow { padding: 2px 18px 4px; }
+body.adminbody .adm-back { gap: 4px; padding: 4px 0; font-size: .84rem; font-weight: 700; color: #c9b07a; transition: color .15s; }
+body.adminbody .adm-back:hover { color: #e0aa3a; }
+@media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.adminbody .adm-back { color: #8a6420; } :where(html:not([data-pgtheme])) body.adminbody .adm-back:hover { color: #b8862a; } }
+ :where(html[data-pgtheme="light"]) body.adminbody .adm-back { color: #8a6420; } :where(html[data-pgtheme="light"]) body.adminbody .adm-back:hover { color: #b8862a; } 
 </style>
 </head>
 <body>
@@ -3540,7 +3546,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024222116', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.10ac34f51762.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.bf5693d15950.html", "desk": "a/desk.85c973541242.js", "deskcss": "a/deskcss.687926a74527.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024222638', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.10ac34f51762.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.bf5693d15950.html", "desk": "a/desk.85c973541242.js", "deskcss": "a/deskcss.687926a74527.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }

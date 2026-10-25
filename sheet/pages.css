@@ -2711,3 +2711,8 @@ body.adminbody .nwp-d, body.adminbody .nwp-m, body.adminbody .nw-it { border: 1p
 body.adminbody .adm-side .adm-nav .adm-ind::before { display: none; }
 .ha-drop.ha-up { right: auto; width: 300px; }
 @media (prefers-color-scheme: light) { body.adminbody { --adm-side-ink: #1f2a44; } body.adminbody .adm-side { color: #1f2a44; } body.adminbody .adm-ni:hover { background: rgba(0,0,0,.05); } body.adminbody .adm-acct:hover, body.adminbody .adm-acct.open { background: rgba(0,0,0,.05); } body.adminbody .adm-back { color: #8a6420; } }
+/* admin: the way back, compact, and it lights up on hover like the one in character creation */
+body.adminbody .adm-backrow { padding: 2px 18px 4px; }
+body.adminbody .adm-back { gap: 4px; padding: 4px 0; font-size: .84rem; font-weight: 700; color: #c9b07a; transition: color .15s; }
+body.adminbody .adm-back:hover { color: #e0aa3a; }
+@media (prefers-color-scheme: light) { body.adminbody .adm-back { color: #8a6420; } body.adminbody .adm-back:hover { color: #b8862a; } }
