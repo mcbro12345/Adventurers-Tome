@@ -94,7 +94,7 @@ const deskBase = () => DESK_PID() ? userBase().collection('party').doc(DESK_PID(
 let BASE = null, CLOUD = false, cloudT = 0, flushing = false, again = false, syncMsg = '';
 const SYNCED = { main: '', cre: new Map(), ses: new Map() };
 const mainBody = () => ({ v: S.v, savedAt: S.savedAt, settings: S.settings });
-function setSync(t) { syncMsg = t; const el = $('.dk-sync'); if (el) { el.textContent = t; el.classList.toggle('bad', /couldn|offline|retry/i.test(t)); } }
+function setSync(t) { syncMsg = t; const el = $('.dk-sync'); if (el) { el.textContent = t; el.title = t; el.classList.toggle('busy', /…/.test(t)); el.classList.toggle('bad', /couldn|offline|retry/i.test(t)); } }
 function cloudSoon() { if (!CLOUD) return; clearTimeout(cloudT); setSync('Saving…'); cloudT = setTimeout(flush, 900); }
 async function flush() {
   if (!CLOUD) return; if (flushing) { again = true; return; } flushing = true;
@@ -1233,7 +1233,7 @@ function topHTML() {
   return `
     <div class="dk-bcol"><div class="dk-brand">${CTX.logo && typeof CTX.logo.html === 'function' ? `<span class="dk-logo">${CTX.logo.html()}</span>` : '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 2 36 11v18L20 38 4 29V11z" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M20 2v36M4 11l32 18M36 11 4 29" stroke="currentColor" stroke-width="1.2" opacity=".55"/></svg>'}<div><small>${p ? esc(p.name || 'Your party') : 'Adventurer’s Tome'}</small><h1>DM’s Desk</h1></div></div></div>
     <nav class="dk-tabs" role="tablist">${CTX.partyHost ? `<button role="tab" data-act="tab" data-tab="party" aria-selected="${UI.tab === 'party'}" class="${UI.tab === 'party' ? 'on' : ''}">${ICO_PARTY}<span>Party</span></button>` : ''}<button role="tab" data-act="tab" data-tab="sessions" aria-selected="${UI.tab === 'sessions'}" class="${UI.tab === 'sessions' ? 'on' : ''}">${ICON.folder}<span>Sessions</span></button><button role="tab" data-act="tab" data-tab="notes" aria-selected="${UI.tab === 'notes'}" class="${UI.tab === 'notes' ? 'on' : ''}">${ICON.notes}<span>Notes</span></button><button role="tab" data-act="tab" data-tab="bestiary" aria-selected="${UI.tab === 'bestiary'}" class="${UI.tab === 'bestiary' ? 'on' : ''}">${ICON.book}<span>Bestiary</span></button><button role="tab" data-act="tab" data-tab="gen" aria-selected="${UI.tab === 'gen'}" class="${UI.tab === 'gen' ? 'on' : ''}">${ICON.dice}<span>Generate</span></button></nav>
-    <div class="dk-tools"><span class="dk-sync">${esc(syncMsg)}</span>
+    <div class="dk-tools"><span class="dk-sync${/couldn|offline|retry/i.test(syncMsg) ? ' bad' : ''}${/…/.test(syncMsg) ? ' busy' : ''}" title="${esc(syncMsg)}">${esc(syncMsg)}</span>
       <span class="dk-histb"><button class="dk-tb" data-act="dundo" aria-label="Undo">${ICON.undo}</button><button class="dk-tb" data-act="dredo" aria-label="Redo">${ICON.redo}</button><button class="dk-tb" data-act="dhistory" title="Change history" aria-label="Change history">${ICON.hist}</button></span>
       ${p && typeof CTX.turnOrder === 'function' ? `<button class="dk-tb dk-tobtn" data-act="turnorder" title="Turn order" aria-label="Turn order">${ICON.init}</button>` : ''}<button class="dk-tb" data-act="diceroller" title="Dice roller" aria-pressed="${!!$('.drwin:not(.closing)')}">${ICON.dice}<span class="dk-tl">Roll</span></button>
       <button class="dk-tb" data-act="log" title="Roll log" aria-pressed="${UI.log}">${ICON.log}<span class="dk-tl">Log</span></button>
@@ -1616,7 +1616,8 @@ function openSettings(tab) {
       ${row('About', '', `${esc(TOK_CREDIT)}. Creature stat blocks: SRD 5.1 (CC BY 4.0).`)}`)}
     ${pane('notes', `${row('Your notes', `<button class="dk-btn sm" data-act="tab" data-tab="notes" data-close="1">Open</button>`, plural(np, 'page') + ' in your wiki.')}
       ${row('Import notes', `<button class="dk-btn sm" data-act="nimport">Import…</button>`, 'LegendKeeper, Obsidian, Craft, Markdown or a notes backup.')}
-      ${row('Export notes', `<button class="dk-btn sm" data-act="nexport">Export…</button>`, 'A Markdown zip or a JSON backup.')}`)}
+      ${row('Export notes', `<button class="dk-btn sm" data-act="nexport">Export…</button>`, 'A Markdown zip or a JSON backup.')}
+      ${row('Daily backups', `<button class="dk-btn sm" data-act="nbackups">Backups…</button>`, 'A copy of your notes from each of the last 14 days, kept in this browser.')}`)}
     </div>`, { wide: true, focus: false, cls: 'dk-setwin', sheet: true });
   paintR20();
 }
@@ -1957,7 +1958,7 @@ function mount(root, ctx) {
   on(document, 'keydown', onKey); on(document, 'mousedown', onDocDown); on(document, 'touchstart', onDocDown, { passive: true });
   on(window, 'message', onR20Msg); on(document, 'visibilitychange', onVis); on(window, 'storage', onStorage);
   setTimeout(r20Hello, 400);
-  cloudBoot(); notesBoot(); setTimeout(() => { if (ROOT) tokShrinkOld(); }, 3000);
+  cloudBoot(); notesBoot().finally(() => { if (ROOT) nbkStart(); }); setTimeout(() => { if (ROOT) tokShrinkOld(); }, 3000);
   if (LITE) setTimeout(phoneWarn, 700);
   return { unmount };
 }
@@ -2633,6 +2634,70 @@ function htmlToMd(html) {
   }).join('');
   return blk(d, '').replace(/\n{3,}/g, '\n\n').trim() + '\n';
 }
+// ---------- daily notes backups, kept on this device ----------
+// Once a day (the first time the desk is open that day) it keeps a compressed copy of every notes page in this browser's
+// own storage, for the last 14 days. A day's copy is never overwritten, so a mistake made later that day can't spoil it. Nothing goes to the account, so it uses none of the site's storage.
+// Pictures aren't copied: they stay in your account and pages point at them. Restore puts pages back as they were that day.
+const NBK_DAYS = 14;
+let NBK_DB = null, NBK_SIG = '', NBK_T = 0;
+const nbkOwner = () => lsKey('-nbk');
+const nbkDay = (t = Date.now()) => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+function nbkDb() {
+  if (NBK_DB) return NBK_DB;
+  NBK_DB = new Promise((res, rej) => { if (!window.indexedDB) return rej(new Error('no storage')); const r = indexedDB.open('pg-desk-backups', 1);
+    r.onupgradeneeded = () => { const s = r.result.createObjectStore('bk', { keyPath: 'k' }); s.createIndex('owner', 'owner'); };
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+  NBK_DB.catch(() => { NBK_DB = null; }); return NBK_DB;
+}
+const nbkTx = async (mode, fn) => { const db = await nbkDb(); return new Promise((res, rej) => { const t = db.transaction('bk', mode), s = t.objectStore('bk'); let out; Promise.resolve(fn(s)).then(v => { out = v; }); t.oncomplete = () => res(out); t.onerror = () => rej(t.error); }); };
+const nbkReq = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+async function nbkPack(text) {
+  if (window.CompressionStream) { const s = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip')); return { gz: true, data: await new Response(s).blob() }; }
+  return { gz: false, data: text };
+}
+async function nbkUnpack(rec) {
+  if (!rec.gz) return String(rec.data);
+  return new Response(rec.data.stream().pipeThrough(new DecompressionStream('gzip'))).text();
+}
+async function nbkList() { try { return (await nbkTx('readonly', s => nbkReq(s.index('owner').getAll(nbkOwner())))).sort((a, b) => b.at - a.at); } catch (e) { return []; } }
+// make today's copy if there isn't one yet (key: a named copy, made every time, e.g. just before a restore)
+async function nbkSave(force, key) {
+  const pages = pagesList(); if (!pages.length && !force) return;
+  const text = JSON.stringify({ app: 'dm-desk-notes', v: 1, pages }), sig = text.length + ':' + pages.reduce((t, p) => Math.max(t, N(p.edited)), 0);
+  if (!force && sig === NBK_SIG) return; NBK_SIG = sig;
+  try {
+    const day = nbkDay();
+    if (!key && await nbkTx('readonly', s => nbkReq(s.get(nbkOwner() + ':' + day))).catch(() => null)) return; // today's copy is already made
+    const packed = await nbkPack(text);
+    await nbkTx('readwrite', s => s.put({ k: nbkOwner() + ':' + (key || day), owner: nbkOwner(), day: key ? '' : day, kind: key || 'day', at: Date.now(), n: pages.length, bytes: packed.data.size || packed.data.length, gz: packed.gz, data: packed.data }));
+    // only the newest 14 days are kept
+    const days = (await nbkList()).filter(r => r.kind === 'day');
+    if (days.length > NBK_DAYS) await nbkTx('readwrite', s => days.slice(NBK_DAYS).forEach(r => s.delete(r.k)));
+  } catch (e) { console.warn('notes backup', e); }
+}
+function nbkStart() { clearInterval(NBK_T); setTimeout(() => nbkSave(), 4000); NBK_T = setInterval(() => { if (ROOT) nbkSave(); else clearInterval(NBK_T); }, 30 * 60000); }
+const nbkSize = b => b < 1024 ? b + ' B' : b < 1048576 ? Math.round(b / 1024) + ' KB' : (b / 1048576).toFixed(1) + ' MB';
+const nbkWhen = r => r.kind === 'undo' ? 'Just before your last restore' : new Date(r.at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) + (r.day === nbkDay() ? ' (today)' : '');
+async function openBackups() {
+  await nbkSave();
+  const L = await nbkList();
+  openModal(`<h2>Notes backups</h2><p class="dk-hint">Every day the desk keeps a copy of your notes in this browser, for the last ${NBK_DAYS} days. They're only on this device and don't use any of your account's storage. Pictures stay in your account.</p>
+    ${L.length ? `<ol class="dk-hist dk-bkl">${L.map(r => `<li><span class="dk-hl"><b>${esc(nbkWhen(r))}</b> <small>· ${plural(r.n, 'page')} · ${nbkSize(r.bytes)} · saved ${new Date(r.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</small></span><span class="dk-row"><button class="dk-btn sm" data-bk="dl" data-k="${esc(r.k)}">Download</button><button class="dk-btn sm gold" data-bk="restore" data-k="${esc(r.k)}">Restore</button></span></li>`).join('')}</ol>` : '<p class="dk-hint">No backups yet. The first one is made a few seconds after your notes load.</p>'}
+    <div class="dk-acts"><button class="dk-btn" data-act="close">Close</button></div>`, { focus: false });
+  $$('[data-bk]').forEach(b => b.onclick = () => nbkAct(b.dataset.bk, b.dataset.k));
+}
+async function nbkAct(what, k) {
+  const r = await nbkTx('readonly', s => nbkReq(s.get(k))).catch(() => null); if (!r) return toastInfo('That backup is gone.');
+  const text = await nbkUnpack(r);
+  if (what === 'dl') return download('dm-desk-notes-' + (r.day || 'before-restore') + '.json', text);
+  confirmBox(`Put your notes back the way they were ${r.kind === 'undo' ? 'just before your last restore' : 'on ' + esc(nbkWhen(r).replace(' (today)', ''))}? Pages changed since then go back to that version and deleted pages come back. Pages made after it are kept.`, 'Restore', async () => {
+    let d; try { d = JSON.parse(text); } catch (e) { return toastInfo('That backup couldn’t be read.'); }
+    try { edFlush(); } catch (e) {}
+    if (r.kind !== 'undo') await nbkSave(true, 'undo');
+    let n = 0; for (const p of d.pages || []) { if (!p || !p.id) continue; NT.pages[p.id] = Object.assign({}, p, { edited: Date.now() }); const i = NT.del.indexOf(p.id); if (i >= 0) NT.del.splice(i, 1); n++; }
+    nSaveQuiet(); paint(); toastInfo(`Restored ${plural(n, 'page')}${r.kind === 'undo' ? '' : ' from ' + esc(nbkWhen(r).replace(' (today)', ''))}.`);
+  });
+}
 // ---------- Notes: drawing and editing ----------
 const relTime = t => { const d = (Date.now() - N(t)) / 60000; return d < 1 ? 'just now' : d < 60 ? Math.round(d) + ' min ago' : d < 1440 ? Math.round(d / 60) + ' h ago' : d < 10080 ? Math.round(d / 1440) + ' days ago' : new Date(t).toLocaleDateString(); };
 const allTags = () => Array.from(new Set([].concat(...pagesList().map(p => p.tags || [])))).sort((a, b) => a.localeCompare(b));
@@ -2659,7 +2724,7 @@ function notesRailHTML() {
     <div class="dk-nfilt">${[['all', 'All'], ['fav', '★ Pinned'], ['recent', 'Recent'], ['maps', 'Maps']].map(([k, n]) => `<button class="${f === k ? 'on' : ''}" data-act="nfilt" data-v="${k}">${n}</button>`).join('')}${tags.length ? `<select class="dk-f" id="dk-ntag" aria-label="Tag"><option value="">#tag</option>${tags.map(t => `<option${f === 'tag' && UI.ntag === t ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>` : ''}</div>
     <div class="dk-tree dk-ntree" data-keep="ntree">${res ? (res.length ? res.map(p => `<button class="dk-nres${p.id === UI.np ? ' on' : ''}" data-act="nopen" data-id="${p.id}">${nIcon(p.type)}<span><b>${esc(p.title)}</b><small>${q ? snippet(p, q) : relTime(p.edited)}</small></span></button>`).join('') : '<p class="dk-tnone">Nothing found.</p>')
       : (pagesList().length ? treeHTML('', 0) + '<div class="dk-ntdrop" data-dropend="1">Drop here to move to the top level</div>' : '<p class="dk-tnone">No pages yet</p>')}</div>
-    <div class="dk-nrailft"><button class="dk-btn sm ghost" data-act="nimport">${ICON.importIc}<span>Import</span></button><button class="dk-btn sm ghost" data-act="nexport">${ICON.exportIc}<span>Export</span></button></div>`;
+    <div class="dk-nrailft"><button class="dk-btn sm ghost" data-act="nimport">${ICON.importIc}<span>Import</span></button><button class="dk-btn sm ghost" data-act="nexport">${ICON.exportIc}<span>Export</span></button><button class="dk-btn sm ghost" data-act="nbackups">${ICON.hist}<span>Backups</span></button></div>`;
 }
 function notesHTML() {
   const p = pageById(UI.np);
@@ -3357,6 +3422,7 @@ function onNotesAct(act, b, e) {
     case 'ntoggle': UI.nopen[b.dataset.id] = !UI.nopen[b.dataset.id]; saveUI(); paint(); return true;
     case 'nfilt': UI.nf = UI.nf === b.dataset.v && b.dataset.v !== 'all' ? 'all' : b.dataset.v; saveUI(); paint(); return true;
     case 'nimport': openImport(); return true;
+    case 'nbackups': openBackups(); return true;
     case 'nexport': openModal(`<h2>Export notes</h2><p class="dk-hint">Download all ${plural(pagesList().length, 'page')}.</p><div class="dk-row"><button class="dk-btn gold" id="dk-exMd">Markdown (.zip)</button><button class="dk-btn" id="dk-exJs">Backup (.json)</button></div><p class="dk-hint">Markdown opens in Obsidian and most note apps. The backup brings everything back into the desk, pictures included.</p><div class="dk-acts"><button class="dk-btn" data-act="close">Close</button></div>`, { focus: false });
       $('#dk-exMd').onclick = () => { closeModal(true); exportNotes('md').catch(x => toastInfo(esc(x.message))); }; $('#dk-exJs').onclick = () => { closeModal(true); exportNotes('json'); }; return true;
     case 'pinclose': { const pp = $('.dk-pinpop'); if (pp) pp.hidden = true; return true; }

@@ -1416,3 +1416,10 @@ html[data-pgtheme="light"] .dk-back2 { color: #8a6420; } html[data-pgtheme="ligh
 .dk-hist li:first-child { border-top: 0; }
 .dk-htm { font-variant-numeric: tabular-nums; opacity: .7; font-size: .85rem; }
 .dk-hl { overflow-wrap: anywhere; } .dk-hl small { opacity: .6; }
+.dk-bkl li { grid-template-columns: minmax(0, 1fr) auto; } .dk-bkl .dk-row { flex-wrap: nowrap; gap: 6px; }
+/* narrower windows: the save note shrinks to a dot (hover it for the words) so Undo, Redo and History fit on one line */
+@media (min-width: 641px) and (max-width: 1640px) {
+  .dk-tools .dk-sync:not(.bad) { width: 10px !important; max-width: 10px !important; height: 10px; margin: 0 4px !important; padding: 0; font-size: 0 !important; overflow: hidden; border-radius: 50%; background: #3fb57a; opacity: .8 !important; pointer-events: auto; }
+  .dk-tools .dk-sync.busy:not(.bad) { background: #e0aa3a; }
+}
+@media (min-width: 641px) and (max-width: 1460px) { .dk-histb { gap: 2px; } .dk-histb .dk-tb { padding: 0 8px !important; } }
