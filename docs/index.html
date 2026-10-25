@@ -3547,7 +3547,7 @@ const SKSNAP = {
     mo.observe(host, { childList: true, subtree: true }); setTimeout(() => mo.disconnect(), 20000); }
 };
 try { Object.keys(localStorage).forEach(k => { if (k.startsWith('pg-sksnap-')) localStorage.removeItem(k); }); } catch (e) {}
-function pgSkelFill() { document.querySelectorAll('.sk-auto:empty').forEach(el => { const k = el.dataset.k, host = el.parentElement, snap = /^adm-/.test(k) && host ? SKSNAP.get(k, host.clientWidth) : '';
+function pgSkelFill() { document.querySelectorAll('.sk-auto:empty').forEach(el => { const k = el.dataset.k, host = el.parentElement, snap = /^adm-/.test(k) && host ? SKSNAP.get(k, Number(host.dataset.w) || host.clientWidth) : '';
   el.innerHTML = snap ? `<div class="sk-snap" aria-busy="true" aria-label="Loading">${snap}</div>` : (SKEL[k] || SKEL.rows)(Number(el.dataset.n) || 0); SKSNAP.watch(k, host); }); }
 function pgScrollFx() { document.querySelectorAll('.pty-pick').forEach(el => { const t = el.scrollTop > 2, b = el.scrollTop + el.clientHeight < el.scrollHeight - 2; el.classList.toggle('sc-top', t); el.classList.toggle('sc-bot', b); }); }
 document.addEventListener('scroll', e => { if (e.target && e.target.classList && e.target.classList.contains('pty-pick')) pgScrollFx(); }, true);
@@ -3759,8 +3759,10 @@ function sheetScrollbar() {
     return { y: scrollY, vis: innerHeight, all: de.scrollHeight, to: y => scrollTo(0, y), by: o => scrollBy(o) }; };
   const paint = () => { const g = S(), max = g.all - g.vis; if (max < 2 || document.querySelector('#modal.open')) { sb.hidden = true; return; } sb.hidden = false;
     const H = sb.clientHeight, h = Math.max(36, H * g.vis / g.all); th.style.height = h + 'px'; th.style.transform = `translateY(${(H - h) * (g.y / max)}px)`; };
-  document.addEventListener('scroll', paint, { passive: true, capture: true }); addEventListener('resize', paint); new ResizeObserver(paint).observe(document.body);
-  new MutationObserver(paint).observe(document.body, { attributes: true, childList: true, subtree: true, attributeFilter: ['class'] }); setTimeout(paint, 100);
+  // (page changes are batched to once a frame, so a big change doesn't make the browser lay the page out over and over)
+  let PR = 0; const later = () => { if (!PR) PR = requestAnimationFrame(() => { PR = 0; paint(); }); };
+  document.addEventListener('scroll', paint, { passive: true, capture: true }); addEventListener('resize', later); new ResizeObserver(later).observe(document.body);
+  new MutationObserver(later).observe(document.body, { attributes: true, childList: true, subtree: true, attributeFilter: ['class'] }); setTimeout(paint, 100);
   th.addEventListener('pointerdown', e => { e.preventDefault(); th.classList.add('drag'); th.setPointerCapture(e.pointerId);
     const g = S(), y0 = e.clientY, s0 = g.y, k = (g.all - g.vis) / Math.max(1, sb.clientHeight - th.offsetHeight);
     const mv = ev => g.to(s0 + (ev.clientY - y0) * k), up = () => { th.classList.remove('drag'); th.removeEventListener('pointermove', mv); th.removeEventListener('pointerup', up); th.removeEventListener('pointercancel', up); };
@@ -4039,7 +4041,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261025114741', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.28c153796cd9.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.5cf7c827a42a.html", "desk": "a/desk.6908bf1eb993.js", "deskcss": "a/deskcss.790def38c94e.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261025115216', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.28c153796cd9.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.5cf7c827a42a.html", "desk": "a/desk.6908bf1eb993.js", "deskcss": "a/deskcss.790def38c94e.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -5733,23 +5735,27 @@ function hub(fs, auth, G, ctx) {
     // Phones: the tabs sit at the bottom of the screen like the sheet's tab bar (same height setting), with a highlight
     // that slides between tabs and can be dragged along the bar.
     const PHONE = matchMedia('(max-width: 860px)');
-    let NAV_PREV = null, NAV_KEY = null;
+    let NAV_PREV = null, NAV_KEY = null, NAV_RECTS = null;
     try { const v = localStorage.getItem('dnd-tablift'); document.documentElement.style.setProperty('--tablift', (v != null && v !== '' ? Number(v) || 0 : 0) + 'px'); } catch (e) { document.documentElement.style.setProperty('--tablift', STANDALONE ? '24px' : '0px'); }
     function navPost() {
       const nv = root.querySelector('.adm-nav'), side = root.querySelector('.adm-side'); if (!nv || !side) return;
       pgPill(PHONE.matches ? () => [...nv.querySelectorAll('.adm-ni')].map(b => ({ k: b.dataset.tab, b, on: b.classList.contains('on'), ic: (b.querySelector('svg') || {}).outerHTML || '', label: (b.querySelector('span') || {}).textContent || b.dataset.tab, badge: (b.querySelector('.adm-badge') || {}).textContent || '' })) : null);
-      if (PHONE.matches) { if (nv.parentElement !== root) root.appendChild(nv); }
-      else if (nv.parentElement !== side) side.insertBefore(nv, side.querySelector('.adm-foot'));
-      let ind = nv.querySelector('.adm-ind'); if (!ind) { ind = document.createElement('span'); ind.className = 'adm-ind'; ind.setAttribute('aria-hidden', 'true'); nv.prepend(ind); }
+      if (PHONE.matches) { if (nv.parentElement !== root) { root.appendChild(nv); NAV_RECTS = null; } }
+      else if (nv.parentElement !== side) { side.insertBefore(nv, side.querySelector('.adm-foot')); NAV_RECTS = null; }
+      let ind = nv.querySelector('.adm-ind'), fresh = !ind; if (!ind) { ind = document.createElement('span'); ind.className = 'adm-ind'; ind.setAttribute('aria-hidden', 'true'); nv.prepend(ind); }
       const on = nv.querySelector('.adm-ni.on'); if (!on) { ind.style.display = 'none'; return; } ind.style.display = '';
-      const nr = nv.getBoundingClientRect(), r = on.getBoundingClientRect(), to = { x: r.left - nr.left, y: r.top - nr.top, w: r.width, h: r.height };
+      // where each tab sits in the list is measured once (and again after a resize), not on every switch
+      if (!NAV_RECTS || !NAV_RECTS[TAB]) { const nr = nv.getBoundingClientRect(); NAV_RECTS = {}; nv.querySelectorAll('.adm-ni').forEach(b => { const r = b.getBoundingClientRect(); NAV_RECTS[b.dataset.tab] = { x: r.left - nr.left + nv.scrollLeft, y: r.top - nr.top + nv.scrollTop, w: r.width, h: r.height }; }); }
+      const to = NAV_RECTS[TAB];
       const set = p => { ind.style.transform = `translate(${p.x}px, ${p.y}px)`; ind.style.width = p.w + 'px'; ind.style.height = p.h + 'px'; };
       const anim = NAV_PREV && NAV_KEY && NAV_KEY !== TAB && !matchMedia('(prefers-reduced-motion: reduce)').matches;
-      ind.style.transition = 'none';
-      if (anim) { set(NAV_PREV); void ind.offsetWidth; ind.style.transition = ''; set(to); } else set(to);
+      // (a highlight that's already showing just slides on; only a brand new one has to be put at the old spot first)
+      if (anim && !fresh) { ind.style.transition = ''; set(to); }
+      else { ind.style.transition = 'none'; if (anim) { set(NAV_PREV); void ind.offsetWidth; ind.style.transition = ''; set(to); } else set(to); }
       NAV_PREV = to; NAV_KEY = TAB;
     }
-    PHONE.addEventListener && PHONE.addEventListener('change', () => { NAV_PREV = null; NAV_KEY = null; navPost(); });
+    PHONE.addEventListener && PHONE.addEventListener('change', () => { NAV_PREV = null; NAV_KEY = null; NAV_RECTS = null; navPost(); });
+    addEventListener('resize', () => { NAV_RECTS = null; clearTimeout(navPost.t); navPost.t = setTimeout(() => { NAV_PREV = null; navPost(); }, 120); });
     addEventListener('resize', () => { NAV_KEY = TAB; NAV_PREV = null; navPost(); });
     {
       let drag = null, eat = false;
@@ -5788,20 +5794,25 @@ function hub(fs, auth, G, ctx) {
       const navHTML = `<div class="adm-sec">Manage</div>${nav('users', 'Users')}${nav('chars', 'Characters')}${nav('parties', 'Parties')}<div class="adm-sec">Activity</div>${nav('audit', 'Audit log')}${nav('new', 'New')}${nav('bugs', 'Bugs &amp; feedback')}<div class="adm-sec">Announce</div>${nav('notice', 'Notice')}${nav('welcome', 'Welcome')}${nav('news', 'What’s new')}`;
       // Switching tabs only swaps the page on the right: the sidebar (and where its tab strip is scrolled to on a phone) stays put.
       const nv0 = root.querySelector('.adm-nav');
-      if (nv0) { const x = nv0.scrollLeft; nv0.innerHTML = navHTML; nv0.scrollLeft = x;
+      if (nv0) {
+        // (nothing here asks the browser where things are, so a switch never makes it lay out the whole page first)
+        const y0 = scrollY, w0 = (root.querySelector('#ad-body') || {}).clientWidth || 0; if (y0) scrollTo(0, 0);
+        const navKey = navHTML.replace(/adm-ni on"/g, 'adm-ni"');
+        if (nv0.dataset.html === navKey) nv0.querySelectorAll('.adm-ni').forEach(b => b.classList.toggle('on', b.dataset.tab === TAB));
+        else { const x = PHONE.matches ? nv0.scrollLeft : 0; nv0.innerHTML = navHTML; nv0.dataset.html = navKey; NAV_RECTS = null; if (x) nv0.scrollLeft = x; }
         root.querySelector('.adm-head h1').textContent = title; root.querySelector('.adm-head p').textContent = desc;
         // Each tab's page is kept once it has loaded, so going back to it is instant (its own actions refresh it as needed).
         const curB = root.querySelector('#ad-body'), curH = root.querySelector('#adm-hact'), again = PREV_TAB === TAB;
-        if (PREV_TAB && !again) { if (curB.dataset.loaded) PANES[PREV_TAB] = { b: curB, h: curH, y: scrollY }; else delete PANES[PREV_TAB]; }
+        if (PREV_TAB && !again) { if (curB.dataset.loaded) PANES[PREV_TAB] = { b: curB, h: curH, y: y0 }; else delete PANES[PREV_TAB]; }
         const kept = !again && PANES[TAB];
-        if (kept) { curB.replaceWith(kept.b); curH.replaceWith(kept.h); PREV_TAB = TAB; nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab)); scrollTo(0, 0);
+        if (kept) { curB.replaceWith(kept.b); curH.replaceWith(kept.h); PREV_TAB = TAB; nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
           // …and quietly brings it up to date behind the scenes
           later(({ new: () => tabNew(), users: () => paintUsers(), chars: () => paintChars(), parties: () => tabParties(), audit: () => paintAudit(), notice: () => tabNotice(), welcome: () => tabWelcome(), news: () => tabNews(), bugs: () => paintBugs() })[TAB]); return; }
-        const nb = document.createElement('section'); nb.id = 'ad-body'; nb.className = 'adm-body'; nb.innerHTML = `<div class="sk-auto" data-k="${pgAdmSkel(TAB)}" data-n="6"></div>`;
+        const nb = document.createElement('section'); nb.id = 'ad-body'; nb.className = 'adm-body'; nb.dataset.w = w0; nb.innerHTML = `<div class="sk-auto" data-k="${pgAdmSkel(TAB)}" data-n="6"></div>`;
         const nh = document.createElement('div'); nh.id = 'adm-hact'; nh.className = 'adm-hact';
         curB.replaceWith(nb); curH.replaceWith(nh); pgSkelFill(); delete PANES[TAB]; PREV_TAB = TAB;
         nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
-        const on = nv0.querySelector('.adm-ni.on'); if (on && on.scrollIntoView) { const r = on.getBoundingClientRect(), nr = nv0.getBoundingClientRect(); if (r.left < nr.left || r.right > nr.right) nv0.scrollBy({ left: r.left < nr.left ? r.left - nr.left - 12 : r.right - nr.right + 12, behavior: 'smooth' }); }
+        if (PHONE.matches) requestAnimationFrame(() => { const on = nv0.querySelector('.adm-ni.on'); if (!on) return; const r = on.getBoundingClientRect(), nr = nv0.getBoundingClientRect(); if (r.left < nr.left || r.right > nr.right) nv0.scrollBy({ left: r.left < nr.left ? r.left - nr.left - 12 : r.right - nr.right + 12, behavior: 'smooth' }); });
         later(({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit, notice: tabNotice, welcome: tabWelcome, news: tabNews, bugs: tabBugs })[TAB]); return; }
       const keepLogo = root.querySelector('.hub-logo');
       root.innerHTML = `<div class="adm"><aside class="adm-side">
