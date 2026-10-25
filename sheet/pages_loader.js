@@ -1900,7 +1900,7 @@ function hub(fs, auth, G, ctx) {
         if (canDelete(c)) it.push(['del', 'Delete character…', 'hc-del']);
         return it.length ? `<div class="hc-menu"><button class="hc-dots" aria-label="More">⋯</button><div class="hc-list">${it.map(([a, t, k]) => `<button data-a="${a}" data-id="${esc(c.id)}"${k ? ` class="${k}"` : ''}>${MI[a]}${t}</button>`).join('')}</div></div>` : ''; })()}</div>`;
   }
-  const shareNote = c => { const n = (c.viewers || []).length; return n ? `Shared with ${n} · ` : ''; };
+  const shareNote = c => { const n = (c.viewers || []).length; return n ? `<i class="hc-shn">Shared with ${n}</i>` : ''; };
   // Pinned first; then each player's own order (drag to change), then most recently updated.
   const ord = (a, b) => (!!b.pin - !!a.pin) || ((a.order != null ? a.order : 1e9) - (b.order != null ? b.order : 1e9)) || ((b.updatedAt || 0) - (a.updatedAt || 0));
   function row(c) {
@@ -1926,12 +1926,17 @@ function hub(fs, auth, G, ctx) {
   document.addEventListener('pointerdown', e => { const g = e.target.closest && e.target.closest('.hr-grip'); if (!g || e.button > 0) return; const r = g.closest('.hr'); e.preventDefault();
     const b = r.getBoundingClientRect(), gh = r.cloneNode(true); gh.classList.add('hr-ghost', 'drag'); gh.removeAttribute('data-id');
     Object.assign(gh.style, { position: 'fixed', left: b.left + 'px', top: b.top + 'px', width: b.width + 'px', height: b.height + 'px', margin: 0, zIndex: 60, pointerEvents: 'none', transition: 'none', willChange: 'top' });
-    document.body.appendChild(gh); r.classList.add('hr-hold');
-    RD = { r, gh, pin: r.dataset.pin, list: r.parentElement, dy: e.clientY - b.top, y: e.clientY, dx: e.clientX - b.left, x: e.clientX, grid: getComputedStyle(r.parentElement).display === 'grid', raf: 0 }; document.body.classList.add('hdragging'); try { g.setPointerCapture(e.pointerId); } catch (x) {} });
-  const dragStep = () => { const d = RD; if (!d) return; d.raf = 0; d.gh.style.top = (d.y - d.dy) + 'px';
+    // (a tile's copy sits in its own little tile box, so it keeps the tile look while it's carried)
+    const inTiles = !!r.closest('.hd2-main'), wrap = inTiles ? Object.assign(document.createElement('div'), { className: 'hd2-main hd2-ghostwrap' }) : null;
+    if (wrap) { wrap.appendChild(gh); document.body.appendChild(wrap); } else document.body.appendChild(gh); r.classList.add('hr-hold');
+    RD = { r, gh, wrap, pin: r.dataset.pin, list: r.parentElement, dy: e.clientY - b.top, y: e.clientY, dx: e.clientX - b.left, x: e.clientX, grid: getComputedStyle(r.parentElement).display === 'grid', raf: 0 }; document.body.classList.add('hdragging'); try { g.setPointerCapture(e.pointerId); } catch (x) {} });
+  const dragStep = () => { const d = RD; if (!d) return; d.raf = 0;
+    // the carried copy stays inside its own list (characters with characters, parties with parties)
+    const lr = d.list.getBoundingClientRect(), gw = d.gh.offsetWidth, gh_ = d.gh.offsetHeight, cl = (v, a, b) => Math.max(a, Math.min(b, v));
+    d.gh.style.top = cl(d.y - d.dy, lr.top - 6, lr.bottom - gh_ + 6) + 'px';
     const rows = [...d.list.querySelectorAll(':scope > .hr')], peers = rows.filter(x => x !== d.r && x.dataset.pin === d.pin && !x.classList.contains('hd-hide'));
     // tiles (on a computer): the ghost follows the pointer both ways, and the tile it's over makes room
-    if (d.grid) { d.gh.style.left = (d.x - d.dx) + 'px'; const over = peers.find(x => { const bb = x.getBoundingClientRect(); return d.x >= bb.left && d.x <= bb.right && d.y >= bb.top && d.y <= bb.bottom; });
+    if (d.grid) { d.gh.style.left = cl(d.x - d.dx, lr.left - 6, lr.right - gw + 6) + 'px'; const px = cl(d.x, lr.left + 1, lr.right - 1), py = cl(d.y, lr.top + 1, lr.bottom - 1), over = peers.find(x => { const bb = x.getBoundingClientRect(); return px >= bb.left && px <= bb.right && py >= bb.top && py <= bb.bottom; });
       if (over && Date.now() - (d.mt || 0) > 200) { d.mt = Date.now(); const a = rows.indexOf(d.r), o = rows.indexOf(over); slide(rows.filter(x => x !== d.r), () => o > a ? over.after(d.r) : over.before(d.r)); } }
     else if (peers.length) { const mid = d.y - d.dy + d.gh.offsetHeight / 2, tgt = peers.find(x => { const bb = x.getBoundingClientRect(); return mid < bb.top + bb.height / 2; });
       const last = peers[peers.length - 1];
@@ -1941,7 +1946,7 @@ function hub(fs, auth, G, ctx) {
   document.addEventListener('pointermove', e => { if (!RD) return; e.preventDefault(); RD.y = e.clientY; RD.x = e.clientX; if (!RD.raf) RD.raf = requestAnimationFrame(dragStep); }, { passive: false });
   const endDrag = () => { if (!RD) return; const d = RD; RD = null; if (d.raf) cancelAnimationFrame(d.raf); const pb = d.r.getBoundingClientRect();
     d.gh.style.transition = 'top .16s ease, left .16s ease, box-shadow .16s, transform .16s'; d.gh.style.top = pb.top + 'px'; d.gh.style.left = pb.left + 'px'; d.gh.classList.remove('drag');
-    setTimeout(() => { d.gh.remove(); d.r.classList.remove('hr-hold'); document.body.classList.remove('hdragging');
+    setTimeout(() => { (d.wrap || d.gh).remove(); d.r.classList.remove('hr-hold'); document.body.classList.remove('hdragging');
       const all = [...d.list.querySelectorAll(':scope > .hr')]; if (d.r.dataset.party) return PMx().saveOrder(all.filter(x => x.dataset.party).map(x => x.dataset.id)); saveOrder(all.filter(x => x.dataset.pin === '1').map(x => x.dataset.id)).then(() => saveOrder(all.filter(x => x.dataset.pin !== '1').map(x => x.dataset.id))); }, 170); };
   document.addEventListener('pointerup', endDrag); document.addEventListener('pointercancel', endDrag);
 
@@ -2056,7 +2061,14 @@ function hub(fs, auth, G, ctx) {
     { const n = root.querySelector('#hub-wn'); if (keepWn && n && keepWn.dataset.kind === n.dataset.kind) n.replaceWith(keepWn); else { if (WN) WN.stop(); WN = newsMount(n, n.dataset.kind); } }
     PMx().wirePane();
     if (D) { root.querySelector('#hd-newc').onclick = createChar; root.querySelector('#hd-newp').onclick = () => PMx().newParty(); root.querySelector('#hd-join').onclick = joinByLink;
-      root.querySelectorAll('[data-fold]').forEach(b => b.onclick = () => { const k = b.dataset.fold; FOLD[k] = !FOLD[k]; ls.set(FOLD_LS, JSON.stringify(FOLD)); const s = b.closest('.hd-sec'); s.classList.toggle('folded', !!FOLD[k]); b.setAttribute('aria-expanded', FOLD[k] ? 'false' : 'true'); b.setAttribute('aria-label', (FOLD[k] ? 'Show' : 'Hide') + ' this list'); if (!FOLD[k]) tileFit(s); });
+      root.querySelectorAll('[data-fold]').forEach(b => b.onclick = () => { const k = b.dataset.fold; FOLD[k] = !FOLD[k]; ls.set(FOLD_LS, JSON.stringify(FOLD)); const s = b.closest('.hd-sec'), bd = s.querySelector('.hd-body'); b.setAttribute('aria-expanded', FOLD[k] ? 'false' : 'true'); b.setAttribute('aria-label', (FOLD[k] ? 'Show' : 'Hide') + ' this list');
+        // the list folds up (or opens) smoothly rather than vanishing
+        if (bd.getAnimations) bd.getAnimations().forEach(x => x.cancel());
+        if (PG_CALM || !bd.animate) { s.classList.toggle('folded', !!FOLD[k]); if (!FOLD[k]) tileFit(s); return; }
+        const ease = 'cubic-bezier(.3,.7,.2,1)';
+        if (FOLD[k]) { const h = bd.offsetHeight; bd.style.overflow = 'hidden'; s.classList.add('folding'); const an = bd.animate([{ height: h + 'px', opacity: 1 }, { height: '0px', opacity: 0 }], { duration: 260, easing: ease });
+          an.onfinish = () => { bd.style.overflow = ''; s.classList.remove('folding'); s.classList.add('folded'); }; }
+        else { s.classList.remove('folded'); tileFit(s); const h = bd.offsetHeight; bd.style.overflow = 'hidden'; const an = bd.animate([{ height: '0px', opacity: 0 }, { height: h + 'px', opacity: 1 }], { duration: 300, easing: ease }); an.onfinish = an.oncancel = () => { bd.style.overflow = ''; }; } });
       root.querySelectorAll('[data-more]').forEach(b => b.onclick = () => { MORE[b.dataset.more] = !MORE[b.dataset.more]; tileCaps(); });
       tileFit(root); tileCaps(); }
     else { newBtn(); wireA2HS(root); root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => switchView(b.dataset.view)); placeInd(false); placeTrack(false); skelRestore(); }

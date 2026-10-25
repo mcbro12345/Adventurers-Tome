@@ -2531,7 +2531,7 @@ body.hubbody:not(.adminbody) .hub-list.hd2-main > * { max-width: none; }
 .hd-act { display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px; border-radius: 11px; border: 0; font-family: inherit; font-size: .92rem; font-weight: 700; line-height: 1; cursor: pointer; background: #242d40; color: #e9e3d3; white-space: nowrap; }
 .hd-act.gold { background: #e0aa3a; color: #1b1406; } .hd-act:hover { filter: brightness(1.08); }
 .hd-fold { width: 36px; height: 36px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 10px; background: #1a2131; color: #9aa3b5; cursor: pointer; }
-.hd-fold svg { transition: transform .2s ease; } .hd-sec.folded .hd-fold svg { transform: rotate(-90deg); } .hd-sec.folded .hd-body { display: none; }
+.hd-fold svg { transition: transform .2s ease; } .hd-sec.folded .hd-fold svg, .hd-sec.folding .hd-fold svg { transform: rotate(-90deg); } .hd-sec.folded .hd-body { display: none; }
 .hd-foot { display: flex; align-items: center; gap: 16px; margin: 12px 2px 0; } .hd-foot:empty { display: none; }
 .hd-more { padding: 8px 14px; border: 0; border-radius: 10px; background: #1a2131; color: #e3c27a; font-family: inherit; font-size: .88rem; font-weight: 700; line-height: 1; cursor: pointer; } .hd-more[hidden] { display: none; }
 .hd-hint { color: #7e879a; font-size: .8rem; }
@@ -2550,7 +2550,9 @@ body.hubbody .hd2-main .hr:hover, body.hubbody .hd2-main .hc:hover { border-colo
 .hd2-main .hc-txt:has(> b.wrap) > span { -webkit-line-clamp: 1; }
 .hd2-main .hc-txt > span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; width: 100%; font-size: .84rem; opacity: .8; margin-top: 3px; }
 .hd2-main .hc-txt > small { margin-top: auto; padding-top: 6px; font-size: .76rem; opacity: .6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
-.hd2-main .hc-txt .hc-acc { position: absolute; left: 10px; top: 10px; margin: 0; }
+.hd2-main .hc-txt { position: static; }
+.hd2-main .hc-txt .hc-acc { position: absolute; left: 10px; top: 10px; margin: 0; padding: 2px 8px; border-radius: 999px; font-size: .6rem; line-height: 1.4; background: rgba(255,255,255,.06); width: auto; }
+.hd2-main .hc-txt .hc-acc.edit { background: rgba(224,170,58,.14); color: #e3c27a; opacity: 1; }
 .hd2-main .hr-grip { position: absolute; top: 6px; left: 6px; width: 26px; height: 26px; border-radius: 7px; opacity: 0; transition: opacity .15s; z-index: 2; }
 .hd2-main .hr:hover .hr-grip, .hd2-main .hr-grip:focus-visible { opacity: 1; }
 .hd2-main .hr-menu, .hd2-main .hc-menu { position: absolute !important; top: 4px; right: 4px; margin: 0 !important; z-index: 3; }
@@ -2630,6 +2632,23 @@ body.hubbody #hub:not(.hd2) .hub-list .hr, body.hubbody #hub:not(.hd2) .hub-list
 @media (max-width: 1100px) { .nwp { grid-template-columns: 1fr; } .nwp-bar { flex-wrap: wrap; } }
 @media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) .nw-it { background: rgba(255,255,255,.65); border-color: #e3d6b8; } :where(html:not([data-pgtheme])) .nw-rotbar { background: rgba(0,0,0,.03); } }
  :where(html[data-pgtheme="light"]) .nw-it { background: rgba(255,255,255,.65); border-color: #e3d6b8; } :where(html[data-pgtheme="light"]) .nw-rotbar { background: rgba(0,0,0,.03); } 
+/* computer lobby: the top panel stays put while the page scrolls; only the panel itself casts a shadow */
+body.hubbody:not(.adminbody) .hub-head.hd2-head { position: sticky; top: 0; z-index: 30; padding-bottom: 16px; background: linear-gradient(to bottom, #0f1420 calc(100% - 16px), rgba(15,20,32,0)); }
+body.hubbody:not(.adminbody) .hub-head.hd2-head::after { display: none; }
+body.hubbody:not(.adminbody) .hd2-head > .hub-top { box-shadow: 0 12px 30px rgba(0,0,0,.38); }
+body.hubbody:not(.adminbody) .hub-list.hd2-main { margin-top: 10px; }
+@media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.hubbody:not(.adminbody) .hub-head.hd2-head { background: linear-gradient(to bottom, #f1e9d8 calc(100% - 16px), rgba(241,233,216,0)); } :where(html:not([data-pgtheme])) body.hubbody:not(.adminbody) .hd2-head > .hub-top { box-shadow: 0 10px 26px rgba(60,45,20,.14); } }
+ :where(html[data-pgtheme="light"]) body.hubbody:not(.adminbody) .hub-head.hd2-head { background: linear-gradient(to bottom, #f1e9d8 calc(100% - 16px), rgba(241,233,216,0)); } :where(html[data-pgtheme="light"]) body.hubbody:not(.adminbody) .hd2-head > .hub-top { box-shadow: 0 10px 26px rgba(60,45,20,.14); } 
+.hd2-ghostwrap { position: fixed; left: 0; top: 0; width: 0; height: 0; margin: 0; padding: 0; z-index: 60; pointer-events: none; }
+body.hubbody .hd2-ghostwrap .hr { background: #222b3e; border-color: rgba(224,170,58,.6); transform: rotate(1.5deg); }
+@media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.hubbody .hd2-ghostwrap .hr { background: #fffaf0; } }
+ :where(html[data-pgtheme="light"]) body.hubbody .hd2-ghostwrap .hr { background: #fffaf0; } 
+
+/* "Shared with 2" and "Updated …" : one line on a phone (with a dot between), two lines on a tile */
+.hc-shn { font-style: normal; } .hc-shn::after { content: ' · '; }
+.hd2-main .hc-txt > small { white-space: normal; display: grid; gap: 1px; } .hd2-main .hc-txt > small > * , .hd2-main .hc-txt > small { overflow: hidden; text-overflow: ellipsis; }
+.hd2-main .hc-shn { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .hd2-main .hc-shn::after { content: none; }
+.hd2-main .hc .hc-main { padding-top: 34px !important; }
 </style>
 </head>
 <body>
@@ -3303,7 +3322,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024202536', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.9bf6d2d63d11.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.6d485758a6ed.html", "desk": "a/desk.0cb91ca90853.js", "deskcss": "a/deskcss.77a5595d7caa.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024203301', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.9bf6d2d63d11.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.6d485758a6ed.html", "desk": "a/desk.0cb91ca90853.js", "deskcss": "a/deskcss.77a5595d7caa.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -4576,7 +4595,7 @@ function hub(fs, auth, G, ctx) {
         if (canDelete(c)) it.push(['del', 'Delete character…', 'hc-del']);
         return it.length ? `<div class="hc-menu"><button class="hc-dots" aria-label="More">⋯</button><div class="hc-list">${it.map(([a, t, k]) => `<button data-a="${a}" data-id="${esc(c.id)}"${k ? ` class="${k}"` : ''}>${MI[a]}${t}</button>`).join('')}</div></div>` : ''; })()}</div>`;
   }
-  const shareNote = c => { const n = (c.viewers || []).length; return n ? `Shared with ${n} · ` : ''; };
+  const shareNote = c => { const n = (c.viewers || []).length; return n ? `<i class="hc-shn">Shared with ${n}</i>` : ''; };
   // Pinned first; then each player's own order (drag to change), then most recently updated.
   const ord = (a, b) => (!!b.pin - !!a.pin) || ((a.order != null ? a.order : 1e9) - (b.order != null ? b.order : 1e9)) || ((b.updatedAt || 0) - (a.updatedAt || 0));
   function row(c) {
@@ -4602,12 +4621,17 @@ function hub(fs, auth, G, ctx) {
   document.addEventListener('pointerdown', e => { const g = e.target.closest && e.target.closest('.hr-grip'); if (!g || e.button > 0) return; const r = g.closest('.hr'); e.preventDefault();
     const b = r.getBoundingClientRect(), gh = r.cloneNode(true); gh.classList.add('hr-ghost', 'drag'); gh.removeAttribute('data-id');
     Object.assign(gh.style, { position: 'fixed', left: b.left + 'px', top: b.top + 'px', width: b.width + 'px', height: b.height + 'px', margin: 0, zIndex: 60, pointerEvents: 'none', transition: 'none', willChange: 'top' });
-    document.body.appendChild(gh); r.classList.add('hr-hold');
-    RD = { r, gh, pin: r.dataset.pin, list: r.parentElement, dy: e.clientY - b.top, y: e.clientY, dx: e.clientX - b.left, x: e.clientX, grid: getComputedStyle(r.parentElement).display === 'grid', raf: 0 }; document.body.classList.add('hdragging'); try { g.setPointerCapture(e.pointerId); } catch (x) {} });
-  const dragStep = () => { const d = RD; if (!d) return; d.raf = 0; d.gh.style.top = (d.y - d.dy) + 'px';
+    // (a tile's copy sits in its own little tile box, so it keeps the tile look while it's carried)
+    const inTiles = !!r.closest('.hd2-main'), wrap = inTiles ? Object.assign(document.createElement('div'), { className: 'hd2-main hd2-ghostwrap' }) : null;
+    if (wrap) { wrap.appendChild(gh); document.body.appendChild(wrap); } else document.body.appendChild(gh); r.classList.add('hr-hold');
+    RD = { r, gh, wrap, pin: r.dataset.pin, list: r.parentElement, dy: e.clientY - b.top, y: e.clientY, dx: e.clientX - b.left, x: e.clientX, grid: getComputedStyle(r.parentElement).display === 'grid', raf: 0 }; document.body.classList.add('hdragging'); try { g.setPointerCapture(e.pointerId); } catch (x) {} });
+  const dragStep = () => { const d = RD; if (!d) return; d.raf = 0;
+    // the carried copy stays inside its own list (characters with characters, parties with parties)
+    const lr = d.list.getBoundingClientRect(), gw = d.gh.offsetWidth, gh_ = d.gh.offsetHeight, cl = (v, a, b) => Math.max(a, Math.min(b, v));
+    d.gh.style.top = cl(d.y - d.dy, lr.top - 6, lr.bottom - gh_ + 6) + 'px';
     const rows = [...d.list.querySelectorAll(':scope > .hr')], peers = rows.filter(x => x !== d.r && x.dataset.pin === d.pin && !x.classList.contains('hd-hide'));
     // tiles (on a computer): the ghost follows the pointer both ways, and the tile it's over makes room
-    if (d.grid) { d.gh.style.left = (d.x - d.dx) + 'px'; const over = peers.find(x => { const bb = x.getBoundingClientRect(); return d.x >= bb.left && d.x <= bb.right && d.y >= bb.top && d.y <= bb.bottom; });
+    if (d.grid) { d.gh.style.left = cl(d.x - d.dx, lr.left - 6, lr.right - gw + 6) + 'px'; const px = cl(d.x, lr.left + 1, lr.right - 1), py = cl(d.y, lr.top + 1, lr.bottom - 1), over = peers.find(x => { const bb = x.getBoundingClientRect(); return px >= bb.left && px <= bb.right && py >= bb.top && py <= bb.bottom; });
       if (over && Date.now() - (d.mt || 0) > 200) { d.mt = Date.now(); const a = rows.indexOf(d.r), o = rows.indexOf(over); slide(rows.filter(x => x !== d.r), () => o > a ? over.after(d.r) : over.before(d.r)); } }
     else if (peers.length) { const mid = d.y - d.dy + d.gh.offsetHeight / 2, tgt = peers.find(x => { const bb = x.getBoundingClientRect(); return mid < bb.top + bb.height / 2; });
       const last = peers[peers.length - 1];
@@ -4617,7 +4641,7 @@ function hub(fs, auth, G, ctx) {
   document.addEventListener('pointermove', e => { if (!RD) return; e.preventDefault(); RD.y = e.clientY; RD.x = e.clientX; if (!RD.raf) RD.raf = requestAnimationFrame(dragStep); }, { passive: false });
   const endDrag = () => { if (!RD) return; const d = RD; RD = null; if (d.raf) cancelAnimationFrame(d.raf); const pb = d.r.getBoundingClientRect();
     d.gh.style.transition = 'top .16s ease, left .16s ease, box-shadow .16s, transform .16s'; d.gh.style.top = pb.top + 'px'; d.gh.style.left = pb.left + 'px'; d.gh.classList.remove('drag');
-    setTimeout(() => { d.gh.remove(); d.r.classList.remove('hr-hold'); document.body.classList.remove('hdragging');
+    setTimeout(() => { (d.wrap || d.gh).remove(); d.r.classList.remove('hr-hold'); document.body.classList.remove('hdragging');
       const all = [...d.list.querySelectorAll(':scope > .hr')]; if (d.r.dataset.party) return PMx().saveOrder(all.filter(x => x.dataset.party).map(x => x.dataset.id)); saveOrder(all.filter(x => x.dataset.pin === '1').map(x => x.dataset.id)).then(() => saveOrder(all.filter(x => x.dataset.pin !== '1').map(x => x.dataset.id))); }, 170); };
   document.addEventListener('pointerup', endDrag); document.addEventListener('pointercancel', endDrag);
 
@@ -4732,7 +4756,14 @@ function hub(fs, auth, G, ctx) {
     { const n = root.querySelector('#hub-wn'); if (keepWn && n && keepWn.dataset.kind === n.dataset.kind) n.replaceWith(keepWn); else { if (WN) WN.stop(); WN = newsMount(n, n.dataset.kind); } }
     PMx().wirePane();
     if (D) { root.querySelector('#hd-newc').onclick = createChar; root.querySelector('#hd-newp').onclick = () => PMx().newParty(); root.querySelector('#hd-join').onclick = joinByLink;
-      root.querySelectorAll('[data-fold]').forEach(b => b.onclick = () => { const k = b.dataset.fold; FOLD[k] = !FOLD[k]; ls.set(FOLD_LS, JSON.stringify(FOLD)); const s = b.closest('.hd-sec'); s.classList.toggle('folded', !!FOLD[k]); b.setAttribute('aria-expanded', FOLD[k] ? 'false' : 'true'); b.setAttribute('aria-label', (FOLD[k] ? 'Show' : 'Hide') + ' this list'); if (!FOLD[k]) tileFit(s); });
+      root.querySelectorAll('[data-fold]').forEach(b => b.onclick = () => { const k = b.dataset.fold; FOLD[k] = !FOLD[k]; ls.set(FOLD_LS, JSON.stringify(FOLD)); const s = b.closest('.hd-sec'), bd = s.querySelector('.hd-body'); b.setAttribute('aria-expanded', FOLD[k] ? 'false' : 'true'); b.setAttribute('aria-label', (FOLD[k] ? 'Show' : 'Hide') + ' this list');
+        // the list folds up (or opens) smoothly rather than vanishing
+        if (bd.getAnimations) bd.getAnimations().forEach(x => x.cancel());
+        if (PG_CALM || !bd.animate) { s.classList.toggle('folded', !!FOLD[k]); if (!FOLD[k]) tileFit(s); return; }
+        const ease = 'cubic-bezier(.3,.7,.2,1)';
+        if (FOLD[k]) { const h = bd.offsetHeight; bd.style.overflow = 'hidden'; s.classList.add('folding'); const an = bd.animate([{ height: h + 'px', opacity: 1 }, { height: '0px', opacity: 0 }], { duration: 260, easing: ease });
+          an.onfinish = () => { bd.style.overflow = ''; s.classList.remove('folding'); s.classList.add('folded'); }; }
+        else { s.classList.remove('folded'); tileFit(s); const h = bd.offsetHeight; bd.style.overflow = 'hidden'; const an = bd.animate([{ height: '0px', opacity: 0 }, { height: h + 'px', opacity: 1 }], { duration: 300, easing: ease }); an.onfinish = an.oncancel = () => { bd.style.overflow = ''; }; } });
       root.querySelectorAll('[data-more]').forEach(b => b.onclick = () => { MORE[b.dataset.more] = !MORE[b.dataset.more]; tileCaps(); });
       tileFit(root); tileCaps(); }
     else { newBtn(); wireA2HS(root); root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => switchView(b.dataset.view)); placeInd(false); placeTrack(false); skelRestore(); }
