@@ -244,7 +244,8 @@ function dAfter() {
 function dUndo(n = 1) { let c = 0, lb = ''; while (c < n && DHIST.length) { lb = DHIST[DHIST.length - 1].label; DREDO.push(dApply(DHIST.pop())); c++; } if (c) dAfter(); return [c, lb]; }
 function dRedo(n = 1) { let c = 0, lb = ''; while (c < n && DREDO.length) { lb = DREDO[DREDO.length - 1].label; DHIST.push(dApply(DREDO.pop())); c++; } if (c) dAfter(); return [c, lb]; }
 let dHT = 0;
-function dHistPersist() { clearTimeout(dHT); dHT = setTimeout(() => { let h = DHIST.slice(); for (;;) { try { localStorage.setItem(lsKey('-hist'), JSON.stringify(h)); return; } catch (e) { if (h.length <= 1) { try { localStorage.removeItem(lsKey('-hist')); } catch (x) {} return; } h = h.slice(Math.ceil(h.length / 2)); } } }, 600); }
+// (kept to about 1 MB of the browser's storage, newest steps first, so it never crowds out the desk's own saved copy)
+function dHistPersist() { clearTimeout(dHT); dHT = setTimeout(() => { let h = DHIST.slice(); for (;;) { try { const t = JSON.stringify(h); if (t.length > 1e6 && h.length > 1) { h = h.slice(Math.ceil(h.length / 4)); continue; } localStorage.setItem(lsKey('-hist'), t); return; } catch (e) { if (h.length <= 1) { try { localStorage.removeItem(lsKey('-hist')); } catch (x) {} return; } h = h.slice(Math.ceil(h.length / 2)); } } }, 600); }
 function dHistButtons() {
   const u = $('.dk-tb[data-act="dundo"]'), r = $('.dk-tb[data-act="dredo"]'), lb = s => String(s).replace(/^Edit: /, '');
   if (u) { u.disabled = !DHIST.length; u.title = DHIST.length ? `Undo: ${lb(DHIST[DHIST.length - 1].label)} (Ctrl+Z)` : 'Nothing to undo'; }
@@ -436,19 +437,26 @@ function mwDrag(e) {
   const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); c.classList.remove('dk-moving'); const t = (c.style.translate || '0px 0px').split(' ').map(parseFloat); WINPOS[c.dataset.win || 'w'] = [t[0] || 0, t[1] || 0]; winKeep(); };
   addEventListener('pointermove', mv); addEventListener('pointerup', up);
 }
+// which window this is (its first heading, or the id/class of its first element): a window redrawing itself keeps it,
+// a different window replacing it doesn't
+const winKey = h => { h = String(h || ''); const a = h.match(/^\s*<[a-z0-9]+\b[^>]*?\b(?:id|class)="([^"]+)"/i), b = h.match(/<h[23]\b[^>]*>([\s\S]*?)<\/h[23]>/i); return (b ? b[1].replace(/<[^>]+>/g, '').trim() : '') || (a ? a[1] : ''); };
+// the window as it was, fading out where it sat while the next one (or nothing) takes its place
+function winGhost(c) { const g = c.cloneNode(true), r = c.getBoundingClientRect(); if (!r.width) return; g.classList.add('dk-mghost'); g.removeAttribute('id'); g.querySelectorAll('[id]').forEach(x => x.removeAttribute('id')); g.setAttribute('aria-hidden', 'true');
+  Object.assign(g.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', translate: 'none', animation: '' }); const st = c.scrollTop; ROOT.appendChild(g); g.scrollTop = st; setTimeout(() => g.remove(), 220); }
 function openModal(html, o) {
   o = o || {}; const m = $('.dk-modal'), c = $('.dk-mcard'), wasOpen = m.classList.contains('open'), prevBy = MODAL_BY, prevPos = c.style.translate;
+  const swap = wasOpen && !calm() && c.innerHTML && winKey(c.innerHTML) !== winKey(html); if (swap) winGhost(c);
   if (MODAL_CLOSE && m.classList.contains('open')) { const f = MODAL_CLOSE; MODAL_CLOSE = null; f(); }
   c.className = 'dk-mcard' + (o.wide ? ' wide' : '') + (o.cls ? ' ' + o.cls : ''); m.classList.toggle('dk-msheet', !!o.sheet); c.innerHTML = html; m.classList.add('open'); m.scrollTop = 0; c.scrollTop = 0; MODAL_CLOSE = o.onClose || null;
   const fresh = LAST_OPENER && Date.now() - LAST_OPENER_T < 600; MODAL_BY = fresh ? LAST_OPENER : wasOpen ? prevBy : null; LAST_OPENER = null;
-  mwDress(c); if (wasOpen && !fresh && prevPos && !WINPOS[c.dataset.win]) c.style.translate = prevPos; c.style.animation = wasOpen ? 'none' : ''; ROOT.classList.remove('dk-rfront');
+  mwDress(c); if (wasOpen && !fresh && prevPos && !WINPOS[c.dataset.win]) c.style.translate = prevPos; c.style.animation = wasOpen ? 'none' : ''; if (swap) { void c.offsetWidth; c.style.animation = ''; } ROOT.classList.remove('dk-rfront');
   const f = c.querySelector('input:not([type=checkbox]):not(.dk-swi),textarea,select'); if (f && innerWidth > 700 && o.focus !== false) setTimeout(() => f.focus(), 30);
 }
 function closeModal(silent) {
   const m = $('.dk-modal'); if (!m) return; const c = $('.dk-mcard');
   // the window fades out as a copy while the real one is free for the next pop-up straight away
-  if (m.classList.contains('open') && mwDesk() && !calm() && c.innerHTML) { const g = c.cloneNode(true), r = c.getBoundingClientRect(); g.classList.add('dk-mghost'); g.removeAttribute('id'); g.querySelectorAll('[id]').forEach(x => x.removeAttribute('id'));
-    Object.assign(g.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', translate: 'none' }); ROOT.appendChild(g); setTimeout(() => g.remove(), 200); }
+  // (a narrow window's pop-up has a dimmed backdrop behind it: that fades out with it)
+  if (m.classList.contains('open') && !calm() && c.innerHTML) { winGhost(c); if (!mwDesk()) { const sh = document.createElement('div'); sh.className = 'dk-mshade ' + m.className; sh.classList.remove('open'); ROOT.appendChild(sh); setTimeout(() => sh.remove(), 220); } }
   m.classList.remove('open'); c.innerHTML = ''; c.style.translate = ''; MODAL_BY = null; const f = MODAL_CLOSE; MODAL_CLOSE = null; SV = null; if (f && !silent) f(); }
 // runs a confirm/ask callback; a failure (e.g. the save was refused or timed out) is shown instead of vanishing
 function runOk(fn, ...a) { const bad = e => { console.warn(e); toast({ title: 'That didn’t work', det: esc((e && e.message) || 'Try again in a moment.'), cls: 'bad' }); };
@@ -2387,6 +2395,8 @@ function onPlanAct(act, b) {
   }
   return false;
 }
+// A page's id goes into the page's markup, so only plain ids are taken from what's saved (others can't be pages)
+const pageOK = p => !!(p && typeof p.id === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(p.id) && (p.parent == null || p.parent === '' || (typeof p.parent === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(p.parent))));
 // ---------- Notes: a campaign wiki (pages in a tree, rich text, wiki links, maps) ----------
 // Pages live in desks/{email}/notes/{id} {savedAt, data}; pictures in desks/{email}/imgs/{id} {data, w, h}.
 // Every page body is run through clean() — a strict whitelist — when it is saved AND when it is shown.
@@ -2444,13 +2454,13 @@ async function flushNotes() {
   nFlushing = false; if (nAgain) { nAgain = false; flushNotes(); }
 }
 async function notesBoot() {
-  try { const l = JSON.parse(localStorage.getItem(lsKey('-notes')) || 'null'); if (l && l.pages) NT = { pages: l.pages, syncedAt: N(l.syncedAt), del: l.del || [] }; } catch (e) {}
+  try { const l = JSON.parse(localStorage.getItem(lsKey('-notes')) || 'null'); if (l && l.pages) NT = { pages: Object.fromEntries(Object.entries(l.pages).filter(([k, p]) => pageOK(p) && k === p.id)), syncedAt: N(l.syncedAt), del: l.del || [] }; } catch (e) {}
   if (!CTX.fs || !CTX.EMAIL) return;
   // (a party's desk keeps its own notes; pictures stay in one place for all your desks)
   while (!BASE && ROOT) await new Promise(r => setTimeout(r, 50)); NBASE = deskBase().collection('notes'); IBASE = userBase().collection('imgs');
   while (!CLOUD && ROOT && syncMsg !== 'Offline — saved on this device') await new Promise(r => setTimeout(r, 80)); // (after any move of an old desk)
   try {
-    const qs = await NBASE.get(), cloud = {}; qs.docs.forEach(d => { const p = d.data().data; if (p && p.id) cloud[p.id] = p; });
+    const qs = await NBASE.get(), cloud = {}; qs.docs.forEach(d => { const p = d.data().data; if (pageOK(p)) cloud[p.id] = p; });
     const merged = {};
     Object.values(cloud).forEach(p => { const l = NT.pages[p.id]; merged[p.id] = l && N(l.edited) > N(p.edited) ? l : p; NSYNC.set(p.id, JSON.stringify(p)); });
     Object.values(NT.pages).forEach(p => { if (!cloud[p.id] && N(p.edited) > N(NT.syncedAt)) merged[p.id] = p; }); // made here and not saved yet
@@ -2468,7 +2478,7 @@ let nRefreshing = false;
 async function notesRefresh() {
   if (!NCLOUD || !NBASE || nRefreshing || nFlushing) return; nRefreshing = true;
   try {
-    const qs = await NBASE.get(), cloud = {}; qs.docs.forEach(d => { const p = d.data().data; if (p && p.id) cloud[p.id] = p; });
+    const qs = await NBASE.get(), cloud = {}; qs.docs.forEach(d => { const p = d.data().data; if (pageOK(p)) cloud[p.id] = p; });
     const ed = typeof edEl === 'function' && edEl(), typing = ed && document.activeElement === ed ? ed.id.replace(/^dk-ed-/, '') : ''; let ch = false;
     Object.values(cloud).forEach(c => { if (NT.del.includes(c.id) || c.id === typing) return; const l = NT.pages[c.id], cj = JSON.stringify(c);
       if (!l) { NT.pages[c.id] = c; NSYNC.set(c.id, cj); ch = true; return; }

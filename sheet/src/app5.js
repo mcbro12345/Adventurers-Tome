@@ -983,7 +983,8 @@ function wz3Steps() {
   try { sp = !W.classes[0] || !W.classes[0].key || wzSpellPlan().length > 0; } catch (e) {}
   const L = [{ st: 0, label: 'Start' }, { st: 1, part: 'pick', label: 'Race' }];
   // (until the race or class is picked, the steps it might need stay in the list, marked as maybe, so the count only ever goes down)
-  if (ro) L.push({ st: 1, part: 'opts', label: 'Race options', maybe: !x });
+  // (the downloadable sheet shows the race and its options on one page)
+  if (ro && window.wzHeader) L.push({ st: 1, part: 'opts', label: 'Race options', maybe: !x });
   L.push({ st: 2, label: 'Class' }, { st: 3, label: 'Abilities' }, { st: 9, label: 'Features' }, { st: 4, label: 'Background' });
   if (co) L.push({ st: 5, label: 'Class options', maybe: noCls }); if (sp) L.push({ st: 6, label: 'Spells', maybe: noCls });
   L.push({ st: 7, label: 'Equipment' }, { st: 8, label: 'Review' });
@@ -1080,8 +1081,8 @@ function wizClick(e) {
   const b = e.target.closest('[data-wact]'); if (!b) return;
   const a = b.dataset.wact;
   switch (a) {
-    case 'next': if (window.wzHeader) { wz3Move(1); break; } W.step = Math.min(WSTEPS.length - 1, W.step + 1); break;
-    case 'back': if (window.wzHeader) { wz3Move(-1); break; } W.step = Math.max(0, W.step - 1); break;
+    case 'next': wz3Move(1); break;
+    case 'back': wz3Move(-1); break;
     case 'go': W.step = N(b.dataset.v); W.part = W.step === 1 && W.race ? 'opts' : ''; break;
     case 'vgo': { const v = wz3Steps()[N(b.dataset.v)]; if (v) { W.step = v.st; W.part = v.part || ''; } break; }
     case 'portrait': $('#portraitFile').click(); return;
@@ -1535,7 +1536,7 @@ function cloudListen(ref, onFirst) {
       if (!owner && mine && S.created && !cloudRO && !(d && d.guestDone)) { S.savedAt = Date.now(); GUESTCLAIM = true; await cloudWrite(); return true; }
       if (S.created && (!d || N(d.savedAt) < N(S.savedAt))) {
         // A newer copy of the sheet file is replacing the synced one: never lose the player's own settings, theme or layout.
-        if (d && !cloudRO) { try { const txt = await cloudText(d); const old = txt && JSON.parse(txt); if (old && old.id === S.id) { keepPrefs(S, old); try { applyTheme(); render(); } catch (e) {} } } catch (e) {} }
+        if (d && !cloudRO) { try { const txt = await cloudText(d); const old = txt && JSON.parse(txt); if (old && old.id === S.id) { keepPrefs(S, old); hdrReset(S); try { applyTheme(); render(); } catch (e) {} } } catch (e) {} }
         if (!cloudRO) cloudWrite(); }
       else if (d) setSyncState(cloudRO ? 'Live · view only (you can\'t edit this sheet)' : 'Live · synced ' + clock());
     });

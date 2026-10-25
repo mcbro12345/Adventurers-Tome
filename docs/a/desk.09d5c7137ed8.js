@@ -312,6 +312,9 @@ const SPI = {}; DATA.spells.forEach(s => { SPI[s.n.toLowerCase()] = s; });
 const SRD = {}; DATA.monsters.forEach(m => { SRD[m.id] = m; });
 const ordinal = n => n + (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th');
 const ICON = {
+  undo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>',
+  redo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>',
+  hist: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>',
   hpDmg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M12.5 7.5 10.5 11l3 2-2 3.5"/></svg>',
   hpHeal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M12 9.5v6M9 12.5h6"/></svg>',
   hpTemp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6z"/><path d="M12 9v6M9 12h6"/></svg>',
@@ -352,12 +355,13 @@ const lsSet = (k, v) => { try { localStorage.setItem(lsKey(k), JSON.stringify(v)
 let lsT = 0;
 function writeLocal() { clearTimeout(lsT); lsT = setTimeout(() => { lsSet('', S); lsSet('-ui', Object.assign({}, UI, { tree: false, log: false })); lsSet('-log', LOG.slice(0, 150)); }, 200); }
 function normalize(d) {
+  if (typeof UI !== 'undefined' && UI.sv === 'plan') UI.sv = 'creatures'; // (the Plan & notes view was removed)
   const s = Object.assign(DEF(), d || {}); s.settings = Object.assign(DEF().settings, (d && d.settings) || {});
   s.creatures = s.creatures || {}; s.sessions = (s.sessions || []).filter(x => x && x.id);
   s.sessions.forEach(x => { x.groups = (x.groups || []).filter(Boolean); if (!x.groups.length) x.groups.push({ id: 'g' + uid(), name: 'Creatures', list: [] }); x.groups.forEach(g => { g.list = (g.list || []).filter(Boolean); }); });
   return s;
 }
-function save() { S.savedAt = Date.now(); writeLocal(); cloudSoon(); syncTurnHP(); }
+function save() { S.savedAt = Date.now(); dCommit(); writeLocal(); cloudSoon(); syncTurnHP(); }
 const saveUI = () => writeLocal();
 
 // ---------- account storage ----------
@@ -370,7 +374,7 @@ const deskBase = () => DESK_PID() ? userBase().collection('party').doc(DESK_PID(
 let BASE = null, CLOUD = false, cloudT = 0, flushing = false, again = false, syncMsg = '';
 const SYNCED = { main: '', cre: new Map(), ses: new Map() };
 const mainBody = () => ({ v: S.v, savedAt: S.savedAt, settings: S.settings });
-function setSync(t) { syncMsg = t; const el = $('.dk-sync'); if (el) { el.textContent = t; el.classList.toggle('bad', /couldn|offline|retry/i.test(t)); } }
+function setSync(t) { syncMsg = t; const el = $('.dk-sync'); if (el) { el.textContent = t; el.title = t; el.classList.toggle('busy', /…/.test(t)); el.classList.toggle('bad', /couldn|offline|retry/i.test(t)); } }
 function cloudSoon() { if (!CLOUD) return; clearTimeout(cloudT); setSync('Saving…'); cloudT = setTimeout(flush, 900); }
 async function flush() {
   if (!CLOUD) return; if (flushing) { again = true; return; } flushing = true;
@@ -397,7 +401,7 @@ async function pullAll() {
   next.sessions.sort((a, b) => N(b.made) - N(a.made));
   S = normalize(next); SYNCED.main = JSON.stringify(mainBody());
   SYNCED.ses.forEach((v, k) => { const s = S.sessions.find(x => x.id === k); if (s) SYNCED.ses.set(k, JSON.stringify(s)); });
-  writeLocal(); return true;
+  writeLocal(); dHistBase(); return true;
 }
 async function cloudBoot() {
   if (!CTX.fs || !CTX.EMAIL) { setSync('Saved on this device'); return; }
@@ -408,7 +412,7 @@ async function cloudBoot() {
     if (d && N(d.savedAt) >= N(S.savedAt)) { await pullAll(); render(); }
     else { // a desk that's new (or newer here): it still gets every creature you've made
       const cr = await CRE.get(); cr.docs.forEach(x => { const c = x.data().data; if (!c) return; if (!S.creatures[x.id]) S.creatures[x.id] = c; SYNCED.cre.set(x.id, JSON.stringify(c)); }); render(); }
-    CLOUD = true;
+    dHistBase(); CLOUD = true;
     if (!d || N(d.savedAt) < N(S.savedAt)) { if (!S.savedAt) S.savedAt = Date.now(); await flush(); } else setSync('Saved to your account');
   } catch (e) { console.warn('desk load', e); setSync('Offline — saved on this device'); }
 }
@@ -465,6 +469,108 @@ function addToGroup(s, g, cid, n) {
 function newSession(title) {
   const s = { id: 's' + uid(), title: title || 'Session ' + (S.sessions.length + 1), made: Date.now(), notes: '', groups: [{ id: 'g' + uid(), name: 'Encounter 1', notes: '', list: [] }] };
   S.sessions.unshift(s); UI.session = s.id; UI.sel = ''; UI.open[s.id] = true; return s;
+}
+// ---------- undo, redo and history (like the character sheet's) ----------
+// Every save compares the desk with the last snapshot, piece by piece (settings, each creature, each session, the order of
+// sessions), and records what each changed piece was before. Unchanged pieces share the same string, so snapshots are cheap.
+// Notes keep their own typing undo (Ctrl+Z inside the page).
+const DHMAX = 150;
+let DHIST = [], DREDO = [], DLAST = null, DPEND = null, DPEND_T = 0, DH_OFF = false;
+// names the next change (a name not used within a minute is kept but just called "Change")
+const dPend = l => { DPEND = l; DPEND_T = Date.now(); };
+function dSnap() {
+  const o = { settings: JSON.stringify(S.settings || {}), order: JSON.stringify(S.sessions.map(s => s.id)) };
+  for (const [id, c] of Object.entries(S.creatures || {})) { const j = JSON.stringify(c); o['cre:' + id] = DLAST && DLAST['cre:' + id] === j ? DLAST['cre:' + id] : j; }
+  for (const s of S.sessions) { const j = JSON.stringify(s); o['ses:' + s.id] = DLAST && DLAST['ses:' + s.id] === j ? DLAST['ses:' + s.id] : j; }
+  return o;
+}
+// the desk was just loaded or replaced (from this device or your account): start comparing from here
+function dHistBase() { DLAST = dSnap(); dHistButtons(); }
+function dHistLoad() { try { const h = lsGet('-hist'); if (Array.isArray(h)) DHIST = h.filter(e => e && e.keys); } catch (e) {} dHistBase(); }
+function dCommit() {
+  if (DH_OFF) return; if (!DLAST) { DLAST = dSnap(); return; }
+  // changes nobody asked for (the desk tidying itself up after loading, say) move the starting point but aren't listed
+  if (DPEND && Date.now() - DPEND_T > 60000) DPEND = 'Change';
+  if (!DPEND) { DLAST = dSnap(); return; }
+  const label = DPEND, merge = /^Edit: /.test(label); DPEND = null;
+  const cur = dSnap(), changed = {};
+  new Set([...Object.keys(cur), ...Object.keys(DLAST)]).forEach(k => { if (cur[k] !== DLAST[k]) changed[k] = DLAST[k] === undefined ? null : DLAST[k]; });
+  DLAST = cur; if (!Object.keys(changed).length) return;
+  const now = Date.now(), top = DHIST[DHIST.length - 1];
+  if (top && top.label === label && now - top.t < (merge ? 4000 : 1200)) { for (const k in changed) if (!(k in top.keys)) top.keys[k] = changed[k]; top.t = now; }
+  else DHIST.push({ t: now, label, keys: changed });
+  while (DHIST.length > DHMAX) DHIST.shift();
+  DREDO = []; dHistPersist(); dHistButtons();
+}
+function dApply(e) {
+  const inv = { t: e.t, label: e.label, keys: {} }; let order = null;
+  for (const k in e.keys) {
+    const v = e.keys[k];
+    if (k === 'settings') { inv.keys[k] = JSON.stringify(S.settings); S.settings = v === null ? DEF().settings : JSON.parse(v); continue; }
+    if (k === 'order') { inv.keys[k] = JSON.stringify(S.sessions.map(s => s.id)); order = v === null ? null : JSON.parse(v); continue; }
+    const [kind, id] = [k.slice(0, 3), k.slice(4)];
+    if (kind === 'cre') { inv.keys[k] = S.creatures[id] ? JSON.stringify(S.creatures[id]) : null; if (v === null) delete S.creatures[id]; else S.creatures[id] = JSON.parse(v); }
+    if (kind === 'ses') { const i = S.sessions.findIndex(s => s.id === id); inv.keys[k] = i >= 0 ? JSON.stringify(S.sessions[i]) : null;
+      if (v === null) { if (i >= 0) S.sessions.splice(i, 1); } else if (i >= 0) S.sessions[i] = JSON.parse(v); else S.sessions.push(JSON.parse(v)); }
+  }
+  if (order) { const at = new Map(order.map((id, i) => [id, i])); S.sessions.sort((a, b) => (at.has(a.id) ? at.get(a.id) : 1e9) - (at.has(b.id) ? at.get(b.id) : 1e9)); }
+  return inv;
+}
+function dAfter() {
+  S = normalize(S); if (UI.session && !S.sessions.some(s => s.id === UI.session)) UI.session = (S.sessions[0] || {}).id || '';
+  DLAST = dSnap(); DH_OFF = true; try { save(); } finally { DH_OFF = false; } dHistPersist(); render();
+}
+function dUndo(n = 1) { let c = 0, lb = ''; while (c < n && DHIST.length) { lb = DHIST[DHIST.length - 1].label; DREDO.push(dApply(DHIST.pop())); c++; } if (c) dAfter(); return [c, lb]; }
+function dRedo(n = 1) { let c = 0, lb = ''; while (c < n && DREDO.length) { lb = DREDO[DREDO.length - 1].label; DHIST.push(dApply(DREDO.pop())); c++; } if (c) dAfter(); return [c, lb]; }
+let dHT = 0;
+// (kept to about 1 MB of the browser's storage, newest steps first, so it never crowds out the desk's own saved copy)
+function dHistPersist() { clearTimeout(dHT); dHT = setTimeout(() => { let h = DHIST.slice(); for (;;) { try { const t = JSON.stringify(h); if (t.length > 1e6 && h.length > 1) { h = h.slice(Math.ceil(h.length / 4)); continue; } localStorage.setItem(lsKey('-hist'), t); return; } catch (e) { if (h.length <= 1) { try { localStorage.removeItem(lsKey('-hist')); } catch (x) {} return; } h = h.slice(Math.ceil(h.length / 2)); } } }, 600); }
+function dHistButtons() {
+  const u = $('.dk-tb[data-act="dundo"]'), r = $('.dk-tb[data-act="dredo"]'), lb = s => String(s).replace(/^Edit: /, '');
+  if (u) { u.disabled = !DHIST.length; u.title = DHIST.length ? `Undo: ${lb(DHIST[DHIST.length - 1].label)} (Ctrl+Z)` : 'Nothing to undo'; }
+  if (r) { r.disabled = !DREDO.length; r.title = DREDO.length ? `Redo: ${lb(DREDO[DREDO.length - 1].label)} (Ctrl+Y)` : 'Nothing to redo'; }
+}
+// what a click or an edit is called in the history
+const DACT = { atk: 'Attack roll', qdmg: 'Damage', qheal: 'Healing', hpdmg: 'Damage', hpheal: 'Healing', addc: 'Add a creature', toall: 'Send everyone to turn order', newsess: 'New session', delsess: 'Delete a session', settings: '' };
+function dLabelFrom(b) {
+  const a = b.dataset.act; if (a in DACT) return DACT[a] || null;
+  let t = b.getAttribute('aria-label') || b.getAttribute('title') || b.textContent || ''; t = t.replace(/\s+/g, ' ').trim();
+  return t ? (t.length > 48 ? t.slice(0, 46) + '…' : t) : null;
+}
+const dAgo = t => { const s = Math.round((Date.now() - t) / 1000); return s < 60 ? 'just now' : s < 3600 ? Math.round(s / 60) + ' min ago' : s < 86400 ? Math.round(s / 3600) + ' h ago' : Math.round(s / 86400) + ' d ago'; };
+const dTime = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+const dSince = ms => { const t0 = Date.now() - ms; let n = 0; for (let i = DHIST.length - 1; i >= 0 && DHIST[i].t >= t0; i--) n++; return n; };
+function dOpenHistory() {
+  const lb = s => esc(String(s).replace(/^Edit: /, ''));
+  const list = DHIST.slice().reverse().map((e, j) => `<li><span class="dk-htm" title="${esc(new Date(e.t).toLocaleString())}">${dTime(e.t)}</span><span class="dk-hl">${lb(e.label)} <small>· ${dAgo(e.t)}</small></span><button class="dk-btn sm" data-act="drewind" data-n="${j + 1}" title="Undo this change and everything after it">Rewind here</button></li>`).join('');
+  openModal(`<h2>Change history</h2><p class="dk-hint">Every change to the desk is recorded here, newest first (up to ${DHMAX}). Typing in one box counts as one change. Undo and Redo also work with Ctrl+Z and Ctrl+Y. Notes keep their own undo while you type in a page.</p>
+    <div class="dk-hrb"><b>Roll back the last</b>${[['1 min', 60000], ['5 min', 300000], ['15 min', 900000], ['1 hour', 3600000], ['Today', Date.now() - new Date().setHours(0, 0, 0, 0)]].map(([t, ms]) => `<button class="dk-chip" data-act="drbquick" data-ms="${ms}">${t} <small>${dSince(ms)}</small></button>`).join('')}</div>
+    ${DHIST.length ? `<ol class="dk-hist">${list}</ol>` : '<p class="dk-hint">No changes recorded yet.</p>'}
+    ${DREDO.length ? `<p class="dk-hint">${DREDO.length} undone change${DREDO.length === 1 ? '' : 's'} can be redone. <button class="dk-btn sm" data-act="dredoall">Redo all</button></p>` : ''}
+    <div class="dk-acts"><button class="dk-btn" data-act="close">Close</button></div>`);
+}
+function dRollback(n, what) {
+  if (!n) { toastInfo('Nothing to roll back in that time.'); return; }
+  const [c] = dUndo(n); closeModal(true);
+  toastInfo(`Rolled back ${c} change${c === 1 ? '' : 's'}${what ? ' from the last ' + esc(what) : ''}.`, [{ label: 'Redo', fn: () => dRedo(c) }]);
+}
+// returns true when it handled the click
+function dHistClick(b) {
+  const a = b.dataset.act;
+  if (a === 'dundo') { const [c, lb] = dUndo(1); if (c) toastInfo('Undid: ' + esc(String(lb).replace(/^Edit: /, '')), [{ label: 'Redo', fn: () => dRedo(1) }]); return true; }
+  if (a === 'dredo') { const [c, lb] = dRedo(1); if (c) toastInfo('Redid: ' + esc(String(lb).replace(/^Edit: /, ''))); return true; }
+  if (a === 'dhistory') { dOpenHistory(); return true; }
+  if (a === 'drewind') { dRollback(N(b.dataset.n)); return true; }
+  if (a === 'drbquick') { dRollback(dSince(N(b.dataset.ms)), b.firstChild.textContent.trim()); return true; }
+  if (a === 'dredoall') { const [c] = dRedo(DREDO.length); closeModal(true); toastInfo(`Redid ${c} change${c === 1 ? '' : 's'}.`); return true; }
+  return false;
+}
+// Ctrl+Z / Ctrl+Y (and Ctrl+Shift+Z) outside text boxes and notes pages
+function dHistKey(e) {
+  if (!(e.ctrlKey || e.metaKey) || e.altKey) return false; const k = e.key.toLowerCase(); if (k !== 'z' && k !== 'y') return false;
+  const el = e.target; if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return false;
+  e.preventDefault(); const [c, lb] = (k === 'y' || e.shiftKey) ? dRedo(1) : dUndo(1);
+  if (c) toastInfo(((k === 'y' || e.shiftKey) ? 'Redid: ' : 'Undid: ') + esc(String(lb).replace(/^Edit: /, ''))); return true;
 }
 // ---------- dice ----------
 function parseDice(expr) {
@@ -610,19 +716,26 @@ function mwDrag(e) {
   const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); c.classList.remove('dk-moving'); const t = (c.style.translate || '0px 0px').split(' ').map(parseFloat); WINPOS[c.dataset.win || 'w'] = [t[0] || 0, t[1] || 0]; winKeep(); };
   addEventListener('pointermove', mv); addEventListener('pointerup', up);
 }
+// which window this is (its first heading, or the id/class of its first element): a window redrawing itself keeps it,
+// a different window replacing it doesn't
+const winKey = h => { h = String(h || ''); const a = h.match(/^\s*<[a-z0-9]+\b[^>]*?\b(?:id|class)="([^"]+)"/i), b = h.match(/<h[23]\b[^>]*>([\s\S]*?)<\/h[23]>/i); return (b ? b[1].replace(/<[^>]+>/g, '').trim() : '') || (a ? a[1] : ''); };
+// the window as it was, fading out where it sat while the next one (or nothing) takes its place
+function winGhost(c) { const g = c.cloneNode(true), r = c.getBoundingClientRect(); if (!r.width) return; g.classList.add('dk-mghost'); g.removeAttribute('id'); g.querySelectorAll('[id]').forEach(x => x.removeAttribute('id')); g.setAttribute('aria-hidden', 'true');
+  Object.assign(g.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', translate: 'none', animation: '' }); const st = c.scrollTop; ROOT.appendChild(g); g.scrollTop = st; setTimeout(() => g.remove(), 220); }
 function openModal(html, o) {
   o = o || {}; const m = $('.dk-modal'), c = $('.dk-mcard'), wasOpen = m.classList.contains('open'), prevBy = MODAL_BY, prevPos = c.style.translate;
+  const swap = wasOpen && !calm() && c.innerHTML && winKey(c.innerHTML) !== winKey(html); if (swap) winGhost(c);
   if (MODAL_CLOSE && m.classList.contains('open')) { const f = MODAL_CLOSE; MODAL_CLOSE = null; f(); }
   c.className = 'dk-mcard' + (o.wide ? ' wide' : '') + (o.cls ? ' ' + o.cls : ''); m.classList.toggle('dk-msheet', !!o.sheet); c.innerHTML = html; m.classList.add('open'); m.scrollTop = 0; c.scrollTop = 0; MODAL_CLOSE = o.onClose || null;
   const fresh = LAST_OPENER && Date.now() - LAST_OPENER_T < 600; MODAL_BY = fresh ? LAST_OPENER : wasOpen ? prevBy : null; LAST_OPENER = null;
-  mwDress(c); if (wasOpen && !fresh && prevPos && !WINPOS[c.dataset.win]) c.style.translate = prevPos; c.style.animation = wasOpen ? 'none' : ''; ROOT.classList.remove('dk-rfront');
+  mwDress(c); if (wasOpen && !fresh && prevPos && !WINPOS[c.dataset.win]) c.style.translate = prevPos; c.style.animation = wasOpen ? 'none' : ''; if (swap) { void c.offsetWidth; c.style.animation = ''; } ROOT.classList.remove('dk-rfront');
   const f = c.querySelector('input:not([type=checkbox]):not(.dk-swi),textarea,select'); if (f && innerWidth > 700 && o.focus !== false) setTimeout(() => f.focus(), 30);
 }
 function closeModal(silent) {
   const m = $('.dk-modal'); if (!m) return; const c = $('.dk-mcard');
   // the window fades out as a copy while the real one is free for the next pop-up straight away
-  if (m.classList.contains('open') && mwDesk() && !calm() && c.innerHTML) { const g = c.cloneNode(true), r = c.getBoundingClientRect(); g.classList.add('dk-mghost'); g.removeAttribute('id'); g.querySelectorAll('[id]').forEach(x => x.removeAttribute('id'));
-    Object.assign(g.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', translate: 'none' }); ROOT.appendChild(g); setTimeout(() => g.remove(), 200); }
+  // (a narrow window's pop-up has a dimmed backdrop behind it: that fades out with it)
+  if (m.classList.contains('open') && !calm() && c.innerHTML) { winGhost(c); if (!mwDesk()) { const sh = document.createElement('div'); sh.className = 'dk-mshade ' + m.className; sh.classList.remove('open'); ROOT.appendChild(sh); setTimeout(() => sh.remove(), 220); } }
   m.classList.remove('open'); c.innerHTML = ''; c.style.translate = ''; MODAL_BY = null; const f = MODAL_CLOSE; MODAL_CLOSE = null; SV = null; if (f && !silent) f(); }
 // runs a confirm/ask callback; a failure (e.g. the save was refused or timed out) is shown instead of vanishing
 function runOk(fn, ...a) { const bad = e => { console.warn(e); toast({ title: 'That didn’t work', det: esc((e && e.message) || 'Try again in a moment.'), cls: 'bad' }); };
@@ -1393,7 +1506,7 @@ function econMini(x) { const t = turnOf(x), left = Math.max(0, moveMax(x) - N(t.
 
 function render() {
   if (!ROOT) return; try { edFlush(); } catch (e) {}
-  ROOT.querySelector('.dk-top').innerHTML = topHTML();
+  ROOT.querySelector('.dk-top').innerHTML = topHTML(); dHistButtons();
   { const lg = ROOT.querySelector('.dk-logo'); if (lg && CTX.logo && typeof CTX.logo.wire === 'function') try { CTX.logo.wire(lg); } catch (e) {} }
   paint(); paintDice(); try { pills(); } catch (e) {}
 }
@@ -1408,7 +1521,8 @@ function topHTML() {
   return `
     <div class="dk-bcol"><div class="dk-brand">${CTX.logo && typeof CTX.logo.html === 'function' ? `<span class="dk-logo">${CTX.logo.html()}</span>` : '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 2 36 11v18L20 38 4 29V11z" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M20 2v36M4 11l32 18M36 11 4 29" stroke="currentColor" stroke-width="1.2" opacity=".55"/></svg>'}<div><small>${p ? esc(p.name || 'Your party') : 'Adventurer’s Tome'}</small><h1>DM’s Desk</h1></div></div></div>
     <nav class="dk-tabs" role="tablist">${CTX.partyHost ? `<button role="tab" data-act="tab" data-tab="party" aria-selected="${UI.tab === 'party'}" class="${UI.tab === 'party' ? 'on' : ''}">${ICO_PARTY}<span>Party</span></button>` : ''}<button role="tab" data-act="tab" data-tab="sessions" aria-selected="${UI.tab === 'sessions'}" class="${UI.tab === 'sessions' ? 'on' : ''}">${ICON.folder}<span>Sessions</span></button><button role="tab" data-act="tab" data-tab="notes" aria-selected="${UI.tab === 'notes'}" class="${UI.tab === 'notes' ? 'on' : ''}">${ICON.notes}<span>Notes</span></button><button role="tab" data-act="tab" data-tab="bestiary" aria-selected="${UI.tab === 'bestiary'}" class="${UI.tab === 'bestiary' ? 'on' : ''}">${ICON.book}<span>Bestiary</span></button><button role="tab" data-act="tab" data-tab="gen" aria-selected="${UI.tab === 'gen'}" class="${UI.tab === 'gen' ? 'on' : ''}">${ICON.dice}<span>Generate</span></button></nav>
-    <div class="dk-tools"><span class="dk-sync">${esc(syncMsg)}</span>
+    <div class="dk-tools"><span class="dk-sync${/couldn|offline|retry/i.test(syncMsg) ? ' bad' : ''}${/…/.test(syncMsg) ? ' busy' : ''}" title="${esc(syncMsg)}">${esc(syncMsg)}</span>
+      <span class="dk-histb"><button class="dk-tb" data-act="dundo" aria-label="Undo">${ICON.undo}</button><button class="dk-tb" data-act="dredo" aria-label="Redo">${ICON.redo}</button><button class="dk-tb" data-act="dhistory" title="Change history" aria-label="Change history">${ICON.hist}</button></span>
       ${p && typeof CTX.turnOrder === 'function' ? `<button class="dk-tb dk-tobtn" data-act="turnorder" title="Turn order" aria-label="Turn order">${ICON.init}</button>` : ''}<button class="dk-tb" data-act="diceroller" title="Dice roller" aria-pressed="${!!$('.drwin:not(.closing)')}">${ICON.dice}<span class="dk-tl">Roll</span></button>
       <button class="dk-tb" data-act="log" title="Roll log" aria-pressed="${UI.log}">${ICON.log}<span class="dk-tl">Log</span></button>
       <button class="dk-tb" data-act="settings" title="Settings">${ICON.gear}</button>${CTX && CTX.bugReport ? `<button class="dk-tb" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` : ''}${CTX && CTX.acct ? `<button class="dk-acct" data-act="acct" title="Your account" aria-haspopup="menu" aria-expanded="false">${CTX.acct.html()}</button>` : ''}</div>
@@ -1428,7 +1542,7 @@ function paint() {
   PAINTING = true; try { paint0(pg); } finally { PAINTING = false; }
 }
 function paint0(pg) {
-  const keep = {}; $$('[data-keep]').forEach(el => { keep[el.dataset.keep] = el.scrollTop; });
+  const keep = {}; $$('[data-keep]').forEach(el => { keep[el.dataset.keep] = el.scrollTop; }); window.DK_KEEP = keep;
   const a = document.activeElement, fid = a && ROOT.contains(a) && a.id, sel = fid && a.selectionStart != null ? [a.selectionStart, a.selectionEnd] : null, y = scrollY;
   // (a box being typed in keeps what's in it, saved or not, when something else makes the page redraw)
   const val = UI.tab === 'notes' && fid && /^(INPUT|TEXTAREA)$/.test(a.tagName) && !/^(checkbox|radio|file)$/i.test(a.type || '') ? a.value : null;
@@ -1457,7 +1571,7 @@ function sessionsHTML() {
   return `<div class="dk-sess">
     <div class="dk-scrim" data-act="tree"></div>
     <nav class="dk-rail" aria-label="Sessions">${railHTML(s)}</nav>
-    <main class="dk-main" data-keep="smain-${s ? s.id : ''}-${UI.sel || ''}-${UI.sv || ''}">${s ? `${phoneBar(s, sel)}${sel ? detailHTML(sel, s) : UI.sv === 'plan' ? sessHead(s, true) + planHTML(s) : overviewHTML(s)}` : emptyHTML()}</main></div>`;
+    <main class="dk-main" data-keep="smain-${s ? s.id : ''}-${UI.sel || ''}-${UI.sv || ''}">${s ? `${phoneBar(s, sel)}${sel ? detailHTML(sel, s) : overviewHTML(s)}` : emptyHTML()}</main></div>`;
 }
 function emptyHTML() {
   return `<div class="dk-empty"><div class="dk-emblem">${ICON.folder}</div><h2>Your first session</h2><p>A session is a folder of the creatures you’ll run: tracked HP, conditions and turns, with every attack, save and spell one click away.</p><button class="dk-btn gold big" data-act="newsess">${ICON.plus} New session</button></div>`;
@@ -1482,9 +1596,9 @@ function sessHead(s, plan) {
       <div class="dk-shacts">${CTX.party ? `<button class="dk-btn" data-act="toall" ${all.length ? '' : 'disabled'} title="Roll initiative for every creature here and add them to ${esc(CTX.party.name || 'the party')}’s Turn order">${ICON.init}<span>Send all to Turn order</span></button>` : ''}
         <button class="dk-btn" data-act="newround" ${all.length ? '' : 'disabled'} title="New turn for every creature: actions back, recharges rolled, timed conditions count down, regeneration">${ICON.refresh}<span>New round</span></button>
         <div class="dk-menu"><button class="dk-btn icon" data-act="menu" aria-label="More" aria-haspopup="menu">${ICON.dots}</button><div class="dk-mlist" role="menu"><button data-act="addgroup">Add a group</button><button data-act="restall">Reset every creature</button><button data-act="dupsess">Duplicate session</button><button class="red" data-act="delsess">Delete session</button></div></div></div></div>
-    <div class="dk-svtabs"><div class="dk-seg2"><button class="${plan ? '' : 'on'}" data-act="sview" data-v="creatures">Creatures</button><button class="${plan ? 'on' : ''}" data-act="sview" data-v="plan">Plan & notes${s.plan && s.plan.flow ? ' ✓' : ''}</button></div>
+    <div class="dk-svtabs">
     <div class="dk-meta"><span>${plural(all.length, 'creature')}</span>${xp ? `<span>${xp.toLocaleString()} XP</span>` : ''}${down ? `<span class="bad">${down} down</span>` : ''}</div></div>
-    ${plan ? '' : `<details class="dk-notes"${s.notes ? ' open' : ''}><summary>Session notes</summary><textarea class="dk-f" id="dk-snotes" data-ch="snotes" rows="2" placeholder="Hooks, places, names, what happened last time…">${esc(s.notes || '')}</textarea></details>
+    ${plan ? '' : `
     <div class="dk-add"><div class="dk-picker"><input class="dk-f" id="dk-addq" placeholder="${innerWidth <= 640 ? 'Add a creature (e.g. goblin)' : 'Add a creature — type a name (e.g. goblin)'}" autocomplete="off" aria-label="Creature to add"><div class="dk-sugg" hidden></div></div>
       <input class="dk-f dk-num" id="dk-addn" type="number" min="1" max="30" value="1" aria-label="How many">
       ${s.groups.length > 1 ? `<select class="dk-f" id="dk-addg" aria-label="Group">${s.groups.map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join('')}</select>` : ''}
@@ -1493,7 +1607,7 @@ function sessHead(s, plan) {
 }
 function overviewHTML(s) {
   const grp = g => `<section class="dk-grp"><header><input class="dk-gname" id="dk-g-${g.id}" data-ch="gname" data-gid="${g.id}" value="${esc(g.name)}" aria-label="Group name" maxlength="60"><small>${plural(g.list.length, 'creature')}</small>
-      <span class="dk-gacts">${CTX.party && g.list.length ? `<button class="dk-btn sm" data-act="togroup" data-gid="${g.id}" title="Roll initiative for this group and add it to the Turn order">${ICON.init}<span>Turn order</span></button>` : ''}${g.list.length ? `<button class="dk-btn sm" data-act="saveeff" data-gid="${g.id}" title="A breath weapon, spell or trap against this group">Save effect…</button>` : ''}${s.groups.length > 1 ? `<button class="dk-ix" data-act="delgroup" data-gid="${g.id}" title="Delete group" aria-label="Delete group">${ICON.trash}</button>` : ''}</span></header>
+      <span class="dk-gacts">${g.list.length ? `<button class="dk-btn sm" data-act="saveeff" data-gid="${g.id}" title="A breath weapon, spell or trap against this group">Save effect…</button>` : ''}${s.groups.length > 1 ? `<button class="dk-ix" data-act="delgroup" data-gid="${g.id}" title="Delete group" aria-label="Delete group">${ICON.trash}</button>` : ''}</span></header>
     ${g.list.length ? `<div class="dk-cards">${g.list.map(cardHTML).join('')}</div>` : '<p class="dk-hint dk-gnone">Empty. Add creatures with the box above.</p>'}</section>`;
   return sessHead(s) + s.groups.map(grp).join('') + cardsHTML(s);
 }
@@ -1611,6 +1725,18 @@ function filteredCreatures() {
   L.sort(UI.sort === 'cr' ? (a, b) => N(a.cr) - N(b.cr) || a.name.localeCompare(b.name) : (a, b) => a.name.localeCompare(b.name));
   return L;
 }
+// The creature list draws its first rows straight away and the rest just after, a batch at a time, so opening the
+// Bestiary (or typing in its search) doesn't wait for hundreds of rows. (All at once if the list was scrolled down.)
+const bestRow = (x, c) => `<button class="dk-mrow${c && x.id === c.id ? ' on' : ''}" data-act="pickbest" data-cid="${esc(x.id)}">${tokenHTML(x, 30)}<span class="dk-mn">${esc(x.name)}${x.src !== 'SRD' ? ' <span class="dk-src mine">mine</span>' : ''}</span><span class="dk-mcr">CR ${crLabel(N(x.cr))}</span><span class="dk-mt">${esc(x.size)} ${esc(x.type)} · AC ${esc(x.ac)} · HP ${esc(x.hp)}</span></button>`;
+let BEST_RUN = 0;
+function bestRows(L, c) {
+  const run = ++BEST_RUN, all = (window.DK_KEEP && window.DK_KEEP.blist > 0) || L.length <= 60;
+  if (all) return L.map(x => bestRow(x, c)).join('');
+  const rest = L.slice(60);
+  setTimeout(function more() { if (run !== BEST_RUN || UI.tab !== 'bestiary') return; const box = document.querySelector('.dk-mlist2[data-keep="blist"]'); if (!box || !rest.length) return;
+    box.insertAdjacentHTML('beforeend', rest.splice(0, 120).map(x => bestRow(x, c)).join('')); if (rest.length) requestAnimationFrame(() => setTimeout(more, 0)); }, 0);
+  return L.slice(0, 60).map(x => bestRow(x, c)).join('');
+}
 function bestiaryHTML() {
   const types = Array.from(new Set(allCreatures().map(c => (c.type || '').toLowerCase().replace(/\s*\(.*$/, '').replace(/^swarm of .*/, 'swarm')))).filter(Boolean).sort();
   const L = filteredCreatures(), c = getC(UI.best) || L[0], mine = Object.keys(S.creatures).length;
@@ -1629,7 +1755,7 @@ function bestiaryHTML() {
         <div class="dk-sort"><button class="${UI.sort === 'name' ? 'on' : ''}" data-act="bsort" data-v="name">A–Z</button><button class="${UI.sort === 'cr' ? 'on' : ''}" data-act="bsort" data-v="cr">CR</button></div>
       </div>
       <div class="dk-bcount">${L.length} shown${UI.q || UI.crMin !== '' || UI.crMax !== '' || UI.type || UI.size || UI.src ? ' · <button class="dk-link" data-act="bclear">clear filters</button>' : ''}</div>
-      <div class="dk-mlist2" data-keep="blist">${L.map(x => `<button class="dk-mrow${c && x.id === c.id ? ' on' : ''}" data-act="pickbest" data-cid="${esc(x.id)}">${tokenHTML(x, 30)}<span class="dk-mn">${esc(x.name)}${x.src !== 'SRD' ? ' <span class="dk-src mine">mine</span>' : ''}</span><span class="dk-mcr">CR ${crLabel(N(x.cr))}</span><span class="dk-mt">${esc(x.size)} ${esc(x.type)} · AC ${esc(x.ac)} · HP ${esc(x.hp)}</span></button>`).join('') || '<p class="dk-hint" style="padding:12px">Nothing matches. Clear a filter, or add your own creature.</p>'}</div>
+      <div class="dk-mlist2" data-keep="blist">${bestRows(L, c) || '<p class="dk-hint" style="padding:12px">Nothing matches. Clear a filter, or add your own creature.</p>'}</div>
     </section>
     <section class="dk-bview" data-keep="bview-${esc(c ? c.id : '')}">${c ? `<button class="dk-btn ghost dk-bback" data-act="bback">${ICON.back || '‹'} All creatures</button><div class="dk-card dk-badd"><div class="dk-row"><input class="dk-f dk-num" id="dk-bCount" type="number" min="1" max="30" value="1" aria-label="How many"><select class="dk-f" id="dk-bEnc" aria-label="Add to"><option value="__new">A new session</option>${grps.map(({ s, g }) => `<option value="${esc(s.id)}|${esc(g.id)}"${s.id + '|' + g.id === defG ? ' selected' : ''}>${esc(s.title)}${s.groups.length > 1 ? ' › ' + esc(g.name) : ''}</option>`).join('')}</select><button class="dk-btn gold" data-act="badd" data-cid="${esc(c.id)}">${ICON.plus} Add</button></div>
         <div class="dk-row"><button class="dk-btn sm" data-act="copyc" data-cid="${esc(c.id)}">Copy & edit</button>${c.src !== 'SRD' ? `<button class="dk-btn sm" data-act="editc" data-cid="${esc(c.id)}">Edit</button><button class="dk-btn sm red" data-act="delc" data-cid="${esc(c.id)}">Delete</button>` : ''}</div></div>
@@ -1790,7 +1916,8 @@ function openSettings(tab) {
       ${row('About', '', `${esc(TOK_CREDIT)}. Creature stat blocks: SRD 5.1 (CC BY 4.0).`)}`)}
     ${pane('notes', `${row('Your notes', `<button class="dk-btn sm" data-act="tab" data-tab="notes" data-close="1">Open</button>`, plural(np, 'page') + ' in your wiki.')}
       ${row('Import notes', `<button class="dk-btn sm" data-act="nimport">Import…</button>`, 'LegendKeeper, Obsidian, Craft, Markdown or a notes backup.')}
-      ${row('Export notes', `<button class="dk-btn sm" data-act="nexport">Export…</button>`, 'A Markdown zip or a JSON backup.')}`)}
+      ${row('Export notes', `<button class="dk-btn sm" data-act="nexport">Export…</button>`, 'A Markdown zip or a JSON backup.')}
+      ${row('Daily backups', `<button class="dk-btn sm" data-act="nbackups">Backups…</button>`, 'A copy of your notes from each of the last 14 days, kept in this browser.')}`)}
     </div>`, { wide: true, focus: false, cls: 'dk-setwin', sheet: true });
   paintR20();
 }
@@ -1848,7 +1975,7 @@ function showSugg(inp) {
   box.hidden = false;
   box.innerHTML = res.map((c, i) => `<button data-act="pickc" data-cid="${esc(c.id)}" class="${i ? '' : 'hi'}"><span>${esc(c.name)}${c.src !== 'SRD' ? ' <span class="dk-src mine">mine</span>' : ''}</span><small>CR ${crLabel(N(c.cr))} · ${esc(c.type)}</small></button>`).join('');
 }
-function addPicked(cid) {
+function addPicked(cid) { dPend('Add a creature');
   const s = curSession(); if (!s) return; const c = getC(cid); if (!c) return;
   const n = Math.max(1, Math.min(30, N(($('#dk-addn') || {}).value) || 1)), gid = ($('#dk-addg') || {}).value, g = s.groups.find(x => x.id === gid) || s.groups[0];
   const out = addToGroup(s, g, cid, n); save(); paint();
@@ -1876,6 +2003,7 @@ async function onClick(e) {
   // pressing the button that opened a window again closes it
   if (!b.closest('.dk-mcard')) { const sig = openerSig(b); if (MODAL_BY && sig === MODAL_BY && $('.dk-modal.open')) { closeModal(); return; } LAST_OPENER = sig; LAST_OPENER_T = Date.now(); }
   if (b.dataset.sv && SV) return onSaveClick(b);
+  if (dHistClick(b)) return; { const l = dLabelFrom(b); if (l) dPend(l); }
   const act = b.dataset.act, iid = b.dataset.iid, x = iid ? findInst(iid) : null;
   if (act !== 'menu') closeMenus();
   if (b.tagName === 'A') return;
@@ -2022,6 +2150,7 @@ async function onClick(e) {
 function closeMenus() { $$('.dk-menu.open').forEach(m => m.classList.remove('open')); }
 function onChange(e) {
   const el = e.target; if (!ROOT.contains(el)) return;
+  if (!el.closest('.dk-modal, .dk-addrow, .dk-add') && !/^dk-add/.test(el.id || '')) { const n = (el.getAttribute && (el.getAttribute('aria-label') || el.getAttribute('placeholder') || el.getAttribute('title'))) || (el.closest && el.closest('label') && el.closest('label').textContent.trim().slice(0, 40)) || 'a field'; dPend('Edit: ') + n; }
   if (onNotesChange(el)) return;
   if (el.dataset && el.dataset.qt) { QTYPE[el.dataset.qt] = el.value; return; }
   if (el.dataset && el.dataset.hbf) { hbReadForm(); return; }
@@ -2069,6 +2198,7 @@ function onInput(e) {
 function onKey(e) {
   if (!ROOT || !ROOT.isConnected) return;
   const el = e.target;
+  if (dHistKey(e)) return;
   if (ROOT.contains(el) && onNotesKey(e)) return;
   if (el && el.id === 'dk-addq') {
     const box = el.parentElement.querySelector('.dk-sugg'), items = box ? $$('button', box) : [];
@@ -2089,7 +2219,7 @@ function onDocDown(e) {
 }
 // the Turn order changed: HP that changed there comes back here, and "In Turn order" buttons follow who's on the list
 let TURN_SIG = null; const turnSig = () => { const t = toRead(); return t ? t.rows.map(r => r.desk || '').filter(Boolean).sort().join() : ''; };
-function onStorage(e) { if (!e.key || e.key !== toKey()) return; const hp = readTurnHP(), sig = turnSig(), moved = sig !== TURN_SIG; TURN_SIG = sig; if (hp) save(); if (hp || moved) paint(); }
+function onStorage(e) { if (!e.key || e.key !== toKey()) return; const hp = readTurnHP(), sig = turnSig(), moved = sig !== TURN_SIG; TURN_SIG = sig; if (hp) { dPend('Hit points from turn order'); save(); } if (hp || moved) paint(); }
 
 // ---------- mount ----------
 const LISTEN = [];
@@ -2104,7 +2234,7 @@ function mount(root, ctx) {
     <aside class="dk-log" aria-label="Roll log"><div class="dk-loghd"><h2>Roll log</h2><button class="dk-btn sm" data-act="clearlog">Clear</button><button class="dk-ix" data-act="log" aria-label="Close">${ICON.x}</button></div><div class="dk-loglist"></div></aside>
     <div class="dk-modal" role="presentation"><div class="dk-mcard" role="dialog" aria-modal="true"></div></div>
     <div class="dk-toasts" aria-live="polite"></div><input type="file" class="dk-impf" accept=".json,application/json" hidden><input type="file" class="dk-imgf" accept="image/*" hidden><input type="file" class="dk-tokf" accept="image/*" hidden><input type="file" class="dk-nimgf" accept="image/*" hidden><input type="file" class="dk-mapf" accept="image/*" hidden><input type="file" class="dk-nimpf" accept=".docx,.lk,.md,.markdown,.txt,.html,.htm,.zip,.textpack,.json,image/*" multiple hidden><input type="file" class="dk-ndirf" webkitdirectory multiple hidden><div class="dk-auto" hidden></div><input type="file" class="dk-notef" accept=".pdf,.docx,.txt,.md,.markdown,text/plain,application/pdf" multiple hidden>`;
-  const loc = lsGet(''); S = normalize(loc && loc.v ? loc : null);
+  const loc = lsGet(''); S = normalize(loc && loc.v ? loc : null); dHistLoad();
   const u = lsGet('-ui'); if (u) UI = Object.assign(UI, u, { tree: false, log: false });
   UI.ptab = UI.ptab || {};
   if (CTX.partyHost && CTX.party && CTX.party.id) { UI.tab = UI.ptab[CTX.party.id] || CTX.initialTab || 'party'; }
@@ -2123,12 +2253,12 @@ function mount(root, ctx) {
   on(root, 'click', onClick); on(root, 'dblclick', e => { if (e.target.closest && e.target.closest('.dk-nsplit')) { UI.nrw = 0; saveUI(); nrSet(NRW0); } }); on(root, 'keydown', nrKey); on(root, 'pointerdown', e => { mwDrag(e); nrDrag(e); if (e.target.closest && e.target.closest('.drwin')) ROOT.classList.add('dk-rfront'); else if (e.target.closest && e.target.closest('.dk-mcard')) ROOT.classList.remove('dk-rfront'); }); on(window, 'resize', () => { if (ROOT) ROOT.classList.toggle('dk-mw', mwDesk()); }); on(root, 'change', onChange); on(root, 'input', onInput);
   on(root, 'mousedown', e => { const t = e.target.closest && e.target.closest('[data-ed],[data-auto]'); if (!t) return; e.preventDefault(); if (t.dataset.ed) edCmd(t.dataset.ed); else edAutoPick(N(t.dataset.auto)); });
   on(root, 'paste', e => { if (e.target.closest && e.target.closest('.dk-ed')) edPaste(e); });
-  on(root, 'dragstart', e => { onDragStart(e); if (DRAG) ROOT.classList.add('dk-dragon'); }); on(root, 'dragover', onDragOver); on(root, 'drop', e => { onDrop(e); ROOT.classList.remove('dk-dragon'); }); on(root, 'dragend', () => { DRAG = null; ROOT.classList.remove('dk-dragon'); $$('.dragging').forEach(x => x.classList.remove('dragging')); });
-  on(root, 'mouseover', onNotesOver); on(window, 'beforeunload', notesLeave); on(window, 'pagehide', notesLeave); on(document, 'visibilitychange', () => { if (document.hidden) notesLeave(); else notesRefresh(); });
+  on(root, 'dragstart', e => { onDragStart(e); if (DRAG) ROOT.classList.add('dk-dragon'); }); on(root, 'dragover', onDragOver); on(root, 'drop', e => { dPend('Move'); onDrop(e); ROOT.classList.remove('dk-dragon'); }); on(root, 'dragend', () => { DRAG = null; ROOT.classList.remove('dk-dragon'); $$('.dragging').forEach(x => x.classList.remove('dragging')); });
+  on(root, 'mouseover', onNotesOver); on(root, 'contextmenu', nCtx); on(window, 'beforeunload', notesLeave); on(window, 'pagehide', notesLeave); on(document, 'visibilitychange', () => { if (document.hidden) notesLeave(); else notesRefresh(); });
   on(document, 'keydown', onKey); on(document, 'mousedown', onDocDown); on(document, 'touchstart', onDocDown, { passive: true });
   on(window, 'message', onR20Msg); on(document, 'visibilitychange', onVis); on(window, 'storage', onStorage);
   setTimeout(r20Hello, 400);
-  cloudBoot(); notesBoot(); setTimeout(() => { if (ROOT) tokShrinkOld(); }, 3000);
+  cloudBoot(); notesBoot().finally(() => { if (ROOT) nbkStart(); }); setTimeout(() => { if (ROOT) tokShrinkOld(); }, 3000);
   if (LITE) setTimeout(phoneWarn, 700);
   return { unmount };
 }
@@ -2147,7 +2277,7 @@ function phoneWarn() {
 function unmount() { LISTEN.splice(0).forEach(([t, ev, fn, o]) => t.removeEventListener(ev, fn, o)); if (CTX && CTX.partyHost && CTX.partyHost.parentNode && CTX.partyHost.parentNode.classList.contains('dk-partyslot')) CTX.partyHost.parentNode.removeChild(CTX.partyHost); if (CLOUD) flush(); if (NCLOUD) flushNotes(); if (ROOT) { ROOT.innerHTML = ''; ROOT.classList.remove('dk'); } ROOT = null; CLOUD = false; }
 // Lists that scroll inside a panel show a divider with a soft shadow at an edge when there's more past it.
 const SHADE_SEL = '.dk-tree, .dk-mlist2, .dk-auto, .dk-itree, .dk-setwin .dk-setx, .dk-loglist';
-function shadeOne(el) { const t = el.scrollTop > 2, b = el.scrollTop + el.clientHeight < el.scrollHeight - 2; el.classList.add('dk-shade'); el.classList.toggle('sc-t', t); el.classList.toggle('sc-b', b); }
+function shadeOne(el) { const t = el.scrollTop > 2, b = el.scrollTop + el.clientHeight < el.scrollHeight - 2; if (!el.classList.contains('dk-shade')) el.classList.add('dk-shade'); if (el.classList.contains('sc-t') !== t) el.classList.toggle('sc-t', t); if (el.classList.contains('sc-b') !== b) el.classList.toggle('sc-b', b); } // (classes only touched when they change)
 function shadeAll() { if (!ROOT) return; $$(SHADE_SEL).forEach(shadeOne); }
 document.addEventListener('scroll', e => { const el = e.target; if (el && el.matches && ROOT && ROOT.contains(el) && el.matches(SHADE_SEL)) shadeOne(el); }, true);
 addEventListener('resize', () => requestAnimationFrame(shadeAll));
@@ -2544,6 +2674,8 @@ function onPlanAct(act, b) {
   }
   return false;
 }
+// A page's id goes into the page's markup, so only plain ids are taken from what's saved (others can't be pages)
+const pageOK = p => !!(p && typeof p.id === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(p.id) && (p.parent == null || p.parent === '' || (typeof p.parent === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(p.parent))));
 // ---------- Notes: a campaign wiki (pages in a tree, rich text, wiki links, maps) ----------
 // Pages live in desks/{email}/notes/{id} {savedAt, data}; pictures in desks/{email}/imgs/{id} {data, w, h}.
 // Every page body is run through clean() — a strict whitelist — when it is saved AND when it is shown.
@@ -2601,13 +2733,13 @@ async function flushNotes() {
   nFlushing = false; if (nAgain) { nAgain = false; flushNotes(); }
 }
 async function notesBoot() {
-  try { const l = JSON.parse(localStorage.getItem(lsKey('-notes')) || 'null'); if (l && l.pages) NT = { pages: l.pages, syncedAt: N(l.syncedAt), del: l.del || [] }; } catch (e) {}
+  try { const l = JSON.parse(localStorage.getItem(lsKey('-notes')) || 'null'); if (l && l.pages) NT = { pages: Object.fromEntries(Object.entries(l.pages).filter(([k, p]) => pageOK(p) && k === p.id)), syncedAt: N(l.syncedAt), del: l.del || [] }; } catch (e) {}
   if (!CTX.fs || !CTX.EMAIL) return;
   // (a party's desk keeps its own notes; pictures stay in one place for all your desks)
   while (!BASE && ROOT) await new Promise(r => setTimeout(r, 50)); NBASE = deskBase().collection('notes'); IBASE = userBase().collection('imgs');
   while (!CLOUD && ROOT && syncMsg !== 'Offline — saved on this device') await new Promise(r => setTimeout(r, 80)); // (after any move of an old desk)
   try {
-    const qs = await NBASE.get(), cloud = {}; qs.docs.forEach(d => { const p = d.data().data; if (p && p.id) cloud[p.id] = p; });
+    const qs = await NBASE.get(), cloud = {}; qs.docs.forEach(d => { const p = d.data().data; if (pageOK(p)) cloud[p.id] = p; });
     const merged = {};
     Object.values(cloud).forEach(p => { const l = NT.pages[p.id]; merged[p.id] = l && N(l.edited) > N(p.edited) ? l : p; NSYNC.set(p.id, JSON.stringify(p)); });
     Object.values(NT.pages).forEach(p => { if (!cloud[p.id] && N(p.edited) > N(NT.syncedAt)) merged[p.id] = p; }); // made here and not saved yet
@@ -2625,7 +2757,7 @@ let nRefreshing = false;
 async function notesRefresh() {
   if (!NCLOUD || !NBASE || nRefreshing || nFlushing) return; nRefreshing = true;
   try {
-    const qs = await NBASE.get(), cloud = {}; qs.docs.forEach(d => { const p = d.data().data; if (p && p.id) cloud[p.id] = p; });
+    const qs = await NBASE.get(), cloud = {}; qs.docs.forEach(d => { const p = d.data().data; if (pageOK(p)) cloud[p.id] = p; });
     const ed = typeof edEl === 'function' && edEl(), typing = ed && document.activeElement === ed ? ed.id.replace(/^dk-ed-/, '') : ''; let ch = false;
     Object.values(cloud).forEach(c => { if (NT.del.includes(c.id) || c.id === typing) return; const l = NT.pages[c.id], cj = JSON.stringify(c);
       if (!l) { NT.pages[c.id] = c; NSYNC.set(c.id, cj); ch = true; return; }
@@ -2804,6 +2936,70 @@ function htmlToMd(html) {
   }).join('');
   return blk(d, '').replace(/\n{3,}/g, '\n\n').trim() + '\n';
 }
+// ---------- daily notes backups, kept on this device ----------
+// Once a day (the first time the desk is open that day) it keeps a compressed copy of every notes page in this browser's
+// own storage, for the last 14 days. A day's copy is never overwritten, so a mistake made later that day can't spoil it. Nothing goes to the account, so it uses none of the site's storage.
+// Pictures aren't copied: they stay in your account and pages point at them. Restore puts pages back as they were that day.
+const NBK_DAYS = 14;
+let NBK_DB = null, NBK_SIG = '', NBK_T = 0;
+const nbkOwner = () => lsKey('-nbk');
+const nbkDay = (t = Date.now()) => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+function nbkDb() {
+  if (NBK_DB) return NBK_DB;
+  NBK_DB = new Promise((res, rej) => { if (!window.indexedDB) return rej(new Error('no storage')); const r = indexedDB.open('pg-desk-backups', 1);
+    r.onupgradeneeded = () => { const s = r.result.createObjectStore('bk', { keyPath: 'k' }); s.createIndex('owner', 'owner'); };
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+  NBK_DB.catch(() => { NBK_DB = null; }); return NBK_DB;
+}
+const nbkTx = async (mode, fn) => { const db = await nbkDb(); return new Promise((res, rej) => { const t = db.transaction('bk', mode), s = t.objectStore('bk'); let out; Promise.resolve(fn(s)).then(v => { out = v; }); t.oncomplete = () => res(out); t.onerror = () => rej(t.error); }); };
+const nbkReq = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+async function nbkPack(text) {
+  if (window.CompressionStream) { const s = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip')); return { gz: true, data: await new Response(s).blob() }; }
+  return { gz: false, data: text };
+}
+async function nbkUnpack(rec) {
+  if (!rec.gz) return String(rec.data);
+  return new Response(rec.data.stream().pipeThrough(new DecompressionStream('gzip'))).text();
+}
+async function nbkList() { try { return (await nbkTx('readonly', s => nbkReq(s.index('owner').getAll(nbkOwner())))).sort((a, b) => b.at - a.at); } catch (e) { return []; } }
+// make today's copy if there isn't one yet (key: a named copy, made every time, e.g. just before a restore)
+async function nbkSave(force, key) {
+  const pages = pagesList(); if (!pages.length && !force) return;
+  const text = JSON.stringify({ app: 'dm-desk-notes', v: 1, pages }), sig = text.length + ':' + pages.reduce((t, p) => Math.max(t, N(p.edited)), 0);
+  if (!force && sig === NBK_SIG) return; NBK_SIG = sig;
+  try {
+    const day = nbkDay();
+    if (!key && await nbkTx('readonly', s => nbkReq(s.get(nbkOwner() + ':' + day))).catch(() => null)) return; // today's copy is already made
+    const packed = await nbkPack(text);
+    await nbkTx('readwrite', s => s.put({ k: nbkOwner() + ':' + (key || day), owner: nbkOwner(), day: key ? '' : day, kind: key || 'day', at: Date.now(), n: pages.length, bytes: packed.data.size || packed.data.length, gz: packed.gz, data: packed.data }));
+    // only the newest 14 days are kept
+    const days = (await nbkList()).filter(r => r.kind === 'day');
+    if (days.length > NBK_DAYS) await nbkTx('readwrite', s => days.slice(NBK_DAYS).forEach(r => s.delete(r.k)));
+  } catch (e) { console.warn('notes backup', e); }
+}
+function nbkStart() { clearInterval(NBK_T); setTimeout(() => nbkSave(), 4000); NBK_T = setInterval(() => { if (ROOT) nbkSave(); else clearInterval(NBK_T); }, 30 * 60000); }
+const nbkSize = b => b < 1024 ? b + ' B' : b < 1048576 ? Math.round(b / 1024) + ' KB' : (b / 1048576).toFixed(1) + ' MB';
+const nbkWhen = r => r.kind === 'undo' ? 'Just before your last restore' : new Date(r.at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) + (r.day === nbkDay() ? ' (today)' : '');
+async function openBackups() {
+  await nbkSave();
+  const L = await nbkList();
+  openModal(`<h2>Notes backups</h2><p class="dk-hint">Every day the desk keeps a copy of your notes in this browser, for the last ${NBK_DAYS} days. They're only on this device and don't use any of your account's storage. Pictures stay in your account.</p>
+    ${L.length ? `<ol class="dk-hist dk-bkl">${L.map(r => `<li><span class="dk-hl"><b>${esc(nbkWhen(r))}</b> <small>· ${plural(r.n, 'page')} · ${nbkSize(r.bytes)} · saved ${new Date(r.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</small></span><span class="dk-row"><button class="dk-btn sm" data-bk="dl" data-k="${esc(r.k)}">Download</button><button class="dk-btn sm gold" data-bk="restore" data-k="${esc(r.k)}">Restore</button></span></li>`).join('')}</ol>` : '<p class="dk-hint">No backups yet. The first one is made a few seconds after your notes load.</p>'}
+    <div class="dk-acts"><button class="dk-btn" data-act="close">Close</button></div>`, { focus: false });
+  $$('[data-bk]').forEach(b => b.onclick = () => nbkAct(b.dataset.bk, b.dataset.k));
+}
+async function nbkAct(what, k) {
+  const r = await nbkTx('readonly', s => nbkReq(s.get(k))).catch(() => null); if (!r) return toastInfo('That backup is gone.');
+  const text = await nbkUnpack(r);
+  if (what === 'dl') return download('dm-desk-notes-' + (r.day || 'before-restore') + '.json', text);
+  confirmBox(`Put your notes back the way they were ${r.kind === 'undo' ? 'just before your last restore' : 'on ' + esc(nbkWhen(r).replace(' (today)', ''))}? Pages changed since then go back to that version and deleted pages come back. Pages made after it are kept.`, 'Restore', async () => {
+    let d; try { d = JSON.parse(text); } catch (e) { return toastInfo('That backup couldn’t be read.'); }
+    try { edFlush(); } catch (e) {}
+    if (r.kind !== 'undo') await nbkSave(true, 'undo');
+    let n = 0; for (const p of d.pages || []) { if (!p || !p.id) continue; NT.pages[p.id] = Object.assign({}, p, { edited: Date.now() }); const i = NT.del.indexOf(p.id); if (i >= 0) NT.del.splice(i, 1); n++; }
+    nSaveQuiet(); paint(); toastInfo(`Restored ${plural(n, 'page')}${r.kind === 'undo' ? '' : ' from ' + esc(nbkWhen(r).replace(' (today)', ''))}.`);
+  });
+}
 // ---------- Notes: drawing and editing ----------
 const relTime = t => { const d = (Date.now() - N(t)) / 60000; return d < 1 ? 'just now' : d < 60 ? Math.round(d) + ' min ago' : d < 1440 ? Math.round(d / 60) + ' h ago' : d < 10080 ? Math.round(d / 1440) + ' days ago' : new Date(t).toLocaleDateString(); };
 const allTags = () => Array.from(new Set([].concat(...pagesList().map(p => p.tags || [])))).sort((a, b) => a.localeCompare(b));
@@ -2830,7 +3026,7 @@ function notesRailHTML() {
     <div class="dk-nfilt">${[['all', 'All'], ['fav', '★ Pinned'], ['recent', 'Recent'], ['maps', 'Maps']].map(([k, n]) => `<button class="${f === k ? 'on' : ''}" data-act="nfilt" data-v="${k}">${n}</button>`).join('')}${tags.length ? `<select class="dk-f" id="dk-ntag" aria-label="Tag"><option value="">#tag</option>${tags.map(t => `<option${f === 'tag' && UI.ntag === t ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>` : ''}</div>
     <div class="dk-tree dk-ntree" data-keep="ntree">${res ? (res.length ? res.map(p => `<button class="dk-nres${p.id === UI.np ? ' on' : ''}" data-act="nopen" data-id="${p.id}">${nIcon(p.type)}<span><b>${esc(p.title)}</b><small>${q ? snippet(p, q) : relTime(p.edited)}</small></span></button>`).join('') : '<p class="dk-tnone">Nothing found.</p>')
       : (pagesList().length ? treeHTML('', 0) + '<div class="dk-ntdrop" data-dropend="1">Drop here to move to the top level</div>' : '<p class="dk-tnone">No pages yet</p>')}</div>
-    <div class="dk-nrailft"><button class="dk-btn sm ghost" data-act="nimport">${ICON.importIc}<span>Import</span></button><button class="dk-btn sm ghost" data-act="nexport">${ICON.exportIc}<span>Export</span></button></div>`;
+    <div class="dk-nrailft"><button class="dk-btn sm ghost" data-act="nimport">${ICON.importIc}<span>Import</span></button><button class="dk-btn sm ghost" data-act="nexport">${ICON.exportIc}<span>Export</span></button><button class="dk-btn sm ghost" data-act="nbackups">${ICON.hist}<span>Backups</span></button></div>`;
 }
 function notesHTML() {
   const p = pageById(UI.np);
@@ -2887,7 +3083,8 @@ function notesAfterPaint() {
 // ----- editor -----
 let EDT = 0;
 // the 'Write here…' hint shows while the page has no words, pictures or lists
-function edBlank(ed) { if (ed) ed.classList.toggle('blank', !ed.textContent.replace(/\u200B/g, '').trim() && !ed.querySelector('img, hr, table, li, a, span.mn')); }
+// the hint only shows on a page with nothing in it at all: no text, and nothing but one plain empty line
+function edBlank(ed) { if (ed) ed.classList.toggle('blank', !ed.textContent.replace(/\u200B/g, '').trim() && !ed.querySelector('img, hr, table, li, a, span.mn, blockquote, h1, h2, h3, pre, .callout, .secret, ul, ol') && ed.children.length <= 1); }
 const edFix = h => { h = String(h || '').replace(/<(p|li|h[123]|td|th)><\/\1>/g, '<$1><br></$1>'); return h.trim() ? h : '<p><br></p>'; };
 function edEl() { return $('.dk-ed'); }
 let ED_PENDING = false;
@@ -2895,7 +3092,7 @@ function edSave(now) {
   // the text goes to the page the editor is showing (its id), never to whichever page is open by now: after clicking a
   // link the open page has already changed while the old page's editor is still on screen
   const ed = edEl(), p = ed && pageById(ed.id.replace(/^dk-ed-/, '')); if (!ed || !p) return;
-  clearTimeout(EDT); const go = () => { ED_PENDING = false; edBlank(ed); const h = clean(ed.innerHTML).replace(/\u200B/g, ''); if (h !== p.html) { p.html = h; nSave(p); } };
+  edBlank(ed); clearTimeout(EDT); const go = () => { ED_PENDING = false; edBlank(ed); const h = clean(ed.innerHTML).replace(/\u200B/g, ''); if (h !== p.html) { p.html = h; nSave(p); } };
   if (now) go(); else { ED_PENDING = true; EDT = setTimeout(go, 500); }
 }
 // anything that redraws the page first keeps what was just typed (or a link/mention just picked) in the editor
@@ -3008,8 +3205,8 @@ const nrW = () => nrClamp(N(UI.nrw) || NRW0);
 function nrSet(w, keep) { const v = $('.dk-notesv'); w = nrClamp(w); if (v) v.style.setProperty('--nrw', w + 'px'); if (keep) { UI.nrw = w; saveUI(); } return w; }
 function nrDrag(e) {
   const sp = e.target.closest && e.target.closest('.dk-nsplit'); if (!sp || e.button > 0) return; e.preventDefault();
-  const v = $('.dk-notesv'), x0 = v.getBoundingClientRect().left; let w = nrW(); sp.classList.add('on'); document.body.style.cursor = 'col-resize'; ROOT.classList.add('dk-resizing');
-  const mv = ev => { w = nrSet(ev.clientX - x0); }, up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); sp.classList.remove('on'); document.body.style.cursor = ''; ROOT.classList.remove('dk-resizing'); nrSet(w, true); };
+  const cx0 = e.clientX, w0 = nrW(); let w = w0; sp.classList.add('on'); document.body.style.cursor = 'col-resize'; ROOT.classList.add('dk-resizing');
+  const mv = ev => { w = nrSet(w0 + ev.clientX - cx0); }, up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); sp.classList.remove('on'); document.body.style.cursor = ''; ROOT.classList.remove('dk-resizing'); nrSet(w, true); };
   addEventListener('pointermove', mv); addEventListener('pointerup', up);
 }
 function nrKey(e) { const sp = e.target.closest && e.target.closest('.dk-nsplit'); if (!sp) return false; const d = e.key === 'ArrowLeft' ? -16 : e.key === 'ArrowRight' ? 16 : 0; if (!d) return false; e.preventDefault(); nrSet(nrW() + d, true); return true; }
@@ -3521,13 +3718,14 @@ function makePage(type, parent, title) { const p = newPage({ type, parent: paren
 function caretOffset(ed) { const r = selRange(); if (!r || !ed.contains(r.startContainer)) return -1; const rr = document.createRange(); rr.selectNodeContents(ed); rr.setEnd(r.startContainer, r.startOffset); return rr.toString().length; }
 function setCaretOffset(ed, off) { const w = document.createTreeWalker(ed, NodeFilter.SHOW_TEXT); let n, left = off; while ((n = w.nextNode())) { if (left <= n.nodeValue.length) { const r = document.createRange(); r.setStart(n, left); r.collapse(true); const s = getSelection(); s.removeAllRanges(); s.addRange(r); return; } left -= n.nodeValue.length; } placeCaret(ed, true); }
 function onNotesAct(act, b, e) {
-  const p = pageById(UI.np);
+  const p = pageById((b && b.dataset && b.dataset.pid) || UI.np); nCtxClose();
   switch (act) {
     case 'nnew': return makePage(b.dataset.t || 'blank', '');
     case 'nopen': return openPage(b.dataset.id);
     case 'ntoggle': UI.nopen[b.dataset.id] = !UI.nopen[b.dataset.id]; saveUI(); paint(); return true;
     case 'nfilt': UI.nf = UI.nf === b.dataset.v && b.dataset.v !== 'all' ? 'all' : b.dataset.v; saveUI(); paint(); return true;
     case 'nimport': openImport(); return true;
+    case 'nbackups': openBackups(); return true;
     case 'nexport': openModal(`<h2>Export notes</h2><p class="dk-hint">Download all ${plural(pagesList().length, 'page')}.</p><div class="dk-row"><button class="dk-btn gold" id="dk-exMd">Markdown (.zip)</button><button class="dk-btn" id="dk-exJs">Backup (.json)</button></div><p class="dk-hint">Markdown opens in Obsidian and most note apps. The backup brings everything back into the desk, pictures included.</p><div class="dk-acts"><button class="dk-btn" data-act="close">Close</button></div>`, { focus: false });
       $('#dk-exMd').onclick = () => { closeModal(true); exportNotes('md').catch(x => toastInfo(esc(x.message))); }; $('#dk-exJs').onclick = () => { closeModal(true); exportNotes('json'); }; return true;
     case 'pinclose': { const pp = $('.dk-pinpop'); if (pp) pp.hidden = true; return true; }
@@ -3543,7 +3741,7 @@ function onNotesAct(act, b, e) {
       $('#dk-mvGo').onclick = () => { const to = $('#dk-mvTo').value; closeModal(true); movePage(p.id, to, null); }; return true; }
     case 'nalias': askText('Other names', (p.aliases || []).join(', '), v => { p.aliases = asList(v).slice(0, 10); nSave(p); paint(); }, { okLabel: 'Save', allowEmpty: true, hint: 'Names this page also goes by, separated by commas — [[links]] to any of them find this page.' }); return true;
     case 'nmd': download(p.title.replace(/[\\/:*?"<>|]/g, '-') + '.md', '# ' + p.title + '\n\n' + htmlToMd(p.html)); return true;
-    case 'ndel': { const n = pagesList().filter(x => x.id !== p.id && isAncestor(p.id, x.id)).length; confirmBox(`Delete <b>${esc(p.title)}</b>${n ? ` and the ${plural(n, 'page')} inside it` : ''}? This can’t be undone.`, 'Delete', () => { const par = p.parent; deletePage(p.id); UI.np = par || ''; writeNotesLocal(); notesSoon(); paint(); }, true); return true; }
+    case 'ndel': { const n = pagesList().filter(x => x.id !== p.id && isAncestor(p.id, x.id)).length; confirmBox(`Delete <b>${esc(p.title)}</b>${n ? ` and the ${plural(n, 'page')} inside it` : ''}? This can’t be undone.`, 'Delete', () => { const par = p.parent; deletePage(p.id); if (!pageById(UI.np)) UI.np = par || ''; writeNotesLocal(); notesSoon(); paint(); }, true); return true; }
     case 'nrmtag': p.tags = (p.tags || []).filter(t => t !== b.dataset.tag); nSave(p); paint(); return true;
     case 'nstat': { const c = getC(b.dataset.cid); if (c) openModal(`<div class="dk-sbmodal">${statBlock(c)}</div><div class="dk-acts"><button class="dk-btn" data-act="close">Close</button></div>`, { wide: true, focus: false }); return true; }
     case 'ntosess': { const c = getC((p.props || {}).stat); if (!c) return true; const s = curSession() || newSession(); const x = newInst(c, p.title); x.notes = [p.props.role, p.props.race].filter(Boolean).join(', '); s.groups[0].list.push(x); save(); toastInfo(`Added <b>${esc(p.title)}</b> to ${esc(s.title)}.`, [{ label: 'Go to session', fn: () => { UI.tab = 'sessions'; UI.session = s.id; UI.sv = 'creatures'; UI.sel = x.iid; saveUI(); render(); scrollTo(0, 0); } }]); return true; }
@@ -3554,6 +3752,21 @@ function onNotesAct(act, b, e) {
     case 'pinedit': { const pin = (p.map.pins || []).find(x => x.id === b.dataset.pin); if (pin) pinEditor(p, pin, false); return true; }
   }
   return false;
+}
+// Right-click a page in the list: the page's menu, right there
+function nCtxClose() { $$('.dk-ctx').forEach(m => m.remove()); }
+function nCtx(e) {
+  const row = e.target.closest && e.target.closest('.dk-ntrow[data-drag], .dk-nres[data-id], .dk-nhcard[data-id]'); if (!row || !ROOT.contains(row)) return;
+  const p = pageById(row.dataset.drag || row.dataset.id); if (!p) return;
+  e.preventDefault(); nCtxClose();
+  const m = document.createElement('div'); m.className = 'dk-menu open dk-ctx'; m.setAttribute('role', 'menu');
+  const it = (act, t, cls) => `<button data-act="${act}" data-pid="${p.id}"${act === 'nopen' ? ` data-id="${p.id}"` : ''}${cls ? ` class="${cls}"` : ''} role="menuitem">${t}</button>`;
+  m.innerHTML = `<div class="dk-mlist"><div class="dk-ctxh">${nIcon(p.type)}<b>${esc(p.title)}</b></div>${it('nopen', 'Open')}${it('nsub', 'Add a subpage')}${it('nfav', p.fav ? 'Unpin' : 'Pin')}${it('nmove', 'Move to…')}${it('nalias', 'Other names…')}${it('nmd', 'Export as Markdown')}${it('ndel', 'Delete page', 'red')}</div>`;
+  ROOT.appendChild(m); const r = m.getBoundingClientRect();
+  m.style.left = Math.max(8, Math.min(e.clientX, innerWidth - r.width - 8)) + 'px'; m.style.top = Math.max(8, Math.min(e.clientY, innerHeight - r.height - 8)) + 'px';
+  const off = ev => { if (ev.type === 'keydown' && ev.key !== 'Escape') return; if (ev.type === 'pointerdown' && m.contains(ev.target)) return; nCtxClose(); removeEventListener('pointerdown', off, true); removeEventListener('keydown', off, true); removeEventListener('scroll', off, true); removeEventListener('blur', off); };
+  setTimeout(() => { addEventListener('pointerdown', off, true); addEventListener('keydown', off, true); addEventListener('scroll', off, true); addEventListener('blur', off); }, 0);
+  const f = m.querySelector('button[data-act]'); if (f) f.focus({ preventScroll: true });
 }
 function onNotesClick(e) {
   if (UI.tab !== 'notes') return false;

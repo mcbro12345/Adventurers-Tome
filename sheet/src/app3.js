@@ -985,6 +985,7 @@ function fxTip(e) {
 function refresh() {
   if (!S.created) return;
   $$('[data-calc]').forEach(el => { const t = calcText(el.dataset.calc); if (el.textContent !== t) el.textContent = t; });
+  if (typeof fitSubtitle === 'function') fitSubtitle();
   fitCoins();
   $$('[data-calc-title]').forEach(el => el.title = calcText(el.dataset.calcTitle));
   $$('[data-calc-html]').forEach(el => {

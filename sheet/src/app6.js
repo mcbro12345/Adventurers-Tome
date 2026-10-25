@@ -13,7 +13,7 @@ let FIT_GEN = 0; const FIT_C = new Map();
 addEventListener('resize', () => { FIT_GEN++; FIT_C.clear(); });
 try { document.fonts.addEventListener('loadingdone', () => { FIT_GEN++; FIT_C.clear(); document.querySelectorAll('input.name[data-fit]').forEach(fitNameFont); }); } catch (e) {}
 function fitNameFont(el) {
-  const fk = (el.value || el.placeholder || '') + '|' + el.className + '|' + (UI && UI.editLayout ? 1 : 0); if (FIT_C.has(fk)) { const v = FIT_C.get(fk); if (el.style.fontSize !== v) el.style.fontSize = v; el.title = el.value || ''; return; }
+  const fk = (el.value || el.placeholder || '') + '|' + el.className + '|' + (UI && UI.editLayout ? 1 : 0) + '|' + (el.parentElement ? el.parentElement.clientWidth : 0) + '|' + document.documentElement.style.fontSize; // (and the room it has, and the text size setting) if (FIT_C.has(fk)) { const v = FIT_C.get(fk); if (el.style.fontSize !== v) el.style.fontSize = v; el.title = el.value || ''; return; }
   fitNameFont0(el); if (el.clientWidth > 0) FIT_C.set(fk, el.style.fontSize);
 }
 function fitNameFont0(el) {
@@ -336,13 +336,13 @@ function renderRaceChange() {
 }
 function openBgChange() {
   RC = { kind: 'bg', removeOld: true, custom: Object.assign({ name: '', feature: '', desc: '' }, S.background === 'custom' ? { name: S.backgroundName, ...(S.bgCustom || {}) } : {}) };
-  W = { bg: S.background, ans: {} };
+  W = { bg: S.background, ans: {} }; delete WZ3M['rcbg:q']; delete WZ3M['rcbg:s'];
   openModal('<div id="rcmodal"></div>', () => { RC = null; W = null; }, true); renderBgChange();
 }
 function renderBgChange() {
   const b = DND.backgrounds[W.bg], c = RC.custom, cust = W.bg === 'custom';
   $('#rcmodal').innerHTML = `<h3>Change background</h3>
-    <div class="wz-grid">${fld('Background', `<select class="f" data-rc="bg"><option value="">— choose —</option>${bookSort(Object.entries(DND.backgrounds), ([, v]) => v.src, ([, v]) => v.name).filter(([k]) => k !== 'custom').map(([k, v]) => `<option value="${k}"${W.bg === k ? ' selected' : ''}>${esc(v.name)}${v.src !== 'PHB' ? ' (' + v.src + ')' : ''}</option>`).join('')}<option value="custom"${cust ? ' selected' : ''}>✎ Custom background…</option></select>`)}</div>
+    ${wz3List('bg')}<div class="wz-grid wz3-hid">${fld('Background', `<select class="f" data-rc="bg"><option value="">— choose —</option>${bookSort(Object.entries(DND.backgrounds), ([, v]) => v.src, ([, v]) => v.name).filter(([k]) => k !== 'custom').map(([k, v]) => `<option value="${k}"${W.bg === k ? ' selected' : ''}>${esc(v.name)}${v.src !== 'PHB' ? ' (' + v.src + ')' : ''}</option>`).join('')}<option value="custom"${cust ? ' selected' : ''}>✎ Custom background…</option></select>`)}</div>
     ${cust ? `<div class="wz-grid">${fld('Background name', `<input class="f" data-rc="name" value="${esc(c.name)}" placeholder="e.g. Smuggler">`)}${fld('Feature name', `<input class="f" data-rc="feature" value="${esc(c.feature)}" placeholder="e.g. Hidden Routes">`)}</div>
       ${fld('What the feature does', `<textarea class="f" rows="3" data-rc="desc">${esc(c.desc)}</textarea>`)}` : ''}
     ${b ? `<div class="wz-info">${b.skills && b.skills.length ? `<p><b>Skills:</b> ${esc(b.skills.join(', '))}${b.tools && b.tools.length ? ` · <b>Tools:</b> ${esc(b.tools.join(', '))}` : ''}</p>` : ''}${!cust ? `<p><b>Feature:</b> ${esc(b.feature[0])} — ${esc(b.feature[1])}</p>` : ''}
@@ -351,7 +351,12 @@ function renderBgChange() {
       ${b.langs ? choiceUI(W.ans, 'bg.lang', { type: 'language', n: b.langs }) : ''}</div>` : ''}
     <label class="checkline" style="margin-top:8px"><input type="checkbox" data-rc="removeOld"${RC.removeOld ? ' checked' : ''}> Remove the skills and tools ${esc(S.backgroundName || 'my old background')} gave me</label>
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="rcok">Change background</button></div>`;
+  // (the same searchable list as character creation; its choices of skills, tools and languages are lists too)
+  const bx = $('#rcmodal > .wz3-pick'); if (bx) wz3Keep(bx, 'rcbg');
+  if (typeof wz3ChoiceLists === 'function') wz3ChoiceLists('#rcmodal');
 }
+document.addEventListener('change', e => { const r = e.target.closest && e.target.closest('#rcmodal input[data-pick="bg"]'); if (!r || !RC) return; const sel = $('#rcmodal [data-rc="bg"]'); if (!sel) return;
+  const box = r.closest('.wz3-pick'); const go = () => { sel.value = r.dataset.v; sel.dispatchEvent(new Event('change', { bubbles: true })); }; if (box && typeof wz3Commit === 'function') wz3Commit(box, go); else go(); });
 document.addEventListener('input', e => { const t = e.target; if (!t.dataset || t.dataset.rc === undefined || !RC) return; rcField(t, e.type); }, true);
 document.addEventListener('change', e => { const t = e.target; if (!t.dataset || t.dataset.rc === undefined || !RC) return; rcField(t, e.type); }, true);
 function rcField(t, type) {
@@ -760,6 +765,19 @@ function applyCardFx(card, fx) {
   return esc(out.join(' · '));
 }
 window.addEventListener('resize', () => $$('input.f.name').forEach(fitNameFont));
+// The line under the name (race · class · background) never runs past two lines on a computer: a long one gets smaller
+// type instead, so the top bar is the same height for every character. (Remembered per text and width.)
+let SUB_K = '';
+function fitSubtitle() { const el = $('.namebox .subtitle'); if (!el) return;
+  if (isMobile()) { if (el.style.fontSize) el.style.fontSize = ''; SUB_K = ''; return; }
+  const k = el.textContent + '|' + (el.parentElement ? el.parentElement.clientWidth : 0) + '|' + document.documentElement.style.fontSize; if (k === SUB_K && el._fit) return; SUB_K = k; el._fit = 1;
+  el.style.fontSize = ''; if (!el.textContent || !el.offsetParent) return; const base = parseFloat(getComputedStyle(el).fontSize) || 15;
+  const lines = () => { const cs = getComputedStyle(el), lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2; return Math.round(el.clientHeight / lh); };
+  el.classList.remove('sub2'); el.removeAttribute('title');
+  let px = base; while (lines() > 2 && px > base * 0.72) { px -= 0.5; el.style.fontSize = px + 'px'; }
+  // (still more than two lines at the smallest size: it stops after two, and the whole of it shows on hover)
+  if (lines() > 2) { el.classList.add('sub2'); el.title = el.textContent; } }
+window.addEventListener('resize', () => { SUB_K = ''; fitSubtitle(); });
 
 // Desktop header stays one row: when the toolbar would wrap, its buttons drop their words and keep their icons.
 // Toolbar labels fold away one button at a time (least-used first) only when the row would wrap, and come back as soon as there's room.
@@ -768,7 +786,7 @@ function fitToolbar() {
   const tb = $('.toolbar'); if (!tb) return;
   tb.classList.remove('tb-compact', 'tb-wrap'); $$('.toolbar .nolbl').forEach(k => k.classList.remove('nolbl'));
   if (isMobile()) return;
-  const kids = [...tb.children].filter(k => k.offsetParent !== null); if (kids.length < 2) return;
+  const kids = [...tb.children].filter(k => k.offsetParent !== null && !k.classList.contains('pg-hubrow')); if (kids.length < 2) return; // (the site's own row above the buttons doesn't count)
   const tight = () => { const b0 = kids[0].getBoundingClientRect().bottom; return kids.some(k => k.getBoundingClientRect().top >= b0 - 2) || tb.scrollWidth > tb.clientWidth + 2; };
   for (const key of TB_FOLD) { if (!tight()) return; const el = tb.querySelector(`[data-zi="${key}"]`); if (el) el.classList.add('nolbl'); }
   if (!tight()) return;

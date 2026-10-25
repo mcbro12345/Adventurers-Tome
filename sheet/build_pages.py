@@ -4,7 +4,8 @@ import re
 import json, os, time, sys
 D = os.path.dirname(os.path.abspath(__file__))
 OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(D, 'pages')
-cfg = json.load(open(os.path.join(D, 'pages_config.json')))
+# (the test site is built with its own Firebase project's settings: PG_CONFIG points at that file)
+cfg = json.load(open(os.environ.get('PG_CONFIG') or os.path.join(D, 'pages_config.json')))
 html = open(os.path.join(D, 'DnD_Character_Sheet.html')).read()
 VER = time.strftime('%Y%m%d%H%M%S')
 os.makedirs(OUT, exist_ok=True)

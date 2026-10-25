@@ -160,7 +160,9 @@ function winNoBleed(w) { let y0 = 0; w.addEventListener('touchstart', e => { y0 
   w.addEventListener('touchmove', e => { if (e.touches.length > 1) return; const dy = e.touches[0].clientY - y0; let el = e.target;
     while (el && el !== w.parentNode) { const cs = getComputedStyle(el); if (/(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 1) { const top = el.scrollTop <= 0, bot = el.scrollTop + el.clientHeight >= el.scrollHeight - 1; if (!(dy > 0 && top) && !(dy < 0 && bot)) return; break; } if (el === w) break; el = el.parentElement; }
     if (e.cancelable) e.preventDefault(); }, { passive: false }); }
-function winClose(w) { if (!w || w.classList.contains('closing')) return; w.id = ''; w.classList.add('closing'); const go = () => w.remove();
+function winClose(w) { if (!w || w.classList.contains('closing')) return; w.id = ''; w.classList.add('closing');
+  // (a closing window can't be used any more, by keyboard either: its buttons would act a second time)
+  if (w.contains(document.activeElement)) document.activeElement.blur(); w.inert = true; const go = () => w.remove();
   if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return go(); setTimeout(go, isMobile() ? 240 : 190); }
 function ptyChatDock() { UI.chatPop = false; if (typeof saveUI === 'function') saveUI(); const w = $('#pcwin'); if (w) winClose(w); render('party'); }
 document.addEventListener('change', e => { const t = e.target; if (!t.dataset || t.dataset.aura == null) return; ptyAura(t.dataset.aura, t.dataset.id, t.checked); });
@@ -577,7 +579,7 @@ function ptyDesc(m) { const d = m.data || {}, why = d.why && d.why !== m.fromNam
 // who, and what they're doing to you. Yes or No.
 function ptyAskShow() {
   const A = S.ptyAsk || []; let ov = $('#ptyask-ov');
-  if (!A.length || !S.created) { if (ov) ov.remove(); setTimeout(() => ptyMsgShow(), 50); return; }
+  if (!A.length || !S.created) { if (ov) winClose(ov); setTimeout(() => ptyMsgShow(), 50); return; }
   if (!ov) { ov = document.createElement('div'); ov.id = 'ptyask-ov'; ov.className = 'ptyask-bg'; document.body.appendChild(ov); }
   const a = A[0], d = ptyDesc(a.m), what = d.charAt(0).toLowerCase() + d.slice(1);
   ov.innerHTML = `<div class="ptyask-m" role="alertdialog" aria-modal="true" aria-labelledby="ptyask-q">
@@ -779,7 +781,7 @@ function ptyMsgShow(who, text) { if (who != null) PTY_MSGQ.push({ who, text, at:
   const m = PTY_MSGQ[0], ov = document.createElement('div'); ov.id = 'ptymsg-ov'; ov.className = 'ptyask-bg ptymsg-bg';
   ov.innerHTML = `<div class="ptymsg-m" role="alertdialog" aria-modal="true" aria-labelledby="ptymsg-h"><div class="ptymsg-top"><span class="ptymsg-ic" aria-hidden="true">✉</span><div><small>Message from</small><b id="ptymsg-h">${esc(m.who)}</b></div>${PTY_MSGQ.length > 1 ? `<span class="ptymsg-n">1 of ${PTY_MSGQ.length}</span>` : ''}</div>
     <div class="ptymsg-t">${esc(m.text).replace(/\n/g, '<br>')}</div><div class="ptymsg-b"><button class="btn gold" id="ptymsg-ok">${PTY_MSGQ.length > 1 ? 'Next' : 'OK'}</button></div></div>`;
-  document.body.appendChild(ov); const ok = ov.querySelector('#ptymsg-ok'); ok.onclick = () => { PTY_MSGQ.shift(); ov.remove(); ptyMsgShow(); };
+  document.body.appendChild(ov); const ok = ov.querySelector('#ptymsg-ok'); ok.onclick = () => { PTY_MSGQ.shift(); winClose(ov); ptyMsgShow(); };
   if (!matchMedia('(pointer:coarse)').matches) setTimeout(() => ok.focus(), 30); }
 
 

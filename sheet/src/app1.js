@@ -102,8 +102,13 @@ UI.open = UI.open || {};
 // loaded (this browser's, the cloud's or the file's), so a fix isn't lost to a newer saved copy.
 var HADLOCAL; // set by load(): this browser already had its own copy of this character
 var FIXED; // no initializer: load() runs (and may set it) before this line is reached
+// The top bar's details were reset for everyone when the defaults changed to just the name: a character's settings
+// that haven't had that reset yet (including older settings copied back in from another saved copy) get it once.
+// (written inside the function: load() runs it before the lines around it have been reached)
+function hdrReset(s) { if (!s || (s.settings && s.settings.hdr1)) return false;
+  s.settings = Object.assign({}, s.settings, { showName: true, showPlayer: false, showRace: false, showBackground: false, showAlignment: false, showFaith: false, hdr1: true }); return true; }
 function applyFixes(s) {
-  const done = new Set(s.fixesDone || []); let changed = false;
+  const done = new Set(s.fixesDone || []); let changed = hdrReset(s);
   // Built in (every sheet): encumbrance on for everyone who had it off; Istalyn's sling bullets become bullets for her pistol.
   if (!done.has('enc1')) { if (s.settings && s.settings.encumbrance === 'off') s.settings.encumbrance = 'standard'; done.add('enc1'); changed = true; }
   if (!done.has('bullets1')) { if (/^istalyn\b/i.test(String(s.name || ''))) (s.inventory || []).forEach(it => { if (it && /^sling bullets$/i.test(String(it.name || '').trim())) { it.name = 'Bullets'; it.weight = 0.2; } }); done.add('bullets1'); changed = true; }

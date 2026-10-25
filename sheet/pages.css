@@ -420,7 +420,7 @@ body.adminbody .adm-brand .hl-20 { fill: #f6e7bd; }
 
 /* sheets: a strip of room at the top so the back button and who's-viewing bubbles don't sit on the portrait */
 html.pg-sheetpage:not(.mobile):not(.pg-al) .banner { padding-top: 30px; }
-html.pg-sheetpage.pg-al:not(.mobile) .ident-top .toolbar { margin-top: var(--pg-tbm, 0px); }
+
 /* The Adventurer's Tome button sits at the very top of the sheet and scrolls away with it (desktop and phone). */
 .pg-hublink, .pg-shared, .pg-pres { position: absolute; }
 html.mobile .pg-hublink { top: calc(8px + env(safe-area-inset-top)); bottom: auto; left: 10px; }
@@ -1332,31 +1332,31 @@ html.mobile .pg-pubrow .pg-publogo .hl-a { font-size: calc(var(--mls, 60px) * .1
 /* viewer pictures sit close together everywhere */
 .pg-pres { gap: 3px !important; }
 /* A message from the admin: a popup over everything */
-#pg-msg { position: fixed; inset: 0; z-index: 100000; display: grid; place-items: center; padding: 20px; background: rgba(6,9,16,.6); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); animation: pgmIn .2s ease; }
-#pg-msg.out { opacity: 0; transition: opacity .18s ease; }
+:is(#pg-msg, #pg-msg-old) { position: fixed; inset: 0; z-index: 100000; display: grid; place-items: center; padding: 20px; background: rgba(6,9,16,.6); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); animation: pgmIn .2s ease; }
+:is(#pg-msg, #pg-msg-old).out { opacity: 0; transition: opacity .18s ease; }
 @keyframes pgmIn { from { opacity: 0; } to { opacity: 1; } }
-#pg-msg .pgm-card { width: min(var(--pgm-w, 720px), 100%); max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; background: #182033; color: #ece4cf; border: 1px solid rgba(201,150,43,.55); border-radius: 16px; padding: 0; box-shadow: 0 24px 60px rgba(0,0,0,.5); font: 400 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; animation: pgmUp .24s cubic-bezier(.2,.9,.3,1.2); }
+:is(#pg-msg, #pg-msg-old) .pgm-card { width: min(var(--pgm-w, 720px), 100%); max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; background: #182033; color: #ece4cf; border: 1px solid rgba(201,150,43,.55); border-radius: 16px; padding: 0; box-shadow: 0 24px 60px rgba(0,0,0,.5); font: 400 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; animation: pgmUp .24s cubic-bezier(.2,.9,.3,1.2); }
 @keyframes pgmUp { from { transform: translateY(14px) scale(.97); } to { transform: none; } }
-#pg-msg .pgm-h { flex: none; display: flex; align-items: center; gap: 11px; padding: 18px 20px 12px; border-bottom: 1px solid rgba(201,150,43,.3); position: relative; z-index: 1; transition: box-shadow .15s ease; } /* the heading stays at the top */
-#pg-msg .pgm-h b { display: block; font-size: 15.5px; } #pg-msg .pgm-h small { display: block; color: #9aa3b6; font-size: 12px; }
-#pg-msg .pgm-ic { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: rgba(201,150,43,.18); color: #e2b350; }
-#pg-msg .pgm-t { flex: 0 1 auto; min-height: 0; overflow-y: auto; white-space: normal; overflow-wrap: anywhere; padding: 14px 22px 14px; } /* only the message scrolls */
-#pg-msg .pgm-row { flex: none; display: flex; justify-content: flex-end; padding: 12px 20px 16px; border-top: 1px solid rgba(201,150,43,.3); position: relative; z-index: 1; transition: box-shadow .15s ease; } /* OK always in view */
-#pg-msg .pgm-card.sc-t .pgm-h { box-shadow: 0 8px 14px -8px rgba(0,0,0,.4); }
-#pg-msg .pgm-card.sc-b .pgm-row { box-shadow: 0 -8px 14px -8px rgba(0,0,0,.4); }
-#pg-msg .pgm-ok { border: 0; border-radius: 10px; padding: 9px 22px; font: 700 14px system-ui, sans-serif; background: #c9962b; color: #1b1406; cursor: pointer; }
-#pg-msg .pgm-ok:active { transform: scale(.97); }
+:is(#pg-msg, #pg-msg-old) .pgm-h { flex: none; display: flex; align-items: center; gap: 11px; padding: 18px 20px 12px; border-bottom: 1px solid rgba(201,150,43,.3); position: relative; z-index: 1; transition: box-shadow .15s ease; } /* the heading stays at the top */
+:is(#pg-msg, #pg-msg-old) .pgm-h b { display: block; font-size: 15.5px; } :is(#pg-msg, #pg-msg-old) .pgm-h small { display: block; color: #9aa3b6; font-size: 12px; }
+:is(#pg-msg, #pg-msg-old) .pgm-ic { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: rgba(201,150,43,.18); color: #e2b350; }
+:is(#pg-msg, #pg-msg-old) .pgm-t { flex: 0 1 auto; min-height: 0; overflow-y: auto; white-space: normal; overflow-wrap: anywhere; padding: 14px 22px 14px; } /* only the message scrolls */
+:is(#pg-msg, #pg-msg-old) .pgm-row { flex: none; display: flex; justify-content: flex-end; padding: 12px 20px 16px; border-top: 1px solid rgba(201,150,43,.3); position: relative; z-index: 1; transition: box-shadow .15s ease; } /* OK always in view */
+:is(#pg-msg, #pg-msg-old) .pgm-card.sc-t .pgm-h { box-shadow: 0 8px 14px -8px rgba(0,0,0,.4); }
+:is(#pg-msg, #pg-msg-old) .pgm-card.sc-b .pgm-row { box-shadow: 0 -8px 14px -8px rgba(0,0,0,.4); }
+:is(#pg-msg, #pg-msg-old) .pgm-ok { border: 0; border-radius: 10px; padding: 9px 22px; font: 700 14px system-ui, sans-serif; background: #c9962b; color: #1b1406; cursor: pointer; }
+:is(#pg-msg, #pg-msg-old) .pgm-ok:active { transform: scale(.97); }
 :where(body.hubbody) .pm-t { width: 100%; min-height: 110px; resize: vertical; font: inherit; box-sizing: border-box; margin: 6px 0 4px; }
 :where(body.hubbody) .pm-last { font-size: .86rem; opacity: .85; }
-@media (prefers-color-scheme: light) { :root:not([data-pgtheme="dark"]) #pg-msg .pgm-card { background: #fffaf0; color: #2b2418; border-color: #d9b56a; } :root:not([data-pgtheme="dark"]) #pg-msg .pgm-h small { color: #7a6f5c; } }
+@media (prefers-color-scheme: light) { :root:not([data-pgtheme="dark"]) :is(#pg-msg, #pg-msg-old) .pgm-card { background: #fffaf0; color: #2b2418; border-color: #d9b56a; } :root:not([data-pgtheme="dark"]) :is(#pg-msg, #pg-msg-old) .pgm-h small { color: #7a6f5c; } }
 :where(body.hubbody) .pm-anon { display: flex; align-items: center; gap: 8px; margin: 4px 0 2px; font-size: .92rem; } :where(body.hubbody) .pm-anon .hub-hint { margin: 0; font-size: .8rem; }
 :where(body.hubbody) label.pm-anon { display: flex; align-items: flex-start; gap: 10px; margin: 6px 0 4px; cursor: pointer; }
 :where(body.hubbody) label.pm-anon input { width: 17px; height: 17px; margin: 2px 0 0; flex: none; accent-color: #c9962b; }
 :where(body.hubbody) label.pm-anon span { display: flex; flex-direction: column; gap: 1px; font-size: .93rem; }
 :where(body.hubbody) label.pm-anon small { opacity: .7; font-size: .8rem; }
 
-#pg-msg .pgm-t a { color: #e2b04a; text-decoration: underline; text-underline-offset: 2px; word-break: break-all; }
-#pg-msg .pgm-t a:hover { color: #f3c866; }
+:is(#pg-msg, #pg-msg-old) .pgm-t a { color: #e2b04a; text-decoration: underline; text-underline-offset: 2px; word-break: break-all; }
+:is(#pg-msg, #pg-msg-old) .pgm-t a:hover { color: #f3c866; }
 
 /* ================= Parties ================= */
 /* Lobby tab and party page reuse the character rows/cards (.hr, .hc, .hf-body); these are the few extras. */
@@ -1743,9 +1743,9 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 .adm-body .nt-h { margin: 26px 0 8px; font: 800 1rem system-ui, sans-serif; }
 .adm-body .adm-t td.nt-txt { white-space: normal; min-width: 260px; max-width: 520px; overflow-wrap: anywhere; }
 .adm-body .pm-t { max-width: 640px; }
-#pg-msg .pgm-t .pgm-hd { display: block; font-size: 1.08em; margin: 2px 0; }
-#pg-msg .pgm-t .pgm-hd:first-child { margin-top: 0; }
-#pg-msg .pgm-t ul { margin: 0 0 4px; padding-left: 20px; } #pg-msg .pgm-t li { margin: 2px 0; }
+:is(#pg-msg, #pg-msg-old) .pgm-t .pgm-hd { display: block; font-size: 1.08em; margin: 2px 0; }
+:is(#pg-msg, #pg-msg-old) .pgm-t .pgm-hd:first-child { margin-top: 0; }
+:is(#pg-msg, #pg-msg-old) .pgm-t ul { margin: 0 0 4px; padding-left: 20px; } :is(#pg-msg, #pg-msg-old) .pgm-t li { margin: 2px 0; }
 .adm-body .nt-fmt { font-size: .8rem; margin: -4px 0 10px; } .adm-body .nt-fmt code { font-size: .78rem; }
 .adm-body .nt-wl { display: inline-flex; align-items: center; gap: 8px; margin-right: 6px; font: 600 .86rem system-ui, sans-serif; color: var(--adm-dim); }
 .adm-body .adm-t td.nt-acts { white-space: nowrap; } .adm-body .nt-acts .adm-btn + .adm-btn { margin-left: 6px; }
@@ -1783,7 +1783,7 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 .nt-sl .nt-sl-row { display: flex; align-items: center; gap: 10px; } .nt-sl .nt-sl-row span { min-width: 0; } .nt-sl .nt-sl-row b, .nt-sl .nt-sl-row small { display: block; overflow-wrap: anywhere; } .nt-sl .nt-sl-row small { opacity: .7; font-size: .8rem; }
 @media (prefers-color-scheme: light) { body:not(.adminbody) .nt-sl .nt-sl-wrap::before, .nt-sl .nt-sl-wrap::before { background: linear-gradient(rgba(60,40,10,.12), transparent); } .nt-sl .nt-sl-wrap::after { background: linear-gradient(transparent, rgba(60,40,10,.12)); } }
 /* scroll areas inside pop-up windows don't hand their scrolling on to the page behind */
-.hub-modal, .hub-modal .hub-card, .nt-sl .nt-sl-list, #pg-msg .pgm-t, .pg-out, .pg-out-card { overscroll-behavior: contain; }
+.hub-modal, .hub-modal .hub-card, .nt-sl .nt-sl-list, :is(#pg-msg, #pg-msg-old) .pgm-t, .pg-out, .pg-out-card { overscroll-behavior: contain; }
 /* Party page, seen by a player: AC / speed / level / passive as a 2 × 2 grid beside the HP ring (where the DM's controls are) */
 :where(body.hubbody) .pm-hp .pm-csts.pm-quad { flex: 1; min-width: 0; align-self: stretch; display: grid; grid-template-columns: 1fr 1fr; }
 :where(body.hubbody) .pm-csts.pm-quad span { justify-content: center; padding: 6px 8px; }
@@ -2036,7 +2036,7 @@ body.hubbody:not(.adminbody) .hub-pane { position: relative; }
 }
 @media (prefers-reduced-motion: reduce) { body.hubbody .hub-modal.on > *, body.hubbody .hub-modal.closing > *, .pg-out .pg-out-card, .pg-out.closing .pg-out-card { animation: none !important; } }
 /* Desktop: pop-up windows can be dragged by their title */
-@media (pointer: fine) and (min-width: 641px) { html:not(.mobile) :is(#modal-body, .hub-modal > .hub-card, .pg-out-card, #pg-msg .pgm-card) :is(h2, h3, .rl-head, .pw-head):first-of-type { cursor: move; } }
+@media (pointer: fine) and (min-width: 641px) { html:not(.mobile) :is(#modal-body, .hub-modal > .hub-card, .pg-out-card, :is(#pg-msg, #pg-msg-old) .pgm-card) :is(h2, h3, .rl-head, .pw-head):first-of-type { cursor: move; } }
 .win-moving { transition: none !important; box-shadow: 0 30px 70px rgba(0,0,0,.5) !important; }
 body.win-dragging, body.win-dragging * { user-select: none !important; cursor: move !important; }
 .win-moving { opacity: .95; }
@@ -2053,7 +2053,7 @@ html:not(.pgmw) .mw-head { display: none; }
 html.pgmw body.hubbody .hub-modal.closing { background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; animation: none !important; pointer-events: none; }
 
 /* When a loading screen comes up (leaving a page), every open window fades out behind it instead of staying on top */
-:is(html.pg-leaving, html:has(#pg-load.pg-leave)) :is(.drwin, .pcwin, .towin, #pcpop, .pg-out, .hub-modal, #modal, .ptyask-bg, #pg-corner, #pg-msg, .hub-toast, #toasts):not(#pg-load *) { opacity: 0 !important; transition: opacity .22s ease !important; pointer-events: none !important; }
+:is(html.pg-leaving, html:has(#pg-load.pg-leave)) :is(.drwin, .pcwin, .towin, #pcpop, .pg-out, .hub-modal, #modal, .ptyask-bg, #pg-corner, :is(#pg-msg, #pg-msg-old), .hub-toast, #toasts):not(#pg-load *) { opacity: 0 !important; transition: opacity .22s ease !important; pointer-events: none !important; }
 /* Window stacking (desktop): the window you last clicked is on top */
 html.wpop-front :is(.drwin, .pcwin, .towin) { z-index: 49 !important; }
 html.wfloat-front .pg-out { z-index: 8990 !important; }
@@ -2220,7 +2220,7 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
 }
 
 /* Videos in notices and welcome messages (a YouTube or Vimeo link on its own line) */
-#pg-msg .pgm-t .pgm-vid, .pgm-vid { position: relative; width: 100%; aspect-ratio: 16 / 9; margin: 8px 0 10px; border-radius: 12px; overflow: hidden; background: #000; box-shadow: 0 6px 20px rgba(0,0,0,.35); }
+:is(#pg-msg, #pg-msg-old) .pgm-t .pgm-vid, .pgm-vid { position: relative; width: 100%; aspect-ratio: 16 / 9; margin: 8px 0 10px; border-radius: 12px; overflow: hidden; background: #000; box-shadow: 0 6px 20px rgba(0,0,0,.35); }
 .pgm-vid iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
 .av-pv { margin-top: 12px; }
 .nt-vrow { margin-top: 2px; }
@@ -3164,3 +3164,22 @@ body.adminbody .adm-mlist, .adm-mlist.portal { background: #1a2131; -webkit-back
 .adm-online i::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: rgba(52,193,114,.55); animation: admRing 2s ease-out infinite; will-change: transform, opacity; }
 @keyframes admRing { 0% { transform: scale(1); opacity: .7; } 70% { transform: scale(2.5); opacity: 0; } 100% { transform: scale(2.5); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .adm-online i::after { animation: none; display: none; } }
+#pg-testmark { position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 99999; padding: 4px 12px; border-radius: 999px; background: #b4473a; color: #fff; font: 700 .72rem/1.4 system-ui, sans-serif; letter-spacing: .02em; box-shadow: 0 4px 14px rgba(0,0,0,.35); pointer-events: none; opacity: .92; }
+/* Sheet on a computer: the Adventurer's Tome button, who's viewing and the shared tag sit in their own row at the top of
+   the toolbar (laid out by the page itself, so they're always in the right place), and the buttons line up with the
+   bottom of the level box */
+html.pg-sheetpage:not(.mobile) .ident-top .toolbar:has(> .pg-hubrow) { margin-top: var(--pg-lvt, 0px) !important; padding-top: 0 !important; align-self: flex-start; min-height: var(--pg-lvh, 0px); align-content: space-between; }
+html:not(.mobile) .pg-hubrow { flex: 1 1 100%; display: flex; align-items: center; gap: 8px; height: 30px; min-width: 0; }
+html:not(.mobile) .pg-hubrow > :is(.pg-hublink, .pg-pres, .pg-shared) { position: static !important; transform: none !important; left: auto !important; top: auto !important; margin: 0 !important; flex: none; }
+html:not(.mobile) .pg-hubrow > .pg-hublink, html:not(.mobile) .pg-hubrow > .pg-pres.ready, html:not(.mobile) .pg-hubrow > .pg-shared { opacity: 1 !important; pointer-events: auto !important; transition: none !important; }
+html:not(.mobile) .pg-hubrow > .pg-pres[hidden] { display: none !important; }
+html.pg-sheetpage.pg-al:not(.mobile) .ident-top .toolbar:not(:has(> .pg-hubrow)) { margin-top: var(--pg-tbm, 0px); } /* (the view-only page still lines its toolbar up this way) */
+/* a window being replaced by the next one: it fades out where it was, behind the new one */
+body.hubbody .hub-modal > .hub-card.hm-ghost { pointer-events: none !important; z-index: 0; overflow: hidden !important; animation: hPopOut .17s ease forwards !important; }
+html.mobile body.hubbody .hub-modal > .hub-card.hm-ghost { animation-name: hFadeOut !important; }
+body.hubbody .hub-modal > .hub-card:not(.hm-ghost) { z-index: 1; }
+/* site messages: the card comes in with the backdrop and settles back as it fades */
+:is(#pg-msg, #pg-msg-old) .pgm-card { animation: hPopIn .26s ease; transition: transform .18s ease; }
+:is(#pg-msg, #pg-msg-old).out { pointer-events: none; }
+:is(#pg-msg, #pg-msg-old).out .pgm-card { transform: translateY(6px) scale(.985); }
+@media (prefers-reduced-motion: reduce) { :is(#pg-msg, #pg-msg-old), :is(#pg-msg, #pg-msg-old) .pgm-card { animation: none !important; transition: none !important; } }

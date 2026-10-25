@@ -119,8 +119,8 @@ service cloud.firestore {
       allow delete: if canEditSheet(resource.data.c);
     }
     // Who's viewing a character that has a view-only link. Anyone with the link can see it (it shows on the public page
-    // too), and only while the link is on. People on the public link add {anon, at} under a random id; signed-in viewers
-    // add their own entry under a fingerprint of their email (viewId), so the list never shows emails.
+    // too), and only while the link is on. Signed-in viewers add their own entry under a fingerprint of their email
+    // (viewId), so the list never shows emails. People who aren't signed in aren't listed (anyone could add endless entries).
     // A signed-in viewer is listed as "u-" + the start of their email's SHA-256, never by email (the list is public).
     function viewId() { return 'u-' + hashing.sha256(me()).toHexString().lower().replace('^(.{24}).*$', '$1'); }
     function pubOnFor(c) { let s = /databases/$(db)/documents/sheets/$(c); return exists(s) && get(s).data.get('pub', '') != ''; }
@@ -128,8 +128,7 @@ service cloud.firestore {
       allow read: if pubOnFor(c);
       allow create, update: if pubOnFor(c) && request.resource.data.at is number
         && request.resource.data.at > request.time.toMillis() - 3600000 && request.resource.data.at < request.time.toMillis() + 3600000
-        && ((request.resource.data.keys().hasOnly(['anon', 'at']) && request.resource.data.anon == true && v.matches('anon-[a-z0-9]{6,16}'))
-          || (signedIn() && v == viewId() && request.resource.data.anon == false
+        && ((signedIn() && v == viewId() && request.resource.data.anon == false
             && request.resource.data.keys().hasOnly(['anon', 'at', 'name', 'pic', 'color', 'clear'])
             && request.resource.data.get('name', '') is string && request.resource.data.get('name', '').size() <= 60
             && request.resource.data.get('pic', '') is string && request.resource.data.get('pic', '').size() <= 60000 && request.resource.data.get('color', '') is string && request.resource.data.get('color', '').size() <= 20 && request.resource.data.get('clear', false) is bool));
@@ -248,7 +247,9 @@ service cloud.firestore {
     match /invcard/{t} {
       allow get: if true;
       allow list: if false;
+      // (only the party's current invite link has a card, in at most 5 pieces, so nobody can fill the database with pictures)
       allow create, update: if signedIn() && request.resource.data.keys().hasOnly(['p', 'name', 'dmName', 'n', 'img', 'k', 'at'])
+        && t == partyOf(request.resource.data.p).get('inv', '') && request.resource.data.get('k', 1) is int && request.resource.data.get('k', 1) <= 5
         && request.resource.data.img is string && request.resource.data.img.size() < 900000 && request.resource.data.name is string && request.resource.data.name.size() <= 200
         && partyMgr(partyOf(request.resource.data.p)) && (resource == null || (resource.data.p == request.resource.data.p && partyMgr(partyOf(resource.data.p))));
       allow delete: if signedIn() && partyMgr(partyOf(resource.data.p));
@@ -256,7 +257,7 @@ service cloud.firestore {
       match /part/{i} {
         allow get: if true;
         allow list: if false;
-        allow create, update: if signedIn() && request.resource.data.keys().hasOnly(['img']) && request.resource.data.img is string
+        allow create, update: if signedIn() && i.matches('[1-4]') && request.resource.data.keys().hasOnly(['img']) && request.resource.data.img is string
           && request.resource.data.img.size() < 900000 && partyMgr(partyOf(get(/databases/$(db)/documents/invcard/$(t)).data.p));
         allow delete: if signedIn() && partyMgr(partyOf(get(/databases/$(db)/documents/invcard/$(t)).data.p));
       }

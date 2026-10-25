@@ -267,7 +267,11 @@ let onModalCancel = null;
 let MODAL_BY = null, MODAL_SIG = null; // which button opened the window that's showing
 function openModal(html, onCancel, wide) {
   MODAL_BY = MODAL_SIG;
-  onModalCancel = onCancel || null; $('#modal-body').classList.remove('xwide'); $('#modal-body').classList.toggle('wide', !!wide); $('#modal-body').innerHTML = html;
+  // a window opening fresh starts its lists unsearched and at the top (they're only remembered while it stays open)
+  try { if (!$('#modal').classList.contains('open') && !document.querySelector('#wizard.open')) Object.keys(WZ3M).forEach(k => delete WZ3M[k]); } catch (e) {}
+  // (a window closed a moment ago in this same step is being replaced, not closed: it stays up and swaps over)
+  { const mo = $('#modal'), mb = $('#modal-body'); if (!mo.classList.contains('open') && mb._wasAt && performance.now() - mb._wasAt < 60) mo.classList.add('open'); mb._wasAt = 0; }
+  onModalCancel = onCancel || null; $('#modal-body').innerHTML = html; $('#modal-body').classList.remove('xwide'); $('#modal-body').classList.toggle('wide', !!wide);
   // a window opening fresh holds its fade for two frames, so the work of building and sizing it doesn't eat the start of the animation
   const mo = $('#modal'); if (!mo.classList.contains('open')) { mo.classList.add('pre', 'open'); requestAnimationFrame(() => requestAnimationFrame(() => mo.classList.remove('pre'))); }
   const f = $('#modal-body [autofocus]'); if (f) f.focus();
@@ -295,16 +299,37 @@ function openModal(html, onCancel, wide) {
 })();
 function closeModal(confirmed) {
   if (!$('#modal').classList.contains('open')) return;
+  // (where it was, for a window opened straight after this one closes: see the swap below)
+  { const mb = $('#modal-body'); mb._was = mb.getBoundingClientRect(); mb._wasSt = mb.scrollTop; mb._wasAt = performance.now(); }
   $('#modal').classList.remove('open'); MODAL_BY = null;
   const cb = onModalCancel; onModalCancel = null;
   if (!confirmed && cb) cb();
 }
 $('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+// One window replacing another (opening Change background from Settings, a button that closes this window and opens
+// the next one): the old window fades out where it was while the new one fades in, instead of the contents just
+// snapping over. A window redrawing itself (same window, new contents) doesn't animate.
+(() => { const mb = $('#modal-body'), mo = $('#modal'), P = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+  const keyOf = h => { h = String(h || ''); const a = h.match(/^\s*<[a-z0-9]+\b[^>]*?\bid="([^"]+)"/i); if (a) return '#' + a[1]; const b = h.match(/<h[23]\b[^>]*>([\s\S]*?)<\/h[23]>/i); return b ? b[1].replace(/<[^>]+>/g, '').trim() : ''; };
+  const calm = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  Object.defineProperty(mb, 'innerHTML', { configurable: true, get() { return P.get.call(this); }, set(v) {
+    const k = keyOf(v), open = mo.classList.contains('open'), just = !open && mb._wasAt && performance.now() - mb._wasAt < 60;
+    let ghost = null;
+    if ((open || just) && mb._key && k !== mb._key && mb.childElementCount && !calm()) {
+      const r = open ? mb.getBoundingClientRect() : mb._was;
+      if (r && r.width) { ghost = mb.cloneNode(true); ghost.removeAttribute('id'); ghost.querySelectorAll('[id]').forEach(x => x.removeAttribute('id')); ghost.classList.add('mghost'); ghost.setAttribute('aria-hidden', 'true'); ghost.inert = true;
+        Object.assign(ghost.style, { position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', maxHeight: 'none', margin: '0', translate: 'none' });
+        const st = open ? mb.scrollTop : mb._wasSt; mo.appendChild(ghost); if (st) queueMicrotask(() => { ghost.scrollTop = st; }); setTimeout(() => ghost.remove(), 260); } }
+    mb._key = k; P.set.call(this, v);
+    if (ghost) { const mob = document.documentElement.classList.contains('mobile');
+      mb.animate(mob ? [{ opacity: 0, transform: 'translateY(18px)' }, { opacity: 1, transform: 'none' }] : [{ opacity: 0, transform: 'translateY(6px) scale(.985)' }, { opacity: 1, transform: 'none' }], { duration: mob ? 260 : 240, easing: 'cubic-bezier(.2,.8,.3,1)' }); } } }); })();
 // Desktop: pop-up windows work like the dice roller and the chat window — a floating window with its own title bar
 // (drag it to move it, ✕ to close), and the page behind stays usable instead of being dimmed and blocked.
 const mwDesk = () => !document.documentElement.classList.contains('mobile') && innerWidth > 640;
 function mwDress() { const b = $('#modal-body'); if (!b) return; const de = document.documentElement; de.classList.toggle('mwin', mwDesk());
-  if (!mwDesk() || b.querySelector(':scope > .mw-head')) return;
+  if (!mwDesk()) return;
+  // (a window that redraws its contents keeps its title bar: a heading repeating the title is hidden again)
+  { const hd = b.querySelector(':scope > .mw-head'); if (hd) { const t = (hd.querySelector('b') || {}).textContent; b.querySelectorAll('h2:not(.mw-hid), h3:not(.mw-hid)').forEach(x => { if (x.textContent.trim() === t) x.classList.add('mw-hid'); }); return; } }
   const h = [...b.querySelectorAll('h2, h3')].find(x => x.offsetParent && x.getBoundingClientRect().top - b.getBoundingClientRect().top < 140);
   const t = h ? h.textContent.trim() : ''; if (h) { h.classList.add('mw-hid');
     // a Done / Close button sitting beside the heading would be left stranded: the title bar's ✕ does the same job
@@ -320,6 +345,15 @@ let MW_R = 0; const mwSoon = () => { if (!MW_R) MW_R = requestAnimationFrame(() 
 new MutationObserver(mwSoon).observe($('#modal-body'), { childList: true, subtree: true });
 new MutationObserver(mwSoon).observe($('#modal'), { attributes: true, attributeFilter: ['class'] });
 addEventListener('resize', () => document.documentElement.classList.toggle('mwin', mwDesk()));
+// The top bar stays at the top of the window on a computer: it gets its shadow once the sheet is scrolled under it, and
+// its height is shared so things that stick to the top themselves (the tab strip while editing) sit just below it.
+(() => { let q = 0, st = null, hh = -1; const de = document.documentElement;
+  const chk = () => { q = 0; const b = document.querySelector('header.banner'); if (!b) return; const on = !de.classList.contains('mobile') && scrollY > 2;
+    if (on !== st) { st = on; de.classList.toggle('hd-stuck', on); }
+    const h = de.classList.contains('mobile') ? 0 : Math.round(b.offsetHeight); if (h !== hh) { hh = h; de.style.setProperty('--hd-h', h + 'px'); } };
+  const soon = () => { if (!q) q = requestAnimationFrame(chk); };
+  addEventListener('scroll', soon, { passive: true }); addEventListener('resize', soon); soon();
+  const b0 = document.querySelector('header.banner'); if (b0 && window.ResizeObserver) new ResizeObserver(soon).observe(b0); })();
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); $$('.menu.open').forEach(m => m.classList.remove('open')); } });
 
 // ---------- Field helpers ----------
@@ -342,7 +376,7 @@ const isMobile = () => document.documentElement.classList.contains('mobile');
 const who = () => S.name || 'Your character';
 
 // ---------- Settings ----------
-const SETDEF = { combatSpellSort: 'level', protectorScales: false, advancement: 'milestone', abilityStyle: 'mod', showName: true, showRace: true, showBackground: true, showPlayer: true, showAlignment: false, showFaith: false, showRoll20: true, encumbrance: 'standard', exhaustionRule: '2014', exhaustionDC: false, concPrompt: true, durationAlerts: true, autoSpend: true, critRule: 'double', density: 'comfortable', fontScale: 100, hpLevelUp: 'avg', confirmDelete: false, showCastHints: true, inspiration: false, inspMany: false, electrum: false };
+const SETDEF = { combatSpellSort: 'level', protectorScales: false, advancement: 'milestone', abilityStyle: 'mod', showName: true, showRace: false, showBackground: false, showPlayer: false, showAlignment: false, showFaith: false, showRoll20: true, encumbrance: 'standard', exhaustionRule: '2014', exhaustionDC: false, concPrompt: true, durationAlerts: true, autoSpend: true, critRule: 'double', density: 'comfortable', fontScale: 100, hpLevelUp: 'avg', confirmDelete: false, showCastHints: true, inspiration: false, inspMany: false, electrum: false };
 let GEN = 0, RENDERING = '';
 const PID = id => `data-pid="${id}" data-gen="${GEN}" data-home="${RENDERING}"`;
 const ST = k => (S.settings && S.settings[k] !== undefined ? S.settings[k] : SETDEF[k]);

@@ -102,8 +102,13 @@ UI.open = UI.open || {};
 // loaded (this browser's, the cloud's or the file's), so a fix isn't lost to a newer saved copy.
 var HADLOCAL; // set by load(): this browser already had its own copy of this character
 var FIXED; // no initializer: load() runs (and may set it) before this line is reached
+// The top bar's details were reset for everyone when the defaults changed to just the name: a character's settings
+// that haven't had that reset yet (including older settings copied back in from another saved copy) get it once.
+// (written inside the function: load() runs it before the lines around it have been reached)
+function hdrReset(s) { if (!s || (s.settings && s.settings.hdr1)) return false;
+  s.settings = Object.assign({}, s.settings, { showName: true, showPlayer: false, showRace: false, showBackground: false, showAlignment: false, showFaith: false, hdr1: true }); return true; }
 function applyFixes(s) {
-  const done = new Set(s.fixesDone || []); let changed = false;
+  const done = new Set(s.fixesDone || []); let changed = hdrReset(s);
   // Built in (every sheet): encumbrance on for everyone who had it off; Istalyn's sling bullets become bullets for her pistol.
   if (!done.has('enc1')) { if (s.settings && s.settings.encumbrance === 'off') s.settings.encumbrance = 'standard'; done.add('enc1'); changed = true; }
   if (!done.has('bullets1')) { if (/^istalyn\b/i.test(String(s.name || ''))) (s.inventory || []).forEach(it => { if (it && /^sling bullets$/i.test(String(it.name || '').trim())) { it.name = 'Bullets'; it.weight = 0.2; } }); done.add('bullets1'); changed = true; }
@@ -1599,7 +1604,11 @@ let onModalCancel = null;
 let MODAL_BY = null, MODAL_SIG = null; // which button opened the window that's showing
 function openModal(html, onCancel, wide) {
   MODAL_BY = MODAL_SIG;
-  onModalCancel = onCancel || null; $('#modal-body').classList.remove('xwide'); $('#modal-body').classList.toggle('wide', !!wide); $('#modal-body').innerHTML = html;
+  // a window opening fresh starts its lists unsearched and at the top (they're only remembered while it stays open)
+  try { if (!$('#modal').classList.contains('open') && !document.querySelector('#wizard.open')) Object.keys(WZ3M).forEach(k => delete WZ3M[k]); } catch (e) {}
+  // (a window closed a moment ago in this same step is being replaced, not closed: it stays up and swaps over)
+  { const mo = $('#modal'), mb = $('#modal-body'); if (!mo.classList.contains('open') && mb._wasAt && performance.now() - mb._wasAt < 60) mo.classList.add('open'); mb._wasAt = 0; }
+  onModalCancel = onCancel || null; $('#modal-body').innerHTML = html; $('#modal-body').classList.remove('xwide'); $('#modal-body').classList.toggle('wide', !!wide);
   // a window opening fresh holds its fade for two frames, so the work of building and sizing it doesn't eat the start of the animation
   const mo = $('#modal'); if (!mo.classList.contains('open')) { mo.classList.add('pre', 'open'); requestAnimationFrame(() => requestAnimationFrame(() => mo.classList.remove('pre'))); }
   const f = $('#modal-body [autofocus]'); if (f) f.focus();
@@ -1627,16 +1636,37 @@ function openModal(html, onCancel, wide) {
 })();
 function closeModal(confirmed) {
   if (!$('#modal').classList.contains('open')) return;
+  // (where it was, for a window opened straight after this one closes: see the swap below)
+  { const mb = $('#modal-body'); mb._was = mb.getBoundingClientRect(); mb._wasSt = mb.scrollTop; mb._wasAt = performance.now(); }
   $('#modal').classList.remove('open'); MODAL_BY = null;
   const cb = onModalCancel; onModalCancel = null;
   if (!confirmed && cb) cb();
 }
 $('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+// One window replacing another (opening Change background from Settings, a button that closes this window and opens
+// the next one): the old window fades out where it was while the new one fades in, instead of the contents just
+// snapping over. A window redrawing itself (same window, new contents) doesn't animate.
+(() => { const mb = $('#modal-body'), mo = $('#modal'), P = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+  const keyOf = h => { h = String(h || ''); const a = h.match(/^\s*<[a-z0-9]+\b[^>]*?\bid="([^"]+)"/i); if (a) return '#' + a[1]; const b = h.match(/<h[23]\b[^>]*>([\s\S]*?)<\/h[23]>/i); return b ? b[1].replace(/<[^>]+>/g, '').trim() : ''; };
+  const calm = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  Object.defineProperty(mb, 'innerHTML', { configurable: true, get() { return P.get.call(this); }, set(v) {
+    const k = keyOf(v), open = mo.classList.contains('open'), just = !open && mb._wasAt && performance.now() - mb._wasAt < 60;
+    let ghost = null;
+    if ((open || just) && mb._key && k !== mb._key && mb.childElementCount && !calm()) {
+      const r = open ? mb.getBoundingClientRect() : mb._was;
+      if (r && r.width) { ghost = mb.cloneNode(true); ghost.removeAttribute('id'); ghost.querySelectorAll('[id]').forEach(x => x.removeAttribute('id')); ghost.classList.add('mghost'); ghost.setAttribute('aria-hidden', 'true'); ghost.inert = true;
+        Object.assign(ghost.style, { position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', maxHeight: 'none', margin: '0', translate: 'none' });
+        const st = open ? mb.scrollTop : mb._wasSt; mo.appendChild(ghost); if (st) queueMicrotask(() => { ghost.scrollTop = st; }); setTimeout(() => ghost.remove(), 260); } }
+    mb._key = k; P.set.call(this, v);
+    if (ghost) { const mob = document.documentElement.classList.contains('mobile');
+      mb.animate(mob ? [{ opacity: 0, transform: 'translateY(18px)' }, { opacity: 1, transform: 'none' }] : [{ opacity: 0, transform: 'translateY(6px) scale(.985)' }, { opacity: 1, transform: 'none' }], { duration: mob ? 260 : 240, easing: 'cubic-bezier(.2,.8,.3,1)' }); } } }); })();
 // Desktop: pop-up windows work like the dice roller and the chat window — a floating window with its own title bar
 // (drag it to move it, ✕ to close), and the page behind stays usable instead of being dimmed and blocked.
 const mwDesk = () => !document.documentElement.classList.contains('mobile') && innerWidth > 640;
 function mwDress() { const b = $('#modal-body'); if (!b) return; const de = document.documentElement; de.classList.toggle('mwin', mwDesk());
-  if (!mwDesk() || b.querySelector(':scope > .mw-head')) return;
+  if (!mwDesk()) return;
+  // (a window that redraws its contents keeps its title bar: a heading repeating the title is hidden again)
+  { const hd = b.querySelector(':scope > .mw-head'); if (hd) { const t = (hd.querySelector('b') || {}).textContent; b.querySelectorAll('h2:not(.mw-hid), h3:not(.mw-hid)').forEach(x => { if (x.textContent.trim() === t) x.classList.add('mw-hid'); }); return; } }
   const h = [...b.querySelectorAll('h2, h3')].find(x => x.offsetParent && x.getBoundingClientRect().top - b.getBoundingClientRect().top < 140);
   const t = h ? h.textContent.trim() : ''; if (h) { h.classList.add('mw-hid');
     // a Done / Close button sitting beside the heading would be left stranded: the title bar's ✕ does the same job
@@ -1647,9 +1677,20 @@ function mwDress() { const b = $('#modal-body'); if (!b) return; const de = docu
 // Done / Close buttons that only close the window aren't needed next to the title bar's ✕ (a row left empty goes too).
 function mwTidy() { const b = $('#modal-body'); if (!b || !mwDesk()) return; b.querySelectorAll('[data-act="close"]').forEach(x => { if (/^(done|close)$/i.test(x.textContent.trim())) x.classList.add('mw-hid'); });
   b.querySelectorAll('.actions, .row').forEach(r => { if (r.children.length && ![...r.children].some(x => !x.classList.contains('mw-hid') && getComputedStyle(x).display !== 'none')) r.classList.add('mw-hid'); }); }
-new MutationObserver(() => { if ($('#modal').classList.contains('open')) { mwDress(); mwTidy(); } }).observe($('#modal-body'), { childList: true, subtree: true });
-new MutationObserver(() => { if ($('#modal').classList.contains('open')) mwDress(); }).observe($('#modal'), { attributes: true, attributeFilter: ['class'] });
+// (checked once a frame, before it's drawn, so a window whose contents keep changing isn't measured on every change)
+let MW_R = 0; const mwSoon = () => { if (!MW_R) MW_R = requestAnimationFrame(() => { MW_R = 0; if ($('#modal').classList.contains('open')) { mwDress(); mwTidy(); } }); };
+new MutationObserver(mwSoon).observe($('#modal-body'), { childList: true, subtree: true });
+new MutationObserver(mwSoon).observe($('#modal'), { attributes: true, attributeFilter: ['class'] });
 addEventListener('resize', () => document.documentElement.classList.toggle('mwin', mwDesk()));
+// The top bar stays at the top of the window on a computer: it gets its shadow once the sheet is scrolled under it, and
+// its height is shared so things that stick to the top themselves (the tab strip while editing) sit just below it.
+(() => { let q = 0, st = null, hh = -1; const de = document.documentElement;
+  const chk = () => { q = 0; const b = document.querySelector('header.banner'); if (!b) return; const on = !de.classList.contains('mobile') && scrollY > 2;
+    if (on !== st) { st = on; de.classList.toggle('hd-stuck', on); }
+    const h = de.classList.contains('mobile') ? 0 : Math.round(b.offsetHeight); if (h !== hh) { hh = h; de.style.setProperty('--hd-h', h + 'px'); } };
+  const soon = () => { if (!q) q = requestAnimationFrame(chk); };
+  addEventListener('scroll', soon, { passive: true }); addEventListener('resize', soon); soon();
+  const b0 = document.querySelector('header.banner'); if (b0 && window.ResizeObserver) new ResizeObserver(soon).observe(b0); })();
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); $$('.menu.open').forEach(m => m.classList.remove('open')); } });
 
 // ---------- Field helpers ----------
@@ -1672,7 +1713,7 @@ const isMobile = () => document.documentElement.classList.contains('mobile');
 const who = () => S.name || 'Your character';
 
 // ---------- Settings ----------
-const SETDEF = { combatSpellSort: 'level', protectorScales: false, advancement: 'milestone', abilityStyle: 'mod', showName: true, showRace: true, showBackground: true, showPlayer: true, showAlignment: false, showFaith: false, showRoll20: true, encumbrance: 'standard', exhaustionRule: '2014', exhaustionDC: false, concPrompt: true, durationAlerts: true, autoSpend: true, critRule: 'double', density: 'comfortable', fontScale: 100, hpLevelUp: 'avg', confirmDelete: false, showCastHints: true, inspiration: false, inspMany: false, electrum: false };
+const SETDEF = { combatSpellSort: 'level', protectorScales: false, advancement: 'milestone', abilityStyle: 'mod', showName: true, showRace: false, showBackground: false, showPlayer: false, showAlignment: false, showFaith: false, showRoll20: true, encumbrance: 'standard', exhaustionRule: '2014', exhaustionDC: false, concPrompt: true, durationAlerts: true, autoSpend: true, critRule: 'double', density: 'comfortable', fontScale: 100, hpLevelUp: 'avg', confirmDelete: false, showCastHints: true, inspiration: false, inspMany: false, electrum: false };
 let GEN = 0, RENDERING = '';
 const PID = id => `data-pid="${id}" data-gen="${GEN}" data-home="${RENDERING}"`;
 const ST = k => (S.settings && S.settings[k] !== undefined ? S.settings[k] : SETDEF[k]);
@@ -1841,11 +1882,12 @@ const MTAB_CHEV = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" s
 function mtabTabs() { return [...document.querySelectorAll('#tabs .tab')].map(b => ({ k: b.dataset.tab, b, on: b.classList.contains('on'), unread: b.classList.contains('unread'), ic: (b.querySelector('.ticon') || {}).innerHTML || '', label: (b.querySelector('.tlabel') || {}).textContent || b.dataset.tab, count: (b.querySelector('.tabcount') || {}).textContent || '' })); }
 function mtabSync() {
   let el = document.getElementById('mtab');
-  if (!isMobile() || UI.editLayout) { if (el) el.remove(); mtabClose(true); document.documentElement.classList.remove('mtabs'); return; }
-  document.documentElement.classList.add('mtabs');
+  const de = document.documentElement;
+  if (!isMobile() || UI.editLayout) { if (el) el.remove(); mtabClose(true); if (de.classList.contains('mtabs')) de.classList.remove('mtabs'); return; }
+  if (!de.classList.contains('mtabs')) de.classList.add('mtabs');
   if (!el) { el = document.createElement('div'); el.id = 'mtab'; el.className = 'mtab'; document.body.appendChild(el); mtabWire(el); }
   const ts = mtabTabs(), cur = ts.find(t => t.on) || ts[0]; if (!cur) return; const i = ts.indexOf(cur), other = ts.some(t => t.unread && !t.on);
-  el.innerHTML = `<button class="mtab-b${other ? ' unread' : ''}" aria-haspopup="menu" aria-expanded="${!!document.getElementById('mtabmenu')}" aria-label="${esc(cur.label)} — ${i + 1} of ${ts.length}. Choose a tab"><span class="mtab-ic" aria-hidden="true">${cur.ic}</span><span class="mtab-l">${esc(cur.label)}</span><span class="mtab-dots" aria-hidden="true">${ts.map(t => `<i${t.on ? ' class="on"' : ''}></i>`).join('')}</span><span class="mtab-chev">${MTAB_CHEV}</span></button>`;
+  { const h = `<button class="mtab-b${other ? ' unread' : ''}" aria-haspopup="menu" aria-expanded="${!!document.getElementById('mtabmenu')}" aria-label="${esc(cur.label)} — ${i + 1} of ${ts.length}. Choose a tab"><span class="mtab-ic" aria-hidden="true">${cur.ic}</span><span class="mtab-l">${esc(cur.label)}</span><span class="mtab-dots" aria-hidden="true">${ts.map(t => `<i${t.on ? ' class="on"' : ''}></i>`).join('')}</span><span class="mtab-chev">${MTAB_CHEV}</span></button>`; if (el._h !== h) { el._h = h; el.innerHTML = h; } } // (only redrawn when it changes)
   const m = document.getElementById('mtabmenu'); if (m) mtabFill(m);
 }
 function mtabFill(m) { const ts = mtabTabs();
@@ -2815,7 +2857,7 @@ const COMP_RULES = {
   'Primal Companion (Sea)': { cls: 'ranger', req: () => hasSub('ranger', 'beastmaster') && clsLv('ranger') >= 3, group: 'primal', ab: 'wis' },
   'Primal Companion (Sky)': { cls: 'ranger', req: () => hasSub('ranger', 'beastmaster') && clsLv('ranger') >= 3, group: 'primal', ab: 'wis' },
   'Drake Companion': { cls: 'ranger', req: () => hasSub('ranger', 'drakewarden') && clsLv('ranger') >= 3, feature: 'Drake Companion', ab: 'wis' },
-  'Eldritch Cannon': { cls: 'artificer', req: () => hasSub('artificer', 'artillerist') && clsLv('artificer') >= 3, feature: 'Eldritch Cannon', rounds: 600, ab: 'int' },
+  'Eldritch Cannon': { cls: 'artificer', req: () => hasSub('artificer', 'artillerist') && clsLv('artificer') >= 3, feature: 'Eldritch Cannon', rounds: 600, ab: 'int', bonusAct: true, bonusTwo: () => clsLv('artificer') >= 15, modes: ['Flamethrower', 'Force Ballista', 'Protector'] },
   'Wildfire Spirit': { cls: 'druid', req: () => hasSub('druid', 'wildfire') && clsLv('druid') >= 2, feature: 'Summon Wildfire Spirit', rounds: 600, ab: 'wis' },
   'Dancing Item': { cls: 'bard', req: () => hasSub('bard', 'creation') && clsLv('bard') >= 6, feature: 'Animating Performance', rounds: 600, ab: 'cha' }
 };
@@ -3141,7 +3183,7 @@ function render(...names) {
   (names.length ? names : Object.keys(SECTIONS)).forEach(n => { RENDERING = n; SECTIONS[n](); });
   applyPanelLayout();
   renderTabs();
-  $$('textarea.f').forEach(grow);
+  growAll($$('textarea.f'));
   fitItemRows(); fitToolbar(); fitAtkRows(); requestAnimationFrame(alignHpSide);
   // Slide the selected-tab highlight from where it was to the new choice.
   $$('.seg-ind[data-to]').forEach(e => { void e.offsetWidth; e.style.setProperty('--i', e.dataset.to); e.removeAttribute('data-to'); });
@@ -3154,10 +3196,12 @@ function renderOthers() {
   Object.keys(SECTIONS).filter(n => !$(SECTION_EL[n]).contains(a)).forEach(n => { RENDERING = n; SECTIONS[n](); });
   applyPanelLayout();
   renderTabs();
-  $$('textarea.f').forEach(grow);
+  growAll($$('textarea.f'));
   refresh(); fitAtkRows();
 }
 function grow(t) { if (!t.offsetParent) return; t.style.height = 'auto'; t.style.height = (t.scrollHeight + 2) + 'px'; }
+// Many boxes at once: every box is measured in one go and then sized, instead of the page being laid out again for each.
+function growAll(list) { const ts = [...list].filter(t => t.offsetParent); ts.forEach(t => { t.style.height = 'auto'; }); const hs = ts.map(t => t.scrollHeight); ts.forEach((t, i) => { t.style.height = (hs[i] + 2) + 'px'; }); }
 
 // ---------- Derived values ----------
 function calcText(key) {
@@ -3272,6 +3316,7 @@ function fxTip(e) {
 function refresh() {
   if (!S.created) return;
   $$('[data-calc]').forEach(el => { const t = calcText(el.dataset.calc); if (el.textContent !== t) el.textContent = t; });
+  if (typeof fitSubtitle === 'function') fitSubtitle();
   fitCoins();
   $$('[data-calc-title]').forEach(el => el.title = calcText(el.dataset.calcTitle));
   $$('[data-calc-html]').forEach(el => {
@@ -3480,9 +3525,12 @@ function mainClick(e) {
     case 'resetturn': S.turn.haste = false; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.attacks = 0; S.turn.atkWith = []; S.turn.lightAtk = false; S.turn.speed0 = ''; S.turn.sneak = false; S.turn.readied = null; update(); render('combat'); toast(`Turn reset — round ${N(S.turn.round) || 1} actions are ready again.`); break;
     case 'fullscreen': if (fsOn()) { FS_USER_OFF = true; fsExit(); } else { FS_USER_OFF = false; fsEnter(); } break;
     case 'tab': { const prev = UI.tab, nt = b.dataset.tab, mini = !!b.closest('.cmini'), mob = isMobile() && !mini;
-      const go = () => { tabFadeT = 0; renderTabs(); if (prev !== nt && !mini) tabPageAnim(prev, nt); requestAnimationFrame(alignHpSide);
+      const hov = !mob && prev !== nt && b.matches(':hover');
+      const go = () => { tabFadeT = 0; renderTabs(); if (prev !== nt && !mini) tabPageAnim(prev, nt);
+        // (the tab you clicked keeps its hover highlight until the sliding one gets there)
+        if (hov) { const t = $(`#tabs .tab[data-tab="${nt}"]`); if (t) { t.classList.add('tkeep'); requestAnimationFrame(() => requestAnimationFrame(() => t.classList.remove('tkeep'))); } } requestAnimationFrame(alignHpSide);
         if (mob) { const pg = $('#page-' + nt), keep = pg ? Math.min(TABSCROLL[prev] || 0, Math.max(0, pg.getBoundingClientRect().top + scrollY - 12)) : 0; window.scrollTo(0, prev === nt ? 0 : (TABSCROLL[nt] != null ? TABSCROLL[nt] : keep)); }
-        $$('#page-' + UI.tab + ' textarea.f').forEach(grow); fitItemRows(); if (mini) window.scrollTo(0, 0); };
+        growAll($$('#page-' + UI.tab + ' textarea.f')); fitItemRows(); if (mini) window.scrollTo(0, 0); };
       if (tabFadeT) { clearTimeout(tabFadeT.t); tabFadeT.go(); }
       TABSCROLL[prev] = scrollY; UI.tab = nt; saveUI();
       // phones: the tab highlight moves straight away, the old page fades out, then the new one fades in at its own scroll spot
@@ -3523,8 +3571,8 @@ function mainClick(e) {
       const kk = b.dataset.key, pg = /^cg:sptab:/.test(kk) ? 'spells' : /^(econedit|fopt:|cg:)/.test(kk) ? 'combat' : /^atk:/.test(kk) ? 'core' : /^(item:|invshut:|bagedit:)/.test(kk) ? 'inventory' : /^(fedit:|ffull:|subedit:|xsub:|featsedit)/.test(kk) ? 'features' : 'spells';
       render(pg); return;
     }
-    case 'filter': S.spellFilter = b.dataset.f; save(); render('spells'); $$('#page-spells textarea.f').forEach(grow); refresh(); break;
-    case 'featfilter': UI.featFilter = b.dataset.f; saveUI(); render('features'); $$('#page-features textarea.f').forEach(grow); refresh(); pendingLabel = null; return;
+    case 'filter': S.spellFilter = b.dataset.f; save(); render('spells'); growAll($$('#page-spells textarea.f')); refresh(); break;
+    case 'featfilter': UI.featFilter = b.dataset.f; saveUI(); render('features'); growAll($$('#page-features textarea.f')); refresh(); pendingLabel = null; return;
     case 'cast': castSpell(i, b.dataset.col); break;
     case 'castgo': castGo(b); break;
     case 'readypay': readyPay(b.dataset.k, N(b.dataset.l)); break;
@@ -3672,6 +3720,15 @@ function mainClick(e) {
     case 'addcr': addCreature(N(b.dataset.n)); break;
     case 'addclasscomp': openClassCompanions(); break;
     case 'addcc': addClassCompanion(b.dataset.n); break;
+    case 'compmode': { const c = S.companions[i]; if (!c) return; c.mode = b.dataset.v; pendingLabel = c.name + ': ' + c.mode; if ($('#cmodem')) closeModal(true); save(); render(); refresh(); break; }
+    case 'compswitch': openCompSwitch(i); pendingLabel = null; return;
+    case 'compswitchgo': { const c = S.companions[i]; if (!c) return; const how = b.dataset.how, v = $('#cmodem input[name=cmv]:checked');
+      if (!v) { toast('Pick the new type first.'); pendingLabel = null; return; }
+      if (S.inCombat && S.turn) { S.turn.used = S.turn.used || {}; const col = how === 'action' ? 'action' : 'bonus';
+        if (S.turn.used[col]) { toast(`You already used your ${col === 'action' ? 'action' : 'bonus action'} this turn.`, 'fumble'); pendingLabel = null; return; }
+        S.turn.used[col] = true; }
+      c.mode = v.value; c.switched = true; pendingLabel = 'Switch ' + c.name + ' to ' + c.mode; closeModal(true); save(); render(); refresh();
+      toast(how === 'action' ? `<b>${esc(c.name)}</b> is now a ${esc(c.mode)} — your bonus action is still free to fire it.` : `<b>${esc(c.name)}</b> is now a ${esc(c.mode)} — it can fire on your next turn.`, '', 6000, { label: 'Undo', fn: () => undo(1) }); break; }
     case 'dismiss': { const c = S.companions[i]; S.companions.splice(i, 1); if (c.tmpl && COMP_RULES[c.tmpl] && COMP_RULES[c.tmpl].perm) S.compOff = Object.assign({}, S.compOff, { [c.tmpl]: true }); pendingLabel = 'Dismiss ' + c.name; if (c.effect && !S.companions.some(x => x.effect === c.effect) && AUTO(c.effect).summon) { S.effects = S.effects.filter(x => x.name !== c.effect); if (S.concentration === c.effect) S.concentration = ''; } save(); render(); toast(`${esc(c.name)} dismissed.`, '', 5000, { label: 'Undo', fn: () => undo(1) }); break; }
     case 'comphp': compHp(i, N(b.dataset.d), b); break;
     case 'bagmove': $$('.menu.open').forEach(m => m.classList.remove('open')); bagMoveTo(b.dataset.id, b.dataset.to); pendingLabel = null; return;
@@ -3798,7 +3855,7 @@ function mainClick(e) {
     case 'r20check2': r20Hello(); setTimeout(() => { if (R20.ok) { toast('Extension connected — pick your game in Settings → Dice.'); openSettings('dice'); } else toast('Not connected yet. Reload this sheet after loading the extension, then check again.', 'fumble', 7000); }, 700); return;
     case 'r20refresh': R20._asked = true; r20Refresh(); return;
     case 'r20test': { const r = d20('Test roll', 0, 'check', 'dex'); return; }
-    case 'lvcls': LV.cls = b.dataset.k; LV.sub = ''; renderLevelUp(); pendingLabel = null; return;
+    case 'lvcls': LV.cls = b.dataset.k; LV.sub = ''; LV.extraSub = ''; renderLevelUp(); pendingLabel = null; return;
   }
 }
 const ACTL = { skillprof: 'Skill proficiency', add: 'Add entry', del: 'Remove entry', up: 'Reorder list', econ: 'Toggle action used', move: 'Movement', round: 'Change round', newturn: 'Next turn', endcombat: 'End combat', resetturn: 'Reset turn', spendhd: 'Spend Hit Die', 'confirm-short': 'Short rest', 'confirm-long': 'Long rest', equip: 'Equip / unequip', filter: 'Spell filter', acauto: 'AC automatic', deathsave: 'Death save', endform: 'Revert form' };
@@ -3951,6 +4008,15 @@ function creatureRoll(who, j, what) {
   const src = who === 'form' ? S.form : S.companions[N(who.slice(1))];
   if (!src) return; const a = (src.attacks || [])[j]; if (!a) return;
   const nm = src.name + ' · ' + actName(a), kind = actKind(a);
+  // Activating an Eldritch Cannon takes your bonus action (at 15th level one bonus action works both cannons)
+  { const cr = who !== 'form' && src.tmpl && COMP_RULES[src.tmpl];
+    if (cr && cr.bonusAct && S.inCombat && S.turn && (what === 'both' || what === 'eff')) {
+      const t = S.turn; t.used = t.used || {}; t.commanded = t.commanded || {};
+      const mine = S.companions.filter(x => x.tmpl === src.tmpl && t.commanded[x.id]);
+      if (t.commanded[src.id]) { toast(`${esc(src.name)} has already been activated this turn.`, 'fumble'); return; }
+      if (t.used.bonus && !(cr.bonusTwo && cr.bonusTwo() && mine.length)) { toast('You already used your bonus action this turn.', 'fumble'); return; }
+      t.used.bonus = true; t.commanded = Object.assign({}, t.commanded, { [src.id]: true }); update(); render('combat'); refresh();
+    } }
   // Actions with limited uses per day (a[8]), e.g. the Steel Defender's Repair 3/day
   if (N(a[8]) > 0 && who !== 'form') { const u = N((src.used || {})[a[0]]); if (u >= N(a[8])) { toast(`${esc(src.name)} has no ${esc(actName(a))} uses left — they come back after a long rest.`, 'fumble'); return; } src.used = Object.assign({}, src.used, { [a[0]]: u + 1 }); save(); render(); }
   if (what === 'eff' || (what === 'both' && kind !== 'attack')) {
@@ -4734,6 +4800,19 @@ function openClassCompanions() {
     <div class="crlist">${list.map(n => { const c = compStats(n), r = COMP_RULES[n]; return `<div class="crrow"><div><b>${esc(n)}</b> <span class="hint">AC ${c.ac} · HP ${c.hp} · ${esc(c.speed)}${r.feature ? ' · uses ' + esc(r.feature) : ''}</span><div class="hint">${esc(c.attacks.map(z => `${z[0]} ${z[1] === '' ? '' : fmt(N(z[1]))} ${z[2]}`).join('; '))} · ${esc(c.notes)}</div></div><button class="btn sm gold" data-act="addcc" data-n="${esc(n)}">Add</button></div>`; }).join('')}</div>
     <div class="actions"><button class="btn" data-act="close">Done</button></div>`, null, true);
 }
+function openCompSwitch(i) {
+  const c = S.companions[i], r = c && COMP_RULES[c.tmpl]; if (!r || !r.modes) return;
+  const f = (S.features || []).find(x => /thunderstone switch/i.test(x.name || ''));
+  openModal(`<div id="cmodem"><h3>Switch ${esc(c.name)}</h3>${f && f.desc ? `<p class="hint" style="margin:0 0 10px">${esc(f.desc)}</p>` : ''}
+    <div class="crlist">${r.modes.filter(m => m !== c.mode).map((m, k) => `<label class="crrow sel"><input type="radio" name="cmv" value="${esc(m)}"${k === 0 ? ' checked' : ''}><div><b>${esc(m)}</b></div></label>`).join('')}</div>
+    <div class="cmode-how"><button class="btn" data-act="compswitchgo" data-i="${i}" data-how="bonus"><b>Bonus action</b><span>Within 5 ft. It fires the new type on your next turn.</span></button><button class="btn" data-act="compswitchgo" data-i="${i}" data-how="action"><b>Action (Mage Hand)</b><span>Up to 30 ft away. Your bonus action stays free to fire it now.</span></button></div>
+    <div class="actions"><button class="btn" data-act="close">Cancel</button></div></div>`, null, true);
+}
+function openCompMode(c) {
+  const i = S.companions.indexOf(c), r = COMP_RULES[c.tmpl]; if (i < 0 || !r || !r.modes) return;
+  openModal(`<div id="cmodem"><h3>Which ${esc(c.name)}?</h3><p class="hint" style="margin:0 0 10px">Choose the type you're making.</p><div class="cmode-btns big">${r.modes.map(m => `<button class="btn" data-act="compmode" data-i="${i}" data-v="${esc(m)}">${esc(m)}</button>`).join('')}</div>
+    <div class="actions"><button class="btn" data-act="close">Later</button></div></div>`, null, true);
+}
 function addClassCompanion(n, viaFeature) {
   if (!classCompanionOK(n)) { toast('Your class doesn\'t grant that companion.', 'fumble'); return; }
   const r = COMP_RULES[n];
@@ -4741,8 +4820,9 @@ function addClassCompanion(n, viaFeature) {
   if (S.compOff) delete S.compOff[n];
   const extra = {};
   if (r.rounds) { const en = n + ' (summoned)'; S.effects = (S.effects || []).filter(e => e.name !== en).concat([{ name: en, rounds: r.rounds }]); extra.effect = en; }
-  S.companions.push(makeClassComp(n, extra));
+  const nc = makeClassComp(n, extra); S.companions.push(nc);
   pendingLabel = 'Add ' + n; if (!viaFeature) closeModal(true); save(); render(); if (!viaFeature) toast(`${esc(n)} added.`);
+  if (r.modes) setTimeout(() => { if (!$('#modal').classList.contains('open') && S.companions.includes(nc) && !nc.mode) openCompMode(nc); }, 60);
 }
 function compHp(i, d, btn) {
   const side = btn && btn.closest('.chp-side'), c = S.companions[i], el = (side && side.querySelector('input')) || $('#chp' + i), amt = Math.abs(N(el && String(el.value).trim().replace(/[−–]/g, '-').replace(/^\+/, '')));
@@ -5413,7 +5493,15 @@ function fitInput(el) {
 }
 // The character name shrinks to fit its box (never cut off); full name on hover.
 let _fitCv;
+// (the size found for a name is remembered until the window or fonts change, so redrawing the sheet doesn't measure it again)
+let FIT_GEN = 0; const FIT_C = new Map();
+addEventListener('resize', () => { FIT_GEN++; FIT_C.clear(); });
+try { document.fonts.addEventListener('loadingdone', () => { FIT_GEN++; FIT_C.clear(); document.querySelectorAll('input.name[data-fit]').forEach(fitNameFont); }); } catch (e) {}
 function fitNameFont(el) {
+  const fk = (el.value || el.placeholder || '') + '|' + el.className + '|' + (UI && UI.editLayout ? 1 : 0) + '|' + (el.parentElement ? el.parentElement.clientWidth : 0) + '|' + document.documentElement.style.fontSize; // (and the room it has, and the text size setting) if (FIT_C.has(fk)) { const v = FIT_C.get(fk); if (el.style.fontSize !== v) el.style.fontSize = v; el.title = el.value || ''; return; }
+  fitNameFont0(el); if (el.clientWidth > 0) FIT_C.set(fk, el.style.fontSize);
+}
+function fitNameFont0(el) {
   el.style.fontSize = ''; const w = (el.clientWidth - 14) * 0.93; if (w <= 0) return;
   const cs = getComputedStyle(el), base = parseFloat(cs.fontSize), ctx = (_fitCv = _fitCv || document.createElement('canvas')).getContext('2d');
   ctx.font = `${cs.fontWeight} ${base}px ${cs.fontFamily}`;
@@ -5733,13 +5821,13 @@ function renderRaceChange() {
 }
 function openBgChange() {
   RC = { kind: 'bg', removeOld: true, custom: Object.assign({ name: '', feature: '', desc: '' }, S.background === 'custom' ? { name: S.backgroundName, ...(S.bgCustom || {}) } : {}) };
-  W = { bg: S.background, ans: {} };
+  W = { bg: S.background, ans: {} }; delete WZ3M['rcbg:q']; delete WZ3M['rcbg:s'];
   openModal('<div id="rcmodal"></div>', () => { RC = null; W = null; }, true); renderBgChange();
 }
 function renderBgChange() {
   const b = DND.backgrounds[W.bg], c = RC.custom, cust = W.bg === 'custom';
   $('#rcmodal').innerHTML = `<h3>Change background</h3>
-    <div class="wz-grid">${fld('Background', `<select class="f" data-rc="bg"><option value="">— choose —</option>${bookSort(Object.entries(DND.backgrounds), ([, v]) => v.src, ([, v]) => v.name).filter(([k]) => k !== 'custom').map(([k, v]) => `<option value="${k}"${W.bg === k ? ' selected' : ''}>${esc(v.name)}${v.src !== 'PHB' ? ' (' + v.src + ')' : ''}</option>`).join('')}<option value="custom"${cust ? ' selected' : ''}>✎ Custom background…</option></select>`)}</div>
+    ${wz3List('bg')}<div class="wz-grid wz3-hid">${fld('Background', `<select class="f" data-rc="bg"><option value="">— choose —</option>${bookSort(Object.entries(DND.backgrounds), ([, v]) => v.src, ([, v]) => v.name).filter(([k]) => k !== 'custom').map(([k, v]) => `<option value="${k}"${W.bg === k ? ' selected' : ''}>${esc(v.name)}${v.src !== 'PHB' ? ' (' + v.src + ')' : ''}</option>`).join('')}<option value="custom"${cust ? ' selected' : ''}>✎ Custom background…</option></select>`)}</div>
     ${cust ? `<div class="wz-grid">${fld('Background name', `<input class="f" data-rc="name" value="${esc(c.name)}" placeholder="e.g. Smuggler">`)}${fld('Feature name', `<input class="f" data-rc="feature" value="${esc(c.feature)}" placeholder="e.g. Hidden Routes">`)}</div>
       ${fld('What the feature does', `<textarea class="f" rows="3" data-rc="desc">${esc(c.desc)}</textarea>`)}` : ''}
     ${b ? `<div class="wz-info">${b.skills && b.skills.length ? `<p><b>Skills:</b> ${esc(b.skills.join(', '))}${b.tools && b.tools.length ? ` · <b>Tools:</b> ${esc(b.tools.join(', '))}` : ''}</p>` : ''}${!cust ? `<p><b>Feature:</b> ${esc(b.feature[0])} — ${esc(b.feature[1])}</p>` : ''}
@@ -5748,7 +5836,12 @@ function renderBgChange() {
       ${b.langs ? choiceUI(W.ans, 'bg.lang', { type: 'language', n: b.langs }) : ''}</div>` : ''}
     <label class="checkline" style="margin-top:8px"><input type="checkbox" data-rc="removeOld"${RC.removeOld ? ' checked' : ''}> Remove the skills and tools ${esc(S.backgroundName || 'my old background')} gave me</label>
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="rcok">Change background</button></div>`;
+  // (the same searchable list as character creation; its choices of skills, tools and languages are lists too)
+  const bx = $('#rcmodal > .wz3-pick'); if (bx) wz3Keep(bx, 'rcbg');
+  if (typeof wz3ChoiceLists === 'function') wz3ChoiceLists('#rcmodal');
 }
+document.addEventListener('change', e => { const r = e.target.closest && e.target.closest('#rcmodal input[data-pick="bg"]'); if (!r || !RC) return; const sel = $('#rcmodal [data-rc="bg"]'); if (!sel) return;
+  const box = r.closest('.wz3-pick'); const go = () => { sel.value = r.dataset.v; sel.dispatchEvent(new Event('change', { bubbles: true })); }; if (box && typeof wz3Commit === 'function') wz3Commit(box, go); else go(); });
 document.addEventListener('input', e => { const t = e.target; if (!t.dataset || t.dataset.rc === undefined || !RC) return; rcField(t, e.type); }, true);
 document.addEventListener('change', e => { const t = e.target; if (!t.dataset || t.dataset.rc === undefined || !RC) return; rcField(t, e.type); }, true);
 function rcField(t, type) {
@@ -6157,6 +6250,19 @@ function applyCardFx(card, fx) {
   return esc(out.join(' · '));
 }
 window.addEventListener('resize', () => $$('input.f.name').forEach(fitNameFont));
+// The line under the name (race · class · background) never runs past two lines on a computer: a long one gets smaller
+// type instead, so the top bar is the same height for every character. (Remembered per text and width.)
+let SUB_K = '';
+function fitSubtitle() { const el = $('.namebox .subtitle'); if (!el) return;
+  if (isMobile()) { if (el.style.fontSize) el.style.fontSize = ''; SUB_K = ''; return; }
+  const k = el.textContent + '|' + (el.parentElement ? el.parentElement.clientWidth : 0) + '|' + document.documentElement.style.fontSize; if (k === SUB_K && el._fit) return; SUB_K = k; el._fit = 1;
+  el.style.fontSize = ''; if (!el.textContent || !el.offsetParent) return; const base = parseFloat(getComputedStyle(el).fontSize) || 15;
+  const lines = () => { const cs = getComputedStyle(el), lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2; return Math.round(el.clientHeight / lh); };
+  el.classList.remove('sub2'); el.removeAttribute('title');
+  let px = base; while (lines() > 2 && px > base * 0.72) { px -= 0.5; el.style.fontSize = px + 'px'; }
+  // (still more than two lines at the smallest size: it stops after two, and the whole of it shows on hover)
+  if (lines() > 2) { el.classList.add('sub2'); el.title = el.textContent; } }
+window.addEventListener('resize', () => { SUB_K = ''; fitSubtitle(); });
 
 // Desktop header stays one row: when the toolbar would wrap, its buttons drop their words and keep their icons.
 // Toolbar labels fold away one button at a time (least-used first) only when the row would wrap, and come back as soon as there's room.
@@ -6165,7 +6271,7 @@ function fitToolbar() {
   const tb = $('.toolbar'); if (!tb) return;
   tb.classList.remove('tb-compact', 'tb-wrap'); $$('.toolbar .nolbl').forEach(k => k.classList.remove('nolbl'));
   if (isMobile()) return;
-  const kids = [...tb.children].filter(k => k.offsetParent !== null); if (kids.length < 2) return;
+  const kids = [...tb.children].filter(k => k.offsetParent !== null && !k.classList.contains('pg-hubrow')); if (kids.length < 2) return; // (the site's own row above the buttons doesn't count)
   const tight = () => { const b0 = kids[0].getBoundingClientRect().bottom; return kids.some(k => k.getBoundingClientRect().top >= b0 - 2) || tb.scrollWidth > tb.clientWidth + 2; };
   for (const key of TB_FOLD) { if (!tight()) return; const el = tb.querySelector(`[data-zi="${key}"]`); if (el) el.classList.add('nolbl'); }
   if (!tight()) return;
@@ -6607,7 +6713,7 @@ const actNote = a => String(a[3] || '').replace(/\s*\(?DC\s*\d+\s*[A-Z]{3}\s*sav
 // "walk 40, fly 60" → "40ft · fly 60ft"
 function compSpeedText(sp) {
   const parts = String(sp || '').split(/\s*[,;]\s*/).map(x => x.trim()).filter(Boolean); if (!parts.length) return '—';
-  return parts.map(x => { const m = /^(walk|walking)?\s*(\d+)\s*(?:ft\.?|feet)?$/i.exec(x); if (m) return m[2] + 'ft'; const n = /^([a-z]+)\s*(\d+)\s*(?:ft\.?|feet)?(.*)$/i.exec(x); return n ? `${n[1].toLowerCase()} ${n[2]}ft${n[3]}` : x; }).join(' · ');
+  return parts.map(x => { const m = /^(walk|walking)?\s*(\d+)\s*(?:ft\.?|feet)?$/i.exec(x); if (m) return m[2] + 'ft'; const n = /^([a-z]+)\s*(\d+)\s*(?:ft\.?|feet)?(.*)$/i.exec(x); return n ? `${n[1].toLowerCase()} ${n[2]}ft${n[3].trim() ? ' ' + n[3].trim() : ''}` : x; }).join(' · ');
 }
 // In initiative: a Command button on companions that only act when you spend a bonus action on them.
 function compCmdBtn(c, i) {
@@ -6615,9 +6721,18 @@ function compCmdBtn(c, i) {
   const done = S.turn && S.turn.commanded && S.turn.commanded[c.id];
   return `<button class="btn sm ${done ? 'ghost' : 'gold'}" data-act="compcmd" data-i="${i}" ${done ? 'disabled' : ''} title="${esc(r.command)}">${done ? '✓ Commanded' : 'Command'}</button>`;
 }
+// A cannon is made as one type; its card shows that type's action (and a switch, if a feature allows it)
+const hasThunderSwitch = () => (S.features || []).some(f => /thunderstone switch/i.test(f.name || ''));
+function compModeUI(c, i, modes) {
+  if (!c.mode) return `<div class="cmode-pick"><p>Which type did you make?</p><div class="cmode-btns">${modes.map(m => `<button class="btn sm" data-act="compmode" data-i="${i}" data-v="${esc(m)}">${esc(m)}</button>`).join('')}</div></div>`;
+  const sw = hasThunderSwitch();
+  return `<div class="cmode"><span>Type: <b>${esc(c.mode)}</b></span>${sw ? `<button class="btn sm ghost" data-act="compswitch" data-i="${i}" ${c.switched ? 'disabled title="Already switched once while it\'s here"' : 'title="Thunderstone Switch: swap it to another type"'}>${c.switched ? 'Switched' : 'Switch type'}</button>` : ''}</div>`;
+}
 function compCard(c, i, mini, inCol) {
   const who = 'c' + i, hpPct = c.maxhp ? Math.max(0, Math.min(100, N(c.hp) / N(c.maxhp) * 100)) : 0;
+  const cr = c.tmpl && COMP_RULES[c.tmpl], modes = cr && cr.modes, modeOf = a => modes && modes.find(m => String(a[0] || '').toLowerCase().startsWith(m.toLowerCase()));
   const acts = (c.attacks || []).map((a, j) => {
+    if (modes && !mini) { const m = modeOf(a); if (m && (!c.mode || m !== c.mode)) return ''; }
     const k = actKind(a), dc = k === 'save' ? actDC(c, a) : '', sv = actSave(a);
     const info = k === 'attack' ? `<button class="roll" data-act="crroll" data-who="${who}" data-j="${j}" data-what="hit" title="Roll to hit only">${fmt(N(a[1]))}</button> to hit · <button class="roll" data-act="crroll" data-who="${who}" data-j="${j}" data-what="dmg" title="Roll damage only">${esc(a[2] || '—')}</button>` : k === 'save' ? `<b>DC ${dc}${sv ? ' ' + sv : ''}</b> · ${esc(a[2] || '—')}` : esc(a[2] || '—');
     const main = k === 'attack' ? `<button class="btn sm gold" data-act="crroll" data-who="${who}" data-j="${j}" data-what="both">Attack</button>` : `<button class="btn sm gold" data-act="crroll" data-who="${who}" data-j="${j}" data-what="eff">${k === 'temp' ? 'Temp HP' : k === 'heal' ? 'Heal' : k === 'save' ? 'Damage' : 'Roll'}</button>`;
@@ -6635,7 +6750,7 @@ function compCard(c, i, mini, inCol) {
   return `<div class="${mini ? 'cm-card' : inCol ? 'comp2 incol' : 'panel comp2'}"><div class="comp-h2">${picThumb(c.tmpl ? `compMods.${c.tmpl}.img` : `companions.${i}.img`, c.name)}<div class="grow"><b class="cname">${esc(c.name)}</b><div class="ctags">${(inCol ? [] : tags).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div></div>
       ${inCol ? compCmdBtn(c, i) : ''}<button class="icon-btn" data-act="compedit" data-i="${i}" title="Edit ${esc(c.name)}" aria-label="Edit">✎</button>${c.tmpl && COMP_RULES[c.tmpl] && COMP_RULES[c.tmpl].always ? '' : `<button class="btn sm ghost" data-act="dismiss" data-i="${i}">Dismiss</button>`}</div>
     <div class="cstat2">${hp}<div class="csts"><span class="cst"><small>AC</small><b>${N(c.ac)}</b></span><span class="cst wide"><small>Speed</small><b>${esc(compSpeedText(c.speed))}</b></span>${c.multi > 1 ? `<span class="cst"><small>Attacks</small><b>${c.multi}</b></span>` : ''}</div></div>
-    ${acts ? `<div class="cacts">${acts}</div>` : ''}
+    ${modes && !mini ? compModeUI(c, i, modes) : ''}    ${acts ? `<div class="cacts">${acts}</div>` : ''}
     ${!mini && String(c.notes || '').trim() ? (inCol ? `<details class="cnotes-d"><summary>How ${esc(c.name)} works</summary><div class="cnotes">${esc(c.notes)}</div></details>` : `<div class="cnotes">${esc(c.notes)}</div>`) : ''}</div>`;
 }
 // Edit a creature: for class companions the changes are your table's version (S.compMods) and survive level-ups.
@@ -9152,7 +9267,9 @@ function ptyChatPopOut() { try { const p = JSON.parse(localStorage.getItem('dnd-
 // Phones: the on-screen keyboard covers the bottom of the page without resizing it, so bottom sheets (chat, dice
 // roller) are lifted by however much of the screen the keyboard takes, and kept short enough to fit above it.
 (() => { const vv = window.visualViewport; if (!vv) return; const de = document.documentElement;
-  const upd = () => { const kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)); de.style.setProperty('--kb', kb + 'px'); de.style.setProperty('--vvh', Math.round(vv.height) + 'px'); de.style.setProperty('--vvt', Math.round(vv.offsetTop) + 'px'); const ae = document.activeElement, typing = !!(ae && ae.matches && ae.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea') && ae.closest('#pcwin, #drwin')), up = isMobile() && (typing || innerHeight - vv.height > 120), was = de.classList.contains('kbup'); de.classList.toggle('kbup', up);
+  // (each value is only written when it changes: writing to the page's root makes the browser restyle everything)
+  const setv = (k, v) => { if (de.style.getPropertyValue(k) !== v) de.style.setProperty(k, v); };
+  const upd = () => { const kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)); setv('--kb', kb + 'px'); setv('--vvh', Math.round(vv.height) + 'px'); setv('--vvt', Math.round(vv.offsetTop) + 'px'); const ae = document.activeElement, typing = !!(ae && ae.matches && ae.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea') && ae.closest('#pcwin, #drwin')), up = isMobile() && (typing || innerHeight - vv.height > 120), was = de.classList.contains('kbup'); if (up !== was) de.classList.toggle('kbup', up);
     // when the keyboard comes up, the chat jumps to its newest message
     if (up && !was) setTimeout(() => { const l = document.querySelector('#pcwin .ptychat-l'); if (l) l.scrollTop = l.scrollHeight; }, 60); };
   vv.addEventListener('resize', upd); vv.addEventListener('scroll', upd); upd();
@@ -9163,7 +9280,9 @@ function winNoBleed(w) { let y0 = 0; w.addEventListener('touchstart', e => { y0 
   w.addEventListener('touchmove', e => { if (e.touches.length > 1) return; const dy = e.touches[0].clientY - y0; let el = e.target;
     while (el && el !== w.parentNode) { const cs = getComputedStyle(el); if (/(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 1) { const top = el.scrollTop <= 0, bot = el.scrollTop + el.clientHeight >= el.scrollHeight - 1; if (!(dy > 0 && top) && !(dy < 0 && bot)) return; break; } if (el === w) break; el = el.parentElement; }
     if (e.cancelable) e.preventDefault(); }, { passive: false }); }
-function winClose(w) { if (!w || w.classList.contains('closing')) return; w.id = ''; w.classList.add('closing'); const go = () => w.remove();
+function winClose(w) { if (!w || w.classList.contains('closing')) return; w.id = ''; w.classList.add('closing');
+  // (a closing window can't be used any more, by keyboard either: its buttons would act a second time)
+  if (w.contains(document.activeElement)) document.activeElement.blur(); w.inert = true; const go = () => w.remove();
   if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return go(); setTimeout(go, isMobile() ? 240 : 190); }
 function ptyChatDock() { UI.chatPop = false; if (typeof saveUI === 'function') saveUI(); const w = $('#pcwin'); if (w) winClose(w); render('party'); }
 document.addEventListener('change', e => { const t = e.target; if (!t.dataset || t.dataset.aura == null) return; ptyAura(t.dataset.aura, t.dataset.id, t.checked); });
@@ -9580,7 +9699,7 @@ function ptyDesc(m) { const d = m.data || {}, why = d.why && d.why !== m.fromNam
 // who, and what they're doing to you. Yes or No.
 function ptyAskShow() {
   const A = S.ptyAsk || []; let ov = $('#ptyask-ov');
-  if (!A.length || !S.created) { if (ov) ov.remove(); setTimeout(() => ptyMsgShow(), 50); return; }
+  if (!A.length || !S.created) { if (ov) winClose(ov); setTimeout(() => ptyMsgShow(), 50); return; }
   if (!ov) { ov = document.createElement('div'); ov.id = 'ptyask-ov'; ov.className = 'ptyask-bg'; document.body.appendChild(ov); }
   const a = A[0], d = ptyDesc(a.m), what = d.charAt(0).toLowerCase() + d.slice(1);
   ov.innerHTML = `<div class="ptyask-m" role="alertdialog" aria-modal="true" aria-labelledby="ptyask-q">
@@ -9782,7 +9901,7 @@ function ptyMsgShow(who, text) { if (who != null) PTY_MSGQ.push({ who, text, at:
   const m = PTY_MSGQ[0], ov = document.createElement('div'); ov.id = 'ptymsg-ov'; ov.className = 'ptyask-bg ptymsg-bg';
   ov.innerHTML = `<div class="ptymsg-m" role="alertdialog" aria-modal="true" aria-labelledby="ptymsg-h"><div class="ptymsg-top"><span class="ptymsg-ic" aria-hidden="true">✉</span><div><small>Message from</small><b id="ptymsg-h">${esc(m.who)}</b></div>${PTY_MSGQ.length > 1 ? `<span class="ptymsg-n">1 of ${PTY_MSGQ.length}</span>` : ''}</div>
     <div class="ptymsg-t">${esc(m.text).replace(/\n/g, '<br>')}</div><div class="ptymsg-b"><button class="btn gold" id="ptymsg-ok">${PTY_MSGQ.length > 1 ? 'Next' : 'OK'}</button></div></div>`;
-  document.body.appendChild(ov); const ok = ov.querySelector('#ptymsg-ok'); ok.onclick = () => { PTY_MSGQ.shift(); ov.remove(); ptyMsgShow(); };
+  document.body.appendChild(ov); const ok = ov.querySelector('#ptymsg-ok'); ok.onclick = () => { PTY_MSGQ.shift(); winClose(ov); ptyMsgShow(); };
   if (!matchMedia('(pointer:coarse)').matches) setTimeout(() => ok.focus(), 30); }
 
 
@@ -9887,7 +10006,7 @@ try { if (localStorage.getItem(PCHAT_KEY()) === '1') document.documentElement.cl
 const PCHAT_T0 = Date.now();
 function ptyUnreadMark() { setTimeout(() => { if (typeof mtabSync === 'function') mtabSync(); }, 0); const P0 = PTYX(), on = !!(P0 && ptyOn() && P0.chat && P0.chat.on());
   // shown the moment chat is there; only hidden once the page has had a few seconds to connect
-  if (on || Date.now() - PCHAT_T0 > 6000) { document.documentElement.classList.toggle('pchat', on); try { localStorage.setItem(PCHAT_KEY(), on ? '1' : '0'); } catch (e) {} }
+  if (on || Date.now() - PCHAT_T0 > 6000) { document.documentElement.classList.toggle('pchat', on); try { if (localStorage.getItem(PCHAT_KEY()) !== (on ? '1' : '0')) localStorage.setItem(PCHAT_KEY(), on ? '1' : '0'); } catch (e) {} }
   { const cb = document.querySelector('.devbtn.chatbtn'); if (cb) { const n = $('#pcwin') ? 0 : PTY_UNREAD; cb.classList.toggle('unread', n > 0); if (n > 0) cb.dataset.unread = n > 9 ? '9+' : n; else delete cb.dataset.unread; } }
   ptyChatSeen();
   const t = document.querySelector('.tab[data-tab="party"]'); if (!t) return; if ((UI.tab === 'party' || $('#pcwin')) && !document.hidden) PTY_UNREAD = 0; t.classList.toggle('unread', PTY_UNREAD > 0); if (PTY_UNREAD > 0) t.dataset.unread = PTY_UNREAD > 9 ? '9+' : PTY_UNREAD; else delete t.dataset.unread; }
@@ -10807,11 +10926,11 @@ function renderLevelUp() {
     const feats = c.features.filter(f => f[0] === t.nl).concat(s ? s.features.filter(f => f[0] === t.nl) : []);
     const xs = LV.extraSub && c.subclasses[LV.extraSub], xcap = xs ? Math.min(t.nl, (N(c.sub && c.sub.level) || 1) + N(((t.row || {}).extraSubLv || {})[LV.extraSub])) : 0; if (xs) feats.push(...xs.features.filter(f => f[0] <= xcap).map(f => [f[0], f[1] + ` (${xs.name})`, f[2]]));
     const needSub = !(t.row && t.row.sub) && t.nl >= c.sub.level;
-    body += `<div class="lvsec"><h4>${esc(c.name)} ${t.nl}${t.isNew ? ' (new class)' : ''} · character level ${totalLevel() + 1}</h4>`;
+    body += `<div class="lvsec"><h4>${wz3ClassIcon(t.key)}<span>${esc(c.name)} ${t.nl}${t.isNew ? ' (new class)' : ''}</span></h4>`;
     if (t.isNew && !mcOK(t.key)) body += `<p class="warn">Multiclassing into ${esc(c.name)} needs ${c.mc.req.map(r => AB3[r[0]] + ' ' + r[1]).join(c.mc.reqAny ? ' or ' : ' and ')}. You can still continue if your DM allows it.</p>`;
     if (t.isNew) { const bad = rows.filter(r => !mcOK(r.key)); if (bad.length) body += `<p class="warn">Your current class${bad.length > 1 ? 'es' : ''} (${bad.map(r => CL[r.key].name).join(', ')}) must also meet multiclass requirements.</p>`; body += `<p class="hint">You gain: ${esc(c.mc.profs || 'no new proficiencies')}.</p>`; }
     if (needSub) body += fld(c.sub.label, `<select class="f" id="lvSub">${[['', '— choose —']].concat(bookSort(Object.entries(c.subclasses), ([, v]) => v.src, ([, v]) => v.name).map(([k, v]) => [k, v.name + (v.src !== 'PHB' ? ' (' + v.src + ')' : '')])).map(([k, n]) => `<option value="${k}"${LV.sub === k ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>`);
-    body += feats.length ? `<ul class="newfeats">${feats.map(f => `<li><b>${esc(f[1])}</b> — ${esc(f[2])}</li>`).join('')}</ul>` : '<p class="hint">No new named features at this level.</p>';
+    body += feats.length ? `<p class="lvx-h">What you gain</p><ul class="newfeats lvx-fl">${feats.map(f => `<li><b>${esc(f[1])}</b><span>${esc(f[2])}</span></li>`).join('')}</ul>` : '<p class="hint">No new named features at this level.</p>';
     const defs = lvChoiceDefs(t);
     body += defs.map(d => d.def.type === 'asiOrFeat' ? asiOrFeatUI(LV.ans, d.id) : choiceUI(LV.ans, d.id, d.def, { cls: t.key, level: t.nl, sub: (t.row && t.row.sub) || LV.sub })).join('');
     // Spell changes
@@ -10825,14 +10944,23 @@ function renderLevelUp() {
       if (cd.book) msg.push('add 2 spells to your spellbook');
       if (msg.length) body += `<p class="hint">Spells: you can ${msg.join(', ')}. You'll pick them on the next screen.</p>`;
     }
-    body += `<div class="row">${fld('HP gained', `<input class="f" id="lvHP" type="number" inputmode="numeric" value="${esc(LV.hp || (avg + conM))}" style="width:90px">`)}<button class="btn" data-act="lvroll">Roll 1d${c.hd} ${fmt(conM)}</button><span class="hint" id="lvRollNote">Average ${avg} ${fmt(conM)} CON = ${avg + conM}${hpPerLevelBonus() ? ` · plus ${hpPerLevelBonus() > lvl() ? 'your per-level bonuses' : 'your +1/level bonus'} automatically` : ''}</span></div></div>`;
+    body += `<div class="row lvx-hp">${fld('HP gained', `<input class="f" id="lvHP" type="number" inputmode="numeric" value="${esc(LV.hp || (avg + conM))}" style="width:90px">`)}<button class="btn" data-act="lvroll">Roll 1d${c.hd} ${fmt(conM)}</button><span class="hint" id="lvRollNote">Average ${avg} ${fmt(conM)} CON = ${avg + conM}${hpPerLevelBonus() ? ` · plus ${hpPerLevelBonus() > lvl() ? 'your per-level bonuses' : 'your +1/level bonus'} automatically` : ''}</span></div></div>`;
   }
-  $('#modal-body').innerHTML = `<h3>Level Up</h3>
-    <div class="lbl">Advance which class?</div>
-    <div class="chips">${rows.map(r => `<button class="chip${LV.cls === r.key ? ' on' : ''}" data-act="lvcls" data-k="${r.key}">${esc(CL[r.key].name)} ${r.level} → ${N(r.level) + 1}</button>`).join('')}
-      <select class="f" id="lvNew" style="width:auto"><option value="">+ Multiclass into…</option>${others.map(k => `<option value="${k}"${LV.cls === k ? ' selected' : ''}>${esc(CL[k].name)}${mcOK(k) ? '' : ' (requirements not met)'}</option>`).join('')}${rows.filter(r => r.sub).map(r => { const c2 = CL[r.key]; const subs = Object.entries(c2.subclasses).filter(([k]) => k !== r.sub && !(r.extraSubs || []).includes(k)); return subs.length ? `<optgroup label="Another ${esc(c2.sub.label)} (homebrew)">${subs.map(([k, v]) => `<option value="sub:${r.key}:${k}"${LV.extraSub === k && LV.cls === r.key ? ' selected' : ''}>${esc(c2.name)}: ${esc(v.name)}</option>`).join('')}</optgroup>` : ''; }).join('')}</select></div>
+  // the classes you have, then the ones you could add, as cards; anything homebrew stays in the small list
+  const extraOpts = rows.filter(r => r.sub).map(r => { const c2 = CL[r.key]; const subs = Object.entries(c2.subclasses).filter(([k]) => k !== r.sub && !(r.extraSubs || []).includes(k)); return subs.length ? `<optgroup label="Another ${esc(c2.sub.label)} (homebrew)">${subs.map(([k, v]) => `<option value="sub:${r.key}:${k}"${LV.extraSub === k && LV.cls === r.key ? ' selected' : ''}>${esc(v.name)}</option>`).join('')}</optgroup>` : ''; }).join('');
+  const mcReq = k => (CL[k].mc && CL[k].mc.req || []).map(r => AB3[r[0]] + ' ' + r[1]).join(CL[k].mc && CL[k].mc.reqAny ? ' or ' : ' & ');
+  $('#modal-body').innerHTML = `<div class="lvx"><h3>Level Up</h3><p class="lvx-sub">Character level ${totalLevel()} → <b>${totalLevel() + 1}</b></p>
+    <p class="lvx-h">Advance a class</p>
+    <div class="lvx-cards">${rows.map(r => `<button type="button" class="lvx-card${LV.cls === r.key && !LV.extraSub ? ' sel' : ''}" data-act="lvcls" data-k="${r.key}"><span class="lvx-ic">${wz3ClassIcon(r.key)}</span><b>${esc(CL[r.key].name)}</b><span class="lvx-t">Level ${r.level} → ${N(r.level) + 1}</span></button>`).join('')}</div>
+    ${others.length ? `<details class="lvx-mc"${t.isNew ? ' open' : ''}><summary>Multiclass into another class</summary><div class="lvx-cards sm">${others.map(k => `<button type="button" class="lvx-card${LV.cls === k ? ' sel' : ''}${mcOK(k) ? '' : ' warn'}" data-lvnew="${k}"><span class="lvx-ic">${wz3ClassIcon(k)}</span><b>${esc(CL[k].name)}</b><span class="lvx-t">${mcOK(k) ? 'Requirements met' : 'Needs ' + esc(mcReq(k))}</span></button>`).join('')}</div></details>` : ''}
+    <select class="f lvx-hid" id="lvNew"><option value=""></option>${others.map(k => `<option value="${k}"${LV.cls === k ? ' selected' : ''}></option>`).join('')}${extraOpts}</select>
+    ${extraOpts ? `<label class="lvx-extra"><span class="lbl">Homebrew: another subclass</span><select class="f" id="lvExtra"><option value="">—</option>${extraOpts}</select></label>` : ''}
     ${body}
-    <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="lvl-confirm">Level up</button></div>`;
+    <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="lvl-confirm">Level up</button></div></div>`;
+  $$('#modal-body [data-lvnew]').forEach(b => b.onclick = () => { const ns = $('#lvNew'); ns.value = b.dataset.lvnew; ns.dispatchEvent(new Event('change')); });
+  { const ex = $('#lvExtra'); if (ex) ex.onchange = () => { const ns = $('#lvNew'); ns.value = ex.value; ns.dispatchEvent(new Event('change')); }; }
+  lvSubList();
+  wz3FeatLists('#modal-body', sheetFeatOK); wz3ChoiceLists('#modal-body');
   $('#modal-body').classList.add('wide');
   const ns = $('#lvNew'); if (ns) ns.onchange = () => { if (ns.value) { const m = /^sub:(\w+):(\w+)$/.exec(ns.value); if (m) { LV.cls = m[1]; LV.extraSub = m[2]; } else { LV.cls = ns.value; LV.extraSub = ''; } LV.sub = ''; LV.ans = {}; LV.hp = ''; renderLevelUp(); } };
   const sb = $('#lvSub'); if (sb) sb.onchange = () => { LV.sub = sb.value; renderLevelUp(); };
@@ -11103,6 +11231,16 @@ function kitItems() {
 }
 function renderWizard() {
   if (!W) return;
+  // Redrawing the same step (after any pick) never moves your scroll: remember every scrolling box and put it back
+  const keepKey = W.step + '|' + (W.part || ''), keepSame = W._keepKey === keepKey; W._keepKey = keepKey;
+  const KS = ['#wizard', '#wizard .wz-box', '#wizard .wz3-wrap', '#wizard .wz3-main', '#wizard .wz-body', '#wizard .wz3-side'];
+  const keep = keepSame ? KS.map(q => { const e = $(q); return e ? e.scrollTop : 0; }) : null, keepWin = keepSame ? [scrollX, scrollY] : null;
+  try { renderWizard0(); } finally {
+    if (keep) { const put = () => { KS.forEach((q, i) => { const e = $(q); if (e && keep[i] && e.scrollTop !== keep[i]) e.scrollTop = keep[i]; }); if (keepWin && (scrollY !== keepWin[1])) window.scrollTo(keepWin[0], keepWin[1]); };
+      put(); requestAnimationFrame(put); }
+  }
+}
+function renderWizard0() {
   const st = W.step;
   let body = '';
   if (st === 0) {
@@ -11216,10 +11354,13 @@ function renderWizard() {
     if (W.method === 'array' || W.method === 'roll') { if (AB.some(a => W.base[a] === '')) probs.push('Assign all ability scores'); }
     const todo = wzUnanswered();
     wzClassChoiceDefs().forEach(d => { const op = DND.options[d.def.type]; if (!op) return; const r = W.classes.find(x => x.key === d.cls) || {}; (W.ans[d.id] || []).forEach(v => { const e = op.list.find(x => x[0] === v); const no = e && optPrereq(e[2], { CH: W.ans, cls: d.cls, level: N(r.level), sub: r.sub }); if (no) probs.push(`${v} ${no}`); }); });
-    body = `<div class="wz-review"><p><b>${esc(W.name || 'Unnamed hero')}</b> — ${esc(x ? x.name : '?')} ${esc(wzClassRows().map(r => CL[r.key].name + ' ' + r.level + (r.sub ? ' (' + CL[r.key].subclasses[r.sub].name + ')' : '')).join(' / '))}${b ? ' · ' + esc(b.name) : ''}</p>
+    const P = window.wzHeader ? wzPreview() : null;
+    const todoH = `${todo.length ? `<div class="wz-todo"><b>Still to choose:</b><ul>${todo.map(t => `<li>${esc(t.label)} <button class="linkbtn" data-wact="go" data-v="${t.step}">Choose</button></li>`).join('')}</ul><span class="hint">You can create now and finish these later ${todo.every(t => t.step === 6) ? 'from the <b>Spells</b> tab' : todo.some(t => t.step === 6) ? 'from the <b>Spells</b> tab and <b>Settings → Unfinished choices</b>' : 'from <b>Settings → Unfinished choices</b>'}.</span></div>` : ''}
+      ${probs.length ? `<p class="warn">${probs.map(esc).join(' · ')}</p>` : todo.length ? '' : '<p>Everything is set. You can change anything later — scores, skills, spells and items are all editable on the sheet.</p>'}`;
+    if (P) body = `<div class="wz-review wz3-rv">${todoH}${P}</div>`;
+    else body = `<div class="wz-review"><p><b>${esc(W.name || 'Unnamed hero')}</b> — ${esc(x ? x.name : '?')} ${esc(wzClassRows().map(r => CL[r.key].name + ' ' + r.level + (r.sub ? ' (' + CL[r.key].subclasses[r.sub].name + ')' : '')).join(' / '))}${b ? ' · ' + esc(b.name) : ''}</p>
       <div class="abrow">${(() => { const fin = wzFinalScores(sc); return AB.map(a => `<span><span class="lbl">${AB3[a]}</span><b>${fin[a]}</b> ${fmt(Math.floor((fin[a] - 10) / 2))}${fin[a] !== sc[a] ? `<small class="hint"> (${sc[a]} +${fin[a] - sc[a]})</small>` : ''}</span>`).join(''); })()}</div>
-      ${todo.length ? `<div class="wz-todo"><b>Still to choose:</b><ul>${todo.map(t => `<li>${esc(t.label)} <button class="linkbtn" data-wact="go" data-v="${t.step}">Choose</button></li>`).join('')}</ul><span class="hint">You can create now and finish these later ${todo.every(t => t.step === 6) ? 'from the <b>Spells</b> tab' : todo.some(t => t.step === 6) ? 'from the <b>Spells</b> tab and <b>Settings → Unfinished choices</b>' : 'from <b>Settings → Unfinished choices</b>'}.</span></div>` : ''}
-      ${probs.length ? `<p class="warn">${probs.map(esc).join(' · ')}</p>` : todo.length ? '' : '<p>Everything is set. You can change anything later — scores, skills, spells and items are all editable on the sheet.</p>'}
+      ${todoH}
       <p class="hint">Scores include racial bonuses, Ability Score Improvements and half-feats.</p></div>`;
   }
   const sums = wz3Sums(), VS = wz3Steps(), vi = wz3Cur(VS), V = VS[vi] || { label: WSTEPS[st] }, last = vi === VS.length - 1;
@@ -11229,7 +11370,7 @@ function renderWizard() {
     <div class="wz-foot">${vi > 0 ? '<button class="btn" data-wact="back">Back</button>' : ''}<span class="wz3-prog" aria-hidden="true"><i style="width:${Math.round((vi + 1) / VS.length * 100)}%"></i></span><small class="wz3-of">Step ${vi + 1} of ${VS.some(v => v.maybe) ? 'up to ' : ''}${VS.length}</small>${!last ? `<button class="btn gold" data-wact="next">Next<span class="wz3-nx">: ${esc(VS[vi + 1].label)}</span></button>` : '<button class="btn gold" data-wact="create">Create character</button>'}</div></div>`;
   { const g = $('#wizard .wz3-cards .sel'); if (g && g.parentElement) g.parentElement.scrollTop = Math.max(0, g.offsetTop - g.parentElement.offsetTop - 60); }
   { const bx = $('#wizard .wz3'), key = W.step + '|' + (W.part || ''); if (bx && W._enter !== key) { W._enter = key; bx.classList.add('enter'); setTimeout(() => bx.classList.remove('enter'), 1000); } } // (the cards ease in only when a step opens, not on every pick)
-  wz3FeatLists(); wz3Shades();
+  wz3FeatLists(); wz3ChoiceLists('#wizard'); wz3Shades();
   // a step that just appeared (say, Spells after picking a caster) slides open in the list
   { const now = VS.map(v => v.label), was = W._vs; W._vs = now;
     if (was && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) $$('#wizard .wz-step').forEach((b, i) => { if (!was.includes(now[i]) && b.animate) { const h = b.offsetHeight, w = b.offsetWidth, row = getComputedStyle(b.parentElement).flexDirection === 'row';
@@ -11276,9 +11417,9 @@ if (!window.__wz3) { window.__wz3 = 1;
   document.addEventListener('click', e => { const c = e.target.closest && e.target.closest('#wizard [data-pick]'); if (!c) return;
     const sel = c.dataset.pick === 'race' ? $('#wizard [data-wz="race"]') : c.dataset.pick === 'sub' ? $('#wizard [data-wz="sub"]') : c.dataset.pick === 'bg' ? $('#wizard [data-wz="bg"]') : $('#wizard [data-wzc="0"][data-f="key"]'); if (!sel) return;
     sel.value = c.dataset.v; sel.dispatchEvent(new Event('change', { bubbles: true })); });
-  document.addEventListener('input', e => { const q = e.target.closest && e.target.closest('#wizard [data-wz3q]'); if (!q) return; const v = q.value.trim().toLowerCase(), box = q.nextElementSibling;
-    box.querySelectorAll('.wz3-card').forEach(c => { c.hidden = !!v && !c.dataset.q.includes(v); });
-    box.querySelectorAll('.wz3-g').forEach(g => { let n = g.nextElementSibling, any = false; while (n && !n.classList.contains('wz3-g')) { if (!n.hidden) any = true; n = n.nextElementSibling; } g.hidden = !any; }); });
+  document.addEventListener('input', e => { const q = e.target.closest && e.target.closest('#wizard [data-wz3q], #modal-body [data-wz3q]'); if (!q) return; const v = q.value.trim().toLowerCase(), box = q.closest('.wz3-pick') || q.parentElement;
+    if (box.dataset.key) WZ3M[box.dataset.key + ':q'] = q.value;
+    wz3Filter(box, v); });
 }
 
 const WZI = (() => { const I = d => `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -11295,19 +11436,81 @@ function wz3List(kind) {
     return `<label class="crrow sel${on ? ' on' : ''}" data-q="${esc((v.name + ' ' + bits + ' ' + (v.feature ? v.feature[0] : '')).toLowerCase())}"><input type="radio" name="wz3bg" data-pick="bg" data-v="${esc(k)}"${on ? ' checked' : ''}><div><b>${esc(v.name)}</b> <span class="hint">${esc(DND.sources[v.src] || v.src || '')}</span>${bits ? `<div class="hint">${esc(bits)}</div>` : ''}${v.feature ? `<div class="hint">Feature: ${esc(v.feature[0])}</div>` : ''}</div></label>`; };
   return `<div class="wz3-pick"><input class="f wz3-q" data-wz3q placeholder="Search ${rows.length} backgrounds" autocomplete="off" aria-label="Search backgrounds"><div class="crlist wz3-list${W.bg ? ' has' : ''}">${rows.map(row).join('')}</div></div>`;
 }
+// Lists remember their search and scroll position when the window redraws after a pick
+const WZ3M = {};
+function wz3Filter(box, v) {
+  box.querySelectorAll('.wz3-card, .crrow[data-q]').forEach(c => { c.hidden = !!v && !c.dataset.q.includes(v); });
+  box.querySelectorAll('.wz3-g').forEach(g => { let n = g.nextElementSibling, any = false; while (n && !n.classList.contains('wz3-g')) { if (!n.hidden) any = true; n = n.nextElementSibling; } g.hidden = !any; });
+}
+function wz3Keep(box, key) {
+  box.dataset.key = key; const q = box.querySelector('.wz3-q'), l = box.querySelector('.wz3-list');
+  if (q && WZ3M[key + ':q']) { q.value = WZ3M[key + ':q']; wz3Filter(box, q.value.trim().toLowerCase()); }
+  if (l) { if (WZ3M[key + ':s']) requestAnimationFrame(() => { l.scrollTop = WZ3M[key + ':s']; }); l.addEventListener('scroll', () => { WZ3M[key + ':s'] = l.scrollTop; }, { passive: true }); }
+}
+// After a pick redraws the window, keep the list you were using exactly where it was on screen
+function wz3Commit(box, fn) {
+  const key = box.dataset.key, sc = box.closest('#modal-body') || box.closest('.wz-body'), top = box.getBoundingClientRect().top;
+  fn();
+  const fix = () => { const nb = key && $$('.wz3-pick').find(x => x.dataset.key === key); if (nb && sc && sc.isConnected) sc.scrollTop += nb.getBoundingClientRect().top - top; };
+  fix(); requestAnimationFrame(fix);
+}
+// Every other choice (maneuvers, skills, tools, fighting styles, spells…) as the same searchable list: one list per choice,
+// ticking as many as it allows; the dropdowns underneath still hold the answer.
+function wz3ChoiceLists(root) {
+  if (root === '#wizard' && !window.wzHeader) return;
+  $$(root + ' .chsel').forEach(cs => {
+    const all = [...cs.querySelectorAll(':scope > select[data-ch]')].filter(x => !x.dataset.wz3 && x.dataset.kind && x.dataset.kind !== 'feat' && x.dataset.kind !== 'asi');
+    const groups = {}; all.forEach(x => (groups[x.dataset.ch] = groups[x.dataset.ch] || []).push(x));
+    Object.entries(groups).forEach(([id, sels]) => {
+      sels.forEach(x => { x.dataset.wz3 = 1; x.classList.add('wz3-hid'); });
+      const n = sels.length, picked = sels.map(x => x.value).filter(Boolean), multi = n > 1;
+      const opts = [...sels[0].options].filter(o => o.value).map(o0 => {
+        const src = sels.find(x => x.value === o0.value) || sels.find(x => !x.value) || sels[0], o = [...src.options].find(y => y.value === o0.value) || o0;
+        const txt = o.textContent.trim(), i = txt.indexOf(' — '), on = picked.includes(o.value);
+        const dis = !on && sels.every(x => { const oo = [...x.options].find(y => y.value === o.value); return !oo || oo.disabled; });
+        let name = i > 0 ? txt.slice(0, i) : txt, desc = i > 0 ? txt.slice(i + 3) : '', note = '';
+        const m = /\s*(\((?:you already|needs|requires|already)[^)]*\))\s*$/i.exec(desc || name); if (m) { note = m[1].slice(1, -1); if (desc) desc = desc.slice(0, m.index); else name = name.slice(0, m.index); }
+        return { v: o.value, name, desc, note, on, dis };
+      });
+      if (!opts.length) return;
+      const nm = 'wz3c-' + id.replace(/\W/g, '_');
+      const row = o => `<label class="crrow sel${o.on ? ' on' : ''}${o.dis ? ' dim' : ''}" data-q="${esc((o.name + ' ' + o.desc).toLowerCase())}"><input type="${multi ? 'checkbox' : 'radio'}" name="${nm}" value="${esc(o.v)}"${o.on ? ' checked' : ''}${o.dis ? ' disabled' : ''}><div><b>${esc(o.name)}</b>${o.note ? ` <span class="hint">${esc(o.note)}</span>` : ''}${o.desc ? `<div class="hint">${esc(o.desc)}</div>` : ''}</div></label>`;
+      const box = document.createElement('div'); box.className = 'wz3-pick wz3-chpick';
+      const noun = (cs.previousElementSibling && cs.previousElementSibling.classList.contains('lbl') ? cs.previousElementSibling.textContent.replace(/×.*$/, '').replace(/\s*\([^)]*\)/g, '').trim() : 'options').toLowerCase();
+      box.innerHTML = `${opts.length > 8 ? `<input class="f wz3-q" data-wz3q placeholder="Search ${opts.length} ${esc(noun)}${/s$/.test(noun) ? '' : ' options'}" autocomplete="off" aria-label="Search">` : ''}${multi ? `<p class="hint wz3-cnt">${picked.length} of ${n} chosen</p>` : ''}<div class="crlist wz3-list${opts.length <= 8 ? ' short' : ''}${picked.length ? ' has' : ''}">${opts.map(row).join('')}</div>`;
+      sels[n - 1].after(box); wz3Keep(box, root + '|' + id);
+      box.addEventListener('change', e => { const r = e.target.closest('input'); if (!r || r.classList.contains('wz3-q')) return;
+        let x;
+        if (!multi) x = sels[0];
+        else if (r.checked) { x = sels.find(s => !s.value); if (!x) { r.checked = false; toast(`You can choose ${n} — untick one first.`); return; } }
+        else { x = sels.find(s => s.value === r.value); if (x) wz3Commit(box, () => { x.value = ''; x.dispatchEvent(new Event('change', { bubbles: true })); }); return; }
+        wz3Commit(box, () => { x.value = r.value; x.dispatchEvent(new Event('change', { bubbles: true })); }); });
+    });
+  });
+}
+// The subclass pick at the level that grants one, as the same list (with what it gives you first)
+function lvSubList() {
+  const sb0 = $('#lvSub'); if (!sb0) return; const c = lvTarget().c;
+  const rows = [...sb0.options].filter(o => o.value).map(o => { const v = c.subclasses[o.value] || {}, fs = v.features || [], lo = fs.length ? Math.min(...fs.map(f => f[0])) : 0, first = fs.filter(f => f[0] === lo);
+    return `<label class="crrow sel${sb0.value === o.value ? ' on' : ''}" data-q="${esc(((v.name || o.textContent) + ' ' + first.map(f => f[1]).join(' ')).toLowerCase())}"><input type="radio" name="lvsub" value="${esc(o.value)}"${sb0.value === o.value ? ' checked' : ''}><div><b>${esc(v.name || o.textContent)}</b>${v.src && v.src !== 'PHB' ? ` <span class="hint">${esc(DND.sources[v.src] || v.src)}</span>` : ''}${first.length ? `<div class="hint">${esc(first.map(f => f[1]).join(', '))}${first[0][2] ? ': ' + esc(first[0][2]) : ''}</div>` : ''}</div></label>`; });
+  const box = document.createElement('div'); box.className = 'wz3-pick lvx-subs';
+  box.innerHTML = `${rows.length > 8 ? `<input class="f wz3-q" data-wz3q placeholder="Search ${rows.length} ${esc(c.sub && c.sub.label ? c.sub.label.toLowerCase() + 's' : 'subclasses')}" autocomplete="off" aria-label="Search">` : ''}<div class="crlist wz3-list${sb0.value ? ' has' : ''}">${rows.join('')}</div>`;
+  sb0.classList.add('lvx-hid'); sb0.after(box); wz3Keep(box, 'lvsub|' + LV.cls);
+  box.addEventListener('change', e => { const r = e.target.closest('input[type=radio]'); if (!r) return; wz3Commit(box, () => { sb0.value = r.value; sb0.dispatchEvent(new Event('change')); }); });
+}
 // Feats (from a race, a background or an Ability Score Improvement) as a searchable list too; the list ticks the same choice underneath
-function wz3FeatLists() {
-  if (!window.wzHeader) return;
-  $$('#wizard select[data-kind="feat"]').forEach(sel => {
+function wz3FeatLists(root, ok) {
+  if (!root && !window.wzHeader) return; root = root || '#wizard'; ok = ok || wzFeatOK;
+  $$(root + ' select[data-kind="feat"]').forEach(sel => {
     if (sel.dataset.wz3) return; sel.dataset.wz3 = 1; sel.classList.add('wz3-hid');
-    const opts = [...sel.options].filter(o => o.value && (o.value === sel.value || wzFeatOK((DND.feats.find(x => x[0] === o.value) || [])[2])));
+    const opts = [...sel.options].filter(o => o.value && (o.value === sel.value || ok((DND.feats.find(x => x[0] === o.value) || [])[2])));
     const hidden = [...sel.options].filter(o => o.value).length - opts.length;
     const row = o => { const f = DND.feats.find(x => x[0] === o.value) || [], on = sel.value === o.value;
       return `<label class="crrow sel${on ? ' on' : ''}${o.disabled ? ' dim' : ''}" data-q="${esc((o.value + ' ' + (f[3] || '') + ' ' + (f[2] || '')).toLowerCase())}"><input type="radio" name="wz3f-${esc(sel.dataset.ch)}-${sel.dataset.k}" value="${esc(o.value)}"${on ? ' checked' : ''}${o.disabled ? ' disabled' : ''}><div><b>${esc(o.value)}</b> <span class="hint">${esc(f[1] && f[1] !== 'PHB' ? (DND.sources[f[1]] || f[1]) : '')}${f[2] ? ` · needs ${esc(f[2])}` : ''}</span>${f[3] ? `<div class="hint">${esc(f[3])}</div>` : ''}</div></label>`; };
     const box = document.createElement('div'); box.className = 'wz3-pick wz3-featpick';
     box.innerHTML = `<input class="f wz3-q" data-wz3q placeholder="Search ${opts.length} feats you qualify for" autocomplete="off" aria-label="Search feats">${hidden ? `<p class="hint wz3-fnote">${hidden} feat${hidden === 1 ? '' : 's'} you don’t meet the requirements for ${hidden === 1 ? 'is' : 'are'} hidden.</p>` : ''}<div class="crlist wz3-list${sel.value ? ' has' : ''}">${opts.map(row).join('')}</div>`;
-    sel.after(box);
-    box.addEventListener('change', e => { const r = e.target.closest('input[type=radio]'); if (!r) return; sel.value = r.value; sel.dispatchEvent(new Event('change', { bubbles: true })); });
+    sel.after(box); wz3Keep(box, root + '|' + sel.dataset.ch + '|' + sel.dataset.k);
+    box.addEventListener('change', e => { const r = e.target.closest('input[type=radio]'); if (!r) return; wz3Commit(box, () => { sel.value = r.value; sel.dispatchEvent(new Event('change', { bubbles: true })); }); });
   });
 }
 // Equipment: the two ways to start as big choices, the kit as item tiles you can switch off, gold as one panel
@@ -11353,7 +11556,8 @@ function wz3Steps() {
   try { sp = !W.classes[0] || !W.classes[0].key || wzSpellPlan().length > 0; } catch (e) {}
   const L = [{ st: 0, label: 'Start' }, { st: 1, part: 'pick', label: 'Race' }];
   // (until the race or class is picked, the steps it might need stay in the list, marked as maybe, so the count only ever goes down)
-  if (ro) L.push({ st: 1, part: 'opts', label: 'Race options', maybe: !x });
+  // (the downloadable sheet shows the race and its options on one page)
+  if (ro && window.wzHeader) L.push({ st: 1, part: 'opts', label: 'Race options', maybe: !x });
   L.push({ st: 2, label: 'Class' }, { st: 3, label: 'Abilities' }, { st: 9, label: 'Features' }, { st: 4, label: 'Background' });
   if (co) L.push({ st: 5, label: 'Class options', maybe: noCls }); if (sp) L.push({ st: 6, label: 'Spells', maybe: noCls });
   L.push({ st: 7, label: 'Equipment' }, { st: 8, label: 'Review' });
@@ -11400,6 +11604,23 @@ function wzFeatOK(pre) {
     if (r === 'elf') return /\belf\b/.test(race.replace(/half-elf/g, '')) || /\b(drow|eladrin|sea elf|shadar)/.test(race);
     return race.includes(r); });
 }
+// The same feat requirement check, for a character that already exists (level up, unfinished choices)
+function sheetFeatOK(pre) {
+  pre = String(pre || '').trim(); if (!pre) return true; const P = pre.toLowerCase();
+  const m = /^((?:str|dex|con|int|wis|cha)(?:\s+or\s+(?:str|dex|con|int|wis|cha))*)\s+(\d+)/.exec(P);
+  if (m) return m[1].split(/\s+or\s+/).some(a => N(score(a)) >= N(m[2]));
+  const arm = (S.profs && S.profs.armor || []).join(' ').toLowerCase() + ' ' + String(S.profArmor || '').toLowerCase(), wep = (S.profs && S.profs.weapons || []).join(' ').toLowerCase() + ' ' + String(S.profWeapons || '').toLowerCase();
+  if (/spellcasting|pact magic/.test(P)) return clsRows().some(r => { const c = CL[r.key], sb = subOf(r), cd = (c && c.caster) || (sb && sb.caster); return cd && (!cd.from || N(r.level) >= cd.from); }) || (S.spells || []).length > 0;
+  if (/light armor/.test(P)) return /light|medium|heavy|all armor/.test(arm);
+  if (/medium armor/.test(P)) return /medium|heavy|all armor/.test(arm);
+  if (/heavy armor/.test(P)) return /heavy|all armor/.test(arm);
+  if (/martial weapon/.test(P)) return /martial/.test(wep);
+  if (/no other dragonmark/.test(P)) return true;
+  const race = String(S.raceName || S.race || '').toLowerCase(), bg = String(S.backgroundName || '').toLowerCase();
+  if (/giant foundling|rune shaper/.test(P)) return /giant foundling|rune shaper/.test(bg);
+  return P.split(/,\s*|\s+or\s+/).some(r => { r = r.trim(); if (!r) return false; if (r === 'small race') return /small/i.test(String(S.size || '')) || /halfling|gnome|goblin|kobold/.test(race);
+    if (r === 'elf') return /\belf\b/.test(race.replace(/half-elf/g, '')) || /\b(drow|eladrin|sea elf|shadar)/.test(race); return race.includes(r); });
+}
 function asiModeClick(b) {
   const inWz = !!b.closest('#wizard'), inP = !!b.closest('#pendm') && PEND, CH = inWz ? W.ans : inP ? PEND.ans : LV ? LV.ans : null; if (!CH) return;
   CH[b.dataset.asimode] = [b.dataset.v];
@@ -11433,8 +11654,8 @@ function wizClick(e) {
   const b = e.target.closest('[data-wact]'); if (!b) return;
   const a = b.dataset.wact;
   switch (a) {
-    case 'next': if (window.wzHeader) { wz3Move(1); break; } W.step = Math.min(WSTEPS.length - 1, W.step + 1); break;
-    case 'back': if (window.wzHeader) { wz3Move(-1); break; } W.step = Math.max(0, W.step - 1); break;
+    case 'next': wz3Move(1); break;
+    case 'back': wz3Move(-1); break;
     case 'go': W.step = N(b.dataset.v); W.part = W.step === 1 && W.race ? 'opts' : ''; break;
     case 'vgo': { const v = wz3Steps()[N(b.dataset.v)]; if (v) { W.step = v.st; W.part = v.part || ''; } break; }
     case 'portrait': $('#portraitFile').click(); return;
@@ -11499,6 +11720,60 @@ function buildCharacter() {
   const x = wzRace(), rows = wzClassRows();
   if (!x || !rows.length) { toast('Choose at least a race and a class.', 'fumble'); W.step = !x ? 1 : 2; renderWizard(); return; }
   if (wzTotalLevel() > 20) { toast('Total level can be at most 20.', 'fumble'); W.step = 2; renderWizard(); return; }
+  wzBuildState();
+  S.created = true; S.notes = [{ date: new Date().toISOString().slice(0, 10), title: 'Character created', text: `${S.name}: ${S.raceName} ${classLabel()}${S.backgroundName ? ', ' + S.backgroundName : ''}.` }];
+  closeWizard();
+  LAST = snapAll(); HIST = []; REDO = [];
+  pendingLabel = 'Create character'; writeLocal(); save();
+  if (S.portrait) matchPortrait(false);
+  applyTheme(); applyLayout(); render();
+  toast(`<div><b>${esc(S.name)}</b> is ready!<div class="det">Everything auto-saves in this browser. Use <b>Save ▾ → Download</b> to keep a copy or share it.</div></div>`, 'crit', 10000);
+}
+// Review: build the character for real (into a scratch copy) and show everything it will have
+function wzPreview() {
+  if (!wzRace() || !wzClassRows().length) return null;
+  const keep = S; let h = '';
+  try {
+    wzBuildState();
+    const ed = (st, label) => `<button class="linkbtn wz3-rved" data-wact="go" data-v="${st}" aria-label="Change ${esc(label)}">Change</button>`;
+    const sec = (ic, title, sub, st, inner) => `<section class="wz3-fs"><header>${ic}<div><b>${esc(title)}</b>${sub ? `<span>${esc(sub)}</span>` : ''}</div>${st != null ? ed(st, title) : ''}</header>${inner}</section>`;
+    const facts = arr => `<div class="wz3-facts">${arr.filter(Boolean).map(([k, v]) => `<span><small>${esc(k)}</small>${esc(String(v))}</span>`).join('')}</div>`;
+    const chips = arr => arr.length ? `<div class="wz3-chips">${arr.map(v => `<i>${esc(v)}</i>`).join('')}</div>` : '<p class="hint">None</p>';
+    const sens = (typeof sensesText === 'function' ? sensesText() : '') || '';
+    // who
+    h += sec(WZI.steps[0], S.name, [S.raceName, classLabel(), S.backgroundName, S.alignment].filter(Boolean).join(' · '), 0,
+      facts([['Hit points', maxHp()], ['Armor Class', acTotal()], ['Initiative', fmt(initVal())], ['Speed', speedInfo().walk + ' ft'], ['Proficiency', fmt(PB())], ['Passive Perception', passive()], sens ? ['Senses', sens] : null]));
+    // scores and saves
+    const fin = AB.map(a => [a, score(a)]);
+    h += sec(WZI.steps[3], 'Ability scores', 'Racial bonuses, Ability Score Improvements and half-feats included', 3,
+      `<div class="wz3-rvab">${fin.map(([a, v]) => `<span><small>${AB3[a]}</small><b>${v}</b><i>${fmt(mod(a))}</i></span>`).join('')}</div>
+      <p class="wz3-rvh">Saving throws</p><div class="wz3-rvsv">${AB.map(a => `<span class="${S.saves[a] ? 'on' : ''}"><small>${ABN[a]}</small><b>${fmt(mod(a) + (S.saves[a] ? PB() : 0))}</b></span>`).join('')}</div>`);
+    // skills
+    const fe = fxList('skillExp'), fp = fxList('skillProf');
+    const sk = S.skills.map(k => { let p = N(k.prof); if (fe.includes(k.name)) p = Math.max(p, 2); else if (fp.includes(k.name)) p = Math.max(p, 1); return [k, p]; }).filter(([, p]) => p > 0);
+    h += sec(WZI.opts, 'Skills', sk.length + ' proficient', null, sk.length ? `<div class="wz3-rvsk">${sk.map(([k, p]) => `<span><b>${esc(k.name)}</b>${p > 1 ? ' <small>expertise</small>' : ''}<i>${fmt(skillVal(k))}</i></span>`).join('')}</div>` : '<p class="hint">None yet</p>');
+    // proficiencies
+    h += sec(WZI.shield, 'Proficiencies and languages', '', null,
+      `<p class="wz3-rvh">Armor</p>${chips(String(S.profArmor || '').split(/,\s*(?=[A-Z])/).filter(Boolean))}<p class="wz3-rvh">Weapons</p>${chips(String(S.profWeapons || '').split(/,\s*(?=[A-Z])/).filter(Boolean))}<p class="wz3-rvh">Tools</p>${chips(S.tools.map(t => t.name))}<p class="wz3-rvh">Languages</p>${chips(S.langs)}`);
+    // features and feats
+    const fs = (S.features || []).filter(f => f && f.name), by = {};
+    fs.forEach(f => { const g = f.source || 'Other'; (by[g] = by[g] || []).push(f); });
+    h += sec(WZI.feats, 'Features and feats', fs.length + ' features' + (S.feats.length ? `, ${S.feats.length} feat${S.feats.length > 1 ? 's' : ''}` : ''), 9,
+      `${S.feats.length ? `<p class="wz3-rvh">Feats</p>${chips(S.feats)}` : ''}${Object.entries(by).map(([g, l]) => `<p class="wz3-rvh">${esc(g)}</p><ul class="wz3-fl">${l.map(f => `<li><b>${esc(f.dname || f.name)}</b>${f.desc ? `<span>${esc(String(f.desc).split('\n')[0])}</span>` : ''}</li>`).join('')}</ul>`).join('')}`);
+    // spells
+    if (S.spells.length) { const lv = {}; S.spells.forEach(sp => { (lv[N(sp.level)] = lv[N(sp.level)] || []).push(sp.name); });
+      h += sec(WZI.steps[6] || WZI.opts, 'Spells', S.spells.length + ' known or prepared', 6, Object.keys(lv).sort((a, b) => a - b).map(l => `<p class="wz3-rvh">${l === '0' ? 'Cantrips' : ORD[N(l) - 1] + ' level'}</p>${chips(lv[l])}`).join('')); }
+    // equipment
+    const inv = (S.inventory || []).filter(it => it && it.name), cur = S.currency || {}, coin = ['pp', 'gp', 'ep', 'sp', 'cp'].filter(k => N(cur[k])).map(k => N(cur[k]) + ' ' + k);
+    h += sec(WZI.pack, 'Equipment', (inv.length ? inv.length + ' items' : 'No items') + (coin.length ? ', ' + coin.join(' ') : ''), 7,
+      inv.length ? `<div class="wz3-rvinv">${inv.map(it => `<span class="${it.equipped ? 'on' : ''}">${esc(it.name)}${N(it.qty) > 1 ? ` <i>×${N(it.qty)}</i>` : ''}${it.equipped ? ' <small>equipped</small>' : ''}</span>`).join('')}</div>` : '<p class="hint">Starting gold only</p>');
+  } catch (e) { console.warn('review preview', e); h = ''; }
+  finally { S = keep; }
+  return h || null;
+}
+// Everything the wizard makes, built into S (used to create the character, and to preview it on Review)
+function wzBuildState() {
+  const x = wzRace(), rows = wzClassRows();
   const sc = wzScores();
   S = migrate(Object.assign(blankState(), { dataRev: EMBED.dataRev || '', layout: S.layout || {} }));
   S.sources = W.sources.slice();
@@ -11570,13 +11845,6 @@ function buildCharacter() {
   S.combat = defaultCombat();
   rebuildAuto();
   S.hp.cur = maxHp();
-  S.created = true; S.notes = [{ date: new Date().toISOString().slice(0, 10), title: 'Character created', text: `${S.name}: ${S.raceName} ${classLabel()}${S.backgroundName ? ', ' + S.backgroundName : ''}.` }];
-  closeWizard();
-  LAST = snapAll(); HIST = []; REDO = [];
-  pendingLabel = 'Create character'; writeLocal(); save();
-  if (S.portrait) matchPortrait(false);
-  applyTheme(); applyLayout(); render();
-  toast(`<div><b>${esc(S.name)}</b> is ready!<div class="det">Everything auto-saves in this browser. Use <b>Save ▾ → Download</b> to keep a copy or share it.</div></div>`, 'crit', 10000);
 }
 
 
@@ -11643,6 +11911,7 @@ function renderPending() {
         ${o.def.type === 'asiOrFeat' ? asiOrFeatUI(PEND.ans, o.id) : choiceUI(PEND.ans, o.id, o.def, { cls: o.cls, level: N(r.level), sub: r.sub })}</div>`; }).join('')}
     <div class="actions">${list.length > 1 ? '<button class="btn ghost" data-act="pendall">Mark all as done</button>' : ''}<button class="btn gold" data-act="close">Done</button></div></div>`;
   $('#modal-body').innerHTML = html; $('#modal-body').classList.add('wide');
+  wz3FeatLists('#modal-body', sheetFeatOK); wz3ChoiceLists('#modal-body');
 }
 function pendApply(id) {
   const o = owedChoices().find(x => x.id === id); if (!o) return;
@@ -11840,7 +12109,7 @@ function cloudListen(ref, onFirst) {
       if (!owner && mine && S.created && !cloudRO && !(d && d.guestDone)) { S.savedAt = Date.now(); GUESTCLAIM = true; await cloudWrite(); return true; }
       if (S.created && (!d || N(d.savedAt) < N(S.savedAt))) {
         // A newer copy of the sheet file is replacing the synced one: never lose the player's own settings, theme or layout.
-        if (d && !cloudRO) { try { const txt = await cloudText(d); const old = txt && JSON.parse(txt); if (old && old.id === S.id) { keepPrefs(S, old); try { applyTheme(); render(); } catch (e) {} } } catch (e) {} }
+        if (d && !cloudRO) { try { const txt = await cloudText(d); const old = txt && JSON.parse(txt); if (old && old.id === S.id) { keepPrefs(S, old); hdrReset(S); try { applyTheme(); render(); } catch (e) {} } } catch (e) {} }
         if (!cloudRO) cloudWrite(); }
       else if (d) setSyncState(cloudRO ? 'Live · view only (you can\'t edit this sheet)' : 'Live · synced ' + clock());
     });

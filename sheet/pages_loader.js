@@ -146,7 +146,9 @@ window.PG_SKEL = SKEL;
 // different window width, the drawn skeletons above are used.
 const SKSNAP = {
   key: k => 'pg-sksnap2-' + k,
-  get(k, w) { try { const o = JSON.parse(localStorage.getItem(SKSNAP.key(k)) || 'null'); return o && Math.abs(o.w - w) < 60 ? o.h : ''; } catch (e) { return ''; } },
+  // (only plain placeholder shapes come back: anything that could run something is refused)
+  get(k, w) { try { const o = JSON.parse(localStorage.getItem(SKSNAP.key(k)) || 'null'); return o && typeof o.h === 'string' && Math.abs(o.w - w) < 60 && !/<\s*(script|iframe|object|embed|link|meta|base|form|svg|math)\b|\son[a-z]+\s*=|javascript:|url\s*\(/i.test(o.h) ? o.h : ''; } catch (e) { return ''; } },
+  clear() { try { Object.keys(localStorage).filter(k => k.startsWith('pg-sksnap2-')).forEach(k => localStorage.removeItem(k)); } catch (e) {} },
   build(live) {
     const out = live.cloneNode(false); out.removeAttribute('id');
     const KEEP_TXT = 'th, h1, h2, h3, .adm-h2, .nt-h, .adm-stat > :first-child';
@@ -163,7 +165,7 @@ const SKSNAP = {
         if (!el.getClientRects().length || /^(SCRIPT|STYLE|TEMPLATE)$/.test(tag) || el.matches('.adm-mlist, .hc-menu, [hidden]')) continue;
         if (/^(IMG|SVG|CANVAS|VIDEO|IFRAME|INPUT|SELECT|TEXTAREA|BUTTON|PROGRESS)$/i.test(tag) || el.matches('.pg-ava, .adm-tag, .hc-pic, .adm-kebab, .sw, .nw-sw')) { dst.appendChild(box(el, /^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(tag) ? 'skc' : '')); continue; }
         { const r = el.getBoundingClientRect(), cs = getComputedStyle(el); if (!el.children.length && r.width <= 80 && r.height <= 80 && (cs.backgroundImage !== 'none' || !/rgba\(0, 0, 0, 0\)|transparent/.test(cs.backgroundColor))) { dst.appendChild(box(el)); continue; } }
-        const c = el.cloneNode(false); c.removeAttribute('id'); c.removeAttribute('href'); c.removeAttribute('title'); c.removeAttribute('draggable'); [...c.attributes].forEach(a => { if (/^(data-|aria-|on)/.test(a.name)) c.removeAttribute(a.name); });
+        const c = el.cloneNode(false); c.removeAttribute('id'); c.removeAttribute('href'); c.removeAttribute('title'); c.removeAttribute('draggable'); [...c.attributes].forEach(a => { if (/^(data-|aria-|on|src|srcset|action|formaction|xlink)/.test(a.name) || (a.name === 'style' && /url\s*\(/i.test(a.value))) c.removeAttribute(a.name); });
         if (tag === 'TBODY') { walk({ childNodes: [...el.children].slice(0, 12) }, c, keep); dst.appendChild(c); continue; }
         walk(el, c, keep || el.matches(KEEP_TXT)); dst.appendChild(c);
       } };
@@ -670,6 +672,10 @@ function wireDie(root) {
 }
 (async () => {
   const CFG = __CFG__, VER = '__VER__', ASSETS = __ASSETS__; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
+  if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
+      if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };
+    if (document.body) mark(); else document.addEventListener('DOMContentLoaded', mark); new MutationObserver(() => { if (document.title && !/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; }).observe(document.querySelector('title') || document.head, { childList: true, subtree: true, characterData: true }); setInterval(mark, 3000); }
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -780,7 +786,8 @@ function wireDie(root) {
     const pbox = document.createElement('div'); pbox.className = 'pg-pres pg-pubpres'; pbox.id = 'pg-pubpres'; pbox.hidden = true; document.body.appendChild(pbox);
     if (pubC) { const live = fs.collection('pubviews').doc(pubC).collection('live'); let vid = ''; try { vid = sessionStorage.getItem('pg-anon') || ''; } catch (e) {}
       if (!/^anon-[a-z0-9]{6,16}$/.test(vid)) { vid = 'anon-' + Math.random().toString(36).slice(2, 12).replace(/[^a-z0-9]/g, 'x').padEnd(8, 'x'); try { sessionStorage.setItem('pg-anon', vid); } catch (e) {} }
-      let seen = {}; const beat = () => { seen[vid] = { anon: true, at: Date.now() }; live.doc(vid).set({ anon: true, at: Date.now() }).catch(() => {}); };
+      // (someone who isn't signed in sees who's here but isn't listed themselves: the list only takes signed-in people)
+      let seen = {}; const beat = () => {};
       const show = () => { const now = Date.now(), here = Object.entries(seen).filter(([, d]) => now - (d.at || 0) < 200000);
         const named = here.filter(([, d]) => !d.anon), anons = here.filter(([, d]) => d.anon).sort(([a], [b]) => (a === vid ? -1 : b === vid ? 1 : 0));
         pbox.hidden = !here.length;
@@ -788,8 +795,7 @@ function wireDie(root) {
         if (window.pgPubPlace) window.pgPubPlace(); };
       beat(); show(); setInterval(beat, 60000); setInterval(show, 15000);
       document.addEventListener('visibilitychange', () => { if (!document.hidden) beat(); });
-      addEventListener('pagehide', () => { live.doc(vid).delete().catch(() => {}); });
-      live.onSnapshot(qs => { const me = seen[vid]; seen = {}; qs.docs.forEach(d => { seen[d.id] = d.data(); }); if (!seen[vid] && me) seen[vid] = me; show(); }, () => {}); }
+      live.onSnapshot(qs => { seen = {}; qs.docs.forEach(d => { if (d.id !== vid && !d.data().anon) seen[d.id] = d.data(); }); show(); }, () => {}); }
     // The full logo across the top: tap it to go to Adventurer's Tome (the lobby, or sign in).
     { const lg = document.createElement('a'); lg.className = 'pg-publogo'; lg.href = PRETTY ? '/' : location.pathname; lg.title = 'Go to Adventurer’s Tome'; lg.setAttribute('aria-label', 'Go to Adventurer’s Tome'); lg.innerHTML = logoHTML(); document.body.prepend(lg); wireDie(lg);
       lg.addEventListener('click', e => { if (e.target.closest && e.target.closest('.hl-d20')) e.preventDefault(); });
@@ -826,7 +832,7 @@ function wireDie(root) {
         const tbTop = Math.round((btns.length ? Math.min(...btns.map(r => r.top)) : tb.getBoundingClientRect().top) + scrollY), gap = 7; // the top of the buttons themselves
         const room = Math.min(64, Math.max(26, tbTop - 2 * gap)); if (lg._room !== room) { lg._room = room; lg.style.setProperty('--plh', room + 'px'); }
         if (!tag.classList.contains('placed')) tag.classList.add('placed'); const lh = lg.offsetHeight;
-        const tr = tb.getBoundingClientRect(), x = Math.round(tr.left + scrollX); let y = Math.round((tbTop - lh) / 2);
+        const tr = tb.getBoundingClientRect(), x = Math.round(Math.min(tr.left + scrollX, document.documentElement.clientWidth + scrollX - 8 - lg.offsetWidth)); let y = Math.round((tbTop - lh) / 2);
         const px = (el, k, v) => { if (el.style[k] !== v) el.style[k] = v; }; px(lg, 'left', x + 'px'); px(lg, 'top', y + 'px');
         // then nudge it by where the die actually draws (browsers size it a little differently), so the die has the same gap above and below
         { const d = lg.querySelector('.hl-d20'); if (d && !d.classList.contains('hl-rolling') && !PG_DIE.rolling) { const r = d.getBoundingClientRect(), dt = r.top + scrollY, db = r.bottom + scrollY, adj = Math.round(((tbTop - db) - dt) / 2);
@@ -835,6 +841,9 @@ function wireDie(root) {
         // then who's viewing, then the View only tag
         let nx = x + lg.offsetWidth + 12; const pb = document.getElementById('pg-pubpres');
         if (pb && !pb.hidden) { px(pb, 'left', nx + 'px'); px(pb, 'top', (y + lh / 2) + 'px'); if (!pb.classList.contains('ready')) pb.classList.add('ready'); nx += pb.offsetWidth + 10; }
+        // (on a narrow window the tag tightens up, and never runs past the window's edge)
+        { const cw = document.documentElement.clientWidth + scrollX; tag.classList.toggle('wrap', nx + tag.offsetWidth > cw - 8 && !tag.classList.contains('wrap') ? true : tag.classList.contains('wrap') && nx + tag.offsetWidth * 1.2 <= cw - 8 ? false : tag.classList.contains('wrap'));
+          if (nx + tag.offsetWidth > cw - 8) nx = Math.max(8, cw - 8 - tag.offsetWidth); }
         px(tag, 'left', nx + 'px'); px(tag, 'top', (y + lh / 2) + 'px');
         if (pos === align.last) { if (!de.classList.contains('pg-al')) de.classList.add('pg-al'); } else { align.last = pos; requestAnimationFrame(align); } };
       let q = 0; const soon = () => { if (!q) q = requestAnimationFrame(() => { q = 0; align(); }); }; window.pgPubPlace = soon;
@@ -855,7 +864,7 @@ function wireDie(root) {
   const EMAIL = (user.email || '').toLowerCase(), IS_OWNER = user.uid === OWNER_UID;
   let IS_ADMIN = IS_OWNER, ADMINS = [];
   try { const a = await fs.collection('config').doc('admins').get(); ADMINS = ((a.exists && a.data().emails) || []).map(x => String(x).toLowerCase()); if (ADMINS.includes(EMAIL)) IS_ADMIN = true; } catch (e) {}
-  const doSignOut = () => Promise.resolve(window.pgLog && (lsSet('pg-off:' + EMAIL, JSON.stringify({ at: Date.now(), why: 'signout', last: window.pgSeenAt || 0 })), pgLog('signout'))).then(() => { window.__pgOut = true; return auth.signOut(); }).then(() => { try { localStorage.removeItem('pg-kicked'); } catch (e) {} pgGo(PRETTY ? '/login' : location.href, true); });
+  const doSignOut = () => Promise.resolve((SKSNAP.clear(), window.pgLog && (lsSet('pg-off:' + EMAIL, JSON.stringify({ at: Date.now(), why: 'signout', last: window.pgSeenAt || 0 })), pgLog('signout')))).then(() => { window.__pgOut = true; return auth.signOut(); }).catch(e => { window.__pgOut = false; throw e; }).then(() => { try { localStorage.removeItem('pg-kicked'); } catch (e) {} pgGo(PRETTY ? '/login' : location.href, true); });
   // Signing out always asks first.
   const signOut = () => {
     if (document.querySelector('.pg-out')) return;
@@ -1006,9 +1015,10 @@ function wireDie(root) {
         <div class="pgm-t">${pgMark(m.text)}</div><div class="pgm-row"><button class="pgm-ok" type="button">${label || 'OK'}</button></div></div>`;
       document.body.appendChild(w); const ok = w.querySelector('.pgm-ok'); const card = w.querySelector('.pgm-card'), body = w.querySelector('.pgm-t'), shade = () => { card.classList.toggle('sc-t', body.scrollTop > 2); card.classList.toggle('sc-b', body.scrollTop + body.clientHeight < body.scrollHeight - 2); }; /* shadows under the header / above OK while there's more to scroll */
       body.addEventListener('scroll', shade, { passive: true }); shade(); setTimeout(() => { ok.focus({ preventScroll: true }); body.scrollTop = 0; shade(); }, 50); /* opens at the top of a long notice, not at its OK button */
-      const done = () => { if (after) after(); w.classList.add('out'); setTimeout(() => w.remove(), 200); };
+      const done = () => { if (w._done) return; w._done = true; w.inert = true; if (after) after(); w.classList.add('out'); setTimeout(() => w.remove(), 200); };
       ok.onclick = done; w.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); done(); } }); return w; }
-  window.pgPreviewWelcome = (wm, nx) => { const ex = document.getElementById('pg-msg'); if (ex) ex.remove(); pgFlow(Object.assign({ id: 'preview' }, wm), nx ? Object.assign({ id: 'preview2' }, nx) : null);
+  const msgGone = ex => { if (!ex) return; ex.id = 'pg-msg-old'; ex.inert = true; ex.classList.add('out'); setTimeout(() => ex.remove(), 200); }; // (it keeps its look as it fades, but can't be used)
+  window.pgPreviewWelcome = (wm, nx) => { msgGone(document.getElementById('pg-msg')); pgFlow(Object.assign({ id: 'preview' }, wm), nx ? Object.assign({ id: 'preview2' }, nx) : null);
     setTimeout(() => { const c = document.getElementById('pg-msg'); if (c) c.dataset.k = 'preview'; }, 0); };
   // Bug reports: a small window (the bug button on a sheet, or Contact) that lands in the admin page's Bug reports
   // tab. When an admin marks one fixed, its sender gets a note in the corner — on whatever page is open, right away or
@@ -1032,7 +1042,7 @@ function wireDie(root) {
     try { localStorage.setItem(k, String(t)); } catch (e) {} x.ref.update({ seen: true }).catch(() => {});
     if (b.status === 'fixed') pgCorner(`<b>Done: ${escH(b.sum)}</b><div class="det">Thanks for sending it in!</div>`, 12000);
     else pgCorner(`<b>Not this time: ${escH(b.sum)}</b><div class="det">${b.reason ? escH(b.reason) : 'Thanks for sending it in anyway!'}</div>`, 20000); }), () => {});
-  window.pgPreview = (m, k) => { const ex = document.getElementById('pg-msg'); if (ex) ex.remove(); pgCard(Object.assign({ id: 'preview' }, m), k); document.getElementById('pg-msg').dataset.k = 'preview'; };
+  window.pgPreview = (m, k) => { msgGone(document.getElementById('pg-msg')); pgCard(Object.assign({ id: 'preview' }, m), k); document.getElementById('pg-msg').dataset.k = 'preview'; };
   const UCACHE = {}, userDoc = em => UCACHE[em] || (UCACHE[em] = fs.collection('users').doc(em).get().then(x => x.exists ? x.data() : null, () => null));
 
   // A newer version of the site was pushed: load it. The party page reloads right away; a sheet reloads as soon as
@@ -1468,16 +1478,24 @@ function wireDie(root) {
   if (G) { const a = document.createElement('a'); a.href = URLS.hub(G); a.className = 'pg-hublink'; a.title = 'All characters'; if (FRAMED) a.target = '_top'; a.innerHTML = '<img class="pg-hl-ic" src="/icon-32.png" alt="" aria-hidden="true">Adventurer’s Tome'; document.body.appendChild(a);
     // On a computer it sits above the toolbar, level with the top of the header, and the toolbar drops so its bottom
     // lines up with the bottom of the level box.
-    const de = document.documentElement, align = () => {
+    // On a computer the button, who's viewing and the shared tag live in their own row at the top of the toolbar, so
+    // the page lays them out like everything else (nothing measured or moved by hand). Phones keep them at the top.
+    const de = document.documentElement, hubRow = on => {
+      const tb = document.querySelector('.ident-top .toolbar'), els = [a, window.__pgPresBox || document.querySelector('.pg-pres'), window.__pgSharedTag || document.querySelector('.pg-shared')].filter(Boolean); // (kept by reference: when the sheet redraws its top bar, the row goes with it and is put back here)
+      if (!on || !tb) { const r = document.querySelector('.pg-hubrow'); els.forEach(el => { if (el.parentElement !== document.body) document.body.appendChild(el); }); if (r) r.remove(); return null; }
+      let r = tb.querySelector(':scope > .pg-hubrow'); if (!r) { r = document.createElement('div'); r.className = 'pg-hubrow'; tb.prepend(r); }
+      els.forEach(el => { if (el.parentElement !== r) r.appendChild(el); }); return r; };
+    window.pgHubRow = () => hubRow(!de.classList.contains('mobile'));
+    const align = () => {
       const lv = document.querySelector('.ident-top .lvlbox'), tb = document.querySelector('.ident-top .toolbar');
-      if (de.classList.contains('mobile') || !lv || !tb) { if (de.classList.contains('pg-al')) de.classList.remove('pg-al'); if (a.style.left) a.style.left = a.style.top = ''; return; }
-      // (everything is measured first and only what changed is written, so this running often costs next to nothing)
-      const lr = lv.getBoundingClientRect(), tbh = tb.offsetHeight, ah = a.offsetHeight, tbm = Math.max(ah + 8, Math.round(lr.height - tbh)) + 'px';
-      if (de.style.getPropertyValue('--pg-tbm') !== tbm) de.style.setProperty('--pg-tbm', tbm);
-      const tr = tb.getBoundingClientRect(), L = Math.round(tr.left + scrollX) + 'px', T = Math.round(lr.top + scrollY) + 'px', pos = L + ',' + T;
-      if (a.style.left !== L) a.style.left = L; if (a.style.top !== T) a.style.top = T; placePres();
-      // shown once two measurements in a row agree (the header has finished laying out)
-      if (pos === align.last) { if (!de.classList.contains('pg-al')) de.classList.add('pg-al'); } else { align.last = pos; requestAnimationFrame(align); } };
+      if (de.classList.contains('mobile') || !lv || !tb) { hubRow(false); if (de.classList.contains('pg-al')) de.classList.remove('pg-al'); if (a.style.left) a.style.left = a.style.top = ''; return; }
+      hubRow(true); if (!de.classList.contains('pg-al')) de.classList.add('pg-al');
+      // the toolbar is as tall as the level box beside it: the Tome row lines up with its top, the buttons with its bottom
+      // (and starts where the level box starts, which sits lower when the name beside it runs onto several lines)
+      { const lr = lv.getBoundingClientRect(), tr = tb.getBoundingClientRect(), cur = parseFloat(tb.style.getPropertyValue('--pg-lvt')) || 0;
+        const lh = Math.round(lr.height) + 'px', lt = Math.max(0, Math.round((lr.top - tr.top + cur) * 2) / 2) + 'px';
+        if (tb.style.getPropertyValue('--pg-lvh') !== lh) tb.style.setProperty('--pg-lvh', lh); if (tb.style.getPropertyValue('--pg-lvt') !== lt) tb.style.setProperty('--pg-lvt', lt); }
+      placePres(); };
     let alignQ = 0; const alignSoon = () => { if (!alignQ) alignQ = requestAnimationFrame(() => { alignQ = 0; align(); }); };
     new MutationObserver(alignSoon).observe(document.body, { childList: true, subtree: true });
     addEventListener('resize', alignSoon); setInterval(align, 1500); alignSoon();
@@ -1486,14 +1504,17 @@ function wireDie(root) {
   // Who's viewing: stays invisible while the page is still laying itself out, then fades in once it has stopped moving.
   let presKey = '', presT = 0;
   // The "View only" / "Shared with you" tag sits in the same row: after the viewers bubble, or after the back button.
-  const placeShared = () => { const t = document.querySelector('.pg-shared'), a = document.querySelector('.pg-hublink'); if (!t || !a || !a.offsetParent || !a.offsetWidth) return;
+  const placeShared = () => { const t = window.__pgSharedTag || document.querySelector('.pg-shared'), a = document.querySelector('.pg-hublink'); if (!t || !a) return; if (t.closest('.pg-hubrow')) { if (!t.classList.contains('placed')) t.classList.add('placed'); return; } if (!a.offsetParent || !a.offsetWidth) return;
     const box = document.querySelector('.pg-pres'), withBox = box && !box.hidden && box.classList.contains('ready') && box.offsetWidth;
-    const left = withBox ? box.offsetLeft + box.offsetWidth + 8 : a.offsetLeft + a.offsetWidth + 8;
+    // (measured on the page, wherever the Tome button itself sits)
+    const ar = a.getBoundingClientRect(), fx = getComputedStyle(t).position === 'fixed', sx = fx ? 0 : scrollX, sy = fx ? 0 : scrollY;
+    const left = Math.round((withBox ? box.getBoundingClientRect().right : ar.right) + 8 + sx);
     // Not enough room in one line (phones): it wraps onto two short lines in the space that's left.
-    const room = document.documentElement.clientWidth - 8 - left, top = (a.offsetTop + a.offsetHeight / 2) + 'px', k = left + '|' + room + '|' + top + '|' + t.textContent; if (t._pk === k) return; t._pk = k; t.classList.remove('wrap'); t.style.maxWidth = '';
+    const room = document.documentElement.clientWidth - 8 - (left - sx), top = Math.round(ar.top + ar.height / 2 + sy) + 'px', k = left + '|' + room + '|' + top + '|' + t.textContent; if (t._pk === k) return; t._pk = k; t.classList.remove('wrap'); t.style.maxWidth = '';
     if (t.offsetWidth > room) { t.classList.add('wrap'); t.style.maxWidth = Math.max(96, room) + 'px'; }
-    t.style.left = left + 'px'; t.style.top = top; t.classList.add('placed'); };
-  const placePres = () => { placeShared(); const box = document.querySelector('.pg-pres'), a = document.querySelector('.pg-hublink'); if (!box || !a || !a.offsetParent || !a.offsetWidth) return; // hidden behind a window: leave it where it was
+    // (still too wide: it keeps inside the window rather than making the page scroll sideways)
+    t.style.left = (t.offsetWidth > room ? Math.max(8 + sx, document.documentElement.clientWidth - 8 - t.offsetWidth + sx) : left) + 'px'; t.style.top = top; t.classList.add('placed'); };
+  const placePres = () => { placeShared(); const box = window.__pgPresBox || document.querySelector('.pg-pres'), a = document.querySelector('.pg-hublink'); if (box && box.closest('.pg-hubrow')) { if (!box.classList.contains('ready')) box.classList.add('ready'); return; } if (!box || !a || !a.offsetParent || !a.offsetWidth) return; // hidden behind a window: leave it where it was
     const l = (a.offsetLeft + a.offsetWidth + 8) + 'px', t = (a.offsetTop + a.offsetHeight / 2) + 'px'; if (box.style.left !== l) box.style.left = l; if (box.style.top !== t) box.style.top = t;
     if (box.classList.contains('ready')) return; if (document.documentElement.classList.contains('pg-al') || document.documentElement.classList.contains('mobile')) { box.classList.add('ready'); placeShared(); return; } const k = l + t + (a.offsetParent ? 1 : 0); if (k !== presKey) { presKey = k; clearTimeout(presT); presT = setTimeout(() => { if (box.isConnected && a.offsetParent) { box.classList.add('ready'); placeShared(); } else presKey = ''; }, 600); } placeShared(); };
   new ResizeObserver(() => placePres()).observe(document.documentElement);
@@ -1515,7 +1536,7 @@ function wireDie(root) {
     const leave = () => { mine.delete().catch(() => {}); if (pv && PVID) pv.doc(PVID).delete().catch(() => {}); };
     // The character's owner comes first whenever they're here, then you, then everyone else.
     const show = () => { const now = Date.now(), rank = em => em === OWNER ? 0 : em === EMAIL ? 1 : 2, here = Object.entries(seen).filter(([, d]) => now - (d.at || 0) < 200000).sort(([a], [b]) => rank(a) - rank(b));
-      if (!box) { box = document.createElement('div'); box.className = 'pg-pres'; document.body.appendChild(box); }
+      if (!box) { box = document.createElement('div'); box.className = 'pg-pres'; document.body.appendChild(box); window.__pgPresBox = box; }
       const anons = Object.values(anon).filter(d => now - (d.at || 0) < 200000);
       { const hid = !here.length && !anons.length; if (box.hidden !== hid) box.hidden = hid; } // you see yourself whenever you count as viewing it, on your own sheet too
       // (only redrawn when someone comes, goes or changes)
@@ -1539,7 +1560,7 @@ function wireDie(root) {
       const url = c.toDataURL('image/png'); document.head.querySelectorAll('link[rel="apple-touch-icon"], link[rel="icon"]').forEach(l => l.remove());
       [['apple-touch-icon', ''], ['icon', 'image/png']].forEach(([rel, type]) => { const l = document.createElement('link'); l.rel = rel; if (type) l.type = type; l.href = url; document.head.appendChild(l); }); } catch (e) {} }; im.src = st.portrait; } catch (e) {} };
   setTimeout(homeIcon, 1500); setInterval(homeIcon, 60000);
-  if (role() !== 'owner') { const t = document.createElement('div'); t.className = 'pg-shared' + (role() === 'view' ? ' view' : ''); if (role() === 'view') t.innerHTML = 'View only<span class="pt-sub"> (changes are not saved)</span>'; else t.textContent = 'Shared with you · can edit'; document.body.appendChild(t); setTimeout(placeShared, 50); setInterval(placeShared, 1500); }
+  if (role() !== 'owner') { const t = document.createElement('div'); t.className = 'pg-shared' + (role() === 'view' ? ' view' : ''); window.__pgSharedTag = t; if (role() === 'view') t.innerHTML = 'View only<span class="pt-sub"> (changes are not saved)</span>'; else t.textContent = 'Shared with you · can edit'; document.body.appendChild(t); setTimeout(placeShared, 50); setInterval(placeShared, 1500); }
   verCheck();
 })();
 
@@ -1614,6 +1635,23 @@ function hub(fs, auth, G, ctx) {
     document.body.insertAdjacentHTML('afterbegin', '<div id="hub"></div><div id="hub-modal" class="hub-modal"></div><div id="hub-toast" class="hub-toast" role="status" aria-live="polite"></div>'); }
   document.body.className = 'hubbody' + (ADMIN ? ' adminbody' : '');
   const root = document.getElementById('hub'), modal = document.getElementById('hub-modal');
+  // One window replacing another (a button in one opening the next, or closing one and opening another straight away):
+  // the old card fades out where it was while the new one comes in. The same window redrawn doesn't animate again.
+  (() => { const P = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML'), seen = new MutationObserver(() => {}); seen.observe(modal, { attributes: true, attributeFilter: ['class'], attributeOldValue: true });
+    const keyOf = h => { h = String(h || ''); const b = h.match(/<h[23]\b[^>]*>([\s\S]*?)<\/h[23]>/i), a = h.match(/^\s*<[a-z0-9]+\b[^>]*?\bid="([^"]+)"/i); return (b ? b[1].replace(/<[^>]+>/g, '').trim() : '') || (a ? '#' + a[1] : ''); };
+    let key = '';
+    Object.defineProperty(modal, 'innerHTML', { configurable: true, get() { return P.get.call(this); }, set(v) {
+      const recs = seen.takeRecords(), on = modal.classList.contains('on') && !modal.classList.contains('closing');
+      const just = !modal.classList.contains('on') && recs.some(r => (' ' + (r.oldValue || '') + ' ').includes(' on '));
+      const k = keyOf(v), card = modal.querySelector(':scope > .hub-card:not(.hm-ghost)'), calm = PG_CALM || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+      let ghost = null, st = 0, same = (on || just) && key && k === key;
+      if ((on || just) && card && !same && !calm) { if (just) modal.classList.add('on'); const r = card.getBoundingClientRect(); st = card.scrollTop; if (just) modal.classList.remove('on');
+        if (r.width) { ghost = card.cloneNode(true); ghost.classList.add('hm-ghost'); ghost.removeAttribute('id'); ghost.querySelectorAll('[id]').forEach(x => x.removeAttribute('id')); ghost.setAttribute('aria-hidden', 'true'); ghost.inert = true;
+          Object.assign(ghost.style, { position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', maxHeight: 'none', margin: '0', translate: 'none' }); } }
+      key = k; P.set.call(this, v);
+      if (ghost) { modal.appendChild(ghost); // (after the new window, so anything looking for the window finds the real one first; it's drawn behind it)
+        if (st) queueMicrotask(() => { ghost.scrollTop = st; }); setTimeout(() => ghost.remove(), 260); }
+      else if (same && modal.classList.contains('on') && modal.getAnimations) [...modal.children].forEach(x => x.getAnimations().forEach(an => { try { an.finish(); } catch (e) {} })); } }); })();
   if (TOUCH && !document.documentElement.classList.contains('pg-touch')) { document.documentElement.classList.add('pg-touch'); noHover(); }
   // no pinch-zooming the characters page (it should feel like an app, not a web page)
   if (TOUCH && !window.PG_NOZOOM) { window.PG_NOZOOM = true; ['gesturestart', 'gesturechange'].forEach(t => document.addEventListener(t, e => { if (!document.body.classList.contains('adminbody') && !e.target.closest('.hub-modal')) e.preventDefault(); }, { passive: false })); }
@@ -1912,9 +1950,14 @@ function hub(fs, auth, G, ctx) {
   // hovering (or touching) pauses it, and the arrows, dots or a swipe flip through by hand. "See all updates" lists every one.
   const NEWS = { items: [], every: 8, on: false, subs: new Set() };
   const newsSort = (a, b) => ((a.ord != null ? a.ord : 1e9) - (b.ord != null ? b.ord : 1e9)) || ((b.at || 0) - (a.at || 0));
+  // The last updates seen are kept on this device and shown straight away next time (then refreshed), so the lobby
+  // doesn't open without them and then jump when they arrive.
+  const NEWS_LS = 'pg-news-cache';
+  try { const c = JSON.parse(localStorage.getItem(NEWS_LS) || 'null'); if (c && Array.isArray(c.items)) { NEWS.items = c.items.sort(newsSort); NEWS.every = c.every || 8; NEWS.loaded = true; } } catch (e) {}
+  const newsKeep = () => { try { localStorage.setItem(NEWS_LS, JSON.stringify({ every: NEWS.every, items: NEWS.items.map(n => ({ id: n.id, t: n.t, d: n.d, link: n.link, badge: n.badge, rot: n.rot, ord: n.ord, at: n.at })) })); } catch (e) {} };
   function newsStart() { if (NEWS.on) return; NEWS.on = true; const tell = () => NEWS.subs.forEach(f => { try { f(); } catch (e) {} });
-    fs.collection('news').onSnapshot(qs => { NEWS.items = qs.docs.map(d => Object.assign({ id: d.id }, d.data())).sort(newsSort); NEWS.loaded = true; tell(); }, () => { NEWS.loaded = true; tell(); });
-    fs.collection('config').doc('news').onSnapshot(d => { NEWS.every = Math.max(4, Math.min(60, Number(d.exists && d.data().every) || 8)); tell(); }, () => {}); }
+    fs.collection('news').onSnapshot(qs => { NEWS.items = qs.docs.map(d => Object.assign({ id: d.id }, d.data())).sort(newsSort); NEWS.loaded = true; newsKeep(); tell(); }, () => { NEWS.loaded = true; tell(); });
+    fs.collection('config').doc('news').onSnapshot(d => { NEWS.every = Math.max(4, Math.min(60, Number(d.exists && d.data().every) || 8)); newsKeep(); tell(); }, () => {}); }
   const NSEEN_LS = 'pg-newsseen';
   const newsSeen = () => { try { return new Set(JSON.parse(localStorage.getItem(NSEEN_LS) || '[]')); } catch (e) { return new Set(); } };
   const newsSee = id => { try { const s = newsSeen(); if (s.has(id)) return; s.add(id); localStorage.setItem(NSEEN_LS, JSON.stringify([...s].slice(-200))); } catch (e) {} };
@@ -2094,7 +2137,8 @@ function hub(fs, auth, G, ctx) {
   // Phones: a list sliding in shows grey placeholders first, then its real rows fade in once it has landed.
   // (the list can be redrawn mid-slide when new data arrives, so how long its placeholders stay up is kept by name and put back after a redraw)
   const SKU = {};
-  function paneSkel(p, keep) { if (!p || !slideMode() || calm()) return; if (!keep) SKU[p.dataset.pane] = Date.now() + 620; if (p.querySelector(':scope > .hp-sk')) return; const n = Math.max(1, Math.min(6, p.querySelectorAll('.hc, .hr, .pty-row, .hub-folder').length || 3));
+  // (a list that's already there just slides in as it is: placeholders swapping for the same rows only made it twitch)
+  function paneSkel(p, keep) { if (!p || !slideMode() || calm() || p.querySelector('.hr, .hc, .pty-row, .hub-folder, .hub-empty')) return; if (!keep) SKU[p.dataset.pane] = Date.now() + 620; if (p.querySelector(':scope > .hp-sk')) return; const n = Math.max(1, Math.min(6, p.querySelectorAll('.hc, .hr, .pty-row, .hub-folder').length || 3));
     const sk = document.createElement('div'); sk.className = 'hp-sk'; sk.setAttribute('aria-hidden', 'true'); sk.innerHTML = SKEL.rows(n); p.prepend(sk); p.classList.add('hp-skel'); }
   function paneReveal(p, now) { if (!p) return; const sk = p.querySelector(':scope > .hp-sk'); if (!sk) return; clearTimeout(p._skT);
     const go = () => { p.classList.remove('hp-skel'); p.classList.add('hp-reveal'); sk.classList.add('out'); setTimeout(() => { sk.remove(); p.classList.remove('hp-reveal'); }, 260); };
@@ -3459,7 +3503,9 @@ function partyModule(H) {
     const c = cardFor(id), mine = c.owner === EMAIL, run = canRun(P), dmMe = !!actor(), st = statusOf(c), open = mine || run || H.chars().some(x => x.id === id && (x.owner === EMAIL || (x.viewers || []).includes(EMAIL) || (x.editors || []).includes(EMAIL))), max = Number(c.maxhp) || 0, cur = Number(c.hp) || 0;
     const on = [].concat(st ? [st[0]] : [], c.conds || [], Number(c.exh) ? ['Exhaustion ' + Number(c.exh)] : [], c.conc ? ['Concentrating: ' + c.conc] : [], c.fx || []);
     const menu = [dmMe ? ['send', 'Damage, heal or give…'] : null, open ? ['open', 'Open sheet'] : null, run || mine ? ['rm', mine && !run ? 'Leave the party' : 'Remove from the party'] : null].filter(Boolean);
-    const dots = (cls) => `<div class="hc-menu ${cls}"><button class="hc-dots" aria-label="More for ${esc(c.name || 'this character')}">⋯</button><div class="hc-list">${menu.map(([a, t]) => `<button data-pm="${a}" data-id="${esc(id)}"${a === 'rm' ? ' class="hc-del"' : ''}>${t}</button>`).join('')}</div></div>`;
+    const pmi = d => `<svg class="mi" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+    const PMI = { send: pmi('<path d="M12 21s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.6-7 10-7 10z"/><path d="M12 9v6M9 12h6"/>'), open: pmi('<path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>'), rm: pmi('<path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4"/><path d="M10 17l-5-5 5-5M5 12h11"/>') };
+    const dots = (cls) => `<div class="hc-menu ${cls}"><button class="hc-dots" aria-label="More for ${esc(c.name || 'this character')}">⋯</button><div class="hc-list">${menu.map(([a, t]) => `<button data-pm="${a}" data-id="${esc(id)}"${a === 'rm' ? ' class="hc-del"' : ''}>${PMI[a] || ''}${t}</button>`).join('')}</div></div>`;
     const pic = c.thumb ? `<img class="pm-pic" src="${esc(c.thumb)}" alt=""${accStyle(c)}>` : `<span class="pm-pic pm-nopic"${accStyle(c)}>${esc(initials(c.name || '?'))}</span>`;
     const nl = String(c.name || '').length, who = `<span class="pm-txt"><b class="${nl > 26 ? 'n3' : nl > 17 ? 'n2' : ''}" title="${esc(c.name || '')}">${esc(c.name || 'A character')}</b>${c.npc ? `<small><span class="pm-npc">NPC</span></small>` : c.player || c.owner ? `<small>${esc(c.player || H.nameOf(c.owner))}${mine ? ' (you)' : ''}</small>` : ''}</span>`;
     // a player looking at the party: no controls — the HP ring with AC / speed / level / passive in a 2 × 2 grid beside it
@@ -3562,7 +3608,8 @@ function partyModule(H) {
   const invSync = p => { if (p && p.inv) { invPut(p.inv, p).catch(() => {}); invCard(p.inv, p); } };
   const invNew = async (p, max) => { const r = Array.from(crypto.getRandomValues(new Uint8Array(5)), b => 'abcdefghjkmnpqrstuvwxyz23456789'[b % 31]).join('');
     const code = (partySlug(p.name) || 'party').slice(0, 40) + '-' + r, old = p.inv; max = Math.max(0, Math.min(50, Math.floor(Number(max) || 0)));
-    await invPut(code, p, { max, used: 0 }); INVUSE[code] = { max, used: 0 }; await invCard(code, Object.assign({}, p, { inv: code }), true); await PC.doc(p.id).update({ inv: code, updatedAt: Date.now() }); if (old) { IC.doc(old).delete().catch(() => {}); { const D = fs.collection('invcard').doc(old); Promise.all([1, 2, 3, 4, 5].map(i => D.collection('part').doc(String(i)).delete().catch(() => {}))).then(() => D.delete()).catch(() => {}); } } p.inv = code; return code; };
+    // (the party names its link before the link's picture is saved: only the current link may have one)
+    await invPut(code, p, { max, used: 0 }); INVUSE[code] = { max, used: 0 }; await PC.doc(p.id).update({ inv: code, updatedAt: Date.now() }); await invCard(code, Object.assign({}, p, { inv: code }), true); if (old) { IC.doc(old).delete().catch(() => {}); { const D = fs.collection('invcard').doc(old); Promise.all([1, 2, 3, 4, 5].map(i => D.collection('part').doc(String(i)).delete().catch(() => {}))).then(() => D.delete()).catch(() => {}); } } p.inv = code; return code; };
   const invLinkHTML = p => `<div class="pty-link${p.inv ? '' : ' off'}">
       <span class="pty-link-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></span>
       ${p.inv ? `<span class="pty-link-t"><b>Invite link</b><code title="${esc(URLS.join(p.inv))}">${esc(URLS.join(p.inv).replace(/^https?:\/\//, ''))}</code></span>
@@ -4013,7 +4060,7 @@ function partyModule(H) {
   let lastSig = null, lastT = 0;
   const sigOf = el => el.id ? '#' + el.id : Object.keys(el.dataset).length ? 'd:' + JSON.stringify(el.dataset) : 'c:' + el.className + '|' + el.textContent.trim().slice(0, 40);
   const by = w => { if (lastSig && Date.now() - lastT < 1500) w.__by = lastSig; };
-  const shut = w => { const c = w.querySelector(':scope > .pg-out-card, :scope > .hub-card') || w, x = c.querySelector(':scope > .mw-head .mw-x'); if (x) return x.click();
+  const shut = w => { const c = w.querySelector(':scope > .pg-out-card, :scope > .hub-card:not(.hm-ghost)') || w, x = c.querySelector(':scope > .mw-head .mw-x'); if (x) return x.click();
     const no = c.querySelector('.pg-out-no') || [...c.querySelectorAll('button')].find(b => /^(cancel|close|not now|done|no)$/i.test(b.textContent.trim()));
     if (no) return no.click(); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); if (w.classList.contains('hub-modal')) w.classList.remove('on'); };
   addEventListener('click', e => {
@@ -4060,7 +4107,10 @@ function partyModule(H) {
     requestAnimationFrame(() => { const r = list.getBoundingClientRect(); m.style.setProperty('--px', Math.max(8, Math.min(e.clientX, innerWidth - r.width - 8)) + 'px'); m.style.setProperty('--py', Math.max(8, Math.min(e.clientY, innerHeight - r.height - 8)) + 'px'); });
   });
   // the ⋯ button (or anything that closes the menu) puts it back in its usual spot
-  document.addEventListener('pointerdown', e => { const d = e.target.closest && e.target.closest('.hc-dots'); document.querySelectorAll('.hc-menu.pt').forEach(m => { if (d && m.contains(d)) { m.classList.remove('pt'); m.querySelectorAll('.hc-ctxonly').forEach(x => x.remove()); } else if (!m.contains(e.target)) { m.classList.remove('on', 'pt'); m.querySelectorAll('.hc-ctxonly').forEach(x => x.remove()); } }); }, true);
+  // (an "Open in a new tab" added for a right-click stays while the menu fades out, and goes once it has)
+  const dropCtx = m => { clearTimeout(m._cx); m._cx = setTimeout(() => { if (!m.classList.contains('on')) m.querySelectorAll('.hc-ctxonly').forEach(x => x.remove()); }, 260); };
+  document.addEventListener('pointerdown', e => { const d = e.target.closest && e.target.closest('.hc-dots'); { const dm = d && d.closest('.hc-menu'); if (dm) { clearTimeout(dm._cx); dm.querySelectorAll('.hc-ctxonly').forEach(x => x.remove()); } } // (the ⋯ menu never has the right-click-only item)
+  document.querySelectorAll('.hc-menu.pt').forEach(m => { if (d && m.contains(d)) { m.classList.remove('pt'); m.querySelectorAll('.hc-ctxonly').forEach(x => x.remove()); } else if (!m.contains(e.target)) { m.classList.remove('on', 'pt'); dropCtx(m); } }); }, true);
   addEventListener('scroll', () => document.querySelectorAll('.hc-menu.pt').forEach(m => m.classList.remove('on', 'pt')), true);
 })();
 // Password managers (Proton Pass, 1Password, Bitwarden, LastPass, Dashlane…) shouldn't offer to fill search boxes and
@@ -4084,7 +4134,7 @@ function partyModule(H) {
   addEventListener('pointerdown', e => { ptr = e.pointerType || 'mouse'; }, true);
   addEventListener('mousedown', e => {
     if (e.button !== 0 || e.ctrlKey || e.shiftKey || e.metaKey || e.altKey || e.defaultPrevented || ptr !== 'mouse' || (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents)) return;
-    const b = e.target.closest && e.target.closest(SEL); if (!b || b.matches(SKIP) || b.closest('[disabled]')) return;
+    const b = e.target.closest && e.target.closest(SEL); if (!b || b.matches(SKIP) || b.closest('[disabled], [draggable="true"]')) return;
     eat = { t: Date.now() }; const was = document.activeElement;
     b.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window, detail: 1, clientX: e.clientX, clientY: e.clientY, screenX: e.screenX, screenY: e.screenY, button: 0 }));
     // The browser then focuses the button the usual mouse way (no keyboard focus ring), unless the click put focus
@@ -4093,5 +4143,8 @@ function partyModule(H) {
   }); // (on the window, after the page's own mousedown handlers have run)
   // the release's click comes straight after the mouseup, so it's only dropped then
   addEventListener('mouseup', e => { if (eat && e.button === 0) { const it = eat; setTimeout(() => { if (eat === it) eat = null; }, 0); } }, true);
-  addEventListener('click', e => { if (!eat || !e.isTrusted || e.button !== 0) return; eat = null; e.preventDefault(); e.stopImmediatePropagation(); }, true);
+  // (a click from the keyboard (detail 0) is never one to drop, and a press whose release never came - another tab or a
+  // dialog took it - is forgotten when the page loses focus, so it can't swallow some later click)
+  addEventListener('click', e => { if (!eat || !e.isTrusted || e.button !== 0 || e.detail === 0 || Date.now() - eat.t > 10000) { if (eat && e.isTrusted && e.detail !== 0) eat = null; return; } eat = null; e.preventDefault(); e.stopImmediatePropagation(); }, true);
+  addEventListener('blur', () => { eat = null; }); document.addEventListener('visibilitychange', () => { eat = null; });
 })();
