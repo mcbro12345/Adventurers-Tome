@@ -3147,7 +3147,7 @@ function partyModule(H) {
     const inv = INVS.filter(p => !MINE.some(m => m.id === p.id));
     const oi = id => { const i = PORD.indexOf(id); return i < 0 ? -1 : i; };
     const rows = MINE.slice().sort((a, b) => { const x = oi(a.id), y = oi(b.id); return x < 0 && y < 0 ? (b.updatedAt || 0) - (a.updatedAt || 0) : x < 0 ? -1 : y < 0 ? 1 : x - y; }).map(p => { const n = (p.chars || []).length, role = p.dm === EMAIL ? 'You’re the DM' : 'DM ' + dmLabel(p);
-      return `<div class="hr" data-id="${esc(p.id)}" data-pin="0" data-party="1"><span class="hr-grip" title="Drag to reorder" aria-label="Drag to reorder">⠿</span><a class="hr-main" href="${esc(URLS.party(p.id, p.name))}">${ptyPic(p)}<span class="hc-txt"><b>${esc(p.name || 'Unnamed party')}</b><span class="pty-sub2"><i>${esc(role)}</i><i>${plural(n, 'character')}</i></span><small>${p.updatedAt ? 'Updated ' + ago(p.updatedAt) : ''}</small></span></a></div>`; }).join('');
+      return `<div class="hr" data-id="${esc(p.id)}" data-pin="0" data-party="1"><span class="hr-grip" title="Drag to reorder" aria-label="Drag to reorder">⠿</span><a class="hr-main" href="${esc(URLS.party(p.id, p.name))}">${ptyPic(p)}<span class="hc-txt"><b>${esc(p.name || 'Unnamed party')}</b><span class="pty-sub2"><i>${esc(role)}</i><i>${plural(n, 'character')}</i></span><small>${p.updatedAt ? 'Updated ' + ago(p.updatedAt) : ''}</small></span></a>${ptyMenu(p)}</div>`; }).join('');
     // An invitation opens the party's join steps (where you can also turn it down).
     const invs = inv.map(p => `<div class="hr pty-inviterow"><a class="hr-main" href="${esc(URLS.party(p.id, p.name))}">${ptyPic(p)}<span class="hc-txt"><b>${esc(p.name || 'A party')}</b><span>${esc(p.dmName || p.dm)} invited you to join</span><small>Open it to choose a character, or decline</small></span><span class="pty-invtag">Invitation</span></a></div>`).join('');
     return `<div id="hub-parties">${invs || rows ? `<div class="hl">${invs}${rows}</div>` : LOADED ? '<p class="hub-empty">Running a game? Make a party with <b>New party</b>: you’re its DM, and you get a link to send your players. Their characters join it, and you all see each other in one place.</p>' : SKEL.rows(2)}
@@ -3157,6 +3157,27 @@ function partyModule(H) {
   function paintStrip() { const el = root.querySelector('#hub-parties'); if (!el) return; if (document.body.classList.contains('hdragging')) { clearTimeout(paintStrip.t); paintStrip.t = setTimeout(paintStrip, 400); return; } el.outerHTML = paneHTML(); wirePane();
     const n = root.querySelector('.hub-seg [data-view="parties"] span'); if (n) n.textContent = count(); const hn = root.querySelector('[data-sec=parties] .hd-n'); if (hn) hn.textContent = count(); }
   function wirePane() { const el = root.querySelector('#hub-parties'); if (!el) return;
+    el.querySelectorAll('.hc-dots').forEach(b => b.onclick = e => { e.preventDefault(); e.stopPropagation(); const w = b.parentElement, o = !w.classList.contains('on'); document.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')); w.classList.toggle('on', o); });
+    el.querySelectorAll('.hc-list [data-pa]').forEach(b => b.onclick = e => { e.preventDefault(); e.stopPropagation(); b.closest('.hc-menu').classList.remove('on', 'pt'); const p = MINE.find(x => x.id === b.dataset.id); if (p) ptyMenuAct(b.dataset.pa, p); });
+  }
+  // A party tile's ⋯ menu (and right-click): the DM can open its page, copy the invite link or delete it; a player can leave.
+  const pmi = d => `<svg class="mi" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const PMI = { open: pmi('<path d="M4 6h16M4 12h16M4 18h10"/>'), link: pmi('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'), leave: pmi('<path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4"/><path d="M10 17l-5-5 5-5M5 12h11"/>'), del: pmi('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>') };
+  function ptyMenu(p) {
+    const dm = isMgr(p), it = [['open', dm ? 'Open the DM’s Desk' : 'Open the party', PMI.open]];
+    if (dm && p.inv) it.push(['link', 'Copy the invite link', PMI.link]);
+    if (p.dm === EMAIL) it.push(['del', 'Delete party…', PMI.del, 'hc-del']); else it.push(['leave', 'Leave the party…', PMI.leave, 'hc-del']);
+    return `<div class="hc-menu hr-menu"><button class="hc-dots" aria-label="More options for ${esc(p.name || 'this party')}">⋯</button><div class="hc-list">${it.map(([a, t, ic, k]) => `<button data-pa="${a}" data-id="${esc(p.id)}"${k ? ` class="${k}"` : ''}>${ic}${t}</button>`).join('')}</div></div>`;
+  }
+  function ptyMenuAct(a, p) {
+    if (a === 'open') return pgGo(URLS.party(p.id, p.name));
+    if (a === 'link') { const u = URLS.join(p.inv); (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => toast('Invite link copied.'), () => toast('Your invite link: ' + u)); return; }
+    if (a === 'del') return deleteParty(p, () => { MINE = MINE.filter(x => x.id !== p.id); paintStrip(); });
+    if (a === 'leave') { const mine = (p.chars || []).filter(id => H.chars().some(c => c.id === id && c.owner === EMAIL));
+      confirmBox(`Leave ${esc(p.name || 'the party')}?`, `${mine.length > 1 ? 'Your characters leave' : mine.length ? 'Your character leaves' : 'It comes off your list and'} the party. The DM can invite you again.`.replace('and the party', 'you leave the party'), 'Leave', async () => {
+        try { for (const id of mine) await ptyLeave(fs, EMAIL, p.id, id, { owner: EMAIL }); if (!mine.length) await PC.doc(p.id).update({ people: FV.arrayRemove(EMAIL), invited: FV.arrayRemove(EMAIL), updatedAt: Date.now() }); }
+        catch (x) { return fail(x, 'leave'); }
+        try { localStorage.removeItem(PKEY(p.id)); } catch (e) {} pgLog('party_leave', { target: p.id, tName: p.name }); MINE = MINE.filter(x => x.id !== p.id); paintStrip(); toast('You left ' + (p.name || 'the party') + '.'); }); }
   }
 
   // ----- pages: laid out like the character creation screen -----
@@ -3916,11 +3937,11 @@ function partyModule(H) {
     document.querySelectorAll('.hc-menu.on').forEach(x => { if (x !== m) x.classList.remove('on', 'pt'); });
     const list = m.querySelector('.hc-list'); if (!list) return;
     list.querySelectorAll('.hc-ctxonly').forEach(x => x.remove());
-    const a = t.querySelector('a[href]'); if (a) { const nb = document.createElement('button'); nb.className = 'hc-ctxonly'; nb.type = 'button'; nb.textContent = 'Open in a new tab'; nb.onclick = ev => { ev.stopPropagation(); m.classList.remove('on', 'pt'); window.open(a.href, '_blank', 'noopener'); }; list.prepend(nb); }
+    const a = t.querySelector('a[href]'); if (a) { const nb = document.createElement('button'); nb.className = 'hc-ctxonly'; nb.type = 'button'; nb.innerHTML = '<svg class="mi" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>Open in a new tab'; nb.onclick = ev => { ev.stopPropagation(); m.classList.remove('on', 'pt'); window.open(a.href, '_blank', 'noopener'); }; list.prepend(nb); }
     m.classList.add('on', 'pt'); m.style.setProperty('--px', e.clientX + 'px'); m.style.setProperty('--py', e.clientY + 'px');
     requestAnimationFrame(() => { const r = list.getBoundingClientRect(); m.style.setProperty('--px', Math.max(8, Math.min(e.clientX, innerWidth - r.width - 8)) + 'px'); m.style.setProperty('--py', Math.max(8, Math.min(e.clientY, innerHeight - r.height - 8)) + 'px'); });
   });
   // the ⋯ button (or anything that closes the menu) puts it back in its usual spot
-  document.addEventListener('pointerdown', e => { const d = e.target.closest && e.target.closest('.hc-dots'); document.querySelectorAll('.hc-menu.pt').forEach(m => { if (d && m.contains(d)) { m.classList.remove('pt'); m.querySelectorAll('.hc-ctxonly').forEach(x => x.remove()); } else if (!m.contains(e.target)) m.classList.remove('on', 'pt'); }); }, true);
+  document.addEventListener('pointerdown', e => { const d = e.target.closest && e.target.closest('.hc-dots'); document.querySelectorAll('.hc-menu.pt').forEach(m => { if (d && m.contains(d)) { m.classList.remove('pt'); m.querySelectorAll('.hc-ctxonly').forEach(x => x.remove()); } else if (!m.contains(e.target)) { m.classList.remove('on', 'pt'); m.querySelectorAll('.hc-ctxonly').forEach(x => x.remove()); } }); }, true);
   addEventListener('scroll', () => document.querySelectorAll('.hc-menu.pt').forEach(m => m.classList.remove('on', 'pt')), true);
 })();

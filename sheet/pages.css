@@ -3104,3 +3104,7 @@ html.mobile #wizard .wz3 .wz3-rvab { grid-template-columns: repeat(3, minmax(0, 
 /* a tile's menu opened with a right-click sits at the pointer */
 .hc-menu.pt.on .hc-list { position: fixed !important; left: var(--px) !important; top: var(--py) !important; right: auto !important; bottom: auto !important; z-index: 1000 !important; animation: hcCtxIn .12s ease; }
 @keyframes hcCtxIn { from { opacity: 0; transform: scale(.97); } }
+/* a tile with its menu open sits above its neighbours (and its own picture and text) */
+:where(body.hubbody) :is(.hr, .hc, .pm):has(> .hc-menu.on, .pm-top > .hc-menu.on) { z-index: 60 !important; position: relative; }
+:where(body.hubbody) .hc-menu.on { z-index: 61; }
+:where(body.hubbody) .hc-menu.on .hc-list { opacity: 1 !important; }

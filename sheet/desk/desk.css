@@ -1449,5 +1449,13 @@ html[data-pgtheme="light"] .dk-back2 { color: #8a6420; } html[data-pgtheme="ligh
    bottom instead of being cut off, and leave room under the last thing */
 @media (min-width: 901px) {
   .dk[data-tab=sessions] .dk-sess > .dk-main, .dk[data-tab=bestiary] .dk-best > .dk-bview { padding-left: 8px !important; }
-  .dk[data-tab=sessions] .dk-sess > .dk-main, .dk[data-tab=bestiary] .dk-best > .dk-bview, .dk[data-tab=notes] .dk-notesv > .dk-main { padding-bottom: 48px !important; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); }
+  .dk[data-tab=sessions] .dk-sess > .dk-main, .dk[data-tab=bestiary] .dk-best > .dk-bview, .dk[data-tab=notes] .dk-notesv > .dk-main { padding-bottom: 48px !important; }
+}
+/* the main area runs right to the bottom of the window (things scroll off the edge); the list panel keeps its margin */
+@media (min-width: 901px) {
+  .dk[data-tab=notes] .dk-notesv, .dk[data-tab=sessions] .dk-sess, .dk[data-tab=bestiary] .dk-best { padding-bottom: 0 !important; }
+  .dk[data-tab=notes] .dk-rail, .dk[data-tab=sessions] .dk-rail, .dk[data-tab=bestiary] .dk-blist { margin-bottom: 16px !important; }
+}
+@media (min-width: 901px) {
+  .dk[data-tab=notes] .dk-rail, .dk[data-tab=sessions] .dk-rail, .dk[data-tab=bestiary] .dk-blist { height: auto !important; max-height: calc(100% - 16px) !important; align-self: stretch; box-sizing: border-box; }
 }

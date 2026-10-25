@@ -1405,3 +1405,57 @@ html[data-pgtheme="light"] .dk-back2 { color: #8a6420; } html[data-pgtheme="ligh
 .dk-acct .pg-ava { width: 40px !important; height: 40px !important; box-shadow: 0 0 0 2px rgba(224,170,58,.55); }
 .dk-acct:hover .pg-ava { box-shadow: 0 0 0 2px #e0aa3a; }
 .dk-tools { position: relative; align-items: center; }
+/* undo, redo and history */
+.dk-histb { display: inline-flex; gap: 4px; }
+.dk-histb .dk-tb:disabled { opacity: .35; cursor: default; }
+.dk-hrb { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 10px 0 12px; }
+.dk-hrb b { margin-right: 4px; font-size: .9rem; }
+.dk-hrb small { opacity: .6; margin-left: 3px; }
+.dk-hist { list-style: none; margin: 0; padding: 0; max-height: min(52vh, 460px); overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--line); border-radius: 12px; }
+.dk-hist li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 8px 12px; border-top: 1px solid var(--line); }
+.dk-hist li:first-child { border-top: 0; }
+.dk-htm { font-variant-numeric: tabular-nums; opacity: .7; font-size: .85rem; }
+.dk-hl { overflow-wrap: anywhere; } .dk-hl small { opacity: .6; }
+.dk-bkl li { grid-template-columns: minmax(0, 1fr) auto; } .dk-bkl .dk-row { flex-wrap: nowrap; gap: 6px; }
+/* narrower windows: the save note shrinks to a dot (hover it for the words) so Undo, Redo and History fit on one line */
+@media (min-width: 641px) and (max-width: 1640px) {
+  .dk-tools .dk-sync:not(.bad) { width: 10px !important; max-width: 10px !important; height: 10px; margin: 0 4px !important; padding: 0; font-size: 0 !important; overflow: hidden; border-radius: 50%; background: #3fb57a; opacity: .8 !important; pointer-events: auto; }
+  .dk-tools .dk-sync.busy:not(.bad) { background: #e0aa3a; }
+}
+@media (min-width: 641px) and (max-width: 1460px) { .dk-histb { gap: 2px; } .dk-histb .dk-tb { padding: 0 8px !important; } }
+/* the notes list can be made wider or narrower: the handle sits in the gap beside the list (not on its scrollbar), with a
+   small grip so it's easy to find */
+@media (min-width: 901px) {
+  .dk[data-tab=notes] .dk-nsplit { left: calc(var(--nrw, 290px) + 16px + 2px) !important; width: 12px !important; }
+  .dk[data-tab=notes] .dk-nsplit::before { content: ''; position: absolute; top: 50%; left: 4px; width: 4px; height: 44px; margin-top: -22px; border-radius: 3px; background: rgba(201,150,43,.35); transition: background .15s, height .15s; }
+  .dk[data-tab=notes] .dk-nsplit:hover::before, .dk[data-tab=notes] .dk-nsplit.on::before { background: var(--gold); height: 64px; margin-top: -32px; }
+  .dk[data-tab=notes] .dk-nsplit::after { display: none; }
+}
+/* the "Write here…" hint goes as soon as you click into the page */
+.dk-ed.blank:focus::before { content: none; }
+/* right-click menu on a notes page */
+.dk-ctx { position: fixed; z-index: 80; }
+.dk-ctx > .dk-mlist { position: static; display: block; min-width: 210px; animation: dkCtxIn .12s ease; }
+.dk-ctxh { display: flex; align-items: center; gap: 8px; padding: 6px 12px 8px; margin-bottom: 4px; border-bottom: 1px solid var(--line); font-size: .85rem; min-width: 0; }
+.dk-ctxh b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+.dk-ctx .dk-mlist button.red { color: #e0715c; }
+@keyframes dkCtxIn { from { opacity: 0; transform: scale(.97); } }
+/* lists inside the floating panels: no extra divider lines at the scroll edges (the panel's own edges do that job); a soft
+   shadow still shows there's more to scroll */
+.dk-rail .dk-shade::before, .dk-rail .dk-shade::after, .dk-blist .dk-shade::before, .dk-blist .dk-shade::after { border: 0 !important; }
+/* the notes page starts right beside the list (the gap between them is enough) */
+@media (min-width: 901px) { .dk[data-tab=notes] .dk-notesv > .dk-main { padding-left: 8px !important; } }
+/* Sessions and Bestiary: the main area starts right beside the list too; the scrolling areas fade out softly at the
+   bottom instead of being cut off, and leave room under the last thing */
+@media (min-width: 901px) {
+  .dk[data-tab=sessions] .dk-sess > .dk-main, .dk[data-tab=bestiary] .dk-best > .dk-bview { padding-left: 8px !important; }
+  .dk[data-tab=sessions] .dk-sess > .dk-main, .dk[data-tab=bestiary] .dk-best > .dk-bview, .dk[data-tab=notes] .dk-notesv > .dk-main { padding-bottom: 48px !important; }
+}
+/* the main area runs right to the bottom of the window (things scroll off the edge); the list panel keeps its margin */
+@media (min-width: 901px) {
+  .dk[data-tab=notes] .dk-notesv, .dk[data-tab=sessions] .dk-sess, .dk[data-tab=bestiary] .dk-best { padding-bottom: 0 !important; }
+  .dk[data-tab=notes] .dk-rail, .dk[data-tab=sessions] .dk-rail, .dk[data-tab=bestiary] .dk-blist { margin-bottom: 16px !important; }
+}
+@media (min-width: 901px) {
+  .dk[data-tab=notes] .dk-rail, .dk[data-tab=sessions] .dk-rail, .dk[data-tab=bestiary] .dk-blist { height: auto !important; max-height: calc(100% - 16px) !important; align-self: stretch; box-sizing: border-box; }
+}
