@@ -2578,7 +2578,9 @@ const edFix = h => { h = String(h || '').replace(/<(p|li|h[123]|td|th)><\/\1>/g,
 function edEl() { return $('.dk-ed'); }
 let ED_PENDING = false;
 function edSave(now) {
-  const ed = edEl(), p = pageById(UI.np); if (!ed || !p) return;
+  // the text goes to the page the editor is showing (its id), never to whichever page is open by now: after clicking a
+  // link the open page has already changed while the old page's editor is still on screen
+  const ed = edEl(), p = ed && pageById(ed.id.replace(/^dk-ed-/, '')); if (!ed || !p) return;
   clearTimeout(EDT); const go = () => { ED_PENDING = false; const h = clean(ed.innerHTML); if (h !== p.html) { p.html = h; nSave(p); } };
   if (now) go(); else { ED_PENDING = true; EDT = setTimeout(go, 500); }
 }
