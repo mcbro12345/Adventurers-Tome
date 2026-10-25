@@ -2373,8 +2373,9 @@ body.hubbody:not(.adminbody) .hub-list.hd2-main > * { max-width: none; }
 .wn-strip { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; padding: 10px 6px; border-radius: 14px; background: rgba(255,255,255,.035); }
 .wn-ar { flex: none; width: 30px; height: 44px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 8px; background: none; color: #8a93a6; font-size: 1.5rem; line-height: 1; cursor: pointer; }
 .wn-ar:hover { background: rgba(255,255,255,.07); color: #e9e3d3; } .wn-ar[hidden] { display: none; }
-.wn-it { position: relative; flex: 1; min-width: 0; transition: opacity .26s ease; } .wn-it.wn-out { opacity: 0; }
+.wn-it { position: relative; flex: 1; min-width: 0; } .wn-stk { transition: opacity .26s ease; } .wn-stk.wn-out { opacity: 0; }
 .wn-bar .wn-it { padding-right: 64px; }
+.wn-stk { display: grid; } .wn-one { grid-area: 1 / 1; min-width: 0; visibility: hidden; align-self: center; } .wn-one.on { visibility: visible; } .wn-card .wn-one { align-self: start; }
 .wn-t { display: block; font-size: 1.04rem; } .wn-new { font-style: normal; font-size: .7rem; font-weight: 800; letter-spacing: .04em; color: #1b1406; background: #e0aa3a; border-radius: 4px; padding: 1px 6px; margin-left: 8px; vertical-align: 2px; }
 .wn-d { color: #a7aebb; font-size: .88rem; line-height: 1.45; margin-top: 3px; overflow-wrap: anywhere; } .wn-d p { margin: 0 0 4px; } .wn-d p:last-child { margin: 0; } .wn-d ul, .wn-d ol { margin: 2px 0; padding-left: 1.2em; } .wn-d a { color: #e3c27a; }
 .wn-link { display: inline-block; margin-top: 4px; font-size: .84rem; font-weight: 700; color: #e3c27a; }
@@ -2453,9 +2454,14 @@ body.hubbody #hub:not(.hd2) .hub-list .hr, body.hubbody #hub:not(.hd2) .hub-list
   body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head > .hub-top { background: rgba(255,255,255,.7); border-color: #e3d6b8; }
   body.hubbody #hub:not(.hd2) .hub-list .hr, body.hubbody #hub:not(.hd2) .hub-list .hc { background: rgba(255,255,255,.65); border-color: #e3d6b8; }
 }
-@media (prefers-reduced-motion: reduce) { .wn-it, .ha-chev, .hd-fold svg, .wn-dots button { transition: none; } .ha-drop, .ha-sheet, .ha-dim { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .wn-stk, .ha-chev, .hd-fold svg, .wn-dots button { transition: none; } .ha-drop, .ha-sheet, .ha-dim { animation: none; } }
 /* (the phone lobby styles every button in its top area as a big pill; these small ones stay small) */
 #hub .wn .wn-dots button { flex: none !important; width: 7px !important; height: 7px !important; min-height: 0 !important; padding: 0 !important; margin: 0 !important; border: 0 !important; border-radius: 50% !important; background: #3a4560 !important; box-shadow: none !important; }
+/* the current dot stretches out with a little jelly wobble when the update changes */
+#hub .wn .wn-dots button { transition: width .45s cubic-bezier(.34,1.56,.64,1), background .25s ease !important; }
+#hub .wn .wn-dots button.on { animation: wnJelly .6s ease both; }
+@keyframes wnJelly { 0% { transform: scale(1, 1); } 30% { transform: scale(1.25, .7); } 50% { transform: scale(.88, 1.2); } 70% { transform: scale(1.07, .92); } 85% { transform: scale(.97, 1.04); } 100% { transform: scale(1, 1); } }
+@media (prefers-reduced-motion: reduce) { #hub .wn .wn-dots button.on { animation: none; } }
 #hub .wn .wn-dots button.on { width: 18px !important; border-radius: 4px !important; background: #e0aa3a !important; }
 #hub .wn .wn-all, #hub .wn .wn-ar { flex: none !important; width: auto; min-height: 0 !important; margin: 0 !important; border: 0 !important; box-shadow: none !important; background: none !important; }
 #hub .wn .wn-all { padding: 0 !important; } #hub .wn .wn-ch .wn-all { margin-left: auto !important; } #hub .wn .wn-ar { width: 30px !important; height: 44px !important; padding: 0 !important; }

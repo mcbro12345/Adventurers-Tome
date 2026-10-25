@@ -1864,12 +1864,20 @@ function hub(fs, auth, G, ctx) {
     let i = 0, T = null, paused = false, key = '', seenT = null; const S = { el };
     const dots = n => n > 1 ? `<span class="wn-dots" role="tablist">${Array.from({ length: n }, (_, k) => `<button type="button" class="${k === i ? 'on' : ''}" data-k="${k}" aria-label="Update ${k + 1} of ${n}"></button>`).join('')}</span>` : '';
     const paintItem = () => { const g = get(), L = g.items; if (!L.length) return; i = ((i % L.length) + L.length) % L.length; const n = L[i], seen = newsSeen(), it = el.querySelector('.wn-it');
-      if (it) it.innerHTML = newsItemHTML(n, n.badge && !seen.has(n.id)) + (kind === 'bar' ? dots(L.length) : '');
-      if (kind === 'card') { const d = el.querySelector('.wn-ch .wn-dots'); if (d) d.outerHTML = dots(L.length); }
-      el.querySelectorAll('.wn-dots button').forEach(b => b.onclick = e => { e.stopPropagation(); go(Number(b.dataset.k) - i); });
+      const stk = it && it.querySelector('.wn-stk'), dl = el.querySelector('.wn-dots');
+      if (stk && stk.children.length === L.length && (L.length < 2 || (dl && dl.children.length === L.length))) {
+        // same updates: just move "current" along, so the dots slide (and jiggle) instead of being redrawn
+        [...stk.children].forEach((o, k) => { const on = k === i; o.classList.toggle('on', on); o.toggleAttribute('inert', !on); if (on) o.removeAttribute('aria-hidden'); else o.setAttribute('aria-hidden', 'true'); });
+        if (dl) [...dl.children].forEach((b, k) => b.classList.toggle('on', k === i));
+      } else {
+        // every update in the rotation sits in the same spot (only the current one shows), so the box is always as tall as the longest and never changes size
+        if (it) it.innerHTML = `<div class="wn-stk">${L.map((m, k) => `<div class="wn-one${k === i ? ' on' : ''}"${k === i ? '' : ' aria-hidden="true" inert'}>${newsItemHTML(m, m.badge && !seen.has(m.id))}</div>`).join('')}</div>` + (kind === 'bar' ? dots(L.length) : '');
+        if (kind === 'card') { const d = el.querySelector('.wn-ch .wn-dots'); if (d) d.outerHTML = dots(L.length) || '<span class="wn-dots"></span>'; }
+        el.querySelectorAll('.wn-dots button').forEach(b => b.onclick = e => { e.stopPropagation(); go(Number(b.dataset.k) - i); });
+      }
       clearTimeout(seenT); if (!src) seenT = setTimeout(() => newsSee(n.id), 4000); };
-    const fade = f => { const it = el.querySelector('.wn-it'); if (!it || PG_CALM) { f(); return; } it.classList.add('wn-out'); setTimeout(() => { f(); it.classList.remove('wn-out'); }, 260); };
-    const go = d => { const L = get().items; if (L.length < 2) return; fade(() => { i += d; paintItem(); }); tick(); };
+    const fade = f => { const it = el.querySelector('.wn-stk'); if (!it || PG_CALM) { f(); return; } it.classList.add('wn-out'); setTimeout(() => { f(); it.classList.remove('wn-out'); }, 260); };
+    const go = d => { const L = get().items; if (L.length < 2) return; i += d; const k = ((i % L.length) + L.length) % L.length; el.querySelectorAll('.wn-dots button').forEach((b, j) => b.classList.toggle('on', j === k)); fade(() => paintItem()); tick(); };
     const tick = () => { clearTimeout(T); const g = get(); if (g.items.length < 2) return; T = setTimeout(() => { if (!paused && !document.hidden && el.isConnected) go(1); else tick(); }, g.every * 1000); };
     const paint = () => { const g = get(), L = g.items; const k = JSON.stringify([L.map(n => [n.id, n.t, n.d, n.badge, n.link]), g.every]);
       if (!L.length) { el.innerHTML = ''; el.hidden = true; key = k; clearTimeout(T); return; } el.hidden = false; if (k === key && el.querySelector('.wn-it')) return; key = k;
