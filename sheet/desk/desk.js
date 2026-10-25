@@ -1311,7 +1311,7 @@ function sessHead(s, plan) {
         <div class="dk-menu"><button class="dk-btn icon" data-act="menu" aria-label="More" aria-haspopup="menu">${ICON.dots}</button><div class="dk-mlist" role="menu"><button data-act="addgroup">Add a group</button><button data-act="restall">Reset every creature</button><button data-act="dupsess">Duplicate session</button><button class="red" data-act="delsess">Delete session</button></div></div></div></div>
     <div class="dk-svtabs">
     <div class="dk-meta"><span>${plural(all.length, 'creature')}</span>${xp ? `<span>${xp.toLocaleString()} XP</span>` : ''}${down ? `<span class="bad">${down} down</span>` : ''}</div></div>
-    ${plan ? '' : `<details class="dk-notes"${s.notes ? ' open' : ''}><summary>Session notes</summary><textarea class="dk-f" id="dk-snotes" data-ch="snotes" rows="2" placeholder="Hooks, places, names, what happened last time…">${esc(s.notes || '')}</textarea></details>
+    ${plan ? '' : `
     <div class="dk-add"><div class="dk-picker"><input class="dk-f" id="dk-addq" placeholder="${innerWidth <= 640 ? 'Add a creature (e.g. goblin)' : 'Add a creature — type a name (e.g. goblin)'}" autocomplete="off" aria-label="Creature to add"><div class="dk-sugg" hidden></div></div>
       <input class="dk-f dk-num" id="dk-addn" type="number" min="1" max="30" value="1" aria-label="How many">
       ${s.groups.length > 1 ? `<select class="dk-f" id="dk-addg" aria-label="Group">${s.groups.map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join('')}</select>` : ''}
