@@ -2782,3 +2782,6 @@ body.hubbody .hd2-main .hr { height: 200px; }
 body.hubbody .hd2-main .hc { height: 212px; }
 .hd2-main .hr-main, .hd2-main .hc-main { padding-bottom: 10px !important; }
 .hd2-main .hc-txt > small { margin-bottom: 0 !important; }
+/* party tiles: the DM on one line, the number of characters on the next (each cut short rather than wrapping) */
+.pty-sub2 > i { display: block; font-style: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hd2-main .hc-txt > span.pty-sub2 { display: block; -webkit-line-clamp: unset; }

@@ -2948,6 +2948,9 @@ body.hubbody .hd2-main .hr { height: 200px; }
 body.hubbody .hd2-main .hc { height: 212px; }
 .hd2-main .hr-main, .hd2-main .hc-main { padding-bottom: 10px !important; }
 .hd2-main .hc-txt > small { margin-bottom: 0 !important; }
+/* party tiles: the DM on one line, the number of characters on the next (each cut short rather than wrapping) */
+.pty-sub2 > i { display: block; font-style: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hd2-main .hc-txt > span.pty-sub2 { display: block; -webkit-line-clamp: unset; }
 </style>
 </head>
 <body>
@@ -3621,7 +3624,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024230545', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.10ac34f51762.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.bf5693d15950.html", "desk": "a/desk.d6a06d576157.js", "deskcss": "a/deskcss.8eb5189e71e0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024230809', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.10ac34f51762.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.bf5693d15950.html", "desk": "a/desk.d6a06d576157.js", "deskcss": "a/deskcss.8eb5189e71e0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -6125,7 +6128,7 @@ function partyModule(H) {
     const inv = INVS.filter(p => !MINE.some(m => m.id === p.id));
     const oi = id => { const i = PORD.indexOf(id); return i < 0 ? -1 : i; };
     const rows = MINE.slice().sort((a, b) => { const x = oi(a.id), y = oi(b.id); return x < 0 && y < 0 ? (b.updatedAt || 0) - (a.updatedAt || 0) : x < 0 ? -1 : y < 0 ? 1 : x - y; }).map(p => { const n = (p.chars || []).length, role = p.dm === EMAIL ? 'You’re the DM' : 'DM ' + dmLabel(p);
-      return `<div class="hr" data-id="${esc(p.id)}" data-pin="0" data-party="1"><span class="hr-grip" title="Drag to reorder" aria-label="Drag to reorder">⠿</span><a class="hr-main" href="${esc(URLS.party(p.id, p.name))}">${ptyPic(p)}<span class="hc-txt"><b>${esc(p.name || 'Unnamed party')}</b><span>${esc(role)} · ${plural(n, 'character')}</span><small>${p.updatedAt ? 'Updated ' + ago(p.updatedAt) : ''}</small></span></a></div>`; }).join('');
+      return `<div class="hr" data-id="${esc(p.id)}" data-pin="0" data-party="1"><span class="hr-grip" title="Drag to reorder" aria-label="Drag to reorder">⠿</span><a class="hr-main" href="${esc(URLS.party(p.id, p.name))}">${ptyPic(p)}<span class="hc-txt"><b>${esc(p.name || 'Unnamed party')}</b><span class="pty-sub2"><i>${esc(role)}</i><i>${plural(n, 'character')}</i></span><small>${p.updatedAt ? 'Updated ' + ago(p.updatedAt) : ''}</small></span></a></div>`; }).join('');
     // An invitation opens the party's join steps (where you can also turn it down).
     const invs = inv.map(p => `<div class="hr pty-inviterow"><a class="hr-main" href="${esc(URLS.party(p.id, p.name))}">${ptyPic(p)}<span class="hc-txt"><b>${esc(p.name || 'A party')}</b><span>${esc(p.dmName || p.dm)} invited you to join</span><small>Open it to choose a character, or decline</small></span><span class="pty-invtag">Invitation</span></a></div>`).join('');
     return `<div id="hub-parties">${invs || rows ? `<div class="hl">${invs}${rows}</div>` : LOADED ? '<p class="hub-empty">Running a game? Make a party with <b>New party</b>: you’re its DM, and you get a link to send your players. Their characters join it, and you all see each other in one place.</p>' : SKEL.rows(2)}
