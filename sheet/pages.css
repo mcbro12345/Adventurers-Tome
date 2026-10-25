@@ -2483,9 +2483,10 @@ body.hubbody #hub:not(.hd2) .hub-list .hr, body.hubbody #hub:not(.hd2) .hub-list
 .nw-tx { flex: 1; min-width: 0; display: grid; gap: 3px; } .nw-tx b { font-size: 1rem; } .nw-tx small { color: #8a93a6; font-size: .78rem; }
 .nw-acts { display: flex; align-items: center; gap: 8px; flex: none; flex-wrap: wrap; justify-content: flex-end; }
 .nw-rot { position: relative; display: inline-flex; align-items: center; gap: 8px; margin-right: 6px; font-size: .84rem; font-weight: 600; color: #9aa3b5; white-space: nowrap; cursor: pointer; }
-.nw-rot input { position: absolute; opacity: 0; width: 1px; height: 1px; } .nw-rot input:focus-visible + .sw { outline: 2px solid #e0aa3a; outline-offset: 2px; }
-.nw-rot .sw { position: relative; width: 34px; height: 20px; border-radius: 99px; background: #2c3548; transition: background .15s; } .nw-rot .sw::after { content: ''; position: absolute; left: 3px; top: 3px; width: 14px; height: 14px; border-radius: 50%; background: #8a93a6; transition: left .15s, background .15s; }
-.nw-rot.on { color: #e3c27a; } .nw-rot.on .sw { background: #e0aa3a; } .nw-rot.on .sw::after { left: 17px; background: #1b1406; }
+.nw-rot input { position: absolute; opacity: 0; width: 1px; height: 1px; } .nw-rot input:focus-visible + .nw-sw { outline: 2px solid #e0aa3a; outline-offset: 2px; }
+.nw-rot .nw-sw { position: relative; flex: none; box-sizing: border-box; display: block; width: 34px; height: 20px; margin: 0; padding: 0; border: 0; border-radius: 99px; background: #2c3548; box-shadow: none; transition: background .15s; }
+.nw-rot .nw-sw::after { content: ''; position: absolute; left: 3px; top: 3px; box-sizing: border-box; width: 14px; height: 14px; margin: 0; border: 0; border-radius: 50%; background: #8a93a6; transition: transform .2s cubic-bezier(.34,1.56,.64,1), background .15s; }
+.nw-rot.on { color: #e3c27a; } .nw-rot.on .nw-sw { background: #e0aa3a; } .nw-rot.on .nw-sw::after { transform: translateX(14px); background: #1b1406; }
 @media (max-width: 1100px) { .nwp { grid-template-columns: 1fr; } .nwp-bar { flex-wrap: wrap; } }
 @media (prefers-color-scheme: light) { .nw-it { background: rgba(255,255,255,.65); border-color: #e3d6b8; } .nw-rotbar { background: rgba(0,0,0,.03); } }
 /* computer lobby: the top panel stays put while the page scrolls; only the panel itself casts a shadow */
