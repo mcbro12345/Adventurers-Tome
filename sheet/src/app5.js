@@ -774,6 +774,7 @@ function renderWizard() {
     <div class="wz3-main"><div class="wz-body"><h3>${esc(V.label)}</h3>${body}</div></div></div>
     <div class="wz-foot">${vi > 0 ? '<button class="btn" data-wact="back">Back</button>' : ''}<span class="wz3-prog" aria-hidden="true"><i style="width:${Math.round((vi + 1) / VS.length * 100)}%"></i></span><small class="wz3-of">Step ${vi + 1} of ${VS.some(v => v.maybe) ? 'up to ' : ''}${VS.length}</small>${!last ? `<button class="btn gold" data-wact="next">Next<span class="wz3-nx">: ${esc(VS[vi + 1].label)}</span></button>` : '<button class="btn gold" data-wact="create">Create character</button>'}</div></div>`;
   { const g = $('#wizard .wz3-cards .sel'); if (g && g.parentElement) g.parentElement.scrollTop = Math.max(0, g.offsetTop - g.parentElement.offsetTop - 60); }
+  { const bx = $('#wizard .wz3'), key = W.step + '|' + (W.part || ''); if (bx && W._enter !== key) { W._enter = key; bx.classList.add('enter'); setTimeout(() => bx.classList.remove('enter'), 700); } } // (the cards ease in only when a step opens, not on every pick)
   wz3FeatLists(); wz3Shades();
   // a step that just appeared (say, Spells after picking a caster) slides open in the list
   { const now = VS.map(v => v.label), was = W._vs; W._vs = now;
