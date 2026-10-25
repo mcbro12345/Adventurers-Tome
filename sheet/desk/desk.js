@@ -3312,6 +3312,34 @@ function onNotesInput(e) {
   if (el.classList && el.classList.contains('dk-ed')) { if (!edShortcut(e)) { /* plain typing */ } edSave(); edAuto(); return true; }
   return false;
 }
+// Boxes in a page (callout, secret, quote, table) can always be left: Enter on an empty last line steps out below,
+// the down arrow at the very end of a box opens a line after it, Backspace in an empty box removes it, and a click
+// under the last box gives a line to type on.
+const ED_BOX = '.callout, .secret, blockquote, table';
+const edBoxOf = n => { const ed = edEl(); let x = n && n.nodeType === 3 ? n.parentNode : n; const b = x && x.closest && x.closest(ED_BOX); return b && ed && ed.contains(b) && b !== ed ? b : null; };
+const edLineAfter = box => { const p = document.createElement('p'); p.innerHTML = '<br>'; box.after(p); placeCaret(p); return p; };
+const edEmpty = el => !el.textContent.replace(/\u200b/g, '').trim() && !el.querySelector('img, hr, table, input');
+const edAtEnd = (r, el) => { if (!r.collapsed) return false; const t = document.createRange(); t.selectNodeContents(el); t.setStart(r.endContainer, r.endOffset); return !t.toString().replace(/\u200b/g, '').trim() && !t.cloneContents().querySelector('img, table, hr'); };
+function edBoxKey(e) {
+  if (e.ctrlKey || e.metaKey || e.altKey) return false;
+  const r = selRange(); if (!r) return false; const box = edBoxOf(r.startContainer); if (!box) return false;
+  const b = blockOf(r.startContainer);
+  if (e.key === 'Enter' && !e.shiftKey && box.tagName !== 'TABLE' && b && b !== box && b.tagName !== 'LI' && edEmpty(b) && !b.nextElementSibling && b.parentNode === box && b.previousElementSibling) {
+    e.preventDefault(); b.remove(); edLineAfter(box); edSave(); return true; }
+  if (e.key === 'Enter' && !e.shiftKey && box.tagName === 'BLOCKQUOTE' && (b === box || !b) && edEmpty(box) && box.previousElementSibling) {
+    e.preventDefault(); const p = document.createElement('p'); p.innerHTML = '<br>'; box.replaceWith(p); placeCaret(p); edSave(); return true; }
+  if (e.key === 'Enter' && !e.shiftKey && box.tagName !== 'TABLE' && b && b.tagName === 'LI' && edEmpty(b) && !b.nextElementSibling && b.parentNode.parentNode === box && !b.parentNode.nextElementSibling && b.parentNode.children.length === 1 && b.parentNode.previousElementSibling) {
+    e.preventDefault(); b.parentNode.remove(); edLineAfter(box); edSave(); return true; }
+  if ((e.key === 'ArrowDown' || e.key === 'ArrowRight') && !box.nextElementSibling && edAtEnd(r, box)) {
+    if (e.key === 'ArrowDown' || edAtEnd(r, box)) { e.preventDefault(); edLineAfter(box); edSave(); return true; } }
+  if (e.key === 'ArrowUp' && !box.previousElementSibling && r.collapsed) { const t = document.createRange(); t.selectNodeContents(box); t.setEnd(r.startContainer, r.startOffset); if (!t.toString().trim()) { e.preventDefault(); const p = document.createElement('p'); p.innerHTML = '<br>'; box.before(p); placeCaret(p); edSave(); return true; } }
+  if (e.key === 'Backspace' && edEmpty(box) && box.tagName !== 'TABLE') { e.preventDefault(); const p = document.createElement('p'); p.innerHTML = '<br>'; box.replaceWith(p); placeCaret(p); edSave(); return true; }
+  return false;
+}
+if (!window.__dkEdBoxClick) { window.__dkEdBoxClick = 1;
+  document.addEventListener('mousedown', e => { const ed = e.target.closest && e.target.closest('.dk-ed'); if (!ed || e.target !== ed) return;
+    const last = ed.lastElementChild; if (!last || !(last.matches(ED_BOX) || last.tagName === 'HR' || last.tagName === 'UL' || last.tagName === 'OL' || last.tagName === 'IMG')) return;
+    if (e.clientY < last.getBoundingClientRect().bottom) return; e.preventDefault(); const p = document.createElement('p'); p.innerHTML = '<br>'; ed.appendChild(p); ed.focus(); placeCaret(p); edSave(); }, true); }
 function onNotesKey(e) {
   const el = e.target;
   if (el && el.classList && el.classList.contains('dk-tagin') && (e.key === 'Enter' || e.key === ',')) { e.preventDefault(); const p = pageById(UI.np); if (p) { const v = el.value; el.value = ''; addTags(p, v); } return true; }
@@ -3324,6 +3352,7 @@ function onNotesKey(e) {
     if (e.key === 'Escape') { e.preventDefault(); pop.hidden = true; AUTO = null; return true; }
   }
   if (e.key === 'Enter' && !e.shiftKey) { const r = selRange(), b = r && blockOf(r.startContainer); if (b && /^(-{3,}|\*{3,})$/.test(b.textContent.trim())) { e.preventDefault(); b.innerHTML = '<br>'; placeCaret(b); document.execCommand('insertHTML', false, '<hr>'); edSave(); return true; } }
+  if (edBoxKey(e)) return true;
   if (e.key === 'Tab') { const r = selRange(), li = r && blockOf(r.startContainer); if (li && li.tagName === 'LI') { e.preventDefault(); document.execCommand(e.shiftKey ? 'outdent' : 'indent'); edSave(); return true; } }
   if ((e.ctrlKey || e.metaKey) && /^[biu]$/i.test(e.key)) { setTimeout(() => edSave(), 0); }
   return false;
