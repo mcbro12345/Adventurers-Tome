@@ -330,7 +330,7 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 
 /* ---------- modal ---------- */
 .dk-modal { position: fixed; inset: 0; z-index: 60; display: none; align-items: flex-start; justify-content: center; padding: calc(28px + env(safe-area-inset-top)) 14px 28px; background: rgba(10,14,24,.58); backdrop-filter: blur(2px); overflow-y: auto; }
-.dk-modal.open { display: flex; animation: dkFade .15s ease; }
+.dk-modal.open { display: flex; animation: dkFade .24s ease; }
 @keyframes dkFade { from { opacity: 0; } }
 .dk-mcard { width: min(560px, 100%); background: var(--card); color: var(--ink); border: 1px solid var(--line); border-top: 4px solid var(--gold); border-radius: 18px; box-shadow: var(--shadow2); padding: 20px 22px; animation: dkPop .18s ease; }
 .dk-mcard.wide { width: min(920px, 100%); }
@@ -744,7 +744,7 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 @media (max-width: 420px) { .dk-hbform .dk-g4, .dk-hbform .dk-g2 { grid-template-columns: minmax(0, 1fr); } .dk-hbacts .dk-btn { flex: 1 1 100%; } }
 
 /* ---------- dice roller (the sheet's own roller window) ---------- */
-.dk .drwin { position: fixed; z-index: 60; width: 320px; max-height: calc(100vh - 16px); overflow-y: auto; overscroll-behavior: contain; background: var(--card); color: var(--ink); border: 1px solid var(--line); border-top: 3px solid var(--gold); border-radius: 12px; box-shadow: 0 18px 44px rgba(0,0,0,.45); font-family: var(--sans); animation: drIn .18s cubic-bezier(.2,.9,.3,1); }
+.dk .drwin { position: fixed; z-index: 60; width: 320px; max-height: calc(100vh - 16px); overflow-y: auto; overscroll-behavior: contain; background: var(--card); color: var(--ink); border: 1px solid var(--line); border-top: 3px solid var(--gold); border-radius: 12px; box-shadow: 0 18px 44px rgba(0,0,0,.45); font-family: var(--sans); animation: drIn .26s ease; }
 .dk .drwin.closing { animation: drOut .18s ease forwards; pointer-events: none; }
 .dk .drwin.drag { opacity: .95; }
 @keyframes drIn { from { opacity: 0; transform: translateY(8px) scale(.97); } }
@@ -941,7 +941,7 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 @media (min-width: 641px) {
   .dk.dk-mw .dk-modal { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; pointer-events: none; align-items: center; overflow: visible; padding: 24px; animation: none; }
   .dk.dk-mw .dk-mcard { pointer-events: auto; position: relative; padding: 0 20px 18px; border: 1px solid var(--line); border-top: 3px solid var(--gold); border-radius: 12px; box-shadow: 0 18px 50px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.18);
-    max-height: calc(100vh - 48px); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; animation: dkWinIn .18s cubic-bezier(.2,.9,.3,1); }
+    max-height: calc(100vh - 48px); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; animation: dkWinIn .26s ease; }
   .dk.dk-mw .dk-mcard.dk-moving { opacity: .96; transition: none; }
   .dk.dk-mw .dk-mcard.dk-setwin { height: min(calc(100vh - 48px), 600px); }
   .dk.dk-mw.dk-rfront .drwin { z-index: 61; }
@@ -1342,10 +1342,23 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
   .dk .dk-tools .dk-tl { display: none; }
 }
 /* Phones, a party you run: just the party page, the roller and turn order, and a way into the full Desk */
-.dk-litebar { display: none; }
-.dk.dk-lite .dk-litebar { display: grid; gap: 6px; justify-items: center; text-align: center; margin: 12px 12px 0; padding: 12px; border: 1px dashed var(--line); border-radius: 14px; background: var(--card); }
-.dk.dk-lite .dk-litebar em { font-size: .8rem; color: var(--soft); line-height: 1.35; }
 .dk.dk-lite .dk-tabs, .dk.dk-lite .dk-tools [data-act=log], .dk.dk-lite .dk-tools [data-act=settings], .dk.dk-lite .dk-tools [data-act=bugreport] { display: none !important; }
 .dk.dk-lite { padding-bottom: 24px !important; }
 .dk-nophone { min-height: 100dvh; display: grid; place-content: center; justify-items: center; gap: 10px; padding: 24px; text-align: center; box-sizing: border-box; }
 .dk-nophone h2 { margin: 0; font: 800 1.4rem var(--serif); } .dk-nophone p { margin: 0; max-width: 34ch; color: var(--soft); line-height: 1.45; } .dk-nophone .dk-btn { gap: 6px; text-decoration: none; }
+/* Creature cards: damage type and amount sit snug together, like the sheet's HP panel */
+.dk .dk-chp-side .dk-qtype { height: 30px; min-height: 30px !important; padding: 0 8px; font-size: .85rem; border-radius: 8px; margin-bottom: -4px; }
+.dk .dk-chp-side input.dk-f { height: 30px; min-height: 30px !important; padding: 0 8px; border-radius: 8px; }
+.dk .dk-chp-btns .dk-hpi { height: 36px; min-height: 36px; }
+.dk .dk-cact-i { color: var(--k, var(--gold-ink)); letter-spacing: 0; } .dk .dk-cact-i svg { width: 15px !important; height: 15px !important; display: block; }
+.dk-dxopts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin: 0 0 10px; font-size: .88rem; }
+.dk-dxopts select { margin-left: 6px; max-width: 100%; }
+.dk-dxlink { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Word / Google Docs import: rename pages and nest them before importing */
+.dk-iped { gap: 6px; padding-top: 2px; padding-bottom: 2px; }
+.dk-iname { flex: 1; min-width: 0; height: 32px; padding: 0 9px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: inherit; font: inherit; font-size: .9rem; }
+.dk-iname:hover { border-color: var(--line2); } .dk-iname:focus { outline: none; border-color: var(--gold, #e0aa3a); background: var(--card, rgba(255,255,255,.04)); }
+.dk-imv { flex: none; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 8px; background: none; color: var(--soft); cursor: pointer; }
+.dk-imv:hover:not(:disabled) { background: rgba(255,255,255,.07); color: inherit; } .dk-imv:disabled { opacity: .25; cursor: default; }
+.dk-dxnote { flex-basis: 100%; margin: 0; }

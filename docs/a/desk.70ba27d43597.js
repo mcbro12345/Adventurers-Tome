@@ -344,7 +344,9 @@ const DEF = () => ({ v: 2, savedAt: 0, settings: { dice: 'desk', hpMode: 'avg', 
 let S = DEF();
 let UI = { tab: 'sessions', session: '', sel: '', best: 'srd:goblin', q: '', crMin: '', crMax: '', type: '', size: '', src: '', sort: 'name', open: {}, tree: false, log: false, sv: 'creatures', gen: 'enc', genAI: false, genP: { size: 4, level: 3, levels: '', diff: 'medium', env: 'forest', type: '', mine: false } };
 let LOG = [];
-const lsKey = k => 'pg-desk' + k + ':' + (CTX ? CTX.EMAIL : '');
+// Each party has its own desk (sessions, notes, settings); creatures you make or import are shared by all your desks.
+const DESK_PID = () => (CTX && CTX.party && CTX.party.id) || '';
+const lsKey = k => 'pg-desk' + k + ':' + (CTX ? CTX.EMAIL : '') + (DESK_PID() ? '@' + DESK_PID() : '');
 const lsGet = k => { try { return JSON.parse(localStorage.getItem(lsKey(k)) || 'null'); } catch (e) { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(lsKey(k), JSON.stringify(v)); } catch (e) {} };
 let lsT = 0;
@@ -358,7 +360,13 @@ function normalize(d) {
 function save() { S.savedAt = Date.now(); writeLocal(); cloudSoon(); syncTurnHP(); }
 const saveUI = () => writeLocal();
 
-// ---------- account storage: desks/{email} {v, savedAt, settings}; /sessions/{id} and /creatures/{id} {savedAt, data} ----------
+// ---------- account storage ----------
+// desks/{email}/creatures/{id}: your creatures, shared by every desk. A party's desk: desks/{email}/party/{partyId} {v, savedAt,
+// settings} with /sessions/{id} and /notes/{id}. The desk opened without a party (and every desk before they were split) uses
+// desks/{email} itself. Pictures in notes stay in desks/{email}/imgs.
+let CRE = null;
+const userBase = () => CTX.fs.collection('desks').doc(CTX.EMAIL);
+const deskBase = () => DESK_PID() ? userBase().collection('party').doc(DESK_PID()) : userBase();
 let BASE = null, CLOUD = false, cloudT = 0, flushing = false, again = false, syncMsg = '';
 const SYNCED = { main: '', cre: new Map(), ses: new Map() };
 const mainBody = () => ({ v: S.v, savedAt: S.savedAt, settings: S.settings });
@@ -369,8 +377,8 @@ async function flush() {
   try {
     const coll = n => BASE.collection(n), m = JSON.stringify(mainBody()), w = [];
     if (m !== SYNCED.main) w.push(BASE.set(JSON.parse(m)).then(() => { SYNCED.main = m; }));
-    for (const [id, c] of Object.entries(S.creatures)) { const j = JSON.stringify(c); if (SYNCED.cre.get(id) !== j) w.push(coll('creatures').doc(id).set({ savedAt: S.savedAt, data: JSON.parse(j) }).then(() => SYNCED.cre.set(id, j))); }
-    for (const id of Array.from(SYNCED.cre.keys())) if (!S.creatures[id]) w.push(coll('creatures').doc(id).delete().then(() => SYNCED.cre.delete(id)));
+    for (const [id, c] of Object.entries(S.creatures)) { const j = JSON.stringify(c); if (SYNCED.cre.get(id) !== j) w.push(CRE.doc(id).set({ savedAt: S.savedAt, data: JSON.parse(j) }).then(() => SYNCED.cre.set(id, j))); }
+    for (const id of Array.from(SYNCED.cre.keys())) if (!S.creatures[id]) w.push(CRE.doc(id).delete().then(() => SYNCED.cre.delete(id)));
     const sids = new Set();
     for (const s of S.sessions) { sids.add(s.id); const j = JSON.stringify(s); if (SYNCED.ses.get(s.id) !== j) w.push(coll('sessions').doc(s.id).set({ savedAt: S.savedAt, data: JSON.parse(j) }).then(() => SYNCED.ses.set(s.id, j))); }
     for (const id of Array.from(SYNCED.ses.keys())) if (!sids.has(id)) w.push(coll('sessions').doc(id).delete().then(() => SYNCED.ses.delete(id)));
@@ -381,7 +389,7 @@ async function flush() {
 }
 async function pullAll() {
   const coll = n => BASE.collection(n);
-  const [m, cr, ss] = await Promise.all([BASE.get(), coll('creatures').get(), coll('sessions').get()]);
+  const [m, cr, ss] = await Promise.all([BASE.get(), CRE.get(), coll('sessions').get()]);
   if (!m.exists) return false;
   const d = m.data(), next = normalize({ v: d.v, savedAt: d.savedAt, settings: d.settings });
   SYNCED.cre.clear(); cr.docs.forEach(x => { const c = x.data().data; if (c) { next.creatures[x.id] = c; SYNCED.cre.set(x.id, JSON.stringify(c)); } });
@@ -393,13 +401,38 @@ async function pullAll() {
 }
 async function cloudBoot() {
   if (!CTX.fs || !CTX.EMAIL) { setSync('Saved on this device'); return; }
-  BASE = CTX.fs.collection('desks').doc(CTX.EMAIL);
+  BASE = deskBase(); CRE = userBase().collection('creatures');
   try {
-    const snap = await BASE.get(), d = snap.exists ? snap.data() : null;
+    let snap = await BASE.get(), d = snap.exists ? snap.data() : null;
+    if (DESK_PID() && !(d && d.askedOld)) { if (await offerOldDesk(d)) { snap = await BASE.get(); d = snap.exists ? snap.data() : null; S.savedAt = 0; } }
     if (d && N(d.savedAt) >= N(S.savedAt)) { await pullAll(); render(); }
+    else { // a desk that's new (or newer here): it still gets every creature you've made
+      const cr = await CRE.get(); cr.docs.forEach(x => { const c = x.data().data; if (!c) return; if (!S.creatures[x.id]) S.creatures[x.id] = c; SYNCED.cre.set(x.id, JSON.stringify(c)); }); render(); }
     CLOUD = true;
     if (!d || N(d.savedAt) < N(S.savedAt)) { if (!S.savedAt) S.savedAt = Date.now(); await flush(); } else setSync('Saved to your account');
   } catch (e) { console.warn('desk load', e); setSync('Offline — saved on this device'); }
+}
+// Before desks were split by party, everything was one desk. The first time a party's desk opens, that earlier desk (if it has
+// anything in it and hasn't gone to a party yet) can be moved in. Asked once per party; the old copy is kept, not deleted.
+async function offerOldDesk(d) {
+  const old = userBase(), pid = DESK_PID();
+  let o, ses, notes; try { [o, ses, notes] = await Promise.all([old.get(), old.collection('sessions').get(), old.collection('notes').get()]); } catch (e) { return false; }
+  const od = o.exists ? o.data() : null;
+  if (!od || od.movedTo || (!ses.size && !notes.size)) { await BASE.set({ askedOld: true }, { merge: true }).catch(() => {}); return false; }
+  const nm = esc((CTX.party && CTX.party.name) || 'this party');
+  const yes = await new Promise(res => {
+    openModal(`<h2>Bring your DM’s Desk here?</h2><p>Each party now has its own DM’s Desk. Your desk from before has ${ses.size} session${ses.size === 1 ? '' : 's'} and ${notes.size} notes page${notes.size === 1 ? '' : 's'}. Move them into <b>${nm}</b>’s desk?</p><p class="dk-hint">Your creatures are shared by all your desks either way. If these belong to another party, choose “Not this party” and open that party’s desk instead.</p><div class="dk-acts"><button class="dk-btn" id="dk-oldNo">Not this party</button><button class="dk-btn gold" id="dk-oldYes">Move them here</button></div>`, { cls: 'dk-small', onClose: () => res(null) });
+    $('#dk-oldYes').onclick = () => { closeModal(true); res(true); }; $('#dk-oldNo').onclick = () => { closeModal(true); res(false); }; });
+  if (yes === null) return false; // closed without choosing: ask again next time
+  if (!yes) { await BASE.set({ askedOld: true }, { merge: true }).catch(() => {}); return false; }
+  setSync('Moving your desk…');
+  try { const w = [BASE.set(Object.assign({ v: od.v || 2, savedAt: Date.now(), settings: od.settings || {} }, { askedOld: true }))];
+    ses.docs.forEach(x => w.push(BASE.collection('sessions').doc(x.id).set(x.data())));
+    notes.docs.forEach(x => w.push(BASE.collection('notes').doc(x.id).set(x.data())));
+    await Promise.all(w); await old.set({ movedTo: pid, movedAt: Date.now() }, { merge: true });
+    try { const l = localStorage.getItem('pg-desk-notes:' + CTX.EMAIL); if (l) localStorage.setItem(lsKey('-notes'), l); } catch (e) {}
+    toastInfo(`Moved ${ses.size} session${ses.size === 1 ? '' : 's'} and ${notes.size} notes page${notes.size === 1 ? '' : 's'} into ${nm}’s desk.`); return true; }
+  catch (e) { console.warn('desk move', e); toastInfo('Couldn’t move your old desk just now. It’ll ask again next time.'); return false; }
 }
 function onVis() {
   if (document.hidden || !CLOUD || flushing || cloudT && syncMsg === 'Saving…' || !ROOT || !ROOT.isConnected) return;
@@ -1348,6 +1381,8 @@ async function sendToTurn(list, label) {
   toast({ title: `Sent ${label || plural(list.length, 'creature')} to the Turn order`, det: esc(lines.join(' · ')) + `<br>Open ${esc(CTX.party.name || 'the party')}’s Turn order to run the fight; HP changes here show up there.`, cls: 'crit' });
 }
 function takeFromTurn(x) { const t = toRead(); if (!t) return; t.rows = t.rows.filter(r => r.desk !== x.iid); toWrite(t); paint(); toastInfo(`${esc(x.name)} is off the Turn order.`); }
+const CACT_IC = {"attack": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M14.5 17.5 3 6V3h3l11.5 11.5\"/><path d=\"m13 19 6-6\"/><path d=\"m16 16 4 4\"/><path d=\"m19 21 2-2\"/></svg>", "multi": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M14.5 17.5 3 6V3h3l11.5 11.5\"/><path d=\"m13 19 6-6\"/><path d=\"m16 16 4 4\"/><path d=\"m19 21 2-2\"/><path d=\"M14.5 6.5 18 3h3v3l-3.5 3.5\"/><path d=\"m5 14 4 4\"/><path d=\"m7 17-3 3\"/><path d=\"m3 19 2 2\"/></svg>", "save": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z\"/></svg>", "temp": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z\"/><path d=\"M12 9v6M9 12h6\"/></svg>", "heal": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 5v14M5 12h14\"/></svg>", "roll": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"3\"/><circle cx=\"9\" cy=\"9\" r=\"1\" fill=\"currentColor\"/><circle cx=\"15\" cy=\"15\" r=\"1\" fill=\"currentColor\"/><circle cx=\"15\" cy=\"9\" r=\"1\" fill=\"currentColor\"/><circle cx=\"9\" cy=\"15\" r=\"1\" fill=\"currentColor\"/></svg>"};
+const QTYPE = {}; // damage type picked on each creature card (kept across repaints)
 const ICO_PARTY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.2c3 .1 5.5 2.6 5.5 5.8"/></svg>';
 // ---------- drawing ----------
 const hpPct = x => { const m = N(x.max) || 1; return Math.max(0, Math.min(100, N(x.hp) / m * 100)); };
@@ -1474,13 +1509,13 @@ function cardHTML(x) {
       : k === 'attack' ? `<button class="dk-rl atk" data-act="atk" data-ek="${ek}" title="Attack roll and damage">${sg(a.hit)}</button> to hit${a.dmg.length ? ' · ' + dm(a.dmg) : ''}`
       : k === 'save' ? `<b>DC ${a.save.dc} ${ABS[a.save.ab].toUpperCase()}</b>${a.sdmg.length ? ' · ' + dm(a.sdmg) : ''}` : dm(a.dmg);
     const btn = k === 'multi' ? `<button class="dk-btn sm gold" data-act="multi">Roll all</button>` : k === 'attack' ? `<button class="dk-btn sm gold" data-act="atk" data-ek="${ek}">Attack</button>` : k === 'save' ? `<button class="dk-btn sm gold" data-act="save" data-ek="${ek}">${a.sdmg.length ? 'Damage' : 'Save'}</button>` : `<button class="dk-btn sm gold" data-act="dmg" data-ek="${ek}">Roll</button>`;
-    return `<div class="dk-cact k-${k}"><span class="dk-cact-i" aria-hidden="true">${k === 'attack' ? '⚔' : k === 'save' ? '⛨' : k === 'multi' ? '⚔⚔' : '🎲'}</span><div class="dk-cact-m"><b>${esc(baseName(e.n))}</b><div class="dk-cact-s">${info}</div></div><div class="dk-cact-b">${btn}</div></div>`;
+    return `<div class="dk-cact k-${k}"><span class="dk-cact-i" aria-hidden="true">${CACT_IC[k] || CACT_IC.roll}</span><div class="dk-cact-m"><b>${esc(baseName(e.n))}</b><div class="dk-cact-s">${info}</div></div><div class="dk-cact-b">${btn}</div></div>`;
   }).join('') : '';
   const chips = (x.down ? '<span class="dk-chip dead">Down</span>' : '') + (x.conc ? `<span class="dk-chip conc">${ICON.conc}${esc(x.conc)}</span>` : '') + condChips(x) + (N(x.exh) ? `<span class="dk-chip cond">Exhaustion ${N(x.exh)}</span>` : '');
   return `<article class="dk-ccard dk-comp2${x.down ? ' down' : ''}" data-iid="${x.iid}">
     <div class="dk-ch2"><button class="dk-chtok" data-act="sel" data-iid="${x.iid}" aria-label="Open ${esc(x.name)}">${tokenHTML(c, 46, 'dk-cctok')}</button><button class="dk-chname" data-act="sel" data-iid="${x.iid}"><b class="dk-cname">${esc(x.name)}</b><span class="dk-ctags">${c ? tags.map(t => `<span class="dk-tag">${esc(t)}</span>`).join('') : '<span class="dk-tag bad">stat block missing</span>'}${CTX.party && inTurn(x.iid) ? '<span class="dk-tag to">Turn order</span>' : ''}</span></button>${econMini(x)}</div>
     <div class="dk-cstat2"><div class="dk-chp2" data-hpflash="${x.iid}"><div class="dk-chp-ring" title="${x.hp} of ${x.max} HP${N(x.temp) ? ' (+' + x.temp + ' temporary)' : ''}"><span class="dk-ring">${hpRing(x)}</span><span class="dk-chp-c"><b class="${p <= 35 ? 'low' : ''}">${x.hp}</b>${N(x.temp) ? `<em>+${x.temp}</em>` : ''}<small>of ${x.max}</small></span></div>
-      <div class="dk-chp-side"><input class="dk-f" id="dk-q-${x.iid}" data-q="${x.iid}" type="text" autocomplete="off" enterkeyhint="done" maxlength="6" placeholder="Amount" title="Type 20 or -20 for damage, +20 to heal, then Enter" aria-label="Amount for ${esc(x.name)}">
+      <div class="dk-chp-side"><select class="dk-f dk-qtype" data-qt="${x.iid}" aria-label="Damage type for ${esc(x.name)} (resistances and immunities apply)" title="Damage type: its resistances and immunities apply"><option value="">Any</option>${DTYPES.map(d => `<option value="${d}"${QTYPE[x.iid] === d ? ' selected' : ''}>${d[0].toUpperCase() + d.slice(1)}</option>`).join('')}</select><input class="dk-f" id="dk-q-${x.iid}" data-q="${x.iid}" type="text" autocomplete="off" enterkeyhint="done" maxlength="6" placeholder="Amount" title="Type 20 or -20 for damage, +20 to heal, then Enter" aria-label="Amount for ${esc(x.name)}">
         <div class="dk-chp-btns"><button class="dk-hpi dmg sm" data-act="qdmg" data-iid="${x.iid}" title="Damage" aria-label="Damage ${esc(x.name)}">${ICON.hpDmg}</button><button class="dk-hpi heal sm" data-act="qheal" data-iid="${x.iid}" title="Heal" aria-label="Heal ${esc(x.name)}">${ICON.hpHeal}</button><button class="dk-hpi tmp sm" data-act="qtemp" data-iid="${x.iid}" title="Temporary HP (they don’t stack — the higher stays)" aria-label="Temporary HP for ${esc(x.name)}">${ICON.hpTemp}</button></div></div></div>
       <div class="dk-csts"><span class="dk-cst"><small>AC</small><b>${x.ac}</b></span><span class="dk-cst wide" title="${esc(c ? c.speed || '' : '')}"><small>Speed</small><b>${c ? speedFt(c) + ' ft' : '—'}</b>${sp.length > 1 ? `<i>${esc(sp.slice(1).map(z => z.replace(/\s*ft\.?/i, '')).join(' · '))}</i>` : ''}</span></div></div>
     ${chips ? `<div class="dk-ccfoot">${chips}</div>` : ''}
@@ -1907,7 +1942,7 @@ async function onClick(e) {
     case 'saveeff': { const g = curSession().groups.find(z => z.id === b.dataset.gid); openSaveDialog({ title: 'Saving throw', dc: 13, ab: 1, parts: [], half: true }); SV.rows.forEach(r => { r.on = !!g.list.find(z => z.iid === r.iid) && !findInst(r.iid).down; }); return paintSave(); }
     case 'addc': { const q = $('#dk-addq'), v = q.value.trim(); if (!v) { q.focus(); return; } const exact = allCreatures().find(c => c.name.toLowerCase() === v.toLowerCase()) || searchCreatures(v, 1)[0]; if (!exact) return toastInfo(`No creature called “${esc(v)}”. Try the bestiary, or paste its stat block there.`); return addPicked(exact.id); }
     case 'pickc': return addPicked(b.dataset.cid);
-    case 'qdmg': case 'qheal': case 'qtemp': { const inp = $(`[data-q="${iid}"]`), v = hpAmt(inp.value).n; if (!v) { inp.focus(); return; } if (act === 'qdmg') applyDamage(x, v, '', true); else if (act === 'qtemp') setTemp(x, v); else heal(x, v); return; }
+    case 'qdmg': case 'qheal': case 'qtemp': { const inp = $(`[data-q="${iid}"]`), v = hpAmt(inp.value).n; if (!v) { inp.focus(); return; } if (act === 'qdmg') { const t = QTYPE[iid] || ''; if (t) applyParts(x, [{ total: v, type: t }], false, dmgMult(instC(x), t, false) === 1); else applyDamage(x, v, '', true); } else if (act === 'qtemp') setTemp(x, v); else heal(x, v); return; }
     case 'dup': { const g = groupOf(iid); if (!g) return; const out = addToGroup(g.s, g.g, x.cid, 1); save(); paint(); return toastInfo(`Added <b>${esc(out[0].name)}</b>.`); }
     case 'rest': restInst(x); save(); paint(); return toastInfo(`${esc(x.name)} is fresh: full HP, conditions cleared, every use back.`);
     case 'movegrp': { const g = groupOf(iid), to = g.s.groups.find(z => z.id === b.dataset.gid); g.g.list = g.g.list.filter(z => z !== x); to.list.push(x); save(); paint(); return; }
@@ -1985,6 +2020,7 @@ function closeMenus() { $$('.dk-menu.open').forEach(m => m.classList.remove('ope
 function onChange(e) {
   const el = e.target; if (!ROOT.contains(el)) return;
   if (onNotesChange(el)) return;
+  if (el.dataset && el.dataset.qt) { QTYPE[el.dataset.qt] = el.value; return; }
   if (el.dataset && el.dataset.hbf) { hbReadForm(); return; }
   if (PB && onPasteChange(el)) return;
   if (el.classList.contains('dk-notef')) { const files = Array.from(el.files || []); el.value = ''; const s = curSession(); if (files.length && s) addFiles(s, files); return; }
@@ -2060,11 +2096,11 @@ function mount(root, ctx) {
   ROOT = root; CTX = Object.assign({ party: null, back: null }, ctx || {});
   root.classList.add('dk');
   // Phones: only a party's page is available (see LITE below); the Desk on its own isn't
-  if (!CTX.partyHost && innerWidth <= 640) { const b = CTX.back; root.innerHTML = `<div class="dk-nophone"><div class="dk-emblem">${ICON.folder}</div><h2>Not available on a phone</h2><p><em>Not all of the DM’s Desk is available on a phone. Open a party you run to manage it from here, or use a computer or tablet for everything else.</em></p>${b ? `<a class="dk-btn gold" href="${esc(b.href)}">${ICON.back}<span>${esc(b.label || 'Back')}</span></a>` : ''}</div>`; return { unmount: () => { root.innerHTML = ''; ROOT = null; } }; }
+  if (!CTX.partyHost && mobileDev()) { const b = CTX.back; root.innerHTML = `<div class="dk-nophone"><div class="dk-emblem">${ICON.folder}</div><h2>Not available on mobile devices</h2><p><em>Not all of the DM’s Desk is available on mobile devices. Open a party you run to manage it from here, or use a computer for everything else.</em></p>${b ? `<a class="dk-btn gold" href="${esc(b.href)}">${ICON.back}<span>${esc(b.label || 'Back')}</span></a>` : ''}</div>`; return { unmount: () => { root.innerHTML = ''; ROOT = null; } }; }
   root.innerHTML = `<header class="dk-top"></header><div class="dk-page"></div>
     <aside class="dk-log" aria-label="Roll log"><div class="dk-loghd"><h2>Roll log</h2><button class="dk-btn sm" data-act="clearlog">Clear</button><button class="dk-ix" data-act="log" aria-label="Close">${ICON.x}</button></div><div class="dk-loglist"></div></aside>
     <div class="dk-modal" role="presentation"><div class="dk-mcard" role="dialog" aria-modal="true"></div></div>
-    <div class="dk-toasts" aria-live="polite"></div><input type="file" class="dk-impf" accept=".json,application/json" hidden><input type="file" class="dk-imgf" accept="image/*" hidden><input type="file" class="dk-tokf" accept="image/*" hidden><input type="file" class="dk-nimgf" accept="image/*" hidden><input type="file" class="dk-mapf" accept="image/*" hidden><input type="file" class="dk-nimpf" accept=".lk,.md,.markdown,.txt,.html,.htm,.zip,.textpack,.json,image/*" multiple hidden><input type="file" class="dk-ndirf" webkitdirectory multiple hidden><div class="dk-auto" hidden></div><input type="file" class="dk-notef" accept=".pdf,.docx,.txt,.md,.markdown,text/plain,application/pdf" multiple hidden>`;
+    <div class="dk-toasts" aria-live="polite"></div><input type="file" class="dk-impf" accept=".json,application/json" hidden><input type="file" class="dk-imgf" accept="image/*" hidden><input type="file" class="dk-tokf" accept="image/*" hidden><input type="file" class="dk-nimgf" accept="image/*" hidden><input type="file" class="dk-mapf" accept="image/*" hidden><input type="file" class="dk-nimpf" accept=".docx,.lk,.md,.markdown,.txt,.html,.htm,.zip,.textpack,.json,image/*" multiple hidden><input type="file" class="dk-ndirf" webkitdirectory multiple hidden><div class="dk-auto" hidden></div><input type="file" class="dk-notef" accept=".pdf,.docx,.txt,.md,.markdown,text/plain,application/pdf" multiple hidden>`;
   const loc = lsGet(''); S = normalize(loc && loc.v ? loc : null);
   const u = lsGet('-ui'); if (u) UI = Object.assign(UI, u, { tree: false, log: false });
   UI.ptab = UI.ptab || {};
@@ -2077,7 +2113,7 @@ function mount(root, ctx) {
   if (readTurnHP()) S.savedAt = Date.now();
   setSync(CTX.fs ? 'Loading…' : 'Saved on this device');
   // Phones: a party you run opens on its party page only (roller, turn order, and a button to open the full Desk)
-  LITE = !!(CTX.partyHost && innerWidth <= 640); ROOT.classList.toggle('dk-lite', LITE); if (LITE) UI.tab = 'party';
+  LITE = !!(CTX.partyHost && mobileDev()); ROOT.classList.toggle('dk-lite', LITE); if (LITE) UI.tab = 'party';
   if (CTX.partyHost) { const slot = document.createElement('div'); slot.className = 'dk-partyslot'; root.insertBefore(slot, root.querySelector('.dk-page').nextSibling); slot.appendChild(CTX.partyHost); }
   render();
   try { const top = root.querySelector('.dk-top'), setH = () => root.style.setProperty('--toph', Math.round(top.getBoundingClientRect().height) + 'px'); setH(); if (window.ResizeObserver) { const ro = new ResizeObserver(setH); ro.observe(top); LISTEN.push([{ removeEventListener: () => ro.disconnect() }, 'x', null]); } } catch (e) {}
@@ -2094,11 +2130,14 @@ function mount(root, ctx) {
   return { unmount };
 }
 let LITE = false;
+// any phone or tablet (an iPad reports itself as a Mac, so it's told apart by its touch screen)
+function mobileDev() { try { const ua = navigator.userAgent || '';
+  return /Android|iPhone|iPad|iPod|Mobile|Silk|Kindle|Tablet/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) || (matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches); } catch (e) { return false; } }
 // Phones: a heads-up when a party you run opens, until "Don't show this again" is ticked
 function phoneWarn() {
   if (!ROOT || !LITE) return; try { if (localStorage.getItem('pg-party-phone-ok') === '1') return; } catch (e) {}
   if ($('.dk-modal.open')) return;
-  openModal(`<h2>Party page only</h2><p>Not all of the DM’s Desk is available on a phone. Here you have the party page, the dice roller and turn order; open this party on a computer or tablet for sessions, notes, the bestiary and the generators.</p><label class="dk-chk"><input type="checkbox" id="dk-pwNo"> Don’t show this again</label><div class="dk-acts"><button class="dk-btn gold" id="dk-pwOk">Got it</button></div>`, { cls: 'dk-small', focus: false });
+  openModal(`<h2>Party page only</h2><p>Not all of the DM’s Desk is available on mobile devices. Here you have the party page, the dice roller and turn order; open this party on a computer for sessions, notes, the bestiary and the generators.</p><label class="dk-chk"><input type="checkbox" id="dk-pwNo"> Don’t show this again</label><div class="dk-acts"><button class="dk-btn gold" id="dk-pwOk">Got it</button></div>`, { cls: 'dk-small', focus: false });
   const keep = () => { try { const c = $('#dk-pwNo'); if (c) { if (c.checked) localStorage.setItem('pg-party-phone-ok', '1'); else localStorage.removeItem('pg-party-phone-ok'); } } catch (e) {} };
   $('#dk-pwNo').onchange = keep; $('#dk-pwOk').onclick = () => { keep(); closeModal(true); };
 }
@@ -2553,7 +2592,9 @@ async function flushNotes() {
 async function notesBoot() {
   try { const l = JSON.parse(localStorage.getItem(lsKey('-notes')) || 'null'); if (l && l.pages) NT = { pages: l.pages, syncedAt: N(l.syncedAt), del: l.del || [] }; } catch (e) {}
   if (!CTX.fs || !CTX.EMAIL) return;
-  const base = CTX.fs.collection('desks').doc(CTX.EMAIL); NBASE = base.collection('notes'); IBASE = base.collection('imgs');
+  // (a party's desk keeps its own notes; pictures stay in one place for all your desks)
+  while (!BASE && ROOT) await new Promise(r => setTimeout(r, 50)); NBASE = deskBase().collection('notes'); IBASE = userBase().collection('imgs');
+  while (!CLOUD && ROOT && syncMsg !== 'Offline — saved on this device') await new Promise(r => setTimeout(r, 80)); // (after any move of an old desk)
   try {
     const qs = await NBASE.get(), cloud = {}; qs.docs.forEach(d => { const p = d.data().data; if (p && p.id) cloud[p.id] = p; });
     const merged = {};
@@ -3120,6 +3161,7 @@ async function commitImport(plan) {
 async function runImport(files) {
   files = Array.from(files || []); if (!files.length) return;
   const label = files.length === 1 ? files[0].name : (files[0].webkitRelativePath || '').split('/')[0] || plural(files.length, 'file');
+  if (files.length === 1 && /\.docx$/i.test(files[0].name)) return importDocx(files[0]);
   if (files.length === 1 && /\.(lk|json)$/i.test(files[0].name)) { try { const root = await readLkFile(files[0]); if (root) return importPreview(planLk(root, files[0].name), files[0].name); } catch (e) { if (/\.lk$/i.test(files[0].name)) return toast({ title: 'Couldn’t open that .lk file', det: esc(e.message || ''), cls: 'bad' }); } }
   toastInfo('Reading your files…', null, 'nimp');
   try { const entries = await collectEntries(files); if (!entries.some(e => e.text != null)) return toastInfo('No Markdown, HTML or backup files were found in that upload.'); const plan = await planImport(entries, label); if (!plan.pages.length) return toastInfo('Nothing to import there.'); importPreview(plan, label); }
@@ -3128,6 +3170,7 @@ async function runImport(files) {
 function openImport() {
   openModal(`<h2>Import notes</h2><p class="dk-hint">Bring in a wiki from another app. You’ll see what will be imported before anything is added.</p>
     <div class="dk-impgrid">
+      <button class="dk-impopt" data-imp="files"><b>Google Docs or Word</b><small>One document: each tab (or heading) becomes a page. In Google Docs: File → Download → Microsoft Word, with All tabs</small></button>
       <button class="dk-impopt" data-imp="files"><b>LegendKeeper project</b><small>The .lk file (Project settings → Export) — keeps names and order exactly</small></button>
       <button class="dk-impopt" data-imp="zip"><b>LegendKeeper</b><small>Its export .zip (Markdown or HTML)</small></button>
       <button class="dk-impopt" data-imp="zip"><b>Obsidian</b><small>Your vault as a .zip, or pick the vault folder below</small></button>
@@ -3303,6 +3346,108 @@ async function runLkImport(file) {
   const plan = planLk(root, file.name.replace(/\.(lk|json)$/i, ''));
   if (!plan.pages.length) return toastInfo('That project has no pages.', null, 'nimp');
   importPreview(plan, file.name);
+}
+// ---------- Google Docs / Word import: one document becomes a wiki, a page per tab (or per heading) ----------
+// Google Docs downloads every tab into one Word file; each tab starts on a new page. Here that file is split back into
+// pages, sessions are gathered into their own folder, and names of other pages are linked where they're mentioned.
+const DOCX_STYLES = ["br[type='page'] => hr.dk-pgbrk", "p[style-name='Title'] => h1.dk-ttl:fresh", "p[style-name='Subtitle'] => h2:fresh"];
+async function readDocx(f) {
+  await loadScript(LIBS.docx);
+  const r = await window.mammoth.convertToHtml({ arrayBuffer: await f.arrayBuffer() }, { styleMap: DOCX_STYLES });
+  return new DOMParser().parseFromString('<body>' + (r.value || '') + '</body>', 'text/html').body;
+}
+// the ways one document can be cut into pages, with how many pages each gives
+function docxSplits(body) {
+  const kids = [...body.children], n = s => kids.filter(k => k.matches(s)).length;
+  const brk = kids.filter(k => k.matches('hr.dk-pgbrk') || k.querySelector('hr.dk-pgbrk')).length;
+  return [['page', 'Tabs (each starts a new page)', brk ? brk + 1 : 0], ['title', 'Title-style lines', n('h1.dk-ttl')], ['h1', 'Heading 1', n('h1')], ['h2', 'Heading 2', n('h2')]].filter(o => o[2] >= 2);
+}
+function docxSections(body, how) {
+  const secs = []; let cur = null; const start = (title, head) => { cur = { title, nodes: [] }; secs.push(cur); if (head) cur.head = true; };
+  // a page break inside a list or table is moved to just after it so it can start a page
+  body.querySelectorAll('hr.dk-pgbrk').forEach(hr => { const p = hr.parentElement.closest('body > *'); if (p) p.after(hr); });
+  const isCut = k => how === 'page' ? k.matches('hr.dk-pgbrk') : how === 'title' ? k.matches('h1.dk-ttl') : k.matches(how);
+  start('', false);
+  for (const k of [...body.children]) {
+    if (isCut(k)) { if (how === 'page') start('', false); else { start(k.textContent.trim(), true); continue; } continue; }
+    cur.nodes.push(k);
+  }
+  return secs.map(s => {
+    let nodes = s.nodes.filter(k => !(k.matches('hr.dk-pgbrk')));
+    // a tab with no heading of its own: its first line names it
+    if (!s.title) { const i = nodes.findIndex(k => k.textContent.trim()); if (i >= 0 && nodes[i].textContent.trim().length <= 80) { s.title = nodes[i].textContent.trim(); nodes.splice(0, i + 1); } }
+    return { title: s.title.replace(/\s+/g, ' ').slice(0, 120), html: nodes.map(k => k.outerHTML).join('') };
+  }).filter(s => s.title || htmlText(s.html).trim() || /<img/i.test(s.html));
+}
+const SESS_RE = /^(session|sess\.?|episode|ep\.?|game|chapter|part|week)\s*#?\s*\d+/i;
+// first mention of another page's name becomes a link to it (headings and existing links are left alone)
+function autoLink(html, titles, self) {
+  const d = new DOMParser().parseFromString('<body>' + html + '</body>', 'text/html'), used = new Set([self.toLowerCase()]);
+  const list = titles.filter(t => t.length >= 3 && !SESS_RE.test(t) && t.toLowerCase() !== self.toLowerCase()).sort((a, b) => b.length - a.length);
+  if (!list.length) return html;
+  const walker = d.createTreeWalker(d.body, NodeFilter.SHOW_TEXT), texts = []; let t; while ((t = walker.nextNode())) if (!t.parentElement.closest('a,h1,h2,h3,h4,h5,h6')) texts.push(t);
+  for (const name of list) {
+    if (used.has(name.toLowerCase())) continue;
+    const re = new RegExp('(^|[^\\p{L}\\p{N}])(' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')(?![\\p{L}\\p{N}])', 'iu');
+    for (let i = 0; i < texts.length; i++) { const node = texts[i], m = re.exec(node.data); if (!m) continue;
+      const at = m.index + m[1].length, mid = node.splitText(at), rest = mid.splitText(m[2].length), a = d.createElement('a');
+      a.className = 'wl'; a.setAttribute('data-title', name); a.textContent = mid.data; mid.replaceWith(a); texts.splice(i + 1, 0, rest); used.add(name.toLowerCase()); break; }
+  }
+  return d.body.innerHTML;
+}
+function planDocx(body0, name, how, link) {
+  const body = body0.cloneNode(true), secs = docxSections(body, how), rootKey = '__root';
+  const root = { key: rootKey, title: name.replace(/\.docx$/i, '').replace(/_/g, ' ').trim(), parentKey: '', type: 'blank', html: '<p></p>', tags: [], props: {}, aliases: [], imgs: [] };
+  const pages = [root], seen = new Map();
+  // anything before the first tab or heading stays on the document's own page
+  if (secs.length && !secs[0].title) root.html = secs.shift().html || '<p></p>';
+  const sess = secs.filter(s => SESS_RE.test(s.title)); let sessKey = rootKey;
+  if (sess.length >= 2) { const w = SESS_RE.exec(sess[0].title)[1].replace(/\.$/, ''); const f = { key: 'f:sessions', title: (/^(sess|ep)$/i.test(w) ? (w.toLowerCase() === 'ep' ? 'Episode' : 'Session') : w[0].toUpperCase() + w.slice(1).toLowerCase()) + 's', parentKey: rootKey, type: 'blank', html: '<p></p>', tags: [], props: {}, aliases: [], imgs: [] }; pages.push(f); sessKey = f.key; }
+  const titles = secs.map(s => s.title).filter(Boolean);
+  secs.forEach((s, i) => { let t = s.title || 'Untitled'; const k = t.toLowerCase(); if (seen.has(k)) { seen.set(k, seen.get(k) + 1); t += ' (' + seen.get(k) + ')'; } else seen.set(k, 1);
+    const typ = typeFrom(t.split(/[\s:–—-]+/)[0]);
+    pages.push({ key: 'x:' + i, title: t, raw: s.html, parentKey: sess.length >= 2 && SESS_RE.test(s.title) ? sessKey : rootKey, type: typ || 'blank', html: prepHtml(link ? autoLink(s.html, titles, t) : s.html, '').html || '<p></p>', tags: [], props: {}, aliases: [], imgs: [] }); });
+  root.html = prepHtml(root.html, '').html || '<p></p>';
+  let found = 0; pages.forEach(p => p.html.replace(/data-inline="data:image\//g, m => { found++; return m; }));
+  return { pages, rootKey, images: new Map(), imgByBase: new Map(), unresolved: [], missing: [], found, docx: { how, link } };
+}
+async function importDocx(f) {
+  toastInfo('Reading ' + f.name + '…', null, 'nimp');
+  let body; try { body = await readDocx(f); } catch (e) { return toast({ title: 'Couldn’t read that document', det: esc(e.message || String(e)), cls: 'bad' }); }
+  const splits = docxSplits(body); let how = splits.length ? splits[0][0] : '', link = true;
+  // Word files from Google Docs don't carry tab names or which tab sits inside which, so each page's name and place can
+  // be fixed here before importing (kept while you switch how the document is cut, as long as the pages stay the same)
+  const ED = {};
+  const show = () => {
+    const plan = how ? planDocx(body, f.name, how, link) : planDocx(body, f.name, 'none', false);
+    plan.pages.forEach(p => { const e = ED[how + '|' + p.key]; if (!e) return; if (e.title != null) p.title = e.title; if (e.parentKey != null && plan.pages.some(q => q.key === e.parentKey)) p.parentKey = e.parentKey; });
+    importPreview(plan, f.name);
+    const tree = $('.dk-itree'); if (!tree) return;
+    const kidsOf = k => plan.pages.filter(p => p.key !== plan.rootKey && (p.parentKey || '') === k);
+    const flat = () => { const out = []; const root = plan.pages.find(p => p.key === plan.rootKey); if (root) out.push([root, 0]); const walk = (k, d) => kidsOf(k).forEach(p => { out.push([p, d]); walk(p.key, d + 1); }); walk(plan.rootKey, 1); return out; };
+    const relink = () => { if (!link) return; const titles = plan.pages.filter(p => p.raw != null).map(p => p.title).filter(Boolean); plan.pages.forEach(p => { if (p.raw != null) p.html = prepHtml(autoLink(p.raw, titles, p.title), '').html || '<p></p>'; }); };
+    const save = p => { ED[how + '|' + p.key] = { title: p.title, parentKey: p.parentKey }; };
+    const IC = d => `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
+    const paintTree = () => { const rows = flat();
+      tree.innerHTML = rows.map(([p, d], i) => { const isRoot = p.key === plan.rootKey, prev = rows.slice(0, i).reverse().find(r => r[1] === d), canIn = !isRoot && prev && prev[0].key !== plan.rootKey, canOut = !isRoot && d > 1;
+        return `<div class="dk-ipt dk-iped" style="--d:${d}" data-k="${esc(p.key)}">${nIcon(p.type || 'blank', '', p.color)}<input class="dk-iname" value="${esc(p.title)}" maxlength="120" aria-label="Page name">${isRoot ? '' : `<button type="button" class="dk-imv" data-mv="out" title="Move out a level" aria-label="Move out a level"${canOut ? '' : ' disabled'}>${IC('M15 18l-6-6 6-6')}</button><button type="button" class="dk-imv" data-mv="in" title="Put inside the page above" aria-label="Put inside the page above"${canIn ? '' : ' disabled'}>${IC('M9 18l6-6-6-6')}</button>`}</div>`; }).join('');
+      tree.querySelectorAll('.dk-iname').forEach(inp => { inp.onchange = () => { const p = plan.pages.find(q => q.key === inp.closest('[data-k]').dataset.k); if (!p) return; p.title = inp.value.replace(/\s+/g, ' ').trim().slice(0, 120) || 'Untitled'; inp.value = p.title; save(p); relink(); }; inp.onkeydown = e => { if (e.key === 'Enter') inp.blur(); }; });
+      tree.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => { const k = b.closest('[data-k]').dataset.k, p = plan.pages.find(q => q.key === k); if (!p) return; const rows = flat(), i = rows.findIndex(r => r[0] === p), d = rows[i][1];
+        if (b.dataset.mv === 'in') { const prev = rows.slice(0, i).reverse().find(r => r[1] === d); if (!prev) return; p.parentKey = prev[0].key; }
+        else { const par = plan.pages.find(q => q.key === p.parentKey); if (!par) return; p.parentKey = par.parentKey || plan.rootKey;
+          // it lands right after its old parent and everything inside it
+          const arr = plan.pages, from = arr.indexOf(p); arr.splice(from, 1); const sub = new Set([par.key]); let at = arr.indexOf(par) + 1; while (at < arr.length && sub.has(arr[at].parentKey)) { sub.add(arr[at].key); at++; } arr.splice(at, 0, p); }
+        save(p); paintTree(); }); };
+    paintTree();
+    const box = document.createElement('div'); box.className = 'dk-dxopts';
+    box.innerHTML = (splits.length ? `<label>New page at <select id="dk-dxhow">${splits.map(([k, l, n]) => `<option value="${k}"${k === how ? ' selected' : ''}>${esc(l)} — ${plural(n, 'page')}</option>`).join('')}</select></label>` : '<span class="dk-hint">No tabs or headings found, so it comes in as one page.</span>')
+      + `<label class="dk-dxlink"><input type="checkbox" id="dk-dxlink"${link ? ' checked' : ''}> Link page names where they’re mentioned</label>`
+      + '<p class="dk-hint dk-dxnote">Google Docs doesn’t put tab names in the Word file, so each page is named after its first line. Rename pages here, and use the arrows to put a page inside the one above it.</p>';
+    tree.before(box);
+    const s = $('#dk-dxhow'); if (s) s.onchange = () => { how = s.value; show(); };
+    $('#dk-dxlink').onchange = e => { link = e.target.checked; show(); };
+  };
+  show();
 }
 // ---------- Notes: clicks, typing, files ----------
 function openPage(id) { const p = pageById(id); if (!p) return; UI.np = id; UI.nview = ''; UI.tree = false; pathOf(p).forEach(x => { if (x.id !== id) UI.nopen[x.id] = true; }); saveUI(); paint(); scrollTo(0, 0); }

@@ -1354,3 +1354,11 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 .dk-dxopts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin: 0 0 10px; font-size: .88rem; }
 .dk-dxopts select { margin-left: 6px; max-width: 100%; }
 .dk-dxlink { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Word / Google Docs import: rename pages and nest them before importing */
+.dk-iped { gap: 6px; padding-top: 2px; padding-bottom: 2px; }
+.dk-iname { flex: 1; min-width: 0; height: 32px; padding: 0 9px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: inherit; font: inherit; font-size: .9rem; }
+.dk-iname:hover { border-color: var(--line2); } .dk-iname:focus { outline: none; border-color: var(--gold, #e0aa3a); background: var(--card, rgba(255,255,255,.04)); }
+.dk-imv { flex: none; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 8px; background: none; color: var(--soft); cursor: pointer; }
+.dk-imv:hover:not(:disabled) { background: rgba(255,255,255,.07); color: inherit; } .dk-imv:disabled { opacity: .25; cursor: default; }
+.dk-dxnote { flex-basis: 100%; margin: 0; }

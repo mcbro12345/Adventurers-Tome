@@ -3127,7 +3127,7 @@ function planDocx(body0, name, how, link) {
   const titles = secs.map(s => s.title).filter(Boolean);
   secs.forEach((s, i) => { let t = s.title || 'Untitled'; const k = t.toLowerCase(); if (seen.has(k)) { seen.set(k, seen.get(k) + 1); t += ' (' + seen.get(k) + ')'; } else seen.set(k, 1);
     const typ = typeFrom(t.split(/[\s:–—-]+/)[0]);
-    pages.push({ key: 'x:' + i, title: t, parentKey: sess.length >= 2 && SESS_RE.test(s.title) ? sessKey : rootKey, type: typ || 'blank', html: prepHtml(link ? autoLink(s.html, titles, t) : s.html, '').html || '<p></p>', tags: [], props: {}, aliases: [], imgs: [] }); });
+    pages.push({ key: 'x:' + i, title: t, raw: s.html, parentKey: sess.length >= 2 && SESS_RE.test(s.title) ? sessKey : rootKey, type: typ || 'blank', html: prepHtml(link ? autoLink(s.html, titles, t) : s.html, '').html || '<p></p>', tags: [], props: {}, aliases: [], imgs: [] }); });
   root.html = prepHtml(root.html, '').html || '<p></p>';
   let found = 0; pages.forEach(p => p.html.replace(/data-inline="data:image\//g, m => { found++; return m; }));
   return { pages, rootKey, images: new Map(), imgByBase: new Map(), unresolved: [], missing: [], found, docx: { how, link } };
@@ -3136,13 +3136,34 @@ async function importDocx(f) {
   toastInfo('Reading ' + f.name + '…', null, 'nimp');
   let body; try { body = await readDocx(f); } catch (e) { return toast({ title: 'Couldn’t read that document', det: esc(e.message || String(e)), cls: 'bad' }); }
   const splits = docxSplits(body); let how = splits.length ? splits[0][0] : '', link = true;
+  // Word files from Google Docs don't carry tab names or which tab sits inside which, so each page's name and place can
+  // be fixed here before importing (kept while you switch how the document is cut, as long as the pages stay the same)
+  const ED = {};
   const show = () => {
     const plan = how ? planDocx(body, f.name, how, link) : planDocx(body, f.name, 'none', false);
+    plan.pages.forEach(p => { const e = ED[how + '|' + p.key]; if (!e) return; if (e.title != null) p.title = e.title; if (e.parentKey != null && plan.pages.some(q => q.key === e.parentKey)) p.parentKey = e.parentKey; });
     importPreview(plan, f.name);
     const tree = $('.dk-itree'); if (!tree) return;
+    const kidsOf = k => plan.pages.filter(p => p.key !== plan.rootKey && (p.parentKey || '') === k);
+    const flat = () => { const out = []; const root = plan.pages.find(p => p.key === plan.rootKey); if (root) out.push([root, 0]); const walk = (k, d) => kidsOf(k).forEach(p => { out.push([p, d]); walk(p.key, d + 1); }); walk(plan.rootKey, 1); return out; };
+    const relink = () => { if (!link) return; const titles = plan.pages.filter(p => p.raw != null).map(p => p.title).filter(Boolean); plan.pages.forEach(p => { if (p.raw != null) p.html = prepHtml(autoLink(p.raw, titles, p.title), '').html || '<p></p>'; }); };
+    const save = p => { ED[how + '|' + p.key] = { title: p.title, parentKey: p.parentKey }; };
+    const IC = d => `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
+    const paintTree = () => { const rows = flat();
+      tree.innerHTML = rows.map(([p, d], i) => { const isRoot = p.key === plan.rootKey, prev = rows.slice(0, i).reverse().find(r => r[1] === d), canIn = !isRoot && prev && prev[0].key !== plan.rootKey, canOut = !isRoot && d > 1;
+        return `<div class="dk-ipt dk-iped" style="--d:${d}" data-k="${esc(p.key)}">${nIcon(p.type || 'blank', '', p.color)}<input class="dk-iname" value="${esc(p.title)}" maxlength="120" aria-label="Page name">${isRoot ? '' : `<button type="button" class="dk-imv" data-mv="out" title="Move out a level" aria-label="Move out a level"${canOut ? '' : ' disabled'}>${IC('M15 18l-6-6 6-6')}</button><button type="button" class="dk-imv" data-mv="in" title="Put inside the page above" aria-label="Put inside the page above"${canIn ? '' : ' disabled'}>${IC('M9 18l6-6-6-6')}</button>`}</div>`; }).join('');
+      tree.querySelectorAll('.dk-iname').forEach(inp => { inp.onchange = () => { const p = plan.pages.find(q => q.key === inp.closest('[data-k]').dataset.k); if (!p) return; p.title = inp.value.replace(/\s+/g, ' ').trim().slice(0, 120) || 'Untitled'; inp.value = p.title; save(p); relink(); }; inp.onkeydown = e => { if (e.key === 'Enter') inp.blur(); }; });
+      tree.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => { const k = b.closest('[data-k]').dataset.k, p = plan.pages.find(q => q.key === k); if (!p) return; const rows = flat(), i = rows.findIndex(r => r[0] === p), d = rows[i][1];
+        if (b.dataset.mv === 'in') { const prev = rows.slice(0, i).reverse().find(r => r[1] === d); if (!prev) return; p.parentKey = prev[0].key; }
+        else { const par = plan.pages.find(q => q.key === p.parentKey); if (!par) return; p.parentKey = par.parentKey || plan.rootKey;
+          // it lands right after its old parent and everything inside it
+          const arr = plan.pages, from = arr.indexOf(p); arr.splice(from, 1); const sub = new Set([par.key]); let at = arr.indexOf(par) + 1; while (at < arr.length && sub.has(arr[at].parentKey)) { sub.add(arr[at].key); at++; } arr.splice(at, 0, p); }
+        save(p); paintTree(); }); };
+    paintTree();
     const box = document.createElement('div'); box.className = 'dk-dxopts';
     box.innerHTML = (splits.length ? `<label>New page at <select id="dk-dxhow">${splits.map(([k, l, n]) => `<option value="${k}"${k === how ? ' selected' : ''}>${esc(l)} — ${plural(n, 'page')}</option>`).join('')}</select></label>` : '<span class="dk-hint">No tabs or headings found, so it comes in as one page.</span>')
-      + `<label class="dk-dxlink"><input type="checkbox" id="dk-dxlink"${link ? ' checked' : ''}> Link page names where they’re mentioned</label>`;
+      + `<label class="dk-dxlink"><input type="checkbox" id="dk-dxlink"${link ? ' checked' : ''}> Link page names where they’re mentioned</label>`
+      + '<p class="dk-hint dk-dxnote">Google Docs doesn’t put tab names in the Word file, so each page is named after its first line. Rename pages here, and use the arrows to put a page inside the one above it.</p>';
     tree.before(box);
     const s = $('#dk-dxhow'); if (s) s.onchange = () => { how = s.value; show(); };
     $('#dk-dxlink').onchange = e => { link = e.target.checked; show(); };
