@@ -3956,7 +3956,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261025104255', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.0873ba4e5685.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.baefa62c8977.html", "desk": "a/desk.6908bf1eb993.js", "deskcss": "a/deskcss.790def38c94e.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261025104631', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.0873ba4e5685.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.baefa62c8977.html", "desk": "a/desk.6908bf1eb993.js", "deskcss": "a/deskcss.790def38c94e.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -4142,7 +4142,7 @@ function wireDie(root) {
   const EMAIL = (user.email || '').toLowerCase(), IS_OWNER = user.uid === OWNER_UID;
   let IS_ADMIN = IS_OWNER, ADMINS = [];
   try { const a = await fs.collection('config').doc('admins').get(); ADMINS = ((a.exists && a.data().emails) || []).map(x => String(x).toLowerCase()); if (ADMINS.includes(EMAIL)) IS_ADMIN = true; } catch (e) {}
-  const doSignOut = () => Promise.resolve(window.pgLog && (lsSet('pg-off:' + EMAIL, JSON.stringify({ at: Date.now(), why: 'signout', last: window.pgSeenAt || 0 })), pgLog('signout'))).then(() => auth.signOut()).then(() => pgGo(PRETTY ? '/login' : location.href, true));
+  const doSignOut = () => Promise.resolve(window.pgLog && (lsSet('pg-off:' + EMAIL, JSON.stringify({ at: Date.now(), why: 'signout', last: window.pgSeenAt || 0 })), pgLog('signout'))).then(() => { window.__pgOut = true; return auth.signOut(); }).then(() => { try { localStorage.removeItem('pg-kicked'); } catch (e) {} pgGo(PRETTY ? '/login' : location.href, true); });
   // Signing out always asks first.
   const signOut = () => {
     if (document.querySelector('.pg-out')) return;
@@ -4223,7 +4223,8 @@ function wireDie(root) {
   // An admin can sign someone out of every device, or block them. Checked now and whenever their account record changes.
   let AUTHAT = 0; try { AUTHAT = Date.parse((await user.getIdTokenResult()).authTime) || 0; } catch (e) {}
   const kicked = d => d && (d.banned === true ? 'This account has been blocked. If you think this is a mistake, contact adventurerstome@googlegroups.com.' : (Number(d.revokedAt) || 0) > AUTHAT ? 'You’ve been signed out.' : '');
-  const kick = msg => { lsSet('pg-kicked', msg); auth.signOut().then(() => pgGo(PRETTY ? '/login' : location.href, true)); };
+  // (signing yourself out also cuts off the account record for a moment: that isn't being signed out by someone else)
+  const kick = msg => { if (window.__pgOut) return; window.__pgOut = true; lsSet('pg-kicked', msg); auth.signOut().then(() => pgGo(PRETTY ? '/login' : location.href, true)); };
   // (when the database refuses even their own account record, an admin has signed them out or blocked them)
   const LOCKED = 'You’ve been signed out.';
   { const k0 = kicked(ME); if (k0) { kick(k0); return; } if (ACCT_ERR === 'permission-denied') { kick(''); return; } }  // only an admin's sign-out or a block says why

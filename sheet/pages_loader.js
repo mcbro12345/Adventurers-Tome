@@ -814,7 +814,7 @@ function wireDie(root) {
   const EMAIL = (user.email || '').toLowerCase(), IS_OWNER = user.uid === OWNER_UID;
   let IS_ADMIN = IS_OWNER, ADMINS = [];
   try { const a = await fs.collection('config').doc('admins').get(); ADMINS = ((a.exists && a.data().emails) || []).map(x => String(x).toLowerCase()); if (ADMINS.includes(EMAIL)) IS_ADMIN = true; } catch (e) {}
-  const doSignOut = () => Promise.resolve(window.pgLog && (lsSet('pg-off:' + EMAIL, JSON.stringify({ at: Date.now(), why: 'signout', last: window.pgSeenAt || 0 })), pgLog('signout'))).then(() => auth.signOut()).then(() => pgGo(PRETTY ? '/login' : location.href, true));
+  const doSignOut = () => Promise.resolve(window.pgLog && (lsSet('pg-off:' + EMAIL, JSON.stringify({ at: Date.now(), why: 'signout', last: window.pgSeenAt || 0 })), pgLog('signout'))).then(() => { window.__pgOut = true; return auth.signOut(); }).then(() => { try { localStorage.removeItem('pg-kicked'); } catch (e) {} pgGo(PRETTY ? '/login' : location.href, true); });
   // Signing out always asks first.
   const signOut = () => {
     if (document.querySelector('.pg-out')) return;
@@ -895,7 +895,8 @@ function wireDie(root) {
   // An admin can sign someone out of every device, or block them. Checked now and whenever their account record changes.
   let AUTHAT = 0; try { AUTHAT = Date.parse((await user.getIdTokenResult()).authTime) || 0; } catch (e) {}
   const kicked = d => d && (d.banned === true ? 'This account has been blocked. If you think this is a mistake, contact adventurerstome@googlegroups.com.' : (Number(d.revokedAt) || 0) > AUTHAT ? 'You’ve been signed out.' : '');
-  const kick = msg => { lsSet('pg-kicked', msg); auth.signOut().then(() => pgGo(PRETTY ? '/login' : location.href, true)); };
+  // (signing yourself out also cuts off the account record for a moment: that isn't being signed out by someone else)
+  const kick = msg => { if (window.__pgOut) return; window.__pgOut = true; lsSet('pg-kicked', msg); auth.signOut().then(() => pgGo(PRETTY ? '/login' : location.href, true)); };
   // (when the database refuses even their own account record, an admin has signed them out or blocked them)
   const LOCKED = 'You’ve been signed out.';
   { const k0 = kicked(ME); if (k0) { kick(k0); return; } if (ACCT_ERR === 'permission-denied') { kick(''); return; } }  // only an admin's sign-out or a block says why
