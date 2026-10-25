@@ -3362,7 +3362,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024210415', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.9bf6d2d63d11.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.6d485758a6ed.html", "desk": "a/desk.0cb91ca90853.js", "deskcss": "a/deskcss.77a5595d7caa.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024210937', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.9bf6d2d63d11.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.6d485758a6ed.html", "desk": "a/desk.0cb91ca90853.js", "deskcss": "a/deskcss.77a5595d7caa.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -4840,9 +4840,9 @@ function hub(fs, auth, G, ctx) {
         if (bd.getAnimations) bd.getAnimations().forEach(x => x.cancel());
         if (PG_CALM || !bd.animate) { s.classList.toggle('folded', !!FOLD[k]); if (!FOLD[k]) tileFit(s); return; }
         const ease = 'cubic-bezier(.3,.7,.2,1)';
-        if (FOLD[k]) { const h = bd.offsetHeight; bd.style.overflow = 'hidden'; s.classList.add('folding'); const an = bd.animate([{ height: h + 'px', opacity: 1 }, { height: '0px', opacity: 0 }], { duration: 260, easing: ease });
+        if (FOLD[k]) { const h = bd.offsetHeight; bd.style.overflow = 'hidden'; s.classList.add('folding'); const mb = -(parseFloat(getComputedStyle(s.querySelector('.hd-h')).marginBottom) || 0), an = bd.animate([{ height: h + 'px', opacity: 1, marginTop: '0px' }, { height: '0px', opacity: 0, marginTop: mb + 'px' }], { duration: 260, easing: ease });
           an.onfinish = () => { bd.style.overflow = ''; s.classList.remove('folding'); s.classList.add('folded'); }; }
-        else { s.classList.remove('folded'); tileFit(s); const h = bd.offsetHeight; bd.style.overflow = 'hidden'; const an = bd.animate([{ height: '0px', opacity: 0 }, { height: h + 'px', opacity: 1 }], { duration: 300, easing: ease }); an.onfinish = an.oncancel = () => { bd.style.overflow = ''; }; } });
+        else { s.classList.remove('folded'); tileFit(s); const h = bd.offsetHeight; bd.style.overflow = 'hidden'; const mb = -(parseFloat(getComputedStyle(s.querySelector('.hd-h')).marginBottom) || 0), an = bd.animate([{ height: '0px', opacity: 0, marginTop: mb + 'px' }, { height: h + 'px', opacity: 1, marginTop: '0px' }], { duration: 300, easing: ease }); an.onfinish = an.oncancel = () => { bd.style.overflow = ''; }; } });
       root.querySelectorAll('[data-more]').forEach(b => b.onclick = () => { MORE[b.dataset.more] = !MORE[b.dataset.more]; tileCaps(); });
       tileFit(root); tileCaps(); }
     else { newBtn(); wireA2HS(root); root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => switchView(b.dataset.view)); placeInd(false); placeTrack(false); skelRestore(); }

@@ -2105,9 +2105,9 @@ function hub(fs, auth, G, ctx) {
         if (bd.getAnimations) bd.getAnimations().forEach(x => x.cancel());
         if (PG_CALM || !bd.animate) { s.classList.toggle('folded', !!FOLD[k]); if (!FOLD[k]) tileFit(s); return; }
         const ease = 'cubic-bezier(.3,.7,.2,1)';
-        if (FOLD[k]) { const h = bd.offsetHeight; bd.style.overflow = 'hidden'; s.classList.add('folding'); const an = bd.animate([{ height: h + 'px', opacity: 1 }, { height: '0px', opacity: 0 }], { duration: 260, easing: ease });
+        if (FOLD[k]) { const h = bd.offsetHeight; bd.style.overflow = 'hidden'; s.classList.add('folding'); const mb = -(parseFloat(getComputedStyle(s.querySelector('.hd-h')).marginBottom) || 0), an = bd.animate([{ height: h + 'px', opacity: 1, marginTop: '0px' }, { height: '0px', opacity: 0, marginTop: mb + 'px' }], { duration: 260, easing: ease });
           an.onfinish = () => { bd.style.overflow = ''; s.classList.remove('folding'); s.classList.add('folded'); }; }
-        else { s.classList.remove('folded'); tileFit(s); const h = bd.offsetHeight; bd.style.overflow = 'hidden'; const an = bd.animate([{ height: '0px', opacity: 0 }, { height: h + 'px', opacity: 1 }], { duration: 300, easing: ease }); an.onfinish = an.oncancel = () => { bd.style.overflow = ''; }; } });
+        else { s.classList.remove('folded'); tileFit(s); const h = bd.offsetHeight; bd.style.overflow = 'hidden'; const mb = -(parseFloat(getComputedStyle(s.querySelector('.hd-h')).marginBottom) || 0), an = bd.animate([{ height: '0px', opacity: 0, marginTop: mb + 'px' }, { height: h + 'px', opacity: 1, marginTop: '0px' }], { duration: 300, easing: ease }); an.onfinish = an.oncancel = () => { bd.style.overflow = ''; }; } });
       root.querySelectorAll('[data-more]').forEach(b => b.onclick = () => { MORE[b.dataset.more] = !MORE[b.dataset.more]; tileCaps(); });
       tileFit(root); tileCaps(); }
     else { newBtn(); wireA2HS(root); root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => switchView(b.dataset.view)); placeInd(false); placeTrack(false); skelRestore(); }
