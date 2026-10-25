@@ -658,6 +658,16 @@ function kitItems() {
 }
 function renderWizard() {
   if (!W) return;
+  // Redrawing the same step (after any pick) never moves your scroll: remember every scrolling box and put it back
+  const keepKey = W.step + '|' + (W.part || ''), keepSame = W._keepKey === keepKey; W._keepKey = keepKey;
+  const KS = ['#wizard', '#wizard .wz-box', '#wizard .wz3-wrap', '#wizard .wz3-main', '#wizard .wz-body', '#wizard .wz3-side'];
+  const keep = keepSame ? KS.map(q => { const e = $(q); return e ? e.scrollTop : 0; }) : null, keepWin = keepSame ? [scrollX, scrollY] : null;
+  try { renderWizard0(); } finally {
+    if (keep) { const put = () => { KS.forEach((q, i) => { const e = $(q); if (e && keep[i] && e.scrollTop !== keep[i]) e.scrollTop = keep[i]; }); if (keepWin && (scrollY !== keepWin[1])) window.scrollTo(keepWin[0], keepWin[1]); };
+      put(); requestAnimationFrame(put); }
+  }
+}
+function renderWizard0() {
   const st = W.step;
   let body = '';
   if (st === 0) {
@@ -771,10 +781,13 @@ function renderWizard() {
     if (W.method === 'array' || W.method === 'roll') { if (AB.some(a => W.base[a] === '')) probs.push('Assign all ability scores'); }
     const todo = wzUnanswered();
     wzClassChoiceDefs().forEach(d => { const op = DND.options[d.def.type]; if (!op) return; const r = W.classes.find(x => x.key === d.cls) || {}; (W.ans[d.id] || []).forEach(v => { const e = op.list.find(x => x[0] === v); const no = e && optPrereq(e[2], { CH: W.ans, cls: d.cls, level: N(r.level), sub: r.sub }); if (no) probs.push(`${v} ${no}`); }); });
-    body = `<div class="wz-review"><p><b>${esc(W.name || 'Unnamed hero')}</b> — ${esc(x ? x.name : '?')} ${esc(wzClassRows().map(r => CL[r.key].name + ' ' + r.level + (r.sub ? ' (' + CL[r.key].subclasses[r.sub].name + ')' : '')).join(' / '))}${b ? ' · ' + esc(b.name) : ''}</p>
+    const P = window.wzHeader ? wzPreview() : null;
+    const todoH = `${todo.length ? `<div class="wz-todo"><b>Still to choose:</b><ul>${todo.map(t => `<li>${esc(t.label)} <button class="linkbtn" data-wact="go" data-v="${t.step}">Choose</button></li>`).join('')}</ul><span class="hint">You can create now and finish these later ${todo.every(t => t.step === 6) ? 'from the <b>Spells</b> tab' : todo.some(t => t.step === 6) ? 'from the <b>Spells</b> tab and <b>Settings → Unfinished choices</b>' : 'from <b>Settings → Unfinished choices</b>'}.</span></div>` : ''}
+      ${probs.length ? `<p class="warn">${probs.map(esc).join(' · ')}</p>` : todo.length ? '' : '<p>Everything is set. You can change anything later — scores, skills, spells and items are all editable on the sheet.</p>'}`;
+    if (P) body = `<div class="wz-review wz3-rv">${todoH}${P}</div>`;
+    else body = `<div class="wz-review"><p><b>${esc(W.name || 'Unnamed hero')}</b> — ${esc(x ? x.name : '?')} ${esc(wzClassRows().map(r => CL[r.key].name + ' ' + r.level + (r.sub ? ' (' + CL[r.key].subclasses[r.sub].name + ')' : '')).join(' / '))}${b ? ' · ' + esc(b.name) : ''}</p>
       <div class="abrow">${(() => { const fin = wzFinalScores(sc); return AB.map(a => `<span><span class="lbl">${AB3[a]}</span><b>${fin[a]}</b> ${fmt(Math.floor((fin[a] - 10) / 2))}${fin[a] !== sc[a] ? `<small class="hint"> (${sc[a]} +${fin[a] - sc[a]})</small>` : ''}</span>`).join(''); })()}</div>
-      ${todo.length ? `<div class="wz-todo"><b>Still to choose:</b><ul>${todo.map(t => `<li>${esc(t.label)} <button class="linkbtn" data-wact="go" data-v="${t.step}">Choose</button></li>`).join('')}</ul><span class="hint">You can create now and finish these later ${todo.every(t => t.step === 6) ? 'from the <b>Spells</b> tab' : todo.some(t => t.step === 6) ? 'from the <b>Spells</b> tab and <b>Settings → Unfinished choices</b>' : 'from <b>Settings → Unfinished choices</b>'}.</span></div>` : ''}
-      ${probs.length ? `<p class="warn">${probs.map(esc).join(' · ')}</p>` : todo.length ? '' : '<p>Everything is set. You can change anything later — scores, skills, spells and items are all editable on the sheet.</p>'}
+      ${todoH}
       <p class="hint">Scores include racial bonuses, Ability Score Improvements and half-feats.</p></div>`;
   }
   const sums = wz3Sums(), VS = wz3Steps(), vi = wz3Cur(VS), V = VS[vi] || { label: WSTEPS[st] }, last = vi === VS.length - 1;
@@ -1133,6 +1146,60 @@ function buildCharacter() {
   const x = wzRace(), rows = wzClassRows();
   if (!x || !rows.length) { toast('Choose at least a race and a class.', 'fumble'); W.step = !x ? 1 : 2; renderWizard(); return; }
   if (wzTotalLevel() > 20) { toast('Total level can be at most 20.', 'fumble'); W.step = 2; renderWizard(); return; }
+  wzBuildState();
+  S.created = true; S.notes = [{ date: new Date().toISOString().slice(0, 10), title: 'Character created', text: `${S.name}: ${S.raceName} ${classLabel()}${S.backgroundName ? ', ' + S.backgroundName : ''}.` }];
+  closeWizard();
+  LAST = snapAll(); HIST = []; REDO = [];
+  pendingLabel = 'Create character'; writeLocal(); save();
+  if (S.portrait) matchPortrait(false);
+  applyTheme(); applyLayout(); render();
+  toast(`<div><b>${esc(S.name)}</b> is ready!<div class="det">Everything auto-saves in this browser. Use <b>Save ▾ → Download</b> to keep a copy or share it.</div></div>`, 'crit', 10000);
+}
+// Review: build the character for real (into a scratch copy) and show everything it will have
+function wzPreview() {
+  if (!wzRace() || !wzClassRows().length) return null;
+  const keep = S; let h = '';
+  try {
+    wzBuildState();
+    const ed = (st, label) => `<button class="linkbtn wz3-rved" data-wact="go" data-v="${st}" aria-label="Change ${esc(label)}">Change</button>`;
+    const sec = (ic, title, sub, st, inner) => `<section class="wz3-fs"><header>${ic}<div><b>${esc(title)}</b>${sub ? `<span>${esc(sub)}</span>` : ''}</div>${st != null ? ed(st, title) : ''}</header>${inner}</section>`;
+    const facts = arr => `<div class="wz3-facts">${arr.filter(Boolean).map(([k, v]) => `<span><small>${esc(k)}</small>${esc(String(v))}</span>`).join('')}</div>`;
+    const chips = arr => arr.length ? `<div class="wz3-chips">${arr.map(v => `<i>${esc(v)}</i>`).join('')}</div>` : '<p class="hint">None</p>';
+    const sens = (typeof sensesText === 'function' ? sensesText() : '') || '';
+    // who
+    h += sec(WZI.steps[0], S.name, [S.raceName, classLabel(), S.backgroundName, S.alignment].filter(Boolean).join(' · '), 0,
+      facts([['Hit points', maxHp()], ['Armor Class', acTotal()], ['Initiative', fmt(initVal())], ['Speed', speedInfo().walk + ' ft'], ['Proficiency', fmt(PB())], ['Passive Perception', passive()], sens ? ['Senses', sens] : null]));
+    // scores and saves
+    const fin = AB.map(a => [a, score(a)]);
+    h += sec(WZI.steps[3], 'Ability scores', 'Racial bonuses, Ability Score Improvements and half-feats included', 3,
+      `<div class="wz3-rvab">${fin.map(([a, v]) => `<span><small>${AB3[a]}</small><b>${v}</b><i>${fmt(mod(a))}</i></span>`).join('')}</div>
+      <p class="wz3-rvh">Saving throws</p><div class="wz3-rvsv">${AB.map(a => `<span class="${S.saves[a] ? 'on' : ''}"><small>${ABN[a]}</small><b>${fmt(mod(a) + (S.saves[a] ? PB() : 0))}</b></span>`).join('')}</div>`);
+    // skills
+    const fe = fxList('skillExp'), fp = fxList('skillProf');
+    const sk = S.skills.map(k => { let p = N(k.prof); if (fe.includes(k.name)) p = Math.max(p, 2); else if (fp.includes(k.name)) p = Math.max(p, 1); return [k, p]; }).filter(([, p]) => p > 0);
+    h += sec(WZI.opts, 'Skills', sk.length + ' proficient', null, sk.length ? `<div class="wz3-rvsk">${sk.map(([k, p]) => `<span><b>${esc(k.name)}</b>${p > 1 ? ' <small>expertise</small>' : ''}<i>${fmt(skillVal(k))}</i></span>`).join('')}</div>` : '<p class="hint">None yet</p>');
+    // proficiencies
+    h += sec(WZI.shield, 'Proficiencies and languages', '', null,
+      `<p class="wz3-rvh">Armor</p>${chips(String(S.profArmor || '').split(/,\s*/).filter(Boolean))}<p class="wz3-rvh">Weapons</p>${chips(String(S.profWeapons || '').split(/,\s*/).filter(Boolean))}<p class="wz3-rvh">Tools</p>${chips(S.tools.map(t => t.name))}<p class="wz3-rvh">Languages</p>${chips(S.langs)}`);
+    // features and feats
+    const fs = (S.features || []).filter(f => f && f.name), by = {};
+    fs.forEach(f => { const g = f.source || 'Other'; (by[g] = by[g] || []).push(f); });
+    h += sec(WZI.feats, 'Features and feats', fs.length + ' features' + (S.feats.length ? `, ${S.feats.length} feat${S.feats.length > 1 ? 's' : ''}` : ''), 9,
+      `${S.feats.length ? `<p class="wz3-rvh">Feats</p>${chips(S.feats)}` : ''}${Object.entries(by).map(([g, l]) => `<p class="wz3-rvh">${esc(g)}</p><ul class="wz3-fl">${l.map(f => `<li><b>${esc(f.dname || f.name)}</b>${f.desc ? `<span>${esc(String(f.desc).split('\n')[0])}</span>` : ''}</li>`).join('')}</ul>`).join('')}`);
+    // spells
+    if (S.spells.length) { const lv = {}; S.spells.forEach(sp => { (lv[N(sp.level)] = lv[N(sp.level)] || []).push(sp.name); });
+      h += sec(WZI.steps[6] || WZI.opts, 'Spells', S.spells.length + ' known or prepared', 6, Object.keys(lv).sort((a, b) => a - b).map(l => `<p class="wz3-rvh">${l === '0' ? 'Cantrips' : ORD[N(l) - 1] + ' level'}</p>${chips(lv[l])}`).join('')); }
+    // equipment
+    const inv = (S.inventory || []).filter(it => it && it.name), cur = S.currency || {}, coin = ['pp', 'gp', 'ep', 'sp', 'cp'].filter(k => N(cur[k])).map(k => N(cur[k]) + ' ' + k);
+    h += sec(WZI.pack, 'Equipment', (inv.length ? inv.length + ' items' : 'No items') + (coin.length ? ', ' + coin.join(' ') : ''), 7,
+      inv.length ? `<div class="wz3-rvinv">${inv.map(it => `<span class="${it.equipped ? 'on' : ''}">${esc(it.name)}${N(it.qty) > 1 ? ` <i>×${N(it.qty)}</i>` : ''}${it.equipped ? ' <small>equipped</small>' : ''}</span>`).join('')}</div>` : '<p class="hint">Starting gold only</p>');
+  } catch (e) { console.warn('review preview', e); h = ''; }
+  finally { S = keep; }
+  return h || null;
+}
+// Everything the wizard makes, built into S (used to create the character, and to preview it on Review)
+function wzBuildState() {
+  const x = wzRace(), rows = wzClassRows();
   const sc = wzScores();
   S = migrate(Object.assign(blankState(), { dataRev: EMBED.dataRev || '', layout: S.layout || {} }));
   S.sources = W.sources.slice();
@@ -1204,13 +1271,6 @@ function buildCharacter() {
   S.combat = defaultCombat();
   rebuildAuto();
   S.hp.cur = maxHp();
-  S.created = true; S.notes = [{ date: new Date().toISOString().slice(0, 10), title: 'Character created', text: `${S.name}: ${S.raceName} ${classLabel()}${S.backgroundName ? ', ' + S.backgroundName : ''}.` }];
-  closeWizard();
-  LAST = snapAll(); HIST = []; REDO = [];
-  pendingLabel = 'Create character'; writeLocal(); save();
-  if (S.portrait) matchPortrait(false);
-  applyTheme(); applyLayout(); render();
-  toast(`<div><b>${esc(S.name)}</b> is ready!<div class="det">Everything auto-saves in this browser. Use <b>Save ▾ → Download</b> to keep a copy or share it.</div></div>`, 'crit', 10000);
 }
 
 

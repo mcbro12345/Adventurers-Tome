@@ -13,7 +13,7 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.7962e83de74c.css">
+<link rel="stylesheet" href="a/sheet.ceb46afab710.css">
 <link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="You’re invited to join a party on Adventurer’s Tome."><meta property="og:type" content="website"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="You’re invited to join a party"><meta property="og:description" content="Pick a character, or make a new one, and join your DM’s game on Adventurer’s Tome."><meta property="og:url" content="https://adventurers-tome.web.app/join/"><meta property="og:image" content="https://adventurers-tome.web.app/og-invite.png?v=2"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="2400"><meta property="og:image:height" content="1260"><meta property="og:image:alt" content="A party invitation on Adventurer’s Tome"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-tour.png?v=3"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest"><script>var t="dark";try{if(localStorage.getItem("pg-theme")==="light")t="light"}catch(e){}document.documentElement.setAttribute("data-pgtheme",t)</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
@@ -3216,6 +3216,38 @@ html:not(.mobile) :is(.hub-logo, .dk-logo):not(.pg-signin .hub-logo):active { tr
 .adm-brand .hub-logo { transform-origin: center; }
 @media (prefers-reduced-motion: reduce) { :is(.hub-logo, .dk-logo) { transition: none !important; } }
 html:not(.mobile) .dk-logo .hub-logo:hover { transform: none; filter: none; }
+/* admin panel: the logo still grows on hover, but nothing highlights or changes colour */
+html:not(.mobile) .adm-brand .hub-logo:hover, html:not(.mobile) .adm-brand .hub-logo:active { filter: none !important; }
+.adm-brand:hover, .adm-brand:focus, .adm-brand:active { background: transparent !important; box-shadow: none !important; color: inherit !important; outline: none; }
+.adm-brand:focus-visible { outline: 2px solid #c9962b; outline-offset: 2px; }
+/* Phones: inner scrolling lists pass the scroll on to the page when they reach their end */
+html.pg-touch :is(.hub-pane, .pw, .adm-main, #wizard) :is(.wz3-cards, .wz3-list, .crlist, .au-opts, .to-dkl, .au-pills) { overscroll-behavior-y: auto !important; }
+.adm-brand, .adm-brand * { -webkit-tap-highlight-color: transparent; }
+/* Review: the whole character, section by section */
+#wizard .wz3 .wz3-rv .wz3-fs header { position: relative; }
+#wizard .wz3 .wz3-rv .wz3-fs header > div { flex: 1; min-width: 0; }
+#wizard .wz3 .wz3-rved { flex: none; margin-left: auto; font-weight: 700; color: #e0aa3a; }
+#wizard .wz3 .wz3-rvh { margin: 14px 0 6px; font: 700 .78rem system-ui, sans-serif; color: var(--wc-dim); }
+#wizard .wz3 .wz3-rvh:first-child { margin-top: 0; }
+#wizard .wz3 .wz3-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+#wizard .wz3 .wz3-chips i { font-style: normal; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--wc-edge2); background: rgba(255,255,255,.03); font-size: .88rem; overflow-wrap: anywhere; }
+#wizard .wz3 .wz3-rvab { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+#wizard .wz3 .wz3-rvab span { display: grid; justify-items: center; gap: 2px; padding: 10px 4px; border: 1px solid var(--wc-edge2); border-radius: 14px; background: rgba(255,255,255,.03); }
+#wizard .wz3 .wz3-rvab small { font: 700 .72rem system-ui, sans-serif; color: var(--wc-dim); }
+#wizard .wz3 .wz3-rvab b { font: 700 1.5rem Georgia, serif; color: var(--wc-head); line-height: 1.1; }
+#wizard .wz3 .wz3-rvab i { font-style: normal; font-weight: 700; color: #e0aa3a; font-size: .9rem; }
+#wizard .wz3 .wz3-rvsv, #wizard .wz3 .wz3-rvsk { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+#wizard .wz3 .wz3-rvsv span, #wizard .wz3 .wz3-rvsk span { display: flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 10px; border: 1px solid var(--wc-edge2); min-width: 0; }
+#wizard .wz3 .wz3-rvsv span small { flex: 1; font-size: .86rem; color: var(--wc-dim); }
+#wizard .wz3 .wz3-rvsv span.on { border-color: rgba(224,170,58,.55); background: rgba(224,170,58,.08); } #wizard .wz3 .wz3-rvsv span.on small { color: inherit; font-weight: 700; }
+#wizard .wz3 .wz3-rvsk span b { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; } #wizard .wz3 .wz3-rvsk small { color: #e0aa3a; font-size: .74rem; }
+#wizard .wz3 .wz3-rvsk i, #wizard .wz3 .wz3-rvsv b { font-style: normal; font-weight: 700; }
+#wizard .wz3 .wz3-rvinv { display: flex; flex-wrap: wrap; gap: 6px; }
+#wizard .wz3 .wz3-rvinv span { padding: 6px 10px; border-radius: 10px; border: 1px solid var(--wc-edge2); font-size: .9rem; overflow-wrap: anywhere; }
+#wizard .wz3 .wz3-rvinv span.on { border-color: rgba(224,170,58,.55); } #wizard .wz3 .wz3-rvinv small { color: #e0aa3a; font-size: .74rem; } #wizard .wz3 .wz3-rvinv i { font-style: normal; color: var(--wc-dim); }
+#wizard .wz3 .wz3-rv > .wz-todo, #wizard .wz3 .wz3-rv > .warn, #wizard .wz3 .wz3-rv > p { margin: 0 0 16px; }
+html.mobile #wizard .wz3 .wz3-rvab { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 560px) { #wizard .wz3 .wz3-rvab { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 </style>
 </head>
 <body>
@@ -3889,7 +3921,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261025005654', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.da0c34544d31.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.57190d032e02.html", "desk": "a/desk.9db34bf9f5aa.js", "deskcss": "a/deskcss.7ad502b4708e.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261025011759', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.fc3e1df9f07e.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.19ceeac49929.html", "desk": "a/desk.9db34bf9f5aa.js", "deskcss": "a/deskcss.7ad502b4708e.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }

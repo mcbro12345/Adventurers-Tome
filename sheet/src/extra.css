@@ -3608,3 +3608,6 @@ html.mobile #modal-body:has(#catq) { width: 100%; height: min(calc(100dvh - 24px
 #wizard .chsel:has(> .wz3-pick) { display: block; }
 #modal-body .wz3-chpick, #wizard .wz3-chpick, #modal-body .lvx-subs { max-width: 760px; }
 #modal-body .wz3-chpick .wz3-list, #wizard .wz3-chpick .wz3-list { width: 100%; }
+/* Phones: a list or box scrolling inside the page, a window or the wizard hands the scroll on when it reaches its
+   top or bottom (the page or window itself still stops at its own edge, so nothing behind it moves) */
+html.mobile :is(section.page, #modal-body, .wz-body, #wizard .wz3-main, #wizard .wz3-side) * { overscroll-behavior-y: auto !important; }
