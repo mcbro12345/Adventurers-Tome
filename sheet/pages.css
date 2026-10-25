@@ -3021,3 +3021,14 @@ html.mobile #wizard .wz3 .wz3-cards:has(.wic) { grid-template-columns: 1fr; }
 #wizard .wz3 .wz-step.maybe { opacity: .5; } #wizard .wz3 .wz-step.maybe .wz-st { font-style: italic; }
 html.mobile #wizard .wz3 .wz-step.maybe::after { opacity: .35; background-image: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 7px); }
 #wizard .wz3 .fld:has(> select[data-wz="sub"]) { display: none !important; }
+/* Features step: a panel for the race and one for the class, the facts as small tiles, the features as a divided list */
+#wizard .wz3 .wz3-fs { margin: 0 0 16px; padding: 18px 20px; border: 1px solid var(--wc-edge); border-radius: 18px; background: var(--wc-card); box-shadow: 0 8px 22px rgba(0,0,0,.2); animation: wz3In .3s ease both; }
+#wizard .wz3 .wz3-fs + .wz3-fs { animation-delay: .08s; }
+#wizard .wz3 .wz3-fs header { display: flex; align-items: center; gap: 12px; padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--wc-edge2); }
+#wizard .wz3 .wz3-fs header > svg { flex: none; width: 24px; height: 24px; padding: 10px; box-sizing: content-box; border-radius: 12px; background: rgba(224,170,58,.12); color: #e0aa3a; }
+#wizard .wz3 .wz3-fs header b { display: block; font: 700 1.2rem Georgia, serif; color: var(--wc-head); } #wizard .wz3 .wz3-fs header span { color: var(--wc-dim); font-size: .82rem; }
+#wizard .wz3 .wz3-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-bottom: 12px; }
+#wizard .wz3 .wz3-facts span { padding: 8px 12px; border-radius: 12px; background: var(--wc-tile); font-size: .88rem; font-weight: 600; overflow-wrap: anywhere; } #wizard .wz3 .wz3-facts small { display: block; color: var(--wc-gold2); font-size: .72rem; font-weight: 700; margin-bottom: 2px; }
+#wizard .wz3 .wz3-fl { list-style: none; margin: 0; padding: 0; } #wizard .wz3 .wz3-fl li { display: grid; gap: 2px; padding: 10px 2px; border-top: 1px solid var(--wc-edge2); }
+#wizard .wz3 .wz3-fl li b { font-size: .95rem; } #wizard .wz3 .wz3-fl li span { color: var(--wc-dim); font-size: .86rem; line-height: 1.45; }
+html.mobile #wizard .wz3 .wz3-fs { padding: 14px; } html.mobile #wizard .wz3 .wz3-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }

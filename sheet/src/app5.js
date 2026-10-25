@@ -668,9 +668,9 @@ function renderWizard() {
     if (x && !pickOnly) {
       const r = x.r, s = x.s, tr = (s.replaceTraits ? [] : r.traits || []).concat(s.traits || []);
       const sp = (r.spells || []).concat(s.spells || []);
-      body += `<div class="wz-info"><p><b>${esc(x.name)}</b> · ${esc(s.size || r.size || 'Medium')} · speed ${s.speed || r.speed || 30} ft${(s.fly || r.fly) ? ', fly ' + (s.fly || r.fly) : ''}${(s.swim || r.swim) ? ', swim ' + (s.swim || r.swim) : ''}${(s.darkvision || r.darkvision) ? ' · darkvision ' + (s.darkvision || r.darkvision) + ' ft' : ''} · ${esc(DND.sources[s.src || r.src] || '')}</p>
+      body += `<div class="wz-info">${split ? '' : `<p><b>${esc(x.name)}</b> · ${esc(s.size || r.size || 'Medium')} · speed ${s.speed || r.speed || 30} ft${(s.fly || r.fly) ? ', fly ' + (s.fly || r.fly) : ''}${(s.swim || r.swim) ? ', swim ' + (s.swim || r.swim) : ''}${(s.darkvision || r.darkvision) ? ' · darkvision ' + (s.darkvision || r.darkvision) + ' ft' : ''} · ${esc(DND.sources[s.src || r.src] || '')}</p>
         <p><b>Languages:</b> ${esc(wzRaceLangs().join(', ') || '—')}${wzRaceChoices().some(c => c.type === 'language') ? ' + your choice below' : ''}</p>
-        <ul>${tr.map(t => `<li><b>${esc(t[0])}</b> — ${esc(t[1])}</li>`).join('')}${sp.map(z => `<li><b>${esc(z[1])}</b> at level ${z[0]} — ${esc(z[2])}</li>`).join('')}</ul>
+        <ul>${tr.map(t => `<li><b>${esc(t[0])}</b> — ${esc(t[1])}</li>`).join('')}${sp.map(z => `<li><b>${esc(z[1])}</b> at level ${z[0]} — ${esc(z[2])}</li>`).join('')}</ul>`}
         ${typeof (s.asiReplace ? s.asi : r.asi) === 'object' ? `<label class="checkline"><input type="checkbox" data-wz="tasha"${W.tasha ? ' checked' : ''}> Customize origin (Tasha's): move this race's ability increases to any scores</label>` : ''}
         ${wzRaceAsiUI()}
         ${wzRaceChoices().map((c, k) => choiceUI(W.ans, 'race.' + k, c)).join('')}</div>`;
@@ -686,6 +686,8 @@ function renderWizard() {
         ${c && c.sub.level <= 1 ? fld(c.sub.label, `<select class="f" data-wzc="${i}" data-f="sub"><option value="">— choose —</option>${bookSort(Object.entries(c.subclasses), ([, v]) => v.src, ([, v]) => v.name).map(([k, s]) => `<option value="${k}"${r.sub === k ? ' selected' : ''}>${esc(s.name)}${s.src !== 'PHB' ? ' (' + s.src + ')' : ''}</option>`).join('')}</select>`) : c ? `<span class="hint">${esc(c.sub.label)} at level ${c.sub.level}</span>` : ''}</div>
         ${c ? `<p class="hint">d${c.hd} Hit Dice · saves ${c.saves.map(a => AB3[a]).join(', ')} · ${esc(c.armor)} · ${esc(c.weapons)}</p>` : ''}
         ${c && r.sub && c.subclasses[r.sub] ? `<p class="hint">${esc(c.subclasses[r.sub].features.filter(f => f[0] <= 1).map(f => f[1]).join(' · '))}</p>` : ''}</div>`; }).join('')}`;
+  } else if (st === 9) {
+    body = wz3Features();
   } else if (st === 3) {
     const rb = wzRacialBonus(), sc = wzScores();
     const methods = [['pointbuy', 'Point buy'], ['array', 'Standard array'], ['roll', 'Roll 4d6'], ['manual', 'Enter scores']];
@@ -768,7 +770,7 @@ function renderWizard() {
   }
   const sums = wz3Sums(), VS = wz3Steps(), vi = wz3Cur(VS), V = VS[vi] || { label: WSTEPS[st] }, last = vi === VS.length - 1;
   $('#wizard').innerHTML = `<div class="wz-box wz3">${typeof window.wzHeader === 'function' ? window.wzHeader() : ''}<div class="wz3-wrap"><aside class="wz3-side">${wz3Hero()}
-      <div class="wz-head"><h2>Create your character</h2><div class="wz-steps">${VS.map((v, i) => { const sm = v.part === 'opts' ? sums.sub : sums[v.st]; return `<button class="wz-step${i === vi ? ' on' : ''}${i < vi ? ' done' : ''}${v.maybe && i !== vi ? ' maybe' : ''}" data-wact="vgo" data-v="${i}" aria-label="Step ${i + 1}: ${esc(v.label)}${v.maybe ? ' (only if needed)' : ''}"${v.maybe ? ` title="Only if your ${v.st === 1 ? 'race' : 'class'} needs it"` : ''}><span class="wz-sn">${i < vi ? '✓' : i + 1}</span><span class="wz3-si" aria-hidden="true">${v.part === 'opts' ? WZI.opts : WZI.steps[v.st] || ''}</span><span class="wz-st">${esc(v.label)}</span>${sm && i !== vi ? `<small class="wz3-sum">${esc(sm)}</small>` : ''}</button>`; }).join('')}</div><div class="wz-now">Step ${vi + 1} of ${VS.some(v => v.maybe) ? 'up to ' : ''}${VS.length}<b>${esc(V.label)}</b></div></div></aside>
+      <div class="wz-head"><h2>Create your character</h2><div class="wz-steps">${VS.map((v, i) => { const sm = v.part === 'opts' ? sums.sub : sums[v.st]; return `<button class="wz-step${i === vi ? ' on' : ''}${i < vi ? ' done' : ''}${v.maybe && i !== vi ? ' maybe' : ''}" data-wact="vgo" data-v="${i}" aria-label="Step ${i + 1}: ${esc(v.label)}${v.maybe ? ' (only if needed)' : ''}"${v.maybe ? ` title="Only if your ${v.st === 1 ? 'race' : 'class'} needs it"` : ''}><span class="wz-sn">${i < vi ? '✓' : i + 1}</span><span class="wz3-si" aria-hidden="true">${v.part === 'opts' ? WZI.opts : v.st === 9 ? WZI.feats : WZI.steps[v.st] || ''}</span><span class="wz-st">${esc(v.label)}</span>${sm && i !== vi ? `<small class="wz3-sum">${esc(sm)}</small>` : ''}</button>`; }).join('')}</div><div class="wz-now">Step ${vi + 1} of ${VS.some(v => v.maybe) ? 'up to ' : ''}${VS.length}<b>${esc(V.label)}</b></div></div></aside>
     <div class="wz3-main"><div class="wz-body"><h3>${esc(V.label)}</h3>${body}</div></div></div>
     <div class="wz-foot">${vi > 0 ? '<button class="btn" data-wact="back">Back</button>' : ''}<span class="wz3-prog" aria-hidden="true"><i style="width:${Math.round((vi + 1) / VS.length * 100)}%"></i></span><small class="wz3-of">Step ${vi + 1} of ${VS.some(v => v.maybe) ? 'up to ' : ''}${VS.length}</small>${!last ? `<button class="btn gold" data-wact="next">Next<span class="wz3-nx">: ${esc(VS[vi + 1].label)}</span></button>` : '<button class="btn gold" data-wact="create">Create character</button>'}</div></div>`;
   { const g = $('#wizard .wz3-cards .sel'); if (g && g.parentElement) g.parentElement.scrollTop = Math.max(0, g.offsetTop - g.parentElement.offsetTop - 60); }
@@ -826,6 +828,7 @@ if (!window.__wz3) { window.__wz3 = 1;
 
 const WZI = (() => { const I = d => `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
   return { steps: [I('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'), I('<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"/>'), I('<path d="M14.5 17.5 3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2"/>'), I('<path d="M3 20h18M6 16V9M10 16V5M14 16v-6M18 16V7"/>'), I('<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/>'), I('<path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8L3.5 9.2l5.9-.9z"/>'), I('<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="3"/>'), I('<path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>'), I('<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>')],
+    feats: I('<path d="M6 3h12v18l-6-4-6 4z"/>'),
     opts: I('<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>'),
     ddb: I('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/>'), file: I('<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>'), coin: I('<circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10.5c0-1 1-1.5 2.5-1.5s2.5.6 2.5 1.5-1 1.3-2.5 1.5-2.5.6-2.5 1.5 1 1.5 2.5 1.5 2.5-.5 2.5-1.5"/>'),
     pack: I('<path d="M6 7h12l1 13H5z"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/>'), sword: I('<path d="M14.5 17.5 3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2"/>'), shield: I('<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/>'), item: I('<path d="M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.7z"/>'), dice: I('<rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1.2"/><circle cx="15.5" cy="15.5" r="1.2"/><circle cx="12" cy="12" r="1.2"/>') }; })();
@@ -895,13 +898,26 @@ function wz3Steps() {
   const L = [{ st: 0, label: 'Start' }, { st: 1, part: 'pick', label: 'Race' }];
   // (until the race or class is picked, the steps it might need stay in the list, marked as maybe, so the count only ever goes down)
   if (ro) L.push({ st: 1, part: 'opts', label: 'Race options', maybe: !x });
-  L.push({ st: 2, label: 'Class' }, { st: 3, label: 'Abilities' }, { st: 4, label: 'Background' });
+  L.push({ st: 2, label: 'Class' }); L.push({ st: 9, label: 'Features' }); L.push({ st: 3, label: 'Abilities' }, { st: 4, label: 'Background' });
   if (co) L.push({ st: 5, label: 'Class options', maybe: noCls }); if (sp) L.push({ st: 6, label: 'Spells', maybe: noCls });
   L.push({ st: 7, label: 'Equipment' }, { st: 8, label: 'Review' });
   return L;
 }
 function wz3Cur(VS) { let i = VS.findIndex(v => v.st === W.step && (v.st !== 1 || (v.part === 'opts') === (W.part === 'opts'))); if (i < 0) i = VS.findIndex(v => v.st >= W.step); return i < 0 ? 0 : i; }
 function wz3Move(d) { const VS = wz3Steps(), v = VS[Math.max(0, Math.min(VS.length - 1, wz3Cur(VS) + d))]; W.step = v.st; W.part = v.part || ''; }
+// Everything your race and class give you at level 1, to read through (nothing to choose here)
+function wz3Features() {
+  const x = wzRace(), row = W.classes && W.classes[0], c = row && CL[row.key]; let h = '';
+  if (x) { const r = x.r, s = x.s, tr = (s.replaceTraits ? [] : r.traits || []).concat(s.traits || []), sp = (r.spells || []).concat(s.spells || []);
+    const facts = [['Size', s.size || r.size || 'Medium'], ['Speed', (s.speed || r.speed || 30) + ' ft' + ((s.fly || r.fly) ? ', fly ' + (s.fly || r.fly) + ' ft' : '') + ((s.swim || r.swim) ? ', swim ' + (s.swim || r.swim) + ' ft' : '')], (s.darkvision || r.darkvision) ? ['Darkvision', (s.darkvision || r.darkvision) + ' ft'] : null, ['Languages', (wzRaceLangs().join(', ') || '—') + (wzRaceChoices().some(q => q.type === 'language') ? ' + one of your choice' : '')]].filter(Boolean);
+    h += `<section class="wz3-fs"><header>${WZI.steps[1]}<div><b>${esc(x.name)}</b><span>${esc(DND.sources[s.src || r.src] || '')}</span></div></header><div class="wz3-facts">${facts.map(([k, v]) => `<span><small>${k}</small>${esc(v)}</span>`).join('')}</div>
+      ${tr.length || sp.length ? `<ul class="wz3-fl">${tr.map(t => `<li><b>${esc(t[0])}</b><span>${esc(t[1])}</span></li>`).join('')}${sp.map(z => `<li><b>${esc(z[1])}</b><span>From level ${z[0]}: ${esc(z[2])}</span></li>`).join('')}</ul>` : ''}</section>`; }
+  if (c) { const sub = row.sub && c.subclasses[row.sub], f1 = (c.features || []).filter(f => f[0] <= 1).concat(sub ? sub.features.filter(f => f[0] <= 1) : []);
+    const facts = [['Hit die', 'd' + c.hd], ['Saving throws', c.saves.map(a => ABN[a]).join(', ')], ['Armor', c.armor || 'None'], ['Weapons', c.weapons || '—']].concat(c.tools ? [['Tools', Array.isArray(c.tools) ? c.tools.join(', ') : c.tools]] : []);
+    h += `<section class="wz3-fs"><header>${wz3ClassIcon(row.key)}<div><b>${esc(c.name)} 1${sub ? ` · ${esc(sub.name)}` : ''}</b><span>${esc(DND.sources[c.src] || c.src || '')}</span></div></header><div class="wz3-facts">${facts.map(([k, v]) => `<span><small>${k}</small>${esc(v)}</span>`).join('')}</div>
+      ${f1.length ? `<ul class="wz3-fl">${f1.map(f => `<li><b>${esc(f[1])}</b><span>${esc(f[2] || '')}</span></li>`).join('')}</ul>` : ''}${c.sub && c.sub.level > 1 ? `<p class="hint">${esc(c.sub.label)} comes at level ${c.sub.level}, with Level Up on the sheet.</p>` : ''}</section>`; }
+  return h || '<p class="hint">Pick a race and a class first.</p>';
+}
 function asiModeClick(b) {
   const inWz = !!b.closest('#wizard'), inP = !!b.closest('#pendm') && PEND, CH = inWz ? W.ans : inP ? PEND.ans : LV ? LV.ans : null; if (!CH) return;
   CH[b.dataset.asimode] = [b.dataset.v];
