@@ -2973,8 +2973,8 @@ html.mobile #wizard .wz3 .wz3-two { grid-template-columns: 1fr; } html.mobile #w
 @keyframes wz3In { from { opacity: 0; transform: translateY(6px); } }
 #wizard .wz3 .wz3-card.sel, #wizard .wz3 .wz3-way.on { animation: wz3Pop .32s ease; }
 #wizard .wz3 .wz3-card.sel::after, #wizard .wz3 .wz3-item:has(input:checked) .wz3-tick::after { animation: wz3In .2s ease; }
-#wizard .wz3.enter .wz3-cards > .wz3-card { animation: wz3In .25s ease both; }
-#wizard .wz3 .wz3-cards > .wz3-card:nth-child(n+13) { animation: none; }
+#wizard .wz3.enter .wz3-cards > .wz3-card { animation: wz3In .3s ease both; animation-delay: calc(var(--i, 0) * 18ms); }
+
 #wizard .wz3 .wz3-card:active, #wizard .wz3 .wz3-item:active { transform: scale(.98); }
 @media (prefers-reduced-motion: reduce) { #wizard .wz3 *, #wizard .wz3 *::after { animation: none !important; transition: none !important; } }
 #wizard .wz3 .wz3-item:has(input:not(:checked)) { opacity: .45; }
