@@ -13,7 +13,7 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.57b625b5e2a2.css">
+<link rel="stylesheet" href="a/sheet.7962e83de74c.css">
 <link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:type" content="video.other"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="Adventurer’s Tome"><meta property="og:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:url" content="https://adventurers-tome.web.app/"><meta property="og:image" content="https://adventurers-tome.web.app/og-tour.png?v=3"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1280"><meta property="og:image:height" content="720"><meta property="og:image:alt" content="Adventurer’s Tome: D&amp;D 5e sheets that do the math"><meta property="og:video" content="https://www.youtube.com/embed/uilS5NDWiGk"><meta property="og:video:url" content="https://www.youtube.com/embed/uilS5NDWiGk"><meta property="og:video:secure_url" content="https://www.youtube.com/embed/uilS5NDWiGk"><meta property="og:video:type" content="text/html"><meta property="og:video:width" content="1280"><meta property="og:video:height" content="720"><link rel="alternate" type="application/json+oembed" href="https://adventurers-tome.web.app/oembed.json?v=4" title="Adventurer’s Tome"><meta name="twitter:card" content="player"><meta name="twitter:player" content="https://www.youtube.com/embed/uilS5NDWiGk"><meta name="twitter:player:width" content="1280"><meta name="twitter:player:height" content="720"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-tour.png?v=3"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest"><script>var t="dark";try{if(localStorage.getItem("pg-theme")==="light")t="light"}catch(e){}document.documentElement.setAttribute("data-pgtheme",t)</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
@@ -3206,6 +3206,8 @@ html.mobile #wizard .wz3 .wz-step.maybe::after { opacity: .35; background-image:
 #wizard .wz3 .wz3-fl li b { font-size: .95rem; } #wizard .wz3 .wz3-fl li span { color: var(--wc-dim); font-size: .86rem; line-height: 1.45; }
 html.mobile #wizard .wz3 .wz3-fs { padding: 14px; } html.mobile #wizard .wz3 .wz3-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 #wizard .wz3 .wz3-fnote { margin: -4px 0 10px; }
+/* folding a folder: the caret turns back as it starts closing */
+body.hubbody .hub-folder.hf-closing .hf-caret { transform: none !important; }
 </style>
 </head>
 <body>
@@ -3879,7 +3881,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261025001908', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.bf03794ec220.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.1f9aee6bb779.html", "desk": "a/desk.9db34bf9f5aa.js", "deskcss": "a/deskcss.7ad502b4708e.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261025005403', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.da0c34544d31.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.57190d032e02.html", "desk": "a/desk.9db34bf9f5aa.js", "deskcss": "a/deskcss.7ad502b4708e.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -5386,6 +5388,16 @@ function hub(fs, auth, G, ctx) {
       tileFit(root); tileCaps(); }
     else { newBtn(); wireA2HS(root); root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => switchView(b.dataset.view)); placeInd(false); placeTrack(false); skelRestore(); }
     root.querySelector('#me-acct').onclick = e => { e.stopPropagation(); acctMenu(e.currentTarget, D); };
+    // Folders of shared characters fold and unfold smoothly instead of snapping
+    root.querySelectorAll('details.hub-folder > summary').forEach(sm => sm.addEventListener('click', e => {
+      const d = sm.parentElement, body = d.querySelector(':scope > .hf-body'); if (!body || !body.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      e.preventDefault(); if (d._anim) { d._anim.cancel(); d._anim = null; } body.style.overflow = 'hidden';
+      const done = () => { body.style.overflow = ''; d.classList.remove('hf-closing'); d._anim = null; };
+      if (d.open && !d.classList.contains('hf-closing')) { const h = body.offsetHeight; d.classList.add('hf-closing');
+        const a = d._anim = body.animate([{ height: h + 'px', opacity: 1 }, { height: '0px', opacity: 0 }], { duration: 240, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' }); a.onfinish = () => { d.open = false; a.cancel(); done(); }; }
+      else { d.classList.remove('hf-closing'); d.open = true; const h = body.offsetHeight;
+        const a = d._anim = body.animate([{ height: '0px', opacity: 0, transform: 'translateY(-6px)' }, { height: h + 'px', opacity: 1, transform: 'none' }], { duration: 300, easing: 'cubic-bezier(.2,.8,.2,1)' }); a.onfinish = done; }
+    }));
     root.querySelectorAll('details.hub-folder').forEach(d => d.addEventListener('toggle', () => { open[d.dataset.k] = d.open; ls.set(OPEN, JSON.stringify(open)); if (d.open && D) tileFit(d); }));
     root.querySelectorAll('.hc-dots').forEach(b => b.onclick = e => { e.stopPropagation(); const w = b.parentElement, on = !w.classList.contains('on'); root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')); w.classList.toggle('on', on); });
     root.querySelectorAll('.hc-list [data-a]').forEach(b => b.onclick = () => { const c = chars.find(x => x.id === b.dataset.id); b.closest('.hc-menu').classList.remove('on'); if (!c) return;

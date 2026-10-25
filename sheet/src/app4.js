@@ -228,6 +228,15 @@ function mainClick(e) {
     case 'addcr': addCreature(N(b.dataset.n)); break;
     case 'addclasscomp': openClassCompanions(); break;
     case 'addcc': addClassCompanion(b.dataset.n); break;
+    case 'compmode': { const c = S.companions[i]; if (!c) return; c.mode = b.dataset.v; pendingLabel = c.name + ': ' + c.mode; if ($('#cmodem')) closeModal(true); save(); render(); refresh(); break; }
+    case 'compswitch': openCompSwitch(i); pendingLabel = null; return;
+    case 'compswitchgo': { const c = S.companions[i]; if (!c) return; const how = b.dataset.how, v = $('#cmodem input[name=cmv]:checked');
+      if (!v) { toast('Pick the new type first.'); pendingLabel = null; return; }
+      if (S.inCombat && S.turn) { S.turn.used = S.turn.used || {}; const col = how === 'action' ? 'action' : 'bonus';
+        if (S.turn.used[col]) { toast(`You already used your ${col === 'action' ? 'action' : 'bonus action'} this turn.`, 'fumble'); pendingLabel = null; return; }
+        S.turn.used[col] = true; }
+      c.mode = v.value; c.switched = true; pendingLabel = 'Switch ' + c.name + ' to ' + c.mode; closeModal(true); save(); render(); refresh();
+      toast(how === 'action' ? `<b>${esc(c.name)}</b> is now a ${esc(c.mode)} — your bonus action is still free to fire it.` : `<b>${esc(c.name)}</b> is now a ${esc(c.mode)} — it can fire on your next turn.`, '', 6000, { label: 'Undo', fn: () => undo(1) }); break; }
     case 'dismiss': { const c = S.companions[i]; S.companions.splice(i, 1); if (c.tmpl && COMP_RULES[c.tmpl] && COMP_RULES[c.tmpl].perm) S.compOff = Object.assign({}, S.compOff, { [c.tmpl]: true }); pendingLabel = 'Dismiss ' + c.name; if (c.effect && !S.companions.some(x => x.effect === c.effect) && AUTO(c.effect).summon) { S.effects = S.effects.filter(x => x.name !== c.effect); if (S.concentration === c.effect) S.concentration = ''; } save(); render(); toast(`${esc(c.name)} dismissed.`, '', 5000, { label: 'Undo', fn: () => undo(1) }); break; }
     case 'comphp': compHp(i, N(b.dataset.d), b); break;
     case 'bagmove': $$('.menu.open').forEach(m => m.classList.remove('open')); bagMoveTo(b.dataset.id, b.dataset.to); pendingLabel = null; return;
@@ -354,7 +363,7 @@ function mainClick(e) {
     case 'r20check2': r20Hello(); setTimeout(() => { if (R20.ok) { toast('Extension connected — pick your game in Settings → Dice.'); openSettings('dice'); } else toast('Not connected yet. Reload this sheet after loading the extension, then check again.', 'fumble', 7000); }, 700); return;
     case 'r20refresh': R20._asked = true; r20Refresh(); return;
     case 'r20test': { const r = d20('Test roll', 0, 'check', 'dex'); return; }
-    case 'lvcls': LV.cls = b.dataset.k; LV.sub = ''; renderLevelUp(); pendingLabel = null; return;
+    case 'lvcls': LV.cls = b.dataset.k; LV.sub = ''; LV.extraSub = ''; renderLevelUp(); pendingLabel = null; return;
   }
 }
 const ACTL = { skillprof: 'Skill proficiency', add: 'Add entry', del: 'Remove entry', up: 'Reorder list', econ: 'Toggle action used', move: 'Movement', round: 'Change round', newturn: 'Next turn', endcombat: 'End combat', resetturn: 'Reset turn', spendhd: 'Spend Hit Die', 'confirm-short': 'Short rest', 'confirm-long': 'Long rest', equip: 'Equip / unequip', filter: 'Spell filter', acauto: 'AC automatic', deathsave: 'Death save', endform: 'Revert form' };
@@ -507,6 +516,15 @@ function creatureRoll(who, j, what) {
   const src = who === 'form' ? S.form : S.companions[N(who.slice(1))];
   if (!src) return; const a = (src.attacks || [])[j]; if (!a) return;
   const nm = src.name + ' · ' + actName(a), kind = actKind(a);
+  // Activating an Eldritch Cannon takes your bonus action (at 15th level one bonus action works both cannons)
+  { const cr = who !== 'form' && src.tmpl && COMP_RULES[src.tmpl];
+    if (cr && cr.bonusAct && S.inCombat && S.turn && (what === 'both' || what === 'eff')) {
+      const t = S.turn; t.used = t.used || {}; t.commanded = t.commanded || {};
+      const mine = S.companions.filter(x => x.tmpl === src.tmpl && t.commanded[x.id]);
+      if (t.commanded[src.id]) { toast(`${esc(src.name)} has already been activated this turn.`, 'fumble'); return; }
+      if (t.used.bonus && !(cr.bonusTwo && cr.bonusTwo() && mine.length)) { toast('You already used your bonus action this turn.', 'fumble'); return; }
+      t.used.bonus = true; t.commanded = Object.assign({}, t.commanded, { [src.id]: true }); update(); render('combat'); refresh();
+    } }
   // Actions with limited uses per day (a[8]), e.g. the Steel Defender's Repair 3/day
   if (N(a[8]) > 0 && who !== 'form') { const u = N((src.used || {})[a[0]]); if (u >= N(a[8])) { toast(`${esc(src.name)} has no ${esc(actName(a))} uses left — they come back after a long rest.`, 'fumble'); return; } src.used = Object.assign({}, src.used, { [a[0]]: u + 1 }); save(); render(); }
   if (what === 'eff' || (what === 'both' && kind !== 'attack')) {
@@ -1290,6 +1308,19 @@ function openClassCompanions() {
     <div class="crlist">${list.map(n => { const c = compStats(n), r = COMP_RULES[n]; return `<div class="crrow"><div><b>${esc(n)}</b> <span class="hint">AC ${c.ac} · HP ${c.hp} · ${esc(c.speed)}${r.feature ? ' · uses ' + esc(r.feature) : ''}</span><div class="hint">${esc(c.attacks.map(z => `${z[0]} ${z[1] === '' ? '' : fmt(N(z[1]))} ${z[2]}`).join('; '))} · ${esc(c.notes)}</div></div><button class="btn sm gold" data-act="addcc" data-n="${esc(n)}">Add</button></div>`; }).join('')}</div>
     <div class="actions"><button class="btn" data-act="close">Done</button></div>`, null, true);
 }
+function openCompSwitch(i) {
+  const c = S.companions[i], r = c && COMP_RULES[c.tmpl]; if (!r || !r.modes) return;
+  const f = (S.features || []).find(x => /thunderstone switch/i.test(x.name || ''));
+  openModal(`<div id="cmodem"><h3>Switch ${esc(c.name)}</h3>${f && f.desc ? `<p class="hint" style="margin:0 0 10px">${esc(f.desc)}</p>` : ''}
+    <div class="crlist">${r.modes.filter(m => m !== c.mode).map((m, k) => `<label class="crrow sel"><input type="radio" name="cmv" value="${esc(m)}"${k === 0 ? ' checked' : ''}><div><b>${esc(m)}</b></div></label>`).join('')}</div>
+    <div class="cmode-how"><button class="btn" data-act="compswitchgo" data-i="${i}" data-how="bonus"><b>Bonus action</b><span>Within 5 ft. It fires the new type on your next turn.</span></button><button class="btn" data-act="compswitchgo" data-i="${i}" data-how="action"><b>Action (Mage Hand)</b><span>Up to 30 ft away. Your bonus action stays free to fire it now.</span></button></div>
+    <div class="actions"><button class="btn" data-act="close">Cancel</button></div></div>`, null, true);
+}
+function openCompMode(c) {
+  const i = S.companions.indexOf(c), r = COMP_RULES[c.tmpl]; if (i < 0 || !r || !r.modes) return;
+  openModal(`<div id="cmodem"><h3>Which ${esc(c.name)}?</h3><p class="hint" style="margin:0 0 10px">Choose the type you're making.</p><div class="cmode-btns big">${r.modes.map(m => `<button class="btn" data-act="compmode" data-i="${i}" data-v="${esc(m)}">${esc(m)}</button>`).join('')}</div>
+    <div class="actions"><button class="btn" data-act="close">Later</button></div></div>`, null, true);
+}
 function addClassCompanion(n, viaFeature) {
   if (!classCompanionOK(n)) { toast('Your class doesn\'t grant that companion.', 'fumble'); return; }
   const r = COMP_RULES[n];
@@ -1297,8 +1328,9 @@ function addClassCompanion(n, viaFeature) {
   if (S.compOff) delete S.compOff[n];
   const extra = {};
   if (r.rounds) { const en = n + ' (summoned)'; S.effects = (S.effects || []).filter(e => e.name !== en).concat([{ name: en, rounds: r.rounds }]); extra.effect = en; }
-  S.companions.push(makeClassComp(n, extra));
+  const nc = makeClassComp(n, extra); S.companions.push(nc);
   pendingLabel = 'Add ' + n; if (!viaFeature) closeModal(true); save(); render(); if (!viaFeature) toast(`${esc(n)} added.`);
+  if (r.modes) setTimeout(() => { if (!$('#modal').classList.contains('open') && S.companions.includes(nc) && !nc.mode) openCompMode(nc); }, 60);
 }
 function compHp(i, d, btn) {
   const side = btn && btn.closest('.chp-side'), c = S.companions[i], el = (side && side.querySelector('input')) || $('#chp' + i), amt = Math.abs(N(el && String(el.value).trim().replace(/[−–]/g, '-').replace(/^\+/, '')));

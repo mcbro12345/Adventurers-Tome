@@ -526,7 +526,7 @@ const COMP_RULES = {
   'Primal Companion (Sea)': { cls: 'ranger', req: () => hasSub('ranger', 'beastmaster') && clsLv('ranger') >= 3, group: 'primal', ab: 'wis' },
   'Primal Companion (Sky)': { cls: 'ranger', req: () => hasSub('ranger', 'beastmaster') && clsLv('ranger') >= 3, group: 'primal', ab: 'wis' },
   'Drake Companion': { cls: 'ranger', req: () => hasSub('ranger', 'drakewarden') && clsLv('ranger') >= 3, feature: 'Drake Companion', ab: 'wis' },
-  'Eldritch Cannon': { cls: 'artificer', req: () => hasSub('artificer', 'artillerist') && clsLv('artificer') >= 3, feature: 'Eldritch Cannon', rounds: 600, ab: 'int' },
+  'Eldritch Cannon': { cls: 'artificer', req: () => hasSub('artificer', 'artillerist') && clsLv('artificer') >= 3, feature: 'Eldritch Cannon', rounds: 600, ab: 'int', bonusAct: true, bonusTwo: () => clsLv('artificer') >= 15, modes: ['Flamethrower', 'Force Ballista', 'Protector'] },
   'Wildfire Spirit': { cls: 'druid', req: () => hasSub('druid', 'wildfire') && clsLv('druid') >= 2, feature: 'Summon Wildfire Spirit', rounds: 600, ab: 'wis' },
   'Dancing Item': { cls: 'bard', req: () => hasSub('bard', 'creation') && clsLv('bard') >= 6, feature: 'Animating Performance', rounds: 600, ab: 'cha' }
 };

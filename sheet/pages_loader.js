@@ -2134,6 +2134,16 @@ function hub(fs, auth, G, ctx) {
       tileFit(root); tileCaps(); }
     else { newBtn(); wireA2HS(root); root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => switchView(b.dataset.view)); placeInd(false); placeTrack(false); skelRestore(); }
     root.querySelector('#me-acct').onclick = e => { e.stopPropagation(); acctMenu(e.currentTarget, D); };
+    // Folders of shared characters fold and unfold smoothly instead of snapping
+    root.querySelectorAll('details.hub-folder > summary').forEach(sm => sm.addEventListener('click', e => {
+      const d = sm.parentElement, body = d.querySelector(':scope > .hf-body'); if (!body || !body.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      e.preventDefault(); if (d._anim) { d._anim.cancel(); d._anim = null; } body.style.overflow = 'hidden';
+      const done = () => { body.style.overflow = ''; d.classList.remove('hf-closing'); d._anim = null; };
+      if (d.open && !d.classList.contains('hf-closing')) { const h = body.offsetHeight; d.classList.add('hf-closing');
+        const a = d._anim = body.animate([{ height: h + 'px', opacity: 1 }, { height: '0px', opacity: 0 }], { duration: 240, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' }); a.onfinish = () => { d.open = false; a.cancel(); done(); }; }
+      else { d.classList.remove('hf-closing'); d.open = true; const h = body.offsetHeight;
+        const a = d._anim = body.animate([{ height: '0px', opacity: 0, transform: 'translateY(-6px)' }, { height: h + 'px', opacity: 1, transform: 'none' }], { duration: 300, easing: 'cubic-bezier(.2,.8,.2,1)' }); a.onfinish = done; }
+    }));
     root.querySelectorAll('details.hub-folder').forEach(d => d.addEventListener('toggle', () => { open[d.dataset.k] = d.open; ls.set(OPEN, JSON.stringify(open)); if (d.open && D) tileFit(d); }));
     root.querySelectorAll('.hc-dots').forEach(b => b.onclick = e => { e.stopPropagation(); const w = b.parentElement, on = !w.classList.contains('on'); root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')); w.classList.toggle('on', on); });
     root.querySelectorAll('.hc-list [data-a]').forEach(b => b.onclick = () => { const c = chars.find(x => x.id === b.dataset.id); b.closest('.hc-menu').classList.remove('on'); if (!c) return;

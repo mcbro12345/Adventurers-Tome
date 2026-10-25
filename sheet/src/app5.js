@@ -353,11 +353,11 @@ function renderLevelUp() {
     const feats = c.features.filter(f => f[0] === t.nl).concat(s ? s.features.filter(f => f[0] === t.nl) : []);
     const xs = LV.extraSub && c.subclasses[LV.extraSub], xcap = xs ? Math.min(t.nl, (N(c.sub && c.sub.level) || 1) + N(((t.row || {}).extraSubLv || {})[LV.extraSub])) : 0; if (xs) feats.push(...xs.features.filter(f => f[0] <= xcap).map(f => [f[0], f[1] + ` (${xs.name})`, f[2]]));
     const needSub = !(t.row && t.row.sub) && t.nl >= c.sub.level;
-    body += `<div class="lvsec"><h4>${esc(c.name)} ${t.nl}${t.isNew ? ' (new class)' : ''} · character level ${totalLevel() + 1}</h4>`;
+    body += `<div class="lvsec"><h4>${wz3ClassIcon(t.key)}<span>${esc(c.name)} ${t.nl}${t.isNew ? ' (new class)' : ''}</span></h4>`;
     if (t.isNew && !mcOK(t.key)) body += `<p class="warn">Multiclassing into ${esc(c.name)} needs ${c.mc.req.map(r => AB3[r[0]] + ' ' + r[1]).join(c.mc.reqAny ? ' or ' : ' and ')}. You can still continue if your DM allows it.</p>`;
     if (t.isNew) { const bad = rows.filter(r => !mcOK(r.key)); if (bad.length) body += `<p class="warn">Your current class${bad.length > 1 ? 'es' : ''} (${bad.map(r => CL[r.key].name).join(', ')}) must also meet multiclass requirements.</p>`; body += `<p class="hint">You gain: ${esc(c.mc.profs || 'no new proficiencies')}.</p>`; }
     if (needSub) body += fld(c.sub.label, `<select class="f" id="lvSub">${[['', '— choose —']].concat(bookSort(Object.entries(c.subclasses), ([, v]) => v.src, ([, v]) => v.name).map(([k, v]) => [k, v.name + (v.src !== 'PHB' ? ' (' + v.src + ')' : '')])).map(([k, n]) => `<option value="${k}"${LV.sub === k ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>`);
-    body += feats.length ? `<ul class="newfeats">${feats.map(f => `<li><b>${esc(f[1])}</b> — ${esc(f[2])}</li>`).join('')}</ul>` : '<p class="hint">No new named features at this level.</p>';
+    body += feats.length ? `<p class="lvx-h">What you gain</p><ul class="newfeats lvx-fl">${feats.map(f => `<li><b>${esc(f[1])}</b><span>${esc(f[2])}</span></li>`).join('')}</ul>` : '<p class="hint">No new named features at this level.</p>';
     const defs = lvChoiceDefs(t);
     body += defs.map(d => d.def.type === 'asiOrFeat' ? asiOrFeatUI(LV.ans, d.id) : choiceUI(LV.ans, d.id, d.def, { cls: t.key, level: t.nl, sub: (t.row && t.row.sub) || LV.sub })).join('');
     // Spell changes
@@ -371,14 +371,23 @@ function renderLevelUp() {
       if (cd.book) msg.push('add 2 spells to your spellbook');
       if (msg.length) body += `<p class="hint">Spells: you can ${msg.join(', ')}. You'll pick them on the next screen.</p>`;
     }
-    body += `<div class="row">${fld('HP gained', `<input class="f" id="lvHP" type="number" inputmode="numeric" value="${esc(LV.hp || (avg + conM))}" style="width:90px">`)}<button class="btn" data-act="lvroll">Roll 1d${c.hd} ${fmt(conM)}</button><span class="hint" id="lvRollNote">Average ${avg} ${fmt(conM)} CON = ${avg + conM}${hpPerLevelBonus() ? ` · plus ${hpPerLevelBonus() > lvl() ? 'your per-level bonuses' : 'your +1/level bonus'} automatically` : ''}</span></div></div>`;
+    body += `<div class="row lvx-hp">${fld('HP gained', `<input class="f" id="lvHP" type="number" inputmode="numeric" value="${esc(LV.hp || (avg + conM))}" style="width:90px">`)}<button class="btn" data-act="lvroll">Roll 1d${c.hd} ${fmt(conM)}</button><span class="hint" id="lvRollNote">Average ${avg} ${fmt(conM)} CON = ${avg + conM}${hpPerLevelBonus() ? ` · plus ${hpPerLevelBonus() > lvl() ? 'your per-level bonuses' : 'your +1/level bonus'} automatically` : ''}</span></div></div>`;
   }
-  $('#modal-body').innerHTML = `<h3>Level Up</h3>
-    <div class="lbl">Advance which class?</div>
-    <div class="chips">${rows.map(r => `<button class="chip${LV.cls === r.key ? ' on' : ''}" data-act="lvcls" data-k="${r.key}">${esc(CL[r.key].name)} ${r.level} → ${N(r.level) + 1}</button>`).join('')}
-      <select class="f" id="lvNew" style="width:auto"><option value="">+ Multiclass into…</option>${others.map(k => `<option value="${k}"${LV.cls === k ? ' selected' : ''}>${esc(CL[k].name)}${mcOK(k) ? '' : ' (requirements not met)'}</option>`).join('')}${rows.filter(r => r.sub).map(r => { const c2 = CL[r.key]; const subs = Object.entries(c2.subclasses).filter(([k]) => k !== r.sub && !(r.extraSubs || []).includes(k)); return subs.length ? `<optgroup label="Another ${esc(c2.sub.label)} (homebrew)">${subs.map(([k, v]) => `<option value="sub:${r.key}:${k}"${LV.extraSub === k && LV.cls === r.key ? ' selected' : ''}>${esc(c2.name)}: ${esc(v.name)}</option>`).join('')}</optgroup>` : ''; }).join('')}</select></div>
+  // the classes you have, then the ones you could add, as cards; anything homebrew stays in the small list
+  const extraOpts = rows.filter(r => r.sub).map(r => { const c2 = CL[r.key]; const subs = Object.entries(c2.subclasses).filter(([k]) => k !== r.sub && !(r.extraSubs || []).includes(k)); return subs.length ? `<optgroup label="Another ${esc(c2.sub.label)} (homebrew)">${subs.map(([k, v]) => `<option value="sub:${r.key}:${k}"${LV.extraSub === k && LV.cls === r.key ? ' selected' : ''}>${esc(v.name)}</option>`).join('')}</optgroup>` : ''; }).join('');
+  const mcReq = k => (CL[k].mc && CL[k].mc.req || []).map(r => AB3[r[0]] + ' ' + r[1]).join(CL[k].mc && CL[k].mc.reqAny ? ' or ' : ' & ');
+  $('#modal-body').innerHTML = `<div class="lvx"><h3>Level Up</h3><p class="lvx-sub">Character level ${totalLevel()} → <b>${totalLevel() + 1}</b></p>
+    <p class="lvx-h">Advance a class</p>
+    <div class="lvx-cards">${rows.map(r => `<button type="button" class="lvx-card${LV.cls === r.key && !LV.extraSub ? ' sel' : ''}" data-act="lvcls" data-k="${r.key}"><span class="lvx-ic">${wz3ClassIcon(r.key)}</span><b>${esc(CL[r.key].name)}</b><span class="lvx-t">Level ${r.level} → ${N(r.level) + 1}</span></button>`).join('')}</div>
+    ${others.length ? `<details class="lvx-mc"${t.isNew ? ' open' : ''}><summary>Multiclass into another class</summary><div class="lvx-cards sm">${others.map(k => `<button type="button" class="lvx-card${LV.cls === k ? ' sel' : ''}${mcOK(k) ? '' : ' warn'}" data-lvnew="${k}"><span class="lvx-ic">${wz3ClassIcon(k)}</span><b>${esc(CL[k].name)}</b><span class="lvx-t">${mcOK(k) ? 'Requirements met' : 'Needs ' + esc(mcReq(k))}</span></button>`).join('')}</div></details>` : ''}
+    <select class="f lvx-hid" id="lvNew"><option value=""></option>${others.map(k => `<option value="${k}"${LV.cls === k ? ' selected' : ''}></option>`).join('')}${extraOpts}</select>
+    ${extraOpts ? `<label class="lvx-extra"><span class="lbl">Homebrew: another subclass</span><select class="f" id="lvExtra"><option value="">—</option>${extraOpts}</select></label>` : ''}
     ${body}
-    <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="lvl-confirm">Level up</button></div>`;
+    <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="lvl-confirm">Level up</button></div></div>`;
+  $$('#modal-body [data-lvnew]').forEach(b => b.onclick = () => { const ns = $('#lvNew'); ns.value = b.dataset.lvnew; ns.dispatchEvent(new Event('change')); });
+  { const ex = $('#lvExtra'); if (ex) ex.onchange = () => { const ns = $('#lvNew'); ns.value = ex.value; ns.dispatchEvent(new Event('change')); }; }
+  lvSubList();
+  wz3FeatLists('#modal-body', sheetFeatOK); wz3ChoiceLists('#modal-body');
   $('#modal-body').classList.add('wide');
   const ns = $('#lvNew'); if (ns) ns.onchange = () => { if (ns.value) { const m = /^sub:(\w+):(\w+)$/.exec(ns.value); if (m) { LV.cls = m[1]; LV.extraSub = m[2]; } else { LV.cls = ns.value; LV.extraSub = ''; } LV.sub = ''; LV.ans = {}; LV.hp = ''; renderLevelUp(); } };
   const sb = $('#lvSub'); if (sb) sb.onchange = () => { LV.sub = sb.value; renderLevelUp(); };
@@ -775,7 +784,7 @@ function renderWizard() {
     <div class="wz-foot">${vi > 0 ? '<button class="btn" data-wact="back">Back</button>' : ''}<span class="wz3-prog" aria-hidden="true"><i style="width:${Math.round((vi + 1) / VS.length * 100)}%"></i></span><small class="wz3-of">Step ${vi + 1} of ${VS.some(v => v.maybe) ? 'up to ' : ''}${VS.length}</small>${!last ? `<button class="btn gold" data-wact="next">Next<span class="wz3-nx">: ${esc(VS[vi + 1].label)}</span></button>` : '<button class="btn gold" data-wact="create">Create character</button>'}</div></div>`;
   { const g = $('#wizard .wz3-cards .sel'); if (g && g.parentElement) g.parentElement.scrollTop = Math.max(0, g.offsetTop - g.parentElement.offsetTop - 60); }
   { const bx = $('#wizard .wz3'), key = W.step + '|' + (W.part || ''); if (bx && W._enter !== key) { W._enter = key; bx.classList.add('enter'); setTimeout(() => bx.classList.remove('enter'), 1000); } } // (the cards ease in only when a step opens, not on every pick)
-  wz3FeatLists(); wz3Shades();
+  wz3FeatLists(); wz3ChoiceLists('#wizard'); wz3Shades();
   // a step that just appeared (say, Spells after picking a caster) slides open in the list
   { const now = VS.map(v => v.label), was = W._vs; W._vs = now;
     if (was && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) $$('#wizard .wz-step').forEach((b, i) => { if (!was.includes(now[i]) && b.animate) { const h = b.offsetHeight, w = b.offsetWidth, row = getComputedStyle(b.parentElement).flexDirection === 'row';
@@ -822,9 +831,9 @@ if (!window.__wz3) { window.__wz3 = 1;
   document.addEventListener('click', e => { const c = e.target.closest && e.target.closest('#wizard [data-pick]'); if (!c) return;
     const sel = c.dataset.pick === 'race' ? $('#wizard [data-wz="race"]') : c.dataset.pick === 'sub' ? $('#wizard [data-wz="sub"]') : c.dataset.pick === 'bg' ? $('#wizard [data-wz="bg"]') : $('#wizard [data-wzc="0"][data-f="key"]'); if (!sel) return;
     sel.value = c.dataset.v; sel.dispatchEvent(new Event('change', { bubbles: true })); });
-  document.addEventListener('input', e => { const q = e.target.closest && e.target.closest('#wizard [data-wz3q]'); if (!q) return; const v = q.value.trim().toLowerCase(), box = q.nextElementSibling;
-    box.querySelectorAll('.wz3-card').forEach(c => { c.hidden = !!v && !c.dataset.q.includes(v); });
-    box.querySelectorAll('.wz3-g').forEach(g => { let n = g.nextElementSibling, any = false; while (n && !n.classList.contains('wz3-g')) { if (!n.hidden) any = true; n = n.nextElementSibling; } g.hidden = !any; }); });
+  document.addEventListener('input', e => { const q = e.target.closest && e.target.closest('#wizard [data-wz3q], #modal-body [data-wz3q]'); if (!q) return; const v = q.value.trim().toLowerCase(), box = q.closest('.wz3-pick') || q.parentElement;
+    if (box.dataset.key) WZ3M[box.dataset.key + ':q'] = q.value;
+    wz3Filter(box, v); });
 }
 
 const WZI = (() => { const I = d => `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -841,19 +850,81 @@ function wz3List(kind) {
     return `<label class="crrow sel${on ? ' on' : ''}" data-q="${esc((v.name + ' ' + bits + ' ' + (v.feature ? v.feature[0] : '')).toLowerCase())}"><input type="radio" name="wz3bg" data-pick="bg" data-v="${esc(k)}"${on ? ' checked' : ''}><div><b>${esc(v.name)}</b> <span class="hint">${esc(DND.sources[v.src] || v.src || '')}</span>${bits ? `<div class="hint">${esc(bits)}</div>` : ''}${v.feature ? `<div class="hint">Feature: ${esc(v.feature[0])}</div>` : ''}</div></label>`; };
   return `<div class="wz3-pick"><input class="f wz3-q" data-wz3q placeholder="Search ${rows.length} backgrounds" autocomplete="off" aria-label="Search backgrounds"><div class="crlist wz3-list${W.bg ? ' has' : ''}">${rows.map(row).join('')}</div></div>`;
 }
+// Lists remember their search and scroll position when the window redraws after a pick
+const WZ3M = {};
+function wz3Filter(box, v) {
+  box.querySelectorAll('.wz3-card, .crrow[data-q]').forEach(c => { c.hidden = !!v && !c.dataset.q.includes(v); });
+  box.querySelectorAll('.wz3-g').forEach(g => { let n = g.nextElementSibling, any = false; while (n && !n.classList.contains('wz3-g')) { if (!n.hidden) any = true; n = n.nextElementSibling; } g.hidden = !any; });
+}
+function wz3Keep(box, key) {
+  box.dataset.key = key; const q = box.querySelector('.wz3-q'), l = box.querySelector('.wz3-list');
+  if (q && WZ3M[key + ':q']) { q.value = WZ3M[key + ':q']; wz3Filter(box, q.value.trim().toLowerCase()); }
+  if (l) { if (WZ3M[key + ':s']) requestAnimationFrame(() => { l.scrollTop = WZ3M[key + ':s']; }); l.addEventListener('scroll', () => { WZ3M[key + ':s'] = l.scrollTop; }, { passive: true }); }
+}
+// After a pick redraws the window, keep the list you were using exactly where it was on screen
+function wz3Commit(box, fn) {
+  const key = box.dataset.key, sc = box.closest('#modal-body') || box.closest('.wz-body'), top = box.getBoundingClientRect().top;
+  fn();
+  const fix = () => { const nb = key && $$('.wz3-pick').find(x => x.dataset.key === key); if (nb && sc && sc.isConnected) sc.scrollTop += nb.getBoundingClientRect().top - top; };
+  fix(); requestAnimationFrame(fix);
+}
+// Every other choice (maneuvers, skills, tools, fighting styles, spells…) as the same searchable list: one list per choice,
+// ticking as many as it allows; the dropdowns underneath still hold the answer.
+function wz3ChoiceLists(root) {
+  if (root === '#wizard' && !window.wzHeader) return;
+  $$(root + ' .chsel').forEach(cs => {
+    const all = [...cs.querySelectorAll(':scope > select[data-ch]')].filter(x => !x.dataset.wz3 && x.dataset.kind && x.dataset.kind !== 'feat' && x.dataset.kind !== 'asi');
+    const groups = {}; all.forEach(x => (groups[x.dataset.ch] = groups[x.dataset.ch] || []).push(x));
+    Object.entries(groups).forEach(([id, sels]) => {
+      sels.forEach(x => { x.dataset.wz3 = 1; x.classList.add('wz3-hid'); });
+      const n = sels.length, picked = sels.map(x => x.value).filter(Boolean), multi = n > 1;
+      const opts = [...sels[0].options].filter(o => o.value).map(o0 => {
+        const src = sels.find(x => x.value === o0.value) || sels.find(x => !x.value) || sels[0], o = [...src.options].find(y => y.value === o0.value) || o0;
+        const txt = o.textContent.trim(), i = txt.indexOf(' — '), on = picked.includes(o.value);
+        const dis = !on && sels.every(x => { const oo = [...x.options].find(y => y.value === o.value); return !oo || oo.disabled; });
+        let name = i > 0 ? txt.slice(0, i) : txt, desc = i > 0 ? txt.slice(i + 3) : '', note = '';
+        const m = /\s*(\((?:you already|needs|requires|already)[^)]*\))\s*$/i.exec(desc || name); if (m) { note = m[1].slice(1, -1); if (desc) desc = desc.slice(0, m.index); else name = name.slice(0, m.index); }
+        return { v: o.value, name, desc, note, on, dis };
+      });
+      if (!opts.length) return;
+      const nm = 'wz3c-' + id.replace(/\W/g, '_');
+      const row = o => `<label class="crrow sel${o.on ? ' on' : ''}${o.dis ? ' dim' : ''}" data-q="${esc((o.name + ' ' + o.desc).toLowerCase())}"><input type="${multi ? 'checkbox' : 'radio'}" name="${nm}" value="${esc(o.v)}"${o.on ? ' checked' : ''}${o.dis ? ' disabled' : ''}><div><b>${esc(o.name)}</b>${o.note ? ` <span class="hint">${esc(o.note)}</span>` : ''}${o.desc ? `<div class="hint">${esc(o.desc)}</div>` : ''}</div></label>`;
+      const box = document.createElement('div'); box.className = 'wz3-pick wz3-chpick';
+      const noun = (cs.previousElementSibling && cs.previousElementSibling.classList.contains('lbl') ? cs.previousElementSibling.textContent.replace(/×.*$/, '').replace(/\s*\([^)]*\)/g, '').trim() : 'options').toLowerCase();
+      box.innerHTML = `${opts.length > 8 ? `<input class="f wz3-q" data-wz3q placeholder="Search ${opts.length} ${esc(noun)}${/s$/.test(noun) ? '' : ' options'}" autocomplete="off" aria-label="Search">` : ''}${multi ? `<p class="hint wz3-cnt">${picked.length} of ${n} chosen</p>` : ''}<div class="crlist wz3-list${opts.length <= 8 ? ' short' : ''}${picked.length ? ' has' : ''}">${opts.map(row).join('')}</div>`;
+      sels[n - 1].after(box); wz3Keep(box, root + '|' + id);
+      box.addEventListener('change', e => { const r = e.target.closest('input'); if (!r || r.classList.contains('wz3-q')) return;
+        let x;
+        if (!multi) x = sels[0];
+        else if (r.checked) { x = sels.find(s => !s.value); if (!x) { r.checked = false; toast(`You can choose ${n} — untick one first.`); return; } }
+        else { x = sels.find(s => s.value === r.value); if (x) wz3Commit(box, () => { x.value = ''; x.dispatchEvent(new Event('change', { bubbles: true })); }); return; }
+        wz3Commit(box, () => { x.value = r.value; x.dispatchEvent(new Event('change', { bubbles: true })); }); });
+    });
+  });
+}
+// The subclass pick at the level that grants one, as the same list (with what it gives you first)
+function lvSubList() {
+  const sb0 = $('#lvSub'); if (!sb0) return; const c = lvTarget().c;
+  const rows = [...sb0.options].filter(o => o.value).map(o => { const v = c.subclasses[o.value] || {}, fs = v.features || [], lo = fs.length ? Math.min(...fs.map(f => f[0])) : 0, first = fs.filter(f => f[0] === lo);
+    return `<label class="crrow sel${sb0.value === o.value ? ' on' : ''}" data-q="${esc(((v.name || o.textContent) + ' ' + first.map(f => f[1]).join(' ')).toLowerCase())}"><input type="radio" name="lvsub" value="${esc(o.value)}"${sb0.value === o.value ? ' checked' : ''}><div><b>${esc(v.name || o.textContent)}</b>${v.src && v.src !== 'PHB' ? ` <span class="hint">${esc(DND.sources[v.src] || v.src)}</span>` : ''}${first.length ? `<div class="hint">${esc(first.map(f => f[1]).join(', '))}${first[0][2] ? ': ' + esc(first[0][2]) : ''}</div>` : ''}</div></label>`; });
+  const box = document.createElement('div'); box.className = 'wz3-pick lvx-subs';
+  box.innerHTML = `${rows.length > 8 ? `<input class="f wz3-q" data-wz3q placeholder="Search ${rows.length} ${esc(c.sub && c.sub.label ? c.sub.label.toLowerCase() + 's' : 'subclasses')}" autocomplete="off" aria-label="Search">` : ''}<div class="crlist wz3-list${sb0.value ? ' has' : ''}">${rows.join('')}</div>`;
+  sb0.classList.add('lvx-hid'); sb0.after(box); wz3Keep(box, 'lvsub|' + LV.cls);
+  box.addEventListener('change', e => { const r = e.target.closest('input[type=radio]'); if (!r) return; wz3Commit(box, () => { sb0.value = r.value; sb0.dispatchEvent(new Event('change')); }); });
+}
 // Feats (from a race, a background or an Ability Score Improvement) as a searchable list too; the list ticks the same choice underneath
-function wz3FeatLists() {
-  if (!window.wzHeader) return;
-  $$('#wizard select[data-kind="feat"]').forEach(sel => {
+function wz3FeatLists(root, ok) {
+  if (!root && !window.wzHeader) return; root = root || '#wizard'; ok = ok || wzFeatOK;
+  $$(root + ' select[data-kind="feat"]').forEach(sel => {
     if (sel.dataset.wz3) return; sel.dataset.wz3 = 1; sel.classList.add('wz3-hid');
-    const opts = [...sel.options].filter(o => o.value && (o.value === sel.value || wzFeatOK((DND.feats.find(x => x[0] === o.value) || [])[2])));
+    const opts = [...sel.options].filter(o => o.value && (o.value === sel.value || ok((DND.feats.find(x => x[0] === o.value) || [])[2])));
     const hidden = [...sel.options].filter(o => o.value).length - opts.length;
     const row = o => { const f = DND.feats.find(x => x[0] === o.value) || [], on = sel.value === o.value;
       return `<label class="crrow sel${on ? ' on' : ''}${o.disabled ? ' dim' : ''}" data-q="${esc((o.value + ' ' + (f[3] || '') + ' ' + (f[2] || '')).toLowerCase())}"><input type="radio" name="wz3f-${esc(sel.dataset.ch)}-${sel.dataset.k}" value="${esc(o.value)}"${on ? ' checked' : ''}${o.disabled ? ' disabled' : ''}><div><b>${esc(o.value)}</b> <span class="hint">${esc(f[1] && f[1] !== 'PHB' ? (DND.sources[f[1]] || f[1]) : '')}${f[2] ? ` · needs ${esc(f[2])}` : ''}</span>${f[3] ? `<div class="hint">${esc(f[3])}</div>` : ''}</div></label>`; };
     const box = document.createElement('div'); box.className = 'wz3-pick wz3-featpick';
     box.innerHTML = `<input class="f wz3-q" data-wz3q placeholder="Search ${opts.length} feats you qualify for" autocomplete="off" aria-label="Search feats">${hidden ? `<p class="hint wz3-fnote">${hidden} feat${hidden === 1 ? '' : 's'} you don’t meet the requirements for ${hidden === 1 ? 'is' : 'are'} hidden.</p>` : ''}<div class="crlist wz3-list${sel.value ? ' has' : ''}">${opts.map(row).join('')}</div>`;
-    sel.after(box);
-    box.addEventListener('change', e => { const r = e.target.closest('input[type=radio]'); if (!r) return; sel.value = r.value; sel.dispatchEvent(new Event('change', { bubbles: true })); });
+    sel.after(box); wz3Keep(box, root + '|' + sel.dataset.ch + '|' + sel.dataset.k);
+    box.addEventListener('change', e => { const r = e.target.closest('input[type=radio]'); if (!r) return; wz3Commit(box, () => { sel.value = r.value; sel.dispatchEvent(new Event('change', { bubbles: true })); }); });
   });
 }
 // Equipment: the two ways to start as big choices, the kit as item tiles you can switch off, gold as one panel
@@ -945,6 +1016,23 @@ function wzFeatOK(pre) {
   return P.split(/,\s*|\s+or\s+/).some(r => { r = r.trim(); if (r === 'small race') return size === 'small'; if (!r) return false;
     if (r === 'elf') return /\belf\b/.test(race.replace(/half-elf/g, '')) || /\b(drow|eladrin|sea elf|shadar)/.test(race);
     return race.includes(r); });
+}
+// The same feat requirement check, for a character that already exists (level up, unfinished choices)
+function sheetFeatOK(pre) {
+  pre = String(pre || '').trim(); if (!pre) return true; const P = pre.toLowerCase();
+  const m = /^((?:str|dex|con|int|wis|cha)(?:\s+or\s+(?:str|dex|con|int|wis|cha))*)\s+(\d+)/.exec(P);
+  if (m) return m[1].split(/\s+or\s+/).some(a => N(score(a)) >= N(m[2]));
+  const arm = (S.profs && S.profs.armor || []).join(' ').toLowerCase() + ' ' + String(S.profArmor || '').toLowerCase(), wep = (S.profs && S.profs.weapons || []).join(' ').toLowerCase() + ' ' + String(S.profWeapons || '').toLowerCase();
+  if (/spellcasting|pact magic/.test(P)) return clsRows().some(r => { const c = CL[r.key], sb = subOf(r), cd = (c && c.caster) || (sb && sb.caster); return cd && (!cd.from || N(r.level) >= cd.from); }) || (S.spells || []).length > 0;
+  if (/light armor/.test(P)) return /light|medium|heavy|all armor/.test(arm);
+  if (/medium armor/.test(P)) return /medium|heavy|all armor/.test(arm);
+  if (/heavy armor/.test(P)) return /heavy|all armor/.test(arm);
+  if (/martial weapon/.test(P)) return /martial/.test(wep);
+  if (/no other dragonmark/.test(P)) return true;
+  const race = String(S.raceName || S.race || '').toLowerCase(), bg = String(S.backgroundName || '').toLowerCase();
+  if (/giant foundling|rune shaper/.test(P)) return /giant foundling|rune shaper/.test(bg);
+  return P.split(/,\s*|\s+or\s+/).some(r => { r = r.trim(); if (!r) return false; if (r === 'small race') return /small/i.test(String(S.size || '')) || /halfling|gnome|goblin|kobold/.test(race);
+    if (r === 'elf') return /\belf\b/.test(race.replace(/half-elf/g, '')) || /\b(drow|eladrin|sea elf|shadar)/.test(race); return race.includes(r); });
 }
 function asiModeClick(b) {
   const inWz = !!b.closest('#wizard'), inP = !!b.closest('#pendm') && PEND, CH = inWz ? W.ans : inP ? PEND.ans : LV ? LV.ans : null; if (!CH) return;
@@ -1189,6 +1277,7 @@ function renderPending() {
         ${o.def.type === 'asiOrFeat' ? asiOrFeatUI(PEND.ans, o.id) : choiceUI(PEND.ans, o.id, o.def, { cls: o.cls, level: N(r.level), sub: r.sub })}</div>`; }).join('')}
     <div class="actions">${list.length > 1 ? '<button class="btn ghost" data-act="pendall">Mark all as done</button>' : ''}<button class="btn gold" data-act="close">Done</button></div></div>`;
   $('#modal-body').innerHTML = html; $('#modal-body').classList.add('wide');
+  wz3FeatLists('#modal-body', sheetFeatOK); wz3ChoiceLists('#modal-body');
 }
 function pendApply(id) {
   const o = owedChoices().find(x => x.id === id); if (!o) return;

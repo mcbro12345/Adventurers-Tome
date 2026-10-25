@@ -231,7 +231,7 @@ const actNote = a => String(a[3] || '').replace(/\s*\(?DC\s*\d+\s*[A-Z]{3}\s*sav
 // "walk 40, fly 60" → "40ft · fly 60ft"
 function compSpeedText(sp) {
   const parts = String(sp || '').split(/\s*[,;]\s*/).map(x => x.trim()).filter(Boolean); if (!parts.length) return '—';
-  return parts.map(x => { const m = /^(walk|walking)?\s*(\d+)\s*(?:ft\.?|feet)?$/i.exec(x); if (m) return m[2] + 'ft'; const n = /^([a-z]+)\s*(\d+)\s*(?:ft\.?|feet)?(.*)$/i.exec(x); return n ? `${n[1].toLowerCase()} ${n[2]}ft${n[3]}` : x; }).join(' · ');
+  return parts.map(x => { const m = /^(walk|walking)?\s*(\d+)\s*(?:ft\.?|feet)?$/i.exec(x); if (m) return m[2] + 'ft'; const n = /^([a-z]+)\s*(\d+)\s*(?:ft\.?|feet)?(.*)$/i.exec(x); return n ? `${n[1].toLowerCase()} ${n[2]}ft${n[3].trim() ? ' ' + n[3].trim() : ''}` : x; }).join(' · ');
 }
 // In initiative: a Command button on companions that only act when you spend a bonus action on them.
 function compCmdBtn(c, i) {
@@ -239,9 +239,18 @@ function compCmdBtn(c, i) {
   const done = S.turn && S.turn.commanded && S.turn.commanded[c.id];
   return `<button class="btn sm ${done ? 'ghost' : 'gold'}" data-act="compcmd" data-i="${i}" ${done ? 'disabled' : ''} title="${esc(r.command)}">${done ? '✓ Commanded' : 'Command'}</button>`;
 }
+// A cannon is made as one type; its card shows that type's action (and a switch, if a feature allows it)
+const hasThunderSwitch = () => (S.features || []).some(f => /thunderstone switch/i.test(f.name || ''));
+function compModeUI(c, i, modes) {
+  if (!c.mode) return `<div class="cmode-pick"><p>Which type did you make?</p><div class="cmode-btns">${modes.map(m => `<button class="btn sm" data-act="compmode" data-i="${i}" data-v="${esc(m)}">${esc(m)}</button>`).join('')}</div></div>`;
+  const sw = hasThunderSwitch();
+  return `<div class="cmode"><span>Type: <b>${esc(c.mode)}</b></span>${sw ? `<button class="btn sm ghost" data-act="compswitch" data-i="${i}" ${c.switched ? 'disabled title="Already switched once while it\'s here"' : 'title="Thunderstone Switch: swap it to another type"'}>${c.switched ? 'Switched' : 'Switch type'}</button>` : ''}</div>`;
+}
 function compCard(c, i, mini, inCol) {
   const who = 'c' + i, hpPct = c.maxhp ? Math.max(0, Math.min(100, N(c.hp) / N(c.maxhp) * 100)) : 0;
+  const cr = c.tmpl && COMP_RULES[c.tmpl], modes = cr && cr.modes, modeOf = a => modes && modes.find(m => String(a[0] || '').toLowerCase().startsWith(m.toLowerCase()));
   const acts = (c.attacks || []).map((a, j) => {
+    if (modes && !mini) { const m = modeOf(a); if (m && (!c.mode || m !== c.mode)) return ''; }
     const k = actKind(a), dc = k === 'save' ? actDC(c, a) : '', sv = actSave(a);
     const info = k === 'attack' ? `<button class="roll" data-act="crroll" data-who="${who}" data-j="${j}" data-what="hit" title="Roll to hit only">${fmt(N(a[1]))}</button> to hit · <button class="roll" data-act="crroll" data-who="${who}" data-j="${j}" data-what="dmg" title="Roll damage only">${esc(a[2] || '—')}</button>` : k === 'save' ? `<b>DC ${dc}${sv ? ' ' + sv : ''}</b> · ${esc(a[2] || '—')}` : esc(a[2] || '—');
     const main = k === 'attack' ? `<button class="btn sm gold" data-act="crroll" data-who="${who}" data-j="${j}" data-what="both">Attack</button>` : `<button class="btn sm gold" data-act="crroll" data-who="${who}" data-j="${j}" data-what="eff">${k === 'temp' ? 'Temp HP' : k === 'heal' ? 'Heal' : k === 'save' ? 'Damage' : 'Roll'}</button>`;
@@ -259,7 +268,7 @@ function compCard(c, i, mini, inCol) {
   return `<div class="${mini ? 'cm-card' : inCol ? 'comp2 incol' : 'panel comp2'}"><div class="comp-h2">${picThumb(c.tmpl ? `compMods.${c.tmpl}.img` : `companions.${i}.img`, c.name)}<div class="grow"><b class="cname">${esc(c.name)}</b><div class="ctags">${(inCol ? [] : tags).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div></div>
       ${inCol ? compCmdBtn(c, i) : ''}<button class="icon-btn" data-act="compedit" data-i="${i}" title="Edit ${esc(c.name)}" aria-label="Edit">✎</button>${c.tmpl && COMP_RULES[c.tmpl] && COMP_RULES[c.tmpl].always ? '' : `<button class="btn sm ghost" data-act="dismiss" data-i="${i}">Dismiss</button>`}</div>
     <div class="cstat2">${hp}<div class="csts"><span class="cst"><small>AC</small><b>${N(c.ac)}</b></span><span class="cst wide"><small>Speed</small><b>${esc(compSpeedText(c.speed))}</b></span>${c.multi > 1 ? `<span class="cst"><small>Attacks</small><b>${c.multi}</b></span>` : ''}</div></div>
-    ${acts ? `<div class="cacts">${acts}</div>` : ''}
+    ${modes && !mini ? compModeUI(c, i, modes) : ''}    ${acts ? `<div class="cacts">${acts}</div>` : ''}
     ${!mini && String(c.notes || '').trim() ? (inCol ? `<details class="cnotes-d"><summary>How ${esc(c.name)} works</summary><div class="cnotes">${esc(c.notes)}</div></details>` : `<div class="cnotes">${esc(c.notes)}</div>`) : ''}</div>`;
 }
 // Edit a creature: for class companions the changes are your table's version (S.compMods) and survive level-ups.
