@@ -2717,7 +2717,6 @@ html[data-theme="light"] #wizard .wzh2 .hub-acct:hover, html[data-theme="light"]
 #wizard .wzh2 .ha-txt small { color: var(--wc-dim); }
 .wzh-back2 { display: inline-flex; align-items: center; gap: 6px; color: var(--wc-gold2); font-size: .9rem; font-weight: 700; text-decoration: none; }
 .wzh-back2:hover { color: var(--wc-gold); }
-html:not(.mobile) #wizard .wzh-back2 { align-self: flex-start; width: fit-content; margin: -8px 0 0 max(0px, calc((100% - 1240px) / 2)); }
 
 /* the column under the panel */
 html:not(.mobile) #wizard .wz-box:has(> .wzh2) > .wz-head, html:not(.mobile) #wizard .wz-box:has(> .wzh2) > .wz-body, html:not(.mobile) #wizard .wz-box:has(> .wzh2) > .wz-foot { width: 100%; max-width: 1240px; margin-left: auto; margin-right: auto; box-sizing: border-box; }
@@ -2774,7 +2773,6 @@ html.mobile #wizard .wzh2 .hl-d20 { width: 54px; height: 54px; } html.mobile #wi
 html.mobile #wizard .wzh2 .hl-t { font-size: 32.8px; line-height: .95; } html.mobile #wizard .wzh2 .hl-a { font-size: 9.9px; letter-spacing: .26em; }
 html.mobile #wizard .wzh2 .hub-acct { padding: 6px; border-radius: 999px; } html.mobile #wizard .wzh2 .hub-acct .pg-ava { width: 46px !important; height: 46px !important; }
 html.mobile #wizard .wzh2 .ha-txt, html.mobile #wizard .wzh2 .ha-chev { display: none; }
-html.mobile #wizard .wzh-back2 { flex: none; margin: 10px 16px 0; font-size: .82rem; }
 html.mobile #wizard .wz-box:has(> .wzh2) .wz-head { padding: 10px 16px 12px; background: none; border-bottom: 1px solid var(--wc-edge2); }
 html.mobile #wizard .wz-box:has(> .wzh2) .wz-head h2 { font: 700 1.15rem/1.2 Georgia, serif; letter-spacing: 0; text-transform: none; color: var(--wc-head); margin: 0 0 10px; }
 html.mobile #wizard .wz-box:has(> .wzh2) .wz-step::after { background: var(--wc-tile2); }
@@ -2884,10 +2882,6 @@ body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2::before { content: ''; position
 :root body .pw .pwh2 .hl-d20 { width: 82px; height: 82px; } :root body .pw .pwh2 .hub-logo { gap: 16px; margin: 0; } :root body .pw .pwh2 .hl-t { font-size: 52.8px; line-height: .95; } :root body .pw .pwh2 .hl-a { font-size: 14.7px; letter-spacing: .44em; }
 .pw .pwh2 .hub-acct { padding: 6px 12px 6px 6px; border-radius: 16px; } .pw .pwh2 .hub-acct:hover, .pw .pwh2 .hub-acct.open { background: rgba(255,255,255,.06); }
 .pw .pwh2 .hub-acct .pg-ava { width: 52px !important; height: 52px !important; }
-.pw .pwh2 > .wzh-back2 { display: flex; width: fit-content; max-width: 1600px; margin: 0 auto; position: relative; top: 18px; color: #c9b07a; font-size: .9rem; font-weight: 700; text-decoration: none; gap: 6px; align-items: center; }
-.pw .pwh2 > .wzh-back2:hover { color: #e0aa3a; }
-body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 { padding-bottom: 46px; }
-body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 > .wzh-back2 { margin-left: max(0px, calc((100% - 1600px) / 2)); }
 /* the body: no box around everything — a title row, then the characters as tiles */
 .pw.inbody .pw-body { width: 100%; max-width: 1600px; margin: 0 auto; padding: 0 0 40px; border: 0 !important; border-radius: 0; background: none !important; box-shadow: none !important; box-sizing: border-box; }
 .pw.inbody .pw-intitle { display: flex; align-items: center; justify-content: space-between; gap: 16px 24px; flex-wrap: wrap; padding: 4px 0 0 !important; margin: 0 0 18px !important; border: 0 !important; }
@@ -2909,11 +2903,10 @@ body.dkhost #hub .pw.inbody { max-width: 1600px; padding-left: 32px; padding-rig
 /* phones */
 @media (max-width: 640px) {
   body.hubbody:not(.dkhost) .pw.inbody { padding: 0 16px; }
-  body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 { margin: 0 -16px; padding: calc(12px + env(safe-area-inset-top)) 16px 40px; }
+  body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 { margin: 0 -16px; padding: calc(12px + env(safe-area-inset-top)) 16px 30px; }
   .pw .pwh2 > .hub-top { gap: 12px; padding: 12px 14px; }
   :root body .pw .pwh2 .hl-d20 { width: 54px; height: 54px; } :root body .pw .pwh2 .hub-logo { gap: 8px; } :root body .pw .pwh2 .hl-t { font-size: 32.8px; } :root body .pw .pwh2 .hl-a { font-size: 9.9px; letter-spacing: .26em; }
   .pw .pwh2 .hub-acct { padding: 6px; border-radius: 999px; } .pw .pwh2 .hub-acct .pg-ava { width: 46px !important; height: 46px !important; box-shadow: 0 0 0 2px rgba(224,170,58,.55); } .pw .pwh2 .ha-txt, .pw .pwh2 .ha-chev { display: none; }
-  .pw .pwh2 > .wzh-back2 { top: 12px; font-size: .84rem; }
   .pw.inbody .pw-intitle h2 { font-size: 1.5rem !important; } .pw.inbody .pw-intitle .pw-ppic { width: 52px !important; height: 52px !important; }
   /* the buttons ride along the bottom on a phone */
   body.hubbody:not(.dkhost) .pw.inbody .pw-hacts { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; padding: 10px 16px calc(env(safe-area-inset-bottom) + 12px); background: rgba(22,28,42,.96); border-top: 1px solid rgba(201,150,43,.22); }
@@ -2937,6 +2930,19 @@ body.dkhost #hub .pw.inbody { max-width: 1600px; padding-left: 32px; padding-rig
   :where(html[data-pgtheme="light"]) .pw .pwh2 > .wzh-back2 { color: #8a6420; }
   :where(html[data-pgtheme="light"]) body.hubbody:not(.dkhost) .pw.inbody .pw-hacts { background: rgba(251,247,238,.96); }
 
+
+/* the way back lives in the top panel, under the logo (character creation and the party page) */
+.wzh-bcol { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
+.wzh-bcol .hub-logo { margin: 0 !important; }
+.wzh-bcol .wzh-back2 { display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; color: #c9b07a; font-size: .84rem; font-weight: 700; text-decoration: none; transition: color .15s; }
+.wzh-bcol .wzh-back2:hover { color: #e0aa3a; }
+@media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) .wzh-bcol .wzh-back2 { color: #8a6420; } :where(html:not([data-pgtheme])) .wzh-bcol .wzh-back2:hover { color: #b8862a; } }
+ :where(html[data-pgtheme="light"]) .wzh-bcol .wzh-back2 { color: #8a6420; } :where(html[data-pgtheme="light"]) .wzh-bcol .wzh-back2:hover { color: #b8862a; } 
+html[data-theme="light"] #wizard .wzh-bcol .wzh-back2 { color: #8a6420; }
+@media (max-width: 640px) { .wzh-bcol { gap: 3px; } .wzh-bcol .wzh-back2 { font-size: .76rem; } }
+html.mobile #wizard .wzh-bcol { gap: 3px; } html.mobile #wizard .wzh-bcol .wzh-back2 { font-size: .76rem; }
+/* phones: the party page's top panel scrolls away with the page (phones don't honour a fixed backdrop, so a sticky band showed) */
+@media (max-width: 640px) { body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 { position: relative; padding-bottom: 18px; } body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2::before { display: none; } }
 </style>
 </head>
 <body>
@@ -3610,7 +3616,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024224139', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.10ac34f51762.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.bf5693d15950.html", "desk": "a/desk.85c973541242.js", "deskcss": "a/deskcss.841e84041fb4.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024225057', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.10ac34f51762.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.bf5693d15950.html", "desk": "a/desk.d6a06d576157.js", "deskcss": "a/deskcss.8eb5189e71e0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -4077,7 +4083,7 @@ function wireDie(root) {
   if (NEW) { const HUBU = URLS.hub(G), nm = (ME && ME.name) || user.displayName || EMAIL.split('@')[0], av = avaOf(ME);
     // The same top panel as the lobby: logo on the left, your account on the right (a menu opens from it).
     const chev = '<svg class="ha-chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
-    window.wzHeader = () => `<div class="wzh wzh2"><header class="hub-top">${logoHTML()}<div class="hub-side"><button type="button" class="hub-acct wzh-acct" aria-haspopup="menu" aria-expanded="false" title="Your account">${avaHTML(nm, EMAIL, av.pic, '', '', av)}<span class="ha-txt"><b>${escH(nm)}</b><small>${escH(EMAIL)}</small></span>${chev}</button></div></header></div><a class="wzh-back2" href="${escH(HUBU)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>Back to the lobby</a>`;
+    window.wzHeader = () => `<div class="wzh wzh2"><header class="hub-top"><div class="wzh-bcol">${logoHTML()}<a class="wzh-back2" href="${escH(HUBU)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>Back to the lobby</a></div><div class="hub-side"><button type="button" class="hub-acct wzh-acct" aria-haspopup="menu" aria-expanded="false" title="Your account">${avaHTML(nm, EMAIL, av.pic, '', '', av)}<span class="ha-txt"><b>${escH(nm)}</b><small>${escH(EMAIL)}</small></span>${chev}</button></div></header></div>`;
     const wzMenu = btn => { const ex = document.querySelector('.ha-menu'); if (ex) { ex._shut(); return; } const desk = !document.documentElement.classList.contains('mobile');
       const I = d => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
       const items = [['lobby', 'Back to the lobby', I('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>')]];
@@ -6132,7 +6138,7 @@ function partyModule(H) {
   // uses the same pills as sections.
   const headHTML = () => { const a = H.myAva(), nm = H.myName();
     // the lobby's top panel: logo, and your account (its menu has the way back, contact and sign out)
-    return `<div class="wzh pwh2"><header class="hub-top" role="none">${logoHTML()}<div class="hub-side"><button type="button" class="hub-acct pw-acct" aria-haspopup="menu" aria-expanded="false" title="Your account">${avaHTML(nm, EMAIL, a.pic, '', '', a)}<span class="ha-txt"><b>${esc(nm)}</b><small>${esc(EMAIL)}</small></span><svg class="ha-chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div></header><a class="wzh-back wzh-back2" href="${esc(URLS.parties(G))}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>Back to the lobby</a></div>`; };
+    return `<div class="wzh pwh2"><header class="hub-top" role="none"><div class="wzh-bcol">${logoHTML()}<a class="wzh-back wzh-back2" href="${esc(URLS.parties(G))}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>Back to the lobby</a></div><div class="hub-side"><button type="button" class="hub-acct pw-acct" aria-haspopup="menu" aria-expanded="false" title="Your account">${avaHTML(nm, EMAIL, a.pic, '', '', a)}<span class="ha-txt"><b>${esc(nm)}</b><small>${esc(EMAIL)}</small></span><svg class="ha-chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div></header></div>`; };
   // steps: [[key, label]]; seq = numbered steps you go through in order (later ones can't be clicked yet).
   function shell({ title, sub, steps, on, body, foot, seq, inBody, bare, noReady }) {
     const idx = Math.max(0, (steps || []).findIndex(s => s[0] === on));

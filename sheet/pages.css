@@ -2565,7 +2565,6 @@ html[data-theme="light"] #wizard .wzh2 .hub-acct:hover, html[data-theme="light"]
 #wizard .wzh2 .ha-txt small { color: var(--wc-dim); }
 .wzh-back2 { display: inline-flex; align-items: center; gap: 6px; color: var(--wc-gold2); font-size: .9rem; font-weight: 700; text-decoration: none; }
 .wzh-back2:hover { color: var(--wc-gold); }
-html:not(.mobile) #wizard .wzh-back2 { align-self: flex-start; width: fit-content; margin: -8px 0 0 max(0px, calc((100% - 1240px) / 2)); }
 
 /* the column under the panel */
 html:not(.mobile) #wizard .wz-box:has(> .wzh2) > .wz-head, html:not(.mobile) #wizard .wz-box:has(> .wzh2) > .wz-body, html:not(.mobile) #wizard .wz-box:has(> .wzh2) > .wz-foot { width: 100%; max-width: 1240px; margin-left: auto; margin-right: auto; box-sizing: border-box; }
@@ -2622,7 +2621,6 @@ html.mobile #wizard .wzh2 .hl-d20 { width: 54px; height: 54px; } html.mobile #wi
 html.mobile #wizard .wzh2 .hl-t { font-size: 32.8px; line-height: .95; } html.mobile #wizard .wzh2 .hl-a { font-size: 9.9px; letter-spacing: .26em; }
 html.mobile #wizard .wzh2 .hub-acct { padding: 6px; border-radius: 999px; } html.mobile #wizard .wzh2 .hub-acct .pg-ava { width: 46px !important; height: 46px !important; }
 html.mobile #wizard .wzh2 .ha-txt, html.mobile #wizard .wzh2 .ha-chev { display: none; }
-html.mobile #wizard .wzh-back2 { flex: none; margin: 10px 16px 0; font-size: .82rem; }
 html.mobile #wizard .wz-box:has(> .wzh2) .wz-head { padding: 10px 16px 12px; background: none; border-bottom: 1px solid var(--wc-edge2); }
 html.mobile #wizard .wz-box:has(> .wzh2) .wz-head h2 { font: 700 1.15rem/1.2 Georgia, serif; letter-spacing: 0; text-transform: none; color: var(--wc-head); margin: 0 0 10px; }
 html.mobile #wizard .wz-box:has(> .wzh2) .wz-step::after { background: var(--wc-tile2); }
@@ -2727,10 +2725,6 @@ body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2::before { content: ''; position
 :root body .pw .pwh2 .hl-d20 { width: 82px; height: 82px; } :root body .pw .pwh2 .hub-logo { gap: 16px; margin: 0; } :root body .pw .pwh2 .hl-t { font-size: 52.8px; line-height: .95; } :root body .pw .pwh2 .hl-a { font-size: 14.7px; letter-spacing: .44em; }
 .pw .pwh2 .hub-acct { padding: 6px 12px 6px 6px; border-radius: 16px; } .pw .pwh2 .hub-acct:hover, .pw .pwh2 .hub-acct.open { background: rgba(255,255,255,.06); }
 .pw .pwh2 .hub-acct .pg-ava { width: 52px !important; height: 52px !important; }
-.pw .pwh2 > .wzh-back2 { display: flex; width: fit-content; max-width: 1600px; margin: 0 auto; position: relative; top: 18px; color: #c9b07a; font-size: .9rem; font-weight: 700; text-decoration: none; gap: 6px; align-items: center; }
-.pw .pwh2 > .wzh-back2:hover { color: #e0aa3a; }
-body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 { padding-bottom: 46px; }
-body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 > .wzh-back2 { margin-left: max(0px, calc((100% - 1600px) / 2)); }
 /* the body: no box around everything — a title row, then the characters as tiles */
 .pw.inbody .pw-body { width: 100%; max-width: 1600px; margin: 0 auto; padding: 0 0 40px; border: 0 !important; border-radius: 0; background: none !important; box-shadow: none !important; box-sizing: border-box; }
 .pw.inbody .pw-intitle { display: flex; align-items: center; justify-content: space-between; gap: 16px 24px; flex-wrap: wrap; padding: 4px 0 0 !important; margin: 0 0 18px !important; border: 0 !important; }
@@ -2752,11 +2746,10 @@ body.dkhost #hub .pw.inbody { max-width: 1600px; padding-left: 32px; padding-rig
 /* phones */
 @media (max-width: 640px) {
   body.hubbody:not(.dkhost) .pw.inbody { padding: 0 16px; }
-  body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 { margin: 0 -16px; padding: calc(12px + env(safe-area-inset-top)) 16px 40px; }
+  body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 { margin: 0 -16px; padding: calc(12px + env(safe-area-inset-top)) 16px 30px; }
   .pw .pwh2 > .hub-top { gap: 12px; padding: 12px 14px; }
   :root body .pw .pwh2 .hl-d20 { width: 54px; height: 54px; } :root body .pw .pwh2 .hub-logo { gap: 8px; } :root body .pw .pwh2 .hl-t { font-size: 32.8px; } :root body .pw .pwh2 .hl-a { font-size: 9.9px; letter-spacing: .26em; }
   .pw .pwh2 .hub-acct { padding: 6px; border-radius: 999px; } .pw .pwh2 .hub-acct .pg-ava { width: 46px !important; height: 46px !important; box-shadow: 0 0 0 2px rgba(224,170,58,.55); } .pw .pwh2 .ha-txt, .pw .pwh2 .ha-chev { display: none; }
-  .pw .pwh2 > .wzh-back2 { top: 12px; font-size: .84rem; }
   .pw.inbody .pw-intitle h2 { font-size: 1.5rem !important; } .pw.inbody .pw-intitle .pw-ppic { width: 52px !important; height: 52px !important; }
   /* the buttons ride along the bottom on a phone */
   body.hubbody:not(.dkhost) .pw.inbody .pw-hacts { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; padding: 10px 16px calc(env(safe-area-inset-bottom) + 12px); background: rgba(22,28,42,.96); border-top: 1px solid rgba(201,150,43,.22); }
@@ -2772,3 +2765,15 @@ body.dkhost #hub .pw.inbody { max-width: 1600px; padding-left: 32px; padding-rig
   .pw .pwh2 > .wzh-back2 { color: #8a6420; }
   body.hubbody:not(.dkhost) .pw.inbody .pw-hacts { background: rgba(251,247,238,.96); }
 }
+
+/* the way back lives in the top panel, under the logo (character creation and the party page) */
+.wzh-bcol { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
+.wzh-bcol .hub-logo { margin: 0 !important; }
+.wzh-bcol .wzh-back2 { display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; color: #c9b07a; font-size: .84rem; font-weight: 700; text-decoration: none; transition: color .15s; }
+.wzh-bcol .wzh-back2:hover { color: #e0aa3a; }
+@media (prefers-color-scheme: light) { .wzh-bcol .wzh-back2 { color: #8a6420; } .wzh-bcol .wzh-back2:hover { color: #b8862a; } }
+html[data-theme="light"] #wizard .wzh-bcol .wzh-back2 { color: #8a6420; }
+@media (max-width: 640px) { .wzh-bcol { gap: 3px; } .wzh-bcol .wzh-back2 { font-size: .76rem; } }
+html.mobile #wizard .wzh-bcol { gap: 3px; } html.mobile #wizard .wzh-bcol .wzh-back2 { font-size: .76rem; }
+/* phones: the party page's top panel scrolls away with the page (phones don't honour a fixed backdrop, so a sticky band showed) */
+@media (max-width: 640px) { body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 { position: relative; padding-bottom: 18px; } body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2::before { display: none; } }
