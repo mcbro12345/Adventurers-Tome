@@ -1397,7 +1397,8 @@ html[data-pgtheme="light"] .dk-sync { color: #5c6478; }
 .dk-bcol .dk-brand { margin-right: 0; }
 .dk-back2 { display: inline-flex; align-items: center; gap: 4px; margin-left: 2px; color: #c9b07a; font-size: .82rem; font-weight: 700; text-decoration: none; transition: color .15s; }
 .dk-back2:hover { color: #e0aa3a; } .dk .dk-back2 svg { width: 15px; height: 15px; }
-.dk-tools .dk-sync { position: static !important; flex: none; order: 0; height: auto; margin: 0 6px 0 0; align-self: center; text-align: right; line-height: 1.2; max-width: 130px; }
+.dk-tools .dk-sync { position: static !important; flex: none; order: 0; height: auto; margin: 0 6px 0 0; align-self: center; text-align: right; line-height: 1.2; max-width: 130px; width: 130px; }
+/* the save note keeps one width whatever it says ("Saving…", "Saved to your account"), so the tabs beside it never shift */
 html[data-pgtheme="light"] .dk-back2 { color: #8a6420; } html[data-pgtheme="light"] .dk-back2:hover { color: #b8862a; }
 /* your account, at the end of the tools (its menu has the way back to the lobby) */
 .dk-acct { position: relative; flex: none; display: grid; place-items: center; width: 44px; height: 44px; margin-left: 4px; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }
