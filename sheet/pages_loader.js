@@ -3601,7 +3601,7 @@ function partyModule(H) {
       <ol class="to-list"></ol>
       <div class="to-ft"><button class="to-nav" data-to="prev" title="Previous turn" aria-label="Previous turn">${TO_ICON.left}</button>
         <span class="to-gw"><button class="to-ib to-gear" data-to="menu" title="More" aria-label="More" aria-haspopup="menu" aria-expanded="false">${TO_ICON.gear}</button>
-          <span class="to-menu" role="menu" hidden><button role="menuitem" data-to="add">Add someone…</button><button role="menuitem" data-to="sort">Sort highest first</button><button role="menuitem" data-to="reveal">Show all names to players</button><button role="menuitem" data-to="conceal">Hide all names from players</button><button role="menuitem" data-to="clear">Start a new fight</button></span></span>
+          <span class="to-menu" role="menu" hidden><button role="menuitem" data-to="add">Add someone…</button><button role="menuitem" data-to="players">Add the players</button><button role="menuitem" data-to="sort">Sort highest first</button><button role="menuitem" data-to="reveal">Show all names to players</button><button role="menuitem" data-to="conceal">Hide all names from players</button><button role="menuitem" data-to="clear">Start a new fight</button></span></span>
         <button class="to-nav to-next" data-to="next" title="Next turn" aria-label="Next turn">${TO_ICON.right}</button></div></div>`;
     document.body.appendChild(w);
     const vw = innerWidth, vh = innerHeight, W = Math.min(260, vw - 16);
@@ -3632,6 +3632,7 @@ function partyModule(H) {
       if (a === 'next' && TO.rows.length > 1) { TO.rows.push(TO.rows.shift()); if (TO.rows[0].first) TO.round++; }
       if (a === 'prev' && TO.rows.length > 1) { if (TO.rows[0].first) TO.round = Math.max(1, TO.round - 1); TO.rows.unshift(TO.rows.pop()); }
       if (a === 'add') return toAddDialog();
+      if (a === 'players') { const ids = (P && P.chars) || []; let n = 0; ids.forEach(id => { if (!TO.rows.some(r => r.id === id)) { TO.rows.push({ id, v: '', at: 0 }); n++; } }); toast(n ? `Added ${n} player character${n === 1 ? '' : 's'}.` : 'All the players are already in the Turn order.'); }
       if (a === 'reveal' || a === 'conceal') TO.rows.forEach(r => { if (r.custom) r.reveal = a === 'reveal'; });
       if (a === 'clear') { TO.rows = TO.rows.filter(r => !r.custom).map(r => ({ id: r.id, v: '', at: 0 })); TO.round = 1; TO.cut = Date.now(); Object.keys(INIT).forEach(id => PC.doc(PID).collection('init').doc(id).delete().catch(() => {})); }
       toSave(); toPaint(); });
@@ -3902,4 +3903,24 @@ function partyModule(H) {
   document.addEventListener('click', e => go(e, false), true);
   document.addEventListener('auxclick', e => { if (e.button === 1) go(e, true); }, true);
   document.addEventListener('mouseover', e => { const l = e.target.closest && e.target.closest(LOGO); if (l && away()) { l.style.cursor = 'pointer'; l.title = 'Back to the lobby'; } }, true);
+})();
+
+// Right-click a character, party or member tile: its ⋯ menu opens right where you clicked (with "Open in a new tab" for
+// tiles that link somewhere). The ⋯ button still opens it in its usual spot.
+(() => { if (window.__pgTileCtx) return; window.__pgTileCtx = 1;
+  const TILE = '.hr, .hc, .pm';
+  document.addEventListener('contextmenu', e => {
+    if (e.shiftKey || !e.target.closest || e.target.closest('input, textarea, [contenteditable]')) return;
+    const t = e.target.closest(TILE); if (!t) return; const m = t.querySelector('.hc-menu'); if (!m || !t.contains(m)) return;
+    e.preventDefault();
+    document.querySelectorAll('.hc-menu.on').forEach(x => { if (x !== m) x.classList.remove('on', 'pt'); });
+    const list = m.querySelector('.hc-list'); if (!list) return;
+    list.querySelectorAll('.hc-ctxonly').forEach(x => x.remove());
+    const a = t.querySelector('a[href]'); if (a) { const nb = document.createElement('button'); nb.className = 'hc-ctxonly'; nb.type = 'button'; nb.textContent = 'Open in a new tab'; nb.onclick = ev => { ev.stopPropagation(); m.classList.remove('on', 'pt'); window.open(a.href, '_blank', 'noopener'); }; list.prepend(nb); }
+    m.classList.add('on', 'pt'); m.style.setProperty('--px', e.clientX + 'px'); m.style.setProperty('--py', e.clientY + 'px');
+    requestAnimationFrame(() => { const r = list.getBoundingClientRect(); m.style.setProperty('--px', Math.max(8, Math.min(e.clientX, innerWidth - r.width - 8)) + 'px'); m.style.setProperty('--py', Math.max(8, Math.min(e.clientY, innerHeight - r.height - 8)) + 'px'); });
+  });
+  // the ⋯ button (or anything that closes the menu) puts it back in its usual spot
+  document.addEventListener('pointerdown', e => { const d = e.target.closest && e.target.closest('.hc-dots'); document.querySelectorAll('.hc-menu.pt').forEach(m => { if (d && m.contains(d)) { m.classList.remove('pt'); m.querySelectorAll('.hc-ctxonly').forEach(x => x.remove()); } else if (!m.contains(e.target)) m.classList.remove('on', 'pt'); }); }, true);
+  addEventListener('scroll', () => document.querySelectorAll('.hc-menu.pt').forEach(m => m.classList.remove('on', 'pt')), true);
 })();

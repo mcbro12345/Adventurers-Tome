@@ -76,6 +76,7 @@ const lsSet = (k, v) => { try { localStorage.setItem(lsKey(k), JSON.stringify(v)
 let lsT = 0;
 function writeLocal() { clearTimeout(lsT); lsT = setTimeout(() => { lsSet('', S); lsSet('-ui', Object.assign({}, UI, { tree: false, log: false })); lsSet('-log', LOG.slice(0, 150)); }, 200); }
 function normalize(d) {
+  if (typeof UI !== 'undefined' && UI.sv === 'plan') UI.sv = 'creatures'; // (the Plan & notes view was removed)
   const s = Object.assign(DEF(), d || {}); s.settings = Object.assign(DEF().settings, (d && d.settings) || {});
   s.creatures = s.creatures || {}; s.sessions = (s.sessions || []).filter(x => x && x.id);
   s.sessions.forEach(x => { x.groups = (x.groups || []).filter(Boolean); if (!x.groups.length) x.groups.push({ id: 'g' + uid(), name: 'Creatures', list: [] }); x.groups.forEach(g => { g.list = (g.list || []).filter(Boolean); }); });
@@ -1283,7 +1284,7 @@ function sessionsHTML() {
   return `<div class="dk-sess">
     <div class="dk-scrim" data-act="tree"></div>
     <nav class="dk-rail" aria-label="Sessions">${railHTML(s)}</nav>
-    <main class="dk-main" data-keep="smain-${s ? s.id : ''}-${UI.sel || ''}-${UI.sv || ''}">${s ? `${phoneBar(s, sel)}${sel ? detailHTML(sel, s) : UI.sv === 'plan' ? sessHead(s, true) + planHTML(s) : overviewHTML(s)}` : emptyHTML()}</main></div>`;
+    <main class="dk-main" data-keep="smain-${s ? s.id : ''}-${UI.sel || ''}-${UI.sv || ''}">${s ? `${phoneBar(s, sel)}${sel ? detailHTML(sel, s) : overviewHTML(s)}` : emptyHTML()}</main></div>`;
 }
 function emptyHTML() {
   return `<div class="dk-empty"><div class="dk-emblem">${ICON.folder}</div><h2>Your first session</h2><p>A session is a folder of the creatures you’ll run: tracked HP, conditions and turns, with every attack, save and spell one click away.</p><button class="dk-btn gold big" data-act="newsess">${ICON.plus} New session</button></div>`;
@@ -1308,7 +1309,7 @@ function sessHead(s, plan) {
       <div class="dk-shacts">${CTX.party ? `<button class="dk-btn" data-act="toall" ${all.length ? '' : 'disabled'} title="Roll initiative for every creature here and add them to ${esc(CTX.party.name || 'the party')}’s Turn order">${ICON.init}<span>Send all to Turn order</span></button>` : ''}
         <button class="dk-btn" data-act="newround" ${all.length ? '' : 'disabled'} title="New turn for every creature: actions back, recharges rolled, timed conditions count down, regeneration">${ICON.refresh}<span>New round</span></button>
         <div class="dk-menu"><button class="dk-btn icon" data-act="menu" aria-label="More" aria-haspopup="menu">${ICON.dots}</button><div class="dk-mlist" role="menu"><button data-act="addgroup">Add a group</button><button data-act="restall">Reset every creature</button><button data-act="dupsess">Duplicate session</button><button class="red" data-act="delsess">Delete session</button></div></div></div></div>
-    <div class="dk-svtabs"><div class="dk-seg2"><button class="${plan ? '' : 'on'}" data-act="sview" data-v="creatures">Creatures</button><button class="${plan ? 'on' : ''}" data-act="sview" data-v="plan">Plan & notes${s.plan && s.plan.flow ? ' ✓' : ''}</button></div>
+    <div class="dk-svtabs">
     <div class="dk-meta"><span>${plural(all.length, 'creature')}</span>${xp ? `<span>${xp.toLocaleString()} XP</span>` : ''}${down ? `<span class="bad">${down} down</span>` : ''}</div></div>
     ${plan ? '' : `<details class="dk-notes"${s.notes ? ' open' : ''}><summary>Session notes</summary><textarea class="dk-f" id="dk-snotes" data-ch="snotes" rows="2" placeholder="Hooks, places, names, what happened last time…">${esc(s.notes || '')}</textarea></details>
     <div class="dk-add"><div class="dk-picker"><input class="dk-f" id="dk-addq" placeholder="${innerWidth <= 640 ? 'Add a creature (e.g. goblin)' : 'Add a creature — type a name (e.g. goblin)'}" autocomplete="off" aria-label="Creature to add"><div class="dk-sugg" hidden></div></div>
@@ -1319,7 +1320,7 @@ function sessHead(s, plan) {
 }
 function overviewHTML(s) {
   const grp = g => `<section class="dk-grp"><header><input class="dk-gname" id="dk-g-${g.id}" data-ch="gname" data-gid="${g.id}" value="${esc(g.name)}" aria-label="Group name" maxlength="60"><small>${plural(g.list.length, 'creature')}</small>
-      <span class="dk-gacts">${CTX.party && g.list.length ? `<button class="dk-btn sm" data-act="togroup" data-gid="${g.id}" title="Roll initiative for this group and add it to the Turn order">${ICON.init}<span>Turn order</span></button>` : ''}${g.list.length ? `<button class="dk-btn sm" data-act="saveeff" data-gid="${g.id}" title="A breath weapon, spell or trap against this group">Save effect…</button>` : ''}${s.groups.length > 1 ? `<button class="dk-ix" data-act="delgroup" data-gid="${g.id}" title="Delete group" aria-label="Delete group">${ICON.trash}</button>` : ''}</span></header>
+      <span class="dk-gacts">${g.list.length ? `<button class="dk-btn sm" data-act="saveeff" data-gid="${g.id}" title="A breath weapon, spell or trap against this group">Save effect…</button>` : ''}${s.groups.length > 1 ? `<button class="dk-ix" data-act="delgroup" data-gid="${g.id}" title="Delete group" aria-label="Delete group">${ICON.trash}</button>` : ''}</span></header>
     ${g.list.length ? `<div class="dk-cards">${g.list.map(cardHTML).join('')}</div>` : '<p class="dk-hint dk-gnone">Empty. Add creatures with the box above.</p>'}</section>`;
   return sessHead(s) + s.groups.map(grp).join('') + cardsHTML(s);
 }
@@ -1954,7 +1955,7 @@ function mount(root, ctx) {
   on(root, 'mousedown', e => { const t = e.target.closest && e.target.closest('[data-ed],[data-auto]'); if (!t) return; e.preventDefault(); if (t.dataset.ed) edCmd(t.dataset.ed); else edAutoPick(N(t.dataset.auto)); });
   on(root, 'paste', e => { if (e.target.closest && e.target.closest('.dk-ed')) edPaste(e); });
   on(root, 'dragstart', e => { onDragStart(e); if (DRAG) ROOT.classList.add('dk-dragon'); }); on(root, 'dragover', onDragOver); on(root, 'drop', e => { dPend('Move'); onDrop(e); ROOT.classList.remove('dk-dragon'); }); on(root, 'dragend', () => { DRAG = null; ROOT.classList.remove('dk-dragon'); $$('.dragging').forEach(x => x.classList.remove('dragging')); });
-  on(root, 'mouseover', onNotesOver); on(window, 'beforeunload', notesLeave); on(window, 'pagehide', notesLeave); on(document, 'visibilitychange', () => { if (document.hidden) notesLeave(); else notesRefresh(); });
+  on(root, 'mouseover', onNotesOver); on(root, 'contextmenu', nCtx); on(window, 'beforeunload', notesLeave); on(window, 'pagehide', notesLeave); on(document, 'visibilitychange', () => { if (document.hidden) notesLeave(); else notesRefresh(); });
   on(document, 'keydown', onKey); on(document, 'mousedown', onDocDown); on(document, 'touchstart', onDocDown, { passive: true });
   on(window, 'message', onR20Msg); on(document, 'visibilitychange', onVis); on(window, 'storage', onStorage);
   setTimeout(r20Hello, 400);
@@ -2781,7 +2782,8 @@ function notesAfterPaint() {
 // ----- editor -----
 let EDT = 0;
 // the 'Write here…' hint shows while the page has no words, pictures or lists
-function edBlank(ed) { if (ed) ed.classList.toggle('blank', !ed.textContent.replace(/\u200B/g, '').trim() && !ed.querySelector('img, hr, table, li, a, span.mn')); }
+// the hint only shows on a page with nothing in it at all: no text, and nothing but one plain empty line
+function edBlank(ed) { if (ed) ed.classList.toggle('blank', !ed.textContent.replace(/\u200B/g, '').trim() && !ed.querySelector('img, hr, table, li, a, span.mn, blockquote, h1, h2, h3, pre, .callout, .secret, ul, ol') && ed.children.length <= 1); }
 const edFix = h => { h = String(h || '').replace(/<(p|li|h[123]|td|th)><\/\1>/g, '<$1><br></$1>'); return h.trim() ? h : '<p><br></p>'; };
 function edEl() { return $('.dk-ed'); }
 let ED_PENDING = false;
@@ -2789,7 +2791,7 @@ function edSave(now) {
   // the text goes to the page the editor is showing (its id), never to whichever page is open by now: after clicking a
   // link the open page has already changed while the old page's editor is still on screen
   const ed = edEl(), p = ed && pageById(ed.id.replace(/^dk-ed-/, '')); if (!ed || !p) return;
-  clearTimeout(EDT); const go = () => { ED_PENDING = false; edBlank(ed); const h = clean(ed.innerHTML).replace(/\u200B/g, ''); if (h !== p.html) { p.html = h; nSave(p); } };
+  edBlank(ed); clearTimeout(EDT); const go = () => { ED_PENDING = false; edBlank(ed); const h = clean(ed.innerHTML).replace(/\u200B/g, ''); if (h !== p.html) { p.html = h; nSave(p); } };
   if (now) go(); else { ED_PENDING = true; EDT = setTimeout(go, 500); }
 }
 // anything that redraws the page first keeps what was just typed (or a link/mention just picked) in the editor
@@ -2902,8 +2904,8 @@ const nrW = () => nrClamp(N(UI.nrw) || NRW0);
 function nrSet(w, keep) { const v = $('.dk-notesv'); w = nrClamp(w); if (v) v.style.setProperty('--nrw', w + 'px'); if (keep) { UI.nrw = w; saveUI(); } return w; }
 function nrDrag(e) {
   const sp = e.target.closest && e.target.closest('.dk-nsplit'); if (!sp || e.button > 0) return; e.preventDefault();
-  const v = $('.dk-notesv'), x0 = v.getBoundingClientRect().left; let w = nrW(); sp.classList.add('on'); document.body.style.cursor = 'col-resize'; ROOT.classList.add('dk-resizing');
-  const mv = ev => { w = nrSet(ev.clientX - x0); }, up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); sp.classList.remove('on'); document.body.style.cursor = ''; ROOT.classList.remove('dk-resizing'); nrSet(w, true); };
+  const cx0 = e.clientX, w0 = nrW(); let w = w0; sp.classList.add('on'); document.body.style.cursor = 'col-resize'; ROOT.classList.add('dk-resizing');
+  const mv = ev => { w = nrSet(w0 + ev.clientX - cx0); }, up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); sp.classList.remove('on'); document.body.style.cursor = ''; ROOT.classList.remove('dk-resizing'); nrSet(w, true); };
   addEventListener('pointermove', mv); addEventListener('pointerup', up);
 }
 function nrKey(e) { const sp = e.target.closest && e.target.closest('.dk-nsplit'); if (!sp) return false; const d = e.key === 'ArrowLeft' ? -16 : e.key === 'ArrowRight' ? 16 : 0; if (!d) return false; e.preventDefault(); nrSet(nrW() + d, true); return true; }
@@ -3415,7 +3417,7 @@ function makePage(type, parent, title) { const p = newPage({ type, parent: paren
 function caretOffset(ed) { const r = selRange(); if (!r || !ed.contains(r.startContainer)) return -1; const rr = document.createRange(); rr.selectNodeContents(ed); rr.setEnd(r.startContainer, r.startOffset); return rr.toString().length; }
 function setCaretOffset(ed, off) { const w = document.createTreeWalker(ed, NodeFilter.SHOW_TEXT); let n, left = off; while ((n = w.nextNode())) { if (left <= n.nodeValue.length) { const r = document.createRange(); r.setStart(n, left); r.collapse(true); const s = getSelection(); s.removeAllRanges(); s.addRange(r); return; } left -= n.nodeValue.length; } placeCaret(ed, true); }
 function onNotesAct(act, b, e) {
-  const p = pageById(UI.np);
+  const p = pageById((b && b.dataset && b.dataset.pid) || UI.np); nCtxClose();
   switch (act) {
     case 'nnew': return makePage(b.dataset.t || 'blank', '');
     case 'nopen': return openPage(b.dataset.id);
@@ -3438,7 +3440,7 @@ function onNotesAct(act, b, e) {
       $('#dk-mvGo').onclick = () => { const to = $('#dk-mvTo').value; closeModal(true); movePage(p.id, to, null); }; return true; }
     case 'nalias': askText('Other names', (p.aliases || []).join(', '), v => { p.aliases = asList(v).slice(0, 10); nSave(p); paint(); }, { okLabel: 'Save', allowEmpty: true, hint: 'Names this page also goes by, separated by commas — [[links]] to any of them find this page.' }); return true;
     case 'nmd': download(p.title.replace(/[\\/:*?"<>|]/g, '-') + '.md', '# ' + p.title + '\n\n' + htmlToMd(p.html)); return true;
-    case 'ndel': { const n = pagesList().filter(x => x.id !== p.id && isAncestor(p.id, x.id)).length; confirmBox(`Delete <b>${esc(p.title)}</b>${n ? ` and the ${plural(n, 'page')} inside it` : ''}? This can’t be undone.`, 'Delete', () => { const par = p.parent; deletePage(p.id); UI.np = par || ''; writeNotesLocal(); notesSoon(); paint(); }, true); return true; }
+    case 'ndel': { const n = pagesList().filter(x => x.id !== p.id && isAncestor(p.id, x.id)).length; confirmBox(`Delete <b>${esc(p.title)}</b>${n ? ` and the ${plural(n, 'page')} inside it` : ''}? This can’t be undone.`, 'Delete', () => { const par = p.parent; deletePage(p.id); if (!pageById(UI.np)) UI.np = par || ''; writeNotesLocal(); notesSoon(); paint(); }, true); return true; }
     case 'nrmtag': p.tags = (p.tags || []).filter(t => t !== b.dataset.tag); nSave(p); paint(); return true;
     case 'nstat': { const c = getC(b.dataset.cid); if (c) openModal(`<div class="dk-sbmodal">${statBlock(c)}</div><div class="dk-acts"><button class="dk-btn" data-act="close">Close</button></div>`, { wide: true, focus: false }); return true; }
     case 'ntosess': { const c = getC((p.props || {}).stat); if (!c) return true; const s = curSession() || newSession(); const x = newInst(c, p.title); x.notes = [p.props.role, p.props.race].filter(Boolean).join(', '); s.groups[0].list.push(x); save(); toastInfo(`Added <b>${esc(p.title)}</b> to ${esc(s.title)}.`, [{ label: 'Go to session', fn: () => { UI.tab = 'sessions'; UI.session = s.id; UI.sv = 'creatures'; UI.sel = x.iid; saveUI(); render(); scrollTo(0, 0); } }]); return true; }
@@ -3449,6 +3451,21 @@ function onNotesAct(act, b, e) {
     case 'pinedit': { const pin = (p.map.pins || []).find(x => x.id === b.dataset.pin); if (pin) pinEditor(p, pin, false); return true; }
   }
   return false;
+}
+// Right-click a page in the list: the page's menu, right there
+function nCtxClose() { $$('.dk-ctx').forEach(m => m.remove()); }
+function nCtx(e) {
+  const row = e.target.closest && e.target.closest('.dk-ntrow[data-drag], .dk-nres[data-id], .dk-nhcard[data-id]'); if (!row || !ROOT.contains(row)) return;
+  const p = pageById(row.dataset.drag || row.dataset.id); if (!p) return;
+  e.preventDefault(); nCtxClose();
+  const m = document.createElement('div'); m.className = 'dk-menu open dk-ctx'; m.setAttribute('role', 'menu');
+  const it = (act, t, cls) => `<button data-act="${act}" data-pid="${p.id}"${act === 'nopen' ? ` data-id="${p.id}"` : ''}${cls ? ` class="${cls}"` : ''} role="menuitem">${t}</button>`;
+  m.innerHTML = `<div class="dk-mlist"><div class="dk-ctxh">${nIcon(p.type)}<b>${esc(p.title)}</b></div>${it('nopen', 'Open')}${it('nsub', 'Add a subpage')}${it('nfav', p.fav ? 'Unpin' : 'Pin')}${it('nmove', 'Move to…')}${it('nalias', 'Other names…')}${it('nmd', 'Export as Markdown')}${it('ndel', 'Delete page', 'red')}</div>`;
+  ROOT.appendChild(m); const r = m.getBoundingClientRect();
+  m.style.left = Math.max(8, Math.min(e.clientX, innerWidth - r.width - 8)) + 'px'; m.style.top = Math.max(8, Math.min(e.clientY, innerHeight - r.height - 8)) + 'px';
+  const off = ev => { if (ev.type === 'keydown' && ev.key !== 'Escape') return; if (ev.type === 'pointerdown' && m.contains(ev.target)) return; nCtxClose(); removeEventListener('pointerdown', off, true); removeEventListener('keydown', off, true); removeEventListener('scroll', off, true); removeEventListener('blur', off); };
+  setTimeout(() => { addEventListener('pointerdown', off, true); addEventListener('keydown', off, true); addEventListener('scroll', off, true); addEventListener('blur', off); }, 0);
+  const f = m.querySelector('button[data-act]'); if (f) f.focus({ preventScroll: true });
 }
 function onNotesClick(e) {
   if (UI.tab !== 'notes') return false;

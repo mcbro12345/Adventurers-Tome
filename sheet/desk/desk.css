@@ -1423,3 +1423,23 @@ html[data-pgtheme="light"] .dk-back2 { color: #8a6420; } html[data-pgtheme="ligh
   .dk-tools .dk-sync.busy:not(.bad) { background: #e0aa3a; }
 }
 @media (min-width: 641px) and (max-width: 1460px) { .dk-histb { gap: 2px; } .dk-histb .dk-tb { padding: 0 8px !important; } }
+/* the notes list can be made wider or narrower: the handle sits in the gap beside the list (not on its scrollbar), with a
+   small grip so it's easy to find */
+@media (min-width: 901px) {
+  .dk[data-tab=notes] .dk-nsplit { left: calc(var(--nrw, 290px) + 16px + 2px) !important; width: 12px !important; }
+  .dk[data-tab=notes] .dk-nsplit::before { content: ''; position: absolute; top: 50%; left: 4px; width: 4px; height: 44px; margin-top: -22px; border-radius: 3px; background: rgba(201,150,43,.35); transition: background .15s, height .15s; }
+  .dk[data-tab=notes] .dk-nsplit:hover::before, .dk[data-tab=notes] .dk-nsplit.on::before { background: var(--gold); height: 64px; margin-top: -32px; }
+  .dk[data-tab=notes] .dk-nsplit::after { display: none; }
+}
+/* the "Write here…" hint goes as soon as you click into the page */
+.dk-ed.blank:focus::before { content: none; }
+/* right-click menu on a notes page */
+.dk-ctx { position: fixed; z-index: 80; }
+.dk-ctx > .dk-mlist { position: static; display: block; min-width: 210px; animation: dkCtxIn .12s ease; }
+.dk-ctxh { display: flex; align-items: center; gap: 8px; padding: 6px 12px 8px; margin-bottom: 4px; border-bottom: 1px solid var(--line); font-size: .85rem; min-width: 0; }
+.dk-ctxh b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+.dk-ctx .dk-mlist button.red { color: #e0715c; }
+@keyframes dkCtxIn { from { opacity: 0; transform: scale(.97); } }
+/* lists inside the floating panels: no extra divider lines at the scroll edges (the panel's own edges do that job); a soft
+   shadow still shows there's more to scroll */
+.dk-rail .dk-shade::before, .dk-rail .dk-shade::after, .dk-blist .dk-shade::before, .dk-blist .dk-shade::after { border: 0 !important; }

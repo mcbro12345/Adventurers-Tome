@@ -3101,3 +3101,6 @@ html.mobile #wizard .wz3 .wz3-rvab { grid-template-columns: repeat(3, minmax(0, 
   :where(body.hubbody) .hub-modal.on { overscroll-behavior: none; }
   :where(body.hubbody) .hub-modal > .hub-card { overscroll-behavior: none !important; touch-action: pan-y; }
 }
+/* a tile's menu opened with a right-click sits at the pointer */
+.hc-menu.pt.on .hc-list { position: fixed !important; left: var(--px) !important; top: var(--py) !important; right: auto !important; bottom: auto !important; z-index: 1000 !important; animation: hcCtxIn .12s ease; }
+@keyframes hcCtxIn { from { opacity: 0; transform: scale(.97); } }

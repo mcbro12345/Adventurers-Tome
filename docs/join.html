@@ -3275,6 +3275,9 @@ html.mobile #wizard .wz3 .wz3-rvab { grid-template-columns: repeat(3, minmax(0, 
   :where(body.hubbody, .wzh) .hub-modal.on { overscroll-behavior: none; }
   :where(body.hubbody, .wzh) .hub-modal > .hub-card { overscroll-behavior: none !important; touch-action: pan-y; }
 }
+/* a tile's menu opened with a right-click sits at the pointer */
+.hc-menu.pt.on .hc-list { position: fixed !important; left: var(--px) !important; top: var(--py) !important; right: auto !important; bottom: auto !important; z-index: 1000 !important; animation: hcCtxIn .12s ease; }
+@keyframes hcCtxIn { from { opacity: 0; transform: scale(.97); } }
 </style>
 </head>
 <body>
@@ -3949,7 +3952,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261025094628', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.0873ba4e5685.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.baefa62c8977.html", "desk": "a/desk.0a4d4fb73512.js", "deskcss": "a/deskcss.612843694efb.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261025095425', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.0873ba4e5685.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.baefa62c8977.html", "desk": "a/desk.31995ac2e148.js", "deskcss": "a/deskcss.13765322b917.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -6922,7 +6925,7 @@ function partyModule(H) {
       <ol class="to-list"></ol>
       <div class="to-ft"><button class="to-nav" data-to="prev" title="Previous turn" aria-label="Previous turn">${TO_ICON.left}</button>
         <span class="to-gw"><button class="to-ib to-gear" data-to="menu" title="More" aria-label="More" aria-haspopup="menu" aria-expanded="false">${TO_ICON.gear}</button>
-          <span class="to-menu" role="menu" hidden><button role="menuitem" data-to="add">Add someone…</button><button role="menuitem" data-to="sort">Sort highest first</button><button role="menuitem" data-to="reveal">Show all names to players</button><button role="menuitem" data-to="conceal">Hide all names from players</button><button role="menuitem" data-to="clear">Start a new fight</button></span></span>
+          <span class="to-menu" role="menu" hidden><button role="menuitem" data-to="add">Add someone…</button><button role="menuitem" data-to="players">Add the players</button><button role="menuitem" data-to="sort">Sort highest first</button><button role="menuitem" data-to="reveal">Show all names to players</button><button role="menuitem" data-to="conceal">Hide all names from players</button><button role="menuitem" data-to="clear">Start a new fight</button></span></span>
         <button class="to-nav to-next" data-to="next" title="Next turn" aria-label="Next turn">${TO_ICON.right}</button></div></div>`;
     document.body.appendChild(w);
     const vw = innerWidth, vh = innerHeight, W = Math.min(260, vw - 16);
@@ -6953,6 +6956,7 @@ function partyModule(H) {
       if (a === 'next' && TO.rows.length > 1) { TO.rows.push(TO.rows.shift()); if (TO.rows[0].first) TO.round++; }
       if (a === 'prev' && TO.rows.length > 1) { if (TO.rows[0].first) TO.round = Math.max(1, TO.round - 1); TO.rows.unshift(TO.rows.pop()); }
       if (a === 'add') return toAddDialog();
+      if (a === 'players') { const ids = (P && P.chars) || []; let n = 0; ids.forEach(id => { if (!TO.rows.some(r => r.id === id)) { TO.rows.push({ id, v: '', at: 0 }); n++; } }); toast(n ? `Added ${n} player character${n === 1 ? '' : 's'}.` : 'All the players are already in the Turn order.'); }
       if (a === 'reveal' || a === 'conceal') TO.rows.forEach(r => { if (r.custom) r.reveal = a === 'reveal'; });
       if (a === 'clear') { TO.rows = TO.rows.filter(r => !r.custom).map(r => ({ id: r.id, v: '', at: 0 })); TO.round = 1; TO.cut = Date.now(); Object.keys(INIT).forEach(id => PC.doc(PID).collection('init').doc(id).delete().catch(() => {})); }
       toSave(); toPaint(); });
@@ -7223,6 +7227,26 @@ function partyModule(H) {
   document.addEventListener('click', e => go(e, false), true);
   document.addEventListener('auxclick', e => { if (e.button === 1) go(e, true); }, true);
   document.addEventListener('mouseover', e => { const l = e.target.closest && e.target.closest(LOGO); if (l && away()) { l.style.cursor = 'pointer'; l.title = 'Back to the lobby'; } }, true);
+})();
+
+// Right-click a character, party or member tile: its ⋯ menu opens right where you clicked (with "Open in a new tab" for
+// tiles that link somewhere). The ⋯ button still opens it in its usual spot.
+(() => { if (window.__pgTileCtx) return; window.__pgTileCtx = 1;
+  const TILE = '.hr, .hc, .pm';
+  document.addEventListener('contextmenu', e => {
+    if (e.shiftKey || !e.target.closest || e.target.closest('input, textarea, [contenteditable]')) return;
+    const t = e.target.closest(TILE); if (!t) return; const m = t.querySelector('.hc-menu'); if (!m || !t.contains(m)) return;
+    e.preventDefault();
+    document.querySelectorAll('.hc-menu.on').forEach(x => { if (x !== m) x.classList.remove('on', 'pt'); });
+    const list = m.querySelector('.hc-list'); if (!list) return;
+    list.querySelectorAll('.hc-ctxonly').forEach(x => x.remove());
+    const a = t.querySelector('a[href]'); if (a) { const nb = document.createElement('button'); nb.className = 'hc-ctxonly'; nb.type = 'button'; nb.textContent = 'Open in a new tab'; nb.onclick = ev => { ev.stopPropagation(); m.classList.remove('on', 'pt'); window.open(a.href, '_blank', 'noopener'); }; list.prepend(nb); }
+    m.classList.add('on', 'pt'); m.style.setProperty('--px', e.clientX + 'px'); m.style.setProperty('--py', e.clientY + 'px');
+    requestAnimationFrame(() => { const r = list.getBoundingClientRect(); m.style.setProperty('--px', Math.max(8, Math.min(e.clientX, innerWidth - r.width - 8)) + 'px'); m.style.setProperty('--py', Math.max(8, Math.min(e.clientY, innerHeight - r.height - 8)) + 'px'); });
+  });
+  // the ⋯ button (or anything that closes the menu) puts it back in its usual spot
+  document.addEventListener('pointerdown', e => { const d = e.target.closest && e.target.closest('.hc-dots'); document.querySelectorAll('.hc-menu.pt').forEach(m => { if (d && m.contains(d)) { m.classList.remove('pt'); m.querySelectorAll('.hc-ctxonly').forEach(x => x.remove()); } else if (!m.contains(e.target)) m.classList.remove('on', 'pt'); }); }, true);
+  addEventListener('scroll', () => document.querySelectorAll('.hc-menu.pt').forEach(m => m.classList.remove('on', 'pt')), true);
 })();
 
 </script>
