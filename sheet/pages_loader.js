@@ -1948,7 +1948,7 @@ function hub(fs, auth, G, ctx) {
   function card(c) {
     const acc = (c.editors || []).includes(EMAIL) ? '<span class="hc-acc edit">Can edit</span>' : '<span class="hc-acc">View only</span>';
     return `<div class="hc${c.pin && isMine(c) ? ' pinned' : ''}"><a class="hc-main" href="${esc(URLS.char(c))}">${pic(c)}
-      <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</span>
+      <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span class="pty-sub2">${[c.race, c.cls].filter(Boolean).map(x => `<i>${esc(x)}</i>`).join('') || '<i>New character</i>'}</span>
       <small>${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small>${acc}</span></a>
       ${(() => { const inList = (c.viewers || []).includes(EMAIL) && !isMine(c), it = [];
         if (IS_ADMIN) it.push(['share', 'Share…'], ['move', 'Give to another player']);
@@ -1963,7 +1963,7 @@ function hub(fs, auth, G, ctx) {
   function row(c) {
     return `<div class="hr${c.pin ? ' pinned' : ''}" data-id="${esc(c.id)}" data-pin="${c.pin ? 1 : 0}"><span class="hr-grip" title="Drag to reorder" aria-label="Drag to reorder">⠿</span>
       <a class="hr-main" href="${esc(URLS.char(c))}">${pic(c)}
-      <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</span>
+      <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span class="pty-sub2">${[c.race, c.cls].filter(Boolean).map(x => `<i>${esc(x)}</i>`).join('') || '<i>New character</i>'}</span>
       <small>${shareNote(c)}${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small></span></a>
       <div class="hc-menu hr-menu"><button class="hc-dots" aria-label="More options for ${esc(c.name || 'this character')}">⋯</button><div class="hc-list">
         <button data-a="pin" data-id="${esc(c.id)}">${c.pin ? MI.unpin + 'Unpin' : MI.pin + 'Pin'}</button><button data-a="share" data-id="${esc(c.id)}">${MI.share}Share…</button><button data-a="copy" data-id="${esc(c.id)}">${MI.copy}Make a copy</button><button data-a="exp" data-id="${esc(c.id)}">${MI.exp}Export</button><button data-a="tok" data-id="${esc(c.id)}">${MI.tok}Download token</button>${canDelete(c) ? `<button data-a="del" data-id="${esc(c.id)}" class="hc-del">${MI.del}Delete character…</button>` : ''}</div></div></div>`;

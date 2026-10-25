@@ -2664,12 +2664,12 @@ body.hubbody .hd2-main .hr { height: 186px; }
 .hd2-main .hr .hr-main { padding-top: 12px !important; }
 /* lobby skeletons on a computer: grey tiles the same size and shape as the real ones, so nothing moves when they arrive */
 .hd2-main .sk-wrap { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; padding: 0; }
-.hd2-main .sk-wrap .sk-row { flex-direction: column; align-items: center; justify-content: flex-start; gap: 8px; height: 200px; box-sizing: border-box; padding: 13px 14px 14px; border-radius: 14px; border: 1px solid rgba(201,150,43,.14); background: rgba(255,255,255,.025); }
+.hd2-main .sk-wrap .sk-row { flex-direction: column; align-items: center; justify-content: flex-start; gap: 8px; height: 218px; box-sizing: border-box; padding: 13px 14px 14px; border-radius: 14px; border: 1px solid rgba(201,150,43,.14); background: rgba(255,255,255,.025); }
 .hd2-main .sk-wrap .sk-c { width: 58px; height: 58px; border-radius: 13px; margin-bottom: 6px; }
 .hd2-main .sk-wrap .sk-lines { flex: none; width: 100%; align-items: center; gap: 9px; }
 .hd2-main .sk-wrap .sk-l1 { height: 15px; } .hd2-main .sk-wrap .sk-l2 { height: 11px; width: 70% !important; }
 .hd2-main .sk-wrap .sk-tag { margin-top: auto; width: 100px; height: 10px; border-radius: 6px; }
-.hd2-main [data-sec=shared] .sk-wrap .sk-row { height: 212px; padding-top: 34px; }
+.hd2-main [data-sec=shared] .sk-wrap .sk-row { height: 230px; padding-top: 34px; }
 /* What's new while it loads */
 .wn-sk .wn-strip { min-height: 96px; box-sizing: border-box; padding: 14px 44px; flex-direction: column; align-items: stretch; justify-content: center; gap: 9px; }
 .wn-sk .skl { height: 15px; } .wn-sk .skl + .skl { height: 11px; }
@@ -2949,8 +2949,33 @@ body.hubbody .hd2-main .hc { height: 212px; }
 .hd2-main .hr-main, .hd2-main .hc-main { padding-bottom: 10px !important; }
 .hd2-main .hc-txt > small { margin-bottom: 0 !important; }
 /* party tiles: the DM on one line, the number of characters on the next (each cut short rather than wrapping) */
-.pty-sub2 > i { display: block; font-style: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* (two parts — race and class, or DM and characters: one line each on the tiles, one line joined by a dot in the phone list) */
+.pty-sub2 > i { font-style: normal; } .pty-sub2 > i + i::before { content: ' · '; }
 .hd2-main .hc-txt > span.pty-sub2 { display: block; -webkit-line-clamp: unset; }
+.hd2-main .pty-sub2 > i { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .hd2-main .pty-sub2 > i + i::before { content: none; }
+/* a long class (with its subclass) may take two lines rather than being cut */
+.hd2-main .hc-txt > span.pty-sub2 > i:nth-child(2):not(:only-child) { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.hd2-main [data-sec=parties] .hc-txt > span.pty-sub2 > i:nth-child(2) { white-space: nowrap; display: block; }
+body.hubbody .hd2-main .hr { height: 218px; } body.hubbody .hd2-main .hc { height: 230px; }
+/* What's new bar, snug: no reserved strip down the right (only the headline leaves room for the dots), and only as tall as the text needs */
+.wn-bar .wn-it { padding-right: 0 !important; }
+.wn-bar .wn-t { padding-right: 72px; }
+.wn-bar .wn-stk { min-height: 70px !important; }
+.wn-strip { padding: 8px 6px !important; }
+.wn-bar .wn-dots { top: 2px !important; right: 4px !important; }
+/* creation, tighter on a computer: the top panel scrolls away (the buttons stay at the bottom), smaller title, stepper, card and fields */
+html:not(.mobile) #wizard .wzh2 { position: relative; padding-bottom: 18px; }
+html:not(.mobile) #wizard .wzh2::before { display: none; }
+html:not(.mobile) #wizard .wz-box:has(> .wzh2) > .wz-head h2 { margin: 4px 0 12px; font-size: 1.5rem; }
+html:not(.mobile) #wizard .wz-box:has(> .wzh2) .wz-step { min-height: 36px; font-size: .84rem; }
+html:not(.mobile) #wizard .wz-box:has(> .wzh2) .wz-steps { padding: 4px; }
+html:not(.mobile) #wizard .wz-box:has(> .wzh2) .wz-body { margin-top: 12px; padding: 18px 22px 22px; }
+#wizard .wz-box:has(> .wzh2) .wz-body > h3 { font-size: 1.2rem; margin-bottom: 8px; }
+#wizard .wz-box:has(> .wzh2) .wz-body select.f, #wizard .wz-box:has(> .wzh2) .wz-body input.f { min-height: 40px; padding: 7px 11px; font-size: .92rem; }
+#wizard .wz-box:has(> .wzh2) .wz-src { margin-top: 18px; }
+#wizard .wz-box:has(> .wzh2) .srcopt { padding: 9px 12px; }
+html:not(.mobile) #wizard .wz-box:has(> .wzh2) > .wz-foot { padding: 30px 10px 26px; }
+#wizard .wz-box:has(> .wzh2) .wz-foot .btn { min-height: 40px; }
 </style>
 </head>
 <body>
@@ -3624,7 +3649,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024230809', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.10ac34f51762.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.bf5693d15950.html", "desk": "a/desk.d6a06d576157.js", "deskcss": "a/deskcss.8eb5189e71e0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024231333', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.10ac34f51762.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.bf5693d15950.html", "desk": "a/desk.d6a06d576157.js", "deskcss": "a/deskcss.8eb5189e71e0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -4945,7 +4970,7 @@ function hub(fs, auth, G, ctx) {
   function card(c) {
     const acc = (c.editors || []).includes(EMAIL) ? '<span class="hc-acc edit">Can edit</span>' : '<span class="hc-acc">View only</span>';
     return `<div class="hc${c.pin && isMine(c) ? ' pinned' : ''}"><a class="hc-main" href="${esc(URLS.char(c))}">${pic(c)}
-      <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</span>
+      <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span class="pty-sub2">${[c.race, c.cls].filter(Boolean).map(x => `<i>${esc(x)}</i>`).join('') || '<i>New character</i>'}</span>
       <small>${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small>${acc}</span></a>
       ${(() => { const inList = (c.viewers || []).includes(EMAIL) && !isMine(c), it = [];
         if (IS_ADMIN) it.push(['share', 'Share…'], ['move', 'Give to another player']);
@@ -4960,7 +4985,7 @@ function hub(fs, auth, G, ctx) {
   function row(c) {
     return `<div class="hr${c.pin ? ' pinned' : ''}" data-id="${esc(c.id)}" data-pin="${c.pin ? 1 : 0}"><span class="hr-grip" title="Drag to reorder" aria-label="Drag to reorder">⠿</span>
       <a class="hr-main" href="${esc(URLS.char(c))}">${pic(c)}
-      <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</span>
+      <span class="hc-txt"><b>${esc(c.name || 'Unnamed character')}</b><span class="pty-sub2">${[c.race, c.cls].filter(Boolean).map(x => `<i>${esc(x)}</i>`).join('') || '<i>New character</i>'}</span>
       <small>${shareNote(c)}${c.updatedAt ? 'Updated ' + ago(c.updatedAt) + (c.by ? ' by ' + esc(c.by) : '') : ''}</small></span></a>
       <div class="hc-menu hr-menu"><button class="hc-dots" aria-label="More options for ${esc(c.name || 'this character')}">⋯</button><div class="hc-list">
         <button data-a="pin" data-id="${esc(c.id)}">${c.pin ? MI.unpin + 'Unpin' : MI.pin + 'Pin'}</button><button data-a="share" data-id="${esc(c.id)}">${MI.share}Share…</button><button data-a="copy" data-id="${esc(c.id)}">${MI.copy}Make a copy</button><button data-a="exp" data-id="${esc(c.id)}">${MI.exp}Export</button><button data-a="tok" data-id="${esc(c.id)}">${MI.tok}Download token</button>${canDelete(c) ? `<button data-a="del" data-id="${esc(c.id)}" class="hc-del">${MI.del}Delete character…</button>` : ''}</div></div></div>`;
