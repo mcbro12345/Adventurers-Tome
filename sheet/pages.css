@@ -3093,3 +3093,5 @@ html.mobile #wizard .wz3 .wz3-rvab { grid-template-columns: repeat(3, minmax(0, 
 .pgp-lobby:active { transform: scale(.98); background: rgba(201,150,43,.14); }
 @media (hover: hover) { .pgp-lobby:hover { background: rgba(201,150,43,.12); } }
 @media (prefers-color-scheme: light) { .pgp-lobby { color: #8a6420; } }
+/* phones: What's new (or whatever comes first) sits right under the logo panel, with the same small gap as the rest */
+@media (max-width: 860px) { body.hubbody:not(.adminbody) .hub-head > .hub-views { margin-top: 6px !important; } }
