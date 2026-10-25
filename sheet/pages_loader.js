@@ -463,7 +463,7 @@ const escH = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&
 const hueOf = t => [...String(t || '?')].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) % 360, 7);
 // first and last initials: "Ada Lovelace" → AL, "Shade of Twilight of the Dark Forest" → SF
 // A character's picture frame takes the colour the sheet itself uses (its accent).
-const accStyle = c => /^#[0-9a-f]{6}$/i.test((c && c.acc) || '') ? ` style="border-color:${c.acc}"` : '';
+const accStyle = c => /^#[0-9a-f]{6}$/i.test((c && c.acc) || '') ? ` style="border-color:${c.acc};--c:${c.acc}"` : '';
 const initials = (name, em) => { const w = String(name || em || '?').split(/[\s@._-]+/).filter(x => /[\p{L}\p{N}]/u.test(x)); return w.length ? (w[0][0] + (w.length > 1 ? w[w.length - 1][0] : '')).toUpperCase() : '?'; };
 // A person's picture: their initials on a colour (theirs, or one picked from their email), a character portrait, or an
 // uploaded image — which, if it has a transparent background, is shown as-is with no circle or border.
@@ -920,6 +920,7 @@ function wireDie(root) {
       const vid = !hd && pgVideo(l); if (vid) { out += vid; return; }
       out += hd ? '<b class="pgm-hd">' + inl(hd[1]) + '</b>' : inl(l) + '<br>'; });
     return (ul ? out + '</ul>' : out).replace(/(<br>)+$/, ''); }
+  window.pgMarkHTML = pgMark;
   // A notice (to everyone) has its own slot beside the personal message, so neither replaces the other; they show one after the other.
   // A notice that's revoked or replaced while it's on screen closes.
   let PGU = null;
@@ -1839,6 +1840,52 @@ function hub(fs, auth, G, ctx) {
       catch (x) { ok.disabled = false; ok.textContent = 'Save'; toast(x && x.code === 'permission-denied' ? 'Couldn’t save it yet — the new database rules need publishing.' : 'Couldn’t save it: ' + ((x && x.message) || x)); } };
     paint();
   }
+  // ----- What's new: short updates, in the lobby's top bar on a computer and as a card above Create character on a phone -----
+  // Admins post them (Admin → What's new). The ones switched into the rotation take turns, fading from one to the next;
+  // hovering (or touching) pauses it, and the arrows, dots or a swipe flip through by hand. "See all updates" lists every one.
+  const NEWS = { items: [], every: 8, on: false, subs: new Set() };
+  const newsSort = (a, b) => ((a.ord != null ? a.ord : 1e9) - (b.ord != null ? b.ord : 1e9)) || ((b.at || 0) - (a.at || 0));
+  function newsStart() { if (NEWS.on) return; NEWS.on = true; const tell = () => NEWS.subs.forEach(f => { try { f(); } catch (e) {} });
+    fs.collection('news').onSnapshot(qs => { NEWS.items = qs.docs.map(d => Object.assign({ id: d.id }, d.data())).sort(newsSort); tell(); }, () => {});
+    fs.collection('config').doc('news').onSnapshot(d => { NEWS.every = Math.max(4, Math.min(60, Number(d.exists && d.data().every) || 8)); tell(); }, () => {}); }
+  const NSEEN_LS = 'pg-newsseen';
+  const newsSeen = () => { try { return new Set(JSON.parse(localStorage.getItem(NSEEN_LS) || '[]')); } catch (e) { return new Set(); } };
+  const newsSee = id => { try { const s = newsSeen(); if (s.has(id)) return; s.add(id); localStorage.setItem(NSEEN_LS, JSON.stringify([...s].slice(-200))); } catch (e) {} };
+  const newsLink = n => /^https?:\/\/\S+$/i.test(n.link || '') ? `<a class="wn-link" href="${esc(n.link)}" target="_blank" rel="noopener">Read more</a>` : '';
+  const newsItemHTML = (n, fresh) => `<b class="wn-t">${esc(n.t || '')}${fresh ? '<em class="wn-new">New</em>' : ''}</b><div class="wn-d">${(window.pgMarkHTML || esc)(n.d || '')}</div>${newsLink(n)}`;
+  // Every update, newest first, in a window.
+  function newsAll(list) { const L = (list || NEWS.items).slice().sort((a, b) => (b.at || 0) - (a.at || 0)); L.forEach(n => newsSee(n.id));
+    modal.innerHTML = `<div class="hub-card wide wn-allc"><h2>What’s new</h2>${L.length ? L.map(n => `<div class="wn-allit"><small>${n.at ? esc(new Date(n.at).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })) : ''}</small>${newsItemHTML(n, false)}</div>`).join('') : '<p class="hub-hint">Nothing posted yet.</p>'}<button class="btn ghost" id="wn-x">Close</button></div>`;
+    modal.classList.add('on'); modal.querySelector('#wn-x').onclick = close; }
+  // Puts the rotating updates into `el`: kind 'bar' (computer top bar) or 'card' (phone). `src` (the admin preview) gives
+  // its own updates and timing instead of the live ones.
+  function newsMount(el, kind, src) { if (!el) return null;
+    const get = () => src ? src() : { items: NEWS.items.filter(n => n.rot), every: NEWS.every, all: NEWS.items };
+    let i = 0, T = null, paused = false, key = '', seenT = null; const S = { el };
+    const dots = n => n > 1 ? `<span class="wn-dots" role="tablist">${Array.from({ length: n }, (_, k) => `<button type="button" class="${k === i ? 'on' : ''}" data-k="${k}" aria-label="Update ${k + 1} of ${n}"></button>`).join('')}</span>` : '';
+    const paintItem = () => { const g = get(), L = g.items; if (!L.length) return; i = ((i % L.length) + L.length) % L.length; const n = L[i], seen = newsSeen(), it = el.querySelector('.wn-it');
+      if (it) it.innerHTML = newsItemHTML(n, n.badge && !seen.has(n.id)) + (kind === 'bar' ? dots(L.length) : '');
+      if (kind === 'card') { const d = el.querySelector('.wn-ch .wn-dots'); if (d) d.outerHTML = dots(L.length); }
+      el.querySelectorAll('.wn-dots button').forEach(b => b.onclick = e => { e.stopPropagation(); go(Number(b.dataset.k) - i); });
+      clearTimeout(seenT); if (!src) seenT = setTimeout(() => newsSee(n.id), 4000); };
+    const fade = f => { const it = el.querySelector('.wn-it'); if (!it || PG_CALM) { f(); return; } it.classList.add('wn-out'); setTimeout(() => { f(); it.classList.remove('wn-out'); }, 260); };
+    const go = d => { const L = get().items; if (L.length < 2) return; fade(() => { i += d; paintItem(); }); tick(); };
+    const tick = () => { clearTimeout(T); const g = get(); if (g.items.length < 2) return; T = setTimeout(() => { if (!paused && !document.hidden && el.isConnected) go(1); else tick(); }, g.every * 1000); };
+    const paint = () => { const g = get(), L = g.items; const k = JSON.stringify([L.map(n => [n.id, n.t, n.d, n.badge, n.link]), g.every]);
+      if (!L.length) { el.innerHTML = ''; el.hidden = true; key = k; clearTimeout(T); return; } el.hidden = false; if (k === key && el.querySelector('.wn-it')) return; key = k;
+      const allB = `<button type="button" class="wn-all">${kind === 'bar' ? 'See all updates' : 'See all'}</button>`;
+      el.innerHTML = kind === 'bar' ? `<div class="wn wn-bar"><div class="wn-lab"><b>What’s new</b>${allB}</div><div class="wn-strip"><button type="button" class="wn-ar" data-d="-1" aria-label="Previous update"${L.length < 2 ? ' hidden' : ''}>‹</button><div class="wn-it" aria-live="polite"></div><button type="button" class="wn-ar" data-d="1" aria-label="Next update"${L.length < 2 ? ' hidden' : ''}>›</button></div></div>`
+        : `<div class="wn wn-card"><div class="wn-ch"><b>What’s new</b><span class="wn-dots"></span>${allB}</div><div class="wn-it" aria-live="polite"></div></div>`;
+      el.querySelectorAll('.wn-ar').forEach(b => b.onclick = () => go(Number(b.dataset.d)));
+      el.querySelector('.wn-all').onclick = () => newsAll(g.all || L);
+      const box = el.querySelector('.wn'); box.addEventListener('mouseenter', () => { paused = true; }); box.addEventListener('mouseleave', () => { paused = false; });
+      box.addEventListener('focusin', () => { paused = true; }); box.addEventListener('focusout', () => { paused = false; });
+      if (kind === 'card') { let sx = null, sy = 0; box.addEventListener('touchstart', e => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; paused = true; }, { passive: true });
+        box.addEventListener('touchend', e => { paused = false; if (sx == null) return; const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy; sx = null; if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) go(dx < 0 ? 1 : -1); }, { passive: true }); }
+      paintItem(); tick(); };
+    S.paint = paint; S.stop = () => { clearTimeout(T); clearTimeout(seenT); NEWS.subs.delete(paint); };
+    if (!src) { newsStart(); NEWS.subs.add(paint); } paint(); return S; }
+
   // (the admin pages share the picture tools above, so they branch off only here)
   if (ADMIN) return adminSection();
   function card(c) {
@@ -1872,25 +1919,28 @@ function hub(fs, auth, G, ctx) {
   // Drag a row by its grip (mouse or touch): it lifts and follows the pointer, a gap shows where it lands, the rest slide.
   // Pinned rows only move among pinned rows, the rest among the rest.
   let RD = null;
-  const slide = (rows, mutate) => { const before = new Map(rows.map(x => [x, x.getBoundingClientRect().top])); mutate();
-    rows.forEach(x => { const d = before.get(x) - x.getBoundingClientRect().top; if (!d) return; x.style.transition = 'none'; x.style.transform = `translateY(${d}px)`; requestAnimationFrame(() => { x.style.transition = 'transform .18s ease'; x.style.transform = ''; }); }); };
+  const slide = (rows, mutate) => { const before = new Map(rows.map(x => { const b = x.getBoundingClientRect(); return [x, [b.left, b.top]]; })); mutate();
+    rows.forEach(x => { const b = x.getBoundingClientRect(), [l0, t0] = before.get(x), dx = l0 - b.left, dy = t0 - b.top; if (!dx && !dy) return; x.style.transition = 'none'; x.style.transform = `translate(${dx}px, ${dy}px)`; requestAnimationFrame(() => { x.style.transition = 'transform .18s ease'; x.style.transform = ''; }); }); };
   // The row itself stays in the list (invisible, holding its place) while a copy of it follows the finger on top of the
   // page. The copy lives outside the sliding lists, so scrolling or the lists' own movement can't make it jump.
   document.addEventListener('pointerdown', e => { const g = e.target.closest && e.target.closest('.hr-grip'); if (!g || e.button > 0) return; const r = g.closest('.hr'); e.preventDefault();
     const b = r.getBoundingClientRect(), gh = r.cloneNode(true); gh.classList.add('hr-ghost', 'drag'); gh.removeAttribute('data-id');
     Object.assign(gh.style, { position: 'fixed', left: b.left + 'px', top: b.top + 'px', width: b.width + 'px', height: b.height + 'px', margin: 0, zIndex: 60, pointerEvents: 'none', transition: 'none', willChange: 'top' });
     document.body.appendChild(gh); r.classList.add('hr-hold');
-    RD = { r, gh, pin: r.dataset.pin, list: r.parentElement, dy: e.clientY - b.top, y: e.clientY, raf: 0 }; document.body.classList.add('hdragging'); try { g.setPointerCapture(e.pointerId); } catch (x) {} });
+    RD = { r, gh, pin: r.dataset.pin, list: r.parentElement, dy: e.clientY - b.top, y: e.clientY, dx: e.clientX - b.left, x: e.clientX, grid: getComputedStyle(r.parentElement).display === 'grid', raf: 0 }; document.body.classList.add('hdragging'); try { g.setPointerCapture(e.pointerId); } catch (x) {} });
   const dragStep = () => { const d = RD; if (!d) return; d.raf = 0; d.gh.style.top = (d.y - d.dy) + 'px';
-    const rows = [...d.list.querySelectorAll(':scope > .hr')], peers = rows.filter(x => x !== d.r && x.dataset.pin === d.pin);
-    if (peers.length) { const mid = d.y - d.dy + d.gh.offsetHeight / 2, tgt = peers.find(x => { const bb = x.getBoundingClientRect(); return mid < bb.top + bb.height / 2; });
+    const rows = [...d.list.querySelectorAll(':scope > .hr')], peers = rows.filter(x => x !== d.r && x.dataset.pin === d.pin && !x.classList.contains('hd-hide'));
+    // tiles (on a computer): the ghost follows the pointer both ways, and the tile it's over makes room
+    if (d.grid) { d.gh.style.left = (d.x - d.dx) + 'px'; const over = peers.find(x => { const bb = x.getBoundingClientRect(); return d.x >= bb.left && d.x <= bb.right && d.y >= bb.top && d.y <= bb.bottom; });
+      if (over && Date.now() - (d.mt || 0) > 200) { d.mt = Date.now(); const a = rows.indexOf(d.r), o = rows.indexOf(over); slide(rows.filter(x => x !== d.r), () => o > a ? over.after(d.r) : over.before(d.r)); } }
+    else if (peers.length) { const mid = d.y - d.dy + d.gh.offsetHeight / 2, tgt = peers.find(x => { const bb = x.getBoundingClientRect(); return mid < bb.top + bb.height / 2; });
       const last = peers[peers.length - 1];
       if (tgt ? d.r.nextElementSibling !== tgt : last.nextElementSibling !== d.r) slide(rows.filter(x => x !== d.r), () => tgt ? tgt.before(d.r) : last.after(d.r)); }
     const sc = d.list.closest('.hub-scroll'), sr = sc ? sc.getBoundingClientRect() : { top: 0, bottom: innerHeight }, edge = 70, by = y => sc ? sc.scrollBy(0, y) : scrollBy(0, y);
     if (d.y < sr.top + edge) { by(-8); d.raf = requestAnimationFrame(dragStep); } else if (d.y > sr.bottom - edge) { by(8); d.raf = requestAnimationFrame(dragStep); } };
-  document.addEventListener('pointermove', e => { if (!RD) return; e.preventDefault(); RD.y = e.clientY; if (!RD.raf) RD.raf = requestAnimationFrame(dragStep); }, { passive: false });
+  document.addEventListener('pointermove', e => { if (!RD) return; e.preventDefault(); RD.y = e.clientY; RD.x = e.clientX; if (!RD.raf) RD.raf = requestAnimationFrame(dragStep); }, { passive: false });
   const endDrag = () => { if (!RD) return; const d = RD; RD = null; if (d.raf) cancelAnimationFrame(d.raf); const pb = d.r.getBoundingClientRect();
-    d.gh.style.transition = 'top .16s ease, box-shadow .16s, transform .16s'; d.gh.style.top = pb.top + 'px'; d.gh.classList.remove('drag');
+    d.gh.style.transition = 'top .16s ease, left .16s ease, box-shadow .16s, transform .16s'; d.gh.style.top = pb.top + 'px'; d.gh.style.left = pb.left + 'px'; d.gh.classList.remove('drag');
     setTimeout(() => { d.gh.remove(); d.r.classList.remove('hr-hold'); document.body.classList.remove('hdragging');
       const all = [...d.list.querySelectorAll(':scope > .hr')]; if (d.r.dataset.party) return PMx().saveOrder(all.filter(x => x.dataset.party).map(x => x.dataset.id)); saveOrder(all.filter(x => x.dataset.pin === '1').map(x => x.dataset.id)).then(() => saveOrder(all.filter(x => x.dataset.pin !== '1').map(x => x.dataset.id))); }, 170); };
   document.addEventListener('pointerup', endDrag); document.addEventListener('pointercancel', endDrag);
@@ -1982,38 +2032,90 @@ function hub(fs, auth, G, ctx) {
         <div class="hf-body">${groups[k].sort(byName).map(card).join('')}</div></details>`; }).join('')
         : !SH_LOADED && noList('shared') ? SKEL.rows(3) : `<p class="hub-empty">Nothing has been shared with you yet. When another player shares a character with ${esc(EMAIL)}, it shows up here.</p>`;
     const mineHTML = noList('mine') && !mine.length ? SKEL.rows(4) : mine.length ? `<div class="hl">${mine.sort(ord).map(row).join('')}</div>` : `<p class="hub-empty">You don’t have any characters yet — create one, or ask whoever has yours to give it to you.</p>`;
-    const TABS = true;
-    const idx = vi(view), pane = (k, html) => `<div class="hub-pane${idx === vi(k) ? ' on' : ' hp-off'}" data-pane="${k}">${html}</div>`, tab = (k, t, n) => `<button role="tab" class="${idx === vi(k) ? 'on' : ''}" data-view="${k}">${t} <span class="hv-n">${n}</span></button>`;
-    const body = TABS ? `<div class="hub-track">${pane('mine', mineHTML)}${pane('parties', PMx().paneHTML())}${pane('shared', sharedHTML)}</div>` : mineHTML;
-    const seg = TABS ? `<div class="hub-seg" role="tablist"><span class="hv-ind" aria-hidden="true"></span>${tab('mine', '<span class="tl-lg">My characters</span><span class="tl-sm">Own</span>', mine.length)}${tab('parties', 'Parties', PMx().count())}${tab('shared', '<span class="tl-lg">Shared with me</span><span class="tl-sm">Shared</span>', shared.length)}</div>` : '';
-    const keepLogo = root.querySelector('.hub-logo');
-    root.innerHTML = `<div class="hub-head"><header class="hub-top">${logoHTML()}
-      <div class="hub-side"><div class="hub-prof"><button class="hp-pic" id="me-pic" title="Choose your picture" aria-label="Choose your picture">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(myAva())}<span class="hp-edit" aria-hidden="true">✎</span></button>
-        <div class="hp-txt"><span class="hp-name"><b>${esc(myName())}</b><button class="hp-rename" id="me-rename" title="Change your name" aria-label="Change your name"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></button></span><small>${esc(EMAIL)}</small><div class="hp-row"><button class="linkbtn" id="me-out">Sign out</button>${themeBtnHTML()}${IS_ADMIN ? '<button class="hub-admin hub-chip" id="hub-admin"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Admin</span></button>' : '<a class="hub-ctlink" href="#contact">Contact</a>'}</div></div></div></div></header>
-      <nav class="hub-views${TABS ? '' : ' no-seg'}" aria-label="Your lists">${seg}${a2hsHTML()}<button class="hub-new" id="hub-new"><span class="hn-plus" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="hn-txt"><b>Create character</b></span></button></nav>
+    // On a computer the three lists sit one under another as tiles (no tabs); on a phone they keep their tabs.
+    const D = deskMode(); DRAWN_DESK = D;
+    const idx = vi(view), pane = (k, html) => `<div class="hub-pane${D || idx === vi(k) ? ' on' : ' hp-off'}" data-pane="${k}">${html}</div>`, tab = (k, t, n) => `<button role="tab" class="${idx === vi(k) ? 'on' : ''}" data-view="${k}">${t} <span class="hv-n">${n}</span></button>`;
+    const seg = `<div class="hub-seg" role="tablist"><span class="hv-ind" aria-hidden="true"></span>${tab('mine', '<span class="tl-lg">My characters</span><span class="tl-sm">Own</span>', mine.length)}${tab('parties', 'Parties', PMx().count())}${tab('shared', '<span class="tl-lg">Shared with me</span><span class="tl-sm">Shared</span>', shared.length)}</div>`;
+    const plusI = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+    const foldB = k => `<button type="button" class="hd-fold" data-fold="${k}" aria-expanded="${FOLD[k] ? 'false' : 'true'}" aria-label="${FOLD[k] ? 'Show' : 'Hide'} this list"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>`;
+    const sec = (k, title, n, act, body, foot) => `<section class="hd-sec${FOLD[k] ? ' folded' : ''}" data-sec="${k}"><div class="hd-h"><h2>${title}</h2><span class="hd-n">${n}</span><span class="hd-acts">${act || ''}${foldB(k)}</span></div><div class="hd-body">${pane(k, body)}${foot || ''}</div></section>`;
+    const body = D ? sec('mine', 'Your characters', mine.length, `<button type="button" class="hd-act gold" id="hd-newc">${plusI}Create character</button>`, mineHTML, `<div class="hd-foot"><button type="button" class="hd-more" data-more="mine" hidden></button>${mine.length > 1 ? '<small class="hd-hint">Drag a character to change the order.</small>' : ''}</div>`)
+        + sec('parties', 'Parties', PMx().count(), `<button type="button" class="hd-act" id="hd-newp">${plusI}New party</button>`, PMx().paneHTML(), '<p class="hd-join">Got an invite link? <button type="button" class="hd-joinb" id="hd-join">Paste it to join a party</button></p>')
+        + sec('shared', 'Shared with me', shared.length, '', sharedHTML)
+      : `<div class="hub-track">${pane('mine', mineHTML)}${pane('parties', PMx().paneHTML())}${pane('shared', sharedHTML)}</div>`;
+    const ava = (a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(myAva());
+    const acct = `<button type="button" class="hub-acct" id="me-acct" aria-haspopup="menu" aria-expanded="false" title="Your account">${ava}${D ? `<span class="ha-txt"><b>${esc(myName())}</b><small>${esc(EMAIL)}</small></span><svg class="ha-chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>` : ''}</button>`;
+    const keepLogo = root.querySelector('.hub-logo'), keepWn = root.querySelector('#hub-wn');
+    root.classList.toggle('hd2', D); document.body.classList.toggle('hd2body', D);
+    root.innerHTML = D ? `<div class="hub-head hd2-head"><header class="hub-top">${logoHTML()}<div id="hub-wn" class="hd2-wn" data-kind="bar"></div><div class="hub-side">${acct}</div></header></div><main class="hub-list hd2-main">${body}</main>`
+      : `<div class="hub-head"><header class="hub-top">${logoHTML()}<div class="hub-side">${acct}</div></header>
+      <nav class="hub-views" aria-label="Your lists">${seg}${a2hsHTML()}<div id="hub-wn" class="hm-wn" data-kind="card"></div><button class="hub-new" id="hub-new"><span class="hn-plus" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="hn-txt"><b>Create character</b></span></button></nav>
       </div><main class="hub-list">${body}</main>`;
     if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
+    // the What's new box carries on where it was (same update showing, same timer) instead of starting over on every redraw
+    { const n = root.querySelector('#hub-wn'); if (keepWn && n && keepWn.dataset.kind === n.dataset.kind) n.replaceWith(keepWn); else { if (WN) WN.stop(); WN = newsMount(n, n.dataset.kind); } }
     PMx().wirePane();
-    newBtn(); wireA2HS(root);
-    root.querySelector('#me-out').onclick = signOut;
-    wireThemeBtn(root);
-    { const rn = root.querySelector('#me-rename'); if (rn) rn.onclick = renameMe; }
-    const ab = root.querySelector('#hub-admin'); if (ab) ab.onclick = () => { pgGo(ADMIN_URL); };
-    root.querySelector('#me-pic').onclick = () => pickPic();
-    root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => switchView(b.dataset.view));
-    placeInd(false); placeTrack(false); skelRestore();
-    root.querySelectorAll('details.hub-folder').forEach(d => d.addEventListener('toggle', () => { open[d.dataset.k] = d.open; ls.set(OPEN, JSON.stringify(open)); }));
+    if (D) { root.querySelector('#hd-newc').onclick = createChar; root.querySelector('#hd-newp').onclick = () => PMx().newParty(); root.querySelector('#hd-join').onclick = joinByLink;
+      root.querySelectorAll('[data-fold]').forEach(b => b.onclick = () => { const k = b.dataset.fold; FOLD[k] = !FOLD[k]; ls.set(FOLD_LS, JSON.stringify(FOLD)); const s = b.closest('.hd-sec'); s.classList.toggle('folded', !!FOLD[k]); b.setAttribute('aria-expanded', FOLD[k] ? 'false' : 'true'); b.setAttribute('aria-label', (FOLD[k] ? 'Show' : 'Hide') + ' this list'); if (!FOLD[k]) tileFit(s); });
+      root.querySelectorAll('[data-more]').forEach(b => b.onclick = () => { MORE[b.dataset.more] = !MORE[b.dataset.more]; tileCaps(); });
+      tileFit(root); tileCaps(); }
+    else { newBtn(); wireA2HS(root); root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => switchView(b.dataset.view)); placeInd(false); placeTrack(false); skelRestore(); }
+    root.querySelector('#me-acct').onclick = e => { e.stopPropagation(); acctMenu(e.currentTarget, D); };
+    root.querySelectorAll('details.hub-folder').forEach(d => d.addEventListener('toggle', () => { open[d.dataset.k] = d.open; ls.set(OPEN, JSON.stringify(open)); if (d.open && D) tileFit(d); }));
     root.querySelectorAll('.hc-dots').forEach(b => b.onclick = e => { e.stopPropagation(); const w = b.parentElement, on = !w.classList.contains('on'); root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')); w.classList.toggle('on', on); });
     root.querySelectorAll('.hc-list [data-a]').forEach(b => b.onclick = () => { const c = chars.find(x => x.id === b.dataset.id); b.closest('.hc-menu').classList.remove('on'); if (!c) return;
       if (b.dataset.a === 'share') shareChar(c); if (b.dataset.a === 'move') moveChar(c, draw); if (b.dataset.a === 'leave') leaveChar(c, draw); if (b.dataset.a === 'pin') togglePin(c.id); if (b.dataset.a === 'del') deleteChar(c, draw); if (b.dataset.a === 'copy') copyChar(c); if (b.dataset.a === 'exp') exportChar(c); if (b.dataset.a === 'tok') tokenChar(c); });
   }
+  // ----- lobby pieces used by draw() -----
+  let DRAWN_DESK = null, WN = null;
+  const deskMode = () => !TOUCH && innerWidth > 900;
+  addEventListener('resize', () => { if (page !== 'hub' || ADMIN) return; if (DRAWN_DESK !== null && deskMode() !== DRAWN_DESK) draw(); else if (DRAWN_DESK) { clearTimeout(tileCaps.t); tileCaps.t = setTimeout(() => { tileFit(root); tileCaps(); }, 120); } });
+  const FOLD_LS = 'pg-hubfold:' + EMAIL, FOLD = (() => { try { return JSON.parse(localStorage.getItem(FOLD_LS) || '{}') || {}; } catch (e) { return {}; } })(), MORE = {};
+  // Every tile is the same size: a long name shrinks to fit on one line (down to 12px, and only past that wraps).
+  function tileFit(scope) { (scope || root).querySelectorAll('.hd2-main .hr .hc-txt > b, .hd2-main .hc .hc-txt > b').forEach(b => { if (!b.offsetParent) return; b.style.fontSize = ''; b.classList.remove('wrap');
+      let fs = parseFloat(getComputedStyle(b).fontSize), n = 0; while (b.scrollWidth > b.clientWidth + 1 && fs > 12 && n++ < 40) { fs -= .5; b.style.fontSize = fs + 'px'; }
+      if (b.scrollWidth > b.clientWidth + 1) b.classList.add('wrap'); }); }
+  // Long lists show two rows; "Show all" opens the rest (and "Show fewer" folds them back).
+  function tileCaps() { root.querySelectorAll('.hd-sec').forEach(s => { const k = s.dataset.sec, hl = s.querySelector('.hub-pane > .hl, #hub-parties > .hl'), b = s.querySelector('[data-more]'); if (!hl) { if (b) b.hidden = true; return; }
+      const tiles = [...hl.children].filter(x => x.matches('.hr, .hc')), cols = Math.max(1, getComputedStyle(hl).gridTemplateColumns.split(' ').filter(Boolean).length), cap = cols * 2, over = tiles.length > cap;
+      tiles.forEach((t, i) => t.classList.toggle('hd-hide', over && !MORE[k] && i >= cap)); if (b) { b.hidden = !over; b.textContent = MORE[k] ? 'Show fewer' : 'Show all ' + tiles.length + (k === 'mine' ? ' characters' : ''); }
+      if (MORE[k]) tileFit(s); }); }
+  // Joining with an invite link someone sent: paste it (or just its code) and go to that party's join steps.
+  function joinByLink() {
+    modal.innerHTML = `<div class="hub-card"><h2>Join a party</h2><p class="hub-hint">Paste the invite link your Dungeon Master sent you.</p><form id="jl-f" class="who-f"><input id="jl-u" autocomplete="off" placeholder="https://…" required></form><p class="hub-hint" id="jl-e" hidden></p>
+      <div class="row"><button class="btn ghost" id="jl-x">Cancel</button><button class="btn gold" id="jl-ok">Join</button></div></div>`;
+    modal.classList.add('on'); const inp = modal.querySelector('#jl-u'), err = modal.querySelector('#jl-e'); setTimeout(() => inp.focus(), 30);
+    const goJ = () => { const v = inp.value.trim(), m = /(?:\/join\/|[?&]join=|workers\.dev\/)([A-Za-z0-9_-]{6,64})\b/.exec(v) || /^([A-Za-z0-9_-]{6,64})$/.exec(v);
+      if (!m) { err.textContent = 'That doesn’t look like an invite link. It should end in the party’s code, like …/join/AbC123xyz.'; err.hidden = false; return; }
+      close(); pgGo(PRETTY ? '/join/' + m[1] : LEG + '?join=' + m[1]); };
+    modal.querySelector('#jl-f').onsubmit = e => { e.preventDefault(); goJ(); }; modal.querySelector('#jl-ok').onclick = goJ; modal.querySelector('#jl-x').onclick = close; }
+  // Your account: the picture (and on a computer your name and email) opens a menu: a drop-down on a computer, a panel
+  // from the bottom on a phone.
+  function acctMenu(btn, desk) { const ex = document.querySelector('.ha-menu'); if (ex) { ex._shut(); return; }
+    const I = d => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+    const items = [['pic', 'Change picture', I('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M21 17l-5-5-9 7"/>')], ['name', 'Change name', I('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>')],
+      ['theme', pgDark() ? 'Light mode' : 'Dark mode', I(pgDark() ? '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>' : '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>')]];
+    if (IS_ADMIN) items.push(['admin', 'Admin panel', I('<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>')]);
+    items.push(['contact', 'Contact Adventurer’s Tome', I('<path d="M4 4h16v12H8l-4 4z"/>')]);
+    const m = document.createElement('div'); m.className = 'ha-menu' + (desk ? ' ha-drop' : ' ha-sheet'); m.setAttribute('role', 'menu');
+    const who = desk ? '' : `<div class="ha-who">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(myAva())}<div><b>${esc(myName())}</b><small>${esc(EMAIL)}</small></div></div>`;
+    m.innerHTML = `${desk ? '' : '<div class="ha-grab" aria-hidden="true"></div>'}${who}<div class="ha-items">${items.map(([k, t, ic]) => `<button type="button" role="menuitem" data-ha="${k}">${ic}<span>${t}</span></button>`).join('')}</div><button type="button" role="menuitem" class="ha-out" data-ha="out">${I('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>')}<span>Sign out</span></button>`;
+    const dim = desk ? null : Object.assign(document.createElement('div'), { className: 'ha-dim' });
+    const shut = () => { document.removeEventListener('click', away, true); document.removeEventListener('keydown', esc_); btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('open'); m.classList.add('out'); if (dim) dim.classList.add('out'); setTimeout(() => { m.remove(); if (dim) dim.remove(); }, PG_CALM ? 0 : 200); };
+    m._shut = shut; const away = e => { if (!m.contains(e.target) && !btn.contains(e.target)) shut(); }, esc_ = e => { if (e.key === 'Escape') { shut(); btn.focus(); } };
+    if (desk) btn.parentElement.appendChild(m); else { document.body.appendChild(dim); document.body.appendChild(m); dim.onclick = shut; }
+    btn.setAttribute('aria-expanded', 'true'); btn.classList.add('open'); setTimeout(() => { document.addEventListener('click', away, true); document.addEventListener('keydown', esc_); const f = m.querySelector('[data-ha]'); if (f) f.focus({ preventScroll: true }); }, 0);
+    m.querySelectorAll('[data-ha]').forEach(b => b.onclick = () => { const k = b.dataset.ha; shut();
+      if (k === 'pic') pickPic(); if (k === 'name') renameMe(); if (k === 'admin') pgGo(ADMIN_URL); if (k === 'contact') pgContact(); if (k === 'out') signOut();
+      if (k === 'theme') { const next = pgDark() ? 'light' : 'dark', de = document.documentElement, f = () => { de.setAttribute('data-pgtheme', next); try { localStorage.setItem('pg-theme', next); } catch (x) {} };
+        if (!PG_CALM && document.startViewTransition) document.startViewTransition(f); else f(); } }); }
   wireDie(root);
   document.addEventListener('click', () => root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')));
   // On a computer the page's own scrollbar is hidden; a slim gold one (like phone view's) sits just right of the list instead.
   if (!TOUCH && page !== 'admin') (() => {
     const sb = document.createElement('div'); sb.className = 'hub-sb'; sb.hidden = true; sb.innerHTML = '<div class="pgph-th"></div>'; document.body.appendChild(sb); const th = sb.firstElementChild;
     const paint = () => { if (document.body.classList.contains('adminbody')) { sb.hidden = true; return; }
-      const de = document.documentElement, max = de.scrollHeight - innerHeight, head = document.querySelector('.hub-head'), col = document.querySelector('.hub-head > .hub-views');
+      const de = document.documentElement, max = de.scrollHeight - innerHeight, head = document.querySelector('.hub-head'), col = document.querySelector('.hub-head > .hub-views') || document.querySelector('.hd2-main');
       if (max < 2 || !head || !col) { sb.hidden = true; return; } sb.hidden = false;
       const top = head.getBoundingClientRect().bottom + 14, bot = 16, H = Math.max(40, innerHeight - top - bot);
       sb.style.top = top + 'px'; sb.style.height = H + 'px'; sb.style.left = Math.min(innerWidth - 14, col.getBoundingClientRect().right + 14) + 'px';
@@ -2058,7 +2160,7 @@ function hub(fs, auth, G, ctx) {
     const quietP = cfgCol.doc('quiet').get().then(d => { QUIET = new Set(((d.exists && d.data().emails) || []).map(x => String(x).toLowerCase())); }, () => {});
     quietP.then(() => { if (TAB === 'users') paintUsers(); });
     const UF0 = { role: '', act: '', joined: '' };
-    const T0 = ctx.tab === 'characters' ? 'chars' : ctx.tab; let TAB = ['users', 'chars', 'parties', 'new', 'audit', 'bugs', 'notice', 'welcome'].includes(T0) ? T0 : 'users'; if (T0 === 'admins') UF0.role = 'admin';
+    const T0 = ctx.tab === 'characters' ? 'chars' : ctx.tab; let TAB = ['users', 'chars', 'parties', 'new', 'audit', 'bugs', 'notice', 'welcome', 'news'].includes(T0) ? T0 : 'users'; if (T0 === 'admins') UF0.role = 'admin';
     const CH = {}, US = {}; // characters and accounts on screen
     let NEWN = null, BUGN = 0;
     const setTab = t => { TAB = t; history.replaceState(null, '', URLS.admin(G, t === 'chars' ? 'characters' : t)); frame(); };
@@ -2072,6 +2174,7 @@ function hub(fs, auth, G, ctx) {
       welcome: '<path d="M4 11.5 12 5l8 6.5V20a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1z"/>',
       notice: '<path d="M3 10v4a1 1 0 0 0 1 1h3l6 4V5L7 9H4a1 1 0 0 0-1 1z"/><path d="M17 8.5a5 5 0 0 1 0 7M19.8 6a8.5 8.5 0 0 1 0 12"/>',
       new: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
+      news: '<path d="M4 4h16v12H8l-4 4z"/><path d="M8 9h8M8 12h5"/>',
       search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>' };
     const svg = (k, n = 18) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ic[k]}</svg>`;
     const PAGES = { users: ['Users', 'Everyone who has signed in, most recently active first. Search or filter by role, activity or when they joined; rename someone, make them an admin, or look at their characters.'],
@@ -2081,6 +2184,7 @@ function hub(fs, auth, G, ctx) {
       new: ['New', 'Accounts and characters that appeared since you last marked this as read.'],
       bugs: ['Bugs & feedback', 'Bug reports, feature requests and anything else people send with the bug button (on a sheet, the DM’s Desk, or in Contact), newest first; new ones show up the moment they’re sent. Mark one fixed, or decline it with a reason, and its sender gets a note in the corner of whatever page they have open — or the next time they open the site.'],
       welcome: ['Welcome', 'What every new account sees the first time it signs in. If a notice is out, a Next button takes them on to it. Off until you turn it on.'],
+      news: ['What’s new', 'Short updates for everyone’s lobby: in the top bar on a computer, and as a card above Create character on a phone. Post them here, then choose which ones take turns in the bar; “See all updates” lists every one.'],
       notice: ['Notice', 'A message to everyone: it pops up once for every account, from “Adventurer’s Tome” (nobody sees who sent it), right away if they have the site open, otherwise the next time they do.'],
       audit: ['Audit log', 'Everything people have done on the site: sign-ins, characters opened, created, edited, shared and deleted, and admin actions. Search, or filter by date, person or activity; tap an event for its details. Events are kept for 7 days.'] };
     // avatar: initials on a colour picked from the name, so the same person always looks the same
@@ -2152,7 +2256,7 @@ function hub(fs, auth, G, ctx) {
     function frame0() {
       const nav = (k, label) => `<button class="adm-ni${TAB === k ? ' on' : ''}" data-tab="${k}">${svg(k)}<span>${label}</span>${k === 'new' && NEWN ? `<b class="adm-badge">${NEWN}</b>` : k === 'bugs' && BUGN ? `<b class="adm-badge">${BUGN}</b>` : ''}</button>`;
       const [title, desc] = PAGES[TAB];
-      const navHTML = `<div class="adm-sec">Manage</div>${nav('users', 'Users')}${nav('chars', 'Characters')}${nav('parties', 'Parties')}<div class="adm-sec">Activity</div>${nav('audit', 'Audit log')}${nav('new', 'New')}${nav('bugs', 'Bugs &amp; feedback')}<div class="adm-sec">Announce</div>${nav('notice', 'Notice')}${nav('welcome', 'Welcome')}`;
+      const navHTML = `<div class="adm-sec">Manage</div>${nav('users', 'Users')}${nav('chars', 'Characters')}${nav('parties', 'Parties')}<div class="adm-sec">Activity</div>${nav('audit', 'Audit log')}${nav('new', 'New')}${nav('bugs', 'Bugs &amp; feedback')}<div class="adm-sec">Announce</div>${nav('notice', 'Notice')}${nav('welcome', 'Welcome')}${nav('news', 'What’s new')}`;
       // Switching tabs only swaps the page on the right: the sidebar (and where its tab strip is scrolled to on a phone) stays put.
       const nv0 = root.querySelector('.adm-nav');
       if (nv0) { const x = nv0.scrollLeft; nv0.innerHTML = navHTML; nv0.scrollLeft = x;
@@ -2163,13 +2267,13 @@ function hub(fs, auth, G, ctx) {
         const kept = !again && PANES[TAB];
         if (kept) { curB.replaceWith(kept.b); curH.replaceWith(kept.h); PREV_TAB = TAB; nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab)); scrollTo(0, 0);
           // …and quietly brings it up to date behind the scenes
-          ({ new: () => tabNew(), users: () => paintUsers(), chars: () => paintChars(), parties: () => tabParties(), audit: () => paintAudit(), notice: () => tabNotice(), welcome: () => tabWelcome(), bugs: () => paintBugs() })[TAB](); return; }
+          ({ new: () => tabNew(), users: () => paintUsers(), chars: () => paintChars(), parties: () => tabParties(), audit: () => paintAudit(), notice: () => tabNotice(), welcome: () => tabWelcome(), news: () => tabNews(), bugs: () => paintBugs() })[TAB](); return; }
         const nb = document.createElement('section'); nb.id = 'ad-body'; nb.className = 'adm-body'; nb.innerHTML = `<div class="sk-auto" data-k="${pgAdmSkel(TAB)}" data-n="6"></div>`;
         const nh = document.createElement('div'); nh.id = 'adm-hact'; nh.className = 'adm-hact';
         if (again) { curB.replaceWith(nb); curH.replaceWith(nh); } else { curB.replaceWith(nb); curH.replaceWith(nh); } delete PANES[TAB]; PREV_TAB = TAB;
         nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
         const on = nv0.querySelector('.adm-ni.on'); if (on && on.scrollIntoView) { const r = on.getBoundingClientRect(), nr = nv0.getBoundingClientRect(); if (r.left < nr.left || r.right > nr.right) nv0.scrollBy({ left: r.left < nr.left ? r.left - nr.left - 12 : r.right - nr.right + 12, behavior: 'smooth' }); }
-        ({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit, notice: tabNotice, welcome: tabWelcome, bugs: tabBugs })[TAB](); return; }
+        ({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit, notice: tabNotice, welcome: tabWelcome, news: tabNews, bugs: tabBugs })[TAB](); return; }
       const keepLogo = root.querySelector('.hub-logo');
       root.innerHTML = `<div class="adm"><aside class="adm-side">
           <div class="adm-brand">${logoHTML()}</div>
@@ -2182,7 +2286,7 @@ function hub(fs, auth, G, ctx) {
       PREV_TAB = TAB;
       root.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
       { const o = root.querySelector('#adm-out'); if (o) o.onclick = signOut; }
-      ({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit, notice: tabNotice, welcome: tabWelcome, bugs: tabBugs })[TAB]();
+      ({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit, notice: tabNotice, welcome: tabWelcome, news: tabNews, bugs: tabBugs })[TAB]();
     }
     const B = () => root.querySelector('#ad-body'), HA = () => root.querySelector('#adm-hact');
     // ⋯ menus float above everything (moved to the top of the page while open), so a table never grows a scrollbar for them.
@@ -2360,9 +2464,9 @@ function hub(fs, auth, G, ctx) {
     // --- Audit log ---
     const ACTS = { signin: 'Signed in', account: 'Created their account', signout: 'Signed out', open: 'Opened', create: 'Created', edit: 'Edited', delete: 'Deleted', give: 'Gave away', remove: 'Removed from the lists',
       share: 'Shared', unshare: 'Stopped sharing', access: 'Changed access to', leave: 'Gave up access to', picture: 'Changed their picture',
-      rename_user: 'Renamed', admin_add: 'Made an admin:', admin_remove: 'Removed admin:', user_picture: 'Changed the picture of', user_signout: 'Signed out everywhere:', user_block: 'Blocked', user_unblock: 'Unblocked', user_delete: 'Deleted the account of', message: 'Sent a message to', notice: 'Sent a notice to', notice_revoke: 'Revoked the notice to', notice_revoke_one: 'Kept the notice from', notice_restore_one: 'Gave the notice back to', welcome_revoke_one: 'Kept the welcome message from', welcome_restore_one: 'Gave the welcome message back to', notice_mark_seen: 'Marked the notice seen for', welcome_mark_seen: 'Marked the welcome message seen for', notice_edit: 'Edited the notice to', notice_resend: 'Re-sent the notice to', welcome: 'Saved the welcome message for', welcome_off: 'Turned off the welcome message for', welcome_reset: 'Reset the welcome message for', user_reload: 'Refreshed the pages of', online: 'Came online', offline: 'Went offline',
+      rename_user: 'Renamed', admin_add: 'Made an admin:', admin_remove: 'Removed admin:', user_picture: 'Changed the picture of', user_signout: 'Signed out everywhere:', user_block: 'Blocked', user_unblock: 'Unblocked', user_delete: 'Deleted the account of', message: 'Sent a message to', notice: 'Sent a notice to', news_post: 'Posted to What’s new:', news_edit: 'Edited a What’s new update:', news_remove: 'Removed a What’s new update:', news_rot: 'Changed the What’s new rotation:', notice_revoke: 'Revoked the notice to', notice_revoke_one: 'Kept the notice from', notice_restore_one: 'Gave the notice back to', welcome_revoke_one: 'Kept the welcome message from', welcome_restore_one: 'Gave the welcome message back to', notice_mark_seen: 'Marked the notice seen for', welcome_mark_seen: 'Marked the welcome message seen for', notice_edit: 'Edited the notice to', notice_resend: 'Re-sent the notice to', welcome: 'Saved the welcome message for', welcome_off: 'Turned off the welcome message for', welcome_reset: 'Reset the welcome message for', user_reload: 'Refreshed the pages of', online: 'Came online', offline: 'Went offline',
       party_create: 'Created the party', party_delete: 'Deleted the party', party_chat_clear: 'Cleared the chat of', party_add: 'Added a character to', party_npc: 'Added an NPC to', desk_open: 'Opened the DM’s Desk', party_hb: 'Added a homebrew item to', party_join: 'Joined the party', party_leave: 'Left the party', party_remove: 'Took a character out of', party_invite: 'Invited someone to', party_send: 'Used party actions in', party_access: 'Changed their access to', party_dm: 'Handed over' };
-    const AGROUPS = [['Signing in', ['signin', 'online', 'offline', 'account', 'signout']], ['Parties', ['party_create', 'party_delete', 'party_add', 'party_npc', 'party_join', 'party_leave', 'party_remove', 'party_invite', 'party_send', 'party_access', 'party_dm', 'party_chat_clear', 'desk_open', 'party_hb']], ['Characters', ['open', 'create', 'edit', 'delete', 'give', 'remove']], ['Sharing', ['share', 'unshare', 'access', 'leave']], ['Pictures', ['picture', 'user_picture']], ['Admin', ['rename_user', 'admin_add', 'admin_remove', 'user_signout', 'user_block', 'user_unblock', 'user_delete', 'message', 'notice', 'notice_resend', 'notice_revoke', 'notice_revoke_one', 'notice_restore_one', 'notice_mark_seen', 'notice_edit', 'welcome', 'welcome_off', 'welcome_reset', 'welcome_revoke_one', 'welcome_restore_one', 'welcome_mark_seen', 'user_reload']]];
+    const AGROUPS = [['Signing in', ['signin', 'online', 'offline', 'account', 'signout']], ['Parties', ['party_create', 'party_delete', 'party_add', 'party_npc', 'party_join', 'party_leave', 'party_remove', 'party_invite', 'party_send', 'party_access', 'party_dm', 'party_chat_clear', 'desk_open', 'party_hb']], ['Characters', ['open', 'create', 'edit', 'delete', 'give', 'remove']], ['Sharing', ['share', 'unshare', 'access', 'leave']], ['Pictures', ['picture', 'user_picture']], ['Admin', ['rename_user', 'admin_add', 'admin_remove', 'user_signout', 'user_block', 'user_unblock', 'user_delete', 'message', 'notice', 'notice_resend', 'notice_revoke', 'notice_revoke_one', 'notice_restore_one', 'notice_mark_seen', 'notice_edit', 'welcome', 'welcome_off', 'welcome_reset', 'welcome_revoke_one', 'welcome_restore_one', 'welcome_mark_seen', 'news_post', 'news_edit', 'news_remove', 'news_rot', 'user_reload']]];
     const CHAR_ACTS = new Set(['open', 'create', 'edit', 'delete', 'give', 'remove', 'share', 'unshare', 'access', 'leave']);
     let AF = { who: [], act: [], q: '', from: '', to: '', range: '' }, AROWS, AOPEN = {} = [], ALAST = null, AFULL = false, APEOPLE = null;
     const auditCol = fs.collection('audit');
@@ -2580,6 +2684,61 @@ function hub(fs, auth, G, ctx) {
         whoSeen(all, text, who, not, note, rv); [...modal.querySelectorAll('.nt-sl-list')].forEach((l, i) => { l.scrollTop = sc[i] || 0; }); });
       // shadows at the top / bottom of a list while there's more to scroll that way
       modal.querySelectorAll('.nt-sl-list').forEach(l => { const w = l.parentElement, shade = () => { w.classList.toggle('sc-t', l.scrollTop > 2); w.classList.toggle('sc-b', l.scrollTop + l.clientHeight < l.scrollHeight - 2); }; l.addEventListener('scroll', shade, { passive: true }); shade(); }); };
+    // --- What's new: post short updates for the lobby, and choose which ones take turns in its top bar ---
+    async function tabNews() {
+      const el = B(); HA().innerHTML = ''; const NC = fs.collection('news'), CFG = cfgCol.doc('news'); let items = [], every = 8;
+      try { const [qs, c] = await Promise.all([NC.get(), CFG.get().catch(() => null)]); items = qs.docs.map(d => Object.assign({ id: d.id }, d.data())).sort(newsSort); every = Math.max(4, Number(c && c.exists && c.data().every) || 8); } catch (x) { el.innerHTML = failMsg(x); return; }
+      const rot = () => items.filter(n => n.rot), fail = (x, what) => toast('Couldn’t ' + what + ': ' + ((x && (x.code === 'permission-denied' ? 'the new database rules need publishing' : x.message)) || x));
+      const secs = [4, 6, 8, 12, 20, 30];
+      const nextLine = () => { const R = rot(); return !R.length ? 'Nothing is in the rotation, so the lobby doesn’t show What’s new. Switch one on below.' : R.length === 1 ? 'Only one update is in the rotation, so it stays put.' : `Fades from one to the next every ${every} seconds: ${R.map(n => '“' + esc(n.t) + '”').join(', then ')}.`; };
+      const rowHTML = n => `<div class="nw-it" data-id="${esc(n.id)}" draggable="true"><span class="nw-grip" title="Drag to reorder" aria-hidden="true">⠿</span><div class="nw-tx"><b>${esc(n.t)}${n.badge ? '<em class="wn-new">New</em>' : ''}</b><div class="wn-d">${(window.pgMarkHTML || esc)(n.d || '')}</div>
+        <small>${esc(n.byName || n.by || '')}${n.at ? ' · ' + esc(new Date(n.at).toLocaleDateString()) : ''}${n.link ? ' · links to ' + esc(n.link) : ''}</small></div>
+        <span class="nw-acts"><label class="nw-rot${n.rot ? ' on' : ''}"><input type="checkbox" data-rot="${esc(n.id)}"${n.rot ? ' checked' : ''}><span class="sw" aria-hidden="true"></span>In rotation</label><button class="adm-btn" data-ed="${esc(n.id)}">Edit</button><button class="adm-btn" data-rm="${esc(n.id)}">Remove</button></span></div>`;
+      const form = (n, id) => `<div class="nw-f" id="${id}"><input class="ad-search" data-f="t" maxlength="200" placeholder="Headline, e.g. “Import from D&amp;D Beyond”" value="${esc((n && n.t) || '')}">
+        <textarea class="ad-search pm-t" data-f="d" rows="4" maxlength="4000" placeholder="A line or two about it">${esc((n && n.d) || '')}</textarea><p class="adm-note nt-fmt">**bold** · *italic* · <code>- </code> for a list · web addresses become links</p>
+        <input class="ad-search" data-f="link" maxlength="500" placeholder="Optional: a web address for “Read more” (https://…)" value="${esc((n && n.link) || '')}">
+        <div class="row nw-opts"><label class="nw-ck"><input type="checkbox" data-f="badge"${!n || n.badge ? ' checked' : ''}> Show the New tag</label>${n ? '' : '<label class="nw-ck"><input type="checkbox" data-f="rot" checked> Put it in the rotation</label>'}<span class="nw-sp"></span>${n ? '<button class="adm-btn" data-f="x">Cancel</button>' : ''}<button class="adm-btn primary" data-f="ok"${n ? '' : ' disabled'}>${n ? 'Save changes' : 'Post to What’s new'}</button></div></div>`;
+      const read = box => { const v = k => box.querySelector(`[data-f="${k}"]`); const link = v('link').value.trim();
+        return { t: v('t').value.replace(/\s+/g, ' ').trim().slice(0, 200), d: v('d').value.trim().slice(0, 4000), link: /^https?:\/\/\S+$/i.test(link) ? link : '', badLink: !!link && !/^https?:\/\/\S+$/i.test(link), badge: v('badge').checked, rot: v('rot') ? v('rot').checked : undefined }; };
+      el.innerHTML = `<h3 class="nt-h">How it looks in the lobby right now</h3>
+        <div class="nwp"><div class="nwp-d"><div class="nwp-cap">On a computer, in the top bar</div><div class="nwp-bar"><span class="nwp-logo"></span><div class="hd2-wn" id="nwp-bar"></div><span class="nwp-me">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(avaOf(ME))}<span><b>${esc(myName())}</b><small>${esc(EMAIL)}</small></span></span></div></div>
+          <div class="nwp-m"><div class="nwp-cap">On a phone</div><div id="nwp-card"></div></div></div>
+        <p class="adm-note" id="nw-next">${nextLine()}</p>
+        <h3 class="nt-h">New update</h3>${form(null, 'nw-new')}
+        <h3 class="nt-h">Posted</h3>
+        <div class="nw-rotbar"><b>${rot().length} in rotation</b><label>Change every <select class="adm-sel" id="nw-every">${secs.map(s => `<option value="${s}"${s === every ? ' selected' : ''}>${s} seconds</option>`).join('')}</select></label><span class="adm-dim">The lobby pauses while someone points at it; the arrows, dots or a swipe still flip through by hand. “See all updates” lists every one, in or out of the rotation.</span></div>
+        <div class="nw-list" id="nw-list">${items.length ? items.map(rowHTML).join('') : '<p class="adm-dim">Nothing posted yet.</p>'}</div>`;
+      { const lg = root.querySelector('.adm-brand .hub-logo'), s = el.querySelector('.nwp-logo'); if (lg && s) s.appendChild(lg.cloneNode(true)); }
+      const src = () => ({ items: rot(), every, all: items });
+      if (tabNews.pv) tabNews.pv.forEach(p => p && p.stop()); tabNews.pv = [newsMount(el.querySelector('#nwp-bar'), 'bar', src), newsMount(el.querySelector('#nwp-card'), 'card', src)];
+      const repaint = () => { tabNews.pv.forEach(p => p && p.paint()); el.querySelector('#nw-next').innerHTML = nextLine(); el.querySelector('.nw-rotbar b').textContent = rot().length + ' in rotation'; };
+      // posting
+      const nb = el.querySelector('#nw-new'), ok = nb.querySelector('[data-f="ok"]'); const chk = () => { ok.disabled = !nb.querySelector('[data-f="t"]').value.trim(); }; nb.querySelector('[data-f="t"]').oninput = chk;
+      ok.onclick = async () => { const v = read(nb); if (!v.t) return; if (v.badLink) return toast('The link needs to start with https://'); ok.disabled = true;
+        const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6), ord = items.length ? Math.min(...items.map(n => n.ord != null ? n.ord : 0)) - 1 : 0;
+        try { await NC.doc(id).set({ t: v.t, d: v.d, link: v.link, badge: v.badge, rot: !!v.rot, ord, at: Date.now(), by: EMAIL, byName: String((ME && ME.name) || EMAIL) }); pgLog('news_post', { target: 'everyone', tName: 'everyone', detail: v.t }); toast('Posted to What’s new.'); }
+        catch (x) { ok.disabled = false; return fail(x, 'post it'); } if (TAB === 'news') tabNews(); };
+      // the rotation, how often it changes, editing, removing
+      el.querySelector('#nw-every').onchange = async e => { const s = Number(e.target.value); try { await CFG.set({ every: s }, { merge: true }); every = s; repaint(); toast('Updates now change every ' + s + ' seconds.'); } catch (x) { fail(x, 'save that'); } };
+      el.querySelectorAll('[data-rot]').forEach(c => c.onchange = async () => { const n = items.find(x => x.id === c.dataset.rot); if (!n) return; const on = c.checked;
+        try { await NC.doc(n.id).update({ rot: on }); n.rot = on; c.closest('.nw-rot').classList.toggle('on', on); repaint(); pgLog('news_rot', { target: 'everyone', tName: 'everyone', detail: (on ? 'into the rotation: ' : 'out of the rotation: ') + n.t }); } catch (x) { c.checked = !on; fail(x, 'change that'); } });
+      el.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => { const n = items.find(x => x.id === b.dataset.rm); if (!n) return;
+        if (!await ask('Remove this update?', `“${n.t}” comes off What’s new for everyone.`, 'Remove', true)) return;
+        try { await NC.doc(n.id).delete(); pgLog('news_remove', { target: 'everyone', tName: 'everyone', detail: n.t }); toast('Removed.'); } catch (x) { return fail(x, 'remove it'); } if (TAB === 'news') tabNews(); });
+      el.querySelectorAll('[data-ed]').forEach(b => b.onclick = () => { const n = items.find(x => x.id === b.dataset.ed), row = b.closest('.nw-it'); if (!n) return;
+        const w = document.createElement('div'); w.innerHTML = form(n, 'nw-ed'); const box = w.firstElementChild; row.replaceWith(box); box.querySelector('[data-f="t"]').focus();
+        box.querySelector('[data-f="x"]').onclick = () => tabNews();
+        box.querySelector('[data-f="ok"]').onclick = async e => { const v = read(box); if (!v.t) return toast('The headline can’t be empty.'); if (v.badLink) return toast('The link needs to start with https://'); e.currentTarget.disabled = true;
+          try { await NC.doc(n.id).update({ t: v.t, d: v.d, link: v.link, badge: v.badge, editedAt: Date.now() }); pgLog('news_edit', { target: 'everyone', tName: 'everyone', detail: v.t }); toast('Saved.'); } catch (x) { e.currentTarget.disabled = false; return fail(x, 'save it'); } if (TAB === 'news') tabNews(); }; });
+      // drag to reorder (the order the rotation goes in, and the order they're listed here)
+      const list = el.querySelector('#nw-list'); let dragId = null;
+      list.querySelectorAll('.nw-it').forEach(r => { r.addEventListener('dragstart', e => { dragId = r.dataset.id; r.classList.add('drag'); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', dragId); } catch (x) {} });
+        r.addEventListener('dragend', async () => { r.classList.remove('drag'); if (!dragId) return; dragId = null; const ids = [...list.querySelectorAll('.nw-it')].map(x => x.dataset.id);
+          const ch = ids.map((id, i) => [items.find(x => x.id === id), i]).filter(([n, i]) => n && n.ord !== i); if (!ch.length) return;
+          try { const bt = fs.batch(); ch.forEach(([n, i]) => { n.ord = i; bt.update(NC.doc(n.id), { ord: i }); }); await bt.commit(); items.sort(newsSort); repaint(); } catch (x) { fail(x, 'save the order'); } }); });
+      list.addEventListener('dragover', e => { if (!dragId) return; e.preventDefault(); const r = list.querySelector('.nw-it.drag'), over = e.target.closest && e.target.closest('.nw-it'); if (!r || !over || over === r) return;
+        const bb = over.getBoundingClientRect(); if (e.clientY < bb.top + bb.height / 2) over.before(r); else over.after(r); });
+    }
     async function tabNotice() {
       const el = B(); HA().innerHTML = ''; let all = [], log = [];
       try { [all, log] = await Promise.all([usersCol.limit(2000).get().then(docs), noticesCol.orderBy('at', 'desc').limit(200).get().then(docs), quietP]); } catch (x) { el.innerHTML = failMsg(x); return; } seeOwners(all);

@@ -324,6 +324,18 @@ service cloud.firestore {
       allow get: if signedIn();
       allow create, update, delete: if admin();
     }
+    // What's new: short updates shown in everyone's lobby (top bar on a computer, a card on a phone). Admins post them;
+    // config/news holds how often the ones in rotation change.
+    match /config/news {
+      allow get: if signedIn();
+      allow create, update, delete: if admin();
+    }
+    match /news/{n} {
+      allow read: if signedIn();
+      allow create, update: if admin() && request.resource.data.get('t', '') is string && request.resource.data.get('t', '').size() <= 200
+        && request.resource.data.get('d', '') is string && request.resource.data.get('d', '').size() <= 4000;
+      allow delete: if admin();
+    }
     // DM's Desk: each person's own sessions and creatures, private to them.
     match /desks/{em} {
       allow read, write: if signedIn() && em == me();
