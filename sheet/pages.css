@@ -3098,6 +3098,6 @@ html.mobile #wizard .wz3 .wz3-rvab { grid-template-columns: repeat(3, minmax(0, 
 /* phones: a pop-up sheet (What's new, and the rest) scrolls firmly: no rubber-band bounce at its ends, and the page
    behind it never moves */
 @media (max-width: 640px) {
-  :where(body.hubbody) .hub-modal.on { overscroll-behavior: none; touch-action: none; }
+  :where(body.hubbody) .hub-modal.on { overscroll-behavior: none; }
   :where(body.hubbody) .hub-modal > .hub-card { overscroll-behavior: none !important; touch-action: pan-y; }
 }
