@@ -1875,7 +1875,12 @@ function hub(fs, auth, G, ctx) {
         if (kind === 'card') { const d = el.querySelector('.wn-ch .wn-dots'); if (d) d.outerHTML = dots(L.length) || '<span class="wn-dots"></span>'; }
         el.querySelectorAll('.wn-dots button').forEach(b => b.onclick = e => { e.stopPropagation(); go(Number(b.dataset.k) - i); });
       }
-      clearTimeout(seenT); if (!src) seenT = setTimeout(() => newsSee(n.id), 4000); };
+      fit(); clearTimeout(seenT); if (!src) seenT = setTimeout(() => newsSee(n.id), 4000); };
+    // the box keeps one size; an update with a lot to say gets a smaller paragraph (never a smaller headline) so it still fits
+    const fit = () => { const stk = el.querySelector('.wn-stk'); if (!stk || !stk.offsetParent) return; const H = parseFloat(getComputedStyle(stk).minHeight) || 0; if (!H) return;
+      stk.querySelectorAll('.wn-one').forEach(o => { const d = o.querySelector('.wn-d'); if (!d) return; d.style.fontSize = ''; let fs = parseFloat(getComputedStyle(d).fontSize);
+        while (o.offsetHeight > H + 0.5 && fs > 11) { fs = Math.max(11, fs - 0.5); d.style.fontSize = fs + 'px'; } }); };
+    let fitW = 0; new ResizeObserver(() => { const w = el.clientWidth; if (w && w !== fitW) { fitW = w; fit(); } }).observe(el);
     const fade = f => { const it = el.querySelector('.wn-stk'); if (!it || PG_CALM) { f(); return; } it.classList.add('wn-out'); setTimeout(() => { f(); it.classList.remove('wn-out'); }, 260); };
     const go = d => { const L = get().items; if (L.length < 2) return; i += d; const k = ((i % L.length) + L.length) % L.length; el.querySelectorAll('.wn-dots button').forEach((b, j) => b.classList.toggle('on', j === k)); fade(() => paintItem()); tick(); };
     const tick = () => { clearTimeout(T); const g = get(); if (g.items.length < 2) return; T = setTimeout(() => { if (!paused && !document.hidden && el.isConnected) go(1); else tick(); }, g.every * 1000); };

@@ -2512,7 +2512,7 @@ body.hubbody:not(.adminbody) .hub-list.hd2-main > * { max-width: none; }
 .wn-ar:hover { background: rgba(255,255,255,.07); color: #e9e3d3; } .wn-ar[hidden] { display: none; }
 .wn-it { position: relative; flex: 1; min-width: 0; } .wn-stk { transition: opacity .26s ease; } .wn-stk.wn-out { opacity: 0; }
 .wn-bar .wn-it { padding-right: 64px; }
-.wn-stk { display: grid; } .wn-one { grid-area: 1 / 1; min-width: 0; visibility: hidden; align-self: center; } .wn-one.on { visibility: visible; } .wn-card .wn-one { align-self: start; }
+.wn-stk { display: grid; } .wn-bar .wn-stk { min-height: 76px; } .wn-card .wn-stk { min-height: 116px; } .wn-one { grid-area: 1 / 1; min-width: 0; visibility: hidden; align-self: center; } .wn-one.on { visibility: visible; } .wn-card .wn-one { align-self: start; }
 .wn-t { display: block; font-size: 1.04rem; } .wn-new { font-style: normal; font-size: .7rem; font-weight: 800; letter-spacing: .04em; color: #1b1406; background: #e0aa3a; border-radius: 4px; padding: 1px 6px; margin-left: 8px; vertical-align: 2px; }
 .wn-d { color: #a7aebb; font-size: .88rem; line-height: 1.45; margin-top: 3px; overflow-wrap: anywhere; } .wn-d p { margin: 0 0 4px; } .wn-d p:last-child { margin: 0; } .wn-d ul, .wn-d ol { margin: 2px 0; padding-left: 1.2em; } .wn-d a { color: #e3c27a; }
 .wn-link { display: inline-block; margin-top: 4px; font-size: .84rem; font-weight: 700; color: #e3c27a; }
@@ -3332,7 +3332,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024205029', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.9bf6d2d63d11.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.6d485758a6ed.html", "desk": "a/desk.0cb91ca90853.js", "deskcss": "a/deskcss.77a5595d7caa.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024205430', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.9bf6d2d63d11.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.6d485758a6ed.html", "desk": "a/desk.0cb91ca90853.js", "deskcss": "a/deskcss.77a5595d7caa.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -4580,7 +4580,12 @@ function hub(fs, auth, G, ctx) {
         if (kind === 'card') { const d = el.querySelector('.wn-ch .wn-dots'); if (d) d.outerHTML = dots(L.length) || '<span class="wn-dots"></span>'; }
         el.querySelectorAll('.wn-dots button').forEach(b => b.onclick = e => { e.stopPropagation(); go(Number(b.dataset.k) - i); });
       }
-      clearTimeout(seenT); if (!src) seenT = setTimeout(() => newsSee(n.id), 4000); };
+      fit(); clearTimeout(seenT); if (!src) seenT = setTimeout(() => newsSee(n.id), 4000); };
+    // the box keeps one size; an update with a lot to say gets a smaller paragraph (never a smaller headline) so it still fits
+    const fit = () => { const stk = el.querySelector('.wn-stk'); if (!stk || !stk.offsetParent) return; const H = parseFloat(getComputedStyle(stk).minHeight) || 0; if (!H) return;
+      stk.querySelectorAll('.wn-one').forEach(o => { const d = o.querySelector('.wn-d'); if (!d) return; d.style.fontSize = ''; let fs = parseFloat(getComputedStyle(d).fontSize);
+        while (o.offsetHeight > H + 0.5 && fs > 11) { fs = Math.max(11, fs - 0.5); d.style.fontSize = fs + 'px'; } }); };
+    let fitW = 0; new ResizeObserver(() => { const w = el.clientWidth; if (w && w !== fitW) { fitW = w; fit(); } }).observe(el);
     const fade = f => { const it = el.querySelector('.wn-stk'); if (!it || PG_CALM) { f(); return; } it.classList.add('wn-out'); setTimeout(() => { f(); it.classList.remove('wn-out'); }, 260); };
     const go = d => { const L = get().items; if (L.length < 2) return; i += d; const k = ((i % L.length) + L.length) % L.length; el.querySelectorAll('.wn-dots button').forEach((b, j) => b.classList.toggle('on', j === k)); fade(() => paintItem()); tick(); };
     const tick = () => { clearTimeout(T); const g = get(); if (g.items.length < 2) return; T = setTimeout(() => { if (!paused && !document.hidden && el.isConnected) go(1); else tick(); }, g.every * 1000); };
