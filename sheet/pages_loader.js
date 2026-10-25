@@ -1032,7 +1032,7 @@ function wireDie(root) {
     try { await loadDesk();
       if (pid && window.pgDesk.hostsParty) { location.replace('/party/' + encodeURIComponent(pid)); return; } // a party's desk is its party page now
       let party = null; if (pid) { try { const d = await fs.collection('parties').doc(pid).get(); if (d.exists) { const pd = d.data(); party = { id: pid, name: pd.name || 'Party', mgr: pd.dm === EMAIL || (pd.mgrs || []).includes(EMAIL) }; } } catch (e) {} }
-      window.pgDesk.mount(root, deskCtx(party, party ? { back: { href: URLS.party(pid, party.name), label: party.name } } : { back: { href: URLS.hub(G), label: 'Adventurer’s Tome' } })); } catch (e) { console.error(e); return fail(); }
+      window.PG_HUBU = URLS.hub(G); window.pgDesk.mount(root, deskCtx(party, party ? { back: { href: URLS.party(pid, party.name), label: party.name } } : { back: { href: URLS.hub(G), label: 'Adventurer’s Tome' } })); } catch (e) { console.error(e); return fail(); }
     if (!TOUCH && !FRAMED) sheetScrollbar(); // the slim gold scrollbar, like every other page (the browser's own one shifted everything when it came and went)
     pgLog('desk_open', {});
     requestAnimationFrame(() => { if (load) fadeLoad(load); else document.documentElement.classList.remove('pg-loading'); }); verCheck(); return; }
@@ -1092,7 +1092,8 @@ function wireDie(root) {
   const NEW = !C;
   if (NEW) C = rid();
   // Making a new character: the wizard gets the lobby's header on top (logo, a way back, who's signed in).
-  if (NEW) { const HUBU = URLS.hub(G), nm = (ME && ME.name) || user.displayName || EMAIL.split('@')[0], av = avaOf(ME);
+  window.PG_HUBU = URLS.hub(G);
+  if (NEW) { const HUBU = URLS.hub(G), _h = HUBU, nm = (ME && ME.name) || user.displayName || EMAIL.split('@')[0], av = avaOf(ME);
     // The same top panel as the lobby: logo on the left, your account on the right (a menu opens from it).
     const chev = '<svg class="ha-chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
     window.wzHeader = () => `<div class="wzh wzh2"><header class="hub-top">${logoHTML()}<div class="hub-side"><button type="button" class="hub-acct wzh-acct" aria-haspopup="menu" aria-expanded="false" title="Your account">${avaHTML(nm, EMAIL, av.pic, '', '', av)}<span class="ha-txt"><b>${escH(nm)}</b><small>${escH(EMAIL)}</small></span>${chev}</button></div></header></div>`;
@@ -1561,7 +1562,7 @@ function hub(fs, auth, G, ctx) {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const ago = t => { if (!t) return ''; const s = (Date.now() - t) / 1000; return s < 60 ? 'just now' : s < 3600 ? Math.floor(s / 60) + 'm ago' : s < 86400 ? Math.floor(s / 3600) + 'h ago' : Math.floor(s / 86400) + 'd ago'; };
   const day = t => t ? new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-  const base = location.pathname, HUB = URLS.hub(G), ADMIN_URL = URLS.admin(G);
+  const base = location.pathname, HUB = URLS.hub(G), ADMIN_URL = URLS.admin(G); window.PG_HUBU = HUB;
   const ADMIN = page === 'admin';
   document.title = ADMIN ? 'Admin — Adventurer’s Tome' : 'Adventurer’s Tome';
   { const keep = document.getElementById('pg-load'); [...document.body.childNodes].forEach(n => { if (n !== keep) n.remove(); }); // the loading screen stays put (and keeps fading) while the page is swapped in under it
@@ -3881,4 +3882,13 @@ function partyModule(H) {
   }
     if (H.classList.contains('wpop-front') && !document.querySelector('.modal-bg.open:not(.closing), .hub-modal.on:not(.closing), .pg-out:not(.closing)')) H.classList.remove('wpop-front');
   }).observe(document.body || document.documentElement, { childList: true, attributes: true, attributeFilter: ['class'], subtree: true });
+})();
+
+// The logo goes back to the lobby from every page that shows it (in the lobby itself, its die still rolls); middle-click opens a new tab
+(() => { const LOGO = '.hub-logo, .dk-logo';
+  const away = () => document.body && !document.body.classList.contains('hubbody') || !!document.querySelector('#wizard.open, .pw, .adm, #pg-desk');
+  const go = (e, tab) => { const l = e.target.closest && e.target.closest(LOGO); if (!l || !window.PG_HUBU || !away()) return; e.preventDefault(); e.stopImmediatePropagation(); if (tab || e.ctrlKey || e.metaKey) window.open(window.PG_HUBU, '_blank'); else pgGo(window.PG_HUBU); };
+  document.addEventListener('click', e => go(e, false), true);
+  document.addEventListener('auxclick', e => { if (e.button === 1) go(e, true); }, true);
+  document.addEventListener('mouseover', e => { const l = e.target.closest && e.target.closest(LOGO); if (l && away()) { l.style.cursor = 'pointer'; l.title = 'Back to the lobby'; } }, true);
 })();

@@ -3088,6 +3088,69 @@ html.mobile #wizard .wz3 .wz-info, html.mobile #wizard .wz3 .wz-cls { padding: 1
 html.mobile #wizard .wz3 .wz-body, html.mobile #wizard .wz3 .wz-body * { max-width: 100%; box-sizing: border-box; }
 html.mobile #wizard .wz3 .wz-body { overflow-x: hidden; }
 #wizard .wz3 .wz-grid > .wz3-pick { grid-column: 1 / -1; }
+
+/* ===== Creation sweep: one import panel, background / feat lists like the spell lists, equipment tiles, icons, dividers, shadows, motion ===== */
+#wizard .wz3 .wz3-hid { display: none !important; }
+#wizard .wz3 .wz3-hero, #wizard .wz3 .wz-steps { box-shadow: 0 12px 30px rgba(0,0,0,.28); }
+#wizard .wz3 .wz3-ab { padding-top: 12px; border-top: 1px solid var(--wc-edge2); }
+#wizard .wz3 .wz3-si { display: inline-grid; place-items: center; opacity: .75; } #wizard .wz3 .wz3-si svg { width: 16px; height: 16px; }
+#wizard .wz3 .wz-step.on .wz3-si { opacity: 1; }
+#wizard .wz3 .wz-sn { display: none !important; } #wizard .wz3 .wz-step.done .wz3-si { color: #e0aa3a; opacity: 1; }
+html.mobile #wizard .wz3 .wz3-si { display: none; }
+#wizard .wz3 .wz-body > h3 { padding-bottom: 12px; border-bottom: 1px solid var(--wc-edge2); }
+#wizard .wz3 .wz-body h4 { font: 700 1.05rem Georgia, serif; color: var(--wc-head); }
+/* the import panel */
+#wizard .wz3 .wz3-imp { display: flex; align-items: center; justify-content: space-between; gap: 14px 20px; flex-wrap: wrap; margin-top: 22px; padding: 16px 18px; border: 1px solid var(--wc-edge); border-radius: 16px; background: var(--wc-card); box-shadow: 0 8px 22px rgba(0,0,0,.2); }
+#wizard .wz3 .wz3-imp > div:first-child { display: grid; gap: 3px; flex: 1 1 260px; min-width: 0; }
+#wizard .wz3 .wz3-impb { display: flex; gap: 8px; flex-wrap: wrap; } #wizard .wz3 .wz3-impb .btn { display: inline-flex; align-items: center; gap: 7px; }
+/* lists like the spell lists */
+#wizard .wz3 .wz3-list { max-height: min(48vh, 460px); border: 1px solid var(--wc-edge) !important; border-radius: 14px !important; background: var(--wc-card); box-shadow: 0 8px 22px rgba(0,0,0,.2); }
+#wizard .wz3 .crlist .crrow { padding: 10px 14px; border-bottom: 1px solid var(--wc-edge2) !important; cursor: pointer; transition: background .15s; }
+#wizard .wz3 .crlist .crrow:hover { background: var(--wc-tile2); }
+#wizard .wz3 .crlist .crrow.on { background: rgba(224,170,58,.1); box-shadow: inset 3px 0 0 #e0aa3a; }
+#wizard .wz3 .crlist .crrow input { accent-color: #e0aa3a; width: 17px; height: 17px; flex: none; order: 2; }
+#wizard .wz3 .crlist .crrow > div { flex: 1; }
+#wizard .wz3 .wz-spsec { border: 1px solid var(--wc-edge) !important; border-radius: 16px !important; background: var(--wc-card) !important; box-shadow: 0 8px 22px rgba(0,0,0,.18); }
+#wizard .wz3 .wz-sph .cnt { border-radius: 999px; }
+#wizard .wz3 .wz3-featpick { margin: 8px 0 4px; }
+/* equipment */
+#wizard .wz3 .wz3-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+#wizard .wz3 .wz3-way { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; gap: 2px 12px; align-items: center; padding: 16px; border: 1px solid var(--wc-edge2); border-radius: 16px; background: var(--wc-tile); color: var(--wc-ink); font-family: inherit; text-align: left; cursor: pointer; transition: border-color .15s, background .15s, transform .12s; }
+#wizard .wz3 .wz3-way svg { grid-row: span 2; width: 26px; height: 26px; color: #e0aa3a; padding: 10px; box-sizing: content-box; border-radius: 12px; background: rgba(224,170,58,.12); }
+#wizard .wz3 .wz3-way b { font-size: 1rem; } #wizard .wz3 .wz3-way span { color: var(--wc-dim); font-size: .84rem; }
+#wizard .wz3 .wz3-way:hover { border-color: rgba(224,170,58,.45); } #wizard .wz3 .wz3-way:active { transform: scale(.98); }
+#wizard .wz3 .wz3-way.on { border-color: #e0aa3a; background: rgba(224,170,58,.1); box-shadow: inset 0 0 0 1px #e0aa3a; }
+#wizard .wz3 .wz3-isec { margin-top: 16px; }
+#wizard .wz3 .wz3-isec h4 { display: flex; align-items: baseline; gap: 10px; margin: 0 0 10px; padding-bottom: 8px; border-bottom: 1px solid var(--wc-edge2); }
+#wizard .wz3 .wz3-isec h4 span { font: 700 .78rem system-ui, sans-serif; color: var(--wc-dim); }
+#wizard .wz3 .wz3-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+#wizard .wz3 .wz3-item { position: relative; display: flex; align-items: center; gap: 12px; min-width: 0; padding: 12px 40px 12px 12px; border: 1px solid var(--wc-edge2); border-radius: 14px; background: var(--wc-tile); cursor: pointer; transition: opacity .2s, border-color .15s, background .15s; }
+#wizard .wz3 .wz3-item:hover { border-color: rgba(224,170,58,.4); }
+#wizard .wz3 .wz3-item input { position: absolute; opacity: 0; pointer-events: none; }
+#wizard .wz3 .wz3-iic { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 11px; background: rgba(224,170,58,.12); color: #e0aa3a; } #wizard .wz3 .wz3-iic svg { width: 19px; height: 19px; }
+#wizard .wz3 .wz3-itx { min-width: 0; display: grid; gap: 2px; } #wizard .wz3 .wz3-itx b { font-size: .92rem; overflow-wrap: anywhere; } #wizard .wz3 .wz3-itx b i { font-style: normal; color: var(--wc-gold2); } #wizard .wz3 .wz3-itx small { color: var(--wc-dim); font-size: .76rem; line-height: 1.35; }
+#wizard .wz3 .wz3-tick { position: absolute; top: 50%; right: 12px; width: 20px; height: 20px; margin-top: -10px; border-radius: 6px; border: 2px solid var(--wc-fline); box-sizing: border-box; transition: background .15s, border-color .15s; }
+#wizard .wz3 .wz3-item:has(input:checked) .wz3-tick { background: #e0aa3a; border-color: #e0aa3a; }
+#wizard .wz3 .wz3-item:has(input:checked) .wz3-tick::after { content: '✓'; position: absolute; inset: 0; display: grid; place-items: center; color: #1b1406; font: 900 12px system-ui, sans-serif; }
+#wizard .wz3 .wz3-item.off { opacity: .45; } #wizard .wz3 .wz3-item:has(input:focus-visible) { outline: 2px solid #e0aa3a; outline-offset: 2px; }
+#wizard .wz3 .wz3-gp { display: flex; align-items: center; gap: 10px; margin-top: 16px; padding: 12px 14px; border-radius: 14px; background: rgba(224,170,58,.08); border: 1px solid rgba(224,170,58,.3); } #wizard .wz3 .wz3-gp svg { color: #e0aa3a; width: 20px; height: 20px; }
+#wizard .wz3 .wz3-goldp { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; padding: 18px; border: 1px solid var(--wc-edge); border-radius: 16px; background: var(--wc-card); box-shadow: 0 8px 22px rgba(0,0,0,.2); }
+#wizard .wz3 .wz3-gold { display: flex; align-items: center; gap: 12px; } #wizard .wz3 .wz3-gold > svg { width: 30px; height: 30px; color: #e0aa3a; }
+#wizard .wz3 .wz3-gold input { width: 130px; font-size: 1.2rem !important; font-weight: 800; }
+#wizard .wz3 .wz3-goldp .btn { display: inline-flex; align-items: center; gap: 8px; }
+#wizard .wz3 .wz3-goldp .hint { flex-basis: 100%; margin: 0; }
+html.mobile #wizard .wz3 .wz3-two { grid-template-columns: 1fr; } html.mobile #wizard .wz3 .wz3-items { grid-template-columns: 1fr; }
+/* motion */
+@keyframes wz3Pop { 0% { transform: scale(1); } 40% { transform: scale(1.03); } 100% { transform: scale(1); } }
+@keyframes wz3In { from { opacity: 0; transform: translateY(6px); } }
+#wizard .wz3 .wz3-card.sel, #wizard .wz3 .wz3-way.on { animation: wz3Pop .32s ease; }
+#wizard .wz3 .wz3-card.sel::after, #wizard .wz3 .wz3-item:has(input:checked) .wz3-tick::after { animation: wz3In .2s ease; }
+#wizard .wz3 .wz3-cards > .wz3-card { animation: wz3In .25s ease both; }
+#wizard .wz3 .wz3-cards > .wz3-card:nth-child(n+13) { animation: none; }
+#wizard .wz3 .wz3-card:active, #wizard .wz3 .wz3-item:active { transform: scale(.98); }
+@media (prefers-reduced-motion: reduce) { #wizard .wz3 *, #wizard .wz3 *::after { animation: none !important; transition: none !important; } }
+#wizard .wz3 .wz3-item:has(input:not(:checked)) { opacity: .45; }
+#wizard .wz3 .wz3-items { align-items: start; }
 </style>
 </head>
 <body>
@@ -3761,7 +3824,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024233837', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.9bf27359ea9c.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.fadaec6ebae7.html", "desk": "a/desk.9db34bf9f5aa.js", "deskcss": "a/deskcss.7ad502b4708e.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024234934', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.ae976ab30238.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.d9ab7463d695.html", "desk": "a/desk.9db34bf9f5aa.js", "deskcss": "a/deskcss.7ad502b4708e.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -4166,7 +4229,7 @@ function wireDie(root) {
     try { await loadDesk();
       if (pid && window.pgDesk.hostsParty) { location.replace('/party/' + encodeURIComponent(pid)); return; } // a party's desk is its party page now
       let party = null; if (pid) { try { const d = await fs.collection('parties').doc(pid).get(); if (d.exists) { const pd = d.data(); party = { id: pid, name: pd.name || 'Party', mgr: pd.dm === EMAIL || (pd.mgrs || []).includes(EMAIL) }; } } catch (e) {} }
-      window.pgDesk.mount(root, deskCtx(party, party ? { back: { href: URLS.party(pid, party.name), label: party.name } } : { back: { href: URLS.hub(G), label: 'Adventurer’s Tome' } })); } catch (e) { console.error(e); return fail(); }
+      window.PG_HUBU = URLS.hub(G); window.pgDesk.mount(root, deskCtx(party, party ? { back: { href: URLS.party(pid, party.name), label: party.name } } : { back: { href: URLS.hub(G), label: 'Adventurer’s Tome' } })); } catch (e) { console.error(e); return fail(); }
     if (!TOUCH && !FRAMED) sheetScrollbar(); // the slim gold scrollbar, like every other page (the browser's own one shifted everything when it came and went)
     pgLog('desk_open', {});
     requestAnimationFrame(() => { if (load) fadeLoad(load); else document.documentElement.classList.remove('pg-loading'); }); verCheck(); return; }
@@ -4226,7 +4289,8 @@ function wireDie(root) {
   const NEW = !C;
   if (NEW) C = rid();
   // Making a new character: the wizard gets the lobby's header on top (logo, a way back, who's signed in).
-  if (NEW) { const HUBU = URLS.hub(G), nm = (ME && ME.name) || user.displayName || EMAIL.split('@')[0], av = avaOf(ME);
+  window.PG_HUBU = URLS.hub(G);
+  if (NEW) { const HUBU = URLS.hub(G), _h = HUBU, nm = (ME && ME.name) || user.displayName || EMAIL.split('@')[0], av = avaOf(ME);
     // The same top panel as the lobby: logo on the left, your account on the right (a menu opens from it).
     const chev = '<svg class="ha-chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
     window.wzHeader = () => `<div class="wzh wzh2"><header class="hub-top">${logoHTML()}<div class="hub-side"><button type="button" class="hub-acct wzh-acct" aria-haspopup="menu" aria-expanded="false" title="Your account">${avaHTML(nm, EMAIL, av.pic, '', '', av)}<span class="ha-txt"><b>${escH(nm)}</b><small>${escH(EMAIL)}</small></span>${chev}</button></div></header></div>`;
@@ -4695,7 +4759,7 @@ function hub(fs, auth, G, ctx) {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const ago = t => { if (!t) return ''; const s = (Date.now() - t) / 1000; return s < 60 ? 'just now' : s < 3600 ? Math.floor(s / 60) + 'm ago' : s < 86400 ? Math.floor(s / 3600) + 'h ago' : Math.floor(s / 86400) + 'd ago'; };
   const day = t => t ? new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-  const base = location.pathname, HUB = URLS.hub(G), ADMIN_URL = URLS.admin(G);
+  const base = location.pathname, HUB = URLS.hub(G), ADMIN_URL = URLS.admin(G); window.PG_HUBU = HUB;
   const ADMIN = page === 'admin';
   document.title = ADMIN ? 'Admin — Adventurer’s Tome' : 'Adventurer’s Tome';
   { const keep = document.getElementById('pg-load'); [...document.body.childNodes].forEach(n => { if (n !== keep) n.remove(); }); // the loading screen stays put (and keeps fading) while the page is swapped in under it
@@ -7015,6 +7079,15 @@ function partyModule(H) {
   }
     if (H.classList.contains('wpop-front') && !document.querySelector('.modal-bg.open:not(.closing), .hub-modal.on:not(.closing), .pg-out:not(.closing)')) H.classList.remove('wpop-front');
   }).observe(document.body || document.documentElement, { childList: true, attributes: true, attributeFilter: ['class'], subtree: true });
+})();
+
+// The logo goes back to the lobby from every page that shows it (in the lobby itself, its die still rolls); middle-click opens a new tab
+(() => { const LOGO = '.hub-logo, .dk-logo';
+  const away = () => document.body && !document.body.classList.contains('hubbody') || !!document.querySelector('#wizard.open, .pw, .adm, #pg-desk');
+  const go = (e, tab) => { const l = e.target.closest && e.target.closest(LOGO); if (!l || !window.PG_HUBU || !away()) return; e.preventDefault(); e.stopImmediatePropagation(); if (tab || e.ctrlKey || e.metaKey) window.open(window.PG_HUBU, '_blank'); else pgGo(window.PG_HUBU); };
+  document.addEventListener('click', e => go(e, false), true);
+  document.addEventListener('auxclick', e => { if (e.button === 1) go(e, true); }, true);
+  document.addEventListener('mouseover', e => { const l = e.target.closest && e.target.closest(LOGO); if (l && away()) { l.style.cursor = 'pointer'; l.title = 'Back to the lobby'; } }, true);
 })();
 
 </script>
