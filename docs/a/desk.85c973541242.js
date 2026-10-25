@@ -344,7 +344,9 @@ const DEF = () => ({ v: 2, savedAt: 0, settings: { dice: 'desk', hpMode: 'avg', 
 let S = DEF();
 let UI = { tab: 'sessions', session: '', sel: '', best: 'srd:goblin', q: '', crMin: '', crMax: '', type: '', size: '', src: '', sort: 'name', open: {}, tree: false, log: false, sv: 'creatures', gen: 'enc', genAI: false, genP: { size: 4, level: 3, levels: '', diff: 'medium', env: 'forest', type: '', mine: false } };
 let LOG = [];
-const lsKey = k => 'pg-desk' + k + ':' + (CTX ? CTX.EMAIL : '');
+// Each party has its own desk (sessions, notes, settings); creatures you make or import are shared by all your desks.
+const DESK_PID = () => (CTX && CTX.party && CTX.party.id) || '';
+const lsKey = k => 'pg-desk' + k + ':' + (CTX ? CTX.EMAIL : '') + (DESK_PID() ? '@' + DESK_PID() : '');
 const lsGet = k => { try { return JSON.parse(localStorage.getItem(lsKey(k)) || 'null'); } catch (e) { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(lsKey(k), JSON.stringify(v)); } catch (e) {} };
 let lsT = 0;
@@ -358,7 +360,13 @@ function normalize(d) {
 function save() { S.savedAt = Date.now(); writeLocal(); cloudSoon(); syncTurnHP(); }
 const saveUI = () => writeLocal();
 
-// ---------- account storage: desks/{email} {v, savedAt, settings}; /sessions/{id} and /creatures/{id} {savedAt, data} ----------
+// ---------- account storage ----------
+// desks/{email}/creatures/{id}: your creatures, shared by every desk. A party's desk: desks/{email}/party/{partyId} {v, savedAt,
+// settings} with /sessions/{id} and /notes/{id}. The desk opened without a party (and every desk before they were split) uses
+// desks/{email} itself. Pictures in notes stay in desks/{email}/imgs.
+let CRE = null;
+const userBase = () => CTX.fs.collection('desks').doc(CTX.EMAIL);
+const deskBase = () => DESK_PID() ? userBase().collection('party').doc(DESK_PID()) : userBase();
 let BASE = null, CLOUD = false, cloudT = 0, flushing = false, again = false, syncMsg = '';
 const SYNCED = { main: '', cre: new Map(), ses: new Map() };
 const mainBody = () => ({ v: S.v, savedAt: S.savedAt, settings: S.settings });
@@ -369,8 +377,8 @@ async function flush() {
   try {
     const coll = n => BASE.collection(n), m = JSON.stringify(mainBody()), w = [];
     if (m !== SYNCED.main) w.push(BASE.set(JSON.parse(m)).then(() => { SYNCED.main = m; }));
-    for (const [id, c] of Object.entries(S.creatures)) { const j = JSON.stringify(c); if (SYNCED.cre.get(id) !== j) w.push(coll('creatures').doc(id).set({ savedAt: S.savedAt, data: JSON.parse(j) }).then(() => SYNCED.cre.set(id, j))); }
-    for (const id of Array.from(SYNCED.cre.keys())) if (!S.creatures[id]) w.push(coll('creatures').doc(id).delete().then(() => SYNCED.cre.delete(id)));
+    for (const [id, c] of Object.entries(S.creatures)) { const j = JSON.stringify(c); if (SYNCED.cre.get(id) !== j) w.push(CRE.doc(id).set({ savedAt: S.savedAt, data: JSON.parse(j) }).then(() => SYNCED.cre.set(id, j))); }
+    for (const id of Array.from(SYNCED.cre.keys())) if (!S.creatures[id]) w.push(CRE.doc(id).delete().then(() => SYNCED.cre.delete(id)));
     const sids = new Set();
     for (const s of S.sessions) { sids.add(s.id); const j = JSON.stringify(s); if (SYNCED.ses.get(s.id) !== j) w.push(coll('sessions').doc(s.id).set({ savedAt: S.savedAt, data: JSON.parse(j) }).then(() => SYNCED.ses.set(s.id, j))); }
     for (const id of Array.from(SYNCED.ses.keys())) if (!sids.has(id)) w.push(coll('sessions').doc(id).delete().then(() => SYNCED.ses.delete(id)));
@@ -381,7 +389,7 @@ async function flush() {
 }
 async function pullAll() {
   const coll = n => BASE.collection(n);
-  const [m, cr, ss] = await Promise.all([BASE.get(), coll('creatures').get(), coll('sessions').get()]);
+  const [m, cr, ss] = await Promise.all([BASE.get(), CRE.get(), coll('sessions').get()]);
   if (!m.exists) return false;
   const d = m.data(), next = normalize({ v: d.v, savedAt: d.savedAt, settings: d.settings });
   SYNCED.cre.clear(); cr.docs.forEach(x => { const c = x.data().data; if (c) { next.creatures[x.id] = c; SYNCED.cre.set(x.id, JSON.stringify(c)); } });
@@ -393,13 +401,38 @@ async function pullAll() {
 }
 async function cloudBoot() {
   if (!CTX.fs || !CTX.EMAIL) { setSync('Saved on this device'); return; }
-  BASE = CTX.fs.collection('desks').doc(CTX.EMAIL);
+  BASE = deskBase(); CRE = userBase().collection('creatures');
   try {
-    const snap = await BASE.get(), d = snap.exists ? snap.data() : null;
+    let snap = await BASE.get(), d = snap.exists ? snap.data() : null;
+    if (DESK_PID() && !(d && d.askedOld)) { if (await offerOldDesk(d)) { snap = await BASE.get(); d = snap.exists ? snap.data() : null; S.savedAt = 0; } }
     if (d && N(d.savedAt) >= N(S.savedAt)) { await pullAll(); render(); }
+    else { // a desk that's new (or newer here): it still gets every creature you've made
+      const cr = await CRE.get(); cr.docs.forEach(x => { const c = x.data().data; if (!c) return; if (!S.creatures[x.id]) S.creatures[x.id] = c; SYNCED.cre.set(x.id, JSON.stringify(c)); }); render(); }
     CLOUD = true;
     if (!d || N(d.savedAt) < N(S.savedAt)) { if (!S.savedAt) S.savedAt = Date.now(); await flush(); } else setSync('Saved to your account');
   } catch (e) { console.warn('desk load', e); setSync('Offline — saved on this device'); }
+}
+// Before desks were split by party, everything was one desk. The first time a party's desk opens, that earlier desk (if it has
+// anything in it and hasn't gone to a party yet) can be moved in. Asked once per party; the old copy is kept, not deleted.
+async function offerOldDesk(d) {
+  const old = userBase(), pid = DESK_PID();
+  let o, ses, notes; try { [o, ses, notes] = await Promise.all([old.get(), old.collection('sessions').get(), old.collection('notes').get()]); } catch (e) { return false; }
+  const od = o.exists ? o.data() : null;
+  if (!od || od.movedTo || (!ses.size && !notes.size)) { await BASE.set({ askedOld: true }, { merge: true }).catch(() => {}); return false; }
+  const nm = esc((CTX.party && CTX.party.name) || 'this party');
+  const yes = await new Promise(res => {
+    openModal(`<h2>Bring your DM’s Desk here?</h2><p>Each party now has its own DM’s Desk. Your desk from before has ${ses.size} session${ses.size === 1 ? '' : 's'} and ${notes.size} notes page${notes.size === 1 ? '' : 's'}. Move them into <b>${nm}</b>’s desk?</p><p class="dk-hint">Your creatures are shared by all your desks either way. If these belong to another party, choose “Not this party” and open that party’s desk instead.</p><div class="dk-acts"><button class="dk-btn" id="dk-oldNo">Not this party</button><button class="dk-btn gold" id="dk-oldYes">Move them here</button></div>`, { cls: 'dk-small', onClose: () => res(null) });
+    $('#dk-oldYes').onclick = () => { closeModal(true); res(true); }; $('#dk-oldNo').onclick = () => { closeModal(true); res(false); }; });
+  if (yes === null) return false; // closed without choosing: ask again next time
+  if (!yes) { await BASE.set({ askedOld: true }, { merge: true }).catch(() => {}); return false; }
+  setSync('Moving your desk…');
+  try { const w = [BASE.set(Object.assign({ v: od.v || 2, savedAt: Date.now(), settings: od.settings || {} }, { askedOld: true }))];
+    ses.docs.forEach(x => w.push(BASE.collection('sessions').doc(x.id).set(x.data())));
+    notes.docs.forEach(x => w.push(BASE.collection('notes').doc(x.id).set(x.data())));
+    await Promise.all(w); await old.set({ movedTo: pid, movedAt: Date.now() }, { merge: true });
+    try { const l = localStorage.getItem('pg-desk-notes:' + CTX.EMAIL); if (l) localStorage.setItem(lsKey('-notes'), l); } catch (e) {}
+    toastInfo(`Moved ${ses.size} session${ses.size === 1 ? '' : 's'} and ${notes.size} notes page${notes.size === 1 ? '' : 's'} into ${nm}’s desk.`); return true; }
+  catch (e) { console.warn('desk move', e); toastInfo('Couldn’t move your old desk just now. It’ll ask again next time.'); return false; }
 }
 function onVis() {
   if (document.hidden || !CLOUD || flushing || cloudT && syncMsg === 'Saving…' || !ROOT || !ROOT.isConnected) return;
@@ -1348,6 +1381,7 @@ async function sendToTurn(list, label) {
   toast({ title: `Sent ${label || plural(list.length, 'creature')} to the Turn order`, det: esc(lines.join(' · ')) + `<br>Open ${esc(CTX.party.name || 'the party')}’s Turn order to run the fight; HP changes here show up there.`, cls: 'crit' });
 }
 function takeFromTurn(x) { const t = toRead(); if (!t) return; t.rows = t.rows.filter(r => r.desk !== x.iid); toWrite(t); paint(); toastInfo(`${esc(x.name)} is off the Turn order.`); }
+const CACT_IC = {"attack": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M14.5 17.5 3 6V3h3l11.5 11.5\"/><path d=\"m13 19 6-6\"/><path d=\"m16 16 4 4\"/><path d=\"m19 21 2-2\"/></svg>", "multi": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M14.5 17.5 3 6V3h3l11.5 11.5\"/><path d=\"m13 19 6-6\"/><path d=\"m16 16 4 4\"/><path d=\"m19 21 2-2\"/><path d=\"M14.5 6.5 18 3h3v3l-3.5 3.5\"/><path d=\"m5 14 4 4\"/><path d=\"m7 17-3 3\"/><path d=\"m3 19 2 2\"/></svg>", "save": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z\"/></svg>", "temp": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z\"/><path d=\"M12 9v6M9 12h6\"/></svg>", "heal": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 5v14M5 12h14\"/></svg>", "roll": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"3\"/><circle cx=\"9\" cy=\"9\" r=\"1\" fill=\"currentColor\"/><circle cx=\"15\" cy=\"15\" r=\"1\" fill=\"currentColor\"/><circle cx=\"15\" cy=\"9\" r=\"1\" fill=\"currentColor\"/><circle cx=\"9\" cy=\"15\" r=\"1\" fill=\"currentColor\"/></svg>"};
 const QTYPE = {}; // damage type picked on each creature card (kept across repaints)
 const ICO_PARTY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.2c3 .1 5.5 2.6 5.5 5.8"/></svg>';
 // ---------- drawing ----------
@@ -1396,6 +1430,8 @@ function paint() {
 function paint0(pg) {
   const keep = {}; $$('[data-keep]').forEach(el => { keep[el.dataset.keep] = el.scrollTop; });
   const a = document.activeElement, fid = a && ROOT.contains(a) && a.id, sel = fid && a.selectionStart != null ? [a.selectionStart, a.selectionEnd] : null, y = scrollY;
+  // (a box being typed in keeps what's in it, saved or not, when something else makes the page redraw)
+  const val = UI.tab === 'notes' && fid && /^(INPUT|TEXTAREA)$/.test(a.tagName) && !/^(checkbox|radio|file)$/i.test(a.type || '') ? a.value : null;
   $$('.dk-tabs [data-tab]').forEach(t => { const on = t.dataset.tab === UI.tab; t.classList.toggle('on', on); t.setAttribute('aria-selected', on); });
   const edA = a && a.classList && a.classList.contains('dk-ed') ? { id: a.id, off: caretOffset(a) } : null; if (edA) edSave(true);
   const slot = ROOT.querySelector('.dk-partyslot'), inParty = UI.tab === 'party' && !!slot;
@@ -1405,7 +1441,7 @@ function paint0(pg) {
   if (edA) { const ed = document.getElementById(edA.id); if (ed) { ed.focus({ preventScroll: true }); if (edA.off >= 0) setCaretOffset(ed, edA.off); } }
   try { notesAfterPaint(); } catch (e) { console.warn(e); }
   $$('[data-keep]').forEach(el => { if (keep[el.dataset.keep]) el.scrollTop = keep[el.dataset.keep]; });
-  if (fid) { const el = document.getElementById(fid); if (el && el !== document.activeElement) { el.focus({ preventScroll: true }); if (sel) try { el.setSelectionRange(sel[0], sel[1]); } catch (e) {} } }
+  if (fid) { const el = document.getElementById(fid); if (el && el !== document.activeElement) { if (val != null && el.tagName === a.tagName && el.value !== val) el.value = val; el.focus({ preventScroll: true }); if (sel) try { el.setSelectionRange(sel[0], sel[1]); } catch (e) {} } }
   if (Math.abs(scrollY - y) > 2) scrollTo(scrollX, y);
   ROOT.classList.toggle('dk-tree-open', !!UI.tree); if (ROOT.dataset.tab !== (UI.tab || '') && ['notes', 'sessions', 'bestiary', 'gen'].includes(UI.tab) && innerWidth > 900) scrollTo(0, 0); ROOT.dataset.tab = UI.tab || '';
   try { pills(); animView(pg); } catch (e) {}
@@ -1475,7 +1511,7 @@ function cardHTML(x) {
       : k === 'attack' ? `<button class="dk-rl atk" data-act="atk" data-ek="${ek}" title="Attack roll and damage">${sg(a.hit)}</button> to hit${a.dmg.length ? ' · ' + dm(a.dmg) : ''}`
       : k === 'save' ? `<b>DC ${a.save.dc} ${ABS[a.save.ab].toUpperCase()}</b>${a.sdmg.length ? ' · ' + dm(a.sdmg) : ''}` : dm(a.dmg);
     const btn = k === 'multi' ? `<button class="dk-btn sm gold" data-act="multi">Roll all</button>` : k === 'attack' ? `<button class="dk-btn sm gold" data-act="atk" data-ek="${ek}">Attack</button>` : k === 'save' ? `<button class="dk-btn sm gold" data-act="save" data-ek="${ek}">${a.sdmg.length ? 'Damage' : 'Save'}</button>` : `<button class="dk-btn sm gold" data-act="dmg" data-ek="${ek}">Roll</button>`;
-    return `<div class="dk-cact k-${k}"><span class="dk-cact-i" aria-hidden="true">${k === 'attack' ? '⚔' : k === 'save' ? '⛨' : k === 'multi' ? '⚔⚔' : '🎲'}</span><div class="dk-cact-m"><b>${esc(baseName(e.n))}</b><div class="dk-cact-s">${info}</div></div><div class="dk-cact-b">${btn}</div></div>`;
+    return `<div class="dk-cact k-${k}"><span class="dk-cact-i" aria-hidden="true">${CACT_IC[k] || CACT_IC.roll}</span><div class="dk-cact-m"><b>${esc(baseName(e.n))}</b><div class="dk-cact-s">${info}</div></div><div class="dk-cact-b">${btn}</div></div>`;
   }).join('') : '';
   const chips = (x.down ? '<span class="dk-chip dead">Down</span>' : '') + (x.conc ? `<span class="dk-chip conc">${ICON.conc}${esc(x.conc)}</span>` : '') + condChips(x) + (N(x.exh) ? `<span class="dk-chip cond">Exhaustion ${N(x.exh)}</span>` : '');
   return `<article class="dk-ccard dk-comp2${x.down ? ' down' : ''}" data-iid="${x.iid}">
@@ -2066,7 +2102,7 @@ function mount(root, ctx) {
   root.innerHTML = `<header class="dk-top"></header><div class="dk-page"></div>
     <aside class="dk-log" aria-label="Roll log"><div class="dk-loghd"><h2>Roll log</h2><button class="dk-btn sm" data-act="clearlog">Clear</button><button class="dk-ix" data-act="log" aria-label="Close">${ICON.x}</button></div><div class="dk-loglist"></div></aside>
     <div class="dk-modal" role="presentation"><div class="dk-mcard" role="dialog" aria-modal="true"></div></div>
-    <div class="dk-toasts" aria-live="polite"></div><input type="file" class="dk-impf" accept=".json,application/json" hidden><input type="file" class="dk-imgf" accept="image/*" hidden><input type="file" class="dk-tokf" accept="image/*" hidden><input type="file" class="dk-nimgf" accept="image/*" hidden><input type="file" class="dk-mapf" accept="image/*" hidden><input type="file" class="dk-nimpf" accept=".lk,.md,.markdown,.txt,.html,.htm,.zip,.textpack,.json,image/*" multiple hidden><input type="file" class="dk-ndirf" webkitdirectory multiple hidden><div class="dk-auto" hidden></div><input type="file" class="dk-notef" accept=".pdf,.docx,.txt,.md,.markdown,text/plain,application/pdf" multiple hidden>`;
+    <div class="dk-toasts" aria-live="polite"></div><input type="file" class="dk-impf" accept=".json,application/json" hidden><input type="file" class="dk-imgf" accept="image/*" hidden><input type="file" class="dk-tokf" accept="image/*" hidden><input type="file" class="dk-nimgf" accept="image/*" hidden><input type="file" class="dk-mapf" accept="image/*" hidden><input type="file" class="dk-nimpf" accept=".docx,.lk,.md,.markdown,.txt,.html,.htm,.zip,.textpack,.json,image/*" multiple hidden><input type="file" class="dk-ndirf" webkitdirectory multiple hidden><div class="dk-auto" hidden></div><input type="file" class="dk-notef" accept=".pdf,.docx,.txt,.md,.markdown,text/plain,application/pdf" multiple hidden>`;
   const loc = lsGet(''); S = normalize(loc && loc.v ? loc : null);
   const u = lsGet('-ui'); if (u) UI = Object.assign(UI, u, { tree: false, log: false });
   UI.ptab = UI.ptab || {};
@@ -2087,7 +2123,7 @@ function mount(root, ctx) {
   on(root, 'mousedown', e => { const t = e.target.closest && e.target.closest('[data-ed],[data-auto]'); if (!t) return; e.preventDefault(); if (t.dataset.ed) edCmd(t.dataset.ed); else edAutoPick(N(t.dataset.auto)); });
   on(root, 'paste', e => { if (e.target.closest && e.target.closest('.dk-ed')) edPaste(e); });
   on(root, 'dragstart', e => { onDragStart(e); if (DRAG) ROOT.classList.add('dk-dragon'); }); on(root, 'dragover', onDragOver); on(root, 'drop', e => { onDrop(e); ROOT.classList.remove('dk-dragon'); }); on(root, 'dragend', () => { DRAG = null; ROOT.classList.remove('dk-dragon'); $$('.dragging').forEach(x => x.classList.remove('dragging')); });
-  on(root, 'mouseover', onNotesOver); on(window, 'beforeunload', () => { if (NCLOUD) flushNotes(); });
+  on(root, 'mouseover', onNotesOver); on(window, 'beforeunload', notesLeave); on(window, 'pagehide', notesLeave); on(document, 'visibilitychange', () => { if (document.hidden) notesLeave(); else notesRefresh(); });
   on(document, 'keydown', onKey); on(document, 'mousedown', onDocDown); on(document, 'touchstart', onDocDown, { passive: true });
   on(window, 'message', onR20Msg); on(document, 'visibilitychange', onVis); on(window, 'storage', onStorage);
   setTimeout(r20Hello, 400);
@@ -2533,7 +2569,9 @@ let NT = { pages: {}, syncedAt: 0, del: [] };
 const NSYNC = new Map(); let NBASE = null, IBASE = null, NCLOUD = false, nT = 0, nFlushing = false, nAgain = false;
 const IMGC = {}; // image id -> dataURL
 const pagesList = () => Object.values(NT.pages);
-const kids = pid => pagesList().filter(p => (p.parent || '') === (pid || '')).sort((a, b) => N(a.order) - N(b.order) || a.title.localeCompare(b.title));
+// (a page whose parent is gone — deleted on another device — shows at the top level instead of vanishing)
+const parentOf = p => p.parent && NT.pages[p.parent] && p.parent !== p.id ? p.parent : '';
+const kids = pid => pagesList().filter(p => parentOf(p) === (pid || '')).sort((a, b) => N(a.order) - N(b.order) || a.title.localeCompare(b.title));
 const pageById = id => NT.pages[id] || null;
 const pageByTitle = t => { const q = String(t || '').trim().toLowerCase(); if (!q) return null; return pagesList().find(p => p.title.toLowerCase() === q) || pagesList().find(p => (p.aliases || []).some(a => a.toLowerCase() === q)) || null; };
 function newPage(o) {
@@ -2542,15 +2580,18 @@ function newPage(o) {
   p.id = id; NT.pages[id] = p; return p;
 }
 function nSave(p) { if (p) p.edited = Date.now(); writeNotesLocal(); notesSoon(); }
+// moving or pinning a page isn't an edit: it doesn't make the page 'newer' than someone's text on another device
+function nSaveQuiet() { writeNotesLocal(); notesSoon(); }
 let nlT = 0;
-function writeNotesLocal() { clearTimeout(nlT); nlT = setTimeout(() => { try { localStorage.setItem(lsKey('-notes'), JSON.stringify(NT)); } catch (e) {} }, 300); }
+function writeNotesLocalNow() { clearTimeout(nlT); try { localStorage.setItem(lsKey('-notes'), JSON.stringify(NT)); } catch (e) { if (!NCLOUD && !writeNotesLocal.warned) { writeNotesLocal.warned = 1; toast({ title: 'This device is out of room for notes', det: 'Your latest changes may not be kept. Sign in to save notes to your account, or remove some pictures.', cls: 'bad' }); } } }
+function writeNotesLocal() { clearTimeout(nlT); nlT = setTimeout(writeNotesLocalNow, 300); }
 function notesSoon() { if (!NCLOUD) return; clearTimeout(nT); setSync('Saving…'); nT = setTimeout(flushNotes, 900); }
 async function flushNotes() {
   if (!NCLOUD) return; if (nFlushing) { nAgain = true; return; } nFlushing = true;
   try {
     const w = [];
     for (const p of pagesList()) { const j = JSON.stringify(p); if (NSYNC.get(p.id) !== j) { if (j.length > 880000) { toastInfo(`<b>${esc(p.title)}</b> is too big to save — split it into smaller pages.`); continue; } w.push(NBASE.doc(p.id).set({ savedAt: Date.now(), data: JSON.parse(j) }).then(() => NSYNC.set(p.id, j))); } }
-    for (const id of NT.del.splice(0)) { w.push(NBASE.doc(id).delete().then(() => NSYNC.delete(id))); }
+    for (const id of NT.del.slice()) { w.push(NBASE.doc(id).delete().then(() => { NSYNC.delete(id); const k = NT.del.indexOf(id); if (k >= 0) NT.del.splice(k, 1); })); }
     await Promise.all(w); NT.syncedAt = Date.now(); writeNotesLocal(); setSync('Saved to your account');
   } catch (e) { console.warn('notes save', e); setSync('Couldn’t save — retrying'); setTimeout(notesSoon, 5000); }
   nFlushing = false; if (nAgain) { nAgain = false; flushNotes(); }
@@ -2558,7 +2599,9 @@ async function flushNotes() {
 async function notesBoot() {
   try { const l = JSON.parse(localStorage.getItem(lsKey('-notes')) || 'null'); if (l && l.pages) NT = { pages: l.pages, syncedAt: N(l.syncedAt), del: l.del || [] }; } catch (e) {}
   if (!CTX.fs || !CTX.EMAIL) return;
-  const base = CTX.fs.collection('desks').doc(CTX.EMAIL); NBASE = base.collection('notes'); IBASE = base.collection('imgs');
+  // (a party's desk keeps its own notes; pictures stay in one place for all your desks)
+  while (!BASE && ROOT) await new Promise(r => setTimeout(r, 50)); NBASE = deskBase().collection('notes'); IBASE = userBase().collection('imgs');
+  while (!CLOUD && ROOT && syncMsg !== 'Offline — saved on this device') await new Promise(r => setTimeout(r, 80)); // (after any move of an old desk)
   try {
     const qs = await NBASE.get(), cloud = {}; qs.docs.forEach(d => { const p = d.data().data; if (p && p.id) cloud[p.id] = p; });
     const merged = {};
@@ -2568,6 +2611,25 @@ async function notesBoot() {
     if (Object.values(merged).some(p => NSYNC.get(p.id) !== JSON.stringify(p)) || NT.del.length) flushNotes();
     if (UI.tab === 'notes') paint();
   } catch (e) { console.warn('notes load', e); }
+}
+// Coming back to the tab (or another device saved meanwhile): take the cloud's copy of every page that hasn't been
+// changed here since it was last saved, add pages made elsewhere and drop pages deleted elsewhere. Pages with unsaved
+// changes here, and the page being typed in, are left alone.
+// leaving (closing the tab, switching away): what was just typed is saved on this device right away and sent off
+function notesLeave() { try { if (typeof edFlush === 'function') edFlush(); } catch (e) {} writeNotesLocalNow(); if (NCLOUD) flushNotes(); }
+let nRefreshing = false;
+async function notesRefresh() {
+  if (!NCLOUD || !NBASE || nRefreshing || nFlushing) return; nRefreshing = true;
+  try {
+    const qs = await NBASE.get(), cloud = {}; qs.docs.forEach(d => { const p = d.data().data; if (p && p.id) cloud[p.id] = p; });
+    const ed = typeof edEl === 'function' && edEl(), typing = ed && document.activeElement === ed ? ed.id.replace(/^dk-ed-/, '') : ''; let ch = false;
+    Object.values(cloud).forEach(c => { if (NT.del.includes(c.id) || c.id === typing) return; const l = NT.pages[c.id], cj = JSON.stringify(c);
+      if (!l) { NT.pages[c.id] = c; NSYNC.set(c.id, cj); ch = true; return; }
+      if (NSYNC.get(c.id) === JSON.stringify(l) && cj !== NSYNC.get(c.id)) { NT.pages[c.id] = c; NSYNC.set(c.id, cj); ch = true; } });
+    Object.values(NT.pages).forEach(l => { if (!cloud[l.id] && NSYNC.has(l.id) && NSYNC.get(l.id) === JSON.stringify(l) && l.id !== typing) { delete NT.pages[l.id]; NSYNC.delete(l.id); ch = true; } });
+    if (ch) { if (UI.np && !NT.pages[UI.np]) UI.np = ''; writeNotesLocal(); if (UI.tab === 'notes') paint(); }
+  } catch (e) { console.warn('notes refresh', e); }
+  nRefreshing = false;
 }
 // ----- pictures -----
 async function getImg(id) {
@@ -2596,7 +2658,8 @@ function compressImage(src, maxBytes, maxDim) {
 async function storeImage(src, maxDim) {
   const c = await compressImage(src, 600 * 1024, maxDim), id = 'i' + uid(); IMGC[id] = c.data;
   try { localStorage.setItem(lsKey('-img:' + id), c.data); } catch (e) {}
-  if (IBASE) await IBASE.doc(id).set({ savedAt: Date.now(), data: c.data, w: c.w, h: c.h });
+  // (offline, the cloud write only finishes once back online: don't wait on it forever — it still goes through later)
+  if (IBASE) await Promise.race([IBASE.doc(id).set({ savedAt: Date.now(), data: c.data, w: c.w, h: c.h }), new Promise(r => setTimeout(r, 20000))]);
   return { id, w: c.w, h: c.h };
 }
 // ----- the sanitizer: only these tags and attributes survive -----
@@ -2648,7 +2711,7 @@ const htmlText = h => { const d = new DOMParser().parseFromString('<body>' + Str
 const pageText = p => p._t && p._tAt === p.edited ? p._t : (Object.defineProperty(p, '_t', { value: htmlText(p.html), writable: true, configurable: true, enumerable: false }), Object.defineProperty(p, '_tAt', { value: p.edited, writable: true, configurable: true, enumerable: false }), p._t);
 // [[Title]] links whose page exists now are pointed at it by id
 function resolveLinks(html) { return String(html || '').replace(/<a class="wl" data-title="([^"]*)">/g, (m, t) => { const p = pageByTitle(t.replace(/&amp;/g, '&').replace(/&quot;/g, '"')); return p ? `<a class="wl" data-page="${p.id}">` : m; }); }
-const backlinks = p => pagesList().filter(o => o.id !== p.id && (String(o.html).includes(`data-page="${p.id}"`) || String(o.html).toLowerCase().includes(`data-title="${esc(p.title).toLowerCase()}"`) || (o.map && (o.map.pins || []).some(x => x.page === p.id))));
+const backlinks = p => pagesList().filter(o => o.id !== p.id && (String(o.html).includes(`data-page="${p.id}"`) || String(o.html).toLowerCase().includes(`data-title="${esc(p.title).toLowerCase()}"`) || String(o.html).toLowerCase().includes(`data-title="${p.title.toLowerCase().replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"`) || (o.map && (o.map.pins || []).some(x => x.page === p.id))));
 function pathOf(p) { const out = []; let x = p, k = 0; while (x && k++ < 30) { out.unshift(x); x = pageById(x.parent); } return out; }
 function isAncestor(a, b) { let x = pageById(b), k = 0; while (x && k++ < 40) { if (x.id === a) return true; x = pageById(x.parent); } return false; }
 function deletePage(id) { kids(id).forEach(k => deletePage(k.id)); delete NT.pages[id]; NT.del.push(id); NSYNC.delete(id); }
@@ -2741,6 +2804,7 @@ function htmlToMd(html) {
 const relTime = t => { const d = (Date.now() - N(t)) / 60000; return d < 1 ? 'just now' : d < 60 ? Math.round(d) + ' min ago' : d < 1440 ? Math.round(d / 60) + ' h ago' : d < 10080 ? Math.round(d / 1440) + ' days ago' : new Date(t).toLocaleDateString(); };
 const allTags = () => Array.from(new Set([].concat(...pagesList().map(p => p.tags || [])))).sort((a, b) => a.localeCompare(b));
 function notesFiltered() {
+  if (UI.nf === 'tag' && !allTags().includes(UI.ntag)) { UI.nf = 'all'; UI.ntag = ''; } // (that tag is gone from every page)
   const q = String(UI.nq || '').trim().toLowerCase(), f = UI.nf || 'all';
   if (!q && f === 'all') return null;
   let L = pagesList();
@@ -2752,7 +2816,7 @@ function notesFiltered() {
 const cut = (t, n) => t.length <= n ? t : t.slice(0, n).replace(/\s+\S*$/, '') + '…';
 function snippet(p, q) { const t = pageText(p); if (!q) return esc(cut(t, 160)); const i = t.toLowerCase().indexOf(q.toLowerCase()); if (i < 0) return esc(cut(t, 160)); const a = Math.max(0, i - 40); return (a ? '…' : '') + esc(t.slice(a, i)) + '<mark>' + esc(t.slice(i, i + q.length)) + '</mark>' + esc(t.slice(i + q.length, i + q.length + 70)); }
 function treeHTML(pid, depth) {
-  return kids(pid).map(p => { const ks = kids(p.id), open = UI.nopen[p.id] || isAncestor(p.id, UI.np);
+  return kids(pid).map(p => { const ks = kids(p.id), open = !!UI.nopen[p.id];
     return `<div class="dk-nt" data-nid="${p.id}"><div class="dk-ntrow${p.id === UI.np ? ' on' : ''}" draggable="true" data-drag="${p.id}" style="--d:${depth}">${ks.length ? `<button class="dk-caret${open ? ' open' : ''}" data-act="ntoggle" data-id="${p.id}" aria-label="${open ? 'Collapse' : 'Expand'}">${ICON.caret}</button>` : '<span class="dk-ntsp"></span>'}<button class="dk-ntn" data-act="nopen" data-id="${p.id}">${nIcon(p.type, '', p.color)}<span>${esc(p.title)}</span>${p.fav ? '<i class="dk-star">★</i>' : ''}</button></div>${ks.length && open ? treeHTML(p.id, depth + 1) : ''}</div>`; }).join('');
 }
 function notesRailHTML() {
@@ -2813,16 +2877,21 @@ function notesAfterPaint() {
   $$('.dk-page2 img[data-img], .dk-nhcard img[data-img]').forEach(im => { getImg(im.dataset.img).then(u => { if (u && im.isConnected) im.src = u; else if (!u) im.classList.add('missing'); }); });
   $$('.dk-ed span.mn, .dk-pop span.mn').forEach(a => { const c = getC(a.dataset.cid); if (c) { const u = tokenURL(c); if (u) a.style.setProperty('--tok', `url("${u.replace(/"/g, '%22')}")`); } });
   $$('.dk-ed a.wl, .dk-ed span.mn').forEach(a => { a.setAttribute('contenteditable', 'false'); if (a.classList.contains('wl')) { const p = pageById(a.dataset.page) || pageByTitle(a.dataset.title); a.classList.toggle('broken', !p); if (p) a.textContent = a.textContent || p.title; } });
-  const p = pageById(UI.np); if (p && p.type === 'map') mapInit(p);
+  if (AUTO && !AUTO.node.isConnected) { const ap = $('.dk-auto'); if (ap) ap.hidden = true; AUTO = null; }
+  edBlank(edEl()); const p = pageById(UI.np); if (p && p.type === 'map') mapInit(p);
 }
 // ----- editor -----
 let EDT = 0;
+// the 'Write here…' hint shows while the page has no words, pictures or lists
+function edBlank(ed) { if (ed) ed.classList.toggle('blank', !ed.textContent.replace(/\u200B/g, '').trim() && !ed.querySelector('img, hr, table, li, a, span.mn')); }
 const edFix = h => { h = String(h || '').replace(/<(p|li|h[123]|td|th)><\/\1>/g, '<$1><br></$1>'); return h.trim() ? h : '<p><br></p>'; };
 function edEl() { return $('.dk-ed'); }
 let ED_PENDING = false;
 function edSave(now) {
-  const ed = edEl(), p = pageById(UI.np); if (!ed || !p) return;
-  clearTimeout(EDT); const go = () => { ED_PENDING = false; const h = clean(ed.innerHTML); if (h !== p.html) { p.html = h; nSave(p); } };
+  // the text goes to the page the editor is showing (its id), never to whichever page is open by now: after clicking a
+  // link the open page has already changed while the old page's editor is still on screen
+  const ed = edEl(), p = ed && pageById(ed.id.replace(/^dk-ed-/, '')); if (!ed || !p) return;
+  clearTimeout(EDT); const go = () => { ED_PENDING = false; edBlank(ed); const h = clean(ed.innerHTML).replace(/\u200B/g, ''); if (h !== p.html) { p.html = h; nSave(p); } };
   if (now) go(); else { ED_PENDING = true; EDT = setTimeout(go, 500); }
 }
 // anything that redraws the page first keeps what was just typed (or a link/mention just picked) in the editor
@@ -2848,8 +2917,11 @@ function edCmd(k) {
 }
 function placeCaret(el, end) { const r = document.createRange(); r.selectNodeContents(el); r.collapse(!end); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
 async function edInsertImage(file) {
-  const ed = edEl(), r = selRange(); toastInfo('Adding the picture…');
-  try { const im = await storeImage(file, 1800); ed.focus(); if (r) { const s = getSelection(); s.removeAllRanges(); s.addRange(r); } document.execCommand('insertHTML', false, `<img data-img="${im.id}" alt="" src="${IMGC[im.id]}"><p><br></p>`); edSave(); }
+  const ed = edEl(), r = selRange(), pid = ed ? ed.id.replace(/^dk-ed-/, '') : UI.np; toastInfo('Adding the picture…');
+  try { const im = await storeImage(file, 1800);
+    // another page opened while it uploaded: the picture goes at the end of the page it was added to
+    if (!ed || !ed.isConnected) { const p = pageById(pid); if (p) { p.html = clean(String(p.html || '') + `<img data-img="${im.id}" alt=""><p></p>`); nSave(p); toastInfo(`The picture was added to the end of <b>${esc(p.title)}</b>.`); } return; }
+    ed.focus(); if (r && ed.contains(r.startContainer)) { const s = getSelection(); s.removeAllRanges(); s.addRange(r); } else placeCaret(ed, true); document.execCommand('insertHTML', false, `<img data-img="${im.id}" alt="" src="${IMGC[im.id]}"><p><br></p>`); edSave(); }
   catch (e) { toast({ title: 'Couldn’t add the picture', det: esc(e.message), cls: 'bad' }); }
 }
 // Markdown-style shortcuts at the start of a line, and **bold** / _italic_ as you type
@@ -2888,9 +2960,10 @@ function edAuto() {
 }
 function edAutoPick(i) {
   const a = AUTO; if (!a) return; const it = a.items[i]; if (!it) return; const ed = edEl();
+  if (!ed || !a.node.isConnected || !ed.contains(a.node) || a.off > a.node.nodeValue.length) { $('.dk-auto').hidden = true; AUTO = null; return; }
   const rr = document.createRange(); rr.setStart(a.node, a.off - a.q.length); rr.setEnd(a.node, a.off); rr.deleteContents();
   let el;
-  if (a.kind === 'wiki') { let p = it.id === '__new' ? null : pageById(it.id); if (!p) { const cur = pageById(UI.np); p = newPage({ title: uniqueTitle(it.label), parent: cur ? cur.parent : '' }); nSave(p); toastInfo(`Made a new page: <b>${esc(p.title)}</b>.`); } el = document.createElement('a'); el.className = 'wl'; el.setAttribute('data-page', p.id); el.textContent = p.title; }
+  if (a.kind === 'wiki') { let p = it.id === '__new' ? null : pageById(it.id); if (!p) { const cur = pageById(UI.np); p = newPage({ title: uniqueTitle(it.label), parent: cur ? cur.parent : '' }); nSave(p); toastInfo(`Made a new page: <b>${esc(p.title)}</b>.`); setTimeout(paint, 0); /* (so it shows in the page list) */ } el = document.createElement('a'); el.className = 'wl'; el.setAttribute('data-page', p.id); el.textContent = p.title; }
   else { el = document.createElement('span'); el.className = 'mn'; el.setAttribute('data-cid', it.id); el.textContent = it.label; }
   el.setAttribute('contenteditable', 'false'); rr.insertNode(el); const sp = document.createTextNode(' '); el.after(sp); placeCaret(sp, true);
   $('.dk-auto').hidden = true; AUTO = null; ed.focus(); edSave(); setTimeout(() => { const b = $('.dk-back'); if (b && a.kind === 'wiki') { /* backlinks update on next open */ } }, 0);
@@ -2921,8 +2994,8 @@ function movePage(id, parent, at) {
   const p = pageById(id); if (!p || parent === id || isAncestor(id, parent)) return;
   p.parent = parent || ''; const sib = kids(p.parent).filter(x => x.id !== id);
   let idx = sib.length; if (at) { const k = sib.findIndex(x => x.id === at.ref); if (k >= 0) idx = k + (at.after ? 1 : 0); }
-  sib.splice(idx, 0, p); sib.forEach((x, i) => { if (x.order !== i + 1) { x.order = i + 1; nSave(x); } });
-  if (parent) UI.nopen[parent] = true; nSave(p); paint();
+  sib.splice(idx, 0, p); sib.forEach((x, i) => { if (x.order !== i + 1) x.order = i + 1; });
+  if (parent) UI.nopen[parent] = true; nSaveQuiet(); paint();
 }
 
 // the divider between the page list and the page: drag it (or arrow keys); the width is remembered on this device
@@ -2936,14 +3009,17 @@ function nrDrag(e) {
   addEventListener('pointermove', mv); addEventListener('pointerup', up);
 }
 function nrKey(e) { const sp = e.target.closest && e.target.closest('.dk-nsplit'); if (!sp) return false; const d = e.key === 'ArrowLeft' ? -16 : e.key === 'ArrowRight' ? 16 : 0; if (!d) return false; e.preventDefault(); nrSet(nrW() + d, true); return true; }
+
+// the [[ / @ menu follows the caret: moving it away (arrow keys, a click) closes or updates the menu
+document.addEventListener('selectionchange', () => { if (!AUTO) return; const r = selRange(); if (!r || r.startContainer !== AUTO.node || r.startOffset !== AUTO.off) edAuto(); });
 // ---------- Atlas: map pages with pins (pan, zoom, pins linking to pages; a pin to another map opens it) ----------
 const MAPV = {}; // pageId -> {s, x, y} view
 const PIN_COLORS = ['#c9962b', '#b6402d', '#2f8a57', '#2f6ca8', '#7a4fb8', '#1f2a44', '#d9732f', '#ffffff'];
 function mapHTML(p) {
   const m = p.map || {};
   if (!m.img) return `<div class="dk-mapempty"><div class="dk-emblem">${nIcon('map', '')}</div><p>${(m.pins || []).length ? `${plural(m.pins.length, 'pin')} from LegendKeeper ${m.pins.length === 1 ? 'is' : 'are'} ready — upload this map’s picture and they’ll appear in place.` : 'Upload a map picture — a region, a city, a dungeon — then drop pins that link to your pages.'}</p><button class="dk-btn gold" data-act="mapimg">Upload a map</button></div>`;
-  return `<div class="dk-mapbox${UI.pinMode ? ' pinning' : ''}"><div class="dk-map" data-map="${p.id}"><div class="dk-mapin" style="width:${m.w}px;height:${m.h}px"><img data-img="${esc(m.img)}" alt="" draggable="false">
-      ${(m.pins || []).map(pin => { const lp = pageById(pin.page); return `<button class="dk-pin${lp && lp.type === 'map' ? ' sub' : ''}" data-pin="${pin.id}" style="left:${pin.x * 100}%;top:${pin.y * 100}%;--pc:${esc(pin.color || '#c9962b')}" title="${esc(pin.label || (lp && lp.title) || 'Pin')}"><span>${lp ? nIcon(lp.type, 'dk-pinic') : ''}</span><em>${esc(pin.label || (lp && lp.title) || '')}</em></button>`; }).join('')}</div></div>
+  return `<div class="dk-mapbox${UI.pinMode ? ' pinning' : ''}"><div class="dk-map" data-map="${p.id}"><div class="dk-mapin" style="width:${N(m.w)}px;height:${N(m.h)}px"><img data-img="${esc(m.img)}" alt="" draggable="false">
+      ${(m.pins || []).map(pin => { const lp = pageById(pin.page); return `<button class="dk-pin${lp && lp.type === 'map' ? ' sub' : ''}" data-pin="${esc(pin.id)}" style="left:${N(pin.x) * 100}%;top:${N(pin.y) * 100}%;--pc:${/^#[0-9a-f]{3,8}$/i.test(pin.color || '') ? pin.color : '#c9962b'}" title="${esc(pin.label || (lp && lp.title) || 'Pin')}"><span>${lp ? nIcon(lp.type, 'dk-pinic') : ''}</span><em>${esc(pin.label || (lp && lp.title) || '')}</em></button>`; }).join('')}</div></div>
     <div class="dk-mapctl"><button class="dk-btn sm icon" data-act="mapzoom" data-d="1" aria-label="Zoom in">+</button><button class="dk-btn sm icon" data-act="mapzoom" data-d="-1" aria-label="Zoom out">−</button><button class="dk-btn sm" data-act="mapfit">Fit</button><button class="dk-btn sm${UI.pinMode ? ' on' : ''}" data-act="pinmode">${UI.pinMode ? 'Tap the map…' : '📍 Add pin'}</button><button class="dk-btn sm ghost" data-act="mapimg">Change picture</button></div>
     <div class="dk-pinpop" hidden></div></div>`;
 }
@@ -2951,7 +3027,9 @@ function mapInit(p) {
   const box = $(`.dk-map[data-map="${p.id}"]`); if (!box) return; const inner = box.querySelector('.dk-mapin'), m = p.map;
   getImg(m.img).then(u => { const im = inner.querySelector('img'); if (u && im) im.src = u; });
   const fit = () => { const bw = box.clientWidth, bh = box.clientHeight, s = Math.min(bw / m.w, bh / m.h); return { s, x: (bw - m.w * s) / 2, y: (bh - m.h * s) / 2 }; };
-  let v = MAPV[p.id] || (MAPV[p.id] = fit());
+  // (a box with no size yet — still laying out — would give a zero zoom that sticks; fit again when it has one)
+  const ok = v => v && isFinite(v.s) && v.s > 0;
+  let v = ok(MAPV[p.id]) ? MAPV[p.id] : fit(); if (ok(v)) MAPV[p.id] = v; else { v = { s: 1, x: 0, y: 0 }; requestAnimationFrame(() => { if (box.isConnected && box.clientWidth) { const f = fit(); if (ok(f)) { v.s = f.s; v.x = f.x; v.y = f.y; MAPV[p.id] = v; put(); } } }); }
   const put = () => { inner.style.transform = `translate(${v.x}px,${v.y}px) scale(${v.s})`; inner.style.setProperty('--inv', 1 / v.s); };
   const zoomAt = (f, cx, cy) => { const ns = Math.max(fit().s * .5, Math.min(6, v.s * f)); v.x = cx - (cx - v.x) * ns / v.s; v.y = cy - (cy - v.y) * ns / v.s; v.s = ns; MAPV[p.id] = v; put(); };
   box._zoom = d => zoomAt(d > 0 ? 1.35 : 1 / 1.35, box.clientWidth / 2, box.clientHeight / 2); box._fit = () => { v = MAPV[p.id] = fit(); put(); };
@@ -2984,7 +3062,7 @@ function pinEditor(p, pin, isNew) {
 function pinPop(p, pin, btn) {
   const pop = $('.dk-pinpop'), lp = pageById(pin.page); if (!pop) return;
   pop.innerHTML = `<header><b>${esc(pin.label || (lp && lp.title) || 'Pin')}</b><button class="dk-ix" data-act="pinclose" aria-label="Close">${ICON.x}</button></header>${lp ? `<p>${nIcon(lp.type)} ${esc(lp.title)} · ${esc((NTYPES[lp.type] || NTYPES.blank).n)}</p><p class="dk-hint">${esc(pageText(lp).slice(0, 160))}</p>` : '<p class="dk-hint">Not linked to a page.</p>'}
-    <div class="dk-row">${lp ? `<button class="dk-btn sm gold" data-act="nopen" data-id="${lp.id}">${lp.type === 'map' ? 'Open map' : 'Open page'}</button>` : ''}<button class="dk-btn sm" data-act="pinedit" data-pin="${pin.id}">Edit</button></div>`;
+    <div class="dk-row">${lp ? `<button class="dk-btn sm gold" data-act="nopen" data-id="${lp.id}">${lp.type === 'map' ? 'Open map' : 'Open page'}</button>` : ''}<button class="dk-btn sm" data-act="pinedit" data-pin="${esc(pin.id)}">Edit</button></div>`;
   pop.hidden = false; const box = $('.dk-mapbox').getBoundingClientRect(), r = btn.getBoundingClientRect(), w = Math.min(260, box.width - 20);
   pop.style.width = w + 'px'; pop.style.left = Math.max(10, Math.min(box.width - w - 10, r.left - box.left - w / 2)) + 'px'; pop.style.top = Math.max(10, r.bottom - box.top + 6) + 'px';
 }
@@ -3056,7 +3134,7 @@ async function planImport(entries, rootName) {
     const rel = strip && d.path.startsWith(strip) ? d.path.slice(strip.length) : d.path, parts = rel.split('/'), name = fileTitle(parts.pop()), dirPath = parts.join('/');
     let fm = {}, html = '', title = name;
     if (d.html) { const r = prepHtml(d.text, d.dir); html = r.html; if (r.title && /^(index|untitled|page)$/i.test(name)) title = r.title.trim(); html = html.replace(/^\s*<h1[^>]*>([\s\S]*?)<\/h1>/i, (m, t) => htmlText(t).trim().toLowerCase() === title.toLowerCase() || htmlText(t).trim().toLowerCase() === String(r.title).trim().toLowerCase() ? '' : m); }
-    else { const r = frontmatter(d.text); fm = r.fm; let body = r.body; const h1 = /^\s*#\s+(.+)\n/.exec(body); if (h1 && h1[1].trim().toLowerCase() === name.toLowerCase()) body = body.slice(h1[0].length); html = mdToHtml(body); if (fm.title) title = String(fm.title); }
+    else { const r = frontmatter(d.text); fm = r.fm; let body = r.body; const h1 = /^\s*#\s+(.+)\n/.exec(body); if (h1 && [name, fm.title].some(x => x && h1[1].trim().toLowerCase() === String(x).trim().toLowerCase())) body = body.slice(h1[0].length); html = mdToHtml(body); if (fm.title) title = String(fm.title); }
     // a note named like its folder (Folder/Folder.md, Folder.md beside Folder/, index.md) is that folder's page
     let page; const folderNote = parts.length && (name.toLowerCase() === parts[parts.length - 1].toLowerCase() || /^(index|readme|_index)$/i.test(name));
     const sibling = byPath.get(dirPath ? dirPath + '/' + name : name);
@@ -3095,36 +3173,47 @@ function importPreview(plan, label) {
     ${plan.lk ? `<p class="dk-hint">Names, aliases, tags, icon colours, the page tree and its order come across exactly. ${plan.stats.maps ? 'Map pictures aren’t inside a .lk file — open each map page and upload its picture; the pins are already placed. ' : ''}${plan.stats.media ? 'Pictures in pages stay as links to LegendKeeper. ' : ''}</p>` : ''}
     <p class="dk-hint">Imports add pages — nothing you already have is changed. Pages with a name you already use get a number added.</p>
     <div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn gold" id="dk-impGo">Import ${plural(n, 'page')}</button></div>`, { wide: true, focus: false });
-  $('#dk-impGo').onclick = () => { $('#dk-impGo').disabled = true; $('#dk-impGo').textContent = 'Importing…'; (plan.lk ? commitLk(plan) : commitImport(plan)).catch(e => { toast({ title: 'Import stopped', det: esc(e.message), cls: 'bad' }); closeModal(true); }); };
+  $('#dk-impGo').onclick = () => { if (IMPORTING) return; IMPORTING = true; $('#dk-impGo').disabled = true; $('#dk-impGo').textContent = 'Importing…'; $$('.dk-dxopts select, .dk-dxopts input, .dk-itree input, .dk-itree button').forEach(x => { x.disabled = true; });
+    (plan.lk ? commitLk(plan) : commitImport(plan)).catch(e => { toast({ title: 'Import stopped', det: esc(e.message), cls: 'bad' }); closeModal(true); }).finally(() => { IMPORTING = false; }); };
 }
+let IMPORTING = false;
 async function commitImport(plan) {
-  const idOf = new Map(), made = [];
+  const idOf = new Map(), made = []; let failed = 0;
+  try {
   if (plan.backup) {
     const d = plan.backup; for (const [id, data] of Object.entries(d.images || {})) { if (!/^i[a-z0-9]{4,24}$/.test(id) || !/^data:image\//.test(data)) continue; IMGC[id] = data; if (IBASE) await IBASE.doc(id).set({ savedAt: Date.now(), data, w: 0, h: 0 }); }
-    (d.pages || []).forEach(p => { if (!p || !p.id) return; const np = newPage(Object.assign({}, p, { title: pageById(p.id) ? uniqueTitle(p.title) : p.title, html: clean(p.html) })); idOf.set(p.id, np.id); made.push(np); });
-    made.forEach(np => { if (np.parent) np.parent = idOf.get(np.parent) || ''; np.html = np.html.replace(/data-page="(p[a-z0-9]+)"/g, (m, id) => `data-page="${idOf.get(id) || id}"`); });
+    const safeMap = m => m && typeof m === 'object' ? { img: /^i[a-z0-9]{4,24}$/.test(m.img || '') ? m.img : '', w: Math.max(0, N(m.w)), h: Math.max(0, N(m.h)), pins: (Array.isArray(m.pins) ? m.pins : []).slice(0, 500).map(x => ({ id: 'n' + uid(), x: Math.max(0, Math.min(1, N(x && x.x))), y: Math.max(0, Math.min(1, N(x && x.y))), label: String((x && x.label) || '').slice(0, 120), page: String((x && x.page) || ''), color: /^#[0-9a-f]{3,8}$/i.test((x && x.color) || '') ? x.color : '' })) } : undefined;
+    (d.pages || []).forEach(p => { if (!p || !p.id) return; const np = newPage(Object.assign({}, p, { title: uniqueTitle(String(p.title || 'Untitled').slice(0, 120)), type: NTYPES[p.type] ? p.type : 'blank', html: clean(p.html), map: safeMap(p.map), tags: (Array.isArray(p.tags) ? p.tags : []).map(String).slice(0, 30), aliases: (Array.isArray(p.aliases) ? p.aliases : []).map(String).slice(0, 10) })); if (!np.map) delete np.map; idOf.set(p.id, np.id); made.push(np); });
+    // links, pins and page fields that pointed at a restored page now point at its copy
+    made.forEach(np => { if (np.parent) np.parent = idOf.get(np.parent) || ''; np.html = np.html.replace(/data-page="(p[a-z0-9]+)"/g, (m, id) => `data-page="${idOf.get(id) || id}"`);
+      if (np.map) np.map.pins.forEach(x => { if (idOf.has(x.page)) x.page = idOf.get(x.page); });
+      ((NTYPES[np.type] || {}).props || []).forEach(([k, , kind]) => { if (kind === 'page' && np.props && idOf.has(np.props[k])) np.props[k] = idOf.get(np.props[k]); }); });
   } else {
     // create pages parents-first so every child knows its parent's id
     const order = []; const visit = k => plan.pages.filter(p => (p.parentKey || '') === k).forEach(p => { order.push(p); visit(p.key); }); visit(''); if (plan.pages.some(p => p.key === plan.rootKey)) { /* root included */ } else plan.pages.forEach(p => { if (!order.includes(p)) order.push(p); });
     let i = 0;
     for (const p of order) { i++; const np = newPage({ title: uniqueTitle(p.title || 'Untitled'), type: p.type || 'blank', parent: idOf.get(p.parentKey) || '', order: i, tags: p.tags || [], props: p.props || {}, aliases: p.aliases || [], html: '<p></p>' }); idOf.set(p.key, np.id); p._id = np.id; made.push(np); }
-    const titleMap = new Map(); order.forEach(p => { titleMap.set(p.title.toLowerCase(), p._id); (p.aliases || []).forEach(a => titleMap.set(a.toLowerCase(), p._id)); });
+    const titleMap = new Map(), put = (k, id) => { if (k && !titleMap.has(k)) titleMap.set(k, id); };
+    order.filter(p => !(p.folder && !htmlText(p.html || '').trim())).forEach(p => put(p.title.toLowerCase(), p._id)); order.forEach(p => put(p.title.toLowerCase(), p._id)); order.forEach(p => (p.aliases || []).forEach(a => put(a.toLowerCase(), p._id)));
     let done = 0; const total = plan.found; const stamp = () => { const b = $('#dk-impGo'); if (b) b.textContent = `Importing… pictures ${done}/${total}`; };
     for (const p of order) {
       let h = p.html; const reps = [];
-      for (const m of h.matchAll(/<img([^>]*?)data-src="([^"]+)"([^>]*)>/g)) { const e = findImg(m[2], p.dir || '', plan.images, plan.imgByBase); if (!e) { reps.push([m[0], '']); continue; } if (!e._id) { try { e._id = (await storeImage(e.blob, 1800)).id; } catch (x) { e._id = ''; } done++; stamp(); } reps.push([m[0], e._id ? `<img data-img="${e._id}" alt="">` : '']); }
-      for (const m of h.matchAll(/<img([^>]*?)data-inline="(data:image\/[^"]+)"([^>]*)>/g)) { let id = ''; try { id = (await storeImage(m[2], 1800)).id; } catch (x) {} done++; stamp(); reps.push([m[0], id ? `<img data-img="${id}" alt="">` : '']); }
+      for (const m of h.matchAll(/<img([^>]*?)data-src="([^"]+)"([^>]*)>/g)) { const e = findImg(m[2], p.dir || '', plan.images, plan.imgByBase); if (!e) { reps.push([m[0], '']); continue; } if (!e._id) { try { e._id = (await storeImage(e.blob, 1800)).id; } catch (x) { e._id = ''; failed++; } done++; stamp(); } reps.push([m[0], e._id ? `<img data-img="${e._id}" alt="">` : '']); }
+      for (const m of h.matchAll(/<img([^>]*?)data-inline="(data:image\/[^"]+)"([^>]*)>/g)) { let id = ''; try { id = (await storeImage(m[2], 1800)).id; } catch (x) { failed++; } done++; stamp(); reps.push([m[0], id ? `<img data-img="${id}" alt="">` : '']); }
       reps.forEach(([a, b]) => { h = h.split(a).join(b); });
+      h = clean(h); // (puts every link's class and name in the same order, so the next step finds them all)
       h = h.replace(/<a class="wl" data-title="([^"]+)">/g, (m, t) => { const x = t.replace(/&amp;/g, '&').toLowerCase(), id = titleMap.get(x) || (pageByTitle(x) || {}).id; return id ? `<a class="wl" data-page="${id}">` : m; });
       const np = pageById(p._id); np.html = clean(h) || '<p></p>';
     }
   }
   made.forEach(p => nSave(p)); const root = made.find(p => !p.parent); if (root) { UI.np = root.id; UI.nopen[root.id] = true; }
-  UI.nq = ''; UI.nf = 'all'; closeModal(true); paint(); toastInfo(`Imported ${plural(made.length, 'page')}.`, null, 'nimp');
+  } catch (e) { made.forEach(p => { delete NT.pages[p.id]; }); writeNotesLocal(); throw e; } // (a failed import leaves nothing half-made behind)
+  UI.nq = ''; UI.nf = 'all'; closeModal(true); paint(); toastInfo(`Imported ${plural(made.length, 'page')}.` + (failed ? ` ${plural(failed, 'picture')} couldn’t be read and ${failed === 1 ? 'was' : 'were'} left out.` : ''), null, 'nimp');
 }
 async function runImport(files) {
   files = Array.from(files || []); if (!files.length) return;
   const label = files.length === 1 ? files[0].name : (files[0].webkitRelativePath || '').split('/')[0] || plural(files.length, 'file');
+  if (files.length === 1 && /\.docx$/i.test(files[0].name)) return importDocx(files[0]);
   if (files.length === 1 && /\.(lk|json)$/i.test(files[0].name)) { try { const root = await readLkFile(files[0]); if (root) return importPreview(planLk(root, files[0].name), files[0].name); } catch (e) { if (/\.lk$/i.test(files[0].name)) return toast({ title: 'Couldn’t open that .lk file', det: esc(e.message || ''), cls: 'bad' }); } }
   toastInfo('Reading your files…', null, 'nimp');
   try { const entries = await collectEntries(files); if (!entries.some(e => e.text != null)) return toastInfo('No Markdown, HTML or backup files were found in that upload.'); const plan = await planImport(entries, label); if (!plan.pages.length) return toastInfo('Nothing to import there.'); importPreview(plan, label); }
@@ -3133,6 +3222,7 @@ async function runImport(files) {
 function openImport() {
   openModal(`<h2>Import notes</h2><p class="dk-hint">Bring in a wiki from another app. You’ll see what will be imported before anything is added.</p>
     <div class="dk-impgrid">
+      <button class="dk-impopt" data-imp="files"><b>Google Docs or Word</b><small>One document: each tab (or heading) becomes a page. In Google Docs: File → Download → Microsoft Word, with All tabs</small></button>
       <button class="dk-impopt" data-imp="files"><b>LegendKeeper project</b><small>The .lk file (Project settings → Export) — keeps names and order exactly</small></button>
       <button class="dk-impopt" data-imp="zip"><b>LegendKeeper</b><small>Its export .zip (Markdown or HTML)</small></button>
       <button class="dk-impopt" data-imp="zip"><b>Obsidian</b><small>Your vault as a .zip, or pick the vault folder below</small></button>
@@ -3148,7 +3238,7 @@ async function exportNotes(kind) {
     return download('dm-desk-notes-' + new Date().toISOString().slice(0, 10) + '.json', JSON.stringify({ app: 'dm-desk-notes', v: 1, pages: pagesList(), images })); }
   await loadScript(LIBS.zip); const zip = new window.JSZip(), used = new Set();
   const fname = (dir, t) => { let f = (t || 'Untitled').replace(/[\\/:*?"<>|#^[\]]/g, '-').slice(0, 80), k = 2, n = f; while (used.has(dir + n)) n = f + ' ' + k++; used.add(dir + n); return n; };
-  const walk = async (pid, dir) => { for (const p of kids(pid)) { const n = fname(dir, p.title); const fm = ['---', `type: ${p.type}`].concat(p.tags && p.tags.length ? [`tags: [${p.tags.join(', ')}]`] : [], (p.aliases || []).length ? [`aliases: [${p.aliases.join(', ')}]`] : [], Object.entries(p.props || {}).filter(([, v]) => v).map(([k, v]) => `${k}: ${String(v).replace(/\n/g, ' ')}`), ['---', '']).join('\n');
+  const walk = async (pid, dir) => { for (const p of kids(pid)) { const n = fname(dir, p.title); const fm = ['---', `title: "${p.title.replace(/\n/g, ' ')}"`, `type: ${p.type}`].concat(p.tags && p.tags.length ? [`tags: [${p.tags.join(', ')}]`] : [], (p.aliases || []).length ? [`aliases: [${p.aliases.join(', ')}]`] : [], Object.entries(p.props || {}).filter(([, v]) => v).map(([k, v]) => `${k}: ${String(v).replace(/\n/g, ' ')}`), ['---', '']).join('\n');
     zip.file(dir + n + '.md', fm + '# ' + p.title + '\n\n' + htmlToMd(p.html).replace(/\(images\//g, '(' + '../'.repeat(dir.split('/').length - 1) + 'images/')); if (kids(p.id).length) await walk(p.id, dir + n + '/'); } };
   await walk('', '');
   for (const p of pagesList()) for (const m of String(p.html).matchAll(/data-img="(i[a-z0-9]+)"/g)) { const u = await getImg(m[1]); if (u) zip.file('images/' + m[1] + '.jpg', u.split(',')[1], { base64: true }); }
@@ -3273,7 +3363,9 @@ function planLk(root, label) {
     (r.properties || []).slice().sort(lkCmp).forEach(pr => { if (!pr || pr.type === 'TAGS') return; const t = lkStr(pr.title, 80) || lkStr(pr.type, 40); const v = lkText(pr.data, ctx).slice(0, 2000); page.xprops.push({ t, v }); props++; });
     pages.push(page, ...after); visit(r.id, page.key, seen);
   });
-  visit('', '', new Set());
+  const seen0 = new Set(); visit('', '', seen0);
+  // pages whose parents point at each other in a loop are never reached from the top: they come in at the top level
+  res.forEach(r => { if (!seen0.has(r.id)) { byParent.set('\u0000loop', [r]); visit('\u0000loop', '', seen0); } });
   // orphans (a parent missing from the export) were put at the top by byParent; mentions are checked against the export
   return { lk: true, pages, rootKey: null, images: new Map(), imgByBase: new Map(), unresolved: [...ctx.unresolved], missing: [], found: 0, stats: { maps, pins: pins.length, hiddenDocs, props, media: ctx.media, cals: (root.calendars || []).length }, label };
 }
@@ -3309,6 +3401,116 @@ async function runLkImport(file) {
   if (!plan.pages.length) return toastInfo('That project has no pages.', null, 'nimp');
   importPreview(plan, file.name);
 }
+// ---------- Google Docs / Word import: one document becomes a wiki, a page per tab (or per heading) ----------
+// Google Docs downloads every tab into one Word file; each tab starts on a new page. Here that file is split back into
+// pages, sessions are gathered into their own folder, and names of other pages are linked where they're mentioned.
+const DOCX_STYLES = ["br[type='page'] => hr.dk-pgbrk", "p[style-name='Title'] => h1.dk-ttl:fresh", "p[style-name='Subtitle'] => h2:fresh"];
+async function readDocx(f) {
+  await loadScript(LIBS.docx);
+  const r = await window.mammoth.convertToHtml({ arrayBuffer: await f.arrayBuffer() }, { styleMap: DOCX_STYLES });
+  return new DOMParser().parseFromString('<body>' + (r.value || '') + '</body>', 'text/html').body;
+}
+// the ways one document can be cut into pages, with how many pages each gives
+function docxSplits(body) {
+  const kids = [...body.children], n = s => kids.filter(k => k.matches(s)).length;
+  const brk = kids.filter(k => k.matches('hr.dk-pgbrk') || k.querySelector('hr.dk-pgbrk')).length;
+  return [['page', 'Tabs (each starts a new page)', brk ? brk + 1 : 0], ['title', 'Title-style lines', n('h1.dk-ttl')], ['h1', 'Heading 1', n('h1')], ['h2', 'Heading 2', n('h2')]].filter(o => o[2] >= 2);
+}
+function docxSections(body, how) {
+  const secs = []; let cur = null; const start = (title, head) => { cur = { title, nodes: [] }; secs.push(cur); if (head) cur.head = true; };
+  // a page break inside a list or table is moved to just after it so it can start a page
+  body.querySelectorAll('hr.dk-pgbrk').forEach(hr => { const p = hr.parentElement.closest('body > *'); if (p) p.after(hr); });
+  const isCut = k => how === 'page' ? k.matches('hr.dk-pgbrk') : how === 'title' ? k.matches('h1.dk-ttl') : k.matches(how);
+  start('', false);
+  for (const k of [...body.children]) {
+    if (isCut(k)) { if (how === 'page') start('', false); else { start(k.textContent.trim(), true); continue; } continue; }
+    cur.nodes.push(k);
+  }
+  return secs.map((s, idx) => {
+    let nodes = s.nodes.filter(k => !(k.matches('hr.dk-pgbrk')));
+    // a tab with no heading of its own: its first line names it
+    // (text before the first heading stays on the document's own page, so only tabs get named this way)
+    if (!s.title && (how === 'page' || idx > 0)) { const i = nodes.findIndex(k => k.textContent.trim()); if (i >= 0 && nodes[i].textContent.trim().length <= 80) { s.title = nodes[i].textContent.trim(); nodes.splice(0, i + 1); } }
+    return { title: s.title.replace(/\s+/g, ' ').slice(0, 120), html: nodes.map(k => k.outerHTML).join('') };
+  }).filter(s => s.title || htmlText(s.html).trim() || /<img/i.test(s.html));
+}
+const SESS_RE = /^(session|sess\.?|episode|ep\.?|game|chapter|part|week)\s*#?\s*\d+/i;
+// first mention of another page's name becomes a link to it (headings and existing links are left alone)
+function autoLink(html, titles, self) {
+  const d = new DOMParser().parseFromString('<body>' + html + '</body>', 'text/html'), used = new Set([self.toLowerCase()]);
+  const list = titles.filter(t => t.length >= 3 && !SESS_RE.test(t) && t.toLowerCase() !== self.toLowerCase()).sort((a, b) => b.length - a.length);
+  if (!list.length) return html;
+  const walker = d.createTreeWalker(d.body, NodeFilter.SHOW_TEXT), texts = []; let t; while ((t = walker.nextNode())) if (!t.parentElement.closest('a,h1,h2,h3,h4,h5,h6')) texts.push(t);
+  for (const name of list) {
+    if (used.has(name.toLowerCase())) continue;
+    const re = new RegExp('(^|[^\\p{L}\\p{N}])(' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')(?![\\p{L}\\p{N}])', 'iu');
+    for (let i = 0; i < texts.length; i++) { const node = texts[i], m = re.exec(node.data); if (!m) continue;
+      const at = m.index + m[1].length, mid = node.splitText(at), rest = mid.splitText(m[2].length), a = d.createElement('a');
+      a.className = 'wl'; a.setAttribute('data-title', name); a.textContent = mid.data; mid.replaceWith(a); texts.splice(i + 1, 0, rest); used.add(name.toLowerCase()); break; }
+  }
+  return d.body.innerHTML;
+}
+function planDocx(body0, name, how, link) {
+  const body = body0.cloneNode(true), secs = docxSections(body, how), rootKey = '__root';
+  const root = { key: rootKey, title: name.replace(/\.docx$/i, '').replace(/_/g, ' ').trim(), parentKey: '', type: 'blank', html: '<p></p>', tags: [], props: {}, aliases: [], imgs: [] };
+  const pages = [root], seen = new Map();
+  // anything before the first tab or heading stays on the document's own page
+  if (secs.length && !secs[0].title) root.html = secs.shift().html || '<p></p>';
+  const sess = secs.filter(s => SESS_RE.test(s.title)); let sessKey = rootKey;
+  if (sess.length >= 2) { const w = SESS_RE.exec(sess[0].title)[1].replace(/\.$/, ''); const f = { key: 'f:sessions', title: (/^(sess|ep)$/i.test(w) ? (w.toLowerCase() === 'ep' ? 'Episode' : 'Session') : w[0].toUpperCase() + w.slice(1).toLowerCase()) + 's', parentKey: rootKey, type: 'blank', html: '<p></p>', tags: [], props: {}, aliases: [], imgs: [] }; pages.push(f); sessKey = f.key; }
+  const titles = secs.map(s => s.title).filter(Boolean);
+  secs.forEach((s, i) => { let t = s.title || 'Untitled'; const k = t.toLowerCase(); if (seen.has(k)) { seen.set(k, seen.get(k) + 1); t += ' (' + seen.get(k) + ')'; } else seen.set(k, 1);
+    const typ = typeFrom(t.split(/[\s:–—-]+/)[0]);
+    pages.push({ key: 'x:' + i, title: t, raw: s.html, parentKey: sess.length >= 2 && SESS_RE.test(s.title) ? sessKey : rootKey, type: typ || 'blank', html: prepHtml(link ? autoLink(s.html, titles, t) : s.html, '').html || '<p></p>', tags: [], props: {}, aliases: [], imgs: [] }); });
+  root.html = prepHtml(root.html, '').html || '<p></p>';
+  let found = 0; pages.forEach(p => p.html.replace(/data-inline="data:image\//g, m => { found++; return m; }));
+  return { pages, rootKey, images: new Map(), imgByBase: new Map(), unresolved: [], missing: [], found, docx: { how, link } };
+}
+async function importDocx(f) {
+  toastInfo('Reading ' + f.name + '…', null, 'nimp');
+  let body; try { body = await readDocx(f); } catch (e) { return toast({ title: 'Couldn’t read that document', det: esc(e.message || String(e)), cls: 'bad' }); }
+  const splits = docxSplits(body); let how = splits.length ? splits[0][0] : '', link = true;
+  // Word files from Google Docs don't carry tab names or which tab sits inside which, so each page's name and place can
+  // be fixed here before importing (kept while you switch how the document is cut, as long as the pages stay the same)
+  const ED = {};
+  // a page is known by its text, so a rename or move survives switching how the document is cut when that page comes out the same
+  const keyOf = (plan, p) => p.key === plan.rootKey ? '__root' : 'r:' + p.title0 + '|' + String(p.raw || '').slice(0, 300);
+  const show = () => {
+    if (IMPORTING) return;
+    const plan = how ? planDocx(body, f.name, how, link) : planDocx(body, f.name, 'none', false); let dirty = false;
+    plan.pages.forEach(p => { p.title0 = p.title; });
+    const byKey = new Map(plan.pages.map(p => [keyOf(plan, p), p]));
+    plan.pages.forEach(p => { const e = ED[keyOf(plan, p)]; if (!e) return; if (e.title != null && e.title !== p.title) { p.title = e.title; dirty = true; } const par = e.parent != null && (e.parent === '__root' ? plan.pages.find(q => q.key === plan.rootKey) : byKey.get(e.parent)); if (par && par !== p) p.parentKey = par.key; });
+    importPreview(plan, f.name);
+    const tree = $('.dk-itree'); if (!tree) return;
+    const kidsOf = k => plan.pages.filter(p => p.key !== plan.rootKey && (p.parentKey || '') === k);
+    const flat = () => { const out = []; const root = plan.pages.find(p => p.key === plan.rootKey); if (root) out.push([root, 0]); const walk = (k, d) => kidsOf(k).forEach(p => { out.push([p, d]); walk(p.key, d + 1); }); walk(plan.rootKey, 1); return out; };
+    const relink = () => { dirty = false; if (!link) return; const titles = plan.pages.filter(p => p.raw != null).map(p => p.title).filter(Boolean); plan.pages.forEach(p => { if (p.raw != null) p.html = prepHtml(autoLink(p.raw, titles, p.title), '').html || '<p></p>'; }); };
+    const save = p => { const par = plan.pages.find(q => q.key === p.parentKey); ED[keyOf(plan, p)] = { title: p.title, parent: par ? keyOf(plan, par) : null }; };
+    // names are linked once, as the import starts (not on every rename: that re-reads the whole document each time)
+    tree.parentElement.addEventListener('click', e => { if (e.target.closest && e.target.closest('#dk-impGo') && dirty) relink(); }, true);
+    const IC = d => `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
+    const paintTree = () => { const rows = flat();
+      tree.innerHTML = rows.map(([p, d], i) => { const isRoot = p.key === plan.rootKey, prev = rows.slice(0, i).reverse().find(r => r[1] <= d), canIn = !isRoot && prev && prev[1] === d && prev[0].key !== plan.rootKey, canOut = !isRoot && d > 1;
+        return `<div class="dk-ipt dk-iped" style="--d:${d}" data-k="${esc(p.key)}">${nIcon(p.type || 'blank', '', p.color)}<input class="dk-iname" value="${esc(p.title)}" maxlength="120" aria-label="Page name">${isRoot ? '' : `<button type="button" class="dk-imv" data-mv="out" title="Move out a level" aria-label="Move out a level"${canOut ? '' : ' disabled'}>${IC('M15 18l-6-6 6-6')}</button><button type="button" class="dk-imv" data-mv="in" title="Put inside the page above" aria-label="Put inside the page above"${canIn ? '' : ' disabled'}>${IC('M9 18l6-6-6-6')}</button>`}</div>`; }).join('');
+      tree.querySelectorAll('.dk-iname').forEach(inp => { inp.onchange = () => { const p = plan.pages.find(q => q.key === inp.closest('[data-k]').dataset.k); if (!p) return; p.title = inp.value.replace(/\s+/g, ' ').trim().slice(0, 120) || 'Untitled'; inp.value = p.title; save(p); dirty = true; }; inp.onkeydown = e => { if (e.key === 'Enter') inp.blur(); }; });
+      tree.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => { const k = b.closest('[data-k]').dataset.k, p = plan.pages.find(q => q.key === k); if (!p) return; const rows = flat(), i = rows.findIndex(r => r[0] === p), d = rows[i][1];
+        if (b.dataset.mv === 'in') { const prev = rows.slice(0, i).reverse().find(r => r[1] <= d); if (!prev || prev[1] !== d) return; p.parentKey = prev[0].key; }
+        else { const par = plan.pages.find(q => q.key === p.parentKey); if (!par) return; p.parentKey = par.parentKey || plan.rootKey;
+          // it lands right after its old parent and everything inside it
+          const arr = plan.pages, from = arr.indexOf(p); arr.splice(from, 1); const sub = new Set([par.key]); let at = arr.indexOf(par) + 1; while (at < arr.length && sub.has(arr[at].parentKey)) { sub.add(arr[at].key); at++; } arr.splice(at, 0, p); }
+        save(p); paintTree(); }); };
+    paintTree();
+    const box = document.createElement('div'); box.className = 'dk-dxopts';
+    box.innerHTML = (splits.length ? `<label>New page at <select id="dk-dxhow">${splits.map(([k, l, n]) => `<option value="${k}"${k === how ? ' selected' : ''}>${esc(l)} — ${plural(n, 'page')}</option>`).join('')}</select></label>` : '<span class="dk-hint">No tabs or headings found, so it comes in as one page.</span>')
+      + `<label class="dk-dxlink"><input type="checkbox" id="dk-dxlink"${link ? ' checked' : ''}> Link page names where they’re mentioned</label>`
+      + '<p class="dk-hint dk-dxnote">Google Docs doesn’t put tab names in the Word file, so each page is named after its first line. Rename pages here, and use the arrows to put a page inside the one above it.</p>';
+    tree.before(box);
+    const s = $('#dk-dxhow'); if (s) s.onchange = () => { how = s.value; show(); };
+    $('#dk-dxlink').onchange = e => { link = e.target.checked; show(); };
+  };
+  show();
+}
 // ---------- Notes: clicks, typing, files ----------
 function openPage(id) { const p = pageById(id); if (!p) return; UI.np = id; UI.nview = ''; UI.tree = false; pathOf(p).forEach(x => { if (x.id !== id) UI.nopen[x.id] = true; }); saveUI(); paint(); scrollTo(0, 0); }
 function makePage(type, parent, title) { const p = newPage({ type, parent: parent || '', title: uniqueTitle(title || (type === 'blank' ? 'Untitled' : 'New ' + NTYPES[type].n.toLowerCase())) }); if (type === 'map') p.map = { img: '', w: 0, h: 0, pins: [] }; nSave(p); if (parent) UI.nopen[parent] = true; openPage(p.id); setTimeout(() => { const t = $('#dk-pt-' + p.id); if (t) { t.focus(); t.select(); } }, 60); return p; }
@@ -3319,7 +3521,7 @@ function onNotesAct(act, b, e) {
   switch (act) {
     case 'nnew': return makePage(b.dataset.t || 'blank', '');
     case 'nopen': return openPage(b.dataset.id);
-    case 'ntoggle': UI.nopen[b.dataset.id] = !(UI.nopen[b.dataset.id] || isAncestor(b.dataset.id, UI.np)); if (!UI.nopen[b.dataset.id] && isAncestor(b.dataset.id, UI.np)) { UI.np = b.dataset.id; } saveUI(); paint(); return true;
+    case 'ntoggle': UI.nopen[b.dataset.id] = !UI.nopen[b.dataset.id]; saveUI(); paint(); return true;
     case 'nfilt': UI.nf = UI.nf === b.dataset.v && b.dataset.v !== 'all' ? 'all' : b.dataset.v; saveUI(); paint(); return true;
     case 'nimport': openImport(); return true;
     case 'nexport': openModal(`<h2>Export notes</h2><p class="dk-hint">Download all ${plural(pagesList().length, 'page')}.</p><div class="dk-row"><button class="dk-btn gold" id="dk-exMd">Markdown (.zip)</button><button class="dk-btn" id="dk-exJs">Backup (.json)</button></div><p class="dk-hint">Markdown opens in Obsidian and most note apps. The backup brings everything back into the desk, pictures included.</p><div class="dk-acts"><button class="dk-btn" data-act="close">Close</button></div>`, { focus: false });
@@ -3328,7 +3530,7 @@ function onNotesAct(act, b, e) {
   }
   if (!p) return false;
   switch (act) {
-    case 'nfav': p.fav = !p.fav; nSave(p); paint(); return true;
+    case 'nfav': p.fav = !p.fav; nSaveQuiet(); paint(); return true;
     case 'nsub': makePage('blank', p.id); return true;
     case 'ntype': openModal(`<h2>Page type</h2><div class="dk-typegrid">${Object.entries(NTYPES).map(([k, t]) => `<button class="dk-typeopt${k === p.type ? ' on' : ''}" data-ty="${k}">${nIcon(k)}<b>${esc(t.n)}</b></button>`).join('')}</div><div class="dk-acts"><button class="dk-btn" data-act="close">Close</button></div>`, { focus: false });
       $$('.dk-typeopt').forEach(x => x.onclick = () => { p.type = x.dataset.ty; if (p.type === 'map' && !p.map) p.map = { img: '', w: 0, h: 0, pins: [] }; if (!htmlText(p.html) && NTYPES[p.type].tpl) p.html = NTYPES[p.type].tpl; closeModal(true); nSave(p); paint(); }); return true;
@@ -3337,7 +3539,7 @@ function onNotesAct(act, b, e) {
       $('#dk-mvGo').onclick = () => { const to = $('#dk-mvTo').value; closeModal(true); movePage(p.id, to, null); }; return true; }
     case 'nalias': askText('Other names', (p.aliases || []).join(', '), v => { p.aliases = asList(v).slice(0, 10); nSave(p); paint(); }, { okLabel: 'Save', allowEmpty: true, hint: 'Names this page also goes by, separated by commas — [[links]] to any of them find this page.' }); return true;
     case 'nmd': download(p.title.replace(/[\\/:*?"<>|]/g, '-') + '.md', '# ' + p.title + '\n\n' + htmlToMd(p.html)); return true;
-    case 'ndel': { const n = kids(p.id).length; confirmBox(`Delete <b>${esc(p.title)}</b>${n ? ` and the ${plural(n, 'page')} inside it` : ''}? This can’t be undone.`, 'Delete', () => { const par = p.parent; deletePage(p.id); UI.np = par || ''; writeNotesLocal(); notesSoon(); paint(); }, true); return true; }
+    case 'ndel': { const n = pagesList().filter(x => x.id !== p.id && isAncestor(p.id, x.id)).length; confirmBox(`Delete <b>${esc(p.title)}</b>${n ? ` and the ${plural(n, 'page')} inside it` : ''}? This can’t be undone.`, 'Delete', () => { const par = p.parent; deletePage(p.id); UI.np = par || ''; writeNotesLocal(); notesSoon(); paint(); }, true); return true; }
     case 'nrmtag': p.tags = (p.tags || []).filter(t => t !== b.dataset.tag); nSave(p); paint(); return true;
     case 'nstat': { const c = getC(b.dataset.cid); if (c) openModal(`<div class="dk-sbmodal">${statBlock(c)}</div><div class="dk-acts"><button class="dk-btn" data-act="close">Close</button></div>`, { wide: true, focus: false }); return true; }
     case 'ntosess': { const c = getC((p.props || {}).stat); if (!c) return true; const s = curSession() || newSession(); const x = newInst(c, p.title); x.notes = [p.props.role, p.props.race].filter(Boolean).join(', '); s.groups[0].list.push(x); save(); toastInfo(`Added <b>${esc(p.title)}</b> to ${esc(s.title)}.`, [{ label: 'Go to session', fn: () => { UI.tab = 'sessions'; UI.session = s.id; UI.sv = 'creatures'; UI.sel = x.iid; saveUI(); render(); scrollTo(0, 0); } }]); return true; }
@@ -3356,7 +3558,9 @@ function onNotesClick(e) {
     if (a.classList.contains('mn')) { const c = getC(a.dataset.cid) || allCreatures().find(z => z.name === a.textContent); if (c) { e.preventDefault(); openModal(`<div class="dk-sbmodal">${statBlock(c)}</div><div class="dk-acts"><button class="dk-btn" data-act="close">Close</button></div>`, { wide: true, focus: false }); } return true; }
     if (a.hasAttribute('href')) { if (e.ctrlKey || e.metaKey || !a.closest('.dk-ed')) { e.preventDefault(); window.open(a.href, '_blank', 'noopener,noreferrer'); } else toastInfo('Ctrl-click (or ⌘-click) to open the link.'); return true; }
     e.preventDefault(); edSave(true); const t = pageById(a.dataset.page) || pageByTitle(a.dataset.title);
-    if (t) openPage(t.id); else { const cur = pageById(UI.np); const np = makePage('blank', cur ? cur.parent : '', a.dataset.title || a.textContent); toastInfo(`Made a new page: <b>${esc(np.title)}</b>.`); }
+    // a link to a page that doesn't exist (any more): make it, and point this link at it so the next click opens the same page
+    if (t) openPage(t.id); else { const cur = pageById(UI.np), np = newPage({ type: 'blank', parent: cur ? parentOf(cur) : '', title: uniqueTitle(a.dataset.title || a.textContent.trim() || 'Untitled') }); nSave(np);
+      if (a.closest('.dk-ed')) { a.setAttribute('data-page', np.id); a.classList.remove('broken'); edSave(true); } openPage(np.id); toastInfo(`Made a new page: <b>${esc(np.title)}</b>.`); }
     return true;
   }
   const li = e.target.closest('.dk-ed ul.checks > li'); if (li) { const r = li.getBoundingClientRect(); if (e.clientX - r.left < 26) { e.preventDefault(); if (li.getAttribute('data-done')) li.removeAttribute('data-done'); else li.setAttribute('data-done', '1'); edSave(); return true; } }
@@ -3368,14 +3572,17 @@ function onNotesChange(el) {
   if (el.classList.contains('dk-nimpf') || el.classList.contains('dk-ndirf')) { const fs = Array.from(el.files || []); el.value = ''; closeModal(true); runImport(fs); return true; }
   if (el.id === 'dk-ntag') { UI.nf = el.value ? 'tag' : 'all'; UI.ntag = el.value; saveUI(); paint(); return true; }
   if (!p) return false;
-  if (el.dataset.nt === 'title') { const v = el.value.trim() || 'Untitled'; if (v !== p.title) { p.title = v; nSave(p); } paint(); return true; }
+  if (el.dataset.nt === 'title') { let v = el.value.replace(/\s+/g, ' ').trim() || 'Untitled';
+    // two pages with one name would make links to that name land on either: the new name gets a number, and says so
+    if (v.toLowerCase() !== p.title.toLowerCase() && pagesList().some(x => x.id !== p.id && x.title.toLowerCase() === v.toLowerCase())) { const want = v; let n = 2; while (pagesList().some(x => x.id !== p.id && x.title.toLowerCase() === v.toLowerCase())) v = `${want} (${n++})`; toastInfo(`There’s already a page called <b>${esc(want)}</b>, so this one is <b>${esc(v)}</b>.`); }
+    if (v !== p.title) { const old = p.title; p.title = v; nSave(p); retitleLinks(p, old); } el.value = p.title; paintAfterPress(); return true; }
   if (el.dataset.npx != null && p && Array.isArray(p.xprops) && p.xprops[N(el.dataset.npx)]) { p.xprops[N(el.dataset.npx)].v = String(el.value).slice(0, 2000); nSave(p); return true; }
-  if (el.dataset.np) { p.props = p.props || {}; p.props[el.dataset.np] = String(el.value).slice(0, 200); nSave(p); paint(); return true; }
-  if (el.dataset.npstat) { const v = el.value.trim().toLowerCase(), c = allCreatures().find(z => z.name.toLowerCase() === v); p.props = p.props || {}; p.props.stat = c ? c.id : ''; if (v && !c) toastInfo('No creature with that name in your bestiary.'); nSave(p); paint(); return true; }
-  if (el.id === 'dk-tag-' + p.id) { addTags(p, el.value); return true; }
+  if (el.dataset.np) { p.props = p.props || {}; p.props[el.dataset.np] = String(el.value).slice(0, 200); nSave(p); paintAfterPress(); return true; }
+  if (el.dataset.npstat) { const v = el.value.trim().toLowerCase(), c = allCreatures().find(z => z.name.toLowerCase() === v); p.props = p.props || {}; p.props.stat = c ? c.id : ''; if (v && !c) toastInfo('No creature with that name in your bestiary.'); nSave(p); paintAfterPress(); return true; }
+  if (el.id === 'dk-tag-' + p.id) { const v = el.value; el.value = ''; addTags(p, v); return true; }
   return false;
 }
-function addTags(p, v) { const t = asList(v).map(x => x.replace(/\s+/g, '-').slice(0, 40)); if (!t.length) return; p.tags = Array.from(new Set((p.tags || []).concat(t))).slice(0, 30); nSave(p); paint(); setTimeout(() => { const i = $('#dk-tag-' + p.id); if (i) i.focus(); }, 0); }
+function addTags(p, v) { const t = asList(v).map(x => x.replace(/\s+/g, '-').slice(0, 40)); if (!t.length) return; p.tags = Array.from(new Set((p.tags || []).concat(t))).slice(0, 30); nSave(p); const pressed = PTR_DOWN; paintAfterPress(); if (!pressed) setTimeout(() => { const i = $('#dk-tag-' + p.id); if (i) i.focus(); }, 0); }
 let NQT = 0;
 function onNotesInput(e) {
   const el = e.target;
@@ -3385,7 +3592,7 @@ function onNotesInput(e) {
 }
 function onNotesKey(e) {
   const el = e.target;
-  if (el && el.classList && el.classList.contains('dk-tagin') && (e.key === 'Enter' || e.key === ',')) { e.preventDefault(); const p = pageById(UI.np); if (p) addTags(p, el.value); return true; }
+  if (el && el.classList && el.classList.contains('dk-tagin') && (e.key === 'Enter' || e.key === ',')) { e.preventDefault(); const p = pageById(UI.np); if (p) { const v = el.value; el.value = ''; addTags(p, v); } return true; }
   if (!el || !el.classList || !el.classList.contains('dk-ed')) return false;
   const pop = $('.dk-auto');
   if (AUTO && pop && !pop.hidden) {
@@ -3411,6 +3618,26 @@ function npcToNotes(n, stat) {
   nSave(p); return p;
 }
 function planPagesText(s) { const ids = (planOf(s).pages || []).filter(id => pageById(id)); let out = '', left = 12000; for (const id of ids) { const p = pageById(id), t = `## ${p.title} (${(NTYPES[p.type] || NTYPES.blank).n})\n${htmlText(p.html.replace(/<div class="secret">/g, '<div class="secret"> [DM secret] '))}\n\n`; out += t.slice(0, left); left -= t.length; if (left <= 0) break; } return out; }
+
+// Renaming a page: links elsewhere that still show its old name now show the new one (a link whose words were changed
+// by hand keeps them), and links that only knew it by the old name are tied to the page itself.
+function retitleLinks(p, old) {
+  const lo = String(old).trim().toLowerCase(); if (!lo) return;
+  pagesList().forEach(o => { if (o.id === p.id) return; const h = String(o.html || ''); if (!h.includes(`data-page="${p.id}"`) && !h.toLowerCase().includes('data-title=')) return;
+    const d = new DOMParser().parseFromString('<body>' + h + '</body>', 'text/html'); let ch = false;
+    d.body.querySelectorAll('a.wl').forEach(a => { const mine = a.dataset.page === p.id, byName = !a.dataset.page && String(a.dataset.title || '').trim().toLowerCase() === lo; if (!mine && !byName) return;
+      if (byName) { a.setAttribute('data-page', p.id); ch = true; } if (a.hasAttribute('data-title')) { a.setAttribute('data-title', p.title); ch = true; }
+      if (a.textContent.trim().toLowerCase() === lo) { a.textContent = p.title; ch = true; } });
+    if (ch) { o.html = d.body.innerHTML; nSave(o); } });
+}
+
+// A field saves when it loses focus — which happens as the mouse goes down on whatever was clicked next. Redrawing right
+// then would swap that button out before the click lands, so the redraw waits until the press is over.
+let PTR_DOWN = false, PAINT_HELD = false;
+document.addEventListener('pointerdown', () => { PTR_DOWN = true; }, true);
+const ptrUp = () => { PTR_DOWN = false; if (PAINT_HELD) { PAINT_HELD = false; setTimeout(paint, 0); } };
+document.addEventListener('pointerup', ptrUp, true); document.addEventListener('pointercancel', ptrUp, true); document.addEventListener('dragstart', ptrUp, true);
+function paintAfterPress() { if (!PTR_DOWN) return paint(); PAINT_HELD = true; setTimeout(() => { if (PAINT_HELD) { PAINT_HELD = false; paint(); } }, 1500); }
 // ---------- Homebrew item maker: items in the character sheet's own format, with its automation (it.hb) ----------
 const HB_TYPES = [['weapon', 'Weapon'], ['armor', 'Armor or shield'], ['wondrous', 'Wondrous item'], ['ring', 'Ring'], ['potion', 'Potion'], ['scroll', 'Scroll'], ['staff', 'Staff'], ['wand', 'Wand'], ['rod', 'Rod'], ['ammunition', 'Ammunition']];
 const HB_RAR = ['common', 'uncommon', 'rare', 'very rare', 'legendary', 'artifact'];
