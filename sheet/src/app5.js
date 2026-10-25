@@ -568,7 +568,7 @@ function wzScores() { const rb = wzRacialBonus(), o = {}; AB.forEach(a => o[a] =
 function asiDone(CH, id) { const c = CH[id] || [], m = c[0]; if (!m) return false; if (m === 'feat') { const n = ansList(CH, id + '.feat')[0]; return !!n && featSubDefs(n).every((d, k) => ansList(CH, id + '.feat.f0.' + k).length >= (d.n || 1)); } return m === 'one' ? !!c[1] : !!(c[1] && c[2]); }
 function wzUnanswered() {
   const out = [];
-  wzRaceChoices().forEach((c, k) => { if (c.type === 'asi') return; if (ansList(W.ans, 'race.' + k).length < (c.n || 1)) out.push({ label: `${choiceLabel(c)} (race)`, step: 1 }); });
+  wzRaceChoices().forEach((c, k) => { if (c.type === 'asi') return; if (ansList(W.ans, 'race.' + k).length < (c.n || 1)) out.push({ label: `${choiceLabel(c)} (race)`, step: c.type === 'feat' && window.wzHeader ? 9 : 1 }); });
   const b = DND.backgrounds[W.bg];
   if (b) { if (b.skillChoice && ansList(W.ans, 'bg.skill').length < b.skillChoice.n) out.push({ label: 'Background skill', step: 4 }); if (b.toolChoice && ansList(W.ans, 'bg.tool').length < b.toolChoice.n) out.push({ label: 'Background tool', step: 4 }); if (b.langs && ansList(W.ans, 'bg.lang').length < b.langs) out.push({ label: 'Background language', step: 4 }); }
   wzClassChoiceDefs().forEach(d => {
@@ -673,7 +673,7 @@ function renderWizard() {
         <ul>${tr.map(t => `<li><b>${esc(t[0])}</b> — ${esc(t[1])}</li>`).join('')}${sp.map(z => `<li><b>${esc(z[1])}</b> at level ${z[0]} — ${esc(z[2])}</li>`).join('')}</ul>`}
         ${typeof (s.asiReplace ? s.asi : r.asi) === 'object' ? `<label class="checkline"><input type="checkbox" data-wz="tasha"${W.tasha ? ' checked' : ''}> Customize origin (Tasha's): move this race's ability increases to any scores</label>` : ''}
         ${wzRaceAsiUI()}
-        ${wzRaceChoices().map((c, k) => choiceUI(W.ans, 'race.' + k, c)).join('')}</div>`;
+        ${wzRaceChoices().map((c, k) => split && c.type === 'feat' ? '' : choiceUI(W.ans, 'race.' + k, c)).join('')}</div>`;
     }
   } else if (st === 2) {
     const tl = wzTotalLevel();
@@ -917,6 +917,9 @@ function wz3Features() {
     const facts = [['Hit die', 'd' + c.hd], ['Saving throws', c.saves.map(a => ABN[a]).join(', ')], ['Armor', c.armor || 'None'], ['Weapons', c.weapons || '—']].concat(c.tools ? [['Tools', Array.isArray(c.tools) ? c.tools.join(', ') : c.tools]] : []);
     h += `<section class="wz3-fs"><header>${wz3ClassIcon(row.key)}<div><b>${esc(c.name)} 1${sub ? ` · ${esc(sub.name)}` : ''}</b><span>${esc(DND.sources[c.src] || c.src || '')}</span></div></header><div class="wz3-facts">${facts.map(([k, v]) => `<span><small>${k}</small>${esc(v)}</span>`).join('')}</div>
       ${f1.length ? `<ul class="wz3-fl">${f1.map(f => `<li><b>${esc(f[1])}</b><span>${esc(f[2] || '')}</span></li>`).join('')}</ul>` : ''}${c.sub && c.sub.level > 1 ? `<p class="hint">${esc(c.sub.label)} comes at level ${c.sub.level}, with Level Up on the sheet.</p>` : ''}</section>`; }
+  // feats you get to pick (a Variant Human's, say) are chosen here, with the features
+  const fq = x ? wzRaceChoices().map((q, k) => q.type === 'feat' ? choiceUI(W.ans, 'race.' + k, q) : '').join('') : '';
+  if (fq) h = `<section class="wz3-fs wz3-feats"><header>${WZI.feats}<div><b>Feat</b><span>From your race: pick one</span></div></header>${fq}</section>` + h;
   return h || '<p class="hint">Pick a race and a class first.</p>';
 }
 function asiModeClick(b) {
