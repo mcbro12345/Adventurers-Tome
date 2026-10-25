@@ -784,6 +784,9 @@ window.addEventListener('resize', () => { SUB_K = ''; fitSubtitle(); });
 const TB_FOLD = ['edit', 'history', 'redo', 'undo', 'settings', 'save'];
 function fitToolbar() {
   const tb = $('.toolbar'); if (!tb) return;
+  // (the site's Tome button row goes back into a freshly drawn toolbar first, so it's measured as it will look)
+  if (typeof window.pgHubRow === 'function') try { window.pgHubRow(); } catch (e) {}
+  if (typeof window.__pwFit === 'function') try { window.__pwFit(); } catch (e) {} // (and the portrait beside it at its size)
   tb.classList.remove('tb-compact', 'tb-wrap'); $$('.toolbar .nolbl').forEach(k => k.classList.remove('nolbl'));
   if (isMobile()) return;
   const kids = [...tb.children].filter(k => k.offsetParent !== null && !k.classList.contains('pg-hubrow')); if (kids.length < 2) return; // (the site's own row above the buttons doesn't count)

@@ -978,10 +978,16 @@ function postSheetRoll(t) {
     const h = document.getElementById('sec-header'); if (!h) return;
     const pw = h.querySelector('.portrait-wrap'), id = h.querySelector('.ident.noid'), nb = id && id.querySelector('.namebox');
     if (!pw) return;
-    if (!nb || document.documentElement.classList.contains('mobile')) { pw.style.width = pw.style.height = ''; return; }
-    const top = id.querySelector('.ident-top') || nb, fill = Math.round(Math.max(64, Math.min(148, top.getBoundingClientRect().height, h.querySelector('.ident').getBoundingClientRect().height)));
-    if (pw.style.width !== fill + 'px') pw.style.width = pw.style.height = fill + 'px';
+    if (pw.style.width) pw.style.width = pw.style.height = '';
+    if (!nb || document.documentElement.classList.contains('mobile')) { h.style.removeProperty('--pwf'); return; }
+    // (kept on the header itself, so a portrait drawn again when the sheet redraws its top bar is the right size at once,
+    // instead of starting big and shrinking, which would make everything beside it jump)
+    // (measured from the name and the level box beside it, not the whole row: the toolbar's wrapping depends on how wide
+    // the portrait is, so measuring that too would make them keep resizing each other)
+    const lv = id.querySelector('.lvlbox'), fill = Math.round(Math.max(64, Math.min(148, Math.max(nb.getBoundingClientRect().height, lv ? lv.getBoundingClientRect().height : 0))));
+    if (h.style.getPropertyValue('--pwf') !== fill + 'px') h.style.setProperty('--pwf', fill + 'px');
   };
+  window.__pwFit = fit;
   const wire = () => {
     const h = document.getElementById('sec-header'); if (!h) return setTimeout(wire, 300);
     ro = new ResizeObserver(fit);

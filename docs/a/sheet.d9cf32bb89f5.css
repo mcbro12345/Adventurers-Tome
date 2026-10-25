@@ -2581,7 +2581,7 @@ html:not(.mobile) .oocbar .hint { margin-top: 1px; }
 /* Desktop tabs: the hover square sits a little inside the tab */
 html:not(.mobile) #tabs .tab { position: relative; }
 @media (hover:hover){html:not(.mobile):not(.mobile) #tabs .tab:not(.on):hover{ background-color: transparent !important; }}
-html:not(.mobile) #tabs .tab:not(.on)::before { content: ''; position: absolute; inset: 0 10px; border-radius: 8px; background: color-mix(in srgb, var(--gold) 12%, transparent); opacity: 0; transition: opacity .18s ease; pointer-events: none; z-index: 0; }
+html:not(.mobile) #tabs .tab::before { content: ''; position: absolute; inset: 0 10px; border-radius: 8px; background: color-mix(in srgb, var(--gold) 12%, transparent); opacity: 0; transition: opacity .18s ease; pointer-events: none; z-index: 0; }
 @media (hover:hover){html:not(.mobile):not(.mobile) #tabs .tab:not(.on):hover::before{ opacity: 1; }}
 html:not(.mobile) #tabs .tab > * { position: relative; z-index: 1; }
 
@@ -4211,4 +4211,199 @@ html.mobile #rolllogmodal .rl-list { height: auto; max-height: min(62vh, 640px);
 #modal-body:has(#catq) > * { flex: none; }
 #modal-body:has(#catq) > .crlist { flex: 1 1 auto; min-height: 0; max-height: none; }
 html.mobile #modal-body:has(#catq) { width: 100%; height: min(calc(100dvh - 24px - env(safe-area-inset-top)), 760px); }
+
+/* ===== Level Up and Unfinished choices, in the creation look ===== */
+#modal-body .lvx > h3, #pendm > h3 { margin: 0 0 2px; font: 700 1.6rem/1.2 Georgia, serif; color: var(--gold-ink); }
+#modal-body .lvx-sub { margin: 0 0 14px; color: var(--soft); } #modal-body .lvx-sub b { color: var(--ink); }
+#modal-body .lvx-h { margin: 16px 0 8px; font: 700 .8rem system-ui, sans-serif; color: var(--gold-ink); }
+#modal-body .lvx-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+#modal-body .lvx-cards.sm { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+#modal-body .lvx-card { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 12px; row-gap: 2px; align-items: center; min-width: 0; padding: 12px 36px 12px 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel2); color: var(--ink); font-family: inherit; text-align: left; cursor: pointer; transition: border-color .15s, background .15s, transform .12s; }
+#modal-body .lvx-card:not(:has(.lvx-ic)) { grid-template-columns: minmax(0, 1fr); }
+@media (hover:hover){:where(html:not(.mobile)) #modal-body .lvx-card:hover{ border-color: var(--gold); }} #modal-body .lvx-card:active { transform: scale(.98); }
+#modal-body .lvx-card b { font-size: .95rem; overflow-wrap: anywhere; } #modal-body .lvx-t { font-size: .76rem; color: var(--soft); font-weight: 600; }
+#modal-body .lvx-ic { grid-row: span 2; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 11px; background: var(--gold-soft); color: var(--gold-ink); }
+#modal-body .lvx-card.sel { border-color: var(--gold); background: var(--gold-soft); box-shadow: inset 0 0 0 1px var(--gold); animation: lvxPop .3s ease; }
+#modal-body .lvx-card.sel .lvx-ic { background: var(--gold); color: #1b1406; }
+#modal-body .lvx-card.sel::after { content: '✓'; position: absolute; top: 10px; right: 10px; width: 20px; height: 20px; border-radius: 50%; background: var(--gold); color: #1b1406; display: grid; place-items: center; font: 900 11px system-ui, sans-serif; }
+#modal-body .lvx-card.warn .lvx-t { color: var(--red); }
+@keyframes lvxPop { 40% { transform: scale(1.03); } }
+#modal-body .lvx-mc { margin-top: 10px; } #modal-body .lvx-mc > summary { cursor: pointer; padding: 6px 2px; color: var(--gold-ink); font-weight: 700; font-size: .9rem; list-style: none; } #modal-body .lvx-mc > summary::before { content: '+ '; } #modal-body .lvx-mc[open] > summary::before { content: '− '; }
+#modal-body .lvx-mc > .lvx-cards { margin-top: 6px; animation: lvxIn .25s ease; } @keyframes lvxIn { from { opacity: 0; transform: translateY(-4px); } }
+#modal-body .lvx-hid { display: none !important; }
+#modal-body .lvx-extra { display: grid; gap: 4px; max-width: 320px; margin-top: 10px; }
+#modal-body .lvx .lvsec { margin-top: 18px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel2); box-shadow: var(--shadow); }
+#modal-body .lvx .lvsec > h4 { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; padding-bottom: 10px; border-bottom: 1px solid var(--line2); font: 700 1.15rem Georgia, serif; color: var(--gold-ink); }
+#modal-body .lvx .lvsec > h4 svg { width: 22px; height: 22px; padding: 8px; box-sizing: content-box; border-radius: 11px; background: var(--gold-soft); }
+#modal-body .lvx-subs { margin: 6px 0 4px; }
+#modal-body .lvx-fl { list-style: none; margin: 0; padding: 0; } #modal-body .lvx-fl li { display: grid; gap: 2px; padding: 9px 2px; border-top: 1px solid var(--line2); } #modal-body .lvx-fl li span { color: var(--soft); font-size: .88rem; }
+#modal-body .lvx-hp { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line2); align-items: flex-end; }
+#modal-body .lvx .chq, #pendm .chq { margin-top: 12px; }
+/* the ASI choice: three big options */
+#modal-body .asimodes { gap: 8px; } #modal-body .asimode { border-radius: 12px; transition: border-color .15s, background .15s; } #modal-body .asimode.on { box-shadow: inset 0 0 0 1px var(--gold); }
+/* feat lists (like the spell lists) */
+#modal-body .wz3-pick { margin: 8px 0 4px; } #modal-body .wz3-q { width: 100%; max-width: 420px; margin: 0 0 8px; }
+#modal-body .wz3-fnote { margin: -2px 0 8px; }
+#modal-body .wz3-list { max-height: min(42vh, 380px); border: 1px solid var(--line); border-radius: 12px; background: var(--panel); box-shadow: var(--shadow); }
+#modal-body .wz3-list .crrow { padding: 9px 12px; cursor: pointer; transition: background .15s; } @media (hover:hover){:where(html:not(.mobile)) #modal-body .wz3-list .crrow:hover{ background: var(--panel2); }}
+#modal-body .wz3-list .crrow.on { background: var(--gold-soft); box-shadow: inset 3px 0 0 var(--gold); }
+#modal-body .wz3-list .crrow input { order: 2; accent-color: var(--gold); width: 17px; height: 17px; flex: none; } #modal-body .wz3-list .crrow > div { flex: 1; }
+#modal-body .wz3-list .crrow[hidden] { display: none; }
+/* unfinished choices: each one a panel */
+#pendm .pendq { padding: 14px 16px; margin: 12px 0; border: 1px solid var(--line); border-radius: 16px; background: var(--panel2); box-shadow: var(--shadow); animation: lvxIn .25s ease both; }
+#pendm .pendh { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--line2); align-items: center; }
+#pendm .pendopt { border-radius: 12px; }
+@media (prefers-reduced-motion: reduce) { #modal-body .lvx *, #pendm * { animation: none !important; transition: none !important; } }
+#modal-body .wz3-hid { display: none !important; }
+#modal-body .wz3-list.short, #wizard .wz3-list.short { max-height: none; }
+#modal-body .wz3-cnt, #wizard .wz3-cnt { margin: 0 0 6px; font-weight: 600; }
+#modal-body .wz3-list .crrow.dim, #wizard .wz3-list .crrow.dim { opacity: .5; cursor: not-allowed; }
+#modal-body .chsel:has(> .wz3-pick) { display: block; }
+/* companion in a column: the speed can be long (several movement types), so it wraps instead of being cut off */
+.comp2.incol .csts { display: flex; }
+.comp2.incol .cst { flex: none; }
+.comp2.incol .cst.wide { flex: 1 1 auto; min-width: 0; justify-content: flex-start; }
+.comp2.incol .cst.wide b { white-space: normal; overflow-wrap: anywhere; text-align: left; }
+/* cannon type */
+.cmode { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0 0; padding: 6px 10px; border: 1px solid var(--line2); border-radius: 10px; background: var(--panel2); font-size: .88rem; color: var(--soft); }
+.cmode b { color: var(--ink); }
+.cmode-pick { margin: 8px 0 0; padding: 10px; border: 1px dashed var(--gold); border-radius: 12px; }
+.cmode-pick p { margin: 0 0 8px; font-weight: 700; }
+.cmode-btns { display: flex; flex-wrap: wrap; gap: 6px; } .cmode-btns .btn { flex: 1 1 auto; }
+.cmode-btns.big .btn { padding: 12px; font-weight: 700; }
+.cmode-how { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin-top: 12px; }
+.cmode-how .btn { display: grid; gap: 3px; justify-items: start; text-align: left; padding: 10px 12px; height: auto; white-space: normal; }
+.cmode-how .btn span { font-size: .8rem; color: var(--soft); font-weight: 400; }
+#wizard .chsel:has(> .wz3-pick) { display: block; }
+#modal-body .wz3-chpick, #wizard .wz3-chpick, #modal-body .lvx-subs { max-width: 760px; }
+#modal-body .wz3-chpick .wz3-list, #wizard .wz3-chpick .wz3-list { width: 100%; }
+/* Phones: a list or box scrolling inside the page, a window or the wizard hands the scroll on when it reaches its
+   top or bottom (the page or window itself still stops at its own edge, so nothing behind it moves) */
+html.mobile :is(section.page, #modal-body, .wz-body, #wizard .wz3-main, #wizard .wz3-side) * { overscroll-behavior-y: auto !important; }
+/* the sliding highlight sits above the hover highlight (only the tabs' icons and words are above it), so the
+   hover shows on a tab only until the sliding highlight covers it */
+html:not(.mobile) #tabs .tab { z-index: auto; }
+@media (hover:hover){html:not(.mobile):not(.mobile) #tabs .tab:hover::before{ opacity: 1; }}
+html:not(.mobile) #tabs .tab.on.tkeep::before { opacity: 1; transition: none; }
+html:not(.mobile) #tabs .tabwrap { z-index: auto; }
+html:not(.mobile) #tabs .tab-ind { z-index: 1; }
+html:not(.mobile) #tabs .tab > * { z-index: 2; }
+html:not(.mobile) #tabs .tab > .tabcount { z-index: 3; }
+/* (the hover brightening goes on the tab's icon and words, not the tab itself, so it doesn't lift the tab above the sliding highlight) */
+@media (hover:hover){html:not(.mobile):not(.mobile) #tabs .tab:hover{ filter: none !important; }}
+@media (hover:hover){html:not(.mobile):not(.mobile) #tabs .tab:hover > :is(.ticon, .tlabel){ filter: brightness(1.22); }}
+
+/* ===================================================================================================================
+   The sheet in the site's look (dark theme): the same navy, cards, gold and buttons as the lobby and admin.
+   Only colours, corners, shadows and type treatment change here; no size, spacing or position does
+   (a border that disappears is made transparent, not removed, so nothing moves).
+   The character's own accent, background and banner colours (Settings → Theme) still apply.
+   =================================================================================================================== */
+:root[data-theme="dark"] { --panel: #1a2131; --panel2: #232c3d; --field: #121826; --ink: #e9e3d3; --soft: #a3acbe; --line: #2c3548; --line2: #252e40;
+  --site-edge: color-mix(in srgb, var(--gold) 22%, transparent); --site-edge2: rgba(255,255,255,.07); --site-card: rgba(26,33,49,.82); --site-btn: #242d40; --site-btn-h: #2c3750;
+  --shadow: 0 1px 2px rgba(0,0,0,.25), 0 12px 30px rgba(0,0,0,.32); }
+/* the page: the lobby's soft glow from the top */
+:root[data-theme="dark"] body { background-image: radial-gradient(ellipse 120% 80% at 50% 0%, rgba(42,56,86,.55) 0%, rgba(26,36,56,.25) 45%, transparent 80%); background-attachment: fixed; }
+/* cards: the lobby's panels (the coloured strip on top becomes a soft glow of the accent instead) */
+:root[data-theme="dark"] :is(.panel, .tile, nav.tabs) { background-color: var(--site-card); border-color: transparent; outline: 1px solid var(--site-edge); outline-offset: -1px; border-radius: 16px; box-shadow: var(--shadow); }
+:root[data-theme="dark"] .panel { background-image: linear-gradient(180deg, color-mix(in srgb, var(--gold) 9%, transparent), transparent 56px); }
+:root[data-theme="dark"] .tile.ac { background: linear-gradient(180deg, color-mix(in srgb, var(--gold) 16%, transparent), var(--site-card) 75%); outline-color: color-mix(in srgb, var(--gold) 55%, transparent); }
+/* panel titles: the lobby's gold, in the spaced capitals of its wordmark (same letters and size, so nothing moves) */
+:root[data-theme="dark"] :is(.panel > h2, .ph) { color: var(--gold-ink); }
+:root[data-theme="dark"] :is(.ph, .panel > h2)::before { border-radius: 2px; opacity: .85; }
+/* small labels on the tiles: quiet grey like the lobby's captions */
+:root[data-theme="dark"] .tile .lbl { color: var(--soft); }
+/* buttons: the lobby's rounded, borderless buttons */
+:root[data-theme="dark"] .btn { background-color: var(--site-btn); border-color: transparent; border-radius: 11px; color: var(--ink); }
+@media (hover:hover){:root[data-theme="dark"]:not(.mobile) .btn:not([disabled]):hover{ background-color: var(--site-btn-h); filter: none; }}
+:root[data-theme="dark"] .btn.gold { background-color: var(--gold); border-color: transparent; color: var(--on-gold, #1b1406); }
+@media (hover:hover){:root[data-theme="dark"]:not(.mobile) .btn.gold:not([disabled]):hover{ background-color: color-mix(in srgb, var(--gold) 88%, white); }}
+:root[data-theme="dark"] .btn.ghost { background-color: rgba(255,255,255,.04); }
+:root[data-theme="dark"] .tmanage { background: rgba(255,255,255,.05); border-color: transparent; color: var(--soft); }
+@media (hover:hover){:root[data-theme="dark"]:not(.mobile) .tmanage:hover{ background: var(--site-btn-h); color: var(--ink); }}
+/* chips and fields */
+:root[data-theme="dark"] .tag { background: rgba(255,255,255,.04); border-color: var(--site-edge2); }
+:root[data-theme="dark"] select.f { background-color: var(--field); border-color: var(--site-edge2); border-radius: 10px; }
+:root[data-theme="dark"] :is(select.f, input.f, textarea.f):focus { border-color: color-mix(in srgb, var(--gold) 55%, transparent); }
+/* the banner keeps the character's colours; its edge is the lobby's soft gold line */
+:root[data-theme="dark"] header.banner { border-bottom-color: color-mix(in srgb, var(--gold) 35%, transparent); box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+/* the banner's toolbar buttons: the lobby's dark rounded buttons */
+:root[data-theme="dark"] .tbtn:not(.gold) { background: rgba(36,45,64,.85); border-color: transparent; border-radius: 11px; }
+@media (hover:hover){:root[data-theme="dark"]:not(.mobile) .tbtn:not(.gold):not([disabled]):hover{ background: var(--site-btn-h); filter: none; }}
+:root[data-theme="dark"] .tbtn.gold { border-color: transparent; border-radius: 11px; color: var(--on-gold, #1b1406); }
+/* round toggles and boxes inside cards (ability scores, saves and the like): the lobby's soft tiles */
+:root[data-theme="dark"] .panel .tile { background-color: rgba(255,255,255,.035); outline-color: var(--site-edge2); box-shadow: none; }
+:root[data-theme="dark"] .panel .ab { background-color: rgba(255,255,255,.035); border-color: var(--site-edge2); border-radius: 14px; }
+/* (Edit layout still shows its dashed outline around each panel) */
+:root[data-theme="dark"] body.editing [data-pid] { outline: 2px dashed color-mix(in srgb, var(--gold) 70%, transparent); outline-offset: 2px; }
+/* phones: Advantage and Disadvantage stay on the Conditions line (a little tighter when the box is narrow) */
+@container (max-width: 420px) { html.mobile .condtile .advb { padding: 5px 9px; font-size: .74rem; } html.mobile .condtile .advbtns { gap: 3px; } html.mobile .condtile .tilehead { column-gap: 5px; } }
+@container (max-width: 340px) { html.mobile .condtile .advb { padding: 5px 7px; font-size: .7rem; } }
+/* The top bar: the lobby's header card. The character's banner colour tints the card instead of filling the whole
+   strip, so the page's glow shows around it like in the lobby. (Drawn behind the bar's contents, which don't move.) */
+:root[data-theme="dark"] header.banner { position: relative; isolation: isolate; background: transparent; border-bottom-color: transparent; box-shadow: none; }
+/* (on a computer the card hugs the bar's contents instead of running the full width of a wide window) */
+:root[data-theme="dark"]:not(.mobile) header.banner > .wrap::before { content: ''; position: absolute; z-index: -1; top: 4px; bottom: 6px; left: max(2px, calc(10px - (100vw - 100%) / 2)); right: max(2px, calc(10px - (100vw - 100%) / 2)); border-radius: 20px; pointer-events: none;
+  background: radial-gradient(90% 160% at 20% 0%, color-mix(in srgb, var(--navy) 70%, rgba(40,52,78,.9)) 0%, color-mix(in srgb, var(--navy) 45%, rgba(24,31,47,.92)) 60%, rgba(20,26,40,.92) 100%);
+  border: 1px solid color-mix(in srgb, var(--gold) 30%, transparent); box-shadow: 0 12px 30px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.05); }
+:root[data-theme="dark"].mobile header.banner::before { content: ''; position: absolute; z-index: -1; inset: 4px 12px 6px; border-radius: 20px; pointer-events: none;
+  background: radial-gradient(90% 160% at 20% 0%, color-mix(in srgb, var(--navy) 70%, rgba(40,52,78,.9)) 0%, color-mix(in srgb, var(--navy) 45%, rgba(24,31,47,.92)) 60%, rgba(20,26,40,.92) 100%);
+  border: 1px solid color-mix(in srgb, var(--gold) 30%, transparent); box-shadow: 0 12px 30px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.05); }
+:root[data-theme="dark"].mobile header.banner::before { inset: 3px 4px 6px; border-radius: 18px; }
+/* inside it: the level box and portrait in the lobby's tile style, and a calmer underline on the name */
+:root[data-theme="dark"] header.banner .lvlbox { background: rgba(255,255,255,.04); border-color: color-mix(in srgb, var(--gold) 22%, transparent); border-radius: 14px; }
+:root[data-theme="dark"] header.banner .portrait-wrap { box-shadow: 0 0 0 3px rgba(255,255,255,.06), 0 5px 12px rgba(0,0,0,.3); }
+:root[data-theme="dark"] header.banner .namebox input.f.name { border-bottom-color: transparent; }
+@media (hover:hover){:root[data-theme="dark"]:not(.mobile) header.banner .namebox input.f.name:is(:hover, :focus){ border-bottom-color: color-mix(in srgb, var(--gold) 45%, transparent); }}
+/* with the top bar as a card: a little more room inside it when it's the short version (no Player / Race /
+   Background row), and less empty space between it and the sheet */
+:root[data-theme="dark"]:not(.mobile) .banner .wrap:has(.ident.noid) { padding-top: 15px; padding-bottom: 17px; }
+:root[data-theme="dark"]:not(.mobile) header.banner > .wrap::before { bottom: 4px; }
+:root[data-theme="dark"]:not(.mobile) main.wrap > section.vitals:first-child { margin-top: 6px; }
+:root[data-theme="dark"].mobile main.wrap > section.vitals:first-child { margin-top: 4px; }
+/* the small icon buttons (dice, chat, notes, phone view, bug report) sit against the right edge of the top bar */
+html:not(.mobile) .toolbar > :not(.devbtn) + .devbtn { margin-left: auto; }
+/* phones (dark): no second background behind the top bar card */
+:root[data-theme="dark"].mobile header.banner { background: transparent !important; }
+/* phones: Player / Race / Background as a tidy little card of rows (label on the left, value on the right) */
+html.mobile .ident:not(.noid) .ident-grid:not(:empty) { display: flex; flex-direction: column; gap: 0; margin-top: 2px; border-radius: 14px; background: rgba(255,255,255,.04); border: 1px solid color-mix(in srgb, var(--gold) 22%, transparent); overflow: hidden; margin-bottom: 4px; }
+html.mobile .ident-grid .fld { flex: none !important; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 12px; }
+html.mobile .ident-grid .fld + .fld { border-top: 1px solid color-mix(in srgb, var(--gold) 14%, transparent); }
+html.mobile .ident-grid .fld .lbl { margin: 0; flex: none; }
+html.mobile .ident-grid .fld :is(.identtxt, .f) { flex: 1 1 auto; min-width: 0; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0; }
+/* The tab bar (computers): a slim capsule; the open tab is a solid pill in the character's colour that slides across */
+html:not(.mobile) #tabs { border-radius: 999px !important; padding: 4px; }
+html:not(.mobile) #tabs .tab { flex-direction: row; justify-content: center; gap: 7px; padding: 6px 10px; font-size: .8rem; border-radius: 999px; }
+html:not(.mobile) #tabs .ticon, html:not(.mobile) #tabs .ticon svg { width: 17px; height: 17px; }
+html:not(.mobile) #tabs .tab-ind { background: var(--gold) !important; box-shadow: 0 4px 14px color-mix(in srgb, var(--gold) 35%, transparent) !important; border-radius: 999px !important; }
+html:not(.mobile) #tabs .tab.on { color: var(--on-gold, #1b1406) !important; }
+html:not(.mobile) #tabs .tab::before { border-radius: 999px !important; inset: 0 !important; }
+/* The top bar stays put on a computer while the sheet scrolls under it. Its drop shadow only shows once something is
+   actually underneath (fading in), and a strip of page backdrop behind it hides what scrolls past around its corners. */
+html:not(.mobile) header.banner { position: sticky !important; top: 0; z-index: 40; }
+html:not(.mobile) header.banner { transition: box-shadow .25s ease; }
+html:not(.mobile):not([data-theme="dark"]).hd-stuck header.banner { box-shadow: 0 10px 26px rgba(0,0,0,.22); }
+:root[data-theme="dark"]:not(.mobile) header.banner > .wrap::before { box-shadow: 0 12px 30px rgba(0,0,0,0), inset 0 1px 0 rgba(255,255,255,.05); transition: box-shadow .25s ease; }
+:root[data-theme="dark"]:not(.mobile).hd-stuck header.banner > .wrap::before { box-shadow: 0 14px 34px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.05); }
+:root[data-theme="dark"]:not(.mobile) header.banner::before { content: ''; position: absolute; inset: 0 0 -14px; z-index: -2; pointer-events: none; opacity: 0; transition: opacity .25s ease;
+  background: radial-gradient(ellipse 120% 80% at 50% 0%, rgba(42,56,86,.55) 0%, rgba(26,36,56,.25) 45%, transparent 80%) fixed, var(--bg);
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent); }
+:root[data-theme="dark"]:not(.mobile).hd-stuck header.banner::before { opacity: 1; }
+/* (things that stick to the top of the page themselves sit just under the bar) */
+html:not(.mobile) body.editing .tabs { top: var(--hd-h, 0px); }
+html:not(.mobile) { scroll-padding-top: var(--hd-h, 0px); }
+@media (prefers-reduced-motion: reduce) { html:not(.mobile) header.banner, html:not(.mobile) header.banner::before, html:not(.mobile) header.banner > .wrap::before { transition: none !important; } }
+/* the window being replaced, fading out where it was (see the swap in openModal) */
+.modal-bg > .modal.mghost, .modal-bg.open > .modal.mghost, html.mobile .modal-bg.open > .modal.mghost { pointer-events: none; z-index: 0; animation: wPopOut .17s ease forwards !important; overflow: hidden !important; }
+html.mobile .modal-bg > .modal.mghost, html.mobile .modal-bg.open > .modal.mghost { animation-name: wFadeOut !important; }
+.modal-bg > .modal:not(.mghost) { z-index: 1; }
+/* a question or message from the party: the card pops in, and the whole thing fades out when answered */
+.ptyask-bg > :first-child { animation: wPopIn .26s ease; }
+.ptyask-bg.closing { pointer-events: none; animation: wFadeOut .18s ease forwards; }
+.ptyask-bg.closing > :first-child { animation: wPopOut .18s ease forwards; }
+@media (prefers-reduced-motion: reduce) { .ptyask-bg, .ptyask-bg > :first-child { animation: none !important; } }
+/* the tab names sit on the pill's middle by their capital letters, not by the line box (which leaves them a pixel high) */
+html:not(.mobile) #tabs .tlabel { position: relative; top: 1px; }
+html:not(.mobile) .namebox .subtitle.sub2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+html:not(.mobile) #sec-header:has(.ident.noid) .portrait-wrap { width: var(--pwf, 148px); height: var(--pwf, 148px); }
 

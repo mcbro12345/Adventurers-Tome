@@ -102,8 +102,13 @@ UI.open = UI.open || {};
 // loaded (this browser's, the cloud's or the file's), so a fix isn't lost to a newer saved copy.
 var HADLOCAL; // set by load(): this browser already had its own copy of this character
 var FIXED; // no initializer: load() runs (and may set it) before this line is reached
+// The top bar's details were reset for everyone when the defaults changed to just the name: a character's settings
+// that haven't had that reset yet (including older settings copied back in from another saved copy) get it once.
+// (written inside the function: load() runs it before the lines around it have been reached)
+function hdrReset(s) { if (!s || (s.settings && s.settings.hdr1)) return false;
+  s.settings = Object.assign({}, s.settings, { showName: true, showPlayer: false, showRace: false, showBackground: false, showAlignment: false, showFaith: false, hdr1: true }); return true; }
 function applyFixes(s) {
-  const done = new Set(s.fixesDone || []); let changed = false;
+  const done = new Set(s.fixesDone || []); let changed = hdrReset(s);
   // Built in (every sheet): encumbrance on for everyone who had it off; Istalyn's sling bullets become bullets for her pistol.
   if (!done.has('enc1')) { if (s.settings && s.settings.encumbrance === 'off') s.settings.encumbrance = 'standard'; done.add('enc1'); changed = true; }
   if (!done.has('bullets1')) { if (/^istalyn\b/i.test(String(s.name || ''))) (s.inventory || []).forEach(it => { if (it && /^sling bullets$/i.test(String(it.name || '').trim())) { it.name = 'Bullets'; it.weight = 0.2; } }); done.add('bullets1'); changed = true; }
@@ -1599,7 +1604,11 @@ let onModalCancel = null;
 let MODAL_BY = null, MODAL_SIG = null; // which button opened the window that's showing
 function openModal(html, onCancel, wide) {
   MODAL_BY = MODAL_SIG;
-  onModalCancel = onCancel || null; $('#modal-body').classList.remove('xwide'); $('#modal-body').classList.toggle('wide', !!wide); $('#modal-body').innerHTML = html;
+  // a window opening fresh starts its lists unsearched and at the top (they're only remembered while it stays open)
+  try { if (!$('#modal').classList.contains('open') && !document.querySelector('#wizard.open')) Object.keys(WZ3M).forEach(k => delete WZ3M[k]); } catch (e) {}
+  // (a window closed a moment ago in this same step is being replaced, not closed: it stays up and swaps over)
+  { const mo = $('#modal'), mb = $('#modal-body'); if (!mo.classList.contains('open') && mb._wasAt && performance.now() - mb._wasAt < 60) mo.classList.add('open'); mb._wasAt = 0; }
+  onModalCancel = onCancel || null; $('#modal-body').innerHTML = html; $('#modal-body').classList.remove('xwide'); $('#modal-body').classList.toggle('wide', !!wide);
   // a window opening fresh holds its fade for two frames, so the work of building and sizing it doesn't eat the start of the animation
   const mo = $('#modal'); if (!mo.classList.contains('open')) { mo.classList.add('pre', 'open'); requestAnimationFrame(() => requestAnimationFrame(() => mo.classList.remove('pre'))); }
   const f = $('#modal-body [autofocus]'); if (f) f.focus();
@@ -1627,16 +1636,37 @@ function openModal(html, onCancel, wide) {
 })();
 function closeModal(confirmed) {
   if (!$('#modal').classList.contains('open')) return;
+  // (where it was, for a window opened straight after this one closes: see the swap below)
+  { const mb = $('#modal-body'); mb._was = mb.getBoundingClientRect(); mb._wasSt = mb.scrollTop; mb._wasAt = performance.now(); }
   $('#modal').classList.remove('open'); MODAL_BY = null;
   const cb = onModalCancel; onModalCancel = null;
   if (!confirmed && cb) cb();
 }
 $('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+// One window replacing another (opening Change background from Settings, a button that closes this window and opens
+// the next one): the old window fades out where it was while the new one fades in, instead of the contents just
+// snapping over. A window redrawing itself (same window, new contents) doesn't animate.
+(() => { const mb = $('#modal-body'), mo = $('#modal'), P = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+  const keyOf = h => { h = String(h || ''); const a = h.match(/^\s*<[a-z0-9]+\b[^>]*?\bid="([^"]+)"/i); if (a) return '#' + a[1]; const b = h.match(/<h[23]\b[^>]*>([\s\S]*?)<\/h[23]>/i); return b ? b[1].replace(/<[^>]+>/g, '').trim() : ''; };
+  const calm = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  Object.defineProperty(mb, 'innerHTML', { configurable: true, get() { return P.get.call(this); }, set(v) {
+    const k = keyOf(v), open = mo.classList.contains('open'), just = !open && mb._wasAt && performance.now() - mb._wasAt < 60;
+    let ghost = null;
+    if ((open || just) && mb._key && k !== mb._key && mb.childElementCount && !calm()) {
+      const r = open ? mb.getBoundingClientRect() : mb._was;
+      if (r && r.width) { ghost = mb.cloneNode(true); ghost.removeAttribute('id'); ghost.querySelectorAll('[id]').forEach(x => x.removeAttribute('id')); ghost.classList.add('mghost'); ghost.setAttribute('aria-hidden', 'true'); ghost.inert = true;
+        Object.assign(ghost.style, { position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', maxHeight: 'none', margin: '0', translate: 'none' });
+        const st = open ? mb.scrollTop : mb._wasSt; mo.appendChild(ghost); if (st) queueMicrotask(() => { ghost.scrollTop = st; }); setTimeout(() => ghost.remove(), 260); } }
+    mb._key = k; P.set.call(this, v);
+    if (ghost) { const mob = document.documentElement.classList.contains('mobile');
+      mb.animate(mob ? [{ opacity: 0, transform: 'translateY(18px)' }, { opacity: 1, transform: 'none' }] : [{ opacity: 0, transform: 'translateY(6px) scale(.985)' }, { opacity: 1, transform: 'none' }], { duration: mob ? 260 : 240, easing: 'cubic-bezier(.2,.8,.3,1)' }); } } }); })();
 // Desktop: pop-up windows work like the dice roller and the chat window — a floating window with its own title bar
 // (drag it to move it, ✕ to close), and the page behind stays usable instead of being dimmed and blocked.
 const mwDesk = () => !document.documentElement.classList.contains('mobile') && innerWidth > 640;
 function mwDress() { const b = $('#modal-body'); if (!b) return; const de = document.documentElement; de.classList.toggle('mwin', mwDesk());
-  if (!mwDesk() || b.querySelector(':scope > .mw-head')) return;
+  if (!mwDesk()) return;
+  // (a window that redraws its contents keeps its title bar: a heading repeating the title is hidden again)
+  { const hd = b.querySelector(':scope > .mw-head'); if (hd) { const t = (hd.querySelector('b') || {}).textContent; b.querySelectorAll('h2:not(.mw-hid), h3:not(.mw-hid)').forEach(x => { if (x.textContent.trim() === t) x.classList.add('mw-hid'); }); return; } }
   const h = [...b.querySelectorAll('h2, h3')].find(x => x.offsetParent && x.getBoundingClientRect().top - b.getBoundingClientRect().top < 140);
   const t = h ? h.textContent.trim() : ''; if (h) { h.classList.add('mw-hid');
     // a Done / Close button sitting beside the heading would be left stranded: the title bar's ✕ does the same job
@@ -1647,9 +1677,20 @@ function mwDress() { const b = $('#modal-body'); if (!b) return; const de = docu
 // Done / Close buttons that only close the window aren't needed next to the title bar's ✕ (a row left empty goes too).
 function mwTidy() { const b = $('#modal-body'); if (!b || !mwDesk()) return; b.querySelectorAll('[data-act="close"]').forEach(x => { if (/^(done|close)$/i.test(x.textContent.trim())) x.classList.add('mw-hid'); });
   b.querySelectorAll('.actions, .row').forEach(r => { if (r.children.length && ![...r.children].some(x => !x.classList.contains('mw-hid') && getComputedStyle(x).display !== 'none')) r.classList.add('mw-hid'); }); }
-new MutationObserver(() => { if ($('#modal').classList.contains('open')) { mwDress(); mwTidy(); } }).observe($('#modal-body'), { childList: true, subtree: true });
-new MutationObserver(() => { if ($('#modal').classList.contains('open')) mwDress(); }).observe($('#modal'), { attributes: true, attributeFilter: ['class'] });
+// (checked once a frame, before it's drawn, so a window whose contents keep changing isn't measured on every change)
+let MW_R = 0; const mwSoon = () => { if (!MW_R) MW_R = requestAnimationFrame(() => { MW_R = 0; if ($('#modal').classList.contains('open')) { mwDress(); mwTidy(); } }); };
+new MutationObserver(mwSoon).observe($('#modal-body'), { childList: true, subtree: true });
+new MutationObserver(mwSoon).observe($('#modal'), { attributes: true, attributeFilter: ['class'] });
 addEventListener('resize', () => document.documentElement.classList.toggle('mwin', mwDesk()));
+// The top bar stays at the top of the window on a computer: it gets its shadow once the sheet is scrolled under it, and
+// its height is shared so things that stick to the top themselves (the tab strip while editing) sit just below it.
+(() => { let q = 0, st = null, hh = -1; const de = document.documentElement;
+  const chk = () => { q = 0; const b = document.querySelector('header.banner'); if (!b) return; const on = !de.classList.contains('mobile') && scrollY > 2;
+    if (on !== st) { st = on; de.classList.toggle('hd-stuck', on); }
+    const h = de.classList.contains('mobile') ? 0 : Math.round(b.offsetHeight); if (h !== hh) { hh = h; de.style.setProperty('--hd-h', h + 'px'); } };
+  const soon = () => { if (!q) q = requestAnimationFrame(chk); };
+  addEventListener('scroll', soon, { passive: true }); addEventListener('resize', soon); soon();
+  const b0 = document.querySelector('header.banner'); if (b0 && window.ResizeObserver) new ResizeObserver(soon).observe(b0); })();
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); $$('.menu.open').forEach(m => m.classList.remove('open')); } });
 
 // ---------- Field helpers ----------
@@ -1672,7 +1713,7 @@ const isMobile = () => document.documentElement.classList.contains('mobile');
 const who = () => S.name || 'Your character';
 
 // ---------- Settings ----------
-const SETDEF = { combatSpellSort: 'level', protectorScales: false, advancement: 'milestone', abilityStyle: 'mod', showName: true, showRace: true, showBackground: true, showPlayer: true, showAlignment: false, showFaith: false, showRoll20: true, encumbrance: 'standard', exhaustionRule: '2014', exhaustionDC: false, concPrompt: true, durationAlerts: true, autoSpend: true, critRule: 'double', density: 'comfortable', fontScale: 100, hpLevelUp: 'avg', confirmDelete: false, showCastHints: true, inspiration: false, inspMany: false, electrum: false };
+const SETDEF = { combatSpellSort: 'level', protectorScales: false, advancement: 'milestone', abilityStyle: 'mod', showName: true, showRace: false, showBackground: false, showPlayer: false, showAlignment: false, showFaith: false, showRoll20: true, encumbrance: 'standard', exhaustionRule: '2014', exhaustionDC: false, concPrompt: true, durationAlerts: true, autoSpend: true, critRule: 'double', density: 'comfortable', fontScale: 100, hpLevelUp: 'avg', confirmDelete: false, showCastHints: true, inspiration: false, inspMany: false, electrum: false };
 let GEN = 0, RENDERING = '';
 const PID = id => `data-pid="${id}" data-gen="${GEN}" data-home="${RENDERING}"`;
 const ST = k => (S.settings && S.settings[k] !== undefined ? S.settings[k] : SETDEF[k]);
@@ -1841,11 +1882,12 @@ const MTAB_CHEV = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" s
 function mtabTabs() { return [...document.querySelectorAll('#tabs .tab')].map(b => ({ k: b.dataset.tab, b, on: b.classList.contains('on'), unread: b.classList.contains('unread'), ic: (b.querySelector('.ticon') || {}).innerHTML || '', label: (b.querySelector('.tlabel') || {}).textContent || b.dataset.tab, count: (b.querySelector('.tabcount') || {}).textContent || '' })); }
 function mtabSync() {
   let el = document.getElementById('mtab');
-  if (!isMobile() || UI.editLayout) { if (el) el.remove(); mtabClose(true); document.documentElement.classList.remove('mtabs'); return; }
-  document.documentElement.classList.add('mtabs');
+  const de = document.documentElement;
+  if (!isMobile() || UI.editLayout) { if (el) el.remove(); mtabClose(true); if (de.classList.contains('mtabs')) de.classList.remove('mtabs'); return; }
+  if (!de.classList.contains('mtabs')) de.classList.add('mtabs');
   if (!el) { el = document.createElement('div'); el.id = 'mtab'; el.className = 'mtab'; document.body.appendChild(el); mtabWire(el); }
   const ts = mtabTabs(), cur = ts.find(t => t.on) || ts[0]; if (!cur) return; const i = ts.indexOf(cur), other = ts.some(t => t.unread && !t.on);
-  el.innerHTML = `<button class="mtab-b${other ? ' unread' : ''}" aria-haspopup="menu" aria-expanded="${!!document.getElementById('mtabmenu')}" aria-label="${esc(cur.label)} — ${i + 1} of ${ts.length}. Choose a tab"><span class="mtab-ic" aria-hidden="true">${cur.ic}</span><span class="mtab-l">${esc(cur.label)}</span><span class="mtab-dots" aria-hidden="true">${ts.map(t => `<i${t.on ? ' class="on"' : ''}></i>`).join('')}</span><span class="mtab-chev">${MTAB_CHEV}</span></button>`;
+  { const h = `<button class="mtab-b${other ? ' unread' : ''}" aria-haspopup="menu" aria-expanded="${!!document.getElementById('mtabmenu')}" aria-label="${esc(cur.label)} — ${i + 1} of ${ts.length}. Choose a tab"><span class="mtab-ic" aria-hidden="true">${cur.ic}</span><span class="mtab-l">${esc(cur.label)}</span><span class="mtab-dots" aria-hidden="true">${ts.map(t => `<i${t.on ? ' class="on"' : ''}></i>`).join('')}</span><span class="mtab-chev">${MTAB_CHEV}</span></button>`; if (el._h !== h) { el._h = h; el.innerHTML = h; } } // (only redrawn when it changes)
   const m = document.getElementById('mtabmenu'); if (m) mtabFill(m);
 }
 function mtabFill(m) { const ts = mtabTabs();
@@ -2273,10 +2315,16 @@ function postSheetRoll(t) {
     const h = document.getElementById('sec-header'); if (!h) return;
     const pw = h.querySelector('.portrait-wrap'), id = h.querySelector('.ident.noid'), nb = id && id.querySelector('.namebox');
     if (!pw) return;
-    if (!nb || document.documentElement.classList.contains('mobile')) { pw.style.width = pw.style.height = ''; return; }
-    const top = id.querySelector('.ident-top') || nb, fill = Math.round(Math.max(64, Math.min(148, top.getBoundingClientRect().height, h.querySelector('.ident').getBoundingClientRect().height)));
-    if (pw.style.width !== fill + 'px') pw.style.width = pw.style.height = fill + 'px';
+    if (pw.style.width) pw.style.width = pw.style.height = '';
+    if (!nb || document.documentElement.classList.contains('mobile')) { h.style.removeProperty('--pwf'); return; }
+    // (kept on the header itself, so a portrait drawn again when the sheet redraws its top bar is the right size at once,
+    // instead of starting big and shrinking, which would make everything beside it jump)
+    // (measured from the name and the level box beside it, not the whole row: the toolbar's wrapping depends on how wide
+    // the portrait is, so measuring that too would make them keep resizing each other)
+    const lv = id.querySelector('.lvlbox'), fill = Math.round(Math.max(64, Math.min(148, Math.max(nb.getBoundingClientRect().height, lv ? lv.getBoundingClientRect().height : 0))));
+    if (h.style.getPropertyValue('--pwf') !== fill + 'px') h.style.setProperty('--pwf', fill + 'px');
   };
+  window.__pwFit = fit;
   const wire = () => {
     const h = document.getElementById('sec-header'); if (!h) return setTimeout(wire, 300);
     ro = new ResizeObserver(fit);
@@ -3141,7 +3189,7 @@ function render(...names) {
   (names.length ? names : Object.keys(SECTIONS)).forEach(n => { RENDERING = n; SECTIONS[n](); });
   applyPanelLayout();
   renderTabs();
-  $$('textarea.f').forEach(grow);
+  growAll($$('textarea.f'));
   fitItemRows(); fitToolbar(); fitAtkRows(); requestAnimationFrame(alignHpSide);
   // Slide the selected-tab highlight from where it was to the new choice.
   $$('.seg-ind[data-to]').forEach(e => { void e.offsetWidth; e.style.setProperty('--i', e.dataset.to); e.removeAttribute('data-to'); });
@@ -3154,10 +3202,12 @@ function renderOthers() {
   Object.keys(SECTIONS).filter(n => !$(SECTION_EL[n]).contains(a)).forEach(n => { RENDERING = n; SECTIONS[n](); });
   applyPanelLayout();
   renderTabs();
-  $$('textarea.f').forEach(grow);
+  growAll($$('textarea.f'));
   refresh(); fitAtkRows();
 }
 function grow(t) { if (!t.offsetParent) return; t.style.height = 'auto'; t.style.height = (t.scrollHeight + 2) + 'px'; }
+// Many boxes at once: every box is measured in one go and then sized, instead of the page being laid out again for each.
+function growAll(list) { const ts = [...list].filter(t => t.offsetParent); ts.forEach(t => { t.style.height = 'auto'; }); const hs = ts.map(t => t.scrollHeight); ts.forEach((t, i) => { t.style.height = (hs[i] + 2) + 'px'; }); }
 
 // ---------- Derived values ----------
 function calcText(key) {
@@ -3272,6 +3322,7 @@ function fxTip(e) {
 function refresh() {
   if (!S.created) return;
   $$('[data-calc]').forEach(el => { const t = calcText(el.dataset.calc); if (el.textContent !== t) el.textContent = t; });
+  if (typeof fitSubtitle === 'function') fitSubtitle();
   fitCoins();
   $$('[data-calc-title]').forEach(el => el.title = calcText(el.dataset.calcTitle));
   $$('[data-calc-html]').forEach(el => {
@@ -3480,9 +3531,12 @@ function mainClick(e) {
     case 'resetturn': S.turn.haste = false; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.attacks = 0; S.turn.atkWith = []; S.turn.lightAtk = false; S.turn.speed0 = ''; S.turn.sneak = false; S.turn.readied = null; update(); render('combat'); toast(`Turn reset — round ${N(S.turn.round) || 1} actions are ready again.`); break;
     case 'fullscreen': if (fsOn()) { FS_USER_OFF = true; fsExit(); } else { FS_USER_OFF = false; fsEnter(); } break;
     case 'tab': { const prev = UI.tab, nt = b.dataset.tab, mini = !!b.closest('.cmini'), mob = isMobile() && !mini;
-      const go = () => { tabFadeT = 0; renderTabs(); if (prev !== nt && !mini) tabPageAnim(prev, nt); requestAnimationFrame(alignHpSide);
+      const hov = !mob && prev !== nt && b.matches(':hover');
+      const go = () => { tabFadeT = 0; renderTabs(); if (prev !== nt && !mini) tabPageAnim(prev, nt);
+        // (the tab you clicked keeps its hover highlight until the sliding one gets there)
+        if (hov) { const t = $(`#tabs .tab[data-tab="${nt}"]`); if (t) { t.classList.add('tkeep'); requestAnimationFrame(() => requestAnimationFrame(() => t.classList.remove('tkeep'))); } } requestAnimationFrame(alignHpSide);
         if (mob) { const pg = $('#page-' + nt), keep = pg ? Math.min(TABSCROLL[prev] || 0, Math.max(0, pg.getBoundingClientRect().top + scrollY - 12)) : 0; window.scrollTo(0, prev === nt ? 0 : (TABSCROLL[nt] != null ? TABSCROLL[nt] : keep)); }
-        $$('#page-' + UI.tab + ' textarea.f').forEach(grow); fitItemRows(); if (mini) window.scrollTo(0, 0); };
+        growAll($$('#page-' + UI.tab + ' textarea.f')); fitItemRows(); if (mini) window.scrollTo(0, 0); };
       if (tabFadeT) { clearTimeout(tabFadeT.t); tabFadeT.go(); }
       TABSCROLL[prev] = scrollY; UI.tab = nt; saveUI();
       // phones: the tab highlight moves straight away, the old page fades out, then the new one fades in at its own scroll spot
@@ -3523,8 +3577,8 @@ function mainClick(e) {
       const kk = b.dataset.key, pg = /^cg:sptab:/.test(kk) ? 'spells' : /^(econedit|fopt:|cg:)/.test(kk) ? 'combat' : /^atk:/.test(kk) ? 'core' : /^(item:|invshut:|bagedit:)/.test(kk) ? 'inventory' : /^(fedit:|ffull:|subedit:|xsub:|featsedit)/.test(kk) ? 'features' : 'spells';
       render(pg); return;
     }
-    case 'filter': S.spellFilter = b.dataset.f; save(); render('spells'); $$('#page-spells textarea.f').forEach(grow); refresh(); break;
-    case 'featfilter': UI.featFilter = b.dataset.f; saveUI(); render('features'); $$('#page-features textarea.f').forEach(grow); refresh(); pendingLabel = null; return;
+    case 'filter': S.spellFilter = b.dataset.f; save(); render('spells'); growAll($$('#page-spells textarea.f')); refresh(); break;
+    case 'featfilter': UI.featFilter = b.dataset.f; saveUI(); render('features'); growAll($$('#page-features textarea.f')); refresh(); pendingLabel = null; return;
     case 'cast': castSpell(i, b.dataset.col); break;
     case 'castgo': castGo(b); break;
     case 'readypay': readyPay(b.dataset.k, N(b.dataset.l)); break;
@@ -5445,7 +5499,15 @@ function fitInput(el) {
 }
 // The character name shrinks to fit its box (never cut off); full name on hover.
 let _fitCv;
+// (the size found for a name is remembered until the window or fonts change, so redrawing the sheet doesn't measure it again)
+let FIT_GEN = 0; const FIT_C = new Map();
+addEventListener('resize', () => { FIT_GEN++; FIT_C.clear(); });
+try { document.fonts.addEventListener('loadingdone', () => { FIT_GEN++; FIT_C.clear(); document.querySelectorAll('input.name[data-fit]').forEach(fitNameFont); }); } catch (e) {}
 function fitNameFont(el) {
+  const fk = (el.value || el.placeholder || '') + '|' + el.className + '|' + (UI && UI.editLayout ? 1 : 0) + '|' + (el.parentElement ? el.parentElement.clientWidth : 0) + '|' + document.documentElement.style.fontSize; // (and the room it has, and the text size setting) if (FIT_C.has(fk)) { const v = FIT_C.get(fk); if (el.style.fontSize !== v) el.style.fontSize = v; el.title = el.value || ''; return; }
+  fitNameFont0(el); if (el.clientWidth > 0) FIT_C.set(fk, el.style.fontSize);
+}
+function fitNameFont0(el) {
   el.style.fontSize = ''; const w = (el.clientWidth - 14) * 0.93; if (w <= 0) return;
   const cs = getComputedStyle(el), base = parseFloat(cs.fontSize), ctx = (_fitCv = _fitCv || document.createElement('canvas')).getContext('2d');
   ctx.font = `${cs.fontWeight} ${base}px ${cs.fontFamily}`;
@@ -5765,13 +5827,13 @@ function renderRaceChange() {
 }
 function openBgChange() {
   RC = { kind: 'bg', removeOld: true, custom: Object.assign({ name: '', feature: '', desc: '' }, S.background === 'custom' ? { name: S.backgroundName, ...(S.bgCustom || {}) } : {}) };
-  W = { bg: S.background, ans: {} };
+  W = { bg: S.background, ans: {} }; delete WZ3M['rcbg:q']; delete WZ3M['rcbg:s'];
   openModal('<div id="rcmodal"></div>', () => { RC = null; W = null; }, true); renderBgChange();
 }
 function renderBgChange() {
   const b = DND.backgrounds[W.bg], c = RC.custom, cust = W.bg === 'custom';
   $('#rcmodal').innerHTML = `<h3>Change background</h3>
-    <div class="wz-grid">${fld('Background', `<select class="f" data-rc="bg"><option value="">— choose —</option>${bookSort(Object.entries(DND.backgrounds), ([, v]) => v.src, ([, v]) => v.name).filter(([k]) => k !== 'custom').map(([k, v]) => `<option value="${k}"${W.bg === k ? ' selected' : ''}>${esc(v.name)}${v.src !== 'PHB' ? ' (' + v.src + ')' : ''}</option>`).join('')}<option value="custom"${cust ? ' selected' : ''}>✎ Custom background…</option></select>`)}</div>
+    ${wz3List('bg')}<div class="wz-grid wz3-hid">${fld('Background', `<select class="f" data-rc="bg"><option value="">— choose —</option>${bookSort(Object.entries(DND.backgrounds), ([, v]) => v.src, ([, v]) => v.name).filter(([k]) => k !== 'custom').map(([k, v]) => `<option value="${k}"${W.bg === k ? ' selected' : ''}>${esc(v.name)}${v.src !== 'PHB' ? ' (' + v.src + ')' : ''}</option>`).join('')}<option value="custom"${cust ? ' selected' : ''}>✎ Custom background…</option></select>`)}</div>
     ${cust ? `<div class="wz-grid">${fld('Background name', `<input class="f" data-rc="name" value="${esc(c.name)}" placeholder="e.g. Smuggler">`)}${fld('Feature name', `<input class="f" data-rc="feature" value="${esc(c.feature)}" placeholder="e.g. Hidden Routes">`)}</div>
       ${fld('What the feature does', `<textarea class="f" rows="3" data-rc="desc">${esc(c.desc)}</textarea>`)}` : ''}
     ${b ? `<div class="wz-info">${b.skills && b.skills.length ? `<p><b>Skills:</b> ${esc(b.skills.join(', '))}${b.tools && b.tools.length ? ` · <b>Tools:</b> ${esc(b.tools.join(', '))}` : ''}</p>` : ''}${!cust ? `<p><b>Feature:</b> ${esc(b.feature[0])} — ${esc(b.feature[1])}</p>` : ''}
@@ -5780,7 +5842,12 @@ function renderBgChange() {
       ${b.langs ? choiceUI(W.ans, 'bg.lang', { type: 'language', n: b.langs }) : ''}</div>` : ''}
     <label class="checkline" style="margin-top:8px"><input type="checkbox" data-rc="removeOld"${RC.removeOld ? ' checked' : ''}> Remove the skills and tools ${esc(S.backgroundName || 'my old background')} gave me</label>
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="rcok">Change background</button></div>`;
+  // (the same searchable list as character creation; its choices of skills, tools and languages are lists too)
+  const bx = $('#rcmodal > .wz3-pick'); if (bx) wz3Keep(bx, 'rcbg');
+  if (typeof wz3ChoiceLists === 'function') wz3ChoiceLists('#rcmodal');
 }
+document.addEventListener('change', e => { const r = e.target.closest && e.target.closest('#rcmodal input[data-pick="bg"]'); if (!r || !RC) return; const sel = $('#rcmodal [data-rc="bg"]'); if (!sel) return;
+  const box = r.closest('.wz3-pick'); const go = () => { sel.value = r.dataset.v; sel.dispatchEvent(new Event('change', { bubbles: true })); }; if (box && typeof wz3Commit === 'function') wz3Commit(box, go); else go(); });
 document.addEventListener('input', e => { const t = e.target; if (!t.dataset || t.dataset.rc === undefined || !RC) return; rcField(t, e.type); }, true);
 document.addEventListener('change', e => { const t = e.target; if (!t.dataset || t.dataset.rc === undefined || !RC) return; rcField(t, e.type); }, true);
 function rcField(t, type) {
@@ -6189,15 +6256,31 @@ function applyCardFx(card, fx) {
   return esc(out.join(' · '));
 }
 window.addEventListener('resize', () => $$('input.f.name').forEach(fitNameFont));
+// The line under the name (race · class · background) never runs past two lines on a computer: a long one gets smaller
+// type instead, so the top bar is the same height for every character. (Remembered per text and width.)
+let SUB_K = '';
+function fitSubtitle() { const el = $('.namebox .subtitle'); if (!el) return;
+  if (isMobile()) { if (el.style.fontSize) el.style.fontSize = ''; SUB_K = ''; return; }
+  const k = el.textContent + '|' + (el.parentElement ? el.parentElement.clientWidth : 0) + '|' + document.documentElement.style.fontSize; if (k === SUB_K && el._fit) return; SUB_K = k; el._fit = 1;
+  el.style.fontSize = ''; if (!el.textContent || !el.offsetParent) return; const base = parseFloat(getComputedStyle(el).fontSize) || 15;
+  const lines = () => { const cs = getComputedStyle(el), lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2; return Math.round(el.clientHeight / lh); };
+  el.classList.remove('sub2'); el.removeAttribute('title');
+  let px = base; while (lines() > 2 && px > base * 0.72) { px -= 0.5; el.style.fontSize = px + 'px'; }
+  // (still more than two lines at the smallest size: it stops after two, and the whole of it shows on hover)
+  if (lines() > 2) { el.classList.add('sub2'); el.title = el.textContent; } }
+window.addEventListener('resize', () => { SUB_K = ''; fitSubtitle(); });
 
 // Desktop header stays one row: when the toolbar would wrap, its buttons drop their words and keep their icons.
 // Toolbar labels fold away one button at a time (least-used first) only when the row would wrap, and come back as soon as there's room.
 const TB_FOLD = ['edit', 'history', 'redo', 'undo', 'settings', 'save'];
 function fitToolbar() {
   const tb = $('.toolbar'); if (!tb) return;
+  // (the site's Tome button row goes back into a freshly drawn toolbar first, so it's measured as it will look)
+  if (typeof window.pgHubRow === 'function') try { window.pgHubRow(); } catch (e) {}
+  if (typeof window.__pwFit === 'function') try { window.__pwFit(); } catch (e) {} // (and the portrait beside it at its size)
   tb.classList.remove('tb-compact', 'tb-wrap'); $$('.toolbar .nolbl').forEach(k => k.classList.remove('nolbl'));
   if (isMobile()) return;
-  const kids = [...tb.children].filter(k => k.offsetParent !== null); if (kids.length < 2) return;
+  const kids = [...tb.children].filter(k => k.offsetParent !== null && !k.classList.contains('pg-hubrow')); if (kids.length < 2) return; // (the site's own row above the buttons doesn't count)
   const tight = () => { const b0 = kids[0].getBoundingClientRect().bottom; return kids.some(k => k.getBoundingClientRect().top >= b0 - 2) || tb.scrollWidth > tb.clientWidth + 2; };
   for (const key of TB_FOLD) { if (!tight()) return; const el = tb.querySelector(`[data-zi="${key}"]`); if (el) el.classList.add('nolbl'); }
   if (!tight()) return;
@@ -9193,7 +9276,9 @@ function ptyChatPopOut() { try { const p = JSON.parse(localStorage.getItem('dnd-
 // Phones: the on-screen keyboard covers the bottom of the page without resizing it, so bottom sheets (chat, dice
 // roller) are lifted by however much of the screen the keyboard takes, and kept short enough to fit above it.
 (() => { const vv = window.visualViewport; if (!vv) return; const de = document.documentElement;
-  const upd = () => { const kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)); de.style.setProperty('--kb', kb + 'px'); de.style.setProperty('--vvh', Math.round(vv.height) + 'px'); de.style.setProperty('--vvt', Math.round(vv.offsetTop) + 'px'); const ae = document.activeElement, typing = !!(ae && ae.matches && ae.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea') && ae.closest('#pcwin, #drwin')), up = isMobile() && (typing || innerHeight - vv.height > 120), was = de.classList.contains('kbup'); de.classList.toggle('kbup', up);
+  // (each value is only written when it changes: writing to the page's root makes the browser restyle everything)
+  const setv = (k, v) => { if (de.style.getPropertyValue(k) !== v) de.style.setProperty(k, v); };
+  const upd = () => { const kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)); setv('--kb', kb + 'px'); setv('--vvh', Math.round(vv.height) + 'px'); setv('--vvt', Math.round(vv.offsetTop) + 'px'); const ae = document.activeElement, typing = !!(ae && ae.matches && ae.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea') && ae.closest('#pcwin, #drwin')), up = isMobile() && (typing || innerHeight - vv.height > 120), was = de.classList.contains('kbup'); if (up !== was) de.classList.toggle('kbup', up);
     // when the keyboard comes up, the chat jumps to its newest message
     if (up && !was) setTimeout(() => { const l = document.querySelector('#pcwin .ptychat-l'); if (l) l.scrollTop = l.scrollHeight; }, 60); };
   vv.addEventListener('resize', upd); vv.addEventListener('scroll', upd); upd();
@@ -9204,7 +9289,9 @@ function winNoBleed(w) { let y0 = 0; w.addEventListener('touchstart', e => { y0 
   w.addEventListener('touchmove', e => { if (e.touches.length > 1) return; const dy = e.touches[0].clientY - y0; let el = e.target;
     while (el && el !== w.parentNode) { const cs = getComputedStyle(el); if (/(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 1) { const top = el.scrollTop <= 0, bot = el.scrollTop + el.clientHeight >= el.scrollHeight - 1; if (!(dy > 0 && top) && !(dy < 0 && bot)) return; break; } if (el === w) break; el = el.parentElement; }
     if (e.cancelable) e.preventDefault(); }, { passive: false }); }
-function winClose(w) { if (!w || w.classList.contains('closing')) return; w.id = ''; w.classList.add('closing'); const go = () => w.remove();
+function winClose(w) { if (!w || w.classList.contains('closing')) return; w.id = ''; w.classList.add('closing');
+  // (a closing window can't be used any more, by keyboard either: its buttons would act a second time)
+  if (w.contains(document.activeElement)) document.activeElement.blur(); w.inert = true; const go = () => w.remove();
   if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return go(); setTimeout(go, isMobile() ? 240 : 190); }
 function ptyChatDock() { UI.chatPop = false; if (typeof saveUI === 'function') saveUI(); const w = $('#pcwin'); if (w) winClose(w); render('party'); }
 document.addEventListener('change', e => { const t = e.target; if (!t.dataset || t.dataset.aura == null) return; ptyAura(t.dataset.aura, t.dataset.id, t.checked); });
@@ -9621,7 +9708,7 @@ function ptyDesc(m) { const d = m.data || {}, why = d.why && d.why !== m.fromNam
 // who, and what they're doing to you. Yes or No.
 function ptyAskShow() {
   const A = S.ptyAsk || []; let ov = $('#ptyask-ov');
-  if (!A.length || !S.created) { if (ov) ov.remove(); setTimeout(() => ptyMsgShow(), 50); return; }
+  if (!A.length || !S.created) { if (ov) winClose(ov); setTimeout(() => ptyMsgShow(), 50); return; }
   if (!ov) { ov = document.createElement('div'); ov.id = 'ptyask-ov'; ov.className = 'ptyask-bg'; document.body.appendChild(ov); }
   const a = A[0], d = ptyDesc(a.m), what = d.charAt(0).toLowerCase() + d.slice(1);
   ov.innerHTML = `<div class="ptyask-m" role="alertdialog" aria-modal="true" aria-labelledby="ptyask-q">
@@ -9823,7 +9910,7 @@ function ptyMsgShow(who, text) { if (who != null) PTY_MSGQ.push({ who, text, at:
   const m = PTY_MSGQ[0], ov = document.createElement('div'); ov.id = 'ptymsg-ov'; ov.className = 'ptyask-bg ptymsg-bg';
   ov.innerHTML = `<div class="ptymsg-m" role="alertdialog" aria-modal="true" aria-labelledby="ptymsg-h"><div class="ptymsg-top"><span class="ptymsg-ic" aria-hidden="true">✉</span><div><small>Message from</small><b id="ptymsg-h">${esc(m.who)}</b></div>${PTY_MSGQ.length > 1 ? `<span class="ptymsg-n">1 of ${PTY_MSGQ.length}</span>` : ''}</div>
     <div class="ptymsg-t">${esc(m.text).replace(/\n/g, '<br>')}</div><div class="ptymsg-b"><button class="btn gold" id="ptymsg-ok">${PTY_MSGQ.length > 1 ? 'Next' : 'OK'}</button></div></div>`;
-  document.body.appendChild(ov); const ok = ov.querySelector('#ptymsg-ok'); ok.onclick = () => { PTY_MSGQ.shift(); ov.remove(); ptyMsgShow(); };
+  document.body.appendChild(ov); const ok = ov.querySelector('#ptymsg-ok'); ok.onclick = () => { PTY_MSGQ.shift(); winClose(ov); ptyMsgShow(); };
   if (!matchMedia('(pointer:coarse)').matches) setTimeout(() => ok.focus(), 30); }
 
 
@@ -9928,7 +10015,7 @@ try { if (localStorage.getItem(PCHAT_KEY()) === '1') document.documentElement.cl
 const PCHAT_T0 = Date.now();
 function ptyUnreadMark() { setTimeout(() => { if (typeof mtabSync === 'function') mtabSync(); }, 0); const P0 = PTYX(), on = !!(P0 && ptyOn() && P0.chat && P0.chat.on());
   // shown the moment chat is there; only hidden once the page has had a few seconds to connect
-  if (on || Date.now() - PCHAT_T0 > 6000) { document.documentElement.classList.toggle('pchat', on); try { localStorage.setItem(PCHAT_KEY(), on ? '1' : '0'); } catch (e) {} }
+  if (on || Date.now() - PCHAT_T0 > 6000) { document.documentElement.classList.toggle('pchat', on); try { if (localStorage.getItem(PCHAT_KEY()) !== (on ? '1' : '0')) localStorage.setItem(PCHAT_KEY(), on ? '1' : '0'); } catch (e) {} }
   { const cb = document.querySelector('.devbtn.chatbtn'); if (cb) { const n = $('#pcwin') ? 0 : PTY_UNREAD; cb.classList.toggle('unread', n > 0); if (n > 0) cb.dataset.unread = n > 9 ? '9+' : n; else delete cb.dataset.unread; } }
   ptyChatSeen();
   const t = document.querySelector('.tab[data-tab="party"]'); if (!t) return; if ((UI.tab === 'party' || $('#pcwin')) && !document.hidden) PTY_UNREAD = 0; t.classList.toggle('unread', PTY_UNREAD > 0); if (PTY_UNREAD > 0) t.dataset.unread = PTY_UNREAD > 9 ? '9+' : PTY_UNREAD; else delete t.dataset.unread; }
@@ -11153,6 +11240,16 @@ function kitItems() {
 }
 function renderWizard() {
   if (!W) return;
+  // Redrawing the same step (after any pick) never moves your scroll: remember every scrolling box and put it back
+  const keepKey = W.step + '|' + (W.part || ''), keepSame = W._keepKey === keepKey; W._keepKey = keepKey;
+  const KS = ['#wizard', '#wizard .wz-box', '#wizard .wz3-wrap', '#wizard .wz3-main', '#wizard .wz-body', '#wizard .wz3-side'];
+  const keep = keepSame ? KS.map(q => { const e = $(q); return e ? e.scrollTop : 0; }) : null, keepWin = keepSame ? [scrollX, scrollY] : null;
+  try { renderWizard0(); } finally {
+    if (keep) { const put = () => { KS.forEach((q, i) => { const e = $(q); if (e && keep[i] && e.scrollTop !== keep[i]) e.scrollTop = keep[i]; }); if (keepWin && (scrollY !== keepWin[1])) window.scrollTo(keepWin[0], keepWin[1]); };
+      put(); requestAnimationFrame(put); }
+  }
+}
+function renderWizard0() {
   const st = W.step;
   let body = '';
   if (st === 0) {
@@ -11266,10 +11363,13 @@ function renderWizard() {
     if (W.method === 'array' || W.method === 'roll') { if (AB.some(a => W.base[a] === '')) probs.push('Assign all ability scores'); }
     const todo = wzUnanswered();
     wzClassChoiceDefs().forEach(d => { const op = DND.options[d.def.type]; if (!op) return; const r = W.classes.find(x => x.key === d.cls) || {}; (W.ans[d.id] || []).forEach(v => { const e = op.list.find(x => x[0] === v); const no = e && optPrereq(e[2], { CH: W.ans, cls: d.cls, level: N(r.level), sub: r.sub }); if (no) probs.push(`${v} ${no}`); }); });
-    body = `<div class="wz-review"><p><b>${esc(W.name || 'Unnamed hero')}</b> — ${esc(x ? x.name : '?')} ${esc(wzClassRows().map(r => CL[r.key].name + ' ' + r.level + (r.sub ? ' (' + CL[r.key].subclasses[r.sub].name + ')' : '')).join(' / '))}${b ? ' · ' + esc(b.name) : ''}</p>
+    const P = window.wzHeader ? wzPreview() : null;
+    const todoH = `${todo.length ? `<div class="wz-todo"><b>Still to choose:</b><ul>${todo.map(t => `<li>${esc(t.label)} <button class="linkbtn" data-wact="go" data-v="${t.step}">Choose</button></li>`).join('')}</ul><span class="hint">You can create now and finish these later ${todo.every(t => t.step === 6) ? 'from the <b>Spells</b> tab' : todo.some(t => t.step === 6) ? 'from the <b>Spells</b> tab and <b>Settings → Unfinished choices</b>' : 'from <b>Settings → Unfinished choices</b>'}.</span></div>` : ''}
+      ${probs.length ? `<p class="warn">${probs.map(esc).join(' · ')}</p>` : todo.length ? '' : '<p>Everything is set. You can change anything later — scores, skills, spells and items are all editable on the sheet.</p>'}`;
+    if (P) body = `<div class="wz-review wz3-rv">${todoH}${P}</div>`;
+    else body = `<div class="wz-review"><p><b>${esc(W.name || 'Unnamed hero')}</b> — ${esc(x ? x.name : '?')} ${esc(wzClassRows().map(r => CL[r.key].name + ' ' + r.level + (r.sub ? ' (' + CL[r.key].subclasses[r.sub].name + ')' : '')).join(' / '))}${b ? ' · ' + esc(b.name) : ''}</p>
       <div class="abrow">${(() => { const fin = wzFinalScores(sc); return AB.map(a => `<span><span class="lbl">${AB3[a]}</span><b>${fin[a]}</b> ${fmt(Math.floor((fin[a] - 10) / 2))}${fin[a] !== sc[a] ? `<small class="hint"> (${sc[a]} +${fin[a] - sc[a]})</small>` : ''}</span>`).join(''); })()}</div>
-      ${todo.length ? `<div class="wz-todo"><b>Still to choose:</b><ul>${todo.map(t => `<li>${esc(t.label)} <button class="linkbtn" data-wact="go" data-v="${t.step}">Choose</button></li>`).join('')}</ul><span class="hint">You can create now and finish these later ${todo.every(t => t.step === 6) ? 'from the <b>Spells</b> tab' : todo.some(t => t.step === 6) ? 'from the <b>Spells</b> tab and <b>Settings → Unfinished choices</b>' : 'from <b>Settings → Unfinished choices</b>'}.</span></div>` : ''}
-      ${probs.length ? `<p class="warn">${probs.map(esc).join(' · ')}</p>` : todo.length ? '' : '<p>Everything is set. You can change anything later — scores, skills, spells and items are all editable on the sheet.</p>'}
+      ${todoH}
       <p class="hint">Scores include racial bonuses, Ability Score Improvements and half-feats.</p></div>`;
   }
   const sums = wz3Sums(), VS = wz3Steps(), vi = wz3Cur(VS), V = VS[vi] || { label: WSTEPS[st] }, last = vi === VS.length - 1;
@@ -11465,7 +11565,8 @@ function wz3Steps() {
   try { sp = !W.classes[0] || !W.classes[0].key || wzSpellPlan().length > 0; } catch (e) {}
   const L = [{ st: 0, label: 'Start' }, { st: 1, part: 'pick', label: 'Race' }];
   // (until the race or class is picked, the steps it might need stay in the list, marked as maybe, so the count only ever goes down)
-  if (ro) L.push({ st: 1, part: 'opts', label: 'Race options', maybe: !x });
+  // (the downloadable sheet shows the race and its options on one page)
+  if (ro && window.wzHeader) L.push({ st: 1, part: 'opts', label: 'Race options', maybe: !x });
   L.push({ st: 2, label: 'Class' }, { st: 3, label: 'Abilities' }, { st: 9, label: 'Features' }, { st: 4, label: 'Background' });
   if (co) L.push({ st: 5, label: 'Class options', maybe: noCls }); if (sp) L.push({ st: 6, label: 'Spells', maybe: noCls });
   L.push({ st: 7, label: 'Equipment' }, { st: 8, label: 'Review' });
@@ -11562,8 +11663,8 @@ function wizClick(e) {
   const b = e.target.closest('[data-wact]'); if (!b) return;
   const a = b.dataset.wact;
   switch (a) {
-    case 'next': if (window.wzHeader) { wz3Move(1); break; } W.step = Math.min(WSTEPS.length - 1, W.step + 1); break;
-    case 'back': if (window.wzHeader) { wz3Move(-1); break; } W.step = Math.max(0, W.step - 1); break;
+    case 'next': wz3Move(1); break;
+    case 'back': wz3Move(-1); break;
     case 'go': W.step = N(b.dataset.v); W.part = W.step === 1 && W.race ? 'opts' : ''; break;
     case 'vgo': { const v = wz3Steps()[N(b.dataset.v)]; if (v) { W.step = v.st; W.part = v.part || ''; } break; }
     case 'portrait': $('#portraitFile').click(); return;
@@ -11628,6 +11729,60 @@ function buildCharacter() {
   const x = wzRace(), rows = wzClassRows();
   if (!x || !rows.length) { toast('Choose at least a race and a class.', 'fumble'); W.step = !x ? 1 : 2; renderWizard(); return; }
   if (wzTotalLevel() > 20) { toast('Total level can be at most 20.', 'fumble'); W.step = 2; renderWizard(); return; }
+  wzBuildState();
+  S.created = true; S.notes = [{ date: new Date().toISOString().slice(0, 10), title: 'Character created', text: `${S.name}: ${S.raceName} ${classLabel()}${S.backgroundName ? ', ' + S.backgroundName : ''}.` }];
+  closeWizard();
+  LAST = snapAll(); HIST = []; REDO = [];
+  pendingLabel = 'Create character'; writeLocal(); save();
+  if (S.portrait) matchPortrait(false);
+  applyTheme(); applyLayout(); render();
+  toast(`<div><b>${esc(S.name)}</b> is ready!<div class="det">Everything auto-saves in this browser. Use <b>Save ▾ → Download</b> to keep a copy or share it.</div></div>`, 'crit', 10000);
+}
+// Review: build the character for real (into a scratch copy) and show everything it will have
+function wzPreview() {
+  if (!wzRace() || !wzClassRows().length) return null;
+  const keep = S; let h = '';
+  try {
+    wzBuildState();
+    const ed = (st, label) => `<button class="linkbtn wz3-rved" data-wact="go" data-v="${st}" aria-label="Change ${esc(label)}">Change</button>`;
+    const sec = (ic, title, sub, st, inner) => `<section class="wz3-fs"><header>${ic}<div><b>${esc(title)}</b>${sub ? `<span>${esc(sub)}</span>` : ''}</div>${st != null ? ed(st, title) : ''}</header>${inner}</section>`;
+    const facts = arr => `<div class="wz3-facts">${arr.filter(Boolean).map(([k, v]) => `<span><small>${esc(k)}</small>${esc(String(v))}</span>`).join('')}</div>`;
+    const chips = arr => arr.length ? `<div class="wz3-chips">${arr.map(v => `<i>${esc(v)}</i>`).join('')}</div>` : '<p class="hint">None</p>';
+    const sens = (typeof sensesText === 'function' ? sensesText() : '') || '';
+    // who
+    h += sec(WZI.steps[0], S.name, [S.raceName, classLabel(), S.backgroundName, S.alignment].filter(Boolean).join(' · '), 0,
+      facts([['Hit points', maxHp()], ['Armor Class', acTotal()], ['Initiative', fmt(initVal())], ['Speed', speedInfo().walk + ' ft'], ['Proficiency', fmt(PB())], ['Passive Perception', passive()], sens ? ['Senses', sens] : null]));
+    // scores and saves
+    const fin = AB.map(a => [a, score(a)]);
+    h += sec(WZI.steps[3], 'Ability scores', 'Racial bonuses, Ability Score Improvements and half-feats included', 3,
+      `<div class="wz3-rvab">${fin.map(([a, v]) => `<span><small>${AB3[a]}</small><b>${v}</b><i>${fmt(mod(a))}</i></span>`).join('')}</div>
+      <p class="wz3-rvh">Saving throws</p><div class="wz3-rvsv">${AB.map(a => `<span class="${S.saves[a] ? 'on' : ''}"><small>${ABN[a]}</small><b>${fmt(mod(a) + (S.saves[a] ? PB() : 0))}</b></span>`).join('')}</div>`);
+    // skills
+    const fe = fxList('skillExp'), fp = fxList('skillProf');
+    const sk = S.skills.map(k => { let p = N(k.prof); if (fe.includes(k.name)) p = Math.max(p, 2); else if (fp.includes(k.name)) p = Math.max(p, 1); return [k, p]; }).filter(([, p]) => p > 0);
+    h += sec(WZI.opts, 'Skills', sk.length + ' proficient', null, sk.length ? `<div class="wz3-rvsk">${sk.map(([k, p]) => `<span><b>${esc(k.name)}</b>${p > 1 ? ' <small>expertise</small>' : ''}<i>${fmt(skillVal(k))}</i></span>`).join('')}</div>` : '<p class="hint">None yet</p>');
+    // proficiencies
+    h += sec(WZI.shield, 'Proficiencies and languages', '', null,
+      `<p class="wz3-rvh">Armor</p>${chips(String(S.profArmor || '').split(/,\s*(?=[A-Z])/).filter(Boolean))}<p class="wz3-rvh">Weapons</p>${chips(String(S.profWeapons || '').split(/,\s*(?=[A-Z])/).filter(Boolean))}<p class="wz3-rvh">Tools</p>${chips(S.tools.map(t => t.name))}<p class="wz3-rvh">Languages</p>${chips(S.langs)}`);
+    // features and feats
+    const fs = (S.features || []).filter(f => f && f.name), by = {};
+    fs.forEach(f => { const g = f.source || 'Other'; (by[g] = by[g] || []).push(f); });
+    h += sec(WZI.feats, 'Features and feats', fs.length + ' features' + (S.feats.length ? `, ${S.feats.length} feat${S.feats.length > 1 ? 's' : ''}` : ''), 9,
+      `${S.feats.length ? `<p class="wz3-rvh">Feats</p>${chips(S.feats)}` : ''}${Object.entries(by).map(([g, l]) => `<p class="wz3-rvh">${esc(g)}</p><ul class="wz3-fl">${l.map(f => `<li><b>${esc(f.dname || f.name)}</b>${f.desc ? `<span>${esc(String(f.desc).split('\n')[0])}</span>` : ''}</li>`).join('')}</ul>`).join('')}`);
+    // spells
+    if (S.spells.length) { const lv = {}; S.spells.forEach(sp => { (lv[N(sp.level)] = lv[N(sp.level)] || []).push(sp.name); });
+      h += sec(WZI.steps[6] || WZI.opts, 'Spells', S.spells.length + ' known or prepared', 6, Object.keys(lv).sort((a, b) => a - b).map(l => `<p class="wz3-rvh">${l === '0' ? 'Cantrips' : ORD[N(l) - 1] + ' level'}</p>${chips(lv[l])}`).join('')); }
+    // equipment
+    const inv = (S.inventory || []).filter(it => it && it.name), cur = S.currency || {}, coin = ['pp', 'gp', 'ep', 'sp', 'cp'].filter(k => N(cur[k])).map(k => N(cur[k]) + ' ' + k);
+    h += sec(WZI.pack, 'Equipment', (inv.length ? inv.length + ' items' : 'No items') + (coin.length ? ', ' + coin.join(' ') : ''), 7,
+      inv.length ? `<div class="wz3-rvinv">${inv.map(it => `<span class="${it.equipped ? 'on' : ''}">${esc(it.name)}${N(it.qty) > 1 ? ` <i>×${N(it.qty)}</i>` : ''}${it.equipped ? ' <small>equipped</small>' : ''}</span>`).join('')}</div>` : '<p class="hint">Starting gold only</p>');
+  } catch (e) { console.warn('review preview', e); h = ''; }
+  finally { S = keep; }
+  return h || null;
+}
+// Everything the wizard makes, built into S (used to create the character, and to preview it on Review)
+function wzBuildState() {
+  const x = wzRace(), rows = wzClassRows();
   const sc = wzScores();
   S = migrate(Object.assign(blankState(), { dataRev: EMBED.dataRev || '', layout: S.layout || {} }));
   S.sources = W.sources.slice();
@@ -11699,13 +11854,6 @@ function buildCharacter() {
   S.combat = defaultCombat();
   rebuildAuto();
   S.hp.cur = maxHp();
-  S.created = true; S.notes = [{ date: new Date().toISOString().slice(0, 10), title: 'Character created', text: `${S.name}: ${S.raceName} ${classLabel()}${S.backgroundName ? ', ' + S.backgroundName : ''}.` }];
-  closeWizard();
-  LAST = snapAll(); HIST = []; REDO = [];
-  pendingLabel = 'Create character'; writeLocal(); save();
-  if (S.portrait) matchPortrait(false);
-  applyTheme(); applyLayout(); render();
-  toast(`<div><b>${esc(S.name)}</b> is ready!<div class="det">Everything auto-saves in this browser. Use <b>Save ▾ → Download</b> to keep a copy or share it.</div></div>`, 'crit', 10000);
 }
 
 
@@ -11970,7 +12118,7 @@ function cloudListen(ref, onFirst) {
       if (!owner && mine && S.created && !cloudRO && !(d && d.guestDone)) { S.savedAt = Date.now(); GUESTCLAIM = true; await cloudWrite(); return true; }
       if (S.created && (!d || N(d.savedAt) < N(S.savedAt))) {
         // A newer copy of the sheet file is replacing the synced one: never lose the player's own settings, theme or layout.
-        if (d && !cloudRO) { try { const txt = await cloudText(d); const old = txt && JSON.parse(txt); if (old && old.id === S.id) { keepPrefs(S, old); try { applyTheme(); render(); } catch (e) {} } } catch (e) {} }
+        if (d && !cloudRO) { try { const txt = await cloudText(d); const old = txt && JSON.parse(txt); if (old && old.id === S.id) { keepPrefs(S, old); hdrReset(S); try { applyTheme(); render(); } catch (e) {} } } catch (e) {} }
         if (!cloudRO) cloudWrite(); }
       else if (d) setSyncState(cloudRO ? 'Live · view only (you can\'t edit this sheet)' : 'Live · synced ' + clock());
     });

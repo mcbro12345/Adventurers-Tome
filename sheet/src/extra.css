@@ -3736,3 +3736,4 @@ html.mobile .modal-bg > .modal.mghost, html.mobile .modal-bg.open > .modal.mghos
 /* the tab names sit on the pill's middle by their capital letters, not by the line box (which leaves them a pixel high) */
 html:not(.mobile) #tabs .tlabel { position: relative; top: 1px; }
 html:not(.mobile) .namebox .subtitle.sub2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+html:not(.mobile) #sec-header:has(.ident.noid) .portrait-wrap { width: var(--pwf, 148px); height: var(--pwf, 148px); }

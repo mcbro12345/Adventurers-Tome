@@ -1492,9 +1492,10 @@ function wireDie(root) {
       hubRow(true); if (!de.classList.contains('pg-al')) de.classList.add('pg-al');
       // the toolbar is as tall as the level box beside it: the Tome row lines up with its top, the buttons with its bottom
       // (and starts where the level box starts, which sits lower when the name beside it runs onto several lines)
-      { const lr = lv.getBoundingClientRect(), tr = tb.getBoundingClientRect(), cur = parseFloat(tb.style.getPropertyValue('--pg-lvt')) || 0;
+      { const lr = lv.getBoundingClientRect(), tr = tb.getBoundingClientRect(), cur = parseFloat(de.style.getPropertyValue('--pg-lvt')) || 0;
         const lh = Math.round(lr.height) + 'px', lt = Math.max(0, Math.round((lr.top - tr.top + cur) * 2) / 2) + 'px';
-        if (tb.style.getPropertyValue('--pg-lvh') !== lh) tb.style.setProperty('--pg-lvh', lh); if (tb.style.getPropertyValue('--pg-lvt') !== lt) tb.style.setProperty('--pg-lvt', lt); }
+        // (kept on the page, not the toolbar, so a toolbar the sheet draws again has them straight away)
+        if (de.style.getPropertyValue('--pg-lvh') !== lh) de.style.setProperty('--pg-lvh', lh); if (de.style.getPropertyValue('--pg-lvt') !== lt) de.style.setProperty('--pg-lvt', lt); }
       placePres(); };
     let alignQ = 0; const alignSoon = () => { if (!alignQ) alignQ = requestAnimationFrame(() => { alignQ = 0; align(); }); };
     new MutationObserver(alignSoon).observe(document.body, { childList: true, subtree: true });

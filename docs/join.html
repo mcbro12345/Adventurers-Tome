@@ -13,7 +13,7 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.030704b77905.css">
+<link rel="stylesheet" href="a/sheet.d9cf32bb89f5.css">
 <link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="You’re invited to join a party on Adventurer’s Tome."><meta property="og:type" content="website"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="You’re invited to join a party"><meta property="og:description" content="Pick a character, or make a new one, and join your DM’s game on Adventurer’s Tome."><meta property="og:url" content="https://adventurers-tome.web.app/join/"><meta property="og:image" content="https://adventurers-tome.web.app/og-invite.png?v=2"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="2400"><meta property="og:image:height" content="1260"><meta property="og:image:alt" content="A party invitation on Adventurer’s Tome"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-tour.png?v=4"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest"><script>var t="dark";try{if(localStorage.getItem("pg-theme")==="light")t="light"}catch(e){}document.documentElement.setAttribute("data-pgtheme",t)</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
@@ -4077,7 +4077,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261025145654', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.dfdb2021d96d.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.a568bacf5a8b.html", "desk": "a/desk.09d5c7137ed8.js", "deskcss": "a/deskcss.d98a426c4548.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261025151139', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.e0408cbd0286.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.8450ec2ee4d4.html", "desk": "a/desk.09d5c7137ed8.js", "deskcss": "a/deskcss.d98a426c4548.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };
@@ -4898,9 +4898,10 @@ function wireDie(root) {
       hubRow(true); if (!de.classList.contains('pg-al')) de.classList.add('pg-al');
       // the toolbar is as tall as the level box beside it: the Tome row lines up with its top, the buttons with its bottom
       // (and starts where the level box starts, which sits lower when the name beside it runs onto several lines)
-      { const lr = lv.getBoundingClientRect(), tr = tb.getBoundingClientRect(), cur = parseFloat(tb.style.getPropertyValue('--pg-lvt')) || 0;
+      { const lr = lv.getBoundingClientRect(), tr = tb.getBoundingClientRect(), cur = parseFloat(de.style.getPropertyValue('--pg-lvt')) || 0;
         const lh = Math.round(lr.height) + 'px', lt = Math.max(0, Math.round((lr.top - tr.top + cur) * 2) / 2) + 'px';
-        if (tb.style.getPropertyValue('--pg-lvh') !== lh) tb.style.setProperty('--pg-lvh', lh); if (tb.style.getPropertyValue('--pg-lvt') !== lt) tb.style.setProperty('--pg-lvt', lt); }
+        // (kept on the page, not the toolbar, so a toolbar the sheet draws again has them straight away)
+        if (de.style.getPropertyValue('--pg-lvh') !== lh) de.style.setProperty('--pg-lvh', lh); if (de.style.getPropertyValue('--pg-lvt') !== lt) de.style.setProperty('--pg-lvt', lt); }
       placePres(); };
     let alignQ = 0; const alignSoon = () => { if (!alignQ) alignQ = requestAnimationFrame(() => { alignQ = 0; align(); }); };
     new MutationObserver(alignSoon).observe(document.body, { childList: true, subtree: true });
