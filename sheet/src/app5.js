@@ -1180,7 +1180,7 @@ function wzPreview() {
     h += sec(WZI.opts, 'Skills', sk.length + ' proficient', null, sk.length ? `<div class="wz3-rvsk">${sk.map(([k, p]) => `<span><b>${esc(k.name)}</b>${p > 1 ? ' <small>expertise</small>' : ''}<i>${fmt(skillVal(k))}</i></span>`).join('')}</div>` : '<p class="hint">None yet</p>');
     // proficiencies
     h += sec(WZI.shield, 'Proficiencies and languages', '', null,
-      `<p class="wz3-rvh">Armor</p>${chips(String(S.profArmor || '').split(/,\s*/).filter(Boolean))}<p class="wz3-rvh">Weapons</p>${chips(String(S.profWeapons || '').split(/,\s*/).filter(Boolean))}<p class="wz3-rvh">Tools</p>${chips(S.tools.map(t => t.name))}<p class="wz3-rvh">Languages</p>${chips(S.langs)}`);
+      `<p class="wz3-rvh">Armor</p>${chips(String(S.profArmor || '').split(/,\s*(?=[A-Z])/).filter(Boolean))}<p class="wz3-rvh">Weapons</p>${chips(String(S.profWeapons || '').split(/,\s*(?=[A-Z])/).filter(Boolean))}<p class="wz3-rvh">Tools</p>${chips(S.tools.map(t => t.name))}<p class="wz3-rvh">Languages</p>${chips(S.langs)}`);
     // features and feats
     const fs = (S.features || []).filter(f => f && f.name), by = {};
     fs.forEach(f => { const g = f.source || 'Other'; (by[g] = by[g] || []).push(f); });
