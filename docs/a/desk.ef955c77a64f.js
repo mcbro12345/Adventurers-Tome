@@ -312,6 +312,9 @@ const SPI = {}; DATA.spells.forEach(s => { SPI[s.n.toLowerCase()] = s; });
 const SRD = {}; DATA.monsters.forEach(m => { SRD[m.id] = m; });
 const ordinal = n => n + (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th');
 const ICON = {
+  undo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>',
+  redo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>',
+  hist: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>',
   hpDmg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M12.5 7.5 10.5 11l3 2-2 3.5"/></svg>',
   hpHeal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M12 9.5v6M9 12.5h6"/></svg>',
   hpTemp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6z"/><path d="M12 9v6M9 12h6"/></svg>',
@@ -357,7 +360,7 @@ function normalize(d) {
   s.sessions.forEach(x => { x.groups = (x.groups || []).filter(Boolean); if (!x.groups.length) x.groups.push({ id: 'g' + uid(), name: 'Creatures', list: [] }); x.groups.forEach(g => { g.list = (g.list || []).filter(Boolean); }); });
   return s;
 }
-function save() { S.savedAt = Date.now(); writeLocal(); cloudSoon(); syncTurnHP(); }
+function save() { S.savedAt = Date.now(); dCommit(); writeLocal(); cloudSoon(); syncTurnHP(); }
 const saveUI = () => writeLocal();
 
 // ---------- account storage ----------
@@ -397,7 +400,7 @@ async function pullAll() {
   next.sessions.sort((a, b) => N(b.made) - N(a.made));
   S = normalize(next); SYNCED.main = JSON.stringify(mainBody());
   SYNCED.ses.forEach((v, k) => { const s = S.sessions.find(x => x.id === k); if (s) SYNCED.ses.set(k, JSON.stringify(s)); });
-  writeLocal(); return true;
+  writeLocal(); dHistBase(); return true;
 }
 async function cloudBoot() {
   if (!CTX.fs || !CTX.EMAIL) { setSync('Saved on this device'); return; }
@@ -408,7 +411,7 @@ async function cloudBoot() {
     if (d && N(d.savedAt) >= N(S.savedAt)) { await pullAll(); render(); }
     else { // a desk that's new (or newer here): it still gets every creature you've made
       const cr = await CRE.get(); cr.docs.forEach(x => { const c = x.data().data; if (!c) return; if (!S.creatures[x.id]) S.creatures[x.id] = c; SYNCED.cre.set(x.id, JSON.stringify(c)); }); render(); }
-    CLOUD = true;
+    dHistBase(); CLOUD = true;
     if (!d || N(d.savedAt) < N(S.savedAt)) { if (!S.savedAt) S.savedAt = Date.now(); await flush(); } else setSync('Saved to your account');
   } catch (e) { console.warn('desk load', e); setSync('Offline — saved on this device'); }
 }
@@ -465,6 +468,107 @@ function addToGroup(s, g, cid, n) {
 function newSession(title) {
   const s = { id: 's' + uid(), title: title || 'Session ' + (S.sessions.length + 1), made: Date.now(), notes: '', groups: [{ id: 'g' + uid(), name: 'Encounter 1', notes: '', list: [] }] };
   S.sessions.unshift(s); UI.session = s.id; UI.sel = ''; UI.open[s.id] = true; return s;
+}
+// ---------- undo, redo and history (like the character sheet's) ----------
+// Every save compares the desk with the last snapshot, piece by piece (settings, each creature, each session, the order of
+// sessions), and records what each changed piece was before. Unchanged pieces share the same string, so snapshots are cheap.
+// Notes keep their own typing undo (Ctrl+Z inside the page).
+const DHMAX = 150;
+let DHIST = [], DREDO = [], DLAST = null, DPEND = null, DPEND_T = 0, DH_OFF = false;
+// names the next change (a name not used within a minute is kept but just called "Change")
+const dPend = l => { DPEND = l; DPEND_T = Date.now(); };
+function dSnap() {
+  const o = { settings: JSON.stringify(S.settings || {}), order: JSON.stringify(S.sessions.map(s => s.id)) };
+  for (const [id, c] of Object.entries(S.creatures || {})) { const j = JSON.stringify(c); o['cre:' + id] = DLAST && DLAST['cre:' + id] === j ? DLAST['cre:' + id] : j; }
+  for (const s of S.sessions) { const j = JSON.stringify(s); o['ses:' + s.id] = DLAST && DLAST['ses:' + s.id] === j ? DLAST['ses:' + s.id] : j; }
+  return o;
+}
+// the desk was just loaded or replaced (from this device or your account): start comparing from here
+function dHistBase() { DLAST = dSnap(); dHistButtons(); }
+function dHistLoad() { try { const h = lsGet('-hist'); if (Array.isArray(h)) DHIST = h.filter(e => e && e.keys); } catch (e) {} dHistBase(); }
+function dCommit() {
+  if (DH_OFF) return; if (!DLAST) { DLAST = dSnap(); return; }
+  // changes nobody asked for (the desk tidying itself up after loading, say) move the starting point but aren't listed
+  if (DPEND && Date.now() - DPEND_T > 60000) DPEND = 'Change';
+  if (!DPEND) { DLAST = dSnap(); return; }
+  const label = DPEND, merge = /^Edit: /.test(label); DPEND = null;
+  const cur = dSnap(), changed = {};
+  new Set([...Object.keys(cur), ...Object.keys(DLAST)]).forEach(k => { if (cur[k] !== DLAST[k]) changed[k] = DLAST[k] === undefined ? null : DLAST[k]; });
+  DLAST = cur; if (!Object.keys(changed).length) return;
+  const now = Date.now(), top = DHIST[DHIST.length - 1];
+  if (top && top.label === label && now - top.t < (merge ? 4000 : 1200)) { for (const k in changed) if (!(k in top.keys)) top.keys[k] = changed[k]; top.t = now; }
+  else DHIST.push({ t: now, label, keys: changed });
+  while (DHIST.length > DHMAX) DHIST.shift();
+  DREDO = []; dHistPersist(); dHistButtons();
+}
+function dApply(e) {
+  const inv = { t: e.t, label: e.label, keys: {} }; let order = null;
+  for (const k in e.keys) {
+    const v = e.keys[k];
+    if (k === 'settings') { inv.keys[k] = JSON.stringify(S.settings); S.settings = v === null ? DEF().settings : JSON.parse(v); continue; }
+    if (k === 'order') { inv.keys[k] = JSON.stringify(S.sessions.map(s => s.id)); order = v === null ? null : JSON.parse(v); continue; }
+    const [kind, id] = [k.slice(0, 3), k.slice(4)];
+    if (kind === 'cre') { inv.keys[k] = S.creatures[id] ? JSON.stringify(S.creatures[id]) : null; if (v === null) delete S.creatures[id]; else S.creatures[id] = JSON.parse(v); }
+    if (kind === 'ses') { const i = S.sessions.findIndex(s => s.id === id); inv.keys[k] = i >= 0 ? JSON.stringify(S.sessions[i]) : null;
+      if (v === null) { if (i >= 0) S.sessions.splice(i, 1); } else if (i >= 0) S.sessions[i] = JSON.parse(v); else S.sessions.push(JSON.parse(v)); }
+  }
+  if (order) { const at = new Map(order.map((id, i) => [id, i])); S.sessions.sort((a, b) => (at.has(a.id) ? at.get(a.id) : 1e9) - (at.has(b.id) ? at.get(b.id) : 1e9)); }
+  return inv;
+}
+function dAfter() {
+  S = normalize(S); if (UI.session && !S.sessions.some(s => s.id === UI.session)) UI.session = (S.sessions[0] || {}).id || '';
+  DLAST = dSnap(); DH_OFF = true; try { save(); } finally { DH_OFF = false; } dHistPersist(); render();
+}
+function dUndo(n = 1) { let c = 0, lb = ''; while (c < n && DHIST.length) { lb = DHIST[DHIST.length - 1].label; DREDO.push(dApply(DHIST.pop())); c++; } if (c) dAfter(); return [c, lb]; }
+function dRedo(n = 1) { let c = 0, lb = ''; while (c < n && DREDO.length) { lb = DREDO[DREDO.length - 1].label; DHIST.push(dApply(DREDO.pop())); c++; } if (c) dAfter(); return [c, lb]; }
+let dHT = 0;
+function dHistPersist() { clearTimeout(dHT); dHT = setTimeout(() => { let h = DHIST.slice(); for (;;) { try { localStorage.setItem(lsKey('-hist'), JSON.stringify(h)); return; } catch (e) { if (h.length <= 1) { try { localStorage.removeItem(lsKey('-hist')); } catch (x) {} return; } h = h.slice(Math.ceil(h.length / 2)); } } }, 600); }
+function dHistButtons() {
+  const u = $('.dk-tb[data-act="dundo"]'), r = $('.dk-tb[data-act="dredo"]'), lb = s => String(s).replace(/^Edit: /, '');
+  if (u) { u.disabled = !DHIST.length; u.title = DHIST.length ? `Undo: ${lb(DHIST[DHIST.length - 1].label)} (Ctrl+Z)` : 'Nothing to undo'; }
+  if (r) { r.disabled = !DREDO.length; r.title = DREDO.length ? `Redo: ${lb(DREDO[DREDO.length - 1].label)} (Ctrl+Y)` : 'Nothing to redo'; }
+}
+// what a click or an edit is called in the history
+const DACT = { atk: 'Attack roll', qdmg: 'Damage', qheal: 'Healing', hpdmg: 'Damage', hpheal: 'Healing', addc: 'Add a creature', toall: 'Send everyone to turn order', newsess: 'New session', delsess: 'Delete a session', settings: '' };
+function dLabelFrom(b) {
+  const a = b.dataset.act; if (a in DACT) return DACT[a] || null;
+  let t = b.getAttribute('aria-label') || b.getAttribute('title') || b.textContent || ''; t = t.replace(/\s+/g, ' ').trim();
+  return t ? (t.length > 48 ? t.slice(0, 46) + '…' : t) : null;
+}
+const dAgo = t => { const s = Math.round((Date.now() - t) / 1000); return s < 60 ? 'just now' : s < 3600 ? Math.round(s / 60) + ' min ago' : s < 86400 ? Math.round(s / 3600) + ' h ago' : Math.round(s / 86400) + ' d ago'; };
+const dTime = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+const dSince = ms => { const t0 = Date.now() - ms; let n = 0; for (let i = DHIST.length - 1; i >= 0 && DHIST[i].t >= t0; i--) n++; return n; };
+function dOpenHistory() {
+  const lb = s => esc(String(s).replace(/^Edit: /, ''));
+  const list = DHIST.slice().reverse().map((e, j) => `<li><span class="dk-htm" title="${esc(new Date(e.t).toLocaleString())}">${dTime(e.t)}</span><span class="dk-hl">${lb(e.label)} <small>· ${dAgo(e.t)}</small></span><button class="dk-btn sm" data-act="drewind" data-n="${j + 1}" title="Undo this change and everything after it">Rewind here</button></li>`).join('');
+  openModal(`<h2>Change history</h2><p class="dk-hint">Every change to the desk is recorded here, newest first (up to ${DHMAX}). Typing in one box counts as one change. Undo and Redo also work with Ctrl+Z and Ctrl+Y. Notes keep their own undo while you type in a page.</p>
+    <div class="dk-hrb"><b>Roll back the last</b>${[['1 min', 60000], ['5 min', 300000], ['15 min', 900000], ['1 hour', 3600000], ['Today', Date.now() - new Date().setHours(0, 0, 0, 0)]].map(([t, ms]) => `<button class="dk-chip" data-act="drbquick" data-ms="${ms}">${t} <small>${dSince(ms)}</small></button>`).join('')}</div>
+    ${DHIST.length ? `<ol class="dk-hist">${list}</ol>` : '<p class="dk-hint">No changes recorded yet.</p>'}
+    ${DREDO.length ? `<p class="dk-hint">${DREDO.length} undone change${DREDO.length === 1 ? '' : 's'} can be redone. <button class="dk-btn sm" data-act="dredoall">Redo all</button></p>` : ''}
+    <div class="dk-acts"><button class="dk-btn" data-act="close">Close</button></div>`);
+}
+function dRollback(n, what) {
+  if (!n) { toastInfo('Nothing to roll back in that time.'); return; }
+  const [c] = dUndo(n); closeModal(true);
+  toastInfo(`Rolled back ${c} change${c === 1 ? '' : 's'}${what ? ' from the last ' + esc(what) : ''}.`, [{ label: 'Redo', fn: () => dRedo(c) }]);
+}
+// returns true when it handled the click
+function dHistClick(b) {
+  const a = b.dataset.act;
+  if (a === 'dundo') { const [c, lb] = dUndo(1); if (c) toastInfo('Undid: ' + esc(String(lb).replace(/^Edit: /, '')), [{ label: 'Redo', fn: () => dRedo(1) }]); return true; }
+  if (a === 'dredo') { const [c, lb] = dRedo(1); if (c) toastInfo('Redid: ' + esc(String(lb).replace(/^Edit: /, ''))); return true; }
+  if (a === 'dhistory') { dOpenHistory(); return true; }
+  if (a === 'drewind') { dRollback(N(b.dataset.n)); return true; }
+  if (a === 'drbquick') { dRollback(dSince(N(b.dataset.ms)), b.firstChild.textContent.trim()); return true; }
+  if (a === 'dredoall') { const [c] = dRedo(DREDO.length); closeModal(true); toastInfo(`Redid ${c} change${c === 1 ? '' : 's'}.`); return true; }
+  return false;
+}
+// Ctrl+Z / Ctrl+Y (and Ctrl+Shift+Z) outside text boxes and notes pages
+function dHistKey(e) {
+  if (!(e.ctrlKey || e.metaKey) || e.altKey) return false; const k = e.key.toLowerCase(); if (k !== 'z' && k !== 'y') return false;
+  const el = e.target; if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return false;
+  e.preventDefault(); const [c, lb] = (k === 'y' || e.shiftKey) ? dRedo(1) : dUndo(1);
+  if (c) toastInfo(((k === 'y' || e.shiftKey) ? 'Redid: ' : 'Undid: ') + esc(String(lb).replace(/^Edit: /, ''))); return true;
 }
 // ---------- dice ----------
 function parseDice(expr) {
@@ -1393,7 +1497,7 @@ function econMini(x) { const t = turnOf(x), left = Math.max(0, moveMax(x) - N(t.
 
 function render() {
   if (!ROOT) return; try { edFlush(); } catch (e) {}
-  ROOT.querySelector('.dk-top').innerHTML = topHTML();
+  ROOT.querySelector('.dk-top').innerHTML = topHTML(); dHistButtons();
   { const lg = ROOT.querySelector('.dk-logo'); if (lg && CTX.logo && typeof CTX.logo.wire === 'function') try { CTX.logo.wire(lg); } catch (e) {} }
   paint(); paintDice(); try { pills(); } catch (e) {}
 }
@@ -1405,14 +1509,15 @@ function deskPill() {
 }
 function topHTML() {
   const b = CTX.back, p = CTX.party;
-  return `${b ? `<a class="dk-backlink" href="${esc(b.href)}">${ICON.back}<span>${esc(b.label || 'Back')}</span></a>` : ''}
-    <div class="dk-brand">${CTX.logo && typeof CTX.logo.html === 'function' ? `<span class="dk-logo">${CTX.logo.html()}</span>` : '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 2 36 11v18L20 38 4 29V11z" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M20 2v36M4 11l32 18M36 11 4 29" stroke="currentColor" stroke-width="1.2" opacity=".55"/></svg>'}<div><small>${p ? esc(p.name || 'Your party') : 'Adventurer’s Tome'}</small><h1>DM’s Desk</h1></div></div>
+  return `
+    <div class="dk-bcol"><div class="dk-brand">${CTX.logo && typeof CTX.logo.html === 'function' ? `<span class="dk-logo">${CTX.logo.html()}</span>` : '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 2 36 11v18L20 38 4 29V11z" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M20 2v36M4 11l32 18M36 11 4 29" stroke="currentColor" stroke-width="1.2" opacity=".55"/></svg>'}<div><small>${p ? esc(p.name || 'Your party') : 'Adventurer’s Tome'}</small><h1>DM’s Desk</h1></div></div></div>
     <nav class="dk-tabs" role="tablist">${CTX.partyHost ? `<button role="tab" data-act="tab" data-tab="party" aria-selected="${UI.tab === 'party'}" class="${UI.tab === 'party' ? 'on' : ''}">${ICO_PARTY}<span>Party</span></button>` : ''}<button role="tab" data-act="tab" data-tab="sessions" aria-selected="${UI.tab === 'sessions'}" class="${UI.tab === 'sessions' ? 'on' : ''}">${ICON.folder}<span>Sessions</span></button><button role="tab" data-act="tab" data-tab="notes" aria-selected="${UI.tab === 'notes'}" class="${UI.tab === 'notes' ? 'on' : ''}">${ICON.notes}<span>Notes</span></button><button role="tab" data-act="tab" data-tab="bestiary" aria-selected="${UI.tab === 'bestiary'}" class="${UI.tab === 'bestiary' ? 'on' : ''}">${ICON.book}<span>Bestiary</span></button><button role="tab" data-act="tab" data-tab="gen" aria-selected="${UI.tab === 'gen'}" class="${UI.tab === 'gen' ? 'on' : ''}">${ICON.dice}<span>Generate</span></button></nav>
-    <div class="dk-tools">
+    <div class="dk-tools"><span class="dk-sync">${esc(syncMsg)}</span>
+      <span class="dk-histb"><button class="dk-tb" data-act="dundo" aria-label="Undo">${ICON.undo}</button><button class="dk-tb" data-act="dredo" aria-label="Redo">${ICON.redo}</button><button class="dk-tb" data-act="dhistory" title="Change history" aria-label="Change history">${ICON.hist}</button></span>
       ${p && typeof CTX.turnOrder === 'function' ? `<button class="dk-tb dk-tobtn" data-act="turnorder" title="Turn order" aria-label="Turn order">${ICON.init}</button>` : ''}<button class="dk-tb" data-act="diceroller" title="Dice roller" aria-pressed="${!!$('.drwin:not(.closing)')}">${ICON.dice}<span class="dk-tl">Roll</span></button>
       <button class="dk-tb" data-act="log" title="Roll log" aria-pressed="${UI.log}">${ICON.log}<span class="dk-tl">Log</span></button>
-      <button class="dk-tb" data-act="settings" title="Settings">${ICON.gear}</button>${CTX && CTX.bugReport ? `<button class="dk-tb" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` : ''}</div>
-    <span class="dk-sync">${esc(syncMsg)}</span>`;
+      <button class="dk-tb" data-act="settings" title="Settings">${ICON.gear}</button>${CTX && CTX.bugReport ? `<button class="dk-tb" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` : ''}${CTX && CTX.acct ? `<button class="dk-acct" data-act="acct" title="Your account" aria-haspopup="menu" aria-expanded="false">${CTX.acct.html()}</button>` : ''}</div>
+`;
 }
 function paintDice() {
   const m = S.settings.dice, dot = $('.dk-dot'), l = $('.dk-dicelbl'); if (!dot) return;
@@ -1430,6 +1535,8 @@ function paint() {
 function paint0(pg) {
   const keep = {}; $$('[data-keep]').forEach(el => { keep[el.dataset.keep] = el.scrollTop; });
   const a = document.activeElement, fid = a && ROOT.contains(a) && a.id, sel = fid && a.selectionStart != null ? [a.selectionStart, a.selectionEnd] : null, y = scrollY;
+  // (a box being typed in keeps what's in it, saved or not, when something else makes the page redraw)
+  const val = UI.tab === 'notes' && fid && /^(INPUT|TEXTAREA)$/.test(a.tagName) && !/^(checkbox|radio|file)$/i.test(a.type || '') ? a.value : null;
   $$('.dk-tabs [data-tab]').forEach(t => { const on = t.dataset.tab === UI.tab; t.classList.toggle('on', on); t.setAttribute('aria-selected', on); });
   const edA = a && a.classList && a.classList.contains('dk-ed') ? { id: a.id, off: caretOffset(a) } : null; if (edA) edSave(true);
   const slot = ROOT.querySelector('.dk-partyslot'), inParty = UI.tab === 'party' && !!slot;
@@ -1439,7 +1546,7 @@ function paint0(pg) {
   if (edA) { const ed = document.getElementById(edA.id); if (ed) { ed.focus({ preventScroll: true }); if (edA.off >= 0) setCaretOffset(ed, edA.off); } }
   try { notesAfterPaint(); } catch (e) { console.warn(e); }
   $$('[data-keep]').forEach(el => { if (keep[el.dataset.keep]) el.scrollTop = keep[el.dataset.keep]; });
-  if (fid) { const el = document.getElementById(fid); if (el && el !== document.activeElement) { el.focus({ preventScroll: true }); if (sel) try { el.setSelectionRange(sel[0], sel[1]); } catch (e) {} } }
+  if (fid) { const el = document.getElementById(fid); if (el && el !== document.activeElement) { if (val != null && el.tagName === a.tagName && el.value !== val) el.value = val; el.focus({ preventScroll: true }); if (sel) try { el.setSelectionRange(sel[0], sel[1]); } catch (e) {} } }
   if (Math.abs(scrollY - y) > 2) scrollTo(scrollX, y);
   ROOT.classList.toggle('dk-tree-open', !!UI.tree); if (ROOT.dataset.tab !== (UI.tab || '') && ['notes', 'sessions', 'bestiary', 'gen'].includes(UI.tab) && innerWidth > 900) scrollTo(0, 0); ROOT.dataset.tab = UI.tab || '';
   try { pills(); animView(pg); } catch (e) {}
@@ -1846,7 +1953,7 @@ function showSugg(inp) {
   box.hidden = false;
   box.innerHTML = res.map((c, i) => `<button data-act="pickc" data-cid="${esc(c.id)}" class="${i ? '' : 'hi'}"><span>${esc(c.name)}${c.src !== 'SRD' ? ' <span class="dk-src mine">mine</span>' : ''}</span><small>CR ${crLabel(N(c.cr))} · ${esc(c.type)}</small></button>`).join('');
 }
-function addPicked(cid) {
+function addPicked(cid) { dPend('Add a creature');
   const s = curSession(); if (!s) return; const c = getC(cid); if (!c) return;
   const n = Math.max(1, Math.min(30, N(($('#dk-addn') || {}).value) || 1)), gid = ($('#dk-addg') || {}).value, g = s.groups.find(x => x.id === gid) || s.groups[0];
   const out = addToGroup(s, g, cid, n); save(); paint();
@@ -1874,6 +1981,7 @@ async function onClick(e) {
   // pressing the button that opened a window again closes it
   if (!b.closest('.dk-mcard')) { const sig = openerSig(b); if (MODAL_BY && sig === MODAL_BY && $('.dk-modal.open')) { closeModal(); return; } LAST_OPENER = sig; LAST_OPENER_T = Date.now(); }
   if (b.dataset.sv && SV) return onSaveClick(b);
+  if (dHistClick(b)) return; { const l = dLabelFrom(b); if (l) dPend(l); }
   const act = b.dataset.act, iid = b.dataset.iid, x = iid ? findInst(iid) : null;
   if (act !== 'menu') closeMenus();
   if (b.tagName === 'A') return;
@@ -1914,6 +2022,7 @@ async function onClick(e) {
     }
     case 'npcnotes': { const n = {}; NPC_FIELDS.forEach(([k, , mx]) => { n[k] = vStr(NPCG.npc[k], mx); }); if (!n.name) return; const pg = npcToNotes(n, NPCG.stat || ''); return toastInfo(`Made a Notes page for <b>${esc(pg.title)}</b>.`, [{ label: 'Open', fn: () => { UI.tab = 'notes'; openPage(pg.id); render(); } }]); }
     case 'rmcard': { const s = curSession(); s.cards = (s.cards || []).filter(c => c.id !== b.dataset.id); save(); return paint(); }
+    case 'acct': try { CTX.acct.open(b); } catch (e) {} return;
     case 'bugreport': try { CTX.bugReport(); } catch (e) {} return;
     case 'tab': if (b.dataset.close) closeModal(true); UI.tab = b.dataset.tab; UI.tree = false; if (CTX.partyHost && CTX.party && CTX.party.id) UI.ptab[CTX.party.id] = UI.tab; saveUI(); paint(); try { pills(); } catch (e2) {} scrollTo(0, 0); return;
     case 'settings': return openSettings(b.dataset.k);
@@ -2019,6 +2128,7 @@ async function onClick(e) {
 function closeMenus() { $$('.dk-menu.open').forEach(m => m.classList.remove('open')); }
 function onChange(e) {
   const el = e.target; if (!ROOT.contains(el)) return;
+  if (!el.closest('.dk-modal, .dk-addrow, .dk-add') && !/^dk-add/.test(el.id || '')) { const n = (el.getAttribute && (el.getAttribute('aria-label') || el.getAttribute('placeholder') || el.getAttribute('title'))) || (el.closest && el.closest('label') && el.closest('label').textContent.trim().slice(0, 40)) || 'a field'; dPend('Edit: ') + n; }
   if (onNotesChange(el)) return;
   if (el.dataset && el.dataset.qt) { QTYPE[el.dataset.qt] = el.value; return; }
   if (el.dataset && el.dataset.hbf) { hbReadForm(); return; }
@@ -2066,6 +2176,7 @@ function onInput(e) {
 function onKey(e) {
   if (!ROOT || !ROOT.isConnected) return;
   const el = e.target;
+  if (dHistKey(e)) return;
   if (ROOT.contains(el) && onNotesKey(e)) return;
   if (el && el.id === 'dk-addq') {
     const box = el.parentElement.querySelector('.dk-sugg'), items = box ? $$('button', box) : [];
@@ -2086,7 +2197,7 @@ function onDocDown(e) {
 }
 // the Turn order changed: HP that changed there comes back here, and "In Turn order" buttons follow who's on the list
 let TURN_SIG = null; const turnSig = () => { const t = toRead(); return t ? t.rows.map(r => r.desk || '').filter(Boolean).sort().join() : ''; };
-function onStorage(e) { if (!e.key || e.key !== toKey()) return; const hp = readTurnHP(), sig = turnSig(), moved = sig !== TURN_SIG; TURN_SIG = sig; if (hp) save(); if (hp || moved) paint(); }
+function onStorage(e) { if (!e.key || e.key !== toKey()) return; const hp = readTurnHP(), sig = turnSig(), moved = sig !== TURN_SIG; TURN_SIG = sig; if (hp) { dPend('Hit points from turn order'); save(); } if (hp || moved) paint(); }
 
 // ---------- mount ----------
 const LISTEN = [];
@@ -2101,7 +2212,7 @@ function mount(root, ctx) {
     <aside class="dk-log" aria-label="Roll log"><div class="dk-loghd"><h2>Roll log</h2><button class="dk-btn sm" data-act="clearlog">Clear</button><button class="dk-ix" data-act="log" aria-label="Close">${ICON.x}</button></div><div class="dk-loglist"></div></aside>
     <div class="dk-modal" role="presentation"><div class="dk-mcard" role="dialog" aria-modal="true"></div></div>
     <div class="dk-toasts" aria-live="polite"></div><input type="file" class="dk-impf" accept=".json,application/json" hidden><input type="file" class="dk-imgf" accept="image/*" hidden><input type="file" class="dk-tokf" accept="image/*" hidden><input type="file" class="dk-nimgf" accept="image/*" hidden><input type="file" class="dk-mapf" accept="image/*" hidden><input type="file" class="dk-nimpf" accept=".docx,.lk,.md,.markdown,.txt,.html,.htm,.zip,.textpack,.json,image/*" multiple hidden><input type="file" class="dk-ndirf" webkitdirectory multiple hidden><div class="dk-auto" hidden></div><input type="file" class="dk-notef" accept=".pdf,.docx,.txt,.md,.markdown,text/plain,application/pdf" multiple hidden>`;
-  const loc = lsGet(''); S = normalize(loc && loc.v ? loc : null);
+  const loc = lsGet(''); S = normalize(loc && loc.v ? loc : null); dHistLoad();
   const u = lsGet('-ui'); if (u) UI = Object.assign(UI, u, { tree: false, log: false });
   UI.ptab = UI.ptab || {};
   if (CTX.partyHost && CTX.party && CTX.party.id) { UI.tab = UI.ptab[CTX.party.id] || CTX.initialTab || 'party'; }
@@ -2120,8 +2231,8 @@ function mount(root, ctx) {
   on(root, 'click', onClick); on(root, 'dblclick', e => { if (e.target.closest && e.target.closest('.dk-nsplit')) { UI.nrw = 0; saveUI(); nrSet(NRW0); } }); on(root, 'keydown', nrKey); on(root, 'pointerdown', e => { mwDrag(e); nrDrag(e); if (e.target.closest && e.target.closest('.drwin')) ROOT.classList.add('dk-rfront'); else if (e.target.closest && e.target.closest('.dk-mcard')) ROOT.classList.remove('dk-rfront'); }); on(window, 'resize', () => { if (ROOT) ROOT.classList.toggle('dk-mw', mwDesk()); }); on(root, 'change', onChange); on(root, 'input', onInput);
   on(root, 'mousedown', e => { const t = e.target.closest && e.target.closest('[data-ed],[data-auto]'); if (!t) return; e.preventDefault(); if (t.dataset.ed) edCmd(t.dataset.ed); else edAutoPick(N(t.dataset.auto)); });
   on(root, 'paste', e => { if (e.target.closest && e.target.closest('.dk-ed')) edPaste(e); });
-  on(root, 'dragstart', e => { onDragStart(e); if (DRAG) ROOT.classList.add('dk-dragon'); }); on(root, 'dragover', onDragOver); on(root, 'drop', e => { onDrop(e); ROOT.classList.remove('dk-dragon'); }); on(root, 'dragend', () => { DRAG = null; ROOT.classList.remove('dk-dragon'); $$('.dragging').forEach(x => x.classList.remove('dragging')); });
-  on(root, 'mouseover', onNotesOver); on(window, 'beforeunload', () => { if (NCLOUD) flushNotes(); });
+  on(root, 'dragstart', e => { onDragStart(e); if (DRAG) ROOT.classList.add('dk-dragon'); }); on(root, 'dragover', onDragOver); on(root, 'drop', e => { dPend('Move'); onDrop(e); ROOT.classList.remove('dk-dragon'); }); on(root, 'dragend', () => { DRAG = null; ROOT.classList.remove('dk-dragon'); $$('.dragging').forEach(x => x.classList.remove('dragging')); });
+  on(root, 'mouseover', onNotesOver); on(window, 'beforeunload', notesLeave); on(window, 'pagehide', notesLeave); on(document, 'visibilitychange', () => { if (document.hidden) notesLeave(); else notesRefresh(); });
   on(document, 'keydown', onKey); on(document, 'mousedown', onDocDown); on(document, 'touchstart', onDocDown, { passive: true });
   on(window, 'message', onR20Msg); on(document, 'visibilitychange', onVis); on(window, 'storage', onStorage);
   setTimeout(r20Hello, 400);
@@ -2562,12 +2673,17 @@ const NICON = {
   lore: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/>', quest: '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>',
   session: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/>', event: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>', map: '<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/>',
 };
-const nIcon = (t, cls, col) => `<svg class="${cls || 'dk-nic'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:${/^#[0-9a-f]{3,8}$/i.test(col || '') ? col : (NTYPES[t] || NTYPES.blank).c}" aria-hidden="true">${NICON[t] || NICON.blank}</svg>`;
+// Pages are just pages (or maps): the older page types still sit in saved data but no longer show
+const NKIND = t => t === 'map' ? 'map' : 'blank';
+const nIcon = (t, cls, col) => { t = NKIND(t); return nIcon0(t, cls, col); };
+const nIcon0 = (t, cls, col) => `<svg class="${cls || 'dk-nic'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:${/^#[0-9a-f]{3,8}$/i.test(col || '') ? col : (NTYPES[t] || NTYPES.blank).c}" aria-hidden="true">${NICON[t] || NICON.blank}</svg>`;
 let NT = { pages: {}, syncedAt: 0, del: [] };
 const NSYNC = new Map(); let NBASE = null, IBASE = null, NCLOUD = false, nT = 0, nFlushing = false, nAgain = false;
 const IMGC = {}; // image id -> dataURL
 const pagesList = () => Object.values(NT.pages);
-const kids = pid => pagesList().filter(p => (p.parent || '') === (pid || '')).sort((a, b) => N(a.order) - N(b.order) || a.title.localeCompare(b.title));
+// (a page whose parent is gone — deleted on another device — shows at the top level instead of vanishing)
+const parentOf = p => p.parent && NT.pages[p.parent] && p.parent !== p.id ? p.parent : '';
+const kids = pid => pagesList().filter(p => parentOf(p) === (pid || '')).sort((a, b) => N(a.order) - N(b.order) || a.title.localeCompare(b.title));
 const pageById = id => NT.pages[id] || null;
 const pageByTitle = t => { const q = String(t || '').trim().toLowerCase(); if (!q) return null; return pagesList().find(p => p.title.toLowerCase() === q) || pagesList().find(p => (p.aliases || []).some(a => a.toLowerCase() === q)) || null; };
 function newPage(o) {
@@ -2576,15 +2692,18 @@ function newPage(o) {
   p.id = id; NT.pages[id] = p; return p;
 }
 function nSave(p) { if (p) p.edited = Date.now(); writeNotesLocal(); notesSoon(); }
+// moving or pinning a page isn't an edit: it doesn't make the page 'newer' than someone's text on another device
+function nSaveQuiet() { writeNotesLocal(); notesSoon(); }
 let nlT = 0;
-function writeNotesLocal() { clearTimeout(nlT); nlT = setTimeout(() => { try { localStorage.setItem(lsKey('-notes'), JSON.stringify(NT)); } catch (e) {} }, 300); }
+function writeNotesLocalNow() { clearTimeout(nlT); try { localStorage.setItem(lsKey('-notes'), JSON.stringify(NT)); } catch (e) { if (!NCLOUD && !writeNotesLocal.warned) { writeNotesLocal.warned = 1; toast({ title: 'This device is out of room for notes', det: 'Your latest changes may not be kept. Sign in to save notes to your account, or remove some pictures.', cls: 'bad' }); } } }
+function writeNotesLocal() { clearTimeout(nlT); nlT = setTimeout(writeNotesLocalNow, 300); }
 function notesSoon() { if (!NCLOUD) return; clearTimeout(nT); setSync('Saving…'); nT = setTimeout(flushNotes, 900); }
 async function flushNotes() {
   if (!NCLOUD) return; if (nFlushing) { nAgain = true; return; } nFlushing = true;
   try {
     const w = [];
     for (const p of pagesList()) { const j = JSON.stringify(p); if (NSYNC.get(p.id) !== j) { if (j.length > 880000) { toastInfo(`<b>${esc(p.title)}</b> is too big to save — split it into smaller pages.`); continue; } w.push(NBASE.doc(p.id).set({ savedAt: Date.now(), data: JSON.parse(j) }).then(() => NSYNC.set(p.id, j))); } }
-    for (const id of NT.del.splice(0)) { w.push(NBASE.doc(id).delete().then(() => NSYNC.delete(id))); }
+    for (const id of NT.del.slice()) { w.push(NBASE.doc(id).delete().then(() => { NSYNC.delete(id); const k = NT.del.indexOf(id); if (k >= 0) NT.del.splice(k, 1); })); }
     await Promise.all(w); NT.syncedAt = Date.now(); writeNotesLocal(); setSync('Saved to your account');
   } catch (e) { console.warn('notes save', e); setSync('Couldn’t save — retrying'); setTimeout(notesSoon, 5000); }
   nFlushing = false; if (nAgain) { nAgain = false; flushNotes(); }
@@ -2604,6 +2723,25 @@ async function notesBoot() {
     if (Object.values(merged).some(p => NSYNC.get(p.id) !== JSON.stringify(p)) || NT.del.length) flushNotes();
     if (UI.tab === 'notes') paint();
   } catch (e) { console.warn('notes load', e); }
+}
+// Coming back to the tab (or another device saved meanwhile): take the cloud's copy of every page that hasn't been
+// changed here since it was last saved, add pages made elsewhere and drop pages deleted elsewhere. Pages with unsaved
+// changes here, and the page being typed in, are left alone.
+// leaving (closing the tab, switching away): what was just typed is saved on this device right away and sent off
+function notesLeave() { try { if (typeof edFlush === 'function') edFlush(); } catch (e) {} writeNotesLocalNow(); if (NCLOUD) flushNotes(); }
+let nRefreshing = false;
+async function notesRefresh() {
+  if (!NCLOUD || !NBASE || nRefreshing || nFlushing) return; nRefreshing = true;
+  try {
+    const qs = await NBASE.get(), cloud = {}; qs.docs.forEach(d => { const p = d.data().data; if (p && p.id) cloud[p.id] = p; });
+    const ed = typeof edEl === 'function' && edEl(), typing = ed && document.activeElement === ed ? ed.id.replace(/^dk-ed-/, '') : ''; let ch = false;
+    Object.values(cloud).forEach(c => { if (NT.del.includes(c.id) || c.id === typing) return; const l = NT.pages[c.id], cj = JSON.stringify(c);
+      if (!l) { NT.pages[c.id] = c; NSYNC.set(c.id, cj); ch = true; return; }
+      if (NSYNC.get(c.id) === JSON.stringify(l) && cj !== NSYNC.get(c.id)) { NT.pages[c.id] = c; NSYNC.set(c.id, cj); ch = true; } });
+    Object.values(NT.pages).forEach(l => { if (!cloud[l.id] && NSYNC.has(l.id) && NSYNC.get(l.id) === JSON.stringify(l) && l.id !== typing) { delete NT.pages[l.id]; NSYNC.delete(l.id); ch = true; } });
+    if (ch) { if (UI.np && !NT.pages[UI.np]) UI.np = ''; writeNotesLocal(); if (UI.tab === 'notes') paint(); }
+  } catch (e) { console.warn('notes refresh', e); }
+  nRefreshing = false;
 }
 // ----- pictures -----
 async function getImg(id) {
@@ -2632,7 +2770,8 @@ function compressImage(src, maxBytes, maxDim) {
 async function storeImage(src, maxDim) {
   const c = await compressImage(src, 600 * 1024, maxDim), id = 'i' + uid(); IMGC[id] = c.data;
   try { localStorage.setItem(lsKey('-img:' + id), c.data); } catch (e) {}
-  if (IBASE) await IBASE.doc(id).set({ savedAt: Date.now(), data: c.data, w: c.w, h: c.h });
+  // (offline, the cloud write only finishes once back online: don't wait on it forever — it still goes through later)
+  if (IBASE) await Promise.race([IBASE.doc(id).set({ savedAt: Date.now(), data: c.data, w: c.w, h: c.h }), new Promise(r => setTimeout(r, 20000))]);
   return { id, w: c.w, h: c.h };
 }
 // ----- the sanitizer: only these tags and attributes survive -----
@@ -2684,7 +2823,7 @@ const htmlText = h => { const d = new DOMParser().parseFromString('<body>' + Str
 const pageText = p => p._t && p._tAt === p.edited ? p._t : (Object.defineProperty(p, '_t', { value: htmlText(p.html), writable: true, configurable: true, enumerable: false }), Object.defineProperty(p, '_tAt', { value: p.edited, writable: true, configurable: true, enumerable: false }), p._t);
 // [[Title]] links whose page exists now are pointed at it by id
 function resolveLinks(html) { return String(html || '').replace(/<a class="wl" data-title="([^"]*)">/g, (m, t) => { const p = pageByTitle(t.replace(/&amp;/g, '&').replace(/&quot;/g, '"')); return p ? `<a class="wl" data-page="${p.id}">` : m; }); }
-const backlinks = p => pagesList().filter(o => o.id !== p.id && (String(o.html).includes(`data-page="${p.id}"`) || String(o.html).toLowerCase().includes(`data-title="${esc(p.title).toLowerCase()}"`) || (o.map && (o.map.pins || []).some(x => x.page === p.id))));
+const backlinks = p => pagesList().filter(o => o.id !== p.id && (String(o.html).includes(`data-page="${p.id}"`) || String(o.html).toLowerCase().includes(`data-title="${esc(p.title).toLowerCase()}"`) || String(o.html).toLowerCase().includes(`data-title="${p.title.toLowerCase().replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"`) || (o.map && (o.map.pins || []).some(x => x.page === p.id))));
 function pathOf(p) { const out = []; let x = p, k = 0; while (x && k++ < 30) { out.unshift(x); x = pageById(x.parent); } return out; }
 function isAncestor(a, b) { let x = pageById(b), k = 0; while (x && k++ < 40) { if (x.id === a) return true; x = pageById(x.parent); } return false; }
 function deletePage(id) { kids(id).forEach(k => deletePage(k.id)); delete NT.pages[id]; NT.del.push(id); NSYNC.delete(id); }
@@ -2777,6 +2916,7 @@ function htmlToMd(html) {
 const relTime = t => { const d = (Date.now() - N(t)) / 60000; return d < 1 ? 'just now' : d < 60 ? Math.round(d) + ' min ago' : d < 1440 ? Math.round(d / 60) + ' h ago' : d < 10080 ? Math.round(d / 1440) + ' days ago' : new Date(t).toLocaleDateString(); };
 const allTags = () => Array.from(new Set([].concat(...pagesList().map(p => p.tags || [])))).sort((a, b) => a.localeCompare(b));
 function notesFiltered() {
+  if (UI.nf === 'tag' && !allTags().includes(UI.ntag)) { UI.nf = 'all'; UI.ntag = ''; } // (that tag is gone from every page)
   const q = String(UI.nq || '').trim().toLowerCase(), f = UI.nf || 'all';
   if (!q && f === 'all') return null;
   let L = pagesList();
@@ -2788,12 +2928,12 @@ function notesFiltered() {
 const cut = (t, n) => t.length <= n ? t : t.slice(0, n).replace(/\s+\S*$/, '') + '…';
 function snippet(p, q) { const t = pageText(p); if (!q) return esc(cut(t, 160)); const i = t.toLowerCase().indexOf(q.toLowerCase()); if (i < 0) return esc(cut(t, 160)); const a = Math.max(0, i - 40); return (a ? '…' : '') + esc(t.slice(a, i)) + '<mark>' + esc(t.slice(i, i + q.length)) + '</mark>' + esc(t.slice(i + q.length, i + q.length + 70)); }
 function treeHTML(pid, depth) {
-  return kids(pid).map(p => { const ks = kids(p.id), open = UI.nopen[p.id] || isAncestor(p.id, UI.np);
+  return kids(pid).map(p => { const ks = kids(p.id), open = !!UI.nopen[p.id];
     return `<div class="dk-nt" data-nid="${p.id}"><div class="dk-ntrow${p.id === UI.np ? ' on' : ''}" draggable="true" data-drag="${p.id}" style="--d:${depth}">${ks.length ? `<button class="dk-caret${open ? ' open' : ''}" data-act="ntoggle" data-id="${p.id}" aria-label="${open ? 'Collapse' : 'Expand'}">${ICON.caret}</button>` : '<span class="dk-ntsp"></span>'}<button class="dk-ntn" data-act="nopen" data-id="${p.id}">${nIcon(p.type, '', p.color)}<span>${esc(p.title)}</span>${p.fav ? '<i class="dk-star">★</i>' : ''}</button></div>${ks.length && open ? treeHTML(p.id, depth + 1) : ''}</div>`; }).join('');
 }
 function notesRailHTML() {
   const res = notesFiltered(), f = UI.nf || 'all', tags = allTags(), q = String(UI.nq || '').trim();
-  return `<div class="dk-railhd"><span>Notes</span><div class="dk-menu"><button class="dk-btn sm gold" data-act="menu" aria-haspopup="menu">${ICON.plus} New</button><div class="dk-mlist" role="menu">${Object.entries(NTYPES).map(([k, t]) => `<button data-act="nnew" data-t="${k}">${nIcon(k)}<span>${esc(t.n)}</span></button>`).join('')}<button data-act="nimport">${ICON.importIc}<span>Import…</span></button></div></div><button class="dk-ix dk-railx" data-act="tree" aria-label="Close">${ICON.x}</button></div>
+  return `<div class="dk-railhd"><span>Notes</span><div class="dk-menu"><button class="dk-btn sm gold" data-act="menu" aria-haspopup="menu">${ICON.plus} New</button><div class="dk-mlist" role="menu">${Object.entries(NTYPES).filter(([k]) => k === 'blank' || k === 'map').map(([k, t]) => `<button data-act="nnew" data-t="${k}">${nIcon(k)}<span>${esc(t.n)}</span></button>`).join('')}<button data-act="nimport">${ICON.importIc}<span>Import…</span></button></div></div><button class="dk-ix dk-railx" data-act="tree" aria-label="Close">${ICON.x}</button></div>
     <div class="dk-nsearch"><input class="dk-f" id="dk-nq" type="search" value="${esc(UI.nq || '')}" placeholder="Search ${plural(pagesList().length, 'page')}" aria-label="Search notes" autocomplete="off"></div>
     <div class="dk-nfilt">${[['all', 'All'], ['fav', '★ Pinned'], ['recent', 'Recent'], ['maps', 'Maps']].map(([k, n]) => `<button class="${f === k ? 'on' : ''}" data-act="nfilt" data-v="${k}">${n}</button>`).join('')}${tags.length ? `<select class="dk-f" id="dk-ntag" aria-label="Tag"><option value="">#tag</option>${tags.map(t => `<option${f === 'tag' && UI.ntag === t ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>` : ''}</div>
     <div class="dk-tree dk-ntree" data-keep="ntree">${res ? (res.length ? res.map(p => `<button class="dk-nres${p.id === UI.np ? ' on' : ''}" data-act="nopen" data-id="${p.id}">${nIcon(p.type)}<span><b>${esc(p.title)}</b><small>${q ? snippet(p, q) : relTime(p.edited)}</small></span></button>`).join('') : '<p class="dk-tnone">Nothing found.</p>')
@@ -2809,13 +2949,13 @@ function notesHTML() {
 function notesHomeHTML() {
   const recent = pagesList().sort((a, b) => N(b.edited) - N(a.edited)).slice(0, 8), favs = pagesList().filter(p => p.fav);
   if (!pagesList().length) return `<div class="dk-empty"><div class="dk-emblem">${ICON.book}</div><h2>Your campaign wiki</h2><p>Places, people, factions, quests and session logs — linked to each other with [[wiki links]], with maps you can pin. Import from LegendKeeper, Obsidian or Craft, or start fresh.</p><div class="dk-row" style="justify-content:center"><button class="dk-btn gold big" data-act="nnew" data-t="blank">${ICON.plus} New page</button><button class="dk-btn big" data-act="nimport">Import notes</button></div></div>`;
-  const card = p => `<button class="dk-nhcard" data-act="nopen" data-id="${p.id}">${nIcon(p.type)}<b>${esc(p.title)}</b><small>${esc((NTYPES[p.type] || NTYPES.blank).n)} · ${relTime(p.edited)}</small><span>${snippet(p)}</span></button>`;
+  const card = p => `<button class="dk-nhcard" data-act="nopen" data-id="${p.id}">${nIcon(p.type)}<b>${esc(p.title)}</b><small>${esc(NTYPES[NKIND(p.type)].n)} · ${relTime(p.edited)}</small><span>${snippet(p)}</span></button>`;
   return `<section class="dk-card"><h2 class="dk-h2">Pinned</h2>${favs.length ? `<div class="dk-nhgrid">${favs.map(card).join('')}</div>` : '<p class="dk-hint">Pin pages with ★ to keep them here.</p>'}</section>
     <section class="dk-card"><h2 class="dk-h2">Recently edited</h2><div class="dk-nhgrid">${recent.map(card).join('')}</div></section>
-    <section class="dk-card"><h2 class="dk-h2">Start something</h2><div class="dk-row">${Object.entries(NTYPES).map(([k, t]) => `<button class="dk-btn sm" data-act="nnew" data-t="${k}">${nIcon(k)} ${esc(t.n)}</button>`).join('')}</div></section>`;
+    <section class="dk-card"><h2 class="dk-h2">Start something</h2><div class="dk-row">${Object.entries(NTYPES).filter(([k]) => k === 'blank' || k === 'map').map(([k, t]) => `<button class="dk-btn sm" data-act="nnew" data-t="${k}">${nIcon(k)} ${esc(t.n)}</button>`).join('')}</div></section>`;
 }
 function propsHTML(p) {
-  const T = NTYPES[p.type] || NTYPES.blank, X = Array.isArray(p.xprops) ? p.xprops : [];
+  const T = NTYPES.blank, X = Array.isArray(p.xprops) ? p.xprops : [];
   const xs = X.map((x, i) => `<label class="dk-npx"><span class="dk-lbl">${esc(x.t)}</span>${String(x.v).length > 60 || /\n/.test(x.v) ? `<textarea class="dk-f" data-npx="${i}" rows="2" maxlength="2000">${esc(x.v)}</textarea>` : `<input class="dk-f" data-npx="${i}" value="${esc(x.v)}" maxlength="2000">`}</label>`).join('');
   if (!T.props.length) return xs ? `<div class="dk-nprops">${xs}</div>` : '';
   return `<div class="dk-nprops">${xs}${T.props.map(([k, lb, kind, opts]) => {
@@ -2828,13 +2968,13 @@ function propsHTML(p) {
 }
 const TOOLS = [['b', 'Bold', '<b>B</b>'], ['i', 'Italic', '<i>I</i>'], ['u', 'Underline', '<u>U</u>'], ['s', 'Strikethrough', '<s>S</s>'], ['|'], ['h1', 'Heading 1', 'H1'], ['h2', 'Heading 2', 'H2'], ['h3', 'Heading 3', 'H3'], ['p', 'Normal text', '¶'], ['|'], ['ul', 'Bulleted list', '•'], ['ol', 'Numbered list', '1.'], ['check', 'Checklist', '☑'], ['quote', 'Quote', '❝'], ['callout', 'Callout', 'ⓘ'], ['secret', 'Secret (DM only)', '🔒'], ['|'], ['table', 'Table', '▦'], ['hr', 'Divider', '—'], ['img', 'Picture', '🖼'], ['link', 'Web link', '🔗'], ['wiki', 'Link a page  [[', '[[ ]]'], ['mention', 'Mention a creature  @', '@']];
 function pageHTML(p) {
-  const T = NTYPES[p.type] || NTYPES.blank, path = pathOf(p), back = backlinks(p), ks = kids(p.id);
+  const T = NTYPES[NKIND(p.type)], path = pathOf(p), back = backlinks(p), ks = kids(p.id);
   return `<article class="dk-card dk-page2" data-pid="${p.id}" style="--tc:${T.c}">
-    <nav class="dk-crumbs">${path.slice(0, -1).map(x => `<button class="dk-link" data-act="nopen" data-id="${x.id}">${esc(x.title)}</button><span>›</span>`).join('')}<span class="dk-muted">${esc(T.n)}</span></nav>
+    <nav class="dk-crumbs">${path.slice(0, -1).map(x => `<button class="dk-link" data-act="nopen" data-id="${x.id}">${esc(x.title)}</button><span>›</span>`).join('')}</nav>
     <header class="dk-phead">${nIcon(p.type, 'dk-nic big')}<input class="dk-title" id="dk-pt-${p.id}" data-nt="title" value="${esc(p.title)}" maxlength="120" aria-label="Page title">
       <button class="dk-ix dk-fav${p.fav ? ' on' : ''}" data-act="nfav" title="${p.fav ? 'Unpin' : 'Pin'}" aria-pressed="${!!p.fav}">★</button>
-      <div class="dk-menu"><button class="dk-btn icon sm" data-act="menu" aria-label="Page menu" aria-haspopup="menu">${ICON.dots}</button><div class="dk-mlist" role="menu"><button data-act="nsub">Add a subpage</button><button data-act="ntype">Change type…</button><button data-act="nmove">Move to…</button><button data-act="nalias">Other names…</button><button data-act="nmd">Export as Markdown</button><button class="red" data-act="ndel">Delete page</button></div></div></header>
-    <div class="dk-pmeta"><span class="dk-chip" style="color:${T.c}">${esc(T.n)}</span>${(p.tags || []).map(t => `<span class="dk-chip tag">#${esc(t)}<button data-act="nrmtag" data-tag="${esc(t)}" aria-label="Remove tag ${esc(t)}">${ICON.x}</button></span>`).join('')}<input class="dk-tagin" id="dk-tag-${p.id}" placeholder="+ tag" maxlength="40" aria-label="Add a tag"><span class="dk-grow"></span><small class="dk-hint">Edited ${relTime(p.edited)}</small></div>
+      <div class="dk-menu"><button class="dk-btn icon sm" data-act="menu" aria-label="Page menu" aria-haspopup="menu">${ICON.dots}</button><div class="dk-mlist" role="menu"><button data-act="nsub">Add a subpage</button><button data-act="nmove">Move to…</button><button data-act="nalias">Other names…</button><button data-act="nmd">Export as Markdown</button><button class="red" data-act="ndel">Delete page</button></div></div></header>
+    <div class="dk-pmeta">${(p.tags || []).map(t => `<span class="dk-chip tag">#${esc(t)}<button data-act="nrmtag" data-tag="${esc(t)}" aria-label="Remove tag ${esc(t)}">${ICON.x}</button></span>`).join('')}<input class="dk-tagin" id="dk-tag-${p.id}" placeholder="+ tag" maxlength="40" aria-label="Add a tag"><span class="dk-grow"></span><small class="dk-hint">Edited ${relTime(p.edited)}</small></div>
     ${propsHTML(p)}
     ${p.type === 'map' ? mapHTML(p) : ''}
     <div class="dk-tools2" role="toolbar" aria-label="Formatting">${TOOLS.map(t => t[0] === '|' ? '<i></i>' : `<button data-ed="${t[0]}" title="${esc(t[1])}" aria-label="${esc(t[1])}" tabindex="-1">${t[2]}</button>`).join('')}</div>
@@ -2849,10 +2989,13 @@ function notesAfterPaint() {
   $$('.dk-page2 img[data-img], .dk-nhcard img[data-img]').forEach(im => { getImg(im.dataset.img).then(u => { if (u && im.isConnected) im.src = u; else if (!u) im.classList.add('missing'); }); });
   $$('.dk-ed span.mn, .dk-pop span.mn').forEach(a => { const c = getC(a.dataset.cid); if (c) { const u = tokenURL(c); if (u) a.style.setProperty('--tok', `url("${u.replace(/"/g, '%22')}")`); } });
   $$('.dk-ed a.wl, .dk-ed span.mn').forEach(a => { a.setAttribute('contenteditable', 'false'); if (a.classList.contains('wl')) { const p = pageById(a.dataset.page) || pageByTitle(a.dataset.title); a.classList.toggle('broken', !p); if (p) a.textContent = a.textContent || p.title; } });
-  const p = pageById(UI.np); if (p && p.type === 'map') mapInit(p);
+  if (AUTO && !AUTO.node.isConnected) { const ap = $('.dk-auto'); if (ap) ap.hidden = true; AUTO = null; }
+  edBlank(edEl()); const p = pageById(UI.np); if (p && p.type === 'map') mapInit(p);
 }
 // ----- editor -----
 let EDT = 0;
+// the 'Write here…' hint shows while the page has no words, pictures or lists
+function edBlank(ed) { if (ed) ed.classList.toggle('blank', !ed.textContent.replace(/\u200B/g, '').trim() && !ed.querySelector('img, hr, table, li, a, span.mn')); }
 const edFix = h => { h = String(h || '').replace(/<(p|li|h[123]|td|th)><\/\1>/g, '<$1><br></$1>'); return h.trim() ? h : '<p><br></p>'; };
 function edEl() { return $('.dk-ed'); }
 let ED_PENDING = false;
@@ -2860,7 +3003,7 @@ function edSave(now) {
   // the text goes to the page the editor is showing (its id), never to whichever page is open by now: after clicking a
   // link the open page has already changed while the old page's editor is still on screen
   const ed = edEl(), p = ed && pageById(ed.id.replace(/^dk-ed-/, '')); if (!ed || !p) return;
-  clearTimeout(EDT); const go = () => { ED_PENDING = false; const h = clean(ed.innerHTML); if (h !== p.html) { p.html = h; nSave(p); } };
+  clearTimeout(EDT); const go = () => { ED_PENDING = false; edBlank(ed); const h = clean(ed.innerHTML).replace(/\u200B/g, ''); if (h !== p.html) { p.html = h; nSave(p); } };
   if (now) go(); else { ED_PENDING = true; EDT = setTimeout(go, 500); }
 }
 // anything that redraws the page first keeps what was just typed (or a link/mention just picked) in the editor
@@ -2886,8 +3029,11 @@ function edCmd(k) {
 }
 function placeCaret(el, end) { const r = document.createRange(); r.selectNodeContents(el); r.collapse(!end); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
 async function edInsertImage(file) {
-  const ed = edEl(), r = selRange(); toastInfo('Adding the picture…');
-  try { const im = await storeImage(file, 1800); ed.focus(); if (r) { const s = getSelection(); s.removeAllRanges(); s.addRange(r); } document.execCommand('insertHTML', false, `<img data-img="${im.id}" alt="" src="${IMGC[im.id]}"><p><br></p>`); edSave(); }
+  const ed = edEl(), r = selRange(), pid = ed ? ed.id.replace(/^dk-ed-/, '') : UI.np; toastInfo('Adding the picture…');
+  try { const im = await storeImage(file, 1800);
+    // another page opened while it uploaded: the picture goes at the end of the page it was added to
+    if (!ed || !ed.isConnected) { const p = pageById(pid); if (p) { p.html = clean(String(p.html || '') + `<img data-img="${im.id}" alt=""><p></p>`); nSave(p); toastInfo(`The picture was added to the end of <b>${esc(p.title)}</b>.`); } return; }
+    ed.focus(); if (r && ed.contains(r.startContainer)) { const s = getSelection(); s.removeAllRanges(); s.addRange(r); } else placeCaret(ed, true); document.execCommand('insertHTML', false, `<img data-img="${im.id}" alt="" src="${IMGC[im.id]}"><p><br></p>`); edSave(); }
   catch (e) { toast({ title: 'Couldn’t add the picture', det: esc(e.message), cls: 'bad' }); }
 }
 // Markdown-style shortcuts at the start of a line, and **bold** / _italic_ as you type
@@ -2926,9 +3072,10 @@ function edAuto() {
 }
 function edAutoPick(i) {
   const a = AUTO; if (!a) return; const it = a.items[i]; if (!it) return; const ed = edEl();
+  if (!ed || !a.node.isConnected || !ed.contains(a.node) || a.off > a.node.nodeValue.length) { $('.dk-auto').hidden = true; AUTO = null; return; }
   const rr = document.createRange(); rr.setStart(a.node, a.off - a.q.length); rr.setEnd(a.node, a.off); rr.deleteContents();
   let el;
-  if (a.kind === 'wiki') { let p = it.id === '__new' ? null : pageById(it.id); if (!p) { const cur = pageById(UI.np); p = newPage({ title: uniqueTitle(it.label), parent: cur ? cur.parent : '' }); nSave(p); toastInfo(`Made a new page: <b>${esc(p.title)}</b>.`); } el = document.createElement('a'); el.className = 'wl'; el.setAttribute('data-page', p.id); el.textContent = p.title; }
+  if (a.kind === 'wiki') { let p = it.id === '__new' ? null : pageById(it.id); if (!p) { const cur = pageById(UI.np); p = newPage({ title: uniqueTitle(it.label), parent: cur ? cur.parent : '' }); nSave(p); toastInfo(`Made a new page: <b>${esc(p.title)}</b>.`); setTimeout(paint, 0); /* (so it shows in the page list) */ } el = document.createElement('a'); el.className = 'wl'; el.setAttribute('data-page', p.id); el.textContent = p.title; }
   else { el = document.createElement('span'); el.className = 'mn'; el.setAttribute('data-cid', it.id); el.textContent = it.label; }
   el.setAttribute('contenteditable', 'false'); rr.insertNode(el); const sp = document.createTextNode(' '); el.after(sp); placeCaret(sp, true);
   $('.dk-auto').hidden = true; AUTO = null; ed.focus(); edSave(); setTimeout(() => { const b = $('.dk-back'); if (b && a.kind === 'wiki') { /* backlinks update on next open */ } }, 0);
@@ -2942,7 +3089,7 @@ function edPaste(e) {
 }
 function showPreview(a) {
   const pop = $('.dk-pop'); if (!pop) return; const p = pageById(a.dataset.page) || pageByTitle(a.dataset.title); if (!p) { pop.hidden = true; return; }
-  const T = NTYPES[p.type] || NTYPES.blank, r = a.getBoundingClientRect();
+  const T = NTYPES[NKIND(p.type)], r = a.getBoundingClientRect();
   pop.innerHTML = `<header>${nIcon(p.type)}<b>${esc(p.title)}</b><small style="color:${T.c}">${esc(T.n)}</small></header>${T.props.length ? `<dl>${T.props.filter(([k, , kind]) => (p.props || {})[k] && kind !== 'stat').slice(0, 3).map(([k, lb, kind]) => `<dt>${lb}</dt><dd>${esc(kind === 'page' ? (pageById(p.props[k]) || {}).title || '' : p.props[k])}</dd>`).join('')}</dl>` : ''}<p>${esc(pageText(p).slice(0, 220))}${pageText(p).length > 220 ? '…' : ''}</p>`;
   pop.hidden = false; const w = Math.min(300, innerWidth - 24); pop.style.width = w + 'px'; pop.style.left = Math.max(12, Math.min(innerWidth - w - 12, r.left)) + 'px'; pop.style.top = (r.bottom + 8 > innerHeight - 200 ? r.top - 8 - pop.offsetHeight : r.bottom + 8) + 'px';
 }
@@ -2959,8 +3106,8 @@ function movePage(id, parent, at) {
   const p = pageById(id); if (!p || parent === id || isAncestor(id, parent)) return;
   p.parent = parent || ''; const sib = kids(p.parent).filter(x => x.id !== id);
   let idx = sib.length; if (at) { const k = sib.findIndex(x => x.id === at.ref); if (k >= 0) idx = k + (at.after ? 1 : 0); }
-  sib.splice(idx, 0, p); sib.forEach((x, i) => { if (x.order !== i + 1) { x.order = i + 1; nSave(x); } });
-  if (parent) UI.nopen[parent] = true; nSave(p); paint();
+  sib.splice(idx, 0, p); sib.forEach((x, i) => { if (x.order !== i + 1) x.order = i + 1; });
+  if (parent) UI.nopen[parent] = true; nSaveQuiet(); paint();
 }
 
 // the divider between the page list and the page: drag it (or arrow keys); the width is remembered on this device
@@ -2974,14 +3121,17 @@ function nrDrag(e) {
   addEventListener('pointermove', mv); addEventListener('pointerup', up);
 }
 function nrKey(e) { const sp = e.target.closest && e.target.closest('.dk-nsplit'); if (!sp) return false; const d = e.key === 'ArrowLeft' ? -16 : e.key === 'ArrowRight' ? 16 : 0; if (!d) return false; e.preventDefault(); nrSet(nrW() + d, true); return true; }
+
+// the [[ / @ menu follows the caret: moving it away (arrow keys, a click) closes or updates the menu
+document.addEventListener('selectionchange', () => { if (!AUTO) return; const r = selRange(); if (!r || r.startContainer !== AUTO.node || r.startOffset !== AUTO.off) edAuto(); });
 // ---------- Atlas: map pages with pins (pan, zoom, pins linking to pages; a pin to another map opens it) ----------
 const MAPV = {}; // pageId -> {s, x, y} view
 const PIN_COLORS = ['#c9962b', '#b6402d', '#2f8a57', '#2f6ca8', '#7a4fb8', '#1f2a44', '#d9732f', '#ffffff'];
 function mapHTML(p) {
   const m = p.map || {};
   if (!m.img) return `<div class="dk-mapempty"><div class="dk-emblem">${nIcon('map', '')}</div><p>${(m.pins || []).length ? `${plural(m.pins.length, 'pin')} from LegendKeeper ${m.pins.length === 1 ? 'is' : 'are'} ready — upload this map’s picture and they’ll appear in place.` : 'Upload a map picture — a region, a city, a dungeon — then drop pins that link to your pages.'}</p><button class="dk-btn gold" data-act="mapimg">Upload a map</button></div>`;
-  return `<div class="dk-mapbox${UI.pinMode ? ' pinning' : ''}"><div class="dk-map" data-map="${p.id}"><div class="dk-mapin" style="width:${m.w}px;height:${m.h}px"><img data-img="${esc(m.img)}" alt="" draggable="false">
-      ${(m.pins || []).map(pin => { const lp = pageById(pin.page); return `<button class="dk-pin${lp && lp.type === 'map' ? ' sub' : ''}" data-pin="${pin.id}" style="left:${pin.x * 100}%;top:${pin.y * 100}%;--pc:${esc(pin.color || '#c9962b')}" title="${esc(pin.label || (lp && lp.title) || 'Pin')}"><span>${lp ? nIcon(lp.type, 'dk-pinic') : ''}</span><em>${esc(pin.label || (lp && lp.title) || '')}</em></button>`; }).join('')}</div></div>
+  return `<div class="dk-mapbox${UI.pinMode ? ' pinning' : ''}"><div class="dk-map" data-map="${p.id}"><div class="dk-mapin" style="width:${N(m.w)}px;height:${N(m.h)}px"><img data-img="${esc(m.img)}" alt="" draggable="false">
+      ${(m.pins || []).map(pin => { const lp = pageById(pin.page); return `<button class="dk-pin${lp && lp.type === 'map' ? ' sub' : ''}" data-pin="${esc(pin.id)}" style="left:${N(pin.x) * 100}%;top:${N(pin.y) * 100}%;--pc:${/^#[0-9a-f]{3,8}$/i.test(pin.color || '') ? pin.color : '#c9962b'}" title="${esc(pin.label || (lp && lp.title) || 'Pin')}"><span>${lp ? nIcon(lp.type, 'dk-pinic') : ''}</span><em>${esc(pin.label || (lp && lp.title) || '')}</em></button>`; }).join('')}</div></div>
     <div class="dk-mapctl"><button class="dk-btn sm icon" data-act="mapzoom" data-d="1" aria-label="Zoom in">+</button><button class="dk-btn sm icon" data-act="mapzoom" data-d="-1" aria-label="Zoom out">−</button><button class="dk-btn sm" data-act="mapfit">Fit</button><button class="dk-btn sm${UI.pinMode ? ' on' : ''}" data-act="pinmode">${UI.pinMode ? 'Tap the map…' : '📍 Add pin'}</button><button class="dk-btn sm ghost" data-act="mapimg">Change picture</button></div>
     <div class="dk-pinpop" hidden></div></div>`;
 }
@@ -2989,7 +3139,9 @@ function mapInit(p) {
   const box = $(`.dk-map[data-map="${p.id}"]`); if (!box) return; const inner = box.querySelector('.dk-mapin'), m = p.map;
   getImg(m.img).then(u => { const im = inner.querySelector('img'); if (u && im) im.src = u; });
   const fit = () => { const bw = box.clientWidth, bh = box.clientHeight, s = Math.min(bw / m.w, bh / m.h); return { s, x: (bw - m.w * s) / 2, y: (bh - m.h * s) / 2 }; };
-  let v = MAPV[p.id] || (MAPV[p.id] = fit());
+  // (a box with no size yet — still laying out — would give a zero zoom that sticks; fit again when it has one)
+  const ok = v => v && isFinite(v.s) && v.s > 0;
+  let v = ok(MAPV[p.id]) ? MAPV[p.id] : fit(); if (ok(v)) MAPV[p.id] = v; else { v = { s: 1, x: 0, y: 0 }; requestAnimationFrame(() => { if (box.isConnected && box.clientWidth) { const f = fit(); if (ok(f)) { v.s = f.s; v.x = f.x; v.y = f.y; MAPV[p.id] = v; put(); } } }); }
   const put = () => { inner.style.transform = `translate(${v.x}px,${v.y}px) scale(${v.s})`; inner.style.setProperty('--inv', 1 / v.s); };
   const zoomAt = (f, cx, cy) => { const ns = Math.max(fit().s * .5, Math.min(6, v.s * f)); v.x = cx - (cx - v.x) * ns / v.s; v.y = cy - (cy - v.y) * ns / v.s; v.s = ns; MAPV[p.id] = v; put(); };
   box._zoom = d => zoomAt(d > 0 ? 1.35 : 1 / 1.35, box.clientWidth / 2, box.clientHeight / 2); box._fit = () => { v = MAPV[p.id] = fit(); put(); };
@@ -3022,7 +3174,7 @@ function pinEditor(p, pin, isNew) {
 function pinPop(p, pin, btn) {
   const pop = $('.dk-pinpop'), lp = pageById(pin.page); if (!pop) return;
   pop.innerHTML = `<header><b>${esc(pin.label || (lp && lp.title) || 'Pin')}</b><button class="dk-ix" data-act="pinclose" aria-label="Close">${ICON.x}</button></header>${lp ? `<p>${nIcon(lp.type)} ${esc(lp.title)} · ${esc((NTYPES[lp.type] || NTYPES.blank).n)}</p><p class="dk-hint">${esc(pageText(lp).slice(0, 160))}</p>` : '<p class="dk-hint">Not linked to a page.</p>'}
-    <div class="dk-row">${lp ? `<button class="dk-btn sm gold" data-act="nopen" data-id="${lp.id}">${lp.type === 'map' ? 'Open map' : 'Open page'}</button>` : ''}<button class="dk-btn sm" data-act="pinedit" data-pin="${pin.id}">Edit</button></div>`;
+    <div class="dk-row">${lp ? `<button class="dk-btn sm gold" data-act="nopen" data-id="${lp.id}">${lp.type === 'map' ? 'Open map' : 'Open page'}</button>` : ''}<button class="dk-btn sm" data-act="pinedit" data-pin="${esc(pin.id)}">Edit</button></div>`;
   pop.hidden = false; const box = $('.dk-mapbox').getBoundingClientRect(), r = btn.getBoundingClientRect(), w = Math.min(260, box.width - 20);
   pop.style.width = w + 'px'; pop.style.left = Math.max(10, Math.min(box.width - w - 10, r.left - box.left - w / 2)) + 'px'; pop.style.top = Math.max(10, r.bottom - box.top + 6) + 'px';
 }
@@ -3094,7 +3246,7 @@ async function planImport(entries, rootName) {
     const rel = strip && d.path.startsWith(strip) ? d.path.slice(strip.length) : d.path, parts = rel.split('/'), name = fileTitle(parts.pop()), dirPath = parts.join('/');
     let fm = {}, html = '', title = name;
     if (d.html) { const r = prepHtml(d.text, d.dir); html = r.html; if (r.title && /^(index|untitled|page)$/i.test(name)) title = r.title.trim(); html = html.replace(/^\s*<h1[^>]*>([\s\S]*?)<\/h1>/i, (m, t) => htmlText(t).trim().toLowerCase() === title.toLowerCase() || htmlText(t).trim().toLowerCase() === String(r.title).trim().toLowerCase() ? '' : m); }
-    else { const r = frontmatter(d.text); fm = r.fm; let body = r.body; const h1 = /^\s*#\s+(.+)\n/.exec(body); if (h1 && h1[1].trim().toLowerCase() === name.toLowerCase()) body = body.slice(h1[0].length); html = mdToHtml(body); if (fm.title) title = String(fm.title); }
+    else { const r = frontmatter(d.text); fm = r.fm; let body = r.body; const h1 = /^\s*#\s+(.+)\n/.exec(body); if (h1 && [name, fm.title].some(x => x && h1[1].trim().toLowerCase() === String(x).trim().toLowerCase())) body = body.slice(h1[0].length); html = mdToHtml(body); if (fm.title) title = String(fm.title); }
     // a note named like its folder (Folder/Folder.md, Folder.md beside Folder/, index.md) is that folder's page
     let page; const folderNote = parts.length && (name.toLowerCase() === parts[parts.length - 1].toLowerCase() || /^(index|readme|_index)$/i.test(name));
     const sibling = byPath.get(dirPath ? dirPath + '/' + name : name);
@@ -3133,32 +3285,42 @@ function importPreview(plan, label) {
     ${plan.lk ? `<p class="dk-hint">Names, aliases, tags, icon colours, the page tree and its order come across exactly. ${plan.stats.maps ? 'Map pictures aren’t inside a .lk file — open each map page and upload its picture; the pins are already placed. ' : ''}${plan.stats.media ? 'Pictures in pages stay as links to LegendKeeper. ' : ''}</p>` : ''}
     <p class="dk-hint">Imports add pages — nothing you already have is changed. Pages with a name you already use get a number added.</p>
     <div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn gold" id="dk-impGo">Import ${plural(n, 'page')}</button></div>`, { wide: true, focus: false });
-  $('#dk-impGo').onclick = () => { $('#dk-impGo').disabled = true; $('#dk-impGo').textContent = 'Importing…'; (plan.lk ? commitLk(plan) : commitImport(plan)).catch(e => { toast({ title: 'Import stopped', det: esc(e.message), cls: 'bad' }); closeModal(true); }); };
+  $('#dk-impGo').onclick = () => { if (IMPORTING) return; IMPORTING = true; $('#dk-impGo').disabled = true; $('#dk-impGo').textContent = 'Importing…'; $$('.dk-dxopts select, .dk-dxopts input, .dk-itree input, .dk-itree button').forEach(x => { x.disabled = true; });
+    (plan.lk ? commitLk(plan) : commitImport(plan)).catch(e => { toast({ title: 'Import stopped', det: esc(e.message), cls: 'bad' }); closeModal(true); }).finally(() => { IMPORTING = false; }); };
 }
+let IMPORTING = false;
 async function commitImport(plan) {
-  const idOf = new Map(), made = [];
+  const idOf = new Map(), made = []; let failed = 0;
+  try {
   if (plan.backup) {
     const d = plan.backup; for (const [id, data] of Object.entries(d.images || {})) { if (!/^i[a-z0-9]{4,24}$/.test(id) || !/^data:image\//.test(data)) continue; IMGC[id] = data; if (IBASE) await IBASE.doc(id).set({ savedAt: Date.now(), data, w: 0, h: 0 }); }
-    (d.pages || []).forEach(p => { if (!p || !p.id) return; const np = newPage(Object.assign({}, p, { title: pageById(p.id) ? uniqueTitle(p.title) : p.title, html: clean(p.html) })); idOf.set(p.id, np.id); made.push(np); });
-    made.forEach(np => { if (np.parent) np.parent = idOf.get(np.parent) || ''; np.html = np.html.replace(/data-page="(p[a-z0-9]+)"/g, (m, id) => `data-page="${idOf.get(id) || id}"`); });
+    const safeMap = m => m && typeof m === 'object' ? { img: /^i[a-z0-9]{4,24}$/.test(m.img || '') ? m.img : '', w: Math.max(0, N(m.w)), h: Math.max(0, N(m.h)), pins: (Array.isArray(m.pins) ? m.pins : []).slice(0, 500).map(x => ({ id: 'n' + uid(), x: Math.max(0, Math.min(1, N(x && x.x))), y: Math.max(0, Math.min(1, N(x && x.y))), label: String((x && x.label) || '').slice(0, 120), page: String((x && x.page) || ''), color: /^#[0-9a-f]{3,8}$/i.test((x && x.color) || '') ? x.color : '' })) } : undefined;
+    (d.pages || []).forEach(p => { if (!p || !p.id) return; const np = newPage(Object.assign({}, p, { title: uniqueTitle(String(p.title || 'Untitled').slice(0, 120)), type: NTYPES[p.type] ? p.type : 'blank', html: clean(p.html), map: safeMap(p.map), tags: (Array.isArray(p.tags) ? p.tags : []).map(String).slice(0, 30), aliases: (Array.isArray(p.aliases) ? p.aliases : []).map(String).slice(0, 10) })); if (!np.map) delete np.map; idOf.set(p.id, np.id); made.push(np); });
+    // links, pins and page fields that pointed at a restored page now point at its copy
+    made.forEach(np => { if (np.parent) np.parent = idOf.get(np.parent) || ''; np.html = np.html.replace(/data-page="(p[a-z0-9]+)"/g, (m, id) => `data-page="${idOf.get(id) || id}"`);
+      if (np.map) np.map.pins.forEach(x => { if (idOf.has(x.page)) x.page = idOf.get(x.page); });
+      ((NTYPES[np.type] || {}).props || []).forEach(([k, , kind]) => { if (kind === 'page' && np.props && idOf.has(np.props[k])) np.props[k] = idOf.get(np.props[k]); }); });
   } else {
     // create pages parents-first so every child knows its parent's id
     const order = []; const visit = k => plan.pages.filter(p => (p.parentKey || '') === k).forEach(p => { order.push(p); visit(p.key); }); visit(''); if (plan.pages.some(p => p.key === plan.rootKey)) { /* root included */ } else plan.pages.forEach(p => { if (!order.includes(p)) order.push(p); });
     let i = 0;
     for (const p of order) { i++; const np = newPage({ title: uniqueTitle(p.title || 'Untitled'), type: p.type || 'blank', parent: idOf.get(p.parentKey) || '', order: i, tags: p.tags || [], props: p.props || {}, aliases: p.aliases || [], html: '<p></p>' }); idOf.set(p.key, np.id); p._id = np.id; made.push(np); }
-    const titleMap = new Map(); order.forEach(p => { titleMap.set(p.title.toLowerCase(), p._id); (p.aliases || []).forEach(a => titleMap.set(a.toLowerCase(), p._id)); });
+    const titleMap = new Map(), put = (k, id) => { if (k && !titleMap.has(k)) titleMap.set(k, id); };
+    order.filter(p => !(p.folder && !htmlText(p.html || '').trim())).forEach(p => put(p.title.toLowerCase(), p._id)); order.forEach(p => put(p.title.toLowerCase(), p._id)); order.forEach(p => (p.aliases || []).forEach(a => put(a.toLowerCase(), p._id)));
     let done = 0; const total = plan.found; const stamp = () => { const b = $('#dk-impGo'); if (b) b.textContent = `Importing… pictures ${done}/${total}`; };
     for (const p of order) {
       let h = p.html; const reps = [];
-      for (const m of h.matchAll(/<img([^>]*?)data-src="([^"]+)"([^>]*)>/g)) { const e = findImg(m[2], p.dir || '', plan.images, plan.imgByBase); if (!e) { reps.push([m[0], '']); continue; } if (!e._id) { try { e._id = (await storeImage(e.blob, 1800)).id; } catch (x) { e._id = ''; } done++; stamp(); } reps.push([m[0], e._id ? `<img data-img="${e._id}" alt="">` : '']); }
-      for (const m of h.matchAll(/<img([^>]*?)data-inline="(data:image\/[^"]+)"([^>]*)>/g)) { let id = ''; try { id = (await storeImage(m[2], 1800)).id; } catch (x) {} done++; stamp(); reps.push([m[0], id ? `<img data-img="${id}" alt="">` : '']); }
+      for (const m of h.matchAll(/<img([^>]*?)data-src="([^"]+)"([^>]*)>/g)) { const e = findImg(m[2], p.dir || '', plan.images, plan.imgByBase); if (!e) { reps.push([m[0], '']); continue; } if (!e._id) { try { e._id = (await storeImage(e.blob, 1800)).id; } catch (x) { e._id = ''; failed++; } done++; stamp(); } reps.push([m[0], e._id ? `<img data-img="${e._id}" alt="">` : '']); }
+      for (const m of h.matchAll(/<img([^>]*?)data-inline="(data:image\/[^"]+)"([^>]*)>/g)) { let id = ''; try { id = (await storeImage(m[2], 1800)).id; } catch (x) { failed++; } done++; stamp(); reps.push([m[0], id ? `<img data-img="${id}" alt="">` : '']); }
       reps.forEach(([a, b]) => { h = h.split(a).join(b); });
+      h = clean(h); // (puts every link's class and name in the same order, so the next step finds them all)
       h = h.replace(/<a class="wl" data-title="([^"]+)">/g, (m, t) => { const x = t.replace(/&amp;/g, '&').toLowerCase(), id = titleMap.get(x) || (pageByTitle(x) || {}).id; return id ? `<a class="wl" data-page="${id}">` : m; });
       const np = pageById(p._id); np.html = clean(h) || '<p></p>';
     }
   }
   made.forEach(p => nSave(p)); const root = made.find(p => !p.parent); if (root) { UI.np = root.id; UI.nopen[root.id] = true; }
-  UI.nq = ''; UI.nf = 'all'; closeModal(true); paint(); toastInfo(`Imported ${plural(made.length, 'page')}.`, null, 'nimp');
+  } catch (e) { made.forEach(p => { delete NT.pages[p.id]; }); writeNotesLocal(); throw e; } // (a failed import leaves nothing half-made behind)
+  UI.nq = ''; UI.nf = 'all'; closeModal(true); paint(); toastInfo(`Imported ${plural(made.length, 'page')}.` + (failed ? ` ${plural(failed, 'picture')} couldn’t be read and ${failed === 1 ? 'was' : 'were'} left out.` : ''), null, 'nimp');
 }
 async function runImport(files) {
   files = Array.from(files || []); if (!files.length) return;
@@ -3188,7 +3350,7 @@ async function exportNotes(kind) {
     return download('dm-desk-notes-' + new Date().toISOString().slice(0, 10) + '.json', JSON.stringify({ app: 'dm-desk-notes', v: 1, pages: pagesList(), images })); }
   await loadScript(LIBS.zip); const zip = new window.JSZip(), used = new Set();
   const fname = (dir, t) => { let f = (t || 'Untitled').replace(/[\\/:*?"<>|#^[\]]/g, '-').slice(0, 80), k = 2, n = f; while (used.has(dir + n)) n = f + ' ' + k++; used.add(dir + n); return n; };
-  const walk = async (pid, dir) => { for (const p of kids(pid)) { const n = fname(dir, p.title); const fm = ['---', `type: ${p.type}`].concat(p.tags && p.tags.length ? [`tags: [${p.tags.join(', ')}]`] : [], (p.aliases || []).length ? [`aliases: [${p.aliases.join(', ')}]`] : [], Object.entries(p.props || {}).filter(([, v]) => v).map(([k, v]) => `${k}: ${String(v).replace(/\n/g, ' ')}`), ['---', '']).join('\n');
+  const walk = async (pid, dir) => { for (const p of kids(pid)) { const n = fname(dir, p.title); const fm = ['---', `title: "${p.title.replace(/\n/g, ' ')}"`, `type: ${p.type}`].concat(p.tags && p.tags.length ? [`tags: [${p.tags.join(', ')}]`] : [], (p.aliases || []).length ? [`aliases: [${p.aliases.join(', ')}]`] : [], Object.entries(p.props || {}).filter(([, v]) => v).map(([k, v]) => `${k}: ${String(v).replace(/\n/g, ' ')}`), ['---', '']).join('\n');
     zip.file(dir + n + '.md', fm + '# ' + p.title + '\n\n' + htmlToMd(p.html).replace(/\(images\//g, '(' + '../'.repeat(dir.split('/').length - 1) + 'images/')); if (kids(p.id).length) await walk(p.id, dir + n + '/'); } };
   await walk('', '');
   for (const p of pagesList()) for (const m of String(p.html).matchAll(/data-img="(i[a-z0-9]+)"/g)) { const u = await getImg(m[1]); if (u) zip.file('images/' + m[1] + '.jpg', u.split(',')[1], { base64: true }); }
@@ -3313,7 +3475,9 @@ function planLk(root, label) {
     (r.properties || []).slice().sort(lkCmp).forEach(pr => { if (!pr || pr.type === 'TAGS') return; const t = lkStr(pr.title, 80) || lkStr(pr.type, 40); const v = lkText(pr.data, ctx).slice(0, 2000); page.xprops.push({ t, v }); props++; });
     pages.push(page, ...after); visit(r.id, page.key, seen);
   });
-  visit('', '', new Set());
+  const seen0 = new Set(); visit('', '', seen0);
+  // pages whose parents point at each other in a loop are never reached from the top: they come in at the top level
+  res.forEach(r => { if (!seen0.has(r.id)) { byParent.set('\u0000loop', [r]); visit('\u0000loop', '', seen0); } });
   // orphans (a parent missing from the export) were put at the top by byParent; mentions are checked against the export
   return { lk: true, pages, rootKey: null, images: new Map(), imgByBase: new Map(), unresolved: [...ctx.unresolved], missing: [], found: 0, stats: { maps, pins: pins.length, hiddenDocs, props, media: ctx.media, cals: (root.calendars || []).length }, label };
 }
@@ -3374,10 +3538,11 @@ function docxSections(body, how) {
     if (isCut(k)) { if (how === 'page') start('', false); else { start(k.textContent.trim(), true); continue; } continue; }
     cur.nodes.push(k);
   }
-  return secs.map(s => {
+  return secs.map((s, idx) => {
     let nodes = s.nodes.filter(k => !(k.matches('hr.dk-pgbrk')));
     // a tab with no heading of its own: its first line names it
-    if (!s.title) { const i = nodes.findIndex(k => k.textContent.trim()); if (i >= 0 && nodes[i].textContent.trim().length <= 80) { s.title = nodes[i].textContent.trim(); nodes.splice(0, i + 1); } }
+    // (text before the first heading stays on the document's own page, so only tabs get named this way)
+    if (!s.title && (how === 'page' || idx > 0)) { const i = nodes.findIndex(k => k.textContent.trim()); if (i >= 0 && nodes[i].textContent.trim().length <= 80) { s.title = nodes[i].textContent.trim(); nodes.splice(0, i + 1); } }
     return { title: s.title.replace(/\s+/g, ' ').slice(0, 120), html: nodes.map(k => k.outerHTML).join('') };
   }).filter(s => s.title || htmlText(s.html).trim() || /<img/i.test(s.html));
 }
@@ -3420,22 +3585,29 @@ async function importDocx(f) {
   // Word files from Google Docs don't carry tab names or which tab sits inside which, so each page's name and place can
   // be fixed here before importing (kept while you switch how the document is cut, as long as the pages stay the same)
   const ED = {};
+  // a page is known by its text, so a rename or move survives switching how the document is cut when that page comes out the same
+  const keyOf = (plan, p) => p.key === plan.rootKey ? '__root' : 'r:' + p.title0 + '|' + String(p.raw || '').slice(0, 300);
   const show = () => {
-    const plan = how ? planDocx(body, f.name, how, link) : planDocx(body, f.name, 'none', false);
-    plan.pages.forEach(p => { const e = ED[how + '|' + p.key]; if (!e) return; if (e.title != null) p.title = e.title; if (e.parentKey != null && plan.pages.some(q => q.key === e.parentKey)) p.parentKey = e.parentKey; });
+    if (IMPORTING) return;
+    const plan = how ? planDocx(body, f.name, how, link) : planDocx(body, f.name, 'none', false); let dirty = false;
+    plan.pages.forEach(p => { p.title0 = p.title; });
+    const byKey = new Map(plan.pages.map(p => [keyOf(plan, p), p]));
+    plan.pages.forEach(p => { const e = ED[keyOf(plan, p)]; if (!e) return; if (e.title != null && e.title !== p.title) { p.title = e.title; dirty = true; } const par = e.parent != null && (e.parent === '__root' ? plan.pages.find(q => q.key === plan.rootKey) : byKey.get(e.parent)); if (par && par !== p) p.parentKey = par.key; });
     importPreview(plan, f.name);
     const tree = $('.dk-itree'); if (!tree) return;
     const kidsOf = k => plan.pages.filter(p => p.key !== plan.rootKey && (p.parentKey || '') === k);
     const flat = () => { const out = []; const root = plan.pages.find(p => p.key === plan.rootKey); if (root) out.push([root, 0]); const walk = (k, d) => kidsOf(k).forEach(p => { out.push([p, d]); walk(p.key, d + 1); }); walk(plan.rootKey, 1); return out; };
-    const relink = () => { if (!link) return; const titles = plan.pages.filter(p => p.raw != null).map(p => p.title).filter(Boolean); plan.pages.forEach(p => { if (p.raw != null) p.html = prepHtml(autoLink(p.raw, titles, p.title), '').html || '<p></p>'; }); };
-    const save = p => { ED[how + '|' + p.key] = { title: p.title, parentKey: p.parentKey }; };
+    const relink = () => { dirty = false; if (!link) return; const titles = plan.pages.filter(p => p.raw != null).map(p => p.title).filter(Boolean); plan.pages.forEach(p => { if (p.raw != null) p.html = prepHtml(autoLink(p.raw, titles, p.title), '').html || '<p></p>'; }); };
+    const save = p => { const par = plan.pages.find(q => q.key === p.parentKey); ED[keyOf(plan, p)] = { title: p.title, parent: par ? keyOf(plan, par) : null }; };
+    // names are linked once, as the import starts (not on every rename: that re-reads the whole document each time)
+    tree.parentElement.addEventListener('click', e => { if (e.target.closest && e.target.closest('#dk-impGo') && dirty) relink(); }, true);
     const IC = d => `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
     const paintTree = () => { const rows = flat();
-      tree.innerHTML = rows.map(([p, d], i) => { const isRoot = p.key === plan.rootKey, prev = rows.slice(0, i).reverse().find(r => r[1] === d), canIn = !isRoot && prev && prev[0].key !== plan.rootKey, canOut = !isRoot && d > 1;
+      tree.innerHTML = rows.map(([p, d], i) => { const isRoot = p.key === plan.rootKey, prev = rows.slice(0, i).reverse().find(r => r[1] <= d), canIn = !isRoot && prev && prev[1] === d && prev[0].key !== plan.rootKey, canOut = !isRoot && d > 1;
         return `<div class="dk-ipt dk-iped" style="--d:${d}" data-k="${esc(p.key)}">${nIcon(p.type || 'blank', '', p.color)}<input class="dk-iname" value="${esc(p.title)}" maxlength="120" aria-label="Page name">${isRoot ? '' : `<button type="button" class="dk-imv" data-mv="out" title="Move out a level" aria-label="Move out a level"${canOut ? '' : ' disabled'}>${IC('M15 18l-6-6 6-6')}</button><button type="button" class="dk-imv" data-mv="in" title="Put inside the page above" aria-label="Put inside the page above"${canIn ? '' : ' disabled'}>${IC('M9 18l6-6-6-6')}</button>`}</div>`; }).join('');
-      tree.querySelectorAll('.dk-iname').forEach(inp => { inp.onchange = () => { const p = plan.pages.find(q => q.key === inp.closest('[data-k]').dataset.k); if (!p) return; p.title = inp.value.replace(/\s+/g, ' ').trim().slice(0, 120) || 'Untitled'; inp.value = p.title; save(p); relink(); }; inp.onkeydown = e => { if (e.key === 'Enter') inp.blur(); }; });
+      tree.querySelectorAll('.dk-iname').forEach(inp => { inp.onchange = () => { const p = plan.pages.find(q => q.key === inp.closest('[data-k]').dataset.k); if (!p) return; p.title = inp.value.replace(/\s+/g, ' ').trim().slice(0, 120) || 'Untitled'; inp.value = p.title; save(p); dirty = true; }; inp.onkeydown = e => { if (e.key === 'Enter') inp.blur(); }; });
       tree.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => { const k = b.closest('[data-k]').dataset.k, p = plan.pages.find(q => q.key === k); if (!p) return; const rows = flat(), i = rows.findIndex(r => r[0] === p), d = rows[i][1];
-        if (b.dataset.mv === 'in') { const prev = rows.slice(0, i).reverse().find(r => r[1] === d); if (!prev) return; p.parentKey = prev[0].key; }
+        if (b.dataset.mv === 'in') { const prev = rows.slice(0, i).reverse().find(r => r[1] <= d); if (!prev || prev[1] !== d) return; p.parentKey = prev[0].key; }
         else { const par = plan.pages.find(q => q.key === p.parentKey); if (!par) return; p.parentKey = par.parentKey || plan.rootKey;
           // it lands right after its old parent and everything inside it
           const arr = plan.pages, from = arr.indexOf(p); arr.splice(from, 1); const sub = new Set([par.key]); let at = arr.indexOf(par) + 1; while (at < arr.length && sub.has(arr[at].parentKey)) { sub.add(arr[at].key); at++; } arr.splice(at, 0, p); }
@@ -3461,7 +3633,7 @@ function onNotesAct(act, b, e) {
   switch (act) {
     case 'nnew': return makePage(b.dataset.t || 'blank', '');
     case 'nopen': return openPage(b.dataset.id);
-    case 'ntoggle': UI.nopen[b.dataset.id] = !(UI.nopen[b.dataset.id] || isAncestor(b.dataset.id, UI.np)); if (!UI.nopen[b.dataset.id] && isAncestor(b.dataset.id, UI.np)) { UI.np = b.dataset.id; } saveUI(); paint(); return true;
+    case 'ntoggle': UI.nopen[b.dataset.id] = !UI.nopen[b.dataset.id]; saveUI(); paint(); return true;
     case 'nfilt': UI.nf = UI.nf === b.dataset.v && b.dataset.v !== 'all' ? 'all' : b.dataset.v; saveUI(); paint(); return true;
     case 'nimport': openImport(); return true;
     case 'nexport': openModal(`<h2>Export notes</h2><p class="dk-hint">Download all ${plural(pagesList().length, 'page')}.</p><div class="dk-row"><button class="dk-btn gold" id="dk-exMd">Markdown (.zip)</button><button class="dk-btn" id="dk-exJs">Backup (.json)</button></div><p class="dk-hint">Markdown opens in Obsidian and most note apps. The backup brings everything back into the desk, pictures included.</p><div class="dk-acts"><button class="dk-btn" data-act="close">Close</button></div>`, { focus: false });
@@ -3470,7 +3642,7 @@ function onNotesAct(act, b, e) {
   }
   if (!p) return false;
   switch (act) {
-    case 'nfav': p.fav = !p.fav; nSave(p); paint(); return true;
+    case 'nfav': p.fav = !p.fav; nSaveQuiet(); paint(); return true;
     case 'nsub': makePage('blank', p.id); return true;
     case 'ntype': openModal(`<h2>Page type</h2><div class="dk-typegrid">${Object.entries(NTYPES).map(([k, t]) => `<button class="dk-typeopt${k === p.type ? ' on' : ''}" data-ty="${k}">${nIcon(k)}<b>${esc(t.n)}</b></button>`).join('')}</div><div class="dk-acts"><button class="dk-btn" data-act="close">Close</button></div>`, { focus: false });
       $$('.dk-typeopt').forEach(x => x.onclick = () => { p.type = x.dataset.ty; if (p.type === 'map' && !p.map) p.map = { img: '', w: 0, h: 0, pins: [] }; if (!htmlText(p.html) && NTYPES[p.type].tpl) p.html = NTYPES[p.type].tpl; closeModal(true); nSave(p); paint(); }); return true;
@@ -3479,7 +3651,7 @@ function onNotesAct(act, b, e) {
       $('#dk-mvGo').onclick = () => { const to = $('#dk-mvTo').value; closeModal(true); movePage(p.id, to, null); }; return true; }
     case 'nalias': askText('Other names', (p.aliases || []).join(', '), v => { p.aliases = asList(v).slice(0, 10); nSave(p); paint(); }, { okLabel: 'Save', allowEmpty: true, hint: 'Names this page also goes by, separated by commas — [[links]] to any of them find this page.' }); return true;
     case 'nmd': download(p.title.replace(/[\\/:*?"<>|]/g, '-') + '.md', '# ' + p.title + '\n\n' + htmlToMd(p.html)); return true;
-    case 'ndel': { const n = kids(p.id).length; confirmBox(`Delete <b>${esc(p.title)}</b>${n ? ` and the ${plural(n, 'page')} inside it` : ''}? This can’t be undone.`, 'Delete', () => { const par = p.parent; deletePage(p.id); UI.np = par || ''; writeNotesLocal(); notesSoon(); paint(); }, true); return true; }
+    case 'ndel': { const n = pagesList().filter(x => x.id !== p.id && isAncestor(p.id, x.id)).length; confirmBox(`Delete <b>${esc(p.title)}</b>${n ? ` and the ${plural(n, 'page')} inside it` : ''}? This can’t be undone.`, 'Delete', () => { const par = p.parent; deletePage(p.id); UI.np = par || ''; writeNotesLocal(); notesSoon(); paint(); }, true); return true; }
     case 'nrmtag': p.tags = (p.tags || []).filter(t => t !== b.dataset.tag); nSave(p); paint(); return true;
     case 'nstat': { const c = getC(b.dataset.cid); if (c) openModal(`<div class="dk-sbmodal">${statBlock(c)}</div><div class="dk-acts"><button class="dk-btn" data-act="close">Close</button></div>`, { wide: true, focus: false }); return true; }
     case 'ntosess': { const c = getC((p.props || {}).stat); if (!c) return true; const s = curSession() || newSession(); const x = newInst(c, p.title); x.notes = [p.props.role, p.props.race].filter(Boolean).join(', '); s.groups[0].list.push(x); save(); toastInfo(`Added <b>${esc(p.title)}</b> to ${esc(s.title)}.`, [{ label: 'Go to session', fn: () => { UI.tab = 'sessions'; UI.session = s.id; UI.sv = 'creatures'; UI.sel = x.iid; saveUI(); render(); scrollTo(0, 0); } }]); return true; }
@@ -3498,7 +3670,9 @@ function onNotesClick(e) {
     if (a.classList.contains('mn')) { const c = getC(a.dataset.cid) || allCreatures().find(z => z.name === a.textContent); if (c) { e.preventDefault(); openModal(`<div class="dk-sbmodal">${statBlock(c)}</div><div class="dk-acts"><button class="dk-btn" data-act="close">Close</button></div>`, { wide: true, focus: false }); } return true; }
     if (a.hasAttribute('href')) { if (e.ctrlKey || e.metaKey || !a.closest('.dk-ed')) { e.preventDefault(); window.open(a.href, '_blank', 'noopener,noreferrer'); } else toastInfo('Ctrl-click (or ⌘-click) to open the link.'); return true; }
     e.preventDefault(); edSave(true); const t = pageById(a.dataset.page) || pageByTitle(a.dataset.title);
-    if (t) openPage(t.id); else { const cur = pageById(UI.np); const np = makePage('blank', cur ? cur.parent : '', a.dataset.title || a.textContent); toastInfo(`Made a new page: <b>${esc(np.title)}</b>.`); }
+    // a link to a page that doesn't exist (any more): make it, and point this link at it so the next click opens the same page
+    if (t) openPage(t.id); else { const cur = pageById(UI.np), np = newPage({ type: 'blank', parent: cur ? parentOf(cur) : '', title: uniqueTitle(a.dataset.title || a.textContent.trim() || 'Untitled') }); nSave(np);
+      if (a.closest('.dk-ed')) { a.setAttribute('data-page', np.id); a.classList.remove('broken'); edSave(true); } openPage(np.id); toastInfo(`Made a new page: <b>${esc(np.title)}</b>.`); }
     return true;
   }
   const li = e.target.closest('.dk-ed ul.checks > li'); if (li) { const r = li.getBoundingClientRect(); if (e.clientX - r.left < 26) { e.preventDefault(); if (li.getAttribute('data-done')) li.removeAttribute('data-done'); else li.setAttribute('data-done', '1'); edSave(); return true; } }
@@ -3510,14 +3684,17 @@ function onNotesChange(el) {
   if (el.classList.contains('dk-nimpf') || el.classList.contains('dk-ndirf')) { const fs = Array.from(el.files || []); el.value = ''; closeModal(true); runImport(fs); return true; }
   if (el.id === 'dk-ntag') { UI.nf = el.value ? 'tag' : 'all'; UI.ntag = el.value; saveUI(); paint(); return true; }
   if (!p) return false;
-  if (el.dataset.nt === 'title') { const v = el.value.trim() || 'Untitled'; if (v !== p.title) { p.title = v; nSave(p); } paint(); return true; }
+  if (el.dataset.nt === 'title') { let v = el.value.replace(/\s+/g, ' ').trim() || 'Untitled';
+    // two pages with one name would make links to that name land on either: the new name gets a number, and says so
+    if (v.toLowerCase() !== p.title.toLowerCase() && pagesList().some(x => x.id !== p.id && x.title.toLowerCase() === v.toLowerCase())) { const want = v; let n = 2; while (pagesList().some(x => x.id !== p.id && x.title.toLowerCase() === v.toLowerCase())) v = `${want} (${n++})`; toastInfo(`There’s already a page called <b>${esc(want)}</b>, so this one is <b>${esc(v)}</b>.`); }
+    if (v !== p.title) { const old = p.title; p.title = v; nSave(p); retitleLinks(p, old); } el.value = p.title; paintAfterPress(); return true; }
   if (el.dataset.npx != null && p && Array.isArray(p.xprops) && p.xprops[N(el.dataset.npx)]) { p.xprops[N(el.dataset.npx)].v = String(el.value).slice(0, 2000); nSave(p); return true; }
-  if (el.dataset.np) { p.props = p.props || {}; p.props[el.dataset.np] = String(el.value).slice(0, 200); nSave(p); paint(); return true; }
-  if (el.dataset.npstat) { const v = el.value.trim().toLowerCase(), c = allCreatures().find(z => z.name.toLowerCase() === v); p.props = p.props || {}; p.props.stat = c ? c.id : ''; if (v && !c) toastInfo('No creature with that name in your bestiary.'); nSave(p); paint(); return true; }
-  if (el.id === 'dk-tag-' + p.id) { addTags(p, el.value); return true; }
+  if (el.dataset.np) { p.props = p.props || {}; p.props[el.dataset.np] = String(el.value).slice(0, 200); nSave(p); paintAfterPress(); return true; }
+  if (el.dataset.npstat) { const v = el.value.trim().toLowerCase(), c = allCreatures().find(z => z.name.toLowerCase() === v); p.props = p.props || {}; p.props.stat = c ? c.id : ''; if (v && !c) toastInfo('No creature with that name in your bestiary.'); nSave(p); paintAfterPress(); return true; }
+  if (el.id === 'dk-tag-' + p.id) { const v = el.value; el.value = ''; addTags(p, v); return true; }
   return false;
 }
-function addTags(p, v) { const t = asList(v).map(x => x.replace(/\s+/g, '-').slice(0, 40)); if (!t.length) return; p.tags = Array.from(new Set((p.tags || []).concat(t))).slice(0, 30); nSave(p); paint(); setTimeout(() => { const i = $('#dk-tag-' + p.id); if (i) i.focus(); }, 0); }
+function addTags(p, v) { const t = asList(v).map(x => x.replace(/\s+/g, '-').slice(0, 40)); if (!t.length) return; p.tags = Array.from(new Set((p.tags || []).concat(t))).slice(0, 30); nSave(p); const pressed = PTR_DOWN; paintAfterPress(); if (!pressed) setTimeout(() => { const i = $('#dk-tag-' + p.id); if (i) i.focus(); }, 0); }
 let NQT = 0;
 function onNotesInput(e) {
   const el = e.target;
@@ -3525,9 +3702,37 @@ function onNotesInput(e) {
   if (el.classList && el.classList.contains('dk-ed')) { if (!edShortcut(e)) { /* plain typing */ } edSave(); edAuto(); return true; }
   return false;
 }
+// Boxes in a page (callout, secret, quote, table) can always be left: Enter on an empty last line steps out below,
+// the down arrow at the very end of a box opens a line after it, Backspace in an empty box removes it, and a click
+// under the last box gives a line to type on.
+const ED_BOX = '.callout, .secret, blockquote, table';
+const edBoxOf = n => { const ed = edEl(); let x = n && n.nodeType === 3 ? n.parentNode : n; const b = x && x.closest && x.closest(ED_BOX); return b && ed && ed.contains(b) && b !== ed ? b : null; };
+const edLineAfter = box => { const p = document.createElement('p'); p.innerHTML = '<br>'; box.after(p); placeCaret(p); return p; };
+const edEmpty = el => !el.textContent.replace(/\u200b/g, '').trim() && !el.querySelector('img, hr, table, input');
+const edAtEnd = (r, el) => { if (!r.collapsed) return false; const t = document.createRange(); t.selectNodeContents(el); t.setStart(r.endContainer, r.endOffset); return !t.toString().replace(/\u200b/g, '').trim() && !t.cloneContents().querySelector('img, table, hr'); };
+function edBoxKey(e) {
+  if (e.ctrlKey || e.metaKey || e.altKey) return false;
+  const r = selRange(); if (!r) return false; const box = edBoxOf(r.startContainer); if (!box) return false;
+  const b = blockOf(r.startContainer);
+  if (e.key === 'Enter' && !e.shiftKey && box.tagName !== 'TABLE' && b && b !== box && b.tagName !== 'LI' && edEmpty(b) && !b.nextElementSibling && b.parentNode === box && b.previousElementSibling) {
+    e.preventDefault(); b.remove(); edLineAfter(box); edSave(); return true; }
+  if (e.key === 'Enter' && !e.shiftKey && box.tagName === 'BLOCKQUOTE' && (b === box || !b) && edEmpty(box) && box.previousElementSibling) {
+    e.preventDefault(); const p = document.createElement('p'); p.innerHTML = '<br>'; box.replaceWith(p); placeCaret(p); edSave(); return true; }
+  if (e.key === 'Enter' && !e.shiftKey && box.tagName !== 'TABLE' && b && b.tagName === 'LI' && edEmpty(b) && !b.nextElementSibling && b.parentNode.parentNode === box && !b.parentNode.nextElementSibling && b.parentNode.children.length === 1 && b.parentNode.previousElementSibling) {
+    e.preventDefault(); b.parentNode.remove(); edLineAfter(box); edSave(); return true; }
+  if ((e.key === 'ArrowDown' || e.key === 'ArrowRight') && !box.nextElementSibling && edAtEnd(r, box)) {
+    if (e.key === 'ArrowDown' || edAtEnd(r, box)) { e.preventDefault(); edLineAfter(box); edSave(); return true; } }
+  if (e.key === 'ArrowUp' && !box.previousElementSibling && r.collapsed) { const t = document.createRange(); t.selectNodeContents(box); t.setEnd(r.startContainer, r.startOffset); if (!t.toString().trim()) { e.preventDefault(); const p = document.createElement('p'); p.innerHTML = '<br>'; box.before(p); placeCaret(p); edSave(); return true; } }
+  if (e.key === 'Backspace' && edEmpty(box) && box.tagName !== 'TABLE') { e.preventDefault(); const p = document.createElement('p'); p.innerHTML = '<br>'; box.replaceWith(p); placeCaret(p); edSave(); return true; }
+  return false;
+}
+if (!window.__dkEdBoxClick) { window.__dkEdBoxClick = 1;
+  document.addEventListener('mousedown', e => { const ed = e.target.closest && e.target.closest('.dk-ed'); if (!ed || e.target !== ed) return;
+    const last = ed.lastElementChild; if (!last || !(last.matches(ED_BOX) || last.tagName === 'HR' || last.tagName === 'UL' || last.tagName === 'OL' || last.tagName === 'IMG')) return;
+    if (e.clientY < last.getBoundingClientRect().bottom) return; e.preventDefault(); const p = document.createElement('p'); p.innerHTML = '<br>'; ed.appendChild(p); ed.focus(); placeCaret(p); edSave(); }, true); }
 function onNotesKey(e) {
   const el = e.target;
-  if (el && el.classList && el.classList.contains('dk-tagin') && (e.key === 'Enter' || e.key === ',')) { e.preventDefault(); const p = pageById(UI.np); if (p) addTags(p, el.value); return true; }
+  if (el && el.classList && el.classList.contains('dk-tagin') && (e.key === 'Enter' || e.key === ',')) { e.preventDefault(); const p = pageById(UI.np); if (p) { const v = el.value; el.value = ''; addTags(p, v); } return true; }
   if (!el || !el.classList || !el.classList.contains('dk-ed')) return false;
   const pop = $('.dk-auto');
   if (AUTO && pop && !pop.hidden) {
@@ -3537,6 +3742,7 @@ function onNotesKey(e) {
     if (e.key === 'Escape') { e.preventDefault(); pop.hidden = true; AUTO = null; return true; }
   }
   if (e.key === 'Enter' && !e.shiftKey) { const r = selRange(), b = r && blockOf(r.startContainer); if (b && /^(-{3,}|\*{3,})$/.test(b.textContent.trim())) { e.preventDefault(); b.innerHTML = '<br>'; placeCaret(b); document.execCommand('insertHTML', false, '<hr>'); edSave(); return true; } }
+  if (edBoxKey(e)) return true;
   if (e.key === 'Tab') { const r = selRange(), li = r && blockOf(r.startContainer); if (li && li.tagName === 'LI') { e.preventDefault(); document.execCommand(e.shiftKey ? 'outdent' : 'indent'); edSave(); return true; } }
   if ((e.ctrlKey || e.metaKey) && /^[biu]$/i.test(e.key)) { setTimeout(() => edSave(), 0); }
   return false;
@@ -3553,6 +3759,26 @@ function npcToNotes(n, stat) {
   nSave(p); return p;
 }
 function planPagesText(s) { const ids = (planOf(s).pages || []).filter(id => pageById(id)); let out = '', left = 12000; for (const id of ids) { const p = pageById(id), t = `## ${p.title} (${(NTYPES[p.type] || NTYPES.blank).n})\n${htmlText(p.html.replace(/<div class="secret">/g, '<div class="secret"> [DM secret] '))}\n\n`; out += t.slice(0, left); left -= t.length; if (left <= 0) break; } return out; }
+
+// Renaming a page: links elsewhere that still show its old name now show the new one (a link whose words were changed
+// by hand keeps them), and links that only knew it by the old name are tied to the page itself.
+function retitleLinks(p, old) {
+  const lo = String(old).trim().toLowerCase(); if (!lo) return;
+  pagesList().forEach(o => { if (o.id === p.id) return; const h = String(o.html || ''); if (!h.includes(`data-page="${p.id}"`) && !h.toLowerCase().includes('data-title=')) return;
+    const d = new DOMParser().parseFromString('<body>' + h + '</body>', 'text/html'); let ch = false;
+    d.body.querySelectorAll('a.wl').forEach(a => { const mine = a.dataset.page === p.id, byName = !a.dataset.page && String(a.dataset.title || '').trim().toLowerCase() === lo; if (!mine && !byName) return;
+      if (byName) { a.setAttribute('data-page', p.id); ch = true; } if (a.hasAttribute('data-title')) { a.setAttribute('data-title', p.title); ch = true; }
+      if (a.textContent.trim().toLowerCase() === lo) { a.textContent = p.title; ch = true; } });
+    if (ch) { o.html = d.body.innerHTML; nSave(o); } });
+}
+
+// A field saves when it loses focus — which happens as the mouse goes down on whatever was clicked next. Redrawing right
+// then would swap that button out before the click lands, so the redraw waits until the press is over.
+let PTR_DOWN = false, PAINT_HELD = false;
+document.addEventListener('pointerdown', () => { PTR_DOWN = true; }, true);
+const ptrUp = () => { PTR_DOWN = false; if (PAINT_HELD) { PAINT_HELD = false; setTimeout(paint, 0); } };
+document.addEventListener('pointerup', ptrUp, true); document.addEventListener('pointercancel', ptrUp, true); document.addEventListener('dragstart', ptrUp, true);
+function paintAfterPress() { if (!PTR_DOWN) return paint(); PAINT_HELD = true; setTimeout(() => { if (PAINT_HELD) { PAINT_HELD = false; paint(); } }, 1500); }
 // ---------- Homebrew item maker: items in the character sheet's own format, with its automation (it.hb) ----------
 const HB_TYPES = [['weapon', 'Weapon'], ['armor', 'Armor or shield'], ['wondrous', 'Wondrous item'], ['ring', 'Ring'], ['potion', 'Potion'], ['scroll', 'Scroll'], ['staff', 'Staff'], ['wand', 'Wand'], ['rod', 'Rod'], ['ammunition', 'Ammunition']];
 const HB_RAR = ['common', 'uncommon', 'rare', 'very rare', 'legendary', 'artifact'];

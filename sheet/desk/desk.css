@@ -1405,3 +1405,14 @@ html[data-pgtheme="light"] .dk-back2 { color: #8a6420; } html[data-pgtheme="ligh
 .dk-acct .pg-ava { width: 40px !important; height: 40px !important; box-shadow: 0 0 0 2px rgba(224,170,58,.55); }
 .dk-acct:hover .pg-ava { box-shadow: 0 0 0 2px #e0aa3a; }
 .dk-tools { position: relative; align-items: center; }
+/* undo, redo and history */
+.dk-histb { display: inline-flex; gap: 4px; }
+.dk-histb .dk-tb:disabled { opacity: .35; cursor: default; }
+.dk-hrb { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 10px 0 12px; }
+.dk-hrb b { margin-right: 4px; font-size: .9rem; }
+.dk-hrb small { opacity: .6; margin-left: 3px; }
+.dk-hist { list-style: none; margin: 0; padding: 0; max-height: min(52vh, 460px); overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--line); border-radius: 12px; }
+.dk-hist li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 8px 12px; border-top: 1px solid var(--line); }
+.dk-hist li:first-child { border-top: 0; }
+.dk-htm { font-variant-numeric: tabular-nums; opacity: .7; font-size: .85rem; }
+.dk-hl { overflow-wrap: anywhere; } .dk-hl small { opacity: .6; }

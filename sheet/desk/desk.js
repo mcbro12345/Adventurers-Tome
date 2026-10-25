@@ -33,6 +33,9 @@ const SPI = {}; DATA.spells.forEach(s => { SPI[s.n.toLowerCase()] = s; });
 const SRD = {}; DATA.monsters.forEach(m => { SRD[m.id] = m; });
 const ordinal = n => n + (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th');
 const ICON = {
+  undo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>',
+  redo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>',
+  hist: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>',
   hpDmg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M12.5 7.5 10.5 11l3 2-2 3.5"/></svg>',
   hpHeal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M12 9.5v6M9 12.5h6"/></svg>',
   hpTemp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6z"/><path d="M12 9v6M9 12h6"/></svg>',
@@ -78,7 +81,7 @@ function normalize(d) {
   s.sessions.forEach(x => { x.groups = (x.groups || []).filter(Boolean); if (!x.groups.length) x.groups.push({ id: 'g' + uid(), name: 'Creatures', list: [] }); x.groups.forEach(g => { g.list = (g.list || []).filter(Boolean); }); });
   return s;
 }
-function save() { S.savedAt = Date.now(); writeLocal(); cloudSoon(); syncTurnHP(); }
+function save() { S.savedAt = Date.now(); dCommit(); writeLocal(); cloudSoon(); syncTurnHP(); }
 const saveUI = () => writeLocal();
 
 // ---------- account storage ----------
@@ -118,7 +121,7 @@ async function pullAll() {
   next.sessions.sort((a, b) => N(b.made) - N(a.made));
   S = normalize(next); SYNCED.main = JSON.stringify(mainBody());
   SYNCED.ses.forEach((v, k) => { const s = S.sessions.find(x => x.id === k); if (s) SYNCED.ses.set(k, JSON.stringify(s)); });
-  writeLocal(); return true;
+  writeLocal(); dHistBase(); return true;
 }
 async function cloudBoot() {
   if (!CTX.fs || !CTX.EMAIL) { setSync('Saved on this device'); return; }
@@ -129,7 +132,7 @@ async function cloudBoot() {
     if (d && N(d.savedAt) >= N(S.savedAt)) { await pullAll(); render(); }
     else { // a desk that's new (or newer here): it still gets every creature you've made
       const cr = await CRE.get(); cr.docs.forEach(x => { const c = x.data().data; if (!c) return; if (!S.creatures[x.id]) S.creatures[x.id] = c; SYNCED.cre.set(x.id, JSON.stringify(c)); }); render(); }
-    CLOUD = true;
+    dHistBase(); CLOUD = true;
     if (!d || N(d.savedAt) < N(S.savedAt)) { if (!S.savedAt) S.savedAt = Date.now(); await flush(); } else setSync('Saved to your account');
   } catch (e) { console.warn('desk load', e); setSync('Offline — saved on this device'); }
 }
@@ -186,6 +189,107 @@ function addToGroup(s, g, cid, n) {
 function newSession(title) {
   const s = { id: 's' + uid(), title: title || 'Session ' + (S.sessions.length + 1), made: Date.now(), notes: '', groups: [{ id: 'g' + uid(), name: 'Encounter 1', notes: '', list: [] }] };
   S.sessions.unshift(s); UI.session = s.id; UI.sel = ''; UI.open[s.id] = true; return s;
+}
+// ---------- undo, redo and history (like the character sheet's) ----------
+// Every save compares the desk with the last snapshot, piece by piece (settings, each creature, each session, the order of
+// sessions), and records what each changed piece was before. Unchanged pieces share the same string, so snapshots are cheap.
+// Notes keep their own typing undo (Ctrl+Z inside the page).
+const DHMAX = 150;
+let DHIST = [], DREDO = [], DLAST = null, DPEND = null, DPEND_T = 0, DH_OFF = false;
+// names the next change (a name not used within a minute is kept but just called "Change")
+const dPend = l => { DPEND = l; DPEND_T = Date.now(); };
+function dSnap() {
+  const o = { settings: JSON.stringify(S.settings || {}), order: JSON.stringify(S.sessions.map(s => s.id)) };
+  for (const [id, c] of Object.entries(S.creatures || {})) { const j = JSON.stringify(c); o['cre:' + id] = DLAST && DLAST['cre:' + id] === j ? DLAST['cre:' + id] : j; }
+  for (const s of S.sessions) { const j = JSON.stringify(s); o['ses:' + s.id] = DLAST && DLAST['ses:' + s.id] === j ? DLAST['ses:' + s.id] : j; }
+  return o;
+}
+// the desk was just loaded or replaced (from this device or your account): start comparing from here
+function dHistBase() { DLAST = dSnap(); dHistButtons(); }
+function dHistLoad() { try { const h = lsGet('-hist'); if (Array.isArray(h)) DHIST = h.filter(e => e && e.keys); } catch (e) {} dHistBase(); }
+function dCommit() {
+  if (DH_OFF) return; if (!DLAST) { DLAST = dSnap(); return; }
+  // changes nobody asked for (the desk tidying itself up after loading, say) move the starting point but aren't listed
+  if (DPEND && Date.now() - DPEND_T > 60000) DPEND = 'Change';
+  if (!DPEND) { DLAST = dSnap(); return; }
+  const label = DPEND, merge = /^Edit: /.test(label); DPEND = null;
+  const cur = dSnap(), changed = {};
+  new Set([...Object.keys(cur), ...Object.keys(DLAST)]).forEach(k => { if (cur[k] !== DLAST[k]) changed[k] = DLAST[k] === undefined ? null : DLAST[k]; });
+  DLAST = cur; if (!Object.keys(changed).length) return;
+  const now = Date.now(), top = DHIST[DHIST.length - 1];
+  if (top && top.label === label && now - top.t < (merge ? 4000 : 1200)) { for (const k in changed) if (!(k in top.keys)) top.keys[k] = changed[k]; top.t = now; }
+  else DHIST.push({ t: now, label, keys: changed });
+  while (DHIST.length > DHMAX) DHIST.shift();
+  DREDO = []; dHistPersist(); dHistButtons();
+}
+function dApply(e) {
+  const inv = { t: e.t, label: e.label, keys: {} }; let order = null;
+  for (const k in e.keys) {
+    const v = e.keys[k];
+    if (k === 'settings') { inv.keys[k] = JSON.stringify(S.settings); S.settings = v === null ? DEF().settings : JSON.parse(v); continue; }
+    if (k === 'order') { inv.keys[k] = JSON.stringify(S.sessions.map(s => s.id)); order = v === null ? null : JSON.parse(v); continue; }
+    const [kind, id] = [k.slice(0, 3), k.slice(4)];
+    if (kind === 'cre') { inv.keys[k] = S.creatures[id] ? JSON.stringify(S.creatures[id]) : null; if (v === null) delete S.creatures[id]; else S.creatures[id] = JSON.parse(v); }
+    if (kind === 'ses') { const i = S.sessions.findIndex(s => s.id === id); inv.keys[k] = i >= 0 ? JSON.stringify(S.sessions[i]) : null;
+      if (v === null) { if (i >= 0) S.sessions.splice(i, 1); } else if (i >= 0) S.sessions[i] = JSON.parse(v); else S.sessions.push(JSON.parse(v)); }
+  }
+  if (order) { const at = new Map(order.map((id, i) => [id, i])); S.sessions.sort((a, b) => (at.has(a.id) ? at.get(a.id) : 1e9) - (at.has(b.id) ? at.get(b.id) : 1e9)); }
+  return inv;
+}
+function dAfter() {
+  S = normalize(S); if (UI.session && !S.sessions.some(s => s.id === UI.session)) UI.session = (S.sessions[0] || {}).id || '';
+  DLAST = dSnap(); DH_OFF = true; try { save(); } finally { DH_OFF = false; } dHistPersist(); render();
+}
+function dUndo(n = 1) { let c = 0, lb = ''; while (c < n && DHIST.length) { lb = DHIST[DHIST.length - 1].label; DREDO.push(dApply(DHIST.pop())); c++; } if (c) dAfter(); return [c, lb]; }
+function dRedo(n = 1) { let c = 0, lb = ''; while (c < n && DREDO.length) { lb = DREDO[DREDO.length - 1].label; DHIST.push(dApply(DREDO.pop())); c++; } if (c) dAfter(); return [c, lb]; }
+let dHT = 0;
+function dHistPersist() { clearTimeout(dHT); dHT = setTimeout(() => { let h = DHIST.slice(); for (;;) { try { localStorage.setItem(lsKey('-hist'), JSON.stringify(h)); return; } catch (e) { if (h.length <= 1) { try { localStorage.removeItem(lsKey('-hist')); } catch (x) {} return; } h = h.slice(Math.ceil(h.length / 2)); } } }, 600); }
+function dHistButtons() {
+  const u = $('.dk-tb[data-act="dundo"]'), r = $('.dk-tb[data-act="dredo"]'), lb = s => String(s).replace(/^Edit: /, '');
+  if (u) { u.disabled = !DHIST.length; u.title = DHIST.length ? `Undo: ${lb(DHIST[DHIST.length - 1].label)} (Ctrl+Z)` : 'Nothing to undo'; }
+  if (r) { r.disabled = !DREDO.length; r.title = DREDO.length ? `Redo: ${lb(DREDO[DREDO.length - 1].label)} (Ctrl+Y)` : 'Nothing to redo'; }
+}
+// what a click or an edit is called in the history
+const DACT = { atk: 'Attack roll', qdmg: 'Damage', qheal: 'Healing', hpdmg: 'Damage', hpheal: 'Healing', addc: 'Add a creature', toall: 'Send everyone to turn order', newsess: 'New session', delsess: 'Delete a session', settings: '' };
+function dLabelFrom(b) {
+  const a = b.dataset.act; if (a in DACT) return DACT[a] || null;
+  let t = b.getAttribute('aria-label') || b.getAttribute('title') || b.textContent || ''; t = t.replace(/\s+/g, ' ').trim();
+  return t ? (t.length > 48 ? t.slice(0, 46) + '…' : t) : null;
+}
+const dAgo = t => { const s = Math.round((Date.now() - t) / 1000); return s < 60 ? 'just now' : s < 3600 ? Math.round(s / 60) + ' min ago' : s < 86400 ? Math.round(s / 3600) + ' h ago' : Math.round(s / 86400) + ' d ago'; };
+const dTime = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+const dSince = ms => { const t0 = Date.now() - ms; let n = 0; for (let i = DHIST.length - 1; i >= 0 && DHIST[i].t >= t0; i--) n++; return n; };
+function dOpenHistory() {
+  const lb = s => esc(String(s).replace(/^Edit: /, ''));
+  const list = DHIST.slice().reverse().map((e, j) => `<li><span class="dk-htm" title="${esc(new Date(e.t).toLocaleString())}">${dTime(e.t)}</span><span class="dk-hl">${lb(e.label)} <small>· ${dAgo(e.t)}</small></span><button class="dk-btn sm" data-act="drewind" data-n="${j + 1}" title="Undo this change and everything after it">Rewind here</button></li>`).join('');
+  openModal(`<h2>Change history</h2><p class="dk-hint">Every change to the desk is recorded here, newest first (up to ${DHMAX}). Typing in one box counts as one change. Undo and Redo also work with Ctrl+Z and Ctrl+Y. Notes keep their own undo while you type in a page.</p>
+    <div class="dk-hrb"><b>Roll back the last</b>${[['1 min', 60000], ['5 min', 300000], ['15 min', 900000], ['1 hour', 3600000], ['Today', Date.now() - new Date().setHours(0, 0, 0, 0)]].map(([t, ms]) => `<button class="dk-chip" data-act="drbquick" data-ms="${ms}">${t} <small>${dSince(ms)}</small></button>`).join('')}</div>
+    ${DHIST.length ? `<ol class="dk-hist">${list}</ol>` : '<p class="dk-hint">No changes recorded yet.</p>'}
+    ${DREDO.length ? `<p class="dk-hint">${DREDO.length} undone change${DREDO.length === 1 ? '' : 's'} can be redone. <button class="dk-btn sm" data-act="dredoall">Redo all</button></p>` : ''}
+    <div class="dk-acts"><button class="dk-btn" data-act="close">Close</button></div>`);
+}
+function dRollback(n, what) {
+  if (!n) { toastInfo('Nothing to roll back in that time.'); return; }
+  const [c] = dUndo(n); closeModal(true);
+  toastInfo(`Rolled back ${c} change${c === 1 ? '' : 's'}${what ? ' from the last ' + esc(what) : ''}.`, [{ label: 'Redo', fn: () => dRedo(c) }]);
+}
+// returns true when it handled the click
+function dHistClick(b) {
+  const a = b.dataset.act;
+  if (a === 'dundo') { const [c, lb] = dUndo(1); if (c) toastInfo('Undid: ' + esc(String(lb).replace(/^Edit: /, '')), [{ label: 'Redo', fn: () => dRedo(1) }]); return true; }
+  if (a === 'dredo') { const [c, lb] = dRedo(1); if (c) toastInfo('Redid: ' + esc(String(lb).replace(/^Edit: /, ''))); return true; }
+  if (a === 'dhistory') { dOpenHistory(); return true; }
+  if (a === 'drewind') { dRollback(N(b.dataset.n)); return true; }
+  if (a === 'drbquick') { dRollback(dSince(N(b.dataset.ms)), b.firstChild.textContent.trim()); return true; }
+  if (a === 'dredoall') { const [c] = dRedo(DREDO.length); closeModal(true); toastInfo(`Redid ${c} change${c === 1 ? '' : 's'}.`); return true; }
+  return false;
+}
+// Ctrl+Z / Ctrl+Y (and Ctrl+Shift+Z) outside text boxes and notes pages
+function dHistKey(e) {
+  if (!(e.ctrlKey || e.metaKey) || e.altKey) return false; const k = e.key.toLowerCase(); if (k !== 'z' && k !== 'y') return false;
+  const el = e.target; if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return false;
+  e.preventDefault(); const [c, lb] = (k === 'y' || e.shiftKey) ? dRedo(1) : dUndo(1);
+  if (c) toastInfo(((k === 'y' || e.shiftKey) ? 'Redid: ' : 'Undid: ') + esc(String(lb).replace(/^Edit: /, ''))); return true;
 }
 // ---------- dice ----------
 function parseDice(expr) {
@@ -1114,7 +1218,7 @@ function econMini(x) { const t = turnOf(x), left = Math.max(0, moveMax(x) - N(t.
 
 function render() {
   if (!ROOT) return; try { edFlush(); } catch (e) {}
-  ROOT.querySelector('.dk-top').innerHTML = topHTML();
+  ROOT.querySelector('.dk-top').innerHTML = topHTML(); dHistButtons();
   { const lg = ROOT.querySelector('.dk-logo'); if (lg && CTX.logo && typeof CTX.logo.wire === 'function') try { CTX.logo.wire(lg); } catch (e) {} }
   paint(); paintDice(); try { pills(); } catch (e) {}
 }
@@ -1130,6 +1234,7 @@ function topHTML() {
     <div class="dk-bcol"><div class="dk-brand">${CTX.logo && typeof CTX.logo.html === 'function' ? `<span class="dk-logo">${CTX.logo.html()}</span>` : '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 2 36 11v18L20 38 4 29V11z" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M20 2v36M4 11l32 18M36 11 4 29" stroke="currentColor" stroke-width="1.2" opacity=".55"/></svg>'}<div><small>${p ? esc(p.name || 'Your party') : 'Adventurer’s Tome'}</small><h1>DM’s Desk</h1></div></div></div>
     <nav class="dk-tabs" role="tablist">${CTX.partyHost ? `<button role="tab" data-act="tab" data-tab="party" aria-selected="${UI.tab === 'party'}" class="${UI.tab === 'party' ? 'on' : ''}">${ICO_PARTY}<span>Party</span></button>` : ''}<button role="tab" data-act="tab" data-tab="sessions" aria-selected="${UI.tab === 'sessions'}" class="${UI.tab === 'sessions' ? 'on' : ''}">${ICON.folder}<span>Sessions</span></button><button role="tab" data-act="tab" data-tab="notes" aria-selected="${UI.tab === 'notes'}" class="${UI.tab === 'notes' ? 'on' : ''}">${ICON.notes}<span>Notes</span></button><button role="tab" data-act="tab" data-tab="bestiary" aria-selected="${UI.tab === 'bestiary'}" class="${UI.tab === 'bestiary' ? 'on' : ''}">${ICON.book}<span>Bestiary</span></button><button role="tab" data-act="tab" data-tab="gen" aria-selected="${UI.tab === 'gen'}" class="${UI.tab === 'gen' ? 'on' : ''}">${ICON.dice}<span>Generate</span></button></nav>
     <div class="dk-tools"><span class="dk-sync">${esc(syncMsg)}</span>
+      <span class="dk-histb"><button class="dk-tb" data-act="dundo" aria-label="Undo">${ICON.undo}</button><button class="dk-tb" data-act="dredo" aria-label="Redo">${ICON.redo}</button><button class="dk-tb" data-act="dhistory" title="Change history" aria-label="Change history">${ICON.hist}</button></span>
       ${p && typeof CTX.turnOrder === 'function' ? `<button class="dk-tb dk-tobtn" data-act="turnorder" title="Turn order" aria-label="Turn order">${ICON.init}</button>` : ''}<button class="dk-tb" data-act="diceroller" title="Dice roller" aria-pressed="${!!$('.drwin:not(.closing)')}">${ICON.dice}<span class="dk-tl">Roll</span></button>
       <button class="dk-tb" data-act="log" title="Roll log" aria-pressed="${UI.log}">${ICON.log}<span class="dk-tl">Log</span></button>
       <button class="dk-tb" data-act="settings" title="Settings">${ICON.gear}</button>${CTX && CTX.bugReport ? `<button class="dk-tb" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` : ''}${CTX && CTX.acct ? `<button class="dk-acct" data-act="acct" title="Your account" aria-haspopup="menu" aria-expanded="false">${CTX.acct.html()}</button>` : ''}</div>
@@ -1569,7 +1674,7 @@ function showSugg(inp) {
   box.hidden = false;
   box.innerHTML = res.map((c, i) => `<button data-act="pickc" data-cid="${esc(c.id)}" class="${i ? '' : 'hi'}"><span>${esc(c.name)}${c.src !== 'SRD' ? ' <span class="dk-src mine">mine</span>' : ''}</span><small>CR ${crLabel(N(c.cr))} · ${esc(c.type)}</small></button>`).join('');
 }
-function addPicked(cid) {
+function addPicked(cid) { dPend('Add a creature');
   const s = curSession(); if (!s) return; const c = getC(cid); if (!c) return;
   const n = Math.max(1, Math.min(30, N(($('#dk-addn') || {}).value) || 1)), gid = ($('#dk-addg') || {}).value, g = s.groups.find(x => x.id === gid) || s.groups[0];
   const out = addToGroup(s, g, cid, n); save(); paint();
@@ -1597,6 +1702,7 @@ async function onClick(e) {
   // pressing the button that opened a window again closes it
   if (!b.closest('.dk-mcard')) { const sig = openerSig(b); if (MODAL_BY && sig === MODAL_BY && $('.dk-modal.open')) { closeModal(); return; } LAST_OPENER = sig; LAST_OPENER_T = Date.now(); }
   if (b.dataset.sv && SV) return onSaveClick(b);
+  if (dHistClick(b)) return; { const l = dLabelFrom(b); if (l) dPend(l); }
   const act = b.dataset.act, iid = b.dataset.iid, x = iid ? findInst(iid) : null;
   if (act !== 'menu') closeMenus();
   if (b.tagName === 'A') return;
@@ -1743,6 +1849,7 @@ async function onClick(e) {
 function closeMenus() { $$('.dk-menu.open').forEach(m => m.classList.remove('open')); }
 function onChange(e) {
   const el = e.target; if (!ROOT.contains(el)) return;
+  if (!el.closest('.dk-modal, .dk-addrow, .dk-add') && !/^dk-add/.test(el.id || '')) { const n = (el.getAttribute && (el.getAttribute('aria-label') || el.getAttribute('placeholder') || el.getAttribute('title'))) || (el.closest && el.closest('label') && el.closest('label').textContent.trim().slice(0, 40)) || 'a field'; dPend('Edit: ') + n; }
   if (onNotesChange(el)) return;
   if (el.dataset && el.dataset.qt) { QTYPE[el.dataset.qt] = el.value; return; }
   if (el.dataset && el.dataset.hbf) { hbReadForm(); return; }
@@ -1790,6 +1897,7 @@ function onInput(e) {
 function onKey(e) {
   if (!ROOT || !ROOT.isConnected) return;
   const el = e.target;
+  if (dHistKey(e)) return;
   if (ROOT.contains(el) && onNotesKey(e)) return;
   if (el && el.id === 'dk-addq') {
     const box = el.parentElement.querySelector('.dk-sugg'), items = box ? $$('button', box) : [];
@@ -1810,7 +1918,7 @@ function onDocDown(e) {
 }
 // the Turn order changed: HP that changed there comes back here, and "In Turn order" buttons follow who's on the list
 let TURN_SIG = null; const turnSig = () => { const t = toRead(); return t ? t.rows.map(r => r.desk || '').filter(Boolean).sort().join() : ''; };
-function onStorage(e) { if (!e.key || e.key !== toKey()) return; const hp = readTurnHP(), sig = turnSig(), moved = sig !== TURN_SIG; TURN_SIG = sig; if (hp) save(); if (hp || moved) paint(); }
+function onStorage(e) { if (!e.key || e.key !== toKey()) return; const hp = readTurnHP(), sig = turnSig(), moved = sig !== TURN_SIG; TURN_SIG = sig; if (hp) { dPend('Hit points from turn order'); save(); } if (hp || moved) paint(); }
 
 // ---------- mount ----------
 const LISTEN = [];
@@ -1825,7 +1933,7 @@ function mount(root, ctx) {
     <aside class="dk-log" aria-label="Roll log"><div class="dk-loghd"><h2>Roll log</h2><button class="dk-btn sm" data-act="clearlog">Clear</button><button class="dk-ix" data-act="log" aria-label="Close">${ICON.x}</button></div><div class="dk-loglist"></div></aside>
     <div class="dk-modal" role="presentation"><div class="dk-mcard" role="dialog" aria-modal="true"></div></div>
     <div class="dk-toasts" aria-live="polite"></div><input type="file" class="dk-impf" accept=".json,application/json" hidden><input type="file" class="dk-imgf" accept="image/*" hidden><input type="file" class="dk-tokf" accept="image/*" hidden><input type="file" class="dk-nimgf" accept="image/*" hidden><input type="file" class="dk-mapf" accept="image/*" hidden><input type="file" class="dk-nimpf" accept=".docx,.lk,.md,.markdown,.txt,.html,.htm,.zip,.textpack,.json,image/*" multiple hidden><input type="file" class="dk-ndirf" webkitdirectory multiple hidden><div class="dk-auto" hidden></div><input type="file" class="dk-notef" accept=".pdf,.docx,.txt,.md,.markdown,text/plain,application/pdf" multiple hidden>`;
-  const loc = lsGet(''); S = normalize(loc && loc.v ? loc : null);
+  const loc = lsGet(''); S = normalize(loc && loc.v ? loc : null); dHistLoad();
   const u = lsGet('-ui'); if (u) UI = Object.assign(UI, u, { tree: false, log: false });
   UI.ptab = UI.ptab || {};
   if (CTX.partyHost && CTX.party && CTX.party.id) { UI.tab = UI.ptab[CTX.party.id] || CTX.initialTab || 'party'; }
@@ -1844,7 +1952,7 @@ function mount(root, ctx) {
   on(root, 'click', onClick); on(root, 'dblclick', e => { if (e.target.closest && e.target.closest('.dk-nsplit')) { UI.nrw = 0; saveUI(); nrSet(NRW0); } }); on(root, 'keydown', nrKey); on(root, 'pointerdown', e => { mwDrag(e); nrDrag(e); if (e.target.closest && e.target.closest('.drwin')) ROOT.classList.add('dk-rfront'); else if (e.target.closest && e.target.closest('.dk-mcard')) ROOT.classList.remove('dk-rfront'); }); on(window, 'resize', () => { if (ROOT) ROOT.classList.toggle('dk-mw', mwDesk()); }); on(root, 'change', onChange); on(root, 'input', onInput);
   on(root, 'mousedown', e => { const t = e.target.closest && e.target.closest('[data-ed],[data-auto]'); if (!t) return; e.preventDefault(); if (t.dataset.ed) edCmd(t.dataset.ed); else edAutoPick(N(t.dataset.auto)); });
   on(root, 'paste', e => { if (e.target.closest && e.target.closest('.dk-ed')) edPaste(e); });
-  on(root, 'dragstart', e => { onDragStart(e); if (DRAG) ROOT.classList.add('dk-dragon'); }); on(root, 'dragover', onDragOver); on(root, 'drop', e => { onDrop(e); ROOT.classList.remove('dk-dragon'); }); on(root, 'dragend', () => { DRAG = null; ROOT.classList.remove('dk-dragon'); $$('.dragging').forEach(x => x.classList.remove('dragging')); });
+  on(root, 'dragstart', e => { onDragStart(e); if (DRAG) ROOT.classList.add('dk-dragon'); }); on(root, 'dragover', onDragOver); on(root, 'drop', e => { dPend('Move'); onDrop(e); ROOT.classList.remove('dk-dragon'); }); on(root, 'dragend', () => { DRAG = null; ROOT.classList.remove('dk-dragon'); $$('.dragging').forEach(x => x.classList.remove('dragging')); });
   on(root, 'mouseover', onNotesOver); on(window, 'beforeunload', notesLeave); on(window, 'pagehide', notesLeave); on(document, 'visibilitychange', () => { if (document.hidden) notesLeave(); else notesRefresh(); });
   on(document, 'keydown', onKey); on(document, 'mousedown', onDocDown); on(document, 'touchstart', onDocDown, { passive: true });
   on(window, 'message', onR20Msg); on(document, 'visibilitychange', onVis); on(window, 'storage', onStorage);
