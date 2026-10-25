@@ -2840,3 +2840,79 @@ body.hubbody .hd2-main .hf-body { padding: 0 !important; margin: 0 !important; b
 /* creation: the card is only as tall as what's in it */
 html:not(.mobile) #wizard .wz-box:has(> .wzh2) > .wz-body { flex: none; }
 .ha-menu [data-ha] { font-weight: 600 !important; font-size: .94rem !important; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif !important; }
+
+/* ===== Character creation, revamp: what you've picked on the left with the steps, the step on the right, cards to pick from, a floating button bar ===== */
+#wizard .wz3 .fld:has(> select[data-wz="race"]), #wizard .wz3 .fld:has(> select[data-wz="bg"]), #wizard .wz3 .fld:has(> select[data-wzc][data-f="key"]) { display: none !important; }
+#wizard .wz3 .wz3-hero { padding: 18px; border: 1px solid var(--wc-edge); border-radius: 18px; background: var(--wc-card); text-align: center; }
+#wizard .wz3 .wz3-port { width: 96px; height: 96px; margin: 0 auto 10px; padding: 0; display: grid; place-items: center; overflow: hidden; border-radius: 22px; border: 2px dashed rgba(224,170,58,.5); background: var(--wc-tile); color: var(--wc-gold2); font: 700 12px system-ui, sans-serif; cursor: pointer; }
+#wizard .wz3 .wz3-port:has(img) { border: 2px solid var(--wc-gold); } #wizard .wz3 .wz3-port img { width: 100%; height: 100%; object-fit: cover; display: block; }
+#wizard .wz3 .wz3-who b { display: block; font: 700 1.3rem/1.2 Georgia, serif; color: var(--wc-gold); overflow-wrap: anywhere; }
+#wizard .wz3 .wz3-who span { display: block; margin: 4px 0 12px; color: var(--wc-dim); font-size: .86rem; }
+#wizard .wz3 .wz3-ab { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+#wizard .wz3 .wz3-ab span { padding: 6px 0; border-radius: 9px; background: var(--wc-tile); font-size: .66rem; font-weight: 800; color: var(--wc-dim); }
+#wizard .wz3 .wz3-ab b { display: block; color: var(--wc-ink); font-size: .95rem; }
+/* cards */
+#wizard .wz3 .wz3-pick { margin: 0 0 18px; }
+#wizard .wz3 .wz3-q { width: 100%; max-width: 420px; margin: 0 0 12px; }
+#wizard .wz3 .wz3-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; align-content: start; }
+#wizard .wz3 .wz3-cards.has { max-height: min(44vh, 420px); overflow-y: auto; overscroll-behavior: contain; padding: 2px 6px 2px 2px; }
+#wizard .wz3 .wz3-g { grid-column: 1 / -1; margin: 8px 2px 0; font: 700 .82rem system-ui, sans-serif; color: var(--wc-gold2); }
+#wizard .wz3 .wz3-g:first-child { margin-top: 0; }
+#wizard .wz3 .wz3-card { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; padding: 14px 40px 14px 14px; border: 1px solid var(--wc-edge2); border-radius: 14px; background: var(--wc-tile); color: var(--wc-ink); font-family: inherit; text-align: left; cursor: pointer; transition: border-color .15s, background .15s; }
+#wizard .wz3 .wz3-card:hover { border-color: rgba(224,170,58,.45); background: var(--wc-tile2); }
+#wizard .wz3 .wz3-card b { font-size: .98rem; line-height: 1.25; overflow-wrap: anywhere; }
+#wizard .wz3 .wz3-tags { display: flex; flex-wrap: wrap; gap: 5px; } #wizard .wz3 .wz3-tags i { font-style: normal; padding: 2px 8px; border-radius: 999px; background: var(--wc-tile2); color: var(--wc-dim); font-size: .72rem; font-weight: 700; }
+#wizard .wz3 .wz3-card.sel { border-color: #e0aa3a; background: rgba(224,170,58,.1); box-shadow: inset 0 0 0 1px #e0aa3a; }
+#wizard .wz3 .wz3-card.sel::after { content: '✓'; position: absolute; top: 12px; right: 12px; width: 22px; height: 22px; border-radius: 50%; background: #e0aa3a; color: #1b1406; display: grid; place-items: center; font: 900 12px system-ui, sans-serif; }
+#wizard .wz3 .wz3-card[hidden], #wizard .wz3 .wz3-g[hidden] { display: none; }
+/* the step's details sit in panels */
+#wizard .wz3 .wz-info, #wizard .wz3 .wz-cls { margin-top: 4px; padding: 18px 20px; border: 1px solid var(--wc-edge); border-radius: 18px; background: var(--wc-card); }
+/* computers */
+html:not(.mobile) #wizard .wz-box.wz3 { max-width: none; padding: 0 32px; }
+html:not(.mobile) #wizard .wz3 .wz3-wrap { width: 100%; max-width: 1600px; margin: 0 auto; display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 24px; align-items: start; padding-bottom: 110px; }
+html:not(.mobile) #wizard .wz3 .wz3-side { position: sticky; top: 16px; display: grid; gap: 14px; }
+html:not(.mobile) #wizard .wz3 .wz-head { width: auto; max-width: none; margin: 0; }
+html:not(.mobile) #wizard .wz3 .wz-head h2, html:not(.mobile) #wizard .wz3 .wz-now { display: none; }
+html:not(.mobile) #wizard .wz3 .wz-steps { display: flex !important; flex-direction: column; flex-wrap: nowrap !important; gap: 2px; padding: 8px !important; border: 1px solid var(--wc-edge) !important; border-radius: 18px !important; background: var(--wc-card) !important; }
+html:not(.mobile) #wizard .wz3 .wz-step { flex: none !important; justify-content: flex-start !important; gap: 12px !important; min-height: 40px !important; padding: 0 10px !important; border-radius: 12px !important; text-align: left; font-size: .9rem !important; }
+html:not(.mobile) #wizard .wz3 .wz-step .wz-st { display: inline !important; }
+html:not(.mobile) #wizard .wz3 .wz-sn { width: 26px; height: 26px; flex: none; }
+html:not(.mobile) #wizard .wz3 .wz3-sum { margin-left: auto; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--wc-gold2); font-size: .76rem; font-weight: 600; }
+html:not(.mobile) #wizard .wz3 .wz3-main { min-width: 0; }
+html:not(.mobile) #wizard .wz3 .wz3-main > .wz-body { width: auto; max-width: none; margin: 0 !important; padding: 0 !important; border: 0 !important; background: none !important; flex: none; }
+html:not(.mobile) #wizard .wz3 .wz-body > h3 { margin: 4px 0 14px !important; font-size: 2rem !important; line-height: 1.15; }
+html:not(.mobile) #wizard .wz-box.wz3 > .wz-foot { position: fixed !important; left: 50% !important; right: auto !important; bottom: 16px !important; transform: translateX(-50%); width: min(820px, calc(100% - 32px)) !important; max-width: none !important; margin: 0 !important; padding: 10px 10px 10px 16px !important; gap: 12px; border: 1px solid var(--wc-edge); border-radius: 16px; background: var(--wc-bar) !important; -webkit-mask-image: none !important; mask-image: none !important; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: 0 10px 30px rgba(0,0,0,.4); z-index: 40; }
+html:not(.mobile) #wizard .wz-box.wz3 > .wz-foot::before { display: none !important; }
+#wizard .wz3 .wz3-prog { flex: 1; height: 6px; min-width: 40px; border-radius: 3px; background: var(--wc-tile2); overflow: hidden; } #wizard .wz3 .wz3-prog i { display: block; height: 100%; background: #e0aa3a; border-radius: 3px; transition: width .3s ease; }
+#wizard .wz3 .wz3-of { flex: none; color: var(--wc-dim); font-weight: 700; font-size: .8rem; white-space: nowrap; }
+#wizard .wz3 .wz-foot .btn { white-space: nowrap; }
+/* narrower windows: one column; the picked-so-far panel is a row; the steps wrap (never scroll sideways) */
+@media (max-width: 1000px) {
+  html:not(.mobile) #wizard .wz3 .wz3-wrap { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  html:not(.mobile) #wizard .wz3 .wz3-side { position: static; }
+  html:not(.mobile) #wizard .wz3 .wz3-hero { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 4px 14px; align-items: center; text-align: left; padding: 14px; }
+  html:not(.mobile) #wizard .wz3 .wz3-port { width: 64px; height: 64px; margin: 0; grid-row: span 2; border-radius: 16px; }
+  html:not(.mobile) #wizard .wz3 .wz3-who span { margin: 2px 0 0; }
+  html:not(.mobile) #wizard .wz3 .wz3-ab { grid-column: 2; }
+  html:not(.mobile) #wizard .wz3 .wz-steps { flex-direction: row; flex-wrap: wrap !important; }
+  html:not(.mobile) #wizard .wz3 .wz-step { flex: 1 1 auto !important; justify-content: center !important; }
+  html:not(.mobile) #wizard .wz3 .wz-step:not(.on) .wz-st, html:not(.mobile) #wizard .wz3 .wz3-sum { display: none !important; }
+  #wizard .wz3 .wz3-nx, #wizard .wz3 .wz3-of { display: none; }
+}
+/* phones */
+html.mobile #wizard .wz3 .wz3-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+html.mobile #wizard .wz3 .wz3-side { flex: none; }
+html.mobile #wizard .wz3 .wz3-hero { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 12px; align-items: center; margin: 10px 16px 0; padding: 10px 12px; text-align: left; border-radius: 16px; }
+html.mobile #wizard .wz3 .wz3-port { width: 48px; height: 48px; margin: 0; border-radius: 13px; font-size: 9px; }
+html.mobile #wizard .wz3 .wz3-who b { font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } html.mobile #wizard .wz3 .wz3-who span { margin: 2px 0 0; font-size: .8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.mobile #wizard .wz3 .wz3-ab, html.mobile #wizard .wz3 .wz3-sum, html.mobile #wizard .wz3 .wz3-prog, html.mobile #wizard .wz3 .wz3-of, html.mobile #wizard .wz3 .wz3-nx { display: none; }
+html.mobile #wizard .wz3 .wz-head h2 { display: none; }
+html.mobile #wizard .wz3 .wz3-main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+html.mobile #wizard .wz3 .wz-body > h3 { display: none; }
+html.mobile #wizard .wz3 .wz3-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: none; overflow: visible; padding: 0; }
+html.mobile #wizard .wz3 .wz3-card { padding: 12px 34px 12px 12px; }
+html.mobile #wizard .wz3 .wz3-q { max-width: none; }
+html.mobile #wizard .wz3 .wz-info, html.mobile #wizard .wz3 .wz-cls { padding: 14px; }
+html.mobile #wizard .wz3 .wz-body, html.mobile #wizard .wz3 .wz-body * { max-width: 100%; box-sizing: border-box; }
+html.mobile #wizard .wz3 .wz-body { overflow-x: hidden; }
+#wizard .wz3 .wz-grid > .wz3-pick { grid-column: 1 / -1; }

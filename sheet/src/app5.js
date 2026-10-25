@@ -662,6 +662,7 @@ function renderWizard() {
   } else if (st === 1) {
     const x = wzRace();
     body = `<div class="wz-grid">${fld('Race', `<select class="f" data-wz="race"><option value="">— choose a race —</option>${DND.raceGroups.map(([g, ks]) => `<optgroup label="${esc(g)}">${ks.filter(k => DND.races[k]).sort((a, b) => abc(DND.races[a].name, DND.races[b].name)).map(k => `<option value="${k}"${W.race === k ? ' selected' : ''}>${esc(DND.races[k].name)}${DND.races[k].src && DND.races[k].src !== 'PHB' ? ' (' + DND.races[k].src + ')' : ''}</option>`).join('')}</optgroup>`).join('')}</select>`)}
+      ${wz3Cards('race')}
       ${x && x.r.subraces ? fld('Subrace / variant', `<select class="f" data-wz="sub"><option value="">— choose —</option>${Object.entries(x.r.subraces).sort(([, a], [, b]) => abc(a.name, b.name)).map(([k, s]) => `<option value="${k}"${W.sub === k ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select>`) : ''}</div>`;
     if (x) {
       const r = x.r, s = x.s, tr = (s.replaceTraits ? [] : r.traits || []).concat(s.traits || []);
@@ -679,6 +680,7 @@ function renderWizard() {
     // so every choice a level gives is asked for in order.
     W.classes = [Object.assign(W.classes[0] || {}, { level: 1 })];
     body = `<p class="hint">Pick your class. Everyone starts at level 1 — use <b>Level Up</b> on the sheet to reach your level; it asks for each level's choices (subclass, Ability Score Improvements, spells) as you go, and is where you multiclass.</p>
+      ${wz3Cards('class')}
       ${W.classes.map((r, i) => { const c = CL[r.key]; return `<div class="wz-cls"><div class="wz-grid">${fld('Class', `<select class="f" data-wzc="${i}" data-f="key"><option value="">— choose —</option>${DND.classOrder.map(k => `<option value="${k}"${r.key === k ? ' selected' : ''}>${esc(CL[k].name)}${CL[k].src !== 'PHB' ? ' (' + CL[k].src + ')' : ''}</option>`).join('')}</select>`)}
         ${c && c.sub.level <= 1 ? fld(c.sub.label, `<select class="f" data-wzc="${i}" data-f="sub"><option value="">— choose —</option>${bookSort(Object.entries(c.subclasses), ([, v]) => v.src, ([, v]) => v.name).map(([k, s]) => `<option value="${k}"${r.sub === k ? ' selected' : ''}>${esc(s.name)}${s.src !== 'PHB' ? ' (' + s.src + ')' : ''}</option>`).join('')}</select>`) : c ? `<span class="hint">${esc(c.sub.label)} at level ${c.sub.level}</span>` : ''}</div>
         ${c ? `<p class="hint">d${c.hd} Hit Dice · saves ${c.saves.map(a => AB3[a]).join(', ')} · ${esc(c.armor)} · ${esc(c.weapons)}</p>` : ''}
@@ -703,7 +705,7 @@ function renderWizard() {
       <p class="hint">Ability Score Improvements from your class levels come on the Class options step.</p>`;
   } else if (st === 4) {
     const b = DND.backgrounds[W.bg];
-    body = `<div class="wz-grid">${fld('Background', `<select class="f" data-wz="bg"><option value="">— choose —</option>${bookSort(Object.entries(DND.backgrounds), ([, v]) => v.src, ([, v]) => v.name).map(([k, v]) => `<option value="${k}"${W.bg === k ? ' selected' : ''}>${esc(v.name)}${v.src !== 'PHB' ? ' (' + v.src + ')' : ''}</option>`).join('')}</select>`)}</div>`;
+    body = `${wz3Cards('bg')}<div class="wz-grid">${fld('Background', `<select class="f" data-wz="bg"><option value="">— choose —</option>${bookSort(Object.entries(DND.backgrounds), ([, v]) => v.src, ([, v]) => v.name).map(([k, v]) => `<option value="${k}"${W.bg === k ? ' selected' : ''}>${esc(v.name)}${v.src !== 'PHB' ? ' (' + v.src + ')' : ''}</option>`).join('')}</select>`)}</div>`;
     if (b) {
       body += `<div class="wz-info"><p>${b.skills && b.skills.length ? `<b>Skills:</b> ${esc(b.skills.join(', '))} · ` : ''}${b.tools && b.tools.length ? `<b>Tools:</b> ${esc(b.tools.join(', '))} · ` : ''}<b>Feature:</b> ${esc(b.feature[0])} — ${esc(b.feature[1])}</p>
         ${b.skillChoice ? choiceUI(W.ans, 'bg.skill', { type: 'skill', n: b.skillChoice.n, from: b.skillChoice.from }) : ''}
@@ -762,9 +764,12 @@ function renderWizard() {
       ${probs.length ? `<p class="warn">${probs.map(esc).join(' · ')}</p>` : todo.length ? '' : '<p>Everything is set. You can change anything later — scores, skills, spells and items are all editable on the sheet.</p>'}
       <p class="hint">Scores include racial bonuses, Ability Score Improvements and half-feats.</p></div>`;
   }
-  $('#wizard').innerHTML = `<div class="wz-box">${typeof window.wzHeader === 'function' ? window.wzHeader() : ''}<div class="wz-head"><h2>Create your character</h2><div class="wz-steps">${WSTEPS.map((t, i) => `<button class="wz-step${i === st ? ' on' : ''}${i < st ? ' done' : ''}" data-wact="go" data-v="${i}" aria-label="Step ${i + 1}: ${t}"><span class="wz-sn">${i + 1}</span><span class="wz-st">${t}</span></button>`).join('')}</div><div class="wz-now">Step ${st + 1} of ${WSTEPS.length}<b>${WSTEPS[st]}</b></div></div>
-    <div class="wz-body"><h3>${WSTEPS[st]}</h3>${body}</div>
-    <div class="wz-foot">${st ? '<button class="btn" data-wact="back">Back</button>' : ''}<span class="grow"></span>${st < WSTEPS.length - 1 ? '<button class="btn gold" data-wact="next">Next</button>' : '<button class="btn gold" data-wact="create">Create character</button>'}</div></div>`;
+  const sums = wz3Sums(), last = st === WSTEPS.length - 1;
+  $('#wizard').innerHTML = `<div class="wz-box wz3">${typeof window.wzHeader === 'function' ? window.wzHeader() : ''}<div class="wz3-wrap"><aside class="wz3-side">${wz3Hero()}
+      <div class="wz-head"><h2>Create your character</h2><div class="wz-steps">${WSTEPS.map((t, i) => `<button class="wz-step${i === st ? ' on' : ''}${i < st ? ' done' : ''}" data-wact="go" data-v="${i}" aria-label="Step ${i + 1}: ${t}"><span class="wz-sn">${i < st ? '✓' : i + 1}</span><span class="wz-st">${t}</span>${sums[i] && i !== st ? `<small class="wz3-sum">${esc(sums[i])}</small>` : ''}</button>`).join('')}</div><div class="wz-now">Step ${st + 1} of ${WSTEPS.length}<b>${WSTEPS[st]}</b></div></div></aside>
+    <div class="wz3-main"><div class="wz-body"><h3>${WSTEPS[st]}</h3>${body}</div></div></div>
+    <div class="wz-foot">${st ? '<button class="btn" data-wact="back">Back</button>' : ''}<span class="wz3-prog" aria-hidden="true"><i style="width:${Math.round((st + 1) / WSTEPS.length * 100)}%"></i></span><small class="wz3-of">Step ${st + 1} of ${WSTEPS.length}</small>${!last ? `<button class="btn gold" data-wact="next">Next<span class="wz3-nx">: ${WSTEPS[st + 1]}</span></button>` : '<button class="btn gold" data-wact="create">Create character</button>'}</div></div>`;
+  { const g = $('#wizard .wz3-cards .sel'); if (g && g.parentElement) g.parentElement.scrollTop = Math.max(0, g.offsetTop - g.parentElement.offsetTop - 60); }
   $$('#wizard [data-wzq]').forEach(i => filterWzSpells(i));
   // Moving between steps: the new step slides in from the side you're heading (fades up on opening), and the step
   // marker pops / the progress bar fills. Re-drawing the same step (picking options) doesn't animate.
@@ -777,6 +782,39 @@ function renderWizard() {
     if (on && on.animate) on.animate(mob ? (dir >= 0 ? [{ transform: 'scaleX(.15)' }, { transform: 'none' }] : [{ opacity: .4 }, { opacity: 1 }]) : [{ transform: 'scale(.88)' }, { transform: 'none' }], { duration: mob ? 320 : 240, easing: 'cubic-bezier(.3,1.3,.5,1)' });
   }
 }
+// ----- the creation look: what's picked so far, step summaries, and races / classes / backgrounds as cards -----
+// (the cards only pick a value in the step's own list, so everything else works exactly as before)
+function wz3Sums() {
+  const out = []; try { out[0] = W.name || ''; const x = wzRace(); out[1] = x ? x.name : ''; const c = W.classes && W.classes[0] && CL[W.classes[0].key]; out[2] = c ? c.name : '';
+    out[3] = ({ pointbuy: 'Point buy', array: 'Standard array', roll: 'Rolled', manual: 'Entered' })[W.method] || ''; const b = W.bg && DND.backgrounds[W.bg]; out[4] = b ? b.name : ''; } catch (e) {}
+  return out;
+}
+function wz3Hero() {
+  let race = '', cls = '', fin = null; try { const x = wzRace(); race = x ? x.name : ''; const c = W.classes && W.classes[0] && CL[W.classes[0].key]; cls = c ? c.name + ' 1' : ''; fin = wzFinalScores(wzScores()); } catch (e) {}
+  return `<div class="wz3-hero"><button type="button" class="wz3-port" data-wact="portrait" title="${W.portrait ? 'Change portrait' : 'Add a portrait'}">${W.portrait ? `<img src="${esc(W.portrait)}" alt="">` : '<span>+ Portrait</span>'}</button>
+    <div class="wz3-who"><b>${esc(W.name || 'Your character')}</b><span>${esc([race, cls].filter(Boolean).join(' · ') || 'Nothing picked yet')}</span></div>
+    ${fin ? `<div class="wz3-ab">${AB.map(a => `<span>${AB3[a]}<b>${fin[a]}</b></span>`).join('')}</div>` : ''}</div>`;
+}
+function wz3Cards(kind) {
+  let items = [], cur = '', label = '';
+  if (kind === 'race') { cur = W.race; label = 'races'; DND.raceGroups.forEach(([g, ks]) => ks.filter(k => DND.races[k]).sort((a, b) => abc(DND.races[a].name, DND.races[b].name)).forEach(k => { const r = DND.races[k]; items.push({ k, g, name: r.name, tags: [r.size || 'Medium', (r.speed || 30) + ' ft'].concat(r.src && r.src !== 'PHB' ? [r.src] : []) }); })); }
+  if (kind === 'class') { cur = W.classes && W.classes[0] ? W.classes[0].key : ''; label = 'classes'; DND.classOrder.forEach(k => { const c = CL[k]; items.push({ k, g: '', name: c.name, tags: ['d' + c.hd, c.saves.map(a => AB3[a]).join(' · ')].concat(c.src !== 'PHB' ? [c.src] : []) }); }); }
+  if (kind === 'bg') { cur = W.bg; label = 'backgrounds'; bookSort(Object.entries(DND.backgrounds), ([, v]) => v.src, ([, v]) => v.name).forEach(([k, v]) => items.push({ k, g: '', name: v.name, tags: v.src && v.src !== 'PHB' ? [v.src] : [] })); }
+  if (!items.length) return '';
+  let lastG = null;
+  const cards = items.map(it => { const head = it.g && it.g !== lastG ? `<p class="wz3-g">${esc(it.g)}</p>` : ''; lastG = it.g;
+    return `${head}<button type="button" class="wz3-card${it.k === cur ? ' sel' : ''}" data-pick="${kind}" data-v="${esc(it.k)}" data-q="${esc(it.name.toLowerCase())}"><b>${esc(it.name)}</b>${it.tags.length ? `<span class="wz3-tags">${it.tags.map(t => `<i>${esc(t)}</i>`).join('')}</span>` : ''}</button>`; }).join('');
+  return `<div class="wz3-pick"><input class="f wz3-q" data-wz3q placeholder="Search ${label}" autocomplete="off" aria-label="Search ${label}"><div class="wz3-cards${cur ? ' has' : ''}">${cards}</div></div>`;
+}
+if (!window.__wz3) { window.__wz3 = 1;
+  document.addEventListener('click', e => { const c = e.target.closest && e.target.closest('#wizard [data-pick]'); if (!c) return;
+    const sel = c.dataset.pick === 'race' ? $('#wizard [data-wz="race"]') : c.dataset.pick === 'bg' ? $('#wizard [data-wz="bg"]') : $('#wizard [data-wzc="0"][data-f="key"]'); if (!sel) return;
+    sel.value = c.dataset.v; sel.dispatchEvent(new Event('change', { bubbles: true })); });
+  document.addEventListener('input', e => { const q = e.target.closest && e.target.closest('#wizard [data-wz3q]'); if (!q) return; const v = q.value.trim().toLowerCase(), box = q.nextElementSibling;
+    box.querySelectorAll('.wz3-card').forEach(c => { c.hidden = !!v && !c.dataset.q.includes(v); });
+    box.querySelectorAll('.wz3-g').forEach(g => { let n = g.nextElementSibling, any = false; while (n && !n.classList.contains('wz3-g')) { if (!n.hidden) any = true; n = n.nextElementSibling; } g.hidden = !any; }); });
+}
+
 function asiModeClick(b) {
   const inWz = !!b.closest('#wizard'), inP = !!b.closest('#pendm') && PEND, CH = inWz ? W.ans : inP ? PEND.ans : LV ? LV.ans : null; if (!CH) return;
   CH[b.dataset.asimode] = [b.dataset.v];
