@@ -1363,3 +1363,30 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 .dk-imv { flex: none; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 8px; background: none; color: var(--soft); cursor: pointer; }
 .dk-imv:hover:not(:disabled) { background: rgba(255,255,255,.07); color: inherit; } .dk-imv:disabled { opacity: .25; cursor: default; }
 .dk-dxnote { flex-basis: 100%; margin: 0; }
+
+/* ===== DM's Desk, 2026 look: the lobby's backdrop and a floating top panel ===== */
+.dk { background: radial-gradient(ellipse 120% 80% at 50% 0%, #1f2a40 0%, #141b2b 45%, #0f1420 80%) fixed #0f1420; }
+.dk-top, html[data-pgtheme="dark"] .dk-top { isolation: isolate; border-bottom: 0 !important; box-shadow: none !important; padding: calc(22px + env(safe-area-inset-top)) 34px 18px !important;
+  background: radial-gradient(ellipse 120% 80% at 50% 0%, #1f2a40 0%, #141b2b 45%, #0f1420 80%) fixed !important; }
+.dk-top::before { content: ''; position: absolute; left: 16px; right: 16px; top: calc(10px + env(safe-area-inset-top)); bottom: 6px; z-index: -1; pointer-events: none; border: 1px solid rgba(201,150,43,.22); border-radius: 18px; background: rgba(26,33,49,.75); box-shadow: 0 12px 30px rgba(0,0,0,.38); }
+.dk-sync { position: absolute; right: 36px; bottom: -14px; }
+html[data-pgtheme="light"] .dk { background: radial-gradient(ellipse 120% 80% at 50% 0%, #fbf6ea 0%, #f4eee1 50%, #ebe2cf 100%) fixed #f4eee1; }
+html[data-pgtheme="light"] .dk-top { background: radial-gradient(ellipse 120% 80% at 50% 0%, #fbf6ea 0%, #f4eee1 50%, #ebe2cf 100%) fixed !important; color: #1f2a44; }
+html[data-pgtheme="light"] .dk-top::before { background: rgba(255,255,255,.72); border-color: #e3d6b8; box-shadow: 0 10px 26px rgba(60,45,20,.14); }
+@media (max-width: 900px) { .dk-top, html[data-pgtheme="dark"] .dk-top { padding: calc(16px + env(safe-area-inset-top)) 22px 14px !important; } .dk-top::before { left: 8px; right: 8px; top: calc(6px + env(safe-area-inset-top)); bottom: 4px; } }
+/* the pinned lists (Notes, Sessions, Bestiary) float as panels like the lobby's, on the lobby's backdrop */
+@media (min-width: 901px) {
+  .dk[data-tab=notes] .dk-notesv, .dk[data-tab=sessions] .dk-sess, .dk[data-tab=bestiary] .dk-best { background: transparent !important; padding: 0 16px 16px; gap: 16px !important; box-sizing: border-box; }
+  .dk[data-tab=notes] .dk-rail, .dk[data-tab=sessions] .dk-rail, .dk[data-tab=bestiary] .dk-blist { border: 1px solid rgba(201,150,43,.22) !important; border-radius: 18px !important; background: rgba(26,33,49,.75) !important; box-shadow: 0 12px 30px rgba(0,0,0,.28) !important; overflow: hidden; }
+  .dk[data-tab=notes] .dk-main, .dk[data-tab=sessions] .dk-main, .dk[data-tab=bestiary] .dk-bview { border-radius: 18px; }
+  html[data-pgtheme="light"] .dk[data-tab=notes] .dk-rail, html[data-pgtheme="light"] .dk[data-tab=sessions] .dk-rail, html[data-pgtheme="light"] .dk[data-tab=bestiary] .dk-blist { background: rgba(255,255,255,.72) !important; border-color: #e3d6b8 !important; box-shadow: 0 10px 26px rgba(60,45,20,.12) !important; }
+}
+/* light mode: the panel is light like the lobby's, so its words and buttons go dark */
+html[data-pgtheme="light"] .dk-brand h1 { color: #1f2a44; }
+html[data-pgtheme="light"] .dk-brand small { color: #8a6420; }
+html[data-pgtheme="light"] .dk-backlink { color: #8a6420; background: rgba(255,255,255,.6); border-color: #e3d6b8; }
+html[data-pgtheme="light"] .dk-tabs { background: rgba(0,0,0,.04); border-color: #e3d6b8; }
+html[data-pgtheme="light"] .dk-tabs button { color: #4d5568; } html[data-pgtheme="light"] .dk-tabs button.on { color: #1b1406; }
+html[data-pgtheme="light"] .dk-tabs .dk-pill { background: var(--gold); }
+html[data-pgtheme="light"] .dk-tb { color: #1f2a44; border-color: #e3d6b8; background: rgba(255,255,255,.6); }
+html[data-pgtheme="light"] .dk-sync { color: #5c6478; }

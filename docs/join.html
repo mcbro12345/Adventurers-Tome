@@ -2873,6 +2873,70 @@ body.adminbody .adm-back { gap: 4px; padding: 4px 0; font-size: .84rem; font-wei
 body.adminbody .adm-back:hover { color: #e0aa3a; }
 @media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.adminbody .adm-back { color: #8a6420; } :where(html:not([data-pgtheme])) body.adminbody .adm-back:hover { color: #b8862a; } }
  :where(html[data-pgtheme="light"]) body.adminbody .adm-back { color: #8a6420; } :where(html[data-pgtheme="light"]) body.adminbody .adm-back:hover { color: #b8862a; } 
+
+/* ===== Party page, 2026 look (players' page, and the Party tab of the DM's Desk) ===== */
+/* the lobby's top panel (players' page; the desk has its own top bar) */
+body.hubbody:not(.dkhost) .pw.inbody { max-width: none; padding: 0 32px; }
+body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 { position: sticky; top: 0; z-index: 30; margin: 0 -32px; padding: calc(28px + env(safe-area-inset-top)) 32px 30px; border: 0; isolation: isolate; }
+body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(ellipse at 50% 40%, #1d2638 0%, #0f1420 70%) fixed; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 30px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 30px), transparent); }
+.pw .pwh2 > .hub-top { max-width: 1600px; width: 100%; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 16px 26px; border: 1px solid rgba(201,150,43,.22) !important; border-radius: 18px; background: rgba(26,33,49,.75); box-shadow: 0 12px 30px rgba(0,0,0,.38); box-sizing: border-box; }
+.pw .pwh2 .hub-side { position: relative; flex: none; align-self: center !important; padding: 0 !important; }
+:root body .pw .pwh2 .hl-d20 { width: 82px; height: 82px; } :root body .pw .pwh2 .hub-logo { gap: 16px; margin: 0; } :root body .pw .pwh2 .hl-t { font-size: 52.8px; line-height: .95; } :root body .pw .pwh2 .hl-a { font-size: 14.7px; letter-spacing: .44em; }
+.pw .pwh2 .hub-acct { padding: 6px 12px 6px 6px; border-radius: 16px; } .pw .pwh2 .hub-acct:hover, .pw .pwh2 .hub-acct.open { background: rgba(255,255,255,.06); }
+.pw .pwh2 .hub-acct .pg-ava { width: 52px !important; height: 52px !important; }
+.pw .pwh2 > .wzh-back2 { display: flex; width: fit-content; max-width: 1600px; margin: 0 auto; position: relative; top: 18px; color: #c9b07a; font-size: .9rem; font-weight: 700; text-decoration: none; gap: 6px; align-items: center; }
+.pw .pwh2 > .wzh-back2:hover { color: #e0aa3a; }
+body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 { padding-bottom: 46px; }
+body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 > .wzh-back2 { margin-left: max(0px, calc((100% - 1600px) / 2)); }
+/* the body: no box around everything — a title row, then the characters as tiles */
+.pw.inbody .pw-body { width: 100%; max-width: 1600px; margin: 0 auto; padding: 0 0 40px; border: 0 !important; border-radius: 0; background: none !important; box-shadow: none !important; box-sizing: border-box; }
+.pw.inbody .pw-intitle { display: flex; align-items: center; justify-content: space-between; gap: 16px 24px; flex-wrap: wrap; padding: 4px 0 0 !important; margin: 0 0 18px !important; border: 0 !important; }
+.pw.inbody .pw-itt { min-width: 0; }
+.pw.inbody .pw-intitle h2 { gap: 14px; font: 700 2rem/1.15 Georgia, serif !important; color: #e0aa3a; }
+.pw.inbody .pw-intitle .pw-ppic { width: 64px !important; height: 64px !important; border-radius: 16px !important; flex: none; }
+.pw.inbody .pw-intitle .pw-sub { margin: 8px 0 0 !important; color: #9aa3b5; font-size: .98rem; }
+.pw.inbody .pw-intitle .pw-sub b { color: #e9e3d3; }
+.pw-hacts { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pw-hacts .grow { display: none; }
+.pw-hacts .btn { display: inline-flex; align-items: center; gap: 7px; min-height: 42px; padding: 0 18px !important; border-radius: 11px !important; font-size: .92rem !important; font-weight: 700; text-decoration: none; }
+.pw-hacts .btn.red { order: 9; background: transparent !important; border: 1px solid rgba(240,138,117,.45) !important; color: #f08a75 !important; }
+.pw-hacts .btn.red:hover { background: rgba(240,138,117,.1) !important; }
+.pw.inbody .pm-grid { grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)) !important; gap: 14px !important; margin-top: 0 !important; }
+body.hubbody .pw.inbody .pm { padding: 14px !important; gap: 10px !important; border-radius: 16px !important; border: 1px solid rgba(201,150,43,.22) !important; background: rgba(255,255,255,.04) !important; }
+body.hubbody .pw.inbody .pm:hover { border-color: rgba(201,150,43,.45) !important; }
+/* the DM's Desk Party tab: same title row and tiles, inside the desk */
+body.dkhost #hub .pw.inbody { max-width: 1600px; padding-left: 32px; padding-right: 32px; }
+/* phones */
+@media (max-width: 640px) {
+  body.hubbody:not(.dkhost) .pw.inbody { padding: 0 16px; }
+  body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 { margin: 0 -16px; padding: calc(12px + env(safe-area-inset-top)) 16px 40px; }
+  .pw .pwh2 > .hub-top { gap: 12px; padding: 12px 14px; }
+  :root body .pw .pwh2 .hl-d20 { width: 54px; height: 54px; } :root body .pw .pwh2 .hub-logo { gap: 8px; } :root body .pw .pwh2 .hl-t { font-size: 32.8px; } :root body .pw .pwh2 .hl-a { font-size: 9.9px; letter-spacing: .26em; }
+  .pw .pwh2 .hub-acct { padding: 6px; border-radius: 999px; } .pw .pwh2 .hub-acct .pg-ava { width: 46px !important; height: 46px !important; box-shadow: 0 0 0 2px rgba(224,170,58,.55); } .pw .pwh2 .ha-txt, .pw .pwh2 .ha-chev { display: none; }
+  .pw .pwh2 > .wzh-back2 { top: 12px; font-size: .84rem; }
+  .pw.inbody .pw-intitle h2 { font-size: 1.5rem !important; } .pw.inbody .pw-intitle .pw-ppic { width: 52px !important; height: 52px !important; }
+  /* the buttons ride along the bottom on a phone */
+  body.hubbody:not(.dkhost) .pw.inbody .pw-hacts { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; padding: 10px 16px calc(env(safe-area-inset-bottom) + 12px); background: rgba(22,28,42,.96); border-top: 1px solid rgba(201,150,43,.22); }
+  body.hubbody:not(.dkhost) .pw.inbody .pw-hacts .btn { flex: 1; justify-content: center; min-height: 50px; border-radius: 14px !important; }
+  body.hubbody:not(.dkhost) .pw.inbody .pw-body { padding-bottom: 96px; }
+  .pw.inbody .pm-grid { grid-template-columns: 1fr !important; }
+}
+@media (prefers-color-scheme: light) {
+  :where(html:not([data-pgtheme])) body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2::before { background: radial-gradient(ellipse at 50% 40%, #fbf6ea 0%, #f1e9d8 70%) fixed; }
+  :where(html:not([data-pgtheme])) .pw .pwh2 > .hub-top { background: rgba(255,255,255,.7); border-color: #e3d6b8 !important; box-shadow: 0 10px 26px rgba(60,45,20,.14); }
+  :where(html:not([data-pgtheme])) .pw.inbody .pw-intitle h2 { color: #8a6420; } :where(html:not([data-pgtheme])) .pw.inbody .pw-intitle .pw-sub { color: #5c6478; } :where(html:not([data-pgtheme])) .pw.inbody .pw-intitle .pw-sub b { color: #1f2a44; }
+  :where(html:not([data-pgtheme])) body.hubbody .pw.inbody .pm { background: rgba(255,255,255,.7) !important; border-color: #e3d6b8 !important; }
+  :where(html:not([data-pgtheme])) .pw .pwh2 > .wzh-back2 { color: #8a6420; }
+  :where(html:not([data-pgtheme])) body.hubbody:not(.dkhost) .pw.inbody .pw-hacts { background: rgba(251,247,238,.96); }
+}
+
+  :where(html[data-pgtheme="light"]) body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2::before { background: radial-gradient(ellipse at 50% 40%, #fbf6ea 0%, #f1e9d8 70%) fixed; }
+  :where(html[data-pgtheme="light"]) .pw .pwh2 > .hub-top { background: rgba(255,255,255,.7); border-color: #e3d6b8 !important; box-shadow: 0 10px 26px rgba(60,45,20,.14); }
+  :where(html[data-pgtheme="light"]) .pw.inbody .pw-intitle h2 { color: #8a6420; } :where(html[data-pgtheme="light"]) .pw.inbody .pw-intitle .pw-sub { color: #5c6478; } :where(html[data-pgtheme="light"]) .pw.inbody .pw-intitle .pw-sub b { color: #1f2a44; }
+  :where(html[data-pgtheme="light"]) body.hubbody .pw.inbody .pm { background: rgba(255,255,255,.7) !important; border-color: #e3d6b8 !important; }
+  :where(html[data-pgtheme="light"]) .pw .pwh2 > .wzh-back2 { color: #8a6420; }
+  :where(html[data-pgtheme="light"]) body.hubbody:not(.dkhost) .pw.inbody .pw-hacts { background: rgba(251,247,238,.96); }
+
 </style>
 </head>
 <body>
@@ -3546,7 +3610,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024222638', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.10ac34f51762.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.bf5693d15950.html", "desk": "a/desk.85c973541242.js", "deskcss": "a/deskcss.687926a74527.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024224139', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.10ac34f51762.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.bf5693d15950.html", "desk": "a/desk.85c973541242.js", "deskcss": "a/deskcss.841e84041fb4.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -4018,8 +4082,8 @@ function wireDie(root) {
       const I = d => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
       const items = [['lobby', 'Back to the lobby', I('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>')]];
       const inAdm = document.body.classList.contains('adminbody');
-    if (inAdm) items.unshift(['lobby', 'Back to the lobby', I('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>')]);
-    else if (IS_ADMIN) items.push(['admin', 'Admin panel', I('<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>')]);
+    if (inAdm || document.querySelector('.pw')) items.unshift(['lobby', 'Back to the lobby', I('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>')]);
+    if (!inAdm && IS_ADMIN) items.push(['admin', 'Admin panel', I('<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>')]);
       items.push(['contact', 'Contact Adventurer’s Tome', I('<path d="M4 4h16v12H8l-4 4z"/>')]);
       const m = document.createElement('div'); m.className = 'ha-menu wz-hamenu' + (desk ? ' ha-drop' : ' ha-sheet'); m.setAttribute('role', 'menu');
       const who = desk ? '' : `<div class="ha-who">${avaHTML(nm, EMAIL, av.pic, '', '', av)}<div><b>${escH(nm)}</b><small>${escH(EMAIL)}</small></div></div>`;
@@ -5079,13 +5143,14 @@ function hub(fs, auth, G, ctx) {
     modal.querySelector('#jl-f').onsubmit = e => { e.preventDefault(); goJ(); }; modal.querySelector('#jl-ok').onclick = goJ; modal.querySelector('#jl-x').onclick = close; }
   // Your account: the picture (and on a computer your name and email) opens a menu: a drop-down on a computer, a panel
   // from the bottom on a phone.
+  window.pgAcctMenu = (b, d) => acctMenu(b, d);
   function acctMenu(btn, desk) { const ex = document.querySelector('.ha-menu'); if (ex) { ex._shut(); return; }
     const I = d => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
     const items = [['pic', 'Change picture', I('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M21 17l-5-5-9 7"/>')], ['name', 'Change name', I('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>')],
       ['theme', pgDark() ? 'Light mode' : 'Dark mode', I(pgDark() ? '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>' : '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>')]];
     const inAdm = document.body.classList.contains('adminbody');
-    if (inAdm) items.unshift(['lobby', 'Back to the lobby', I('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>')]);
-    else if (IS_ADMIN) items.push(['admin', 'Admin panel', I('<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>')]);
+    if (inAdm || document.querySelector('.pw')) items.unshift(['lobby', 'Back to the lobby', I('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>')]);
+    if (!inAdm && IS_ADMIN) items.push(['admin', 'Admin panel', I('<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>')]);
     items.push(['contact', 'Contact Adventurer’s Tome', I('<path d="M4 4h16v12H8l-4 4z"/>')]);
     const m = document.createElement('div'); m.className = 'ha-menu' + (desk ? ' ha-drop' : ' ha-sheet') + (desk && inAdm ? ' ha-up' : ''); m.setAttribute('role', 'menu');
     const who = desk ? '' : `<div class="ha-who">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(myAva())}<div><b>${esc(myName())}</b><small>${esc(EMAIL)}</small></div></div>`;
@@ -6066,17 +6131,20 @@ function partyModule(H) {
   // gold top edge, and the buttons along the bottom. Making a party and joining one go step by step; a party's own page
   // uses the same pills as sections.
   const headHTML = () => { const a = H.myAva(), nm = H.myName();
-    return `<div class="wzh"><header class="hub-top" role="none">${logoHTML()}<div class="hub-side"><div class="hub-prof"><span class="hp-pic wzh-pic">${avaHTML(nm, EMAIL, a.pic, '', '', a)}</span><div class="hp-txt"><b>${esc(nm)}</b><small>${esc(EMAIL)}</small><div class="hp-row"><button class="linkbtn" data-pw="out">Sign out</button><a class="hub-ctlink" href="${CONTACT}">Contact</a></div></div></div></div></header><a class="adm-back wzh-back" href="${esc(URLS.parties(G))}">← Adventurer’s Tome</a></div>`; };
+    // the lobby's top panel: logo, and your account (its menu has the way back, contact and sign out)
+    return `<div class="wzh pwh2"><header class="hub-top" role="none">${logoHTML()}<div class="hub-side"><button type="button" class="hub-acct pw-acct" aria-haspopup="menu" aria-expanded="false" title="Your account">${avaHTML(nm, EMAIL, a.pic, '', '', a)}<span class="ha-txt"><b>${esc(nm)}</b><small>${esc(EMAIL)}</small></span><svg class="ha-chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div></header><a class="wzh-back wzh-back2" href="${esc(URLS.parties(G))}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>Back to the lobby</a></div>`; };
   // steps: [[key, label]]; seq = numbered steps you go through in order (later ones can't be clicked yet).
   function shell({ title, sub, steps, on, body, foot, seq, inBody, bare, noReady }) {
     const idx = Math.max(0, (steps || []).findIndex(s => s[0] === on));
     const pills = steps && steps.length > 1 ? `<div class="pw-steps" role="tablist">${steps.map(([k, t], i) => `<button class="pw-step${k === on ? ' on' : ''}${seq && i < idx ? ' done' : ''}" role="tab" aria-selected="${k === on}" data-pstep="${k}"${seq && i > idx ? ' disabled' : ''}>${seq ? (i + 1) + '. ' : ''}${esc(t)}</button>`).join('')}</div>` : '';
     // inBody: the title sits at the top of the card itself (a party's page)
-    if (inBody) { body = `<div class="pw-intitle"><h2>${title}</h2>${sub ? `<p class="pw-sub">${sub}</p>` : ''}</div>${body}`; title = ''; sub = ''; }
+    // (and its buttons sit beside the title rather than along the bottom)
+    if (inBody) { body = `<div class="pw-intitle"><div class="pw-itt"><h2>${title}</h2>${sub ? `<p class="pw-sub">${sub}</p>` : ''}</div>${foot ? `<div class="pw-hacts">${foot}</div>` : ''}</div>${body}`; title = ''; sub = ''; foot = ''; }
     root.innerHTML = `<div role="main" class="pw${seq ? ' seq' : ''}${inBody ? ' inbody' : ''}${bare ? ' bare' : ''}">${headHTML()}<div class="pw-head">${title ? `<h2>${title}</h2>` : ''}${sub ? `<p class="pw-sub">${sub}</p>` : ''}${pills}${seq && steps ? `<div class="pw-now">Step ${idx + 1} of ${steps.length}<b>${esc(steps[idx][1])}</b></div>` : ''}</div>
       <div class="pw-body">${body}</div>${foot ? `<div class="pw-foot">${foot}</div>` : ''}</div>`;
     wireDie(root); if (window.pgReady && !noReady && !/Loading the party|Opening the invitation/.test(body)) window.pgReady();
     const out = root.querySelector('[data-pw="out"]'); if (out) out.onclick = () => H.signOut();
+    const ac = root.querySelector('.pw-acct'); if (ac && window.pgAcctMenu) ac.onclick = e => { e.stopPropagation(); window.pgAcctMenu(ac, !TOUCH && innerWidth > 900); };
     const back = root.querySelector('.wzh-back'); if (back) back.onclick = e => { e.preventDefault(); pgGo(URLS.parties(G)); };
     return root.querySelector('.pw-body');
   }

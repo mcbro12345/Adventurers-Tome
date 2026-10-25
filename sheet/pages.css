@@ -2716,3 +2716,59 @@ body.adminbody .adm-backrow { padding: 2px 18px 4px; }
 body.adminbody .adm-back { gap: 4px; padding: 4px 0; font-size: .84rem; font-weight: 700; color: #c9b07a; transition: color .15s; }
 body.adminbody .adm-back:hover { color: #e0aa3a; }
 @media (prefers-color-scheme: light) { body.adminbody .adm-back { color: #8a6420; } body.adminbody .adm-back:hover { color: #b8862a; } }
+
+/* ===== Party page, 2026 look (players' page, and the Party tab of the DM's Desk) ===== */
+/* the lobby's top panel (players' page; the desk has its own top bar) */
+body.hubbody:not(.dkhost) .pw.inbody { max-width: none; padding: 0 32px; }
+body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 { position: sticky; top: 0; z-index: 30; margin: 0 -32px; padding: calc(28px + env(safe-area-inset-top)) 32px 30px; border: 0; isolation: isolate; }
+body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(ellipse at 50% 40%, #1d2638 0%, #0f1420 70%) fixed; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 30px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 30px), transparent); }
+.pw .pwh2 > .hub-top { max-width: 1600px; width: 100%; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 16px 26px; border: 1px solid rgba(201,150,43,.22) !important; border-radius: 18px; background: rgba(26,33,49,.75); box-shadow: 0 12px 30px rgba(0,0,0,.38); box-sizing: border-box; }
+.pw .pwh2 .hub-side { position: relative; flex: none; align-self: center !important; padding: 0 !important; }
+:root body .pw .pwh2 .hl-d20 { width: 82px; height: 82px; } :root body .pw .pwh2 .hub-logo { gap: 16px; margin: 0; } :root body .pw .pwh2 .hl-t { font-size: 52.8px; line-height: .95; } :root body .pw .pwh2 .hl-a { font-size: 14.7px; letter-spacing: .44em; }
+.pw .pwh2 .hub-acct { padding: 6px 12px 6px 6px; border-radius: 16px; } .pw .pwh2 .hub-acct:hover, .pw .pwh2 .hub-acct.open { background: rgba(255,255,255,.06); }
+.pw .pwh2 .hub-acct .pg-ava { width: 52px !important; height: 52px !important; }
+.pw .pwh2 > .wzh-back2 { display: flex; width: fit-content; max-width: 1600px; margin: 0 auto; position: relative; top: 18px; color: #c9b07a; font-size: .9rem; font-weight: 700; text-decoration: none; gap: 6px; align-items: center; }
+.pw .pwh2 > .wzh-back2:hover { color: #e0aa3a; }
+body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 { padding-bottom: 46px; }
+body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 > .wzh-back2 { margin-left: max(0px, calc((100% - 1600px) / 2)); }
+/* the body: no box around everything — a title row, then the characters as tiles */
+.pw.inbody .pw-body { width: 100%; max-width: 1600px; margin: 0 auto; padding: 0 0 40px; border: 0 !important; border-radius: 0; background: none !important; box-shadow: none !important; box-sizing: border-box; }
+.pw.inbody .pw-intitle { display: flex; align-items: center; justify-content: space-between; gap: 16px 24px; flex-wrap: wrap; padding: 4px 0 0 !important; margin: 0 0 18px !important; border: 0 !important; }
+.pw.inbody .pw-itt { min-width: 0; }
+.pw.inbody .pw-intitle h2 { gap: 14px; font: 700 2rem/1.15 Georgia, serif !important; color: #e0aa3a; }
+.pw.inbody .pw-intitle .pw-ppic { width: 64px !important; height: 64px !important; border-radius: 16px !important; flex: none; }
+.pw.inbody .pw-intitle .pw-sub { margin: 8px 0 0 !important; color: #9aa3b5; font-size: .98rem; }
+.pw.inbody .pw-intitle .pw-sub b { color: #e9e3d3; }
+.pw-hacts { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pw-hacts .grow { display: none; }
+.pw-hacts .btn { display: inline-flex; align-items: center; gap: 7px; min-height: 42px; padding: 0 18px !important; border-radius: 11px !important; font-size: .92rem !important; font-weight: 700; text-decoration: none; }
+.pw-hacts .btn.red { order: 9; background: transparent !important; border: 1px solid rgba(240,138,117,.45) !important; color: #f08a75 !important; }
+.pw-hacts .btn.red:hover { background: rgba(240,138,117,.1) !important; }
+.pw.inbody .pm-grid { grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)) !important; gap: 14px !important; margin-top: 0 !important; }
+body.hubbody .pw.inbody .pm { padding: 14px !important; gap: 10px !important; border-radius: 16px !important; border: 1px solid rgba(201,150,43,.22) !important; background: rgba(255,255,255,.04) !important; }
+body.hubbody .pw.inbody .pm:hover { border-color: rgba(201,150,43,.45) !important; }
+/* the DM's Desk Party tab: same title row and tiles, inside the desk */
+body.dkhost #hub .pw.inbody { max-width: 1600px; padding-left: 32px; padding-right: 32px; }
+/* phones */
+@media (max-width: 640px) {
+  body.hubbody:not(.dkhost) .pw.inbody { padding: 0 16px; }
+  body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 { margin: 0 -16px; padding: calc(12px + env(safe-area-inset-top)) 16px 40px; }
+  .pw .pwh2 > .hub-top { gap: 12px; padding: 12px 14px; }
+  :root body .pw .pwh2 .hl-d20 { width: 54px; height: 54px; } :root body .pw .pwh2 .hub-logo { gap: 8px; } :root body .pw .pwh2 .hl-t { font-size: 32.8px; } :root body .pw .pwh2 .hl-a { font-size: 9.9px; letter-spacing: .26em; }
+  .pw .pwh2 .hub-acct { padding: 6px; border-radius: 999px; } .pw .pwh2 .hub-acct .pg-ava { width: 46px !important; height: 46px !important; box-shadow: 0 0 0 2px rgba(224,170,58,.55); } .pw .pwh2 .ha-txt, .pw .pwh2 .ha-chev { display: none; }
+  .pw .pwh2 > .wzh-back2 { top: 12px; font-size: .84rem; }
+  .pw.inbody .pw-intitle h2 { font-size: 1.5rem !important; } .pw.inbody .pw-intitle .pw-ppic { width: 52px !important; height: 52px !important; }
+  /* the buttons ride along the bottom on a phone */
+  body.hubbody:not(.dkhost) .pw.inbody .pw-hacts { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; padding: 10px 16px calc(env(safe-area-inset-bottom) + 12px); background: rgba(22,28,42,.96); border-top: 1px solid rgba(201,150,43,.22); }
+  body.hubbody:not(.dkhost) .pw.inbody .pw-hacts .btn { flex: 1; justify-content: center; min-height: 50px; border-radius: 14px !important; }
+  body.hubbody:not(.dkhost) .pw.inbody .pw-body { padding-bottom: 96px; }
+  .pw.inbody .pm-grid { grid-template-columns: 1fr !important; }
+}
+@media (prefers-color-scheme: light) {
+  body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2::before { background: radial-gradient(ellipse at 50% 40%, #fbf6ea 0%, #f1e9d8 70%) fixed; }
+  .pw .pwh2 > .hub-top { background: rgba(255,255,255,.7); border-color: #e3d6b8 !important; box-shadow: 0 10px 26px rgba(60,45,20,.14); }
+  .pw.inbody .pw-intitle h2 { color: #8a6420; } .pw.inbody .pw-intitle .pw-sub { color: #5c6478; } .pw.inbody .pw-intitle .pw-sub b { color: #1f2a44; }
+  body.hubbody .pw.inbody .pm { background: rgba(255,255,255,.7) !important; border-color: #e3d6b8 !important; }
+  .pw .pwh2 > .wzh-back2 { color: #8a6420; }
+  body.hubbody:not(.dkhost) .pw.inbody .pw-hacts { background: rgba(251,247,238,.96); }
+}

@@ -1099,8 +1099,8 @@ function wireDie(root) {
       const I = d => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
       const items = [['lobby', 'Back to the lobby', I('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>')]];
       const inAdm = document.body.classList.contains('adminbody');
-    if (inAdm) items.unshift(['lobby', 'Back to the lobby', I('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>')]);
-    else if (IS_ADMIN) items.push(['admin', 'Admin panel', I('<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>')]);
+    if (inAdm || document.querySelector('.pw')) items.unshift(['lobby', 'Back to the lobby', I('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>')]);
+    if (!inAdm && IS_ADMIN) items.push(['admin', 'Admin panel', I('<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>')]);
       items.push(['contact', 'Contact Adventurer’s Tome', I('<path d="M4 4h16v12H8l-4 4z"/>')]);
       const m = document.createElement('div'); m.className = 'ha-menu wz-hamenu' + (desk ? ' ha-drop' : ' ha-sheet'); m.setAttribute('role', 'menu');
       const who = desk ? '' : `<div class="ha-who">${avaHTML(nm, EMAIL, av.pic, '', '', av)}<div><b>${escH(nm)}</b><small>${escH(EMAIL)}</small></div></div>`;
@@ -2160,13 +2160,14 @@ function hub(fs, auth, G, ctx) {
     modal.querySelector('#jl-f').onsubmit = e => { e.preventDefault(); goJ(); }; modal.querySelector('#jl-ok').onclick = goJ; modal.querySelector('#jl-x').onclick = close; }
   // Your account: the picture (and on a computer your name and email) opens a menu: a drop-down on a computer, a panel
   // from the bottom on a phone.
+  window.pgAcctMenu = (b, d) => acctMenu(b, d);
   function acctMenu(btn, desk) { const ex = document.querySelector('.ha-menu'); if (ex) { ex._shut(); return; }
     const I = d => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
     const items = [['pic', 'Change picture', I('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M21 17l-5-5-9 7"/>')], ['name', 'Change name', I('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>')],
       ['theme', pgDark() ? 'Light mode' : 'Dark mode', I(pgDark() ? '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>' : '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>')]];
     const inAdm = document.body.classList.contains('adminbody');
-    if (inAdm) items.unshift(['lobby', 'Back to the lobby', I('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>')]);
-    else if (IS_ADMIN) items.push(['admin', 'Admin panel', I('<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>')]);
+    if (inAdm || document.querySelector('.pw')) items.unshift(['lobby', 'Back to the lobby', I('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>')]);
+    if (!inAdm && IS_ADMIN) items.push(['admin', 'Admin panel', I('<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>')]);
     items.push(['contact', 'Contact Adventurer’s Tome', I('<path d="M4 4h16v12H8l-4 4z"/>')]);
     const m = document.createElement('div'); m.className = 'ha-menu' + (desk ? ' ha-drop' : ' ha-sheet') + (desk && inAdm ? ' ha-up' : ''); m.setAttribute('role', 'menu');
     const who = desk ? '' : `<div class="ha-who">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(myAva())}<div><b>${esc(myName())}</b><small>${esc(EMAIL)}</small></div></div>`;
@@ -3147,17 +3148,20 @@ function partyModule(H) {
   // gold top edge, and the buttons along the bottom. Making a party and joining one go step by step; a party's own page
   // uses the same pills as sections.
   const headHTML = () => { const a = H.myAva(), nm = H.myName();
-    return `<div class="wzh"><header class="hub-top" role="none">${logoHTML()}<div class="hub-side"><div class="hub-prof"><span class="hp-pic wzh-pic">${avaHTML(nm, EMAIL, a.pic, '', '', a)}</span><div class="hp-txt"><b>${esc(nm)}</b><small>${esc(EMAIL)}</small><div class="hp-row"><button class="linkbtn" data-pw="out">Sign out</button><a class="hub-ctlink" href="${CONTACT}">Contact</a></div></div></div></div></header><a class="adm-back wzh-back" href="${esc(URLS.parties(G))}">← Adventurer’s Tome</a></div>`; };
+    // the lobby's top panel: logo, and your account (its menu has the way back, contact and sign out)
+    return `<div class="wzh pwh2"><header class="hub-top" role="none">${logoHTML()}<div class="hub-side"><button type="button" class="hub-acct pw-acct" aria-haspopup="menu" aria-expanded="false" title="Your account">${avaHTML(nm, EMAIL, a.pic, '', '', a)}<span class="ha-txt"><b>${esc(nm)}</b><small>${esc(EMAIL)}</small></span><svg class="ha-chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div></header><a class="wzh-back wzh-back2" href="${esc(URLS.parties(G))}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>Back to the lobby</a></div>`; };
   // steps: [[key, label]]; seq = numbered steps you go through in order (later ones can't be clicked yet).
   function shell({ title, sub, steps, on, body, foot, seq, inBody, bare, noReady }) {
     const idx = Math.max(0, (steps || []).findIndex(s => s[0] === on));
     const pills = steps && steps.length > 1 ? `<div class="pw-steps" role="tablist">${steps.map(([k, t], i) => `<button class="pw-step${k === on ? ' on' : ''}${seq && i < idx ? ' done' : ''}" role="tab" aria-selected="${k === on}" data-pstep="${k}"${seq && i > idx ? ' disabled' : ''}>${seq ? (i + 1) + '. ' : ''}${esc(t)}</button>`).join('')}</div>` : '';
     // inBody: the title sits at the top of the card itself (a party's page)
-    if (inBody) { body = `<div class="pw-intitle"><h2>${title}</h2>${sub ? `<p class="pw-sub">${sub}</p>` : ''}</div>${body}`; title = ''; sub = ''; }
+    // (and its buttons sit beside the title rather than along the bottom)
+    if (inBody) { body = `<div class="pw-intitle"><div class="pw-itt"><h2>${title}</h2>${sub ? `<p class="pw-sub">${sub}</p>` : ''}</div>${foot ? `<div class="pw-hacts">${foot}</div>` : ''}</div>${body}`; title = ''; sub = ''; foot = ''; }
     root.innerHTML = `<div role="main" class="pw${seq ? ' seq' : ''}${inBody ? ' inbody' : ''}${bare ? ' bare' : ''}">${headHTML()}<div class="pw-head">${title ? `<h2>${title}</h2>` : ''}${sub ? `<p class="pw-sub">${sub}</p>` : ''}${pills}${seq && steps ? `<div class="pw-now">Step ${idx + 1} of ${steps.length}<b>${esc(steps[idx][1])}</b></div>` : ''}</div>
       <div class="pw-body">${body}</div>${foot ? `<div class="pw-foot">${foot}</div>` : ''}</div>`;
     wireDie(root); if (window.pgReady && !noReady && !/Loading the party|Opening the invitation/.test(body)) window.pgReady();
     const out = root.querySelector('[data-pw="out"]'); if (out) out.onclick = () => H.signOut();
+    const ac = root.querySelector('.pw-acct'); if (ac && window.pgAcctMenu) ac.onclick = e => { e.stopPropagation(); window.pgAcctMenu(ac, !TOUCH && innerWidth > 900); };
     const back = root.querySelector('.wzh-back'); if (back) back.onclick = e => { e.preventDefault(); pgGo(URLS.parties(G)); };
     return root.querySelector('.pw-body');
   }
