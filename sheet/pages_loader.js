@@ -2405,6 +2405,10 @@ function hub(fs, auth, G, ctx) {
       addEventListener('pointerup', e => { if (PHONE.matches && inNav(e)) at = Date.now(); }, true);
       ['click', 'mousedown', 'touchend', 'pointerdown'].forEach(t => addEventListener(t, e => { if (Date.now() - at < 350 && !inNav(e)) { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); } }, { capture: true, passive: false })); }
     if (!TOUCH && !document.querySelector('.pg-sb')) sheetScrollbar();
+    // A tab switches straight away (its highlight, title and skeleton, or the page as it was last time), and its
+    // content is built a moment later, once that has been drawn. Clicking on to another tab first skips it.
+    let RUN = 0;
+    const later = fn => { const id = ++RUN, k = TAB; requestAnimationFrame(() => setTimeout(() => { if (id !== RUN || TAB !== k) return; const b = B(); if (b) b.dataset.loaded = '1'; fn(); }, 0)); };
     function frame() { frame0(); navPost(); }
     function frame0() {
       const nav = (k, label) => `<button class="adm-ni${TAB === k ? ' on' : ''}" data-tab="${k}">${svg(k)}<span>${label}</span>${k === 'new' && NEWN ? `<b class="adm-badge">${NEWN}</b>` : k === 'bugs' && BUGN ? `<b class="adm-badge">${BUGN}</b>` : ''}</button>`;
@@ -2416,17 +2420,17 @@ function hub(fs, auth, G, ctx) {
         root.querySelector('.adm-head h1').textContent = title; root.querySelector('.adm-head p').textContent = desc;
         // Each tab's page is kept once it has loaded, so going back to it is instant (its own actions refresh it as needed).
         const curB = root.querySelector('#ad-body'), curH = root.querySelector('#adm-hact'), again = PREV_TAB === TAB;
-        if (PREV_TAB && !again) PANES[PREV_TAB] = { b: curB, h: curH, y: scrollY };
+        if (PREV_TAB && !again) { if (curB.dataset.loaded) PANES[PREV_TAB] = { b: curB, h: curH, y: scrollY }; else delete PANES[PREV_TAB]; }
         const kept = !again && PANES[TAB];
         if (kept) { curB.replaceWith(kept.b); curH.replaceWith(kept.h); PREV_TAB = TAB; nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab)); scrollTo(0, 0);
           // …and quietly brings it up to date behind the scenes
-          ({ new: () => tabNew(), users: () => paintUsers(), chars: () => paintChars(), parties: () => tabParties(), audit: () => paintAudit(), notice: () => tabNotice(), welcome: () => tabWelcome(), news: () => tabNews(), bugs: () => paintBugs() })[TAB](); return; }
+          later(({ new: () => tabNew(), users: () => paintUsers(), chars: () => paintChars(), parties: () => tabParties(), audit: () => paintAudit(), notice: () => tabNotice(), welcome: () => tabWelcome(), news: () => tabNews(), bugs: () => paintBugs() })[TAB]); return; }
         const nb = document.createElement('section'); nb.id = 'ad-body'; nb.className = 'adm-body'; nb.innerHTML = `<div class="sk-auto" data-k="${pgAdmSkel(TAB)}" data-n="6"></div>`;
         const nh = document.createElement('div'); nh.id = 'adm-hact'; nh.className = 'adm-hact';
         curB.replaceWith(nb); curH.replaceWith(nh); pgSkelFill(); delete PANES[TAB]; PREV_TAB = TAB;
         nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
         const on = nv0.querySelector('.adm-ni.on'); if (on && on.scrollIntoView) { const r = on.getBoundingClientRect(), nr = nv0.getBoundingClientRect(); if (r.left < nr.left || r.right > nr.right) nv0.scrollBy({ left: r.left < nr.left ? r.left - nr.left - 12 : r.right - nr.right + 12, behavior: 'smooth' }); }
-        ({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit, notice: tabNotice, welcome: tabWelcome, news: tabNews, bugs: tabBugs })[TAB](); return; }
+        later(({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit, notice: tabNotice, welcome: tabWelcome, news: tabNews, bugs: tabBugs })[TAB]); return; }
       const keepLogo = root.querySelector('.hub-logo');
       root.innerHTML = `<div class="adm"><aside class="adm-side">
           <div class="adm-brand">${logoHTML()}</div>
@@ -2438,7 +2442,7 @@ function hub(fs, auth, G, ctx) {
       PREV_TAB = TAB; pgSkelFill();
       root.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
       { const o = root.querySelector('#adm-acct'); if (o) o.onclick = e => { e.stopPropagation(); acctMenu(o, matchMedia('(min-width: 861px)').matches); }; }
-      ({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit, notice: tabNotice, welcome: tabWelcome, news: tabNews, bugs: tabBugs })[TAB]();
+      later(({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit, notice: tabNotice, welcome: tabWelcome, news: tabNews, bugs: tabBugs })[TAB]);
     }
     const B = () => root.querySelector('#ad-body'), HA = () => root.querySelector('#adm-hact');
     // ⋯ menus float above everything (moved to the top of the page while open), so a table never grows a scrollbar for them.
