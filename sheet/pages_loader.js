@@ -4068,10 +4068,11 @@ function partyModule(H) {
   addEventListener('mousedown', e => {
     if (e.button !== 0 || e.ctrlKey || e.shiftKey || e.metaKey || e.altKey || e.defaultPrevented || ptr !== 'mouse' || (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents)) return;
     const b = e.target.closest && e.target.closest(SEL); if (!b || b.matches(SKIP) || b.closest('[disabled]')) return;
-    e.preventDefault(); // (keeps focus where the click handler puts it)
-    try { if (b.focus && document.activeElement !== b && !b.closest('.hc-list, .adm-mlist, .pp-tabs')) b.focus({ preventScroll: true }); } catch (x) {}
-    eat = { t: Date.now() };
+    eat = { t: Date.now() }; const was = document.activeElement;
     b.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window, detail: 1, clientX: e.clientX, clientY: e.clientY, screenX: e.screenX, screenY: e.screenY, button: 0 }));
+    // The browser then focuses the button the usual mouse way (no keyboard focus ring), unless the click put focus
+    // somewhere on purpose (a box that opened, say), which is kept.
+    const now = document.activeElement; if (now !== was && now !== b && now !== document.body) e.preventDefault();
   }); // (on the window, after the page's own mousedown handlers have run)
   // the release's click comes straight after the mouseup, so it's only dropped then
   addEventListener('mouseup', e => { if (eat && e.button === 0) { const it = eat; setTimeout(() => { if (eat === it) eat = null; }, 0); } }, true);
