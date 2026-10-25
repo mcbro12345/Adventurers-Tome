@@ -6,7 +6,7 @@
 <title>Zeke — Character Sheet</title>
 <script>
   (function () {
-    try { var u = JSON.parse(localStorage.getItem('dnd-sheet-ui') || '{}'); var m = u.layout ? u.layout === 'mobile' : window.innerWidth < 640; if (m) document.documentElement.classList.add('mobile'); } catch (e) {}
+    try { var u = JSON.parse(localStorage.getItem('dnd-sheet-ui') || '{}'); var m = u.layout ? u.layout === 'mobile' : window.innerWidth < 870; if (m) document.documentElement.classList.add('mobile'); } catch (e) {}
     var t = null;
     try { t = localStorage.getItem('dnd-sheet-theme'); } catch (e) {}
     if (t !== 'light') t = 'dark';

@@ -930,7 +930,7 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
   .dk-f { min-height: 42px; } .dk-ntn { min-height: 40px; }
 }
 /* tablets / narrow laptops: logo + tools on the first row, the tabs as a full-width second row */
-@media (min-width: 641px) and (max-width: 1100px) {
+@media (min-width: 641px) and (max-width: 1260px) {
   .dk-tabs { order: 5; flex: 1 1 100%; display: flex; }
   .dk-tabs button { flex: 1; justify-content: center; }
   .dk-sync { display: none; }
@@ -952,8 +952,11 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
   .dk-mwx:focus-visible { background: color-mix(in srgb, var(--ink) 16%, transparent); color: var(--ink); }
   .dk.dk-mw .dk-mwhid { display: none !important; }
   .dk.dk-mw .dk-mcard .dk-acts { margin-top: 14px; }
-  .dk-mghost { position: fixed !important; z-index: 59; margin: 0 !important; pointer-events: none !important; overflow: hidden !important; animation: dkWinOut .18s ease forwards !important; }
 }
+.dk-mghost { position: fixed !important; z-index: 61; margin: 0 !important; pointer-events: none !important; overflow: hidden !important; animation: dkWinOut .18s ease forwards !important; }
+.dk-mshade { display: block !important; position: fixed; inset: 0; z-index: 60; padding: 0 !important; pointer-events: none; animation: dkFadeOut .2s ease forwards !important; }
+@keyframes dkFadeOut { to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .dk-mshade { display: none !important; } }
 @media (min-width: 641px) and (hover: hover) { .dk-mwx:hover { background: color-mix(in srgb, var(--ink) 16%, transparent); color: var(--ink); } }
 @media (max-width: 640px) { .dk-mwhead { display: none; } }
 @keyframes dkWinIn { from { opacity: 0; transform: translateY(8px) scale(.97); } }
@@ -1443,3 +1446,55 @@ html[data-pgtheme="light"] .dk-back2 { color: #8a6420; } html[data-pgtheme="ligh
 /* lists inside the floating panels: no extra divider lines at the scroll edges (the panel's own edges do that job); a soft
    shadow still shows there's more to scroll */
 .dk-rail .dk-shade::before, .dk-rail .dk-shade::after, .dk-blist .dk-shade::before, .dk-blist .dk-shade::after { border: 0 !important; }
+/* the notes page starts right beside the list (the gap between them is enough) */
+@media (min-width: 901px) { .dk[data-tab=notes] .dk-notesv > .dk-main { padding-left: 8px !important; } }
+/* Sessions and Bestiary: the main area starts right beside the list too; the scrolling areas fade out softly at the
+   bottom instead of being cut off, and leave room under the last thing */
+@media (min-width: 901px) {
+  .dk[data-tab=sessions] .dk-sess > .dk-main, .dk[data-tab=bestiary] .dk-best > .dk-bview { padding-left: 8px !important; }
+  .dk[data-tab=sessions] .dk-sess > .dk-main, .dk[data-tab=bestiary] .dk-best > .dk-bview, .dk[data-tab=notes] .dk-notesv > .dk-main { padding-bottom: 48px !important; }
+}
+/* the main area runs right to the bottom of the window (things scroll off the edge); the list panel keeps its margin */
+@media (min-width: 901px) {
+  .dk[data-tab=notes] .dk-notesv, .dk[data-tab=sessions] .dk-sess, .dk[data-tab=bestiary] .dk-best { padding-bottom: 0 !important; }
+  .dk[data-tab=notes] .dk-rail, .dk[data-tab=sessions] .dk-rail, .dk[data-tab=bestiary] .dk-blist { margin-bottom: 16px !important; }
+}
+@media (min-width: 901px) {
+  .dk[data-tab=notes] .dk-rail, .dk[data-tab=sessions] .dk-rail, .dk[data-tab=bestiary] .dk-blist { height: auto !important; max-height: calc(100% - 16px) !important; align-self: stretch; box-sizing: border-box; }
+}
+/* the Bestiary list: rows scrolled out of sight aren't laid out or drawn until they come near (hundreds of creatures) */
+.dk-mlist2 > .dk-mrow { content-visibility: auto; contain-intrinsic-size: auto 44px; }
+
+/* Menus: an icon beside every item (drawn from the item itself, so it survives any redraw) */
+.dk-mlist button[data-act="addgroup"]:not(:has(svg))::before, .dk-mlist button[data-act="restall"]:not(:has(svg))::before, .dk-mlist button[data-act="dupsess"]:not(:has(svg))::before, .dk-mlist button[data-act="delsess"]:not(:has(svg))::before, .dk-mlist button[data-act="dup"]:not(:has(svg))::before, .dk-mlist button[data-act="rest"]:not(:has(svg))::before, .dk-mlist button[data-act="movegrp"]:not(:has(svg))::before, .dk-mlist button[data-act="rm"]:not(:has(svg))::before, .dk-mlist button[data-act="nopen"]:not(:has(svg))::before, .dk-mlist button[data-act="nsub"]:not(:has(svg))::before, .dk-mlist button[data-act="nmove"]:not(:has(svg))::before, .dk-mlist button[data-act="nalias"]:not(:has(svg))::before, .dk-mlist button[data-act="nmd"]:not(:has(svg))::before, .dk-mlist button[data-act="ndel"]:not(:has(svg))::before, .dk-mlist button[data-act="nnew"]:not(:has(svg))::before, .dk-mlist button[data-act="nimport"]:not(:has(svg))::before { content: ""; display: inline-block; width: 16px; height: 16px; margin-right: 9px; vertical-align: -3px; background: currentColor; opacity: .75; -webkit-mask: var(--mi) center / contain no-repeat; mask: var(--mi) center / contain no-repeat; }
+.dk-mlist button[data-act]:not(:has(svg)):hover::before { opacity: 1; }
+.dk-mlist button[data-act="addgroup"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%205v14M5%2012h14%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="restall"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M20%2011a8%208%200%201%200-2.3%205.7%22/%3E%3Cpath%20d%3D%22M20%204v7h-7%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="dupsess"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%229%22%20y%3D%229%22%20width%3D%2211%22%20height%3D%2211%22%20rx%3D%222%22/%3E%3Cpath%20d%3D%22M5%2015V5a1%201%200%200%201%201-1h10%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="delsess"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%207h16M10%2011v6M14%2011v6M6%207l1%2013h10l1-13M9%207V4h6v3%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="dup"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%205v14M5%2012h14%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="rest"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M20%2011a8%208%200%201%200-2.3%205.7%22/%3E%3Cpath%20d%3D%22M20%204v7h-7%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="movegrp"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M5%2012h14M13%206l6%206-6%206%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="rm"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%207h16M10%2011v6M14%2011v6M6%207l1%2013h10l1-13M9%207V4h6v3%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="nopen"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M14%204h6v6M20%204l-9%209%22/%3E%3Cpath%20d%3D%22M18%2014v5a1%201%200%200%201-1%201H5a1%201%200%200%201-1-1V7a1%201%200%200%201%201-1h5%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="nsub"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M6%203v12a3%203%200%200%200%203%203h11%22/%3E%3Cpath%20d%3D%22M16%2014l4%204-4%204%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="nmove"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%207h6l2%202h10v10H3z%22/%3E%3Cpath%20d%3D%22M10%2014h7M14%2011l3%203-3%203%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="nalias"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%207h16M4%2012h10M4%2017h7%22/%3E%3Cpath%20d%3D%22M17%2015l2%202%203-4%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="nmd"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%204v11M7%2010l5%205%205-5%22/%3E%3Cpath%20d%3D%22M5%2020h14%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="ndel"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%207h16M10%2011v6M14%2011v6M6%207l1%2013h10l1-13M9%207V4h6v3%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="nnew"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M6%203h8l4%204v14H6z%22/%3E%3Cpath%20d%3D%22M14%203v4h4%22/%3E%3Cpath%20d%3D%22M12%2011v6M9%2014h6%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="nimport"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%2015V4M7%209l5-5%205%205%22/%3E%3Cpath%20d%3D%22M5%2020h14%22/%3E%3C/svg%3E"); }
+/* (opening fades hold their first frame until they start, so a window never flashes up fully drawn first) */
+.dk-modal.open, .dk-mcard, .dk.dk-mw .dk-mcard { animation-fill-mode: backwards; }
+/* DM's Desk top bar: Undo / Redo / History keep the same spacing and size as the other buttons; when the bar has to wrap,
+   the tools line up on the right under the tabs instead of falling to the left under the title */
+.dk-histb { gap: 6px !important; } .dk-histb .dk-tb { padding: 0 !important; width: 38px; justify-content: center; }
+@media (min-width: 641px) { .dk .dk-tools { margin-left: auto; } }
+/* Bestiary: "Add to a session" and Copy & edit share one row when there's room; the creature lines up with the list's top */
+.dk-badd { display: flex; flex-wrap: wrap; align-items: center; } .dk-badd > .dk-row:first-child { flex: 1 1 380px; min-width: 0; } .dk-badd > .dk-row + .dk-row { flex: none; }
+@media (min-width: 641px) { .dk[data-tab=bestiary] .dk-best > .dk-bview { padding-top: 0 !important; } }
+/* generator: the "include my own creatures" box sits on the text line; the scenes heading matches the other card headings */
+.dk-genin .dk-chk { display: inline-flex !important; align-items: center; gap: 8px; }
+.dk-genin .dk-chk input { margin: 0; flex: none; }
+.dk-scenes h2 { font-family: Georgia, "Times New Roman", serif; font-size: 1.2rem; margin: 0; }
+.dk-scenes > .dk-row { align-items: center; }

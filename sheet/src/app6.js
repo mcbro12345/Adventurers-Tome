@@ -314,9 +314,11 @@ let RC = null;
 const titleCase = s => String(s || '').replace(/\b\w/g, c => c.toUpperCase());
 function openRaceChange() {
   RC = { kind: 'race', removeOld: true, custom: Object.assign({ name: '', size: 'Medium', speed: 30, darkvision: 0, traits: '' }, S.race.key === 'custom' ? { ...S.race.custom, traits: (S.race.custom.traits || []).map(t => t[0] + ': ' + t[1]).join('\n') } : {}) };
-  W = { race: S.race.key, sub: S.race.sub, tasha: false, ans: {} };
+  W = { race: S.race.key, sub: S.race.sub, tasha: false, ans: {} }; ['rcrace', 'rcsub'].forEach(k => { delete WZ3M[k + ':q']; delete WZ3M[k + ':s']; });
   openModal('<div id="rcmodal"></div>', () => { RC = null; W = null; }, true); renderRaceChange();
 }
+// (the cards are drawn by the site's own styles; the downloadable sheet keeps the plain lists)
+const rcCards = () => !!window.wzHeader || document.documentElement.classList.contains('pg-sheetpage');
 function renderRaceChange() {
   const x = W.race === 'custom' ? null : wzRace(), c = RC.custom;
   const body = W.race === 'custom' ? `<div class="wz-grid">${fld('Race name', `<input class="f" data-rc="name" value="${esc(c.name)}" placeholder="e.g. Sea Elf (homebrew)">`)}${fld('Size', `<select class="f" data-rc="size">${['Tiny', 'Small', 'Medium', 'Large'].map(z => `<option${c.size === z ? ' selected' : ''}>${z}</option>`).join('')}</select>`)}
@@ -326,14 +328,25 @@ function renderRaceChange() {
     : x ? `<div class="wz-info"><p><b>${esc(x.name)}</b> · speed ${x.s.speed || x.r.speed || 30} ft${(x.s.darkvision || x.r.darkvision) ? ' · darkvision ' + (x.s.darkvision || x.r.darkvision) + ' ft' : ''}</p>
         <ul>${((x.s.replaceTraits ? [] : x.r.traits || []).concat(x.s.traits || [])).map(t => `<li><b>${esc(t[0])}</b> — ${esc(t[1])}</li>`).join('')}</ul>
         ${wzRaceAsiUI()}${wzRaceChoices().map((ch, k) => choiceUI(W.ans, 'race.' + k, ch)).join('')}</div>` : '';
+  // (the same race and variant cards as character creation; the lists underneath are what they set)
   $('#rcmodal').innerHTML = `<h3>Change race</h3>
-    <div class="wz-grid">${fld('Race', `<select class="f" data-rc="race"><option value="">— choose —</option>${DND.raceGroups.map(([g, ks]) => `<optgroup label="${esc(g)}">${ks.filter(k => DND.races[k]).sort((a, b) => abc(DND.races[a].name, DND.races[b].name)).map(k => `<option value="${k}"${W.race === k ? ' selected' : ''}>${esc(DND.races[k].name)}${DND.races[k].src !== 'PHB' ? ' (' + DND.races[k].src + ')' : ''}</option>`).join('')}</optgroup>`).join('')}<option value="custom"${W.race === 'custom' ? ' selected' : ''}>✎ Custom race…</option></select>`)}
+    ${rcCards() ? wz3Cards('race') + (x && x.r.subraces ? `<p class="wz3-sublbl">${esc(x.r.name)} variant</p>${wz3Cards('sub')}` : '') : ''}
+    <div class="wz-grid${rcCards() ? ' wz3-hid' : ''}">${fld('Race', `<select class="f" data-rc="race"><option value="">— choose —</option>${DND.raceGroups.map(([g, ks]) => `<optgroup label="${esc(g)}">${ks.filter(k => DND.races[k]).sort((a, b) => abc(DND.races[a].name, DND.races[b].name)).map(k => `<option value="${k}"${W.race === k ? ' selected' : ''}>${esc(DND.races[k].name)}${DND.races[k].src !== 'PHB' ? ' (' + DND.races[k].src + ')' : ''}</option>`).join('')}</optgroup>`).join('')}<option value="custom"${W.race === 'custom' ? ' selected' : ''}>✎ Custom race…</option></select>`)}
       ${x && x.r.subraces ? fld('Subrace', `<select class="f" data-rc="sub"><option value="">— choose —</option>${Object.entries(x.r.subraces).sort(([, a], [, b]) => abc(a.name, b.name)).map(([k, s]) => `<option value="${k}"${W.sub === k ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select>`) : ''}</div>
     ${body}
     <label class="checkline" style="margin-top:8px"><input type="checkbox" data-rc="removeOld"${RC.removeOld ? ' checked' : ''}> Remove what ${esc(S.raceName || 'my old race')} gave me (fixed ability bonuses, skills, languages, weapon and armor training)</label>
     <p class="hint">Traits, speed, senses, racial spells and natural weapons update automatically. Ability bonuses you placed yourself (like +2/+1) can't be traced — check your scores afterwards.</p>
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="rcok">Change race</button></div>`;
+  $$('#rcmodal > .wz3-pick').forEach((bx, i) => wz3Keep(bx, i ? 'rcsub' : 'rcrace'));
+  { const rl = $('#rcmodal > .wz3-pick .wz3-cards'); if (rl) rl.classList.add('has'); } // (the race list scrolls in its own box)
+  // (opening it: the race list starts at the character's current race)
+  { const l = $('#rcmodal > .wz3-pick .wz3-cards'), on = l && l.querySelector('.wz3-card.sel'); if (on && !WZ3M['rcrace:s']) l.scrollTop = Math.max(0, on.offsetTop - l.offsetTop - 40); }
+  if (typeof wz3ChoiceLists === 'function') wz3ChoiceLists('#rcmodal');
 }
+// a race or variant card picks it in the list underneath (which redraws the window, keeping the cards where they were)
+document.addEventListener('click', e => { const c = e.target.closest && e.target.closest('#rcmodal [data-pick="race"], #rcmodal [data-pick="sub"]'); if (!c || !RC) return;
+  const sel = $(`#rcmodal [data-rc="${c.dataset.pick}"]`); if (!sel) return; const box = c.closest('.wz3-pick');
+  const go = () => { sel.value = c.dataset.v; sel.dispatchEvent(new Event('change', { bubbles: true })); }; if (box && typeof wz3Commit === 'function') wz3Commit(box, go); else go(); });
 function openBgChange() {
   RC = { kind: 'bg', removeOld: true, custom: Object.assign({ name: '', feature: '', desc: '' }, S.background === 'custom' ? { name: S.backgroundName, ...(S.bgCustom || {}) } : {}) };
   W = { bg: S.background, ans: {} }; delete WZ3M['rcbg:q']; delete WZ3M['rcbg:s'];
@@ -353,6 +366,8 @@ function renderBgChange() {
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="rcok">Change background</button></div>`;
   // (the same searchable list as character creation; its choices of skills, tools and languages are lists too)
   const bx = $('#rcmodal > .wz3-pick'); if (bx) wz3Keep(bx, 'rcbg');
+  // (opening it: the list starts at the character's current background)
+  { const l = bx && bx.querySelector('.wz3-list'), on = l && l.querySelector('.crrow.on'); if (on && !WZ3M['rcbg:s']) l.scrollTop = Math.max(0, on.offsetTop - l.offsetTop - 40); }
   if (typeof wz3ChoiceLists === 'function') wz3ChoiceLists('#rcmodal');
 }
 document.addEventListener('change', e => { const r = e.target.closest && e.target.closest('#rcmodal input[data-pick="bg"]'); if (!r || !RC) return; const sel = $('#rcmodal [data-rc="bg"]'); if (!sel) return;
@@ -403,7 +418,8 @@ function raceChangeOK() {
     });
   }
   pendingLabel = `Change race: ${oldName} → ${S.raceName}`; RC = null; W = null;
-  rebuildAuto(); closeModal(true); save(); render();
+  // (the window starts fading before the sheet redraws, so the redraw doesn't hold the fade up)
+  rebuildAuto(); closeModal(true); save(); requestAnimationFrame(() => setTimeout(render, 0));
   toast(`You're now ${esc(S.raceName)}. Check your ability scores, skills and languages.`, '', 9000, { label: 'Undo', fn: () => undo(1) });
 }
 function bgChangeOK() {
@@ -421,7 +437,8 @@ function bgChangeOK() {
   applyChoice({ type: 'skill' }, ansList(W.ans, 'bg.skill')); applyChoice({ type: 'tool' }, ansList(W.ans, 'bg.tool')); applyChoice({ type: 'language' }, ansList(W.ans, 'bg.lang'));
   if (b.feat && W.bg !== 'custom') applyFeat(b.feat, W.ans, 'bg.feat');
   pendingLabel = `Change background: ${oldName} → ${S.backgroundName}`; RC = null; W = null;
-  rebuildAuto(); closeModal(true); save(); render();
+  // (the window starts fading before the sheet redraws, so the redraw doesn't hold the fade up)
+  rebuildAuto(); closeModal(true); save(); requestAnimationFrame(() => setTimeout(render, 0));
   toast(`Background changed to ${esc(S.backgroundName)}.`, '', 7000, { label: 'Undo', fn: () => undo(1) });
 }
 
@@ -781,8 +798,15 @@ window.addEventListener('resize', () => { SUB_K = ''; fitSubtitle(); });
 
 // Desktop header stays one row: when the toolbar would wrap, its buttons drop their words and keep their icons.
 // Toolbar labels fold away one button at a time (least-used first) only when the row would wrap, and come back as soon as there's room.
-const TB_FOLD = ['edit', 'history', 'redo', 'undo', 'settings', 'save'];
+// (Undo and Redo lose their labels together, so the pair always matches)
+const TB_FOLD = ['edit', 'history', ['redo', 'undo'], 'settings', 'save'];
+// Sheet tabs on a computer: each takes the room its name needs; when they don't all fit they tighten up, then drop their
+// icons, before any name gets cut short
+function fitTabs() { const t = $('#tabs'); if (!t) return; t.classList.remove('tabs-tight', 'tabs-noicon'); if (isMobile()) return;
+  const cut = () => [...t.querySelectorAll('.tlabel')].some(l => l.offsetParent && l.scrollWidth > l.clientWidth + 1);
+  if (!cut()) return; t.classList.add('tabs-tight'); if (!cut()) return; t.classList.add('tabs-noicon'); }
 function fitToolbar() {
+  fitTabs();
   const tb = $('.toolbar'); if (!tb) return;
   // (the site's Tome button row goes back into a freshly drawn toolbar first, so it's measured as it will look)
   if (typeof window.pgHubRow === 'function') try { window.pgHubRow(); } catch (e) {}
@@ -791,8 +815,11 @@ function fitToolbar() {
   if (isMobile()) return;
   const kids = [...tb.children].filter(k => k.offsetParent !== null && !k.classList.contains('pg-hubrow')); if (kids.length < 2) return; // (the site's own row above the buttons doesn't count)
   const tight = () => { const b0 = kids[0].getBoundingClientRect().bottom; return kids.some(k => k.getBoundingClientRect().top >= b0 - 2) || tb.scrollWidth > tb.clientWidth + 2; };
-  for (const key of TB_FOLD) { if (!tight()) return; const el = tb.querySelector(`[data-zi="${key}"]`); if (el) el.classList.add('nolbl'); }
+  for (const key of TB_FOLD) { if (!tight()) return; [].concat(key).forEach(k => { const el = tb.querySelector(`[data-zi="${k}"]`); if (el) el.classList.add('nolbl'); }); }
   if (!tight()) return;
+  // Still too tight with icons only: the window is too narrow for the computer layout, so it switches to the phone layout
+  // (unless the computer layout was picked by hand, or this is the phone preview)
+  if (!LAYOUT_NOW && !window.PG_IN_PHONE && !onPhone()) { MOBILE_AT = Math.max(MOBILE_AT || 0, window.innerWidth + 1); applyLayout(); if (isMobile()) { queueMicrotask(() => render()); return; } }
   tb.classList.add('tb-compact');
   if (tight()) tb.classList.add('tb-wrap');  // very narrow windows: icons may take two rows inside the toolbar's own box
 }

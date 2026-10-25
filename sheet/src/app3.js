@@ -593,7 +593,7 @@ function renderStory() {
   <div class="story">
     <div class="stack">
       <div class="panel" ${PID('personality')}><h2>Personality</h2><div class="traits">
-        ${fld('Personality Traits', ta('traits.personality', { rows: 3 }))}${fld('Ideals', ta('traits.ideals', { rows: 2 }))}
+        ${fld('Personality Traits', ta('traits.personality', { rows: 2 }))}${fld('Ideals', ta('traits.ideals', { rows: 2 }))}
         ${fld('Bonds', ta('traits.bonds', { rows: 2 }))}${fld('Flaws', ta('traits.flaws', { rows: 2 }))}</div></div>
       <div class="panel" ${PID('appearance')}><h2>Appearance</h2><div class="appear">${['age', 'height', 'weight', 'eyes', 'skin', 'hair'].map(k => fld(k[0].toUpperCase() + k.slice(1), inp('appearance.' + k))).join('')}</div></div>
       <div class="panel" ${PID('backstory')}><h2>Backstory</h2>${ta('backstory', { rows: 10 })}</div>
@@ -1037,7 +1037,7 @@ function openHistory() {
     <div class="rb"><b>Roll back the last</b><input class="f" id="rbN" type="number" min="1" value="5" style="width:70px" aria-label="Amount of time">
       <select class="f" id="rbU" style="width:110px" aria-label="Unit"><option value="60000">minutes</option><option value="3600000">hours</option><option value="86400000">days</option></select>
       <button class="btn gold" data-act="rbtime">Roll back</button></div>
-    <div class="rb"><span class="hint">Quick:</span>${[['1 min', 60000], ['5 min', 300000], ['15 min', 900000], ['1 hour', 3600000], ['Today', Date.now() - new Date().setHours(0, 0, 0, 0)]].map(([t, ms]) => `<button class="chip" data-act="rbquick" data-ms="${ms}">${t} <span class="hint">(${countSince(ms)})</span></button>`).join('')}</div>
+    <div class="rb rbq"><span class="hint">Quick:</span><span class="rbchips">${[['1 min', 60000], ['5 min', 300000], ['15 min', 900000], ['1 hour', 3600000], ['Today', Date.now() - new Date().setHours(0, 0, 0, 0)]].map(([t, ms]) => `<button class="chip" data-act="rbquick" data-ms="${ms}">${t} <span class="hint">(${countSince(ms)})</span></button>`).join('')}</span></div>
     <p class="hint" id="rbCount" style="margin:0">This will undo ${countSince(300000)} change(s).</p>
     ${HIST.length ? `<ol class="hist">${list}</ol>` : '<p class="hint">No changes recorded yet.</p>'}
     ${redoList}

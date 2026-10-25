@@ -930,7 +930,7 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
   .dk-f { min-height: 42px; } .dk-ntn { min-height: 40px; }
 }
 /* tablets / narrow laptops: logo + tools on the first row, the tabs as a full-width second row */
-@media (min-width: 641px) and (max-width: 1100px) {
+@media (min-width: 641px) and (max-width: 1260px) {
   .dk-tabs { order: 5; flex: 1 1 100%; display: flex; }
   .dk-tabs button { flex: 1; justify-content: center; }
   .dk-sync { display: none; }
@@ -1484,3 +1484,17 @@ html[data-pgtheme="light"] .dk-back2 { color: #8a6420; } html[data-pgtheme="ligh
 .dk-mlist button[data-act="ndel"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%207h16M10%2011v6M14%2011v6M6%207l1%2013h10l1-13M9%207V4h6v3%22/%3E%3C/svg%3E"); }
 .dk-mlist button[data-act="nnew"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M6%203h8l4%204v14H6z%22/%3E%3Cpath%20d%3D%22M14%203v4h4%22/%3E%3Cpath%20d%3D%22M12%2011v6M9%2014h6%22/%3E%3C/svg%3E"); }
 .dk-mlist button[data-act="nimport"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%2015V4M7%209l5-5%205%205%22/%3E%3Cpath%20d%3D%22M5%2020h14%22/%3E%3C/svg%3E"); }
+/* (opening fades hold their first frame until they start, so a window never flashes up fully drawn first) */
+.dk-modal.open, .dk-mcard, .dk.dk-mw .dk-mcard { animation-fill-mode: backwards; }
+/* DM's Desk top bar: Undo / Redo / History keep the same spacing and size as the other buttons; when the bar has to wrap,
+   the tools line up on the right under the tabs instead of falling to the left under the title */
+.dk-histb { gap: 6px !important; } .dk-histb .dk-tb { padding: 0 !important; width: 38px; justify-content: center; }
+@media (min-width: 641px) { .dk .dk-tools { margin-left: auto; } }
+/* Bestiary: "Add to a session" and Copy & edit share one row when there's room; the creature lines up with the list's top */
+.dk-badd { display: flex; flex-wrap: wrap; align-items: center; } .dk-badd > .dk-row:first-child { flex: 1 1 380px; min-width: 0; } .dk-badd > .dk-row + .dk-row { flex: none; }
+@media (min-width: 641px) { .dk[data-tab=bestiary] .dk-best > .dk-bview { padding-top: 0 !important; } }
+/* generator: the "include my own creatures" box sits on the text line; the scenes heading matches the other card headings */
+.dk-genin .dk-chk { display: inline-flex !important; align-items: center; gap: 8px; }
+.dk-genin .dk-chk input { margin: 0; flex: none; }
+.dk-scenes h2 { font-family: Georgia, "Times New Roman", serif; font-size: 1.2rem; margin: 0; }
+.dk-scenes > .dk-row { align-items: center; }

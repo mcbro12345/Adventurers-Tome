@@ -247,7 +247,7 @@ function pgPillWire(el) { let st = null;
 // next time.
 (() => { if (window.__pgWinDrag) return; window.__pgWinDrag = 1; const WIN = '#modal-body, .hub-modal > .hub-card, .pg-out-card, #pg-msg .pgm-card, .wz-card, .wizard > .wz';
   const HANDLE = '.mw-head, h2, h3, .rl-head, .pw-head, .mhead, .wz-head, .pgm-head';
-  const desk = () => !document.documentElement.classList.contains('mobile') && innerWidth > 640 && matchMedia('(pointer: fine)').matches;
+  const desk = () => !document.documentElement.classList.contains('mobile') && innerWidth > 884 && matchMedia('(pointer: fine)').matches;
   document.addEventListener('pointerdown', e => { if (!desk() || e.button !== 0 || !e.target.closest) return; const w = e.target.closest(WIN); if (!w) return;
     const h = e.target.closest(HANDLE); if (!h || !w.contains(h) || e.target.closest('button, input, select, textarea, a, label, [contenteditable]')) return;
     // only a heading near the top of the window counts as its title bar
@@ -278,7 +278,7 @@ function pgPillWire(el) { let st = null;
     const cs = getComputedStyle(el);
     if (cs.position === 'fixed' && el.style.left && el.style.top && !el.style.translate) { el.style.left = Math.round(parseFloat(cs.left) + dx) + 'px'; el.style.top = Math.round(parseFloat(cs.top) + dy) + 'px'; }
     else { const t = (el.style.translate || '0px 0px').split(' ').map(parseFloat); el.style.translate = `${Math.round((t[0] || 0) + dx)}px ${Math.round((t[1] || 0) + dy)}px`; } };
-  const all = () => { if (innerWidth <= 640 || document.documentElement.classList.contains('mobile')) return; document.querySelectorAll(WINS).forEach(el => { try { keep(el); } catch (e) {} }); };
+  const all = () => { if (innerWidth <= 884 || document.documentElement.classList.contains('mobile')) return; document.querySelectorAll(WINS).forEach(el => { try { keep(el); } catch (e) {} }); };
   let raf = 0; const soon = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(all); };
   addEventListener('resize', soon); addEventListener('pointerup', () => setTimeout(all, 30), true); setInterval(all, 700);
   window.pgKeepWindows = all; })();
@@ -292,7 +292,7 @@ function pgPillWire(el) { let st = null;
   addEventListener('resize', () => requestAnimationFrame(all)); setInterval(all, 900); })();
 // Desktop: the site's pop-ups (lobby, party page, admin) are floating windows like the dice roller and chat: a title bar
 // to drag and a ✕, with the page behind still usable.
-const pgMwDesk = () => innerWidth > 640 && !document.documentElement.classList.contains('mobile');
+const pgMwDesk = () => innerWidth > 884 && !document.documentElement.classList.contains('mobile');
 // Escape closes the open pop-up window (lobby, party page, admin), the same as its ✕ / Cancel / Done, unless a menu,
 // picker or confirmation on top of it took the key first.
 document.addEventListener('keydown', e => { if (e.key !== 'Escape' || !e.isTrusted || e.defaultPrevented) return;
@@ -335,7 +335,7 @@ function wireThemeBtn(root) { const b = root.querySelector('#hub-theme'); if (!b
 // iPhones only show the pressed look (:active) on pages that listen for touches.
 document.addEventListener('touchstart', () => {}, { passive: true });
 function pgOutFade(m) { m.remove = () => { if (m._closing) return; m._closing = true;
-  if (PG_CALM || !m.isConnected) return Element.prototype.remove.call(m); m.classList.add('closing'); setTimeout(() => Element.prototype.remove.call(m), innerWidth <= 640 ? 240 : 170); }; }
+  if (PG_CALM || !m.isConnected) return Element.prototype.remove.call(m); m.classList.add('closing'); setTimeout(() => Element.prototype.remove.call(m), innerWidth <= 884 ? 240 : 170); }; }
 // While the mouse is over a pop-up window, scrolling only moves what's inside it: once a list reaches its end the
 // page behind doesn't take over and scroll instead.
 const PG_WINS = '.hub-modal.on, #pg-msg, .pg-out, .modal-bg.open';
@@ -409,7 +409,7 @@ function sheetScrollbar() {
     if (now) { if (!was && el.classList.contains('closing')) { clearTimeout(el._fc); el.classList.remove('closing'); } return; }
     // a menu opened at the pointer (right-click) fades out where it is, instead of jumping back to its ⋯ button first
     if (was && !now && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { const pt = / pt /.test(' ' + (m.oldValue || '') + ' ') && !el.classList.contains('pt'); if (pt) el.classList.add('pt');
-      el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => { el.classList.remove('closing'); if (pt && !el.classList.contains('on')) el.classList.remove('pt'); }, innerWidth <= 640 ? 240 : 190); } }))
+      el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => { el.classList.remove('closing'); if (pt && !el.classList.contains('on')) el.classList.remove('pt'); }, innerWidth <= 884 ? 240 : 190); } }))
     .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], attributeOldValue: true, subtree: true });
 }
 // No coloured browser bar anywhere: the page itself shows at the very top (behind the clock on phones) and scrolls under it.
@@ -1113,7 +1113,7 @@ function wireDie(root) {
   // Phone view chosen on a wide screen: show the sheet in a phone frame instead of stretching the phone layout.
   // (asked for just now — it's used once, so reloading or coming back later shows the layout for this device again)
   let phoneOn = false; try { phoneOn = sessionStorage.getItem(PHONE_KEY) === '1'; sessionStorage.removeItem(PHONE_KEY); localStorage.removeItem(PHONE_KEY); } catch (e) {}
-  if (C && !NEWQ && !FRAMED && phoneOn && innerWidth >= 640) {
+  if (C && !NEWQ && !FRAMED && phoneOn && innerWidth >= 885) {
     document.documentElement.classList.add('pg-phonehost');
     const u = new URL(location.href); u.searchParams.set('pgframe', '1'); u.searchParams.delete('v');
     [...document.body.childNodes].forEach(n => { if (n !== load) n.remove(); });
@@ -1346,9 +1346,9 @@ function wireDie(root) {
     if (!w) { w = document.createElement('div'); w.id = 'pgturn'; w.className = 'towin pgturn'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Turn order');
       w.innerHTML = `<div class="to-hd"><span class="to-tt">Turn Order</span><button class="to-min" data-tw="min" title="Shrink to the title bar" aria-label="Shrink">${twIc.min}</button><button class="to-c" data-tw="x" title="Hide" aria-label="Hide">${twIc.x}</button></div><div class="to-body"><div class="to-sub"><span class="to-cnt">Count: <b>0</b></span><span class="to-rnd">Round <b>1</b></span></div><ol class="to-list"></ol><p class="pgturn-ft">Your DM runs the turns. Type your initiative, or roll it on your sheet.</p></div>`;
       document.body.appendChild(w); const vw = innerWidth, W = Math.min(260, vw - 16);
-      if (innerWidth > 640) { w.style.left = Math.max(8, Math.min(vw - W - 8, TW_POS ? TW_POS.x : vw - W - 24)) + 'px'; w.style.top = Math.max(8, Math.min(innerHeight - 120, TW_POS ? TW_POS.y : 110)) + 'px'; }
+      if (innerWidth > 884) { w.style.left = Math.max(8, Math.min(vw - W - 8, TW_POS ? TW_POS.x : vw - W - 24)) + 'px'; w.style.top = Math.max(8, Math.min(innerHeight - 120, TW_POS ? TW_POS.y : 110)) + 'px'; }
       w.addEventListener('click', e => { const b = e.target.closest('[data-tw]'); if (!b) return; if (b.dataset.tw === 'x') { TW_HIDE = String(PTY_TURN && (PTY_TURN.openedAt || PTY_TURN.by)); pgTurnPaint(); } if (b.dataset.tw === 'min') w.classList.toggle('min'); });
-      const hd = w.querySelector('.to-hd'); hd.onpointerdown = e => { if (e.target.closest('button') || innerWidth <= 640) return; e.preventDefault(); const r = w.getBoundingClientRect(), ox = e.clientX - r.left, oy = e.clientY - r.top; hd.setPointerCapture(e.pointerId); w.classList.add('drag');
+      const hd = w.querySelector('.to-hd'); hd.onpointerdown = e => { if (e.target.closest('button') || innerWidth <= 884) return; e.preventDefault(); const r = w.getBoundingClientRect(), ox = e.clientX - r.left, oy = e.clientY - r.top; hd.setPointerCapture(e.pointerId); w.classList.add('drag');
         hd.onpointermove = m => { w.style.left = Math.max(0, Math.min(innerWidth - r.width, m.clientX - ox)) + 'px'; w.style.top = Math.max(0, Math.min(innerHeight - 40, m.clientY - oy)) + 'px'; };
         hd.onpointerup = () => { hd.onpointermove = hd.onpointerup = null; w.classList.remove('drag'); TW_POS = { x: parseFloat(w.style.left), y: parseFloat(w.style.top) }; try { localStorage.setItem('pg-tw-pos', JSON.stringify(TW_POS)); } catch (e) {} }; }; }
     const ae = document.activeElement; if (ae && ae.classList.contains('pgturn-v') && w.contains(ae)) return; // (not while you're typing)
@@ -1491,11 +1491,9 @@ function wireDie(root) {
       if (de.classList.contains('mobile') || !lv || !tb) { hubRow(false); if (de.classList.contains('pg-al')) de.classList.remove('pg-al'); if (a.style.left) a.style.left = a.style.top = ''; return; }
       hubRow(true); if (!de.classList.contains('pg-al')) de.classList.add('pg-al');
       // the toolbar is as tall as the level box beside it: the Tome row lines up with its top, the buttons with its bottom
-      // (and starts where the level box starts, which sits lower when the name beside it runs onto several lines)
-      { const lr = lv.getBoundingClientRect(), tr = tb.getBoundingClientRect(), cur = parseFloat(de.style.getPropertyValue('--pg-lvt')) || 0;
-        const lh = Math.round(lr.height) + 'px', lt = Math.max(0, Math.round((lr.top - tr.top + cur) * 2) / 2) + 'px';
-        // (kept on the page, not the toolbar, so a toolbar the sheet draws again has them straight away)
-        if (de.style.getPropertyValue('--pg-lvh') !== lh) de.style.setProperty('--pg-lvh', lh); if (de.style.getPropertyValue('--pg-lvt') !== lt) de.style.setProperty('--pg-lvt', lt); }
+      // (the toolbar is as tall as the level box beside it - only while it's beside it: on a narrow window it has its own line)
+      { const lr = lv.getBoundingClientRect(), tr = tb.getBoundingClientRect(), lh = tr.left >= lr.right - 2 ? Math.round(lr.height) + 'px' : '0px';
+        if (de.style.getPropertyValue('--pg-lvh') !== lh) de.style.setProperty('--pg-lvh', lh); if (de.style.getPropertyValue('--pg-lvt')) de.style.removeProperty('--pg-lvt'); }
       placePres(); };
     let alignQ = 0; const alignSoon = () => { if (!alignQ) alignQ = requestAnimationFrame(() => { alignQ = 0; align(); }); };
     new MutationObserver(alignSoon).observe(document.body, { childList: true, subtree: true });
@@ -2104,7 +2102,7 @@ function hub(fs, auth, G, ctx) {
   // your finger when you swipe), on a computer the other list fades in. The switch only shows once something has
   // been shared with you.
   let VIEW_IND = null, SH_LOADED = false;
-  const slideMode = () => TOUCH || innerWidth <= 640;
+  const slideMode = () => TOUCH || innerWidth <= 884;
   const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   function placeInd(anim, frac) {
     const bar = root.querySelector('.hub-seg'), ind = bar && bar.querySelector('.hv-ind'), btns = bar ? [...bar.querySelectorAll('[data-view]')] : []; if (!ind || btns.length < 2) return;
@@ -2409,7 +2407,7 @@ function hub(fs, auth, G, ctx) {
     const PANES = {}; let PREV_TAB = '';
     // Phones: the tabs sit at the bottom of the screen like the sheet's tab bar (same height setting), with a highlight
     // that slides between tabs and can be dragged along the bar.
-    const PHONE = matchMedia('(max-width: 860px)');
+    const PHONE = matchMedia('(max-width: 1000px)');
     let NAV_PREV = null, NAV_KEY = null, NAV_RECTS = null;
     try { const v = localStorage.getItem('dnd-tablift'); document.documentElement.style.setProperty('--tablift', (v != null && v !== '' ? Number(v) || 0 : 0) + 'px'); } catch (e) { document.documentElement.style.setProperty('--tablift', STANDALONE ? '24px' : '0px'); }
     function navPost() {
@@ -2499,7 +2497,7 @@ function hub(fs, auth, G, ctx) {
       if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
       PREV_TAB = TAB; pgSkelFill();
       root.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
-      { const o = root.querySelector('#adm-acct'); if (o) o.onclick = e => { e.stopPropagation(); acctMenu(o, matchMedia('(min-width: 861px)').matches); }; }
+      { const o = root.querySelector('#adm-acct'); if (o) o.onclick = e => { e.stopPropagation(); acctMenu(o, matchMedia('(min-width: 1001px)').matches); }; }
       later(({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit, notice: tabNotice, welcome: tabWelcome, news: tabNews, bugs: tabBugs })[TAB]);
     }
     const B = () => root.querySelector('#ad-body'), HA = () => root.querySelector('#adm-hact');
@@ -2874,7 +2872,7 @@ function hub(fs, auth, G, ctx) {
     // a new one replaces it for anyone who hasn't seen it yet, and Revoke takes it back. Every notice is kept in the log.
     const noticesCol = fs.collection('notices'), FV = firebase.firestore.FieldValue;
     const NT_W = [[480, 'Narrow'], [720, 'Normal'], [960, 'Wide'], [1200, 'Extra wide']], ntWSel = (id, cur) => `<select class="adm-sel" id="${id}">${NT_W.map(([v, l]) => `<option value="${v}"${v === (Number(cur) || 720) ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
-    const NT_FMT = '<p class="adm-note nt-fmt">**bold** · *italic* · <code># Heading</code> on its own line · <code>- </code> for a list · web addresses become links · a YouTube or Vimeo link on its own line plays as a video</p>';
+    const NT_FMT = '<p class="adm-note nt-fmt">**bold** · *italic* · <code># Heading</code> on its own line · <code>-</code> for a list · web addresses become links · a YouTube or Vimeo link on its own line plays as a video</p>';
     const NT_VID = id => `<button class="adm-btn" type="button" data-addvid="${id}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px;margin-right:5px"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z" fill="currentColor"/></svg>Add video</button>`;
     // Add video: paste a YouTube or Vimeo link; it goes in on its own line where the cursor is
     const wireVid = root => root.querySelectorAll('[data-addvid]').forEach(b => b.onclick = () => { const ta = root.querySelector('#' + b.dataset.addvid); if (!ta) return; const at = ta.selectionStart, end = ta.selectionEnd;
@@ -2927,7 +2925,7 @@ function hub(fs, auth, G, ctx) {
         <small>${esc(n.byName || n.by || '')}${n.at ? ' · ' + esc(new Date(n.at).toLocaleDateString()) : ''}${n.link ? ' · links to ' + esc(n.link) : ''}</small></div>
         <span class="nw-acts"><label class="nw-rot${n.rot ? ' on' : ''}"><input type="checkbox" data-rot="${esc(n.id)}"${n.rot ? ' checked' : ''}><span class="nw-sw" aria-hidden="true"></span>In rotation</label><button class="adm-btn" data-ed="${esc(n.id)}">Edit</button><button class="adm-btn" data-rm="${esc(n.id)}">Remove</button></span></div>`;
       const form = (n, id) => `<div class="nw-f" id="${id}"><input class="ad-search" data-f="t" maxlength="200" placeholder="Headline, e.g. “Import from D&amp;D Beyond”" value="${esc((n && n.t) || '')}">
-        <textarea class="ad-search pm-t" data-f="d" rows="4" maxlength="4000" placeholder="A line or two about it">${esc((n && n.d) || '')}</textarea><p class="adm-note nt-fmt">**bold** · *italic* · <code>- </code> for a list · web addresses become links</p>
+        <textarea class="ad-search pm-t" data-f="d" rows="4" maxlength="4000" placeholder="A line or two about it">${esc((n && n.d) || '')}</textarea><p class="adm-note nt-fmt">**bold** · *italic* · <code>-</code> for a list · web addresses become links</p>
         <input class="ad-search" data-f="link" maxlength="500" placeholder="Optional: a web address for “Read more” (https://…)" value="${esc((n && n.link) || '')}">
         <div class="row nw-opts"><label class="nw-ck"><input type="checkbox" data-f="badge"${!n || n.badge ? ' checked' : ''}> Show the New tag</label>${n ? '' : '<label class="nw-ck"><input type="checkbox" data-f="rot" checked> Put it in the rotation</label>'}<span class="nw-sp"></span>${n ? '<button class="adm-btn" data-f="x">Cancel</button>' : ''}<button class="adm-btn primary" data-f="ok"${n ? '' : ' disabled'}>${n ? 'Save changes' : 'Post to What’s new'}</button></div></div>`;
       const read = box => { const v = k => box.querySelector(`[data-f="${k}"]`); const link = v('link').value.trim();
@@ -3000,7 +2998,7 @@ function hub(fs, auth, G, ctx) {
         sentOf = n => !n.endedAt ? ppl.length /* the live notice reaches everyone, including accounts made after it went out */ : n.counted ? (n.sent || 0) : Math.max(0, (n.sent || 0) - (all.length - ppl.length)), seenPast = n => n.seenBy ? n.seenBy.filter(counted).length : (n.seen || 0), gotOf = n => all.filter(u => u.notice && u.notice.id === n.id);
       const stat = n => n.endedAt ? n.ended === 'revoked' ? 'Revoked' : 'Replaced' : 'Live';
       const row = n => `<tr><td>${when(n.at)}</td><td class="nt-txt">${esc(String(n.text || '').slice(0, 240))}${String(n.text || '').length > 240 ? '…' : ''}</td><td>${esc(n.byName || n.by || '')}</td><td><button class="linkbtn nt-seen" data-ntseen="${esc(n.id)}" title="Who’s seen it">${n.endedAt ? seenPast(n) : seenOf(n)} / ${sentOf(n)}</button></td><td><span class="adm-tag">${stat(n)}</span>${n.endedAt ? `<small class="adm-dim"> ${when(n.endedAt)}</small>` : ''}</td><td class="nt-acts"><button class="adm-btn sm" data-ntpv="${esc(n.id)}">Preview</button><button class="adm-btn sm" data-ntcp="${esc(n.id)}">Copy</button></td></tr>`;
-      el.innerHTML = `<div class="adm-stats"><div class="adm-stat"><small>Goes to</small><b>${ppl.length}</b></div>${live ? `<button class="adm-stat nt-seenstat" data-ntseen="${esc(live.id)}" title="Who’s seen it"><small>Current notice seen by</small><b>${seenOf(live)} / ${sentOf(live)}</b></button>` : ''}</div>
+      el.innerHTML = `<div class="adm-stats"><div class="adm-stat"><small>Goes to</small><b>${ppl.length}</b><span class="adm-statu">${ppl.length === 1 ? 'account' : 'accounts'}</span></div>${live ? `<button class="adm-stat nt-seenstat" data-ntseen="${esc(live.id)}" title="Who’s seen it"><small>Current notice seen by</small><b>${seenOf(live)} / ${sentOf(live)}</b></button>` : ''}</div>
         ${live ? `<div id="nt-cur"><p class="adm-note"><b>Current notice</b> (sent ${esc(new Date(live.at).toLocaleString())}${live.editedAt ? ', edited ' + esc(new Date(live.editedAt).toLocaleString()) : ''}):<br>“${esc(String(live.text).slice(0, 400))}${String(live.text).length > 400 ? '…' : ''}”</p><div class="row"><button class="adm-btn" id="nt-ed">Edit</button><button class="adm-btn" id="nt-rv">Revoke it</button></div></div>` : '<p class="adm-note">No notice is out right now.</p>'}
         <h3 class="nt-h">New notice</h3><textarea id="nt-t" class="ad-search pm-t" rows="7" placeholder="Your notice"></textarea>${NT_FMT}
         ${live ? '<p class="adm-note">Sending it replaces the current notice for anyone who hasn’t seen it yet.</p>' : ''}<div class="row"><label class="nt-wl">Window width ${ntWSel('nt-w')}</label><button class="adm-btn" id="nt-pv" disabled>Preview</button><button class="adm-btn primary" id="nt-ok" disabled>Send to everyone</button></div>
@@ -3792,14 +3790,14 @@ function partyModule(H) {
         <button class="to-nav to-next" data-to="next" title="Next turn" aria-label="Next turn">${TO_ICON.right}</button></div></div>`;
     document.body.appendChild(w);
     const vw = innerWidth, vh = innerHeight, W = Math.min(260, vw - 16);
-    if (TO.h && innerWidth > 640) w.style.height = Math.max(240, Math.min(vh - 16, TO.h)) + 'px';
+    if (TO.h && innerWidth > 884) w.style.height = Math.max(240, Math.min(vh - 16, TO.h)) + 'px';
     w.style.left = Math.max(8, Math.min(vw - W - 8, TO.x != null ? TO.x : vw - W - 24)) + 'px'; w.style.top = Math.max(8, Math.min(vh - 120, TO.y != null ? TO.y : 90)) + 'px';
     TO.open = true; toSave(); toPaint();
     // remembers its height after you drag the corner to resize it
-    if (window.ResizeObserver) { let rt = null; new ResizeObserver(() => { if (TO.min || innerWidth <= 640 || !w.isConnected) return; clearTimeout(rt); rt = setTimeout(() => { const h = w.getBoundingClientRect().height; if (h > 100) { TO.h = Math.round(h); toSave(); } }, 300); }).observe(w); }
+    if (window.ResizeObserver) { let rt = null; new ResizeObserver(() => { if (TO.min || innerWidth <= 884 || !w.isConnected) return; clearTimeout(rt); rt = setTimeout(() => { const h = w.getBoundingClientRect().height; if (h > 100) { TO.h = Math.round(h); toSave(); } }, 300); }).observe(w); }
     // drag by the title bar
     const hd = w.querySelector('.to-hd'); hd.onpointerdown = e => { if (e.target.closest('button')) return; e.preventDefault();
-      if (innerWidth <= 640) { const y0 = e.clientY; hd.setPointerCapture(e.pointerId); hd.onpointermove = m => { w.style.transform = `translateY(${Math.max(0, m.clientY - y0)}px)`; };
+      if (innerWidth <= 884) { const y0 = e.clientY; hd.setPointerCapture(e.pointerId); hd.onpointermove = m => { w.style.transform = `translateY(${Math.max(0, m.clientY - y0)}px)`; };
         hd.onpointerup = m => { hd.onpointermove = hd.onpointerup = null; if (m.clientY - y0 > 70) turnOrder(false); else w.style.transform = ''; }; return; }
       const r = w.getBoundingClientRect(), ox = e.clientX - r.left, oy = e.clientY - r.top; hd.setPointerCapture(e.pointerId); w.classList.add('drag');
       hd.onpointermove = m => { const x = Math.max(0, Math.min(innerWidth - r.width, m.clientX - ox)), y = Math.max(0, Math.min(innerHeight - 40, m.clientY - oy)); w.style.left = x + 'px'; w.style.top = y + 'px'; };
@@ -3811,7 +3809,7 @@ function partyModule(H) {
     w.querySelectorAll('[data-to]').forEach(b => b.onclick = () => { const a = b.dataset.to; document.activeElement && document.activeElement.blur && document.activeElement.blur();
       if (a === 'menu') return menuOpen(menu.hidden);
       menuOpen(false);
-      if (a === 'min') { TO.min = !TO.min; if (!TO.min && TO.h && innerWidth > 640) w.style.height = TO.h + 'px'; else if (TO.min) w.style.height = ''; toSave(); return toPaint(); }
+      if (a === 'min') { TO.min = !TO.min; if (!TO.min && TO.h && innerWidth > 884) w.style.height = TO.h + 'px'; else if (TO.min) w.style.height = ''; toSave(); return toPaint(); }
       // the round goes up each time the turn comes back round to whoever was on top after sorting
       const num = r => r.v === '' || isNaN(Number(r.v)) ? -Infinity : Number(r.v);
       if (a === 'sort') { TO.rows.sort((x, y) => num(y) - num(x)); TO.rows.forEach((r, i) => r.first = i === 0); }

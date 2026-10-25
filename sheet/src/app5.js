@@ -914,6 +914,8 @@ function wz3ChoiceLists(root) {
         wz3Commit(box, () => { x.value = r.value; x.dispatchEvent(new Event('change', { bubbles: true })); }); });
     });
   });
+  // (pop-up windows' lists get the same lines at their scrolling edges; character creation does its own)
+  if (root !== '#wizard') wz3Shades(root);
 }
 // The subclass pick at the level that grants one, as the same list (with what it gives you first)
 function lvSubList() {
@@ -955,12 +957,13 @@ function wz3Equip(c, b, kit) {
   return h;
 }
 // Scrolling boxes of cards or rows get a line and a soft shadow at whichever edge has more to scroll to
-function wz3Shades() {
-  $$('#wizard .wz3-cards.has, #wizard .wz3-list').forEach(box => {
+function wz3Shades(root = '#wizard') {
+  $$(`${root} .wz3-cards.has, ${root} .wz3-list`).forEach(box => {
     if (box.parentElement.classList.contains('wz3-sc')) return;
-    const w = document.createElement('div'); w.className = 'wz3-sc'; box.before(w); w.appendChild(box);
+    const st = box.scrollTop, w = document.createElement('div'); w.className = 'wz3-sc'; box.before(w); w.appendChild(box); if (st) box.scrollTop = st; // (moving it would lose where it was scrolled to)
     const paint = () => { w.classList.toggle('top', box.scrollTop > 2); w.classList.toggle('bot', box.scrollTop + box.clientHeight < box.scrollHeight - 2); };
-    box.addEventListener('scroll', paint, { passive: true }); requestAnimationFrame(paint);
+    // (set straight away, and only eased once it's on screen, so a redrawn list doesn't fade its edges in again)
+    box.addEventListener('scroll', paint, { passive: true }); paint(); requestAnimationFrame(() => requestAnimationFrame(() => w.classList.add('ready')));
   });
 }
 // A simple drawn symbol for each class (our own line drawings)
@@ -1873,9 +1876,15 @@ function ddbCreate() {
   // not clickable) just long enough to fade, and opening it again cancels that.
   const W = [['#modal', 'open'], ['#wizard', 'open'], ['.menu', 'open'], ['#tipbox', 'on']];
   const match = el => W.find(([sel]) => el.matches && el.matches(sel));
+  // The closing look is taken off once its fade has actually played: timed from when the fade starts, not from when the
+  // window was closed, so a busy moment straight after closing (the sheet redrawing itself) can't cut the fade short.
+  const fadeDone = el => { clearTimeout(el._fc); if (el._fst) el.removeEventListener('animationstart', el._fst); const ms = document.documentElement.classList.contains('mobile') ? 240 : 190; let started = false;
+    const end = () => { clearTimeout(el._fc); el.removeEventListener('animationstart', st); if (!el.classList.contains('open') && !el.classList.contains('on')) el.classList.remove('closing'); };
+    const st = e => { if (started || !/Out$/.test(e.animationName)) return; started = true; clearTimeout(el._fc); el._fc = setTimeout(end, ms + 30); };
+    el._fst = st; el.addEventListener('animationstart', st); el._fc = setTimeout(end, 1500); };
   new MutationObserver(ms => ms.forEach(m => { const el = m.target, w = match(el); if (!w) return; const cls = w[1], was = (' ' + (m.oldValue || '') + ' ').includes(' ' + cls + ' '), now = el.classList.contains(cls);
     if (now) { if (!was && el.classList.contains('closing')) { clearTimeout(el._fc); el.classList.remove('closing'); } return; }
-    if (was && !now && !(' ' + (m.oldValue || '') + ' ').includes(' closing ') && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => el.classList.remove('closing'), document.documentElement.classList.contains('mobile') ? 240 : 190); } }))
+    if (was && !now && !(' ' + (m.oldValue || '') + ' ').includes(' closing ') && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { el.classList.add('closing'); fadeDone(el); } }))
     .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], attributeOldValue: true, subtree: true });
 }
 

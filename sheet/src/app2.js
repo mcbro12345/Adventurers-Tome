@@ -275,6 +275,9 @@ function openModal(html, onCancel, wide) {
   // a window opening fresh holds its fade for two frames, so the work of building and sizing it doesn't eat the start of the animation
   const mo = $('#modal'); if (!mo.classList.contains('open')) { mo.classList.add('pre', 'open'); requestAnimationFrame(() => requestAnimationFrame(() => mo.classList.remove('pre'))); }
   const f = $('#modal-body [autofocus]'); if (f) f.focus();
+  // On a computer the window gets its title bar before it's first drawn (once whoever opened it has filled it in), so
+  // the bar doesn't appear a frame late and push everything down.
+  queueMicrotask(() => { if ($('#modal').classList.contains('open') && mwDesk()) { mwDress(); mwTidy(); } });
 }
 // Desktop: every pop-up window can be moved by dragging its title (the heading at the top). It opens centred again
 // next time.
@@ -423,7 +426,10 @@ function toolbarHTML() {
     rolllog: `<button class="devbtn logbtn" data-zi="rolllog" data-act="rolllog" title="Log — every roll, plus everything else that popped up" aria-label="Log">${ICON.log}</button>`,
     // (on a phone it sits next to Log; on a computer, after the layout switch)
     ...(isMobile() && window.SHEET_PAGES ? { bug: `<button class="devbtn bugbtn" data-zi="bug" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` } : {}),
-    device: `<button class="devbtn" data-zi="device" data-act="layout" title="${isMobile() ? 'Switch to desktop layout' : 'Switch to phone layout'}" aria-label="${isMobile() ? 'Desktop layout' : 'Phone layout'}">${isMobile() ? ICON.desk : ICON.phone}</button>`,
+    // (the phone layout has no switch back to the computer layout: it's used when the window is too narrow for that one;
+    // only the phone preview and a layout picked by hand keep it, so there's always a way back)
+    // (with no switch shown, the phone layout's corner icons move over into its place)
+    ...((document.documentElement.classList.toggle('nodev', !(!isMobile() || window.PG_IN_PHONE || LAYOUT_NOW === 'mobile')), !isMobile() || window.PG_IN_PHONE || LAYOUT_NOW === 'mobile') ? { device: `<button class="devbtn" data-zi="device" data-act="layout" title="${isMobile() ? 'Switch to desktop layout' : 'Switch to phone layout'}" aria-label="${isMobile() ? 'Desktop layout' : 'Phone layout'}">${isMobile() ? ICON.desk : ICON.phone}</button>` } : {}),
     ...(!isMobile() && window.SHEET_PAGES ? { bug: `<button class="devbtn bugbtn" data-zi="bug" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` } : {}),
     fullscreen: false ? `<button class="devbtn fsbtn" data-zi="fullscreen" data-act="fullscreen" title="${fsOn() ? 'Exit full screen' : 'Full screen'}" aria-label="${fsOn() ? 'Exit full screen' : 'Full screen'}">${fsOn() ? ICON.fsOut : ICON.fsIn}</button>` : '',
   };

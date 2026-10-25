@@ -6,14 +6,14 @@
 <title>Adventurer’s Tome</title>
 <script>
   (function () {
-    try { var u = JSON.parse(localStorage.getItem('dnd-sheet-ui') || '{}'); var m = u.layout ? u.layout === 'mobile' : window.innerWidth < 640; if (m) document.documentElement.classList.add('mobile'); } catch (e) {}
+    try { var u = JSON.parse(localStorage.getItem('dnd-sheet-ui') || '{}'); var m = u.layout ? u.layout === 'mobile' : window.innerWidth < 870; if (m) document.documentElement.classList.add('mobile'); } catch (e) {}
     var t = null;
     try { t = localStorage.getItem('dnd-sheet-theme'); } catch (e) {}
     if (t !== 'light') t = 'dark';
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.d9cf32bb89f5.css">
+<link rel="stylesheet" href="a/sheet.987a989e4661.css">
 <link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:type" content="video.other"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="Adventurer’s Tome"><meta property="og:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:url" content="https://adventurers-tome.web.app/"><meta property="og:image" content="https://adventurers-tome.web.app/og-tour.png?v=4"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1280"><meta property="og:image:height" content="720"><meta property="og:image:alt" content="Adventurer’s Tome: D&amp;D 5e sheets that do the math"><meta property="og:video" content="https://www.youtube.com/embed/GPbiLqZcsec"><meta property="og:video:url" content="https://www.youtube.com/embed/GPbiLqZcsec"><meta property="og:video:secure_url" content="https://www.youtube.com/embed/GPbiLqZcsec"><meta property="og:video:type" content="text/html"><meta property="og:video:width" content="1280"><meta property="og:video:height" content="720"><link rel="alternate" type="application/json+oembed" href="https://adventurers-tome.web.app/oembed.json?v=5" title="Adventurer’s Tome"><meta name="twitter:card" content="player"><meta name="twitter:player" content="https://www.youtube.com/embed/GPbiLqZcsec"><meta name="twitter:player:width" content="1280"><meta name="twitter:player:height" content="720"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-tour.png?v=4"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest"><script>var t="dark";try{if(localStorage.getItem("pg-theme")==="light")t="light"}catch(e){}document.documentElement.setAttribute("data-pgtheme",t)</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
@@ -175,7 +175,7 @@ html.mobile .pg-shared { top: auto; bottom: calc(80px + env(safe-area-inset-bott
 :where(body.hubbody, .wzh) .ad-acts { display: flex; gap: 6px; }
 :where(body.hubbody, .wzh) .btn.sm { padding: 5px 10px; font-size: 13px; border-radius: 8px; text-decoration: none; }
 :where(body.hubbody, .wzh) .ad-n { font-size: .75rem; opacity: .6; white-space: nowrap; }
-@media (max-width: 640px) { :where(body.hubbody, .wzh) .ad-row { grid-template-columns: 44px minmax(0, 1fr); } :where(body.hubbody, .wzh) .ad-own, :where(body.hubbody, .wzh) .ad-acts { grid-column: 1 / -1; } :where(body.hubbody, .wzh) .pl-row { flex-wrap: wrap; } }
+@media (max-width: 884px) { :where(body.hubbody, .wzh) .ad-row { grid-template-columns: 44px minmax(0, 1fr); } :where(body.hubbody, .wzh) .ad-own, :where(body.hubbody, .wzh) .ad-acts { grid-column: 1 / -1; } :where(body.hubbody, .wzh) .pl-row { flex-wrap: wrap; } }
 @media (prefers-color-scheme: dark) { :where(html:not([data-pgtheme])) body.hubbody .ad-row { background: #1a2131; border-color: #2c3548; } :where(html:not([data-pgtheme])) body.hubbody .ad-own, :where(html:not([data-pgtheme])) body.hubbody .ad-name { background: #0f1420; color: #e9e3d3; border-color: #3a4560; } }
  :where(html[data-pgtheme="dark"]) body.hubbody .ad-row { background: #1a2131; border-color: #2c3548; } :where(html[data-pgtheme="dark"]) body.hubbody .ad-own, :where(html[data-pgtheme="dark"]) body.hubbody .ad-name { background: #0f1420; color: #e9e3d3; border-color: #3a4560; } 
 /* ---- Phone fixes: cards never wider than the screen; admin window scrolls as one piece ---- */
@@ -185,11 +185,11 @@ html.mobile .pg-shared { top: auto; bottom: calc(80px + env(safe-area-inset-bott
 :where(body.hubbody, .wzh) .hub-card.admin { display: block; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 :where(body.hubbody, .wzh) .ad-body { overflow: visible; min-height: 0; }
 :where(body.hubbody, .wzh) .ad-acts .btn.ghost { color: inherit; border-color: rgba(127,127,127,.35); opacity: .85; }
-@media (max-width: 640px) { :where(body.hubbody, .wzh) .hub-card.admin { max-height: calc(100dvh - 24px); } :where(body.hubbody, .wzh) .hub-modal { align-items: flex-start; padding: 12px; } }
+@media (max-width: 884px) { :where(body.hubbody, .wzh) .hub-card.admin { max-height: calc(100dvh - 24px); } :where(body.hubbody, .wzh) .hub-modal { align-items: flex-start; padding: 12px; } }
 /* The Characters / shared tags stay under windows, menus and popups */
 .pg-hublink, .pg-shared { z-index: 35; }
 /* The Admin panel is a desktop tool */
-@media (max-width: 640px) { :where(body.hubbody, .wzh) #hub-admin { display: none; } }
+@media (max-width: 884px) { :where(body.hubbody, .wzh) #hub-admin { display: none; } }
 /* ===== Admin section (its own page) ===== */
 :where(body.adminbody) #hub { max-width: 1100px; }
 :where(body.adminbody) .ad-top { align-items: flex-end; }
@@ -286,7 +286,7 @@ html.mobile .pg-shared { top: auto; bottom: calc(80px + env(safe-area-inset-bott
 :where(body.hubbody, .wzh) .hub-views .hn-plus { width: 30px; height: 30px; border-radius: 8px; }
 :where(body.hubbody, .wzh) .hub-views .hn-txt b { font-size: .95rem; }
 :where(body.hubbody, .wzh) .hub-views { margin-bottom: 14px; }
-@media (max-width: 640px) { :where(body.hubbody, .wzh) .hub-side { align-items: flex-start; } :where(body.hubbody, .wzh) .hub-views .hub-new { margin-left: 0; width: 100%; justify-content: center; } }
+@media (max-width: 884px) { :where(body.hubbody, .wzh) .hub-side { align-items: flex-start; } :where(body.hubbody, .wzh) .hub-views .hub-new { margin-left: 0; width: 100%; justify-content: center; } }
 body.hubbody .hub-views button.hub-new { color: #1b1406; border: 1px solid #a07220; border-radius: 12px; padding: 6px 16px 6px 6px; font: inherit;
   background: linear-gradient(180deg, #ecc463 0%, #d4a23a 48%, #b9862a 100%);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.45), inset 0 -2px 0 rgba(0,0,0,.12), 0 6px 18px rgba(201,150,43,.28); }
@@ -375,7 +375,7 @@ body.adminbody #hub { max-width: none; padding: 0; }
 .adm-stat small { display: block; color: var(--adm-dim); font: 700 .74rem system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
 .adm-stat b { display: block; font: 800 1.8rem/1.2 system-ui, sans-serif; margin-top: 4px; }
 .adm-h2 { font: 800 1rem system-ui, sans-serif; margin: 24px 0 10px; }
-@media (max-width: 860px) {
+@media (max-width: 1000px) {
   .adm { grid-template-columns: 1fr; }
   .adm-side { position: static; height: auto; }
   .adm-nav { flex-direction: row; overflow-x: auto; padding: 8px; }
@@ -387,7 +387,7 @@ body.adminbody #hub { max-width: none; padding: 0; }
   .adm-head { flex-direction: column; }
   .adm-subrow > td { padding-left: 14px; }
 }
-@media (max-width: 860px) { .adm { grid-template-columns: minmax(0, 1fr); } .adm-mail { white-space: nowrap; word-break: normal; } .adm-t td, .adm-t th { white-space: nowrap; } .adm-nav { scrollbar-width: none; } }
+@media (max-width: 1000px) { .adm { grid-template-columns: minmax(0, 1fr); } .adm-mail { white-space: nowrap; word-break: normal; } .adm-t td, .adm-t th { white-space: nowrap; } .adm-nav { scrollbar-width: none; } }
 
 /* the real logo in the admin sidebar, sized to fit */
 .adm-brand { display: block; padding: 16px 16px 12px; }
@@ -396,7 +396,7 @@ body.adminbody #hub { max-width: none; padding: 0; }
 .adm-brand .hl-a { font-size: .58rem; letter-spacing: .3em; margin-bottom: 2px; }
 .adm-brand .hl-t { font-size: 1.65rem; }
 .adm-tagline { display: inline-block; margin: 8px 0 0 49px; padding: 2px 8px; border-radius: 999px; background: rgba(201,150,43,.18); color: #e6bd5a; font: 800 .62rem system-ui, sans-serif; letter-spacing: .16em; text-transform: uppercase; }
-@media (max-width: 860px) { .adm-brand { display: flex; align-items: center; gap: 10px; } .adm-tagline { margin: 0; } }
+@media (max-width: 1000px) { .adm-brand { display: flex; align-items: center; gap: 10px; } .adm-tagline { margin: 0; } }
 /* the admin sidebar is always navy, so its logo keeps the bright gold in light mode too */
 body.adminbody .adm-brand .hl-t { background-image: linear-gradient(180deg, #f6e2a6 0%, #d9a93f 55%, #9c7124 100%); }
 body.adminbody .adm-brand .hl-20 { fill: #f6e7bd; }
@@ -415,7 +415,7 @@ body.adminbody .adm-brand .hl-20 { fill: #f6e7bd; }
 .adm-tagline { margin: 10px 0 0 78px; font-size: .66rem; }
 .adm-brand .hl-txt, .adm-brand .hl-txt * { cursor: pointer; }
 
-@media (max-width: 860px) { .adm { grid-template-columns: minmax(0, 1fr); } .adm-brand .hl-d20 { width: 52px; height: 52px; } .adm-brand .hl-t { font-size: 2.1rem; } .adm-tagline { margin: 0; } }
+@media (max-width: 1000px) { .adm { grid-template-columns: minmax(0, 1fr); } .adm-brand .hl-d20 { width: 52px; height: 52px; } .adm-brand .hl-t { font-size: 2.1rem; } .adm-tagline { margin: 0; } }
 /* ===== little portraits (profile card, picker, who's viewing a sheet) ===== */
 .pg-ava { width: 30px; height: 30px; border-radius: 50%; flex: none; display: inline-grid; place-items: center; overflow: hidden; font: 800 .74rem system-ui, sans-serif; color: #fff; background: hsl(var(--h), 42%, 32%); box-sizing: border-box; }
 .pg-ava.has-pic { background: #1f2a44; }
@@ -434,7 +434,7 @@ body.adminbody .adm-brand .hl-20 { fill: #f6e7bd; }
 :where(body.hubbody, .wzh) .hub-side { align-items: flex-end; }
 @media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) :where(body.hubbody, .wzh) .hp-edit { box-shadow: 0 0 0 2px #f4eee1; } }
  :where(html[data-pgtheme="light"]) :where(body.hubbody, .wzh) .hp-edit { box-shadow: 0 0 0 2px #f4eee1; } 
-@media (max-width: 640px) { :where(body.hubbody, .wzh) .hp-pic .pg-ava { width: 44px; height: 44px; } :where(body.hubbody, .wzh) .hub-side { align-items: flex-start; } }
+@media (max-width: 884px) { :where(body.hubbody, .wzh) .hp-pic .pg-ava { width: 44px; height: 44px; } :where(body.hubbody, .wzh) .hub-side { align-items: flex-start; } }
 /* picture picker */
 :where(body.hubbody, .wzh) .pp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin: 14px 0; max-height: 50vh; overflow: auto; padding: 2px; }
 :where(body.hubbody, .wzh) .pp-opt { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 8px; border-radius: 12px; border: 1.5px solid rgba(127,127,127,.25); background: rgba(127,127,127,.06); color: inherit; font: inherit; cursor: pointer; text-align: center; }
@@ -470,7 +470,7 @@ html.pg-sheetpage.mobile .banner { padding-top: calc(34px + env(safe-area-inset-
 :where(body.hubbody, .wzh) .hub-top .hub-logo { gap: 16px; }
 :where(body.hubbody, .wzh) .hub-top { align-items: center; }
 :where(body.hubbody, .wzh) .hub-top .hub-side { align-self: center; padding-top: 0; }
-@media (max-width: 640px) { :where(body.hubbody, .wzh) .hub-top .hl-d20 { width: 58px; height: 58px; } :where(body.hubbody, .wzh) .hub-top .hl-t { font-size: 2.4rem; } :where(body.hubbody, .wzh) .hub-top .hl-a { font-size: .74rem; letter-spacing: .34em; } }
+@media (max-width: 884px) { :where(body.hubbody, .wzh) .hub-top .hl-d20 { width: 58px; height: 58px; } :where(body.hubbody, .wzh) .hub-top .hl-t { font-size: 2.4rem; } :where(body.hubbody, .wzh) .hub-top .hl-a { font-size: .74rem; letter-spacing: .34em; } }
 
 /* Sign-out confirmation */
 .pg-out { position: fixed; inset: 0; z-index: 100000; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(8,11,19,.6); backdrop-filter: blur(2px); animation: pgOutIn .14s ease-out; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
@@ -572,7 +572,7 @@ body.hubbody:not(.adminbody) .hub-head > .hub-views::after { content: ''; positi
 @media (max-width: 920px) { body.hubbody:not(.adminbody) .hub-head > .hub-top, body.hubbody:not(.adminbody) .hub-head > .hub-views { width: calc(100% - 32px); } }
 
 /* ================= Phones: logo and profile side by side, smaller ================= */
-@media (max-width: 640px) {
+@media (max-width: 884px) {
   :where(body.hubbody, .wzh) #hub-admin { display: inline-flex; }
   body.hubbody:not(.adminbody) .hub-head > .hub-top { flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 10px; }
   :where(body.hubbody, .wzh) .hub-top .hub-logo { gap: 8px; min-width: 0; flex: 0 1 auto; }
@@ -611,7 +611,7 @@ html.pg-touch :where(body.hubbody, .wzh) .hc-list button, html.pg-touch .adm-mli
 html.pg-touch :where(body.hubbody, .wzh) .hc-list { right: 0; }
 
 /* ================= Admin on a phone ================= */
-@media (max-width: 640px) {
+@media (max-width: 884px) {
   body.adminbody .adm-t, body.adminbody .adm-t tbody, body.adminbody .adm-t tr, body.adminbody .adm-t td { display: block; width: auto; }
   body.adminbody .adm-t thead { display: none; }
   body.adminbody .adm-tw { border: 0; background: none; border-radius: 0; overflow: visible; }
@@ -634,7 +634,7 @@ html.pg-sheetpage.pg-al:not(.mobile) .pg-hublink, html.pg-sheetpage.pg-al:not(.m
 body.hubbody .hub-views button.hub-new, body.hubbody .hub-views button.hub-new:hover, body.hubbody .hub-views button.hub-new:active { box-shadow: inset 0 1px 0 rgba(255,255,255,.45), inset 0 -2px 0 rgba(0,0,0,.14) !important; }
 
 /* admin on a phone: a steady tab strip */
-@media (max-width: 860px) { .adm-nav { flex: none; align-items: center; scroll-behavior: smooth; } .adm-ni { flex: none; height: 38px; } .adm-foot { padding: 10px 14px; } }
+@media (max-width: 1000px) { .adm-nav { flex: none; align-items: center; scroll-behavior: smooth; } .adm-ni { flex: none; height: 38px; } .adm-foot { padding: 10px 14px; } }
 
 /* ================= Phones: the characters page holds still like an app ================= */
 html.pg-touch body.hubbody:not(.adminbody) { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-text-size-adjust: 100%; }
@@ -644,8 +644,8 @@ html.pg-touch body.hubbody:not(.adminbody) .hub-head > .hub-top, html.pg-touch b
 html.pg-touch body.hubbody:not(.adminbody) .hub-views button { touch-action: manipulation; }
 /* the Admin button: label centred top-to-bottom */
 :where(body.hubbody, .wzh) .hp-row .hub-admin { display: inline-flex; align-items: center; justify-content: center; gap: 5px; line-height: 1; height: 26px; padding-top: 0; padding-bottom: 0; box-sizing: border-box; }
-@media (max-width: 640px) { :where(body.hubbody, .wzh) .hp-row .hub-admin { height: 24px; } }
-@media (max-width: 640px) { :where(body.hubbody, .wzh) .hp-row .hub-admin { height: 20px; padding: 0 7px; font-size: .66rem; border-radius: 6px; gap: 3px; } }
+@media (max-width: 884px) { :where(body.hubbody, .wzh) .hp-row .hub-admin { height: 24px; } }
+@media (max-width: 884px) { :where(body.hubbody, .wzh) .hp-row .hub-admin { height: 20px; padding: 0 7px; font-size: .66rem; border-radius: 6px; gap: 3px; } }
 /* fill the whole screen: iPhones in full-screen mode under-report the screen height (100vh/100dvh), so pin to the edges instead */
 body.hubbody:not(.adminbody) { padding: 0 !important; margin: 0 !important; }
 
@@ -657,7 +657,7 @@ body.hubbody::before { content: ''; position: fixed; inset: 0; z-index: -1; poin
 body.adminbody .adm, body.adminbody .adm-main { background: transparent; }
 
 /* ================= Admin on a phone: room for the clock; logo, tabs and back link stay put while the page scrolls ================= */
-@media (max-width: 860px) {
+@media (max-width: 1000px) {
   body.adminbody .adm-side { position: sticky !important; top: 0; z-index: 40; padding-top: env(safe-area-inset-top); box-shadow: 0 6px 18px rgba(0,0,0,.25); }
   body.adminbody .adm-brand { padding-top: 12px; }
   body.adminbody .adm-main { padding-bottom: calc(40px + env(safe-area-inset-bottom)); }
@@ -667,11 +667,11 @@ body.hubbody:not(.adminbody) .hub-head > .hub-views { z-index: 2; }
 body.hubbody:not(.adminbody) .hub-head > .hub-views::before { content: ''; position: absolute; left: 0; right: 0; bottom: -12px; height: 12px; pointer-events: none; background: linear-gradient(to bottom, rgba(5,8,14,.45), rgba(5,8,14,0)); -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
 @media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.hubbody:not(.adminbody) .hub-head > .hub-views::before { background: linear-gradient(to bottom, rgba(60,45,20,.16), rgba(60,45,20,0)); } }
  :where(html[data-pgtheme="light"]) body.hubbody:not(.adminbody) .hub-head > .hub-views::before { background: linear-gradient(to bottom, rgba(60,45,20,.16), rgba(60,45,20,0)); } 
-@media (max-width: 640px) { body.hubbody .hp-row .hub-admin.btn { min-height: 0 !important; height: 22px !important; padding: 0 8px !important; font-size: .68rem !important; line-height: 1 !important; border-radius: 6px; } }
+@media (max-width: 884px) { body.hubbody .hp-row .hub-admin.btn { min-height: 0 !important; height: 22px !important; padding: 0 8px !important; font-size: .68rem !important; line-height: 1 !important; border-radius: 6px; } }
 /* admin on a phone: logo centred */
-@media (max-width: 860px) { body.adminbody .adm-brand { display: flex !important; justify-content: center; } body.adminbody .adm-brand .hub-logo { margin: 0 auto; } }
+@media (max-width: 1000px) { body.adminbody .adm-brand { display: flex !important; justify-content: center; } body.adminbody .adm-brand .hub-logo { margin: 0 auto; } }
 /* admin on a phone: all four tabs fit across — icon over label, like an app's tab bar */
-@media (max-width: 860px) {
+@media (max-width: 1000px) {
   body.adminbody .adm-nav { overflow: visible; gap: 4px; padding: 6px 8px; }
   body.adminbody .adm-ni { flex: 1 1 0 !important; min-width: 0; height: 50px !important; flex-direction: column; justify-content: center; align-items: center; gap: 3px; padding: 4px 2px !important; font-size: .72rem; position: relative; }
   body.adminbody .adm-ni svg { width: 18px; height: 18px; flex: none; }
@@ -689,7 +689,7 @@ body.hubbody:not(.adminbody) .hub-head > .hub-top, body.hubbody:not(.adminbody) 
 body.hubbody:not(.adminbody) .hub-head > .hub-views { margin-top: 14px; margin-bottom: 0; }
 body.hubbody:not(.adminbody) .hub-list { padding: 8px 16px 0; }
 body.hubbody:not(.adminbody) .hub-list > * { max-width: 888px; margin-left: auto !important; margin-right: auto !important; }
-@media (max-width: 640px) { body.hubbody:not(.adminbody) .hub-head { padding-top: calc(12px + env(safe-area-inset-top)); } }
+@media (max-width: 884px) { body.hubbody:not(.adminbody) .hub-head { padding-top: calc(12px + env(safe-area-inset-top)); } }
 /* phones: no rubber-band bounce of the whole page */
 html.pg-touch:has(body.hubbody:not(.adminbody)), html.pg-touch body.hubbody:not(.adminbody) { overscroll-behavior: none; }
 /* a character with no portrait: first and last initials, centred */
@@ -699,7 +699,7 @@ html.pg-touch:has(body.hubbody:not(.adminbody)), html.pg-touch body.hubbody:not(
 /* pinned headers get their own layer, so taps on them never reach what's scrolling underneath (iPhone) */
 body.hubbody:not(.adminbody) .hub-head, body.adminbody .adm-side { -webkit-transform: translateZ(0); transform: translateZ(0); isolation: isolate; }
 /* admin on a phone: the pinned header keeps its own height; any spare room goes to the page below it */
-@media (max-width: 860px) { body.adminbody .adm { grid-template-rows: auto 1fr; align-content: start; } body.adminbody .adm-side { align-self: start; } }
+@media (max-width: 1000px) { body.adminbody .adm { grid-template-rows: auto 1fr; align-content: start; } body.adminbody .adm-side { align-self: start; } }
 /* the divider under the top: one even line edge to edge (no fading out), with its soft shadow the full width too */
 body.hubbody:not(.adminbody) .hub-head > .hub-views::after, body.hubbody:not(.adminbody) .hub-head > .hub-views::before { display: none !important; }
 body.hubbody:not(.adminbody) .hub-head > .hub-views { padding-bottom: 14px; }
@@ -709,14 +709,14 @@ body.hubbody:not(.adminbody) .hub-head::after { content: ''; position: absolute;
  :where(html[data-pgtheme="light"]) body.hubbody:not(.adminbody) .hub-head::after { background: linear-gradient(to bottom, rgba(60,45,20,.16), rgba(60,45,20,0)); } 
 html:has(body.hubbody:not(.adminbody)) { scrollbar-gutter: auto !important; }
 /* admin on a phone: the same divider (edge to edge) and soft shadow under the pinned header */
-@media (max-width: 860px) {
+@media (max-width: 1000px) {
   body.adminbody .adm-side { box-shadow: none !important; border-bottom: 1px solid rgba(201,150,43,.28); border-right: 0; }
   body.adminbody .adm-side::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 12px; pointer-events: none; background: linear-gradient(to bottom, rgba(5,8,14,.45), rgba(5,8,14,0)); }
 }
-@media (max-width: 860px) and (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.adminbody .adm-side::after { background: linear-gradient(to bottom, rgba(60,45,20,.16), rgba(60,45,20,0)); } }
-@media (max-width: 860px) { :where(html[data-pgtheme="light"]) body.adminbody .adm-side::after { background: linear-gradient(to bottom, rgba(60,45,20,.16), rgba(60,45,20,0)); } }
+@media (max-width: 1000px) and (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.adminbody .adm-side::after { background: linear-gradient(to bottom, rgba(60,45,20,.16), rgba(60,45,20,0)); } }
+@media (max-width: 1000px) { :where(html[data-pgtheme="light"]) body.adminbody .adm-side::after { background: linear-gradient(to bottom, rgba(60,45,20,.16), rgba(60,45,20,0)); } }
 /* admin on a phone: a person's "Characters" dropdown opens inside their card, as on a computer */
-@media (max-width: 640px) {
+@media (max-width: 884px) {
   body.adminbody .adm-t tbody > tr:not(.adm-subrow):has(+ tr.adm-subrow:not([hidden])) { margin-bottom: 0; border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom-color: transparent; }
   body.adminbody .adm-t tbody > tr.adm-subrow:not([hidden]) { display: block; margin: 0 0 10px; padding: 0 10px 12px; border: 1px solid var(--adm-line); border-top: 0; border-radius: 0 0 14px 14px; background: var(--adm-panel); }
   body.adminbody .adm-t tbody > tr.adm-subrow > td { padding: 10px 0 0 !important; border-top: 1px dashed var(--adm-line) !important; }
@@ -744,13 +744,13 @@ body.hubbody:not(.adminbody) .hub-head { background: rgba(14,19,30,.97); }
 :where(body.hubbody, .wzh) .pp-pane[data-p="google"] { min-height: 0; }
 :where(body.hubbody, .wzh) .pp-gnote { margin-top: 2px; }
 /* phones: pop-ups on the characters page rise from the bottom of the screen */
-@media (max-width: 640px) {
+@media (max-width: 884px) {
   :where(body.hubbody, .wzh) .hub-modal.on { align-items: flex-end; padding: 0; }
   :where(body.hubbody, .wzh) .hub-modal > .hub-card { max-width: none; width: 100%; border-radius: 20px 20px 0 0; border-bottom: 0; padding: 18px 18px calc(18px + env(safe-area-inset-bottom)); max-height: calc(100% - env(safe-area-inset-top) - 24px); overflow-y: auto; box-sizing: border-box; animation: pgSheetUp .22s cubic-bezier(.2,.9,.3,1); }
   :where(body.hubbody, .wzh) .hub-modal > .hub-card::before { content: ''; display: block; width: 40px; height: 5px; border-radius: 3px; background: rgba(127,127,127,.4); margin: -6px auto 12px; }
 }
 @keyframes pgSheetUp { from { transform: translateY(40px); opacity: .4; } to { transform: none; opacity: 1; } }
-@media (max-width: 640px) { :where(body.hubbody, .wzh) .pp-tabs.four button { flex-direction: column; gap: 3px; font-size: .74rem; padding: 7px 2px; } }
+@media (max-width: 884px) { :where(body.hubbody, .wzh) .pp-tabs.four button { flex-direction: column; gap: 3px; font-size: .74rem; padding: 7px 2px; } }
 /* Contact: small and quiet */
 :where(body.hubbody, .wzh) .hub-foot { margin-top: 28px !important; text-align: center; font-size: .78rem; }
 :where(body.hubbody, .wzh) .hub-foot a, :where(#pg-load) .pg-contact a { color: inherit; opacity: .5; text-decoration: none; border-bottom: 1px dotted currentColor; }
@@ -785,14 +785,14 @@ body.hubbody:not(.adminbody) .hub-head { background: rgba(14,19,30,.97); }
 .au-t a { color: #e6bd5a; text-decoration: none; font-weight: 700; } .au-t a:hover { text-decoration: underline; }
 @media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) .au-t a { color: #8a6420; } }
  :where(html[data-pgtheme="light"]) .au-t a { color: #8a6420; } 
-@media (max-width: 640px) { .au-f { grid-template-columns: 1fr 1fr; } .au-f .au-q { grid-column: 1 / -1; } .au-t .au-d { max-width: none; } }
+@media (max-width: 884px) { .au-f { grid-template-columns: 1fr 1fr; } .au-f .au-q { grid-column: 1 / -1; } .au-t .au-d { max-width: none; } }
 .adm-tag.r-blk { background: rgba(214,90,69,.18); color: #e0705d; }
 .hub-card .ak-c { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; font-size: .88rem; cursor: pointer; }
 .hub-card .ak-c input { width: 16px; height: 16px; accent-color: #c9962b; }
 :where(#pg-load) .pg-kicked { margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; background: rgba(214,90,69,.14); color: #e0705d; font-size: .86rem; }
 /* ================= Admin on a phone: tabs along the bottom, like the sheet's tab bar ================= */
 .adm-ind { display: none; }
-@media (max-width: 860px) {
+@media (max-width: 1000px) {
   body.adminbody #hub > .adm-nav, body.adminbody .adm + .adm-nav, body.adminbody .adm-nav:not(.adm-side .adm-nav) {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; display: flex; flex-direction: row; gap: 2px; margin: 0;
     padding: 6px 6px calc(6px + var(--tablift, 24px)) !important; background: var(--adm-side); color: var(--adm-side-ink);
@@ -809,8 +809,8 @@ body.hubbody:not(.adminbody) .hub-head { background: rgba(14,19,30,.97); }
   body.adminbody .adm-body { animation: admIn .22s ease-out; }
   @keyframes admIn { from { opacity: 0; } to { opacity: 1; } }
 }
-@media (max-width: 860px) and (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.adminbody .adm-nav:not(.adm-side .adm-nav) { box-shadow: 0 -6px 16px rgba(60,45,20,.12); } }
-@media (max-width: 860px) { :where(html[data-pgtheme="light"]) body.adminbody .adm-nav:not(.adm-side .adm-nav) { box-shadow: 0 -6px 16px rgba(60,45,20,.12); } }
+@media (max-width: 1000px) and (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.adminbody .adm-nav:not(.adm-side .adm-nav) { box-shadow: 0 -6px 16px rgba(60,45,20,.12); } }
+@media (max-width: 1000px) { :where(html[data-pgtheme="light"]) body.adminbody .adm-nav:not(.adm-side .adm-nav) { box-shadow: 0 -6px 16px rgba(60,45,20,.12); } }
 @media (prefers-reduced-motion: reduce) { body.adminbody .adm-body { animation: none !important; } body.adminbody .adm-nav .adm-ind { transition: none !important; } }
 /* ================= Audit log, Atlassian-style ================= */
 .au-bar { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
@@ -864,7 +864,7 @@ body.hubbody:not(.adminbody) .hub-head { background: rgba(14,19,30,.97); }
 @media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) .au-what a, :where(html:not([data-pgtheme])) .au-dl a { color: #8a6420; } }
  :where(html[data-pgtheme="light"]) .au-what a, :where(html[data-pgtheme="light"]) .au-dl a { color: #8a6420; } 
 /* phones: one line per event — what happened, then who and when — and the details open underneath */
-@media (max-width: 640px) {
+@media (max-width: 884px) {
   .au-search { max-width: none; height: 44px; }
   .au-search input { font-size: 16px; }
   .au-pills { flex-wrap: nowrap; overflow-x: auto; margin: 0 -16px; padding: 0 16px 2px; scrollbar-width: none; overscroll-behavior: contain; }
@@ -889,11 +889,11 @@ body.hubbody:not(.adminbody) .hub-head { background: rgba(14,19,30,.97); }
   .au-x td { display: block; }
   .au-dl { grid-template-columns: 90px minmax(0, 1fr); padding: 0 14px 14px; }
 }
-@media (max-width: 860px) {
+@media (max-width: 1000px) {
   body.adminbody .adm-nav:not(.adm-side .adm-nav) { gap: 0; padding-left: 2px !important; padding-right: 2px !important; }
   body.adminbody .adm-nav:not(.adm-side .adm-nav) .adm-ni { padding: 4px 0 !important; letter-spacing: -.01em; }
 }
-@media (max-width: 640px) { .au-dates label > span { width: 38px; flex: none; } }
+@media (max-width: 884px) { .au-dates label > span { width: 38px; flex: none; } }
 /* Audit filter dropdowns: a search box and a checklist, like Atlassian's */
 .au-pw { position: relative; flex: none; }
 .au-pill { font: inherit; font: 500 .84rem system-ui, sans-serif; }
@@ -930,7 +930,7 @@ body.hubbody:not(.adminbody) .hub-head { background: rgba(14,19,30,.97); }
 @media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) .au-pop { box-shadow: 0 12px 32px rgba(60,45,20,.18); } :where(html:not([data-pgtheme])) .au-plink { color: #8a6420; } :where(html:not([data-pgtheme])) .au-pdates input { color-scheme: light; } }
  :where(html[data-pgtheme="light"]) .au-pop { box-shadow: 0 12px 32px rgba(60,45,20,.18); } :where(html[data-pgtheme="light"]) .au-plink { color: #8a6420; } :where(html[data-pgtheme="light"]) .au-pdates input { color-scheme: light; } 
 /* phones: the dropdown becomes a sheet from the bottom, with room for a thumb */
-@media (max-width: 640px) {
+@media (max-width: 884px) {
   .au-pills { overflow: visible; flex-wrap: wrap; margin: 0; padding: 0; }
   .au-pop { position: fixed; left: 0; right: 0; top: auto; bottom: 0; width: auto; max-width: none; border-radius: 16px 16px 0 0; padding-bottom: calc(var(--tablift, 24px) + 70px); max-height: 75vh; z-index: 70; animation: auSheet .2s ease-out; }
   @keyframes auSheet { from { transform: translateY(30px); opacity: 0; } }
@@ -939,7 +939,7 @@ body.hubbody:not(.adminbody) .hub-head { background: rgba(14,19,30,.97); }
   .au-opts { max-height: none; flex: 1; min-height: 0; }
   .au-pdates input { height: 42px; font-size: 16px; }
 }
-@media (max-width: 640px) {
+@media (max-width: 884px) {
   body.adminbody .au-pop { bottom: calc(63px + var(--tablift, 24px)); padding-bottom: 0; max-height: 62vh; z-index: 45; border-bottom: 0; box-shadow: 0 0 0 100vmax rgba(5,8,14,.5), 0 -10px 30px rgba(0,0,0,.4); }
 }
 /* My / Shared characters: one highlight that slides between the two buttons */
@@ -955,7 +955,7 @@ body.hubbody .hub-views.hv-drag > button[data-view] { color: #e9e3d3 !important;
 @media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.hubbody .hub-views.hv-drag > button[data-view] { color: #1f2a44 !important; } :where(html:not([data-pgtheme])) body.hubbody .hub-views.hv-drag .hv-ind { opacity: .35; } }
  :where(html[data-pgtheme="light"]) body.hubbody .hub-views.hv-drag > button[data-view] { color: #1f2a44 !important; } :where(html[data-pgtheme="light"]) body.hubbody .hub-views.hv-drag .hv-ind { opacity: .35; } 
 /* phones: Create character sits above the My / Shared switch */
-@media (max-width: 640px) { body.hubbody:not(.adminbody) .hub-views .hub-new { order: -1; margin-bottom: 4px; } }
+@media (max-width: 884px) { body.hubbody:not(.adminbody) .hub-views .hub-new { order: -1; margin-bottom: 4px; } }
 /* ================= Lobby: My characters / Shared with me as one segmented switch ================= */
 body.hubbody .hub-seg { position: relative; display: inline-flex; align-items: stretch; padding: 3px; gap: 0; border-radius: 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(201,150,43,.28); box-shadow: inset 0 1px 2px rgba(0,0,0,.35); }
 body.hubbody .hub-seg .hv-ind { position: absolute; left: 0; top: 3px; bottom: 3px; z-index: 0; border-radius: 9px; pointer-events: none;
@@ -986,7 +986,7 @@ body.hubbody:not(.adminbody) .hub-track.fade { display: block; }
 body.hubbody:not(.adminbody) .hub-track.fade .hub-pane:not(.on) { display: none; }
 body.hubbody:not(.adminbody) .hub-pane.fadein { animation: hubFade .24s ease-out; }
 @keyframes hubFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-@media (max-width: 640px) {
+@media (max-width: 884px) {
   body.hubbody:not(.adminbody) .hub-views .hub-seg { display: flex; width: 100%; box-sizing: border-box; }
   body.hubbody:not(.adminbody) .hub-views .hub-seg > button[data-view] { flex: 1 1 0; padding: 10px 6px; font-size: .86rem; }
   /* full-bleed track on phones so the sliding list never gets clipped short of the screen edge */
@@ -1007,8 +1007,8 @@ body.hubbody .hp-row .hub-chip svg { flex: none; opacity: .9; }
 body.hubbody .hp-row .hub-chip:hover { background: rgba(201,150,43,.18) !important; border-color: #c9962b !important; }
 @media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.hubbody .hp-row .hub-chip { color: #8a6420 !important; border-color: rgba(138,100,32,.5) !important; background: rgba(201,150,43,.1) !important; } }
  :where(html[data-pgtheme="light"]) body.hubbody .hp-row .hub-chip { color: #8a6420 !important; border-color: rgba(138,100,32,.5) !important; background: rgba(201,150,43,.1) !important; } 
-@media (max-width: 640px) { body.hubbody .hp-row .hub-chip { height: 24px !important; padding: 0 9px !important; font-size: .72rem !important; gap: 5px; white-space: nowrap; } body.hubbody .hp-row .hub-chip svg { width: 12px; height: 12px; } }
-@media (max-width: 640px) { body.hubbody .hp-row { gap: 10px !important; } }
+@media (max-width: 884px) { body.hubbody .hp-row .hub-chip { height: 24px !important; padding: 0 9px !important; font-size: .72rem !important; gap: 5px; white-space: nowrap; } body.hubbody .hp-row .hub-chip svg { width: 12px; height: 12px; } }
+@media (max-width: 884px) { body.hubbody .hp-row { gap: 10px !important; } }
 @media (max-width: 420px) { body.hubbody .hp-row .hub-chip .cu-long { display: none; } }
 /* leaving a page: a quick fade before the next one (and its loading screen) comes in */
 html.pg-leaving body { opacity: 0; transition: opacity .28s ease; }
@@ -1062,7 +1062,7 @@ body.adminbody .adm-me .pg-ava img { width: 100%; height: 100%; object-fit: cove
 .adm-me-t b { font: 700 .86rem system-ui, sans-serif; color: var(--adm-side-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .adm-me-t small { font: 500 .72rem system-ui, sans-serif; opacity: .6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .adm-me-t .linkbtn { align-self: flex-start; margin-top: 3px; padding: 0; background: none; border: 0; color: #e6bd5a; font: 700 .74rem system-ui, sans-serif; text-decoration: underline; cursor: pointer; }
-@media (max-width: 860px) {
+@media (max-width: 1000px) {
   body.adminbody .adm-backrow { padding: 10px 14px; border-bottom: 0; border-top: 1px solid rgba(255,255,255,.08); }
   body.adminbody .adm-foot.adm-me { display: none !important; }
 }
@@ -1128,7 +1128,7 @@ html:has(#pg-load)::-webkit-scrollbar { width: 0 !important; display: none !impo
 @media (max-width: 480px) { :where(#pg-load) .pg-signin { padding: 24px 20px 18px; } }
 :where(body.hubbody, .wzh) .hp-row .hub-ctlink { color: #c9962b; opacity: .8; text-decoration: none; border-bottom: 1px dotted currentColor; font-size: .86rem; line-height: 1.2; }
 :where(body.hubbody, .wzh) .hp-row .hub-ctlink:hover { opacity: 1; }
-@media (max-width: 640px) { :where(body.hubbody, .wzh) .hp-row .hub-ctlink { font-size: .8rem; } }
+@media (max-width: 884px) { :where(body.hubbody, .wzh) .hp-row .hub-ctlink { font-size: .8rem; } }
 :where(body.hubbody, .wzh) .hp-row .hub-ctlink { margin-left: auto; }
 :where(body.hubbody, .wzh) .hp-row:has(.hub-ctlink) { width: 100%; }
 :where(#pg-load) .pg-signin .pg-kicked.ok { background: rgba(201,150,43,.14); color: inherit; }
@@ -1140,7 +1140,7 @@ html:has(#pg-load)::-webkit-scrollbar { width: 0 !important; display: none !impo
 .pg-a2hs-card ol li + li { margin-top: 6px; }
 /* In the lobby it sits above "Create character", on phones only */
 :where(body.hubbody, .wzh) .hub-views .pg-a2hs { display: none; }
-@media (max-width: 640px) {
+@media (max-width: 884px) {
   body.hubbody:not(.adminbody) .hub-views .pg-a2hs { display: block; order: -2; width: 100%; margin: 0 0 4px; text-align: center; font-size: .84rem; }
   body.hubbody:not(.adminbody) .hub-views .pg-a2hs a { display: flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 14px; border-radius: 12px; color: #c9962b; text-decoration: none; font-weight: 600; background: rgba(201,150,43,.1); border: 1px solid rgba(201,150,43,.3); }
 }
@@ -1209,11 +1209,11 @@ html:has(#wizard.open) .pg-sb { z-index: 2000; }
 :where(body.hubbody, .wzh) .hp-row .hub-theme { display: inline-grid; place-items: center; width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 1px solid rgba(201,150,43,.4); background: transparent; color: #c9962b; cursor: pointer; flex: none; transition: background-color .15s, transform .1s; }
 :where(body.hubbody, .wzh) .hp-row .hub-theme:hover { background: rgba(201,150,43,.14); }
 :where(body.hubbody, .wzh) .hp-row .hub-theme:active { transform: scale(.9); }
-@media (max-width: 640px) { :where(body.hubbody, .wzh) .hp-row .hub-theme { width: 22px; height: 22px; } :where(body.hubbody, .wzh) .hp-row .hub-theme svg { width: 13px; height: 13px; } }
+@media (max-width: 884px) { :where(body.hubbody, .wzh) .hp-row .hub-theme { width: 22px; height: 22px; } :where(body.hubbody, .wzh) .hp-row .hub-theme svg { width: 13px; height: 13px; } }
 html[data-pgtheme="dark"] { color-scheme: dark; } html[data-pgtheme="light"] { color-scheme: light; }
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .35s; animation-timing-function: ease; }
-@media (max-width: 640px) { body.hubbody:not(.adminbody) .hp-row:has(.hub-theme) { gap: 7px; } }
-@media (max-width: 640px) { body.hubbody:not(.adminbody) .hp-row:has(.hub-theme) .linkbtn, body.hubbody:not(.adminbody) .hp-row:has(.hub-theme) .hub-ctlink { font-size: .74rem; } body.hubbody:not(.adminbody) .hp-row:has(.hub-theme) { gap: 6px; } body.hubbody:not(.adminbody) .hub-top .hub-prof { gap: 6px; } }
+@media (max-width: 884px) { body.hubbody:not(.adminbody) .hp-row:has(.hub-theme) { gap: 7px; } }
+@media (max-width: 884px) { body.hubbody:not(.adminbody) .hp-row:has(.hub-theme) .linkbtn, body.hubbody:not(.adminbody) .hp-row:has(.hub-theme) .hub-ctlink { font-size: .74rem; } body.hubbody:not(.adminbody) .hp-row:has(.hub-theme) { gap: 6px; } body.hubbody:not(.adminbody) .hub-top .hub-prof { gap: 6px; } }
 html[data-theme="light"] .wzh .wzh-back { color: #8a6420; opacity: 1; } html[data-theme="light"] .wzh .wzh-back:hover { color: #6e4f18; }
 /* Wizard on phones: the header sits below the status bar / notch, and the step header under it doesn't add that space again */
 html.mobile .wzh { padding-top: calc(env(safe-area-inset-top) + 10px); background: var(--bg); }
@@ -1235,7 +1235,7 @@ html.pg-sheetpage.pg-al:not(.mobile) .pg-shared.placed { transition: opacity .2s
 :where(body.hubbody, .wzh) .hp-rename { flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #c9962b; opacity: .65; cursor: pointer; transition: opacity .15s, background-color .15s, transform .1s; }
 :where(body.hubbody, .wzh) .hp-rename:hover { opacity: 1; background: rgba(201,150,43,.14); }
 :where(body.hubbody, .wzh) .hp-rename:active { transform: scale(.88); }
-@media (max-width: 640px) { :where(body.hubbody, .wzh) .hp-rename { width: 18px; height: 18px; } :where(body.hubbody, .wzh) .hp-rename svg { width: 11px; height: 11px; } :where(body.hubbody, .wzh) .hp-name b { max-width: 30vw; } }
+@media (max-width: 884px) { :where(body.hubbody, .wzh) .hp-rename { width: 18px; height: 18px; } :where(body.hubbody, .wzh) .hp-rename svg { width: 11px; height: 11px; } :where(body.hubbody, .wzh) .hp-name b { max-width: 30vw; } }
 :where(body.hubbody, .wzh) .sh-pub { margin: 16px 0 14px; padding-top: 14px; border-top: 1px solid rgba(127,127,127,.2); }
 :where(body.hubbody, .wzh) .sh-pub-t { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
 :where(body.hubbody, .wzh) .sh-pub-t input { margin-top: 3px; width: 17px; height: 17px; accent-color: #c9962b; flex: none; }
@@ -1264,7 +1264,7 @@ html.pg-sheetpage.pg-al:not(.mobile) .pg-shared.placed { transition: opacity .2s
 .adm-fsel:hover { border-color: #c9962b; }
 .adm-fsel.on { border-color: #c9962b; background: rgba(201,150,43,.12); }
 .adm-fsel select option { color: #1f2a44; background: #fff; }
-@media (max-width: 860px) { .adm-fsels { width: 100%; } .adm-fsel { flex: 1 1 auto; min-width: 0; max-width: 100%; } .adm-fsel select { max-width: none; flex: 1; min-width: 0; } }
+@media (max-width: 1000px) { .adm-fsels { width: 100%; } .adm-fsel { flex: 1 1 auto; min-width: 0; max-width: 100%; } .adm-fsel select { max-width: none; flex: 1; min-width: 0; } }
 /* Admins typing someone's email: a dropdown of matching people (names or emails) */
 .pp-sug { position: fixed; z-index: 3000; max-height: 260px; overflow: auto; padding: 5px; border-radius: 10px; border: 1px solid #e3d6b8; background: #fffaf0; box-shadow: 0 14px 34px rgba(0,0,0,.25); animation: hPopIn .12s ease; scrollbar-width: thin; }
 .pp-sug button { display: flex; flex-direction: column; align-items: flex-start; width: 100%; padding: 7px 10px; border: 0; border-radius: 7px; background: transparent; color: #1f2a44; text-align: left; cursor: pointer; font: 600 .88rem system-ui, sans-serif; }
@@ -1282,7 +1282,7 @@ html.pg-sheetpage.pg-al:not(.mobile) .pg-shared.placed { transition: opacity .2s
 .au-t2 tr.au-r { cursor: pointer; }
 .au-t2 tr.au-x > td { padding: 0 !important; }
 .au-t2 .au-c-x .adm-btn { white-space: nowrap; }
-@media (max-width: 860px) { body.adminbody .au-t2 td.au-c-x { display: none !important; } body.adminbody .au-t2 tr.au-x > td::before { display: none !important; } }
+@media (max-width: 1000px) { body.adminbody .au-t2 td.au-c-x { display: none !important; } body.adminbody .au-t2 tr.au-x > td::before { display: none !important; } }
 /* Every scrolling box in the lobby, admin and creation (menus, windows, suggestion lists, wide tables, text boxes) uses
    the same slim gold scrollbar as the page. Places that hide theirs on purpose keep hiding it. */
 * { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--gold, #c9962b) 72%, transparent) transparent; }
@@ -1492,7 +1492,7 @@ html.mobile .pg-pubrow .pg-publogo .hl-a { font-size: calc(var(--mls, 60px) * .1
 :where(body.hubbody, .wzh) .pty-more { display: flex; gap: 6px; flex-wrap: wrap; }
 :where(body.hubbody, .wzh) .pty-admic { display: grid; place-items: center; color: #f1d58a; background: #2b3245; }
 :where(body.hubbody, .wzh) .pty-admic svg { width: 20px; height: 20px; }
-@media (max-width: 640px) {
+@media (max-width: 884px) {
   :where(body.hubbody, .wzh) .pty-inviterow { flex-wrap: wrap; } :where(body.hubbody, .wzh) .pty-invbtns { padding: 0 10px 10px 82px; }
   :where(body.hubbody, .wzh) .pty-head { flex-wrap: wrap; } :where(body.hubbody, .wzh) .pty-head #pt-all { width: 100%; }
   :where(body.hubbody, .wzh) .pty-htxt h1 { font-size: 1.35rem; }
@@ -1607,7 +1607,7 @@ html.mobile .pg-pubrow .pg-publogo .hl-a { font-size: calc(var(--mls, 60px) * .1
   :where(html[data-pgtheme="dark"]) body.hubbody .pm-on span { color: #f0a08d; border-color: rgba(240,160,141,.4); }
 
 /* Phones: like the creation steps there — the header, then the step name, a full-width card and big buttons at the bottom */
-@media (max-width: 640px) {
+@media (max-width: 884px) {
   :where(body.hubbody, .wzh) .pw { padding: 0; }
   :where(body.hubbody, .wzh) .pw .wzh { margin: 0; padding: calc(env(safe-area-inset-top) + 10px) 16px 0; }
   :where(body.hubbody, .wzh) .pw-head { padding: 6px 16px 10px; border-bottom: 1px solid rgba(127,127,127,.2); }
@@ -1630,12 +1630,12 @@ html.mobile .pg-pubrow .pg-publogo .hl-a { font-size: calc(var(--mls, 60px) * .1
   :where(body.hubbody, .wzh) .pm-grid { grid-template-columns: 1fr; }
   :where(body.hubbody, .wzh) .pw .pty-runrow > span:first-child { width: 100%; }
 }
-@media (max-width: 640px) and (prefers-color-scheme: dark) {
+@media (max-width: 884px) and (prefers-color-scheme: dark) {
   :where(html:not([data-pgtheme])) body.hubbody .pw.seq .pw-head h2 { color: #e7c46e; }
   :where(html:not([data-pgtheme])) body.hubbody .pw-foot { background: #1a2131; border-top-color: #2c3548; }
   :where(html:not([data-pgtheme])) body.hubbody .pw-body { background: transparent; }
 }
-@media (max-width: 640px) {
+@media (max-width: 884px) {
   :where(html[data-pgtheme="dark"]) body.hubbody .pw.seq .pw-head h2 { color: #e7c46e; }
   :where(html[data-pgtheme="dark"]) body.hubbody .pw-foot { background: #1a2131; border-top-color: #2c3548; }
   :where(html[data-pgtheme="dark"]) body.hubbody .pw-body { background: transparent; }
@@ -1651,7 +1651,7 @@ html.mobile .pg-pubrow .pg-publogo .hl-a { font-size: calc(var(--mls, 60px) * .1
 :where(body.hubbody, .wzh) .pw-foot .btn.ghost { color: inherit; border-color: rgba(127,127,127,.35); background: transparent; }
 :where(body.hubbody, .wzh) .pw-foot .btn.ghost:hover { background: rgba(127,127,127,.12); }
 body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
-@media (max-width: 640px) {
+@media (max-width: 884px) {
   body.hubbody .pw.seq .pw-step, body.hubbody .pw.seq .pw-step.on, body.hubbody .pw.seq .pw-step.done { background: none; border: 0; }
   :where(body.hubbody, .wzh) .pw-foot .btn.ghost { border-color: rgba(127,127,127,.4); }
 }
@@ -1678,7 +1678,7 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 :where(body.hubbody, .wzh) .pty-addc #pt-addany { margin-top: 8px; font-size: .85rem; }
 :where(body.adminbody) .adm-dmbtn { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
 :where(body.adminbody) .adm-dmbtn:hover span { text-decoration: underline; }
-@media (max-width: 640px) { :where(body.hubbody, .wzh) .pw-ppic { width: 40px; height: 40px; } }
+@media (max-width: 884px) { :where(body.hubbody, .wzh) .pw-ppic { width: 40px; height: 40px; } }
 /* ===== Party actions window ===== */
 :where(body.hubbody, .wzh) .hub-card.pa { width: min(640px, 100%); display: flex; flex-direction: column; max-height: min(88vh, 900px); padding-bottom: 14px; }
 :where(body.hubbody, .wzh) .pa h2 { margin-bottom: 4px; }
@@ -1740,7 +1740,7 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
   :where(html[data-pgtheme="dark"]) body.hubbody .pa-seg button.on, :where(html[data-pgtheme="dark"]) body.hubbody .pa-conds button.on { background: #e9e3d3; border-color: #e9e3d3; color: #0f1420; }
   :where(html[data-pgtheme="dark"]) body.hubbody .pa-form { background: rgba(0,0,0,.18); }
 
-@media (max-width: 640px) {
+@media (max-width: 884px) {
   :where(body.hubbody, .wzh) .hub-card.pa { max-height: 92vh; }
   :where(body.hubbody, .wzh) .pa-kinds { grid-template-columns: repeat(3, 1fr); }
   :where(body.hubbody, .wzh) .pa-coins { grid-template-columns: repeat(3, 1fr); }
@@ -1797,7 +1797,7 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
   :where(html[data-pgtheme="dark"]) body.hubbody .pty-link { background: linear-gradient(135deg, #222a3b, #1a2131); border-color: #3a4560; }
   :where(html[data-pgtheme="dark"]) body.hubbody .pty-link-t b { color: #e7c46e; } :where(html[data-pgtheme="dark"]) body.hubbody .pty-link-t code { color: #f3ead6; } :where(html[data-pgtheme="dark"]) body.hubbody .pty-link-t small { color: #b9c0cf; }
 
-@media (max-width: 640px) {
+@media (max-width: 884px) {
   :where(body.hubbody, .wzh) .pj-card { padding: 26px 16px 18px; }
   :where(body.hubbody, .wzh) .pj-name { font-size: 1.6rem; }
   :where(body.hubbody, .wzh) .pj-meta { flex-direction: column; } :where(body.hubbody, .wzh) .pj-meta span + span::before { content: none; }
@@ -1845,7 +1845,7 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 
 :where(body.hubbody, .wzh) .pw-sm { display: none; }
 #pt-del svg { width: 15px; height: 15px; flex: none; }
-@media (max-width: 640px) {
+@media (max-width: 884px) {
   :where(body.hubbody, .wzh) .pw-lg { display: none; } :where(body.hubbody, .wzh) .pw-sm { display: inline; }
   :where(body.hubbody, .wzh) #pt-del, :where(body.hubbody, .wzh) #pt-add, :where(body.hubbody, .wzh) #pt-all { white-space: nowrap; }
   :where(body.hubbody, .wzh) .pw-body .pl-row { flex-wrap: wrap; row-gap: 2px; }
@@ -2013,7 +2013,7 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 .to-menu button { text-align: left; padding: 8px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--to-ink); font: 600 13px system-ui, sans-serif; cursor: pointer; white-space: nowrap; }
 .to-menu button:hover, .to-menu button:focus-visible { background: color-mix(in srgb, #c9962b 20%, transparent); }
 /* Phone: the DM's turn order is a sheet along the bottom (swipe its bar down to close) */
-@media (max-width: 640px) {
+@media (max-width: 884px) {
   .towin { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: 100% !important; border-radius: 16px 16px 0 0; border-width: 1px 0 0; padding-bottom: env(safe-area-inset-bottom); transition: transform .18s ease-out; z-index: 9500; }
   .to-hd { position: relative; padding: 12px 12px 10px 16px; cursor: default; }
   .to-c, .to-min { width: 36px; height: 36px; font-size: 18px; }
@@ -2096,13 +2096,13 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 :where(body.hubbody, .wzh) .pa-who img { border: 2px solid #c9962b; }
 :where(body.hubbody, .wzh) .pp-adj { margin-right: auto; display: inline-flex; align-items: center; gap: 6px; } :where(body.hubbody, .wzh) .pp-adj[hidden] { display: none; }
 @keyframes toFresh { 0% { background: rgba(201,150,43,.55); color: #1b1406; } 100% { background: transparent; } }
-.to-row:hover .to-nm, html.mobile .to-nm { padding-right: 24px; } @media (max-width: 640px) { .to-x { right: 66px; margin-top: -15px; } .to-row .to-nm { padding-right: 32px; } }
+.to-row:hover .to-nm, html.mobile .to-nm { padding-right: 24px; } @media (max-width: 884px) { .to-x { right: 66px; margin-top: -15px; } .to-row .to-nm { padding-right: 32px; } }
 /* The turn order fades in and out (slides up and down on a phone) */
 .towin { animation: toIn .18s cubic-bezier(.2,.9,.3,1); }
 .towin.closing { animation: toOut .18s ease forwards; pointer-events: none; }
 @keyframes toIn { from { opacity: 0; transform: translateY(8px) scale(.97); } }
 @keyframes toOut { to { opacity: 0; transform: translateY(8px) scale(.97); } }
-@media (max-width: 640px) { .towin { animation-name: toUp; } .towin.closing { animation-name: toDown; } }
+@media (max-width: 884px) { .towin { animation-name: toUp; } .towin.closing { animation-name: toDown; } }
 @keyframes toUp { from { transform: translateY(100%); } }
 @keyframes toDown { to { transform: translateY(100%); } }
 @media (prefers-reduced-motion: reduce) { .towin, .towin.closing { animation: none; } }
@@ -2160,7 +2160,7 @@ body.hubbody:not(.adminbody) .hub-pane { position: relative; }
 /* Phones: every pop-up on the site pages (lobby, party page, admin) rises from the bottom and sinks back down */
 @keyframes pgRise { from { transform: translateY(100%); } to { transform: none; } }
 @keyframes pgSink { from { transform: none; } to { transform: translateY(100%); } }
-@media (max-width: 640px) {
+@media (max-width: 884px) {
   body.hubbody .hub-modal.on > * { animation: pgRise .32s cubic-bezier(.2,.9,.3,1); }
   body.hubbody .hub-modal.closing > * { animation: pgSink .22s cubic-bezier(.4,0,1,1) forwards; }
   .pg-out { align-items: flex-end !important; padding: 0 !important; }
@@ -2255,7 +2255,7 @@ body.dkhost #hub .pw { padding-top: 12px; margin-top: 0; margin-bottom: 0 !impor
 .to-vit .to-eye { width: 22px; height: 22px; margin-left: 2px; border-radius: 6px; }
 .to-vit .to-eye svg { width: 14px; height: 14px; }
 .to-row:hover .to-vit .to-eye, html.mobile .to-vit .to-eye { margin-right: 0; }
-.towin .to-row .to-x { top: 8px; margin-top: 0; } @media (max-width: 640px) { .towin .to-row .to-x { top: 6px; margin-top: 0; } }
+.towin .to-row .to-x { top: 8px; margin-top: 0; } @media (max-width: 884px) { .towin .to-row .to-x { top: 6px; margin-top: 0; } }
 /* Turn order: the picture is the remove button — a red ✕ appears over it on hover */
 .to-rm { position: relative; flex: none; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 9px; line-height: 0; }
 .to-rm .to-rmx { position: absolute; inset: 0; display: grid; place-items: center; border-radius: 8px; background: rgba(178,52,34,.82); color: #fff; font: 800 16px/1 system-ui, sans-serif; opacity: 0; transition: opacity .15s; }
@@ -2264,7 +2264,7 @@ body.dkhost #hub .pw { padding-top: 12px; margin-top: 0; margin-bottom: 0 !impor
 .to-rm:focus-visible .to-rmx { opacity: 1; }
 html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px auto; width: 16px; height: 16px; border-radius: 50%; font-size: 9px; opacity: .9; }
 .towin .to-x { display: none !important; }
-.to-row:hover .to-nm, html.mobile .to-nm { padding-right: 0; } @media (max-width: 640px) { .to-row .to-nm { padding-right: 0; } }
+.to-row:hover .to-nm, html.mobile .to-nm { padding-right: 0; } @media (max-width: 884px) { .to-row .to-nm { padding-right: 0; } }
 .to-vit .to-eye { margin-left: 2px; }
 /* the eye: a clear icon sitting on the HP/AC line */
 .towin .to-vit { align-items: center; min-height: 24px; }
@@ -2348,7 +2348,7 @@ html.mobile .to-rm .to-rmx, .pg-touch .to-rm .to-rmx { inset: auto -4px -4px aut
  :where(html[data-pgtheme="light"]) .pg-shade::before, :where(html[data-pgtheme="light"]) .pg-shade::after { box-shadow: 0 0 12px 4px rgba(60,40,10,.14); } 
 
 /* Phones: the party page's AC / Speed / Level / Passive strip runs the full width of the card */
-@media (max-width: 640px) {
+@media (max-width: 884px) {
   body.hubbody .pm > .pm-csts, body.hubbody .pm-csts.pm-quad { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); grid-template-columns: none; align-self: stretch; width: 100%; box-sizing: border-box; }
   body.hubbody .pm > .pm-csts span, body.hubbody .pm-csts.pm-quad span { padding: 6px 4px; border-top: 0 !important; }
   body.hubbody .pm > .pm-csts span + span, body.hubbody .pm-csts.pm-quad span + span { border-left: 1px solid rgba(127,127,127,.22) !important; }
@@ -2590,7 +2590,7 @@ body.hubbody:not(.adminbody) #hub:not(.hd2) .hub-head > .hub-top { border-bottom
 #hub:not(.hd2) .hub-seg .hv-ind { background: #e0aa3a !important; box-shadow: none !important; }
 body.hubbody #hub:not(.hd2) .hub-list .hr, body.hubbody #hub:not(.hd2) .hub-list .hc { background: rgba(255,255,255,.04); border-color: rgba(201,150,43,.22); border-radius: 14px; }
 #hub:not(.hd2) .hub-list .hc-pic { border-radius: 12px; }
-@media (max-width: 640px) {
+@media (max-width: 884px) {
   :where(body.hubbody, .wzh) #hub:not(.hd2) .hub-top .hl-d20 { width: 54px !important; height: 54px !important; }
   :where(body.hubbody, .wzh) #hub:not(.hd2) .hub-top .hl-t { font-size: 2.05rem !important; }
   :where(body.hubbody, .wzh) #hub:not(.hd2) .hub-top .hl-a { font-size: .62rem !important; }
@@ -2819,7 +2819,7 @@ body.adminbody { --adm-edge: #e3d6b8; --adm-card: rgba(255,255,255,.72); --adm-g
   background: radial-gradient(ellipse 120% 80% at 50% 0%, #1f2a40 0%, #141b2b 45%, #0f1420 80%) fixed #0f1420; } }
  :where(html[data-pgtheme="dark"]) body.adminbody { --adm-edge: rgba(201,150,43,.22); --adm-card: rgba(26,33,49,.72); --adm-gold: #e0aa3a; --adm-pill: #e0aa3a; --adm-head: rgba(255,255,255,.03); --adm-line: rgba(201,150,43,.14); --adm-panel: rgba(26,33,49,.72);
   background: radial-gradient(ellipse 120% 80% at 50% 0%, #1f2a40 0%, #141b2b 45%, #0f1420 80%) fixed #0f1420; } 
-@media (min-width: 861px) {
+@media (min-width: 1001px) {
   body.adminbody .adm { grid-template-columns: 290px minmax(0, 1fr); gap: 8px; padding: 16px 0 0 16px; box-sizing: border-box; }
   body.adminbody .adm-side { top: 16px; height: calc(100vh - 32px); border: 1px solid var(--adm-edge); border-radius: 18px; background: rgba(26,33,49,.75); box-shadow: 0 12px 30px rgba(0,0,0,.32); overflow: visible; }
   body.adminbody .adm-brand, body.adminbody .adm-backrow { border-bottom-color: var(--adm-edge); }
@@ -2854,7 +2854,7 @@ body.adminbody .adm-btn.sm { min-height: 32px; border-radius: 9px; }
 body.adminbody .adm-body input[type=text], body.adminbody .adm-body input[type=search], body.adminbody .adm-body input:not([type]), body.adminbody .adm-body textarea, body.adminbody .adm-body select { border-radius: 11px; }
 body.adminbody .nwp-d, body.adminbody .nwp-m, body.adminbody .nw-it { border: 1px solid var(--adm-edge); border-radius: 16px; }
 /* phones and narrow windows: the lobby's phone header — a panel with the logo and your picture (the menu has the way back) */
-@media (max-width: 860px) {
+@media (max-width: 1000px) {
   body.adminbody .adm-side { margin: 12px 16px 0; border: 1px solid var(--adm-edge); border-radius: 18px; background: rgba(26,33,49,.75); display: grid !important; grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
   body.adminbody .adm-brand { justify-content: flex-start !important; border-bottom: 0 !important; padding: 12px 14px !important; }
   body.adminbody .adm-brand .hub-logo { margin: 0 !important; }
@@ -2906,7 +2906,7 @@ body.hubbody .pw.inbody .pm:hover { border-color: rgba(201,150,43,.45) !importan
 /* the DM's Desk Party tab: same title row and tiles, inside the desk */
 body.dkhost #hub .pw.inbody { max-width: 1600px; padding-left: 32px; padding-right: 32px; }
 /* phones */
-@media (max-width: 640px) {
+@media (max-width: 884px) {
   body.hubbody:not(.dkhost) .pw.inbody { padding: 0 16px; }
   body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 { margin: 0 -16px; padding: calc(12px + env(safe-area-inset-top)) 16px 30px; }
   .pw .pwh2 > .hub-top { gap: 12px; padding: 12px 14px; }
@@ -2944,10 +2944,10 @@ body.dkhost #hub .pw.inbody { max-width: 1600px; padding-left: 32px; padding-rig
 @media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) .wzh-bcol .wzh-back2 { color: #8a6420; } :where(html:not([data-pgtheme])) .wzh-bcol .wzh-back2:hover { color: #b8862a; } }
  :where(html[data-pgtheme="light"]) .wzh-bcol .wzh-back2 { color: #8a6420; } :where(html[data-pgtheme="light"]) .wzh-bcol .wzh-back2:hover { color: #b8862a; } 
 html[data-theme="light"] #wizard .wzh-bcol .wzh-back2 { color: #8a6420; }
-@media (max-width: 640px) { .wzh-bcol { gap: 3px; } .wzh-bcol .wzh-back2 { font-size: .76rem; } }
+@media (max-width: 884px) { .wzh-bcol { gap: 3px; } .wzh-bcol .wzh-back2 { font-size: .76rem; } }
 html.mobile #wizard .wzh-bcol { gap: 3px; } html.mobile #wizard .wzh-bcol .wzh-back2 { font-size: .76rem; }
 /* phones: the party page's top panel scrolls away with the page (phones don't honour a fixed backdrop, so a sticky band showed) */
-@media (max-width: 640px) { body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 { position: relative; padding-bottom: 18px; } body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2::before { display: none; } }
+@media (max-width: 884px) { body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 { position: relative; padding-bottom: 18px; } body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2::before { display: none; } }
 /* the Updated line sits in the same spot on every tile: tiles tall enough for the longest (two-line class, shared line), the line pinned to the bottom */
 body.hubbody .hd2-main .hr { height: 200px; }
 body.hubbody .hd2-main .hc { height: 212px; }
@@ -3029,19 +3029,19 @@ html:not(.mobile) #wizard .wz-box:has(> .wzh2) > .wz-body { flex: none; }
 #wizard .wz3 .wz3-ab span { padding: 6px 0; border-radius: 9px; background: var(--wc-tile); font-size: .66rem; font-weight: 800; color: var(--wc-dim); }
 #wizard .wz3 .wz3-ab b { display: block; color: var(--wc-ink); font-size: .95rem; }
 /* cards */
-#wizard .wz3 .wz3-pick { margin: 0 0 18px; }
-#wizard .wz3 .wz3-q { width: 100%; max-width: 420px; margin: 0 0 12px; }
-#wizard .wz3 .wz3-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; align-content: start; }
-#wizard .wz3 .wz3-cards.has { max-height: min(44vh, 420px); overflow-y: auto; overscroll-behavior: contain; padding: 2px 6px 2px 2px; }
-#wizard .wz3 .wz3-g { grid-column: 1 / -1; margin: 8px 2px 0; font: 700 .82rem system-ui, sans-serif; color: var(--wc-gold2); }
-#wizard .wz3 .wz3-g:first-child { margin-top: 0; }
-#wizard .wz3 .wz3-card { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; padding: 14px 40px 14px 14px; border: 1px solid var(--wc-edge2); border-radius: 14px; background: var(--wc-tile); color: var(--wc-ink); font-family: inherit; text-align: left; cursor: pointer; transition: border-color .15s, background .15s; }
-#wizard .wz3 .wz3-card:hover { border-color: rgba(224,170,58,.45); background: var(--wc-tile2); }
-#wizard .wz3 .wz3-card b { font-size: .98rem; line-height: 1.25; overflow-wrap: anywhere; }
-#wizard .wz3 .wz3-tags { display: flex; flex-wrap: wrap; gap: 5px; } #wizard .wz3 .wz3-tags i { font-style: normal; padding: 2px 8px; border-radius: 999px; background: var(--wc-tile2); color: var(--wc-dim); font-size: .72rem; font-weight: 700; }
-#wizard .wz3 .wz3-card.sel { border-color: #e0aa3a; background: rgba(224,170,58,.1); box-shadow: inset 0 0 0 1px #e0aa3a; }
-#wizard .wz3 .wz3-card.sel::after { content: '✓'; position: absolute; top: 12px; right: 12px; width: 22px; height: 22px; border-radius: 50%; background: #e0aa3a; color: #1b1406; display: grid; place-items: center; font: 900 12px system-ui, sans-serif; }
-#wizard .wz3 .wz3-card[hidden], #wizard .wz3 .wz3-g[hidden] { display: none; }
+:is(#wizard .wz3, #rcmodal) .wz3-pick { margin: 0 0 18px; }
+:is(#wizard .wz3, #rcmodal) .wz3-q { width: 100%; max-width: 420px; margin: 0 0 12px; }
+:is(#wizard .wz3, #rcmodal) .wz3-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; align-content: start; }
+:is(#wizard .wz3, #rcmodal) .wz3-cards.has { max-height: min(44vh, 420px); overflow-y: auto; overscroll-behavior: contain; padding: 2px 6px 2px 2px; }
+:is(#wizard .wz3, #rcmodal) .wz3-g { grid-column: 1 / -1; margin: 8px 2px 0; font: 700 .82rem system-ui, sans-serif; color: var(--wc-gold2); }
+:is(#wizard .wz3, #rcmodal) .wz3-g:first-child { margin-top: 0; }
+:is(#wizard .wz3, #rcmodal) .wz3-card { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; padding: 14px 40px 14px 14px; border: 1px solid var(--wc-edge2); border-radius: 14px; background: var(--wc-tile); color: var(--wc-ink); font-family: inherit; text-align: left; cursor: pointer; transition: border-color .15s, background .15s; }
+:is(#wizard .wz3, #rcmodal) .wz3-card:hover { border-color: rgba(224,170,58,.45); background: var(--wc-tile2); }
+:is(#wizard .wz3, #rcmodal) .wz3-card b { font-size: .98rem; line-height: 1.25; overflow-wrap: anywhere; }
+:is(#wizard .wz3, #rcmodal) .wz3-tags { display: flex; flex-wrap: wrap; gap: 5px; } :is(#wizard .wz3, #rcmodal) .wz3-tags i { font-style: normal; padding: 2px 8px; border-radius: 999px; background: var(--wc-tile2); color: var(--wc-dim); font-size: .72rem; font-weight: 700; }
+:is(#wizard .wz3, #rcmodal) .wz3-card.sel { border-color: #e0aa3a; background: rgba(224,170,58,.1); box-shadow: inset 0 0 0 1px #e0aa3a; }
+:is(#wizard .wz3, #rcmodal) .wz3-card.sel::after { content: '✓'; position: absolute; top: 12px; right: 12px; width: 22px; height: 22px; border-radius: 50%; background: #e0aa3a; color: #1b1406; display: grid; place-items: center; font: 900 12px system-ui, sans-serif; }
+:is(#wizard .wz3, #rcmodal) .wz3-card[hidden], :is(#wizard .wz3, #rcmodal) .wz3-g[hidden] { display: none; }
 /* the step's details sit in panels */
 #wizard .wz3 .wz-info, #wizard .wz3 .wz-cls { margin-top: 4px; padding: 18px 20px; border: 1px solid var(--wc-edge); border-radius: 18px; background: var(--wc-card); }
 /* computers */
@@ -3087,12 +3087,12 @@ html.mobile #wizard .wz3 .wz-head h2 { display: none; }
 html.mobile #wizard .wz3 .wz3-main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 html.mobile #wizard .wz3 .wz-body > h3 { display: none; }
 html.mobile #wizard .wz3 .wz3-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: none; overflow: visible; padding: 0; }
-html.mobile #wizard .wz3 .wz3-card { padding: 12px 34px 12px 12px; }
-html.mobile #wizard .wz3 .wz3-q { max-width: none; }
+html.mobile :is(#wizard .wz3, #rcmodal) .wz3-card { padding: 12px 34px 12px 12px; }
+html.mobile :is(#wizard .wz3, #rcmodal) .wz3-q { max-width: none; }
 html.mobile #wizard .wz3 .wz-info, html.mobile #wizard .wz3 .wz-cls { padding: 14px; }
 html.mobile #wizard .wz3 .wz-body, html.mobile #wizard .wz3 .wz-body * { max-width: 100%; box-sizing: border-box; }
 html.mobile #wizard .wz3 .wz-body { overflow-x: hidden; }
-#wizard .wz3 .wz-grid > .wz3-pick { grid-column: 1 / -1; }
+:is(#wizard .wz3, #rcmodal) .wz-grid > .wz3-pick { grid-column: 1 / -1; }
 
 /* ===== Creation sweep: one import panel, background / feat lists like the spell lists, equipment tiles, icons, dividers, shadows, motion ===== */
 #wizard .wz3 .wz3-hid { display: none !important; }
@@ -3148,43 +3148,43 @@ html.mobile #wizard .wz3 .wz3-two { grid-template-columns: 1fr; } html.mobile #w
 /* motion */
 @keyframes wz3Pop { 0% { transform: scale(1); } 40% { transform: scale(1.03); } 100% { transform: scale(1); } }
 @keyframes wz3In { from { opacity: 0; transform: translateY(6px); } }
-#wizard .wz3 .wz3-card.sel, #wizard .wz3 .wz3-way.on { animation: wz3Pop .32s ease; }
-#wizard .wz3 .wz3-card.sel::after, #wizard .wz3 .wz3-item:has(input:checked) .wz3-tick::after { animation: wz3In .2s ease; }
+:is(#wizard .wz3, #rcmodal) .wz3-card.sel, #wizard .wz3 .wz3-way.on { animation: wz3Pop .32s ease; }
+:is(#wizard .wz3, #rcmodal) .wz3-card.sel::after, #wizard .wz3 .wz3-item:has(input:checked) .wz3-tick::after { animation: wz3In .2s ease; }
 #wizard .wz3.enter .wz3-cards > .wz3-card { animation: wz3In .3s ease both; animation-delay: calc(var(--i, 0) * 18ms); }
 
-#wizard .wz3 .wz3-card:active, #wizard .wz3 .wz3-item:active { transform: scale(.98); }
+:is(#wizard .wz3, #rcmodal) .wz3-card:active, #wizard .wz3 .wz3-item:active { transform: scale(.98); }
 @media (prefers-reduced-motion: reduce) { #wizard .wz3 *, #wizard .wz3 *::after { animation: none !important; transition: none !important; } }
 #wizard .wz3 .wz3-item:has(input:not(:checked)) { opacity: .45; }
 #wizard .wz3 .wz3-items { align-items: start; }
 /* scroll edges: a divider line and a shadow where there's more to see */
 #wizard .wz3 .wz3-sc { position: relative; }
-#wizard .wz3 .wz3-sc::before, #wizard .wz3 .wz3-sc::after { content: ''; position: absolute; left: 0; right: 0; height: 18px; z-index: 2; pointer-events: none; opacity: 0; transition: opacity .2s; }
+#wizard .wz3 .wz3-sc::before, #wizard .wz3 .wz3-sc::after { content: ''; position: absolute; left: 0; right: 0; height: 18px; z-index: 2; pointer-events: none; opacity: 0; }
 #wizard .wz3 .wz3-sc::before { top: 0; border-top: 1px solid var(--wc-edge); background: linear-gradient(to bottom, rgba(0,0,0,.45), transparent); }
 #wizard .wz3 .wz3-sc::after { bottom: 0; border-bottom: 1px solid var(--wc-edge); background: linear-gradient(to top, rgba(0,0,0,.45), transparent); }
 #wizard .wz3 .wz3-sc.top::before, #wizard .wz3 .wz3-sc.bot::after { opacity: 1; }
 #wizard .wz3 .wz3-list + * { }
 #wizard .wz3 .wz3-sc:has(> .wz3-list)::before { border-radius: 14px 14px 0 0; } #wizard .wz3 .wz3-sc:has(> .wz3-list)::after { border-radius: 0 0 14px 14px; }
 /* book headings in the card grids get a line running out to the right */
-#wizard .wz3 .wz3-g { display: flex; align-items: center; gap: 10px; }
-#wizard .wz3 .wz3-g::after { content: ''; flex: 1; height: 1px; background: var(--wc-edge); }
+:is(#wizard .wz3, #rcmodal) .wz3-g { display: flex; align-items: center; gap: 10px; }
+:is(#wizard .wz3, #rcmodal) .wz3-g::after { content: ''; flex: 1; height: 1px; background: var(--wc-edge); }
 html[data-theme="light"] #wizard .wz3 .wz3-sc::before { background: linear-gradient(to bottom, rgba(60,45,20,.18), transparent); } html[data-theme="light"] #wizard .wz3 .wz3-sc::after { background: linear-gradient(to top, rgba(60,45,20,.18), transparent); }
 /* class cards: a symbol beside the name */
-#wizard .wz3 .wz3-card.wic { display: grid; grid-template-columns: 42px minmax(0, 1fr); column-gap: 12px; row-gap: 6px; align-items: center; }
-#wizard .wz3 .wz3-cic { grid-row: span 2; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: rgba(224,170,58,.12); color: #e0aa3a; transition: background .15s, transform .2s; }
-#wizard .wz3 .wz3-card.wic:hover .wz3-cic { transform: rotate(-6deg) scale(1.05); }
-#wizard .wz3 .wz3-card.sel .wz3-cic { background: #e0aa3a; color: #1b1406; }
+:is(#wizard .wz3, #rcmodal) .wz3-card.wic { display: grid; grid-template-columns: 42px minmax(0, 1fr); column-gap: 12px; row-gap: 6px; align-items: center; }
+:is(#wizard .wz3, #rcmodal) .wz3-cic { grid-row: span 2; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: rgba(224,170,58,.12); color: #e0aa3a; transition: background .15s, transform .2s; }
+:is(#wizard .wz3, #rcmodal) .wz3-card.wic:hover .wz3-cic { transform: rotate(-6deg) scale(1.05); }
+:is(#wizard .wz3, #rcmodal) .wz3-card.sel .wz3-cic { background: #e0aa3a; color: #1b1406; }
 /* the class panel only shows once there's something in it */
 #wizard .wz3 .wz-cls:not(:has(p, .hint, .fld:not(:has(select[data-f="key"])))) { display: none; }
 #wizard .wz3 .wz-cls.wz3-empty { display: none; }
-#wizard .wz3 .wz3-cards { overflow-x: hidden; }
-#wizard .wz3 .wz3-cards:not(.has) { overflow: visible; }
+:is(#wizard .wz3, #rcmodal) .wz3-cards { overflow-x: hidden; }
+:is(#wizard .wz3, #rcmodal) .wz3-cards:not(.has) { overflow: visible; }
 #wizard .wz3 .wz3-goldp { align-items: center; }
 #wizard .wz3 .wz3-gold label { display: grid; gap: 4px; } #wizard .wz3 .wz3-gold label .lbl { margin: 0; }
 #wizard .wz3 .wz3-goldp .btn { align-self: flex-end; min-height: 40px; }
 /* class cards: wide enough that the tags sit in a row beside the symbol */
-#wizard .wz3 .wz3-cards:has(.wic) { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
-#wizard .wz3 .wz3-card.wic { padding-right: 38px; } #wizard .wz3 .wz3-card.wic b { align-self: end; } #wizard .wz3 .wz3-card.wic .wz3-tags { align-self: start; }
-html.mobile #wizard .wz3 .wz3-cards:has(.wic) { grid-template-columns: 1fr; }
+:is(#wizard .wz3, #rcmodal) .wz3-cards:has(.wic) { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+:is(#wizard .wz3, #rcmodal) .wz3-card.wic { padding-right: 38px; } :is(#wizard .wz3, #rcmodal) .wz3-card.wic b { align-self: end; } :is(#wizard .wz3, #rcmodal) .wz3-card.wic .wz3-tags { align-self: start; }
+html.mobile :is(#wizard .wz3, #rcmodal) .wz3-cards:has(.wic) { grid-template-columns: 1fr; }
 /* gold: the coin, then the title, the amount and the roll button on one line */
 #wizard .wz3 .wz3-goldp { display: flex; align-items: center; gap: 16px; flex-wrap: nowrap; }
 #wizard .wz3 .wz3-gic { flex: none; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 14px; background: rgba(224,170,58,.12); color: #e0aa3a; } #wizard .wz3 .wz3-gic svg { width: 26px; height: 26px; }
@@ -3258,14 +3258,14 @@ html.mobile #wizard .wz3 .wz3-rvab { grid-template-columns: repeat(3, minmax(0, 
 @media (max-width: 560px) { #wizard .wz3 .wz3-rvab { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 /* Admin on a phone: the logo panel sits below the clock like the lobby's (not stretched up behind it); it scrolls away
    with the page (the menu pill at the bottom does the navigating), and a frosted strip keeps the clock readable */
-@media (max-width: 860px) {
+@media (max-width: 1000px) {
   body.adminbody .adm-side { position: relative !important; top: auto; margin-top: calc(12px + env(safe-area-inset-top)) !important; padding-top: 0 !important; box-shadow: 0 8px 22px rgba(0,0,0,.22) !important; }
   body.adminbody .adm-side::after { display: none; }
   body.adminbody .adm-brand { padding-top: 12px !important; }
   body.adminbody .adm::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: calc(env(safe-area-inset-top) + 14px); z-index: 60; background: linear-gradient(to bottom, rgb(14,19,30) 0, rgb(14,19,30) env(safe-area-inset-top), rgba(14,19,30,0) 100%); pointer-events: none; }
 }
-@media (max-width: 860px) and (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.adminbody .adm::before { background: linear-gradient(to bottom, #f1e9d8 0, #f1e9d8 env(safe-area-inset-top), rgba(241,233,216,0) 100%); } }
-@media (max-width: 860px) { :where(html[data-pgtheme="light"]) body.adminbody .adm::before { background: linear-gradient(to bottom, #f1e9d8 0, #f1e9d8 env(safe-area-inset-top), rgba(241,233,216,0) 100%); } }
+@media (max-width: 1000px) and (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.adminbody .adm::before { background: linear-gradient(to bottom, #f1e9d8 0, #f1e9d8 env(safe-area-inset-top), rgba(241,233,216,0) 100%); } }
+@media (max-width: 1000px) { :where(html[data-pgtheme="light"]) body.adminbody .adm::before { background: linear-gradient(to bottom, #f1e9d8 0, #f1e9d8 env(safe-area-inset-top), rgba(241,233,216,0) 100%); } }
 /* the tab menu's way back: a slim bar across the bottom, under the tabs */
 .pgp-lobby { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 42px; margin-top: 8px; padding: 0 12px; box-sizing: border-box; border-radius: 14px; border: 1px solid rgba(201,150,43,.55); background: transparent; color: #e0aa3a; font: 700 .95rem system-ui, sans-serif; text-decoration: none; -webkit-tap-highlight-color: transparent; transition: background .15s, transform .12s; }
 .pgp-lobby:active { transform: scale(.98); background: rgba(201,150,43,.14); }
@@ -3273,10 +3273,10 @@ html.mobile #wizard .wz3 .wz3-rvab { grid-template-columns: repeat(3, minmax(0, 
 @media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) .pgp-lobby { color: #8a6420; } }
  :where(html[data-pgtheme="light"]) .pgp-lobby { color: #8a6420; } 
 /* phones: What's new (or whatever comes first) sits right under the logo panel, with the same small gap as the rest */
-@media (max-width: 860px) { body.hubbody:not(.adminbody) .hub-head > .hub-views { margin-top: 6px !important; } }
+@media (max-width: 1000px) { body.hubbody:not(.adminbody) .hub-head > .hub-views { margin-top: 6px !important; } }
 /* phones: a pop-up sheet (What's new, and the rest) scrolls firmly: no rubber-band bounce at its ends, and the page
    behind it never moves */
-@media (max-width: 640px) {
+@media (max-width: 884px) {
   :where(body.hubbody, .wzh) .hub-modal.on { overscroll-behavior: none; }
   :where(body.hubbody, .wzh) .hub-modal > .hub-card { overscroll-behavior: none !important; touch-action: pan-y; }
 }
@@ -3296,7 +3296,7 @@ html.mobile #wizard .wz3 .wz3-rvab { grid-template-columns: repeat(3, minmax(0, 
 body.adminbody .nw-ghost { background: #1d2434; }
 @media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.adminbody .nw-ghost { background: #fbf7ee; } }
  :where(html[data-pgtheme="light"]) body.adminbody .nw-ghost { background: #fbf7ee; } 
-@media (max-width: 640px) {
+@media (max-width: 884px) {
   .nw-it { flex-wrap: wrap; row-gap: 10px; }
   .nw-tx { flex: 1 1 calc(100% - 50px); }
   .nw-acts { flex: 1 1 100%; justify-content: flex-start; padding-left: 26px; }
@@ -3315,7 +3315,7 @@ html:not(.mobile) .adm-brand :is(.hl-txt, .hl-t, .hl-k, .hl-d):hover, html:not(.
 .sk-snap *::before, .sk-snap *::after { color: transparent !important; -webkit-text-fill-color: transparent !important; background-image: none !important; }
 .sk-snap * { -webkit-text-fill-color: transparent; } .sk-snap th, .sk-snap :is(h1, h2, h3) { -webkit-text-fill-color: currentColor; }
 /* admin: less empty space between the side panel and the page */
-@media (min-width: 861px) { body.adminbody .adm-main { padding-left: 16px; padding-right: 20px; } }
+@media (min-width: 1001px) { body.adminbody .adm-main { padding-left: 16px; padding-right: 20px; } }
 /* admin ⋯ and right-click menus: solid, so the table under them doesn't show through */
 body.adminbody .adm-mlist, .adm-mlist.portal { background: #1a2131; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: 0 16px 36px rgba(0,0,0,.5); }
 @media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.adminbody .adm-mlist, :where(html:not([data-pgtheme])) .adm-mlist.portal { background: #fffdf8; box-shadow: 0 14px 30px rgba(0,0,0,.18); } }
@@ -3345,7 +3345,8 @@ body.adminbody .adm-mlist, .adm-mlist.portal { background: #1a2131; -webkit-back
 /* Sheet on a computer: the Adventurer's Tome button, who's viewing and the shared tag sit in their own row at the top of
    the toolbar (laid out by the page itself, so they're always in the right place), and the buttons line up with the
    bottom of the level box */
-html.pg-sheetpage:not(.mobile) .ident-top .toolbar:has(> .pg-hubrow) { margin-top: var(--pg-lvt, 0px) !important; padding-top: 0 !important; align-self: flex-start; min-height: var(--pg-lvh, 0px); align-content: space-between; }
+/* (the row lines its boxes up along the bottom; the toolbar is as tall as the level box, so their tops line up too) */
+html.pg-sheetpage:not(.mobile) .ident-top .toolbar:has(> .pg-hubrow) { margin-top: 0 !important; padding-top: 0 !important; align-self: flex-end; min-height: var(--pg-lvh, 0px); align-content: space-between; }
 html:not(.mobile) .pg-hubrow { flex: 1 1 100%; display: flex; align-items: center; gap: 8px; height: 30px; min-width: 0; }
 html:not(.mobile) .pg-hubrow > :is(.pg-hublink, .pg-pres, .pg-shared) { position: static !important; transform: none !important; left: auto !important; top: auto !important; margin: 0 !important; flex: none; }
 html:not(.mobile) .pg-hubrow > .pg-hublink, html:not(.mobile) .pg-hubrow > .pg-pres.ready, html:not(.mobile) .pg-hubrow > .pg-shared { opacity: 1 !important; pointer-events: auto !important; transition: none !important; }
@@ -3360,6 +3361,50 @@ body.hubbody .hub-modal > .hub-card:not(.hm-ghost) { z-index: 1; }
 :is(#pg-msg, #pg-msg-old).out { pointer-events: none; }
 :is(#pg-msg, #pg-msg-old).out .pgm-card { transform: translateY(6px) scale(.985); }
 @media (prefers-reduced-motion: reduce) { :is(#pg-msg, #pg-msg-old), :is(#pg-msg, #pg-msg-old) .pgm-card { animation: none !important; transition: none !important; } }
+
+/* Change race (from Settings) uses the creation's race and variant cards, in the sheet's own colours */
+#rcmodal { --wc-tile: color-mix(in srgb, var(--ink) 4%, transparent); --wc-tile2: color-mix(in srgb, var(--ink) 8%, transparent); --wc-ink: var(--ink); --wc-dim: var(--soft);
+  --wc-edge: var(--line); --wc-edge2: var(--line); --wc-gold2: var(--gold-ink); --wc-head: var(--gold-ink); --wc-card: var(--panel); --wc-fline: var(--line); --wc-bar: var(--panel); }
+#rcmodal .wz3-pick + .wz3-pick { margin-top: 4px; }
+#rcmodal .wz3-sublbl { margin: 4px 2px 8px; font-weight: 700; color: var(--gold-ink); }
+/* (the full race list scrolls in its own box, so the variants and details below stay close) */
+#rcmodal > .wz3-pick:first-of-type .wz3-cards { max-height: min(40vh, 380px); overflow-y: auto; overscroll-behavior: contain; padding: 2px 6px 2px 2px; }
+html.mobile #rcmodal > .wz3-pick:first-of-type .wz3-cards { max-height: 46vh; }
+/* (opening fades hold their first frame until they start, so a window never flashes up fully drawn first) */
+body.hubbody .hub-modal.on, body.hubbody .hub-modal.on > *, .pg-out, .pg-out .pg-out-card, :is(#pg-msg, #pg-msg-old), :is(#pg-msg, #pg-msg-old) .pgm-card { animation-fill-mode: backwards; }
+
+/* (list edges ease in and out only once the list is on screen) */
+.wz3-sc.ready::before, .wz3-sc.ready::after { transition: opacity .2s; }
+/* (on a narrower window the View only tag in the Tome button's row drops its second line, so it fits on the bar) */
+@media (max-width: 1100px) { html:not(.mobile) .pg-hubrow > .pg-shared .pt-sub { display: none; } html:not(.mobile) .pg-hubrow > .pg-shared { min-width: 0; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1 !important; } }
+/* (a squeezed toolbar keeps the Tome button's row on a line of its own above the buttons) */
+html:not(.mobile) .toolbar.tb-compact:has(> .pg-hubrow) { flex-wrap: wrap; }
+html.mobile #rcmodal .wz3-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* View-only and sample pages: their logo, viewers and tag sit over the top bar (drawn above it), and that bar scrolls
+   with the page there, since those pieces are placed on the page rather than in the bar */
+html.pg-public:not(.mobile) header.banner { position: relative !important; }
+html.pg-public:not(.mobile) :is(.pg-publogo, .pg-pubtag, #pg-pubpres) { z-index: 45 !important; }
+html.pg-public:not(.mobile) .pg-pubtag .pt-sub { white-space: nowrap; }
+/* a sheet you can only view says so once (the red tag), not again in the save note */
+html:has(.pg-shared.view) .ident-top .toolbar .savegrp { display: none !important; }
+/* phones: the View only tag is one line, so it fits above the top bar */
+html.mobile .pg-shared.view .pt-sub { display: none; }
+/* character creation's Next bar sits under the step's own column (not across the window and over the side panel) */
+@media (min-width: 1001px) { html:not(.mobile) #wizard .wz-box.wz3 > .wz-foot { left: calc(50% + 162px) !important; width: min(820px, calc(min(100% - 64px, 1600px) - 324px)) !important; } }
+/* admin: the filter pills line up with the search box, not with the search box and its count below it */
+.adm-filters { align-items: flex-start; } .adm-filters .adm-fsels { margin-top: 2px; }
+/* admin What's new: the phone preview says when there's nothing to show, like the computer one; the form's fields are one width */
+.nwp-m #nwp-card[hidden]:empty { display: block !important; }
+body.adminbody .nw-f > :is(input, textarea, .nw-opts, .nt-fmt) { max-width: 640px; width: 100%; box-sizing: border-box; }
+/* admin notice: unit under the count, gap before the status line, format hint as wide as the box */
+body.adminbody .adm-stat .adm-statu { display: block; font-size: .78rem; color: var(--muted, #9aa3b5); margin-top: 2px; }
+body.adminbody .adm-stats + p.adm-note, body.adminbody .adm-stats + #nt-cur { margin-top: 12px; }
+body.adminbody .adm-body .nt-fmt { max-width: 640px; margin-top: 6px; }
+/* admin phone: the rows are cards themselves, so the table box around them has no border of its own */
+@media (max-width: 884px) { body.adminbody .adm-tw:not(.adm-subrow .adm-tw) { border: 0; background: none; border-radius: 0; overflow: visible; } }
+/* creation summary: ability boxes centred, with room around the number */
+#wizard .wz3 .wz3-ab span { text-align: center; padding: 7px 4px; letter-spacing: .04em; }
+#wizard .wz3 .wz3-ab b { font-size: 1.05rem; margin-top: 1px; }
 </style>
 </head>
 <body>
@@ -3653,7 +3698,7 @@ function pgPillWire(el) { let st = null;
 // next time.
 (() => { if (window.__pgWinDrag) return; window.__pgWinDrag = 1; const WIN = '#modal-body, .hub-modal > .hub-card, .pg-out-card, #pg-msg .pgm-card, .wz-card, .wizard > .wz';
   const HANDLE = '.mw-head, h2, h3, .rl-head, .pw-head, .mhead, .wz-head, .pgm-head';
-  const desk = () => !document.documentElement.classList.contains('mobile') && innerWidth > 640 && matchMedia('(pointer: fine)').matches;
+  const desk = () => !document.documentElement.classList.contains('mobile') && innerWidth > 884 && matchMedia('(pointer: fine)').matches;
   document.addEventListener('pointerdown', e => { if (!desk() || e.button !== 0 || !e.target.closest) return; const w = e.target.closest(WIN); if (!w) return;
     const h = e.target.closest(HANDLE); if (!h || !w.contains(h) || e.target.closest('button, input, select, textarea, a, label, [contenteditable]')) return;
     // only a heading near the top of the window counts as its title bar
@@ -3684,7 +3729,7 @@ function pgPillWire(el) { let st = null;
     const cs = getComputedStyle(el);
     if (cs.position === 'fixed' && el.style.left && el.style.top && !el.style.translate) { el.style.left = Math.round(parseFloat(cs.left) + dx) + 'px'; el.style.top = Math.round(parseFloat(cs.top) + dy) + 'px'; }
     else { const t = (el.style.translate || '0px 0px').split(' ').map(parseFloat); el.style.translate = `${Math.round((t[0] || 0) + dx)}px ${Math.round((t[1] || 0) + dy)}px`; } };
-  const all = () => { if (innerWidth <= 640 || document.documentElement.classList.contains('mobile')) return; document.querySelectorAll(WINS).forEach(el => { try { keep(el); } catch (e) {} }); };
+  const all = () => { if (innerWidth <= 884 || document.documentElement.classList.contains('mobile')) return; document.querySelectorAll(WINS).forEach(el => { try { keep(el); } catch (e) {} }); };
   let raf = 0; const soon = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(all); };
   addEventListener('resize', soon); addEventListener('pointerup', () => setTimeout(all, 30), true); setInterval(all, 700);
   window.pgKeepWindows = all; })();
@@ -3698,7 +3743,7 @@ function pgPillWire(el) { let st = null;
   addEventListener('resize', () => requestAnimationFrame(all)); setInterval(all, 900); })();
 // Desktop: the site's pop-ups (lobby, party page, admin) are floating windows like the dice roller and chat: a title bar
 // to drag and a ✕, with the page behind still usable.
-const pgMwDesk = () => innerWidth > 640 && !document.documentElement.classList.contains('mobile');
+const pgMwDesk = () => innerWidth > 884 && !document.documentElement.classList.contains('mobile');
 // Escape closes the open pop-up window (lobby, party page, admin), the same as its ✕ / Cancel / Done, unless a menu,
 // picker or confirmation on top of it took the key first.
 document.addEventListener('keydown', e => { if (e.key !== 'Escape' || !e.isTrusted || e.defaultPrevented) return;
@@ -3741,7 +3786,7 @@ function wireThemeBtn(root) { const b = root.querySelector('#hub-theme'); if (!b
 // iPhones only show the pressed look (:active) on pages that listen for touches.
 document.addEventListener('touchstart', () => {}, { passive: true });
 function pgOutFade(m) { m.remove = () => { if (m._closing) return; m._closing = true;
-  if (PG_CALM || !m.isConnected) return Element.prototype.remove.call(m); m.classList.add('closing'); setTimeout(() => Element.prototype.remove.call(m), innerWidth <= 640 ? 240 : 170); }; }
+  if (PG_CALM || !m.isConnected) return Element.prototype.remove.call(m); m.classList.add('closing'); setTimeout(() => Element.prototype.remove.call(m), innerWidth <= 884 ? 240 : 170); }; }
 // While the mouse is over a pop-up window, scrolling only moves what's inside it: once a list reaches its end the
 // page behind doesn't take over and scroll instead.
 const PG_WINS = '.hub-modal.on, #pg-msg, .pg-out, .modal-bg.open';
@@ -3815,7 +3860,7 @@ function sheetScrollbar() {
     if (now) { if (!was && el.classList.contains('closing')) { clearTimeout(el._fc); el.classList.remove('closing'); } return; }
     // a menu opened at the pointer (right-click) fades out where it is, instead of jumping back to its ⋯ button first
     if (was && !now && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { const pt = / pt /.test(' ' + (m.oldValue || '') + ' ') && !el.classList.contains('pt'); if (pt) el.classList.add('pt');
-      el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => { el.classList.remove('closing'); if (pt && !el.classList.contains('on')) el.classList.remove('pt'); }, innerWidth <= 640 ? 240 : 190); } }))
+      el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => { el.classList.remove('closing'); if (pt && !el.classList.contains('on')) el.classList.remove('pt'); }, innerWidth <= 884 ? 240 : 190); } }))
     .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], attributeOldValue: true, subtree: true });
 }
 // No coloured browser bar anywhere: the page itself shows at the very top (behind the clock on phones) and scrolls under it.
@@ -4077,7 +4122,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261025151139', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.e0408cbd0286.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.8450ec2ee4d4.html", "desk": "a/desk.09d5c7137ed8.js", "deskcss": "a/deskcss.d98a426c4548.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261025182142', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.680dc441eb59.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.c88a27fcce0b.html", "desk": "a/desk.ebeb14967666.js", "deskcss": "a/deskcss.fef942883ad3.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };
@@ -4519,7 +4564,7 @@ function wireDie(root) {
   // Phone view chosen on a wide screen: show the sheet in a phone frame instead of stretching the phone layout.
   // (asked for just now — it's used once, so reloading or coming back later shows the layout for this device again)
   let phoneOn = false; try { phoneOn = sessionStorage.getItem(PHONE_KEY) === '1'; sessionStorage.removeItem(PHONE_KEY); localStorage.removeItem(PHONE_KEY); } catch (e) {}
-  if (C && !NEWQ && !FRAMED && phoneOn && innerWidth >= 640) {
+  if (C && !NEWQ && !FRAMED && phoneOn && innerWidth >= 885) {
     document.documentElement.classList.add('pg-phonehost');
     const u = new URL(location.href); u.searchParams.set('pgframe', '1'); u.searchParams.delete('v');
     [...document.body.childNodes].forEach(n => { if (n !== load) n.remove(); });
@@ -4752,9 +4797,9 @@ function wireDie(root) {
     if (!w) { w = document.createElement('div'); w.id = 'pgturn'; w.className = 'towin pgturn'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Turn order');
       w.innerHTML = `<div class="to-hd"><span class="to-tt">Turn Order</span><button class="to-min" data-tw="min" title="Shrink to the title bar" aria-label="Shrink">${twIc.min}</button><button class="to-c" data-tw="x" title="Hide" aria-label="Hide">${twIc.x}</button></div><div class="to-body"><div class="to-sub"><span class="to-cnt">Count: <b>0</b></span><span class="to-rnd">Round <b>1</b></span></div><ol class="to-list"></ol><p class="pgturn-ft">Your DM runs the turns. Type your initiative, or roll it on your sheet.</p></div>`;
       document.body.appendChild(w); const vw = innerWidth, W = Math.min(260, vw - 16);
-      if (innerWidth > 640) { w.style.left = Math.max(8, Math.min(vw - W - 8, TW_POS ? TW_POS.x : vw - W - 24)) + 'px'; w.style.top = Math.max(8, Math.min(innerHeight - 120, TW_POS ? TW_POS.y : 110)) + 'px'; }
+      if (innerWidth > 884) { w.style.left = Math.max(8, Math.min(vw - W - 8, TW_POS ? TW_POS.x : vw - W - 24)) + 'px'; w.style.top = Math.max(8, Math.min(innerHeight - 120, TW_POS ? TW_POS.y : 110)) + 'px'; }
       w.addEventListener('click', e => { const b = e.target.closest('[data-tw]'); if (!b) return; if (b.dataset.tw === 'x') { TW_HIDE = String(PTY_TURN && (PTY_TURN.openedAt || PTY_TURN.by)); pgTurnPaint(); } if (b.dataset.tw === 'min') w.classList.toggle('min'); });
-      const hd = w.querySelector('.to-hd'); hd.onpointerdown = e => { if (e.target.closest('button') || innerWidth <= 640) return; e.preventDefault(); const r = w.getBoundingClientRect(), ox = e.clientX - r.left, oy = e.clientY - r.top; hd.setPointerCapture(e.pointerId); w.classList.add('drag');
+      const hd = w.querySelector('.to-hd'); hd.onpointerdown = e => { if (e.target.closest('button') || innerWidth <= 884) return; e.preventDefault(); const r = w.getBoundingClientRect(), ox = e.clientX - r.left, oy = e.clientY - r.top; hd.setPointerCapture(e.pointerId); w.classList.add('drag');
         hd.onpointermove = m => { w.style.left = Math.max(0, Math.min(innerWidth - r.width, m.clientX - ox)) + 'px'; w.style.top = Math.max(0, Math.min(innerHeight - 40, m.clientY - oy)) + 'px'; };
         hd.onpointerup = () => { hd.onpointermove = hd.onpointerup = null; w.classList.remove('drag'); TW_POS = { x: parseFloat(w.style.left), y: parseFloat(w.style.top) }; try { localStorage.setItem('pg-tw-pos', JSON.stringify(TW_POS)); } catch (e) {} }; }; }
     const ae = document.activeElement; if (ae && ae.classList.contains('pgturn-v') && w.contains(ae)) return; // (not while you're typing)
@@ -4897,11 +4942,9 @@ function wireDie(root) {
       if (de.classList.contains('mobile') || !lv || !tb) { hubRow(false); if (de.classList.contains('pg-al')) de.classList.remove('pg-al'); if (a.style.left) a.style.left = a.style.top = ''; return; }
       hubRow(true); if (!de.classList.contains('pg-al')) de.classList.add('pg-al');
       // the toolbar is as tall as the level box beside it: the Tome row lines up with its top, the buttons with its bottom
-      // (and starts where the level box starts, which sits lower when the name beside it runs onto several lines)
-      { const lr = lv.getBoundingClientRect(), tr = tb.getBoundingClientRect(), cur = parseFloat(de.style.getPropertyValue('--pg-lvt')) || 0;
-        const lh = Math.round(lr.height) + 'px', lt = Math.max(0, Math.round((lr.top - tr.top + cur) * 2) / 2) + 'px';
-        // (kept on the page, not the toolbar, so a toolbar the sheet draws again has them straight away)
-        if (de.style.getPropertyValue('--pg-lvh') !== lh) de.style.setProperty('--pg-lvh', lh); if (de.style.getPropertyValue('--pg-lvt') !== lt) de.style.setProperty('--pg-lvt', lt); }
+      // (the toolbar is as tall as the level box beside it - only while it's beside it: on a narrow window it has its own line)
+      { const lr = lv.getBoundingClientRect(), tr = tb.getBoundingClientRect(), lh = tr.left >= lr.right - 2 ? Math.round(lr.height) + 'px' : '0px';
+        if (de.style.getPropertyValue('--pg-lvh') !== lh) de.style.setProperty('--pg-lvh', lh); if (de.style.getPropertyValue('--pg-lvt')) de.style.removeProperty('--pg-lvt'); }
       placePres(); };
     let alignQ = 0; const alignSoon = () => { if (!alignQ) alignQ = requestAnimationFrame(() => { alignQ = 0; align(); }); };
     new MutationObserver(alignSoon).observe(document.body, { childList: true, subtree: true });
@@ -5510,7 +5553,7 @@ function hub(fs, auth, G, ctx) {
   // your finger when you swipe), on a computer the other list fades in. The switch only shows once something has
   // been shared with you.
   let VIEW_IND = null, SH_LOADED = false;
-  const slideMode = () => TOUCH || innerWidth <= 640;
+  const slideMode = () => TOUCH || innerWidth <= 884;
   const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   function placeInd(anim, frac) {
     const bar = root.querySelector('.hub-seg'), ind = bar && bar.querySelector('.hv-ind'), btns = bar ? [...bar.querySelectorAll('[data-view]')] : []; if (!ind || btns.length < 2) return;
@@ -5815,7 +5858,7 @@ function hub(fs, auth, G, ctx) {
     const PANES = {}; let PREV_TAB = '';
     // Phones: the tabs sit at the bottom of the screen like the sheet's tab bar (same height setting), with a highlight
     // that slides between tabs and can be dragged along the bar.
-    const PHONE = matchMedia('(max-width: 860px)');
+    const PHONE = matchMedia('(max-width: 1000px)');
     let NAV_PREV = null, NAV_KEY = null, NAV_RECTS = null;
     try { const v = localStorage.getItem('dnd-tablift'); document.documentElement.style.setProperty('--tablift', (v != null && v !== '' ? Number(v) || 0 : 0) + 'px'); } catch (e) { document.documentElement.style.setProperty('--tablift', STANDALONE ? '24px' : '0px'); }
     function navPost() {
@@ -5905,7 +5948,7 @@ function hub(fs, auth, G, ctx) {
       if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
       PREV_TAB = TAB; pgSkelFill();
       root.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
-      { const o = root.querySelector('#adm-acct'); if (o) o.onclick = e => { e.stopPropagation(); acctMenu(o, matchMedia('(min-width: 861px)').matches); }; }
+      { const o = root.querySelector('#adm-acct'); if (o) o.onclick = e => { e.stopPropagation(); acctMenu(o, matchMedia('(min-width: 1001px)').matches); }; }
       later(({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit, notice: tabNotice, welcome: tabWelcome, news: tabNews, bugs: tabBugs })[TAB]);
     }
     const B = () => root.querySelector('#ad-body'), HA = () => root.querySelector('#adm-hact');
@@ -6280,7 +6323,7 @@ function hub(fs, auth, G, ctx) {
     // a new one replaces it for anyone who hasn't seen it yet, and Revoke takes it back. Every notice is kept in the log.
     const noticesCol = fs.collection('notices'), FV = firebase.firestore.FieldValue;
     const NT_W = [[480, 'Narrow'], [720, 'Normal'], [960, 'Wide'], [1200, 'Extra wide']], ntWSel = (id, cur) => `<select class="adm-sel" id="${id}">${NT_W.map(([v, l]) => `<option value="${v}"${v === (Number(cur) || 720) ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
-    const NT_FMT = '<p class="adm-note nt-fmt">**bold** · *italic* · <code># Heading</code> on its own line · <code>- </code> for a list · web addresses become links · a YouTube or Vimeo link on its own line plays as a video</p>';
+    const NT_FMT = '<p class="adm-note nt-fmt">**bold** · *italic* · <code># Heading</code> on its own line · <code>-</code> for a list · web addresses become links · a YouTube or Vimeo link on its own line plays as a video</p>';
     const NT_VID = id => `<button class="adm-btn" type="button" data-addvid="${id}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px;margin-right:5px"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z" fill="currentColor"/></svg>Add video</button>`;
     // Add video: paste a YouTube or Vimeo link; it goes in on its own line where the cursor is
     const wireVid = root => root.querySelectorAll('[data-addvid]').forEach(b => b.onclick = () => { const ta = root.querySelector('#' + b.dataset.addvid); if (!ta) return; const at = ta.selectionStart, end = ta.selectionEnd;
@@ -6333,7 +6376,7 @@ function hub(fs, auth, G, ctx) {
         <small>${esc(n.byName || n.by || '')}${n.at ? ' · ' + esc(new Date(n.at).toLocaleDateString()) : ''}${n.link ? ' · links to ' + esc(n.link) : ''}</small></div>
         <span class="nw-acts"><label class="nw-rot${n.rot ? ' on' : ''}"><input type="checkbox" data-rot="${esc(n.id)}"${n.rot ? ' checked' : ''}><span class="nw-sw" aria-hidden="true"></span>In rotation</label><button class="adm-btn" data-ed="${esc(n.id)}">Edit</button><button class="adm-btn" data-rm="${esc(n.id)}">Remove</button></span></div>`;
       const form = (n, id) => `<div class="nw-f" id="${id}"><input class="ad-search" data-f="t" maxlength="200" placeholder="Headline, e.g. “Import from D&amp;D Beyond”" value="${esc((n && n.t) || '')}">
-        <textarea class="ad-search pm-t" data-f="d" rows="4" maxlength="4000" placeholder="A line or two about it">${esc((n && n.d) || '')}</textarea><p class="adm-note nt-fmt">**bold** · *italic* · <code>- </code> for a list · web addresses become links</p>
+        <textarea class="ad-search pm-t" data-f="d" rows="4" maxlength="4000" placeholder="A line or two about it">${esc((n && n.d) || '')}</textarea><p class="adm-note nt-fmt">**bold** · *italic* · <code>-</code> for a list · web addresses become links</p>
         <input class="ad-search" data-f="link" maxlength="500" placeholder="Optional: a web address for “Read more” (https://…)" value="${esc((n && n.link) || '')}">
         <div class="row nw-opts"><label class="nw-ck"><input type="checkbox" data-f="badge"${!n || n.badge ? ' checked' : ''}> Show the New tag</label>${n ? '' : '<label class="nw-ck"><input type="checkbox" data-f="rot" checked> Put it in the rotation</label>'}<span class="nw-sp"></span>${n ? '<button class="adm-btn" data-f="x">Cancel</button>' : ''}<button class="adm-btn primary" data-f="ok"${n ? '' : ' disabled'}>${n ? 'Save changes' : 'Post to What’s new'}</button></div></div>`;
       const read = box => { const v = k => box.querySelector(`[data-f="${k}"]`); const link = v('link').value.trim();
@@ -6406,7 +6449,7 @@ function hub(fs, auth, G, ctx) {
         sentOf = n => !n.endedAt ? ppl.length /* the live notice reaches everyone, including accounts made after it went out */ : n.counted ? (n.sent || 0) : Math.max(0, (n.sent || 0) - (all.length - ppl.length)), seenPast = n => n.seenBy ? n.seenBy.filter(counted).length : (n.seen || 0), gotOf = n => all.filter(u => u.notice && u.notice.id === n.id);
       const stat = n => n.endedAt ? n.ended === 'revoked' ? 'Revoked' : 'Replaced' : 'Live';
       const row = n => `<tr><td>${when(n.at)}</td><td class="nt-txt">${esc(String(n.text || '').slice(0, 240))}${String(n.text || '').length > 240 ? '…' : ''}</td><td>${esc(n.byName || n.by || '')}</td><td><button class="linkbtn nt-seen" data-ntseen="${esc(n.id)}" title="Who’s seen it">${n.endedAt ? seenPast(n) : seenOf(n)} / ${sentOf(n)}</button></td><td><span class="adm-tag">${stat(n)}</span>${n.endedAt ? `<small class="adm-dim"> ${when(n.endedAt)}</small>` : ''}</td><td class="nt-acts"><button class="adm-btn sm" data-ntpv="${esc(n.id)}">Preview</button><button class="adm-btn sm" data-ntcp="${esc(n.id)}">Copy</button></td></tr>`;
-      el.innerHTML = `<div class="adm-stats"><div class="adm-stat"><small>Goes to</small><b>${ppl.length}</b></div>${live ? `<button class="adm-stat nt-seenstat" data-ntseen="${esc(live.id)}" title="Who’s seen it"><small>Current notice seen by</small><b>${seenOf(live)} / ${sentOf(live)}</b></button>` : ''}</div>
+      el.innerHTML = `<div class="adm-stats"><div class="adm-stat"><small>Goes to</small><b>${ppl.length}</b><span class="adm-statu">${ppl.length === 1 ? 'account' : 'accounts'}</span></div>${live ? `<button class="adm-stat nt-seenstat" data-ntseen="${esc(live.id)}" title="Who’s seen it"><small>Current notice seen by</small><b>${seenOf(live)} / ${sentOf(live)}</b></button>` : ''}</div>
         ${live ? `<div id="nt-cur"><p class="adm-note"><b>Current notice</b> (sent ${esc(new Date(live.at).toLocaleString())}${live.editedAt ? ', edited ' + esc(new Date(live.editedAt).toLocaleString()) : ''}):<br>“${esc(String(live.text).slice(0, 400))}${String(live.text).length > 400 ? '…' : ''}”</p><div class="row"><button class="adm-btn" id="nt-ed">Edit</button><button class="adm-btn" id="nt-rv">Revoke it</button></div></div>` : '<p class="adm-note">No notice is out right now.</p>'}
         <h3 class="nt-h">New notice</h3><textarea id="nt-t" class="ad-search pm-t" rows="7" placeholder="Your notice"></textarea>${NT_FMT}
         ${live ? '<p class="adm-note">Sending it replaces the current notice for anyone who hasn’t seen it yet.</p>' : ''}<div class="row"><label class="nt-wl">Window width ${ntWSel('nt-w')}</label><button class="adm-btn" id="nt-pv" disabled>Preview</button><button class="adm-btn primary" id="nt-ok" disabled>Send to everyone</button></div>
@@ -7198,14 +7241,14 @@ function partyModule(H) {
         <button class="to-nav to-next" data-to="next" title="Next turn" aria-label="Next turn">${TO_ICON.right}</button></div></div>`;
     document.body.appendChild(w);
     const vw = innerWidth, vh = innerHeight, W = Math.min(260, vw - 16);
-    if (TO.h && innerWidth > 640) w.style.height = Math.max(240, Math.min(vh - 16, TO.h)) + 'px';
+    if (TO.h && innerWidth > 884) w.style.height = Math.max(240, Math.min(vh - 16, TO.h)) + 'px';
     w.style.left = Math.max(8, Math.min(vw - W - 8, TO.x != null ? TO.x : vw - W - 24)) + 'px'; w.style.top = Math.max(8, Math.min(vh - 120, TO.y != null ? TO.y : 90)) + 'px';
     TO.open = true; toSave(); toPaint();
     // remembers its height after you drag the corner to resize it
-    if (window.ResizeObserver) { let rt = null; new ResizeObserver(() => { if (TO.min || innerWidth <= 640 || !w.isConnected) return; clearTimeout(rt); rt = setTimeout(() => { const h = w.getBoundingClientRect().height; if (h > 100) { TO.h = Math.round(h); toSave(); } }, 300); }).observe(w); }
+    if (window.ResizeObserver) { let rt = null; new ResizeObserver(() => { if (TO.min || innerWidth <= 884 || !w.isConnected) return; clearTimeout(rt); rt = setTimeout(() => { const h = w.getBoundingClientRect().height; if (h > 100) { TO.h = Math.round(h); toSave(); } }, 300); }).observe(w); }
     // drag by the title bar
     const hd = w.querySelector('.to-hd'); hd.onpointerdown = e => { if (e.target.closest('button')) return; e.preventDefault();
-      if (innerWidth <= 640) { const y0 = e.clientY; hd.setPointerCapture(e.pointerId); hd.onpointermove = m => { w.style.transform = `translateY(${Math.max(0, m.clientY - y0)}px)`; };
+      if (innerWidth <= 884) { const y0 = e.clientY; hd.setPointerCapture(e.pointerId); hd.onpointermove = m => { w.style.transform = `translateY(${Math.max(0, m.clientY - y0)}px)`; };
         hd.onpointerup = m => { hd.onpointermove = hd.onpointerup = null; if (m.clientY - y0 > 70) turnOrder(false); else w.style.transform = ''; }; return; }
       const r = w.getBoundingClientRect(), ox = e.clientX - r.left, oy = e.clientY - r.top; hd.setPointerCapture(e.pointerId); w.classList.add('drag');
       hd.onpointermove = m => { const x = Math.max(0, Math.min(innerWidth - r.width, m.clientX - ox)), y = Math.max(0, Math.min(innerHeight - 40, m.clientY - oy)); w.style.left = x + 'px'; w.style.top = y + 'px'; };
@@ -7217,7 +7260,7 @@ function partyModule(H) {
     w.querySelectorAll('[data-to]').forEach(b => b.onclick = () => { const a = b.dataset.to; document.activeElement && document.activeElement.blur && document.activeElement.blur();
       if (a === 'menu') return menuOpen(menu.hidden);
       menuOpen(false);
-      if (a === 'min') { TO.min = !TO.min; if (!TO.min && TO.h && innerWidth > 640) w.style.height = TO.h + 'px'; else if (TO.min) w.style.height = ''; toSave(); return toPaint(); }
+      if (a === 'min') { TO.min = !TO.min; if (!TO.min && TO.h && innerWidth > 884) w.style.height = TO.h + 'px'; else if (TO.min) w.style.height = ''; toSave(); return toPaint(); }
       // the round goes up each time the turn comes back round to whoever was on top after sorting
       const num = r => r.v === '' || isNaN(Number(r.v)) ? -Infinity : Number(r.v);
       if (a === 'sort') { TO.rows.sort((x, y) => num(y) - num(x)); TO.rows.forEach((r, i) => r.first = i === 0); }
