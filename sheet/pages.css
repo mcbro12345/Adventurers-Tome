@@ -2512,12 +2512,12 @@ body.hubbody .hd2-main .hr { height: 186px; }
 .hd2-main .hr .hr-main { padding-top: 12px !important; }
 /* lobby skeletons on a computer: grey tiles the same size and shape as the real ones, so nothing moves when they arrive */
 .hd2-main .sk-wrap { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; padding: 0; }
-.hd2-main .sk-wrap .sk-row { flex-direction: column; align-items: center; justify-content: flex-start; gap: 8px; height: 186px; box-sizing: border-box; padding: 13px 14px 14px; border-radius: 14px; border: 1px solid rgba(201,150,43,.14); background: rgba(255,255,255,.025); }
+.hd2-main .sk-wrap .sk-row { flex-direction: column; align-items: center; justify-content: flex-start; gap: 8px; height: 200px; box-sizing: border-box; padding: 13px 14px 14px; border-radius: 14px; border: 1px solid rgba(201,150,43,.14); background: rgba(255,255,255,.025); }
 .hd2-main .sk-wrap .sk-c { width: 58px; height: 58px; border-radius: 13px; margin-bottom: 6px; }
 .hd2-main .sk-wrap .sk-lines { flex: none; width: 100%; align-items: center; gap: 9px; }
 .hd2-main .sk-wrap .sk-l1 { height: 15px; } .hd2-main .sk-wrap .sk-l2 { height: 11px; width: 70% !important; }
 .hd2-main .sk-wrap .sk-tag { margin-top: auto; width: 100px; height: 10px; border-radius: 6px; }
-.hd2-main [data-sec=shared] .sk-wrap .sk-row { height: 200px; padding-top: 34px; }
+.hd2-main [data-sec=shared] .sk-wrap .sk-row { height: 212px; padding-top: 34px; }
 /* What's new while it loads */
 .wn-sk .wn-strip { min-height: 96px; box-sizing: border-box; padding: 14px 44px; flex-direction: column; align-items: stretch; justify-content: center; gap: 9px; }
 .wn-sk .skl { height: 15px; } .wn-sk .skl + .skl { height: 11px; }
@@ -2777,3 +2777,8 @@ html[data-theme="light"] #wizard .wzh-bcol .wzh-back2 { color: #8a6420; }
 html.mobile #wizard .wzh-bcol { gap: 3px; } html.mobile #wizard .wzh-bcol .wzh-back2 { font-size: .76rem; }
 /* phones: the party page's top panel scrolls away with the page (phones don't honour a fixed backdrop, so a sticky band showed) */
 @media (max-width: 640px) { body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 { position: relative; padding-bottom: 18px; } body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2::before { display: none; } }
+/* the Updated line sits in the same spot on every tile: tiles tall enough for the longest (two-line class, shared line), the line pinned to the bottom */
+body.hubbody .hd2-main .hr { height: 200px; }
+body.hubbody .hd2-main .hc { height: 212px; }
+.hd2-main .hr-main, .hd2-main .hc-main { padding-bottom: 10px !important; }
+.hd2-main .hc-txt > small { margin-bottom: 0 !important; }

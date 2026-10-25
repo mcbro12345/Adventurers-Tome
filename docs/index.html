@@ -2664,12 +2664,12 @@ body.hubbody .hd2-main .hr { height: 186px; }
 .hd2-main .hr .hr-main { padding-top: 12px !important; }
 /* lobby skeletons on a computer: grey tiles the same size and shape as the real ones, so nothing moves when they arrive */
 .hd2-main .sk-wrap { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; padding: 0; }
-.hd2-main .sk-wrap .sk-row { flex-direction: column; align-items: center; justify-content: flex-start; gap: 8px; height: 186px; box-sizing: border-box; padding: 13px 14px 14px; border-radius: 14px; border: 1px solid rgba(201,150,43,.14); background: rgba(255,255,255,.025); }
+.hd2-main .sk-wrap .sk-row { flex-direction: column; align-items: center; justify-content: flex-start; gap: 8px; height: 200px; box-sizing: border-box; padding: 13px 14px 14px; border-radius: 14px; border: 1px solid rgba(201,150,43,.14); background: rgba(255,255,255,.025); }
 .hd2-main .sk-wrap .sk-c { width: 58px; height: 58px; border-radius: 13px; margin-bottom: 6px; }
 .hd2-main .sk-wrap .sk-lines { flex: none; width: 100%; align-items: center; gap: 9px; }
 .hd2-main .sk-wrap .sk-l1 { height: 15px; } .hd2-main .sk-wrap .sk-l2 { height: 11px; width: 70% !important; }
 .hd2-main .sk-wrap .sk-tag { margin-top: auto; width: 100px; height: 10px; border-radius: 6px; }
-.hd2-main [data-sec=shared] .sk-wrap .sk-row { height: 200px; padding-top: 34px; }
+.hd2-main [data-sec=shared] .sk-wrap .sk-row { height: 212px; padding-top: 34px; }
 /* What's new while it loads */
 .wn-sk .wn-strip { min-height: 96px; box-sizing: border-box; padding: 14px 44px; flex-direction: column; align-items: stretch; justify-content: center; gap: 9px; }
 .wn-sk .skl { height: 15px; } .wn-sk .skl + .skl { height: 11px; }
@@ -2943,6 +2943,11 @@ html[data-theme="light"] #wizard .wzh-bcol .wzh-back2 { color: #8a6420; }
 html.mobile #wizard .wzh-bcol { gap: 3px; } html.mobile #wizard .wzh-bcol .wzh-back2 { font-size: .76rem; }
 /* phones: the party page's top panel scrolls away with the page (phones don't honour a fixed backdrop, so a sticky band showed) */
 @media (max-width: 640px) { body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 { position: relative; padding-bottom: 18px; } body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2::before { display: none; } }
+/* the Updated line sits in the same spot on every tile: tiles tall enough for the longest (two-line class, shared line), the line pinned to the bottom */
+body.hubbody .hd2-main .hr { height: 200px; }
+body.hubbody .hd2-main .hc { height: 212px; }
+.hd2-main .hr-main, .hd2-main .hc-main { padding-bottom: 10px !important; }
+.hd2-main .hc-txt > small { margin-bottom: 0 !important; }
 </style>
 </head>
 <body>
@@ -3616,7 +3621,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024225057', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.10ac34f51762.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.bf5693d15950.html", "desk": "a/desk.d6a06d576157.js", "deskcss": "a/deskcss.8eb5189e71e0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024230545', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.10ac34f51762.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.bf5693d15950.html", "desk": "a/desk.d6a06d576157.js", "deskcss": "a/deskcss.8eb5189e71e0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
