@@ -1445,3 +1445,9 @@ html[data-pgtheme="light"] .dk-back2 { color: #8a6420; } html[data-pgtheme="ligh
 .dk-rail .dk-shade::before, .dk-rail .dk-shade::after, .dk-blist .dk-shade::before, .dk-blist .dk-shade::after { border: 0 !important; }
 /* the notes page starts right beside the list (the gap between them is enough) */
 @media (min-width: 901px) { .dk[data-tab=notes] .dk-notesv > .dk-main { padding-left: 8px !important; } }
+/* Sessions and Bestiary: the main area starts right beside the list too; the scrolling areas fade out softly at the
+   bottom instead of being cut off, and leave room under the last thing */
+@media (min-width: 901px) {
+  .dk[data-tab=sessions] .dk-sess > .dk-main, .dk[data-tab=bestiary] .dk-best > .dk-bview { padding-left: 8px !important; }
+  .dk[data-tab=sessions] .dk-sess > .dk-main, .dk[data-tab=bestiary] .dk-best > .dk-bview, .dk[data-tab=notes] .dk-notesv > .dk-main { padding-bottom: 48px !important; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); }
+}
