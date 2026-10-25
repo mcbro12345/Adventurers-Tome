@@ -852,7 +852,7 @@ function render(...names) {
   (names.length ? names : Object.keys(SECTIONS)).forEach(n => { RENDERING = n; SECTIONS[n](); });
   applyPanelLayout();
   renderTabs();
-  $$('textarea.f').forEach(grow);
+  growAll($$('textarea.f'));
   fitItemRows(); fitToolbar(); fitAtkRows(); requestAnimationFrame(alignHpSide);
   // Slide the selected-tab highlight from where it was to the new choice.
   $$('.seg-ind[data-to]').forEach(e => { void e.offsetWidth; e.style.setProperty('--i', e.dataset.to); e.removeAttribute('data-to'); });
@@ -865,10 +865,12 @@ function renderOthers() {
   Object.keys(SECTIONS).filter(n => !$(SECTION_EL[n]).contains(a)).forEach(n => { RENDERING = n; SECTIONS[n](); });
   applyPanelLayout();
   renderTabs();
-  $$('textarea.f').forEach(grow);
+  growAll($$('textarea.f'));
   refresh(); fitAtkRows();
 }
 function grow(t) { if (!t.offsetParent) return; t.style.height = 'auto'; t.style.height = (t.scrollHeight + 2) + 'px'; }
+// Many boxes at once: every box is measured in one go and then sized, instead of the page being laid out again for each.
+function growAll(list) { const ts = [...list].filter(t => t.offsetParent); ts.forEach(t => { t.style.height = 'auto'; }); const hs = ts.map(t => t.scrollHeight); ts.forEach((t, i) => { t.style.height = (hs[i] + 2) + 'px'; }); }
 
 // ---------- Derived values ----------
 function calcText(key) {

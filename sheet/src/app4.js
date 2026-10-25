@@ -41,7 +41,7 @@ function mainClick(e) {
         // (the tab you clicked keeps its hover highlight until the sliding one gets there)
         if (hov) { const t = $(`#tabs .tab[data-tab="${nt}"]`); if (t) { t.classList.add('tkeep'); requestAnimationFrame(() => requestAnimationFrame(() => t.classList.remove('tkeep'))); } } requestAnimationFrame(alignHpSide);
         if (mob) { const pg = $('#page-' + nt), keep = pg ? Math.min(TABSCROLL[prev] || 0, Math.max(0, pg.getBoundingClientRect().top + scrollY - 12)) : 0; window.scrollTo(0, prev === nt ? 0 : (TABSCROLL[nt] != null ? TABSCROLL[nt] : keep)); }
-        $$('#page-' + UI.tab + ' textarea.f').forEach(grow); fitItemRows(); if (mini) window.scrollTo(0, 0); };
+        growAll($$('#page-' + UI.tab + ' textarea.f')); fitItemRows(); if (mini) window.scrollTo(0, 0); };
       if (tabFadeT) { clearTimeout(tabFadeT.t); tabFadeT.go(); }
       TABSCROLL[prev] = scrollY; UI.tab = nt; saveUI();
       // phones: the tab highlight moves straight away, the old page fades out, then the new one fades in at its own scroll spot
@@ -82,8 +82,8 @@ function mainClick(e) {
       const kk = b.dataset.key, pg = /^cg:sptab:/.test(kk) ? 'spells' : /^(econedit|fopt:|cg:)/.test(kk) ? 'combat' : /^atk:/.test(kk) ? 'core' : /^(item:|invshut:|bagedit:)/.test(kk) ? 'inventory' : /^(fedit:|ffull:|subedit:|xsub:|featsedit)/.test(kk) ? 'features' : 'spells';
       render(pg); return;
     }
-    case 'filter': S.spellFilter = b.dataset.f; save(); render('spells'); $$('#page-spells textarea.f').forEach(grow); refresh(); break;
-    case 'featfilter': UI.featFilter = b.dataset.f; saveUI(); render('features'); $$('#page-features textarea.f').forEach(grow); refresh(); pendingLabel = null; return;
+    case 'filter': S.spellFilter = b.dataset.f; save(); render('spells'); growAll($$('#page-spells textarea.f')); refresh(); break;
+    case 'featfilter': UI.featFilter = b.dataset.f; saveUI(); render('features'); growAll($$('#page-features textarea.f')); refresh(); pendingLabel = null; return;
     case 'cast': castSpell(i, b.dataset.col); break;
     case 'castgo': castGo(b); break;
     case 'readypay': readyPay(b.dataset.k, N(b.dataset.l)); break;

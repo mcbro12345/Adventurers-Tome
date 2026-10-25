@@ -3149,3 +3149,18 @@ body.adminbody .adm-mlist, .adm-mlist.portal { background: #1a2131; -webkit-back
 .adm-mlist button:hover .ami { opacity: 1; }
 :where(body.hubbody) .hc-menu.pt.closing .hc-list { animation: hPopOut .14s ease forwards; }
 :where(body.hubbody) :is(.hr, .hc, .pm):has(> .hc-menu.pt.closing, .pm-top > .hc-menu.pt.closing) { z-index: 60 !important; position: relative; }
+/* admin: the computer preview lays itself out like the lobby's top panel at that width (no shrinking) */
+.nwp-scale { container: nwpbar / inline-size; }
+@container nwpbar (max-width: 1100px) {
+  .nwp-bar { flex-wrap: wrap; row-gap: 14px; }
+  .nwp-bar .nwp-logo { order: 1; } .nwp-bar .nwp-me { order: 2; margin-left: auto; }
+  .nwp-bar .hd2-wn { order: 3; flex: 1 1 100%; padding: 14px 0 0; border-left: 0; border-top: 1px solid rgba(201,150,43,.22); }
+}
+@container nwpbar (max-width: 760px) { .nwp-bar .wn-bar { flex-wrap: wrap; gap: 8px; } .nwp-bar .wn-lab { display: flex; align-items: baseline; gap: 14px; } .nwp-bar .wn-strip { flex-basis: 100%; } }
+@container nwpbar (max-width: 460px) { .nwp-bar { padding: 12px 14px; gap: 12px; } .nwp-bar .nwp-me > span { display: none; } }
+.nwp-scale { overflow: visible; height: auto !important; } .nwp-scale > .nwp-bar { position: relative; width: auto; transform: none; }
+/* the "Online" dot's pulse is a ring that grows and fades (drawn by the graphics card, so it doesn't make the page redraw every frame) */
+.adm-online i { position: relative; animation: none !important; box-shadow: none !important; }
+.adm-online i::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: rgba(52,193,114,.55); animation: admRing 2s ease-out infinite; will-change: transform, opacity; }
+@keyframes admRing { 0% { transform: scale(1); opacity: .7; } 70% { transform: scale(2.5); opacity: 0; } 100% { transform: scale(2.5); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .adm-online i::after { animation: none; display: none; } }

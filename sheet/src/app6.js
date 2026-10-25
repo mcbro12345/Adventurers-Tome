@@ -8,7 +8,15 @@ function fitInput(el) {
 }
 // The character name shrinks to fit its box (never cut off); full name on hover.
 let _fitCv;
+// (the size found for a name is remembered until the window or fonts change, so redrawing the sheet doesn't measure it again)
+let FIT_GEN = 0; const FIT_C = new Map();
+addEventListener('resize', () => { FIT_GEN++; FIT_C.clear(); });
+try { document.fonts.addEventListener('loadingdone', () => { FIT_GEN++; FIT_C.clear(); document.querySelectorAll('input.name[data-fit]').forEach(fitNameFont); }); } catch (e) {}
 function fitNameFont(el) {
+  const fk = (el.value || el.placeholder || '') + '|' + el.className + '|' + (UI && UI.editLayout ? 1 : 0); if (FIT_C.has(fk)) { const v = FIT_C.get(fk); if (el.style.fontSize !== v) el.style.fontSize = v; el.title = el.value || ''; return; }
+  fitNameFont0(el); if (el.clientWidth > 0) FIT_C.set(fk, el.style.fontSize);
+}
+function fitNameFont0(el) {
   el.style.fontSize = ''; const w = (el.clientWidth - 14) * 0.93; if (w <= 0) return;
   const cs = getComputedStyle(el), base = parseFloat(cs.fontSize), ctx = (_fitCv = _fitCv || document.createElement('canvas')).getContext('2d');
   ctx.font = `${cs.fontWeight} ${base}px ${cs.fontFamily}`;

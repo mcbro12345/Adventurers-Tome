@@ -1459,3 +1459,5 @@ html[data-pgtheme="light"] .dk-back2 { color: #8a6420; } html[data-pgtheme="ligh
 @media (min-width: 901px) {
   .dk[data-tab=notes] .dk-rail, .dk[data-tab=sessions] .dk-rail, .dk[data-tab=bestiary] .dk-blist { height: auto !important; max-height: calc(100% - 16px) !important; align-self: stretch; box-sizing: border-box; }
 }
+/* the Bestiary list: rows scrolled out of sight aren't laid out or drawn until they come near (hundreds of creatures) */
+.dk-mlist2 > .dk-mrow { content-visibility: auto; contain-intrinsic-size: auto 44px; }

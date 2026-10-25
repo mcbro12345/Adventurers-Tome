@@ -284,7 +284,7 @@ function pgPillWire(el) { let st = null;
 // a divider with a soft shadow at an edge when there's more past it.
 (() => { if (window.__pgShade) return; window.__pgShade = 1;
   const SEL = '.rl-list, .setx, .to-list, .to-dkl, .ptylog, .ptygive, .ptycast, .ptychat-l, .adm-nav, .pa-body, .au-opts, #tipbox';
-  const one = el => { const t = el.scrollTop > 2, b = el.scrollTop + el.clientHeight < el.scrollHeight - 2; el.classList.add('pg-shade'); el.classList.toggle('sc-t', t); el.classList.toggle('sc-b', b); };
+  const one = el => { const t = el.scrollTop > 2, b = el.scrollTop + el.clientHeight < el.scrollHeight - 2; if (!el.classList.contains('pg-shade')) el.classList.add('pg-shade'); if (el.classList.contains('sc-t') !== t) el.classList.toggle('sc-t', t); if (el.classList.contains('sc-b') !== b) el.classList.toggle('sc-b', b); }; // (classes only touched when they change)
   const all = () => document.querySelectorAll(SEL).forEach(one);
   document.addEventListener('scroll', e => { const el = e.target; if (el && el.matches && el.matches(SEL)) one(el); }, true);
   addEventListener('resize', () => requestAnimationFrame(all)); setInterval(all, 900); })();
@@ -825,18 +825,18 @@ function wireDie(root) {
         const btns = [...tb.querySelectorAll('button, a')].map(b => b.getBoundingClientRect()).filter(r => r.width && r.height);
         const tbTop = Math.round((btns.length ? Math.min(...btns.map(r => r.top)) : tb.getBoundingClientRect().top) + scrollY), gap = 7; // the top of the buttons themselves
         const room = Math.min(64, Math.max(26, tbTop - 2 * gap)); if (lg._room !== room) { lg._room = room; lg.style.setProperty('--plh', room + 'px'); }
-        tag.classList.add('placed'); const lh = lg.offsetHeight;
+        if (!tag.classList.contains('placed')) tag.classList.add('placed'); const lh = lg.offsetHeight;
         const tr = tb.getBoundingClientRect(), x = Math.round(tr.left + scrollX); let y = Math.round((tbTop - lh) / 2);
-        lg.style.left = x + 'px'; lg.style.top = y + 'px';
+        const px = (el, k, v) => { if (el.style[k] !== v) el.style[k] = v; }; px(lg, 'left', x + 'px'); px(lg, 'top', y + 'px');
         // then nudge it by where the die actually draws (browsers size it a little differently), so the die has the same gap above and below
         { const d = lg.querySelector('.hl-d20'); if (d && !d.classList.contains('hl-rolling') && !PG_DIE.rolling) { const r = d.getBoundingClientRect(), dt = r.top + scrollY, db = r.bottom + scrollY, adj = Math.round(((tbTop - db) - dt) / 2);
-          if (adj) { y += adj; lg.style.top = y + 'px'; } } }
+          if (adj) { y += adj; px(lg, 'top', y + 'px'); } } }
         const pos = x + ',' + y + ',' + lh + ',' + tbTop;
         // then who's viewing, then the View only tag
         let nx = x + lg.offsetWidth + 12; const pb = document.getElementById('pg-pubpres');
-        if (pb && !pb.hidden) { pb.style.left = nx + 'px'; pb.style.top = (y + lh / 2) + 'px'; pb.classList.add('ready'); nx += pb.offsetWidth + 10; }
-        tag.style.left = nx + 'px'; tag.style.top = (y + lh / 2) + 'px';
-        if (pos === align.last) de.classList.add('pg-al'); else { align.last = pos; requestAnimationFrame(align); } };
+        if (pb && !pb.hidden) { px(pb, 'left', nx + 'px'); px(pb, 'top', (y + lh / 2) + 'px'); if (!pb.classList.contains('ready')) pb.classList.add('ready'); nx += pb.offsetWidth + 10; }
+        px(tag, 'left', nx + 'px'); px(tag, 'top', (y + lh / 2) + 'px');
+        if (pos === align.last) { if (!de.classList.contains('pg-al')) de.classList.add('pg-al'); } else { align.last = pos; requestAnimationFrame(align); } };
       let q = 0; const soon = () => { if (!q) q = requestAnimationFrame(() => { q = 0; align(); }); }; window.pgPubPlace = soon;
       new MutationObserver(soon).observe(document.body, { childList: true, subtree: true }); addEventListener('resize', soon); setInterval(align, 1500); soon(); }
     try { const st = JSON.parse(txt); if (st && st.name) document.title = st.name + ' — Adventurer’s Tome'; } catch (e) {}
@@ -1470,13 +1470,14 @@ function wireDie(root) {
     // lines up with the bottom of the level box.
     const de = document.documentElement, align = () => {
       const lv = document.querySelector('.ident-top .lvlbox'), tb = document.querySelector('.ident-top .toolbar');
-      if (de.classList.contains('mobile') || !lv || !tb) { de.classList.remove('pg-al'); a.style.left = a.style.top = ''; return; }
-      const lr = lv.getBoundingClientRect(), tbh = tb.offsetHeight;
-      de.style.setProperty('--pg-tbm', Math.max(a.offsetHeight + 8, Math.round(lr.height - tbh)) + 'px');
-      const tr = tb.getBoundingClientRect(), pos = Math.round(tr.left + scrollX) + ',' + Math.round(lr.top + scrollY);
-      a.style.left = Math.round(tr.left + scrollX) + 'px'; a.style.top = Math.round(lr.top + scrollY) + 'px'; placePres();
+      if (de.classList.contains('mobile') || !lv || !tb) { if (de.classList.contains('pg-al')) de.classList.remove('pg-al'); if (a.style.left) a.style.left = a.style.top = ''; return; }
+      // (everything is measured first and only what changed is written, so this running often costs next to nothing)
+      const lr = lv.getBoundingClientRect(), tbh = tb.offsetHeight, ah = a.offsetHeight, tbm = Math.max(ah + 8, Math.round(lr.height - tbh)) + 'px';
+      if (de.style.getPropertyValue('--pg-tbm') !== tbm) de.style.setProperty('--pg-tbm', tbm);
+      const tr = tb.getBoundingClientRect(), L = Math.round(tr.left + scrollX) + 'px', T = Math.round(lr.top + scrollY) + 'px', pos = L + ',' + T;
+      if (a.style.left !== L) a.style.left = L; if (a.style.top !== T) a.style.top = T; placePres();
       // shown once two measurements in a row agree (the header has finished laying out)
-      if (pos === align.last) de.classList.add('pg-al'); else { align.last = pos; requestAnimationFrame(align); } };
+      if (pos === align.last) { if (!de.classList.contains('pg-al')) de.classList.add('pg-al'); } else { align.last = pos; requestAnimationFrame(align); } };
     let alignQ = 0; const alignSoon = () => { if (!alignQ) alignQ = requestAnimationFrame(() => { alignQ = 0; align(); }); };
     new MutationObserver(alignSoon).observe(document.body, { childList: true, subtree: true });
     addEventListener('resize', alignSoon); setInterval(align, 1500); alignSoon();
@@ -1489,11 +1490,11 @@ function wireDie(root) {
     const box = document.querySelector('.pg-pres'), withBox = box && !box.hidden && box.classList.contains('ready') && box.offsetWidth;
     const left = withBox ? box.offsetLeft + box.offsetWidth + 8 : a.offsetLeft + a.offsetWidth + 8;
     // Not enough room in one line (phones): it wraps onto two short lines in the space that's left.
-    const room = document.documentElement.clientWidth - 8 - left; t.classList.remove('wrap'); t.style.maxWidth = '';
+    const room = document.documentElement.clientWidth - 8 - left, top = (a.offsetTop + a.offsetHeight / 2) + 'px', k = left + '|' + room + '|' + top + '|' + t.textContent; if (t._pk === k) return; t._pk = k; t.classList.remove('wrap'); t.style.maxWidth = '';
     if (t.offsetWidth > room) { t.classList.add('wrap'); t.style.maxWidth = Math.max(96, room) + 'px'; }
-    t.style.left = left + 'px'; t.style.top = (a.offsetTop + a.offsetHeight / 2) + 'px'; t.classList.add('placed'); };
+    t.style.left = left + 'px'; t.style.top = top; t.classList.add('placed'); };
   const placePres = () => { placeShared(); const box = document.querySelector('.pg-pres'), a = document.querySelector('.pg-hublink'); if (!box || !a || !a.offsetParent || !a.offsetWidth) return; // hidden behind a window: leave it where it was
-    const l = (a.offsetLeft + a.offsetWidth + 8) + 'px', t = (a.offsetTop + a.offsetHeight / 2) + 'px'; box.style.left = l; box.style.top = t;
+    const l = (a.offsetLeft + a.offsetWidth + 8) + 'px', t = (a.offsetTop + a.offsetHeight / 2) + 'px'; if (box.style.left !== l) box.style.left = l; if (box.style.top !== t) box.style.top = t;
     if (box.classList.contains('ready')) return; if (document.documentElement.classList.contains('pg-al') || document.documentElement.classList.contains('mobile')) { box.classList.add('ready'); placeShared(); return; } const k = l + t + (a.offsetParent ? 1 : 0); if (k !== presKey) { presKey = k; clearTimeout(presT); presT = setTimeout(() => { if (box.isConnected && a.offsetParent) { box.classList.add('ready'); placeShared(); } else presKey = ''; }, 600); } placeShared(); };
   new ResizeObserver(() => placePres()).observe(document.documentElement);
   // Who's looking at this sheet right now — shown once it's shared: small portraits beside the back button, you too.
@@ -1516,9 +1517,10 @@ function wireDie(root) {
     const show = () => { const now = Date.now(), rank = em => em === OWNER ? 0 : em === EMAIL ? 1 : 2, here = Object.entries(seen).filter(([, d]) => now - (d.at || 0) < 200000).sort(([a], [b]) => rank(a) - rank(b));
       if (!box) { box = document.createElement('div'); box.className = 'pg-pres'; document.body.appendChild(box); }
       const anons = Object.values(anon).filter(d => now - (d.at || 0) < 200000);
-      box.hidden = !here.length && !anons.length; // you see yourself whenever you count as viewing it, on your own sheet too
-      box.innerHTML = here.map(([em, d]) => { const bg = em === EMAIL ? !!document.hidden : !!d.bg; /* green: looking at it now; yellow: open in a tab that isn't in front */ return `<span class="pg-pw${bg ? ' bg' : ''}">${avaHTML(d.name, em, d.pic, em === EMAIL ? 'me' : '', (em === EMAIL ? (d.name || NAME) + ' (you)' : (d.name || em)) + (bg ? ' · has it open in another tab' : ' · looking at it now'), { color: d.color, clear: d.clear })}<i></i></span>`; }).join('') + anons.map(() => anonAvaHTML(false)).join('');
-      placePres(); };
+      { const hid = !here.length && !anons.length; if (box.hidden !== hid) box.hidden = hid; } // you see yourself whenever you count as viewing it, on your own sheet too
+      // (only redrawn when someone comes, goes or changes)
+      const html = here.map(([em, d]) => { const bg = em === EMAIL ? !!document.hidden : !!d.bg; /* green: looking at it now; yellow: open in a tab that isn't in front */ return `<span class="pg-pw${bg ? ' bg' : ''}">${avaHTML(d.name, em, d.pic, em === EMAIL ? 'me' : '', (em === EMAIL ? (d.name || NAME) + ' (you)' : (d.name || em)) + (bg ? ' · has it open in another tab' : ' · looking at it now'), { color: d.color, clear: d.clear })}<i></i></span>`; }).join('') + anons.map(() => anonAvaHTML(false)).join('');
+      if (box._h !== html) { box._h = html; box.innerHTML = html; } placePres(); };
     // you show straight away, without waiting for the first list from the server
     if (counted()) { const a = avaOf(ME); seen[EMAIL] = { name: NAME, pic: a.pic, color: a.color, clear: a.clear, at: Date.now() }; }
     beat(); show(); setInterval(beat, 60000); setInterval(show, 1500);
@@ -2895,7 +2897,7 @@ function hub(fs, auth, G, ctx) {
       { const lg = root.querySelector('.adm-brand .hub-logo'), s = el.querySelector('.nwp-logo'); if (lg && s) s.appendChild(lg.cloneNode(true)); }
       const src = () => ({ items: rot(), every, all: items });
       if (tabNews.pv) tabNews.pv.forEach(p => p && p.stop()); tabNews.pv = [newsMount(el.querySelector('#nwp-bar'), 'bar', src), newsMount(el.querySelector('#nwp-card'), 'card', src)];
-      { const sc = el.querySelector('.nwp-scale'), bar = sc && sc.querySelector('.nwp-bar'); if (sc && bar) { const fitPv = () => { const w = sc.clientWidth, base = Math.max(w, 1000), k = w / base; bar.style.width = base + 'px'; bar.style.transform = k < 1 ? `scale(${k})` : ''; sc.style.height = Math.ceil(bar.offsetHeight * k) + 'px'; }; fitPv(); new ResizeObserver(fitPv).observe(sc); new ResizeObserver(fitPv).observe(bar); } }
+      { const sc = el.querySelector('.nwp-scale'), bar = sc && sc.querySelector('.nwp-bar'); if (sc && bar) { const fitPv = () => {}; fitPv(); new ResizeObserver(fitPv).observe(sc); new ResizeObserver(fitPv).observe(bar); } }
       const repaint = () => { tabNews.pv.forEach(p => p && p.paint()); el.querySelector('.nw-rotbar b').textContent = rot().length + ' in rotation'; };
       // posting
       const nb = el.querySelector('#nw-new'), ok = nb.querySelector('[data-f="ok"]'); const chk = () => { ok.disabled = !nb.querySelector('[data-f="t"]').value.trim(); }; nb.querySelector('[data-f="t"]').oninput = chk;

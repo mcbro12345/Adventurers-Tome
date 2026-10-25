@@ -1255,7 +1255,7 @@ function paint() {
   PAINTING = true; try { paint0(pg); } finally { PAINTING = false; }
 }
 function paint0(pg) {
-  const keep = {}; $$('[data-keep]').forEach(el => { keep[el.dataset.keep] = el.scrollTop; });
+  const keep = {}; $$('[data-keep]').forEach(el => { keep[el.dataset.keep] = el.scrollTop; }); window.DK_KEEP = keep;
   const a = document.activeElement, fid = a && ROOT.contains(a) && a.id, sel = fid && a.selectionStart != null ? [a.selectionStart, a.selectionEnd] : null, y = scrollY;
   // (a box being typed in keeps what's in it, saved or not, when something else makes the page redraw)
   const val = UI.tab === 'notes' && fid && /^(INPUT|TEXTAREA)$/.test(a.tagName) && !/^(checkbox|radio|file)$/i.test(a.type || '') ? a.value : null;
@@ -1438,6 +1438,18 @@ function filteredCreatures() {
   L.sort(UI.sort === 'cr' ? (a, b) => N(a.cr) - N(b.cr) || a.name.localeCompare(b.name) : (a, b) => a.name.localeCompare(b.name));
   return L;
 }
+// The creature list draws its first rows straight away and the rest just after, a batch at a time, so opening the
+// Bestiary (or typing in its search) doesn't wait for hundreds of rows. (All at once if the list was scrolled down.)
+const bestRow = (x, c) => `<button class="dk-mrow${c && x.id === c.id ? ' on' : ''}" data-act="pickbest" data-cid="${esc(x.id)}">${tokenHTML(x, 30)}<span class="dk-mn">${esc(x.name)}${x.src !== 'SRD' ? ' <span class="dk-src mine">mine</span>' : ''}</span><span class="dk-mcr">CR ${crLabel(N(x.cr))}</span><span class="dk-mt">${esc(x.size)} ${esc(x.type)} · AC ${esc(x.ac)} · HP ${esc(x.hp)}</span></button>`;
+let BEST_RUN = 0;
+function bestRows(L, c) {
+  const run = ++BEST_RUN, all = (window.DK_KEEP && window.DK_KEEP.blist > 0) || L.length <= 60;
+  if (all) return L.map(x => bestRow(x, c)).join('');
+  const rest = L.slice(60);
+  setTimeout(function more() { if (run !== BEST_RUN || UI.tab !== 'bestiary') return; const box = document.querySelector('.dk-mlist2[data-keep="blist"]'); if (!box || !rest.length) return;
+    box.insertAdjacentHTML('beforeend', rest.splice(0, 120).map(x => bestRow(x, c)).join('')); if (rest.length) requestAnimationFrame(() => setTimeout(more, 0)); }, 0);
+  return L.slice(0, 60).map(x => bestRow(x, c)).join('');
+}
 function bestiaryHTML() {
   const types = Array.from(new Set(allCreatures().map(c => (c.type || '').toLowerCase().replace(/\s*\(.*$/, '').replace(/^swarm of .*/, 'swarm')))).filter(Boolean).sort();
   const L = filteredCreatures(), c = getC(UI.best) || L[0], mine = Object.keys(S.creatures).length;
@@ -1456,7 +1468,7 @@ function bestiaryHTML() {
         <div class="dk-sort"><button class="${UI.sort === 'name' ? 'on' : ''}" data-act="bsort" data-v="name">A–Z</button><button class="${UI.sort === 'cr' ? 'on' : ''}" data-act="bsort" data-v="cr">CR</button></div>
       </div>
       <div class="dk-bcount">${L.length} shown${UI.q || UI.crMin !== '' || UI.crMax !== '' || UI.type || UI.size || UI.src ? ' · <button class="dk-link" data-act="bclear">clear filters</button>' : ''}</div>
-      <div class="dk-mlist2" data-keep="blist">${L.map(x => `<button class="dk-mrow${c && x.id === c.id ? ' on' : ''}" data-act="pickbest" data-cid="${esc(x.id)}">${tokenHTML(x, 30)}<span class="dk-mn">${esc(x.name)}${x.src !== 'SRD' ? ' <span class="dk-src mine">mine</span>' : ''}</span><span class="dk-mcr">CR ${crLabel(N(x.cr))}</span><span class="dk-mt">${esc(x.size)} ${esc(x.type)} · AC ${esc(x.ac)} · HP ${esc(x.hp)}</span></button>`).join('') || '<p class="dk-hint" style="padding:12px">Nothing matches. Clear a filter, or add your own creature.</p>'}</div>
+      <div class="dk-mlist2" data-keep="blist">${bestRows(L, c) || '<p class="dk-hint" style="padding:12px">Nothing matches. Clear a filter, or add your own creature.</p>'}</div>
     </section>
     <section class="dk-bview" data-keep="bview-${esc(c ? c.id : '')}">${c ? `<button class="dk-btn ghost dk-bback" data-act="bback">${ICON.back || '‹'} All creatures</button><div class="dk-card dk-badd"><div class="dk-row"><input class="dk-f dk-num" id="dk-bCount" type="number" min="1" max="30" value="1" aria-label="How many"><select class="dk-f" id="dk-bEnc" aria-label="Add to"><option value="__new">A new session</option>${grps.map(({ s, g }) => `<option value="${esc(s.id)}|${esc(g.id)}"${s.id + '|' + g.id === defG ? ' selected' : ''}>${esc(s.title)}${s.groups.length > 1 ? ' › ' + esc(g.name) : ''}</option>`).join('')}</select><button class="dk-btn gold" data-act="badd" data-cid="${esc(c.id)}">${ICON.plus} Add</button></div>
         <div class="dk-row"><button class="dk-btn sm" data-act="copyc" data-cid="${esc(c.id)}">Copy & edit</button>${c.src !== 'SRD' ? `<button class="dk-btn sm" data-act="editc" data-cid="${esc(c.id)}">Edit</button><button class="dk-btn sm red" data-act="delc" data-cid="${esc(c.id)}">Delete</button>` : ''}</div></div>
@@ -1978,7 +1990,7 @@ function phoneWarn() {
 function unmount() { LISTEN.splice(0).forEach(([t, ev, fn, o]) => t.removeEventListener(ev, fn, o)); if (CTX && CTX.partyHost && CTX.partyHost.parentNode && CTX.partyHost.parentNode.classList.contains('dk-partyslot')) CTX.partyHost.parentNode.removeChild(CTX.partyHost); if (CLOUD) flush(); if (NCLOUD) flushNotes(); if (ROOT) { ROOT.innerHTML = ''; ROOT.classList.remove('dk'); } ROOT = null; CLOUD = false; }
 // Lists that scroll inside a panel show a divider with a soft shadow at an edge when there's more past it.
 const SHADE_SEL = '.dk-tree, .dk-mlist2, .dk-auto, .dk-itree, .dk-setwin .dk-setx, .dk-loglist';
-function shadeOne(el) { const t = el.scrollTop > 2, b = el.scrollTop + el.clientHeight < el.scrollHeight - 2; el.classList.add('dk-shade'); el.classList.toggle('sc-t', t); el.classList.toggle('sc-b', b); }
+function shadeOne(el) { const t = el.scrollTop > 2, b = el.scrollTop + el.clientHeight < el.scrollHeight - 2; if (!el.classList.contains('dk-shade')) el.classList.add('dk-shade'); if (el.classList.contains('sc-t') !== t) el.classList.toggle('sc-t', t); if (el.classList.contains('sc-b') !== b) el.classList.toggle('sc-b', b); } // (classes only touched when they change)
 function shadeAll() { if (!ROOT) return; $$(SHADE_SEL).forEach(shadeOne); }
 document.addEventListener('scroll', e => { const el = e.target; if (el && el.matches && ROOT && ROOT.contains(el) && el.matches(SHADE_SEL)) shadeOne(el); }, true);
 addEventListener('resize', () => requestAnimationFrame(shadeAll));

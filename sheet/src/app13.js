@@ -147,7 +147,9 @@ function ptyChatPopOut() { try { const p = JSON.parse(localStorage.getItem('dnd-
 // Phones: the on-screen keyboard covers the bottom of the page without resizing it, so bottom sheets (chat, dice
 // roller) are lifted by however much of the screen the keyboard takes, and kept short enough to fit above it.
 (() => { const vv = window.visualViewport; if (!vv) return; const de = document.documentElement;
-  const upd = () => { const kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)); de.style.setProperty('--kb', kb + 'px'); de.style.setProperty('--vvh', Math.round(vv.height) + 'px'); de.style.setProperty('--vvt', Math.round(vv.offsetTop) + 'px'); const ae = document.activeElement, typing = !!(ae && ae.matches && ae.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea') && ae.closest('#pcwin, #drwin')), up = isMobile() && (typing || innerHeight - vv.height > 120), was = de.classList.contains('kbup'); de.classList.toggle('kbup', up);
+  // (each value is only written when it changes: writing to the page's root makes the browser restyle everything)
+  const setv = (k, v) => { if (de.style.getPropertyValue(k) !== v) de.style.setProperty(k, v); };
+  const upd = () => { const kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)); setv('--kb', kb + 'px'); setv('--vvh', Math.round(vv.height) + 'px'); setv('--vvt', Math.round(vv.offsetTop) + 'px'); const ae = document.activeElement, typing = !!(ae && ae.matches && ae.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea') && ae.closest('#pcwin, #drwin')), up = isMobile() && (typing || innerHeight - vv.height > 120), was = de.classList.contains('kbup'); if (up !== was) de.classList.toggle('kbup', up);
     // when the keyboard comes up, the chat jumps to its newest message
     if (up && !was) setTimeout(() => { const l = document.querySelector('#pcwin .ptychat-l'); if (l) l.scrollTop = l.scrollHeight; }, 60); };
   vv.addEventListener('resize', upd); vv.addEventListener('scroll', upd); upd();
@@ -882,7 +884,7 @@ try { if (localStorage.getItem(PCHAT_KEY()) === '1') document.documentElement.cl
 const PCHAT_T0 = Date.now();
 function ptyUnreadMark() { setTimeout(() => { if (typeof mtabSync === 'function') mtabSync(); }, 0); const P0 = PTYX(), on = !!(P0 && ptyOn() && P0.chat && P0.chat.on());
   // shown the moment chat is there; only hidden once the page has had a few seconds to connect
-  if (on || Date.now() - PCHAT_T0 > 6000) { document.documentElement.classList.toggle('pchat', on); try { localStorage.setItem(PCHAT_KEY(), on ? '1' : '0'); } catch (e) {} }
+  if (on || Date.now() - PCHAT_T0 > 6000) { document.documentElement.classList.toggle('pchat', on); try { if (localStorage.getItem(PCHAT_KEY()) !== (on ? '1' : '0')) localStorage.setItem(PCHAT_KEY(), on ? '1' : '0'); } catch (e) {} }
   { const cb = document.querySelector('.devbtn.chatbtn'); if (cb) { const n = $('#pcwin') ? 0 : PTY_UNREAD; cb.classList.toggle('unread', n > 0); if (n > 0) cb.dataset.unread = n > 9 ? '9+' : n; else delete cb.dataset.unread; } }
   ptyChatSeen();
   const t = document.querySelector('.tab[data-tab="party"]'); if (!t) return; if ((UI.tab === 'party' || $('#pcwin')) && !document.hidden) PTY_UNREAD = 0; t.classList.toggle('unread', PTY_UNREAD > 0); if (PTY_UNREAD > 0) t.dataset.unread = PTY_UNREAD > 9 ? '9+' : PTY_UNREAD; else delete t.dataset.unread; }

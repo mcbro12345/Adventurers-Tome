@@ -315,8 +315,10 @@ function mwDress() { const b = $('#modal-body'); if (!b) return; const de = docu
 // Done / Close buttons that only close the window aren't needed next to the title bar's ✕ (a row left empty goes too).
 function mwTidy() { const b = $('#modal-body'); if (!b || !mwDesk()) return; b.querySelectorAll('[data-act="close"]').forEach(x => { if (/^(done|close)$/i.test(x.textContent.trim())) x.classList.add('mw-hid'); });
   b.querySelectorAll('.actions, .row').forEach(r => { if (r.children.length && ![...r.children].some(x => !x.classList.contains('mw-hid') && getComputedStyle(x).display !== 'none')) r.classList.add('mw-hid'); }); }
-new MutationObserver(() => { if ($('#modal').classList.contains('open')) { mwDress(); mwTidy(); } }).observe($('#modal-body'), { childList: true, subtree: true });
-new MutationObserver(() => { if ($('#modal').classList.contains('open')) mwDress(); }).observe($('#modal'), { attributes: true, attributeFilter: ['class'] });
+// (checked once a frame, before it's drawn, so a window whose contents keep changing isn't measured on every change)
+let MW_R = 0; const mwSoon = () => { if (!MW_R) MW_R = requestAnimationFrame(() => { MW_R = 0; if ($('#modal').classList.contains('open')) { mwDress(); mwTidy(); } }); };
+new MutationObserver(mwSoon).observe($('#modal-body'), { childList: true, subtree: true });
+new MutationObserver(mwSoon).observe($('#modal'), { attributes: true, attributeFilter: ['class'] });
 addEventListener('resize', () => document.documentElement.classList.toggle('mwin', mwDesk()));
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); $$('.menu.open').forEach(m => m.classList.remove('open')); } });
 
@@ -509,11 +511,12 @@ const MTAB_CHEV = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" s
 function mtabTabs() { return [...document.querySelectorAll('#tabs .tab')].map(b => ({ k: b.dataset.tab, b, on: b.classList.contains('on'), unread: b.classList.contains('unread'), ic: (b.querySelector('.ticon') || {}).innerHTML || '', label: (b.querySelector('.tlabel') || {}).textContent || b.dataset.tab, count: (b.querySelector('.tabcount') || {}).textContent || '' })); }
 function mtabSync() {
   let el = document.getElementById('mtab');
-  if (!isMobile() || UI.editLayout) { if (el) el.remove(); mtabClose(true); document.documentElement.classList.remove('mtabs'); return; }
-  document.documentElement.classList.add('mtabs');
+  const de = document.documentElement;
+  if (!isMobile() || UI.editLayout) { if (el) el.remove(); mtabClose(true); if (de.classList.contains('mtabs')) de.classList.remove('mtabs'); return; }
+  if (!de.classList.contains('mtabs')) de.classList.add('mtabs');
   if (!el) { el = document.createElement('div'); el.id = 'mtab'; el.className = 'mtab'; document.body.appendChild(el); mtabWire(el); }
   const ts = mtabTabs(), cur = ts.find(t => t.on) || ts[0]; if (!cur) return; const i = ts.indexOf(cur), other = ts.some(t => t.unread && !t.on);
-  el.innerHTML = `<button class="mtab-b${other ? ' unread' : ''}" aria-haspopup="menu" aria-expanded="${!!document.getElementById('mtabmenu')}" aria-label="${esc(cur.label)} — ${i + 1} of ${ts.length}. Choose a tab"><span class="mtab-ic" aria-hidden="true">${cur.ic}</span><span class="mtab-l">${esc(cur.label)}</span><span class="mtab-dots" aria-hidden="true">${ts.map(t => `<i${t.on ? ' class="on"' : ''}></i>`).join('')}</span><span class="mtab-chev">${MTAB_CHEV}</span></button>`;
+  { const h = `<button class="mtab-b${other ? ' unread' : ''}" aria-haspopup="menu" aria-expanded="${!!document.getElementById('mtabmenu')}" aria-label="${esc(cur.label)} — ${i + 1} of ${ts.length}. Choose a tab"><span class="mtab-ic" aria-hidden="true">${cur.ic}</span><span class="mtab-l">${esc(cur.label)}</span><span class="mtab-dots" aria-hidden="true">${ts.map(t => `<i${t.on ? ' class="on"' : ''}></i>`).join('')}</span><span class="mtab-chev">${MTAB_CHEV}</span></button>`; if (el._h !== h) { el._h = h; el.innerHTML = h; } } // (only redrawn when it changes)
   const m = document.getElementById('mtabmenu'); if (m) mtabFill(m);
 }
 function mtabFill(m) { const ts = mtabTabs();
