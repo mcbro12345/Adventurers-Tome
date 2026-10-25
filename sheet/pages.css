@@ -3079,3 +3079,17 @@ html.pg-touch :is(.hub-pane, .pw, .adm-main, #wizard) :is(.wz3-cards, .wz3-list,
 #wizard .wz3 .wz3-rv > .wz-todo, #wizard .wz3 .wz3-rv > .warn, #wizard .wz3 .wz3-rv > p { margin: 0 0 16px; }
 html.mobile #wizard .wz3 .wz3-rvab { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 560px) { #wizard .wz3 .wz3-rvab { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+/* Admin on a phone: the logo panel sits below the clock like the lobby's (not stretched up behind it); it scrolls away
+   with the page (the menu pill at the bottom does the navigating), and a frosted strip keeps the clock readable */
+@media (max-width: 860px) {
+  body.adminbody .adm-side { position: relative !important; top: auto; margin-top: calc(12px + env(safe-area-inset-top)) !important; padding-top: 0 !important; box-shadow: 0 8px 22px rgba(0,0,0,.22) !important; }
+  body.adminbody .adm-side::after { display: none; }
+  body.adminbody .adm-brand { padding-top: 12px !important; }
+  body.adminbody .adm::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top); z-index: 60; background: rgba(15,20,32,.9); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); pointer-events: none; }
+}
+@media (max-width: 860px) and (prefers-color-scheme: light) { body.adminbody .adm::before { background: rgba(241,233,216,.9); } }
+/* the tab menu's way back: a slim bar across the bottom, under the tabs */
+.pgp-lobby { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 42px; margin-top: 8px; padding: 0 12px; box-sizing: border-box; border-radius: 14px; border: 1px solid rgba(201,150,43,.55); background: transparent; color: #e0aa3a; font: 700 .95rem system-ui, sans-serif; text-decoration: none; -webkit-tap-highlight-color: transparent; transition: background .15s, transform .12s; }
+.pgp-lobby:active { transform: scale(.98); background: rgba(201,150,43,.14); }
+@media (hover: hover) { .pgp-lobby:hover { background: rgba(201,150,43,.12); } }
+@media (prefers-color-scheme: light) { .pgp-lobby { color: #8a6420; } }

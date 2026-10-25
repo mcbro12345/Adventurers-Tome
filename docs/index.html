@@ -3251,6 +3251,22 @@ html.pg-touch :is(.hub-pane, .pw, .adm-main, #wizard) :is(.wz3-cards, .wz3-list,
 #wizard .wz3 .wz3-rv > .wz-todo, #wizard .wz3 .wz3-rv > .warn, #wizard .wz3 .wz3-rv > p { margin: 0 0 16px; }
 html.mobile #wizard .wz3 .wz3-rvab { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 560px) { #wizard .wz3 .wz3-rvab { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+/* Admin on a phone: the logo panel sits below the clock like the lobby's (not stretched up behind it); it scrolls away
+   with the page (the menu pill at the bottom does the navigating), and a frosted strip keeps the clock readable */
+@media (max-width: 860px) {
+  body.adminbody .adm-side { position: relative !important; top: auto; margin-top: calc(12px + env(safe-area-inset-top)) !important; padding-top: 0 !important; box-shadow: 0 8px 22px rgba(0,0,0,.22) !important; }
+  body.adminbody .adm-side::after { display: none; }
+  body.adminbody .adm-brand { padding-top: 12px !important; }
+  body.adminbody .adm::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top); z-index: 60; background: rgba(15,20,32,.9); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); pointer-events: none; }
+}
+@media (max-width: 860px) and (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.adminbody .adm::before { background: rgba(241,233,216,.9); } }
+@media (max-width: 860px) { :where(html[data-pgtheme="light"]) body.adminbody .adm::before { background: rgba(241,233,216,.9); } }
+/* the tab menu's way back: a slim bar across the bottom, under the tabs */
+.pgp-lobby { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 42px; margin-top: 8px; padding: 0 12px; box-sizing: border-box; border-radius: 14px; border: 1px solid rgba(201,150,43,.55); background: transparent; color: #e0aa3a; font: 700 .95rem system-ui, sans-serif; text-decoration: none; -webkit-tap-highlight-color: transparent; transition: background .15s, transform .12s; }
+.pgp-lobby:active { transform: scale(.98); background: rgba(201,150,43,.14); }
+@media (hover: hover) { .pgp-lobby:hover { background: rgba(201,150,43,.12); } }
+@media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) .pgp-lobby { color: #8a6420; } }
+ :where(html[data-pgtheme="light"]) .pgp-lobby { color: #8a6420; } 
 </style>
 </head>
 <body>
@@ -3473,7 +3489,8 @@ function pgPillFill(m) { const ts = PG_PILL_FN ? PG_PILL_FN() : [];
   m.querySelector('.pgp-grid').innerHTML = ts.map((t, i) => `<button class="pgp-t${t.on ? ' on' : ''}" role="menuitem" data-pt="${escH(t.k)}" style="--i:${i}"${t.on ? ' aria-current="page"' : ''}><span class="pgp-tic" aria-hidden="true">${t.ic}</span><span class="pgp-tl">${escH(t.label)}</span>${t.badge ? `<span class="pgp-cnt">${escH(t.badge)}</span>` : ''}</button>`).join(''); }
 function pgPillGo(k) { const t = (PG_PILL_FN ? PG_PILL_FN() : []).find(x => x.k === k); if (t && !t.on) t.b.click(); }
 function pgPillOpen(kb) { if (document.getElementById('pgpmenu')) return pgPillClose();
-  const m = document.createElement('div'); m.id = 'pgpmenu'; m.className = 'pgp-menu'; m.innerHTML = '<div class="pgp-back"></div><div class="pgp-card" role="menu" aria-label="Tabs"><div class="pgp-grid"></div></div>'; pgPillFill(m); document.body.appendChild(m);
+  const m = document.createElement('div'); m.id = 'pgpmenu'; m.className = 'pgp-menu'; m.innerHTML = '<div class="pgp-back"></div><div class="pgp-card" role="menu" aria-label="Tabs"><div class="pgp-grid"></div>' + (window.PG_HUBU ? `<a class="pgp-lobby" role="menuitem" href="${escH(window.PG_HUBU)}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>Back to the lobby</a>` : '') + '</div>'; pgPillFill(m);
+  { const lb = m.querySelector('.pgp-lobby'); if (lb) lb.addEventListener('click', e => { if (e.ctrlKey || e.metaKey) return; e.preventDefault(); pgPillClose(true); if (typeof pgGo === 'function') pgGo(window.PG_HUBU); else location.href = window.PG_HUBU; }); } document.body.appendChild(m);
   requestAnimationFrame(() => m.classList.add('in')); document.documentElement.classList.add('pgp-open'); const b = document.querySelector('.pgp-b'); if (b) b.setAttribute('aria-expanded', 'true');
   m.querySelector('.pgp-back').onclick = () => pgPillClose();
   m.addEventListener('touchmove', e => { if (!e.target.closest('.pgp-card') && e.cancelable) e.preventDefault(); }, { passive: false });
@@ -3924,7 +3941,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261025080258', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.0873ba4e5685.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.baefa62c8977.html", "desk": "a/desk.9db34bf9f5aa.js", "deskcss": "a/deskcss.50200dbbabc8.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261025085126', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.0873ba4e5685.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.baefa62c8977.html", "desk": "a/desk.9db34bf9f5aa.js", "deskcss": "a/deskcss.50200dbbabc8.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
