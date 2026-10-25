@@ -1092,9 +1092,27 @@ function wireDie(root) {
   if (NEW) C = rid();
   // Making a new character: the wizard gets the lobby's header on top (logo, a way back, who's signed in).
   if (NEW) { const HUBU = URLS.hub(G), nm = (ME && ME.name) || user.displayName || EMAIL.split('@')[0], av = avaOf(ME);
-    window.wzHeader = () => `<div class="wzh"><header class="hub-top">${logoHTML()}
-      <div class="hub-side"><div class="hub-prof"><span class="hp-pic wzh-pic">${avaHTML(nm, EMAIL, av.pic, '', '', av)}</span><div class="hp-txt"><b>${escH(nm)}</b><small>${escH(EMAIL)}</small><div class="hp-row"><button class="linkbtn" data-wzh="out">Sign out</button><a class="hub-ctlink" href="${CONTACT}">Contact</a></div></div></div></div></header><a class="adm-back wzh-back" href="${escH(HUBU)}">← Adventurer’s Tome</a></div>`;
-    document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('.wzh [data-wzh="out"], .wzh .wzh-back'); if (!t) return; e.preventDefault(); if (t.dataset.wzh === 'out') signOut(); else pgGo(HUBU); });
+    // The same top panel as the lobby: logo on the left, your account on the right (a menu opens from it).
+    const chev = '<svg class="ha-chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+    window.wzHeader = () => `<div class="wzh wzh2"><header class="hub-top">${logoHTML()}<div class="hub-side"><button type="button" class="hub-acct wzh-acct" aria-haspopup="menu" aria-expanded="false" title="Your account">${avaHTML(nm, EMAIL, av.pic, '', '', av)}<span class="ha-txt"><b>${escH(nm)}</b><small>${escH(EMAIL)}</small></span>${chev}</button></div></header></div><a class="wzh-back2" href="${escH(HUBU)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>Back to the lobby</a>`;
+    const wzMenu = btn => { const ex = document.querySelector('.ha-menu'); if (ex) { ex._shut(); return; } const desk = !document.documentElement.classList.contains('mobile');
+      const I = d => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+      const items = [['lobby', 'Back to the lobby', I('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>')]];
+      const inAdm = document.body.classList.contains('adminbody');
+    if (inAdm) items.unshift(['lobby', 'Back to the lobby', I('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>')]);
+    else if (IS_ADMIN) items.push(['admin', 'Admin panel', I('<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>')]);
+      items.push(['contact', 'Contact Adventurer’s Tome', I('<path d="M4 4h16v12H8l-4 4z"/>')]);
+      const m = document.createElement('div'); m.className = 'ha-menu wz-hamenu' + (desk ? ' ha-drop' : ' ha-sheet'); m.setAttribute('role', 'menu');
+      const who = desk ? '' : `<div class="ha-who">${avaHTML(nm, EMAIL, av.pic, '', '', av)}<div><b>${escH(nm)}</b><small>${escH(EMAIL)}</small></div></div>`;
+      m.innerHTML = `${desk ? '' : '<div class="ha-grab" aria-hidden="true"></div>'}${who}<div class="ha-items">${items.map(([k, t, ic]) => `<button type="button" role="menuitem" data-ha="${k}">${ic}<span>${t}</span></button>`).join('')}</div><button type="button" role="menuitem" class="ha-out" data-ha="out">${I('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>')}<span>Sign out</span></button>`;
+      const dim = desk ? null : Object.assign(document.createElement('div'), { className: 'ha-dim' });
+      const shut = () => { document.removeEventListener('click', away, true); document.removeEventListener('keydown', esc_); btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('open'); m.classList.add('out'); if (dim) dim.classList.add('out'); setTimeout(() => { m.remove(); if (dim) dim.remove(); }, PG_CALM ? 0 : 200); };
+      m._shut = shut; const away = e => { if (!m.contains(e.target) && !btn.contains(e.target)) shut(); }, esc_ = e => { if (e.key === 'Escape') { shut(); btn.focus(); } };
+      if (desk) btn.parentElement.appendChild(m); else { document.body.appendChild(dim); document.body.appendChild(m); dim.onclick = shut; }
+      btn.setAttribute('aria-expanded', 'true'); btn.classList.add('open'); setTimeout(() => { document.addEventListener('click', away, true); document.addEventListener('keydown', esc_); const f = m.querySelector('[data-ha]'); if (f) f.focus({ preventScroll: true }); }, 0);
+      m.querySelectorAll('[data-ha]').forEach(b => b.onclick = () => { const k = b.dataset.ha; shut(); if (k === 'lobby') pgGo(HUBU); if (k === 'admin') pgGo(URLS.admin ? URLS.admin(G) : '/admin'); if (k === 'contact') pgContact(); if (k === 'out') signOut(); }); };
+    document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('.wzh .wzh-acct, .wzh-back2, .wzh [data-wzh="out"], .wzh .wzh-back'); if (!t) return; e.preventDefault();
+      if (t.classList.contains('wzh-acct')) { e.stopPropagation(); wzMenu(t); } else if (t.dataset.wzh === 'out') signOut(); else pgGo(HUBU); });
     new MutationObserver(() => { const l = document.querySelector('#wizard .wzh'); if (l && !l._w) { l._w = 1; wireDie(l); } }).observe(document.documentElement, { childList: true, subtree: true }); }
   window.SHEET_PAGES = true; window.SHEET_CHAR = C;
   document.documentElement.classList.add('pg-sheetpage');
@@ -2146,9 +2164,11 @@ function hub(fs, auth, G, ctx) {
     const I = d => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
     const items = [['pic', 'Change picture', I('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M21 17l-5-5-9 7"/>')], ['name', 'Change name', I('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>')],
       ['theme', pgDark() ? 'Light mode' : 'Dark mode', I(pgDark() ? '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>' : '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>')]];
-    if (IS_ADMIN) items.push(['admin', 'Admin panel', I('<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>')]);
+    const inAdm = document.body.classList.contains('adminbody');
+    if (inAdm) items.unshift(['lobby', 'Back to the lobby', I('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>')]);
+    else if (IS_ADMIN) items.push(['admin', 'Admin panel', I('<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>')]);
     items.push(['contact', 'Contact Adventurer’s Tome', I('<path d="M4 4h16v12H8l-4 4z"/>')]);
-    const m = document.createElement('div'); m.className = 'ha-menu' + (desk ? ' ha-drop' : ' ha-sheet'); m.setAttribute('role', 'menu');
+    const m = document.createElement('div'); m.className = 'ha-menu' + (desk ? ' ha-drop' : ' ha-sheet') + (desk && inAdm ? ' ha-up' : ''); m.setAttribute('role', 'menu');
     const who = desk ? '' : `<div class="ha-who">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(myAva())}<div><b>${esc(myName())}</b><small>${esc(EMAIL)}</small></div></div>`;
     m.innerHTML = `${desk ? '' : '<div class="ha-grab" aria-hidden="true"></div>'}${who}<div class="ha-items">${items.map(([k, t, ic]) => `<button type="button" role="menuitem" data-ha="${k}">${ic}<span>${t}</span></button>`).join('')}</div><button type="button" role="menuitem" class="ha-out" data-ha="out">${I('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>')}<span>Sign out</span></button>`;
     const dim = desk ? null : Object.assign(document.createElement('div'), { className: 'ha-dim' });
@@ -2157,7 +2177,7 @@ function hub(fs, auth, G, ctx) {
     if (desk) btn.parentElement.appendChild(m); else { document.body.appendChild(dim); document.body.appendChild(m); dim.onclick = shut; }
     btn.setAttribute('aria-expanded', 'true'); btn.classList.add('open'); setTimeout(() => { document.addEventListener('click', away, true); document.addEventListener('keydown', esc_); const f = m.querySelector('[data-ha]'); if (f) f.focus({ preventScroll: true }); }, 0);
     m.querySelectorAll('[data-ha]').forEach(b => b.onclick = () => { const k = b.dataset.ha; shut();
-      if (k === 'pic') pickPic(); if (k === 'name') renameMe(); if (k === 'admin') pgGo(ADMIN_URL); if (k === 'contact') pgContact(); if (k === 'out') signOut();
+      if (k === 'pic') pickPic(); if (k === 'name') renameMe(); if (k === 'admin') pgGo(ADMIN_URL); if (k === 'lobby') pgGo(HUB); if (k === 'contact') pgContact(); if (k === 'out') signOut();
       if (k === 'theme') { const next = pgDark() ? 'light' : 'dark', de = document.documentElement, f = () => { de.setAttribute('data-pgtheme', next); try { localStorage.setItem('pg-theme', next); } catch (x) {} };
         if (!PG_CALM && document.startViewTransition) document.startViewTransition(f); else f(); } }); }
   wireDie(root);
@@ -2328,15 +2348,15 @@ function hub(fs, auth, G, ctx) {
       const keepLogo = root.querySelector('.hub-logo');
       root.innerHTML = `<div class="adm"><aside class="adm-side">
           <div class="adm-brand">${logoHTML()}</div>
-          <div class="adm-backrow"><a class="adm-back" href="${esc(HUB)}">← Adventurer’s Tome</a></div>
+          <div class="adm-backrow"><a class="adm-back" href="${esc(HUB)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>Back to the lobby</a></div>
           <nav class="adm-nav">${navHTML}</nav>
-          <div class="adm-foot adm-me">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(avaOf(ME))}<div class="adm-me-t"><b>${esc(myName())}</b><small>${esc(EMAIL)}</small><button class="linkbtn" id="adm-out">Sign out</button></div></div></aside>
+          <div class="adm-foot adm-acctw"><button type="button" class="hub-acct adm-acct" id="adm-acct" aria-haspopup="menu" aria-expanded="false" title="Your account">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(avaOf(ME))}<span class="ha-txt"><b>${esc(myName())}</b><small>${esc(EMAIL)}</small></span><svg class="ha-chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button></div></aside>
         <main class="adm-main"><header class="adm-head"><div><h1>${esc(title)}</h1><p>${esc(desc)}</p></div><div class="adm-hact" id="adm-hact"></div></header>
           <section id="ad-body" class="adm-body"><div class="sk-auto" data-k="${pgAdmSkel(TAB)}" data-n="6"></div></section></main></div>`;
       if (keepLogo) { const n = root.querySelector('.hub-logo'); if (n) n.replaceWith(keepLogo); }
       PREV_TAB = TAB;
       root.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
-      { const o = root.querySelector('#adm-out'); if (o) o.onclick = signOut; }
+      { const o = root.querySelector('#adm-acct'); if (o) o.onclick = e => { e.stopPropagation(); acctMenu(o, matchMedia('(min-width: 861px)').matches); }; }
       ({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit, notice: tabNotice, welcome: tabWelcome, news: tabNews, bugs: tabBugs })[TAB]();
     }
     const B = () => root.querySelector('#ad-body'), HA = () => root.querySelector('#adm-hact');
