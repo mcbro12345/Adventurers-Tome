@@ -2979,3 +2979,44 @@ html.mobile #wizard .wz3 .wz3-two { grid-template-columns: 1fr; } html.mobile #w
 @media (prefers-reduced-motion: reduce) { #wizard .wz3 *, #wizard .wz3 *::after { animation: none !important; transition: none !important; } }
 #wizard .wz3 .wz3-item:has(input:not(:checked)) { opacity: .45; }
 #wizard .wz3 .wz3-items { align-items: start; }
+/* scroll edges: a divider line and a shadow where there's more to see */
+#wizard .wz3 .wz3-sc { position: relative; }
+#wizard .wz3 .wz3-sc::before, #wizard .wz3 .wz3-sc::after { content: ''; position: absolute; left: 0; right: 0; height: 18px; z-index: 2; pointer-events: none; opacity: 0; transition: opacity .2s; }
+#wizard .wz3 .wz3-sc::before { top: 0; border-top: 1px solid var(--wc-edge); background: linear-gradient(to bottom, rgba(0,0,0,.45), transparent); }
+#wizard .wz3 .wz3-sc::after { bottom: 0; border-bottom: 1px solid var(--wc-edge); background: linear-gradient(to top, rgba(0,0,0,.45), transparent); }
+#wizard .wz3 .wz3-sc.top::before, #wizard .wz3 .wz3-sc.bot::after { opacity: 1; }
+#wizard .wz3 .wz3-list + * { }
+#wizard .wz3 .wz3-sc:has(> .wz3-list)::before { border-radius: 14px 14px 0 0; } #wizard .wz3 .wz3-sc:has(> .wz3-list)::after { border-radius: 0 0 14px 14px; }
+/* book headings in the card grids get a line running out to the right */
+#wizard .wz3 .wz3-g { display: flex; align-items: center; gap: 10px; }
+#wizard .wz3 .wz3-g::after { content: ''; flex: 1; height: 1px; background: var(--wc-edge); }
+html[data-theme="light"] #wizard .wz3 .wz3-sc::before { background: linear-gradient(to bottom, rgba(60,45,20,.18), transparent); } html[data-theme="light"] #wizard .wz3 .wz3-sc::after { background: linear-gradient(to top, rgba(60,45,20,.18), transparent); }
+/* class cards: a symbol beside the name */
+#wizard .wz3 .wz3-card.wic { display: grid; grid-template-columns: 42px minmax(0, 1fr); column-gap: 12px; row-gap: 6px; align-items: center; }
+#wizard .wz3 .wz3-cic { grid-row: span 2; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: rgba(224,170,58,.12); color: #e0aa3a; transition: background .15s, transform .2s; }
+#wizard .wz3 .wz3-card.wic:hover .wz3-cic { transform: rotate(-6deg) scale(1.05); }
+#wizard .wz3 .wz3-card.sel .wz3-cic { background: #e0aa3a; color: #1b1406; }
+/* the class panel only shows once there's something in it */
+#wizard .wz3 .wz-cls:not(:has(p, .hint, .fld:not(:has(select[data-f="key"])))) { display: none; }
+#wizard .wz3 .wz-cls.wz3-empty { display: none; }
+#wizard .wz3 .wz3-cards { overflow-x: hidden; }
+#wizard .wz3 .wz3-cards:not(.has) { overflow: visible; }
+#wizard .wz3 .wz3-goldp { align-items: center; }
+#wizard .wz3 .wz3-gold label { display: grid; gap: 4px; } #wizard .wz3 .wz3-gold label .lbl { margin: 0; }
+#wizard .wz3 .wz3-goldp .btn { align-self: flex-end; min-height: 40px; }
+/* class cards: wide enough that the tags sit in a row beside the symbol */
+#wizard .wz3 .wz3-cards:has(.wic) { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+#wizard .wz3 .wz3-card.wic { padding-right: 38px; } #wizard .wz3 .wz3-card.wic b { align-self: end; } #wizard .wz3 .wz3-card.wic .wz3-tags { align-self: start; }
+html.mobile #wizard .wz3 .wz3-cards:has(.wic) { grid-template-columns: 1fr; }
+/* gold: the coin, then the title, the amount and the roll button on one line */
+#wizard .wz3 .wz3-goldp { display: flex; align-items: center; gap: 16px; flex-wrap: nowrap; }
+#wizard .wz3 .wz3-gic { flex: none; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 14px; background: rgba(224,170,58,.12); color: #e0aa3a; } #wizard .wz3 .wz3-gic svg { width: 26px; height: 26px; }
+#wizard .wz3 .wz3-gtx { display: grid; gap: 8px; min-width: 0; } #wizard .wz3 .wz3-gtx > b { font-size: 1rem; }
+#wizard .wz3 .wz3-grow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+#wizard .wz3 .wz3-gin { position: relative; display: block; } #wizard .wz3 .wz3-gin input { width: 140px; padding-right: 36px !important; font-size: 1.1rem !important; font-weight: 800; }
+#wizard .wz3 .wz3-gin span { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--wc-dim); font-weight: 700; font-size: .85rem; pointer-events: none; }
+#wizard .wz3 .wz3-goldp .btn { align-self: auto; min-height: 42px; }
+#wizard .wz3 .wz3-goldp .hint { flex-basis: auto; }
+/* steps that only come if your race or class needs them: quieter until they're known */
+#wizard .wz3 .wz-step.maybe { opacity: .5; } #wizard .wz3 .wz-step.maybe .wz-st { font-style: italic; }
+html.mobile #wizard .wz3 .wz-step.maybe::after { opacity: .35; background-image: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 7px); }

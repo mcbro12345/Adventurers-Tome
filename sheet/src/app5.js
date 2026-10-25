@@ -660,11 +660,12 @@ function renderWizard() {
       ${window.wzHeader ? `<div class="wz3-imp"><div><b>Already have this character somewhere?</b><span class="hint">Bring it in instead of building it again: classes, scores, spells, equipment and notes.</span></div><div class="wz3-impb"><button class="btn" data-wact="ddb">${WZI.ddb}From D&amp;D Beyond</button><button class="btn" data-wact="import">${WZI.file}From a sheet file</button></div></div>` : `<p class="hint" style="margin-top:16px">Already have a character exported from this sheet? <button class="linkbtn" data-wact="import">Import it</button></p>
       <div class="wz-ddb bottom"><div><b>Made your character on D&amp;D Beyond?</b><span class="hint">Bring it over: classes, scores, spells, equipment and notes.</span></div><button class="btn" data-wact="ddb">Import from D&amp;D Beyond</button></div>`}`;
   } else if (st === 1) {
-    const x = wzRace();
+    const x = wzRace(), split = !!window.wzHeader, opt = split && W.part === 'opts', pickOnly = split && !opt;
     body = `<div class="wz-grid">${fld('Race', `<select class="f" data-wz="race"><option value="">— choose a race —</option>${DND.raceGroups.map(([g, ks]) => `<optgroup label="${esc(g)}">${ks.filter(k => DND.races[k]).sort((a, b) => abc(DND.races[a].name, DND.races[b].name)).map(k => `<option value="${k}"${W.race === k ? ' selected' : ''}>${esc(DND.races[k].name)}${DND.races[k].src && DND.races[k].src !== 'PHB' ? ' (' + DND.races[k].src + ')' : ''}</option>`).join('')}</optgroup>`).join('')}</select>`)}
-      ${wz3Cards('race')}
-      ${x && x.r.subraces ? fld('Subrace / variant', `<select class="f" data-wz="sub"><option value="">— choose —</option>${Object.entries(x.r.subraces).sort(([, a], [, b]) => abc(a.name, b.name)).map(([k, s]) => `<option value="${k}"${W.sub === k ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select>`) : ''}</div>`;
-    if (x) {
+      ${pickOnly ? wz3Cards('race') : ''}
+      ${opt && x && x.r.subraces ? wz3Cards('sub') : ''}
+      ${!pickOnly && x && x.r.subraces ? fld('Subrace / variant', `<select class="f" data-wz="sub"><option value="">— choose —</option>${Object.entries(x.r.subraces).sort(([, a], [, b]) => abc(a.name, b.name)).map(([k, s]) => `<option value="${k}"${W.sub === k ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select>`) : ''}</div>`;
+    if (x && !pickOnly) {
       const r = x.r, s = x.s, tr = (s.replaceTraits ? [] : r.traits || []).concat(s.traits || []);
       const sp = (r.spells || []).concat(s.spells || []);
       body += `<div class="wz-info"><p><b>${esc(x.name)}</b> · ${esc(s.size || r.size || 'Medium')} · speed ${s.speed || r.speed || 30} ft${(s.fly || r.fly) ? ', fly ' + (s.fly || r.fly) : ''}${(s.swim || r.swim) ? ', swim ' + (s.swim || r.swim) : ''}${(s.darkvision || r.darkvision) ? ' · darkvision ' + (s.darkvision || r.darkvision) + ' ft' : ''} · ${esc(DND.sources[s.src || r.src] || '')}</p>
@@ -681,7 +682,7 @@ function renderWizard() {
     W.classes = [Object.assign(W.classes[0] || {}, { level: 1 })];
     body = `<p class="hint">Pick your class. Everyone starts at level 1 — use <b>Level Up</b> on the sheet to reach your level; it asks for each level's choices (subclass, Ability Score Improvements, spells) as you go, and is where you multiclass.</p>
       ${wz3Cards('class')}
-      ${W.classes.map((r, i) => { const c = CL[r.key]; return `<div class="wz-cls"><div class="wz-grid">${fld('Class', `<select class="f" data-wzc="${i}" data-f="key"><option value="">— choose —</option>${DND.classOrder.map(k => `<option value="${k}"${r.key === k ? ' selected' : ''}>${esc(CL[k].name)}${CL[k].src !== 'PHB' ? ' (' + CL[k].src + ')' : ''}</option>`).join('')}</select>`)}
+      ${W.classes.map((r, i) => { const c = CL[r.key]; return `<div class="wz-cls${c ? '' : ' wz3-empty'}"><div class="wz-grid">${fld('Class', `<select class="f" data-wzc="${i}" data-f="key"><option value="">— choose —</option>${DND.classOrder.map(k => `<option value="${k}"${r.key === k ? ' selected' : ''}>${esc(CL[k].name)}${CL[k].src !== 'PHB' ? ' (' + CL[k].src + ')' : ''}</option>`).join('')}</select>`)}
         ${c && c.sub.level <= 1 ? fld(c.sub.label, `<select class="f" data-wzc="${i}" data-f="sub"><option value="">— choose —</option>${bookSort(Object.entries(c.subclasses), ([, v]) => v.src, ([, v]) => v.name).map(([k, s]) => `<option value="${k}"${r.sub === k ? ' selected' : ''}>${esc(s.name)}${s.src !== 'PHB' ? ' (' + s.src + ')' : ''}</option>`).join('')}</select>`) : c ? `<span class="hint">${esc(c.sub.label)} at level ${c.sub.level}</span>` : ''}</div>
         ${c ? `<p class="hint">d${c.hd} Hit Dice · saves ${c.saves.map(a => AB3[a]).join(', ')} · ${esc(c.armor)} · ${esc(c.weapons)}</p>` : ''}
         ${c && r.sub && c.subclasses[r.sub] ? `<p class="hint">${esc(c.subclasses[r.sub].features.filter(f => f[0] <= 1).map(f => f[1]).join(' · '))}</p>` : ''}</div>`; }).join('')}`;
@@ -765,13 +766,17 @@ function renderWizard() {
       ${probs.length ? `<p class="warn">${probs.map(esc).join(' · ')}</p>` : todo.length ? '' : '<p>Everything is set. You can change anything later — scores, skills, spells and items are all editable on the sheet.</p>'}
       <p class="hint">Scores include racial bonuses, Ability Score Improvements and half-feats.</p></div>`;
   }
-  const sums = wz3Sums(), last = st === WSTEPS.length - 1;
+  const sums = wz3Sums(), VS = wz3Steps(), vi = wz3Cur(VS), V = VS[vi] || { label: WSTEPS[st] }, last = vi === VS.length - 1;
   $('#wizard').innerHTML = `<div class="wz-box wz3">${typeof window.wzHeader === 'function' ? window.wzHeader() : ''}<div class="wz3-wrap"><aside class="wz3-side">${wz3Hero()}
-      <div class="wz-head"><h2>Create your character</h2><div class="wz-steps">${WSTEPS.map((t, i) => `<button class="wz-step${i === st ? ' on' : ''}${i < st ? ' done' : ''}" data-wact="go" data-v="${i}" aria-label="Step ${i + 1}: ${t}"><span class="wz-sn">${i < st ? '✓' : i + 1}</span><span class="wz3-si" aria-hidden="true">${WZI.steps[i] || ''}</span><span class="wz-st">${t}</span>${sums[i] && i !== st ? `<small class="wz3-sum">${esc(sums[i])}</small>` : ''}</button>`).join('')}</div><div class="wz-now">Step ${st + 1} of ${WSTEPS.length}<b>${WSTEPS[st]}</b></div></div></aside>
-    <div class="wz3-main"><div class="wz-body"><h3>${WSTEPS[st]}</h3>${body}</div></div></div>
-    <div class="wz-foot">${st ? '<button class="btn" data-wact="back">Back</button>' : ''}<span class="wz3-prog" aria-hidden="true"><i style="width:${Math.round((st + 1) / WSTEPS.length * 100)}%"></i></span><small class="wz3-of">Step ${st + 1} of ${WSTEPS.length}</small>${!last ? `<button class="btn gold" data-wact="next">Next<span class="wz3-nx">: ${WSTEPS[st + 1]}</span></button>` : '<button class="btn gold" data-wact="create">Create character</button>'}</div></div>`;
+      <div class="wz-head"><h2>Create your character</h2><div class="wz-steps">${VS.map((v, i) => { const sm = v.part === 'opts' ? sums.sub : sums[v.st]; return `<button class="wz-step${i === vi ? ' on' : ''}${i < vi ? ' done' : ''}${v.maybe && i !== vi ? ' maybe' : ''}" data-wact="vgo" data-v="${i}" aria-label="Step ${i + 1}: ${esc(v.label)}${v.maybe ? ' (only if needed)' : ''}"${v.maybe ? ` title="Only if your ${v.st === 1 ? 'race' : 'class'} needs it"` : ''}><span class="wz-sn">${i < vi ? '✓' : i + 1}</span><span class="wz3-si" aria-hidden="true">${v.part === 'opts' ? WZI.opts : WZI.steps[v.st] || ''}</span><span class="wz-st">${esc(v.label)}</span>${sm && i !== vi ? `<small class="wz3-sum">${esc(sm)}</small>` : ''}</button>`; }).join('')}</div><div class="wz-now">Step ${vi + 1} of ${VS.some(v => v.maybe) ? 'up to ' : ''}${VS.length}<b>${esc(V.label)}</b></div></div></aside>
+    <div class="wz3-main"><div class="wz-body"><h3>${esc(V.label)}</h3>${body}</div></div></div>
+    <div class="wz-foot">${vi > 0 ? '<button class="btn" data-wact="back">Back</button>' : ''}<span class="wz3-prog" aria-hidden="true"><i style="width:${Math.round((vi + 1) / VS.length * 100)}%"></i></span><small class="wz3-of">Step ${vi + 1} of ${VS.some(v => v.maybe) ? 'up to ' : ''}${VS.length}</small>${!last ? `<button class="btn gold" data-wact="next">Next<span class="wz3-nx">: ${esc(VS[vi + 1].label)}</span></button>` : '<button class="btn gold" data-wact="create">Create character</button>'}</div></div>`;
   { const g = $('#wizard .wz3-cards .sel'); if (g && g.parentElement) g.parentElement.scrollTop = Math.max(0, g.offsetTop - g.parentElement.offsetTop - 60); }
-  wz3FeatLists(); { const l = $('#wizard .wz3-list.has'); const on = l && l.querySelector('.crrow.on'); if (on) l.scrollTop = Math.max(0, on.offsetTop - l.offsetTop - 60); }
+  wz3FeatLists(); wz3Shades();
+  // a step that just appeared (say, Spells after picking a caster) slides open in the list
+  { const now = VS.map(v => v.label), was = W._vs; W._vs = now;
+    if (was && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) $$('#wizard .wz-step').forEach((b, i) => { if (!was.includes(now[i]) && b.animate) { const h = b.offsetHeight, w = b.offsetWidth, row = getComputedStyle(b.parentElement).flexDirection === 'row';
+      b.animate(row ? [{ opacity: 0, maxWidth: '0px', transform: 'scale(.6)' }, { opacity: 1, maxWidth: w + 'px', transform: 'none' }] : [{ opacity: 0, maxHeight: '0px', minHeight: '0px', transform: 'translateX(-10px)', background: 'rgba(224,170,58,.35)' }, { opacity: 1, maxHeight: h + 'px', minHeight: h + 'px', transform: 'none', offset: .6 }, { background: 'transparent' }], { duration: 650, easing: 'cubic-bezier(.2,.8,.3,1)' }); } }); } { const l = $('#wizard .wz3-list.has'); const on = l && l.querySelector('.crrow.on'); if (on) l.scrollTop = Math.max(0, on.offsetTop - l.offsetTop - 60); }
   { const who = $('#wizard .wz3-who span'), key = who ? who.textContent : ''; if (who && W._who !== undefined && W._who !== key && who.animate) who.animate([{ opacity: 0, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'ease-out' }); W._who = key; }
   $$('#wizard [data-wzq]').forEach(i => filterWzSpells(i));
   // Moving between steps: the new step slides in from the side you're heading (fades up on opening), and the step
@@ -788,7 +793,7 @@ function renderWizard() {
 // ----- the creation look: what's picked so far, step summaries, and races / classes / backgrounds as cards -----
 // (the cards only pick a value in the step's own list, so everything else works exactly as before)
 function wz3Sums() {
-  const out = []; try { out[0] = W.name || ''; const x = wzRace(); out[1] = x ? x.name : ''; const c = W.classes && W.classes[0] && CL[W.classes[0].key]; out[2] = c ? c.name : '';
+  const out = []; try { out[0] = W.name || ''; const x = wzRace(); out[1] = x ? x.r.name : ''; out.sub = x && x.r.subraces ? (x.s.name || '') : ''; const c = W.classes && W.classes[0] && CL[W.classes[0].key]; out[2] = c ? c.name : '';
     out[3] = ({ pointbuy: 'Point buy', array: 'Standard array', roll: 'Rolled', manual: 'Entered' })[W.method] || ''; const b = W.bg && DND.backgrounds[W.bg]; out[4] = b ? b.name : ''; } catch (e) {}
   return out;
 }
@@ -801,17 +806,18 @@ function wz3Hero() {
 function wz3Cards(kind) {
   let items = [], cur = '', label = '';
   if (kind === 'race') { cur = W.race; label = 'races'; DND.raceGroups.forEach(([g, ks]) => ks.filter(k => DND.races[k]).sort((a, b) => abc(DND.races[a].name, DND.races[b].name)).forEach(k => { const r = DND.races[k]; items.push({ k, g, name: r.name, tags: [r.size || 'Medium', (r.speed || 30) + ' ft'].concat(r.src && r.src !== 'PHB' ? [r.src] : []) }); })); }
-  if (kind === 'class') { cur = W.classes && W.classes[0] ? W.classes[0].key : ''; label = 'classes'; DND.classOrder.forEach(k => { const c = CL[k]; items.push({ k, g: '', name: c.name, tags: ['d' + c.hd, c.saves.map(a => AB3[a]).join(' · ')].concat(c.src !== 'PHB' ? [c.src] : []) }); }); }
+  if (kind === 'sub') { const x = wzRace(); cur = W.sub; label = 'variants'; if (x && x.r.subraces) Object.entries(x.r.subraces).sort(([, a], [, b]) => abc(a.name, b.name)).forEach(([k, v]) => items.push({ k, g: '', name: v.name, tags: [v.speed ? v.speed + ' ft' : '', v.darkvision ? 'darkvision' : '', v.src && v.src !== 'PHB' ? v.src : ''].filter(Boolean) })); }
+  if (kind === 'class') { cur = W.classes && W.classes[0] ? W.classes[0].key : ''; label = 'classes'; DND.classOrder.forEach(k => { const c = CL[k]; items.push({ k, g: '', name: c.name, ic: wz3ClassIcon(k), tags: ['d' + c.hd, c.saves.map(a => AB3[a]).join(' · ')].concat(c.src !== 'PHB' ? [c.src] : []) }); }); }
   if (kind === 'bg') { cur = W.bg; label = 'backgrounds'; bookSort(Object.entries(DND.backgrounds), ([, v]) => v.src, ([, v]) => v.name).forEach(([k, v]) => items.push({ k, g: '', name: v.name, tags: v.src && v.src !== 'PHB' ? [v.src] : [] })); }
   if (!items.length) return '';
   let lastG = null;
   const cards = items.map(it => { const head = it.g && it.g !== lastG ? `<p class="wz3-g">${esc(it.g)}</p>` : ''; lastG = it.g;
-    return `${head}<button type="button" class="wz3-card${it.k === cur ? ' sel' : ''}" data-pick="${kind}" data-v="${esc(it.k)}" data-q="${esc(it.name.toLowerCase())}"><b>${esc(it.name)}</b>${it.tags.length ? `<span class="wz3-tags">${it.tags.map(t => `<i>${esc(t)}</i>`).join('')}</span>` : ''}</button>`; }).join('');
-  return `<div class="wz3-pick"><input class="f wz3-q" data-wz3q placeholder="Search ${label}" autocomplete="off" aria-label="Search ${label}"><div class="wz3-cards${cur ? ' has' : ''}">${cards}</div></div>`;
+    return `${head}<button type="button" class="wz3-card${it.k === cur ? ' sel' : ''}${it.ic ? ' wic' : ''}" data-pick="${kind}" data-v="${esc(it.k)}" data-q="${esc(it.name.toLowerCase())}">${it.ic ? `<span class="wz3-cic">${it.ic}</span>` : ''}<b>${esc(it.name)}</b>${it.tags.length ? `<span class="wz3-tags">${it.tags.map(t => `<i>${esc(t)}</i>`).join('')}</span>` : ''}</button>`; }).join('');
+  return `<div class="wz3-pick"><input class="f wz3-q" data-wz3q placeholder="Search ${label}" autocomplete="off" aria-label="Search ${label}"><div class="wz3-cards${cur && items.length > 24 ? ' has' : ''}">${cards}</div></div>`;
 }
 if (!window.__wz3) { window.__wz3 = 1;
   document.addEventListener('click', e => { const c = e.target.closest && e.target.closest('#wizard [data-pick]'); if (!c) return;
-    const sel = c.dataset.pick === 'race' ? $('#wizard [data-wz="race"]') : c.dataset.pick === 'bg' ? $('#wizard [data-wz="bg"]') : $('#wizard [data-wzc="0"][data-f="key"]'); if (!sel) return;
+    const sel = c.dataset.pick === 'race' ? $('#wizard [data-wz="race"]') : c.dataset.pick === 'sub' ? $('#wizard [data-wz="sub"]') : c.dataset.pick === 'bg' ? $('#wizard [data-wz="bg"]') : $('#wizard [data-wzc="0"][data-f="key"]'); if (!sel) return;
     sel.value = c.dataset.v; sel.dispatchEvent(new Event('change', { bubbles: true })); });
   document.addEventListener('input', e => { const q = e.target.closest && e.target.closest('#wizard [data-wz3q]'); if (!q) return; const v = q.value.trim().toLowerCase(), box = q.nextElementSibling;
     box.querySelectorAll('.wz3-card').forEach(c => { c.hidden = !!v && !c.dataset.q.includes(v); });
@@ -820,6 +826,7 @@ if (!window.__wz3) { window.__wz3 = 1;
 
 const WZI = (() => { const I = d => `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
   return { steps: [I('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'), I('<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"/>'), I('<path d="M14.5 17.5 3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2"/>'), I('<path d="M3 20h18M6 16V9M10 16V5M14 16v-6M18 16V7"/>'), I('<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/>'), I('<path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8L3.5 9.2l5.9-.9z"/>'), I('<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="3"/>'), I('<path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>'), I('<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>')],
+    opts: I('<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>'),
     ddb: I('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/>'), file: I('<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>'), coin: I('<circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10.5c0-1 1-1.5 2.5-1.5s2.5.6 2.5 1.5-1 1.3-2.5 1.5-2.5.6-2.5 1.5 1 1.5 2.5 1.5 2.5-.5 2.5-1.5"/>'),
     pack: I('<path d="M6 7h12l1 13H5z"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/>'), sword: I('<path d="M14.5 17.5 3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2"/>'), shield: I('<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/>'), item: I('<path d="M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.7z"/>'), dice: I('<rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1.2"/><circle cx="15.5" cy="15.5" r="1.2"/><circle cx="12" cy="12" r="1.2"/>') }; })();
 // Backgrounds as a list like the spell lists: search, one row each with what it gives, tick one
@@ -855,9 +862,46 @@ function wz3Equip(c, b, kit) {
       return `<label class="wz3-item${off ? ' off' : ''}"><input type="checkbox" data-wzkit="${i}"${off ? '' : ' checked'}><span class="wz3-iic">${ico(n)}</span><span class="wz3-itx"><b>${esc(n)}${q ? ` <i>×${esc(q)}</i>` : ''}</b>${pk ? `<small>Unpacks into ${esc(pk.map(([x, cc]) => (cc ? cc + ' × ' : '') + x.replace(/\s*\(.*\)$/, '').toLowerCase()).join(', '))}</small>` : ''}</span><span class="wz3-tick" aria-hidden="true"></span></label>`; };
     const sect = (src, title) => { const g = grp(src); return g.length ? `<section class="wz3-isec"><h4>${title}<span>${g.length} ${g.length === 1 ? 'item' : 'items'}</span></h4><div class="wz3-items">${g.map(tile).join('')}</div></section>` : ''; };
     h += `<p class="hint">Untick anything you don't want. Choices like "a martial weapon" are set to a sensible default — swap items in Inventory any time, and add more from the full catalog.</p>${sect('class', 'From your class' + (c ? ` (${esc(c.name)})` : ''))}${sect('bg', 'From your background' + (b ? ` (${esc(b.name)})` : ''))}${b ? `<p class="wz3-gp">${WZI.coin}<span>Plus <b>${b.gold} gp</b> from your background.</span></p>` : ''}`;
-  } else h += `<div class="wz3-goldp"><div class="wz3-gold">${WZI.coin}<label><span class="lbl">Gold</span><input class="f" type="number" data-wz="gold" value="${esc(W.gold)}" inputmode="numeric"></label></div><button class="btn gold" data-wact="rollgold">${WZI.dice}Roll ${esc(c ? c.gold : '')} gp</button><p class="hint">Buy gear from the catalog in Inventory after creating.</p></div>`;
+  } else h += `<div class="wz3-goldp"><span class="wz3-gic">${WZI.coin}</span><div class="wz3-gtx"><b>Starting gold</b><div class="wz3-grow"><label class="wz3-gin"><input class="f" type="number" data-wz="gold" value="${esc(W.gold)}" inputmode="numeric" placeholder="0" aria-label="Gold"><span>gp</span></label><button class="btn gold" data-wact="rollgold">${WZI.dice}Roll ${esc(c ? c.gold : '')} gp</button></div><p class="hint">Buy gear from the catalog in Inventory after creating.</p></div></div>`;
   return h;
 }
+// Scrolling boxes of cards or rows get a line and a soft shadow at whichever edge has more to scroll to
+function wz3Shades() {
+  $$('#wizard .wz3-cards.has, #wizard .wz3-list').forEach(box => {
+    if (box.parentElement.classList.contains('wz3-sc')) return;
+    const w = document.createElement('div'); w.className = 'wz3-sc'; box.before(w); w.appendChild(box);
+    const paint = () => { w.classList.toggle('top', box.scrollTop > 2); w.classList.toggle('bot', box.scrollTop + box.clientHeight < box.scrollHeight - 2); };
+    box.addEventListener('scroll', paint, { passive: true }); requestAnimationFrame(paint);
+  });
+}
+// A simple drawn symbol for each class (our own line drawings)
+function wz3ClassIcon(k) {
+  const P = { artificer: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>',
+    barbarian: '<path d="M14 4l6 6-3 1-2 6-3-3-6 6-2-2 6-6-3-3 6-2z"/>', bard: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
+    cleric: '<circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l2.5 2.5M16.5 16.5 19 19M5 19l2.5-2.5M16.5 7.5 19 5"/>', druid: '<path d="M5 19c0-8 5-14 14-14 0 9-6 14-14 14z"/><path d="M5 19 13 11"/>',
+    fighter: '<path d="M14.5 17.5 3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2"/>', monk: '<path d="M8 13V6a1.5 1.5 0 0 1 3 0v5M11 11V4.5a1.5 1.5 0 0 1 3 0V11M14 11V6a1.5 1.5 0 0 1 3 0v8a6 6 0 0 1-6 6h-1a5 5 0 0 1-4-2l-3-4a1.5 1.5 0 0 1 2.4-1.8L8 14"/>',
+    paladin: '<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M12 8v8M9 11h6"/>', ranger: '<path d="M4 20 20 4M14 4h6v6"/><path d="M6 6c6 0 12 6 12 12"/>',
+    rogue: '<path d="M14 3l7 7-9 9-4 1 1-4z"/><path d="M5 19l-2 2"/>', sorcerer: '<path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-4 1-6 1-9z"/>',
+    warlock: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>', wizard: '<path d="M12 2l3 7H9z"/><path d="M5 22l7-13 7 13"/><path d="M8 17h8"/>' };
+  const d = P[k] || P[String(k).replace(/tce$|2024$/, '')] || '<circle cx="12" cy="12" r="8"/>';
+  return `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+}
+// The steps you see: race options only when the race has some, class options and spells only when your class has them
+function wz3Steps() {
+  const x = wzRace(), noCls = !W.classes[0] || !W.classes[0].key; let ro = !x, co = true, sp = true;
+  try { if (x) ro = !!(x.r.subraces || wzRaceChoices().length || wzRaceAsiUI() || typeof (x.s.asiReplace ? x.s.asi : x.r.asi) === 'object'); } catch (e) {}
+  try { co = !W.classes[0] || !W.classes[0].key || wzClassChoiceDefs().length > 0; } catch (e) {}
+  try { sp = !W.classes[0] || !W.classes[0].key || wzSpellPlan().length > 0; } catch (e) {}
+  const L = [{ st: 0, label: 'Start' }, { st: 1, part: 'pick', label: 'Race' }];
+  // (until the race or class is picked, the steps it might need stay in the list, marked as maybe, so the count only ever goes down)
+  if (ro) L.push({ st: 1, part: 'opts', label: 'Race options', maybe: !x });
+  L.push({ st: 2, label: 'Class' }, { st: 3, label: 'Abilities' }, { st: 4, label: 'Background' });
+  if (co) L.push({ st: 5, label: 'Class options', maybe: noCls }); if (sp) L.push({ st: 6, label: 'Spells', maybe: noCls });
+  L.push({ st: 7, label: 'Equipment' }, { st: 8, label: 'Review' });
+  return L;
+}
+function wz3Cur(VS) { let i = VS.findIndex(v => v.st === W.step && (v.st !== 1 || (v.part === 'opts') === (W.part === 'opts'))); if (i < 0) i = VS.findIndex(v => v.st >= W.step); return i < 0 ? 0 : i; }
+function wz3Move(d) { const VS = wz3Steps(), v = VS[Math.max(0, Math.min(VS.length - 1, wz3Cur(VS) + d))]; W.step = v.st; W.part = v.part || ''; }
 function asiModeClick(b) {
   const inWz = !!b.closest('#wizard'), inP = !!b.closest('#pendm') && PEND, CH = inWz ? W.ans : inP ? PEND.ans : LV ? LV.ans : null; if (!CH) return;
   CH[b.dataset.asimode] = [b.dataset.v];
@@ -891,9 +935,10 @@ function wizClick(e) {
   const b = e.target.closest('[data-wact]'); if (!b) return;
   const a = b.dataset.wact;
   switch (a) {
-    case 'next': W.step = Math.min(WSTEPS.length - 1, W.step + 1); break;
-    case 'back': W.step = Math.max(0, W.step - 1); break;
-    case 'go': W.step = N(b.dataset.v); break;
+    case 'next': if (window.wzHeader) { wz3Move(1); break; } W.step = Math.min(WSTEPS.length - 1, W.step + 1); break;
+    case 'back': if (window.wzHeader) { wz3Move(-1); break; } W.step = Math.max(0, W.step - 1); break;
+    case 'go': W.step = N(b.dataset.v); W.part = W.step === 1 && W.race ? 'opts' : ''; break;
+    case 'vgo': { const v = wz3Steps()[N(b.dataset.v)]; if (v) { W.step = v.st; W.part = v.part || ''; } break; }
     case 'portrait': $('#portraitFile').click(); return;
     case 'import': $('#importFile').click(); return;
     case 'ddb': openDdbImport(); return;
