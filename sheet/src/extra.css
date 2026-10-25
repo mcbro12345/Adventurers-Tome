@@ -1912,7 +1912,7 @@ html:not(.mobile) .oocbar .hint { margin-top: 1px; }
 /* Desktop tabs: the hover square sits a little inside the tab */
 html:not(.mobile) #tabs .tab { position: relative; }
 html:not(.mobile) #tabs .tab:not(.on):hover { background-color: transparent !important; }
-html:not(.mobile) #tabs .tab:not(.on)::before { content: ''; position: absolute; inset: 0 10px; border-radius: 8px; background: color-mix(in srgb, var(--gold) 12%, transparent); opacity: 0; transition: opacity .18s ease; pointer-events: none; z-index: 0; }
+html:not(.mobile) #tabs .tab::before { content: ''; position: absolute; inset: 0 10px; border-radius: 8px; background: color-mix(in srgb, var(--gold) 12%, transparent); opacity: 0; transition: opacity .18s ease; pointer-events: none; z-index: 0; }
 html:not(.mobile) #tabs .tab:not(.on):hover::before { opacity: 1; }
 html:not(.mobile) #tabs .tab > * { position: relative; z-index: 1; }
 
@@ -3611,3 +3611,7 @@ html.mobile #modal-body:has(#catq) { width: 100%; height: min(calc(100dvh - 24px
 /* Phones: a list or box scrolling inside the page, a window or the wizard hands the scroll on when it reaches its
    top or bottom (the page or window itself still stops at its own edge, so nothing behind it moves) */
 html.mobile :is(section.page, #modal-body, .wz-body, #wizard .wz3-main, #wizard .wz3-side) * { overscroll-behavior-y: auto !important; }
+/* the tab you click keeps its hover highlight until the sliding highlight arrives, then lets go of it */
+html:not(.mobile) #tabs .tab.on::before { opacity: 0; transition: opacity .2s ease .26s; }
+@media (prefers-reduced-motion: reduce) { html:not(.mobile) #tabs .tab.on::before { transition: none; } }
+html:not(.mobile) #tabs .tab.on.tkeep::before { opacity: 1; transition: none; }

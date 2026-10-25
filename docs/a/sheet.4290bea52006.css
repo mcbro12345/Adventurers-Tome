@@ -1693,7 +1693,6 @@ html:not(.mobile) .toolbar.tb-compact.tb-wrap { flex-wrap: wrap; }
 .toolbar .tbtn { white-space: nowrap; }
 .advtile { container-type: inline-size; }
 .advtile .as { display: none; }
-@container (max-width: 104px) { .advtile .al { display: none; } .advtile .as { display: inline; } }
 @media (min-width: 761px) and (max-width: 1000px) { html:not(.mobile) .vitals .tile > .lbl { font-size: .6rem; letter-spacing: .04em; } }
 html:not(.mobile) .toolbar:not(.tb-compact) [data-zi="history"] .ti { display: none; }
 /* Roll cards: 🎲 shows every die (and the DC / extra lines) */
@@ -1790,7 +1789,6 @@ html.mobile .settabs, html.mobile .modal.xwide .settabs { column-count: 1; displ
 .advtile .advopt { display: grid; grid-template-columns: 16px minmax(0, 1fr); align-items: center; gap: 6px; height: 30px; padding: 0 8px; font-size: .78rem; }
 .advtile .advopt input { width: 16px !important; height: 16px !important; min-width: 16px; flex: none; margin: 0; }
 .advtile .advopt .al, .advtile .advopt .as { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-@container (max-width: 150px) { .advtile .al { display: none; } .advtile .as { display: inline; } }
 html.mobile .advtile .advopt { height: 40px; font-size: .9rem; }
 .r20steps li { margin: 6px 0; line-height: 1.45; } .r20steps .btn { margin-top: 4px; }
 /* d20 tile: whole pill is the toggle, full words always */
@@ -2583,7 +2581,7 @@ html:not(.mobile) .oocbar .hint { margin-top: 1px; }
 /* Desktop tabs: the hover square sits a little inside the tab */
 html:not(.mobile) #tabs .tab { position: relative; }
 @media (hover:hover){html:not(.mobile):not(.mobile) #tabs .tab:not(.on):hover{ background-color: transparent !important; }}
-html:not(.mobile) #tabs .tab:not(.on)::before { content: ''; position: absolute; inset: 0 10px; border-radius: 8px; background: color-mix(in srgb, var(--gold) 12%, transparent); opacity: 0; transition: opacity .18s ease; pointer-events: none; z-index: 0; }
+html:not(.mobile) #tabs .tab::before { content: ''; position: absolute; inset: 0 10px; border-radius: 8px; background: color-mix(in srgb, var(--gold) 12%, transparent); opacity: 0; transition: opacity .18s ease; pointer-events: none; z-index: 0; }
 @media (hover:hover){html:not(.mobile):not(.mobile) #tabs .tab:not(.on):hover::before{ opacity: 1; }}
 html:not(.mobile) #tabs .tab > * { position: relative; z-index: 1; }
 
@@ -2665,7 +2663,6 @@ html.mobile .advb { font-size: .8rem; padding: 6px 12px; }
 
 .tile.condtile { container-type: inline-size; }
 .advb .as { display: none; }
-@container (max-width: 372px) { .advb .al { display: none; } .advb .as { display: inline; } }
 
 .sarow { flex-wrap: nowrap !important; }
 .sadotw .hint { white-space: nowrap; display: inline-block; min-width: 7.2em; }
@@ -3285,6 +3282,7 @@ html.mobile:not([data-theme="dark"]) .tabs { box-shadow: 0 -6px 16px rgba(60,45,
 @keyframes wSheetOut { from { transform: none; } to { transform: translateY(100%); } }
 .modal-bg.open { animation: wFadeIn .2s ease; }
 .modal-bg.open > .modal { animation: wPopIn .28s ease; }
+.modal-bg.pre, .modal-bg.pre > .modal { animation-play-state: paused !important; }
 .modal-bg.closing { display: flex; pointer-events: none; animation: wFadeOut .18s ease forwards; }
 .modal-bg.closing > .modal { animation: wPopOut .18s ease forwards; }
 html.mobile .modal-bg.open > .modal { animation: wSheetIn .32s cubic-bezier(.2,.9,.3,1); }
@@ -4208,4 +4206,82 @@ html.mobile #rolllogmodal .rl-list { height: auto; max-height: min(62vh, 640px);
 .toast.rollcard:has(> .rc-dice) { padding-right: 46px; }
 .toast.rollcard > .rc-dice { top: 50%; bottom: auto; right: 8px; transform: translateY(-50%); }
 .pbadge.defb.vul { border-color: color-mix(in srgb, #c0392b 55%, transparent); color: color-mix(in srgb, #c0392b 70%, var(--ink, currentColor)); }
+/* Add an item: one fixed size for every tab; only the list inside scrolls */
+#modal-body:has(#catq) { width: min(820px, 96vw); height: min(calc(100dvh - 40px), 760px); max-height: none; display: flex; flex-direction: column; overflow: hidden; }
+#modal-body:has(#catq) > * { flex: none; }
+#modal-body:has(#catq) > .crlist { flex: 1 1 auto; min-height: 0; max-height: none; }
+html.mobile #modal-body:has(#catq) { width: 100%; height: min(calc(100dvh - 24px - env(safe-area-inset-top)), 760px); }
+
+/* ===== Level Up and Unfinished choices, in the creation look ===== */
+#modal-body .lvx > h3, #pendm > h3 { margin: 0 0 2px; font: 700 1.6rem/1.2 Georgia, serif; color: var(--gold-ink); }
+#modal-body .lvx-sub { margin: 0 0 14px; color: var(--soft); } #modal-body .lvx-sub b { color: var(--ink); }
+#modal-body .lvx-h { margin: 16px 0 8px; font: 700 .8rem system-ui, sans-serif; color: var(--gold-ink); }
+#modal-body .lvx-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+#modal-body .lvx-cards.sm { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+#modal-body .lvx-card { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 12px; row-gap: 2px; align-items: center; min-width: 0; padding: 12px 36px 12px 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel2); color: var(--ink); font-family: inherit; text-align: left; cursor: pointer; transition: border-color .15s, background .15s, transform .12s; }
+#modal-body .lvx-card:not(:has(.lvx-ic)) { grid-template-columns: minmax(0, 1fr); }
+@media (hover:hover){:where(html:not(.mobile)) #modal-body .lvx-card:hover{ border-color: var(--gold); }} #modal-body .lvx-card:active { transform: scale(.98); }
+#modal-body .lvx-card b { font-size: .95rem; overflow-wrap: anywhere; } #modal-body .lvx-t { font-size: .76rem; color: var(--soft); font-weight: 600; }
+#modal-body .lvx-ic { grid-row: span 2; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 11px; background: var(--gold-soft); color: var(--gold-ink); }
+#modal-body .lvx-card.sel { border-color: var(--gold); background: var(--gold-soft); box-shadow: inset 0 0 0 1px var(--gold); animation: lvxPop .3s ease; }
+#modal-body .lvx-card.sel .lvx-ic { background: var(--gold); color: #1b1406; }
+#modal-body .lvx-card.sel::after { content: '✓'; position: absolute; top: 10px; right: 10px; width: 20px; height: 20px; border-radius: 50%; background: var(--gold); color: #1b1406; display: grid; place-items: center; font: 900 11px system-ui, sans-serif; }
+#modal-body .lvx-card.warn .lvx-t { color: var(--red); }
+@keyframes lvxPop { 40% { transform: scale(1.03); } }
+#modal-body .lvx-mc { margin-top: 10px; } #modal-body .lvx-mc > summary { cursor: pointer; padding: 6px 2px; color: var(--gold-ink); font-weight: 700; font-size: .9rem; list-style: none; } #modal-body .lvx-mc > summary::before { content: '+ '; } #modal-body .lvx-mc[open] > summary::before { content: '− '; }
+#modal-body .lvx-mc > .lvx-cards { margin-top: 6px; animation: lvxIn .25s ease; } @keyframes lvxIn { from { opacity: 0; transform: translateY(-4px); } }
+#modal-body .lvx-hid { display: none !important; }
+#modal-body .lvx-extra { display: grid; gap: 4px; max-width: 320px; margin-top: 10px; }
+#modal-body .lvx .lvsec { margin-top: 18px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel2); box-shadow: var(--shadow); }
+#modal-body .lvx .lvsec > h4 { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; padding-bottom: 10px; border-bottom: 1px solid var(--line2); font: 700 1.15rem Georgia, serif; color: var(--gold-ink); }
+#modal-body .lvx .lvsec > h4 svg { width: 22px; height: 22px; padding: 8px; box-sizing: content-box; border-radius: 11px; background: var(--gold-soft); }
+#modal-body .lvx-subs { margin: 6px 0 4px; }
+#modal-body .lvx-fl { list-style: none; margin: 0; padding: 0; } #modal-body .lvx-fl li { display: grid; gap: 2px; padding: 9px 2px; border-top: 1px solid var(--line2); } #modal-body .lvx-fl li span { color: var(--soft); font-size: .88rem; }
+#modal-body .lvx-hp { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line2); align-items: flex-end; }
+#modal-body .lvx .chq, #pendm .chq { margin-top: 12px; }
+/* the ASI choice: three big options */
+#modal-body .asimodes { gap: 8px; } #modal-body .asimode { border-radius: 12px; transition: border-color .15s, background .15s; } #modal-body .asimode.on { box-shadow: inset 0 0 0 1px var(--gold); }
+/* feat lists (like the spell lists) */
+#modal-body .wz3-pick { margin: 8px 0 4px; } #modal-body .wz3-q { width: 100%; max-width: 420px; margin: 0 0 8px; }
+#modal-body .wz3-fnote { margin: -2px 0 8px; }
+#modal-body .wz3-list { max-height: min(42vh, 380px); border: 1px solid var(--line); border-radius: 12px; background: var(--panel); box-shadow: var(--shadow); }
+#modal-body .wz3-list .crrow { padding: 9px 12px; cursor: pointer; transition: background .15s; } @media (hover:hover){:where(html:not(.mobile)) #modal-body .wz3-list .crrow:hover{ background: var(--panel2); }}
+#modal-body .wz3-list .crrow.on { background: var(--gold-soft); box-shadow: inset 3px 0 0 var(--gold); }
+#modal-body .wz3-list .crrow input { order: 2; accent-color: var(--gold); width: 17px; height: 17px; flex: none; } #modal-body .wz3-list .crrow > div { flex: 1; }
+#modal-body .wz3-list .crrow[hidden] { display: none; }
+/* unfinished choices: each one a panel */
+#pendm .pendq { padding: 14px 16px; margin: 12px 0; border: 1px solid var(--line); border-radius: 16px; background: var(--panel2); box-shadow: var(--shadow); animation: lvxIn .25s ease both; }
+#pendm .pendh { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--line2); align-items: center; }
+#pendm .pendopt { border-radius: 12px; }
+@media (prefers-reduced-motion: reduce) { #modal-body .lvx *, #pendm * { animation: none !important; transition: none !important; } }
+#modal-body .wz3-hid { display: none !important; }
+#modal-body .wz3-list.short, #wizard .wz3-list.short { max-height: none; }
+#modal-body .wz3-cnt, #wizard .wz3-cnt { margin: 0 0 6px; font-weight: 600; }
+#modal-body .wz3-list .crrow.dim, #wizard .wz3-list .crrow.dim { opacity: .5; cursor: not-allowed; }
+#modal-body .chsel:has(> .wz3-pick) { display: block; }
+/* companion in a column: the speed can be long (several movement types), so it wraps instead of being cut off */
+.comp2.incol .csts { display: flex; }
+.comp2.incol .cst { flex: none; }
+.comp2.incol .cst.wide { flex: 1 1 auto; min-width: 0; justify-content: flex-start; }
+.comp2.incol .cst.wide b { white-space: normal; overflow-wrap: anywhere; text-align: left; }
+/* cannon type */
+.cmode { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0 0; padding: 6px 10px; border: 1px solid var(--line2); border-radius: 10px; background: var(--panel2); font-size: .88rem; color: var(--soft); }
+.cmode b { color: var(--ink); }
+.cmode-pick { margin: 8px 0 0; padding: 10px; border: 1px dashed var(--gold); border-radius: 12px; }
+.cmode-pick p { margin: 0 0 8px; font-weight: 700; }
+.cmode-btns { display: flex; flex-wrap: wrap; gap: 6px; } .cmode-btns .btn { flex: 1 1 auto; }
+.cmode-btns.big .btn { padding: 12px; font-weight: 700; }
+.cmode-how { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin-top: 12px; }
+.cmode-how .btn { display: grid; gap: 3px; justify-items: start; text-align: left; padding: 10px 12px; height: auto; white-space: normal; }
+.cmode-how .btn span { font-size: .8rem; color: var(--soft); font-weight: 400; }
+#wizard .chsel:has(> .wz3-pick) { display: block; }
+#modal-body .wz3-chpick, #wizard .wz3-chpick, #modal-body .lvx-subs { max-width: 760px; }
+#modal-body .wz3-chpick .wz3-list, #wizard .wz3-chpick .wz3-list { width: 100%; }
+/* Phones: a list or box scrolling inside the page, a window or the wizard hands the scroll on when it reaches its
+   top or bottom (the page or window itself still stops at its own edge, so nothing behind it moves) */
+html.mobile :is(section.page, #modal-body, .wz-body, #wizard .wz3-main, #wizard .wz3-side) * { overscroll-behavior-y: auto !important; }
+/* the tab you click keeps its hover highlight until the sliding highlight arrives, then lets go of it */
+html:not(.mobile) #tabs .tab.on::before { opacity: 0; transition: opacity .2s ease .26s; }
+@media (prefers-reduced-motion: reduce) { html:not(.mobile) #tabs .tab.on::before { transition: none; } }
+html:not(.mobile) #tabs .tab.on.tkeep::before { opacity: 1; transition: none; }
 
