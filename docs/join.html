@@ -2982,6 +2982,30 @@ html:not(.mobile) #wizard .wz-box:has(> .wzh2) > .wz-foot { padding: 30px 10px 2
 .ha-sheet .ha-items a[data-ha] { min-height: 52px; border-radius: 0; background: #1c2435; padding: 0 16px; font-size: 1rem; }
 @media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) .ha-menu a[data-ha]:hover { background: rgba(0,0,0,.05); } :where(html:not([data-pgtheme])) .ha-sheet .ha-items a[data-ha] { background: #fffaf0; } }
  :where(html[data-pgtheme="light"]) .ha-menu a[data-ha]:hover { background: rgba(0,0,0,.05); } :where(html[data-pgtheme="light"]) .ha-sheet .ha-items a[data-ha] { background: #fffaf0; } 
+
+/* Shared with me, 2026 look: no boxes — each player is a quiet heading with a line running out to the right, their tiles beneath */
+body.hubbody .hd2-main .hub-folder { margin: 0 0 22px !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; }
+body.hubbody .hd2-main .hub-folder > summary { display: flex; align-items: center; gap: 10px; margin: 0 0 12px !important; padding: 2px 2px !important; border: 0 !important; background: none !important; list-style: none; cursor: pointer; color: #e9e3d3; }
+body.hubbody .hd2-main .hub-folder > summary::-webkit-details-marker { display: none; }
+body.hubbody .hd2-main .hub-folder > summary::after { content: ''; flex: 1; height: 1px; background: rgba(201,150,43,.18); margin-left: 6px; }
+body.hubbody .hd2-main .hf-caret { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; background: rgba(255,255,255,.05); color: #9aa3b5; font-size: .7rem; transition: transform .2s ease, background .15s; }
+body.hubbody .hd2-main .hub-folder[open] .hf-caret { transform: rotate(90deg); }
+body.hubbody .hd2-main .hub-folder > summary:hover .hf-caret { background: rgba(255,255,255,.1); color: #e9e3d3; }
+body.hubbody .hd2-main .hf-name { flex: none !important; font: 700 1.02rem/1.2 Georgia, serif; color: #e9e3d3; }
+body.hubbody .hd2-main .hf-n { flex: none; padding: 1px 8px; border-radius: 999px; background: rgba(255,255,255,.06); color: #9aa3b5; font-size: .76rem; font-weight: 700; }
+body.hubbody .hd2-main .hf-body { padding: 0 !important; margin: 0 !important; border: 0 !important; background: none !important; }
+/* the Can edit / View only tag: sentence case like everything else */
+.hd2-main .hc-txt .hc-acc { text-transform: none !important; letter-spacing: 0 !important; font-size: .68rem !important; font-weight: 700; padding: 2px 9px !important; }
+@media (prefers-color-scheme: light) {
+  :where(html:not([data-pgtheme])) body.hubbody .hd2-main .hub-folder > summary, :where(html:not([data-pgtheme])) body.hubbody .hd2-main .hf-name { color: #1f2a44; }
+  :where(html:not([data-pgtheme])) body.hubbody .hd2-main .hub-folder > summary::after { background: #e3d6b8; }
+  :where(html:not([data-pgtheme])) body.hubbody .hd2-main .hf-caret, :where(html:not([data-pgtheme])) body.hubbody .hd2-main .hf-n { background: rgba(0,0,0,.05); color: #5c6478; }
+}
+
+  :where(html[data-pgtheme="light"]) body.hubbody .hd2-main .hub-folder > summary, :where(html[data-pgtheme="light"]) body.hubbody .hd2-main .hf-name { color: #1f2a44; }
+  :where(html[data-pgtheme="light"]) body.hubbody .hd2-main .hub-folder > summary::after { background: #e3d6b8; }
+  :where(html[data-pgtheme="light"]) body.hubbody .hd2-main .hf-caret, :where(html[data-pgtheme="light"]) body.hubbody .hd2-main .hf-n { background: rgba(0,0,0,.05); color: #5c6478; }
+
 </style>
 </head>
 <body>
@@ -3655,7 +3679,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024231749', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.10ac34f51762.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.bf5693d15950.html", "desk": "a/desk.d6a06d576157.js", "deskcss": "a/deskcss.8eb5189e71e0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024232411', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.10ac34f51762.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.bf5693d15950.html", "desk": "a/desk.d6a06d576157.js", "deskcss": "a/deskcss.8eb5189e71e0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
