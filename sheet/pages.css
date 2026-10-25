@@ -3020,3 +3020,4 @@ html.mobile #wizard .wz3 .wz3-cards:has(.wic) { grid-template-columns: 1fr; }
 /* steps that only come if your race or class needs them: quieter until they're known */
 #wizard .wz3 .wz-step.maybe { opacity: .5; } #wizard .wz3 .wz-step.maybe .wz-st { font-style: italic; }
 html.mobile #wizard .wz3 .wz-step.maybe::after { opacity: .35; background-image: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 7px); }
+#wizard .wz3 .fld:has(> select[data-wz="sub"]) { display: none !important; }

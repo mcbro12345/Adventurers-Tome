@@ -813,7 +813,7 @@ function wz3Cards(kind) {
   let lastG = null;
   const cards = items.map(it => { const head = it.g && it.g !== lastG ? `<p class="wz3-g">${esc(it.g)}</p>` : ''; lastG = it.g;
     return `${head}<button type="button" class="wz3-card${it.k === cur ? ' sel' : ''}${it.ic ? ' wic' : ''}" data-pick="${kind}" data-v="${esc(it.k)}" data-q="${esc(it.name.toLowerCase())}">${it.ic ? `<span class="wz3-cic">${it.ic}</span>` : ''}<b>${esc(it.name)}</b>${it.tags.length ? `<span class="wz3-tags">${it.tags.map(t => `<i>${esc(t)}</i>`).join('')}</span>` : ''}</button>`; }).join('');
-  return `<div class="wz3-pick"><input class="f wz3-q" data-wz3q placeholder="Search ${label}" autocomplete="off" aria-label="Search ${label}"><div class="wz3-cards${cur && items.length > 24 ? ' has' : ''}">${cards}</div></div>`;
+  return `<div class="wz3-pick">${items.length > 8 ? `<input class="f wz3-q" data-wz3q placeholder="Search ${label}" autocomplete="off" aria-label="Search ${label}">` : ''}<div class="wz3-cards">${cards}</div></div>`;
 }
 if (!window.__wz3) { window.__wz3 = 1;
   document.addEventListener('click', e => { const c = e.target.closest && e.target.closest('#wizard [data-pick]'); if (!c) return;
