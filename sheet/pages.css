@@ -3044,8 +3044,9 @@ html:not(.mobile) :is(.hub-logo, .dk-logo):not(.pg-signin .hub-logo):active { tr
 .adm-brand .hub-logo { transform-origin: center; }
 @media (prefers-reduced-motion: reduce) { :is(.hub-logo, .dk-logo) { transition: none !important; } }
 html:not(.mobile) .dk-logo .hub-logo:hover { transform: none; filter: none; }
-/* in the lobby itself the logo isn't a link back anywhere, so it doesn't grow */
+/* in the lobby itself the logo isn't a link anywhere, so it doesn't grow or show the hand */
 html:not(.mobile) body.hubbody:not(.adminbody):not(:has(#wizard.open, .pw, .adm, #pg-desk)) .hub-logo:is(:hover, :active) { transform: none; filter: none; }
+body.hubbody:not(.adminbody):not(:has(#wizard.open, .pw, .adm, #pg-desk)) :is(.hub-logo, .hub-logo *) { cursor: default !important; }
 /* admin panel: the logo still grows on hover, but nothing highlights or changes colour */
 html:not(.mobile) .adm-brand .hub-logo:hover, html:not(.mobile) .adm-brand .hub-logo:active { filter: none !important; }
 .adm-brand:hover, .adm-brand:focus, .adm-brand:active { background: transparent !important; box-shadow: none !important; color: inherit !important; outline: none; }
