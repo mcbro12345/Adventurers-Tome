@@ -3107,7 +3107,7 @@ html.mobile #wizard .wz3 .wz3-rvab { grid-template-columns: repeat(3, minmax(0, 
   :where(body.hubbody) .hub-modal > .hub-card { overscroll-behavior: none !important; touch-action: pan-y; }
 }
 /* a tile's menu opened with a right-click sits at the pointer */
-.hc-menu.pt.on .hc-list { position: fixed !important; left: var(--px) !important; top: var(--py) !important; right: auto !important; bottom: auto !important; z-index: 1000 !important; animation: hcCtxIn .12s ease; }
+.hc-menu.pt:is(.on, .closing) .hc-list { position: fixed !important; left: var(--px) !important; top: var(--py) !important; right: auto !important; bottom: auto !important; z-index: 1000 !important; animation: hcCtxIn .12s ease; }
 @keyframes hcCtxIn { from { opacity: 0; transform: scale(.97); } }
 /* a tile with its menu open sits above its neighbours (and its own picture and text) */
 :where(body.hubbody) :is(.hr, .hc, .pm):has(> .hc-menu.on, .pm-top > .hc-menu.on) { z-index: 60 !important; position: relative; }
@@ -3144,3 +3144,8 @@ html:not(.mobile) .adm-brand :is(.hl-txt, .hl-t, .hl-k, .hl-d):hover, html:not(.
 body.adminbody .adm-mlist, .adm-mlist.portal { background: #1a2131; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: 0 16px 36px rgba(0,0,0,.5); }
 @media (prefers-color-scheme: light) { body.adminbody .adm-mlist, .adm-mlist.portal { background: #fffdf8; box-shadow: 0 14px 30px rgba(0,0,0,.18); } }
 .adm-mlist .adm-ctxonly { border-bottom: 1px solid var(--adm-line) !important; border-radius: 6px 6px 0 0 !important; margin-bottom: 4px; }
+.adm-mlist button { display: flex !important; align-items: center; gap: 10px; }
+.adm-mlist .ami { flex: none; width: 16px; height: 16px; opacity: .75; }
+.adm-mlist button:hover .ami { opacity: 1; }
+:where(body.hubbody) .hc-menu.pt.closing .hc-list { animation: hPopOut .14s ease forwards; }
+:where(body.hubbody) :is(.hr, .hc, .pm):has(> .hc-menu.pt.closing, .pm-top > .hc-menu.pt.closing) { z-index: 60 !important; position: relative; }

@@ -398,11 +398,14 @@ function sheetScrollbar() {
 {
   // Windows and menus fade out instead of vanishing: when one loses its "open" class it keeps showing (as .closing,
   // not clickable) just long enough to fade, and opening it again cancels that.
-  const W = [['.hub-modal', 'on'], ['.hc-menu', 'on'], ['.adm-mwrap', 'on']];
+  // (admin ⋯ menus fade their own floating list, so they aren't in here)
+  const W = [['.hub-modal', 'on'], ['.hc-menu', 'on']];
   const match = el => W.find(([sel]) => el.matches && el.matches(sel));
   new MutationObserver(ms => ms.forEach(m => { const el = m.target, w = match(el); if (!w) return; const cls = w[1], was = (' ' + (m.oldValue || '') + ' ').includes(' ' + cls + ' '), now = el.classList.contains(cls);
     if (now) { if (!was && el.classList.contains('closing')) { clearTimeout(el._fc); el.classList.remove('closing'); } return; }
-    if (was && !now && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => el.classList.remove('closing'), innerWidth <= 640 ? 240 : 190); } }))
+    // a menu opened at the pointer (right-click) fades out where it is, instead of jumping back to its ⋯ button first
+    if (was && !now && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { const pt = / pt /.test(' ' + (m.oldValue || '') + ' ') && !el.classList.contains('pt'); if (pt) el.classList.add('pt');
+      el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => { el.classList.remove('closing'); if (pt && !el.classList.contains('on')) el.classList.remove('pt'); }, innerWidth <= 640 ? 240 : 190); } }))
     .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], attributeOldValue: true, subtree: true });
 }
 // No coloured browser bar anywhere: the page itself shows at the very top (behind the clock on phones) and scrolls under it.
@@ -2328,7 +2331,31 @@ function hub(fs, auth, G, ctx) {
     new MutationObserver(() => { fillPics(); labelCells(); }).observe(root, { childList: true, subtree: true });
     const roleOf = em => ownerEm(em) ? ['Owner', 'r-own'] : ADMINS.includes(em) ? ['Admin', 'r-adm'] : ['Member', 'r-mem'];
     const when = t => t ? `<span class="adm-when" title="${esc(new Date(t).toLocaleString())}">${esc(day(t))}</span>` : '<span class="adm-dim">—</span>';
-    const kebab = items => `<div class="adm-mwrap"><button class="adm-kebab" aria-label="More actions">⋯</button><div class="adm-mlist">${items.map(([k, t, id, cls, href]) => `<button data-mi="${k}" data-id="${esc(id)}"${href ? ` data-href="${esc(href)}"` : ''}${cls ? ` class="${cls}"` : ''}>${t}</button>`).join('')}</div></div>`;
+    // an icon beside each menu item
+    const ami = d => `<svg class="ami" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+    const AMI = {
+      open: ami('<path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>'),
+      share: ami('<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>'),
+      give: ami('<circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 11h6M19 8l3 3-3 3"/>'),
+      unown: ami('<circle cx="10" cy="8" r="3.5"/><path d="M4 20c0-3.3 2.7-6 6-6 1.5 0 2.9.6 4 1.5"/><path d="M16 16l5 5M21 16l-5 5"/>'),
+      del: ami('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>'),
+      delacct: ami('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>'),
+      msg: ami('<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>'),
+      welcome: ami('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>'),
+      renotice: ami('<path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1z"/><path d="M16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"/>'),
+      hidewel: ami('<path d="M20 6L9 17l-5-5"/>'), hidenotice: ami('<path d="M20 6L9 17l-5-5"/>'),
+      quiet: ami('<path d="M5 12h14"/><path d="M12 5v14" opacity=".35"/><circle cx="12" cy="12" r="9"/>'),
+      reload: ami('<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>'),
+      rename: ami('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/>'),
+      pic: ami('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>'),
+      newfor: ami('<path d="M12 5v14M5 12h14"/>'), add: ami('<path d="M12 5v14M5 12h14"/>'),
+      mkadmin: ami('<path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/>'),
+      unadmin: ami('<path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9.5 9.5l5 5M14.5 9.5l-5 5"/>'),
+      signout: ami('<path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4"/><path d="M10 17l5-5-5-5M15 12H4"/>'),
+      unblock: ami('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.5-2"/>'),
+      dm: ami('<path d="M3 8l4 4 5-7 5 7 4-4-2 11H5z"/>'),
+      chatclear: ami('<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M9.5 9.5l5 5M14.5 9.5l-5 5"/>') };
+    const kebab = items => `<div class="adm-mwrap"><button class="adm-kebab" aria-label="More actions">⋯</button><div class="adm-mlist">${items.map(([k, t, id, cls, href]) => `<button data-mi="${k}" data-id="${esc(id)}"${href ? ` data-href="${esc(href)}"` : ''}${cls ? ` class="${cls}"` : ''}>${AMI[k] || ami('')}${t}</button>`).join('')}</div></div>`;
 
     const PANES = {}; let PREV_TAB = '';
     // Phones: the tabs sit at the bottom of the screen like the sheet's tab bar (same height setting), with a highlight
@@ -2423,7 +2450,7 @@ function hub(fs, auth, G, ctx) {
     const openAdmMenu = (w, at) => { const k = w.querySelector('.adm-kebab'), l = w._l || w.querySelector('.adm-mlist'); if (!k || !l) return; w._l = l;
       if (MENU) { const m = MENU; closeAdmMenus(); if (m.w === w) { clearTimeout(l._ct); l._ct = 0; } }
       clearTimeout(l._ct); l._ct = 0; l.classList.remove('closing'); l.querySelectorAll('.adm-ctxonly').forEach(x => x.remove());
-      if (at && at.href) { const o = document.createElement('button'); o.className = 'adm-ctxonly'; o.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px;margin-right:8px"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>Open in a new tab'; o.onclick = () => { closeAdmMenus(); window.open(at.href, '_blank', 'noopener'); }; l.prepend(o); }
+      if (at && at.href) { const o = document.createElement('button'); o.className = 'adm-ctxonly'; o.innerHTML = ami('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M12 13v4M10 15h4"/>') + 'Open in a new tab'; o.onclick = () => { closeAdmMenus(); window.open(at.href, '_blank', 'noopener'); }; l.prepend(o); }
       document.body.appendChild(l); l.classList.add('portal', 'on'); w.classList.add('on'); MENU = { w, l };
       const mw = l.offsetWidth, mh = l.offsetHeight;
       if (at) { l.style.left = Math.max(8, Math.min(at.x, innerWidth - mw - 8)) + 'px'; l.style.top = Math.max(8, at.y + mh > innerHeight - 8 ? at.y - mh : at.y) + 'px'; return; }
@@ -4029,4 +4056,24 @@ function partyModule(H) {
   const scan = n => { if (!n || n.nodeType !== 1) return; if (n.matches('input, textarea')) tag(n); n.querySelectorAll && n.querySelectorAll('input:not([data-pmx]), textarea:not([data-pmx])').forEach(tag); };
   const go = () => { scan(document.body); new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(scan))).observe(document.body, { childList: true, subtree: true }); };
   if (document.body) go(); else document.addEventListener('DOMContentLoaded', go);
+})();
+// Buttons act the moment the mouse button goes down, not when it's let go. (Touch screens keep acting on release, so a
+// swipe that starts on a button still scrolls. Ctrl/Shift/⌘ clicks, drag handles and anything that already handles its
+// own press are left as they were.) The click the browser sends on release is then dropped, so nothing happens twice.
+(() => { if (window.__pgPress) return; window.__pgPress = 1;
+  const SEL = 'button, [role="button"], [role="tab"], [role="menuitem"], [role="option"], summary, input[type="button"], input[type="submit"], input[type="reset"]';
+  const SKIP = '[disabled], [aria-disabled="true"], [draggable="true"], [data-press="up"], .hr-grip, .nw-grip, .idrag, .sdrag, .bdrag, .gdrag, .cgdrag, [data-mgrip], [data-mresize], [data-handle], [contenteditable="true"] *';
+  let ptr = 'mouse', eat = null;
+  addEventListener('pointerdown', e => { ptr = e.pointerType || 'mouse'; }, true);
+  addEventListener('mousedown', e => {
+    if (e.button !== 0 || e.ctrlKey || e.shiftKey || e.metaKey || e.altKey || e.defaultPrevented || ptr !== 'mouse' || (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents)) return;
+    const b = e.target.closest && e.target.closest(SEL); if (!b || b.matches(SKIP) || b.closest('[disabled]')) return;
+    e.preventDefault(); // (keeps focus where the click handler puts it)
+    try { if (b.focus && document.activeElement !== b && !b.closest('.hc-list, .adm-mlist, .pp-tabs')) b.focus({ preventScroll: true }); } catch (x) {}
+    eat = { t: Date.now() };
+    b.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window, detail: 1, clientX: e.clientX, clientY: e.clientY, screenX: e.screenX, screenY: e.screenY, button: 0 }));
+  }); // (on the window, after the page's own mousedown handlers have run)
+  // the release's click comes straight after the mouseup, so it's only dropped then
+  addEventListener('mouseup', e => { if (eat && e.button === 0) { const it = eat; setTimeout(() => { if (eat === it) eat = null; }, 0); } }, true);
+  addEventListener('click', e => { if (!eat || !e.isTrusted || e.button !== 0) return; eat = null; e.preventDefault(); e.stopImmediatePropagation(); }, true);
 })();
