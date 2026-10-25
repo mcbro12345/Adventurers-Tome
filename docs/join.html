@@ -2976,6 +2976,12 @@ html:not(.mobile) #wizard .wz-box:has(> .wzh2) .wz-body { margin-top: 12px; padd
 #wizard .wz-box:has(> .wzh2) .srcopt { padding: 9px 12px; }
 html:not(.mobile) #wizard .wz-box:has(> .wzh2) > .wz-foot { padding: 30px 10px 26px; }
 #wizard .wz-box:has(> .wzh2) .wz-foot .btn { min-height: 40px; }
+/* account menu: items that take you somewhere are links (middle-click opens a new tab), drawn like the other items */
+.ha-menu a[data-ha] { display: flex; align-items: center; gap: 12px; width: 100%; box-sizing: border-box; padding: 10px 12px; border: 0; border-radius: 9px; background: none; color: inherit; font-family: inherit; font-size: .94rem; font-weight: 600; line-height: 1.2; text-align: left; text-decoration: none; cursor: pointer; white-space: nowrap; }
+.ha-menu a[data-ha] svg { color: #c9962b; flex: none; } .ha-menu a[data-ha]:hover, .ha-menu a[data-ha]:focus-visible { background: rgba(255,255,255,.07); outline: none; }
+.ha-sheet .ha-items a[data-ha] { min-height: 52px; border-radius: 0; background: #1c2435; padding: 0 16px; font-size: 1rem; }
+@media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) .ha-menu a[data-ha]:hover { background: rgba(0,0,0,.05); } :where(html:not([data-pgtheme])) .ha-sheet .ha-items a[data-ha] { background: #fffaf0; } }
+ :where(html[data-pgtheme="light"]) .ha-menu a[data-ha]:hover { background: rgba(0,0,0,.05); } :where(html[data-pgtheme="light"]) .ha-sheet .ha-items a[data-ha] { background: #fffaf0; } 
 </style>
 </head>
 <body>
@@ -3649,7 +3655,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024231333', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.10ac34f51762.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.bf5693d15950.html", "desk": "a/desk.d6a06d576157.js", "deskcss": "a/deskcss.8eb5189e71e0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261024231749', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.10ac34f51762.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.bf5693d15950.html", "desk": "a/desk.d6a06d576157.js", "deskcss": "a/deskcss.8eb5189e71e0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   const Q = new URLSearchParams(location.search), clean = v => (v || '').replace(/[^A-Za-z0-9_-]/g, '');
   // The "?v=…" an automatic update reload adds (so the browser fetches the new version) isn't kept in the address bar.
   if (Q.has('v')) { const u = new URL(location.href); u.searchParams.delete('v'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
@@ -4126,13 +4132,15 @@ function wireDie(root) {
       items.push(['contact', 'Contact Adventurer’s Tome', I('<path d="M4 4h16v12H8l-4 4z"/>')]);
       const m = document.createElement('div'); m.className = 'ha-menu wz-hamenu' + (desk ? ' ha-drop' : ' ha-sheet'); m.setAttribute('role', 'menu');
       const who = desk ? '' : `<div class="ha-who">${avaHTML(nm, EMAIL, av.pic, '', '', av)}<div><b>${escH(nm)}</b><small>${escH(EMAIL)}</small></div></div>`;
-      m.innerHTML = `${desk ? '' : '<div class="ha-grab" aria-hidden="true"></div>'}${who}<div class="ha-items">${items.map(([k, t, ic]) => `<button type="button" role="menuitem" data-ha="${k}">${ic}<span>${t}</span></button>`).join('')}</div><button type="button" role="menuitem" class="ha-out" data-ha="out">${I('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>')}<span>Sign out</span></button>`;
+      const HREF = { lobby: HUBU, admin: URLS.admin ? URLS.admin(G) : '/admin' };
+      m.innerHTML = `${desk ? '' : '<div class="ha-grab" aria-hidden="true"></div>'}${who}<div class="ha-items">${items.map(([k, t, ic]) => HREF[k] ? `<a role="menuitem" data-ha="${k}" href="${escH(HREF[k])}">${ic}<span>${t}</span></a>` : `<button type="button" role="menuitem" data-ha="${k}">${ic}<span>${t}</span></button>`).join('')}</div><button type="button" role="menuitem" class="ha-out" data-ha="out">${I('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>')}<span>Sign out</span></button>`;
       const dim = desk ? null : Object.assign(document.createElement('div'), { className: 'ha-dim' });
       const shut = () => { document.removeEventListener('click', away, true); document.removeEventListener('keydown', esc_); btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('open'); m.classList.add('out'); if (dim) dim.classList.add('out'); setTimeout(() => { m.remove(); if (dim) dim.remove(); }, PG_CALM ? 0 : 200); };
       m._shut = shut; const away = e => { if (!m.contains(e.target) && !btn.contains(e.target)) shut(); }, esc_ = e => { if (e.key === 'Escape') { shut(); btn.focus(); } };
       if (desk) btn.parentElement.appendChild(m); else { document.body.appendChild(dim); document.body.appendChild(m); dim.onclick = shut; }
       btn.setAttribute('aria-expanded', 'true'); btn.classList.add('open'); setTimeout(() => { document.addEventListener('click', away, true); document.addEventListener('keydown', esc_); const f = m.querySelector('[data-ha]'); if (f) f.focus({ preventScroll: true }); }, 0);
-      m.querySelectorAll('[data-ha]').forEach(b => b.onclick = () => { const k = b.dataset.ha; shut(); if (k === 'lobby') pgGo(HUBU); if (k === 'admin') pgGo(URLS.admin ? URLS.admin(G) : '/admin'); if (k === 'contact') pgContact(); if (k === 'out') signOut(); }); };
+      m.querySelectorAll('a[data-ha]').forEach(a => a.addEventListener('auxclick', () => shut()));
+      m.querySelectorAll('[data-ha]').forEach(b => b.onclick = e => { if (b.tagName === 'A' && (e.ctrlKey || e.metaKey || e.shiftKey || e.button)) { shut(); return; } if (b.tagName === 'A') e.preventDefault(); const k = b.dataset.ha; shut(); if (k === 'lobby') pgGo(HUBU); if (k === 'admin') pgGo(URLS.admin ? URLS.admin(G) : '/admin'); if (k === 'contact') pgContact(); if (k === 'out') signOut(); }); };
     document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('.wzh .wzh-acct, .wzh-back2, .wzh [data-wzh="out"], .wzh .wzh-back'); if (!t) return; e.preventDefault();
       if (t.classList.contains('wzh-acct')) { e.stopPropagation(); wzMenu(t); } else if (t.dataset.wzh === 'out') signOut(); else pgGo(HUBU); });
     new MutationObserver(() => { const l = document.querySelector('#wizard .wzh'); if (l && !l._w) { l._w = 1; wireDie(l); } }).observe(document.documentElement, { childList: true, subtree: true }); }
@@ -5193,13 +5201,15 @@ function hub(fs, auth, G, ctx) {
     items.push(['contact', 'Contact Adventurer’s Tome', I('<path d="M4 4h16v12H8l-4 4z"/>')]);
     const m = document.createElement('div'); m.className = 'ha-menu' + (desk ? ' ha-drop' : ' ha-sheet') + (desk && inAdm ? ' ha-up' : ''); m.setAttribute('role', 'menu');
     const who = desk ? '' : `<div class="ha-who">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(myAva())}<div><b>${esc(myName())}</b><small>${esc(EMAIL)}</small></div></div>`;
-    m.innerHTML = `${desk ? '' : '<div class="ha-grab" aria-hidden="true"></div>'}${who}<div class="ha-items">${items.map(([k, t, ic]) => `<button type="button" role="menuitem" data-ha="${k}">${ic}<span>${t}</span></button>`).join('')}</div><button type="button" role="menuitem" class="ha-out" data-ha="out">${I('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>')}<span>Sign out</span></button>`;
+    const HREF = { lobby: HUB, admin: ADMIN_URL }; // (places you go to are real links, so a middle-click or Ctrl-click opens them in a new tab)
+    m.innerHTML = `${desk ? '' : '<div class="ha-grab" aria-hidden="true"></div>'}${who}<div class="ha-items">${items.map(([k, t, ic]) => HREF[k] ? `<a role="menuitem" data-ha="${k}" href="${esc(HREF[k])}">${ic}<span>${t}</span></a>` : `<button type="button" role="menuitem" data-ha="${k}">${ic}<span>${t}</span></button>`).join('')}</div><button type="button" role="menuitem" class="ha-out" data-ha="out">${I('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>')}<span>Sign out</span></button>`;
     const dim = desk ? null : Object.assign(document.createElement('div'), { className: 'ha-dim' });
     const shut = () => { document.removeEventListener('click', away, true); document.removeEventListener('keydown', esc_); btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('open'); m.classList.add('out'); if (dim) dim.classList.add('out'); setTimeout(() => { m.remove(); if (dim) dim.remove(); }, PG_CALM ? 0 : 200); };
     m._shut = shut; const away = e => { if (!m.contains(e.target) && !btn.contains(e.target)) shut(); }, esc_ = e => { if (e.key === 'Escape') { shut(); btn.focus(); } };
     if (desk) btn.parentElement.appendChild(m); else { document.body.appendChild(dim); document.body.appendChild(m); dim.onclick = shut; }
     btn.setAttribute('aria-expanded', 'true'); btn.classList.add('open'); setTimeout(() => { document.addEventListener('click', away, true); document.addEventListener('keydown', esc_); const f = m.querySelector('[data-ha]'); if (f) f.focus({ preventScroll: true }); }, 0);
-    m.querySelectorAll('[data-ha]').forEach(b => b.onclick = () => { const k = b.dataset.ha; shut();
+    m.querySelectorAll('a[data-ha]').forEach(a => a.addEventListener('auxclick', () => shut()));
+    m.querySelectorAll('[data-ha]').forEach(b => b.onclick = e => { if (b.tagName === 'A' && (e.ctrlKey || e.metaKey || e.shiftKey || e.button)) { shut(); return; } if (b.tagName === 'A') e.preventDefault(); const k = b.dataset.ha; shut();
       if (k === 'pic') pickPic(); if (k === 'name') renameMe(); if (k === 'admin') pgGo(ADMIN_URL); if (k === 'lobby') pgGo(HUB); if (k === 'contact') pgContact(); if (k === 'out') signOut();
       if (k === 'theme') { const next = pgDark() ? 'light' : 'dark', de = document.documentElement, f = () => { de.setAttribute('data-pgtheme', next); try { localStorage.setItem('pg-theme', next); } catch (x) {} };
         if (!PG_CALM && document.startViewTransition) document.startViewTransition(f); else f(); } }); }

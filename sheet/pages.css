@@ -2810,3 +2810,8 @@ html:not(.mobile) #wizard .wz-box:has(> .wzh2) .wz-body { margin-top: 12px; padd
 #wizard .wz-box:has(> .wzh2) .srcopt { padding: 9px 12px; }
 html:not(.mobile) #wizard .wz-box:has(> .wzh2) > .wz-foot { padding: 30px 10px 26px; }
 #wizard .wz-box:has(> .wzh2) .wz-foot .btn { min-height: 40px; }
+/* account menu: items that take you somewhere are links (middle-click opens a new tab), drawn like the other items */
+.ha-menu a[data-ha] { display: flex; align-items: center; gap: 12px; width: 100%; box-sizing: border-box; padding: 10px 12px; border: 0; border-radius: 9px; background: none; color: inherit; font-family: inherit; font-size: .94rem; font-weight: 600; line-height: 1.2; text-align: left; text-decoration: none; cursor: pointer; white-space: nowrap; }
+.ha-menu a[data-ha] svg { color: #c9962b; flex: none; } .ha-menu a[data-ha]:hover, .ha-menu a[data-ha]:focus-visible { background: rgba(255,255,255,.07); outline: none; }
+.ha-sheet .ha-items a[data-ha] { min-height: 52px; border-radius: 0; background: #1c2435; padding: 0 16px; font-size: 1rem; }
+@media (prefers-color-scheme: light) { .ha-menu a[data-ha]:hover { background: rgba(0,0,0,.05); } .ha-sheet .ha-items a[data-ha] { background: #fffaf0; } }
