@@ -1443,3 +1443,5 @@ html[data-pgtheme="light"] .dk-back2 { color: #8a6420; } html[data-pgtheme="ligh
 /* lists inside the floating panels: no extra divider lines at the scroll edges (the panel's own edges do that job); a soft
    shadow still shows there's more to scroll */
 .dk-rail .dk-shade::before, .dk-rail .dk-shade::after, .dk-blist .dk-shade::before, .dk-blist .dk-shade::after { border: 0 !important; }
+/* the notes page starts right beside the list (the gap between them is enough) */
+@media (min-width: 901px) { .dk[data-tab=notes] .dk-notesv > .dk-main { padding-left: 8px !important; } }
