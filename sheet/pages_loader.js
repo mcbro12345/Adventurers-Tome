@@ -2780,7 +2780,7 @@ function hub(fs, auth, G, ctx) {
       const rot = () => items.filter(n => n.rot), fail = (x, what) => toast('Couldn’t ' + what + ': ' + ((x && (x.code === 'permission-denied' ? 'the new database rules need publishing' : x.message)) || x));
       const secs = [4, 6, 8, 12, 20, 30];
       const nextLine = () => { const R = rot(); return !R.length ? 'Nothing is in the rotation, so the lobby doesn’t show What’s new. Switch one on below.' : R.length === 1 ? 'Only one update is in the rotation, so it stays put.' : `Fades from one to the next every ${every} seconds: ${R.map(n => '“' + esc(n.t) + '”').join(', then ')}.`; };
-      const rowHTML = n => `<div class="nw-it" data-id="${esc(n.id)}" draggable="true"><span class="nw-grip" title="Drag to reorder" aria-hidden="true">⠿</span><div class="nw-tx"><b>${esc(n.t)}${n.badge ? '<em class="wn-new">New</em>' : ''}</b><div class="wn-d">${(window.pgMarkHTML || esc)(n.d || '')}</div>
+      const rowHTML = n => `<div class="nw-it" data-id="${esc(n.id)}"><span class="nw-grip" title="Drag to reorder" aria-label="Drag to reorder">⠿</span><div class="nw-tx"><b>${esc(n.t)}${n.badge ? '<em class="wn-new">New</em>' : ''}</b><div class="wn-d">${(window.pgMarkHTML || esc)(n.d || '')}</div>
         <small>${esc(n.byName || n.by || '')}${n.at ? ' · ' + esc(new Date(n.at).toLocaleDateString()) : ''}${n.link ? ' · links to ' + esc(n.link) : ''}</small></div>
         <span class="nw-acts"><label class="nw-rot${n.rot ? ' on' : ''}"><input type="checkbox" data-rot="${esc(n.id)}"${n.rot ? ' checked' : ''}><span class="nw-sw" aria-hidden="true"></span>In rotation</label><button class="adm-btn" data-ed="${esc(n.id)}">Edit</button><button class="adm-btn" data-rm="${esc(n.id)}">Remove</button></span></div>`;
       const form = (n, id) => `<div class="nw-f" id="${id}"><input class="ad-search" data-f="t" maxlength="200" placeholder="Headline, e.g. “Import from D&amp;D Beyond”" value="${esc((n && n.t) || '')}">
@@ -2821,13 +2821,33 @@ function hub(fs, auth, G, ctx) {
         box.querySelector('[data-f="ok"]').onclick = async e => { const v = read(box); if (!v.t) return toast('The headline can’t be empty.'); if (v.badLink) return toast('The link needs to start with https://'); e.currentTarget.disabled = true;
           try { await NC.doc(n.id).update({ t: v.t, d: v.d, link: v.link, badge: v.badge, editedAt: Date.now() }); pgLog('news_edit', { target: 'everyone', tName: 'everyone', detail: v.t }); toast('Saved.'); } catch (x) { e.currentTarget.disabled = false; return fail(x, 'save it'); } if (TAB === 'news') tabNews(); }; });
       // drag to reorder (the order the rotation goes in, and the order they're listed here)
-      const list = el.querySelector('#nw-list'); let dragId = null;
-      list.querySelectorAll('.nw-it').forEach(r => { r.addEventListener('dragstart', e => { dragId = r.dataset.id; r.classList.add('drag'); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', dragId); } catch (x) {} });
-        r.addEventListener('dragend', async () => { r.classList.remove('drag'); if (!dragId) return; dragId = null; const ids = [...list.querySelectorAll('.nw-it')].map(x => x.dataset.id);
-          const ch = ids.map((id, i) => [items.find(x => x.id === id), i]).filter(([n, i]) => n && n.ord !== i); if (!ch.length) return;
-          try { const bt = fs.batch(); ch.forEach(([n, i]) => { n.ord = i; bt.update(NC.doc(n.id), { ord: i }); }); await bt.commit(); items.sort(newsSort); repaint(); } catch (x) { fail(x, 'save the order'); } }); });
-      list.addEventListener('dragover', e => { if (!dragId) return; e.preventDefault(); const r = list.querySelector('.nw-it.drag'), over = e.target.closest && e.target.closest('.nw-it'); if (!r || !over || over === r) return;
-        const bb = over.getBoundingClientRect(); if (e.clientY < bb.top + bb.height / 2) over.before(r); else over.after(r); });
+      // Drag by the grip, the same way characters move in the lobby: the row lifts and follows the pointer (mouse or
+      // finger), its place stays open as a gap, the others slide out of the way, and the page scrolls near the edges.
+      const list = el.querySelector('#nw-list'); if (!list) return;
+      const saveOrd = async () => { const ids = [...list.querySelectorAll(':scope > .nw-it')].map(x => x.dataset.id);
+        const ch = ids.map((id, i) => [items.find(x => x.id === id), i]).filter(([n, i]) => n && n.ord !== i); if (!ch.length) return;
+        try { const bt = fs.batch(); ch.forEach(([n, i]) => { n.ord = i; bt.update(NC.doc(n.id), { ord: i }); }); await bt.commit(); items.sort(newsSort); repaint(); } catch (x) { fail(x, 'save the order'); } };
+      const slideN = (rows, mutate) => { const before = new Map(rows.map(x => [x, x.getBoundingClientRect().top])); mutate();
+        rows.forEach(x => { const dy = before.get(x) - x.getBoundingClientRect().top; if (!dy) return; x.style.transition = 'none'; x.style.transform = `translateY(${dy}px)`; requestAnimationFrame(() => { x.style.transition = 'transform .18s ease'; x.style.transform = ''; }); }); };
+      const scroller = n => { for (let p = n.parentElement; p && p !== document.body; p = p.parentElement) { const s = getComputedStyle(p).overflowY; if ((s === 'auto' || s === 'scroll') && p.scrollHeight > p.clientHeight) return p; } return null; };
+      let ND = null;
+      const step = () => { const d = ND; if (!d) return; d.raf = 0; const lr = list.getBoundingClientRect(), h = d.gh.offsetHeight;
+        d.gh.style.top = Math.max(lr.top - 6, Math.min(lr.bottom - h + 6, d.y - d.dy)) + 'px';
+        const rows = [...list.querySelectorAll(':scope > .nw-it')], peers = rows.filter(x => x !== d.r);
+        if (peers.length) { const mid = d.y - d.dy + h / 2, tgt = peers.find(x => { const bb = x.getBoundingClientRect(); return mid < bb.top + bb.height / 2; }), last = peers[peers.length - 1];
+          if (tgt ? d.r.nextElementSibling !== tgt : last.nextElementSibling !== d.r) slideN(peers, () => tgt ? tgt.before(d.r) : last.after(d.r)); }
+        const sr = d.sc ? d.sc.getBoundingClientRect() : { top: 0, bottom: innerHeight }, by = v => d.sc ? d.sc.scrollBy(0, v) : scrollBy(0, v);
+        if (d.y < sr.top + 70) { by(-8); d.raf = requestAnimationFrame(step); } else if (d.y > sr.bottom - 70) { by(8); d.raf = requestAnimationFrame(step); } };
+      const move = e => { if (!ND) return; e.preventDefault(); ND.y = e.clientY; if (!ND.raf) ND.raf = requestAnimationFrame(step); };
+      const end = () => { if (!ND) return; const d = ND; ND = null; if (d.raf) cancelAnimationFrame(d.raf); removeEventListener('pointermove', move); removeEventListener('pointerup', end); removeEventListener('pointercancel', end);
+        const pb = d.r.getBoundingClientRect(); d.gh.style.transition = 'top .16s ease, box-shadow .16s'; d.gh.style.top = pb.top + 'px'; d.gh.classList.remove('lift');
+        setTimeout(() => { d.gh.remove(); d.r.classList.remove('nw-hold'); document.body.classList.remove('nwdragging'); saveOrd(); }, 170); };
+      list.addEventListener('pointerdown', e => { const g = e.target.closest('.nw-grip'); if (!g || e.button > 0 || ND) return; const r = g.closest('.nw-it'); e.preventDefault();
+        const b = r.getBoundingClientRect(), gh = r.cloneNode(true); gh.classList.add('nw-ghost', 'lift'); gh.removeAttribute('data-id');
+        Object.assign(gh.style, { position: 'fixed', left: b.left + 'px', top: b.top + 'px', width: b.width + 'px', height: b.height + 'px', margin: 0, zIndex: 60, pointerEvents: 'none', boxSizing: 'border-box' });
+        document.body.appendChild(gh); r.classList.add('nw-hold'); document.body.classList.add('nwdragging');
+        ND = { r, gh, dy: e.clientY - b.top, y: e.clientY, raf: 0, sc: scroller(list) };
+        addEventListener('pointermove', move, { passive: false }); addEventListener('pointerup', end); addEventListener('pointercancel', end); });
     }
     async function tabNotice() {
       const el = B(); HA().innerHTML = ''; let all = [], log = [];
