@@ -355,6 +355,7 @@ const lsSet = (k, v) => { try { localStorage.setItem(lsKey(k), JSON.stringify(v)
 let lsT = 0;
 function writeLocal() { clearTimeout(lsT); lsT = setTimeout(() => { lsSet('', S); lsSet('-ui', Object.assign({}, UI, { tree: false, log: false })); lsSet('-log', LOG.slice(0, 150)); }, 200); }
 function normalize(d) {
+  if (typeof UI !== 'undefined' && UI.sv === 'plan') UI.sv = 'creatures'; // (the Plan & notes view was removed)
   const s = Object.assign(DEF(), d || {}); s.settings = Object.assign(DEF().settings, (d && d.settings) || {});
   s.creatures = s.creatures || {}; s.sessions = (s.sessions || []).filter(x => x && x.id);
   s.sessions.forEach(x => { x.groups = (x.groups || []).filter(Boolean); if (!x.groups.length) x.groups.push({ id: 'g' + uid(), name: 'Creatures', list: [] }); x.groups.forEach(g => { g.list = (g.list || []).filter(Boolean); }); });
@@ -522,7 +523,8 @@ function dAfter() {
 function dUndo(n = 1) { let c = 0, lb = ''; while (c < n && DHIST.length) { lb = DHIST[DHIST.length - 1].label; DREDO.push(dApply(DHIST.pop())); c++; } if (c) dAfter(); return [c, lb]; }
 function dRedo(n = 1) { let c = 0, lb = ''; while (c < n && DREDO.length) { lb = DREDO[DREDO.length - 1].label; DHIST.push(dApply(DREDO.pop())); c++; } if (c) dAfter(); return [c, lb]; }
 let dHT = 0;
-function dHistPersist() { clearTimeout(dHT); dHT = setTimeout(() => { let h = DHIST.slice(); for (;;) { try { localStorage.setItem(lsKey('-hist'), JSON.stringify(h)); return; } catch (e) { if (h.length <= 1) { try { localStorage.removeItem(lsKey('-hist')); } catch (x) {} return; } h = h.slice(Math.ceil(h.length / 2)); } } }, 600); }
+// (kept to about 1 MB of the browser's storage, newest steps first, so it never crowds out the desk's own saved copy)
+function dHistPersist() { clearTimeout(dHT); dHT = setTimeout(() => { let h = DHIST.slice(); for (;;) { try { const t = JSON.stringify(h); if (t.length > 1e6 && h.length > 1) { h = h.slice(Math.ceil(h.length / 4)); continue; } localStorage.setItem(lsKey('-hist'), t); return; } catch (e) { if (h.length <= 1) { try { localStorage.removeItem(lsKey('-hist')); } catch (x) {} return; } h = h.slice(Math.ceil(h.length / 2)); } } }, 600); }
 function dHistButtons() {
   const u = $('.dk-tb[data-act="dundo"]'), r = $('.dk-tb[data-act="dredo"]'), lb = s => String(s).replace(/^Edit: /, '');
   if (u) { u.disabled = !DHIST.length; u.title = DHIST.length ? `Undo: ${lb(DHIST[DHIST.length - 1].label)} (Ctrl+Z)` : 'Nothing to undo'; }
@@ -664,12 +666,13 @@ async function roll(req, opts) {
   opts = opts || {};
   const r = await getRoll(req); if (!r) return null;
   const cls = /d20/.test(req.expr) ? (r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'bad' : '') : '';
-  addLog({ who: req.who, label: req.label, total: r.total, detail: r.detail, cls, src: r.src });
+  addLog({ who: req.who, label: req.label, total: r.total, detail: r.detail, cls, src: r.src, d20: r.d20 != null ? r.d20 : null, expr: req.expr });
   if (!opts.quiet) toast({ big: r.total, title: (req.who ? req.who + ' · ' : '') + req.label + ((opts.noteFn ? opts.noteFn(r.total) : opts.note) ? ' — ' + (opts.noteFn ? opts.noteFn(r.total) : opts.note) : ''), det: esc(r.detail) + (cls === 'crit' ? ' · <b>natural 20</b>' : cls === 'bad' ? ' · <b>natural 1</b>' : ''), cls: opts.cls || cls, actions: opts.actions });
   return r;
 }
-function addLog(e) { LOG.unshift(Object.assign({ t: Date.now() }, e)); LOG = LOG.slice(0, 150); writeLocal(); if (UI.log) paintLog(); }
-const note = t => addLog({ note: t });
+function addLog(e) { const x = Object.assign({ t: Date.now() }, e); LOG.unshift(x); LOG = LOG.slice(0, 150); writeLocal(); try { statCount(x); } catch (er) {} logRefresh(); }
+// (notes — damage taken, spells cast, turns — go in the Log's Everything else tab)
+const note = t => evAdd(esc(t));
 
 // ---------- toasts & modals ----------
 const TOASTFN = {};
@@ -680,6 +683,7 @@ function toast(o) {
   (o.actions || []).forEach((a, i) => { TOASTFN[id + i] = a.fn; });
   el.innerHTML = (o.big != null ? `<div class="dk-tot">${esc(o.big)}</div>` : '') + `<div class="dk-tbody">${o.title ? `<b>${esc(o.title)}</b>` : ''}${o.det ? `<div class="dk-det">${o.det}</div>` : ''}${o.actions && o.actions.length ? `<div class="dk-ta">${o.actions.map((a, i) => `<button class="dk-btn sm${i ? '' : ' gold'}" data-tfn="${id + i}">${esc(a.label)}</button>`).join('')}</div>` : ''}</div><button class="dk-ix" aria-label="Dismiss" data-tclose>${ICON.x}</button>`;
   box.prepend(el); while (box.children.length > 4) box.lastChild.remove();
+  if (!o.nolog && (o.big == null || !/^-?\d+$/.test(String(o.big)))) try { evAdd((o.title ? `<b>${esc(o.title)}</b>` : '') + (o.title && o.det ? ' — ' : '') + (o.det || '')); } catch (e) {}
   const ms = o.ms || (o.actions && o.actions.length ? (o.big == null ? 6000 : 15000) : (o.big == null ? 4500 : 6000));
   const gone = () => { el.classList.add('out'); setTimeout(() => el.remove(), 200); };
   let t = setTimeout(gone, ms);
@@ -714,19 +718,26 @@ function mwDrag(e) {
   const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); c.classList.remove('dk-moving'); const t = (c.style.translate || '0px 0px').split(' ').map(parseFloat); WINPOS[c.dataset.win || 'w'] = [t[0] || 0, t[1] || 0]; winKeep(); };
   addEventListener('pointermove', mv); addEventListener('pointerup', up);
 }
+// which window this is (its first heading, or the id/class of its first element): a window redrawing itself keeps it,
+// a different window replacing it doesn't
+const winKey = h => { h = String(h || ''); const a = h.match(/^\s*<[a-z0-9]+\b[^>]*?\b(?:id|class)="([^"]+)"/i), b = h.match(/<h[23]\b[^>]*>([\s\S]*?)<\/h[23]>/i); return (b ? b[1].replace(/<[^>]+>/g, '').trim() : '') || (a ? a[1] : ''); };
+// the window as it was, fading out where it sat while the next one (or nothing) takes its place
+function winGhost(c) { const g = c.cloneNode(true), r = c.getBoundingClientRect(); if (!r.width) return; g.classList.add('dk-mghost'); g.removeAttribute('id'); g.querySelectorAll('[id]').forEach(x => x.removeAttribute('id')); g.setAttribute('aria-hidden', 'true');
+  Object.assign(g.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', translate: 'none', animation: '' }); const st = c.scrollTop; ROOT.appendChild(g); g.scrollTop = st; setTimeout(() => g.remove(), 220); }
 function openModal(html, o) {
   o = o || {}; const m = $('.dk-modal'), c = $('.dk-mcard'), wasOpen = m.classList.contains('open'), prevBy = MODAL_BY, prevPos = c.style.translate;
+  const swap = wasOpen && !calm() && c.innerHTML && winKey(c.innerHTML) !== winKey(html); if (swap) winGhost(c);
   if (MODAL_CLOSE && m.classList.contains('open')) { const f = MODAL_CLOSE; MODAL_CLOSE = null; f(); }
   c.className = 'dk-mcard' + (o.wide ? ' wide' : '') + (o.cls ? ' ' + o.cls : ''); m.classList.toggle('dk-msheet', !!o.sheet); c.innerHTML = html; m.classList.add('open'); m.scrollTop = 0; c.scrollTop = 0; MODAL_CLOSE = o.onClose || null;
   const fresh = LAST_OPENER && Date.now() - LAST_OPENER_T < 600; MODAL_BY = fresh ? LAST_OPENER : wasOpen ? prevBy : null; LAST_OPENER = null;
-  mwDress(c); if (wasOpen && !fresh && prevPos && !WINPOS[c.dataset.win]) c.style.translate = prevPos; c.style.animation = wasOpen ? 'none' : ''; ROOT.classList.remove('dk-rfront');
+  mwDress(c); if (wasOpen && !fresh && prevPos && !WINPOS[c.dataset.win]) c.style.translate = prevPos; c.style.animation = wasOpen ? 'none' : ''; if (swap) { void c.offsetWidth; c.style.animation = ''; } ROOT.classList.remove('dk-rfront');
   const f = c.querySelector('input:not([type=checkbox]):not(.dk-swi),textarea,select'); if (f && innerWidth > 700 && o.focus !== false) setTimeout(() => f.focus(), 30);
 }
 function closeModal(silent) {
   const m = $('.dk-modal'); if (!m) return; const c = $('.dk-mcard');
   // the window fades out as a copy while the real one is free for the next pop-up straight away
-  if (m.classList.contains('open') && mwDesk() && !calm() && c.innerHTML) { const g = c.cloneNode(true), r = c.getBoundingClientRect(); g.classList.add('dk-mghost'); g.removeAttribute('id'); g.querySelectorAll('[id]').forEach(x => x.removeAttribute('id'));
-    Object.assign(g.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', translate: 'none' }); ROOT.appendChild(g); setTimeout(() => g.remove(), 200); }
+  // (a narrow window's pop-up has a dimmed backdrop behind it: that fades out with it)
+  if (m.classList.contains('open') && !calm() && c.innerHTML) { winGhost(c); if (!mwDesk()) { const sh = document.createElement('div'); sh.className = 'dk-mshade ' + m.className; sh.classList.remove('open'); ROOT.appendChild(sh); setTimeout(() => sh.remove(), 220); } }
   m.classList.remove('open'); c.innerHTML = ''; c.style.translate = ''; MODAL_BY = null; const f = MODAL_CLOSE; MODAL_CLOSE = null; SV = null; if (f && !silent) f(); }
 // runs a confirm/ask callback; a failure (e.g. the save was refused or timed out) is shown instead of vanishing
 function runOk(fn, ...a) { const bad = e => { console.warn(e); toast({ title: 'That didn’t work', det: esc((e && e.message) || 'Try again in a moment.'), cls: 'bad' }); };
@@ -1515,7 +1526,7 @@ function topHTML() {
     <div class="dk-tools"><span class="dk-sync${/couldn|offline|retry/i.test(syncMsg) ? ' bad' : ''}${/…/.test(syncMsg) ? ' busy' : ''}" title="${esc(syncMsg)}">${esc(syncMsg)}</span>
       <span class="dk-histb"><button class="dk-tb" data-act="dundo" aria-label="Undo">${ICON.undo}</button><button class="dk-tb" data-act="dredo" aria-label="Redo">${ICON.redo}</button><button class="dk-tb" data-act="dhistory" title="Change history" aria-label="Change history">${ICON.hist}</button></span>
       ${p && typeof CTX.turnOrder === 'function' ? `<button class="dk-tb dk-tobtn" data-act="turnorder" title="Turn order" aria-label="Turn order">${ICON.init}</button>` : ''}<button class="dk-tb" data-act="diceroller" title="Dice roller" aria-pressed="${!!$('.drwin:not(.closing)')}">${ICON.dice}<span class="dk-tl">Roll</span></button>
-      <button class="dk-tb" data-act="log" title="Roll log" aria-pressed="${UI.log}">${ICON.log}<span class="dk-tl">Log</span></button>
+      <button class="dk-tb" data-act="log" title="Log — every roll, plus everything else that popped up">${ICON.log}<span class="dk-tl">Log</span></button>
       <button class="dk-tb" data-act="settings" title="Settings">${ICON.gear}</button>${CTX && CTX.bugReport ? `<button class="dk-tb" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` : ''}${CTX && CTX.acct ? `<button class="dk-acct" data-act="acct" title="Your account" aria-haspopup="menu" aria-expanded="false">${CTX.acct.html()}</button>` : ''}</div>
 `;
 }
@@ -1533,7 +1544,7 @@ function paint() {
   PAINTING = true; try { paint0(pg); } finally { PAINTING = false; }
 }
 function paint0(pg) {
-  const keep = {}; $$('[data-keep]').forEach(el => { keep[el.dataset.keep] = el.scrollTop; });
+  const keep = {}; $$('[data-keep]').forEach(el => { keep[el.dataset.keep] = el.scrollTop; }); window.DK_KEEP = keep;
   const a = document.activeElement, fid = a && ROOT.contains(a) && a.id, sel = fid && a.selectionStart != null ? [a.selectionStart, a.selectionEnd] : null, y = scrollY;
   // (a box being typed in keeps what's in it, saved or not, when something else makes the page redraw)
   const val = UI.tab === 'notes' && fid && /^(INPUT|TEXTAREA)$/.test(a.tagName) && !/^(checkbox|radio|file)$/i.test(a.type || '') ? a.value : null;
@@ -1562,7 +1573,7 @@ function sessionsHTML() {
   return `<div class="dk-sess">
     <div class="dk-scrim" data-act="tree"></div>
     <nav class="dk-rail" aria-label="Sessions">${railHTML(s)}</nav>
-    <main class="dk-main" data-keep="smain-${s ? s.id : ''}-${UI.sel || ''}-${UI.sv || ''}">${s ? `${phoneBar(s, sel)}${sel ? detailHTML(sel, s) : UI.sv === 'plan' ? sessHead(s, true) + planHTML(s) : overviewHTML(s)}` : emptyHTML()}</main></div>`;
+    <main class="dk-main" data-keep="smain-${s ? s.id : ''}-${UI.sel || ''}-${UI.sv || ''}">${s ? `${phoneBar(s, sel)}${sel ? detailHTML(sel, s) : overviewHTML(s)}` : emptyHTML()}</main></div>`;
 }
 function emptyHTML() {
   return `<div class="dk-empty"><div class="dk-emblem">${ICON.folder}</div><h2>Your first session</h2><p>A session is a folder of the creatures you’ll run: tracked HP, conditions and turns, with every attack, save and spell one click away.</p><button class="dk-btn gold big" data-act="newsess">${ICON.plus} New session</button></div>`;
@@ -1587,9 +1598,9 @@ function sessHead(s, plan) {
       <div class="dk-shacts">${CTX.party ? `<button class="dk-btn" data-act="toall" ${all.length ? '' : 'disabled'} title="Roll initiative for every creature here and add them to ${esc(CTX.party.name || 'the party')}’s Turn order">${ICON.init}<span>Send all to Turn order</span></button>` : ''}
         <button class="dk-btn" data-act="newround" ${all.length ? '' : 'disabled'} title="New turn for every creature: actions back, recharges rolled, timed conditions count down, regeneration">${ICON.refresh}<span>New round</span></button>
         <div class="dk-menu"><button class="dk-btn icon" data-act="menu" aria-label="More" aria-haspopup="menu">${ICON.dots}</button><div class="dk-mlist" role="menu"><button data-act="addgroup">Add a group</button><button data-act="restall">Reset every creature</button><button data-act="dupsess">Duplicate session</button><button class="red" data-act="delsess">Delete session</button></div></div></div></div>
-    <div class="dk-svtabs"><div class="dk-seg2"><button class="${plan ? '' : 'on'}" data-act="sview" data-v="creatures">Creatures</button><button class="${plan ? 'on' : ''}" data-act="sview" data-v="plan">Plan & notes${s.plan && s.plan.flow ? ' ✓' : ''}</button></div>
+    <div class="dk-svtabs">
     <div class="dk-meta"><span>${plural(all.length, 'creature')}</span>${xp ? `<span>${xp.toLocaleString()} XP</span>` : ''}${down ? `<span class="bad">${down} down</span>` : ''}</div></div>
-    ${plan ? '' : `<details class="dk-notes"${s.notes ? ' open' : ''}><summary>Session notes</summary><textarea class="dk-f" id="dk-snotes" data-ch="snotes" rows="2" placeholder="Hooks, places, names, what happened last time…">${esc(s.notes || '')}</textarea></details>
+    ${plan ? '' : `
     <div class="dk-add"><div class="dk-picker"><input class="dk-f" id="dk-addq" placeholder="${innerWidth <= 640 ? 'Add a creature (e.g. goblin)' : 'Add a creature — type a name (e.g. goblin)'}" autocomplete="off" aria-label="Creature to add"><div class="dk-sugg" hidden></div></div>
       <input class="dk-f dk-num" id="dk-addn" type="number" min="1" max="30" value="1" aria-label="How many">
       ${s.groups.length > 1 ? `<select class="dk-f" id="dk-addg" aria-label="Group">${s.groups.map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join('')}</select>` : ''}
@@ -1598,7 +1609,7 @@ function sessHead(s, plan) {
 }
 function overviewHTML(s) {
   const grp = g => `<section class="dk-grp"><header><input class="dk-gname" id="dk-g-${g.id}" data-ch="gname" data-gid="${g.id}" value="${esc(g.name)}" aria-label="Group name" maxlength="60"><small>${plural(g.list.length, 'creature')}</small>
-      <span class="dk-gacts">${CTX.party && g.list.length ? `<button class="dk-btn sm" data-act="togroup" data-gid="${g.id}" title="Roll initiative for this group and add it to the Turn order">${ICON.init}<span>Turn order</span></button>` : ''}${g.list.length ? `<button class="dk-btn sm" data-act="saveeff" data-gid="${g.id}" title="A breath weapon, spell or trap against this group">Save effect…</button>` : ''}${s.groups.length > 1 ? `<button class="dk-ix" data-act="delgroup" data-gid="${g.id}" title="Delete group" aria-label="Delete group">${ICON.trash}</button>` : ''}</span></header>
+      <span class="dk-gacts">${g.list.length ? `<button class="dk-btn sm" data-act="saveeff" data-gid="${g.id}" title="A breath weapon, spell or trap against this group">Save effect…</button>` : ''}${s.groups.length > 1 ? `<button class="dk-ix" data-act="delgroup" data-gid="${g.id}" title="Delete group" aria-label="Delete group">${ICON.trash}</button>` : ''}</span></header>
     ${g.list.length ? `<div class="dk-cards">${g.list.map(cardHTML).join('')}</div>` : '<p class="dk-hint dk-gnone">Empty. Add creatures with the box above.</p>'}</section>`;
   return sessHead(s) + s.groups.map(grp).join('') + cardsHTML(s);
 }
@@ -1673,7 +1684,7 @@ function statBlock(c, inst) {
     <div class="dk-type">${esc(c.size)} ${esc(c.type)}${c.align ? ', ' + esc(c.align) : ''} ${c.src && c.src !== 'SRD' ? `<span class="dk-src mine">${esc(c.book || c.src)}</span>` : '<span class="dk-src">SRD</span>'}</div>
     ${!inst && c.id ? `<div class="dk-tokbtns"><button class="dk-link" data-act="tokup" data-cid="${esc(c.id)}">${tokPic(c) ? 'Change picture' : 'Use my own picture'}</button>${tokPic(c) ? `<button class="dk-link" data-act="tokreset" data-cid="${esc(c.id)}">Back to the token</button>` : ''}</div>` : ''}</div></div><div class="dk-rule"></div>
     ${prop('Armor Class', esc(c.ac) + (c.acNote ? ' (' + esc(c.acNote) + ')' : ''))}
-    ${prop('Hit Points', esc(c.hp) + (c.hd ? ` (<button class="dk-rl" data-act="dice" data-x="${esc(c.hd)}" data-lbl="Hit points">${esc(prettyExpr(c.hd))}</button>)` : ''))}
+    ${prop('Hit Points', esc(c.hp) + (c.hd ? ` <button class="dk-rl" data-act="dice" data-x="${esc(c.hd)}" data-lbl="Hit points">(${esc(prettyExpr(c.hd))})</button>` : ''))}
     ${prop('Speed', esc(c.speed))}
     ${prop('Initiative', `<button class="dk-rl" data-act="init">${sg(cInit(c))}</button>`)}
     <div class="dk-rule"></div><div class="dk-abil">${c.ab.map((s, i) => `<button data-act="chk" data-ab="${i}" title="${ABN[i]} check"><b>${ABS[i].toUpperCase()}</b><span>${s}</span><small>${sg(mod(s))}</small></button>`).join('')}</div><div class="dk-rule"></div>
@@ -1716,6 +1727,18 @@ function filteredCreatures() {
   L.sort(UI.sort === 'cr' ? (a, b) => N(a.cr) - N(b.cr) || a.name.localeCompare(b.name) : (a, b) => a.name.localeCompare(b.name));
   return L;
 }
+// The creature list draws its first rows straight away and the rest just after, a batch at a time, so opening the
+// Bestiary (or typing in its search) doesn't wait for hundreds of rows. (All at once if the list was scrolled down.)
+const bestRow = (x, c) => `<button class="dk-mrow${c && x.id === c.id ? ' on' : ''}" data-act="pickbest" data-cid="${esc(x.id)}">${tokenHTML(x, 30)}<span class="dk-mn">${esc(x.name)}${x.src !== 'SRD' ? ' <span class="dk-src mine">mine</span>' : ''}</span><span class="dk-mcr">CR ${crLabel(N(x.cr))}</span><span class="dk-mt">${esc(x.size)} ${esc(x.type)} · AC ${esc(x.ac)} · HP ${esc(x.hp)}</span></button>`;
+let BEST_RUN = 0;
+function bestRows(L, c) {
+  const run = ++BEST_RUN, all = (window.DK_KEEP && window.DK_KEEP.blist > 0) || L.length <= 60;
+  if (all) return L.map(x => bestRow(x, c)).join('');
+  const rest = L.slice(60);
+  setTimeout(function more() { if (run !== BEST_RUN || UI.tab !== 'bestiary') return; const box = document.querySelector('.dk-mlist2[data-keep="blist"]'); if (!box || !rest.length) return;
+    box.insertAdjacentHTML('beforeend', rest.splice(0, 120).map(x => bestRow(x, c)).join('')); if (rest.length) requestAnimationFrame(() => setTimeout(more, 0)); }, 0);
+  return L.slice(0, 60).map(x => bestRow(x, c)).join('');
+}
 function bestiaryHTML() {
   const types = Array.from(new Set(allCreatures().map(c => (c.type || '').toLowerCase().replace(/\s*\(.*$/, '').replace(/^swarm of .*/, 'swarm')))).filter(Boolean).sort();
   const L = filteredCreatures(), c = getC(UI.best) || L[0], mine = Object.keys(S.creatures).length;
@@ -1734,13 +1757,13 @@ function bestiaryHTML() {
         <div class="dk-sort"><button class="${UI.sort === 'name' ? 'on' : ''}" data-act="bsort" data-v="name">A–Z</button><button class="${UI.sort === 'cr' ? 'on' : ''}" data-act="bsort" data-v="cr">CR</button></div>
       </div>
       <div class="dk-bcount">${L.length} shown${UI.q || UI.crMin !== '' || UI.crMax !== '' || UI.type || UI.size || UI.src ? ' · <button class="dk-link" data-act="bclear">clear filters</button>' : ''}</div>
-      <div class="dk-mlist2" data-keep="blist">${L.map(x => `<button class="dk-mrow${c && x.id === c.id ? ' on' : ''}" data-act="pickbest" data-cid="${esc(x.id)}">${tokenHTML(x, 30)}<span class="dk-mn">${esc(x.name)}${x.src !== 'SRD' ? ' <span class="dk-src mine">mine</span>' : ''}</span><span class="dk-mcr">CR ${crLabel(N(x.cr))}</span><span class="dk-mt">${esc(x.size)} ${esc(x.type)} · AC ${esc(x.ac)} · HP ${esc(x.hp)}</span></button>`).join('') || '<p class="dk-hint" style="padding:12px">Nothing matches. Clear a filter, or add your own creature.</p>'}</div>
+      <div class="dk-mlist2" data-keep="blist">${bestRows(L, c) || '<p class="dk-hint" style="padding:12px">Nothing matches. Clear a filter, or add your own creature.</p>'}</div>
     </section>
     <section class="dk-bview" data-keep="bview-${esc(c ? c.id : '')}">${c ? `<button class="dk-btn ghost dk-bback" data-act="bback">${ICON.back || '‹'} All creatures</button><div class="dk-card dk-badd"><div class="dk-row"><input class="dk-f dk-num" id="dk-bCount" type="number" min="1" max="30" value="1" aria-label="How many"><select class="dk-f" id="dk-bEnc" aria-label="Add to"><option value="__new">A new session</option>${grps.map(({ s, g }) => `<option value="${esc(s.id)}|${esc(g.id)}"${s.id + '|' + g.id === defG ? ' selected' : ''}>${esc(s.title)}${s.groups.length > 1 ? ' › ' + esc(g.name) : ''}</option>`).join('')}</select><button class="dk-btn gold" data-act="badd" data-cid="${esc(c.id)}">${ICON.plus} Add</button></div>
         <div class="dk-row"><button class="dk-btn sm" data-act="copyc" data-cid="${esc(c.id)}">Copy & edit</button>${c.src !== 'SRD' ? `<button class="dk-btn sm" data-act="editc" data-cid="${esc(c.id)}">Edit</button><button class="dk-btn sm red" data-act="delc" data-cid="${esc(c.id)}">Delete</button>` : ''}</div></div>
       <div class="dk-card dk-sbcard">${statBlock(c)}</div>` : ''}<p class="dk-credit">${esc(TOK_CREDIT)}.</p></section></div>`;
 }
-function paintLog() {
+function paintLog() { logRefresh();
   const box = $('.dk-loglist'); if (!box) return;
   box.innerHTML = LOG.length ? LOG.map(e => e.note ? `<div class="dk-lg note">${esc(e.note)}</div>` : `<div class="dk-lg ${e.cls || ''}"><div><b>${esc(e.who ? e.who + ' · ' : '')}</b>${esc(e.label)} ${e.src === 'roll20' ? '<span class="dk-tag20">Roll20</span>' : ''}</div><div class="dk-lt">${esc(e.total)}</div><div class="dk-ld">${esc(e.detail || '')} · ${new Date(e.t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div></div>`).join('') : '<p class="dk-hint">Rolls show up here.</p>';
 }
@@ -2030,8 +2053,9 @@ async function onClick(e) {
     case 'quickroll': case 'diceroller': return diceRoller();
     case 'turnorder': if (typeof CTX.turnOrder === 'function') try { CTX.turnOrder(); } catch (e2) {} return;
     case 'qr': return roll({ who: 'DM', label: prettyExpr(b.dataset.x), expr: b.dataset.x });
-    case 'log': UI.log = !UI.log; ROOT.classList.toggle('dk-log-open', UI.log); if (UI.log) paintLog(); $$('[data-act="log"]').forEach(t => t.setAttribute('aria-pressed', UI.log)); return;
-    case 'clearlog': LOG = []; writeLocal(); return paintLog();
+    case 'log': if (logOpen()) return closeModal(); return openLog();
+    case 'logtab': UI.logTab = b.dataset.v; return openLog(true);
+    case 'clearlog': return clearLog();
     case 'menu': { const m = b.closest('.dk-menu'), was = m.classList.contains('open'); closeMenus(); if (!was) m.classList.add('open'); return; }
     case 'tree': UI.tree = !UI.tree; ROOT.classList.toggle('dk-tree-open', UI.tree); return;
     case 'newsess': return askText('New session', 'Session ' + (S.sessions.length + 1), v => { newSession(v); UI.tab = 'sessions'; UI.tree = false; save(); paint(); setTimeout(() => { const q = $('#dk-addq'); if (q) q.focus(); }, 50); }, { okLabel: 'Create', hint: 'Name it after the night you’ll play, or the adventure.' });
@@ -2210,7 +2234,6 @@ function mount(root, ctx) {
   // Phones: only a party's page is available (see LITE below); the Desk on its own isn't
   if (!CTX.partyHost && mobileDev()) { const b = CTX.back; root.innerHTML = `<div class="dk-nophone"><div class="dk-emblem">${ICON.folder}</div><h2>Not available on mobile devices</h2><p><em>Not all of the DM’s Desk is available on mobile devices. Open a party you run to manage it from here, or use a computer for everything else.</em></p>${b ? `<a class="dk-btn gold" href="${esc(b.href)}">${ICON.back}<span>${esc(b.label || 'Back')}</span></a>` : ''}</div>`; return { unmount: () => { root.innerHTML = ''; ROOT = null; } }; }
   root.innerHTML = `<header class="dk-top"></header><div class="dk-page"></div>
-    <aside class="dk-log" aria-label="Roll log"><div class="dk-loghd"><h2>Roll log</h2><button class="dk-btn sm" data-act="clearlog">Clear</button><button class="dk-ix" data-act="log" aria-label="Close">${ICON.x}</button></div><div class="dk-loglist"></div></aside>
     <div class="dk-modal" role="presentation"><div class="dk-mcard" role="dialog" aria-modal="true"></div></div>
     <div class="dk-toasts" aria-live="polite"></div><input type="file" class="dk-impf" accept=".json,application/json" hidden><input type="file" class="dk-imgf" accept="image/*" hidden><input type="file" class="dk-tokf" accept="image/*" hidden><input type="file" class="dk-nimgf" accept="image/*" hidden><input type="file" class="dk-mapf" accept="image/*" hidden><input type="file" class="dk-nimpf" accept=".docx,.lk,.md,.markdown,.txt,.html,.htm,.zip,.textpack,.json,image/*" multiple hidden><input type="file" class="dk-ndirf" webkitdirectory multiple hidden><div class="dk-auto" hidden></div><input type="file" class="dk-notef" accept=".pdf,.docx,.txt,.md,.markdown,text/plain,application/pdf" multiple hidden>`;
   const loc = lsGet(''); S = normalize(loc && loc.v ? loc : null); dHistLoad();
@@ -2233,7 +2256,7 @@ function mount(root, ctx) {
   on(root, 'mousedown', e => { const t = e.target.closest && e.target.closest('[data-ed],[data-auto]'); if (!t) return; e.preventDefault(); if (t.dataset.ed) edCmd(t.dataset.ed); else edAutoPick(N(t.dataset.auto)); });
   on(root, 'paste', e => { if (e.target.closest && e.target.closest('.dk-ed')) edPaste(e); });
   on(root, 'dragstart', e => { onDragStart(e); if (DRAG) ROOT.classList.add('dk-dragon'); }); on(root, 'dragover', onDragOver); on(root, 'drop', e => { dPend('Move'); onDrop(e); ROOT.classList.remove('dk-dragon'); }); on(root, 'dragend', () => { DRAG = null; ROOT.classList.remove('dk-dragon'); $$('.dragging').forEach(x => x.classList.remove('dragging')); });
-  on(root, 'mouseover', onNotesOver); on(window, 'beforeunload', notesLeave); on(window, 'pagehide', notesLeave); on(document, 'visibilitychange', () => { if (document.hidden) notesLeave(); else notesRefresh(); });
+  on(root, 'mouseover', onNotesOver); on(root, 'contextmenu', nCtx); on(window, 'beforeunload', notesLeave); on(window, 'pagehide', notesLeave); on(document, 'visibilitychange', () => { if (document.hidden) notesLeave(); else notesRefresh(); });
   on(document, 'keydown', onKey); on(document, 'mousedown', onDocDown); on(document, 'touchstart', onDocDown, { passive: true });
   on(window, 'message', onR20Msg); on(document, 'visibilitychange', onVis); on(window, 'storage', onStorage);
   setTimeout(r20Hello, 400);
@@ -2256,7 +2279,7 @@ function phoneWarn() {
 function unmount() { LISTEN.splice(0).forEach(([t, ev, fn, o]) => t.removeEventListener(ev, fn, o)); if (CTX && CTX.partyHost && CTX.partyHost.parentNode && CTX.partyHost.parentNode.classList.contains('dk-partyslot')) CTX.partyHost.parentNode.removeChild(CTX.partyHost); if (CLOUD) flush(); if (NCLOUD) flushNotes(); if (ROOT) { ROOT.innerHTML = ''; ROOT.classList.remove('dk'); } ROOT = null; CLOUD = false; }
 // Lists that scroll inside a panel show a divider with a soft shadow at an edge when there's more past it.
 const SHADE_SEL = '.dk-tree, .dk-mlist2, .dk-auto, .dk-itree, .dk-setwin .dk-setx, .dk-loglist';
-function shadeOne(el) { const t = el.scrollTop > 2, b = el.scrollTop + el.clientHeight < el.scrollHeight - 2; el.classList.add('dk-shade'); el.classList.toggle('sc-t', t); el.classList.toggle('sc-b', b); }
+function shadeOne(el) { const t = el.scrollTop > 2, b = el.scrollTop + el.clientHeight < el.scrollHeight - 2; if (!el.classList.contains('dk-shade')) el.classList.add('dk-shade'); if (el.classList.contains('sc-t') !== t) el.classList.toggle('sc-t', t); if (el.classList.contains('sc-b') !== b) el.classList.toggle('sc-b', b); } // (classes only touched when they change)
 function shadeAll() { if (!ROOT) return; $$(SHADE_SEL).forEach(shadeOne); }
 document.addEventListener('scroll', e => { const el = e.target; if (el && el.matches && ROOT && ROOT.contains(el) && el.matches(SHADE_SEL)) shadeOne(el); }, true);
 addEventListener('resize', () => requestAnimationFrame(shadeAll));
@@ -2653,6 +2676,8 @@ function onPlanAct(act, b) {
   }
   return false;
 }
+// A page's id goes into the page's markup, so only plain ids are taken from what's saved (others can't be pages)
+const pageOK = p => !!(p && typeof p.id === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(p.id) && (p.parent == null || p.parent === '' || (typeof p.parent === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(p.parent))));
 // ---------- Notes: a campaign wiki (pages in a tree, rich text, wiki links, maps) ----------
 // Pages live in desks/{email}/notes/{id} {savedAt, data}; pictures in desks/{email}/imgs/{id} {data, w, h}.
 // Every page body is run through clean() — a strict whitelist — when it is saved AND when it is shown.
@@ -2710,13 +2735,13 @@ async function flushNotes() {
   nFlushing = false; if (nAgain) { nAgain = false; flushNotes(); }
 }
 async function notesBoot() {
-  try { const l = JSON.parse(localStorage.getItem(lsKey('-notes')) || 'null'); if (l && l.pages) NT = { pages: l.pages, syncedAt: N(l.syncedAt), del: l.del || [] }; } catch (e) {}
+  try { const l = JSON.parse(localStorage.getItem(lsKey('-notes')) || 'null'); if (l && l.pages) NT = { pages: Object.fromEntries(Object.entries(l.pages).filter(([k, p]) => pageOK(p) && k === p.id)), syncedAt: N(l.syncedAt), del: l.del || [] }; } catch (e) {}
   if (!CTX.fs || !CTX.EMAIL) return;
   // (a party's desk keeps its own notes; pictures stay in one place for all your desks)
   while (!BASE && ROOT) await new Promise(r => setTimeout(r, 50)); NBASE = deskBase().collection('notes'); IBASE = userBase().collection('imgs');
   while (!CLOUD && ROOT && syncMsg !== 'Offline — saved on this device') await new Promise(r => setTimeout(r, 80)); // (after any move of an old desk)
   try {
-    const qs = await NBASE.get(), cloud = {}; qs.docs.forEach(d => { const p = d.data().data; if (p && p.id) cloud[p.id] = p; });
+    const qs = await NBASE.get(), cloud = {}; qs.docs.forEach(d => { const p = d.data().data; if (pageOK(p)) cloud[p.id] = p; });
     const merged = {};
     Object.values(cloud).forEach(p => { const l = NT.pages[p.id]; merged[p.id] = l && N(l.edited) > N(p.edited) ? l : p; NSYNC.set(p.id, JSON.stringify(p)); });
     Object.values(NT.pages).forEach(p => { if (!cloud[p.id] && N(p.edited) > N(NT.syncedAt)) merged[p.id] = p; }); // made here and not saved yet
@@ -2734,7 +2759,7 @@ let nRefreshing = false;
 async function notesRefresh() {
   if (!NCLOUD || !NBASE || nRefreshing || nFlushing) return; nRefreshing = true;
   try {
-    const qs = await NBASE.get(), cloud = {}; qs.docs.forEach(d => { const p = d.data().data; if (p && p.id) cloud[p.id] = p; });
+    const qs = await NBASE.get(), cloud = {}; qs.docs.forEach(d => { const p = d.data().data; if (pageOK(p)) cloud[p.id] = p; });
     const ed = typeof edEl === 'function' && edEl(), typing = ed && document.activeElement === ed ? ed.id.replace(/^dk-ed-/, '') : ''; let ch = false;
     Object.values(cloud).forEach(c => { if (NT.del.includes(c.id) || c.id === typing) return; const l = NT.pages[c.id], cj = JSON.stringify(c);
       if (!l) { NT.pages[c.id] = c; NSYNC.set(c.id, cj); ch = true; return; }
@@ -2999,7 +3024,7 @@ function treeHTML(pid, depth) {
 function notesRailHTML() {
   const res = notesFiltered(), f = UI.nf || 'all', tags = allTags(), q = String(UI.nq || '').trim();
   return `<div class="dk-railhd"><span>Notes</span><div class="dk-menu"><button class="dk-btn sm gold" data-act="menu" aria-haspopup="menu">${ICON.plus} New</button><div class="dk-mlist" role="menu">${Object.entries(NTYPES).filter(([k]) => k === 'blank' || k === 'map').map(([k, t]) => `<button data-act="nnew" data-t="${k}">${nIcon(k)}<span>${esc(t.n)}</span></button>`).join('')}<button data-act="nimport">${ICON.importIc}<span>Import…</span></button></div></div><button class="dk-ix dk-railx" data-act="tree" aria-label="Close">${ICON.x}</button></div>
-    <div class="dk-nsearch"><input class="dk-f" id="dk-nq" type="search" value="${esc(UI.nq || '')}" placeholder="Search ${plural(pagesList().length, 'page')}" aria-label="Search notes" autocomplete="off"></div>
+    <div class="dk-nsearch"><input class="dk-f" id="dk-nq" type="search" value="${esc(UI.nq || '')}" placeholder="${pagesList().length ? 'Search ' + plural(pagesList().length, 'page') : 'Search notes'}" aria-label="Search notes" autocomplete="off"></div>
     <div class="dk-nfilt">${[['all', 'All'], ['fav', '★ Pinned'], ['recent', 'Recent'], ['maps', 'Maps']].map(([k, n]) => `<button class="${f === k ? 'on' : ''}" data-act="nfilt" data-v="${k}">${n}</button>`).join('')}${tags.length ? `<select class="dk-f" id="dk-ntag" aria-label="Tag"><option value="">#tag</option>${tags.map(t => `<option${f === 'tag' && UI.ntag === t ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>` : ''}</div>
     <div class="dk-tree dk-ntree" data-keep="ntree">${res ? (res.length ? res.map(p => `<button class="dk-nres${p.id === UI.np ? ' on' : ''}" data-act="nopen" data-id="${p.id}">${nIcon(p.type)}<span><b>${esc(p.title)}</b><small>${q ? snippet(p, q) : relTime(p.edited)}</small></span></button>`).join('') : '<p class="dk-tnone">Nothing found.</p>')
       : (pagesList().length ? treeHTML('', 0) + '<div class="dk-ntdrop" data-dropend="1">Drop here to move to the top level</div>' : '<p class="dk-tnone">No pages yet</p>')}</div>
@@ -3060,7 +3085,8 @@ function notesAfterPaint() {
 // ----- editor -----
 let EDT = 0;
 // the 'Write here…' hint shows while the page has no words, pictures or lists
-function edBlank(ed) { if (ed) ed.classList.toggle('blank', !ed.textContent.replace(/\u200B/g, '').trim() && !ed.querySelector('img, hr, table, li, a, span.mn')); }
+// the hint only shows on a page with nothing in it at all: no text, and nothing but one plain empty line
+function edBlank(ed) { if (ed) ed.classList.toggle('blank', !ed.textContent.replace(/\u200B/g, '').trim() && !ed.querySelector('img, hr, table, li, a, span.mn, blockquote, h1, h2, h3, pre, .callout, .secret, ul, ol') && ed.children.length <= 1); }
 const edFix = h => { h = String(h || '').replace(/<(p|li|h[123]|td|th)><\/\1>/g, '<$1><br></$1>'); return h.trim() ? h : '<p><br></p>'; };
 function edEl() { return $('.dk-ed'); }
 let ED_PENDING = false;
@@ -3068,7 +3094,7 @@ function edSave(now) {
   // the text goes to the page the editor is showing (its id), never to whichever page is open by now: after clicking a
   // link the open page has already changed while the old page's editor is still on screen
   const ed = edEl(), p = ed && pageById(ed.id.replace(/^dk-ed-/, '')); if (!ed || !p) return;
-  clearTimeout(EDT); const go = () => { ED_PENDING = false; edBlank(ed); const h = clean(ed.innerHTML).replace(/\u200B/g, ''); if (h !== p.html) { p.html = h; nSave(p); } };
+  edBlank(ed); clearTimeout(EDT); const go = () => { ED_PENDING = false; edBlank(ed); const h = clean(ed.innerHTML).replace(/\u200B/g, ''); if (h !== p.html) { p.html = h; nSave(p); } };
   if (now) go(); else { ED_PENDING = true; EDT = setTimeout(go, 500); }
 }
 // anything that redraws the page first keeps what was just typed (or a link/mention just picked) in the editor
@@ -3181,8 +3207,8 @@ const nrW = () => nrClamp(N(UI.nrw) || NRW0);
 function nrSet(w, keep) { const v = $('.dk-notesv'); w = nrClamp(w); if (v) v.style.setProperty('--nrw', w + 'px'); if (keep) { UI.nrw = w; saveUI(); } return w; }
 function nrDrag(e) {
   const sp = e.target.closest && e.target.closest('.dk-nsplit'); if (!sp || e.button > 0) return; e.preventDefault();
-  const v = $('.dk-notesv'), x0 = v.getBoundingClientRect().left; let w = nrW(); sp.classList.add('on'); document.body.style.cursor = 'col-resize'; ROOT.classList.add('dk-resizing');
-  const mv = ev => { w = nrSet(ev.clientX - x0); }, up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); sp.classList.remove('on'); document.body.style.cursor = ''; ROOT.classList.remove('dk-resizing'); nrSet(w, true); };
+  const cx0 = e.clientX, w0 = nrW(); let w = w0; sp.classList.add('on'); document.body.style.cursor = 'col-resize'; ROOT.classList.add('dk-resizing');
+  const mv = ev => { w = nrSet(w0 + ev.clientX - cx0); }, up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); sp.classList.remove('on'); document.body.style.cursor = ''; ROOT.classList.remove('dk-resizing'); nrSet(w, true); };
   addEventListener('pointermove', mv); addEventListener('pointerup', up);
 }
 function nrKey(e) { const sp = e.target.closest && e.target.closest('.dk-nsplit'); if (!sp) return false; const d = e.key === 'ArrowLeft' ? -16 : e.key === 'ArrowRight' ? 16 : 0; if (!d) return false; e.preventDefault(); nrSet(nrW() + d, true); return true; }
@@ -3694,7 +3720,7 @@ function makePage(type, parent, title) { const p = newPage({ type, parent: paren
 function caretOffset(ed) { const r = selRange(); if (!r || !ed.contains(r.startContainer)) return -1; const rr = document.createRange(); rr.selectNodeContents(ed); rr.setEnd(r.startContainer, r.startOffset); return rr.toString().length; }
 function setCaretOffset(ed, off) { const w = document.createTreeWalker(ed, NodeFilter.SHOW_TEXT); let n, left = off; while ((n = w.nextNode())) { if (left <= n.nodeValue.length) { const r = document.createRange(); r.setStart(n, left); r.collapse(true); const s = getSelection(); s.removeAllRanges(); s.addRange(r); return; } left -= n.nodeValue.length; } placeCaret(ed, true); }
 function onNotesAct(act, b, e) {
-  const p = pageById(UI.np);
+  const p = pageById((b && b.dataset && b.dataset.pid) || UI.np); nCtxClose();
   switch (act) {
     case 'nnew': return makePage(b.dataset.t || 'blank', '');
     case 'nopen': return openPage(b.dataset.id);
@@ -3717,7 +3743,7 @@ function onNotesAct(act, b, e) {
       $('#dk-mvGo').onclick = () => { const to = $('#dk-mvTo').value; closeModal(true); movePage(p.id, to, null); }; return true; }
     case 'nalias': askText('Other names', (p.aliases || []).join(', '), v => { p.aliases = asList(v).slice(0, 10); nSave(p); paint(); }, { okLabel: 'Save', allowEmpty: true, hint: 'Names this page also goes by, separated by commas — [[links]] to any of them find this page.' }); return true;
     case 'nmd': download(p.title.replace(/[\\/:*?"<>|]/g, '-') + '.md', '# ' + p.title + '\n\n' + htmlToMd(p.html)); return true;
-    case 'ndel': { const n = pagesList().filter(x => x.id !== p.id && isAncestor(p.id, x.id)).length; confirmBox(`Delete <b>${esc(p.title)}</b>${n ? ` and the ${plural(n, 'page')} inside it` : ''}? This can’t be undone.`, 'Delete', () => { const par = p.parent; deletePage(p.id); UI.np = par || ''; writeNotesLocal(); notesSoon(); paint(); }, true); return true; }
+    case 'ndel': { const n = pagesList().filter(x => x.id !== p.id && isAncestor(p.id, x.id)).length; confirmBox(`Delete <b>${esc(p.title)}</b>${n ? ` and the ${plural(n, 'page')} inside it` : ''}? This can’t be undone.`, 'Delete', () => { const par = p.parent; deletePage(p.id); if (!pageById(UI.np)) UI.np = par || ''; writeNotesLocal(); notesSoon(); paint(); }, true); return true; }
     case 'nrmtag': p.tags = (p.tags || []).filter(t => t !== b.dataset.tag); nSave(p); paint(); return true;
     case 'nstat': { const c = getC(b.dataset.cid); if (c) openModal(`<div class="dk-sbmodal">${statBlock(c)}</div><div class="dk-acts"><button class="dk-btn" data-act="close">Close</button></div>`, { wide: true, focus: false }); return true; }
     case 'ntosess': { const c = getC((p.props || {}).stat); if (!c) return true; const s = curSession() || newSession(); const x = newInst(c, p.title); x.notes = [p.props.role, p.props.race].filter(Boolean).join(', '); s.groups[0].list.push(x); save(); toastInfo(`Added <b>${esc(p.title)}</b> to ${esc(s.title)}.`, [{ label: 'Go to session', fn: () => { UI.tab = 'sessions'; UI.session = s.id; UI.sv = 'creatures'; UI.sel = x.iid; saveUI(); render(); scrollTo(0, 0); } }]); return true; }
@@ -3728,6 +3754,21 @@ function onNotesAct(act, b, e) {
     case 'pinedit': { const pin = (p.map.pins || []).find(x => x.id === b.dataset.pin); if (pin) pinEditor(p, pin, false); return true; }
   }
   return false;
+}
+// Right-click a page in the list: the page's menu, right there
+function nCtxClose() { $$('.dk-ctx').forEach(m => m.remove()); }
+function nCtx(e) {
+  const row = e.target.closest && e.target.closest('.dk-ntrow[data-drag], .dk-nres[data-id], .dk-nhcard[data-id]'); if (!row || !ROOT.contains(row)) return;
+  const p = pageById(row.dataset.drag || row.dataset.id); if (!p) return;
+  e.preventDefault(); nCtxClose();
+  const m = document.createElement('div'); m.className = 'dk-menu open dk-ctx'; m.setAttribute('role', 'menu');
+  const it = (act, t, cls) => `<button data-act="${act}" data-pid="${p.id}"${act === 'nopen' ? ` data-id="${p.id}"` : ''}${cls ? ` class="${cls}"` : ''} role="menuitem">${t}</button>`;
+  m.innerHTML = `<div class="dk-mlist"><div class="dk-ctxh">${nIcon(p.type)}<b>${esc(p.title)}</b></div>${it('nopen', 'Open')}${it('nsub', 'Add a subpage')}${it('nfav', p.fav ? 'Unpin' : 'Pin')}${it('nmove', 'Move to…')}${it('nalias', 'Other names…')}${it('nmd', 'Export as Markdown')}${it('ndel', 'Delete page', 'red')}</div>`;
+  ROOT.appendChild(m); const r = m.getBoundingClientRect();
+  m.style.left = Math.max(8, Math.min(e.clientX, innerWidth - r.width - 8)) + 'px'; m.style.top = Math.max(8, Math.min(e.clientY, innerHeight - r.height - 8)) + 'px';
+  const off = ev => { if (ev.type === 'keydown' && ev.key !== 'Escape') return; if (ev.type === 'pointerdown' && m.contains(ev.target)) return; nCtxClose(); removeEventListener('pointerdown', off, true); removeEventListener('keydown', off, true); removeEventListener('scroll', off, true); removeEventListener('blur', off); };
+  setTimeout(() => { addEventListener('pointerdown', off, true); addEventListener('keydown', off, true); addEventListener('scroll', off, true); addEventListener('blur', off); }, 0);
+  const f = m.querySelector('button[data-act]'); if (f) f.focus({ preventScroll: true });
 }
 function onNotesClick(e) {
   if (UI.tab !== 'notes') return false;
@@ -4106,6 +4147,92 @@ async function drRoll(ex, label, dc) { ex = String(ex || '').replace(/\s+/g, '')
   const r = await roll({ who: 'DM', label: 'Dice roller: ' + f + (ent.dc != null ? ' vs ' + ent.dc : ''), expr: ex }, ent.dc != null ? { noteFn: t => (t >= ent.dc ? 'Success' : 'Failure') } : {});
   if (r && typeof r.total === 'number') { ent.t = r.total; if (ent.dc != null) ent.ok = r.total >= ent.dc; } else DR.last = DR.last.filter(x => x !== ent);
   drKeep(); drPaint(); }
+// ---------- Log ----------
+// The same Log window as the character sheet: Rolls (every roll with its breakdown), Everything else (what popped up —
+// damage and healing notes, spells cast, turns, warnings) and Dice stats (how the desk's d20s land, kept for good in
+// this browser). Newest first, grouped by day.
+let EVLOG = null, DSTATS = null, LOG_TAB_SHOWN = '';
+const LOG_TABS = ['rolls', 'events', 'stats'];
+const evLoad = () => { if (!EVLOG) EVLOG = lsGet('-evlog') || []; return EVLOG; };
+const evSave = () => lsSet('-evlog', (EVLOG || []).slice(0, 300));
+function evAdd(html) {
+  const clean = String(html || '').replace(/<button[^>]*>[\s\S]*?<\/button>/g, ''); if (!clean.replace(/<[^>]*>/g, '').trim()) return;
+  evLoad().unshift({ t: Date.now(), html: clean }); EVLOG = EVLOG.slice(0, 300); evSave(); logRefresh();
+}
+// what kind of roll a label is (for the stats)
+function statKind(label, expr) {
+  const l = String(label || '').toLowerCase(), d20 = /d20/i.test(String(expr || ''));
+  if (d20) return /initiative/.test(l) ? 'init' : /\bsave\b|saving/.test(l) ? 'save' : /attack|to hit/.test(l) ? 'attack' : /^dice roller/.test(l) ? 'roller' : /check|\(.*\)$/.test(l) ? 'check' : 'other';
+  if (/heal/.test(l)) return 'heal';
+  if (/damage|\b(acid|bludgeoning|cold|fire|force|lightning|necrotic|piercing|poison|psychic|radiant|slashing|thunder)\b/.test(l)) return 'dmg';
+  return '';
+}
+const dsLoad = () => { if (!DSTATS) DSTATS = lsGet('-dstats') || {}; return DSTATS; };
+const statDay = t => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+function statCount(e) {
+  if (!e || e.total == null || e.src === 'manual' && e.d20 == null) return; const k = statKind(e.label, e.expr); if (!k) return;
+  const ds = dsLoad(), t = e.t || Date.now(); if (!ds.since) ds.since = t; ds.dist = ds.dist || Array(21).fill(0); ds.by = ds.by || {}; ds.days = ds.days || {};
+  const day = ds.days[statDay(t)] = ds.days[statDay(t)] || { n: 0, sum: 0, c20: 0, c1: 0, dmg: 0 }, total = N(e.total);
+  if (k !== 'dmg' && k !== 'heal') { const d = N(e.d20); if (!(d >= 1 && d <= 20)) return; const b = ds.by[k] = ds.by[k] || { n: 0, sum: 0, c20: 0, c1: 0 }; b.n++; b.sum += d; if (d === 20) b.c20++; if (d === 1) b.c1++; ds.dist[d]++;
+    day.n++; day.sum += d; if (d === 20) day.c20++; if (d === 1) day.c1++; if (!ds.top || total > ds.top.v) ds.top = { v: total, l: String((e.who ? e.who + ' · ' : '') + e.label).slice(0, 80), t }; }
+  else { const b = ds[k] = ds[k] || { n: 0, sum: 0 }; b.n++; b.sum += total; if (k === 'dmg') { day.dmg += total; if (!b.best || total > b.best.v) b.best = { v: total, l: String((e.who ? e.who + ' · ' : '') + e.label).slice(0, 80), t }; } }
+  const keys = Object.keys(ds.days).sort(); while (keys.length > 120) delete ds.days[keys.shift()];
+  lsSet('-dstats', ds);
+}
+let DS_ANIM = false;
+function diceStatsHTML() {
+  const ds = dsLoad(), dist = ds.dist || Array(21).fill(0), all = dist.reduce((a, b) => a + b, 0);
+  if (!all && !(ds.dmg && ds.dmg.n)) return '<p class="rl-empty">No rolls counted yet. From now on, every roll the desk makes is counted here.</p>';
+  const sum = dist.reduce((a, c, i) => a + c * i, 0), avg = all ? sum / all : 0, pct = n => all ? Math.round(n / all * 1000) / 10 + '%' : '—', f1 = v => (Math.round(v * 10) / 10).toFixed(1);
+  const mx = Math.max(1, ...dist.slice(1)), when = t => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric', year: new Date(t).getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+  const luck = !all ? '' : all < 20 ? 'Not enough rolls to tell yet.' : avg >= 11.5 ? 'Hot dice — well above the 10.5 a fair d20 averages.' : avg >= 10.9 ? 'A little luckier than average.' : avg > 10.1 ? 'Right about average (a fair d20 averages 10.5).' : avg > 9.5 ? 'A little unlucky.' : 'Cursed dice — well below the 10.5 a fair d20 averages.';
+  const tiles = `<div class="ds-tiles"><div class="ds-tile"><small>d20 rolls</small><b>${all}</b></div><div class="ds-tile"><small>Average d20</small><b>${all ? f1(avg) : '—'}</b></div><div class="ds-tile g"><small>Natural 20s</small><b>${dist[20]}</b><span>${pct(dist[20])}</span></div><div class="ds-tile r"><small>Natural 1s</small><b>${dist[1]}</b><span>${pct(dist[1])}</span></div></div>${luck ? `<p class="ds-luck">${luck}</p>` : ''}`;
+  const bars = all ? `<div class="ds-h">How the d20s land</div><div class="ds-chart${DS_ANIM ? ' anim' : ''}" role="img" aria-label="How many times each number came up on the d20"><div class="ds-plot">${dist.slice(1).map((c, i) => `<div class="ds-col${i === 19 ? ' g' : i === 0 ? ' r' : ''}" style="--k:${i}" title="${i + 1}: ${c} time${c === 1 ? '' : 's'} (${pct(c)})"><i style="height:${c ? Math.max(3, c / mx * 100) : 0}%"></i></div>`).join('')}<div class="ds-fair" style="bottom:${(Math.min(1, all / 20 / mx) * 100).toFixed(1)}%" title="What a fair d20 would land on each number"></div></div><div class="ds-axis">${dist.slice(1).map((c, i) => `<span>${i + 1}</span>`).join('')}</div></div>` : '';
+  const KN = [['attack', 'Attacks'], ['save', 'Saving throws'], ['check', 'Checks'], ['init', 'Initiative'], ['roller', 'Dice roller'], ['other', 'Other d20s']];
+  const by = ds.by || {}, rows = KN.filter(([k]) => by[k] && by[k].n).map(([k, n]) => { const b = by[k]; return `<tr><td>${n}</td><td>${b.n}</td><td>${f1(b.sum / b.n)}</td><td class="g">${b.c20}</td><td class="r">${b.c1}</td></tr>`; }).join('');
+  const table = rows ? `<div class="ds-h">By roll</div><table class="ds-t"><thead><tr><th></th><th>Rolls</th><th>Avg</th><th>20s</th><th>1s</th></tr></thead><tbody>${rows}</tbody></table>` : '';
+  const dm = ds.dmg, hl = ds.heal, dmgH = dm && dm.n ? `<div class="ds-h">Damage</div><div class="ds-tiles"><div class="ds-tile"><small>Damage rolled</small><b>${dm.sum}</b><span>${dm.n} roll${dm.n === 1 ? '' : 's'} · avg ${f1(dm.sum / dm.n)}</span></div>${dm.best ? `<div class="ds-tile"><small>Biggest damage roll</small><b>${dm.best.v}</b><span>${esc(dm.best.l)} · ${when(dm.best.t)}</span></div>` : ''}${hl && hl.n ? `<div class="ds-tile g"><small>Healing rolled</small><b>${hl.sum}</b><span>${hl.n} roll${hl.n === 1 ? '' : 's'}</span></div>` : ''}</div>` : '';
+  const days = Object.entries(ds.days || {}).filter(([, d]) => d.n >= 5).sort(([a], [b]) => b.localeCompare(a));
+  let nights = ''; if (days.length) { const sc = d => d.sum / d.n, best = days.reduce((a, b) => sc(b[1]) > sc(a[1]) ? b : a), worst = days.reduce((a, b) => sc(b[1]) < sc(a[1]) ? b : a);
+    const nm = k => new Date(k + 'T12:00').toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+    nights = `<div class="ds-h">Nights you ran</div><table class="ds-t ds-n"><thead><tr><th></th><th>d20s</th><th>Avg</th><th>20s</th><th>1s</th><th>Damage</th></tr></thead><tbody>${days.slice(0, 12).map(([k, d]) => `<tr><td>${nm(k)}${days.length > 1 && k === best[0] ? ' <span class="ds-tag g">best</span>' : ''}${days.length > 1 && k === worst[0] && worst[0] !== best[0] ? ' <span class="ds-tag r">worst</span>' : ''}</td><td>${d.n}</td><td>${f1(sc(d))}</td><td class="g">${d.c20}</td><td class="r">${d.c1}</td><td>${d.dmg}</td></tr>`).join('')}</tbody></table>`; }
+  return `<div class="ds">${tiles}${bars}${table}${dmgH}${nights}<p class="dk-hint ds-note">Counting since ${when(ds.since || Date.now())}. Kept in this browser.</p></div>`;
+}
+const logOpen = () => { const m = $('.dk-modal'); return !!(m && m.classList.contains('open') && $('#dk-logw')); };
+function logRefresh() { if (logOpen()) openLog(true); }
+function rollRow(e) {
+  const cls = e.cls === 'crit' ? 'crit' : e.cls === 'bad' ? 'fumble' : '';
+  return `<div class="rl-row ${cls}"><span class="rl-time">${new Date(e.t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span><div class="rl-card"><b class="total">${esc(e.total)}</b><div class="rc-body"><div class="rc-name">${esc(e.who ? e.who + ' · ' : '')}${esc(e.label)}${e.src === 'roll20' ? '<span class="rc-src">Roll20</span>' : e.src === 'manual' ? '<span class="rc-src">Your roll</span>' : ''}</div>${cls === 'crit' ? '<div class="rc-lbl">Natural 20</div>' : cls === 'fumble' ? '<div class="rc-lbl">Natural 1</div>' : ''}
+    ${e.detail ? `<div class="rc-math"><div class="rm-r"><span>Rolled</span><b>${esc(e.detail)}</b></div><div class="rm-r rm-t"><span>Total</span><b>${esc(e.total)}</b></div></div>` : ''}</div></div></div>`;
+}
+const evRow = e => `<div class="rl-row"><span class="rl-time">${new Date(e.t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span><div class="rl-card"><div class="rl-ev">${e.html}</div></div></div>`;
+function openLog(redraw) {
+  evLoad();
+  const rolls = LOG.filter(e => !e.note), evs = EVLOG.concat(LOG.filter(e => e.note).map(e => ({ t: e.t, html: esc(e.note) }))).sort((a, b) => b.t - a.t);
+  const tab = LOG_TABS.includes(UI.logTab) ? UI.logTab : 'rolls', list = tab === 'events' ? evs : tab === 'stats' ? [] : rolls;
+  const day = t => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' }); let last = '';
+  const rows = list.map(e => { const d = day(e.t), h = d !== last ? `<div class="rl-day">${d}</div>` : ''; last = d; return h + (tab === 'events' ? evRow(e) : rollRow(e)); }).join('');
+  const tb = (k, l, n) => `<button class="rl-tab${tab === k ? ' on' : ''}" data-act="logtab" data-v="${k}" aria-pressed="${tab === k}">${l}${n == null ? '' : ` <span>${n}</span>`}</button>`;
+  const html = `<h2>Log</h2><div id="dk-logw"><div class="rl-head"><div class="rl-tabs">${tb('rolls', 'Rolls', rolls.length)}${tb('events', 'Everything else', evs.length)}${tb('stats', 'Dice stats')}</div>${tab !== 'stats' && list.length ? '<button class="dk-btn sm rl-clear" data-act="clearlog">Clear</button>' : ''}</div>
+    <div class="rl-list">${tab === 'stats' ? diceStatsHTML() : rows || `<p class="rl-empty">${tab === 'events' ? 'Nothing yet. What pops up — damage and healing, spells cast, turns, warnings — is kept here.' : 'No rolls yet. Every roll the desk makes shows up here with its breakdown.'}</p>`}</div>
+    <div class="dk-acts"><button class="dk-btn" data-act="close">Close</button></div></div>`;
+  const prev = redraw && logOpen() ? LOG_TAB_SHOWN : '', moved = prev && prev !== tab, oldOn = prev && $('#dk-logw .rl-tab.on'), oldInk = oldOn ? { l: oldOn.offsetLeft, w: oldOn.offsetWidth } : null;
+  const keep = redraw && !moved && $('#dk-logw .rl-list') ? $('#dk-logw .rl-list').scrollTop : 0;
+  DS_ANIM = false; LOG_TAB_SHOWN = tab;
+  if (redraw && logOpen()) { const c = $('.dk-mcard'), pos = c.style.translate; c.innerHTML = html; mwDress(c); c.style.translate = pos; } else openModal(html, { wide: true, cls: 'dk-logwin', focus: false });
+  // the highlight under the tabs slides from the old tab to the new one; the list comes in from the side you're heading
+  const bar = $('#dk-logw .rl-tabs'), on = $('#dk-logw .rl-tab.on');
+  if (bar && on) { bar.classList.add('inked'); const ink = document.createElement('i'); ink.className = 'rl-ink'; bar.prepend(ink);
+    const put = (l, w) => { ink.style.transform = `translateX(${l}px)`; ink.style.width = w + 'px'; };
+    if (moved && oldInk) { ink.style.transition = 'none'; put(oldInk.l, oldInk.w); void ink.offsetWidth; ink.style.transition = ''; } else ink.style.transition = 'none';
+    requestAnimationFrame(() => { put(on.offsetLeft, on.offsetWidth); if (!moved) requestAnimationFrame(() => { ink.style.transition = ''; }); }); }
+  const lst = $('#dk-logw .rl-list'); if (lst) { if (moved) lst.classList.add(LOG_TABS.indexOf(tab) > LOG_TABS.indexOf(prev) ? 'in-r' : 'in-l'); else if (keep) lst.scrollTop = keep; }
+  if (tab === 'stats' && (moved || !redraw)) { const ch = $('#dk-logw .ds-chart'); if (ch) ch.classList.add('anim'); }
+}
+function clearLog() {
+  if (UI.logTab === 'events') { EVLOG = []; evSave(); LOG = LOG.filter(e => !e.note); } else LOG = LOG.filter(e => e.note);
+  writeLocal(); openLog(true);
+}
 // ==== ITEMPARSE START — shared with the DM's Desk (desk/build.sh copies this block into desk.js; edit it only here) ====
 // Magic item text (book, PDF, D&D Beyond, 2014 or 2024 wording) → a spec → a character-sheet item with it.hb automation.
 // ctx: { weapons: DND.weapons rows, armor: DND.armor rows, spells: [spell names] }. No globals used, so both apps can share it.

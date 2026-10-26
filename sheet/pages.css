@@ -3248,3 +3248,9 @@ html.mobile.pg-sheetpage .pg-hublink { left: 12px !important; }
 /* phone sheet: a little room between the Tome button and the top card under it */
 html.pg-sheetpage.mobile .banner { padding-top: calc(42px + env(safe-area-inset-top)) !important; }
 :root[data-theme="dark"].mobile.pg-sheetpage header.banner::before { top: calc(44px + env(safe-area-inset-top, 0px)) !important; }
+/* the scroll dividers sit right at the box's edge, not inside its padding (they were cutting through the first and
+   last lines of the Log, say); where the window already draws a line there (the Log's tab row and button row), only
+   the soft shadow shows */
+.pg-shade::before { top: calc(-1 * var(--sh-pt, 0px)); }
+.pg-shade::after { bottom: calc(-1 * var(--sh-pb, 0px)); }
+:is(#rolllogmodal, #dk-logw) .rl-list.pg-shade::before { border-top-color: transparent; }

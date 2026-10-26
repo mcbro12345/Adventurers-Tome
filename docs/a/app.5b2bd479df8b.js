@@ -102,8 +102,13 @@ UI.open = UI.open || {};
 // loaded (this browser's, the cloud's or the file's), so a fix isn't lost to a newer saved copy.
 var HADLOCAL; // set by load(): this browser already had its own copy of this character
 var FIXED; // no initializer: load() runs (and may set it) before this line is reached
+// The top bar's details were reset for everyone when the defaults changed to just the name: a character's settings
+// that haven't had that reset yet (including older settings copied back in from another saved copy) get it once.
+// (written inside the function: load() runs it before the lines around it have been reached)
+function hdrReset(s) { if (!s || (s.settings && s.settings.hdr1)) return false;
+  s.settings = Object.assign({}, s.settings, { showName: true, showPlayer: false, showRace: false, showBackground: false, showAlignment: false, showFaith: false, hdr1: true }); return true; }
 function applyFixes(s) {
-  const done = new Set(s.fixesDone || []); let changed = false;
+  const done = new Set(s.fixesDone || []); let changed = hdrReset(s);
   // Built in (every sheet): encumbrance on for everyone who had it off; Istalyn's sling bullets become bullets for her pistol.
   if (!done.has('enc1')) { if (s.settings && s.settings.encumbrance === 'off') s.settings.encumbrance = 'standard'; done.add('enc1'); changed = true; }
   if (!done.has('bullets1')) { if (/^istalyn\b/i.test(String(s.name || ''))) (s.inventory || []).forEach(it => { if (it && /^sling bullets$/i.test(String(it.name || '').trim())) { it.name = 'Bullets'; it.weight = 0.2; } }); done.add('bullets1'); changed = true; }
@@ -225,7 +230,12 @@ function saveUI() { try { localStorage.setItem(UI_KEY, JSON.stringify(UI)); } ca
 const onPhone = () => { try { return !window.PG_IN_PHONE && matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600; } catch (e) { return false; } };
 // The layout always follows the device; the switch only lasts until the page is left or reloaded (it's never saved).
 let LAYOUT_NOW = '';
-function applyLayout() { applyTabLift(); const ph = onPhone(), m = window.PG_FORCE_MOBILE || ph || (LAYOUT_NOW ? LAYOUT_NOW === 'mobile' : window.innerWidth < 640); document.documentElement.classList.toggle('mobile', m); document.documentElement.classList.toggle('realphone', ph); }
+// (raised when a character's toolbar turns out not to fit on one line at this width, e.g. one with a party chat button:
+// from then on any window that narrow gets the phone layout too, so it can't flip back and forth)
+var MOBILE_AT = 0;
+// (a window narrower than the computer layout's top bar fits in gets the phone layout instead; the page's first-paint check in
+// the page head uses the same width)
+function applyLayout() { applyTabLift(); const ph = onPhone(), m = window.PG_FORCE_MOBILE || ph || (LAYOUT_NOW ? LAYOUT_NOW === 'mobile' : window.innerWidth < Math.max(885, MOBILE_AT || 0)); document.documentElement.classList.toggle('mobile', m); document.documentElement.classList.toggle('realphone', ph); }
 
 // ---------- Class / level math ----------
 const clsRows = () => S.classes || [];
@@ -1599,10 +1609,17 @@ let onModalCancel = null;
 let MODAL_BY = null, MODAL_SIG = null; // which button opened the window that's showing
 function openModal(html, onCancel, wide) {
   MODAL_BY = MODAL_SIG;
-  onModalCancel = onCancel || null; $('#modal-body').classList.remove('xwide'); $('#modal-body').classList.toggle('wide', !!wide); $('#modal-body').innerHTML = html;
+  // a window opening fresh starts its lists unsearched and at the top (they're only remembered while it stays open)
+  try { if (!$('#modal').classList.contains('open') && !document.querySelector('#wizard.open')) Object.keys(WZ3M).forEach(k => delete WZ3M[k]); } catch (e) {}
+  // (a window closed a moment ago in this same step is being replaced, not closed: it stays up and swaps over)
+  { const mo = $('#modal'), mb = $('#modal-body'); if (!mo.classList.contains('open') && mb._wasAt && performance.now() - mb._wasAt < 60) mo.classList.add('open'); mb._wasAt = 0; }
+  onModalCancel = onCancel || null; $('#modal-body').innerHTML = html; $('#modal-body').classList.remove('xwide'); $('#modal-body').classList.toggle('wide', !!wide);
   // a window opening fresh holds its fade for two frames, so the work of building and sizing it doesn't eat the start of the animation
   const mo = $('#modal'); if (!mo.classList.contains('open')) { mo.classList.add('pre', 'open'); requestAnimationFrame(() => requestAnimationFrame(() => mo.classList.remove('pre'))); }
   const f = $('#modal-body [autofocus]'); if (f) f.focus();
+  // On a computer the window gets its title bar before it's first drawn (once whoever opened it has filled it in), so
+  // the bar doesn't appear a frame late and push everything down.
+  queueMicrotask(() => { if ($('#modal').classList.contains('open') && mwDesk()) { mwDress(); mwTidy(); } });
 }
 // Desktop: every pop-up window can be moved by dragging its title (the heading at the top). It opens centred again
 // next time.
@@ -1627,16 +1644,37 @@ function openModal(html, onCancel, wide) {
 })();
 function closeModal(confirmed) {
   if (!$('#modal').classList.contains('open')) return;
+  // (where it was, for a window opened straight after this one closes: see the swap below)
+  { const mb = $('#modal-body'); mb._was = mb.getBoundingClientRect(); mb._wasSt = mb.scrollTop; mb._wasAt = performance.now(); }
   $('#modal').classList.remove('open'); MODAL_BY = null;
   const cb = onModalCancel; onModalCancel = null;
   if (!confirmed && cb) cb();
 }
 $('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+// One window replacing another (opening Change background from Settings, a button that closes this window and opens
+// the next one): the old window fades out where it was while the new one fades in, instead of the contents just
+// snapping over. A window redrawing itself (same window, new contents) doesn't animate.
+(() => { const mb = $('#modal-body'), mo = $('#modal'), P = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+  const keyOf = h => { h = String(h || ''); const a = h.match(/^\s*<[a-z0-9]+\b[^>]*?\bid="([^"]+)"/i); if (a) return '#' + a[1]; const b = h.match(/<h[23]\b[^>]*>([\s\S]*?)<\/h[23]>/i); return b ? b[1].replace(/<[^>]+>/g, '').trim() : ''; };
+  const calm = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  Object.defineProperty(mb, 'innerHTML', { configurable: true, get() { return P.get.call(this); }, set(v) {
+    const k = keyOf(v), open = mo.classList.contains('open'), just = !open && mb._wasAt && performance.now() - mb._wasAt < 60;
+    let ghost = null;
+    if ((open || just) && mb._key && k !== mb._key && mb.childElementCount && !calm()) {
+      const r = open ? mb.getBoundingClientRect() : mb._was;
+      if (r && r.width) { ghost = mb.cloneNode(true); ghost.removeAttribute('id'); ghost.querySelectorAll('[id]').forEach(x => x.removeAttribute('id')); ghost.classList.add('mghost'); ghost.setAttribute('aria-hidden', 'true'); ghost.inert = true;
+        Object.assign(ghost.style, { position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', maxHeight: 'none', margin: '0', translate: 'none' });
+        const st = open ? mb.scrollTop : mb._wasSt; mo.appendChild(ghost); if (st) queueMicrotask(() => { ghost.scrollTop = st; }); setTimeout(() => ghost.remove(), 260); } }
+    mb._key = k; P.set.call(this, v);
+    if (ghost) { const mob = document.documentElement.classList.contains('mobile');
+      mb.animate(mob ? [{ opacity: 0, transform: 'translateY(18px)' }, { opacity: 1, transform: 'none' }] : [{ opacity: 0, transform: 'translateY(6px) scale(.985)' }, { opacity: 1, transform: 'none' }], { duration: mob ? 260 : 240, easing: 'cubic-bezier(.2,.8,.3,1)' }); } } }); })();
 // Desktop: pop-up windows work like the dice roller and the chat window — a floating window with its own title bar
 // (drag it to move it, ✕ to close), and the page behind stays usable instead of being dimmed and blocked.
 const mwDesk = () => !document.documentElement.classList.contains('mobile') && innerWidth > 640;
 function mwDress() { const b = $('#modal-body'); if (!b) return; const de = document.documentElement; de.classList.toggle('mwin', mwDesk());
-  if (!mwDesk() || b.querySelector(':scope > .mw-head')) return;
+  if (!mwDesk()) return;
+  // (a window that redraws its contents keeps its title bar: a heading repeating the title is hidden again)
+  { const hd = b.querySelector(':scope > .mw-head'); if (hd) { const t = (hd.querySelector('b') || {}).textContent; b.querySelectorAll('h2:not(.mw-hid), h3:not(.mw-hid)').forEach(x => { if (x.textContent.trim() === t) x.classList.add('mw-hid'); }); return; } }
   const h = [...b.querySelectorAll('h2, h3')].find(x => x.offsetParent && x.getBoundingClientRect().top - b.getBoundingClientRect().top < 140);
   const t = h ? h.textContent.trim() : ''; if (h) { h.classList.add('mw-hid');
     // a Done / Close button sitting beside the heading would be left stranded: the title bar's ✕ does the same job
@@ -1652,6 +1690,15 @@ let MW_R = 0; const mwSoon = () => { if (!MW_R) MW_R = requestAnimationFrame(() 
 new MutationObserver(mwSoon).observe($('#modal-body'), { childList: true, subtree: true });
 new MutationObserver(mwSoon).observe($('#modal'), { attributes: true, attributeFilter: ['class'] });
 addEventListener('resize', () => document.documentElement.classList.toggle('mwin', mwDesk()));
+// The top bar stays at the top of the window on a computer: it gets its shadow once the sheet is scrolled under it, and
+// its height is shared so things that stick to the top themselves (the tab strip while editing) sit just below it.
+(() => { let q = 0, st = null, hh = -1; const de = document.documentElement;
+  const chk = () => { q = 0; const b = document.querySelector('header.banner'); if (!b) return; const on = !de.classList.contains('mobile') && scrollY > 2;
+    if (on !== st) { st = on; de.classList.toggle('hd-stuck', on); }
+    const h = de.classList.contains('mobile') ? 0 : Math.round(b.offsetHeight); if (h !== hh) { hh = h; de.style.setProperty('--hd-h', h + 'px'); de.style.setProperty('--hd-b', (h ? h + (parseFloat(getComputedStyle(b).top) || 0) : 0) + 'px'); } };
+  const soon = () => { if (!q) q = requestAnimationFrame(chk); };
+  addEventListener('scroll', soon, { passive: true }); addEventListener('resize', soon); soon();
+  const b0 = document.querySelector('header.banner'); if (b0 && window.ResizeObserver) new ResizeObserver(soon).observe(b0); })();
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); $$('.menu.open').forEach(m => m.classList.remove('open')); } });
 
 // ---------- Field helpers ----------
@@ -1674,7 +1721,7 @@ const isMobile = () => document.documentElement.classList.contains('mobile');
 const who = () => S.name || 'Your character';
 
 // ---------- Settings ----------
-const SETDEF = { combatSpellSort: 'level', protectorScales: false, advancement: 'milestone', abilityStyle: 'mod', showName: true, showRace: true, showBackground: true, showPlayer: true, showAlignment: false, showFaith: false, showRoll20: true, encumbrance: 'standard', exhaustionRule: '2014', exhaustionDC: false, concPrompt: true, durationAlerts: true, autoSpend: true, critRule: 'double', density: 'comfortable', fontScale: 100, hpLevelUp: 'avg', confirmDelete: false, showCastHints: true, inspiration: false, inspMany: false, electrum: false };
+const SETDEF = { combatSpellSort: 'level', protectorScales: false, advancement: 'milestone', abilityStyle: 'mod', showName: true, showRace: false, showBackground: false, showPlayer: false, showAlignment: false, showFaith: false, showRoll20: true, encumbrance: 'standard', exhaustionRule: '2014', exhaustionDC: false, concPrompt: true, durationAlerts: true, autoSpend: true, critRule: 'double', density: 'comfortable', fontScale: 100, hpLevelUp: 'avg', confirmDelete: false, showCastHints: true, inspiration: false, inspMany: false, electrum: false };
 let GEN = 0, RENDERING = '';
 const PID = id => `data-pid="${id}" data-gen="${GEN}" data-home="${RENDERING}"`;
 const ST = k => (S.settings && S.settings[k] !== undefined ? S.settings[k] : SETDEF[k]);
@@ -1721,7 +1768,10 @@ function toolbarHTML() {
     rolllog: `<button class="devbtn logbtn" data-zi="rolllog" data-act="rolllog" title="Log — every roll, plus everything else that popped up" aria-label="Log">${ICON.log}</button>`,
     // (on a phone it sits next to Log; on a computer, after the layout switch)
     ...(isMobile() && window.SHEET_PAGES ? { bug: `<button class="devbtn bugbtn" data-zi="bug" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` } : {}),
-    device: `<button class="devbtn" data-zi="device" data-act="layout" title="${isMobile() ? 'Switch to desktop layout' : 'Switch to phone layout'}" aria-label="${isMobile() ? 'Desktop layout' : 'Phone layout'}">${isMobile() ? ICON.desk : ICON.phone}</button>`,
+    // (the phone layout has no switch back to the computer layout: it's used when the window is too narrow for that one;
+    // only the phone preview and a layout picked by hand keep it, so there's always a way back)
+    // (with no switch shown, the phone layout's corner icons move over into its place)
+    ...((document.documentElement.classList.toggle('nodev', !(!isMobile() || window.PG_IN_PHONE || LAYOUT_NOW === 'mobile')), !isMobile() || window.PG_IN_PHONE || LAYOUT_NOW === 'mobile') ? { device: `<button class="devbtn" data-zi="device" data-act="layout" title="${isMobile() ? 'Switch to desktop layout' : 'Switch to phone layout'}" aria-label="${isMobile() ? 'Desktop layout' : 'Phone layout'}">${isMobile() ? ICON.desk : ICON.phone}</button>` } : {}),
     ...(!isMobile() && window.SHEET_PAGES ? { bug: `<button class="devbtn bugbtn" data-zi="bug" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` } : {}),
     fullscreen: false ? `<button class="devbtn fsbtn" data-zi="fullscreen" data-act="fullscreen" title="${fsOn() ? 'Exit full screen' : 'Full screen'}" aria-label="${fsOn() ? 'Exit full screen' : 'Full screen'}">${fsOn() ? ICON.fsOut : ICON.fsIn}</button>` : '',
   };
@@ -1754,7 +1804,7 @@ function renderHeader() {
           ${xp ? `<div class="xprow"><span class="lbl">XP</span>${inp('xp', { num: 1, cls: 'xpin', label: 'Experience points' })}<span class="xpof" data-calc="xpnext"></span>
             <input class="f xpadd" id="xpAdd" type="number" inputmode="numeric" placeholder="+ award" aria-label="Award XP"><button class="btn sm" data-act="addxp">Add</button></div><div class="xpbar" data-calc-html="xpbar"></div>` : '<span class="hint mile">Milestone leveling</span>'}</div>
       </div>
-      <div class="toolbar" data-ordered data-zone="toolbar">${toolbarHTML()}</div>${inspHTML(true)}
+      <div class="toolbar" data-ordered data-zone="toolbar">${toolbarHTML()}${inspDockHTML()}</div>${inspHTML(true)}
     </div>
     <div class="ident-grid">${idf}</div>
   </div>`;
@@ -2171,12 +2221,16 @@ function logEvent(html, cls) { if (!EVLOADED) loadEvLog(); const clean = String(
 // Tabs slide (their highlight moves across, the list comes in from the side you're heading); opening Dice stats fills its bars.
 let LOG_TAB_SHOWN = '', DS_ANIM = false, LOG_INK = null;
 const LOG_TABS = ['rolls', 'events', 'stats'];
+// A Log entry's card: the damage type moves into its breakdown (the separate damage panel isn't shown in the Log).
+function logCardHTML(h) { h = String(h || '').replace(/<button[^>]*>.*?<\/button>/g, ''); if (!/rc-math/.test(h) || !/rc-dmg/.test(h)) return h;
+  try { const box = document.createElement('div'); box.innerHTML = h; const ty = box.querySelector('.rc-dmg > span'), hd = [...box.querySelectorAll('.rc-math .rm-h')].find(x => /damage/i.test(x.textContent));
+    if (ty && hd && ty.textContent.trim()) hd.textContent += ' · ' + ty.textContent.trim(); return box.innerHTML; } catch (e) { return h; } }
 function openRollLog() {
   if (!ROLLLOG.length) loadRollLog(); if (!EVLOADED) loadEvLog(); try { statBackfill(); } catch (e) {}
   const tab = UI.logTab === 'events' ? 'events' : UI.logTab === 'stats' ? 'stats' : 'rolls', LIST = tab === 'events' ? EVLOG : tab === 'stats' ? [] : ROLLLOG;
   const day = t => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' }), tm = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   let last = '';
-  const rows = LIST.map(r => { const d = day(r.t), h = d !== last ? `<div class="rl-day">${d}</div>` : ''; last = d; return h + `<div class="rl-row ${esc(r.cls)}"><span class="rl-time">${tm(r.t)}</span><div class="rl-card">${r.html.replace(/<button[^>]*>.*?<\/button>/g, '')}</div></div>`; }).join('');
+  const rows = LIST.map(r => { const d = day(r.t), h = d !== last ? `<div class="rl-day">${d}</div>` : ''; last = d; return h + `<div class="rl-row ${esc(r.cls)}"><span class="rl-time">${tm(r.t)}</span><div class="rl-card">${logCardHTML(r.html)}</div></div>`; }).join('');
   const tb = (k, l, n) => `<button class="rl-tab${tab === k ? ' on' : ''}" data-act="logtab" data-v="${k}" aria-pressed="${tab === k}">${l} <span>${n}</span></button>`;
   const html = `<div id="rolllogmodal"><div class="rl-head"><h3>Log</h3><div class="rl-tabs">${tb('rolls', 'Rolls', ROLLLOG.length)}${tb('events', 'Everything else', EVLOG.length)}<button class="rl-tab${tab === 'stats' ? ' on' : ''}" data-act="logtab" data-v="stats" aria-pressed="${tab === 'stats'}">Dice stats</button></div>${LIST.length ? '<button class="btn sm ghost" data-act="clearlog">Clear</button>' : ''}</div>
     <div class="rl-list">${tab === 'stats' ? diceStatsHTML() : rows || (tab === 'events' ? '<p class="hint">Nothing yet. Messages that pop up — spells cast, turns, rests, warnings — are kept here.</p>' : '<p class="hint">No rolls yet. Every roll you make shows up here with its full breakdown.</p>')}</div>
@@ -2276,10 +2330,16 @@ function postSheetRoll(t) {
     const h = document.getElementById('sec-header'); if (!h) return;
     const pw = h.querySelector('.portrait-wrap'), id = h.querySelector('.ident.noid'), nb = id && id.querySelector('.namebox');
     if (!pw) return;
-    if (!nb || document.documentElement.classList.contains('mobile')) { pw.style.width = pw.style.height = ''; return; }
-    const top = id.querySelector('.ident-top') || nb, fill = Math.round(Math.max(64, Math.min(148, top.getBoundingClientRect().height, h.querySelector('.ident').getBoundingClientRect().height)));
-    if (pw.style.width !== fill + 'px') pw.style.width = pw.style.height = fill + 'px';
+    if (pw.style.width) pw.style.width = pw.style.height = '';
+    if (!nb || document.documentElement.classList.contains('mobile')) { h.style.removeProperty('--pwf'); return; }
+    // (kept on the header itself, so a portrait drawn again when the sheet redraws its top bar is the right size at once,
+    // instead of starting big and shrinking, which would make everything beside it jump)
+    // (measured from the name and the level box beside it, not the whole row: the toolbar's wrapping depends on how wide
+    // the portrait is, so measuring that too would make them keep resizing each other)
+    const lv = id.querySelector('.lvlbox'), fill = Math.round(Math.max(64, Math.min(148, Math.max(nb.getBoundingClientRect().height, lv ? lv.getBoundingClientRect().height : 0))));
+    if (h.style.getPropertyValue('--pwf') !== fill + 'px') h.style.setProperty('--pwf', fill + 'px');
   };
+  window.__pwFit = fit;
   const wire = () => {
     const h = document.getElementById('sec-header'); if (!h) return setTimeout(wire, 300);
     ro = new ResizeObserver(fit);
@@ -2885,7 +2945,7 @@ function renderStory() {
   <div class="story">
     <div class="stack">
       <div class="panel" ${PID('personality')}><h2>Personality</h2><div class="traits">
-        ${fld('Personality Traits', ta('traits.personality', { rows: 3 }))}${fld('Ideals', ta('traits.ideals', { rows: 2 }))}
+        ${fld('Personality Traits', ta('traits.personality', { rows: 2 }))}${fld('Ideals', ta('traits.ideals', { rows: 2 }))}
         ${fld('Bonds', ta('traits.bonds', { rows: 2 }))}${fld('Flaws', ta('traits.flaws', { rows: 2 }))}</div></div>
       <div class="panel" ${PID('appearance')}><h2>Appearance</h2><div class="appear">${['age', 'height', 'weight', 'eyes', 'skin', 'hair'].map(k => fld(k[0].toUpperCase() + k.slice(1), inp('appearance.' + k))).join('')}</div></div>
       <div class="panel" ${PID('backstory')}><h2>Backstory</h2>${ta('backstory', { rows: 10 })}</div>
@@ -3277,6 +3337,7 @@ function fxTip(e) {
 function refresh() {
   if (!S.created) return;
   $$('[data-calc]').forEach(el => { const t = calcText(el.dataset.calc); if (el.textContent !== t) el.textContent = t; });
+  if (typeof fitSubtitle === 'function') fitSubtitle();
   fitCoins();
   $$('[data-calc-title]').forEach(el => el.title = calcText(el.dataset.calcTitle));
   $$('[data-calc-html]').forEach(el => {
@@ -3301,7 +3362,7 @@ function refresh() {
   $$('.tile.ac').forEach(el => el.classList.toggle('boosted', !S.form && fxActive().some(e => e.buff && (N(e.buff.ac) || e.buff.acMin || e.buff.acBase) && !e.ally)));
   $$('[data-segcol]').forEach(el => el.classList.toggle('used', !!S.turn.used[el.dataset.segcol]));
   document.title = (S.name || 'Character') + ' — Character Sheet';
-  $$('input[data-fit]').forEach(fitInput);
+  nameRoom(); $$('input[data-fit]').forEach(fitInput);
   const lb = $('#lvlbox'); if (lb) lb.classList.toggle('ready', xpReady());
   histButtons();
 }
@@ -3328,7 +3389,7 @@ function openHistory() {
     <div class="rb"><b>Roll back the last</b><input class="f" id="rbN" type="number" min="1" value="5" style="width:70px" aria-label="Amount of time">
       <select class="f" id="rbU" style="width:110px" aria-label="Unit"><option value="60000">minutes</option><option value="3600000">hours</option><option value="86400000">days</option></select>
       <button class="btn gold" data-act="rbtime">Roll back</button></div>
-    <div class="rb"><span class="hint">Quick:</span>${[['1 min', 60000], ['5 min', 300000], ['15 min', 900000], ['1 hour', 3600000], ['Today', Date.now() - new Date().setHours(0, 0, 0, 0)]].map(([t, ms]) => `<button class="chip" data-act="rbquick" data-ms="${ms}">${t} <span class="hint">(${countSince(ms)})</span></button>`).join('')}</div>
+    <div class="rb rbq"><span class="hint">Quick:</span><span class="rbchips">${[['1 min', 60000], ['5 min', 300000], ['15 min', 900000], ['1 hour', 3600000], ['Today', Date.now() - new Date().setHours(0, 0, 0, 0)]].map(([t, ms]) => `<button class="chip" data-act="rbquick" data-ms="${ms}">${t} <span class="hint">(${countSince(ms)})</span></button>`).join('')}</span></div>
     <p class="hint" id="rbCount" style="margin:0">This will undo ${countSince(300000)} change(s).</p>
     ${HIST.length ? `<ol class="hist">${list}</ol>` : '<p class="hint">No changes recorded yet.</p>'}
     ${redoList}
@@ -5445,6 +5506,18 @@ function openExtFx() {
 
 
 // ---------- Fields that grow to fit their text ----------
+// Phone header card: the name gets all the room up to the corner icons (however many there are), measured, so a long
+// name isn't squeezed into a box half the size it could be.
+function nameRoom() {
+  const nb = $('.namebox'); if (!nb) return;
+  if (!isMobile()) { nb.style.removeProperty('--nbpad'); return; }
+  const ic = $$('#sec-header .devbtn').filter(x => x.offsetParent); if (!ic.length) { nb.style.setProperty('--nbpad', '0px'); return; }
+  const r = nb.getBoundingClientRect(), first = Math.min(...ic.map(x => x.getBoundingClientRect().left)), t = Math.max(...ic.map(x => x.getBoundingClientRect().bottom));
+  // (only icons beside the name count: if they sit below its line, nothing is taken)
+  const pad = t <= r.top ? 0 : Math.max(0, Math.ceil(r.right - first + 8));
+  if (nb.style.getPropertyValue('--nbpad') !== pad + 'px') nb.style.setProperty('--nbpad', pad + 'px');
+}
+addEventListener('resize', () => requestAnimationFrame(() => { nameRoom(); $$('input.name[data-fit]').forEach(fitInput); }));
 function fitInput(el) {
   const min = N(el.dataset.fit) || 6, len = Math.max(String(el.value || '').length, String(el.placeholder || '').length * 0.8);
   const sz = Math.max(min, Math.ceil(len) + 1);
@@ -5458,7 +5531,7 @@ let FIT_GEN = 0; const FIT_C = new Map();
 addEventListener('resize', () => { FIT_GEN++; FIT_C.clear(); });
 try { document.fonts.addEventListener('loadingdone', () => { FIT_GEN++; FIT_C.clear(); document.querySelectorAll('input.name[data-fit]').forEach(fitNameFont); }); } catch (e) {}
 function fitNameFont(el) {
-  const fk = (el.value || el.placeholder || '') + '|' + el.className + '|' + (UI && UI.editLayout ? 1 : 0); if (FIT_C.has(fk)) { const v = FIT_C.get(fk); if (el.style.fontSize !== v) el.style.fontSize = v; el.title = el.value || ''; return; }
+  const fk = (el.value || el.placeholder || '') + '|' + el.className + '|' + (UI && UI.editLayout ? 1 : 0) + '|' + (el.parentElement ? el.parentElement.clientWidth : 0) + '|' + document.documentElement.style.fontSize; // (and the room it has, and the text size setting) if (FIT_C.has(fk)) { const v = FIT_C.get(fk); if (el.style.fontSize !== v) el.style.fontSize = v; el.title = el.value || ''; return; }
   fitNameFont0(el); if (el.clientWidth > 0) FIT_C.set(fk, el.style.fontSize);
 }
 function fitNameFont0(el) {
@@ -5759,9 +5832,11 @@ let RC = null;
 const titleCase = s => String(s || '').replace(/\b\w/g, c => c.toUpperCase());
 function openRaceChange() {
   RC = { kind: 'race', removeOld: true, custom: Object.assign({ name: '', size: 'Medium', speed: 30, darkvision: 0, traits: '' }, S.race.key === 'custom' ? { ...S.race.custom, traits: (S.race.custom.traits || []).map(t => t[0] + ': ' + t[1]).join('\n') } : {}) };
-  W = { race: S.race.key, sub: S.race.sub, tasha: false, ans: {} };
+  W = { race: S.race.key, sub: S.race.sub, tasha: false, ans: {} }; ['rcrace', 'rcsub'].forEach(k => { delete WZ3M[k + ':q']; delete WZ3M[k + ':s']; });
   openModal('<div id="rcmodal"></div>', () => { RC = null; W = null; }, true); renderRaceChange();
 }
+// (the cards are drawn by the site's own styles; the downloadable sheet keeps the plain lists)
+const rcCards = () => !!window.wzHeader || document.documentElement.classList.contains('pg-sheetpage');
 function renderRaceChange() {
   const x = W.race === 'custom' ? null : wzRace(), c = RC.custom;
   const body = W.race === 'custom' ? `<div class="wz-grid">${fld('Race name', `<input class="f" data-rc="name" value="${esc(c.name)}" placeholder="e.g. Sea Elf (homebrew)">`)}${fld('Size', `<select class="f" data-rc="size">${['Tiny', 'Small', 'Medium', 'Large'].map(z => `<option${c.size === z ? ' selected' : ''}>${z}</option>`).join('')}</select>`)}
@@ -5771,23 +5846,34 @@ function renderRaceChange() {
     : x ? `<div class="wz-info"><p><b>${esc(x.name)}</b> · speed ${x.s.speed || x.r.speed || 30} ft${(x.s.darkvision || x.r.darkvision) ? ' · darkvision ' + (x.s.darkvision || x.r.darkvision) + ' ft' : ''}</p>
         <ul>${((x.s.replaceTraits ? [] : x.r.traits || []).concat(x.s.traits || [])).map(t => `<li><b>${esc(t[0])}</b> — ${esc(t[1])}</li>`).join('')}</ul>
         ${wzRaceAsiUI()}${wzRaceChoices().map((ch, k) => choiceUI(W.ans, 'race.' + k, ch)).join('')}</div>` : '';
+  // (the same race and variant cards as character creation; the lists underneath are what they set)
   $('#rcmodal').innerHTML = `<h3>Change race</h3>
-    <div class="wz-grid">${fld('Race', `<select class="f" data-rc="race"><option value="">— choose —</option>${DND.raceGroups.map(([g, ks]) => `<optgroup label="${esc(g)}">${ks.filter(k => DND.races[k]).sort((a, b) => abc(DND.races[a].name, DND.races[b].name)).map(k => `<option value="${k}"${W.race === k ? ' selected' : ''}>${esc(DND.races[k].name)}${DND.races[k].src !== 'PHB' ? ' (' + DND.races[k].src + ')' : ''}</option>`).join('')}</optgroup>`).join('')}<option value="custom"${W.race === 'custom' ? ' selected' : ''}>✎ Custom race…</option></select>`)}
+    ${rcCards() ? wz3Cards('race') + (x && x.r.subraces ? `<p class="wz3-sublbl">${esc(x.r.name)} variant</p>${wz3Cards('sub')}` : '') : ''}
+    <div class="wz-grid${rcCards() ? ' wz3-hid' : ''}">${fld('Race', `<select class="f" data-rc="race"><option value="">— choose —</option>${DND.raceGroups.map(([g, ks]) => `<optgroup label="${esc(g)}">${ks.filter(k => DND.races[k]).sort((a, b) => abc(DND.races[a].name, DND.races[b].name)).map(k => `<option value="${k}"${W.race === k ? ' selected' : ''}>${esc(DND.races[k].name)}${DND.races[k].src !== 'PHB' ? ' (' + DND.races[k].src + ')' : ''}</option>`).join('')}</optgroup>`).join('')}<option value="custom"${W.race === 'custom' ? ' selected' : ''}>✎ Custom race…</option></select>`)}
       ${x && x.r.subraces ? fld('Subrace', `<select class="f" data-rc="sub"><option value="">— choose —</option>${Object.entries(x.r.subraces).sort(([, a], [, b]) => abc(a.name, b.name)).map(([k, s]) => `<option value="${k}"${W.sub === k ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select>`) : ''}</div>
     ${body}
     <label class="checkline" style="margin-top:8px"><input type="checkbox" data-rc="removeOld"${RC.removeOld ? ' checked' : ''}> Remove what ${esc(S.raceName || 'my old race')} gave me (fixed ability bonuses, skills, languages, weapon and armor training)</label>
     <p class="hint">Traits, speed, senses, racial spells and natural weapons update automatically. Ability bonuses you placed yourself (like +2/+1) can't be traced — check your scores afterwards.</p>
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="rcok">Change race</button></div>`;
+  $$('#rcmodal > .wz3-pick').forEach((bx, i) => wz3Keep(bx, i ? 'rcsub' : 'rcrace'));
+  { const rl = $('#rcmodal > .wz3-pick .wz3-cards'); if (rl) rl.classList.add('has'); } // (the race list scrolls in its own box)
+  // (opening it: the race list starts at the character's current race)
+  { const l = $('#rcmodal > .wz3-pick .wz3-cards'), on = l && l.querySelector('.wz3-card.sel'); if (on && !WZ3M['rcrace:s']) l.scrollTop = Math.max(0, on.offsetTop - l.offsetTop - 40); }
+  if (typeof wz3ChoiceLists === 'function') wz3ChoiceLists('#rcmodal');
 }
+// a race or variant card picks it in the list underneath (which redraws the window, keeping the cards where they were)
+document.addEventListener('click', e => { const c = e.target.closest && e.target.closest('#rcmodal [data-pick="race"], #rcmodal [data-pick="sub"]'); if (!c || !RC) return;
+  const sel = $(`#rcmodal [data-rc="${c.dataset.pick}"]`); if (!sel) return; const box = c.closest('.wz3-pick');
+  const go = () => { sel.value = c.dataset.v; sel.dispatchEvent(new Event('change', { bubbles: true })); }; if (box && typeof wz3Commit === 'function') wz3Commit(box, go); else go(); });
 function openBgChange() {
   RC = { kind: 'bg', removeOld: true, custom: Object.assign({ name: '', feature: '', desc: '' }, S.background === 'custom' ? { name: S.backgroundName, ...(S.bgCustom || {}) } : {}) };
-  W = { bg: S.background, ans: {} };
+  W = { bg: S.background, ans: {} }; delete WZ3M['rcbg:q']; delete WZ3M['rcbg:s'];
   openModal('<div id="rcmodal"></div>', () => { RC = null; W = null; }, true); renderBgChange();
 }
 function renderBgChange() {
   const b = DND.backgrounds[W.bg], c = RC.custom, cust = W.bg === 'custom';
   $('#rcmodal').innerHTML = `<h3>Change background</h3>
-    <div class="wz-grid">${fld('Background', `<select class="f" data-rc="bg"><option value="">— choose —</option>${bookSort(Object.entries(DND.backgrounds), ([, v]) => v.src, ([, v]) => v.name).filter(([k]) => k !== 'custom').map(([k, v]) => `<option value="${k}"${W.bg === k ? ' selected' : ''}>${esc(v.name)}${v.src !== 'PHB' ? ' (' + v.src + ')' : ''}</option>`).join('')}<option value="custom"${cust ? ' selected' : ''}>✎ Custom background…</option></select>`)}</div>
+    ${wz3List('bg')}<div class="wz-grid wz3-hid">${fld('Background', `<select class="f" data-rc="bg"><option value="">— choose —</option>${bookSort(Object.entries(DND.backgrounds), ([, v]) => v.src, ([, v]) => v.name).filter(([k]) => k !== 'custom').map(([k, v]) => `<option value="${k}"${W.bg === k ? ' selected' : ''}>${esc(v.name)}${v.src !== 'PHB' ? ' (' + v.src + ')' : ''}</option>`).join('')}<option value="custom"${cust ? ' selected' : ''}>✎ Custom background…</option></select>`)}</div>
     ${cust ? `<div class="wz-grid">${fld('Background name', `<input class="f" data-rc="name" value="${esc(c.name)}" placeholder="e.g. Smuggler">`)}${fld('Feature name', `<input class="f" data-rc="feature" value="${esc(c.feature)}" placeholder="e.g. Hidden Routes">`)}</div>
       ${fld('What the feature does', `<textarea class="f" rows="3" data-rc="desc">${esc(c.desc)}</textarea>`)}` : ''}
     ${b ? `<div class="wz-info">${b.skills && b.skills.length ? `<p><b>Skills:</b> ${esc(b.skills.join(', '))}${b.tools && b.tools.length ? ` · <b>Tools:</b> ${esc(b.tools.join(', '))}` : ''}</p>` : ''}${!cust ? `<p><b>Feature:</b> ${esc(b.feature[0])} — ${esc(b.feature[1])}</p>` : ''}
@@ -5796,7 +5882,14 @@ function renderBgChange() {
       ${b.langs ? choiceUI(W.ans, 'bg.lang', { type: 'language', n: b.langs }) : ''}</div>` : ''}
     <label class="checkline" style="margin-top:8px"><input type="checkbox" data-rc="removeOld"${RC.removeOld ? ' checked' : ''}> Remove the skills and tools ${esc(S.backgroundName || 'my old background')} gave me</label>
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="rcok">Change background</button></div>`;
+  // (the same searchable list as character creation; its choices of skills, tools and languages are lists too)
+  const bx = $('#rcmodal > .wz3-pick'); if (bx) wz3Keep(bx, 'rcbg');
+  // (opening it: the list starts at the character's current background)
+  { const l = bx && bx.querySelector('.wz3-list'), on = l && l.querySelector('.crrow.on'); if (on && !WZ3M['rcbg:s']) l.scrollTop = Math.max(0, on.offsetTop - l.offsetTop - 40); }
+  if (typeof wz3ChoiceLists === 'function') wz3ChoiceLists('#rcmodal');
 }
+document.addEventListener('change', e => { const r = e.target.closest && e.target.closest('#rcmodal input[data-pick="bg"]'); if (!r || !RC) return; const sel = $('#rcmodal [data-rc="bg"]'); if (!sel) return;
+  const box = r.closest('.wz3-pick'); const go = () => { sel.value = r.dataset.v; sel.dispatchEvent(new Event('change', { bubbles: true })); }; if (box && typeof wz3Commit === 'function') wz3Commit(box, go); else go(); });
 document.addEventListener('input', e => { const t = e.target; if (!t.dataset || t.dataset.rc === undefined || !RC) return; rcField(t, e.type); }, true);
 document.addEventListener('change', e => { const t = e.target; if (!t.dataset || t.dataset.rc === undefined || !RC) return; rcField(t, e.type); }, true);
 function rcField(t, type) {
@@ -5843,7 +5936,8 @@ function raceChangeOK() {
     });
   }
   pendingLabel = `Change race: ${oldName} → ${S.raceName}`; RC = null; W = null;
-  rebuildAuto(); closeModal(true); save(); render();
+  // (the window starts fading before the sheet redraws, so the redraw doesn't hold the fade up)
+  rebuildAuto(); closeModal(true); save(); requestAnimationFrame(() => setTimeout(render, 0));
   toast(`You're now ${esc(S.raceName)}. Check your ability scores, skills and languages.`, '', 9000, { label: 'Undo', fn: () => undo(1) });
 }
 function bgChangeOK() {
@@ -5861,7 +5955,8 @@ function bgChangeOK() {
   applyChoice({ type: 'skill' }, ansList(W.ans, 'bg.skill')); applyChoice({ type: 'tool' }, ansList(W.ans, 'bg.tool')); applyChoice({ type: 'language' }, ansList(W.ans, 'bg.lang'));
   if (b.feat && W.bg !== 'custom') applyFeat(b.feat, W.ans, 'bg.feat');
   pendingLabel = `Change background: ${oldName} → ${S.backgroundName}`; RC = null; W = null;
-  rebuildAuto(); closeModal(true); save(); render();
+  // (the window starts fading before the sheet redraws, so the redraw doesn't hold the fade up)
+  rebuildAuto(); closeModal(true); save(); requestAnimationFrame(() => setTimeout(render, 0));
   toast(`Background changed to ${esc(S.backgroundName)}.`, '', 7000, { label: 'Undo', fn: () => undo(1) });
 }
 
@@ -6205,18 +6300,55 @@ function applyCardFx(card, fx) {
   return esc(out.join(' · '));
 }
 window.addEventListener('resize', () => $$('input.f.name').forEach(fitNameFont));
+// The line under the name (race · class · background) never runs past two lines on a computer: a long one gets smaller
+// type instead, so the top bar is the same height for every character. (Remembered per text and width.)
+let SUB_K = '';
+function fitSubtitle() { const el = $('.namebox .subtitle'); if (!el) return;
+  if (isMobile()) { if (el.style.fontSize) el.style.fontSize = ''; SUB_K = ''; return; }
+  const k = el.textContent + '|' + (el.parentElement ? el.parentElement.clientWidth : 0) + '|' + document.documentElement.style.fontSize; if (k === SUB_K && el._fit) return; SUB_K = k; el._fit = 1;
+  el.style.fontSize = ''; if (!el.textContent || !el.offsetParent) return; const base = parseFloat(getComputedStyle(el).fontSize) || 15;
+  const lines = () => { const cs = getComputedStyle(el), lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2; return Math.round(el.clientHeight / lh); };
+  el.classList.remove('sub2'); el.removeAttribute('title');
+  let px = base; while (lines() > 2 && px > base * 0.72) { px -= 0.5; el.style.fontSize = px + 'px'; }
+  // (still more than two lines at the smallest size: it stops after two, and the whole of it shows on hover)
+  if (lines() > 2) { el.classList.add('sub2'); el.title = el.textContent; } }
+window.addEventListener('resize', () => { SUB_K = ''; fitSubtitle(); });
 
 // Desktop header stays one row: when the toolbar would wrap, its buttons drop their words and keep their icons.
 // Toolbar labels fold away one button at a time (least-used first) only when the row would wrap, and come back as soon as there's room.
-const TB_FOLD = ['edit', 'history', 'redo', 'undo', 'settings', 'save'];
+// (Undo and Redo lose their labels together, so the pair always matches)
+const TB_FOLD = ['edit', 'history', ['redo', 'undo'], 'settings', 'save'];
+// Sheet tabs on a computer: each takes the room its name needs; when they don't all fit they tighten up, then drop their
+// icons, before any name gets cut short
+function fitTabs() { const t = $('#tabs'); if (!t) return; t.classList.remove('tabs-tight', 'tabs-noicon'); if (isMobile()) return;
+  const cut = () => [...t.querySelectorAll('.tlabel')].some(l => l.offsetParent && l.scrollWidth > l.clientWidth + 1);
+  if (!cut()) return; t.classList.add('tabs-tight'); if (!cut()) return; t.classList.add('tabs-noicon'); }
+// The Inspiration pill in the top bar's corner keeps clear of the Tome button and the faces beside it: when they'd meet,
+// it drops its label (just − number +), and the row's room is set to whatever the pill actually takes.
+function inspDockFit() {
+  const d = $('.toolbar > .insp-dock'), row = $('.toolbar > .pg-hubrow'); if (!d) return;
+  d.classList.remove('tight'); if (!row) return;
+  const kids = [...row.children].filter(k => k.offsetParent), used = () => kids.reduce((a, k) => Math.max(a, k.getBoundingClientRect().right), row.getBoundingClientRect().left);
+  const room = () => d.getBoundingClientRect().left - 10;
+  if (used() > room()) d.classList.add('tight');
+  row.style.setProperty('--insp-w', Math.ceil(d.getBoundingClientRect().width + 10) + 'px');
+}
 function fitToolbar() {
+  fitTabs();
   const tb = $('.toolbar'); if (!tb) return;
+  // (the site's Tome button row goes back into a freshly drawn toolbar first, so it's measured as it will look)
+  if (typeof window.pgHubRow === 'function') try { window.pgHubRow(); } catch (e) {}
+  if (typeof window.__pwFit === 'function') try { window.__pwFit(); } catch (e) {} // (and the portrait beside it at its size)
+  inspDockFit();
   tb.classList.remove('tb-compact', 'tb-wrap'); $$('.toolbar .nolbl').forEach(k => k.classList.remove('nolbl'));
   if (isMobile()) return;
-  const kids = [...tb.children].filter(k => k.offsetParent !== null); if (kids.length < 2) return;
+  const kids = [...tb.children].filter(k => k.offsetParent !== null && !k.classList.contains('pg-hubrow')); if (kids.length < 2) return; // (the site's own row above the buttons doesn't count)
   const tight = () => { const b0 = kids[0].getBoundingClientRect().bottom; return kids.some(k => k.getBoundingClientRect().top >= b0 - 2) || tb.scrollWidth > tb.clientWidth + 2; };
-  for (const key of TB_FOLD) { if (!tight()) return; const el = tb.querySelector(`[data-zi="${key}"]`); if (el) el.classList.add('nolbl'); }
+  for (const key of TB_FOLD) { if (!tight()) return; [].concat(key).forEach(k => { const el = tb.querySelector(`[data-zi="${k}"]`); if (el) el.classList.add('nolbl'); }); }
   if (!tight()) return;
+  // Still too tight with icons only: the window is too narrow for the computer layout, so it switches to the phone layout
+  // (unless the computer layout was picked by hand, or this is the phone preview)
+  if (!LAYOUT_NOW && !window.PG_IN_PHONE && !onPhone()) { MOBILE_AT = Math.max(MOBILE_AT || 0, window.innerWidth + 1); applyLayout(); if (isMobile()) { queueMicrotask(() => render()); return; } }
   tb.classList.add('tb-compact');
   if (tight()) tb.classList.add('tb-wrap');  // very narrow windows: icons may take two rows inside the toolbar's own box
 }
@@ -7084,8 +7216,21 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && IDRAG) idr
 // ================= Inspiration (optional, Settings → Rules) =================
 // One at most by the rules; the "More than one" house rule removes the cap.
 const inspMax = () => ST('inspMany') ? Infinity : 1;
+// On the site, on a computer: the pill sits in the top bar's right corner, above the corner buttons. The number is the
+// Use button; − and + change the count.
+function inspDockOn() { return !!window.SHEET_PAGES && !isMobile(); }
+function inspDockHTML(phone) {
+  if (!ST('inspiration') || !(phone || inspDockOn())) return '';
+  const n = Math.max(0, N(S.insp)), mx = inspMax();
+  return `<div class="insp insp-dock${phone ? ' mini' : ''}${n ? ' on' : ''}" role="group" aria-label="Inspiration">
+    <button class="insp-b" data-act="insp" data-d="-1" ${n ? '' : 'disabled'} aria-label="Spend Inspiration" title="Take one away">−</button>
+    <button class="insp-c insp-go" data-act="inspuse" ${n ? '' : 'disabled'} title="${n ? 'Use Inspiration: reroll your last roll, or advantage on the next one' : 'No Inspiration to use'}"><b class="insp-n">${n}</b><span class="insp-l"><span class="il-a">Inspiration</span><span class="il-b" aria-hidden="true">Use</span></span></button>
+    <button class="insp-b" data-act="insp" data-d="1" ${n >= mx ? 'disabled' : ''} aria-label="Gain Inspiration" title="Add one">+</button></div>`;
+}
 function inspHTML(mini) {
-  if (!ST('inspiration')) return '';
+  if (!ST('inspiration') || inspDockOn()) return '';
+  // (phones keep it in its place in the header card, the same pill as on a computer: the number is the Use button)
+  if (isMobile()) return mini ? inspDockHTML(true) : '';
   const n = Math.max(0, N(S.insp)), mx = inspMax();
   // One at a time: the badge itself is the switch — tap the star to fill it, tap again to spend it.
   const use = n ? `<button class="insp-use${mini ? ' mini' : ''}" data-act="inspuse" title="Reroll your last attack, check or save, or have advantage on the next one">Use</button>` : '';
@@ -9222,7 +9367,9 @@ function winNoBleed(w) { let y0 = 0; w.addEventListener('touchstart', e => { y0 
   w.addEventListener('touchmove', e => { if (e.touches.length > 1) return; const dy = e.touches[0].clientY - y0; let el = e.target;
     while (el && el !== w.parentNode) { const cs = getComputedStyle(el); if (/(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 1) { const top = el.scrollTop <= 0, bot = el.scrollTop + el.clientHeight >= el.scrollHeight - 1; if (!(dy > 0 && top) && !(dy < 0 && bot)) return; break; } if (el === w) break; el = el.parentElement; }
     if (e.cancelable) e.preventDefault(); }, { passive: false }); }
-function winClose(w) { if (!w || w.classList.contains('closing')) return; w.id = ''; w.classList.add('closing'); const go = () => w.remove();
+function winClose(w) { if (!w || w.classList.contains('closing')) return; w.id = ''; w.classList.add('closing');
+  // (a closing window can't be used any more, by keyboard either: its buttons would act a second time)
+  if (w.contains(document.activeElement)) document.activeElement.blur(); w.inert = true; const go = () => w.remove();
   if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return go(); setTimeout(go, isMobile() ? 240 : 190); }
 function ptyChatDock() { UI.chatPop = false; if (typeof saveUI === 'function') saveUI(); const w = $('#pcwin'); if (w) winClose(w); render('party'); }
 document.addEventListener('change', e => { const t = e.target; if (!t.dataset || t.dataset.aura == null) return; ptyAura(t.dataset.aura, t.dataset.id, t.checked); });
@@ -9639,7 +9786,7 @@ function ptyDesc(m) { const d = m.data || {}, why = d.why && d.why !== m.fromNam
 // who, and what they're doing to you. Yes or No.
 function ptyAskShow() {
   const A = S.ptyAsk || []; let ov = $('#ptyask-ov');
-  if (!A.length || !S.created) { if (ov) ov.remove(); setTimeout(() => ptyMsgShow(), 50); return; }
+  if (!A.length || !S.created) { if (ov) winClose(ov); setTimeout(() => ptyMsgShow(), 50); return; }
   if (!ov) { ov = document.createElement('div'); ov.id = 'ptyask-ov'; ov.className = 'ptyask-bg'; document.body.appendChild(ov); }
   const a = A[0], d = ptyDesc(a.m), what = d.charAt(0).toLowerCase() + d.slice(1);
   ov.innerHTML = `<div class="ptyask-m" role="alertdialog" aria-modal="true" aria-labelledby="ptyask-q">
@@ -9841,7 +9988,7 @@ function ptyMsgShow(who, text) { if (who != null) PTY_MSGQ.push({ who, text, at:
   const m = PTY_MSGQ[0], ov = document.createElement('div'); ov.id = 'ptymsg-ov'; ov.className = 'ptyask-bg ptymsg-bg';
   ov.innerHTML = `<div class="ptymsg-m" role="alertdialog" aria-modal="true" aria-labelledby="ptymsg-h"><div class="ptymsg-top"><span class="ptymsg-ic" aria-hidden="true">✉</span><div><small>Message from</small><b id="ptymsg-h">${esc(m.who)}</b></div>${PTY_MSGQ.length > 1 ? `<span class="ptymsg-n">1 of ${PTY_MSGQ.length}</span>` : ''}</div>
     <div class="ptymsg-t">${esc(m.text).replace(/\n/g, '<br>')}</div><div class="ptymsg-b"><button class="btn gold" id="ptymsg-ok">${PTY_MSGQ.length > 1 ? 'Next' : 'OK'}</button></div></div>`;
-  document.body.appendChild(ov); const ok = ov.querySelector('#ptymsg-ok'); ok.onclick = () => { PTY_MSGQ.shift(); ov.remove(); ptyMsgShow(); };
+  document.body.appendChild(ov); const ok = ov.querySelector('#ptymsg-ok'); ok.onclick = () => { PTY_MSGQ.shift(); winClose(ov); ptyMsgShow(); };
   if (!matchMedia('(pointer:coarse)').matches) setTimeout(() => ok.focus(), 30); }
 
 
@@ -11427,6 +11574,8 @@ function wz3ChoiceLists(root) {
         wz3Commit(box, () => { x.value = r.value; x.dispatchEvent(new Event('change', { bubbles: true })); }); });
     });
   });
+  // (pop-up windows' lists get the same lines at their scrolling edges; character creation does its own)
+  if (root !== '#wizard') wz3Shades(root);
 }
 // The subclass pick at the level that grants one, as the same list (with what it gives you first)
 function lvSubList() {
@@ -11468,12 +11617,13 @@ function wz3Equip(c, b, kit) {
   return h;
 }
 // Scrolling boxes of cards or rows get a line and a soft shadow at whichever edge has more to scroll to
-function wz3Shades() {
-  $$('#wizard .wz3-cards.has, #wizard .wz3-list').forEach(box => {
+function wz3Shades(root = '#wizard') {
+  $$(`${root} .wz3-cards.has, ${root} .wz3-list`).forEach(box => {
     if (box.parentElement.classList.contains('wz3-sc')) return;
-    const w = document.createElement('div'); w.className = 'wz3-sc'; box.before(w); w.appendChild(box);
+    const st = box.scrollTop, w = document.createElement('div'); w.className = 'wz3-sc'; box.before(w); w.appendChild(box); if (st) box.scrollTop = st; // (moving it would lose where it was scrolled to)
     const paint = () => { w.classList.toggle('top', box.scrollTop > 2); w.classList.toggle('bot', box.scrollTop + box.clientHeight < box.scrollHeight - 2); };
-    box.addEventListener('scroll', paint, { passive: true }); requestAnimationFrame(paint);
+    // (set straight away, and only eased once it's on screen, so a redrawn list doesn't fade its edges in again)
+    box.addEventListener('scroll', paint, { passive: true }); paint(); requestAnimationFrame(() => requestAnimationFrame(() => w.classList.add('ready')));
   });
 }
 // A simple drawn symbol for each class (our own line drawings)
@@ -11496,7 +11646,8 @@ function wz3Steps() {
   try { sp = !W.classes[0] || !W.classes[0].key || wzSpellPlan().length > 0; } catch (e) {}
   const L = [{ st: 0, label: 'Start' }, { st: 1, part: 'pick', label: 'Race' }];
   // (until the race or class is picked, the steps it might need stay in the list, marked as maybe, so the count only ever goes down)
-  if (ro) L.push({ st: 1, part: 'opts', label: 'Race options', maybe: !x });
+  // (the downloadable sheet shows the race and its options on one page)
+  if (ro && window.wzHeader) L.push({ st: 1, part: 'opts', label: 'Race options', maybe: !x });
   L.push({ st: 2, label: 'Class' }, { st: 3, label: 'Abilities' }, { st: 9, label: 'Features' }, { st: 4, label: 'Background' });
   if (co) L.push({ st: 5, label: 'Class options', maybe: noCls }); if (sp) L.push({ st: 6, label: 'Spells', maybe: noCls });
   L.push({ st: 7, label: 'Equipment' }, { st: 8, label: 'Review' });
@@ -11593,8 +11744,8 @@ function wizClick(e) {
   const b = e.target.closest('[data-wact]'); if (!b) return;
   const a = b.dataset.wact;
   switch (a) {
-    case 'next': if (window.wzHeader) { wz3Move(1); break; } W.step = Math.min(WSTEPS.length - 1, W.step + 1); break;
-    case 'back': if (window.wzHeader) { wz3Move(-1); break; } W.step = Math.max(0, W.step - 1); break;
+    case 'next': wz3Move(1); break;
+    case 'back': wz3Move(-1); break;
     case 'go': W.step = N(b.dataset.v); W.part = W.step === 1 && W.race ? 'opts' : ''; break;
     case 'vgo': { const v = wz3Steps()[N(b.dataset.v)]; if (v) { W.step = v.st; W.part = v.part || ''; } break; }
     case 'portrait': $('#portraitFile').click(); return;
@@ -12048,7 +12199,7 @@ function cloudListen(ref, onFirst) {
       if (!owner && mine && S.created && !cloudRO && !(d && d.guestDone)) { S.savedAt = Date.now(); GUESTCLAIM = true; await cloudWrite(); return true; }
       if (S.created && (!d || N(d.savedAt) < N(S.savedAt))) {
         // A newer copy of the sheet file is replacing the synced one: never lose the player's own settings, theme or layout.
-        if (d && !cloudRO) { try { const txt = await cloudText(d); const old = txt && JSON.parse(txt); if (old && old.id === S.id) { keepPrefs(S, old); try { applyTheme(); render(); } catch (e) {} } } catch (e) {} }
+        if (d && !cloudRO) { try { const txt = await cloudText(d); const old = txt && JSON.parse(txt); if (old && old.id === S.id) { keepPrefs(S, old); hdrReset(S); try { applyTheme(); render(); } catch (e) {} } } catch (e) {} }
         if (!cloudRO) cloudWrite(); }
       else if (d) setSyncState(cloudRO ? 'Live · view only (you can\'t edit this sheet)' : 'Live · synced ' + clock());
     });
@@ -12385,9 +12536,15 @@ function ddbCreate() {
   // not clickable) just long enough to fade, and opening it again cancels that.
   const W = [['#modal', 'open'], ['#wizard', 'open'], ['.menu', 'open'], ['#tipbox', 'on']];
   const match = el => W.find(([sel]) => el.matches && el.matches(sel));
+  // The closing look is taken off once its fade has actually played: timed from when the fade starts, not from when the
+  // window was closed, so a busy moment straight after closing (the sheet redrawing itself) can't cut the fade short.
+  const fadeDone = el => { clearTimeout(el._fc); if (el._fst) el.removeEventListener('animationstart', el._fst); const ms = document.documentElement.classList.contains('mobile') ? 240 : 190; let started = false;
+    const end = () => { clearTimeout(el._fc); el.removeEventListener('animationstart', st); if (!el.classList.contains('open') && !el.classList.contains('on')) el.classList.remove('closing'); };
+    const st = e => { if (started || !/Out$/.test(e.animationName)) return; started = true; clearTimeout(el._fc); el._fc = setTimeout(end, ms + 30); };
+    el._fst = st; el.addEventListener('animationstart', st); el._fc = setTimeout(end, 1500); };
   new MutationObserver(ms => ms.forEach(m => { const el = m.target, w = match(el); if (!w) return; const cls = w[1], was = (' ' + (m.oldValue || '') + ' ').includes(' ' + cls + ' '), now = el.classList.contains(cls);
     if (now) { if (!was && el.classList.contains('closing')) { clearTimeout(el._fc); el.classList.remove('closing'); } return; }
-    if (was && !now && !(' ' + (m.oldValue || '') + ' ').includes(' closing ') && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => el.classList.remove('closing'), document.documentElement.classList.contains('mobile') ? 240 : 190); } }))
+    if (was && !now && !(' ' + (m.oldValue || '') + ' ').includes(' closing ') && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { el.classList.add('closing'); fadeDone(el); } }))
     .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], attributeOldValue: true, subtree: true });
 }
 

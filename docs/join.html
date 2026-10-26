@@ -13,7 +13,7 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.a841d67b989b.css">
+<link rel="stylesheet" href="a/sheet.66d3b8696d2a.css">
 <link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="You’re invited to join a party on Adventurer’s Tome."><meta property="og:type" content="website"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="You’re invited to join a party"><meta property="og:description" content="Pick a character, or make a new one, and join your DM’s game on Adventurer’s Tome."><meta property="og:url" content="https://adventurers-tome.web.app/join/"><meta property="og:image" content="https://adventurers-tome.web.app/og-invite.png?v=2"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="2400"><meta property="og:image:height" content="1260"><meta property="og:image:alt" content="A party invitation on Adventurer’s Tome"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-tour.png?v=4"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest"><script>var t="dark";try{if(localStorage.getItem("pg-theme")==="light")t="light"}catch(e){}document.documentElement.setAttribute("data-pgtheme",t)</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
@@ -3425,6 +3425,12 @@ html.mobile.pg-sheetpage .pg-hublink { left: 12px !important; }
 /* phone sheet: a little room between the Tome button and the top card under it */
 html.pg-sheetpage.mobile .banner { padding-top: calc(42px + env(safe-area-inset-top)) !important; }
 :root[data-theme="dark"].mobile.pg-sheetpage header.banner::before { top: calc(44px + env(safe-area-inset-top, 0px)) !important; }
+/* the scroll dividers sit right at the box's edge, not inside its padding (they were cutting through the first and
+   last lines of the Log, say); where the window already draws a line there (the Log's tab row and button row), only
+   the soft shadow shows */
+.pg-shade::before { top: calc(-1 * var(--sh-pt, 0px)); }
+.pg-shade::after { bottom: calc(-1 * var(--sh-pb, 0px)); }
+:is(#rolllogmodal, #dk-logw) .rl-list.pg-shade::before { border-top-color: transparent; }
 </style>
 </head>
 <body>
@@ -3780,7 +3786,7 @@ function pgPillWire(el) { let st = null;
 // a divider with a soft shadow at an edge when there's more past it.
 (() => { if (window.__pgShade) return; window.__pgShade = 1;
   const SEL = '.rl-list, .setx, .to-list, .to-dkl, .ptylog, .ptygive, .ptycast, .ptychat-l, .adm-nav, .pa-body, .au-opts, #tipbox';
-  const one = el => { const t = el.scrollTop > 2, b = el.scrollTop + el.clientHeight < el.scrollHeight - 2; if (!el.classList.contains('pg-shade')) { const cs = getComputedStyle(el), g = /flex|grid/.test(cs.display) ? parseFloat(cs.rowGap) || 0 : 0; if (g) el.style.setProperty('--sh-gap', g + 'px'); el.classList.add('pg-shade'); } if (el.classList.contains('sc-t') !== t) el.classList.toggle('sc-t', t); if (el.classList.contains('sc-b') !== b) el.classList.toggle('sc-b', b); }; // (classes only touched when they change)
+  const one = el => { const t = el.scrollTop > 2, b = el.scrollTop + el.clientHeight < el.scrollHeight - 2; if (!el.classList.contains('pg-shade')) { const cs = getComputedStyle(el), g = /flex|grid/.test(cs.display) ? parseFloat(cs.rowGap) || 0 : 0; if (g) el.style.setProperty('--sh-gap', g + 'px'); const pt = parseFloat(cs.paddingTop) || 0, pb = parseFloat(cs.paddingBottom) || 0; if (pt) el.style.setProperty('--sh-pt', pt + 'px'); if (pb) el.style.setProperty('--sh-pb', pb + 'px'); el.classList.add('pg-shade'); } if (el.classList.contains('sc-t') !== t) el.classList.toggle('sc-t', t); if (el.classList.contains('sc-b') !== b) el.classList.toggle('sc-b', b); }; // (classes only touched when they change)
   const all = () => document.querySelectorAll(SEL).forEach(one);
   document.addEventListener('scroll', e => { const el = e.target; if (el && el.matches && el.matches(SEL)) one(el); }, true);
   addEventListener('resize', () => requestAnimationFrame(all)); setInterval(all, 900); })();
@@ -4164,7 +4170,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261025194350', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.8ee658ef39b3.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.e015f1de5acc.html", "desk": "a/desk.ebeb14967666.js", "deskcss": "a/deskcss.fef942883ad3.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261025200316', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.5b2bd479df8b.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.53ef67bcf6e2.html", "desk": "a/desk.aa63cbb108db.js", "deskcss": "a/deskcss.1b23eda6d9c0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };

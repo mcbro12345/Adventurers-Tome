@@ -3826,3 +3826,14 @@ html.mobile .insp-dock.mini .insp-go .insp-l { font-size: .48rem; letter-spacing
 @media (hover: none) { html.mobile .insp-dock.mini .insp-go .il-a { opacity: 1 !important; transform: none !important; } html.mobile .insp-dock.mini .insp-go .il-b { opacity: 0 !important; } }
 /* phone: the name box is as wide as the room left of the corner icons (measured), not that minus the same again */
 html.mobile .namebox > :first-child { margin-right: 0 !important; }
+/* Log entries look like the DM's Desk ones: time, the big total, the name, and the Rolled / Total breakdown in a box
+   underneath (the one-line summary and the separate damage panel it repeats are left out) */
+#rolllogmodal .rl-card .rc-math { display: block; margin-top: 6px; padding: 8px 10px; border-radius: 10px; background: rgba(0,0,0,.18); border: 1px solid var(--line2); font-size: .8rem; }
+#rolllogmodal .rl-card .rc-math .rm-t { border-top-color: var(--line); }
+#rolllogmodal .rl-card:has(.rc-math) .det { display: none; }
+#rolllogmodal .rl-card:has(.rc-math) > .rc-dmg { display: none; }
+#rolllogmodal .rl-card .rc-body { flex: 1; min-width: 0; font-size: .88rem; }
+#rolllogmodal .rl-card .rc-name { font-weight: 700; }
+#rolllogmodal .rl-card:has(.rc-math .rm-h) .rc-lbl { display: none; }
+#rolllogmodal .rl-head [data-act="clearlog"] { margin-left: auto; }
+#rolllogmodal .rl-card > div:not(.rc-dmg) > div:first-child:not(.rc-math):not(.det) { font-weight: 700; }

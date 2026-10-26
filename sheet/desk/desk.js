@@ -387,12 +387,13 @@ async function roll(req, opts) {
   opts = opts || {};
   const r = await getRoll(req); if (!r) return null;
   const cls = /d20/.test(req.expr) ? (r.d20 === 20 ? 'crit' : r.d20 === 1 ? 'bad' : '') : '';
-  addLog({ who: req.who, label: req.label, total: r.total, detail: r.detail, cls, src: r.src });
+  addLog({ who: req.who, label: req.label, total: r.total, detail: r.detail, cls, src: r.src, d20: r.d20 != null ? r.d20 : null, expr: req.expr });
   if (!opts.quiet) toast({ big: r.total, title: (req.who ? req.who + ' · ' : '') + req.label + ((opts.noteFn ? opts.noteFn(r.total) : opts.note) ? ' — ' + (opts.noteFn ? opts.noteFn(r.total) : opts.note) : ''), det: esc(r.detail) + (cls === 'crit' ? ' · <b>natural 20</b>' : cls === 'bad' ? ' · <b>natural 1</b>' : ''), cls: opts.cls || cls, actions: opts.actions });
   return r;
 }
-function addLog(e) { LOG.unshift(Object.assign({ t: Date.now() }, e)); LOG = LOG.slice(0, 150); writeLocal(); if (UI.log) paintLog(); }
-const note = t => addLog({ note: t });
+function addLog(e) { const x = Object.assign({ t: Date.now() }, e); LOG.unshift(x); LOG = LOG.slice(0, 150); writeLocal(); try { statCount(x); } catch (er) {} logRefresh(); }
+// (notes — damage taken, spells cast, turns — go in the Log's Everything else tab)
+const note = t => evAdd(esc(t));
 
 // ---------- toasts & modals ----------
 const TOASTFN = {};
@@ -403,6 +404,7 @@ function toast(o) {
   (o.actions || []).forEach((a, i) => { TOASTFN[id + i] = a.fn; });
   el.innerHTML = (o.big != null ? `<div class="dk-tot">${esc(o.big)}</div>` : '') + `<div class="dk-tbody">${o.title ? `<b>${esc(o.title)}</b>` : ''}${o.det ? `<div class="dk-det">${o.det}</div>` : ''}${o.actions && o.actions.length ? `<div class="dk-ta">${o.actions.map((a, i) => `<button class="dk-btn sm${i ? '' : ' gold'}" data-tfn="${id + i}">${esc(a.label)}</button>`).join('')}</div>` : ''}</div><button class="dk-ix" aria-label="Dismiss" data-tclose>${ICON.x}</button>`;
   box.prepend(el); while (box.children.length > 4) box.lastChild.remove();
+  if (!o.nolog && (o.big == null || !/^-?\d+$/.test(String(o.big)))) try { evAdd((o.title ? `<b>${esc(o.title)}</b>` : '') + (o.title && o.det ? ' — ' : '') + (o.det || '')); } catch (e) {}
   const ms = o.ms || (o.actions && o.actions.length ? (o.big == null ? 6000 : 15000) : (o.big == null ? 4500 : 6000));
   const gone = () => { el.classList.add('out'); setTimeout(() => el.remove(), 200); };
   let t = setTimeout(gone, ms);
@@ -1245,7 +1247,7 @@ function topHTML() {
     <div class="dk-tools"><span class="dk-sync${/couldn|offline|retry/i.test(syncMsg) ? ' bad' : ''}${/…/.test(syncMsg) ? ' busy' : ''}" title="${esc(syncMsg)}">${esc(syncMsg)}</span>
       <span class="dk-histb"><button class="dk-tb" data-act="dundo" aria-label="Undo">${ICON.undo}</button><button class="dk-tb" data-act="dredo" aria-label="Redo">${ICON.redo}</button><button class="dk-tb" data-act="dhistory" title="Change history" aria-label="Change history">${ICON.hist}</button></span>
       ${p && typeof CTX.turnOrder === 'function' ? `<button class="dk-tb dk-tobtn" data-act="turnorder" title="Turn order" aria-label="Turn order">${ICON.init}</button>` : ''}<button class="dk-tb" data-act="diceroller" title="Dice roller" aria-pressed="${!!$('.drwin:not(.closing)')}">${ICON.dice}<span class="dk-tl">Roll</span></button>
-      <button class="dk-tb" data-act="log" title="Roll log" aria-pressed="${UI.log}">${ICON.log}<span class="dk-tl">Log</span></button>
+      <button class="dk-tb" data-act="log" title="Log — every roll, plus everything else that popped up">${ICON.log}<span class="dk-tl">Log</span></button>
       <button class="dk-tb" data-act="settings" title="Settings">${ICON.gear}</button>${CTX && CTX.bugReport ? `<button class="dk-tb" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` : ''}${CTX && CTX.acct ? `<button class="dk-acct" data-act="acct" title="Your account" aria-haspopup="menu" aria-expanded="false">${CTX.acct.html()}</button>` : ''}</div>
 `;
 }
@@ -1482,7 +1484,7 @@ function bestiaryHTML() {
         <div class="dk-row"><button class="dk-btn sm" data-act="copyc" data-cid="${esc(c.id)}">Copy & edit</button>${c.src !== 'SRD' ? `<button class="dk-btn sm" data-act="editc" data-cid="${esc(c.id)}">Edit</button><button class="dk-btn sm red" data-act="delc" data-cid="${esc(c.id)}">Delete</button>` : ''}</div></div>
       <div class="dk-card dk-sbcard">${statBlock(c)}</div>` : ''}<p class="dk-credit">${esc(TOK_CREDIT)}.</p></section></div>`;
 }
-function paintLog() {
+function paintLog() { logRefresh();
   const box = $('.dk-loglist'); if (!box) return;
   box.innerHTML = LOG.length ? LOG.map(e => e.note ? `<div class="dk-lg note">${esc(e.note)}</div>` : `<div class="dk-lg ${e.cls || ''}"><div><b>${esc(e.who ? e.who + ' · ' : '')}</b>${esc(e.label)} ${e.src === 'roll20' ? '<span class="dk-tag20">Roll20</span>' : ''}</div><div class="dk-lt">${esc(e.total)}</div><div class="dk-ld">${esc(e.detail || '')} · ${new Date(e.t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div></div>`).join('') : '<p class="dk-hint">Rolls show up here.</p>';
 }
@@ -1772,8 +1774,9 @@ async function onClick(e) {
     case 'quickroll': case 'diceroller': return diceRoller();
     case 'turnorder': if (typeof CTX.turnOrder === 'function') try { CTX.turnOrder(); } catch (e2) {} return;
     case 'qr': return roll({ who: 'DM', label: prettyExpr(b.dataset.x), expr: b.dataset.x });
-    case 'log': UI.log = !UI.log; ROOT.classList.toggle('dk-log-open', UI.log); if (UI.log) paintLog(); $$('[data-act="log"]').forEach(t => t.setAttribute('aria-pressed', UI.log)); return;
-    case 'clearlog': LOG = []; writeLocal(); return paintLog();
+    case 'log': if (logOpen()) return closeModal(); return openLog();
+    case 'logtab': UI.logTab = b.dataset.v; return openLog(true);
+    case 'clearlog': return clearLog();
     case 'menu': { const m = b.closest('.dk-menu'), was = m.classList.contains('open'); closeMenus(); if (!was) m.classList.add('open'); return; }
     case 'tree': UI.tree = !UI.tree; ROOT.classList.toggle('dk-tree-open', UI.tree); return;
     case 'newsess': return askText('New session', 'Session ' + (S.sessions.length + 1), v => { newSession(v); UI.tab = 'sessions'; UI.tree = false; save(); paint(); setTimeout(() => { const q = $('#dk-addq'); if (q) q.focus(); }, 50); }, { okLabel: 'Create', hint: 'Name it after the night you’ll play, or the adventure.' });
@@ -1952,7 +1955,6 @@ function mount(root, ctx) {
   // Phones: only a party's page is available (see LITE below); the Desk on its own isn't
   if (!CTX.partyHost && mobileDev()) { const b = CTX.back; root.innerHTML = `<div class="dk-nophone"><div class="dk-emblem">${ICON.folder}</div><h2>Not available on mobile devices</h2><p><em>Not all of the DM’s Desk is available on mobile devices. Open a party you run to manage it from here, or use a computer for everything else.</em></p>${b ? `<a class="dk-btn gold" href="${esc(b.href)}">${ICON.back}<span>${esc(b.label || 'Back')}</span></a>` : ''}</div>`; return { unmount: () => { root.innerHTML = ''; ROOT = null; } }; }
   root.innerHTML = `<header class="dk-top"></header><div class="dk-page"></div>
-    <aside class="dk-log" aria-label="Roll log"><div class="dk-loghd"><h2>Roll log</h2><button class="dk-btn sm" data-act="clearlog">Clear</button><button class="dk-ix" data-act="log" aria-label="Close">${ICON.x}</button></div><div class="dk-loglist"></div></aside>
     <div class="dk-modal" role="presentation"><div class="dk-mcard" role="dialog" aria-modal="true"></div></div>
     <div class="dk-toasts" aria-live="polite"></div><input type="file" class="dk-impf" accept=".json,application/json" hidden><input type="file" class="dk-imgf" accept="image/*" hidden><input type="file" class="dk-tokf" accept="image/*" hidden><input type="file" class="dk-nimgf" accept="image/*" hidden><input type="file" class="dk-mapf" accept="image/*" hidden><input type="file" class="dk-nimpf" accept=".docx,.lk,.md,.markdown,.txt,.html,.htm,.zip,.textpack,.json,image/*" multiple hidden><input type="file" class="dk-ndirf" webkitdirectory multiple hidden><div class="dk-auto" hidden></div><input type="file" class="dk-notef" accept=".pdf,.docx,.txt,.md,.markdown,text/plain,application/pdf" multiple hidden>`;
   const loc = lsGet(''); S = normalize(loc && loc.v ? loc : null); dHistLoad();
@@ -3866,6 +3868,92 @@ async function drRoll(ex, label, dc) { ex = String(ex || '').replace(/\s+/g, '')
   const r = await roll({ who: 'DM', label: 'Dice roller: ' + f + (ent.dc != null ? ' vs ' + ent.dc : ''), expr: ex }, ent.dc != null ? { noteFn: t => (t >= ent.dc ? 'Success' : 'Failure') } : {});
   if (r && typeof r.total === 'number') { ent.t = r.total; if (ent.dc != null) ent.ok = r.total >= ent.dc; } else DR.last = DR.last.filter(x => x !== ent);
   drKeep(); drPaint(); }
+// ---------- Log ----------
+// The same Log window as the character sheet: Rolls (every roll with its breakdown), Everything else (what popped up —
+// damage and healing notes, spells cast, turns, warnings) and Dice stats (how the desk's d20s land, kept for good in
+// this browser). Newest first, grouped by day.
+let EVLOG = null, DSTATS = null, LOG_TAB_SHOWN = '';
+const LOG_TABS = ['rolls', 'events', 'stats'];
+const evLoad = () => { if (!EVLOG) EVLOG = lsGet('-evlog') || []; return EVLOG; };
+const evSave = () => lsSet('-evlog', (EVLOG || []).slice(0, 300));
+function evAdd(html) {
+  const clean = String(html || '').replace(/<button[^>]*>[\s\S]*?<\/button>/g, ''); if (!clean.replace(/<[^>]*>/g, '').trim()) return;
+  evLoad().unshift({ t: Date.now(), html: clean }); EVLOG = EVLOG.slice(0, 300); evSave(); logRefresh();
+}
+// what kind of roll a label is (for the stats)
+function statKind(label, expr) {
+  const l = String(label || '').toLowerCase(), d20 = /d20/i.test(String(expr || ''));
+  if (d20) return /initiative/.test(l) ? 'init' : /\bsave\b|saving/.test(l) ? 'save' : /attack|to hit/.test(l) ? 'attack' : /^dice roller/.test(l) ? 'roller' : /check|\(.*\)$/.test(l) ? 'check' : 'other';
+  if (/heal/.test(l)) return 'heal';
+  if (/damage|\b(acid|bludgeoning|cold|fire|force|lightning|necrotic|piercing|poison|psychic|radiant|slashing|thunder)\b/.test(l)) return 'dmg';
+  return '';
+}
+const dsLoad = () => { if (!DSTATS) DSTATS = lsGet('-dstats') || {}; return DSTATS; };
+const statDay = t => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+function statCount(e) {
+  if (!e || e.total == null || e.src === 'manual' && e.d20 == null) return; const k = statKind(e.label, e.expr); if (!k) return;
+  const ds = dsLoad(), t = e.t || Date.now(); if (!ds.since) ds.since = t; ds.dist = ds.dist || Array(21).fill(0); ds.by = ds.by || {}; ds.days = ds.days || {};
+  const day = ds.days[statDay(t)] = ds.days[statDay(t)] || { n: 0, sum: 0, c20: 0, c1: 0, dmg: 0 }, total = N(e.total);
+  if (k !== 'dmg' && k !== 'heal') { const d = N(e.d20); if (!(d >= 1 && d <= 20)) return; const b = ds.by[k] = ds.by[k] || { n: 0, sum: 0, c20: 0, c1: 0 }; b.n++; b.sum += d; if (d === 20) b.c20++; if (d === 1) b.c1++; ds.dist[d]++;
+    day.n++; day.sum += d; if (d === 20) day.c20++; if (d === 1) day.c1++; if (!ds.top || total > ds.top.v) ds.top = { v: total, l: String((e.who ? e.who + ' · ' : '') + e.label).slice(0, 80), t }; }
+  else { const b = ds[k] = ds[k] || { n: 0, sum: 0 }; b.n++; b.sum += total; if (k === 'dmg') { day.dmg += total; if (!b.best || total > b.best.v) b.best = { v: total, l: String((e.who ? e.who + ' · ' : '') + e.label).slice(0, 80), t }; } }
+  const keys = Object.keys(ds.days).sort(); while (keys.length > 120) delete ds.days[keys.shift()];
+  lsSet('-dstats', ds);
+}
+let DS_ANIM = false;
+function diceStatsHTML() {
+  const ds = dsLoad(), dist = ds.dist || Array(21).fill(0), all = dist.reduce((a, b) => a + b, 0);
+  if (!all && !(ds.dmg && ds.dmg.n)) return '<p class="rl-empty">No rolls counted yet. From now on, every roll the desk makes is counted here.</p>';
+  const sum = dist.reduce((a, c, i) => a + c * i, 0), avg = all ? sum / all : 0, pct = n => all ? Math.round(n / all * 1000) / 10 + '%' : '—', f1 = v => (Math.round(v * 10) / 10).toFixed(1);
+  const mx = Math.max(1, ...dist.slice(1)), when = t => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric', year: new Date(t).getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+  const luck = !all ? '' : all < 20 ? 'Not enough rolls to tell yet.' : avg >= 11.5 ? 'Hot dice — well above the 10.5 a fair d20 averages.' : avg >= 10.9 ? 'A little luckier than average.' : avg > 10.1 ? 'Right about average (a fair d20 averages 10.5).' : avg > 9.5 ? 'A little unlucky.' : 'Cursed dice — well below the 10.5 a fair d20 averages.';
+  const tiles = `<div class="ds-tiles"><div class="ds-tile"><small>d20 rolls</small><b>${all}</b></div><div class="ds-tile"><small>Average d20</small><b>${all ? f1(avg) : '—'}</b></div><div class="ds-tile g"><small>Natural 20s</small><b>${dist[20]}</b><span>${pct(dist[20])}</span></div><div class="ds-tile r"><small>Natural 1s</small><b>${dist[1]}</b><span>${pct(dist[1])}</span></div></div>${luck ? `<p class="ds-luck">${luck}</p>` : ''}`;
+  const bars = all ? `<div class="ds-h">How the d20s land</div><div class="ds-chart${DS_ANIM ? ' anim' : ''}" role="img" aria-label="How many times each number came up on the d20"><div class="ds-plot">${dist.slice(1).map((c, i) => `<div class="ds-col${i === 19 ? ' g' : i === 0 ? ' r' : ''}" style="--k:${i}" title="${i + 1}: ${c} time${c === 1 ? '' : 's'} (${pct(c)})"><i style="height:${c ? Math.max(3, c / mx * 100) : 0}%"></i></div>`).join('')}<div class="ds-fair" style="bottom:${(Math.min(1, all / 20 / mx) * 100).toFixed(1)}%" title="What a fair d20 would land on each number"></div></div><div class="ds-axis">${dist.slice(1).map((c, i) => `<span>${i + 1}</span>`).join('')}</div></div>` : '';
+  const KN = [['attack', 'Attacks'], ['save', 'Saving throws'], ['check', 'Checks'], ['init', 'Initiative'], ['roller', 'Dice roller'], ['other', 'Other d20s']];
+  const by = ds.by || {}, rows = KN.filter(([k]) => by[k] && by[k].n).map(([k, n]) => { const b = by[k]; return `<tr><td>${n}</td><td>${b.n}</td><td>${f1(b.sum / b.n)}</td><td class="g">${b.c20}</td><td class="r">${b.c1}</td></tr>`; }).join('');
+  const table = rows ? `<div class="ds-h">By roll</div><table class="ds-t"><thead><tr><th></th><th>Rolls</th><th>Avg</th><th>20s</th><th>1s</th></tr></thead><tbody>${rows}</tbody></table>` : '';
+  const dm = ds.dmg, hl = ds.heal, dmgH = dm && dm.n ? `<div class="ds-h">Damage</div><div class="ds-tiles"><div class="ds-tile"><small>Damage rolled</small><b>${dm.sum}</b><span>${dm.n} roll${dm.n === 1 ? '' : 's'} · avg ${f1(dm.sum / dm.n)}</span></div>${dm.best ? `<div class="ds-tile"><small>Biggest damage roll</small><b>${dm.best.v}</b><span>${esc(dm.best.l)} · ${when(dm.best.t)}</span></div>` : ''}${hl && hl.n ? `<div class="ds-tile g"><small>Healing rolled</small><b>${hl.sum}</b><span>${hl.n} roll${hl.n === 1 ? '' : 's'}</span></div>` : ''}</div>` : '';
+  const days = Object.entries(ds.days || {}).filter(([, d]) => d.n >= 5).sort(([a], [b]) => b.localeCompare(a));
+  let nights = ''; if (days.length) { const sc = d => d.sum / d.n, best = days.reduce((a, b) => sc(b[1]) > sc(a[1]) ? b : a), worst = days.reduce((a, b) => sc(b[1]) < sc(a[1]) ? b : a);
+    const nm = k => new Date(k + 'T12:00').toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+    nights = `<div class="ds-h">Nights you ran</div><table class="ds-t ds-n"><thead><tr><th></th><th>d20s</th><th>Avg</th><th>20s</th><th>1s</th><th>Damage</th></tr></thead><tbody>${days.slice(0, 12).map(([k, d]) => `<tr><td>${nm(k)}${days.length > 1 && k === best[0] ? ' <span class="ds-tag g">best</span>' : ''}${days.length > 1 && k === worst[0] && worst[0] !== best[0] ? ' <span class="ds-tag r">worst</span>' : ''}</td><td>${d.n}</td><td>${f1(sc(d))}</td><td class="g">${d.c20}</td><td class="r">${d.c1}</td><td>${d.dmg}</td></tr>`).join('')}</tbody></table>`; }
+  return `<div class="ds">${tiles}${bars}${table}${dmgH}${nights}<p class="dk-hint ds-note">Counting since ${when(ds.since || Date.now())}. Kept in this browser.</p></div>`;
+}
+const logOpen = () => { const m = $('.dk-modal'); return !!(m && m.classList.contains('open') && $('#dk-logw')); };
+function logRefresh() { if (logOpen()) openLog(true); }
+function rollRow(e) {
+  const cls = e.cls === 'crit' ? 'crit' : e.cls === 'bad' ? 'fumble' : '';
+  return `<div class="rl-row ${cls}"><span class="rl-time">${new Date(e.t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span><div class="rl-card"><b class="total">${esc(e.total)}</b><div class="rc-body"><div class="rc-name">${esc(e.who ? e.who + ' · ' : '')}${esc(e.label)}${e.src === 'roll20' ? '<span class="rc-src">Roll20</span>' : e.src === 'manual' ? '<span class="rc-src">Your roll</span>' : ''}</div>${cls === 'crit' ? '<div class="rc-lbl">Natural 20</div>' : cls === 'fumble' ? '<div class="rc-lbl">Natural 1</div>' : ''}
+    ${e.detail ? `<div class="rc-math"><div class="rm-r"><span>Rolled</span><b>${esc(e.detail)}</b></div><div class="rm-r rm-t"><span>Total</span><b>${esc(e.total)}</b></div></div>` : ''}</div></div></div>`;
+}
+const evRow = e => `<div class="rl-row"><span class="rl-time">${new Date(e.t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span><div class="rl-card"><div class="rl-ev">${e.html}</div></div></div>`;
+function openLog(redraw) {
+  evLoad();
+  const rolls = LOG.filter(e => !e.note), evs = EVLOG.concat(LOG.filter(e => e.note).map(e => ({ t: e.t, html: esc(e.note) }))).sort((a, b) => b.t - a.t);
+  const tab = LOG_TABS.includes(UI.logTab) ? UI.logTab : 'rolls', list = tab === 'events' ? evs : tab === 'stats' ? [] : rolls;
+  const day = t => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' }); let last = '';
+  const rows = list.map(e => { const d = day(e.t), h = d !== last ? `<div class="rl-day">${d}</div>` : ''; last = d; return h + (tab === 'events' ? evRow(e) : rollRow(e)); }).join('');
+  const tb = (k, l, n) => `<button class="rl-tab${tab === k ? ' on' : ''}" data-act="logtab" data-v="${k}" aria-pressed="${tab === k}">${l}${n == null ? '' : ` <span>${n}</span>`}</button>`;
+  const html = `<h2>Log</h2><div id="dk-logw"><div class="rl-head"><div class="rl-tabs">${tb('rolls', 'Rolls', rolls.length)}${tb('events', 'Everything else', evs.length)}${tb('stats', 'Dice stats')}</div>${tab !== 'stats' && list.length ? '<button class="dk-btn sm rl-clear" data-act="clearlog">Clear</button>' : ''}</div>
+    <div class="rl-list">${tab === 'stats' ? diceStatsHTML() : rows || `<p class="rl-empty">${tab === 'events' ? 'Nothing yet. What pops up — damage and healing, spells cast, turns, warnings — is kept here.' : 'No rolls yet. Every roll the desk makes shows up here with its breakdown.'}</p>`}</div>
+    <div class="dk-acts"><button class="dk-btn" data-act="close">Close</button></div></div>`;
+  const prev = redraw && logOpen() ? LOG_TAB_SHOWN : '', moved = prev && prev !== tab, oldOn = prev && $('#dk-logw .rl-tab.on'), oldInk = oldOn ? { l: oldOn.offsetLeft, w: oldOn.offsetWidth } : null;
+  const keep = redraw && !moved && $('#dk-logw .rl-list') ? $('#dk-logw .rl-list').scrollTop : 0;
+  DS_ANIM = false; LOG_TAB_SHOWN = tab;
+  if (redraw && logOpen()) { const c = $('.dk-mcard'), pos = c.style.translate; c.innerHTML = html; mwDress(c); c.style.translate = pos; } else openModal(html, { wide: true, cls: 'dk-logwin', focus: false });
+  // the highlight under the tabs slides from the old tab to the new one; the list comes in from the side you're heading
+  const bar = $('#dk-logw .rl-tabs'), on = $('#dk-logw .rl-tab.on');
+  if (bar && on) { bar.classList.add('inked'); const ink = document.createElement('i'); ink.className = 'rl-ink'; bar.prepend(ink);
+    const put = (l, w) => { ink.style.transform = `translateX(${l}px)`; ink.style.width = w + 'px'; };
+    if (moved && oldInk) { ink.style.transition = 'none'; put(oldInk.l, oldInk.w); void ink.offsetWidth; ink.style.transition = ''; } else ink.style.transition = 'none';
+    requestAnimationFrame(() => { put(on.offsetLeft, on.offsetWidth); if (!moved) requestAnimationFrame(() => { ink.style.transition = ''; }); }); }
+  const lst = $('#dk-logw .rl-list'); if (lst) { if (moved) lst.classList.add(LOG_TABS.indexOf(tab) > LOG_TABS.indexOf(prev) ? 'in-r' : 'in-l'); else if (keep) lst.scrollTop = keep; }
+  if (tab === 'stats' && (moved || !redraw)) { const ch = $('#dk-logw .ds-chart'); if (ch) ch.classList.add('anim'); }
+}
+function clearLog() {
+  if (UI.logTab === 'events') { EVLOG = []; evSave(); LOG = LOG.filter(e => !e.note); } else LOG = LOG.filter(e => e.note);
+  writeLocal(); openLog(true);
+}
 // ==== ITEMPARSE START — shared with the DM's Desk (desk/build.sh copies this block into desk.js; edit it only here) ====
 // Magic item text (book, PDF, D&D Beyond, 2014 or 2024 wording) → a spec → a character-sheet item with it.hb automation.
 // ctx: { weapons: DND.weapons rows, armor: DND.armor rows, spells: [spell names] }. No globals used, so both apps can share it.

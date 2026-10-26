@@ -879,12 +879,16 @@ function logEvent(html, cls) { if (!EVLOADED) loadEvLog(); const clean = String(
 // Tabs slide (their highlight moves across, the list comes in from the side you're heading); opening Dice stats fills its bars.
 let LOG_TAB_SHOWN = '', DS_ANIM = false, LOG_INK = null;
 const LOG_TABS = ['rolls', 'events', 'stats'];
+// A Log entry's card: the damage type moves into its breakdown (the separate damage panel isn't shown in the Log).
+function logCardHTML(h) { h = String(h || '').replace(/<button[^>]*>.*?<\/button>/g, ''); if (!/rc-math/.test(h) || !/rc-dmg/.test(h)) return h;
+  try { const box = document.createElement('div'); box.innerHTML = h; const ty = box.querySelector('.rc-dmg > span'), hd = [...box.querySelectorAll('.rc-math .rm-h')].find(x => /damage/i.test(x.textContent));
+    if (ty && hd && ty.textContent.trim()) hd.textContent += ' · ' + ty.textContent.trim(); return box.innerHTML; } catch (e) { return h; } }
 function openRollLog() {
   if (!ROLLLOG.length) loadRollLog(); if (!EVLOADED) loadEvLog(); try { statBackfill(); } catch (e) {}
   const tab = UI.logTab === 'events' ? 'events' : UI.logTab === 'stats' ? 'stats' : 'rolls', LIST = tab === 'events' ? EVLOG : tab === 'stats' ? [] : ROLLLOG;
   const day = t => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' }), tm = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   let last = '';
-  const rows = LIST.map(r => { const d = day(r.t), h = d !== last ? `<div class="rl-day">${d}</div>` : ''; last = d; return h + `<div class="rl-row ${esc(r.cls)}"><span class="rl-time">${tm(r.t)}</span><div class="rl-card">${r.html.replace(/<button[^>]*>.*?<\/button>/g, '')}</div></div>`; }).join('');
+  const rows = LIST.map(r => { const d = day(r.t), h = d !== last ? `<div class="rl-day">${d}</div>` : ''; last = d; return h + `<div class="rl-row ${esc(r.cls)}"><span class="rl-time">${tm(r.t)}</span><div class="rl-card">${logCardHTML(r.html)}</div></div>`; }).join('');
   const tb = (k, l, n) => `<button class="rl-tab${tab === k ? ' on' : ''}" data-act="logtab" data-v="${k}" aria-pressed="${tab === k}">${l} <span>${n}</span></button>`;
   const html = `<div id="rolllogmodal"><div class="rl-head"><h3>Log</h3><div class="rl-tabs">${tb('rolls', 'Rolls', ROLLLOG.length)}${tb('events', 'Everything else', EVLOG.length)}<button class="rl-tab${tab === 'stats' ? ' on' : ''}" data-act="logtab" data-v="stats" aria-pressed="${tab === 'stats'}">Dice stats</button></div>${LIST.length ? '<button class="btn sm ghost" data-act="clearlog">Clear</button>' : ''}</div>
     <div class="rl-list">${tab === 'stats' ? diceStatsHTML() : rows || (tab === 'events' ? '<p class="hint">Nothing yet. Messages that pop up — spells cast, turns, rests, warnings — are kept here.</p>' : '<p class="hint">No rolls yet. Every roll you make shows up here with its full breakdown.</p>')}</div>
