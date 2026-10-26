@@ -2158,7 +2158,7 @@ function hub(fs, auth, G, ctx) {
     if (!slideMode()) { tr.style.transform = ''; return; }
     tr.style.transition = anim && !calm() ? 'transform .34s cubic-bezier(.22,.9,.24,1)' : 'none';
     tr.style.transform = `translate3d(calc(${-idx * 100}% + ${dx || 0}px), 0, 0)`;
-    if (dx == null) { clearTimeout(tr._t); const off = () => { let y = null; panes.forEach((p, k) => { if (k === idx && p._y != null) { y = p._y; p._y = null; } p.style.transform = ''; p.classList.toggle('hp-off', k !== idx); unclamp(p); if (k !== idx) paneSkel(p, true); else paneReveal(p); }); if (y != null) scrollTo(0, y); };
+    if (dx == null) { clearTimeout(tr._t); const off = () => { let y = null; panes.forEach((p, k) => { if (k === idx && p._y != null) y = p._y; p._y = null; /* (every list, not just the one landing: one left marked as "getting ready" skipped its placeholders next time and stayed hidden while it slid in) */ p.style.transform = ''; p.classList.toggle('hp-off', k !== idx); unclamp(p); if (k !== idx) paneSkel(p, true); else paneReveal(p); }); if (y != null) scrollTo(0, y); };
       tr._off = off; if (anim && !calm()) tr._t = setTimeout(() => { tr._t = 0; tr._off = null; off(); }, 360); else { tr._off = null; off(); } }
   }
   // A new swipe or tap can arrive before the last slide has landed. Finish the old landing first, so its clean-up never
@@ -2191,13 +2191,14 @@ function hub(fs, auth, G, ctx) {
     const old = p.querySelector(':scope > .hp-sk'), shown = !p.classList.contains('hp-off') && p.getBoundingClientRect().height > 0;
     if (keep && !shown) { if (old) old.remove(); p.classList.remove('hp-skel'); return; } // (drawn again as it starts to slide in)
     if (!keep) SKU[p.dataset.pane] = Date.now() + 620;
-    if (old && old.dataset.g) return;
+    if (old) { clearTimeout(p._skT); clearTimeout(p._skR); if (old.classList.contains('out')) { old.style.transition = 'none'; old.classList.remove('out'); void old.offsetWidth; old.style.transition = ''; } p.classList.remove('hp-reveal'); } // (swiped back while its rows were fading in: placeholders again, fully)
+    if (old && old.dataset.g) { p.classList.add('hp-skel'); return; }
     const g = shown ? ghostHTML(p) : '', sk = old || document.createElement('div');
     sk.className = 'hp-sk' + (g ? ' hp-sk-g' : ''); sk.setAttribute('aria-hidden', 'true'); sk.classList.remove('out');
     if (g) { sk.dataset.g = 1; sk.innerHTML = g; } else { delete sk.dataset.g; sk.innerHTML = SKEL.rows(Math.max(1, Math.min(6, p.querySelectorAll('.hc, .hr, .pty-row, .hub-folder').length || 3))); }
     if (!old) p.appendChild(sk); p.classList.add('hp-skel'); } // (added last: put first, it would take the list's "first item" spacing and nudge the rows down)
   function paneReveal(p, now) { if (!p) return; const sk = p.querySelector(':scope > .hp-sk'); if (!sk) return; clearTimeout(p._skT);
-    const go = () => { p.classList.remove('hp-skel'); p.classList.add('hp-reveal'); sk.classList.add('out'); setTimeout(() => { sk.remove(); p.classList.remove('hp-reveal'); }, 260); };
+    const go = () => { p.classList.remove('hp-skel'); p.classList.add('hp-reveal'); sk.classList.add('out'); clearTimeout(p._skR); p._skR = setTimeout(() => { sk.remove(); p.classList.remove('hp-reveal'); }, 260); };
     if (now) { delete SKU[p.dataset.pane]; sk.remove(); p.classList.remove('hp-skel'); } else p._skT = setTimeout(() => { delete SKU[p.dataset.pane]; go(); }, Math.max(220, (SKU[p.dataset.pane] || 0) - Date.now())); }
   function skelRestore() { const tr = root.querySelector('.hub-track'); if (!tr) return; tr.querySelectorAll('.hub-pane').forEach(p => { if (!p.classList.contains('on')) paneSkel(p, true); else if ((SKU[p.dataset.pane] || 0) > Date.now()) { paneSkel(p, true); paneReveal(p); } }); }
   function prepIn(p) { if (!p || p._y != null) return; p.classList.remove('hp-off'); unclamp(p); paneSkel(p);
@@ -2212,7 +2213,8 @@ function hub(fs, auth, G, ctx) {
     const inP = tr.querySelector(`.hub-pane[data-pane="${v}"]`);
     if (!slideMode()) { tr.querySelectorAll('.hub-pane').forEach(p => { p.classList.remove('hp-off'); p.style.transform = ''; p._y = null; }); placeInd(true); placeTrack(false); scrollTo(0, VSCROLL[v] || 0); dispatchEvent(new Event('hub-view'));
       if (inP && !calm()) { inP.classList.remove('fadein'); void inP.offsetWidth; inP.classList.add('fadein'); } return; }
-    prepIn(inP); paneSkel(inP); clampPane(out0);
+    { const a = vi(view), b = [...tr.querySelectorAll('.hub-pane')].indexOf(out0); tr.querySelectorAll('.hub-pane').forEach((p, k) => { if (p !== out0 && k >= Math.min(a, b) && k <= Math.max(a, b)) { prepIn(p); paneSkel(p); } }); } // (a jump past a list slides that one by too)
+    clampPane(out0);
     placeInd(true); placeTrack(true); dispatchEvent(new Event('hub-view'));
   }
   addEventListener('resize', () => { placeInd(false); placeTrack(false); });
