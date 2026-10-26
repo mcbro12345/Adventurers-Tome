@@ -683,6 +683,27 @@ function rollDie(root) {
 // Touchscreens (no mouse to hover with): hover effects are switched off so nothing lights up by itself; taps get their own feedback.
 // A phone or tablet (touch, no mouse), as opposed to a computer: the admin Users list shows which they're online on.
 function pgIsPhone() { try { return document.documentElement.classList.contains('mobile') || (matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches); } catch (e) { return false; } }
+// Staying signed in when the site is added to an iPhone or iPad's home screen.
+// An app added to the home screen starts with its own, empty storage, so it used to ask you to sign in again. The one
+// thing iOS carries over, once, at the moment you add it, is the site's cookies. So while you're signed in and the page
+// is on screen in Safari, a short-lived sign-in pass is kept in a cookie: only on iPhones and iPads (elsewhere the
+// installed app shares the browser's sign-in anyway), only sent to this site and only over HTTPS, renewed while the page
+// is open and gone 20 minutes after you leave it, and wiped when you sign out. The home-screen app takes the pass the
+// first time it opens, signs in with it, and deletes it straight away. It never makes passes itself.
+const PG_HAND_MS = 20 * 60000;
+const pgHandGet = () => { const m = document.cookie.match(/(?:^|;\s*)pg_hand=([^;]+)/); return m ? m[1] : ''; };
+function pgHandClear() { try { document.cookie = 'pg_hand=; Max-Age=0; Path=/; Secure; SameSite=Strict'; } catch (e) {} }
+function pgHandIn(apiKey) { const v = pgHandGet(); if (!v) return; pgHandClear(); if (!STANDALONE || !apiKey) return;
+  try { const o = JSON.parse(atob(v.replace(/-/g, '+').replace(/_/g, '/'))); if (!o || typeof o.u !== 'string' || typeof o.r !== 'string' || !(Date.now() - Number(o.t) < PG_HAND_MS)) return;
+    const key = 'firebase:authUser:' + apiKey + ':[DEFAULT]'; if (localStorage.getItem(key)) return;
+    // (handed to the sign-in library as a saved sign-in: it checks the pass with Google and fills in the rest itself)
+    localStorage.setItem(key, JSON.stringify({ uid: o.u, email: o.e || null, emailVerified: true, isAnonymous: false, providerData: [], stsTokenManager: { refreshToken: o.r, accessToken: '', expirationTime: 0 }, createdAt: String(Date.now()), lastLoginAt: String(Date.now()), apiKey, appName: '[DEFAULT]' }));
+  } catch (e) {} }
+function pgHandOut(auth) { if (STANDALONE) return; if (!pgIOS()) { if (pgHandGet()) pgHandClear(); return; }
+  const put = () => { const u = auth.currentUser; if (document.hidden) return; if (!u || !u.refreshToken) return pgHandClear();
+    const v = btoa(JSON.stringify({ u: u.uid, r: u.refreshToken, e: u.email || '', t: Date.now() })).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    document.cookie = 'pg_hand=' + v + '; Max-Age=' + PG_HAND_MS / 1000 + '; Path=/; Secure; SameSite=Strict'; };
+  put(); setInterval(put, 4 * 60000); document.addEventListener('visibilitychange', put); auth.onAuthStateChanged(u => { if (!u) pgHandClear(); }); }
 const TOUCH = (() => { try { return matchMedia('(hover: none)').matches; } catch (e) { return false; } })();
 function noHover() {
   const split = sel => { const out = []; let d = 0, cur = ''; for (const ch of sel) { if (ch === '(') d++; if (ch === ')') d--; if (ch === ',' && !d) { out.push(cur); cur = ''; } else cur += ch; } out.push(cur); return out; };
@@ -768,6 +789,7 @@ function wireDie(root) {
   // proof it came from this site, so Firebase can turn away scripts and bots that call the database directly.
   const { appCheckKey, inviteBase: _inviteBase, ...FBCFG } = CFG;
   if (appCheckKey) await new Promise(res => { const sc = document.createElement('script'); sc.src = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check-compat.js'; sc.onload = sc.onerror = res; document.head.appendChild(sc); });
+  pgHandIn(FBCFG.apiKey); // (before sign-in starts up: see below)
   try { firebase.initializeApp(FBCFG); if (appCheckKey && firebase.appCheck) firebase.appCheck().activate(new firebase.appCheck.ReCaptchaV3Provider(appCheckKey), true);
     fs = firebase.firestore(); auth = firebase.auth(); } catch (e) { console.error(e); }
   if (!fs || !auth) { say('Couldn\'t start the sheet. Check your connection and reload.'); return; }
@@ -893,9 +915,10 @@ function wireDie(root) {
   if (!user) { if (PRETTY && !LOGIN) { const here = location.pathname + location.search; history.replaceState(null, '', '/login' + (here !== '/' ? '?next=' + enc(here) : '')); } signIn(auth, say); return; }
   if (LOGIN) { pgGo(pgSafePath(Q.get('next')) || '/', true); return; } // keeps the loading screen up (no fade out and back in)
   const EMAIL = (user.email || '').toLowerCase(), IS_OWNER = user.uid === OWNER_UID;
+  pgHandOut(auth);
   let IS_ADMIN = IS_OWNER, ADMINS = [];
   try { const a = await fs.collection('config').doc('admins').get(); ADMINS = ((a.exists && a.data().emails) || []).map(x => String(x).toLowerCase()); if (ADMINS.includes(EMAIL)) IS_ADMIN = true; } catch (e) {}
-  const doSignOut = () => Promise.resolve((SKSNAP.clear(), window.pgLog && (lsSet('pg-off:' + EMAIL, JSON.stringify({ at: Date.now(), why: 'signout', last: window.pgSeenAt || 0 })), pgLog('signout')))).then(() => { window.__pgOut = true; return auth.signOut(); }).catch(e => { window.__pgOut = false; throw e; }).then(() => { try { localStorage.removeItem('pg-kicked'); } catch (e) {} pgGo(PRETTY ? '/login' : location.href, true); });
+  const doSignOut = () => Promise.resolve((pgHandClear(), SKSNAP.clear(), window.pgLog && (lsSet('pg-off:' + EMAIL, JSON.stringify({ at: Date.now(), why: 'signout', last: window.pgSeenAt || 0 })), pgLog('signout')))).then(() => { window.__pgOut = true; return auth.signOut(); }).catch(e => { window.__pgOut = false; throw e; }).then(() => { try { localStorage.removeItem('pg-kicked'); } catch (e) {} pgGo(PRETTY ? '/login' : location.href, true); });
   // Signing out always asks first.
   const signOut = () => {
     if (document.querySelector('.pg-out')) return;
@@ -1997,7 +2020,7 @@ function hub(fs, auth, G, ctx) {
   const newsSeen = () => { try { return new Set(JSON.parse(localStorage.getItem(NSEEN_LS) || '[]')); } catch (e) { return new Set(); } };
   const newsSee = id => { try { const s = newsSeen(); if (s.has(id)) return; s.add(id); localStorage.setItem(NSEEN_LS, JSON.stringify([...s].slice(-200))); } catch (e) {} };
   const newsLink = n => /^https?:\/\/\S+$/i.test(n.link || '') ? `<a class="wn-link" href="${esc(n.link)}" target="_blank" rel="noopener">Read more</a>` : '';
-  const newsItemHTML = (n, fresh) => `<b class="wn-t">${esc(n.t || '')}${fresh ? '<em class="wn-new">New</em>' : ''}</b><div class="wn-d">${(window.pgMarkHTML || esc)(n.d || '')}</div>${newsLink(n)}`;
+  const newsItemHTML = (n, fresh) => `<b class="wn-t"><span class="wn-tt">${esc(n.t || '')}</span>${fresh ? '<em class="wn-new">New</em>' : ''}</b><div class="wn-d">${(window.pgMarkHTML || esc)(n.d || '')}</div>${newsLink(n)}`;
   // Every update, newest first, in a window.
   function newsAll(list) { const L = (list || NEWS.items).slice().sort((a, b) => (b.at || 0) - (a.at || 0)); L.forEach(n => newsSee(n.id));
     modal.innerHTML = `<div class="hub-card wide wn-allc"><h2>What’s new</h2>${L.length ? L.map(n => `<div class="wn-allit"><small>${n.at ? esc(new Date(n.at).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })) : ''}</small>${newsItemHTML(n, false)}</div>`).join('') : '<p class="hub-hint">Nothing posted yet.</p>'}<button class="btn ghost" id="wn-x">Close</button></div>`;
@@ -2080,7 +2103,7 @@ function hub(fs, auth, G, ctx) {
       ${(() => { const inList = (c.viewers || []).includes(EMAIL) && !isMine(c), it = [];
         if (IS_ADMIN) it.push(['share', 'Share…'], ['move', 'Give to another player']);
         it.push(['copy', 'Make a copy'], ['exp', 'Export'], ['tok', 'Download token']);
-        if (inList) it.push(['leave', 'Relinquish access']);
+        if (inList) it.push(['leave', 'Relinquish access', 'hc-del']); // (red, like Delete: it takes the character away from you)
         if (canDelete(c)) it.push(['del', 'Delete character…', 'hc-del']);
         return it.length ? `<div class="hc-menu"><button class="hc-dots" aria-label="More">⋯</button><div class="hc-list">${it.map(([a, t, k]) => `<button data-a="${a}" data-id="${esc(c.id)}"${k ? ` class="${k}"` : ''}>${MI[a]}${t}</button>`).join('')}</div></div>` : ''; })()}</div>`;
   }
@@ -2285,28 +2308,35 @@ function hub(fs, auth, G, ctx) {
     // (on iPhones, re-laying out every frame made the headings below shiver as their text snapped from pixel to pixel):
     // the folder is opened or shut once, then everything below it glides from where it was to where it now belongs,
     // and the folder's cards are wiped in or out in step. Folding one near the bottom of the page scrolls up with it.
-    const FOLD_EASE = 'cubic-bezier(.3,.7,.2,1)';
-    const followers = d => { const out = [], stop = root; let n = d; while (n && n !== stop && n !== document.body) { let x = n.nextElementSibling; while (x) { if (x.getClientRects().length) out.push(x); x = x.nextElementSibling; } n = n.parentElement; } return out; };
+    const followers = d => { const out = [], stop = d.closest('.hub-pane') || root, top = d.getBoundingClientRect().top; let n = d; while (n && n !== stop && n !== document.body) { let x = n.nextElementSibling; while (x) { const r = x.getBoundingClientRect(); if (r.height && r.top >= top) out.push(x); x = x.nextElementSibling; } n = n.parentElement; } return out; }; // (only what's below it: on a phone the other lists sit beside it, not under it)
+    // The headings and cards below slide on the graphics chip (so the motion keeps up with 120 Hz screens) while the
+    // folder's own cards fade: gone before anything slides over them when folding, and only showing once the way is
+    // clear when unfolding. How far things move is measured from the page itself (folded and unfolded), so they land
+    // exactly where they belong, without a pixel's hop at either end.
+    const FOLD_EASE = 'cubic-bezier(.25,.8,.25,1)';
     root.querySelectorAll('details.hub-folder > summary').forEach(sm => sm.addEventListener('click', e => {
       const d = sm.parentElement, body = d.querySelector(':scope > .hf-body'); if (!body || !body.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
       e.preventDefault(); if (d._fold) d._fold.finish();
-      const closing = d.open, dur = closing ? 260 : 300, h = closing ? body.offsetHeight : 0, fol = followers(d), anims = [];
-      let done = false; const end = () => { if (done) return; done = true; anims.forEach(a => a.cancel()); d.classList.remove('hf-closing'); if (closing) d.open = false; d._fold = null; if (sc) scrollTo(0, sc.to); };
-      let sc = null;
-      if (closing) { d.classList.add('hf-closing');
-        // (near the bottom the page can't stay scrolled where it is once it's shorter: glide the scroll up during the fold instead of jumping at the end)
-        const se = document.scrollingElement || document.documentElement, cap = Math.max(0, se.scrollHeight - h - innerHeight); if (scrollY > cap) sc = { from: scrollY, to: cap };
-        anims.push(body.animate([{ clipPath: 'inset(0 0 0 0)', webkitClipPath: 'inset(0 0 0 0)' }, { clipPath: 'inset(0 0 100% 0)', webkitClipPath: 'inset(0 0 100% 0)' }], { duration: dur, easing: FOLD_EASE, fill: 'forwards' }));
-        // (the cards are gone before the headings below slide over them, even where the wipe above isn't drawn)
-        anims.push(body.animate([{ opacity: 1 }, { opacity: 0, offset: .45 }, { opacity: 0 }], { duration: dur, easing: 'ease-out', fill: 'forwards' }));
-        fol.forEach(x => anims.push(x.animate([{ transform: 'translateY(0)' }, { transform: `translateY(${-h}px)` }], { duration: dur, easing: FOLD_EASE, fill: 'forwards' })));
-      } else { d.open = true; const hh = body.offsetHeight;
-        anims.push(body.animate([{ clipPath: 'inset(0 0 100% 0)', webkitClipPath: 'inset(0 0 100% 0)' }, { clipPath: 'inset(0 0 0 0)', webkitClipPath: 'inset(0 0 0 0)' }], { duration: dur, easing: FOLD_EASE }));
-        anims.push(body.animate([{ opacity: 0 }, { opacity: 0, offset: .4 }, { opacity: 1 }], { duration: dur, easing: 'ease-in' }));
-        fol.forEach(x => anims.push(x.animate([{ transform: `translateY(${-hh}px)` }, { transform: 'translateY(0)' }], { duration: dur, easing: FOLD_EASE })));
-      }
-      if (sc) { const t0 = performance.now(), ease = t => 1 - Math.pow(1 - t, 3); const go = now => { if (done) return; const k = Math.min(1, (now - t0) / dur); scrollTo(0, sc.from + (sc.to - sc.from) * ease(k)); if (k < 1) requestAnimationFrame(go); }; requestAnimationFrame(go); }
-      d._fold = { finish: end }; Promise.all(anims.map(a => a.finished)).then(end, () => {});
+      const closing = d.open, dur = closing ? 280 : 320, fol = followers(d);
+      // how far everything below moves: the page measured both ways, back to back before anything is drawn
+      // (the cards' exact height, fractions of a pixel included: the folder's own spacing doesn't change when it folds)
+      if (!closing) d.open = true; const dy = (closing ? -1 : 1) * body.getBoundingClientRect().height; if (!closing) d.open = false; // negative when folding
+      const se = document.scrollingElement || document.documentElement, cap = closing ? Math.max(0, se.scrollHeight + dy - innerHeight) : 0, sc = closing && scrollY > cap ? { from: scrollY, to: cap } : null;
+      if (closing) d.classList.add('hf-closing'); else d.open = true;
+      const anims = []; let done = false;
+      const end = () => { if (done) return; done = true; if (closing) d.open = false; d.classList.remove('hf-closing'); anims.forEach(a => { try { a.cancel(); } catch (x) {} }); body.style.opacity = body.style.visibility = ''; if (sc) scrollTo(0, sc.to); d._fold = null; };
+      const go = (el, kf, o) => { try { anims.push(el.animate(kf, Object.assign({ duration: dur, easing: FOLD_EASE, fill: 'both' }, o))); } catch (x) {} };
+      // (the folder's cards fade by plain style changes each frame: Safari doesn't draw the animation engine's fade on
+      // what's inside a folder, and the cards showed under the headings sliding over them)
+      const fade = k => { const o = closing ? Math.max(0, 1 - k / .38) : Math.max(0, Math.min(1, (k - .45) / .55)); body.style.opacity = o; body.style.visibility = o > 0 ? '' : 'hidden'; };
+      fade(0); { const t0 = performance.now(), f = now => { if (done) return; const k = Math.min(1, (now - t0) / dur); fade(k); if (k < 1) requestAnimationFrame(f); }; requestAnimationFrame(f); }
+      if (closing) {
+        fol.forEach(x => go(x, [{ transform: 'translate3d(0,0,0)' }, { transform: `translate3d(0,${dy}px,0)` }])); }
+      else {
+        fol.forEach(x => go(x, [{ transform: `translate3d(0,${-dy}px,0)` }, { transform: 'translate3d(0,0,0)' }])); }
+      if (sc) { const t0 = performance.now(), ease = t => 1 - Math.pow(1 - t, 3), step = now => { if (done) return; const k = Math.min(1, (now - t0) / dur); scrollTo(0, sc.from + (sc.to - sc.from) * ease(k)); if (k < 1) requestAnimationFrame(step); }; requestAnimationFrame(step); }
+      d._fold = { finish: end };
+      if (anims.length) Promise.all(anims.map(a => a.finished)).then(end, () => {}); else end();
     }));
     root.querySelectorAll('details.hub-folder').forEach(d => d.addEventListener('toggle', () => { open[d.dataset.k] = d.open; ls.set(OPEN, JSON.stringify(open)); if (d.open && D) tileFit(d); }));
     root.querySelectorAll('.hc-dots').forEach(b => b.onclick = e => { e.stopPropagation(); const w = b.parentElement, on = !w.classList.contains('on'); root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')); w.classList.toggle('on', on); });
@@ -2684,7 +2714,9 @@ function hub(fs, auth, G, ctx) {
       const pop = document.createElement('div'); pop.className = 'au-pop dd-pop'; pop.setAttribute('role', 'listbox'); if (multi) pop.setAttribute('aria-multiselectable', 'true');
       pop.innerHTML = `${items.length > 6 ? `<div class="au-psearch"><input placeholder="Search" autocomplete="off" aria-label="Search ${esc(sl.dataset.label)}">${svg('search', 15)}</div>` : ''}<div class="au-opts"></div><div class="au-pfoot"><button class="au-plink" data-x>Clear selection</button><span class="adm-dim"></span></div>`;
       w.appendChild(pop); w.classList.add('open'); { const fl = w.closest('.adm-filters'); if (fl) fl.classList.add('dd-up'); } w.querySelector('.dd-b').setAttribute('aria-expanded', 'true');
-      if (getComputedStyle(pop).position === 'absolute' && pop.getBoundingClientRect().right > innerWidth - 8) pop.classList.add('dd-right'); // (keep it on the screen)
+      { const pr = pop.getBoundingClientRect(), wr = w.getBoundingClientRect(), vw = document.documentElement.clientWidth, mg = 8; // (keep it on the screen: slid left or right as needed, still hanging from its pill)
+        let x = 0; if (pr.right > vw - mg) x = vw - mg - pr.right; if (pr.left + x < mg) x = mg - pr.left; if (x) pop.style.left = (pr.left + x - wr.left) + 'px'; }
+
       const list = pop.querySelector('.au-opts'), inp = pop.querySelector('input'), cnt = pop.querySelector('.au-pfoot .adm-dim'), clr = pop.querySelector('[data-x]');
       const groupOf = g => { const r = []; for (let i = opts.indexOf(g) + 1; i < opts.length && opts[i].dataset.g == null; i++) r.push(opts[i]); return r; };
       const headOf = x => { for (let i = opts.indexOf(x) - 1; i >= 0; i--) if (opts[i].dataset.g != null) return opts[i]; return null; };
@@ -2701,7 +2733,9 @@ function hub(fs, auth, G, ctx) {
         list.querySelectorAll('[data-grp]').forEach(b => b.onclick = e => { e.stopPropagation(); const kids = groupOf(opts[+b.dataset.grp]), all = kids.every(k => k.selected); kids.forEach(k => { k.selected = !all; }); if (!all) opts.forEach(y => { if (y.dataset.solo != null) y.selected = false; }); changed(); }); };
       clr.onclick = e => { e.stopPropagation(); opts.forEach(y => { y.selected = false; }); changed(); if (!multi) ddClose(); };
       if (inp) { inp.oninput = draw; if (!TOUCH) inp.focus(); }
-      pop.addEventListener('click', e => e.stopPropagation()); draw(); }
+      pop.addEventListener('click', e => e.stopPropagation()); draw();
+      { const pill = document.getElementById('pgpill'), pb = pill && pill.getClientRects().length ? pill.getBoundingClientRect().top : innerHeight, floor = Math.min(innerHeight, pb) - 12; // (above the floating page switcher on phones)
+        const pr = pop.getBoundingClientRect(), room = floor - pr.top; if (room < pr.height) { if (room >= 220) pop.style.setProperty('max-height', room + 'px', 'important'); else { pop.style.setProperty('max-height', Math.min(pr.height, innerHeight * .6) + 'px', 'important'); const b = pop.getBoundingClientRect().bottom; if (b > floor) scrollBy({ top: b - floor, behavior: 'smooth' }); } } } }  /* (fits on the screen below its pill) */
     // (each pill gets its look as it lands on the page)
     new MutationObserver(() => root.querySelectorAll('.dd:not([data-p])').forEach(w => { w.dataset.p = 1; ddPill(w); })).observe(root, { childList: true, subtree: true });
     root.addEventListener('click', e => { const w = e.target.closest && e.target.closest('.dd'); if (!w || e.target.closest('.au-pop')) return;

@@ -3339,3 +3339,36 @@ body.hdragging, body.hdragging * { cursor: grabbing !important; user-select: non
 /* a folder heading isn't squeezed when pressed (the whole row shrinking while it folds looked like a shudder): its arrow lights up instead */
 html.pg-touch body.hubbody .hub-folder > summary:active .hf-caret { background: rgba(201,150,43,.22); color: #e9e3d3; }
 body.hubbody .hub-folder > summary { -webkit-tap-highlight-color: transparent; }
+
+/* What's new: a long title gives way (ending in …) so its New tag always shows in full */
+:is(.wn-card, .wn-bar) .wn-t { display: flex !important; align-items: center; gap: 8px; min-width: 0; overflow: visible !important; text-overflow: clip !important; }
+:is(.wn-card, .wn-bar) .wn-tt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:is(.wn-card, .wn-bar) .wn-t .wn-new { flex: none; margin-left: 0; vertical-align: 0; }
+
+/* Admin filters on phones work like on a computer: compact pills, and the list drops down under the pill you tapped
+   (not a sheet from the bottom of the screen) */
+@media (max-width: 1000px) {
+  .adm-fsels > .adm-fsel.dd { flex: 0 0 auto !important; width: auto; max-width: 100%; }
+  .adm-fsel.dd .dd-b { width: auto; }
+  .adm-fsel.dd .dd-c, .adm-fsel.dd .dd-x { margin-left: 0; }
+}
+@media (max-width: 884px) {
+  body.adminbody .dd .au-pop, .dd .au-pop { position: absolute !important; left: 0; right: auto !important; top: calc(100% + 6px) !important; bottom: auto !important; width: min(300px, calc(100vw - 16px)) !important; max-width: none !important; max-height: min(420px, 60vh) !important;
+    padding-bottom: 0 !important; border-radius: 10px !important; border-bottom: 1px solid rgba(201,150,43,.28) !important; box-shadow: 0 14px 36px rgba(0,0,0,.55) !important; animation: auPop .14s ease-out !important; z-index: 80 !important; }
+  .dd .au-pop .au-opts { max-height: none; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+  .dd .au-opt { padding: 10px 14px; }
+}
+/* the account menu: its links (Back to the lobby, Admin panel) press and highlight exactly like its buttons */
+.ha-menu a[data-ha] { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; text-decoration: none; }
+.ha-menu [data-ha] { -webkit-tap-highlight-color: transparent; }
+html.pg-touch .ha-menu [data-ha]:active { background: rgba(255,255,255,.09) !important; }
+@media (prefers-color-scheme: light) { html.pg-touch .ha-menu [data-ha]:active { background: rgba(0,0,0,.06) !important; } }
+.dd .au-pop > .au-psearch, .dd .au-pop > .au-pfoot { flex: none; }
+
+/* account menu on a phone: every item, links included, sinks a little when pressed (like the sheet's buttons do) */
+html.mobile .ha-menu [data-ha]:active, html.pg-touch .ha-menu [data-ha]:active { transform: scale(.96) !important; filter: brightness(.92); background-color: #262e40 !important; transition: transform .08s; }
+@media (prefers-color-scheme: light) { html.mobile .ha-menu [data-ha]:active, html.pg-touch .ha-menu [data-ha]:active { background-color: #f1e8d6 !important; } }
+html.mobile .ha-menu .ha-out:active, html.pg-touch .ha-menu .ha-out:active { background-color: #34222a !important; }
+/* phones: the floating page switcher steps out of the way while a window or pop-up is open (it used to sit on top of them) */
+html.pgpill-on .pgp { transition: opacity .18s ease, visibility 0s linear 0s; }
+html.pgpill-on:has(.hub-modal.on, #modal.open, .modal-bg.open, .pg-out, .ptyask-bg, .wizard.open, .ha-sheet, .pg-crop, #pg-msg .pgm-card) .pgp { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .15s ease, visibility 0s linear .15s; }

@@ -3898,3 +3898,89 @@ label.setrow > input[type=checkbox] { margin-top: 2px; }
 .ictx .mlabel { padding: 6px 10px 2px; }
 .irow.ictx-on { box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 55%, transparent); border-radius: 8px; }
 @media (prefers-reduced-motion: reduce) { .ictx > .menu-list { animation: none; } }
+
+/* Party chat on a phone: a card that drops down from the top and reaches about halfway down the screen, so it sits
+   above the keyboard when you type (instead of filling the screen and fighting with it). Push it back up to close. */
+html.mobile .pcwin { top: calc(var(--vvt, 0px) + env(safe-area-inset-top, 0px) + 8px) !important; bottom: auto !important; left: 8px !important; right: 8px !important; width: auto !important;
+  height: min(52svh, calc(var(--vvh, 100svh) - env(safe-area-inset-top, 0px) - 20px)) !important; max-height: none !important; min-height: 240px;
+  border: 1px solid color-mix(in srgb, var(--gold) 38%, transparent) !important; border-radius: 22px !important; padding-bottom: 0 !important; overflow: hidden;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--panel) 92%, var(--gold) 8%), var(--panel) 70px) !important;
+  box-shadow: 0 22px 60px rgba(0,0,0,.55), 0 0 0 100vmax rgba(5,8,14,.38) !important; animation-name: pcDrop !important; transition: transform .2s ease; }
+html.mobile.kbup .pcwin { padding-bottom: 0 !important; box-shadow: 0 22px 60px rgba(0,0,0,.55), 0 0 0 100vmax rgba(5,8,14,.38) !important; }
+html.mobile .pcwin.closing { animation-name: pcLift !important; }
+@keyframes pcDrop { from { transform: translateY(calc(-100% - 60px)); } }
+@keyframes pcLift { to { transform: translateY(calc(-100% - 60px)); } }
+html.mobile .pcwin .pcw-head { padding: 12px 14px 10px 18px !important; border-bottom: 1px solid var(--line); }
+html.mobile .pcwin .pcw-head b { font-family: var(--serif, Georgia, serif); font-size: 1.12rem; letter-spacing: .01em; color: var(--gold-ink, var(--gold)); }
+html.mobile .pcwin .ptychat-f { border-top: 1px solid var(--line); background: transparent !important; padding: 8px 10px 4px !important; }
+html.mobile .pcwin .pcw-grab { flex: none; height: 18px; display: grid; place-items: center; cursor: grab; touch-action: none; }
+html.mobile .pcwin .pcw-grab::before { content: ''; width: 44px; height: 5px; border-radius: 3px; background: color-mix(in srgb, var(--ink) 28%, transparent); }
+.pcwin .pcw-grab { display: none; } html.mobile .pcwin .pcw-grab { display: grid; }
+@media (prefers-reduced-motion: reduce) { html.mobile .pcwin { animation: none !important; } }
+html.mobile .pcwin, html.mobile.kbup .pcwin { padding-top: 0 !important; padding-bottom: 0 !important; transition: transform .2s ease, top .2s ease, height .2s ease !important; } /* (the old full-screen version kept a gap at its top for the clock and the keyboard's shift: an empty band in the card) */
+
+/* (the chat card stays put: no gliding to a new spot as the keyboard settles) */
+html.mobile .pcwin, html.mobile.kbup .pcwin { transition: transform .2s ease !important; }
+/* (short enough that its message box sits above the keyboard: when it would end up underneath, iOS shoves the whole
+   screen up to show it, and that's what made the chat jump about. Same height with the keyboard up or down.) */
+html.mobile .pcwin { height: min(44svh, calc(var(--vvh, 100svh) - env(safe-area-inset-top, 0px) - 20px)) !important; min-height: 220px; }
+html.mobile .pcwin { top: calc(var(--pc-vvt, var(--vvt, 0px)) + env(safe-area-inset-top, 0px) + 8px) !important; transition: transform .2s ease !important; }
+
+html.mobile .pcwin .pcw-grab { display: none !important; }
+html.mobile .pcwin .pcw-head { cursor: default; touch-action: manipulation; }
+/* the chat box is a search-style box now: no search icon or clear (×) button from the browser */
+#ptychat-in[type=search] { -webkit-appearance: none; appearance: none; }
+#ptychat-in[type=search]::-webkit-search-cancel-button, #ptychat-in[type=search]::-webkit-search-decoration { -webkit-appearance: none; display: none; }
+
+html.mobile .pcwin.pc-abs { position: absolute !important; top: calc(var(--pc-y, 0px) + env(safe-area-inset-top, 0px) + 8px) !important; }
+
+/* phones: message box at the top of the chat card (under the title), messages below it */
+html.mobile .pcwin.pc-abs { position: fixed !important; }
+html.mobile .pcwin { top: calc(env(safe-area-inset-top, 0px) + 8px) !important; }
+html.mobile .pcwin .pcw-body { display: flex; flex-direction: column; }
+html.mobile .pcwin .ptychat-f { order: -2; position: relative; border-top: 0 !important; border-bottom: 1px solid var(--line); padding: 10px 10px 10px !important; }
+html.mobile .pcwin .ptychat-h, html.mobile .pcwin .ptychat-cmds { order: -1; }
+html.mobile .pcwin .ptychat-ac { top: calc(100% - 4px) !important; bottom: auto !important; z-index: 5; }
+/* phones, while typing: the chat card stretches down to meet the keyboard and the message box moves to its bottom edge,
+   just above the keys (back under the title once the keyboard goes away); the note and the /w /r help fade out of the
+   way instead of vanishing */
+html.mobile .pcwin { transition: transform .2s ease, height .28s cubic-bezier(.2,.8,.2,1) !important; }
+html.mobile.kbreal .pcwin { height: max(220px, calc(var(--vvh, 100svh) - env(safe-area-inset-top, 0px) - 16px)) !important; }
+html.mobile.kbreal .pcwin .ptychat-f { order: 3; border-bottom: 0 !important; border-top: 1px solid var(--line) !important; }
+html.mobile.kbreal .pcwin .ptychat-ac { top: auto !important; bottom: calc(100% - 4px) !important; }
+html.mobile .pcwin .ptychat-h, html.mobile .pcwin .ptychat-cmds { display: block; overflow: hidden; max-height: 90px; opacity: 1; transition: opacity .18s ease, max-height .25s ease, padding .25s ease, margin .25s ease; }
+html.mobile .pcwin .ptychat-cmds { display: grid; }
+html.mobile.kbup .pcwin .ptychat-h, html.mobile.kbup .pcwin .ptychat-cmds { display: block !important; max-height: 0 !important; opacity: 0; padding-top: 0 !important; padding-bottom: 0 !important; margin: 0 !important; }
+html.mobile.kbup .pcwin .ptychat-cmds { display: grid !important; }
+@media (prefers-reduced-motion: reduce) { html.mobile .pcwin, html.mobile .pcwin .ptychat-h, html.mobile .pcwin .ptychat-cmds { transition: none !important; } }
+html.mobile .ptychat-cmds, html.mobile.kbup .pcwin .ptychat-cmds { display: none !important; } /* (no /w /r help on phones) */
+
+.pc-scrim { position: fixed; inset: -50px 0; z-index: 9099; background: rgba(5,8,14,.45); animation: pcScrimIn .2s ease; touch-action: none; -webkit-tap-highlight-color: transparent; }
+.pc-scrim.out { opacity: 0; transition: opacity .18s ease; pointer-events: none; }
+@keyframes pcScrimIn { from { opacity: 0; } }
+html.mobile .pcwin, html.mobile.kbup .pcwin { box-shadow: 0 22px 60px rgba(0,0,0,.55) !important; } /* (the cover does the dimming now) */
+
+/* no divider lines around the chat's message box on phones */
+html.mobile .pcwin .ptychat-f, html.mobile.kbup .pcwin .ptychat-f, html.mobile.kbreal .pcwin .ptychat-f { border-top: 0 !important; border-bottom: 0 !important; }
+
+/* Party chat on a phone, final shape: it always reaches down to where the keyboard's top edge comes (remembered from
+   the last time the keyboard was up; a little over half the screen until then), with the message box along its bottom,
+   so opening the keyboard doesn't change it at all */
+html.mobile .pcwin, html.mobile.kbup .pcwin, html.mobile.kbreal .pcwin { height: max(240px, calc(var(--kbtop, 58svh) - env(safe-area-inset-top, 0px) - 16px)) !important; }
+html.mobile .pcwin .ptychat-f, html.mobile.kbreal .pcwin .ptychat-f { order: 3 !important; }
+html.mobile .pcwin .ptychat-ac, html.mobile.kbreal .pcwin .ptychat-ac { top: auto !important; bottom: calc(100% - 4px) !important; }
+
+.pcwin .pc-trap { position: absolute; top: 56px; left: 16px; width: 1px; height: 24px; padding: 0; border: 0; margin: 0; opacity: 0; font-size: 16px; pointer-events: none; caret-color: transparent; background: transparent; color: transparent; }
+/* phones: one quiet card: no note line, no divider under the title */
+html.mobile .pcwin .ptychat-h { display: none !important; }
+html.mobile .pcwin .pcw-head { border-bottom: 0 !important; }
+
+/* phones: message box under the title until the keyboard is up, then along the bottom resting on the keyboard */
+html.mobile .pcwin .ptychat-f { order: -2 !important; }
+html.mobile.kbreal .pcwin .ptychat-f { order: 3 !important; }
+html.mobile .pcwin .ptychat-ac { top: calc(100% - 4px) !important; bottom: auto !important; }
+html.mobile.kbreal .pcwin .ptychat-ac { top: auto !important; bottom: calc(100% - 4px) !important; }
+
+/* phones: no scroll-shade lines across the chat's messages, and a plain (not dashed) edge on the message box */
+html.mobile .pcwin .ptychat-l.pg-shade::before, html.mobile .pcwin .ptychat-l.pg-shade::after { display: none !important; }
+#pcwin #ptychat-in { border-bottom-style: solid !important; }

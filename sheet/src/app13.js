@@ -103,9 +103,13 @@ function renderParty() {
 // The chat's insides (help, messages, the box), the same in the Party tab and in the pop-out window.
 function ptyChatInner() { const ch = PTYX().chat;
   return `<p class="hint ptychat-h">Just the players: your DM can’t see this, and messages disappear after 12 hours.</p>${ch.canSend() ? '<div class="ptychat-cmds"><code>/w name message</code><span>whisper to a player</span><code>/r message</code><span>reply to the last whisper</span></div>' : ''}<div class="ptychat-lw"><div class="ptychat-l" id="ptychat-l">${ptyChatList()}</div><button type="button" class="ptychat-jump" id="ptychat-jump" hidden>Jump to present <span aria-hidden="true">↓</span></button></div>
-    ${ch.canSend() ? `<form class="ptychat-f" id="ptychat-f"><div class="ptychat-ac" id="ptychat-ac" hidden></div><input class="f" id="ptychat-in" maxlength="1000" placeholder="Message the party…" autocomplete="off" aria-label="Message the party"><button class="btn gold">Send</button></form>` : `<p class="hint ptychat-ro">Only ${esc(S.player || 'this character’s player')} can send messages from this sheet.</p>`}`; }
+    ${ch.canSend() ? `<div class="ptychat-f" id="ptychat-f" role="group" aria-label="Send a message"><div class="ptychat-ac" id="ptychat-ac" hidden></div><input class="f" id="ptychat-in" type="search" enterkeyhint="send" maxlength="1000" placeholder="Message the party…" autocomplete="off" autocorrect="on" spellcheck="true" aria-label="Message the party"><button type="button" class="btn gold" data-pcsend>Send</button></div>` : `<p class="hint ptychat-ro">Only ${esc(S.player || 'this character’s player')} can send messages from this sheet.</p>`}`; }
 function ptyChatWire() {
-  const cf = $('#ptychat-f'); if (cf) { cf.onsubmit = e => { e.preventDefault(); ptyChatSubmit(); }; ptyChatWireAC(); }
+  // (not a form, and a search-style box: on iPhones a box inside a form brings up the extra Previous / Next / Done bar
+  // over the keyboard and Safari shifts the whole screen to fit it; search boxes don't, so the chat holds still)
+  const cf = $('#ptychat-f'); if (cf) { ptyChatWireAC(); const ci = cf.querySelector('#ptychat-in');
+    ci.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing && !e.defaultPrevented) { e.preventDefault(); ptyChatSubmit(); } });
+    const sb = cf.querySelector('[data-pcsend]'); sb.addEventListener('pointerdown', e => e.preventDefault()); sb.onclick = e => { e.preventDefault(); ptyChatSubmit(); }; }
   const cl = $('#ptychat-l'); if (cl) { cl.scrollTop = cl.scrollHeight; cl.onscroll = ptyChatJumpShow; const j = $('#ptychat-jump'); if (j) j.onclick = ptyChatBottom; }
 }
 // Pop-out: the chat in its own window like the dice roller (drag it by its title; on a phone it's a sheet along the
@@ -117,17 +121,32 @@ function ptyChatWin() {
   if (isMobile()) { const d = $('#drwin'); if (d) winClose(d); }
   let pos = null; try { pos = JSON.parse(localStorage.getItem('dnd-pcwin') || 'null'); } catch (e) {}
   w = document.createElement('div'); w.id = 'pcwin'; w.className = 'pcwin'; winNoBleed(w); w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Party chat');
-  w.innerHTML = `<div class="pcw-head"><b>Party chat</b><button class="pcw-b" data-pcw="x" title="Close" aria-label="Close">✕</button></div><div class="pcw-body">${ptyChatInner()}</div>`;
+  w.innerHTML = `<div class="pcw-head"><b>Party chat</b><button class="pcw-b" data-pcw="x" title="Close" aria-label="Close">✕</button></div><div class="pcw-body">${ptyChatInner()}</div><div class="pcw-grab" aria-hidden="true"></div>`;
   document.body.appendChild(w);
+  // Phones: tapping the message box focuses it without the browser scrolling anything to "show" it (it's already in
+  // view, above where the keyboard comes up): Safari's own scroll-into-view slid the whole screen and the chat with it.
+  // Phones: the message box sits at the top of the chat, right under its title, like the search boxes do: iPhones slide
+  // the whole screen up whenever you tap into a box in the lower part of it, and leave boxes near the top alone. The page
+  // can't be scrolled behind it while it's open.
+  if (isMobile()) { pcLock(true);
+    // (a dimmed cover over the rest of the screen: tapping anywhere outside the chat closes it, and nothing behind it reacts)
+    const sc = document.createElement('div'); sc.className = 'pc-scrim'; sc.setAttribute('aria-hidden', 'true'); w.before(sc);
+    sc.addEventListener('pointerdown', e => e.preventDefault()); sc.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); ptyChatDock(); }); }
+  // Phones: iPhones shove the whole screen up when you tap into a box low on the screen (even one the keyboard won't
+  // cover) and leave boxes near the top alone; so until the keyboard is up the message box sits at the top of the chat,
+  // and it moves down to rest on the keyboard once it's there. Tapping it focuses it without the browser scrolling.
+  if (isMobile()) w.addEventListener('touchend', e => { const i = e.target.closest && e.target.closest('#ptychat-in'); if (!i || document.activeElement === i) return; e.preventDefault(); i.focus({ preventScroll: true }); }, { passive: false });
   const W = innerWidth, H = innerHeight; if (pos && pos.h) w.style.height = Math.max(260, Math.min(H - 20, pos.h)) + 'px'; if (pos && pos.w) w.style.width = Math.max(280, Math.min(W - 12, pos.w)) + 'px'; const r = w.getBoundingClientRect();
   // opens in the bottom-right corner; after you've moved it, it stays where you put it
   w.style.left = Math.min(Math.max(6, pos && pos.x != null ? pos.x : W - r.width - 20), W - r.width - 6) + 'px'; w.style.top = Math.min(Math.max(6, pos && pos.y != null ? pos.y : H - r.height - 20), H - 80) + 'px';
   ptyChatWire();
   const keep = () => { const b = w.getBoundingClientRect(); try { localStorage.setItem('dnd-pcwin', JSON.stringify({ x: b.left, y: b.top, h: b.height, w: b.width })); } catch (e) {} };
   new ResizeObserver(() => { clearTimeout(keep.t); keep.t = setTimeout(keep, 300); }).observe(w);
-  w.addEventListener('pointerdown', e => { const hd = e.target.closest('.pcw-head'); if (!hd || e.target.closest('button')) return; e.preventDefault();
-    if (isMobile()) { const y0 = e.clientY; hd.setPointerCapture(e.pointerId); const mv = ev => { w.style.transform = `translateY(${Math.max(0, ev.clientY - y0)}px)`; };
-      const up = ev => { hd.removeEventListener('pointermove', mv); hd.removeEventListener('pointerup', up); if (ev.clientY - y0 > 70) ptyChatDock(); else w.style.transform = ''; };
+  w.addEventListener('pointerdown', e => { const hd = e.target.closest('.pcw-head, .pcw-grab'); if (!hd || e.target.closest('button')) return; e.preventDefault();
+    // (on a phone it hangs from the top of the screen: push it back up by its title bar or the handle along its bottom to close it)
+    if (isMobile()) return; // (on a phone it stays put: close it with ✕)
+    if (false) { const y0 = e.clientY; hd.setPointerCapture(e.pointerId); w.style.transition = 'none'; const mv = ev => { const d = ev.clientY - y0; w.style.transform = `translateY(${d < 0 ? d : d / 6}px)`; };
+      const up = ev => { hd.removeEventListener('pointermove', mv); hd.removeEventListener('pointerup', up); w.style.transition = ''; if (y0 - ev.clientY > 60) ptyChatDock(); else w.style.transform = ''; };
       hd.addEventListener('pointermove', mv); hd.addEventListener('pointerup', up); return; }
     const b = w.getBoundingClientRect(), dx = e.clientX - b.left, dy = e.clientY - b.top; hd.setPointerCapture(e.pointerId); w.classList.add('drag');
     const mv = ev => { w.style.left = Math.min(Math.max(0, ev.clientX - dx), innerWidth - b.width) + 'px'; w.style.top = Math.min(Math.max(0, ev.clientY - dy), innerHeight - 40) + 'px'; };
@@ -140,16 +159,19 @@ function ptyChatWin() {
 document.addEventListener('pointerdown', e => { if (isMobile() && e.target && e.target.id === 'ptychat-in' && !e.target.closest('#pcwin')) e.preventDefault(); }, true);
 document.addEventListener('click', e => { if (!isMobile() || !e.target || e.target.id !== 'ptychat-in' || e.target.closest('#pcwin')) return; e.preventDefault();
   const v = e.target.value; UI.chatPop = true; if (typeof saveUI === 'function') saveUI(); render('party'); ptyChatWin();
-  const i = document.querySelector('#pcwin #ptychat-in'); if (i) { if (v) i.value = v; i.focus(); } }, true);
+  const i = document.querySelector('#pcwin #ptychat-in'); if (i) { if (v) i.value = v; i.focus({ preventScroll: true }); } }, true);
 function ptyChatPopOut() { try { const p = JSON.parse(localStorage.getItem('dnd-pcwin') || 'null'); if (p) localStorage.setItem('dnd-pcwin', JSON.stringify({ h: p.h, w: p.w })); } catch (e) {} UI.chatPop = true; if (typeof saveUI === 'function') saveUI(); render('party'); ptyChatWin(); setTimeout(() => { const i = $('#ptychat-in'); if (i) i.focus(); }, 60); }
 // Floating windows (dice roller, party chat) fade in when opened and out when closed. A closing window gives up its id
 // straight away, so opening it again at once makes a fresh one.
 // Phones: the on-screen keyboard covers the bottom of the page without resizing it, so bottom sheets (chat, dice
 // roller) are lifted by however much of the screen the keyboard takes, and kept short enough to fit above it.
 (() => { const vv = window.visualViewport; if (!vv) return; const de = document.documentElement;
+  // (where the top of this phone's keyboard comes to, remembered from the last time it was up: the chat card on a phone
+  // reaches down to there, so it's the same size with or without the keyboard)
+  try { const t = localStorage.getItem('pg-kbtop'); if (/^\d+px$/.test(t || '')) de.style.setProperty('--kbtop', t); } catch (e) {}
   // (each value is only written when it changes: writing to the page's root makes the browser restyle everything)
   const setv = (k, v) => { if (de.style.getPropertyValue(k) !== v) de.style.setProperty(k, v); };
-  const upd = () => { const kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)); setv('--kb', kb + 'px'); setv('--vvh', Math.round(vv.height) + 'px'); setv('--vvt', Math.round(vv.offsetTop) + 'px'); const ae = document.activeElement, typing = !!(ae && ae.matches && ae.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea') && ae.closest('#pcwin, #drwin')), up = isMobile() && (typing || innerHeight - vv.height > 120), was = de.classList.contains('kbup'); if (up !== was) de.classList.toggle('kbup', up);
+  const upd = () => { const kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)); setv('--kb', kb + 'px'); setv('--vvh', Math.round(vv.height) + 'px'); setv('--vvt', Math.round(vv.offsetTop) + 'px'); const ae = document.activeElement, typing = !!(ae && ae.matches && ae.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea') && ae.closest('#pcwin, #drwin')), up = isMobile() && (typing || innerHeight - vv.height > 120), was = de.classList.contains('kbup'); if (up !== was) de.classList.toggle('kbup', up); { const real = isMobile() && (innerHeight - vv.height > 120 || (typing && vv.height < (screen.height || innerHeight) * .8)); if (real && vv.height > 200 && vv.height < innerHeight) { const t = Math.round(vv.height) + 'px'; if (de.style.getPropertyValue('--kbtop') !== t) { de.style.setProperty('--kbtop', t); try { localStorage.setItem('pg-kbtop', t); } catch (e) {} } } clearTimeout(window.__kbT); if (real !== de.classList.contains('kbreal')) window.__kbT = setTimeout(() => { if (real !== de.classList.contains('kbreal')) pcSwap(() => de.classList.toggle('kbreal', real)); }, 90); /* (only once the keyboard has settled one way: it reports in fits and starts, which made the box hop back and forth) */ } // (kbreal: the on-screen keyboard is actually up)
     // when the keyboard comes up, the chat jumps to its newest message
     if (up && !was) setTimeout(() => { const l = document.querySelector('#pcwin .ptychat-l'); if (l) l.scrollTop = l.scrollHeight; }, 60); };
   vv.addEventListener('resize', upd); vv.addEventListener('scroll', upd); upd();
@@ -160,7 +182,24 @@ function winNoBleed(w) { let y0 = 0; w.addEventListener('touchstart', e => { y0 
   w.addEventListener('touchmove', e => { if (e.touches.length > 1) return; const dy = e.touches[0].clientY - y0; let el = e.target;
     while (el && el !== w.parentNode) { const cs = getComputedStyle(el); if (/(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 1) { const top = el.scrollTop <= 0, bot = el.scrollTop + el.clientHeight >= el.scrollHeight - 1; if (!(dy > 0 && top) && !(dy < 0 && bot)) return; break; } if (el === w) break; el = el.parentElement; }
     if (e.cancelable) e.preventDefault(); }, { passive: false }); }
-function winClose(w) { if (!w || w.classList.contains('closing')) return; w.id = ''; w.classList.add('closing');
+// Phones: while the party chat is open the page behind it is pinned in place, so it can't scroll — not when the chat
+// opens, not when the keyboard comes up (iOS slides the whole page to "make room" otherwise, and the chat jumped about
+// with it), and it's back exactly where it was when the chat closes.
+let PC_LOCK = null;
+const pcNoScroll = e => { if (!PC_LOCK) return; const w = document.querySelector('.pcwin:not(.closing)'); if (!w || (e.target.closest && e.target.closest('.pcwin'))) return; if (e.cancelable) e.preventDefault(); };
+document.addEventListener('touchmove', pcNoScroll, { passive: false }); document.addEventListener('wheel', pcNoScroll, { passive: false });
+// The chat's message box gliding between the top and the bottom of the card (and the messages sliding the other way)
+// when the keyboard comes and goes, instead of jumping.
+function pcSwap(change) { const w = document.querySelector('#pcwin'), els = w ? [...w.querySelectorAll('.ptychat-f, .ptychat-l')] : [];
+  const calm = matchMedia('(prefers-reduced-motion: reduce)').matches, before = els.map(x => x.getBoundingClientRect().top); change();
+  if (calm || !els.length) return; els.forEach((x, k) => { const d = before[k] - x.getBoundingClientRect().top; if (Math.abs(d) < 1 || !x.animate) return;
+    x.animate([{ transform: `translateY(${d}px)` }, { transform: 'translateY(0)' }], { duration: 300, easing: 'cubic-bezier(.2,.8,.2,1)' }); }); }
+window.pgPcSwap = pcSwap;
+function pcLock(on) { const b = document.body, de = document.documentElement;
+  // (just stops it scrolling: pinning the page with position:fixed left a black band along the bottom on iPhones)
+  if (on && !PC_LOCK) { PC_LOCK = { y: scrollY }; de.classList.add('pc-locked'); }
+  else if (!on && PC_LOCK) { const y = PC_LOCK.y; PC_LOCK = null; de.classList.remove('pc-locked'); if (Math.abs(scrollY - y) > 1) scrollTo(0, y); } }
+function winClose(w) { if (!w || w.classList.contains('closing')) return; if (w.classList.contains('pcwin')) { pcLock(false); document.querySelectorAll('.pc-scrim').forEach(x => { x.classList.add('out'); setTimeout(() => x.remove(), 200); }); } w.id = ''; w.classList.add('closing');
   // (a closing window can't be used any more, by keyboard either: its buttons would act a second time)
   if (w.contains(document.activeElement)) document.activeElement.blur(); w.inert = true; const go = () => w.remove();
   if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return go(); setTimeout(go, isMobile() ? 240 : 190); }
