@@ -3121,8 +3121,8 @@ html.mobile #tipbox .tipfx { width: 76px; height: 76px; }
 /* on an actual phone the layout switch is hidden: it always uses the phone layout */
 html.realphone [data-act="layout"], html.pg-inphone [data-act="layout"] { display: none !important; }
 /* …and the buttons beside it close the gap: the log takes its corner */
-html.mobile.realphone .devbtn.logbtn, html.mobile.pg-inphone .devbtn.logbtn { right: 12px; }
-html.mobile.realphone .devbtn.fsbtn, html.mobile.pg-inphone .devbtn.fsbtn { right: 48px; }
+html.mobile:is(.realphone, .nodev) .devbtn.logbtn, html.mobile.pg-inphone .devbtn.logbtn { right: 12px; }
+html.mobile:is(.realphone, .nodev) .devbtn.fsbtn, html.mobile.pg-inphone .devbtn.fsbtn { right: 48px; }
 
 /* Sheet background: the loading screen's soft glow, tinted by the sheet's own theme colours */
 @media screen {
@@ -3543,8 +3543,8 @@ html.mobile .ptyh-btns { width: 100%; } html.mobile .ptyh-btns .btn { flex: 1; t
 /* the bug-report button: on a phone it sits just right of Log in the top corner */
 html.mobile.hasbug .devbtn.bugbtn { position: absolute; top: 10px; right: 48px; }
 html.mobile.hasbug .devbtn.logbtn { right: 84px; }
-html.mobile.hasbug.realphone .devbtn.bugbtn, html.mobile.hasbug.pg-inphone .devbtn.bugbtn { right: 12px; }
-html.mobile.hasbug.realphone .devbtn.logbtn, html.mobile.hasbug.pg-inphone .devbtn.logbtn { right: 48px; }
+html.mobile.hasbug:is(.realphone, .nodev) .devbtn.bugbtn, html.mobile.hasbug.pg-inphone .devbtn.bugbtn { right: 12px; }
+html.mobile.hasbug:is(.realphone, .nodev) .devbtn.logbtn, html.mobile.hasbug.pg-inphone .devbtn.logbtn { right: 48px; }
 
 /* a message from the DM or another player */
 .ptymsg-m { width: min(560px, 100%); background: linear-gradient(180deg, var(--panel), var(--panel2)); color: var(--ink); border: 1px solid var(--gold); border-radius: 18px; padding: 0; box-shadow: 0 28px 70px rgba(0,0,0,.5), 0 0 0 4px color-mix(in srgb, var(--gold) 18%, transparent); animation: wPopIn .22s cubic-bezier(.22,.9,.24,1); overflow: hidden; }
@@ -3720,9 +3720,9 @@ html.mobile .hbb-seg:not(.pills) { width: 100%; }
 html.mobile .hbb-seg:not(.pills) button { flex: 1; justify-content: center; padding: 5px 4px; }
 /* Phone: the dice roller button sits just left of the Log button (whose spot depends on the other corner buttons) */
 html.mobile .devbtn.dicebtn { position: absolute; top: 10px; right: 84px; }
-html.mobile.realphone .devbtn.dicebtn, html.mobile.pg-inphone .devbtn.dicebtn { right: 48px; }
+html.mobile:is(.realphone, .nodev) .devbtn.dicebtn, html.mobile.pg-inphone .devbtn.dicebtn { right: 48px; }
 html.mobile.hasbug .devbtn.dicebtn { right: 120px; }
-html.mobile.hasbug.realphone .devbtn.dicebtn, html.mobile.hasbug.pg-inphone .devbtn.dicebtn { right: 84px; }
+html.mobile.hasbug:is(.realphone, .nodev) .devbtn.dicebtn, html.mobile.hasbug.pg-inphone .devbtn.dicebtn { right: 84px; }
 .smite-chk { display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel2); cursor: pointer; margin: 4px 0 6px; }
 .smite-chk input { width: 17px; height: 17px; accent-color: var(--gold); flex: none; margin: 0; }
 .smite-chk span { display: flex; flex-direction: column; min-width: 0; }
@@ -3859,12 +3859,12 @@ html.mobile .ptychat-popbtn { display: none; }
 .devbtn.chatbtn { display: none; }
 html.mobile.pchat .devbtn.chatbtn { display: inline-grid; position: absolute; top: 10px; right: 84px; }
 html.mobile.pchat .devbtn.dicebtn { right: 120px; }
-html.mobile.pchat.realphone .devbtn.chatbtn, html.mobile.pchat.pg-inphone .devbtn.chatbtn { right: 48px; }
-html.mobile.pchat.realphone .devbtn.dicebtn, html.mobile.pchat.pg-inphone .devbtn.dicebtn { right: 84px; }
+html.mobile.pchat:is(.realphone, .nodev) .devbtn.chatbtn, html.mobile.pchat.pg-inphone .devbtn.chatbtn { right: 48px; }
+html.mobile.pchat:is(.realphone, .nodev) .devbtn.dicebtn, html.mobile.pchat.pg-inphone .devbtn.dicebtn { right: 84px; }
 html.mobile.pchat.hasbug .devbtn.chatbtn { right: 120px; }
 html.mobile.pchat.hasbug .devbtn.dicebtn { right: 156px; }
-html.mobile.pchat.hasbug.realphone .devbtn.chatbtn, html.mobile.pchat.hasbug.pg-inphone .devbtn.chatbtn { right: 84px; }
-html.mobile.pchat.hasbug.realphone .devbtn.dicebtn, html.mobile.pchat.hasbug.pg-inphone .devbtn.dicebtn { right: 120px; }
+html.mobile.pchat.hasbug:is(.realphone, .nodev) .devbtn.chatbtn, html.mobile.pchat.hasbug.pg-inphone .devbtn.chatbtn { right: 84px; }
+html.mobile.pchat.hasbug:is(.realphone, .nodev) .devbtn.dicebtn, html.mobile.pchat.hasbug.pg-inphone .devbtn.dicebtn { right: 120px; }
 html.mobile.pchat .namebox { padding-right: 148px; }
 html.mobile.pchat.hasbug .namebox { padding-right: 184px; }
 .devbtn.chatbtn.unread::after { content: attr(data-unread); position: absolute; top: -5px; right: -5px; min-width: 15px; height: 15px; padding: 0 3px; box-sizing: border-box; border-radius: 8px; background: #e04848; color: #fff; font: 800 9px/15px system-ui, sans-serif; text-align: center; }
@@ -4385,8 +4385,10 @@ html:not(.mobile) header.banner { transition: box-shadow .25s ease; }
 html:not(.mobile):not([data-theme="dark"]).hd-stuck header.banner { box-shadow: 0 10px 26px rgba(0,0,0,.22); }
 :root[data-theme="dark"]:not(.mobile) header.banner > .wrap::before { box-shadow: 0 12px 30px rgba(0,0,0,0), inset 0 1px 0 rgba(255,255,255,.05); transition: box-shadow .25s ease; }
 :root[data-theme="dark"]:not(.mobile).hd-stuck header.banner > .wrap::before { box-shadow: 0 14px 34px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.05); }
+/* (the page's glow is drawn here at the window's size rather than as a fixed background: a fixed background inside a bar
+   that stays put is redrawn on every scroll, which made its shadow flicker) */
 :root[data-theme="dark"]:not(.mobile) header.banner::before { content: ''; position: absolute; inset: 0 0 -14px; z-index: -2; pointer-events: none; opacity: 0; transition: opacity .25s ease;
-  background: radial-gradient(ellipse 120% 80% at 50% 0%, rgba(42,56,86,.55) 0%, rgba(26,36,56,.25) 45%, transparent 80%) fixed, var(--bg);
+  background: radial-gradient(ellipse 120% 80% at 50% 0%, rgba(42,56,86,.55) 0%, rgba(26,36,56,.25) 45%, transparent 80%) center top / 100% 100vh no-repeat, var(--bg);
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent); }
 :root[data-theme="dark"]:not(.mobile).hd-stuck header.banner::before { opacity: 1; }
 /* (things that stick to the top of the page themselves sit just under the bar) */
@@ -4406,4 +4408,120 @@ html.mobile .modal-bg > .modal.mghost, html.mobile .modal-bg.open > .modal.mghos
 html:not(.mobile) #tabs .tlabel { position: relative; top: 1px; }
 html:not(.mobile) .namebox .subtitle.sub2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 html:not(.mobile) #sec-header:has(.ident.noid) .portrait-wrap { width: var(--pwf, 148px); height: var(--pwf, 148px); }
+/* scroll edges in pop-up windows' lists (as in character creation): a line and a soft shadow wherever there's more */
+#modal-body .wz3-sc { position: relative; }
+#modal-body .wz3-sc::before, #modal-body .wz3-sc::after { content: ''; position: absolute; left: 0; right: 0; height: 18px; z-index: 2; pointer-events: none; opacity: 0; }
+#modal-body .wz3-sc::before { top: 0; border-top: 1px solid var(--wc-edge, var(--line)); background: linear-gradient(to bottom, rgba(0,0,0,.45), transparent); }
+#modal-body .wz3-sc::after { bottom: 0; border-bottom: 1px solid var(--wc-edge, var(--line)); background: linear-gradient(to top, rgba(0,0,0,.45), transparent); }
+#modal-body .wz3-sc.top::before, #modal-body .wz3-sc.bot::after { opacity: 1; }
+#modal-body .wz3-sc:has(> .wz3-list)::before { border-radius: 12px 12px 0 0; } #modal-body .wz3-sc:has(> .wz3-list)::after { border-radius: 0 0 12px 12px; }
+:root:not([data-theme="dark"]) #modal-body .wz3-sc::before { background: linear-gradient(to bottom, rgba(60,40,10,.14), transparent); }
+:root:not([data-theme="dark"]) #modal-body .wz3-sc::after { background: linear-gradient(to top, rgba(60,40,10,.14), transparent); }
+/* (a window's opening fade holds its first frame until it actually starts, so it can never flash up fully drawn first) */
+.modal-bg.open, .modal-bg.open > .modal, .wizard.open, #tipbox.on, .ptyask-bg, .ptyask-bg > :first-child { animation-fill-mode: backwards; }
+
+/* (list edges ease in and out only once the list is on screen) */
+.wz3-sc.ready::before, .wz3-sc.ready::after { transition: opacity .2s; }
+/* Sheet tabs (computer): sized by their names, so long names get the room short ones don't need; tightened, then without
+   icons, when they still don't fit */
+html:not(.mobile) #tabs .tabwrap { flex: 1 1 auto; }
+html:not(.mobile) #tabs.tabs-tight .tab { gap: 5px; padding-left: 6px; padding-right: 6px; font-size: .76rem; }
+html:not(.mobile) #tabs.tabs-tight { padding-left: 3px; padding-right: 3px; }
+html:not(.mobile) #tabs.tabs-noicon .ticon { display: none; }
+/* Computer pop-up windows: the Cancel / OK row stays in view at the bottom of a long window (as on phones) */
+html.mwin :is(#modal-body, #modal-body > div) > .actions:last-child:not(.mw-hid) { position: sticky; bottom: -18px; z-index: 4; margin: 14px -20px -18px; padding: 12px 20px 16px; background: var(--panel); border-top: 1px solid var(--line); }
+/* Phone layout top bar: the card lines up with the cards below it (same side margins) and starts under the Adventurer's
+   Tome button instead of running behind it; the save note stays on one line */
+:root[data-theme="dark"].mobile.pg-sheetpage header.banner::before { top: calc(36px + env(safe-area-inset-top, 0px)); left: 12px; right: 12px; }
+html.mobile.pg-sheetpage header.banner > .wrap { padding: 14px 22px 14px; }
+html.mobile.pg-sheetpage #sec-header .devbtn { top: 12px !important; }
+html.mobile.pg-sheetpage .toolbar .devbtn { margin-right: 10px; }
+html.mobile .toolbar .save-state { white-space: nowrap; }
+@media (min-width: 520px) { html.mobile .save-state .sstime { display: inline; padding-left: .35em; } html.mobile .toolbar > .savegrp .save-state { max-width: none; } }
+/* (narrow rest buttons drop their icons rather than spill out of the button; a narrow Conditions card keeps
+   Advantage / Disadvantage on its title line) */
+@container (max-width: 180px) { .tile.hp .btn.rest svg, .tile.hp .btn.rest .ri { display: none !important; } .tile.hp .btn.rest { font-size: .76rem; padding-left: 4px; padding-right: 4px; } }
+@container (max-width: 380px) { html:not(.mobile) .condtile .advb { padding: 2px 7px; font-size: .66rem; } html:not(.mobile) .condtile .advbtns { gap: 3px; } html:not(.mobile) .condtile .tilehead { column-gap: 6px; } html:not(.mobile) .condtile .tilehead .lbl { letter-spacing: .04em; } }
+/* Settings rows: anything on the right (a note like "at level 2", a list) sits at the right edge, and the lists are one width */
+.setrow > span:not(:first-child) { flex: none; text-align: right; color: var(--soft); font-size: .85rem; }
+html:not(.mobile) .setrow select.f { width: 200px; max-width: 55%; }
+/* History's quick undo chips wrap under each other, not under the "Quick:" label */
+.rb.rbq { display: flex; align-items: flex-start; gap: 8px; } .rb.rbq > .hint { flex: none; padding-top: 4px; } .rbchips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+/* the line under the name never leaves one word on its own line */
+.namebox .subtitle { text-wrap: pretty; }
+/* empty companions note spans the row instead of one card slot */
+.comps > .panel:only-child { grid-column: 1 / -1; max-width: none; }
+/* phone: the HP ring is big, so the number inside it is too */
+html.mobile .tile.hp .hp-center .f.cur { font-size: 2.2rem !important; width: 86px !important; line-height: 1.05; }
+html.mobile .tile.hp .hp-center .hp-max { font-size: .85rem; }
+/* phone: room under the last card so the floating section pill never sits on top of it */
+html.mtabs body { padding-bottom: max(84px, calc(env(safe-area-inset-bottom) + 76px)) !important; }
+/* phone pop-ups: Level Up's title matches every other pop-up title */
+html.mobile #modal-body .lvx > h3, html.mobile #pendm > h3 { font: 700 1.2rem/1.25 Arial, Helvetica, sans-serif; color: var(--ink, #e9e3d3); margin-bottom: 4px; }
+/* Metamagic: the same breathing room below it as the strip above (it was pressed against the action cards) */
+.panel.mmpanel { margin-bottom: 12px; }
+/* ===== Inspiration in the top bar's right corner (site, computer) ===== */
+html:not(.mobile) .ident-top .toolbar:has(> .insp-dock) { position: relative; }
+html:not(.mobile) .ident-top .toolbar > .insp-dock { position: absolute; right: 0; top: 0; left: auto; bottom: auto; transform: none; height: 34px; box-sizing: border-box; padding: 2px; gap: 2px; box-shadow: none; z-index: 2; }
+html:not(.mobile) .ident-top .toolbar:has(> .insp-dock) > .pg-hubrow { padding-right: var(--insp-w, 160px); box-sizing: border-box; }
+.insp-dock .insp-b { width: 24px; height: 24px; }
+/* the number is a real button: filled, outlined, and it says Use when you point at it */
+.insp-dock .insp-go { all: unset; box-sizing: border-box; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 88px; height: 28px; padding: 1px 10px 0; border-radius: 999px; line-height: 1;
+  background: color-mix(in srgb, var(--gold) 22%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 60%, transparent), 0 1px 0 rgba(255,255,255,.06) inset; transition: background .15s, box-shadow .15s, transform .1s; }
+.insp-dock .insp-go .insp-n { font-size: .92rem; font-weight: 800; color: var(--gold-ink); }
+.insp-dock .insp-go .insp-l { position: relative; display: block; height: 9px; margin-top: 1px; font-size: .52rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; color: var(--gold-ink); opacity: .85; }
+.insp-dock .insp-go .insp-l > span { display: block; text-align: center; transition: opacity .15s, transform .15s; }
+.insp-dock .insp-go .il-b { position: absolute; inset: 0; opacity: 0; transform: translateY(3px); }
+ .insp-dock .insp-go:focus-visible { background: var(--gold); box-shadow: 0 2px 10px color-mix(in srgb, var(--gold) 45%, transparent); }@media (hover:hover){:where(html:not(.mobile)) .insp-dock .insp-go:not([disabled]):hover{ background: var(--gold); box-shadow: 0 2px 10px color-mix(in srgb, var(--gold) 45%, transparent); }}
+ .insp-dock .insp-go:focus-visible :is(.insp-n, .insp-l) { color: #10141c; opacity: 1; }@media (hover:hover){:where(html:not(.mobile)) .insp-dock .insp-go:not([disabled]):hover :is(.insp-n, .insp-l){ color: #10141c; opacity: 1; }}
+ .insp-dock .insp-go:focus-visible .il-a { opacity: 0; transform: translateY(-3px); }@media (hover:hover){:where(html:not(.mobile)) .insp-dock .insp-go:not([disabled]):hover .il-a{ opacity: 0; transform: translateY(-3px); }}
+ .insp-dock .insp-go:focus-visible .il-b { opacity: 1; transform: none; }@media (hover:hover){:where(html:not(.mobile)) .insp-dock .insp-go:not([disabled]):hover .il-b{ opacity: 1; transform: none; }}
+.insp-dock .insp-go:not([disabled]):active { transform: scale(.96); }
+.insp-dock .insp-go[disabled] { cursor: default; background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--soft, #8a93a6) 35%, transparent); }
+.insp-dock .insp-go[disabled] :is(.insp-n, .insp-l) { color: var(--soft, #8a93a6); }
+/* no room beside the Tome button: just − number + (the number still says Use when you point at it) */
+.insp-dock.tight .insp-go { min-width: 40px; padding: 0 8px; }
+.insp-dock.tight .insp-go .il-a { display: none; }
+.insp-dock.tight .insp-go .insp-l { height: 0; margin: 0; }
+.insp-dock.tight .insp-go .il-b { inset: auto 0 -2px; }
+@media (hover:hover){:where(html:not(.mobile)) .insp-dock.tight .insp-go:not([disabled]):hover .insp-n{ display: none; }}
+@media (hover:hover){:where(html:not(.mobile)) .insp-dock.tight .insp-go:not([disabled]):hover .insp-l{ height: auto; }}
+@media (hover:hover){:where(html:not(.mobile)) .insp-dock.tight .insp-go:not([disabled]):hover .il-b{ position: static; font-size: .62rem; }}
+/* phone: the same pill in the header card */
+html.mobile .insp-dock.mini { padding: 2px; gap: 0; height: 36px; box-sizing: border-box; margin-right: 34px; }
+html.mobile .insp-dock.mini .insp-b { width: 28px; height: 30px; }
+html.mobile .insp-dock.mini .insp-go { min-width: 70px; height: 30px; padding: 1px 8px 0; }
+html.mobile .insp-dock.mini .insp-go .insp-l { font-size: .48rem; letter-spacing: .05em; }
+@media (hover: none) { html.mobile .insp-dock.mini .insp-go .il-a { opacity: 1 !important; transform: none !important; } html.mobile .insp-dock.mini .insp-go .il-b { opacity: 0 !important; } }
+/* phone: the name box is as wide as the room left of the corner icons (measured), not that minus the same again */
+html.mobile .namebox > :first-child { margin-right: 0 !important; }
+/* Log entries look like the DM's Desk ones: time, the big total, the name, and the Rolled / Total breakdown in a box
+   underneath (the one-line summary and the separate damage panel it repeats are left out) */
+#rolllogmodal .rl-card .rc-math { display: block; margin-top: 6px; padding: 8px 10px; border-radius: 10px; background: rgba(0,0,0,.18); border: 1px solid var(--line2); font-size: .8rem; }
+#rolllogmodal .rl-card .rc-math .rm-t { border-top-color: var(--line); }
+#rolllogmodal .rl-card:has(.rc-math) .det { display: none; }
+#rolllogmodal .rl-card:has(.rc-math) > .rc-dmg { display: none; }
+#rolllogmodal .rl-card .rc-body { flex: 1; min-width: 0; font-size: .88rem; }
+#rolllogmodal .rl-card .rc-name { font-weight: 700; }
+#rolllogmodal .rl-card:has(.rc-math .rm-h) .rc-lbl { display: none; }
+#rolllogmodal .rl-head [data-act="clearlog"] { margin-left: auto; }
+#rolllogmodal .rl-card > div:not(.rc-dmg) > div:first-child:not(.rc-math):not(.det) { font-weight: 700; }
+html.pg-grabbing, html.pg-grabbing * { cursor: grabbing !important; }
+/* ===== Edit layout fixes ===== */
+/* the tab bar (and its ⋯ menus) stays above the module bars when you scroll; an open Size / Move menu comes above
+   everything around it, the edit bar included */
+html:not(.mobile) body.editing .tabs { z-index: 42; }
+body.editing .modbar:has(.menu.open) { z-index: 50 !important; }
+body.editing .modbar .menu.open .menu-list { z-index: 60; }
+/* the edit bar steps aside while a pop-up window is open, and toasts sit above it rather than on its buttons */
+body.editing:has(#modal.open) #editbar { visibility: hidden; }
+html:not(.mobile) body.editing .toasts { bottom: 104px; }
+/* long tab names are cut with … instead of squeezing the other tabs */
+#tabs .tlabel { max-width: 16ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* many tabs: when even the tight, icon-less tabs don't fit, the tab bar scrolls sideways instead of cutting every name */
+html:not(.mobile) #tabs.tabs-scroll { overflow-x: auto; justify-content: flex-start; scrollbar-width: thin; }
+html:not(.mobile) #tabs.tabs-scroll .tabwrap { flex: none; }
+html:not(.mobile) #tabs.tabs-scroll .tlabel { max-width: 16ch; }
+/* (the module whose menu is open, and the strip or column it sits in, come above their neighbours and the edit bar) */
+body.editing .page :is(.cstrip, .stack, .flow, .gridl, [data-pid]):has(> .modbar .menu.open), body.editing .page :is(.cstrip, .stack):has([data-pid] > .modbar .menu.open) { position: relative; z-index: 55 !important; }
 

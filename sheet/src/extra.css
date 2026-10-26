@@ -3838,3 +3838,20 @@ html.mobile .namebox > :first-child { margin-right: 0 !important; }
 #rolllogmodal .rl-head [data-act="clearlog"] { margin-left: auto; }
 #rolllogmodal .rl-card > div:not(.rc-dmg) > div:first-child:not(.rc-math):not(.det) { font-weight: 700; }
 html.pg-grabbing, html.pg-grabbing * { cursor: grabbing !important; }
+/* ===== Edit layout fixes ===== */
+/* the tab bar (and its ⋯ menus) stays above the module bars when you scroll; an open Size / Move menu comes above
+   everything around it, the edit bar included */
+html:not(.mobile) body.editing .tabs { z-index: 42; }
+body.editing .modbar:has(.menu.open) { z-index: 50 !important; }
+body.editing .modbar .menu.open .menu-list { z-index: 60; }
+/* the edit bar steps aside while a pop-up window is open, and toasts sit above it rather than on its buttons */
+body.editing:has(#modal.open) #editbar { visibility: hidden; }
+html:not(.mobile) body.editing .toasts { bottom: 104px; }
+/* long tab names are cut with … instead of squeezing the other tabs */
+#tabs .tlabel { max-width: 16ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* many tabs: when even the tight, icon-less tabs don't fit, the tab bar scrolls sideways instead of cutting every name */
+html:not(.mobile) #tabs.tabs-scroll { overflow-x: auto; justify-content: flex-start; scrollbar-width: thin; }
+html:not(.mobile) #tabs.tabs-scroll .tabwrap { flex: none; }
+html:not(.mobile) #tabs.tabs-scroll .tlabel { max-width: 16ch; }
+/* (the module whose menu is open, and the strip or column it sits in, come above their neighbours and the edit bar) */
+body.editing .page :is(.cstrip, .stack, .flow, .gridl, [data-pid]):has(> .modbar .menu.open), body.editing .page :is(.cstrip, .stack):has([data-pid] > .modbar .menu.open) { position: relative; z-index: 55 !important; }

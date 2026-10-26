@@ -1432,7 +1432,7 @@ const PART = 180000;
 const LOCAL_SETTINGS = ['diceMode', 'r20campaign', 'sheetToR20', 'r20auras'];
 function keepLocal(next, cur) {
   if (!next || !cur) return next;
-  next.layout = cur.layout;
+  if (UI && UI.editLayout) next.layout = cur.layout; // (someone mid-edit keeps what they're editing; otherwise the newer layout comes along)
   next.settings = Object.assign({}, next.settings || {});
   LOCAL_SETTINGS.forEach(k => { if (cur.settings && cur.settings[k] !== undefined) next.settings[k] = cur.settings[k]; else delete next.settings[k]; });
   return next;
@@ -1539,7 +1539,7 @@ function cloudListen(ref, onFirst) {
       if (!owner && mine && S.created && !cloudRO && !(d && d.guestDone)) { S.savedAt = Date.now(); GUESTCLAIM = true; await cloudWrite(); return true; }
       if (S.created && (!d || N(d.savedAt) < N(S.savedAt))) {
         // A newer copy of the sheet file is replacing the synced one: never lose the player's own settings, theme or layout.
-        if (d && !cloudRO) { try { const txt = await cloudText(d); const old = txt && JSON.parse(txt); if (old && old.id === S.id) { keepPrefs(S, old); hdrReset(S); try { applyTheme(); render(); } catch (e) {} } } catch (e) {} }
+        if (d && !cloudRO && !FROM_LOCAL) { try { const txt = await cloudText(d); const old = txt && JSON.parse(txt); if (old && old.id === S.id) { keepPrefs(S, old); hdrReset(S); try { applyTheme(); render(); } catch (e) {} } } catch (e) {} }
         if (!cloudRO) cloudWrite(); }
       else if (d) setSyncState(cloudRO ? 'Live · view only (you can\'t edit this sheet)' : 'Live · synced ' + clock());
     });

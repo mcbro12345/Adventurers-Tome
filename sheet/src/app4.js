@@ -287,7 +287,7 @@ function mainClick(e) {
     case 'ctabadd': ctabAdd(); return;
     case 'ctabaddok': ctabAddOK(); return;
     case 'ctabdel': ctabDelete(b.dataset.k); return;
-    case 'greset': if (isGridLayout()) gridReset(b.dataset.pg); else pageReset(b.dataset.pg); return;
+    case 'greset': if (gridTab(b.dataset.pg)) gridReset(b.dataset.pg); else pageReset(b.dataset.pg); return;
     case 'gresetall': gridResetAll(); return;
     case 'settings': openSettings(); pendingLabel = null; return;
     case 'setpreset': setThemeColor(b.dataset.k, b.dataset.v); return;

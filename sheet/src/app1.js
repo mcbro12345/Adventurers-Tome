@@ -210,14 +210,20 @@ function writeLocal() {
   if (!S.created) return;
   S.savedAt = Date.now();
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
+  saveTimer = setTimeout(writeLocalNow, 250);
+}
+// (the actual write; also run straight away when the page is hidden or closed, so a reload right after a change keeps it)
+function writeLocalNow() {
+  { clearTimeout(saveTimer); saveTimer = null;
     let ok = true;
     try { localStorage.setItem(keyFor(S.id), JSON.stringify(S)); if (BLANK_FILE) localStorage.setItem(PATH_KEY, S.id); } catch (e) { ok = false; }
     if (!PER_SHEET) try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(S.layout || {})); } catch (e) {}
     if (!/synced|view only|retrying|reconnect|full|not live/i.test(UI.saveState || '') || !ok) { UI.saveState = ok ? 'Saved ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'Not saved — export'; const el = $('#saveState'); if (el) { el.textContent = shortSync(UI.saveState); el.title = UI.saveState; } }
     cloudPush();
-  }, 250);
+  }
 }
+addEventListener('pagehide', () => { if (saveTimer) writeLocalNow(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && saveTimer) writeLocalNow(); });
 const IOS_SAFARI = /iP(hone|od|ad)/.test(navigator.userAgent) && /Version\/[\d.]+.*Safari\//.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS/.test(navigator.userAgent);
 // Where the phone's bottom tab bar sits is a setting of this device (same for every character); 32 by default.
 // The phone's bottom tab bar: on the home-screen app it sits a little above the home bar; in the browser it sits right on

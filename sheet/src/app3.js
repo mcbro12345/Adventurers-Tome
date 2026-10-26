@@ -849,6 +849,7 @@ function render(...names) {
   if (!S.created) return;
   GEN++;
   if (syncClassCompanions() | syncAmmo()) writeLocal();
+  if (names.length && S.layout && S.layout.grid) { const more = new Set(); names.forEach(n => { const pg = $(SECTION_EL[n]); if (pg) $$('[data-pid]', pg).forEach(el => { const h = el.dataset.home; if (h && h !== n && SECTIONS[h] && !names.includes(h)) more.add(h); }); }); names = names.concat([...more]); }
   (names.length ? names : Object.keys(SECTIONS)).forEach(n => { RENDERING = n; SECTIONS[n](); });
   applyPanelLayout();
   renderTabs();

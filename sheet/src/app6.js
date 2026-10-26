@@ -145,8 +145,8 @@ function applyPanelLayout() {
   if (typing && a.isConnected && document.activeElement !== a) { a.focus({ preventScroll: true }); if (s0 != null) { try { a.setSelectionRange(s0, s1, dir); } catch (e) {} } if (scrollX !== sx || scrollY !== sy) scrollTo(sx, sy); }
 }
 function _applyPanelLayout() {
-  ensureCustomPages();
-  const L = S.layout || {}, pages = L.grid ? {} : (L.pages || {}), ae = document.activeElement, ed = !!UI.editLayout;
+  ensureCustomPages(); editRestore();
+  const L = S.layout || {}, pages = Object.fromEntries(Object.entries(L.pages || {}).filter(([k]) => !(L.grid && L.grid[k]))), ae = document.activeElement, ed = !!UI.editLayout;
   // Panels added in later versions go next to their neighbours in a saved layout.
   [['spells', 'mmspells', 'spellcasting'], ['combat', 'metamagic', 'activefx']].forEach(([pg, id, after]) => { const a = pages[pg]; if (a && !a.includes(id) && $(`#page-${pg} [data-pid="${id}"]`)) { const k = a.indexOf(after); a.splice(k < 0 ? a.length : k + 1, 0, id); } });
   // The Spells tab's Spell Slots and Active Spells panels (same look as Combat) go at the top, before the class cards.
@@ -230,9 +230,9 @@ function tabHide(k) { const L = LY(); L.hiddenTabs = L.hiddenTabs || []; L.shown
   else { const i = L.hiddenTabs.indexOf(k); if (i >= 0) L.hiddenTabs.splice(i, 1); else L.hiddenTabs.push(k); }
   layoutChanged('Hide/show tab'); }
 function tabRename(k) {
-  openModal(`<h3>Rename tab</h3>${fld('Name', `<input class="f" id="tabName" value="${esc(tabLabel(k))}" autofocus>`)}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="tabrenameok" data-k="${k}">Save</button></div>`);
+  openModal(`<h3>Rename tab</h3>${fld('Name', `<input class="f" id="tabName" maxlength="30" value="${esc(tabLabel(k))}" autofocus>`)}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="tabrenameok" data-k="${k}">Save</button></div>`);
 }
-function tabRenameOK(k) { const L = LY(); L.tabNames = Object.assign({}, L.tabNames, { [k]: $('#tabName').value.trim() || undefined }); closeModal(true); layoutChanged('Rename tab'); }
+function tabRenameOK(k) { const L = LY(); L.tabNames = Object.assign({}, L.tabNames, { [k]: $('#tabName').value.trim().slice(0, 30) || undefined }); closeModal(true); layoutChanged('Rename tab'); }
 // Pointer-based dragging works the same with a mouse, pen or finger.
 let PD = null;
 document.addEventListener('pointerdown', e => {
@@ -814,9 +814,9 @@ window.addEventListener('resize', () => { SUB_K = ''; fitSubtitle(); });
 const TB_FOLD = ['edit', 'history', ['redo', 'undo'], 'settings', 'save'];
 // Sheet tabs on a computer: each takes the room its name needs; when they don't all fit they tighten up, then drop their
 // icons, before any name gets cut short
-function fitTabs() { const t = $('#tabs'); if (!t) return; t.classList.remove('tabs-tight', 'tabs-noicon'); if (isMobile()) return;
+function fitTabs() { const t = $('#tabs'); if (!t) return; t.classList.remove('tabs-tight', 'tabs-noicon', 'tabs-scroll'); if (isMobile()) return;
   const cut = () => [...t.querySelectorAll('.tlabel')].some(l => l.offsetParent && l.scrollWidth > l.clientWidth + 1);
-  if (!cut()) return; t.classList.add('tabs-tight'); if (!cut()) return; t.classList.add('tabs-noicon'); }
+  if (!cut()) return; t.classList.add('tabs-tight'); if (!cut()) return; t.classList.add('tabs-noicon'); if (!cut()) return; t.classList.add('tabs-scroll'); const on = t.querySelector('.tab.on'); if (on) on.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
 // The Inspiration pill in the top bar's corner keeps clear of the Tome button and the faces beside it: when they'd meet,
 // it drops its label (just − number +), and the row's room is set to whatever the pill actually takes.
 function inspDockFit() {

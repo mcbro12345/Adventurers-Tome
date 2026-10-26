@@ -6,12 +6,17 @@
 // S.layout.removed = [ids]   modules taken off the sheet (still listed under Add module)
 // S.layout.ctabs = [{ key, name, icon }]   custom tabs
 const GCOLS = 12, GGAP = 14;
-const MODNAMES = Object.assign({}, PNAMES, { metamagic: 'Metamagic', mmspells: 'Metamagic (Spells tab)', infhead: 'Infusions overview', infknown: 'Known infusions', infactive: 'Active infusions' });
-const MODMIN = { economy: 6, inventory: 6, spelllist: 6, turnbar: 6, oocmain: 6, spellcasting: 6, featlist: 4, companions: 4 };
+const MODNAMES = Object.assign({ spslots: 'Spell slots (Spells tab)', spfx: 'Active spells (Spells tab)' }, PNAMES, { metamagic: 'Metamagic', mmspells: 'Metamagic (Spells tab)', infhead: 'Infusions overview', infknown: 'Known infusions', infactive: 'Active infusions' });
+const MODMIN = { economy: 6, inventory: 6, spelllist: 6, turnbar: 6, oocmain: 6, featlist: 4, companions: 4 };
 const modName = id => MODNAMES[id] || id;
 const modMinW = id => MODMIN[id] || 3;
 const SIZES = [[3, 'Small', '¼'], [4, 'Medium', '⅓'], [6, 'Half', '½'], [8, 'Large', '⅔'], [9, 'Wide', '¾'], [12, 'Full width', '1']];
 const isGridLayout = () => !!(S.layout && S.layout.grid);
+const gridTab = k => !!(S.layout && S.layout.grid && S.layout.grid[k]);
+// Tabs a module can be sent to: never the Party tab, and not a tab that's hidden (it would vanish with it).
+const modTabs = () => tabOrder().filter(([k]) => k !== 'party' && !tabHidden(k));
+// Every grid item kept inside the 12 columns, with sane sizes (whatever an old save or a stray drag left).
+function gSane(items) { (items || []).forEach(i => { const mn = Math.min(GCOLS, modMinW(i.id)); i.w = Math.max(mn, Math.min(GCOLS, Math.round(N(i.w)) || GCOLS)); i.x = Math.max(0, Math.min(GCOLS - i.w, Math.round(N(i.x)) || 0)); i.y = Math.max(0, Math.round(N(i.y)) || 0); i.h = Math.max(1, Math.min(4, Math.round(N(i.h)) || 1)); }); return items; }
 const ctabs = () => ((S.layout && S.layout.ctabs) || []);
 const isCustomTab = k => ctabs().some(t => t.key === k);
 
@@ -56,24 +61,33 @@ function measurePage(pg) {
   return gCompact(items, null);
 }
 // The first real change converts every tab (built-in and custom) into the grid model.
-function ensureGrid() {
-  if (isGridLayout()) return false;
-  const L = LY(), grid = {};
-  tabOrder().forEach(([k]) => { grid[k] = measurePage(k); });
-  const placed = new Set(Object.values(grid).flat().map(i => i.id));
-  // Modules that exist but are hidden right now (combat-only panels, hidden by the old editor…) keep a home spot.
-  $$('.page [data-pid]').forEach(el => { const id = el.dataset.pid, home = el.dataset.home; if (placed.has(id)) return; placed.add(id);
-    if ((L.hidden || []).includes(id)) { L.removed = (L.removed || []).concat([id]); return; }
-    const pg = grid[home] ? home : tabOrder()[0][0]; const a = grid[pg]; a.push({ id, x: 0, y: a.reduce((m, i) => Math.max(m, i.y + i.h), 0), w: GCOLS, h: 1 }); });
-  L.grid = grid; delete L.pages; delete L.cols; delete L.wide; L.hidden = [];
-  return true;
+// Only the tabs being changed are converted (each measured as it looks right now); the other tabs keep their own
+// arrangement, so a change made in a narrow window doesn't squeeze every other tab into that shape.
+function ensureGrid(pgs) {
+  const L = LY(), grid = L.grid = L.grid || {}; let did = false;
+  (pgs || []).filter(k => k && k !== 'party' && !grid[k] && $('#page-' + k)).forEach(k => {
+    const items = measurePage(k), placed = new Set(Object.values(grid).flat().concat(items).map(i => i.id));
+    // Modules of this tab that are hidden right now (combat-only panels…) keep a spot at its bottom; ones the old editor hid are removed.
+    $$(`#page-${k} [data-pid]`).forEach(el => { const id = el.dataset.pid; if (el.parentElement.closest('[data-pid]') || placed.has(id)) return; placed.add(id);
+      if ((L.hidden || []).includes(id)) { L.removed = [...new Set((L.removed || []).concat([id]))]; return; }
+      items.push({ id, x: 0, y: items.reduce((m, i) => Math.max(m, i.y + i.h), 0), w: GCOLS, h: 1 }); });
+    items.forEach(i => { const el = $(`.page [data-pid="${i.id}"]`); if (el) i.home = el.dataset.home; });
+    grid[k] = gSane(items); if (L.pages) delete L.pages[k]; did = true; });
+  return did;
 }
+// the tab a module is on right now (its grid tab, or the page it sits on)
+function modPageOf(id) { const [pg] = gFind(id); if (pg) return pg; const el = $(`.page [data-pid="${id}"]`), p = el && el.closest('.page'); return p ? p.id.replace('page-', '') : null; }
 
 // ---------- Rendering the grid ----------
 // Placement: every module in L.grid shows on that tab; modules that appear later (a new class feature…) and were never
 // placed go to the bottom of their home tab; removed ones stay off the sheet.
 function gridApply(by) {
-  const L = S.layout, grid = L.grid, removed = new Set(L.removed || []), placed = new Set(Object.values(grid).flat().map(i => i.id));
+  const L = S.layout, grid = L.grid;
+  // (the Party tab is always its own page: anything a saved layout put there goes back home)
+  if (grid.party) delete grid.party;
+  Object.values(grid).forEach(gSane);
+  const removed = new Set(L.removed || []), placed = new Set(Object.values(grid).flat().map(i => i.id));
+  Object.values(grid).flat().forEach(i => { if (!i.home && by[i.id]) i.home = by[i.id][0].dataset.home; });
   // The Spells tab's Spell Slots and Active Spells panels (same look as Combat) start at the top of a saved grid, side by side.
   if (grid.spells) { const need = ['spslots', 'spfx'].filter(id => by[id] && !placed.has(id) && !removed.has(id));
     if (need.length) { const sc = grid.spells.find(i => i.id === 'spellcasting'), y0 = sc ? sc.y : 0, ws = Math.round(GCOLS / 3); grid.spells.forEach(i => { if (i.y >= y0) i.y += 1; });
@@ -101,11 +115,22 @@ function gridApply(by) {
     if (ed && !mob && !live.length) box.innerHTML = `<div class="gempty"><b>This tab is empty</b><span>Use <b>+ Add module</b> below, or drag a module onto this tab's name.</span></div>`;
   });
   // Modules that ended up nowhere (removed, or homed on a tab that's gone) are taken out of the page.
-  Object.keys(by).forEach(id => { const el = by[id][0]; if (!el.closest('.gridl')) el.remove(); });
+  Object.keys(by).forEach(id => { const el = by[id][0], p = el.closest('.page'), pk = p && p.id.replace('page-', ''); if (!el.closest('.gridl') && (removed.has(id) || (pk && grid[pk]))) el.remove(); });
+  // a custom tab with nothing on it says so (outside Edit layout too)
+  Object.keys(grid).forEach(pg => { const page = $('#page-' + pg), box = page && page.querySelector(':scope > .gridl'); if (box && !ed && !box.children.length && isCustomTab(pg)) box.innerHTML = `<div class="gempty"><b>This tab is empty</b><span>Open <b>Edit layout</b> to add modules to it.</span></div>`; });
 }
 
 // ---------- Edit mode: module bars, resize handles, editor bar ----------
 let LSNAP = null; // the layout when Edit layout was opened (Cancel restores it)
+// (kept in this browser per character, so Cancel still works after a reload mid-edit; a sheet with no snapshot isn't
+// left in edit mode — edit mode doesn't carry over from another character)
+const lsnapKey = () => 'dnd-lsnap:' + (S && S.id || '');
+function lsnapKeep() { try { if (LSNAP == null) localStorage.removeItem(lsnapKey()); else localStorage.setItem(lsnapKey(), LSNAP); } catch (e) {} }
+function editRestore() {
+  if (!UI.editLayout || LSNAP != null) return;
+  let v = null; try { v = localStorage.getItem(lsnapKey()); } catch (e) {}
+  if (v != null) LSNAP = v; else { UI.editLayout = false; saveUI(); }
+}
 function editDecorate() {
   const ed = !!UI.editLayout && !isMobile();
   $$('.page [data-pid]').forEach(el => {
@@ -117,9 +142,9 @@ function editDecorate() {
     bar.innerHTML = `<span class="mgrip" data-mgrip="${id}" title="Drag to move — drop on a tab name to send it there">⠿ ${esc(modName(id))}</span>${auto ? '<span class="hidtag" title="Not used by this character right now — it shows up when it applies">auto-hidden</span>' : ''}<span class="grow"></span>
       <div class="menu msize"><button class="mbtn" data-act="menu" aria-haspopup="true" title="Size">⤢ ${w ? (SIZES.find(s => s[0] === w) || [0, 0, w + '/12'])[2] : 'Size'}</button><div class="menu-list">
         <div class="mlabel">Width</div>${SIZES.filter(s => s[0] >= modMinW(id)).map(([n, t, g]) => `<button data-act="msize" data-p="${id}" data-w="${n}" class="${w === n ? 'on' : ''}"><span class="szg" style="--n:${n}"></span>${t} <span class="hint">${g}</span></button>`).join('')}
-        <div class="mlabel">Height</div>${[[1, 'Normal'], [2, 'Tall (2 rows)'], [3, 'Taller (3 rows)']].map(([h, t]) => `<button data-act="msize" data-p="${id}" data-h="${h}" class="${(N(el.dataset.gh) || 1) === h ? 'on' : ''}">${t}</button>`).join('')}
+        <div class="mlabel">Height</div>${[[1, 'Normal'], [2, 'Tall (2 rows)'], [3, 'Taller (3 rows)'], [4, 'Tallest (4 rows)']].map(([h, t]) => `<button data-act="msize" data-p="${id}" data-h="${h}" class="${(N(el.dataset.gh) || 1) === h ? 'on' : ''}">${t}</button>`).join('')}
       </div></div>
-      <div class="menu"><button class="mbtn" data-act="menu" aria-haspopup="true" title="Move to another tab">⇄</button><div class="menu-list"><div class="mlabel">Move to tab</div>${tabOrder().filter(([k]) => k !== pageOf(el)).map(([k]) => `<button data-act="mto" data-p="${id}" data-pg="${k}">${esc(tabLabel(k))}</button>`).join('')}</div></div>
+      <div class="menu"><button class="mbtn" data-act="menu" aria-haspopup="true" title="Move to another tab">⇄</button><div class="menu-list"><div class="mlabel">Move to tab</div>${modTabs().filter(([k]) => k !== pageOf(el)).map(([k]) => `<button data-act="mto" data-p="${id}" data-pg="${k}">${esc(tabLabel(k))}</button>`).join('')}</div></div>
       <button class="mbtn mx" data-act="mremove" data-p="${id}" title="Remove from the sheet (add it back with + Add module)">✕</button>`;
     el.prepend(bar);
     const rz = document.createElement('div'); rz.className = 'mresize'; rz.dataset.mresize = id; rz.title = 'Drag to resize'; el.appendChild(rz);
@@ -135,15 +160,19 @@ function editDecorate() {
   } else if (eb) eb.remove();
   document.body.classList.toggle('editing', ed);
 }
-function editToggle() {
+function editEndDrags() { if (GD) gEnd(true); if (typeof PD !== 'undefined' && PD) { if (PD.ghost) PD.ghost.remove(); PD.item.classList.remove('dragging'); PD = null; dropClear(); document.body.classList.remove('dragging-any'); } }
+function editToggle() { editEndDrags();
   if (!UI.editLayout) { LSNAP = JSON.stringify(S.layout || {}); UI.editLayout = true; }
   else { UI.editLayout = false; LSNAP = null; }
-  saveUI(); pendingLabel = null; render();
+  lsnapKeep(); saveUI(); pendingLabel = null; render();
 }
-function editCancel() {
+function editCancel() { editEndDrags();
   if (LSNAP != null && LSNAP !== JSON.stringify(S.layout || {})) { S.layout = JSON.parse(LSNAP); pendingLabel = 'Cancel layout changes'; save(); }
-  UI.editLayout = false; LSNAP = null; saveUI(); render();
+  UI.editLayout = false; LSNAP = null; lsnapKeep(); saveUI(); render();
 }
+// The window narrowed into the phone layout (no layout editing there): editing ends, keeping what was done (Undo
+// still takes it back).
+function editEndForPhone() { if (!UI.editLayout) return; editEndDrags(); UI.editLayout = false; LSNAP = null; lsnapKeep(); saveUI(); }
 // Modules taken off the sheet (Add module lists them). The old editor's "hidden" panels count too.
 const modRemoved = () => [...new Set(((S.layout && S.layout.removed) || []).concat((S.layout && !S.layout.grid && S.layout.hidden) || []))];
 function modLibrary() { return modRemoved().filter(id => !panelAutoHidden(id)); }
@@ -167,22 +196,23 @@ const gItems = pg => (LY().grid[pg] = LY().grid[pg] || []);
 function gFind(id) { const G = LY().grid || {}; for (const pg of Object.keys(G)) { const it = G[pg].find(i => i.id === id); if (it) return [pg, it]; } return [null, null]; }
 function gChanged(label) { pendingLabel = label; save(); render(); }
 function modAdd(id, pg) {
-  ensureGrid(); const L = LY(); pg = pg || UI.tab;
+  pg = pg || UI.tab; if (pg === 'party') return;
+  ensureGrid([modPageOf(id), pg]); const L = LY();
   const [from, it] = gFind(id); if (from) L.grid[from] = L.grid[from].filter(i => i !== it);
   L.removed = (L.removed || []).filter(x => x !== id);
   const a = gItems(pg), w = it ? Math.max(it.w, modMinW(id)) : GCOLS;
-  a.push({ id, x: 0, y: a.reduce((m, i) => Math.max(m, i.y + i.h), 0), w, h: it ? it.h : 1 }); gCompact(a, null);
+  a.push({ id, home: it && it.home, x: 0, y: a.reduce((m, i) => Math.max(m, i.y + i.h), 0), w, h: it ? it.h : 1 }); gCompact(a, null);
   closeModal(true); gChanged(`Add ${modName(id)} to ${tabLabel(pg)}`);
   setTimeout(() => { const el = $(`.page [data-pid="${id}"]`); if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.classList.add('mflash'); setTimeout(() => el.classList.remove('mflash'), 1200); } }, 60);
 }
 function modRemove(id) {
-  ensureGrid(); const L = LY(), [pg, it] = gFind(id); if (pg) { L.grid[pg] = L.grid[pg].filter(i => i !== it); gCompact(L.grid[pg], null); }
+  ensureGrid([modPageOf(id)]); const L = LY(), [pg, it] = gFind(id); if (pg) { L.grid[pg] = L.grid[pg].filter(i => i !== it); gCompact(L.grid[pg], null); }
   L.removed = [...new Set((L.removed || []).concat([id]))];
   gChanged('Remove ' + modName(id));
   toast(`<b>${esc(modName(id))}</b> removed. Add it back any time with <b>+ Add module</b>.`, '', 5000, { label: 'Undo', fn: () => undo(1) });
 }
 function modSize(id, w, h) {
-  ensureGrid(); const [pg, it] = gFind(id); if (!it) return;
+  ensureGrid([modPageOf(id)]); const [pg, it] = gFind(id); if (!it) return;
   if (w) { it.w = Math.max(modMinW(id), Math.min(GCOLS, w)); if (it.x + it.w > GCOLS) it.x = GCOLS - it.w; }
   if (h) it.h = h;
   gResolve(LY().grid[pg], it); gChanged('Resize ' + modName(id));
@@ -191,16 +221,20 @@ function modTo(id, pg) { modAdd(id, pg); toast(`${esc(modName(id))} moved to ${e
 function gridReset(pg) {
   const L = LY(); if (!L.grid) return;
   if (isCustomTab(pg)) { (L.grid[pg] || []).forEach(i => { L.removed = (L.removed || []).filter(x => x !== i.id); }); L.grid[pg] = []; return gChanged('Clear ' + tabLabel(pg)); }
-  // Modules from this tab come home; whatever else was moved here goes back to its own tab.
-  const mine = $$('.page [data-pid]').filter(e => e.dataset.home === pg).map(e => e.dataset.pid);
-  Object.keys(L.grid).forEach(k => { if (k !== pg) L.grid[k] = L.grid[k].filter(i => !mine.includes(i.id)); });
-  const strangers = (L.grid[pg] || []).filter(i => !mine.includes(i.id)).map(i => i.id);
-  L.removed = (L.removed || []).filter(x => !mine.includes(x));
-  // Measure this tab's default arrangement with the grid switched off, then put the other tabs' grids back.
-  const keep = L.grid, keepPages = L.pages, keepCols = L.cols, keepWide = L.wide; delete L.grid; L.pages = {}; L.cols = {}; L.wide = [];
-  render(); const fresh = measurePage(pg);
-  L.grid = keep; L.pages = keepPages; L.cols = keepCols; L.wide = keepWide; L.grid[pg] = fresh;
-  strangers.forEach(id => { const el = $(`.page [data-pid="${id}"]`), home = el && el.dataset.home; const a = L.grid[home] || L.grid[pg]; if (!a.some(i => i.id === id)) a.push({ id, x: 0, y: a.reduce((m, i) => Math.max(m, i.y + i.h), 0), w: GCOLS, h: 1 }); });
+  // Draw the sheet once with no layout at all: that shows this tab's own modules (removed ones included) where they
+  // belong by default, and every module's home tab. Then the saved layout comes back with this tab replaced.
+  const keepL = JSON.stringify(L), removed0 = (L.removed || []).slice(); S.layout = { tabs: L.tabs, tabNames: L.tabNames, hiddenTabs: L.hiddenTabs, shownTabs: L.shownTabs, ctabs: L.ctabs };
+  render(); const homes = {}; $$('.page [data-pid]').forEach(e => { if (!e.parentElement.closest('[data-pid]')) homes[e.dataset.pid] = e.dataset.home; });
+  const fresh = measurePage(pg), mine = Object.keys(homes).filter(id => homes[id] === pg);
+  $$(`#page-${pg} [data-pid]`).forEach(el => { const id = el.dataset.pid; if (el.parentElement.closest('[data-pid]') || fresh.some(i => i.id === id)) return; fresh.push({ id, x: 0, y: fresh.reduce((m, i) => Math.max(m, i.y + i.h), 0), w: GCOLS, h: 1 }); });
+  fresh.forEach(i => { i.home = pg; });
+  S.layout = JSON.parse(keepL); const L2 = S.layout;
+  const strangers = (L2.grid[pg] || []).filter(i => !mine.includes(i.id) && !fresh.some(f => f.id === i.id));
+  Object.keys(L2.grid).forEach(k => { if (k !== pg) L2.grid[k] = L2.grid[k].filter(i => !mine.includes(i.id) && !fresh.some(f => f.id === i.id)); });
+  L2.removed = removed0.filter(x => !mine.includes(x) && !fresh.some(f => f.id === x));
+  L2.grid[pg] = gSane(fresh);
+  // whatever else was moved here goes back to its own tab (or, if that tab still has its own layout, simply home)
+  strangers.forEach(i => { const home = homes[i.id] || i.home; if (home && home !== pg && L2.grid[home]) { const a = L2.grid[home]; a.push({ id: i.id, home, x: 0, y: a.reduce((m, j) => Math.max(m, j.y + j.h), 0), w: i.w, h: i.h }); } });
   gChanged('Reset ' + tabLabel(pg) + ' layout');
 }
 function gridResetAll() {
@@ -211,21 +245,21 @@ function gridResetAll() {
 // ---------- Custom tabs ----------
 const CTAB_ICONS = ['★', '⚑', '♦', '☾', '☀', '⚙', '✎', '❖', '⚔', '✦'];
 function ctabAdd() {
-  openModal(`<h3>New tab</h3>${fld('Name', '<input class="f" id="ctabName" placeholder="e.g. Session, Downtime, Quick ref" autofocus>')}
+  openModal(`<h3>New tab</h3>${fld('Name', '<input class="f" id="ctabName" maxlength="30" placeholder="e.g. Session, Downtime, Quick ref" autofocus>')}
     <div class="lbl" style="margin-top:8px">Icon</div><div class="spcat-icons">${CTAB_ICONS.map((x, k) => `<button class="spcat-ic${k ? '' : ' on'}" data-ctic="${x}">${x}</button>`).join('')}</div>
     <p class="hint">The new tab starts empty — add modules to it from <b>+ Add module</b>, or drag one onto its name.</p>
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="ctabaddok">Add tab</button></div>`);
 }
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-ctic]'); if (!b) return; $$('[data-ctic]').forEach(x => x.classList.toggle('on', x === b)); });
 function ctabAddOK() {
-  ensureGrid(); const L = LY(), name = ($('#ctabName').value || '').trim() || 'New tab', icon = ($('[data-ctic].on') || {}).dataset ? $('[data-ctic].on').dataset.ctic : '★';
+  ensureGrid([]); const L = LY(), name = ($('#ctabName').value || '').trim().slice(0, 30) || 'New tab', icon = ($('[data-ctic].on') || {}).dataset ? $('[data-ctic].on').dataset.ctic : '★';
   const key = 'c' + uid().slice(0, 6); L.ctabs = ctabs().concat([{ key, name, icon }]); L.grid[key] = [];
   L.tabs = tabOrder().map(t => t[0]).filter(k => k !== key).concat([key]);
   closeModal(true); UI.tab = key; saveUI(); gChanged('New tab: ' + name);
 }
 function ctabDelete(k) {
   const L = LY(), t = ctabs().find(x => x.key === k); if (!t) return;
-  (L.grid[k] || []).forEach(i => { const el = $(`.page [data-pid="${i.id}"]`), home = el && el.dataset.home; const a = (home && L.grid[home]) || L.grid[tabOrder()[0][0]]; a.push({ id: i.id, x: 0, y: a.reduce((m, j) => Math.max(m, j.y + j.h), 0), w: i.w, h: i.h }); });
+  (L.grid[k] || []).forEach(i => { const el = $(`.page [data-pid="${i.id}"]`), home = i.home || (el && el.dataset.home); const a = home && L.grid[home]; if (a) a.push({ id: i.id, home, x: 0, y: a.reduce((m, j) => Math.max(m, j.y + j.h), 0), w: i.w, h: i.h }); });
   delete L.grid[k]; L.ctabs = ctabs().filter(x => x.key !== k); L.tabs = (L.tabs || []).filter(x => x !== k);
   if (UI.tab === k) { UI.tab = tabOrder()[0][0]; saveUI(); }
   gChanged('Delete tab: ' + t.name);
@@ -250,17 +284,26 @@ function gPreview(box, items, skipId) {
 document.addEventListener('pointerdown', e => {
   if (!UI.editLayout || isMobile() || e.button > 0) return;
   const g = e.target.closest && (e.target.closest('[data-mgrip]') || e.target.closest('[data-mresize]')); if (!g) return;
-  e.preventDefault();
+  e.preventDefault(); if (GD) return; // (a second finger mid-drag is ignored)
   const id = g.dataset.mgrip || g.dataset.mresize, kind = g.dataset.mgrip ? 'move' : 'size';
-  if (ensureGrid()) { pendingLabel = null; render(); }
-  const el = $(`.page.on [data-pid="${id}"]`), box = el && el.closest('.gridl'); if (!el || !box) return;
-  const pg = box.dataset.pg, items = gClone(LY().grid[pg]), it = items.find(i => i.id === id); if (!it) return;
-  const r = el.getBoundingClientRect();
-  GD = { kind, id, el, box, pg, items, it, start: { x: e.clientX, y: e.clientY, w: it.w, h: it.h, l: r.left, t: r.top, rw: r.width, rh: r.height }, on: false };
+  // Nothing changes until the pointer actually moves: a press without a drag leaves the layout alone.
+  GD = { kind, id, start: { x: e.clientX, y: e.clientY }, on: false, pend: true };
 });
+// The drag begins: the tab becomes a grid if it isn't one yet, and the drag works on the modules actually showing
+// (hidden ones, like combat-only panels out of combat, keep their spots below and don't throw the rows off).
+function gBegin(d) {
+  d.pend = false; const pg0 = modPageOf(d.id);
+  if (ensureGrid([pg0])) { pendingLabel = null; render(); }
+  const el = $(`.page.on [data-pid="${d.id}"]`), box = el && el.closest('.gridl'); if (!el || !box) return false;
+  const pg = box.dataset.pg, all = LY().grid[pg] || [], shownIds = new Set($$(':scope > [data-pid]', box).map(x => x.dataset.pid));
+  const items = gCompact(gClone(all.filter(i => shownIds.has(i.id))), null), it = items.find(i => i.id === d.id); if (!it) return false;
+  const r = el.getBoundingClientRect();
+  Object.assign(d, { el, box, pg, items, it, rest: gClone(all.filter(i => !shownIds.has(i.id))), start: Object.assign(d.start, { w: it.w, h: it.h, l: r.left, t: r.top, rw: r.width, rh: r.height }) });
+  return true;
+}
 document.addEventListener('pointermove', e => {
   const d = GD; if (!d) return;
-  if (!d.on) { if (Math.hypot(e.clientX - d.start.x, e.clientY - d.start.y) < 5) return; d.on = true; document.body.classList.add('gdragging');
+  if (!d.on) { if (Math.hypot(e.clientX - d.start.x, e.clientY - d.start.y) < 5) return; if (d.pend && !gBegin(d)) { GD = null; return; } d.on = true; document.body.classList.add('gdragging');
     d.ph = document.createElement('div'); d.ph.className = 'gph'; d.box.appendChild(d.ph);
     if (d.kind === 'move') { d.el.classList.add('gmoving'); d.ghost = document.createElement('div'); d.ghost.className = 'dghost'; d.ghost.textContent = '⠿ ' + modName(d.id); document.body.appendChild(d.ghost); } }
   e.preventDefault();
@@ -270,7 +313,10 @@ document.addEventListener('pointermove', e => {
     d.ghost.style.display = 'none'; const over = document.elementFromPoint(e.clientX, e.clientY); d.ghost.style.display = '';
     $$('.tabwrap.dropon').forEach(t => t.classList.remove('dropon'));
     const tab = over && over.closest('.tabwrap'); d.tab = null;
-    if (tab && tab.dataset.tabkey !== d.pg) { tab.classList.add('dropon'); d.tab = tab.dataset.tabkey; d.ph.style.display = 'none'; return; }
+    if (tab && tab.dataset.tabkey !== d.pg && modTabs().some(([k]) => k === tab.dataset.tabkey)) { tab.classList.add('dropon'); d.tab = tab.dataset.tabkey; d.ph.style.display = 'none'; return; }
+    // (over the tab bar, the edit bar or outside the page there's nowhere to put it: let go there and nothing changes)
+    d.away = !!(over && over.closest('.tabs, #editbar, header.banner')) || e.clientX < 0 || e.clientY < 0 || e.clientX > innerWidth || e.clientY > innerHeight;
+    d.ph.style.opacity = d.away ? '0' : '';
     d.ph.style.display = '';
     const left = e.clientX - (d.start.x - d.start.l) - r.left; it.x = Math.max(0, Math.min(GCOLS - it.w, Math.round(left / colW)));
     const tops = rowTops(d.box, d.el), py = e.clientY - (d.start.y - d.start.t) + 8; let y = 0;
@@ -279,7 +325,7 @@ document.addEventListener('pointermove', e => {
     it.y = y;
     if (!over || !over.closest('.tabs')) { if (e.clientY < 50) scrollBy(0, -14); else if (e.clientY > innerHeight - 130) scrollBy(0, 14); }
   } else {
-    const dw = Math.round((e.clientX - d.start.x) / colW); it.w = Math.max(modMinW(d.id), Math.min(GCOLS - it.x, d.start.w + dw));
+    const dw = Math.round((e.clientX - d.start.x) / colW); it.w = Math.max(Math.min(GCOLS, modMinW(d.id)), Math.min(GCOLS - it.x, d.start.w + dw)); if (it.x + it.w > GCOLS) it.x = GCOLS - it.w;
     const dh = Math.round((e.clientY - d.start.y) / Math.max(120, d.start.rh / Math.max(1, d.start.h))); it.h = Math.max(1, Math.min(4, d.start.h + dh));
   }
   gResolve(items, it); d.live = items;
@@ -290,11 +336,13 @@ document.addEventListener('pointermove', e => {
 function gEnd(cancel) {
   const d = GD; if (!d) return; GD = null; document.body.classList.remove('gdragging');
   $$('.tabwrap.dropon').forEach(t => t.classList.remove('dropon'));
-  if (d.ph) d.ph.remove(); if (d.ghost) d.ghost.remove(); d.el.classList.remove('gmoving');
-  if (!d.on || cancel) { render(); return; }
+  if (d.ph) d.ph.remove(); if (d.ghost) d.ghost.remove(); if (d.el) d.el.classList.remove('gmoving');
+  if (!d.on || cancel || !UI.editLayout || (d.kind === 'move' && d.away && !d.tab)) { if (d.on) render(); return; }
   if (d.tab) return modTo(d.id, d.tab);
-  if (d.live) { LY().grid[d.pg] = d.live; gChanged(d.kind === 'move' ? 'Move ' + modName(d.id) : 'Resize ' + modName(d.id)); }
+  if (d.live) { const live = gSane(d.live), bottom = live.reduce((m, i) => Math.max(m, i.y + i.h), 0), y0 = Math.min(...d.rest.map(i => i.y), Infinity);
+    d.rest.forEach(i => { i.y = bottom + (i.y - (isFinite(y0) ? y0 : 0)); });
+    LY().grid[d.pg] = live.concat(d.rest); gChanged(d.kind === 'move' ? 'Move ' + modName(d.id) : 'Resize ' + modName(d.id)); }
 }
 document.addEventListener('pointerup', () => gEnd(false));
 document.addEventListener('pointercancel', () => gEnd(true));
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && GD) gEnd(true); });
+document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (GD) gEnd(true); else if (typeof PD !== 'undefined' && PD) editEndDrags(); });
