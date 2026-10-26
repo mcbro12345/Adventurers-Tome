@@ -2281,15 +2281,26 @@ function hub(fs, auth, G, ctx) {
       tileFit(root); tileCaps(); }
     else { newBtn(); wireA2HS(root); root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => switchView(b.dataset.view)); placeInd(false); placeTrack(false); skelRestore(); }
     root.querySelector('#me-acct').onclick = e => { e.stopPropagation(); acctMenu(e.currentTarget, D); };
-    // Folders of shared characters fold and unfold smoothly instead of snapping
+    // Folders of shared characters fold and unfold smoothly instead of snapping. Driven frame by frame (height and fade
+    // together), and when folding one near the bottom of the page the page's scroll is moved in the same frame as the
+    // fold, instead of the browser catching up a frame later, which made it shudder on phones.
+    const foldEase = t => 1 - Math.pow(1 - t, 3);
     root.querySelectorAll('details.hub-folder > summary').forEach(sm => sm.addEventListener('click', e => {
-      const d = sm.parentElement, body = d.querySelector(':scope > .hf-body'); if (!body || !body.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-      e.preventDefault(); if (d._anim) { d._anim.cancel(); d._anim = null; } body.style.overflow = 'hidden';
-      const done = () => { body.style.overflow = ''; d.classList.remove('hf-closing'); d._anim = null; };
-      if (d.open && !d.classList.contains('hf-closing')) { const h = body.offsetHeight; d.classList.add('hf-closing');
-        const a = d._anim = body.animate([{ height: h + 'px', opacity: 1 }, { height: '0px', opacity: 0 }], { duration: 240, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' }); a.onfinish = () => { d.open = false; a.cancel(); done(); }; }
-      else { d.classList.remove('hf-closing'); d.open = true; const h = body.offsetHeight;
-        const a = d._anim = body.animate([{ height: '0px', opacity: 0, transform: 'translateY(-6px)' }, { height: h + 'px', opacity: 1, transform: 'none' }], { duration: 300, easing: 'cubic-bezier(.2,.8,.2,1)' }); a.onfinish = done; }
+      const d = sm.parentElement, body = d.querySelector(':scope > .hf-body'); if (!body || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      e.preventDefault(); if (d._anim) d._anim.cancel();
+      const closing = d.open && !d.classList.contains('hf-closing'), from = closing ? body.offsetHeight : (d.open ? body.offsetHeight : 0);
+      if (!closing) { d.classList.remove('hf-closing'); d.open = true; } else d.classList.add('hf-closing');
+      body.style.height = ''; const full = closing ? from : body.scrollHeight, to = closing ? 0 : full, dur = closing ? 240 : 300;
+      const se = document.scrollingElement || document.documentElement, s0 = scrollY, max0 = se.scrollHeight - innerHeight;
+      body.style.overflow = 'hidden'; body.style.willChange = 'height, opacity'; body.style.height = from + 'px';
+      let raf = 0, t0 = 0; const stop = () => { cancelAnimationFrame(raf); body.style.height = body.style.opacity = body.style.overflow = body.style.willChange = ''; d._anim = null; };
+      d._anim = { cancel: () => { stop(); d.classList.remove('hf-closing'); } };
+      const step = now => { if (!t0) t0 = now; const k = Math.min(1, (now - t0) / dur), v = foldEase(k), hh = from + (to - from) * v;
+        body.style.height = hh + 'px'; body.style.opacity = closing ? 1 - v : Math.min(1, .15 + v);
+        if (closing) { const cap = Math.max(0, max0 - (from - hh)); if (scrollY > cap) scrollTo(0, cap); }
+        if (k < 1) { raf = requestAnimationFrame(step); return; }
+        if (closing) { d.open = false; d.classList.remove('hf-closing'); } stop(); };
+      raf = requestAnimationFrame(step);
     }));
     root.querySelectorAll('details.hub-folder').forEach(d => d.addEventListener('toggle', () => { open[d.dataset.k] = d.open; ls.set(OPEN, JSON.stringify(open)); if (d.open && D) tileFit(d); }));
     root.querySelectorAll('.hc-dots').forEach(b => b.onclick = e => { e.stopPropagation(); const w = b.parentElement, on = !w.classList.contains('on'); root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')); w.classList.toggle('on', on); });

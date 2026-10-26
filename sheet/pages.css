@@ -565,7 +565,7 @@ html.pg-touch, html.pg-touch * { -webkit-tap-highlight-color: transparent; }
 html.pg-touch :where(body.hubbody) .hl-d20, html.pg-touch .adm-brand .hl-d20 { cursor: pointer; touch-action: manipulation; }
 html.pg-touch :where(body.hubbody) :is(.hc, .hr) { transition: transform .12s ease, background-color .12s ease, border-color .12s ease; }
 html.pg-touch :where(body.hubbody) :is(.hc:has(> .hc-main:active), .hr:has(> .hr-main:active)) { transform: scale(.985); border-color: #c9962b; background-color: rgba(201,150,43,.1); }
-html.pg-touch :where(body.hubbody) :is(.btn, .hub-new, .hub-views button, .hc-dots, .linkbtn, .hp-pic, .pp-tabs button, .pp-opt, .pp-c, .hc-list button, .adm-kebab, .adm-mlist button, .hub-folder summary):active { transform: scale(.96); filter: brightness(1.15); transition: transform .08s; }
+html.pg-touch :where(body.hubbody) :is(.btn, .hub-new, .hub-views button, .hc-dots, .linkbtn, .hp-pic, .pp-tabs button, .pp-opt, .pp-c, .hc-list button, .adm-kebab, .adm-mlist button):active { transform: scale(.96); filter: brightness(1.15); transition: transform .08s; }
 html.pg-touch :where(body.hubbody) :is(.hc-list button, .adm-mlist button):active { background: rgba(201,150,43,.18); }
 html.pg-touch :where(body.hubbody) .hc-dots { width: 42px; height: 34px; font-size: 1.2rem; opacity: .7; }
 html.pg-touch :where(body.hubbody) .hr-menu .hc-dots { margin-right: 2px; }
@@ -3335,3 +3335,7 @@ body.hdragging, body.hdragging * { cursor: grabbing !important; user-select: non
 .hub-track .hc-txt .hc-acc { margin-top: 6px; line-height: 1.4; background: rgba(255,255,255,.07); opacity: .75; }
 .hub-track .hc-txt .hc-acc.edit { background: rgba(224,170,58,.14); color: #e3c27a; opacity: 1; }
 @media (prefers-color-scheme: light) { .hub-track .hc-txt .hc-acc { background: rgba(0,0,0,.06); } .hub-track .hc-txt .hc-acc.edit { color: #8a6420; } }
+
+/* a folder heading isn't squeezed when pressed (the whole row shrinking while it folds looked like a shudder): its arrow lights up instead */
+html.pg-touch body.hubbody .hub-folder > summary:active .hf-caret { background: rgba(201,150,43,.22); color: #e9e3d3; }
+body.hubbody .hub-folder > summary { -webkit-tap-highlight-color: transparent; }

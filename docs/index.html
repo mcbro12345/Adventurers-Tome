@@ -600,7 +600,7 @@ html.pg-touch, html.pg-touch * { -webkit-tap-highlight-color: transparent; }
 html.pg-touch :where(body.hubbody, .wzh) .hl-d20, html.pg-touch .adm-brand .hl-d20 { cursor: pointer; touch-action: manipulation; }
 html.pg-touch :where(body.hubbody, .wzh) :is(.hc, .hr) { transition: transform .12s ease, background-color .12s ease, border-color .12s ease; }
 html.pg-touch :where(body.hubbody, .wzh) :is(.hc:has(> .hc-main:active), .hr:has(> .hr-main:active)) { transform: scale(.985); border-color: #c9962b; background-color: rgba(201,150,43,.1); }
-html.pg-touch :where(body.hubbody, .wzh) :is(.btn, .hub-new, .hub-views button, .hc-dots, .linkbtn, .hp-pic, .pp-tabs button, .pp-opt, .pp-c, .hc-list button, .adm-kebab, .adm-mlist button, .hub-folder summary):active { transform: scale(.96); filter: brightness(1.15); transition: transform .08s; }
+html.pg-touch :where(body.hubbody, .wzh) :is(.btn, .hub-new, .hub-views button, .hc-dots, .linkbtn, .hp-pic, .pp-tabs button, .pp-opt, .pp-c, .hc-list button, .adm-kebab, .adm-mlist button):active { transform: scale(.96); filter: brightness(1.15); transition: transform .08s; }
 html.pg-touch :where(body.hubbody, .wzh) :is(.hc-list button, .adm-mlist button):active { background: rgba(201,150,43,.18); }
 html.pg-touch :where(body.hubbody, .wzh) .hc-dots { width: 42px; height: 34px; font-size: 1.2rem; opacity: .7; }
 html.pg-touch :where(body.hubbody, .wzh) .hr-menu .hc-dots { margin-right: 2px; }
@@ -3516,6 +3516,10 @@ body.hdragging, body.hdragging * { cursor: grabbing !important; user-select: non
 .hub-track .hc-txt .hc-acc.edit { background: rgba(224,170,58,.14); color: #e3c27a; opacity: 1; }
 @media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) .hub-track .hc-txt .hc-acc { background: rgba(0,0,0,.06); } :where(html:not([data-pgtheme])) .hub-track .hc-txt .hc-acc.edit { color: #8a6420; } }
  :where(html[data-pgtheme="light"]) .hub-track .hc-txt .hc-acc { background: rgba(0,0,0,.06); } :where(html[data-pgtheme="light"]) .hub-track .hc-txt .hc-acc.edit { color: #8a6420; } 
+
+/* a folder heading isn't squeezed when pressed (the whole row shrinking while it folds looked like a shudder): its arrow lights up instead */
+html.pg-touch body.hubbody .hub-folder > summary:active .hf-caret { background: rgba(201,150,43,.22); color: #e9e3d3; }
+body.hubbody .hub-folder > summary { -webkit-tap-highlight-color: transparent; }
 </style>
 </head>
 <body>
@@ -4264,7 +4268,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261026000811', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.81f4a41914c6.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.efff820cf4ca.html", "desk": "a/desk.aa63cbb108db.js", "deskcss": "a/deskcss.1b23eda6d9c0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261026001435', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.81f4a41914c6.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.efff820cf4ca.html", "desk": "a/desk.aa63cbb108db.js", "deskcss": "a/deskcss.1b23eda6d9c0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };
@@ -5843,15 +5847,26 @@ function hub(fs, auth, G, ctx) {
       tileFit(root); tileCaps(); }
     else { newBtn(); wireA2HS(root); root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => switchView(b.dataset.view)); placeInd(false); placeTrack(false); skelRestore(); }
     root.querySelector('#me-acct').onclick = e => { e.stopPropagation(); acctMenu(e.currentTarget, D); };
-    // Folders of shared characters fold and unfold smoothly instead of snapping
+    // Folders of shared characters fold and unfold smoothly instead of snapping. Driven frame by frame (height and fade
+    // together), and when folding one near the bottom of the page the page's scroll is moved in the same frame as the
+    // fold, instead of the browser catching up a frame later, which made it shudder on phones.
+    const foldEase = t => 1 - Math.pow(1 - t, 3);
     root.querySelectorAll('details.hub-folder > summary').forEach(sm => sm.addEventListener('click', e => {
-      const d = sm.parentElement, body = d.querySelector(':scope > .hf-body'); if (!body || !body.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-      e.preventDefault(); if (d._anim) { d._anim.cancel(); d._anim = null; } body.style.overflow = 'hidden';
-      const done = () => { body.style.overflow = ''; d.classList.remove('hf-closing'); d._anim = null; };
-      if (d.open && !d.classList.contains('hf-closing')) { const h = body.offsetHeight; d.classList.add('hf-closing');
-        const a = d._anim = body.animate([{ height: h + 'px', opacity: 1 }, { height: '0px', opacity: 0 }], { duration: 240, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' }); a.onfinish = () => { d.open = false; a.cancel(); done(); }; }
-      else { d.classList.remove('hf-closing'); d.open = true; const h = body.offsetHeight;
-        const a = d._anim = body.animate([{ height: '0px', opacity: 0, transform: 'translateY(-6px)' }, { height: h + 'px', opacity: 1, transform: 'none' }], { duration: 300, easing: 'cubic-bezier(.2,.8,.2,1)' }); a.onfinish = done; }
+      const d = sm.parentElement, body = d.querySelector(':scope > .hf-body'); if (!body || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      e.preventDefault(); if (d._anim) d._anim.cancel();
+      const closing = d.open && !d.classList.contains('hf-closing'), from = closing ? body.offsetHeight : (d.open ? body.offsetHeight : 0);
+      if (!closing) { d.classList.remove('hf-closing'); d.open = true; } else d.classList.add('hf-closing');
+      body.style.height = ''; const full = closing ? from : body.scrollHeight, to = closing ? 0 : full, dur = closing ? 240 : 300;
+      const se = document.scrollingElement || document.documentElement, s0 = scrollY, max0 = se.scrollHeight - innerHeight;
+      body.style.overflow = 'hidden'; body.style.willChange = 'height, opacity'; body.style.height = from + 'px';
+      let raf = 0, t0 = 0; const stop = () => { cancelAnimationFrame(raf); body.style.height = body.style.opacity = body.style.overflow = body.style.willChange = ''; d._anim = null; };
+      d._anim = { cancel: () => { stop(); d.classList.remove('hf-closing'); } };
+      const step = now => { if (!t0) t0 = now; const k = Math.min(1, (now - t0) / dur), v = foldEase(k), hh = from + (to - from) * v;
+        body.style.height = hh + 'px'; body.style.opacity = closing ? 1 - v : Math.min(1, .15 + v);
+        if (closing) { const cap = Math.max(0, max0 - (from - hh)); if (scrollY > cap) scrollTo(0, cap); }
+        if (k < 1) { raf = requestAnimationFrame(step); return; }
+        if (closing) { d.open = false; d.classList.remove('hf-closing'); } stop(); };
+      raf = requestAnimationFrame(step);
     }));
     root.querySelectorAll('details.hub-folder').forEach(d => d.addEventListener('toggle', () => { open[d.dataset.k] = d.open; ls.set(OPEN, JSON.stringify(open)); if (d.open && D) tileFit(d); }));
     root.querySelectorAll('.hc-dots').forEach(b => b.onclick = e => { e.stopPropagation(); const w = b.parentElement, on = !w.classList.contains('on'); root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')); w.classList.toggle('on', on); });
