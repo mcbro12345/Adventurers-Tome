@@ -1010,7 +1010,7 @@ function refresh() {
   $$('.tile.ac').forEach(el => el.classList.toggle('boosted', !S.form && fxActive().some(e => e.buff && (N(e.buff.ac) || e.buff.acMin || e.buff.acBase) && !e.ally)));
   $$('[data-segcol]').forEach(el => el.classList.toggle('used', !!S.turn.used[el.dataset.segcol]));
   document.title = (S.name || 'Character') + ' — Character Sheet';
-  $$('input[data-fit]').forEach(fitInput);
+  nameRoom(); $$('input[data-fit]').forEach(fitInput);
   const lb = $('#lvlbox'); if (lb) lb.classList.toggle('ready', xpReady());
   histButtons();
 }

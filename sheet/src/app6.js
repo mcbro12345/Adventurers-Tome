@@ -1,5 +1,17 @@
 
 // ---------- Fields that grow to fit their text ----------
+// Phone header card: the name gets all the room up to the corner icons (however many there are), measured, so a long
+// name isn't squeezed into a box half the size it could be.
+function nameRoom() {
+  const nb = $('.namebox'); if (!nb) return;
+  if (!isMobile()) { nb.style.removeProperty('--nbpad'); return; }
+  const ic = $$('#sec-header .devbtn').filter(x => x.offsetParent); if (!ic.length) { nb.style.setProperty('--nbpad', '0px'); return; }
+  const r = nb.getBoundingClientRect(), first = Math.min(...ic.map(x => x.getBoundingClientRect().left)), t = Math.max(...ic.map(x => x.getBoundingClientRect().bottom));
+  // (only icons beside the name count: if they sit below its line, nothing is taken)
+  const pad = t <= r.top ? 0 : Math.max(0, Math.ceil(r.right - first + 8));
+  if (nb.style.getPropertyValue('--nbpad') !== pad + 'px') nb.style.setProperty('--nbpad', pad + 'px');
+}
+addEventListener('resize', () => requestAnimationFrame(() => { nameRoom(); $$('input.name[data-fit]').forEach(fitInput); }));
 function fitInput(el) {
   const min = N(el.dataset.fit) || 6, len = Math.max(String(el.value || '').length, String(el.placeholder || '').length * 0.8);
   const sz = Math.max(min, Math.ceil(len) + 1);

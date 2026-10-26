@@ -3824,3 +3824,5 @@ html.mobile .insp-dock.mini .insp-b { width: 28px; height: 30px; }
 html.mobile .insp-dock.mini .insp-go { min-width: 70px; height: 30px; padding: 1px 8px 0; }
 html.mobile .insp-dock.mini .insp-go .insp-l { font-size: .48rem; letter-spacing: .05em; }
 @media (hover: none) { html.mobile .insp-dock.mini .insp-go .il-a { opacity: 1 !important; transform: none !important; } html.mobile .insp-dock.mini .insp-go .il-b { opacity: 0 !important; } }
+/* phone: the name box is as wide as the room left of the corner icons (measured), not that minus the same again */
+html.mobile .namebox > :first-child { margin-right: 0 !important; }

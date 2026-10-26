@@ -3121,8 +3121,8 @@ html.mobile #tipbox .tipfx { width: 76px; height: 76px; }
 /* on an actual phone the layout switch is hidden: it always uses the phone layout */
 html.realphone [data-act="layout"], html.pg-inphone [data-act="layout"] { display: none !important; }
 /* …and the buttons beside it close the gap: the log takes its corner */
-html.mobile.realphone .devbtn.logbtn, html.mobile.pg-inphone .devbtn.logbtn { right: 12px; }
-html.mobile.realphone .devbtn.fsbtn, html.mobile.pg-inphone .devbtn.fsbtn { right: 48px; }
+html.mobile:is(.realphone, .nodev) .devbtn.logbtn, html.mobile.pg-inphone .devbtn.logbtn { right: 12px; }
+html.mobile:is(.realphone, .nodev) .devbtn.fsbtn, html.mobile.pg-inphone .devbtn.fsbtn { right: 48px; }
 
 /* Sheet background: the loading screen's soft glow, tinted by the sheet's own theme colours */
 @media screen {
@@ -3543,8 +3543,8 @@ html.mobile .ptyh-btns { width: 100%; } html.mobile .ptyh-btns .btn { flex: 1; t
 /* the bug-report button: on a phone it sits just right of Log in the top corner */
 html.mobile.hasbug .devbtn.bugbtn { position: absolute; top: 10px; right: 48px; }
 html.mobile.hasbug .devbtn.logbtn { right: 84px; }
-html.mobile.hasbug.realphone .devbtn.bugbtn, html.mobile.hasbug.pg-inphone .devbtn.bugbtn { right: 12px; }
-html.mobile.hasbug.realphone .devbtn.logbtn, html.mobile.hasbug.pg-inphone .devbtn.logbtn { right: 48px; }
+html.mobile.hasbug:is(.realphone, .nodev) .devbtn.bugbtn, html.mobile.hasbug.pg-inphone .devbtn.bugbtn { right: 12px; }
+html.mobile.hasbug:is(.realphone, .nodev) .devbtn.logbtn, html.mobile.hasbug.pg-inphone .devbtn.logbtn { right: 48px; }
 
 /* a message from the DM or another player */
 .ptymsg-m { width: min(560px, 100%); background: linear-gradient(180deg, var(--panel), var(--panel2)); color: var(--ink); border: 1px solid var(--gold); border-radius: 18px; padding: 0; box-shadow: 0 28px 70px rgba(0,0,0,.5), 0 0 0 4px color-mix(in srgb, var(--gold) 18%, transparent); animation: wPopIn .22s cubic-bezier(.22,.9,.24,1); overflow: hidden; }
@@ -3720,9 +3720,9 @@ html.mobile .hbb-seg:not(.pills) { width: 100%; }
 html.mobile .hbb-seg:not(.pills) button { flex: 1; justify-content: center; padding: 5px 4px; }
 /* Phone: the dice roller button sits just left of the Log button (whose spot depends on the other corner buttons) */
 html.mobile .devbtn.dicebtn { position: absolute; top: 10px; right: 84px; }
-html.mobile.realphone .devbtn.dicebtn, html.mobile.pg-inphone .devbtn.dicebtn { right: 48px; }
+html.mobile:is(.realphone, .nodev) .devbtn.dicebtn, html.mobile.pg-inphone .devbtn.dicebtn { right: 48px; }
 html.mobile.hasbug .devbtn.dicebtn { right: 120px; }
-html.mobile.hasbug.realphone .devbtn.dicebtn, html.mobile.hasbug.pg-inphone .devbtn.dicebtn { right: 84px; }
+html.mobile.hasbug:is(.realphone, .nodev) .devbtn.dicebtn, html.mobile.hasbug.pg-inphone .devbtn.dicebtn { right: 84px; }
 .smite-chk { display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel2); cursor: pointer; margin: 4px 0 6px; }
 .smite-chk input { width: 17px; height: 17px; accent-color: var(--gold); flex: none; margin: 0; }
 .smite-chk span { display: flex; flex-direction: column; min-width: 0; }
@@ -3859,12 +3859,12 @@ html.mobile .ptychat-popbtn { display: none; }
 .devbtn.chatbtn { display: none; }
 html.mobile.pchat .devbtn.chatbtn { display: inline-grid; position: absolute; top: 10px; right: 84px; }
 html.mobile.pchat .devbtn.dicebtn { right: 120px; }
-html.mobile.pchat.realphone .devbtn.chatbtn, html.mobile.pchat.pg-inphone .devbtn.chatbtn { right: 48px; }
-html.mobile.pchat.realphone .devbtn.dicebtn, html.mobile.pchat.pg-inphone .devbtn.dicebtn { right: 84px; }
+html.mobile.pchat:is(.realphone, .nodev) .devbtn.chatbtn, html.mobile.pchat.pg-inphone .devbtn.chatbtn { right: 48px; }
+html.mobile.pchat:is(.realphone, .nodev) .devbtn.dicebtn, html.mobile.pchat.pg-inphone .devbtn.dicebtn { right: 84px; }
 html.mobile.pchat.hasbug .devbtn.chatbtn { right: 120px; }
 html.mobile.pchat.hasbug .devbtn.dicebtn { right: 156px; }
-html.mobile.pchat.hasbug.realphone .devbtn.chatbtn, html.mobile.pchat.hasbug.pg-inphone .devbtn.chatbtn { right: 84px; }
-html.mobile.pchat.hasbug.realphone .devbtn.dicebtn, html.mobile.pchat.hasbug.pg-inphone .devbtn.dicebtn { right: 120px; }
+html.mobile.pchat.hasbug:is(.realphone, .nodev) .devbtn.chatbtn, html.mobile.pchat.hasbug.pg-inphone .devbtn.chatbtn { right: 84px; }
+html.mobile.pchat.hasbug:is(.realphone, .nodev) .devbtn.dicebtn, html.mobile.pchat.hasbug.pg-inphone .devbtn.dicebtn { right: 120px; }
 html.mobile.pchat .namebox { padding-right: 148px; }
 html.mobile.pchat.hasbug .namebox { padding-right: 184px; }
 .devbtn.chatbtn.unread::after { content: attr(data-unread); position: absolute; top: -5px; right: -5px; min-width: 15px; height: 15px; padding: 0 3px; box-sizing: border-box; border-radius: 8px; background: #e04848; color: #fff; font: 800 9px/15px system-ui, sans-serif; text-align: center; }
@@ -4280,8 +4280,219 @@ html.mobile #modal-body:has(#catq) { width: 100%; height: min(calc(100dvh - 24px
 /* Phones: a list or box scrolling inside the page, a window or the wizard hands the scroll on when it reaches its
    top or bottom (the page or window itself still stops at its own edge, so nothing behind it moves) */
 html.mobile :is(section.page, #modal-body, .wz-body, #wizard .wz3-main, #wizard .wz3-side) * { overscroll-behavior-y: auto !important; }
-/* the tab you click keeps its hover highlight until the sliding highlight arrives, then lets go of it */
-html:not(.mobile) #tabs .tab.on::before { opacity: 0; transition: opacity .2s ease .26s; }
-@media (prefers-reduced-motion: reduce) { html:not(.mobile) #tabs .tab.on::before { transition: none; } }
+/* the sliding highlight sits above the hover highlight (only the tabs' icons and words are above it), so the
+   hover shows on a tab only until the sliding highlight covers it */
+html:not(.mobile) #tabs .tab { z-index: auto; }
+@media (hover:hover){html:not(.mobile):not(.mobile) #tabs .tab:hover::before{ opacity: 1; }}
 html:not(.mobile) #tabs .tab.on.tkeep::before { opacity: 1; transition: none; }
+html:not(.mobile) #tabs .tabwrap { z-index: auto; }
+html:not(.mobile) #tabs .tab-ind { z-index: 1; }
+html:not(.mobile) #tabs .tab > * { z-index: 2; }
+html:not(.mobile) #tabs .tab > .tabcount { z-index: 3; }
+/* (the hover brightening goes on the tab's icon and words, not the tab itself, so it doesn't lift the tab above the sliding highlight) */
+@media (hover:hover){html:not(.mobile):not(.mobile) #tabs .tab:hover{ filter: none !important; }}
+@media (hover:hover){html:not(.mobile):not(.mobile) #tabs .tab:hover > :is(.ticon, .tlabel){ filter: brightness(1.22); }}
+
+/* ===================================================================================================================
+   The sheet in the site's look (dark theme): the same navy, cards, gold and buttons as the lobby and admin.
+   Only colours, corners, shadows and type treatment change here; no size, spacing or position does
+   (a border that disappears is made transparent, not removed, so nothing moves).
+   The character's own accent, background and banner colours (Settings → Theme) still apply.
+   =================================================================================================================== */
+:root[data-theme="dark"] { --panel: #1a2131; --panel2: #232c3d; --field: #121826; --ink: #e9e3d3; --soft: #a3acbe; --line: #2c3548; --line2: #252e40;
+  --site-edge: color-mix(in srgb, var(--gold) 22%, transparent); --site-edge2: rgba(255,255,255,.07); --site-card: rgba(26,33,49,.82); --site-btn: #242d40; --site-btn-h: #2c3750;
+  --shadow: 0 1px 2px rgba(0,0,0,.25), 0 12px 30px rgba(0,0,0,.32); }
+/* the page: the lobby's soft glow from the top */
+:root[data-theme="dark"] body { background-image: radial-gradient(ellipse 120% 80% at 50% 0%, rgba(42,56,86,.55) 0%, rgba(26,36,56,.25) 45%, transparent 80%); background-attachment: fixed; }
+/* cards: the lobby's panels (the coloured strip on top becomes a soft glow of the accent instead) */
+:root[data-theme="dark"] :is(.panel, .tile, nav.tabs) { background-color: var(--site-card); border-color: transparent; outline: 1px solid var(--site-edge); outline-offset: -1px; border-radius: 16px; box-shadow: var(--shadow); }
+:root[data-theme="dark"] .panel { background-image: linear-gradient(180deg, color-mix(in srgb, var(--gold) 9%, transparent), transparent 56px); }
+:root[data-theme="dark"] .tile.ac { background: linear-gradient(180deg, color-mix(in srgb, var(--gold) 16%, transparent), var(--site-card) 75%); outline-color: color-mix(in srgb, var(--gold) 55%, transparent); }
+/* panel titles: the lobby's gold, in the spaced capitals of its wordmark (same letters and size, so nothing moves) */
+:root[data-theme="dark"] :is(.panel > h2, .ph) { color: var(--gold-ink); }
+:root[data-theme="dark"] :is(.ph, .panel > h2)::before { border-radius: 2px; opacity: .85; }
+/* small labels on the tiles: quiet grey like the lobby's captions */
+:root[data-theme="dark"] .tile .lbl { color: var(--soft); }
+/* buttons: the lobby's rounded, borderless buttons */
+:root[data-theme="dark"] .btn { background-color: var(--site-btn); border-color: transparent; border-radius: 11px; color: var(--ink); }
+@media (hover:hover){:root[data-theme="dark"]:not(.mobile) .btn:not([disabled]):hover{ background-color: var(--site-btn-h); filter: none; }}
+:root[data-theme="dark"] .btn.gold { background-color: var(--gold); border-color: transparent; color: var(--on-gold, #1b1406); }
+@media (hover:hover){:root[data-theme="dark"]:not(.mobile) .btn.gold:not([disabled]):hover{ background-color: color-mix(in srgb, var(--gold) 88%, white); }}
+:root[data-theme="dark"] .btn.ghost { background-color: rgba(255,255,255,.04); }
+:root[data-theme="dark"] .tmanage { background: rgba(255,255,255,.05); border-color: transparent; color: var(--soft); }
+@media (hover:hover){:root[data-theme="dark"]:not(.mobile) .tmanage:hover{ background: var(--site-btn-h); color: var(--ink); }}
+/* chips and fields */
+:root[data-theme="dark"] .tag { background: rgba(255,255,255,.04); border-color: var(--site-edge2); }
+:root[data-theme="dark"] select.f { background-color: var(--field); border-color: var(--site-edge2); border-radius: 10px; }
+:root[data-theme="dark"] :is(select.f, input.f, textarea.f):focus { border-color: color-mix(in srgb, var(--gold) 55%, transparent); }
+/* the banner keeps the character's colours; its edge is the lobby's soft gold line */
+:root[data-theme="dark"] header.banner { border-bottom-color: color-mix(in srgb, var(--gold) 35%, transparent); box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+/* the banner's toolbar buttons: the lobby's dark rounded buttons */
+:root[data-theme="dark"] .tbtn:not(.gold) { background: rgba(36,45,64,.85); border-color: transparent; border-radius: 11px; }
+@media (hover:hover){:root[data-theme="dark"]:not(.mobile) .tbtn:not(.gold):not([disabled]):hover{ background: var(--site-btn-h); filter: none; }}
+:root[data-theme="dark"] .tbtn.gold { border-color: transparent; border-radius: 11px; color: var(--on-gold, #1b1406); }
+/* round toggles and boxes inside cards (ability scores, saves and the like): the lobby's soft tiles */
+:root[data-theme="dark"] .panel .tile { background-color: rgba(255,255,255,.035); outline-color: var(--site-edge2); box-shadow: none; }
+:root[data-theme="dark"] .panel .ab { background-color: rgba(255,255,255,.035); border-color: var(--site-edge2); border-radius: 14px; }
+/* (Edit layout still shows its dashed outline around each panel) */
+:root[data-theme="dark"] body.editing [data-pid] { outline: 2px dashed color-mix(in srgb, var(--gold) 70%, transparent); outline-offset: 2px; }
+/* phones: Advantage and Disadvantage stay on the Conditions line (a little tighter when the box is narrow) */
+@container (max-width: 420px) { html.mobile .condtile .advb { padding: 5px 9px; font-size: .74rem; } html.mobile .condtile .advbtns { gap: 3px; } html.mobile .condtile .tilehead { column-gap: 5px; } }
+@container (max-width: 340px) { html.mobile .condtile .advb { padding: 5px 7px; font-size: .7rem; } }
+/* The top bar: the lobby's header card. The character's banner colour tints the card instead of filling the whole
+   strip, so the page's glow shows around it like in the lobby. (Drawn behind the bar's contents, which don't move.) */
+:root[data-theme="dark"] header.banner { position: relative; isolation: isolate; background: transparent; border-bottom-color: transparent; box-shadow: none; }
+/* (on a computer the card hugs the bar's contents instead of running the full width of a wide window) */
+:root[data-theme="dark"]:not(.mobile) header.banner > .wrap::before { content: ''; position: absolute; z-index: -1; top: 4px; bottom: 6px; left: max(2px, calc(10px - (100vw - 100%) / 2)); right: max(2px, calc(10px - (100vw - 100%) / 2)); border-radius: 20px; pointer-events: none;
+  background: radial-gradient(90% 160% at 20% 0%, color-mix(in srgb, var(--navy) 70%, rgba(40,52,78,.9)) 0%, color-mix(in srgb, var(--navy) 45%, rgba(24,31,47,.92)) 60%, rgba(20,26,40,.92) 100%);
+  border: 1px solid color-mix(in srgb, var(--gold) 30%, transparent); box-shadow: 0 12px 30px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.05); }
+:root[data-theme="dark"].mobile header.banner::before { content: ''; position: absolute; z-index: -1; inset: 4px 12px 6px; border-radius: 20px; pointer-events: none;
+  background: radial-gradient(90% 160% at 20% 0%, color-mix(in srgb, var(--navy) 70%, rgba(40,52,78,.9)) 0%, color-mix(in srgb, var(--navy) 45%, rgba(24,31,47,.92)) 60%, rgba(20,26,40,.92) 100%);
+  border: 1px solid color-mix(in srgb, var(--gold) 30%, transparent); box-shadow: 0 12px 30px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.05); }
+:root[data-theme="dark"].mobile header.banner::before { inset: 3px 4px 6px; border-radius: 18px; }
+/* inside it: the level box and portrait in the lobby's tile style, and a calmer underline on the name */
+:root[data-theme="dark"] header.banner .lvlbox { background: rgba(255,255,255,.04); border-color: color-mix(in srgb, var(--gold) 22%, transparent); border-radius: 14px; }
+:root[data-theme="dark"] header.banner .portrait-wrap { box-shadow: 0 0 0 3px rgba(255,255,255,.06), 0 5px 12px rgba(0,0,0,.3); }
+:root[data-theme="dark"] header.banner .namebox input.f.name { border-bottom-color: transparent; }
+@media (hover:hover){:root[data-theme="dark"]:not(.mobile) header.banner .namebox input.f.name:is(:hover, :focus){ border-bottom-color: color-mix(in srgb, var(--gold) 45%, transparent); }}
+/* with the top bar as a card: a little more room inside it when it's the short version (no Player / Race /
+   Background row), and less empty space between it and the sheet */
+:root[data-theme="dark"]:not(.mobile) .banner .wrap:has(.ident.noid) { padding-top: 15px; padding-bottom: 17px; }
+:root[data-theme="dark"]:not(.mobile) header.banner > .wrap::before { bottom: 4px; }
+:root[data-theme="dark"]:not(.mobile) main.wrap > section.vitals:first-child { margin-top: 6px; }
+:root[data-theme="dark"].mobile main.wrap > section.vitals:first-child { margin-top: 4px; }
+/* the small icon buttons (dice, chat, notes, phone view, bug report) sit against the right edge of the top bar */
+html:not(.mobile) .toolbar > :not(.devbtn) + .devbtn { margin-left: auto; }
+/* phones (dark): no second background behind the top bar card */
+:root[data-theme="dark"].mobile header.banner { background: transparent !important; }
+/* phones: Player / Race / Background as a tidy little card of rows (label on the left, value on the right) */
+html.mobile .ident:not(.noid) .ident-grid:not(:empty) { display: flex; flex-direction: column; gap: 0; margin-top: 2px; border-radius: 14px; background: rgba(255,255,255,.04); border: 1px solid color-mix(in srgb, var(--gold) 22%, transparent); overflow: hidden; margin-bottom: 4px; }
+html.mobile .ident-grid .fld { flex: none !important; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 12px; }
+html.mobile .ident-grid .fld + .fld { border-top: 1px solid color-mix(in srgb, var(--gold) 14%, transparent); }
+html.mobile .ident-grid .fld .lbl { margin: 0; flex: none; }
+html.mobile .ident-grid .fld :is(.identtxt, .f) { flex: 1 1 auto; min-width: 0; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0; }
+/* The tab bar (computers): a slim capsule; the open tab is a solid pill in the character's colour that slides across */
+html:not(.mobile) #tabs { border-radius: 999px !important; padding: 4px; }
+html:not(.mobile) #tabs .tab { flex-direction: row; justify-content: center; gap: 7px; padding: 6px 10px; font-size: .8rem; border-radius: 999px; }
+html:not(.mobile) #tabs .ticon, html:not(.mobile) #tabs .ticon svg { width: 17px; height: 17px; }
+html:not(.mobile) #tabs .tab-ind { background: var(--gold) !important; box-shadow: 0 4px 14px color-mix(in srgb, var(--gold) 35%, transparent) !important; border-radius: 999px !important; }
+html:not(.mobile) #tabs .tab.on { color: var(--on-gold, #1b1406) !important; }
+html:not(.mobile) #tabs .tab::before { border-radius: 999px !important; inset: 0 !important; }
+/* The top bar stays put on a computer while the sheet scrolls under it. Its drop shadow only shows once something is
+   actually underneath (fading in), and a strip of page backdrop behind it hides what scrolls past around its corners. */
+html:not(.mobile) header.banner { position: sticky !important; top: 0; z-index: 40; }
+html:not(.mobile) header.banner { transition: box-shadow .25s ease; }
+html:not(.mobile):not([data-theme="dark"]).hd-stuck header.banner { box-shadow: 0 10px 26px rgba(0,0,0,.22); }
+:root[data-theme="dark"]:not(.mobile) header.banner > .wrap::before { box-shadow: 0 12px 30px rgba(0,0,0,0), inset 0 1px 0 rgba(255,255,255,.05); transition: box-shadow .25s ease; }
+:root[data-theme="dark"]:not(.mobile).hd-stuck header.banner > .wrap::before { box-shadow: 0 14px 34px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.05); }
+/* (the page's glow is drawn here at the window's size rather than as a fixed background: a fixed background inside a bar
+   that stays put is redrawn on every scroll, which made its shadow flicker) */
+:root[data-theme="dark"]:not(.mobile) header.banner::before { content: ''; position: absolute; inset: 0 0 -14px; z-index: -2; pointer-events: none; opacity: 0; transition: opacity .25s ease;
+  background: radial-gradient(ellipse 120% 80% at 50% 0%, rgba(42,56,86,.55) 0%, rgba(26,36,56,.25) 45%, transparent 80%) center top / 100% 100vh no-repeat, var(--bg);
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent); }
+:root[data-theme="dark"]:not(.mobile).hd-stuck header.banner::before { opacity: 1; }
+/* (things that stick to the top of the page themselves sit just under the bar) */
+html:not(.mobile) body.editing .tabs { top: var(--hd-h, 0px); }
+html:not(.mobile) { scroll-padding-top: var(--hd-h, 0px); }
+@media (prefers-reduced-motion: reduce) { html:not(.mobile) header.banner, html:not(.mobile) header.banner::before, html:not(.mobile) header.banner > .wrap::before { transition: none !important; } }
+/* the window being replaced, fading out where it was (see the swap in openModal) */
+.modal-bg > .modal.mghost, .modal-bg.open > .modal.mghost, html.mobile .modal-bg.open > .modal.mghost { pointer-events: none; z-index: 0; animation: wPopOut .17s ease forwards !important; overflow: hidden !important; }
+html.mobile .modal-bg > .modal.mghost, html.mobile .modal-bg.open > .modal.mghost { animation-name: wFadeOut !important; }
+.modal-bg > .modal:not(.mghost) { z-index: 1; }
+/* a question or message from the party: the card pops in, and the whole thing fades out when answered */
+.ptyask-bg > :first-child { animation: wPopIn .26s ease; }
+.ptyask-bg.closing { pointer-events: none; animation: wFadeOut .18s ease forwards; }
+.ptyask-bg.closing > :first-child { animation: wPopOut .18s ease forwards; }
+@media (prefers-reduced-motion: reduce) { .ptyask-bg, .ptyask-bg > :first-child { animation: none !important; } }
+/* the tab names sit on the pill's middle by their capital letters, not by the line box (which leaves them a pixel high) */
+html:not(.mobile) #tabs .tlabel { position: relative; top: 1px; }
+html:not(.mobile) .namebox .subtitle.sub2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+html:not(.mobile) #sec-header:has(.ident.noid) .portrait-wrap { width: var(--pwf, 148px); height: var(--pwf, 148px); }
+/* scroll edges in pop-up windows' lists (as in character creation): a line and a soft shadow wherever there's more */
+#modal-body .wz3-sc { position: relative; }
+#modal-body .wz3-sc::before, #modal-body .wz3-sc::after { content: ''; position: absolute; left: 0; right: 0; height: 18px; z-index: 2; pointer-events: none; opacity: 0; }
+#modal-body .wz3-sc::before { top: 0; border-top: 1px solid var(--wc-edge, var(--line)); background: linear-gradient(to bottom, rgba(0,0,0,.45), transparent); }
+#modal-body .wz3-sc::after { bottom: 0; border-bottom: 1px solid var(--wc-edge, var(--line)); background: linear-gradient(to top, rgba(0,0,0,.45), transparent); }
+#modal-body .wz3-sc.top::before, #modal-body .wz3-sc.bot::after { opacity: 1; }
+#modal-body .wz3-sc:has(> .wz3-list)::before { border-radius: 12px 12px 0 0; } #modal-body .wz3-sc:has(> .wz3-list)::after { border-radius: 0 0 12px 12px; }
+:root:not([data-theme="dark"]) #modal-body .wz3-sc::before { background: linear-gradient(to bottom, rgba(60,40,10,.14), transparent); }
+:root:not([data-theme="dark"]) #modal-body .wz3-sc::after { background: linear-gradient(to top, rgba(60,40,10,.14), transparent); }
+/* (a window's opening fade holds its first frame until it actually starts, so it can never flash up fully drawn first) */
+.modal-bg.open, .modal-bg.open > .modal, .wizard.open, #tipbox.on, .ptyask-bg, .ptyask-bg > :first-child { animation-fill-mode: backwards; }
+
+/* (list edges ease in and out only once the list is on screen) */
+.wz3-sc.ready::before, .wz3-sc.ready::after { transition: opacity .2s; }
+/* Sheet tabs (computer): sized by their names, so long names get the room short ones don't need; tightened, then without
+   icons, when they still don't fit */
+html:not(.mobile) #tabs .tabwrap { flex: 1 1 auto; }
+html:not(.mobile) #tabs.tabs-tight .tab { gap: 5px; padding-left: 6px; padding-right: 6px; font-size: .76rem; }
+html:not(.mobile) #tabs.tabs-tight { padding-left: 3px; padding-right: 3px; }
+html:not(.mobile) #tabs.tabs-noicon .ticon { display: none; }
+/* Computer pop-up windows: the Cancel / OK row stays in view at the bottom of a long window (as on phones) */
+html.mwin :is(#modal-body, #modal-body > div) > .actions:last-child:not(.mw-hid) { position: sticky; bottom: -18px; z-index: 4; margin: 14px -20px -18px; padding: 12px 20px 16px; background: var(--panel); border-top: 1px solid var(--line); }
+/* Phone layout top bar: the card lines up with the cards below it (same side margins) and starts under the Adventurer's
+   Tome button instead of running behind it; the save note stays on one line */
+:root[data-theme="dark"].mobile.pg-sheetpage header.banner::before { top: calc(36px + env(safe-area-inset-top, 0px)); left: 12px; right: 12px; }
+html.mobile.pg-sheetpage header.banner > .wrap { padding: 14px 22px 14px; }
+html.mobile.pg-sheetpage #sec-header .devbtn { top: 12px !important; }
+html.mobile.pg-sheetpage .toolbar .devbtn { margin-right: 10px; }
+html.mobile .toolbar .save-state { white-space: nowrap; }
+@media (min-width: 520px) { html.mobile .save-state .sstime { display: inline; padding-left: .35em; } html.mobile .toolbar > .savegrp .save-state { max-width: none; } }
+/* (narrow rest buttons drop their icons rather than spill out of the button; a narrow Conditions card keeps
+   Advantage / Disadvantage on its title line) */
+@container (max-width: 180px) { .tile.hp .btn.rest svg, .tile.hp .btn.rest .ri { display: none !important; } .tile.hp .btn.rest { font-size: .76rem; padding-left: 4px; padding-right: 4px; } }
+@container (max-width: 380px) { html:not(.mobile) .condtile .advb { padding: 2px 7px; font-size: .66rem; } html:not(.mobile) .condtile .advbtns { gap: 3px; } html:not(.mobile) .condtile .tilehead { column-gap: 6px; } html:not(.mobile) .condtile .tilehead .lbl { letter-spacing: .04em; } }
+/* Settings rows: anything on the right (a note like "at level 2", a list) sits at the right edge, and the lists are one width */
+.setrow > span:not(:first-child) { flex: none; text-align: right; color: var(--soft); font-size: .85rem; }
+html:not(.mobile) .setrow select.f { width: 200px; max-width: 55%; }
+/* History's quick undo chips wrap under each other, not under the "Quick:" label */
+.rb.rbq { display: flex; align-items: flex-start; gap: 8px; } .rb.rbq > .hint { flex: none; padding-top: 4px; } .rbchips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+/* the line under the name never leaves one word on its own line */
+.namebox .subtitle { text-wrap: pretty; }
+/* empty companions note spans the row instead of one card slot */
+.comps > .panel:only-child { grid-column: 1 / -1; max-width: none; }
+/* phone: the HP ring is big, so the number inside it is too */
+html.mobile .tile.hp .hp-center .f.cur { font-size: 2.2rem !important; width: 86px !important; line-height: 1.05; }
+html.mobile .tile.hp .hp-center .hp-max { font-size: .85rem; }
+/* phone: room under the last card so the floating section pill never sits on top of it */
+html.mtabs body { padding-bottom: max(84px, calc(env(safe-area-inset-bottom) + 76px)) !important; }
+/* phone pop-ups: Level Up's title matches every other pop-up title */
+html.mobile #modal-body .lvx > h3, html.mobile #pendm > h3 { font: 700 1.2rem/1.25 Arial, Helvetica, sans-serif; color: var(--ink, #e9e3d3); margin-bottom: 4px; }
+/* Metamagic: the same breathing room below it as the strip above (it was pressed against the action cards) */
+.panel.mmpanel { margin-bottom: 12px; }
+/* ===== Inspiration in the top bar's right corner (site, computer) ===== */
+html:not(.mobile) .ident-top .toolbar:has(> .insp-dock) { position: relative; }
+html:not(.mobile) .ident-top .toolbar > .insp-dock { position: absolute; right: 0; top: 0; left: auto; bottom: auto; transform: none; height: 34px; box-sizing: border-box; padding: 2px; gap: 2px; box-shadow: none; z-index: 2; }
+html:not(.mobile) .ident-top .toolbar:has(> .insp-dock) > .pg-hubrow { padding-right: var(--insp-w, 160px); box-sizing: border-box; }
+.insp-dock .insp-b { width: 24px; height: 24px; }
+/* the number is a real button: filled, outlined, and it says Use when you point at it */
+.insp-dock .insp-go { all: unset; box-sizing: border-box; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 88px; height: 28px; padding: 1px 10px 0; border-radius: 999px; line-height: 1;
+  background: color-mix(in srgb, var(--gold) 22%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 60%, transparent), 0 1px 0 rgba(255,255,255,.06) inset; transition: background .15s, box-shadow .15s, transform .1s; }
+.insp-dock .insp-go .insp-n { font-size: .92rem; font-weight: 800; color: var(--gold-ink); }
+.insp-dock .insp-go .insp-l { position: relative; display: block; height: 9px; margin-top: 1px; font-size: .52rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; color: var(--gold-ink); opacity: .85; }
+.insp-dock .insp-go .insp-l > span { display: block; text-align: center; transition: opacity .15s, transform .15s; }
+.insp-dock .insp-go .il-b { position: absolute; inset: 0; opacity: 0; transform: translateY(3px); }
+ .insp-dock .insp-go:focus-visible { background: var(--gold); box-shadow: 0 2px 10px color-mix(in srgb, var(--gold) 45%, transparent); }@media (hover:hover){:where(html:not(.mobile)) .insp-dock .insp-go:not([disabled]):hover{ background: var(--gold); box-shadow: 0 2px 10px color-mix(in srgb, var(--gold) 45%, transparent); }}
+ .insp-dock .insp-go:focus-visible :is(.insp-n, .insp-l) { color: #10141c; opacity: 1; }@media (hover:hover){:where(html:not(.mobile)) .insp-dock .insp-go:not([disabled]):hover :is(.insp-n, .insp-l){ color: #10141c; opacity: 1; }}
+ .insp-dock .insp-go:focus-visible .il-a { opacity: 0; transform: translateY(-3px); }@media (hover:hover){:where(html:not(.mobile)) .insp-dock .insp-go:not([disabled]):hover .il-a{ opacity: 0; transform: translateY(-3px); }}
+ .insp-dock .insp-go:focus-visible .il-b { opacity: 1; transform: none; }@media (hover:hover){:where(html:not(.mobile)) .insp-dock .insp-go:not([disabled]):hover .il-b{ opacity: 1; transform: none; }}
+.insp-dock .insp-go:not([disabled]):active { transform: scale(.96); }
+.insp-dock .insp-go[disabled] { cursor: default; background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--soft, #8a93a6) 35%, transparent); }
+.insp-dock .insp-go[disabled] :is(.insp-n, .insp-l) { color: var(--soft, #8a93a6); }
+/* no room beside the Tome button: just − number + (the number still says Use when you point at it) */
+.insp-dock.tight .insp-go { min-width: 40px; padding: 0 8px; }
+.insp-dock.tight .insp-go .il-a { display: none; }
+.insp-dock.tight .insp-go .insp-l { height: 0; margin: 0; }
+.insp-dock.tight .insp-go .il-b { inset: auto 0 -2px; }
+@media (hover:hover){:where(html:not(.mobile)) .insp-dock.tight .insp-go:not([disabled]):hover .insp-n{ display: none; }}
+@media (hover:hover){:where(html:not(.mobile)) .insp-dock.tight .insp-go:not([disabled]):hover .insp-l{ height: auto; }}
+@media (hover:hover){:where(html:not(.mobile)) .insp-dock.tight .insp-go:not([disabled]):hover .il-b{ position: static; font-size: .62rem; }}
+/* phone: the same pill in the header card */
+html.mobile .insp-dock.mini { padding: 2px; gap: 0; height: 36px; box-sizing: border-box; margin-right: 34px; }
+html.mobile .insp-dock.mini .insp-b { width: 28px; height: 30px; }
+html.mobile .insp-dock.mini .insp-go { min-width: 70px; height: 30px; padding: 1px 8px 0; }
+html.mobile .insp-dock.mini .insp-go .insp-l { font-size: .48rem; letter-spacing: .05em; }
+@media (hover: none) { html.mobile .insp-dock.mini .insp-go .il-a { opacity: 1 !important; transform: none !important; } html.mobile .insp-dock.mini .insp-go .il-b { opacity: 0 !important; } }
+/* phone: the name box is as wide as the room left of the corner icons (measured), not that minus the same again */
+html.mobile .namebox > :first-child { margin-right: 0 !important; }
 
