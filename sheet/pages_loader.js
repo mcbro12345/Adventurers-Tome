@@ -681,6 +681,8 @@ function rollDie(root) {
   anim.finished.then(land, land);
 }
 // Touchscreens (no mouse to hover with): hover effects are switched off so nothing lights up by itself; taps get their own feedback.
+// A phone or tablet (touch, no mouse), as opposed to a computer: the admin Users list shows which they're online on.
+function pgIsPhone() { try { return document.documentElement.classList.contains('mobile') || (matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches); } catch (e) { return false; } }
 const TOUCH = (() => { try { return matchMedia('(hover: none)').matches; } catch (e) { return false; } })();
 function noHover() {
   const split = sel => { const out = []; let d = 0, cur = ''; for (const ch of sel) { if (ch === '(') d++; if (ch === ')') d--; if (ch === ',' && !d) { out.push(cur); cur = ''; } else cur += ch; } out.push(cur); return out; };
@@ -932,10 +934,15 @@ function wireDie(root) {
     // seenFg: the last heartbeat from a page that was on screen (the admin Users list shows "background tab" when only hidden tabs are beating).
     // Written separately, so seenAt keeps working even before the database rules allow seenFg.
     window.pgFgAt = (ME && ME.seenFg) || 0;
+    // The Roll20 companion extension says hello to sheet pages: note on their record that they have it (and which
+    // version), at most once a day, so the admin Users list can show who's installed it. Nothing is sent to the extension.
+    addEventListener('message', e => { if (e.source !== window || !ME) return; const d = e.data; if (!d || d.__dnd20 !== 'hi' || d.dir !== 'toSheet') return;
+      const v = String(d.version || 'yes').slice(0, 20); if (v === 'mock' || (ME.ext === v && Date.now() - (ME.extAt || 0) < 864e5)) return;
+      ME.ext = v; ME.extAt = Date.now(); UREF.update({ ext: v, extAt: ME.extAt }).catch(() => {}); });
     window.pgBeat = (force) => { if (!ME) return; const now = Date.now(), last = window.pgSeenAt || 0, fg = !document.hidden, fgPrev = window.pgFgAt || 0;
       if (fg && (force || now - (window.pgFgAt || 0) >= 100000)) { window.pgFgAt = now; UREF.update({ seenFg: now }).catch(() => {}); }
       if (!force && now - last < 100000) return;
-      const away = !last || now - last > 4 * 60000, first = firstBeat; firstBeat = false; window.pgSeenAt = now; UREF.update({ seenAt: now }).catch(() => {});
+      const away = !last || now - last > 4 * 60000, first = firstBeat; firstBeat = false; window.pgSeenAt = now; UREF.update({ seenAt: now }).catch(() => {}); UREF.update({ [pgIsPhone() ? 'seenPhone' : 'seenPc']: now }).catch(() => {});
       // …and the time before, when they went offline: logged now if nothing logged it then (a computer that went to sleep
       // or lost its connection can't say so). How: a close this device noticed, else what their last heartbeat looked like.
       if (away && !NEWACCT && last && window.pgLogOff) { let mk = null; try { mk = JSON.parse(lsGet('pg-off:' + EMAIL) || 'null'); } catch (e) {}
@@ -2367,7 +2374,7 @@ function hub(fs, auth, G, ctx) {
     const ownerEm = em => OWNERS.has(em) || !!((US[em] || {}).owner), seeOwners = list => list.forEach(u => { if (u && u.owner) OWNERS.add(u.id); });
     const quietP = cfgCol.doc('quiet').get().then(d => { QUIET = new Set(((d.exists && d.data().emails) || []).map(x => String(x).toLowerCase())); }, () => {});
     quietP.then(() => { if (TAB === 'users') paintUsers(); });
-    const UF0 = { role: '', act: '', joined: '' };
+    const UF0 = { role: '', act: '', joined: '', ext: '' };
     const T0 = ctx.tab === 'characters' ? 'chars' : ctx.tab; let TAB = ['users', 'chars', 'parties', 'new', 'audit', 'bugs', 'notice', 'welcome', 'news'].includes(T0) ? T0 : 'users'; if (T0 === 'admins') UF0.role = 'admin';
     const CH = {}, US = {}; // characters and accounts on screen
     let NEWN = null, BUGN = 0;
@@ -2618,15 +2625,62 @@ function hub(fs, auth, G, ctx) {
     // after going offline and coming back.
     const ONR = window.PG_ONRANK || (window.PG_ONRANK = { n: 0, r: {} });
     const onRank = u => { if (!isOn(u)) { delete ONR.r[u.id]; return 0; } if (ONR.r[u.id] == null) ONR.r[u.id] = ++ONR.n; return ONR.r[u.id]; };
-    const fsel = (id, label, opts, val) => `<label class="adm-fsel${val ? ' on' : ''}"><span>${label}</span><select id="${id}">${opts.map(([v, t]) => `<option value="${v}"${v === val ? ' selected' : ''}>${t}</option>`).join('')}</select></label>`;
+    // Filter dropdowns: a pill ("Role", or "Role: Admins ×" once set) that opens a panel with a search box (for long
+    // lists), a checklist and "Clear selection". The real <select> stays hidden underneath and gets the changes, so each
+    // filter's own handler works as before. o.multi: pick several. Options are [value, label]: '' is "no filter" (not
+    // listed), 'g:Name' starts a group, and o.solo values can't be picked along with the others.
+    const DD_X = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg>';
+    const DD_V = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+    const DD_CB = on => `<span class="au-cb${on ? ' on' : ''}" aria-hidden="true">${on ? '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : ''}</span>`;
+    const fsel = (id, label, opts, val, o = {}) => { const vals = (Array.isArray(val) ? val : [val]).filter(v => v !== '' && v != null);
+      return `<div class="adm-fsel au-pw dd${vals.length ? ' on' : ''}"><button type="button" class="dd-b" aria-haspopup="listbox" aria-expanded="false"><span class="dd-l">${label}</span></button><select id="${id}" hidden${o.multi ? ' multiple' : ''} data-label="${label}">${o.multi ? '' : `<option value=""${vals.length ? '' : ' selected'}></option>`}${opts.filter(([v]) => v !== '').map(([v, t]) => `<option value="${v}"${String(v).startsWith('g:') ? ' data-g disabled' : ''}${(o.solo || []).includes(v) ? ' data-solo' : ''}${vals.includes(v) ? ' selected' : ''}>${t}</option>`).join('')}</select></div>`; };
+    // Long lists draw the first rows only (a table of a thousand rows makes every filter click stall), with a button for more.
+    const SHOWN = {}, capR = (k, rows) => rows.slice(0, SHOWN[k] || 150), moreR = (k, rows) => rows.length > (SHOWN[k] || 150) ? `<button class="adm-btn adm-more" data-more="${k}">Show more <span class="adm-dim">(${(rows.length - (SHOWN[k] || 150)).toLocaleString()} left)</span></button>` : '';
+    root.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-more]'); if (!b) return; const k = b.dataset.more; SHOWN[k] = (SHOWN[k] || 150) + 300; ({ au: () => paintAudit(), us: () => paintUsers(), ch: () => paintChars(), pt: () => window.__admPaintParties && window.__admPaintParties() })[k](); });
+    const ddVals = sl => [...sl.options].filter(x => x.selected && x.dataset.g == null && x.value !== '').map(x => x.value);
+    const ddPill = w => { const sl = w.querySelector('select'), b = w.querySelector('.dd-b'), on = [...sl.options].filter(x => x.selected && x.dataset.g == null && x.value !== '');
+      w.classList.toggle('on', !!on.length);
+      b.innerHTML = `<span class="dd-l">${esc(sl.dataset.label)}${on.length ? ':' : ''}</span>${on.length ? `<b>${esc(on[0].textContent.trim())}${on.length > 1 ? ` +${on.length - 1}` : ''}</b><span class="dd-x" role="button" aria-label="Clear ${esc(sl.dataset.label)}" title="Clear">${DD_X}</span>` : `<span class="dd-c">${DD_V}</span>`}`; };
+    const ddFire = sl => { Object.keys(SHOWN).forEach(k => delete SHOWN[k]); sl.dispatchEvent(new Event('change')); };
+    function ddClose() { document.querySelectorAll('.adm-filters.dd-up').forEach(x => x.classList.remove('dd-up')); document.querySelectorAll('.dd .au-pop').forEach(p => { const w = p.closest('.dd'); p.remove(); if (w) { w.classList.remove('open'); w.querySelector('.dd-b').setAttribute('aria-expanded', 'false'); } }); }
+    function ddOpen(w) { ddClose(); const sl = w.querySelector('select'), multi = sl.multiple, opts = [...sl.options].filter(x => x.value !== ''), items = opts.filter(x => x.dataset.g == null);
+      const pop = document.createElement('div'); pop.className = 'au-pop dd-pop'; pop.setAttribute('role', 'listbox'); if (multi) pop.setAttribute('aria-multiselectable', 'true');
+      pop.innerHTML = `${items.length > 6 ? `<div class="au-psearch"><input placeholder="Search" autocomplete="off" aria-label="Search ${esc(sl.dataset.label)}">${svg('search', 15)}</div>` : ''}<div class="au-opts"></div><div class="au-pfoot"><button class="au-plink" data-x>Clear selection</button><span class="adm-dim"></span></div>`;
+      w.appendChild(pop); w.classList.add('open'); { const fl = w.closest('.adm-filters'); if (fl) fl.classList.add('dd-up'); } w.querySelector('.dd-b').setAttribute('aria-expanded', 'true');
+      if (getComputedStyle(pop).position === 'absolute' && pop.getBoundingClientRect().right > innerWidth - 8) pop.classList.add('dd-right'); // (keep it on the screen)
+      const list = pop.querySelector('.au-opts'), inp = pop.querySelector('input'), cnt = pop.querySelector('.au-pfoot .adm-dim'), clr = pop.querySelector('[data-x]');
+      const groupOf = g => { const r = []; for (let i = opts.indexOf(g) + 1; i < opts.length && opts[i].dataset.g == null; i++) r.push(opts[i]); return r; };
+      const headOf = x => { for (let i = opts.indexOf(x) - 1; i >= 0; i--) if (opts[i].dataset.g != null) return opts[i]; return null; };
+      const changed = () => { ddPill(w); ddFire(sl); draw(); };
+      const draw = () => { const f = inp ? inp.value.trim().toLowerCase() : '', has = x => x && x.textContent.toLowerCase().includes(f), hit = x => !f || has(x) || has(headOf(x)); let html = '', shown = 0;
+        opts.forEach((x, i) => { if (x.dataset.g != null) { if (!groupOf(x).some(hit)) return; const all = groupOf(x).every(k => k.selected);
+            html += `<div class="au-pg"><span>${esc(x.textContent.trim())}</span>${multi ? `<button class="au-plink" data-grp="${i}">${all ? 'None' : 'All'}</button>` : ''}</div>`; return; }
+          if (!hit(x)) return; shown++; html += `<button class="au-opt${x.dataset.solo != null ? ' dd-solo' : ''}" role="option" aria-selected="${x.selected}" data-i="${i}">${DD_CB(x.selected)}<span class="au-ot"><span>${esc(x.textContent.trim())}</span></span></button>`; });
+        list.innerHTML = html || `<p class="au-none">Nothing matches “${esc(inp ? inp.value : '')}”.</p>`;
+        cnt.textContent = shown + ' of ' + items.length; clr.disabled = !ddVals(sl).length;
+        list.querySelectorAll('[data-i]').forEach(b => b.onclick = e => { e.stopPropagation(); const x = opts[+b.dataset.i];
+          if (!multi) { const was = x.selected; opts.forEach(y => { y.selected = false; }); x.selected = !was; ddPill(w); ddClose(); ddFire(sl); w.querySelector('.dd-b').focus(); return; }
+          x.selected = !x.selected; if (x.selected) opts.forEach(y => { if (y !== x && (x.dataset.solo != null || y.dataset.solo != null)) y.selected = false; }); changed(); });
+        list.querySelectorAll('[data-grp]').forEach(b => b.onclick = e => { e.stopPropagation(); const kids = groupOf(opts[+b.dataset.grp]), all = kids.every(k => k.selected); kids.forEach(k => { k.selected = !all; }); if (!all) opts.forEach(y => { if (y.dataset.solo != null) y.selected = false; }); changed(); }); };
+      clr.onclick = e => { e.stopPropagation(); opts.forEach(y => { y.selected = false; }); changed(); if (!multi) ddClose(); };
+      if (inp) { inp.oninput = draw; if (!TOUCH) inp.focus(); }
+      pop.addEventListener('click', e => e.stopPropagation()); draw(); }
+    // (each pill gets its look as it lands on the page)
+    new MutationObserver(() => root.querySelectorAll('.dd:not([data-p])').forEach(w => { w.dataset.p = 1; ddPill(w); })).observe(root, { childList: true, subtree: true });
+    root.addEventListener('click', e => { const w = e.target.closest && e.target.closest('.dd'); if (!w || e.target.closest('.au-pop')) return;
+      if (e.target.closest('.dd-x')) { e.stopPropagation(); const sl = w.querySelector('select'); [...sl.options].forEach(y => { y.selected = false; }); ddClose(); ddPill(w); ddFire(sl); return; }
+      if (e.target.closest('.dd-b')) { e.stopPropagation(); if (w.querySelector('.au-pop')) ddClose(); else ddOpen(w); } });
+    document.addEventListener('click', e => { if (!e.target.closest || !e.target.closest('.dd')) ddClose(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.querySelector('.dd .au-pop')) { const w = document.querySelector('.dd.open'); ddClose(); if (w) w.querySelector('.dd-b').focus(); } });
     async function tabUsers() {
       const el = B(); HA().innerHTML = '';
       el.innerHTML = `<div class="adm-filters">${toolbar('ad-uq', 'Search by name or email', UQ)}<div class="adm-fsels">
           ${fsel('uf-role', 'Role', [['', 'Anyone'], ['owner', 'Owner'], ['admin', 'Admins'], ['member', 'Members'], ['blocked', 'Blocked']], UF.role)}
           ${fsel('uf-act', 'Active', [['', 'Any time'], ['on', 'Online'], ['1', 'Today'], ['7', 'This week'], ['30', 'This month'], ['old', 'Not in 30+ days']], UF.act)}
-          ${fsel('uf-join', 'Joined', [['', 'Any time'], ['7', 'Past week'], ['30', 'Past month']], UF.joined)}</div></div><div id="ad-ul"><div class="sk-auto" data-k="adm-users-t"></div></div>`;
+          ${fsel('uf-join', 'Joined', [['', 'Any time'], ['7', 'Past week'], ['30', 'Past month']], UF.joined)}
+          ${fsel('uf-ext', 'Extension', [['yes', 'Installed'], ['no', 'Not installed']], UF.ext)}</div></div><div id="ad-ul"><div class="sk-auto" data-k="adm-users-t"></div></div>`;
       const q = el.querySelector('#ad-uq'); let t = null; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { UQ = q.value; paintUsers(); }, 150); }; if (!UQ && !TOUCH) q.focus();
-      [['uf-role', 'role'], ['uf-act', 'act'], ['uf-join', 'joined']].forEach(([id, k]) => { const sl = el.querySelector('#' + id); sl.onchange = () => { UF[k] = sl.value; sl.parentElement.classList.toggle('on', !!sl.value); paintUsers(); }; });
+      [['uf-role', 'role'], ['uf-act', 'act'], ['uf-join', 'joined'], ['uf-ext', 'ext']].forEach(([id, k]) => { const sl = el.querySelector('#' + id); sl.onchange = () => { UF[k] = sl.value; paintUsers(); }; });
       if (!ULIVE) ULIVE = usersCol.limit(1000).onSnapshot(qs => { UROWS = docs(qs); UROWS.forEach(u => { US[u.id] = u; remember(u.id, u); }); if (APEOPLE) APEOPLE = UROWS.slice().sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
         if (TAB === 'users') paintUsers(); if (TAB === 'new' && qs.docChanges().some(ch => ch.type !== 'modified')) newSoon(); }, x => { const l = B().querySelector('#ad-ul'); if (l) l.innerHTML = failMsg(x); });
       else paintUsers();
@@ -2641,14 +2695,21 @@ function hub(fs, auth, G, ctx) {
       const rows = UROWS.filter(u => (!q || (String(u.name || '') + ' ' + u.id).toLowerCase().includes(q))
           && (!UF.role || roleKey(u) === UF.role || (UF.role === 'admin' && roleKey(u) === 'owner'))
           && (!UF.act || (UF.act === 'on' ? isOn(u) : UF.act === 'old' ? !(u.seenAt > dayN(30)) : u.seenAt > dayN(Number(UF.act))))
-          && (!UF.joined || u.createdAt > dayN(Number(UF.joined))))
+          && (!UF.joined || u.createdAt > dayN(Number(UF.joined)))
+          && (!UF.ext || (UF.ext === 'yes') === !!u.ext))
         .sort((a, b) => (isOn(b) - isOn(a)) || (isOn(a) ? onRank(a) - onRank(b) : ((b.seenAt || 0) - (a.seenAt || 0))) || String(a.name || a.id).localeCompare(String(b.name || b.id)));
       const cnt = B().querySelector('#ad-uq-n'); if (cnt) cnt.textContent = rows.length + ' of ' + UROWS.length + ' user' + (UROWS.length === 1 ? '' : 's') + (UROWS.filter(isOn).length ? ' · ' + UROWS.filter(isOn).length + ' online' : '');
-      const seen = u => isOn(u) ? (u.seenFg && Date.now() - u.seenFg > ONLINE ? '<span class="adm-online bg" title="Has Adventurer’s Tome open in a tab, but not on screen (another tab or app is in front, or the window is minimised)"><i></i><b>Online</b></span>' : '<span class="adm-online" title="Has Adventurer’s Tome open and on screen right now"><i></i><b>Online</b></span>') : u.seenAt ? esc(ago(u.seenAt)) : '<span class="adm-dim">—</span>';
-      l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t us-t"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Last active</th><th></th><th></th></tr></thead><tbody>${rows.map(u => { const [rl, rc] = u.banned ? ['Blocked', 'r-blk'] : roleOf(u.id), open = UOPEN.has(u.id);
-          return `<tr data-u="${esc(u.id)}"><td><span class="adm-who">${ava(u.name, u.id)}<span class="us-nm"><b>${esc(u.name || '—')}</b><small class="us-em">${esc(u.id)}</small></span></span></td><td class="adm-mail" title="${esc(u.id)}">${esc(u.id)}</td><td><span class="adm-tag ${rc}">${rl}</span></td><td>${when(u.createdAt)}</td><td>${seen(u)}</td>
+      // Which kind of device they're on: a computer, a phone, or both at once (each beats its own time).
+      const IC_PC = '<svg class="adm-dev" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1.6"/><path d="M8 20h8M12 16v4"/></svg>';
+      const IC_PH = '<svg class="adm-dev" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M11 18.5h2"/></svg>';
+      const devs = u => { const now = Date.now(), pc = u.seenPc && now - u.seenPc < ONLINE, ph = u.seenPhone && now - u.seenPhone < ONLINE; return pc || ph ? [pc && [IC_PC, 'a computer'], ph && [IC_PH, 'a phone or tablet']].filter(Boolean) : null; };
+      const devHTML = u => { const d = devs(u); return d ? `<span class="adm-devs">${d.map(x => x[0]).join('')}</span>` : ''; }, devTxt = u => { const d = devs(u); return d ? ' On ' + d.map(x => x[1]).join(' and ') + '.' : ''; };
+      const seen = u => isOn(u) ? (u.seenFg && Date.now() - u.seenFg > ONLINE ? `<span class="adm-online bg" title="Has Adventurer’s Tome open in a tab, but not on screen (another tab or app is in front, or the window is minimised).${devTxt(u)}"><i></i><b>Online</b>${devHTML(u)}</span>` : `<span class="adm-online" title="Has Adventurer’s Tome open and on screen right now.${devTxt(u)}"><i></i><b>Online</b>${devHTML(u)}</span>`) : u.seenAt ? esc(ago(u.seenAt)) : '<span class="adm-dim">—</span>';
+      const extCell = u => u.ext ? `<span class="adm-tag ext-on" title="Roll20 companion extension seen ${esc(ago(u.extAt || 0))}">Installed${/^[\d.]+$/.test(u.ext) ? ' · v' + esc(u.ext) : ''}</span>` : '<span class="adm-dim">—</span>';
+      l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t us-t"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Last active</th><th>Extension</th><th></th><th></th></tr></thead><tbody>${capR('us', rows).map(u => { const [rl, rc] = u.banned ? ['Blocked', 'r-blk'] : roleOf(u.id), open = UOPEN.has(u.id);
+          return `<tr data-u="${esc(u.id)}"><td><span class="adm-who">${ava(u.name, u.id)}<span class="us-nm"><b>${esc(u.name || '—')}</b><small class="us-em">${esc(u.id)}</small></span></span></td><td class="adm-mail" title="${esc(u.id)}">${esc(u.id)}</td><td><span class="adm-tag ${rc}">${rl}</span></td><td>${when(u.createdAt)}</td><td>${seen(u)}</td><td>${extCell(u)}</td>
             <td><button class="adm-btn sm" data-uc="${esc(u.id)}">Characters ${open ? '▾' : '▸'}</button></td><td class="adm-act">${kebab([['msg', 'Send a message…', u.id], ['welcome', 'Show welcome message again', u.id], ['renotice', 'Show the notice again', u.id], ['hidewel', 'Mark the welcome message seen', u.id], ['hidenotice', 'Mark the current notice seen', u.id], ['quiet', QUIET.has(u.id) ? 'Count in notice numbers' : 'Leave out of notice numbers', u.id], ['reload', 'Refresh their page', u.id], ['rename', 'Rename…', u.id], ['pic', 'Change picture…', u.id], ['newfor', 'New character for them', u.id]].concat(IS_OWNER && !ownerEm(u.id) ? [ADMINS.includes(u.id) ? ['unadmin', 'Remove admin', u.id] : ['mkadmin', 'Make admin', u.id]] : [], ownerEm(u.id) || u.id === EMAIL ? [] : [['signout', 'Sign out everywhere', u.id]].concat(u.banned ? [['unblock', 'Unblock', u.id]] : [], [['delacct', 'Delete account…', u.id, 'danger']])))}</td></tr>
-            <tr class="adm-subrow" data-sub="${esc(u.id)}"${open ? '' : ' hidden'}><td colspan="7"></td></tr>`; }).join('')}</tbody></table></div>`
+            <tr class="adm-subrow" data-sub="${esc(u.id)}"${open ? '' : ' hidden'}><td colspan="8"></td></tr>`; }).join('')}</tbody></table></div>${moreR('us', rows)}`
         : `<p class="adm-empty">${UROWS.length ? 'Nobody matches these filters.' : 'No accounts yet.'}</p>`;
       const fill = async (em, cell, fresh) => { const show = cs => { cell.innerHTML = ctable(cs, false) + `<button class="adm-btn sm" data-newfor="${esc(em)}">＋ New character for ${esc(nameOf(em))}</button>`; wire(cell, () => fill(em, cell, true)); };
         if (UCH[em] && !fresh) return show(UCH[em]); cell.innerHTML = '<div class="sk-auto" data-k="adm-chars-t" data-n="2"></div>';
@@ -2769,13 +2830,13 @@ function hub(fs, auth, G, ctx) {
       const seen = new Set((AROWS || []).map(e => e.by)), people = (APEOPLE || []).filter(u => seen.has(u.id) || AF.who.includes(u.id));
       (AROWS || []).forEach(e => { if (!people.some(u => u.id === e.by)) people.push({ id: e.by, name: actorName(e) }); });
       people.sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
-      const actOpts = [['', 'All but online / offline'], ['all', 'Everything']].concat(AGROUPS.flatMap(([g, ks]) => [['g:' + esc(g), esc(g)]].concat(ks.map(a => [a, ' ' + esc(actLabel(a))]))));
+      const actOpts = [['all', 'Everything, with online / offline']].concat(AGROUPS.flatMap(([g, ks]) => [['g:' + esc(g), esc(g)]].concat(ks.map(a => [a, esc(actLabel(a))]))));
       box.innerHTML = fsel('au-range', 'Date', AU_RANGES.filter(r => r[0] !== 'custom').map(([v, t]) => [v, esc(t)]), AF.range === 'custom' ? '' : AF.range)
-        + fsel('au-who', 'Actor', [['', 'Anyone']].concat(people.map(u => [esc(u.id), esc(u.name || u.id)])), AF.who[0] || '')
-        + fsel('au-act', 'Activity', actOpts, AF.act.length > 1 ? 'g:' + ((AGROUPS.find(([, ks]) => ks.length === AF.act.length && ks.every(a => AF.act.includes(a))) || [''])[0]) : AF.act[0] || (AF.all ? 'all' : ''));
-      const on = (id, f) => { const sl = box.querySelector('#' + id); sl.onchange = () => { f(sl.value); sl.parentElement.classList.toggle('on', !!sl.value); paintAudit(); }; };
-      on('au-range', v => { AF.range = v; }); on('au-who', v => { AF.who = v ? [v] : []; });
-      on('au-act', v => { AF.all = v === 'all'; AF.act = !v || v === 'all' ? [] : v.startsWith('g:') ? ((AGROUPS.find(([g]) => g === v.slice(2)) || [0, []])[1]).slice() : [v]; }); }
+        + fsel('au-who', 'Actor', people.map(u => [esc(u.id), esc(u.name || u.id)]), AF.who, { multi: true })
+        + fsel('au-act', 'Activity', actOpts, AF.all ? ['all'] : AF.act, { multi: true, solo: ['all'] });
+      const on = (id, f) => { const sl = box.querySelector('#' + id); sl.onchange = () => { f(sl.value); paintAudit(); }; };
+      on('au-range', v => { AF.range = v; }); { const w = box.querySelector('#au-who'); w.onchange = () => { AF.who = ddVals(w); paintAudit(); }; }
+      { const a = box.querySelector('#au-act'); a.onchange = () => { const v = ddVals(a); AF.all = v.includes('all'); AF.act = v.filter(x => x !== 'all'); paintAudit(); }; } }
     function paintPills() {
       const box = B().querySelector('#au-pills'); if (!box) return;
       const lab = { range: AF.range === 'custom' ? (AF.from || AF.to ? [AF.from || '…', AF.to || '…'].join(' – ') : 'Custom') : (AU_RANGES.find(r => r[0] === AF.range) || AU_RANGES[0])[1],
@@ -2851,14 +2912,14 @@ function hub(fs, auth, G, ctx) {
           <dt>Activity</dt><dd>${esc(ACTS[e.act] || e.act)} <span class="au-cat">${esc(grpOf(e.act))}</span></dd>${e.target ? `<dt>${CHAR_ACTS.has(e.act) ? 'Character' : 'Target'}</dt><dd>${CHAR_ACTS.has(e.act) && e.act !== 'delete' && e.act !== 'remove' ? `<a href="${esc(URLS.byId(e.target))}">${esc(e.tName || e.target)}</a>` : esc(e.tName || e.target)}</dd>` : ''}
           ${e.detail ? `<dt>Details</dt><dd class="au-dd">${esc(nice(e))}</dd>` : ''}<dt>Event ID</dt><dd class="adm-dim au-id">${esc(e.id)}</dd></dl>`;
       const cnt = B().querySelector('#au-q-n'); if (cnt) cnt.textContent = rows.length + ' of ' + AROWS.length + ' event' + (AROWS.length === 1 ? '' : 's');
-      if (!B().querySelector('#au-sels select:focus')) paintAuSels();
-      l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t au-t2"><thead><tr><th>Date</th><th>Actor</th><th>Activity</th><th>Category</th><th></th></tr></thead><tbody>${rows.map(e => `<tr class="au-r${AOPEN[e.id] ? ' open' : ''}" data-id="${esc(e.id)}" tabindex="0" aria-expanded="${!!AOPEN[e.id]}">
+      if (!B().querySelector('#au-sels .au-pop')) paintAuSels();
+      l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t au-t2"><thead><tr><th>Date</th><th>Actor</th><th>Activity</th><th>Category</th><th></th></tr></thead><tbody>${capR('au', rows).map(e => `<tr class="au-r${AOPEN[e.id] ? ' open' : ''}" data-id="${esc(e.id)}" tabindex="0" aria-expanded="${!!AOPEN[e.id]}">
           <td class="au-c-d"><span title="${esc(new Date(e.at).toLocaleString())}">${esc(ago(e.at))}</span><small>${esc(dt(e.at))}</small></td>
           <td><span class="adm-who">${ava(actorName(e), e.by)}<b>${esc(actorName(e))}</b></span></td>
           <td class="au-c-w"><div class="au-what">${what(e)}</div>${e.detail ? `<div class="au-sub">${esc(nice(e))}</div>` : ''}</td>
           <td><span class="adm-tag au-cat">${esc(grpOf(e.act))}</span></td>
           <td class="au-c-x"><button class="adm-btn sm" tabindex="-1">Details ${AOPEN[e.id] ? '▾' : '▸'}</button></td></tr>
-          ${AOPEN[e.id] ? `<tr class="adm-subrow au-x"><td colspan="5">${det(e)}</td></tr>` : ''}`).join('')}</tbody></table></div>` : `<p class="adm-empty">${AROWS.length ? 'No activity matches these filters.' : 'No activity yet.'}</p>`;
+          ${AOPEN[e.id] ? `<tr class="adm-subrow au-x"><td colspan="5">${det(e)}</td></tr>` : ''}`).join('')}</tbody></table></div>${moreR('au', rows)}` : `<p class="adm-empty">${AROWS.length ? 'No activity matches these filters.' : 'No activity yet.'}</p>`;
       const mb = l.querySelector('#au-more'); if (mb) mb.onclick = () => tabAuditList(true);
       l.querySelectorAll('tr.au-r').forEach(tr => { const tog = e => { if (e.target.closest('a')) return; AOPEN[tr.dataset.id] = !AOPEN[tr.dataset.id]; paintAudit(); };
         tr.onclick = tog; tr.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tog(e); } }; });
@@ -2886,7 +2947,7 @@ function hub(fs, auth, G, ctx) {
         x => { const l = B().querySelector('#ad-cl'); if (l) l.innerHTML = failMsg(x); });
       else paintChars();
     }
-    function paintCharSels() { const box = B() && B().querySelector('#cf-sels'); if (!box) return;
+    function paintCharSels() { const box = B() && B().querySelector('#cf-sels'); if (!box || box.querySelector('.au-pop')) return;
       const owners = [...new Set(CROWS.map(c => c.owner).filter(Boolean))].sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
       box.innerHTML = fsel('cf-owner', 'Player', [['', 'Anyone']].concat(owners.map(o => [esc(o), esc(nameOf(o))])), CF.owner)
         + fsel('cf-share', 'Sharing', [['', 'Any'], ['shared', 'Shared'], ['private', 'Not shared'], ['me', 'Shared with me'], ['link', 'Has a view-only link']], CF.share)
@@ -2902,7 +2963,7 @@ function hub(fs, auth, G, ctx) {
           && (!CF.upd || (CF.upd === 'old' ? !(c.updatedAt > dayN(30)) : c.updatedAt > dayN(Number(CF.upd)))))
         .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
       const cnt = B().querySelector('#ad-cq-n'); if (cnt) cnt.textContent = rows.length + ' of ' + CROWS.length + ' character' + (CROWS.length === 1 ? '' : 's');
-      l.innerHTML = ctable(rows, true, CROWS.length ? 'No characters match these filters.' : 'No characters yet.');
+      l.innerHTML = ctable(capR('ch', rows), true, CROWS.length ? 'No characters match these filters.' : 'No characters yet.') + moreR('ch', rows);
       wire(l, () => paintChars());
     }
     const tabCharsList = () => paintChars();
@@ -3143,7 +3204,7 @@ function hub(fs, auth, G, ctx) {
       { const off = el.querySelector('#wl-off'); if (off) off.onclick = async () => { if (!await ask('Turn the welcome message off?', 'New accounts won’t see it. The text stays here for next time.', 'Turn off')) return;
         try { await cfgCol.doc('welcome').update({ on: false }); pgLog('welcome_off', { target: 'new accounts', tName: 'new accounts' }); toast('Welcome message is off.'); } catch (x) { return fail(x); } if (TAB === 'welcome') tabWelcome(); }; }
     }
-    const tabParties = () => PMx().adminTab(B, { HA, toolbar, failMsg, ava, when, kebab, PQ, closeMenus: closeAdmMenus, isTab: () => TAB === 'parties', busy: () => !!(MENU || document.querySelector('.hub-modal.on')), later: whenMenusClosed });
+    const tabParties = () => PMx().adminTab(B, { HA, toolbar, failMsg, ava, when, kebab, PQ, fsel, ddVals, capR, moreR, closeMenus: closeAdmMenus, isTab: () => TAB === 'parties', busy: () => !!(MENU || document.querySelector('.hub-modal.on')), later: whenMenusClosed });
     // keep New fresh: listen for accounts and characters even when that tab is opened first
     const ensureLive = () => { if (!ULIVE) ULIVE = usersCol.limit(1000).onSnapshot(qs => { UROWS = docs(qs); UROWS.forEach(u => { US[u.id] = u; remember(u.id, u); }); if (TAB === 'users') paintUsers(); if (TAB === 'new' && qs.docChanges().some(ch => ch.type !== 'modified')) newSoon(); }, () => {});
       if (!CLIVE) CLIVE = charsCol.limit(2000).onSnapshot(async qs => { CROWS = docs(qs); await needNames(CROWS.map(c => c.owner)); if (TAB === 'chars') paintChars(); if (TAB === 'new' && qs.docChanges().some(ch => ch.type !== 'modified')) newSoon(); }, () => {}); };
@@ -4053,22 +4114,39 @@ function partyModule(H) {
   }
   function adminTab(B, A) {
     const el = B(); A.HA().innerHTML = '';
-    el.innerHTML = `<div class="adm-filters">${A.toolbar('ad-pq', 'Search by party, DM or character', A.PQ.v)}</div><div id="ad-pl"><div class="sk-auto" data-k="adm-parties-t"></div></div>`;
+    el.innerHTML = `<div class="adm-filters">${A.toolbar('ad-pq', 'Search by party, DM or character', A.PQ.v)}<div class="adm-fsels" id="pf-sels"></div></div><div id="ad-pl"><div class="sk-auto" data-k="adm-parties-t"></div></div>`;
     const q = el.querySelector('#ad-pq'); let t = null; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { A.PQ.v = q.value; adminPaint(B, A); }, 150); };
     if (!ALIVE) ALIVE = PC.limit(1000).onSnapshot(async qs => { AROWS = qs.docs.map(d => Object.assign({ id: d.id }, d.data())); await H.needNames(AROWS.map(p => p.dm)); if (A.isTab()) adminPaint(B, A); }, x => { const l = B().querySelector('#ad-pl'); if (l) l.innerHTML = A.failMsg(x); });
     else adminPaint(B, A);
   }
+  // Admin filters: DM (any of several), how many characters, your own access, and when it was last used.
+  const PF = { dm: [], size: '', acc: '', upd: '' };
+  function adminSels(B, A) { const box = B() && B().querySelector('#pf-sels'); if (!box || box.querySelector('.au-pop')) return;
+    const dms = [...new Set(AROWS.map(p => p.dm).filter(Boolean))].sort((a, b) => H.nameOf(a).localeCompare(H.nameOf(b)));
+    box.innerHTML = A.fsel('pf-dm', 'DM', dms.map(d => [esc(d), esc(H.nameOf(d))]), PF.dm, { multi: true })
+      + A.fsel('pf-size', 'Characters', [['0', 'None yet'], ['s', '1 to 3'], ['m', '4 to 6'], ['l', '7 or more']], PF.size)
+      + A.fsel('pf-acc', 'My access', [['dm', 'I’m the DM'], ['codm', 'Co-DM'], ['view', 'In my list'], ['none', 'None']], PF.acc)
+      + A.fsel('pf-upd', 'Updated', [['1', 'Today'], ['7', 'This week'], ['30', 'This month'], ['old', 'Not in 30+ days']], PF.upd);
+    const dm = box.querySelector('#pf-dm'); dm.onchange = () => { PF.dm = A.ddVals(dm); adminPaint(B, A); };
+    [['pf-size', 'size'], ['pf-acc', 'acc'], ['pf-upd', 'upd']].forEach(([id, k]) => { const sl = box.querySelector('#' + id); sl.onchange = () => { PF[k] = sl.value; adminPaint(B, A); }; }); }
   const accessOf = p => p.dm === EMAIL ? 'dm' : (p.mgrs || []).includes(EMAIL) ? 'codm' : (p.people || []).includes(EMAIL) ? 'view' : '';
   function adminPaint(B, A) {
     const l = B() && B().querySelector('#ad-pl'); if (!l) return; if (A.busy()) return A.later(() => adminPaint(B, A));
     const qv = String(A.PQ.v || '').trim().toLowerCase();
-    const rows = AROWS.filter(p => !qv || [p.name, p.dmName, H.nameOf(p.dm), p.dm].some(x => String(x || '').toLowerCase().includes(qv))).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    window.__admPaintParties = () => adminPaint(B, A); adminSels(B, A);
+    const now = Date.now(), n = p => (p.chars || []).length, upd = p => p.updatedAt || p.createdAt || 0;
+    const rows = AROWS.filter(p => (!qv || [p.name, p.dmName, H.nameOf(p.dm), p.dm].some(x => String(x || '').toLowerCase().includes(qv)))
+        && (!PF.dm.length || PF.dm.includes(p.dm))
+        && (!PF.size || (PF.size === '0' ? n(p) === 0 : PF.size === 's' ? n(p) >= 1 && n(p) <= 3 : PF.size === 'm' ? n(p) >= 4 && n(p) <= 6 : n(p) >= 7))
+        && (!PF.acc || (accessOf(p) || 'none') === PF.acc)
+        && (!PF.upd || (PF.upd === 'old' ? upd(p) < now - 30 * 864e5 : upd(p) >= now - Number(PF.upd) * 864e5)))
+      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
     const cnt = B().querySelector('#ad-pq-n'); if (cnt) cnt.textContent = rows.length + ' of ' + plural(AROWS.length, 'party').replace('partys', 'parties');
-    l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t pt-t"><thead><tr><th>Party</th><th>DM</th><th>Characters</th><th>My access</th><th>Updated</th><th>Created</th><th></th></tr></thead><tbody>${rows.map(p => { const a = accessOf(p);
+    l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t pt-t"><thead><tr><th>Party</th><th>DM</th><th>Characters</th><th>My access</th><th>Updated</th><th>Created</th><th></th></tr></thead><tbody>${A.capR('pt', rows).map(p => { const a = accessOf(p);
       return `<tr><td><a class="adm-char" href="${esc(URLS.party(p.id, p.name))}">${p.pic ? `<img class="hc-pic pty-admic" src="${esc(p.pic)}" alt="">` : `<span class="hc-pic hc-nopic pty-admic">${IC_PARTY}</span>`}<span><b>${esc(p.name || 'Unnamed party')}</b><small>${(p.invited || []).length ? plural(p.invited.length, 'invitation') + ' open' : plural((p.people || []).length, 'person').replace('persons', 'people')}</small></span></a></td>
         <td><button class="adm-who adm-dmbtn" data-pdm="${esc(p.id)}" title="Change the DM">${A.ava(H.nameOf(p.dm || ''), p.dm)}<span>${esc(p.dmName || H.nameOf(p.dm || '') || '—')}</span></button></td><td>${(p.chars || []).length}</td>
         <td>${a === 'dm' ? '<span class="adm-tag r-own">You’re the DM</span>' : `<select class="adm-sel" data-pacc="${esc(p.id)}" aria-label="My access"><option value="">None</option><option value="view"${a === 'view' ? ' selected' : ''}>In my list</option><option value="codm"${a === 'codm' ? ' selected' : ''}>Co-DM</option></select>`}</td>
-        <td>${A.when(p.updatedAt)}</td><td>${A.when(p.createdAt)}</td><td class="adm-act">${A.kebab([['open', 'Open', p.id, '', URLS.party(p.id, p.name)], ['add', 'Add a character…', p.id], ['dm', 'Change DM…', p.id], ['chatclear', 'Clear party chat…', p.id], ['del', 'Delete party…', p.id, 'danger']])}</td></tr>`; }).join('')}</tbody></table></div>` : `<p class="adm-empty">${AROWS.length ? 'No parties match.' : 'No parties yet.'}</p>`;
+        <td>${A.when(p.updatedAt)}</td><td>${A.when(p.createdAt)}</td><td class="adm-act">${A.kebab([['open', 'Open', p.id, '', URLS.party(p.id, p.name)], ['add', 'Add a character…', p.id], ['dm', 'Change DM…', p.id], ['chatclear', 'Clear party chat…', p.id], ['del', 'Delete party…', p.id, 'danger']])}</td></tr>`; }).join('')}</tbody></table></div>${A.moreR('pt', rows)}` : `<p class="adm-empty">${AROWS.length ? 'No parties match these filters.' : 'No parties yet.'}</p>`;
     l.querySelectorAll('[data-pacc]').forEach(sl => sl.onchange = async () => { const v = sl.value, ref = PC.doc(sl.dataset.pacc), p = AROWS.find(x => x.id === sl.dataset.pacc);
       try { await ref.update(v === 'codm' ? { people: FV.arrayUnion(EMAIL), mgrs: FV.arrayUnion(EMAIL) } : v ? { people: FV.arrayUnion(EMAIL), mgrs: FV.arrayRemove(EMAIL) } : { people: FV.arrayRemove(EMAIL), mgrs: FV.arrayRemove(EMAIL) });
         toast(v === 'codm' ? 'You’re now a co-DM of ' + (p.name || 'the party') + '.' : (p.name || 'The party') + (v ? ' is in your list.' : ' is out of your list.')); pgLog('party_access', { target: p.id, tName: p.name, detail: v === 'codm' ? 'made themselves co-DM' : v ? 'added it to their list' : 'took it off their list' }); }
@@ -4170,3 +4248,19 @@ function partyModule(H) {
 // Buttons act the moment the mouse button goes down, not when it's let go. (Touch screens keep acting on release, so a
 // swipe that starts on a button still scrolls. Ctrl/Shift/⌘ clicks, drag handles and anything that already handles its
 // own press are left as they were.) The click the browser sends on release is then dropped, so nothing happens twice.
+// Wherever a loading skeleton (the grey shimmering placeholders) gives way to the real thing, the real thing fades in
+// instead of popping in: lobby lists, admin tables, the DM's Desk, windows, everywhere.
+(() => { if (window.__pgSkFade) return; window.__pgSkFade = 1;
+  const SK = '.sk-auto, .sk-wrap, .sk-cards, .sk-snap, .sk-tw, .sk-filters, .wn-sk, .hp-sk, [aria-busy="true"]';
+  const isSk = n => n.nodeType === 1 && (n.matches(SK) || !!n.querySelector('.skl'));
+  const still = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
+  // (a list is often drawn two or three times in a row as its data settles: the redraws carry on the same fade rather
+  // than starting it again, so it doesn't flicker)
+  const fade = (n, t0) => { const el = performance.now() - t0; n.style.animationDelay = el > 16 ? -Math.round(el) + 'ms' : ''; n.classList.remove('pg-skin'); void n.offsetWidth; n.classList.add('pg-skin');
+    n.addEventListener('animationend', () => { n.classList.remove('pg-skin'); n.style.animationDelay = ''; }, { once: true }); };
+  const go = () => new MutationObserver(ms => { if (still()) return; const now = performance.now();
+      ms.forEach(m => { if (m.type === 'childList' && [...m.removedNodes].some(isSk)) m.target.__skAt = now; });
+      ms.forEach(m => { const t0 = m.target.__skAt; if (!t0 || now - t0 > 280) return; m.addedNodes.forEach(n => { if (n.nodeType !== 1 || !n.isConnected || isSk(n) || n.closest('.hp-reveal')) return; fade(n, t0); }); });
+    }).observe(document.body, { childList: true, subtree: true });
+  if (document.body) go(); else document.addEventListener('DOMContentLoaded', go);
+})();
