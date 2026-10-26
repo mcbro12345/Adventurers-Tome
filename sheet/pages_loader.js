@@ -2296,10 +2296,13 @@ function hub(fs, auth, G, ctx) {
       if (closing) { d.classList.add('hf-closing');
         // (near the bottom the page can't stay scrolled where it is once it's shorter: glide the scroll up during the fold instead of jumping at the end)
         const se = document.scrollingElement || document.documentElement, cap = Math.max(0, se.scrollHeight - h - innerHeight); if (scrollY > cap) sc = { from: scrollY, to: cap };
-        anims.push(body.animate([{ clipPath: 'inset(0 0 0 0)', opacity: 1 }, { clipPath: `inset(0 0 100% 0)`, opacity: 0 }], { duration: dur, easing: FOLD_EASE, fill: 'forwards' }));
+        anims.push(body.animate([{ clipPath: 'inset(0 0 0 0)', webkitClipPath: 'inset(0 0 0 0)' }, { clipPath: 'inset(0 0 100% 0)', webkitClipPath: 'inset(0 0 100% 0)' }], { duration: dur, easing: FOLD_EASE, fill: 'forwards' }));
+        // (the cards are gone before the headings below slide over them, even where the wipe above isn't drawn)
+        anims.push(body.animate([{ opacity: 1 }, { opacity: 0, offset: .45 }, { opacity: 0 }], { duration: dur, easing: 'ease-out', fill: 'forwards' }));
         fol.forEach(x => anims.push(x.animate([{ transform: 'translateY(0)' }, { transform: `translateY(${-h}px)` }], { duration: dur, easing: FOLD_EASE, fill: 'forwards' })));
       } else { d.open = true; const hh = body.offsetHeight;
-        anims.push(body.animate([{ clipPath: `inset(0 0 100% 0)`, opacity: 0 }, { clipPath: 'inset(0 0 0 0)', opacity: 1 }], { duration: dur, easing: FOLD_EASE }));
+        anims.push(body.animate([{ clipPath: 'inset(0 0 100% 0)', webkitClipPath: 'inset(0 0 100% 0)' }, { clipPath: 'inset(0 0 0 0)', webkitClipPath: 'inset(0 0 0 0)' }], { duration: dur, easing: FOLD_EASE }));
+        anims.push(body.animate([{ opacity: 0 }, { opacity: 0, offset: .4 }, { opacity: 1 }], { duration: dur, easing: 'ease-in' }));
         fol.forEach(x => anims.push(x.animate([{ transform: `translateY(${-hh}px)` }, { transform: 'translateY(0)' }], { duration: dur, easing: FOLD_EASE })));
       }
       if (sc) { const t0 = performance.now(), ease = t => 1 - Math.pow(1 - t, 3); const go = now => { if (done) return; const k = Math.min(1, (now - t0) / dur); scrollTo(0, sc.from + (sc.to - sc.from) * ease(k)); if (k < 1) requestAnimationFrame(go); }; requestAnimationFrame(go); }
