@@ -1597,3 +1597,5 @@ html[data-pgtheme="light"] .dk-acct.lit::before, html[data-pgtheme="light"] .dk-
 /* the account picture: no square focus box; it presses in like the lobby's and glows while its menu is open */
 .dk .dk-acct:focus-visible { outline: none; } .dk .dk-acct:focus-visible::before { background: rgba(255,255,255,.06); }
 .dk-acct { -webkit-tap-highlight-color: transparent; } .dk-acct .pg-ava { transition: transform .12s ease, box-shadow .15s ease; } .dk-acct:active .pg-ava { transform: scale(.92); }
+/* computer: the tabs sit right after the logo (a set gap), and whatever's left of the bar goes before the tools */
+@media (min-width: 641px) { .dk .dk-top > .dk-bcol { margin-right: 28px; } .dk .dk-top > .dk-tools { margin-left: auto; } }

@@ -443,3 +443,34 @@
 // (iPhones only show a pressed look on things when the page listens for touches)
 document.addEventListener('touchstart', () => {}, { passive: true });
 
+
+
+// Pick lists in pop-ups (Level Up, changing race / class / background in Settings...): on a computer they grow to use
+// the room the window has, and a pick that redraws the pop-up keeps the list where you'd scrolled it.
+(function () {
+  const isM = () => document.documentElement.classList.contains('mobile');
+  const lists = () => [...document.querySelectorAll('#modal-body .crlist:not(.short)')].filter(e => e.offsetParent && (!e.checkVisibility || e.checkVisibility()) && !(e.closest('details') && !e.closest('details').open));
+  const key = (e, i) => { const t = document.querySelector('#modal-title') || document.querySelector('#modal-body h2, #modal-body h3'); return (t ? t.textContent : '') + '|' + i + '|' + e.children.length; };
+  let SC = {};
+  addEventListener('scroll', ev => { const t = ev.target; if (!t || !t.classList || !t.classList.contains('crlist') || !t.closest('#modal-body')) return; const i = lists().indexOf(t); if (i >= 0) SC[key(t, i)] = t.scrollTop; }, true);
+  // (also note where a list sits the moment you press on it, so a list still at the top stays at the top)
+  addEventListener('pointerdown', ev => { const t = ev.target.closest && ev.target.closest('#modal-body .crlist'); if (!t) return; const i = lists().indexOf(t); if (i >= 0) SC[key(t, i)] = t.scrollTop; }, true);
+  const fit = () => { q = 0; let ls = lists(); if (!ls.length) { SC = {}; return; }
+    const back0 = () => ls.forEach((l, i) => { const v = SC[key(l, i)]; if (v != null && l.isConnected && l.scrollTop !== v) l.scrollTop = v; }), back = () => { back0(); requestAnimationFrame(back0); };
+    if (isM()) return back();
+    let modal = null; for (let e = ls[0].parentElement; e && e !== document.body; e = e.parentElement) if (e.getBoundingClientRect().height < innerHeight - 4) modal = e; if (!modal) return back();
+    const keep = ls.map(l => l.scrollTop);
+    // Start every list at its normal height, then hand the window's spare room to the lists that have more to show
+    ls.forEach(l => { if (l.style.maxHeight) l.style.maxHeight = ''; });
+    // (lists drawn at full length, like Level Up's, are left alone: the pop-up itself scrolls)
+    ls = ls.filter(l => getComputedStyle(l).maxHeight !== 'none'); if (!ls.length) return back();
+    const base = ls.map(l => Math.max(240, parseFloat(getComputedStyle(l).maxHeight) || 300));
+    let room = innerHeight - 48 - modal.getBoundingClientRect().height;
+    for (let e = ls[0].parentElement; e && e !== modal.parentElement; e = e.parentElement) { const oy = getComputedStyle(e).overflowY; if ((oy === 'auto' || oy === 'scroll') && e.scrollHeight > e.clientHeight + 1) { room -= e.scrollHeight - e.clientHeight; break; } }
+    const grow = ls.filter(l => l.scrollHeight > l.clientHeight + 1), each = grow.length ? Math.max(0, room) / grow.length : 0;
+    ls.forEach((l, i) => { const h = Math.floor(grow.includes(l) ? Math.min(l.scrollHeight + 2, base[i] + each) : base[i]) + 'px'; if (l.style.maxHeight !== h) l.style.maxHeight = h; if (l.scrollTop !== keep[i]) l.scrollTop = keep[i]; }); back(); };
+  let q = 0; const sched = () => { if (!q) q = requestAnimationFrame(fit); };
+  const go = () => { new MutationObserver(ms => { if (ms.some(m => m.target.closest && m.target.closest('#modal-body'))) fit(); }).observe(document.body, { childList: true, subtree: true });
+    addEventListener('resize', sched); document.addEventListener('toggle', e => { if (e.target.closest && e.target.closest('#modal-body')) sched(); }, true); };
+  document.body ? go() : document.addEventListener('DOMContentLoaded', go);
+})();

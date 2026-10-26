@@ -2679,7 +2679,7 @@ body.adminbody { --adm-edge: #e3d6b8; --adm-card: rgba(255,255,255,.72); --adm-g
   body.adminbody .adm { grid-template-columns: 290px minmax(0, 1fr); gap: 8px; padding: 16px 0 0 16px; box-sizing: border-box; }
   body.adminbody .adm-side { top: 16px; height: calc(100vh - 32px); border: 1px solid var(--adm-edge); border-radius: 18px; background: rgba(26,33,49,.75); box-shadow: 0 12px 30px rgba(0,0,0,.32); overflow: visible; }
   body.adminbody .adm-brand, body.adminbody .adm-backrow { border-bottom-color: var(--adm-edge); }
-  body.adminbody .adm-main { padding: 20px 36px 60px 28px; max-width: 1500px; }
+  body.adminbody .adm-main { padding: 20px 36px 60px 28px; max-width: none; }
 }
 body.adminbody .adm-sec { text-transform: none; letter-spacing: 0; font-size: .78rem; font-weight: 700; opacity: .55; }
 body.adminbody .adm-ni { border-radius: 10px; min-height: 40px; }
@@ -3340,6 +3340,16 @@ body.hdragging, body.hdragging * { cursor: grabbing !important; user-select: non
 @media (prefers-color-scheme: light) { :where(input[type=checkbox]:not([role=switch])) { --cb-line: rgba(70,80,100,.45); } }
 :root[data-theme="light"] :where(input[type=checkbox]:not([role=switch])), html[data-pgtheme="light"] :where(input[type=checkbox]:not([role=switch])) { --cb-line: rgba(70,80,100,.45); }
 :root[data-theme="dark"] :where(input[type=checkbox]:not([role=switch])), html[data-pgtheme="dark"] :where(input[type=checkbox]:not([role=switch])) { --cb-line: rgba(140,150,170,.6); }
+/* Radio buttons match the site's checkboxes: a round box that fills with a gold dot when picked. */
+:where(input[type=radio]) { appearance: none; -webkit-appearance: none; box-sizing: border-box; flex: none; width: 18px; height: 18px; margin: 0; padding: 0; vertical-align: -4px;
+  border: 1.5px solid var(--cb-line, rgba(140,150,170,.6)); border-radius: 50%; background: var(--field, transparent); cursor: pointer; color: inherit;
+  transition: background-color .15s, border-color .15s, box-shadow .15s; }
+:where(input[type=radio]):hover:not(:disabled) { border-color: var(--gold, #c9962b); }
+:where(input[type=radio]):checked { border-color: var(--gold, #c9962b); background: radial-gradient(circle, var(--gold, #c9962b) 0 4px, transparent 4.6px) var(--field, transparent); }
+:where(input[type=radio]):disabled { cursor: not-allowed; opacity: .5; }
+@media (prefers-color-scheme: light) { :where(input[type=radio]) { --cb-line: rgba(70,80,100,.45); } }
+:root[data-theme="light"] :where(input[type=radio]), html[data-pgtheme="light"] :where(input[type=radio]) { --cb-line: rgba(70,80,100,.45); }
+:root[data-theme="dark"] :where(input[type=radio]), html[data-pgtheme="dark"] :where(input[type=radio]) { --cb-line: rgba(140,150,170,.6); }
 .pg-panin { animation: pgPanIn .45s cubic-bezier(.2,.7,.3,1) both; }
 @keyframes pgPanIn { from { opacity: 0; transform: translateY(8px); } }
 @media (prefers-reduced-motion: reduce) { .pg-panin { animation: none; } }
@@ -3423,3 +3433,26 @@ html[data-theme="light"].mobile #wizard .wz-box:has(> .wzh2) .wz-foot { backgrou
 }
 /* phones: the account sheet opened from character creation comes up over the creation window, not behind it */
 body.wizopen > .ha-dim { z-index: 118 !important; } body.wizopen > .ha-menu.ha-sheet { z-index: 120 !important; }
+
+/* the site's own dropdown list (opened from a box on a computer) */
+/* Site-style dropdowns on computers: every single-choice select gets the same arrow, a gold border on hover, and opens .sel-pop (pages_loader.js). */
+@media (pointer: fine) {
+  html:not(.mobile) select:not([multiple]):not([size]):not([hidden]):not(.sp-native):not(.adm-fsel select) { --sd-ar: var(--soft, var(--muted, #8f8a7c)); appearance: none !important; -webkit-appearance: none !important; padding-right: 26px !important; cursor: pointer;
+    background-image: linear-gradient(45deg, transparent 50%, var(--sd-ar) 50%), linear-gradient(135deg, var(--sd-ar) 50%, transparent 50%) !important;
+    background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52% !important; background-size: 5px 5px !important; background-repeat: no-repeat !important;
+    transition: border-color .15s; }
+  html:not(.mobile) select:not([multiple]):not([size]):not([hidden]):not(.sp-native):not(.adm-fsel select):hover:not(:disabled) { border-color: var(--gold, #c9962b) !important; }
+}
+.sel-pop .sp-g { padding: 8px 10px 3px; font-size: .72rem; font-weight: 700; opacity: .6; }
+.sel-pop { position: fixed; z-index: 9000; overflow-y: auto; overscroll-behavior: contain; padding: 5px; border-radius: 12px; border: 1px solid var(--line, rgba(127,127,127,.28)); background: var(--panel, var(--card, #1a2131)); color: var(--ink, #e9e3d3);
+  box-shadow: 0 14px 34px rgba(0,0,0,.38); animation: spIn .14s ease-out; scrollbar-width: thin; }
+.sel-pop.up { animation-name: spInUp; } .sel-pop.out { animation: spOut .12s ease-in forwards; pointer-events: none; }
+@keyframes spIn { from { opacity: 0; transform: translateY(-4px) scale(.98); } } @keyframes spInUp { from { opacity: 0; transform: translateY(4px) scale(.98); } } @keyframes spOut { to { opacity: 0; transform: translateY(-3px); } }
+.sel-pop .sp-o { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 34px; padding: 6px 10px; border: 0; border-radius: 8px; background: none; color: inherit; font: inherit; font-size: .9rem; font-weight: 600; text-align: left; cursor: pointer; }
+.sel-pop .sp-o:hover, .sel-pop .sp-o:focus-visible { background: var(--panel2, var(--card2, rgba(255,255,255,.07))); outline: none; }
+.sel-pop .sp-o.on { background: var(--gold-soft, rgba(201,150,43,.18)); color: var(--gold-ink, #e0aa3a); }
+.sel-pop .sp-o svg { flex: none; }
+select.sp-open { border-color: var(--gold, #c9962b) !important; }
+@media (prefers-reduced-motion: reduce) { .sel-pop, .sel-pop.out { animation: none; } }
+@media (prefers-color-scheme: light) { body.hubbody .sel-pop { background: var(--panel, #fffaf0); color: var(--ink, #1f2a44); border-color: var(--line, #e3d6b8); box-shadow: 0 14px 34px rgba(60,45,20,.18); } }
+html[data-pgtheme="light"] body.dkhost > .sel-pop { background: var(--card, #fffaf0); color: var(--ink, #1f2a44); }

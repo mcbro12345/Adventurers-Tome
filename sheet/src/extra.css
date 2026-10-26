@@ -3880,6 +3880,16 @@ html.mobile .setrow.r20aura input[type=checkbox] { width: 22px; height: 22px; ma
 @media (prefers-color-scheme: light) { :where(input[type=checkbox]:not([role=switch])) { --cb-line: rgba(70,80,100,.45); } }
 :root[data-theme="light"] :where(input[type=checkbox]:not([role=switch])), html[data-pgtheme="light"] :where(input[type=checkbox]:not([role=switch])) { --cb-line: rgba(70,80,100,.45); }
 :root[data-theme="dark"] :where(input[type=checkbox]:not([role=switch])), html[data-pgtheme="dark"] :where(input[type=checkbox]:not([role=switch])) { --cb-line: rgba(140,150,170,.6); }
+/* Radio buttons match the site's checkboxes: a round box that fills with a gold dot when picked. */
+:where(input[type=radio]) { appearance: none; -webkit-appearance: none; box-sizing: border-box; flex: none; width: 18px; height: 18px; margin: 0; padding: 0; vertical-align: -4px;
+  border: 1.5px solid var(--cb-line, rgba(140,150,170,.6)); border-radius: 50%; background: var(--field, transparent); cursor: pointer; color: inherit;
+  transition: background-color .15s, border-color .15s, box-shadow .15s; }
+:where(input[type=radio]):hover:not(:disabled) { border-color: var(--gold, #c9962b); }
+:where(input[type=radio]):checked { border-color: var(--gold, #c9962b); background: radial-gradient(circle, var(--gold, #c9962b) 0 4px, transparent 4.6px) var(--field, transparent); }
+:where(input[type=radio]):disabled { cursor: not-allowed; opacity: .5; }
+@media (prefers-color-scheme: light) { :where(input[type=radio]) { --cb-line: rgba(70,80,100,.45); } }
+:root[data-theme="light"] :where(input[type=radio]), html[data-pgtheme="light"] :where(input[type=radio]) { --cb-line: rgba(70,80,100,.45); }
+:root[data-theme="dark"] :where(input[type=radio]), html[data-pgtheme="dark"] :where(input[type=radio]) { --cb-line: rgba(140,150,170,.6); }
 /* A tick-box setting: its words line up on the left after the box (not pushed right like a setting's value), with the
    box level with the title */
 label.setrow > input[type=checkbox] + span { flex: 1 1 auto; min-width: 0; text-align: left; color: inherit; font-size: inherit; }
@@ -4107,3 +4117,16 @@ html.mobile .pcwin .pcw-body { padding-bottom: 0 !important; }
 /* Coming back to the app with the keyboard up, the iPhone slides the visible part of the page down (the chat's top went
    off the screen): the card follows the visible part, so its top stays under the clock. (Normally that slide is 0.) */
 html.mobile .pcwin { top: calc(var(--vvt, 0px) + env(safe-area-inset-top, 0px) + 8px) !important; }
+/* the portrait's "change" control: a small gold pencil badge in its corner on hover (like a party's picture), not a strip
+   of text across the bottom; the whole portrait still takes the click */
+header.banner .portrait-wrap .portrait-edit { inset: auto 6px 6px auto !important; width: 28px; height: 28px; padding: 0 !important; display: grid; place-items: center; border-radius: 50% !important;
+  background: var(--gold) !important; color: #1b1406 !important; box-shadow: 0 2px 8px rgba(0,0,0,.35); font-size: 0 !important; transition: opacity .15s ease, transform .15s ease; }
+header.banner .portrait-wrap .portrait-edit svg { width: 14px; height: 14px; }
+@media (hover: hover) { :where(html:not(.mobile)) header.banner .portrait-wrap:hover .portrait-edit { transform: scale(1.06); } }
+html.mobile header.banner .portrait-wrap .portrait-edit { width: 24px; height: 24px; inset: auto 3px 3px auto !important; }
+/* roll cards can be picked up and moved with a mouse */
+html:not(.mobile) #rolls .toast.rollcard { cursor: grab; } body.rolls-drag, body.rolls-drag #rolls .toast.rollcard { cursor: grabbing !important; user-select: none; }
+/* tab labels sit on the same middle as their icons (the label's box is trimmed to its capital letters, so centring
+   lines up the letters themselves, not the empty space a font keeps above and below them) */
+html:not(.mobile) #tabs .tab .tlabel { transform: translateY(-1px); }
+

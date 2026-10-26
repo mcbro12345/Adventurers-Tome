@@ -3682,7 +3682,7 @@ function partyModule(H) {
     // a player looking at the party: no controls — the HP ring with AC / speed / level / passive in a 2 × 2 grid beside it
     const grid = `<div class="pm-csts pm-quad">${[['AC', c.ac || '—'], ['Speed', c.speed || '—'], ['Level', c.level || '—'], ['Passive', c.pp || '—']].map(([k, v]) => `<span><small>${k}</small><b>${esc(String(v))}</b></span>`).join('')}</div>`;
     const hp = max ? `<div class="pm-hp"><span class="pty-ring" title="${cur} of ${max} HP${Number(c.temp) ? ' (+' + c.temp + ' temporary)' : ''}"><span class="ring-svg">${ring(c.hp, max, c.temp)}</span><b>${cur}</b><small>of ${max}</small>${Number(c.temp) ? `<em class="pm-tmp">+${Number(c.temp)}</em>` : ''}</span>
-        ${dmMe ? `<div class="pm-hpq"><select class="pm-qt" id="pmqt-${esc(id)}" aria-label="Damage type for ${esc(c.name || 'them')}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${PTY_DT.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="pm-q" id="pmq-${esc(id)}" autocomplete="off" placeholder="Amount" aria-label="Amount for ${esc(c.name || 'them')}: -20 (or 20) for damage, +20 to heal, then Enter">
+        ${dmMe ? `<div class="pm-hpq"><select class="pm-qt sel-dmg" id="pmqt-${esc(id)}" aria-label="Damage type for ${esc(c.name || 'them')}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${PTY_DT.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="pm-q" id="pmq-${esc(id)}" autocomplete="off" placeholder="Amount" aria-label="Amount for ${esc(c.name || 'them')}: -20 (or 20) for damage, +20 to heal, then Enter">
           <div class="pm-hpb"><button class="pm-hb dmg" data-q="dmg" data-id="${esc(id)}" title="Damage" aria-label="Damage">${PM_IC.dmg}</button><button class="pm-hb heal" data-q="heal" data-id="${esc(id)}" title="Heal" aria-label="Heal">${PM_IC.heal}</button><button class="pm-hb tmp" data-q="temp" data-id="${esc(id)}" title="Temporary HP" aria-label="Temporary HP">${PM_IC.temp}</button></div></div>` : grid}</div>` : '';
     const stats = [!max && c.hp != null ? ['HP', c.hp] : null, ['AC', c.ac || '—'], c.speed ? ['Speed', c.speed] : null, c.level ? ['Level', c.level] : null, c.pp ? ['Passive', c.pp] : null].filter(Boolean);
     return `<div class="pm${st ? ' ' + st[1] : ''}" data-cid="${esc(id)}">
@@ -4081,13 +4081,13 @@ function partyModule(H) {
     const field = (lbl, html, cls) => `<label class="pa-fld${cls ? ' ' + cls : ''}"><span>${lbl}</span>${html}</label>`;
     const inp = (key, o = {}) => `<input class="pa-in${o.num ? ' num' : ''}" data-in="${key}" value="${esc(F[key] === 'max' ? '' : F[key])}"${o.num ? ' type="number" min="0" inputmode="numeric"' : ''}${o.ph ? ` placeholder="${esc(o.ph)}"` : ''}${o.list ? ` list="${o.list}"` : ''}${o.max ? ` maxlength="${o.max}"` : ''}>`;
     const form = () => {
-      if (kind === 'dmg') return `<div class="pa-row">${field('Amount', inp('n', { num: 1, ph: '0' }), 'sm')}${field('Damage type', `<select class="pa-in" data-in="type"><option value="">Any</option>${PTY_DMG.map(t => `<option${F.type === t ? ' selected' : ''}>${t}</option>`).join('')}</select>`)}</div>
+      if (kind === 'dmg') return `<div class="pa-row">${field('Amount', inp('n', { num: 1, ph: '0' }), 'sm')}${field('Damage type', `<select class="pa-in sel-dmg" data-in="type"><option value="">Any</option>${PTY_DMG.map(t => `<option${F.type === t ? ' selected' : ''}>${t}</option>`).join('')}</select>`)}</div>
         ${field('What hit them <em>(they see this)</em>', inp('why', { ph: 'e.g. Falling rocks', max: 80 }))}<p class="pa-note">${F.save ? 'Each player rolls the save on their sheet; the damage lands once they have.' : 'It’s taken off their HP straight away (after temp HP, resistances and immunities).'}</p>`;
       if (kind === 'heal') return `<div class="pa-row">${field('Amount', inp('n', { num: 1, ph: '0' }), 'sm')}<button class="btn${F.n === 'max' ? ' gold' : ''} pa-full" data-f="n" data-v="max">To full HP</button></div>${field('From what <em>(optional)</em>', inp('why', { ph: 'e.g. A night at the temple', max: 80 }))}`;
       if (kind === 'temp') return `${field('Temporary HP', inp('n', { num: 1, ph: '0' }), 'sm')}${field('From what <em>(optional)</em>', inp('why', { ph: 'e.g. Inspiring speech', max: 80 }))}<p class="pa-note">Temporary HP don’t stack: anyone who already has more keeps theirs.</p>`;
       if (kind === 'save') return `${field('Ability', seg('save', [['STR', 'STR'], ['DEX', 'DEX'], ['CON', 'CON'], ['INT', 'INT'], ['WIS', 'WIS'], ['CHA', 'CHA']]))}
         <div class="pa-row">${field('DC', inp('dc', { num: 1, ph: '15' }), 'sm')}${field('What it’s for <em>(they see this)</em>', inp('why', { ph: 'e.g. Collapsing bridge', max: 80 }))}</div>
-        <div class="pa-row">${field('Damage if they fail <em>(optional)</em>', inp('sdmg', { num: 1, ph: '0' }), 'sm')}${Number(F.sdmg) ? field('Damage type', `<select class="pa-in" data-in="type"><option value="">Any</option>${PTY_DMG.map(t => `<option${F.type === t ? ' selected' : ''}>${t}</option>`).join('')}</select>`) : ''}</div>
+        <div class="pa-row">${field('Damage if they fail <em>(optional)</em>', inp('sdmg', { num: 1, ph: '0' }), 'sm')}${Number(F.sdmg) ? field('Damage type', `<select class="pa-in sel-dmg" data-in="type"><option value="">Any</option>${PTY_DMG.map(t => `<option${F.type === t ? ' selected' : ''}>${t}</option>`).join('')}</select>`) : ''}</div>
         ${Number(F.sdmg) ? `<label class="pa-chk"><input type="checkbox" data-in="half"${F.half ? ' checked' : ''}> Half damage on a success</label>` : ''}
         <p class="pa-note">Each player rolls on their sheet and is told straight away whether they made it.</p>`;
       if (kind === 'cond') return `${field('Add or remove', seg('cmode', [['add', 'Add'], ['rm', 'Remove']]))}
@@ -4342,7 +4342,34 @@ function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduc
   const ps = [...document.querySelectorAll('#hub > .hub-head, #hub .hd-sec, #hub > .hub-list:not(.hd2-main)')].filter(x => x.getClientRects().length);
   ps.forEach((x, k) => { x.style.animationDelay = Math.min(k, 6) * 70 + 'ms'; x.classList.remove('pg-panin'); void x.offsetWidth; x.classList.add('pg-panin');
     x.addEventListener('animationend', () => { x.classList.remove('pg-panin'); x.style.animationDelay = ''; }, { once: true }); }); }
-
-
-
-
+// Dropdowns on a computer open the site's own list (like the admin filters) instead of the browser's plain one: the
+// options as rows, the current one ticked. The real <select> keeps the value and gets the change, so everything else
+// works as before. (Damage type boxes everywhere: sheets, party pages and the DM's Desk.)
+(function () { if (window.__pgSelPop) return; window.__pgSelPop = 1;
+  const isDmg = sel => sel && sel.tagName === 'SELECT' && !sel.multiple && !(sel.size > 1) && !sel.hidden && !sel.classList.contains('sp-native') && !sel.closest('.adm-fsel');
+  const TICK = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  let open = null;
+  const close = back => { if (!open) return; const { pop, sel } = open; open = null; pop.classList.add('out'); setTimeout(() => pop.remove(), 120); sel.classList.remove('sp-open'); if (back) sel.focus(); };
+  const pick = (sel, v) => { if (sel.value !== v) { sel.value = v; sel.dispatchEvent(new Event('input', { bubbles: true })); sel.dispatchEvent(new Event('change', { bubbles: true })); } close(true); };
+  const show = sel => { close(); const r = sel.getBoundingClientRect(), pop = document.createElement('div'); pop.className = 'sel-pop'; pop.setAttribute('role', 'listbox');
+    const ESC = t => t.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]), OPTS = [...sel.options];
+    const opt = o => { const i = OPTS.indexOf(o); return o.hidden ? '' : `<button type="button" role="option" class="sp-o${o.selected ? ' on' : ''}" data-i="${i}" aria-selected="${o.selected}"${o.disabled ? ' disabled' : ''}><span>${ESC(o.textContent)}</span>${o.selected ? TICK : ''}</button>`; };
+    pop.innerHTML = [...sel.children].map(c => c.tagName === 'OPTGROUP' ? (c.hidden ? '' : `<div class="sp-g" role="presentation">${ESC(c.label || '')}</div>` + [...c.children].map(opt).join('')) : c.tagName === 'OPTION' ? opt(c) : '').join('');
+    Object.assign(pop.style, { width: 'max-content', minWidth: Math.max(r.width, 180) + 'px', maxWidth: Math.min(380, innerWidth - 16) + 'px' }); document.body.appendChild(pop); const w = pop.offsetWidth + 1, h = pop.offsetHeight, below = innerHeight - r.bottom - 10, up = below < Math.min(h, 240) && r.top > below;
+    Object.assign(pop.style, { left: Math.max(8, Math.min(innerWidth - w - 8, r.left)) + 'px', width: w + 'px', maxHeight: Math.max(160, Math.min(340, (up ? r.top : below) - 10)) + 'px' });
+    pop.style.top = (up ? Math.max(8, r.top - 6 - Math.min(h, parseFloat(pop.style.maxHeight))) : r.bottom + 6) + 'px'; if (up) pop.classList.add('up');
+    sel.classList.add('sp-open'); open = { pop, sel };
+    pop.addEventListener('mousedown', e => e.preventDefault());
+    pop.addEventListener('click', e => { const b = e.target.closest('.sp-o'); if (b && !b.disabled) pick(sel, sel.options[+b.dataset.i].value); });
+    const on = pop.querySelector('.sp-o.on') || pop.querySelector('.sp-o'); if (on) { on.scrollIntoView({ block: 'nearest' }); on.focus({ preventScroll: true }); } };
+  document.addEventListener('mousedown', e => { const s0 = e.target.closest && e.target.closest('select'), sel = isDmg(s0) ? s0 : null;
+    if (open && !e.target.closest('.sel-pop')) { const was = open.sel; close(); if (sel === was) { e.preventDefault(); return; } }
+    if (!sel || e.button !== 0 || sel.disabled || document.documentElement.classList.contains('mobile') || !matchMedia('(pointer: fine)').matches) return;
+    e.preventDefault(); show(sel); }, true);
+  document.addEventListener('keydown', e => { if (!open) return; const bs = [...open.pop.querySelectorAll('.sp-o:not([disabled])')], i = bs.indexOf(document.activeElement);
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(true); }
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const n = bs[Math.max(0, Math.min(bs.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))]; if (n) n.focus(); }
+    else if (e.key === 'Tab') close();
+    else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { const k = e.key.toLowerCase(), from = Math.max(0, i + 1), hit = bs.slice(from).concat(bs.slice(0, from)).find(b => b.textContent.trim().toLowerCase().startsWith(k)); if (hit) { e.preventDefault(); hit.focus(); } } }, true);
+  addEventListener('scroll', e => { if (open && !(e.target.closest && e.target.closest('.sel-pop'))) close(); }, true); addEventListener('resize', () => close()); addEventListener('blur', () => close());
+})();

@@ -659,14 +659,30 @@ function kitItems() {
 // What scrolls in the creation window: its body on a computer; on a phone the whole window scrolls (the header goes up
 // out of the way and the steps get the full height), so it's the window's box
 function wzSc() { const b = $('#wizard .wz-body'); if (!b) return null; return getComputedStyle(b).overflowY === 'visible' ? ($('#wizard .wz-box') || b) : b; }
+// On a computer the pick lists (races, classes, features...) run down to just above the Back / Next bar, using whatever
+// room the window has, instead of stopping at a fixed height
+function wzFitLists() {
+  if (document.documentElement.classList.contains('mobile')) return;
+  const foot = $('#wizard .wz-foot'), res = (foot ? foot.offsetHeight : 0) + 28, sc = wzSc();
+  document.querySelectorAll('#wizard .crlist:not(.short)').forEach(e => { if (!e.offsetParent) return;
+    const top = e.getBoundingClientRect().top + (sc && sc !== e ? sc.scrollTop : 0) + scrollY, h = Math.max(300, Math.floor(innerHeight - top - res)) + 'px';
+    if (e.style.maxHeight !== h) e.style.maxHeight = h; });
+  // ...and if that still leaves the page a little taller than the window, take the difference back off
+  const over = document.documentElement.scrollHeight - innerHeight, l = $('#wizard .crlist:not(.short)');
+  if (over > 0 && l && l.offsetParent) { const h = parseFloat(l.style.maxHeight) || 0, n = Math.max(300, Math.floor(h - over)) + 'px'; if (h > 300 && l.style.maxHeight !== n) l.style.maxHeight = n; }
+}
+addEventListener('resize', () => { if (typeof W !== 'undefined' && W && $('#wizard')) wzFitLists(); });
 function renderWizard() {
   if (!W) return;
   // Redrawing the same step (after any pick) never moves your scroll: remember every scrolling box and put it back
   const keepKey = W.step + '|' + (W.part || ''), keepSame = W._keepKey === keepKey; W._keepKey = keepKey;
   const KS = ['#wizard', '#wizard .wz-box', '#wizard .wz3-wrap', '#wizard .wz3-main', '#wizard .wz-body', '#wizard .wz3-side'];
   const keep = keepSame ? KS.map(q => { const e = $(q); return e ? e.scrollTop : 0; }) : null, keepWin = keepSame ? [scrollX, scrollY] : null;
+  // ...and each pick list's own scroll (the lists scroll inside themselves on a computer)
+  const keepL = keepSame ? [...document.querySelectorAll('#wizard .crlist')].map(e => e.scrollTop) : null;
   try { renderWizard0(); } finally {
-    if (keep) { const put = () => { KS.forEach((q, i) => { const e = $(q); if (e && keep[i] && e.scrollTop !== keep[i]) e.scrollTop = keep[i]; }); if (keepWin && (scrollY !== keepWin[1])) window.scrollTo(keepWin[0], keepWin[1]); };
+    wzFitLists();
+    if (keep) { const put = () => { KS.forEach((q, i) => { const e = $(q); if (e && keep[i] && e.scrollTop !== keep[i]) e.scrollTop = keep[i]; }); document.querySelectorAll('#wizard .crlist').forEach((e, i) => { if (keepL[i] != null && e.scrollTop !== keepL[i]) e.scrollTop = keepL[i]; }); if (keepWin && (scrollY !== keepWin[1])) window.scrollTo(keepWin[0], keepWin[1]); };
       put(); requestAnimationFrame(put); }
   }
 }

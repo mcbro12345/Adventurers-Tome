@@ -13,7 +13,7 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.5afdf26d9157.css">
+<link rel="stylesheet" href="a/sheet.1d02c14936eb.css">
 <link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="195x195" href="speed-dial-195.png"><link rel="icon" type="image/png" sizes="512x512" href="icon-512.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:type" content="video.other"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="Adventurer’s Tome"><meta property="og:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:url" content="https://adventurers-tome.web.app/"><meta property="og:image" content="https://adventurers-tome.web.app/og-tour.png?v=5"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1280"><meta property="og:image:height" content="720"><meta property="og:image:alt" content="Adventurer’s Tome: D&amp;D 5e sheets that do the math"><meta property="og:image" content="https://adventurers-tome.web.app/speed-dial.png?v=1"><link rel="image_src" href="/speed-dial.png?v=1"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1024"><meta property="og:image:height" content="640"><meta property="og:image:alt" content="Adventurer’s Tome"><meta property="og:video" content="https://www.youtube.com/embed/wR1JulNVoDE"><meta property="og:video:url" content="https://www.youtube.com/embed/wR1JulNVoDE"><meta property="og:video:secure_url" content="https://www.youtube.com/embed/wR1JulNVoDE"><meta property="og:video:type" content="text/html"><meta property="og:video:width" content="1280"><meta property="og:video:height" content="720"><link rel="alternate" type="application/json+oembed" href="https://adventurers-tome.web.app/oembed.json?v=6" title="Adventurer’s Tome"><meta name="twitter:card" content="player"><meta name="twitter:player" content="https://www.youtube.com/embed/wR1JulNVoDE"><meta name="twitter:player:width" content="1280"><meta name="twitter:player:height" content="720"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-tour.png?v=5"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest"><script>var t="dark";try{if(localStorage.getItem("pg-theme")==="light")t="light"}catch(e){}document.documentElement.setAttribute("data-pgtheme",t)</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
@@ -2833,7 +2833,7 @@ body.adminbody { --adm-edge: #e3d6b8; --adm-card: rgba(255,255,255,.72); --adm-g
   body.adminbody .adm { grid-template-columns: 290px minmax(0, 1fr); gap: 8px; padding: 16px 0 0 16px; box-sizing: border-box; }
   body.adminbody .adm-side { top: 16px; height: calc(100vh - 32px); border: 1px solid var(--adm-edge); border-radius: 18px; background: rgba(26,33,49,.75); box-shadow: 0 12px 30px rgba(0,0,0,.32); overflow: visible; }
   body.adminbody .adm-brand, body.adminbody .adm-backrow { border-bottom-color: var(--adm-edge); }
-  body.adminbody .adm-main { padding: 20px 36px 60px 28px; max-width: 1500px; }
+  body.adminbody .adm-main { padding: 20px 36px 60px 28px; max-width: none; }
 }
 body.adminbody .adm-sec { text-transform: none; letter-spacing: 0; font-size: .78rem; font-weight: 700; opacity: .55; }
 body.adminbody .adm-ni { border-radius: 10px; min-height: 40px; }
@@ -3524,6 +3524,17 @@ body.hdragging, body.hdragging * { cursor: grabbing !important; user-select: non
  :where(html[data-pgtheme="light"]) :where(input[type=checkbox]:not([role=switch])) { --cb-line: rgba(70,80,100,.45); } 
 :root[data-theme="light"] :where(input[type=checkbox]:not([role=switch])), html[data-pgtheme="light"] :where(input[type=checkbox]:not([role=switch])) { --cb-line: rgba(70,80,100,.45); }
 :root[data-theme="dark"] :where(input[type=checkbox]:not([role=switch])), html[data-pgtheme="dark"] :where(input[type=checkbox]:not([role=switch])) { --cb-line: rgba(140,150,170,.6); }
+/* Radio buttons match the site's checkboxes: a round box that fills with a gold dot when picked. */
+:where(input[type=radio]) { appearance: none; -webkit-appearance: none; box-sizing: border-box; flex: none; width: 18px; height: 18px; margin: 0; padding: 0; vertical-align: -4px;
+  border: 1.5px solid var(--cb-line, rgba(140,150,170,.6)); border-radius: 50%; background: var(--field, transparent); cursor: pointer; color: inherit;
+  transition: background-color .15s, border-color .15s, box-shadow .15s; }
+:where(input[type=radio]):hover:not(:disabled) { border-color: var(--gold, #c9962b); }
+:where(input[type=radio]):checked { border-color: var(--gold, #c9962b); background: radial-gradient(circle, var(--gold, #c9962b) 0 4px, transparent 4.6px) var(--field, transparent); }
+:where(input[type=radio]):disabled { cursor: not-allowed; opacity: .5; }
+@media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) :where(input[type=radio]) { --cb-line: rgba(70,80,100,.45); } }
+ :where(html[data-pgtheme="light"]) :where(input[type=radio]) { --cb-line: rgba(70,80,100,.45); } 
+:root[data-theme="light"] :where(input[type=radio]), html[data-pgtheme="light"] :where(input[type=radio]) { --cb-line: rgba(70,80,100,.45); }
+:root[data-theme="dark"] :where(input[type=radio]), html[data-pgtheme="dark"] :where(input[type=radio]) { --cb-line: rgba(140,150,170,.6); }
 .pg-panin { animation: pgPanIn .45s cubic-bezier(.2,.7,.3,1) both; }
 @keyframes pgPanIn { from { opacity: 0; transform: translateY(8px); } }
 @media (prefers-reduced-motion: reduce) { .pg-panin { animation: none; } }
@@ -3613,6 +3624,30 @@ html[data-theme="light"].mobile #wizard .wz-box:has(> .wzh2) .wz-foot { backgrou
 }
 /* phones: the account sheet opened from character creation comes up over the creation window, not behind it */
 body.wizopen > .ha-dim { z-index: 118 !important; } body.wizopen > .ha-menu.ha-sheet { z-index: 120 !important; }
+
+/* the site's own dropdown list (opened from a box on a computer) */
+/* Site-style dropdowns on computers: every single-choice select gets the same arrow, a gold border on hover, and opens .sel-pop (pages_loader.js). */
+@media (pointer: fine) {
+  html:not(.mobile) select:not([multiple]):not([size]):not([hidden]):not(.sp-native):not(.adm-fsel select) { --sd-ar: var(--soft, var(--muted, #8f8a7c)); appearance: none !important; -webkit-appearance: none !important; padding-right: 26px !important; cursor: pointer;
+    background-image: linear-gradient(45deg, transparent 50%, var(--sd-ar) 50%), linear-gradient(135deg, var(--sd-ar) 50%, transparent 50%) !important;
+    background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52% !important; background-size: 5px 5px !important; background-repeat: no-repeat !important;
+    transition: border-color .15s; }
+  html:not(.mobile) select:not([multiple]):not([size]):not([hidden]):not(.sp-native):not(.adm-fsel select):hover:not(:disabled) { border-color: var(--gold, #c9962b) !important; }
+}
+.sel-pop .sp-g { padding: 8px 10px 3px; font-size: .72rem; font-weight: 700; opacity: .6; }
+.sel-pop { position: fixed; z-index: 9000; overflow-y: auto; overscroll-behavior: contain; padding: 5px; border-radius: 12px; border: 1px solid var(--line, rgba(127,127,127,.28)); background: var(--panel, var(--card, #1a2131)); color: var(--ink, #e9e3d3);
+  box-shadow: 0 14px 34px rgba(0,0,0,.38); animation: spIn .14s ease-out; scrollbar-width: thin; }
+.sel-pop.up { animation-name: spInUp; } .sel-pop.out { animation: spOut .12s ease-in forwards; pointer-events: none; }
+@keyframes spIn { from { opacity: 0; transform: translateY(-4px) scale(.98); } } @keyframes spInUp { from { opacity: 0; transform: translateY(4px) scale(.98); } } @keyframes spOut { to { opacity: 0; transform: translateY(-3px); } }
+.sel-pop .sp-o { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 34px; padding: 6px 10px; border: 0; border-radius: 8px; background: none; color: inherit; font: inherit; font-size: .9rem; font-weight: 600; text-align: left; cursor: pointer; }
+.sel-pop .sp-o:hover, .sel-pop .sp-o:focus-visible { background: var(--panel2, var(--card2, rgba(255,255,255,.07))); outline: none; }
+.sel-pop .sp-o.on { background: var(--gold-soft, rgba(201,150,43,.18)); color: var(--gold-ink, #e0aa3a); }
+.sel-pop .sp-o svg { flex: none; }
+select.sp-open { border-color: var(--gold, #c9962b) !important; }
+@media (prefers-reduced-motion: reduce) { .sel-pop, .sel-pop.out { animation: none; } }
+@media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.hubbody .sel-pop { background: var(--panel, #fffaf0); color: var(--ink, #1f2a44); border-color: var(--line, #e3d6b8); box-shadow: 0 14px 34px rgba(60,45,20,.18); } }
+ :where(html[data-pgtheme="light"]) body.hubbody .sel-pop { background: var(--panel, #fffaf0); color: var(--ink, #1f2a44); border-color: var(--line, #e3d6b8); box-shadow: 0 14px 34px rgba(60,45,20,.18); } 
+html[data-pgtheme="light"] body.dkhost > .sel-pop { background: var(--card, #fffaf0); color: var(--ink, #1f2a44); }
 </style>
 </head>
 <body>
@@ -4382,7 +4417,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261026121307', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.58a095af14c6.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.cc329e6d0bbc.html", "desk": "a/desk.6f7d84124c06.js", "deskcss": "a/deskcss.228cf76b092b.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261026133456', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.2138affe82ed.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.27fa563e94db.html", "desk": "a/desk.d1fdb536a329.js", "deskcss": "a/deskcss.8dd0658828f2.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };
@@ -7341,7 +7376,7 @@ function partyModule(H) {
     // a player looking at the party: no controls — the HP ring with AC / speed / level / passive in a 2 × 2 grid beside it
     const grid = `<div class="pm-csts pm-quad">${[['AC', c.ac || '—'], ['Speed', c.speed || '—'], ['Level', c.level || '—'], ['Passive', c.pp || '—']].map(([k, v]) => `<span><small>${k}</small><b>${esc(String(v))}</b></span>`).join('')}</div>`;
     const hp = max ? `<div class="pm-hp"><span class="pty-ring" title="${cur} of ${max} HP${Number(c.temp) ? ' (+' + c.temp + ' temporary)' : ''}"><span class="ring-svg">${ring(c.hp, max, c.temp)}</span><b>${cur}</b><small>of ${max}</small>${Number(c.temp) ? `<em class="pm-tmp">+${Number(c.temp)}</em>` : ''}</span>
-        ${dmMe ? `<div class="pm-hpq"><select class="pm-qt" id="pmqt-${esc(id)}" aria-label="Damage type for ${esc(c.name || 'them')}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${PTY_DT.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="pm-q" id="pmq-${esc(id)}" autocomplete="off" placeholder="Amount" aria-label="Amount for ${esc(c.name || 'them')}: -20 (or 20) for damage, +20 to heal, then Enter">
+        ${dmMe ? `<div class="pm-hpq"><select class="pm-qt sel-dmg" id="pmqt-${esc(id)}" aria-label="Damage type for ${esc(c.name || 'them')}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${PTY_DT.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="pm-q" id="pmq-${esc(id)}" autocomplete="off" placeholder="Amount" aria-label="Amount for ${esc(c.name || 'them')}: -20 (or 20) for damage, +20 to heal, then Enter">
           <div class="pm-hpb"><button class="pm-hb dmg" data-q="dmg" data-id="${esc(id)}" title="Damage" aria-label="Damage">${PM_IC.dmg}</button><button class="pm-hb heal" data-q="heal" data-id="${esc(id)}" title="Heal" aria-label="Heal">${PM_IC.heal}</button><button class="pm-hb tmp" data-q="temp" data-id="${esc(id)}" title="Temporary HP" aria-label="Temporary HP">${PM_IC.temp}</button></div></div>` : grid}</div>` : '';
     const stats = [!max && c.hp != null ? ['HP', c.hp] : null, ['AC', c.ac || '—'], c.speed ? ['Speed', c.speed] : null, c.level ? ['Level', c.level] : null, c.pp ? ['Passive', c.pp] : null].filter(Boolean);
     return `<div class="pm${st ? ' ' + st[1] : ''}" data-cid="${esc(id)}">
@@ -7740,13 +7775,13 @@ function partyModule(H) {
     const field = (lbl, html, cls) => `<label class="pa-fld${cls ? ' ' + cls : ''}"><span>${lbl}</span>${html}</label>`;
     const inp = (key, o = {}) => `<input class="pa-in${o.num ? ' num' : ''}" data-in="${key}" value="${esc(F[key] === 'max' ? '' : F[key])}"${o.num ? ' type="number" min="0" inputmode="numeric"' : ''}${o.ph ? ` placeholder="${esc(o.ph)}"` : ''}${o.list ? ` list="${o.list}"` : ''}${o.max ? ` maxlength="${o.max}"` : ''}>`;
     const form = () => {
-      if (kind === 'dmg') return `<div class="pa-row">${field('Amount', inp('n', { num: 1, ph: '0' }), 'sm')}${field('Damage type', `<select class="pa-in" data-in="type"><option value="">Any</option>${PTY_DMG.map(t => `<option${F.type === t ? ' selected' : ''}>${t}</option>`).join('')}</select>`)}</div>
+      if (kind === 'dmg') return `<div class="pa-row">${field('Amount', inp('n', { num: 1, ph: '0' }), 'sm')}${field('Damage type', `<select class="pa-in sel-dmg" data-in="type"><option value="">Any</option>${PTY_DMG.map(t => `<option${F.type === t ? ' selected' : ''}>${t}</option>`).join('')}</select>`)}</div>
         ${field('What hit them <em>(they see this)</em>', inp('why', { ph: 'e.g. Falling rocks', max: 80 }))}<p class="pa-note">${F.save ? 'Each player rolls the save on their sheet; the damage lands once they have.' : 'It’s taken off their HP straight away (after temp HP, resistances and immunities).'}</p>`;
       if (kind === 'heal') return `<div class="pa-row">${field('Amount', inp('n', { num: 1, ph: '0' }), 'sm')}<button class="btn${F.n === 'max' ? ' gold' : ''} pa-full" data-f="n" data-v="max">To full HP</button></div>${field('From what <em>(optional)</em>', inp('why', { ph: 'e.g. A night at the temple', max: 80 }))}`;
       if (kind === 'temp') return `${field('Temporary HP', inp('n', { num: 1, ph: '0' }), 'sm')}${field('From what <em>(optional)</em>', inp('why', { ph: 'e.g. Inspiring speech', max: 80 }))}<p class="pa-note">Temporary HP don’t stack: anyone who already has more keeps theirs.</p>`;
       if (kind === 'save') return `${field('Ability', seg('save', [['STR', 'STR'], ['DEX', 'DEX'], ['CON', 'CON'], ['INT', 'INT'], ['WIS', 'WIS'], ['CHA', 'CHA']]))}
         <div class="pa-row">${field('DC', inp('dc', { num: 1, ph: '15' }), 'sm')}${field('What it’s for <em>(they see this)</em>', inp('why', { ph: 'e.g. Collapsing bridge', max: 80 }))}</div>
-        <div class="pa-row">${field('Damage if they fail <em>(optional)</em>', inp('sdmg', { num: 1, ph: '0' }), 'sm')}${Number(F.sdmg) ? field('Damage type', `<select class="pa-in" data-in="type"><option value="">Any</option>${PTY_DMG.map(t => `<option${F.type === t ? ' selected' : ''}>${t}</option>`).join('')}</select>`) : ''}</div>
+        <div class="pa-row">${field('Damage if they fail <em>(optional)</em>', inp('sdmg', { num: 1, ph: '0' }), 'sm')}${Number(F.sdmg) ? field('Damage type', `<select class="pa-in sel-dmg" data-in="type"><option value="">Any</option>${PTY_DMG.map(t => `<option${F.type === t ? ' selected' : ''}>${t}</option>`).join('')}</select>`) : ''}</div>
         ${Number(F.sdmg) ? `<label class="pa-chk"><input type="checkbox" data-in="half"${F.half ? ' checked' : ''}> Half damage on a success</label>` : ''}
         <p class="pa-note">Each player rolls on their sheet and is told straight away whether they made it.</p>`;
       if (kind === 'cond') return `${field('Add or remove', seg('cmode', [['add', 'Add'], ['rm', 'Remove']]))}
@@ -8001,10 +8036,37 @@ function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduc
   const ps = [...document.querySelectorAll('#hub > .hub-head, #hub .hd-sec, #hub > .hub-list:not(.hd2-main)')].filter(x => x.getClientRects().length);
   ps.forEach((x, k) => { x.style.animationDelay = Math.min(k, 6) * 70 + 'ms'; x.classList.remove('pg-panin'); void x.offsetWidth; x.classList.add('pg-panin');
     x.addEventListener('animationend', () => { x.classList.remove('pg-panin'); x.style.animationDelay = ''; }, { once: true }); }); }
-
-
-
-
+// Dropdowns on a computer open the site's own list (like the admin filters) instead of the browser's plain one: the
+// options as rows, the current one ticked. The real <select> keeps the value and gets the change, so everything else
+// works as before. (Damage type boxes everywhere: sheets, party pages and the DM's Desk.)
+(function () { if (window.__pgSelPop) return; window.__pgSelPop = 1;
+  const isDmg = sel => sel && sel.tagName === 'SELECT' && !sel.multiple && !(sel.size > 1) && !sel.hidden && !sel.classList.contains('sp-native') && !sel.closest('.adm-fsel');
+  const TICK = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  let open = null;
+  const close = back => { if (!open) return; const { pop, sel } = open; open = null; pop.classList.add('out'); setTimeout(() => pop.remove(), 120); sel.classList.remove('sp-open'); if (back) sel.focus(); };
+  const pick = (sel, v) => { if (sel.value !== v) { sel.value = v; sel.dispatchEvent(new Event('input', { bubbles: true })); sel.dispatchEvent(new Event('change', { bubbles: true })); } close(true); };
+  const show = sel => { close(); const r = sel.getBoundingClientRect(), pop = document.createElement('div'); pop.className = 'sel-pop'; pop.setAttribute('role', 'listbox');
+    const ESC = t => t.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]), OPTS = [...sel.options];
+    const opt = o => { const i = OPTS.indexOf(o); return o.hidden ? '' : `<button type="button" role="option" class="sp-o${o.selected ? ' on' : ''}" data-i="${i}" aria-selected="${o.selected}"${o.disabled ? ' disabled' : ''}><span>${ESC(o.textContent)}</span>${o.selected ? TICK : ''}</button>`; };
+    pop.innerHTML = [...sel.children].map(c => c.tagName === 'OPTGROUP' ? (c.hidden ? '' : `<div class="sp-g" role="presentation">${ESC(c.label || '')}</div>` + [...c.children].map(opt).join('')) : c.tagName === 'OPTION' ? opt(c) : '').join('');
+    Object.assign(pop.style, { width: 'max-content', minWidth: Math.max(r.width, 180) + 'px', maxWidth: Math.min(380, innerWidth - 16) + 'px' }); document.body.appendChild(pop); const w = pop.offsetWidth + 1, h = pop.offsetHeight, below = innerHeight - r.bottom - 10, up = below < Math.min(h, 240) && r.top > below;
+    Object.assign(pop.style, { left: Math.max(8, Math.min(innerWidth - w - 8, r.left)) + 'px', width: w + 'px', maxHeight: Math.max(160, Math.min(340, (up ? r.top : below) - 10)) + 'px' });
+    pop.style.top = (up ? Math.max(8, r.top - 6 - Math.min(h, parseFloat(pop.style.maxHeight))) : r.bottom + 6) + 'px'; if (up) pop.classList.add('up');
+    sel.classList.add('sp-open'); open = { pop, sel };
+    pop.addEventListener('mousedown', e => e.preventDefault());
+    pop.addEventListener('click', e => { const b = e.target.closest('.sp-o'); if (b && !b.disabled) pick(sel, sel.options[+b.dataset.i].value); });
+    const on = pop.querySelector('.sp-o.on') || pop.querySelector('.sp-o'); if (on) { on.scrollIntoView({ block: 'nearest' }); on.focus({ preventScroll: true }); } };
+  document.addEventListener('mousedown', e => { const s0 = e.target.closest && e.target.closest('select'), sel = isDmg(s0) ? s0 : null;
+    if (open && !e.target.closest('.sel-pop')) { const was = open.sel; close(); if (sel === was) { e.preventDefault(); return; } }
+    if (!sel || e.button !== 0 || sel.disabled || document.documentElement.classList.contains('mobile') || !matchMedia('(pointer: fine)').matches) return;
+    e.preventDefault(); show(sel); }, true);
+  document.addEventListener('keydown', e => { if (!open) return; const bs = [...open.pop.querySelectorAll('.sp-o:not([disabled])')], i = bs.indexOf(document.activeElement);
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(true); }
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const n = bs[Math.max(0, Math.min(bs.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))]; if (n) n.focus(); }
+    else if (e.key === 'Tab') close();
+    else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { const k = e.key.toLowerCase(), from = Math.max(0, i + 1), hit = bs.slice(from).concat(bs.slice(0, from)).find(b => b.textContent.trim().toLowerCase().startsWith(k)); if (hit) { e.preventDefault(); hit.focus(); } } }, true);
+  addEventListener('scroll', e => { if (open && !(e.target.closest && e.target.closest('.sel-pop'))) close(); }, true); addEventListener('resize', () => close()); addEventListener('blur', () => close());
+})();
 
 </script>
 </body>

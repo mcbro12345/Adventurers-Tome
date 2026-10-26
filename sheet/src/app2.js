@@ -253,16 +253,31 @@ function toast(html, cls = '', ms = 4500, action) {
   if (isRoll && cls !== 'manual') statFlush();
   if (isRoll && cls !== 'manual') postSheetRoll(t);
   if (isRoll) { box = $('#rolls'); if (!box) { box = document.createElement('div'); box.id = 'rolls'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); } t.classList.add('rollcard'); ms = Math.max(ms, 6500); }
-  if (isRoll) box.prepend(t); else box.appendChild(t);
+  // A new roll while one is showing: like a carousel, the new card slides down into the top spot from just above, the
+  // previous card(s) slide down a place to make room, and whichever card no longer fits slides on down and fades away.
   const cap = isRoll ? (document.documentElement.classList.contains('mobile') ? 1 : 2) : document.documentElement.classList.contains('mobile') ? 2 : 5;
+  let rcOld = [];
+  if (isRoll) { const br = box.getBoundingClientRect(); rcOld = [...box.querySelectorAll(':scope > .rollcard:not(.rc-out)')].map(o => { const r = o.getBoundingClientRect(); const cs = getComputedStyle(o); return { o, top: o.offsetTop, left: o.offsetLeft, w: o.offsetWidth, y: o.offsetTop, tf: cs.transform === 'none' ? '' : cs.transform, op: cs.opacity }; }); }
+  // (the card gets its final layout before it goes in, so the cards below know exactly how far to move)
+  if (isRoll) { t._at = Date.now(); rcDress(t); }
+  if (isRoll) box.prepend(t); else box.appendChild(t);
+  if (isRoll && rcOld.length) {
+    const still = !matchMedia('(prefers-reduced-motion: reduce)').matches, stay = rcOld.slice(0, cap - 1), go = rcOld.slice(cap - 1);
+    go.forEach(({ o, top, left, w, tf, op }) => { clearTimeout(o._tm); if (!still) { o.remove(); return; } o.classList.add('rc-out', 'rc-slide'); Object.assign(o.style, { position: 'absolute', top: top + 'px', left: left + 'px', width: w + 'px', margin: '0', animation: 'none', zIndex: '-1' });
+      const a = o.animate([{ transform: `translateY(0px) ${tf}`, opacity: op }, { transform: 'translateY(40px) scale(.9)', opacity: 0 }], { duration: 130, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' }); a.onfinish = () => o.remove(); }); // (gone quickly, before the card behind it slides into its place)
+    if (still) {
+      stay.forEach(({ o, y, tf, op }) => { const d = y - o.offsetTop, cs = getComputedStyle(o), tf2 = cs.transform === 'none' ? '' : cs.transform; // (it eases into its second-place look as it moves, so nothing snaps at the end)
+        if (Math.abs(d) > 1) { o.style.animation = 'none'; o.animate([{ transform: `translateY(${d}px) ${tf}`, opacity: op }, { transform: `translateY(0px) ${tf2}`, opacity: cs.opacity }], { duration: 400, delay: go.length ? 100 : 0, easing: 'cubic-bezier(.3,0,.2,1)', fill: 'backwards' }); } });
+      t.style.animation = 'none'; t.animate([{ transform: 'translateY(-56px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 380, delay: 150, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'backwards' }); // (it follows a beat behind, so the two never blur together)
+    }
+  }
   if (isRoll) {
     // The math is always on the card (no button to open it), laid out under the numbers: one column per part (to hit,
     // damage…). The card stays until its × is pressed — or until a newer roll pushes it off the stack.
-    t._at = Date.now(); rcDress(t);
     // Settings → Dice can make cards fade on their own after a while (it waits while the pointer rests on the card)
     { const sec = N(ST('rollFade')); if (sec > 0) { const go = () => { clearTimeout(t._tm); t._tm = setTimeout(() => rcClose(t), sec * 1000); }; go();
       t.addEventListener('mouseenter', () => clearTimeout(t._tm)); t.addEventListener('mouseleave', go); t.addEventListener('touchstart', go, { passive: true }); } }
-    while (box.children.length > cap) box.lastChild.remove(); return;
+    { const live = [...box.children].filter(c => !c.classList.contains('rc-slide')); while (live.length > cap) live.pop().remove(); } return;
   }
   while (box.children.length > cap) box.firstChild.remove();
   setTimeout(() => t.remove(), ms);
@@ -282,7 +297,33 @@ function rcDress(t) {
   x.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
   x.onclick = ev => { ev.stopPropagation(); rcClose(t); }; t.appendChild(x);
 }
-function rcClose(t) { if (!t || t.classList.contains('rc-out')) return; t.classList.add('rc-out'); setTimeout(() => t.remove(), 180); }
+// On a computer the roll cards can be dragged anywhere on the screen (grab a card anywhere but its buttons). New rolls
+// show up where you left them, for as long as the page is open.
+(() => { let D = null; const box = () => $('#rolls'), K = 'pg-rolls-at';
+  const put = (x, y) => { const b = box(); if (!b) return; b.style.translate = `${Math.round(x)}px ${Math.round(y)}px`; };
+  try { const v = JSON.parse(sessionStorage.getItem(K) || 'null'); if (v) setTimeout(() => put(v[0], v[1]), 0); } catch (e) {}
+  document.addEventListener('pointerdown', e => { if (e.button !== 0 || e.pointerType !== 'mouse' || isMobile()) return; const c = e.target.closest && e.target.closest('#rolls .rollcard'); if (!c || e.target.closest('button, a, input, select, textarea')) return;
+    const b = box(), t = (b.style.translate || '0px 0px').split(' ').map(parseFloat), r = b.getBoundingClientRect();
+    D = { x0: e.clientX, y0: e.clientY, tx: t[0] || 0, ty: t[1] || 0, r, on: false }; e.preventDefault(); });
+  addEventListener('pointermove', e => { if (!D) return; const dx = e.clientX - D.x0, dy = e.clientY - D.y0; if (!D.on && Math.hypot(dx, dy) < 4) return; D.on = true; document.body.classList.add('rolls-drag');
+    // (kept fully on screen)
+    const x = Math.max(-D.r.left + 6, Math.min(innerWidth - D.r.right - 6, dx)), y = Math.max(-D.r.top + 6, Math.min(innerHeight - D.r.top - 60, dy)); put(D.tx + x, D.ty + y); });
+  addEventListener('pointerup', () => { if (!D) return; const was = D.on; D = null; document.body.classList.remove('rolls-drag'); if (!was) return;
+    const t = (box().style.translate || '0px 0px').split(' ').map(parseFloat); try { sessionStorage.setItem(K, JSON.stringify([t[0] || 0, t[1] || 0])); } catch (e) {}
+    const eat = ev => { ev.stopPropagation(); ev.preventDefault(); }; addEventListener('click', eat, { capture: true, once: true }); setTimeout(() => removeEventListener('click', eat, true), 0); });
+  // a card that ends up off screen (the window got smaller) comes back on
+  addEventListener('resize', () => { const b = box(); if (!b || !b.style.translate) return; const r = b.getBoundingClientRect(); if (r.right > innerWidth || r.left < 0 || r.top > innerHeight - 60) { b.style.translate = ''; try { sessionStorage.removeItem(K); } catch (e) {} } });
+})();
+function rcClose(t) { if (!t || t.classList.contains('rc-out')) return; clearTimeout(t._tm);
+  const box = t.parentElement, cs = getComputedStyle(t), tf = cs.transform === 'none' ? '' : cs.transform; t.classList.add('rc-out'); t.style.animation = 'none';
+  // (it fades away, then whatever card was behind it glides up into its place and takes the top card's look)
+  const a = t.animate([{ transform: `translateY(0px) ${tf}`, opacity: cs.opacity }, { transform: `translateY(-6px) ${tf} scale(.98)`, opacity: 0 }], { duration: 180, easing: 'ease', fill: 'forwards' });
+  a.onfinish = () => { if (!box || matchMedia('(prefers-reduced-motion: reduce)').matches) { t.remove(); return; }
+    const rest = [...box.querySelectorAll(':scope > .rollcard:not(.rc-out)')].map(o => { const c = getComputedStyle(o); return { o, y: o.offsetTop, tf: c.transform === 'none' ? '' : c.transform, op: c.opacity }; });
+    t.remove();
+    rest.forEach(({ o, y, tf, op }) => { const d = y - o.offsetTop, c = getComputedStyle(o), tf2 = c.transform === 'none' ? '' : c.transform; if (Math.abs(d) < 1 && tf === tf2) return; o.style.animation = 'none';
+      o.animate([{ transform: `translateY(${d}px) ${tf}`, opacity: op }, { transform: `translateY(0px) ${tf2}`, opacity: c.opacity }], { duration: 320, easing: 'cubic-bezier(.22,1,.36,1)' }); }); };
+}
 // Esc closes the newest roll card (when no window is open)
 document.addEventListener('keydown', e => { if (e.key !== 'Escape' || document.querySelector('#modal.open, .wizard.open, .hub-modal.on, .pg-out')) return; const c = document.querySelector('#rolls .rollcard:not(.rc-out)'); if (c) rcClose(c); });
 let onModalCancel = null;
@@ -475,7 +516,7 @@ function renderHeader() {
     ST('showAlignment') ? fld('Alignment', sel('alignment', [['', '—']].concat(DND.alignments.map(a => [a, a])))) : '', ST('showFaith') ? fld('Faith', inp('faith', { ph: '—', fit: 8 })) : ''].join('');
   $('#sec-header').innerHTML = `
   <div class="banner-row"><div class="portrait-wrap"><img id="portraitImg" src="${esc(pic)}" alt="${esc((S.name || 'Character') + '’s portrait')}">
-    <label class="portrait-edit" tabindex="0" data-act="portrait">Change portrait</label></div>${inspHTML()}</div>
+    <label class="portrait-edit" tabindex="0" data-act="portrait" title="Change portrait" aria-label="Change portrait"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg></label></div>${inspHTML()}</div>
   <div class="ident${idf ? '' : ' noid'}"><h1 class="sr-only">${esc(S.name || 'Character sheet')}</h1>
     <div class="ident-top">
       <img class="mini-portrait" src="${esc(pic)}" alt="" data-act="portrait">
@@ -507,7 +548,7 @@ function renderVitals() {
         <div class="hp-center">${f ? inp('form.hp', { num: 1, cls: 'cur', label: 'Form HP' }) + `<div class="hp-max">of ${N(f.maxhp)}</div>` : `<div class="curline">` + inp('hp.cur', { num: 1, cls: 'cur', label: 'Current HP' }) + `<span class="tmpbadge" data-calc="tmpb" title="Temporary hit points"></span></div><div class="hp-max">of <span class="maxv" data-calc="hpmaxv"></span></div>`}</div></div>
       <div class="hp-side">
         ${f ? `<div class="formnote">Your HP: <b data-calc="truehp"></b> <button class="btn sm" data-act="endform">Revert</button></div>` : ''}
-        <div class="hp-actions"><div class="hp-amtrow"><select class="f hptype" id="hpType" aria-label="Damage type (resistances and immunities apply)" title="Damage type: your resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="hpAmt" type="text" inputmode="text" autocomplete="off" enterkeyhint="done" placeholder="Amount" aria-label="HP amount: type -20 (or 20) and press Enter for damage, +20 to heal"></div>
+        <div class="hp-actions"><div class="hp-amtrow"><select class="f hptype sel-dmg" id="hpType" aria-label="Damage type (resistances and immunities apply)" title="Damage type: your resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="hpAmt" type="text" inputmode="text" autocomplete="off" enterkeyhint="done" placeholder="Amount" aria-label="HP amount: type -20 (or 20) and press Enter for damage, +20 to heal"></div>
           <button class="btn red hpi" data-act="dmg" title="Take damage" aria-label="Take damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="heal" title="Heal" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmpbtn" data-act="tmphp" title="Gain temporary HP (they don't stack — the higher stays). 0 clears them." aria-label="Gain temporary HP">${ICON.hpTemp}</button></div>
         <div class="rest-actions"><button class="btn rest short" data-act="short" title="1 hour: spend Hit Dice, refresh short-rest features and Pact slots"><span class="ri">${ICON.hourglass}</span><span class="rl">Short Rest</span></button><button class="btn rest long" data-act="long" title="8 hours: full HP, all slots, features and Hit Dice"><span class="ri">${ICON.moon}</span><span class="rl">Long Rest</span></button></div>
       </div>
