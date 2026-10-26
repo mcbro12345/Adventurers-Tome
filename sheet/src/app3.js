@@ -1156,3 +1156,52 @@ addEventListener('resize', () => alignHpSide());
 // Big coin piles shrink their number to fit the chip instead of getting cut off.
 function fitCoins() { $$('.cn .cin').forEach(el => { const n = String(el.value || '').length, z = n >= 8 ? .72 : n >= 7 ? .8 : n >= 6 ? .9 : n >= 5 ? 1 : 0; el.style.fontSize = z ? z + 'rem' : ''; }); }
 document.addEventListener('input', e => { if (e.target.classList && e.target.classList.contains('cin')) fitCoins(); });
+
+// ---------- Right-click an inventory item ----------
+// A menu at the pointer with everything the row can do (use it, equip, attune, charges, move or give it,
+// edit, duplicate, remove). Its buttons are the row's own actions, so they behave exactly as the row's buttons do.
+// Right-clicking inside a box you're typing in keeps the browser's own menu (copy, paste, spelling).
+function invCtxClose() { const m = document.getElementById('ictx'); if (!m) return; m.remove(); }
+function invCtxOpen(row, x, y) {
+  invCtxClose(); const i = N(row.dataset.ii), it = S.inventory[i]; if (!it) return;
+  const B = (attrs, label, cls) => `<button${cls ? ` class="${cls}"` : ''} ${attrs}>${label}</button>`, sect = (t, h) => h ? `${t ? `<div class="mlabel">${t}</div>` : ''}${h}` : '';
+  // the row's own "use" buttons (Drink, Use, Throw, Draw a card, Store a spell, Unpack), as they are right now
+  const uses = [...row.querySelectorAll('.imeta button[data-act]')].filter(b => /^(drink|useitem|throwit|deck|ringstore|unpack)$/.test(b.dataset.act))
+    .map(b => B(`data-act="${b.dataset.act}" data-i="${i}"${b.disabled ? ` disabled title="${esc(b.title || '')}"` : ''}`, esc(b.textContent.trim()))).join('');
+  const dests = [['', 'Pack']].concat(bagTree().map(([b, d]) => [b.id, (d ? ' '.repeat(d) + '↳ ' : '') + (b.name || 'Container')])).filter(([v]) => it.equipped || v !== (bagOf(it) ? it.bag : ''));
+  const pms = typeof ptyAct === 'function' && ptyAct() ? ptyMembers() : [];
+  const ch = it.charges && N(it.charges.max) > 0, left = ch ? Math.max(0, N(it.charges.max) - N(it.charges.used)) : 0;
+  const html = [
+    `<div class="ictx-h">${esc(it.name || 'Item')}${N(it.qty) > 1 ? ` <span>×${N(it.qty)}</span>` : ''}</div>`,
+    sect('', uses),
+    sect('', (it.equipped ? B(`data-act="moveto" data-i="${i}" data-to=""`, 'Unequip') : B(`data-act="equip" data-i="${i}"`, 'Equip'))
+      + (it.attune ? B(`data-act="attune" data-i="${i}"`, it.attuned ? 'End attunement' : 'Attune') : '')),
+    ch ? sect(`Charges · ${left}/${N(it.charges.max)}`, B(`data-act="charge" data-i="${i}" data-d="-1"${left ? '' : ' disabled'}`, 'Use a charge') + B(`data-act="charge" data-i="${i}" data-d="1"${left < N(it.charges.max) ? '' : ' disabled'}`, 'Restore a charge')) : '',
+    dests.length && (it.equipped || (S.bags || []).length) ? sect('Move to', dests.map(([v, t]) => B(`data-act="moveto" data-i="${i}" data-to="${esc(v)}"`, esc(t))).join('')) : '',
+    pms.length ? sect('Give to', pms.map(m => B(`data-pa="giveto" data-id="${esc(m.id)}" data-i="${i}"`, esc(m.name || 'A party member'))).join('')) : '',
+    sect('', B(`data-act="toggle" data-key="item:${esc(it.id)}"`, UI.open['item:' + it.id] ? 'Close details' : 'Edit details and notes') + B(`data-act="dupitem" data-i="${i}"`, 'Duplicate')
+      + B(`data-act="del" data-list="inventory" data-i="${i}"`, 'Remove', 'danger'))
+  ].filter(Boolean).join('<hr>');
+  const m = document.createElement('div'); m.id = 'ictx'; m.className = 'ictx'; m.setAttribute('role', 'menu');
+  m.innerHTML = `<div class="menu-list">${html}</div>`; document.body.appendChild(m);
+  const l = m.firstElementChild, w = l.offsetWidth, h = l.offsetHeight, mg = 8;
+  l.style.left = Math.max(mg, Math.min(x, innerWidth - w - mg)) + 'px'; l.style.top = Math.max(mg, Math.min(y, innerHeight - h - mg)) + 'px'; l.style.maxHeight = (innerHeight - 2 * mg) + 'px';
+  row.classList.add('ictx-on'); m._row = row;
+  m.addEventListener('click', e => { if (e.target.closest('button:not([disabled])')) setTimeout(() => { if (m._row) m._row.classList.remove('ictx-on'); m.remove(); }, 0); });
+  l.tabIndex = -1; l.style.outline = 'none'; l.focus({ preventScroll: true }); // (arrow keys then walk the list)
+}
+document.addEventListener('contextmenu', e => {
+  const row = e.target.closest && e.target.closest('#page-inventory .irow[data-ii]'); if (!row || e.shiftKey) return;
+  // (a right press focuses the box it lands on, so what counts is whether you were already typing in it)
+  const t = e.target.closest('input, textarea, select, [contenteditable]'); if (t && (invCtxTyping === t || t.tagName === 'SELECT')) return;
+  if (t && invCtxTyping !== t && document.activeElement === t) t.blur();
+  e.preventDefault(); invCtxOpen(row, e.clientX, e.clientY);
+});
+const invCtxShut = () => { const m = document.getElementById('ictx'); if (m) { if (m._row) m._row.classList.remove('ictx-on'); m.remove(); } };
+let invCtxTyping = null;
+document.addEventListener('pointerdown', e => { if (e.button === 2) invCtxTyping = document.activeElement; if (!e.target.closest || !e.target.closest('#ictx')) invCtxShut(); }, true);
+document.addEventListener('keydown', e => { const m = document.getElementById('ictx'); if (!m) return;
+  if (e.key === 'Escape') { e.preventDefault(); invCtxShut(); return; }
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const bs = [...m.querySelectorAll('button:not([disabled])')], k = bs.indexOf(document.activeElement); const n = bs[(k + (e.key === 'ArrowDown' ? 1 : -1) + bs.length) % bs.length]; if (n) n.focus(); } }, true);
+addEventListener('scroll', e => { if (!e.target.closest || !e.target.closest('#ictx')) invCtxShut(); }, true);
+addEventListener('resize', invCtxShut); addEventListener('blur', invCtxShut);

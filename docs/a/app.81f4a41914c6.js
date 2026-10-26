@@ -210,14 +210,20 @@ function writeLocal() {
   if (!S.created) return;
   S.savedAt = Date.now();
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
+  saveTimer = setTimeout(writeLocalNow, 250);
+}
+// (the actual write; also run straight away when the page is hidden or closed, so a reload right after a change keeps it)
+function writeLocalNow() {
+  { clearTimeout(saveTimer); saveTimer = null;
     let ok = true;
     try { localStorage.setItem(keyFor(S.id), JSON.stringify(S)); if (BLANK_FILE) localStorage.setItem(PATH_KEY, S.id); } catch (e) { ok = false; }
     if (!PER_SHEET) try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(S.layout || {})); } catch (e) {}
     if (!/synced|view only|retrying|reconnect|full|not live/i.test(UI.saveState || '') || !ok) { UI.saveState = ok ? 'Saved ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'Not saved — export'; const el = $('#saveState'); if (el) { el.textContent = shortSync(UI.saveState); el.title = UI.saveState; } }
     cloudPush();
-  }, 250);
+  }
 }
+addEventListener('pagehide', () => { if (saveTimer) writeLocalNow(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && saveTimer) writeLocalNow(); });
 const IOS_SAFARI = /iP(hone|od|ad)/.test(navigator.userAgent) && /Version\/[\d.]+.*Safari\//.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS/.test(navigator.userAgent);
 // Where the phone's bottom tab bar sits is a setting of this device (same for every character); 32 by default.
 // The phone's bottom tab bar: on the home-screen app it sits a little above the home bar; in the browser it sits right on
@@ -230,7 +236,12 @@ function saveUI() { try { localStorage.setItem(UI_KEY, JSON.stringify(UI)); } ca
 const onPhone = () => { try { return !window.PG_IN_PHONE && matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600; } catch (e) { return false; } };
 // The layout always follows the device; the switch only lasts until the page is left or reloaded (it's never saved).
 let LAYOUT_NOW = '';
-function applyLayout() { applyTabLift(); const ph = onPhone(), m = window.PG_FORCE_MOBILE || ph || (LAYOUT_NOW ? LAYOUT_NOW === 'mobile' : window.innerWidth < 640); document.documentElement.classList.toggle('mobile', m); document.documentElement.classList.toggle('realphone', ph); }
+// (raised when a character's toolbar turns out not to fit on one line at this width, e.g. one with a party chat button:
+// from then on any window that narrow gets the phone layout too, so it can't flip back and forth)
+var MOBILE_AT = 0;
+// (a window narrower than the computer layout's top bar fits in gets the phone layout instead; the page's first-paint check in
+// the page head uses the same width)
+function applyLayout() { applyTabLift(); const ph = onPhone(), m = window.PG_FORCE_MOBILE || ph || (LAYOUT_NOW ? LAYOUT_NOW === 'mobile' : window.innerWidth < Math.max(885, MOBILE_AT || 0)); document.documentElement.classList.toggle('mobile', m); document.documentElement.classList.toggle('realphone', ph); }
 
 // ---------- Class / level math ----------
 const clsRows = () => S.classes || [];
@@ -1612,6 +1623,9 @@ function openModal(html, onCancel, wide) {
   // a window opening fresh holds its fade for two frames, so the work of building and sizing it doesn't eat the start of the animation
   const mo = $('#modal'); if (!mo.classList.contains('open')) { mo.classList.add('pre', 'open'); requestAnimationFrame(() => requestAnimationFrame(() => mo.classList.remove('pre'))); }
   const f = $('#modal-body [autofocus]'); if (f) f.focus();
+  // On a computer the window gets its title bar before it's first drawn (once whoever opened it has filled it in), so
+  // the bar doesn't appear a frame late and push everything down.
+  queueMicrotask(() => { if ($('#modal').classList.contains('open') && mwDesk()) { mwDress(); mwTidy(); } });
 }
 // Desktop: every pop-up window can be moved by dragging its title (the heading at the top). It opens centred again
 // next time.
@@ -1687,7 +1701,7 @@ addEventListener('resize', () => document.documentElement.classList.toggle('mwin
 (() => { let q = 0, st = null, hh = -1; const de = document.documentElement;
   const chk = () => { q = 0; const b = document.querySelector('header.banner'); if (!b) return; const on = !de.classList.contains('mobile') && scrollY > 2;
     if (on !== st) { st = on; de.classList.toggle('hd-stuck', on); }
-    const h = de.classList.contains('mobile') ? 0 : Math.round(b.offsetHeight); if (h !== hh) { hh = h; de.style.setProperty('--hd-h', h + 'px'); } };
+    const h = de.classList.contains('mobile') ? 0 : Math.round(b.offsetHeight); if (h !== hh) { hh = h; de.style.setProperty('--hd-h', h + 'px'); de.style.setProperty('--hd-b', (h ? h + (parseFloat(getComputedStyle(b).top) || 0) : 0) + 'px'); } };
   const soon = () => { if (!q) q = requestAnimationFrame(chk); };
   addEventListener('scroll', soon, { passive: true }); addEventListener('resize', soon); soon();
   const b0 = document.querySelector('header.banner'); if (b0 && window.ResizeObserver) new ResizeObserver(soon).observe(b0); })();
@@ -1760,12 +1774,15 @@ function toolbarHTML() {
     rolllog: `<button class="devbtn logbtn" data-zi="rolllog" data-act="rolllog" title="Log — every roll, plus everything else that popped up" aria-label="Log">${ICON.log}</button>`,
     // (on a phone it sits next to Log; on a computer, after the layout switch)
     ...(isMobile() && window.SHEET_PAGES ? { bug: `<button class="devbtn bugbtn" data-zi="bug" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` } : {}),
-    device: `<button class="devbtn" data-zi="device" data-act="layout" title="${isMobile() ? 'Switch to desktop layout' : 'Switch to phone layout'}" aria-label="${isMobile() ? 'Desktop layout' : 'Phone layout'}">${isMobile() ? ICON.desk : ICON.phone}</button>`,
+    // (the phone layout has no switch back to the computer layout: it's used when the window is too narrow for that one;
+    // only the phone preview and a layout picked by hand keep it, so there's always a way back)
+    // (with no switch shown, the phone layout's corner icons move over into its place)
+    ...((document.documentElement.classList.toggle('nodev', !(!isMobile() || window.PG_IN_PHONE || LAYOUT_NOW === 'mobile')), !isMobile() || window.PG_IN_PHONE || LAYOUT_NOW === 'mobile') ? { device: `<button class="devbtn" data-zi="device" data-act="layout" title="${isMobile() ? 'Switch to desktop layout' : 'Switch to phone layout'}" aria-label="${isMobile() ? 'Desktop layout' : 'Phone layout'}">${isMobile() ? ICON.desk : ICON.phone}</button>` } : {}),
     ...(!isMobile() && window.SHEET_PAGES ? { bug: `<button class="devbtn bugbtn" data-zi="bug" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` } : {}),
     fullscreen: false ? `<button class="devbtn fsbtn" data-zi="fullscreen" data-act="fullscreen" title="${fsOn() ? 'Exit full screen' : 'Full screen'}" aria-label="${fsOn() ? 'Exit full screen' : 'Full screen'}">${fsOn() ? ICON.fsOut : ICON.fsIn}</button>` : '',
   };
   document.documentElement.classList.toggle('hasbug', !!items.bug); // (on a phone the corner buttons make room for it)
-  if (isMobile()) { delete items.edit; if (UI.editLayout) { UI.editLayout = false; document.body.classList.remove('editing'); const eb = $('#editbar'); if (eb) eb.remove(); } }  // no layout editing on phones
+  if (isMobile()) { delete items.edit; if (UI.editLayout) { editEndForPhone(); document.body.classList.remove('editing'); const eb = $('#editbar'); if (eb) eb.remove(); } }  // no layout editing on phones
   return zoneOrder('toolbar', Object.keys(items)).map(k => items[k]).join('');
 }
 // Saved order for a zone, with any ids the user hasn't placed yet kept in their default spot.
@@ -1793,7 +1810,7 @@ function renderHeader() {
           ${xp ? `<div class="xprow"><span class="lbl">XP</span>${inp('xp', { num: 1, cls: 'xpin', label: 'Experience points' })}<span class="xpof" data-calc="xpnext"></span>
             <input class="f xpadd" id="xpAdd" type="number" inputmode="numeric" placeholder="+ award" aria-label="Award XP"><button class="btn sm" data-act="addxp">Add</button></div><div class="xpbar" data-calc-html="xpbar"></div>` : '<span class="hint mile">Milestone leveling</span>'}</div>
       </div>
-      <div class="toolbar" data-ordered data-zone="toolbar">${toolbarHTML()}</div>${inspHTML(true)}
+      <div class="toolbar" data-ordered data-zone="toolbar">${toolbarHTML()}${inspDockHTML()}</div>${inspHTML(true)}
     </div>
     <div class="ident-grid">${idf}</div>
   </div>`;
@@ -2210,12 +2227,16 @@ function logEvent(html, cls) { if (!EVLOADED) loadEvLog(); const clean = String(
 // Tabs slide (their highlight moves across, the list comes in from the side you're heading); opening Dice stats fills its bars.
 let LOG_TAB_SHOWN = '', DS_ANIM = false, LOG_INK = null;
 const LOG_TABS = ['rolls', 'events', 'stats'];
+// A Log entry's card: the damage type moves into its breakdown (the separate damage panel isn't shown in the Log).
+function logCardHTML(h) { h = String(h || '').replace(/<button[^>]*>.*?<\/button>/g, ''); if (!/rc-math/.test(h) || !/rc-dmg/.test(h)) return h;
+  try { const box = document.createElement('div'); box.innerHTML = h; const ty = box.querySelector('.rc-dmg > span'), hd = [...box.querySelectorAll('.rc-math .rm-h')].find(x => /damage/i.test(x.textContent));
+    if (ty && hd && ty.textContent.trim()) hd.textContent += ' · ' + ty.textContent.trim(); return box.innerHTML; } catch (e) { return h; } }
 function openRollLog() {
   if (!ROLLLOG.length) loadRollLog(); if (!EVLOADED) loadEvLog(); try { statBackfill(); } catch (e) {}
   const tab = UI.logTab === 'events' ? 'events' : UI.logTab === 'stats' ? 'stats' : 'rolls', LIST = tab === 'events' ? EVLOG : tab === 'stats' ? [] : ROLLLOG;
   const day = t => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' }), tm = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   let last = '';
-  const rows = LIST.map(r => { const d = day(r.t), h = d !== last ? `<div class="rl-day">${d}</div>` : ''; last = d; return h + `<div class="rl-row ${esc(r.cls)}"><span class="rl-time">${tm(r.t)}</span><div class="rl-card">${r.html.replace(/<button[^>]*>.*?<\/button>/g, '')}</div></div>`; }).join('');
+  const rows = LIST.map(r => { const d = day(r.t), h = d !== last ? `<div class="rl-day">${d}</div>` : ''; last = d; return h + `<div class="rl-row ${esc(r.cls)}"><span class="rl-time">${tm(r.t)}</span><div class="rl-card">${logCardHTML(r.html)}</div></div>`; }).join('');
   const tb = (k, l, n) => `<button class="rl-tab${tab === k ? ' on' : ''}" data-act="logtab" data-v="${k}" aria-pressed="${tab === k}">${l} <span>${n}</span></button>`;
   const html = `<div id="rolllogmodal"><div class="rl-head"><h3>Log</h3><div class="rl-tabs">${tb('rolls', 'Rolls', ROLLLOG.length)}${tb('events', 'Everything else', EVLOG.length)}<button class="rl-tab${tab === 'stats' ? ' on' : ''}" data-act="logtab" data-v="stats" aria-pressed="${tab === 'stats'}">Dice stats</button></div>${LIST.length ? '<button class="btn sm ghost" data-act="clearlog">Clear</button>' : ''}</div>
     <div class="rl-list">${tab === 'stats' ? diceStatsHTML() : rows || (tab === 'events' ? '<p class="hint">Nothing yet. Messages that pop up — spells cast, turns, rests, warnings — are kept here.</p>' : '<p class="hint">No rolls yet. Every roll you make shows up here with its full breakdown.</p>')}</div>
@@ -2930,7 +2951,7 @@ function renderStory() {
   <div class="story">
     <div class="stack">
       <div class="panel" ${PID('personality')}><h2>Personality</h2><div class="traits">
-        ${fld('Personality Traits', ta('traits.personality', { rows: 3 }))}${fld('Ideals', ta('traits.ideals', { rows: 2 }))}
+        ${fld('Personality Traits', ta('traits.personality', { rows: 2 }))}${fld('Ideals', ta('traits.ideals', { rows: 2 }))}
         ${fld('Bonds', ta('traits.bonds', { rows: 2 }))}${fld('Flaws', ta('traits.flaws', { rows: 2 }))}</div></div>
       <div class="panel" ${PID('appearance')}><h2>Appearance</h2><div class="appear">${['age', 'height', 'weight', 'eyes', 'skin', 'hair'].map(k => fld(k[0].toUpperCase() + k.slice(1), inp('appearance.' + k))).join('')}</div></div>
       <div class="panel" ${PID('backstory')}><h2>Backstory</h2>${ta('backstory', { rows: 10 })}</div>
@@ -3186,6 +3207,7 @@ function render(...names) {
   if (!S.created) return;
   GEN++;
   if (syncClassCompanions() | syncAmmo()) writeLocal();
+  if (names.length && S.layout && S.layout.grid) { const more = new Set(); names.forEach(n => { const pg = $(SECTION_EL[n]); if (pg) $$('[data-pid]', pg).forEach(el => { const h = el.dataset.home; if (h && h !== n && SECTIONS[h] && !names.includes(h)) more.add(h); }); }); names = names.concat([...more]); }
   (names.length ? names : Object.keys(SECTIONS)).forEach(n => { RENDERING = n; SECTIONS[n](); });
   applyPanelLayout();
   renderTabs();
@@ -3347,7 +3369,7 @@ function refresh() {
   $$('.tile.ac').forEach(el => el.classList.toggle('boosted', !S.form && fxActive().some(e => e.buff && (N(e.buff.ac) || e.buff.acMin || e.buff.acBase) && !e.ally)));
   $$('[data-segcol]').forEach(el => el.classList.toggle('used', !!S.turn.used[el.dataset.segcol]));
   document.title = (S.name || 'Character') + ' — Character Sheet';
-  $$('input[data-fit]').forEach(fitInput);
+  nameRoom(); $$('input[data-fit]').forEach(fitInput);
   const lb = $('#lvlbox'); if (lb) lb.classList.toggle('ready', xpReady());
   histButtons();
 }
@@ -3374,7 +3396,7 @@ function openHistory() {
     <div class="rb"><b>Roll back the last</b><input class="f" id="rbN" type="number" min="1" value="5" style="width:70px" aria-label="Amount of time">
       <select class="f" id="rbU" style="width:110px" aria-label="Unit"><option value="60000">minutes</option><option value="3600000">hours</option><option value="86400000">days</option></select>
       <button class="btn gold" data-act="rbtime">Roll back</button></div>
-    <div class="rb"><span class="hint">Quick:</span>${[['1 min', 60000], ['5 min', 300000], ['15 min', 900000], ['1 hour', 3600000], ['Today', Date.now() - new Date().setHours(0, 0, 0, 0)]].map(([t, ms]) => `<button class="chip" data-act="rbquick" data-ms="${ms}">${t} <span class="hint">(${countSince(ms)})</span></button>`).join('')}</div>
+    <div class="rb rbq"><span class="hint">Quick:</span><span class="rbchips">${[['1 min', 60000], ['5 min', 300000], ['15 min', 900000], ['1 hour', 3600000], ['Today', Date.now() - new Date().setHours(0, 0, 0, 0)]].map(([t, ms]) => `<button class="chip" data-act="rbquick" data-ms="${ms}">${t} <span class="hint">(${countSince(ms)})</span></button>`).join('')}</span></div>
     <p class="hint" id="rbCount" style="margin:0">This will undo ${countSince(300000)} change(s).</p>
     ${HIST.length ? `<ol class="hist">${list}</ol>` : '<p class="hint">No changes recorded yet.</p>'}
     ${redoList}
@@ -3493,6 +3515,55 @@ addEventListener('resize', () => alignHpSide());
 function fitCoins() { $$('.cn .cin').forEach(el => { const n = String(el.value || '').length, z = n >= 8 ? .72 : n >= 7 ? .8 : n >= 6 ? .9 : n >= 5 ? 1 : 0; el.style.fontSize = z ? z + 'rem' : ''; }); }
 document.addEventListener('input', e => { if (e.target.classList && e.target.classList.contains('cin')) fitCoins(); });
 
+// ---------- Right-click an inventory item ----------
+// A menu at the pointer with everything the row can do (use it, equip, attune, charges, move or give it,
+// edit, duplicate, remove). Its buttons are the row's own actions, so they behave exactly as the row's buttons do.
+// Right-clicking inside a box you're typing in keeps the browser's own menu (copy, paste, spelling).
+function invCtxClose() { const m = document.getElementById('ictx'); if (!m) return; m.remove(); }
+function invCtxOpen(row, x, y) {
+  invCtxClose(); const i = N(row.dataset.ii), it = S.inventory[i]; if (!it) return;
+  const B = (attrs, label, cls) => `<button${cls ? ` class="${cls}"` : ''} ${attrs}>${label}</button>`, sect = (t, h) => h ? `${t ? `<div class="mlabel">${t}</div>` : ''}${h}` : '';
+  // the row's own "use" buttons (Drink, Use, Throw, Draw a card, Store a spell, Unpack), as they are right now
+  const uses = [...row.querySelectorAll('.imeta button[data-act]')].filter(b => /^(drink|useitem|throwit|deck|ringstore|unpack)$/.test(b.dataset.act))
+    .map(b => B(`data-act="${b.dataset.act}" data-i="${i}"${b.disabled ? ` disabled title="${esc(b.title || '')}"` : ''}`, esc(b.textContent.trim()))).join('');
+  const dests = [['', 'Pack']].concat(bagTree().map(([b, d]) => [b.id, (d ? ' '.repeat(d) + '↳ ' : '') + (b.name || 'Container')])).filter(([v]) => it.equipped || v !== (bagOf(it) ? it.bag : ''));
+  const pms = typeof ptyAct === 'function' && ptyAct() ? ptyMembers() : [];
+  const ch = it.charges && N(it.charges.max) > 0, left = ch ? Math.max(0, N(it.charges.max) - N(it.charges.used)) : 0;
+  const html = [
+    `<div class="ictx-h">${esc(it.name || 'Item')}${N(it.qty) > 1 ? ` <span>×${N(it.qty)}</span>` : ''}</div>`,
+    sect('', uses),
+    sect('', (it.equipped ? B(`data-act="moveto" data-i="${i}" data-to=""`, 'Unequip') : B(`data-act="equip" data-i="${i}"`, 'Equip'))
+      + (it.attune ? B(`data-act="attune" data-i="${i}"`, it.attuned ? 'End attunement' : 'Attune') : '')),
+    ch ? sect(`Charges · ${left}/${N(it.charges.max)}`, B(`data-act="charge" data-i="${i}" data-d="-1"${left ? '' : ' disabled'}`, 'Use a charge') + B(`data-act="charge" data-i="${i}" data-d="1"${left < N(it.charges.max) ? '' : ' disabled'}`, 'Restore a charge')) : '',
+    dests.length && (it.equipped || (S.bags || []).length) ? sect('Move to', dests.map(([v, t]) => B(`data-act="moveto" data-i="${i}" data-to="${esc(v)}"`, esc(t))).join('')) : '',
+    pms.length ? sect('Give to', pms.map(m => B(`data-pa="giveto" data-id="${esc(m.id)}" data-i="${i}"`, esc(m.name || 'A party member'))).join('')) : '',
+    sect('', B(`data-act="toggle" data-key="item:${esc(it.id)}"`, UI.open['item:' + it.id] ? 'Close details' : 'Edit details and notes') + B(`data-act="dupitem" data-i="${i}"`, 'Duplicate')
+      + B(`data-act="del" data-list="inventory" data-i="${i}"`, 'Remove', 'danger'))
+  ].filter(Boolean).join('<hr>');
+  const m = document.createElement('div'); m.id = 'ictx'; m.className = 'ictx'; m.setAttribute('role', 'menu');
+  m.innerHTML = `<div class="menu-list">${html}</div>`; document.body.appendChild(m);
+  const l = m.firstElementChild, w = l.offsetWidth, h = l.offsetHeight, mg = 8;
+  l.style.left = Math.max(mg, Math.min(x, innerWidth - w - mg)) + 'px'; l.style.top = Math.max(mg, Math.min(y, innerHeight - h - mg)) + 'px'; l.style.maxHeight = (innerHeight - 2 * mg) + 'px';
+  row.classList.add('ictx-on'); m._row = row;
+  m.addEventListener('click', e => { if (e.target.closest('button:not([disabled])')) setTimeout(() => { if (m._row) m._row.classList.remove('ictx-on'); m.remove(); }, 0); });
+  l.tabIndex = -1; l.style.outline = 'none'; l.focus({ preventScroll: true }); // (arrow keys then walk the list)
+}
+document.addEventListener('contextmenu', e => {
+  const row = e.target.closest && e.target.closest('#page-inventory .irow[data-ii]'); if (!row || e.shiftKey) return;
+  // (a right press focuses the box it lands on, so what counts is whether you were already typing in it)
+  const t = e.target.closest('input, textarea, select, [contenteditable]'); if (t && (invCtxTyping === t || t.tagName === 'SELECT')) return;
+  if (t && invCtxTyping !== t && document.activeElement === t) t.blur();
+  e.preventDefault(); invCtxOpen(row, e.clientX, e.clientY);
+});
+const invCtxShut = () => { const m = document.getElementById('ictx'); if (m) { if (m._row) m._row.classList.remove('ictx-on'); m.remove(); } };
+let invCtxTyping = null;
+document.addEventListener('pointerdown', e => { if (e.button === 2) invCtxTyping = document.activeElement; if (!e.target.closest || !e.target.closest('#ictx')) invCtxShut(); }, true);
+document.addEventListener('keydown', e => { const m = document.getElementById('ictx'); if (!m) return;
+  if (e.key === 'Escape') { e.preventDefault(); invCtxShut(); return; }
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const bs = [...m.querySelectorAll('button:not([disabled])')], k = bs.indexOf(document.activeElement); const n = bs[(k + (e.key === 'ArrowDown' ? 1 : -1) + bs.length) % bs.length]; if (n) n.focus(); } }, true);
+addEventListener('scroll', e => { if (!e.target.closest || !e.target.closest('#ictx')) invCtxShut(); }, true);
+addEventListener('resize', invCtxShut); addEventListener('blur', invCtxShut);
+
 
 // ---------- Click handling ----------
 document.addEventListener('click', e => rollGate(() => mainClick(e)));
@@ -3528,6 +3599,7 @@ function mainClick(e) {
     case 'attack': attackRoll(i, !b.closest('#page-combat') || !S.inCombat); break;
     case 'bonusatk': bonusAttack(i, b.dataset.kind); break;
     case 'equip': equipItem(i); break;
+    case 'dupitem': { const src = S.inventory[i]; if (!src) break; const c = JSON.parse(JSON.stringify(src)); c.id = uid(); c.equipped = false; c.attuned = false; S.inventory.splice(i + 1, 0, c); pendingLabel = 'Duplicate ' + (src.name || 'item'); save(); render(); toast(`Duplicated “${esc(src.name || 'item')}”`); break; }
     case 'resetturn': S.turn.haste = false; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.attacks = 0; S.turn.atkWith = []; S.turn.lightAtk = false; S.turn.speed0 = ''; S.turn.sneak = false; S.turn.readied = null; update(); render('combat'); toast(`Turn reset — round ${N(S.turn.round) || 1} actions are ready again.`); break;
     case 'fullscreen': if (fsOn()) { FS_USER_OFF = true; fsExit(); } else { FS_USER_OFF = false; fsEnter(); } break;
     case 'tab': { const prev = UI.tab, nt = b.dataset.tab, mini = !!b.closest('.cmini'), mob = isMobile() && !mini;
@@ -3782,7 +3854,7 @@ function mainClick(e) {
     case 'ctabadd': ctabAdd(); return;
     case 'ctabaddok': ctabAddOK(); return;
     case 'ctabdel': ctabDelete(b.dataset.k); return;
-    case 'greset': if (isGridLayout()) gridReset(b.dataset.pg); else pageReset(b.dataset.pg); return;
+    case 'greset': if (gridTab(b.dataset.pg)) gridReset(b.dataset.pg); else pageReset(b.dataset.pg); return;
     case 'gresetall': gridResetAll(); return;
     case 'settings': openSettings(); pendingLabel = null; return;
     case 'setpreset': setThemeColor(b.dataset.k, b.dataset.v); return;
@@ -5491,6 +5563,18 @@ function openExtFx() {
 
 
 // ---------- Fields that grow to fit their text ----------
+// Phone header card: the name gets all the room up to the corner icons (however many there are), measured, so a long
+// name isn't squeezed into a box half the size it could be.
+function nameRoom() {
+  const nb = $('.namebox'); if (!nb) return;
+  if (!isMobile()) { nb.style.removeProperty('--nbpad'); return; }
+  const ic = $$('#sec-header .devbtn').filter(x => x.offsetParent); if (!ic.length) { nb.style.setProperty('--nbpad', '0px'); return; }
+  const r = nb.getBoundingClientRect(), first = Math.min(...ic.map(x => x.getBoundingClientRect().left)), t = Math.max(...ic.map(x => x.getBoundingClientRect().bottom));
+  // (only icons beside the name count: if they sit below its line, nothing is taken)
+  const pad = t <= r.top ? 0 : Math.max(0, Math.ceil(r.right - first + 8));
+  if (nb.style.getPropertyValue('--nbpad') !== pad + 'px') nb.style.setProperty('--nbpad', pad + 'px');
+}
+addEventListener('resize', () => requestAnimationFrame(() => { nameRoom(); $$('input.name[data-fit]').forEach(fitInput); }));
 function fitInput(el) {
   const min = N(el.dataset.fit) || 6, len = Math.max(String(el.value || '').length, String(el.placeholder || '').length * 0.8);
   const sz = Math.max(min, Math.ceil(len) + 1);
@@ -5624,8 +5708,8 @@ function applyPanelLayout() {
   if (typing && a.isConnected && document.activeElement !== a) { a.focus({ preventScroll: true }); if (s0 != null) { try { a.setSelectionRange(s0, s1, dir); } catch (e) {} } if (scrollX !== sx || scrollY !== sy) scrollTo(sx, sy); }
 }
 function _applyPanelLayout() {
-  ensureCustomPages();
-  const L = S.layout || {}, pages = L.grid ? {} : (L.pages || {}), ae = document.activeElement, ed = !!UI.editLayout;
+  ensureCustomPages(); editRestore();
+  const L = S.layout || {}, pages = Object.fromEntries(Object.entries(L.pages || {}).filter(([k]) => !(L.grid && L.grid[k]))), ae = document.activeElement, ed = !!UI.editLayout;
   // Panels added in later versions go next to their neighbours in a saved layout.
   [['spells', 'mmspells', 'spellcasting'], ['combat', 'metamagic', 'activefx']].forEach(([pg, id, after]) => { const a = pages[pg]; if (a && !a.includes(id) && $(`#page-${pg} [data-pid="${id}"]`)) { const k = a.indexOf(after); a.splice(k < 0 ? a.length : k + 1, 0, id); } });
   // The Spells tab's Spell Slots and Active Spells panels (same look as Combat) go at the top, before the class cards.
@@ -5709,9 +5793,9 @@ function tabHide(k) { const L = LY(); L.hiddenTabs = L.hiddenTabs || []; L.shown
   else { const i = L.hiddenTabs.indexOf(k); if (i >= 0) L.hiddenTabs.splice(i, 1); else L.hiddenTabs.push(k); }
   layoutChanged('Hide/show tab'); }
 function tabRename(k) {
-  openModal(`<h3>Rename tab</h3>${fld('Name', `<input class="f" id="tabName" value="${esc(tabLabel(k))}" autofocus>`)}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="tabrenameok" data-k="${k}">Save</button></div>`);
+  openModal(`<h3>Rename tab</h3>${fld('Name', `<input class="f" id="tabName" maxlength="30" value="${esc(tabLabel(k))}" autofocus>`)}<div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="tabrenameok" data-k="${k}">Save</button></div>`);
 }
-function tabRenameOK(k) { const L = LY(); L.tabNames = Object.assign({}, L.tabNames, { [k]: $('#tabName').value.trim() || undefined }); closeModal(true); layoutChanged('Rename tab'); }
+function tabRenameOK(k) { const L = LY(); L.tabNames = Object.assign({}, L.tabNames, { [k]: $('#tabName').value.trim().slice(0, 30) || undefined }); closeModal(true); layoutChanged('Rename tab'); }
 // Pointer-based dragging works the same with a mouse, pen or finger.
 let PD = null;
 document.addEventListener('pointerdown', e => {
@@ -5805,9 +5889,11 @@ let RC = null;
 const titleCase = s => String(s || '').replace(/\b\w/g, c => c.toUpperCase());
 function openRaceChange() {
   RC = { kind: 'race', removeOld: true, custom: Object.assign({ name: '', size: 'Medium', speed: 30, darkvision: 0, traits: '' }, S.race.key === 'custom' ? { ...S.race.custom, traits: (S.race.custom.traits || []).map(t => t[0] + ': ' + t[1]).join('\n') } : {}) };
-  W = { race: S.race.key, sub: S.race.sub, tasha: false, ans: {} };
+  W = { race: S.race.key, sub: S.race.sub, tasha: false, ans: {} }; ['rcrace', 'rcsub'].forEach(k => { delete WZ3M[k + ':q']; delete WZ3M[k + ':s']; });
   openModal('<div id="rcmodal"></div>', () => { RC = null; W = null; }, true); renderRaceChange();
 }
+// (the cards are drawn by the site's own styles; the downloadable sheet keeps the plain lists)
+const rcCards = () => !!window.wzHeader || document.documentElement.classList.contains('pg-sheetpage');
 function renderRaceChange() {
   const x = W.race === 'custom' ? null : wzRace(), c = RC.custom;
   const body = W.race === 'custom' ? `<div class="wz-grid">${fld('Race name', `<input class="f" data-rc="name" value="${esc(c.name)}" placeholder="e.g. Sea Elf (homebrew)">`)}${fld('Size', `<select class="f" data-rc="size">${['Tiny', 'Small', 'Medium', 'Large'].map(z => `<option${c.size === z ? ' selected' : ''}>${z}</option>`).join('')}</select>`)}
@@ -5817,14 +5903,25 @@ function renderRaceChange() {
     : x ? `<div class="wz-info"><p><b>${esc(x.name)}</b> · speed ${x.s.speed || x.r.speed || 30} ft${(x.s.darkvision || x.r.darkvision) ? ' · darkvision ' + (x.s.darkvision || x.r.darkvision) + ' ft' : ''}</p>
         <ul>${((x.s.replaceTraits ? [] : x.r.traits || []).concat(x.s.traits || [])).map(t => `<li><b>${esc(t[0])}</b> — ${esc(t[1])}</li>`).join('')}</ul>
         ${wzRaceAsiUI()}${wzRaceChoices().map((ch, k) => choiceUI(W.ans, 'race.' + k, ch)).join('')}</div>` : '';
+  // (the same race and variant cards as character creation; the lists underneath are what they set)
   $('#rcmodal').innerHTML = `<h3>Change race</h3>
-    <div class="wz-grid">${fld('Race', `<select class="f" data-rc="race"><option value="">— choose —</option>${DND.raceGroups.map(([g, ks]) => `<optgroup label="${esc(g)}">${ks.filter(k => DND.races[k]).sort((a, b) => abc(DND.races[a].name, DND.races[b].name)).map(k => `<option value="${k}"${W.race === k ? ' selected' : ''}>${esc(DND.races[k].name)}${DND.races[k].src !== 'PHB' ? ' (' + DND.races[k].src + ')' : ''}</option>`).join('')}</optgroup>`).join('')}<option value="custom"${W.race === 'custom' ? ' selected' : ''}>✎ Custom race…</option></select>`)}
+    ${rcCards() ? wz3Cards('race') + (x && x.r.subraces ? `<p class="wz3-sublbl">${esc(x.r.name)} variant</p>${wz3Cards('sub')}` : '') : ''}
+    <div class="wz-grid${rcCards() ? ' wz3-hid' : ''}">${fld('Race', `<select class="f" data-rc="race"><option value="">— choose —</option>${DND.raceGroups.map(([g, ks]) => `<optgroup label="${esc(g)}">${ks.filter(k => DND.races[k]).sort((a, b) => abc(DND.races[a].name, DND.races[b].name)).map(k => `<option value="${k}"${W.race === k ? ' selected' : ''}>${esc(DND.races[k].name)}${DND.races[k].src !== 'PHB' ? ' (' + DND.races[k].src + ')' : ''}</option>`).join('')}</optgroup>`).join('')}<option value="custom"${W.race === 'custom' ? ' selected' : ''}>✎ Custom race…</option></select>`)}
       ${x && x.r.subraces ? fld('Subrace', `<select class="f" data-rc="sub"><option value="">— choose —</option>${Object.entries(x.r.subraces).sort(([, a], [, b]) => abc(a.name, b.name)).map(([k, s]) => `<option value="${k}"${W.sub === k ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select>`) : ''}</div>
     ${body}
     <label class="checkline" style="margin-top:8px"><input type="checkbox" data-rc="removeOld"${RC.removeOld ? ' checked' : ''}> Remove what ${esc(S.raceName || 'my old race')} gave me (fixed ability bonuses, skills, languages, weapon and armor training)</label>
     <p class="hint">Traits, speed, senses, racial spells and natural weapons update automatically. Ability bonuses you placed yourself (like +2/+1) can't be traced — check your scores afterwards.</p>
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="rcok">Change race</button></div>`;
+  $$('#rcmodal > .wz3-pick').forEach((bx, i) => wz3Keep(bx, i ? 'rcsub' : 'rcrace'));
+  { const rl = $('#rcmodal > .wz3-pick .wz3-cards'); if (rl) rl.classList.add('has'); } // (the race list scrolls in its own box)
+  // (opening it: the race list starts at the character's current race)
+  { const l = $('#rcmodal > .wz3-pick .wz3-cards'), on = l && l.querySelector('.wz3-card.sel'); if (on && !WZ3M['rcrace:s']) l.scrollTop = Math.max(0, on.offsetTop - l.offsetTop - 40); }
+  if (typeof wz3ChoiceLists === 'function') wz3ChoiceLists('#rcmodal');
 }
+// a race or variant card picks it in the list underneath (which redraws the window, keeping the cards where they were)
+document.addEventListener('click', e => { const c = e.target.closest && e.target.closest('#rcmodal [data-pick="race"], #rcmodal [data-pick="sub"]'); if (!c || !RC) return;
+  const sel = $(`#rcmodal [data-rc="${c.dataset.pick}"]`); if (!sel) return; const box = c.closest('.wz3-pick');
+  const go = () => { sel.value = c.dataset.v; sel.dispatchEvent(new Event('change', { bubbles: true })); }; if (box && typeof wz3Commit === 'function') wz3Commit(box, go); else go(); });
 function openBgChange() {
   RC = { kind: 'bg', removeOld: true, custom: Object.assign({ name: '', feature: '', desc: '' }, S.background === 'custom' ? { name: S.backgroundName, ...(S.bgCustom || {}) } : {}) };
   W = { bg: S.background, ans: {} }; delete WZ3M['rcbg:q']; delete WZ3M['rcbg:s'];
@@ -5844,6 +5941,8 @@ function renderBgChange() {
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="rcok">Change background</button></div>`;
   // (the same searchable list as character creation; its choices of skills, tools and languages are lists too)
   const bx = $('#rcmodal > .wz3-pick'); if (bx) wz3Keep(bx, 'rcbg');
+  // (opening it: the list starts at the character's current background)
+  { const l = bx && bx.querySelector('.wz3-list'), on = l && l.querySelector('.crrow.on'); if (on && !WZ3M['rcbg:s']) l.scrollTop = Math.max(0, on.offsetTop - l.offsetTop - 40); }
   if (typeof wz3ChoiceLists === 'function') wz3ChoiceLists('#rcmodal');
 }
 document.addEventListener('change', e => { const r = e.target.closest && e.target.closest('#rcmodal input[data-pick="bg"]'); if (!r || !RC) return; const sel = $('#rcmodal [data-rc="bg"]'); if (!sel) return;
@@ -5894,7 +5993,8 @@ function raceChangeOK() {
     });
   }
   pendingLabel = `Change race: ${oldName} → ${S.raceName}`; RC = null; W = null;
-  rebuildAuto(); closeModal(true); save(); render();
+  // (the window starts fading before the sheet redraws, so the redraw doesn't hold the fade up)
+  rebuildAuto(); closeModal(true); save(); requestAnimationFrame(() => setTimeout(render, 0));
   toast(`You're now ${esc(S.raceName)}. Check your ability scores, skills and languages.`, '', 9000, { label: 'Undo', fn: () => undo(1) });
 }
 function bgChangeOK() {
@@ -5912,7 +6012,8 @@ function bgChangeOK() {
   applyChoice({ type: 'skill' }, ansList(W.ans, 'bg.skill')); applyChoice({ type: 'tool' }, ansList(W.ans, 'bg.tool')); applyChoice({ type: 'language' }, ansList(W.ans, 'bg.lang'));
   if (b.feat && W.bg !== 'custom') applyFeat(b.feat, W.ans, 'bg.feat');
   pendingLabel = `Change background: ${oldName} → ${S.backgroundName}`; RC = null; W = null;
-  rebuildAuto(); closeModal(true); save(); render();
+  // (the window starts fading before the sheet redraws, so the redraw doesn't hold the fade up)
+  rebuildAuto(); closeModal(true); save(); requestAnimationFrame(() => setTimeout(render, 0));
   toast(`Background changed to ${esc(S.backgroundName)}.`, '', 7000, { label: 'Undo', fn: () => undo(1) });
 }
 
@@ -6272,18 +6373,39 @@ window.addEventListener('resize', () => { SUB_K = ''; fitSubtitle(); });
 
 // Desktop header stays one row: when the toolbar would wrap, its buttons drop their words and keep their icons.
 // Toolbar labels fold away one button at a time (least-used first) only when the row would wrap, and come back as soon as there's room.
-const TB_FOLD = ['edit', 'history', 'redo', 'undo', 'settings', 'save'];
+// (Undo and Redo lose their labels together, so the pair always matches)
+const TB_FOLD = ['edit', 'history', ['redo', 'undo'], 'settings', 'save'];
+// Sheet tabs on a computer: each takes the room its name needs; when they don't all fit they tighten up, then drop their
+// icons, before any name gets cut short
+function fitTabs() { const t = $('#tabs'); if (!t) return; t.classList.remove('tabs-tight', 'tabs-noicon', 'tabs-scroll'); if (isMobile()) return;
+  const cut = () => [...t.querySelectorAll('.tlabel')].some(l => l.offsetParent && l.scrollWidth > l.clientWidth + 1);
+  if (!cut()) return; t.classList.add('tabs-tight'); if (!cut()) return; t.classList.add('tabs-noicon'); if (!cut()) return; t.classList.add('tabs-scroll'); const on = t.querySelector('.tab.on'); if (on) on.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+// The Inspiration pill in the top bar's corner keeps clear of the Tome button and the faces beside it: when they'd meet,
+// it drops its label (just − number +), and the row's room is set to whatever the pill actually takes.
+function inspDockFit() {
+  const d = $('.toolbar > .insp-dock'), row = $('.toolbar > .pg-hubrow'); if (!d) return;
+  d.classList.remove('tight'); if (!row) return;
+  const kids = [...row.children].filter(k => k.offsetParent), used = () => kids.reduce((a, k) => Math.max(a, k.getBoundingClientRect().right), row.getBoundingClientRect().left);
+  const room = () => d.getBoundingClientRect().left - 10;
+  if (used() > room()) d.classList.add('tight');
+  row.style.setProperty('--insp-w', Math.ceil(d.getBoundingClientRect().width + 10) + 'px');
+}
 function fitToolbar() {
+  fitTabs();
   const tb = $('.toolbar'); if (!tb) return;
   // (the site's Tome button row goes back into a freshly drawn toolbar first, so it's measured as it will look)
   if (typeof window.pgHubRow === 'function') try { window.pgHubRow(); } catch (e) {}
   if (typeof window.__pwFit === 'function') try { window.__pwFit(); } catch (e) {} // (and the portrait beside it at its size)
+  inspDockFit();
   tb.classList.remove('tb-compact', 'tb-wrap'); $$('.toolbar .nolbl').forEach(k => k.classList.remove('nolbl'));
   if (isMobile()) return;
   const kids = [...tb.children].filter(k => k.offsetParent !== null && !k.classList.contains('pg-hubrow')); if (kids.length < 2) return; // (the site's own row above the buttons doesn't count)
   const tight = () => { const b0 = kids[0].getBoundingClientRect().bottom; return kids.some(k => k.getBoundingClientRect().top >= b0 - 2) || tb.scrollWidth > tb.clientWidth + 2; };
-  for (const key of TB_FOLD) { if (!tight()) return; const el = tb.querySelector(`[data-zi="${key}"]`); if (el) el.classList.add('nolbl'); }
+  for (const key of TB_FOLD) { if (!tight()) return; [].concat(key).forEach(k => { const el = tb.querySelector(`[data-zi="${k}"]`); if (el) el.classList.add('nolbl'); }); }
   if (!tight()) return;
+  // Still too tight with icons only: the window is too narrow for the computer layout, so it switches to the phone layout
+  // (unless the computer layout was picked by hand, or this is the phone preview)
+  if (!LAYOUT_NOW && !window.PG_IN_PHONE && !onPhone()) { MOBILE_AT = Math.max(MOBILE_AT || 0, window.innerWidth + 1); applyLayout(); if (isMobile()) { queueMicrotask(() => render()); return; } }
   tb.classList.add('tb-compact');
   if (tight()) tb.classList.add('tb-wrap');  // very narrow windows: icons may take two rows inside the toolbar's own box
 }
@@ -7151,8 +7273,21 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && IDRAG) idr
 // ================= Inspiration (optional, Settings → Rules) =================
 // One at most by the rules; the "More than one" house rule removes the cap.
 const inspMax = () => ST('inspMany') ? Infinity : 1;
+// On the site, on a computer: the pill sits in the top bar's right corner, above the corner buttons. The number is the
+// Use button; − and + change the count.
+function inspDockOn() { return !!window.SHEET_PAGES && !isMobile(); }
+function inspDockHTML(phone) {
+  if (!ST('inspiration') || !(phone || inspDockOn())) return '';
+  const n = Math.max(0, N(S.insp)), mx = inspMax();
+  return `<div class="insp insp-dock${phone ? ' mini' : ''}${n ? ' on' : ''}" role="group" aria-label="Inspiration">
+    <button class="insp-b" data-act="insp" data-d="-1" ${n ? '' : 'disabled'} aria-label="Spend Inspiration" title="Take one away">−</button>
+    <button class="insp-c insp-go" data-act="inspuse" ${n ? '' : 'disabled'} title="${n ? 'Use Inspiration: reroll your last roll, or advantage on the next one' : 'No Inspiration to use'}"><b class="insp-n">${n}</b><span class="insp-l"><span class="il-a">Inspiration</span><span class="il-b" aria-hidden="true">Use</span></span></button>
+    <button class="insp-b" data-act="insp" data-d="1" ${n >= mx ? 'disabled' : ''} aria-label="Gain Inspiration" title="Add one">+</button></div>`;
+}
 function inspHTML(mini) {
-  if (!ST('inspiration')) return '';
+  if (!ST('inspiration') || inspDockOn()) return '';
+  // (phones keep it in its place in the header card, the same pill as on a computer: the number is the Use button)
+  if (isMobile()) return mini ? inspDockHTML(true) : '';
   const n = Math.max(0, N(S.insp)), mx = inspMax();
   // One at a time: the badge itself is the switch — tap the star to fill it, tap again to spend it.
   const use = n ? `<button class="insp-use${mini ? ' mini' : ''}" data-act="inspuse" title="Reroll your last attack, check or save, or have advantage on the next one">Use</button>` : '';
@@ -7606,12 +7741,17 @@ function hasteWatch() {
 // S.layout.removed = [ids]   modules taken off the sheet (still listed under Add module)
 // S.layout.ctabs = [{ key, name, icon }]   custom tabs
 const GCOLS = 12, GGAP = 14;
-const MODNAMES = Object.assign({}, PNAMES, { metamagic: 'Metamagic', mmspells: 'Metamagic (Spells tab)', infhead: 'Infusions overview', infknown: 'Known infusions', infactive: 'Active infusions' });
-const MODMIN = { economy: 6, inventory: 6, spelllist: 6, turnbar: 6, oocmain: 6, spellcasting: 6, featlist: 4, companions: 4 };
+const MODNAMES = Object.assign({ spslots: 'Spell slots (Spells tab)', spfx: 'Active spells (Spells tab)' }, PNAMES, { metamagic: 'Metamagic', mmspells: 'Metamagic (Spells tab)', infhead: 'Infusions overview', infknown: 'Known infusions', infactive: 'Active infusions' });
+const MODMIN = { economy: 6, inventory: 6, spelllist: 6, turnbar: 6, oocmain: 6, featlist: 4, companions: 4 };
 const modName = id => MODNAMES[id] || id;
 const modMinW = id => MODMIN[id] || 3;
 const SIZES = [[3, 'Small', '¼'], [4, 'Medium', '⅓'], [6, 'Half', '½'], [8, 'Large', '⅔'], [9, 'Wide', '¾'], [12, 'Full width', '1']];
 const isGridLayout = () => !!(S.layout && S.layout.grid);
+const gridTab = k => !!(S.layout && S.layout.grid && S.layout.grid[k]);
+// Tabs a module can be sent to: never the Party tab, and not a tab that's hidden (it would vanish with it).
+const modTabs = () => tabOrder().filter(([k]) => k !== 'party' && !tabHidden(k));
+// Every grid item kept inside the 12 columns, with sane sizes (whatever an old save or a stray drag left).
+function gSane(items) { (items || []).forEach(i => { const mn = Math.min(GCOLS, modMinW(i.id)); i.w = Math.max(mn, Math.min(GCOLS, Math.round(N(i.w)) || GCOLS)); i.x = Math.max(0, Math.min(GCOLS - i.w, Math.round(N(i.x)) || 0)); i.y = Math.max(0, Math.round(N(i.y)) || 0); i.h = Math.max(1, Math.min(4, Math.round(N(i.h)) || 1)); }); return items; }
 const ctabs = () => ((S.layout && S.layout.ctabs) || []);
 const isCustomTab = k => ctabs().some(t => t.key === k);
 
@@ -7656,24 +7796,33 @@ function measurePage(pg) {
   return gCompact(items, null);
 }
 // The first real change converts every tab (built-in and custom) into the grid model.
-function ensureGrid() {
-  if (isGridLayout()) return false;
-  const L = LY(), grid = {};
-  tabOrder().forEach(([k]) => { grid[k] = measurePage(k); });
-  const placed = new Set(Object.values(grid).flat().map(i => i.id));
-  // Modules that exist but are hidden right now (combat-only panels, hidden by the old editor…) keep a home spot.
-  $$('.page [data-pid]').forEach(el => { const id = el.dataset.pid, home = el.dataset.home; if (placed.has(id)) return; placed.add(id);
-    if ((L.hidden || []).includes(id)) { L.removed = (L.removed || []).concat([id]); return; }
-    const pg = grid[home] ? home : tabOrder()[0][0]; const a = grid[pg]; a.push({ id, x: 0, y: a.reduce((m, i) => Math.max(m, i.y + i.h), 0), w: GCOLS, h: 1 }); });
-  L.grid = grid; delete L.pages; delete L.cols; delete L.wide; L.hidden = [];
-  return true;
+// Only the tabs being changed are converted (each measured as it looks right now); the other tabs keep their own
+// arrangement, so a change made in a narrow window doesn't squeeze every other tab into that shape.
+function ensureGrid(pgs) {
+  const L = LY(), grid = L.grid = L.grid || {}; let did = false;
+  (pgs || []).filter(k => k && k !== 'party' && !grid[k] && $('#page-' + k)).forEach(k => {
+    const items = measurePage(k), placed = new Set(Object.values(grid).flat().concat(items).map(i => i.id));
+    // Modules of this tab that are hidden right now (combat-only panels…) keep a spot at its bottom; ones the old editor hid are removed.
+    $$(`#page-${k} [data-pid]`).forEach(el => { const id = el.dataset.pid; if (el.parentElement.closest('[data-pid]') || placed.has(id)) return; placed.add(id);
+      if ((L.hidden || []).includes(id)) { L.removed = [...new Set((L.removed || []).concat([id]))]; return; }
+      items.push({ id, x: 0, y: items.reduce((m, i) => Math.max(m, i.y + i.h), 0), w: GCOLS, h: 1 }); });
+    items.forEach(i => { const el = $(`.page [data-pid="${i.id}"]`); if (el) i.home = el.dataset.home; });
+    grid[k] = gSane(items); if (L.pages) delete L.pages[k]; did = true; });
+  return did;
 }
+// the tab a module is on right now (its grid tab, or the page it sits on)
+function modPageOf(id) { const [pg] = gFind(id); if (pg) return pg; const el = $(`.page [data-pid="${id}"]`), p = el && el.closest('.page'); return p ? p.id.replace('page-', '') : null; }
 
 // ---------- Rendering the grid ----------
 // Placement: every module in L.grid shows on that tab; modules that appear later (a new class feature…) and were never
 // placed go to the bottom of their home tab; removed ones stay off the sheet.
 function gridApply(by) {
-  const L = S.layout, grid = L.grid, removed = new Set(L.removed || []), placed = new Set(Object.values(grid).flat().map(i => i.id));
+  const L = S.layout, grid = L.grid;
+  // (the Party tab is always its own page: anything a saved layout put there goes back home)
+  if (grid.party) delete grid.party;
+  Object.values(grid).forEach(gSane);
+  const removed = new Set(L.removed || []), placed = new Set(Object.values(grid).flat().map(i => i.id));
+  Object.values(grid).flat().forEach(i => { if (!i.home && by[i.id]) i.home = by[i.id][0].dataset.home; });
   // The Spells tab's Spell Slots and Active Spells panels (same look as Combat) start at the top of a saved grid, side by side.
   if (grid.spells) { const need = ['spslots', 'spfx'].filter(id => by[id] && !placed.has(id) && !removed.has(id));
     if (need.length) { const sc = grid.spells.find(i => i.id === 'spellcasting'), y0 = sc ? sc.y : 0, ws = Math.round(GCOLS / 3); grid.spells.forEach(i => { if (i.y >= y0) i.y += 1; });
@@ -7701,11 +7850,22 @@ function gridApply(by) {
     if (ed && !mob && !live.length) box.innerHTML = `<div class="gempty"><b>This tab is empty</b><span>Use <b>+ Add module</b> below, or drag a module onto this tab's name.</span></div>`;
   });
   // Modules that ended up nowhere (removed, or homed on a tab that's gone) are taken out of the page.
-  Object.keys(by).forEach(id => { const el = by[id][0]; if (!el.closest('.gridl')) el.remove(); });
+  Object.keys(by).forEach(id => { const el = by[id][0], p = el.closest('.page'), pk = p && p.id.replace('page-', ''); if (!el.closest('.gridl') && (removed.has(id) || (pk && grid[pk]))) el.remove(); });
+  // a custom tab with nothing on it says so (outside Edit layout too)
+  Object.keys(grid).forEach(pg => { const page = $('#page-' + pg), box = page && page.querySelector(':scope > .gridl'); if (box && !ed && !box.children.length && isCustomTab(pg)) box.innerHTML = `<div class="gempty"><b>This tab is empty</b><span>Open <b>Edit layout</b> to add modules to it.</span></div>`; });
 }
 
 // ---------- Edit mode: module bars, resize handles, editor bar ----------
 let LSNAP = null; // the layout when Edit layout was opened (Cancel restores it)
+// (kept in this browser per character, so Cancel still works after a reload mid-edit; a sheet with no snapshot isn't
+// left in edit mode — edit mode doesn't carry over from another character)
+const lsnapKey = () => 'dnd-lsnap:' + (S && S.id || '');
+function lsnapKeep() { try { if (LSNAP == null) localStorage.removeItem(lsnapKey()); else localStorage.setItem(lsnapKey(), LSNAP); } catch (e) {} }
+function editRestore() {
+  if (!UI.editLayout || LSNAP != null) return;
+  let v = null; try { v = localStorage.getItem(lsnapKey()); } catch (e) {}
+  if (v != null) LSNAP = v; else { UI.editLayout = false; saveUI(); }
+}
 function editDecorate() {
   const ed = !!UI.editLayout && !isMobile();
   $$('.page [data-pid]').forEach(el => {
@@ -7717,9 +7877,9 @@ function editDecorate() {
     bar.innerHTML = `<span class="mgrip" data-mgrip="${id}" title="Drag to move — drop on a tab name to send it there">⠿ ${esc(modName(id))}</span>${auto ? '<span class="hidtag" title="Not used by this character right now — it shows up when it applies">auto-hidden</span>' : ''}<span class="grow"></span>
       <div class="menu msize"><button class="mbtn" data-act="menu" aria-haspopup="true" title="Size">⤢ ${w ? (SIZES.find(s => s[0] === w) || [0, 0, w + '/12'])[2] : 'Size'}</button><div class="menu-list">
         <div class="mlabel">Width</div>${SIZES.filter(s => s[0] >= modMinW(id)).map(([n, t, g]) => `<button data-act="msize" data-p="${id}" data-w="${n}" class="${w === n ? 'on' : ''}"><span class="szg" style="--n:${n}"></span>${t} <span class="hint">${g}</span></button>`).join('')}
-        <div class="mlabel">Height</div>${[[1, 'Normal'], [2, 'Tall (2 rows)'], [3, 'Taller (3 rows)']].map(([h, t]) => `<button data-act="msize" data-p="${id}" data-h="${h}" class="${(N(el.dataset.gh) || 1) === h ? 'on' : ''}">${t}</button>`).join('')}
+        <div class="mlabel">Height</div>${[[1, 'Normal'], [2, 'Tall (2 rows)'], [3, 'Taller (3 rows)'], [4, 'Tallest (4 rows)']].map(([h, t]) => `<button data-act="msize" data-p="${id}" data-h="${h}" class="${(N(el.dataset.gh) || 1) === h ? 'on' : ''}">${t}</button>`).join('')}
       </div></div>
-      <div class="menu"><button class="mbtn" data-act="menu" aria-haspopup="true" title="Move to another tab">⇄</button><div class="menu-list"><div class="mlabel">Move to tab</div>${tabOrder().filter(([k]) => k !== pageOf(el)).map(([k]) => `<button data-act="mto" data-p="${id}" data-pg="${k}">${esc(tabLabel(k))}</button>`).join('')}</div></div>
+      <div class="menu"><button class="mbtn" data-act="menu" aria-haspopup="true" title="Move to another tab">⇄</button><div class="menu-list"><div class="mlabel">Move to tab</div>${modTabs().filter(([k]) => k !== pageOf(el)).map(([k]) => `<button data-act="mto" data-p="${id}" data-pg="${k}">${esc(tabLabel(k))}</button>`).join('')}</div></div>
       <button class="mbtn mx" data-act="mremove" data-p="${id}" title="Remove from the sheet (add it back with + Add module)">✕</button>`;
     el.prepend(bar);
     const rz = document.createElement('div'); rz.className = 'mresize'; rz.dataset.mresize = id; rz.title = 'Drag to resize'; el.appendChild(rz);
@@ -7735,15 +7895,19 @@ function editDecorate() {
   } else if (eb) eb.remove();
   document.body.classList.toggle('editing', ed);
 }
-function editToggle() {
+function editEndDrags() { if (GD) gEnd(true); if (typeof PD !== 'undefined' && PD) { if (PD.ghost) PD.ghost.remove(); PD.item.classList.remove('dragging'); PD = null; dropClear(); document.body.classList.remove('dragging-any'); } }
+function editToggle() { editEndDrags();
   if (!UI.editLayout) { LSNAP = JSON.stringify(S.layout || {}); UI.editLayout = true; }
   else { UI.editLayout = false; LSNAP = null; }
-  saveUI(); pendingLabel = null; render();
+  lsnapKeep(); saveUI(); pendingLabel = null; render();
 }
-function editCancel() {
+function editCancel() { editEndDrags();
   if (LSNAP != null && LSNAP !== JSON.stringify(S.layout || {})) { S.layout = JSON.parse(LSNAP); pendingLabel = 'Cancel layout changes'; save(); }
-  UI.editLayout = false; LSNAP = null; saveUI(); render();
+  UI.editLayout = false; LSNAP = null; lsnapKeep(); saveUI(); render();
 }
+// The window narrowed into the phone layout (no layout editing there): editing ends, keeping what was done (Undo
+// still takes it back).
+function editEndForPhone() { if (!UI.editLayout) return; editEndDrags(); UI.editLayout = false; LSNAP = null; lsnapKeep(); saveUI(); }
 // Modules taken off the sheet (Add module lists them). The old editor's "hidden" panels count too.
 const modRemoved = () => [...new Set(((S.layout && S.layout.removed) || []).concat((S.layout && !S.layout.grid && S.layout.hidden) || []))];
 function modLibrary() { return modRemoved().filter(id => !panelAutoHidden(id)); }
@@ -7767,22 +7931,23 @@ const gItems = pg => (LY().grid[pg] = LY().grid[pg] || []);
 function gFind(id) { const G = LY().grid || {}; for (const pg of Object.keys(G)) { const it = G[pg].find(i => i.id === id); if (it) return [pg, it]; } return [null, null]; }
 function gChanged(label) { pendingLabel = label; save(); render(); }
 function modAdd(id, pg) {
-  ensureGrid(); const L = LY(); pg = pg || UI.tab;
+  pg = pg || UI.tab; if (pg === 'party') return;
+  ensureGrid([modPageOf(id), pg]); const L = LY();
   const [from, it] = gFind(id); if (from) L.grid[from] = L.grid[from].filter(i => i !== it);
   L.removed = (L.removed || []).filter(x => x !== id);
   const a = gItems(pg), w = it ? Math.max(it.w, modMinW(id)) : GCOLS;
-  a.push({ id, x: 0, y: a.reduce((m, i) => Math.max(m, i.y + i.h), 0), w, h: it ? it.h : 1 }); gCompact(a, null);
+  a.push({ id, home: it && it.home, x: 0, y: a.reduce((m, i) => Math.max(m, i.y + i.h), 0), w, h: it ? it.h : 1 }); gCompact(a, null);
   closeModal(true); gChanged(`Add ${modName(id)} to ${tabLabel(pg)}`);
   setTimeout(() => { const el = $(`.page [data-pid="${id}"]`); if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.classList.add('mflash'); setTimeout(() => el.classList.remove('mflash'), 1200); } }, 60);
 }
 function modRemove(id) {
-  ensureGrid(); const L = LY(), [pg, it] = gFind(id); if (pg) { L.grid[pg] = L.grid[pg].filter(i => i !== it); gCompact(L.grid[pg], null); }
+  ensureGrid([modPageOf(id)]); const L = LY(), [pg, it] = gFind(id); if (pg) { L.grid[pg] = L.grid[pg].filter(i => i !== it); gCompact(L.grid[pg], null); }
   L.removed = [...new Set((L.removed || []).concat([id]))];
   gChanged('Remove ' + modName(id));
   toast(`<b>${esc(modName(id))}</b> removed. Add it back any time with <b>+ Add module</b>.`, '', 5000, { label: 'Undo', fn: () => undo(1) });
 }
 function modSize(id, w, h) {
-  ensureGrid(); const [pg, it] = gFind(id); if (!it) return;
+  ensureGrid([modPageOf(id)]); const [pg, it] = gFind(id); if (!it) return;
   if (w) { it.w = Math.max(modMinW(id), Math.min(GCOLS, w)); if (it.x + it.w > GCOLS) it.x = GCOLS - it.w; }
   if (h) it.h = h;
   gResolve(LY().grid[pg], it); gChanged('Resize ' + modName(id));
@@ -7791,16 +7956,20 @@ function modTo(id, pg) { modAdd(id, pg); toast(`${esc(modName(id))} moved to ${e
 function gridReset(pg) {
   const L = LY(); if (!L.grid) return;
   if (isCustomTab(pg)) { (L.grid[pg] || []).forEach(i => { L.removed = (L.removed || []).filter(x => x !== i.id); }); L.grid[pg] = []; return gChanged('Clear ' + tabLabel(pg)); }
-  // Modules from this tab come home; whatever else was moved here goes back to its own tab.
-  const mine = $$('.page [data-pid]').filter(e => e.dataset.home === pg).map(e => e.dataset.pid);
-  Object.keys(L.grid).forEach(k => { if (k !== pg) L.grid[k] = L.grid[k].filter(i => !mine.includes(i.id)); });
-  const strangers = (L.grid[pg] || []).filter(i => !mine.includes(i.id)).map(i => i.id);
-  L.removed = (L.removed || []).filter(x => !mine.includes(x));
-  // Measure this tab's default arrangement with the grid switched off, then put the other tabs' grids back.
-  const keep = L.grid, keepPages = L.pages, keepCols = L.cols, keepWide = L.wide; delete L.grid; L.pages = {}; L.cols = {}; L.wide = [];
-  render(); const fresh = measurePage(pg);
-  L.grid = keep; L.pages = keepPages; L.cols = keepCols; L.wide = keepWide; L.grid[pg] = fresh;
-  strangers.forEach(id => { const el = $(`.page [data-pid="${id}"]`), home = el && el.dataset.home; const a = L.grid[home] || L.grid[pg]; if (!a.some(i => i.id === id)) a.push({ id, x: 0, y: a.reduce((m, i) => Math.max(m, i.y + i.h), 0), w: GCOLS, h: 1 }); });
+  // Draw the sheet once with no layout at all: that shows this tab's own modules (removed ones included) where they
+  // belong by default, and every module's home tab. Then the saved layout comes back with this tab replaced.
+  const keepL = JSON.stringify(L), removed0 = (L.removed || []).slice(); S.layout = { tabs: L.tabs, tabNames: L.tabNames, hiddenTabs: L.hiddenTabs, shownTabs: L.shownTabs, ctabs: L.ctabs };
+  render(); const homes = {}; $$('.page [data-pid]').forEach(e => { if (!e.parentElement.closest('[data-pid]')) homes[e.dataset.pid] = e.dataset.home; });
+  const fresh = measurePage(pg), mine = Object.keys(homes).filter(id => homes[id] === pg);
+  $$(`#page-${pg} [data-pid]`).forEach(el => { const id = el.dataset.pid; if (el.parentElement.closest('[data-pid]') || fresh.some(i => i.id === id)) return; fresh.push({ id, x: 0, y: fresh.reduce((m, i) => Math.max(m, i.y + i.h), 0), w: GCOLS, h: 1 }); });
+  fresh.forEach(i => { i.home = pg; });
+  S.layout = JSON.parse(keepL); const L2 = S.layout;
+  const strangers = (L2.grid[pg] || []).filter(i => !mine.includes(i.id) && !fresh.some(f => f.id === i.id));
+  Object.keys(L2.grid).forEach(k => { if (k !== pg) L2.grid[k] = L2.grid[k].filter(i => !mine.includes(i.id) && !fresh.some(f => f.id === i.id)); });
+  L2.removed = removed0.filter(x => !mine.includes(x) && !fresh.some(f => f.id === x));
+  L2.grid[pg] = gSane(fresh);
+  // whatever else was moved here goes back to its own tab (or, if that tab still has its own layout, simply home)
+  strangers.forEach(i => { const home = homes[i.id] || i.home; if (home && home !== pg && L2.grid[home]) { const a = L2.grid[home]; a.push({ id: i.id, home, x: 0, y: a.reduce((m, j) => Math.max(m, j.y + j.h), 0), w: i.w, h: i.h }); } });
   gChanged('Reset ' + tabLabel(pg) + ' layout');
 }
 function gridResetAll() {
@@ -7811,21 +7980,21 @@ function gridResetAll() {
 // ---------- Custom tabs ----------
 const CTAB_ICONS = ['★', '⚑', '♦', '☾', '☀', '⚙', '✎', '❖', '⚔', '✦'];
 function ctabAdd() {
-  openModal(`<h3>New tab</h3>${fld('Name', '<input class="f" id="ctabName" placeholder="e.g. Session, Downtime, Quick ref" autofocus>')}
+  openModal(`<h3>New tab</h3>${fld('Name', '<input class="f" id="ctabName" maxlength="30" placeholder="e.g. Session, Downtime, Quick ref" autofocus>')}
     <div class="lbl" style="margin-top:8px">Icon</div><div class="spcat-icons">${CTAB_ICONS.map((x, k) => `<button class="spcat-ic${k ? '' : ' on'}" data-ctic="${x}">${x}</button>`).join('')}</div>
     <p class="hint">The new tab starts empty — add modules to it from <b>+ Add module</b>, or drag one onto its name.</p>
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="ctabaddok">Add tab</button></div>`);
 }
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-ctic]'); if (!b) return; $$('[data-ctic]').forEach(x => x.classList.toggle('on', x === b)); });
 function ctabAddOK() {
-  ensureGrid(); const L = LY(), name = ($('#ctabName').value || '').trim() || 'New tab', icon = ($('[data-ctic].on') || {}).dataset ? $('[data-ctic].on').dataset.ctic : '★';
+  ensureGrid([]); const L = LY(), name = ($('#ctabName').value || '').trim().slice(0, 30) || 'New tab', icon = ($('[data-ctic].on') || {}).dataset ? $('[data-ctic].on').dataset.ctic : '★';
   const key = 'c' + uid().slice(0, 6); L.ctabs = ctabs().concat([{ key, name, icon }]); L.grid[key] = [];
   L.tabs = tabOrder().map(t => t[0]).filter(k => k !== key).concat([key]);
   closeModal(true); UI.tab = key; saveUI(); gChanged('New tab: ' + name);
 }
 function ctabDelete(k) {
   const L = LY(), t = ctabs().find(x => x.key === k); if (!t) return;
-  (L.grid[k] || []).forEach(i => { const el = $(`.page [data-pid="${i.id}"]`), home = el && el.dataset.home; const a = (home && L.grid[home]) || L.grid[tabOrder()[0][0]]; a.push({ id: i.id, x: 0, y: a.reduce((m, j) => Math.max(m, j.y + j.h), 0), w: i.w, h: i.h }); });
+  (L.grid[k] || []).forEach(i => { const el = $(`.page [data-pid="${i.id}"]`), home = i.home || (el && el.dataset.home); const a = home && L.grid[home]; if (a) a.push({ id: i.id, home, x: 0, y: a.reduce((m, j) => Math.max(m, j.y + j.h), 0), w: i.w, h: i.h }); });
   delete L.grid[k]; L.ctabs = ctabs().filter(x => x.key !== k); L.tabs = (L.tabs || []).filter(x => x !== k);
   if (UI.tab === k) { UI.tab = tabOrder()[0][0]; saveUI(); }
   gChanged('Delete tab: ' + t.name);
@@ -7850,17 +8019,26 @@ function gPreview(box, items, skipId) {
 document.addEventListener('pointerdown', e => {
   if (!UI.editLayout || isMobile() || e.button > 0) return;
   const g = e.target.closest && (e.target.closest('[data-mgrip]') || e.target.closest('[data-mresize]')); if (!g) return;
-  e.preventDefault();
+  e.preventDefault(); if (GD) return; // (a second finger mid-drag is ignored)
   const id = g.dataset.mgrip || g.dataset.mresize, kind = g.dataset.mgrip ? 'move' : 'size';
-  if (ensureGrid()) { pendingLabel = null; render(); }
-  const el = $(`.page.on [data-pid="${id}"]`), box = el && el.closest('.gridl'); if (!el || !box) return;
-  const pg = box.dataset.pg, items = gClone(LY().grid[pg]), it = items.find(i => i.id === id); if (!it) return;
-  const r = el.getBoundingClientRect();
-  GD = { kind, id, el, box, pg, items, it, start: { x: e.clientX, y: e.clientY, w: it.w, h: it.h, l: r.left, t: r.top, rw: r.width, rh: r.height }, on: false };
+  // Nothing changes until the pointer actually moves: a press without a drag leaves the layout alone.
+  GD = { kind, id, start: { x: e.clientX, y: e.clientY }, on: false, pend: true };
 });
+// The drag begins: the tab becomes a grid if it isn't one yet, and the drag works on the modules actually showing
+// (hidden ones, like combat-only panels out of combat, keep their spots below and don't throw the rows off).
+function gBegin(d) {
+  d.pend = false; const pg0 = modPageOf(d.id);
+  if (ensureGrid([pg0])) { pendingLabel = null; render(); }
+  const el = $(`.page.on [data-pid="${d.id}"]`), box = el && el.closest('.gridl'); if (!el || !box) return false;
+  const pg = box.dataset.pg, all = LY().grid[pg] || [], shownIds = new Set($$(':scope > [data-pid]', box).map(x => x.dataset.pid));
+  const items = gCompact(gClone(all.filter(i => shownIds.has(i.id))), null), it = items.find(i => i.id === d.id); if (!it) return false;
+  const r = el.getBoundingClientRect();
+  Object.assign(d, { el, box, pg, items, it, rest: gClone(all.filter(i => !shownIds.has(i.id))), start: Object.assign(d.start, { w: it.w, h: it.h, l: r.left, t: r.top, rw: r.width, rh: r.height }) });
+  return true;
+}
 document.addEventListener('pointermove', e => {
   const d = GD; if (!d) return;
-  if (!d.on) { if (Math.hypot(e.clientX - d.start.x, e.clientY - d.start.y) < 5) return; d.on = true; document.body.classList.add('gdragging');
+  if (!d.on) { if (Math.hypot(e.clientX - d.start.x, e.clientY - d.start.y) < 5) return; if (d.pend && !gBegin(d)) { GD = null; return; } d.on = true; document.body.classList.add('gdragging');
     d.ph = document.createElement('div'); d.ph.className = 'gph'; d.box.appendChild(d.ph);
     if (d.kind === 'move') { d.el.classList.add('gmoving'); d.ghost = document.createElement('div'); d.ghost.className = 'dghost'; d.ghost.textContent = '⠿ ' + modName(d.id); document.body.appendChild(d.ghost); } }
   e.preventDefault();
@@ -7870,7 +8048,10 @@ document.addEventListener('pointermove', e => {
     d.ghost.style.display = 'none'; const over = document.elementFromPoint(e.clientX, e.clientY); d.ghost.style.display = '';
     $$('.tabwrap.dropon').forEach(t => t.classList.remove('dropon'));
     const tab = over && over.closest('.tabwrap'); d.tab = null;
-    if (tab && tab.dataset.tabkey !== d.pg) { tab.classList.add('dropon'); d.tab = tab.dataset.tabkey; d.ph.style.display = 'none'; return; }
+    if (tab && tab.dataset.tabkey !== d.pg && modTabs().some(([k]) => k === tab.dataset.tabkey)) { tab.classList.add('dropon'); d.tab = tab.dataset.tabkey; d.ph.style.display = 'none'; return; }
+    // (over the tab bar, the edit bar or outside the page there's nowhere to put it: let go there and nothing changes)
+    d.away = !!(over && over.closest('.tabs, #editbar, header.banner')) || e.clientX < 0 || e.clientY < 0 || e.clientX > innerWidth || e.clientY > innerHeight;
+    d.ph.style.opacity = d.away ? '0' : '';
     d.ph.style.display = '';
     const left = e.clientX - (d.start.x - d.start.l) - r.left; it.x = Math.max(0, Math.min(GCOLS - it.w, Math.round(left / colW)));
     const tops = rowTops(d.box, d.el), py = e.clientY - (d.start.y - d.start.t) + 8; let y = 0;
@@ -7879,7 +8060,7 @@ document.addEventListener('pointermove', e => {
     it.y = y;
     if (!over || !over.closest('.tabs')) { if (e.clientY < 50) scrollBy(0, -14); else if (e.clientY > innerHeight - 130) scrollBy(0, 14); }
   } else {
-    const dw = Math.round((e.clientX - d.start.x) / colW); it.w = Math.max(modMinW(d.id), Math.min(GCOLS - it.x, d.start.w + dw));
+    const dw = Math.round((e.clientX - d.start.x) / colW); it.w = Math.max(Math.min(GCOLS, modMinW(d.id)), Math.min(GCOLS - it.x, d.start.w + dw)); if (it.x + it.w > GCOLS) it.x = GCOLS - it.w;
     const dh = Math.round((e.clientY - d.start.y) / Math.max(120, d.start.rh / Math.max(1, d.start.h))); it.h = Math.max(1, Math.min(4, d.start.h + dh));
   }
   gResolve(items, it); d.live = items;
@@ -7890,14 +8071,16 @@ document.addEventListener('pointermove', e => {
 function gEnd(cancel) {
   const d = GD; if (!d) return; GD = null; document.body.classList.remove('gdragging');
   $$('.tabwrap.dropon').forEach(t => t.classList.remove('dropon'));
-  if (d.ph) d.ph.remove(); if (d.ghost) d.ghost.remove(); d.el.classList.remove('gmoving');
-  if (!d.on || cancel) { render(); return; }
+  if (d.ph) d.ph.remove(); if (d.ghost) d.ghost.remove(); if (d.el) d.el.classList.remove('gmoving');
+  if (!d.on || cancel || !UI.editLayout || (d.kind === 'move' && d.away && !d.tab)) { if (d.on) render(); return; }
   if (d.tab) return modTo(d.id, d.tab);
-  if (d.live) { LY().grid[d.pg] = d.live; gChanged(d.kind === 'move' ? 'Move ' + modName(d.id) : 'Resize ' + modName(d.id)); }
+  if (d.live) { const live = gSane(d.live), bottom = live.reduce((m, i) => Math.max(m, i.y + i.h), 0), y0 = Math.min(...d.rest.map(i => i.y), Infinity);
+    d.rest.forEach(i => { i.y = bottom + (i.y - (isFinite(y0) ? y0 : 0)); });
+    LY().grid[d.pg] = live.concat(d.rest); gChanged(d.kind === 'move' ? 'Move ' + modName(d.id) : 'Resize ' + modName(d.id)); }
 }
 document.addEventListener('pointerup', () => gEnd(false));
 document.addEventListener('pointercancel', () => gEnd(true));
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && GD) gEnd(true); });
+document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (GD) gEnd(true); else if (typeof PD !== 'undefined' && PD) editEndDrags(); });
 
 // ---------- Tooltip vignettes ----------
 // Every spell, feature, attack and magic item's info box gets a small looping animation in its corner — a sketch of
@@ -11496,6 +11679,8 @@ function wz3ChoiceLists(root) {
         wz3Commit(box, () => { x.value = r.value; x.dispatchEvent(new Event('change', { bubbles: true })); }); });
     });
   });
+  // (pop-up windows' lists get the same lines at their scrolling edges; character creation does its own)
+  if (root !== '#wizard') wz3Shades(root);
 }
 // The subclass pick at the level that grants one, as the same list (with what it gives you first)
 function lvSubList() {
@@ -11537,12 +11722,13 @@ function wz3Equip(c, b, kit) {
   return h;
 }
 // Scrolling boxes of cards or rows get a line and a soft shadow at whichever edge has more to scroll to
-function wz3Shades() {
-  $$('#wizard .wz3-cards.has, #wizard .wz3-list').forEach(box => {
+function wz3Shades(root = '#wizard') {
+  $$(`${root} .wz3-cards.has, ${root} .wz3-list`).forEach(box => {
     if (box.parentElement.classList.contains('wz3-sc')) return;
-    const w = document.createElement('div'); w.className = 'wz3-sc'; box.before(w); w.appendChild(box);
+    const st = box.scrollTop, w = document.createElement('div'); w.className = 'wz3-sc'; box.before(w); w.appendChild(box); if (st) box.scrollTop = st; // (moving it would lose where it was scrolled to)
     const paint = () => { w.classList.toggle('top', box.scrollTop > 2); w.classList.toggle('bot', box.scrollTop + box.clientHeight < box.scrollHeight - 2); };
-    box.addEventListener('scroll', paint, { passive: true }); requestAnimationFrame(paint);
+    // (set straight away, and only eased once it's on screen, so a redrawn list doesn't fade its edges in again)
+    box.addEventListener('scroll', paint, { passive: true }); paint(); requestAnimationFrame(() => requestAnimationFrame(() => w.classList.add('ready')));
   });
 }
 // A simple drawn symbol for each class (our own line drawings)
@@ -12011,7 +12197,7 @@ const PART = 180000;
 const LOCAL_SETTINGS = ['diceMode', 'r20campaign', 'sheetToR20', 'r20auras'];
 function keepLocal(next, cur) {
   if (!next || !cur) return next;
-  next.layout = cur.layout;
+  if (UI && UI.editLayout) next.layout = cur.layout; // (someone mid-edit keeps what they're editing; otherwise the newer layout comes along)
   next.settings = Object.assign({}, next.settings || {});
   LOCAL_SETTINGS.forEach(k => { if (cur.settings && cur.settings[k] !== undefined) next.settings[k] = cur.settings[k]; else delete next.settings[k]; });
   return next;
@@ -12118,7 +12304,7 @@ function cloudListen(ref, onFirst) {
       if (!owner && mine && S.created && !cloudRO && !(d && d.guestDone)) { S.savedAt = Date.now(); GUESTCLAIM = true; await cloudWrite(); return true; }
       if (S.created && (!d || N(d.savedAt) < N(S.savedAt))) {
         // A newer copy of the sheet file is replacing the synced one: never lose the player's own settings, theme or layout.
-        if (d && !cloudRO) { try { const txt = await cloudText(d); const old = txt && JSON.parse(txt); if (old && old.id === S.id) { keepPrefs(S, old); hdrReset(S); try { applyTheme(); render(); } catch (e) {} } } catch (e) {} }
+        if (d && !cloudRO && !FROM_LOCAL) { try { const txt = await cloudText(d); const old = txt && JSON.parse(txt); if (old && old.id === S.id) { keepPrefs(S, old); hdrReset(S); try { applyTheme(); render(); } catch (e) {} } } catch (e) {} }
         if (!cloudRO) cloudWrite(); }
       else if (d) setSyncState(cloudRO ? 'Live · view only (you can\'t edit this sheet)' : 'Live · synced ' + clock());
     });
@@ -12455,9 +12641,15 @@ function ddbCreate() {
   // not clickable) just long enough to fade, and opening it again cancels that.
   const W = [['#modal', 'open'], ['#wizard', 'open'], ['.menu', 'open'], ['#tipbox', 'on']];
   const match = el => W.find(([sel]) => el.matches && el.matches(sel));
+  // The closing look is taken off once its fade has actually played: timed from when the fade starts, not from when the
+  // window was closed, so a busy moment straight after closing (the sheet redrawing itself) can't cut the fade short.
+  const fadeDone = el => { clearTimeout(el._fc); if (el._fst) el.removeEventListener('animationstart', el._fst); const ms = document.documentElement.classList.contains('mobile') ? 240 : 190; let started = false;
+    const end = () => { clearTimeout(el._fc); el.removeEventListener('animationstart', st); if (!el.classList.contains('open') && !el.classList.contains('on')) el.classList.remove('closing'); };
+    const st = e => { if (started || !/Out$/.test(e.animationName)) return; started = true; clearTimeout(el._fc); el._fc = setTimeout(end, ms + 30); };
+    el._fst = st; el.addEventListener('animationstart', st); el._fc = setTimeout(end, 1500); };
   new MutationObserver(ms => ms.forEach(m => { const el = m.target, w = match(el); if (!w) return; const cls = w[1], was = (' ' + (m.oldValue || '') + ' ').includes(' ' + cls + ' '), now = el.classList.contains(cls);
     if (now) { if (!was && el.classList.contains('closing')) { clearTimeout(el._fc); el.classList.remove('closing'); } return; }
-    if (was && !now && !(' ' + (m.oldValue || '') + ' ').includes(' closing ') && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => el.classList.remove('closing'), document.documentElement.classList.contains('mobile') ? 240 : 190); } }))
+    if (was && !now && !(' ' + (m.oldValue || '') + ' ').includes(' closing ') && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { el.classList.add('closing'); fadeDone(el); } }))
     .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], attributeOldValue: true, subtree: true });
 }
 

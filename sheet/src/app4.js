@@ -33,6 +33,7 @@ function mainClick(e) {
     case 'attack': attackRoll(i, !b.closest('#page-combat') || !S.inCombat); break;
     case 'bonusatk': bonusAttack(i, b.dataset.kind); break;
     case 'equip': equipItem(i); break;
+    case 'dupitem': { const src = S.inventory[i]; if (!src) break; const c = JSON.parse(JSON.stringify(src)); c.id = uid(); c.equipped = false; c.attuned = false; S.inventory.splice(i + 1, 0, c); pendingLabel = 'Duplicate ' + (src.name || 'item'); save(); render(); toast(`Duplicated “${esc(src.name || 'item')}”`); break; }
     case 'resetturn': S.turn.haste = false; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.attacks = 0; S.turn.atkWith = []; S.turn.lightAtk = false; S.turn.speed0 = ''; S.turn.sneak = false; S.turn.readied = null; update(); render('combat'); toast(`Turn reset — round ${N(S.turn.round) || 1} actions are ready again.`); break;
     case 'fullscreen': if (fsOn()) { FS_USER_OFF = true; fsExit(); } else { FS_USER_OFF = false; fsEnter(); } break;
     case 'tab': { const prev = UI.tab, nt = b.dataset.tab, mini = !!b.closest('.cmini'), mob = isMobile() && !mini;

@@ -3885,3 +3885,16 @@ html.mobile .setrow.r20aura input[type=checkbox] { width: 22px; height: 22px; ma
 label.setrow > input[type=checkbox] + span { flex: 1 1 auto; min-width: 0; text-align: left; color: inherit; font-size: inherit; }
 label.setrow { align-items: flex-start; gap: 10px; }
 label.setrow > input[type=checkbox] { margin-top: 2px; }
+/* right-click menu on an inventory item */
+.ictx > .menu-list { position: fixed; display: block; z-index: 96; min-width: 210px; max-width: min(300px, calc(100vw - 16px)); overflow-y: auto; padding: 5px; right: auto; top: 0; left: 0; animation: wPopIn .12s ease; box-shadow: 0 12px 32px rgba(0,0,0,.4); }
+.ictx .ictx-h { padding: 6px 10px 4px; font-weight: 800; font-size: .86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ictx .ictx-h span { color: var(--soft); font-weight: 600; }
+.ictx hr { border: 0; border-top: 1px solid var(--line); margin: 4px 2px; }
+.ictx .menu-list button { padding: 7px 10px; font-size: .88rem; }
+.ictx .menu-list button[disabled] { opacity: .45; cursor: not-allowed; }
+.ictx .menu-list button[disabled]:hover { background: none; }
+.ictx .menu-list button.danger { color: var(--red, #d9534f); }
+.ictx .menu-list button:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.ictx .mlabel { padding: 6px 10px 2px; }
+.irow.ictx-on { box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 55%, transparent); border-radius: 8px; }
+@media (prefers-reduced-motion: reduce) { .ictx > .menu-list { animation: none; } }
