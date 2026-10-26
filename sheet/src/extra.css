@@ -4129,4 +4129,9 @@ html:not(.mobile) #rolls .toast.rollcard { cursor: grab; } body.rolls-drag, body
 /* tab labels sit on the same middle as their icons (the label's box is trimmed to its capital letters, so centring
    lines up the letters themselves, not the empty space a font keeps above and below them) */
 html:not(.mobile) #tabs .tab .tlabel { transform: translateY(-1px); }
+/* Where the browser can trim a line down to the capital letters, the words are centred by their capitals, the way the
+   eye reads them, on every system font (Windows and Mac fonts sit their letters at different heights in the line) */
+@supports (text-box: trim-both cap alphabetic) {
+  html:not(.mobile) #tabs .tab .tlabel { transform: none; top: 0; text-box: trim-both cap alphabetic; overflow: clip; overflow-clip-margin: 6px; }
+}
 
