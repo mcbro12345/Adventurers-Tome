@@ -2155,7 +2155,8 @@ body.hubbody:not(.adminbody) .hub-pane { position: relative; }
 .hub-pane > .hp-sk { position: absolute; left: 0; right: 0; top: 0; z-index: 1; padding: inherit; padding-top: 0; pointer-events: none; transition: opacity .22s ease; }
 .hub-pane > .hp-sk.out { opacity: 0; }
 .hub-pane.hp-skel > :not(.hp-sk) { opacity: 0; }
-.hub-pane.hp-reveal > :not(.hp-sk) { animation: hubFade .26s ease-out; }
+.hub-pane.hp-reveal > :not(.hp-sk) { animation: hubRowsIn .26s ease-out; }
+@keyframes hubRowsIn { from { opacity: 0; } } /* (fade only: the rows sit exactly where their placeholders were) */
 .hp-sk .sk-c { width: 56px; height: 56px; border-radius: 10px; } .hp-sk .sk-wrap .sk-row { min-height: 80px; box-sizing: border-box; }
 /* Phones: every pop-up on the site pages (lobby, party page, admin) rises from the bottom and sinks back down */
 @keyframes pgRise { from { transform: translateY(100%); } to { transform: none; } }
@@ -2991,28 +2992,28 @@ html:not(.mobile) #wizard .wz-box:has(> .wzh2) > .wz-foot { padding: 30px 10px 2
 @media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) .ha-menu a[data-ha]:hover { background: rgba(0,0,0,.05); } :where(html:not([data-pgtheme])) .ha-sheet .ha-items a[data-ha] { background: #fffaf0; } }
  :where(html[data-pgtheme="light"]) .ha-menu a[data-ha]:hover { background: rgba(0,0,0,.05); } :where(html[data-pgtheme="light"]) .ha-sheet .ha-items a[data-ha] { background: #fffaf0; } 
 
-/* Shared with me, 2026 look: no boxes — each player is a quiet heading with a line running out to the right, their tiles beneath */
-body.hubbody .hd2-main .hub-folder { margin: 0 0 22px !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; }
-body.hubbody .hd2-main .hub-folder > summary { display: flex; align-items: center; gap: 10px; margin: 0 0 12px !important; padding: 2px 2px !important; border: 0 !important; background: none !important; list-style: none; cursor: pointer; color: #e9e3d3; }
-body.hubbody .hd2-main .hub-folder > summary::-webkit-details-marker { display: none; }
-body.hubbody .hd2-main .hub-folder > summary::after { content: ''; flex: 1; height: 1px; background: rgba(201,150,43,.18); margin-left: 6px; }
-body.hubbody .hd2-main .hf-caret { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; background: rgba(255,255,255,.05); color: #9aa3b5; font-size: .7rem; transition: transform .2s ease, background .15s; }
-body.hubbody .hd2-main .hub-folder[open] .hf-caret { transform: rotate(90deg); }
-body.hubbody .hd2-main .hub-folder > summary:hover .hf-caret { background: rgba(255,255,255,.1); color: #e9e3d3; }
-body.hubbody .hd2-main .hf-name { flex: none !important; font: 700 1.02rem/1.2 Georgia, serif; color: #e9e3d3; }
-body.hubbody .hd2-main .hf-n { flex: none; padding: 1px 8px; border-radius: 999px; background: rgba(255,255,255,.06); color: #9aa3b5; font-size: .76rem; font-weight: 700; }
-body.hubbody .hd2-main .hf-body { padding: 0 !important; margin: 0 !important; border: 0 !important; background: none !important; }
+/* Shared with me, 2026 look (computer and phone): no boxes — each player is a quiet heading with a line running out to the right, their tiles beneath */
+body.hubbody :is(.hd2-main, .hub-track) .hub-folder { margin: 0 0 22px !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; }
+body.hubbody :is(.hd2-main, .hub-track) .hub-folder > summary { display: flex; align-items: center; gap: 10px; margin: 0 0 12px !important; padding: 2px 2px !important; border: 0 !important; background: none !important; list-style: none; cursor: pointer; color: #e9e3d3; }
+body.hubbody :is(.hd2-main, .hub-track) .hub-folder > summary::-webkit-details-marker { display: none; }
+body.hubbody :is(.hd2-main, .hub-track) .hub-folder > summary::after { content: ''; flex: 1; height: 1px; background: rgba(201,150,43,.18); margin-left: 6px; }
+body.hubbody :is(.hd2-main, .hub-track) .hf-caret { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; background: rgba(255,255,255,.05); color: #9aa3b5; font-size: .7rem; transition: transform .2s ease, background .15s; }
+body.hubbody :is(.hd2-main, .hub-track) .hub-folder[open] .hf-caret { transform: rotate(90deg); }
+body.hubbody :is(.hd2-main, .hub-track) .hub-folder > summary:hover .hf-caret { background: rgba(255,255,255,.1); color: #e9e3d3; }
+body.hubbody :is(.hd2-main, .hub-track) .hf-name { flex: none !important; font: 700 1.02rem/1.2 Georgia, serif; color: #e9e3d3; }
+body.hubbody :is(.hd2-main, .hub-track) .hf-n { flex: none; padding: 1px 8px; border-radius: 999px; background: rgba(255,255,255,.06); color: #9aa3b5; font-size: .76rem; font-weight: 700; }
+body.hubbody :is(.hd2-main, .hub-track) .hf-body { padding: 0 !important; margin: 0 !important; border: 0 !important; background: none !important; }
 /* the Can edit / View only tag: sentence case like everything else */
-.hd2-main .hc-txt .hc-acc { text-transform: none !important; letter-spacing: 0 !important; font-size: .68rem !important; font-weight: 700; padding: 2px 9px !important; }
+:is(.hd2-main, .hub-track) .hc-txt .hc-acc { text-transform: none !important; letter-spacing: 0 !important; font-size: .68rem !important; font-weight: 700; padding: 2px 9px !important; }
 @media (prefers-color-scheme: light) {
-  :where(html:not([data-pgtheme])) body.hubbody .hd2-main .hub-folder > summary, :where(html:not([data-pgtheme])) body.hubbody .hd2-main .hf-name { color: #1f2a44; }
-  :where(html:not([data-pgtheme])) body.hubbody .hd2-main .hub-folder > summary::after { background: #e3d6b8; }
-  :where(html:not([data-pgtheme])) body.hubbody .hd2-main .hf-caret, :where(html:not([data-pgtheme])) body.hubbody .hd2-main .hf-n { background: rgba(0,0,0,.05); color: #5c6478; }
+  :where(html:not([data-pgtheme])) body.hubbody :is(.hd2-main, .hub-track) .hub-folder > summary, :where(html:not([data-pgtheme])) body.hubbody :is(.hd2-main, .hub-track) .hf-name { color: #1f2a44; }
+  :where(html:not([data-pgtheme])) body.hubbody :is(.hd2-main, .hub-track) .hub-folder > summary::after { background: #e3d6b8; }
+  :where(html:not([data-pgtheme])) body.hubbody :is(.hd2-main, .hub-track) .hf-caret, :where(html:not([data-pgtheme])) body.hubbody :is(.hd2-main, .hub-track) .hf-n { background: rgba(0,0,0,.05); color: #5c6478; }
 }
 
-  :where(html[data-pgtheme="light"]) body.hubbody .hd2-main .hub-folder > summary, :where(html[data-pgtheme="light"]) body.hubbody .hd2-main .hf-name { color: #1f2a44; }
-  :where(html[data-pgtheme="light"]) body.hubbody .hd2-main .hub-folder > summary::after { background: #e3d6b8; }
-  :where(html[data-pgtheme="light"]) body.hubbody .hd2-main .hf-caret, :where(html[data-pgtheme="light"]) body.hubbody .hd2-main .hf-n { background: rgba(0,0,0,.05); color: #5c6478; }
+  :where(html[data-pgtheme="light"]) body.hubbody :is(.hd2-main, .hub-track) .hub-folder > summary, :where(html[data-pgtheme="light"]) body.hubbody :is(.hd2-main, .hub-track) .hf-name { color: #1f2a44; }
+  :where(html[data-pgtheme="light"]) body.hubbody :is(.hd2-main, .hub-track) .hub-folder > summary::after { background: #e3d6b8; }
+  :where(html[data-pgtheme="light"]) body.hubbody :is(.hd2-main, .hub-track) .hf-caret, :where(html[data-pgtheme="light"]) body.hubbody :is(.hd2-main, .hub-track) .hf-n { background: rgba(0,0,0,.05); color: #5c6478; }
 
 
 /* the account menu opened from the DM's Desk sits under its button */
@@ -3497,6 +3498,24 @@ body.hdragging, body.hdragging * { cursor: grabbing !important; user-select: non
  :where(html[data-pgtheme="light"]) :where(input[type=checkbox]:not([role=switch])) { --cb-line: rgba(70,80,100,.45); } 
 :root[data-theme="light"] :where(input[type=checkbox]:not([role=switch])), html[data-pgtheme="light"] :where(input[type=checkbox]:not([role=switch])) { --cb-line: rgba(70,80,100,.45); }
 :root[data-theme="dark"] :where(input[type=checkbox]:not([role=switch])), html[data-pgtheme="dark"] :where(input[type=checkbox]:not([role=switch])) { --cb-line: rgba(140,150,170,.6); }
+.pg-panin { animation: pgPanIn .45s cubic-bezier(.2,.7,.3,1) both; }
+@keyframes pgPanIn { from { opacity: 0; transform: translateY(8px); } }
+@media (prefers-reduced-motion: reduce) { .pg-panin { animation: none; } }
+
+/* placeholders cut to the shape of each row of a list that's sliding in */
+.hub-pane { position: relative; }
+.hub-pane > .hp-sk.hp-sk-g { inset: 0; padding: 0; overflow: hidden; }
+.hp-g { position: absolute; box-sizing: border-box; border: 1px solid rgba(127,127,127,.18); }
+.hp-g > .skl { position: absolute; height: 11px; border-radius: 6px; }
+.hp-g > .hp-g1 { height: 14px; }
+.hp-g > .hp-gp { border-radius: 10px; }
+.hp-g.hp-gl { border: 0; }
+.hp-g.hp-gl > .skl { left: 4px; top: 50%; height: 12px; transform: translateY(-50%); }
+/* phone: the View only / Can edit tag as a small pill under the details, like the computer's */
+.hub-track .hc-txt .hc-acc { margin-top: 6px; line-height: 1.4; background: rgba(255,255,255,.07); opacity: .75; }
+.hub-track .hc-txt .hc-acc.edit { background: rgba(224,170,58,.14); color: #e3c27a; opacity: 1; }
+@media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) .hub-track .hc-txt .hc-acc { background: rgba(0,0,0,.06); } :where(html:not([data-pgtheme])) .hub-track .hc-txt .hc-acc.edit { color: #8a6420; } }
+ :where(html[data-pgtheme="light"]) .hub-track .hc-txt .hc-acc { background: rgba(0,0,0,.06); } :where(html[data-pgtheme="light"]) .hub-track .hc-txt .hc-acc.edit { color: #8a6420; } 
 </style>
 </head>
 <body>
@@ -4245,7 +4264,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261025233909', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.81f4a41914c6.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.efff820cf4ca.html", "desk": "a/desk.aa63cbb108db.js", "deskcss": "a/deskcss.1b23eda6d9c0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261025235641', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.81f4a41914c6.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.efff820cf4ca.html", "desk": "a/desk.aa63cbb108db.js", "deskcss": "a/deskcss.1b23eda6d9c0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };
@@ -4295,7 +4314,7 @@ function wireDie(root) {
     Promise.race([Promise.all(anims.map(a => a.finished.catch(() => {}))), new Promise(r => setTimeout(r, 700))]).then(() => { if (window.pgTheme) window.pgTheme(); return new Promise(r => setTimeout(r, 120)); }).then(() => {
       const cur = getComputedStyle(el).opacity; el.style.animation = 'none'; el.style.opacity = cur; el.style.pointerEvents = 'none'; el.style.zIndex = '9999'; el.style.transition = 'opacity .6s ease'; void el.offsetWidth;
       de.classList.remove('pg-loading'); setTimeout(() => de.classList.remove('pg-instant'), 700);
-      requestAnimationFrame(() => requestAnimationFrame(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 650); })); }); }
+      requestAnimationFrame(() => requestAnimationFrame(() => { el.style.opacity = '0'; pgRevealPanels(); setTimeout(() => el.remove(), 650); })); }); }
   document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[href]'); if (!a || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || (a.target && a.target !== '_self') || a.hasAttribute('download')) return;
     let u; try { u = new URL(a.href, location.href); } catch (x) { return; } if (u.origin !== location.origin || (u.pathname === location.pathname && u.search === location.search)) return;
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return; e.preventDefault(); pgGo(u.href); });
@@ -5718,9 +5737,27 @@ function hub(fs, auth, G, ctx) {
   // Phones: a list sliding in shows grey placeholders first, then its real rows fade in once it has landed.
   // (the list can be redrawn mid-slide when new data arrives, so how long its placeholders stay up is kept by name and put back after a redraw)
   const SKU = {};
-  // (a list that's already there just slides in as it is: placeholders swapping for the same rows only made it twitch)
-  function paneSkel(p, keep) { if (!p || !slideMode() || calm() || p.querySelector('.hr, .hc, .pty-row, .hub-folder, .hub-empty')) return; if (!keep) SKU[p.dataset.pane] = Date.now() + 620; if (p.querySelector(':scope > .hp-sk')) return; const n = Math.max(1, Math.min(6, p.querySelectorAll('.hc, .hr, .pty-row, .hub-folder').length || 3));
-    const sk = document.createElement('div'); sk.className = 'hp-sk'; sk.setAttribute('aria-hidden', 'true'); sk.innerHTML = SKEL.rows(n); p.prepend(sk); p.classList.add('hp-skel'); }
+  // Every time a list slides in it shows placeholders first. When its rows are already drawn, each placeholder is cut
+  // to the exact size and spot of the row it stands for (picture, name and details lines where the real ones are), so
+  // when the real rows fade in nothing moves. A list not drawn yet gets plain placeholder rows.
+  const ROWQ = '.hr, .hc, .pty-row, .hub-folder > summary, .hub-empty';
+  function ghostHTML(p) { const pr = p.getBoundingClientRect(); if (!pr.height) return '';
+    return [...p.querySelectorAll(ROWQ)].filter(r => !r.closest('.hp-sk')).map(r => { const b = r.getBoundingClientRect(); if (!b.height || b.top - pr.top > innerHeight * 1.5) return '';
+      const at = `left:${(b.left - pr.left).toFixed(1)}px;top:${(b.top - pr.top).toFixed(1)}px;width:${b.width.toFixed(1)}px;height:${b.height.toFixed(1)}px`;
+      if (r.matches('.hub-folder > summary, .hub-empty')) return `<div class="hp-g hp-gl" style="${at}"><span class="skl" style="width:${r.matches('.hub-empty') ? 70 : 34}%"></span></div>`;
+      const pic = r.querySelector('.hc-pic, .hr-pic, .pg-ava, .hc-ini, .pty-pic, img, .hp-pic'), pb = pic && pic.getBoundingClientRect(), cs = getComputedStyle(r);
+      const pa = pb && pb.width ? `<span class="skl hp-gp" style="left:${(pb.left - b.left).toFixed(1)}px;top:${(pb.top - b.top).toFixed(1)}px;width:${pb.width.toFixed(1)}px;height:${pb.height.toFixed(1)}px;border-radius:${getComputedStyle(pic).borderRadius}"></span>` : '';
+      const col = !!(pb && pb.width && Math.abs((pb.left + pb.right) / 2 - (b.left + b.right) / 2) < 14), tx = pb && pb.width && !col ? pb.right - b.left + 12 : 16, ty = col && pb && pb.width ? pb.bottom - b.top + 10 : b.height / 2 - 14;
+      return `<div class="hp-g" style="${at};border-radius:${cs.borderRadius}">${pa}<span class="skl hp-g1" style="left:${col ? 'calc(50% - 25%)' : tx + 'px'};top:${ty.toFixed(1)}px;width:${col ? 50 : 42}%"></span><span class="skl hp-g2" style="left:${col ? 'calc(50% - 17%)' : tx + 'px'};top:${(ty + 20).toFixed(1)}px;width:${col ? 34 : 28}%"></span></div>`; }).join(''); }
+  function paneSkel(p, keep) { if (!p || !slideMode() || calm()) return;
+    const old = p.querySelector(':scope > .hp-sk'), shown = !p.classList.contains('hp-off') && p.getBoundingClientRect().height > 0;
+    if (keep && !shown) { if (old) old.remove(); p.classList.remove('hp-skel'); return; } // (drawn again as it starts to slide in)
+    if (!keep) SKU[p.dataset.pane] = Date.now() + 620;
+    if (old && old.dataset.g) return;
+    const g = shown ? ghostHTML(p) : '', sk = old || document.createElement('div');
+    sk.className = 'hp-sk' + (g ? ' hp-sk-g' : ''); sk.setAttribute('aria-hidden', 'true'); sk.classList.remove('out');
+    if (g) { sk.dataset.g = 1; sk.innerHTML = g; } else { delete sk.dataset.g; sk.innerHTML = SKEL.rows(Math.max(1, Math.min(6, p.querySelectorAll('.hc, .hr, .pty-row, .hub-folder').length || 3))); }
+    if (!old) p.appendChild(sk); p.classList.add('hp-skel'); } // (added last: put first, it would take the list's "first item" spacing and nudge the rows down)
   function paneReveal(p, now) { if (!p) return; const sk = p.querySelector(':scope > .hp-sk'); if (!sk) return; clearTimeout(p._skT);
     const go = () => { p.classList.remove('hp-skel'); p.classList.add('hp-reveal'); sk.classList.add('out'); setTimeout(() => { sk.remove(); p.classList.remove('hp-reveal'); }, 260); };
     if (now) { delete SKU[p.dataset.pane]; sk.remove(); p.classList.remove('hp-skel'); } else p._skT = setTimeout(() => { delete SKU[p.dataset.pane]; go(); }, Math.max(220, (SKU[p.dataset.pane] || 0) - Date.now())); }
@@ -7807,6 +7844,13 @@ function partyModule(H) {
     }).observe(document.body, { childList: true, subtree: true });
   if (document.body) go(); else document.addEventListener('DOMContentLoaded', go);
 })();
+
+// As the loading screen lifts off the lobby, its panels (the header, then each section) fade up one after another
+// instead of all being there at once underneath it.
+function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduce)').matches) return; } catch (e) {}
+  const ps = [...document.querySelectorAll('#hub > .hub-head, #hub .hd-sec, #hub > .hub-list:not(.hd2-main)')].filter(x => x.getClientRects().length);
+  ps.forEach((x, k) => { x.style.animationDelay = Math.min(k, 6) * 70 + 'ms'; x.classList.remove('pg-panin'); void x.offsetWidth; x.classList.add('pg-panin');
+    x.addEventListener('animationend', () => { x.classList.remove('pg-panin'); x.style.animationDelay = ''; }, { once: true }); }); }
 
 </script>
 </body>

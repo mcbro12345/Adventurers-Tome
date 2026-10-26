@@ -752,7 +752,7 @@ function wireDie(root) {
     Promise.race([Promise.all(anims.map(a => a.finished.catch(() => {}))), new Promise(r => setTimeout(r, 700))]).then(() => { if (window.pgTheme) window.pgTheme(); return new Promise(r => setTimeout(r, 120)); }).then(() => {
       const cur = getComputedStyle(el).opacity; el.style.animation = 'none'; el.style.opacity = cur; el.style.pointerEvents = 'none'; el.style.zIndex = '9999'; el.style.transition = 'opacity .6s ease'; void el.offsetWidth;
       de.classList.remove('pg-loading'); setTimeout(() => de.classList.remove('pg-instant'), 700);
-      requestAnimationFrame(() => requestAnimationFrame(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 650); })); }); }
+      requestAnimationFrame(() => requestAnimationFrame(() => { el.style.opacity = '0'; pgRevealPanels(); setTimeout(() => el.remove(), 650); })); }); }
   document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[href]'); if (!a || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || (a.target && a.target !== '_self') || a.hasAttribute('download')) return;
     let u; try { u = new URL(a.href, location.href); } catch (x) { return; } if (u.origin !== location.origin || (u.pathname === location.pathname && u.search === location.search)) return;
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return; e.preventDefault(); pgGo(u.href); });
@@ -2175,9 +2175,27 @@ function hub(fs, auth, G, ctx) {
   // Phones: a list sliding in shows grey placeholders first, then its real rows fade in once it has landed.
   // (the list can be redrawn mid-slide when new data arrives, so how long its placeholders stay up is kept by name and put back after a redraw)
   const SKU = {};
-  // (a list that's already there just slides in as it is: placeholders swapping for the same rows only made it twitch)
-  function paneSkel(p, keep) { if (!p || !slideMode() || calm() || p.querySelector('.hr, .hc, .pty-row, .hub-folder, .hub-empty')) return; if (!keep) SKU[p.dataset.pane] = Date.now() + 620; if (p.querySelector(':scope > .hp-sk')) return; const n = Math.max(1, Math.min(6, p.querySelectorAll('.hc, .hr, .pty-row, .hub-folder').length || 3));
-    const sk = document.createElement('div'); sk.className = 'hp-sk'; sk.setAttribute('aria-hidden', 'true'); sk.innerHTML = SKEL.rows(n); p.prepend(sk); p.classList.add('hp-skel'); }
+  // Every time a list slides in it shows placeholders first. When its rows are already drawn, each placeholder is cut
+  // to the exact size and spot of the row it stands for (picture, name and details lines where the real ones are), so
+  // when the real rows fade in nothing moves. A list not drawn yet gets plain placeholder rows.
+  const ROWQ = '.hr, .hc, .pty-row, .hub-folder > summary, .hub-empty';
+  function ghostHTML(p) { const pr = p.getBoundingClientRect(); if (!pr.height) return '';
+    return [...p.querySelectorAll(ROWQ)].filter(r => !r.closest('.hp-sk')).map(r => { const b = r.getBoundingClientRect(); if (!b.height || b.top - pr.top > innerHeight * 1.5) return '';
+      const at = `left:${(b.left - pr.left).toFixed(1)}px;top:${(b.top - pr.top).toFixed(1)}px;width:${b.width.toFixed(1)}px;height:${b.height.toFixed(1)}px`;
+      if (r.matches('.hub-folder > summary, .hub-empty')) return `<div class="hp-g hp-gl" style="${at}"><span class="skl" style="width:${r.matches('.hub-empty') ? 70 : 34}%"></span></div>`;
+      const pic = r.querySelector('.hc-pic, .hr-pic, .pg-ava, .hc-ini, .pty-pic, img, .hp-pic'), pb = pic && pic.getBoundingClientRect(), cs = getComputedStyle(r);
+      const pa = pb && pb.width ? `<span class="skl hp-gp" style="left:${(pb.left - b.left).toFixed(1)}px;top:${(pb.top - b.top).toFixed(1)}px;width:${pb.width.toFixed(1)}px;height:${pb.height.toFixed(1)}px;border-radius:${getComputedStyle(pic).borderRadius}"></span>` : '';
+      const col = !!(pb && pb.width && Math.abs((pb.left + pb.right) / 2 - (b.left + b.right) / 2) < 14), tx = pb && pb.width && !col ? pb.right - b.left + 12 : 16, ty = col && pb && pb.width ? pb.bottom - b.top + 10 : b.height / 2 - 14;
+      return `<div class="hp-g" style="${at};border-radius:${cs.borderRadius}">${pa}<span class="skl hp-g1" style="left:${col ? 'calc(50% - 25%)' : tx + 'px'};top:${ty.toFixed(1)}px;width:${col ? 50 : 42}%"></span><span class="skl hp-g2" style="left:${col ? 'calc(50% - 17%)' : tx + 'px'};top:${(ty + 20).toFixed(1)}px;width:${col ? 34 : 28}%"></span></div>`; }).join(''); }
+  function paneSkel(p, keep) { if (!p || !slideMode() || calm()) return;
+    const old = p.querySelector(':scope > .hp-sk'), shown = !p.classList.contains('hp-off') && p.getBoundingClientRect().height > 0;
+    if (keep && !shown) { if (old) old.remove(); p.classList.remove('hp-skel'); return; } // (drawn again as it starts to slide in)
+    if (!keep) SKU[p.dataset.pane] = Date.now() + 620;
+    if (old && old.dataset.g) return;
+    const g = shown ? ghostHTML(p) : '', sk = old || document.createElement('div');
+    sk.className = 'hp-sk' + (g ? ' hp-sk-g' : ''); sk.setAttribute('aria-hidden', 'true'); sk.classList.remove('out');
+    if (g) { sk.dataset.g = 1; sk.innerHTML = g; } else { delete sk.dataset.g; sk.innerHTML = SKEL.rows(Math.max(1, Math.min(6, p.querySelectorAll('.hc, .hr, .pty-row, .hub-folder').length || 3))); }
+    if (!old) p.appendChild(sk); p.classList.add('hp-skel'); } // (added last: put first, it would take the list's "first item" spacing and nudge the rows down)
   function paneReveal(p, now) { if (!p) return; const sk = p.querySelector(':scope > .hp-sk'); if (!sk) return; clearTimeout(p._skT);
     const go = () => { p.classList.remove('hp-skel'); p.classList.add('hp-reveal'); sk.classList.add('out'); setTimeout(() => { sk.remove(); p.classList.remove('hp-reveal'); }, 260); };
     if (now) { delete SKU[p.dataset.pane]; sk.remove(); p.classList.remove('hp-skel'); } else p._skT = setTimeout(() => { delete SKU[p.dataset.pane]; go(); }, Math.max(220, (SKU[p.dataset.pane] || 0) - Date.now())); }
@@ -4264,3 +4282,10 @@ function partyModule(H) {
     }).observe(document.body, { childList: true, subtree: true });
   if (document.body) go(); else document.addEventListener('DOMContentLoaded', go);
 })();
+
+// As the loading screen lifts off the lobby, its panels (the header, then each section) fade up one after another
+// instead of all being there at once underneath it.
+function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduce)').matches) return; } catch (e) {}
+  const ps = [...document.querySelectorAll('#hub > .hub-head, #hub .hd-sec, #hub > .hub-list:not(.hd2-main)')].filter(x => x.getClientRects().length);
+  ps.forEach((x, k) => { x.style.animationDelay = Math.min(k, 6) * 70 + 'ms'; x.classList.remove('pg-panin'); void x.offsetWidth; x.classList.add('pg-panin');
+    x.addEventListener('animationend', () => { x.classList.remove('pg-panin'); x.style.animationDelay = ''; }, { once: true }); }); }
