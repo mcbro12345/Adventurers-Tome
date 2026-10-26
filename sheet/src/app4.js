@@ -61,7 +61,7 @@ function mainClick(e) {
       applyTheme(); render('header'); break;
     }
     case 'menu': b.closest('.menu').classList.toggle('open'); break;
-    case 'portrait': if (S.portrait && window.pgRecrop && window.picChoice) { window.picChoice(S.portrait, () => window.pgRecrop('portrait:' + S.id, S.portrait, { shape: 'square', size: 560, title: 'Portrait' }).then(r => { if (!r) return; S.portrait = r.url; pendingLabel = 'Adjust portrait'; save(); render('header'); }), () => $('#portraitFile').click()); break; } $('#portraitFile').click(); break;
+    case 'portrait': if (S.portrait && window.pgRecrop && window.picChoice) { window.picChoice(S.portrait, () => window.pgRecrop('portrait:' + S.id, S.portrait, { shape: 'square', size: 560, title: 'Portrait' }).then(r => { if (!r) return; S.portrait = r.url; pendingLabel = 'Adjust portrait'; save(); render('header'); }), () => $('#portraitFile').click(), { title: 'Portrait', drop: f => setPortraitFile(f) }); break; } $('#portraitFile').click(); break;
     case 'pic': PICPATH = b.dataset.path; closeModal(true); $('#picFile').click(); return;
     case 'picview': { const v = getP(b.dataset.path); openModal(`<div class="picview"><img src="${esc(safeImg(v))}" alt=""></div><div class="actions"><button class="btn red" data-act="picdel" data-path="${esc(b.dataset.path)}">Remove</button>${window.pgRecrop ? `<button class="btn" data-act="picadj" data-path="${esc(b.dataset.path)}">Adjust</button>` : ''}<button class="btn" data-act="pic" data-path="${esc(b.dataset.path)}">Change</button><button class="btn gold" data-act="close">Close</button></div>`); return; }
     case 'picadj': { const path = b.dataset.path, v = getP(path); closeModal(true); window.pgRecrop('pic:' + S.id + ':' + path, v, { shape: 'square', size: 320, title: 'Picture' }).then(r => { if (!r) return; setP(path, r.url); pendingLabel = 'Adjust picture'; save(); render(); }, e => toast(esc(e.message || 'Couldn’t open that picture.'), 'fumble')); return; }
@@ -1776,14 +1776,14 @@ function loadPortrait(file, cb, size, title, keep) {
   };
   img.src = url;
 }
-$('#portraitFile').addEventListener('change', e => {
-  const f = e.target.files[0]; if (!f) return; e.target.value = '';
+$('#portraitFile').addEventListener('change', e => { const f = e.target.files[0]; if (!f) return; e.target.value = ''; setPortraitFile(f); });
+function setPortraitFile(f) {
   loadPortrait(f, data => {
     if (!S.created) { W.portrait = data; renderWizard(); return; }
     S.portrait = data; pendingLabel = 'Change portrait'; matchPortrait(false); save(); render('header');
     toast('Portrait updated and theme colors matched to it.', '', 6000, [{ label: 'Keep old colors', fn: () => undo(1) }]);
   });
-});
+}
 // Theme: accent and banner colors, from a picker or sampled from the portrait.
 function hexToRgb(h) { const m = String(h || '').match(/^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i); return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : null; }
 const rgbHex = c => '#' + c.map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');

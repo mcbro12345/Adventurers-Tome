@@ -48,6 +48,12 @@ const pgViewId = async em => { const h = new Uint8Array(await crypto.subtle.dige
 function pgSafePath(v) { try { const u = new URL(String(v || ''), location.origin); return u.origin === location.origin && /^https?:$/.test(u.protocol) ? u.pathname + u.search + u.hash : ''; } catch (e) { return ''; } }
 function pgGo(url, replace) { try { sessionStorage.setItem('pg-nav', String(Date.now())); } catch (e) {} /* (moving to another page of the site isn't going offline) */ const go = () => { if (url == null) location.reload(); else if (replace) location.replace(url); else location.href = url; };
   if (PG_CALM) return go(); try { sessionStorage.setItem('pg-nav', String(Date.now())); } catch (e) {}
+  // The logo you clicked keeps its hover look while the page fades out (the loading screen coming in over it would
+  // otherwise take the hover away and it would shrink back as you leave)
+  try { const h = [...document.querySelectorAll(':hover')].pop(), pl = h && h.closest('.pg-publogo'), L = [];
+    if (pl) L.push(...pl.querySelectorAll('.hub-logo')); else for (let e = h && h.closest('.hub-logo, .dk-brand'); e; e = e.parentElement && e.parentElement.closest('.hub-logo, .dk-brand')) L.push(e);
+    const cs = L.map(e => getComputedStyle(e)).map(c => [c.transform, c.filter]); // (read them all before freezing any)
+    L.forEach((e, i) => { e.style.setProperty('transition', 'none', 'important'); e.style.setProperty('transform', cs[i][0], 'important'); e.style.setProperty('filter', cs[i][1], 'important'); }); } catch (e) {}
   // Already on a loading screen (e.g. finishing a sign-in link): keep it up and go straight on, so it doesn't fade out
   // and back in. The sign-in card counts as a page: the loading screen fades in over it, like leaving any page.
   const cur = document.getElementById('pg-load'), onCard = cur && cur.querySelector('.pg-signin, .pg-msg');
@@ -556,13 +562,26 @@ const pgKeepPut = (k, v) => pgIDB().then(db => { db.transaction('o', 'readwrite'
 // where it was last cropped; otherwise from the picture itself.
 function pgRecrop(keep, cur, o = {}) { return pgKeepGet(keep).then(rec => rec && rec.blob ? pgCrop(rec.blob, Object.assign({}, o, { keep, state: rec })) : pgCrop(cur, Object.assign({}, o, { keep }))); }
 window.pgRecrop = pgRecrop;
-// A picture that's already set: adjust how it's cropped, or pick a new one.
-function picChoice(cur, adjust, replace) {
+// A picture that's already set: adjust how it's cropped, or pick a new one — laid out like the Upload tab of the lobby's
+// picture window (the picture, a box to choose or drop a new image, Adjust crop). o: { title, drop(file) } — drop takes
+// an image dragged onto the box (without it, the box only opens the file picker).
+function picChoice(cur, adjust, replace, o = {}) {
   const m = document.createElement('div'); m.className = 'pg-out pg-picch'; pgOutFade(m);
-  m.innerHTML = `<div class="pg-out-card" role="dialog" aria-modal="true"><h2>Picture</h2><div class="pgpc-prev"><img src="${escH(cur)}" alt=""></div>
-    <div class="pgpc-btns"><button class="pg-out-yes" data-k="a">Adjust crop &amp; zoom</button><button class="pg-out-no" data-k="r">Upload a new picture</button></div><div class="pg-out-row"><span class="grow"></span><button class="pg-out-no" data-k="x">Cancel</button></div></div>`;
+  const UP = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>';
+  const CROP = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>';
+  m.innerHTML = `<div class="pg-out-card pgpc-card" role="dialog" aria-modal="true"><h2>${escH(o.title || 'Picture')}</h2>
+    <div class="pgpc-prev"><img src="${escH(cur)}" alt=""></div>
+    <button type="button" class="pgpc-drop" data-k="r">${'<span class="pgpc-dz-i">' + UP + '</span>'}<b>Choose a different image</b><small>${o.drop && matchMedia('(pointer: fine)').matches ? 'or drag one here' : 'from this device'}</small></button>
+    <p class="pgpc-err" hidden></p>
+    <div class="pg-out-row"><button type="button" class="pgpc-adj" data-k="a">${CROP}Adjust crop</button><span class="grow"></span><button type="button" class="pg-out-no" data-k="x">Cancel</button></div></div>`;
   const end = () => m.remove();
-  m.onclick = e => { const b = e.target.closest('button'); if (e.target === m || (b && b.dataset.k === 'x')) { end(); return; } if (!b) return; end(); if (b.dataset.k === 'a') adjust(); else replace(); };
+  // (only the window's own buttons act: the ✕ the floating-window frame adds presses Cancel)
+  m.onclick = e => { const b = e.target.closest('button[data-k]'); if (e.target === m || (b && b.dataset.k === 'x')) { end(); return; } if (!b) return; end(); if (b.dataset.k === 'a') adjust(); else replace(); };
+  const dz = m.querySelector('.pgpc-drop'), err = m.querySelector('.pgpc-err');
+  if (o.drop) { ['dragenter', 'dragover'].forEach(t => dz.addEventListener(t, e => { e.preventDefault(); dz.classList.add('over'); }));
+    ['dragleave', 'drop'].forEach(t => dz.addEventListener(t, () => dz.classList.remove('over')));
+    dz.addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer && e.dataTransfer.files[0]; if (!f) return;
+      if (!/^image\//.test(f.type || 'image/')) { err.textContent = 'That isn’t an image file.'; err.hidden = false; return; } end(); o.drop(f); }); }
   document.body.appendChild(m);
 }
 window.picChoice = picChoice;
@@ -3998,7 +4017,7 @@ function partyModule(H) {
     const $1 = s => root.querySelector(s), on = (s, f) => { const b = $1(s); if (b) b.onclick = f; };
     on('#pt-ren', () => askText('Rename the party', P.name || '', 60, async v => { await PC.doc(PID).update({ name: v, updatedAt: Date.now() }); invSync(Object.assign({}, P, { id: PID, name: v })); }));
     on('#pt-pic', async () => { const k = 'party:' + PID, cur = P.pic;
-      const pic = cur ? await new Promise(res => picChoice(cur, () => pgRecrop(k, cur, { shape: 'square', size: 256, title: 'Party picture' }).then(r => res(r ? r.url : ''), () => res('')), () => pickPic(k).then(res))) : await pickPic(k); if (!pic) return; try { await PC.doc(PID).update({ pic, updatedAt: Date.now() }); invSync(Object.assign({}, P, { id: PID, pic })); toast('Picture updated.'); } catch (x) { fail(x, 'save the picture'); } });
+      const pic = cur ? await new Promise(res => picChoice(cur, () => pgRecrop(k, cur, { shape: 'square', size: 256, title: 'Party picture' }).then(r => res(r ? r.url : ''), () => res('')), () => pickPic(k).then(res), { title: 'Party picture' })) : await pickPic(k); if (!pic) return; try { await PC.doc(PID).update({ pic, updatedAt: Date.now() }); invSync(Object.assign({}, P, { id: PID, pic })); toast('Picture updated.'); } catch (x) { fail(x, 'save the picture'); } });
     on('#pt-add', () => addDialog());
     on('#pt-all', () => sendDialog(null));
     on('#pt-turn', () => turnOrder(!document.getElementById('towin')));

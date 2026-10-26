@@ -1243,7 +1243,7 @@ body.adminbody .adm-me .pg-ava { box-shadow: none !important; border: 0 !importa
 .pg-publogo { display: flex; justify-content: center; padding: 14px 16px 6px; text-decoration: none; position: relative; z-index: 2; }
 .pg-publogo .hub-logo { display: inline-flex; align-items: center; gap: 10px; margin: 0; cursor: pointer; user-select: none; transition: transform .15s ease, filter .15s; }
 .pg-publogo:hover .hub-logo { transform: scale(1.03); filter: brightness(1.1); }
-.pg-publogo:active .hub-logo { transform: scale(.98); }
+.pg-publogo:active .hub-logo { transform: scale(1.03); }
 .pg-publogo .hl-d20 { width: 40px; height: 40px; flex: none; }
 .pg-publogo .hl-txt { display: flex; flex-direction: column; line-height: 1; }
 .pg-publogo .hl-a { font: 700 .62rem/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; letter-spacing: .4em; text-transform: uppercase; color: #c9962b; margin: 0 0 2px 2px; }
@@ -1924,9 +1924,17 @@ body.hubbody:not(.adminbody) #hub:has(> .pw) { padding-bottom: 0; }
 /* Picture already set: adjust or replace */
 .pg-picch .pgpc-prev { display: flex; justify-content: center; margin: 10px 0 16px; }
 .pg-picch .pgpc-prev img { width: 120px; height: 120px; object-fit: cover; border-radius: 14px; border: 2px solid #c9962b; }
-.pg-picch .pgpc-btns { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-.pg-picch .pgpc-btns button { font: 700 .95rem system-ui, sans-serif; padding: 11px 16px; border-radius: 10px; cursor: pointer; border: 1px solid #3a4560; background: transparent; color: inherit; }
-.pg-picch .pgpc-btns .pg-out-yes { background: #c9962b; border-color: #c9962b; color: #1a1408; }
+.pg-picch .pgpc-card { max-width: 380px; }
+.pg-picch .pgpc-drop { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; padding: 22px 16px; margin: 0 0 14px; border: 2px dashed rgba(127,127,127,.4); border-radius: 14px; background: transparent; color: inherit; font: inherit; cursor: pointer; text-align: center; transition: border-color .15s, background-color .15s; }
+.pg-picch .pgpc-drop:hover, .pg-picch .pgpc-drop.over, .pg-picch .pgpc-drop:focus-visible { border-color: #c9962b; background: rgba(201,150,43,.08); outline: none; }
+.pg-picch .pgpc-drop b { font: 700 .95rem system-ui, sans-serif; }
+.pg-picch .pgpc-drop small { opacity: .6; font-size: .78rem; }
+.pg-picch .pgpc-dz-i { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: rgba(201,150,43,.18); color: #c9962b; margin-bottom: 4px; }
+.pg-picch .pgpc-err { margin: -6px 0 12px; color: #e0796b; font-size: .85rem; opacity: 1; }
+.pg-picch .pgpc-adj { display: inline-flex; align-items: center; gap: 7px; padding: 9px 14px; border-radius: 10px; border: 1px solid #3a4560; background: transparent; color: inherit; cursor: pointer; }
+.pg-picch .pgpc-adj:hover { border-color: #c9962b; background: rgba(201,150,43,.08); }
+.pg-picch .pg-out-row { align-items: center; }
+@media (prefers-color-scheme: light) { body:not(.adminbody) .pg-picch .pgpc-adj { border-color: #d8c9a6; } }
 .pg-picch .pg-out-row button { font: 700 .9rem system-ui, sans-serif; }
 :where(body.hubbody) .pm-qt { width: 100%; box-sizing: border-box; padding: 4px 8px; height: 28px; border-radius: 8px; border: 1px solid #d9cbaa; background: #fff; color: inherit; font: inherit; font-size: .85rem; margin-bottom: -5px; }
 @media (prefers-color-scheme: dark) { body.hubbody .pm-qt { background: #0f1420; border-color: #3a4560; } }
@@ -3071,7 +3079,7 @@ body.hubbody .hub-folder.hf-closing .hf-caret { transform: none !important; }
 :where(body.hubbody, #pg-load, body) :is(.hub-logo, .dk-brand):not(.pg-signin .hub-logo), :where(body.hubbody, #pg-load, body) :is(.hub-logo, .dk-brand):not(.pg-signin .hub-logo) * { cursor: pointer !important; }
 :where(body.hubbody, #pg-load, body) :is(.hub-logo, .dk-brand):not(.pg-signin .hub-logo) { transition: transform .18s cubic-bezier(.2,.8,.2,1), filter .18s; transform-origin: left center; }
 html:not(.mobile) :is(.hub-logo, .dk-brand):not(.pg-signin .hub-logo):hover { transform: scale(1.06); filter: brightness(1.08); }
-html:not(.mobile) :is(.hub-logo, .dk-brand):not(.pg-signin .hub-logo):active { transform: scale(1.02); }
+html:not(.mobile) :is(.hub-logo, .dk-brand):not(.pg-signin .hub-logo):active { transform: scale(1.06); } /* (clicking it keeps the hover size: no shrink as you head to the lobby) */
 .adm-brand .hub-logo { transform-origin: center; }
 @media (prefers-reduced-motion: reduce) { :is(.hub-logo, .dk-brand) { transition: none !important; } }
 html:not(.mobile) .dk-logo .hub-logo:hover { transform: none; filter: none; }
