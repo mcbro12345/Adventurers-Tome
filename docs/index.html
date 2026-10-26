@@ -13,7 +13,7 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.66d3b8696d2a.css">
+<link rel="stylesheet" href="a/sheet.3e2ab43158af.css">
 <link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:type" content="video.other"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="Adventurer’s Tome"><meta property="og:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:url" content="https://adventurers-tome.web.app/"><meta property="og:image" content="https://adventurers-tome.web.app/og-tour.png?v=4"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1280"><meta property="og:image:height" content="720"><meta property="og:image:alt" content="Adventurer’s Tome: D&amp;D 5e sheets that do the math"><meta property="og:video" content="https://www.youtube.com/embed/GPbiLqZcsec"><meta property="og:video:url" content="https://www.youtube.com/embed/GPbiLqZcsec"><meta property="og:video:secure_url" content="https://www.youtube.com/embed/GPbiLqZcsec"><meta property="og:video:type" content="text/html"><meta property="og:video:width" content="1280"><meta property="og:video:height" content="720"><link rel="alternate" type="application/json+oembed" href="https://adventurers-tome.web.app/oembed.json?v=5" title="Adventurer’s Tome"><meta name="twitter:card" content="player"><meta name="twitter:player" content="https://www.youtube.com/embed/GPbiLqZcsec"><meta name="twitter:player:width" content="1280"><meta name="twitter:player:height" content="720"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-tour.png?v=4"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest"><script>var t="dark";try{if(localStorage.getItem("pg-theme")==="light")t="light"}catch(e){}document.documentElement.setAttribute("data-pgtheme",t)</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
@@ -3431,6 +3431,9 @@ html.pg-sheetpage.mobile .banner { padding-top: calc(42px + env(safe-area-inset-
 .pg-shade::before { top: calc(-1 * var(--sh-pt, 0px)); }
 .pg-shade::after { bottom: calc(-1 * var(--sh-pb, 0px)); }
 :is(#rolllogmodal, #dk-logw) .rl-list.pg-shade::before { border-top-color: transparent; }
+/* grabbing hand while anything with a drag handle is held (the old lobby rule never matched) */
+html.pg-grabbing, html.pg-grabbing * { cursor: grabbing !important; }
+body.hdragging, body.hdragging * { cursor: grabbing !important; user-select: none; }
 </style>
 </head>
 <body>
@@ -3484,6 +3487,13 @@ if(window.PG_NAV_T)pgDieRoll(s,0);else setTimeout(function(){pgDieRoll(s,0)},150
 // Everyone signs in once per device (Google, or a link emailed to them). Each character belongs to one email;
 // the database only lets that player — and the DM — open or change it.
 // Every way of leaving a page fades it out first, so the next page's loading screen fades in instead of popping.
+// Anything with a drag handle shows the grabbing hand from the moment it's pressed until it's let go, wherever the
+// pointer goes in between.
+(() => { if (window.__pgGrab) return; window.__pgGrab = 1;
+  const GRIP = '.hr-grip, .nw-grip, .tgrip, .idrag, .sdrag, .bdrag, .gdrag, .mgrip, .pbar .grip, .pgph-th, .pg-sb-th, [data-mgrip], body.editing .tabwrap';
+  const off = () => document.documentElement.classList.remove('pg-grabbing');
+  addEventListener('pointerdown', e => { if (e.button > 0) return; const g = e.target.closest && e.target.closest(GRIP); if (g) document.documentElement.classList.add('pg-grabbing'); }, true);
+  addEventListener('pointerup', off, true); addEventListener('pointercancel', off, true); addEventListener('blur', off); })();
 // Buttons act on the press (registered first so the release that follows is dropped before anything else sees it)
 (() => { if (window.__pgPress) return; window.__pgPress = 1;
   const SEL = 'button, [role="button"], [role="tab"], [role="menuitem"], [role="option"], summary, input[type="button"], input[type="submit"], input[type="reset"]';
@@ -4170,7 +4180,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261025200316', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.5b2bd479df8b.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.53ef67bcf6e2.html", "desk": "a/desk.aa63cbb108db.js", "deskcss": "a/deskcss.1b23eda6d9c0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261025202514', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.5b2bd479df8b.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.eea8fce68f5f.html", "desk": "a/desk.aa63cbb108db.js", "deskcss": "a/deskcss.1b23eda6d9c0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };
@@ -5576,14 +5586,17 @@ function hub(fs, auth, G, ctx) {
     // (a tile's copy sits in its own little tile box, so it keeps the tile look while it's carried)
     const inTiles = !!r.closest('.hd2-main'), wrap = inTiles ? Object.assign(document.createElement('div'), { className: 'hd2-main hd2-ghostwrap' }) : null;
     if (wrap) { wrap.appendChild(gh); document.body.appendChild(wrap); } else document.body.appendChild(gh); r.classList.add('hr-hold');
-    RD = { r, gh, wrap, pin: r.dataset.pin, list: r.parentElement, dy: e.clientY - b.top, y: e.clientY, dx: e.clientX - b.left, x: e.clientX, grid: getComputedStyle(r.parentElement).display === 'grid', raf: 0 }; document.body.classList.add('hdragging'); try { g.setPointerCapture(e.pointerId); } catch (x) {} });
+    const sibs = [...r.parentElement.querySelectorAll(':scope > .hr')].filter(x => x.dataset.pin === r.dataset.pin && !x.classList.contains('hd-hide') && x.offsetParent), tops = new Set(sibs.map(x => Math.round(x.getBoundingClientRect().top))), lefts = new Set(sibs.map(x => Math.round(x.getBoundingClientRect().left)));
+    RD = { r, gh, wrap, pin: r.dataset.pin, list: r.parentElement, dy: e.clientY - b.top, y: e.clientY, dx: e.clientX - b.left, x: e.clientX, grid: getComputedStyle(r.parentElement).display === 'grid', raf: 0, oneRow: tops.size <= 1, oneCol: lefts.size <= 1 }; document.body.classList.add('hdragging'); try { g.setPointerCapture(e.pointerId); } catch (x) {} });
   const dragStep = () => { const d = RD; if (!d) return; d.raf = 0;
     // the carried copy stays inside its own list (characters with characters, parties with parties)
     const lr = d.list.getBoundingClientRect(), gw = d.gh.offsetWidth, gh_ = d.gh.offsetHeight, cl = (v, a, b) => Math.max(a, Math.min(b, v));
-    d.gh.style.top = cl(d.y - d.dy, lr.top - 6, lr.bottom - gh_ + 6) + 'px';
+    // (with only one row there's nowhere to go up or down, so the copy stays level with it; with more rows it can move
+    // between them, just inside the list)
+    d.gh.style.top = (d.oneRow ? d.r.getBoundingClientRect().top : cl(d.y - d.dy, lr.top, lr.bottom - gh_)) + 'px';
     const rows = [...d.list.querySelectorAll(':scope > .hr')], peers = rows.filter(x => x !== d.r && x.dataset.pin === d.pin && !x.classList.contains('hd-hide'));
     // tiles (on a computer): the ghost follows the pointer both ways, and the tile it's over makes room
-    if (d.grid) { d.gh.style.left = cl(d.x - d.dx, lr.left - 6, lr.right - gw + 6) + 'px'; const px = cl(d.x, lr.left + 1, lr.right - 1), py = cl(d.y, lr.top + 1, lr.bottom - 1), over = peers.find(x => { const bb = x.getBoundingClientRect(); return px >= bb.left && px <= bb.right && py >= bb.top && py <= bb.bottom; });
+    if (d.grid) { d.gh.style.left = (d.oneCol ? d.r.getBoundingClientRect().left : cl(d.x - d.dx, lr.left, lr.right - gw)) + 'px'; const px = cl(d.x, lr.left + 1, lr.right - 1), py = cl(d.y, lr.top + 1, lr.bottom - 1), over = peers.find(x => { const bb = x.getBoundingClientRect(); return px >= bb.left && px <= bb.right && py >= bb.top && py <= bb.bottom; });
       if (over && Date.now() - (d.mt || 0) > 200) { d.mt = Date.now(); const a = rows.indexOf(d.r), o = rows.indexOf(over); slide(rows.filter(x => x !== d.r), () => o > a ? over.after(d.r) : over.before(d.r)); } }
     else if (peers.length) { const mid = d.y - d.dy + d.gh.offsetHeight / 2, tgt = peers.find(x => { const bb = x.getBoundingClientRect(); return mid < bb.top + bb.height / 2; });
       const last = peers[peers.length - 1];

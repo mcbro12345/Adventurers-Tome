@@ -6,7 +6,7 @@
 <title>D&amp;D 5e Character Sheet</title>
 <script>
   (function () {
-    try { var u = JSON.parse(localStorage.getItem('dnd-sheet-ui') || '{}'); var m = u.layout ? u.layout === 'mobile' : window.innerWidth < 640; if (m) document.documentElement.classList.add('mobile'); } catch (e) {}
+    try { var u = JSON.parse(localStorage.getItem('dnd-sheet-ui') || '{}'); var m = u.layout ? u.layout === 'mobile' : window.innerWidth < 870; if (m) document.documentElement.classList.add('mobile'); } catch (e) {}
     var t = null;
     try { t = localStorage.getItem('dnd-sheet-theme'); } catch (e) {}
     if (t !== 'light') t = 'dark';
@@ -3136,8 +3136,8 @@ html.mobile #tipbox .tipfx { width: 76px; height: 76px; }
 /* on an actual phone the layout switch is hidden: it always uses the phone layout */
 html.realphone [data-act="layout"], html.pg-inphone [data-act="layout"] { display: none !important; }
 /* …and the buttons beside it close the gap: the log takes its corner */
-html.mobile.realphone .devbtn.logbtn, html.mobile.pg-inphone .devbtn.logbtn { right: 12px; }
-html.mobile.realphone .devbtn.fsbtn, html.mobile.pg-inphone .devbtn.fsbtn { right: 48px; }
+html.mobile:is(.realphone, .nodev) .devbtn.logbtn, html.mobile.pg-inphone .devbtn.logbtn { right: 12px; }
+html.mobile:is(.realphone, .nodev) .devbtn.fsbtn, html.mobile.pg-inphone .devbtn.fsbtn { right: 48px; }
 
 /* Sheet background: the loading screen's soft glow, tinted by the sheet's own theme colours */
 @media screen {
@@ -3558,8 +3558,8 @@ html.mobile .ptyh-btns { width: 100%; } html.mobile .ptyh-btns .btn { flex: 1; t
 /* the bug-report button: on a phone it sits just right of Log in the top corner */
 html.mobile.hasbug .devbtn.bugbtn { position: absolute; top: 10px; right: 48px; }
 html.mobile.hasbug .devbtn.logbtn { right: 84px; }
-html.mobile.hasbug.realphone .devbtn.bugbtn, html.mobile.hasbug.pg-inphone .devbtn.bugbtn { right: 12px; }
-html.mobile.hasbug.realphone .devbtn.logbtn, html.mobile.hasbug.pg-inphone .devbtn.logbtn { right: 48px; }
+html.mobile.hasbug:is(.realphone, .nodev) .devbtn.bugbtn, html.mobile.hasbug.pg-inphone .devbtn.bugbtn { right: 12px; }
+html.mobile.hasbug:is(.realphone, .nodev) .devbtn.logbtn, html.mobile.hasbug.pg-inphone .devbtn.logbtn { right: 48px; }
 
 /* a message from the DM or another player */
 .ptymsg-m { width: min(560px, 100%); background: linear-gradient(180deg, var(--panel), var(--panel2)); color: var(--ink); border: 1px solid var(--gold); border-radius: 18px; padding: 0; box-shadow: 0 28px 70px rgba(0,0,0,.5), 0 0 0 4px color-mix(in srgb, var(--gold) 18%, transparent); animation: wPopIn .22s cubic-bezier(.22,.9,.24,1); overflow: hidden; }
@@ -3735,9 +3735,9 @@ html.mobile .hbb-seg:not(.pills) { width: 100%; }
 html.mobile .hbb-seg:not(.pills) button { flex: 1; justify-content: center; padding: 5px 4px; }
 /* Phone: the dice roller button sits just left of the Log button (whose spot depends on the other corner buttons) */
 html.mobile .devbtn.dicebtn { position: absolute; top: 10px; right: 84px; }
-html.mobile.realphone .devbtn.dicebtn, html.mobile.pg-inphone .devbtn.dicebtn { right: 48px; }
+html.mobile:is(.realphone, .nodev) .devbtn.dicebtn, html.mobile.pg-inphone .devbtn.dicebtn { right: 48px; }
 html.mobile.hasbug .devbtn.dicebtn { right: 120px; }
-html.mobile.hasbug.realphone .devbtn.dicebtn, html.mobile.hasbug.pg-inphone .devbtn.dicebtn { right: 84px; }
+html.mobile.hasbug:is(.realphone, .nodev) .devbtn.dicebtn, html.mobile.hasbug.pg-inphone .devbtn.dicebtn { right: 84px; }
 .smite-chk { display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel2); cursor: pointer; margin: 4px 0 6px; }
 .smite-chk input { width: 17px; height: 17px; accent-color: var(--gold); flex: none; margin: 0; }
 .smite-chk span { display: flex; flex-direction: column; min-width: 0; }
@@ -3874,12 +3874,12 @@ html.mobile .ptychat-popbtn { display: none; }
 .devbtn.chatbtn { display: none; }
 html.mobile.pchat .devbtn.chatbtn { display: inline-grid; position: absolute; top: 10px; right: 84px; }
 html.mobile.pchat .devbtn.dicebtn { right: 120px; }
-html.mobile.pchat.realphone .devbtn.chatbtn, html.mobile.pchat.pg-inphone .devbtn.chatbtn { right: 48px; }
-html.mobile.pchat.realphone .devbtn.dicebtn, html.mobile.pchat.pg-inphone .devbtn.dicebtn { right: 84px; }
+html.mobile.pchat:is(.realphone, .nodev) .devbtn.chatbtn, html.mobile.pchat.pg-inphone .devbtn.chatbtn { right: 48px; }
+html.mobile.pchat:is(.realphone, .nodev) .devbtn.dicebtn, html.mobile.pchat.pg-inphone .devbtn.dicebtn { right: 84px; }
 html.mobile.pchat.hasbug .devbtn.chatbtn { right: 120px; }
 html.mobile.pchat.hasbug .devbtn.dicebtn { right: 156px; }
-html.mobile.pchat.hasbug.realphone .devbtn.chatbtn, html.mobile.pchat.hasbug.pg-inphone .devbtn.chatbtn { right: 84px; }
-html.mobile.pchat.hasbug.realphone .devbtn.dicebtn, html.mobile.pchat.hasbug.pg-inphone .devbtn.dicebtn { right: 120px; }
+html.mobile.pchat.hasbug:is(.realphone, .nodev) .devbtn.chatbtn, html.mobile.pchat.hasbug.pg-inphone .devbtn.chatbtn { right: 84px; }
+html.mobile.pchat.hasbug:is(.realphone, .nodev) .devbtn.dicebtn, html.mobile.pchat.hasbug.pg-inphone .devbtn.dicebtn { right: 120px; }
 html.mobile.pchat .namebox { padding-right: 148px; }
 html.mobile.pchat.hasbug .namebox { padding-right: 184px; }
 .devbtn.chatbtn.unread::after { content: attr(data-unread); position: absolute; top: -5px; right: -5px; min-width: 15px; height: 15px; padding: 0 3px; box-sizing: border-box; border-radius: 8px; background: #e04848; color: #fff; font: 800 9px/15px system-ui, sans-serif; text-align: center; }
@@ -4400,8 +4400,10 @@ html:not(.mobile) header.banner { transition: box-shadow .25s ease; }
 html:not(.mobile):not([data-theme="dark"]).hd-stuck header.banner { box-shadow: 0 10px 26px rgba(0,0,0,.22); }
 :root[data-theme="dark"]:not(.mobile) header.banner > .wrap::before { box-shadow: 0 12px 30px rgba(0,0,0,0), inset 0 1px 0 rgba(255,255,255,.05); transition: box-shadow .25s ease; }
 :root[data-theme="dark"]:not(.mobile).hd-stuck header.banner > .wrap::before { box-shadow: 0 14px 34px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.05); }
+/* (the page's glow is drawn here at the window's size rather than as a fixed background: a fixed background inside a bar
+   that stays put is redrawn on every scroll, which made its shadow flicker) */
 :root[data-theme="dark"]:not(.mobile) header.banner::before { content: ''; position: absolute; inset: 0 0 -14px; z-index: -2; pointer-events: none; opacity: 0; transition: opacity .25s ease;
-  background: radial-gradient(ellipse 120% 80% at 50% 0%, rgba(42,56,86,.55) 0%, rgba(26,36,56,.25) 45%, transparent 80%) fixed, var(--bg);
+  background: radial-gradient(ellipse 120% 80% at 50% 0%, rgba(42,56,86,.55) 0%, rgba(26,36,56,.25) 45%, transparent 80%) center top / 100% 100vh no-repeat, var(--bg);
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent); }
 :root[data-theme="dark"]:not(.mobile).hd-stuck header.banner::before { opacity: 1; }
 /* (things that stick to the top of the page themselves sit just under the bar) */
@@ -4420,6 +4422,106 @@ html.mobile .modal-bg > .modal.mghost, html.mobile .modal-bg.open > .modal.mghos
 /* the tab names sit on the pill's middle by their capital letters, not by the line box (which leaves them a pixel high) */
 html:not(.mobile) #tabs .tlabel { position: relative; top: 1px; }
 html:not(.mobile) .namebox .subtitle.sub2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+html:not(.mobile) #sec-header:has(.ident.noid) .portrait-wrap { width: var(--pwf, 148px); height: var(--pwf, 148px); }
+/* scroll edges in pop-up windows' lists (as in character creation): a line and a soft shadow wherever there's more */
+#modal-body .wz3-sc { position: relative; }
+#modal-body .wz3-sc::before, #modal-body .wz3-sc::after { content: ''; position: absolute; left: 0; right: 0; height: 18px; z-index: 2; pointer-events: none; opacity: 0; }
+#modal-body .wz3-sc::before { top: 0; border-top: 1px solid var(--wc-edge, var(--line)); background: linear-gradient(to bottom, rgba(0,0,0,.45), transparent); }
+#modal-body .wz3-sc::after { bottom: 0; border-bottom: 1px solid var(--wc-edge, var(--line)); background: linear-gradient(to top, rgba(0,0,0,.45), transparent); }
+#modal-body .wz3-sc.top::before, #modal-body .wz3-sc.bot::after { opacity: 1; }
+#modal-body .wz3-sc:has(> .wz3-list)::before { border-radius: 12px 12px 0 0; } #modal-body .wz3-sc:has(> .wz3-list)::after { border-radius: 0 0 12px 12px; }
+:root:not([data-theme="dark"]) #modal-body .wz3-sc::before { background: linear-gradient(to bottom, rgba(60,40,10,.14), transparent); }
+:root:not([data-theme="dark"]) #modal-body .wz3-sc::after { background: linear-gradient(to top, rgba(60,40,10,.14), transparent); }
+/* (a window's opening fade holds its first frame until it actually starts, so it can never flash up fully drawn first) */
+.modal-bg.open, .modal-bg.open > .modal, .wizard.open, #tipbox.on, .ptyask-bg, .ptyask-bg > :first-child { animation-fill-mode: backwards; }
+
+/* (list edges ease in and out only once the list is on screen) */
+.wz3-sc.ready::before, .wz3-sc.ready::after { transition: opacity .2s; }
+/* Sheet tabs (computer): sized by their names, so long names get the room short ones don't need; tightened, then without
+   icons, when they still don't fit */
+html:not(.mobile) #tabs .tabwrap { flex: 1 1 auto; }
+html:not(.mobile) #tabs.tabs-tight .tab { gap: 5px; padding-left: 6px; padding-right: 6px; font-size: .76rem; }
+html:not(.mobile) #tabs.tabs-tight { padding-left: 3px; padding-right: 3px; }
+html:not(.mobile) #tabs.tabs-noicon .ticon { display: none; }
+/* Computer pop-up windows: the Cancel / OK row stays in view at the bottom of a long window (as on phones) */
+html.mwin :is(#modal-body, #modal-body > div) > .actions:last-child:not(.mw-hid) { position: sticky; bottom: -18px; z-index: 4; margin: 14px -20px -18px; padding: 12px 20px 16px; background: var(--panel); border-top: 1px solid var(--line); }
+/* Phone layout top bar: the card lines up with the cards below it (same side margins) and starts under the Adventurer's
+   Tome button instead of running behind it; the save note stays on one line */
+:root[data-theme="dark"].mobile.pg-sheetpage header.banner::before { top: calc(36px + env(safe-area-inset-top, 0px)); left: 12px; right: 12px; }
+html.mobile.pg-sheetpage header.banner > .wrap { padding: 14px 22px 14px; }
+html.mobile.pg-sheetpage #sec-header .devbtn { top: 12px !important; }
+html.mobile.pg-sheetpage .toolbar .devbtn { margin-right: 10px; }
+html.mobile .toolbar .save-state { white-space: nowrap; }
+@media (min-width: 520px) { html.mobile .save-state .sstime { display: inline; padding-left: .35em; } html.mobile .toolbar > .savegrp .save-state { max-width: none; } }
+/* (narrow rest buttons drop their icons rather than spill out of the button; a narrow Conditions card keeps
+   Advantage / Disadvantage on its title line) */
+@container (max-width: 180px) { .tile.hp .btn.rest svg, .tile.hp .btn.rest .ri { display: none !important; } .tile.hp .btn.rest { font-size: .76rem; padding-left: 4px; padding-right: 4px; } }
+@container (max-width: 380px) { html:not(.mobile) .condtile .advb { padding: 2px 7px; font-size: .66rem; } html:not(.mobile) .condtile .advbtns { gap: 3px; } html:not(.mobile) .condtile .tilehead { column-gap: 6px; } html:not(.mobile) .condtile .tilehead .lbl { letter-spacing: .04em; } }
+/* Settings rows: anything on the right (a note like "at level 2", a list) sits at the right edge, and the lists are one width */
+.setrow > span:not(:first-child) { flex: none; text-align: right; color: var(--soft); font-size: .85rem; }
+html:not(.mobile) .setrow select.f { width: 200px; max-width: 55%; }
+/* History's quick undo chips wrap under each other, not under the "Quick:" label */
+.rb.rbq { display: flex; align-items: flex-start; gap: 8px; } .rb.rbq > .hint { flex: none; padding-top: 4px; } .rbchips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+/* the line under the name never leaves one word on its own line */
+.namebox .subtitle { text-wrap: pretty; }
+/* empty companions note spans the row instead of one card slot */
+.comps > .panel:only-child { grid-column: 1 / -1; max-width: none; }
+/* phone: the HP ring is big, so the number inside it is too */
+html.mobile .tile.hp .hp-center .f.cur { font-size: 2.2rem !important; width: 86px !important; line-height: 1.05; }
+html.mobile .tile.hp .hp-center .hp-max { font-size: .85rem; }
+/* phone: room under the last card so the floating section pill never sits on top of it */
+html.mtabs body { padding-bottom: max(84px, calc(env(safe-area-inset-bottom) + 76px)) !important; }
+/* phone pop-ups: Level Up's title matches every other pop-up title */
+html.mobile #modal-body .lvx > h3, html.mobile #pendm > h3 { font: 700 1.2rem/1.25 Arial, Helvetica, sans-serif; color: var(--ink, #e9e3d3); margin-bottom: 4px; }
+/* Metamagic: the same breathing room below it as the strip above (it was pressed against the action cards) */
+.panel.mmpanel { margin-bottom: 12px; }
+/* ===== Inspiration in the top bar's right corner (site, computer) ===== */
+html:not(.mobile) .ident-top .toolbar:has(> .insp-dock) { position: relative; }
+html:not(.mobile) .ident-top .toolbar > .insp-dock { position: absolute; right: 0; top: 0; left: auto; bottom: auto; transform: none; height: 34px; box-sizing: border-box; padding: 2px; gap: 2px; box-shadow: none; z-index: 2; }
+html:not(.mobile) .ident-top .toolbar:has(> .insp-dock) > .pg-hubrow { padding-right: var(--insp-w, 160px); box-sizing: border-box; }
+.insp-dock .insp-b { width: 24px; height: 24px; }
+/* the number is a real button: filled, outlined, and it says Use when you point at it */
+.insp-dock .insp-go { all: unset; box-sizing: border-box; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 88px; height: 28px; padding: 1px 10px 0; border-radius: 999px; line-height: 1;
+  background: color-mix(in srgb, var(--gold) 22%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 60%, transparent), 0 1px 0 rgba(255,255,255,.06) inset; transition: background .15s, box-shadow .15s, transform .1s; }
+.insp-dock .insp-go .insp-n { font-size: .92rem; font-weight: 800; color: var(--gold-ink); }
+.insp-dock .insp-go .insp-l { position: relative; display: block; height: 9px; margin-top: 1px; font-size: .52rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; color: var(--gold-ink); opacity: .85; }
+.insp-dock .insp-go .insp-l > span { display: block; text-align: center; transition: opacity .15s, transform .15s; }
+.insp-dock .insp-go .il-b { position: absolute; inset: 0; opacity: 0; transform: translateY(3px); }
+ .insp-dock .insp-go:focus-visible { background: var(--gold); box-shadow: 0 2px 10px color-mix(in srgb, var(--gold) 45%, transparent); }@media (hover:hover){:where(html:not(.mobile)) .insp-dock .insp-go:not([disabled]):hover{ background: var(--gold); box-shadow: 0 2px 10px color-mix(in srgb, var(--gold) 45%, transparent); }}
+ .insp-dock .insp-go:focus-visible :is(.insp-n, .insp-l) { color: #10141c; opacity: 1; }@media (hover:hover){:where(html:not(.mobile)) .insp-dock .insp-go:not([disabled]):hover :is(.insp-n, .insp-l){ color: #10141c; opacity: 1; }}
+ .insp-dock .insp-go:focus-visible .il-a { opacity: 0; transform: translateY(-3px); }@media (hover:hover){:where(html:not(.mobile)) .insp-dock .insp-go:not([disabled]):hover .il-a{ opacity: 0; transform: translateY(-3px); }}
+ .insp-dock .insp-go:focus-visible .il-b { opacity: 1; transform: none; }@media (hover:hover){:where(html:not(.mobile)) .insp-dock .insp-go:not([disabled]):hover .il-b{ opacity: 1; transform: none; }}
+.insp-dock .insp-go:not([disabled]):active { transform: scale(.96); }
+.insp-dock .insp-go[disabled] { cursor: default; background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--soft, #8a93a6) 35%, transparent); }
+.insp-dock .insp-go[disabled] :is(.insp-n, .insp-l) { color: var(--soft, #8a93a6); }
+/* no room beside the Tome button: just − number + (the number still says Use when you point at it) */
+.insp-dock.tight .insp-go { min-width: 40px; padding: 0 8px; }
+.insp-dock.tight .insp-go .il-a { display: none; }
+.insp-dock.tight .insp-go .insp-l { height: 0; margin: 0; }
+.insp-dock.tight .insp-go .il-b { inset: auto 0 -2px; }
+@media (hover:hover){:where(html:not(.mobile)) .insp-dock.tight .insp-go:not([disabled]):hover .insp-n{ display: none; }}
+@media (hover:hover){:where(html:not(.mobile)) .insp-dock.tight .insp-go:not([disabled]):hover .insp-l{ height: auto; }}
+@media (hover:hover){:where(html:not(.mobile)) .insp-dock.tight .insp-go:not([disabled]):hover .il-b{ position: static; font-size: .62rem; }}
+/* phone: the same pill in the header card */
+html.mobile .insp-dock.mini { padding: 2px; gap: 0; height: 36px; box-sizing: border-box; margin-right: 34px; }
+html.mobile .insp-dock.mini .insp-b { width: 28px; height: 30px; }
+html.mobile .insp-dock.mini .insp-go { min-width: 70px; height: 30px; padding: 1px 8px 0; }
+html.mobile .insp-dock.mini .insp-go .insp-l { font-size: .48rem; letter-spacing: .05em; }
+@media (hover: none) { html.mobile .insp-dock.mini .insp-go .il-a { opacity: 1 !important; transform: none !important; } html.mobile .insp-dock.mini .insp-go .il-b { opacity: 0 !important; } }
+/* phone: the name box is as wide as the room left of the corner icons (measured), not that minus the same again */
+html.mobile .namebox > :first-child { margin-right: 0 !important; }
+/* Log entries look like the DM's Desk ones: time, the big total, the name, and the Rolled / Total breakdown in a box
+   underneath (the one-line summary and the separate damage panel it repeats are left out) */
+#rolllogmodal .rl-card .rc-math { display: block; margin-top: 6px; padding: 8px 10px; border-radius: 10px; background: rgba(0,0,0,.18); border: 1px solid var(--line2); font-size: .8rem; }
+#rolllogmodal .rl-card .rc-math .rm-t { border-top-color: var(--line); }
+#rolllogmodal .rl-card:has(.rc-math) .det { display: none; }
+#rolllogmodal .rl-card:has(.rc-math) > .rc-dmg { display: none; }
+#rolllogmodal .rl-card .rc-body { flex: 1; min-width: 0; font-size: .88rem; }
+#rolllogmodal .rl-card .rc-name { font-weight: 700; }
+#rolllogmodal .rl-card:has(.rc-math .rm-h) .rc-lbl { display: none; }
+#rolllogmodal .rl-head [data-act="clearlog"] { margin-left: auto; }
+#rolllogmodal .rl-card > div:not(.rc-dmg) > div:first-child:not(.rc-math):not(.det) { font-weight: 700; }
+html.pg-grabbing, html.pg-grabbing * { cursor: grabbing !important; }
 
 </style>
 </head>
@@ -11068,7 +11170,12 @@ function saveUI() { try { localStorage.setItem(UI_KEY, JSON.stringify(UI)); } ca
 const onPhone = () => { try { return !window.PG_IN_PHONE && matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600; } catch (e) { return false; } };
 // The layout always follows the device; the switch only lasts until the page is left or reloaded (it's never saved).
 let LAYOUT_NOW = '';
-function applyLayout() { applyTabLift(); const ph = onPhone(), m = window.PG_FORCE_MOBILE || ph || (LAYOUT_NOW ? LAYOUT_NOW === 'mobile' : window.innerWidth < 640); document.documentElement.classList.toggle('mobile', m); document.documentElement.classList.toggle('realphone', ph); }
+// (raised when a character's toolbar turns out not to fit on one line at this width, e.g. one with a party chat button:
+// from then on any window that narrow gets the phone layout too, so it can't flip back and forth)
+var MOBILE_AT = 0;
+// (a window narrower than the computer layout's top bar fits in gets the phone layout instead; the page's first-paint check in
+// the page head uses the same width)
+function applyLayout() { applyTabLift(); const ph = onPhone(), m = window.PG_FORCE_MOBILE || ph || (LAYOUT_NOW ? LAYOUT_NOW === 'mobile' : window.innerWidth < Math.max(885, MOBILE_AT || 0)); document.documentElement.classList.toggle('mobile', m); document.documentElement.classList.toggle('realphone', ph); }
 
 // ---------- Class / level math ----------
 const clsRows = () => S.classes || [];
@@ -12450,6 +12557,9 @@ function openModal(html, onCancel, wide) {
   // a window opening fresh holds its fade for two frames, so the work of building and sizing it doesn't eat the start of the animation
   const mo = $('#modal'); if (!mo.classList.contains('open')) { mo.classList.add('pre', 'open'); requestAnimationFrame(() => requestAnimationFrame(() => mo.classList.remove('pre'))); }
   const f = $('#modal-body [autofocus]'); if (f) f.focus();
+  // On a computer the window gets its title bar before it's first drawn (once whoever opened it has filled it in), so
+  // the bar doesn't appear a frame late and push everything down.
+  queueMicrotask(() => { if ($('#modal').classList.contains('open') && mwDesk()) { mwDress(); mwTidy(); } });
 }
 // Desktop: every pop-up window can be moved by dragging its title (the heading at the top). It opens centred again
 // next time.
@@ -12525,7 +12635,7 @@ addEventListener('resize', () => document.documentElement.classList.toggle('mwin
 (() => { let q = 0, st = null, hh = -1; const de = document.documentElement;
   const chk = () => { q = 0; const b = document.querySelector('header.banner'); if (!b) return; const on = !de.classList.contains('mobile') && scrollY > 2;
     if (on !== st) { st = on; de.classList.toggle('hd-stuck', on); }
-    const h = de.classList.contains('mobile') ? 0 : Math.round(b.offsetHeight); if (h !== hh) { hh = h; de.style.setProperty('--hd-h', h + 'px'); } };
+    const h = de.classList.contains('mobile') ? 0 : Math.round(b.offsetHeight); if (h !== hh) { hh = h; de.style.setProperty('--hd-h', h + 'px'); de.style.setProperty('--hd-b', (h ? h + (parseFloat(getComputedStyle(b).top) || 0) : 0) + 'px'); } };
   const soon = () => { if (!q) q = requestAnimationFrame(chk); };
   addEventListener('scroll', soon, { passive: true }); addEventListener('resize', soon); soon();
   const b0 = document.querySelector('header.banner'); if (b0 && window.ResizeObserver) new ResizeObserver(soon).observe(b0); })();
@@ -12598,7 +12708,10 @@ function toolbarHTML() {
     rolllog: `<button class="devbtn logbtn" data-zi="rolllog" data-act="rolllog" title="Log — every roll, plus everything else that popped up" aria-label="Log">${ICON.log}</button>`,
     // (on a phone it sits next to Log; on a computer, after the layout switch)
     ...(isMobile() && window.SHEET_PAGES ? { bug: `<button class="devbtn bugbtn" data-zi="bug" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` } : {}),
-    device: `<button class="devbtn" data-zi="device" data-act="layout" title="${isMobile() ? 'Switch to desktop layout' : 'Switch to phone layout'}" aria-label="${isMobile() ? 'Desktop layout' : 'Phone layout'}">${isMobile() ? ICON.desk : ICON.phone}</button>`,
+    // (the phone layout has no switch back to the computer layout: it's used when the window is too narrow for that one;
+    // only the phone preview and a layout picked by hand keep it, so there's always a way back)
+    // (with no switch shown, the phone layout's corner icons move over into its place)
+    ...((document.documentElement.classList.toggle('nodev', !(!isMobile() || window.PG_IN_PHONE || LAYOUT_NOW === 'mobile')), !isMobile() || window.PG_IN_PHONE || LAYOUT_NOW === 'mobile') ? { device: `<button class="devbtn" data-zi="device" data-act="layout" title="${isMobile() ? 'Switch to desktop layout' : 'Switch to phone layout'}" aria-label="${isMobile() ? 'Desktop layout' : 'Phone layout'}">${isMobile() ? ICON.desk : ICON.phone}</button>` } : {}),
     ...(!isMobile() && window.SHEET_PAGES ? { bug: `<button class="devbtn bugbtn" data-zi="bug" data-act="bugreport" title="Bugs, ideas &amp; feedback" aria-label="Bugs, ideas and feedback">${ICON.bug}</button>` } : {}),
     fullscreen: false ? `<button class="devbtn fsbtn" data-zi="fullscreen" data-act="fullscreen" title="${fsOn() ? 'Exit full screen' : 'Full screen'}" aria-label="${fsOn() ? 'Exit full screen' : 'Full screen'}">${fsOn() ? ICON.fsOut : ICON.fsIn}</button>` : '',
   };
@@ -12631,7 +12744,7 @@ function renderHeader() {
           ${xp ? `<div class="xprow"><span class="lbl">XP</span>${inp('xp', { num: 1, cls: 'xpin', label: 'Experience points' })}<span class="xpof" data-calc="xpnext"></span>
             <input class="f xpadd" id="xpAdd" type="number" inputmode="numeric" placeholder="+ award" aria-label="Award XP"><button class="btn sm" data-act="addxp">Add</button></div><div class="xpbar" data-calc-html="xpbar"></div>` : '<span class="hint mile">Milestone leveling</span>'}</div>
       </div>
-      <div class="toolbar" data-ordered data-zone="toolbar">${toolbarHTML()}</div>${inspHTML(true)}
+      <div class="toolbar" data-ordered data-zone="toolbar">${toolbarHTML()}${inspDockHTML()}</div>${inspHTML(true)}
     </div>
     <div class="ident-grid">${idf}</div>
   </div>`;
@@ -13048,12 +13161,16 @@ function logEvent(html, cls) { if (!EVLOADED) loadEvLog(); const clean = String(
 // Tabs slide (their highlight moves across, the list comes in from the side you're heading); opening Dice stats fills its bars.
 let LOG_TAB_SHOWN = '', DS_ANIM = false, LOG_INK = null;
 const LOG_TABS = ['rolls', 'events', 'stats'];
+// A Log entry's card: the damage type moves into its breakdown (the separate damage panel isn't shown in the Log).
+function logCardHTML(h) { h = String(h || '').replace(/<button[^>]*>.*?<\/button>/g, ''); if (!/rc-math/.test(h) || !/rc-dmg/.test(h)) return h;
+  try { const box = document.createElement('div'); box.innerHTML = h; const ty = box.querySelector('.rc-dmg > span'), hd = [...box.querySelectorAll('.rc-math .rm-h')].find(x => /damage/i.test(x.textContent));
+    if (ty && hd && ty.textContent.trim()) hd.textContent += ' · ' + ty.textContent.trim(); return box.innerHTML; } catch (e) { return h; } }
 function openRollLog() {
   if (!ROLLLOG.length) loadRollLog(); if (!EVLOADED) loadEvLog(); try { statBackfill(); } catch (e) {}
   const tab = UI.logTab === 'events' ? 'events' : UI.logTab === 'stats' ? 'stats' : 'rolls', LIST = tab === 'events' ? EVLOG : tab === 'stats' ? [] : ROLLLOG;
   const day = t => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' }), tm = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   let last = '';
-  const rows = LIST.map(r => { const d = day(r.t), h = d !== last ? `<div class="rl-day">${d}</div>` : ''; last = d; return h + `<div class="rl-row ${esc(r.cls)}"><span class="rl-time">${tm(r.t)}</span><div class="rl-card">${r.html.replace(/<button[^>]*>.*?<\/button>/g, '')}</div></div>`; }).join('');
+  const rows = LIST.map(r => { const d = day(r.t), h = d !== last ? `<div class="rl-day">${d}</div>` : ''; last = d; return h + `<div class="rl-row ${esc(r.cls)}"><span class="rl-time">${tm(r.t)}</span><div class="rl-card">${logCardHTML(r.html)}</div></div>`; }).join('');
   const tb = (k, l, n) => `<button class="rl-tab${tab === k ? ' on' : ''}" data-act="logtab" data-v="${k}" aria-pressed="${tab === k}">${l} <span>${n}</span></button>`;
   const html = `<div id="rolllogmodal"><div class="rl-head"><h3>Log</h3><div class="rl-tabs">${tb('rolls', 'Rolls', ROLLLOG.length)}${tb('events', 'Everything else', EVLOG.length)}<button class="rl-tab${tab === 'stats' ? ' on' : ''}" data-act="logtab" data-v="stats" aria-pressed="${tab === 'stats'}">Dice stats</button></div>${LIST.length ? '<button class="btn sm ghost" data-act="clearlog">Clear</button>' : ''}</div>
     <div class="rl-list">${tab === 'stats' ? diceStatsHTML() : rows || (tab === 'events' ? '<p class="hint">Nothing yet. Messages that pop up — spells cast, turns, rests, warnings — are kept here.</p>' : '<p class="hint">No rolls yet. Every roll you make shows up here with its full breakdown.</p>')}</div>
@@ -13153,10 +13270,16 @@ function postSheetRoll(t) {
     const h = document.getElementById('sec-header'); if (!h) return;
     const pw = h.querySelector('.portrait-wrap'), id = h.querySelector('.ident.noid'), nb = id && id.querySelector('.namebox');
     if (!pw) return;
-    if (!nb || document.documentElement.classList.contains('mobile')) { pw.style.width = pw.style.height = ''; return; }
-    const top = id.querySelector('.ident-top') || nb, fill = Math.round(Math.max(64, Math.min(148, top.getBoundingClientRect().height, h.querySelector('.ident').getBoundingClientRect().height)));
-    if (pw.style.width !== fill + 'px') pw.style.width = pw.style.height = fill + 'px';
+    if (pw.style.width) pw.style.width = pw.style.height = '';
+    if (!nb || document.documentElement.classList.contains('mobile')) { h.style.removeProperty('--pwf'); return; }
+    // (kept on the header itself, so a portrait drawn again when the sheet redraws its top bar is the right size at once,
+    // instead of starting big and shrinking, which would make everything beside it jump)
+    // (measured from the name and the level box beside it, not the whole row: the toolbar's wrapping depends on how wide
+    // the portrait is, so measuring that too would make them keep resizing each other)
+    const lv = id.querySelector('.lvlbox'), fill = Math.round(Math.max(64, Math.min(148, Math.max(nb.getBoundingClientRect().height, lv ? lv.getBoundingClientRect().height : 0))));
+    if (h.style.getPropertyValue('--pwf') !== fill + 'px') h.style.setProperty('--pwf', fill + 'px');
   };
+  window.__pwFit = fit;
   const wire = () => {
     const h = document.getElementById('sec-header'); if (!h) return setTimeout(wire, 300);
     ro = new ResizeObserver(fit);
@@ -13762,7 +13885,7 @@ function renderStory() {
   <div class="story">
     <div class="stack">
       <div class="panel" ${PID('personality')}><h2>Personality</h2><div class="traits">
-        ${fld('Personality Traits', ta('traits.personality', { rows: 3 }))}${fld('Ideals', ta('traits.ideals', { rows: 2 }))}
+        ${fld('Personality Traits', ta('traits.personality', { rows: 2 }))}${fld('Ideals', ta('traits.ideals', { rows: 2 }))}
         ${fld('Bonds', ta('traits.bonds', { rows: 2 }))}${fld('Flaws', ta('traits.flaws', { rows: 2 }))}</div></div>
       <div class="panel" ${PID('appearance')}><h2>Appearance</h2><div class="appear">${['age', 'height', 'weight', 'eyes', 'skin', 'hair'].map(k => fld(k[0].toUpperCase() + k.slice(1), inp('appearance.' + k))).join('')}</div></div>
       <div class="panel" ${PID('backstory')}><h2>Backstory</h2>${ta('backstory', { rows: 10 })}</div>
@@ -14179,7 +14302,7 @@ function refresh() {
   $$('.tile.ac').forEach(el => el.classList.toggle('boosted', !S.form && fxActive().some(e => e.buff && (N(e.buff.ac) || e.buff.acMin || e.buff.acBase) && !e.ally)));
   $$('[data-segcol]').forEach(el => el.classList.toggle('used', !!S.turn.used[el.dataset.segcol]));
   document.title = (S.name || 'Character') + ' — Character Sheet';
-  $$('input[data-fit]').forEach(fitInput);
+  nameRoom(); $$('input[data-fit]').forEach(fitInput);
   const lb = $('#lvlbox'); if (lb) lb.classList.toggle('ready', xpReady());
   histButtons();
 }
@@ -14206,7 +14329,7 @@ function openHistory() {
     <div class="rb"><b>Roll back the last</b><input class="f" id="rbN" type="number" min="1" value="5" style="width:70px" aria-label="Amount of time">
       <select class="f" id="rbU" style="width:110px" aria-label="Unit"><option value="60000">minutes</option><option value="3600000">hours</option><option value="86400000">days</option></select>
       <button class="btn gold" data-act="rbtime">Roll back</button></div>
-    <div class="rb"><span class="hint">Quick:</span>${[['1 min', 60000], ['5 min', 300000], ['15 min', 900000], ['1 hour', 3600000], ['Today', Date.now() - new Date().setHours(0, 0, 0, 0)]].map(([t, ms]) => `<button class="chip" data-act="rbquick" data-ms="${ms}">${t} <span class="hint">(${countSince(ms)})</span></button>`).join('')}</div>
+    <div class="rb rbq"><span class="hint">Quick:</span><span class="rbchips">${[['1 min', 60000], ['5 min', 300000], ['15 min', 900000], ['1 hour', 3600000], ['Today', Date.now() - new Date().setHours(0, 0, 0, 0)]].map(([t, ms]) => `<button class="chip" data-act="rbquick" data-ms="${ms}">${t} <span class="hint">(${countSince(ms)})</span></button>`).join('')}</span></div>
     <p class="hint" id="rbCount" style="margin:0">This will undo ${countSince(300000)} change(s).</p>
     ${HIST.length ? `<ol class="hist">${list}</ol>` : '<p class="hint">No changes recorded yet.</p>'}
     ${redoList}
@@ -16323,6 +16446,18 @@ function openExtFx() {
 
 
 // ---------- Fields that grow to fit their text ----------
+// Phone header card: the name gets all the room up to the corner icons (however many there are), measured, so a long
+// name isn't squeezed into a box half the size it could be.
+function nameRoom() {
+  const nb = $('.namebox'); if (!nb) return;
+  if (!isMobile()) { nb.style.removeProperty('--nbpad'); return; }
+  const ic = $$('#sec-header .devbtn').filter(x => x.offsetParent); if (!ic.length) { nb.style.setProperty('--nbpad', '0px'); return; }
+  const r = nb.getBoundingClientRect(), first = Math.min(...ic.map(x => x.getBoundingClientRect().left)), t = Math.max(...ic.map(x => x.getBoundingClientRect().bottom));
+  // (only icons beside the name count: if they sit below its line, nothing is taken)
+  const pad = t <= r.top ? 0 : Math.max(0, Math.ceil(r.right - first + 8));
+  if (nb.style.getPropertyValue('--nbpad') !== pad + 'px') nb.style.setProperty('--nbpad', pad + 'px');
+}
+addEventListener('resize', () => requestAnimationFrame(() => { nameRoom(); $$('input.name[data-fit]').forEach(fitInput); }));
 function fitInput(el) {
   const min = N(el.dataset.fit) || 6, len = Math.max(String(el.value || '').length, String(el.placeholder || '').length * 0.8);
   const sz = Math.max(min, Math.ceil(len) + 1);
@@ -16637,9 +16772,11 @@ let RC = null;
 const titleCase = s => String(s || '').replace(/\b\w/g, c => c.toUpperCase());
 function openRaceChange() {
   RC = { kind: 'race', removeOld: true, custom: Object.assign({ name: '', size: 'Medium', speed: 30, darkvision: 0, traits: '' }, S.race.key === 'custom' ? { ...S.race.custom, traits: (S.race.custom.traits || []).map(t => t[0] + ': ' + t[1]).join('\n') } : {}) };
-  W = { race: S.race.key, sub: S.race.sub, tasha: false, ans: {} };
+  W = { race: S.race.key, sub: S.race.sub, tasha: false, ans: {} }; ['rcrace', 'rcsub'].forEach(k => { delete WZ3M[k + ':q']; delete WZ3M[k + ':s']; });
   openModal('<div id="rcmodal"></div>', () => { RC = null; W = null; }, true); renderRaceChange();
 }
+// (the cards are drawn by the site's own styles; the downloadable sheet keeps the plain lists)
+const rcCards = () => !!window.wzHeader || document.documentElement.classList.contains('pg-sheetpage');
 function renderRaceChange() {
   const x = W.race === 'custom' ? null : wzRace(), c = RC.custom;
   const body = W.race === 'custom' ? `<div class="wz-grid">${fld('Race name', `<input class="f" data-rc="name" value="${esc(c.name)}" placeholder="e.g. Sea Elf (homebrew)">`)}${fld('Size', `<select class="f" data-rc="size">${['Tiny', 'Small', 'Medium', 'Large'].map(z => `<option${c.size === z ? ' selected' : ''}>${z}</option>`).join('')}</select>`)}
@@ -16649,14 +16786,25 @@ function renderRaceChange() {
     : x ? `<div class="wz-info"><p><b>${esc(x.name)}</b> · speed ${x.s.speed || x.r.speed || 30} ft${(x.s.darkvision || x.r.darkvision) ? ' · darkvision ' + (x.s.darkvision || x.r.darkvision) + ' ft' : ''}</p>
         <ul>${((x.s.replaceTraits ? [] : x.r.traits || []).concat(x.s.traits || [])).map(t => `<li><b>${esc(t[0])}</b> — ${esc(t[1])}</li>`).join('')}</ul>
         ${wzRaceAsiUI()}${wzRaceChoices().map((ch, k) => choiceUI(W.ans, 'race.' + k, ch)).join('')}</div>` : '';
+  // (the same race and variant cards as character creation; the lists underneath are what they set)
   $('#rcmodal').innerHTML = `<h3>Change race</h3>
-    <div class="wz-grid">${fld('Race', `<select class="f" data-rc="race"><option value="">— choose —</option>${DND.raceGroups.map(([g, ks]) => `<optgroup label="${esc(g)}">${ks.filter(k => DND.races[k]).sort((a, b) => abc(DND.races[a].name, DND.races[b].name)).map(k => `<option value="${k}"${W.race === k ? ' selected' : ''}>${esc(DND.races[k].name)}${DND.races[k].src !== 'PHB' ? ' (' + DND.races[k].src + ')' : ''}</option>`).join('')}</optgroup>`).join('')}<option value="custom"${W.race === 'custom' ? ' selected' : ''}>✎ Custom race…</option></select>`)}
+    ${rcCards() ? wz3Cards('race') + (x && x.r.subraces ? `<p class="wz3-sublbl">${esc(x.r.name)} variant</p>${wz3Cards('sub')}` : '') : ''}
+    <div class="wz-grid${rcCards() ? ' wz3-hid' : ''}">${fld('Race', `<select class="f" data-rc="race"><option value="">— choose —</option>${DND.raceGroups.map(([g, ks]) => `<optgroup label="${esc(g)}">${ks.filter(k => DND.races[k]).sort((a, b) => abc(DND.races[a].name, DND.races[b].name)).map(k => `<option value="${k}"${W.race === k ? ' selected' : ''}>${esc(DND.races[k].name)}${DND.races[k].src !== 'PHB' ? ' (' + DND.races[k].src + ')' : ''}</option>`).join('')}</optgroup>`).join('')}<option value="custom"${W.race === 'custom' ? ' selected' : ''}>✎ Custom race…</option></select>`)}
       ${x && x.r.subraces ? fld('Subrace', `<select class="f" data-rc="sub"><option value="">— choose —</option>${Object.entries(x.r.subraces).sort(([, a], [, b]) => abc(a.name, b.name)).map(([k, s]) => `<option value="${k}"${W.sub === k ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select>`) : ''}</div>
     ${body}
     <label class="checkline" style="margin-top:8px"><input type="checkbox" data-rc="removeOld"${RC.removeOld ? ' checked' : ''}> Remove what ${esc(S.raceName || 'my old race')} gave me (fixed ability bonuses, skills, languages, weapon and armor training)</label>
     <p class="hint">Traits, speed, senses, racial spells and natural weapons update automatically. Ability bonuses you placed yourself (like +2/+1) can't be traced — check your scores afterwards.</p>
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="rcok">Change race</button></div>`;
+  $$('#rcmodal > .wz3-pick').forEach((bx, i) => wz3Keep(bx, i ? 'rcsub' : 'rcrace'));
+  { const rl = $('#rcmodal > .wz3-pick .wz3-cards'); if (rl) rl.classList.add('has'); } // (the race list scrolls in its own box)
+  // (opening it: the race list starts at the character's current race)
+  { const l = $('#rcmodal > .wz3-pick .wz3-cards'), on = l && l.querySelector('.wz3-card.sel'); if (on && !WZ3M['rcrace:s']) l.scrollTop = Math.max(0, on.offsetTop - l.offsetTop - 40); }
+  if (typeof wz3ChoiceLists === 'function') wz3ChoiceLists('#rcmodal');
 }
+// a race or variant card picks it in the list underneath (which redraws the window, keeping the cards where they were)
+document.addEventListener('click', e => { const c = e.target.closest && e.target.closest('#rcmodal [data-pick="race"], #rcmodal [data-pick="sub"]'); if (!c || !RC) return;
+  const sel = $(`#rcmodal [data-rc="${c.dataset.pick}"]`); if (!sel) return; const box = c.closest('.wz3-pick');
+  const go = () => { sel.value = c.dataset.v; sel.dispatchEvent(new Event('change', { bubbles: true })); }; if (box && typeof wz3Commit === 'function') wz3Commit(box, go); else go(); });
 function openBgChange() {
   RC = { kind: 'bg', removeOld: true, custom: Object.assign({ name: '', feature: '', desc: '' }, S.background === 'custom' ? { name: S.backgroundName, ...(S.bgCustom || {}) } : {}) };
   W = { bg: S.background, ans: {} }; delete WZ3M['rcbg:q']; delete WZ3M['rcbg:s'];
@@ -16676,6 +16824,8 @@ function renderBgChange() {
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-act="rcok">Change background</button></div>`;
   // (the same searchable list as character creation; its choices of skills, tools and languages are lists too)
   const bx = $('#rcmodal > .wz3-pick'); if (bx) wz3Keep(bx, 'rcbg');
+  // (opening it: the list starts at the character's current background)
+  { const l = bx && bx.querySelector('.wz3-list'), on = l && l.querySelector('.crrow.on'); if (on && !WZ3M['rcbg:s']) l.scrollTop = Math.max(0, on.offsetTop - l.offsetTop - 40); }
   if (typeof wz3ChoiceLists === 'function') wz3ChoiceLists('#rcmodal');
 }
 document.addEventListener('change', e => { const r = e.target.closest && e.target.closest('#rcmodal input[data-pick="bg"]'); if (!r || !RC) return; const sel = $('#rcmodal [data-rc="bg"]'); if (!sel) return;
@@ -16726,7 +16876,8 @@ function raceChangeOK() {
     });
   }
   pendingLabel = `Change race: ${oldName} → ${S.raceName}`; RC = null; W = null;
-  rebuildAuto(); closeModal(true); save(); render();
+  // (the window starts fading before the sheet redraws, so the redraw doesn't hold the fade up)
+  rebuildAuto(); closeModal(true); save(); requestAnimationFrame(() => setTimeout(render, 0));
   toast(`You're now ${esc(S.raceName)}. Check your ability scores, skills and languages.`, '', 9000, { label: 'Undo', fn: () => undo(1) });
 }
 function bgChangeOK() {
@@ -16744,7 +16895,8 @@ function bgChangeOK() {
   applyChoice({ type: 'skill' }, ansList(W.ans, 'bg.skill')); applyChoice({ type: 'tool' }, ansList(W.ans, 'bg.tool')); applyChoice({ type: 'language' }, ansList(W.ans, 'bg.lang'));
   if (b.feat && W.bg !== 'custom') applyFeat(b.feat, W.ans, 'bg.feat');
   pendingLabel = `Change background: ${oldName} → ${S.backgroundName}`; RC = null; W = null;
-  rebuildAuto(); closeModal(true); save(); render();
+  // (the window starts fading before the sheet redraws, so the redraw doesn't hold the fade up)
+  rebuildAuto(); closeModal(true); save(); requestAnimationFrame(() => setTimeout(render, 0));
   toast(`Background changed to ${esc(S.backgroundName)}.`, '', 7000, { label: 'Undo', fn: () => undo(1) });
 }
 
@@ -17104,15 +17256,39 @@ window.addEventListener('resize', () => { SUB_K = ''; fitSubtitle(); });
 
 // Desktop header stays one row: when the toolbar would wrap, its buttons drop their words and keep their icons.
 // Toolbar labels fold away one button at a time (least-used first) only when the row would wrap, and come back as soon as there's room.
-const TB_FOLD = ['edit', 'history', 'redo', 'undo', 'settings', 'save'];
+// (Undo and Redo lose their labels together, so the pair always matches)
+const TB_FOLD = ['edit', 'history', ['redo', 'undo'], 'settings', 'save'];
+// Sheet tabs on a computer: each takes the room its name needs; when they don't all fit they tighten up, then drop their
+// icons, before any name gets cut short
+function fitTabs() { const t = $('#tabs'); if (!t) return; t.classList.remove('tabs-tight', 'tabs-noicon'); if (isMobile()) return;
+  const cut = () => [...t.querySelectorAll('.tlabel')].some(l => l.offsetParent && l.scrollWidth > l.clientWidth + 1);
+  if (!cut()) return; t.classList.add('tabs-tight'); if (!cut()) return; t.classList.add('tabs-noicon'); }
+// The Inspiration pill in the top bar's corner keeps clear of the Tome button and the faces beside it: when they'd meet,
+// it drops its label (just − number +), and the row's room is set to whatever the pill actually takes.
+function inspDockFit() {
+  const d = $('.toolbar > .insp-dock'), row = $('.toolbar > .pg-hubrow'); if (!d) return;
+  d.classList.remove('tight'); if (!row) return;
+  const kids = [...row.children].filter(k => k.offsetParent), used = () => kids.reduce((a, k) => Math.max(a, k.getBoundingClientRect().right), row.getBoundingClientRect().left);
+  const room = () => d.getBoundingClientRect().left - 10;
+  if (used() > room()) d.classList.add('tight');
+  row.style.setProperty('--insp-w', Math.ceil(d.getBoundingClientRect().width + 10) + 'px');
+}
 function fitToolbar() {
+  fitTabs();
   const tb = $('.toolbar'); if (!tb) return;
+  // (the site's Tome button row goes back into a freshly drawn toolbar first, so it's measured as it will look)
+  if (typeof window.pgHubRow === 'function') try { window.pgHubRow(); } catch (e) {}
+  if (typeof window.__pwFit === 'function') try { window.__pwFit(); } catch (e) {} // (and the portrait beside it at its size)
+  inspDockFit();
   tb.classList.remove('tb-compact', 'tb-wrap'); $$('.toolbar .nolbl').forEach(k => k.classList.remove('nolbl'));
   if (isMobile()) return;
   const kids = [...tb.children].filter(k => k.offsetParent !== null && !k.classList.contains('pg-hubrow')); if (kids.length < 2) return; // (the site's own row above the buttons doesn't count)
   const tight = () => { const b0 = kids[0].getBoundingClientRect().bottom; return kids.some(k => k.getBoundingClientRect().top >= b0 - 2) || tb.scrollWidth > tb.clientWidth + 2; };
-  for (const key of TB_FOLD) { if (!tight()) return; const el = tb.querySelector(`[data-zi="${key}"]`); if (el) el.classList.add('nolbl'); }
+  for (const key of TB_FOLD) { if (!tight()) return; [].concat(key).forEach(k => { const el = tb.querySelector(`[data-zi="${k}"]`); if (el) el.classList.add('nolbl'); }); }
   if (!tight()) return;
+  // Still too tight with icons only: the window is too narrow for the computer layout, so it switches to the phone layout
+  // (unless the computer layout was picked by hand, or this is the phone preview)
+  if (!LAYOUT_NOW && !window.PG_IN_PHONE && !onPhone()) { MOBILE_AT = Math.max(MOBILE_AT || 0, window.innerWidth + 1); applyLayout(); if (isMobile()) { queueMicrotask(() => render()); return; } }
   tb.classList.add('tb-compact');
   if (tight()) tb.classList.add('tb-wrap');  // very narrow windows: icons may take two rows inside the toolbar's own box
 }
@@ -17980,8 +18156,21 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && IDRAG) idr
 // ================= Inspiration (optional, Settings → Rules) =================
 // One at most by the rules; the "More than one" house rule removes the cap.
 const inspMax = () => ST('inspMany') ? Infinity : 1;
+// On the site, on a computer: the pill sits in the top bar's right corner, above the corner buttons. The number is the
+// Use button; − and + change the count.
+function inspDockOn() { return !!window.SHEET_PAGES && !isMobile(); }
+function inspDockHTML(phone) {
+  if (!ST('inspiration') || !(phone || inspDockOn())) return '';
+  const n = Math.max(0, N(S.insp)), mx = inspMax();
+  return `<div class="insp insp-dock${phone ? ' mini' : ''}${n ? ' on' : ''}" role="group" aria-label="Inspiration">
+    <button class="insp-b" data-act="insp" data-d="-1" ${n ? '' : 'disabled'} aria-label="Spend Inspiration" title="Take one away">−</button>
+    <button class="insp-c insp-go" data-act="inspuse" ${n ? '' : 'disabled'} title="${n ? 'Use Inspiration: reroll your last roll, or advantage on the next one' : 'No Inspiration to use'}"><b class="insp-n">${n}</b><span class="insp-l"><span class="il-a">Inspiration</span><span class="il-b" aria-hidden="true">Use</span></span></button>
+    <button class="insp-b" data-act="insp" data-d="1" ${n >= mx ? 'disabled' : ''} aria-label="Gain Inspiration" title="Add one">+</button></div>`;
+}
 function inspHTML(mini) {
-  if (!ST('inspiration')) return '';
+  if (!ST('inspiration') || inspDockOn()) return '';
+  // (phones keep it in its place in the header card, the same pill as on a computer: the number is the Use button)
+  if (isMobile()) return mini ? inspDockHTML(true) : '';
   const n = Math.max(0, N(S.insp)), mx = inspMax();
   // One at a time: the badge itself is the switch — tap the star to fill it, tap again to spend it.
   const use = n ? `<button class="insp-use${mini ? ' mini' : ''}" data-act="inspuse" title="Reroll your last attack, check or save, or have advantage on the next one">Use</button>` : '';
@@ -22325,6 +22514,8 @@ function wz3ChoiceLists(root) {
         wz3Commit(box, () => { x.value = r.value; x.dispatchEvent(new Event('change', { bubbles: true })); }); });
     });
   });
+  // (pop-up windows' lists get the same lines at their scrolling edges; character creation does its own)
+  if (root !== '#wizard') wz3Shades(root);
 }
 // The subclass pick at the level that grants one, as the same list (with what it gives you first)
 function lvSubList() {
@@ -22366,12 +22557,13 @@ function wz3Equip(c, b, kit) {
   return h;
 }
 // Scrolling boxes of cards or rows get a line and a soft shadow at whichever edge has more to scroll to
-function wz3Shades() {
-  $$('#wizard .wz3-cards.has, #wizard .wz3-list').forEach(box => {
+function wz3Shades(root = '#wizard') {
+  $$(`${root} .wz3-cards.has, ${root} .wz3-list`).forEach(box => {
     if (box.parentElement.classList.contains('wz3-sc')) return;
-    const w = document.createElement('div'); w.className = 'wz3-sc'; box.before(w); w.appendChild(box);
+    const st = box.scrollTop, w = document.createElement('div'); w.className = 'wz3-sc'; box.before(w); w.appendChild(box); if (st) box.scrollTop = st; // (moving it would lose where it was scrolled to)
     const paint = () => { w.classList.toggle('top', box.scrollTop > 2); w.classList.toggle('bot', box.scrollTop + box.clientHeight < box.scrollHeight - 2); };
-    box.addEventListener('scroll', paint, { passive: true }); requestAnimationFrame(paint);
+    // (set straight away, and only eased once it's on screen, so a redrawn list doesn't fade its edges in again)
+    box.addEventListener('scroll', paint, { passive: true }); paint(); requestAnimationFrame(() => requestAnimationFrame(() => w.classList.add('ready')));
   });
 }
 // A simple drawn symbol for each class (our own line drawings)
@@ -23284,9 +23476,15 @@ function ddbCreate() {
   // not clickable) just long enough to fade, and opening it again cancels that.
   const W = [['#modal', 'open'], ['#wizard', 'open'], ['.menu', 'open'], ['#tipbox', 'on']];
   const match = el => W.find(([sel]) => el.matches && el.matches(sel));
+  // The closing look is taken off once its fade has actually played: timed from when the fade starts, not from when the
+  // window was closed, so a busy moment straight after closing (the sheet redrawing itself) can't cut the fade short.
+  const fadeDone = el => { clearTimeout(el._fc); if (el._fst) el.removeEventListener('animationstart', el._fst); const ms = document.documentElement.classList.contains('mobile') ? 240 : 190; let started = false;
+    const end = () => { clearTimeout(el._fc); el.removeEventListener('animationstart', st); if (!el.classList.contains('open') && !el.classList.contains('on')) el.classList.remove('closing'); };
+    const st = e => { if (started || !/Out$/.test(e.animationName)) return; started = true; clearTimeout(el._fc); el._fc = setTimeout(end, ms + 30); };
+    el._fst = st; el.addEventListener('animationstart', st); el._fc = setTimeout(end, 1500); };
   new MutationObserver(ms => ms.forEach(m => { const el = m.target, w = match(el); if (!w) return; const cls = w[1], was = (' ' + (m.oldValue || '') + ' ').includes(' ' + cls + ' '), now = el.classList.contains(cls);
     if (now) { if (!was && el.classList.contains('closing')) { clearTimeout(el._fc); el.classList.remove('closing'); } return; }
-    if (was && !now && !(' ' + (m.oldValue || '') + ' ').includes(' closing ') && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => el.classList.remove('closing'), document.documentElement.classList.contains('mobile') ? 240 : 190); } }))
+    if (was && !now && !(' ' + (m.oldValue || '') + ' ').includes(' closing ') && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { el.classList.add('closing'); fadeDone(el); } }))
     .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], attributeOldValue: true, subtree: true });
 }
 

@@ -3837,3 +3837,4 @@ html.mobile .namebox > :first-child { margin-right: 0 !important; }
 #rolllogmodal .rl-card:has(.rc-math .rm-h) .rc-lbl { display: none; }
 #rolllogmodal .rl-head [data-act="clearlog"] { margin-left: auto; }
 #rolllogmodal .rl-card > div:not(.rc-dmg) > div:first-child:not(.rc-math):not(.det) { font-weight: 700; }
+html.pg-grabbing, html.pg-grabbing * { cursor: grabbing !important; }

@@ -3254,3 +3254,6 @@ html.pg-sheetpage.mobile .banner { padding-top: calc(42px + env(safe-area-inset-
 .pg-shade::before { top: calc(-1 * var(--sh-pt, 0px)); }
 .pg-shade::after { bottom: calc(-1 * var(--sh-pb, 0px)); }
 :is(#rolllogmodal, #dk-logw) .rl-list.pg-shade::before { border-top-color: transparent; }
+/* grabbing hand while anything with a drag handle is held (the old lobby rule never matched) */
+html.pg-grabbing, html.pg-grabbing * { cursor: grabbing !important; }
+body.hdragging, body.hdragging * { cursor: grabbing !important; user-select: none; }

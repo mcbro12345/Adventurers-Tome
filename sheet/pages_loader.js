@@ -7,6 +7,13 @@
 // Everyone signs in once per device (Google, or a link emailed to them). Each character belongs to one email;
 // the database only lets that player — and the DM — open or change it.
 // Every way of leaving a page fades it out first, so the next page's loading screen fades in instead of popping.
+// Anything with a drag handle shows the grabbing hand from the moment it's pressed until it's let go, wherever the
+// pointer goes in between.
+(() => { if (window.__pgGrab) return; window.__pgGrab = 1;
+  const GRIP = '.hr-grip, .nw-grip, .tgrip, .idrag, .sdrag, .bdrag, .gdrag, .mgrip, .pbar .grip, .pgph-th, .pg-sb-th, [data-mgrip], body.editing .tabwrap';
+  const off = () => document.documentElement.classList.remove('pg-grabbing');
+  addEventListener('pointerdown', e => { if (e.button > 0) return; const g = e.target.closest && e.target.closest(GRIP); if (g) document.documentElement.classList.add('pg-grabbing'); }, true);
+  addEventListener('pointerup', off, true); addEventListener('pointercancel', off, true); addEventListener('blur', off); })();
 // Buttons act on the press (registered first so the release that follows is dropped before anything else sees it)
 (() => { if (window.__pgPress) return; window.__pgPress = 1;
   const SEL = 'button, [role="button"], [role="tab"], [role="menuitem"], [role="option"], summary, input[type="button"], input[type="submit"], input[type="reset"]';
@@ -2099,14 +2106,17 @@ function hub(fs, auth, G, ctx) {
     // (a tile's copy sits in its own little tile box, so it keeps the tile look while it's carried)
     const inTiles = !!r.closest('.hd2-main'), wrap = inTiles ? Object.assign(document.createElement('div'), { className: 'hd2-main hd2-ghostwrap' }) : null;
     if (wrap) { wrap.appendChild(gh); document.body.appendChild(wrap); } else document.body.appendChild(gh); r.classList.add('hr-hold');
-    RD = { r, gh, wrap, pin: r.dataset.pin, list: r.parentElement, dy: e.clientY - b.top, y: e.clientY, dx: e.clientX - b.left, x: e.clientX, grid: getComputedStyle(r.parentElement).display === 'grid', raf: 0 }; document.body.classList.add('hdragging'); try { g.setPointerCapture(e.pointerId); } catch (x) {} });
+    const sibs = [...r.parentElement.querySelectorAll(':scope > .hr')].filter(x => x.dataset.pin === r.dataset.pin && !x.classList.contains('hd-hide') && x.offsetParent), tops = new Set(sibs.map(x => Math.round(x.getBoundingClientRect().top))), lefts = new Set(sibs.map(x => Math.round(x.getBoundingClientRect().left)));
+    RD = { r, gh, wrap, pin: r.dataset.pin, list: r.parentElement, dy: e.clientY - b.top, y: e.clientY, dx: e.clientX - b.left, x: e.clientX, grid: getComputedStyle(r.parentElement).display === 'grid', raf: 0, oneRow: tops.size <= 1, oneCol: lefts.size <= 1 }; document.body.classList.add('hdragging'); try { g.setPointerCapture(e.pointerId); } catch (x) {} });
   const dragStep = () => { const d = RD; if (!d) return; d.raf = 0;
     // the carried copy stays inside its own list (characters with characters, parties with parties)
     const lr = d.list.getBoundingClientRect(), gw = d.gh.offsetWidth, gh_ = d.gh.offsetHeight, cl = (v, a, b) => Math.max(a, Math.min(b, v));
-    d.gh.style.top = cl(d.y - d.dy, lr.top - 6, lr.bottom - gh_ + 6) + 'px';
+    // (with only one row there's nowhere to go up or down, so the copy stays level with it; with more rows it can move
+    // between them, just inside the list)
+    d.gh.style.top = (d.oneRow ? d.r.getBoundingClientRect().top : cl(d.y - d.dy, lr.top, lr.bottom - gh_)) + 'px';
     const rows = [...d.list.querySelectorAll(':scope > .hr')], peers = rows.filter(x => x !== d.r && x.dataset.pin === d.pin && !x.classList.contains('hd-hide'));
     // tiles (on a computer): the ghost follows the pointer both ways, and the tile it's over makes room
-    if (d.grid) { d.gh.style.left = cl(d.x - d.dx, lr.left - 6, lr.right - gw + 6) + 'px'; const px = cl(d.x, lr.left + 1, lr.right - 1), py = cl(d.y, lr.top + 1, lr.bottom - 1), over = peers.find(x => { const bb = x.getBoundingClientRect(); return px >= bb.left && px <= bb.right && py >= bb.top && py <= bb.bottom; });
+    if (d.grid) { d.gh.style.left = (d.oneCol ? d.r.getBoundingClientRect().left : cl(d.x - d.dx, lr.left, lr.right - gw)) + 'px'; const px = cl(d.x, lr.left + 1, lr.right - 1), py = cl(d.y, lr.top + 1, lr.bottom - 1), over = peers.find(x => { const bb = x.getBoundingClientRect(); return px >= bb.left && px <= bb.right && py >= bb.top && py <= bb.bottom; });
       if (over && Date.now() - (d.mt || 0) > 200) { d.mt = Date.now(); const a = rows.indexOf(d.r), o = rows.indexOf(over); slide(rows.filter(x => x !== d.r), () => o > a ? over.after(d.r) : over.before(d.r)); } }
     else if (peers.length) { const mid = d.y - d.dy + d.gh.offsetHeight / 2, tgt = peers.find(x => { const bb = x.getBoundingClientRect(); return mid < bb.top + bb.height / 2; });
       const last = peers[peers.length - 1];
