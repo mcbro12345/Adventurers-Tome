@@ -2180,7 +2180,7 @@ function hub(fs, auth, G, ctx) {
   // when the real rows fade in nothing moves. A list not drawn yet gets plain placeholder rows.
   const ROWQ = '.hr, .hc, .pty-row, .hub-folder > summary, .hub-empty';
   function ghostHTML(p) { const pr = p.getBoundingClientRect(); if (!pr.height) return '';
-    return [...p.querySelectorAll(ROWQ)].filter(r => !r.closest('.hp-sk')).map(r => { const b = r.getBoundingClientRect(); if (!b.height || b.top - pr.top > innerHeight * 1.5) return '';
+    return [...p.querySelectorAll(ROWQ)].filter(r => !r.closest('.hp-sk') && (r.matches('details > summary') || !r.closest('details:not([open])')) && (!r.checkVisibility || r.checkVisibility()))  /* (cards in a folded-up folder aren't on screen: no placeholders for them) */.map(r => { const b = r.getBoundingClientRect(); if (!b.height || b.top - pr.top > innerHeight * 1.5) return '';
       const at = `left:${(b.left - pr.left).toFixed(1)}px;top:${(b.top - pr.top).toFixed(1)}px;width:${b.width.toFixed(1)}px;height:${b.height.toFixed(1)}px`;
       if (r.matches('.hub-folder > summary, .hub-empty')) return `<div class="hp-g hp-gl" style="${at}"><span class="skl" style="width:${r.matches('.hub-empty') ? 70 : 34}%"></span></div>`;
       const pic = r.querySelector('.hc-pic, .hr-pic, .pg-ava, .hc-ini, .pty-pic, img, .hp-pic'), pb = pic && pic.getBoundingClientRect(), cs = getComputedStyle(r);

@@ -4268,7 +4268,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261026002251', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.81f4a41914c6.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.efff820cf4ca.html", "desk": "a/desk.aa63cbb108db.js", "deskcss": "a/deskcss.1b23eda6d9c0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261026002634', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.81f4a41914c6.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.efff820cf4ca.html", "desk": "a/desk.aa63cbb108db.js", "deskcss": "a/deskcss.1b23eda6d9c0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };
@@ -5746,7 +5746,7 @@ function hub(fs, auth, G, ctx) {
   // when the real rows fade in nothing moves. A list not drawn yet gets plain placeholder rows.
   const ROWQ = '.hr, .hc, .pty-row, .hub-folder > summary, .hub-empty';
   function ghostHTML(p) { const pr = p.getBoundingClientRect(); if (!pr.height) return '';
-    return [...p.querySelectorAll(ROWQ)].filter(r => !r.closest('.hp-sk')).map(r => { const b = r.getBoundingClientRect(); if (!b.height || b.top - pr.top > innerHeight * 1.5) return '';
+    return [...p.querySelectorAll(ROWQ)].filter(r => !r.closest('.hp-sk') && (r.matches('details > summary') || !r.closest('details:not([open])')) && (!r.checkVisibility || r.checkVisibility()))  /* (cards in a folded-up folder aren't on screen: no placeholders for them) */.map(r => { const b = r.getBoundingClientRect(); if (!b.height || b.top - pr.top > innerHeight * 1.5) return '';
       const at = `left:${(b.left - pr.left).toFixed(1)}px;top:${(b.top - pr.top).toFixed(1)}px;width:${b.width.toFixed(1)}px;height:${b.height.toFixed(1)}px`;
       if (r.matches('.hub-folder > summary, .hub-empty')) return `<div class="hp-g hp-gl" style="${at}"><span class="skl" style="width:${r.matches('.hub-empty') ? 70 : 34}%"></span></div>`;
       const pic = r.querySelector('.hc-pic, .hr-pic, .pg-ava, .hc-ini, .pty-pic, img, .hp-pic'), pb = pic && pic.getBoundingClientRect(), cs = getComputedStyle(r);
