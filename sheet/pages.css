@@ -3303,3 +3303,17 @@ body.hdragging, body.hdragging * { cursor: grabbing !important; user-select: non
 @media (max-width: 600px) { .adm-fsels > .adm-fsel { flex: 1 1 40%; } }
 .adm-online .adm-dev { width: 16px; height: 16px; }
 .adm-online .adm-devs { color: color-mix(in srgb, var(--adm-ink) 70%, transparent); }
+/* Every checkbox on the site looks the same: a rounded box in the field colour, gold with a dark tick when on, and a
+   faded outline (not a grey block) when it can't be used. Sizes and spacing set elsewhere still apply. */
+:where(input[type=checkbox]:not([role=switch])) { appearance: none; -webkit-appearance: none; box-sizing: border-box; flex: none; width: 17px; height: 17px; margin: 0; padding: 0; vertical-align: -3px;
+  border: 1.5px solid var(--cb-line, rgba(140,150,170,.6)); border-radius: 5px; background: var(--field, transparent) center / 72% no-repeat; cursor: pointer; color: inherit;
+  transition: background-color .15s, border-color .15s, box-shadow .15s; }
+:where(input[type=checkbox]:not([role=switch])):hover:not(:disabled) { border-color: var(--gold, #c9962b); }
+:where(input[type=checkbox]:not([role=switch])):checked, :where(input[type=checkbox]:not([role=switch])):indeterminate { background-color: var(--gold, #c9962b); border-color: var(--gold, #c9962b);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23141a28' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
+:where(input[type=checkbox]:not([role=switch])):indeterminate { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23141a28' stroke-width='3.6' stroke-linecap='round'%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E"); }
+:where(input[type=checkbox]:not([role=switch])):disabled { cursor: not-allowed; opacity: .5; background-color: transparent; }
+:where(input[type=checkbox]:not([role=switch])):checked:disabled { background-color: var(--gold, #c9962b); }
+@media (prefers-color-scheme: light) { :where(input[type=checkbox]:not([role=switch])) { --cb-line: rgba(70,80,100,.45); } }
+:root[data-theme="light"] :where(input[type=checkbox]:not([role=switch])), html[data-pgtheme="light"] :where(input[type=checkbox]:not([role=switch])) { --cb-line: rgba(70,80,100,.45); }
+:root[data-theme="dark"] :where(input[type=checkbox]:not([role=switch])), html[data-pgtheme="dark"] :where(input[type=checkbox]:not([role=switch])) { --cb-line: rgba(140,150,170,.6); }
