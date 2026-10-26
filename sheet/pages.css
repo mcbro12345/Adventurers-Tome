@@ -3246,8 +3246,8 @@ html:has(#wizard.open) .pg-sb { top: 8px; }
 /* phone sheet: the Adventurer's Tome button's left edge lines up exactly with the top card's left edge */
 html.mobile.pg-sheetpage .pg-hublink { left: 12px !important; }
 /* phone sheet: a little room between the Tome button and the top card under it */
-html.pg-sheetpage.mobile .banner { padding-top: calc(42px + env(safe-area-inset-top)) !important; }
-:root[data-theme="dark"].mobile.pg-sheetpage header.banner::before { top: calc(44px + env(safe-area-inset-top, 0px)) !important; }
+html.pg-sheetpage.mobile:not(.pg-public) .banner { padding-top: calc(42px + env(safe-area-inset-top)) !important; }
+:root[data-theme="dark"].mobile.pg-sheetpage:not(.pg-public) header.banner::before { top: calc(44px + env(safe-area-inset-top, 0px)) !important; }
 /* the scroll dividers sit right at the box's edge, not inside its padding (they were cutting through the first and
    last lines of the Log, say); where the window already draws a line there (the Log's tab row and button row), only
    the soft shadow shows */
@@ -3257,3 +3257,5 @@ html.pg-sheetpage.mobile .banner { padding-top: calc(42px + env(safe-area-inset-
 /* grabbing hand while anything with a drag handle is held (the old lobby rule never matched) */
 html.pg-grabbing, html.pg-grabbing * { cursor: grabbing !important; }
 body.hdragging, body.hdragging * { cursor: grabbing !important; user-select: none; }
+/* sample (try) pages on a phone have no Tome button above the card: the card starts at the top, around its logo row */
+:root[data-theme="dark"].mobile.pg-sheetpage.pg-public header.banner::before { top: 4px !important; }
