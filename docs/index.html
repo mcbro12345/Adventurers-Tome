@@ -3217,12 +3217,12 @@ html.mobile #wizard .wz3 .wz3-fs { padding: 14px; } html.mobile #wizard .wz3 .wz
 /* folding a folder: the caret turns back as it starts closing */
 body.hubbody .hub-folder.hf-closing .hf-caret { transform: none !important; }
 /* The logo is a link (back to the lobby; in the lobby its die rolls): it grows a little under the mouse and shows the hand */
-:where(body.hubbody, #pg-load, body) :is(.hub-logo, .dk-logo):not(.pg-signin .hub-logo), :where(body.hubbody, #pg-load, body) :is(.hub-logo, .dk-logo):not(.pg-signin .hub-logo) * { cursor: pointer !important; }
-:where(body.hubbody, #pg-load, body) :is(.hub-logo, .dk-logo):not(.pg-signin .hub-logo) { transition: transform .18s cubic-bezier(.2,.8,.2,1), filter .18s; transform-origin: left center; }
-html:not(.mobile) :is(.hub-logo, .dk-logo):not(.pg-signin .hub-logo):hover { transform: scale(1.06); filter: brightness(1.08); }
-html:not(.mobile) :is(.hub-logo, .dk-logo):not(.pg-signin .hub-logo):active { transform: scale(1.02); }
+:where(body.hubbody, #pg-load, body) :is(.hub-logo, .dk-brand):not(.pg-signin .hub-logo), :where(body.hubbody, #pg-load, body) :is(.hub-logo, .dk-brand):not(.pg-signin .hub-logo) * { cursor: pointer !important; }
+:where(body.hubbody, #pg-load, body) :is(.hub-logo, .dk-brand):not(.pg-signin .hub-logo) { transition: transform .18s cubic-bezier(.2,.8,.2,1), filter .18s; transform-origin: left center; }
+html:not(.mobile) :is(.hub-logo, .dk-brand):not(.pg-signin .hub-logo):hover { transform: scale(1.06); filter: brightness(1.08); }
+html:not(.mobile) :is(.hub-logo, .dk-brand):not(.pg-signin .hub-logo):active { transform: scale(1.02); }
 .adm-brand .hub-logo { transform-origin: center; }
-@media (prefers-reduced-motion: reduce) { :is(.hub-logo, .dk-logo) { transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { :is(.hub-logo, .dk-brand) { transition: none !important; } }
 html:not(.mobile) .dk-logo .hub-logo:hover { transform: none; filter: none; }
 /* in the lobby itself the logo isn't a link anywhere, so it doesn't grow or show the hand */
 html:not(.mobile) body.hubbody:not(.adminbody):not(:has(#wizard.open, .pw, .adm, #pg-desk)) .hub-logo:is(:hover, :active) { transform: none; filter: none; }
@@ -4185,7 +4185,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261025224457', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.94520d4ddc5a.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.f963c804de6c.html", "desk": "a/desk.aa63cbb108db.js", "deskcss": "a/deskcss.1b23eda6d9c0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261025225433', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.94520d4ddc5a.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.f963c804de6c.html", "desk": "a/desk.aa63cbb108db.js", "deskcss": "a/deskcss.1b23eda6d9c0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };
@@ -6211,9 +6211,9 @@ function hub(fs, auth, G, ctx) {
     // --- Audit log ---
     const ACTS = { signin: 'Signed in', account: 'Created their account', signout: 'Signed out', open: 'Opened', create: 'Created', edit: 'Edited', delete: 'Deleted', give: 'Gave away', remove: 'Removed from the lists',
       share: 'Shared', unshare: 'Stopped sharing', access: 'Changed access to', leave: 'Gave up access to', picture: 'Changed their picture',
-      rename_user: 'Renamed', admin_add: 'Made an admin:', admin_remove: 'Removed admin:', user_picture: 'Changed the picture of', user_signout: 'Signed out everywhere:', user_block: 'Blocked', user_unblock: 'Unblocked', user_delete: 'Deleted the account of', message: 'Sent a message to', notice: 'Sent a notice to', news_post: 'Posted to What’s new:', news_edit: 'Edited a What’s new update:', news_remove: 'Removed a What’s new update:', news_rot: 'Changed the What’s new rotation:', notice_revoke: 'Revoked the notice to', notice_revoke_one: 'Kept the notice from', notice_restore_one: 'Gave the notice back to', welcome_revoke_one: 'Kept the welcome message from', welcome_restore_one: 'Gave the welcome message back to', notice_mark_seen: 'Marked the notice seen for', welcome_mark_seen: 'Marked the welcome message seen for', notice_edit: 'Edited the notice to', notice_resend: 'Re-sent the notice to', welcome: 'Saved the welcome message for', welcome_off: 'Turned off the welcome message for', welcome_reset: 'Reset the welcome message for', user_reload: 'Refreshed the pages of', online: 'Came online', offline: 'Went offline',
+      audit_clear: 'Cleared the audit log', rename_user: 'Renamed', admin_add: 'Made an admin:', admin_remove: 'Removed admin:', user_picture: 'Changed the picture of', user_signout: 'Signed out everywhere:', user_block: 'Blocked', user_unblock: 'Unblocked', user_delete: 'Deleted the account of', message: 'Sent a message to', notice: 'Sent a notice to', news_post: 'Posted to What’s new:', news_edit: 'Edited a What’s new update:', news_remove: 'Removed a What’s new update:', news_rot: 'Changed the What’s new rotation:', notice_revoke: 'Revoked the notice to', notice_revoke_one: 'Kept the notice from', notice_restore_one: 'Gave the notice back to', welcome_revoke_one: 'Kept the welcome message from', welcome_restore_one: 'Gave the welcome message back to', notice_mark_seen: 'Marked the notice seen for', welcome_mark_seen: 'Marked the welcome message seen for', notice_edit: 'Edited the notice to', notice_resend: 'Re-sent the notice to', welcome: 'Saved the welcome message for', welcome_off: 'Turned off the welcome message for', welcome_reset: 'Reset the welcome message for', user_reload: 'Refreshed the pages of', online: 'Came online', offline: 'Went offline',
       party_create: 'Created the party', party_delete: 'Deleted the party', party_chat_clear: 'Cleared the chat of', party_add: 'Added a character to', party_npc: 'Added an NPC to', desk_open: 'Opened the DM’s Desk', party_hb: 'Added a homebrew item to', party_join: 'Joined the party', party_leave: 'Left the party', party_remove: 'Took a character out of', party_invite: 'Invited someone to', party_send: 'Used party actions in', party_access: 'Changed their access to', party_dm: 'Handed over' };
-    const AGROUPS = [['Signing in', ['signin', 'online', 'offline', 'account', 'signout']], ['Parties', ['party_create', 'party_delete', 'party_add', 'party_npc', 'party_join', 'party_leave', 'party_remove', 'party_invite', 'party_send', 'party_access', 'party_dm', 'party_chat_clear', 'desk_open', 'party_hb']], ['Characters', ['open', 'create', 'edit', 'delete', 'give', 'remove']], ['Sharing', ['share', 'unshare', 'access', 'leave']], ['Pictures', ['picture', 'user_picture']], ['Admin', ['rename_user', 'admin_add', 'admin_remove', 'user_signout', 'user_block', 'user_unblock', 'user_delete', 'message', 'notice', 'notice_resend', 'notice_revoke', 'notice_revoke_one', 'notice_restore_one', 'notice_mark_seen', 'notice_edit', 'welcome', 'welcome_off', 'welcome_reset', 'welcome_revoke_one', 'welcome_restore_one', 'welcome_mark_seen', 'news_post', 'news_edit', 'news_remove', 'news_rot', 'user_reload']]];
+    const AGROUPS = [['Signing in', ['signin', 'online', 'offline', 'account', 'signout']], ['Parties', ['party_create', 'party_delete', 'party_add', 'party_npc', 'party_join', 'party_leave', 'party_remove', 'party_invite', 'party_send', 'party_access', 'party_dm', 'party_chat_clear', 'desk_open', 'party_hb']], ['Characters', ['open', 'create', 'edit', 'delete', 'give', 'remove']], ['Sharing', ['share', 'unshare', 'access', 'leave']], ['Pictures', ['picture', 'user_picture']], ['Admin', ['audit_clear', 'rename_user', 'admin_add', 'admin_remove', 'user_signout', 'user_block', 'user_unblock', 'user_delete', 'message', 'notice', 'notice_resend', 'notice_revoke', 'notice_revoke_one', 'notice_restore_one', 'notice_mark_seen', 'notice_edit', 'welcome', 'welcome_off', 'welcome_reset', 'welcome_revoke_one', 'welcome_restore_one', 'welcome_mark_seen', 'news_post', 'news_edit', 'news_remove', 'news_rot', 'user_reload']]];
     const CHAR_ACTS = new Set(['open', 'create', 'edit', 'delete', 'give', 'remove', 'share', 'unshare', 'access', 'leave']);
     let AF = { who: [], act: [], q: '', from: '', to: '', range: '' }, AROWS, AOPEN = {} = [], ALAST = null, AFULL = false, APEOPLE = null;
     const auditCol = fs.collection('audit');
@@ -6233,7 +6233,14 @@ function hub(fs, auth, G, ctx) {
     const actLabel = k => ACTS[k].replace(/:$/, '');
     let ALIVE = null;
     async function tabAudit() {
-      const el = B(); HA().innerHTML = '';
+      const el = B(); HA().innerHTML = '<button class="adm-btn" id="au-wipe" title="Delete every event in the log">Clear log</button>';
+      HA().querySelector('#au-wipe').onclick = async () => {
+        if (!await ask('Clear the audit log?', 'Every event in the log is deleted for good. A single entry saying you cleared it is left behind.', 'Clear log', true)) return;
+        const b = HA().querySelector('#au-wipe'); if (b) { b.disabled = true; b.textContent = 'Clearing…'; }
+        let n = 0; try { for (let i = 0; i < 200; i++) { const snap = await auditCol.limit(400).get(); if (snap.empty) break; const bt = fs.batch(); snap.docs.forEach(d => bt.delete(d.ref)); await bt.commit(); n += snap.size; if (snap.size < 400) break; }
+          if (window.pgLog) pgLog('audit_clear', { detail: n + ' event' + (n === 1 ? '' : 's') }); toast('Audit log cleared.'); }
+        catch (x) { toast('Couldn\'t clear the log: ' + (x.message || x)); }
+        const b2 = HA().querySelector('#au-wipe'); if (b2) { b2.disabled = false; b2.textContent = 'Clear log'; } };
       if (!APEOPLE) { try { APEOPLE = docs(await usersCol.limit(500).get()).sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id)); APEOPLE.forEach(u => remember(u.id, u)); } catch (e) { APEOPLE = []; } }
       el.innerHTML = `<div class="adm-filters">${toolbar('au-q', 'Search activity, people or characters', AF.q)}<div class="adm-fsels" id="au-sels"></div></div><div id="au-l"><div class="sk-auto" data-k="adm-audit-t"></div></div>`;
       paintAuSels();
@@ -6247,13 +6254,13 @@ function hub(fs, auth, G, ctx) {
       const seen = new Set((AROWS || []).map(e => e.by)), people = (APEOPLE || []).filter(u => seen.has(u.id) || AF.who.includes(u.id));
       (AROWS || []).forEach(e => { if (!people.some(u => u.id === e.by)) people.push({ id: e.by, name: actorName(e) }); });
       people.sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
-      const actOpts = [['', 'All']].concat(AGROUPS.flatMap(([g, ks]) => [['g:' + esc(g), esc(g)]].concat(ks.map(a => [a, ' ' + esc(actLabel(a))]))));
+      const actOpts = [['', 'All but online / offline'], ['all', 'Everything']].concat(AGROUPS.flatMap(([g, ks]) => [['g:' + esc(g), esc(g)]].concat(ks.map(a => [a, ' ' + esc(actLabel(a))]))));
       box.innerHTML = fsel('au-range', 'Date', AU_RANGES.filter(r => r[0] !== 'custom').map(([v, t]) => [v, esc(t)]), AF.range === 'custom' ? '' : AF.range)
         + fsel('au-who', 'Actor', [['', 'Anyone']].concat(people.map(u => [esc(u.id), esc(u.name || u.id)])), AF.who[0] || '')
-        + fsel('au-act', 'Activity', actOpts, AF.act.length > 1 ? 'g:' + ((AGROUPS.find(([, ks]) => ks.length === AF.act.length && ks.every(a => AF.act.includes(a))) || [''])[0]) : AF.act[0] || '');
+        + fsel('au-act', 'Activity', actOpts, AF.act.length > 1 ? 'g:' + ((AGROUPS.find(([, ks]) => ks.length === AF.act.length && ks.every(a => AF.act.includes(a))) || [''])[0]) : AF.act[0] || (AF.all ? 'all' : ''));
       const on = (id, f) => { const sl = box.querySelector('#' + id); sl.onchange = () => { f(sl.value); sl.parentElement.classList.toggle('on', !!sl.value); paintAudit(); }; };
       on('au-range', v => { AF.range = v; }); on('au-who', v => { AF.who = v ? [v] : []; });
-      on('au-act', v => { AF.act = !v ? [] : v.startsWith('g:') ? ((AGROUPS.find(([g]) => g === v.slice(2)) || [0, []])[1]).slice() : [v]; }); }
+      on('au-act', v => { AF.all = v === 'all'; AF.act = !v || v === 'all' ? [] : v.startsWith('g:') ? ((AGROUPS.find(([g]) => g === v.slice(2)) || [0, []])[1]).slice() : [v]; }); }
     function paintPills() {
       const box = B().querySelector('#au-pills'); if (!box) return;
       const lab = { range: AF.range === 'custom' ? (AF.from || AF.to ? [AF.from || '…', AF.to || '…'].join(' – ') : 'Custom') : (AU_RANGES.find(r => r[0] === AF.range) || AU_RANGES[0])[1],
@@ -6303,7 +6310,8 @@ function hub(fs, auth, G, ctx) {
     const tabAuditList = () => paintAudit();
     function auFiltered() {
       const [from, to] = auRange(), qq = AF.q.trim().toLowerCase();
-      return AROWS.filter(e => (!AF.act.length || AF.act.includes(e.act)) && (!AF.who.length || AF.who.includes(e.by)) && (!from || e.at >= from) && (!to || e.at <= to)
+      // (coming online and going offline happen all the time, so they're left out unless asked for)
+      return AROWS.filter(e => (AF.act.length ? AF.act.includes(e.act) : AF.all || (e.act !== 'online' && e.act !== 'offline')) && (!AF.who.length || AF.who.includes(e.by)) && (!from || e.at >= from) && (!to || e.at <= to)
         && (!qq || [actorName(e), e.byName, e.by, e.tName, e.target, e.detail, ACTS[e.act]].some(x => String(x || '').toLowerCase().includes(qq))));
     }
     function actorName(e) { return (US[e.by] && US[e.by].name) || NAMES[e.by] || e.byName || e.by; } // (their name now: a rename shows on older entries too)
@@ -7601,10 +7609,12 @@ function partyModule(H) {
 })();
 
 // The logo goes back to the lobby from every page that shows it (in the lobby itself, its die still rolls); middle-click opens a new tab
-(() => { const LOGO = '.hub-logo, .dk-logo';
+(() => { const LOGO = '.hub-logo, .dk-brand'; /* (on the DM's Desk the whole name, die and title, takes you back) */
   const away = () => document.body && !document.body.classList.contains('hubbody') || !!document.querySelector('#wizard.open, .pw, .adm, #pg-desk');
   const go = (e, tab) => { const l = e.target.closest && e.target.closest(LOGO); if (!l || !window.PG_HUBU || !away()) return; e.preventDefault(); e.stopImmediatePropagation(); if (tab || e.ctrlKey || e.metaKey) window.open(window.PG_HUBU, '_blank'); else pgGo(window.PG_HUBU); };
   document.addEventListener('click', e => go(e, false), true);
+  // (a middle press on it would start the browser's scroll-anywhere mode instead, and then no click ever comes)
+  document.addEventListener('mousedown', e => { if (e.button === 1 && e.target.closest && e.target.closest(LOGO) && window.PG_HUBU && away()) e.preventDefault(); }, true);
   document.addEventListener('auxclick', e => { if (e.button === 1) go(e, true); }, true);
   document.addEventListener('mouseover', e => { const l = e.target.closest && e.target.closest(LOGO); if (l && away()) { l.style.cursor = 'pointer'; l.title = 'Back to the lobby'; } }, true);
 })();

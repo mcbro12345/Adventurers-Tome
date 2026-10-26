@@ -3045,12 +3045,12 @@ html.mobile #wizard .wz3 .wz3-fs { padding: 14px; } html.mobile #wizard .wz3 .wz
 /* folding a folder: the caret turns back as it starts closing */
 body.hubbody .hub-folder.hf-closing .hf-caret { transform: none !important; }
 /* The logo is a link (back to the lobby; in the lobby its die rolls): it grows a little under the mouse and shows the hand */
-:where(body.hubbody, #pg-load, body) :is(.hub-logo, .dk-logo):not(.pg-signin .hub-logo), :where(body.hubbody, #pg-load, body) :is(.hub-logo, .dk-logo):not(.pg-signin .hub-logo) * { cursor: pointer !important; }
-:where(body.hubbody, #pg-load, body) :is(.hub-logo, .dk-logo):not(.pg-signin .hub-logo) { transition: transform .18s cubic-bezier(.2,.8,.2,1), filter .18s; transform-origin: left center; }
-html:not(.mobile) :is(.hub-logo, .dk-logo):not(.pg-signin .hub-logo):hover { transform: scale(1.06); filter: brightness(1.08); }
-html:not(.mobile) :is(.hub-logo, .dk-logo):not(.pg-signin .hub-logo):active { transform: scale(1.02); }
+:where(body.hubbody, #pg-load, body) :is(.hub-logo, .dk-brand):not(.pg-signin .hub-logo), :where(body.hubbody, #pg-load, body) :is(.hub-logo, .dk-brand):not(.pg-signin .hub-logo) * { cursor: pointer !important; }
+:where(body.hubbody, #pg-load, body) :is(.hub-logo, .dk-brand):not(.pg-signin .hub-logo) { transition: transform .18s cubic-bezier(.2,.8,.2,1), filter .18s; transform-origin: left center; }
+html:not(.mobile) :is(.hub-logo, .dk-brand):not(.pg-signin .hub-logo):hover { transform: scale(1.06); filter: brightness(1.08); }
+html:not(.mobile) :is(.hub-logo, .dk-brand):not(.pg-signin .hub-logo):active { transform: scale(1.02); }
 .adm-brand .hub-logo { transform-origin: center; }
-@media (prefers-reduced-motion: reduce) { :is(.hub-logo, .dk-logo) { transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { :is(.hub-logo, .dk-brand) { transition: none !important; } }
 html:not(.mobile) .dk-logo .hub-logo:hover { transform: none; filter: none; }
 /* in the lobby itself the logo isn't a link anywhere, so it doesn't grow or show the hand */
 html:not(.mobile) body.hubbody:not(.adminbody):not(:has(#wizard.open, .pw, .adm, #pg-desk)) .hub-logo:is(:hover, :active) { transform: none; filter: none; }
