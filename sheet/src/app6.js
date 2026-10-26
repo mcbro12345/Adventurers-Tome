@@ -34,7 +34,7 @@ function fitNameFont0(el) {
   ctx.font = `${cs.fontWeight} ${base}px ${cs.fontFamily}`;
   const tw = ctx.measureText(el.value || el.placeholder || '').width;
   if (tw > w) { let fs = Math.max(10, Math.floor(base * w / tw)); el.style.fontSize = fs + 'px'; while (el.scrollWidth > el.clientWidth && fs > 10) el.style.fontSize = --fs + 'px'; }
-  el.title = el.value || '';
+  { const tt = el.value || ''; if (el.title !== tt) el.title = tt; } // (written only when it changes: see rmCls)
 }
 
 // ---------- Settings ----------
@@ -71,6 +71,7 @@ function openSettings(tab) {
       <p class="hint" style="margin:4px 0 0">Copy macros for every attack, save, skill and spell.</p>
       ${!window.SHEET_PAGES ? '' : (() => { const ok = r20AuraOK(), why = !R20.ok ? 'Needs the Roll20 companion extension (and your game open in Roll20).' : !ok ? 'Download the extension again (button above) to get this — your copy is older.' : 'Your auras (like Aura of Protection) go on and off by themselves as party members’ tokens move in and out of range. Each person is still asked first, with how far apart you are. Tokens are matched to characters by name.';
         return `<label class="setrow r20aura${ok ? '' : ' dis'}"${ok ? '' : ` title="${esc(why)}"`}><input type="checkbox" data-set="r20auras"${ok && ST('r20auras') ? ' checked' : ''}${ok ? '' : ' disabled'}><span><b>Auras follow Roll20 tokens</b><small>${esc(why)}</small></span></label>`; })()}
+      ${row('Roll results', opt('rollFade', [[0, 'Stay until I close them'], [5, 'Fade after 5 seconds'], [10, 'Fade after 10 seconds'], [15, 'Fade after 15 seconds'], [30, 'Fade after 30 seconds'], [60, 'Fade after 1 minute']]), 'The card that shows each roll and its math')}
     `)}
     ${pane('rules', `
       ${row('Exhaustion', opt('exhaustionRule', [['2014', '2014 table'], ['2024', '2024 rule']]), exModern() ? '−2 to d20s and −5 ft per level' : 'Effects stack by level')}
@@ -505,7 +506,7 @@ function fitSettingsHeight(fresh) {
   let h = Math.ceil(Math.min(cap, Math.max(chrome + tallest + 4, m._sethMin || 0))); if (!fresh && m._sethMin && Math.abs(h - m._sethMin) <= 3) h = m._sethMin;   // a pixel or two of re-measuring isn't worth a nudge
   m.style.setProperty('--seth', h + 'px'); m._sethMin = h;
   // a row appearing or going (e.g. the 2024 exhaustion rule adds one) re-fits the window
-  if (typeof ResizeObserver === 'function') { if (!m._setRO) m._setRO = new ResizeObserver(() => { clearTimeout(m._setRT); m._setRT = setTimeout(() => { if (settingsOpen()) fitSettingsHeight(); }, 80); }); m._setRO.disconnect(); $$('.setx .stpane').forEach(p => m._setRO.observe(p)); }
+  if (typeof ResizeObserver === 'function') { if (!m._setRO) m._setRO = new ResizeObserver(es => { let grew = false; es.forEach(en => { const h = Math.round(en.contentRect.height), was = en.target._roH; en.target._roH = h; if (was != null && Math.abs(was - h) > 2) grew = true; }); if (!grew) return; clearTimeout(m._setRT); m._setRT = setTimeout(() => { if (settingsOpen()) fitSettingsHeight(); }, 80); }); m._setRO.disconnect(); $$('.setx .stpane').forEach(p => m._setRO.observe(p)); }
   // whatever the measuring missed (padding, margins) shows up as scroll on the open tab: add it on
   requestAnimationFrame(() => { const x = $('.setx'); if (!x || !m.isConnected) return; const more = x.scrollHeight - x.clientHeight; if (more > 3 || (more > 0 && fresh)) { const h2 = Math.ceil(Math.min(cap, m.getBoundingClientRect().height + more + 2)); m.style.setProperty('--seth', h2 + 'px'); m._sethMin = Math.max(m._sethMin || 0, h2); } });
 }
@@ -814,18 +815,21 @@ window.addEventListener('resize', () => { SUB_K = ''; fitSubtitle(); });
 const TB_FOLD = ['edit', 'history', ['redo', 'undo'], 'settings', 'save'];
 // Sheet tabs on a computer: each takes the room its name needs; when they don't all fit they tighten up, then drop their
 // icons, before any name gets cut short
-function fitTabs() { const t = $('#tabs'); if (!t) return; t.classList.remove('tabs-tight', 'tabs-noicon', 'tabs-scroll'); if (isMobile()) return;
+// Takes classes off only when they're there: even a removal that changes nothing rewrites the element, and on an iPhone a
+// page rewriting itself while it scrolls (the browser bars sliding fire "resize") made the next tap count as a hover.
+const rmCls = (el, ...cs) => { if (el) cs.forEach(c => { if (el.classList.contains(c)) el.classList.remove(c); }); };
+function fitTabs() { const t = $('#tabs'); if (!t) return; rmCls(t, 'tabs-tight', 'tabs-noicon', 'tabs-scroll'); if (isMobile()) return;
   const cut = () => [...t.querySelectorAll('.tlabel')].some(l => l.offsetParent && l.scrollWidth > l.clientWidth + 1);
   if (!cut()) return; t.classList.add('tabs-tight'); if (!cut()) return; t.classList.add('tabs-noicon'); if (!cut()) return; t.classList.add('tabs-scroll'); const on = t.querySelector('.tab.on'); if (on) on.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
 // The Inspiration pill in the top bar's corner keeps clear of the Tome button and the faces beside it: when they'd meet,
 // it drops its label (just − number +), and the row's room is set to whatever the pill actually takes.
 function inspDockFit() {
   const d = $('.toolbar > .insp-dock'), row = $('.toolbar > .pg-hubrow'); if (!d) return;
-  d.classList.remove('tight'); if (!row) return;
+  rmCls(d, 'tight'); if (!row) return;
   const kids = [...row.children].filter(k => k.offsetParent), used = () => kids.reduce((a, k) => Math.max(a, k.getBoundingClientRect().right), row.getBoundingClientRect().left);
   const room = () => d.getBoundingClientRect().left - 10;
   if (used() > room()) d.classList.add('tight');
-  row.style.setProperty('--insp-w', Math.ceil(d.getBoundingClientRect().width + 10) + 'px');
+  { const v = Math.ceil(d.getBoundingClientRect().width + 10) + 'px'; if (row.style.getPropertyValue('--insp-w') !== v) row.style.setProperty('--insp-w', v); }
 }
 function fitToolbar() {
   fitTabs();
@@ -834,7 +838,7 @@ function fitToolbar() {
   if (typeof window.pgHubRow === 'function') try { window.pgHubRow(); } catch (e) {}
   if (typeof window.__pwFit === 'function') try { window.__pwFit(); } catch (e) {} // (and the portrait beside it at its size)
   inspDockFit();
-  tb.classList.remove('tb-compact', 'tb-wrap'); $$('.toolbar .nolbl').forEach(k => k.classList.remove('nolbl'));
+  rmCls(tb, 'tb-compact', 'tb-wrap'); $$('.toolbar .nolbl').forEach(k => k.classList.remove('nolbl'));
   if (isMobile()) return;
   const kids = [...tb.children].filter(k => k.offsetParent !== null && !k.classList.contains('pg-hubrow')); if (kids.length < 2) return; // (the site's own row above the buttons doesn't count)
   const tight = () => { const b0 = kids[0].getBoundingClientRect().bottom; return kids.some(k => k.getBoundingClientRect().top >= b0 - 2) || tb.scrollWidth > tb.clientWidth + 2; };

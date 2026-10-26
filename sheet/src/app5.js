@@ -200,7 +200,7 @@ function chField(t) {
   if (t.closest('#grantm')) { renderGrantPicker(); return; }
   if (t.closest('#pendm')) { renderPending(); return; }
   if (t.closest('#rcmodal')) { RC.kind === 'race' ? renderRaceChange() : renderBgChange(); return; }
-  if (t.closest('#wizard')) { const sc = $('#wizard .wz-body') ? $('#wizard .wz-body').scrollTop : 0; renderWizard(); if ($('#wizard .wz-body')) $('#wizard .wz-body').scrollTop = sc; } else if (LV) renderLevelUp(); else if (FEATM) renderFeatModal();
+  if (t.closest('#wizard')) { const sc = wzSc() ? wzSc().scrollTop : 0; renderWizard(); if (wzSc()) wzSc().scrollTop = sc; } else if (LV) renderLevelUp(); else if (FEATM) renderFeatModal();
 }
 const ansList = (CH, id) => (CH[id] || []).filter(Boolean);
 // Apply a feat to S (ability increases, proficiencies)
@@ -378,8 +378,8 @@ function renderLevelUp() {
   const mcReq = k => (CL[k].mc && CL[k].mc.req || []).map(r => AB3[r[0]] + ' ' + r[1]).join(CL[k].mc && CL[k].mc.reqAny ? ' or ' : ' & ');
   $('#modal-body').innerHTML = `<div class="lvx"><h3>Level Up</h3><p class="lvx-sub">Character level ${totalLevel()} → <b>${totalLevel() + 1}</b></p>
     <p class="lvx-h">Advance a class</p>
-    <div class="lvx-cards">${rows.map(r => `<button type="button" class="lvx-card${LV.cls === r.key && !LV.extraSub ? ' sel' : ''}" data-act="lvcls" data-k="${r.key}"><span class="lvx-ic">${wz3ClassIcon(r.key)}</span><b>${esc(CL[r.key].name)}</b><span class="lvx-t">Level ${r.level} → ${N(r.level) + 1}</span></button>`).join('')}</div>
-    ${others.length ? `<details class="lvx-mc"${t.isNew ? ' open' : ''}><summary>Multiclass into another class</summary><div class="lvx-cards sm">${others.map(k => `<button type="button" class="lvx-card${LV.cls === k ? ' sel' : ''}${mcOK(k) ? '' : ' warn'}" data-lvnew="${k}"><span class="lvx-ic">${wz3ClassIcon(k)}</span><b>${esc(CL[k].name)}</b><span class="lvx-t">${mcOK(k) ? 'Requirements met' : 'Needs ' + esc(mcReq(k))}</span></button>`).join('')}</div></details>` : ''}
+    <div class="wz3-pick"><div class="crlist wz3-list lvx-list">${rows.map(r => { const on = LV.cls === r.key && !LV.extraSub; return `<label class="crrow sel wz3-row wic${on ? ' on' : ''}"><input type="radio" name="lvxcls" data-act="lvcls" data-k="${r.key}"${on ? ' checked' : ''}><span class="wz3-cic">${wz3ClassIcon(r.key)}</span><div><b>${esc(CL[r.key].name)}</b> <span class="hint">Level ${r.level} → ${N(r.level) + 1}</span><div class="hint">d${CL[r.key].hd} Hit Die${r.sub && CL[r.key].subclasses[r.sub] ? ' · ' + esc(CL[r.key].subclasses[r.sub].name) : ''}</div></div></label>`; }).join('')}</div></div>
+    ${others.length ? `<details class="lvx-mc"${t.isNew ? ' open' : ''}><summary>Multiclass into another class</summary><div class="wz3-pick"><div class="crlist wz3-list lvx-list">${others.map(k => { const on = LV.cls === k; return `<label class="crrow sel wz3-row wic${on ? ' on' : ''}${mcOK(k) ? '' : ' warn'}"><input type="radio" name="lvxcls" data-lvnew="${k}"${on ? ' checked' : ''}><span class="wz3-cic">${wz3ClassIcon(k)}</span><div><b>${esc(CL[k].name)}</b> <span class="hint">${esc(DND.sources[CL[k].src] || CL[k].src || '')}</span><div class="hint${mcOK(k) ? '' : ' lvx-need'}">${mcOK(k) ? 'Requirements met' : 'Needs ' + esc(mcReq(k))} · d${CL[k].hd} Hit Die</div></div></label>`; }).join('')}</div></div></details>` : ''}
     <select class="f lvx-hid" id="lvNew"><option value=""></option>${others.map(k => `<option value="${k}"${LV.cls === k ? ' selected' : ''}></option>`).join('')}${extraOpts}</select>
     ${extraOpts ? `<label class="lvx-extra"><span class="lbl">Homebrew: another subclass</span><select class="f" id="lvExtra"><option value="">—</option>${extraOpts}</select></label>` : ''}
     ${body}
@@ -656,6 +656,9 @@ function kitItems() {
   const c = CL[(wzClassRows()[0] || {}).key], b = DND.backgrounds[W.bg];
   return (c ? c.kit.map(k => ['class', k]) : []).concat(b && b.equip ? b.equip.map(k => ['bg', k]) : []);
 }
+// What scrolls in the creation window: its body on a computer; on a phone the whole window scrolls (the header goes up
+// out of the way and the steps get the full height), so it's the window's box
+function wzSc() { const b = $('#wizard .wz-body'); if (!b) return null; return getComputedStyle(b).overflowY === 'visible' ? ($('#wizard .wz-box') || b) : b; }
 function renderWizard() {
   if (!W) return;
   // Redrawing the same step (after any pick) never moves your scroll: remember every scrolling box and put it back
@@ -828,7 +831,26 @@ function wz3Hero() {
     <div class="wz3-who"><b>${esc(W.name || 'Your character')}</b><span>${esc([race, cls].filter(Boolean).join(' · ') || 'Nothing picked yet')}</span></div>
     ${fin ? `<div class="wz3-ab">${AB.map(a => `<span>${AB3[a]}<b>${fin[a]}</b></span>`).join('')}</div>` : ''}</div>`;
 }
+// Races, variants and classes: the same searchable list as backgrounds and feats (one row each with what it gives;
+// tick one). The dropdown underneath still holds the answer.
+const wzAsiTxt = a => a === 'flex' ? 'Ability increases of your choice' : a && typeof a === 'object' ? Object.entries(a).filter(([, v]) => v).map(([k, v]) => (v > 0 ? '+' : '') + v + ' ' + String(k).toUpperCase()).join(', ') : '';
+function wz3Rows(kind) {
+  let items = [], cur = '', label = '', name = 'wz3' + kind;
+  if (kind === 'race') { cur = W.race; label = 'races'; DND.raceGroups.forEach(([g, ks]) => ks.filter(k => DND.races[k]).sort((a, b) => abc(DND.races[a].name, DND.races[b].name)).forEach(k => { const r = DND.races[k];
+    items.push({ k, g, name: r.name, src: r.src, l1: [r.size || 'Medium', (r.speed || 30) + ' ft', r.darkvision ? 'darkvision ' + r.darkvision + ' ft' : '', r.fly ? 'fly ' + r.fly + ' ft' : '', wzAsiTxt(r.asi)].filter(Boolean).join(' · '),
+      l2: r.subraces ? Object.keys(r.subraces).length + ' variants to pick from' : (r.traits || []).map(t => t[0]).join(', ') }); })); }
+  if (kind === 'sub') { const x = wzRace(); cur = W.sub; label = 'variants'; if (x && x.r.subraces) Object.entries(x.r.subraces).sort(([, a], [, b]) => abc(a.name, b.name)).forEach(([k, v]) =>
+    items.push({ k, g: '', name: v.name, src: v.src, l1: [v.speed ? 'speed ' + v.speed + ' ft' : '', v.darkvision ? 'darkvision ' + v.darkvision + ' ft' : '', wzAsiTxt(v.asi)].filter(Boolean).join(' · '), l2: (v.traits || []).map(t => t[0]).concat((v.spells || []).map(z => z[1])).join(', ') })); }
+  if (kind === 'class') { cur = W.classes && W.classes[0] ? W.classes[0].key : ''; label = 'classes'; DND.classOrder.forEach(k => { const c = CL[k];
+    items.push({ k, g: '', name: c.name, src: c.src, ic: wz3ClassIcon(k), l1: ['d' + c.hd + ' Hit Die', 'saves ' + c.saves.map(a => AB3[a]).join(', '), c.sub ? c.sub.label + ' at level ' + c.sub.level : ''].filter(Boolean).join(' · '), l2: [c.armor, c.weapons].filter(Boolean).join(' · ') }); }); }
+  if (!items.length) return '';
+  let lastG = null;
+  const rows = items.map(it => { const head = it.g && it.g !== lastG ? `<p class="wz3-g">${esc(it.g)}</p>` : ''; lastG = it.g; const on = it.k === cur;
+    return `${head}<label class="crrow sel wz3-row${on ? ' on' : ''}${it.ic ? ' wic' : ''}" data-q="${esc((it.name + ' ' + it.l1 + ' ' + it.l2).toLowerCase())}"><input type="radio" name="${name}" data-pick="${kind}" data-v="${esc(it.k)}"${on ? ' checked' : ''}>${it.ic ? `<span class="wz3-cic">${it.ic}</span>` : ''}<div><b>${esc(it.name)}</b>${it.src ? ` <span class="hint">${esc(DND.sources[it.src] || it.src)}</span>` : ''}${it.l1 ? `<div class="hint">${esc(it.l1)}</div>` : ''}${it.l2 ? `<div class="hint">${esc(it.l2)}</div>` : ''}</div></label>`; }).join('');
+  return `<div class="wz3-pick">${items.length > 8 ? `<input class="f wz3-q" data-wz3q placeholder="Search ${items.length} ${label}" autocomplete="off" aria-label="Search ${label}">` : ''}<div class="crlist wz3-list${cur ? ' has' : ''}">${rows}</div></div>`;
+}
 function wz3Cards(kind) {
+  if (kind === 'race' || kind === 'sub' || kind === 'class') return wz3Rows(kind);
   let items = [], cur = '', label = '';
   if (kind === 'race') { cur = W.race; label = 'races'; DND.raceGroups.forEach(([g, ks]) => ks.filter(k => DND.races[k]).sort((a, b) => abc(DND.races[a].name, DND.races[b].name)).forEach(k => { const r = DND.races[k]; items.push({ k, g, name: r.name, tags: [r.size || 'Medium', (r.speed || 30) + ' ft'].concat(r.src && r.src !== 'PHB' ? [r.src] : []) }); })); }
   if (kind === 'sub') { const x = wzRace(); cur = W.sub; label = 'variants'; if (x && x.r.subraces) Object.entries(x.r.subraces).sort(([, a], [, b]) => abc(a.name, b.name)).forEach(([k, v]) => items.push({ k, g: '', name: v.name, tags: [v.speed ? v.speed + ' ft' : '', v.darkvision ? 'darkvision' : '', v.src && v.src !== 'PHB' ? v.src : ''].filter(Boolean) })); }
@@ -876,7 +898,7 @@ function wz3Keep(box, key) {
 }
 // After a pick redraws the window, keep the list you were using exactly where it was on screen
 function wz3Commit(box, fn) {
-  const key = box.dataset.key, sc = box.closest('#modal-body') || box.closest('.wz-body'), top = box.getBoundingClientRect().top;
+  const key = box.dataset.key, sc = box.closest('#modal-body') || (box.closest('#wizard') ? wzSc() : null), top = box.getBoundingClientRect().top;
   fn();
   const fix = () => { const nb = key && $$('.wz3-pick').find(x => x.dataset.key === key); if (nb && sc && sc.isConnected) sc.scrollTop += nb.getBoundingClientRect().top - top; };
   fix(); requestAnimationFrame(fix);
@@ -1054,7 +1076,7 @@ function sheetFeatOK(pre) {
 function asiModeClick(b) {
   const inWz = !!b.closest('#wizard'), inP = !!b.closest('#pendm') && PEND, CH = inWz ? W.ans : inP ? PEND.ans : LV ? LV.ans : null; if (!CH) return;
   CH[b.dataset.asimode] = [b.dataset.v];
-  if (inP) renderPending(); else if (inWz) { const sc = $('#wizard .wz-body').scrollTop; renderWizard(); $('#wizard .wz-body').scrollTop = sc; } else renderLevelUp();
+  if (inP) renderPending(); else if (inWz) { const sc = wzSc().scrollTop; renderWizard(); wzSc().scrollTop = sc; } else renderLevelUp();
 }
 function pbStep(a, d) {
   const cur = wzBaseScore(a), nv = Math.max(8, Math.min(15, cur + d));
@@ -1076,7 +1098,7 @@ function wizField(e) {
     return;
   }
   if (d.wzq) { W['q' + d.wzq] = t.value; filterWzSpells(t); return; }
-  if (d.wzsp) { const L = W.spells[d.wzsp] = W.spells[d.wzsp] || []; if (t.checked) L.push(t.value); else L.splice(L.indexOf(t.value), 1); t.closest('.crrow').classList.toggle('on', t.checked); const sc = $('#wizard .wz-body').scrollTop, ls = $$('#wizard .crlist').map(x => x.scrollTop); renderWizard(); $('#wizard .wz-body').scrollTop = sc; $$('#wizard .crlist').forEach((x, k) => x.scrollTop = ls[k] || 0); return; }
+  if (d.wzsp) { const L = W.spells[d.wzsp] = W.spells[d.wzsp] || []; if (t.checked) L.push(t.value); else L.splice(L.indexOf(t.value), 1); t.closest('.crrow').classList.toggle('on', t.checked); const sc = wzSc().scrollTop, ls = $$('#wizard .crlist').map(x => x.scrollTop); renderWizard(); wzSc().scrollTop = sc; $$('#wizard .crlist').forEach((x, k) => x.scrollTop = ls[k] || 0); return; }
   if (d.wzkit !== undefined) { W.kitOff[d.wzkit] = !t.checked; return; }
 }
 function wizClick(e) {
@@ -1101,9 +1123,9 @@ function wizClick(e) {
     case 'rollhp': W.hpRolls = []; wzClassRows().forEach((r, i) => { const c = CL[r.key]; for (let k = i === 0 ? 1 : 0; k < N(r.level); k++) W.hpRolls.push(rollExpr('1d' + c.hd).total); }); break;
     case 'create': return buildCharacter();
     case 'pb': return pbStep(b.dataset.a, N(b.dataset.d));
-    case 'splv': W['lv' + b.dataset.k] = N(b.dataset.v); W['q' + b.dataset.k + 's'] = ''; { const sc = $('#wizard .wz-body').scrollTop; renderWizard(); $('#wizard .wz-body').scrollTop = sc; } return;
+    case 'splv': W['lv' + b.dataset.k] = N(b.dataset.v); W['q' + b.dataset.k + 's'] = ''; { const sc = wzSc().scrollTop; renderWizard(); wzSc().scrollTop = sc; } return;
   }
-  renderWizard(); $('#wizard .wz-body').scrollTop = 0;
+  renderWizard(); wzSc().scrollTop = 0;
 }
 // What each equipment pack holds (PHB / VRGR). Picking a pack gives you these items, not a "pack" item.
 const PACKS = {

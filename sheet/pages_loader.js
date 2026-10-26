@@ -11,7 +11,7 @@
 // pointer goes in between.
 (() => { if (window.__pgGrab) return; window.__pgGrab = 1;
   const GRIP = '.hr-grip, .nw-grip, .tgrip, .idrag, .sdrag, .bdrag, .gdrag, .mgrip, .pbar .grip, .pgph-th, .pg-sb-th, [data-mgrip], body.editing .tabwrap';
-  const off = () => document.documentElement.classList.remove('pg-grabbing');
+  const off = () => { const c = document.documentElement.classList; if (c.contains('pg-grabbing')) c.remove('pg-grabbing'); }; // (only when it's there: rewriting the page's class on every release made iPhones treat taps as hovers)
   addEventListener('pointerdown', e => { if (e.button > 0) return; const g = e.target.closest && e.target.closest(GRIP); if (g) document.documentElement.classList.add('pg-grabbing'); }, true);
   addEventListener('pointerup', off, true); addEventListener('pointercancel', off, true); addEventListener('blur', off); })();
 // Buttons act on the press (registered first so the release that follows is dropped before anything else sees it)
@@ -1083,7 +1083,7 @@ function wireDie(root) {
   // tab. When an admin marks one fixed, its sender gets a note in the corner — on whatever page is open, right away or
   // the next time they open the site.
   const bugsCol = fs.collection('bugs');
-  window.pgBugReport = () => { if (document.querySelector('.pg-out')) return; const m = document.createElement('div'); m.className = 'pg-out'; pgOutFade(m);
+  window.pgBugReport = () => { if (document.querySelector('.pg-out')) return; const m = document.createElement('div'); m.className = 'pg-out'; m.dataset.k = 'bug'; pgOutFade(m);
     m.innerHTML = `<div class="pg-out-card pg-bug-card" role="dialog" aria-modal="true" aria-labelledby="pg-bug-h"><h2 id="pg-bug-h">Bugs, ideas &amp; feedback</h2><p>Something not working right? Want a new feature? Or anything else you want to say about the site, good or bad? Tell us here. You’ll get a note when we get to it.</p>
       <label class="pg-bug-l">Summary<input class="pg-bug-s" maxlength="120" placeholder="e.g. Spell slots don’t come back, or: add a map tool" autocomplete="off"></label>
       <label class="pg-bug-l">Details<textarea class="pg-bug-d" rows="6" placeholder="For a bug: what you did, what you expected, and what happened instead. For an idea: what you’d like and why."></textarea></label>
@@ -1133,7 +1133,7 @@ function wireDie(root) {
         return hbCol.add({ item: JSON.stringify(it), name, at: Date.now(), by: EMAIL }).then(r => { pgLog('party_hb', { target: pid, tName: party.name, detail: name }); return r.id; }); },
       remove: id => hbCol.doc(String(id)).delete() } : null;
     return Object.assign({ fs, EMAIL, party, back: { href: URLS.parties(G), label: 'Parties' },
-      acct: { html: () => { const a = avaOf(ME); return avaHTML((ME && ME.name) || EMAIL.split('@')[0], EMAIL, a.pic, '', '', a); }, open: b => { if (window.pgAcctMenu) window.pgAcctMenu(b, true); else pgGo(URLS.hub(G)); } },
+      acct: { html: () => { const a = avaOf(ME); return avaHTML((ME && ME.name) || EMAIL.split('@')[0], EMAIL, a.pic, '', '', a); }, open: b => { if (window.pgAcctMenu) window.pgAcctMenu(b, !TOUCH && innerWidth > 900); else pgGo(URLS.hub(G)); } },
       logo: (() => { let first = true; return { html: () => logoHTML(), wire: el => { wireDie(el); if (!first && !PG_DIE.rolled && !PG_DIE.rolling) { PG_DIE.rolling = false; rollDie(el); } if (first) { first = false; const go = () => { const d = document.querySelector('.dk-logo'); if (!d) return; PG_DIE.rolling = false; rollDie(d); }; setTimeout(go, 300); /* (the party page's own hidden logo may be mid-roll; the desk's starts straight away anyway) */ } } }; })() /* the desk's die rolls once when it opens, like the lobby's */, bugReport: () => window.pgBugReport && window.pgBugReport(), partyHB, makeNpc: party ? () => { try { sessionStorage.setItem('pg-join', JSON.stringify({ p: pid, t: '', name: party.name, at: Date.now(), npc: true })); } catch (e) {} pgGo(URLS.newChar(G)); } : null }, extra || {}); };
   if (DESKQ && G) { lsSet(LAST_G, G);
     const pid = clean(Q.get('for') || '');
@@ -4342,3 +4342,7 @@ function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduc
   const ps = [...document.querySelectorAll('#hub > .hub-head, #hub .hd-sec, #hub > .hub-list:not(.hd2-main)')].filter(x => x.getClientRects().length);
   ps.forEach((x, k) => { x.style.animationDelay = Math.min(k, 6) * 70 + 'ms'; x.classList.remove('pg-panin'); void x.offsetWidth; x.classList.add('pg-panin');
     x.addEventListener('animationend', () => { x.classList.remove('pg-panin'); x.style.animationDelay = ''; }, { once: true }); }); }
+
+
+
+

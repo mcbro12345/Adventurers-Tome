@@ -56,7 +56,7 @@ function rollExpr0(expr, opts) {
         return r;
       }
       if (res.src === 'sheetroll') return { total: N(res.total), detail: 'Rolled by the sheet: ' + res.detail, d20: res.d20 != null ? N(res.d20) : null };
-      if (res.src === 'sheet') return { total: N(res.total), detail: 'Sheet (Roll20 didn\'t answer): ' + res.detail, d20: res.d20 != null ? N(res.d20) : null };
+      if (res.src === 'sheet') return Object.assign({}, res.loc || {}, { total: N(res.total), detail: 'Sheet (Roll20 didn\'t answer): ' + res.detail, d20: res.d20 != null ? N(res.d20) : null });
       return { total: N(res.total), detail: `${prettyExpr(expr)} = ${N(res.total)} (${res.src === 'roll20' ? 'Roll20' : 'your roll'})`, d20: res.d20 != null ? N(res.d20) : null };
     }
     throw new NeedRoll({ expr: String(expr), opts, label: opts.label || ROLL_LBL || pendingLabel || 'Roll' });
@@ -86,7 +86,7 @@ async function getRoll(req) {
     if (r && !r.error) { R20.failAt = 0; return Object.assign({ src: 'roll20' }, r); }
     if (!recent) { R20.failAt = Date.now(); R20.failWhy = r && r.error || 'no answer'; toast(`<b>Your computer didn't answer</b> — the sheet rolled instead.<div class="det">Keep this character open on your computer with “Roll20 rolls for me” on and your Roll20 game open.</div>`, 'fumble', 8000); }
     const loc = rollLocal(req.expr, req.opts || {});
-    return { src: 'sheet', total: loc.total, d20: loc.d20, detail: loc.detail };
+    return { src: 'sheet', total: loc.total, d20: loc.d20, detail: loc.detail, loc };
   }
   if (diceMode() === 'roll20') {
     // If Roll20 just failed, don't wait again for every roll of the same action: roll here straight away.
@@ -96,7 +96,7 @@ async function getRoll(req) {
     // Fallback: the sheet rolls it, so play never stalls.
     if (!recent) { R20.failAt = Date.now(); R20.failWhy = r && r.error || 'not connected'; toast(`<b>Roll20 didn't answer</b> — the sheet rolled instead.<div class="det">${esc(R20.failWhy)}. Check that your Roll20 game tab is open.</div>`, 'fumble', 7000); }
     const loc = rollLocal(req.expr, req.opts || {});
-    return { src: 'sheet', total: loc.total, d20: loc.d20, detail: loc.detail };
+    return { src: 'sheet', total: loc.total, d20: loc.d20, detail: loc.detail, loc };
   }
   return askRoll(req);
 }
@@ -244,7 +244,8 @@ function toast(html, cls = '', ms = 4500, action) {
   const t = document.createElement('div');
   t.className = 'toast ' + cls; t.innerHTML = /^\s*<(b class="total"|div)/.test(html) ? html : '<div>' + html + '</div>';
   { const acts = [].concat(action || []).filter(Boolean); if (acts.length) { const box = document.createElement('div'); box.className = 't-acts'; acts.forEach(ac => { const b = document.createElement('button'); b.textContent = ac.label; b.onclick = () => { rollGate(ac.fn); t.remove(); }; box.appendChild(b); }); t.appendChild(box); } }
-  t.addEventListener('click', ev => { if (ev.target.tagName !== 'BUTTON') t.remove(); });
+  // (a roll's card stays put until its × is pressed, so a stray tap can't lose it mid-argument; other notes go on a tap)
+  if (!/^\s*<(b class="total"|div class="rc-multi")/.test(html)) t.addEventListener('click', ev => { if (ev.target.tagName !== 'BUTTON') t.remove(); });
   // Dice results get their own big card in the middle of the screen; everything else stays in the corner.
   const isRoll = /^\s*<(b class="total"|div class="rc-multi")/.test(html);
   let box = $('#toasts');
@@ -255,18 +256,42 @@ function toast(html, cls = '', ms = 4500, action) {
   if (isRoll) box.prepend(t); else box.appendChild(t);
   const cap = isRoll ? (document.documentElement.classList.contains('mobile') ? 1 : 2) : document.documentElement.classList.contains('mobile') ? 2 : 5;
   if (isRoll) {
-    // Each die is behind the 🎲 button: the card stays simple, but you can check for 1s, 20s and rerolls.
-    if (t.querySelector('.det, .rc-math')) { const db = document.createElement('button'); db.className = 'rc-dice'; db.title = 'Show the math'; db.textContent = '🎲'; db.onclick = ev => { ev.stopPropagation(); const on = t.classList.toggle('showdet'); clearTimeout(t._tm); if (!on) t._tm = setTimeout(() => t.remove(), 4000); }; t.appendChild(db); }
-    { const btns = [...t.children].filter(c => c.tagName === 'BUTTON'); if (btns.length > 1) { const w = document.createElement('div'); w.className = 'rc-btns'; btns.forEach(b => { b.style.marginLeft = ''; w.appendChild(b); }); t.appendChild(w); } }
-    while (box.children.length > cap) box.lastChild.remove(); t._tm = setTimeout(() => t.remove(), ms); return;
+    // The math is always on the card (no button to open it), laid out under the numbers: one column per part (to hit,
+    // damage…). The card stays until its × is pressed — or until a newer roll pushes it off the stack.
+    t._at = Date.now(); rcDress(t);
+    // Settings → Dice can make cards fade on their own after a while (it waits while the pointer rests on the card)
+    { const sec = N(ST('rollFade')); if (sec > 0) { const go = () => { clearTimeout(t._tm); t._tm = setTimeout(() => rcClose(t), sec * 1000); }; go();
+      t.addEventListener('mouseenter', () => clearTimeout(t._tm)); t.addEventListener('mouseleave', go); t.addEventListener('touchstart', go, { passive: true }); } }
+    while (box.children.length > cap) box.lastChild.remove(); return;
   }
   while (box.children.length > cap) box.firstChild.remove();
   setTimeout(() => t.remove(), ms);
 }
+function rcDress(t) {
+  const body = t.querySelector(':scope > div:not(.rc-dmg):not(.t-acts)');
+  if (body && !body.querySelector('.rc-name')) { const f = body.firstElementChild; if (f && f.tagName === 'DIV' && !f.className) f.classList.add('rc-name'); }
+  if (body) body.classList.add('rc-body');
+  const m = t.querySelector('.rc-math');
+  if (m) { t.classList.add('has-math');
+    // each part of the sum gets its own block (its heading, its rows, its total)
+    { const secs = []; let cur = null; [...m.children].forEach(c => { if (c.classList.contains('rm-h') || !cur) { cur = document.createElement('div'); cur.className = 'rm-sec'; secs.push(cur); } cur.appendChild(c); }); m.innerHTML = ''; secs.forEach(x => m.appendChild(x)); m.classList.toggle('two', secs.length > 1); }
+    t.appendChild(m); }
+  t.querySelectorAll('.det').forEach(d => { if (!d.textContent.trim()) d.remove(); });
+  const acts = t.querySelector(':scope > .t-acts'); if (acts) t.appendChild(acts);
+  const x = document.createElement('button'); x.className = 'rc-x'; x.type = 'button'; x.title = 'Close'; x.setAttribute('aria-label', 'Close');
+  x.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  x.onclick = ev => { ev.stopPropagation(); rcClose(t); }; t.appendChild(x);
+}
+function rcClose(t) { if (!t || t.classList.contains('rc-out')) return; t.classList.add('rc-out'); setTimeout(() => t.remove(), 180); }
+// Esc closes the newest roll card (when no window is open)
+document.addEventListener('keydown', e => { if (e.key !== 'Escape' || document.querySelector('#modal.open, .wizard.open, .hub-modal.on, .pg-out')) return; const c = document.querySelector('#rolls .rollcard:not(.rc-out)'); if (c) rcClose(c); });
 let onModalCancel = null;
 let MODAL_BY = null, MODAL_SIG = null; // which button opened the window that's showing
 function openModal(html, onCancel, wide) {
   MODAL_BY = MODAL_SIG;
+  // a roll card left up from earlier steps aside when a window opens (it sat over the window's tabs); one this same
+  // click just made stays
+  document.querySelectorAll('#rolls .rollcard').forEach(c => { if (Date.now() - (c._at || 0) > 600) rcClose(c); });
   // a window opening fresh starts its lists unsearched and at the top (they're only remembered while it stays open)
   try { if (!$('#modal').classList.contains('open') && !document.querySelector('#wizard.open')) Object.keys(WZ3M).forEach(k => delete WZ3M[k]); } catch (e) {}
   // (a window closed a moment ago in this same step is being replaced, not closed: it stays up and swaps over)
@@ -379,7 +404,7 @@ const isMobile = () => document.documentElement.classList.contains('mobile');
 const who = () => S.name || 'Your character';
 
 // ---------- Settings ----------
-const SETDEF = { combatSpellSort: 'level', protectorScales: false, advancement: 'milestone', abilityStyle: 'mod', showName: true, showRace: false, showBackground: false, showPlayer: false, showAlignment: false, showFaith: false, showRoll20: true, encumbrance: 'standard', exhaustionRule: '2014', exhaustionDC: false, concPrompt: true, durationAlerts: true, autoSpend: true, critRule: 'double', density: 'comfortable', fontScale: 100, hpLevelUp: 'avg', confirmDelete: false, showCastHints: true, inspiration: false, inspMany: false, electrum: false };
+const SETDEF = { rollFade: 0, combatSpellSort: 'level', protectorScales: false, advancement: 'milestone', abilityStyle: 'mod', showName: true, showRace: false, showBackground: false, showPlayer: false, showAlignment: false, showFaith: false, showRoll20: true, encumbrance: 'standard', exhaustionRule: '2014', exhaustionDC: false, concPrompt: true, durationAlerts: true, autoSpend: true, critRule: 'double', density: 'comfortable', fontScale: 100, hpLevelUp: 'avg', confirmDelete: false, showCastHints: true, inspiration: false, inspMany: false, electrum: false };
 let GEN = 0, RENDERING = '';
 const PID = id => `data-pid="${id}" data-gen="${GEN}" data-home="${RENDERING}"`;
 const ST = k => (S.settings && S.settings[k] !== undefined ? S.settings[k] : SETDEF[k]);

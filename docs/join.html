@@ -13,8 +13,8 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.5b29bcfdfb01.css">
-<link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="You’re invited to join a party on Adventurer’s Tome."><meta property="og:type" content="website"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="You’re invited to join a party"><meta property="og:description" content="Pick a character, or make a new one, and join your DM’s game on Adventurer’s Tome."><meta property="og:url" content="https://adventurers-tome.web.app/join/"><meta property="og:image" content="https://adventurers-tome.web.app/og-invite.png?v=2"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="2400"><meta property="og:image:height" content="1260"><meta property="og:image:alt" content="A party invitation on Adventurer’s Tome"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-tour.png?v=5"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="a/sheet.5afdf26d9157.css">
+<link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="195x195" href="speed-dial-195.png"><link rel="icon" type="image/png" sizes="512x512" href="icon-512.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="You’re invited to join a party on Adventurer’s Tome."><meta property="og:type" content="website"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="You’re invited to join a party"><meta property="og:description" content="Pick a character, or make a new one, and join your DM’s game on Adventurer’s Tome."><meta property="og:url" content="https://adventurers-tome.web.app/join/"><meta property="og:image" content="https://adventurers-tome.web.app/og-invite.png?v=2"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="2400"><meta property="og:image:height" content="1260"><meta property="og:image:alt" content="A party invitation on Adventurer’s Tome"><meta property="og:image" content="https://adventurers-tome.web.app/og-invite.png?v=2"><link rel="image_src" href="/speed-dial.png?v=1"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="2400"><meta property="og:image:height" content="1260"><meta property="og:image:alt" content="A party invitation on Adventurer’s Tome"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-tour.png?v=5"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest"><script>var t="dark";try{if(localStorage.getItem("pg-theme")==="light")t="light"}catch(e){}document.documentElement.setAttribute("data-pgtheme",t)</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
 #pg-load { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 40%, #1d2638 0%, #0f1420 70%); color: #e9e3d3; font: 600 15px system-ui, sans-serif; z-index: 9999; }
@@ -623,6 +623,8 @@ html.pg-touch :where(body.hubbody, .wzh) .hc-list { right: 0; }
   body.adminbody .adm-t td.adm-act { position: absolute; top: 8px; right: 8px; padding: 0; }
   body.adminbody .adm-t td.adm-act::before { display: none !important; }
   body.adminbody .adm-mail { word-break: break-all; }
+  /* an email stays on one line (it's cut short with … only if it really can't fit) */
+  body.adminbody .adm-t td.adm-mail { max-width: none; white-space: nowrap !important; word-break: normal; overflow: hidden; text-overflow: ellipsis; }
   body.adminbody .adm-kebab { width: 40px; height: 36px; }
   body.adminbody .adm-subrow > td { padding: 6px 0 0 !important; }
 }
@@ -1053,6 +1055,10 @@ html #pg-load.pg-leave, html.pg-instant #pg-load.pg-leave { animation: pgLoadIn 
 /* The lobby is always at least a hair taller than the screen. Switching lists changes the page's length; on iPhone,
    flipping between "scrolls" and "doesn't scroll" nudged everything up a few pixels. Never flipping avoids that. */
 body.hubbody:not(.adminbody) #hub { min-height: calc(100vh + 1px); min-height: calc(100lvh + 1px); box-sizing: border-box; }
+/* …but a party page only scrolls when its cards don't fit (100vh on an iPhone is the screen with the toolbars hidden,
+   so the page is sized to what's actually visible instead) */
+body.hubbody:not(.adminbody) #hub:has(> .pw) { min-height: 0; }
+body.hubbody:has(> #hub > .pw) { min-height: 100dvh; }
 /* Admin: the way back sits right under the logo; the bottom of the sidebar shows who's signed in, like the lobby */
 .adm-backrow { padding: 10px 18px 12px; border-bottom: 1px solid rgba(255,255,255,.08); }
 .adm-me { flex-direction: row !important; align-items: center; gap: 10px !important; }
@@ -2950,8 +2956,28 @@ body.dkhost #hub .pw.inbody { max-width: 1600px; padding-left: 32px; padding-rig
 html[data-theme="light"] #wizard .wzh-bcol .wzh-back2 { color: #8a6420; }
 @media (max-width: 884px) { .wzh-bcol { gap: 3px; } .wzh-bcol .wzh-back2 { font-size: .76rem; } }
 html.mobile #wizard .wzh-bcol { gap: 3px; } html.mobile #wizard .wzh-bcol .wzh-back2 { font-size: .76rem; }
-/* phones: the party page's top panel scrolls away with the page (phones don't honour a fixed backdrop, so a sticky band showed) */
-@media (max-width: 884px) { body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 { position: relative; padding-bottom: 18px; } body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2::before { display: none; } }
+/* phones: the party page's top panel stays pinned to the top like the DM's Desk one. No band behind it: the page shows
+   around the panel, with just the strip under the status bar shaded in the page's own colour */
+@media (max-width: 884px) {
+  body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 { position: sticky; top: 0; z-index: 30; background: none !important; padding: calc(8px + env(safe-area-inset-top)) 16px 10px; margin-bottom: 8px; }
+  body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2::before { display: block; inset: 0 0 auto; height: calc(14px + env(safe-area-inset-top)); background: #0f1420; -webkit-mask-image: linear-gradient(#000 60%, transparent); mask-image: linear-gradient(#000 60%, transparent); }
+  body.hubbody:not(.dkhost) .pw.inbody .pwh2 > .hub-top { background: rgba(26,33,49,.94); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+  /* leaving or dropping the party is in the lobby; a player's page doesn't need a bar for it */
+  body.hubbody:not(.dkhost) .pw.inbody .pw-hacts:not(:has(.btn:not(#pt-leave):not(#pt-off))) { display: none; }
+  body.hubbody:not(.dkhost) .pw.inbody .pw-body:not(:has(.pw-hacts .btn:not(#pt-leave):not(#pt-off))) { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+  /* with the page switcher showing, the bar sits above it and the last card can still scroll clear of both */
+  html.pgpill-on body.hubbody:not(.dkhost) .pw.inbody .pw-hacts { bottom: calc(66px + env(safe-area-inset-bottom)); padding-bottom: 10px; }
+  html.pgpill-on body.hubbody:not(.dkhost) .pw.inbody .pw-body { padding-bottom: calc(170px + env(safe-area-inset-bottom)); }
+  html.pgpill-on body.hubbody:not(.dkhost) .pw.inbody .pw-body:not(:has(.pw-hacts .btn:not(#pt-leave):not(#pt-off))) { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+}
+@media (max-width: 884px) and (prefers-color-scheme: light) {
+  :where(html:not([data-pgtheme])) body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2::before { background: #f1e9d8; }
+  :where(html:not([data-pgtheme])) body.hubbody:not(.dkhost) .pw.inbody .pwh2 > .hub-top { background: rgba(255,255,255,.92); }
+}
+@media (max-width: 884px) {
+  :where(html[data-pgtheme="light"]) body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2::before { background: #f1e9d8; }
+  :where(html[data-pgtheme="light"]) body.hubbody:not(.dkhost) .pw.inbody .pwh2 > .hub-top { background: rgba(255,255,255,.92); }
+}
 /* the Updated line sits in the same spot on every tile: tiles tall enough for the longest (two-line class, shared line), the line pinned to the bottom */
 body.hubbody .hd2-main .hr { height: 200px; }
 body.hubbody .hd2-main .hc { height: 212px; }
@@ -3555,6 +3581,38 @@ html.mobile .ha-menu .ha-out:active, html.pg-touch .ha-menu .ha-out:active { bac
 /* phones: the floating page switcher steps out of the way while a window or pop-up is open (it used to sit on top of them) */
 html.pgpill-on .pgp { transition: opacity .18s ease, visibility 0s linear 0s; }
 html.pgpill-on:has(.hub-modal.on, #modal.open, .modal-bg.open, .pg-out, .ptyask-bg, .wizard.open, .ha-sheet, .pg-crop, #pg-msg .pgm-card) .pgp { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .15s ease, visibility 0s linear .15s; }
+
+/* pop-ups on a phone: scrolling stops dead at the ends instead of bouncing or carrying on into the page */
+:is(.hub-modal, #modal, .modal-bg, .pg-out, .ptyask-bg, .wizard, .ha-sheet, .pg-crop, #pg-msg, .dk-modal, .drwin, .pcwin, [role=dialog]), :is(.hub-modal, #modal, .modal-bg, .pg-out, .ptyask-bg, .wizard, .ha-sheet, .pg-crop, #pg-msg, .dk-modal, .drwin, .pcwin, [role=dialog]) * { overscroll-behavior: none; }
+/* phone lobby rows sit on whole pixels (rounded line heights) and are always positioned, so opening a ⋯ menu doesn't
+   nudge a row (or everything under it) by a fraction of a pixel as the menu lifts it above its neighbours */
+:where(body.hubbody, .wzh) .hub-list :is(.hr, .hc) { position: relative; }
+:where(body.hubbody, .wzh) .hub-list .hr .hc-txt > b { line-height: 24px; }
+:where(body.hubbody, .wzh) .hub-list .hr .hc-txt > span { line-height: 18px; }
+:where(body.hubbody, .wzh) .hub-list .hr .hc-txt > small { line-height: 16px; }
+/* iPhone: a ⋯ menu's list stays on its own layer for as long as it shows. Once its pop-in finished, Safari drew it
+   back into the page and the rows under the header slipped 2px (they slid back the moment it animated again) */
+:where(body.hubbody, .wzh) .hc-menu:is(.on, .closing) .hc-list { will-change: transform, opacity; transform: translateZ(0); }
+/* the account picture shows the soft round highlight while its menu or sheet is open, on every page (the lobby too) */
+.hub-acct.open { background: rgba(255,255,255,.06) !important; }
+@media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) .hub-acct.open { background: rgba(0,0,0,.05) !important; } }
+ :where(html[data-pgtheme="light"]) .hub-acct.open { background: rgba(0,0,0,.05) !important; } 
+html[data-theme="light"] .hub-acct.open, html[data-pgtheme="light"] .hub-acct.open { background: rgba(0,0,0,.05) !important; }
+/* phones: the creation window's bottom bar is solid enough that the list scrolling under it doesn't show through */
+html.mobile #wizard .wz-box:has(> .wzh2) .wz-foot { background: rgba(22,28,42,.97); }
+@media (prefers-color-scheme: light) { html:where(:not([data-pgtheme])).mobile #wizard .wz-box:has(> .wzh2) .wz-foot { background: rgba(251,247,238,.97); } }
+ html:where([data-pgtheme="light"]).mobile #wizard .wz-box:has(> .wzh2) .wz-foot { background: rgba(251,247,238,.97); } 
+html[data-theme="light"].mobile #wizard .wz-box:has(> .wzh2) .wz-foot { background: rgba(251,247,238,.97); }
+
+/* Phones and tablets: anything you can tap lights up the moment your finger lands on it — the phone's own tap
+   highlight (a CSS pressed style here made iPhones drop slower taps, so it isn't used) */
+@media (hover: none) {
+  :where(button, a[href], summary, select, [role=button], [role=tab], [role=option], [role=menuitem], [data-act], [data-wact], [data-a], [data-pick], [data-roll], label.crrow) { -webkit-tap-highlight-color: rgba(255,255,255,.14); }
+  @media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) :where(button, a[href], summary, select, [role=button], [role=tab], [role=option], [role=menuitem], [data-act], [data-wact], [data-a], [data-pick], [data-roll], label.crrow) { -webkit-tap-highlight-color: rgba(0,0,0,.1); } }
+ :where(html[data-pgtheme="light"]) :where(button, a[href], summary, select, [role=button], [role=tab], [role=option], [role=menuitem], [data-act], [data-wact], [data-a], [data-pick], [data-roll], label.crrow) { -webkit-tap-highlight-color: rgba(0,0,0,.1); } 
+}
+/* phones: the account sheet opened from character creation comes up over the creation window, not behind it */
+body.wizopen > .ha-dim { z-index: 118 !important; } body.wizopen > .ha-menu.ha-sheet { z-index: 120 !important; }
 </style>
 </head>
 <body>
@@ -3612,7 +3670,7 @@ if(window.PG_NAV_T)pgDieRoll(s,0);else setTimeout(function(){pgDieRoll(s,0)},150
 // pointer goes in between.
 (() => { if (window.__pgGrab) return; window.__pgGrab = 1;
   const GRIP = '.hr-grip, .nw-grip, .tgrip, .idrag, .sdrag, .bdrag, .gdrag, .mgrip, .pbar .grip, .pgph-th, .pg-sb-th, [data-mgrip], body.editing .tabwrap';
-  const off = () => document.documentElement.classList.remove('pg-grabbing');
+  const off = () => { const c = document.documentElement.classList; if (c.contains('pg-grabbing')) c.remove('pg-grabbing'); }; // (only when it's there: rewriting the page's class on every release made iPhones treat taps as hovers)
   addEventListener('pointerdown', e => { if (e.button > 0) return; const g = e.target.closest && e.target.closest(GRIP); if (g) document.documentElement.classList.add('pg-grabbing'); }, true);
   addEventListener('pointerup', off, true); addEventListener('pointercancel', off, true); addEventListener('blur', off); })();
 // Buttons act on the press (registered first so the release that follows is dropped before anything else sees it)
@@ -4324,7 +4382,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261026083317', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.2044d25379f2.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.374ee2fe267c.html", "desk": "a/desk.aa63cbb108db.js", "deskcss": "a/deskcss.1b23eda6d9c0.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261026121307', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.58a095af14c6.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.cc329e6d0bbc.html", "desk": "a/desk.6f7d84124c06.js", "deskcss": "a/deskcss.228cf76b092b.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };
@@ -4684,7 +4742,7 @@ function wireDie(root) {
   // tab. When an admin marks one fixed, its sender gets a note in the corner — on whatever page is open, right away or
   // the next time they open the site.
   const bugsCol = fs.collection('bugs');
-  window.pgBugReport = () => { if (document.querySelector('.pg-out')) return; const m = document.createElement('div'); m.className = 'pg-out'; pgOutFade(m);
+  window.pgBugReport = () => { if (document.querySelector('.pg-out')) return; const m = document.createElement('div'); m.className = 'pg-out'; m.dataset.k = 'bug'; pgOutFade(m);
     m.innerHTML = `<div class="pg-out-card pg-bug-card" role="dialog" aria-modal="true" aria-labelledby="pg-bug-h"><h2 id="pg-bug-h">Bugs, ideas &amp; feedback</h2><p>Something not working right? Want a new feature? Or anything else you want to say about the site, good or bad? Tell us here. You’ll get a note when we get to it.</p>
       <label class="pg-bug-l">Summary<input class="pg-bug-s" maxlength="120" placeholder="e.g. Spell slots don’t come back, or: add a map tool" autocomplete="off"></label>
       <label class="pg-bug-l">Details<textarea class="pg-bug-d" rows="6" placeholder="For a bug: what you did, what you expected, and what happened instead. For an idea: what you’d like and why."></textarea></label>
@@ -4734,7 +4792,7 @@ function wireDie(root) {
         return hbCol.add({ item: JSON.stringify(it), name, at: Date.now(), by: EMAIL }).then(r => { pgLog('party_hb', { target: pid, tName: party.name, detail: name }); return r.id; }); },
       remove: id => hbCol.doc(String(id)).delete() } : null;
     return Object.assign({ fs, EMAIL, party, back: { href: URLS.parties(G), label: 'Parties' },
-      acct: { html: () => { const a = avaOf(ME); return avaHTML((ME && ME.name) || EMAIL.split('@')[0], EMAIL, a.pic, '', '', a); }, open: b => { if (window.pgAcctMenu) window.pgAcctMenu(b, true); else pgGo(URLS.hub(G)); } },
+      acct: { html: () => { const a = avaOf(ME); return avaHTML((ME && ME.name) || EMAIL.split('@')[0], EMAIL, a.pic, '', '', a); }, open: b => { if (window.pgAcctMenu) window.pgAcctMenu(b, !TOUCH && innerWidth > 900); else pgGo(URLS.hub(G)); } },
       logo: (() => { let first = true; return { html: () => logoHTML(), wire: el => { wireDie(el); if (!first && !PG_DIE.rolled && !PG_DIE.rolling) { PG_DIE.rolling = false; rollDie(el); } if (first) { first = false; const go = () => { const d = document.querySelector('.dk-logo'); if (!d) return; PG_DIE.rolling = false; rollDie(d); }; setTimeout(go, 300); /* (the party page's own hidden logo may be mid-roll; the desk's starts straight away anyway) */ } } }; })() /* the desk's die rolls once when it opens, like the lobby's */, bugReport: () => window.pgBugReport && window.pgBugReport(), partyHB, makeNpc: party ? () => { try { sessionStorage.setItem('pg-join', JSON.stringify({ p: pid, t: '', name: party.name, at: Date.now(), npc: true })); } catch (e) {} pgGo(URLS.newChar(G)); } : null }, extra || {}); };
   if (DESKQ && G) { lsSet(LAST_G, G);
     const pid = clean(Q.get('for') || '');
@@ -7943,6 +8001,10 @@ function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduc
   const ps = [...document.querySelectorAll('#hub > .hub-head, #hub .hd-sec, #hub > .hub-list:not(.hd2-main)')].filter(x => x.getClientRects().length);
   ps.forEach((x, k) => { x.style.animationDelay = Math.min(k, 6) * 70 + 'ms'; x.classList.remove('pg-panin'); void x.offsetWidth; x.classList.add('pg-panin');
     x.addEventListener('animationend', () => { x.classList.remove('pg-panin'); x.style.animationDelay = ''; }, { once: true }); }); }
+
+
+
+
 
 </script>
 </body>

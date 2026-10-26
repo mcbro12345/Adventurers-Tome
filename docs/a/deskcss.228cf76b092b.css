@@ -930,7 +930,7 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
   .dk-f { min-height: 42px; } .dk-ntn { min-height: 40px; }
 }
 /* tablets / narrow laptops: logo + tools on the first row, the tabs as a full-width second row */
-@media (min-width: 641px) and (max-width: 1100px) {
+@media (min-width: 641px) and (max-width: 1260px) {
   .dk-tabs { order: 5; flex: 1 1 100%; display: flex; }
   .dk-tabs button { flex: 1; justify-content: center; }
   .dk-sync { display: none; }
@@ -952,8 +952,11 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
   .dk-mwx:focus-visible { background: color-mix(in srgb, var(--ink) 16%, transparent); color: var(--ink); }
   .dk.dk-mw .dk-mwhid { display: none !important; }
   .dk.dk-mw .dk-mcard .dk-acts { margin-top: 14px; }
-  .dk-mghost { position: fixed !important; z-index: 59; margin: 0 !important; pointer-events: none !important; overflow: hidden !important; animation: dkWinOut .18s ease forwards !important; }
 }
+.dk-mghost { position: fixed !important; z-index: 61; margin: 0 !important; pointer-events: none !important; overflow: hidden !important; animation: dkWinOut .18s ease forwards !important; }
+.dk-mshade { display: block !important; position: fixed; inset: 0; z-index: 60; padding: 0 !important; pointer-events: none; animation: dkFadeOut .2s ease forwards !important; }
+@keyframes dkFadeOut { to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .dk-mshade { display: none !important; } }
 @media (min-width: 641px) and (hover: hover) { .dk-mwx:hover { background: color-mix(in srgb, var(--ink) 16%, transparent); color: var(--ink); } }
 @media (max-width: 640px) { .dk-mwhead { display: none; } }
 @keyframes dkWinIn { from { opacity: 0; transform: translateY(8px) scale(.97); } }
@@ -1338,7 +1341,8 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
   .dk .dk-brand { flex: 1 1 0; min-width: 0; gap: 8px; }
   .dk .dk-logo .hl-d20, .dk .dk-brand > svg { width: 36px !important; height: 36px !important; flex: none; }
   .dk .dk-brand h1 { font-size: 1.12rem !important; }
-  .dk .dk-tools { flex: none; gap: 4px; flex-wrap: nowrap; }
+  .dk .dk-tools { flex: 1 1 100%; gap: 4px; flex-wrap: nowrap; }
+  .dk .dk-tools .dk-acct { margin-left: auto; }
   .dk .dk-tools > button, .dk .dk-tools > a { min-width: 40px; width: 40px; height: 40px; min-height: 40px; padding: 0; display: grid; place-items: center; }
   .dk .dk-tools .dk-tl { display: none; }
 }
@@ -1403,7 +1407,7 @@ html[data-pgtheme="light"] .dk-back2 { color: #8a6420; } html[data-pgtheme="ligh
 /* your account, at the end of the tools (its menu has the way back to the lobby) */
 .dk-acct { position: relative; flex: none; display: grid; place-items: center; width: 44px; height: 44px; margin-left: 4px; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }
 .dk-acct .pg-ava { width: 40px !important; height: 40px !important; box-shadow: 0 0 0 2px rgba(224,170,58,.55); }
-.dk-acct:hover .pg-ava { box-shadow: 0 0 0 2px #e0aa3a; }
+@media (hover: hover) { .dk-acct:hover .pg-ava { box-shadow: 0 0 0 2px #e0aa3a; } }
 .dk-tools { position: relative; align-items: center; }
 /* undo, redo and history */
 .dk-histb { display: inline-flex; gap: 4px; }
@@ -1449,5 +1453,147 @@ html[data-pgtheme="light"] .dk-back2 { color: #8a6420; } html[data-pgtheme="ligh
    bottom instead of being cut off, and leave room under the last thing */
 @media (min-width: 901px) {
   .dk[data-tab=sessions] .dk-sess > .dk-main, .dk[data-tab=bestiary] .dk-best > .dk-bview { padding-left: 8px !important; }
-  .dk[data-tab=sessions] .dk-sess > .dk-main, .dk[data-tab=bestiary] .dk-best > .dk-bview, .dk[data-tab=notes] .dk-notesv > .dk-main { padding-bottom: 48px !important; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); }
+  .dk[data-tab=sessions] .dk-sess > .dk-main, .dk[data-tab=bestiary] .dk-best > .dk-bview, .dk[data-tab=notes] .dk-notesv > .dk-main { padding-bottom: 48px !important; }
 }
+/* the main area runs right to the bottom of the window (things scroll off the edge); the list panel keeps its margin */
+@media (min-width: 901px) {
+  .dk[data-tab=notes] .dk-notesv, .dk[data-tab=sessions] .dk-sess, .dk[data-tab=bestiary] .dk-best { padding-bottom: 0 !important; }
+  .dk[data-tab=notes] .dk-rail, .dk[data-tab=sessions] .dk-rail, .dk[data-tab=bestiary] .dk-blist { margin-bottom: 16px !important; }
+}
+@media (min-width: 901px) {
+  .dk[data-tab=notes] .dk-rail, .dk[data-tab=sessions] .dk-rail, .dk[data-tab=bestiary] .dk-blist { height: auto !important; max-height: calc(100% - 16px) !important; align-self: stretch; box-sizing: border-box; }
+}
+/* the Bestiary list: rows scrolled out of sight aren't laid out or drawn until they come near (hundreds of creatures) */
+.dk-mlist2 > .dk-mrow { content-visibility: auto; contain-intrinsic-size: auto 44px; }
+
+/* Menus: an icon beside every item (drawn from the item itself, so it survives any redraw) */
+.dk-mlist button[data-act="addgroup"]:not(:has(svg))::before, .dk-mlist button[data-act="restall"]:not(:has(svg))::before, .dk-mlist button[data-act="dupsess"]:not(:has(svg))::before, .dk-mlist button[data-act="delsess"]:not(:has(svg))::before, .dk-mlist button[data-act="dup"]:not(:has(svg))::before, .dk-mlist button[data-act="rest"]:not(:has(svg))::before, .dk-mlist button[data-act="movegrp"]:not(:has(svg))::before, .dk-mlist button[data-act="rm"]:not(:has(svg))::before, .dk-mlist button[data-act="nopen"]:not(:has(svg))::before, .dk-mlist button[data-act="nsub"]:not(:has(svg))::before, .dk-mlist button[data-act="nmove"]:not(:has(svg))::before, .dk-mlist button[data-act="nalias"]:not(:has(svg))::before, .dk-mlist button[data-act="nmd"]:not(:has(svg))::before, .dk-mlist button[data-act="ndel"]:not(:has(svg))::before, .dk-mlist button[data-act="nnew"]:not(:has(svg))::before, .dk-mlist button[data-act="nimport"]:not(:has(svg))::before { content: ""; display: inline-block; width: 16px; height: 16px; margin-right: 9px; vertical-align: -3px; background: currentColor; opacity: .75; -webkit-mask: var(--mi) center / contain no-repeat; mask: var(--mi) center / contain no-repeat; }
+.dk-mlist button[data-act]:not(:has(svg)):hover::before { opacity: 1; }
+.dk-mlist button[data-act="addgroup"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%205v14M5%2012h14%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="restall"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M20%2011a8%208%200%201%200-2.3%205.7%22/%3E%3Cpath%20d%3D%22M20%204v7h-7%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="dupsess"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%229%22%20y%3D%229%22%20width%3D%2211%22%20height%3D%2211%22%20rx%3D%222%22/%3E%3Cpath%20d%3D%22M5%2015V5a1%201%200%200%201%201-1h10%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="delsess"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%207h16M10%2011v6M14%2011v6M6%207l1%2013h10l1-13M9%207V4h6v3%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="dup"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%205v14M5%2012h14%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="rest"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M20%2011a8%208%200%201%200-2.3%205.7%22/%3E%3Cpath%20d%3D%22M20%204v7h-7%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="movegrp"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M5%2012h14M13%206l6%206-6%206%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="rm"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%207h16M10%2011v6M14%2011v6M6%207l1%2013h10l1-13M9%207V4h6v3%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="nopen"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M14%204h6v6M20%204l-9%209%22/%3E%3Cpath%20d%3D%22M18%2014v5a1%201%200%200%201-1%201H5a1%201%200%200%201-1-1V7a1%201%200%200%201%201-1h5%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="nsub"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M6%203v12a3%203%200%200%200%203%203h11%22/%3E%3Cpath%20d%3D%22M16%2014l4%204-4%204%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="nmove"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%207h6l2%202h10v10H3z%22/%3E%3Cpath%20d%3D%22M10%2014h7M14%2011l3%203-3%203%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="nalias"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%207h16M4%2012h10M4%2017h7%22/%3E%3Cpath%20d%3D%22M17%2015l2%202%203-4%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="nmd"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%204v11M7%2010l5%205%205-5%22/%3E%3Cpath%20d%3D%22M5%2020h14%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="ndel"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%207h16M10%2011v6M14%2011v6M6%207l1%2013h10l1-13M9%207V4h6v3%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="nnew"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M6%203h8l4%204v14H6z%22/%3E%3Cpath%20d%3D%22M14%203v4h4%22/%3E%3Cpath%20d%3D%22M12%2011v6M9%2014h6%22/%3E%3C/svg%3E"); }
+.dk-mlist button[data-act="nimport"] { --mi: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%2015V4M7%209l5-5%205%205%22/%3E%3Cpath%20d%3D%22M5%2020h14%22/%3E%3C/svg%3E"); }
+/* (opening fades hold their first frame until they start, so a window never flashes up fully drawn first) */
+.dk-modal.open, .dk-mcard, .dk.dk-mw .dk-mcard { animation-fill-mode: backwards; }
+/* DM's Desk top bar: Undo / Redo / History keep the same spacing and size as the other buttons; when the bar has to wrap,
+   the tools line up on the right under the tabs instead of falling to the left under the title */
+.dk-histb { gap: 6px !important; } .dk-histb .dk-tb { padding: 0 !important; width: 38px; justify-content: center; }
+@media (min-width: 641px) { .dk .dk-tools { margin-left: auto; } }
+/* Bestiary: "Add to a session" and Copy & edit share one row when there's room; the creature lines up with the list's top */
+.dk-badd { display: flex; flex-wrap: wrap; align-items: center; } .dk-badd > .dk-row:first-child { flex: 1 1 380px; min-width: 0; } .dk-badd > .dk-row + .dk-row { flex: none; }
+@media (min-width: 641px) { .dk[data-tab=bestiary] .dk-best > .dk-bview { padding-top: 0 !important; } }
+/* generator: the "include my own creatures" box sits on the text line; the scenes heading matches the other card headings */
+.dk-genin .dk-chk { display: inline-flex !important; align-items: center; gap: 8px; }
+.dk-genin .dk-chk input { margin: 0; flex: none; }
+.dk-scenes h2 { font-family: Georgia, "Times New Roman", serif; font-size: 1.2rem; margin: 0; }
+.dk-scenes > .dk-row { align-items: center; }
+
+/* ===== Log window: the same one as on the character sheet (its styles, copied from the sheet) ===== */
+.rl-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.rl-head h3 { margin: 0; flex: 1; }
+.rl-list { max-height: min(62vh, 640px); overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
+.rl-day { font-size: .7rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--gold-ink); margin: 6px 0 0; }
+.rl-row { display: grid; grid-template-columns: 62px 1fr; gap: 8px; align-items: start; border: 1px solid var(--line2); border-radius: 10px; padding: 8px 10px; background: var(--card); }
+.rl-row.crit { border-color: var(--green); } .rl-row.fumble { border-color: var(--red); }
+.rl-time { font-size: .74rem; color: var(--soft); padding-top: 4px; font-variant-numeric: tabular-nums; }
+.rl-card { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.rl-card > b.total { font-size: 1.6rem; min-width: 44px; text-align: center; color: var(--gold-ink); }
+.rl-row.crit .rl-card > b.total { color: var(--green); } .rl-row.fumble .rl-card > b.total { color: var(--red); }
+.rl-card > div { flex: 1; min-width: 0; font-size: .88rem; }
+.rl-card .det { color: var(--soft); font-size: .76rem; }
+.rl-card .rc-name { font-weight: 700; } .rl-card .rc-lbl { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: var(--soft); }
+.rl-card .rc-dmg b { font-size: 1.4rem; } .rl-card .rc-dmg { min-width: 54px; padding-left: 10px; }
+.rl-card .rc-multi .rc-row b { font-size: 1.2rem; }
+.rl-tabs { display: inline-flex; gap: 4px; background: var(--line); padding: 3px; border-radius: 10px; margin-left: 8px; }
+.rl-tab { border: 0; background: transparent; color: var(--soft); font: inherit; font-weight: 700; font-size: .85rem; padding: 5px 12px; border-radius: 8px; cursor: pointer; }
+.rl-tab span { opacity: .65; font-weight: 600; margin-left: 2px; }
+.rl-tab.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+.rc-math .rm-h { font-weight: 800; font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; opacity: .7; margin: 6px 0 3px; }
+.rc-math .rm-h:first-child { margin-top: 0; }
+.rc-math .rm-r { display: flex; justify-content: space-between; gap: 14px; padding: 2px 0; }
+.rc-math .rm-r span { opacity: .85; text-align: left; } .rc-math .rm-r i { font-style: normal; opacity: .65; font-size: .92em; }
+.rc-math .rm-r b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rc-math .rm-t { border-top: 1px solid rgba(244,238,223,.2); margin-top: 3px; padding-top: 4px; font-weight: 800; }
+.rc-math .rm-t span { opacity: 1; }
+#dk-logw .rl-head { padding-bottom: 12px; margin-bottom: 0; border-bottom: 1px solid var(--line); }
+#dk-logw .rl-list { padding-top: 10px; padding-bottom: 10px; }
+#dk-logw > .dk-acts { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 0; }
+.rl-card { align-items: stretch; } .rl-card > b.total { align-self: center; } .rl-card .rc-dmg { align-self: stretch; justify-content: center; } /* the line between to-hit and damage runs the whole height of the card */
+.ds { display: flex; flex-direction: column; gap: 10px; }
+.ds-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+.ds-tile { border: 1px solid var(--line2); border-radius: 12px; background: var(--card2); padding: 9px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ds-tile small { font-size: .62rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--soft); }
+.ds-tile b { font-size: 1.6rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.ds-tile span { font-size: .74rem; color: var(--soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-tile.g b { color: #3c9d6b; } .ds-tile.r b { color: var(--red); }
+.ds-luck { margin: 0; font-weight: 700; font-size: .9rem; }
+.ds-h { font-size: .68rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--gold-ink); margin-top: 6px; }
+.ds-bars { position: relative; display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 3px; height: 150px; align-items: end; padding: 4px 2px 0; border-bottom: 1px solid var(--line2); }
+.ds-bar { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 3px; min-width: 0; }
+.ds-bar i { display: block; width: 100%; max-width: 22px; height: 0; background: var(--gold); border-radius: 4px 4px 0 0; opacity: .85; }
+.ds-bar span { font-size: .62rem; color: var(--soft); font-variant-numeric: tabular-nums; height: 14px; line-height: 14px; }
+.ds-bar.g i { background: #3c9d6b; opacity: 1; } .ds-bar.r i { background: var(--red); opacity: 1; }
+.ds-bars i { max-height: calc(100% - 18px); }
+.ds-fair { position: absolute; left: 0; right: 0; border-top: 1.5px dashed var(--soft); opacity: .6; pointer-events: none; }
+.ds-note { margin: 0; font-size: .74rem; }
+.ds-t { width: 100%; border-collapse: collapse; font-size: .86rem; font-variant-numeric: tabular-nums; }
+.ds-t th { text-align: right; font-size: .62rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--soft); padding: 4px 6px; }
+.ds-t td { text-align: right; padding: 6px; border-top: 1px solid var(--line2); }
+.ds-t td:first-child, .ds-t th:first-child { text-align: left; font-weight: 700; }
+.ds-t td.g { color: #3c9d6b; font-weight: 700; } .ds-t td.r { color: var(--red); font-weight: 700; }
+.ds-tag { font-size: .6rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; border-radius: 999px; padding: 1px 6px; margin-left: 4px; }
+.ds-tag.g { background: rgba(60,157,107,.16); color: #3c9d6b; } .ds-tag.r { background: var(--red-soft); color: var(--red); }
+.ds-bw { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; min-height: 0; }
+.ds-bars i { max-height: none; }
+.ds-chart { display: flex; flex-direction: column; }
+.ds-plot { position: relative; height: 130px; display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 3px; align-items: end; border-bottom: 1px solid var(--line); }
+.ds-col { height: 100%; display: flex; align-items: flex-end; justify-content: center; min-width: 0; }
+.ds-col i { display: block; width: 100%; max-width: 22px; background: var(--gold); border-radius: 4px 4px 0 0; opacity: .85; }
+.ds-col.g i { background: #3c9d6b; opacity: 1; } .ds-col.r i { background: var(--red); opacity: 1; }
+.ds-plot .ds-fair { position: absolute; left: 0; right: 0; height: 0; border-top: 1.5px dashed var(--soft); opacity: .6; pointer-events: none; }
+.ds-axis { display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 3px; margin-top: 4px; }
+.ds-axis span { text-align: center; font-size: .62rem; color: var(--soft); font-variant-numeric: tabular-nums; }
+.rl-tabs.inked { position: relative; }
+.rl-tabs.inked .rl-tab { position: relative; z-index: 1; transition: color .2s; }
+.rl-tabs.inked .rl-tab.on { background: transparent; box-shadow: none; }
+.rl-ink { position: absolute; left: 0; top: 3px; bottom: 3px; width: 0; border-radius: 8px; background: var(--card); box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: transform .28s cubic-bezier(.3,.7,.2,1), width .28s cubic-bezier(.3,.7,.2,1); }
+#dk-logw .rl-list.in-r { animation: rlIn-r .26s cubic-bezier(.3,.7,.2,1); }
+#dk-logw .rl-list.in-l { animation: rlIn-l .26s cubic-bezier(.3,.7,.2,1); }
+@keyframes rlIn-r { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
+@keyframes rlIn-l { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: none; } }
+.ds-chart.anim .ds-col i { transform-origin: bottom; animation: dsGrow .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--k, 0) * 22ms + 80ms); }
+.ds-chart.anim .ds-fair { animation: dsFade .4s ease both; animation-delay: .6s; }
+@keyframes dsGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes dsFade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .rl-ink { transition: none; } #dk-logw .rl-list.in-r, #dk-logw .rl-list.in-l, .ds-chart.anim .ds-col i, .ds-chart.anim .ds-fair { animation: none; } }
+#dk-logw .rl-list { height: min(62vh, 640px); max-height: none; }
+#dk-logw .rl-head { display: flex; align-items: center; gap: 10px; }
+#dk-logw .rl-head .rl-tabs { margin-left: 0; }
+#dk-logw .rl-clear { margin-left: auto; }
+#dk-logw .rc-body { flex: 1; min-width: 0; font-size: .88rem; }
+#dk-logw .rc-src { display: inline-block; margin-left: 6px; font-size: .62rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--soft); border: 1px solid var(--line); border-radius: 999px; padding: 0 6px; vertical-align: 2px; }
+#dk-logw .rc-math { margin-top: 6px; padding: 8px 10px; border-radius: 10px; background: rgba(0,0,0,.18); border: 1px solid var(--line2); font-size: .8rem; }
+#dk-logw .rl-ev { flex: 1; min-width: 0; font-size: .88rem; line-height: 1.4; }
+#dk-logw .rl-ev b { color: var(--ink); }
+#dk-logw .rl-empty { color: var(--soft); font-size: .9rem; margin: 6px 2px; }
+#dk-logw > .dk-acts { margin-top: 0; padding-top: 12px; }
+@media (max-width: 640px) { #dk-logw .rl-row { grid-template-columns: 1fr; gap: 2px; } #dk-logw .rl-time { padding-top: 0; } #dk-logw .rl-list { height: auto; max-height: min(62vh, 640px); } #dk-logw .rl-head { flex-wrap: wrap; } }
+/* the account picture lights up while its menu is open, like the other buttons do with their windows */
+.dk-acct::before { content: ''; position: absolute; inset: -6px; border-radius: 50%; background: transparent; transition: background .15s ease; pointer-events: none; z-index: -1; } .dk-acct { isolation: isolate; }
+.dk-acct.lit::before, .dk-acct.open::before { background: rgba(255,255,255,.06); }
+html[data-pgtheme="light"] .dk-acct.lit::before, html[data-pgtheme="light"] .dk-acct.open::before { background: rgba(0,0,0,.05); }
+/* the account picture: no square focus box; it presses in like the lobby's and glows while its menu is open */
+.dk .dk-acct:focus-visible { outline: none; } .dk .dk-acct:focus-visible::before { background: rgba(255,255,255,.06); }
+.dk-acct { -webkit-tap-highlight-color: transparent; } .dk-acct .pg-ava { transition: transform .12s ease, box-shadow .15s ease; } .dk-acct:active .pg-ava { transform: scale(.92); }

@@ -120,7 +120,7 @@ function ptyChatWin() {
   if (w) return;
   if (isMobile()) { const d = $('#drwin'); if (d) winClose(d); }
   let pos = null; try { pos = JSON.parse(localStorage.getItem('dnd-pcwin') || 'null'); } catch (e) {}
-  w = document.createElement('div'); w.id = 'pcwin'; w.className = 'pcwin'; winNoBleed(w); w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Party chat');
+  w = document.createElement('div'); w.id = 'pcwin'; w.className = 'pcwin'; winNoBleed(w); w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Party chat'); w._born = Date.now();
   w.innerHTML = `<div class="pcw-head"><b>Party chat</b><button class="pcw-b" data-pcw="x" title="Close" aria-label="Close">✕</button></div><div class="pcw-body">${ptyChatInner()}</div><div class="pcw-grab" aria-hidden="true"></div>`;
   document.body.appendChild(w);
   // Phones: tapping the message box focuses it without the browser scrolling anything to "show" it (it's already in
@@ -175,6 +175,10 @@ function ptyChatPopOut() { try { const p = JSON.parse(localStorage.getItem('dnd-
     // when the keyboard comes up, the chat jumps to its newest message
     if (up && !was) setTimeout(() => { const l = document.querySelector('#pcwin .ptychat-l'); if (l) l.scrollTop = l.scrollHeight; }, 60); };
   vv.addEventListener('resize', upd); vv.addEventListener('scroll', upd); upd();
+  // coming back to the app (the keyboard comes back up on its own, and the phone slides the screen without always saying
+  // so): check again as it settles
+  const again = () => [0, 80, 200, 400, 700, 1200].forEach(ms => setTimeout(upd, ms));
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) again(); }); addEventListener('pageshow', again); addEventListener('focus', again);
   // the keyboard slides up over a moment after a box is tapped: check again as it settles
   ['focusin', 'focusout'].forEach(t => document.addEventListener(t, () => { [0, 120, 350, 700].forEach(ms => setTimeout(upd, ms)); })); })();
 // Phones: a finger dragged on a window (or on a list inside it that's already at its end) mustn't scroll the page behind.
@@ -191,6 +195,8 @@ document.addEventListener('touchmove', pcNoScroll, { passive: false }); document
 // The chat's message box gliding between the top and the bottom of the card (and the messages sliding the other way)
 // when the keyboard comes and goes, instead of jumping.
 function pcSwap(change) { const w = document.querySelector('#pcwin'), els = w ? [...w.querySelectorAll('.ptychat-f, .ptychat-l')] : [];
+  // (not while the chat is still dropping in: the parts would slide about inside the card as it lands)
+  if (w && Date.now() - (w._born || 0) < 500) return change();
   const calm = matchMedia('(prefers-reduced-motion: reduce)').matches, before = els.map(x => x.getBoundingClientRect().top); change();
   if (calm || !els.length) return; els.forEach((x, k) => { const d = before[k] - x.getBoundingClientRect().top; if (Math.abs(d) < 1 || !x.animate) return;
     x.animate([{ transform: `translateY(${d}px)` }, { transform: 'translateY(0)' }], { duration: 300, easing: 'cubic-bezier(.2,.8,.2,1)' }); }); }

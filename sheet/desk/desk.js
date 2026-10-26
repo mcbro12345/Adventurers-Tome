@@ -445,6 +445,9 @@ const winKey = h => { h = String(h || ''); const a = h.match(/^\s*<[a-z0-9]+\b[^
 // the window as it was, fading out where it sat while the next one (or nothing) takes its place
 function winGhost(c) { const g = c.cloneNode(true), r = c.getBoundingClientRect(); if (!r.width) return; g.classList.add('dk-mghost'); g.removeAttribute('id'); g.querySelectorAll('[id]').forEach(x => x.removeAttribute('id')); g.setAttribute('aria-hidden', 'true');
   Object.assign(g.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', translate: 'none', animation: '' }); const st = c.scrollTop; ROOT.appendChild(g); g.scrollTop = st; setTimeout(() => g.remove(), 220); }
+function litTop() { const top = ROOT && ROOT.querySelector('.dk-top'); if (!top) return; const mOpen = !!$('.dk-modal.open'), by = mOpen && MODAL_BY ? MODAL_BY.split('|')[0] : '';
+  const on = { dhistory: by === 'dhistory', log: by === 'log' || (mOpen && !!$('#dk-logw')), settings: by === 'settings', diceroller: !!$('.drwin:not(.closing)'), turnorder: !!document.getElementById('towin'), bugreport: !!document.querySelector('.pg-out[data-k="bug"]:not(.closing)'), acct: !!document.querySelector('.ha-menu:not(.closing):not(.out)') };
+  top.querySelectorAll('[data-act]').forEach(b => { const k = b.dataset.act; if (!(k in on)) return; const v = String(on[k]); if (k === 'acct') { b.classList.toggle('lit', on[k]); return; } if (b.getAttribute('aria-pressed') !== v) b.setAttribute('aria-pressed', v); }); }
 function openModal(html, o) {
   o = o || {}; const m = $('.dk-modal'), c = $('.dk-mcard'), wasOpen = m.classList.contains('open'), prevBy = MODAL_BY, prevPos = c.style.translate;
   const swap = wasOpen && !calm() && c.innerHTML && winKey(c.innerHTML) !== winKey(html); if (swap) winGhost(c);
@@ -1972,6 +1975,8 @@ function mount(root, ctx) {
   LITE = !!(CTX.partyHost && mobileDev()); ROOT.classList.toggle('dk-lite', LITE); if (LITE) UI.tab = 'party';
   if (CTX.partyHost) { const slot = document.createElement('div'); slot.className = 'dk-partyslot'; root.insertBefore(slot, root.querySelector('.dk-page').nextSibling); slot.appendChild(CTX.partyHost); }
   render();
+  // each top-bar button stays lit while the window it opened is up
+  try { let q = 0; const mo = new MutationObserver(() => { if (!q) q = requestAnimationFrame(() => { q = 0; litTop(); }); }); mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] }); LISTEN.push([{ removeEventListener: () => mo.disconnect() }, 'x', null]); } catch (e) {}
   try { const top = root.querySelector('.dk-top'), setH = () => root.style.setProperty('--toph', Math.round(top.getBoundingClientRect().height) + 'px'); setH(); if (window.ResizeObserver) { const ro = new ResizeObserver(setH); ro.observe(top); LISTEN.push([{ removeEventListener: () => ro.disconnect() }, 'x', null]); } } catch (e) {}
   on(root, 'click', onClick); on(root, 'dblclick', e => { if (e.target.closest && e.target.closest('.dk-nsplit')) { UI.nrw = 0; saveUI(); nrSet(NRW0); } }); on(root, 'keydown', nrKey); on(root, 'pointerdown', e => { mwDrag(e); nrDrag(e); if (e.target.closest && e.target.closest('.drwin')) ROOT.classList.add('dk-rfront'); else if (e.target.closest && e.target.closest('.dk-mcard')) ROOT.classList.remove('dk-rfront'); }); on(window, 'resize', () => { if (ROOT) ROOT.classList.toggle('dk-mw', mwDesk()); }); on(root, 'change', onChange); on(root, 'input', onInput);
   on(root, 'mousedown', e => { const t = e.target.closest && e.target.closest('[data-ed],[data-auto]'); if (!t) return; e.preventDefault(); if (t.dataset.ed) edCmd(t.dataset.ed); else edAutoPick(N(t.dataset.auto)); });
@@ -3816,6 +3821,8 @@ function diceRoller() {
   DR = DR || drLoad();
   w = document.createElement('div'); w.className = 'drwin' + (drPhone() ? ' phone' : ''); w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Dice roller');
   ROOT.appendChild(w); ROOT.classList.add('dk-dropen'); drPaint(); setTop();
+  // a phone's sheet keeps the height it opened at: new rolls scroll inside it instead of pushing it up the screen
+  if (w.classList.contains('phone')) w.style.height = w.offsetHeight + 'px';
   // on a phone, toasts sit just above the sheet so they never cover it or the header
   if (window.ResizeObserver) { const ro = new ResizeObserver(() => { if (!w.isConnected) return ro.disconnect(); ROOT.style.setProperty('--drh', (w.classList.contains('phone') ? Math.round(w.getBoundingClientRect().height) : 0) + 'px'); }); ro.observe(w); }
   if (!drPhone()) { const W = innerWidth, H = innerHeight, r = w.getBoundingClientRect();

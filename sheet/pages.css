@@ -588,6 +588,8 @@ html.pg-touch :where(body.hubbody) .hc-list { right: 0; }
   body.adminbody .adm-t td.adm-act { position: absolute; top: 8px; right: 8px; padding: 0; }
   body.adminbody .adm-t td.adm-act::before { display: none !important; }
   body.adminbody .adm-mail { word-break: break-all; }
+  /* an email stays on one line (it's cut short with … only if it really can't fit) */
+  body.adminbody .adm-t td.adm-mail { max-width: none; white-space: nowrap !important; word-break: normal; overflow: hidden; text-overflow: ellipsis; }
   body.adminbody .adm-kebab { width: 40px; height: 36px; }
   body.adminbody .adm-subrow > td { padding: 6px 0 0 !important; }
 }
@@ -996,6 +998,10 @@ html #pg-load.pg-leave, html.pg-instant #pg-load.pg-leave { animation: pgLoadIn 
 /* The lobby is always at least a hair taller than the screen. Switching lists changes the page's length; on iPhone,
    flipping between "scrolls" and "doesn't scroll" nudged everything up a few pixels. Never flipping avoids that. */
 body.hubbody:not(.adminbody) #hub { min-height: calc(100vh + 1px); min-height: calc(100lvh + 1px); box-sizing: border-box; }
+/* …but a party page only scrolls when its cards don't fit (100vh on an iPhone is the screen with the toolbars hidden,
+   so the page is sized to what's actually visible instead) */
+body.hubbody:not(.adminbody) #hub:has(> .pw) { min-height: 0; }
+body.hubbody:has(> #hub > .pw) { min-height: 100dvh; }
 /* Admin: the way back sits right under the logo; the bottom of the sidebar shows who's signed in, like the lobby */
 .adm-backrow { padding: 10px 18px 12px; border-bottom: 1px solid rgba(255,255,255,.08); }
 .adm-me { flex-direction: row !important; align-items: center; gap: 10px !important; }
@@ -2784,8 +2790,24 @@ body.dkhost #hub .pw.inbody { max-width: 1600px; padding-left: 32px; padding-rig
 html[data-theme="light"] #wizard .wzh-bcol .wzh-back2 { color: #8a6420; }
 @media (max-width: 884px) { .wzh-bcol { gap: 3px; } .wzh-bcol .wzh-back2 { font-size: .76rem; } }
 html.mobile #wizard .wzh-bcol { gap: 3px; } html.mobile #wizard .wzh-bcol .wzh-back2 { font-size: .76rem; }
-/* phones: the party page's top panel scrolls away with the page (phones don't honour a fixed backdrop, so a sticky band showed) */
-@media (max-width: 884px) { body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 { position: relative; padding-bottom: 18px; } body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2::before { display: none; } }
+/* phones: the party page's top panel stays pinned to the top like the DM's Desk one. No band behind it: the page shows
+   around the panel, with just the strip under the status bar shaded in the page's own colour */
+@media (max-width: 884px) {
+  body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 { position: sticky; top: 0; z-index: 30; background: none !important; padding: calc(8px + env(safe-area-inset-top)) 16px 10px; margin-bottom: 8px; }
+  body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2::before { display: block; inset: 0 0 auto; height: calc(14px + env(safe-area-inset-top)); background: #0f1420; -webkit-mask-image: linear-gradient(#000 60%, transparent); mask-image: linear-gradient(#000 60%, transparent); }
+  body.hubbody:not(.dkhost) .pw.inbody .pwh2 > .hub-top { background: rgba(26,33,49,.94); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+  /* leaving or dropping the party is in the lobby; a player's page doesn't need a bar for it */
+  body.hubbody:not(.dkhost) .pw.inbody .pw-hacts:not(:has(.btn:not(#pt-leave):not(#pt-off))) { display: none; }
+  body.hubbody:not(.dkhost) .pw.inbody .pw-body:not(:has(.pw-hacts .btn:not(#pt-leave):not(#pt-off))) { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+  /* with the page switcher showing, the bar sits above it and the last card can still scroll clear of both */
+  html.pgpill-on body.hubbody:not(.dkhost) .pw.inbody .pw-hacts { bottom: calc(66px + env(safe-area-inset-bottom)); padding-bottom: 10px; }
+  html.pgpill-on body.hubbody:not(.dkhost) .pw.inbody .pw-body { padding-bottom: calc(170px + env(safe-area-inset-bottom)); }
+  html.pgpill-on body.hubbody:not(.dkhost) .pw.inbody .pw-body:not(:has(.pw-hacts .btn:not(#pt-leave):not(#pt-off))) { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+}
+@media (max-width: 884px) and (prefers-color-scheme: light) {
+  body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2::before { background: #f1e9d8; }
+  body.hubbody:not(.dkhost) .pw.inbody .pwh2 > .hub-top { background: rgba(255,255,255,.92); }
+}
 /* the Updated line sits in the same spot on every tile: tiles tall enough for the longest (two-line class, shared line), the line pinned to the bottom */
 body.hubbody .hd2-main .hr { height: 200px; }
 body.hubbody .hd2-main .hc { height: 212px; }
@@ -3372,3 +3394,32 @@ html.mobile .ha-menu .ha-out:active, html.pg-touch .ha-menu .ha-out:active { bac
 /* phones: the floating page switcher steps out of the way while a window or pop-up is open (it used to sit on top of them) */
 html.pgpill-on .pgp { transition: opacity .18s ease, visibility 0s linear 0s; }
 html.pgpill-on:has(.hub-modal.on, #modal.open, .modal-bg.open, .pg-out, .ptyask-bg, .wizard.open, .ha-sheet, .pg-crop, #pg-msg .pgm-card) .pgp { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .15s ease, visibility 0s linear .15s; }
+
+/* pop-ups on a phone: scrolling stops dead at the ends instead of bouncing or carrying on into the page */
+:is(.hub-modal, #modal, .modal-bg, .pg-out, .ptyask-bg, .wizard, .ha-sheet, .pg-crop, #pg-msg, .dk-modal, .drwin, .pcwin, [role=dialog]), :is(.hub-modal, #modal, .modal-bg, .pg-out, .ptyask-bg, .wizard, .ha-sheet, .pg-crop, #pg-msg, .dk-modal, .drwin, .pcwin, [role=dialog]) * { overscroll-behavior: none; }
+/* phone lobby rows sit on whole pixels (rounded line heights) and are always positioned, so opening a ⋯ menu doesn't
+   nudge a row (or everything under it) by a fraction of a pixel as the menu lifts it above its neighbours */
+:where(body.hubbody) .hub-list :is(.hr, .hc) { position: relative; }
+:where(body.hubbody) .hub-list .hr .hc-txt > b { line-height: 24px; }
+:where(body.hubbody) .hub-list .hr .hc-txt > span { line-height: 18px; }
+:where(body.hubbody) .hub-list .hr .hc-txt > small { line-height: 16px; }
+/* iPhone: a ⋯ menu's list stays on its own layer for as long as it shows. Once its pop-in finished, Safari drew it
+   back into the page and the rows under the header slipped 2px (they slid back the moment it animated again) */
+:where(body.hubbody) .hc-menu:is(.on, .closing) .hc-list { will-change: transform, opacity; transform: translateZ(0); }
+/* the account picture shows the soft round highlight while its menu or sheet is open, on every page (the lobby too) */
+.hub-acct.open { background: rgba(255,255,255,.06) !important; }
+@media (prefers-color-scheme: light) { .hub-acct.open { background: rgba(0,0,0,.05) !important; } }
+html[data-theme="light"] .hub-acct.open, html[data-pgtheme="light"] .hub-acct.open { background: rgba(0,0,0,.05) !important; }
+/* phones: the creation window's bottom bar is solid enough that the list scrolling under it doesn't show through */
+html.mobile #wizard .wz-box:has(> .wzh2) .wz-foot { background: rgba(22,28,42,.97); }
+@media (prefers-color-scheme: light) { html.mobile #wizard .wz-box:has(> .wzh2) .wz-foot { background: rgba(251,247,238,.97); } }
+html[data-theme="light"].mobile #wizard .wz-box:has(> .wzh2) .wz-foot { background: rgba(251,247,238,.97); }
+
+/* Phones and tablets: anything you can tap lights up the moment your finger lands on it — the phone's own tap
+   highlight (a CSS pressed style here made iPhones drop slower taps, so it isn't used) */
+@media (hover: none) {
+  :where(button, a[href], summary, select, [role=button], [role=tab], [role=option], [role=menuitem], [data-act], [data-wact], [data-a], [data-pick], [data-roll], label.crrow) { -webkit-tap-highlight-color: rgba(255,255,255,.14); }
+  @media (prefers-color-scheme: light) { :where(button, a[href], summary, select, [role=button], [role=tab], [role=option], [role=menuitem], [data-act], [data-wact], [data-a], [data-pick], [data-roll], label.crrow) { -webkit-tap-highlight-color: rgba(0,0,0,.1); } }
+}
+/* phones: the account sheet opened from character creation comes up over the creation window, not behind it */
+body.wizopen > .ha-dim { z-index: 118 !important; } body.wizopen > .ha-menu.ha-sheet { z-index: 120 !important; }

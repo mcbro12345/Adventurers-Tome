@@ -3984,3 +3984,126 @@ html.mobile.kbreal .pcwin .ptychat-ac { top: auto !important; bottom: calc(100% 
 /* phones: no scroll-shade lines across the chat's messages, and a plain (not dashed) edge on the message box */
 html.mobile .pcwin .ptychat-l.pg-shade::before, html.mobile .pcwin .ptychat-l.pg-shade::after { display: none !important; }
 #pcwin #ptychat-in { border-bottom-style: solid !important; }
+
+/* pop-ups on a phone: scrolling stops dead at the ends instead of bouncing or carrying on into the page */
+:is(.hub-modal, #modal, .modal-bg, .pg-out, .ptyask-bg, .wizard, .ha-sheet, .pg-crop, #pg-msg, .dk-modal, .drwin, .pcwin, [role=dialog]), :is(.hub-modal, #modal, .modal-bg, .pg-out, .ptyask-bg, .wizard, .ha-sheet, .pg-crop, #pg-msg, .dk-modal, .drwin, .pcwin, [role=dialog]) * { overscroll-behavior: none; }
+
+/* ===== Roll cards (2026): the site's panel look, the math always showing, a × to close ===== */
+#rolls { top: max(16px, 18%); width: min(560px, calc(100vw - 24px)); }
+html.mobile #rolls { top: calc(env(safe-area-inset-top) + 12px); }
+body:has(#modal.open) #rolls { top: 12px; }
+#rolls .toast.rollcard { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: 18px; row-gap: 12px;
+  padding: 16px 52px 16px 20px; border-radius: 18px; border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent); background: color-mix(in srgb, var(--panel) 94%, transparent);
+  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); box-shadow: 0 18px 50px rgba(0,0,0,.42); max-height: calc(100dvh - 32px); overflow-y: auto; overscroll-behavior: contain; animation: rcIn .2s cubic-bezier(.2,.8,.3,1); }
+#rolls .toast.rollcard.rc-out { animation: rcOut .18s ease forwards; pointer-events: none; }
+@keyframes rcIn { from { opacity: 0; transform: translateY(-8px) scale(.98); } }
+@keyframes rcOut { to { opacity: 0; transform: translateY(-6px) scale(.98); } }
+@media (prefers-reduced-motion: reduce) { #rolls .toast.rollcard, #rolls .toast.rollcard.rc-out { animation-duration: .01s; } }
+#rolls .toast.rollcard:not(:first-child) { transform: scale(.96); opacity: .7; }
+#rolls .toast.rollcard > b.total { grid-column: 1; min-width: 64px; font: 700 3rem/1 Georgia, "Times New Roman", serif; color: var(--gold-ink); text-align: center; }
+#rolls .toast.rollcard > .rc-body { grid-column: 2; min-width: 0 !important; font-size: 1rem; display: flex; flex-direction: column; gap: 3px; }
+#rolls .toast.rollcard .rc-name { font: 700 1.12rem/1.25 Georgia, "Times New Roman", serif; color: var(--ink); overflow-wrap: anywhere; }
+#rolls .toast.rollcard .rc-lbl { font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; font-weight: 800; color: var(--soft); }
+#rolls .toast.rollcard .det { display: block !important; color: var(--soft); font-size: .82rem; }
+#rolls .toast.rollcard.has-math .det.dd { display: none !important; }
+#rolls .toast.rollcard > .rc-dmg { grid-column: 3; align-self: stretch; justify-content: center; min-width: 76px; padding: 0 0 0 18px; border-left: 1px solid var(--line); }
+#rolls .toast.rollcard > .rc-dmg b { font: 700 2.6rem/1 Georgia, "Times New Roman", serif; }
+#rolls .toast.rollcard > .rc-multi { grid-column: 1 / 3; }
+/* the math: always there, one block per part */
+#rolls .toast.rollcard > .rc-math { grid-column: 1 / -1; display: grid !important; grid-template-columns: 1fr; gap: 10px 16px; margin: 0 -32px 0 0; padding: 10px 14px; min-width: 0;
+  border-radius: 12px; background: color-mix(in srgb, var(--ink) 5%, transparent); border: 1px solid var(--line2); font-size: .84rem; }
+#rolls .toast.rollcard > .rc-math.two { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+#rolls .toast.rollcard > .rc-math.two .rm-sec + .rm-sec { border-left: 1px solid var(--line2); padding-left: 16px; }
+#rolls .rc-math .rm-h { color: var(--gold-ink); opacity: 1; margin: 0 0 4px; }
+#rolls .rc-math .rm-r { padding: 2px 0; } #rolls .rc-math .rm-r span { opacity: .8; } #rolls .rc-math .rm-r b { font-weight: 700; }
+#rolls .rc-math .rm-t { border-top-color: var(--line); } #rolls .rc-math .rm-t span { opacity: 1; font-weight: 800; }
+#rolls .toast.rollcard > .t-acts { grid-column: 1 / -1; margin: 0 -32px 0 0; padding: 0 !important; justify-content: flex-end; }
+/* the × */
+#rolls .rc-x { position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; margin: 0 !important; padding: 0; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--soft); cursor: pointer; transition: background .15s, color .15s; }
+#rolls .rc-x:hover, #rolls .rc-x:focus-visible { background: color-mix(in srgb, var(--ink) 10%, transparent); color: var(--ink); }
+html.pg-touch #rolls .rc-x:active { transform: scale(.9); background: color-mix(in srgb, var(--ink) 14%, transparent); }
+#rolls .rc-dice { display: none !important; }
+/* crits and fumbles: the colour runs through the border and the numbers */
+#rolls .toast.rollcard.crit { border-color: color-mix(in srgb, var(--green) 70%, transparent); } #rolls .toast.rollcard.crit > b.total, #rolls .toast.rollcard.crit .rc-lbl { color: var(--green); }
+#rolls .toast.rollcard.fumble { border-color: color-mix(in srgb, var(--red) 70%, transparent); } #rolls .toast.rollcard.fumble > b.total, #rolls .toast.rollcard.fumble .rc-lbl { color: var(--red); }
+/* phones: a bit tighter */
+@media (max-width: 560px) {
+  #rolls .toast.rollcard { column-gap: 14px; padding: 14px 46px 14px 16px; }
+  #rolls .toast.rollcard > b.total { font-size: 2.5rem; min-width: 52px; }
+  #rolls .toast.rollcard > .rc-dmg { min-width: 60px; padding-left: 14px; } #rolls .toast.rollcard > .rc-dmg b { font-size: 2.1rem; }
+  #rolls .toast.rollcard > .rc-math, #rolls .toast.rollcard > .t-acts { margin-right: -30px; }
+  #rolls .toast.rollcard > .rc-math.two { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+  #rolls .rc-x { top: 8px; right: 8px; }
+}
+/* when the parts don't fit side by side they stack, with a line between instead of beside */
+#rolls .toast.rollcard > .rc-math.two { container-type: inline-size; }
+@media (min-width: 561px) { @container (max-width: 395px) { #rolls .rc-math.two .rm-sec + .rm-sec { border-left: 0 !important; padding-left: 0 !important; border-top: 1px solid var(--line2); padding-top: 10px; } } }
+@media (max-width: 560px) { @container (max-width: 295px) { #rolls .rc-math.two .rm-sec + .rm-sec { border-left: 0 !important; padding-left: 0 !important; border-top: 1px solid var(--line2); padding-top: 10px; } } }
+/* a long value (a roll written out in full) wraps inside the card instead of running off its edge */
+#rolls .rc-math .rm-r { gap: 12px; } #rolls .rc-math .rm-r span { flex: none; max-width: 60%; } #rolls .rc-math .rm-r b { min-width: 0; white-space: normal; overflow-wrap: anywhere; text-align: right; }
+#rolls .toast.rollcard { overflow-x: hidden; }
+
+/* ===== Character creation on a phone: the whole window scrolls (header goes up out of the way, the step gets the
+   full height); no lists scrolling inside it; Back / Next stay pinned to the bottom; search boxes stay in reach ===== */
+html.mobile #wizard .wz-box { overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+html.mobile #wizard .wz3 .wz3-wrap { flex: 1 0 auto !important; min-height: 0; display: block !important; overflow: visible; }
+html.mobile #wizard .wz3 .wz3-main { flex: none !important; display: block !important; overflow: visible; min-height: 0; }
+html.mobile #wizard .wz3 .wz-body { flex: none !important; overflow: visible !important; min-height: 0; }
+html.mobile #wizard .wz-foot { position: sticky; bottom: 0; z-index: 30; }
+html.mobile #wizard .crlist { max-height: none !important; overflow: hidden !important; overflow: clip !important; }
+html.mobile #wizard .wz3-pick > .wz3-q, html.mobile #wizard .wz-body input[data-wzq] { position: sticky; top: 8px; z-index: 4; box-shadow: 0 -8px 0 var(--wc-card, var(--panel)), 0 6px 14px rgba(0,0,0,.25); }
+/* rows in the race / variant / class lists */
+#wizard .wz3-row { align-items: center; }
+#wizard .wz3-row.wic .wz3-cic { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: color-mix(in srgb, var(--gold) 16%, transparent); color: var(--gold-ink); margin-right: 2px; }
+#wizard .wz3-row.wic .wz3-cic svg { width: 20px; height: 20px; }
+#wizard .wz3-row > div { flex: 1; min-width: 0; }
+#wizard .crlist > .wz3-g, #rcmodal .crlist > .wz3-g { margin: 0; padding: 10px 12px 6px; font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--gold-ink); background: color-mix(in srgb, var(--ink) 4%, transparent); border-bottom: 1px solid var(--line2); }
+html.mobile #wizard .wz-box > .wz-foot { -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+html.mobile #wizard .wz3-pick > .wz3-q, html.mobile #wizard .wz-body input[data-wzq] { -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); box-shadow: 0 6px 14px rgba(0,0,0,.25); }
+
+/* Phones and tablets: anything you can tap lights up the moment your finger lands on it — the phone's own tap
+   highlight (a CSS pressed style here made iPhones drop slower taps, so it isn't used) */
+@media (hover: none) {
+  :where(button, a[href], summary, select, [role=button], [role=tab], [role=option], [role=menuitem], [data-act], [data-wact], [data-a], [data-pick], [data-roll], label.crrow) { -webkit-tap-highlight-color: rgba(255,255,255,.14); }
+  @media (prefers-color-scheme: light) { :where(button, a[href], summary, select, [role=button], [role=tab], [role=option], [role=menuitem], [data-act], [data-wact], [data-a], [data-pick], [data-roll], label.crrow) { -webkit-tap-highlight-color: rgba(0,0,0,.1); } }
+}
+/* phones: the search box pinned under the clock, with the page colour behind it so rows don't peek out above it */
+html.mobile #wizard .wz3-pick > .wz3-q, html.mobile #wizard .wz-body input[data-wzq] { top: calc(env(safe-area-inset-top) + 8px); box-shadow: 0 6px 14px rgba(0,0,0,.25); background-color: rgba(18,24,39,.94); }
+@media (prefers-color-scheme: light) { html.mobile #wizard .wz3-pick > .wz3-q, html.mobile #wizard .wz-body input[data-wzq] { box-shadow: 0 6px 14px rgba(0,0,0,.12); background-color: rgba(251,247,238,.95); } }
+html.mobile #wizard .wz-box { overscroll-behavior: none !important; }
+html.mobile #wizard .wz-box * { overscroll-behavior: none !important; }
+/* phones: how to get your scores, as a 2 × 2 set of buttons instead of four squashed ones */
+html.mobile #wizard .wz-box .segmini { display: grid !important; grid-template-columns: 1fr 1fr; width: 100%; box-sizing: border-box; }
+html.mobile #wizard .wz-box .segmini > button { white-space: nowrap; min-height: 40px; }
+/* Level Up: your classes and the ones you could add, as the same tick-one lists as character creation */
+#modal-body .lvx-list { max-height: none; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; }
+#modal-body .lvx-list .wz3-row { display: flex; align-items: center; gap: 10px; }
+#modal-body .lvx-list .wz3-row .wz3-cic { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: color-mix(in srgb, var(--gold) 16%, transparent); color: var(--gold-ink); }
+#modal-body .lvx-list .wz3-row.on .wz3-cic { background: var(--gold); color: #1b1406; }
+#modal-body .lvx-list .wz3-row .wz3-cic svg { width: 20px; height: 20px; }
+#modal-body .lvx-list .lvx-need { color: var(--red); }
+#modal-body .lvx-mc > .wz3-pick { margin-top: 8px; }
+/* phones: lists in windows (change race, Level Up, choices) don't scroll inside the window; the window scrolls, and
+   a list's search box stays pinned at the top of it while you go */
+html.mobile #modal-body .crlist.wz3-list { max-height: none !important; overflow: hidden !important; overflow: clip !important; }
+html.mobile #modal-body .wz3-pick > .wz3-q { position: sticky; top: 0; z-index: 4; background-color: var(--field, var(--panel)); box-shadow: 0 6px 14px rgba(0,0,0,.25); }
+/* Party chat on a phone, opening: a short drop with a fade on a curve that settles (instead of falling the whole height
+   of the screen), on its own layer so it stays smooth; closing lifts and fades the same way */
+html.mobile .pcwin { animation: pcDrop2 .46s cubic-bezier(.22,1,.36,1) both !important; will-change: transform, opacity; }
+html.mobile .pcwin.closing { animation: pcLift2 .2s cubic-bezier(.4,0,1,1) forwards !important; }
+@keyframes pcDrop2 { 0% { transform: translateY(-90px) scale(.94); opacity: 0; } 35% { opacity: 1; } 100% { transform: none; opacity: 1; } }
+@keyframes pcLift2 { to { transform: translateY(-70px) scale(.95); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { html.mobile .pcwin, html.mobile .pcwin.closing { animation-duration: .01s !important; } }
+/* the top of the card (title and message box) is one tinted band, and its edge is a line right under the message box,
+   where the messages start; with the keyboard up the box rests on the keyboard with the line above it */
+html.mobile .pcwin { background: var(--panel) !important; }
+html.mobile .pcwin .pcw-head, html.mobile .pcwin .ptychat-f { background: color-mix(in srgb, var(--panel) 90%, var(--gold) 10%) !important; }
+html.mobile .pcwin .ptychat-f { border-bottom: 1px solid color-mix(in srgb, var(--gold) 26%, transparent) !important; border-top: 0 !important; padding: 4px 10px 12px !important; }
+html.mobile.kbreal .pcwin .ptychat-f { border-bottom: 0 !important; border-top: 1px solid color-mix(in srgb, var(--gold) 26%, transparent) !important; padding: 10px 10px 10px !important; }
+html.mobile.kbreal .pcwin .pcw-head { border-bottom: 1px solid color-mix(in srgb, var(--gold) 26%, transparent) !important; }
+
+/* (the message box's band runs right to the bottom of the card: no strip of empty card under it) */
+html.mobile .pcwin .pcw-body { padding-bottom: 0 !important; }
+/* Coming back to the app with the keyboard up, the iPhone slides the visible part of the page down (the chat's top went
+   off the screen): the card follows the visible part, so its top stays under the clock. (Normally that slide is 0.) */
+html.mobile .pcwin { top: calc(var(--vvt, 0px) + env(safe-area-inset-top, 0px) + 8px) !important; }

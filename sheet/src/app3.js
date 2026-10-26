@@ -1146,10 +1146,8 @@ function alignHpSide() {
   const wrap = $('.tile.hp .hp-wrap'), ring = $('.tile.hp .hp-ring'), side = $('.tile.hp .hp-side'), cur = $('.tile.hp .hp-center .cur'), amt = $('#hpAmt');
   if (!wrap || !ring || !side || !cur || !amt || !side.offsetParent) return;
   // Measure where the ring sits in the normal layout, pin it there, then slide only the controls down.
-  wrap.style.alignItems = ''; ring.style.marginTop = ''; side.style.marginTop = '';
-  const r0 = ring.getBoundingClientRect().top - wrap.getBoundingClientRect().top;
-  // (kept compact now: the ring and the controls are simply centred on each other, nothing is pushed down)
-  void r0; wrap.style.alignItems = 'center';
+  // (kept compact now: the ring and the controls are simply centred on each other, nothing is pushed down; written only when different)
+  if (ring.style.marginTop) ring.style.marginTop = ''; if (side.style.marginTop) side.style.marginTop = ''; if (wrap.style.alignItems !== 'center') wrap.style.alignItems = 'center';
 }
 addEventListener('resize', () => alignHpSide());
 

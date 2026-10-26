@@ -438,3 +438,8 @@
       if (p > .5 && p < .7) impact(x, cx, cy, c, (p - .5) / .2, .7);
       if (p > .52 && prod) { const k = E.back(clamp((p - .52) * 4)); H.glow(x, cx, cy, 14, c[0], .35); icon(x, prod, cx, cy + Math.sin(S.T / 400) * 1.2, 11 * k, null, S.T); } } });
 })();
+
+
+// (iPhones only show a pressed look on things when the page listens for touches)
+document.addEventListener('touchstart', () => {}, { passive: true });
+
