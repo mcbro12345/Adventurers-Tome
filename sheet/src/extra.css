@@ -3763,7 +3763,7 @@ html:not(.mobile) #tabs.tabs-noicon .ticon { display: none; }
 html.mwin :is(#modal-body, #modal-body > div) > .actions:last-child:not(.mw-hid) { position: sticky; bottom: -18px; z-index: 4; margin: 14px -20px -18px; padding: 12px 20px 16px; background: var(--panel); border-top: 1px solid var(--line); }
 /* Phone layout top bar: the card lines up with the cards below it (same side margins) and starts under the Adventurer's
    Tome button instead of running behind it; the save note stays on one line */
-:root[data-theme="dark"].mobile.pg-sheetpage header.banner::before { top: 36px; left: 12px; right: 12px; }
+:root[data-theme="dark"].mobile.pg-sheetpage header.banner::before { top: calc(36px + env(safe-area-inset-top, 0px)); left: 12px; right: 12px; }
 html.mobile.pg-sheetpage header.banner > .wrap { padding: 14px 22px 14px; }
 html.mobile.pg-sheetpage #sec-header .devbtn { top: 12px !important; }
 html.mobile.pg-sheetpage .toolbar .devbtn { margin-right: 10px; }
@@ -3789,3 +3789,38 @@ html.mobile .tile.hp .hp-center .hp-max { font-size: .85rem; }
 html.mtabs body { padding-bottom: max(84px, calc(env(safe-area-inset-bottom) + 76px)) !important; }
 /* phone pop-ups: Level Up's title matches every other pop-up title */
 html.mobile #modal-body .lvx > h3, html.mobile #pendm > h3 { font: 700 1.2rem/1.25 Arial, Helvetica, sans-serif; color: var(--ink, #e9e3d3); margin-bottom: 4px; }
+/* Metamagic: the same breathing room below it as the strip above (it was pressed against the action cards) */
+.panel.mmpanel { margin-bottom: 12px; }
+/* ===== Inspiration in the top bar's right corner (site, computer) ===== */
+html:not(.mobile) .ident-top .toolbar:has(> .insp-dock) { position: relative; }
+html:not(.mobile) .ident-top .toolbar > .insp-dock { position: absolute; right: 0; top: 0; left: auto; bottom: auto; transform: none; height: 34px; box-sizing: border-box; padding: 2px; gap: 2px; box-shadow: none; z-index: 2; }
+html:not(.mobile) .ident-top .toolbar:has(> .insp-dock) > .pg-hubrow { padding-right: var(--insp-w, 160px); box-sizing: border-box; }
+.insp-dock .insp-b { width: 24px; height: 24px; }
+/* the number is a real button: filled, outlined, and it says Use when you point at it */
+.insp-dock .insp-go { all: unset; box-sizing: border-box; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 88px; height: 28px; padding: 1px 10px 0; border-radius: 999px; line-height: 1;
+  background: color-mix(in srgb, var(--gold) 22%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 60%, transparent), 0 1px 0 rgba(255,255,255,.06) inset; transition: background .15s, box-shadow .15s, transform .1s; }
+.insp-dock .insp-go .insp-n { font-size: .92rem; font-weight: 800; color: var(--gold-ink); }
+.insp-dock .insp-go .insp-l { position: relative; display: block; height: 9px; margin-top: 1px; font-size: .52rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; color: var(--gold-ink); opacity: .85; }
+.insp-dock .insp-go .insp-l > span { display: block; text-align: center; transition: opacity .15s, transform .15s; }
+.insp-dock .insp-go .il-b { position: absolute; inset: 0; opacity: 0; transform: translateY(3px); }
+.insp-dock .insp-go:not([disabled]):hover, .insp-dock .insp-go:focus-visible { background: var(--gold); box-shadow: 0 2px 10px color-mix(in srgb, var(--gold) 45%, transparent); }
+.insp-dock .insp-go:not([disabled]):hover :is(.insp-n, .insp-l), .insp-dock .insp-go:focus-visible :is(.insp-n, .insp-l) { color: #10141c; opacity: 1; }
+.insp-dock .insp-go:not([disabled]):hover .il-a, .insp-dock .insp-go:focus-visible .il-a { opacity: 0; transform: translateY(-3px); }
+.insp-dock .insp-go:not([disabled]):hover .il-b, .insp-dock .insp-go:focus-visible .il-b { opacity: 1; transform: none; }
+.insp-dock .insp-go:not([disabled]):active { transform: scale(.96); }
+.insp-dock .insp-go[disabled] { cursor: default; background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--soft, #8a93a6) 35%, transparent); }
+.insp-dock .insp-go[disabled] :is(.insp-n, .insp-l) { color: var(--soft, #8a93a6); }
+/* no room beside the Tome button: just − number + (the number still says Use when you point at it) */
+.insp-dock.tight .insp-go { min-width: 40px; padding: 0 8px; }
+.insp-dock.tight .insp-go .il-a { display: none; }
+.insp-dock.tight .insp-go .insp-l { height: 0; margin: 0; }
+.insp-dock.tight .insp-go .il-b { inset: auto 0 -2px; }
+.insp-dock.tight .insp-go:not([disabled]):hover .insp-n { display: none; }
+.insp-dock.tight .insp-go:not([disabled]):hover .insp-l { height: auto; }
+.insp-dock.tight .insp-go:not([disabled]):hover .il-b { position: static; font-size: .62rem; }
+/* phone: the same pill in the header card */
+html.mobile .insp-dock.mini { padding: 2px; gap: 0; height: 36px; box-sizing: border-box; margin-right: 34px; }
+html.mobile .insp-dock.mini .insp-b { width: 28px; height: 30px; }
+html.mobile .insp-dock.mini .insp-go { min-width: 70px; height: 30px; padding: 1px 8px 0; }
+html.mobile .insp-dock.mini .insp-go .insp-l { font-size: .48rem; letter-spacing: .05em; }
+@media (hover: none) { html.mobile .insp-dock.mini .insp-go .il-a { opacity: 1 !important; transform: none !important; } html.mobile .insp-dock.mini .insp-go .il-b { opacity: 0 !important; } }

@@ -353,7 +353,7 @@ addEventListener('resize', () => document.documentElement.classList.toggle('mwin
 (() => { let q = 0, st = null, hh = -1; const de = document.documentElement;
   const chk = () => { q = 0; const b = document.querySelector('header.banner'); if (!b) return; const on = !de.classList.contains('mobile') && scrollY > 2;
     if (on !== st) { st = on; de.classList.toggle('hd-stuck', on); }
-    const h = de.classList.contains('mobile') ? 0 : Math.round(b.offsetHeight); if (h !== hh) { hh = h; de.style.setProperty('--hd-h', h + 'px'); } };
+    const h = de.classList.contains('mobile') ? 0 : Math.round(b.offsetHeight); if (h !== hh) { hh = h; de.style.setProperty('--hd-h', h + 'px'); de.style.setProperty('--hd-b', (h ? h + (parseFloat(getComputedStyle(b).top) || 0) : 0) + 'px'); } };
   const soon = () => { if (!q) q = requestAnimationFrame(chk); };
   addEventListener('scroll', soon, { passive: true }); addEventListener('resize', soon); soon();
   const b0 = document.querySelector('header.banner'); if (b0 && window.ResizeObserver) new ResizeObserver(soon).observe(b0); })();
@@ -462,7 +462,7 @@ function renderHeader() {
           ${xp ? `<div class="xprow"><span class="lbl">XP</span>${inp('xp', { num: 1, cls: 'xpin', label: 'Experience points' })}<span class="xpof" data-calc="xpnext"></span>
             <input class="f xpadd" id="xpAdd" type="number" inputmode="numeric" placeholder="+ award" aria-label="Award XP"><button class="btn sm" data-act="addxp">Add</button></div><div class="xpbar" data-calc-html="xpbar"></div>` : '<span class="hint mile">Milestone leveling</span>'}</div>
       </div>
-      <div class="toolbar" data-ordered data-zone="toolbar">${toolbarHTML()}</div>${inspHTML(true)}
+      <div class="toolbar" data-ordered data-zone="toolbar">${toolbarHTML()}${inspDockHTML()}</div>${inspHTML(true)}
     </div>
     <div class="ident-grid">${idf}</div>
   </div>`;

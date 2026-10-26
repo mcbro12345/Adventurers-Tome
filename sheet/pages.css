@@ -3228,3 +3228,23 @@ body.adminbody .adm-body .nt-fmt { max-width: 640px; margin-top: 6px; }
 /* creation summary: ability boxes centred, with room around the number */
 #wizard .wz3 .wz3-ab span { text-align: center; padding: 7px 4px; letter-spacing: .04em; }
 #wizard .wz3 .wz3-ab b { font-size: 1.05rem; margin-top: 1px; }
+/* sheet on a computer: the slim scrollbar starts below the top bar instead of running beside it */
+html:not(.mobile) .pg-sb { top: calc(var(--hd-b, 0px) + 8px); }
+html:has(#wizard.open) .pg-sb { top: 8px; }
+/* the scroll shadows take no room, even in a list with gaps between its rows (party chat's "No messages yet" stays put) */
+.pg-shade::before { margin-bottom: calc(-1px - var(--sh-gap, 0px)); }
+.pg-shade::after { margin-top: calc(-1px - var(--sh-gap, 0px)); }
+/* Contact: the legal links sit quietly at the left of the button row instead of on a line of their own */
+.pg-out-card:has(.pg-ct-row) { width: min(500px, calc(100vw - 32px)); max-width: none; }
+.pg-out-card .pg-ct-mail span { word-break: normal; overflow-wrap: anywhere; }
+.pg-out-card .pg-ct-row { align-items: center; flex-wrap: nowrap; gap: 8px; }
+.pg-out-card .pg-legal.pg-ct-legal { margin: 0 auto 0 0 !important; display: flex; flex-wrap: nowrap; align-items: center; gap: 5px; text-align: left; font-size: .74rem !important; opacity: .65; white-space: nowrap; }
+.pg-out-card .pg-ct-legal a { text-decoration: none; }
+.pg-out-card .pg-ct-legal a:hover { opacity: 1; text-decoration: underline; text-underline-offset: 2px; }
+.pg-out-card .pg-ct-row .pg-ct-btn { white-space: nowrap; }
+@media (max-width: 560px) { .pg-out-card .pg-ct-row { flex-wrap: wrap; } .pg-out-card .pg-legal.pg-ct-legal { order: 9; flex-basis: 100%; justify-content: center; margin: 6px 0 0 !important; } }
+/* phone sheet: the Adventurer's Tome button's left edge lines up exactly with the top card's left edge */
+html.mobile.pg-sheetpage .pg-hublink { left: 12px !important; }
+/* phone sheet: a little room between the Tome button and the top card under it */
+html.pg-sheetpage.mobile .banner { padding-top: calc(42px + env(safe-area-inset-top)) !important; }
+:root[data-theme="dark"].mobile.pg-sheetpage header.banner::before { top: calc(44px + env(safe-area-inset-top, 0px)) !important; }

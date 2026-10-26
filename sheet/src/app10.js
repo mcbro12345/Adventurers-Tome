@@ -353,8 +353,21 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && IDRAG) idr
 // ================= Inspiration (optional, Settings → Rules) =================
 // One at most by the rules; the "More than one" house rule removes the cap.
 const inspMax = () => ST('inspMany') ? Infinity : 1;
+// On the site, on a computer: the pill sits in the top bar's right corner, above the corner buttons. The number is the
+// Use button; − and + change the count.
+function inspDockOn() { return !!window.SHEET_PAGES && !isMobile(); }
+function inspDockHTML(phone) {
+  if (!ST('inspiration') || !(phone || inspDockOn())) return '';
+  const n = Math.max(0, N(S.insp)), mx = inspMax();
+  return `<div class="insp insp-dock${phone ? ' mini' : ''}${n ? ' on' : ''}" role="group" aria-label="Inspiration">
+    <button class="insp-b" data-act="insp" data-d="-1" ${n ? '' : 'disabled'} aria-label="Spend Inspiration" title="Take one away">−</button>
+    <button class="insp-c insp-go" data-act="inspuse" ${n ? '' : 'disabled'} title="${n ? 'Use Inspiration: reroll your last roll, or advantage on the next one' : 'No Inspiration to use'}"><b class="insp-n">${n}</b><span class="insp-l"><span class="il-a">Inspiration</span><span class="il-b" aria-hidden="true">Use</span></span></button>
+    <button class="insp-b" data-act="insp" data-d="1" ${n >= mx ? 'disabled' : ''} aria-label="Gain Inspiration" title="Add one">+</button></div>`;
+}
 function inspHTML(mini) {
-  if (!ST('inspiration')) return '';
+  if (!ST('inspiration') || inspDockOn()) return '';
+  // (phones keep it in its place in the header card, the same pill as on a computer: the number is the Use button)
+  if (isMobile()) return mini ? inspDockHTML(true) : '';
   const n = Math.max(0, N(S.insp)), mx = inspMax();
   // One at a time: the badge itself is the switch — tap the star to fill it, tap again to spend it.
   const use = n ? `<button class="insp-use${mini ? ' mini' : ''}" data-act="inspuse" title="Reroll your last attack, check or save, or have advantage on the next one">Use</button>` : '';

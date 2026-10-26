@@ -805,12 +805,23 @@ const TB_FOLD = ['edit', 'history', ['redo', 'undo'], 'settings', 'save'];
 function fitTabs() { const t = $('#tabs'); if (!t) return; t.classList.remove('tabs-tight', 'tabs-noicon'); if (isMobile()) return;
   const cut = () => [...t.querySelectorAll('.tlabel')].some(l => l.offsetParent && l.scrollWidth > l.clientWidth + 1);
   if (!cut()) return; t.classList.add('tabs-tight'); if (!cut()) return; t.classList.add('tabs-noicon'); }
+// The Inspiration pill in the top bar's corner keeps clear of the Tome button and the faces beside it: when they'd meet,
+// it drops its label (just − number +), and the row's room is set to whatever the pill actually takes.
+function inspDockFit() {
+  const d = $('.toolbar > .insp-dock'), row = $('.toolbar > .pg-hubrow'); if (!d) return;
+  d.classList.remove('tight'); if (!row) return;
+  const kids = [...row.children].filter(k => k.offsetParent), used = () => kids.reduce((a, k) => Math.max(a, k.getBoundingClientRect().right), row.getBoundingClientRect().left);
+  const room = () => d.getBoundingClientRect().left - 10;
+  if (used() > room()) d.classList.add('tight');
+  row.style.setProperty('--insp-w', Math.ceil(d.getBoundingClientRect().width + 10) + 'px');
+}
 function fitToolbar() {
   fitTabs();
   const tb = $('.toolbar'); if (!tb) return;
   // (the site's Tome button row goes back into a freshly drawn toolbar first, so it's measured as it will look)
   if (typeof window.pgHubRow === 'function') try { window.pgHubRow(); } catch (e) {}
   if (typeof window.__pwFit === 'function') try { window.__pwFit(); } catch (e) {} // (and the portrait beside it at its size)
+  inspDockFit();
   tb.classList.remove('tb-compact', 'tb-wrap'); $$('.toolbar .nolbl').forEach(k => k.classList.remove('nolbl'));
   if (isMobile()) return;
   const kids = [...tb.children].filter(k => k.offsetParent !== null && !k.classList.contains('pg-hubrow')); if (kids.length < 2) return; // (the site's own row above the buttons doesn't count)

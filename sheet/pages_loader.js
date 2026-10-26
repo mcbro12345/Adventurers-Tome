@@ -7,6 +7,29 @@
 // Everyone signs in once per device (Google, or a link emailed to them). Each character belongs to one email;
 // the database only lets that player — and the DM — open or change it.
 // Every way of leaving a page fades it out first, so the next page's loading screen fades in instead of popping.
+// Buttons act on the press (registered first so the release that follows is dropped before anything else sees it)
+(() => { if (window.__pgPress) return; window.__pgPress = 1;
+  const SEL = 'button, [role="button"], [role="tab"], [role="menuitem"], [role="option"], summary, input[type="button"], input[type="submit"], input[type="reset"]';
+  const SKIP = '[disabled], [aria-disabled="true"], [draggable="true"], [data-press="up"], .hr-grip, .nw-grip, .idrag, .sdrag, .bdrag, .gdrag, .cgdrag, [data-mgrip], [data-mresize], [data-handle], [contenteditable="true"] *';
+  let ptr = 'mouse', eat = null;
+  window.__pgEating = () => !!eat;
+  addEventListener('pointerdown', e => { ptr = e.pointerType || 'mouse'; }, true);
+  addEventListener('mousedown', e => {
+    if (e.button !== 0 || e.ctrlKey || e.shiftKey || e.metaKey || e.altKey || e.defaultPrevented || ptr !== 'mouse' || (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents)) return;
+    const b = e.target.closest && e.target.closest(SEL); if (!b || b.matches(SKIP) || b.closest('[disabled], [draggable="true"]')) return;
+    eat = { t: Date.now() }; const was = document.activeElement;
+    b.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window, detail: 1, clientX: e.clientX, clientY: e.clientY, screenX: e.screenX, screenY: e.screenY, button: 0 }));
+    // The browser then focuses the button the usual mouse way (no keyboard focus ring), unless the click put focus
+    // somewhere on purpose (a box that opened, say), which is kept.
+    const now = document.activeElement; if (now !== was && now !== b && now !== document.body) e.preventDefault();
+  }); // (on the window, after the page's own mousedown handlers have run)
+  // the release's click comes straight after the mouseup, so it's only dropped then
+  addEventListener('mouseup', e => { if (eat && e.button === 0) { const it = eat; setTimeout(() => { if (eat === it) eat = null; }, 0); } }, true);
+  // (a click from the keyboard (detail 0) is never one to drop, and a press whose release never came - another tab or a
+  // dialog took it - is forgotten when the page loses focus, so it can't swallow some later click)
+  addEventListener('click', e => { if (!eat || !e.isTrusted || e.button !== 0 || e.detail === 0 || Date.now() - eat.t > 10000) { if (eat && e.isTrusted && e.detail !== 0) eat = null; return; } eat = null; e.preventDefault(); e.stopImmediatePropagation(); }, true);
+  addEventListener('blur', () => { eat = null; }); document.addEventListener('visibilitychange', () => { eat = null; });
+})();
 const PG_CALM = (() => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } })();
 // Leaving a page: the loading screen (dice and all) fades in over it right away, and the next page starts with that same
 // screen already showing, so there's no blank gap before the dice appear.
@@ -286,7 +309,7 @@ function pgPillWire(el) { let st = null;
 // a divider with a soft shadow at an edge when there's more past it.
 (() => { if (window.__pgShade) return; window.__pgShade = 1;
   const SEL = '.rl-list, .setx, .to-list, .to-dkl, .ptylog, .ptygive, .ptycast, .ptychat-l, .adm-nav, .pa-body, .au-opts, #tipbox';
-  const one = el => { const t = el.scrollTop > 2, b = el.scrollTop + el.clientHeight < el.scrollHeight - 2; if (!el.classList.contains('pg-shade')) el.classList.add('pg-shade'); if (el.classList.contains('sc-t') !== t) el.classList.toggle('sc-t', t); if (el.classList.contains('sc-b') !== b) el.classList.toggle('sc-b', b); }; // (classes only touched when they change)
+  const one = el => { const t = el.scrollTop > 2, b = el.scrollTop + el.clientHeight < el.scrollHeight - 2; if (!el.classList.contains('pg-shade')) { const cs = getComputedStyle(el), g = /flex|grid/.test(cs.display) ? parseFloat(cs.rowGap) || 0 : 0; if (g) el.style.setProperty('--sh-gap', g + 'px'); el.classList.add('pg-shade'); } if (el.classList.contains('sc-t') !== t) el.classList.toggle('sc-t', t); if (el.classList.contains('sc-b') !== b) el.classList.toggle('sc-b', b); }; // (classes only touched when they change)
   const all = () => document.querySelectorAll(SEL).forEach(one);
   document.addEventListener('scroll', e => { const el = e.target; if (el && el.matches && el.matches(SEL)) one(el); }, true);
   addEventListener('resize', () => requestAnimationFrame(all)); setInterval(all, 900); })();
@@ -590,8 +613,7 @@ function pgContact() {
   const su = encodeURIComponent('Adventurer’s Tome'), m = document.createElement('div'); m.className = 'pg-out'; pgOutFade(m);
   m.innerHTML = `<div class="pg-out-card" role="dialog" aria-modal="true" aria-labelledby="pg-ct-h"><h2 id="pg-ct-h">Contact</h2><p>Questions, ideas or something not working? Email us at</p>
     <div class="pg-ct-mail"><span>${CONTACT_EMAIL}</span><button class="pg-ct-copy">Copy</button></div>
-    ${window.pgBugReport ? `<button class="pg-ct-bug">${BUG_SVG}<span>Bugs &amp; feedback</span></button>` : ''}
-    <div class="pg-out-row pg-ct-row"><a class="pg-ct-btn" target="_blank" rel="noopener" href="https://mail.google.com/mail/u/0/?view=cm&to=${encodeURIComponent(CONTACT_EMAIL)}&su=${su}">Open in Gmail</a><a class="pg-ct-btn" href="mailto:${CONTACT_EMAIL}?subject=${su}">Email app</a><button class="pg-out-no">Close</button></div><p class="pg-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy policy</a><span aria-hidden="true"> · </span><a href="/terms" target="_blank" rel="noopener">Terms</a><span aria-hidden="true"> · </span><a href="/accessibility" target="_blank" rel="noopener">Accessibility</a></p></div>`;
+    <div class="pg-out-row pg-ct-row"><p class="pg-legal pg-ct-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy</a><span aria-hidden="true">·</span><a href="/terms" target="_blank" rel="noopener">Terms</a><span aria-hidden="true">·</span><a href="/accessibility" target="_blank" rel="noopener">Accessibility</a></p><a class="pg-ct-btn" target="_blank" rel="noopener" href="https://mail.google.com/mail/u/0/?view=cm&to=${encodeURIComponent(CONTACT_EMAIL)}&su=${su}">Open in Gmail</a><a class="pg-ct-btn" href="mailto:${CONTACT_EMAIL}?subject=${su}">Email app</a><button class="pg-out-no">Close</button></div></div>`;
   const close = () => { m.remove(); document.removeEventListener('keydown', key); }, key = e => { if (e.key === 'Escape') close(); };
   m.onclick = e => { if (e.target === m) close(); }; m.querySelector('.pg-out-no').onclick = close;
   { const bb = m.querySelector('.pg-ct-bug'); if (bb) bb.onclick = () => { close(); setTimeout(() => window.pgBugReport && window.pgBugReport(), 200); }; }
@@ -1156,7 +1178,7 @@ function wireDie(root) {
       const inAdm = document.body.classList.contains('adminbody');
     if (inAdm || document.querySelector('.pw')) items.unshift(['lobby', 'Back to the lobby', I('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>')]);
     if (!inAdm && IS_ADMIN) items.push(['admin', 'Admin panel', I('<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>')]);
-      items.push(['contact', 'Contact Adventurer’s Tome', I('<path d="M4 4h16v12H8l-4 4z"/>')]);
+      items.push(['contact', 'Contact Adventurer’s Tome', I('<path d="M4 4h16v12H8l-4 4z"/>')]); if (window.pgBugReport) items.push(['bugs', 'Bugs, ideas & feedback', BUG_SVG]);
       const m = document.createElement('div'); m.className = 'ha-menu wz-hamenu' + (desk ? ' ha-drop' : ' ha-sheet'); m.setAttribute('role', 'menu');
       const who = desk ? '' : `<div class="ha-who">${avaHTML(nm, EMAIL, av.pic, '', '', av)}<div><b>${escH(nm)}</b><small>${escH(EMAIL)}</small></div></div>`;
       const HREF = { lobby: HUBU, admin: URLS.admin ? URLS.admin(G) : '/admin' };
@@ -1167,7 +1189,7 @@ function wireDie(root) {
       if (desk) btn.parentElement.appendChild(m); else { document.body.appendChild(dim); document.body.appendChild(m); dim.onclick = shut; }
       btn.setAttribute('aria-expanded', 'true'); btn.classList.add('open'); setTimeout(() => { document.addEventListener('click', away, true); document.addEventListener('keydown', esc_); const f = m.querySelector('[data-ha]'); if (f) f.focus({ preventScroll: true }); }, 0);
       m.querySelectorAll('a[data-ha]').forEach(a => a.addEventListener('auxclick', () => shut()));
-      m.querySelectorAll('[data-ha]').forEach(b => b.onclick = e => { if (b.tagName === 'A' && (e.ctrlKey || e.metaKey || e.shiftKey || e.button)) { shut(); return; } if (b.tagName === 'A') e.preventDefault(); const k = b.dataset.ha; shut(); if (k === 'lobby') pgGo(HUBU); if (k === 'admin') pgGo(URLS.admin ? URLS.admin(G) : '/admin'); if (k === 'contact') pgContact(); if (k === 'out') signOut(); }); };
+      m.querySelectorAll('[data-ha]').forEach(b => b.onclick = e => { if (b.tagName === 'A' && (e.ctrlKey || e.metaKey || e.shiftKey || e.button)) { shut(); return; } if (b.tagName === 'A') e.preventDefault(); const k = b.dataset.ha; shut(); if (k === 'lobby') pgGo(HUBU); if (k === 'admin') pgGo(URLS.admin ? URLS.admin(G) : '/admin'); if (k === 'contact') pgContact(); if (k === 'bugs') setTimeout(() => window.pgBugReport && window.pgBugReport(), 0); if (k === 'out') signOut(); }); };
     document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('.wzh .wzh-acct, .wzh-back2, .wzh [data-wzh="out"], .wzh .wzh-back'); if (!t) return; e.preventDefault();
       if (t.classList.contains('wzh-acct')) { e.stopPropagation(); wzMenu(t); } else if (t.dataset.wzh === 'out') signOut(); else pgGo(HUBU); });
     new MutationObserver(() => { const l = document.querySelector('#wizard .wzh'); if (l && !l._w) { l._w = 1; wireDie(l); } }).observe(document.documentElement, { childList: true, subtree: true }); }
@@ -2270,7 +2292,7 @@ function hub(fs, auth, G, ctx) {
     const inAdm = document.body.classList.contains('adminbody');
     if (inAdm || document.querySelector('.pw')) items.unshift(['lobby', 'Back to the lobby', I('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>')]);
     if (!inAdm && IS_ADMIN) items.push(['admin', 'Admin panel', I('<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>')]);
-    items.push(['contact', 'Contact Adventurer’s Tome', I('<path d="M4 4h16v12H8l-4 4z"/>')]);
+    items.push(['contact', 'Contact Adventurer’s Tome', I('<path d="M4 4h16v12H8l-4 4z"/>')]); if (window.pgBugReport) items.push(['bugs', 'Bugs, ideas & feedback', BUG_SVG]);
     const m = document.createElement('div'); m.className = 'ha-menu' + (desk ? ' ha-drop' : ' ha-sheet') + (desk && inAdm ? ' ha-up' : ''); m.setAttribute('role', 'menu');
     const who = desk ? '' : `<div class="ha-who">${(a => avaHTML(myName(), EMAIL, a.pic, '', '', a))(myAva())}<div><b>${esc(myName())}</b><small>${esc(EMAIL)}</small></div></div>`;
     const HREF = { lobby: HUB, admin: ADMIN_URL }; // (places you go to are real links, so a middle-click or Ctrl-click opens them in a new tab)
@@ -2282,7 +2304,7 @@ function hub(fs, auth, G, ctx) {
     btn.setAttribute('aria-expanded', 'true'); btn.classList.add('open'); setTimeout(() => { document.addEventListener('click', away, true); document.addEventListener('keydown', esc_); const f = m.querySelector('[data-ha]'); if (f) f.focus({ preventScroll: true }); }, 0);
     m.querySelectorAll('a[data-ha]').forEach(a => a.addEventListener('auxclick', () => shut()));
     m.querySelectorAll('[data-ha]').forEach(b => b.onclick = e => { if (b.tagName === 'A' && (e.ctrlKey || e.metaKey || e.shiftKey || e.button)) { shut(); return; } if (b.tagName === 'A') e.preventDefault(); const k = b.dataset.ha; shut();
-      if (k === 'pic') pickPic(); if (k === 'name') renameMe(); if (k === 'admin') pgGo(ADMIN_URL); if (k === 'lobby') pgGo(HUB); if (k === 'contact') pgContact(); if (k === 'out') signOut();
+      if (k === 'pic') pickPic(); if (k === 'name') renameMe(); if (k === 'admin') pgGo(ADMIN_URL); if (k === 'lobby') pgGo(HUB); if (k === 'contact') pgContact(); if (k === 'bugs') setTimeout(() => window.pgBugReport && window.pgBugReport(), 0); if (k === 'out') signOut();
       if (k === 'theme') { const next = pgDark() ? 'light' : 'dark', de = document.documentElement, f = () => { de.setAttribute('data-pgtheme', next); try { localStorage.setItem('pg-theme', next); } catch (x) {} };
         if (!PG_CALM && document.startViewTransition) document.startViewTransition(f); else f(); } }); }
   wireDie(root);
@@ -4063,6 +4085,8 @@ function partyModule(H) {
     const no = c.querySelector('.pg-out-no') || [...c.querySelectorAll('button')].find(b => /^(cancel|close|not now|done|no)$/i.test(b.textContent.trim()));
     if (no) return no.click(); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); if (w.classList.contains('hub-modal')) w.classList.remove('on'); };
   addEventListener('click', e => {
+    // (the release of a press that already opened the window is not a second press)
+    if (e.isTrusted && e.detail !== 0 && window.__pgEating && window.__pgEating()) return;
     const b = e.target.closest && e.target.closest('button, a, [role=button], [data-act]');
     if (!b || b.closest(FLOAT + ', .pg-out, .hub-modal, #modal, #pg-msg')) { lastSig = null; return; }
     const sig = sigOf(b), open = [...document.querySelectorAll('.pg-out, .hub-modal.on')].find(w => w.__by === sig && !w.classList.contains('closing'));
@@ -4126,24 +4150,3 @@ function partyModule(H) {
 // Buttons act the moment the mouse button goes down, not when it's let go. (Touch screens keep acting on release, so a
 // swipe that starts on a button still scrolls. Ctrl/Shift/⌘ clicks, drag handles and anything that already handles its
 // own press are left as they were.) The click the browser sends on release is then dropped, so nothing happens twice.
-(() => { if (window.__pgPress) return; window.__pgPress = 1;
-  const SEL = 'button, [role="button"], [role="tab"], [role="menuitem"], [role="option"], summary, input[type="button"], input[type="submit"], input[type="reset"]';
-  const SKIP = '[disabled], [aria-disabled="true"], [draggable="true"], [data-press="up"], .hr-grip, .nw-grip, .idrag, .sdrag, .bdrag, .gdrag, .cgdrag, [data-mgrip], [data-mresize], [data-handle], [contenteditable="true"] *';
-  let ptr = 'mouse', eat = null;
-  addEventListener('pointerdown', e => { ptr = e.pointerType || 'mouse'; }, true);
-  addEventListener('mousedown', e => {
-    if (e.button !== 0 || e.ctrlKey || e.shiftKey || e.metaKey || e.altKey || e.defaultPrevented || ptr !== 'mouse' || (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents)) return;
-    const b = e.target.closest && e.target.closest(SEL); if (!b || b.matches(SKIP) || b.closest('[disabled], [draggable="true"]')) return;
-    eat = { t: Date.now() }; const was = document.activeElement;
-    b.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window, detail: 1, clientX: e.clientX, clientY: e.clientY, screenX: e.screenX, screenY: e.screenY, button: 0 }));
-    // The browser then focuses the button the usual mouse way (no keyboard focus ring), unless the click put focus
-    // somewhere on purpose (a box that opened, say), which is kept.
-    const now = document.activeElement; if (now !== was && now !== b && now !== document.body) e.preventDefault();
-  }); // (on the window, after the page's own mousedown handlers have run)
-  // the release's click comes straight after the mouseup, so it's only dropped then
-  addEventListener('mouseup', e => { if (eat && e.button === 0) { const it = eat; setTimeout(() => { if (eat === it) eat = null; }, 0); } }, true);
-  // (a click from the keyboard (detail 0) is never one to drop, and a press whose release never came - another tab or a
-  // dialog took it - is forgotten when the page loses focus, so it can't swallow some later click)
-  addEventListener('click', e => { if (!eat || !e.isTrusted || e.button !== 0 || e.detail === 0 || Date.now() - eat.t > 10000) { if (eat && e.isTrusted && e.detail !== 0) eat = null; return; } eat = null; e.preventDefault(); e.stopImmediatePropagation(); }, true);
-  addEventListener('blur', () => { eat = null; }); document.addEventListener('visibilitychange', () => { eat = null; });
-})();
