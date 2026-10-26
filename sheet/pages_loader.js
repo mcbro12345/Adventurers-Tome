@@ -2281,26 +2281,29 @@ function hub(fs, auth, G, ctx) {
       tileFit(root); tileCaps(); }
     else { newBtn(); wireA2HS(root); root.querySelectorAll('[data-view]').forEach(b => b.onclick = () => switchView(b.dataset.view)); placeInd(false); placeTrack(false); skelRestore(); }
     root.querySelector('#me-acct').onclick = e => { e.stopPropagation(); acctMenu(e.currentTarget, D); };
-    // Folders of shared characters fold and unfold smoothly instead of snapping. Driven frame by frame (height and fade
-    // together), and when folding one near the bottom of the page the page's scroll is moved in the same frame as the
-    // fold, instead of the browser catching up a frame later, which made it shudder on phones.
-    const foldEase = t => 1 - Math.pow(1 - t, 3);
+    // Folders of shared characters fold and unfold smoothly instead of snapping. Nothing is re-laid out while it moves
+    // (on iPhones, re-laying out every frame made the headings below shiver as their text snapped from pixel to pixel):
+    // the folder is opened or shut once, then everything below it glides from where it was to where it now belongs,
+    // and the folder's cards are wiped in or out in step. Folding one near the bottom of the page scrolls up with it.
+    const FOLD_EASE = 'cubic-bezier(.3,.7,.2,1)';
+    const followers = d => { const out = [], stop = root; let n = d; while (n && n !== stop && n !== document.body) { let x = n.nextElementSibling; while (x) { if (x.getClientRects().length) out.push(x); x = x.nextElementSibling; } n = n.parentElement; } return out; };
     root.querySelectorAll('details.hub-folder > summary').forEach(sm => sm.addEventListener('click', e => {
-      const d = sm.parentElement, body = d.querySelector(':scope > .hf-body'); if (!body || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-      e.preventDefault(); if (d._anim) d._anim.cancel();
-      const closing = d.open && !d.classList.contains('hf-closing'), from = closing ? body.offsetHeight : (d.open ? body.offsetHeight : 0);
-      if (!closing) { d.classList.remove('hf-closing'); d.open = true; } else d.classList.add('hf-closing');
-      body.style.height = ''; const full = closing ? from : body.scrollHeight, to = closing ? 0 : full, dur = closing ? 240 : 300;
-      const se = document.scrollingElement || document.documentElement, s0 = scrollY, max0 = se.scrollHeight - innerHeight;
-      body.style.overflow = 'hidden'; body.style.willChange = 'height, opacity'; body.style.height = from + 'px';
-      let raf = 0, t0 = 0; const stop = () => { cancelAnimationFrame(raf); body.style.height = body.style.opacity = body.style.overflow = body.style.willChange = ''; d._anim = null; };
-      d._anim = { cancel: () => { stop(); d.classList.remove('hf-closing'); } };
-      const step = now => { if (!t0) t0 = now; const k = Math.min(1, (now - t0) / dur), v = foldEase(k), hh = from + (to - from) * v;
-        body.style.height = hh + 'px'; body.style.opacity = closing ? 1 - v : Math.min(1, .15 + v);
-        if (closing) { const cap = Math.max(0, max0 - (from - hh)); if (scrollY > cap) scrollTo(0, cap); }
-        if (k < 1) { raf = requestAnimationFrame(step); return; }
-        if (closing) { d.open = false; d.classList.remove('hf-closing'); } stop(); };
-      raf = requestAnimationFrame(step);
+      const d = sm.parentElement, body = d.querySelector(':scope > .hf-body'); if (!body || !body.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      e.preventDefault(); if (d._fold) d._fold.finish();
+      const closing = d.open, dur = closing ? 260 : 300, h = closing ? body.offsetHeight : 0, fol = followers(d), anims = [];
+      let done = false; const end = () => { if (done) return; done = true; anims.forEach(a => a.cancel()); d.classList.remove('hf-closing'); if (closing) d.open = false; d._fold = null; if (sc) scrollTo(0, sc.to); };
+      let sc = null;
+      if (closing) { d.classList.add('hf-closing');
+        // (near the bottom the page can't stay scrolled where it is once it's shorter: glide the scroll up during the fold instead of jumping at the end)
+        const se = document.scrollingElement || document.documentElement, cap = Math.max(0, se.scrollHeight - h - innerHeight); if (scrollY > cap) sc = { from: scrollY, to: cap };
+        anims.push(body.animate([{ clipPath: 'inset(0 0 0 0)', opacity: 1 }, { clipPath: `inset(0 0 100% 0)`, opacity: 0 }], { duration: dur, easing: FOLD_EASE, fill: 'forwards' }));
+        fol.forEach(x => anims.push(x.animate([{ transform: 'translateY(0)' }, { transform: `translateY(${-h}px)` }], { duration: dur, easing: FOLD_EASE, fill: 'forwards' })));
+      } else { d.open = true; const hh = body.offsetHeight;
+        anims.push(body.animate([{ clipPath: `inset(0 0 100% 0)`, opacity: 0 }, { clipPath: 'inset(0 0 0 0)', opacity: 1 }], { duration: dur, easing: FOLD_EASE }));
+        fol.forEach(x => anims.push(x.animate([{ transform: `translateY(${-hh}px)` }, { transform: 'translateY(0)' }], { duration: dur, easing: FOLD_EASE })));
+      }
+      if (sc) { const t0 = performance.now(), ease = t => 1 - Math.pow(1 - t, 3); const go = now => { if (done) return; const k = Math.min(1, (now - t0) / dur); scrollTo(0, sc.from + (sc.to - sc.from) * ease(k)); if (k < 1) requestAnimationFrame(go); }; requestAnimationFrame(go); }
+      d._fold = { finish: end }; Promise.all(anims.map(a => a.finished)).then(end, () => {});
     }));
     root.querySelectorAll('details.hub-folder').forEach(d => d.addEventListener('toggle', () => { open[d.dataset.k] = d.open; ls.set(OPEN, JSON.stringify(open)); if (d.open && D) tileFit(d); }));
     root.querySelectorAll('.hc-dots').forEach(b => b.onclick = e => { e.stopPropagation(); const w = b.parentElement, on = !w.classList.contains('on'); root.querySelectorAll('.hc-menu.on').forEach(x => x.classList.remove('on')); w.classList.toggle('on', on); });
