@@ -3,12 +3,20 @@
 # Deploys with Firebase's own command-line tool at a fixed version (no third-party action), and the job can only
 # read the repository.
 name: Publish to Firebase Hosting
+# It also checks every 10 minutes whether an admin changed the front page's tour video or its picture
+# (Admin → Announce → Landing video), and publishes again only then, so link previews show the new one.
 on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    - cron: '*/10 * * * *'
 permissions:
   contents: read
+# (one publish at a time; a check that comes up while one is running waits for it)
+concurrency:
+  group: hosting
+  cancel-in-progress: false
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -17,7 +25,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Tour video and picture for link previews
+        id: meta
+        env:
+          CHECK: ${{ github.event_name == 'schedule' && '1' || '' }}
+        run: node tools/landing-meta.js
       - name: Deploy
+        if: ${{ github.event_name != 'schedule' || steps.meta.outputs.changed == 'true' }}
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
