@@ -127,7 +127,7 @@ function openSurge(res, why) {
       ${o.p.changes.length || res.extra.length ? `<ul class="surgechg">${o.p.changes.concat(res.extra).map(c => `<li>${c}</li>`).join('')}</ul>` : '<p class="hint" style="margin:2px 0 0">Nothing changes on your sheet — this one is up to you and the DM.</p>'}
       ${o.p.input ? `<label class="surgein">${esc(o.p.input.label)} <input class="f" type="number" min="0" id="surgeCount" value="${o.p.input.val}"></label>` : ''}
     </div>`;
-  openModal(`<h3 class="surgetitle">✦ Wild Magic Surge</h3>${why ? `<p class="hint" style="margin:0 0 8px">${esc(why)}</p>` : ''}${many ? '<p class="hint" style="margin:0 0 8px">Controlled Chaos: pick the result you want.</p>' : ''}
+  openModal(`<h3 class="surgetitle">${esc(res.title || '✦ Wild Magic Surge')}</h3>${why ? `<p class="hint" style="margin:0 0 8px">${esc(why)}</p>` : ''}${many ? `<p class="hint" style="margin:0 0 8px">${esc(res.pickHint || 'Controlled Chaos: pick the result you want.')}</p>` : ''}
     ${res.opts.map(card).join('')}
     <div class="actions"><button class="btn gold" data-act="surgeok">OK</button></div>`, () => surgeApply(true));
 }
@@ -136,7 +136,7 @@ function surgeApply(cancelled) {
   const o = res.opts[res.pick] || res.opts[0], c = { count: $('#surgeCount') ? $('#surgeCount').value : 1 };
   o.p.fns.forEach(f => f(c));
   if (!cancelled) closeModal(true);
-  pendingLabel = 'Wild Magic Surge (' + o.n + ')'; save(); render();
+  pendingLabel = (res.label || 'Wild Magic Surge') + ' (' + o.n + ')'; save(); render();
 }
 function surgePick(k) { if (!SURGE_PEND) return; SURGE_PEND.pick = N(k); $$('.surgecard').forEach((el, i) => el.classList.toggle('on', i === N(k))); }
 function surgeNoneToast(c) { toast(`<b class="total">${c.total}</b><div><div><b>Wild Magic</b> · surge check</div><div class="sfx">No surge — only a 1 sets one off</div></div>`, '', 3500); }
@@ -150,6 +150,43 @@ function wildAfterCast(sp) {
   return () => surgeNoneToast(c);
 }
 function wildSurgeNow() { const res = rollSurge(); save(); render(); openSurge(res, ''); }
+
+// ---------- Path of Wild Magic: Wild Surge ----------
+// Entering a rage rolls a d8 on the barbarian's Wild Magic table, shown and applied the same way as a sorcerer's surge.
+// What it leaves running is an Active Spells chip that ends with the rage (rage: true) — +1 AC for Protective Lights,
+// the bonus-action options for teleport / spirit / bolt, and so on. A new result (Unstable Backlash) replaces the old one.
+// Controlled Surge rolls two and you pick; doubles let you pick any row.
+const bsDC = () => dcVal('con', 'barbarian') || (8 + profB() + mod('con'));
+function bsFx(p, nm, note, buff) {
+  const name = 'Wild Surge: ' + nm, e = { name, rage: true, wsurge: true, buff: Object.assign({ note }, buff || {}) };
+  p.changes.push(`Adds <b>${esc(name)}</b> to Active Spells until your rage ends${buff && buff.ac ? ` (+${buff.ac} AC)` : ''}`);
+  p.fns.push(() => { S.effects = (S.effects || []).concat([JSON.parse(JSON.stringify(e))]); });
+}
+const BSURGE = [
+  ['Shadowy tendrils lash around you. Each creature of your choice within 30 ft makes a CON save or takes 1d12 necrotic damage, and you gain 1d12 temporary hit points.', p => {
+    pRoll(p, '1d12', `Necrotic damage to each creature you choose within 30 ft (CON save DC ${bsDC()} negates)`); const t = pRoll(p, '1d12', 'Your temporary hit points');
+    if (t > N(S.hp.temp)) { p.changes.push(`Temporary HP: ${N(S.hp.temp)} → <b>${t}</b>`); p.fns.push(() => { S.hp.temp = Math.max(N(S.hp.temp), t); }); } else p.changes.push(`You keep your ${N(S.hp.temp)} temporary HP (temporary HP don't stack)`); }],
+  ['You teleport up to 30 ft to an unoccupied space you can see. Until your rage ends, you can do it again as a bonus action on each of your turns.', p => bsFx(p, 'Teleport', 'Bonus action each turn: teleport up to 30 ft to an unoccupied space you can see')],
+  ['An intangible spirit appears within 5 ft of a creature you choose within 30 ft and explodes. Each creature within 5 ft of it makes a DEX save or takes 1d6 force damage. Until your rage ends, you can summon another as a bonus action.', p => {
+    pRoll(p, '1d6', `Force damage to each creature within 5 ft of the spirit (DEX save DC ${bsDC()} negates)`); bsFx(p, 'Exploding spirit', `Bonus action each turn: another spirit (DEX save DC ${bsDC()} or 1d6 force)`); }],
+  ['Magic infuses one weapon you hold until your rage ends: it’s light and thrown (20/60 ft), deals force damage instead of its normal type, and flies back to your hand after it’s thrown.', p => bsFx(p, 'Infused weapon', 'One weapon you hold is light and thrown (20/60 ft), deals force damage, and returns to your hand after it’s thrown')],
+  ['Until your rage ends, whenever a creature hits you with an attack roll, it takes 1d6 force damage as magic lashes out in retribution.', p => bsFx(p, 'Retribution', 'A creature that hits you with an attack roll takes 1d6 force damage')],
+  ['Protective lights shimmer around you until your rage ends: you and friendly creatures within 10 ft get +1 AC.', p => bsFx(p, 'Protective lights', 'Friendly creatures within 10 ft of you also get +1 AC', { ac: 1 })],
+  ['Flowers and vines grow around you until your rage ends: the ground within 15 ft of you is difficult terrain for your enemies.', p => bsFx(p, 'Flowers and vines', 'The ground within 15 ft of you is difficult terrain for your enemies (it moves with you)')],
+  ['A bolt of light shoots from your chest at a creature within 30 ft: it makes a CON save or takes 1d6 radiant damage and is blinded until the start of your next turn. Until your rage ends, you can do it again as a bonus action.', p => {
+    pRoll(p, '1d6', `Radiant damage (CON save DC ${bsDC()} negates; blinded until the start of your next turn)`); bsFx(p, 'Bolt of light', `Bonus action each turn: another bolt (CON save DC ${bsDC()} or 1d6 radiant and blinded until the start of your next turn)`); }]
+];
+function bsOption(n) { const p = plan(); p.fns.push(() => { S.effects = (S.effects || []).filter(e => !e.wsurge); }); BSURGE[n - 1][1](p); return { n, k: n, text: BSURGE[n - 1][0], p }; }
+// how: 'rage' (just raged), 'backlash' (Unstable Backlash), 'controlled' (the Controlled Surge feature), 'one' (roll again)
+function barbSurgeNow(how) {
+  const two = how === 'controlled' || hasFeature('Controlled Surge');
+  const rolls = [rollExpr('1d8', { need: true, label: 'Wild Surge (d8)' })]; if (two) rolls.push(rollExpr('1d8', { need: true, label: 'Controlled Surge: second d8' }));
+  const dbl = two && rolls[0].total === rolls[1].total, ns = dbl ? [1, 2, 3, 4, 5, 6, 7, 8] : rolls.map(r => r.total);
+  const res = { opts: ns.map(bsOption), extra: [], pick: dbl ? ns.indexOf(rolls[0].total) : 0, title: '✦ Wild Surge', label: 'Wild Surge',
+    pickHint: dbl ? `Controlled Surge: you rolled doubles (${rolls[0].total}), so pick any effect.` : two ? 'Controlled Surge: pick the result you want.' : '' };
+  save(); render();
+  openSurge(res, how === 'rage' ? 'You entered your rage. The surge lasts until the rage ends.' : how === 'backlash' ? 'Unstable Backlash: this replaces your current Wild Surge effect.' : 'This replaces your current Wild Surge effect.');
+}
 function wildCheckNow() {
   const c = rollExpr('1d20', { need: true, label: 'Wild Magic surge check (d20)' });
   if (c.total !== 1) { surgeNoneToast(c); return; }

@@ -1404,7 +1404,7 @@ function rollExpr0(expr, opts) {
         return r;
       }
       if (res.src === 'sheetroll') return { total: N(res.total), detail: 'Rolled by the sheet: ' + res.detail, d20: res.d20 != null ? N(res.d20) : null };
-      if (res.src === 'sheet') return { total: N(res.total), detail: 'Sheet (Roll20 didn\'t answer): ' + res.detail, d20: res.d20 != null ? N(res.d20) : null };
+      if (res.src === 'sheet') return Object.assign({}, res.loc || {}, { total: N(res.total), detail: 'Sheet (Roll20 didn\'t answer): ' + res.detail, d20: res.d20 != null ? N(res.d20) : null });
       return { total: N(res.total), detail: `${prettyExpr(expr)} = ${N(res.total)} (${res.src === 'roll20' ? 'Roll20' : 'your roll'})`, d20: res.d20 != null ? N(res.d20) : null };
     }
     throw new NeedRoll({ expr: String(expr), opts, label: opts.label || ROLL_LBL || pendingLabel || 'Roll' });
@@ -1434,7 +1434,7 @@ async function getRoll(req) {
     if (r && !r.error) { R20.failAt = 0; return Object.assign({ src: 'roll20' }, r); }
     if (!recent) { R20.failAt = Date.now(); R20.failWhy = r && r.error || 'no answer'; toast(`<b>Your computer didn't answer</b> — the sheet rolled instead.<div class="det">Keep this character open on your computer with “Roll20 rolls for me” on and your Roll20 game open.</div>`, 'fumble', 8000); }
     const loc = rollLocal(req.expr, req.opts || {});
-    return { src: 'sheet', total: loc.total, d20: loc.d20, detail: loc.detail };
+    return { src: 'sheet', total: loc.total, d20: loc.d20, detail: loc.detail, loc };
   }
   if (diceMode() === 'roll20') {
     // If Roll20 just failed, don't wait again for every roll of the same action: roll here straight away.
@@ -1444,7 +1444,7 @@ async function getRoll(req) {
     // Fallback: the sheet rolls it, so play never stalls.
     if (!recent) { R20.failAt = Date.now(); R20.failWhy = r && r.error || 'not connected'; toast(`<b>Roll20 didn't answer</b> — the sheet rolled instead.<div class="det">${esc(R20.failWhy)}. Check that your Roll20 game tab is open.</div>`, 'fumble', 7000); }
     const loc = rollLocal(req.expr, req.opts || {});
-    return { src: 'sheet', total: loc.total, d20: loc.d20, detail: loc.detail };
+    return { src: 'sheet', total: loc.total, d20: loc.d20, detail: loc.detail, loc };
   }
   return askRoll(req);
 }
@@ -1592,7 +1592,8 @@ function toast(html, cls = '', ms = 4500, action) {
   const t = document.createElement('div');
   t.className = 'toast ' + cls; t.innerHTML = /^\s*<(b class="total"|div)/.test(html) ? html : '<div>' + html + '</div>';
   { const acts = [].concat(action || []).filter(Boolean); if (acts.length) { const box = document.createElement('div'); box.className = 't-acts'; acts.forEach(ac => { const b = document.createElement('button'); b.textContent = ac.label; b.onclick = () => { rollGate(ac.fn); t.remove(); }; box.appendChild(b); }); t.appendChild(box); } }
-  t.addEventListener('click', ev => { if (ev.target.tagName !== 'BUTTON') t.remove(); });
+  // (a roll's card stays put until its × is pressed, so a stray tap can't lose it mid-argument; other notes go on a tap)
+  if (!/^\s*<(b class="total"|div class="rc-multi")/.test(html)) t.addEventListener('click', ev => { if (ev.target.tagName !== 'BUTTON') t.remove(); });
   // Dice results get their own big card in the middle of the screen; everything else stays in the corner.
   const isRoll = /^\s*<(b class="total"|div class="rc-multi")/.test(html);
   let box = $('#toasts');
@@ -1600,21 +1601,86 @@ function toast(html, cls = '', ms = 4500, action) {
   if (isRoll && cls !== 'manual') statFlush();
   if (isRoll && cls !== 'manual') postSheetRoll(t);
   if (isRoll) { box = $('#rolls'); if (!box) { box = document.createElement('div'); box.id = 'rolls'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); } t.classList.add('rollcard'); ms = Math.max(ms, 6500); }
-  if (isRoll) box.prepend(t); else box.appendChild(t);
+  // A new roll while one is showing: like a carousel, the new card slides down into the top spot from just above, the
+  // previous card(s) slide down a place to make room, and whichever card no longer fits slides on down and fades away.
   const cap = isRoll ? (document.documentElement.classList.contains('mobile') ? 1 : 2) : document.documentElement.classList.contains('mobile') ? 2 : 5;
+  let rcOld = [];
+  if (isRoll) { const br = box.getBoundingClientRect(); rcOld = [...box.querySelectorAll(':scope > .rollcard:not(.rc-out)')].map(o => { const r = o.getBoundingClientRect(); const cs = getComputedStyle(o); return { o, top: o.offsetTop, left: o.offsetLeft, w: o.offsetWidth, y: o.offsetTop, tf: cs.transform === 'none' ? '' : cs.transform, op: cs.opacity }; }); }
+  // (the card gets its final layout before it goes in, so the cards below know exactly how far to move)
+  if (isRoll) { t._at = Date.now(); rcDress(t); }
+  if (isRoll) box.prepend(t); else box.appendChild(t);
+  if (isRoll && rcOld.length) {
+    const still = !matchMedia('(prefers-reduced-motion: reduce)').matches, stay = rcOld.slice(0, cap - 1), go = rcOld.slice(cap - 1);
+    go.forEach(({ o, top, left, w, tf, op }) => { clearTimeout(o._tm); if (!still) { o.remove(); return; } o.classList.add('rc-out', 'rc-slide'); Object.assign(o.style, { position: 'absolute', top: top + 'px', left: left + 'px', width: w + 'px', margin: '0', animation: 'none', zIndex: '-1' });
+      const a = o.animate([{ transform: `translateY(0px) ${tf}`, opacity: op }, { transform: 'translateY(40px) scale(.9)', opacity: 0 }], { duration: 130, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' }); a.onfinish = () => o.remove(); }); // (gone quickly, before the card behind it slides into its place)
+    if (still) {
+      stay.forEach(({ o, y, tf, op }) => { const d = y - o.offsetTop, cs = getComputedStyle(o), tf2 = cs.transform === 'none' ? '' : cs.transform; // (it eases into its second-place look as it moves, so nothing snaps at the end)
+        if (Math.abs(d) > 1) { o.style.animation = 'none'; o.animate([{ transform: `translateY(${d}px) ${tf}`, opacity: op }, { transform: `translateY(0px) ${tf2}`, opacity: cs.opacity }], { duration: 400, delay: go.length ? 100 : 0, easing: 'cubic-bezier(.3,0,.2,1)', fill: 'backwards' }); } });
+      t.style.animation = 'none'; t.animate([{ transform: 'translateY(-56px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 380, delay: 150, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'backwards' }); // (it follows a beat behind, so the two never blur together)
+    }
+  }
   if (isRoll) {
-    // Each die is behind the 🎲 button: the card stays simple, but you can check for 1s, 20s and rerolls.
-    if (t.querySelector('.det, .rc-math')) { const db = document.createElement('button'); db.className = 'rc-dice'; db.title = 'Show the math'; db.textContent = '🎲'; db.onclick = ev => { ev.stopPropagation(); const on = t.classList.toggle('showdet'); clearTimeout(t._tm); if (!on) t._tm = setTimeout(() => t.remove(), 4000); }; t.appendChild(db); }
-    { const btns = [...t.children].filter(c => c.tagName === 'BUTTON'); if (btns.length > 1) { const w = document.createElement('div'); w.className = 'rc-btns'; btns.forEach(b => { b.style.marginLeft = ''; w.appendChild(b); }); t.appendChild(w); } }
-    while (box.children.length > cap) box.lastChild.remove(); t._tm = setTimeout(() => t.remove(), ms); return;
+    // The math is always on the card (no button to open it), laid out under the numbers: one column per part (to hit,
+    // damage…). The card stays until its × is pressed — or until a newer roll pushes it off the stack.
+    // Settings → Dice can make cards fade on their own after a while (it waits while the pointer rests on the card)
+    { const sec = N(ST('rollFade')); if (sec > 0) { const go = () => { clearTimeout(t._tm); t._tm = setTimeout(() => rcClose(t), sec * 1000); }; go();
+      t.addEventListener('mouseenter', () => clearTimeout(t._tm)); t.addEventListener('mouseleave', go); t.addEventListener('touchstart', go, { passive: true }); } }
+    { const live = [...box.children].filter(c => !c.classList.contains('rc-slide')); while (live.length > cap) live.pop().remove(); } return;
   }
   while (box.children.length > cap) box.firstChild.remove();
   setTimeout(() => t.remove(), ms);
 }
+function rcDress(t) {
+  const body = t.querySelector(':scope > div:not(.rc-dmg):not(.t-acts)');
+  if (body && !body.querySelector('.rc-name')) { const f = body.firstElementChild; if (f && f.tagName === 'DIV' && !f.className) f.classList.add('rc-name'); }
+  if (body) body.classList.add('rc-body');
+  const m = t.querySelector('.rc-math');
+  if (m) { t.classList.add('has-math');
+    // each part of the sum gets its own block (its heading, its rows, its total)
+    { const secs = []; let cur = null; [...m.children].forEach(c => { if (c.classList.contains('rm-h') || !cur) { cur = document.createElement('div'); cur.className = 'rm-sec'; secs.push(cur); } cur.appendChild(c); }); m.innerHTML = ''; secs.forEach(x => m.appendChild(x)); m.classList.toggle('two', secs.length > 1); }
+    t.appendChild(m); }
+  t.querySelectorAll('.det').forEach(d => { if (!d.textContent.trim()) d.remove(); });
+  const acts = t.querySelector(':scope > .t-acts'); if (acts) t.appendChild(acts);
+  const x = document.createElement('button'); x.className = 'rc-x'; x.type = 'button'; x.title = 'Close'; x.setAttribute('aria-label', 'Close');
+  x.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  x.onclick = ev => { ev.stopPropagation(); rcClose(t); }; t.appendChild(x);
+}
+// On a computer the roll cards can be dragged anywhere on the screen (grab a card anywhere but its buttons). New rolls
+// show up where you left them, for as long as the page is open.
+(() => { let D = null; const box = () => $('#rolls'), K = 'pg-rolls-at';
+  const put = (x, y) => { const b = box(); if (!b) return; b.style.translate = `${Math.round(x)}px ${Math.round(y)}px`; };
+  try { const v = JSON.parse(sessionStorage.getItem(K) || 'null'); if (v) setTimeout(() => put(v[0], v[1]), 0); } catch (e) {}
+  document.addEventListener('pointerdown', e => { if (e.button !== 0 || e.pointerType !== 'mouse' || isMobile()) return; const c = e.target.closest && e.target.closest('#rolls .rollcard'); if (!c || e.target.closest('button, a, input, select, textarea')) return;
+    const b = box(), t = (b.style.translate || '0px 0px').split(' ').map(parseFloat), r = b.getBoundingClientRect();
+    D = { x0: e.clientX, y0: e.clientY, tx: t[0] || 0, ty: t[1] || 0, r, on: false }; e.preventDefault(); });
+  addEventListener('pointermove', e => { if (!D) return; const dx = e.clientX - D.x0, dy = e.clientY - D.y0; if (!D.on && Math.hypot(dx, dy) < 4) return; D.on = true; document.body.classList.add('rolls-drag');
+    // (kept fully on screen)
+    const x = Math.max(-D.r.left + 6, Math.min(innerWidth - D.r.right - 6, dx)), y = Math.max(-D.r.top + 6, Math.min(innerHeight - D.r.top - 60, dy)); put(D.tx + x, D.ty + y); });
+  addEventListener('pointerup', () => { if (!D) return; const was = D.on; D = null; document.body.classList.remove('rolls-drag'); if (!was) return;
+    const t = (box().style.translate || '0px 0px').split(' ').map(parseFloat); try { sessionStorage.setItem(K, JSON.stringify([t[0] || 0, t[1] || 0])); } catch (e) {}
+    const eat = ev => { ev.stopPropagation(); ev.preventDefault(); }; addEventListener('click', eat, { capture: true, once: true }); setTimeout(() => removeEventListener('click', eat, true), 0); });
+  // a card that ends up off screen (the window got smaller) comes back on
+  addEventListener('resize', () => { const b = box(); if (!b || !b.style.translate) return; const r = b.getBoundingClientRect(); if (r.right > innerWidth || r.left < 0 || r.top > innerHeight - 60) { b.style.translate = ''; try { sessionStorage.removeItem(K); } catch (e) {} } });
+})();
+function rcClose(t) { if (!t || t.classList.contains('rc-out')) return; clearTimeout(t._tm);
+  const box = t.parentElement, cs = getComputedStyle(t), tf = cs.transform === 'none' ? '' : cs.transform; t.classList.add('rc-out'); t.style.animation = 'none';
+  // (it fades away, then whatever card was behind it glides up into its place and takes the top card's look)
+  const a = t.animate([{ transform: `translateY(0px) ${tf}`, opacity: cs.opacity }, { transform: `translateY(-6px) ${tf} scale(.98)`, opacity: 0 }], { duration: 180, easing: 'ease', fill: 'forwards' });
+  a.onfinish = () => { if (!box || matchMedia('(prefers-reduced-motion: reduce)').matches) { t.remove(); return; }
+    const rest = [...box.querySelectorAll(':scope > .rollcard:not(.rc-out)')].map(o => { const c = getComputedStyle(o); return { o, y: o.offsetTop, tf: c.transform === 'none' ? '' : c.transform, op: c.opacity }; });
+    t.remove();
+    rest.forEach(({ o, y, tf, op }) => { const d = y - o.offsetTop, c = getComputedStyle(o), tf2 = c.transform === 'none' ? '' : c.transform; if (Math.abs(d) < 1 && tf === tf2) return; o.style.animation = 'none';
+      o.animate([{ transform: `translateY(${d}px) ${tf}`, opacity: op }, { transform: `translateY(0px) ${tf2}`, opacity: c.opacity }], { duration: 320, easing: 'cubic-bezier(.22,1,.36,1)' }); }); };
+}
+// Esc closes the newest roll card (when no window is open)
+document.addEventListener('keydown', e => { if (e.key !== 'Escape' || document.querySelector('#modal.open, .wizard.open, .hub-modal.on, .pg-out')) return; const c = document.querySelector('#rolls .rollcard:not(.rc-out)'); if (c) rcClose(c); });
 let onModalCancel = null;
 let MODAL_BY = null, MODAL_SIG = null; // which button opened the window that's showing
 function openModal(html, onCancel, wide) {
   MODAL_BY = MODAL_SIG;
+  // a roll card left up from earlier steps aside when a window opens (it sat over the window's tabs); one this same
+  // click just made stays
+  document.querySelectorAll('#rolls .rollcard').forEach(c => { if (Date.now() - (c._at || 0) > 600) rcClose(c); });
   // a window opening fresh starts its lists unsearched and at the top (they're only remembered while it stays open)
   try { if (!$('#modal').classList.contains('open') && !document.querySelector('#wizard.open')) Object.keys(WZ3M).forEach(k => delete WZ3M[k]); } catch (e) {}
   // (a window closed a moment ago in this same step is being replaced, not closed: it stays up and swaps over)
@@ -1727,7 +1793,7 @@ const isMobile = () => document.documentElement.classList.contains('mobile');
 const who = () => S.name || 'Your character';
 
 // ---------- Settings ----------
-const SETDEF = { combatSpellSort: 'level', protectorScales: false, advancement: 'milestone', abilityStyle: 'mod', showName: true, showRace: false, showBackground: false, showPlayer: false, showAlignment: false, showFaith: false, showRoll20: true, encumbrance: 'standard', exhaustionRule: '2014', exhaustionDC: false, concPrompt: true, durationAlerts: true, autoSpend: true, critRule: 'double', density: 'comfortable', fontScale: 100, hpLevelUp: 'avg', confirmDelete: false, showCastHints: true, inspiration: false, inspMany: false, electrum: false };
+const SETDEF = { rollFade: 0, combatSpellSort: 'level', protectorScales: false, advancement: 'milestone', abilityStyle: 'mod', showName: true, showRace: false, showBackground: false, showPlayer: false, showAlignment: false, showFaith: false, showRoll20: true, encumbrance: 'standard', exhaustionRule: '2014', exhaustionDC: false, concPrompt: true, durationAlerts: true, autoSpend: true, critRule: 'double', density: 'comfortable', fontScale: 100, hpLevelUp: 'avg', confirmDelete: false, showCastHints: true, inspiration: false, inspMany: false, electrum: false };
 let GEN = 0, RENDERING = '';
 const PID = id => `data-pid="${id}" data-gen="${GEN}" data-home="${RENDERING}"`;
 const ST = k => (S.settings && S.settings[k] !== undefined ? S.settings[k] : SETDEF[k]);
@@ -1798,7 +1864,7 @@ function renderHeader() {
     ST('showAlignment') ? fld('Alignment', sel('alignment', [['', '—']].concat(DND.alignments.map(a => [a, a])))) : '', ST('showFaith') ? fld('Faith', inp('faith', { ph: '—', fit: 8 })) : ''].join('');
   $('#sec-header').innerHTML = `
   <div class="banner-row"><div class="portrait-wrap"><img id="portraitImg" src="${esc(pic)}" alt="${esc((S.name || 'Character') + '’s portrait')}">
-    <label class="portrait-edit" tabindex="0" data-act="portrait">Change portrait</label></div>${inspHTML()}</div>
+    <label class="portrait-edit" tabindex="0" data-act="portrait" title="Change portrait" aria-label="Change portrait"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg></label></div>${inspHTML()}</div>
   <div class="ident${idf ? '' : ' noid'}"><h1 class="sr-only">${esc(S.name || 'Character sheet')}</h1>
     <div class="ident-top">
       <img class="mini-portrait" src="${esc(pic)}" alt="" data-act="portrait">
@@ -1830,7 +1896,7 @@ function renderVitals() {
         <div class="hp-center">${f ? inp('form.hp', { num: 1, cls: 'cur', label: 'Form HP' }) + `<div class="hp-max">of ${N(f.maxhp)}</div>` : `<div class="curline">` + inp('hp.cur', { num: 1, cls: 'cur', label: 'Current HP' }) + `<span class="tmpbadge" data-calc="tmpb" title="Temporary hit points"></span></div><div class="hp-max">of <span class="maxv" data-calc="hpmaxv"></span></div>`}</div></div>
       <div class="hp-side">
         ${f ? `<div class="formnote">Your HP: <b data-calc="truehp"></b> <button class="btn sm" data-act="endform">Revert</button></div>` : ''}
-        <div class="hp-actions"><div class="hp-amtrow"><select class="f hptype" id="hpType" aria-label="Damage type (resistances and immunities apply)" title="Damage type: your resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="hpAmt" type="text" inputmode="text" autocomplete="off" enterkeyhint="done" placeholder="Amount" aria-label="HP amount: type -20 (or 20) and press Enter for damage, +20 to heal"></div>
+        <div class="hp-actions"><div class="hp-amtrow"><select class="f hptype sel-dmg" id="hpType" aria-label="Damage type (resistances and immunities apply)" title="Damage type: your resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="hpAmt" type="text" inputmode="text" autocomplete="off" enterkeyhint="done" placeholder="Amount" aria-label="HP amount: type -20 (or 20) and press Enter for damage, +20 to heal"></div>
           <button class="btn red hpi" data-act="dmg" title="Take damage" aria-label="Take damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="heal" title="Heal" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmpbtn" data-act="tmphp" title="Gain temporary HP (they don't stack — the higher stays). 0 clears them." aria-label="Gain temporary HP">${ICON.hpTemp}</button></div>
         <div class="rest-actions"><button class="btn rest short" data-act="short" title="1 hour: spend Hit Dice, refresh short-rest features and Pact slots"><span class="ri">${ICON.hourglass}</span><span class="rl">Short Rest</span></button><button class="btn rest long" data-act="long" title="8 hours: full HP, all slots, features and Hit Dice"><span class="ri">${ICON.moon}</span><span class="rl">Long Rest</span></button></div>
       </div>
@@ -2741,7 +2807,7 @@ function renderInventory() {
         <span class="grow"></span>
         <button class="icon-btn ibtn${open ? ' on' : ''}" data-act="toggle" data-key="item:${esc(it.id)}" title="${open ? 'Close editing' : 'Edit details and notes'}" aria-label="Edit ${esc(it.name)}">${open ? '▴' : '✎'}</button>
         ${del('inventory', i)}</div>
-      <div class="imeta">${resPickItem(it) && !it.resPick ? `<label class="respick unset"><span>Which ring is it?</span><select class="f" data-restype="${i}" aria-label="Damage type this item resists"><option value="">Choose its damage type…</option>${RES_TYPES.map(t => `<option value="${t}">${t[0].toUpperCase() + t.slice(1)}</option>`).join('')}</select></label>` : ''}${String(it.notes || '').trim() && !open ? `<div class="inote-m mnote">${esc(it.notes)}</div>` : ''}${badges}${ch}${isDeckItem(it) ? `<button class="btn sm gold" data-act="deck" data-i="${i}">Draw a card</button>` : ''}${throwOf(it) ? `<button class="btn sm gold" data-act="throwit" data-i="${i}" title="Throw it (uses your action)">Throw</button>` : ''}${packOf(it.name) ? `<button class="btn sm gold" data-act="unpack" data-i="${i}" title="Replace the pack with everything it contains">Unpack</button>` : ''}${it.equipped && it.weapon && it.weapon.kind === 'melee' && !(it.weapon.props || []).includes('two-handed') && ((it.weapon.props || []).includes('light') || dualWielder()) ? `<label class="offchk" title="Dual wield: after attacking with a light melee weapon, attack with this one as a bonus action (Combat tab → Bonus Action)"><input type="checkbox" data-offhand="${i}"${it.offhand ? ' checked' : ''}> Off-hand (dual wield)</label>` : ''}${itemStores(it) && !it.infusion ? `<button class="btn sm gold" data-act="ringstore" data-i="${i}" title="${esc((it.spells || []).length ? 'Holds: ' + it.spells.join(', ') : 'Empty')}">Store a spell <small>${ringUsed(it)}/${ringCap(it)}</small></button>` : ''}${it.heal ? `<button class="btn sm" data-act="drink" data-i="${i}">Drink (${esc(it.heal)})</button>` : ''}${it.hb && hbUsable(hbFx(it.hb)) ? `<button class="btn sm gold" data-act="useitem" data-i="${i}" ${hbItemReady(it) ? '' : 'disabled'} title="${hbItemOn(it) ? '' : it.attune && !it.attuned ? 'Attune first' : 'Equip it first'}">Use</button>` : ''}${hbChips(it)}
+      <div class="imeta">${resPickItem(it) && !it.resPick ? `<label class="respick unset"><span>Which ring is it?</span><select class="f sel-dmg" data-restype="${i}" aria-label="Damage type this item resists"><option value="">Choose its damage type…</option>${RES_TYPES.map(t => `<option value="${t}">${t[0].toUpperCase() + t.slice(1)}</option>`).join('')}</select></label>` : ''}${String(it.notes || '').trim() && !open ? `<div class="inote-m mnote">${esc(it.notes)}</div>` : ''}${badges}${ch}${isDeckItem(it) ? `<button class="btn sm gold" data-act="deck" data-i="${i}">Draw a card</button>` : ''}${throwOf(it) ? `<button class="btn sm gold" data-act="throwit" data-i="${i}" title="Throw it (uses your action)">Throw</button>` : ''}${packOf(it.name) ? `<button class="btn sm gold" data-act="unpack" data-i="${i}" title="Replace the pack with everything it contains">Unpack</button>` : ''}${it.equipped && it.weapon && it.weapon.kind === 'melee' && !(it.weapon.props || []).includes('two-handed') && ((it.weapon.props || []).includes('light') || dualWielder()) ? `<label class="offchk" title="Dual wield: after attacking with a light melee weapon, attack with this one as a bonus action (Combat tab → Bonus Action)"><input type="checkbox" data-offhand="${i}"${it.offhand ? ' checked' : ''}> Off-hand (dual wield)</label>` : ''}${itemStores(it) && !it.infusion ? `<button class="btn sm gold" data-act="ringstore" data-i="${i}" title="${esc((it.spells || []).length ? 'Holds: ' + it.spells.join(', ') : 'Empty')}">Store a spell <small>${ringUsed(it)}/${ringCap(it)}</small></button>` : ''}${it.heal ? `<button class="btn sm" data-act="drink" data-i="${i}">Drink (${esc(it.heal)})</button>` : ''}${it.hb && hbUsable(hbFx(it.hb)) ? `<button class="btn sm gold" data-act="useitem" data-i="${i}" ${hbItemReady(it) ? '' : 'disabled'} title="${hbItemOn(it) ? '' : it.attune && !it.attuned ? 'Attune first' : 'Equip it first'}">Use</button>` : ''}${hbChips(it)}
 </div>
       ${open ? `<div class="idetail"><div class="idet-top">${picThumb(`inventory.${i}.img`, it.name)}${fld('Notes', ta(`inventory.${i}.notes`, { rows: 2, cls: 'inotefull', label: 'Notes', ph: 'Add a note…' }))}</div>${it.summary ? `<p>${esc(it.summary)}</p>` : ''}${it.armor ? `<p class="hint">${esc(it.armor.type)} armor · AC ${it.armor.base}${it.armor.type === 'shield' ? '' : it.armor.dexCap === 0 ? '' : it.armor.dexCap ? ' + DEX (max ' + it.armor.dexCap + ')' : ' + DEX'}${it.armor.strReq ? ' · STR ' + it.armor.strReq : ''}${it.armor.stealthDis ? ' · Stealth disadvantage' : ''}</p>` : ''}${it.weapon ? `<p class="hint">${esc(it.weapon.cat)} ${esc(it.weapon.kind)} · ${esc(it.weapon.dice)} ${esc(it.weapon.type)}${it.weapon.props && it.weapon.props.length ? ' · ' + esc(it.weapon.props.join(', ')) : ''}${it.weapon.range ? ' · ' + esc(it.weapon.range) + ' ft' : ''}</p>` : ''}
         <div class="row">${fld('Weight (lb)', inp(`inventory.${i}.weight`, { num: 1 }))}${fld('Cost', inp(`inventory.${i}.cost`))}<label class="checkline">${chk(`inventory.${i}.attune`, 'Requires attunement')} Requires attunement</label></div>
@@ -3304,7 +3370,7 @@ function calcHTML(key) {
     case 'fxchips': {
       const fx = S.effects || [];
       if (!fx.length) return '<span class="hint">No spells or effects running.</span>';
-      return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${fmtRounds(e.rounds)}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">🎲 ${esc(e.repeat.dice)}</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join('');
+      return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${(e.rage && e.rounds == null ? "until rage ends" : fmtRounds(e.rounds))}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">🎲 ${esc(e.repeat.dice)}</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join('');
     }
     case 'slotsall': {
       let h = '';
@@ -3504,16 +3570,63 @@ function alignHpSide() {
   const wrap = $('.tile.hp .hp-wrap'), ring = $('.tile.hp .hp-ring'), side = $('.tile.hp .hp-side'), cur = $('.tile.hp .hp-center .cur'), amt = $('#hpAmt');
   if (!wrap || !ring || !side || !cur || !amt || !side.offsetParent) return;
   // Measure where the ring sits in the normal layout, pin it there, then slide only the controls down.
-  wrap.style.alignItems = ''; ring.style.marginTop = ''; side.style.marginTop = '';
-  const r0 = ring.getBoundingClientRect().top - wrap.getBoundingClientRect().top;
-  // (kept compact now: the ring and the controls are simply centred on each other, nothing is pushed down)
-  void r0; wrap.style.alignItems = 'center';
+  // (kept compact now: the ring and the controls are simply centred on each other, nothing is pushed down; written only when different)
+  if (ring.style.marginTop) ring.style.marginTop = ''; if (side.style.marginTop) side.style.marginTop = ''; if (wrap.style.alignItems !== 'center') wrap.style.alignItems = 'center';
 }
 addEventListener('resize', () => alignHpSide());
 
 // Big coin piles shrink their number to fit the chip instead of getting cut off.
 function fitCoins() { $$('.cn .cin').forEach(el => { const n = String(el.value || '').length, z = n >= 8 ? .72 : n >= 7 ? .8 : n >= 6 ? .9 : n >= 5 ? 1 : 0; el.style.fontSize = z ? z + 'rem' : ''; }); }
 document.addEventListener('input', e => { if (e.target.classList && e.target.classList.contains('cin')) fitCoins(); });
+
+// ---------- Right-click an inventory item ----------
+// A menu at the pointer with everything the row can do (use it, equip, attune, charges, move or give it,
+// edit, duplicate, remove). Its buttons are the row's own actions, so they behave exactly as the row's buttons do.
+// Right-clicking inside a box you're typing in keeps the browser's own menu (copy, paste, spelling).
+function invCtxClose() { const m = document.getElementById('ictx'); if (!m) return; m.remove(); }
+function invCtxOpen(row, x, y) {
+  invCtxClose(); const i = N(row.dataset.ii), it = S.inventory[i]; if (!it) return;
+  const B = (attrs, label, cls) => `<button${cls ? ` class="${cls}"` : ''} ${attrs}>${label}</button>`, sect = (t, h) => h ? `${t ? `<div class="mlabel">${t}</div>` : ''}${h}` : '';
+  // the row's own "use" buttons (Drink, Use, Throw, Draw a card, Store a spell, Unpack), as they are right now
+  const uses = [...row.querySelectorAll('.imeta button[data-act]')].filter(b => /^(drink|useitem|throwit|deck|ringstore|unpack)$/.test(b.dataset.act))
+    .map(b => B(`data-act="${b.dataset.act}" data-i="${i}"${b.disabled ? ` disabled title="${esc(b.title || '')}"` : ''}`, esc(b.textContent.trim()))).join('');
+  const dests = [['', 'Pack']].concat(bagTree().map(([b, d]) => [b.id, (d ? ' '.repeat(d) + '↳ ' : '') + (b.name || 'Container')])).filter(([v]) => it.equipped || v !== (bagOf(it) ? it.bag : ''));
+  const pms = typeof ptyAct === 'function' && ptyAct() ? ptyMembers() : [];
+  const ch = it.charges && N(it.charges.max) > 0, left = ch ? Math.max(0, N(it.charges.max) - N(it.charges.used)) : 0;
+  const html = [
+    `<div class="ictx-h">${esc(it.name || 'Item')}${N(it.qty) > 1 ? ` <span>×${N(it.qty)}</span>` : ''}</div>`,
+    sect('', uses),
+    sect('', (it.equipped ? B(`data-act="moveto" data-i="${i}" data-to=""`, 'Unequip') : B(`data-act="equip" data-i="${i}"`, 'Equip'))
+      + (it.attune ? B(`data-act="attune" data-i="${i}"`, it.attuned ? 'End attunement' : 'Attune') : '')),
+    ch ? sect(`Charges · ${left}/${N(it.charges.max)}`, B(`data-act="charge" data-i="${i}" data-d="-1"${left ? '' : ' disabled'}`, 'Use a charge') + B(`data-act="charge" data-i="${i}" data-d="1"${left < N(it.charges.max) ? '' : ' disabled'}`, 'Restore a charge')) : '',
+    dests.length && (it.equipped || (S.bags || []).length) ? sect('Move to', dests.map(([v, t]) => B(`data-act="moveto" data-i="${i}" data-to="${esc(v)}"`, esc(t))).join('')) : '',
+    pms.length ? sect('Give to', pms.map(m => B(`data-pa="giveto" data-id="${esc(m.id)}" data-i="${i}"`, esc(m.name || 'A party member'))).join('')) : '',
+    sect('', B(`data-act="toggle" data-key="item:${esc(it.id)}"`, UI.open['item:' + it.id] ? 'Close details' : 'Edit details and notes') + B(`data-act="dupitem" data-i="${i}"`, 'Duplicate')
+      + B(`data-act="del" data-list="inventory" data-i="${i}"`, 'Remove', 'danger'))
+  ].filter(Boolean).join('<hr>');
+  const m = document.createElement('div'); m.id = 'ictx'; m.className = 'ictx'; m.setAttribute('role', 'menu');
+  m.innerHTML = `<div class="menu-list">${html}</div>`; document.body.appendChild(m);
+  const l = m.firstElementChild, w = l.offsetWidth, h = l.offsetHeight, mg = 8;
+  l.style.left = Math.max(mg, Math.min(x, innerWidth - w - mg)) + 'px'; l.style.top = Math.max(mg, Math.min(y, innerHeight - h - mg)) + 'px'; l.style.maxHeight = (innerHeight - 2 * mg) + 'px';
+  row.classList.add('ictx-on'); m._row = row;
+  m.addEventListener('click', e => { if (e.target.closest('button:not([disabled])')) setTimeout(() => { if (m._row) m._row.classList.remove('ictx-on'); m.remove(); }, 0); });
+  l.tabIndex = -1; l.style.outline = 'none'; l.focus({ preventScroll: true }); // (arrow keys then walk the list)
+}
+document.addEventListener('contextmenu', e => {
+  const row = e.target.closest && e.target.closest('#page-inventory .irow[data-ii]'); if (!row || e.shiftKey) return;
+  // (a right press focuses the box it lands on, so what counts is whether you were already typing in it)
+  const t = e.target.closest('input, textarea, select, [contenteditable]'); if (t && (invCtxTyping === t || t.tagName === 'SELECT')) return;
+  if (t && invCtxTyping !== t && document.activeElement === t) t.blur();
+  e.preventDefault(); invCtxOpen(row, e.clientX, e.clientY);
+});
+const invCtxShut = () => { const m = document.getElementById('ictx'); if (m) { if (m._row) m._row.classList.remove('ictx-on'); m.remove(); } };
+let invCtxTyping = null;
+document.addEventListener('pointerdown', e => { if (e.button === 2) invCtxTyping = document.activeElement; if (!e.target.closest || !e.target.closest('#ictx')) invCtxShut(); }, true);
+document.addEventListener('keydown', e => { const m = document.getElementById('ictx'); if (!m) return;
+  if (e.key === 'Escape') { e.preventDefault(); invCtxShut(); return; }
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const bs = [...m.querySelectorAll('button:not([disabled])')], k = bs.indexOf(document.activeElement); const n = bs[(k + (e.key === 'ArrowDown' ? 1 : -1) + bs.length) % bs.length]; if (n) n.focus(); } }, true);
+addEventListener('scroll', e => { if (!e.target.closest || !e.target.closest('#ictx')) invCtxShut(); }, true);
+addEventListener('resize', invCtxShut); addEventListener('blur', invCtxShut);
 
 
 // ---------- Click handling ----------
@@ -3550,6 +3663,7 @@ function mainClick(e) {
     case 'attack': attackRoll(i, !b.closest('#page-combat') || !S.inCombat); break;
     case 'bonusatk': bonusAttack(i, b.dataset.kind); break;
     case 'equip': equipItem(i); break;
+    case 'dupitem': { const src = S.inventory[i]; if (!src) break; const c = JSON.parse(JSON.stringify(src)); c.id = uid(); c.equipped = false; c.attuned = false; S.inventory.splice(i + 1, 0, c); pendingLabel = 'Duplicate ' + (src.name || 'item'); save(); render(); toast(`Duplicated “${esc(src.name || 'item')}”`); break; }
     case 'resetturn': S.turn.haste = false; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.attacks = 0; S.turn.atkWith = []; S.turn.lightAtk = false; S.turn.speed0 = ''; S.turn.sneak = false; S.turn.readied = null; update(); render('combat'); toast(`Turn reset — round ${N(S.turn.round) || 1} actions are ready again.`); break;
     case 'fullscreen': if (fsOn()) { FS_USER_OFF = true; fsExit(); } else { FS_USER_OFF = false; fsEnter(); } break;
     case 'tab': { const prev = UI.tab, nt = b.dataset.tab, mini = !!b.closest('.cmini'), mob = isMobile() && !mini;
@@ -3577,7 +3691,7 @@ function mainClick(e) {
       applyTheme(); render('header'); break;
     }
     case 'menu': b.closest('.menu').classList.toggle('open'); break;
-    case 'portrait': if (S.portrait && window.pgRecrop && window.picChoice) { window.picChoice(S.portrait, () => window.pgRecrop('portrait:' + S.id, S.portrait, { shape: 'square', size: 560, title: 'Portrait' }).then(r => { if (!r) return; S.portrait = r.url; pendingLabel = 'Adjust portrait'; save(); render('header'); }), () => $('#portraitFile').click()); break; } $('#portraitFile').click(); break;
+    case 'portrait': if (S.portrait && window.pgRecrop && window.picChoice) { window.picChoice(S.portrait, () => window.pgRecrop('portrait:' + S.id, S.portrait, { shape: 'square', size: 560, title: 'Portrait' }).then(r => { if (!r) return; S.portrait = r.url; pendingLabel = 'Adjust portrait'; save(); render('header'); }), () => $('#portraitFile').click(), { title: 'Portrait', drop: f => setPortraitFile(f) }); break; } $('#portraitFile').click(); break;
     case 'pic': PICPATH = b.dataset.path; closeModal(true); $('#picFile').click(); return;
     case 'picview': { const v = getP(b.dataset.path); openModal(`<div class="picview"><img src="${esc(safeImg(v))}" alt=""></div><div class="actions"><button class="btn red" data-act="picdel" data-path="${esc(b.dataset.path)}">Remove</button>${window.pgRecrop ? `<button class="btn" data-act="picadj" data-path="${esc(b.dataset.path)}">Adjust</button>` : ''}<button class="btn" data-act="pic" data-path="${esc(b.dataset.path)}">Change</button><button class="btn gold" data-act="close">Close</button></div>`); return; }
     case 'picadj': { const path = b.dataset.path, v = getP(path); closeModal(true); window.pgRecrop('pic:' + S.id + ':' + path, v, { shape: 'square', size: 320, title: 'Picture' }).then(r => { if (!r) return; setP(path, r.url); pendingLabel = 'Adjust picture'; save(); render(); }, e => toast(esc(e.message || 'Couldn’t open that picture.'), 'fumble')); return; }
@@ -4175,6 +4289,7 @@ function cleanupLinked() {
   S.attacks = S.attacks.filter(a => !a.effect || names.has(a.effect));
   if (S.form && S.form.effect && !names.has(S.form.effect)) S.form = null;
   if (S.conditions.includes('Raging') && !names.has('Rage')) S.conditions = S.conditions.filter(c => c !== 'Raging');
+  if (!names.has('Rage') && (S.effects || []).some(e => e.rage)) S.effects = S.effects.filter(e => !e.rage); // (Wild Surge effects end with the rage)
 }
 function breakConc(reason) {
   const nm = S.concentration; if (!nm) return;
@@ -4463,6 +4578,9 @@ function useFeature(i, col, opt) {
   if (fx.target === 'infusetab') { UI.tab = 'infusions'; saveUI(); render(); window.scrollTo(0, 0); return; }
   if (fx.onlyRaging && !S.conditions.includes('Raging')) { toast(`${esc(f.name)} only works while raging.`, 'fumble'); return; }
   if (fx.onlyWhen && !fxWhenOK(fx.onlyWhen)) { toast(`${esc(f.name)} only works ${esc(fxWhenText(fx.onlyWhen))}.`, 'fumble'); return; }
+  if (fx.bsurge) { // Path of Wild Magic: roll on the table (Unstable Backlash takes your reaction)
+    if (fx.bsurge === 'backlash' && S.inCombat) { if ((S.turn.used || {}).reaction) { toast('Your reaction is already used this round.', 'fumble'); return; } S.turn.used.reaction = true; }
+    return barbSurgeNow(fx.bsurge); }
   const max = featMax(f);
   if (max != null && !f.pool) {
     if (N(f.used) >= max) { if (fx.slotRestore && (opt || {}).slot == null) return openSlotRestore(i, col); if ((opt || {}).slot == null) { toast(`No uses of ${esc(f.name)} left.`, 'fumble'); return; } }
@@ -4503,6 +4621,7 @@ function useFeature(i, col, opt) {
   pendingLabel = 'Use ' + f.name; update(); render();
   const left = max != null && !f.pool ? `${Math.max(0, max - N(f.used))}/${max} left` : '';
   toast(`${r ? `<b class="total">${r.total}</b>` : ''}<div><div><b>${esc(f.name)}</b>${left ? ' · ' + left : ''}</div>${r ? `<div class="det">${esc(r.detail)}${fx.rollNote ? ' ' + esc(fx.rollNote) : ''}</div>` : ''}${sc.length ? `<div class="det">${esc(sc.join(' · '))}</div>` : ''}${lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, '', 8000, [healAct, typeof ptyFeatAct === 'function' ? ptyFeatAct(f.name, r, f) : null, { label: 'Undo', fn: () => undo(1) }].filter(Boolean).concat(fRh.acts));
+  if (f.name === 'Rage' && hasFeature('Wild Surge')) setTimeout(() => barbSurgeNow('rage'), 450); // Path of Wild Magic: raging sets off a Wild Surge
 }
 function smite(l) {
   let L;
@@ -5292,14 +5411,14 @@ function loadPortrait(file, cb, size, title, keep) {
   };
   img.src = url;
 }
-$('#portraitFile').addEventListener('change', e => {
-  const f = e.target.files[0]; if (!f) return; e.target.value = '';
+$('#portraitFile').addEventListener('change', e => { const f = e.target.files[0]; if (!f) return; e.target.value = ''; setPortraitFile(f); });
+function setPortraitFile(f) {
   loadPortrait(f, data => {
     if (!S.created) { W.portrait = data; renderWizard(); return; }
     S.portrait = data; pendingLabel = 'Change portrait'; matchPortrait(false); save(); render('header');
     toast('Portrait updated and theme colors matched to it.', '', 6000, [{ label: 'Keep old colors', fn: () => undo(1) }]);
   });
-});
+}
 // Theme: accent and banner colors, from a picker or sampled from the portrait.
 function hexToRgb(h) { const m = String(h || '').match(/^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i); return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : null; }
 const rgbHex = c => '#' + c.map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
@@ -5547,7 +5666,7 @@ function fitNameFont0(el) {
   ctx.font = `${cs.fontWeight} ${base}px ${cs.fontFamily}`;
   const tw = ctx.measureText(el.value || el.placeholder || '').width;
   if (tw > w) { let fs = Math.max(10, Math.floor(base * w / tw)); el.style.fontSize = fs + 'px'; while (el.scrollWidth > el.clientWidth && fs > 10) el.style.fontSize = --fs + 'px'; }
-  el.title = el.value || '';
+  { const tt = el.value || ''; if (el.title !== tt) el.title = tt; } // (written only when it changes: see rmCls)
 }
 
 // ---------- Settings ----------
@@ -5584,6 +5703,7 @@ function openSettings(tab) {
       <p class="hint" style="margin:4px 0 0">Copy macros for every attack, save, skill and spell.</p>
       ${!window.SHEET_PAGES ? '' : (() => { const ok = r20AuraOK(), why = !R20.ok ? 'Needs the Roll20 companion extension (and your game open in Roll20).' : !ok ? 'Download the extension again (button above) to get this — your copy is older.' : 'Your auras (like Aura of Protection) go on and off by themselves as party members’ tokens move in and out of range. Each person is still asked first, with how far apart you are. Tokens are matched to characters by name.';
         return `<label class="setrow r20aura${ok ? '' : ' dis'}"${ok ? '' : ` title="${esc(why)}"`}><input type="checkbox" data-set="r20auras"${ok && ST('r20auras') ? ' checked' : ''}${ok ? '' : ' disabled'}><span><b>Auras follow Roll20 tokens</b><small>${esc(why)}</small></span></label>`; })()}
+      ${row('Roll results', opt('rollFade', [[0, 'Stay until I close them'], [5, 'Fade after 5 seconds'], [10, 'Fade after 10 seconds'], [15, 'Fade after 15 seconds'], [30, 'Fade after 30 seconds'], [60, 'Fade after 1 minute']]), 'The card that shows each roll and its math')}
     `)}
     ${pane('rules', `
       ${row('Exhaustion', opt('exhaustionRule', [['2014', '2014 table'], ['2024', '2024 rule']]), exModern() ? '−2 to d20s and −5 ft per level' : 'Effects stack by level')}
@@ -6018,7 +6138,7 @@ function fitSettingsHeight(fresh) {
   let h = Math.ceil(Math.min(cap, Math.max(chrome + tallest + 4, m._sethMin || 0))); if (!fresh && m._sethMin && Math.abs(h - m._sethMin) <= 3) h = m._sethMin;   // a pixel or two of re-measuring isn't worth a nudge
   m.style.setProperty('--seth', h + 'px'); m._sethMin = h;
   // a row appearing or going (e.g. the 2024 exhaustion rule adds one) re-fits the window
-  if (typeof ResizeObserver === 'function') { if (!m._setRO) m._setRO = new ResizeObserver(() => { clearTimeout(m._setRT); m._setRT = setTimeout(() => { if (settingsOpen()) fitSettingsHeight(); }, 80); }); m._setRO.disconnect(); $$('.setx .stpane').forEach(p => m._setRO.observe(p)); }
+  if (typeof ResizeObserver === 'function') { if (!m._setRO) m._setRO = new ResizeObserver(es => { let grew = false; es.forEach(en => { const h = Math.round(en.contentRect.height), was = en.target._roH; en.target._roH = h; if (was != null && Math.abs(was - h) > 2) grew = true; }); if (!grew) return; clearTimeout(m._setRT); m._setRT = setTimeout(() => { if (settingsOpen()) fitSettingsHeight(); }, 80); }); m._setRO.disconnect(); $$('.setx .stpane').forEach(p => m._setRO.observe(p)); }
   // whatever the measuring missed (padding, margins) shows up as scroll on the open tab: add it on
   requestAnimationFrame(() => { const x = $('.setx'); if (!x || !m.isConnected) return; const more = x.scrollHeight - x.clientHeight; if (more > 3 || (more > 0 && fresh)) { const h2 = Math.ceil(Math.min(cap, m.getBoundingClientRect().height + more + 2)); m.style.setProperty('--seth', h2 + 'px'); m._sethMin = Math.max(m._sethMin || 0, h2); } });
 }
@@ -6327,18 +6447,21 @@ window.addEventListener('resize', () => { SUB_K = ''; fitSubtitle(); });
 const TB_FOLD = ['edit', 'history', ['redo', 'undo'], 'settings', 'save'];
 // Sheet tabs on a computer: each takes the room its name needs; when they don't all fit they tighten up, then drop their
 // icons, before any name gets cut short
-function fitTabs() { const t = $('#tabs'); if (!t) return; t.classList.remove('tabs-tight', 'tabs-noicon', 'tabs-scroll'); if (isMobile()) return;
+// Takes classes off only when they're there: even a removal that changes nothing rewrites the element, and on an iPhone a
+// page rewriting itself while it scrolls (the browser bars sliding fire "resize") made the next tap count as a hover.
+const rmCls = (el, ...cs) => { if (el) cs.forEach(c => { if (el.classList.contains(c)) el.classList.remove(c); }); };
+function fitTabs() { const t = $('#tabs'); if (!t) return; rmCls(t, 'tabs-tight', 'tabs-noicon', 'tabs-scroll'); if (isMobile()) return;
   const cut = () => [...t.querySelectorAll('.tlabel')].some(l => l.offsetParent && l.scrollWidth > l.clientWidth + 1);
   if (!cut()) return; t.classList.add('tabs-tight'); if (!cut()) return; t.classList.add('tabs-noicon'); if (!cut()) return; t.classList.add('tabs-scroll'); const on = t.querySelector('.tab.on'); if (on) on.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
 // The Inspiration pill in the top bar's corner keeps clear of the Tome button and the faces beside it: when they'd meet,
 // it drops its label (just − number +), and the row's room is set to whatever the pill actually takes.
 function inspDockFit() {
   const d = $('.toolbar > .insp-dock'), row = $('.toolbar > .pg-hubrow'); if (!d) return;
-  d.classList.remove('tight'); if (!row) return;
+  rmCls(d, 'tight'); if (!row) return;
   const kids = [...row.children].filter(k => k.offsetParent), used = () => kids.reduce((a, k) => Math.max(a, k.getBoundingClientRect().right), row.getBoundingClientRect().left);
   const room = () => d.getBoundingClientRect().left - 10;
   if (used() > room()) d.classList.add('tight');
-  row.style.setProperty('--insp-w', Math.ceil(d.getBoundingClientRect().width + 10) + 'px');
+  { const v = Math.ceil(d.getBoundingClientRect().width + 10) + 'px'; if (row.style.getPropertyValue('--insp-w') !== v) row.style.setProperty('--insp-w', v); }
 }
 function fitToolbar() {
   fitTabs();
@@ -6347,7 +6470,7 @@ function fitToolbar() {
   if (typeof window.pgHubRow === 'function') try { window.pgHubRow(); } catch (e) {}
   if (typeof window.__pwFit === 'function') try { window.__pwFit(); } catch (e) {} // (and the portrait beside it at its size)
   inspDockFit();
-  tb.classList.remove('tb-compact', 'tb-wrap'); $$('.toolbar .nolbl').forEach(k => k.classList.remove('nolbl'));
+  rmCls(tb, 'tb-compact', 'tb-wrap'); $$('.toolbar .nolbl').forEach(k => k.classList.remove('nolbl'));
   if (isMobile()) return;
   const kids = [...tb.children].filter(k => k.offsetParent !== null && !k.classList.contains('pg-hubrow')); if (kids.length < 2) return; // (the site's own row above the buttons doesn't count)
   const tight = () => { const b0 = kids[0].getBoundingClientRect().bottom; return kids.some(k => k.getBoundingClientRect().top >= b0 - 2) || tb.scrollWidth > tb.clientWidth + 2; };
@@ -6826,7 +6949,7 @@ function compCard(c, i, mini, inCol) {
   const hp = c.count > 1 ? `<div class="grpHp">${(c.hps || []).map((h, k) => `<label class="ghp"><span>#${k + 1}</span>${inp(`companions.${i}.hps.${k}`, { num: 1, cls: 'sm', label: c.name + ' ' + (k + 1) + ' HP' })}</label>`).join('')}<span class="hint">of ${N(c.maxhp)} each</span></div>`
     : c.maxhp ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(c.hp, c.maxhp, c.temp)}</div>
         <div class="chp-center"><div class="curline">${inp(`companions.${i}.hp`, { num: 1, cls: 'cur', label: c.name + ' current HP' })}${N(c.temp) ? `<span class="tmpbadge">+${N(c.temp)}</span>` : ''}</div><div class="hp-max">of ${N(c.maxhp)}</div></div></div>
-        <div class="chp-side"><select class="f ptyqt" id="chpt${i}" aria-label="Damage type for ${esc(c.name)}" title="Damage type"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="chp${i}" type="text" autocomplete="off" placeholder="Amount" aria-label="${esc(c.name)} HP: -20 (or 20) for damage, +20 to heal, then Enter">
+        <div class="chp-side"><select class="f ptyqt sel-dmg" id="chpt${i}" aria-label="Damage type for ${esc(c.name)}" title="Damage type"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="chp${i}" type="text" autocomplete="off" placeholder="Amount" aria-label="${esc(c.name)} HP: -20 (or 20) for damage, +20 to heal, then Enter">
           <div class="chp-btns"><button class="btn hpi dmg" data-act="comphp" data-i="${i}" data-d="-1" title="Damage ${esc(c.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="comphp" data-i="${i}" data-d="1" title="Heal ${esc(c.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-act="comphp" data-i="${i}" data-d="0" title="Give ${esc(c.name)} temporary HP (they don't stack — the higher stays)" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div></div>` : '';
   return `<div class="${mini ? 'cm-card' : inCol ? 'comp2 incol' : 'panel comp2'}"><div class="comp-h2">${picThumb(c.tmpl ? `compMods.${c.tmpl}.img` : `companions.${i}.img`, c.name)}<div class="grow"><b class="cname">${esc(c.name)}</b><div class="ctags">${(inCol ? [] : tags).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div></div>
       ${inCol ? compCmdBtn(c, i) : ''}<button class="icon-btn" data-act="compedit" data-i="${i}" title="Edit ${esc(c.name)}" aria-label="Edit">✎</button>${c.tmpl && COMP_RULES[c.tmpl] && COMP_RULES[c.tmpl].always ? '' : `<button class="btn sm ghost" data-act="dismiss" data-i="${i}">Dismiss</button>`}</div>
@@ -6997,7 +7120,7 @@ function openSurge(res, why) {
       ${o.p.changes.length || res.extra.length ? `<ul class="surgechg">${o.p.changes.concat(res.extra).map(c => `<li>${c}</li>`).join('')}</ul>` : '<p class="hint" style="margin:2px 0 0">Nothing changes on your sheet — this one is up to you and the DM.</p>'}
       ${o.p.input ? `<label class="surgein">${esc(o.p.input.label)} <input class="f" type="number" min="0" id="surgeCount" value="${o.p.input.val}"></label>` : ''}
     </div>`;
-  openModal(`<h3 class="surgetitle">✦ Wild Magic Surge</h3>${why ? `<p class="hint" style="margin:0 0 8px">${esc(why)}</p>` : ''}${many ? '<p class="hint" style="margin:0 0 8px">Controlled Chaos: pick the result you want.</p>' : ''}
+  openModal(`<h3 class="surgetitle">${esc(res.title || '✦ Wild Magic Surge')}</h3>${why ? `<p class="hint" style="margin:0 0 8px">${esc(why)}</p>` : ''}${many ? `<p class="hint" style="margin:0 0 8px">${esc(res.pickHint || 'Controlled Chaos: pick the result you want.')}</p>` : ''}
     ${res.opts.map(card).join('')}
     <div class="actions"><button class="btn gold" data-act="surgeok">OK</button></div>`, () => surgeApply(true));
 }
@@ -7006,7 +7129,7 @@ function surgeApply(cancelled) {
   const o = res.opts[res.pick] || res.opts[0], c = { count: $('#surgeCount') ? $('#surgeCount').value : 1 };
   o.p.fns.forEach(f => f(c));
   if (!cancelled) closeModal(true);
-  pendingLabel = 'Wild Magic Surge (' + o.n + ')'; save(); render();
+  pendingLabel = (res.label || 'Wild Magic Surge') + ' (' + o.n + ')'; save(); render();
 }
 function surgePick(k) { if (!SURGE_PEND) return; SURGE_PEND.pick = N(k); $$('.surgecard').forEach((el, i) => el.classList.toggle('on', i === N(k))); }
 function surgeNoneToast(c) { toast(`<b class="total">${c.total}</b><div><div><b>Wild Magic</b> · surge check</div><div class="sfx">No surge — only a 1 sets one off</div></div>`, '', 3500); }
@@ -7020,6 +7143,43 @@ function wildAfterCast(sp) {
   return () => surgeNoneToast(c);
 }
 function wildSurgeNow() { const res = rollSurge(); save(); render(); openSurge(res, ''); }
+
+// ---------- Path of Wild Magic: Wild Surge ----------
+// Entering a rage rolls a d8 on the barbarian's Wild Magic table, shown and applied the same way as a sorcerer's surge.
+// What it leaves running is an Active Spells chip that ends with the rage (rage: true) — +1 AC for Protective Lights,
+// the bonus-action options for teleport / spirit / bolt, and so on. A new result (Unstable Backlash) replaces the old one.
+// Controlled Surge rolls two and you pick; doubles let you pick any row.
+const bsDC = () => dcVal('con', 'barbarian') || (8 + profB() + mod('con'));
+function bsFx(p, nm, note, buff) {
+  const name = 'Wild Surge: ' + nm, e = { name, rage: true, wsurge: true, buff: Object.assign({ note }, buff || {}) };
+  p.changes.push(`Adds <b>${esc(name)}</b> to Active Spells until your rage ends${buff && buff.ac ? ` (+${buff.ac} AC)` : ''}`);
+  p.fns.push(() => { S.effects = (S.effects || []).concat([JSON.parse(JSON.stringify(e))]); });
+}
+const BSURGE = [
+  ['Shadowy tendrils lash around you. Each creature of your choice within 30 ft makes a CON save or takes 1d12 necrotic damage, and you gain 1d12 temporary hit points.', p => {
+    pRoll(p, '1d12', `Necrotic damage to each creature you choose within 30 ft (CON save DC ${bsDC()} negates)`); const t = pRoll(p, '1d12', 'Your temporary hit points');
+    if (t > N(S.hp.temp)) { p.changes.push(`Temporary HP: ${N(S.hp.temp)} → <b>${t}</b>`); p.fns.push(() => { S.hp.temp = Math.max(N(S.hp.temp), t); }); } else p.changes.push(`You keep your ${N(S.hp.temp)} temporary HP (temporary HP don't stack)`); }],
+  ['You teleport up to 30 ft to an unoccupied space you can see. Until your rage ends, you can do it again as a bonus action on each of your turns.', p => bsFx(p, 'Teleport', 'Bonus action each turn: teleport up to 30 ft to an unoccupied space you can see')],
+  ['An intangible spirit appears within 5 ft of a creature you choose within 30 ft and explodes. Each creature within 5 ft of it makes a DEX save or takes 1d6 force damage. Until your rage ends, you can summon another as a bonus action.', p => {
+    pRoll(p, '1d6', `Force damage to each creature within 5 ft of the spirit (DEX save DC ${bsDC()} negates)`); bsFx(p, 'Exploding spirit', `Bonus action each turn: another spirit (DEX save DC ${bsDC()} or 1d6 force)`); }],
+  ['Magic infuses one weapon you hold until your rage ends: it’s light and thrown (20/60 ft), deals force damage instead of its normal type, and flies back to your hand after it’s thrown.', p => bsFx(p, 'Infused weapon', 'One weapon you hold is light and thrown (20/60 ft), deals force damage, and returns to your hand after it’s thrown')],
+  ['Until your rage ends, whenever a creature hits you with an attack roll, it takes 1d6 force damage as magic lashes out in retribution.', p => bsFx(p, 'Retribution', 'A creature that hits you with an attack roll takes 1d6 force damage')],
+  ['Protective lights shimmer around you until your rage ends: you and friendly creatures within 10 ft get +1 AC.', p => bsFx(p, 'Protective lights', 'Friendly creatures within 10 ft of you also get +1 AC', { ac: 1 })],
+  ['Flowers and vines grow around you until your rage ends: the ground within 15 ft of you is difficult terrain for your enemies.', p => bsFx(p, 'Flowers and vines', 'The ground within 15 ft of you is difficult terrain for your enemies (it moves with you)')],
+  ['A bolt of light shoots from your chest at a creature within 30 ft: it makes a CON save or takes 1d6 radiant damage and is blinded until the start of your next turn. Until your rage ends, you can do it again as a bonus action.', p => {
+    pRoll(p, '1d6', `Radiant damage (CON save DC ${bsDC()} negates; blinded until the start of your next turn)`); bsFx(p, 'Bolt of light', `Bonus action each turn: another bolt (CON save DC ${bsDC()} or 1d6 radiant and blinded until the start of your next turn)`); }]
+];
+function bsOption(n) { const p = plan(); p.fns.push(() => { S.effects = (S.effects || []).filter(e => !e.wsurge); }); BSURGE[n - 1][1](p); return { n, k: n, text: BSURGE[n - 1][0], p }; }
+// how: 'rage' (just raged), 'backlash' (Unstable Backlash), 'controlled' (the Controlled Surge feature), 'one' (roll again)
+function barbSurgeNow(how) {
+  const two = how === 'controlled' || hasFeature('Controlled Surge');
+  const rolls = [rollExpr('1d8', { need: true, label: 'Wild Surge (d8)' })]; if (two) rolls.push(rollExpr('1d8', { need: true, label: 'Controlled Surge: second d8' }));
+  const dbl = two && rolls[0].total === rolls[1].total, ns = dbl ? [1, 2, 3, 4, 5, 6, 7, 8] : rolls.map(r => r.total);
+  const res = { opts: ns.map(bsOption), extra: [], pick: dbl ? ns.indexOf(rolls[0].total) : 0, title: '✦ Wild Surge', label: 'Wild Surge',
+    pickHint: dbl ? `Controlled Surge: you rolled doubles (${rolls[0].total}), so pick any effect.` : two ? 'Controlled Surge: pick the result you want.' : '' };
+  save(); render();
+  openSurge(res, how === 'rage' ? 'You entered your rage. The surge lasts until the rage ends.' : how === 'backlash' ? 'Unstable Backlash: this replaces your current Wild Surge effect.' : 'This replaces your current Wild Surge effect.');
+}
 function wildCheckNow() {
   const c = rollExpr('1d20', { need: true, label: 'Wild Magic surge check (d20)' });
   if (c.total !== 1) { surgeNoneToast(c); return; }
@@ -9260,6 +9420,42 @@ const ANI = (() => {
       if (p > .52 && prod) { const k = E.back(clamp((p - .52) * 4)); H.glow(x, cx, cy, 14, c[0], .35); icon(x, prod, cx, cy + Math.sin(S.T / 400) * 1.2, 11 * k, null, S.T); } } });
 })();
 
+
+// (iPhones only show a pressed look on things when the page listens for touches)
+document.addEventListener('touchstart', () => {}, { passive: true });
+
+
+
+// Pick lists in pop-ups (Level Up, changing race / class / background in Settings...): on a computer they grow to use
+// the room the window has, and a pick that redraws the pop-up keeps the list where you'd scrolled it.
+(function () {
+  const isM = () => document.documentElement.classList.contains('mobile');
+  const lists = () => [...document.querySelectorAll('#modal-body .crlist:not(.short)')].filter(e => e.offsetParent && (!e.checkVisibility || e.checkVisibility()) && !(e.closest('details') && !e.closest('details').open));
+  const key = (e, i) => { const t = document.querySelector('#modal-title') || document.querySelector('#modal-body h2, #modal-body h3'); return (t ? t.textContent : '') + '|' + i + '|' + e.children.length; };
+  let SC = {};
+  addEventListener('scroll', ev => { const t = ev.target; if (!t || !t.classList || !t.classList.contains('crlist') || !t.closest('#modal-body')) return; const i = lists().indexOf(t); if (i >= 0) SC[key(t, i)] = t.scrollTop; }, true);
+  // (also note where a list sits the moment you press on it, so a list still at the top stays at the top)
+  addEventListener('pointerdown', ev => { const t = ev.target.closest && ev.target.closest('#modal-body .crlist'); if (!t) return; const i = lists().indexOf(t); if (i >= 0) SC[key(t, i)] = t.scrollTop; }, true);
+  const fit = () => { q = 0; let ls = lists(); if (!ls.length) { SC = {}; return; }
+    const back0 = () => ls.forEach((l, i) => { const v = SC[key(l, i)]; if (v != null && l.isConnected && l.scrollTop !== v) l.scrollTop = v; }), back = () => { back0(); requestAnimationFrame(back0); };
+    if (isM()) return back();
+    let modal = null; for (let e = ls[0].parentElement; e && e !== document.body; e = e.parentElement) if (e.getBoundingClientRect().height < innerHeight - 4) modal = e; if (!modal) return back();
+    const keep = ls.map(l => l.scrollTop);
+    // Start every list at its normal height, then hand the window's spare room to the lists that have more to show
+    ls.forEach(l => { if (l.style.maxHeight) l.style.maxHeight = ''; });
+    // (lists drawn at full length, like Level Up's, are left alone: the pop-up itself scrolls)
+    ls = ls.filter(l => getComputedStyle(l).maxHeight !== 'none'); if (!ls.length) return back();
+    const base = ls.map(l => Math.max(240, parseFloat(getComputedStyle(l).maxHeight) || 300));
+    let room = innerHeight - 48 - modal.getBoundingClientRect().height;
+    for (let e = ls[0].parentElement; e && e !== modal.parentElement; e = e.parentElement) { const oy = getComputedStyle(e).overflowY; if ((oy === 'auto' || oy === 'scroll') && e.scrollHeight > e.clientHeight + 1) { room -= e.scrollHeight - e.clientHeight; break; } }
+    const grow = ls.filter(l => l.scrollHeight > l.clientHeight + 1), each = grow.length ? Math.max(0, room) / grow.length : 0;
+    ls.forEach((l, i) => { const h = Math.floor(grow.includes(l) ? Math.min(l.scrollHeight + 2, base[i] + each) : base[i]) + 'px'; if (l.style.maxHeight !== h) l.style.maxHeight = h; if (l.scrollTop !== keep[i]) l.scrollTop = keep[i]; }); back(); };
+  let q = 0; const sched = () => { if (!q) q = requestAnimationFrame(fit); };
+  const go = () => { new MutationObserver(ms => { if (ms.some(m => m.target.closest && m.target.closest('#modal-body'))) fit(); }).observe(document.body, { childList: true, subtree: true });
+    addEventListener('resize', sched); document.addEventListener('toggle', e => { if (e.target.closest && e.target.closest('#modal-body')) sched(); }, true); };
+  document.body ? go() : document.addEventListener('DOMContentLoaded', go);
+})();
+
 // ---------- Party (on the website) ----------
 // When this character is in a party (see pages_loader.js), the Party tab shows everyone in it — their HP, AC and what's
 // on them — and what you can do for them: heal them, hand items and coins over, cast a spell on them or use an ability
@@ -9333,7 +9529,7 @@ function ptyCardHTML(m) {
   const more = [['coins', 'Give coins'], ['help', 'Help (advantage on their next roll)'], down && !m.dead && !m.stable ? ['stab', 'Stabilize (Medicine, DC 10)'] : null, ['note', 'Send a message']].filter(Boolean);
   const hp = max ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(cur, max, m.temp, f ? ' form' : '')}</div>
       <div class="chp-center"><div class="curline"><b class="ptym-cur">${cur}</b>${N(m.temp) ? `<span class="tmpbadge">+${N(m.temp)}</span>` : ''}</div><div class="hp-max">of ${max}</div></div></div>
-      ${act ? `<div class="chp-side"><select class="f ptyqt" id="ptyqt-${esc(id)}" aria-label="Damage type for ${esc(m.name)}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="ptyq-${esc(id)}" autocomplete="off" placeholder="Amount" aria-label="Amount for ${esc(m.name)}: -20 (or 20) for damage, +20 to heal, then Enter">
+      ${act ? `<div class="chp-side"><select class="f ptyqt sel-dmg" id="ptyqt-${esc(id)}" aria-label="Damage type for ${esc(m.name)}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="ptyq-${esc(id)}" autocomplete="off" placeholder="Amount" aria-label="Amount for ${esc(m.name)}: -20 (or 20) for damage, +20 to heal, then Enter">
         <div class="chp-btns"><button class="btn hpi dmg" data-pa="qdmg" data-id="${esc(id)}" title="Damage ${esc(m.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-pa="qheal" data-id="${esc(id)}" title="Heal ${esc(m.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-pa="qtemp" data-id="${esc(id)}" title="Give ${esc(m.name)} temporary HP" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div>` : ''}</div>` : '';
   return `<div class="panel comp2 ptym${down ? ' ' + down : ''}" data-mid="${esc(id)}"><div class="comp-h2">${m.thumb ? `<span class="picth"${/^#[0-9a-f]{6}$/i.test(m.acc || '') ? ` style="border-color:${m.acc}"` : ''}><img src="${esc(m.thumb)}" alt=""></span>` : `<span class="picadd">${esc(String(m.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''))}</span>`}
       <div class="grow"><b class="cname${String(m.name || '').length > 26 ? ' n3' : String(m.name || '').length > 17 ? ' n2' : ''}" title="${esc(m.name || '')}">${esc(m.name || 'A character')}</b>${m.player ? `<div class="ptym-pl">${esc(m.player)}</div>` : ''}</div>
@@ -9365,9 +9561,13 @@ function renderParty() {
 // The chat's insides (help, messages, the box), the same in the Party tab and in the pop-out window.
 function ptyChatInner() { const ch = PTYX().chat;
   return `<p class="hint ptychat-h">Just the players: your DM can’t see this, and messages disappear after 12 hours.</p>${ch.canSend() ? '<div class="ptychat-cmds"><code>/w name message</code><span>whisper to a player</span><code>/r message</code><span>reply to the last whisper</span></div>' : ''}<div class="ptychat-lw"><div class="ptychat-l" id="ptychat-l">${ptyChatList()}</div><button type="button" class="ptychat-jump" id="ptychat-jump" hidden>Jump to present <span aria-hidden="true">↓</span></button></div>
-    ${ch.canSend() ? `<form class="ptychat-f" id="ptychat-f"><div class="ptychat-ac" id="ptychat-ac" hidden></div><input class="f" id="ptychat-in" maxlength="1000" placeholder="Message the party…" autocomplete="off" aria-label="Message the party"><button class="btn gold">Send</button></form>` : `<p class="hint ptychat-ro">Only ${esc(S.player || 'this character’s player')} can send messages from this sheet.</p>`}`; }
+    ${ch.canSend() ? `<div class="ptychat-f" id="ptychat-f" role="group" aria-label="Send a message"><div class="ptychat-ac" id="ptychat-ac" hidden></div><input class="f" id="ptychat-in" type="search" enterkeyhint="send" maxlength="1000" placeholder="Message the party…" autocomplete="off" autocorrect="on" spellcheck="true" aria-label="Message the party"><button type="button" class="btn gold" data-pcsend>Send</button></div>` : `<p class="hint ptychat-ro">Only ${esc(S.player || 'this character’s player')} can send messages from this sheet.</p>`}`; }
 function ptyChatWire() {
-  const cf = $('#ptychat-f'); if (cf) { cf.onsubmit = e => { e.preventDefault(); ptyChatSubmit(); }; ptyChatWireAC(); }
+  // (not a form, and a search-style box: on iPhones a box inside a form brings up the extra Previous / Next / Done bar
+  // over the keyboard and Safari shifts the whole screen to fit it; search boxes don't, so the chat holds still)
+  const cf = $('#ptychat-f'); if (cf) { ptyChatWireAC(); const ci = cf.querySelector('#ptychat-in');
+    ci.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing && !e.defaultPrevented) { e.preventDefault(); ptyChatSubmit(); } });
+    const sb = cf.querySelector('[data-pcsend]'); sb.addEventListener('pointerdown', e => e.preventDefault()); sb.onclick = e => { e.preventDefault(); ptyChatSubmit(); }; }
   const cl = $('#ptychat-l'); if (cl) { cl.scrollTop = cl.scrollHeight; cl.onscroll = ptyChatJumpShow; const j = $('#ptychat-jump'); if (j) j.onclick = ptyChatBottom; }
 }
 // Pop-out: the chat in its own window like the dice roller (drag it by its title; on a phone it's a sheet along the
@@ -9378,18 +9578,33 @@ function ptyChatWin() {
   if (w) return;
   if (isMobile()) { const d = $('#drwin'); if (d) winClose(d); }
   let pos = null; try { pos = JSON.parse(localStorage.getItem('dnd-pcwin') || 'null'); } catch (e) {}
-  w = document.createElement('div'); w.id = 'pcwin'; w.className = 'pcwin'; winNoBleed(w); w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Party chat');
-  w.innerHTML = `<div class="pcw-head"><b>Party chat</b><button class="pcw-b" data-pcw="x" title="Close" aria-label="Close">✕</button></div><div class="pcw-body">${ptyChatInner()}</div>`;
+  w = document.createElement('div'); w.id = 'pcwin'; w.className = 'pcwin'; winNoBleed(w); w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Party chat'); w._born = Date.now();
+  w.innerHTML = `<div class="pcw-head"><b>Party chat</b><button class="pcw-b" data-pcw="x" title="Close" aria-label="Close">✕</button></div><div class="pcw-body">${ptyChatInner()}</div><div class="pcw-grab" aria-hidden="true"></div>`;
   document.body.appendChild(w);
+  // Phones: tapping the message box focuses it without the browser scrolling anything to "show" it (it's already in
+  // view, above where the keyboard comes up): Safari's own scroll-into-view slid the whole screen and the chat with it.
+  // Phones: the message box sits at the top of the chat, right under its title, like the search boxes do: iPhones slide
+  // the whole screen up whenever you tap into a box in the lower part of it, and leave boxes near the top alone. The page
+  // can't be scrolled behind it while it's open.
+  if (isMobile()) { pcLock(true);
+    // (a dimmed cover over the rest of the screen: tapping anywhere outside the chat closes it, and nothing behind it reacts)
+    const sc = document.createElement('div'); sc.className = 'pc-scrim'; sc.setAttribute('aria-hidden', 'true'); w.before(sc);
+    sc.addEventListener('pointerdown', e => e.preventDefault()); sc.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); ptyChatDock(); }); }
+  // Phones: iPhones shove the whole screen up when you tap into a box low on the screen (even one the keyboard won't
+  // cover) and leave boxes near the top alone; so until the keyboard is up the message box sits at the top of the chat,
+  // and it moves down to rest on the keyboard once it's there. Tapping it focuses it without the browser scrolling.
+  if (isMobile()) w.addEventListener('touchend', e => { const i = e.target.closest && e.target.closest('#ptychat-in'); if (!i || document.activeElement === i) return; e.preventDefault(); i.focus({ preventScroll: true }); }, { passive: false });
   const W = innerWidth, H = innerHeight; if (pos && pos.h) w.style.height = Math.max(260, Math.min(H - 20, pos.h)) + 'px'; if (pos && pos.w) w.style.width = Math.max(280, Math.min(W - 12, pos.w)) + 'px'; const r = w.getBoundingClientRect();
   // opens in the bottom-right corner; after you've moved it, it stays where you put it
   w.style.left = Math.min(Math.max(6, pos && pos.x != null ? pos.x : W - r.width - 20), W - r.width - 6) + 'px'; w.style.top = Math.min(Math.max(6, pos && pos.y != null ? pos.y : H - r.height - 20), H - 80) + 'px';
   ptyChatWire();
   const keep = () => { const b = w.getBoundingClientRect(); try { localStorage.setItem('dnd-pcwin', JSON.stringify({ x: b.left, y: b.top, h: b.height, w: b.width })); } catch (e) {} };
   new ResizeObserver(() => { clearTimeout(keep.t); keep.t = setTimeout(keep, 300); }).observe(w);
-  w.addEventListener('pointerdown', e => { const hd = e.target.closest('.pcw-head'); if (!hd || e.target.closest('button')) return; e.preventDefault();
-    if (isMobile()) { const y0 = e.clientY; hd.setPointerCapture(e.pointerId); const mv = ev => { w.style.transform = `translateY(${Math.max(0, ev.clientY - y0)}px)`; };
-      const up = ev => { hd.removeEventListener('pointermove', mv); hd.removeEventListener('pointerup', up); if (ev.clientY - y0 > 70) ptyChatDock(); else w.style.transform = ''; };
+  w.addEventListener('pointerdown', e => { const hd = e.target.closest('.pcw-head, .pcw-grab'); if (!hd || e.target.closest('button')) return; e.preventDefault();
+    // (on a phone it hangs from the top of the screen: push it back up by its title bar or the handle along its bottom to close it)
+    if (isMobile()) return; // (on a phone it stays put: close it with ✕)
+    if (false) { const y0 = e.clientY; hd.setPointerCapture(e.pointerId); w.style.transition = 'none'; const mv = ev => { const d = ev.clientY - y0; w.style.transform = `translateY(${d < 0 ? d : d / 6}px)`; };
+      const up = ev => { hd.removeEventListener('pointermove', mv); hd.removeEventListener('pointerup', up); w.style.transition = ''; if (y0 - ev.clientY > 60) ptyChatDock(); else w.style.transform = ''; };
       hd.addEventListener('pointermove', mv); hd.addEventListener('pointerup', up); return; }
     const b = w.getBoundingClientRect(), dx = e.clientX - b.left, dy = e.clientY - b.top; hd.setPointerCapture(e.pointerId); w.classList.add('drag');
     const mv = ev => { w.style.left = Math.min(Math.max(0, ev.clientX - dx), innerWidth - b.width) + 'px'; w.style.top = Math.min(Math.max(0, ev.clientY - dy), innerHeight - 40) + 'px'; };
@@ -9402,19 +9617,26 @@ function ptyChatWin() {
 document.addEventListener('pointerdown', e => { if (isMobile() && e.target && e.target.id === 'ptychat-in' && !e.target.closest('#pcwin')) e.preventDefault(); }, true);
 document.addEventListener('click', e => { if (!isMobile() || !e.target || e.target.id !== 'ptychat-in' || e.target.closest('#pcwin')) return; e.preventDefault();
   const v = e.target.value; UI.chatPop = true; if (typeof saveUI === 'function') saveUI(); render('party'); ptyChatWin();
-  const i = document.querySelector('#pcwin #ptychat-in'); if (i) { if (v) i.value = v; i.focus(); } }, true);
+  const i = document.querySelector('#pcwin #ptychat-in'); if (i) { if (v) i.value = v; i.focus({ preventScroll: true }); } }, true);
 function ptyChatPopOut() { try { const p = JSON.parse(localStorage.getItem('dnd-pcwin') || 'null'); if (p) localStorage.setItem('dnd-pcwin', JSON.stringify({ h: p.h, w: p.w })); } catch (e) {} UI.chatPop = true; if (typeof saveUI === 'function') saveUI(); render('party'); ptyChatWin(); setTimeout(() => { const i = $('#ptychat-in'); if (i) i.focus(); }, 60); }
 // Floating windows (dice roller, party chat) fade in when opened and out when closed. A closing window gives up its id
 // straight away, so opening it again at once makes a fresh one.
 // Phones: the on-screen keyboard covers the bottom of the page without resizing it, so bottom sheets (chat, dice
 // roller) are lifted by however much of the screen the keyboard takes, and kept short enough to fit above it.
 (() => { const vv = window.visualViewport; if (!vv) return; const de = document.documentElement;
+  // (where the top of this phone's keyboard comes to, remembered from the last time it was up: the chat card on a phone
+  // reaches down to there, so it's the same size with or without the keyboard)
+  try { const t = localStorage.getItem('pg-kbtop'); if (/^\d+px$/.test(t || '')) de.style.setProperty('--kbtop', t); } catch (e) {}
   // (each value is only written when it changes: writing to the page's root makes the browser restyle everything)
   const setv = (k, v) => { if (de.style.getPropertyValue(k) !== v) de.style.setProperty(k, v); };
-  const upd = () => { const kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)); setv('--kb', kb + 'px'); setv('--vvh', Math.round(vv.height) + 'px'); setv('--vvt', Math.round(vv.offsetTop) + 'px'); const ae = document.activeElement, typing = !!(ae && ae.matches && ae.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea') && ae.closest('#pcwin, #drwin')), up = isMobile() && (typing || innerHeight - vv.height > 120), was = de.classList.contains('kbup'); if (up !== was) de.classList.toggle('kbup', up);
+  const upd = () => { const kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)); setv('--kb', kb + 'px'); setv('--vvh', Math.round(vv.height) + 'px'); setv('--vvt', Math.round(vv.offsetTop) + 'px'); const ae = document.activeElement, typing = !!(ae && ae.matches && ae.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea') && ae.closest('#pcwin, #drwin')), up = isMobile() && (typing || innerHeight - vv.height > 120), was = de.classList.contains('kbup'); if (up !== was) de.classList.toggle('kbup', up); { const real = isMobile() && (innerHeight - vv.height > 120 || (typing && vv.height < (screen.height || innerHeight) * .8)); if (real && vv.height > 200 && vv.height < innerHeight) { const t = Math.round(vv.height) + 'px'; if (de.style.getPropertyValue('--kbtop') !== t) { de.style.setProperty('--kbtop', t); try { localStorage.setItem('pg-kbtop', t); } catch (e) {} } } clearTimeout(window.__kbT); if (real !== de.classList.contains('kbreal')) window.__kbT = setTimeout(() => { if (real !== de.classList.contains('kbreal')) pcSwap(() => de.classList.toggle('kbreal', real)); }, 90); /* (only once the keyboard has settled one way: it reports in fits and starts, which made the box hop back and forth) */ } // (kbreal: the on-screen keyboard is actually up)
     // when the keyboard comes up, the chat jumps to its newest message
     if (up && !was) setTimeout(() => { const l = document.querySelector('#pcwin .ptychat-l'); if (l) l.scrollTop = l.scrollHeight; }, 60); };
   vv.addEventListener('resize', upd); vv.addEventListener('scroll', upd); upd();
+  // coming back to the app (the keyboard comes back up on its own, and the phone slides the screen without always saying
+  // so): check again as it settles
+  const again = () => [0, 80, 200, 400, 700, 1200].forEach(ms => setTimeout(upd, ms));
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) again(); }); addEventListener('pageshow', again); addEventListener('focus', again);
   // the keyboard slides up over a moment after a box is tapped: check again as it settles
   ['focusin', 'focusout'].forEach(t => document.addEventListener(t, () => { [0, 120, 350, 700].forEach(ms => setTimeout(upd, ms)); })); })();
 // Phones: a finger dragged on a window (or on a list inside it that's already at its end) mustn't scroll the page behind.
@@ -9422,7 +9644,26 @@ function winNoBleed(w) { let y0 = 0; w.addEventListener('touchstart', e => { y0 
   w.addEventListener('touchmove', e => { if (e.touches.length > 1) return; const dy = e.touches[0].clientY - y0; let el = e.target;
     while (el && el !== w.parentNode) { const cs = getComputedStyle(el); if (/(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 1) { const top = el.scrollTop <= 0, bot = el.scrollTop + el.clientHeight >= el.scrollHeight - 1; if (!(dy > 0 && top) && !(dy < 0 && bot)) return; break; } if (el === w) break; el = el.parentElement; }
     if (e.cancelable) e.preventDefault(); }, { passive: false }); }
-function winClose(w) { if (!w || w.classList.contains('closing')) return; w.id = ''; w.classList.add('closing');
+// Phones: while the party chat is open the page behind it is pinned in place, so it can't scroll — not when the chat
+// opens, not when the keyboard comes up (iOS slides the whole page to "make room" otherwise, and the chat jumped about
+// with it), and it's back exactly where it was when the chat closes.
+let PC_LOCK = null;
+const pcNoScroll = e => { if (!PC_LOCK) return; const w = document.querySelector('.pcwin:not(.closing)'); if (!w || (e.target.closest && e.target.closest('.pcwin'))) return; if (e.cancelable) e.preventDefault(); };
+document.addEventListener('touchmove', pcNoScroll, { passive: false }); document.addEventListener('wheel', pcNoScroll, { passive: false });
+// The chat's message box gliding between the top and the bottom of the card (and the messages sliding the other way)
+// when the keyboard comes and goes, instead of jumping.
+function pcSwap(change) { const w = document.querySelector('#pcwin'), els = w ? [...w.querySelectorAll('.ptychat-f, .ptychat-l')] : [];
+  // (not while the chat is still dropping in: the parts would slide about inside the card as it lands)
+  if (w && Date.now() - (w._born || 0) < 500) return change();
+  const calm = matchMedia('(prefers-reduced-motion: reduce)').matches, before = els.map(x => x.getBoundingClientRect().top); change();
+  if (calm || !els.length) return; els.forEach((x, k) => { const d = before[k] - x.getBoundingClientRect().top; if (Math.abs(d) < 1 || !x.animate) return;
+    x.animate([{ transform: `translateY(${d}px)` }, { transform: 'translateY(0)' }], { duration: 300, easing: 'cubic-bezier(.2,.8,.2,1)' }); }); }
+window.pgPcSwap = pcSwap;
+function pcLock(on) { const b = document.body, de = document.documentElement;
+  // (just stops it scrolling: pinning the page with position:fixed left a black band along the bottom on iPhones)
+  if (on && !PC_LOCK) { PC_LOCK = { y: scrollY }; de.classList.add('pc-locked'); }
+  else if (!on && PC_LOCK) { const y = PC_LOCK.y; PC_LOCK = null; de.classList.remove('pc-locked'); if (Math.abs(scrollY - y) > 1) scrollTo(0, y); } }
+function winClose(w) { if (!w || w.classList.contains('closing')) return; if (w.classList.contains('pcwin')) { pcLock(false); document.querySelectorAll('.pc-scrim').forEach(x => { x.classList.add('out'); setTimeout(() => x.remove(), 200); }); } w.id = ''; w.classList.add('closing');
   // (a closing window can't be used any more, by keyboard either: its buttons would act a second time)
   if (w.contains(document.activeElement)) document.activeElement.blur(); w.inert = true; const go = () => w.remove();
   if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return go(); setTimeout(go, isMobile() ? 240 : 190); }
@@ -9490,7 +9731,7 @@ function ptyAmount(kind, ids) {
   PTY_AMT = { kind, ids };
   const T = { heal: 'Heal', temp: 'Temporary HP for', dmg: 'Damage' }[kind];
   openModal(`<h3>${T} ${esc(ptyNames(ids))}</h3>
-    <div class="row">${fld('Amount, or a roll like 2d4+2', `<input class="f" id="ptyAmt" autofocus placeholder="${kind === 'dmg' ? 'e.g. 7' : 'e.g. 1d8+3'}">`)}${kind === 'dmg' ? fld('Type', `<select class="f" id="ptyType"><option value="">—</option>${(DND.damageTypes || []).map(t => `<option>${esc(String(t).toLowerCase())}</option>`).join('')}</select>`) : ''}</div>
+    <div class="row">${fld('Amount, or a roll like 2d4+2', `<input class="f" id="ptyAmt" autofocus placeholder="${kind === 'dmg' ? 'e.g. 7' : 'e.g. 1d8+3'}">`)}${kind === 'dmg' ? fld('Type', `<select class="f sel-dmg" id="ptyType"><option value="">—</option>${(DND.damageTypes || []).map(t => `<option>${esc(String(t).toLowerCase())}</option>`).join('')}</select>`) : ''}</div>
     ${fld('From what (they see this)', `<input class="f" id="ptyWhy" placeholder="${kind === 'heal' ? 'e.g. a potion, first aid' : kind === 'dmg' ? 'e.g. my fireball' : 'e.g. inspiring words'}">`)}
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-pa="amt" data-k="${kind}">${kind === 'heal' ? 'Heal' : kind === 'temp' ? 'Give temp HP' : 'Deal damage'}</button></div>`);
 }
@@ -10915,7 +11156,7 @@ function chField(t) {
   if (t.closest('#grantm')) { renderGrantPicker(); return; }
   if (t.closest('#pendm')) { renderPending(); return; }
   if (t.closest('#rcmodal')) { RC.kind === 'race' ? renderRaceChange() : renderBgChange(); return; }
-  if (t.closest('#wizard')) { const sc = $('#wizard .wz-body') ? $('#wizard .wz-body').scrollTop : 0; renderWizard(); if ($('#wizard .wz-body')) $('#wizard .wz-body').scrollTop = sc; } else if (LV) renderLevelUp(); else if (FEATM) renderFeatModal();
+  if (t.closest('#wizard')) { const sc = wzSc() ? wzSc().scrollTop : 0; renderWizard(); if (wzSc()) wzSc().scrollTop = sc; } else if (LV) renderLevelUp(); else if (FEATM) renderFeatModal();
 }
 const ansList = (CH, id) => (CH[id] || []).filter(Boolean);
 // Apply a feat to S (ability increases, proficiencies)
@@ -11093,8 +11334,8 @@ function renderLevelUp() {
   const mcReq = k => (CL[k].mc && CL[k].mc.req || []).map(r => AB3[r[0]] + ' ' + r[1]).join(CL[k].mc && CL[k].mc.reqAny ? ' or ' : ' & ');
   $('#modal-body').innerHTML = `<div class="lvx"><h3>Level Up</h3><p class="lvx-sub">Character level ${totalLevel()} → <b>${totalLevel() + 1}</b></p>
     <p class="lvx-h">Advance a class</p>
-    <div class="lvx-cards">${rows.map(r => `<button type="button" class="lvx-card${LV.cls === r.key && !LV.extraSub ? ' sel' : ''}" data-act="lvcls" data-k="${r.key}"><span class="lvx-ic">${wz3ClassIcon(r.key)}</span><b>${esc(CL[r.key].name)}</b><span class="lvx-t">Level ${r.level} → ${N(r.level) + 1}</span></button>`).join('')}</div>
-    ${others.length ? `<details class="lvx-mc"${t.isNew ? ' open' : ''}><summary>Multiclass into another class</summary><div class="lvx-cards sm">${others.map(k => `<button type="button" class="lvx-card${LV.cls === k ? ' sel' : ''}${mcOK(k) ? '' : ' warn'}" data-lvnew="${k}"><span class="lvx-ic">${wz3ClassIcon(k)}</span><b>${esc(CL[k].name)}</b><span class="lvx-t">${mcOK(k) ? 'Requirements met' : 'Needs ' + esc(mcReq(k))}</span></button>`).join('')}</div></details>` : ''}
+    <div class="wz3-pick"><div class="crlist wz3-list lvx-list">${rows.map(r => { const on = LV.cls === r.key && !LV.extraSub; return `<label class="crrow sel wz3-row wic${on ? ' on' : ''}"><input type="radio" name="lvxcls" data-act="lvcls" data-k="${r.key}"${on ? ' checked' : ''}><span class="wz3-cic">${wz3ClassIcon(r.key)}</span><div><b>${esc(CL[r.key].name)}</b> <span class="hint">Level ${r.level} → ${N(r.level) + 1}</span><div class="hint">d${CL[r.key].hd} Hit Die${r.sub && CL[r.key].subclasses[r.sub] ? ' · ' + esc(CL[r.key].subclasses[r.sub].name) : ''}</div></div></label>`; }).join('')}</div></div>
+    ${others.length ? `<details class="lvx-mc"${t.isNew ? ' open' : ''}><summary>Multiclass into another class</summary><div class="wz3-pick"><div class="crlist wz3-list lvx-list">${others.map(k => { const on = LV.cls === k; return `<label class="crrow sel wz3-row wic${on ? ' on' : ''}${mcOK(k) ? '' : ' warn'}"><input type="radio" name="lvxcls" data-lvnew="${k}"${on ? ' checked' : ''}><span class="wz3-cic">${wz3ClassIcon(k)}</span><div><b>${esc(CL[k].name)}</b> <span class="hint">${esc(DND.sources[CL[k].src] || CL[k].src || '')}</span><div class="hint${mcOK(k) ? '' : ' lvx-need'}">${mcOK(k) ? 'Requirements met' : 'Needs ' + esc(mcReq(k))} · d${CL[k].hd} Hit Die</div></div></label>`; }).join('')}</div></div></details>` : ''}
     <select class="f lvx-hid" id="lvNew"><option value=""></option>${others.map(k => `<option value="${k}"${LV.cls === k ? ' selected' : ''}></option>`).join('')}${extraOpts}</select>
     ${extraOpts ? `<label class="lvx-extra"><span class="lbl">Homebrew: another subclass</span><select class="f" id="lvExtra"><option value="">—</option>${extraOpts}</select></label>` : ''}
     ${body}
@@ -11371,14 +11612,33 @@ function kitItems() {
   const c = CL[(wzClassRows()[0] || {}).key], b = DND.backgrounds[W.bg];
   return (c ? c.kit.map(k => ['class', k]) : []).concat(b && b.equip ? b.equip.map(k => ['bg', k]) : []);
 }
+// What scrolls in the creation window: its body on a computer; on a phone the whole window scrolls (the header goes up
+// out of the way and the steps get the full height), so it's the window's box
+function wzSc() { const b = $('#wizard .wz-body'); if (!b) return null; return getComputedStyle(b).overflowY === 'visible' ? ($('#wizard .wz-box') || b) : b; }
+// On a computer the pick lists (races, classes, features...) run down to just above the Back / Next bar, using whatever
+// room the window has, instead of stopping at a fixed height
+function wzFitLists() {
+  if (document.documentElement.classList.contains('mobile')) return;
+  const foot = $('#wizard .wz-foot'), res = (foot ? foot.offsetHeight : 0) + 28, sc = wzSc();
+  document.querySelectorAll('#wizard .crlist:not(.short)').forEach(e => { if (!e.offsetParent) return;
+    const top = e.getBoundingClientRect().top + (sc && sc !== e ? sc.scrollTop : 0) + scrollY, h = Math.max(300, Math.floor(innerHeight - top - res)) + 'px';
+    if (e.style.maxHeight !== h) e.style.maxHeight = h; });
+  // ...and if that still leaves the page a little taller than the window, take the difference back off
+  const over = document.documentElement.scrollHeight - innerHeight, l = $('#wizard .crlist:not(.short)');
+  if (over > 0 && l && l.offsetParent) { const h = parseFloat(l.style.maxHeight) || 0, n = Math.max(300, Math.floor(h - over)) + 'px'; if (h > 300 && l.style.maxHeight !== n) l.style.maxHeight = n; }
+}
+addEventListener('resize', () => { if (typeof W !== 'undefined' && W && $('#wizard')) wzFitLists(); });
 function renderWizard() {
   if (!W) return;
   // Redrawing the same step (after any pick) never moves your scroll: remember every scrolling box and put it back
   const keepKey = W.step + '|' + (W.part || ''), keepSame = W._keepKey === keepKey; W._keepKey = keepKey;
   const KS = ['#wizard', '#wizard .wz-box', '#wizard .wz3-wrap', '#wizard .wz3-main', '#wizard .wz-body', '#wizard .wz3-side'];
   const keep = keepSame ? KS.map(q => { const e = $(q); return e ? e.scrollTop : 0; }) : null, keepWin = keepSame ? [scrollX, scrollY] : null;
+  // ...and each pick list's own scroll (the lists scroll inside themselves on a computer)
+  const keepL = keepSame ? [...document.querySelectorAll('#wizard .crlist')].map(e => e.scrollTop) : null;
   try { renderWizard0(); } finally {
-    if (keep) { const put = () => { KS.forEach((q, i) => { const e = $(q); if (e && keep[i] && e.scrollTop !== keep[i]) e.scrollTop = keep[i]; }); if (keepWin && (scrollY !== keepWin[1])) window.scrollTo(keepWin[0], keepWin[1]); };
+    wzFitLists();
+    if (keep) { const put = () => { KS.forEach((q, i) => { const e = $(q); if (e && keep[i] && e.scrollTop !== keep[i]) e.scrollTop = keep[i]; }); document.querySelectorAll('#wizard .crlist').forEach((e, i) => { if (keepL[i] != null && e.scrollTop !== keepL[i]) e.scrollTop = keepL[i]; }); if (keepWin && (scrollY !== keepWin[1])) window.scrollTo(keepWin[0], keepWin[1]); };
       put(); requestAnimationFrame(put); }
   }
 }
@@ -11543,7 +11803,26 @@ function wz3Hero() {
     <div class="wz3-who"><b>${esc(W.name || 'Your character')}</b><span>${esc([race, cls].filter(Boolean).join(' · ') || 'Nothing picked yet')}</span></div>
     ${fin ? `<div class="wz3-ab">${AB.map(a => `<span>${AB3[a]}<b>${fin[a]}</b></span>`).join('')}</div>` : ''}</div>`;
 }
+// Races, variants and classes: the same searchable list as backgrounds and feats (one row each with what it gives;
+// tick one). The dropdown underneath still holds the answer.
+const wzAsiTxt = a => a === 'flex' ? 'Ability increases of your choice' : a && typeof a === 'object' ? Object.entries(a).filter(([, v]) => v).map(([k, v]) => (v > 0 ? '+' : '') + v + ' ' + String(k).toUpperCase()).join(', ') : '';
+function wz3Rows(kind) {
+  let items = [], cur = '', label = '', name = 'wz3' + kind;
+  if (kind === 'race') { cur = W.race; label = 'races'; DND.raceGroups.forEach(([g, ks]) => ks.filter(k => DND.races[k]).sort((a, b) => abc(DND.races[a].name, DND.races[b].name)).forEach(k => { const r = DND.races[k];
+    items.push({ k, g, name: r.name, src: r.src, l1: [r.size || 'Medium', (r.speed || 30) + ' ft', r.darkvision ? 'darkvision ' + r.darkvision + ' ft' : '', r.fly ? 'fly ' + r.fly + ' ft' : '', wzAsiTxt(r.asi)].filter(Boolean).join(' · '),
+      l2: r.subraces ? Object.keys(r.subraces).length + ' variants to pick from' : (r.traits || []).map(t => t[0]).join(', ') }); })); }
+  if (kind === 'sub') { const x = wzRace(); cur = W.sub; label = 'variants'; if (x && x.r.subraces) Object.entries(x.r.subraces).sort(([, a], [, b]) => abc(a.name, b.name)).forEach(([k, v]) =>
+    items.push({ k, g: '', name: v.name, src: v.src, l1: [v.speed ? 'speed ' + v.speed + ' ft' : '', v.darkvision ? 'darkvision ' + v.darkvision + ' ft' : '', wzAsiTxt(v.asi)].filter(Boolean).join(' · '), l2: (v.traits || []).map(t => t[0]).concat((v.spells || []).map(z => z[1])).join(', ') })); }
+  if (kind === 'class') { cur = W.classes && W.classes[0] ? W.classes[0].key : ''; label = 'classes'; DND.classOrder.forEach(k => { const c = CL[k];
+    items.push({ k, g: '', name: c.name, src: c.src, ic: wz3ClassIcon(k), l1: ['d' + c.hd + ' Hit Die', 'saves ' + c.saves.map(a => AB3[a]).join(', '), c.sub ? c.sub.label + ' at level ' + c.sub.level : ''].filter(Boolean).join(' · '), l2: [c.armor, c.weapons].filter(Boolean).join(' · ') }); }); }
+  if (!items.length) return '';
+  let lastG = null;
+  const rows = items.map(it => { const head = it.g && it.g !== lastG ? `<p class="wz3-g">${esc(it.g)}</p>` : ''; lastG = it.g; const on = it.k === cur;
+    return `${head}<label class="crrow sel wz3-row${on ? ' on' : ''}${it.ic ? ' wic' : ''}" data-q="${esc((it.name + ' ' + it.l1 + ' ' + it.l2).toLowerCase())}"><input type="radio" name="${name}" data-pick="${kind}" data-v="${esc(it.k)}"${on ? ' checked' : ''}>${it.ic ? `<span class="wz3-cic">${it.ic}</span>` : ''}<div><b>${esc(it.name)}</b>${it.src ? ` <span class="hint">${esc(DND.sources[it.src] || it.src)}</span>` : ''}${it.l1 ? `<div class="hint">${esc(it.l1)}</div>` : ''}${it.l2 ? `<div class="hint">${esc(it.l2)}</div>` : ''}</div></label>`; }).join('');
+  return `<div class="wz3-pick">${items.length > 8 ? `<input class="f wz3-q" data-wz3q placeholder="Search ${items.length} ${label}" autocomplete="off" aria-label="Search ${label}">` : ''}<div class="crlist wz3-list${cur ? ' has' : ''}">${rows}</div></div>`;
+}
 function wz3Cards(kind) {
+  if (kind === 'race' || kind === 'sub' || kind === 'class') return wz3Rows(kind);
   let items = [], cur = '', label = '';
   if (kind === 'race') { cur = W.race; label = 'races'; DND.raceGroups.forEach(([g, ks]) => ks.filter(k => DND.races[k]).sort((a, b) => abc(DND.races[a].name, DND.races[b].name)).forEach(k => { const r = DND.races[k]; items.push({ k, g, name: r.name, tags: [r.size || 'Medium', (r.speed || 30) + ' ft'].concat(r.src && r.src !== 'PHB' ? [r.src] : []) }); })); }
   if (kind === 'sub') { const x = wzRace(); cur = W.sub; label = 'variants'; if (x && x.r.subraces) Object.entries(x.r.subraces).sort(([, a], [, b]) => abc(a.name, b.name)).forEach(([k, v]) => items.push({ k, g: '', name: v.name, tags: [v.speed ? v.speed + ' ft' : '', v.darkvision ? 'darkvision' : '', v.src && v.src !== 'PHB' ? v.src : ''].filter(Boolean) })); }
@@ -11591,7 +11870,7 @@ function wz3Keep(box, key) {
 }
 // After a pick redraws the window, keep the list you were using exactly where it was on screen
 function wz3Commit(box, fn) {
-  const key = box.dataset.key, sc = box.closest('#modal-body') || box.closest('.wz-body'), top = box.getBoundingClientRect().top;
+  const key = box.dataset.key, sc = box.closest('#modal-body') || (box.closest('#wizard') ? wzSc() : null), top = box.getBoundingClientRect().top;
   fn();
   const fix = () => { const nb = key && $$('.wz3-pick').find(x => x.dataset.key === key); if (nb && sc && sc.isConnected) sc.scrollTop += nb.getBoundingClientRect().top - top; };
   fix(); requestAnimationFrame(fix);
@@ -11769,7 +12048,7 @@ function sheetFeatOK(pre) {
 function asiModeClick(b) {
   const inWz = !!b.closest('#wizard'), inP = !!b.closest('#pendm') && PEND, CH = inWz ? W.ans : inP ? PEND.ans : LV ? LV.ans : null; if (!CH) return;
   CH[b.dataset.asimode] = [b.dataset.v];
-  if (inP) renderPending(); else if (inWz) { const sc = $('#wizard .wz-body').scrollTop; renderWizard(); $('#wizard .wz-body').scrollTop = sc; } else renderLevelUp();
+  if (inP) renderPending(); else if (inWz) { const sc = wzSc().scrollTop; renderWizard(); wzSc().scrollTop = sc; } else renderLevelUp();
 }
 function pbStep(a, d) {
   const cur = wzBaseScore(a), nv = Math.max(8, Math.min(15, cur + d));
@@ -11791,7 +12070,7 @@ function wizField(e) {
     return;
   }
   if (d.wzq) { W['q' + d.wzq] = t.value; filterWzSpells(t); return; }
-  if (d.wzsp) { const L = W.spells[d.wzsp] = W.spells[d.wzsp] || []; if (t.checked) L.push(t.value); else L.splice(L.indexOf(t.value), 1); t.closest('.crrow').classList.toggle('on', t.checked); const sc = $('#wizard .wz-body').scrollTop, ls = $$('#wizard .crlist').map(x => x.scrollTop); renderWizard(); $('#wizard .wz-body').scrollTop = sc; $$('#wizard .crlist').forEach((x, k) => x.scrollTop = ls[k] || 0); return; }
+  if (d.wzsp) { const L = W.spells[d.wzsp] = W.spells[d.wzsp] || []; if (t.checked) L.push(t.value); else L.splice(L.indexOf(t.value), 1); t.closest('.crrow').classList.toggle('on', t.checked); const sc = wzSc().scrollTop, ls = $$('#wizard .crlist').map(x => x.scrollTop); renderWizard(); wzSc().scrollTop = sc; $$('#wizard .crlist').forEach((x, k) => x.scrollTop = ls[k] || 0); return; }
   if (d.wzkit !== undefined) { W.kitOff[d.wzkit] = !t.checked; return; }
 }
 function wizClick(e) {
@@ -11816,9 +12095,9 @@ function wizClick(e) {
     case 'rollhp': W.hpRolls = []; wzClassRows().forEach((r, i) => { const c = CL[r.key]; for (let k = i === 0 ? 1 : 0; k < N(r.level); k++) W.hpRolls.push(rollExpr('1d' + c.hd).total); }); break;
     case 'create': return buildCharacter();
     case 'pb': return pbStep(b.dataset.a, N(b.dataset.d));
-    case 'splv': W['lv' + b.dataset.k] = N(b.dataset.v); W['q' + b.dataset.k + 's'] = ''; { const sc = $('#wizard .wz-body').scrollTop; renderWizard(); $('#wizard .wz-body').scrollTop = sc; } return;
+    case 'splv': W['lv' + b.dataset.k] = N(b.dataset.v); W['q' + b.dataset.k + 's'] = ''; { const sc = wzSc().scrollTop; renderWizard(); wzSc().scrollTop = sc; } return;
   }
-  renderWizard(); $('#wizard .wz-body').scrollTop = 0;
+  renderWizard(); wzSc().scrollTop = 0;
 }
 // What each equipment pack holds (PHB / VRGR). Picking a pack gives you these items, not a "pack" item.
 const PACKS = {

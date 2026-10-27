@@ -659,6 +659,7 @@ function cleanupLinked() {
   S.attacks = S.attacks.filter(a => !a.effect || names.has(a.effect));
   if (S.form && S.form.effect && !names.has(S.form.effect)) S.form = null;
   if (S.conditions.includes('Raging') && !names.has('Rage')) S.conditions = S.conditions.filter(c => c !== 'Raging');
+  if (!names.has('Rage') && (S.effects || []).some(e => e.rage)) S.effects = S.effects.filter(e => !e.rage); // (Wild Surge effects end with the rage)
 }
 function breakConc(reason) {
   const nm = S.concentration; if (!nm) return;
@@ -947,6 +948,9 @@ function useFeature(i, col, opt) {
   if (fx.target === 'infusetab') { UI.tab = 'infusions'; saveUI(); render(); window.scrollTo(0, 0); return; }
   if (fx.onlyRaging && !S.conditions.includes('Raging')) { toast(`${esc(f.name)} only works while raging.`, 'fumble'); return; }
   if (fx.onlyWhen && !fxWhenOK(fx.onlyWhen)) { toast(`${esc(f.name)} only works ${esc(fxWhenText(fx.onlyWhen))}.`, 'fumble'); return; }
+  if (fx.bsurge) { // Path of Wild Magic: roll on the table (Unstable Backlash takes your reaction)
+    if (fx.bsurge === 'backlash' && S.inCombat) { if ((S.turn.used || {}).reaction) { toast('Your reaction is already used this round.', 'fumble'); return; } S.turn.used.reaction = true; }
+    return barbSurgeNow(fx.bsurge); }
   const max = featMax(f);
   if (max != null && !f.pool) {
     if (N(f.used) >= max) { if (fx.slotRestore && (opt || {}).slot == null) return openSlotRestore(i, col); if ((opt || {}).slot == null) { toast(`No uses of ${esc(f.name)} left.`, 'fumble'); return; } }
@@ -987,6 +991,7 @@ function useFeature(i, col, opt) {
   pendingLabel = 'Use ' + f.name; update(); render();
   const left = max != null && !f.pool ? `${Math.max(0, max - N(f.used))}/${max} left` : '';
   toast(`${r ? `<b class="total">${r.total}</b>` : ''}<div><div><b>${esc(f.name)}</b>${left ? ' · ' + left : ''}</div>${r ? `<div class="det">${esc(r.detail)}${fx.rollNote ? ' ' + esc(fx.rollNote) : ''}</div>` : ''}${sc.length ? `<div class="det">${esc(sc.join(' · '))}</div>` : ''}${lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, '', 8000, [healAct, typeof ptyFeatAct === 'function' ? ptyFeatAct(f.name, r, f) : null, { label: 'Undo', fn: () => undo(1) }].filter(Boolean).concat(fRh.acts));
+  if (f.name === 'Rage' && hasFeature('Wild Surge')) setTimeout(() => barbSurgeNow('rage'), 450); // Path of Wild Magic: raging sets off a Wild Surge
 }
 function smite(l) {
   let L;

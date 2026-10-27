@@ -4549,9 +4549,267 @@ html.mobile .setrow.r20aura input[type=checkbox] { width: 22px; height: 22px; ma
 @media (prefers-color-scheme: light) { :where(input[type=checkbox]:not([role=switch])) { --cb-line: rgba(70,80,100,.45); } }
 :root[data-theme="light"] :where(input[type=checkbox]:not([role=switch])), html[data-pgtheme="light"] :where(input[type=checkbox]:not([role=switch])) { --cb-line: rgba(70,80,100,.45); }
 :root[data-theme="dark"] :where(input[type=checkbox]:not([role=switch])), html[data-pgtheme="dark"] :where(input[type=checkbox]:not([role=switch])) { --cb-line: rgba(140,150,170,.6); }
+/* Radio buttons match the site's checkboxes: a round box that fills with a gold dot when picked. */
+:where(input[type=radio]) { appearance: none; -webkit-appearance: none; box-sizing: border-box; flex: none; width: 18px; height: 18px; margin: 0; padding: 0; vertical-align: -4px;
+  border: 1.5px solid var(--cb-line, rgba(140,150,170,.6)); border-radius: 50%; background: var(--field, transparent); cursor: pointer; color: inherit;
+  transition: background-color .15s, border-color .15s, box-shadow .15s; }
+@media (hover:hover){:where(html:not(.mobile)) :where(input[type=radio]):hover:not(:disabled){ border-color: var(--gold, #c9962b); }}
+:where(input[type=radio]):checked { border-color: var(--gold, #c9962b); background: radial-gradient(circle, var(--gold, #c9962b) 0 4px, transparent 4.6px) var(--field, transparent); }
+:where(input[type=radio]):disabled { cursor: not-allowed; opacity: .5; }
+@media (prefers-color-scheme: light) { :where(input[type=radio]) { --cb-line: rgba(70,80,100,.45); } }
+:root[data-theme="light"] :where(input[type=radio]), html[data-pgtheme="light"] :where(input[type=radio]) { --cb-line: rgba(70,80,100,.45); }
+:root[data-theme="dark"] :where(input[type=radio]), html[data-pgtheme="dark"] :where(input[type=radio]) { --cb-line: rgba(140,150,170,.6); }
 /* A tick-box setting: its words line up on the left after the box (not pushed right like a setting's value), with the
    box level with the title */
 label.setrow > input[type=checkbox] + span { flex: 1 1 auto; min-width: 0; text-align: left; color: inherit; font-size: inherit; }
 label.setrow { align-items: flex-start; gap: 10px; }
 label.setrow > input[type=checkbox] { margin-top: 2px; }
+/* right-click menu on an inventory item */
+.ictx > .menu-list { position: fixed; display: block; z-index: 96; min-width: 210px; max-width: min(300px, calc(100vw - 16px)); overflow-y: auto; padding: 5px; right: auto; top: 0; left: 0; animation: wPopIn .12s ease; box-shadow: 0 12px 32px rgba(0,0,0,.4); }
+.ictx .ictx-h { padding: 6px 10px 4px; font-weight: 800; font-size: .86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ictx .ictx-h span { color: var(--soft); font-weight: 600; }
+.ictx hr { border: 0; border-top: 1px solid var(--line); margin: 4px 2px; }
+.ictx .menu-list button { padding: 7px 10px; font-size: .88rem; }
+.ictx .menu-list button[disabled] { opacity: .45; cursor: not-allowed; }
+@media (hover:hover){:where(html:not(.mobile)) .ictx .menu-list button[disabled]:hover{ background: none; }}
+.ictx .menu-list button.danger { color: var(--red, #d9534f); }
+.ictx .menu-list button:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.ictx .mlabel { padding: 6px 10px 2px; }
+.irow.ictx-on { box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 55%, transparent); border-radius: 8px; }
+@media (prefers-reduced-motion: reduce) { .ictx > .menu-list { animation: none; } }
+
+/* Party chat on a phone: a card that drops down from the top and reaches about halfway down the screen, so it sits
+   above the keyboard when you type (instead of filling the screen and fighting with it). Push it back up to close. */
+html.mobile .pcwin { top: calc(var(--vvt, 0px) + env(safe-area-inset-top, 0px) + 8px) !important; bottom: auto !important; left: 8px !important; right: 8px !important; width: auto !important;
+  height: min(52svh, calc(var(--vvh, 100svh) - env(safe-area-inset-top, 0px) - 20px)) !important; max-height: none !important; min-height: 240px;
+  border: 1px solid color-mix(in srgb, var(--gold) 38%, transparent) !important; border-radius: 22px !important; padding-bottom: 0 !important; overflow: hidden;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--panel) 92%, var(--gold) 8%), var(--panel) 70px) !important;
+  box-shadow: 0 22px 60px rgba(0,0,0,.55), 0 0 0 100vmax rgba(5,8,14,.38) !important; animation-name: pcDrop !important; transition: transform .2s ease; }
+html.mobile.kbup .pcwin { padding-bottom: 0 !important; box-shadow: 0 22px 60px rgba(0,0,0,.55), 0 0 0 100vmax rgba(5,8,14,.38) !important; }
+html.mobile .pcwin.closing { animation-name: pcLift !important; }
+@keyframes pcDrop { from { transform: translateY(calc(-100% - 60px)); } }
+@keyframes pcLift { to { transform: translateY(calc(-100% - 60px)); } }
+html.mobile .pcwin .pcw-head { padding: 12px 14px 10px 18px !important; border-bottom: 1px solid var(--line); }
+html.mobile .pcwin .pcw-head b { font-family: var(--serif, Georgia, serif); font-size: 1.12rem; letter-spacing: .01em; color: var(--gold-ink, var(--gold)); }
+html.mobile .pcwin .ptychat-f { border-top: 1px solid var(--line); background: transparent !important; padding: 8px 10px 4px !important; }
+html.mobile .pcwin .pcw-grab { flex: none; height: 18px; display: grid; place-items: center; cursor: grab; touch-action: none; }
+html.mobile .pcwin .pcw-grab::before { content: ''; width: 44px; height: 5px; border-radius: 3px; background: color-mix(in srgb, var(--ink) 28%, transparent); }
+.pcwin .pcw-grab { display: none; } html.mobile .pcwin .pcw-grab { display: grid; }
+@media (prefers-reduced-motion: reduce) { html.mobile .pcwin { animation: none !important; } }
+html.mobile .pcwin, html.mobile.kbup .pcwin { padding-top: 0 !important; padding-bottom: 0 !important; transition: transform .2s ease, top .2s ease, height .2s ease !important; } /* (the old full-screen version kept a gap at its top for the clock and the keyboard's shift: an empty band in the card) */
+
+/* (the chat card stays put: no gliding to a new spot as the keyboard settles) */
+html.mobile .pcwin, html.mobile.kbup .pcwin { transition: transform .2s ease !important; }
+/* (short enough that its message box sits above the keyboard: when it would end up underneath, iOS shoves the whole
+   screen up to show it, and that's what made the chat jump about. Same height with the keyboard up or down.) */
+html.mobile .pcwin { height: min(44svh, calc(var(--vvh, 100svh) - env(safe-area-inset-top, 0px) - 20px)) !important; min-height: 220px; }
+html.mobile .pcwin { top: calc(var(--pc-vvt, var(--vvt, 0px)) + env(safe-area-inset-top, 0px) + 8px) !important; transition: transform .2s ease !important; }
+
+html.mobile .pcwin .pcw-grab { display: none !important; }
+html.mobile .pcwin .pcw-head { cursor: default; touch-action: manipulation; }
+/* the chat box is a search-style box now: no search icon or clear (×) button from the browser */
+#ptychat-in[type=search] { -webkit-appearance: none; appearance: none; }
+#ptychat-in[type=search]::-webkit-search-cancel-button, #ptychat-in[type=search]::-webkit-search-decoration { -webkit-appearance: none; display: none; }
+
+html.mobile .pcwin.pc-abs { position: absolute !important; top: calc(var(--pc-y, 0px) + env(safe-area-inset-top, 0px) + 8px) !important; }
+
+/* phones: message box at the top of the chat card (under the title), messages below it */
+html.mobile .pcwin.pc-abs { position: fixed !important; }
+html.mobile .pcwin { top: calc(env(safe-area-inset-top, 0px) + 8px) !important; }
+html.mobile .pcwin .pcw-body { display: flex; flex-direction: column; }
+html.mobile .pcwin .ptychat-f { order: -2; position: relative; border-top: 0 !important; border-bottom: 1px solid var(--line); padding: 10px 10px 10px !important; }
+html.mobile .pcwin .ptychat-h, html.mobile .pcwin .ptychat-cmds { order: -1; }
+html.mobile .pcwin .ptychat-ac { top: calc(100% - 4px) !important; bottom: auto !important; z-index: 5; }
+/* phones, while typing: the chat card stretches down to meet the keyboard and the message box moves to its bottom edge,
+   just above the keys (back under the title once the keyboard goes away); the note and the /w /r help fade out of the
+   way instead of vanishing */
+html.mobile .pcwin { transition: transform .2s ease, height .28s cubic-bezier(.2,.8,.2,1) !important; }
+html.mobile.kbreal .pcwin { height: max(220px, calc(var(--vvh, 100svh) - env(safe-area-inset-top, 0px) - 16px)) !important; }
+html.mobile.kbreal .pcwin .ptychat-f { order: 3; border-bottom: 0 !important; border-top: 1px solid var(--line) !important; }
+html.mobile.kbreal .pcwin .ptychat-ac { top: auto !important; bottom: calc(100% - 4px) !important; }
+html.mobile .pcwin .ptychat-h, html.mobile .pcwin .ptychat-cmds { display: block; overflow: hidden; max-height: 90px; opacity: 1; transition: opacity .18s ease, max-height .25s ease, padding .25s ease, margin .25s ease; }
+html.mobile .pcwin .ptychat-cmds { display: grid; }
+html.mobile.kbup .pcwin .ptychat-h, html.mobile.kbup .pcwin .ptychat-cmds { display: block !important; max-height: 0 !important; opacity: 0; padding-top: 0 !important; padding-bottom: 0 !important; margin: 0 !important; }
+html.mobile.kbup .pcwin .ptychat-cmds { display: grid !important; }
+@media (prefers-reduced-motion: reduce) { html.mobile .pcwin, html.mobile .pcwin .ptychat-h, html.mobile .pcwin .ptychat-cmds { transition: none !important; } }
+html.mobile .ptychat-cmds, html.mobile.kbup .pcwin .ptychat-cmds { display: none !important; } /* (no /w /r help on phones) */
+
+.pc-scrim { position: fixed; inset: -50px 0; z-index: 9099; background: rgba(5,8,14,.45); animation: pcScrimIn .2s ease; touch-action: none; -webkit-tap-highlight-color: transparent; }
+.pc-scrim.out { opacity: 0; transition: opacity .18s ease; pointer-events: none; }
+@keyframes pcScrimIn { from { opacity: 0; } }
+html.mobile .pcwin, html.mobile.kbup .pcwin { box-shadow: 0 22px 60px rgba(0,0,0,.55) !important; } /* (the cover does the dimming now) */
+
+/* no divider lines around the chat's message box on phones */
+html.mobile .pcwin .ptychat-f, html.mobile.kbup .pcwin .ptychat-f, html.mobile.kbreal .pcwin .ptychat-f { border-top: 0 !important; border-bottom: 0 !important; }
+
+/* Party chat on a phone, final shape: it always reaches down to where the keyboard's top edge comes (remembered from
+   the last time the keyboard was up; a little over half the screen until then), with the message box along its bottom,
+   so opening the keyboard doesn't change it at all */
+html.mobile .pcwin, html.mobile.kbup .pcwin, html.mobile.kbreal .pcwin { height: max(240px, calc(var(--kbtop, 58svh) - env(safe-area-inset-top, 0px) - 16px)) !important; }
+html.mobile .pcwin .ptychat-f, html.mobile.kbreal .pcwin .ptychat-f { order: 3 !important; }
+html.mobile .pcwin .ptychat-ac, html.mobile.kbreal .pcwin .ptychat-ac { top: auto !important; bottom: calc(100% - 4px) !important; }
+
+.pcwin .pc-trap { position: absolute; top: 56px; left: 16px; width: 1px; height: 24px; padding: 0; border: 0; margin: 0; opacity: 0; font-size: 16px; pointer-events: none; caret-color: transparent; background: transparent; color: transparent; }
+/* phones: one quiet card: no note line, no divider under the title */
+html.mobile .pcwin .ptychat-h { display: none !important; }
+html.mobile .pcwin .pcw-head { border-bottom: 0 !important; }
+
+/* phones: message box under the title until the keyboard is up, then along the bottom resting on the keyboard */
+html.mobile .pcwin .ptychat-f { order: -2 !important; }
+html.mobile.kbreal .pcwin .ptychat-f { order: 3 !important; }
+html.mobile .pcwin .ptychat-ac { top: calc(100% - 4px) !important; bottom: auto !important; }
+html.mobile.kbreal .pcwin .ptychat-ac { top: auto !important; bottom: calc(100% - 4px) !important; }
+
+/* phones: no scroll-shade lines across the chat's messages, and a plain (not dashed) edge on the message box */
+html.mobile .pcwin .ptychat-l.pg-shade::before, html.mobile .pcwin .ptychat-l.pg-shade::after { display: none !important; }
+#pcwin #ptychat-in { border-bottom-style: solid !important; }
+
+/* pop-ups on a phone: scrolling stops dead at the ends instead of bouncing or carrying on into the page */
+:is(.hub-modal, #modal, .modal-bg, .pg-out, .ptyask-bg, .wizard, .ha-sheet, .pg-crop, #pg-msg, .dk-modal, .drwin, .pcwin, [role=dialog]), :is(.hub-modal, #modal, .modal-bg, .pg-out, .ptyask-bg, .wizard, .ha-sheet, .pg-crop, #pg-msg, .dk-modal, .drwin, .pcwin, [role=dialog]) * { overscroll-behavior: none; }
+
+/* ===== Roll cards (2026): the site's panel look, the math always showing, a × to close ===== */
+#rolls { top: max(16px, 18%); width: min(560px, calc(100vw - 24px)); }
+html.mobile #rolls { top: calc(env(safe-area-inset-top) + 12px); }
+body:has(#modal.open) #rolls { top: 12px; }
+#rolls .toast.rollcard { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: 18px; row-gap: 12px;
+  padding: 16px 52px 16px 20px; border-radius: 18px; border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent); background: color-mix(in srgb, var(--panel) 94%, transparent);
+  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); box-shadow: 0 18px 50px rgba(0,0,0,.42); max-height: calc(100dvh - 32px); overflow-y: auto; overscroll-behavior: contain; animation: rcIn .2s cubic-bezier(.2,.8,.3,1); }
+#rolls .toast.rollcard.rc-out { animation: rcOut .18s ease forwards; pointer-events: none; }
+@keyframes rcIn { from { opacity: 0; transform: translateY(-8px) scale(.98); } }
+@keyframes rcOut { to { opacity: 0; transform: translateY(-6px) scale(.98); } }
+@media (prefers-reduced-motion: reduce) { #rolls .toast.rollcard, #rolls .toast.rollcard.rc-out { animation-duration: .01s; } }
+#rolls .toast.rollcard:not(:first-child) { transform: scale(.96); opacity: .7; }
+#rolls .toast.rollcard > b.total { grid-column: 1; min-width: 64px; font: 700 3rem/1 Georgia, "Times New Roman", serif; color: var(--gold-ink); text-align: center; }
+#rolls .toast.rollcard > .rc-body { grid-column: 2; min-width: 0 !important; font-size: 1rem; display: flex; flex-direction: column; gap: 3px; }
+#rolls .toast.rollcard .rc-name { font: 700 1.12rem/1.25 Georgia, "Times New Roman", serif; color: var(--ink); overflow-wrap: anywhere; }
+#rolls .toast.rollcard .rc-lbl { font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; font-weight: 800; color: var(--soft); }
+#rolls .toast.rollcard .det { display: block !important; color: var(--soft); font-size: .82rem; }
+#rolls .toast.rollcard.has-math .det.dd { display: none !important; }
+#rolls .toast.rollcard > .rc-dmg { grid-column: 3; align-self: stretch; justify-content: center; min-width: 76px; padding: 0 0 0 18px; border-left: 1px solid var(--line); }
+#rolls .toast.rollcard > .rc-dmg b { font: 700 2.6rem/1 Georgia, "Times New Roman", serif; }
+#rolls .toast.rollcard > .rc-multi { grid-column: 1 / 3; }
+/* the math: always there, one block per part */
+#rolls .toast.rollcard > .rc-math { grid-column: 1 / -1; display: grid !important; grid-template-columns: 1fr; gap: 10px 16px; margin: 0 -32px 0 0; padding: 10px 14px; min-width: 0;
+  border-radius: 12px; background: color-mix(in srgb, var(--ink) 5%, transparent); border: 1px solid var(--line2); font-size: .84rem; }
+#rolls .toast.rollcard > .rc-math.two { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+#rolls .toast.rollcard > .rc-math.two .rm-sec + .rm-sec { border-left: 1px solid var(--line2); padding-left: 16px; }
+#rolls .rc-math .rm-h { color: var(--gold-ink); opacity: 1; margin: 0 0 4px; }
+#rolls .rc-math .rm-r { padding: 2px 0; } #rolls .rc-math .rm-r span { opacity: .8; } #rolls .rc-math .rm-r b { font-weight: 700; }
+#rolls .rc-math .rm-t { border-top-color: var(--line); } #rolls .rc-math .rm-t span { opacity: 1; font-weight: 800; }
+#rolls .toast.rollcard > .t-acts { grid-column: 1 / -1; margin: 0 -32px 0 0; padding: 0 !important; justify-content: flex-end; }
+/* the × */
+#rolls .rc-x { position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; margin: 0 !important; padding: 0; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--soft); cursor: pointer; transition: background .15s, color .15s; }
+ #rolls .rc-x:focus-visible { background: color-mix(in srgb, var(--ink) 10%, transparent); color: var(--ink); }@media (hover:hover){:where(html:not(.mobile)) #rolls .rc-x:hover{ background: color-mix(in srgb, var(--ink) 10%, transparent); color: var(--ink); }}
+html.pg-touch #rolls .rc-x:active { transform: scale(.9); background: color-mix(in srgb, var(--ink) 14%, transparent); }
+#rolls .rc-dice { display: none !important; }
+/* crits and fumbles: the colour runs through the border and the numbers */
+#rolls .toast.rollcard.crit { border-color: color-mix(in srgb, var(--green) 70%, transparent); } #rolls .toast.rollcard.crit > b.total, #rolls .toast.rollcard.crit .rc-lbl { color: var(--green); }
+#rolls .toast.rollcard.fumble { border-color: color-mix(in srgb, var(--red) 70%, transparent); } #rolls .toast.rollcard.fumble > b.total, #rolls .toast.rollcard.fumble .rc-lbl { color: var(--red); }
+/* phones: a bit tighter */
+@media (max-width: 560px) {
+  #rolls .toast.rollcard { column-gap: 14px; padding: 14px 46px 14px 16px; }
+  #rolls .toast.rollcard > b.total { font-size: 2.5rem; min-width: 52px; }
+  #rolls .toast.rollcard > .rc-dmg { min-width: 60px; padding-left: 14px; } #rolls .toast.rollcard > .rc-dmg b { font-size: 2.1rem; }
+  #rolls .toast.rollcard > .rc-math, #rolls .toast.rollcard > .t-acts { margin-right: -30px; }
+  #rolls .toast.rollcard > .rc-math.two { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+  #rolls .rc-x { top: 8px; right: 8px; }
+}
+/* when the parts don't fit side by side they stack, with a line between instead of beside */
+#rolls .toast.rollcard > .rc-math.two { container-type: inline-size; }
+@media (min-width: 561px) { @container (max-width: 395px) { #rolls .rc-math.two .rm-sec + .rm-sec { border-left: 0 !important; padding-left: 0 !important; border-top: 1px solid var(--line2); padding-top: 10px; } } }
+@media (max-width: 560px) { @container (max-width: 295px) { #rolls .rc-math.two .rm-sec + .rm-sec { border-left: 0 !important; padding-left: 0 !important; border-top: 1px solid var(--line2); padding-top: 10px; } } }
+/* a long value (a roll written out in full) wraps inside the card instead of running off its edge */
+#rolls .rc-math .rm-r { gap: 12px; } #rolls .rc-math .rm-r span { flex: none; max-width: 60%; } #rolls .rc-math .rm-r b { min-width: 0; white-space: normal; overflow-wrap: anywhere; text-align: right; }
+#rolls .toast.rollcard { overflow-x: hidden; }
+
+/* ===== Character creation on a phone: the whole window scrolls (header goes up out of the way, the step gets the
+   full height); no lists scrolling inside it; Back / Next stay pinned to the bottom; search boxes stay in reach ===== */
+html.mobile #wizard .wz-box { overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+html.mobile #wizard .wz3 .wz3-wrap { flex: 1 0 auto !important; min-height: 0; display: block !important; overflow: visible; }
+html.mobile #wizard .wz3 .wz3-main { flex: none !important; display: block !important; overflow: visible; min-height: 0; }
+html.mobile #wizard .wz3 .wz-body { flex: none !important; overflow: visible !important; min-height: 0; }
+html.mobile #wizard .wz-foot { position: sticky; bottom: 0; z-index: 30; }
+html.mobile #wizard .crlist { max-height: none !important; overflow: hidden !important; overflow: clip !important; }
+html.mobile #wizard .wz3-pick > .wz3-q, html.mobile #wizard .wz-body input[data-wzq] { position: sticky; top: 8px; z-index: 4; box-shadow: 0 -8px 0 var(--wc-card, var(--panel)), 0 6px 14px rgba(0,0,0,.25); }
+/* rows in the race / variant / class lists */
+#wizard .wz3-row { align-items: center; }
+#wizard .wz3-row.wic .wz3-cic { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: color-mix(in srgb, var(--gold) 16%, transparent); color: var(--gold-ink); margin-right: 2px; }
+#wizard .wz3-row.wic .wz3-cic svg { width: 20px; height: 20px; }
+#wizard .wz3-row > div { flex: 1; min-width: 0; }
+#wizard .crlist > .wz3-g, #rcmodal .crlist > .wz3-g { margin: 0; padding: 10px 12px 6px; font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--gold-ink); background: color-mix(in srgb, var(--ink) 4%, transparent); border-bottom: 1px solid var(--line2); }
+html.mobile #wizard .wz-box > .wz-foot { -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+html.mobile #wizard .wz3-pick > .wz3-q, html.mobile #wizard .wz-body input[data-wzq] { -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); box-shadow: 0 6px 14px rgba(0,0,0,.25); }
+
+/* Phones and tablets: anything you can tap lights up the moment your finger lands on it — the phone's own tap
+   highlight (a CSS pressed style here made iPhones drop slower taps, so it isn't used) */
+@media (hover: none) {
+  :where(button, a[href], summary, select, [role=button], [role=tab], [role=option], [role=menuitem], [data-act], [data-wact], [data-a], [data-pick], [data-roll], label.crrow) { -webkit-tap-highlight-color: rgba(255,255,255,.14); }
+  @media (prefers-color-scheme: light) { :where(button, a[href], summary, select, [role=button], [role=tab], [role=option], [role=menuitem], [data-act], [data-wact], [data-a], [data-pick], [data-roll], label.crrow) { -webkit-tap-highlight-color: rgba(0,0,0,.1); } }
+}
+/* phones: the search box pinned under the clock, with the page colour behind it so rows don't peek out above it */
+html.mobile #wizard .wz3-pick > .wz3-q, html.mobile #wizard .wz-body input[data-wzq] { top: calc(env(safe-area-inset-top) + 8px); box-shadow: 0 6px 14px rgba(0,0,0,.25); background-color: rgba(18,24,39,.94); }
+@media (prefers-color-scheme: light) { html.mobile #wizard .wz3-pick > .wz3-q, html.mobile #wizard .wz-body input[data-wzq] { box-shadow: 0 6px 14px rgba(0,0,0,.12); background-color: rgba(251,247,238,.95); } }
+html.mobile #wizard .wz-box { overscroll-behavior: none !important; }
+html.mobile #wizard .wz-box * { overscroll-behavior: none !important; }
+/* phones: how to get your scores, as a 2 × 2 set of buttons instead of four squashed ones */
+html.mobile #wizard .wz-box .segmini { display: grid !important; grid-template-columns: 1fr 1fr; width: 100%; box-sizing: border-box; }
+html.mobile #wizard .wz-box .segmini > button { white-space: nowrap; min-height: 40px; }
+/* Level Up: your classes and the ones you could add, as the same tick-one lists as character creation */
+#modal-body .lvx-list { max-height: none; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; }
+#modal-body .lvx-list .wz3-row { display: flex; align-items: center; gap: 10px; }
+#modal-body .lvx-list .wz3-row .wz3-cic { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: color-mix(in srgb, var(--gold) 16%, transparent); color: var(--gold-ink); }
+#modal-body .lvx-list .wz3-row.on .wz3-cic { background: var(--gold); color: #1b1406; }
+#modal-body .lvx-list .wz3-row .wz3-cic svg { width: 20px; height: 20px; }
+#modal-body .lvx-list .lvx-need { color: var(--red); }
+#modal-body .lvx-mc > .wz3-pick { margin-top: 8px; }
+/* phones: lists in windows (change race, Level Up, choices) don't scroll inside the window; the window scrolls, and
+   a list's search box stays pinned at the top of it while you go */
+html.mobile #modal-body .crlist.wz3-list { max-height: none !important; overflow: hidden !important; overflow: clip !important; }
+html.mobile #modal-body .wz3-pick > .wz3-q { position: sticky; top: 0; z-index: 4; background-color: var(--field, var(--panel)); box-shadow: 0 6px 14px rgba(0,0,0,.25); }
+/* Party chat on a phone, opening: a short drop with a fade on a curve that settles (instead of falling the whole height
+   of the screen), on its own layer so it stays smooth; closing lifts and fades the same way */
+html.mobile .pcwin { animation: pcDrop2 .46s cubic-bezier(.22,1,.36,1) both !important; will-change: transform, opacity; }
+html.mobile .pcwin.closing { animation: pcLift2 .2s cubic-bezier(.4,0,1,1) forwards !important; }
+@keyframes pcDrop2 { 0% { transform: translateY(-90px) scale(.94); opacity: 0; } 35% { opacity: 1; } 100% { transform: none; opacity: 1; } }
+@keyframes pcLift2 { to { transform: translateY(-70px) scale(.95); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { html.mobile .pcwin, html.mobile .pcwin.closing { animation-duration: .01s !important; } }
+/* the top of the card (title and message box) is one tinted band, and its edge is a line right under the message box,
+   where the messages start; with the keyboard up the box rests on the keyboard with the line above it */
+html.mobile .pcwin { background: var(--panel) !important; }
+html.mobile .pcwin .pcw-head, html.mobile .pcwin .ptychat-f { background: color-mix(in srgb, var(--panel) 90%, var(--gold) 10%) !important; }
+html.mobile .pcwin .ptychat-f { border-bottom: 1px solid color-mix(in srgb, var(--gold) 26%, transparent) !important; border-top: 0 !important; padding: 4px 10px 12px !important; }
+html.mobile.kbreal .pcwin .ptychat-f { border-bottom: 0 !important; border-top: 1px solid color-mix(in srgb, var(--gold) 26%, transparent) !important; padding: 10px 10px 10px !important; }
+html.mobile.kbreal .pcwin .pcw-head { border-bottom: 1px solid color-mix(in srgb, var(--gold) 26%, transparent) !important; }
+
+/* (the message box's band runs right to the bottom of the card: no strip of empty card under it) */
+html.mobile .pcwin .pcw-body { padding-bottom: 0 !important; }
+/* Coming back to the app with the keyboard up, the iPhone slides the visible part of the page down (the chat's top went
+   off the screen): the card follows the visible part, so its top stays under the clock. (Normally that slide is 0.) */
+html.mobile .pcwin { top: calc(var(--vvt, 0px) + env(safe-area-inset-top, 0px) + 8px) !important; }
+/* the portrait's "change" control: a small gold pencil badge in its corner on hover (like a party's picture), not a strip
+   of text across the bottom; the whole portrait still takes the click */
+header.banner .portrait-wrap .portrait-edit { inset: auto 6px 6px auto !important; width: 28px; height: 28px; padding: 0 !important; display: grid; place-items: center; border-radius: 50% !important;
+  background: var(--gold) !important; color: #1b1406 !important; box-shadow: 0 2px 8px rgba(0,0,0,.35); font-size: 0 !important; transition: opacity .15s ease, transform .15s ease; }
+header.banner .portrait-wrap .portrait-edit svg { width: 14px; height: 14px; }
+@media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) :where(html:not(.mobile)) header.banner .portrait-wrap:hover .portrait-edit{ transform: scale(1.06); }} }
+html.mobile header.banner .portrait-wrap .portrait-edit { width: 24px; height: 24px; inset: auto 3px 3px auto !important; }
+/* roll cards can be picked up and moved with a mouse */
+html:not(.mobile) #rolls .toast.rollcard { cursor: grab; } body.rolls-drag, body.rolls-drag #rolls .toast.rollcard { cursor: grabbing !important; user-select: none; }
+/* tab labels sit on the same middle as their icons (the label's box is trimmed to its capital letters, so centring
+   lines up the letters themselves, not the empty space a font keeps above and below them) */
+html:not(.mobile) #tabs .tab .tlabel { transform: translateY(-1px); }
+/* Where the browser can trim a line down to the capital letters, the words are centred by their capitals, the way the
+   eye reads them, on every system font (Windows and Mac fonts sit their letters at different heights in the line) */
+@supports (text-box: trim-both cap alphabetic) {
+  html:not(.mobile) #tabs .tab .tlabel { transform: none; top: 0; text-box: trim-both cap alphabetic; overflow: clip; overflow-clip-margin: 6px; }
+}
+
+/* Divine Smite: the switch on its own full-width line, then the slot choices in a grid under it (the row used to be the
+   slot grid itself, which squeezed the switch into one narrow cell). */
+.smite-row { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.smite-row .smite-chk { margin: 0; }
+.smite-row .smite-chk b { white-space: nowrap; }
+.smite-lv, html.mobile .smite-lv { display: grid; grid-template-columns: repeat(auto-fit, minmax(78px, 1fr)); gap: 6px; }
+.smite > .sect { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; white-space: nowrap; }
+.smite > .sect .toggle { white-space: nowrap; flex: none; margin-left: auto; }
 

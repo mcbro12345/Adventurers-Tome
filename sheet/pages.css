@@ -3554,3 +3554,37 @@ html.pg-dk-hide:not(.pg-dk-fade) body > :not(.pg-bgd):not(#pg-load):not(.pg-out)
 .hub-modal .cdm-l li > span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .hub-modal .cdm-l li small { opacity: .7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hub-modal .cdm-l .btn { padding: 6px 12px; font-size: 13px; }
+/* Bug report attachments */
+.pg-bug-att { border-radius: 12px; transition: background .15s, box-shadow .15s; }
+.pg-bug-att.drop { background: rgba(201,150,43,.08); box-shadow: 0 0 0 2px rgba(201,150,43,.5); }
+.pg-bug-opt { font-weight: 400; opacity: .65; margin-left: 4px; }
+.pg-bug-fl { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.pg-bug-fl:empty { display: none; }
+.pg-bug-f { display: flex; align-items: center; gap: 10px; padding: 6px 6px 6px 8px; border-radius: 10px; border: 1px solid #3a4560; min-width: 0; font-weight: 400; }
+.pg-bug-f.wait { justify-content: center; padding: 10px; opacity: .7; font-size: .82rem; }
+.pg-bug-f img, .pg-bug-fi { width: 40px; height: 40px; border-radius: 6px; flex: none; object-fit: cover; background: rgba(255,255,255,.06); display: grid; place-items: center; }
+.pg-bug-fn { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.pg-bug-fn b { font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pg-bug-fn small { font-size: .75rem; opacity: .7; }
+.pg-bug-rm { flex: none; width: 32px; height: 32px; border-radius: 8px; border: 0; background: transparent; color: inherit; opacity: .7; cursor: pointer; font-size: .9rem; }
+.pg-bug-rm:hover { opacity: 1; background: rgba(255,255,255,.08); }
+.pg-bug-add { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 6px; padding: 10px 12px; border-radius: 10px; border: 1px dashed #3a4560; background: transparent; color: inherit; font: 600 .86rem system-ui, sans-serif; cursor: pointer; }
+.pg-bug-add:hover { border-color: #c9962b; background: rgba(201,150,43,.06); } .pg-bug-add svg { color: #c9962b; }
+.pg-bug-add[hidden] { display: none; }
+.pg-bug-hint { display: block; margin-top: 5px; font-weight: 400; font-size: .75rem; opacity: .65; }
+@media (prefers-color-scheme: light) { body:not(.adminbody) .pg-bug-f, body:not(.adminbody) .pg-bug-add { border-color: #d8c9a6; } body:not(.adminbody) .pg-bug-f img, body:not(.adminbody) .pg-bug-fi { background: rgba(0,0,0,.05); } body:not(.adminbody) .pg-bug-rm:hover { background: rgba(0,0,0,.06); } }
+/* …and in the admin page's Bugs tab */
+.bg-att { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.bg-af { border: 1px solid var(--adm-line, #3a4560); background: transparent; color: inherit; border-radius: 8px; padding: 0; cursor: pointer; overflow: hidden; max-width: 100%; }
+.bg-af.img img { display: block; width: 88px; height: 64px; object-fit: cover; }
+.bg-af span { display: block; padding: 6px 9px; font-size: .8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+.bg-af:hover { border-color: #c9962b; }
+.bg-view { position: fixed; inset: 0; z-index: 100002; background: rgba(8,10,16,.86); display: grid; place-items: center; padding: 24px; }
+.bg-view figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: 100%; max-height: 100%; }
+.bg-view img { max-width: min(1400px, calc(100vw - 48px)); max-height: calc(100vh - 110px); border-radius: 8px; box-shadow: 0 12px 40px rgba(0,0,0,.5); }
+.bg-view figcaption { color: #e9e3d3; font: 400 .85rem system-ui, sans-serif; text-align: center; word-break: break-word; }
+.bg-view figcaption a { color: #e0b456; margin-left: 8px; }
+.bg-vx { position: fixed; top: 14px; right: 14px; width: 40px; height: 40px; border-radius: 50%; border: 0; background: rgba(255,255,255,.12); color: #fff; font-size: 1rem; cursor: pointer; }
+.pg-bug-l input.pg-bug-in { display: none !important; }
+.pg-bug-hint kbd { font: 700 .7rem system-ui, sans-serif; padding: 1px 5px; border-radius: 4px; border: 1px solid #3a4560; border-bottom-width: 2px; }
+@media (prefers-color-scheme: light) { body:not(.adminbody) .pg-bug-hint kbd { border-color: #d8c9a6; } }

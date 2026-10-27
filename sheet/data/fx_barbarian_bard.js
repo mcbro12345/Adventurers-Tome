@@ -76,15 +76,13 @@
     // Wild Magic
     'barbarian:wildmagic:Magic Awareness': { col: 'action', text: 'Until the end of your next turn you know the location of spells and magic items within 60 ft (not behind total cover) and their schools.' },
     'barbarian:wildmagic:Wild Surge': {
-      col: 'bonus', onlyRaging: true, roll: '1d8', rollNote: 'Wild Magic table', dc: 'con',
-      text: '1 Shadowy tendrils (CON save, 1d12 necrotic; you gain 1d12 temp HP) · 2 Teleport 30 ft (again as bonus action each turn) · 3 Exploding spirit (DEX save, 1d6 force; again as bonus action) · 4 Weapon: light, thrown 20/60, force damage, returns · 5 Attackers that hit you take 1d6 force · 6 Protective lights: +1 AC for you and allies within 10 ft · 7 Flowers and vines: 15 ft difficult terrain for enemies · 8 Bolt of light (CON save, 1d6 radiant + blinded; again as bonus action). Effects last until the rage ends.',
+      col: 'bonus', onlyRaging: true, bsurge: 'one', dc: 'con',
+      text: 'Rolls automatically when you rage. 1 Shadowy tendrils (CON save, 1d12 necrotic; you gain 1d12 temp HP) · 2 Teleport 30 ft (again as bonus action each turn) · 3 Exploding spirit (DEX save, 1d6 force; again as bonus action) · 4 Weapon: light, thrown 20/60, force damage, returns · 5 Attackers that hit you take 1d6 force · 6 Protective lights: +1 AC for you and allies within 10 ft · 7 Flowers and vines: 15 ft difficult terrain for enemies · 8 Bolt of light (CON save, 1d6 radiant + blinded; again as bonus action). Effects last until the rage ends.',
       acts: [
-        { name: '1 Tendrils', onlyRaging: true, roll: '1d12', rollNote: 'necrotic to each creature you choose within 30 ft (CON save negates)', dc: 'con', save: 'CON', use: { temp: '1d12' } },
-        { name: '2 Teleport', col: 'bonus', onlyRaging: true, text: 'Teleport up to 30 ft to an unoccupied space you can see.' },
-        { name: '3 Spirit', col: 'bonus', onlyRaging: true, roll: '1d6', rollNote: 'force to each creature within 5 ft of the spirit (DEX save negates)', dc: 'con', save: 'DEX' },
-        { name: '5 Retribution', onlyRaging: true, roll: '1d6', rollNote: 'force to the creature that hit you' },
-        { name: '6 Protective lights', onlyRaging: true, use: E('Wild Surge: Lights', 10, { ac: 1, note: 'Allies within 10 ft also get +1 AC' }) },
-        { name: '8 Bolt of light', col: 'bonus', onlyRaging: true, roll: '1d6', rollNote: 'radiant; blinded until the start of your next turn (CON save negates)', dc: 'con', save: 'CON' }]
+        { name: 'Teleport again', col: 'bonus', onlyRaging: true, onlyWhen: { effect: 'Wild Surge: Teleport' }, text: 'Teleport up to 30 ft to an unoccupied space you can see.' },
+        { name: 'Another spirit', col: 'bonus', onlyRaging: true, onlyWhen: { effect: 'Wild Surge: Exploding spirit' }, roll: '1d6', rollNote: 'force to each creature within 5 ft of the spirit (DEX save negates)', dc: 'con', save: 'DEX' },
+        { name: 'Retribution', onlyRaging: true, onlyWhen: { effect: 'Wild Surge: Retribution' }, roll: '1d6', rollNote: 'force to the creature that hit you' },
+        { name: 'Another bolt', col: 'bonus', onlyRaging: true, onlyWhen: { effect: 'Wild Surge: Bolt of light' }, roll: '1d6', rollNote: 'radiant; blinded until the start of your next turn (CON save negates)', dc: 'con', save: 'CON' }]
     },
     'barbarian:wildmagic:Bolstering Magic': {
       resource: true,
@@ -92,8 +90,8 @@
         { name: 'Bolster (+1d3 rolls)', col: 'action', cost: true, use: E('Bolstering Magic', 100, { note: 'Roll 1d3 and add it to each attack roll or ability check for 10 minutes' }), text: 'Target yourself or a creature you touch (the effect chip tracks it on you).' },
         { name: 'Restore a slot', col: 'action', cost: true, roll: '1d3', rollNote: 'level of the spell slot the touched creature regains (lower if needed)' }]
     },
-    'barbarian:wildmagic:Unstable Backlash': { col: 'reaction', onlyRaging: true, roll: '1d8', rollNote: 'new Wild Magic table result (replaces the current one)', dc: 'con', text: 'When you take damage or fail a save while raging.' },
-    'barbarian:wildmagic:Controlled Surge': { col: 'bonus', onlyRaging: true, roll: '2d8', rollNote: 'two Wild Magic results — read each die and choose; doubles = choose any effect', dc: 'con' },
+    'barbarian:wildmagic:Unstable Backlash': { col: 'reaction', onlyRaging: true, bsurge: 'backlash', dc: 'con', text: 'When you take damage or fail a save while raging: roll a new Wild Surge (it replaces the current one).' },
+    'barbarian:wildmagic:Controlled Surge': { onlyRaging: true, bsurge: 'controlled', dc: 'con', text: 'Whenever you roll on the Wild Magic table, roll twice and choose; doubles let you choose any effect. (The sheet does this for you.)' },
 
     // Battlerager
     'barbarian:battlerager:Battlerager Armor': {

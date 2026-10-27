@@ -74,7 +74,8 @@ service cloud.firestore {
       allow list: if admin();
       allow create: if admin() || (signedIn() && em == me() && request.resource.data.email == me()
         && request.resource.data.keys().hasOnly(['email', 'name', 'nameLower', 'keys', 'createdAt', 'seenAt', 'gpic']));
-      allow update: if admin() || (signedIn() && em == me() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt', 'seenFg', 'pic', 'picChar', 'picColor', 'picClear', 'picMode', 'gpic', 'name', 'nameLower', 'keys', 'msgSeen', 'noticeSeen', 'welcomeSeen', 'partyOrder'])
+      allow update: if admin() || (signedIn() && em == me() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt', 'seenFg', 'pic', 'picChar', 'picColor', 'picClear', 'picMode', 'gpic', 'name', 'nameLower', 'keys', 'msgSeen', 'noticeSeen', 'welcomeSeen', 'partyOrder', 'seenPc', 'seenPhone', 'ext', 'extAt'])
+        && (!('ext' in request.resource.data) || (request.resource.data.ext is string && request.resource.data.ext.size() <= 20))
         && (!('partyOrder' in request.resource.data) || (request.resource.data.partyOrder is list && request.resource.data.partyOrder.size() <= 200))
         && request.resource.data.get('name', '') is string && request.resource.data.get('name', '').size() <= 60);
       allow delete: if admin();
@@ -93,7 +94,7 @@ service cloud.firestore {
       allow update: if admin() || (signedIn() && request.resource.data.keys().hasOnly(['c']) && request.resource.data.c == resource.data.c && ownsSheet(resource.data.c));
       allow delete: if admin() || (signedIn() && ownsSheet(resource.data.c));
     }
-    // Activity log: anyone signed in can add their own entries; only admins can read it; nobody can change it, and admins can only delete events more than 7 days old.
+    // Activity log: anyone signed in can add their own entries; only admins can read it; nobody can change it; admins can delete events (old ones are cleared out, and the whole log can be emptied).
     match /audit/{id} {
       allow create: if signedIn() && request.resource.data.by == me()
         && request.resource.data.keys().hasOnly(['at', 'by', 'byName', 'act', 'target', 'tName', 'detail'])
@@ -105,7 +106,7 @@ service cloud.firestore {
         && request.resource.data.get('detail', '') is string && request.resource.data.get('detail', '').size() <= 1500;
       allow read: if admin();
       allow update: if false;
-      allow delete: if admin() && resource.data.at is number && resource.data.at < request.time.toMillis() - 604800000;
+      allow delete: if admin();
     }
     // View-only links: a public copy of a sheet at pub/<random link id> (big sheets split as <id>_p1, _p2...). Anyone can open
     // one if they have the link; only someone who can edit the character can write or remove it. Links can't be listed.
@@ -304,7 +305,8 @@ service cloud.firestore {
     // only mark it seen. Admins read, fix, reopen and delete them.
     match /bugs/{b} {
       allow create: if signedIn() && request.resource.data.by == me() && request.resource.data.status == 'open'
-        && request.resource.data.keys().hasOnly(['sum', 'desc', 'by', 'byName', 'at', 'where', 'ch', 'ua', 'status'])
+        && request.resource.data.keys().hasOnly(['sum', 'desc', 'by', 'byName', 'at', 'where', 'ch', 'ua', 'status', 'files'])
+        && request.resource.data.get('files', 0) is int && request.resource.data.get('files', 0) >= 0 && request.resource.data.get('files', 0) <= 4
         && request.resource.data.sum is string && request.resource.data.sum.size() <= 200
         && request.resource.data.get('desc', '') is string && request.resource.data.get('desc', '').size() <= 20000
         && request.resource.data.get('where', '/') is string && request.resource.data.get('where', '/').matches('/[^/\\\\].{0,199}|/')
@@ -314,6 +316,18 @@ service cloud.firestore {
       allow read: if admin() || (signedIn() && resource.data.by == me());
       allow update: if admin() || (signedIn() && resource.data.by == me() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seen']));
       allow delete: if admin();
+      // Its attachments (up to 4, one data URL each), added by whoever sent the report, right after sending it.
+      match /files/{f} {
+        allow create: if signedIn() && f in ['0', '1', '2', '3'] && get(/databases/$(db)/documents/bugs/$(b)).data.by == me()
+          && int(f) < get(/databases/$(db)/documents/bugs/$(b)).data.get('files', 0)
+          && request.resource.data.keys().hasOnly(['name', 'type', 'size', 'data', 'w', 'h'])
+          && request.resource.data.name is string && request.resource.data.name.size() <= 120
+          && request.resource.data.type is string && request.resource.data.type.size() <= 100
+          && request.resource.data.size is number && request.resource.data.w is number && request.resource.data.h is number
+          && request.resource.data.data is string && request.resource.data.data.size() <= 1000000;
+        allow read: if admin() || (signedIn() && get(/databases/$(db)/documents/bugs/$(b)).data.by == me());
+        allow delete: if admin();
+      }
     }
     // The first-time welcome message, and the notice that's out right now (shown to a new account after the welcome):
     // anyone signed in can read them; only admins set them.
@@ -346,11 +360,26 @@ service cloud.firestore {
       allow delete: if admin();
     }
     // DM's Desk: each person's own sessions and creatures, private to them.
+    // A DM's Desk is the DM's own. Its co-DMs share it: a party's desk (sessions, notes) is open to that party's co-DMs, and the
+    // DM's creatures, note pictures and desk items to everyone on deskshare/{em}.codms (every co-DM of a party the DM runs).
+    function deskCoDM(em) { return signedIn() && exists(/databases/$(db)/documents/deskshare/$(em)) && me() in get(/databases/$(db)/documents/deskshare/$(em)).data.get('codms', []); }
+    function deskPartyMgr(em, p) { let d = partyOf(p); return signedIn() && d.dm == em && me() in d.get('mgrs', []); }
     match /desks/{em} {
       allow read, write: if signedIn() && em == me();
-      match /{document=**} {
-        allow read, write: if signedIn() && em == me();
+      match /{sub}/{document=**} {
+        allow read, write: if signedIn() && (em == me() || (sub in ['creatures', 'imgs', 'items'] && deskCoDM(em)));
       }
+      match /party/{p} {
+        allow read, write: if signedIn() && (em == me() || deskPartyMgr(em, p));
+        match /{document=**} {
+          allow read, write: if signedIn() && (em == me() || deskPartyMgr(em, p));
+        }
+      }
+    }
+    match /deskshare/{em} {
+      allow read: if admin() || (signedIn() && em == me());
+      allow write: if (admin() || (signedIn() && em == me())) && request.resource.data.keys().hasOnly(['codms', 'at'])
+        && request.resource.data.codms is list && request.resource.data.codms.size() <= 300;
     }
     match /groups/{g} {
       allow get: if signedIn();

@@ -1154,17 +1154,52 @@ function wireDie(root) {
   // tab. When an admin marks one fixed, its sender gets a note in the corner — on whatever page is open, right away or
   // the next time they open the site.
   const bugsCol = fs.collection('bugs');
+  // Bug report attachments: up to 4, each kept as a data URL in bugs/{id}/files/{0-3} (one Firestore document each, so
+  // under ~1 MB). Screenshots and other pictures are shrunk to fit; any other file has to be small enough as it is.
+  const BUG_MAX = 4, BUG_RAW = 640 * 1024, bugKB = n => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+  const readURL = f => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(f); });
+  const bugShrink = async f => { const src = await readURL(f), im = new Image(); await new Promise((res, rej) => { im.onload = res; im.onerror = rej; im.src = src; });
+    for (const [side, q] of [[1800, .86], [1600, .8], [1280, .75], [1024, .7], [800, .65]]) { const k = Math.min(1, side / Math.max(im.naturalWidth, im.naturalHeight)), c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(im.naturalWidth * k)); c.height = Math.max(1, Math.round(im.naturalHeight * k)); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+      let d = c.toDataURL('image/webp', q); if (!/^data:image\/webp/.test(d)) d = c.toDataURL('image/jpeg', q);
+      if (d.length * .75 <= BUG_RAW) return { data: d, type: d.slice(5, d.indexOf(';')), size: Math.round(d.length * .75), w: c.width, h: c.height }; }
+    throw new Error('too big'); };
+  const bugFile = async f => { const name = String(f.name || 'pasted image').slice(0, 120);
+    if (/^image\/(png|jpe?g|webp|bmp|avif)$/i.test(f.type)) return Object.assign({ name }, await bugShrink(f));
+    if (f.size > BUG_RAW) throw new Error(`${name} is ${bugKB(f.size)} — files other than pictures can be up to ${bugKB(BUG_RAW)}.`);
+    const d = await readURL(f); return { name, type: String(f.type || 'application/octet-stream').slice(0, 100), size: f.size, data: d, w: 0, h: 0 }; };
   window.pgBugReport = () => { if (document.querySelector('.pg-out')) return; const m = document.createElement('div'); m.className = 'pg-out'; m.dataset.k = 'bug'; pgOutFade(m);
     m.innerHTML = `<div class="pg-out-card pg-bug-card" role="dialog" aria-modal="true" aria-labelledby="pg-bug-h"><h2 id="pg-bug-h">Bugs, ideas &amp; feedback</h2><p>Something not working right? Want a new feature? Or anything else you want to say about the site, good or bad? Tell us here. You’ll get a note when we get to it.</p>
       <label class="pg-bug-l">Summary<input class="pg-bug-s" maxlength="120" placeholder="e.g. Spell slots don’t come back, or: add a map tool" autocomplete="off"></label>
       <label class="pg-bug-l">Details<textarea class="pg-bug-d" rows="6" placeholder="For a bug: what you did, what you expected, and what happened instead. For an idea: what you’d like and why."></textarea></label>
+      <div class="pg-bug-l pg-bug-att">Attachments <span class="pg-bug-opt">optional</span>
+        <div class="pg-bug-fl"></div>
+        <button type="button" class="pg-bug-add"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5l-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l8-8"/></svg>Attach a screenshot or file</button><input type="file" class="pg-bug-in" multiple hidden>
+        <small class="pg-bug-hint">${matchMedia('(hover: hover)').matches ? `Took a screenshot? Press <kbd>${/Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl'}</kbd>+<kbd>V</kbd> to paste it in. You can also drop files here. ` : ''}Up to ${BUG_MAX}.</small></div>
       <div class="pg-out-row"><button class="pg-out-no">Cancel</button><button class="pg-out-yes" disabled>Send</button></div></div>`;
     const close = () => { m.remove(); document.removeEventListener('keydown', key); }, key = e => { if (e.key === 'Escape') close(); };
     const sm = m.querySelector('.pg-bug-s'), ds = m.querySelector('.pg-bug-d'), ok = m.querySelector('.pg-out-yes');
-    sm.oninput = () => { ok.disabled = !sm.value.trim(); }; m.onclick = e => { if (e.target === m) close(); }; m.querySelector('.pg-out-no').onclick = close;
+    sm.oninput = () => { ok.disabled = !sm.value.trim() || busy > 0; }; m.onclick = e => { if (e.target === m) close(); }; m.querySelector('.pg-out-no').onclick = close;
+    const FILES = [], fl = m.querySelector('.pg-bug-fl'), fin = m.querySelector('.pg-bug-in'), addB = m.querySelector('.pg-bug-add'), att = m.querySelector('.pg-bug-att'); let busy = 0;
+    const drawF = () => { fl.innerHTML = FILES.map((f, i) => `<div class="pg-bug-f">${f.w ? `<img src="${f.data}" alt="">` : '<span class="pg-bug-fi"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg></span>'}<span class="pg-bug-fn"><b>${escH(f.name)}</b><small>${bugKB(f.size)}</small></span><button type="button" class="pg-bug-rm" data-i="${i}" aria-label="Remove ${escH(f.name)}">✕</button></div>`).join('') + (busy ? '<div class="pg-bug-f wait">Adding…</div>' : '');
+      fl.querySelectorAll('.pg-bug-rm').forEach(b => b.onclick = () => { FILES.splice(Number(b.dataset.i), 1); drawF(); }); addB.hidden = FILES.length + busy >= BUG_MAX; ok.disabled = !sm.value.trim() || busy > 0; };
+    const addFiles = async list => { const fs0 = [...list].filter(f => f && f.size).slice(0, Math.max(0, BUG_MAX - FILES.length - busy)); if (list.length && !fs0.length) { pgCorner(`<b>That’s the most attachments.</b><div class="det">A report can have up to ${BUG_MAX}.</div>`); return; }
+      busy += fs0.length; drawF();
+      for (const f of fs0) { try { FILES.push(await bugFile(f)); } catch (x) { pgCorner('<b>Couldn’t attach that.</b><div class="det">' + escH(x && x.message && x.message !== 'too big' ? x.message : (f.name || 'The picture') + ' is too big to attach.') + '</div>'); } busy--; drawF(); } };
+    addB.onclick = () => fin.click(); fin.onchange = () => { addFiles(fin.files); fin.value = ''; };
+    // Paste a screenshot (or copied files) anywhere in the form, even while typing in Details. Clipboard images have no
+    // real name ("image.png"), so they're named for when they were pasted.
+    const pasted = e => { const cd = e.clipboardData; if (!cd) return; let fs1 = [...(cd.files || [])];
+      if (!fs1.length) fs1 = [...(cd.items || [])].filter(it => it.kind === 'file').map(it => it.getAsFile()).filter(Boolean);
+      if (!fs1.length) return; e.preventDefault(); const t = new Date(), p2 = n => String(n).padStart(2, '0');
+      addFiles(fs1.map((f, i) => /^image\//.test(f.type) && (!f.name || /^image\.\w+$/i.test(f.name)) ? new File([f], `Screenshot ${t.getFullYear()}-${p2(t.getMonth() + 1)}-${p2(t.getDate())} ${p2(t.getHours())}.${p2(t.getMinutes())}.${p2(t.getSeconds())}${fs1.length > 1 ? ' (' + (i + 1) + ')' : ''}.png`, { type: f.type }) : f)); };
+    m.addEventListener('paste', pasted);
+    att.addEventListener('dragover', e => { e.preventDefault(); att.classList.add('drop'); }); att.addEventListener('dragleave', () => att.classList.remove('drop'));
+    att.addEventListener('drop', e => { e.preventDefault(); att.classList.remove('drop'); addFiles((e.dataTransfer && e.dataTransfer.files) || []); });
     ok.onclick = async () => { ok.disabled = true; ok.textContent = 'Sending…'; let ch = ''; try { ch = (window.sheetState && window.sheetState().name) || ''; } catch (e) {}
-      try { await bugsCol.add({ sum: sm.value.trim().slice(0, 120), desc: ds.value.trim().slice(0, 20000), by: EMAIL, byName: String(NAME || '').slice(0, 60), at: Date.now(), where: location.pathname.slice(0, 200), ch: String(ch).slice(0, 80), ua: navigator.userAgent.slice(0, 300), status: 'open' });
-        close(); pgCorner('<b>Thanks, it was sent.</b><div class="det">We’ll let you know when we get to it.</div>'); }
+      try { const ref = await bugsCol.add(Object.assign({ sum: sm.value.trim().slice(0, 120), desc: ds.value.trim().slice(0, 20000), by: EMAIL, byName: String(NAME || '').slice(0, 60), at: Date.now(), where: location.pathname.slice(0, 200), ch: String(ch).slice(0, 80), ua: navigator.userAgent.slice(0, 300), status: 'open' }, FILES.length ? { files: FILES.length } : {}));
+        let lost = 0; for (let i = 0; i < FILES.length; i++) { const f = FILES[i]; try { await ref.collection('files').doc(String(i)).set({ name: f.name, type: f.type, size: f.size, data: f.data, w: f.w, h: f.h }); } catch (x) { console.warn('bug file', x); lost++; } }
+        close(); pgCorner(lost ? `<b>It was sent, but ${lost === 1 ? 'an attachment' : lost + ' attachments'} didn’t go with it.</b><div class="det">Mention it in a new report if it matters.</div>` : '<b>Thanks, it was sent.</b><div class="det">We’ll let you know when we get to it.</div>'); }
       catch (x) { ok.disabled = false; ok.textContent = 'Send'; pgCorner('<b>Couldn’t send it.</b><div class="det">' + escH(x && x.code === 'permission-denied' ? 'Try again in a little while.' : (x && x.message) || x) + '</div>'); } };
     document.addEventListener('keydown', key); document.body.appendChild(m); setTimeout(() => sm.focus(), 50); };
   bugsCol.where('by', '==', EMAIL).onSnapshot(qs => qs.docs.forEach(x => { const b = x.data(); if (!/^(fixed|declined)$/.test(b.status) || b.seen) return; const t = b.status === 'fixed' ? b.fixedAt : b.declinedAt;
@@ -1214,8 +1249,8 @@ function wireDie(root) {
     const fail = () => { root.innerHTML = '<p style="padding:40px;text-align:center;font:16px system-ui">Couldn’t load the DM’s Desk. Check your connection and reload.</p>'; if (load) fadeLoad(load); };
     try { await loadDesk();
       if (pid && window.pgDesk.hostsParty) { location.replace('/party/' + encodeURIComponent(pid)); return; } // a party's desk is its party page now
-      let party = null; if (pid) { try { const d = await fs.collection('parties').doc(pid).get(); if (d.exists) { const pd = d.data(); party = { id: pid, name: pd.name || 'Party', mgr: pd.dm === EMAIL || (pd.mgrs || []).includes(EMAIL) }; } } catch (e) {} }
-      window.PG_HUBU = URLS.hub(G); window.pgDesk.mount(root, deskCtx(party, party ? { back: { href: URLS.party(pid, party.name), label: party.name } } : { back: { href: URLS.hub(G), label: 'Adventurer’s Tome' } })); } catch (e) { console.error(e); return fail(); }
+      let party = null; if (pid) { try { const d = await fs.collection('parties').doc(pid).get(); if (d.exists) { const pd = d.data(); party = { id: pid, name: pd.name || 'Party', mgr: pd.dm === EMAIL || (pd.mgrs || []).includes(EMAIL), owner: pd.dm }; } } catch (e) {} }
+      window.PG_HUBU = URLS.hub(G); window.pgDesk.mount(root, deskCtx(party, party ? { deskOwner: party.mgr && party.owner || EMAIL, back: { href: URLS.party(pid, party.name), label: party.name } } : { back: { href: URLS.hub(G), label: 'Adventurer’s Tome' } })); } catch (e) { console.error(e); return fail(); }
     if (!TOUCH && !FRAMED) sheetScrollbar(); // the slim gold scrollbar, like every other page (the browser's own one shifted everything when it came and went)
     pgLog('desk_open', {});
     requestAnimationFrame(() => { if (load) fadeLoad(load); else document.documentElement.classList.remove('pg-loading'); }); verCheck(); return; }
@@ -1230,8 +1265,9 @@ function wireDie(root) {
       window.pgDeskHost = async P => { if (window.PG_DESKED) return; window.PG_DESKED = true; window.PG_DESK_WAIT = true; lsSet('pg-dmparty:' + PARTYQ, '1');
         try { await loadDesk(); if (!window.pgDesk || !window.pgDesk.hostsParty) throw new Error('no party tab in this desk'); const host = document.getElementById('hub'); document.body.classList.add('dkhost');
           const root = document.createElement('div'); root.id = 'pg-desk'; document.body.prepend(root);
-          window.pgDesk.mount(root, deskCtx({ id: P.id, name: P.name || 'Party', mgr: true }, { partyHost: host, initialTab: 'party', turnOrder: show => window.pgTurnOrder && window.pgTurnOrder(show) }));
+          window.pgDesk.mount(root, deskCtx({ id: P.id, name: P.name || 'Party', mgr: true }, { deskOwner: P.dm || EMAIL, partyHost: host, initialTab: 'party', turnOrder: show => window.pgTurnOrder && window.pgTurnOrder(show) }));
           if (!TOUCH && !FRAMED && !document.querySelector('.pg-sb')) sheetScrollbar(); pgLog('desk_open', { target: P.id, tName: P.name || '' });
+          if (P.dm === EMAIL) pgDeskShare(fs, EMAIL);
         } catch (e) { console.warn('desk', e); document.body.classList.remove('dkhost'); }
         window.PG_DESK_WAIT = false; ready0(); }; }
     hub(fs, auth, G, { EMAIL, IS_ADMIN, IS_OWNER, ADMINS, user, signOut, ME, page: ADMINQ && IS_ADMIN ? 'admin' : PARTYQ ? 'party' : JOINQ ? 'join' : 'hub', view: VIEWQ, tab: TABQ, party: PARTYQ, join: JOINQ }); verCheck(); restoreY();
@@ -2587,6 +2623,7 @@ function hub(fs, auth, G, ctx) {
       signout: ami('<path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4"/><path d="M10 17l5-5-5-5M15 12H4"/>'),
       unblock: ami('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.5-2"/>'),
       dm: ami('<path d="M3 8l4 4 5-7 5 7 4-4-2 11H5z"/>'),
+      codm: ami('<circle cx="8.5" cy="10" r="3.2"/><path d="M2 21v-.6A4.6 4.6 0 0 1 6.6 15.8h3.8A4.6 4.6 0 0 1 15 20.4v.6"/><path d="M13.5 11l1.2-7 3.3 3.2L21.3 4l1.2 7z"/>'),
       chatclear: ami('<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M9.5 9.5l5 5M14.5 9.5l-5 5"/>') };
     const kebab = items => `<div class="adm-mwrap"><button class="adm-kebab" aria-label="More actions">⋯</button><div class="adm-mlist">${items.map(([k, t, id, cls, href]) => `<button data-mi="${k}" data-id="${esc(id)}"${href ? ` data-href="${esc(href)}"` : ''}${cls ? ` class="${cls}"` : ''}>${AMI[k] || ami('')}${t}</button>`).join('')}</div></div>`;
 
@@ -3345,22 +3382,33 @@ function hub(fs, auth, G, ctx) {
     function tabBugs() { const el = B(); HA().innerHTML = '';
       el.innerHTML = `<div class="adm-filters"><div class="adm-fsels"><select class="adm-sel" id="bg-f" aria-label="Show"><option value="open">Open</option><option value="fixed">Fixed</option><option value="declined">Declined</option><option value="all">All</option></select></div></div><div id="bg-l"><div class="sk-auto" data-k="adm-bugs-t"></div></div>`;
       const f = el.querySelector('#bg-f'); f.value = BF; f.onchange = () => { BF = f.value; paintBugs(); }; bugsLive(); if (BROWS) paintBugs(); }
+    // A report's attachments, as blob URLs (never the stored string itself as a link): pictures shown, anything else downloaded.
+    const BATT = {}, b64Blob = (d, type) => { const k = d.indexOf(','), bin = atob(d.slice(k + 1)), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new Blob([u], { type }); };
+    const bugAtt = id => BATT[id] || (BATT[id] = bugsAdm.doc(id).collection('files').get().then(qs => qs.docs.sort((a, b) => Number(a.id) - Number(b.id)).map(d => { const f = d.data(), dt = String(f.data || '');
+      if (!/^data:[\w.+-]+\/[\w.+-]+(;[\w=.+-]+)*;base64,/.test(dt)) return null; const img = /^image\/(png|jpeg|webp|gif|bmp|avif)$/.test(f.type) && dt.startsWith('data:' + f.type + ';');
+      let url = ''; try { url = URL.createObjectURL(b64Blob(dt, img ? f.type : 'application/octet-stream')); } catch (x) { return null; }
+      return { name: String(f.name || 'attachment').slice(0, 120), kb: (n => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB')(Number(f.size) || dt.length * .75), url, img }; }).filter(Boolean), x => { delete BATT[id]; return []; }));
+    const bugView = f => { const v = document.createElement('div'); v.className = 'bg-view'; v.innerHTML = `<figure><img src="${f.url}" alt="${esc(f.name)}"><figcaption>${esc(f.name)} · ${esc(f.kb)} <a href="${f.url}" download="${esc(f.name)}">Download</a></figcaption></figure><button class="bg-vx" aria-label="Close">✕</button>`;
+      const shut = () => { v.remove(); document.removeEventListener('keydown', k); }, k = e => { if (e.key === 'Escape') shut(); }; v.onclick = e => { if (e.target === v || e.target.closest('.bg-vx')) shut(); }; document.addEventListener('keydown', k); document.body.appendChild(v); };
     function paintBugs() { const l = B() && B().querySelector('#bg-l'); if (!l || !BROWS) return;
       if (TAB === 'bugs') { HA().innerHTML = BUGN ? '<button class="adm-btn primary" id="bg-seen">Mark as read</button>' : ''; const sb = HA().querySelector('#bg-seen');
         if (sb) sb.onclick = async () => { const t = Date.now(); try { await UREF.update({ bugsCheckedAt: t }); BCHECKED = t; BUGN = 0; bugBadge(); paintBugs(); toast('Marked as read.'); } catch (x) { toast('Couldn\'t save that: ' + (x.message || x)); } }; }
       const rows = BROWS.filter(b => BF === 'all' || (BF === 'open' ? !/^(fixed|declined)$/.test(b.status) : b.status === BF));
       l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t bg-t"><thead><tr><th>Reported</th><th>From</th><th>Report</th><th>Where</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(b => `<tr>
           <td>${when(b.at)}</td><td><span class="adm-who">${ava(b.byName, b.by)}<span><b>${esc(b.byName || b.by)}</b><small class="adm-mail">${esc(b.by)}</small></span></span></td>
-          <td class="bg-txt">${(b.at || 0) > BCHECKED ? '<span class="adm-tag bg-new">New</span> ' : ''}<b>${esc(b.sum)}</b>${b.desc ? `<div class="bg-desc">${esc(b.desc)}</div>` : ''}</td>
+          <td class="bg-txt">${(b.at || 0) > BCHECKED ? '<span class="adm-tag bg-new">New</span> ' : ''}<b>${esc(b.sum)}</b>${b.desc ? `<div class="bg-desc">${esc(b.desc)}</div>` : ''}${b.files ? `<div class="bg-att" data-bgatt="${esc(b.id)}"><small class="adm-dim">Loading ${b.files === 1 ? 'the attachment' : b.files + ' attachments'}…</small></div>` : ''}</td>
           <td class="bg-where">${b.ch ? `<b>${esc(b.ch)}</b><br>` : ''}${/^\/(?![\/\\])/.test(b.where || '/') ? `<a href="${esc(b.where || '/')}" target="_blank" rel="noopener">${esc(b.where || '/')}</a>` : esc(b.where)}${browserOf(b.ua) ? `<br><small class="adm-dim" title="${esc(b.ua)}">${esc(browserOf(b.ua))}</small>` : ''}</td>
           <td>${b.status === 'fixed' ? `<span class="adm-tag r-own">Fixed</span><br><small class="adm-dim">${when(b.fixedAt)}${b.seen ? ' · they’ve seen it' : ''}</small>` : b.status === 'declined' ? `<span class="adm-tag bg-dec">Declined</span><br><small class="adm-dim">${when(b.declinedAt)}${b.seen ? ' · they’ve seen it' : ''}</small>${b.reason ? `<div class="bg-reason">${esc(b.reason)}</div>` : ''}` : '<span class="adm-tag">Open</span>'}</td>
           <td class="nt-acts">${/^(fixed|declined)$/.test(b.status) ? `<button class="adm-btn sm" data-bg="open" data-id="${esc(b.id)}">Reopen</button>` : `<button class="adm-btn sm primary" data-bg="fixed" data-id="${esc(b.id)}">Mark fixed</button><button class="adm-btn sm" data-bg="decline" data-id="${esc(b.id)}">Decline</button>`}<button class="adm-btn sm" data-bg="del" data-id="${esc(b.id)}">Delete</button></td></tr>`).join('')}</tbody></table></div>`
         : `<p class="adm-empty">${BF === 'fixed' ? 'Nothing marked fixed yet.' : BF === 'open' ? 'No open bug reports.' : 'No bug reports yet.'}</p>`;
+      l.querySelectorAll('[data-bgatt]').forEach(el => bugAtt(el.dataset.bgatt).then(fs1 => { if (!el.isConnected) return;
+        el.innerHTML = fs1.length ? fs1.map((f, i) => `<button class="bg-af${f.img ? ' img' : ''}" data-i="${i}" title="${esc(f.name)} · ${esc(f.kb)}">${f.img ? `<img src="${f.url}" alt="${esc(f.name)}">` : `<span>📎 <b>${esc(f.name)}</b> <small>${esc(f.kb)}</small></span>`}</button>`).join('') : '<small class="adm-dim">The attachments didn’t come through.</small>';
+        el.querySelectorAll('.bg-af').forEach(b => b.onclick = () => { const f = fs1[Number(b.dataset.i)]; if (f.img) bugView(f); else { const a = document.createElement('a'); a.href = f.url; a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); } }); }));
       l.querySelectorAll('[data-bg]').forEach(b => b.onclick = async () => { const id = b.dataset.id, x = BROWS.find(y => y.id === id) || {}, act = b.dataset.bg; b.disabled = true;
         try { if (act === 'fixed') { await bugsAdm.doc(id).update({ status: 'fixed', fixedAt: Date.now(), fixedBy: EMAIL, seen: false }); toast('Marked fixed. ' + (x.byName || x.by || 'They') + ' will get a note.'); }
           else if (act === 'decline') { const why = await askReason(x); if (why === null) { b.disabled = false; return; } await bugsAdm.doc(id).update({ status: 'declined', declinedAt: Date.now(), declinedBy: EMAIL, reason: why, seen: false }); toast('Declined. ' + (x.byName || x.by || 'They') + ' will get a note' + (why ? ' with your reason.' : '.')); }
           else if (act === 'open') { await bugsAdm.doc(id).update({ status: 'open', fixedAt: FV.delete(), fixedBy: FV.delete(), declinedAt: FV.delete(), declinedBy: FV.delete(), reason: FV.delete(), seen: FV.delete() }); toast('Reopened.'); }
-          else { if (!await ask('Delete this bug report?', esc(x.sum || ''), 'Delete', true)) { b.disabled = false; return; } await bugsAdm.doc(id).delete(); toast('Bug report deleted.'); } }
+          else { if (!await ask('Delete this bug report?', esc(x.sum || ''), 'Delete', true)) { b.disabled = false; return; } const fq = await bugsAdm.doc(id).collection('files').get().catch(() => null); if (fq) for (const d of fq.docs) await d.ref.delete().catch(() => {}); delete BATT[id]; await bugsAdm.doc(id).delete(); toast('Bug report deleted.'); } }
         catch (y) { b.disabled = false; toast('Couldn’t do that: ' + ((y && (y.code === 'permission-denied' ? 'the new database rules need publishing' : y.message)) || y)); } });
     }
     setTimeout(bugsLive, 1200); // the open count shows on the tab from any admin page
@@ -3411,6 +3459,16 @@ const PTY_CI = { Blinded: '◌', Charmed: '♥', Deafened: '◎', Frightened: '!
 const PTY_DMG = ['acid', 'bludgeoning', 'cold', 'fire', 'force', 'lightning', 'necrotic', 'piercing', 'poison', 'psychic', 'radiant', 'slashing', 'thunder'];
 const ptyCode = () => { const a = new Uint8Array(12); crypto.getRandomValues(a); return btoa(String.fromCharCode(...a)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
 // Every document of a character (big ones are split in parts) says which party it's in, so the DM can open all of it.
+// Co-DMs share their DM's Desk. The party's own desk (sessions, notes) is open to its co-DMs by the party itself; the DM's
+// creatures, note pictures and desk items are shared by all of the DM's desks, so they're open to everyone listed in
+// deskshare/{dm}.codms: every co-DM of any party that DM runs. Kept up to date by the DM's desk and the admin's Co-DMs list.
+async function pgDeskShare(fs, dm, admin) {
+  try { const PC = fs.collection('parties'), qs = await (admin ? PC.where('dm', '==', dm) : PC.where('people', 'array-contains', dm)).get();
+    const set = new Set(); qs.docs.forEach(d => { const p = d.data(); if (p.dm === dm) (p.mgrs || []).forEach(m => { if (m && m !== dm) set.add(m); }); });
+    const codms = [...set].sort(), ref = fs.collection('deskshare').doc(dm), cur = await ref.get().catch(() => null), had = cur && cur.exists ? cur.data().codms || [] : null;
+    if (had ? JSON.stringify(had) === JSON.stringify(codms) : !codms.length) return;
+    await ref.set({ codms, at: Date.now() });
+  } catch (e) { console.warn('desk share', e); } }
 async function ptySetSheetParty(fs, c, pid) {
   const sh = fs.collection('sheets'), v = pid ? { party: pid } : { party: firebase.firestore.FieldValue.delete() };
   const s0 = await sh.doc(c).get(); if (!s0.exists) return; const n = Number(s0.data().n) || 1;
@@ -3822,8 +3880,8 @@ function partyModule(H) {
     b.disabled = true; try { await ptySend(fs, EMAIL, PID, id, kind, data, a.from, a.name); if (inp) inp.value = ''; if (tsel) tsel.value = ''; toast(sentMsg(a, msg)); pgLog('party_send', { target: PID, tName: P.name, detail: kind + ' → ' + nm }); } catch (x) { fail(x, 'send it'); } finally { b.disabled = false; }
   }
   function paint() { if (typeof toPaint === 'function') setTimeout(toPaint, 0);
-    // a party you're the DM of opens as your DM's Desk (its sessions and notes are yours); a co-DM or a player gets the party page
-    if (P && PLOADED && P.dm === EMAIL && window.pgDeskHost && !window.PG_DESKED) window.pgDeskHost(P);
+    // a party you run (as its DM or a co-DM) opens as its DM's Desk — the DM's own desk, notes and all; a player gets the party page
+    if (P && PLOADED && (P.dm === EMAIL || (P.mgrs || []).includes(EMAIL)) && window.pgDeskHost && !window.PG_DESKED) window.pgDeskHost(P);
     if (!PLOADED || JOINING || LEAVING) return;
     // not while the DM is typing an amount on a card (it'd be wiped); it catches up a moment later
     { const ae = document.activeElement; if (ae && ae.classList && (ae.classList.contains('pm-q') && ae.value || ae.classList.contains('pm-qt'))) { clearTimeout(paint.t); paint.t = setTimeout(paint, 900); return; } }
@@ -4039,7 +4097,7 @@ function partyModule(H) {
     }
     const box = $m('#ta-dk'), picked = new Map(); let items = [];
     const n = v => Number(v) || 0, sg = v => (v >= 0 ? '+' : '') + v;
-    fs.collection('desks').doc(EMAIL).collection('party').doc(PID).collection('sessions').get().then(qs => { // (this party's own DM's Desk)
+    fs.collection('desks').doc((P && P.dm) || EMAIL).collection('party').doc(PID).collection('sessions').get().then(qs => { // (this party's own DM's Desk, shared with its co-DMs)
       if (!box.isConnected) return;
       const ses = qs.docs.map(d => d.data() && d.data().data).filter(x => x && x.id).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
       items = []; const html = ses.map(se => { const rows = [];
@@ -4168,12 +4226,12 @@ function partyModule(H) {
         if (em === p.dm) { toast((H.nameOf(em) || em) + ' is already the DM.'); return; }
         if ((p.mgrs || []).includes(em)) { toast((H.nameOf(em) || em) + ' is already a co-DM.'); return; }
         try { await PC.doc(p.id).update({ mgrs: FV.arrayUnion(em), people: FV.arrayUnion(em), invited: FV.arrayRemove(em), updatedAt: Date.now() }); p.mgrs = (p.mgrs || []).concat(em);
-          pgLog('party_codm', { target: p.id, tName: p.name, detail: 'made ' + em + ' a co-DM' }); toast((H.nameOf(em) === em ? em : H.nameOf(em)) + ' is now a co-DM of ' + (p.name || 'the party') + '.'); draw(); } catch (x) { fail(x, 'add the co-DM'); } };
+          pgLog('party_codm', { target: p.id, tName: p.name, detail: 'made ' + em + ' a co-DM' }); pgDeskShare(fs, p.dm, true); toast((H.nameOf(em) === em ? em : H.nameOf(em)) + ' is now a co-DM of ' + (p.name || 'the party') + '.'); draw(); } catch (x) { fail(x, 'add the co-DM'); } };
       modal.querySelectorAll('.cdm-rm').forEach(b => b.onclick = async () => { const em = b.dataset.em; b.disabled = true;
         // (they stay in the party's list only if they also play a character in it)
         let plays = false; try { const cs = await PC.doc(p.id).collection('cards').get(); plays = cs.docs.some(d => d.data().owner === em); } catch (x) {}
         try { await PC.doc(p.id).update(Object.assign({ mgrs: FV.arrayRemove(em), updatedAt: Date.now() }, plays ? {} : { people: FV.arrayRemove(em) })); p.mgrs = (p.mgrs || []).filter(x => x !== em);
-          pgLog('party_codm', { target: p.id, tName: p.name, detail: 'took ' + em + ' off as co-DM' }); toast((H.nameOf(em) === em ? em : H.nameOf(em)) + ' is no longer a co-DM.'); draw(); } catch (x) { b.disabled = false; fail(x, 'remove the co-DM'); } }); };
+          pgLog('party_codm', { target: p.id, tName: p.name, detail: 'took ' + em + ' off as co-DM' }); pgDeskShare(fs, p.dm, true); toast((H.nameOf(em) === em ? em : H.nameOf(em)) + ' is no longer a co-DM.'); draw(); } catch (x) { b.disabled = false; fail(x, 'remove the co-DM'); } }); };
     draw();
   }
   // Clear a party's chat and whispers: the players' sheets delete everything sent before now (nobody here reads it).

@@ -4135,3 +4135,11 @@ html:not(.mobile) #tabs .tab .tlabel { transform: translateY(-1px); }
   html:not(.mobile) #tabs .tab .tlabel { transform: none; top: 0; text-box: trim-both cap alphabetic; overflow: clip; overflow-clip-margin: 6px; }
 }
 
+/* Divine Smite: the switch on its own full-width line, then the slot choices in a grid under it (the row used to be the
+   slot grid itself, which squeezed the switch into one narrow cell). */
+.smite-row { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.smite-row .smite-chk { margin: 0; }
+.smite-row .smite-chk b { white-space: nowrap; }
+.smite-lv, html.mobile .smite-lv { display: grid; grid-template-columns: repeat(auto-fit, minmax(78px, 1fr)); gap: 6px; }
+.smite > .sect { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; white-space: nowrap; }
+.smite > .sect .toggle { white-space: nowrap; flex: none; margin-left: auto; }

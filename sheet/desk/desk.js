@@ -90,7 +90,11 @@ const saveUI = () => writeLocal();
 // settings} with /sessions/{id} and /notes/{id}. The desk opened without a party (and every desk before they were split) uses
 // desks/{email} itself. Pictures in notes stay in desks/{email}/imgs.
 let CRE = null;
-const userBase = () => CTX.fs.collection('desks').doc(CTX.EMAIL);
+// A co-DM opens the party's DM's own desk (CTX.deskOwner): its sessions, notes, creatures, pictures and items.
+const OWNER = () => (CTX && CTX.deskOwner) || (CTX && CTX.EMAIL) || '';
+const SHARED = () => !!(CTX && CTX.deskOwner && CTX.deskOwner !== CTX.EMAIL);
+const SAVED = () => SHARED() ? 'Saved to the DM’s desk' : 'Saved to your account';
+const userBase = () => CTX.fs.collection('desks').doc(OWNER());
 const deskBase = () => DESK_PID() ? userBase().collection('party').doc(DESK_PID()) : userBase();
 let BASE = null, CLOUD = false, cloudT = 0, flushing = false, again = false, syncMsg = '';
 const SYNCED = { main: '', cre: new Map(), ses: new Map() };
@@ -108,7 +112,7 @@ async function flush() {
     for (const s of S.sessions) { sids.add(s.id); const j = JSON.stringify(s); if (SYNCED.ses.get(s.id) !== j) w.push(coll('sessions').doc(s.id).set({ savedAt: S.savedAt, data: JSON.parse(j) }).then(() => SYNCED.ses.set(s.id, j))); }
     for (const id of Array.from(SYNCED.ses.keys())) if (!sids.has(id)) w.push(coll('sessions').doc(id).delete().then(() => SYNCED.ses.delete(id)));
     await Promise.all(w);
-    setSync('Saved to your account');
+    setSync(SAVED());
   } catch (e) { console.warn('desk save', e); setSync('Couldn’t save — retrying'); setTimeout(cloudSoon, 5000); }
   flushing = false; if (again) { again = false; flush(); }
 }
@@ -129,12 +133,12 @@ async function cloudBoot() {
   BASE = deskBase(); CRE = userBase().collection('creatures');
   try {
     let snap = await BASE.get(), d = snap.exists ? snap.data() : null;
-    if (DESK_PID() && !(d && d.askedOld)) { if (await offerOldDesk(d)) { snap = await BASE.get(); d = snap.exists ? snap.data() : null; S.savedAt = 0; } }
+    if (DESK_PID() && !SHARED() && !(d && d.askedOld)) { if (await offerOldDesk(d)) { snap = await BASE.get(); d = snap.exists ? snap.data() : null; S.savedAt = 0; } }
     if (d && N(d.savedAt) >= N(S.savedAt)) { await pullAll(); render(); }
     else { // a desk that's new (or newer here): it still gets every creature you've made
       const cr = await CRE.get(); cr.docs.forEach(x => { const c = x.data().data; if (!c) return; if (!S.creatures[x.id]) S.creatures[x.id] = c; SYNCED.cre.set(x.id, JSON.stringify(c)); }); render(); }
     dHistBase(); CLOUD = true;
-    if (!d || N(d.savedAt) < N(S.savedAt)) { if (!S.savedAt) S.savedAt = Date.now(); await flush(); } else setSync('Saved to your account');
+    if (!d || N(d.savedAt) < N(S.savedAt)) { if (!S.savedAt) S.savedAt = Date.now(); await flush(); } else setSync(SAVED());
   } catch (e) { console.warn('desk load', e); setSync('Offline — saved on this device'); }
 }
 // Before desks were split by party, everything was one desk. The first time a party's desk opens, that earlier desk (if it has
@@ -2527,7 +2531,7 @@ async function flushNotes() {
     const w = [];
     for (const p of pagesList()) { const j = JSON.stringify(p); if (NSYNC.get(p.id) !== j) { if (j.length > 880000) { toastInfo(`<b>${esc(p.title)}</b> is too big to save — split it into smaller pages.`); continue; } w.push(NBASE.doc(p.id).set({ savedAt: Date.now(), data: JSON.parse(j) }).then(() => NSYNC.set(p.id, j))); } }
     for (const id of NT.del.slice()) { w.push(NBASE.doc(id).delete().then(() => { NSYNC.delete(id); const k = NT.del.indexOf(id); if (k >= 0) NT.del.splice(k, 1); })); }
-    await Promise.all(w); NT.syncedAt = Date.now(); writeNotesLocal(); setSync('Saved to your account');
+    await Promise.all(w); NT.syncedAt = Date.now(); writeNotesLocal(); setSync(SAVED());
   } catch (e) { console.warn('notes save', e); setSync('Couldn’t save — retrying'); setTimeout(notesSoon, 5000); }
   nFlushing = false; if (nAgain) { nAgain = false; flushNotes(); }
 }
@@ -3781,7 +3785,7 @@ async function hbAI(instr) {
   HBM.busy = false; paint();
 }
 let HBM = { spec: null, form: { prompt: '', rarity: 'uncommon', type: '', attune: 'any', level: '' }, ai: false, busy: false, edit: false, raw: '', mine: null, party: null, loading: false };
-const ITEMS = () => CTX.fs && CTX.EMAIL ? CTX.fs.collection('desks').doc(CTX.EMAIL).collection('items') : null;
+const ITEMS = () => CTX.fs && CTX.EMAIL ? CTX.fs.collection('desks').doc(OWNER()).collection('items') : null;
 async function hbLoadLists() {
   HBM.loading = true;
   try { const c = ITEMS(); HBM.mine = c ? (await c.get()).docs.map(d => Object.assign({ _id: d.id }, d.data())).sort((a, b) => N(b.savedAt) - N(a.savedAt)) : []; } catch (e) { HBM.mine = []; }
