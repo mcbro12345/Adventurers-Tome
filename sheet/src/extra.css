@@ -4192,3 +4192,5 @@ html.mobile #modal-body :is(.setx, .rl-list) { overscroll-behavior: none !import
 html.mobile .modal-bg.closing { animation: wDimOut .22s ease forwards; }
 /* Settings: a dashed line only between two rows of settings, not above a block of something else (Theme's colours) */
 .setrow:has(+ :not(.setrow)) { border-bottom: 0; margin-bottom: 8px; }
+/* Phones: Settings goes all the way up, just under the phone's status bar (over the Adventurer's Tome button) */
+html.mobile .modal:has(.setx) { height: calc(100dvh - var(--tablift, 0px) - env(safe-area-inset-top, 0px) - 8px) !important; max-height: none !important; }
