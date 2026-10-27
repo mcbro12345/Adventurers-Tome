@@ -3532,7 +3532,7 @@ html[data-pgtheme="light"] .pg-st-foot a { color: #8a6420; }
 .ld-box .row { display: flex; flex-wrap: wrap; gap: 8px; }
 .ld-acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 /* cards over the drifting dice are solid (the same colour they look like on the page), so the outlines never show through */
-:where(html:not([data-pgtheme="light"])) :where(body, #pg-load):has(> .pg-bgd) :where(.hr, .hc, .hub-card, .hub-folder, .si2-char) { background-color: #1b2232; }
+:where(html:not([data-pgtheme="light"])) :where(body, #pg-load):has(> .pg-bgd) :where(.hr, .hc, .hub-card, .hub-folder, .si2-char, .pm) { background-color: #1b2232; }
 :where(html:not([data-pgtheme="light"])) :where(body, #pg-load):has(> .pg-bgd) :where(.hub-top, .adm-side, .adm-tw, .adm-stat, .adm-search, .ld-box, .nw-it, .nw-rotbar) { background-color: #181f2e; }
 
 /* going between pages with the drifting dice: the page itself fades out and back in, the dice stay put */

@@ -4494,7 +4494,7 @@ function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduc
 // One copy sits behind the page, one in the lobby's sticky top bar (which hides what scrolls under it) and one on the
 // loading screen; they all drift in step with the clock, so nothing jumps when one takes over from another.
 (() => { if (window.__pgBgd || !window.pgBgdMake) return; window.__pgBgd = 1;
-  const want = () => !!document.body && pgBgdPage() && !document.body.matches('.deskbody'); let loadHad = !!window.PG_BGD_LOAD;
+  const want = () => !!document.body && pgBgdPage() && !document.body.matches('.deskbody, .dkhost'); let loadHad = !!window.PG_BGD_LOAD;
   const kid = (p, cls) => [...p.children].find(c => c.classList.contains('pg-bgd') && c.classList.contains(cls || 'pg-bgd') && (cls || !c.classList.contains('pg-bgd-hd')));
   const put = (p, on, cls, fade) => { if (!p) return; const k = kid(p, cls); if (on && !k) { const e = pgBgdMake(); if (cls) e.classList.add(cls); if (fade) e.classList.add('pg-bgd-in'); p.prepend(e); } else if (!on && k) k.remove(); }; // (never moved once in: moving it would restart its drift)
   const sync = () => { const w = want(); if (!document.body) return;
@@ -4502,7 +4502,7 @@ function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduc
     // once this page's own content is drawn on it (the sign-in card), and then they fade in
     const L = document.getElementById('pg-load'); if (L && !L.classList.contains('pg-leave')) { const on = window.PG_BGD_LOAD || (w && !!L.querySelector('.pg-signin, .pg-msg')); put(L, on, '', on && !loadHad); if (on) loadHad = true; }
     put(document.body, w);
-    put(document.querySelector('body.hubbody:not(.adminbody) .hub-head'), w, 'pg-bgd-hd'); };
+    put(document.querySelector('body.hubbody:not(.adminbody) :is(.hub-head, .wzh)'), w, 'pg-bgd-hd'); };
   window.pgBgdSync = sync;
   const go = () => { sync(); new MutationObserver(sync).observe(document.body, { attributes: true, attributeFilter: ['class'], childList: true, subtree: true }); addEventListener('popstate', () => setTimeout(sync)); };
   if (document.body) go(); else document.addEventListener('DOMContentLoaded', go);

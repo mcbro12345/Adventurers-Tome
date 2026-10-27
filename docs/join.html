@@ -3737,7 +3737,7 @@ html[data-pgtheme="light"] .pg-st-foot a { color: #8a6420; }
 .ld-box .row { display: flex; flex-wrap: wrap; gap: 8px; }
 .ld-acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 /* cards over the drifting dice are solid (the same colour they look like on the page), so the outlines never show through */
-:where(html:not([data-pgtheme="light"])) :where(body, #pg-load):has(> .pg-bgd) :where(.hr, .hc, .hub-card, .hub-folder, .si2-char) { background-color: #1b2232; }
+:where(html:not([data-pgtheme="light"])) :where(body, #pg-load):has(> .pg-bgd) :where(.hr, .hc, .hub-card, .hub-folder, .si2-char, .pm) { background-color: #1b2232; }
 :where(html:not([data-pgtheme="light"])) :where(body, #pg-load):has(> .pg-bgd) :where(.hub-top, .adm-side, .adm-tw, .adm-stat, .adm-search, .ld-box, .nw-it, .nw-rotbar) { background-color: #181f2e; }
 
 /* going between pages with the drifting dice: the page itself fades out and back in, the dice stay put */
@@ -3823,7 +3823,7 @@ html[data-pgtheme="dark"] .pg-bgd { color: rgb(214,168,72); --bo: .11; }
    seamlessly from page to page. */
 window.pgBgdMake=function(){var D=function(w,x,y,r,n){return '<svg class="pg-bgd-d pg-bgd-'+n+'" viewBox="0 0 100 100" style="--w:'+w+';--x:'+x+';--y:'+y+';--r:'+r+'deg" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="'+(240/w).toFixed(3)+'" stroke-linejoin="round"><polygon points="50,4 91,27 91,73 50,96 9,73 9,27"/><polygon points="50,24 73,63 27,63"/><path d="M50 4 L50 24 M91 27 L73 63 M91 73 L73 63 M50 96 L73 63 M50 96 L27 63 M9 73 L27 63 M9 27 L27 63 M9 27 L50 24 M91 27 L50 24"/></g></svg>'};
 var el=document.createElement('div');el.className='pg-bgd';el.setAttribute('aria-hidden','true');el.innerHTML=D(620,-150,-330,-8,1)+D(1150,1270,290,6,2)+D(420,1500,-260,14,3)+D(560,-260,640,-16,4);el.style.setProperty('--now',(Date.now()/1000%100000).toFixed(3)+'s');return el};
-window.pgBgdPage=function(){return /^\/(index\.html|login\/?|admin(\/.*)?)?$/.test(location.pathname)};
+window.pgBgdPage=function(){return /^\/(index\.html|login\/?|admin(\/.*)?|party\/.*)?$/.test(location.pathname)};
 (function(){var c=document.getElementById('pg-bgd-css');if(c)document.head.appendChild(c);var f=0;try{f=+sessionStorage.getItem('pg-bgd')||0;sessionStorage.removeItem('pg-bgd')}catch(e){}
 var carry=window.PG_NAV_T&&Date.now()-f<8000;window.PG_BGD_LOAD=true;var l=document.getElementById('pg-load');if(l&&PG_BGD_LOAD){var e=pgBgdMake();if(window.PG_NAV_T&&!carry)e.classList.add('pg-bgd-in');l.insertBefore(e,l.firstChild)}})();</script>
 <script>/* the loading die rolls over and over, like the logo's: a tumble with the face flickering, then it lands on a number for a moment.
@@ -4613,7 +4613,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261027012313', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.ccc8027a3875.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.8810f18613bc.html", "desk": "a/desk.37167cf06f6d.js", "deskcss": "a/deskcss.5577a086eb4d.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261027012924', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.ccc8027a3875.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.8810f18613bc.html", "desk": "a/desk.37167cf06f6d.js", "deskcss": "a/deskcss.5577a086eb4d.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };
@@ -8335,7 +8335,7 @@ function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduc
 // One copy sits behind the page, one in the lobby's sticky top bar (which hides what scrolls under it) and one on the
 // loading screen; they all drift in step with the clock, so nothing jumps when one takes over from another.
 (() => { if (window.__pgBgd || !window.pgBgdMake) return; window.__pgBgd = 1;
-  const want = () => !!document.body && pgBgdPage() && !document.body.matches('.deskbody'); let loadHad = !!window.PG_BGD_LOAD;
+  const want = () => !!document.body && pgBgdPage() && !document.body.matches('.deskbody, .dkhost'); let loadHad = !!window.PG_BGD_LOAD;
   const kid = (p, cls) => [...p.children].find(c => c.classList.contains('pg-bgd') && c.classList.contains(cls || 'pg-bgd') && (cls || !c.classList.contains('pg-bgd-hd')));
   const put = (p, on, cls, fade) => { if (!p) return; const k = kid(p, cls); if (on && !k) { const e = pgBgdMake(); if (cls) e.classList.add(cls); if (fade) e.classList.add('pg-bgd-in'); p.prepend(e); } else if (!on && k) k.remove(); }; // (never moved once in: moving it would restart its drift)
   const sync = () => { const w = want(); if (!document.body) return;
@@ -8343,7 +8343,7 @@ function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduc
     // once this page's own content is drawn on it (the sign-in card), and then they fade in
     const L = document.getElementById('pg-load'); if (L && !L.classList.contains('pg-leave')) { const on = window.PG_BGD_LOAD || (w && !!L.querySelector('.pg-signin, .pg-msg')); put(L, on, '', on && !loadHad); if (on) loadHad = true; }
     put(document.body, w);
-    put(document.querySelector('body.hubbody:not(.adminbody) .hub-head'), w, 'pg-bgd-hd'); };
+    put(document.querySelector('body.hubbody:not(.adminbody) :is(.hub-head, .wzh)'), w, 'pg-bgd-hd'); };
   window.pgBgdSync = sync;
   const go = () => { sync(); new MutationObserver(sync).observe(document.body, { attributes: true, attributeFilter: ['class'], childList: true, subtree: true }); addEventListener('popstate', () => setTimeout(sync)); };
   if (document.body) go(); else document.addEventListener('DOMContentLoaded', go);
