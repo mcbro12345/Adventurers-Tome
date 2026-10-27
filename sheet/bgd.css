@@ -1,0 +1,34 @@
+/* drifting d20 outlines behind the front page and the lobby (sized and placed as in the 1920-wide tour video) */
+#pg-load:has(> .pg-bgd) { isolation: isolate; }
+.pg-bgd { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; color: rgb(214,168,72); --bo: .11; }
+@media (prefers-color-scheme: light) { .pg-bgd { color: rgb(150,110,30); --bo: .13; } }
+html[data-pgtheme="light"] .pg-bgd { color: rgb(150,110,30); --bo: .13; }
+html[data-pgtheme="dark"] .pg-bgd { color: rgb(214,168,72); --bo: .11; }
+.pg-bgd .pg-bgd-d { position: absolute; opacity: var(--bo); /* (the lines are solid and the whole die is faded, so where its lines meet they don't add up brighter) */ overflow: visible; width: calc(var(--w) / 1920 * max(100vw, 1100px)); height: auto; aspect-ratio: 1;
+  left: calc(var(--x) / 1920 * 100vw); top: calc(var(--y) / 1080 * max(100vh, 56.25vw)); transform: rotate(var(--r)); animation: pgBgd 26s ease-in-out infinite alternate; animation-delay: calc(var(--d0, 0s) - var(--now, 0s)); }
+.pg-bgd .pg-bgd-1 { animation-duration: 21s; }
+.pg-bgd .pg-bgd-2 { left: calc(100vw - (1920 - var(--x)) / 1920 * max(100vw, 1100px)); animation-duration: 31s; --d0: -9s; }
+.pg-bgd .pg-bgd-3 { left: calc(100vw - (1920 - var(--x)) / 1920 * max(100vw, 1100px)); animation-duration: 25s; --d0: -15s; }
+.pg-bgd .pg-bgd-4 { animation-duration: 29s; --d0: -5s; }
+@keyframes pgBgd {
+  0% { transform: translate(0, 0) rotate(var(--r)); }
+  25% { transform: translate(40px, -24px) rotate(calc(var(--r) + 3deg)); }
+  50% { transform: translate(-10px, 30px) rotate(calc(var(--r) + 1deg)); }
+  75% { transform: translate(-42px, -8px) rotate(calc(var(--r) - 3deg)); }
+  100% { transform: translate(18px, 26px) rotate(calc(var(--r) + 2deg)); }
+}
+@media (prefers-reduced-motion: reduce) { .pg-bgd .pg-bgd-d { animation: none; } }
+/* the lobby's sticky top bar paints its own copy of the page background (so cards scroll away under it): the same dice,
+   in step, are drawn in it too, so they carry on behind the top panel and its shadow */
+.pg-bgd.pg-bgd-hd { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; color: rgb(214,168,72); --bo: .11;
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 30px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 30px), transparent); }
+.hub-head:not(.hd2-head) > .pg-bgd.pg-bgd-hd { -webkit-mask-image: none; mask-image: none; }
+/* tall, narrow screens (phones): the four dice spread out down the screen instead of piling up */
+@media (max-aspect-ratio: 4/5) {
+  .pg-bgd .pg-bgd-d.pg-bgd-1 { width: 75vw; left: -28vw; top: -6vh; }
+  .pg-bgd .pg-bgd-d.pg-bgd-3 { width: 42vw; left: 72vw; top: 16vh; }
+  .pg-bgd .pg-bgd-d.pg-bgd-4 { width: 62vw; left: -30vw; top: 44vh; }
+  .pg-bgd .pg-bgd-d.pg-bgd-2 { width: 105vw; left: 38vw; top: 66vh; }
+}
+.pg-bgd.pg-bgd-in { animation: pgBgdIn .6s ease both; }
+@keyframes pgBgdIn { from { opacity: 0; } }

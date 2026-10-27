@@ -3531,3 +3531,19 @@ html[data-pgtheme="light"] .pg-st-foot a { color: #8a6420; }
 .ld-poster { display: grid; place-items: end start; margin-bottom: 12px; } .ld-poster span { margin: 10px; padding: 3px 9px; border-radius: 999px; background: rgba(0,0,0,.55); color: #fff; font-size: .75rem; } .ld-poster span:empty { display: none; }
 .ld-box .row { display: flex; flex-wrap: wrap; gap: 8px; }
 .ld-acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+/* cards over the drifting dice are solid (the same colour they look like on the page), so the outlines never show through */
+:where(html:not([data-pgtheme="light"])) :where(body, #pg-load):has(> .pg-bgd) :where(.hr, .hc, .hub-card, .hub-folder, .si2-char) { background-color: #1b2232; }
+:where(html:not([data-pgtheme="light"])) :where(body, #pg-load):has(> .pg-bgd) :where(.hub-top, .adm-side, .adm-tw, .adm-stat, .adm-search, .ld-box, .nw-it, .nw-rotbar) { background-color: #181f2e; }
+
+/* going between pages with the drifting dice: the page itself fades out and back in, the dice stay put */
+html.pg-dk-hide body > :not(.pg-bgd):not(#pg-load):not(.pg-out) { opacity: 0 !important; }
+html.pg-dk-fade body > :not(.pg-bgd):not(#pg-load):not(.pg-out) { transition: opacity .35s ease !important; }
+#pg-load > .pg-ld-bg { position: fixed; inset: 0; z-index: -2; pointer-events: none; }
+#pg-load.pg-leave-dk > .pg-ld-bg { animation: pgLoadIn .25s ease both; }
+html #pg-load.pg-leave.pg-leave-dk, html.pg-instant #pg-load.pg-leave.pg-leave-dk { animation: none !important; }
+/* (while the loading screen's own copy of the dice is showing, the page's copy right beneath it steps aside, so the two never add up brighter) */
+html.pg-dk-solo body > .pg-bgd, html.pg-dk-solo-ld #pg-load:not(.pg-leave) > .pg-bgd { visibility: hidden; }
+html.pg-dk-hide #pg-load:not(.pg-leave) > :not(.pg-bgd):not(.pg-ld-bg) { opacity: 0 !important; }
+html.pg-dk-fade #pg-load:not(.pg-leave) > :not(.pg-bgd):not(.pg-ld-bg) { transition: opacity .35s ease !important; }
+#pg-load.pg-leave-dk .pg-spin { animation: pg-fade .25s ease both !important; } /* (the rolling die is fully in before the next page takes over) */
+html.pg-dk-hide:not(.pg-dk-fade) body > :not(.pg-bgd):not(#pg-load):not(.pg-out) { transition: none !important; } /* (hidden at once when the loading screen hands over, so nothing - like the scrollbar - fades through it) */

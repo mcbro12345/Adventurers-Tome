@@ -57,13 +57,25 @@ function pgGo(url, replace) { try { sessionStorage.setItem('pg-nav', String(Date
   // Already on a loading screen (e.g. finishing a sign-in link): keep it up and go straight on, so it doesn't fade out
   // and back in. The sign-in card counts as a page: the loading screen fades in over it, like leaving any page.
   const cur = document.getElementById('pg-load'), onCard = cur && cur.querySelector('.pg-signin, .pg-msg');
-  if (cur && !onCard && !cur.classList.contains('pg-leave')) { go(); return; }
+  if (cur && !onCard && !cur.classList.contains('pg-leave')) { try { if (cur.querySelector(':scope > .pg-bgd')) sessionStorage.setItem('pg-bgd', String(Date.now())); else sessionStorage.removeItem('pg-bgd'); } catch (x) {} go(); return; }
   if (cur && cur.classList.contains('pg-leave')) return; // already on the way out
+  // A page with the drifting dice: the page fades away first and leaves the dice where they are, then the loading
+  // screen's background comes in underneath its own copy of them (in step, so they never move or flicker)
+  if (window.PG_LOAD_HTML && (!cur || onCard) && document.querySelector('body > .pg-bgd, #pg-load:not(.pg-leave) > .pg-bgd') && window.pgBgdMake && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    try { sessionStorage.setItem('pg-bgd', String(Date.now())); } catch (x) {}
+    const de = document.documentElement; de.classList.add('pg-dk-fade', 'pg-dk-hide');
+    setTimeout(() => { const t = document.createElement('div'); t.innerHTML = window.PG_LOAD_HTML; const el = t.firstElementChild; el.classList.add('pg-leave', 'pg-leave-dk'); el.style.zIndex = '10000'; el.style.animation = 'none';
+      document.body.appendChild(el); const bg = document.createElement('div'); bg.className = 'pg-ld-bg'; bg.style.background = getComputedStyle(el).background; el.style.background = 'transparent';
+      el.prepend(pgBgdMake()); el.prepend(bg); de.classList.add('pg-dk-solo', 'pg-dk-solo-ld'); }, 300);
+    setTimeout(go, 560); return; }
   if (window.PG_LOAD_HTML && (!cur || onCard)) { const t = document.createElement('div'); t.innerHTML = window.PG_LOAD_HTML; const el = t.firstElementChild; el.classList.add('pg-leave'); el.style.zIndex = '10000'; document.body.appendChild(el);
+    // (this page's drifting dice come along onto it, in step, and the next page carries them on if it has them too)
+    // (every loading screen has the drifting dice: coming from a page without them, they fade in with the screen)
+    el.querySelectorAll('.pg-bgd').forEach(x => x.remove()); if (window.pgBgdMake) { el.prepend(pgBgdMake()); try { sessionStorage.setItem('pg-bgd', String(Date.now())); } catch (x) {} }
     // the die stays still at rest while this page is left, and starts rolling on the next page (no jump between the two)
     setTimeout(go, 260); return; }
   document.documentElement.classList.add('pg-leaving'); setTimeout(go, 280); }
-addEventListener('pageshow', e => { if (e.persisted) document.querySelectorAll('#pg-load.pg-leave').forEach(x => x.remove()); });
+addEventListener('pageshow', e => { if (e.persisted) { document.querySelectorAll('#pg-load.pg-leave').forEach(x => x.remove()); document.documentElement.classList.remove('pg-dk-hide', 'pg-dk-fade', 'pg-dk-solo', 'pg-dk-solo-ld'); } });
 window.pgGo = pgGo;
 // ================= Light / dark =================
 // Follows the device until someone picks one with the sun/moon button in the lobby; the pick is kept on this device.
@@ -808,6 +820,15 @@ function wireDie(root) {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) { de.classList.remove('pg-loading'); return el.remove(); }
     const anims = el.getAnimations ? el.getAnimations().filter(a => a.playState === 'running') : [];
     Promise.race([Promise.all(anims.map(a => a.finished.catch(() => {}))), new Promise(r => setTimeout(r, 700))]).then(() => { if (window.pgTheme) window.pgTheme(); return new Promise(r => setTimeout(r, 120)); }).then(() => {
+      // a page with the drifting dice, opened from a loading screen that has them too: the loading screen's background
+      // fades out from under its dice (the page's own copy is right beneath, in step), then the page fades in behind them
+      if (el.querySelector(':scope > .pg-bgd') && document.querySelector('body > .pg-bgd')) {
+        const bg = document.createElement('div'); bg.className = 'pg-ld-bg'; bg.style.background = getComputedStyle(el).background; el.style.animation = 'none'; el.style.opacity = '1'; el.style.pointerEvents = 'none'; el.style.background = 'transparent'; el.prepend(bg);
+        de.classList.add('pg-dk-hide', 'pg-dk-solo'); de.classList.remove('pg-loading'); setTimeout(() => de.classList.remove('pg-instant'), 700);
+        const parts = [...el.children].filter(c => !c.classList.contains('pg-bgd')); parts.forEach(c => { c.style.transition = 'opacity .3s ease'; }); void el.offsetWidth;
+        requestAnimationFrame(() => requestAnimationFrame(() => { parts.forEach(c => { c.style.opacity = '0'; });
+          setTimeout(() => { el.remove(); de.classList.remove('pg-dk-solo'); de.classList.add('pg-dk-fade'); void document.body.offsetWidth; de.classList.remove('pg-dk-hide'); pgRevealPanels(); setTimeout(() => de.classList.remove('pg-dk-fade'), 500); }, 320); }));
+        return; }
       const cur = getComputedStyle(el).opacity; el.style.animation = 'none'; el.style.opacity = cur; el.style.pointerEvents = 'none'; el.style.zIndex = '9999'; el.style.transition = 'opacity .6s ease'; void el.offsetWidth;
       de.classList.remove('pg-loading'); setTimeout(() => de.classList.remove('pg-instant'), 700);
       requestAnimationFrame(() => requestAnimationFrame(() => { el.style.opacity = '0'; pgRevealPanels(); setTimeout(() => el.remove(), 650); })); }); }
@@ -816,7 +837,7 @@ function wireDie(root) {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return; e.preventDefault(); pgGo(u.href); });
   addEventListener('pageshow', () => document.documentElement.classList.remove('pg-leaving'));
   const load = document.getElementById('pg-load'), data = document.getElementById('sheet-data');
-  if (load) window.PG_LOAD_HTML = load.outerHTML;
+  if (load) { const t = load.cloneNode(true); t.querySelectorAll('.pg-bgd').forEach(x => x.remove()); window.PG_LOAD_HTML = t.outerHTML; }
   const sayStatus = o => { say(pgStatusHTML(Object.assign({ logo: true }, o))); if (load) wireDie(load); };
   const RELOAD = '<button type="button" class="pg-st-btn gold" onclick="location.reload()">Try again</button>';
   const say = html => { if (!load) return; load.innerHTML = `<div class="pg-msg">${html}</div>`; const m = load.firstElementChild; if (m && m.animate && !PG_CALM) m.animate([{ opacity: 0, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: 450, easing: 'ease-out' }); load.style.opacity = ''; load.style.transition = ''; };
@@ -952,6 +973,8 @@ function wireDie(root) {
     history.replaceState(null, '', to); }
   if (BAD) { sayStatus({ icon: 'lost', code: '404', title: 'This page doesn’t exist', text: 'The address may have a typo, or the page may have moved. Everything you need starts from the lobby.', btns: pgStBtn('Go back to the lobby', '/', true) }); return; }
   const user = await new Promise(res => { const u = auth.onAuthStateChanged(x => { u(); res(x); }); });
+  // (test site: a Google sign-in that went through but didn't last to the next page says so, to track down why)
+  if (!user && window.PG_TEST) try { const o = JSON.parse(sessionStorage.getItem('pg-si-ok') || 'null'); sessionStorage.removeItem('pg-si-ok'); if (o && Date.now() - o.t < 30000) { lsSet('pg-kicked', 'Test site: Google signed you in as ' + o.e + ', but the sign-in was gone when the page reloaded.'); console.warn('sign-in lost on reload', o); } } catch (e) {}
   if (!user) { if (PRETTY && !LOGIN) { const here = location.pathname + location.search; history.replaceState(null, '', '/login' + (here !== '/' ? '?next=' + enc(here) : '')); } signIn(auth, say); return; }
   if (LOGIN) { pgGo(pgSafePath(Q.get('next')) || '/', true); return; } // keeps the loading screen up (no fade out and back in)
   const EMAIL = (user.email || '').toLowerCase(), IS_OWNER = user.uid === OWNER_UID;
@@ -1056,7 +1079,7 @@ function wireDie(root) {
   const kick = msg => { if (window.__pgOut) return; window.__pgOut = true; lsSet('pg-kicked', msg); auth.signOut().then(() => pgGo(PRETTY ? '/login' : location.href, true)); };
   // (when the database refuses even their own account record, an admin has signed them out or blocked them)
   const LOCKED = 'You’ve been signed out.';
-  { const k0 = kicked(ME); if (k0) { kick(k0); return; } if (ACCT_ERR === 'permission-denied') { kick(''); return; } }  // only an admin's sign-out or a block says why
+  { const k0 = kicked(ME); if (k0) { kick(k0); return; } if (ACCT_ERR === 'permission-denied') { kick(window.PG_TEST ? 'Test site: the database turned down your account record (' + ACCT_ERR + ').' : ''); return; } }  // only an admin's sign-out or a block says why
   UREF.onSnapshot(d => { { const nm = d.exists && String(d.data().name || ''); if (nm && nm !== NAME) { const old = NAME; NAME = nm; if (ME) ME.name = nm; try { window.dispatchEvent(new CustomEvent('pg-myname', { detail: { name: nm, old } })); } catch (e) {} } } /* renamed (by an admin, or on another device): every open page picks it up straight away */ { const sa = d.exists && Number(d.data().seenAt), sf = d.exists && Number(d.data().seenFg); if (sa > (window.pgSeenAt || 0)) window.pgSeenAt = sa; if (sf > (window.pgFgAt || 0)) window.pgFgAt = sf; } const k = kicked(d.exists ? d.data() : null); if (k) kick(k); else { const u = d.exists ? d.data() : null, ra = Number(u && u.reloadAt) || 0; if (PG_RA === null) PG_RA = ra; else if (ra && ra !== PG_RA) { PG_RA = ra; location.reload(); return; } pgMsg(u); } }, e => { if (e && e.code === 'permission-denied') kick(LOCKED); });
   // A message from the site's admin: pops up once (on whichever device sees it first), on any page.
   // Web addresses in a message become links (opened in a new tab). Runs on already-escaped text.
@@ -1723,7 +1746,7 @@ function signIn(auth, say) {
         const l = Math.round(window.screenX + Math.max(0, (window.outerWidth - w) / 2)), t = Math.round(window.screenY + Math.max(0, (window.outerHeight - h) / 2));
         f = f.replace(/left=-?\d+/, 'left=' + l).replace(/top=-?\d+/, 'top=' + t); if (!/left=/.test(f)) f += ',left=' + l + ',top=' + t; } catch (x) {} return wo.call(window, u, n, f); };
     setTimeout(() => { window.open = wo; }, 1500);
-    try { await auth.signInWithPopup(pr); pgGo(null); } catch (e) { window.open = wo; const c = (e && e.code) || '';
+    try { const r = await auth.signInWithPopup(pr); if (window.PG_TEST) try { sessionStorage.setItem('pg-si-ok', JSON.stringify({ t: Date.now(), e: r && r.user && r.user.email })); } catch (x) {} pgGo(null); } catch (e) { window.open = wo; const c = (e && e.code) || '';
       // closing Google's window (or opening it twice) just leaves you here; only a browser that blocks the window goes over to Google's page instead
       if (/popup-closed-by-user|cancelled-popup-request|user-cancelled/.test(c)) return;
       if (/popup-blocked|operation-not-supported/.test(c)) { auth.signInWithRedirect(pr); return; }
@@ -4466,4 +4489,21 @@ function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduc
     else if (e.key === 'Tab') close();
     else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { const k = e.key.toLowerCase(), from = Math.max(0, i + 1), hit = bs.slice(from).concat(bs.slice(0, from)).find(b => b.textContent.trim().toLowerCase().startsWith(k)); if (hit) { e.preventDefault(); hit.focus(); } } }, true);
   addEventListener('scroll', e => { if (open && !(e.target.closest && e.target.closest('.sel-pop'))) close(); }, true); addEventListener('resize', () => close()); addEventListener('blur', () => close());
+})();
+// The front page and the lobby have big faint d20 outlines drifting slowly behind everything, like the tour video.
+// One copy sits behind the page, one in the lobby's sticky top bar (which hides what scrolls under it) and one on the
+// loading screen; they all drift in step with the clock, so nothing jumps when one takes over from another.
+(() => { if (window.__pgBgd || !window.pgBgdMake) return; window.__pgBgd = 1;
+  const want = () => !!document.body && pgBgdPage() && !document.body.matches('.deskbody'); let loadHad = !!window.PG_BGD_LOAD;
+  const kid = (p, cls) => [...p.children].find(c => c.classList.contains('pg-bgd') && c.classList.contains(cls || 'pg-bgd') && (cls || !c.classList.contains('pg-bgd-hd')));
+  const put = (p, on, cls, fade) => { if (!p) return; const k = kid(p, cls); if (on && !k) { const e = pgBgdMake(); if (cls) e.classList.add(cls); if (fade) e.classList.add('pg-bgd-in'); p.prepend(e); } else if (!on && k) k.remove(); }; // (never moved once in: moving it would restart its drift)
+  const sync = () => { const w = want(); if (!document.body) return;
+    // the loading screen keeps the dice it came in with (from the page before); one that came in plain only gets them
+    // once this page's own content is drawn on it (the sign-in card), and then they fade in
+    const L = document.getElementById('pg-load'); if (L && !L.classList.contains('pg-leave')) { const on = window.PG_BGD_LOAD || (w && !!L.querySelector('.pg-signin, .pg-msg')); put(L, on, '', on && !loadHad); if (on) loadHad = true; }
+    put(document.body, w);
+    put(document.querySelector('body.hubbody:not(.adminbody) .hub-head'), w, 'pg-bgd-hd'); };
+  window.pgBgdSync = sync;
+  const go = () => { sync(); new MutationObserver(sync).observe(document.body, { attributes: true, attributeFilter: ['class'], childList: true, subtree: true }); addEventListener('popstate', () => setTimeout(sync)); };
+  if (document.body) go(); else document.addEventListener('DOMContentLoaded', go);
 })();
