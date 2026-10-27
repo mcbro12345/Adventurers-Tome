@@ -2666,13 +2666,13 @@ body.nwdragging, body.nwdragging * { user-select: none; cursor: grabbing !import
 /* computer lobby: the top panel stays put while the page scrolls; only the panel itself casts a shadow */
 body.hubbody:not(.adminbody) .hub-head.hd2-head { position: sticky; top: 0; z-index: 30; padding-bottom: 30px; background: none; isolation: isolate; }
 /* behind the panel: the same backdrop as the page (fixed to the window), so the strip reads as page, fading out at the bottom */
-body.hubbody:not(.adminbody) .hub-head.hd2-head::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(ellipse at 50% 40%, #1d2638 0%, #0f1420 70%) fixed; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 30px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 30px), transparent); }
+body.hubbody:not(.adminbody) .hub-head.hd2-head::before { content: ''; position: absolute; inset: 0 max(32px, calc((100% - 1600px) / 2)); z-index: -1; pointer-events: none; background: radial-gradient(ellipse at 50% 40%, #1d2638 0%, #0f1420 70%) fixed; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 30px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 30px), transparent); }
 body.hubbody:not(.adminbody) .hd2-head + .hub-list.hd2-main { margin-top: 12px; }
 body.hubbody:not(.adminbody) .hub-head.hd2-head::after { display: none; }
-body.hubbody:not(.adminbody) .hd2-head > .hub-top { box-shadow: 0 12px 30px rgba(0,0,0,.38); }
+body.hubbody:not(.adminbody) .hd2-head > .hub-top { box-shadow: 0 16px 26px -14px rgba(0,0,0,.6); }
 body.hubbody:not(.adminbody) .hub-list.hd2-main { margin-top: 10px; }
-@media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.hubbody:not(.adminbody) .hub-head.hd2-head::before { background: radial-gradient(ellipse at 50% 40%, #fbf6ea 0%, #f1e9d8 70%) fixed; } :where(html:not([data-pgtheme])) body.hubbody:not(.adminbody) .hd2-head > .hub-top { box-shadow: 0 10px 26px rgba(60,45,20,.14); } }
- :where(html[data-pgtheme="light"]) body.hubbody:not(.adminbody) .hub-head.hd2-head::before { background: radial-gradient(ellipse at 50% 40%, #fbf6ea 0%, #f1e9d8 70%) fixed; } :where(html[data-pgtheme="light"]) body.hubbody:not(.adminbody) .hd2-head > .hub-top { box-shadow: 0 10px 26px rgba(60,45,20,.14); } 
+@media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.hubbody:not(.adminbody) .hub-head.hd2-head::before { background: radial-gradient(ellipse at 50% 40%, #fbf6ea 0%, #f1e9d8 70%) fixed; } :where(html:not([data-pgtheme])) body.hubbody:not(.adminbody) .hd2-head > .hub-top { box-shadow: 0 14px 22px -12px rgba(60,45,20,.24); } }
+ :where(html[data-pgtheme="light"]) body.hubbody:not(.adminbody) .hub-head.hd2-head::before { background: radial-gradient(ellipse at 50% 40%, #fbf6ea 0%, #f1e9d8 70%) fixed; } :where(html[data-pgtheme="light"]) body.hubbody:not(.adminbody) .hd2-head > .hub-top { box-shadow: 0 14px 22px -12px rgba(60,45,20,.24); } 
 .hd2-ghostwrap { position: fixed; left: 0; top: 0; width: 0; height: 0; margin: 0; padding: 0; z-index: 60; pointer-events: none; }
 body.hubbody .hd2-ghostwrap .hr { background: #222b3e; border-color: rgba(224,170,58,.6); transform: rotate(1.5deg); }
 @media (prefers-color-scheme: light) { :where(html:not([data-pgtheme])) body.hubbody .hd2-ghostwrap .hr { background: #fffaf0; } }
@@ -2729,8 +2729,8 @@ html:not(.mobile) #wizard .wzh2 { position: sticky; top: 0; z-index: 30; margin:
 html:not(.mobile) #wizard .wzh2::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(ellipse at 50% 40%, #1d2638 0%, #0f1420 70%) fixed;
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 30px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 30px), transparent); }
 html[data-theme="light"]:not(.mobile) #wizard .wzh2::before { background: radial-gradient(ellipse at 50% 40%, #fbf6ea 0%, #f1e9d8 70%) fixed; }
-#wizard .wzh2 .hub-top { max-width: 1600px; width: 100%; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 30px; padding: 16px 26px; border: 1px solid var(--wc-edge); border-bottom: 1px solid var(--wc-edge); border-radius: 18px; background: rgba(26,33,49,.75); box-shadow: 0 12px 30px rgba(0,0,0,.38); box-sizing: border-box; }
-html[data-theme="light"] #wizard .wzh2 .hub-top { background: rgba(255,255,255,.7); box-shadow: 0 10px 26px rgba(60,45,20,.14); }
+#wizard .wzh2 .hub-top { max-width: 1600px; width: 100%; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 30px; padding: 16px 26px; border: 1px solid var(--wc-edge); border-bottom: 1px solid var(--wc-edge); border-radius: 18px; background: rgba(26,33,49,.75); box-shadow: 0 16px 26px -14px rgba(0,0,0,.6); box-sizing: border-box; }
+html[data-theme="light"] #wizard .wzh2 .hub-top { background: rgba(255,255,255,.7); box-shadow: 0 14px 22px -12px rgba(60,45,20,.24); }
 html:not(.mobile) #wizard .wzh2 .hl-d20 { width: 82px; height: 82px; } html:not(.mobile) #wizard .wzh2 .hub-logo { gap: 16px; }
 html:not(.mobile) #wizard .wzh2 .hl-t { font-size: 52.8px; line-height: .95; } html:not(.mobile) #wizard .wzh2 .hl-a { font-size: 14.7px; letter-spacing: .44em; }
 #wizard .wzh2 .hub-side { position: relative; flex: none; }
@@ -2901,7 +2901,7 @@ body.adminbody .adm-back:hover { color: #e0aa3a; }
 body.hubbody:not(.dkhost) .pw.inbody { max-width: none; padding: 0 32px; }
 body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2 { position: sticky; top: 0; z-index: 30; margin: 0 -32px; padding: calc(28px + env(safe-area-inset-top)) 32px 30px; border: 0; isolation: isolate; }
 body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(ellipse at 50% 40%, #1d2638 0%, #0f1420 70%) fixed; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 30px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 30px), transparent); }
-.pw .pwh2 > .hub-top { max-width: 1600px; width: 100%; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 16px 26px; border: 1px solid rgba(201,150,43,.22) !important; border-radius: 18px; background: rgba(26,33,49,.75); box-shadow: 0 12px 30px rgba(0,0,0,.38); box-sizing: border-box; }
+.pw .pwh2 > .hub-top { max-width: 1600px; width: 100%; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 16px 26px; border: 1px solid rgba(201,150,43,.22) !important; border-radius: 18px; background: rgba(26,33,49,.75); box-shadow: 0 16px 26px -14px rgba(0,0,0,.6); box-sizing: border-box; }
 .pw .pwh2 .hub-side { position: relative; flex: none; align-self: center !important; padding: 0 !important; }
 :root body .pw .pwh2 .hl-d20 { width: 82px; height: 82px; } :root body .pw .pwh2 .hub-logo { gap: 16px; margin: 0; } :root body .pw .pwh2 .hl-t { font-size: 52.8px; line-height: .95; } :root body .pw .pwh2 .hl-a { font-size: 14.7px; letter-spacing: .44em; }
 .pw .pwh2 .hub-acct { padding: 6px 12px 6px 6px; border-radius: 16px; } .pw .pwh2 .hub-acct:hover, .pw .pwh2 .hub-acct.open { background: rgba(255,255,255,.06); }
@@ -2940,7 +2940,7 @@ body.dkhost #hub .pw.inbody { max-width: 1600px; padding-left: 32px; padding-rig
 }
 @media (prefers-color-scheme: light) {
   :where(html:not([data-pgtheme])) body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2::before { background: radial-gradient(ellipse at 50% 40%, #fbf6ea 0%, #f1e9d8 70%) fixed; }
-  :where(html:not([data-pgtheme])) .pw .pwh2 > .hub-top { background: rgba(255,255,255,.7); border-color: #e3d6b8 !important; box-shadow: 0 10px 26px rgba(60,45,20,.14); }
+  :where(html:not([data-pgtheme])) .pw .pwh2 > .hub-top { background: rgba(255,255,255,.7); border-color: #e3d6b8 !important; box-shadow: 0 14px 22px -12px rgba(60,45,20,.24); }
   :where(html:not([data-pgtheme])) .pw.inbody .pw-intitle h2 { color: #8a6420; } :where(html:not([data-pgtheme])) .pw.inbody .pw-intitle .pw-sub { color: #5c6478; } :where(html:not([data-pgtheme])) .pw.inbody .pw-intitle .pw-sub b { color: #1f2a44; }
   :where(html:not([data-pgtheme])) body.hubbody .pw.inbody .pm { background: rgba(255,255,255,.7) !important; border-color: #e3d6b8 !important; }
   :where(html:not([data-pgtheme])) .pw .pwh2 > .wzh-back2 { color: #8a6420; }
@@ -2948,7 +2948,7 @@ body.dkhost #hub .pw.inbody { max-width: 1600px; padding-left: 32px; padding-rig
 }
 
   :where(html[data-pgtheme="light"]) body.hubbody:not(.dkhost) .pw.inbody > .wzh.pwh2::before { background: radial-gradient(ellipse at 50% 40%, #fbf6ea 0%, #f1e9d8 70%) fixed; }
-  :where(html[data-pgtheme="light"]) .pw .pwh2 > .hub-top { background: rgba(255,255,255,.7); border-color: #e3d6b8 !important; box-shadow: 0 10px 26px rgba(60,45,20,.14); }
+  :where(html[data-pgtheme="light"]) .pw .pwh2 > .hub-top { background: rgba(255,255,255,.7); border-color: #e3d6b8 !important; box-shadow: 0 14px 22px -12px rgba(60,45,20,.24); }
   :where(html[data-pgtheme="light"]) .pw.inbody .pw-intitle h2 { color: #8a6420; } :where(html[data-pgtheme="light"]) .pw.inbody .pw-intitle .pw-sub { color: #5c6478; } :where(html[data-pgtheme="light"]) .pw.inbody .pw-intitle .pw-sub b { color: #1f2a44; }
   :where(html[data-pgtheme="light"]) body.hubbody .pw.inbody .pm { background: rgba(255,255,255,.7) !important; border-color: #e3d6b8 !important; }
   :where(html[data-pgtheme="light"]) .pw .pwh2 > .wzh-back2 { color: #8a6420; }
@@ -3821,6 +3821,9 @@ html.mobile .rc-x svg { display: none; } html.mobile .rc-x::before { content: '�
 /* Admin's preview of the front page: a slim note pinned across the top */
 .si2-prev { position: relative; z-index: 2; width: fit-content; max-width: 100%; margin: 0 auto 14px; grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; box-sizing: border-box; padding: 8px 14px; border-radius: 10px; background: var(--panel, #1c2230); color: var(--ink, #eee); border: 1px solid var(--gold, #d4a640); box-shadow: 0 6px 20px rgba(0,0,0,.3); font-size: .85rem; text-align: center; }
 .si2-prev a { color: var(--gold-ink, #d4a640); font-weight: 600; white-space: nowrap; }
+
+/* (the cover that hides the list as it scrolls under the header is only as wide as the header panel, so the background's
+   lines and shading carry on untouched either side of it instead of stopping in a band across the whole window) */
 </style>
 </head>
 <body>
@@ -4738,7 +4741,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261027173540', ASSETS = {"data": "a/data.584596bde50f.js", "app": "a/app.6dce8cbdf8b8.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.b3244a25b7c4.html", "desk": "a/desk.b9ff50bc01ca.js", "deskcss": "a/deskcss.5577a086eb4d.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261027180944', ASSETS = {"data": "a/data.584596bde50f.js", "app": "a/app.6dce8cbdf8b8.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.b3244a25b7c4.html", "desk": "a/desk.b9ff50bc01ca.js", "deskcss": "a/deskcss.5577a086eb4d.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };
