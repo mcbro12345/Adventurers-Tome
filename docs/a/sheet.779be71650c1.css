@@ -4798,5 +4798,57 @@ html:not(.mobile) #rolls .toast.rollcard { cursor: grab; } body.rolls-drag, body
 /* tab labels sit on the same middle as their icons (the label's box is trimmed to its capital letters, so centring
    lines up the letters themselves, not the empty space a font keeps above and below them) */
 html:not(.mobile) #tabs .tab .tlabel { transform: translateY(-1px); }
+/* Where the browser can trim a line down to the capital letters, the words are centred by their capitals, the way the
+   eye reads them, on every system font (Windows and Mac fonts sit their letters at different heights in the line) */
+@supports (text-box: trim-both cap alphabetic) {
+  html:not(.mobile) #tabs .tab .tlabel { transform: none; top: 0; text-box: trim-both cap alphabetic; overflow: clip; overflow-clip-margin: 6px; }
+}
 
+/* Divine Smite: the switch on its own full-width line, then the slot choices in a grid under it (the row used to be the
+   slot grid itself, which squeezed the switch into one narrow cell). */
+.smite-row { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.smite-row .smite-chk { margin: 0; }
+.smite-row .smite-chk b { white-space: nowrap; }
+.smite-lv, html.mobile .smite-lv { display: grid; grid-template-columns: repeat(auto-fit, minmax(78px, 1fr)); gap: 6px; }
+.smite > .sect { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; white-space: nowrap; }
+.smite > .sect .toggle { white-space: nowrap; flex: none; margin-left: auto; }
+/* Undo / Redo / History: icons only (the same ones the DM's Desk uses) */
+.tbtn.iconly .ti { margin-right: 0; }
+html:not(.mobile) .toolbar .tbtn.iconly { padding-left: 9px; padding-right: 9px; }
+html:not(.mobile) .toolbar [data-zi="history"].iconly .ti { display: block !important; }
+/* Phone tab picker: a short last row stretches to fill the width */
+.mtab-grid { display: flex; flex-wrap: wrap; justify-content: center; }
+.mtab-grid > * { flex: 1 0 calc((100% - 16px) / 3); min-width: 0; box-sizing: border-box; }
+/* Holding the tab button to step through tabs: it lifts a little and gets a gold ring while you slide */
+.mtab-b { transition: transform .15s ease, box-shadow .15s ease; }
+.mtab-b.scrub { transform: scale(1.04); box-shadow: 0 0 0 2px var(--gold), 0 10px 28px rgba(0,0,0,.45); }
+.mtab-b.scrub .mtab-l { transition: none; }
+.mtab-b, .mtab-b * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+/* Roll math in the Log (and anywhere else): a long value wraps inside the card instead of running off its edge; a really
+   long one (a roll Roll20 didn't answer, written out in full) goes on its own line under its label. */
+.rc-math .rm-r span { flex: none; max-width: 60%; }
+.rc-math .rm-r b { min-width: 0; white-space: normal; overflow-wrap: anywhere; text-align: right; }
+.rc-math .rm-r.rm-long { flex-direction: column; gap: 2px; }
+.rc-math .rm-r.rm-long span { max-width: none; }
+.rc-math .rm-r.rm-long b { text-align: left; font-weight: 600; font-variant-numeric: normal; }
+/* Conditions / effects: the words in the chips and the + Add / Advantage / Disadvantage buttons are centred on their
+   capital letters (the font's own spacing above and below otherwise sits them a little low, most of all on iPhones).
+   Same sizes as before; only the text moves. */
+@supports (text-box: trim-both cap alphabetic) {
+  .cchip .ccn, .addc > .tt, .advb .al { display: block; text-box: trim-both cap alphabetic; }
+  .addc, .advb { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; }
+  .addc { min-height: 22px; }
+  .advb { min-height: 21px; }
+  html.mobile .advb { min-height: 29px; }
+}
+/* Phones: every close ✕ on a window or card looks like the tooltip's — a round button with a soft edge, which shrinks a
+   little and turns gold as it's pressed. */
+html.mobile :is(.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx) { width: 32px !important; height: 32px !important; min-width: 0; padding: 0 !important; border-radius: 50% !important; border: 1px solid var(--line, #3a4560) !important; background: var(--panel2, #232c3d) !important; color: var(--ink, #f4eedf) !important; opacity: 1 !important; font-size: .9rem !important; line-height: 1; display: inline-grid; place-items: center; flex: none; box-shadow: 0 2px 8px rgba(0,0,0,.25); transition: transform .12s ease, background-color .12s ease; -webkit-tap-highlight-color: transparent; }
+html.mobile :is(.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx):active { transform: scale(.86); background: var(--gold-soft, rgba(201,150,43,.18)) !important; }
+html.mobile :is(.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx) svg { width: 14px; height: 14px; }
+.xclosing { transform: rotate(90deg) scale(.86) !important; transition: transform .18s ease !important; }
+.xwin-closing { opacity: 0 !important; translate: 0 14px; scale: .98; transition: opacity .18s ease, translate .18s ease, scale .18s ease !important; pointer-events: none !important; }
+/* (all the round close buttons draw their ✕ in the same font, so it's the same size and weight everywhere) */
+html.mobile #tipbox .tipx, html.mobile :is(.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx) { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif !important; font-weight: 400 !important; }
+html.mobile .rc-x svg { display: none; } html.mobile .rc-x::before { content: '✕'; }
 

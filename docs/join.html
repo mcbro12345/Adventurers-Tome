@@ -13,7 +13,7 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.8f5c3febe7a5.css">
+<link rel="stylesheet" href="a/sheet.779be71650c1.css">
 <link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="195x195" href="speed-dial-195.png"><link rel="icon" type="image/png" sizes="512x512" href="icon-512.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="You’re invited to join a party on Adventurer’s Tome."><meta property="og:type" content="website"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="You’re invited to join a party"><meta property="og:description" content="Pick a character, or make a new one, and join your DM’s game on Adventurer’s Tome."><meta property="og:url" content="https://adventurers-tome.web.app/join/"><meta property="og:image" content="https://adventurers-tome.web.app/og-invite.png?v=2"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="2400"><meta property="og:image:height" content="1260"><meta property="og:image:alt" content="A party invitation on Adventurer’s Tome"><meta property="og:image" content="https://adventurers-tome.web.app/og-invite.png?v=2"><link rel="image_src" href="/speed-dial.png?v=1"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="2400"><meta property="og:image:height" content="1260"><meta property="og:image:alt" content="A party invitation on Adventurer’s Tome"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-tour.png?v=5"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest"><script>var t="dark";try{if(localStorage.getItem("pg-theme")==="light")t="light"}catch(e){}document.documentElement.setAttribute("data-pgtheme",t)</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
@@ -3805,6 +3805,18 @@ html.pg-dk-hide:not(.pg-dk-fade) body > :not(.pg-bgd):not(#pg-load):not(.pg-out)
 .pgp-b.scrub { transform: scale(1.04); box-shadow: 0 0 0 2px #c9962b, 0 10px 28px rgba(0,0,0,.45); }
 .pgp-b { touch-action: none; }
 .pgp-b, .pgp-b * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+/* Phones: every close ✕ on a window or card looks like the sheet tooltip's (a round button with a soft edge). */
+@media (hover: none) and (pointer: coarse) {
+  :is(.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx) { width: 32px !important; height: 32px !important; min-width: 0; padding: 0 !important; border-radius: 50% !important; border: 1px solid var(--line, #3a4560) !important; background: var(--panel2, #232c3d) !important; color: var(--ink, #f4eedf) !important; opacity: 1 !important; font-size: .9rem !important; line-height: 1; display: inline-grid; place-items: center; flex: none; box-shadow: 0 2px 8px rgba(0,0,0,.25); transition: transform .12s ease, background-color .12s ease; -webkit-tap-highlight-color: transparent; }
+  :is(.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx):active { transform: scale(.86); background: rgba(201,150,43,.18) !important; }
+  :is(.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx) svg { width: 14px; height: 14px; }
+}
+.xclosing { transform: rotate(90deg) scale(.86) !important; transition: transform .18s ease !important; }
+.xwin-closing { opacity: 0 !important; translate: 0 14px; scale: .98; transition: opacity .18s ease, translate .18s ease, scale .18s ease !important; pointer-events: none !important; }
+/* (all the round close buttons draw their ✕ in the same font, so it's the same size and weight everywhere) */
+html.mobile #tipbox .tipx, html.mobile :is(.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx) { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif !important; font-weight: 400 !important; }
+html.mobile .rc-x svg { display: none; } html.mobile .rc-x::before { content: '✕'; }
+@media (hover: none) and (pointer: coarse) { :is(.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx) { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif !important; font-weight: 400 !important; } }
 </style>
 </head>
 <body>
@@ -4209,6 +4221,19 @@ function pgPillWire(el) { let st = null; let TAPACT = '', TAPT = 0; // (a tap's 
   el.addEventListener('click', e => { if (!TAPACT || !e.target.closest('.pgp-b')) return; const act = TAPACT; TAPACT = ''; clearTimeout(TAPT); act === 'close' ? pgPillClose() : pgPillOpen(); });
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
   el.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('.pgp-b')) { e.preventDefault(); pgPillOpen(true); } }); }
+// Phones: tapping the ✕ on a window or card plays the same little close as the tooltip's ✕ — it presses in and turns,
+// while its window slips down and fades — then the window closes as usual.
+(() => { if (window.__xAnim) return; window.__xAnim = 1; const XSEL = '.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx';
+  const phone = () => document.documentElement.classList.contains('mobile') || matchMedia('(hover: none) and (pointer: coarse)').matches;
+  document.addEventListener('click', e => { const b = e.target.closest && e.target.closest(XSEL); if (!b || b._xgo || !phone() || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    e.preventDefault(); e.stopImmediatePropagation(); if (b.classList.contains('xclosing')) return;
+    let w = b.parentElement; while (w && w !== document.body && getComputedStyle(w).position !== 'fixed') w = w.parentElement;
+    b.classList.add('xclosing');
+    // windows that slide away by themselves (the dice roller, party chat): the ✕ turns while they do
+    if (w && w.matches && w.matches('.drwin, .pcwin')) { b._xgo = true; try { b.click(); } finally { b._xgo = false; } setTimeout(() => b.classList.remove('xclosing'), 700); return; }
+    if (w && w !== document.body) w.classList.add('xwin-closing');
+    setTimeout(() => { b._xgo = true; try { b.click(); } finally { b._xgo = false; } // (the window stays faded through its own closing; a window that's kept for next time gets its look back afterwards)
+      setTimeout(() => { b.classList.remove('xclosing'); if (w && w.isConnected) w.classList.remove('xwin-closing'); }, 700); }, 190); }, true); })();
 // Desktop: every pop-up window can be moved by dragging its title (the heading at the top). It opens centred again
 // next time.
 (() => { if (window.__pgWinDrag) return; window.__pgWinDrag = 1; const WIN = '#modal-body, .hub-modal > .hub-card, .pg-out-card, #pg-msg .pgm-card, .wz-card, .wizard > .wz';
@@ -4690,7 +4715,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261027125507', ASSETS = {"data": "a/data.584596bde50f.js", "app": "a/app.49d7a8c9a832.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.9c5284acbabc.html", "desk": "a/desk.b9ff50bc01ca.js", "deskcss": "a/deskcss.5577a086eb4d.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261027130757', ASSETS = {"data": "a/data.584596bde50f.js", "app": "a/app.882716b4bbb7.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.5ade3ea71ec3.html", "desk": "a/desk.b9ff50bc01ca.js", "deskcss": "a/deskcss.5577a086eb4d.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };

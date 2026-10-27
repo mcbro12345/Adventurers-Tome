@@ -961,3 +961,18 @@ document.addEventListener('change', e => { if (!e.target || !e.target.matches ||
 
 // The "also show in Roll20" box sits inside the sheet-rolls card: tapping its words ticks it (not the card's radio).
 document.addEventListener('click', e => { const d = e.target.closest && e.target.closest('.dsub'); if (!d || e.target.tagName === 'INPUT') return; e.preventDefault(); d.querySelector('input').click(); });
+
+// Phones: tapping the ✕ on a window or card plays the same little close as the tooltip's ✕ — it presses in and turns,
+// while its window slips down and fades — then the window closes as usual.
+(() => { if (window.__xAnim) return; window.__xAnim = 1; const XSEL = '.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx';
+  const phone = () => document.documentElement.classList.contains('mobile') || matchMedia('(hover: none) and (pointer: coarse)').matches;
+  document.addEventListener('click', e => { const b = e.target.closest && e.target.closest(XSEL); if (!b || b._xgo || !phone() || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    e.preventDefault(); e.stopImmediatePropagation(); if (b.classList.contains('xclosing')) return;
+    let w = b.parentElement; while (w && w !== document.body && getComputedStyle(w).position !== 'fixed') w = w.parentElement;
+    b.classList.add('xclosing');
+    // windows that slide away by themselves (the dice roller, party chat): the ✕ turns while they do
+    if (w && w.matches && w.matches('.drwin, .pcwin')) { b._xgo = true; try { b.click(); } finally { b._xgo = false; } setTimeout(() => b.classList.remove('xclosing'), 700); return; }
+    if (w && w !== document.body) w.classList.add('xwin-closing');
+    setTimeout(() => { b._xgo = true; try { b.click(); } finally { b._xgo = false; } // (the window stays faded through its own closing; a window that's kept for next time gets its look back afterwards)
+      setTimeout(() => { b.classList.remove('xclosing'); if (w && w.isConnected) w.classList.remove('xwin-closing'); }, 700); }, 190); }, true); })();
+

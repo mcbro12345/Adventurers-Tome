@@ -308,6 +308,19 @@ function pgPillWire(el) { let st = null; let TAPACT = '', TAPT = 0; // (a tap's 
   el.addEventListener('click', e => { if (!TAPACT || !e.target.closest('.pgp-b')) return; const act = TAPACT; TAPACT = ''; clearTimeout(TAPT); act === 'close' ? pgPillClose() : pgPillOpen(); });
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
   el.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('.pgp-b')) { e.preventDefault(); pgPillOpen(true); } }); }
+// Phones: tapping the ✕ on a window or card plays the same little close as the tooltip's ✕ — it presses in and turns,
+// while its window slips down and fades — then the window closes as usual.
+(() => { if (window.__xAnim) return; window.__xAnim = 1; const XSEL = '.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx';
+  const phone = () => document.documentElement.classList.contains('mobile') || matchMedia('(hover: none) and (pointer: coarse)').matches;
+  document.addEventListener('click', e => { const b = e.target.closest && e.target.closest(XSEL); if (!b || b._xgo || !phone() || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    e.preventDefault(); e.stopImmediatePropagation(); if (b.classList.contains('xclosing')) return;
+    let w = b.parentElement; while (w && w !== document.body && getComputedStyle(w).position !== 'fixed') w = w.parentElement;
+    b.classList.add('xclosing');
+    // windows that slide away by themselves (the dice roller, party chat): the ✕ turns while they do
+    if (w && w.matches && w.matches('.drwin, .pcwin')) { b._xgo = true; try { b.click(); } finally { b._xgo = false; } setTimeout(() => b.classList.remove('xclosing'), 700); return; }
+    if (w && w !== document.body) w.classList.add('xwin-closing');
+    setTimeout(() => { b._xgo = true; try { b.click(); } finally { b._xgo = false; } // (the window stays faded through its own closing; a window that's kept for next time gets its look back afterwards)
+      setTimeout(() => { b.classList.remove('xclosing'); if (w && w.isConnected) w.classList.remove('xwin-closing'); }, 700); }, 190); }, true); })();
 // Desktop: every pop-up window can be moved by dragging its title (the heading at the top). It opens centred again
 // next time.
 (() => { if (window.__pgWinDrag) return; window.__pgWinDrag = 1; const WIN = '#modal-body, .hub-modal > .hub-card, .pg-out-card, #pg-msg .pgm-card, .wz-card, .wizard > .wz';
