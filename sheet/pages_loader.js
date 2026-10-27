@@ -675,6 +675,23 @@ const TRIALS = [['laezel', 'Lae’zel', 'Githyanki', 'Fighter 1', 'Soldier', '#1
   ['astarion', 'Astarion', 'High Elf', 'Rogue 1', 'Courtesan', '#b5654a'], ['gale', 'Gale', 'Human', 'Wizard 1', 'Sage', '#5b8fe0'], ['karlach', 'Karlach', 'Tiefling', 'Barbarian 1', 'Soldier', '#e0643a'], ['wyll', 'Wyll', 'Human', 'Warlock 1', 'Folk Hero', '#d9a441']];
 const SIGNIN_VIDEO = 'wR1JulNVoDE';
 function logoHTML() { return `<h1 class="hub-logo" aria-label="Adventurer’s Tome"><svg class="hl-d20${PG_DIE.rolled && PG_DIE.n === 20 ? ' crit' : PG_DIE.rolled && PG_DIE.n === 1 ? ' fumble' : ''}" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="hlg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f1d58a"/><stop offset=".55" stop-color="#c9962b"/><stop offset="1" stop-color="#8a6420"/></linearGradient></defs><polygon points="50,4 91,27 91,73 50,96 9,73 9,27" fill="rgba(201,150,43,.14)" stroke="url(#hlg)" stroke-width="4" stroke-linejoin="round"/><g fill="none" stroke="url(#hlg)" stroke-width="2.6" stroke-linejoin="round"><polygon points="50,24 73,63 27,63"/><path d="M50 4 L50 24 M91 27 L73 63 M91 73 L73 63 M50 96 L73 63 M50 96 L27 63 M9 73 L27 63 M9 27 L27 63 M9 27 L50 24 M91 27 L50 24"/></g><text x="50" y="55" text-anchor="middle" font-family="Georgia,serif" font-weight="800" font-size="15" class="hl-20">${PG_DIE.rolled ? PG_DIE.n : ''}</text></svg><span class="hl-txt"><span class="hl-a">Adventurer’s</span><span class="hl-t">Tome</span></span></h1>`; }
+// Pages that stand in for one that can't be shown (no such page, a private character, a party you're not in, a dead
+// link…): one card in the site's look — an icon tile, a gold title, what happened and what to do, and the way out.
+// o: { icon, code (a big faint number behind it, e.g. 404), title, text, btns, foot, logo (the site logo above it) }
+const PG_ST_IC = {
+  lost: '<circle cx="12" cy="12" r="9.5"/><path d="m15.8 8.2-2.2 5.4-5.4 2.2 2.2-5.4z"/>',
+  lock: '<rect x="4.5" y="10.5" width="15" height="10" rx="2.2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3M12 14.5v2.5"/>',
+  link: '<path d="M9.5 16.5H7.5a4.5 4.5 0 0 1 0-9h2M14.5 7.5h2a4.5 4.5 0 0 1 2.9 7.9M8.5 12h3M3 3l18 18"/>',
+  party: '<circle cx="9" cy="8.5" r="3.3"/><circle cx="16.6" cy="9.4" r="2.5"/><path d="M3 19.5c0-3.4 2.7-5.7 6-5.7s6 2.3 6 5.7M15.6 14.1c2.9.2 5.4 1.9 5.4 5.4"/>',
+  nochar: '<circle cx="10" cy="8" r="3.8"/><path d="M3.5 20c0-3.7 2.9-6.4 6.5-6.4 1.2 0 2.3.3 3.2.8M16 15.5l4.5 4.5M20.5 15.5 16 20"/>',
+  gone: '<path d="M4.5 7h15M10 11v6M14 11v6M6.5 7l.9 12.2a1.5 1.5 0 0 0 1.5 1.3h6.2a1.5 1.5 0 0 0 1.5-1.3L17.5 7M9.5 7V4.5h5V7"/>',
+  offline: '<path d="M3 3l18 18M6.4 6.6A6.5 6.5 0 0 0 7 19.5h10.5c.5 0 1-.1 1.4-.2M21.4 15.6A4.5 4.5 0 0 0 17 10h-.8A6.5 6.5 0 0 0 10 5.6"/>',
+  mail: '<rect x="3" y="5.5" width="18" height="13" rx="2.2"/><path d="m3.5 7.5 8.5 6 8.5-6"/>' };
+function pgStatusHTML(o) {
+  const ic = `<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PG_ST_IC[o.icon] || PG_ST_IC.lost}</svg>`;
+  return `<div class="pg-st${o.code ? ' has-code' : ''}">${o.logo ? `<a class="pg-st-logo" href="/" aria-label="Adventurer’s Tome">${logoHTML()}</a>` : ''}<div class="pg-st-card" role="${o.alert ? 'alert' : 'status'}">${o.code ? `<div class="pg-st-code" aria-hidden="true">${o.code}</div>` : ''}<span class="pg-st-ic">${ic}</span><h2>${o.title}</h2>${o.text ? `<p>${o.text}</p>` : ''}${o.btns ? `<div class="pg-st-btns">${o.btns}</div>` : ''}${o.foot ? `<div class="pg-st-foot">${o.foot}</div>` : ''}</div></div>`; }
+window.pgStatusHTML = pgStatusHTML;
+const pgStBtn = (label, href, gold) => `<a class="pg-st-btn${gold ? ' gold' : ''}" href="${href}">${label}</a>`;
 function rollDie(root) {
   const d = root.querySelector('.hl-d20'); if (!d || PG_DIE.rolling) return;
   PG_DIE.rolling = true; d.classList.remove('crit', 'fumble'); d.classList.add('hl-rolling');
@@ -799,6 +816,8 @@ function wireDie(root) {
   addEventListener('pageshow', () => document.documentElement.classList.remove('pg-leaving'));
   const load = document.getElementById('pg-load'), data = document.getElementById('sheet-data');
   if (load) window.PG_LOAD_HTML = load.outerHTML;
+  const sayStatus = o => { say(pgStatusHTML(Object.assign({ logo: true }, o))); if (load) wireDie(load); };
+  const RELOAD = '<button type="button" class="pg-st-btn gold" onclick="location.reload()">Try again</button>';
   const say = html => { if (!load) return; load.innerHTML = `<div class="pg-msg">${html}</div>`; const m = load.firstElementChild; if (m && m.animate && !PG_CALM) m.animate([{ opacity: 0, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: 450, easing: 'ease-out' }); load.style.opacity = ''; load.style.transition = ''; };
   let fs = null, auth = null;
   // On the new address, Google sign-in runs through the site itself, so Google's account picker says
@@ -811,7 +830,7 @@ function wireDie(root) {
   pgHandIn(FBCFG.apiKey); // (before sign-in starts up: see below)
   try { firebase.initializeApp(FBCFG); if (appCheckKey && firebase.appCheck) firebase.appCheck().activate(new firebase.appCheck.ReCaptchaV3Provider(appCheckKey), true);
     fs = firebase.firestore(); auth = firebase.auth(); } catch (e) { console.error(e); }
-  if (!fs || !auth) { say('Couldn\'t start the sheet. Check your connection and reload.'); return; }
+  if (!fs || !auth) { sayStatus({ icon: 'offline', title: 'Couldn’t start up', text: 'Adventurer’s Tome couldn’t connect. Check your internet connection, then try again.', btns: RELOAD + pgStBtn('Go back to the lobby', '/') }); return; }
   if (window.PG_EMU) { fs.useEmulator('localhost', 8080); auth.useEmulator('http://localhost:9099', { disableWarnings: true }); if (window.PG_EMU_USER) { await auth.signOut(); await auth.signInWithCredential(firebase.auth.GoogleAuthProvider.credential(JSON.stringify(window.PG_EMU_USER))); } } // tests only
 
   // A sign-in link meant for Claude (so it can sync with the claude.ai copies): show it to copy instead of using it here.
@@ -825,7 +844,7 @@ function wireDie(root) {
       // and this tab says so and closes itself where the browser allows; otherwise carry on here as before.
       if (await pgAuthHandoff()) { say(`<div class="pg-signin pg-done">${logoHTML()}<h2>You're signed in</h2><p>Your Adventurer’s Tome tab is ready. You can close this one.</p></div>`); wireDie(document.getElementById('pg-load')); setTimeout(() => { try { window.close(); } catch (x) {} }, 900); return; }
       pgGo(pgSafePath(lsGet('dnd-signin-back')) || location.pathname, true); }
-    catch (e) { say(`That sign-in link didn't work (${escH((e && e.message) || 'expired or already used')}).<br><br><a href="${location.pathname}">Try again</a>`); }
+    catch (e) { sayStatus({ icon: 'mail', title: 'That sign-in link didn’t work', text: `Sign-in links work once and expire after about an hour. Ask for a new one and use the newest email.<br><small class="pg-st-why">${escH((e && e.message) || 'Expired or already used')}</small>`, btns: pgStBtn('Sign in again', location.pathname, true) + pgStBtn('Go back to the lobby', '/') }); }
     return;
   }
   // A view-only link: the sheet's public copy, for anyone, signed in or not. Nothing typed here is saved.
@@ -836,7 +855,8 @@ function wireDie(root) {
     let pubC = ''; if (!TRYQ) try { const d = await pc.doc(t).get(); if (d.exists) { const x = d.data(); pubC = String(x.c || ''); let str = x.data || ''; const n = Number(x.n) || 1;
       for (let k = 1; k < n; k++) { const q = await pc.doc(t + '_p' + k).get(); if (!q.exists || Number(q.data().savedAt) !== Number(x.savedAt)) { str = null; break; } str += q.data().data || ''; }
       if (str) { JSON.parse(str); txt = str; } } } catch (e) { console.warn('view link', e); }
-    if (!txt) { say(`${TRYQ ? 'That sample character couldn’t be opened. Check your connection and reload.' : 'This view-only link isn’t working — it may have been turned off.'}<br><br><a href="${PRETTY ? '/' : location.pathname}">Go to Adventurer’s Tome</a>`); return; }
+    if (!txt) { const home = PRETTY ? '/' : location.pathname; sayStatus(TRYQ ? { icon: 'offline', title: 'Couldn’t open that character', text: 'The sample character didn’t load. Check your internet connection, then try again.', btns: RELOAD + pgStBtn('Go back to the lobby', home) }
+      : { icon: 'link', title: 'This link isn’t working', text: 'This view-only link has been turned off, or it was copied incompletely. Ask whoever shared it for a new link.', btns: pgStBtn('Go back to the lobby', home, true) }); return; }
     data.textContent = txt; window.SHEET_PAGES = true; window.SHEET_CHAR = 'pub_' + t; window.PG_PUBLIC = true;
     document.documentElement.classList.add('pg-sheetpage', 'pg-public'); if (TRYQ) document.documentElement.classList.add('pg-try');
     const ref = p => { const m = /^sheets\/(main|part(\d+))$/.exec(p); return m ? pc.doc(m[2] ? t + '_p' + m[2] : t) : null; };
@@ -846,7 +866,7 @@ function wireDie(root) {
       delete: async () => {}, onSnapshot: cb => { setTimeout(() => cb(SNAP), 0); return () => {}; } };
     const db = { doc: p => { if (TRYQ) return p === 'sheets/main' ? trialDoc : none; const r = ref(p); if (!r) return none; return { get: () => r.get(), set: () => Promise.reject({ code: 'permission-denied' }), delete: async () => {}, onSnapshot: (cb, err) => r.onSnapshot(cb, err) }; } };
     window.claude = { use: async n => n === 'db' ? db : n === 'user' ? { id: async () => null, isOwner: async () => false, can: async () => false } : null };
-    let src; try { src = await Promise.all([ASSETS.data, ASSETS.app].map(u => fetch(u).then(r => { if (!r.ok) throw new Error(u); return r.text(); }))); } catch (e) { say('Couldn\'t load the sheet. Check your connection and reload.'); return; }
+    let src; try { src = await Promise.all([ASSETS.data, ASSETS.app].map(u => fetch(u).then(r => { if (!r.ok) throw new Error(u); return r.text(); }))); } catch (e) { sayStatus({ icon: 'offline', title: 'Couldn’t load the sheet', text: 'Check your internet connection, then try again.', btns: RELOAD + pgStBtn('Go back to the lobby', '/') }); return; }
     if (!load) document.documentElement.classList.remove('pg-loading');
     src.forEach(x => { const sc = document.createElement('script'); sc.textContent = x; document.body.appendChild(sc); });
     if (!TOUCH && !FRAMED) sheetScrollbar();
@@ -929,7 +949,7 @@ function wireDie(root) {
     if (NEWQ && Q.get('o')) try { sessionStorage.setItem('pg-newfor', JSON.stringify({ o: Q.get('o'), p: Q.get('p') || '' })); } catch (e) {}
     const to = C ? '/c/' + C : NEWQ ? '/create' : ADMINQ ? '/admin' + (TABQ ? '/' + TABQ : '') : PARTYQ ? '/party/' + PARTYQ : JOINQ ? '/join/' + JOINQ : VIEWQ !== 'mine' ? '/' + VIEWQ : '/';
     history.replaceState(null, '', to); }
-  if (BAD) { say(`There’s nothing at this address.<br><br><a href="/">Go to your characters</a>`); return; }
+  if (BAD) { sayStatus({ icon: 'lost', code: '404', title: 'This page doesn’t exist', text: 'The address may have a typo, or the page may have moved. Everything you need starts from the lobby.', btns: pgStBtn('Go back to the lobby', '/', true) }); return; }
   const user = await new Promise(res => { const u = auth.onAuthStateChanged(x => { u(); res(x); }); });
   if (!user) { if (PRETTY && !LOGIN) { const here = location.pathname + location.search; history.replaceState(null, '', '/login' + (here !== '/' ? '?next=' + enc(here) : '')); } signIn(auth, say); return; }
   if (LOGIN) { pgGo(pgSafePath(Q.get('next')) || '/', true); return; } // keeps the loading screen up (no fade out and back in)
@@ -960,7 +980,7 @@ function wireDie(root) {
       else { const [a, b] = await Promise.all([lib.where('paths', 'array-contains', SLUG).where('owner', '==', EMAIL).get(), lib.where('viewers', 'array-contains', EMAIL).get()]);
         hits = a.docs.concat(b.docs.filter(d => (d.data().paths || []).includes(SLUG))); } } catch (e) { console.warn('find', e); }
     hits.sort((x, y) => ((y.data().path === SLUG) - (x.data().path === SLUG)) || ((y.data().updatedAt || 0) - (x.data().updatedAt || 0)));
-    if (!hits.length) { say(`There’s no character at this address that you can open.<br><br><a href="/">Go to your characters</a><br><br><small style="font-weight:400">Signed in as ${EMAIL} · <a href="#" onclick="pgSignOut();return false">Sign out</a></small>`); return; }
+    if (!hits.length) { sayStatus({ icon: 'nochar', title: 'No character here', text: 'There’s no character at this address that you can open. It may have been renamed or deleted, or its player hasn’t shared it with you.', btns: pgStBtn('Go back to the lobby', '/', true), foot: `Signed in as <b>${escH(EMAIL)}</b> · <a href="#" onclick="pgSignOut();return false">Sign out</a>` }); return; }
     C = hits[0].id; G = DEFAULT_G; }
   // Each account has its own record (name, email, when it joined). Made on first sign-in from the Google name; an admin
   // can rename it. "Last seen" is refreshed at most once a day to keep database writes down.
@@ -1255,7 +1275,7 @@ function wireDie(root) {
   const fetched = Promise.all([ASSETS.data, ASSETS.app].map(u => fetch(u).then(r => { if (!r.ok) throw new Error(u); return r.text(); })));
   // started once the essentials have arrived, so it doesn't compete with them on a slow connection
   const fullTxt = fetched.then(() => ASSETS.full ? fetch(ASSETS.full).then(r => r.ok ? r.text() : '', () => '') : '', () => '');
-  const run = async () => { let src; try { src = await fetched; } catch (e) { say('Couldn\'t load the sheet. Check your connection and reload.'); return; }
+  const run = async () => { let src; try { src = await fetched; } catch (e) { sayStatus({ icon: 'offline', title: 'Couldn’t load the sheet', text: 'Check your internet connection, then try again.', btns: RELOAD + pgStBtn('Go back to the lobby', '/') }); return; }
     if (!load) document.documentElement.classList.remove('pg-loading');
     src.forEach(t => { const s = document.createElement('script'); s.textContent = t; document.body.appendChild(s); });
     if (!TOUCH && !FRAMED) sheetScrollbar();
@@ -1276,10 +1296,11 @@ function wireDie(root) {
       if (str) { JSON.parse(str); txt = str; lsSet(CACHE, str); }
     }
   } catch (e) { if (e && e.code === 'permission-denied') denied = true; else console.warn('Offline — using this browser\'s copy', e); }
-  const who = `<small style="font-weight:400">Signed in as ${EMAIL} · <a href="#" onclick="pgSignOut();return false">Sign out</a></small>`;
-  if (denied) { say(`This character belongs to another player, so it can't be opened with your account.<br><br>${who}`); return; }
+  const who = `Signed in as <b>${escH(EMAIL)}</b> · <a href="#" onclick="pgSignOut();return false">Sign out</a>`;
+  if (denied) { sayStatus({ icon: 'lock', title: 'This character is private', text: 'It belongs to another player, so it can’t be opened with your account. Ask them to share it with you, or sign in with the account it was shared with.', btns: pgStBtn('Go back to the lobby', '/', true), foot: who }); return; }
   if (!txt && !NEW) txt = lsGet(CACHE);
-  if (!txt && !NEW) { say((missing ? 'This sheet link doesn\'t point to a character.<br><br><small style="font-weight:400">Check the link, or open it from your party page.</small>' : 'Couldn\'t reach the sheet\'s storage.<br><br><small style="font-weight:400">Check your connection and reload.</small>') + '<br><br>' + who); return; }
+  if (!txt && !NEW) { sayStatus(missing ? { icon: 'link', title: 'This link doesn’t lead to a character', text: 'The character may have been deleted, or the link was copied incompletely. Open it from the lobby or your party page instead.', btns: pgStBtn('Go back to the lobby', '/', true), foot: who }
+    : { icon: 'offline', title: 'Couldn’t reach the sheet', text: 'Its storage didn’t answer, and this browser has no copy saved. Check your internet connection, then try again.', btns: RELOAD + pgStBtn('Go back to the lobby', '/'), foot: who }); return; }
   if (txt) data.textContent = txt;
   if (G) lsSet(LAST_G, G);
   const hubCol = G ? fs.collection('groups/' + G + '/chars') : null;
@@ -3540,13 +3561,13 @@ function partyModule(H) {
     // the lobby's top panel: logo, and your account (its menu has the way back, contact and sign out)
     return `<div class="wzh pwh2"><header class="hub-top" role="none">${logoHTML()}<div class="hub-side"><button type="button" class="hub-acct pw-acct" aria-haspopup="menu" aria-expanded="false" title="Your account">${avaHTML(nm, EMAIL, a.pic, '', '', a)}<span class="ha-txt"><b>${esc(nm)}</b><small>${esc(EMAIL)}</small></span><svg class="ha-chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div></header></div>`; };
   // steps: [[key, label]]; seq = numbered steps you go through in order (later ones can't be clicked yet).
-  function shell({ title, sub, steps, on, body, foot, seq, inBody, bare, noReady }) {
+  function shell({ title, sub, steps, on, body, foot, seq, inBody, bare, noReady, stat }) {
     const idx = Math.max(0, (steps || []).findIndex(s => s[0] === on));
     const pills = steps && steps.length > 1 ? `<div class="pw-steps" role="tablist">${steps.map(([k, t], i) => `<button class="pw-step${k === on ? ' on' : ''}${seq && i < idx ? ' done' : ''}" role="tab" aria-selected="${k === on}" data-pstep="${k}"${seq && i > idx ? ' disabled' : ''}>${seq ? (i + 1) + '. ' : ''}${esc(t)}</button>`).join('')}</div>` : '';
     // inBody: the title sits at the top of the card itself (a party's page)
     // (and its buttons sit beside the title rather than along the bottom)
     if (inBody) { body = `<div class="pw-intitle"><div class="pw-itt"><h2>${title}</h2>${sub ? `<p class="pw-sub">${sub}</p>` : ''}</div>${foot ? `<div class="pw-hacts">${foot}</div>` : ''}</div>${body}`; title = ''; sub = ''; foot = ''; }
-    root.innerHTML = `<div role="main" class="pw${seq ? ' seq' : ''}${inBody ? ' inbody' : ''}${bare ? ' bare' : ''}">${headHTML()}<div class="pw-head">${title ? `<h2>${title}</h2>` : ''}${sub ? `<p class="pw-sub">${sub}</p>` : ''}${pills}${seq && steps ? `<div class="pw-now">Step ${idx + 1} of ${steps.length}<b>${esc(steps[idx][1])}</b></div>` : ''}</div>
+    root.innerHTML = `<div role="main" class="pw${seq ? ' seq' : ''}${inBody ? ' inbody' : ''}${bare ? ' bare' : ''}${stat ? ' stat' : ''}">${headHTML()}<div class="pw-head">${title ? `<h2>${title}</h2>` : ''}${sub ? `<p class="pw-sub">${sub}</p>` : ''}${pills}${seq && steps ? `<div class="pw-now">Step ${idx + 1} of ${steps.length}<b>${esc(steps[idx][1])}</b></div>` : ''}</div>
       <div class="pw-body">${body}</div>${foot ? `<div class="pw-foot">${foot}</div>` : ''}</div>`;
     wireDie(root); if (window.pgReady && !noReady && !/Loading the party|Opening the invitation/.test(body)) window.pgReady();
     const out = root.querySelector('[data-pw="out"]'); if (out) out.onclick = () => H.signOut();
@@ -3554,8 +3575,9 @@ function partyModule(H) {
     const back = root.querySelector('.wzh-back'); if (back) back.onclick = e => { e.preventDefault(); pgGo(URLS.parties(G)); };
     return root.querySelector('.pw-body');
   }
-  const note = (h, text, btns) => `<div class="pw-note"><span class="pty-jic">${IC_PARTY}</span><h3>${h}</h3>${text ? `<p class="hub-hint">${text}</p>` : ''}${btns ? `<div class="row">${btns}</div>` : ''}</div>`;
-  const goHub = `<a class="btn gold" href="${esc(URLS.parties(G))}">Go to your parties</a>`;
+  // (a party or invite that can't be opened gets the site's status card, on its own under the top bar)
+  const note = (icon, h, text, btns) => pgStatusHTML({ icon, title: h, text, btns });
+  const goHub = `<a class="pg-st-btn gold" href="${esc(URLS.hub(G))}">Go back to the lobby</a>`;
   const charRow = (c, act, label) => `<button class="pl-row pty-prow" data-${act}="${esc(c.id)}">${H.pic(c)}<span class="pty-ct"><b>${esc(c.name || 'Unnamed character')}</b><small>${esc([c.race, c.cls].filter(Boolean).join(' · ') || 'New character')}</small></span><span class="pty-go">${label}</span></button>`;
   const cardOf = c => ({ name: c.name || '', race: c.race || '', cls: c.cls || '', level: c.level || 0, thumb: c.thumb || '', player: H.myName(), path: c.path || '' });
   // A character made from here (or from an invite link) joins the party as soon as it's saved.
@@ -3599,9 +3621,9 @@ function partyModule(H) {
     document.title = 'Join a party — Adventurer’s Tome';
     shell({ title: 'Join a party', body: '<p class="hub-hint">Opening the invitation…</p>' });
     let inv = null; try { const d = await IC.doc(token).get(); inv = d.exists ? d.data() : null; } catch (e) {}
-    if (!inv) return shell({ title: 'Join a party', body: note('This invite link doesn’t work', 'It may have been replaced or turned off. Ask your DM for a new link.', goHub) });
+    if (!inv) return shell({ title: '', bare: true, stat: true, body: note('link', 'This invite link doesn’t work', 'It may have been replaced or turned off. Ask your DM for a new link.', goHub) });
     let p = null; try { const d = await PC.doc(inv.p).get(); p = d.exists ? Object.assign({ id: d.id }, d.data()) : null; } catch (e) {}
-    if (Number(inv.max) > 0 && Number(inv.used) >= Number(inv.max) && !(p && (p.people || []).includes(EMAIL))) return shell({ title: 'Join a party', body: note('This invite link has been used up', `It was for ${Number(inv.max)} player${Number(inv.max) > 1 ? 's' : ''}, and they’ve all joined. Ask your DM for a new link.`, goHub) });
+    if (Number(inv.max) > 0 && Number(inv.used) >= Number(inv.max) && !(p && (p.people || []).includes(EMAIL))) return shell({ title: '', bare: true, stat: true, body: note('link', 'This invite link has been used up', `It was for ${Number(inv.max)} player${Number(inv.max) > 1 ? 's' : ''}, and they’ve all joined. Ask your DM for a new link.`, goHub) });
     joinFlow(p || { id: inv.p, name: inv.name, dm: inv.dm, dmName: inv.dmName, chars: [], pic: inv.pic || '', n: Number(inv.n) || 0 }, token, p && (p.people || []).includes(EMAIL) && (p.chars || []).length > 0);
   }
   // The invitation itself: the party's crest, its name and DM, and what being in it means.
@@ -3668,12 +3690,12 @@ function partyModule(H) {
     if (cached && cached.P) { PID = known; P = cached.P; CARDS = cached.cards || {}; Object.assign(LIVE, cached.live || {}); PLOADED = true; CLOADED = true; paint(); }
     else shell({ title: 'Party', body: '<div class="sk-auto" data-k="cards" data-n="4"></div><span hidden>Loading the party</span>' });
     const id = cached && cached.P ? known : await resolveParty(pid);
-    if (!id) return shell({ title: 'Party', body: note('You’re not in this party', 'Only its players and DM can open it. If you were invited, the invitation is on your Parties tab.', goHub) });
+    if (!id) return shell({ title: '', bare: true, stat: true, body: note('party', 'You’re not in this party', 'Only its players and DM can open it. If you were invited, the invitation is on your Parties tab.', goHub) });
     PID = id;
     unP = PC.doc(id).onSnapshot(d => { PLOADED = true; P = d.exists ? Object.assign({ id: d.id }, d.data()) : null;
         if (P) { document.title = (P.name || 'Party') + ' — Adventurer’s Tome'; if (PRETTY && location.pathname !== URLS.party(P.id, P.name)) history.replaceState(null, '', URLS.party(P.id, P.name)); }
         paint(); partyKeep(); },
-      () => { PLOADED = true; P = null; try { localStorage.removeItem(PKEY(id)); } catch (e) {} if (LEAVING) return; shell({ title: 'Party', body: note('You’re not in this party', 'Only its players and DM can open it. If you were invited, the invitation is on your Parties tab.', goHub) }); });
+      () => { PLOADED = true; P = null; try { localStorage.removeItem(PKEY(id)); } catch (e) {} if (LEAVING) return; shell({ title: '', bare: true, stat: true, body: note('party', 'You’re not in this party', 'Only its players and DM can open it. If you were invited, the invitation is on your Parties tab.', goHub) }); });
     unC = PC.doc(id).collection('cards').onSnapshot(qs => { CARDS = {}; qs.docs.forEach(d => CARDS[d.id] = d.data()); CLOADED = true; paint(); partyKeep(); cardAccFix(id); }, () => { CLOADED = true; paint(); });
   }
   const statusOf = c => c.dead ? ['Dead', 'dead'] : c.stable ? ['Stable at 0 HP', 'down'] : (Number(c.maxhp) && Number(c.hp) <= 0) ? ['Down — death saves', 'down'] : null;
@@ -3732,12 +3754,12 @@ function partyModule(H) {
     if (!PLOADED || JOINING || LEAVING) return;
     // not while the DM is typing an amount on a card (it'd be wiped); it catches up a moment later
     { const ae = document.activeElement; if (ae && ae.classList && (ae.classList.contains('pm-q') && ae.value || ae.classList.contains('pm-qt'))) { clearTimeout(paint.t); paint.t = setTimeout(paint, 900); return; } }
-    if (!P) return shell({ title: 'Party', body: note('This party doesn’t exist anymore', 'Its DM may have deleted it.', goHub) });
+    if (!P) return shell({ title: '', bare: true, stat: true, body: note('gone', 'This party doesn’t exist anymore', 'Its DM may have deleted it.', goHub) });
     if (modal.classList.contains('on') && modal.querySelector('.pty-keep')) return;
     const run = canRun(P), ids = (P.chars || []).slice(), inParty = (P.people || []).includes(EMAIL);
     // Invited by email and not in it yet: the invitation, step by step.
     if (!inParty && !run && (P.invited || []).includes(EMAIL)) { JOINING = true; return joinFlow(P, '', false); }
-    if (!inParty && !run) return shell({ title: 'Party', body: note('You’re not in this party', IS_ADMIN ? 'Only its players and DM can open it. As an admin you can add characters or make yourself a co-DM from the admin panel’s Parties tab.' : 'Only its players and DM can open it. If you were invited, the invitation is on your Parties tab.', goHub) });
+    if (!inParty && !run) return shell({ title: '', bare: true, stat: true, body: note('party', 'You’re not in this party', IS_ADMIN ? 'Only its players and DM can open it. As an admin you can add characters or make yourself a co-DM from the admin panel’s Parties tab.' : 'Only its players and DM can open it. If you were invited, the invitation is on your Parties tab.', goHub) });
     repairCards(ids); watchSheets(ids);
     const mineIn = ids.filter(id => (CARDS[id] || {}).owner === EMAIL);
     const sub = `${IC_CROWN} DM <b>${esc(dmLabel(P))}</b> · ${plural(ids.length, 'character')}`;
