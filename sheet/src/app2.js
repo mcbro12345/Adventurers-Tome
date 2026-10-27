@@ -243,7 +243,9 @@ function toast(html, cls = '', ms = 4500, action) {
   SKIPPED.length = 0;
   const t = document.createElement('div');
   t.className = 'toast ' + cls; t.innerHTML = /^\s*<(b class="total"|div)/.test(html) ? html : '<div>' + html + '</div>';
-  { const acts = [].concat(action || []).filter(Boolean); if (acts.length) { const box = document.createElement('div'); box.className = 't-acts'; acts.forEach(ac => { const b = document.createElement('button'); b.textContent = ac.label; b.onclick = () => { rollGate(ac.fn); t.remove(); }; box.appendChild(b); }); t.appendChild(box); } }
+  { const acts = [].concat(action || []).filter(Boolean); if (acts.length) { const box = document.createElement('div'); box.className = 't-acts'; acts.forEach(ac => { const b = document.createElement('button'); b.textContent = ac.label; if (ac.cls) b.className = ac.cls; if (ac.title) b.title = ac.title; if (ac.grp) b.dataset.grp = ac.grp;
+    // (an add-on button — Divine Smite, Sneak Attack… — adds to this card and leaves it up; the others act and close it)
+    b.onclick = ac.keep ? () => { rollGate(() => ac.fn(t, b)); } : () => { rollGate(ac.fn); t.remove(); }; box.appendChild(b); }); t.appendChild(box); } }
   // (a roll's card stays put until its × is pressed, so a stray tap can't lose it mid-argument; other notes go on a tap)
   if (!/^\s*<(b class="total"|div class="rc-multi")/.test(html)) t.addEventListener('click', ev => { if (ev.target.tagName !== 'BUTTON') t.remove(); });
   // Dice results get their own big card in the middle of the screen; everything else stays in the corner.

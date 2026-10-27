@@ -13,7 +13,7 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.4e347a9c7f29.css">
+<link rel="stylesheet" href="a/sheet.d5e9619807d7.css">
 <link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="195x195" href="speed-dial-195.png"><link rel="icon" type="image/png" sizes="512x512" href="icon-512.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:type" content="video.other"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="Adventurer’s Tome"><meta property="og:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta property="og:url" content="https://adventurers-tome.web.app/"><meta property="og:image" content="https://adventurers-tome.web.app/og-tour.png?v=5"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1280"><meta property="og:image:height" content="720"><meta property="og:image:alt" content="Adventurer’s Tome: D&amp;D 5e sheets that do the math"><meta property="og:image" content="https://adventurers-tome.web.app/speed-dial.png?v=1"><link rel="image_src" href="/speed-dial.png?v=1"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1024"><meta property="og:image:height" content="640"><meta property="og:image:alt" content="Adventurer’s Tome"><meta property="og:video" content="https://www.youtube.com/embed/wR1JulNVoDE"><meta property="og:video:url" content="https://www.youtube.com/embed/wR1JulNVoDE"><meta property="og:video:secure_url" content="https://www.youtube.com/embed/wR1JulNVoDE"><meta property="og:video:type" content="text/html"><meta property="og:video:width" content="1280"><meta property="og:video:height" content="720"><link rel="alternate" type="application/json+oembed" href="https://adventurers-tome.web.app/oembed.json?v=6" title="Adventurer’s Tome"><meta name="twitter:card" content="player"><meta name="twitter:player" content="https://www.youtube.com/embed/wR1JulNVoDE"><meta name="twitter:player:width" content="1280"><meta name="twitter:player:height" content="720"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-tour.png?v=5"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest"><script>var t="dark";try{if(localStorage.getItem("pg-theme")==="light")t="light"}catch(e){}document.documentElement.setAttribute("data-pgtheme",t)</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
@@ -3817,6 +3817,10 @@ html.pg-dk-hide:not(.pg-dk-fade) body > :not(.pg-bgd):not(#pg-load):not(.pg-out)
 html.mobile #tipbox .tipx, html.mobile :is(.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx) { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif !important; font-weight: 400 !important; }
 html.mobile .rc-x svg { display: none; } html.mobile .rc-x::before { content: '✕'; }
 @media (hover: none) and (pointer: coarse) { :is(.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx) { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif !important; font-weight: 400 !important; } }
+
+/* Admin's preview of the front page: a slim note pinned across the top */
+.si2-prev { position: relative; z-index: 2; width: fit-content; max-width: 100%; margin: 0 auto 14px; grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; box-sizing: border-box; padding: 8px 14px; border-radius: 10px; background: var(--panel, #1c2230); color: var(--ink, #eee); border: 1px solid var(--gold, #d4a640); box-shadow: 0 6px 20px rgba(0,0,0,.3); font-size: .85rem; text-align: center; }
+.si2-prev a { color: var(--gold-ink, #d4a640); font-weight: 600; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -4734,7 +4738,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261027153850', ASSETS = {"data": "a/data.584596bde50f.js", "app": "a/app.734a3171b5ae.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.ddd1dacbc408.html", "desk": "a/desk.b9ff50bc01ca.js", "deskcss": "a/deskcss.5577a086eb4d.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261027173540', ASSETS = {"data": "a/data.584596bde50f.js", "app": "a/app.6dce8cbdf8b8.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.b3244a25b7c4.html", "desk": "a/desk.b9ff50bc01ca.js", "deskcss": "a/deskcss.5577a086eb4d.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };
@@ -4938,6 +4942,8 @@ function wireDie(root) {
   // (test site: a Google sign-in that went through but didn't last to the next page says so, to track down why)
   if (!user && window.PG_TEST) try { const o = JSON.parse(sessionStorage.getItem('pg-si-ok') || 'null'); sessionStorage.removeItem('pg-si-ok'); if (o && Date.now() - o.t < 30000) { lsSet('pg-kicked', 'Test site: Google signed you in as ' + o.e + ', but the sign-in was gone when the page reloaded.'); console.warn('sign-in lost on reload', o); } } catch (e) {}
   if (!user) { if (PRETTY && !LOGIN) { const here = location.pathname + location.search; history.replaceState(null, '', '/login' + (here !== '/' ? '?next=' + enc(here) : '')); } signIn(auth, say); return; }
+  // (Admin → Landing video → See the front page: a signed-in admin gets the front page as visitors see it, not the lobby)
+  if (LOGIN && Q.get('preview')) { signIn(auth, say, true); return; }
   if (LOGIN) { pgGo(pgSafePath(Q.get('next')) || '/', true); return; } // keeps the loading screen up (no fade out and back in)
   const EMAIL = (user.email || '').toLowerCase(), IS_OWNER = user.uid === OWNER_UID;
   pgHandOut(auth);
@@ -5704,7 +5710,7 @@ function wireDie(root) {
 })();
 
 // ================= Sign in (once per device) =================
-function signIn(auth, say) {
+function signIn(auth, say, preview) {
   if (PG_BC) PG_BC.addEventListener('message', e => { if (e.data && e.data.t === 'signed-in' && document.querySelector('.pg-signin')) { PG_BC.postMessage({ t: 'ack' }); try { window.focus(); } catch (x) {} pgGo(null); } });
   const kickedMsg = (() => { try { const m = localStorage.getItem('pg-kicked'); localStorage.removeItem('pg-kicked'); return m || ''; } catch (e) { return ''; } })();
   // Beside the sign-in card: the tour video, and sample characters to try without an account.
@@ -5726,6 +5732,9 @@ function signIn(auth, say) {
     <form id="si-f" class="who-f"><input id="si-e" type="email" placeholder="Your email address" autocomplete="email" required><button class="btn">Email me a link</button></form>
     <p class="hub-hint" id="si-msg">No Google account? We'll email you a sign-in link.</p>${kickedMsg ? `<p class="pg-kicked">${escH(kickedMsg)}</p>` : ''}</div>
     <div class="si2-help"><p class="pg-contact">Trouble signing in? <a href="${CONTACT}">Contact</a></p><p class="pg-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy policy</a><span aria-hidden="true"> · </span><a href="/terms" target="_blank" rel="noopener">Terms</a><span aria-hidden="true"> · </span><a href="/accessibility" target="_blank" rel="noopener">Accessibility</a></p></div></div><div class="si2-vbox">${vid}</div>${tries}${feats}</div>${a2hsHTML()}`);
+  // A preview (you're already signed in): a note across the top, and the sign-in controls do nothing.
+  if (preview) { const ld = document.getElementById('pg-load'); ld.querySelectorAll('.si2-ctl button, .si2-ctl input').forEach(x => { x.disabled = true; x.title = 'You’re already signed in — this is a preview'; });
+    const n = document.createElement('div'); n.className = 'si2-prev'; n.innerHTML = '<span>Front page preview — you’re signed in, so sign-in is off here.</span><a href="/">Back to the lobby</a>'; const pg = ld.querySelector('.pg-si2'); if (pg) pg.before(n); else ld.appendChild(n); }
   wireA2HS(document.getElementById('pg-load'));
   wireDie(document.getElementById('pg-load'));
   // the admin's choice of video and thumbnail (Admin → Landing video), remembered on this device for next time
@@ -7191,7 +7200,7 @@ function hub(fs, auth, G, ctx) {
             <div class="ld-poster${st.poster ? ' has' : ''}" style="${st.poster ? `background-image:url(${esc(st.poster)})` : 'background-image:url(/si-poster.jpg)'}"><span>${st.poster ? '' : 'Built-in thumbnail'}</span></div>
             <div class="row"><label class="adm-btn">Upload a picture<input type="file" id="ld-f" accept="image/*" hidden></label>${st.poster ? '<button class="adm-btn" id="ld-px">Use the built-in one</button>' : ''}</div></section>
         </div>
-        <div class="row ld-acts"><a class="adm-btn" href="/login" target="_blank" rel="noopener">See the front page</a>${cur && (cur.video || cur.poster) ? '<button class="adm-btn" id="ld-reset">Reset both</button>' : ''}<button class="adm-btn primary" id="ld-ok">Save</button></div>`;
+        <div class="row ld-acts"><a class="adm-btn" href="/login?preview=1" target="_blank" rel="noopener">See the front page</a>${cur && (cur.video || cur.poster) ? '<button class="adm-btn" id="ld-reset">Reset both</button>' : ''}<button class="adm-btn primary" id="ld-ok">Save</button></div>`;
         const vi = el.querySelector('#ld-v'), fr = el.querySelector('.ld-frame iframe'), er = el.querySelector('#ld-verr');
         vi.oninput = () => { const id = ytId(vi.value); er.hidden = !!id || !vi.value.trim(); if (id && id !== st.video) { st.video = id; fr.src = `https://www.youtube-nocookie.com/embed/${id}?rel=0`; } };
         el.querySelector('#ld-f').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; try { st.poster = await ldShrink(f); paint(); } catch (x) { toast('Couldn’t use that picture: ' + ((x && x.message) || x)); } };

@@ -1025,6 +1025,8 @@ function wireDie(root) {
   // (test site: a Google sign-in that went through but didn't last to the next page says so, to track down why)
   if (!user && window.PG_TEST) try { const o = JSON.parse(sessionStorage.getItem('pg-si-ok') || 'null'); sessionStorage.removeItem('pg-si-ok'); if (o && Date.now() - o.t < 30000) { lsSet('pg-kicked', 'Test site: Google signed you in as ' + o.e + ', but the sign-in was gone when the page reloaded.'); console.warn('sign-in lost on reload', o); } } catch (e) {}
   if (!user) { if (PRETTY && !LOGIN) { const here = location.pathname + location.search; history.replaceState(null, '', '/login' + (here !== '/' ? '?next=' + enc(here) : '')); } signIn(auth, say); return; }
+  // (Admin → Landing video → See the front page: a signed-in admin gets the front page as visitors see it, not the lobby)
+  if (LOGIN && Q.get('preview')) { signIn(auth, say, true); return; }
   if (LOGIN) { pgGo(pgSafePath(Q.get('next')) || '/', true); return; } // keeps the loading screen up (no fade out and back in)
   const EMAIL = (user.email || '').toLowerCase(), IS_OWNER = user.uid === OWNER_UID;
   pgHandOut(auth);
@@ -1791,7 +1793,7 @@ function wireDie(root) {
 })();
 
 // ================= Sign in (once per device) =================
-function signIn(auth, say) {
+function signIn(auth, say, preview) {
   if (PG_BC) PG_BC.addEventListener('message', e => { if (e.data && e.data.t === 'signed-in' && document.querySelector('.pg-signin')) { PG_BC.postMessage({ t: 'ack' }); try { window.focus(); } catch (x) {} pgGo(null); } });
   const kickedMsg = (() => { try { const m = localStorage.getItem('pg-kicked'); localStorage.removeItem('pg-kicked'); return m || ''; } catch (e) { return ''; } })();
   // Beside the sign-in card: the tour video, and sample characters to try without an account.
@@ -1813,6 +1815,9 @@ function signIn(auth, say) {
     <form id="si-f" class="who-f"><input id="si-e" type="email" placeholder="Your email address" autocomplete="email" required><button class="btn">Email me a link</button></form>
     <p class="hub-hint" id="si-msg">No Google account? We'll email you a sign-in link.</p>${kickedMsg ? `<p class="pg-kicked">${escH(kickedMsg)}</p>` : ''}</div>
     <div class="si2-help"><p class="pg-contact">Trouble signing in? <a href="${CONTACT}">Contact</a></p><p class="pg-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy policy</a><span aria-hidden="true"> · </span><a href="/terms" target="_blank" rel="noopener">Terms</a><span aria-hidden="true"> · </span><a href="/accessibility" target="_blank" rel="noopener">Accessibility</a></p></div></div><div class="si2-vbox">${vid}</div>${tries}${feats}</div>${a2hsHTML()}`);
+  // A preview (you're already signed in): a note across the top, and the sign-in controls do nothing.
+  if (preview) { const ld = document.getElementById('pg-load'); ld.querySelectorAll('.si2-ctl button, .si2-ctl input').forEach(x => { x.disabled = true; x.title = 'You’re already signed in — this is a preview'; });
+    const n = document.createElement('div'); n.className = 'si2-prev'; n.innerHTML = '<span>Front page preview — you’re signed in, so sign-in is off here.</span><a href="/">Back to the lobby</a>'; const pg = ld.querySelector('.pg-si2'); if (pg) pg.before(n); else ld.appendChild(n); }
   wireA2HS(document.getElementById('pg-load'));
   wireDie(document.getElementById('pg-load'));
   // the admin's choice of video and thumbnail (Admin → Landing video), remembered on this device for next time
@@ -3278,7 +3283,7 @@ function hub(fs, auth, G, ctx) {
             <div class="ld-poster${st.poster ? ' has' : ''}" style="${st.poster ? `background-image:url(${esc(st.poster)})` : 'background-image:url(/si-poster.jpg)'}"><span>${st.poster ? '' : 'Built-in thumbnail'}</span></div>
             <div class="row"><label class="adm-btn">Upload a picture<input type="file" id="ld-f" accept="image/*" hidden></label>${st.poster ? '<button class="adm-btn" id="ld-px">Use the built-in one</button>' : ''}</div></section>
         </div>
-        <div class="row ld-acts"><a class="adm-btn" href="/login" target="_blank" rel="noopener">See the front page</a>${cur && (cur.video || cur.poster) ? '<button class="adm-btn" id="ld-reset">Reset both</button>' : ''}<button class="adm-btn primary" id="ld-ok">Save</button></div>`;
+        <div class="row ld-acts"><a class="adm-btn" href="/login?preview=1" target="_blank" rel="noopener">See the front page</a>${cur && (cur.video || cur.poster) ? '<button class="adm-btn" id="ld-reset">Reset both</button>' : ''}<button class="adm-btn primary" id="ld-ok">Save</button></div>`;
         const vi = el.querySelector('#ld-v'), fr = el.querySelector('.ld-frame iframe'), er = el.querySelector('#ld-verr');
         vi.oninput = () => { const id = ytId(vi.value); er.hidden = !!id || !vi.value.trim(); if (id && id !== st.video) { st.video = id; fr.src = `https://www.youtube-nocookie.com/embed/${id}?rel=0`; } };
         el.querySelector('#ld-f').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; try { st.poster = await ldShrink(f); paint(); } catch (x) { toast('Couldn’t use that picture: ' + ((x && x.message) || x)); } };

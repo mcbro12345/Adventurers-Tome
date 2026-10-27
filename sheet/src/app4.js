@@ -498,10 +498,12 @@ function attackRoll(i, free, opt) {
   const note = [rm.mode !== 'normal' ? (rm.mode === 'adv' ? 'Advantage: ' : 'Disadvantage: ') + rm.why.join(', ') : '', bless ? 'Bless +1d4' : '', ex ? `Exhaustion −${ex}` : ''].filter(Boolean).join(' · ');
   const keepR = riders.filter(x => !x.once);
   const acts = keepR.length ? [{ label: 'Missed — keep riders', fn: () => { S.riders = (S.riders || []).concat(keepR); pendingLabel = 'Keep riders'; update(); toast('Riders saved for your next hit.'); } }] : [];
-  if (!nat1 && a.kind === 'melee' && stunStrikeFeat() && stunKiLeft() > 0) acts.push({ label: 'Stunning Strike (1 ki)', fn: () => stunningStrike() });
+  if (!nat1 && a.kind === 'melee' && stunStrikeFeat() && stunKiLeft() > 0) acts.push({ keep: true, cls: 't-add', grp: 'stun', label: 'Stunning Strike (1 ki)', title: 'The creature you hit makes a CON save or is stunned', fn: (t, b) => { stunningStrike(); b.remove(); } });
   xr.filter(x => x.refund).forEach(x => acts.push({ label: `Missed — get ${x.what === 'Divine Smite' ? 'the slot' : 'the ki'} back`, fn: () => { x.refund(); pendingLabel = x.what + ' not used'; update(); render(); toast(`${x.what} is ready again for your next hit.`); } }));
   rh.always.forEach(x => acts.push({ label: `Missed — get ${x.src.name} back`, fn: () => { x.src.refund(); pendingLabel = x.src.name + ' not used'; update(); render(); toast(`${esc(x.src.name)} is back.`); } }));
   acts.push(...rh.acts);
+  // What you can still add now that you know it hit: Divine Smite, Sneak Attack, Hand of Harm (each adds to this card).
+  if (!nat1) acts.push(...atkAddOns(a, nm, crit, isWeapon, rm, opt, { total, byType, mainT, sneak: sr ? sr.total : 0 }, xr.filter(x => x.what).map(x => x.what)));
   if (sr && !opt.offTurn) acts.push({ label: 'Missed — Sneak Attack not used', fn: () => { S.turn.sneak = false; pendingLabel = 'Sneak Attack not used'; update(); refresh(); toast('Sneak Attack is ready again this turn.'); } });
   // The card shows just the two numbers: to hit and damage. The full breakdown goes to the roll log.
   toast(`<b class="total">${h.total}</b><div class="rc-body"><div class="rc-name">${esc(nm)}</div><div class="rc-lbl">${crit ? 'CRITICAL HIT' : nat1 ? 'Natural 1 — miss' : 'to hit'}</div>
@@ -512,9 +514,67 @@ function attackRoll(i, free, opt) {
 // Sneak Attack dice for this attack, or '' when it doesn't apply automatically.
 function sneakAuto(a, rm, nat1, isWeapon, offTurn) {
   if (!clsLv('rogue') || !isWeapon || nat1 || (S.inCombat && S.turn.sneak && !offTurn) || !rm || rm.mode !== 'adv') return '';
+  return sneakWeapon(a) ? sneakDice() : '';
+}
+// A finesse or ranged weapon: the kind Sneak Attack works with.
+function sneakWeapon(a) {
   const it = a.item && S.inventory.find(x => x.id === a.item), w = it && it.weapon;
-  const ok = w ? (w.props || []).includes('finesse') || w.kind === 'ranged' : a.ab === 'fin' || a.kind === 'ranged';
-  return ok ? sneakDice() : '';
+  return w ? (w.props || []).includes('finesse') || w.kind === 'ranged' : a.ab === 'fin' || a.kind === 'ranged';
+}
+// Add-ons you decide on after seeing the hit get buttons at the foot of the attack's card, while you have what they cost.
+// Pressing one spends it, rolls the extra dice (doubled on a crit) and adds them to the card's damage; the card stays up.
+// (Sneak Attack without advantage is still allowed when an ally is next to the target, so it's offered then too.)
+function atkAddOns(a, nm, crit, isWeapon, rm, opt, D, armed) {
+  const out = []; if (!isWeapon) return out;
+  if (a.kind === 'melee' && hasFeature('Divine Smite') && !armed.includes('Divine Smite')) {
+    const seen = new Set();
+    smiteSlots().filter(x => x[3] > 0).forEach(([k, d, slot]) => { const n = Math.min(6, d + (UI.smiteUndead ? 1 : 0)); if (seen.has(n)) return; seen.add(n);
+      out.push({ keep: true, cls: 't-add', grp: 'smite', label: `Smite · ${k === 'pact' ? 'pact' : ORD[N(k)]} (${n * (crit ? 2 : 1)}d8)`, title: `Divine Smite with a ${slot.toLowerCase()}: +${n}d8 radiant${crit ? ', doubled for the crit' : ''}`, fn: (t, b) => addOnSmite(t, b, k, crit, D, nm) }); });
+  }
+  if (clsLv('rogue') && !D.sneak && !(S.inCombat && S.turn.sneak && !opt.offTurn) && (!rm || rm.mode !== 'dis') && sneakWeapon(a)) {
+    const sd = sneakDice(), e = crit ? critDice(sd) : sd;
+    out.push({ keep: true, cls: 't-add', grp: 'sneak', label: `Sneak Attack (${e})`, title: 'Once per turn: when you had advantage, or an ally of yours is next to the target', fn: (t, b) => {
+      if (S.inCombat && !opt.offTurn) S.turn.sneak = true; pendingLabel = 'Sneak Attack';
+      addOnRoll(t, b, D, nm, 'Sneak Attack (' + e + ')', e, '', 'sneak'); setTimeout(refresh, 0); } });
+  }
+  if (/unarmed strike/i.test(a.name) && harmFeat() && !armed.includes('Hand of Harm') && !(S.inCombat && S.turn.harm) && stunKiLeft() > 0) {
+    const ma = maDie(), w = mod('wis'), e = (crit ? doubleDice(ma) : ma) + (w ? sgn(w) : '');
+    out.push({ keep: true, cls: 't-add', grp: 'harm', label: 'Hand of Harm (1 ki)', title: `+${ma} + WIS necrotic, once per turn`, fn: (t, b) => {
+      const k = stunKi(); if (!k || stunKiLeft() < 1) { toast('No ki left for Hand of Harm.', 'fumble'); return; }
+      k.used = N(k.used) + 1; if (S.inCombat) S.turn.harm = true; pendingLabel = 'Hand of Harm';
+      addOnRoll(t, b, D, nm, 'Hand of Harm', e, 'necrotic', 'harm'); } });
+  }
+  return out;
+}
+function addOnSmite(t, b, l, crit, D, nm) {
+  let L;
+  if (l === 'pact') { if (!pactLeft()) { toast('No pact slots left.', 'fumble'); return; } S.pactUsed = N(S.pactUsed) + 1; L = pact().level - 1; }
+  else { L = N(l); if (!slotsLeft(L)) { toast(`No ${ORD[L]}-level slots left.`, 'fumble'); return; } S.slotsUsed[L] = N(S.slotsUsed[L]) + 1; }
+  const n = Math.min(6, Math.min(5, L + 2) + (UI.smiteUndead ? 1 : 0)) * (crit ? 2 : 1), what = `Divine Smite (${l === 'pact' ? 'pact slot' : ORD[L] + ' slot'})`;
+  pendingLabel = what;
+  const r = addOnRoll(t, b, D, nm, what, n + 'd8', 'radiant', 'smite');
+  if (r) riderAfter({ kind: 'feat', names: ['Divine Smite'], crit }, 'Divine Smite', r.total);
+}
+// Roll an add-on's dice and fold them into the attack's card: the damage total and its types, a line under the
+// numbers, and a row in the damage math. (Rolling your own dice: it gets its own "roll these" card instead.)
+function addOnRoll(t, b, D, nm, what, expr, type, kind) {
+  const r = rollExpr(expr, { label: what });
+  (b.parentNode ? [...b.parentNode.querySelectorAll(`[data-grp="${b.dataset.grp}"]`)] : [b]).forEach(x => x.remove());
+  update();
+  if (r.skipped) { toast(`<b class="total">0</b><div><div class="rc-name">${esc(what)}</div><div class="det">Add it to your ${esc(nm)} damage.</div></div>`); return null; }
+  const ty = String(type || D.mainT).toLowerCase(); D.total += r.total; D.byType[ty] = (D.byType[ty] || 0) + r.total; if (kind === 'sneak') D.sneak += r.total;
+  const dm = t.querySelector(':scope > .rc-dmg');
+  if (dm) { const types = Object.entries(D.byType); dm.querySelector(':scope > b').textContent = D.total;
+    dm.querySelector(':scope > span').innerHTML = (types.length > 1 ? `<span class="rc-types">${types.map(([k, v]) => `<i><b>${v}</b> ${esc(k)}</i>`).join('')}</span>` : esc(D.mainT)) + (D.sneak ? `<small>incl. ${D.sneak} sneak</small>` : '');
+    dm.classList.remove('rc-bump'); void dm.offsetWidth; dm.classList.add('rc-bump'); }
+  const shown = r.terms ? r.terms.filter(x => x.dice).map(x => x.shown.join(', ')).join(' | ') : '';
+  const body = t.querySelector('.rc-body'); if (body) { const x = document.createElement('div'); x.className = 'rc-rider rc-added'; x.innerHTML = `<b>${esc(what)}:</b> +${r.total}${type ? ' ' + esc(type) : ''}${shown ? ` <span class="hint">[${esc(shown)}]</span>` : ''}`; body.appendChild(x); }
+  const sec = [...t.querySelectorAll('.rc-math .rm-sec')].find(x => /^damage$/i.test((x.querySelector('.rm-h') || {}).textContent || ''));
+  if (sec) { const tot = sec.querySelector('.rm-t'), row = document.createElement('div'); row.className = 'rm-r';
+    row.innerHTML = `<span>${esc(what)}${shown ? ` <i>[${esc(shown)}]</i>` : ''}</span><b>${r.total}</b>`; sec.insertBefore(row, tot); if (tot) tot.querySelector('b').textContent = D.total; }
+  logEvent(`<div><b>${esc(what)}</b> added to ${esc(nm)}: +${r.total}${type ? ' ' + esc(type) : ''} (${esc(r.detail)}) · damage now <b>${D.total}</b></div>`);
+  if (diceMode() === 'sheet' && ST('sheetToR20') && R20.ok) r20Post([`/em **${String(what).replace(/[[\]{}|]/g, '')}** on ${String(nm).replace(/[[\]{}|]/g, '')} (rolled on the sheet)`, `**Extra damage:** [[${r.total}]]${type ? ' ' + type : ''} · **Total:** [[${D.total}]]`]).catch(() => {});
+  return r;
 }
 function creatureRoll(who, j, what) {
   const src = who === 'form' ? S.form : S.companions[N(who.slice(1))];

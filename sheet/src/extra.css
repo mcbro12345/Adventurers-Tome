@@ -4203,3 +4203,13 @@ html.mobile .setx > .stpane { display: block !important; flex: 0 0 100%; width: 
 html.mobile .modal:has(.setx) .setx { margin-left: -14px; margin-right: -14px; }
 html.mobile .setx > .stpane { padding-left: 14px; padding-right: 14px; }
 html.mobile .setx > .stpane.nopage { display: none !important; }
+
+/* Add-on buttons on an attack's card (Divine Smite, Sneak Attack…): gold, with a plus, and the damage pulses as it grows */
+.toast.rollcard .t-acts button.t-add { border-color: var(--gold); color: var(--gold-ink); background: color-mix(in srgb, var(--gold) 14%, transparent); font-weight: 600; }
+.toast.rollcard .t-acts button.t-add::before { content: '+'; margin-right: 4px; font-weight: 700; }
+.toast.rollcard .t-acts button.t-add:hover { background: color-mix(in srgb, var(--gold) 26%, transparent); }
+.toast.rollcard .rc-added { animation: rcAddIn .35s ease-out; }
+.toast.rollcard .rc-dmg.rc-bump > b { animation: rcBump .45s cubic-bezier(.2,1.6,.4,1); }
+@keyframes rcAddIn { from { opacity: 0; transform: translateY(-4px); } }
+@keyframes rcBump { 40% { transform: scale(1.18); } }
+@media (prefers-reduced-motion: reduce) { .toast.rollcard .rc-added, .toast.rollcard .rc-dmg.rc-bump > b { animation: none; } }

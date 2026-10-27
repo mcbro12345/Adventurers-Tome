@@ -3610,3 +3610,7 @@ html.pg-dk-hide:not(.pg-dk-fade) body > :not(.pg-bgd):not(#pg-load):not(.pg-out)
 html.mobile #tipbox .tipx, html.mobile :is(.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx) { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif !important; font-weight: 400 !important; }
 html.mobile .rc-x svg { display: none; } html.mobile .rc-x::before { content: '✕'; }
 @media (hover: none) and (pointer: coarse) { :is(.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx) { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif !important; font-weight: 400 !important; } }
+
+/* Admin's preview of the front page: a slim note pinned across the top */
+.si2-prev { position: relative; z-index: 2; width: fit-content; max-width: 100%; margin: 0 auto 14px; grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; box-sizing: border-box; padding: 8px 14px; border-radius: 10px; background: var(--panel, #1c2230); color: var(--ink, #eee); border: 1px solid var(--gold, #d4a640); box-shadow: 0 6px 20px rgba(0,0,0,.3); font-size: .85rem; text-align: center; }
+.si2-prev a { color: var(--gold-ink, #d4a640); font-weight: 600; white-space: nowrap; }
