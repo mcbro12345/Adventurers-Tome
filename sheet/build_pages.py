@@ -57,7 +57,7 @@ loader = ('''
    seamlessly from page to page. */
 window.pgBgdMake=function(){var D=function(w,x,y,r,n){return '<svg class="pg-bgd-d pg-bgd-'+n+'" viewBox="0 0 100 100" style="--w:'+w+';--x:'+x+';--y:'+y+';--r:'+r+'deg" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="'+(240/w).toFixed(3)+'" stroke-linejoin="round"><polygon points="50,4 91,27 91,73 50,96 9,73 9,27"/><polygon points="50,24 73,63 27,63"/><path d="M50 4 L50 24 M91 27 L73 63 M91 73 L73 63 M50 96 L73 63 M50 96 L27 63 M9 73 L27 63 M9 27 L27 63 M9 27 L50 24 M91 27 L50 24"/></g></svg>'};
 var el=document.createElement('div');el.className='pg-bgd';el.setAttribute('aria-hidden','true');el.innerHTML=D(620,-150,-330,-8,1)+D(1150,1270,290,6,2)+D(420,1500,-260,14,3)+D(560,-260,640,-16,4);el.style.setProperty('--now',(Date.now()/1000%100000).toFixed(3)+'s');return el};
-window.pgBgdPage=function(){return /^\/(index\.html|login\/?|admin(\/.*)?|party\/.*)?$/.test(location.pathname)};
+window.pgBgdPage=function(){return /^\/(index\.html|login\/?|admin(\/.*)?|party\/.*|shared\/?|parties\/?)?$/.test(location.pathname)};
 (function(){var c=document.getElementById('pg-bgd-css');if(c)document.head.appendChild(c);var f=0;try{f=+sessionStorage.getItem('pg-bgd')||0;sessionStorage.removeItem('pg-bgd')}catch(e){}
 var carry=window.PG_NAV_T&&Date.now()-f<8000;window.PG_BGD_LOAD=true;var l=document.getElementById('pg-load');if(l&&PG_BGD_LOAD){var e=pgBgdMake();if(window.PG_NAV_T&&!carry)e.classList.add('pg-bgd-in');l.insertBefore(e,l.firstChild)}})();</script>
 <script>/* the loading die rolls over and over, like the logo's: a tumble with the face flickering, then it lands on a number for a moment.
