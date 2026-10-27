@@ -13,7 +13,7 @@
     document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
-<link rel="stylesheet" href="a/sheet.779be71650c1.css">
+<link rel="stylesheet" href="a/sheet.5c65e884be03.css">
 <link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" type="image/png" sizes="195x195" href="speed-dial-195.png"><link rel="icon" type="image/png" sizes="512x512" href="icon-512.png"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><meta name="apple-mobile-web-app-title" content="Adventurer’s Tome"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="description" content="You’re invited to join a party on Adventurer’s Tome."><meta property="og:type" content="website"><meta property="og:site_name" content="adventurers-tome.web.app"><meta property="og:title" content="You’re invited to join a party"><meta property="og:description" content="Pick a character, or make a new one, and join your DM’s game on Adventurer’s Tome."><meta property="og:url" content="https://adventurers-tome.web.app/join/"><meta property="og:image" content="https://adventurers-tome.web.app/og-invite.png?v=2"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="2400"><meta property="og:image:height" content="1260"><meta property="og:image:alt" content="A party invitation on Adventurer’s Tome"><meta property="og:image" content="https://adventurers-tome.web.app/og-invite.png?v=2"><link rel="image_src" href="/speed-dial.png?v=1"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="2400"><meta property="og:image:height" content="1260"><meta property="og:image:alt" content="A party invitation on Adventurer’s Tome"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Adventurer’s Tome"><meta name="twitter:description" content="D&amp;D 5e character sheets that do the math, track your resources and roll your dice. Build a character step by step, level up with a guided wizard, and share sheets with your party. An optional companion browser extension sends your rolls straight into your Roll20 game."><meta name="twitter:image" content="https://adventurers-tome.web.app/og-tour.png?v=5"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest"><script>var t="dark";try{if(localStorage.getItem("pg-theme")==="light")t="light"}catch(e){}document.documentElement.setAttribute("data-pgtheme",t)</script><style>/* Loading screen: dark navy with a slowly spinning d20 (light parchment only behind the sign-in card in light mode) */
 html.pg-loading, html.pg-loading body { background: #0f1420; }
@@ -4234,6 +4234,25 @@ function pgPillWire(el) { let st = null; let TAPACT = '', TAPT = 0; // (a tap's 
     if (w && w !== document.body) w.classList.add('xwin-closing');
     setTimeout(() => { b._xgo = true; try { b.click(); } finally { b._xgo = false; } // (the window stays faded through its own closing; a window that's kept for next time gets its look back afterwards)
       setTimeout(() => { b.classList.remove('xclosing'); if (w && w.isConnected) w.classList.remove('xwin-closing'); }, 700); }, 190); }, true); })();
+// Pop-ups on a phone scroll rigidly: a drag inside one only ever scrolls the list it's on, and stops dead at its ends
+// (no rubber-banding the window, and never scrolling the page underneath).
+(function () { if (window.__pgRigid) return; window.__pgRigid = 1;
+  const POP = '.hub-modal.on, #modal.open, .modal-bg.open, .pg-out, .ptyask-bg, .wizard.open, .ha-sheet, .pg-crop, #pg-msg, .dk-modal.open, .drwin.phone, .pcwin, .pc-scrim, [role=dialog][aria-modal=true]';
+  const can = (el, dx, dy) => { const cs = getComputedStyle(el);
+    if (Math.abs(dy) >= Math.abs(dx)) return /(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 1 && (dy > 0 ? el.scrollTop > 0 : el.scrollTop + el.clientHeight < el.scrollHeight - 1);
+    return /(auto|scroll)/.test(cs.overflowX) && el.scrollWidth > el.clientWidth + 1 && (dx > 0 ? el.scrollLeft > 0 : el.scrollLeft + el.clientWidth < el.scrollWidth - 1); };
+  let x0 = 0, y0 = 0, pop = null;
+  document.addEventListener('touchstart', e => { const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; pop = e.target.closest ? e.target.closest(POP) : null; }, { passive: true, capture: true });
+  document.addEventListener('touchmove', e => { if (!pop || !pop.isConnected || !e.cancelable || e.touches.length > 1) return; const t = e.touches[0], dx = t.clientX - x0, dy = t.clientY - y0; if (!dx && !dy) return;
+    for (let el = e.target; el && el.nodeType === 1; el = el.parentElement) { if (el.matches('input[type=range], textarea')) return; if (can(el, dx, dy)) return; if (el === pop) break; }
+    e.preventDefault(); }, { passive: false, capture: true });
+  // A list that coasts into its end on its own (after you've let go) would still stretch past it and spring back: iPhone
+  // reports that stretch as scrolling past the end, so it's held at the end instead, and stops dead there.
+  document.addEventListener('scroll', e => { const el = e.target; if (!el || el.nodeType !== 1 || !el.closest || !el.closest(POP)) return;
+    const my = el.scrollHeight - el.clientHeight, mx = el.scrollWidth - el.clientWidth;
+    if (el.scrollTop < 0) el.scrollTop = 0; else if (my > 0 && el.scrollTop > my) el.scrollTop = my;
+    if (el.scrollLeft < 0) el.scrollLeft = 0; else if (mx > 0 && el.scrollLeft > mx) el.scrollLeft = mx; }, { capture: true, passive: true });
+})();
 // Desktop: every pop-up window can be moved by dragging its title (the heading at the top). It opens centred again
 // next time.
 (() => { if (window.__pgWinDrag) return; window.__pgWinDrag = 1; const WIN = '#modal-body, .hub-modal > .hub-card, .pg-out-card, #pg-msg .pgm-card, .wz-card, .wizard > .wz';
@@ -4715,7 +4734,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261027130757', ASSETS = {"data": "a/data.584596bde50f.js", "app": "a/app.882716b4bbb7.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.5ade3ea71ec3.html", "desk": "a/desk.b9ff50bc01ca.js", "deskcss": "a/deskcss.5577a086eb4d.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261027133836', ASSETS = {"data": "a/data.584596bde50f.js", "app": "a/app.3a88d86f96bb.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.b5764fbaeaaf.html", "desk": "a/desk.b9ff50bc01ca.js", "deskcss": "a/deskcss.5577a086eb4d.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };

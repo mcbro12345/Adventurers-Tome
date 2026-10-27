@@ -4182,3 +4182,13 @@ html.mobile :is(.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-
 /* (all the round close buttons draw their ✕ in the same font, so it's the same size and weight everywhere) */
 html.mobile #tipbox .tipx, html.mobile :is(.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx) { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif !important; font-weight: 400 !important; }
 html.mobile .rc-x svg { display: none; } html.mobile .rc-x::before { content: '✕'; }
+/* Pop-up lists on phones: no stretch past their ends (Safari honours this on its own scrolling lists). */
+html.mobile :is(.modal-bg, #modal, .modal, .setx, #modal-body, #tipbox, .wz-body) { overscroll-behavior: none; }
+/* …except Settings' own list: it's the window's main scroll, so it stops dead at its ends (no stretch and spring) */
+html.mobile #modal-body :is(.setx, .rl-list) { overscroll-behavior: none !important; }
+/* Phones: a window sliding down as it closes stays solid all the way down (only the dimming behind it fades). Fading the
+   whole thing made it vanish before it had moved, so the slide was never seen. */
+@keyframes wDimOut { to { background-color: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; } }
+html.mobile .modal-bg.closing { animation: wDimOut .22s ease forwards; }
+/* Settings: a dashed line only between two rows of settings, not above a block of something else (Theme's colours) */
+.setrow:has(+ :not(.setrow)) { border-bottom: 0; margin-bottom: 8px; }

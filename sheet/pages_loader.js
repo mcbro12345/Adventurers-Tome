@@ -321,6 +321,25 @@ function pgPillWire(el) { let st = null; let TAPACT = '', TAPT = 0; // (a tap's 
     if (w && w !== document.body) w.classList.add('xwin-closing');
     setTimeout(() => { b._xgo = true; try { b.click(); } finally { b._xgo = false; } // (the window stays faded through its own closing; a window that's kept for next time gets its look back afterwards)
       setTimeout(() => { b.classList.remove('xclosing'); if (w && w.isConnected) w.classList.remove('xwin-closing'); }, 700); }, 190); }, true); })();
+// Pop-ups on a phone scroll rigidly: a drag inside one only ever scrolls the list it's on, and stops dead at its ends
+// (no rubber-banding the window, and never scrolling the page underneath).
+(function () { if (window.__pgRigid) return; window.__pgRigid = 1;
+  const POP = '.hub-modal.on, #modal.open, .modal-bg.open, .pg-out, .ptyask-bg, .wizard.open, .ha-sheet, .pg-crop, #pg-msg, .dk-modal.open, .drwin.phone, .pcwin, .pc-scrim, [role=dialog][aria-modal=true]';
+  const can = (el, dx, dy) => { const cs = getComputedStyle(el);
+    if (Math.abs(dy) >= Math.abs(dx)) return /(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 1 && (dy > 0 ? el.scrollTop > 0 : el.scrollTop + el.clientHeight < el.scrollHeight - 1);
+    return /(auto|scroll)/.test(cs.overflowX) && el.scrollWidth > el.clientWidth + 1 && (dx > 0 ? el.scrollLeft > 0 : el.scrollLeft + el.clientWidth < el.scrollWidth - 1); };
+  let x0 = 0, y0 = 0, pop = null;
+  document.addEventListener('touchstart', e => { const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; pop = e.target.closest ? e.target.closest(POP) : null; }, { passive: true, capture: true });
+  document.addEventListener('touchmove', e => { if (!pop || !pop.isConnected || !e.cancelable || e.touches.length > 1) return; const t = e.touches[0], dx = t.clientX - x0, dy = t.clientY - y0; if (!dx && !dy) return;
+    for (let el = e.target; el && el.nodeType === 1; el = el.parentElement) { if (el.matches('input[type=range], textarea')) return; if (can(el, dx, dy)) return; if (el === pop) break; }
+    e.preventDefault(); }, { passive: false, capture: true });
+  // A list that coasts into its end on its own (after you've let go) would still stretch past it and spring back: iPhone
+  // reports that stretch as scrolling past the end, so it's held at the end instead, and stops dead there.
+  document.addEventListener('scroll', e => { const el = e.target; if (!el || el.nodeType !== 1 || !el.closest || !el.closest(POP)) return;
+    const my = el.scrollHeight - el.clientHeight, mx = el.scrollWidth - el.clientWidth;
+    if (el.scrollTop < 0) el.scrollTop = 0; else if (my > 0 && el.scrollTop > my) el.scrollTop = my;
+    if (el.scrollLeft < 0) el.scrollLeft = 0; else if (mx > 0 && el.scrollLeft > mx) el.scrollLeft = mx; }, { capture: true, passive: true });
+})();
 // Desktop: every pop-up window can be moved by dragging its title (the heading at the top). It opens centred again
 // next time.
 (() => { if (window.__pgWinDrag) return; window.__pgWinDrag = 1; const WIN = '#modal-body, .hub-modal > .hub-card, .pg-out-card, #pg-msg .pgm-card, .wz-card, .wizard > .wz';
