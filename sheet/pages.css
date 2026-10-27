@@ -3594,3 +3594,7 @@ html.pg-dk-hide:not(.pg-dk-fade) body > :not(.pg-bgd):not(#pg-load):not(.pg-out)
 /* Tab picker (lobby, party page, admin): a short last row stretches to fill the width */
 .pgp-grid { display: flex; flex-wrap: wrap; justify-content: center; }
 .pgp-grid > * { flex: 1 0 calc((100% - 16px) / 3); min-width: 0; box-sizing: border-box; }
+.pgp-b { transition: transform .15s ease, box-shadow .15s ease; }
+.pgp-b.scrub { transform: scale(1.04); box-shadow: 0 0 0 2px #c9962b, 0 10px 28px rgba(0,0,0,.45); }
+.pgp-b { touch-action: none; }
+.pgp-b, .pgp-b * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }

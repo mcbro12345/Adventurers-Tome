@@ -248,6 +248,11 @@ window.pgPicAccentOf = pgPicAccentOf;
 // Phones: one roomy tab button at the bottom (like the character sheet's) that opens every tab upward as big tiles.
 // Tap: open; swipe sideways: next / previous; press and hold: slide onto a tile and let go. tabsFn() lists the tabs
 // ({ k, b: the real tab button, on, ic, label, badge }); passing null takes the button away.
+// A haptic tap. Android: the vibration API. iPhone Safari has none, but flipping a switch-style checkbox gives the phone's
+// own system tap (Safari 17.4 and later), so a fresh hidden one is flipped each time.
+const pgHaptic = ms => { try { if (navigator.vibrate) { navigator.vibrate(ms || 8); return; } } catch (e) {}
+  try { const l = document.createElement('label'), i = document.createElement('input'); l.ariaHidden = 'true'; l.style.display = 'none'; i.type = 'checkbox'; i.setAttribute('switch', ''); l.appendChild(i);
+    document.head.appendChild(l); l.click(); document.head.removeChild(l); } catch (e) {} };
 const PG_PILL_CHEV = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>';
 let PG_PILL_FN = null, PG_PILL_OWN = '';
 function pgPill(tabsFn, own) { PG_PILL_FN = tabsFn; PG_PILL_OWN = tabsFn ? own || 'admin' : ''; let el = document.getElementById('pgpill');
@@ -270,25 +275,37 @@ function pgPillOpen(kb) { if (document.getElementById('pgpmenu')) return pgPillC
   m.addEventListener('click', e => { const t = e.target.closest('[data-pt]'); if (!t) return; const k = t.dataset.pt; pgPillClose(); setTimeout(() => pgPillGo(k), 60); });
   m.addEventListener('keydown', e => { if (e.key === 'Escape') { pgPillClose(); const bb = document.querySelector('.pgp-b'); if (bb) bb.focus(); } });
   if (kb) setTimeout(() => { const on = m.querySelector('.pgp-t.on') || m.querySelector('.pgp-t'); if (on) on.focus({ preventScroll: true }); }, 30);
-  try { navigator.vibrate && navigator.vibrate(6); } catch (x) {} }
-function pgPillClose(now) { const m = document.getElementById('pgpmenu'); document.documentElement.classList.remove('pgp-open'); const b = document.querySelector('.pgp-b'); if (b) b.setAttribute('aria-expanded', 'false'); if (!m) return;
+  pgHaptic(8); }
+function pgPillClose(now) { const m = document.getElementById('pgpmenu'); document.documentElement.classList.remove('pgp-open'); const b = document.querySelector('.pgp-b'); if (b) b.setAttribute('aria-expanded', 'false'); if (!m) return; if (!now) pgHaptic(8);
   m.id = ''; if (now || PG_CALM) return m.remove(); m.classList.remove('in'); m.classList.add('out'); setTimeout(() => m.remove(), 220); }
-function pgPillWire(el) { let st = null;
+function pgPillWire(el) { let st = null; let TAPACT = '', TAPT = 0; // (a tap's open / close waits for its click, or 0.4 s if none comes)
+  // iPhone: keep the page from scrolling (and Safari from taking over the long press) while the button is held. (Safari only
+  // plays its tap right after a real tap, so on an iPhone the slide itself is silent; Android buzzes all the way.)
+  el.addEventListener('touchmove', e => { if (st && e.cancelable) e.preventDefault(); }, { passive: false });
+  // Press and hold, then slide sideways: the button steps through the tabs under your finger (like holding the space bar
+  // to move the cursor on an iPhone), one tab every 14px; let go to open the one it shows.
+  const scrubShow = (b, ts, i) => { const t = ts[i]; if (!t) return; const ic = b.querySelector('.pgp-ic'), l = b.querySelector('.pgp-l'); if (ic) ic.innerHTML = t.ic; if (l) l.textContent = t.label;
+    b.querySelectorAll('.pgp-dots i').forEach((d, k) => d.classList.toggle('on', k === i)); };
+  const scrubStart = s => { const ts = (PG_PILL_FN ? PG_PILL_FN() : []); s.mode = 'scrub'; s.i0 = Math.max(0, ts.findIndex(t => t.on)); s.si = s.i0; s.x0 = s.lx || 0; s.b.classList.add('scrub'); pgHaptic(12); };
+  const scrubMove = (s, dx) => { const ts = (PG_PILL_FN ? PG_PILL_FN() : []); const i = Math.max(0, Math.min(ts.length - 1, s.i0 + Math.round((dx - s.x0) / 14)));
+    if (i !== s.si) { s.si = i; scrubShow(s.b, ts, i); pgHaptic(6); } };
   const tileAt = (x, y) => { const t = document.elementFromPoint(x, y); return t && t.closest ? t.closest('#pgpmenu .pgp-t') : null; };
-  const hover = t => { document.querySelectorAll('.pgp-t.hov').forEach(x => { if (x !== t) x.classList.remove('hov'); }); if (t && !t.classList.contains('hov')) { t.classList.add('hov'); try { navigator.vibrate && navigator.vibrate(4); } catch (x) {} } };
+  const hover = t => { document.querySelectorAll('.pgp-t.hov').forEach(x => { if (x !== t) x.classList.remove('hov'); }); if (t && !t.classList.contains('hov')) { t.classList.add('hov'); pgHaptic(6); } };
   el.addEventListener('contextmenu', e => e.preventDefault());
   el.addEventListener('pointerdown', e => { if (!e.isPrimary || !e.target.closest('.pgp-b')) return; const b = e.target.closest('.pgp-b');
     st = { id: e.pointerId, x: e.clientX, y: e.clientY, mode: '', b, wasOpen: !!document.getElementById('pgpmenu') }; try { b.setPointerCapture(e.pointerId); } catch (x) {}
-    st.t = setTimeout(() => { if (!st || st.mode) return; st.mode = 'hold'; if (!document.getElementById('pgpmenu')) pgPillOpen(); b.classList.add('held'); }, 320); });
-  el.addEventListener('pointermove', e => { if (!st || e.pointerId !== st.id) return; const dx = e.clientX - st.x, dy = e.clientY - st.y;
-    if (!st.mode && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) { st.mode = 'swipe'; clearTimeout(st.t); }
-    if (!st.mode && dy < -18) { st.mode = 'hold'; clearTimeout(st.t); if (!document.getElementById('pgpmenu')) pgPillOpen(); st.b.classList.add('held'); }
-    if (st.mode === 'swipe') st.b.style.transform = `translateX(${Math.max(-40, Math.min(40, dx / 2))}px)`;
+    st.t = setTimeout(() => { if (!st || st.mode) return; scrubStart(st); }, 280); });
+  el.addEventListener('pointermove', e => { if (!st || e.pointerId !== st.id) return; const dx = e.clientX - st.x, dy = e.clientY - st.y; if (!st.mode) st.lx = dx; // (where the finger was when the hold kicked in: sliding counts from there)
+    if (!st.mode && dy < -18 && Math.abs(dy) > Math.abs(dx)) { st.mode = 'hold'; clearTimeout(st.t); if (!document.getElementById('pgpmenu')) pgPillOpen(); st.b.classList.add('held'); }
+    if (!st.mode && Math.abs(dx) > 22) { st.mode = 'none'; clearTimeout(st.t); } // (a quick sideways swipe does nothing: hold first to move through the tabs)
+    if (st.mode === 'scrub') scrubMove(st, dx);
     if (st.mode === 'hold') hover(tileAt(e.clientX, e.clientY)); });
   const end = e => { if (!st || e.pointerId !== st.id) return; const s0 = st; st = null; clearTimeout(s0.t); s0.b.style.transform = ''; s0.b.classList.remove('held'); const dx = e.clientX - s0.x;
-    if (s0.mode === 'swipe') { if (e.type !== 'pointercancel' && Math.abs(dx) > 50) { const ts = PG_PILL_FN ? PG_PILL_FN() : [], i = ts.findIndex(t => t.on), n = ts[i + (dx < 0 ? 1 : -1)]; if (n) pgPillGo(n.k); } return; }
+    if (s0.mode === 'scrub') { s0.b.classList.remove('scrub'); const ts = (PG_PILL_FN ? PG_PILL_FN() : []), n = ts[s0.si]; if (e.type !== 'pointercancel' && n && !n.on) pgPillGo(n.k); else scrubShow(s0.b, ts, ts.findIndex(t => t.on)); return; }
+    if (s0.mode === 'none') return;
     if (s0.mode === 'hold') { const t = e.type === 'pointercancel' ? null : tileAt(e.clientX, e.clientY); hover(null); if (t) { const k = t.dataset.pt; pgPillClose(); setTimeout(() => pgPillGo(k), 60); } return; }
-    if (e.type !== 'pointercancel') { if (s0.wasOpen) pgPillClose(); else pgPillOpen(); } };
+    if (e.type !== 'pointercancel') { const act = s0.wasOpen ? 'close' : 'open'; TAPACT = act; clearTimeout(TAPT); TAPT = setTimeout(() => { if (TAPACT === act) { TAPACT = ''; act === 'close' ? pgPillClose() : pgPillOpen(); } }, 400); } };
+  el.addEventListener('click', e => { if (!TAPACT || !e.target.closest('.pgp-b')) return; const act = TAPACT; TAPACT = ''; clearTimeout(TAPT); act === 'close' ? pgPillClose() : pgPillOpen(); });
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
   el.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('.pgp-b')) { e.preventDefault(); pgPillOpen(true); } }); }
 // Desktop: every pop-up window can be moved by dragging its title (the heading at the top). It opens centred again

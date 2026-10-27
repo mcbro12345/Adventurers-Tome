@@ -4150,3 +4150,15 @@ html:not(.mobile) .toolbar [data-zi="history"].iconly .ti { display: block !impo
 /* Phone tab picker: a short last row stretches to fill the width */
 .mtab-grid { display: flex; flex-wrap: wrap; justify-content: center; }
 .mtab-grid > * { flex: 1 0 calc((100% - 16px) / 3); min-width: 0; box-sizing: border-box; }
+/* Holding the tab button to step through tabs: it lifts a little and gets a gold ring while you slide */
+.mtab-b { transition: transform .15s ease, box-shadow .15s ease; }
+.mtab-b.scrub { transform: scale(1.04); box-shadow: 0 0 0 2px var(--gold), 0 10px 28px rgba(0,0,0,.45); }
+.mtab-b.scrub .mtab-l { transition: none; }
+.mtab-b, .mtab-b * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+/* Roll math in the Log (and anywhere else): a long value wraps inside the card instead of running off its edge; a really
+   long one (a roll Roll20 didn't answer, written out in full) goes on its own line under its label. */
+.rc-math .rm-r span { flex: none; max-width: 60%; }
+.rc-math .rm-r b { min-width: 0; white-space: normal; overflow-wrap: anywhere; text-align: right; }
+.rc-math .rm-r.rm-long { flex-direction: column; gap: 2px; }
+.rc-math .rm-r.rm-long span { max-width: none; }
+.rc-math .rm-r.rm-long b { text-align: left; font-weight: 600; font-variant-numeric: normal; }

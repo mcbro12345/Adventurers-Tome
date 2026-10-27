@@ -4549,6 +4549,16 @@ html.mobile .setrow.r20aura input[type=checkbox] { width: 22px; height: 22px; ma
 @media (prefers-color-scheme: light) { :where(input[type=checkbox]:not([role=switch])) { --cb-line: rgba(70,80,100,.45); } }
 :root[data-theme="light"] :where(input[type=checkbox]:not([role=switch])), html[data-pgtheme="light"] :where(input[type=checkbox]:not([role=switch])) { --cb-line: rgba(70,80,100,.45); }
 :root[data-theme="dark"] :where(input[type=checkbox]:not([role=switch])), html[data-pgtheme="dark"] :where(input[type=checkbox]:not([role=switch])) { --cb-line: rgba(140,150,170,.6); }
+/* Radio buttons match the site's checkboxes: a round box that fills with a gold dot when picked. */
+:where(input[type=radio]) { appearance: none; -webkit-appearance: none; box-sizing: border-box; flex: none; width: 18px; height: 18px; margin: 0; padding: 0; vertical-align: -4px;
+  border: 1.5px solid var(--cb-line, rgba(140,150,170,.6)); border-radius: 50%; background: var(--field, transparent); cursor: pointer; color: inherit;
+  transition: background-color .15s, border-color .15s, box-shadow .15s; }
+@media (hover:hover){:where(html:not(.mobile)) :where(input[type=radio]):hover:not(:disabled){ border-color: var(--gold, #c9962b); }}
+:where(input[type=radio]):checked { border-color: var(--gold, #c9962b); background: radial-gradient(circle, var(--gold, #c9962b) 0 4px, transparent 4.6px) var(--field, transparent); }
+:where(input[type=radio]):disabled { cursor: not-allowed; opacity: .5; }
+@media (prefers-color-scheme: light) { :where(input[type=radio]) { --cb-line: rgba(70,80,100,.45); } }
+:root[data-theme="light"] :where(input[type=radio]), html[data-pgtheme="light"] :where(input[type=radio]) { --cb-line: rgba(70,80,100,.45); }
+:root[data-theme="dark"] :where(input[type=radio]), html[data-pgtheme="dark"] :where(input[type=radio]) { --cb-line: rgba(140,150,170,.6); }
 /* A tick-box setting: its words line up on the left after the box (not pushed right like a setting's value), with the
    box level with the title */
 label.setrow > input[type=checkbox] + span { flex: 1 1 auto; min-width: 0; text-align: left; color: inherit; font-size: inherit; }
@@ -4776,4 +4786,49 @@ html.mobile .pcwin .pcw-body { padding-bottom: 0 !important; }
 /* Coming back to the app with the keyboard up, the iPhone slides the visible part of the page down (the chat's top went
    off the screen): the card follows the visible part, so its top stays under the clock. (Normally that slide is 0.) */
 html.mobile .pcwin { top: calc(var(--vvt, 0px) + env(safe-area-inset-top, 0px) + 8px) !important; }
+/* the portrait's "change" control: a small gold pencil badge in its corner on hover (like a party's picture), not a strip
+   of text across the bottom; the whole portrait still takes the click */
+header.banner .portrait-wrap .portrait-edit { inset: auto 6px 6px auto !important; width: 28px; height: 28px; padding: 0 !important; display: grid; place-items: center; border-radius: 50% !important;
+  background: var(--gold) !important; color: #1b1406 !important; box-shadow: 0 2px 8px rgba(0,0,0,.35); font-size: 0 !important; transition: opacity .15s ease, transform .15s ease; }
+header.banner .portrait-wrap .portrait-edit svg { width: 14px; height: 14px; }
+@media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) :where(html:not(.mobile)) header.banner .portrait-wrap:hover .portrait-edit{ transform: scale(1.06); }} }
+html.mobile header.banner .portrait-wrap .portrait-edit { width: 24px; height: 24px; inset: auto 3px 3px auto !important; }
+/* roll cards can be picked up and moved with a mouse */
+html:not(.mobile) #rolls .toast.rollcard { cursor: grab; } body.rolls-drag, body.rolls-drag #rolls .toast.rollcard { cursor: grabbing !important; user-select: none; }
+/* tab labels sit on the same middle as their icons (the label's box is trimmed to its capital letters, so centring
+   lines up the letters themselves, not the empty space a font keeps above and below them) */
+html:not(.mobile) #tabs .tab .tlabel { transform: translateY(-1px); }
+/* Where the browser can trim a line down to the capital letters, the words are centred by their capitals, the way the
+   eye reads them, on every system font (Windows and Mac fonts sit their letters at different heights in the line) */
+@supports (text-box: trim-both cap alphabetic) {
+  html:not(.mobile) #tabs .tab .tlabel { transform: none; top: 0; text-box: trim-both cap alphabetic; overflow: clip; overflow-clip-margin: 6px; }
+}
+
+/* Divine Smite: the switch on its own full-width line, then the slot choices in a grid under it (the row used to be the
+   slot grid itself, which squeezed the switch into one narrow cell). */
+.smite-row { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.smite-row .smite-chk { margin: 0; }
+.smite-row .smite-chk b { white-space: nowrap; }
+.smite-lv, html.mobile .smite-lv { display: grid; grid-template-columns: repeat(auto-fit, minmax(78px, 1fr)); gap: 6px; }
+.smite > .sect { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; white-space: nowrap; }
+.smite > .sect .toggle { white-space: nowrap; flex: none; margin-left: auto; }
+/* Undo / Redo / History: icons only (the same ones the DM's Desk uses) */
+.tbtn.iconly .ti { margin-right: 0; }
+html:not(.mobile) .toolbar .tbtn.iconly { padding-left: 9px; padding-right: 9px; }
+html:not(.mobile) .toolbar [data-zi="history"].iconly .ti { display: block !important; }
+/* Phone tab picker: a short last row stretches to fill the width */
+.mtab-grid { display: flex; flex-wrap: wrap; justify-content: center; }
+.mtab-grid > * { flex: 1 0 calc((100% - 16px) / 3); min-width: 0; box-sizing: border-box; }
+/* Holding the tab button to step through tabs: it lifts a little and gets a gold ring while you slide */
+.mtab-b { transition: transform .15s ease, box-shadow .15s ease; }
+.mtab-b.scrub { transform: scale(1.04); box-shadow: 0 0 0 2px var(--gold), 0 10px 28px rgba(0,0,0,.45); }
+.mtab-b.scrub .mtab-l { transition: none; }
+.mtab-b, .mtab-b * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+/* Roll math in the Log (and anywhere else): a long value wraps inside the card instead of running off its edge; a really
+   long one (a roll Roll20 didn't answer, written out in full) goes on its own line under its label. */
+.rc-math .rm-r span { flex: none; max-width: 60%; }
+.rc-math .rm-r b { min-width: 0; white-space: normal; overflow-wrap: anywhere; text-align: right; }
+.rc-math .rm-r.rm-long { flex-direction: column; gap: 2px; }
+.rc-math .rm-r.rm-long span { max-width: none; }
+.rc-math .rm-r.rm-long b { text-align: left; font-weight: 600; font-variant-numeric: normal; }
 

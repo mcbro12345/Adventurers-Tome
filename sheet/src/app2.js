@@ -612,8 +612,13 @@ function renderTabs() {
   slideTabInd(); mtabSync();
 }
 // Phones: instead of a strip of nine squeezed tabs, one roomy button at the bottom shows the tab you're on. Tap it and
-// the other tabs open upward as a grid of big tiles; tap one to go there (or tap outside to close). Swiping sideways on
-// the button steps to the next or previous tab. The real tab bar stays underneath, so everything else works as before.
+// the other tabs open upward as a grid of big tiles; tap one to go there (or tap outside to close). Pressing and holding
+// the button, then sliding sideways, steps through the tabs. The real tab bar stays underneath, so everything else works as before.
+// A haptic tap. Android: the vibration API. iPhone Safari has none, but flipping a switch-style checkbox gives the phone's
+// own system tap (Safari 17.4 and later), so a fresh hidden one is flipped each time.
+const haptic = ms => { try { if (navigator.vibrate) { navigator.vibrate(ms || 8); return; } } catch (e) {}
+  try { const l = document.createElement('label'), i = document.createElement('input'); l.ariaHidden = 'true'; l.style.display = 'none'; i.type = 'checkbox'; i.setAttribute('switch', ''); l.appendChild(i);
+    document.head.appendChild(l); l.click(); document.head.removeChild(l); } catch (e) {} };
 const MTAB_CHEV = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>';
 function mtabTabs() { return [...document.querySelectorAll('#tabs .tab')].map(b => ({ k: b.dataset.tab, b, on: b.classList.contains('on'), unread: b.classList.contains('unread'), ic: (b.querySelector('.ticon') || {}).innerHTML || '', label: (b.querySelector('.tlabel') || {}).textContent || b.dataset.tab, count: (b.querySelector('.tabcount') || {}).textContent || '' })); }
 function mtabSync() {
@@ -638,29 +643,41 @@ function mtabOpen(kb) { if (document.getElementById('mtabmenu')) return mtabClos
   m.addEventListener('click', e => { const t = e.target.closest('[data-mt]'); if (!t) return; const k = t.dataset.mt; mtabClose(); setTimeout(() => mtabGo(k), 60); });
   m.addEventListener('keydown', e => { if (e.key === 'Escape') { mtabClose(); const bb = document.querySelector('.mtab-b'); if (bb) bb.focus(); } });
   if (kb) setTimeout(() => { const on = m.querySelector('.mtab-t.on') || m.querySelector('.mtab-t'); if (on) on.focus({ preventScroll: true }); }, 30);
-  try { navigator.vibrate && navigator.vibrate(6); } catch (x) {} }
-function mtabClose(now) { const m = document.getElementById('mtabmenu'); document.documentElement.classList.remove('mtab-open'); const b = document.querySelector('.mtab-b'); if (b) b.setAttribute('aria-expanded', 'false'); if (!m) return;
+  haptic(8); }
+function mtabClose(now) { const m = document.getElementById('mtabmenu'); document.documentElement.classList.remove('mtab-open'); const b = document.querySelector('.mtab-b'); if (b) b.setAttribute('aria-expanded', 'false'); if (!m) return; if (!now) haptic(8);
   m.id = ''; if (now || matchMedia('(prefers-reduced-motion: reduce)').matches) return m.remove(); m.classList.remove('in'); m.classList.add('out'); setTimeout(() => m.remove(), 220); }
-// Tap: open the tab grid. Swipe sideways: next / previous tab. Press and hold: the grid opens under your finger; slide
-// onto a tab and let go to switch to it (let go anywhere else to keep it open).
-function mtabWire(el) { let st = null;
+// Tap: open the tab grid. Press and hold, then slide sideways: step through the tabs, and let go to switch. Slide up from
+// the button: the grid opens under your finger; slide onto a tab and let go to switch to it.
+function mtabWire(el) { let st = null; let TAPACT = '', TAPT = 0; // (a tap's open / close waits for its click, or 0.4 s if none comes)
+  // iPhone: keep the page from scrolling (and Safari from taking over the long press) while the button is held. (Safari only
+  // plays its tap right after a real tap, so on an iPhone the slide itself is silent; Android buzzes all the way.)
+  el.addEventListener('touchmove', e => { if (st && e.cancelable) e.preventDefault(); }, { passive: false });
+  // Press and hold, then slide sideways: the button steps through the tabs under your finger (like holding the space bar
+  // to move the cursor on an iPhone), one tab every 14px; let go to open the one it shows.
+  const scrubShow = (b, ts, i) => { const t = ts[i]; if (!t) return; const ic = b.querySelector('.mtab-ic'), l = b.querySelector('.mtab-l'); if (ic) ic.innerHTML = t.ic; if (l) l.textContent = t.label;
+    b.querySelectorAll('.mtab-dots i').forEach((d, k) => d.classList.toggle('on', k === i)); };
+  const scrubStart = s => { const ts = mtabTabs(); s.mode = 'scrub'; s.i0 = Math.max(0, ts.findIndex(t => t.on)); s.si = s.i0; s.x0 = s.lx || 0; s.b.classList.add('scrub'); haptic(12); };
+  const scrubMove = (s, dx) => { const ts = mtabTabs(); const i = Math.max(0, Math.min(ts.length - 1, s.i0 + Math.round((dx - s.x0) / 14)));
+    if (i !== s.si) { s.si = i; scrubShow(s.b, ts, i); haptic(6); } };
   const tileAt = (x, y) => { const t = document.elementFromPoint(x, y); return t && t.closest ? t.closest('#mtabmenu .mtab-t') : null; };
-  const hover = t => { document.querySelectorAll('.mtab-t.hov').forEach(x => { if (x !== t) x.classList.remove('hov'); }); if (t && !t.classList.contains('hov')) { t.classList.add('hov'); try { navigator.vibrate && navigator.vibrate(4); } catch (x) {} } };
+  const hover = t => { document.querySelectorAll('.mtab-t.hov').forEach(x => { if (x !== t) x.classList.remove('hov'); }); if (t && !t.classList.contains('hov')) { t.classList.add('hov'); haptic(6); } };
   el.addEventListener('contextmenu', e => e.preventDefault());
   el.addEventListener('pointerdown', e => { if (!e.isPrimary || !e.target.closest('.mtab-b')) return; const b = e.target.closest('.mtab-b');
     st = { id: e.pointerId, x: e.clientX, y: e.clientY, mode: '', b, wasOpen: !!document.getElementById('mtabmenu') };
     try { b.setPointerCapture(e.pointerId); } catch (x) {}
-    st.t = setTimeout(() => { if (!st || st.mode) return; st.mode = 'hold'; if (!document.getElementById('mtabmenu')) mtabOpen(); b.classList.add('held'); }, 320); });
-  el.addEventListener('pointermove', e => { if (!st || e.pointerId !== st.id) return; const dx = e.clientX - st.x, dy = e.clientY - st.y;
-    if (!st.mode && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) { st.mode = 'swipe'; clearTimeout(st.t); }
-    if (!st.mode && dy < -18) { st.mode = 'hold'; clearTimeout(st.t); if (!document.getElementById('mtabmenu')) mtabOpen(); st.b.classList.add('held'); }
-    if (st.mode === 'swipe') st.b.style.transform = `translateX(${Math.max(-40, Math.min(40, dx / 2))}px)`;
+    st.t = setTimeout(() => { if (!st || st.mode) return; scrubStart(st); }, 280); });
+  el.addEventListener('pointermove', e => { if (!st || e.pointerId !== st.id) return; const dx = e.clientX - st.x, dy = e.clientY - st.y; if (!st.mode) st.lx = dx; // (where the finger was when the hold kicked in: sliding counts from there)
+    if (!st.mode && dy < -18 && Math.abs(dy) > Math.abs(dx)) { st.mode = 'hold'; clearTimeout(st.t); if (!document.getElementById('mtabmenu')) mtabOpen(); st.b.classList.add('held'); }
+    if (!st.mode && Math.abs(dx) > 22) { st.mode = 'none'; clearTimeout(st.t); } // (a quick sideways swipe does nothing: hold first to move through the tabs)
+    if (st.mode === 'scrub') scrubMove(st, dx);
     if (st.mode === 'hold') hover(tileAt(e.clientX, e.clientY)); });
   const end = e => { if (!st || e.pointerId !== st.id) return; const s0 = st; st = null; clearTimeout(s0.t); s0.b.style.transform = ''; s0.b.classList.remove('held');
     const dx = e.clientX - s0.x;
-    if (s0.mode === 'swipe') { if (e.type !== 'pointercancel' && Math.abs(dx) > 50) { const ts = mtabTabs(), i = ts.findIndex(t => t.on), n = ts[i + (dx < 0 ? 1 : -1)]; if (n) { try { navigator.vibrate && navigator.vibrate(4); } catch (x) {} mtabGo(n.k); } } return; }
+    if (s0.mode === 'scrub') { s0.b.classList.remove('scrub'); const ts = mtabTabs(), n = ts[s0.si]; if (e.type !== 'pointercancel' && n && !n.on) mtabGo(n.k); else scrubShow(s0.b, ts, ts.findIndex(t => t.on)); return; }
+    if (s0.mode === 'none') return;
     if (s0.mode === 'hold') { const t = e.type === 'pointercancel' ? null : tileAt(e.clientX, e.clientY); hover(null); if (t) { const k = t.dataset.mt; mtabClose(); setTimeout(() => mtabGo(k), 60); } return; }
-    if (e.type !== 'pointercancel') { if (s0.wasOpen) mtabClose(); else mtabOpen(); } };
+    if (e.type !== 'pointercancel') { const act = s0.wasOpen ? 'close' : 'open'; TAPACT = act; clearTimeout(TAPT); TAPT = setTimeout(() => { if (TAPACT === act) { TAPACT = ''; act === 'close' ? mtabClose() : mtabOpen(); } }, 400); } };
+  el.addEventListener('click', e => { if (!TAPACT || !e.target.closest('.mtab-b')) return; const act = TAPACT; TAPACT = ''; clearTimeout(TAPT); act === 'close' ? mtabClose() : mtabOpen(); });
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
   // keyboard (and screen readers): Enter / Space on the button opens the grid
   el.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('.mtab-b')) { e.preventDefault(); mtabOpen(true); } }); }
@@ -1016,7 +1033,7 @@ function termMath(r, rows, title, names) {
 }
 function mathHTML(secs) {
   secs = secs.filter(x => x && x.rows && x.rows.length); if (!secs.length) return '';
-  return `<div class="rc-math">${secs.map(x => `${secs.length > 1 || x.title !== 'Roll' ? `<div class="rm-h">${esc(x.title)}</div>` : ''}${x.rows.map(([l, v, sub]) => `<div class="rm-r"><span>${esc(l)}${sub ? ` <i>${esc(sub)}</i>` : ''}</span><b>${esc(String(v))}</b></div>`).join('')}<div class="rm-r rm-t"><span>Total</span><b>${esc(String(x.total))}</b></div>`).join('')}</div>`;
+  return `<div class="rc-math">${secs.map(x => `${secs.length > 1 || x.title !== 'Roll' ? `<div class="rm-h">${esc(x.title)}</div>` : ''}${x.rows.map(([l, v, sub]) => `<div class="rm-r${String(v).length > 16 ? ' rm-long' : ''}"><span>${esc(l)}${sub ? ` <i>${esc(sub)}</i>` : ''}</span><b>${esc(String(v))}</b></div>`).join('')}<div class="rm-r rm-t"><span>Total</span><b>${esc(String(x.total))}</b></div>`).join('')}</div>`;
 }
 // The parts of each kind of bonus.
 const abRow = a => [`${String(a).toUpperCase()} modifier`, mod(a)];
