@@ -1809,7 +1809,8 @@ const R20_LOGO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAARcAAAB4CAIAAABX
 const ICON = {
   image: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
   clock: '<svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
-  log: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h8M8 9h2"/></svg>',
+  log: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>',
+  hist: '<svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>',
   sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
   moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>',
   bug: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7.5V6a3 3 0 0 1 6 0v1.5"/><rect x="7" y="7.5" width="10" height="12.5" rx="5"/><path d="M12 11v9M3.5 13H7M17 13h3.5M4.5 8l2.6 1.8M19.5 8l-2.6 1.8M4.5 19.5l2.8-2M19.5 19.5l-2.8-2"/></svg>',
@@ -1829,9 +1830,9 @@ const ICON = {
 // Toolbar buttons are generated straight into the user's saved order, so there is no default order to flash back to.
 function toolbarHTML() {
   const items = {
-    undo: `<button class="tbtn" data-zi="undo" data-act="undo" id="undoBtn" title="Undo (Ctrl+Z)">${ICON.undo}<span class="tl"> Undo</span></button>`,
-    redo: `<button class="tbtn" data-zi="redo" data-act="redo" id="redoBtn" title="Redo (Ctrl+Y)">${ICON.redo}<span class="tl"> Redo</span></button>`,
-    history: `<button class="tbtn" data-zi="history" data-act="history" title="See every change and roll back by time">${ICON.clock}<span class="tl">History</span></button>`,
+    undo: `<button class="tbtn iconly" data-zi="undo" data-act="undo" id="undoBtn" title="Undo (Ctrl+Z)" aria-label="Undo">${ICON.undo}</button>`,
+    redo: `<button class="tbtn iconly" data-zi="redo" data-act="redo" id="redoBtn" title="Redo (Ctrl+Y)" aria-label="Redo">${ICON.redo}</button>`,
+    history: `<button class="tbtn iconly" data-zi="history" data-act="history" title="History: see every change and roll back by time" aria-label="History">${ICON.hist}</button>`,
     edit: `<button class="tbtn${UI.editLayout ? ' on' : ''}" data-zi="edit" data-act="editlayout" title="Rearrange, hide and move panels and tabs">${UI.editLayout ? '✓<span class="tl"> Done' + (isMobile() ? '' : ' editing') + '</span>' : '✥<span class="tl"> ' + (isMobile() ? 'Layout' : 'Edit layout') + '</span>'}</button>`,
     settings: `<button class="tbtn" data-zi="settings" data-act="settings" title="Settings">${ICON.gear}<span class="tl">Settings</span></button>`,
     save: `<div class="savegrp" data-zi="save"><span class="save-state${/synced|view only/i.test(UI.saveState || '') ? ' live' : ''}" id="saveState" title="${esc(UI.saveState || 'Auto-saves')}">${syncHTML(UI.saveState || 'Auto-saves')}</span></div>`,
@@ -1910,8 +1911,8 @@ function renderVitals() {
   <div class="tile" data-zi="passive"><span class="lbl"><span class="ciw top">Passive<br>Perception${ciBtn('passive', 'passive Perception')}</span></span><span class="big" data-calc="passive"></span><span class="sub senses" data-calc="senses"></span>${ravenHas() ? ravenChk(true) : ''}</div>
   <div class="tile" data-zi="hd"><span class="lbl"><span class="ciw top">Hit Dice${ciBtn('hd', 'hit dice')}</span></span><span class="big" data-calc="hd"></span><span class="sub" data-calc="hdpools"></span></div>
   <div class="tile deathtile" data-zi="death"><span class="lbl">Death Saves</span><div class="death" data-calc-html="death"></div></div>
-  <div class="tile condtile" data-zi="conds"><div class="tilehead"><span class="lbl">Conditions</span><button class="addc" data-act="conditions">+ Add</button><span class="advbtns" role="group" aria-label="All d20 rolls"><button class="advb adv${S.rollAdv === 'adv' ? ' on' : ''}" data-act="rolladv" data-v="adv" aria-pressed="${S.rollAdv === 'adv'}" title="Advantage on every attack, check and save"><span class="al">Advantage</span></button><button class="advb dis${S.rollAdv === 'dis' ? ' on' : ''}" data-act="rolladv" data-v="dis" aria-pressed="${S.rollAdv === 'dis'}" title="Disadvantage on every attack, check and save"><span class="al">Disadvantage</span></button></span></div><div class="condchips" data-calc-html="conds"></div></div>
-  <div class="tile fxtile" data-zi="effects"><div class="tilehead"><span class="lbl">Active spells &amp; effects</span><button class="addc" data-act="addeffects" title="Spells and effects someone else put on you">+ Add</button><span class="hint" data-calc="concnote"></span></div><div class="fxchips" data-calc-html="fxchips"></div></div>
+  <div class="tile condtile" data-zi="conds"><div class="tilehead"><span class="lbl">Conditions</span><button class="addc" data-act="conditions"><span class="tt">+ Add</span></button><span class="advbtns" role="group" aria-label="All d20 rolls"><button class="advb adv${S.rollAdv === 'adv' ? ' on' : ''}" data-act="rolladv" data-v="adv" aria-pressed="${S.rollAdv === 'adv'}" title="Advantage on every attack, check and save"><span class="al">Advantage</span></button><button class="advb dis${S.rollAdv === 'dis' ? ' on' : ''}" data-act="rolladv" data-v="dis" aria-pressed="${S.rollAdv === 'dis'}" title="Disadvantage on every attack, check and save"><span class="al">Disadvantage</span></button></span></div><div class="condchips" data-calc-html="conds"></div></div>
+  <div class="tile fxtile" data-zi="effects"><div class="tilehead"><span class="lbl">Active spells &amp; effects</span><button class="addc" data-act="addeffects" title="Spells and effects someone else put on you"><span class="tt">+ Add</span></button><span class="hint" data-calc="concnote"></span></div><div class="fxchips" data-calc-html="fxchips"></div></div>
 `;
 }
 
@@ -1959,8 +1960,13 @@ function renderTabs() {
   slideTabInd(); mtabSync();
 }
 // Phones: instead of a strip of nine squeezed tabs, one roomy button at the bottom shows the tab you're on. Tap it and
-// the other tabs open upward as a grid of big tiles; tap one to go there (or tap outside to close). Swiping sideways on
-// the button steps to the next or previous tab. The real tab bar stays underneath, so everything else works as before.
+// the other tabs open upward as a grid of big tiles; tap one to go there (or tap outside to close). Pressing and holding
+// the button, then sliding sideways, steps through the tabs. The real tab bar stays underneath, so everything else works as before.
+// A haptic tap. Android: the vibration API. iPhone Safari has none, but flipping a switch-style checkbox gives the phone's
+// own system tap (Safari 17.4 and later), so a fresh hidden one is flipped each time.
+const haptic = ms => { try { if (navigator.vibrate) { navigator.vibrate(ms || 8); return; } } catch (e) {}
+  try { const l = document.createElement('label'), i = document.createElement('input'); l.ariaHidden = 'true'; l.style.display = 'none'; i.type = 'checkbox'; i.setAttribute('switch', ''); l.appendChild(i);
+    document.head.appendChild(l); l.click(); document.head.removeChild(l); } catch (e) {} };
 const MTAB_CHEV = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>';
 function mtabTabs() { return [...document.querySelectorAll('#tabs .tab')].map(b => ({ k: b.dataset.tab, b, on: b.classList.contains('on'), unread: b.classList.contains('unread'), ic: (b.querySelector('.ticon') || {}).innerHTML || '', label: (b.querySelector('.tlabel') || {}).textContent || b.dataset.tab, count: (b.querySelector('.tabcount') || {}).textContent || '' })); }
 function mtabSync() {
@@ -1985,29 +1991,41 @@ function mtabOpen(kb) { if (document.getElementById('mtabmenu')) return mtabClos
   m.addEventListener('click', e => { const t = e.target.closest('[data-mt]'); if (!t) return; const k = t.dataset.mt; mtabClose(); setTimeout(() => mtabGo(k), 60); });
   m.addEventListener('keydown', e => { if (e.key === 'Escape') { mtabClose(); const bb = document.querySelector('.mtab-b'); if (bb) bb.focus(); } });
   if (kb) setTimeout(() => { const on = m.querySelector('.mtab-t.on') || m.querySelector('.mtab-t'); if (on) on.focus({ preventScroll: true }); }, 30);
-  try { navigator.vibrate && navigator.vibrate(6); } catch (x) {} }
-function mtabClose(now) { const m = document.getElementById('mtabmenu'); document.documentElement.classList.remove('mtab-open'); const b = document.querySelector('.mtab-b'); if (b) b.setAttribute('aria-expanded', 'false'); if (!m) return;
+  haptic(8); }
+function mtabClose(now) { const m = document.getElementById('mtabmenu'); document.documentElement.classList.remove('mtab-open'); const b = document.querySelector('.mtab-b'); if (b) b.setAttribute('aria-expanded', 'false'); if (!m) return; if (!now) haptic(8);
   m.id = ''; if (now || matchMedia('(prefers-reduced-motion: reduce)').matches) return m.remove(); m.classList.remove('in'); m.classList.add('out'); setTimeout(() => m.remove(), 220); }
-// Tap: open the tab grid. Swipe sideways: next / previous tab. Press and hold: the grid opens under your finger; slide
-// onto a tab and let go to switch to it (let go anywhere else to keep it open).
-function mtabWire(el) { let st = null;
+// Tap: open the tab grid. Press and hold, then slide sideways: step through the tabs, and let go to switch. Slide up from
+// the button: the grid opens under your finger; slide onto a tab and let go to switch to it.
+function mtabWire(el) { let st = null; let TAPACT = '', TAPT = 0; // (a tap's open / close waits for its click, or 0.4 s if none comes)
+  // iPhone: keep the page from scrolling (and Safari from taking over the long press) while the button is held. (Safari only
+  // plays its tap right after a real tap, so on an iPhone the slide itself is silent; Android buzzes all the way.)
+  el.addEventListener('touchmove', e => { if (st && e.cancelable) e.preventDefault(); }, { passive: false });
+  // Press and hold, then slide sideways: the button steps through the tabs under your finger (like holding the space bar
+  // to move the cursor on an iPhone), one tab every 14px; let go to open the one it shows.
+  const scrubShow = (b, ts, i) => { const t = ts[i]; if (!t) return; const ic = b.querySelector('.mtab-ic'), l = b.querySelector('.mtab-l'); if (ic) ic.innerHTML = t.ic; if (l) l.textContent = t.label;
+    b.querySelectorAll('.mtab-dots i').forEach((d, k) => d.classList.toggle('on', k === i)); };
+  const scrubStart = s => { const ts = mtabTabs(); s.mode = 'scrub'; s.i0 = Math.max(0, ts.findIndex(t => t.on)); s.si = s.i0; s.x0 = s.lx || 0; s.b.classList.add('scrub'); haptic(12); };
+  const scrubMove = (s, dx) => { const ts = mtabTabs(); const i = Math.max(0, Math.min(ts.length - 1, s.i0 + Math.round((dx - s.x0) / 14)));
+    if (i !== s.si) { s.si = i; scrubShow(s.b, ts, i); haptic(6); } };
   const tileAt = (x, y) => { const t = document.elementFromPoint(x, y); return t && t.closest ? t.closest('#mtabmenu .mtab-t') : null; };
-  const hover = t => { document.querySelectorAll('.mtab-t.hov').forEach(x => { if (x !== t) x.classList.remove('hov'); }); if (t && !t.classList.contains('hov')) { t.classList.add('hov'); try { navigator.vibrate && navigator.vibrate(4); } catch (x) {} } };
+  const hover = t => { document.querySelectorAll('.mtab-t.hov').forEach(x => { if (x !== t) x.classList.remove('hov'); }); if (t && !t.classList.contains('hov')) { t.classList.add('hov'); haptic(6); } };
   el.addEventListener('contextmenu', e => e.preventDefault());
   el.addEventListener('pointerdown', e => { if (!e.isPrimary || !e.target.closest('.mtab-b')) return; const b = e.target.closest('.mtab-b');
     st = { id: e.pointerId, x: e.clientX, y: e.clientY, mode: '', b, wasOpen: !!document.getElementById('mtabmenu') };
     try { b.setPointerCapture(e.pointerId); } catch (x) {}
-    st.t = setTimeout(() => { if (!st || st.mode) return; st.mode = 'hold'; if (!document.getElementById('mtabmenu')) mtabOpen(); b.classList.add('held'); }, 320); });
-  el.addEventListener('pointermove', e => { if (!st || e.pointerId !== st.id) return; const dx = e.clientX - st.x, dy = e.clientY - st.y;
-    if (!st.mode && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) { st.mode = 'swipe'; clearTimeout(st.t); }
-    if (!st.mode && dy < -18) { st.mode = 'hold'; clearTimeout(st.t); if (!document.getElementById('mtabmenu')) mtabOpen(); st.b.classList.add('held'); }
-    if (st.mode === 'swipe') st.b.style.transform = `translateX(${Math.max(-40, Math.min(40, dx / 2))}px)`;
+    st.t = setTimeout(() => { if (!st || st.mode) return; scrubStart(st); }, 280); });
+  el.addEventListener('pointermove', e => { if (!st || e.pointerId !== st.id) return; const dx = e.clientX - st.x, dy = e.clientY - st.y; if (!st.mode) st.lx = dx; // (where the finger was when the hold kicked in: sliding counts from there)
+    if (!st.mode && dy < -18 && Math.abs(dy) > Math.abs(dx)) { st.mode = 'hold'; clearTimeout(st.t); if (!document.getElementById('mtabmenu')) mtabOpen(); st.b.classList.add('held'); }
+    if (!st.mode && Math.abs(dx) > 22) { st.mode = 'none'; clearTimeout(st.t); } // (a quick sideways swipe does nothing: hold first to move through the tabs)
+    if (st.mode === 'scrub') scrubMove(st, dx);
     if (st.mode === 'hold') hover(tileAt(e.clientX, e.clientY)); });
   const end = e => { if (!st || e.pointerId !== st.id) return; const s0 = st; st = null; clearTimeout(s0.t); s0.b.style.transform = ''; s0.b.classList.remove('held');
     const dx = e.clientX - s0.x;
-    if (s0.mode === 'swipe') { if (e.type !== 'pointercancel' && Math.abs(dx) > 50) { const ts = mtabTabs(), i = ts.findIndex(t => t.on), n = ts[i + (dx < 0 ? 1 : -1)]; if (n) { try { navigator.vibrate && navigator.vibrate(4); } catch (x) {} mtabGo(n.k); } } return; }
+    if (s0.mode === 'scrub') { s0.b.classList.remove('scrub'); const ts = mtabTabs(), n = ts[s0.si]; if (e.type !== 'pointercancel' && n && !n.on) mtabGo(n.k); else scrubShow(s0.b, ts, ts.findIndex(t => t.on)); return; }
+    if (s0.mode === 'none') return;
     if (s0.mode === 'hold') { const t = e.type === 'pointercancel' ? null : tileAt(e.clientX, e.clientY); hover(null); if (t) { const k = t.dataset.mt; mtabClose(); setTimeout(() => mtabGo(k), 60); } return; }
-    if (e.type !== 'pointercancel') { if (s0.wasOpen) mtabClose(); else mtabOpen(); } };
+    if (e.type !== 'pointercancel') { const act = s0.wasOpen ? 'close' : 'open'; TAPACT = act; clearTimeout(TAPT); TAPT = setTimeout(() => { if (TAPACT === act) { TAPACT = ''; act === 'close' ? mtabClose() : mtabOpen(); } }, 400); } };
+  el.addEventListener('click', e => { if (!TAPACT || !e.target.closest('.mtab-b')) return; const act = TAPACT; TAPACT = ''; clearTimeout(TAPT); act === 'close' ? mtabClose() : mtabOpen(); });
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
   // keyboard (and screen readers): Enter / Space on the button opens the grid
   el.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('.mtab-b')) { e.preventDefault(); mtabOpen(true); } }); }
@@ -2363,7 +2381,7 @@ function termMath(r, rows, title, names) {
 }
 function mathHTML(secs) {
   secs = secs.filter(x => x && x.rows && x.rows.length); if (!secs.length) return '';
-  return `<div class="rc-math">${secs.map(x => `${secs.length > 1 || x.title !== 'Roll' ? `<div class="rm-h">${esc(x.title)}</div>` : ''}${x.rows.map(([l, v, sub]) => `<div class="rm-r"><span>${esc(l)}${sub ? ` <i>${esc(sub)}</i>` : ''}</span><b>${esc(String(v))}</b></div>`).join('')}<div class="rm-r rm-t"><span>Total</span><b>${esc(String(x.total))}</b></div>`).join('')}</div>`;
+  return `<div class="rc-math">${secs.map(x => `${secs.length > 1 || x.title !== 'Roll' ? `<div class="rm-h">${esc(x.title)}</div>` : ''}${x.rows.map(([l, v, sub]) => `<div class="rm-r${String(v).length > 16 ? ' rm-long' : ''}"><span>${esc(l)}${sub ? ` <i>${esc(sub)}</i>` : ''}</span><b>${esc(String(v))}</b></div>`).join('')}<div class="rm-r rm-t"><span>Total</span><b>${esc(String(x.total))}</b></div>`).join('')}</div>`;
 }
 // The parts of each kind of bonus.
 const abRow = a => [`${String(a).toUpperCase()} modifier`, mod(a)];
@@ -3370,7 +3388,7 @@ function calcHTML(key) {
     case 'fxchips': {
       const fx = S.effects || [];
       if (!fx.length) return '<span class="hint">No spells or effects running.</span>';
-      return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${fmtRounds(e.rounds)}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">🎲 ${esc(e.repeat.dice)}</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join('');
+      return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${(e.rage && e.rounds == null ? "until rage ends" : fmtRounds(e.rounds))}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">🎲 ${esc(e.repeat.dice)}</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join('');
     }
     case 'slotsall': {
       let h = '';
@@ -4289,6 +4307,7 @@ function cleanupLinked() {
   S.attacks = S.attacks.filter(a => !a.effect || names.has(a.effect));
   if (S.form && S.form.effect && !names.has(S.form.effect)) S.form = null;
   if (S.conditions.includes('Raging') && !names.has('Rage')) S.conditions = S.conditions.filter(c => c !== 'Raging');
+  if (!names.has('Rage') && (S.effects || []).some(e => e.rage)) S.effects = S.effects.filter(e => !e.rage); // (Wild Surge effects end with the rage)
 }
 function breakConc(reason) {
   const nm = S.concentration; if (!nm) return;
@@ -4577,6 +4596,9 @@ function useFeature(i, col, opt) {
   if (fx.target === 'infusetab') { UI.tab = 'infusions'; saveUI(); render(); window.scrollTo(0, 0); return; }
   if (fx.onlyRaging && !S.conditions.includes('Raging')) { toast(`${esc(f.name)} only works while raging.`, 'fumble'); return; }
   if (fx.onlyWhen && !fxWhenOK(fx.onlyWhen)) { toast(`${esc(f.name)} only works ${esc(fxWhenText(fx.onlyWhen))}.`, 'fumble'); return; }
+  if (fx.bsurge) { // Path of Wild Magic: roll on the table (Unstable Backlash takes your reaction)
+    if (fx.bsurge === 'backlash' && S.inCombat) { if ((S.turn.used || {}).reaction) { toast('Your reaction is already used this round.', 'fumble'); return; } S.turn.used.reaction = true; }
+    return barbSurgeNow(fx.bsurge); }
   const max = featMax(f);
   if (max != null && !f.pool) {
     if (N(f.used) >= max) { if (fx.slotRestore && (opt || {}).slot == null) return openSlotRestore(i, col); if ((opt || {}).slot == null) { toast(`No uses of ${esc(f.name)} left.`, 'fumble'); return; } }
@@ -4617,6 +4639,7 @@ function useFeature(i, col, opt) {
   pendingLabel = 'Use ' + f.name; update(); render();
   const left = max != null && !f.pool ? `${Math.max(0, max - N(f.used))}/${max} left` : '';
   toast(`${r ? `<b class="total">${r.total}</b>` : ''}<div><div><b>${esc(f.name)}</b>${left ? ' · ' + left : ''}</div>${r ? `<div class="det">${esc(r.detail)}${fx.rollNote ? ' ' + esc(fx.rollNote) : ''}</div>` : ''}${sc.length ? `<div class="det">${esc(sc.join(' · '))}</div>` : ''}${lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, '', 8000, [healAct, typeof ptyFeatAct === 'function' ? ptyFeatAct(f.name, r, f) : null, { label: 'Undo', fn: () => undo(1) }].filter(Boolean).concat(fRh.acts));
+  if (f.name === 'Rage' && hasFeature('Wild Surge')) setTimeout(() => barbSurgeNow('rage'), 450); // Path of Wild Magic: raging sets off a Wild Surge
 }
 function smite(l) {
   let L;
@@ -5731,6 +5754,7 @@ function openSettings(tab) {
       ${row('Start over', `<button class="btn sm red" data-act="newchar">New character…</button>`, 'Clears this sheet — download it first to keep it')}`)}
     </div>`, null, true);
   setTabInk(false); mwDress(); fitSettingsHeight(!REOPEN);   // the title bar goes on first, so the height counts it
+  setPagerWire();
   if ($('#r20status')) { renderR20Box(); r20Hello(); }
 }
 function setSetting(t) {
@@ -6140,7 +6164,21 @@ function fitSettingsHeight(fresh) {
 addEventListener('resize', () => { if (typeof settingsOpen === 'function' && settingsOpen()) fitSettingsHeight(true); });
 function settingsOpen() { return $('#modal').classList.contains('open') && !!$('.setx'); }
 function setTabInk(anim) { const on = $('.stabs .stab.on'), ink = $('.stabs .stab-ink'); if (!on || !ink) return; ink.style.transition = anim ? '' : 'none'; ink.style.width = on.offsetWidth + 'px'; ink.style.transform = `translateX(${on.offsetLeft}px)`; if (anim) { const bar = on.parentElement; if (bar && bar.scrollWidth > bar.clientWidth) bar.scrollTo({ left: on.offsetLeft - (bar.clientWidth - on.offsetWidth) / 2, behavior: 'smooth' }); } const mb = $('#modal-body'); if (mb && mb.scrollLeft) mb.scrollLeft = 0; }
+// Phones: the tabs' pages sit side by side and you swipe between them; the gold line under the tabs follows your finger.
+// Tapping a tab slides over to its page.
+const setPaged = () => isMobile() && !!$('.setx');
+const SET_ORDER = () => $$('.stabs .stab').map(b => b.dataset.k); // (the tabs' order; the pages are put in it with CSS order)
+function setPagerWire() { const sx = $('.setx'); if (!sx || !isMobile()) return;
+  const ord = SET_ORDER(); $$('.setx .stpane').forEach(p => { const i = ord.indexOf(p.dataset.pane); p.style.order = Math.max(0, i); p.classList.toggle('nopage', i < 0); }); // (a page whose tab isn't shown on this device isn't one of the pages)
+  const i = Math.max(0, SET_ORDER().indexOf(SETTAB)); sx.style.scrollSnapType = 'none'; sx.scrollLeft = i * sx.clientWidth; requestAnimationFrame(() => { sx.style.scrollSnapType = ''; });
+  if (sx._pw) return; sx._pw = 1;
+  sx.addEventListener('scroll', () => { const w = sx.clientWidth; if (!w) return; const f = sx.scrollLeft / w, ks = SET_ORDER(), tabs = ks.map(k => $(`.stabs .stab[data-k="${k}"]`)), ink = $('.stabs .stab-ink');
+    const a = Math.max(0, Math.min(ks.length - 1, Math.floor(f))), b = Math.min(ks.length - 1, a + 1), t = Math.max(0, Math.min(1, f - a));
+    if (ink && tabs[a] && tabs[b]) { ink.style.transition = 'none'; ink.style.width = (tabs[a].offsetWidth + (tabs[b].offsetWidth - tabs[a].offsetWidth) * t) + 'px'; ink.style.transform = `translateX(${tabs[a].offsetLeft + (tabs[b].offsetLeft - tabs[a].offsetLeft) * t}px)`; }
+    const k = ks[Math.round(f)]; if (k && k !== SETTAB) { SETTAB = k; $$('.stabs .stab').forEach(x => { const on = x.dataset.k === k; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); });
+      const on = $('.stabs .stab.on'), bar = on && on.parentElement; if (bar && bar.scrollWidth > bar.clientWidth) bar.scrollTo({ left: on.offsetLeft - (bar.clientWidth - on.offsetWidth) / 2, behavior: 'smooth' }); } }, { passive: true }); }
 function switchSetTab(k) {
+  if (setPaged()) { const sx = $('.setx'), i = SET_ORDER().indexOf(k); if (i < 0) return; sx.scrollTo({ left: i * sx.clientWidth, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); return; }
   if (k === SETTAB) return; const order = ['char', 'rules', 'dice', 'theme', 'data'], dir = order.indexOf(k) > order.indexOf(SETTAB) ? 'r' : 'l';
   SETTAB = k;
   $$('.stabs .stab').forEach(b => { const on = b.dataset.k === k; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
@@ -6588,6 +6626,40 @@ document.addEventListener('change', e => { if (!e.target || !e.target.matches ||
 
 // The "also show in Roll20" box sits inside the sheet-rolls card: tapping its words ticks it (not the card's radio).
 document.addEventListener('click', e => { const d = e.target.closest && e.target.closest('.dsub'); if (!d || e.target.tagName === 'INPUT') return; e.preventDefault(); d.querySelector('input').click(); });
+
+// Phones: tapping the ✕ on a window or card plays the same little close as the tooltip's ✕ — it presses in and turns,
+// while its window slips down and fades — then the window closes as usual.
+(() => { if (window.__xAnim) return; window.__xAnim = 1; const XSEL = '.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx';
+  const phone = () => document.documentElement.classList.contains('mobile') || matchMedia('(hover: none) and (pointer: coarse)').matches;
+  document.addEventListener('click', e => { const b = e.target.closest && e.target.closest(XSEL); if (!b || b._xgo || !phone() || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    e.preventDefault(); e.stopImmediatePropagation(); if (b.classList.contains('xclosing')) return;
+    let w = b.parentElement; while (w && w !== document.body && getComputedStyle(w).position !== 'fixed') w = w.parentElement;
+    b.classList.add('xclosing');
+    // windows that slide away by themselves (the dice roller, party chat): the ✕ turns while they do
+    if (w && w.matches && w.matches('.drwin, .pcwin')) { b._xgo = true; try { b.click(); } finally { b._xgo = false; } setTimeout(() => b.classList.remove('xclosing'), 700); return; }
+    if (w && w !== document.body) w.classList.add('xwin-closing');
+    setTimeout(() => { b._xgo = true; try { b.click(); } finally { b._xgo = false; } // (the window stays faded through its own closing; a window that's kept for next time gets its look back afterwards)
+      setTimeout(() => { b.classList.remove('xclosing'); if (w && w.isConnected) w.classList.remove('xwin-closing'); }, 700); }, 190); }, true); })();
+
+// Pop-ups on a phone scroll rigidly: a drag inside one only ever scrolls the list it's on, and stops dead at its ends
+// (no rubber-banding the window, and never scrolling the page underneath).
+(function () { if (window.__pgRigid) return; window.__pgRigid = 1;
+  const POP = '.hub-modal.on, #modal.open, .modal-bg.open, .pg-out, .ptyask-bg, .wizard.open, .ha-sheet, .pg-crop, #pg-msg, .dk-modal.open, .drwin.phone, .pcwin, .pc-scrim, [role=dialog][aria-modal=true]';
+  const can = (el, dx, dy) => { const cs = getComputedStyle(el);
+    if (Math.abs(dy) >= Math.abs(dx)) return /(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 1 && (dy > 0 ? el.scrollTop > 0 : el.scrollTop + el.clientHeight < el.scrollHeight - 1);
+    return /(auto|scroll)/.test(cs.overflowX) && el.scrollWidth > el.clientWidth + 1 && (dx > 0 ? el.scrollLeft > 0 : el.scrollLeft + el.clientWidth < el.scrollWidth - 1); };
+  let x0 = 0, y0 = 0, pop = null;
+  document.addEventListener('touchstart', e => { const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; pop = e.target.closest ? e.target.closest(POP) : null; }, { passive: true, capture: true });
+  document.addEventListener('touchmove', e => { if (!pop || !pop.isConnected || !e.cancelable || e.touches.length > 1) return; const t = e.touches[0], dx = t.clientX - x0, dy = t.clientY - y0; if (!dx && !dy) return;
+    for (let el = e.target; el && el.nodeType === 1; el = el.parentElement) { if (el.matches('input[type=range], textarea')) return; if (can(el, dx, dy)) return; if (el === pop) break; }
+    e.preventDefault(); }, { passive: false, capture: true });
+  // A list that coasts into its end on its own (after you've let go) would still stretch past it and spring back: iPhone
+  // reports that stretch as scrolling past the end, so it's held at the end instead, and stops dead there.
+  document.addEventListener('scroll', e => { const el = e.target; if (!el || el.nodeType !== 1 || !el.closest || !el.closest(POP)) return;
+    const my = el.scrollHeight - el.clientHeight, mx = el.scrollWidth - el.clientWidth;
+    if (el.scrollTop < 0) el.scrollTop = 0; else if (my > 0 && el.scrollTop > my) el.scrollTop = my;
+    if (el.scrollLeft < 0) el.scrollLeft = 0; else if (mx > 0 && el.scrollLeft > mx) el.scrollLeft = mx; }, { capture: true, passive: true });
+})();
 
 // ---------- Sources ----------
 // Which books a character draws from. Picked on the first step of creation and changeable later in Settings → Books.
@@ -7115,7 +7187,7 @@ function openSurge(res, why) {
       ${o.p.changes.length || res.extra.length ? `<ul class="surgechg">${o.p.changes.concat(res.extra).map(c => `<li>${c}</li>`).join('')}</ul>` : '<p class="hint" style="margin:2px 0 0">Nothing changes on your sheet — this one is up to you and the DM.</p>'}
       ${o.p.input ? `<label class="surgein">${esc(o.p.input.label)} <input class="f" type="number" min="0" id="surgeCount" value="${o.p.input.val}"></label>` : ''}
     </div>`;
-  openModal(`<h3 class="surgetitle">✦ Wild Magic Surge</h3>${why ? `<p class="hint" style="margin:0 0 8px">${esc(why)}</p>` : ''}${many ? '<p class="hint" style="margin:0 0 8px">Controlled Chaos: pick the result you want.</p>' : ''}
+  openModal(`<h3 class="surgetitle">${esc(res.title || '✦ Wild Magic Surge')}</h3>${why ? `<p class="hint" style="margin:0 0 8px">${esc(why)}</p>` : ''}${many ? `<p class="hint" style="margin:0 0 8px">${esc(res.pickHint || 'Controlled Chaos: pick the result you want.')}</p>` : ''}
     ${res.opts.map(card).join('')}
     <div class="actions"><button class="btn gold" data-act="surgeok">OK</button></div>`, () => surgeApply(true));
 }
@@ -7124,7 +7196,7 @@ function surgeApply(cancelled) {
   const o = res.opts[res.pick] || res.opts[0], c = { count: $('#surgeCount') ? $('#surgeCount').value : 1 };
   o.p.fns.forEach(f => f(c));
   if (!cancelled) closeModal(true);
-  pendingLabel = 'Wild Magic Surge (' + o.n + ')'; save(); render();
+  pendingLabel = (res.label || 'Wild Magic Surge') + ' (' + o.n + ')'; save(); render();
 }
 function surgePick(k) { if (!SURGE_PEND) return; SURGE_PEND.pick = N(k); $$('.surgecard').forEach((el, i) => el.classList.toggle('on', i === N(k))); }
 function surgeNoneToast(c) { toast(`<b class="total">${c.total}</b><div><div><b>Wild Magic</b> · surge check</div><div class="sfx">No surge — only a 1 sets one off</div></div>`, '', 3500); }
@@ -7138,6 +7210,43 @@ function wildAfterCast(sp) {
   return () => surgeNoneToast(c);
 }
 function wildSurgeNow() { const res = rollSurge(); save(); render(); openSurge(res, ''); }
+
+// ---------- Path of Wild Magic: Wild Surge ----------
+// Entering a rage rolls a d8 on the barbarian's Wild Magic table, shown and applied the same way as a sorcerer's surge.
+// What it leaves running is an Active Spells chip that ends with the rage (rage: true) — +1 AC for Protective Lights,
+// the bonus-action options for teleport / spirit / bolt, and so on. A new result (Unstable Backlash) replaces the old one.
+// Controlled Surge rolls two and you pick; doubles let you pick any row.
+const bsDC = () => dcVal('con', 'barbarian') || (8 + profB() + mod('con'));
+function bsFx(p, nm, note, buff) {
+  const name = 'Wild Surge: ' + nm, e = { name, rage: true, wsurge: true, buff: Object.assign({ note }, buff || {}) };
+  p.changes.push(`Adds <b>${esc(name)}</b> to Active Spells until your rage ends${buff && buff.ac ? ` (+${buff.ac} AC)` : ''}`);
+  p.fns.push(() => { S.effects = (S.effects || []).concat([JSON.parse(JSON.stringify(e))]); });
+}
+const BSURGE = [
+  ['Shadowy tendrils lash around you. Each creature of your choice within 30 ft makes a CON save or takes 1d12 necrotic damage, and you gain 1d12 temporary hit points.', p => {
+    pRoll(p, '1d12', `Necrotic damage to each creature you choose within 30 ft (CON save DC ${bsDC()} negates)`); const t = pRoll(p, '1d12', 'Your temporary hit points');
+    if (t > N(S.hp.temp)) { p.changes.push(`Temporary HP: ${N(S.hp.temp)} → <b>${t}</b>`); p.fns.push(() => { S.hp.temp = Math.max(N(S.hp.temp), t); }); } else p.changes.push(`You keep your ${N(S.hp.temp)} temporary HP (temporary HP don't stack)`); }],
+  ['You teleport up to 30 ft to an unoccupied space you can see. Until your rage ends, you can do it again as a bonus action on each of your turns.', p => bsFx(p, 'Teleport', 'Bonus action each turn: teleport up to 30 ft to an unoccupied space you can see')],
+  ['An intangible spirit appears within 5 ft of a creature you choose within 30 ft and explodes. Each creature within 5 ft of it makes a DEX save or takes 1d6 force damage. Until your rage ends, you can summon another as a bonus action.', p => {
+    pRoll(p, '1d6', `Force damage to each creature within 5 ft of the spirit (DEX save DC ${bsDC()} negates)`); bsFx(p, 'Exploding spirit', `Bonus action each turn: another spirit (DEX save DC ${bsDC()} or 1d6 force)`); }],
+  ['Magic infuses one weapon you hold until your rage ends: it’s light and thrown (20/60 ft), deals force damage instead of its normal type, and flies back to your hand after it’s thrown.', p => bsFx(p, 'Infused weapon', 'One weapon you hold is light and thrown (20/60 ft), deals force damage, and returns to your hand after it’s thrown')],
+  ['Until your rage ends, whenever a creature hits you with an attack roll, it takes 1d6 force damage as magic lashes out in retribution.', p => bsFx(p, 'Retribution', 'A creature that hits you with an attack roll takes 1d6 force damage')],
+  ['Protective lights shimmer around you until your rage ends: you and friendly creatures within 10 ft get +1 AC.', p => bsFx(p, 'Protective lights', 'Friendly creatures within 10 ft of you also get +1 AC', { ac: 1 })],
+  ['Flowers and vines grow around you until your rage ends: the ground within 15 ft of you is difficult terrain for your enemies.', p => bsFx(p, 'Flowers and vines', 'The ground within 15 ft of you is difficult terrain for your enemies (it moves with you)')],
+  ['A bolt of light shoots from your chest at a creature within 30 ft: it makes a CON save or takes 1d6 radiant damage and is blinded until the start of your next turn. Until your rage ends, you can do it again as a bonus action.', p => {
+    pRoll(p, '1d6', `Radiant damage (CON save DC ${bsDC()} negates; blinded until the start of your next turn)`); bsFx(p, 'Bolt of light', `Bonus action each turn: another bolt (CON save DC ${bsDC()} or 1d6 radiant and blinded until the start of your next turn)`); }]
+];
+function bsOption(n) { const p = plan(); p.fns.push(() => { S.effects = (S.effects || []).filter(e => !e.wsurge); }); BSURGE[n - 1][1](p); return { n, k: n, text: BSURGE[n - 1][0], p }; }
+// how: 'rage' (just raged), 'backlash' (Unstable Backlash), 'controlled' (the Controlled Surge feature), 'one' (roll again)
+function barbSurgeNow(how) {
+  const two = how === 'controlled' || hasFeature('Controlled Surge');
+  const rolls = [rollExpr('1d8', { need: true, label: 'Wild Surge (d8)' })]; if (two) rolls.push(rollExpr('1d8', { need: true, label: 'Controlled Surge: second d8' }));
+  const dbl = two && rolls[0].total === rolls[1].total, ns = dbl ? [1, 2, 3, 4, 5, 6, 7, 8] : rolls.map(r => r.total);
+  const res = { opts: ns.map(bsOption), extra: [], pick: dbl ? ns.indexOf(rolls[0].total) : 0, title: '✦ Wild Surge', label: 'Wild Surge',
+    pickHint: dbl ? `Controlled Surge: you rolled doubles (${rolls[0].total}), so pick any effect.` : two ? 'Controlled Surge: pick the result you want.' : '' };
+  save(); render();
+  openSurge(res, how === 'rage' ? 'You entered your rage. The surge lasts until the rage ends.' : how === 'backlash' ? 'Unstable Backlash: this replaces your current Wild Surge effect.' : 'This replaces your current Wild Surge effect.');
+}
 function wildCheckNow() {
   const c = rollExpr('1d20', { need: true, label: 'Wild Magic surge check (d20)' });
   if (c.total !== 1) { surgeNoneToast(c); return; }

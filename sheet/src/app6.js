@@ -104,6 +104,7 @@ function openSettings(tab) {
       ${row('Start over', `<button class="btn sm red" data-act="newchar">New character…</button>`, 'Clears this sheet — download it first to keep it')}`)}
     </div>`, null, true);
   setTabInk(false); mwDress(); fitSettingsHeight(!REOPEN);   // the title bar goes on first, so the height counts it
+  setPagerWire();
   if ($('#r20status')) { renderR20Box(); r20Hello(); }
 }
 function setSetting(t) {
@@ -513,7 +514,21 @@ function fitSettingsHeight(fresh) {
 addEventListener('resize', () => { if (typeof settingsOpen === 'function' && settingsOpen()) fitSettingsHeight(true); });
 function settingsOpen() { return $('#modal').classList.contains('open') && !!$('.setx'); }
 function setTabInk(anim) { const on = $('.stabs .stab.on'), ink = $('.stabs .stab-ink'); if (!on || !ink) return; ink.style.transition = anim ? '' : 'none'; ink.style.width = on.offsetWidth + 'px'; ink.style.transform = `translateX(${on.offsetLeft}px)`; if (anim) { const bar = on.parentElement; if (bar && bar.scrollWidth > bar.clientWidth) bar.scrollTo({ left: on.offsetLeft - (bar.clientWidth - on.offsetWidth) / 2, behavior: 'smooth' }); } const mb = $('#modal-body'); if (mb && mb.scrollLeft) mb.scrollLeft = 0; }
+// Phones: the tabs' pages sit side by side and you swipe between them; the gold line under the tabs follows your finger.
+// Tapping a tab slides over to its page.
+const setPaged = () => isMobile() && !!$('.setx');
+const SET_ORDER = () => $$('.stabs .stab').map(b => b.dataset.k); // (the tabs' order; the pages are put in it with CSS order)
+function setPagerWire() { const sx = $('.setx'); if (!sx || !isMobile()) return;
+  const ord = SET_ORDER(); $$('.setx .stpane').forEach(p => { const i = ord.indexOf(p.dataset.pane); p.style.order = Math.max(0, i); p.classList.toggle('nopage', i < 0); }); // (a page whose tab isn't shown on this device isn't one of the pages)
+  const i = Math.max(0, SET_ORDER().indexOf(SETTAB)); sx.style.scrollSnapType = 'none'; sx.scrollLeft = i * sx.clientWidth; requestAnimationFrame(() => { sx.style.scrollSnapType = ''; });
+  if (sx._pw) return; sx._pw = 1;
+  sx.addEventListener('scroll', () => { const w = sx.clientWidth; if (!w) return; const f = sx.scrollLeft / w, ks = SET_ORDER(), tabs = ks.map(k => $(`.stabs .stab[data-k="${k}"]`)), ink = $('.stabs .stab-ink');
+    const a = Math.max(0, Math.min(ks.length - 1, Math.floor(f))), b = Math.min(ks.length - 1, a + 1), t = Math.max(0, Math.min(1, f - a));
+    if (ink && tabs[a] && tabs[b]) { ink.style.transition = 'none'; ink.style.width = (tabs[a].offsetWidth + (tabs[b].offsetWidth - tabs[a].offsetWidth) * t) + 'px'; ink.style.transform = `translateX(${tabs[a].offsetLeft + (tabs[b].offsetLeft - tabs[a].offsetLeft) * t}px)`; }
+    const k = ks[Math.round(f)]; if (k && k !== SETTAB) { SETTAB = k; $$('.stabs .stab').forEach(x => { const on = x.dataset.k === k; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); });
+      const on = $('.stabs .stab.on'), bar = on && on.parentElement; if (bar && bar.scrollWidth > bar.clientWidth) bar.scrollTo({ left: on.offsetLeft - (bar.clientWidth - on.offsetWidth) / 2, behavior: 'smooth' }); } }, { passive: true }); }
 function switchSetTab(k) {
+  if (setPaged()) { const sx = $('.setx'), i = SET_ORDER().indexOf(k); if (i < 0) return; sx.scrollTo({ left: i * sx.clientWidth, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); return; }
   if (k === SETTAB) return; const order = ['char', 'rules', 'dice', 'theme', 'data'], dir = order.indexOf(k) > order.indexOf(SETTAB) ? 'r' : 'l';
   SETTAB = k;
   $$('.stabs .stab').forEach(b => { const on = b.dataset.k === k; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });

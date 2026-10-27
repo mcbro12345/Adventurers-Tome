@@ -4194,3 +4194,12 @@ html.mobile .modal-bg.closing { animation: wDimOut .22s ease forwards; }
 .setrow:has(+ :not(.setrow)) { border-bottom: 0; margin-bottom: 8px; }
 /* Phones: Settings goes all the way up, just under the phone's status bar (over the Adventurer's Tome button) */
 html.mobile .modal:has(.setx) { height: calc(100dvh - var(--tablift, 0px) - env(safe-area-inset-top, 0px) - 8px) !important; max-height: none !important; }
+/* Phones: Settings' tabs are pages side by side; swipe between them (each page scrolls up and down on its own) */
+html.mobile .modal:has(.setx) .setx { display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; padding-right: 0; overscroll-behavior: none !important; }
+html.mobile .setx::-webkit-scrollbar { display: none; }
+html.mobile .setx > .stpane { display: block !important; flex: 0 0 100%; width: 100%; min-width: 0; box-sizing: border-box; overflow-y: auto; overflow-x: hidden; scroll-snap-align: start; scroll-snap-stop: always; overscroll-behavior: none !important; animation: none !important; }
+/* the pages run edge to edge across the window (each keeps the window's side padding inside it), so a page sliding in or
+   out is cut off at the window's edge, not partway in from it */
+html.mobile .modal:has(.setx) .setx { margin-left: -14px; margin-right: -14px; }
+html.mobile .setx > .stpane { padding-left: 14px; padding-right: 14px; }
+html.mobile .setx > .stpane.nopage { display: none !important; }
