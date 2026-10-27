@@ -1001,7 +1001,15 @@ function wireDie(root) {
     addEventListener('message', e => { if (e.source !== window || !ME) return; const d = e.data; if (!d || d.__dnd20 !== 'hi' || d.dir !== 'toSheet') return;
       const v = String(d.version || 'yes').slice(0, 20); if (v === 'mock' || (ME.ext === v && Date.now() - (ME.extAt || 0) < 864e5)) return;
       ME.ext = v; ME.extAt = Date.now(); UREF.update({ ext: v, extAt: ME.extAt }).catch(() => {}); });
-    window.pgBeat = (force) => { if (!ME) return; const now = Date.now(), last = window.pgSeenAt || 0, fg = !document.hidden, fgPrev = window.pgFgAt || 0;
+    // Only a page someone has actually looked at keeps them online. A page the browser loads out of sight (Chrome
+    // preparing a page you might open from the address bar, Opera's Speed Dial refreshing its preview, a link opened in
+    // a background tab) never counts, and a tab left in the background stops counting 15 minutes after it was last on
+    // screen, so a forgotten tab doesn't show someone as online all day.
+    let seenOnScreen = document.hidden || document.prerendering ? 0 : Date.now();
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) seenOnScreen = Date.now(); }, true);
+    document.addEventListener('prerenderingchange', () => { if (!document.hidden) { seenOnScreen = Date.now(); window.pgBeat(true); } });
+    window.pgBeat = (force) => { if (!ME) return; if (document.prerendering || !seenOnScreen || (document.hidden && Date.now() - seenOnScreen > 15 * 60000)) return;
+      const now = Date.now(), last = window.pgSeenAt || 0, fg = !document.hidden, fgPrev = window.pgFgAt || 0;
       if (fg && (force || now - (window.pgFgAt || 0) >= 100000)) { window.pgFgAt = now; UREF.update({ seenFg: now }).catch(() => {}); }
       if (!force && now - last < 100000) return;
       const away = !last || now - last > 4 * 60000, first = firstBeat; firstBeat = false; window.pgSeenAt = now; UREF.update({ seenAt: now }).catch(() => {}); UREF.update({ [pgIsPhone() ? 'seenPhone' : 'seenPc']: now }).catch(() => {});
@@ -2815,7 +2823,7 @@ function hub(fs, auth, G, ctx) {
       const IC_PH = '<svg class="adm-dev" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M11 18.5h2"/></svg>';
       const devs = u => { const now = Date.now(), pc = u.seenPc && now - u.seenPc < ONLINE, ph = u.seenPhone && now - u.seenPhone < ONLINE; return pc || ph ? [pc && [IC_PC, 'a computer'], ph && [IC_PH, 'a phone or tablet']].filter(Boolean) : null; };
       const devHTML = u => { const d = devs(u); return d ? `<span class="adm-devs">${d.map(x => x[0]).join('')}</span>` : ''; }, devTxt = u => { const d = devs(u); return d ? ' On ' + d.map(x => x[1]).join(' and ') + '.' : ''; };
-      const seen = u => isOn(u) ? (u.seenFg && Date.now() - u.seenFg > ONLINE ? `<span class="adm-online bg" title="Has Adventurer’s Tome open in a tab, but not on screen (another tab or app is in front, or the window is minimised).${devTxt(u)}"><i></i><b>Online</b>${devHTML(u)}</span>` : `<span class="adm-online" title="Has Adventurer’s Tome open and on screen right now.${devTxt(u)}"><i></i><b>Online</b>${devHTML(u)}</span>`) : u.seenAt ? esc(ago(u.seenAt)) : '<span class="adm-dim">—</span>';
+      const seen = u => isOn(u) ? (u.seenFg && Date.now() - u.seenFg > ONLINE ? `<span class="adm-online bg" title="Idle: has Adventurer’s Tome open in a tab, but hasn’t had it on screen for a few minutes (another tab or app is in front, or the window is minimised). After 15 minutes like this they show as offline.${devTxt(u)}"><i></i><b>Idle</b>${devHTML(u)}</span>` : `<span class="adm-online" title="Has Adventurer’s Tome open and on screen right now.${devTxt(u)}"><i></i><b>Online</b>${devHTML(u)}</span>`) : u.seenAt ? esc(ago(u.seenAt)) : '<span class="adm-dim">—</span>';
       const extCell = u => u.ext ? `<span class="adm-tag ext-on" title="Roll20 companion extension seen ${esc(ago(u.extAt || 0))}">Installed${/^[\d.]+$/.test(u.ext) ? ' · v' + esc(u.ext) : ''}</span>` : '<span class="adm-dim">—</span>';
       l.innerHTML = rows.length ? `<div class="adm-tw"><table class="adm-t us-t"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Last active</th><th>Extension</th><th></th><th></th></tr></thead><tbody>${capR('us', rows).map(u => { const [rl, rc] = u.banned ? ['Blocked', 'r-blk'] : roleOf(u.id), open = UOPEN.has(u.id);
           return `<tr data-u="${esc(u.id)}"><td><span class="adm-who">${ava(u.name, u.id)}<span class="us-nm"><b>${esc(u.name || '—')}</b><small class="us-em">${esc(u.id)}</small></span></span></td><td class="adm-mail" title="${esc(u.id)}">${esc(u.id)}</td><td><span class="adm-tag ${rc}">${rl}</span></td><td>${when(u.createdAt)}</td><td>${seen(u)}</td><td>${extCell(u)}</td>
