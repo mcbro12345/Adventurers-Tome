@@ -89,7 +89,8 @@ const saveUI = () => writeLocal();
 // desks/{email}/creatures/{id}: your creatures, shared by every desk. A party's desk: desks/{email}/party/{partyId} {v, savedAt,
 // settings} with /sessions/{id} and /notes/{id}. The desk opened without a party (and every desk before they were split) uses
 // desks/{email} itself. Pictures in notes stay in desks/{email}/imgs.
-let CRE = null;
+let CRE = null, CRE_OK = true; // (a co-DM may not be able to reach the DM's creatures yet: the desk still opens without them)
+const creGet = () => CRE.get().then(q => { CRE_OK = true; return q; }, e => { console.warn('desk creatures', e); CRE_OK = false; return { docs: [] }; });
 // A co-DM opens the party's DM's own desk (CTX.deskOwner): its sessions, notes, creatures, pictures and items.
 const OWNER = () => (CTX && CTX.deskOwner) || (CTX && CTX.EMAIL) || '';
 const SHARED = () => !!(CTX && CTX.deskOwner && CTX.deskOwner !== CTX.EMAIL);
@@ -106,8 +107,8 @@ async function flush() {
   try {
     const coll = n => BASE.collection(n), m = JSON.stringify(mainBody()), w = [];
     if (m !== SYNCED.main) w.push(BASE.set(JSON.parse(m)).then(() => { SYNCED.main = m; }));
-    for (const [id, c] of Object.entries(S.creatures)) { const j = JSON.stringify(c); if (SYNCED.cre.get(id) !== j) w.push(CRE.doc(id).set({ savedAt: S.savedAt, data: JSON.parse(j) }).then(() => SYNCED.cre.set(id, j))); }
-    for (const id of Array.from(SYNCED.cre.keys())) if (!S.creatures[id]) w.push(CRE.doc(id).delete().then(() => SYNCED.cre.delete(id)));
+    if (CRE_OK) for (const [id, c] of Object.entries(S.creatures)) { const j = JSON.stringify(c); if (SYNCED.cre.get(id) !== j) w.push(CRE.doc(id).set({ savedAt: S.savedAt, data: JSON.parse(j) }).then(() => SYNCED.cre.set(id, j))); }
+    if (CRE_OK) for (const id of Array.from(SYNCED.cre.keys())) if (!S.creatures[id]) w.push(CRE.doc(id).delete().then(() => SYNCED.cre.delete(id)));
     const sids = new Set();
     for (const s of S.sessions) { sids.add(s.id); const j = JSON.stringify(s); if (SYNCED.ses.get(s.id) !== j) w.push(coll('sessions').doc(s.id).set({ savedAt: S.savedAt, data: JSON.parse(j) }).then(() => SYNCED.ses.set(s.id, j))); }
     for (const id of Array.from(SYNCED.ses.keys())) if (!sids.has(id)) w.push(coll('sessions').doc(id).delete().then(() => SYNCED.ses.delete(id)));
@@ -118,7 +119,7 @@ async function flush() {
 }
 async function pullAll() {
   const coll = n => BASE.collection(n);
-  const [m, cr, ss] = await Promise.all([BASE.get(), CRE.get(), coll('sessions').get()]);
+  const [m, cr, ss] = await Promise.all([BASE.get(), creGet(), coll('sessions').get()]);
   if (!m.exists) return false;
   const d = m.data(), next = normalize({ v: d.v, savedAt: d.savedAt, settings: d.settings });
   SYNCED.cre.clear(); cr.docs.forEach(x => { const c = x.data().data; if (c) { next.creatures[x.id] = c; SYNCED.cre.set(x.id, JSON.stringify(c)); } });
@@ -136,10 +137,10 @@ async function cloudBoot() {
     if (DESK_PID() && !SHARED() && !(d && d.askedOld)) { if (await offerOldDesk(d)) { snap = await BASE.get(); d = snap.exists ? snap.data() : null; S.savedAt = 0; } }
     if (d && N(d.savedAt) >= N(S.savedAt)) { await pullAll(); render(); }
     else { // a desk that's new (or newer here): it still gets every creature you've made
-      const cr = await CRE.get(); cr.docs.forEach(x => { const c = x.data().data; if (!c) return; if (!S.creatures[x.id]) S.creatures[x.id] = c; SYNCED.cre.set(x.id, JSON.stringify(c)); }); render(); }
+      const cr = await creGet(); cr.docs.forEach(x => { const c = x.data().data; if (!c) return; if (!S.creatures[x.id]) S.creatures[x.id] = c; SYNCED.cre.set(x.id, JSON.stringify(c)); }); render(); }
     dHistBase(); CLOUD = true;
     if (!d || N(d.savedAt) < N(S.savedAt)) { if (!S.savedAt) S.savedAt = Date.now(); await flush(); } else setSync(SAVED());
-  } catch (e) { console.warn('desk load', e); setSync('Offline — saved on this device'); }
+  } catch (e) { console.warn('desk load', e); setSync(SHARED() && e && e.code === 'permission-denied' ? 'Can’t open the DM’s desk' : 'Offline — saved on this device'); }
 }
 // Before desks were split by party, everything was one desk. The first time a party's desk opens, that earlier desk (if it has
 // anything in it and hasn't gone to a party yet) can be moved in. Asked once per party; the old copy is kept, not deleted.
@@ -2540,7 +2541,7 @@ async function notesBoot() {
   if (!CTX.fs || !CTX.EMAIL) return;
   // (a party's desk keeps its own notes; pictures stay in one place for all your desks)
   while (!BASE && ROOT) await new Promise(r => setTimeout(r, 50)); NBASE = deskBase().collection('notes'); IBASE = userBase().collection('imgs');
-  while (!CLOUD && ROOT && syncMsg !== 'Offline — saved on this device') await new Promise(r => setTimeout(r, 80)); // (after any move of an old desk)
+  while (!CLOUD && ROOT && !/^(Offline|Can’t open)/.test(syncMsg)) await new Promise(r => setTimeout(r, 80)); // (after any move of an old desk)
   try {
     const qs = await NBASE.get(), cloud = {}; qs.docs.forEach(d => { const p = d.data().data; if (pageOK(p)) cloud[p.id] = p; });
     const merged = {};

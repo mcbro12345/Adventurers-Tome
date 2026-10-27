@@ -4353,6 +4353,12 @@ function partyModule(H) {
 
   // ----- admin: every party, and whether it's in your own list -----
   let AROWS = [], ALIVE = null;
+  // Keep every DM's co-DM desk list right (it's what lets co-DMs reach the DM's creatures and note pictures), once per
+  // admin visit: catches co-DMs added before the rules allowed it, or who stepped down on their own.
+  let SHARED_DONE = false; const deskShareAll = rows => { if (SHARED_DONE || !rows.length) return; SHARED_DONE = true; const by = {};
+    rows.forEach(p => { if (!p.dm) return; const s = by[p.dm] = by[p.dm] || new Set(); (p.mgrs || []).forEach(m => { if (m && m !== p.dm) s.add(m); }); });
+    Object.entries(by).forEach(async ([dm, set]) => { const codms = [...set].sort(), ref = fs.collection('deskshare').doc(dm);
+      try { const cur = await ref.get(), had = cur.exists ? cur.data().codms || [] : null; if (had ? JSON.stringify(had) === JSON.stringify(codms) : !codms.length) return; await ref.set({ codms, at: Date.now() }); } catch (e) { console.warn('desk share', dm, e); } }); };
   // Admins: put any character on the site in a party (it moves out of any party it's in now). Its owner is added to
   // the party, the character is shared with the DM, and its sheet learns which party it's in.
   function adminAddChar(p) {
@@ -4380,7 +4386,7 @@ function partyModule(H) {
     const el = B(); A.HA().innerHTML = '';
     el.innerHTML = `<div class="adm-filters">${A.toolbar('ad-pq', 'Search by party, DM or character', A.PQ.v)}<div class="adm-fsels" id="pf-sels"></div></div><div id="ad-pl"><div class="sk-auto" data-k="adm-parties-t"></div></div>`;
     const q = el.querySelector('#ad-pq'); let t = null; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { A.PQ.v = q.value; adminPaint(B, A); }, 150); };
-    if (!ALIVE) ALIVE = PC.limit(1000).onSnapshot(async qs => { AROWS = qs.docs.map(d => Object.assign({ id: d.id }, d.data())); await H.needNames(AROWS.map(p => p.dm)); if (A.isTab()) adminPaint(B, A); }, x => { const l = B().querySelector('#ad-pl'); if (l) l.innerHTML = A.failMsg(x); });
+    if (!ALIVE) ALIVE = PC.limit(1000).onSnapshot(async qs => { AROWS = qs.docs.map(d => Object.assign({ id: d.id }, d.data())); deskShareAll(AROWS); await H.needNames(AROWS.map(p => p.dm)); if (A.isTab()) adminPaint(B, A); }, x => { const l = B().querySelector('#ad-pl'); if (l) l.innerHTML = A.failMsg(x); });
     else adminPaint(B, A);
   }
   // Admin filters: DM (any of several), how many characters, your own access, and when it was last used.
