@@ -4143,3 +4143,7 @@ html:not(.mobile) #tabs .tab .tlabel { transform: translateY(-1px); }
 .smite-lv, html.mobile .smite-lv { display: grid; grid-template-columns: repeat(auto-fit, minmax(78px, 1fr)); gap: 6px; }
 .smite > .sect { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; white-space: nowrap; }
 .smite > .sect .toggle { white-space: nowrap; flex: none; margin-left: auto; }
+/* Undo / Redo / History: icons only (the same ones the DM's Desk uses) */
+.tbtn.iconly .ti { margin-right: 0; }
+html:not(.mobile) .toolbar .tbtn.iconly { padding-left: 9px; padding-right: 9px; }
+html:not(.mobile) .toolbar [data-zi="history"].iconly .ti { display: block !important; }

@@ -1262,7 +1262,7 @@ function wireDie(root) {
     // A DM's party page opens as the DM's Desk: the party page becomes its Party tab (the loading screen waits for it).
     if (PARTYQ && PARTYQ !== 'new' && !ADMINQ) { const ready0 = window.pgReady; window.pgReady = () => { if (!window.PG_DESK_WAIT) ready0(); };
       if (lsGet('pg-dmparty:' + PARTYQ)) loadDesk().catch(() => {}); // (a party you run: start fetching the desk straight away)
-      window.pgDeskHost = async P => { if (window.PG_DESKED) return; window.PG_DESKED = true; window.PG_DESK_WAIT = true; lsSet('pg-dmparty:' + PARTYQ, '1');
+      window.pgDeskHost = async P => { if (window.PG_DESKED) return; window.PG_DESKED = true; window.PG_DESK_WAIT = true; lsSet('pg-dmparty:' + PARTYQ, '1'); window.PG_DMPARTY_KEY = 'pg-dmparty:' + PARTYQ;
         try { await loadDesk(); if (!window.pgDesk || !window.pgDesk.hostsParty) throw new Error('no party tab in this desk'); const host = document.getElementById('hub'); document.body.classList.add('dkhost');
           const root = document.createElement('div'); root.id = 'pg-desk'; document.body.prepend(root);
           window.pgDesk.mount(root, deskCtx({ id: P.id, name: P.name || 'Party', mgr: true }, { deskOwner: P.dm || EMAIL, partyHost: host, initialTab: 'party', turnOrder: show => window.pgTurnOrder && window.pgTurnOrder(show) }));
@@ -1696,20 +1696,31 @@ function wireDie(root) {
     // Only someone the sheet belongs to or is shared with shows up as viewing it. An admin who opened it without being
     // given access sees who's here but isn't listed (checked each time, so sharing it with them later puts them in).
     const counted = () => OWNER === EMAIL || VIEWERS.includes(EMAIL) || EDITORS.includes(EMAIL);
+    // A phone and a computer keep their own check-ins in the same entry (atM/bgM, atD/bgD), so someone with the sheet open
+    // on both shows as on the computer; "at"/"bg" stay the latest of either, for copies of the site from before.
+    const PHONE = matchMedia('(hover: none) and (pointer: coarse)').matches, AK = PHONE ? 'atM' : 'atD', BK = PHONE ? 'bgM' : 'bgD';
+    const fresh = t => Date.now() - (Number(t) || 0) < 200000;
     const beat = async () => { if (!counted()) { if (seen[EMAIL]) { delete seen[EMAIL]; leave(); } return; }
-      const a = avaOf(ME), at = Date.now(), bg = !!document.hidden; seen[EMAIL] = { name: NAME, pic: a.pic, color: a.color, clear: a.clear, at, bg }; try { await mine.set({ name: NAME, pic: a.pic, color: a.color, clear: a.clear, at, bg }); } catch (e) {}
+      const a = avaOf(ME), at = Date.now(), bg = !!document.hidden, rec = { name: NAME, pic: a.pic, color: a.color, clear: a.clear, at, bg, [AK]: at, [BK]: bg };
+      seen[EMAIL] = Object.assign({}, seen[EMAIL] || {}, rec); try { await mine.set(rec, { merge: true }); } catch (e) {}
       if (pv && PVID) pv.doc(PVID).set({ anon: false, at, name: String(NAME || '').slice(0, 60), pic: a.pic || '', color: a.color || '', clear: !!a.clear }).catch(() => {}); };
-    const leave = () => { mine.delete().catch(() => {}); if (pv && PVID) pv.doc(PVID).delete().catch(() => {}); };
+    const leave = () => { const d = seen[EMAIL] || {}, other = PHONE ? 'atD' : 'atM', ob = PHONE ? 'bgD' : 'bgM'; // (still open on the other device: just drop this one)
+      if (fresh(d[other])) mine.set({ [AK]: 0, at: d[other], bg: !!d[ob] }, { merge: true }).catch(() => {}); else mine.delete().catch(() => {}); if (pv && PVID) pv.doc(PVID).delete().catch(() => {}); };
     // The character's owner comes first whenever they're here, then you, then everyone else.
-    const show = () => { const now = Date.now(), rank = em => em === OWNER ? 0 : em === EMAIL ? 1 : 2, here = Object.entries(seen).filter(([, d]) => now - (d.at || 0) < 200000).sort(([a], [b]) => rank(a) - rank(b));
+    // which device to show someone on: the computer whenever it's open there, else the phone (entries without the split: computer)
+    const devOf = (em, d) => { const split = d.atD != null || d.atM != null;
+      if (em === EMAIL && !PHONE) return { ph: false, bg: !!document.hidden };
+      if (em === EMAIL) return fresh(d.atD) ? { ph: false, bg: !!d.bgD } : { ph: true, bg: !!document.hidden };
+      if (!split) return { ph: false, bg: !!d.bg }; return fresh(d.atD) ? { ph: false, bg: !!d.bgD } : { ph: true, bg: !!d.bgM }; };
+    const show = () => { const now = Date.now(), rank = em => em === OWNER ? 0 : em === EMAIL ? 1 : 2, here = Object.entries(seen).filter(([, d]) => fresh(Math.max(Number(d.at) || 0, Number(d.atD) || 0, Number(d.atM) || 0))).sort(([a], [b]) => rank(a) - rank(b));
       if (!box) { box = document.createElement('div'); box.className = 'pg-pres'; document.body.appendChild(box); window.__pgPresBox = box; }
       const anons = Object.values(anon).filter(d => now - (d.at || 0) < 200000);
       { const hid = !here.length && !anons.length; if (box.hidden !== hid) box.hidden = hid; } // you see yourself whenever you count as viewing it, on your own sheet too
       // (only redrawn when someone comes, goes or changes)
-      const html = here.map(([em, d]) => { const bg = em === EMAIL ? !!document.hidden : !!d.bg; /* green: looking at it now; yellow: open in a tab that isn't in front */ return `<span class="pg-pw${bg ? ' bg' : ''}">${avaHTML(d.name, em, d.pic, em === EMAIL ? 'me' : '', (em === EMAIL ? (d.name || NAME) + ' (you)' : (d.name || em)) + (bg ? ' · has it open in another tab' : ' · looking at it now'), { color: d.color, clear: d.clear })}<i></i></span>`; }).join('') + anons.map(() => anonAvaHTML(false)).join('');
+      const html = here.map(([em, d]) => { const { ph, bg } = devOf(em, d); /* green: looking at it now; yellow: open in a tab that isn't in front; a phone shape: on their phone */ return `<span class="pg-pw${bg ? ' bg' : ''}${ph ? ' onph' : ''}">${avaHTML(d.name, em, d.pic, em === EMAIL ? 'me' : '', (em === EMAIL ? (d.name || NAME) + ' (you)' : (d.name || em)) + (bg ? ' · has it open' + (ph ? ' on a phone, not in front' : ' in another tab') : ' · looking at it now' + (ph ? ' on a phone' : '')), { color: d.color, clear: d.clear })}<i></i></span>`; }).join('') + anons.map(() => anonAvaHTML(false)).join('');
       if (box._h !== html) { box._h = html; box.innerHTML = html; } placePres(); };
     // you show straight away, without waiting for the first list from the server
-    if (counted()) { const a = avaOf(ME); seen[EMAIL] = { name: NAME, pic: a.pic, color: a.color, clear: a.clear, at: Date.now() }; }
+    if (counted()) { const a = avaOf(ME), t = Date.now(); seen[EMAIL] = { name: NAME, pic: a.pic, color: a.color, clear: a.clear, at: t, [AK]: t }; }
     beat(); show(); setInterval(beat, 60000); setInterval(show, 1500);
     if (pv) pv.where('anon', '==', true).onSnapshot(qs => { anon = {}; qs.docs.forEach(d => { anon[d.id] = d.data(); }); show(); }, () => {});
     document.addEventListener('visibilitychange', () => { beat(); show(); });
@@ -3791,7 +3802,7 @@ function partyModule(H) {
   }
 
   // ----- a party's own page: Characters, then (for whoever runs it) Invite players and Who runs it -----
-  let CLOADED = false, LEAVING = false, P = null, PLOADED = false, CARDS = {}, PID = '', unP = null, unC = null, SEC = 'chars', JOINING = false;
+  let CLOADED = false, LEAVING = false, P = null, PLOADED = false, PLIVE = false, CARDS = {}, PID = '', unP = null, unC = null, SEC = 'chars', JOINING = false;
   // Cards saved before picture frames took the sheet's colour have none: the DM (or the card's own player) fills it in
   // once from the saved sheet, so every frame matches its sheet without waiting for that sheet to be opened.
   const CACCFIX = new Set(); const cardAccFix = async pid => { const mgr = P && (P.dm === EMAIL || (P.mgrs || []).includes(EMAIL));
@@ -3823,10 +3834,10 @@ function partyModule(H) {
     const id = cached && cached.P ? known : await resolveParty(pid);
     if (!id) return shell({ title: '', bare: true, stat: true, body: note('party', 'You’re not in this party', 'Only its players and DM can open it. If you were invited, the invitation is on your Parties tab.', goHub) });
     PID = id;
-    unP = PC.doc(id).onSnapshot(d => { PLOADED = true; P = d.exists ? Object.assign({ id: d.id }, d.data()) : null;
+    unP = PC.doc(id).onSnapshot(d => { PLOADED = true; PLIVE = true; P = d.exists ? Object.assign({ id: d.id }, d.data()) : null;
         if (P) { document.title = (P.name || 'Party') + ' — Adventurer’s Tome'; if (PRETTY && location.pathname !== URLS.party(P.id, P.name)) history.replaceState(null, '', URLS.party(P.id, P.name)); }
         paint(); partyKeep(); },
-      () => { PLOADED = true; P = null; try { localStorage.removeItem(PKEY(id)); } catch (e) {} if (LEAVING) return; shell({ title: '', bare: true, stat: true, body: note('party', 'You’re not in this party', 'Only its players and DM can open it. If you were invited, the invitation is on your Parties tab.', goHub) }); });
+      () => { PLOADED = true; P = null; try { localStorage.removeItem(PKEY(id)); if (window.PG_DMPARTY_KEY) localStorage.removeItem(window.PG_DMPARTY_KEY); } catch (e) {} if (window.PG_DESKED && !LEAVING) { location.reload(); return; } if (LEAVING) return; shell({ title: '', bare: true, stat: true, body: note('party', 'You’re not in this party', 'Only its players and DM can open it. If you were invited, the invitation is on your Parties tab.', goHub) }); });
     unC = PC.doc(id).collection('cards').onSnapshot(qs => { CARDS = {}; qs.docs.forEach(d => CARDS[d.id] = d.data()); CLOADED = true; paint(); partyKeep(); cardAccFix(id); }, () => { CLOADED = true; paint(); });
   }
   const statusOf = c => c.dead ? ['Dead', 'dead'] : c.stable ? ['Stable at 0 HP', 'down'] : (Number(c.maxhp) && Number(c.hp) <= 0) ? ['Down — death saves', 'down'] : null;
@@ -3882,6 +3893,9 @@ function partyModule(H) {
   function paint() { if (typeof toPaint === 'function') setTimeout(toPaint, 0);
     // a party you run (as its DM or a co-DM) opens as its DM's Desk — the DM's own desk, notes and all; a player gets the party page
     if (P && PLOADED && (P.dm === EMAIL || (P.mgrs || []).includes(EMAIL)) && window.pgDeskHost && !window.PG_DESKED) window.pgDeskHost(P);
+    // no longer running it (taken off as co-DM, or the party was handed on): back to the plain party page, without the cached
+    // copy that still says you run it
+    if (window.PG_DESKED && PLIVE && P && P.dm !== EMAIL && !(P.mgrs || []).includes(EMAIL)) { try { localStorage.removeItem(PKEY(P.id)); if (window.PG_DMPARTY_KEY) localStorage.removeItem(window.PG_DMPARTY_KEY); } catch (e) {} location.reload(); return; }
     if (!PLOADED || JOINING || LEAVING) return;
     // not while the DM is typing an amount on a card (it'd be wiped); it catches up a moment later
     { const ae = document.activeElement; if (ae && ae.classList && (ae.classList.contains('pm-q') && ae.value || ae.classList.contains('pm-qt'))) { clearTimeout(paint.t); paint.t = setTimeout(paint, 900); return; } }

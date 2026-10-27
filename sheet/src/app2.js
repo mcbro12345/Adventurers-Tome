@@ -461,7 +461,8 @@ const R20_LOGO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAARcAAAB4CAIAAABX
 const ICON = {
   image: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
   clock: '<svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
-  log: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h8M8 9h2"/></svg>',
+  log: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>',
+  hist: '<svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>',
   sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
   moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>',
   bug: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7.5V6a3 3 0 0 1 6 0v1.5"/><rect x="7" y="7.5" width="10" height="12.5" rx="5"/><path d="M12 11v9M3.5 13H7M17 13h3.5M4.5 8l2.6 1.8M19.5 8l-2.6 1.8M4.5 19.5l2.8-2M19.5 19.5l-2.8-2"/></svg>',
@@ -481,9 +482,9 @@ const ICON = {
 // Toolbar buttons are generated straight into the user's saved order, so there is no default order to flash back to.
 function toolbarHTML() {
   const items = {
-    undo: `<button class="tbtn" data-zi="undo" data-act="undo" id="undoBtn" title="Undo (Ctrl+Z)">${ICON.undo}<span class="tl"> Undo</span></button>`,
-    redo: `<button class="tbtn" data-zi="redo" data-act="redo" id="redoBtn" title="Redo (Ctrl+Y)">${ICON.redo}<span class="tl"> Redo</span></button>`,
-    history: `<button class="tbtn" data-zi="history" data-act="history" title="See every change and roll back by time">${ICON.clock}<span class="tl">History</span></button>`,
+    undo: `<button class="tbtn iconly" data-zi="undo" data-act="undo" id="undoBtn" title="Undo (Ctrl+Z)" aria-label="Undo">${ICON.undo}</button>`,
+    redo: `<button class="tbtn iconly" data-zi="redo" data-act="redo" id="redoBtn" title="Redo (Ctrl+Y)" aria-label="Redo">${ICON.redo}</button>`,
+    history: `<button class="tbtn iconly" data-zi="history" data-act="history" title="History: see every change and roll back by time" aria-label="History">${ICON.hist}</button>`,
     edit: `<button class="tbtn${UI.editLayout ? ' on' : ''}" data-zi="edit" data-act="editlayout" title="Rearrange, hide and move panels and tabs">${UI.editLayout ? '✓<span class="tl"> Done' + (isMobile() ? '' : ' editing') + '</span>' : '✥<span class="tl"> ' + (isMobile() ? 'Layout' : 'Edit layout') + '</span>'}</button>`,
     settings: `<button class="tbtn" data-zi="settings" data-act="settings" title="Settings">${ICON.gear}<span class="tl">Settings</span></button>`,
     save: `<div class="savegrp" data-zi="save"><span class="save-state${/synced|view only/i.test(UI.saveState || '') ? ' live' : ''}" id="saveState" title="${esc(UI.saveState || 'Auto-saves')}">${syncHTML(UI.saveState || 'Auto-saves')}</span></div>`,

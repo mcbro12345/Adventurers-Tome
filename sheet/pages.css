@@ -3588,3 +3588,6 @@ html.pg-dk-hide:not(.pg-dk-fade) body > :not(.pg-bgd):not(#pg-load):not(.pg-out)
 .pg-bug-l input.pg-bug-in { display: none !important; }
 .pg-bug-hint kbd { font: 700 .7rem system-ui, sans-serif; padding: 1px 5px; border-radius: 4px; border: 1px solid #3a4560; border-bottom-width: 2px; }
 @media (prefers-color-scheme: light) { body:not(.adminbody) .pg-bug-hint kbd { border-color: #d8c9a6; } }
+/* …on a phone: the dot becomes a little phone (same colours: green looking now, yellow open but not in front) */
+.pg-pw.onph > i { width: 6px; height: 10px; border-radius: 1.5px; right: -1px; bottom: -1px; }
+.pg-pw.onph > i::after { content: ''; position: absolute; left: 50%; bottom: 1px; width: 2px; height: 1px; margin-left: -1px; border-radius: 1px; background: rgba(15,22,38,.85); }
