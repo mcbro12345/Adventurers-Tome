@@ -3489,7 +3489,7 @@ function nCtx(e) {
   e.preventDefault(); nCtxClose();
   const m = document.createElement('div'); m.className = 'dk-menu open dk-ctx'; m.setAttribute('role', 'menu');
   const it = (act, t, cls) => `<button data-act="${act}" data-pid="${p.id}"${act === 'nopen' ? ` data-id="${p.id}"` : ''}${cls ? ` class="${cls}"` : ''} role="menuitem">${t}</button>`;
-  m.innerHTML = `<div class="dk-mlist"><div class="dk-ctxh">${nIcon(p.type)}<b>${esc(p.title)}</b></div>${it('nopen', 'Open')}${it('nsub', 'Add a subpage')}${it('nfav', p.fav ? 'Unpin' : 'Pin')}${it('nmove', 'Move to…')}${it('nalias', 'Other names…')}${it('nmd', 'Export as Markdown')}${it('ndel', 'Delete page', 'red')}</div>`;
+  m.innerHTML = `<div class="dk-mlist"><div class="dk-ctxh">${nIcon(p.type)}<b>${esc(p.title)}</b></div>${it('nsub', 'Add a subpage')}${it('nfav', p.fav ? 'Unpin' : 'Pin')}${it('nmove', 'Move to…')}${it('nalias', 'Other names…')}${it('nmd', 'Export as Markdown')}${it('ndel', 'Delete page', 'red')}</div>`;
   ROOT.appendChild(m); const r = m.getBoundingClientRect();
   m.style.left = Math.max(8, Math.min(e.clientX, innerWidth - r.width - 8)) + 'px'; m.style.top = Math.max(8, Math.min(e.clientY, innerHeight - r.height - 8)) + 'px';
   const off = ev => { if (ev.type === 'keydown' && ev.key !== 'Escape') return; if (ev.type === 'pointerdown' && m.contains(ev.target)) return; nCtxClose(); removeEventListener('pointerdown', off, true); removeEventListener('keydown', off, true); removeEventListener('scroll', off, true); removeEventListener('blur', off); };
