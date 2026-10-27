@@ -4502,7 +4502,8 @@ function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduc
     // once this page's own content is drawn on it (the sign-in card), and then they fade in
     const L = document.getElementById('pg-load'); if (L && !L.classList.contains('pg-leave')) { const on = window.PG_BGD_LOAD || (w && !!L.querySelector('.pg-signin, .pg-msg')); put(L, on, '', on && !loadHad); if (on) loadHad = true; }
     put(document.body, w);
-    put(document.querySelector('body.hubbody:not(.adminbody) :is(.hub-head, .wzh)'), w, 'pg-bgd-hd'); };
+    put(document.querySelector('body.hubbody:not(.adminbody) :is(.hub-head, .wzh)'), w, 'pg-bgd-hd')
+    put(document.querySelector('body > .wizard'), w, 'pg-bgd-wz'); }; // (the character creator draws over the whole page)
   window.pgBgdSync = sync;
   const go = () => { sync(); new MutationObserver(sync).observe(document.body, { attributes: true, attributeFilter: ['class'], childList: true, subtree: true }); addEventListener('popstate', () => setTimeout(sync)); };
   if (document.body) go(); else document.addEventListener('DOMContentLoaded', go);

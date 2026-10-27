@@ -32,3 +32,10 @@ html[data-pgtheme="dark"] .pg-bgd { color: rgb(214,168,72); --bo: .11; }
 }
 .pg-bgd.pg-bgd-in { animation: pgBgdIn .6s ease both; }
 @keyframes pgBgdIn { from { opacity: 0; } }
+.wizard:has(> .pg-bgd) { isolation: isolate; }
+/* the character creator's panels are solid over the dice (the colours they already look like), so the lines stay behind them */
+html:not([data-theme="light"]):not([data-pgtheme="light"]) #wizard.wizard:has(> .pg-bgd) :is(.wz3-hero, .wz-steps, .wz3-imp, .crlist, .hub-top) { background-color: #181f2f !important; }
+html:not([data-theme="light"]):not([data-pgtheme="light"]) #wizard.wizard:has(> .pg-bgd) .wz-foot { background-color: #161c2a !important; }
+html:not([data-theme="light"]):not([data-pgtheme="light"]) #wizard.wizard:has(> .pg-bgd) :is(.srcopt, .segmini, .pbcell, .wz3-way) { background-color: #191f2f; }
+html:not([data-theme="light"]):not([data-pgtheme="light"]) #wizard.wizard:has(> .pg-bgd) :is(.srcopt, .wz3-way):hover { background-color: #1f2535; }
+html:not([data-theme="light"]):not([data-pgtheme="light"]) #wizard.wizard:has(> .pg-bgd) :is(.srcopt.on, .wz3-way.on) { background-color: #26272a; }
