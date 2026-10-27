@@ -3591,3 +3591,6 @@ html.pg-dk-hide:not(.pg-dk-fade) body > :not(.pg-bgd):not(#pg-load):not(.pg-out)
 /* …on a phone: the dot becomes a little phone (same colours: green looking now, yellow open but not in front) */
 .pg-pw.onph > i { width: 6px; height: 10px; border-radius: 1.5px; right: -1px; bottom: -1px; }
 .pg-pw.onph > i::after { content: ''; position: absolute; left: 50%; bottom: 1px; width: 2px; height: 1px; margin-left: -1px; border-radius: 1px; background: rgba(15,22,38,.85); }
+/* Tab picker (lobby, party page, admin): a short last row stretches to fill the width */
+.pgp-grid { display: flex; flex-wrap: wrap; justify-content: center; }
+.pgp-grid > * { flex: 1 0 calc((100% - 16px) / 3); min-width: 0; box-sizing: border-box; }

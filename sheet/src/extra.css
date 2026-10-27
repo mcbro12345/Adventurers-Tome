@@ -4147,3 +4147,6 @@ html:not(.mobile) #tabs .tab .tlabel { transform: translateY(-1px); }
 .tbtn.iconly .ti { margin-right: 0; }
 html:not(.mobile) .toolbar .tbtn.iconly { padding-left: 9px; padding-right: 9px; }
 html:not(.mobile) .toolbar [data-zi="history"].iconly .ti { display: block !important; }
+/* Phone tab picker: a short last row stretches to fill the width */
+.mtab-grid { display: flex; flex-wrap: wrap; justify-content: center; }
+.mtab-grid > * { flex: 1 0 calc((100% - 16px) / 3); min-width: 0; box-sizing: border-box; }

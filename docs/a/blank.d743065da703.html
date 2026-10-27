@@ -4564,6 +4564,16 @@ html.mobile .setrow.r20aura input[type=checkbox] { width: 22px; height: 22px; ma
 @media (prefers-color-scheme: light) { :where(input[type=checkbox]:not([role=switch])) { --cb-line: rgba(70,80,100,.45); } }
 :root[data-theme="light"] :where(input[type=checkbox]:not([role=switch])), html[data-pgtheme="light"] :where(input[type=checkbox]:not([role=switch])) { --cb-line: rgba(70,80,100,.45); }
 :root[data-theme="dark"] :where(input[type=checkbox]:not([role=switch])), html[data-pgtheme="dark"] :where(input[type=checkbox]:not([role=switch])) { --cb-line: rgba(140,150,170,.6); }
+/* Radio buttons match the site's checkboxes: a round box that fills with a gold dot when picked. */
+:where(input[type=radio]) { appearance: none; -webkit-appearance: none; box-sizing: border-box; flex: none; width: 18px; height: 18px; margin: 0; padding: 0; vertical-align: -4px;
+  border: 1.5px solid var(--cb-line, rgba(140,150,170,.6)); border-radius: 50%; background: var(--field, transparent); cursor: pointer; color: inherit;
+  transition: background-color .15s, border-color .15s, box-shadow .15s; }
+@media (hover:hover){:where(html:not(.mobile)) :where(input[type=radio]):hover:not(:disabled){ border-color: var(--gold, #c9962b); }}
+:where(input[type=radio]):checked { border-color: var(--gold, #c9962b); background: radial-gradient(circle, var(--gold, #c9962b) 0 4px, transparent 4.6px) var(--field, transparent); }
+:where(input[type=radio]):disabled { cursor: not-allowed; opacity: .5; }
+@media (prefers-color-scheme: light) { :where(input[type=radio]) { --cb-line: rgba(70,80,100,.45); } }
+:root[data-theme="light"] :where(input[type=radio]), html[data-pgtheme="light"] :where(input[type=radio]) { --cb-line: rgba(70,80,100,.45); }
+:root[data-theme="dark"] :where(input[type=radio]), html[data-pgtheme="dark"] :where(input[type=radio]) { --cb-line: rgba(140,150,170,.6); }
 /* A tick-box setting: its words line up on the left after the box (not pushed right like a setting's value), with the
    box level with the title */
 label.setrow > input[type=checkbox] + span { flex: 1 1 auto; min-width: 0; text-align: left; color: inherit; font-size: inherit; }
@@ -4791,6 +4801,39 @@ html.mobile .pcwin .pcw-body { padding-bottom: 0 !important; }
 /* Coming back to the app with the keyboard up, the iPhone slides the visible part of the page down (the chat's top went
    off the screen): the card follows the visible part, so its top stays under the clock. (Normally that slide is 0.) */
 html.mobile .pcwin { top: calc(var(--vvt, 0px) + env(safe-area-inset-top, 0px) + 8px) !important; }
+/* the portrait's "change" control: a small gold pencil badge in its corner on hover (like a party's picture), not a strip
+   of text across the bottom; the whole portrait still takes the click */
+header.banner .portrait-wrap .portrait-edit { inset: auto 6px 6px auto !important; width: 28px; height: 28px; padding: 0 !important; display: grid; place-items: center; border-radius: 50% !important;
+  background: var(--gold) !important; color: #1b1406 !important; box-shadow: 0 2px 8px rgba(0,0,0,.35); font-size: 0 !important; transition: opacity .15s ease, transform .15s ease; }
+header.banner .portrait-wrap .portrait-edit svg { width: 14px; height: 14px; }
+@media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) :where(html:not(.mobile)) header.banner .portrait-wrap:hover .portrait-edit{ transform: scale(1.06); }} }
+html.mobile header.banner .portrait-wrap .portrait-edit { width: 24px; height: 24px; inset: auto 3px 3px auto !important; }
+/* roll cards can be picked up and moved with a mouse */
+html:not(.mobile) #rolls .toast.rollcard { cursor: grab; } body.rolls-drag, body.rolls-drag #rolls .toast.rollcard { cursor: grabbing !important; user-select: none; }
+/* tab labels sit on the same middle as their icons (the label's box is trimmed to its capital letters, so centring
+   lines up the letters themselves, not the empty space a font keeps above and below them) */
+html:not(.mobile) #tabs .tab .tlabel { transform: translateY(-1px); }
+/* Where the browser can trim a line down to the capital letters, the words are centred by their capitals, the way the
+   eye reads them, on every system font (Windows and Mac fonts sit their letters at different heights in the line) */
+@supports (text-box: trim-both cap alphabetic) {
+  html:not(.mobile) #tabs .tab .tlabel { transform: none; top: 0; text-box: trim-both cap alphabetic; overflow: clip; overflow-clip-margin: 6px; }
+}
+
+/* Divine Smite: the switch on its own full-width line, then the slot choices in a grid under it (the row used to be the
+   slot grid itself, which squeezed the switch into one narrow cell). */
+.smite-row { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.smite-row .smite-chk { margin: 0; }
+.smite-row .smite-chk b { white-space: nowrap; }
+.smite-lv, html.mobile .smite-lv { display: grid; grid-template-columns: repeat(auto-fit, minmax(78px, 1fr)); gap: 6px; }
+.smite > .sect { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; white-space: nowrap; }
+.smite > .sect .toggle { white-space: nowrap; flex: none; margin-left: auto; }
+/* Undo / Redo / History: icons only (the same ones the DM's Desk uses) */
+.tbtn.iconly .ti { margin-right: 0; }
+html:not(.mobile) .toolbar .tbtn.iconly { padding-left: 9px; padding-right: 9px; }
+html:not(.mobile) .toolbar [data-zi="history"].iconly .ti { display: block !important; }
+/* Phone tab picker: a short last row stretches to fill the width */
+.mtab-grid { display: flex; flex-wrap: wrap; justify-content: center; }
+.mtab-grid > * { flex: 1 0 calc((100% - 16px) / 3); min-width: 0; box-sizing: border-box; }
 
 </style>
 </head>
@@ -8822,15 +8865,13 @@ DND.moreCards = {
     // Wild Magic
     'barbarian:wildmagic:Magic Awareness': { col: 'action', text: 'Until the end of your next turn you know the location of spells and magic items within 60 ft (not behind total cover) and their schools.' },
     'barbarian:wildmagic:Wild Surge': {
-      col: 'bonus', onlyRaging: true, roll: '1d8', rollNote: 'Wild Magic table', dc: 'con',
-      text: '1 Shadowy tendrils (CON save, 1d12 necrotic; you gain 1d12 temp HP) · 2 Teleport 30 ft (again as bonus action each turn) · 3 Exploding spirit (DEX save, 1d6 force; again as bonus action) · 4 Weapon: light, thrown 20/60, force damage, returns · 5 Attackers that hit you take 1d6 force · 6 Protective lights: +1 AC for you and allies within 10 ft · 7 Flowers and vines: 15 ft difficult terrain for enemies · 8 Bolt of light (CON save, 1d6 radiant + blinded; again as bonus action). Effects last until the rage ends.',
+      col: 'bonus', onlyRaging: true, bsurge: 'one', dc: 'con',
+      text: 'Rolls automatically when you rage. 1 Shadowy tendrils (CON save, 1d12 necrotic; you gain 1d12 temp HP) · 2 Teleport 30 ft (again as bonus action each turn) · 3 Exploding spirit (DEX save, 1d6 force; again as bonus action) · 4 Weapon: light, thrown 20/60, force damage, returns · 5 Attackers that hit you take 1d6 force · 6 Protective lights: +1 AC for you and allies within 10 ft · 7 Flowers and vines: 15 ft difficult terrain for enemies · 8 Bolt of light (CON save, 1d6 radiant + blinded; again as bonus action). Effects last until the rage ends.',
       acts: [
-        { name: '1 Tendrils', onlyRaging: true, roll: '1d12', rollNote: 'necrotic to each creature you choose within 30 ft (CON save negates)', dc: 'con', save: 'CON', use: { temp: '1d12' } },
-        { name: '2 Teleport', col: 'bonus', onlyRaging: true, text: 'Teleport up to 30 ft to an unoccupied space you can see.' },
-        { name: '3 Spirit', col: 'bonus', onlyRaging: true, roll: '1d6', rollNote: 'force to each creature within 5 ft of the spirit (DEX save negates)', dc: 'con', save: 'DEX' },
-        { name: '5 Retribution', onlyRaging: true, roll: '1d6', rollNote: 'force to the creature that hit you' },
-        { name: '6 Protective lights', onlyRaging: true, use: E('Wild Surge: Lights', 10, { ac: 1, note: 'Allies within 10 ft also get +1 AC' }) },
-        { name: '8 Bolt of light', col: 'bonus', onlyRaging: true, roll: '1d6', rollNote: 'radiant; blinded until the start of your next turn (CON save negates)', dc: 'con', save: 'CON' }]
+        { name: 'Teleport again', col: 'bonus', onlyRaging: true, onlyWhen: { effect: 'Wild Surge: Teleport' }, text: 'Teleport up to 30 ft to an unoccupied space you can see.' },
+        { name: 'Another spirit', col: 'bonus', onlyRaging: true, onlyWhen: { effect: 'Wild Surge: Exploding spirit' }, roll: '1d6', rollNote: 'force to each creature within 5 ft of the spirit (DEX save negates)', dc: 'con', save: 'DEX' },
+        { name: 'Retribution', onlyRaging: true, onlyWhen: { effect: 'Wild Surge: Retribution' }, roll: '1d6', rollNote: 'force to the creature that hit you' },
+        { name: 'Another bolt', col: 'bonus', onlyRaging: true, onlyWhen: { effect: 'Wild Surge: Bolt of light' }, roll: '1d6', rollNote: 'radiant; blinded until the start of your next turn (CON save negates)', dc: 'con', save: 'CON' }]
     },
     'barbarian:wildmagic:Bolstering Magic': {
       resource: true,
@@ -8838,8 +8879,8 @@ DND.moreCards = {
         { name: 'Bolster (+1d3 rolls)', col: 'action', cost: true, use: E('Bolstering Magic', 100, { note: 'Roll 1d3 and add it to each attack roll or ability check for 10 minutes' }), text: 'Target yourself or a creature you touch (the effect chip tracks it on you).' },
         { name: 'Restore a slot', col: 'action', cost: true, roll: '1d3', rollNote: 'level of the spell slot the touched creature regains (lower if needed)' }]
     },
-    'barbarian:wildmagic:Unstable Backlash': { col: 'reaction', onlyRaging: true, roll: '1d8', rollNote: 'new Wild Magic table result (replaces the current one)', dc: 'con', text: 'When you take damage or fail a save while raging.' },
-    'barbarian:wildmagic:Controlled Surge': { col: 'bonus', onlyRaging: true, roll: '2d8', rollNote: 'two Wild Magic results — read each die and choose; doubles = choose any effect', dc: 'con' },
+    'barbarian:wildmagic:Unstable Backlash': { col: 'reaction', onlyRaging: true, bsurge: 'backlash', dc: 'con', text: 'When you take damage or fail a save while raging: roll a new Wild Surge (it replaces the current one).' },
+    'barbarian:wildmagic:Controlled Surge': { onlyRaging: true, bsurge: 'controlled', dc: 'con', text: 'Whenever you roll on the Wild Magic table, roll twice and choose; doubles let you choose any effect. (The sheet does this for you.)' },
 
     // Battlerager
     'barbarian:battlerager:Battlerager Armor': {
@@ -12810,16 +12851,31 @@ function toast(html, cls = '', ms = 4500, action) {
   if (isRoll && cls !== 'manual') statFlush();
   if (isRoll && cls !== 'manual') postSheetRoll(t);
   if (isRoll) { box = $('#rolls'); if (!box) { box = document.createElement('div'); box.id = 'rolls'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); } t.classList.add('rollcard'); ms = Math.max(ms, 6500); }
-  if (isRoll) box.prepend(t); else box.appendChild(t);
+  // A new roll while one is showing: like a carousel, the new card slides down into the top spot from just above, the
+  // previous card(s) slide down a place to make room, and whichever card no longer fits slides on down and fades away.
   const cap = isRoll ? (document.documentElement.classList.contains('mobile') ? 1 : 2) : document.documentElement.classList.contains('mobile') ? 2 : 5;
+  let rcOld = [];
+  if (isRoll) { const br = box.getBoundingClientRect(); rcOld = [...box.querySelectorAll(':scope > .rollcard:not(.rc-out)')].map(o => { const r = o.getBoundingClientRect(); const cs = getComputedStyle(o); return { o, top: o.offsetTop, left: o.offsetLeft, w: o.offsetWidth, y: o.offsetTop, tf: cs.transform === 'none' ? '' : cs.transform, op: cs.opacity }; }); }
+  // (the card gets its final layout before it goes in, so the cards below know exactly how far to move)
+  if (isRoll) { t._at = Date.now(); rcDress(t); }
+  if (isRoll) box.prepend(t); else box.appendChild(t);
+  if (isRoll && rcOld.length) {
+    const still = !matchMedia('(prefers-reduced-motion: reduce)').matches, stay = rcOld.slice(0, cap - 1), go = rcOld.slice(cap - 1);
+    go.forEach(({ o, top, left, w, tf, op }) => { clearTimeout(o._tm); if (!still) { o.remove(); return; } o.classList.add('rc-out', 'rc-slide'); Object.assign(o.style, { position: 'absolute', top: top + 'px', left: left + 'px', width: w + 'px', margin: '0', animation: 'none', zIndex: '-1' });
+      const a = o.animate([{ transform: `translateY(0px) ${tf}`, opacity: op }, { transform: 'translateY(40px) scale(.9)', opacity: 0 }], { duration: 130, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' }); a.onfinish = () => o.remove(); }); // (gone quickly, before the card behind it slides into its place)
+    if (still) {
+      stay.forEach(({ o, y, tf, op }) => { const d = y - o.offsetTop, cs = getComputedStyle(o), tf2 = cs.transform === 'none' ? '' : cs.transform; // (it eases into its second-place look as it moves, so nothing snaps at the end)
+        if (Math.abs(d) > 1) { o.style.animation = 'none'; o.animate([{ transform: `translateY(${d}px) ${tf}`, opacity: op }, { transform: `translateY(0px) ${tf2}`, opacity: cs.opacity }], { duration: 400, delay: go.length ? 100 : 0, easing: 'cubic-bezier(.3,0,.2,1)', fill: 'backwards' }); } });
+      t.style.animation = 'none'; t.animate([{ transform: 'translateY(-56px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 380, delay: 150, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'backwards' }); // (it follows a beat behind, so the two never blur together)
+    }
+  }
   if (isRoll) {
     // The math is always on the card (no button to open it), laid out under the numbers: one column per part (to hit,
     // damage…). The card stays until its × is pressed — or until a newer roll pushes it off the stack.
-    t._at = Date.now(); rcDress(t);
     // Settings → Dice can make cards fade on their own after a while (it waits while the pointer rests on the card)
     { const sec = N(ST('rollFade')); if (sec > 0) { const go = () => { clearTimeout(t._tm); t._tm = setTimeout(() => rcClose(t), sec * 1000); }; go();
       t.addEventListener('mouseenter', () => clearTimeout(t._tm)); t.addEventListener('mouseleave', go); t.addEventListener('touchstart', go, { passive: true }); } }
-    while (box.children.length > cap) box.lastChild.remove(); return;
+    { const live = [...box.children].filter(c => !c.classList.contains('rc-slide')); while (live.length > cap) live.pop().remove(); } return;
   }
   while (box.children.length > cap) box.firstChild.remove();
   setTimeout(() => t.remove(), ms);
@@ -12839,7 +12895,33 @@ function rcDress(t) {
   x.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
   x.onclick = ev => { ev.stopPropagation(); rcClose(t); }; t.appendChild(x);
 }
-function rcClose(t) { if (!t || t.classList.contains('rc-out')) return; t.classList.add('rc-out'); setTimeout(() => t.remove(), 180); }
+// On a computer the roll cards can be dragged anywhere on the screen (grab a card anywhere but its buttons). New rolls
+// show up where you left them, for as long as the page is open.
+(() => { let D = null; const box = () => $('#rolls'), K = 'pg-rolls-at';
+  const put = (x, y) => { const b = box(); if (!b) return; b.style.translate = `${Math.round(x)}px ${Math.round(y)}px`; };
+  try { const v = JSON.parse(sessionStorage.getItem(K) || 'null'); if (v) setTimeout(() => put(v[0], v[1]), 0); } catch (e) {}
+  document.addEventListener('pointerdown', e => { if (e.button !== 0 || e.pointerType !== 'mouse' || isMobile()) return; const c = e.target.closest && e.target.closest('#rolls .rollcard'); if (!c || e.target.closest('button, a, input, select, textarea')) return;
+    const b = box(), t = (b.style.translate || '0px 0px').split(' ').map(parseFloat), r = b.getBoundingClientRect();
+    D = { x0: e.clientX, y0: e.clientY, tx: t[0] || 0, ty: t[1] || 0, r, on: false }; e.preventDefault(); });
+  addEventListener('pointermove', e => { if (!D) return; const dx = e.clientX - D.x0, dy = e.clientY - D.y0; if (!D.on && Math.hypot(dx, dy) < 4) return; D.on = true; document.body.classList.add('rolls-drag');
+    // (kept fully on screen)
+    const x = Math.max(-D.r.left + 6, Math.min(innerWidth - D.r.right - 6, dx)), y = Math.max(-D.r.top + 6, Math.min(innerHeight - D.r.top - 60, dy)); put(D.tx + x, D.ty + y); });
+  addEventListener('pointerup', () => { if (!D) return; const was = D.on; D = null; document.body.classList.remove('rolls-drag'); if (!was) return;
+    const t = (box().style.translate || '0px 0px').split(' ').map(parseFloat); try { sessionStorage.setItem(K, JSON.stringify([t[0] || 0, t[1] || 0])); } catch (e) {}
+    const eat = ev => { ev.stopPropagation(); ev.preventDefault(); }; addEventListener('click', eat, { capture: true, once: true }); setTimeout(() => removeEventListener('click', eat, true), 0); });
+  // a card that ends up off screen (the window got smaller) comes back on
+  addEventListener('resize', () => { const b = box(); if (!b || !b.style.translate) return; const r = b.getBoundingClientRect(); if (r.right > innerWidth || r.left < 0 || r.top > innerHeight - 60) { b.style.translate = ''; try { sessionStorage.removeItem(K); } catch (e) {} } });
+})();
+function rcClose(t) { if (!t || t.classList.contains('rc-out')) return; clearTimeout(t._tm);
+  const box = t.parentElement, cs = getComputedStyle(t), tf = cs.transform === 'none' ? '' : cs.transform; t.classList.add('rc-out'); t.style.animation = 'none';
+  // (it fades away, then whatever card was behind it glides up into its place and takes the top card's look)
+  const a = t.animate([{ transform: `translateY(0px) ${tf}`, opacity: cs.opacity }, { transform: `translateY(-6px) ${tf} scale(.98)`, opacity: 0 }], { duration: 180, easing: 'ease', fill: 'forwards' });
+  a.onfinish = () => { if (!box || matchMedia('(prefers-reduced-motion: reduce)').matches) { t.remove(); return; }
+    const rest = [...box.querySelectorAll(':scope > .rollcard:not(.rc-out)')].map(o => { const c = getComputedStyle(o); return { o, y: o.offsetTop, tf: c.transform === 'none' ? '' : c.transform, op: c.opacity }; });
+    t.remove();
+    rest.forEach(({ o, y, tf, op }) => { const d = y - o.offsetTop, c = getComputedStyle(o), tf2 = c.transform === 'none' ? '' : c.transform; if (Math.abs(d) < 1 && tf === tf2) return; o.style.animation = 'none';
+      o.animate([{ transform: `translateY(${d}px) ${tf}`, opacity: op }, { transform: `translateY(0px) ${tf2}`, opacity: c.opacity }], { duration: 320, easing: 'cubic-bezier(.22,1,.36,1)' }); }); };
+}
 // Esc closes the newest roll card (when no window is open)
 document.addEventListener('keydown', e => { if (e.key !== 'Escape' || document.querySelector('#modal.open, .wizard.open, .hub-modal.on, .pg-out')) return; const c = document.querySelector('#rolls .rollcard:not(.rc-out)'); if (c) rcClose(c); });
 let onModalCancel = null;
@@ -12977,7 +13059,8 @@ const R20_LOGO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAARcAAAB4CAIAAABX
 const ICON = {
   image: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
   clock: '<svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
-  log: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h8M8 9h2"/></svg>',
+  log: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>',
+  hist: '<svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>',
   sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
   moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>',
   bug: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7.5V6a3 3 0 0 1 6 0v1.5"/><rect x="7" y="7.5" width="10" height="12.5" rx="5"/><path d="M12 11v9M3.5 13H7M17 13h3.5M4.5 8l2.6 1.8M19.5 8l-2.6 1.8M4.5 19.5l2.8-2M19.5 19.5l-2.8-2"/></svg>',
@@ -12997,9 +13080,9 @@ const ICON = {
 // Toolbar buttons are generated straight into the user's saved order, so there is no default order to flash back to.
 function toolbarHTML() {
   const items = {
-    undo: `<button class="tbtn" data-zi="undo" data-act="undo" id="undoBtn" title="Undo (Ctrl+Z)">${ICON.undo}<span class="tl"> Undo</span></button>`,
-    redo: `<button class="tbtn" data-zi="redo" data-act="redo" id="redoBtn" title="Redo (Ctrl+Y)">${ICON.redo}<span class="tl"> Redo</span></button>`,
-    history: `<button class="tbtn" data-zi="history" data-act="history" title="See every change and roll back by time">${ICON.clock}<span class="tl">History</span></button>`,
+    undo: `<button class="tbtn iconly" data-zi="undo" data-act="undo" id="undoBtn" title="Undo (Ctrl+Z)" aria-label="Undo">${ICON.undo}</button>`,
+    redo: `<button class="tbtn iconly" data-zi="redo" data-act="redo" id="redoBtn" title="Redo (Ctrl+Y)" aria-label="Redo">${ICON.redo}</button>`,
+    history: `<button class="tbtn iconly" data-zi="history" data-act="history" title="History: see every change and roll back by time" aria-label="History">${ICON.hist}</button>`,
     edit: `<button class="tbtn${UI.editLayout ? ' on' : ''}" data-zi="edit" data-act="editlayout" title="Rearrange, hide and move panels and tabs">${UI.editLayout ? '✓<span class="tl"> Done' + (isMobile() ? '' : ' editing') + '</span>' : '✥<span class="tl"> ' + (isMobile() ? 'Layout' : 'Edit layout') + '</span>'}</button>`,
     settings: `<button class="tbtn" data-zi="settings" data-act="settings" title="Settings">${ICON.gear}<span class="tl">Settings</span></button>`,
     save: `<div class="savegrp" data-zi="save"><span class="save-state${/synced|view only/i.test(UI.saveState || '') ? ' live' : ''}" id="saveState" title="${esc(UI.saveState || 'Auto-saves')}">${syncHTML(UI.saveState || 'Auto-saves')}</span></div>`,
@@ -13032,7 +13115,7 @@ function renderHeader() {
     ST('showAlignment') ? fld('Alignment', sel('alignment', [['', '—']].concat(DND.alignments.map(a => [a, a])))) : '', ST('showFaith') ? fld('Faith', inp('faith', { ph: '—', fit: 8 })) : ''].join('');
   $('#sec-header').innerHTML = `
   <div class="banner-row"><div class="portrait-wrap"><img id="portraitImg" src="${esc(pic)}" alt="${esc((S.name || 'Character') + '’s portrait')}">
-    <label class="portrait-edit" tabindex="0" data-act="portrait">Change portrait</label></div>${inspHTML()}</div>
+    <label class="portrait-edit" tabindex="0" data-act="portrait" title="Change portrait" aria-label="Change portrait"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg></label></div>${inspHTML()}</div>
   <div class="ident${idf ? '' : ' noid'}"><h1 class="sr-only">${esc(S.name || 'Character sheet')}</h1>
     <div class="ident-top">
       <img class="mini-portrait" src="${esc(pic)}" alt="" data-act="portrait">
@@ -13064,7 +13147,7 @@ function renderVitals() {
         <div class="hp-center">${f ? inp('form.hp', { num: 1, cls: 'cur', label: 'Form HP' }) + `<div class="hp-max">of ${N(f.maxhp)}</div>` : `<div class="curline">` + inp('hp.cur', { num: 1, cls: 'cur', label: 'Current HP' }) + `<span class="tmpbadge" data-calc="tmpb" title="Temporary hit points"></span></div><div class="hp-max">of <span class="maxv" data-calc="hpmaxv"></span></div>`}</div></div>
       <div class="hp-side">
         ${f ? `<div class="formnote">Your HP: <b data-calc="truehp"></b> <button class="btn sm" data-act="endform">Revert</button></div>` : ''}
-        <div class="hp-actions"><div class="hp-amtrow"><select class="f hptype" id="hpType" aria-label="Damage type (resistances and immunities apply)" title="Damage type: your resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="hpAmt" type="text" inputmode="text" autocomplete="off" enterkeyhint="done" placeholder="Amount" aria-label="HP amount: type -20 (or 20) and press Enter for damage, +20 to heal"></div>
+        <div class="hp-actions"><div class="hp-amtrow"><select class="f hptype sel-dmg" id="hpType" aria-label="Damage type (resistances and immunities apply)" title="Damage type: your resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="hpAmt" type="text" inputmode="text" autocomplete="off" enterkeyhint="done" placeholder="Amount" aria-label="HP amount: type -20 (or 20) and press Enter for damage, +20 to heal"></div>
           <button class="btn red hpi" data-act="dmg" title="Take damage" aria-label="Take damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="heal" title="Heal" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmpbtn" data-act="tmphp" title="Gain temporary HP (they don't stack — the higher stays). 0 clears them." aria-label="Gain temporary HP">${ICON.hpTemp}</button></div>
         <div class="rest-actions"><button class="btn rest short" data-act="short" title="1 hour: spend Hit Dice, refresh short-rest features and Pact slots"><span class="ri">${ICON.hourglass}</span><span class="rl">Short Rest</span></button><button class="btn rest long" data-act="long" title="8 hours: full HP, all slots, features and Hit Dice"><span class="ri">${ICON.moon}</span><span class="rl">Long Rest</span></button></div>
       </div>
@@ -13975,7 +14058,7 @@ function renderInventory() {
         <span class="grow"></span>
         <button class="icon-btn ibtn${open ? ' on' : ''}" data-act="toggle" data-key="item:${esc(it.id)}" title="${open ? 'Close editing' : 'Edit details and notes'}" aria-label="Edit ${esc(it.name)}">${open ? '▴' : '✎'}</button>
         ${del('inventory', i)}</div>
-      <div class="imeta">${resPickItem(it) && !it.resPick ? `<label class="respick unset"><span>Which ring is it?</span><select class="f" data-restype="${i}" aria-label="Damage type this item resists"><option value="">Choose its damage type…</option>${RES_TYPES.map(t => `<option value="${t}">${t[0].toUpperCase() + t.slice(1)}</option>`).join('')}</select></label>` : ''}${String(it.notes || '').trim() && !open ? `<div class="inote-m mnote">${esc(it.notes)}</div>` : ''}${badges}${ch}${isDeckItem(it) ? `<button class="btn sm gold" data-act="deck" data-i="${i}">Draw a card</button>` : ''}${throwOf(it) ? `<button class="btn sm gold" data-act="throwit" data-i="${i}" title="Throw it (uses your action)">Throw</button>` : ''}${packOf(it.name) ? `<button class="btn sm gold" data-act="unpack" data-i="${i}" title="Replace the pack with everything it contains">Unpack</button>` : ''}${it.equipped && it.weapon && it.weapon.kind === 'melee' && !(it.weapon.props || []).includes('two-handed') && ((it.weapon.props || []).includes('light') || dualWielder()) ? `<label class="offchk" title="Dual wield: after attacking with a light melee weapon, attack with this one as a bonus action (Combat tab → Bonus Action)"><input type="checkbox" data-offhand="${i}"${it.offhand ? ' checked' : ''}> Off-hand (dual wield)</label>` : ''}${itemStores(it) && !it.infusion ? `<button class="btn sm gold" data-act="ringstore" data-i="${i}" title="${esc((it.spells || []).length ? 'Holds: ' + it.spells.join(', ') : 'Empty')}">Store a spell <small>${ringUsed(it)}/${ringCap(it)}</small></button>` : ''}${it.heal ? `<button class="btn sm" data-act="drink" data-i="${i}">Drink (${esc(it.heal)})</button>` : ''}${it.hb && hbUsable(hbFx(it.hb)) ? `<button class="btn sm gold" data-act="useitem" data-i="${i}" ${hbItemReady(it) ? '' : 'disabled'} title="${hbItemOn(it) ? '' : it.attune && !it.attuned ? 'Attune first' : 'Equip it first'}">Use</button>` : ''}${hbChips(it)}
+      <div class="imeta">${resPickItem(it) && !it.resPick ? `<label class="respick unset"><span>Which ring is it?</span><select class="f sel-dmg" data-restype="${i}" aria-label="Damage type this item resists"><option value="">Choose its damage type…</option>${RES_TYPES.map(t => `<option value="${t}">${t[0].toUpperCase() + t.slice(1)}</option>`).join('')}</select></label>` : ''}${String(it.notes || '').trim() && !open ? `<div class="inote-m mnote">${esc(it.notes)}</div>` : ''}${badges}${ch}${isDeckItem(it) ? `<button class="btn sm gold" data-act="deck" data-i="${i}">Draw a card</button>` : ''}${throwOf(it) ? `<button class="btn sm gold" data-act="throwit" data-i="${i}" title="Throw it (uses your action)">Throw</button>` : ''}${packOf(it.name) ? `<button class="btn sm gold" data-act="unpack" data-i="${i}" title="Replace the pack with everything it contains">Unpack</button>` : ''}${it.equipped && it.weapon && it.weapon.kind === 'melee' && !(it.weapon.props || []).includes('two-handed') && ((it.weapon.props || []).includes('light') || dualWielder()) ? `<label class="offchk" title="Dual wield: after attacking with a light melee weapon, attack with this one as a bonus action (Combat tab → Bonus Action)"><input type="checkbox" data-offhand="${i}"${it.offhand ? ' checked' : ''}> Off-hand (dual wield)</label>` : ''}${itemStores(it) && !it.infusion ? `<button class="btn sm gold" data-act="ringstore" data-i="${i}" title="${esc((it.spells || []).length ? 'Holds: ' + it.spells.join(', ') : 'Empty')}">Store a spell <small>${ringUsed(it)}/${ringCap(it)}</small></button>` : ''}${it.heal ? `<button class="btn sm" data-act="drink" data-i="${i}">Drink (${esc(it.heal)})</button>` : ''}${it.hb && hbUsable(hbFx(it.hb)) ? `<button class="btn sm gold" data-act="useitem" data-i="${i}" ${hbItemReady(it) ? '' : 'disabled'} title="${hbItemOn(it) ? '' : it.attune && !it.attuned ? 'Attune first' : 'Equip it first'}">Use</button>` : ''}${hbChips(it)}
 </div>
       ${open ? `<div class="idetail"><div class="idet-top">${picThumb(`inventory.${i}.img`, it.name)}${fld('Notes', ta(`inventory.${i}.notes`, { rows: 2, cls: 'inotefull', label: 'Notes', ph: 'Add a note…' }))}</div>${it.summary ? `<p>${esc(it.summary)}</p>` : ''}${it.armor ? `<p class="hint">${esc(it.armor.type)} armor · AC ${it.armor.base}${it.armor.type === 'shield' ? '' : it.armor.dexCap === 0 ? '' : it.armor.dexCap ? ' + DEX (max ' + it.armor.dexCap + ')' : ' + DEX'}${it.armor.strReq ? ' · STR ' + it.armor.strReq : ''}${it.armor.stealthDis ? ' · Stealth disadvantage' : ''}</p>` : ''}${it.weapon ? `<p class="hint">${esc(it.weapon.cat)} ${esc(it.weapon.kind)} · ${esc(it.weapon.dice)} ${esc(it.weapon.type)}${it.weapon.props && it.weapon.props.length ? ' · ' + esc(it.weapon.props.join(', ')) : ''}${it.weapon.range ? ' · ' + esc(it.weapon.range) + ' ft' : ''}</p>` : ''}
         <div class="row">${fld('Weight (lb)', inp(`inventory.${i}.weight`, { num: 1 }))}${fld('Cost', inp(`inventory.${i}.cost`))}<label class="checkline">${chk(`inventory.${i}.attune`, 'Requires attunement')} Requires attunement</label></div>
@@ -14538,7 +14621,7 @@ function calcHTML(key) {
     case 'fxchips': {
       const fx = S.effects || [];
       if (!fx.length) return '<span class="hint">No spells or effects running.</span>';
-      return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${fmtRounds(e.rounds)}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">🎲 ${esc(e.repeat.dice)}</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join('');
+      return fx.map((e, j) => `<span class="fxc${e.conc ? ' conc' : ''}${e.rounds != null && e.rounds <= 1 ? ' ending' : ''}" title="${esc(fxTip(e))}">${e.conc ? '<i class="cdot"></i>' : ''}<b>${esc(e.name)}</b>${e.ally ? ' (ally)' : ''}${e.from ? '<small class="fxfrom" title="Cast on you by someone else">↘</small>' : ''}${e.buff && N(e.buff.ac) && !e.ally ? ` +${N(e.buff.ac)} AC` : ''}<span class="left">${(e.rage && e.rounds == null ? "until rage ends" : fmtRounds(e.rounds))}</span>${e.repeat ? `<button class="rep" data-act="repeatfx" data-j="${j}" title="Roll ${esc(e.repeat.dice)} ${esc(e.repeat.type || '')}">🎲 ${esc(e.repeat.dice)}</button>` : ''}<button data-act="endeffect" data-n="${esc(e.name)}" aria-label="End ${esc(e.name)}">✕</button></span>`).join('');
     }
     case 'slotsall': {
       let h = '';
@@ -14859,7 +14942,7 @@ function mainClick(e) {
       applyTheme(); render('header'); break;
     }
     case 'menu': b.closest('.menu').classList.toggle('open'); break;
-    case 'portrait': if (S.portrait && window.pgRecrop && window.picChoice) { window.picChoice(S.portrait, () => window.pgRecrop('portrait:' + S.id, S.portrait, { shape: 'square', size: 560, title: 'Portrait' }).then(r => { if (!r) return; S.portrait = r.url; pendingLabel = 'Adjust portrait'; save(); render('header'); }), () => $('#portraitFile').click()); break; } $('#portraitFile').click(); break;
+    case 'portrait': if (S.portrait && window.pgRecrop && window.picChoice) { window.picChoice(S.portrait, () => window.pgRecrop('portrait:' + S.id, S.portrait, { shape: 'square', size: 560, title: 'Portrait' }).then(r => { if (!r) return; S.portrait = r.url; pendingLabel = 'Adjust portrait'; save(); render('header'); }), () => $('#portraitFile').click(), { title: 'Portrait', drop: f => setPortraitFile(f) }); break; } $('#portraitFile').click(); break;
     case 'pic': PICPATH = b.dataset.path; closeModal(true); $('#picFile').click(); return;
     case 'picview': { const v = getP(b.dataset.path); openModal(`<div class="picview"><img src="${esc(safeImg(v))}" alt=""></div><div class="actions"><button class="btn red" data-act="picdel" data-path="${esc(b.dataset.path)}">Remove</button>${window.pgRecrop ? `<button class="btn" data-act="picadj" data-path="${esc(b.dataset.path)}">Adjust</button>` : ''}<button class="btn" data-act="pic" data-path="${esc(b.dataset.path)}">Change</button><button class="btn gold" data-act="close">Close</button></div>`); return; }
     case 'picadj': { const path = b.dataset.path, v = getP(path); closeModal(true); window.pgRecrop('pic:' + S.id + ':' + path, v, { shape: 'square', size: 320, title: 'Picture' }).then(r => { if (!r) return; setP(path, r.url); pendingLabel = 'Adjust picture'; save(); render(); }, e => toast(esc(e.message || 'Couldn’t open that picture.'), 'fumble')); return; }
@@ -15457,6 +15540,7 @@ function cleanupLinked() {
   S.attacks = S.attacks.filter(a => !a.effect || names.has(a.effect));
   if (S.form && S.form.effect && !names.has(S.form.effect)) S.form = null;
   if (S.conditions.includes('Raging') && !names.has('Rage')) S.conditions = S.conditions.filter(c => c !== 'Raging');
+  if (!names.has('Rage') && (S.effects || []).some(e => e.rage)) S.effects = S.effects.filter(e => !e.rage); // (Wild Surge effects end with the rage)
 }
 function breakConc(reason) {
   const nm = S.concentration; if (!nm) return;
@@ -15745,6 +15829,9 @@ function useFeature(i, col, opt) {
   if (fx.target === 'infusetab') { UI.tab = 'infusions'; saveUI(); render(); window.scrollTo(0, 0); return; }
   if (fx.onlyRaging && !S.conditions.includes('Raging')) { toast(`${esc(f.name)} only works while raging.`, 'fumble'); return; }
   if (fx.onlyWhen && !fxWhenOK(fx.onlyWhen)) { toast(`${esc(f.name)} only works ${esc(fxWhenText(fx.onlyWhen))}.`, 'fumble'); return; }
+  if (fx.bsurge) { // Path of Wild Magic: roll on the table (Unstable Backlash takes your reaction)
+    if (fx.bsurge === 'backlash' && S.inCombat) { if ((S.turn.used || {}).reaction) { toast('Your reaction is already used this round.', 'fumble'); return; } S.turn.used.reaction = true; }
+    return barbSurgeNow(fx.bsurge); }
   const max = featMax(f);
   if (max != null && !f.pool) {
     if (N(f.used) >= max) { if (fx.slotRestore && (opt || {}).slot == null) return openSlotRestore(i, col); if ((opt || {}).slot == null) { toast(`No uses of ${esc(f.name)} left.`, 'fumble'); return; } }
@@ -15785,6 +15872,7 @@ function useFeature(i, col, opt) {
   pendingLabel = 'Use ' + f.name; update(); render();
   const left = max != null && !f.pool ? `${Math.max(0, max - N(f.used))}/${max} left` : '';
   toast(`${r ? `<b class="total">${r.total}</b>` : ''}<div><div><b>${esc(f.name)}</b>${left ? ' · ' + left : ''}</div>${r ? `<div class="det">${esc(r.detail)}${fx.rollNote ? ' ' + esc(fx.rollNote) : ''}</div>` : ''}${sc.length ? `<div class="det">${esc(sc.join(' · '))}</div>` : ''}${lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, '', 8000, [healAct, typeof ptyFeatAct === 'function' ? ptyFeatAct(f.name, r, f) : null, { label: 'Undo', fn: () => undo(1) }].filter(Boolean).concat(fRh.acts));
+  if (f.name === 'Rage' && hasFeature('Wild Surge')) setTimeout(() => barbSurgeNow('rage'), 450); // Path of Wild Magic: raging sets off a Wild Surge
 }
 function smite(l) {
   let L;
@@ -16574,14 +16662,14 @@ function loadPortrait(file, cb, size, title, keep) {
   };
   img.src = url;
 }
-$('#portraitFile').addEventListener('change', e => {
-  const f = e.target.files[0]; if (!f) return; e.target.value = '';
+$('#portraitFile').addEventListener('change', e => { const f = e.target.files[0]; if (!f) return; e.target.value = ''; setPortraitFile(f); });
+function setPortraitFile(f) {
   loadPortrait(f, data => {
     if (!S.created) { W.portrait = data; renderWizard(); return; }
     S.portrait = data; pendingLabel = 'Change portrait'; matchPortrait(false); save(); render('header');
     toast('Portrait updated and theme colors matched to it.', '', 6000, [{ label: 'Keep old colors', fn: () => undo(1) }]);
   });
-});
+}
 // Theme: accent and banner colors, from a picker or sampled from the portrait.
 function hexToRgb(h) { const m = String(h || '').match(/^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i); return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : null; }
 const rgbHex = c => '#' + c.map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
@@ -18112,7 +18200,7 @@ function compCard(c, i, mini, inCol) {
   const hp = c.count > 1 ? `<div class="grpHp">${(c.hps || []).map((h, k) => `<label class="ghp"><span>#${k + 1}</span>${inp(`companions.${i}.hps.${k}`, { num: 1, cls: 'sm', label: c.name + ' ' + (k + 1) + ' HP' })}</label>`).join('')}<span class="hint">of ${N(c.maxhp)} each</span></div>`
     : c.maxhp ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(c.hp, c.maxhp, c.temp)}</div>
         <div class="chp-center"><div class="curline">${inp(`companions.${i}.hp`, { num: 1, cls: 'cur', label: c.name + ' current HP' })}${N(c.temp) ? `<span class="tmpbadge">+${N(c.temp)}</span>` : ''}</div><div class="hp-max">of ${N(c.maxhp)}</div></div></div>
-        <div class="chp-side"><select class="f ptyqt" id="chpt${i}" aria-label="Damage type for ${esc(c.name)}" title="Damage type"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="chp${i}" type="text" autocomplete="off" placeholder="Amount" aria-label="${esc(c.name)} HP: -20 (or 20) for damage, +20 to heal, then Enter">
+        <div class="chp-side"><select class="f ptyqt sel-dmg" id="chpt${i}" aria-label="Damage type for ${esc(c.name)}" title="Damage type"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="chp${i}" type="text" autocomplete="off" placeholder="Amount" aria-label="${esc(c.name)} HP: -20 (or 20) for damage, +20 to heal, then Enter">
           <div class="chp-btns"><button class="btn hpi dmg" data-act="comphp" data-i="${i}" data-d="-1" title="Damage ${esc(c.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-act="comphp" data-i="${i}" data-d="1" title="Heal ${esc(c.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-act="comphp" data-i="${i}" data-d="0" title="Give ${esc(c.name)} temporary HP (they don't stack — the higher stays)" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div></div>` : '';
   return `<div class="${mini ? 'cm-card' : inCol ? 'comp2 incol' : 'panel comp2'}"><div class="comp-h2">${picThumb(c.tmpl ? `compMods.${c.tmpl}.img` : `companions.${i}.img`, c.name)}<div class="grow"><b class="cname">${esc(c.name)}</b><div class="ctags">${(inCol ? [] : tags).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div></div>
       ${inCol ? compCmdBtn(c, i) : ''}<button class="icon-btn" data-act="compedit" data-i="${i}" title="Edit ${esc(c.name)}" aria-label="Edit">✎</button>${c.tmpl && COMP_RULES[c.tmpl] && COMP_RULES[c.tmpl].always ? '' : `<button class="btn sm ghost" data-act="dismiss" data-i="${i}">Dismiss</button>`}</div>
@@ -18283,7 +18371,7 @@ function openSurge(res, why) {
       ${o.p.changes.length || res.extra.length ? `<ul class="surgechg">${o.p.changes.concat(res.extra).map(c => `<li>${c}</li>`).join('')}</ul>` : '<p class="hint" style="margin:2px 0 0">Nothing changes on your sheet — this one is up to you and the DM.</p>'}
       ${o.p.input ? `<label class="surgein">${esc(o.p.input.label)} <input class="f" type="number" min="0" id="surgeCount" value="${o.p.input.val}"></label>` : ''}
     </div>`;
-  openModal(`<h3 class="surgetitle">✦ Wild Magic Surge</h3>${why ? `<p class="hint" style="margin:0 0 8px">${esc(why)}</p>` : ''}${many ? '<p class="hint" style="margin:0 0 8px">Controlled Chaos: pick the result you want.</p>' : ''}
+  openModal(`<h3 class="surgetitle">${esc(res.title || '✦ Wild Magic Surge')}</h3>${why ? `<p class="hint" style="margin:0 0 8px">${esc(why)}</p>` : ''}${many ? `<p class="hint" style="margin:0 0 8px">${esc(res.pickHint || 'Controlled Chaos: pick the result you want.')}</p>` : ''}
     ${res.opts.map(card).join('')}
     <div class="actions"><button class="btn gold" data-act="surgeok">OK</button></div>`, () => surgeApply(true));
 }
@@ -18292,7 +18380,7 @@ function surgeApply(cancelled) {
   const o = res.opts[res.pick] || res.opts[0], c = { count: $('#surgeCount') ? $('#surgeCount').value : 1 };
   o.p.fns.forEach(f => f(c));
   if (!cancelled) closeModal(true);
-  pendingLabel = 'Wild Magic Surge (' + o.n + ')'; save(); render();
+  pendingLabel = (res.label || 'Wild Magic Surge') + ' (' + o.n + ')'; save(); render();
 }
 function surgePick(k) { if (!SURGE_PEND) return; SURGE_PEND.pick = N(k); $$('.surgecard').forEach((el, i) => el.classList.toggle('on', i === N(k))); }
 function surgeNoneToast(c) { toast(`<b class="total">${c.total}</b><div><div><b>Wild Magic</b> · surge check</div><div class="sfx">No surge — only a 1 sets one off</div></div>`, '', 3500); }
@@ -18306,6 +18394,43 @@ function wildAfterCast(sp) {
   return () => surgeNoneToast(c);
 }
 function wildSurgeNow() { const res = rollSurge(); save(); render(); openSurge(res, ''); }
+
+// ---------- Path of Wild Magic: Wild Surge ----------
+// Entering a rage rolls a d8 on the barbarian's Wild Magic table, shown and applied the same way as a sorcerer's surge.
+// What it leaves running is an Active Spells chip that ends with the rage (rage: true) — +1 AC for Protective Lights,
+// the bonus-action options for teleport / spirit / bolt, and so on. A new result (Unstable Backlash) replaces the old one.
+// Controlled Surge rolls two and you pick; doubles let you pick any row.
+const bsDC = () => dcVal('con', 'barbarian') || (8 + profB() + mod('con'));
+function bsFx(p, nm, note, buff) {
+  const name = 'Wild Surge: ' + nm, e = { name, rage: true, wsurge: true, buff: Object.assign({ note }, buff || {}) };
+  p.changes.push(`Adds <b>${esc(name)}</b> to Active Spells until your rage ends${buff && buff.ac ? ` (+${buff.ac} AC)` : ''}`);
+  p.fns.push(() => { S.effects = (S.effects || []).concat([JSON.parse(JSON.stringify(e))]); });
+}
+const BSURGE = [
+  ['Shadowy tendrils lash around you. Each creature of your choice within 30 ft makes a CON save or takes 1d12 necrotic damage, and you gain 1d12 temporary hit points.', p => {
+    pRoll(p, '1d12', `Necrotic damage to each creature you choose within 30 ft (CON save DC ${bsDC()} negates)`); const t = pRoll(p, '1d12', 'Your temporary hit points');
+    if (t > N(S.hp.temp)) { p.changes.push(`Temporary HP: ${N(S.hp.temp)} → <b>${t}</b>`); p.fns.push(() => { S.hp.temp = Math.max(N(S.hp.temp), t); }); } else p.changes.push(`You keep your ${N(S.hp.temp)} temporary HP (temporary HP don't stack)`); }],
+  ['You teleport up to 30 ft to an unoccupied space you can see. Until your rage ends, you can do it again as a bonus action on each of your turns.', p => bsFx(p, 'Teleport', 'Bonus action each turn: teleport up to 30 ft to an unoccupied space you can see')],
+  ['An intangible spirit appears within 5 ft of a creature you choose within 30 ft and explodes. Each creature within 5 ft of it makes a DEX save or takes 1d6 force damage. Until your rage ends, you can summon another as a bonus action.', p => {
+    pRoll(p, '1d6', `Force damage to each creature within 5 ft of the spirit (DEX save DC ${bsDC()} negates)`); bsFx(p, 'Exploding spirit', `Bonus action each turn: another spirit (DEX save DC ${bsDC()} or 1d6 force)`); }],
+  ['Magic infuses one weapon you hold until your rage ends: it’s light and thrown (20/60 ft), deals force damage instead of its normal type, and flies back to your hand after it’s thrown.', p => bsFx(p, 'Infused weapon', 'One weapon you hold is light and thrown (20/60 ft), deals force damage, and returns to your hand after it’s thrown')],
+  ['Until your rage ends, whenever a creature hits you with an attack roll, it takes 1d6 force damage as magic lashes out in retribution.', p => bsFx(p, 'Retribution', 'A creature that hits you with an attack roll takes 1d6 force damage')],
+  ['Protective lights shimmer around you until your rage ends: you and friendly creatures within 10 ft get +1 AC.', p => bsFx(p, 'Protective lights', 'Friendly creatures within 10 ft of you also get +1 AC', { ac: 1 })],
+  ['Flowers and vines grow around you until your rage ends: the ground within 15 ft of you is difficult terrain for your enemies.', p => bsFx(p, 'Flowers and vines', 'The ground within 15 ft of you is difficult terrain for your enemies (it moves with you)')],
+  ['A bolt of light shoots from your chest at a creature within 30 ft: it makes a CON save or takes 1d6 radiant damage and is blinded until the start of your next turn. Until your rage ends, you can do it again as a bonus action.', p => {
+    pRoll(p, '1d6', `Radiant damage (CON save DC ${bsDC()} negates; blinded until the start of your next turn)`); bsFx(p, 'Bolt of light', `Bonus action each turn: another bolt (CON save DC ${bsDC()} or 1d6 radiant and blinded until the start of your next turn)`); }]
+];
+function bsOption(n) { const p = plan(); p.fns.push(() => { S.effects = (S.effects || []).filter(e => !e.wsurge); }); BSURGE[n - 1][1](p); return { n, k: n, text: BSURGE[n - 1][0], p }; }
+// how: 'rage' (just raged), 'backlash' (Unstable Backlash), 'controlled' (the Controlled Surge feature), 'one' (roll again)
+function barbSurgeNow(how) {
+  const two = how === 'controlled' || hasFeature('Controlled Surge');
+  const rolls = [rollExpr('1d8', { need: true, label: 'Wild Surge (d8)' })]; if (two) rolls.push(rollExpr('1d8', { need: true, label: 'Controlled Surge: second d8' }));
+  const dbl = two && rolls[0].total === rolls[1].total, ns = dbl ? [1, 2, 3, 4, 5, 6, 7, 8] : rolls.map(r => r.total);
+  const res = { opts: ns.map(bsOption), extra: [], pick: dbl ? ns.indexOf(rolls[0].total) : 0, title: '✦ Wild Surge', label: 'Wild Surge',
+    pickHint: dbl ? `Controlled Surge: you rolled doubles (${rolls[0].total}), so pick any effect.` : two ? 'Controlled Surge: pick the result you want.' : '' };
+  save(); render();
+  openSurge(res, how === 'rage' ? 'You entered your rage. The surge lasts until the rage ends.' : how === 'backlash' ? 'Unstable Backlash: this replaces your current Wild Surge effect.' : 'This replaces your current Wild Surge effect.');
+}
 function wildCheckNow() {
   const c = rollExpr('1d20', { need: true, label: 'Wild Magic surge check (d20)' });
   if (c.total !== 1) { surgeNoneToast(c); return; }
@@ -20551,6 +20676,37 @@ const ANI = (() => {
 document.addEventListener('touchstart', () => {}, { passive: true });
 
 
+
+// Pick lists in pop-ups (Level Up, changing race / class / background in Settings...): on a computer they grow to use
+// the room the window has, and a pick that redraws the pop-up keeps the list where you'd scrolled it.
+(function () {
+  const isM = () => document.documentElement.classList.contains('mobile');
+  const lists = () => [...document.querySelectorAll('#modal-body .crlist:not(.short)')].filter(e => e.offsetParent && (!e.checkVisibility || e.checkVisibility()) && !(e.closest('details') && !e.closest('details').open));
+  const key = (e, i) => { const t = document.querySelector('#modal-title') || document.querySelector('#modal-body h2, #modal-body h3'); return (t ? t.textContent : '') + '|' + i + '|' + e.children.length; };
+  let SC = {};
+  addEventListener('scroll', ev => { const t = ev.target; if (!t || !t.classList || !t.classList.contains('crlist') || !t.closest('#modal-body')) return; const i = lists().indexOf(t); if (i >= 0) SC[key(t, i)] = t.scrollTop; }, true);
+  // (also note where a list sits the moment you press on it, so a list still at the top stays at the top)
+  addEventListener('pointerdown', ev => { const t = ev.target.closest && ev.target.closest('#modal-body .crlist'); if (!t) return; const i = lists().indexOf(t); if (i >= 0) SC[key(t, i)] = t.scrollTop; }, true);
+  const fit = () => { q = 0; let ls = lists(); if (!ls.length) { SC = {}; return; }
+    const back0 = () => ls.forEach((l, i) => { const v = SC[key(l, i)]; if (v != null && l.isConnected && l.scrollTop !== v) l.scrollTop = v; }), back = () => { back0(); requestAnimationFrame(back0); };
+    if (isM()) return back();
+    let modal = null; for (let e = ls[0].parentElement; e && e !== document.body; e = e.parentElement) if (e.getBoundingClientRect().height < innerHeight - 4) modal = e; if (!modal) return back();
+    const keep = ls.map(l => l.scrollTop);
+    // Start every list at its normal height, then hand the window's spare room to the lists that have more to show
+    ls.forEach(l => { if (l.style.maxHeight) l.style.maxHeight = ''; });
+    // (lists drawn at full length, like Level Up's, are left alone: the pop-up itself scrolls)
+    ls = ls.filter(l => getComputedStyle(l).maxHeight !== 'none'); if (!ls.length) return back();
+    const base = ls.map(l => Math.max(240, parseFloat(getComputedStyle(l).maxHeight) || 300));
+    let room = innerHeight - 48 - modal.getBoundingClientRect().height;
+    for (let e = ls[0].parentElement; e && e !== modal.parentElement; e = e.parentElement) { const oy = getComputedStyle(e).overflowY; if ((oy === 'auto' || oy === 'scroll') && e.scrollHeight > e.clientHeight + 1) { room -= e.scrollHeight - e.clientHeight; break; } }
+    const grow = ls.filter(l => l.scrollHeight > l.clientHeight + 1), each = grow.length ? Math.max(0, room) / grow.length : 0;
+    ls.forEach((l, i) => { const h = Math.floor(grow.includes(l) ? Math.min(l.scrollHeight + 2, base[i] + each) : base[i]) + 'px'; if (l.style.maxHeight !== h) l.style.maxHeight = h; if (l.scrollTop !== keep[i]) l.scrollTop = keep[i]; }); back(); };
+  let q = 0; const sched = () => { if (!q) q = requestAnimationFrame(fit); };
+  const go = () => { new MutationObserver(ms => { if (ms.some(m => m.target.closest && m.target.closest('#modal-body'))) fit(); }).observe(document.body, { childList: true, subtree: true });
+    addEventListener('resize', sched); document.addEventListener('toggle', e => { if (e.target.closest && e.target.closest('#modal-body')) sched(); }, true); };
+  document.body ? go() : document.addEventListener('DOMContentLoaded', go);
+})();
+
 // ---------- Party (on the website) ----------
 // When this character is in a party (see pages_loader.js), the Party tab shows everyone in it — their HP, AC and what's
 // on them — and what you can do for them: heal them, hand items and coins over, cast a spell on them or use an ability
@@ -20624,7 +20780,7 @@ function ptyCardHTML(m) {
   const more = [['coins', 'Give coins'], ['help', 'Help (advantage on their next roll)'], down && !m.dead && !m.stable ? ['stab', 'Stabilize (Medicine, DC 10)'] : null, ['note', 'Send a message']].filter(Boolean);
   const hp = max ? `<div class="chp chp2"><div class="chp-ring"><div class="ring-svg">${hpRingSVG(cur, max, m.temp, f ? ' form' : '')}</div>
       <div class="chp-center"><div class="curline"><b class="ptym-cur">${cur}</b>${N(m.temp) ? `<span class="tmpbadge">+${N(m.temp)}</span>` : ''}</div><div class="hp-max">of ${max}</div></div></div>
-      ${act ? `<div class="chp-side"><select class="f ptyqt" id="ptyqt-${esc(id)}" aria-label="Damage type for ${esc(m.name)}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="ptyq-${esc(id)}" autocomplete="off" placeholder="Amount" aria-label="Amount for ${esc(m.name)}: -20 (or 20) for damage, +20 to heal, then Enter">
+      ${act ? `<div class="chp-side"><select class="f ptyqt sel-dmg" id="ptyqt-${esc(id)}" aria-label="Damage type for ${esc(m.name)}" title="Damage type: their resistances and immunities apply"><option value="">Any</option>${DND.damageTypes.map(t => `<option value="${t.toLowerCase()}">${t}</option>`).join('')}</select><input class="f" id="ptyq-${esc(id)}" autocomplete="off" placeholder="Amount" aria-label="Amount for ${esc(m.name)}: -20 (or 20) for damage, +20 to heal, then Enter">
         <div class="chp-btns"><button class="btn hpi dmg" data-pa="qdmg" data-id="${esc(id)}" title="Damage ${esc(m.name)}" aria-label="Damage">${ICON.hpDmg}</button><button class="btn hpi heal" data-pa="qheal" data-id="${esc(id)}" title="Heal ${esc(m.name)}" aria-label="Heal">${ICON.hpHeal}</button><button class="btn hpi tmp" data-pa="qtemp" data-id="${esc(id)}" title="Give ${esc(m.name)} temporary HP" aria-label="Temporary HP">${ICON.hpTemp}</button></div></div>` : ''}</div>` : '';
   return `<div class="panel comp2 ptym${down ? ' ' + down : ''}" data-mid="${esc(id)}"><div class="comp-h2">${m.thumb ? `<span class="picth"${/^#[0-9a-f]{6}$/i.test(m.acc || '') ? ` style="border-color:${m.acc}"` : ''}><img src="${esc(m.thumb)}" alt=""></span>` : `<span class="picadd">${esc(String(m.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''))}</span>`}
       <div class="grow"><b class="cname${String(m.name || '').length > 26 ? ' n3' : String(m.name || '').length > 17 ? ' n2' : ''}" title="${esc(m.name || '')}">${esc(m.name || 'A character')}</b>${m.player ? `<div class="ptym-pl">${esc(m.player)}</div>` : ''}</div>
@@ -20826,7 +20982,7 @@ function ptyAmount(kind, ids) {
   PTY_AMT = { kind, ids };
   const T = { heal: 'Heal', temp: 'Temporary HP for', dmg: 'Damage' }[kind];
   openModal(`<h3>${T} ${esc(ptyNames(ids))}</h3>
-    <div class="row">${fld('Amount, or a roll like 2d4+2', `<input class="f" id="ptyAmt" autofocus placeholder="${kind === 'dmg' ? 'e.g. 7' : 'e.g. 1d8+3'}">`)}${kind === 'dmg' ? fld('Type', `<select class="f" id="ptyType"><option value="">—</option>${(DND.damageTypes || []).map(t => `<option>${esc(String(t).toLowerCase())}</option>`).join('')}</select>`) : ''}</div>
+    <div class="row">${fld('Amount, or a roll like 2d4+2', `<input class="f" id="ptyAmt" autofocus placeholder="${kind === 'dmg' ? 'e.g. 7' : 'e.g. 1d8+3'}">`)}${kind === 'dmg' ? fld('Type', `<select class="f sel-dmg" id="ptyType"><option value="">—</option>${(DND.damageTypes || []).map(t => `<option>${esc(String(t).toLowerCase())}</option>`).join('')}</select>`) : ''}</div>
     ${fld('From what (they see this)', `<input class="f" id="ptyWhy" placeholder="${kind === 'heal' ? 'e.g. a potion, first aid' : kind === 'dmg' ? 'e.g. my fireball' : 'e.g. inspiring words'}">`)}
     <div class="actions"><button class="btn" data-act="close">Cancel</button><button class="btn gold" data-pa="amt" data-k="${kind}">${kind === 'heal' ? 'Heal' : kind === 'temp' ? 'Give temp HP' : 'Deal damage'}</button></div>`);
 }
@@ -22710,14 +22866,30 @@ function kitItems() {
 // What scrolls in the creation window: its body on a computer; on a phone the whole window scrolls (the header goes up
 // out of the way and the steps get the full height), so it's the window's box
 function wzSc() { const b = $('#wizard .wz-body'); if (!b) return null; return getComputedStyle(b).overflowY === 'visible' ? ($('#wizard .wz-box') || b) : b; }
+// On a computer the pick lists (races, classes, features...) run down to just above the Back / Next bar, using whatever
+// room the window has, instead of stopping at a fixed height
+function wzFitLists() {
+  if (document.documentElement.classList.contains('mobile')) return;
+  const foot = $('#wizard .wz-foot'), res = (foot ? foot.offsetHeight : 0) + 28, sc = wzSc();
+  document.querySelectorAll('#wizard .crlist:not(.short)').forEach(e => { if (!e.offsetParent) return;
+    const top = e.getBoundingClientRect().top + (sc && sc !== e ? sc.scrollTop : 0) + scrollY, h = Math.max(300, Math.floor(innerHeight - top - res)) + 'px';
+    if (e.style.maxHeight !== h) e.style.maxHeight = h; });
+  // ...and if that still leaves the page a little taller than the window, take the difference back off
+  const over = document.documentElement.scrollHeight - innerHeight, l = $('#wizard .crlist:not(.short)');
+  if (over > 0 && l && l.offsetParent) { const h = parseFloat(l.style.maxHeight) || 0, n = Math.max(300, Math.floor(h - over)) + 'px'; if (h > 300 && l.style.maxHeight !== n) l.style.maxHeight = n; }
+}
+addEventListener('resize', () => { if (typeof W !== 'undefined' && W && $('#wizard')) wzFitLists(); });
 function renderWizard() {
   if (!W) return;
   // Redrawing the same step (after any pick) never moves your scroll: remember every scrolling box and put it back
   const keepKey = W.step + '|' + (W.part || ''), keepSame = W._keepKey === keepKey; W._keepKey = keepKey;
   const KS = ['#wizard', '#wizard .wz-box', '#wizard .wz3-wrap', '#wizard .wz3-main', '#wizard .wz-body', '#wizard .wz3-side'];
   const keep = keepSame ? KS.map(q => { const e = $(q); return e ? e.scrollTop : 0; }) : null, keepWin = keepSame ? [scrollX, scrollY] : null;
+  // ...and each pick list's own scroll (the lists scroll inside themselves on a computer)
+  const keepL = keepSame ? [...document.querySelectorAll('#wizard .crlist')].map(e => e.scrollTop) : null;
   try { renderWizard0(); } finally {
-    if (keep) { const put = () => { KS.forEach((q, i) => { const e = $(q); if (e && keep[i] && e.scrollTop !== keep[i]) e.scrollTop = keep[i]; }); if (keepWin && (scrollY !== keepWin[1])) window.scrollTo(keepWin[0], keepWin[1]); };
+    wzFitLists();
+    if (keep) { const put = () => { KS.forEach((q, i) => { const e = $(q); if (e && keep[i] && e.scrollTop !== keep[i]) e.scrollTop = keep[i]; }); document.querySelectorAll('#wizard .crlist').forEach((e, i) => { if (keepL[i] != null && e.scrollTop !== keepL[i]) e.scrollTop = keepL[i]; }); if (keepWin && (scrollY !== keepWin[1])) window.scrollTo(keepWin[0], keepWin[1]); };
       put(); requestAnimationFrame(put); }
   }
 }
