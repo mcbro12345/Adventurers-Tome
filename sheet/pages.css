@@ -3547,3 +3547,10 @@ html.pg-dk-hide #pg-load:not(.pg-leave) > :not(.pg-bgd):not(.pg-ld-bg) { opacity
 html.pg-dk-fade #pg-load:not(.pg-leave) > :not(.pg-bgd):not(.pg-ld-bg) { transition: opacity .35s ease !important; }
 #pg-load.pg-leave-dk .pg-spin { animation: pg-fade .25s ease both !important; } /* (the rolling die is fully in before the next page takes over) */
 html.pg-dk-hide:not(.pg-dk-fade) body > :not(.pg-bgd):not(#pg-load):not(.pg-out) { transition: none !important; } /* (hidden at once when the loading screen hands over, so nothing - like the scrollbar - fades through it) */
+
+/* admin: a party's co-DMs */
+.hub-modal .cdm-l { list-style: none; margin: 4px 0 12px; padding: 0; display: grid; gap: 6px; }
+.hub-modal .cdm-l li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid rgba(127,127,127,.25); border-radius: 10px; }
+.hub-modal .cdm-l li > span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.hub-modal .cdm-l li small { opacity: .7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hub-modal .cdm-l .btn { padding: 6px 12px; font-size: 13px; }
