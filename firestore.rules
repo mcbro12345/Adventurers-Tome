@@ -325,6 +325,14 @@ service cloud.firestore {
       allow get: if signedIn();
       allow create, update, delete: if admin();
     }
+    // The front page's tour video and its thumbnail (Admin → Landing video): anyone can read it, even signed out;
+    // only admins set it. The thumbnail is a small picture kept in the document itself.
+    match /config/landing {
+      allow get: if true;
+      allow create, update: if admin() && request.resource.data.get('video', '') is string && request.resource.data.get('video', '').size() <= 20
+        && request.resource.data.get('poster', '') is string && request.resource.data.get('poster', '').size() <= 900000;
+      allow delete: if admin();
+    }
     // What's new: short updates shown in everyone's lobby (top bar on a computer, a card on a phone). Admins post them;
     // config/news holds how often the ones in rotation change.
     match /config/news {

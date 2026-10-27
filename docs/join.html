@@ -3378,6 +3378,7 @@ body.adminbody .adm-mlist, .adm-mlist.portal { background: #1a2131; -webkit-back
 /* the "Online" dot's pulse is a ring that grows and fades (drawn by the graphics card, so it doesn't make the page redraw every frame) */
 .adm-online i { position: relative; animation: none !important; box-shadow: none !important; }
 .adm-online i::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: rgba(52,193,114,.55); animation: admRing 2s ease-out infinite; will-change: transform, opacity; }
+.adm-online.bg i::after { background: rgba(214,174,69,.55); animation-duration: 3s; } /* (idle: a slower yellow pulse) */
 @keyframes admRing { 0% { transform: scale(1); opacity: .7; } 70% { transform: scale(2.5); opacity: 0; } 100% { transform: scale(2.5); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .adm-online i::after { animation: none; display: none; } }
 #pg-testmark { position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 99999; padding: 4px 12px; border-radius: 999px; background: #b4473a; color: #fff; font: 700 .72rem/1.4 system-ui, sans-serif; letter-spacing: .02em; box-shadow: 0 4px 14px rgba(0,0,0,.35); pointer-events: none; opacity: .92; }
@@ -3723,6 +3724,18 @@ html[data-pgtheme="light"] .pg-st-btn.gold { background: #e0aa3a; border-color: 
 html[data-pgtheme="light"] .pg-st-foot { color: #6b7180; }
 html[data-pgtheme="light"] .pg-st-foot b { color: #1f2a44; }
 html[data-pgtheme="light"] .pg-st-foot a { color: #8a6420; }
+/* Admin → Landing video */
+.ld-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin: 4px 0 16px; }
+.ld-box { padding: 16px; border: 1px solid var(--adm-line); border-radius: 14px; background: var(--adm-panel); min-width: 0; }
+.ld-box h3 { margin: 0 0 10px; font: 700 1.05rem Georgia, "Times New Roman", serif; }
+.ld-l { display: flex; flex-direction: column; gap: 6px; margin: 0 0 12px; font-size: .85rem; color: var(--adm-dim); }
+.ld-l input { width: 100%; box-sizing: border-box; }
+.ld-err { margin: -6px 0 10px; color: #e0796b; font-size: .82rem; }
+.ld-frame, .ld-poster { position: relative; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: #0d1322 center / cover no-repeat; border: 1px solid var(--adm-line); }
+.ld-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.ld-poster { display: grid; place-items: end start; margin-bottom: 12px; } .ld-poster span { margin: 10px; padding: 3px 9px; border-radius: 999px; background: rgba(0,0,0,.55); color: #fff; font-size: .75rem; } .ld-poster span:empty { display: none; }
+.ld-box .row { display: flex; flex-wrap: wrap; gap: 8px; }
+.ld-acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 </style>
 </head>
 <body>
@@ -4212,6 +4225,7 @@ function sheetScrollbar() {
   const match = el => W.find(([sel]) => el.matches && el.matches(sel));
   new MutationObserver(ms => ms.forEach(m => { const el = m.target, w = match(el); if (!w) return; const cls = w[1], was = (' ' + (m.oldValue || '') + ' ').includes(' ' + cls + ' '), now = el.classList.contains(cls);
     if (now) { if (!was && el.classList.contains('closing')) { clearTimeout(el._fc); el.classList.remove('closing'); } return; }
+    if (el._nofade) { el._nofade = 0; return; }
     // a menu opened at the pointer (right-click) fades out where it is, instead of jumping back to its ⋯ button first
     if (was && !now && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { const pt = / pt /.test(' ' + (m.oldValue || '') + ' ') && !el.classList.contains('pt'); if (pt) el.classList.add('pt');
       el.classList.add('closing'); clearTimeout(el._fc); el._fc = setTimeout(() => { el.classList.remove('closing'); if (pt && !el.classList.contains('on')) el.classList.remove('pt'); }, innerWidth <= 884 ? 240 : 190); } }))
@@ -4528,7 +4542,7 @@ function wireDie(root) {
     PG_DIE.over = true; rollDie(root); });
 }
 (async () => {
-  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261026215607', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.ccc8027a3875.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.8810f18613bc.html", "desk": "a/desk.f2fe6e8522a2.js", "deskcss": "a/deskcss.60dfcbbe0612.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
+  const CFG = {"apiKey": "AIzaSyDqQXGnltXmqnJ0d42-B2jutq2QlZx3e3c", "authDomain": "dnd-character-sheets-b30c7.firebaseapp.com", "projectId": "dnd-character-sheets-b30c7", "storageBucket": "dnd-character-sheets-b30c7.firebasestorage.app", "messagingSenderId": "53643034070", "appId": "1:53643034070:web:67c075176f961e947af877", "inviteBase": "https://invite.adventurerstome.workers.dev"}, VER = '20261027002253', ASSETS = {"data": "a/data.7ce592f037a0.js", "app": "a/app.ccc8027a3875.js", "full": "a/full.4e9d590bd5b6.js", "blank": "a/blank.8810f18613bc.html", "desk": "a/desk.37167cf06f6d.js", "deskcss": "a/deskcss.5577a086eb4d.css"}; window.PG_ASSETS = ASSETS; window.PG_INVITE_BASE = CFG.inviteBase || '';
   // The test site says so on every page (and in the tab's title), so it's never mistaken for the real one.
   if (CFG.test) { window.PG_TEST = true; const mark = () => { if (!document.body || document.getElementById('pg-testmark')) return; const t = document.createElement('div'); t.id = 'pg-testmark'; t.textContent = 'Test site'; t.title = 'This is the test copy of Adventurer’s Tome. Changes here don’t touch the real site.'; document.body.appendChild(t);
       if (!/^\[Test\] /.test(document.title)) document.title = '[Test] ' + document.title; };
@@ -5445,7 +5459,8 @@ function signIn(auth, say) {
   const kickedMsg = (() => { try { const m = localStorage.getItem('pg-kicked'); localStorage.removeItem('pg-kicked'); return m || ''; } catch (e) { return ''; } })();
   // Beside the sign-in card: the tour video, and sample characters to try without an account.
   const base = PRETTY ? '/' : location.pathname, tryURL = k => PRETTY ? '/try/' + k : location.pathname + '?try=' + k;
-  const vid = `<div class="si2-vid"><iframe onload="var d=this.parentNode;setTimeout(function(){d.classList.add('on')},450)" src="https://www.youtube-nocookie.com/embed/${SIGNIN_VIDEO}?rel=0" title="Adventurer’s Tome in two minutes" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`;
+  const LAND = (() => { try { return JSON.parse(localStorage.getItem('pg-landing') || 'null') || {}; } catch (e) { return {}; } })(), LVID = /^[\w-]{11}$/.test(LAND.video || '') ? LAND.video : SIGNIN_VIDEO;
+  const vid = `<div class="si2-vid"${LAND.poster ? ` style="background-image:url(${escH(LAND.poster)})"` : ''}><iframe onload="var d=this.parentNode;setTimeout(function(){d.classList.add('on')},450)" src="https://www.youtube-nocookie.com/embed/${LVID}?rel=0" title="Adventurer’s Tome in two minutes" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`;
   const tries = `<section class="si2-try"><h3>Try a character</h3><p>No account needed. Open a real sheet and roll, cast and level up — nothing is saved.</p>
     <div class="si2-chars">${TRIALS.map(([k, n, r, c, sub, col]) => `<a class="si2-char" href="${tryURL(k)}" style="--c:${col}"><span class="si2-ini">${escH(n.replace(/[’']/g, '').split(/\s+/).filter(w => !/^(of|the)$/i.test(w)).slice(0, 2).map(w => w[0]).join(''))}</span><span class="si2-tx"><b>${escH(n)}</b><small>${escH(c)}</small><small class="si2-sub">${escH(r)} · ${escH(sub)}</small></span><span class="si2-go" aria-hidden="true">→</span></a>`).join('')}</div></section>`;
   const FEAT = [['<g stroke-width="1.4"><path d="M12 2.2l8.5 4.9v9.8L12 21.8l-8.5-4.9V7.1z"/><path d="M12 7.6l4.3 7.4H7.7z"/><path d="M12 2.2v5.4M3.5 7.1L12 7.6l8.5-.5M3.5 7.1l4.2 7.9M20.5 7.1l-4.2 7.9M3.5 16.9l4.2-1.9M20.5 16.9l-4.2-1.9M7.7 15L12 21.8l4.3-6.8"/></g>', 'Sheets that do the math', 'Every bonus, slot and resource worked out and tracked as you play.'],
@@ -5463,6 +5478,11 @@ function signIn(auth, say) {
     <div class="si2-help"><p class="pg-contact">Trouble signing in? <a href="${CONTACT}">Contact</a></p><p class="pg-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy policy</a><span aria-hidden="true"> · </span><a href="/terms" target="_blank" rel="noopener">Terms</a><span aria-hidden="true"> · </span><a href="/accessibility" target="_blank" rel="noopener">Accessibility</a></p></div></div><div class="si2-vbox">${vid}</div>${tries}${feats}</div>${a2hsHTML()}`);
   wireA2HS(document.getElementById('pg-load'));
   wireDie(document.getElementById('pg-load'));
+  // the admin's choice of video and thumbnail (Admin → Landing video), remembered on this device for next time
+  try { firebase.firestore().collection('config').doc('landing').get().then(d => { const L = d.exists ? d.data() : {}, v = /^[\w-]{11}$/.test(L.video || '') ? L.video : SIGNIN_VIDEO, pst = String(L.poster || '');
+    try { if (d.exists) localStorage.setItem('pg-landing', JSON.stringify({ video: v, poster: pst })); else localStorage.removeItem('pg-landing'); } catch (e) {}
+    const box = document.querySelector('.si2-vid'); if (!box) return; box.style.backgroundImage = pst ? `url("${pst}")` : '';
+    const f = box.querySelector('iframe'); if (f && !f.src.includes('/embed/' + v)) { box.classList.remove('on'); f.src = `https://www.youtube-nocookie.com/embed/${v}?rel=0`; } }, () => {}); } catch (e) {}
   // Big screens (or a low display scale): the whole sign-in page is scaled up as one piece, so it fills the screen the
   // same way it does on a 1080p monitor instead of leaving empty space around it.
   const siFit = () => { const el = document.querySelector('.pg-si2'); if (!el) { removeEventListener('resize', siFit); return; }
@@ -6259,7 +6279,7 @@ function hub(fs, auth, G, ctx) {
     const quietP = cfgCol.doc('quiet').get().then(d => { QUIET = new Set(((d.exists && d.data().emails) || []).map(x => String(x).toLowerCase())); }, () => {});
     quietP.then(() => { if (TAB === 'users') paintUsers(); });
     const UF0 = { role: '', act: '', joined: '', ext: '' };
-    const T0 = ctx.tab === 'characters' ? 'chars' : ctx.tab; let TAB = ['users', 'chars', 'parties', 'new', 'audit', 'bugs', 'notice', 'welcome', 'news'].includes(T0) ? T0 : 'users'; if (T0 === 'admins') UF0.role = 'admin';
+    const T0 = ctx.tab === 'characters' ? 'chars' : ctx.tab; let TAB = ['users', 'chars', 'parties', 'new', 'audit', 'bugs', 'notice', 'welcome', 'news', 'landing'].includes(T0) ? T0 : 'users'; if (T0 === 'admins') UF0.role = 'admin';
     const CH = {}, US = {}; // characters and accounts on screen
     let NEWN = null, BUGN = 0;
     const setTab = t => { TAB = t; history.replaceState(null, '', URLS.admin(G, t === 'chars' ? 'characters' : t)); frame(); };
@@ -6274,6 +6294,7 @@ function hub(fs, auth, G, ctx) {
       notice: '<path d="M3 10v4a1 1 0 0 0 1 1h3l6 4V5L7 9H4a1 1 0 0 0-1 1z"/><path d="M17 8.5a5 5 0 0 1 0 7M19.8 6a8.5 8.5 0 0 1 0 12"/>',
       new: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
       news: '<path d="M4 4h16v12H8l-4 4z"/><path d="M8 9h8M8 12h5"/>',
+      landing: '<rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M10 9.2v5.6l4.8-2.8z"/>',
       search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>' };
     const svg = (k, n = 18) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ic[k]}</svg>`;
     const PAGES = { users: ['Users', 'Everyone who has signed in, most recently active first. Search or filter by role, activity or when they joined; rename someone, make them an admin, or look at their characters.'],
@@ -6283,6 +6304,7 @@ function hub(fs, auth, G, ctx) {
       new: ['New', 'Accounts and characters that appeared since you last marked this as read.'],
       bugs: ['Bugs & feedback', 'Bug reports, feature requests and anything else people send with the bug button (on a sheet, the DM’s Desk, or in Contact), newest first; new ones show up the moment they’re sent. Mark one fixed, or decline it with a reason, and its sender gets a note in the corner of whatever page they have open — or the next time they open the site.'],
       welcome: ['Welcome', 'What every new account sees the first time it signs in. If a notice is out, a Next button takes them on to it. Off until you turn it on.'],
+      landing: ['Landing video', 'The video beside the sign-in card on the front page, and the picture that shows in its place while it loads. Paste a YouTube link and upload a thumbnail; the front page uses them straight away.'],
       news: ['What’s new', 'Short updates for everyone’s lobby: in the top bar on a computer, and as a card above Create character on a phone. Post them here, then choose which ones take turns in the bar; “See all updates” lists every one.'],
       notice: ['Notice', 'A message to everyone: it pops up once for every account, from “Adventurer’s Tome” (nobody sees who sent it), right away if they have the site open, otherwise the next time they do.'],
       audit: ['Audit log', 'Everything people have done on the site: sign-ins, characters opened, created, edited, shared and deleted, and admin actions. Search, or filter by date, person or activity; tap an event for its details. Events are kept for 7 days.'] };
@@ -6387,7 +6409,7 @@ function hub(fs, auth, G, ctx) {
     function frame0() {
       const nav = (k, label) => `<button class="adm-ni${TAB === k ? ' on' : ''}" data-tab="${k}">${svg(k)}<span>${label}</span>${k === 'new' && NEWN ? `<b class="adm-badge">${NEWN}</b>` : k === 'bugs' && BUGN ? `<b class="adm-badge">${BUGN}</b>` : ''}</button>`;
       const [title, desc] = PAGES[TAB];
-      const navHTML = `<div class="adm-sec">Manage</div>${nav('users', 'Users')}${nav('chars', 'Characters')}${nav('parties', 'Parties')}<div class="adm-sec">Activity</div>${nav('audit', 'Audit log')}${nav('new', 'New')}${nav('bugs', 'Bugs &amp; feedback')}<div class="adm-sec">Announce</div>${nav('notice', 'Notice')}${nav('welcome', 'Welcome')}${nav('news', 'What’s new')}`;
+      const navHTML = `<div class="adm-sec">Manage</div>${nav('users', 'Users')}${nav('chars', 'Characters')}${nav('parties', 'Parties')}<div class="adm-sec">Activity</div>${nav('audit', 'Audit log')}${nav('new', 'New')}${nav('bugs', 'Bugs &amp; feedback')}<div class="adm-sec">Announce</div>${nav('notice', 'Notice')}${nav('welcome', 'Welcome')}${nav('news', 'What’s new')}${nav('landing', 'Landing video')}`;
       // Switching tabs only swaps the page on the right: the sidebar (and where its tab strip is scrolled to on a phone) stays put.
       const nv0 = root.querySelector('.adm-nav');
       if (nv0) {
@@ -6403,13 +6425,13 @@ function hub(fs, auth, G, ctx) {
         const kept = !again && PANES[TAB];
         if (kept) { curB.replaceWith(kept.b); curH.replaceWith(kept.h); PREV_TAB = TAB; nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
           // …and quietly brings it up to date behind the scenes
-          later(({ new: () => tabNew(), users: () => paintUsers(), chars: () => paintChars(), parties: () => tabParties(), audit: () => paintAudit(), notice: () => tabNotice(), welcome: () => tabWelcome(), news: () => tabNews(), bugs: () => paintBugs() })[TAB]); return; }
+          later(({ new: () => tabNew(), users: () => paintUsers(), chars: () => paintChars(), parties: () => tabParties(), audit: () => paintAudit(), notice: () => tabNotice(), welcome: () => tabWelcome(), news: () => tabNews(), landing: () => tabLanding(), bugs: () => paintBugs() })[TAB]); return; }
         const nb = document.createElement('section'); nb.id = 'ad-body'; nb.className = 'adm-body'; nb.dataset.w = w0; nb.innerHTML = `<div class="sk-auto" data-k="${pgAdmSkel(TAB)}" data-n="6"></div>`;
         const nh = document.createElement('div'); nh.id = 'adm-hact'; nh.className = 'adm-hact';
         curB.replaceWith(nb); curH.replaceWith(nh); pgSkelFill(); delete PANES[TAB]; PREV_TAB = TAB;
         nv0.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
         if (PHONE.matches) requestAnimationFrame(() => { const on = nv0.querySelector('.adm-ni.on'); if (!on) return; const r = on.getBoundingClientRect(), nr = nv0.getBoundingClientRect(); if (r.left < nr.left || r.right > nr.right) nv0.scrollBy({ left: r.left < nr.left ? r.left - nr.left - 12 : r.right - nr.right + 12, behavior: 'smooth' }); });
-        later(({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit, notice: tabNotice, welcome: tabWelcome, news: tabNews, bugs: tabBugs })[TAB]); return; }
+        later(({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit, notice: tabNotice, welcome: tabWelcome, news: tabNews, landing: tabLanding, bugs: tabBugs })[TAB]); return; }
       const keepLogo = root.querySelector('.hub-logo');
       root.innerHTML = `<div class="adm"><aside class="adm-side">
           <div class="adm-brand">${logoHTML()}</div>
@@ -6421,7 +6443,7 @@ function hub(fs, auth, G, ctx) {
       PREV_TAB = TAB; pgSkelFill();
       root.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
       { const o = root.querySelector('#adm-acct'); if (o) o.onclick = e => { e.stopPropagation(); acctMenu(o, matchMedia('(min-width: 1001px)').matches); }; }
-      later(({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit, notice: tabNotice, welcome: tabWelcome, news: tabNews, bugs: tabBugs })[TAB]);
+      later(({ new: tabNew, users: tabUsers, chars: tabChars, parties: tabParties, audit: tabAudit, notice: tabNotice, welcome: tabWelcome, news: tabNews, landing: tabLanding, bugs: tabBugs })[TAB]);
     }
     const B = () => root.querySelector('#ad-body'), HA = () => root.querySelector('#adm-hact');
     // ⋯ menus float above everything (moved to the top of the page while open), so a table never grows a scrollbar for them.
@@ -6903,6 +6925,39 @@ function hub(fs, auth, G, ctx) {
         whoSeen(all, text, who, not, note, rv); [...modal.querySelectorAll('.nt-sl-list')].forEach((l, i) => { l.scrollTop = sc[i] || 0; }); });
       // shadows at the top / bottom of a list while there's more to scroll that way
       modal.querySelectorAll('.nt-sl-list').forEach(l => { const w = l.parentElement, shade = () => { w.classList.toggle('sc-t', l.scrollTop > 2); w.classList.toggle('sc-b', l.scrollTop + l.clientHeight < l.scrollHeight - 2); }; l.addEventListener('scroll', shade, { passive: true }); shade(); }); };
+    // --- Landing video: the front page's tour video and its thumbnail (config/landing, readable by anyone) ---
+    async function tabLanding() {
+      const el = B(); HA().innerHTML = ''; let cur = null;
+      try { const d = await cfgCol.doc('landing').get(); cur = d.exists ? d.data() : null; } catch (x) { el.innerHTML = failMsg(x); return; }
+      const st = { video: (cur && cur.video) || SIGNIN_VIDEO, poster: (cur && cur.poster) || '' };
+      const ytId = v => { v = String(v || '').trim(); const m = v.match(/(?:youtu\.be\/|[?&]v=|\/embed\/|\/shorts\/|\/live\/)([\w-]{11})/) || v.match(/^([\w-]{11})$/); return m ? m[1] : ''; };
+      const fail = (x, what) => toast('Couldn’t ' + what + ': ' + ((x && (x.code === 'permission-denied' ? 'the new database rules need publishing' : x.message)) || x));
+      const paint = () => { el.innerHTML = `<p class="adm-note">${cur && (cur.video || cur.poster) ? `Last changed by ${esc(cur.byName || cur.by || 'an admin')}${cur.at ? ' on ' + esc(new Date(cur.at).toLocaleDateString()) : ''}.` : 'The front page is using the built-in video and thumbnail.'}</p>
+        <div class="ld-grid">
+          <section class="ld-box"><h3>Video</h3><label class="ld-l">YouTube link<input id="ld-v" class="ad-search" value="https://youtu.be/${esc(st.video)}" placeholder="https://youtu.be/…" autocomplete="off"></label><p class="ld-err" id="ld-verr" hidden>That doesn’t look like a YouTube link.</p>
+            <div class="ld-frame"><iframe src="https://www.youtube-nocookie.com/embed/${esc(st.video)}?rel=0" title="Video preview" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div></section>
+          <section class="ld-box"><h3>Thumbnail</h3><p class="ld-l">Shows where the video goes until it loads. A 16:9 picture works best.</p>
+            <div class="ld-poster${st.poster ? ' has' : ''}" style="${st.poster ? `background-image:url(${esc(st.poster)})` : 'background-image:url(/si-poster.jpg)'}"><span>${st.poster ? '' : 'Built-in thumbnail'}</span></div>
+            <div class="row"><label class="adm-btn">Upload a picture<input type="file" id="ld-f" accept="image/*" hidden></label>${st.poster ? '<button class="adm-btn" id="ld-px">Use the built-in one</button>' : ''}</div></section>
+        </div>
+        <div class="row ld-acts"><a class="adm-btn" href="/login" target="_blank" rel="noopener">See the front page</a>${cur && (cur.video || cur.poster) ? '<button class="adm-btn" id="ld-reset">Reset both</button>' : ''}<button class="adm-btn primary" id="ld-ok">Save</button></div>`;
+        const vi = el.querySelector('#ld-v'), fr = el.querySelector('.ld-frame iframe'), er = el.querySelector('#ld-verr');
+        vi.oninput = () => { const id = ytId(vi.value); er.hidden = !!id || !vi.value.trim(); if (id && id !== st.video) { st.video = id; fr.src = `https://www.youtube-nocookie.com/embed/${id}?rel=0`; } };
+        el.querySelector('#ld-f').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; try { st.poster = await ldShrink(f); paint(); } catch (x) { toast('Couldn’t use that picture: ' + ((x && x.message) || x)); } };
+        const px = el.querySelector('#ld-px'); if (px) px.onclick = () => { st.poster = ''; paint(); };
+        const rs = el.querySelector('#ld-reset'); if (rs) rs.onclick = async () => { if (!(await ask('Reset the landing video?', 'The front page goes back to the built-in video and thumbnail.', 'Reset'))) return; try { await cfgCol.doc('landing').delete(); pgLog('landing', { target: 'everyone', tName: 'everyone', detail: 'reset to the built-in video' }); toast('The front page is back to the built-in video.'); tabLanding(); } catch (x) { fail(x, 'reset it'); } };
+        el.querySelector('#ld-ok').onclick = async e => { const id = ytId(vi.value); if (!id) { er.hidden = false; vi.focus(); return; } const b = e.currentTarget; b.disabled = true; b.textContent = 'Saving…';
+          const v = { video: id, poster: st.poster || '', at: Date.now(), by: EMAIL, byName: String((ME && ME.name) || EMAIL) };
+          try { await cfgCol.doc('landing').set(v); cur = v; pgLog('landing', { target: 'everyone', tName: 'everyone', detail: 'video ' + id + (st.poster ? ', new thumbnail' : '') }); toast('Saved. The front page uses it now.'); paint(); } catch (x) { b.disabled = false; b.textContent = 'Save'; fail(x, 'save it'); } }; };
+      paint();
+    }
+    // a thumbnail small enough to keep in the database (16:9, at most 1280 wide, JPEG)
+    const ldShrink = f => new Promise((res, rej) => { if (!/^image\//.test(f.type || 'image/')) return rej(new Error('that isn’t an image')); const u = URL.createObjectURL(f), im = new Image();
+      im.onerror = () => { URL.revokeObjectURL(u); rej(new Error('this browser can’t open it')); };
+      im.onload = () => { URL.revokeObjectURL(u); const W = 1280, H = 720, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'), k = Math.max(W / im.naturalWidth, H / im.naturalHeight);
+        x.imageSmoothingQuality = 'high'; x.drawImage(im, (W - im.naturalWidth * k) / 2, (H - im.naturalHeight * k) / 2, im.naturalWidth * k, im.naturalHeight * k);
+        let q = .85, out = c.toDataURL('image/jpeg', q); while (out.length > 700000 && q > .4) { q -= .1; out = c.toDataURL('image/jpeg', q); } res(out); };
+      im.src = u; });
     // --- What's new: post short updates for the lobby, and choose which ones take turns in its top bar ---
     async function tabNews() {
       const el = B(); HA().innerHTML = ''; const NC = fs.collection('news'), CFG = cfgCol.doc('news'); let items = [], every = 8;
@@ -8109,7 +8164,10 @@ function partyModule(H) {
     if (e.shiftKey || !e.target.closest || e.target.closest('input, textarea, [contenteditable]')) return;
     const t = e.target.closest(TILE); if (!t) return; const m = t.querySelector('.hc-menu'); if (!m || !t.contains(m)) return;
     e.preventDefault();
-    document.querySelectorAll('.hc-menu.on').forEach(x => { if (x !== m) x.classList.remove('on', 'pt'); });
+    // (another open menu goes at once, like the system's own menus, so two never show together; one already open here
+    // pops in again at the new spot)
+    document.querySelectorAll('.hc-menu.on, .hc-menu.closing').forEach(x => { if (x === m) return; x._nofade = 1; clearTimeout(x._fc); x.classList.remove('on', 'pt', 'closing'); x.querySelectorAll('.hc-ctxonly').forEach(y => y.remove()); });
+    if (m.classList.contains('on')) { m.classList.remove('on', 'closing'); void m.offsetWidth; }
     const list = m.querySelector('.hc-list'); if (!list) return;
     list.querySelectorAll('.hc-ctxonly').forEach(x => x.remove());
     const a = t.querySelector('a[href]'); if (a) { const nb = document.createElement('button'); nb.className = 'hc-ctxonly'; nb.type = 'button'; nb.innerHTML = '<svg class="mi" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>Open in a new tab'; nb.onclick = ev => { ev.stopPropagation(); m.classList.remove('on', 'pt'); window.open(a.href, '_blank', 'noopener'); }; list.prepend(nb); }

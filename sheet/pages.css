@@ -3196,6 +3196,7 @@ body.adminbody .adm-mlist, .adm-mlist.portal { background: #1a2131; -webkit-back
 /* the "Online" dot's pulse is a ring that grows and fades (drawn by the graphics card, so it doesn't make the page redraw every frame) */
 .adm-online i { position: relative; animation: none !important; box-shadow: none !important; }
 .adm-online i::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: rgba(52,193,114,.55); animation: admRing 2s ease-out infinite; will-change: transform, opacity; }
+.adm-online.bg i::after { background: rgba(214,174,69,.55); animation-duration: 3s; } /* (idle: a slower yellow pulse) */
 @keyframes admRing { 0% { transform: scale(1); opacity: .7; } 70% { transform: scale(2.5); opacity: 0; } 100% { transform: scale(2.5); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .adm-online i::after { animation: none; display: none; } }
 #pg-testmark { position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 99999; padding: 4px 12px; border-radius: 999px; background: #b4473a; color: #fff; font: 700 .72rem/1.4 system-ui, sans-serif; letter-spacing: .02em; box-shadow: 0 4px 14px rgba(0,0,0,.35); pointer-events: none; opacity: .92; }
@@ -3518,3 +3519,15 @@ html[data-pgtheme="light"] .pg-st-btn.gold { background: #e0aa3a; border-color: 
 html[data-pgtheme="light"] .pg-st-foot { color: #6b7180; }
 html[data-pgtheme="light"] .pg-st-foot b { color: #1f2a44; }
 html[data-pgtheme="light"] .pg-st-foot a { color: #8a6420; }
+/* Admin → Landing video */
+.ld-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin: 4px 0 16px; }
+.ld-box { padding: 16px; border: 1px solid var(--adm-line); border-radius: 14px; background: var(--adm-panel); min-width: 0; }
+.ld-box h3 { margin: 0 0 10px; font: 700 1.05rem Georgia, "Times New Roman", serif; }
+.ld-l { display: flex; flex-direction: column; gap: 6px; margin: 0 0 12px; font-size: .85rem; color: var(--adm-dim); }
+.ld-l input { width: 100%; box-sizing: border-box; }
+.ld-err { margin: -6px 0 10px; color: #e0796b; font-size: .82rem; }
+.ld-frame, .ld-poster { position: relative; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: #0d1322 center / cover no-repeat; border: 1px solid var(--adm-line); }
+.ld-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.ld-poster { display: grid; place-items: end start; margin-bottom: 12px; } .ld-poster span { margin: 10px; padding: 3px 9px; border-radius: 999px; background: rgba(0,0,0,.55); color: #fff; font-size: .75rem; } .ld-poster span:empty { display: none; }
+.ld-box .row { display: flex; flex-wrap: wrap; gap: 8px; }
+.ld-acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }

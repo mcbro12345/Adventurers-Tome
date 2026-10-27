@@ -64,7 +64,7 @@ const ICON = {
 };
 const XP_OF = c => N(c.xp) || XP_CR[N(c.cr)] || 0;
 // ---------- state ----------
-const DEF = () => ({ v: 2, savedAt: 0, settings: { dice: 'desk', hpMode: 'avg', autoDmg: true, r20campaign: '', campaign: '' }, creatures: {}, sessions: [] });
+const DEF = () => ({ v: 2, savedAt: 0, settings: { dice: 'desk', hpMode: 'avg', autoDmg: true, rollFade: '0', r20campaign: '', campaign: '' }, creatures: {}, sessions: [] });
 let S = DEF();
 let UI = { tab: 'sessions', session: '', sel: '', best: 'srd:goblin', q: '', crMin: '', crMax: '', type: '', size: '', src: '', sort: 'name', open: {}, tree: false, log: false, sv: 'creatures', gen: 'enc', genAI: false, genP: { size: 4, level: 3, levels: '', diff: 'medium', env: 'forest', type: '', mine: false } };
 let LOG = [];
@@ -398,6 +398,7 @@ const note = t => evAdd(esc(t));
 // ---------- toasts & modals ----------
 const TOASTFN = {};
 function toast(o) {
+  if (o.big != null && /^\d+$/.test(String(o.big)) && typeof rollCard === 'function') return rollCard(o); // (dice results get a roll card)
   const box = $('.dk-toasts'); if (!box) return; const el = document.createElement('div'), id = uid();
   const sig = (o.big == null ? '' : o.big) + '|' + (o.title || '') + '|' + (o.det || ''); [...box.children].forEach(c => { if (c.dataset.sig === sig || (o.key && c.dataset.key === o.key)) c.remove(); }); el.dataset.sig = sig; if (o.key) el.dataset.key = o.key;
   el.className = 'dk-toast ' + (o.cls || '') + (o.big == null ? ' info' : '');
@@ -449,7 +450,7 @@ function litTop() { const top = ROOT && ROOT.querySelector('.dk-top'); if (!top)
   const on = { dhistory: by === 'dhistory', log: by === 'log' || (mOpen && !!$('#dk-logw')), settings: by === 'settings', diceroller: !!$('.drwin:not(.closing)'), turnorder: !!document.getElementById('towin'), bugreport: !!document.querySelector('.pg-out[data-k="bug"]:not(.closing)'), acct: !!document.querySelector('.ha-menu:not(.closing):not(.out)') };
   top.querySelectorAll('[data-act]').forEach(b => { const k = b.dataset.act; if (!(k in on)) return; const v = String(on[k]); if (k === 'acct') { b.classList.toggle('lit', on[k]); return; } if (b.getAttribute('aria-pressed') !== v) b.setAttribute('aria-pressed', v); }); }
 function openModal(html, o) {
-  o = o || {}; const m = $('.dk-modal'), c = $('.dk-mcard'), wasOpen = m.classList.contains('open'), prevBy = MODAL_BY, prevPos = c.style.translate;
+  o = o || {}; if (typeof rcCloseOld === 'function') rcCloseOld(); const m = $('.dk-modal'), c = $('.dk-mcard'), wasOpen = m.classList.contains('open'), prevBy = MODAL_BY, prevPos = c.style.translate;
   const swap = wasOpen && !calm() && c.innerHTML && winKey(c.innerHTML) !== winKey(html); if (swap) winGhost(c);
   if (MODAL_CLOSE && m.classList.contains('open')) { const f = MODAL_CLOSE; MODAL_CLOSE = null; f(); }
   c.className = 'dk-mcard' + (o.wide ? ' wide' : '') + (o.cls ? ' ' + o.cls : ''); m.classList.toggle('dk-msheet', !!o.sheet); c.innerHTML = html; m.classList.add('open'); m.scrollTop = 0; c.scrollTop = 0; MODAL_CLOSE = o.onClose || null;
@@ -478,6 +479,67 @@ function askText(title, val, ok, o) {
   const inp = $('#dk-atIn'), go = () => { const v = inp.value.trim(); if (!v && !o.allowEmpty) return inp.focus(); closeModal(true); runOk(ok, v); };
   setTimeout(() => { inp.focus(); inp.select(); }, 30); $('#dk-atOk').onclick = go; inp.onkeydown = e => { if (e.key === 'Enter') go(); };
 }
+// ---------- roll cards ----------
+// Rolls show the same card the character sheets use: a big total, what was rolled, the math under it and a × to
+// close. A new roll slides in on top and pushes the last one down a place (two at most on a computer, one on a
+// phone); a card stays until its × is pressed, unless Desk settings → Dice → Roll results makes them fade.
+const RC_X = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+const rcCalm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+const rcLook = o => { const c = getComputedStyle(o); return { tf: c.transform === 'none' ? '' : c.transform, op: c.opacity }; };
+function rollCard(o) {
+  const box = ROOT && ROOT.querySelector('.dk-rolls'); if (!box) return;
+  const el = document.createElement('div'), id = uid(), cls = o.cls === 'crit' ? ' crit' : o.cls === 'bad' ? ' fumble' : '';
+  (o.actions || []).forEach((a, i) => { TOASTFN[id + i] = a.fn; });
+  el.className = 'dk-rcard' + cls; el._at = Date.now();
+  if (o.dmg != null) el.classList.add('has-dmg');
+  el.innerHTML = `<b class="rc-tot">${esc(o.big)}</b><div class="rc-body"><div class="rc-name">${esc(o.title || '')}</div>${o.dmg != null ? '<span class="rc-lbl">to hit</span>' : ''}</div>${o.dmg != null ? `<div class="rc-dmg"><b>${esc(o.dmg)}</b><span class="rc-lbl">${esc(o.dmgLbl || 'damage')}</span></div>` : ''}${o.det ? `<div class="rc-math">${o.det}</div>` : ''}${o.actions && o.actions.length ? `<div class="rc-acts">${o.actions.map((a, i) => `<button class="dk-btn sm${i ? '' : ' gold'}" data-tfn="${id + i}">${esc(a.label)}</button>`).join('')}</div>` : ''}<button class="rc-x" type="button" title="Close" aria-label="Close">${RC_X}</button>`;
+  el.addEventListener('click', e => { if (e.target.closest('.rc-x')) { e.stopPropagation(); rcClose(el); return; } const b = e.target.closest('[data-tfn]'); if (b) { const f = TOASTFN[b.dataset.tfn]; rcClose(el); if (f) f(); } });
+  // the cards already showing: where they are now, so they can glide to their new places
+  const cap = innerWidth <= 640 ? 1 : 2, old = [...box.querySelectorAll(':scope > .dk-rcard:not(.rc-out)')].map(c => Object.assign({ o: c, y: c.offsetTop, x: c.offsetLeft, w: c.offsetWidth }, rcLook(c)));
+  box.prepend(el);
+  const stay = old.slice(0, cap - 1), go = old.slice(cap - 1), still = !rcCalm();
+  go.forEach(({ o: c, y, x, w, tf, op }) => { clearTimeout(c._tm); if (!still) { c.remove(); return; } c.classList.add('rc-out', 'rc-slide'); Object.assign(c.style, { position: 'absolute', top: y + 'px', left: x + 'px', width: w + 'px', margin: '0', animation: 'none', zIndex: '-1' });
+    c.animate([{ transform: `translateY(0px) ${tf}`, opacity: op }, { transform: 'translateY(40px) scale(.9)', opacity: 0 }], { duration: 130, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' }).onfinish = () => c.remove(); });
+  if (still && old.length) {
+    stay.forEach(({ o: c, y, tf, op }) => { const d = y - c.offsetTop, l = rcLook(c); if (Math.abs(d) < 1) return; c.style.animation = 'none';
+      c.animate([{ transform: `translateY(${d}px) ${tf}`, opacity: op }, { transform: `translateY(0px) ${l.tf}`, opacity: l.op }], { duration: 400, delay: go.length ? 100 : 0, easing: 'cubic-bezier(.3,0,.2,1)', fill: 'backwards' }); });
+    el.style.animation = 'none'; el.animate([{ transform: 'translateY(-56px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 380, delay: 150, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'backwards' });
+  }
+  { const live = [...box.children].filter(c => !c.classList.contains('rc-slide')); while (live.length > cap) live.pop().remove(); }
+  // Desk settings → Dice → Roll results: fade after a while (it waits while the pointer rests on the card)
+  const sec = N(S.settings.rollFade); if (sec > 0) { const arm = () => { clearTimeout(el._tm); el._tm = setTimeout(() => rcClose(el), sec * 1000); }; arm();
+    el.addEventListener('mouseenter', () => clearTimeout(el._tm)); el.addEventListener('mouseleave', arm); el.addEventListener('touchstart', arm, { passive: true }); }
+  rcKeepOn();
+}
+// Closing: the card fades away, then the one behind glides up into its place and takes the top card's look.
+function rcClose(el) {
+  if (!el || el.classList.contains('rc-out')) return; clearTimeout(el._tm); const box = el.parentElement, l = rcLook(el);
+  el.classList.add('rc-out'); el.style.animation = 'none';
+  if (rcCalm() || !box) { el.remove(); return; }
+  el.animate([{ transform: `translateY(0px) ${l.tf}`, opacity: l.op }, { transform: `translateY(-6px) ${l.tf} scale(.98)`, opacity: 0 }], { duration: 180, easing: 'ease', fill: 'forwards' }).onfinish = () => {
+    const rest = [...box.querySelectorAll(':scope > .dk-rcard:not(.rc-out)')].map(c => Object.assign({ o: c, y: c.offsetTop }, rcLook(c)));
+    el.remove();
+    rest.forEach(({ o: c, y, tf, op }) => { const d = y - c.offsetTop, n = rcLook(c); if (Math.abs(d) < 1 && tf === n.tf) return; c.style.animation = 'none';
+      c.animate([{ transform: `translateY(${d}px) ${tf}`, opacity: op }, { transform: `translateY(0px) ${n.tf}`, opacity: n.op }], { duration: 320, easing: 'cubic-bezier(.22,1,.36,1)' }); }); };
+}
+// a window opening closes the cards from before it (so they don't sit over it)
+function rcCloseOld() { if (!ROOT) return; ROOT.querySelectorAll('.dk-rolls > .dk-rcard:not(.rc-out)').forEach(c => { if (Date.now() - (c._at || 0) > 600) rcClose(c); }); }
+// Esc closes the newest card when no window is open
+document.addEventListener('keydown', e => { if (e.key !== 'Escape' || !ROOT || ROOT.querySelector('.dk-modal.open')) return; const c = ROOT.querySelector('.dk-rolls > .dk-rcard:not(.rc-out)'); if (c) rcClose(c); });
+// On a computer the cards can be dragged anywhere on the screen (grab a card anywhere but its buttons); they stay there
+// for the rest of the visit.
+let RC_AT = (() => { try { return JSON.parse(sessionStorage.getItem('dk-rolls-at') || 'null'); } catch (e) { return null; } })();
+function rcKeepOn() { const box = ROOT && ROOT.querySelector('.dk-rolls'); if (!box) return; box.style.translate = RC_AT ? `${RC_AT[0]}px ${RC_AT[1]}px` : '';
+  if (RC_AT) requestAnimationFrame(() => { const r = box.getBoundingClientRect(); if (r.left > innerWidth - 60 || r.right < 60 || r.top > innerHeight - 40 || r.top < -20) { RC_AT = null; box.style.translate = ''; try { sessionStorage.removeItem('dk-rolls-at'); } catch (e) {} } }); }
+document.addEventListener('pointerdown', e => {
+  const card = e.target.closest && e.target.closest('.dk-rolls > .dk-rcard'); if (!card || e.pointerType !== 'mouse' || e.button !== 0 || e.target.closest('button, a, input, select') || innerWidth <= 640) return;
+  const box = card.parentElement, sx = e.clientX, sy = e.clientY, b0 = RC_AT ? RC_AT.slice() : [0, 0], r0 = box.getBoundingClientRect(); let moved = false;
+  const mv = ev => { const dx = ev.clientX - sx, dy = ev.clientY - sy; if (!moved && Math.hypot(dx, dy) < 4) return; if (!moved) { moved = true; ROOT.classList.add('dk-rdrag'); }
+    const nx = Math.max(-r0.left + 8, Math.min(innerWidth - r0.right - 8, dx)), ny = Math.max(-r0.top + 8, Math.min(innerHeight - r0.top - 60, dy)); RC_AT = [b0[0] + nx, b0[1] + ny]; box.style.translate = `${RC_AT[0]}px ${RC_AT[1]}px`; };
+  const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); if (!moved) return; ROOT.classList.remove('dk-rdrag'); try { sessionStorage.setItem('dk-rolls-at', JSON.stringify(RC_AT)); } catch (x) {}
+    addEventListener('click', ev => { ev.stopPropagation(); ev.preventDefault(); }, { capture: true, once: true }); };
+  addEventListener('pointermove', mv); addEventListener('pointerup', up);
+}, true);
 // ---------- reading stat blocks (attacks, damage, saves, spells, pasted text) ----------
 const DMG_RE = /(\d+)\s*\((\d+d\d+(?:\s*[+\-−–]\s*\d+)?)\)\s*([a-z]+)?\s*damage/gi;
 const SAVE_RE = /DC\s*(\d+)\s*(Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma)\s*saving throw/i;
@@ -856,8 +918,12 @@ async function doAttack(ctx, ek, opt) {
   if (!auto && a.dmg.length) acts.push({ label: crit ? 'Roll crit damage' : 'Roll damage', fn: () => doDamage(ctx, ek, { crit }) });
   if (a.alt.length) acts.push({ label: 'Damage (' + a.altLabel + ')', fn: () => doDamage(ctx, ek, { crit, alt: true }) });
   if (opt.collect) { const parts = auto ? await doDamage(ctx, ek, { crit, collect: true }) : null; if (hits && a.save) saveFollow(ctx, a, name, tgt); return { name, total: r.total, hits, crit, fumble, parts: parts || [], verdict: tgt ? (crit ? 'crit' : hits ? 'hit' : 'miss') : (crit ? 'crit' : fumble ? 'miss' : '') }; }
+  // a hit that rolls its own damage shows as one card: to hit on the left, damage on the right
+  if (auto) { const parts = await doDamage(ctx, ek, { crit, collect: true });
+    if (parts) { const dt = parts.reduce((t, p) => t + p.total, 0);
+      toast({ big: r.total, dmg: dt, dmgLbl: crit ? 'crit damage' : 'damage', title: `${ctx.who} · ${name}`, det: (verdict ? `<b>${esc(verdict)}</b> · ` : '') + esc(r.detail) + `<br><b>Damage</b> · ${parts.map(p => `${p.total} ${esc(p.type || '')}`).join(' + ')} · ${esc(parts.map(p => p.detail).join(' | '))}`, cls: crit ? 'crit' : '', actions: dmgActs(ctx, name, parts).concat(acts) });
+      if (hits && a.save) saveFollow(ctx, a, name, tgt, ek); return { hits, crit }; } }
   toast({ big: r.total, title: `${ctx.who} · ${name}`, det: (verdict ? `<b>${esc(verdict)}</b> · ` : '') + esc(r.detail), cls: crit ? 'crit' : (!hits ? 'bad' : ''), actions: acts });
-  if (auto) await doDamage(ctx, ek, { crit });
   if (hits && a.save) saveFollow(ctx, a, name, tgt, ek);
   return { hits, crit };
 }
@@ -880,10 +946,14 @@ async function doDamage(ctx, ek, o) {
   return parts;
 }
 const magicalAttacker = c => !!c && (c.traits || []).some(e => /magic(al)? weapons|weapon attacks are magical/i.test(e.n + ' ' + e.d));
-function damageToast(ctx, name, parts, crit) {
-  const total = parts.reduce((t, p) => t + p.total, 0), tgt = targetOf(ctx), magical = magicalAttacker(ctx.c), acts = [];
+function dmgActs(ctx, name, parts) {
+  const tgt = targetOf(ctx), magical = magicalAttacker(ctx.c), acts = [];
   if (tgt) acts.push({ label: `Apply to ${tgt.name}`, fn: () => applyParts(tgt, parts, magical) });
   if (sessionInsts().length > 1 || !ctx.inst) acts.push({ label: tgt ? 'Someone else…' : 'Apply to…', fn: () => pickTargets(parts, magical, name) });
+  return acts;
+}
+function damageToast(ctx, name, parts, crit) {
+  const total = parts.reduce((t, p) => t + p.total, 0), acts = dmgActs(ctx, name, parts);
   toast({ big: total, title: `${ctx.who} · ${name}${crit ? ' (crit)' : ''} damage`, det: parts.map(p => `${p.total} ${p.type || ''}`).join(' + ') + ' · ' + esc(parts.map(p => p.detail).join(' | ')), cls: crit ? 'crit' : '', actions: acts });
 }
 async function doMulti(ctx) {
@@ -1631,7 +1701,8 @@ function openSettings(tab) {
     <div class="dk-setx">
     ${pane('dice', `<div class="dk-setsub">Who rolls the dice</div><div class="dk-dmodes">${mode('dice', 'desk', 'The desk rolls', 'Fast. Results show here and in the log.')}${mode('dice', 'roll20', 'Roll20 rolls for me', 'Rolls post publicly in your Roll20 game chat through the same extension your character sheets use, and the results come back here.')}${mode('dice', 'manual', 'I roll my own dice', 'The desk asks you to type each total.')}</div>
       <div class="dk-r20" ${st.dice === 'roll20' ? '' : 'hidden'}></div>
-      ${row('Dice roller', `<button class="dk-btn sm" data-act="diceroller">Open</button>`, 'Tap a die, or build a roll with a modifier and a target number.')}`)}
+      ${row('Dice roller', `<button class="dk-btn sm" data-act="diceroller">Open</button>`, 'Tap a die, or build a roll with a modifier and a target number.')}
+      ${row('Roll results', `<select class="dk-f" data-set="rollFade">${[['0', 'Stay until I close them'], ['5', 'Fade after 5 seconds'], ['10', 'Fade after 10 seconds'], ['15', 'Fade after 15 seconds'], ['30', 'Fade after 30 seconds'], ['60', 'Fade after 1 minute']].map(([v, t]) => `<option value="${v}"${String(st.rollFade || '0') === v ? ' selected' : ''}>${t}</option>`).join('')}</select>`, 'The card that shows each roll and its math')}`)}
     ${pane('creatures', `${row('Hit points for new creatures', `<select class="dk-f" data-set="hpMode"><option value="avg"${st.hpMode !== 'roll' ? ' selected' : ''}>Average</option><option value="roll"${st.hpMode === 'roll' ? ' selected' : ''}>Roll their hit dice</option></select>`, st.hpMode === 'roll' ? 'Every copy gets its own HP.' : 'The number in the stat block.')}
       ${tog('autoDmg', 'Roll damage when an attack hits', 'Attack rolls that beat the target’s AC roll their damage by themselves.')}`)}
     ${pane('ai', aiSettingsHTML())}
@@ -1959,7 +2030,7 @@ function mount(root, ctx) {
   if (!CTX.partyHost && mobileDev()) { const b = CTX.back; root.innerHTML = `<div class="dk-nophone"><div class="dk-emblem">${ICON.folder}</div><h2>Not available on mobile devices</h2><p><em>Not all of the DM’s Desk is available on mobile devices. Open a party you run to manage it from here, or use a computer for everything else.</em></p>${b ? `<a class="dk-btn gold" href="${esc(b.href)}">${ICON.back}<span>${esc(b.label || 'Back')}</span></a>` : ''}</div>`; return { unmount: () => { root.innerHTML = ''; ROOT = null; } }; }
   root.innerHTML = `<header class="dk-top"></header><div class="dk-page"></div>
     <div class="dk-modal" role="presentation"><div class="dk-mcard" role="dialog" aria-modal="true"></div></div>
-    <div class="dk-toasts" aria-live="polite"></div><input type="file" class="dk-impf" accept=".json,application/json" hidden><input type="file" class="dk-imgf" accept="image/*" hidden><input type="file" class="dk-tokf" accept="image/*" hidden><input type="file" class="dk-nimgf" accept="image/*" hidden><input type="file" class="dk-mapf" accept="image/*" hidden><input type="file" class="dk-nimpf" accept=".docx,.lk,.md,.markdown,.txt,.html,.htm,.zip,.textpack,.json,image/*" multiple hidden><input type="file" class="dk-ndirf" webkitdirectory multiple hidden><div class="dk-auto" hidden></div><input type="file" class="dk-notef" accept=".pdf,.docx,.txt,.md,.markdown,text/plain,application/pdf" multiple hidden>`;
+    <div class="dk-rolls" aria-live="polite"></div><div class="dk-toasts" aria-live="polite"></div><input type="file" class="dk-impf" accept=".json,application/json" hidden><input type="file" class="dk-imgf" accept="image/*" hidden><input type="file" class="dk-tokf" accept="image/*" hidden><input type="file" class="dk-nimgf" accept="image/*" hidden><input type="file" class="dk-mapf" accept="image/*" hidden><input type="file" class="dk-nimpf" accept=".docx,.lk,.md,.markdown,.txt,.html,.htm,.zip,.textpack,.json,image/*" multiple hidden><input type="file" class="dk-ndirf" webkitdirectory multiple hidden><div class="dk-auto" hidden></div><input type="file" class="dk-notef" accept=".pdf,.docx,.txt,.md,.markdown,text/plain,application/pdf" multiple hidden>`;
   const loc = lsGet(''); S = normalize(loc && loc.v ? loc : null); dHistLoad();
   const u = lsGet('-ui'); if (u) UI = Object.assign(UI, u, { tree: false, log: false });
   UI.ptab = UI.ptab || {};
