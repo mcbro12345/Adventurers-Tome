@@ -1350,12 +1350,13 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
    a little smaller, underneath it */
 @media (max-width: 640px) {
   .dk .dk-top { display: grid !important; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: center; column-gap: 10px; row-gap: 8px; }
-  .dk .dk-brand { grid-row: 1 / span 2; grid-column: 1; align-self: center; gap: 10px; }
-  .dk .dk-logo .hl-d20, .dk .dk-brand > svg { width: 46px !important; height: 46px !important; }
-  .dk .dk-brand { gap: 8px !important; }
-  .dk .dk-brand h1 { font-size: 1.22rem !important; white-space: nowrap; line-height: 1.1; }
+  .dk .dk-bcol { grid-row: 1 / span 2; grid-column: 1; align-self: center; min-width: 0; margin: 0; }
+  .dk .dk-brand { gap: 10px; margin: 0; }
+  .dk .dk-logo .hl-d20, .dk .dk-brand > svg { width: 64px !important; height: 64px !important; }
+  .dk .dk-brand { gap: 10px !important; }
+  .dk .dk-brand h1 { font-size: 1.6rem !important; white-space: normal; line-height: 1.02; }
   .dk .dk-tools { grid-row: 2; grid-column: 2; justify-self: end; flex: none; gap: 3px; position: static; }
-  .dk:not(.dk-lite) .dk-brand { grid-row: 1; }
+  .dk:not(.dk-lite) .dk-bcol { grid-row: 1; }
   .dk:not(.dk-lite) .dk-tools { grid-column: 1 / -1; }  /* (the full Desk has more buttons: they get the whole row) */
   .dk .dk-tools > button, .dk .dk-tools > a, .dk .dk-tools .dk-histb > button { min-width: 31px; width: 31px; height: 31px; min-height: 31px; border-radius: 9px; }
   .dk .dk-tools svg { width: 16px; height: 16px; }
@@ -1364,7 +1365,7 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
   .dk .dk-top::after { content: none; }
   .dk .dk-top { grid-template-rows: 44px auto; }
 }
-@media (max-width: 360px) { .dk .dk-logo .hl-d20, .dk .dk-brand > svg { width: 36px !important; height: 36px !important; } .dk .dk-brand h1 { font-size: 1.05rem !important; white-space: normal; } .dk .dk-tools > button, .dk .dk-tools .dk-histb > button { min-width: 28px; width: 28px; height: 28px; min-height: 28px; } }
+@media (max-width: 360px) { .dk .dk-logo .hl-d20, .dk .dk-brand > svg { width: 50px !important; height: 50px !important; } .dk .dk-brand h1 { font-size: 1.3rem !important; } .dk .dk-tools > button, .dk .dk-tools .dk-histb > button { min-width: 28px; width: 28px; height: 28px; min-height: 28px; } }
 /* Phones, a party you run: just the party page, the roller and turn order, and a way into the full Desk */
 .dk.dk-lite .dk-tabs, .dk.dk-lite .dk-tools [data-act=log], .dk.dk-lite .dk-tools [data-act=settings], .dk.dk-lite .dk-tools [data-act=bugreport] { display: none !important; }
 .dk.dk-lite { padding-bottom: 24px !important; }

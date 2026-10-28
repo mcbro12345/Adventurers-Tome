@@ -23,6 +23,9 @@ html[data-pgtheme="dark"] .pg-bgd { color: rgb(214,168,72); --bo: .11; }
 .pg-bgd.pg-bgd-hd { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; color: rgb(214,168,72); --bo: .11;
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 30px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 30px), transparent); }
 .hub-head:not(.hd2-head) > .pg-bgd.pg-bgd-hd { -webkit-mask-image: none; mask-image: none; }
+/* (in the wide lobby the top bar only covers the column under the header panel, so its copy of the dice is cut to that
+   column too: either side, the page's own dice show through alone instead of twice over, which looked brighter) */
+body.hubbody:not(.adminbody) .hub-head.hd2-head > .pg-bgd.pg-bgd-hd { clip-path: inset(0 max(32px, calc((100% - 1600px) / 2))); }
 /* tall, narrow screens (phones): the four dice spread out down the screen instead of piling up */
 @media (max-aspect-ratio: 4/5) {
   .pg-bgd .pg-bgd-d.pg-bgd-1 { width: 75vw; left: -28vw; top: -6vh; }
