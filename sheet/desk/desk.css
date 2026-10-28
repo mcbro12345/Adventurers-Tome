@@ -1346,6 +1346,15 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
   .dk .dk-tools > button, .dk .dk-tools > a { min-width: 40px; width: 40px; height: 40px; min-height: 40px; padding: 0; display: grid; place-items: center; }
   .dk .dk-tools .dk-tl { display: none; }
 }
+/* Phones: the title and your picture share the top row, and the buttons sit on their own row underneath, on the right */
+@media (max-width: 640px) {
+  .dk .dk-top { justify-content: flex-end; column-gap: 4px; row-gap: 8px; }
+  .dk .dk-tools { display: contents; }
+  .dk .dk-brand { order: 0; flex: 1 1 0; }
+  .dk .dk-tools > * { order: 3; }
+  .dk .dk-tools > .dk-acct { order: 1; margin-left: 8px; }
+  .dk .dk-top::after { content: ''; order: 2; flex: 1 1 100%; height: 0; }
+}
 /* Phones, a party you run: just the party page, the roller and turn order, and a way into the full Desk */
 .dk.dk-lite .dk-tabs, .dk.dk-lite .dk-tools [data-act=log], .dk.dk-lite .dk-tools [data-act=settings], .dk.dk-lite .dk-tools [data-act=bugreport] { display: none !important; }
 .dk.dk-lite { padding-bottom: 24px !important; }
