@@ -1796,6 +1796,7 @@ function onAISet(act) {
     (async () => {
       const ids = await aiListModels(prov, key); let note = '';
       if (ids) { const dl = $('#dk-aiModels'); if (dl) dl.innerHTML = ids.map(m => `<option>${esc(m)}</option>`).join('');
+        { const mi = $('#dk-aiModel'); if (mi && !mi.value.trim()) mi.value = model; }
         if (!ids.includes(model)) { const m2 = aiBestModel(prov, ids); if (m2) { aiSetCfg({ provider: prov, model: m2 }); const mi = $('#dk-aiModel'); if (mi) mi.value = m2; note = ` Switched the model to “${m2}” — “${model}” isn’t available to your key.`; } } }
       try { const t = await aiCall('Reply with {"ok": true}.', { max: 200 }); if (st) st.textContent = (/ok/i.test(t) ? '✓ The key works.' : '✓ Connected.') + note; }
       catch (e) { if (st) st.textContent = '✗ ' + e.message + (e.kind === 'model' && ids ? ` ${ids.length} models are available — pick one from the Model list.` : ''); }
@@ -2122,6 +2123,13 @@ class AIError extends Error { constructor(msg, kind) { super(msg); this.kind = k
 async function aiCall(prompt, o) {
   try { return await aiCall0(prompt, o); }
   catch (e) {
+    // busy / overloaded: one more go after a short wait, then once more on another model from the key's list (just for this request)
+    if (e.kind === 'busy' && !(o && o._again)) {
+      await new Promise(r => setTimeout(r, 1500));
+      try { return await aiCall0(prompt, Object.assign({}, o, { _again: true })); }
+      catch (e2) { if (e2.kind !== 'busy') throw e2;
+        const { provider, model } = aiCfg(), ids = aiKnownModels(provider) || await aiListModels(provider, aiKey(provider)), alt = ids && aiBestModel(provider, ids.filter(x => x !== model));
+        if (!alt) throw e2; return aiCall0(prompt, Object.assign({}, o, { _again: true, model: alt })); } }
     if (e.kind !== 'model' || (o && o._again)) throw e;
     const { provider, model } = aiCfg(), ids = await aiListModels(provider, aiKey(provider)), m2 = ids && !ids.includes(model) ? aiBestModel(provider, ids) : '';
     if (!m2) throw e;
@@ -2130,7 +2138,7 @@ async function aiCall(prompt, o) {
   }
 }
 async function aiCall0(prompt, o) {
-  o = o || {}; const { provider, model } = aiCfg(), key = aiKey(provider);
+  o = o || {}; const { provider } = aiCfg(), model = o.model || aiCfg().model, key = aiKey(provider);
   if (!key) throw new AIError('Add your AI key in Desk settings first.', 'nokey');
   const sys = AI_SYS + (o.sys ? '\n' + o.sys : ''), maxT = o.max || 4000;
   let url, init, pick;
@@ -2157,7 +2165,7 @@ async function aiCall0(prompt, o) {
     if (r.status === 401 || r.status === 403) throw new AIError('That key was turned down. Check it in Desk settings.', 'auth');
     if (r.status === 429) throw new AIError('The AI is rate-limited or out of credit right now. Wait a minute and try again.', 'rate');
     if (r.status === 404 || /model/i.test(String(msg)) && r.status === 400) throw new AIError(`The model “${model}” wasn’t found. Pick another in Desk settings.`, 'model');
-    if (r.status >= 500 || r.status === 529) throw new AIError('The AI service is busy. Try again in a moment.', 'busy');
+    if (r.status >= 500 || r.status === 529) throw new AIError(`The AI service is busy (${model}: ${String(msg).slice(0, 120)}). Try again in a moment.`, 'busy');
     throw new AIError('The AI said: ' + String(msg).slice(0, 200), 'other');
   }
   return String(pick(j || {}) || '');
