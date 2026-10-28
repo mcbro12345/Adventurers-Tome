@@ -1826,7 +1826,7 @@ async function onClick(e) {
     case 'sview': UI.sv = b.dataset.v; UI.sel = ''; saveUI(); return paint();
     case 'gensub': UI.gen = b.dataset.v; saveUI(); return paint();
     case 'gdiff': UI.genP.diff = b.dataset.v; saveUI(); return paint();
-    case 'genenc': return genEncounter();
+    case 'genenc': return UI.genAI && aiReady() ? aiDesignEncounter() : genEncounter();
     case 'glock': { const l = GEN.lines[N(b.dataset.i)]; l.locked = !l.locked; return paint(); }
     case 'gn': { const l = GEN.lines[N(b.dataset.i)]; l.n = Math.max(0, Math.min(30, l.n + N(b.dataset.d))); if (!l.n) GEN.lines.splice(N(b.dataset.i), 1); GEN.ai = null; return paint(); }
     case 'gswap': return swapLine(N(b.dataset.i));
@@ -2334,6 +2334,39 @@ Return JSON: {"title": string (max 8 words), "setup": string (2-3 sentences the 
   } catch (e) { toast({ title: 'AI flavor didn’t work', det: esc(e.message), cls: 'bad' }); if (e.raw) GEN.raw = String(e.raw).slice(0, 2000); }
   GEN.busy = false; paint();
 }
+// With "Use AI + campaign context" ticked, the AI picks the creatures itself (from the bestiary, to suit the campaign
+// context and session notes) and writes the encounter up. The desk then checks the XP against the difficulty and
+// nudges the numbers into range, so the fight stays balanced whatever the AI chose.
+async function aiDesignEncounter() {
+  if (GEN.busy) return;
+  const g = UI.genP, th = thresholds(), di = DIFFS.indexOf(g.diff), lo = th[di], hi = di < 3 ? th[di + 1] : Math.round(th[3] * 1.5), L = genLevels();
+  const locked = GEN.lines.filter(l => l.locked);
+  const ty = g.type, pool = allCreatures().filter(c => N(c.cr) > 0 && XP_OF(c) <= hi && (!ty || String(c.type || '').toLowerCase().startsWith(ty)) && (g.mine || c.src === 'SRD' || !c.src));
+  if (!pool.length) { toastInfo('No creatures fit those choices. Try another creature type, or turn on your own creatures.'); return; }
+  const byName = new Map(); pool.forEach(c => { const k = String(c.name).toLowerCase(); if (!byName.has(k)) byName.set(k, c); });
+  const list = [...byName.values()].map(c => `${c.name} (CR ${crLabel(N(c.cr))}, ${XP_OF(c)} XP, ${String(c.type || '').replace(/\s*\(.*$/, '')})`).join('; ');
+  const keep = locked.map(l => { const c = getC(l.cid); return c ? `${l.n} × ${c.name}` : ''; }).filter(Boolean).join(', ');
+  const env = ENVN[g.env] || '';
+  GEN.busy = true; GEN.raw = ''; paint();
+  try {
+    const o = await aiJSON(`${aiCtx(3000)}Design one D&D 5e combat encounter that fits the campaign context and session notes above.
+Party: ${L.length} characters, levels ${L.join(', ')}. Difficulty: ${g.diff} — aim for an adjusted XP between ${lo} and ${hi} (adjusted XP = total XP × ${'1 for 1 creature, 1.5 for 2, 2 for 3–6, 2.5 for 7–10, 3 for 11–14, 4 for 15+'}).${env ? ` Preferred terrain: ${env} (ignore it if the campaign context clearly says otherwise).` : ''}${keep ? `\nThe DM is keeping these creatures — include them exactly: ${keep}.` : ''}
+Choose creatures ONLY from this list, using the names exactly as written: ${list}.
+Return JSON: {"creatures": [{"name": string, "count": int}], "title": string (max 8 words), "setup": string (2-3 sentences the DM reads or paraphrases), "tactics": string (how they fight), "twist": string (one complication), "hook": string (how it ties to the campaign)}.`, j => {
+      const fl = shapeEncAI(j); if (!fl || !j || !Array.isArray(j.creatures)) return null;
+      const lines = []; j.creatures.slice(0, 8).forEach(x => { const nm = typeof x === 'string' ? x : x && x.name; const c = byName.get(String(nm || '').trim().toLowerCase()); if (!c) return; const n = vNum(x && x.count || 1, 1, 20); const m = lines.find(l => l.cid === c.id); if (m) m.n += n; else lines.push({ cid: c.id, n, locked: false }); });
+      return lines.length ? { fl, lines } : null; }, { max: 8000 });
+    // the DM's locked creatures stay as they were; then the counts are nudged until the XP is inside the budget
+    const lines = locked.map(l => Object.assign({}, l)); o.lines.forEach(l => { const m = lines.find(x => x.cid === l.cid); if (!m) lines.push(l); else if (!m.locked) m.n += l.n; });
+    for (let k = 0; k < 40; k++) { const st = encStats(lines), free = lines.filter(l => !l.locked);
+      if (!free.length) break;
+      if ((di < 3 ? st.adj >= hi : st.adj > hi) && st.count > 1) { const big = free.filter(l => l.n > 1).sort((a, b) => b.n - a.n)[0] || (free.length > 1 ? free.slice().sort((a, b) => XP_OF(getC(b.cid)) - XP_OF(getC(a.cid)))[0] : null); if (!big) break; big.n--; if (!big.n) lines.splice(lines.indexOf(big), 1); }
+      else if (st.adj < lo && st.count < 16) { const f = free.slice().sort((a, b) => XP_OF(getC(a.cid)) - XP_OF(getC(b.cid)))[0]; f.n++; }
+      else break; }
+    GEN.lines = lines; GEN.ai = o.fl; GEN.place = ''; GEN.tactic = '';
+  } catch (e) { toast({ title: 'The AI couldn’t design it — rolled one from the tables instead', det: esc(e.message), cls: 'bad' }); if (e.raw) GEN.raw = String(e.raw).slice(0, 2000); GEN.busy = false; genEncounter(); return; }
+  GEN.busy = false; paint();
+}
 async function aiNpc() {
   if (!aiReady()) return toastInfo('Add your AI key in Desk settings to use AI.', [{ label: 'Settings', fn: openSettings }]);
   const n = NPCG.npc, L = NPCG.locks, keep = NPC_FIELDS.filter(([k]) => L[k] && n[k]).map(([k, lb]) => `${lb}: ${n[k]}`).join('\n');
@@ -2354,7 +2387,7 @@ function ctxBox() {
   if (!aiReady()) return ''; // the AI option only appears once AI is set up in Desk settings
   return `<div class="dk-aibox${UI.genAI ? ' on' : ''}"><label class="dk-chk"><input type="checkbox" data-gai="1" ${UI.genAI ? 'checked' : ''}> Use AI + campaign context</label><span class="dk-hint">${esc(AI_PROV[aiCfg().provider].name)}</span>
     ${UI.genAI ? `<label><span class="dk-lbl">Campaign context</span><textarea class="dk-f" id="dk-camp" data-ch="camp" rows="2" maxlength="1500" placeholder="e.g. Chult, chapter 3 — the party just left Port Nyanzaru with a guide they don’t trust">${esc(S.settings.campaign || '')}</textarea></label>
-    <p class="dk-hint">The open session’s notes go along too. Only these words are sent to the AI — nothing from characters, parties or your account.</p>` : ''}</div>`;
+    <p class="dk-hint">${UI.gen === 'npc' ? 'The AI writes the NPC to fit this.' : 'The AI picks the creatures to fit this and writes the fight up; the desk keeps it inside your XP budget.'} The open session’s notes go along too. Only these words are sent to the AI — nothing from characters, parties or your account.</p>` : ''}</div>`;
 }
 function sessPickHTML(id, newLabel) {
   const opts = []; S.sessions.forEach(s => s.groups.forEach(g => opts.push(`<option value="${esc(s.id)}|${esc(g.id)}"${s.id === UI.session && g === s.groups[0] ? ' selected' : ''}>${esc(s.title)}${s.groups.length > 1 ? ' › ' + esc(g.name) : ''}</option>`)));
@@ -2372,7 +2405,7 @@ function encGenHTML() {
         <label><span class="dk-lbl">Creature type</span><select class="dk-f" id="dk-gType"><option value="">Any</option>${types.map(t => `<option${t === g.type ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></label></div>
       <label class="dk-chk"><input type="checkbox" id="dk-gMine" ${g.mine ? 'checked' : ''}> Include my own creatures</label>
       ${ctxBox()}
-      <button class="dk-btn gold big wide" data-act="genenc">${ICON.dice} ${GEN.lines.length ? 'Reroll' : 'Generate'} encounter</button></section>
+      <button class="dk-btn gold big wide" data-act="genenc" ${GEN.busy ? 'disabled' : ''}>${ICON.dice} ${GEN.busy ? 'Designing…' : (GEN.lines.length ? 'Reroll' : 'Generate') + ' encounter' + (UI.genAI && aiReady() ? ' with AI' : '')}</button></section>
     <section class="dk-card dk-genout">${GEN.lines.length ? `<div class="dk-budget"><div><span class="dk-lbl">Adjusted XP</span><b>${st.adj.toLocaleString()}</b><small>budget ${th[DIFFS.indexOf(g.diff)].toLocaleString()} (${esc(g.diff)})</small></div><div class="dk-rate ${st.rate}">${cap(st.rate)}</div>
         <div class="dk-meter"><i style="width:${pct}%"></i>${th.map((t, i) => `<em style="left:${Math.min(100, t / (th[3] * 1.25) * 100)}%" title="${cap(DIFFS[i])}"></em>`).join('')}</div><small class="dk-hint">${st.base.toLocaleString()} XP total · ${st.per.toLocaleString()} each for ${plural(genLevels().length, 'character')} · ×${multFor(st.count, genLevels().length)} for ${plural(st.count, 'creature')}</small></div>
       <div class="dk-elines">${GEN.lines.map((l, i) => { const c = getC(l.cid); if (!c) return ''; return `<div class="dk-eline${l.locked ? ' locked' : ''}"><button class="dk-lockb" data-act="glock" data-i="${i}" aria-pressed="${!!l.locked}" title="${l.locked ? 'Unlock' : 'Keep this one when rerolling'}">${l.locked ? '🔒' : '🔓'}</button>${tokenHTML(c, 34)}
