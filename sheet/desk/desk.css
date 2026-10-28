@@ -444,7 +444,7 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 .dk-meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; background: linear-gradient(90deg, #3fa66b, #2f6ca8, #c9962b, #c9503b); background-size: 400px 100%; opacity: .9; transition: width .3s; }
 .dk-meter em { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--ink); opacity: .35; border-radius: 2px; }
 .dk-elines { display: grid; gap: 6px; }
-.dk-eline { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 10px; align-items: center; border: 1px solid var(--line2); border-radius: 12px; padding: 8px 10px; background: var(--card2); }
+.dk-eline { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto auto; gap: 10px; align-items: center; border: 1px solid var(--line2); border-radius: 12px; padding: 8px 10px; background: var(--card2); }
 .dk-eline.locked { border-color: var(--gold); }
 .dk-eln { display: grid; min-width: 0; } .dk-eln .dk-link { font-size: 1rem; text-align: left; text-decoration: none; color: var(--ink); } @media (hover: hover) { .dk-eln .dk-link:hover { color: var(--gold-ink); text-decoration: underline; } }
 .dk-eln small { color: var(--soft); font-size: .76rem; }
@@ -506,7 +506,7 @@ html[data-pgtheme="dark"] .dk-top { background: linear-gradient(180deg, #121a2b,
 .dk-aistat { flex-basis: 100%; }
 @media (max-width: 1100px) { .dk-gengrid, .dk-plan { grid-template-columns: minmax(0, 1fr); } .dk-genin, .dk-pnotes { position: static; max-height: none; overflow: visible; } }
 @media (max-width: 640px) {
-  .dk-eline { grid-template-columns: auto minmax(0, 1fr) auto; } .dk-eline > .dk-btn { grid-column: 2 / -1; justify-self: start; }
+  .dk-eline { grid-template-columns: auto auto minmax(0, 1fr) auto; row-gap: 6px; } .dk-eline > .dk-lockb, .dk-eline > .dk-tok { grid-row: span 2; } .dk-eline > .dk-eln { grid-column: 3 / -1; } .dk-eline > .dk-elc { grid-column: 3; } .dk-eline > .dk-btn { grid-column: 4; }
   .dk-slist, .dk-ncards { grid-template-columns: minmax(0, 1fr); }
   .dk-tabs button span { font-size: .84rem; } .dk-tabs button { padding: 7px 8px; gap: 5px; }
   .dk-svtabs .dk-seg2 { width: 100%; } .dk-svtabs .dk-seg2 button { flex: 1; }
