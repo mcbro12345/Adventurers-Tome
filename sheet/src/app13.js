@@ -661,7 +661,7 @@ function ptyCatchUp() {
 }
 setTimeout(ptyCatchUp, 2500); setInterval(ptyCatchUp, 20000);
 // Damage after resistances and immunities this sheet knows about.
-function ptyResist(n, type) { type = String(type || '').toLowerCase(); if (!type) return [n, '']; const D = defensesDetail(), has = arr => arr.some(x => x.k.includes(type) || /^all damage/.test(x.k));
+function ptyResist(n, type) { type = String(type || '').toLowerCase(); if (!type) return [n, '']; const D = defensesDetail(), has = arr => arr.some(x => /^all damage/.test(x.k) ? !new RegExp('except[^.]*\\b' + type + '\\b').test(x.k) : x.k.includes(type)); // ("all damage except psychic": every type but that one)
   const vul = (D.vuln || []).some(x => x.k.includes(type));
   if (has(D.immune)) return [0, 'immune']; if (has(D.resist)) return vul ? [n, 'resistant and vulnerable'] : [Math.floor(n / 2), 'resistant']; if (vul) return [n * 2, 'vulnerable']; return [n, '']; }
 function ptyApply(m) {

@@ -7,7 +7,7 @@ css = css.replace("/* Palette pulled from Zeke's mini: ivory tunic, golden cape,
 extra = open(os.path.join(D, 'src', 'extra.css')).read()
 import sys; sys.path.insert(0, D); from hoverguard import guard
 css = guard(css); extra = guard(extra)
-order = ['classes1', 'classes2', 'classes3', 'options', 'races', 'backgrounds_feats', 'gear', 'magic', 'rules', 'spells1', 'ua_classes_a', 'ua_classes_b', 'ua_races', 'ua_misc', 'spells2', 'creatures', 'auto', 'deck', 'featfx', 'fx_barbarian_bard', 'fx_cleric_druid', 'fx_fighter_monk', 'fx_paladin_ranger', 'fx_rogue_sorcerer', 'fx_warlock_wizard_artificer', 'fx_races', 'fx_feats_options', 'fx_ua', 'fx_ua2', 'allyfx', 'fulltext', 'vfx', 'anim']
+order = ['classes1', 'classes2', 'classes3', 'options', 'races', 'backgrounds_feats', 'gear', 'magic', 'rules', 'spells1', 'ua_classes_a', 'ua_classes_b', 'ua_races', 'ua_misc', 'spells2', 'creatures', 'auto', 'deck', 'featfx', 'fx_barbarian_bard', 'fx_cleric_druid', 'fx_fighter_monk', 'fx_paladin_ranger', 'fx_rogue_sorcerer', 'fx_warlock_wizard_artificer', 'fx_races', 'fx_feats_options', 'fx_ua', 'fx_ua2', 'fx_ua3', 'allyfx', 'fulltext', 'vfx', 'anim']
 data = '\n'.join(open(os.path.join(D, 'data', f + '.js')).read() for f in order if os.path.exists(os.path.join(D, 'data', f + '.js')))
 # The Roll20 companion extension ships inside the sheet (Settings → Dice → Download extension).
 import base64

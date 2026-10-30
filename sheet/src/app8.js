@@ -131,7 +131,8 @@ function fxPassives() {
     if ((md.resist || []).length || im.length || (md.vuln || []).length) out.push({ src: 'Added by you', resist: (md.resist || []).map(t => t.toLowerCase()), vuln: (md.vuln || []).map(t => t.toLowerCase()), immune: im.filter(t => !cn.includes(t.toLowerCase())).map(t => t.toLowerCase()), condImmune: im.filter(t => cn.includes(t.toLowerCase())) }); }
   _fxpKey = key + mdKey; _fxp = out; return out;
 }
-const fxSkillBonus = name => fxPassives().filter(p => p.skillBonus && p.skillBonus[name]).map(p => [p.src, N(p.skillBonus[name])]);
+// (a bonus can be a formula — 'wis', 'max(1,wis)' — and 'ab:cha' gives it to every skill of that ability: Otherworldly Glamour)
+const fxSkillBonus = name => { const sk = S.skills.find(s => s.name === name), ab = sk && sk.ab; return fxPassives().filter(p => p.skillBonus && (p.skillBonus[name] != null || (ab && p.skillBonus['ab:' + ab] != null))).map(p => { const v = p.skillBonus[name] != null ? p.skillBonus[name] : p.skillBonus['ab:' + ab]; return [p.src, typeof v === 'string' ? N(evalMax(v)) : N(v)]; }); };
 const fxSum = (k, filter) => fxPassives().filter(p => p[k] != null && (!filter || filter(p))).reduce((t, p) => t + (typeof p[k] === 'number' ? p[k] : p[k] === 'attuned' ? attunedCount() : N(evalMax(p[k]))), 0);
 const fxList = k => [...new Set(fxPassives().flatMap(p => [].concat(p[k] || [])))];
 const fxSaveProf = ab => fxPassives().some(p => p.saveProf === 'all' || [].concat(p.saveProf || []).includes(ab));
@@ -147,7 +148,7 @@ function defensesDetail() {
     [].concat(p.immune || []).forEach(t => add(out.immune, t, p.src));
     [].concat(p.vuln || []).forEach(t => add(out.vuln, t, p.src));
     [].concat(p.condImmune || []).forEach(t => add(out.immune, /^(diseased|disease)$/i.test(t) ? 'disease' : String(t).toLowerCase() === t ? t : t, p.src));
-    [].concat(p.advNote || []).forEach(t => add(out.adv, t, p.src));
+    [].concat(p.advNote || []).forEach(t => add(out.adv, String(t).includes('{') ? fxText(t) : t, p.src));
   });
   return out;
 }
@@ -175,10 +176,19 @@ function fxSpend(c, cls) {
 function fxApplyUse(u, name, lines) {
   if (!u) return;
   if (u.effect) { const e = JSON.parse(JSON.stringify(u.effect)); e.name = e.name || name; if (e.buff) Object.keys(e.buff).forEach(k => { if (typeof e.buff[k] === 'string' && /^[a-z0-9+*()/ ,-]+$/i.test(e.buff[k]) && !/note|dmgDice/.test(k)) { const v = evalMax(e.buff[k]); if (v != null) e.buff[k] = v; } });
-    S.effects = (S.effects || []).filter(x => x.name !== e.name).concat([e]); lines.push(`${e.name} is active${e.rounds ? ' for ' + fmtRounds(e.rounds) : ''}`); }
+    // ({…} formulas in an effect's damage dice and note are filled in now: Giant's Might 1d{…}, notes with numbers)
+    if (e.buff && typeof e.buff.dmgDice === 'string' && e.buff.dmgDice.includes('{')) e.buff.dmgDice = fxRollExpr(e.buff.dmgDice);
+    if (e.buff && typeof e.buff.note === 'string' && e.buff.note.includes('{')) e.buff.note = fxText(e.buff.note);
+    // a concentration effect (Favored Foe, Dark Delirium…) takes over your concentration, like casting a concentration spell
+    if (e.conc) { if (S.concentration && S.concentration !== e.name) { lines.push(`${S.concentration} ended (one concentration at a time)`); S.effects = (S.effects || []).filter(x => !x.conc); } S.concentration = e.name; }
+    S.effects = (S.effects || []).filter(x => x.name !== e.name).concat([e]); lines.push(`${e.name} is active${e.rounds ? ' for ' + fmtRounds(e.rounds) : ''}${e.conc ? ' (concentration)' : ''}`); }
   if (u.cond && !S.conditions.includes(u.cond)) { S.conditions.push(u.cond); if (u.condRounds) { S.condTurns = S.condTurns || {}; S.condTurns[u.cond] = u.condRounds; } lines.push(`${u.cond}${u.condRounds ? ' for ' + u.condRounds + ' round' + (u.condRounds > 1 ? 's' : '') : ''}`); }
   if (u.temp) { const r = rollExpr(fxRollExpr(u.temp), { need: true, label: name + ': temporary HP' }); if (r.total > N(S.hp.temp)) { S.hp.temp = r.total; lines.push(`${r.total} temporary HP`); } else lines.push(`${r.total} temporary HP (you kept your higher ${S.hp.temp})`); }
   if (u.heal) { const r = rollExpr(fxRollExpr(u.heal), { need: true, label: name + ': healing' }); const b = N(S.hp.cur); S.hp.cur = Math.min(maxHp(), b + r.total); lines.push(`Healed ${S.hp.cur - b} HP`); }
+  // spend one of your Hit Dice (the biggest you have left) and heal its roll + a modifier: Witherbloom's Overgrowth
+  if (u.hitDie) { const ds = Object.keys(hdPools()).map(Number).sort((a, b) => b - a).filter(d => hdLeftOf(d) > 0);
+    if (!ds.length) lines.push('No Hit Dice left to spend'); else { const d = ds[0], plus = u.hitDie.plus ? N(evalMax(String(u.hitDie.plus))) : 0, r = rollExpr('1d' + d + (plus ? sgn(plus) : ''), { need: true, label: name + ': Hit Die' });
+      S.hdUsed[d] = N(S.hdUsed[d]) + 1; const b = N(S.hp.cur); S.hp.cur = Math.min(maxHp(), b + Math.max(0, r.total)); lines.push(`Spent a d${d} Hit Die (${r.detail}): healed ${S.hp.cur - b} HP, ${hdLeftOf(d)} d${d} left`); } }
   if (u.healFull) { const b = N(S.hp.cur); S.hp.cur = maxHp(); lines.push(`Healed ${S.hp.cur - b} HP`); }
   if (u.setHp != null) { const v = Math.max(N(S.hp.cur), N(evalMax(String(u.setHp)))); S.hp.cur = Math.min(maxHp(), v); lines.push(`HP set to ${S.hp.cur}`); }
   if (u.regain) [].concat(u.regain).forEach(rg => { const k = fxSource(rg.from); if (k < 0) return; const ff = S.features[k], n = rg.n === 'all' ? N(ff.used) : N(evalMax(String(rg.n || 1))); const was = N(ff.used); ff.used = Math.max(0, was - n); if (was !== ff.used) lines.push(`Regained ${was - ff.used} ${rg.from}`); });
@@ -204,7 +214,7 @@ function useAct(fi, j, col) {
   if (a.surge) return wildSurgeNow();
   if (a.surgeCheck) return wildCheckNow();
   col = col || a.col;
-  if (['action', 'bonus', 'reaction'].includes(col) && incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; }
+  if (['action', 'bonus', 'reaction'].includes(col) && incapCond() && !(a.onlyWhen && a.onlyWhen.zeroHp) && !(j == null && fx.trigger === 'zero')) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; }
   if (a.onlyRaging && !S.conditions.includes('Raging')) { toast(`${esc(a.name || f.name)} only works while raging.`, 'fumble'); return; }
   if (a.onlyWhen && !fxWhenOK(a.onlyWhen)) { toast(`${esc(a.name || f.name)} only works ${esc(fxWhenText(a.onlyWhen))}.`, 'fumble'); return; }
   const cost = a.cost === true ? { from: f.dname || f.name, n: 1 } : a.cost;
@@ -321,13 +331,14 @@ function fxWhenOK(w) {
   if (w.companion && !S.companions.some(c => c.tmpl === w.companion || c.name === w.companion)) return false;
   if (w.armor === 'none' && arm) return false;
   if (w.armor === 'notHeavy' && arm && arm.armor.type === 'heavy') return false;
+  if (w.armor === 'light' && arm && arm.armor.type !== 'light') return false; // (light armor or none: Bladesong)
   if (w.shield === false && sh) return false;
   if (w.hpBelowHalf && N(S.hp.cur) > maxHp() / 2) return false;
   if (w.zeroHp && N(S.hp.cur) > 0) return false;
   if (w.notMoved && N(S.turn && S.turn.moved) > 0) return false;
   return true;
 }
-function fxWhenText(w) { if (!w) return ''; return [w.cond ? 'while ' + w.cond.toLowerCase() : '', w.effect ? 'while ' + w.effect + ' is active' : '', w.companion ? 'while your ' + w.companion + ' is summoned' : '', w.armor === 'none' ? 'without armor' : '', w.armor === 'notHeavy' ? 'not in heavy armor' : '', w.hpBelowHalf ? 'at half HP or less' : '', w.zeroHp ? 'at 0 HP' : '', w.notMoved ? 'if you haven’t moved this turn' : ''].filter(Boolean).join(', '); }
+function fxWhenText(w) { if (!w) return ''; return [w.cond ? 'while ' + w.cond.toLowerCase() : '', w.effect ? 'while ' + w.effect + ' is active' : '', w.companion ? 'while your ' + w.companion + ' is summoned' : '', w.armor === 'none' ? 'without armor' : '', w.armor === 'notHeavy' ? 'not in heavy armor' : '', w.armor === 'light' ? 'in light armor or no armor' : '', w.hpBelowHalf ? 'at half HP or less' : '', w.zeroHp ? 'at 0 HP' : '', w.notMoved ? 'if you haven’t moved this turn' : ''].filter(Boolean).join(', '); }
 // ---------- Triggers ----------
 // trigger: 'zero' (you drop to 0 HP) | 'longRest' | 'shortRest' | 'initiative' — offers the feature with a button.
 // onInit: { regain: n, ifEmpty: true } — applied automatically when you roll initiative (Relentless, Perfect Self…).
@@ -335,6 +346,9 @@ function fxTrigger(kind) {
   const offers = [];
   S.features.forEach((f, i) => {
     const fx = fxOf(f);
+    // onInit.from: refill another feature's pool (Relentless → Superiority Dice, Superior Inspiration → Bardic Inspiration), only when it's empty
+    if (kind === 'initiative' && fx.onInit && fx.onInit.from) { const k = fxSource(fx.onInit.from); const g = k >= 0 && S.features[k], gm = g ? featMax(g) : null;
+      if (g && gm != null && (!fx.onInit.ifEmpty || N(g.used) >= gm) && !(fx.onInit.min && (f.cls ? clsLv(f.cls) : lvl()) < fx.onInit.min)) { const was = N(g.used); g.used = Math.max(0, was - N(evalMax(String(fx.onInit.regain || 1)))); if (was !== g.used) setTimeout(() => toast(`<b>${esc(f.name)}</b>: regained ${was - g.used} ${esc(g.name)} as you roll initiative.`, '', 6000), 400); } return; }
     if (kind === 'initiative' && fx.onInit) { const max = featMax(f); if (max != null && (!fx.onInit.ifEmpty || N(f.used) >= max)) { const was = N(f.used); f.used = Math.max(0, was - N(fx.onInit.regain || 1)); if (was !== f.used) setTimeout(() => toast(`<b>${esc(f.name)}</b>: regained ${was - f.used} use${was - f.used > 1 ? 's' : ''} as you roll initiative.`, '', 6000), 400); } }
     if ([].concat(fx.trigger || []).includes(kind)) { if (fx.onlyWhen && !fxWhenOK(fx.onlyWhen)) return; const max = featMax(f); if (max != null && N(f.used) >= max && !f.pool) return; offers.push([f, i, fx]); }
   });
@@ -352,11 +366,14 @@ function renderRecover() {
 }
 function recoverOk() { const t = RECOVER; if (!t) return; t.pick.forEach(L => { S.slotsUsed[L - 1] = Math.max(0, N(S.slotsUsed[L - 1]) - 1); }); RECOVER = null; pendingLabel = 'Recover spell slots'; closeModal(true); save(); render(); toast(`Recovered ${t.pick.length} slot${t.pick.length === 1 ? '' : 's'}.`); }
 // d20 floors: Reliable Talent (proficient checks), Silver Tongue (Persuasion/Deception), Indomitable Might (STR checks use your score).
+// minD20: { value, kinds: ['check','save','attack'] (default check), ab } — Trance of Order, Impeccable Physicality…
 function fxD20Floor(kind, ab) {
-  if (kind !== 'check') return null; let fl = null;
+  let fl = null;
   const sk = String(ROLL_CTX || '').startsWith('skill:') ? ROLL_CTX.slice(6) : '', skObj = sk && S.skills.find(s => s.name === sk), prof = skObj && N(skObj.prof) >= 1;
-  fxPassives().forEach(p => { const m = p.minD20; if (!m) return;
-    if ((m.prof && prof) || (m.skills && m.skills.includes(sk)) || (m.ab && m.ab === ab)) fl = Math.max(fl || 0, N(m.value) || 10); });
+  fxPassives().forEach(p => { const m = p.minD20; if (!m) return; const kinds = m.kinds || ['check']; if (!kinds.includes(kind)) return;
+    const hit = kind === 'check' ? ((m.prof && prof) || (m.skills && m.skills.includes(sk)) || (m.ab && m.ab === ab) || m.all) : (!m.ab || m.ab === ab);
+    if (hit) fl = Math.max(fl || 0, N(m.value) || 10); });
+  fxActive().forEach(e => { const m = e.buff && e.buff.minD20; if (!m || e.ally || e.self === false) return; if ((m.kinds || ['check', 'save', 'attack']).includes(kind) && (!m.ab || m.ab === ab)) fl = Math.max(fl || 0, N(m.value) || 10); });
   return fl;
 }
 

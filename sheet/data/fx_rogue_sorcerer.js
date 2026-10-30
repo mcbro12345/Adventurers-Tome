@@ -47,7 +47,7 @@
     'rogue:arcanetrickster:Mage Hand Legerdemain': { spells: ['Mage Hand'], spellNote: 'Invisible hand; stow/retrieve items, pick locks and pockets', col: 'bonus', text: 'Control the hand; DEX (Sleight of Hand) contested by the target’s WIS (Perception) to go unnoticed' },
     'rogue:arcanetrickster:Magical Ambush': { passive: { advNote: 'Magical Ambush: if you are hidden when you cast, the target has disadvantage on its save this turn' } },
     'rogue:arcanetrickster:Versatile Trickster': { col: 'bonus', use: R('Versatile Trickster', 1, { atkAdv: 'Versatile Trickster (creature within 5 ft of your mage hand)', note: 'Advantage on attacks vs the distracted creature this turn' }) },
-    'rogue:arcanetrickster:Spell Thief': { col: 'reaction', max: '1', reset: 'long', dc: false, text: 'The caster makes a spellcasting ability check vs DC {8+prof+int}. On a failure its spell has no effect on you and you steal it (1st level+, up to a level you can cast) for 8 hours' },
+    'rogue:arcanetrickster:Spell Thief': { col: 'reaction', max: '1', reset: 'long', dc: 'spell', save: 'spellcasting ability', text: 'Right after a spell targets you or includes you in its area, the caster saves with its spellcasting ability vs your spell DC. On a failure the spell has no effect on you and you know it for 8 hours (1st level+, a level you can cast); the caster can’t cast it for those 8 hours' },
 
     // ---- Inquisitive ----
     'rogue:inquisitive:Ear for Deceit': { passive: { minD20: { skills: ['Insight'], value: 8 }, advNote: 'Ear for Deceit: Insight to tell if a creature is lying treats a d20 of 7 or lower as 8' } },
@@ -67,7 +67,7 @@
     'rogue:mastermind:Soul of Deceit': { passive: { advNote: 'Soul of Deceit: thoughts can’t be read; magic can’t compel truth; Deception vs Insight to show false thoughts' } },
 
     // ---- Scout ----
-    'rogue:scout:Skirmisher': { col: 'reaction', text: 'An enemy ends its turn within 5 ft: move up to {floor(0)}half your speed without provoking opportunity attacks'.replace('{floor(0)}', '') },
+    'rogue:scout:Skirmisher': { col: 'reaction', text: 'An enemy ends its turn within 5 ft: move up to half your speed without provoking opportunity attacks' },
     'rogue:scout:Survivalist': { passive: { skillProf: ['Nature', 'Survival'], skillExp: ['Nature', 'Survival'] } },
     'rogue:scout:Superior Mobility': { passive: { speed: 10, advNote: 'Superior Mobility: +10 ft to climbing and swimming speeds too (if you have them)' } },
     'rogue:scout:Ambush Master': { passive: { initAdv: true }, acts: [{ name: 'Mark first target', text: 'First creature you hit in the first round: allies have advantage on attacks against it until your next turn' }] },
@@ -77,7 +77,7 @@
     'rogue:swashbuckler:Fancy Footwork': { passive: { advNote: 'Fancy Footwork: creatures you make a melee attack against can’t make opportunity attacks against you this turn' } },
     'rogue:swashbuckler:Rakish Audacity': { passive: { advNote: 'Rakish Audacity: Sneak Attack without advantage if the target is the only creature within 5 ft of you (not with disadvantage)' } },
     'rogue:swashbuckler:Panache': { col: 'action', text: 'CHA (Persuasion) vs the target’s WIS (Insight). Hostile: disadvantage on attacks vs others and can’t make opportunity attacks vs others for 1 minute. Non-hostile: charmed for 1 minute' },
-    'rogue:swashbuckler:Elegant Maneuver': { col: 'bonus', text: 'Advantage on the next DEX (Acrobatics) or STR (Athletics) check this turn' },
+    'rogue:swashbuckler:Elegant Maneuver': { col: 'bonus', use: R('Elegant Maneuver', 1, { note: 'Advantage on your next DEX (Acrobatics) or STR (Athletics) check this turn' }) },
     'rogue:swashbuckler:Master Duelist': { max: '1', reset: 'short', text: 'Reroll a missed attack with advantage' },
 
     // ---- Phantom ----
@@ -120,9 +120,10 @@
     // ---- Draconic Bloodline ----
     'sorcerer:draconic:Dragon Ancestor': { passive: { advNote: 'Dragon Ancestor: double proficiency on CHA checks with dragons (you speak Draconic)' } },
     'sorcerer:draconic:Draconic Resilience': { none: true }, // built in: +1 HP per sorcerer level and 13 + DEX unarmored AC
-    'sorcerer:draconic:Elemental Affinity': { none: true }, // automated by the chosen Dragon Ancestor option (CHA to damage, 1 SP resistance)
+    'sorcerer:draconic:Elemental Affinity': { none: true, cost: null }, // automated by the chosen Dragon Ancestor option (CHA to damage note, 1 SP resistance)
     'sorcerer:draconic:Dragon Wings': { col: 'bonus', use: R('Dragon Wings', null, { fly: 'walk', note: 'Flying speed = your speed (not while wearing armor not made for them)' }), acts: [{ name: 'Dismiss wings', col: 'bonus', use: { endEffect: 'Dragon Wings' } }] },
-    'sorcerer:draconic:Draconic Presence': { col: 'action', cost: SP(5), dc: 'spell', save: 'WIS', use: R('Draconic Presence', 10, { note: '60 ft aura of awe (charmed) or fear (frightened); a creature that saves is immune for 24 hours' }, { conc: true }) },
+    // (not marked conc: a feature can't start concentration, so a conc effect would vanish at once — the note says it)
+    'sorcerer:draconic:Draconic Presence': { col: 'action', cost: SP(5), dc: 'spell', save: 'WIS', use: R('Draconic Presence', 10, { note: 'Concentration. 60 ft aura of awe (charmed) or fear (frightened): hostile creatures that start their turn in it save or are affected until it ends; a creature that saves is immune for 24 hours' }) },
 
     // ---- Wild Magic ----
     // Casting a 1st+ level spell rolls the surge check by itself (and surges when Tides of Chaos is spent) — see wildAfterCast.
@@ -131,7 +132,7 @@
       { name: 'Roll a surge (d100)', surge: true }] },
     'sorcerer:wildmagic:Tides of Chaos': { max: '1', reset: 'long', use: { effect: { name: 'Tides of Chaos', buff: { d20AdvNext: 'Tides of Chaos', note: 'Advantage on your next attack roll, ability check or saving throw' } } }, text: 'Your next attack roll, ability check or saving throw has advantage. While it’s spent, your next 1st+ level spell sets off a Wild Magic Surge, which restores it' },
     'sorcerer:wildmagic:Bend Luck': { col: 'reaction', cost: SP(2), roll: '1d4', rollNote: 'added to or subtracted from another creature’s attack, check or save' },
-    'sorcerer:wildmagic:Controlled Chaos': { roll: '1d100', rollNote: 'second Wild Magic Surge roll — use either result' },
+    'sorcerer:wildmagic:Controlled Chaos': { none: true }, // built in: every surge rolls the d100 twice and lets you pick
     'sorcerer:wildmagic:Spell Bombardment': { passive: { advNote: 'Spell Bombardment: once per turn, a spell damage die that rolls its maximum — roll it again and add it' } },
 
     // ---- Divine Soul ----
@@ -144,10 +145,11 @@
     // ---- Shadow Magic ----
     'sorcerer:shadow:Eyes of the Dark': { passive: { sense: 'Darkvision 120 ft (Eyes of the Dark)' }, spellsAt: { 3: ['Darkness'] }, spellNote: 'Cast with 2 sorcery points; you can see through it',
       acts: [{ name: 'Darkness (2 SP)', col: 'action', min: 3, cost: SP(2), text: 'Cast darkness without a slot; you can see through it' }] },
-    'sorcerer:shadow:Strength of the Grave': { max: '1', reset: 'long', trigger: 'zero', onlyWhen: { zeroHp: true }, triggerLabel: 'I saved — 1 HP', use: { setHp: 1 },
+    'sorcerer:shadow:Strength of the Grave': { max: '1', reset: 'long', dc: false, trigger: 'zero', onlyWhen: { zeroHp: true }, triggerLabel: 'I saved — 1 HP', use: { setHp: 1 },
       triggerText: 'Strength of the Grave: make a CHA save (DC 5 + the damage taken). On a success drop to 1 HP instead. Not vs radiant damage or a critical hit.',
       text: 'Use only after succeeding on the CHA save (DC 5 + damage taken)' },
-    'sorcerer:shadow:Hound of Ill Omen': { col: 'bonus', cost: SP(3), text: 'Summon a dire wolf hound (temp HP {floor(sorcerer/2)}) within 30 ft of a creature you can see within 120 ft, for 5 minutes. While it’s within 5 ft, the target has disadvantage on saves vs your spells' },
+    'sorcerer:shadow:Hound of Ill Omen': { col: 'bonus', cost: SP(3), use: R('Hound of Ill Omen', 50, { note: 'Medium dire wolf (AC 14, 37 HP + temp HP equal to half your sorcerer level, speed 50, Bite +5, 2d6+3 piercing, DC 13 STR or prone). Moves and attacks only its target; while within 5 ft of it, the target has disadvantage on saves vs your spells. Gone at 0 HP, when the target drops to 0 HP, or after 5 minutes' }),
+      text: 'The hound appears within 30 ft of a creature you can see within 120 ft, with {floor(sorcerer/2)} temporary HP; roll initiative for it' },
     'sorcerer:shadow:Shadow Walk': { col: 'bonus', text: 'In dim light or darkness: teleport up to 120 ft to an unoccupied space you can see in dim light or darkness' },
     'sorcerer:shadow:Umbral Form': { col: 'bonus', cost: SP(6), use: R('Umbral Form', 10, { note: 'Resistance to all but force and radiant; move through creatures and objects (difficult terrain)' }), passive: { effect: 'Umbral Form', resist: ALLDMG_BUT_FORCE_RADIANT } },
 
@@ -155,13 +157,13 @@
     'sorcerer:storm:Wind Speaker': { none: true }, // Primordial language
     'sorcerer:storm:Tempestuous Magic': { col: 'bonus', text: 'Before or after casting a 1st+ level spell: fly up to 10 ft without provoking opportunity attacks' },
     'sorcerer:storm:Heart of the Storm': { passive: { resist: ['lightning', 'thunder'] },
-      acts: [{ name: 'Storm burst', text: 'After casting a 1st+ level lightning or thunder spell: creatures of your choice within 10 ft take {max(1,floor(sorcerer/2))} lightning or thunder damage' }] },
+      acts: [{ name: 'Storm burst', roll: '{floor(sorcerer/2)}', rollNote: 'lightning or thunder damage to each creature you choose within 10 ft', text: 'When you start casting a 1st+ level spell that deals lightning or thunder damage' }] },
     'sorcerer:storm:Storm Guide': { acts: [
       { name: 'Calm the rain', col: 'action', text: 'Rain stops in a 20 ft radius around you until you end it (bonus action)' },
       { name: 'Turn the wind', col: 'bonus', text: 'Wind within 100 ft blows in a direction you choose until the end of your next turn' }] },
     "sorcerer:storm:Storm's Fury": { col: 'reaction', roll: '{sorcerer}', rollNote: 'lightning damage to the melee attacker', dc: 'spell', save: 'STR', text: 'On a failed STR save it’s pushed up to 20 ft away from you' },
-    'sorcerer:storm:Wind Soul': { max: '1', reset: 'short', passive: { immune: ['lightning', 'thunder'], fly: 60 },
-      use: R('Wind Soul (shared)', 600, { note: 'Your flying speed is 30 ft; up to {3+cha} creatures within 30 ft gain 30 ft flying speed for 1 hour' }), text: 'Up to {3+cha} creatures within 30 ft gain a 30 ft flying speed for 1 hour; yours drops to 30 ft' },
+    'sorcerer:storm:Wind Soul': { col: 'action', max: '1', reset: 'short', passive: { immune: ['lightning', 'thunder'], fly: 60 },
+      use: R('Wind Soul (shared)', 600, { fly: 30, note: 'Your flying speed is 30 ft; up to 3 + CHA mod creatures within 30 ft have a 30 ft flying speed for 1 hour' }), text: 'Up to {3+cha} creatures within 30 ft gain a 30 ft flying speed for 1 hour; yours drops to 30 ft' },
 
     // ---- Aberrant Mind ----
     'sorcerer:aberrantmind:Telepathic Speech': { col: 'bonus', text: 'Telepathic link with a creature within 30 ft for {sorcerer} minutes, while within {max(1,cha)} miles of each other' },
@@ -179,12 +181,27 @@
     // ---- Clockwork Soul ----
     'sorcerer:clockworksoul:Clockwork Magic': { none: true }, // clockwork spells come from the subclass spell list
     'sorcerer:clockworksoul:Restore Balance': { col: 'reaction', max: 'prof', reset: 'long', text: 'A creature within 60 ft is about to roll with advantage or disadvantage: cancel it' },
-    'sorcerer:clockworksoul:Bastion of Law': { resource: true, acts: [1, 2, 3, 4, 5].map(n => ({ name: `Ward (${n} SP)`, col: 'action', cost: SP(n), text: `Ward a creature within 30 ft with ${n}d8: when it takes damage it can spend any of the dice, roll them and reduce the damage by the total. Lasts until your long rest or a new ward` })) },
+    'sorcerer:clockworksoul:Bastion of Law': { resource: true, cost: null, acts: [1, 2, 3, 4, 5].map(n => ({ name: `Ward (${n} SP)`, col: 'action', cost: SP(n), text: `Ward a creature within 30 ft with ${n}d8: when it takes damage it can spend any of the dice, roll them and reduce the damage by the total. Lasts until your long rest or a new ward` })) },
     'sorcerer:clockworksoul:Trance of Order': { col: 'bonus', max: '1', reset: 'long',
       use: R('Trance of Order', 10, { note: 'Attacks against you can’t have advantage; your d20 attack rolls, checks and saves treat 9 or lower as 10' }),
-      passive: ['str', 'dex', 'con', 'int', 'wis', 'cha'].map(a => ({ effect: 'Trance of Order', minD20: { ab: a, value: 10 } })),
+      passive: [{ effect: 'Trance of Order', minD20: { value: 10, kinds: ['check', 'save', 'attack'], all: true } }],
       acts: [{ name: 'Restore (5 SP)', cost: SP(5), use: { regain: { from: 'Trance of Order', n: 1 } } }] },
     'sorcerer:clockworksoul:Clockwork Cavalcade': { col: 'action', max: '1', reset: 'long', text: 'Spirits of order fill a 30 ft cube: restore up to 100 HP divided among creatures, repair damaged objects, and end spells of 6th level or lower on creatures and objects of your choice',
       acts: [{ name: 'Restore (7 SP)', cost: SP(7), use: { regain: { from: 'Clockwork Cavalcade', n: 1 } } }] }
   });
+
+  // Elemental Affinity (Dragon Ancestor pick): the 1-SP resistance is a real resistance while it lasts.
+  const setOpt = (type, name, fx) => { const e = (DND.options[type] || { list: [] }).list.find(x => x[0] === name); if (e) e[3] = Object.assign({}, e[3] || {}, fx); };
+  const DRAG = { Black: 'acid', Blue: 'lightning', Brass: 'fire', Bronze: 'lightning', Copper: 'acid', Gold: 'fire', Green: 'poison', Red: 'fire', Silver: 'cold', White: 'cold' };
+  Object.entries(DRAG).forEach(([d, t]) => setOpt('draconicAncestry', d, {
+    acts: [{ name: `${t} resistance (1 hour)`, min: 6, cost: SP(1), use: R('Elemental Affinity', 600, { note: `Resistance to ${t} damage` }), text: `When you cast a spell that deals ${t} damage` }],
+    passive: [{ min: 6, spellDmg: { types: [t], bonus: 'cha' } }, { effect: 'Elemental Affinity', resist: [t] }] })); // (+CHA is added to your spells' damage of that type)
+
+  // Divine Soul affinity: the bonus spell (doesn't count against spells known). Label = feature name, so the pick reads "Divine Magic: Good".
+  DND.options.divineAffinity = { label: 'Divine Magic', list: [['Good', 'Cure Wounds'], ['Evil', 'Inflict Wounds'], ['Law', 'Bless'], ['Chaos', 'Bane'], ['Neutrality', 'Protection from Evil and Good']]
+    .map(([a, sp]) => [a, `Affinity spell: ${sp.toLowerCase()} (a sorcerer spell for you; doesn't count against spells known).`, 'Divine Soul',
+      { spellsAt: { 1: [sp] }, spellCls: 'sorcerer', spellNote: 'Divine Soul affinity spell' }]) };
+  const addCh = (cls, sub, chs) => { const x = DND.classes[cls] && DND.classes[cls].subclasses[sub]; if (x) x.choices = (x.choices || []).concat(chs); };
+  addCh('sorcerer', 'divinesoul', [{ level: 1, type: 'divineAffinity', n: 1, label: 'Divine Magic affinity' }]);
+  addCh('rogue', 'mastermind', [{ level: 3, type: 'tool', n: 1, from: 'gaming', label: 'Master of Intrigue gaming set' }]);
 })();

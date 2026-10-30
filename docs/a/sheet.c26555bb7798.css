@@ -4329,7 +4329,9 @@ html:not(.mobile) #tabs .tab > .tabcount { z-index: 3; }
 :root[data-theme="dark"] header.banner { border-bottom-color: color-mix(in srgb, var(--gold) 35%, transparent); box-shadow: 0 10px 30px rgba(0,0,0,.35); }
 /* the banner's toolbar buttons: the lobby's dark rounded buttons */
 :root[data-theme="dark"] .tbtn:not(.gold) { background: rgba(36,45,64,.85); border-color: transparent; border-radius: 11px; }
-@media (hover:hover){:root[data-theme="dark"]:not(.mobile) .tbtn:not(.gold):not([disabled]):hover{ background: var(--site-btn-h); filter: none; }}
+@media (hover:hover){:root[data-theme="dark"]:not(.mobile) .tbtn:not(.gold):not(.on):not([disabled]):hover{ background: var(--site-btn-h); filter: none; }}
+/* (a pressed-in toolbar button — Done editing — stays gold under the pointer, just a touch brighter) */
+@media (hover:hover){:where(html:not(.mobile)) .tbtn.on:not([disabled]):hover{ background: var(--gold); color: var(--on-gold, #1D2536); filter: brightness(1.1); }}
 :root[data-theme="dark"] .tbtn.gold { border-color: transparent; border-radius: 11px; color: var(--on-gold, #1b1406); }
 /* round toggles and boxes inside cards (ability scores, saves and the like): the lobby's soft tiles */
 :root[data-theme="dark"] .panel .tile { background-color: rgba(255,255,255,.035); outline-color: var(--site-edge2); box-shadow: none; }
@@ -4831,4 +4833,60 @@ html:not(.mobile) .toolbar [data-zi="history"].iconly .ti { display: block !impo
 .rc-math .rm-r.rm-long { flex-direction: column; gap: 2px; }
 .rc-math .rm-r.rm-long span { max-width: none; }
 .rc-math .rm-r.rm-long b { text-align: left; font-weight: 600; font-variant-numeric: normal; }
+/* Conditions / effects: the words in the chips and the + Add / Advantage / Disadvantage buttons are centred on their
+   capital letters (the font's own spacing above and below otherwise sits them a little low, most of all on iPhones).
+   Same sizes as before; only the text moves. */
+@supports (text-box: trim-both cap alphabetic) {
+  .cchip .ccn, .addc > .tt, .advb .al { display: block; text-box: trim-both cap alphabetic; }
+  .addc, .advb { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; }
+  .addc { min-height: 22px; }
+  .advb { min-height: 21px; }
+  html.mobile .advb { min-height: 29px; }
+}
+/* Phones: every close ✕ on a window or card looks like the tooltip's — a round button with a soft edge, which shrinks a
+   little and turns gold as it's pressed. */
+html.mobile :is(.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx) { width: 32px !important; height: 32px !important; min-width: 0; padding: 0 !important; border-radius: 50% !important; border: 1px solid var(--line, #3a4560) !important; background: var(--panel2, #232c3d) !important; color: var(--ink, #f4eedf) !important; opacity: 1 !important; font-size: .9rem !important; line-height: 1; display: inline-grid; place-items: center; flex: none; box-shadow: 0 2px 8px rgba(0,0,0,.25); transition: transform .12s ease, background-color .12s ease; -webkit-tap-highlight-color: transparent; }
+html.mobile :is(.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx):active { transform: scale(.86); background: var(--gold-soft, rgba(201,150,43,.18)) !important; }
+html.mobile :is(.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx) svg { width: 14px; height: 14px; }
+.xclosing { transform: rotate(90deg) scale(.86) !important; transition: transform .18s ease !important; }
+.xwin-closing { opacity: 0 !important; translate: 0 14px; scale: .98; transition: opacity .18s ease, translate .18s ease, scale .18s ease !important; pointer-events: none !important; }
+/* (all the round close buttons draw their ✕ in the same font, so it's the same size and weight everywhere) */
+html.mobile #tipbox .tipx, html.mobile :is(.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx) { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif !important; font-weight: 400 !important; }
+html.mobile .rc-x svg { display: none; } html.mobile .rc-x::before { content: '✕'; }
+/* Pop-up lists on phones: no stretch past their ends (Safari honours this on its own scrolling lists). */
+html.mobile :is(.modal-bg, #modal, .modal, .setx, #modal-body, #tipbox, .wz-body) { overscroll-behavior: none; }
+/* …except Settings' own list: it's the window's main scroll, so it stops dead at its ends (no stretch and spring) */
+html.mobile #modal-body :is(.setx, .rl-list) { overscroll-behavior: none !important; }
+/* Phones: a window sliding down as it closes stays solid all the way down (only the dimming behind it fades). Fading the
+   whole thing made it vanish before it had moved, so the slide was never seen. */
+@keyframes wDimOut { to { background-color: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; } }
+html.mobile .modal-bg.closing { animation: wDimOut .22s ease forwards; }
+/* Settings: a dashed line only between two rows of settings, not above a block of something else (Theme's colours) */
+.setrow:has(+ :not(.setrow)) { border-bottom: 0; margin-bottom: 8px; }
+/* Phones: Settings goes all the way up, just under the phone's status bar (over the Adventurer's Tome button) */
+html.mobile .modal:has(.setx) { height: calc(100dvh - var(--tablift, 0px) - env(safe-area-inset-top, 0px) - 8px) !important; max-height: none !important; }
+/* Phones: Settings' tabs are pages side by side; swipe between them (each page scrolls up and down on its own) */
+html.mobile .modal:has(.setx) .setx { display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; padding-right: 0; overscroll-behavior: none !important; }
+html.mobile .setx::-webkit-scrollbar { display: none; }
+html.mobile .setx > .stpane { display: block !important; flex: 0 0 100%; width: 100%; min-width: 0; box-sizing: border-box; overflow-y: auto; overflow-x: hidden; scroll-snap-align: start; scroll-snap-stop: always; overscroll-behavior: none !important; animation: none !important; }
+/* the pages run edge to edge across the window (each keeps the window's side padding inside it), so a page sliding in or
+   out is cut off at the window's edge, not partway in from it */
+html.mobile .modal:has(.setx) .setx { margin-left: -14px; margin-right: -14px; }
+html.mobile .setx > .stpane { padding-left: 14px; padding-right: 14px; }
+html.mobile .setx > .stpane.nopage { display: none !important; }
+
+/* Add-on buttons on an attack's card (Divine Smite, Sneak Attack…): gold, with a plus, and the damage pulses as it grows */
+.toast.rollcard .t-acts button.t-add { border-color: var(--gold); color: var(--gold-ink); background: color-mix(in srgb, var(--gold) 14%, transparent); font-weight: 600; }
+.toast.rollcard .t-acts button.t-add::before { content: '+'; margin-right: 4px; font-weight: 700; }
+@media (hover:hover){:where(html:not(.mobile)) .toast.rollcard .t-acts button.t-add:hover{ background: color-mix(in srgb, var(--gold) 26%, transparent); }}
+.toast.rollcard .rc-added { animation: rcAddIn .35s ease-out; }
+.toast.rollcard .rc-dmg.rc-bump > b { animation: rcBump .45s cubic-bezier(.2,1.6,.4,1); }
+@keyframes rcAddIn { from { opacity: 0; transform: translateY(-4px); } }
+@keyframes rcBump { 40% { transform: scale(1.18); } }
+@media (prefers-reduced-motion: reduce) { .toast.rollcard .rc-added, .toast.rollcard .rc-dmg.rc-bump > b { animation: none; } }
+
+/* Choosing an option from its feature card: the current choice is marked */
+.pendopt.on { border-color: var(--gold); background: var(--gold-soft); box-shadow: inset 3px 0 0 var(--gold); }
+.pendopt:disabled { opacity: .5; cursor: not-allowed; }
+#optm .pendopts { display: grid; gap: 8px; }
 

@@ -1,6 +1,7 @@
 // Feature automation: Paladin, Ranger (PHB) and Ranger (Tasha's) with all their non-UA subclasses.
 // Ranger subclass features use '<subKey>:<Name>' so they apply to both 'ranger' and 'rangertce'.
 // Formula word 'ranger' already counts Tasha's ranger levels (keyIs alias), so never add rangertce to it.
+// col 'move' = the Combat tab's "Movement & Free" column: used for on-hit riders and other no-action uses so they get a button in combat.
 (function () {
   const R = (n, rounds, buff, more) => ({ effect: Object.assign({ name: n, rounds, buff }, more || {}) });
   const CD = { from: 'Channel Divinity', n: 1 };
@@ -49,29 +50,28 @@
   P('ancients', 'Elder Champion', {
     col: 'action',
     use: R('Elder Champion', 10, { note: 'Regain 10 HP at the start of each turn; paladin spells with a 1-action casting time can be cast as a bonus action; enemies within 10 ft have disadvantage on saves vs your paladin spells and Channel Divinity' }),
-    acts: [{ name: 'Regain 10 HP (start of turn)', onlyWhen: { effect: 'Elder Champion' }, use: { heal: '10' } }]
+    onTurn: { onlyWhen: { effect: 'Elder Champion' }, notZero: true, use: { heal: '10' } }  // (heals on its own as each of your turns starts)
   });
 
   // ---- Oath of Vengeance ----
   P('vengeance', 'Channel Divinity: Abjure Enemy', { col: 'action', cost: CD, dc: 'spell', save: 'WIS', text: 'One creature within 60 ft: on a failure frightened for 1 minute (speed 0) or until it takes damage; on a success its speed is halved for 1 minute. Fiends and undead save with disadvantage.' });
   P('vengeance', 'Channel Divinity: Vow of Enmity', { col: 'bonus', cost: CD, use: R('Vow of Enmity', 10, { atkAdv: 'Vow of Enmity (that creature only)', note: 'Advantage on attacks against one creature within 10 ft for 1 minute' }) });
-  P('vengeance', 'Relentless Avenger', { text: 'When you hit with an opportunity attack, move up to {floor(walkspeed/2)} ft (half your speed) right away as part of that reaction; it doesn\'t provoke opportunity attacks' });
-  T['paladin:vengeance:Relentless Avenger'].text = 'When you hit with an opportunity attack, move up to half your speed right away as part of that reaction; this movement doesn\'t provoke opportunity attacks';
+  P('vengeance', 'Relentless Avenger', { text: 'When you hit with an opportunity attack, move up to half your speed right away as part of that reaction; this movement doesn\'t provoke opportunity attacks' });
   P('vengeance', 'Soul of Vengeance', { col: 'reaction', onlyWhen: { effect: 'Vow of Enmity' }, text: 'When the creature under your Vow of Enmity makes an attack, make one melee weapon attack against it if it is within range' });
   P('vengeance', 'Avenging Angel', { col: 'action', dc: 'spell', save: 'WIS', use: R('Avenging Angel', 600, { fly: 60, note: 'Wings (fly 60 ft). Aura of menace 30 ft: an enemy entering or starting its turn there saves or is frightened for 1 minute or until it takes damage; attacks against those frightened creatures have advantage' }) });
 
   // ---- Oath of Conquest ----
   P('conquest', 'Channel Divinity: Conquering Presence', { col: 'action', cost: CD, dc: 'spell', save: 'WIS', text: 'Each creature of your choice within 30 ft is frightened for 1 minute (it repeats the save at the end of each of its turns)' });
-  P('conquest', 'Channel Divinity: Guided Strike', { cost: CD, text: '+10 to one attack roll you make (decide after seeing the d20, before knowing if it hits)' });
-  P('conquest', 'Aura of Conquest', { roll: '{floor(paladin/2)}', rollNote: 'psychic', text: 'A creature frightened of you has speed 0 within 10 ft of you (30 ft at 18th) and takes {floor(paladin/2)} psychic damage when it starts its turn there' });
-  P('conquest', 'Scornful Rebuke', { roll: '{max(1,cha)}', rollNote: 'psychic to a creature that hits you with an attack', text: 'A creature that hits you with an attack takes {max(1,cha)} psychic damage (unless you are incapacitated)' });
-  P('conquest', 'Invincible Conqueror', { col: 'action', use: R('Invincible Conqueror', 10, { note: 'Resistance to all damage; one extra attack when you take the Attack action; melee weapon attacks score a critical hit on 19–20' }), passive: { effect: 'Invincible Conqueror', resist: ['all damage'] } });
+  P('conquest', 'Channel Divinity: Guided Strike', { col: 'move', cost: CD, text: '+10 to one attack roll you make (decide after seeing the d20, before knowing if it hits)' });
+  P('conquest', 'Aura of Conquest', { col: 'move', roll: '{floor(paladin/2)}', rollNote: 'psychic', text: 'A creature frightened of you has speed 0 within 10 ft of you (30 ft at 18th) and takes {floor(paladin/2)} psychic damage when it starts its turn there' });
+  P('conquest', 'Scornful Rebuke', { col: 'move', roll: '{max(1,cha)}', rollNote: 'psychic to a creature that hits you with an attack', text: 'A creature that hits you with an attack takes {max(1,cha)} psychic damage (unless you are incapacitated)' });
+  P('conquest', 'Invincible Conqueror', { col: 'action', use: R('Invincible Conqueror', 10, { extraAtk: 1, critRange: 19, note: 'Resistance to all damage; one extra attack when you take the Attack action (counted); melee weapon attacks score a critical hit on 19–20' }), passive: { effect: 'Invincible Conqueror', resist: ['all damage'] } });
 
   // ---- Oath of Redemption ----
-  P('redemption', 'Channel Divinity: Emissary of Peace', { col: 'bonus', cost: CD, use: R('Emissary of Peace', 100, { note: '+5 to Charisma (Persuasion) checks' }) });
+  P('redemption', 'Channel Divinity: Emissary of Peace', { col: 'bonus', cost: CD, use: R('Emissary of Peace', 100, { note: '+5 to Charisma (Persuasion) checks' }), passive: { effect: 'Emissary of Peace', skillBonus: { Persuasion: 5 } } });
   P('redemption', 'Channel Divinity: Rebuke the Violent', { col: 'reaction', cost: CD, dc: 'spell', save: 'WIS', text: 'Right after an attacker within 30 ft damages a creature other than you: it takes radiant damage equal to the damage it dealt (half on a success)' });
   P('redemption', 'Aura of the Guardian', { col: 'reaction', text: 'When a creature within 10 ft of you (30 ft at 18th) takes damage, you take that damage instead; it can\'t be reduced or transferred' });
-  P('redemption', 'Protective Spirit', { roll: '1d6+{floor(paladin/2)}', rollNote: 'healing (end of your turn)', healRoll: true, onlyWhen: { hpBelowHalf: true }, text: 'At the end of each of your turns while below half HP and not incapacitated' });
+  P('redemption', 'Protective Spirit', { onTurn: { onlyWhen: { hpBelowHalf: true }, notZero: true, notIncap: true, use: { heal: '1d6+{floor(paladin/2)}' } }, text: 'At the end of each of your turns while below half HP and not incapacitated: regain 1d6 + {floor(paladin/2)} HP (the sheet does it when you move to your next turn)' });
   P('redemption', 'Emissary of Redemption', { passive: { resist: ['all damage dealt by other creatures (Emissary of Redemption; lost against a creature you attack or harm until your next long rest)'] }, text: 'A creature that hits you with an attack takes radiant damage equal to half the damage you take from it' });
 
   // ---- Oath of Glory ----
@@ -114,7 +114,7 @@
 
   // ---- Tasha's ranger ----
   Object.assign(T, {
-    'rangertce:Favored Foe': { roll: '1d{tier(ranger,1,4,6,6,14,8)}', rollNote: 'extra damage (first hit each turn on the marked foe)', use: R('Favored Foe', 10, { note: 'Concentration: the marked creature takes +1d{tier(ranger,1,4,6,6,14,8)} the first time you hit it each turn' }), text: 'Use when you hit a creature; requires concentration (up to 1 minute)' },
+    'rangertce:Favored Foe': { col: 'move', roll: '1d{tier(ranger,1,4,6,6,14,8)}', rollNote: 'extra damage (first hit each turn on the marked foe)', use: R('Favored Foe', 10, { note: 'Concentration: the marked creature takes +1d{tier(ranger,1,4,6,6,14,8)} the first time you hit it each turn' }), text: 'Use when you hit a creature; requires concentration (up to 1 minute)' },
     'rangertce:Deft Explorer: Canny': NONE, // expertise and languages are class choices
     'rangertce:Spellcasting Focus': NONE,
     'rangertce:Primal Awareness': { spellsAt: { 3: ['Speak with Animals'], 5: ['Beast Sense'], 9: ['Speak with Plants'], 13: ['Locate Creature'], 17: ['Commune with Nature'] }, once: true, spellNote: 'Always prepared; once per long rest without a slot' },
@@ -146,8 +146,13 @@
   RS('beastmaster', 'Share Spells', { text: 'A spell you cast targeting yourself also affects your beast if it is within 30 ft' });
 
   // ---- Gloom Stalker ----
-  RS('gloomstalker', 'Dread Ambusher', { trigger: 'initiative', triggerLabel: 'First turn boost', triggerText: 'Dread Ambusher: on your first turn, +10 ft speed, and one extra weapon attack with the Attack action that deals +1d8 on a hit.', roll: '1d8', use: R('Dread Ambusher', 1, { speed: 10, note: 'First turn: one extra weapon attack with the Attack action; it deals +1d8 of the weapon\'s type on a hit' }), text: 'Roll is the +1d8 for the extra attack' });
-  RS('gloomstalker', 'Umbral Sight', { passive: { sense: 'Darkvision 60 ft (+30 ft if you already have it); invisible to darkvision while in darkness' } });
+  RS('gloomstalker', 'Dread Ambusher', {
+    trigger: 'initiative', triggerLabel: 'First turn boost', triggerText: 'Dread Ambusher: on your first turn, +10 ft speed, and one extra weapon attack with the Attack action that deals +1d8 on a hit.',
+    use: R('Dread Ambusher', 1, { speed: 10, extraAtk: 1, note: 'First turn: one extra weapon attack with the Attack action; it deals +1d8 of the weapon\'s type on a hit' }),
+    acts: [{ name: 'Ambush hit +1d8', col: 'move', onlyWhen: { effect: 'Dread Ambusher' }, roll: '1d8', rollNote: 'extra damage of the weapon\'s type (the extra attack only)' }],
+    text: 'WIS is already added to your initiative. Make the extra attack after your normal attacks; on a hit use "Ambush hit +1d8"'
+  });
+  RS('gloomstalker', 'Umbral Sight', { passive: { darkvisionPlus: 30, advNote: 'Invisible to creatures relying on darkvision while you are in darkness' }, text: 'Darkvision 60 ft, or +30 ft if you already have it (built in)' });
   RS('gloomstalker', 'Iron Mind', { passive: { saveProf: ['wis'] }, text: 'If you were already proficient in WIS saves, choose INT or CHA saves instead' });
   RS('gloomstalker', "Stalker's Flurry", { text: 'Once on each of your turns when you miss with a weapon attack, make another weapon attack as part of the same action' });
   RS('gloomstalker', 'Shadowy Dodge', { col: 'reaction', text: 'When a creature makes an attack roll against you without advantage: impose disadvantage on it' });
@@ -156,19 +161,24 @@
   RS('horizonwalker', 'Detect Portal', { col: 'action', text: 'Sense the distance and direction to the closest planar portal within 1 mile' });
   RS('horizonwalker', 'Planar Warrior', { col: 'bonus', roll: '{tier(ranger,3,1,11,2)}d8', rollNote: 'force (next hit on the chosen creature this turn; all its damage becomes force)', text: 'Choose a creature within 30 ft: the next time you hit it this turn, all the damage is force and it takes +{tier(ranger,3,1,11,2)}d8 force' });
   RS('horizonwalker', 'Ethereal Step', { col: 'bonus', use: R('Ethereal Step', 1, { note: 'On the Ethereal Plane (etherealness) until the end of this turn' }) });
-  RS('horizonwalker', 'Distant Strike', { text: 'With the Attack action, teleport up to 10 ft before each attack; if you attack two different creatures, make one extra attack against a third' });
-  RS('horizonwalker', 'Spectral Defense', { col: 'reaction', text: 'When you take damage from an attack: gain resistance to all of that attack\'s damage this turn' });
+  RS('horizonwalker', 'Distant Strike', { text: 'With the Attack action, teleport up to 10 ft before each attack; if you attack two different creatures, make one extra attack against a third',
+    acts: [{ name: 'Third attack (two creatures hit)', col: 'move', use: R('Distant Strike', 1, { extraAtk: 1, note: 'One extra attack this turn, against a third creature' }) }] });
+  RS('horizonwalker', 'Spectral Defense', { col: 'reaction', use: { halveDamage: true }, text: 'When you take damage from an attack: gain resistance to all of that attack\'s damage this turn' });
 
   // ---- Monster Slayer ----
   RS('monsterslayer', "Hunter's Sense", { col: 'action', text: 'Choose a creature within 60 ft: learn its damage immunities, resistances and vulnerabilities (or that it has none); fails against creatures shielded from divination' });
-  RS('monsterslayer', "Slayer's Prey", { col: 'bonus', roll: '1d6', rollNote: 'extra damage (first weapon hit each turn on your prey)', use: R("Slayer's Prey", null, { note: 'Marked prey (60 ft): first weapon hit on it each turn deals +1d6; lasts until you rest or mark another' }) });
-  RS('monsterslayer', 'Supernatural Defense', { roll: '1d6', rollNote: 'added to a save forced by your prey or a check to escape its grapple' });
+  RS('monsterslayer', "Slayer's Prey", {
+    col: 'bonus', use: R("Slayer's Prey", null, { note: 'Marked prey (60 ft): first weapon hit on it each turn deals +1d6; lasts until you rest or mark another' }),
+    acts: [{ name: 'Prey hit +1d6', col: 'move', onlyWhen: { effect: "Slayer's Prey" }, roll: '1d6', rollNote: 'extra damage (first weapon hit each turn on your prey)' }],
+    text: 'Use "Prey hit +1d6" the first time you hit the marked creature with a weapon attack each turn'
+  });
+  RS('monsterslayer', 'Supernatural Defense', { col: 'move', roll: '1d6', rollNote: 'added to a save forced by your prey or a check to escape its grapple' });
   RS('monsterslayer', "Magic-User's Nemesis", { col: 'reaction', dc: 'spell', save: 'WIS', text: 'When you see a creature within 60 ft cast a spell or teleport: on a failed save the spell or teleport fails and is wasted' });
   RS('monsterslayer', "Slayer's Counter", { col: 'reaction', text: 'When your prey forces you to save: make one weapon attack against it first; on a hit you also succeed on the save' });
 
   // ---- Fey Wanderer ----
-  RS('feywanderer', 'Dreadful Strikes', { roll: '1d{tier(ranger,3,4,11,6)}', rollNote: 'psychic (once per turn per creature)' });
-  RS('feywanderer', 'Otherworldly Glamour', { text: 'Add +{max(1,wis)} to your Charisma checks' });
+  RS('feywanderer', 'Dreadful Strikes', { col: 'move', roll: '1d{tier(ranger,3,4,11,6)}', rollNote: 'psychic (once per turn per creature)' });
+  RS('feywanderer', 'Otherworldly Glamour', { passive: { skillBonus: { 'ab:cha': 'max(1,wis)' } }, text: 'Add +{max(1,wis)} to your Charisma checks (added to CHA skills automatically)' });
   RS('feywanderer', 'Beguiling Twist', { col: 'reaction', dc: 'spell', save: 'WIS', passive: { advNote: 'Saves against being charmed or frightened' }, text: 'When you or a creature within 120 ft succeeds on a save against being charmed or frightened: another creature within 120 ft is charmed or frightened by you for 1 minute (repeats the save each turn)' });
   RS('feywanderer', 'Fey Reinforcements', { spells: ['Summon Fey'], once: true, spellNote: 'No material component; once per long rest without a slot; can drop concentration (duration 1 minute)' });
   RS('feywanderer', 'Misty Wanderer', { col: 'bonus', spells: ['Misty Step'], spellNote: 'Without a slot (WIS mod times per long rest)', text: 'Cast misty step without a slot; you can bring one willing creature within 5 ft of you to a space within 5 ft of your destination' });
@@ -177,15 +187,15 @@
   RS('swarmkeeper', 'Gathered Swarm', {
     text: 'Once on each of your turns after you hit a creature with an attack',
     acts: [
-      { name: 'Swarm: damage', roll: '1d{tier(ranger,3,6,11,8)}', rollNote: 'piercing' },
-      { name: 'Swarm: push', dc: 'spell', save: 'STR', text: 'On a failure the target is moved up to 15 ft horizontally (and knocked prone from 11th level)' },
-      { name: 'Swarm: move me', text: 'You are moved 5 ft horizontally to an unoccupied space' },
-      { name: 'Swarm: move me + cover', min: 11, use: R('Mighty Swarm cover', 2, { ac: 2, note: 'Half cover until the start of your next turn' }), text: 'Moved 5 ft; half cover until the start of your next turn' }
+      { name: 'Swarm: damage', col: 'move', roll: '1d{tier(ranger,3,6,11,8)}', rollNote: 'piercing' },
+      { name: 'Swarm: push', col: 'move', dc: 'spell', save: 'STR', text: 'On a failure the target is moved up to 15 ft horizontally (and knocked prone from 11th level)' },
+      { name: 'Swarm: move me', col: 'move', text: 'You are moved 5 ft horizontally to an unoccupied space' },
+      { name: 'Swarm: move me + cover', col: 'move', min: 11, use: R('Mighty Swarm cover', 2, { ac: 2, note: 'Half cover until the start of your next turn' }), text: 'Moved 5 ft; half cover until the start of your next turn' }
     ]
   });
   RS('swarmkeeper', 'Writhing Tide', { col: 'bonus', use: R('Writhing Tide', 10, { fly: 10, note: 'Fly 10 ft and hover' }) });
   RS('swarmkeeper', 'Mighty Swarm', { text: 'Gathered Swarm: damage becomes 1d8; a failed push also knocks the target prone; moving yourself gives half cover until your next turn' });
-  RS('swarmkeeper', 'Swarming Dispersal', { col: 'reaction', text: 'When you take damage: resistance to that damage, then teleport to an unoccupied space you can see within 30 ft' });
+  RS('swarmkeeper', 'Swarming Dispersal', { col: 'reaction', use: { halveDamage: true }, text: 'When you take damage: resistance to that damage, then teleport to an unoccupied space you can see within 30 ft' });
 
   // ---- Drakewarden ----
   RS('drakewarden', 'Draconic Gift', { spells: ['Thaumaturgy'], text: 'You also learn Draconic (or another language)' });
@@ -199,13 +209,16 @@
   });
   RS('drakewarden', 'Bond of Fang and Scale', { passive: { resist: ["your drake's Draconic Essence damage type"] }, text: 'Drake is Medium, can be ridden, gains a flying speed equal to its walking speed and its bite deals +1d6 of its essence type' });
   RS('drakewarden', "Drake's Breath", { col: 'action', dc: 'spell', save: 'DEX', roll: '{tier(ranger,11,8,15,10)}d6', rollNote: 'acid, cold, fire, lightning or poison in a 30-ft cone (half on a save)', text: 'You or your drake exhales; regain it by expending a 3rd-level or higher spell slot' });
-  RS('drakewarden', 'Perfected Bond', { col: 'reaction', text: 'When you or your drake (within 30 ft of each other) takes damage: give that one resistance to that instance. Drake is Large and its bite deals +2d6 of its essence type' });
+  RS('drakewarden', 'Perfected Bond', {
+    col: 'reaction', text: 'When your drake (within 30 ft of you) takes damage: it has resistance to that instance. Drake is Large and its bite deals +2d6 of its essence type',
+    acts: [{ name: 'Resist: me', col: 'reaction', cost: true, use: { halveDamage: true }, text: 'You take damage while within 30 ft of your drake: resistance to that instance' }]
+  });
 
   Object.assign(DND.featFx, T);
 
   // ---- Hunter option fixes (on-hit riders aren't actions) ----
   const setOpt = (type, name, fx) => { const e = (DND.options[type] || { list: [] }).list.find(x => x[0] === name); if (e) e[3] = Object.assign({}, e[3] || {}, fx); };
-  setOpt('hunterPrey', 'Colossus Slayer', { col: null, roll: '1d8', rollNote: 'extra damage (once per turn, target below its HP maximum)' });
+  setOpt('hunterPrey', 'Colossus Slayer', { col: 'move', roll: '1d8', rollNote: 'extra damage (once per turn, target below its HP maximum)' });
   setOpt('hunterPrey', 'Giant Killer', { col: 'reaction', text: 'When a Large or larger creature within 5 ft hits or misses you with an attack: attack it right after its attack' });
   setOpt('hunterPrey', 'Horde Breaker', { col: null, text: 'Once on each of your turns when you make a weapon attack: make another attack with the same weapon against a different creature within 5 ft of the original target and in range' });
   setOpt('hunterDefense', 'Escape the Horde', { passive: { advNote: 'Opportunity attacks against you are made with disadvantage' } });

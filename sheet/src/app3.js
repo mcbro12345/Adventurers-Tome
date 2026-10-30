@@ -51,6 +51,10 @@ function spellMath(sp, L) {
   if (hasFeature('Arcane Firearm') && o.dice && !a.beams && !a.rays && !a.darts) { o.dice = addDice(o.dice, '1d8'); o.note = (o.note ? o.note + ' · ' : '') + 'Arcane Firearm +1d8'; }
   // Potent Spellcasting: cleric cantrips add WIS to damage.
   if (base === 0 && o.dice && sp.cls === 'cleric' && hasFeature('Potent Spellcasting')) { const w = mod('wis'); if (w) o.dice += sgn(w); }
+  // Features that add to spell damage of some types (Elemental Affinity: +CHA to your ancestry's type; Radiant Soul: +CHA to radiant and fire)
+  if (o.dice && typeof fxPassives === 'function') fxPassives().forEach(p => { const sd = p.spellDmg; if (!sd) return; const ty = String(o.type || '').toLowerCase();
+    if (sd.types && !sd.types.some(t => ty.includes(t))) return; if (sd.cls && sd.cls !== sp.cls) return; const v = /d/.test(String(sd.bonus)) ? String(sd.bonus) : N(evalMax(String(sd.bonus)));
+    if (!v) return; o.dice = /d/.test(String(v)) ? addDice(o.dice, v) : o.dice + sgn(v); o.note = (o.note ? o.note + ' · ' : '') + `${p.src} ${/d/.test(String(v)) ? '+' + v : sgn(v)}`; });
   // Damage type of each dice term, in order (Flame Strike: fire + radiant) — Elemental Adept only touches its own type.
   o.termTypes = termTypesFor(o);
   if (a.temp) o.temp = a.tempUp && L > base ? String(a.temp).replace(/^(\d+)$/, (x) => String(N(x) + N(a.tempUp) * (L - base))).replace(/\+(\d+)$/, (x, n) => '+' + (N(n) + N(a.tempUp) * (L - base))) : a.temp;
@@ -206,6 +210,12 @@ function featSpellsHTML(f, i, ed) {
   }
   if (f.key === 'feat:Magic Initiate') { const have = (S.grantSpells || {})['Magic Initiate'] || [], c = MI_CLS.find(x => x[0] === (S.featCls || {})['Magic Initiate']);
     h += `<div class="fc-spells"><span class="lbl">${c ? esc(c[3]) + ' spells' : 'Spells'}</span>${have.map(n => `<span class="pbadge">${esc(n)}</span>`).join('')}<button class="btn sm${have.length < 3 ? ' gold' : ''}" data-act="mipick">${have.length < 3 ? `Choose spells (${have.length}/3)` : 'Change'}</button></div>`; }
+  // a feature that asks you to choose one (Totem Spirit…): the choice, with a button to make or change it
+  featOptDefs(f).forEach(({ type, n }) => { const have = (S.picks || {})[type] || [];
+    h += `<div class="fc-spells"><span class="lbl">Your choice</span>${have.map(x => `<span class="pbadge">${esc(x)}</span>`).join('') || '<span class="hint">Not chosen yet</span>'}${n === 1 || have.length < n ? `<button class="btn sm${have.length < n ? ' gold' : ''}" data-act="${have.length < n && n > 1 ? 'pending' : 'optpick'}" data-t="${esc(type)}" data-c="${esc(f.cls || '')}">${have.length < n ? 'Choose' : 'Change'}</button>` : ''}</div>`; });
+  { const fm = /^feat:(.+)$/.exec(String(f.key || '')), ft = fm && DND.feats.find(x => x[0] === fm[1]), pk = ft && ft[4] && ft[4].pick;
+    if (pk) { const ch = (S.featChoices || {})[fm[1]] || {}, got = pk.picks.flatMap(p => [].concat(ch[p.key] || [])), need = pk.picks.reduce((t, p) => t + (p.n || 1), 0);
+      h += `<div class="fc-spells"><span class="lbl">Spells</span>${(pk.fixed || []).concat(got).map(n => `<span class="pbadge">${esc(n)}</span>`).join('')}<button class="btn sm${got.length < need ? ' gold' : ''}" data-act="featspell" data-f="${esc(fm[1])}">${got.length < need ? `Choose (${got.length}/${need})` : 'Change'}</button></div>`; } }
   if (fx.spells) h += `<div class="fc-spells"><span class="lbl">Spells</span>${fx.spells.map(n => `<span class="pbadge">${esc(n)}</span>`).join('')}${fx.spellNote ? `<span class="hint">${esc(fx.spellNote)}</span>` : ''}</div>`;
   const own = f.spells || [];
   if (own.length || ed) {
@@ -228,7 +238,7 @@ function hbSummary(hb, it) {
   const fx = hbFx(hb) || {}, p = fx.passive || {}, u = fx.use || {}, b = [];
   if (p.resist) b.push('Resist ' + p.resist.join(', ')); if (p.immune) b.push('Immune ' + p.immune.join(', ')); if (p.vuln) b.push('Vulnerable ' + p.vuln.join(', ')); if (p.condImmune) b.push("Can't be " + p.condImmune.join(', ').toLowerCase());
   if (p.advNote) b.push('Advantage notes'); if (p.sense) b.push(p.sense); ['fly', 'swim', 'climb'].forEach(k => { if (p[k]) b.push(k + ' ' + (p[k] === 'walk' ? '= walk' : p[k] + ' ft')); });
-  if (p.ac) b.push('AC ' + sgn(N(p.ac))); if (p.skillBonus) Object.entries(p.skillBonus).forEach(([k, v]) => b.push(k + ' ' + sgn(v))); if (p.saveAll) b.push('Saves +' + p.saveAll); if (p.init) b.push('Init +' + p.init); if (p.speed) b.push('Speed +' + p.speed);
+  if (p.ac) b.push('AC ' + sgn(N(p.ac))); if (p.skillBonus) Object.entries(p.skillBonus).forEach(([k, v]) => b.push(k.replace(/^ab:(\w+)$/, (m, a) => a.toUpperCase() + ' checks') + ' ' + sgn(typeof v === 'string' ? N(evalMax(v)) : v))); if (p.saveAll) b.push('Saves +' + p.saveAll); if (p.init) b.push('Init +' + p.init); if (p.speed) b.push('Speed +' + p.speed);
   if (fx.roll) b.push('Rolls ' + fx.roll); if (fx.save) b.push(fx.save + ' save'); if (fx.cost) b.push('Costs ' + fxCostText(fx.cost)); if (u.effect) b.push('Starts ' + u.effect.name + (u.effect.buff && (u.effect.buff.skillAdv || []).length ? ' (advantage on ' + u.effect.buff.skillAdv.join(', ') + ')' : '')); if (u.temp) b.push('Temp HP'); if (u.heal) b.push('Heals'); if (fx.dash) b.push('Dash'); if (u.companion) b.push('Summons ' + u.companion);
   if (fx.attacks) b.push('Attack: ' + fx.attacks[0][0]);
   if (fx.refuel) b.push('Recovers a slot (≤ ' + ORD[fx.refuel - 1] + ')');
@@ -284,7 +294,7 @@ function renderFeatures() {
     const max = featMax(f), ed = UI.open['fedit:' + i], left = max != null ? Math.max(0, max - N(f.used)) : null;
     const sc = f.cls ? classScaling(f.cls).filter(([n]) => scalingMatches(f.name, n)) : [];
     const fx = fxOf(f), dcl = fxDCLine(fx, f);
-    const tags = [f.source, f.hb && f.hb.on ? riderTrigText(f.hb) : '', f.col ? (f.col === 'bonus' ? 'Bonus action' : f.col[0].toUpperCase() + f.col.slice(1)) : '', max != null ? `${max}× per ${resetOf(f) === 'short' ? 'short rest' : resetOf(f) === 'long' ? 'long rest' : 'never'}` : '', dcl, fx.cost ? 'Costs ' + fxCostText(fx.cost) : '', fx.onlyRaging ? 'While raging' : ''].filter(Boolean);
+    const tags = [f.source, f.hb && f.hb.on ? riderTrigText(f.hb) : '', f.col ? (f.col === 'bonus' ? 'Bonus action' : f.col === 'move' ? 'Free' : f.col[0].toUpperCase() + f.col.slice(1)) : '', max != null ? `${max}× per ${resetOf(f) === 'short' ? 'short rest' : resetOf(f) === 'long' ? 'long rest' : 'never'}` : '', dcl, fx.cost ? 'Costs ' + fxCostText(fx.cost) : '', fx.onlyRaging ? 'While raging' : ''].filter(Boolean);
     const canUse = !fxIsResource(f) && (fx.cost || fx.use || fx.target || fx.roll);
     return `<div class="fcard${f.auto ? '' : ' custom'}${ed ? ' editing' : ''}">
       <div class="fc-head"><b class="fc-name">${esc(f.name)}</b>${sc.map(([n, v]) => `<span class="fscale" title="${esc(n)}">${esc(v)}</span>`).join('')}<span class="grow"></span>
@@ -726,7 +736,7 @@ function oocHTML(comps) {
       <div class="ooc-col">
         ${comps}
         <div class="panel"><h2>Attacks</h2>
-          <table class="mini ooc-atk">${S.attacks.map((at, i) => { if (!atkShown(at)) return ''; const wi = at.item && S.inventory.find(x => x.id === at.item), tip = String(at.notes || '').trim() || (wi && (String(wi.notes || '').trim() || wi.hb)); return `<tr><td>${esc(at.name)}${tip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(at.name)}">ⓘ</button>` : ''}</td><td>${rollBtn('atk:' + i, at.name + ' attack')}</td><td>${rollBtn('dmg:' + i, at.name + ' damage')}</td><td>${atkBtn(i, true)}</td></tr>`; }).join('') || '<tr><td class="hint">No attacks — add weapons in Inventory.</td></tr>'}</table>
+          <table class="mini ooc-atk">${S.attacks.map((at, i) => { if (!atkShown(at)) return ''; const wi = at.item && S.inventory.find(x => x.id === at.item), tip = String(at.notes || '').trim() || (wi && (String(wi.notes || '').trim() || wi.hb)) || !at.item; return `<tr><td>${esc(at.name)}${tip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(at.name)}">ⓘ</button>` : ''}</td><td>${rollBtn('atk:' + i, at.name + ' attack')}</td><td>${rollBtn('dmg:' + i, at.name + ' damage')}</td><td>${atkBtn(i, true)}</td></tr>`; }).join('') || '<tr><td class="hint">No attacks — add weapons in Inventory.</td></tr>'}</table>
           ${clsLv('rogue') ? `<div class="row sarow" style="margin-top:6px"><button class="btn sm gold" data-act="sneak">Sneak Attack ${sneakDice()}</button><span class="sadotw" data-calc-html="sneakdot"></span></div>` : ''}${stunRowHTML()}</div>
         ${spells.length ? `<div class="panel"><h2>Spells</h2>${combatSpellsHTML('ooc', spells)}</div>` : ''}
       </div>
@@ -761,7 +771,7 @@ function renderCombat() {
     if (key === 'action') {
       body += hasteBlockHTML();
       body += `<div class="block"><div class="sect">Attack action <span class="atkpips" data-calc-html="atkpips" title="Attacks left this turn"></span><span class="grow"></span></div>
-        <table class="mini">${S.attacks.map((at, i) => { if (!atkShown(at) || at.bonus) return ''; const wi = at.item && S.inventory.find(x => x.id === at.item), tip = String(at.notes || '').trim() || (wi && (String(wi.notes || '').trim() || wi.hb)); const nmw = String(at.name).trim().split(/\s+/), lastW = nmw.pop(); return `<tr><td>${nmw.length ? esc(nmw.join(' ')) + ' ' : ''}<span class="nowrap">${esc(lastW)}${tip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(at.name)}">ⓘ</button>` : ''}</span></td><td>${rollBtn('atk:' + i, at.name + ' attack')}</td><td>${rollBtn('dmg:' + i, at.name + ' damage')}</td><td>${atkBtn(i, true)}</td></tr>`; }).join('') || '<tr><td class="hint">No attacks — add weapons in Inventory.</td></tr>'}</table>
+        <table class="mini">${S.attacks.map((at, i) => { if (!atkShown(at) || at.bonus) return ''; const wi = at.item && S.inventory.find(x => x.id === at.item), tip = String(at.notes || '').trim() || (wi && (String(wi.notes || '').trim() || wi.hb)) || !at.item; const nmw = String(at.name).trim().split(/\s+/), lastW = nmw.pop(); return `<tr><td>${nmw.length ? esc(nmw.join(' ')) + ' ' : ''}<span class="nowrap">${esc(lastW)}${tip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(at.name)}">ⓘ</button>` : ''}</span></td><td>${rollBtn('atk:' + i, at.name + ' attack')}</td><td>${rollBtn('dmg:' + i, at.name + ' damage')}</td><td>${atkBtn(i, true)}</td></tr>`; }).join('') || '<tr><td class="hint">No attacks — add weapons in Inventory.</td></tr>'}</table>
         <div class="hint" data-calc="ridersnote"></div>
         ${clsLv('rogue') ? `<div class="row sarow" style="margin-top:6px"><button class="btn sm gold" data-act="sneak">Sneak Attack ${sneakDice()}</button><span class="sadotw" data-calc-html="sneakdot"></span></div>` : ''}
         ${stunRowHTML()}${harmRowHTML()}

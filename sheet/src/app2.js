@@ -767,7 +767,7 @@ function attacksHTML() {
   const stowed = S.attacks.filter(a => !atkShown(a)).length;
   return formAttacksHTML() + `<div class="atk-list">${S.attacks.map((a, i) => {
     if (!atkShown(a)) return '';
-    const open = UI.open['atk:' + i], am = ammoItem(a), wit = a.item && S.inventory.find(x => x.id === a.item), hasTip = String(a.notes || '').trim() || (wit && (String(wit.notes || '').trim() || wit.hb));
+    const open = UI.open['atk:' + i], am = ammoItem(a), wit = a.item && S.inventory.find(x => x.id === a.item), hasTip = String(a.notes || '').trim() || (wit && (String(wit.notes || '').trim() || wit.hb)) || !a.item; // (unarmed strikes and natural weapons get one too: to hit, damage and their animation)
     return `<div class="atk-row${open ? ' open' : ''}">
       <span class="atk-namewrap"><button class="atk-name" data-act="toggle" data-key="atk:${i}" aria-expanded="${!!open}" title="Edit">${esc(a.name)} <span class="caret">${open ? '▴' : '▾'}</span></button>${hasTip ? `<button class="notetip" data-tip="${i}" data-tipkind="atk" aria-label="Notes for ${esc(a.name)}">ⓘ</button>` : ''}${wit && wit.attune ? `<span class="tag${wit.attuned ? ' oath' : ''}" title="${wit.attuned ? 'Attuned' : 'Needs attunement'}">${wit.attuned ? '◆' : '◇'}</span>` : ''}</span>${String(a.notes || '').trim() && !open ? `<div class="atk-notes mnote">${esc(a.notes)}</div>` : ''}${wit && wit.hb && !open && hbSummary(wit.hb, wit).length ? `<div class="atk-notes mnote hbn">⚙ ${esc(hbSummary(wit.hb, wit).join(' · '))}</div>` : ''}
       <span class="atk-hit">${rollBtn('atk:' + i, a.name + ' attack')}</span>

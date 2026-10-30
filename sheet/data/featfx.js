@@ -363,7 +363,6 @@
     'feat:Charger': { col: 'bonus' },
     'feat:Dual Wielder': { passive: { advNote: '+1 AC while wielding a separate melee weapon in each hand' } },
     'feat:Mobile': {},
-    'feat:Fey Touched': {},
     'feat:Healer': { col: 'action', roll: '1d6+4+{level}', rollNote: 'healing (once per creature per rest)' },
     'feat:Tough': {},
     'feat:Savage Attacker': {},

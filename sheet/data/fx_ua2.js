@@ -5,57 +5,68 @@
   const PSI = n => ({ from: 'Psionics', n });
   const G = {
     // ---- Paladin: Oath of Treachery ----
-    'paladin:uatreachery:Channel Divinity: Conjure Duplicate': { col: 'action', cost: { from: 'Channel Divinity', n: 1 }, use: { effect: { name: 'Conjure Duplicate', rounds: 10, conc: true, buff: { note: 'Illusory double: cast from its space; advantage vs creatures next to both of you' } } } },
-    'paladin:uatreachery:Channel Divinity: Poison Strike': { col: 'bonus', cost: { from: 'Channel Divinity', n: 1 }, roll: '2d10+paladin', rollNote: 'poison on the next hit (20 + paladin level if you had advantage)' },
-    'paladin:uatreachery:Aura of Treachery': { passive: { advNote: 'Melee attacks against creatures that have an ally within 5 ft of them' }, text: 'Treacherous Strike: force a creature that missed you to reroll against another creature' },
-    "paladin:uatreachery:Blackguard's Escape": { use: { cond: 'Invisible', condRounds: 1 }, text: 'Teleport up to 60 ft' },
-    'paladin:uatreachery:Icon of Deceit': { use: Object.assign(R('Icon of Deceit', 10, { note: 'Invisible; creatures that damage you: WIS save or you control their next action; +paladin level damage when you attack with advantage' }), { cond: 'Invisible', condRounds: 10 }), dc: 'spell', save: 'WIS' },
-    // ---- Ranger: Primeval Guardian (both rangers) ----
-    'uaprimevalguardian:Guardian Magic': { spellsAt: { 3: ['Entangle'], 5: ['Enhance Ability'], 9: ['Conjure Animals'], 13: ['Giant Insect'], 17: ['Insect Plague'] } },
-    'uaprimevalguardian:Guardian Soul': { col: 'bonus', use: R('Guardian Soul', null, { note: 'Large, speed 5 ft or less, +5 ft reach; temp HP each turn equal to half your ranger level' }), text: 'Temp HP at the start of each turn: {floor(ranger/2)}' },
-    'uaprimevalguardian:Piercing Thorns': { col: 'action', roll: '1d6', rollNote: 'extra piercing (once per turn)' },
-    'uaprimevalguardian:Ancient Fortitude': { passive: { effect: 'Guardian Soul', maxHp: '2*ranger' } },
-    'uaprimevalguardian:Rooted Defense': { passive: { effect: 'Guardian Soul', advNote: 'Ground within 30 ft is difficult terrain for enemies' } },
-    'uaprimevalguardian:Guardian Aura': { passive: { effect: 'Guardian Soul', advNote: 'Allies below half HP starting within 30 ft regain half your ranger level' } },
+    'paladin:uatreachery:Channel Divinity: Conjure Duplicate': { col: 'action', cost: { from: 'Channel Divinity', n: 1 }, use: { effect: { name: 'Conjure Duplicate', rounds: 10, conc: true, buff: { note: 'Illusory double: cast spells from its space; advantage on attacks vs creatures within 5 ft of both of you that can see it' } } },
+      acts: [{ name: 'Move duplicate', col: 'bonus', onlyWhen: { effect: 'Conjure Duplicate' }, text: 'Move the duplicate up to 30 ft (it must stay within 120 ft of you)' }] },
+    'paladin:uatreachery:Channel Divinity: Poison Strike': { col: 'bonus', cost: { from: 'Channel Divinity', n: 1 }, use: R('Poison Strike', 10, { note: 'Next hit with the poisoned weapon/ammunition: +2d10 + paladin level poison (20 + paladin level if you had advantage)' }),
+      text: 'Weapon poisoned for 1 minute — use a hit button below on your next hit',
+      acts: [{ name: 'Poison hit', col: 'move', onlyWhen: { effect: 'Poison Strike' }, roll: '2d10+{paladin}', rollNote: 'poison damage (poison spent)', use: { endEffect: 'Poison Strike' } },
+        { name: 'Poison hit (had advantage)', col: 'move', onlyWhen: { effect: 'Poison Strike' }, roll: '{20+paladin}', rollNote: 'poison damage (poison spent)', use: { endEffect: 'Poison Strike' } }] },
+    'paladin:uatreachery:Aura of Treachery': { passive: { advNote: 'Melee attacks against creatures that have an ally within 5 ft of them' }, text: 'Treacherous Strike: a creature within 5 ft that missed you in melee rerolls the attack against another creature within 5 ft of it (no effect if immune to charm)' },
+    "paladin:uatreachery:Blackguard's Escape": { use: { cond: 'Invisible', condRounds: 2 }, text: 'Teleport up to 60 ft to a space you can see; invisible until the end of your next turn or until you attack, deal damage or force a save' },
+    'paladin:uatreachery:Icon of Deceit': { use: Object.assign(R('Icon of Deceit', 10, { note: 'Invisible; a creature that damages you on its turn: WIS save or you control its next action; +paladin level damage on hits made with advantage' }), { cond: 'Invisible', condRounds: 10 }), dc: 'spell', save: 'WIS', text: 'Hits made with advantage deal +{paladin} damage' },
     // ---- Sorcerer: Phoenix, Sea, Stone, Giant Soul ----
-    'sorcerer:uaphoenix:Ignite': { col: 'action' },
-    'sorcerer:uaphoenix:Mantle of Flame': { use: R('Mantle of Flame', 10, { note: 'Melee attackers take CHA mod fire; add CHA to fire damage on your turn; bright light 30 ft' }) },
-    'sorcerer:uaphoenix:Phoenix Spark': { trigger: 'zero', triggerText: 'Drop to 1 HP instead and burst into flame', use: { setHp: 1, removeCond: ['Unconscious'], endEffect: 'Mantle of Flame' }, roll: '{floor(sorcerer/2)}+cha', rollNote: 'fire to creatures within 10 ft (sorcerer level + 2×CHA during Mantle of Flame)' },
-    'sorcerer:uaphoenix:Nourishing Fire': { text: 'Spending a slot on a fire spell heals you slot level + CHA', roll: 'cha', rollNote: '+ the slot level', healRoll: true },
-    'sorcerer:uaphoenix:Form of the Phoenix': { passive: { effect: 'Mantle of Flame', fly: 40, resist: ['all damage'] } },
-    'sorcerer:uasea:Soul of the Sea': { passive: { swim: 'walk', advNote: 'Breathe underwater' } },
-    'sorcerer:uasea:Curse of the Sea': { text: 'A cantrip hit or failed save curses the target until the end of your next turn' },
-    'sorcerer:uasea:Watery Defense': { passive: { resist: ['fire'] }, roll: 'sorcerer', rollNote: '+ your CHA score: weapon damage reduced; then move 30 ft without opportunity attacks' },
-    'sorcerer:uasea:Shifting Form': { passive: { advNote: 'Opportunity attacks against you deal half damage' } },
-    'sorcerer:uasea:Water Soul': { passive: { resist: ['bludgeoning', 'piercing', 'slashing'], advNote: 'Critical hits against you are normal hits' } },
+    'sorcerer:uaphoenix:Ignite': { col: 'action', text: 'Set alight a flammable object you touch (not worn or carried by someone else)' },
+    'sorcerer:uaphoenix:Mantle of Flame': { use: R('Mantle of Flame', 10, { note: 'Bright light 30 ft; creatures that touch you or hit you in melee take CHA mod fire; add CHA mod to one fire damage roll on your turn' }),
+      text: 'Creatures that touch you or hit you in melee take {max(0,cha)} fire; add {max(0,cha)} to one fire damage roll on each of your turns' },
+    'sorcerer:uaphoenix:Phoenix Spark': { trigger: 'zero', triggerText: 'Reaction: drop to 1 HP instead and burst into flame (with Mantle of Flame up, use the "with Mantle of Flame" button for the bigger blast)',
+      onlyWhen: { zeroHp: true }, use: { setHp: 1 }, roll: '{floor(sorcerer/2)+cha}', rollNote: 'fire to creatures of your choice within 10 ft',
+      acts: [{ name: 'Spark with Mantle of Flame', col: 'reaction', cost: true, onlyWhen: { effect: 'Mantle of Flame', zeroHp: true }, use: { setHp: 1, endEffect: 'Mantle of Flame' }, roll: '{sorcerer+2*cha+(sorcerer>=18?20:0)}', rollNote: 'fire to creatures of your choice within 10 ft (the mantle ends)' }] },
+    // Nourishing Fire: one button per slot level (shown once you can cast that level)
+    'sorcerer:uaphoenix:Nourishing Fire': { text: 'After spending a slot on a spell with a fire damage roll, regain slot level + CHA mod HP (minimum 1)',
+      acts: [1, 2, 3, 4, 5, 6, 7, 8, 9].map(L => ({ name: 'Fire spell, level ' + L + ' slot', col: 'move', min: 2 * L - 1, roll: '{max(1,' + L + '+cha)}', rollNote: 'HP regained', healRoll: true })) },
+    'sorcerer:uaphoenix:Form of the Phoenix': { passive: { effect: 'Mantle of Flame', fly: 40, resist: ['all damage'], advNote: 'Hover while your Mantle of Flame is active; Phoenix Spark deals +20 fire' } },
+    'sorcerer:uasea:Soul of the Sea': { passive: { swim: 'walk', advNote: 'You can breathe underwater' } },
+    'sorcerer:uasea:Curse of the Sea': { text: 'Cursed target, once per turn: cold spell → speed −15 ft; lightning spell → +{max(0,cha)} lightning; forced movement +15 ft. A non-cantrip trigger ends the curse.' },
+    'sorcerer:uasea:Watery Defense': { passive: { resist: ['fire'] }, text: 'Reduce the weapon damage by {sorcerer} + your Charisma score, then move up to 30 ft without provoking opportunity attacks' },
+    'sorcerer:uasea:Shifting Form': { passive: { advNote: 'Opportunity attacks against you deal half damage; move through hostile creatures and 3-inch gaps' } },
+    'sorcerer:uasea:Water Soul': { passive: { resist: ['bludgeoning', 'piercing', 'slashing'], advNote: 'Critical hits against you are normal hits; no need to eat, drink or sleep' } },
     'sorcerer:uastone:Bonus Proficiencies': { none: true },
     'sorcerer:uastone:Metal Magic': { none: true },
-    "sorcerer:uastone:Stone's Durability": { passive: { maxHp: 'sorcerer' }, col: 'action', use: R("Stone's Durability", null, { acBase: '13+con', note: 'Stony skin while unarmored (shield allowed)' }), onlyWhen: { armor: 'none' } },
-    'sorcerer:uastone:Stone Aegis': { col: 'bonus', text: 'An ally reduces physical damage by {2+floor(sorcerer/4)}; reaction teleport-strike for extra force', roll: '{tier(sorcerer,6,1,11,2,17,3)}d10', rollNote: 'force on your Stone Aegis strike' },
-    "sorcerer:uastone:Stone's Edge": { roll: '{floor(sorcerer/2)}', rollNote: 'extra force damage to one creature the spell hurt' },
+    // acBase adds DEX in the engine, so subtract it to get 13 + CON
+    "sorcerer:uastone:Stone's Durability": { passive: { maxHp: 'sorcerer' }, col: 'action', onlyWhen: { armor: 'none' }, use: R("Stone's Durability", null, { acBase: '13+con-dex', note: 'Stony skin: AC 13 + CON while not wearing armor (shield allowed); end it as a bonus action' }) },
+    'sorcerer:uastone:Stone Aegis': { col: 'bonus', use: R('Stone Aegis', 10, { note: 'Warded ally takes less bludgeoning/piercing/slashing damage (2 + ¼ sorcerer level); reaction strike when it is hit in melee' }),
+      text: 'Ally within 60 ft reduces bludgeoning, piercing and slashing damage by {2+floor(sorcerer/4)} for 1 minute',
+      acts: [{ name: 'Aegis strike', col: 'reaction', onlyWhen: { effect: 'Stone Aegis' }, roll: '{tier(sorcerer,6,1,11,2,17,3)}d10', rollNote: 'extra force damage on a hit (teleport next to the attacker, make one melee weapon attack)' }] },
+    "sorcerer:uastone:Stone's Edge": { roll: '{floor(sorcerer/2)}', rollNote: 'extra force damage to one creature the spell damaged' },
     "sorcerer:uastone:Earth Master's Aegis": { none: true },
     'sorcerer:uagiantsoul:Jotun Resilience': { passive: { maxHp: 'sorcerer' } },
     'sorcerer:uagiantsoul:Mark of the Ordning': { none: true },
     'sorcerer:uagiantsoul:Soul of Lost Ostoria': { text: 'See your giant type on the Mark of the Ordning feature' },
-    'sorcerer:uagiantsoul:Rage of Fallen Ostoria': { use: R('Rage of Fallen Ostoria', 10, { meleeDmg: 'max(1,con)', speed: 5, note: 'One size larger, +5 ft reach, advantage on STR checks and saves; +sorcerer level HP and max HP' }) },
+    'sorcerer:uagiantsoul:Rage of Fallen Ostoria': { use: Object.assign(R('Rage of Fallen Ostoria', 10, { meleeDmg: 'max(1,con)', speed: 5, note: 'One size larger, +5 ft reach, advantage on STR checks and saves, +1 HP and max HP per sorcerer level' }), { heal: '{sorcerer}' }),
+      passive: { effect: 'Rage of Fallen Ostoria', maxHp: 'sorcerer', checkAdv: ['str'], saveAdv: ['str'] } },
     'sorcerer:uagiantsoul:Blessing of the All Father': { passive: { abil: { con: 2 }, abilMax: 22 } },
     // ---- Warlock: Undying Light, Ghost in the Machine, Raven Queen, Seeker ----
-    'warlock:uaundyinglight:Searing Vengeance': { trigger: 'zero', triggerText: 'Instead of a death save, spring up with half your HP', use: { healHalf: true, removeCond: ['Unconscious', 'Prone'] }, roll: '10+cha', rollNote: 'radiant to hostile creatures within 30 ft (blinded until the end of your turn)' },
-    'warlock:uaundyinglight:Radiant Resistance': { trigger: ['shortRest', 'longRest'], use: { temp: 'warlock+cha' } },
+    'warlock:uaundyinglight:Radiant Soul': { passive: { resist: ['radiant'], spellDmg: { types: ['radiant', 'fire'], bonus: 'cha' } }, spells: ['Light', 'Sacred Flame'], spellNote: 'Radiant Soul: doesn’t count against cantrips known', text: 'Add {cha} to radiant and fire spell damage' },
+    'warlock:uaundyinglight:Searing Vengeance': { trigger: 'zero', triggerText: 'Instead of a death save, spring up with half your HP; hostile creatures within 30 ft take radiant damage and are blinded',
+      onlyWhen: { zeroHp: true }, use: { healHalf: true, removeCond: ['Prone'] }, roll: '{10+cha}', rollNote: 'radiant to each hostile creature within 30 ft (blinded until the end of your turn)' },
+    'warlock:uaundyinglight:Radiant Resistance': { trigger: ['shortRest', 'longRest'], triggerText: 'Gain temporary HP; up to five creatures you see gain half as much', use: { temp: '{warlock+cha}' }, text: 'Up to five creatures you can see gain {floor((warlock+cha)/2)} temporary HP' },
+    'warlock:uaundyinglight:Healing Light': { col: 'bonus', pool: true, text: 'Touch a creature and spend 1–5 dice from the pool',
+      acts: [1, 2, 3, 4, 5].map(n => ({ name: n + 'd6', col: 'bonus', cost: { from: 'Healing Light', n }, roll: n + 'd6', rollNote: 'healing', healRoll: true })) },
     'warlock:uaghost:Expanded Spell List': { none: true },
-    'warlock:uaghost:Information Surge': { dc: 'spell', save: 'INT' },
-    'warlock:uaghost:Wire Walk': { none: true },
-    'warlock:uaghost:Personal Encryption': { passive: { advNote: 'Saves against scrying, thought reading and magical location' } },
-    'warlock:uaghost:Technovirus': { dc: 'spell', save: 'CON', roll: '8d10', rollNote: 'psychic (half on a success)' },
+    'warlock:uaghost:Information Surge': { dc: 'spell', save: 'INT', text: 'A device within 30 ft stops working until the end of your next turn (its holder can save)' },
+    'warlock:uaghost:Wire Walk': { text: 'Teleport through a hardwired network to a connected device you can see' },
+    'warlock:uaghost:Personal Encryption': { passive: { advNote: 'Saves against scrying, thought reading and magical location (checks to do so against you have disadvantage)' } },
+    'warlock:uaghost:Technovirus': { dc: 'spell', save: 'CON', roll: '8d10', rollNote: 'psychic (half on a success)', text: 'Make a melee spell attack first; if it fails the save you can command it (as the command spell)' },
     'warlock:uaravenqueen:Sentinel Raven': {}, // darkvision and Perception come from the "on my shoulder" checkbox
     'warlock:uaravenqueen:Soul of the Raven': { col: 'bonus', use: R('Soul of the Raven', null, { note: 'Merged with your raven: Tiny, raven’s speed; only Dash, Disengage, Dodge, Help, Hide, Search' }), acts: [{ name: 'Return to normal', col: 'action', onlyWhen: { effect: 'Soul of the Raven' }, use: { endEffect: 'Soul of the Raven' }, text: 'You and the raven separate.' }] },
     "warlock:uaravenqueen:Raven's Shield": { passive: { resist: ['necrotic'], condImmune: ['Frightened'], advNote: 'Death saving throws' } },
     "warlock:uaravenqueen:Queen's Right Hand": { spells: ['Finger of Death'], once: true, spellNote: 'Once per long rest without a slot' },
-    'warlock:uaseeker:Shielding Aurora': { use: R('Shielding Aurora', 1, { note: 'Resistance to all damage; enemies ending their turn within 10 ft take warlock level + CHA radiant' }), roll: 'warlock+cha', rollNote: 'radiant to each hostile creature ending its turn within 10 ft' },
+    // "until the end of your next turn": 2 rounds, since effects tick down at the start of each of your turns
+    'warlock:uaseeker:Shielding Aurora': { use: R('Shielding Aurora', 2, { resist: ['all damage'], note: 'Resistance to all damage; hostile creatures ending their turn within 10 ft take warlock level + CHA radiant' }), roll: '{warlock+cha}', rollNote: 'radiant to each hostile creature ending its turn within 10 ft' },
     'warlock:uaseeker:Pact Boon: Pact of the Star Chain': { none: true },
-    'warlock:uaseeker:Astral Refuge': { col: 'action' },
+    'warlock:uaseeker:Astral Refuge': { col: 'action', text: 'In the Astral Plane take two actions, only to cast spells that target you alone; then return and your turn ends' },
     'warlock:uaseeker:Far Wanderer': { passive: { resist: ['fire', 'cold'], advNote: 'No need to breathe' } },
-    'warlock:uaseeker:Astral Sequestration': { text: 'You and up to ten willing creatures gain a short rest with no time passing' },
+    'warlock:uaseeker:Astral Sequestration': { text: '5-minute ritual: you and up to ten willing creatures gain a short rest with no time passing' },
     // ---- Wizard UA traditions ----
     'wizard:uaartificer:Infuse Potions': { text: 'Spend 10 minutes and a slot: 1st climbing/growth/healing; 2nd mind reading/greater healing; 3rd invisibility/superior healing/water breathing; 4th resistance' },
     'wizard:uaartificer:Infuse Scrolls': { none: true },
@@ -63,44 +74,47 @@
     'wizard:uaartificer:Superior Artificer': { none: true },
     'wizard:uaartificer:Master Artificer': { none: true },
     'wizard:uainvention:Tools of the Inventor': { none: true },
-    'wizard:uainvention:Arcanomechanical Armor': { passive: { resist: ['force'] }, text: 'Your armor: AC 12 + DEX (equip it as light armor)' },
+    'wizard:uainvention:Arcanomechanical Armor': { passive: { resist: ['force'] }, text: 'Your armor: AC 12 + DEX (equip it as studded leather); force resistance while you wear it' },
     'wizard:uainvention:Reckless Casting': { col: 'action', roll: '1d10', rollNote: 'on the Reckless Casting table (10: roll twice)' },
-    'wizard:uainvention:Alchemical Casting': { roll: '2d10', rollNote: 'force damage to one target (extra 2nd-level slot)' },
-    'wizard:uainvention:Prodigious Inspiration': { none: true },
+    'wizard:uainvention:Alchemical Casting': { roll: '2d10', rollNote: 'force damage to one target (extra 2nd-level slot; extra 1st-level slot swaps the damage type instead)' },
+    'wizard:uainvention:Prodigious Inspiration': { text: 'Swap one prepared wizard spell for another in your spellbook' },
     'wizard:uainvention:Controlled Chaos': { none: true },
-    'wizard:ualoremaster:Lore Master': { passive: { advNote: 'Double proficiency on Arcana, History, Nature, Religion; initiative can use INT' } },
+    // initiative: INT instead of DEX when it's higher
+    'wizard:ualoremaster:Lore Master': { passive: { init: 'max(0,int-dex)', advNote: 'Double proficiency on Arcana, History, Nature and Religion checks you are proficient in' } },
     'wizard:ualoremaster:Spell Secrets': { text: 'Swap a damage type, or once per rest change a spell’s save ability' },
-    'wizard:ualoremaster:Alchemical Casting': { roll: '2d10', rollNote: 'force to every target (extra 1st-level slot)' },
-    'wizard:ualoremaster:Prodigious Memory': { none: true },
-    'wizard:ualoremaster:Master of Magic': { text: 'Cast one spell from any class list this turn' },
+    'wizard:ualoremaster:Alchemical Casting': { roll: '2d10', rollNote: 'force to each target (extra 1st-level slot; 2nd: range 1 mile; 3rd: +2 save DC)' },
+    'wizard:ualoremaster:Prodigious Memory': { text: 'Swap one prepared wizard spell for another in your spellbook' },
+    'wizard:ualoremaster:Master of Magic': { text: 'Cast one spell from any class list this turn (a level you have slots for)' },
     'wizard:uaonomancy:Bonus Proficiencies': { none: true },
-    'wizard:uaonomancy:Extract Name': { dc: 'spell', save: 'WIS' },
-    'wizard:uaonomancy:Fateful Naming': { spells: ['Bane', 'Bless'], spellNote: 'Without a slot by speaking a true name (INT mod times per long rest)' },
+    'wizard:uaonomancy:Extract Name': { dc: 'spell', save: 'WIS', text: 'On a failure it is charmed until the end of your next turn and you learn its true name' },
+    'wizard:uaonomancy:Fateful Naming': { spells: ['Bane', 'Bless'], spellNote: 'Without a slot by speaking a true name' },
     'wizard:uaonomancy:Resonant Utterance': { text: 'Speak a true name while casting with a slot to apply one of your Resonants' },
     'wizard:uaonomancy:Inexorable Pronouncement': { none: true },
     'wizard:uaonomancy:Relentless Naming': { none: true },
-    'wizard:uapsionics:Psionic Focus': { passive: { advNote: 'Reroll 1s on psychic and force damage dice of your wizard spells' } },
-    'wizard:uapsionics:Psionic Devotion': { text: 'Cast friends, mage hand or message as a bonus action with no components' },
-    'wizard:uapsionics:Thought Form': { use: R('Thought Form', 100, { note: 'Spells need no components (unless they cost gold); resistance to psychic and nonmagical physical damage' }) },
-    'wizard:uapsionics:Empowered Psionics': { passive: { advNote: 'Add INT to psychic or force damage of a wizard spell against one target' } },
-    'wizard:uapsionics:Mental Discipline': { text: 'Cast your chosen spell (dominate person, scrying or telekinesis) without a slot or components' },
-    'wizard:uapsionics:Thought Travel': { passive: { effect: 'Thought Form', fly: 'walk' } },
+    'wizard:uapsionics:Psionic Focus': { passive: { advNote: 'Reroll 1s on psychic and force damage dice of your wizard spells (focus in hand)' } },
+    'wizard:uapsionics:Psionic Devotion': { text: 'Cast your chosen cantrip as a bonus action with no components (while carrying your focus)' },
+    'wizard:uapsionics:Thought Form': { use: R('Thought Form', 100, { resist: ['psychic', 'nonmagical bludgeoning, piercing and slashing'], note: 'Spells need no components (unless they cost gold)' }) },
+    'wizard:uapsionics:Empowered Psionics': { passive: { advNote: 'Add INT mod to psychic or force damage of a wizard spell against one target' } },
+    'wizard:uapsionics:Mental Discipline': { text: 'Cast your chosen spell without components; once per long rest without a slot' },
+    'wizard:uapsionics:Thought Travel': { passive: { effect: 'Thought Form', fly: 'walk', advNote: 'Thought Form: hover; move through creatures and objects (1d10 force if you end your turn inside one)' } },
     'wizard:uarunecrafter:Runes of Understanding': { spells: ['Comprehend Languages'], spellNote: 'Without a slot' },
     'wizard:uarunecrafter:Runic Empowerment': { acts: [
-      { name: 'Life rune', cost: true, text: 'A creature within 30 ft gains 5 × slot level temporary HP' },
-      { name: 'War rune', cost: true, text: 'Attacks against a creature within 30 ft get + half the slot level until the end of your next turn' },
-      { name: 'Wind rune', cost: true, use: R('Wind rune', 1, { note: '+5 ft speed per slot level; no opportunity attacks' }) }] },
-    'wizard:uarunecrafter:Sigils of Warding': { col: 'reaction', cost: { from: 'Runic Empowerment', n: 1 }, text: 'Succeed on a failed STR, DEX or CON save' },
-    'wizard:uarunecrafter:Rune Maven': { none: true },
-    'wizard:uarunecrafter:Engraved Enmity': { dc: 'spell', save: 'WIS', roll: '1d8', rollNote: 'force on an ally’s next hit against the marked creature' },
+      { name: 'Life rune', col: 'move', cost: true, text: 'A creature within 30 ft gains 5 × slot level temporary HP' },
+      { name: 'War rune', col: 'move', cost: true, text: 'Attacks against a creature within 30 ft get + half the slot level (round up) until the end of your next turn' },
+      { name: 'Wind rune', col: 'move', cost: true, use: R('Wind rune', 1, { note: '+5 ft speed per slot level; no opportunity attacks until your next turn' }) }] },
+    'wizard:uarunecrafter:Sigils of Warding': { col: 'reaction', dc: false, cost: { from: 'Runic Empowerment', n: 1 }, text: 'Succeed on a failed STR, DEX or CON save' },
+    'wizard:uarunecrafter:Rune Maven': { trigger: 'shortRest', triggerText: 'If you used Arcane Recovery, also regain Runic Empowerment uses', use: { regain: { from: 'Runic Empowerment', n: 'max(1,ceil(int/2))' } } },
+    'wizard:uarunecrafter:Engraved Enmity': { use: R('Engraved Enmity', 10, { note: 'Marked: disadvantage on saves against your spells; can’t become invisible' }, { conc: true }), dc: 'spell', save: 'WIS', slotRestore: 3,
+      acts: [{ name: 'Curse the mark', col: 'bonus', onlyWhen: { effect: 'Engraved Enmity' }, roll: '1d8', rollNote: 'force on an ally’s next hit against the marked creature' }] },
     'wizard:uatechnomancy:Bonus Proficiencies': { none: true },
     'wizard:uatechnomancy:Technological Savant': { none: true },
-    'wizard:uatechnomancy:Program Spell': { col: 'action' },
-    'wizard:uatechnomancy:Online Casting': { none: true },
-    'wizard:uatechnomancy:Chained Device': { none: true },
+    'wizard:uatechnomancy:Program Spell': { col: 'action', text: 'Release the spell stored in your device (stored up to 48 hours)' },
+    'wizard:uatechnomancy:Online Casting': { text: 'Cast a single-target spell through networked devices' },
+    'wizard:uatechnomancy:Chained Device': { text: 'Your device holds concentration on one spell for you' },
     'wizard:uatheurgy:Divine Inspiration': { none: true },
+    'wizard:uatheurgy:Arcane Initiate': { none: true }, // (not the Arcana domain's Arcane Initiate — no skill proficiency)
     'wizard:uatheurgy:Channel Arcana': { resource: true },
-    'wizard:uatheurgy:Channel Arcana: Divine Arcana': { col: 'bonus', cost: { from: 'Channel Arcana', n: 1 }, use: R('Divine Arcana', 1, { note: '+2 to your next spell’s attack roll or save DC' }) },
+    'wizard:uatheurgy:Channel Arcana: Divine Arcana': { col: 'bonus', cost: { from: 'Channel Arcana', n: 1 }, use: R('Divine Arcana', 1, { note: '+2 to your next spell’s attack roll or save DC this turn' }) },
     'wizard:uatheurgy:Arcane Acolyte': { none: true },
     'wizard:uatheurgy:Arcane Priest': { none: true },
     'wizard:uatheurgy:Arcane High Priest': { none: true },
@@ -168,15 +182,41 @@
     "rangerrev:deepstalker:Stalker's Dodge": { col: 'reaction', text: 'Impose disadvantage on an attack against you' }
   };
   Object.assign(DND.featFx, G);
+  // ---- Ranger: Primeval Guardian (UA) — full ranger keys; the bare subclass keys stay as a fallback for the other ranger classes ----
+  const PG = {
+    'Guardian Magic': { none: true }, // the subclass's always-prepared spell list adds these
+    'Guardian Soul': { col: 'bonus', use: Object.assign(R('Guardian Soul', null, { note: 'Large; walking speed 5 ft (unless lower); +5 ft reach; temp HP equal to half your ranger level at the start of each of your turns. Ends if you are incapacitated.' }),
+        { temp: '{floor(ranger/2)}', heal: '{ranger>=7?2*ranger:0}' }),
+      text: 'Gain {floor(ranger/2)} temporary HP at the start of each of your turns while in this form',
+      acts: [{ name: 'End guardian form', col: 'bonus', onlyWhen: { effect: 'Guardian Soul' }, use: { endEffect: 'Guardian Soul' } }] },
+    'Piercing Thorns': { col: 'move', roll: '1d6', rollNote: 'extra piercing damage (once per turn, on a weapon hit)' },
+    'Ancient Fortitude': { passive: { effect: 'Guardian Soul', maxHp: '2*ranger' } },
+    'Rooted Defense': { passive: { effect: 'Guardian Soul', advNote: 'Guardian form: the ground within 30 ft is difficult terrain for your enemies' } },
+    'Guardian Aura': { passive: { effect: 'Guardian Soul', advNote: 'Guardian form: allies below half HP starting their turn within 30 ft regain half your ranger level in HP' } }
+  };
+  Object.keys(PG).forEach(n => { DND.featFx['ranger:uaprimevalguardian:' + n] = PG[n]; DND.featFx['uaprimevalguardian:' + n] = PG[n]; });
   // ---- Option lists ----
   setOpt('pactBoon', 'Pact of the Star Chain', { spells: ['Augury'], spellNote: 'Ritual, doesn’t count against spells known', max: '1', reset: 'short', text: 'Advantage on one INT check' });
-  const ord = (n, spells, fx) => setOpt('uaOrdning', n, Object.assign({ spellsAt: spells }, fx));
-  ord('Cloud Giant', { 1: ['Fog Cloud', 'Minor Illusion'], 3: ['Invisibility'] }, { text: 'Soul of Lost Ostoria: after casting one, teleport {10+con} ft as a bonus action' });
-  ord('Fire Giant', { 1: ['Burning Hands', 'Fire Bolt'], 3: ['Flaming Sphere'] }, { text: 'Soul of Lost Ostoria: +{max(1,con)} damage with these spells' });
-  ord('Frost Giant', { 1: ['Armor of Agathys', 'Ray of Frost'], 3: ['Hold Person'] }, { use: { temp: 'max(1,con)' }, text: 'Soul of Lost Ostoria: temp HP after casting one' });
-  ord('Hill Giant', { 1: ['Heroism', 'Shillelagh'], 3: ['Enlarge/Reduce'] }, { dc: 'spell', save: 'STR', text: 'Soul of Lost Ostoria: push two creatures {5+con} ft' });
-  ord('Stone Giant', { 1: ['Entangle', 'Resistance'], 3: ['Spike Growth'] }, { use: R('Soul of Lost Ostoria', 1, { ac: 'max(1,con)' }) });
-  ord('Storm Giant', { 1: ['Shocking Grasp', 'Thunderwave'], 3: ['Gust of Wind'] }, { roll: 'max(1,con)', rollNote: 'lightning to up to three creatures within 30 ft' });
+  // Mark of the Ordning: the feature card offers the giant-type picker (label = feature name); its spells are sorcerer spells.
+  if (DND.options.uaOrdning) DND.options.uaOrdning.label = 'Mark of the Ordning';
+  const ord = (n, spells, fx) => setOpt('uaOrdning', n, Object.assign({ spellsAt: spells, spellCls: 'sorcerer' }, fx));
+  ord('Cloud Giant', { 1: ['Fog Cloud', 'Minor Illusion'], 3: ['Invisibility'] }, { col: 'bonus', text: 'Soul of Lost Ostoria (6th level): after casting one, teleport {10+con} ft as a bonus action' });
+  ord('Fire Giant', { 1: ['Burning Hands', 'Fire Bolt'], 3: ['Flaming Sphere'] }, { text: 'Soul of Lost Ostoria (6th level): +{max(1,con)} damage with these spells' });
+  ord('Frost Giant', { 1: ['Armor of Agathys', 'Ray of Frost'], 3: ['Hold Person'] }, { use: { temp: '{max(1,con)}' }, text: 'Soul of Lost Ostoria (6th level): temp HP after casting one (armor of Agathys gains that much extra)' });
+  ord('Hill Giant', { 1: ['Heroism', 'Shillelagh'], 3: ['Enlarge/Reduce'] }, { dc: 'spell', save: 'STR', text: 'Soul of Lost Ostoria (6th level): after casting one, up to two creatures within 5 ft are pushed {5+con} ft' });
+  ord('Stone Giant', { 1: ['Entangle', 'Resistance'], 3: ['Spike Growth'] }, { use: R('Soul of Lost Ostoria', 2, { ac: 'max(1,con)' }), text: 'Soul of Lost Ostoria (6th level): +{max(1,con)} AC until the end of your next turn' });
+  ord('Storm Giant', { 1: ['Shocking Grasp', 'Thunderwave'], 3: ['Gust of Wind'] }, { roll: '{max(1,con)}', rollNote: 'lightning to up to three creatures within 30 ft (Soul of Lost Ostoria, 6th level)' });
+  // Psionics (UA) wizard: the cantrip of Psionic Devotion and the spell of Mental Discipline are choices on those feature cards.
+  {
+    const s = DND.classes.wizard && DND.classes.wizard.subclasses.uapsionics;
+    DND.options.uaPsiDevotion = { label: 'Psionic Devotion', list: [
+      ['Friends', 'Cantrip; with your focus, cast as a bonus action with no components — the target doesn’t turn hostile when it ends.', 'Psionics (UA)', { spellsAt: { 1: ['Friends'] }, spellCls: 'wizard', spellNote: 'Psionic Devotion: bonus action, no components (focus)' }],
+      ['Mage Hand', 'Cantrip; with your focus, cast as a bonus action with no components — the hand is invisible and you control it as a bonus action.', 'Psionics (UA)', { spellsAt: { 1: ['Mage Hand'] }, spellCls: 'wizard', spellNote: 'Psionic Devotion: bonus action, no components, invisible hand (focus)' }],
+      ['Message', 'Cantrip; with your focus, cast as a bonus action with no components — no gestures or whisper needed.', 'Psionics (UA)', { spellsAt: { 1: ['Message'] }, spellCls: 'wizard', spellNote: 'Psionic Devotion: bonus action, no components (focus)' }]] };
+    DND.options.uaMentalDiscipline = { label: 'Mental Discipline', list: ['Dominate Person', 'Scrying', 'Telekinesis'].map(n =>
+      [n, 'Always prepared, cast without components; once per long rest without a slot.', 'Psionics (UA)', { spellsAt: { 1: [n] }, spellCls: 'wizard', once: true, spellNote: 'Mental Discipline: no components; once per long rest without a slot' }]) };
+    if (s && !(s.choices || []).some(c => c.type === 'uaPsiDevotion')) s.choices = (s.choices || []).concat([{ level: 2, type: 'uaPsiDevotion', n: 1 }, { level: 10, type: 'uaMentalDiscipline', n: 1 }]);
+  }
   setOpt('uaResonant', 'Absorption', { use: { temp: '{tier(wizard,6,3,10,4,14,5)}d6' } });
   setOpt('uaResonant', 'Devastation', { none: true });
   setOpt('uaResonant', 'Dissolution', { roll: '{tier(wizard,6,2,10,3,14,4)}d8', rollNote: 'extra force damage' });

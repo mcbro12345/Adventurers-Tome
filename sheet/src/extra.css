@@ -3660,7 +3660,9 @@ html:not(.mobile) #tabs .tab:hover > :is(.ticon, .tlabel) { filter: brightness(1
 :root[data-theme="dark"] header.banner { border-bottom-color: color-mix(in srgb, var(--gold) 35%, transparent); box-shadow: 0 10px 30px rgba(0,0,0,.35); }
 /* the banner's toolbar buttons: the lobby's dark rounded buttons */
 :root[data-theme="dark"] .tbtn:not(.gold) { background: rgba(36,45,64,.85); border-color: transparent; border-radius: 11px; }
-:root[data-theme="dark"] .tbtn:not(.gold):not([disabled]):hover { background: var(--site-btn-h); filter: none; }
+:root[data-theme="dark"] .tbtn:not(.gold):not(.on):not([disabled]):hover { background: var(--site-btn-h); filter: none; }
+/* (a pressed-in toolbar button — Done editing — stays gold under the pointer, just a touch brighter) */
+.tbtn.on:not([disabled]):hover { background: var(--gold); color: var(--on-gold, #1D2536); filter: brightness(1.1); }
 :root[data-theme="dark"] .tbtn.gold { border-color: transparent; border-radius: 11px; color: var(--on-gold, #1b1406); }
 /* round toggles and boxes inside cards (ability scores, saves and the like): the lobby's soft tiles */
 :root[data-theme="dark"] .panel .tile { background-color: rgba(255,255,255,.035); outline-color: var(--site-edge2); box-shadow: none; }
@@ -4213,3 +4215,8 @@ html.mobile .setx > .stpane.nopage { display: none !important; }
 @keyframes rcAddIn { from { opacity: 0; transform: translateY(-4px); } }
 @keyframes rcBump { 40% { transform: scale(1.18); } }
 @media (prefers-reduced-motion: reduce) { .toast.rollcard .rc-added, .toast.rollcard .rc-dmg.rc-bump > b { animation: none; } }
+
+/* Choosing an option from its feature card: the current choice is marked */
+.pendopt.on { border-color: var(--gold); background: var(--gold-soft); box-shadow: inset 3px 0 0 var(--gold); }
+.pendopt:disabled { opacity: .5; cursor: not-allowed; }
+#optm .pendopts { display: grid; gap: 8px; }

@@ -34,7 +34,7 @@ function mainClick(e) {
     case 'bonusatk': bonusAttack(i, b.dataset.kind); break;
     case 'equip': equipItem(i); break;
     case 'dupitem': { const src = S.inventory[i]; if (!src) break; const c = JSON.parse(JSON.stringify(src)); c.id = uid(); c.equipped = false; c.attuned = false; S.inventory.splice(i + 1, 0, c); pendingLabel = 'Duplicate ' + (src.name || 'item'); save(); render(); toast(`Duplicated “${esc(src.name || 'item')}”`); break; }
-    case 'resetturn': S.turn.haste = false; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.attacks = 0; S.turn.atkWith = []; S.turn.lightAtk = false; S.turn.speed0 = ''; S.turn.sneak = false; S.turn.readied = null; update(); render('combat'); toast(`Turn reset — round ${N(S.turn.round) || 1} actions are ready again.`); break;
+    case 'resetturn': S.turn.haste = false; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.attacks = 0; S.turn.atkWith = []; S.turn.lightAtk = false; S.turn.speed0 = ''; S.turn.sneak = false; S.turn.dstrike = false; S.turn.readied = null; update(); render('combat'); toast(`Turn reset — round ${N(S.turn.round) || 1} actions are ready again.`); break;
     case 'fullscreen': if (fsOn()) { FS_USER_OFF = true; fsExit(); } else { FS_USER_OFF = false; fsEnter(); } break;
     case 'tab': { const prev = UI.tab, nt = b.dataset.tab, mini = !!b.closest('.cmini'), mob = isMobile() && !mini;
       const hov = !mob && prev !== nt && b.matches(':hover');
@@ -338,7 +338,10 @@ function mainClick(e) {
     case 'grantpick': openGrantPicker(b.dataset.t, b.dataset.o); break;
     case 'micls': { const t = GRANT; if (!t || !t.mi) break; t.cls = b.dataset.v; t.fx = { grant: miGrant(t.cls) }; t.CH = {}; renderGrantPicker(); break; }
     case 'mipick': openMagicInitiate(); break;
-    case 'grantok': { const t = GRANT; if (!t) break; S.grantSpells = S.grantSpells || {}; if (t.mi) S.featCls = Object.assign({}, S.featCls, { [t.o]: t.cls }); S.grantSpells[t.o] = t.fx.grant.flatMap((g, j) => ansList(t.CH, 'g.' + j)); closeModal(true); pendingLabel = t.o + ': spells'; save(); rebuildAuto(); render(); break; }
+    case 'featspell': openFeatSpells(b.dataset.f); break;
+    case 'optpick': openOptPick(b.dataset.t, b.dataset.c); break;
+    case 'optset': setOptPick(b.dataset.t, b.dataset.v); break;
+    case 'grantok': { const t = GRANT; if (!t) break; if (t.feat) { S.featChoices = S.featChoices || {}; const o = Object.assign({}, S.featChoices[t.feat]); t.fx.grant.forEach((g, j) => { o[g.key] = ansList(t.CH, 'g.' + j); }); S.featChoices[t.feat] = o; closeModal(true); pendingLabel = t.feat + ': spells'; save(); rebuildAuto(); render(); break; } S.grantSpells = S.grantSpells || {}; if (t.mi) S.featCls = Object.assign({}, S.featCls, { [t.o]: t.cls }); S.grantSpells[t.o] = t.fx.grant.flatMap((g, j) => ansList(t.CH, 'g.' + j)); closeModal(true); pendingLabel = t.o + ': spells'; save(); rebuildAuto(); render(); break; }
     case 'gocore': UI.tab = 'core'; saveUI(); renderTabs(); window.scrollTo(0, 0); break;
     case 'tablift': try { localStorage.setItem('dnd-tablift', String(Math.max(0, Math.min(160, tabLift() + N(b.dataset.d))))); } catch (e) {} applyTabLift(); { const v = b.parentNode.querySelector('b'); if (v) v.textContent = tabLift(); } break;
     case 'settab': switchSetTab(b.dataset.k); break;
@@ -537,6 +540,13 @@ function atkAddOns(a, nm, crit, isWeapon, rm, opt, D, armed) {
       if (S.inCombat && !opt.offTurn) S.turn.sneak = true; pendingLabel = 'Sneak Attack';
       addOnRoll(t, b, D, nm, 'Sneak Attack (' + e + ')', e, '', 'sneak'); setTimeout(refresh, 0); } });
   }
+  // Divine Strike (Life, Tempest, War… domains): once on each of your turns, on a weapon hit
+  { const ds = S.features.find(f => /^cleric:\w+:Divine Strike$/.test(String(f.key || ''))), dfx = ds ? fxOf(ds) : null;
+    if (dfx && dfx.roll && !(S.inCombat && S.turn.dstrike && !opt.offTurn)) {
+      const dd = fxRollExpr(dfx.roll), ty0 = String(dfx.rollNote || '').replace(/\s*damage.*$/i, '').trim(), ty = /weapon/i.test(ty0) ? '' : ty0.replace(/,? or /g, '/').replace(/, /g, '/'), e = crit ? doubleDice(dd) : dd;
+      out.push({ keep: true, cls: 't-add', grp: 'dstrike', label: `Divine Strike (${e}${ty ? ' ' + ty : ''})`, title: 'Once on each of your turns, when you hit with a weapon attack', fn: (t, b) => {
+        if (S.inCombat && !opt.offTurn) S.turn.dstrike = true; pendingLabel = 'Divine Strike';
+        addOnRoll(t, b, D, nm, 'Divine Strike', e, ty, 'dstrike'); } }); } }
   if (/unarmed strike/i.test(a.name) && harmFeat() && !armed.includes('Hand of Harm') && !(S.inCombat && S.turn.harm) && stunKiLeft() > 0) {
     const ma = maDie(), w = mod('wis'), e = (crit ? doubleDice(ma) : ma) + (w ? sgn(w) : '');
     out.push({ keep: true, cls: 't-add', grp: 'harm', label: 'Hand of Harm (1 ki)', title: `+${ma} + WIS necrotic, once per turn`, fn: (t, b) => {
@@ -713,12 +723,18 @@ function announce(res) {
   res.ended.forEach(e => toast(`⏳ <b>${esc(e.name)}</b> has ended.`, 'alert', 9000));
   res.warn.forEach(e => toast(`⏳ <b>${esc(e.name)}</b> ends after this round.`, 'alert', 7000));
 }
+// Things that happen when your rage ends (Frenzy's exhaustion): fx `onRageEnd: { use, onlyWhen }`
+function rageEndFx() {
+  const done = [];
+  S.features.forEach(f => { const fx = fxOf(f), t = fx.onRageEnd; if (!t || (t.onlyWhen && !fxWhenOK(t.onlyWhen))) return; const lines = []; fxApplyUse(t.use, f.name, lines); if (lines.length) done.push(`<b>${esc(f.name)}:</b> ${esc(lines.join(' · '))}`); });
+  if (done.length) setTimeout(() => toast(`<div>Your rage ended.<br>${done.join('<br>')}</div>`, '', 8000), 120);
+}
 function cleanupLinked() {
   const names = new Set((S.effects || []).map(e => e.name));
   S.companions = S.companions.filter(c => !c.effect || names.has(c.effect));
   S.attacks = S.attacks.filter(a => !a.effect || names.has(a.effect));
   if (S.form && S.form.effect && !names.has(S.form.effect)) S.form = null;
-  if (S.conditions.includes('Raging') && !names.has('Rage')) S.conditions = S.conditions.filter(c => c !== 'Raging');
+  if (S.conditions.includes('Raging') && !names.has('Rage')) { S.conditions = S.conditions.filter(c => c !== 'Raging'); rageEndFx(); }
   if (!names.has('Rage') && (S.effects || []).some(e => e.rage)) S.effects = S.effects.filter(e => !e.rage); // (Wild Surge effects end with the rage)
 }
 function breakConc(reason) {
@@ -737,6 +753,7 @@ function concCheck(dc) {
 function endEffect(n) {
   S.effects = (S.effects || []).filter(x => x.name !== n);
   if (S.concentration === n) S.concentration = '';
+  clampHp(); // (an effect that raised your max HP takes the extra HP with it)
   pendingLabel = 'End ' + n; cleanupLinked(); save(); render();
   toast(`${esc(n)} ended.`, '', 4000, { label: 'Undo', fn: () => undo(1) });
 }
@@ -745,11 +762,24 @@ function repeatEffect(j) {
   const r = rollExpr(e.repeat.dice);
   toast(`<b class="total">${r.total}</b><div><div>${esc(e.name)} — ${e.repeat.heal ? 'healing' : esc(e.repeat.type || 'damage')}</div><div class="det">${esc(r.detail)}${e.repeat.save ? ' · ' + esc(e.repeat.save) : ''}</div></div>`, '', 7000);
 }
+// Features that happen on their own as your turn comes round (Elder Champion's 10 HP, Survivor, Protective Spirit):
+// fx `onTurn: { use, onlyWhen, notZero, notIncap }`. Each one says what it did in a note.
+function turnStartFx() {
+  const done = [];
+  S.features.forEach(f => { const fx = fxOf(f), t = fx.onTurn; if (!t) return;
+    if (f.cls && fx.min && clsLv(f.cls) < N(fx.min)) return;
+    if (t.onlyWhen && !fxWhenOK(t.onlyWhen)) return;
+    if (t.notZero && N(S.hp.cur) <= 0) return;
+    if (t.notIncap && typeof incapCond === 'function' && incapCond()) return;
+    if (t.onlyRaging && !S.conditions.includes('Raging')) return;
+    const lines = []; fxApplyUse(t.use, f.name, lines); if (lines.length) done.push(`<b>${esc(f.name)}:</b> ${esc(lines.join(' · '))}`); });
+  if (done.length) setTimeout(() => toast(`<div>${done.join('<br>')}</div>`, '', 8000), 140);
+}
 function nextTurn() {
   if (S.felineSpent && !S.turn.feline && N(S.turn.moved) <= 0) S.felineSpent = false;  // Feline Agility recharges after a turn without moving
   const held = S.turn.readied; S.turn.readied = null;
   if (held) setTimeout(() => readyLost(held, 'Your readied action ran out (it lasts until your next turn)'), 80);
-  S.turn.round = (N(S.turn.round) || 1) + 1; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.atkWith = []; S.turn.lightAtk = false; S.turn.attacks = 0; S.turn.feline = false; S.turn.speed0 = ''; S.turn.sneak = false;
+  S.turn.round = (N(S.turn.round) || 1) + 1; S.turn.used = {}; S.turn.commanded = {}; S.turn.disengaged = false; S.turn.moved = 0; S.turn.dash = 0; S.turn.atkWith = []; S.turn.lightAtk = false; S.turn.attacks = 0; S.turn.feline = false; S.turn.speed0 = ''; S.turn.sneak = false; S.turn.dstrike = false;
   S.turn.haste = false;
   // Haste's lethargy: the turn after it wears off you can't move or take actions.
   if (N(S.lethargy) === 1) { S.lethargy = 2; S.turn.speed0 = 'Haste lethargy'; setTimeout(() => toast('<b>Lethargic</b> — Haste wore off, so this turn you can’t move or take actions. You’re back to normal next turn.', 'fumble', 9000), 120); } else if (N(S.lethargy) === 2) S.lethargy = 0;
@@ -759,7 +789,8 @@ function nextTurn() {
   if (abTempOn() && N(S.abTempR) > 0) { S.abTempR = N(S.abTempR) - 1; if (S.abTempR <= 0) { S.abTemp = {}; S.abTempR = 0; ended.push('Ability score changes'); } }
   Object.keys(S.condTurns || {}).forEach(c => { if (!S.conditions.includes(c)) { delete S.condTurns[c]; return; } if (N(S.condTurns[c]) <= 0) return; S.condTurns[c] = N(S.condTurns[c]) - 1; if (S.condTurns[c] <= 0) { delete S.condTurns[c]; if (S.condNotes) delete S.condNotes[c]; S.conditions = S.conditions.filter(x => x !== c); ended.push(c); } });
   if (ended.length) setTimeout(() => toast(`<b>${esc(ended.join(', '))}</b> wore off.`, '', 6000), 50);
-  const res = passRounds(1);
+  const res = passRounds(1); clampHp();
+  turnStartFx();
   pendingLabel = 'Next turn'; update(); render();
   toast(`Round ${S.turn.round} — action, bonus action, reaction and movement ready.`);
   announce(res);
@@ -998,7 +1029,8 @@ function openSlotRestore(i, col) {
 let SLOTREST = null;
 function useFeature(i, col, opt) {
   const f = S.features[i]; if (!f) return;
-  if (['action', 'bonus', 'reaction'].includes(col || f.col)) { if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; } }
+  // (features made for dropping to 0 HP — Phoenix Spark, Relentless Rage… — work while you're unconscious)
+  if (['action', 'bonus', 'reaction'].includes(col || f.col) && fxOf(f).trigger !== 'zero') { if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions or reactions.`, 'fumble'); return; } }
   if (f.name === 'Wild Shape') return openWildShape(col);
   if (atkReplaceOK(f.name, col || f.col) === false) return;
   if (f.key === 'artificer:The Right Tool for the Job') return openRTJ();
@@ -1051,7 +1083,7 @@ function useFeature(i, col, opt) {
   pendingLabel = 'Use ' + f.name; update(); render();
   const left = max != null && !f.pool ? `${Math.max(0, max - N(f.used))}/${max} left` : '';
   toast(`${r ? `<b class="total">${r.total}</b>` : ''}<div><div><b>${esc(f.name)}</b>${left ? ' · ' + left : ''}</div>${r ? `<div class="det">${esc(r.detail)}${fx.rollNote ? ' ' + esc(fx.rollNote) : ''}</div>` : ''}${sc.length ? `<div class="det">${esc(sc.join(' · '))}</div>` : ''}${lines.map(l => `<div class="det">${esc(l)}</div>`).join('')}</div>`, '', 8000, [healAct, typeof ptyFeatAct === 'function' ? ptyFeatAct(f.name, r, f) : null, { label: 'Undo', fn: () => undo(1) }].filter(Boolean).concat(fRh.acts));
-  if (f.name === 'Rage' && hasFeature('Wild Surge')) setTimeout(() => barbSurgeNow('rage'), 450); // Path of Wild Magic: raging sets off a Wild Surge
+  if (f.name === 'Rage' && S.features.some(x => x.key === 'barbarian:wildmagic:Wild Surge')) setTimeout(() => barbSurgeNow('rage'), 450); // Path of Wild Magic: raging sets off a Wild Surge
 }
 function smite(l) {
   let L;
@@ -1170,6 +1202,8 @@ function executeCast(i, how, L, col, x) {
   let needEffect = rounds !== 0 || !!sp.conc;
   const sm = spellMath(sp, L);
   if (sm && sm.dice && !sm.heal && fxActive().some(e => e.buff && e.buff.maxNext && !e.ally)) { MAXDMG = true; lines.push('Maximized magic: every damage die rolls its maximum'); }
+  // Supreme Healing (Life domain, 17th): healing dice from your spells use their highest number
+  if (sm && sm.heal && S.features.some(f => f.key === 'cleric:life:Supreme Healing')) { MAXDMG = true; lines.push('Supreme Healing: every healing die uses its highest number'); }
   // Spells cast on a weapon: the one picked in the cast window (or the only one you have).
   const wsList = a.pickWeapon ? spWeapons(a.pickWeapon) : [], wi = !a.pickWeapon ? null : x.wpn !== undefined && x.wpn !== '' && x.wpn != null ? N(x.wpn) : wsList.length ? wsList[0][1] : null;
   const wat = wi != null ? S.attacks[wi] : null;

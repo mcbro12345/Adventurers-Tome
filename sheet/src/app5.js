@@ -7,7 +7,7 @@ function spellCI(sp) {
 }
 
 // ---------- Rebuild automatic features, spells and attacks ----------
-const PICK_OWNER = { fightingStyle: ['fighter', 'paladin', 'ranger', 'rangertce'], maneuver: ['fighter'], metamagic: ['sorcerer'], invocation: ['warlock'], pactBoon: ['warlock'], infusion: ['artificer'], arcaneShot: ['fighter'], rune: ['fighter'], favoredEnemy: ['ranger'], favoredTerrain: ['ranger'] };
+const PICK_OWNER = { fightingStyle: ['fighter', 'paladin', 'ranger', 'rangertce'], maneuver: ['fighter'], metamagic: ['sorcerer'], invocation: ['warlock'], pactBoon: ['warlock'], infusion: ['artificer'], arcaneShot: ['fighter'], rune: ['fighter'], favoredEnemy: ['ranger'], favoredTerrain: ['ranger'], totemSpirit: ['barbarian'], totemAspect: ['barbarian'], totemAttune: ['barbarian'], stormAura: ['barbarian'], landCircle: ['druid'], hunterPrey: ['ranger', 'rangertce'], hunterDefense: ['ranger', 'rangertce'], hunterMultiattack: ['ranger', 'rangertce'], hunterSuperior: ['ranger', 'rangertce'], draconicAncestry: ['sorcerer'], divineAffinity: ['sorcerer'], armorModel: ['artificer'], genieKind: ['warlock'], uaTalent: ['mystic'], uaDiscipline: ['mystic'] };
 function rebuildAuto() {
   const old = {}; S.features.forEach(f => { if (f.auto) old[f.key] = f; });
   const out = [];
@@ -26,7 +26,9 @@ function rebuildAuto() {
   };
   clsRows().forEach(r => {
     const c = CL[r.key]; if (!c) return; const L = N(r.level);
-    c.features.forEach(([lv, nm, d, o]) => { if (lv <= L) add(r.key + ':' + nm, nm, d, `${c.name} ${lv}`, o ? { ...o, cls: o.cls || r.key } : o, { cls: r.key }); });
+    // (a subclass can change a class feature's column: Circle of the Moon druids Wild Shape as a bonus action)
+    const SUBCOL = { 'druid:moon:Wild Shape': 'bonus' };
+    c.features.forEach(([lv, nm, d, o]) => { if (lv <= L) { const sc = SUBCOL[r.key + ':' + r.sub + ':' + nm]; add(r.key + ':' + nm, nm, d, `${c.name} ${lv}`, o || sc ? { ...(o || {}), cls: (o && o.cls) || r.key, ...(sc ? { col: sc } : {}) } : o, { cls: r.key }); } });
     const s = subOf(r);
     if (s) s.features.forEach(([lv, nm, d, o]) => { if (lv <= L) add(r.key + ':' + r.sub + ':' + nm, nm, d, `${s.name} ${lv}`, o, { cls: r.key }); });
     (r.extraSubs || []).forEach(k => { const s2 = c.subclasses[k]; if (s2 && k !== r.sub) s2.features.forEach(([lv, nm, d, o]) => { if (lv <= xsubCap(r, k)) add(r.key + ':' + k + ':' + nm, nm, d, `${s2.name} ${lv}`, o, { cls: r.key }); }); });
@@ -41,7 +43,8 @@ function rebuildAuto() {
   Object.entries(S.picks || {}).forEach(([type, names]) => {
     const op = DND.options[type]; if (!op) return;
     const owner = (PICK_OWNER[type] || []).find(k => clsLv(k)) || '';
-    (names || []).forEach(n => { const o = op.list.find(x => x[0] === n); add('pick:' + type + ':' + n, type === 'fightingStyle' ? 'Fighting Style: ' + n : n, o ? o[1] : '', op.label, null, { cls: owner, kind: 'pick' }); });
+    const named = out.some(f => f.name === op.label); // (a pick for a feature with a card of its own reads "Totem Spirit: Bear", not just "Bear")
+    (names || []).forEach(n => { const o = op.list.find(x => x[0] === n); add('pick:' + type + ':' + n, type === 'fightingStyle' ? 'Fighting Style: ' + n : named ? op.label + ': ' + n : n, o ? o[1] : '', op.label, null, { cls: owner, kind: 'pick' }); });
   });
   S.features = out.concat(S.features.filter(f => !f.auto));
   // Always-prepared and racial spells
@@ -64,6 +67,12 @@ function rebuildAuto() {
   // Magic Initiate: the two cantrips and the once-per-long-rest 1st-level spell you chose, cast with that class's ability
   if (hasFeat('Magic Initiate')) { const c = MI_CLS.find(x => x[0] === (S.featCls || {})['Magic Initiate']) || MI_CLS[5];
     ((S.grantSpells || {})['Magic Initiate'] || []).forEach(n => want.push({ n, cls: 'feat', src: 'Magic Initiate (' + c[3] + ')', note: N((SPI(n) || {}).level) > 0 ? 'once per long rest' : '', once: N((SPI(n) || {}).level) > 0, ab: c[2], featAb: true })); }
+  // Feats that teach set spells plus ones you chose (Fey Touched: misty step and a divination or enchantment spell), each once
+  // per long rest without a slot; cast with the ability the feat raised (or the one it names)
+  (S.feats || []).forEach(fn => { const ft = DND.feats.find(x => x[0] === fn), pk = ft && ft[4] && ft[4].pick; if (!pk) return;
+    const ch = (S.featChoices || {})[fn] || {}, ab = pk.ab === 'asi' ? ([].concat(ch.asi || [])[0] || 'cha') : pk.ab;
+    (pk.fixed || []).concat(...pk.picks.map(p => [].concat(ch[p.key] || []))).filter(Boolean).forEach(n => { const lv = N((SPI(n) || {}).level);
+      want.push({ n, cls: 'feat', src: fn, note: lv > 0 ? 'once per long rest without a slot' : '', once: lv > 0, ab, featAb: true }); }); });
   // Spells an item lets you cast, while you're using it (equipped, or carried if ticked; attuned if it needs it)
   S.inventory.forEach(it => { if (!hbItemOn(it)) return; const st = itemStores(it); (it.spells || []).forEach(n => want.push({ n, cls: 'other', src: it.name, note: st ? 'stored — gone once cast' : it.spellAtWill ? 'at will' : it.spellOnce ? 'once per long rest' : '', once: !st && !!it.spellOnce && !it.spellAtWill, atWill: !st && !!it.spellAtWill, stored: st, lvl: N((it.spellLevels || {})[n]), ab: (it.hb && it.hb.spellAb) || '', itemId: it.id })); });
   const keyOf = (n, cls) => n.toLowerCase() + '|' + cls;
@@ -148,7 +157,7 @@ function choiceOptions(def, ctx) {
     case 'feat': return bookSort(DND.feats, f => f[1], f => f[0]).map(f => [f[0], f[0] + (f[2] ? ` (${f[2]})` : '') + (f[1] !== 'PHB' ? ` · ${f[1]}` : '')]);
     case 'cantrip': if (Array.isArray(def.list)) return def.list.map(n => [n, n]);
       return DND.spells.filter(s => s.level === 0 && s.classes.includes(def.list)).sort((a, b) => abc(a.name, b.name)).map(s => [s.name, s.name]);
-    case 'spellpick': return DND.spells.filter(s => s.level === def.level && (!def.ritual || s.ritual) && (def.list === 'any' || s.classes.includes(def.list))).sort((a, b) => abc(a.name, b.name)).map(s => [s.name, `${s.name} — ${s.summary}`]);
+    case 'spellpick': return DND.spells.filter(s => s.level === def.level && (!def.ritual || s.ritual) && (!def.schools || def.schools.includes(s.school)) && (def.list === 'any' || s.classes.includes(def.list))).sort((a, b) => abc(a.name, b.name)).map(s => [s.name, `${s.name} — ${s.summary}`]);
     case 'option': return def.options.map(([n, d]) => [n, `${n} — ${d}`]);
     case 'weapon': return DND.weapons.filter(w => !def.from || w[1] === def.from).map(w => [w[0], w[0]]);
     default: {
@@ -186,6 +195,8 @@ function featSubDefs(name) {
   if (e.expertise) defs.push({ type: 'expertise', n: e.expertise });
   if (e.langs) defs.push({ type: 'language', n: e.langs });
   if (e.element) defs.push({ type: 'element', n: 1, label: 'Damage type' });
+  // Feats that teach a spell you choose (Fey Touched, Shadow Touched, Wood Elf Magic…): each choice is kept under its own key
+  if (e.pick) e.pick.picks.forEach(p => defs.push({ type: 'spellpick', key: p.key, n: p.n || 1, level: p.level, list: p.list || 'any', schools: p.schools, label: p.label }));
   return defs;
 }
 function featSubUI(CH, id, name) {
@@ -214,7 +225,7 @@ function applyFeat(name, CH, id) {
   if (e.skillFixed) { const sk = S.skills.find(x => x.name.toLowerCase() === e.skillFixed.toLowerCase()), tl = (S.tools || []).find(x => x.name.toLowerCase() === e.skillFixed.toLowerCase()); setSkill(e.skillFixed, (sk && N(sk.prof) >= 1) || tl ? 2 : 1); }
   const defs = featSubDefs(name), store = {};
   defs.forEach((d, k) => {
-    const v = ansList(CH, id + '.' + k); store[d.type] = v;
+    const v = ansList(CH, id + '.' + k); store[d.key || d.type] = v;
     if (d.type === 'asi') v.forEach(a => { bump(a, 1); if (e.saveProfFromAsi) S.saves[a] = true; });
     if (d.type === 'skill') v.forEach(n => setSkill(n, 1));
     if (d.type === 'expertise') v.forEach(n => setSkill(n, 2));
@@ -1333,6 +1344,35 @@ function openMagicInitiate() {
   const CH = { 'g.0': have.filter(n => N((SPI(n) || {}).level) === 0).slice(0, 2), 'g.1': have.filter(n => N((SPI(n) || {}).level) === 1).slice(0, 1) };
   GRANT = { mi: true, cls, o: 'Magic Initiate', fx: { grant: miGrant(cls) }, CH }; renderGrantPicker();
 }
+// A feature that asks you to choose (Totem Spirit, Hunter's Prey, Dragon Ancestor…): what it asks for, and how many by now.
+function featOptDefs(f) {
+  const r = f.cls && clsRows().find(x => x.key === f.cls); if (!r) return [];
+  const c = CL[r.key], s = subOf(r), L = N(r.level), need = {};
+  (c.choices || []).concat((s && s.choices) || []).forEach(ch => { const op = DND.options[ch.type]; if (op && op.label === f.name && ch.level <= L) need[ch.type] = (need[ch.type] || 0) + (ch.n || 1); });
+  return Object.entries(need).map(([type, n]) => ({ type, n }));
+}
+// Choose (or change) it right on the feature card: a list of the options, each with what it does
+function openOptPick(type, cls) {
+  const op = DND.options[type]; if (!op) return; const have = (S.picks || {})[type] || [];
+  const opts = choiceOptions({ type }, { cls: CL[cls] ? cls : '' });
+  openModal(`<div id="optm"><h3>${esc(op.label)}</h3><p class="hint" style="margin:0 0 10px">${have.length ? 'Your choice is highlighted. Pick another to change it.' : 'Pick one.'}</p>
+    <div class="pendopts">${opts.map(([v, t, no]) => { const e = op.list.find(x => x[0] === v) || []; return `<button class="pendopt${have.includes(v) ? ' on' : ''}" data-act="optset" data-t="${esc(type)}" data-v="${esc(v)}" ${no ? 'disabled' : ''}><b>${esc(v)}</b><small>${esc(e[1] || '')}${e[2] ? ` · ${esc(e[2])}` : ''}${no ? ` · ${esc(no)}` : ''}</small></button>`; }).join('')}</div>
+    <div class="actions"><button class="btn" data-act="close">Cancel</button></div></div>`, null, true);
+}
+function setOptPick(type, v) {
+  const op = DND.options[type]; if (!op) return; S.picks = S.picks || {};
+  const old = (S.picks[type] || [])[0]; S.picks[type] = [v];
+  // the matching Unfinished choice counts as made
+  if (old && S.grantSpells) delete S.grantSpells[old];
+  closeModal(true); pendingLabel = op.label + ': ' + v; rebuildAuto(); save(); render();
+  toast(`<b>${esc(op.label)}:</b> ${esc(v)}`, '', 5000, { label: 'Undo', fn: () => undo(1) });
+}
+// A feat's chosen spells (Fey Touched, Wood Elf Magic…), from its feature card
+function openFeatSpells(fn) {
+  const defs = featSubDefs(fn).filter(d => d.type === 'spellpick'); if (!defs.length) return;
+  const ch = (S.featChoices || {})[fn] || {}, CH = {}; defs.forEach((d, j) => { CH['g.' + j] = [].concat(ch[d.key] || []); });
+  GRANT = { feat: fn, o: fn, fx: { grant: defs }, CH }; renderGrantPicker();
+}
 function renderGrantPicker() {
   const t = GRANT; if (!t) return;
   const html = `<div id="grantm"><h3>${esc(t.o)}</h3>${t.mi ? `<p class="hint" style="margin:0 0 8px">Pick a class, then two of its cantrips and one of its 1st-level spells. You cast them with that class's ability (${esc((MI_CLS.find(x => x[0] === t.cls) || [])[2] || '').toUpperCase()}); the 1st-level spell once per long rest without a slot (or with your own slots, if you have them).</p>
@@ -1357,7 +1397,7 @@ function owedChoices() {
       out.push({ id, def: ch, cls: r.key, lvl: ch.level, label: `${c.name} ${ch.level}: ${ch.label || choiceLabel(ch)}${(ch.n || 1) > 1 ? ' × ' + ch.n : ''}` }); });
   });
   // Choices inside feats (Elemental Adept's damage type, Resilient's ability…) that were never made.
-  (S.feats || []).forEach(n => featSubDefs(n).forEach((d, k) => { const have = ((S.featChoices || {})[n] || {})[d.type]; if (!have || [].concat(have).length < (d.n || 1)) out.push({ id: `feat.${n}.${k}`, def: d, feat: n, label: `${n}: ${d.label || choiceLabel(d)}` }); }));
+  (S.feats || []).forEach(n => featSubDefs(n).forEach((d, k) => { const have = ((S.featChoices || {})[n] || {})[d.key || d.type]; if (!have || [].concat(have).length < (d.n || 1)) out.push({ id: `feat.${n}.${k}`, def: d, feat: n, label: `${n}: ${d.label || choiceLabel(d)}` }); }));
   // Notes left for the player: things to decide or check that the sheet can't pick for them.
   // A decision either asks for a pick (skill, language, tool…) or offers a few outcomes to choose between.
   (S.decisions || []).forEach(d => out.push({ id: 'dec.' + d.id, dec: true, text: d.text, def: d.def ? Object.assign({}, d.def) : d.options ? { type: 'decide', options: d.options } : { type: 'note' }, label: d.title }));
@@ -1389,8 +1429,8 @@ function pendApply(id) {
   let note;
   if (o.def.type === 'asiOrFeat') { note = applyAsiOrFeat(PEND.ans, id); S.answered[id] = (PEND.ans[id] || []).slice(); }
   else { const v = ansList(PEND.ans, id);
-    if (o.feat) { const ft = DND.feats.find(x => x[0] === o.feat), e = (ft && ft[4]) || {}; if (o.def.type === 'asi') v.forEach(a => { S.abilities[a] = Math.min(20, N(S.abilities[a]) + 1); if (e.saveProfFromAsi) S.saves[a] = true; }); else if (o.def.type !== 'element') applyChoice(o.def, v, PEND.ans, id);
-      S.featChoices = S.featChoices || {}; S.featChoices[o.feat] = Object.assign({}, S.featChoices[o.feat], { [o.def.type]: v }); }
+    if (o.feat) { const ft = DND.feats.find(x => x[0] === o.feat), e = (ft && ft[4]) || {}; if (o.def.type === 'asi') v.forEach(a => { S.abilities[a] = Math.min(20, N(S.abilities[a]) + 1); if (e.saveProfFromAsi) S.saves[a] = true; }); else if (o.def.type !== 'element' && o.def.type !== 'spellpick') applyChoice(o.def, v, PEND.ans, id);
+      S.featChoices = S.featChoices || {}; S.featChoices[o.feat] = Object.assign({}, S.featChoices[o.feat], { [o.def.key || o.def.type]: v }); }
     else applyChoice(o.def, v, PEND.ans, id);
     S.answered[id] = v; note = v.join(', '); }
   rebuildAuto(); pendingLabel = o.label + (note ? ': ' + note : ''); save(); render(); renderPending();

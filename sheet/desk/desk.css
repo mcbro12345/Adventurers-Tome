@@ -1647,3 +1647,11 @@ html[data-pgtheme="light"] .dk-acct.lit::before, html[data-pgtheme="light"] .dk-
 .dk-rcard .rc-dmg { grid-column: 3; align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 76px; padding-left: 18px; border-left: 1px solid var(--line); }
 .dk-rcard .rc-dmg b { font: 700 2.6rem/1 Georgia, "Times New Roman", serif; color: var(--ink); }
 @media (max-width: 640px) { .dk-rcard .rc-dmg { min-width: 60px; padding-left: 14px; } .dk-rcard .rc-dmg b { font-size: 2.1rem; } }
+
+/* Right-click (or long-press) menus: an icon before each item */
+.dk-ctx .dk-mlist button { display: flex; align-items: center; gap: 10px; }
+.dk-ctx .dk-mlist button .dk-ci { width: 16px; height: 16px; flex: none; opacity: .75; }
+.dk-ctx .dk-mlist button.red .dk-ci { opacity: 1; }
+.dk-ctx .dk-mlist button > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dk-ctx .dk-ctxh > svg { width: 18px; height: 18px; flex: none; color: var(--gold); }
+.dk-rail .dk-tc, .dk-rail .dk-tsn, .dk-ntrow { -webkit-touch-callout: none; }

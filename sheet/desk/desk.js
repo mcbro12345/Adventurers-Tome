@@ -1816,6 +1816,7 @@ async function onClick(e) {
   if (dHistClick(b)) return; { const l = dLabelFrom(b); if (l) dPend(l); }
   const act = b.dataset.act, iid = b.dataset.iid, x = iid ? findInst(iid) : null;
   if (act !== 'menu') closeMenus();
+  if (b.closest('.dk-ctx')) nCtxClose(); // (a right-click menu closes once you pick from it)
   if (b.tagName === 'A') return;
   switch (act) {
     case 'close': return closeModal();
@@ -1874,8 +1875,9 @@ async function onClick(e) {
     case 'addgroup': { const s = curSession(); return askText('New group', 'Encounter ' + (s.groups.length + 1), v => { s.groups.push({ id: 'g' + uid(), name: v, notes: '', list: [] }); save(); paint(); }, { okLabel: 'Add group', hint: 'One per fight or area, so a session can hold the whole night.' }); }
     case 'delgroup': { const s = curSession(), g = s.groups.find(z => z.id === b.dataset.gid); if (!g) return; const go = () => { s.groups = s.groups.filter(z => z !== g); save(); paint(); }; return g.list.length ? confirmBox(`Delete <b>${esc(g.name)}</b> and its ${plural(g.list.length, 'creature')}?`, 'Delete group', go, true) : go(); }
     case 'restall': { const s = curSession(); return confirmBox('Reset every creature in this session to full HP, with conditions cleared and every use back?', 'Reset all', () => { sessionInsts(s).forEach(restInst); save(); paint(); toastInfo('Everyone is fresh.'); }); }
-    case 'dupsess': { const s = clone(curSession()); s.id = 's' + uid(); s.title = s.title + ' (copy)'; s.made = Date.now(); s.groups.forEach(g => { g.id = 'g' + uid(); g.list.forEach(z => { z.iid = 'i' + uid(); restInst(z); z.tg = ''; }); }); S.sessions.unshift(s); UI.session = s.id; UI.sel = ''; save(); paint(); return toastInfo('Session copied, with everyone reset.'); }
-    case 'delsess': { const s = curSession(); return confirmBox(`Delete the session <b>${esc(s.title)}</b> and its ${plural(sessionInsts(s).length, 'creature')}? This can’t be undone.`, 'Delete session', () => { S.sessions = S.sessions.filter(z => z !== s); UI.session = ''; UI.sel = ''; save(); paint(); }, true); }
+    case 'renamesess': { UI.session = b.dataset.sid; UI.sel = ''; UI.tab = 'sessions'; UI.tree = false; saveUI(); paint(); const t = $('#dk-stitle'); if (t) { t.focus(); t.select(); } return; }
+    case 'dupsess': { if (b.dataset.sid) UI.session = b.dataset.sid; const s = clone(curSession()); s.id = 's' + uid(); s.title = s.title + ' (copy)'; s.made = Date.now(); s.groups.forEach(g => { g.id = 'g' + uid(); g.list.forEach(z => { z.iid = 'i' + uid(); restInst(z); z.tg = ''; }); }); S.sessions.unshift(s); UI.session = s.id; UI.sel = ''; save(); paint(); return toastInfo('Session copied, with everyone reset.'); }
+    case 'delsess': { if (b.dataset.sid) UI.session = b.dataset.sid; const s = curSession(); return confirmBox(`Delete the session <b>${esc(s.title)}</b> and its ${plural(sessionInsts(s).length, 'creature')}? This can’t be undone.`, 'Delete session', () => { S.sessions = S.sessions.filter(z => z !== s); UI.session = ''; UI.sel = ''; save(); paint(); }, true); }
     case 'toall': { const s = curSession(); return sendToTurn(sessionInsts(s).filter(z => !z.down), 'everyone in ' + s.title); }
     case 'togroup': { const g = curSession().groups.find(z => z.id === b.dataset.gid); return g && sendToTurn(g.list.filter(z => !z.down), g.name); }
     case 'toone': return x && sendToTurn([x], x.name);
@@ -2066,7 +2068,8 @@ function mount(root, ctx) {
   on(root, 'mousedown', e => { const t = e.target.closest && e.target.closest('[data-ed],[data-auto]'); if (!t) return; e.preventDefault(); if (t.dataset.ed) edCmd(t.dataset.ed); else edAutoPick(N(t.dataset.auto)); });
   on(root, 'paste', e => { if (e.target.closest && e.target.closest('.dk-ed')) edPaste(e); });
   on(root, 'dragstart', e => { onDragStart(e); if (DRAG) ROOT.classList.add('dk-dragon'); }); on(root, 'dragover', onDragOver); on(root, 'drop', e => { dPend('Move'); onDrop(e); ROOT.classList.remove('dk-dragon'); }); on(root, 'dragend', () => { DRAG = null; ROOT.classList.remove('dk-dragon'); $$('.dragging').forEach(x => x.classList.remove('dragging')); });
-  on(root, 'mouseover', onNotesOver); on(root, 'contextmenu', nCtx); on(window, 'beforeunload', notesLeave); on(window, 'pagehide', notesLeave); on(document, 'visibilitychange', () => { if (document.hidden) notesLeave(); else notesRefresh(); });
+  on(root, 'mouseover', onNotesOver); on(root, 'contextmenu', e => { if (!sCtx(e)) nCtx(e); }); on(root, 'pointerdown', ctxLongPress); on(root, 'pointermove', ctxLongMove); on(root, 'pointerup', ctxLongEnd); on(root, 'pointercancel', ctxLongEnd);
+  root.addEventListener('click', e => { if (LP && LP.fired) { const own = LP.row.contains(e.target); LP = null; if (own) { e.preventDefault(); e.stopPropagation(); } } }, true); // (the tap that ends a long press doesn't also open the row) on(window, 'beforeunload', notesLeave); on(window, 'pagehide', notesLeave); on(document, 'visibilitychange', () => { if (document.hidden) notesLeave(); else notesRefresh(); });
   on(document, 'keydown', onKey); on(document, 'mousedown', onDocDown); on(document, 'touchstart', onDocDown, { passive: true });
   on(window, 'message', onR20Msg); on(document, 'visibilitychange', onVis); on(window, 'storage', onStorage);
   setTimeout(r20Hello, 400);
@@ -3646,19 +3649,58 @@ function onNotesAct(act, b, e) {
   return false;
 }
 // Right-click a page in the list: the page's menu, right there
+// Icons for right-click menus (one stroke style, like the toolbar's)
+const CI = (d) => `<svg class="dk-ci" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const CTXI = {
+  open: CI('<path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/>'),
+  copy: CI('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>'),
+  add: CI('<path d="M12 5v14M5 12h14"/>'),
+  reset: CI('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>'),
+  move: CI('<path d="M3 7h6l2 2h10v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="m13 14 2-2-2-2"/><path d="M8 12h7"/>'),
+  trash: CI('<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>'),
+  remove: CI('<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>'),
+  sub: CI('<path d="M6 4v10a2 2 0 0 0 2 2h10"/><path d="m15 12 4 4-4 4"/>'),
+  pin: CI('<path d="M12 17v5"/><path d="M8 3h8l-1 6 3 4H6l3-4z"/>'),
+  tag: CI('<path d="M20 12 12 20l-8-8V4h8z"/><circle cx="8.5" cy="8.5" r="1.3"/>'),
+  md: CI('<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>'),
+  rename: CI('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13 7 4 4"/>'),
+};
 function nCtxClose() { $$('.dk-ctx').forEach(m => m.remove()); }
-function nCtx(e) {
-  const row = e.target.closest && e.target.closest('.dk-ntrow[data-drag], .dk-nres[data-id], .dk-nhcard[data-id]'); if (!row || !ROOT.contains(row)) return;
-  const p = pageById(row.dataset.drag || row.dataset.id); if (!p) return;
-  e.preventDefault(); nCtxClose();
-  const m = document.createElement('div'); m.className = 'dk-menu open dk-ctx'; m.setAttribute('role', 'menu');
-  const it = (act, t, cls) => `<button data-act="${act}" data-pid="${p.id}"${act === 'nopen' ? ` data-id="${p.id}"` : ''}${cls ? ` class="${cls}"` : ''} role="menuitem">${t}</button>`;
-  m.innerHTML = `<div class="dk-mlist"><div class="dk-ctxh">${nIcon(p.type)}<b>${esc(p.title)}</b></div>${it('nsub', 'Add a subpage')}${it('nfav', p.fav ? 'Unpin' : 'Pin')}${it('nmove', 'Move to…')}${it('nalias', 'Other names…')}${it('nmd', 'Export as Markdown')}${it('ndel', 'Delete page', 'red')}</div>`;
+// Open a right-click menu at a point (also used by a long press on touch screens)
+function ctxOpen(html, x, y) {
+  nCtxClose(); const m = document.createElement('div'); m.className = 'dk-menu open dk-ctx'; m.setAttribute('role', 'menu'); m.innerHTML = `<div class="dk-mlist">${html}</div>`;
   ROOT.appendChild(m); const r = m.getBoundingClientRect();
-  m.style.left = Math.max(8, Math.min(e.clientX, innerWidth - r.width - 8)) + 'px'; m.style.top = Math.max(8, Math.min(e.clientY, innerHeight - r.height - 8)) + 'px';
+  m.style.left = Math.max(8, Math.min(x, innerWidth - r.width - 8)) + 'px'; m.style.top = Math.max(8, Math.min(y, innerHeight - r.height - 8)) + 'px';
   const off = ev => { if (ev.type === 'keydown' && ev.key !== 'Escape') return; if (ev.type === 'pointerdown' && m.contains(ev.target)) return; nCtxClose(); removeEventListener('pointerdown', off, true); removeEventListener('keydown', off, true); removeEventListener('scroll', off, true); removeEventListener('blur', off); };
   setTimeout(() => { addEventListener('pointerdown', off, true); addEventListener('keydown', off, true); addEventListener('scroll', off, true); addEventListener('blur', off); }, 0);
   const f = m.querySelector('button[data-act]'); if (f) f.focus({ preventScroll: true });
+}
+// Sessions list on the left: right-click a session or one of its creatures for what you can do with it
+function sCtx(e) {
+  const row = e.target.closest && e.target.closest('.dk-tc[data-iid], .dk-tsn[data-sid]'); if (!row || !ROOT.contains(row) || !row.closest('.dk-rail')) return false;
+  const it = (act, icon, t, attrs, cls) => `<button data-act="${act}" ${attrs}${cls ? ` class="${cls}"` : ''} role="menuitem">${CTXI[icon]}<span>${t}</span></button>`;
+  let h;
+  if (row.dataset.iid) { const iid = row.dataset.iid, x = findInst(iid), g = groupOf(iid); if (!x || !g) return false; const c = instC(x), a = `data-iid="${esc(iid)}" data-sid="${esc(g.s.id)}"`;
+    h = `<div class="dk-ctxh">${tokenHTML(c, 20)}<b>${esc(x.name)}</b></div>${it('sel', 'open', 'Open', a)}${c ? it('dup', 'add', 'Add another ' + esc(c.name), a) : ''}${it('rest', 'reset', 'Reset (full HP, uses back)', a)}${g.s.groups.length > 1 ? g.s.groups.filter(z => z !== g.g).map(z => it('movegrp', 'move', 'Move to ' + esc(z.name), a + ` data-gid="${esc(z.id)}"`)).join('') : ''}${it('rm', 'remove', 'Remove from session', a, 'red')}`; }
+  else { const sObj = S.sessions.find(z => z.id === row.dataset.sid); if (!sObj) return false; const a = `data-sid="${esc(sObj.id)}"`;
+    h = `<div class="dk-ctxh">${ICON.folder}<b>${esc(sObj.title)}</b></div>${it('opensess', 'open', 'Open', a)}${it('renamesess', 'rename', 'Rename', a)}${it('dupsess', 'copy', 'Duplicate session', a)}${it('delsess', 'trash', 'Delete session', a, 'red')}`; }
+  e.preventDefault(); ctxOpen(h, e.clientX, e.clientY); return true;
+}
+// A long press on a touch screen opens the same menu
+let LP = null;
+function ctxLongPress(e) {
+  if (e.pointerType !== 'touch' || !e.target.closest) return; const row = e.target.closest('.dk-rail .dk-tc[data-iid], .dk-rail .dk-tsn[data-sid], .dk-ntrow[data-drag]'); if (!row) return;
+  const x0 = e.clientX, y0 = e.clientY; clearTimeout(LP && LP.t);
+  LP = { row, t: setTimeout(() => { LP.fired = true; const ev = { target: row, clientX: x0, clientY: y0, preventDefault() {} }; if (!sCtx(ev)) nCtx(ev); try { navigator.vibrate && navigator.vibrate(12); } catch (x) {} }, 520), x0, y0 };
+}
+function ctxLongMove(e) { if (LP && !LP.fired && Math.hypot(e.clientX - LP.x0, e.clientY - LP.y0) > 10) { clearTimeout(LP.t); LP = null; } }
+function ctxLongEnd() { if (LP && !LP.fired) { clearTimeout(LP.t); LP = null; } }
+function nCtx(e) {
+  const row = e.target.closest && e.target.closest('.dk-ntrow[data-drag], .dk-nres[data-id], .dk-nhcard[data-id]'); if (!row || !ROOT.contains(row)) return;
+  const p = pageById(row.dataset.drag || row.dataset.id); if (!p) return;
+  e.preventDefault();
+  const it = (act, icon, t, cls) => `<button data-act="${act}" data-pid="${p.id}"${act === 'nopen' ? ` data-id="${p.id}"` : ''}${cls ? ` class="${cls}"` : ''} role="menuitem">${CTXI[icon]}<span>${t}</span></button>`;
+  ctxOpen(`<div class="dk-ctxh">${nIcon(p.type)}<b>${esc(p.title)}</b></div>${it('nsub', 'sub', 'Add a subpage')}${it('nfav', 'pin', p.fav ? 'Unpin' : 'Pin')}${it('nmove', 'move', 'Move to…')}${it('nalias', 'tag', 'Other names…')}${it('nmd', 'md', 'Export as Markdown')}${it('ndel', 'trash', 'Delete page', 'red')}`, e.clientX, e.clientY);
 }
 function onNotesClick(e) {
   if (UI.tab !== 'notes') return false;

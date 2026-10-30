@@ -467,7 +467,10 @@ function raceInfo() {
   if (S.race.key === 'custom') { const c = S.race.custom || {}; return { name: c.name || 'Custom race', size: c.size || 'Medium', speed: N(c.speed) || 30, darkvision: N(c.darkvision) || 0, fly: N(c.fly) || 0, swim: N(c.swim) || 0, traits: c.traits || [], languages: [] }; }
   const r = DND.races[S.race.key]; if (!r) return null; const s = (r.subraces || {})[S.race.sub] || {}; return { ...r, ...s, name: s.name || r.name, traits: (s.replaceTraits ? [] : r.traits || []).concat(s.traits || []) }; }
 // Senses: darkvision from your race (a subrace's value replaces the base race's), plus invocations that see in the dark.
-function darkvisionFt() { const r = raceInfo(); return Math.max(r ? N(r.darkvision) : 0, ravenOn() ? 30 : 0); }
+function darkvisionFt() { const r = raceInfo(); let d = Math.max(r ? N(r.darkvision) : 0, ravenOn() ? 30 : 0);
+  // features and effects that give darkvision (Umbral Sight, The Third Eye…): the longest one counts; darkvisionPlus: 60 ft, or +30 if you have it
+  if (typeof fxPassives === 'function') { fxPassives().forEach(p => { if (N(p.darkvision)) d = Math.max(d, N(evalMax(String(p.darkvision)))); }); fxPassives().forEach(p => { if (N(p.darkvisionPlus)) d = d ? d + N(p.darkvisionPlus) : 2 * N(p.darkvisionPlus); }); fxActive().forEach(e => { if (e.buff && N(e.buff.darkvision) && !e.ally) d = Math.max(d, N(e.buff.darkvision)); }); }
+  return d; }
 function sensesText() { const dv = darkvisionFt(), ds = (S.picks && (S.picks.invocation || []).includes("Devil's Sight")); return [dv ? `Darkvision ${dv} ft` : '', ds ? "Devil's Sight 120 ft" : ''].concat(fxList('sense')).filter(Boolean).join(' · '); }
 function speedInfo() {
   if (S.form) return { walk: parseInt((S.form.speed.match(/walk (\d+)/) || [0, 0])[1]) || 0, text: S.form.speed };
@@ -605,10 +608,12 @@ function attacksPerAction() {
   let n = 1;
   clsRows().forEach(r => { const c = CL[r.key], s = subOf(r); [c && c.extraAttack, s && s.extraAttack].forEach(t => { if (t) Object.keys(t).forEach(k => { if (N(r.level) >= N(k)) n = Math.max(n, t[k]); }); }); });
   if (hasFeature('Thirsting Blade')) n = Math.max(n, 2);
+  // effects that add attacks to your Attack action for a while (Dread Ambusher's first turn, Distant Strike…)
+  if (typeof fxActive === 'function') fxActive().forEach(e => { if (e.buff && N(e.buff.extraAtk) && !e.ally && e.self !== false) n += N(e.buff.extraAtk); });
   return n;
 }
 const canAttack = () => { const n = N(S.turn.attacks); return n < attacksPerAction() && !(S.turn.used.action && n === 0); };
-const critRange = () => { let c = 20; S.features.forEach(f => { if (f.crit && f.crit < c) c = f.crit; }); return c; };
+const critRange = () => { let c = 20; S.features.forEach(f => { if (f.crit && f.crit < c) c = f.crit; }); if (typeof fxActive === 'function') fxActive().forEach(e => { if (e.buff && N(e.buff.critRange) && !e.ally && N(e.buff.critRange) < c) c = N(e.buff.critRange); }); return c; }; // (an effect can widen it for a while: Invincible Conqueror 19–20)
 
 // ---------- Conditions → roll modes ----------
 let ROLL_CTX = '';

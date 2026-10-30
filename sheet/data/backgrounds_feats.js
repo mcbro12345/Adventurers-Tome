@@ -92,19 +92,19 @@ DND.feats = [
   ['Prodigy', 'XGE', 'Half-elf, half-orc or human', 'One skill, one tool, one language, and expertise in one skill.', { skills: 1, expertise: 1 }],
   ['Second Chance', 'XGE', 'Halfling', '+1 DEX, CON or CHA; reaction: force an attacker to reroll a hit.', { asi: ['dex', 'con', 'cha'], res: { max: '1', reset: 'short' } }],
   ['Squat Nimbleness', 'XGE', 'Dwarf or Small race', '+1 STR or DEX; +5 ft speed; Athletics or Acrobatics; advantage to escape grapples.', { asi: ['str', 'dex'], speed: 5 }],
-  ['Wood Elf Magic', 'XGE', 'Wood elf', 'Learn a druid cantrip; longstrider and pass without trace once per long rest.'],
+  ['Wood Elf Magic', 'XGE', 'Wood elf', 'Learn a druid cantrip; longstrider and pass without trace once per long rest.', { pick: { ab: 'wis', fixed: ['Longstrider', 'Pass without Trace'], picks: [{ key: 'cantrip', level: 0, list: 'D', label: 'Druid cantrip' }] } }],
   // Tasha's
-  ['Artificer Initiate', 'TCE', '', 'Learn an artificer cantrip and 1st-level spell; tinker\'s tools proficiency.'],
+  ['Artificer Initiate', 'TCE', '', 'Learn an artificer cantrip and 1st-level spell; tinker\'s tools proficiency.', { pick: { ab: 'int', picks: [{ key: 'cantrip', level: 0, list: 'A', label: 'Artificer cantrip' }, { key: 'spell', level: 1, list: 'A', label: 'Artificer 1st-level spell' }] } }],
   ['Chef', 'TCE', '', '+1 CON or WIS; cook\'s utensils; meals heal extra; treats grant temp HP.', { asi: ['con', 'wis'] }],
   ['Crusher', 'TCE', '', '+1 STR or CON; push targets 5 ft with bludgeoning hits; crits grant advantage to allies.', { asi: ['str', 'con'] }],
   ['Eldritch Adept', 'TCE', 'Spellcasting or Pact Magic', 'Learn one eldritch invocation.'],
-  ['Fey Touched', 'TCE', '', '+1 INT, WIS or CHA; learn misty step and one 1st-level divination or enchantment spell (each once per long rest free).', { asi: ['int', 'wis', 'cha'] }],
+  ['Fey Touched', 'TCE', '', '+1 INT, WIS or CHA; learn misty step and one 1st-level divination or enchantment spell (each once per long rest free).', { asi: ['int', 'wis', 'cha'], pick: { ab: 'asi', fixed: ['Misty Step'], picks: [{ key: 'spell', level: 1, schools: ['Divination', 'Enchantment'], label: '1st-level divination or enchantment spell' }] } }],
   ['Fighting Initiate', 'TCE', 'Martial weapon proficiency', 'Learn one fighting style.'],
   ['Gunner', 'TCE', '', '+1 DEX; firearm proficiency; ignore loading; no disadvantage in melee.', { asiFixed: { dex: 1 } }],
   ['Metamagic Adept', 'TCE', 'Spellcasting or Pact Magic', 'Learn two Metamagic options and gain 2 sorcery points.', { res: { max: '2', reset: 'long', name: 'Sorcery Points (Metamagic Adept)' } }],
   ['Piercer', 'TCE', '', '+1 STR or DEX; reroll a piercing damage die once per turn; extra die on crits.', { asi: ['str', 'dex'] }],
   ['Poisoner', 'TCE', '', 'Ignore poison resistance; apply potent poison as a bonus action; poisoner\'s kit.'],
-  ['Shadow Touched', 'TCE', '', '+1 INT, WIS or CHA; learn invisibility and one 1st-level illusion or necromancy spell.', { asi: ['int', 'wis', 'cha'] }],
+  ['Shadow Touched', 'TCE', '', '+1 INT, WIS or CHA; learn invisibility and one 1st-level illusion or necromancy spell (each once per long rest free).', { asi: ['int', 'wis', 'cha'], pick: { ab: 'asi', fixed: ['Invisibility'], picks: [{ key: 'spell', level: 1, schools: ['Illusion', 'Necromancy'], label: '1st-level illusion or necromancy spell' }] } }],
   ['Skill Expert', 'TCE', '', '+1 to any ability; one skill proficiency; expertise in one skill.', { asi: ['str', 'dex', 'con', 'int', 'wis', 'cha'], skills: 1, expertise: 1 }],
   ['Slasher', 'TCE', '', '+1 STR or DEX; slashing hits reduce speed by 10 ft; crits impose disadvantage.', { asi: ['str', 'dex'] }],
   ['Telekinetic', 'TCE', '', '+1 INT, WIS or CHA; invisible mage hand; bonus-action shove 5 ft (STR save).', { asi: ['int', 'wis', 'cha'] }],
@@ -123,5 +123,5 @@ DND.feats = [
   ['Strike of the Giants', 'BGG', 'Martial weapon proficiency', 'Once per turn, add a giant-themed effect to a weapon hit (prof/long rest).', { res: { max: 'prof', reset: 'long' } }],
   ['Vigor of the Hill Giant', 'BGG', 'Giant Foundling or Rune Shaper', '+1 STR, CON or WIS; resist being knocked prone or moved; extra healing.', { asi: ['str', 'con', 'wis'] }],
   // Eberron
-  ['Aberrant Dragonmark', 'WGtE', 'No other dragonmark', '+1 CON; learn a sorcerer cantrip and 1st-level spell; spend a Hit Die when casting it.', { asiFixed: { con: 1 } }]
+  ['Aberrant Dragonmark', 'WGtE', 'No other dragonmark', '+1 CON; learn a sorcerer cantrip and 1st-level spell; spend a Hit Die when casting it.', { asiFixed: { con: 1 }, pick: { ab: 'con', picks: [{ key: 'cantrip', level: 0, list: 'S', label: 'Sorcerer cantrip' }, { key: 'spell', level: 1, list: 'S', label: 'Sorcerer 1st-level spell' }] } }]
 ];
