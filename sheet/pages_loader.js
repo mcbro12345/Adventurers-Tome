@@ -1108,6 +1108,8 @@ function wireDie(root) {
     if (ME && user.photoURL && ME.gpic !== user.photoURL) { ME.gpic = user.photoURL; UREF.update({ gpic: user.photoURL }).catch(() => {}); } } catch (e) { ACCT_ERR = (e && e.code) || ''; console.warn('account record', e); }
   let NAME = (ME && ME.name) || user.displayName || EMAIL.split('@')[0];
   // Activity log (admins can read it): who did what, when.
+  // they say they've switched to the store extension: an admin's prompt to do so is done (the automatic one still comes back if their extension still says it's a developer copy)
+  window.pgExtNagClear = () => { if (ME) ME.extNag = 0; return UREF.update({ extNag: 0 }).catch(() => {}); };
   window.pgLog = (act, f = {}) => { try { const e = { at: Date.now(), by: EMAIL, byName: NAME, act };
     ['target', 'tName', 'detail'].forEach(k => { if (f[k] != null && f[k] !== '') e[k] = String(f[k]).slice(0, 1500); }); return fs.collection('audit').add(e).catch(() => {}); } catch (e) { return Promise.resolve(); } };
   // Going offline: closing the last tab of the site on this device logs it right away (when the browser lets the write
@@ -4857,7 +4859,7 @@ function pgRevealPanels() { try { if (matchMedia('(prefers-reduced-motion: reduc
       <div class="pg-out-row"><button type="button" class="pg-out-no" data-k="later">Remind me tomorrow</button><button type="button" class="pg-out-yes" data-k="reload">I’ve switched — reload</button></div></div>`;
     m.addEventListener('click', e => { const t = e.target.closest('button'); if (!t) { if (e.target === m) close(true); return; }
       if (t.dataset.copy) { const u = t.dataset.copy; (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => { t.classList.add('ok'); const c = t.querySelector('span'); if (c) c.textContent = '✓ Copied'; setTimeout(() => { t.classList.remove('ok'); if (c) c.textContent = '⧉'; }, 1800); }, () => { const r = document.createRange(); r.selectNodeContents(t.querySelector('code')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }); return; }
-      if (t.dataset.k === 'later') return close(true); if (t.dataset.k === 'reload') return location.reload(); });
+      if (t.dataset.k === 'later') return close(true); if (t.dataset.k === 'reload') { t.disabled = true; return Promise.resolve(NAG && window.pgExtNagClear ? Promise.race([window.pgExtNagClear(), new Promise(r => setTimeout(r, 4000))]) : 0).then(() => location.reload()); } });
     document.body.appendChild(m);
   }
   function close(snooze) { if (snooze) try { localStorage.setItem(SNOOZE, String(Date.now() + 864e5)); } catch (e) {} if (shown) { shown.remove(); shown = null; } }
