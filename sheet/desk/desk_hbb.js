@@ -67,7 +67,7 @@ function hbdPaint() {
   const box = document.getElementById('hbd'); if (!box || !HBD) return;
   const card = box.closest('.dk-mcard'), sc = card ? card.scrollTop : 0, o = HBD.opts;
   const adv = HBD.adv ? `<div class="hbb-adv">${hbdItemAdv()}<p class="dk-hint hbb-fhint">Numbers can be formulas: <code>prof</code>, <code>wis</code>, <code>level</code>, <code>1d6+prof</code>. Separate several entries with commas.</p></div>` : '';
-  box.innerHTML = `<div class="hbb-head"><span class="hbb-grow"></span><label class="hbb-switch" title="Show every option the sheet can automate"><input type="checkbox" data-hbdadv${HBD.adv ? ' checked' : ''}><span class="tr" aria-hidden="true"><i></i></span><span>Advanced</span></label></div>
+  box.innerHTML = `<div class="hbb-head">${HBD.opts.onPaste ? '<button type="button" class="dk-btn hbb-paste" data-hbdpaste title="Paste an item from a book, PDF or D&amp;D Beyond and it fills this in">Paste an item…</button>' : ''}<span class="hbb-grow"></span><label class="hbb-switch" title="Show every option the sheet can automate"><input type="checkbox" data-hbdadv${HBD.adv ? ' checked' : ''}><span class="tr" aria-hidden="true"><i></i></span><span>Advanced</span></label></div>
     <div class="hbb-body">${hbdItemBasic()}${adv}</div>
     <datalist id="hbd-spl">${hbdSpellNames().map(n => `<option value="${hbdEsc(n)}"></option>`).join('')}</datalist>
     <div class="dk-acts hbb-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn gold" data-hbdsave>${hbdEsc(o.saveLabel || (HBD.isNew ? 'Create item' : 'Save'))}</button></div>`;
@@ -196,7 +196,7 @@ document.addEventListener('change', e => { const t = e.target; if (!HBD || !t.cl
   if (t.dataset.hbd == null) return;
   hbdSet(HBD.d, t.dataset.hbd, t.type === 'checkbox' ? t.checked : t.value);
   if (t.tagName === 'SELECT' || t.type === 'checkbox' || /^_uses$/.test(t.dataset.hbd)) hbdPaint(); }, true);
-document.addEventListener('click', e => { if (!HBD) return; const b = e.target.closest && e.target.closest('#hbd [data-hbdseg], #hbd [data-hbdchip], #hbd [data-hbdsec], #hbd [data-hbdspdel], #hbd [data-hbdsave]'); if (!b) return;
+document.addEventListener('click', e => { if (!HBD) return; if (e.target.closest && e.target.closest('#hbd [data-hbdpaste]')) { const f = HBD.opts.onPaste; if (f) f(); return; } const b = e.target.closest && e.target.closest('#hbd [data-hbdseg], #hbd [data-hbdchip], #hbd [data-hbdsec], #hbd [data-hbdspdel], #hbd [data-hbdsave]'); if (!b) return;
   e.preventDefault(); e.stopPropagation();
   if (b.dataset.hbdseg) { hbdSet(HBD.d, b.dataset.hbdseg, b.dataset.v); return hbdPaint(); }
   if (b.dataset.hbdchip) { const p = b.dataset.hbdchip, v = b.dataset.v, have = hbdCSV(hbdV(p) || ''), on = have.some(x => x.toLowerCase() === v.toLowerCase()); hbdSet(HBD.d, p, (on ? have.filter(x => x.toLowerCase() !== v.toLowerCase()) : have.concat([v.toLowerCase()])).join(', ')); return hbdPaint(); }

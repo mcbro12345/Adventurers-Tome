@@ -4559,7 +4559,8 @@ function lootWire() {
   const flip = (els, fn) => { const b = new Map(els.map(x => [x, x.getBoundingClientRect().top])); fn(); els.forEach(x => { const dy = b.get(x) - x.getBoundingClientRect().top; if (!dy) return; x.style.transition = 'none'; x.style.transform = `translateY(${dy}px)`; requestAnimationFrame(() => { x.style.transition = 'transform .16s ease'; x.style.transform = ''; }); }); };
   root.addEventListener('pointerdown', e => { const g = e.target.closest && e.target.closest('.dk-lgrip'); if (!g || e.button > 0) return; const r = g.closest('.dk-lr'); if (!r) return; e.preventDefault();
     const b = r.getBoundingClientRect(), gh = r.cloneNode(true); gh.classList.add('dk-lghost');
-    Object.assign(gh.style, { position: 'fixed', left: b.left + 'px', top: b.top + 'px', width: b.width + 'px', margin: 0, zIndex: 80, pointerEvents: 'none' }); document.body.appendChild(gh);
+    const cs = getComputedStyle(root); /* (the desk's colours live on the desk, not the page, so the carried copy takes them with it) */
+    Object.assign(gh.style, { position: 'fixed', left: b.left + 'px', top: b.top + 'px', width: b.width + 'px', margin: 0, zIndex: 80, pointerEvents: 'none', background: cs.getPropertyValue('--card2').trim() || '#20283a', borderColor: cs.getPropertyValue('--gold').trim() || '#c9962b', color: cs.getPropertyValue('--ink').trim() || cs.color, opacity: 1 }); document.body.appendChild(gh);
     r.classList.add('dragging'); document.body.classList.add('dk-ldragging'); D = { r, gh, dy: e.clientY - b.top, y: e.clientY, from: r.closest('.dk-lbox').dataset.lbox || '', over: null, raf: 0 };
     try { g.setPointerCapture(e.pointerId); } catch (x) {}
     const step = () => { if (!D) return; D.raf = 0; const inv = root.getBoundingClientRect(), h = D.gh.offsetHeight, top = Math.max(inv.top, Math.min(inv.bottom - h, D.y - D.dy)); D.gh.style.top = top + 'px';
@@ -4574,7 +4575,14 @@ function lootWire() {
       const sc = root.closest('.dk-main') || document.scrollingElement, edge = 60; if (D.y < edge) sc.scrollBy(0, -12); else if (D.y > innerHeight - edge) sc.scrollBy(0, 12); if (D.y < edge || D.y > innerHeight - edge) D.raf = requestAnimationFrame(step); };
     D.step = step; step(); });
   root.addEventListener('pointermove', e => { if (!D) return; D.y = e.clientY; if (!D.raf) D.raf = requestAnimationFrame(D.step); });
-  const end = e => { if (!D) return; const d = D; D = null; cancelAnimationFrame(d.raf); d.gh.remove(); document.body.classList.remove('dk-ldragging'); d.r.classList.remove('dragging'); root.querySelectorAll('.dk-lbox.over').forEach(x => x.classList.remove('over'));
+  // let go: the carried copy glides into its new spot (or onto the closed container it's going into), then the row is back
+  const end = e => { if (!D) return; const d = D; D = null; cancelAnimationFrame(d.raf); document.body.classList.remove('dk-ldragging');
+    const land = () => { d.gh.remove(); d.r.classList.remove('dragging'); root.querySelectorAll('.dk-lbox.over').forEach(x => x.classList.remove('over')); drop(e, d); };
+    if (e.type === 'pointercancel' || !document.contains(d.r) || matchMedia('(prefers-reduced-motion: reduce)').matches) return land();
+    const to = (d.over ? d.over.querySelector('.dk-lsh') || d.over : d.r).getBoundingClientRect(), gs = d.gh.style;
+    gs.transition = 'top .2s cubic-bezier(.2,.8,.3,1), box-shadow .2s, opacity .2s, transform .2s'; requestAnimationFrame(() => { gs.top = to.top + 'px'; gs.boxShadow = '0 0 0 rgba(0,0,0,0)'; if (d.over) { gs.opacity = '0'; gs.transform = 'scale(.97)'; } });
+    let done = false; const fin = () => { if (done) return; done = true; land(); }; d.gh.addEventListener('transitionend', ev => { if (ev.propertyName === 'top') fin(); }); setTimeout(fin, 320); };
+  const drop = (e, d) => {
     if (e.type === 'pointercancel' || !document.contains(d.r)) return paint();
     const it = lootById(d.r.dataset.lid); if (!it) return paint();
     const sec = d.over || d.r.closest('.dk-lbox'), to = sec ? sec.dataset.lbox || '' : d.from, moved = (lootBoxOf(it) ? it.box : '') !== to; const ch = [];
@@ -4637,10 +4645,11 @@ function lootCatalog() {
         runOk(() => lootAdd({ kind: 'named', name: r.n, qty: 1, rarity: r.rar || '', cat: r.cat }).then(() => setTimeout(() => { if (b.isConnected) { b.disabled = false; b.querySelector('.dk-lci-add').textContent = 'Add another'; } }, 900))); }); };
     q.oninput = show; show(); });
 }
-function lootPaste() {
+function lootPaste(back) {
   openModal(`<h2>Paste an item</h2><p class="dk-hint">Paste a magic item from a book, PDF or D&amp;D Beyond — name, the type line, then its text. You can check and change it before it goes into your loot.</p>
     <textarea class="dk-f" id="dk-lpaste" rows="10" placeholder="Flame Tongue&#10;Weapon (any sword), rare (requires attunement)&#10;You can use a bonus action to speak this magic sword’s command word…"></textarea>
-    <div class="dk-acts"><button class="dk-btn" data-act="close">Cancel</button><button class="dk-btn gold" id="dk-lpgo">Read item</button></div>`, { wide: true });
+    <div class="dk-acts">${back ? '<button class="dk-btn" id="dk-lpback">Back</button>' : '<button class="dk-btn" data-act="close">Cancel</button>'}<button class="dk-btn gold" id="dk-lpgo">Read item</button></div>`, { wide: true });
+  if (back) $('#dk-lpback').onclick = () => lootBuild(null); setTimeout(() => { const t = $('#dk-lpaste'); if (t) t.focus(); }, 50);
   $('#dk-lpgo').onclick = () => { const r = ItemParse.parse($('#dk-lpaste').value, { weapons: T.WEAPONS || [], armor: T.ARMOR || [], spells: SPELLN() }); const v = r && shapeHB(r.spec); if (!v) return toastInfo('That didn’t look like an item — the first line should be its name.');
     closeModal(true); lootBuild(itemFromSpec(v), 'Check the pasted item'); };
 }
@@ -4656,7 +4665,7 @@ function lootAIModal() {
 // the sheet's item builder (desk_hbb.js), then into the loot
 function lootBuild(item, title) {
   if (typeof hbdOpen !== 'function') return toastInfo('The item builder didn’t load — reload the page.');
-  hbdOpen(item, { title: title || (item ? 'Edit homebrew item' : 'New homebrew item'), saveLabel: 'Add to loot', onSave: it => runOk(() => lootAddItem(it)) });
+  hbdOpen(item, { title: title || (item ? 'Edit homebrew item' : 'New homebrew item'), saveLabel: 'Add to loot', onSave: it => runOk(() => lootAddItem(it)), onPaste: () => lootPaste(true) });
 }
 async function lootGiveModal(e, who) {
   if (!CTX.lootGive) return; const coins = e.kind === 'coins';

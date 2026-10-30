@@ -1885,6 +1885,6 @@ html[data-pgtheme="light"] .dk-acct.lit::before, html[data-pgtheme="light"] .dk-
 
 /* dragging a loot row: it stays in the one column */
 .dk-lgrip { cursor: grab; touch-action: none; user-select: none; padding: 4px 4px; }
-.dk-lghost { background: var(--card2); color: var(--ink); border: 1px solid var(--gold); border-radius: 10px; box-shadow: 0 10px 28px rgba(0,0,0,.45); opacity: .96; cursor: grabbing; }
+.dk-lghost { background: var(--card2); color: var(--ink); border: 1px solid var(--gold); border-radius: 10px; box-shadow: 0 10px 28px rgba(0,0,0,.45); opacity: 1; cursor: grabbing; }
 body.dk-ldragging, body.dk-ldragging * { cursor: grabbing !important; user-select: none; }
 .dk-lr.dragging { opacity: .25; }
