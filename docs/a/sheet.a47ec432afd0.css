@@ -4329,7 +4329,9 @@ html:not(.mobile) #tabs .tab > .tabcount { z-index: 3; }
 :root[data-theme="dark"] header.banner { border-bottom-color: color-mix(in srgb, var(--gold) 35%, transparent); box-shadow: 0 10px 30px rgba(0,0,0,.35); }
 /* the banner's toolbar buttons: the lobby's dark rounded buttons */
 :root[data-theme="dark"] .tbtn:not(.gold) { background: rgba(36,45,64,.85); border-color: transparent; border-radius: 11px; }
-@media (hover:hover){:root[data-theme="dark"]:not(.mobile) .tbtn:not(.gold):not([disabled]):hover{ background: var(--site-btn-h); filter: none; }}
+@media (hover:hover){:root[data-theme="dark"]:not(.mobile) .tbtn:not(.gold):not(.on):not([disabled]):hover{ background: var(--site-btn-h); filter: none; }}
+/* (a pressed-in toolbar button — Done editing — stays gold under the pointer, just a touch brighter) */
+@media (hover:hover){:where(html:not(.mobile)) .tbtn.on:not([disabled]):hover{ background: var(--gold); color: var(--on-gold, #1D2536); filter: brightness(1.1); }}
 :root[data-theme="dark"] .tbtn.gold { border-color: transparent; border-radius: 11px; color: var(--on-gold, #1b1406); }
 /* round toggles and boxes inside cards (ability scores, saves and the like): the lobby's soft tiles */
 :root[data-theme="dark"] .panel .tile { background-color: rgba(255,255,255,.035); outline-color: var(--site-edge2); box-shadow: none; }
@@ -4851,4 +4853,63 @@ html.mobile :is(.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-
 /* (all the round close buttons draw their ✕ in the same font, so it's the same size and weight everywhere) */
 html.mobile #tipbox .tipx, html.mobile :is(.dr-x, .rc-x, .pcw-b[data-pcw="x"], .to-c, .mw-x, .dk-mwx, .pcp-x, .bg-vx) { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif !important; font-weight: 400 !important; }
 html.mobile .rc-x svg { display: none; } html.mobile .rc-x::before { content: '✕'; }
+/* Pop-up lists on phones: no stretch past their ends (Safari honours this on its own scrolling lists). */
+html.mobile :is(.modal-bg, #modal, .modal, .setx, #modal-body, #tipbox, .wz-body) { overscroll-behavior: none; }
+/* …except Settings' own list: it's the window's main scroll, so it stops dead at its ends (no stretch and spring) */
+html.mobile #modal-body :is(.setx, .rl-list) { overscroll-behavior: none !important; }
+/* Phones: a window sliding down as it closes stays solid all the way down (only the dimming behind it fades). Fading the
+   whole thing made it vanish before it had moved, so the slide was never seen. */
+@keyframes wDimOut { to { background-color: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; } }
+html.mobile .modal-bg.closing { animation: wDimOut .22s ease forwards; }
+/* Settings: a dashed line only between two rows of settings, not above a block of something else (Theme's colours) */
+.setrow:has(+ :not(.setrow)) { border-bottom: 0; margin-bottom: 8px; }
+/* Phones: Settings goes all the way up, just under the phone's status bar (over the Adventurer's Tome button) */
+html.mobile .modal:has(.setx) { height: calc(100dvh - var(--tablift, 0px) - env(safe-area-inset-top, 0px) - 8px) !important; max-height: none !important; }
+/* Phones: Settings' tabs are pages side by side; swipe between them (each page scrolls up and down on its own) */
+html.mobile .modal:has(.setx) .setx { display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; padding-right: 0; overscroll-behavior: none !important; }
+html.mobile .setx::-webkit-scrollbar { display: none; }
+html.mobile .setx > .stpane { display: block !important; flex: 0 0 100%; width: 100%; min-width: 0; box-sizing: border-box; overflow-y: auto; overflow-x: hidden; scroll-snap-align: start; scroll-snap-stop: always; overscroll-behavior: none !important; animation: none !important; }
+/* the pages run edge to edge across the window (each keeps the window's side padding inside it), so a page sliding in or
+   out is cut off at the window's edge, not partway in from it */
+html.mobile .modal:has(.setx) .setx { margin-left: -14px; margin-right: -14px; }
+html.mobile .setx > .stpane { padding-left: 14px; padding-right: 14px; }
+html.mobile .setx > .stpane.nopage { display: none !important; }
+
+/* Add-on buttons on an attack's card (Divine Smite, Sneak Attack…): gold, with a plus, and the damage pulses as it grows */
+.toast.rollcard .t-acts button.t-add { border-color: var(--gold); color: var(--gold-ink); background: color-mix(in srgb, var(--gold) 14%, transparent); font-weight: 600; }
+.toast.rollcard .t-acts button.t-add::before { content: '+'; margin-right: 4px; font-weight: 700; }
+@media (hover:hover){:where(html:not(.mobile)) .toast.rollcard .t-acts button.t-add:hover{ background: color-mix(in srgb, var(--gold) 26%, transparent); }}
+.toast.rollcard .rc-added { animation: rcAddIn .35s ease-out; }
+.toast.rollcard .rc-dmg.rc-bump > b { animation: rcBump .45s cubic-bezier(.2,1.6,.4,1); }
+@keyframes rcAddIn { from { opacity: 0; transform: translateY(-4px); } }
+@keyframes rcBump { 40% { transform: scale(1.18); } }
+@media (prefers-reduced-motion: reduce) { .toast.rollcard .rc-added, .toast.rollcard .rc-dmg.rc-bump > b { animation: none; } }
+
+/* Choosing an option from its feature card: the current choice is marked */
+.pendopt.on { border-color: var(--gold); background: var(--gold-soft); box-shadow: inset 3px 0 0 var(--gold); }
+.pendopt:disabled { opacity: .5; cursor: not-allowed; }
+#optm .pendopts { display: grid; gap: 8px; }
+/* Robe of Useful Items: patches look like cloth patches (stitched edge) */
+#robem .robe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; margin: 10px 0 4px; }
+#robem .robe-p { display: flex; flex-direction: column; gap: 6px; padding: 11px 12px; border-radius: 12px; background: var(--panel2); border: 2px dashed color-mix(in srgb, var(--gold) 55%, var(--line)); box-shadow: inset 0 0 0 3px var(--panel2), inset 0 0 0 4px color-mix(in srgb, var(--gold) 18%, transparent); min-width: 0; }
+#robem .robe-p p { margin: 0; color: var(--soft); font-size: .8rem; line-height: 1.35; flex: 1; }
+#robem .robe-p .btn { align-self: flex-start; }
+#robem .robe-pt { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+#robem .robe-pt b { overflow-wrap: anywhere; }
+#robem .robe-n { margin-left: auto; font-weight: 800; color: var(--gold-ink); font-variant-numeric: tabular-nums; }
+#robem .robe-msg { border-left: 3px solid var(--gold); background: color-mix(in srgb, var(--gold) 10%, transparent); padding: 8px 12px; border-radius: 8px; margin: 6px 0 10px; font-size: .88rem; line-height: 1.4; }
+#robem .robe-msg small { color: var(--soft); }
+#robem .robe-warn { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; color: var(--soft); }
+#robem .robe-eh { font-weight: 800; margin: 12px 0 6px; display: flex; gap: 8px; align-items: baseline; }
+#robem .robe-eg { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 4px 16px; }
+#robem .robe-er { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+#robem .robe-er > span { min-width: 0; overflow-wrap: anywhere; }
+#robem .robe-er small { color: var(--soft); font-size: .72rem; margin-left: 4px; }
+#robem .robe-er .qty b { min-width: 2ch; text-align: center; font-variant-numeric: tabular-nums; }
+#robem .robe-sl { display: grid; gap: 4px; max-height: min(52vh, 460px); overflow-y: auto; margin: 10px 0; padding-right: 2px; }
+#robem .robe-s { display: flex; align-items: center; gap: 10px; text-align: left; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; color: inherit; font: inherit; }
+#robem .robe-s span:first-child { flex: 1; min-width: 0; }
+#robem .robe-s small { display: block; color: var(--soft); font-size: .76rem; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#robem .robe-s .tag { flex: none; }
+@media (hover: hover) { @media (hover:hover){:where(html:not(.mobile)) #robem .robe-s:hover{ border-color: var(--gold); }} }
 

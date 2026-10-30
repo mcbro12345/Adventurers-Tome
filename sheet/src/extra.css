@@ -4220,3 +4220,26 @@ html.mobile .setx > .stpane.nopage { display: none !important; }
 .pendopt.on { border-color: var(--gold); background: var(--gold-soft); box-shadow: inset 3px 0 0 var(--gold); }
 .pendopt:disabled { opacity: .5; cursor: not-allowed; }
 #optm .pendopts { display: grid; gap: 8px; }
+/* Robe of Useful Items: patches look like cloth patches (stitched edge) */
+#robem .robe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; margin: 10px 0 4px; }
+#robem .robe-p { display: flex; flex-direction: column; gap: 6px; padding: 11px 12px; border-radius: 12px; background: var(--panel2); border: 2px dashed color-mix(in srgb, var(--gold) 55%, var(--line)); box-shadow: inset 0 0 0 3px var(--panel2), inset 0 0 0 4px color-mix(in srgb, var(--gold) 18%, transparent); min-width: 0; }
+#robem .robe-p p { margin: 0; color: var(--soft); font-size: .8rem; line-height: 1.35; flex: 1; }
+#robem .robe-p .btn { align-self: flex-start; }
+#robem .robe-pt { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+#robem .robe-pt b { overflow-wrap: anywhere; }
+#robem .robe-n { margin-left: auto; font-weight: 800; color: var(--gold-ink); font-variant-numeric: tabular-nums; }
+#robem .robe-msg { border-left: 3px solid var(--gold); background: color-mix(in srgb, var(--gold) 10%, transparent); padding: 8px 12px; border-radius: 8px; margin: 6px 0 10px; font-size: .88rem; line-height: 1.4; }
+#robem .robe-msg small { color: var(--soft); }
+#robem .robe-warn { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; color: var(--soft); }
+#robem .robe-eh { font-weight: 800; margin: 12px 0 6px; display: flex; gap: 8px; align-items: baseline; }
+#robem .robe-eg { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 4px 16px; }
+#robem .robe-er { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+#robem .robe-er > span { min-width: 0; overflow-wrap: anywhere; }
+#robem .robe-er small { color: var(--soft); font-size: .72rem; margin-left: 4px; }
+#robem .robe-er .qty b { min-width: 2ch; text-align: center; font-variant-numeric: tabular-nums; }
+#robem .robe-sl { display: grid; gap: 4px; max-height: min(52vh, 460px); overflow-y: auto; margin: 10px 0; padding-right: 2px; }
+#robem .robe-s { display: flex; align-items: center; gap: 10px; text-align: left; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; color: inherit; font: inherit; }
+#robem .robe-s span:first-child { flex: 1; min-width: 0; }
+#robem .robe-s small { display: block; color: var(--soft); font-size: .76rem; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#robem .robe-s .tag { flex: none; }
+@media (hover: hover) { #robem .robe-s:hover { border-color: var(--gold); } }

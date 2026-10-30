@@ -1010,3 +1010,138 @@ document.addEventListener('click', e => { const d = e.target.closest && e.target
     if (el.scrollTop < 0) el.scrollTop = 0; else if (my > 0 && el.scrollTop > my) el.scrollTop = my;
     if (el.scrollLeft < 0) el.scrollLeft = 0; else if (mx > 0 && el.scrollLeft > mx) el.scrollLeft = mx; }, { capture: true, passive: true });
 })();
+
+// ---------- Robe of Useful Items ----------
+// The robe gets a "Patches" button (Inventory) and a "Detach a patch" row (Combat → Action). Every robe has two each of
+// six everyday patches plus 4d4 more the DM rolls or picks (DMG table); you can roll them here or enter what your DM said.
+// Detaching one (an action — a Magic action in the 2024 rules — while you wear the robe) turns it into the real thing:
+// gear and coins land in your inventory, a horse or mastiffs join your Creatures, a spell scroll you choose becomes
+// castable from your Spells tab, and doors, pits, ladders and rowboats appear in the world. Once the last patch is gone the
+// robe is an ordinary robe.
+const ROBE_FIXED = ['dagger', 'lantern', 'mirror', 'pole', 'rope', 'sack'];
+const ROBE_P = {
+  dagger: { n: 'Dagger', d: 'A real dagger, ready to use.' },
+  lantern: { n: 'Bullseye lantern', d: 'Filled and already lit: bright light in a 60-ft cone, dim for another 60 ft. Burns 6 hours on its oil.' },
+  mirror: { n: 'Steel mirror', d: 'A small steel mirror.' },
+  pole: { n: '10-foot pole', d: 'A wooden pole, 10 feet long.' },
+  rope: { n: 'Hempen rope', d: '50 feet, coiled.' },
+  sack: { n: 'Sack', d: 'An empty sack (holds 1 cubic foot / 30 lb).' },
+  gold: { n: 'Bag of gold', d: 'A bag holding 100 gp.', r: [1, 8] },
+  coffer: { n: 'Silver coffer', d: '1 ft long, 6 in wide and deep. Worth 500 gp.', r: [9, 15] },
+  door: { n: 'Iron door', d: 'Up to 10 ft wide and 10 ft high, barred on the side you choose. Place it in an opening you can reach; it fits, attaches and hinges itself.', r: [16, 22], world: 1 },
+  gems: { n: '10 gems', d: 'Ten gems worth 100 gp each.', r: [23, 30] },
+  ladder: { n: 'Wooden ladder', d: '24 feet long.', r: [31, 44], world: 1 },
+  horse: { n: 'Riding horse', d: 'A riding horse with saddlebags (a riding saddle in the 2024 rules). Joins your Creatures.', r: [45, 51] },
+  pit: { n: 'Pit', d: 'A 10-ft cube, opening on the ground within 10 ft of you.', r: [52, 59], world: 1 },
+  potions: { n: '4 potions of healing', d: 'Each restores 2d4 + 2 HP.', r: [60, 68] },
+  boat: { n: 'Rowboat', d: '12 feet long.', r: [69, 75], world: 1 },
+  scroll: { n: 'Spell scroll', d: 'A scroll of one spell of level 1–3 (you choose it when you detach the patch).', r: [76, 83] },
+  mastiffs: { n: '2 mastiffs', d: 'Two mastiffs. They join your Creatures.', r: [84, 90] },
+  window: { n: 'Window', d: '2 ft by 4 ft, up to 2 ft deep. Place it on a vertical surface you can reach.', r: [91, 96], world: 1 },
+  ram: { n: 'Portable ram', d: '+4 to Strength checks to break down doors (and advantage if someone helps).', r: [97, 100] },
+};
+const ROBE_RAND = Object.keys(ROBE_P).filter(k => ROBE_P[k].r);
+const isRobeItem = it => !!it && /robe of useful items/i.test(String(it.name || '') + ' ' + String((it.magic && it.magic.name) || ''));
+const robeLeft = it => { const p = (it && it.robe && it.robe.p) || {}; return Object.values(p).reduce((t, v) => t + N(v), 0); };
+const robeD100 = () => 1 + Math.floor(Math.random() * 100);
+const robeKindOf = r => ROBE_RAND.find(k => r >= ROBE_P[k].r[0] && r <= ROBE_P[k].r[1]);
+let ROBE = null;
+function openRobe(i, view) { const it = S.inventory[i]; if (!isRobeItem(it)) return; ROBE = { i, view: view || (it.robe ? 'main' : 'setup'), msg: '', q: '' }; renderRobe(); }
+function robeBase() { const p = {}; ROBE_FIXED.forEach(k => p[k] = 2); return p; }
+function robeRoll() {
+  const it = S.inventory[ROBE.i]; if (!it) return;
+  const r = rollExpr('4d4', { need: true, label: 'Robe of Useful Items: extra patches' }), n = N(r.total) || 10, p = robeBase(), rolls = [];
+  for (let k = 0; k < n; k++) { const d = robeD100(), kind = robeKindOf(d); p[kind] = N(p[kind]) + 1; rolls.push([d, kind]); }
+  it.robe = { p, rolled: rolls, log: [] }; ROBE.view = 'main'; ROBE.msg = `<b>${n} extra patches</b> (4d4): ${rolls.map(([d, k]) => `${esc(ROBE_P[k].n)} <small>(${d})</small>`).join(', ')}.`;
+  pendingLabel = 'Robe of Useful Items: roll patches'; save(); render(); renderRobe();
+}
+function robeTile(k, n, i, act) {
+  const P = ROBE_P[k];
+  return `<div class="robe-p${n ? '' : ' gone'}"><div class="robe-pt"><b>${esc(P.n)}</b>${n > 1 ? `<span class="robe-n">×${n}</span>` : ''}</div><p>${esc(P.d)}</p>${act ? act : `<button class="btn sm gold" data-act="robedet" data-k="${k}" ${n ? '' : 'disabled'}>Detach</button>`}</div>`;
+}
+function renderRobe() {
+  const it = S.inventory[ROBE.i]; if (!it) return closeModal(); let h = `<div id="robem"><h3>${esc(it.name)}</h3>`;
+  if (ROBE.view === 'setup') {
+    h += `<p class="hint">Every robe has two each of a dagger, bullseye lantern, steel mirror, 10-foot pole, hempen rope and sack, plus <b>4d4 more patches</b> your DM rolls or picks.</p>
+      <div class="bagpresets"><button class="bagpreset" data-act="roberoll"><b>Roll the extra patches</b><small>4d4 patches, each rolled on the d100 table</small></button><button class="bagpreset" data-act="robeview" data-v="edit"><b>My DM told me what they are</b><small>Count each kind of patch yourself</small></button></div>`;
+  } else if (ROBE.view === 'edit') {
+    const p = (it.robe && it.robe.p) || robeBase(); ROBE.edit = ROBE.edit || Object.assign({}, p);
+    const row = k => `<div class="robe-er"><span>${esc(ROBE_P[k].n)}${ROBE_P[k].r ? ` <small>${ROBE_P[k].r[0]}–${ROBE_P[k].r[1] === 100 ? '00' : ROBE_P[k].r[1]}</small>` : ''}</span><div class="qty"><button data-act="robecnt" data-k="${k}" data-d="-1" aria-label="One fewer ${esc(ROBE_P[k].n)}">−</button><b>${N(ROBE.edit[k])}</b><button data-act="robecnt" data-k="${k}" data-d="1" aria-label="One more ${esc(ROBE_P[k].n)}">+</button></div></div>`;
+    const extra = ROBE_RAND.reduce((t, k) => t + N(ROBE.edit[k]), 0);
+    h += `<p class="hint">How many of each patch are still on the robe.</p><div class="robe-eh">Everyday patches</div><div class="robe-eg">${ROBE_FIXED.map(row).join('')}</div>
+      <div class="robe-eh">Extra patches <span class="hint">${extra} — usually 4 to 16</span></div><div class="robe-eg">${ROBE_RAND.map(row).join('')}</div>
+      <div class="actions"><button class="btn" data-act="robeview" data-v="${it.robe ? 'main' : 'setup'}">Cancel</button><button class="btn gold" data-act="robesave">Save patches</button></div>`;
+  } else if (ROBE.view === 'scroll') {
+    const my = casters().map(c => c.list).filter(Boolean), q = String(ROBE.q || '').toLowerCase().trim();
+    const list = DND.spells.filter(s => s.level >= 1 && s.level <= 3 && (!q || s.name.toLowerCase().includes(q))).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+    const mine = s => my.some(l => String(s.classes || '').includes(l));
+    h += `<p class="hint">Choose the spell on the scroll (level 1–3). Spells on your class's list are marked — you can only read a scroll of a spell on your class's list.</p>
+      <input class="f" id="robeq" placeholder="Search spells…" aria-label="Search spells" value="${esc(ROBE.q || '')}">
+      <div class="robe-sl">${list.map(s => `<button class="robe-s" data-act="robescroll" data-v="${esc(s.name)}"><span><b>${esc(s.name)}</b><small>${ORD[s.level - 1]} level · ${esc(s.school)}${s.summary ? ' · ' + esc(s.summary) : ''}</small></span>${mine(s) ? '<span class="tag">Your list</span>' : ''}</button>`).join('') || '<p class="hint">No spell matches.</p>'}</div>
+      <div class="actions"><button class="btn" data-act="robeview" data-v="main">Back</button></div>`;
+  } else {
+    const p = (it.robe && it.robe.p) || {}, left = robeLeft(it), worn = !!it.equipped;
+    if (ROBE.msg) h += `<div class="robe-msg">${ROBE.msg}</div>`;
+    if (!worn) h += `<p class="robe-warn">Wear the robe to detach patches. <button class="btn sm" data-act="robewear">Put it on</button></p>`;
+    const kinds = ROBE_FIXED.concat(ROBE_RAND).filter(k => N(p[k]) > 0);
+    h += left ? `<p class="hint">${left} patch${left === 1 ? '' : 'es'} left. Detaching one takes an action and turns it into the real thing.</p><div class="robe-grid">${kinds.map(k => robeTile(k, N(p[k]), ROBE.i)).join('')}</div>`
+      : `<p class="hint">No patches left.</p>`;
+    h += `<div class="actions"><button class="linkbtn" data-act="robeview" data-v="edit">Edit patches</button><span class="grow"></span><button class="btn gold" data-act="close">Done</button></div>`;
+  }
+  h += '</div>';
+  if ($('#robem') && $('#modal').classList.contains('open')) $('#modal-body').innerHTML = h; else openModal(h, () => { ROBE = null; }, true);
+  const q = $('#robeq'); if (q) { q.oninput = () => { ROBE.q = q.value; const pos = q.selectionStart; renderRobe(); const q2 = $('#robeq'); if (q2) { q2.focus(); try { q2.setSelectionRange(pos, pos); } catch (e) {} } }; }
+}
+// Something carried: stacks with a plain copy of the same thing you already have
+function robeGive(it) {
+  const same = !it.weapon && !it.armor && !it.spells && !it.charges && !it.hb && S.inventory.find(x => !x.equipped && !x.bag && x.name === it.name && !x.weapon && !x.armor && !x.charges && !x.hb && !x.spells && !x.robe);
+  if (same) same.qty = N(same.qty) + (N(it.qty) || 1); else addInventoryItem(it, true);
+}
+function robeGear(name, qty, notes) { const g = DND.gear.find(x => x[0] === name), it = g ? makeGearItem(g) : Object.assign(BLANK.inventory(), { name }); it.qty = qty || 1; if (notes) it.notes = notes; return it; }
+function robeScrollItem(name) {
+  const sp = SPI(name) || { name, level: 1 }, lv = N(sp.level) || 1, dc = lv >= 3 ? 15 : 13, atk = lv >= 3 ? 7 : 5;
+  const m = DND.magic.find(x => x[0] === 'Spell Scroll'), it = m ? makeMagicItem(m) : Object.assign(BLANK.inventory(), { name: 'Spell Scroll' });
+  it.name = `Spell Scroll (${sp.name})`; it.magic = Object.assign({}, it.magic || {}, { rarity: lv >= 3 ? 'uncommon' : lv === 2 ? 'uncommon' : 'common', type: 'scroll', name: 'Spell Scroll' });
+  it.spells = [sp.name]; it.spellStored = true; it.spellCast = { [sp.name]: { dc, atk } }; it.carried = true; it.scroll = sp.name; it.consumable = true;
+  it.summary = `${ORD[lv - 1]}-level scroll · save DC ${dc}, attack +${atk}. Cast it from your Spells tab; the scroll crumbles once it's used. If the spell isn't on your class's list you can't read it, and one above the level you can cast needs a DC ${10 + lv} check with your spellcasting ability.`;
+  return it;
+}
+function robeDetach(k, spell) {
+  const it = S.inventory[ROBE.i]; if (!it || !it.robe) return; const p = it.robe.p, P = ROBE_P[k]; if (!N(p[k])) return;
+  if (!it.equipped) { toast('Wear the robe first — patches only come off while you have it on.', 'fumble'); return; }
+  if (incapCond()) { toast(`You're <b>${incapCond().toLowerCase()}</b> — you can't take actions.`, 'fumble'); return; }
+  if (k === 'scroll' && !spell) { ROBE.view = 'scroll'; ROBE.q = ''; renderRobe(); return; }
+  const out = [], fight = !!S.inCombat, acted = fight && S.turn && S.turn.used && S.turn.used.action;
+  if (k === 'dagger') { const w = DND.weapons.find(x => x[0] === 'Dagger'), have = S.inventory.find(x => x.weapon && x.weapon.base === 'Dagger' && x.name === 'Dagger' && !x.magic && !x.hb && !x.bag); if (have) have.qty = N(have.qty) + 1; else robeGive(makeWeaponItem(w)); out.push('A dagger is in your pack (and on your Attacks).'); }
+  else if (k === 'lantern') { robeGive(robeGear('Lantern, bullseye', 1, 'From the robe — already filled and lit.')); out.push('A lit bullseye lantern is in your pack.'); }
+  else if (k === 'mirror') { robeGive(robeGear('Mirror, steel')); out.push('A steel mirror is in your pack.'); }
+  else if (k === 'pole') { robeGive(robeGear('Pole (10-foot)')); out.push('A 10-foot pole is in your pack.'); }
+  else if (k === 'rope') { robeGive(robeGear('Rope, hempen (50 feet)')); out.push('50 feet of hempen rope is in your pack.'); }
+  else if (k === 'sack') { robeGive(robeGear('Sack')); out.push('A sack is in your pack.'); }
+  else if (k === 'gold') { S.currency.gp = N(S.currency.gp) + 100; out.push('+100 gp in your purse.'); }
+  else if (k === 'coffer') { robeGive(Object.assign(BLANK.inventory(), { name: 'Silver coffer', cost: '500 gp', notes: '1 ft long, 6 in wide and deep. From a Robe of Useful Items.' })); out.push('A silver coffer worth 500 gp is in your pack.'); }
+  else if (k === 'gems') { robeGive(Object.assign(BLANK.inventory(), { name: 'Gem (100 gp)', qty: 10, cost: '100 gp', notes: 'From a Robe of Useful Items.' })); out.push('10 gems worth 100 gp each are in your pack.'); }
+  else if (k === 'potions') { const m = DND.magic.find(x => x[0] === 'Potion of Healing'); const pot = makeMagicItem(m); pot.qty = 4; const same = S.inventory.find(x => x.name === pot.name && !x.equipped && !x.bag); if (same) same.qty = N(same.qty) + 4; else addInventoryItem(pot, true); out.push('4 potions of healing are in your pack.'); }
+  else if (k === 'ram') { robeGive(robeGear('Ram, portable', 1, '+4 to Strength checks to break down doors; advantage if another creature helps.')); out.push('A portable ram is in your pack.'); }
+  else if (k === 'scroll') { addInventoryItem(robeScrollItem(spell), true); rebuildAuto(); out.push(`A scroll of ${spell} is in your pack — cast it from your Spells tab.`); }
+  else if (k === 'horse' || k === 'mastiffs') {
+    const cr = DND.creatures.find(c => c.name === (k === 'horse' ? 'Riding Horse' : 'Mastiff'));
+    if (cr) { const c = { id: uid(), name: cr.name + (k === 'mastiffs' ? 's' : ''), kind: 'beast', ac: cr.ac, hp: cr.hp, maxhp: cr.hp, speed: cr.speed, attacks: (cr.attacks || []).map(z => z.slice()), notes: (cr.notes ? cr.notes + ' · ' : '') + (k === 'horse' ? 'Came from a Robe of Useful Items, with saddlebags (a riding saddle in the 2024 rules).' : 'Came from a Robe of Useful Items.'), abil: cr.abil, cr: cr.cr };
+      if (k === 'mastiffs') { c.count = 2; c.hps = [cr.hp, cr.hp]; } S.companions.push(c); }
+    out.push(k === 'horse' ? 'A riding horse appears — it’s in your Creatures.' : 'Two mastiffs appear — they’re in your Creatures.');
+  }
+  else out.push(P.d.replace(/\.$/, '') + '.');
+  p[k] = N(p[k]) - 1; (it.robe.log = it.robe.log || []).push({ k, t: Date.now(), spell: spell || undefined });
+  if (fight && S.turn && S.turn.used) S.turn.used.action = true;
+  let done = '';
+  if (!robeLeft(it)) { it.name = 'Robe'; delete it.magic; it.summary = 'An ordinary robe — once a Robe of Useful Items.'; it.robe.done = true; done = 'That was the last patch: the robe is an ordinary robe now.'; }
+  pendingLabel = 'Robe of Useful Items: detach ' + (k === 'scroll' ? 'a scroll of ' + spell : P.n.toLowerCase()); save(); render();
+  ROBE.view = 'main'; ROBE.msg = `<b>${esc(k === 'scroll' ? 'Spell scroll (' + spell + ')' : P.n)}</b> — ${esc(out.join(' '))}${done ? `<br>${esc(done)}` : ''}`;
+  if (done) { closeModal(); ROBE = null; } else renderRobe();
+  toast(`<div><b>${esc(k === 'scroll' ? 'Spell scroll (' + spell + ')' : P.n)}</b>${!fight ? '' : acted ? ' · you’d already used your action' : ' · uses your action'}</div><div class="det">${esc(out.join(' '))}</div>${done ? `<div class="det">${esc(done)}</div>` : ''}`, '', 8000, { label: 'Undo', fn: () => undo(1) });
+}
+// Combat → Action: a row for the robe while you wear it
+function robeCombatRows() {
+  return S.inventory.map((it, i) => [it, i]).filter(([it]) => isRobeItem(it) && it.equipped).map(([it, i]) => { const left = it.robe ? robeLeft(it) : null;
+    return `<div class="opt"><div class="opt-head"><span class="opt-name">${esc(it.name)}</span>${left != null ? `<span class="tag">${left} patch${left === 1 ? '' : 'es'}</span>` : ''}<button class="btn sm" data-act="robe" data-i="${i}">${it.robe ? 'Detach a patch' : 'Set up patches'}</button></div><div class="opt-text">Detach a patch to turn it into the real object or creature.</div></div>`; });
+}

@@ -606,6 +606,8 @@ function ringSpent(sp) {
   if (N(evalMax(sp.uses && sp.uses.max) || 1) - N(sp.uses && sp.uses.used) > 0) return;
   const n = (it.spells || []).find(x => x.toLowerCase() === String(sp.name).toLowerCase()); if (!n) return;
   it.spells = it.spells.filter(x => x !== n); if (it.spellLevels) delete it.spellLevels[n]; if (it.spellCast) delete it.spellCast[n];
+  // a spell scroll crumbles to dust once it's read
+  if (it.scroll && !it.spells.length) { S.inventory = S.inventory.filter(x => x !== it); toast(`The scroll of <b>${esc(n)}</b> crumbles to dust.`); }
   setTimeout(() => { rebuildAuto(); save(); render(); }, 0);
 }
 const ringItems = () => S.inventory.map((it, ii) => [it, ii]).filter(([it]) => itemStores(it) && !it.infusion);
