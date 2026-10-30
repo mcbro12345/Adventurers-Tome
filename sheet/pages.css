@@ -3617,3 +3617,33 @@ html.mobile .rc-x svg { display: none; } html.mobile .rc-x::before { content: 'â
 
 /* (the cover that hides the list as it scrolls under the header is only as wide as the header panel, so the background's
    lines and shading carry on untouched either side of it instead of stopping in a band across the whole window) */
+/* Splitting loot: the window on each player's sheet */
+.pg-out-card.pgs-card { max-width: 620px; width: min(620px, calc(100vw - 32px)); display: flex; flex-direction: column; max-height: min(86vh, 760px); }
+.pgs-card .pgs-hint { margin: 0 0 12px; font-size: .88rem; line-height: 1.45; opacity: .8; }
+.pgs-list { display: grid; gap: 6px; overflow-y: auto; min-height: 0; margin: 0 -4px 12px; padding: 0 4px; }
+.pgs-row { display: grid; gap: 8px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(127,127,127,.28); background: rgba(127,127,127,.07); min-width: 0; }
+.pgs-row.handed { opacity: .6; }
+.pgs-it { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.pgs-it b { overflow-wrap: anywhere; }
+.pgs-it small { opacity: .65; font-size: .8rem; width: 100%; }
+.pgs-rar { font-size: .66rem; font-weight: 800; text-transform: capitalize; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; opacity: .9; }
+.pgs-rar.r-uncommon { color: #3fa35d; } .pgs-rar.r-rare { color: #4f8fe0; } .pgs-rar.r-veryrare { color: #a173e6; } .pgs-rar.r-legendary { color: #e39a2d; } .pgs-rar.r-artifact { color: #d4574a; }
+.pgs-cs { display: flex; flex-wrap: wrap; gap: 6px; }
+.pgs-c { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 3px; border-radius: 999px; border: 1px solid rgba(127,127,127,.35); background: transparent; color: inherit; font: inherit; font-size: .84rem; cursor: pointer; max-width: 100%; min-height: 32px; }
+.pgs-c img, .pgs-c > span { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; flex: none; display: grid; place-items: center; background: rgba(201,150,43,.18); color: #c9962b; font-weight: 800; font-size: .78rem; }
+.pgs-c b { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pgs-c.none { padding: 3px 12px; font-weight: 800; opacity: .75; }
+.pgs-c.on { border-color: #c9962b; background: rgba(201,150,43,.2); box-shadow: inset 0 0 0 1px #c9962b; opacity: 1; }
+@media (hover: hover) { .pgs-c:hover { border-color: #c9962b; } }
+.pgs-done { font-size: .84rem; font-weight: 700; color: #c9962b; }
+.pgs-sum { font-size: .84rem; opacity: .75; font-weight: 700; }
+.pgs-card .pg-out-row { align-items: center; flex-wrap: wrap; gap: 8px; }
+.pgs-card .pg-out-yes:disabled { opacity: .5; cursor: default; }
+#pg-splitpill { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 9000; display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 999px; border: 1px solid #c9962b; background: #1a2131; color: #f3e9cf; font: 700 .92rem system-ui, sans-serif; box-shadow: 0 10px 30px rgba(0,0,0,.35); cursor: pointer; max-width: calc(100vw - 32px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#pg-splitpill .pgs-pi { color: #c9962b; }
+@media (prefers-color-scheme: light) { #pg-splitpill { background: #fffaf0; color: #1f2a44; } }
+.pgs-votes { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 12px; }
+.pgs-vl { font-size: .84rem; font-weight: 800; margin-right: 4px; }
+.pgs-v { font-size: .78rem; font-weight: 700; padding: 2px 9px; border-radius: 999px; border: 1px solid rgba(127,127,127,.35); opacity: .75; }
+.pgs-v.yes { border-color: #3fa35d; color: #3fa35d; opacity: 1; }
+.pgs-c:disabled { cursor: default; }

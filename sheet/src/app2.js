@@ -231,6 +231,7 @@ const critDice = e => { e = String(e || ''); if (ST('critRule') !== 'max') retur
 const diceTimes = (e, k) => String(e || '').replace(/(\d*)d(\d+)/gi, (m, n, sd) => ((N(n) || 1) * k) + 'd' + sd);
 
 // ---------- Toasts & modal ----------
+window.sheetToast = (...a) => toast(...a); // (the site's own code on a sheet page shows its notes the same way)
 function toast(html, cls = '', ms = 4500, action) {
   // Rolling in Roll20 yourself: a result card becomes "roll these dice" (the sheet still did everything else).
   if (SKIPPED.length && /^\s*<(b class="total"|div class="rc-multi")/.test(html)) {

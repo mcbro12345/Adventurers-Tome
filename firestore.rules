@@ -217,6 +217,31 @@ service cloud.firestore {
         allow write: if admin() || (signedIn() && partyMgr(partyOf(p)) && request.resource.data.keys().hasOnly(['open', 'round', 'rows', 'at', 'by'])
           && request.resource.data.rows is list && request.resource.data.rows.size() <= 60);
       }
+      // Splitting loot: the DM puts a container's loot up for the party (split/{box}, its things in items/{id}); everyone in
+      // the party sees it on their sheets and picks who gets what (to: a character in the party), and anyone with a
+      // character in it can hand it out: each thing is marked handed (only once) by whoever sends it, then the split closes.
+      // Only the DM writes anything else (what's in it, applied - taken out of the DM's loot).
+      match /split/{b} {
+        allow read: if admin() || (signedIn() && (me() in partyOf(p).people || partyMgr(partyOf(p))));
+        allow write: if admin() || (signedIn() && partyMgr(partyOf(p)));
+        // players: agree for a character of their own (ok), clear everyone's agreement when the picks change, and - once
+        // everyone has agreed - hand it out (going: who's sending it, then open false)
+        allow update: if signedIn() && me() in partyOf(p).people && resource.data.open == true
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ok', 'rev', 'going', 'open', 'handedBy', 'handedAt'])
+          && request.resource.data.get('ok', []) is list && request.resource.data.get('ok', []).size() <= 40
+          && (request.resource.data.get('ok', []).removeAll(resource.data.get('ok', [])).size() == 0
+            || (request.resource.data.get('ok', []).removeAll(resource.data.get('ok', [])).size() == 1 && request.resource.data.get('ok', []).removeAll(resource.data.get('ok', []))[0] in partyOf(p).chars && canEditSheet(request.resource.data.get('ok', []).removeAll(resource.data.get('ok', []))[0])))
+          && (resource.data.get('going', '') == '' || request.resource.data.get('going', '') == resource.data.get('going', ''))
+          && request.resource.data.get('handedBy', '') is string && request.resource.data.get('handedBy', '').size() <= 80;
+        match /items/{i} {
+          allow read: if admin() || (signedIn() && (me() in partyOf(p).people || partyMgr(partyOf(p))));
+          allow write: if admin() || (signedIn() && partyMgr(partyOf(p)));
+          allow update: if signedIn() && me() in partyOf(p).people && get(/databases/$(db)/documents/parties/$(p)/split/$(b)).data.open == true && resource.data.get('handed', false) == false
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['to', 'toName', 'setBy', 'at', 'handed'])
+            && (request.resource.data.to == '' || request.resource.data.to in partyOf(p).chars)
+            && request.resource.data.get('toName', '') is string && request.resource.data.get('toName', '').size() <= 80;
+        }
+      }
       // Each character's latest initiative roll, for the DM's turn order (written by the character's own sheet).
       match /init/{c} {
         allow read: if admin() || (signedIn() && (me() in partyOf(p).people || partyMgr(partyOf(p))));

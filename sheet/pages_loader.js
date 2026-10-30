@@ -1291,6 +1291,14 @@ function wireDie(root) {
       remove: id => hbCol.doc(String(id)).delete() } : null;
     // Loot from the DM's Desk: the party's characters, and handing one of them an item or coins (they're asked to accept it).
     const lootGive = party && party.mgr ? { chars: () => fs.collection('parties').doc(pid).collection('cards').get().then(qs => qs.docs.map(d => { const c = d.data() || {}; return { id: d.id, name: c.name || 'A character', thumb: c.thumb || '', player: c.player || '', owner: c.owner || '' }; })),
+      split: (() => { const SC = () => fs.collection('parties').doc(pid).collection('split');
+        return { open: async (b, name, units) => { const ref = SC().doc(b), old = await ref.collection('items').get().catch(() => null); const bt = fs.batch(); if (old) old.docs.forEach(d => bt.delete(d.ref));
+            bt.set(ref, { name: String(name || 'Loot').slice(0, 80), open: true, at: Date.now(), by: EMAIL, handedBy: '', handedAt: 0 }); units.slice(0, 200).forEach((u, k) => bt.set(ref.collection('items').doc(u.id), Object.assign({ to: '', toName: '', setBy: '', at: 0, handed: false, applied: false, ord: k }, u)));
+            await bt.commit(); pgLog('party_send', { target: pid, tName: party.name, detail: 'split → ' + name }); },
+          close: b => SC().doc(b).set({ open: false }, { merge: true }),
+          remove: async b => { const ref = SC().doc(b), qs = await ref.collection('items').get().catch(() => null); const bt = fs.batch(); if (qs) qs.docs.forEach(d => bt.delete(d.ref)); bt.delete(ref); await bt.commit(); },
+          watch: (b, cb) => { const ref = SC().doc(b); let meta = null, items = []; const u1 = ref.onSnapshot(d => { meta = d.exists ? d.data() : null; cb(meta, items); }, () => {}), u2 = ref.collection('items').onSnapshot(qs => { items = qs.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, c) => a.ord - c.ord); cb(meta, items); }, () => {}); return () => { u1(); u2(); }; },
+          applied: (b, id) => SC().doc(b).collection('items').doc(id).update({ applied: true }) }; })(),
       give: (to, kind, data) => ptySend(fs, EMAIL, pid, to, kind, Object.assign({}, data, { ask: true }), '', ((ME && ME.name) || EMAIL.split('@')[0]) + (party.owner && party.owner !== EMAIL ? ' (co-DM)' : ' (DM)')).then(r => { pgLog('party_send', { target: pid, tName: party.name, detail: kind + ' → ' + to }); return r; }) } : null;
     return Object.assign({ fs, EMAIL, party, back: { href: URLS.parties(G), label: 'Parties' },
       acct: { html: () => { const a = avaOf(ME); return avaHTML((ME && ME.name) || EMAIL.split('@')[0], EMAIL, a.pic, '', '', a); }, open: b => { if (window.pgAcctMenu) window.pgAcctMenu(b, !TOUCH && innerWidth > 900); else pgGo(URLS.hub(G)); } },
@@ -1487,8 +1495,76 @@ function wireDie(root) {
     Object.keys(PTY_CARDS).forEach(k => { const x = Object.assign({}, PTY_CARDS[k]); delete x.hb; cs[k] = x; });
     let v = JSON.stringify({ p, c: cs }); if (v.length > 300000) v = JSON.stringify({ p, c: {} }); lsSet(PTY_LS, v); }, 1500); };
   const ptySetLocal = pid => { PARTY = pid || ''; PTY_SET = Date.now(); ptyWatch(PARTY); };
+  // ----- Splitting loot: the DM put a container up for the party; every player's sheet shows it, and anyone picks who gets
+  // what and hands it out (each thing goes to its character's sheet like any party gift).
+  const splToast = (h, c) => { if (window.sheetToast) window.sheetToast(h, c || '', 7000); else pgCorner(h); };
+  // ----- Splitting loot: the DM put a container up for the party; every player's sheet shows it. Anyone picks who gets
+  // what; then every player's character has to agree (changing a pick clears the agreements). When the last one agrees,
+  // their sheet hands it all out (each thing goes to its character like any party gift).
+  const SPL = { un: null, box: {}, items: {}, unI: {}, hide: {}, busy: false };
+  function splitStop() { if (SPL.un) SPL.un(); SPL.un = null; Object.values(SPL.unI).forEach(f => f()); SPL.unI = {}; SPL.box = {}; SPL.items = {}; splitPaint(); }
+  function splitWatch(pid) {
+    splitStop(); if (!pid || role() !== 'owner' || NPC || NPCJ) return;
+    SPL.un = PCOL.doc(pid).collection('split').where('open', '==', true).onSnapshot(qs => { const now = new Set(qs.docs.map(d => d.id));
+      Object.keys(SPL.unI).forEach(id => { if (!now.has(id)) { SPL.unI[id](); delete SPL.unI[id]; delete SPL.box[id]; delete SPL.items[id]; } });
+      qs.docs.forEach(d => { const was = SPL.box[d.id]; SPL.box[d.id] = d.data(); if (was && (was.ok || []).length && !(d.data().ok || []).length && (was.ok || []).includes(C)) splToast('Someone changed the split — agree again when you’re happy with it.');
+        if (!SPL.unI[d.id]) SPL.unI[d.id] = d.ref.collection('items').onSnapshot(q2 => { SPL.items[d.id] = q2.docs.map(x => Object.assign({ id: x.id }, x.data())).sort((a, b) => a.ord - b.ord); splitPaint(); }, () => {}); });
+      splitPaint(); }, () => {});
+  }
+  const splitChars = () => { const ids = (PTY && PTY.chars) || []; return ids.map(id => Object.assign({ id }, PTY_CARDS[id] || {})).filter(c => c.name || c.id === C).map(c => c.id === C && !c.name ? Object.assign(c, { name: (window.sheetSummary && window.sheetSummary().name) || 'You' }) : c); };
+  // who has to agree: every character a player plays (not the DM's own NPCs)
+  const splitVoters = () => { const dms = PTY ? [PTY.dm].concat(PTY.mgrs || []) : []; return splitChars().filter(c => c.id === C || (c.owner && !dms.includes(c.owner) && !c.npc)); };
+  function splitPaint() {
+    const open = Object.keys(SPL.box).filter(id => SPL.box[id] && SPL.box[id].open && (SPL.items[id] || []).some(u => !u.handed));
+    let pill = document.getElementById('pg-splitpill'); const shown = open.filter(id => !SPL.hide[id]), hidden = open.filter(id => SPL.hide[id]);
+    if (hidden.length && !shown.length) { if (!pill) { pill = document.createElement('button'); pill.id = 'pg-splitpill'; pill.type = 'button'; document.body.appendChild(pill); pill.onclick = () => { Object.keys(SPL.hide).forEach(id => { delete SPL.hide[id]; }); splitPaint(); }; } const b0 = SPL.box[hidden[0]], waiting = !(b0.ok || []).includes(C); pill.innerHTML = `<span class="pgs-pi" aria-hidden="true">✦</span>${waiting ? 'Split the loot' : 'Waiting on the party'}: ${escH(b0.name || 'Loot')}`; } else if (pill) pill.remove();
+    let m = document.querySelector('.pg-split'); const id = shown[0];
+    if (!id) { if (m) m.remove(); return; }
+    const box = SPL.box[id], items = SPL.items[id] || [], chars = splitChars(), voters = splitVoters(), ok = box.ok || [], picked = items.filter(u => u.to).length, mine = ok.includes(C), going = !!box.going;
+    if (!m) { m = document.createElement('div'); m.className = 'pg-out pg-split'; pgOutFade(m); document.body.appendChild(m);
+      m.addEventListener('click', e => { const b = e.target.closest('button'); if (!b || !m.contains(b)) { if (e.target === m) { SPL.hide[m.dataset.id] = true; splitPaint(); } return; }
+        const sid = m.dataset.id; if (b.dataset.k === 'x') { SPL.hide[sid] = true; return splitPaint(); } if (b.dataset.k === 'ok') return splitAgree(sid, true); if (b.dataset.k === 'unok') return splitAgree(sid, false);
+        if (b.dataset.to != null) return splitSet(sid, b.dataset.u, b.dataset.to); }); }
+    m.dataset.id = id;
+    const chip = (u, c) => `<button type="button" class="pgs-c${u.to === c.id ? ' on' : ''}" data-u="${escH(u.id)}" data-to="${escH(c.id)}" aria-pressed="${u.to === c.id}" title="${escH(c.name)}" ${going ? 'disabled' : ''}>${c.thumb ? `<img src="${escH(c.thumb)}" alt="">` : `<span>${escH(String(c.name || '?').slice(0, 1))}</span>`}<b>${escH(String(c.name || '').split(' ')[0])}</b></button>`;
+    const votes = voters.map(c => `<span class="pgs-v${ok.includes(c.id) ? ' yes' : ''}" title="${escH(c.name)}${ok.includes(c.id) ? ' agrees' : ' hasn’t agreed yet'}">${ok.includes(c.id) ? '✓' : '…'} ${escH(String(c.name || '').split(' ')[0])}</span>`).join('');
+    m.innerHTML = `<div class="pg-out-card pgs-card" role="dialog" aria-modal="true" aria-labelledby="pgs-h"><h2 id="pgs-h">Split the loot: ${escH(box.name || 'Loot')}</h2>
+      <p class="pgs-hint">Work out together who gets each thing — everyone in the party sees the same list. When everyone agrees, it’s handed out. Changing a pick clears the agreements. Anything nobody takes stays with the DM.</p>
+      <div class="pgs-list">${items.map(u => `<div class="pgs-row${u.handed ? ' handed' : ''}"><div class="pgs-it"><b>${escH(u.name)}</b>${u.rarity ? `<span class="pgs-rar r-${escH(String(u.rarity).replace(/\s+/g, ''))}">${escH(u.rarity)}</span>` : ''}${u.sub ? `<small>${escH(u.sub)}</small>` : ''}</div>
+        <div class="pgs-cs">${u.handed ? `<span class="pgs-done">${escH(u.toName ? 'Given to ' + u.toName : 'Handed out')}</span>` : chars.map(c => chip(u, c)).join('') + `<button type="button" class="pgs-c none${!u.to ? ' on' : ''}" data-u="${escH(u.id)}" data-to="" aria-pressed="${!u.to}" title="Nobody — it stays with the DM" ${going ? 'disabled' : ''}>Nobody</button>`}</div></div>`).join('')}</div>
+      <div class="pgs-votes"><span class="pgs-vl">${going ? 'Everyone agreed — handing it out…' : `${ok.filter(x => voters.some(c => c.id === x)).length} of ${voters.length} agree`}</span>${votes}</div>
+      <div class="pg-out-row"><span class="pgs-sum">${picked} of ${items.length} picked</span><span class="grow"></span><button type="button" class="pg-out-no" data-k="x">Later</button>${mine ? `<button type="button" class="pg-out-no" data-k="unok" ${going ? 'disabled' : ''}>Take back my OK</button>` : `<button type="button" class="pg-out-yes" data-k="ok" ${picked && !going && !SPL.busy ? '' : 'disabled'} title="${picked ? '' : 'Pick who gets something first'}">I agree</button>`}</div></div>`;
+  }
+  const splitRef = sid => PCOL.doc(PTY_ID).collection('split').doc(sid);
+  async function splitSet(sid, uid0, to) {
+    const ch = splitChars().find(c => c.id === to), it = (SPL.items[sid] || []).find(u => u.id === uid0); if (!it || it.handed || (SPL.box[sid] || {}).going || it.to === to) return;
+    it.to = to; it.toName = ch ? ch.name || '' : ''; if (SPL.box[sid]) SPL.box[sid].ok = []; splitPaint();
+    try { const ref = splitRef(sid); await fs.runTransaction(async tx => { const b = await tx.get(ref); if (!b.exists || !b.data().open || b.data().going) throw new Error('closed');
+        tx.update(ref.collection('items').doc(uid0), { to, toName: it.toName, setBy: EMAIL, at: Date.now() }); tx.update(ref, { ok: [], rev: (Number(b.data().rev) || 0) + 1 }); }); }
+    catch (e) { splToast('Couldn’t change that — the split may have ended.'); }
+  }
+  async function splitAgree(sid, yes) {
+    if (SPL.busy) return; const ref = splitRef(sid), voters = splitVoters().map(c => c.id); let last = false;
+    try { await fs.runTransaction(async tx => { const b = await tx.get(ref); if (!b.exists || !b.data().open || b.data().going) throw new Error('closed'); const ok0 = b.data().ok || [];
+        const ok = yes ? [...new Set(ok0.concat(C))] : ok0.filter(x => x !== C); last = yes && voters.length > 0 && voters.every(v => ok.includes(v));
+        tx.update(ref, last ? { ok, going: EMAIL } : { ok }); }); }
+    catch (e) { return splToast('Couldn’t do that — the split may have ended.'); }
+    if (last) splitHandOut(sid);
+  }
+  async function splitHandOut(sid) {
+    const box = SPL.box[sid] || {}, ref = splitRef(sid); SPL.busy = true; splitPaint(); let n = 0;
+    try { const items = (await ref.collection('items').get()).docs;
+      for (const d of items) { const u = d.data(); if (!u.to || u.handed) continue;
+        try { await d.ref.update({ handed: true }); } catch (e) { continue; }
+        let pay = null; try { pay = JSON.parse(u.pay || 'null'); } catch (e) {} if (!pay) continue;
+        try { await ptySend(fs, EMAIL, PTY_ID, u.to, pay[0], Object.assign({}, pay[1], { split: sid }), C, box.name || 'Loot'); n++; } catch (e) { console.warn('split send', e); } }
+      await ref.update({ open: false, handedBy: 'The party', handedAt: Date.now() }).catch(() => {});
+      splToast(`Everyone agreed — ${n} thing${n === 1 ? '' : 's'} from <b>${escH(box.name || 'the loot')}</b> handed out.`);
+    } catch (e) { splToast('Couldn’t hand it out: ' + escH((e && e.message) || 'check your connection')); }
+    SPL.busy = false; splitPaint();
+  }
   function ptyWatch(pid) {
-    pid = pid || ''; if (pid === PTY_ID) return; PTY_ID = pid;
+    pid = pid || ''; if (pid === PTY_ID) return; PTY_ID = pid; try { splitWatch(pid); } catch (e) { console.warn(e); }
     if (unPty) unPty(); if (unPtyC) unPtyC(); if (unPtyH) unPtyH(); if (unPtyT) unPtyT(); unPty = unPtyC = unPtyH = unPtyT = null; PTY_HB = []; PTY_TURN = null; pgTurnPaint(); chatStop(); PTY = null; PTY_CARDS = {}; PTY_CK = ''; ptyLiveWatch([]);
     if (pid) ptySeed(pid); ptyChanged();
     if (!pid) return;
